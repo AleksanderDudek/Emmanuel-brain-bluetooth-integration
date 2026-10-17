@@ -328,3 +328,69 @@ def test_api_input_validation(rec_dir):
     assert c.post("/api/v1/fnirs/recording/start", json={"duration_sec": "abc"}).status_code == 400
     (rec_dir / "broken_meta.json").write_text("{not json")
     assert c.get("/api/v1/fnirs/recordings").json() == {"recordings": []}
+
+
+def test_decodes_real_device_payloads():
+    """Notifications captured from a real Mendi (firmware 1.0.1, hardware r2.1b-ty1)."""
+    frame = decode_frame(bytes.fromhex(
+        "08809cffffffffffffff011090d2ffffffffffffff0118bda9ffffffffffffff0120861e28dfe5ff"
+        "ffffffffffff0130aaf8ffffffffffffff013d00809841408eeb0348d3b10150880b58b9d10260a1"
+        "860168e02470e7d7217887b1148001ff08"))
+    assert (frame.acc_x, frame.acc_y, frame.acc_z) == (-12800, -5872, -11075)
+    assert (frame.ang_x, frame.ang_y, frame.ang_z) == (3846, -3361, -982)
+    assert frame.temp == pytest.approx(19.0625)
+    assert (frame.ir_l, frame.red_l, frame.amb_l) == (62862, 22739, 1416)
+    assert (frame.ir_r, frame.red_r, frame.amb_r) == (43193, 17185, 4704)
+    assert (frame.ir_p, frame.red_p, frame.amb_p) == (551911, 333959, 1151)
+    assert sum(v * v for v in frame.accel_g) ** 0.5 == pytest.approx(1.09, abs=0.02)  # ~1 g at rest
+
+    d = decode_diagnostics(bytes.fromhex("0a0308ba1d10011801"))  # pushed as a notification on ABB5
+    assert d.imu_ok and d.sensor_ok and d.adc.voltage == 3770
+    assert decode_adc(bytes.fromhex("08b91d")).voltage == 3769
+    s = decode_sensor(bytes.fromhex("08011dffffff00"))    # reply to SENSOR_ENABLE_PAYLOAD
+    assert s.read and s.address == 0 and s.data == 0xFFFFFF
+
+
+def test_pipeline_adapts_to_measured_rate():
+    pipe = FNIRSPipeline(fs=25.0)
+    pipe.measured_rate = 26.0
+    assert not pipe.adapt_rate()                  # within 10 %
+    pipe.measured_rate = 30.63
+    assert pipe.adapt_rate() and pipe.fs == 30.6 and not pipe.baseline_ready
+
+
+class _FakeMendi:
+    """Stands in for BleakClient: answers Sensor register reads like firmware 1.0.1."""
+
+    def __init__(self, adapter, regs):
+        self.adapter, self.regs, self.writes = adapter, regs, []
+
+    async def write_gatt_char(self, _uuid, payload, response=True):
+        s = decode_sensor(bytes(payload))
+        self.writes.append(s)
+        if s.read:
+            reply = Sensor(read=True, address=s.address, data=self.regs.get(s.address, 0xFFFFFF))
+            self.adapter._on_sensor(None, bytearray(reply.encode()))
+        else:
+            self.regs[s.address] = s.data
+
+    async def stop_notify(self, _uuid):
+        pass
+
+
+def test_ble_wakes_idle_optical_sensor_and_restores_it():
+    pytest.importorskip("bleak")
+    import asyncio
+    from brainlink.mendi_ble import AFE_CONTROL1, AFE_TIMEREN, MendiBleAdapter
+
+    m = MendiBleAdapter()
+    m._client = fake = _FakeMendi(m, {AFE_CONTROL1: 0x000000})
+    asyncio.run(m._async_wake_sensor(grace_sec=0.01))   # no frames arrive → wake
+    assert fake.regs[AFE_CONTROL1] == AFE_TIMEREN and m.sensor_woken
+    asyncio.run(m._async_stop_stream())
+    assert fake.regs[AFE_CONTROL1] == 0x000000          # restored: setting survives disconnect
+
+    m2 = MendiBleAdapter()
+    m2._client = fake2 = _FakeMendi(m2, {AFE_CONTROL1: AFE_TIMEREN})
+    asyncio.run(m2._async_wake_sensor(grace_sec=0.01))  # already sampling → no write
+    assert not any(not w.read for w in fake2.writes) and not m2.sensor_woken

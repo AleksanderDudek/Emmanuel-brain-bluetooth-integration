@@ -67,7 +67,10 @@ def _require_ble():
 def _switch_source(name: str, force: bool = False):
     """Change source. A new signal, or a restarted stream, needs a new baseline."""
     if force or name != fstate.source:
-        fstate.pipeline.reset()
+        if name == "simulator" and fstate.pipeline.fs != fstate.simulator.fs:
+            fstate.pipeline.set_rate(fstate.simulator.fs)  # device rate may have been adapted
+        else:
+            fstate.pipeline.reset()
         fstate.simulator.resync()
         if name == "device" and fstate.mendi is not None:
             fstate.mendi.drain()  # drop frames buffered while another source was active
@@ -330,6 +333,8 @@ def fnirs_tick() -> Optional[dict]:
         frames = fstate.simulator.generate_frames()
 
     derived = fstate.pipeline.push(frames)
+    if fstate.source == "device" and fstate.pipeline.adapt_rate():
+        log.info("fNIRS sample rate set to measured %.1f Hz (baseline restarted)", fstate.pipeline.fs)
     if frames and fstate.recorder.recording:
         fstate.recorder.add(frames, derived)
 

@@ -160,7 +160,7 @@ accepts one BLE connection at a time), switch the band on and click
 | Signal quality | Scalp Coupling Index per channel, ambient-light leak, no-signal |
 | Motion flag | From the band's accelerometer / gyroscope |
 | `activation`, `asymmetry` (0–1) | Game-friendly metrics relative to the last 60 s |
-| Raw frames | IR / red / ambient × 3 channels, IMU, temperature (~25 Hz) |
+| Raw frames | IR / red / ambient × 3 channels, IMU, temperature (~31 Hz) |
 
 ### API (`/api/v1/fnirs`, all under `/docs`)
 
@@ -189,9 +189,16 @@ at the same time.
 
 ### Caveats
 
-- The ~25 Hz frame rate is assumed (as in the upstream client), not documented
-  by Mendi; frames carry no device timestamp.  The dashboard shows the
-  measured rate — if it differs much from 25 Hz, filters and heart rate drift.
+- Tested on firmware 1.0.1 / hardware r2.1b-ty1.  That firmware leaves the
+  optical front-end idle (one frame per connection, then silence), unlike what
+  the upstream client describes.  If no frames arrive within ~1 s of starting
+  the stream, the adapter sets the front-end's timer-enable bit (register 0x1E,
+  TI AFE4404-style layout) and restores the original value on stop, because
+  the setting survives a disconnect and would otherwise drain the battery.
+  `device.sensor_woken` in `/status` shows when this happened.
+- Frames arrive at ~30.6 Hz on that firmware (upstream assumes 25 Hz) and
+  carry no device timestamp.  The pipeline switches to the measured rate if it
+  differs by more than 10 %.
 - Mendi does not publish LED wavelengths, source–detector separation or DPF.
   Defaults are 660 / 850 nm, 3 cm, DPF 6 — **treat ΔHbO/ΔHbR as relative**
   and change them via `PATCH /config` if you know better.

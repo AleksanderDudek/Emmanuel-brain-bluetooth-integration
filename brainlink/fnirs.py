@@ -40,7 +40,9 @@ from .mendi_proto import Frame
 
 # ─── Constants ────────────────────────────────────────────────────────
 
-MENDI_SAMPLE_RATE = 25.0                 # nominal frame rate (Hz)
+# Measured 30.6 Hz on firmware 1.0.1 (upstream assumes 25 Hz, unmeasured).
+# FNIRSPipeline.adapt_rate() corrects this from the observed rate anyway.
+MENDI_SAMPLE_RATE = 30.6
 OPTICAL_CHANNELS = ("left", "right", "pulse")
 HEMO_CHANNELS = ("left", "right")        # channels used for HbO/HbR
 _CH_KEYS = {"left": "l", "right": "r", "pulse": "p"}
@@ -202,6 +204,20 @@ class FNIRSPipeline:
             self.reset()
             raise
         return cfg
+
+    def set_rate(self, fs: float):
+        """Change the sample rate (filters, buffers); resets the baseline."""
+        self.config.validate(fs)
+        self.fs = fs
+        self.reset()
+
+    def adapt_rate(self, tolerance: float = 0.1) -> bool:
+        """Switch to the measured rate when it is more than ``tolerance`` off. Returns True if changed."""
+        m = self.measured_rate
+        if not m or abs(m - self.fs) / self.fs <= tolerance:
+            return False
+        self.set_rate(round(m, 1))
+        return True
 
     @property
     def baseline_ready(self) -> bool:

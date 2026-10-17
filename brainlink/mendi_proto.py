@@ -310,7 +310,9 @@ def decode_sensor(data: bytes) -> Optional[Sensor]:
     return s
 
 
-# The Mendi app enables the optical sensor by writing Sensor{read=true}
-# (an encoded b"\x08\x01") and disables it with an empty Sensor message.
+# Per upstream, the Mendi app "enables" the optical sensor by writing
+# Sensor{read=true} (b"\x08\x01") and "disables" it with an empty Sensor.  On
+# the wire these are a read of register 0 and a write of 0 to it; on firmware
+# 1.0.1 neither starts sampling (see AFE_CONTROL1 in mendi_ble.py).
 SENSOR_ENABLE_PAYLOAD = Sensor(read=True).encode()
 SENSOR_DISABLE_PAYLOAD = Sensor(read=False).encode()
