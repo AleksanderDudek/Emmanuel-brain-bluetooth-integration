@@ -22,7 +22,8 @@ import numpy as np
 from .fnirs import EXTINCTION, FNIRSConfig, MENDI_SAMPLE_RATE
 from .mendi_proto import Frame
 
-# Target ΔHbO / ΔHbR (µM) and extras per state
+# Target ΔHbO / ΔHbR (µM) and extras per state.  "lat" (µM, optional) shifts
+# oxygenation toward the right (+) or left (−) side, for the balance trainer.
 FNIRS_STATES: dict[str, dict] = {
     "rest":         {"hbo": 0.0,  "hbr": 0.0,   "hr": 68, "motion": 0.0, "contact": 1.0},
     "task":         {"hbo": 0.6,  "hbr": -0.2,  "hr": 78, "motion": 0.0, "contact": 1.0},
@@ -30,6 +31,8 @@ FNIRS_STATES: dict[str, dict] = {
     "relax":        {"hbo": -0.3, "hbr": 0.1,   "hr": 62, "motion": 0.0, "contact": 1.0},
     "motion":       {"hbo": 0.0,  "hbr": 0.0,   "hr": 75, "motion": 1.0, "contact": 1.0},
     "poor_contact": {"hbo": 0.0,  "hbr": 0.0,   "hr": 70, "motion": 0.0, "contact": 0.15},
+    "lateral_left":  {"hbo": 0.4, "hbr": -0.1,  "hr": 74, "motion": 0.0, "contact": 1.0, "lat": -0.6},
+    "lateral_right": {"hbo": 0.4, "hbr": -0.1,  "hr": 74, "motion": 0.0, "contact": 1.0, "lat": 0.6},
 }
 
 # Block designs: list of (state, seconds)
@@ -37,6 +40,7 @@ FNIRS_SCENARIOS: dict[str, list[tuple[str, int]]] = {
     "block_design": [("rest", 20), ("task", 20)] * 4 + [("rest", 20)],
     "n_back":       [("rest", 30), ("task", 30), ("rest", 30), ("high_load", 30), ("rest", 30)],
     "meditation":   [("rest", 30), ("relax", 90), ("rest", 30)],
+    "balance":      [("rest", 30), ("lateral_left", 40), ("rest", 30), ("lateral_right", 40)],
 }
 
 
@@ -142,8 +146,9 @@ class FNIRSSimulator:
             if self.auto_mode:
                 self._update_auto()
             tgt = FNIRS_STATES[self.state]
-            for side, gain in (("l", 0.9), ("r", 1.1)):  # slight lateralisation
-                self._hbo[side] += alpha * (tgt["hbo"] * gain - self._hbo[side])
+            lat = tgt.get("lat", 0.0)
+            for side, gain, shift in (("l", 0.9, -lat / 2), ("r", 1.1, lat / 2)):  # slight lateralisation
+                self._hbo[side] += alpha * (tgt["hbo"] * gain + shift - self._hbo[side])
                 self._hbr[side] += alpha * (tgt["hbr"] * gain - self._hbr[side])
             self._contact += 0.05 * (tgt["contact"] - self._contact)
             self._hr += 0.02 * (tgt["hr"] - self._hr)

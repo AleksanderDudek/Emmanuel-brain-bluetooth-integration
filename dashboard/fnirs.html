@@ -92,11 +92,64 @@ label.f{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;co
 .toast.show{opacity:1}
 .toast.err{border-color:var(--red);color:var(--red)}
 .disclaimer{font-size:10px;color:var(--tx3);line-height:1.6}
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid rgba(255,255,255,.06)}
+.tab{background:none;border:0;border-bottom:2px solid transparent;color:var(--tx2);font:inherit;font-family:var(--font-head);font-size:13px;padding:8px 12px;cursor:pointer;letter-spacing:.3px}
+.tab:hover{color:var(--tx)}
+.tab[aria-selected="true"]{color:var(--acc);border-bottom-color:var(--acc)}
+.view{display:flex;flex-direction:column;gap:14px;min-width:0}
+.view[hidden]{display:none}
+/* balance trainer */
+.gauge-track{position:relative;height:26px;margin:10px 0 6px;border-radius:13px;background:linear-gradient(90deg,rgba(61,158,255,.22),var(--bg) 50%,rgba(255,92,160,.22))}
+.gauge-band{position:absolute;top:0;bottom:0;background:rgba(0,229,160,.22);border-left:1px solid var(--acc);border-right:1px solid var(--acc)}
+.gauge-mid{position:absolute;left:50%;top:-4px;bottom:-4px;width:1px;background:rgba(255,255,255,.2)}
+.gauge-marker{position:absolute;top:-5px;width:4px;height:36px;margin-left:-2px;border-radius:2px;background:var(--tx);box-shadow:0 0 10px rgba(255,255,255,.45);transition:left .3s ease}
+.gauge-raw{position:absolute;top:4px;width:2px;height:18px;margin-left:-1px;background:rgba(255,255,255,.3)}
+.gauge-labels{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:11px;color:var(--tx2)}
+.gauge-labels b{font-family:var(--font-head);font-size:18px;font-weight:600;color:var(--tx);font-variant-numeric:tabular-nums}
+.bal-status{margin-top:8px;font-size:12px;color:var(--tx2);min-height:18px}
+.badge.zone-balanced{border-color:var(--acc);color:var(--acc)}
+.badge.zone-left_dominant{border-color:var(--blue);color:var(--blue)}
+.badge.zone-right_dominant{border-color:var(--pink);color:var(--pink)}
+.badge.zone-paused{border-color:var(--amber);color:var(--amber)}
+.task-card{border-left:4px solid var(--tx3);min-height:280px;display:flex;flex-direction:column;gap:10px}
+.task-card[data-rec="left"]{border-left-color:var(--blue)}
+.task-card[data-rec="right"]{border-left-color:var(--pink)}
+.task-card[data-rec="focus"]{border-left-color:var(--acc)}
+.task-card[data-rec="paused"]{border-left-color:var(--amber)}
+.task-kicker{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px}
+.task-title{font-family:var(--font-head);font-size:22px;font-weight:600;letter-spacing:-.3px}
+.task-card[data-rec="left"] .task-title{color:var(--blue)}
+.task-card[data-rec="right"] .task-title{color:var(--pink)}
+.task-card[data-rec="focus"] .task-title{color:var(--acc)}
+.task-body{display:flex;flex-direction:column;gap:12px;flex:1}
+.task-prompt{font-size:16px;line-height:1.6;max-width:60ch}
+.task-prompt.big{font-family:var(--font-head);font-size:36px;font-weight:600;font-variant-numeric:tabular-nums}
+.task-body input{font-size:14px;width:120px}
+.task-feedback{font-size:13px;min-height:20px}
+.task-feedback.ok{color:var(--acc)}
+.task-feedback.bad{color:var(--red)}
+.task-actions{justify-content:flex-end}
+.task-timer{height:3px;background:var(--bg);border-radius:2px;overflow:hidden}
+.task-timer div{height:100%;background:var(--tx3);transition:width .2s linear}
+.rot-glyph{font-family:var(--font-head);font-size:96px;font-weight:700;line-height:1;width:120px;height:120px;display:flex;align-items:center;justify-content:center;margin:4px auto}
+.row.center{justify-content:center}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.focus-dot{width:18px;height:18px;border-radius:50%;background:var(--acc);margin:22px auto 10px;animation:breathe 6s ease-in-out infinite}
+@keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(0,229,160,.45);transform:scale(1)}50%{box-shadow:0 0 0 22px rgba(0,229,160,0);transform:scale(1.25)}}
+.focus-steps{padding-left:18px;color:var(--tx2);line-height:1.8}
+.stats.stats3{grid-template-columns:repeat(3,1fr)}
+details>summary{cursor:pointer;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+details[open]>summary{margin-bottom:12px}
+@media (prefers-reduced-motion:reduce){.focus-dot{animation:none}.gauge-marker{transition:none}}
 @media (max-width:900px){
   .shell{grid-template-columns:1fr}
   .sidebar{border-left:0;border-top:1px solid rgba(255,255,255,.04)}
   .stats{grid-template-columns:repeat(2,1fr)}
   .grid2{grid-template-columns:1fr}
+  .stats.stats3{grid-template-columns:repeat(2,1fr)}
+  .task-prompt.big{font-size:28px}
 }
 </style>
 </head>
@@ -115,6 +168,12 @@ label.f{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;co
 
 <div class="main">
 
+  <div class="tabs" role="tablist" aria-label="Widok">
+    <button class="tab" type="button" role="tab" id="tabMonitor" aria-controls="viewMonitor" aria-selected="true" data-view="monitor">Monitor</button>
+    <button class="tab" type="button" role="tab" id="tabBalance" aria-controls="viewBalance" aria-selected="false" data-view="balance">Trening równowagi</button>
+  </div>
+
+  <div class="view" id="viewMonitor" role="tabpanel" aria-labelledby="tabMonitor">
   <div class="stats">
     <div class="stat"><div class="k">Tętno</div><div class="v" id="hr">—<small>bpm</small></div></div>
     <div class="stat"><div class="k">ΔHbO śr.</div><div class="v" id="hboAvg" style="color:var(--hbo)">—<small>µM</small></div></div>
@@ -141,7 +200,7 @@ label.f{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;co
       <div class="card-head">Metryki <span class="hint">0–1, względem ostatnich 60 s</span></div>
       <div class="metric-row"><span class="metric-label">Aktywacja</span><div class="metric-bar-bg"><div class="metric-bar-fill" id="barAct" style="width:0;background:linear-gradient(90deg,rgba(255,77,90,.3),var(--hbo))"></div></div><span class="metric-val" id="valAct">—</span></div>
       <div class="metric-row"><span class="metric-label">Asymetria</span><div class="metric-bar-bg"><div class="mid"></div><div class="metric-bar-fill" id="barAsym" style="width:0;background:linear-gradient(90deg,rgba(160,112,255,.3),var(--purple))"></div></div><span class="metric-val" id="valAsym">—</span></div>
-      <div class="muted" style="margin-top:8px">Asymetria: &lt;0.5 lewa · 0.5 równowaga · &gt;0.5 prawa</div>
+      <div class="muted" style="margin-top:8px">Asymetria: &lt;0.5 lewa · 0.5 równowaga · &gt;0.5 prawa · <a href="#balance" style="color:var(--acc)">trening równowagi →</a></div>
     </div>
     <div class="card">
       <div class="card-head">Puls (kanał centralny) <span class="hint">IR, 5 s</span></div>
@@ -157,6 +216,55 @@ label.f{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;co
   <div class="card">
     <div class="card-head">Surowe dane <span class="hint">ostatnia ramka</span></div>
     <div class="kv" id="rawKv"></div>
+  </div>
+  </div>
+
+  <div class="view" id="viewBalance" role="tabpanel" aria-labelledby="tabBalance" hidden>
+    <div class="card">
+      <div class="card-head">Równowaga półkul <span class="badge zone-paused" id="balZoneBadge">—</span></div>
+      <div class="gauge-track">
+        <div class="gauge-band" id="balBand"></div>
+        <div class="gauge-mid"></div>
+        <div class="gauge-raw" id="balRaw" title="bieżąca (niewygładzona)"></div>
+        <div class="gauge-marker" id="balMarker" title="wygładzona"></div>
+      </div>
+      <div class="gauge-labels"><span>← lewa przeważa</span><b id="balValue">—</b><span>prawa przeważa →</span></div>
+      <div class="bal-status" id="balStatus">—</div>
+      <div class="chart" style="margin-top:12px"><span class="lbl">Asymetria wygładzona · 90 s · pas = równowaga</span><canvas id="balTrend" style="height:110px"></canvas></div>
+    </div>
+
+    <div class="card task-card" id="balTaskCard" data-rec="paused">
+      <div class="task-kicker" id="balTaskKicker">Wstrzymane</div>
+      <h2 class="task-title" id="balTaskTitle">Czekam na dane</h2>
+      <div class="task-body" id="balTaskBody"></div>
+      <div class="sr-only" id="balAnnounce" aria-live="polite"></div>
+      <div class="task-timer" aria-hidden="true"><div id="balTaskTimer" style="width:0%"></div></div>
+      <div class="row task-actions" id="balTaskActions"></div>
+    </div>
+
+    <div class="grid2" style="align-items:start">
+      <div class="card">
+        <div class="card-head">Sesja <button class="btn" type="button" id="balReset">Wyzeruj</button></div>
+        <div class="stats stats3" id="balStats"></div>
+      </div>
+      <div class="card">
+        <details>
+          <summary class="card-head">Ustawienia równowagi <span class="hint">rozwiń</span></summary>
+          <div class="grid2">
+            <label class="f">Dolna granica<input id="balLow" type="number" step="0.01" min="0.01" max="0.99"></label>
+            <label class="f">Górna granica<input id="balHigh" type="number" step="0.01" min="0.01" max="0.99"></label>
+            <label class="f">Utrzymanie strefy [s]<input id="balDwell" type="number" step="1" min="0" max="600"></label>
+            <label class="f">Wygładzanie [s]<input id="balSmooth" type="number" step="0.5" min="0" max="600"></label>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" type="button" id="balSave">Zapisz</button>
+            <button class="btn" type="button" id="balDefaults">Domyślne (0.47–0.53)</button>
+          </div>
+          <p class="muted" style="margin-top:8px">Zalecenie zmienia się dopiero, gdy nowa strefa utrzyma się przez „utrzymanie strefy”.</p>
+        </details>
+      </div>
+    </div>
+    <p class="disclaimer">Przypisanie zadań do półkul to uproszczenie — w korze przedczołowej większość zadań angażuje obie strony, a opaska mierzy tylko jej fragment. Widok służy do eksperymentów i neurofeedbacku, nie do diagnozy ani terapii. Podczas ruchu lub słabego kontaktu informacja zwrotna jest wstrzymywana.</p>
   </div>
 </div>
 
@@ -235,6 +343,7 @@ label.f{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;co
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="/static/fnirs-balance.js"></script>
 <script>
 const API = '/api/v1/fnirs';
 const $ = id => document.getElementById(id);
@@ -300,6 +409,7 @@ function render(f){
     $('simCard').style.opacity = f.source === 'simulator' ? 1 : .5; lastSource = f.source;
   }
   renderDevice(f.device); renderRec(f.recording);
+  if (balanceView) balanceView.update(f);
   if (!live) return;
 
   $('rateText').textContent = f.measured_rate ? `${f.measured_rate} Hz` : '';
@@ -418,7 +528,8 @@ async function loadRecs(){
 
 async function loadSim(){
   const s = await api('/simulator');
-  const SN = {rest:'spoczynek', task:'zadanie', high_load:'duże obciąż.', relax:'relaks', motion:'ruch', poor_contact:'słaby kontakt'};
+  const SN = {rest:'spoczynek', task:'zadanie', high_load:'duże obciąż.', relax:'relaks', motion:'ruch', poor_contact:'słaby kontakt',
+              lateral_left:'lewa przeważa', lateral_right:'prawa przeważa'};
   $('simStates').innerHTML = Object.keys(s.states).map(k => `<button class="btn" data-sim="${k}">${SN[k] || k}</button>`).join('');
   $('simScenarios').innerHTML = Object.keys(s.scenarios).map(k => `<button class="btn" data-sim="auto:${k}">▶ ${k}</button>`).join('')
     + `<button class="btn" data-sim="auto_stop">■</button>`;
@@ -437,6 +548,24 @@ $('btnCfg').onclick = run(async () => {
     separation_cm: +$('cfgSep').value, dpf_red: dpf, dpf_ir: dpf, lp_hz: +$('cfgLp').value, hp_hz: +$('cfgHp').value});
   toast('Zastosowano — zbieranie nowej linii bazowej');
 });
+
+// ── balance trainer view ──────────────────────────────────────────
+const balanceView = window.BalanceView ? BalanceView.create({
+  api, toast, run, mark: label => api('/marker', 'POST', {label}).catch(() => {}),
+}) : null;
+
+function showView(name){
+  const bal = name === 'balance';
+  $('viewMonitor').hidden = bal; $('viewBalance').hidden = !bal;
+  $('tabMonitor').setAttribute('aria-selected', String(!bal));
+  $('tabBalance').setAttribute('aria-selected', String(bal));
+  if (balanceView) balanceView.setActive(bal);
+  const want = bal ? '#balance' : '';
+  if (location.hash !== want) history.replaceState(null, '', want || location.pathname);
+}
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => showView(b.dataset.view));
+window.addEventListener('hashchange', () => showView(location.hash === '#balance' ? 'balance' : 'monitor'));
+showView(location.hash === '#balance' ? 'balance' : 'monitor');
 
 // ── websocket ─────────────────────────────────────────────────────
 function connectWs(){

@@ -21,11 +21,13 @@ brainlink-desktop/
 │   ├── mendi_ble.py    ← Mendi fNIRS BLE adapter (bleak)
 │   ├── fnirs.py        ← fNIRS pipeline: ambient → ΔOD → MBLL → ΔHbO/ΔHbR, HR, SCI
 │   ├── fnirs_simulator.py ← Mendi-like frame simulator (block-design scenarios)
+│   ├── fnirs_balance.py   ← Hemispheric balance tracker (trainer view)
 │   ├── fnirs_recorder.py  ← fNIRS CSV recorder with event markers
 │   └── fnirs_api.py    ← /api/v1/fnirs/* router + WebSocket + loop
 ├── dashboard/
 │   ├── index.html      ← Real-time EEG dashboard
-│   └── fnirs.html      ← Real-time fNIRS dashboard (/fnirs)
+│   ├── fnirs.html      ← Real-time fNIRS dashboard (/fnirs, /fnirs#balance)
+│   └── fnirs-balance.js ← Balance trainer view + task bank
 ├── tests/              ← pytest suite (no hardware needed)
 ├── recordings/         ← Saved EEG sessions (gitignored)
 ├── requirements.txt
@@ -175,7 +177,10 @@ accepts one BLE connection at a time), switch the band on and click
 | `PATCH`| `/config` | Wavelengths, separation, DPF, filters |
 | `POST` | `/recording/start` · `/recording/stop` | CSV session in `recordings/fnirs/` |
 | `POST` | `/marker` | `{"label": "task_start"}` — event marker in the recording (400 if not recording) |
-| `POST` | `/simulator/{state}` | `rest`, `task`, `high_load`, `relax`, `motion`, `poor_contact`, `auto:block_design`, `auto:n_back`, `auto:meditation` |
+| `POST` | `/simulator/{state}` | `rest`, `task`, `high_load`, `relax`, `motion`, `poor_contact`, `lateral_left`, `lateral_right`, `auto:block_design`, `auto:n_back`, `auto:meditation`, `auto:balance` |
+| `GET`  | `/balance` | Hemispheric balance: smoothed asymmetry, zone, recommendation, session stats |
+| `PATCH`| `/balance/config` | `low`, `high` (balanced band, default 0.47–0.53), `hysteresis`, `smoothing_sec`, `dwell_sec`, `warmup_sec` |
+| `POST` | `/balance/reset` | Clear the session statistics |
 | `WS`   | `/stream` | 10 Hz JSON frames; send `{"action":"marker","label":"…"}` to mark |
 
 ```bash
@@ -186,6 +191,31 @@ curl -X POST localhost:8420/api/v1/fnirs/recording/start -H 'Content-Type: appli
 
 The EEG and fNIRS pipelines are independent, so a HALO and a Mendi can stream
 at the same time.
+
+### Hemispheric balance trainer
+
+The **Trening równowagi** tab of `/fnirs` (deep link `/fnirs#balance`) turns
+the `asymmetry` metric into guided practice aimed at balance:
+
+| Smoothed asymmetry | Zone | Recommendation | The view shows |
+|---|---|---|---|
+| > `high` (0.53) | right dominates | `train_left` | left-hemisphere tasks: mental arithmetic, serial subtraction, verbal fluency, spelling backwards |
+| < `low` (0.47) | left dominates | `train_right` | right-hemisphere tasks: mental rotation (normal vs. mirrored letter), spatial imagery, melody / face recall |
+| `low`…`high` | balanced | `focus` | hold attention on a point in the middle of the forehead and notice the sensations there |
+
+The raw metric is noisy, so `BalanceTracker` (`brainlink/fnirs_balance.py`)
+smooths it (EMA, 4 s), uses hysteresis (0.01) on the band edges, waits 15 s
+after each baseline, and changes the recommendation only after a zone has
+persisted for 5 s.  Feedback is held during motion or poor optode contact.
+The same `balance` block is in every `/stream` frame, so a game can use it
+directly.  While a recording runs and the trainer tab is open, each
+recommendation change is stored as a `balance:<recommendation>` marker (the
+marker means "this task was shown").  Settings live in server memory (not
+persisted across restarts).
+
+Mapping tasks to hemispheres is a simplification — prefrontal responses are
+largely bilateral and the band sees only part of the cortex.  Use it for
+experiments and neurofeedback, not diagnosis or therapy.
 
 ### Caveats
 
@@ -231,6 +261,7 @@ brainlink/
 ├── mendi_ble.py   — MendiBleAdapter (bleak, all platforms)
 ├── fnirs.py       — FNIRSPipeline, FNIRSConfig
 ├── fnirs_simulator.py — FNIRSSimulator + FNIRS_SCENARIOS
+├── fnirs_balance.py   — BalanceTracker, BalanceConfig
 ├── fnirs_recorder.py  — FNIRSRecorder (CSV + JSON, event markers)
 └── fnirs_api.py   — FastAPI router, WebSocket and background loop
 ```

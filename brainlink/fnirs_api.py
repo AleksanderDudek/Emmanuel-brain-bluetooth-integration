@@ -20,7 +20,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 
-from .fnirs import EXTINCTION, FNIRSPipeline
+from .fnirs import EXTINCTION, HEMO_CHANNELS, FNIRSPipeline
+from .fnirs_balance import BalanceTracker
 from .fnirs_recorder import FNIRS_RECORDINGS_DIR, FNIRSRecorder
 from .fnirs_simulator import FNIRS_SCENARIOS, FNIRS_STATES, FNIRSSimulator
 
@@ -33,6 +34,7 @@ except ImportError:  # pragma: no cover
 log = logging.getLogger("brainlink.fnirs")
 
 FNIRS_STREAM_HZ = 10
+STALE_SEC = 1.5   # no frames for this long → balance feedback is held ("no_data")
 
 
 class FNIRSState:
@@ -42,6 +44,8 @@ class FNIRSState:
         self.mendi: Optional["MendiBleAdapter"] = None
         self.source = "simulator"   # "simulator" | "device" | "off"
         self.recorder = FNIRSRecorder()
+        self.balance = BalanceTracker()
+        self.last_frames_at: Optional[float] = None  # monotonic time of the last non-empty batch
         self.ws_clients: list[WebSocket] = []
         self.running = False
 
@@ -238,6 +242,39 @@ async def fnirs_snapshot():
     return fstate.pipeline.snapshot()
 
 
+# ─── Hemispheric balance trainer ──────────────────────────────────────
+
+@router.get("/balance")
+async def fnirs_balance():
+    """Smoothed asymmetry, zone, recommendation (train_left / train_right / focus) and stats."""
+    return fstate.balance.state()
+
+
+@router.patch("/balance/config")
+async def fnirs_balance_config(body: dict):
+    """Balanced band (``low``/``high``), ``hysteresis``, ``smoothing_sec``, ``dwell_sec``, ``warmup_sec``."""
+    try:
+        fstate.balance.set_config(**body)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return fstate.balance.state()
+
+
+@router.post("/balance/reset")
+async def fnirs_balance_reset():
+    """Clear the session statistics (time in each zone, best streak)."""
+    fstate.balance.reset_stats()
+    return fstate.balance.state()
+
+
+def _balance_hold(snap: dict) -> Optional[str]:
+    if snap["motion"]:
+        return "motion"
+    if any(snap["quality"][ch]["label"] in ("poor", "light_leak", "no_signal") for ch in HEMO_CHANNELS):
+        return "poor_signal"
+    return None
+
+
 # ─── Recording ────────────────────────────────────────────────────────
 
 @router.post("/recording/start")
@@ -338,7 +375,14 @@ def fnirs_tick() -> Optional[dict]:
     if frames and fstate.recorder.recording:
         fstate.recorder.add(frames, derived)
 
+    now = time.monotonic()
+    if frames:
+        fstate.last_frames_at = now
+    stale = fstate.last_frames_at is None or now - fstate.last_frames_at > STALE_SEC
     snap = fstate.pipeline.snapshot()
+    # A stalled stream leaves the last values in place; never give feedback on them
+    snap["balance"] = fstate.balance.update(snap["metrics"]["asymmetry"], now,
+                                            hold="no_data" if stale else _balance_hold(snap))
     snap.update({
         "source": fstate.source,
         "device": _device_block(),
