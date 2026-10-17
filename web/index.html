@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'">
+<meta name="description" content="Neurofeedback z opaską fNIRS Mendi: hemodynamika na żywo, trening równowagi półkul, sesje zapisane lokalnie.">
+<meta name="color-scheme" content="dark">
+<title>BrainLink fNIRS</title>
+</head>
+<body>
+<div class="shell">
+
+<header class="topbar">
+  <h1>Brain<span>Link</span><small>fNIRS · Mendi</small></h1>
+  <div class="status">
+    <div class="dot" id="dot"></div>
+    <span id="statusText">Uruchamianie…</span>
+    <span class="muted" id="rateText"></span>
+    <button class="btn" type="button" id="btnInstall" hidden>Zainstaluj aplikację</button>
+    <button class="btn on" type="button" id="btnUpdate" hidden>Nowa wersja — odśwież</button>
+  </div>
+</header>
+
+<div class="banner" id="btBanner" hidden>
+  <span id="btBannerText"></span>
+  <button class="btn" type="button" id="btBannerHelp">Jak włączyć?</button>
+</div>
+
+<main class="main">
+  <div class="tabs" role="tablist" aria-label="Widok">
+    <button class="tab" type="button" role="tab" id="tabMonitor" aria-controls="viewMonitor" aria-selected="true" data-view="monitor">Monitor</button>
+    <button class="tab" type="button" role="tab" id="tabBalance" aria-controls="viewBalance" aria-selected="false" data-view="balance">Trening równowagi</button>
+    <button class="tab" type="button" role="tab" id="tabSessions" aria-controls="viewSessions" aria-selected="false" data-view="sessions">Sesje</button>
+  </div>
+
+  <section class="view" id="viewMonitor" role="tabpanel" aria-labelledby="tabMonitor">
+    <div class="stats">
+      <div class="stat"><div class="k">Tętno</div><div class="v"><span id="hr">—</span><small>bpm</small></div></div>
+      <div class="stat"><div class="k">ΔHbO śr.</div><div class="v hbo"><span id="hboAvg">—</span><small>µM</small></div></div>
+      <div class="stat"><div class="k">ΔHbR śr.</div><div class="v hbr"><span id="hbrAvg">—</span><small>µM</small></div></div>
+      <div class="stat"><div class="k">Ruch</div><div class="v" id="motion">—</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Hemodynamika kory przedczołowej
+        <div class="legend"><span><i class="sw-hbo"></i>ΔHbO</span><span><i class="sw-hbr"></i>ΔHbR</span><span class="hint">ostatnie 10 s</span></div>
+      </div>
+      <div id="baselineBox" class="muted baseline">
+        Zbieranie linii bazowej — siedź spokojnie… <span id="baselinePct">0%</span>
+        <div class="progress"><div id="baselineBar"></div></div>
+      </div>
+      <div class="grid2">
+        <div class="chart"><span class="lbl">Lewa</span><span class="val" id="valL">—</span><canvas id="chartL"></canvas></div>
+        <div class="chart"><span class="lbl">Prawa</span><span class="val" id="valR">—</span><canvas id="chartR"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-head">Metryki <span class="hint">0–1, względem ostatnich 60 s</span></div>
+        <div class="metric-row"><span class="metric-label">Aktywacja</span><div class="metric-bar-bg"><div class="metric-bar-fill act" id="barAct"></div></div><span class="metric-val" id="valAct">—</span></div>
+        <div class="metric-row"><span class="metric-label">Asymetria</span><div class="metric-bar-bg"><div class="mid"></div><div class="metric-bar-fill asym" id="barAsym"></div></div><span class="metric-val" id="valAsym">—</span></div>
+        <div class="muted mt8">Asymetria: &lt;0.5 lewa · 0.5 równowaga · &gt;0.5 prawa · <a href="#balance" class="acc">trening równowagi →</a></div>
+      </div>
+      <div class="card">
+        <div class="card-head">Puls (kanał centralny) <span class="hint">IR, 5 s</span></div>
+        <div class="chart"><canvas id="chartPulse" class="short"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Jakość sygnału <span class="hint">SCI ≥ 0.75 = dobry kontakt</span></div>
+      <div class="q" id="quality"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">Surowe dane <span class="hint">ostatnia ramka</span></div>
+      <div class="kv" id="rawKv"></div>
+    </div>
+  </section>
+
+  <section class="view" id="viewBalance" role="tabpanel" aria-labelledby="tabBalance" hidden>
+    <div class="card">
+      <div class="card-head">Równowaga półkul <span class="badge zone-paused" id="balZoneBadge">—</span></div>
+      <div class="gauge-track">
+        <div class="gauge-band" id="balBand"></div>
+        <div class="gauge-mid"></div>
+        <div class="gauge-raw" id="balRaw" title="bieżąca (niewygładzona)"></div>
+        <div class="gauge-marker" id="balMarker" title="wygładzona"></div>
+      </div>
+      <div class="gauge-labels"><span>← lewa przeważa</span><b id="balValue">—</b><span>prawa przeważa →</span></div>
+      <div class="bal-status" id="balStatus">—</div>
+      <div class="chart mt12"><span class="lbl">Asymetria wygładzona · 90 s · pas = równowaga</span><canvas id="balTrend" class="trend"></canvas></div>
+    </div>
+
+    <div class="card task-card" id="balTaskCard" data-rec="paused">
+      <div class="task-kicker" id="balTaskKicker">Wstrzymane</div>
+      <h2 class="task-title" id="balTaskTitle">Czekam na dane</h2>
+      <div class="task-body" id="balTaskBody"></div>
+      <div class="sr-only" id="balAnnounce" aria-live="polite"></div>
+      <div class="task-timer" aria-hidden="true"><div id="balTaskTimer"></div></div>
+      <div class="row task-actions" id="balTaskActions"></div>
+    </div>
+
+    <div class="grid2 start">
+      <div class="card">
+        <div class="card-head">Sesja <button class="btn" type="button" id="balReset">Wyzeruj</button></div>
+        <div class="stats stats3" id="balStats"></div>
+      </div>
+      <div class="card">
+        <details>
+          <summary class="card-head">Ustawienia równowagi <span class="hint">rozwiń</span></summary>
+          <div class="grid2">
+            <label class="f">Dolna granica<input id="balLow" type="number" step="0.01" min="0.01" max="0.99"></label>
+            <label class="f">Górna granica<input id="balHigh" type="number" step="0.01" min="0.01" max="0.99"></label>
+            <label class="f">Utrzymanie strefy [s]<input id="balDwell" type="number" step="1" min="0" max="600"></label>
+            <label class="f">Wygładzanie [s]<input id="balSmooth" type="number" step="0.5" min="0" max="600"></label>
+          </div>
+          <div class="row mt10">
+            <button class="btn" type="button" id="balSave">Zapisz</button>
+            <button class="btn" type="button" id="balDefaults">Domyślne (0.47–0.53)</button>
+          </div>
+          <p class="muted mt8">Zalecenie zmienia się dopiero, gdy nowa strefa utrzyma się przez „utrzymanie strefy”.</p>
+        </details>
+      </div>
+    </div>
+    <p class="disclaimer">Przypisanie zadań do półkul to uproszczenie — w korze przedczołowej większość zadań angażuje obie strony, a opaska mierzy tylko jej fragment. Widok służy do eksperymentów i neurofeedbacku, nie do diagnozy ani terapii. Podczas ruchu lub słabego kontaktu informacja zwrotna jest wstrzymywana.</p>
+  </section>
+
+  <section class="view" id="viewSessions" role="tabpanel" aria-labelledby="tabSessions" hidden>
+    <div class="card">
+      <div class="card-head">Zapisane sesje <button class="btn" type="button" id="btnRefreshSessions">Odśwież</button></div>
+      <div class="sessions" id="sessionList"></div>
+      <p class="muted mt8" id="sessionsHint"></p>
+    </div>
+  </section>
+</main>
+
+<aside class="sidebar">
+  <div class="card">
+    <div class="card-head">Źródło</div>
+    <div class="row">
+      <button class="btn" type="button" data-src="simulator">Symulator</button>
+      <button class="btn" type="button" data-src="device">Mendi</button>
+      <button class="btn" type="button" data-src="off">Wyłącz</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Opaska Mendi <span class="badge" id="devBadge">rozłączona</span></div>
+    <div class="row">
+      <button class="btn" type="button" id="btnConnect">Połącz</button>
+      <button class="btn danger" type="button" id="btnDisconnect">Rozłącz</button>
+      <button class="btn" type="button" id="btnBtHelp">Pomoc Bluetooth</button>
+    </div>
+    <div class="kv" id="devKv"></div>
+    <p class="muted mt8">Zamknij aplikację Mendi na telefonie — opaska obsługuje jedno połączenie Bluetooth naraz.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Linia bazowa</div>
+    <p class="muted mb8">ΔHb liczone są względem średniej intensywności z pierwszych sekund. Zresetuj po poprawieniu opaski.</p>
+    <button class="btn" type="button" id="btnBaseline">Resetuj linię bazową</button>
+  </div>
+
+  <div class="card" id="simCard">
+    <div class="card-head">Symulator</div>
+    <div class="row" id="simStates"></div>
+    <div class="row mt8" id="simScenarios"></div>
+    <div class="muted mt6" id="simInfo"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Nagrywanie <span class="badge" id="recBadge">—</span></div>
+    <div class="row">
+      <input id="recName" aria-label="Nazwa sesji" placeholder="nazwa sesji" class="grow">
+      <input id="recDur" aria-label="Czas trwania w sekundach" type="number" value="600" min="10" max="7200" class="w70" title="czas trwania [s]">
+    </div>
+    <div class="row mt8">
+      <button class="btn" type="button" id="btnRec">● Start</button>
+      <button class="btn danger" type="button" id="btnRecStop">■ Stop</button>
+    </div>
+    <div class="row mt10">
+      <button class="btn" type="button" data-mark="task_start">Znacznik: start zadania</button>
+      <button class="btn" type="button" data-mark="task_end">koniec</button>
+    </div>
+    <div class="row mt6">
+      <input id="markCustom" aria-label="Własny znacznik" placeholder="własny znacznik" class="grow">
+      <button class="btn" type="button" id="btnMark">Dodaj</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Przechowywanie sesji</div>
+    <div class="row" role="radiogroup" aria-label="Gdzie zapisywać sesje">
+      <button class="btn" type="button" role="radio" data-store="browser">Przeglądarka</button>
+      <button class="btn" type="button" role="radio" data-store="folder" id="btnStoreFolder">Folder lokalny</button>
+    </div>
+    <div class="kv" id="storeKv"></div>
+    <div class="row mt8">
+      <button class="btn" type="button" id="btnPickFolder">Wybierz folder</button>
+      <button class="btn" type="button" id="btnFolderAccess" hidden>Przyznaj dostęp</button>
+      <button class="btn" type="button" id="btnPersist" hidden>Chroń przed usunięciem</button>
+    </div>
+    <p class="muted mt8" id="storeHint"></p>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary class="card-head">Parametry MBLL <span class="hint">rozwiń</span></summary>
+      <div class="grid2">
+        <label class="f">Czerwony [nm]<select id="cfgRed"></select></label>
+        <label class="f">IR [nm]<select id="cfgIr"></select></label>
+        <label class="f">Odległość [cm]<input id="cfgSep" type="number" step="0.1"></label>
+        <label class="f">DPF<input id="cfgDpf" type="number" step="0.1"></label>
+        <label class="f">Dolnoprzep. [Hz]<input id="cfgLp" type="number" step="0.05"></label>
+        <label class="f">Górnoprzep. [Hz]<input id="cfgHp" type="number" step="0.001"></label>
+      </div>
+      <button class="btn mt10" type="button" id="btnCfg">Zastosuj (resetuje bazę)</button>
+      <p class="disclaimer mt10">Mendi nie publikuje długości fal, odległości źródło–detektor ani DPF. Wartości domyślne są typowe dla konsumenckiego fNIRS — traktuj ΔHbO/ΔHbR jako zmiany względne. Integracja oparta na nieoficjalnym, odtworzonym protokole Bluetooth.</p>
+    </details>
+  </div>
+</aside>
+</div>
+
+<dialog id="btDialog" aria-labelledby="btDialogTitle">
+  <form method="dialog">
+    <h2 id="btDialogTitle">Bluetooth</h2>
+    <ol id="btDialogSteps"></ol>
+    <div class="row mt10">
+      <a class="btn" id="btDialogLink" hidden></a>
+      <button class="btn" type="button" id="btDialogConnect" hidden>Połącz teraz</button>
+      <button class="btn" value="close">Zamknij</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

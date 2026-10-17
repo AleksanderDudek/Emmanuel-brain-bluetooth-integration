@@ -36,3 +36,7 @@ recordings/fnirs/
 # Log files
 *.log
 logs/
+
+# ─── Web app (web/) ──────────────────────────────────────────────────
+node_modules/
+dev-dist/

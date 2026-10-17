@@ -29,6 +29,7 @@ brainlink-desktop/
 │   ├── fnirs.html      ← Real-time fNIRS dashboard (/fnirs, /fnirs#balance)
 │   └── fnirs-balance.js ← Balance trainer view + task bank
 ├── tests/              ← pytest suite (no hardware needed)
+├── web/                ← fNIRS web app (PWA): Web Bluetooth, offline, no server needed
 ├── recordings/         ← Saved EEG sessions (gitignored)
 ├── requirements.txt
 ├── requirements-dev.txt ← pytest, httpx, protobuf (tests only)
@@ -237,6 +238,18 @@ experiments and neurofeedback, not diagnosis or therapy.
   intensities with zero-phase filtering offline (e.g. MNE-NIRS).
 - Consumer device, prefrontal only, few channels: good for prototyping and
   neurofeedback, not a substitute for a research-grade fNIRS system.
+
+## Web app (no server)
+
+`web/` is the Mendi fNIRS part as an installable Progressive Web App: Web
+Bluetooth, the full pipeline and balance trainer in the browser, sessions in
+IndexedDB or a local folder, works offline. Chrome/Edge/Opera on Windows,
+macOS, Android and ChromeOS; iOS through the Bluefy browser. See
+[web/README.md](web/README.md).
+
+```bash
+cd web && npm ci && npm run dev
+```
 
 ## Tests
 

@@ -1,0 +1,65 @@
+/** Bluetooth status banner + guidance dialog ("how do I turn Bluetooth on here?"). */
+import {
+  bluetoothStatus, detectBrowser, detectPlatform, explainBleError, guidance, watchAvailability, type BtStatus,
+} from '../ble/platform';
+import { $, h, toast } from './dom';
+
+export class BluetoothUi {
+  status: BtStatus = 'available';
+  private readonly platform = detectPlatform();
+  private readonly browser = detectBrowser();
+  private readonly dialog = $<HTMLDialogElement>('btDialog');
+
+  constructor(private readonly connect: () => void) {
+    $('btBannerHelp').addEventListener('click', () => this.open());
+    $('btnBtHelp').addEventListener('click', () => this.open());
+    $('btDialogConnect').addEventListener('click', () => { this.dialog.close(); this.connect(); });
+  }
+
+  async init(): Promise<void> {
+    this.status = await bluetoothStatus();
+    this.renderBanner();
+    watchAvailability(available => {
+      this.status = available ? 'available' : 'unavailable';
+      this.renderBanner();
+      if (available) toast('Bluetooth włączony');
+    });
+  }
+
+  private renderBanner(): void {
+    const text: Partial<Record<BtStatus, string>> = {
+      unsupported: this.platform === 'ios'
+        ? 'Na iPhonie/iPadzie Bluetooth działa w przeglądarce Bluefy. Symulator działa wszędzie.'
+        : 'Ta przeglądarka nie obsługuje Bluetooth — użyj Chrome, Edge lub Opery. Symulator działa wszędzie.',
+      unavailable: 'Bluetooth jest wyłączony albo niedostępny.',
+      insecure: 'Bluetooth wymaga połączenia HTTPS.',
+    };
+    const msg = text[this.status];
+    $('btBanner').hidden = !msg;
+    $('btBannerText').textContent = msg ?? '';
+  }
+
+  open(status: BtStatus = this.status): void {
+    const g = guidance(this.platform, this.browser, status);
+    $('btDialogTitle').textContent = g.title;
+    $('btDialogSteps').replaceChildren(...g.steps.map(s => h('li', null, s)));
+    const link = $<HTMLAnchorElement>('btDialogLink');
+    link.hidden = !g.link;
+    if (g.link) {
+      link.href = g.link.href;
+      link.textContent = g.link.label;
+      // App Store opens in a new tab; OS settings URLs must stay in the same context
+      if (g.link.href.startsWith('http')) { link.target = '_blank'; link.rel = 'noopener'; } else { link.removeAttribute('target'); }
+    }
+    $('btDialogConnect').hidden = !g.canConnect;
+    if (!this.dialog.open) this.dialog.showModal();
+  }
+
+  /** Show a failed connection attempt to the user, with guidance where it helps. */
+  handleError(e: unknown): void {
+    const info = explainBleError(e);
+    if (info.cancelled) return;
+    toast(info.message, true);
+    if (info.showGuidance) this.open(this.status === 'available' ? 'unavailable' : this.status);
+  }
+}
