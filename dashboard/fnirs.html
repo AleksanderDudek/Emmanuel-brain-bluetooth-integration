@@ -559,11 +559,20 @@ function showView(name){
   $('viewMonitor').hidden = bal; $('viewBalance').hidden = !bal;
   $('tabMonitor').setAttribute('aria-selected', String(!bal));
   $('tabBalance').setAttribute('aria-selected', String(bal));
+  $('tabMonitor').tabIndex = bal ? -1 : 0;   // roving tabindex (ARIA tabs pattern)
+  $('tabBalance').tabIndex = bal ? 0 : -1;
   if (balanceView) balanceView.setActive(bal);
   const want = bal ? '#balance' : '';
   if (location.hash !== want) history.replaceState(null, '', want || location.pathname);
 }
 document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => showView(b.dataset.view));
+document.querySelector('[role=tablist]').addEventListener('keydown', e => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  e.preventDefault();
+  const bal = e.key === 'End' || (e.key !== 'Home' && location.hash !== '#balance');
+  showView(bal ? 'balance' : 'monitor');
+  $(bal ? 'tabBalance' : 'tabMonitor').focus();
+});
 window.addEventListener('hashchange', () => showView(location.hash === '#balance' ? 'balance' : 'monitor'));
 showView(location.hash === '#balance' ? 'balance' : 'monitor');
 
