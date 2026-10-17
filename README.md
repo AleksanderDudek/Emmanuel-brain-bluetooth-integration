@@ -1,8 +1,8 @@
 # BrainLink — EEG-to-Game Real-time Engine
 
 A self-contained desktop application that processes **BrainAccess HALO** EEG
-data (or simulated data) and exposes game-ready brain metrics in real time over
-WebSocket and a REST API.
+data and **Mendi** fNIRS data (or simulated data for either) and exposes
+game-ready brain metrics in real time over WebSocket and a REST API.
 
 ```
 brainlink-desktop/
@@ -16,9 +16,17 @@ brainlink-desktop/
 │   ├── calibration.py  ← Guided calibration session
 │   ├── recorder.py     ← CSV + JSON session recorder
 │   ├── halo_ble.py     ← macOS BLE adapter (bleak / CoreBluetooth)
-│   └── halo_sdk.py     ← Official SDK adapter (Windows / Linux)
+│   ├── halo_sdk.py     ← Official SDK adapter (Windows / Linux)
+│   ├── mendi_proto.py  ← Mendi V4 protobuf codec (no protobuf dependency)
+│   ├── mendi_ble.py    ← Mendi fNIRS BLE adapter (bleak)
+│   ├── fnirs.py        ← fNIRS pipeline: ambient → ΔOD → MBLL → ΔHbO/ΔHbR, HR, SCI
+│   ├── fnirs_simulator.py ← Mendi-like frame simulator (block-design scenarios)
+│   ├── fnirs_recorder.py  ← fNIRS CSV recorder with event markers
+│   └── fnirs_api.py    ← /api/v1/fnirs/* router + WebSocket + loop
 ├── dashboard/
-│   └── index.html      ← Real-time monitoring dashboard
+│   ├── index.html      ← Real-time EEG dashboard
+│   └── fnirs.html      ← Real-time fNIRS dashboard (/fnirs)
+├── tests/              ← pytest suite (no hardware needed)
 ├── recordings/         ← Saved EEG sessions (gitignored)
 ├── requirements.txt
 └── LICENSE
@@ -130,6 +138,72 @@ curl -X POST http://localhost:8420/api/v1/device/connect \
 curl -X POST http://localhost:8420/api/v1/source/device
 ```
 
+## Mendi fNIRS headband
+
+The [Mendi](https://www.mendi.io/) is a consumer fNIRS band over the
+prefrontal cortex.  Mendi has **no official SDK**; this integration speaks its
+BLE protocol directly, based on the open-source, reverse-engineered client
+[eugenehp/mendi](https://github.com/eugenehp/mendi) (MIT).  A firmware update
+could break it.
+
+Open **`http://localhost:8420/fnirs`**, close the Mendi phone app (the band
+accepts one BLE connection at a time), switch the band on and click
+**Połącz z pierwszą**.  Sit still for ~10 s while the baseline is collected.
+
+### What you get
+
+| Output | Notes |
+|---|---|
+| ΔHbO / ΔHbR (µM), left & right | Modified Beer–Lambert law on ambient-corrected red/IR, 0.5 Hz low-pass |
+| Heart rate | From the central "pulse" optical channel |
+| Signal quality | Scalp Coupling Index per channel, ambient-light leak, no-signal |
+| Motion flag | From the band's accelerometer / gyroscope |
+| `activation`, `asymmetry` (0–1) | Game-friendly metrics relative to the last 60 s |
+| Raw frames | IR / red / ambient × 3 channels, IMU, temperature (~25 Hz) |
+
+### API (`/api/v1/fnirs`, all under `/docs`)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET`  | `/status` | Source, device, baseline, recording |
+| `POST` | `/device/scan` | Find Mendi bands |
+| `POST` | `/device/connect` | `{"device": "Mendi"}` (name substring or address) |
+| `POST` | `/device/start-stream` | Start streaming and switch source to the device |
+| `POST` | `/source/{simulator\|device\|off}` | Choose data source |
+| `POST` | `/baseline/reset` | Re-collect the I0 baseline |
+| `PATCH`| `/config` | Wavelengths, separation, DPF, filters |
+| `POST` | `/recording/start` · `/recording/stop` | CSV session in `recordings/fnirs/` |
+| `POST` | `/marker` | `{"label": "task_start"}` — event marker in the recording |
+| `POST` | `/simulator/{state}` | `rest`, `task`, `high_load`, `relax`, `motion`, `poor_contact`, `auto:block_design`, `auto:n_back`, `auto:meditation` |
+| `WS`   | `/stream` | 10 Hz JSON frames; send `{"action":"marker","label":"…"}` to mark |
+
+```bash
+curl -X POST localhost:8420/api/v1/fnirs/device/connect -H 'Content-Type: application/json' -d '{"device":"Mendi"}'
+curl -X POST localhost:8420/api/v1/fnirs/device/start-stream
+curl -X POST localhost:8420/api/v1/fnirs/recording/start -H 'Content-Type: application/json' -d '{"name":"pilot","duration_sec":600}'
+```
+
+The EEG and fNIRS pipelines are independent, so a HALO and a Mendi can stream
+at the same time.
+
+### Caveats
+
+- Mendi does not publish LED wavelengths, source–detector separation or DPF.
+  Defaults are 660 / 850 nm, 3 cm, DPF 6 — **treat ΔHbO/ΔHbR as relative**
+  and change them via `PATCH /config` if you know better.
+- The live pipeline is causal (no high-pass by default, since any causal
+  high-pass shrinks sustained responses).  For analysis, use the recorded raw
+  intensities with zero-phase filtering offline (e.g. MNE-NIRS).
+- Consumer device, prefrontal only, few channels: good for prototyping and
+  neurofeedback, not a substitute for a research-grade fNIRS system.
+
+## Tests
+
+```bash
+pip install pytest
+pytest
+```
+
 ## Project structure
 
 ```
@@ -141,7 +215,13 @@ brainlink/
 ├── calibration.py — CalibrationSession (5-step guided flow)
 ├── recorder.py    — SessionRecorder (CSV + JSON output)
 ├── halo_ble.py    — HALOBleAdapter (macOS CoreBluetooth via bleak)
-└── halo_sdk.py    — BrainAccessHALO (official SDK, Win/Linux)
+├── halo_sdk.py    — BrainAccessHALO (official SDK, Win/Linux)
+├── mendi_proto.py — Mendi V4 protobuf messages (Frame, Adc, Calibration, …)
+├── mendi_ble.py   — MendiBleAdapter (bleak, all platforms)
+├── fnirs.py       — FNIRSPipeline, FNIRSConfig
+├── fnirs_simulator.py — FNIRSSimulator + FNIRS_SCENARIOS
+├── fnirs_recorder.py  — FNIRSRecorder (CSV + JSON, event markers)
+└── fnirs_api.py   — FastAPI router, WebSocket and background loop
 ```
 
 ## License

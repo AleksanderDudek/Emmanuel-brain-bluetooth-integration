@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BrainLink — fNIRS (Mendi)</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#0a0b0d;--bg2:#111318;--bg3:#181b22;--bg4:#1f232d;
+--tx:#e8e6e1;--tx2:#9a9890;--tx3:#5c5a55;
+--acc:#00e5a0;--acc-dim:rgba(0,229,160,0.12);
+--red:#ff4d5a;--amber:#ffb020;--blue:#3d9eff;--purple:#a070ff;--pink:#ff5ca0;
+--hbo:#ff4d5a;--hbr:#3d9eff;
+--radius:6px;--radius-lg:10px;
+--font:'JetBrains Mono',monospace;--font-head:'Space Grotesk',sans-serif;
+}
+body{background:var(--bg);color:var(--tx);font-family:var(--font);font-size:13px;line-height:1.5}
+.shell{display:grid;grid-template-columns:1fr 340px;grid-template-rows:auto 1fr;min-height:100vh}
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:var(--bg2);border-bottom:1px solid rgba(255,255,255,.04);flex-wrap:wrap}
+.topbar h1{font-family:var(--font-head);font-size:18px;font-weight:600;letter-spacing:-.5px}
+.topbar h1 span{color:var(--acc)}
+.topbar h1 small{font-size:12px;color:var(--tx2);font-weight:400;margin-left:8px;letter-spacing:0}
+.topbar a{color:var(--tx2);text-decoration:none;font-size:12px;border:1px solid rgba(255,255,255,.08);padding:4px 10px;border-radius:var(--radius)}
+.topbar a:hover{color:var(--tx);border-color:var(--acc)}
+.status{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx2)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--tx3)}
+.dot.live{background:var(--acc);animation:pulse 2s ease infinite}
+.dot.rec{background:var(--red);animation:pulse 1s ease infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.main{padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.sidebar{padding:16px;background:var(--bg2);border-left:1px solid rgba(255,255,255,.04);display:flex;flex-direction:column;gap:14px}
+.card{background:var(--bg3);border:1px solid rgba(255,255,255,.04);border-radius:var(--radius-lg);padding:14px 16px}
+.card-head{font-family:var(--font-head);font-size:13px;font-weight:500;color:var(--tx2);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-head .hint{font-size:10px;text-transform:none;letter-spacing:0;color:var(--tx3);font-family:var(--font)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{background:var(--bg4);color:var(--tx);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);padding:6px 10px;font:inherit;font-size:11px;cursor:pointer;transition:all .15s}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.btn.on{background:var(--acc-dim);border-color:var(--acc);color:var(--acc)}
+.btn.danger:hover{border-color:var(--red);color:var(--red)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+input,select{background:var(--bg);color:var(--tx);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);padding:6px 8px;font:inherit;font-size:11px;min-width:0}
+.grid2>*{min-width:0}
+label.f input,label.f select{width:100%}
+label.f{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
+.muted{color:var(--tx3);font-size:11px}
+/* charts */
+.chart{background:var(--bg);border-radius:var(--radius);padding:8px;position:relative}
+.chart .lbl{position:absolute;top:6px;left:10px;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px}
+.chart .val{position:absolute;top:5px;right:10px;font-size:11px;font-variant-numeric:tabular-nums}
+.chart canvas{width:100%;height:150px;display:block}
+.legend{display:flex;gap:14px;font-size:10px;color:var(--tx2)}
+.legend i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:var(--bg);border-radius:var(--radius);padding:10px 12px}
+.stat .k{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
+.stat .v{font-family:var(--font-head);font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
+.stat .v small{font-size:11px;color:var(--tx2);font-weight:400;margin-left:3px}
+/* metric bars */
+.metric-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.metric-row:last-child{margin-bottom:0}
+.metric-label{width:90px;font-size:11px;color:var(--tx2);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0}
+.metric-bar-bg{flex:1;height:18px;background:var(--bg);border-radius:3px;overflow:hidden;position:relative}
+.metric-bar-fill{height:100%;transition:width .2s ease}
+.metric-bar-bg .mid{position:absolute;left:50%;top:0;width:1px;height:100%;background:rgba(255,255,255,.15)}
+.metric-val{width:44px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+/* quality */
+.q{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.qc{background:var(--bg);border-radius:var(--radius);padding:8px 10px;border-left:3px solid var(--tx3)}
+.qc .n{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px}
+.qc .l{font-size:12px;font-weight:500;margin:2px 0}
+.qc .d{font-size:10px;color:var(--tx2);font-variant-numeric:tabular-nums}
+.qc.good{border-color:var(--acc)}.qc.good .l{color:var(--acc)}
+.qc.fair{border-color:var(--amber)}.qc.fair .l{color:var(--amber)}
+.qc.poor,.qc.light_leak,.qc.no_signal{border-color:var(--red)}.qc.poor .l,.qc.light_leak .l,.qc.no_signal .l{color:var(--red)}
+.badge{font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid var(--tx3);color:var(--tx2);text-transform:none;letter-spacing:0}
+.badge.warn{border-color:var(--amber);color:var(--amber)}
+.badge.ok{border-color:var(--acc);color:var(--acc)}
+.progress{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-top:6px}
+.progress div{height:100%;background:var(--acc);transition:width .2s}
+.devlist{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.dev{display:flex;justify-content:space-between;align-items:center;background:var(--bg);border-radius:var(--radius);padding:6px 10px;font-size:11px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:11px;margin-top:8px}
+.kv span:nth-child(odd){color:var(--tx3)}
+.recs{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;margin-top:8px}
+.rec{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--bg);border-radius:var(--radius);padding:6px 10px;font-size:11px}
+.rec a{color:var(--acc);text-decoration:none}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--bg4);border:1px solid rgba(255,255,255,.1);padding:8px 14px;border-radius:var(--radius);font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1}
+.toast.err{border-color:var(--red);color:var(--red)}
+.disclaimer{font-size:10px;color:var(--tx3);line-height:1.6}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .sidebar{border-left:0;border-top:1px solid rgba(255,255,255,.04)}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .grid2{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<div class="topbar">
+  <h1>Brain<span>Link</span><small>fNIRS · Mendi</small></h1>
+  <div class="status">
+    <div class="dot" id="dot"></div>
+    <span id="statusText">Łączenie…</span>
+    <span class="muted" id="rateText"></span>
+    <a href="/">← Dashboard EEG</a>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="stats">
+    <div class="stat"><div class="k">Tętno</div><div class="v" id="hr">—<small>bpm</small></div></div>
+    <div class="stat"><div class="k">ΔHbO śr.</div><div class="v" id="hboAvg" style="color:var(--hbo)">—<small>µM</small></div></div>
+    <div class="stat"><div class="k">ΔHbR śr.</div><div class="v" id="hbrAvg" style="color:var(--hbr)">—<small>µM</small></div></div>
+    <div class="stat"><div class="k">Ruch</div><div class="v" id="motion">—</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Hemodynamika kory przedczołowej
+      <div class="legend"><span><i style="background:var(--hbo)"></i>ΔHbO</span><span><i style="background:var(--hbr)"></i>ΔHbR</span><span class="hint">ostatnie 10 s</span></div>
+    </div>
+    <div id="baselineBox" class="muted" style="margin-bottom:10px">
+      Zbieranie linii bazowej — siedź spokojnie… <span id="baselinePct">0%</span>
+      <div class="progress"><div id="baselineBar" style="width:0%"></div></div>
+    </div>
+    <div class="grid2">
+      <div class="chart"><span class="lbl">Lewa</span><span class="val" id="valL">—</span><canvas id="chartL"></canvas></div>
+      <div class="chart"><span class="lbl">Prawa</span><span class="val" id="valR">—</span><canvas id="chartR"></canvas></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head">Metryki <span class="hint">0–1, względem ostatnich 60 s</span></div>
+      <div class="metric-row"><span class="metric-label">Aktywacja</span><div class="metric-bar-bg"><div class="metric-bar-fill" id="barAct" style="width:0;background:linear-gradient(90deg,rgba(255,77,90,.3),var(--hbo))"></div></div><span class="metric-val" id="valAct">—</span></div>
+      <div class="metric-row"><span class="metric-label">Asymetria</span><div class="metric-bar-bg"><div class="mid"></div><div class="metric-bar-fill" id="barAsym" style="width:0;background:linear-gradient(90deg,rgba(160,112,255,.3),var(--purple))"></div></div><span class="metric-val" id="valAsym">—</span></div>
+      <div class="muted" style="margin-top:8px">Asymetria: &lt;0.5 lewa · 0.5 równowaga · &gt;0.5 prawa</div>
+    </div>
+    <div class="card">
+      <div class="card-head">Puls (kanał centralny) <span class="hint">IR, 5 s</span></div>
+      <div class="chart"><canvas id="chartPulse" style="height:96px"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Jakość sygnału <span class="hint">SCI ≥ 0.75 = dobry kontakt</span></div>
+    <div class="q" id="quality"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Surowe dane <span class="hint">ostatnia ramka</span></div>
+    <div class="kv" id="rawKv"></div>
+  </div>
+</div>
+
+<div class="sidebar">
+
+  <div class="card">
+    <div class="card-head">Źródło</div>
+    <div class="row">
+      <button class="btn" data-src="simulator">Symulator</button>
+      <button class="btn" data-src="device">Mendi</button>
+      <button class="btn" data-src="off">Wyłącz</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Opaska Mendi <span class="badge" id="devBadge">rozłączona</span></div>
+    <div class="row">
+      <button class="btn" id="btnScan">Skanuj</button>
+      <button class="btn" id="btnConnectAny">Połącz z pierwszą</button>
+      <button class="btn danger" id="btnDisconnect">Rozłącz</button>
+    </div>
+    <div class="devlist" id="devList"></div>
+    <div class="kv" id="devKv"></div>
+    <p class="muted" style="margin-top:8px">Zamknij aplikację Mendi na telefonie — opaska obsługuje jedno połączenie BLE naraz.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Linia bazowa</div>
+    <p class="muted" style="margin-bottom:8px">ΔHb liczone są względem średniej intensywności z pierwszych sekund. Zresetuj po poprawieniu opaski.</p>
+    <button class="btn" id="btnBaseline">Resetuj linię bazową</button>
+  </div>
+
+  <div class="card" id="simCard">
+    <div class="card-head">Symulator</div>
+    <div class="row" id="simStates"></div>
+    <div class="row" id="simScenarios" style="margin-top:8px"></div>
+    <div class="muted" id="simInfo" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Nagrywanie <span class="badge" id="recBadge">—</span></div>
+    <div class="row">
+      <input id="recName" placeholder="nazwa sesji" style="flex:1">
+      <input id="recDur" type="number" value="600" min="10" max="7200" style="width:70px" title="czas trwania [s]">
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="btnRec">● Start</button>
+      <button class="btn danger" id="btnRecStop">■ Stop</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" data-mark="task_start">Znacznik: start zadania</button>
+      <button class="btn" data-mark="task_end">koniec</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <input id="markCustom" placeholder="własny znacznik" style="flex:1">
+      <button class="btn" id="btnMark">Dodaj</button>
+    </div>
+    <div class="recs" id="recList"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">Parametry MBLL</div>
+    <div class="grid2">
+      <label class="f">Czerwony [nm]<select id="cfgRed"></select></label>
+      <label class="f">IR [nm]<select id="cfgIr"></select></label>
+      <label class="f">Odległość [cm]<input id="cfgSep" type="number" step="0.1"></label>
+      <label class="f">DPF<input id="cfgDpf" type="number" step="0.1"></label>
+      <label class="f">Dolnoprzep. [Hz]<input id="cfgLp" type="number" step="0.05"></label>
+      <label class="f">Górnoprzep. [Hz]<input id="cfgHp" type="number" step="0.001"></label>
+    </div>
+    <button class="btn" id="btnCfg" style="margin-top:10px">Zastosuj (resetuje bazę)</button>
+    <p class="disclaimer" style="margin-top:10px">Mendi nie publikuje długości fal, odległości źródło–detektor ani DPF. Wartości domyślne są typowe dla konsumenckiego fNIRS — traktuj ΔHbO/ΔHbR jako zmiany względne. Integracja oparta na nieoficjalnym, odtworzonym protokole BLE.</p>
+  </div>
+
+</div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '/api/v1/fnirs';
+const $ = id => document.getElementById(id);
+const fmt = (v, d=2) => (v === null || v === undefined || Number.isNaN(v)) ? '—' : Number(v).toFixed(d);
+
+function toast(msg, err=false){
+  const t = $('toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : '');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.className = 'toast', 3500);
+}
+async function api(path, method='GET', body){
+  const opt = {method, headers:{}};
+  if (body !== undefined){ opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  const r = await fetch(API + path, opt);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.detail || r.statusText);
+  return j;
+}
+const run = (fn) => async (...a) => { try { await fn(...a); } catch(e){ toast(e.message, true); } };
+
+// ── charts ────────────────────────────────────────────────────────
+function setupCanvas(c){
+  const dpr = window.devicePixelRatio || 1, r = c.getBoundingClientRect();
+  c.width = Math.max(1, r.width * dpr); c.height = Math.max(1, r.height * dpr);
+  const ctx = c.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); return {ctx, w:r.width, h:r.height};
+}
+function drawLines(canvas, series, colors, symmetric=true){
+  const {ctx, w, h} = setupCanvas(canvas);
+  ctx.clearRect(0,0,w,h);
+  const all = series.flat().filter(v => Number.isFinite(v));
+  if (!all.length) return;
+  let lo = Math.min(...all), hi = Math.max(...all);
+  if (symmetric){ const m = Math.max(Math.abs(lo), Math.abs(hi), 0.2); lo = -m; hi = m; }
+  else { const pad = (hi - lo) * 0.1 || 1; lo -= pad; hi += pad; }
+  const top = 18, bot = 6, y = v => top + (h - top - bot) * (1 - (v - lo) / (hi - lo));
+  if (symmetric){
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.beginPath(); ctx.moveTo(0, y(0)); ctx.lineTo(w, y(0)); ctx.stroke();
+    ctx.fillStyle = '#5c5a55'; ctx.font = '9px JetBrains Mono';
+    ctx.fillText('+' + hi.toFixed(2), 4, top + 8); ctx.fillText(lo.toFixed(2), 4, h - bot - 2);
+  }
+  series.forEach((s, i) => {
+    if (s.length < 2) return;
+    ctx.strokeStyle = colors[i]; ctx.lineWidth = 1.6; ctx.beginPath();
+    s.forEach((v, k) => { const x = w * k / (s.length - 1); k ? ctx.lineTo(x, y(v)) : ctx.moveTo(x, y(v)); });
+    ctx.stroke();
+  });
+}
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// ── render ────────────────────────────────────────────────────────
+const QL = {good:'dobra', fair:'średnia', poor:'słaba', light_leak:'przeciek światła', no_signal:'brak sygnału', warming_up:'rozgrzewanie'};
+const CHN = {left:'lewy', right:'prawy', pulse:'puls'};
+let lastSource = null, frames = 0;
+
+function render(f){
+  frames++;
+  const live = f.source !== 'off';
+  $('dot').className = 'dot ' + (f.recording && f.recording.recording ? 'rec' : (live ? 'live' : ''));
+  $('statusText').textContent = {simulator:'Symulator', device:'Mendi na żywo', off:'Wyłączone'}[f.source] || f.source;
+  if (f.source !== lastSource){
+    document.querySelectorAll('[data-src]').forEach(b => b.classList.toggle('on', b.dataset.src === f.source));
+    $('simCard').style.opacity = f.source === 'simulator' ? 1 : .5; lastSource = f.source;
+  }
+  renderDevice(f.device); renderRec(f.recording);
+  if (!live) return;
+
+  $('rateText').textContent = f.measured_rate ? `${f.measured_rate} Hz` : '';
+  const bl = f.baseline_ready;
+  $('baselineBox').style.display = bl ? 'none' : 'block';
+  $('baselinePct').textContent = Math.round((f.baseline_progress || 0) * 100) + '%';
+  $('baselineBar').style.width = ((f.baseline_progress || 0) * 100) + '%';
+
+  $('hr').innerHTML = `${f.heart_rate_bpm ? Math.round(f.heart_rate_bpm) : '—'}<small>bpm</small>`;
+  const avg = o => (o && o.left !== null && o.right !== null) ? (o.left + o.right) / 2 : null;
+  $('hboAvg').innerHTML = `${fmt(avg(f.hbo), 3)}<small>µM</small>`;
+  $('hbrAvg').innerHTML = `${fmt(avg(f.hbr), 3)}<small>µM</small>`;
+  $('motion').textContent = f.motion ? 'TAK' : 'nie';
+  $('motion').style.color = f.motion ? css('--amber') : css('--tx');
+
+  const p = f.preview || {};
+  if (p.hbo){
+    drawLines($('chartL'), [p.hbo.left, p.hbr.left], [css('--hbo'), css('--hbr')]);
+    drawLines($('chartR'), [p.hbo.right, p.hbr.right], [css('--hbo'), css('--hbr')]);
+    $('valL').innerHTML = `<span style="color:var(--hbo)">${fmt(f.hbo.left,3)}</span> / <span style="color:var(--hbr)">${fmt(f.hbr.left,3)}</span>`;
+    $('valR').innerHTML = `<span style="color:var(--hbo)">${fmt(f.hbo.right,3)}</span> / <span style="color:var(--hbr)">${fmt(f.hbr.right,3)}</span>`;
+  }
+  if (p.pulse_ir) drawLines($('chartPulse'), [p.pulse_ir], [css('--pink')], false);
+
+  const m = f.metrics || {};
+  $('barAct').style.width = ((m.activation ?? 0) * 100) + '%'; $('valAct').textContent = fmt(m.activation);
+  $('barAsym').style.width = ((m.asymmetry ?? 0) * 100) + '%'; $('valAsym').textContent = fmt(m.asymmetry);
+
+  if (f.quality){
+    $('quality').innerHTML = Object.entries(f.quality).map(([ch, q]) =>
+      `<div class="qc ${q.label}"><div class="n">${CHN[ch] || ch}</div><div class="l">${QL[q.label] || q.label}</div>
+       <div class="d">SCI ${fmt(q.sci)} · amb ${q.ambient_ratio === null ? '—' : Math.round(q.ambient_ratio*100)+'%'}</div></div>`).join('');
+  }
+  if (f.raw){
+    const r = f.raw, imu = f.imu || {};
+    $('rawKv').innerHTML = ['left','right','pulse'].map(ch =>
+      `<span>${CHN[ch]}</span><span>IR ${r[ch].ir} · RED ${r[ch].red} · AMB ${r[ch].amb}</span>`).join('') +
+      `<span>akcel.</span><span>${(imu.accel_g||[]).map(v=>fmt(v,2)).join(' / ')} g</span>` +
+      `<span>żyroskop</span><span>${(imu.gyro_dps||[]).map(v=>fmt(v,1)).join(' / ')} °/s</span>` +
+      `<span>temp.</span><span>${fmt(imu.temp_c,1)} °C</span>` +
+      `<span>ramki</span><span>${f.total_frames}</span>`;
+  }
+  if (f.simulator){
+    const a = f.simulator.auto;
+    $('simInfo').textContent = a ? `Scenariusz ${a.scenario}: ${a.state} (${Math.round(a.elapsed_sec)}/${a.total_sec} s)` : `Stan: ${f.simulator.state}`;
+    document.querySelectorAll('[data-sim]').forEach(b => b.classList.toggle('on',
+      a ? b.dataset.sim === 'auto:' + a.scenario : b.dataset.sim === f.simulator.state));
+  }
+}
+
+function renderDevice(d){
+  const b = $('devBadge');
+  if (!d || !d.connected){ b.textContent = 'rozłączona'; b.className = 'badge'; $('devKv').innerHTML = ''; return; }
+  b.textContent = d.streaming ? (d.data_stale ? 'brak danych' : 'strumień') : 'połączona';
+  b.className = 'badge ' + (d.streaming && !d.data_stale ? 'ok' : 'warn');
+  const bat = d.battery ? `${d.battery.percent}% (${(d.battery.voltage_mv/1000).toFixed(2)} V)${d.battery.charging ? ' ⚡' : ''}` : '—';
+  const diag = d.diagnostics ? `IMU ${d.diagnostics.imu_ok ? 'OK' : '✗'} · sensor ${d.diagnostics.sensor_ok ? 'OK' : '✗'}` : '—';
+  $('devKv').innerHTML = `<span>nazwa</span><span>${d.device_name || d.address}</span><span>bateria</span><span>${bat}</span>
+    <span>firmware</span><span>${d.firmware}</span><span>diagnostyka</span><span>${diag}</span>
+    <span>utracone</span><span>${d.frames_dropped} / błędne ${d.frames_invalid}</span>`;
+}
+
+function renderRec(r){
+  const b = $('recBadge');
+  if (r && r.recording){ b.textContent = `REC ${Math.floor(r.elapsed_sec)} s · ${r.markers} zn.`; b.className = 'badge warn'; }
+  else { b.textContent = 'gotowe'; b.className = 'badge'; }
+}
+
+// ── controls ──────────────────────────────────────────────────────
+document.querySelectorAll('[data-src]').forEach(b => b.onclick = run(async () => {
+  await api('/source/' + b.dataset.src, 'POST'); toast('Źródło: ' + b.textContent);
+}));
+
+$('btnScan').onclick = run(async () => {
+  $('devList').innerHTML = '<span class="muted">Skanowanie…</span>';
+  const {devices} = await api('/device/scan', 'POST');
+  $('devList').innerHTML = devices.length ? devices.map(d =>
+    `<div class="dev"><span>${d.name} <span class="muted">${d.rssi ?? ''} dBm</span></span>
+     <button class="btn" data-addr="${d.address}">Połącz</button></div>`).join('')
+    : '<span class="muted">Nie znaleziono opaski Mendi.</span>';
+  document.querySelectorAll('[data-addr]').forEach(x => x.onclick = run(() => connect(x.dataset.addr)));
+});
+async function connect(target){
+  toast('Łączenie…');
+  await api('/device/connect', 'POST', {device: target});
+  await api('/device/start-stream', 'POST');
+  $('devList').innerHTML = ''; toast('Połączono — zbieranie linii bazowej');
+}
+$('btnConnectAny').onclick = run(() => connect('Mendi'));
+$('btnDisconnect').onclick = run(async () => { await api('/device/disconnect', 'POST'); toast('Rozłączono'); });
+$('btnBaseline').onclick = run(async () => { await api('/baseline/reset', 'POST'); toast('Linia bazowa zresetowana'); });
+
+$('btnRec').onclick = run(async () => {
+  await api('/recording/start', 'POST', {name: $('recName').value, duration_sec: +$('recDur').value});
+  toast('Nagrywanie rozpoczęte');
+});
+$('btnRecStop').onclick = run(async () => { await api('/recording/stop', 'POST'); toast('Zapisano'); loadRecs(); });
+document.querySelectorAll('[data-mark]').forEach(b => b.onclick = run(async () => {
+  await api('/marker', 'POST', {label: b.dataset.mark}); toast('Znacznik: ' + b.dataset.mark);
+}));
+$('btnMark').onclick = run(async () => {
+  const l = $('markCustom').value.trim(); if (!l) return;
+  await api('/marker', 'POST', {label: l}); $('markCustom').value = ''; toast('Znacznik: ' + l);
+});
+
+async function loadRecs(){
+  try {
+    const {recordings} = await api('/recordings');
+    $('recList').innerHTML = recordings.slice(0, 20).map(r =>
+      `<div class="rec"><span>${r.name}<br><span class="muted">${new Date(r.start_time*1000).toLocaleString()} · ${r.sample_count} ramek</span></span>
+       <a href="${API}/recordings/${r.session_id}/csv">CSV</a></div>`).join('') || '<span class="muted">Brak nagrań</span>';
+  } catch(e){}
+}
+
+async function loadSim(){
+  const s = await api('/simulator');
+  const SN = {rest:'spoczynek', task:'zadanie', high_load:'duże obciąż.', relax:'relaks', motion:'ruch', poor_contact:'słaby kontakt'};
+  $('simStates').innerHTML = Object.keys(s.states).map(k => `<button class="btn" data-sim="${k}">${SN[k] || k}</button>`).join('');
+  $('simScenarios').innerHTML = Object.keys(s.scenarios).map(k => `<button class="btn" data-sim="auto:${k}">▶ ${k}</button>`).join('')
+    + `<button class="btn" data-sim="auto_stop">■</button>`;
+  document.querySelectorAll('[data-sim]').forEach(b => b.onclick = run(() => api('/simulator/' + b.dataset.sim, 'POST')));
+}
+
+async function loadCfg(){
+  const {config: c, known_wavelengths_nm: wl} = await api('/config');
+  const opts = sel => wl.map(n => `<option value="${n}" ${n === sel ? 'selected' : ''}>${n}</option>`).join('');
+  $('cfgRed').innerHTML = opts(c.red_nm); $('cfgIr').innerHTML = opts(c.ir_nm);
+  $('cfgSep').value = c.separation_cm; $('cfgDpf').value = c.dpf_ir; $('cfgLp').value = c.lp_hz; $('cfgHp').value = c.hp_hz;
+}
+$('btnCfg').onclick = run(async () => {
+  const dpf = +$('cfgDpf').value;
+  await api('/config', 'PATCH', {red_nm: +$('cfgRed').value, ir_nm: +$('cfgIr').value,
+    separation_cm: +$('cfgSep').value, dpf_red: dpf, dpf_ir: dpf, lp_hz: +$('cfgLp').value, hp_hz: +$('cfgHp').value});
+  toast('Zastosowano — zbieranie nowej linii bazowej');
+});
+
+// ── websocket ─────────────────────────────────────────────────────
+function connectWs(){
+  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${API}/stream`);
+  ws.onmessage = e => { try { render(JSON.parse(e.data)); } catch(err){ console.error(err); } };
+  ws.onclose = () => { $('statusText').textContent = 'Brak połączenia z serwerem…'; $('dot').className = 'dot'; setTimeout(connectWs, 1500); };
+}
+connectWs(); loadSim().catch(()=>{}); loadCfg().catch(()=>{}); loadRecs();
+setInterval(loadRecs, 15000);
+</script>
+</body>
+</html>

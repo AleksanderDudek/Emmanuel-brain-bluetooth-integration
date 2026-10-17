@@ -17,7 +17,8 @@
 BrainLink Server — Real-time EEG-to-Game pipeline.
 
 FastAPI backend that reads from either the built-in EEG simulator or a
-real BrainAccess HALO device and exposes game-ready metrics via:
+real BrainAccess HALO device (EEG) and/or a Mendi headband (fNIRS,
+see brainlink/fnirs_api.py) and exposes game-ready metrics via:
   - WebSocket  /api/v1/stream   (10 Hz push)
   - REST API   /api/v1/…       (Swagger at /docs)
   - Dashboard  /               (static HTML)
@@ -50,6 +51,7 @@ from brainlink.features import FeatureEngine, UserSettings
 from brainlink.mental_state import MentalStateClassifier, STATE_META
 from brainlink.recorder import SessionRecorder
 from brainlink.simulator import EEGSimulator, AUTO_SCENARIOS
+from brainlink.fnirs_api import router as fnirs_router, fnirs_loop
 
 # ─── Optional hardware backends ──────────────────────────────────────
 try:
@@ -116,6 +118,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(fnirs_router)   # Mendi fNIRS — /api/v1/fnirs/…
 
 # ─── Calibration ──────────────────────────────────────────────────────
 
@@ -701,6 +704,7 @@ async def _broadcast(payload: str):
 @app.on_event("startup")
 async def startup():
     asyncio.create_task(eeg_loop())
+    asyncio.create_task(fnirs_loop())
 
 
 _HERE = Path(__file__).resolve().parent
@@ -710,6 +714,11 @@ app.mount("/static", StaticFiles(directory=str(_HERE / "dashboard")), name="stat
 @app.get("/")
 async def root():
     return FileResponse(str(_HERE / "dashboard" / "index.html"))
+
+
+@app.get("/fnirs")
+async def fnirs_dashboard():
+    return FileResponse(str(_HERE / "dashboard" / "fnirs.html"))
 
 
 # ─── Direct-run entry point ───────────────────────────────────────────
@@ -728,6 +737,7 @@ if __name__ == "__main__":
 
     print(f"\n  BrainLink v0.1")
     print(f"  Dashboard:  http://localhost:{PORT}")
+    print(f"  fNIRS:      http://localhost:{PORT}/fnirs   (Mendi)")
     print(f"  API docs:   http://localhost:{PORT}/docs")
     print(f"  Press Ctrl+C to stop\n")
     uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="warning")
