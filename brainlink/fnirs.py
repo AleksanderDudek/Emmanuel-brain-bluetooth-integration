@@ -87,10 +87,12 @@ class FNIRSConfig:
                 raise ValueError(f"No extinction data for {nm} nm. Known: {sorted(EXTINCTION)}")
         if self.red_nm == self.ir_nm:
             raise ValueError("red_nm and ir_nm must differ")
-        if not 0 <= self.hp_hz < min(self.lp_hz, fs / 2.0 * 0.95):
-            raise ValueError(f"need 0 <= hp_hz < lp_hz and hp_hz < {fs / 2.0 * 0.95:g} Hz (Nyquist)")
+        if not math.isfinite(fs) or fs <= 0:
+            raise ValueError("fs must be a positive, finite number")
         if self.lp_hz <= 0:
             raise ValueError("lp_hz must be positive")
+        if not 0 <= self.hp_hz < min(self.lp_hz, fs / 2.0 * 0.95):
+            raise ValueError(f"need 0 <= hp_hz < lp_hz and hp_hz < {fs / 2.0 * 0.95:g} Hz (Nyquist)")
         if self.separation_cm <= 0 or self.dpf_red <= 0 or self.dpf_ir <= 0:
             raise ValueError("separation_cm and DPF must be positive")
         if self.baseline_sec <= 0 or self.activation_window_sec <= 0:

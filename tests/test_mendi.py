@@ -284,7 +284,7 @@ def test_metrics_survive_lifted_optode():
 
 def test_set_config_rejects_unbuildable_and_keeps_old():
     pipe = FNIRSPipeline()
-    for bad in ({"hp_hz": 15, "lp_hz": 20},        # above Nyquist at 25 Hz
+    for bad in ({"hp_hz": 15, "lp_hz": 20},        # above Nyquist (15.3 Hz at 30.6 Hz)
                 {"separation_cm": float("nan")},
                 {"activation_window_sec": -1},
                 {"baseline_sec": 0}):
@@ -292,6 +292,10 @@ def test_set_config_rejects_unbuildable_and_keeps_old():
             pipe.set_config(**bad)
         assert pipe.config == FNIRSConfig()
     pipe.reset()  # still usable
+    for fs in (float("nan"), float("inf"), 0.0):
+        with pytest.raises(ValueError):
+            pipe.set_rate(fs)
+    assert pipe.fs == 30.6
 
 
 def test_ble_adapter_single_loop_under_concurrency():
