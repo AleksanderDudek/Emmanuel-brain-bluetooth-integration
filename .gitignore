@@ -28,6 +28,7 @@ Thumbs.db
 # Recorded EEG sessions (potentially large / personal data)
 recordings/*.csv
 recordings/*.json
+recordings/fnirs/
 
 # Calibration profiles saved locally
 *.calibration.json

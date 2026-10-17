@@ -110,6 +110,11 @@ class FNIRSSimulator:
                 return
 
     # ── Generation ─────────────────────────────────────────────────
+    def resync(self):
+        """Restart wall-clock pacing (e.g. after the simulator was not polled for a while)."""
+        self._wall_last = None
+        self._frac = 0.0
+
     def generate_frames(self) -> list[Frame]:
         """Return the frames that 'arrived' since the last call (wall-clock paced)."""
         now = time.monotonic()
@@ -131,7 +136,9 @@ class FNIRSSimulator:
         L_ir = self.cfg.separation_cm * self.cfg.dpf_ir
         # ~5 s time constant approximates the slow haemodynamic response
         alpha = 1.0 - math.exp(-dt / 5.0)
-        for _ in range(n):
+        # Spread the batch over the frame period so timestamps stay increasing
+        wall0 = time.time() - (n - 1) * dt
+        for i in range(n):
             if self.auto_mode:
                 self._update_auto()
             tgt = FNIRS_STATES[self.state]
@@ -192,7 +199,7 @@ class FNIRSSimulator:
                 ir_l=vals["l"][0], red_l=vals["l"][1], amb_l=vals["l"][2],
                 ir_r=vals["r"][0], red_r=vals["r"][1], amb_r=vals["r"][2],
                 ir_p=vals["p"][0], red_p=vals["p"][1], amb_p=vals["p"][2],
-                timestamp=time.time(),
+                timestamp=wall0 + i * dt,
             ))
             self.t += dt
         return frames

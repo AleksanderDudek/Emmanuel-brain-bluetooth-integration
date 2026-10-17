@@ -29,6 +29,7 @@ brainlink-desktop/
 ├── tests/              ← pytest suite (no hardware needed)
 ├── recordings/         ← Saved EEG sessions (gitignored)
 ├── requirements.txt
+├── requirements-dev.txt ← pytest, httpx, protobuf (tests only)
 └── LICENSE
 ```
 
@@ -173,7 +174,7 @@ accepts one BLE connection at a time), switch the band on and click
 | `POST` | `/baseline/reset` | Re-collect the I0 baseline |
 | `PATCH`| `/config` | Wavelengths, separation, DPF, filters |
 | `POST` | `/recording/start` · `/recording/stop` | CSV session in `recordings/fnirs/` |
-| `POST` | `/marker` | `{"label": "task_start"}` — event marker in the recording |
+| `POST` | `/marker` | `{"label": "task_start"}` — event marker in the recording (400 if not recording) |
 | `POST` | `/simulator/{state}` | `rest`, `task`, `high_load`, `relax`, `motion`, `poor_contact`, `auto:block_design`, `auto:n_back`, `auto:meditation` |
 | `WS`   | `/stream` | 10 Hz JSON frames; send `{"action":"marker","label":"…"}` to mark |
 
@@ -188,6 +189,9 @@ at the same time.
 
 ### Caveats
 
+- The ~25 Hz frame rate is assumed (as in the upstream client), not documented
+  by Mendi; frames carry no device timestamp.  The dashboard shows the
+  measured rate — if it differs much from 25 Hz, filters and heart rate drift.
 - Mendi does not publish LED wavelengths, source–detector separation or DPF.
   Defaults are 660 / 850 nm, 3 cm, DPF 6 — **treat ΔHbO/ΔHbR as relative**
   and change them via `PATCH /config` if you know better.
@@ -200,7 +204,7 @@ at the same time.
 ## Tests
 
 ```bash
-pip install pytest
+pip install -r requirements-dev.txt
 pytest
 ```
 

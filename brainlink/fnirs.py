@@ -30,11 +30,11 @@ from __future__ import annotations
 import math
 import time
 from collections import deque
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from typing import Optional
 
 import numpy as np
-from scipy.signal import butter, find_peaks, sosfilt, sosfilt_zi
+from scipy.signal import butter, find_peaks, sosfilt, sosfilt_zi, sosfiltfilt
 
 from .mendi_proto import Frame
 
@@ -76,16 +76,28 @@ class FNIRSConfig:
     motion_gyro_dps: float = 20.0    # gyro magnitude above this → motion
     motion_accel_g: float = 0.15     # |‖a‖ − 1 g| above this → motion
 
-    def validate(self):
+    def validate(self, fs: float = MENDI_SAMPLE_RATE):
+        for k, v in asdict(self).items():
+            if not math.isfinite(v):
+                raise ValueError(f"{k} must be a finite number")
         for nm in (self.red_nm, self.ir_nm):
             if nm not in EXTINCTION:
                 raise ValueError(f"No extinction data for {nm} nm. Known: {sorted(EXTINCTION)}")
         if self.red_nm == self.ir_nm:
             raise ValueError("red_nm and ir_nm must differ")
-        if not 0 <= self.hp_hz < self.lp_hz:
-            raise ValueError("need 0 <= hp_hz < lp_hz")
+        if not 0 <= self.hp_hz < min(self.lp_hz, fs / 2.0 * 0.95):
+            raise ValueError(f"need 0 <= hp_hz < lp_hz and hp_hz < {fs / 2.0 * 0.95:g} Hz (Nyquist)")
+        if self.lp_hz <= 0:
+            raise ValueError("lp_hz must be positive")
         if self.separation_cm <= 0 or self.dpf_red <= 0 or self.dpf_ir <= 0:
             raise ValueError("separation_cm and DPF must be positive")
+        if self.baseline_sec <= 0 or self.activation_window_sec <= 0:
+            raise ValueError("baseline_sec and activation_window_sec must be positive")
+
+
+def _sigmoid(x: float) -> float:
+    # Clamp: a lifted optode gives |ΔHb| in the hundreds of µM, and math.exp overflows past ~709
+    return 1.0 / (1.0 + math.exp(-max(-50.0, min(50.0, x))))
 
 
 def mbll_matrix_inv(cfg: FNIRSConfig) -> np.ndarray:
@@ -142,7 +154,7 @@ class FNIRSPipeline:
 
     def __init__(self, config: Optional[FNIRSConfig] = None, fs: float = MENDI_SAMPLE_RATE):
         self.config = config or FNIRSConfig()
-        self.config.validate()
+        self.config.validate(fs)
         self.fs = fs
         self.history_sec = 30.0
         self.reset()
@@ -181,9 +193,14 @@ class FNIRSPipeline:
 
     def set_config(self, **overrides) -> FNIRSConfig:
         cfg = FNIRSConfig(**{**asdict(self.config), **overrides})
-        cfg.validate()
-        self.config = cfg
-        self.reset()
+        cfg.validate(self.fs)
+        old, self.config = self.config, cfg
+        try:
+            self.reset()
+        except Exception:
+            self.config = old  # never leave a config whose filters could not be built
+            self.reset()
+            raise
         return cfg
 
     @property
@@ -292,7 +309,6 @@ class FNIRSPipeline:
             return None
         x = ir - np.mean(ir)
         try:
-            from scipy.signal import sosfiltfilt
             x = sosfiltfilt(_bandpass_sos(0.7, 3.5, self.fs, order=3), x)
         except ValueError:
             return None
@@ -317,7 +333,6 @@ class FNIRSPipeline:
         if red.size < self.fs * 5:
             return None
         try:
-            from scipy.signal import sosfiltfilt
             sos = _bandpass_sos(0.5, 2.5, self.fs, order=3)
             r = sosfiltfilt(sos, red - red.mean())
             i = sosfiltfilt(sos, ir - ir.mean())
@@ -373,9 +388,9 @@ class FNIRSPipeline:
             activation = 0.5
         else:
             z = (cur - float(np.mean(hist))) / sd
-            activation = 1.0 / (1.0 + math.exp(-z))
+            activation = _sigmoid(z)
         scale = max(sd, 0.05)
-        asym = 1.0 / (1.0 + math.exp(-(cur_r - cur_l) / scale))
+        asym = _sigmoid((cur_r - cur_l) / scale)
         return {"activation": round(activation, 3), "asymmetry": round(asym, 3)}
 
     def snapshot(self, preview_sec: float = 10.0) -> dict:
@@ -405,7 +420,7 @@ class FNIRSPipeline:
             "imu": None if f is None else {
                 "accel_g": [round(v, 3) for v in f.accel_g],
                 "gyro_dps": [round(v, 2) for v in f.gyro_dps],
-                "temp_c": round(f.temp, 2),
+                "temp_c": round(f.temp, 2) if math.isfinite(f.temp) else None,
             },
             "heart_rate_bpm": self.heart_rate(),
             "quality": self.signal_quality(),

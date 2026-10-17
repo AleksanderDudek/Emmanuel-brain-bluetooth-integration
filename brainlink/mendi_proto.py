@@ -16,7 +16,7 @@ Schema (field numbers)::
                  ir_l=8 red_l=9 amb_l=10 ir_r=11 red_r=12 amb_r=13
                  ir_p=14 red_p=15 amb_p=16
     Sensor       read=1(bool) address=2(uint32) data=3(fixed32)
-    Imu          read=1 address=2 data=3(bytes)
+    Imu          read=1(uint32, bytes to read) address=2 data=3(bytes)  [not used here]
     Adc          voltage=1(mV) charging=2(bool) usb=3(bool)
     Diagnostics  adc=1(Adc) imu_ok=2(bool) sensor_ok=3(bool)
     Calibration  offset_l=1 offset_r=2 offset_p=3 (float) enable=4 low_power_mode=5 (bool)
@@ -25,7 +25,7 @@ Schema (field numbers)::
 from __future__ import annotations
 
 import struct
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Iterator, Optional
 
 # ─── Wire primitives ──────────────────────────────────────────────────

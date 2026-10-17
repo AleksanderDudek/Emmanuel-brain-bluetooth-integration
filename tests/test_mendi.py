@@ -180,3 +180,151 @@ def test_config_validation():
         pipe.set_config(hp_hz=1.0)
     cfg = pipe.set_config(ir_nm=940, separation_cm=2.5, hp_hz=0.005)
     assert cfg.ir_nm == 940 and not pipe.baseline_ready
+
+
+# ─── Recorder / API ───────────────────────────────────────────────────
+
+@pytest.fixture
+def rec_dir(tmp_path, monkeypatch):
+    import brainlink.fnirs_api as api
+    import brainlink.fnirs_recorder as rec
+    monkeypatch.setattr(rec, "FNIRS_RECORDINGS_DIR", tmp_path)
+    monkeypatch.setattr(api, "FNIRS_RECORDINGS_DIR", tmp_path)
+    return tmp_path
+
+
+def test_simulator_timestamps_increase():
+    frames = FNIRSSimulator(seed=5).generate(50)
+    ts = [f.timestamp for f in frames]
+    assert all(b > a for a, b in zip(ts, ts[1:], strict=False))
+
+
+def test_recorder_roundtrip_and_markers(rec_dir):
+    import csv
+    import json
+    from brainlink.fnirs_recorder import CSV_HEADER, FNIRSRecorder
+
+    r = FNIRSRecorder()
+    assert r.mark("too_early") is None          # not recording → nothing stored
+    r.start("t", 60, "simulator", {"red_nm": 660})
+    sim, pipe = FNIRSSimulator(seed=6), FNIRSPipeline()
+    frames = sim.generate(30)
+    r.add(frames, pipe.push(frames))
+    r.mark("a")
+    r.mark("b")                                  # same frame → joined, not lost
+    frames = sim.generate(5)
+    r.add(frames, pipe.push(frames))
+    info = r.stop()
+    assert info["sample_count"] == 35 and info["markers"] == 2
+
+    with open(rec_dir / f"{info['session_id']}_fnirs.csv") as f:
+        rows = list(csv.reader(f))
+    assert rows[0] == CSV_HEADER and len(rows) == 36
+    assert [row[-1] for row in rows[1:] if row[-1]] == ["a|b"]
+    assert rows[31][-1] == "a|b"                 # first frame after the marks
+    meta = json.loads((rec_dir / f"{info['session_id']}_meta.json").read_text())
+    assert meta["end_time"] is not None and [m["label"] for m in meta["markers"]] == ["a", "b"]
+
+
+def test_recording_auto_stops_without_frames(rec_dir):
+    import brainlink.fnirs_api as api
+    from brainlink.fnirs_recorder import FNIRSRecorder
+
+    api.fstate.recorder = FNIRSRecorder()
+    api.fstate.source = "off"                    # no frames will arrive
+    try:
+        api.fstate.recorder.start("t", 10, "off", {})
+        api.fstate.recorder.start_time -= 11
+        api.fnirs_tick()
+        assert not api.fstate.recorder.recording
+    finally:
+        api.fstate.source = "simulator"
+
+
+def test_api_endpoints(rec_dir):
+    pytest.importorskip("httpx")
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    import brainlink.fnirs_api as api
+    from brainlink.fnirs_recorder import FNIRSRecorder
+
+    api.fstate.recorder = FNIRSRecorder()
+    api.fstate.pipeline = FNIRSPipeline()
+    app = FastAPI()
+    app.include_router(api.router)               # router only: no background loops
+    c = TestClient(app)
+
+    st = c.get("/api/v1/fnirs/status").json()
+    assert st["source"] == "simulator" and st["config"]["red_nm"] == 660
+    assert c.post("/api/v1/fnirs/marker", json={"label": "x"}).status_code == 400
+    assert c.patch("/api/v1/fnirs/config", json={"red_nm": 123}).status_code == 400
+    assert c.patch("/api/v1/fnirs/config", json={"bogus": 1}).status_code == 400
+    assert c.patch("/api/v1/fnirs/config", json={"dpf_ir": 6.5}).json()["config"]["dpf_ir"] == 6.5
+    assert c.post("/api/v1/fnirs/source/device").status_code == 400
+
+    start = c.post("/api/v1/fnirs/recording/start", json={"name": "api", "duration_sec": 60}).json()
+    assert start["recording"]
+    assert c.post("/api/v1/fnirs/marker", json={"label": "go"}).status_code == 200
+    sid = c.post("/api/v1/fnirs/recording/stop").json()["session_id"]
+    assert [r["session_id"] for r in c.get("/api/v1/fnirs/recordings").json()["recordings"]] == [sid]
+    assert c.get(f"/api/v1/fnirs/recordings/{sid}/csv").status_code == 200
+    assert c.get("/api/v1/fnirs/recordings/not-hex/csv").status_code == 400
+
+
+def test_metrics_survive_lifted_optode():
+    """Left optode off for > 60 s: huge ΔHb with a flat window used to overflow math.exp."""
+    from dataclasses import replace
+    sim, pipe = FNIRSSimulator(seed=1), FNIRSPipeline()
+    pipe.push(sim.generate(400))
+    for _ in range(20):
+        pipe.push([replace(f, ir_l=f.amb_l, red_l=f.amb_l) for f in sim.generate(100)])
+    m = pipe.metrics()
+    assert 0.0 <= m["asymmetry"] <= 1.0 and 0.0 <= m["activation"] <= 1.0
+
+
+def test_set_config_rejects_unbuildable_and_keeps_old():
+    pipe = FNIRSPipeline()
+    for bad in ({"hp_hz": 15, "lp_hz": 20},        # above Nyquist at 25 Hz
+                {"separation_cm": float("nan")},
+                {"activation_window_sec": -1},
+                {"baseline_sec": 0}):
+        with pytest.raises(ValueError):
+            pipe.set_config(**bad)
+        assert pipe.config == FNIRSConfig()
+    pipe.reset()  # still usable
+
+
+def test_ble_adapter_single_loop_under_concurrency():
+    pytest.importorskip("bleak")
+    import threading
+    from brainlink.mendi_ble import MendiBleAdapter
+
+    m = MendiBleAdapter()
+    ts = [threading.Thread(target=m._ensure_loop) for _ in range(8)]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    assert sum(t.name == "mendi-ble" for t in threading.enumerate()) == 1
+    loop = m._loop
+    m.close()
+    assert m._loop is None and loop.is_closed()
+    assert not any(t.name == "mendi-ble" for t in threading.enumerate())
+
+
+def test_api_input_validation(rec_dir):
+    pytest.importorskip("httpx")
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    import brainlink.fnirs_api as api
+    from brainlink.fnirs_recorder import FNIRSRecorder
+
+    api.fstate.recorder = FNIRSRecorder()
+    app = FastAPI()
+    app.include_router(api.router)
+    c = TestClient(app)
+    r = c.post("/api/v1/fnirs/device/calibration", json={"offset_l": 500})
+    assert r.status_code == 400 and "offset_l" in r.json()["detail"]
+    assert c.post("/api/v1/fnirs/recording/start", json={"duration_sec": "abc"}).status_code == 400
+    (rec_dir / "broken_meta.json").write_text("{not json")
+    assert c.get("/api/v1/fnirs/recordings").json() == {"recordings": []}

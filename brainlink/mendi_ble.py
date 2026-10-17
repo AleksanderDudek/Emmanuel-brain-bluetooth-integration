@@ -89,7 +89,10 @@ class MendiBleAdapter:
         self._name: Optional[str] = None
         self._firmware = "unknown"
         self._hardware = "unknown"
-        self._lock = threading.Lock()
+        self._lock = threading.Lock()       # frame buffer (BLE thread vs. drain)
+        # Serialises scan/connect/stream/disconnect: API handlers call these via
+        # asyncio.to_thread, so a double-clicked "connect" would otherwise race.
+        self._op_lock = threading.RLock()
         self._frames: deque[Frame] = deque(maxlen=int(buffer_sec * MENDI_SAMPLE_RATE * 2))
         self._dropped = 0
         self._invalid = 0
@@ -103,12 +106,14 @@ class MendiBleAdapter:
 
     # ── async plumbing (same pattern as HALOBleAdapter) ────────────
     def _ensure_loop(self):
-        if self._loop is not None and self._loop.is_running():
-            return
-        self._loop = asyncio.new_event_loop()
-        self._thread = threading.Thread(target=self._loop.run_forever, daemon=True,
-                                        name="mendi-ble")
-        self._thread.start()
+        with self._op_lock:
+            # is_running() can still be False right after Thread.start(); is_closed() cannot race
+            if self._loop is not None and not self._loop.is_closed():
+                return
+            self._loop = asyncio.new_event_loop()
+            self._thread = threading.Thread(target=self._loop.run_forever, daemon=True,
+                                            name="mendi-ble")
+            self._thread.start()
 
     def _run(self, coro, timeout: float = 30):
         self._ensure_loop()
@@ -116,7 +121,8 @@ class MendiBleAdapter:
 
     # ── Scanning ───────────────────────────────────────────────────
     def scan(self, timeout: float = 6.0) -> list[dict]:
-        return self._run(self._async_scan(timeout), timeout=timeout + 10)
+        with self._op_lock:
+            return self._run(self._async_scan(timeout), timeout=timeout + 10)
 
     async def _async_scan(self, timeout: float) -> list[dict]:
         found = await BleakScanner.discover(timeout=timeout, return_adv=True)
@@ -130,9 +136,13 @@ class MendiBleAdapter:
 
     # ── Connection ─────────────────────────────────────────────────
     def connect(self, address_or_name: str = MENDI_NAME_PREFIX) -> dict:
-        return self._run(self._async_connect(address_or_name), timeout=45)
+        with self._op_lock:
+            return self._run(self._async_connect(address_or_name), timeout=45)
 
     async def _async_connect(self, target: str) -> dict:
+        if self.is_connected:
+            # A second BleakClient would orphan the first and keep the band busy
+            return {"status": "already_connected", **self.device_info}
         address = target
         if not self._looks_like_address(target):
             devices = await self._async_scan(8.0)
@@ -185,23 +195,25 @@ class MendiBleAdapter:
         self._streaming = False
 
     def disconnect(self):
-        if self._streaming:
-            self.stop_stream()
-        if self._client is not None:
-            try:
-                self._run(self._client.disconnect(), timeout=10)
-            except Exception:
-                pass
-        self._connected = False
-        self._client = None
-        self._address = None
+        with self._op_lock:
+            if self._streaming:
+                self.stop_stream()
+            if self._client is not None:
+                try:
+                    self._run(self._client.disconnect(), timeout=10)
+                except Exception as exc:
+                    log.warning("Mendi disconnect failed: %s", exc)
+            self._connected = False
+            self._client = None
+            self._address = None
 
     # ── Streaming ──────────────────────────────────────────────────
     def start_stream(self):
-        if not self.is_connected:
-            raise RuntimeError("Not connected")
-        self._run(self._async_start_stream())
-        self._streaming = True
+        with self._op_lock:
+            if not self.is_connected:
+                raise RuntimeError("Not connected")
+            self._run(self._async_start_stream())
+            self._streaming = True
 
     async def _async_start_stream(self):
         with self._lock:
@@ -215,12 +227,13 @@ class MendiBleAdapter:
         log.info("Mendi stream started")
 
     def stop_stream(self):
-        if self._client is not None and self._streaming:
-            try:
-                self._run(self._async_stop_stream(), timeout=10)
-            except Exception:
-                pass
-        self._streaming = False
+        with self._op_lock:
+            if self._client is not None and self._streaming:
+                try:
+                    self._run(self._async_stop_stream(), timeout=10)
+                except Exception as exc:
+                    log.warning("Mendi stop-stream failed: %s", exc)
+            self._streaming = False
 
     async def _async_stop_stream(self):
         try:
@@ -238,7 +251,8 @@ class MendiBleAdapter:
         if not self.is_connected:
             raise RuntimeError("Not connected")
         payload = Calibration(offset_l, offset_r, offset_p, auto, low_power).encode()
-        self._run(self._client.write_gatt_char(CHR_CALIBRATION, payload, response=True))
+        with self._op_lock:
+            self._run(self._client.write_gatt_char(CHR_CALIBRATION, payload, response=True))
 
     # ── Notification handlers (run on the BLE loop thread) ─────────
     def _on_frame(self, _sender, data: bytearray):
@@ -309,13 +323,19 @@ class MendiBleAdapter:
         }
 
     def close(self):
-        self.disconnect()
-        if self._loop and self._loop.is_running():
-            self._loop.call_soon_threadsafe(self._loop.stop)
-            if self._thread:
-                self._thread.join(timeout=5)
-        self._loop = None
-        self._thread = None
+        with self._op_lock:
+            self.disconnect()
+            loop, thread = self._loop, self._thread
+            self._loop = self._thread = None
+            if loop is None:
+                return
+            loop.call_soon_threadsafe(loop.stop)
+            if thread is not None:
+                thread.join(timeout=5)
+            if thread is None or not thread.is_alive():
+                loop.close()
+            else:
+                log.warning("Mendi BLE loop thread did not stop within 5 s")
 
     @staticmethod
     def _looks_like_address(s: str) -> bool:

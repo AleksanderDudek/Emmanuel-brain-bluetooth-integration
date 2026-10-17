@@ -35,6 +35,7 @@ import threading
 
 import numpy as np
 import webbrowser
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
@@ -51,7 +52,7 @@ from brainlink.features import FeatureEngine, UserSettings
 from brainlink.mental_state import MentalStateClassifier, STATE_META
 from brainlink.recorder import SessionRecorder
 from brainlink.simulator import EEGSimulator, AUTO_SCENARIOS
-from brainlink.fnirs_api import router as fnirs_router, fnirs_loop
+from brainlink.fnirs_api import router as fnirs_router, fnirs_loop, fnirs_shutdown
 
 # ─── Optional hardware backends ──────────────────────────────────────
 try:
@@ -111,7 +112,19 @@ state = AppState()
 
 # ─── FastAPI application ──────────────────────────────────────────────
 
-app = FastAPI(title="BrainLink", version="0.1.0")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Keep references so the background loops cannot be garbage-collected
+    tasks = [asyncio.create_task(eeg_loop()), asyncio.create_task(fnirs_loop())]
+    yield
+    state.running = False
+    for t in tasks:
+        t.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+    await asyncio.to_thread(fnirs_shutdown)
+
+
+app = FastAPI(title="BrainLink", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -699,13 +712,7 @@ async def _broadcast(payload: str):
             state.ws_clients.remove(ws)
 
 
-# ─── Startup / static files ───────────────────────────────────────────
-
-@app.on_event("startup")
-async def startup():
-    asyncio.create_task(eeg_loop())
-    asyncio.create_task(fnirs_loop())
-
+# ─── Static files ─────────────────────────────────────────────────────
 
 _HERE = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=str(_HERE / "dashboard")), name="static")

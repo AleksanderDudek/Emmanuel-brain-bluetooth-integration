@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import threading
 import time
 import uuid
@@ -63,22 +64,33 @@ class FNIRSRecorder:
         self._save_meta()
         return self.info()
 
-    def mark(self, label: str) -> dict:
-        """Attach an event label to the next recorded frame (e.g. 'task_start')."""
-        m = {"label": label, "time": time.time(),
-             "t_sec": round(time.time() - self.start_time, 3) if self.recording else None}
+    def mark(self, label: str) -> Optional[dict]:
+        """
+        Attach an event label to the next recorded frame (e.g. 'task_start').
+        Returns ``None`` when no recording is in progress.  Labels that arrive
+        before the next frame are joined with ``|`` so none are lost.
+        """
+        if not self.recording:
+            return None
+        now = time.time()
+        m = {"label": label, "time": now, "t_sec": round(now - self.start_time, 3)}
         with self._lock:
-            self._pending_marker = label
-            if self.recording:
-                self.markers.append(m)
+            self._pending_marker = f"{self._pending_marker}|{label}" if self._pending_marker else label
+            self.markers.append(m)
         return m
+
+    def stop_if_expired(self) -> bool:
+        """Stop the session once its duration is reached. Returns True if it stopped."""
+        if self.recording and time.time() - self.start_time >= self.duration_sec:
+            self.stop()
+            return True
+        return False
 
     def add(self, frames: list[Frame], derived: dict[str, np.ndarray]) -> bool:
         """Append frames. Returns True if auto-stopped because duration was reached."""
         if not self.recording or self._writer is None:
             return False
-        if time.time() - self.start_time >= self.duration_sec:
-            self.stop()
+        if self.stop_if_expired():
             return True
         with self._lock:
             for i, f in enumerate(frames):
@@ -136,5 +148,9 @@ class FNIRSRecorder:
             "markers": self.markers,
             "notes": self.notes,
         }
-        with open(FNIRS_RECORDINGS_DIR / f"{self.session_id}_meta.json", "w") as f:
+        # Write-then-rename so a concurrent listing never sees a half-written file
+        path = FNIRS_RECORDINGS_DIR / f"{self.session_id}_meta.json"
+        tmp = path.with_suffix(".json.tmp")
+        with open(tmp, "w") as f:
             json.dump(meta, f, indent=2)
+        os.replace(tmp, path)

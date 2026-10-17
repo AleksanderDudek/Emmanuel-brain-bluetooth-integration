@@ -11,8 +11,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import time
 import traceback
+from dataclasses import asdict
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
@@ -53,33 +55,48 @@ fstate = FNIRSState()
 router = APIRouter(prefix="/api/v1/fnirs", tags=["fNIRS (Mendi)"])
 
 
+def _config() -> dict:
+    return asdict(fstate.pipeline.config)
+
+
 def _require_ble():
     if not HAS_BLEAK:
         raise HTTPException(501, "bleak is not installed — run: pip install bleak")
 
 
-def _switch_source(name: str):
-    if name != fstate.source:
-        fstate.pipeline.reset()  # new signal → new baseline
-        fstate.simulator._wall_last = None
+def _switch_source(name: str, force: bool = False):
+    """Change source. A new signal, or a restarted stream, needs a new baseline."""
+    if force or name != fstate.source:
+        fstate.pipeline.reset()
+        fstate.simulator.resync()
+        if name == "device" and fstate.mendi is not None:
+            fstate.mendi.drain()  # drop frames buffered while another source was active
     fstate.source = name
+
+
+def _offset_ma(body: dict, key: str) -> float:
+    try:
+        v = float(body.get(key, 0))
+    except (TypeError, ValueError):
+        raise HTTPException(400, f"{key} must be a number") from None
+    if not math.isfinite(v) or abs(v) > 127:
+        raise HTTPException(400, f"{key} must be within ±127 mA")
+    return v
 
 
 # ─── Status / device ──────────────────────────────────────────────────
 
 @router.get("/status")
 async def fnirs_status():
-    dev = fstate.mendi
     return {
         "ble_available": HAS_BLEAK,
         "source": fstate.source,
         "simulator": {"state": fstate.simulator.state, "auto": fstate.simulator.auto_progress},
-        "device": ({**dev.device_info, "connected": dev.is_connected, "streaming": dev.is_streaming}
-                   if dev and dev.is_connected else {"connected": False, "streaming": False}),
+        "device": _device_block(),
         "baseline_ready": fstate.pipeline.baseline_ready,
         "baseline_progress": fstate.pipeline.baseline_progress,
         "recording": fstate.recorder.info(),
-        "config": fstate.pipeline.snapshot()["config"],
+        "config": _config(),
     }
 
 
@@ -89,7 +106,7 @@ async def fnirs_scan(timeout: float = 6.0):
     try:
         return {"devices": await asyncio.to_thread(fstate.device().scan, timeout)}
     except Exception as exc:
-        raise HTTPException(500, f"Scan failed: {exc}")
+        raise HTTPException(500, f"Scan failed: {exc}") from exc
 
 
 @router.post("/device/connect")
@@ -99,7 +116,7 @@ async def fnirs_connect(body: Optional[dict] = None):
     try:
         return await asyncio.to_thread(fstate.device().connect, target)
     except Exception as exc:
-        raise HTTPException(500, f"Connection failed: {exc}")
+        raise HTTPException(500, f"Connection failed: {exc}") from exc
 
 
 @router.post("/device/disconnect")
@@ -121,8 +138,8 @@ async def fnirs_start_stream():
     try:
         await asyncio.to_thread(dev.start_stream)
     except Exception as exc:
-        raise HTTPException(500, f"Failed to start stream: {exc}")
-    _switch_source("device")
+        raise HTTPException(500, f"Failed to start stream: {exc}") from exc
+    _switch_source("device", force=True)  # e.g. after a BLE drop the source is still "device"
     return {"status": "streaming", "source": "device"}
 
 
@@ -139,18 +156,17 @@ async def fnirs_stop_stream():
 @router.post("/device/calibration")
 async def fnirs_calibration(body: dict):
     """Advanced: write LED offsets (mA, ±127) / auto-calibration / low-power mode."""
+    offsets = [_offset_ma(body, k) for k in ("offset_l", "offset_r", "offset_p")]
     dev = fstate.mendi
     if not dev or not dev.is_connected:
         raise HTTPException(400, "No Mendi connected")
     try:
         await asyncio.to_thread(
-            dev.set_calibration,
-            float(body.get("offset_l", 0)), float(body.get("offset_r", 0)),
-            float(body.get("offset_p", 0)), bool(body.get("auto", True)),
-            bool(body.get("low_power", False)),
+            dev.set_calibration, *offsets,
+            bool(body.get("auto", True)), bool(body.get("low_power", False)),
         )
     except Exception as exc:
-        raise HTTPException(500, f"Calibration write failed: {exc}")
+        raise HTTPException(500, f"Calibration write failed: {exc}") from exc
     return {"ok": True}
 
 
@@ -158,13 +174,18 @@ async def fnirs_calibration(body: dict):
 async def fnirs_set_source(name: str):
     if name not in ("simulator", "device", "off"):
         raise HTTPException(400, "source must be 'simulator', 'device' or 'off'")
+    restarted = False
     if name == "device":
         dev = fstate.mendi
         if not dev or not dev.is_connected:
             raise HTTPException(400, "No Mendi connected")
         if not dev.is_streaming:
-            await asyncio.to_thread(dev.start_stream)
-    _switch_source(name)
+            try:
+                await asyncio.to_thread(dev.start_stream)
+            except Exception as exc:
+                raise HTTPException(500, f"Failed to start stream: {exc}") from exc
+            restarted = True
+    _switch_source(name, force=restarted)
     return {"source": fstate.source}
 
 
@@ -181,7 +202,7 @@ async def fnirs_sim_set(sim_state: str):
     try:
         fstate.simulator.set_state(sim_state)
     except ValueError as exc:
-        raise HTTPException(400, str(exc))
+        raise HTTPException(400, str(exc)) from exc
     return {"state": fstate.simulator.state, "auto": fstate.simulator.auto_progress}
 
 
@@ -196,7 +217,7 @@ async def fnirs_baseline_reset():
 
 @router.get("/config")
 async def fnirs_get_config():
-    return {"config": fstate.pipeline.snapshot()["config"], "known_wavelengths_nm": sorted(EXTINCTION)}
+    return {"config": _config(), "known_wavelengths_nm": sorted(EXTINCTION)}
 
 
 @router.patch("/config")
@@ -204,9 +225,9 @@ async def fnirs_patch_config(body: dict):
     try:
         cfg = fstate.pipeline.set_config(**body)
     except (TypeError, ValueError) as exc:
-        raise HTTPException(400, str(exc))
+        raise HTTPException(400, str(exc)) from exc
     fstate.simulator.cfg = cfg
-    return {"config": fstate.pipeline.snapshot()["config"], "note": "baseline reset"}
+    return {"config": _config(), "note": "baseline reset"}
 
 
 @router.get("/snapshot")
@@ -221,10 +242,12 @@ async def fnirs_rec_start(body: Optional[dict] = None):
     body = body or {}
     if fstate.recorder.recording:
         raise HTTPException(400, "Recording already in progress")
-    name = (body.get("name") or "").strip() or f"fnirs_{int(time.time())}"
-    duration = max(10, min(7200, int(body.get("duration_sec", 600))))
-    return fstate.recorder.start(name, duration, fstate.source,
-                                 fstate.pipeline.snapshot()["config"])
+    name = str(body.get("name") or "").strip() or f"fnirs_{int(time.time())}"
+    try:
+        duration = max(10, min(7200, int(body.get("duration_sec", 600))))
+    except (TypeError, ValueError, OverflowError):
+        raise HTTPException(400, "duration_sec must be an integer") from None
+    return fstate.recorder.start(name, duration, fstate.source, _config())
 
 
 @router.post("/recording/stop")
@@ -239,7 +262,10 @@ async def fnirs_marker(body: dict):
     label = str(body.get("label", "")).strip()
     if not label:
         raise HTTPException(400, "label is required")
-    return fstate.recorder.mark(label[:64])
+    marker = fstate.recorder.mark(label[:64])
+    if marker is None:
+        raise HTTPException(400, "No recording in progress — markers are stored in recordings")
+    return marker
 
 
 @router.get("/recordings")
@@ -247,8 +273,11 @@ async def fnirs_recordings():
     recs = []
     if FNIRS_RECORDINGS_DIR.exists():
         for p in sorted(FNIRS_RECORDINGS_DIR.glob("*_meta.json"), reverse=True):
-            with open(p) as f:
-                recs.append(json.load(f))
+            try:
+                with open(p) as f:
+                    recs.append(json.load(f))
+            except (OSError, json.JSONDecodeError) as exc:
+                log.warning("Skipping unreadable fNIRS meta %s: %s", p.name, exc)
     return {"recordings": recs}
 
 
@@ -289,6 +318,8 @@ async def fnirs_ws(ws: WebSocket):
 
 def fnirs_tick() -> Optional[dict]:
     """One processing cycle. Returns the frame to broadcast (or None)."""
+    if fstate.recorder.stop_if_expired():
+        log.info("fNIRS recording auto-stopped (duration reached)")
     if fstate.source == "off":
         return {"ts": int(time.time() * 1000), "source": "off",
                 "device": _device_block(), "recording": fstate.recorder.info()}
@@ -343,6 +374,18 @@ async def fnirs_loop():
             traceback.print_exc()
             await asyncio.sleep(1.0)
         await asyncio.sleep(max(0.0, interval - (time.time() - t0)))
+
+
+def fnirs_shutdown():
+    """Stop the loop, close any open recording and release the Mendi."""
+    fstate.running = False
+    if fstate.recorder.recording:
+        fstate.recorder.stop()
+    if fstate.mendi is not None:
+        try:
+            fstate.mendi.close()
+        except Exception:
+            log.exception("Error while closing the Mendi adapter")
 
 
 def _json_default(o):

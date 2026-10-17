@@ -199,8 +199,8 @@ label.f{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;co
   <div class="card">
     <div class="card-head">Nagrywanie <span class="badge" id="recBadge">—</span></div>
     <div class="row">
-      <input id="recName" placeholder="nazwa sesji" style="flex:1">
-      <input id="recDur" type="number" value="600" min="10" max="7200" style="width:70px" title="czas trwania [s]">
+      <input id="recName" aria-label="Nazwa sesji" placeholder="nazwa sesji" style="flex:1">
+      <input id="recDur" aria-label="Czas trwania w sekundach" type="number" value="600" min="10" max="7200" style="width:70px" title="czas trwania [s]">
     </div>
     <div class="row" style="margin-top:8px">
       <button class="btn" id="btnRec">● Start</button>
@@ -211,7 +211,7 @@ label.f{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;co
       <button class="btn" data-mark="task_end">koniec</button>
     </div>
     <div class="row" style="margin-top:6px">
-      <input id="markCustom" placeholder="własny znacznik" style="flex:1">
+      <input id="markCustom" aria-label="Własny znacznik" placeholder="własny znacznik" style="flex:1">
       <button class="btn" id="btnMark">Dodaj</button>
     </div>
     <div class="recs" id="recList"></div>
@@ -238,6 +238,8 @@ label.f{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;co
 <script>
 const API = '/api/v1/fnirs';
 const $ = id => document.getElementById(id);
+// Escape anything that did not originate in this page (BLE names, user input) before innerHTML
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt = (v, d=2) => (v === null || v === undefined || Number.isNaN(v)) ? '—' : Number(v).toFixed(d);
 
 function toast(msg, err=false){
@@ -328,7 +330,7 @@ function render(f){
 
   if (f.quality){
     $('quality').innerHTML = Object.entries(f.quality).map(([ch, q]) =>
-      `<div class="qc ${q.label}"><div class="n">${CHN[ch] || ch}</div><div class="l">${QL[q.label] || q.label}</div>
+      `<div class="qc ${esc(q.label)}"><div class="n">${esc(CHN[ch] || ch)}</div><div class="l">${esc(QL[q.label] || q.label)}</div>
        <div class="d">SCI ${fmt(q.sci)} · amb ${q.ambient_ratio === null ? '—' : Math.round(q.ambient_ratio*100)+'%'}</div></div>`).join('');
   }
   if (f.raw){
@@ -355,8 +357,8 @@ function renderDevice(d){
   b.className = 'badge ' + (d.streaming && !d.data_stale ? 'ok' : 'warn');
   const bat = d.battery ? `${d.battery.percent}% (${(d.battery.voltage_mv/1000).toFixed(2)} V)${d.battery.charging ? ' ⚡' : ''}` : '—';
   const diag = d.diagnostics ? `IMU ${d.diagnostics.imu_ok ? 'OK' : '✗'} · sensor ${d.diagnostics.sensor_ok ? 'OK' : '✗'}` : '—';
-  $('devKv').innerHTML = `<span>nazwa</span><span>${d.device_name || d.address}</span><span>bateria</span><span>${bat}</span>
-    <span>firmware</span><span>${d.firmware}</span><span>diagnostyka</span><span>${diag}</span>
+  $('devKv').innerHTML = `<span>nazwa</span><span>${esc(d.device_name || d.address)}</span><span>bateria</span><span>${bat}</span>
+    <span>firmware</span><span>${esc(d.firmware)}</span><span>diagnostyka</span><span>${diag}</span>
     <span>utracone</span><span>${d.frames_dropped} / błędne ${d.frames_invalid}</span>`;
 }
 
@@ -364,6 +366,8 @@ function renderRec(r){
   const b = $('recBadge');
   if (r && r.recording){ b.textContent = `REC ${Math.floor(r.elapsed_sec)} s · ${r.markers} zn.`; b.className = 'badge warn'; }
   else { b.textContent = 'gotowe'; b.className = 'badge'; }
+  const rec = !!(r && r.recording);
+  document.querySelectorAll('[data-mark], #btnMark').forEach(x => { x.disabled = !rec; x.title = rec ? '' : 'Znaczniki zapisują się tylko podczas nagrywania'; });
 }
 
 // ── controls ──────────────────────────────────────────────────────
@@ -375,8 +379,8 @@ $('btnScan').onclick = run(async () => {
   $('devList').innerHTML = '<span class="muted">Skanowanie…</span>';
   const {devices} = await api('/device/scan', 'POST');
   $('devList').innerHTML = devices.length ? devices.map(d =>
-    `<div class="dev"><span>${d.name} <span class="muted">${d.rssi ?? ''} dBm</span></span>
-     <button class="btn" data-addr="${d.address}">Połącz</button></div>`).join('')
+    `<div class="dev"><span>${esc(d.name)} <span class="muted">${esc(d.rssi)} dBm</span></span>
+     <button class="btn" data-addr="${esc(d.address)}">Połącz</button></div>`).join('')
     : '<span class="muted">Nie znaleziono opaski Mendi.</span>';
   document.querySelectorAll('[data-addr]').forEach(x => x.onclick = run(() => connect(x.dataset.addr)));
 });
@@ -407,8 +411,8 @@ async function loadRecs(){
   try {
     const {recordings} = await api('/recordings');
     $('recList').innerHTML = recordings.slice(0, 20).map(r =>
-      `<div class="rec"><span>${r.name}<br><span class="muted">${new Date(r.start_time*1000).toLocaleString()} · ${r.sample_count} ramek</span></span>
-       <a href="${API}/recordings/${r.session_id}/csv">CSV</a></div>`).join('') || '<span class="muted">Brak nagrań</span>';
+      `<div class="rec"><span>${esc(r.name)}<br><span class="muted">${new Date(r.start_time*1000).toLocaleString()} · ${esc(r.sample_count)} ramek</span></span>
+       <a href="${API}/recordings/${encodeURIComponent(r.session_id)}/csv">CSV</a></div>`).join('') || '<span class="muted">Brak nagrań</span>';
   } catch(e){}
 }
 
