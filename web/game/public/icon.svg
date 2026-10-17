@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="38%" r="70%">
+      <stop offset="0" stop-color="#2a2550"/>
+      <stop offset="1" stop-color="#07080f"/>
+    </radialGradient>
+    <radialGradient id="light" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fff6d6" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffd76a" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
+  <circle cx="256" cy="250" r="190" fill="url(#light)"/>
+  <!-- six wings of the Seraph (Iz 6,2) -->
+  <g fill="#fff6e0" fill-opacity="0.92">
+    <path d="M232 250c-60-70-130-80-170-60 30 10 60 30 80 60-30-8-60-4-84 12 46 0 92 10 128 30z"/>
+    <path d="M280 250c60-70 130-80 170-60-30 10-60 30-80 60 30-8 60-4 84 12-46 0-92 10-128 30z"/>
+    <path d="M236 200c-26-60-70-92-112-100 22 22 38 50 44 80 18 4 44 10 68 20z" fill-opacity="0.7"/>
+    <path d="M276 200c26-60 70-92 112-100-22 22-38 50-44 80-18 4-44 10-68 20z" fill-opacity="0.7"/>
+    <path d="M238 300c-30 40-72 64-112 70 24-20 42-42 50-68 20 0 42-2 62-2z" fill-opacity="0.7"/>
+    <path d="M274 300c30 40 72 64 112 70-24-20-42-42-50-68-20 0-42-2-62-2z" fill-opacity="0.7"/>
+  </g>
+  <!-- the little angel -->
+  <circle cx="256" cy="232" r="30" fill="#ffefd9"/>
+  <path d="M232 262h48l18 78h-84z" fill="#ffffff"/>
+  <ellipse cx="256" cy="186" rx="40" ry="13" fill="none" stroke="#ffd76a" stroke-width="10"/>
+  <text x="256" y="430" text-anchor="middle" font-family="Georgia, serif" font-size="44" fill="#ffd76a" letter-spacing="6">HOLY</text>
+</svg>

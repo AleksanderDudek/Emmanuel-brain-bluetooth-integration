@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'">
+<meta name="description" content="HolyHolyHoly — jesteś aniołem stróżem. Zjadaj i trawisz traumy, zamieniając je w prawdę i moc. Chorał, modlitwa, opcjonalnie opaska Mendi.">
+<meta name="color-scheme" content="dark">
+<title>HolyHolyHoly</title>
+</head>
+<body>
+<div id="app">
+  <canvas id="stage" aria-label="Pole gry — przeciągnij, aby iść; puść, aby się modlić"></canvas>
+  <div id="hud">
+    <button id="btnPause" class="hud-btn" type="button" aria-label="Pauza">❚❚</button>
+    <button id="btnUltimate" class="hud-btn ult" type="button" disabled hidden>Przyjdź, Duchu!</button>
+  </div>
+  <div id="banner" role="status" hidden></div>
+  <div id="overlay"></div>
+  <div class="toast" id="toast" role="status"></div>
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

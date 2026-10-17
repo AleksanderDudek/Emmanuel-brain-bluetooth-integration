@@ -88,6 +88,20 @@ implementation (`npm run fixtures` regenerates them; needs Python with numpy
 and scipy). A strict Content-Security-Policy is set in `index.html`; fonts are
 bundled (no third-party requests), so the app works fully offline.
 
+## HolyHolyHoly (the game)
+
+`game/` is a second app in this package: **HolyHolyHoly**, a calm Christian
+action game (Pac-Man × Archero × survivors) in which a guardian angel eats and
+digests traumas, turning them into truths. It is served at `/holyholyholy/` as
+its own installable PWA and reuses BrainLink's Mendi Bluetooth adapter, fNIRS
+pipeline and balance tracker for optional prefrontal-cortex training.
+Design (Polish): [game/DESIGN.md](game/DESIGN.md).
+
+```bash
+npm run dev:game     # http://localhost:5173/holyholyholy/
+npm run build        # builds BrainLink and the game into dist/ and dist/holyholyholy/
+```
+
 ## Not in the web app (yet)
 
 - **BrainAccess HALO EEG** — still served by the Python server (`/`): it uses

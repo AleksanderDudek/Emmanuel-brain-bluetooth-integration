@@ -40,13 +40,19 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: 'index.html',
-        cleanupOutdatedCaches: true,
+        // the game (dist/holyholyholy) is a separate PWA with its own service worker
+        navigateFallbackDenylist: [/\/holyholyholy(\/|$)/],
+        globIgnores: ['holyholyholy/**'],
+        // Off on purpose: Workbox deletes every "-precache-" cache whose name contains this SW's scope, and the
+        // game's cache name (…-precache-v2-<scope>holyholyholy/) does, so each BrainLink update would wipe the
+        // game's offline copy. Precache v2 already prunes its own stale entries.
+        cleanupOutdatedCaches: false,
       },
       devOptions: { enabled: false },
     }),
   ],
   test: {
     environment: 'happy-dom',
-    include: ['test/**/*.test.ts'],
+    include: ['test/**/*.test.ts', 'game/test/**/*.test.ts'],
   },
 });
