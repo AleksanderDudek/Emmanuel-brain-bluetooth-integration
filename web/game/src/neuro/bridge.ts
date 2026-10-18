@@ -15,7 +15,9 @@ const STALE_SEC = 1.5;
 
 export class NeuroBridge extends EventTarget {
   readonly device: MendiDevice;
-  private pipeline = new FNIRSPipeline();
+  // activation is judged against the last five minutes (BrainLink uses one): held focus stays above its
+  // reference instead of becoming the new normal, which the focus multiplier needs
+  private pipeline = new FNIRSPipeline({ activation_window_sec: 300 });
   private readonly balance = new BalanceTracker();
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastFramesAt: number | null = null;

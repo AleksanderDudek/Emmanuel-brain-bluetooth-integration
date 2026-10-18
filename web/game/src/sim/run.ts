@@ -23,7 +23,8 @@ export interface RunMods {
   digestMult: number;
   magnet: number;
   graceBonus: number;
-  spiritMult: number;
+  /** Fire of the Spirit charging speed (Faithfulness) */
+  fireMult: number;
   dmgMult: number;
   stillFireMult: number;
 }
@@ -37,7 +38,7 @@ export function modsFrom(fruits: Partial<Record<FruitId, number>>, rankIndex: nu
     digestMult: 1 + 0.15 * f('cierpliwosc'),
     magnet: 0.5 * f('uprzejmosc'),
     graceBonus: f('dobroc'),
-    spiritMult: 1 + 0.15 * f('wiernosc'),
+    fireMult: 1 + 0.15 * f('wiernosc'),
     dmgMult: (1 + 0.08 * f('lagodnosc')) * (1 + 0.02 * rankIndex),
     stillFireMult: 1 + 0.1 * f('opanowanie'),
   };
@@ -65,7 +66,8 @@ export class Run {
   xp = 0;
   /** Light earned this run (already multiplied by Joy) */
   light = 0;
-  spirit = 0;
+  /** Fire of the Spirit, in flames (0..FIRE_MAX): charged by focus, spent on tongues of fire and Pentecost */
+  fire = 0;
   hearts: number;
   maxHearts: number;
   helmUsed = false;

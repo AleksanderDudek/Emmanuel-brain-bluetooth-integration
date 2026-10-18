@@ -4,6 +4,7 @@
  * and turns its events into particles, rings and floating words of truth.
  */
 import type { Effects } from '../neuro/effects';
+import { THRESHOLD, type FocusSource } from '../neuro/focus';
 import type { GameEvent } from '../sim/events';
 import { DOOR, ROOM_H, ROOM_W } from '../sim/room';
 import { GRACE_TIME, SABBATH_REST, type World } from '../sim/world';
@@ -21,12 +22,16 @@ export interface ViewState {
   fx: Effects;
   joystick: Joystick | null;
   hint: string;
-  showSpirit: boolean;
   bandConnected: boolean;
 }
 
+/** what the focus meter says about where focus comes from */
+const SOURCE_TAG: Readonly<Record<FocusSource, string>> = { band: 'opaska', voice: 'głos', still: 'bezruch', none: 'w ruchu' };
+
 const HUD_TOP = 70;
 const HUD_BOTTOM = 84;
+/** width kept free for the Fire button (bottom right) */
+const FIRE_BUTTON_W = 124;
 const MAX_PARTICLES = 420;
 
 export class Renderer {
@@ -51,6 +56,9 @@ export class Renderer {
   private traumaColors = new Map<TraumaKind, string>();
   private look: AngelLook = { robe: ['#ffffff', '#cfd8ff'], halo: ['#ffd76a', '#fff1a8'], wings: ['#ffffff', '#dfe8ff'], wingCount: 2 };
   reducedMotion = false;
+  /** env(safe-area-inset-top/bottom): the notch and the home indicator of an installed PWA (viewport-fit=cover) */
+  private safeTop = 0;
+  private safeBottom = 0;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
@@ -64,10 +72,11 @@ export class Renderer {
     this.h = r.height;
     this.canvas.width = Math.max(1, Math.round(r.width * this.dpr));
     this.canvas.height = Math.max(1, Math.round(r.height * this.dpr));
-    const availH = this.h - HUD_TOP - HUD_BOTTOM;
+    ({ top: this.safeTop, bottom: this.safeBottom } = safeInsets());
+    const availH = this.h - HUD_TOP - HUD_BOTTOM - this.safeTop - this.safeBottom;
     this.scale = Math.max(8, Math.min((this.w * 0.96) / ROOM_W, availH / ROOM_H));
     this.ox = (this.w - ROOM_W * this.scale) / 2;
-    this.oy = HUD_TOP + (availH - ROOM_H * this.scale) / 2;
+    this.oy = HUD_TOP + this.safeTop + (availH - ROOM_H * this.scale) / 2;
   }
 
   setTheme(chapter: ChapterDef, look: AngelLook, traumaColors: Map<TraumaKind, string>): void {
@@ -130,7 +139,25 @@ export class Renderer {
           if (e.mult > 1) this.text(`×${e.mult}`, e.x, e.y - 0.4, '#ffe9a0', 0.5);
           break;
         case 'full': this.text('Stań, by strawić', p.x, p.y - 0.9, '#ffffff', 0.34); break;
-        case 'digest': this.ring(p.x, p.y, 0.2, 0.8, 0.5, rgba(this.palette.accent, 0.6), 0.05); break;
+        case 'digest':
+          this.ring(p.x, p.y, 0.2, 0.8, 0.5, rgba(this.palette.accent, 0.6), 0.05);
+          this.text(`+${Math.round(e.light)} ✦`, p.x + 0.5, p.y - 0.3, rgba(this.palette.seed, 0.95), 0.3, 1.1);
+          break;
+        case 'chain':
+          this.text(`Seria ×${e.n}`, e.x, e.y - 0.7, e.n >= 5 ? '#ffd76a' : '#fff2c4', Math.min(0.62, 0.36 + 0.04 * e.n), 1.2);
+          this.ring(e.x, e.y, 0.2, 0.6 + 0.12 * e.n, 0.35, rgba('#ffe9a0', 0.8), 0.05);
+          break;
+        case 'flame':
+          this.ring(p.x, p.y, 0.3, 1.4, 0.6, rgba('#ffb347', 0.85), 0.07);
+          this.burst(p.x, p.y - 0.3, '#ffb347', 10, 1.6, 0.06);
+          break;
+        case 'tongue':
+          // a tongue of fire (Dz 2,3): two rings and a spray of flame
+          this.ring(e.x, e.y, 0.3, e.r, 0.5, rgba('#ff9a3c', 0.95), 0.3);
+          this.ring(e.x, e.y, 0.2, e.r * 0.7, 0.4, rgba('#ffe08a', 0.8), 0.12);
+          this.burst(e.x, e.y, '#ffb347', 36, 5, 0.1);
+          if (!this.reducedMotion) this.shake = Math.max(this.shake, 0.18);
+          break;
         case 'truth': this.text(e.word.toUpperCase(), e.x, e.y, '#ffe9a0', 0.52, 2.4); break;
         case 'seed': this.burst(e.x, e.y, this.palette.seed, 3, 1, 0.05); break;
         case 'grace':
@@ -185,6 +212,11 @@ export class Renderer {
 
   private ring(x: number, y: number, r0: number, r1: number, life: number, color: string, width: number): void {
     this.rings.push({ x, y, r0, r1, life, max: life, color, width });
+  }
+
+  /** a word over the angel, e.g. a new focus multiplier */
+  celebrate(text: string, world: World, color = '#ffd76a'): void {
+    this.text(text, world.player.x, world.player.y - 1.1, color, 0.42, 1.6);
   }
 
   private text(text: string, x: number, y: number, color: string, size: number, life = 1.4): void {
@@ -590,6 +622,8 @@ export class Renderer {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     drawGlow(ctx, this.look.halo[1], x, y, s * 1.1, 0.35 + 0.15 * world.peace);
+    const focus = view.fx.focus;
+    if (focus.focused) drawGlow(ctx, '#ffb347', x, y - s * 0.25, s * (0.9 + 0.25 * focus.tier), 0.14 + 0.08 * focus.tier);
     ctx.restore();
     drawAngel(ctx, x, y + s * 0.05, s * 0.95, this.look, t, p.moving, p.still > 0.3, pulse);
     ctx.restore();
@@ -671,6 +705,8 @@ export class Renderer {
   private drawHud(world: World, view: ViewState, t: number): void {
     const ctx = this.ctx, run = world.run, W = this.w;
     ctx.textBaseline = 'middle';
+    ctx.save();
+    ctx.translate(0, this.safeTop);   // the top rows clear the notch
     // hearts
     for (let i = 0; i < run.maxHearts; i++) heart(ctx, 18 + i * 22, 22, 9, i < run.hearts ? '#ff7a90' : rgba('#ffffff', 0.18));
     // level and light
@@ -724,6 +760,7 @@ export class Renderer {
       roundRect(ctx, W / 2 - 60, 60, 120 * Math.min(1, world.graceT / GRACE_TIME), 4, 2);
       ctx.fill();
     }
+    ctx.restore();
     // stronghold bar
     const b = world.boss;
     if (b && !b.eaten) {
@@ -738,30 +775,37 @@ export class Renderer {
       roundRect(ctx, W / 2 - 110, y - 8, 220 * (b.hp / b.maxHp), 6, 3);
       ctx.fill();
     }
-    // bottom: Spirit meter, peace, band
-    const by = this.h - HUD_BOTTOM / 2;
-    if (view.showSpirit) {
-      const sw = Math.min(150, W * 0.38);
+    // bottom: the focus meter — level, threshold, multiplier; focus charges the Fire of the Spirit
+    const by = this.h - this.safeBottom - HUD_BOTTOM / 2;
+    {
+      const f = view.fx.focus;
+      const sw = Math.min(150, W * 0.36);
       ctx.fillStyle = rgba('#ffffff', 0.12);
       roundRect(ctx, 16, by - 4, sw, 8, 4);
       ctx.fill();
       const g = ctx.createLinearGradient(16, 0, 16 + sw, 0);
-      g.addColorStop(0, '#ff9a3c');
-      g.addColorStop(1, '#ffe08a');
+      g.addColorStop(0, f.focused ? '#ff9a3c' : '#8a93b8');
+      g.addColorStop(1, f.focused ? '#ffe08a' : '#cfd6f2');
       ctx.fillStyle = g;
-      roundRect(ctx, 16, by - 4, sw * (run.spirit / 100), 8, 4);
+      roundRect(ctx, 16, by - 4, sw * f.level, 8, 4);
       ctx.fill();
+      ctx.fillStyle = rgba('#ffffff', 0.8);
+      ctx.fillRect(16 + sw * THRESHOLD - 0.5, by - 7, 1, 14);
+      if (f.mult > 1 || f.focused) {
+        // progress toward the next multiplier
+        ctx.fillStyle = rgba('#ffd76a', 0.75);
+        ctx.fillRect(16, by + 6, sw * f.toNext, 2);
+      }
       ctx.textAlign = 'left';
       ctx.font = '600 11px Cinzel, serif';
-      ctx.fillStyle = run.spirit >= 100 ? '#ffe08a' : rgba('#ffffff', 0.7);
-      ctx.fillText(view.fx.bandSpirit > 0.2 ? 'Duch · skupienie' : 'Duch', 16, by - 14);
-    }
-    if (view.bandConnected) {
-      ctx.textAlign = 'left';
-      ctx.font = '500 11px "EB Garamond", serif';
-      ctx.fillStyle = view.fx.bandActive ? '#9ff0d0' : rgba('#ffffff', 0.45);
+      ctx.fillStyle = f.focused ? '#ffe08a' : rgba('#ffffff', 0.7);
+      // the band's state lives in the label: where focus comes from, a band still waiting for signal, the pulse
+      const waiting = view.bandConnected && !view.fx.bandActive ? ' (opaska: czekam)' : '';
       const pulse = view.fx.heartBpm ? ` · ♥ ${Math.round(view.fx.heartBpm)}` : '';
-      ctx.fillText(`${view.fx.bandActive ? 'Opaska: pokój ' + Math.round(view.fx.bandPeace * 100) + '%' : 'Opaska: czekam na sygnał'}${pulse}`, 16, by + 16);
+      ctx.fillText(`Skupienie · ${SOURCE_TAG[f.source]}${waiting}${pulse}`, 16, by - 14);
+      ctx.font = '700 15px Cinzel, serif';
+      ctx.fillStyle = f.mult > 1 ? '#ffd76a' : rgba('#ffffff', 0.55);
+      ctx.fillText(`×${String(f.mult).replace('.', ',')}`, 22 + sw, by + 5);
     }
     // Sabbath progress
     if (world.kind === 'sabbath' && !world.sabbathBlessed) {
@@ -777,12 +821,33 @@ export class Renderer {
       ctx.fillText(`Wytrwaj ${Math.ceil(world.rescueLeft)} s`, W / 2, this.oy + ROOM_H * this.scale + 14);
     }
     if (view.hint) {
+      // centred in the room left of the Fire button, shrunk to fit on narrow phones
+      const room = W - FIRE_BUTTON_W;
+      let size = 14;
+      ctx.font = `500 ${size}px "EB Garamond", serif`;
+      const width = ctx.measureText(view.hint).width;
+      if (width > room - 16) {
+        size = Math.max(10, Math.floor((size * (room - 16)) / width));
+        ctx.font = `500 ${size}px "EB Garamond", serif`;
+      }
       ctx.textAlign = 'center';
-      ctx.font = '500 14px "EB Garamond", serif';
       ctx.fillStyle = rgba('#ffffff', 0.75 + 0.2 * Math.sin(t * 2));
-      ctx.fillText(view.hint, W / 2, this.h - 12);
+      ctx.fillText(view.hint, room / 2, this.h - this.safeBottom - 10);
     }
   }
+}
+
+/** The safe-area insets in px, read through a hidden probe (canvas drawing cannot use CSS env()). */
+function safeInsets(): { top: number; bottom: number } {
+  let probe = document.getElementById('safe-probe');
+  if (!probe) {
+    probe = document.createElement('div');
+    probe.id = 'safe-probe';
+    probe.setAttribute('aria-hidden', 'true');
+    document.body.append(probe);
+  }
+  const cs = getComputedStyle(probe);
+  return { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 };
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {

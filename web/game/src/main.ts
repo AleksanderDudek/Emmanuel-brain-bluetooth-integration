@@ -15,9 +15,9 @@ import type { GameEvent } from './sim/events';
 import { randomSeed } from './sim/rng';
 import { generateRoom } from './sim/room';
 import { modsFrom, Run } from './sim/run';
-import { SEED_GOAL, World } from './sim/world';
-import type { ChapterDef, PrayerDef, SfxName, SkinSlot, TraumaKind } from './types';
-import { $, btn, h, hideScreen, screen, showScreen, verseBanner } from './ui/common';
+import { FIRE_MAX, World } from './sim/world';
+import type { ChapterDef, MusicMood, MusicScene, PrayerDef, SfxName, SkinSlot, TraumaKind } from './types';
+import { $, btn, h, hideScreen, screen, showScreen } from './ui/common';
 import { prayerScreen } from './ui/prayer';
 import * as S from './ui/screens';
 import { setupPwa } from './pwa';
@@ -43,7 +43,17 @@ class Game {
   private disposePrayer: (() => void) | null = null;
   private starting = false;
   private saveWarned = false;
-  private seenWeak = false;
+  /** a short freeze on big hits (weaken, eat, a tongue of fire), s */
+  private hitStop = 0;
+  /** truths learned for the first time in this room: the whisper after it carries their verse */
+  private roomTruths: TraumaKind[] = [];
+  /** the longest held focus this chapter, for the report */
+  private chapterFocus = { streak: 0, mult: 1 };
+  private usedFire = false;
+  private digests = 0;
+  private moodKey = '';
+  private moodT = 0;
+  private fireKey = '';
   private readonly traumaColors = new Map<TraumaKind, string>(Object.values(TRAUMAS).map(t => [t.kind, t.color]));
 
   readonly api: S.ScreenApi = {
@@ -69,10 +79,21 @@ class Game {
         this.audio.resume();
       }
     });
-    // the world emits 'ultimate', which plays its sound
-    $('btnUltimate').addEventListener('click', () => { if (this.playing && !this.paused) this.world?.triggerUltimate(); });
+    const fire = $('btnFire');
+    fire.addEventListener('click', () => this.useFire());
+    $('btnMusic').addEventListener('click', () => this.toggleMusic());
     $('btnPause').addEventListener('click', () => this.pause());
-    window.addEventListener('keydown', e => { if (e.key === 'Escape' && this.playing && !this.paused) this.pause(); });
+    // a mouse click must not leave focus on a HUD button, or Space would press it instead of the Fire
+    for (const id of ['btnFire', 'btnMusic', 'btnPause']) $(id).addEventListener('click', e => { if (e.detail > 0) (e.currentTarget as HTMLElement).blur(); });
+    window.addEventListener('keydown', e => {
+      if (!this.playing || this.paused || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Escape') this.pause();
+      // the focused Fire button handles its own Space/Enter (no double tongue of fire)
+      else if ((e.key === ' ' || e.key.toLowerCase() === 'e') && !e.repeat && e.target !== fire) {
+        e.preventDefault();
+        this.useFire();
+      }
+    });
     this.applySettings();
     requestAnimationFrame(t => this.frame(t));
     this.title();
@@ -90,9 +111,29 @@ class Game {
 
   applySettings(): void {
     const s = this.save.settings;
-    this.audio.setVolumes({ master: s.master, music: s.music, sfx: s.sfx });
+    this.audio.setVolumes({ master: s.master, music: s.musicMuted ? 0 : s.music, sfx: s.sfx });
     this.audio.setMuted(s.muted);
+    $('btnMusic').setAttribute('aria-pressed', String(!s.musicMuted));
     this.renderer.reducedMotion = s.reducedMotion || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  private toggleMusic(): void {
+    const s = this.save.settings;
+    s.musicMuted = !s.musicMuted;
+    this.applySettings();
+    this.persist();
+    toast(s.musicMuted ? 'Muzyka wyłączona (efekty zostają)' : `Muzyka: ${this.audio.nowPlaying}`);
+  }
+
+  /** The Fire button: three flames call Pentecost (once the prayer opened it); otherwise one flame, a tongue of fire. */
+  private useFire(): void {
+    const w = this.world;
+    if (!this.playing || this.paused || !w) return;
+    const ok = w.run.fire >= FIRE_MAX && w.run.ultimateUnlocked ? w.triggerUltimate() : w.tongueOfFire();
+    if (ok) {
+      this.usedFire = true;
+      this.hitStop = Math.max(this.hitStop, 0.08);
+    }
   }
 
   // ─── screen flow ──────────────────────────────────────────────
@@ -167,7 +208,9 @@ class Game {
     showScreen(S.storyScreen(STORY.intro, 'Powierzony', () => {
       this.save.seenIntro = true;
       this.persist();
-      this.map();
+      // the first time, straight to the first sphere: its lie, then the first room
+      const first = CHAPTERS.find(c => c.id === 'malkut');
+      if (first && !this.save.cleared.malkut) showScreen(S.chapterIntroScreen(this.api, first)); else this.map();
     }));
   }
 
@@ -175,15 +218,15 @@ class Game {
     this.disposePrayer?.();
     const s = this.save.settings;
     const { el, dispose } = prayerScreen({
-      prayer: p, mode: s.prayerMode, voiceConsent: s.voiceConsent, audio: this.audio, neuro: () => this.neuro.state, calibrating,
+      prayer: p, voice: s.voicePrayer, voiceConsent: s.voiceConsent, audio: this.audio, neuro: () => this.neuro.state, calibrating,
       onConsent: () => { s.voiceConsent = true; this.persist(); },
-      onModeChange: m => { s.prayerMode = m; this.persist(); },
+      onVoiceChange: on => { s.voicePrayer = on; this.persist(); },
       onDone: () => {
         this.disposePrayer = null;
         const first = !prayed(this.save, p.id);
         this.save.prayers[p.id] = Date.now();
         this.persist();
-        if (first) toast(`Otwarte: ${p.unlockText}`);
+        if (first) toast(p.unlockText);
         if (p.unlocks.soundscapes?.length && first && p.id !== 'inwokacja') this.audio.sfx('bell');
         (after ?? back ?? (() => this.map()))();
       },
@@ -212,7 +255,30 @@ class Game {
   }
 
   private calmMusic(): void {
-    this.audio.setMood({ mode: 8, intensity: 0.12, realm: 'heaven' });
+    this.setMusic({ mode: 8, intensity: 0.12, realm: 'heaven', track: 'menu', scene: 'menu' });
+  }
+
+  /** setMood only when something audible changes (intensity in 0.05 steps) */
+  private setMusic(m: MusicMood): void {
+    const key = `${m.track}|${m.scene}|${m.mode}|${Math.round(m.intensity * 20)}`;
+    if (key === this.moodKey) return;
+    this.moodKey = key;
+    this.audio.setMood(m);
+  }
+
+  /** Battle music follows the fight: more shadows, grace, a stronghold's phase — more layers. */
+  private adaptMusic(w: World): void {
+    const run = w.run, k = w.kind;
+    const scene: MusicScene = k === 'boss' ? 'boss' : k === 'sabbath' ? 'sabbath' : k === 'chapel' ? 'chapel' : 'battle';
+    let intensity: number;
+    if (k === 'boss') intensity = w.boss && !w.boss.eaten ? 0.85 + 0.05 * (w.boss.phase - 1) : 0.5;
+    else if (k === 'sabbath') intensity = 0.05;
+    else if (k === 'chapel') intensity = 0.12;
+    else {
+      const strong = w.traumas.filter(t => t.state === 'normal' || t.state === 'spawn').length;
+      intensity = w.cleansed ? 0.25 : 0.4 + 0.02 * run.difficulty + 0.07 * Math.min(5, strong) + (w.graceT > 0 ? 0.12 : 0);
+    }
+    this.setMusic({ mode: run.chapter.mode, intensity: Math.min(1, intensity), realm: run.chapter.realm, track: run.chapter.id, scene });
   }
 
   // ─── runs and rooms ───────────────────────────────────────────
@@ -226,9 +292,10 @@ class Game {
   }
 
   startChapter(ch: ChapterDef): void {
+    this.chapterFocus = { streak: 0, mult: 1 };
+    this.effects.reset(true);
     const mods = modsFrom(this.save.fruits, rankIndex(this.save, RANKS), prayed(this.save, 'jezusowa'));
     this.run = new Run(ch, availablePowers(this.save, PRAYERS), mods, ultimateUnlocked(this.save, PRAYERS), randomSeed());
-    this.seenWeak = false;
     this.enterRoom();
   }
 
@@ -240,11 +307,10 @@ class Game {
     this.renderer.setTheme(run.chapter, this.look(), this.traumaColors);
     this.renderer.resize();
     this.effects.reset();
-    const k = run.roomKind;
-    const intensity = k === 'boss' ? 0.9 : k === 'sabbath' ? 0.05 : k === 'chapel' ? 0.12 : 0.45 + 0.03 * run.difficulty;
-    this.audio.setMood({ mode: run.chapter.mode, intensity, realm: run.chapter.realm });
-    if (k === 'boss') this.audio.sfx('boss');
-    $('btnUltimate').hidden = !run.ultimateUnlocked;
+    this.roomTruths = [];
+    this.adaptMusic(this.world);
+    if (run.roomKind === 'boss') this.audio.sfx('boss');
+    this.fireKey = '';
     hideScreen();
     this.paused = false;
     this.acc = 0;
@@ -260,7 +326,7 @@ class Game {
 
   private showPause(): void {
     this.paused = true;
-    showScreen(S.pauseScreen(() => this.resume(), () => this.map(), () => showScreen(S.settingsScreen(this.api, () => this.showPause()), true)), true);
+    showScreen(S.pauseScreen(this.api, () => this.resume(), () => this.map(), () => showScreen(S.settingsScreen(this.api, () => this.showPause()), true)), true);
   }
 
   private resume(): void {
@@ -282,34 +348,70 @@ class Game {
     this.last = now;
     const w = this.world;
     if (this.playing && w) {
-      this.fx = this.effects.update(dt, this.neuro.state, { still: w.player.still, phase: this.phase() });
+      // focus is frozen while a menu is up: no streak banked in pauses
+      this.fx = this.effects.update(this.paused ? 0 : dt, this.neuro.state, { still: w.player.still, phase: this.phase() });
       if (!this.paused && w.state === 'playing') {
-        this.acc += dt;
-        let steps = 0;
-        while (this.acc >= STEP && steps < 5) {
-          const { mx, my } = this.input.read();
-          w.step(STEP, mx, my, this.fx);
-          this.acc -= STEP;
-          steps++;
-          if (w.state !== 'playing') break;
+        if (this.hitStop > 0) {
+          this.hitStop = Math.max(0, this.hitStop - dt);
+        } else {
+          this.acc += dt;
+          let steps = 0;
+          while (this.acc >= STEP && steps < 5) {
+            const { mx, my } = this.input.read();
+            w.step(STEP, mx, my, this.fx);
+            this.acc -= STEP;
+            steps++;
+            if (w.state !== 'playing') break;
+          }
         }
         this.save.stats.seconds += dt;
+        this.trackFocus(w);
+        this.moodT -= dt;
+        if (this.moodT <= 0) {
+          this.moodT = 0.5;
+          this.adaptMusic(w);
+        }
       }
       const events = w.drainEvents();
       this.renderer.handle(events, w);
       this.sounds(events);
       this.renderer.render(w, {
-        fx: this.fx, joystick: this.input.joystick, hint: this.hint(w), showSpirit: w.run.ultimateUnlocked,
-        bandConnected: this.neuro.state.source === 'band',
+        fx: this.fx, joystick: this.input.joystick, hint: this.hint(w), bandConnected: this.neuro.state.source === 'band',
       }, this.paused ? 0 : dt);
-      const ult = $<HTMLButtonElement>('btnUltimate');
-      const ready = w.run.spirit >= 100;
-      if (ult.disabled === ready) ult.disabled = !ready;
-      ult.classList.toggle('ready', ready);
+      this.updateFireButton(w);
       if (!this.paused) this.transitions(w);
       const bpm = this.fx.heartBpm ? Math.round(this.fx.heartBpm) : null;
       if ((bpm ?? -1) !== this.lastHeartSent) { this.audio.setHeartRate(bpm); this.lastHeartSent = bpm ?? -1; }
     }
+  }
+
+  /** A new focus multiplier is celebrated; the longest streak goes to the report and the lifetime stats. */
+  private trackFocus(w: World): void {
+    const f = this.fx.focus;
+    if (f.tierUp) {
+      this.audio.sfx('tier', { step: f.tier });
+      this.renderer.celebrate(`Czuwanie ×${String(f.mult).replace('.', ',')}`, w);
+    }
+    if (f.mult > this.chapterFocus.mult) this.chapterFocus.mult = f.mult;
+    if (f.held > this.chapterFocus.streak) this.chapterFocus.streak = f.held;
+    if (f.held > this.save.stats.bestStreak) this.save.stats.bestStreak = f.held;
+  }
+
+  /** Three flame pips fill as focus charges; the label turns to Pentecost when all three are lit. */
+  private updateFireButton(w: World): void {
+    const run = w.run;
+    const pente = run.fire >= FIRE_MAX && run.ultimateUnlocked;
+    const key = `${Math.floor(run.fire)}|${Math.round(run.fire * 20)}|${pente}`;   // whole flames first: the button lights the moment one fills
+    if (key === this.fireKey) return;
+    this.fireKey = key;
+    const b = $<HTMLButtonElement>('btnFire');
+    b.disabled = run.fire < 1;
+    b.classList.toggle('lit', run.fire >= 1);
+    b.classList.toggle('ready', pente);
+    (b.querySelector('.label') as HTMLElement).textContent = pente ? 'Przyjdź, Duchu!' : 'Ogień';
+    b.querySelectorAll<HTMLElement>('.pips i').forEach((pip, i) => pip.style.setProperty('--f', String(Math.max(0, Math.min(1, run.fire - i)))));
+    const flames = Math.floor(run.fire);
+    b.setAttribute('aria-label', pente ? 'Przyjdź, Duchu! — Pięćdziesiątnica (3 płomienie)' : `Ogień Ducha: ${flames} z ${FIRE_MAX} płomieni`);
   }
 
   private hint(w: World): string {
@@ -321,27 +423,35 @@ class Game {
     if (w.kind === 'rescue' && w.fragments.some(f => f.alive)) return 'Stań przy skutym fragmencie, by go uwolnić';
     if (w.time < 7 && w.run.roomIndex === 0) return 'Puść ekran — w bezruchu anioł się modli';
     if (!w.doorOpen && w.wavesDone && !w.traumas.length && w.stomach.length) return 'Dokończ trawienie — wtedy otworzą się drzwi';
-    if (!w.doorOpen && w.wavesDone && !w.traumas.length && w.seedsRatio < SEED_GOAL) {
-      return `Zbierz ziarna światła (${Math.round(w.seedsRatio * 100)}% z ${Math.round(SEED_GOAL * 100)}%)`;
+    if (w.run.fire >= 1 && !this.usedFire) {
+      return w.run.fire >= FIRE_MAX && w.run.ultimateUnlocked ? 'Trzy płomienie — dotknij „Przyjdź, Duchu!”' : 'Płomień gotowy — dotknij „Ogień” (spacja)';
     }
+    if (w.time < 12 && w.run.roomIndex === 1 && w.run.chapter.id === 'malkut') return 'Skupienie rozpala Ogień Ducha — w bezruchu albo z opaską';
     return '';
   }
 
   private sounds(events: GameEvent[]): void {
     const map: Partial<Record<GameEvent['type'], SfxName>> = {
-      shoot: 'shoot', hit: 'hit', weaken: 'weaken', eat: 'eat', digest: 'digest', seed: 'seed', grace: 'grace', fragment: 'fragment',
+      shoot: 'shoot', hit: 'hit', weaken: 'weaken', eat: 'eat', seed: 'seed', grace: 'grace', fragment: 'fragment',
       door: 'door', hurt: 'hurt', block: 'click', revive: 'rank', levelup: 'levelup', crack: 'revelation', reveal: 'bell',
       bossEaten: 'revelation', ultimate: 'ultimate', fall: 'fall', sabbath: 'bell', altar: 'bell', trumpet: 'bell', heal: 'digest',
-      punch: 'hit', lightning: 'hit', stone: 'shoot', bossPhase: 'boss',
+      punch: 'hit', lightning: 'hit', stone: 'shoot', bossPhase: 'boss', tongue: 'fire',
     };
     for (const e of events) {
       const name = map[e.type];
       if (name) this.audio.sfx(name, 'x' in e ? { pan: (e.x / 4.5 - 1) * 0.6 } : undefined);
-      if (e.type === 'verse') {
-        const t = TRAUMAS[e.kind];
-        verseBanner(`${t.name} → ${t.truth.word}`, t.truth.verse);
+      switch (e.type) {
+        // melodic effects climb the scale of the current piece
+        case 'chain': this.audio.sfx('combo', { step: e.n, pan: (e.x / 4.5 - 1) * 0.6 }); break;
+        case 'flame': this.audio.sfx('flame', { step: e.n }); break;
+        case 'digest': this.audio.sfx('digest', { step: this.digests++ % 8 }); break;
+        // a truth learned for the first time: its verse comes in the whisper after the room, not over the fight
+        case 'verse': this.roomTruths.push(e.kind); break;
+        case 'weaken': this.hitStop = Math.max(this.hitStop, 0.03); break;
+        case 'eat': this.hitStop = Math.max(this.hitStop, e.kind === 'boss' ? 0.25 : 0.045); break;
+        case 'hurt': this.hitStop = Math.max(this.hitStop, 0.06); break;
+        default: break;
       }
-      if (e.type === 'weaken' && !this.seenWeak) this.seenWeak = true;
     }
   }
 
@@ -379,16 +489,17 @@ class Game {
           this.world = World.retry(w, randomSeed());
           this.save.stats.falls++;
           this.resume();
-        }), true);
+        }, w.kind === 'boss'), true);
         break;
       }
       case 'exit': {
         this.paused = true;
         run.roomIndex++;
-        const v = STORY.whispers[Math.floor(Math.random() * STORY.whispers.length)];
+        const truth = this.roomTruths.length ? TRAUMAS[this.roomTruths[0]] : null;
+        const v = truth ? truth.truth.verse : STORY.whispers[Math.floor(Math.random() * STORY.whispers.length)];
         let done = false;
         const go = () => { if (!done) { done = true; this.enterRoom(); } };
-        showScreen(S.whisperScreen(v, go), true);
+        showScreen(S.whisperScreen(v, go, truth ? `${truth.name} → ${truth.truth.word}` : undefined), true);
         setTimeout(go, 2600);
         break;
       }
@@ -418,9 +529,9 @@ class Game {
     const promoted = after > before ? RANKS[after].name : null;
     if (promoted) this.audio.sfx('rank');
     this.setPlaying(false);
-    this.calmMusic();
+    this.setMusic({ mode: ch.mode, intensity: 0.4, realm: ch.realm, track: ch.id, scene: 'victory' });
     const rev = REVELATIONS.find(r => r.id === ch.revelationId);
-    const report = () => showScreen(S.reportScreen({ run, chapter: ch, manna, promoted }, () => {
+    const report = () => showScreen(S.reportScreen({ run, chapter: ch, manna, promoted, focus: this.chapterFocus }, () => {
       if (promoted) toast(`${RANKS[after].name}: ${RANKS[after].blessing}`);
       if (ch.id === 'keter') return this.finale();
       this.map();
@@ -448,6 +559,8 @@ class Game {
       start: (id: string) => { const ch = CHAPTERS.find(c => c.id === id); if (ch) this.startChapter(ch); },
       skipToMap: () => { this.save.seenDisclaimer = true; this.save.seenIntro = true; this.save.prayers.inwokacja = Date.now(); this.persist(); void this.audio.unlock().then(() => this.map()); },
       playing: () => this.playing && !this.paused,
+      fire: () => this.useFire(),
+      focus: () => this.fx.focus,
     };
   }
 }

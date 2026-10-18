@@ -18,10 +18,10 @@ import type { Run, RunStats } from './run';
 export const PLAYER_R = 0.36;
 export const PLAYER_SPEED = 4.2;
 const STILL_DELAY = 0.12;
-const FIRE_RATE = 2.2;
+const FIRE_RATE = 2.5;
 const WORD_DMG = 10;
 const WORD_SPEED = 11;
-export const WEAK_TIME = 5;
+export const WEAK_TIME = 6;
 export const GRACE_TIME = 6;
 export const DIGEST_TIME = 2;
 export const STOMACH = 3;
@@ -30,7 +30,16 @@ const IFRAMES = 1.2;
 const SEED_PICK = 0.3;
 const RESCUE_TIME = 40;
 /** share of light seeds needed to open the door (with the shadows digested) */
-export const SEED_GOAL = 0.7;
+/** the Fire of the Spirit holds three flames */
+export const FIRE_MAX = 3;
+/** a tongue of fire: reach, strength, and the share of a stronghold's strength it takes */
+export const TONGUE_R = 2.8;
+const TONGUE_DMG = 60;
+const TONGUE_BOSS = 0.12;
+/** shadows eaten within this many seconds of each other make a chain (+10 % Light per link, up to ×2) */
+export const CHAIN_WINDOW = 2.5;
+/** once the room is cleansed, the remaining light flies to the angel at this speed */
+const SWEEP_SPEED = 9;
 const AURA_BASE = 1.6;
 export const SABBATH_REST = 20;
 /** after the stronghold is eaten: the chapter ends once it is digested, at the latest after BOSS_DIGEST_CAP s */
@@ -81,7 +90,8 @@ export interface External {
   /** 0..1 — peace (balance with the band, stillness without) → aura size */
   peace: number;
   /** Spirit meter points per second */
-  spiritRate: number;
+  /** Fire of the Spirit charge from focus, flames/s (before Faithfulness) */
+  fireRate: number;
   /** hearts per second restored while resting in the Sabbath room */
   restRate: number;
   /** true when a revelation may strike the stronghold (sustained balance / stillness) */
@@ -95,7 +105,13 @@ export interface WorldOptions {
   layout: RoomLayout;
   defs: Record<TraumaKind, TraumaDef>;
   seed: number;
+  /** how many times this room has been started over after a fall (0 = first try) */
+  attempt?: number;
 }
+
+/** "Grace grows with each rising": a stronghold faced again is this much weaker per fall, up to RISE_MAX */
+export const RISE_WEAKEN = 0.1;
+const RISE_MAX = 0.4;
 
 let nextId = 1;
 
@@ -128,6 +144,11 @@ export class World {
 
   graceT = 0;
   combo = 0;
+  /** shadows eaten in a row (each within CHAIN_WINDOW of the last) */
+  chain = 0;
+  private lastEatT = -99;
+  /** every shadow eaten and digested: the door opens and the light flies home */
+  cleansed = false;
   freezeT = 0;
   pentecostT = 0;
   peace = 0;
@@ -148,9 +169,10 @@ export class World {
   private bossEatenT = -1;
   private fullHintT = 0;
   private readonly cd: Record<string, number> = {};
-  private ext: External = { peace: 0, spiritRate: 0, restRate: 0, revelation: false };
+  private ext: External = { peace: 0, fireRate: 0, restRate: 0, revelation: false };
   /** the run as it was on entering the room, restored when the room starts over after a fall */
   private readonly entry: { light: number; stats: RunStats };
+  readonly attempt: number;
 
   constructor(o: WorldOptions) {
     this.run = o.run;
@@ -175,7 +197,13 @@ export class World {
     }
     this.run.stats.fragmentsTotal += this.fragments.length;
     this.planWaves();
+    this.attempt = o.attempt ?? 0;
     if (this.kind === 'boss') this.spawnBoss();
+    if (this.attempt > 0) {
+      // risen again: at least one flame of the Fire, and a stronghold already shaken
+      this.run.fire = Math.max(this.run.fire, 1);
+      if (this.boss) this.boss.hp = this.boss.maxHp * (1 - Math.min(RISE_MAX, RISE_WEAKEN * this.attempt));
+    }
     if (this.kind === 'sabbath' || this.kind === 'chapel') this.doorOpen = true;
   }
 
@@ -245,7 +273,7 @@ export class World {
     this.updateDevour();
     this.updateDigestion(dt);
     this.updateRoomGoal(dt);
-    this.run.spirit = Math.min(100, this.run.spirit + ext.spiritRate * this.run.mods.spiritMult * dt);
+    this.addFire(ext.fireRate * this.run.mods.fireMult * dt);
     if (this.run.pendingLevelUps > 0 && this.state === 'playing') this.state = 'levelup';
   }
 
@@ -604,19 +632,22 @@ export class World {
   }
 
   // ─── the angel's gifts ──────────────────────────────────────────
+  /**
+   * What the Word aims at: the nearest shadow (or stronghold) in sight; when none is in sight, the nearest at
+   * all — the Word then strikes the wall, a cue to move (Archero-style auto-aim).
+   */
   private nearestTarget(maxDist = 99): Trauma | Boss | null {
     const p = this.player;
+    const cands: [Trauma | Boss, number][] = [];
+    for (const t of this.traumas) if (t.state === 'normal') cands.push([t, dist2(t.x, t.y, p.x, p.y)]);
+    if (this.boss && !this.boss.cracked) cands.push([this.boss, dist2(this.boss.x, this.boss.y, p.x, p.y) - 0.8]);
     let best: Trauma | Boss | null = null, bd = maxDist * maxDist;
-    for (const t of this.traumas) {
-      if (t.state !== 'normal') continue;
-      const d = dist2(t.x, t.y, p.x, p.y);
+    let seen: Trauma | Boss | null = null, sd = maxDist * maxDist;
+    for (const [t, d] of cands) {
       if (d < bd) { bd = d; best = t; }
+      if (d < sd && lineOfSight(p.x, p.y, t.x, t.y, this.walls, 0.1)) { sd = d; seen = t; }
     }
-    if (this.boss && !this.boss.cracked) {
-      const d = dist2(this.boss.x, this.boss.y, p.x, p.y) - 0.8;
-      if (d < bd) best = this.boss;
-    }
-    return best;
+    return seen ?? best;
   }
 
   private hitAt(x: number, y: number, r: number, dmg: number): void {
@@ -835,11 +866,16 @@ export class World {
   // ─── pickups, devouring, digestion ──────────────────────────────
   private updatePickups(dt: number): void {
     const p = this.player, run = this.run;
-    // once the room is cleansed, the remaining light drifts toward the angel — no tedious hunt
-    const cleansed = this.wavesDone && this.traumas.length === 0 && this.kind !== 'rescue';
-    const reach = (p.r + SEED_PICK + run.mods.magnet + (cleansed ? 1.2 : 0)) ** 2;
+    const reach = (p.r + SEED_PICK + run.mods.magnet) ** 2;
     for (const s of this.seeds) {
-      if (!s.alive || dist2(s.x, s.y, p.x, p.y) > reach) continue;
+      if (!s.alive) continue;
+      if (this.cleansed) {
+        // the room is cleansed: the remaining light flies to the angel — no tedious hunt
+        const dx = p.x - s.x, dy = p.y - s.y, l = Math.hypot(dx, dy) || 1, k = Math.min(1, (SWEEP_SPEED * dt) / l);
+        s.x += dx * k;
+        s.y += dy * k;
+      }
+      if (dist2(s.x, s.y, p.x, p.y) > reach) continue;
       s.alive = false;
       this.seedsTaken++;
       run.stats.seeds++;
@@ -904,8 +940,12 @@ export class World {
         this.combo++;
         mult = Math.min(cap, 2 ** (this.combo - 1));
       }
-      this.stomach.push({ kind: t.kind, p: 0, light: (4 + Math.round(t.maxHp / 10)) * mult });
+      this.chain = this.time - this.lastEatT <= CHAIN_WINDOW ? this.chain + 1 : 1;
+      this.lastEatT = this.time;
+      const chainBonus = Math.min(2, 1 + 0.1 * (this.chain - 1));
+      this.stomach.push({ kind: t.kind, p: 0, light: Math.round((4 + Math.round(t.maxHp / 10)) * mult * chainBonus) });
       this.emit({ type: 'eat', x: t.x, y: t.y, kind: t.kind, mult });
+      if (this.chain >= 2) this.emit({ type: 'chain', n: this.chain, x: t.x, y: t.y });
     }
     const b = this.boss;
     if (b && b.cracked && !b.eaten && dist2(b.x, b.y, p.x, p.y) < (b.r + p.r + reach) ** 2) {
@@ -936,7 +976,7 @@ export class World {
   /** A digested meal turns into Light, Spirit and, for a shadow, its truth. */
   private completeMeal(meal: Meal): void {
     this.run.addLight(meal.light);
-    this.run.spirit = Math.min(100, this.run.spirit + 4);
+    this.addFire(0.06);
     if (meal.kind === 'boss') return;
     const kind = meal.kind;
     const stats = this.run.stats.digested;
@@ -974,7 +1014,7 @@ export class World {
         if (this.restTime >= SABBATH_REST && !this.sabbathBlessed) {
           this.sabbathBlessed = true;
           this.run.hearts = this.run.maxHearts;
-          this.run.spirit = 100;
+          this.addFire(FIRE_MAX);
           this.emit({ type: 'sabbath' });
         }
       }
@@ -989,19 +1029,18 @@ export class World {
       }
       return;
     }
-    if (!this.doorOpen) {
-      // every shadow eaten AND digested
-      const clear = this.wavesDone && this.traumas.length === 0 && this.stomach.length === 0;
-      const goal = this.kind === 'rescue'
-        ? clear && this.fragments.every(f => !f.alive)
-        : clear && this.seedsRatio >= SEED_GOAL;
-      if (goal) {
-        this.doorOpen = true;
-        this.emit({ type: 'door' });
-      }
+    if (!this.cleansed && this.wavesDone && this.traumas.length === 0 && this.stomach.length === 0) {
+      // every shadow eaten AND digested ("strawione"): the light flies home
+      this.cleansed = true;
+      if (this.seeds.some(s => s.alive)) this.emit({ type: 'sweep' });
+    }
+    if (!this.doorOpen && this.cleansed && (this.kind !== 'rescue' || this.fragments.every(f => !f.alive))) {
+      this.doorOpen = true;
+      this.emit({ type: 'door' });
     }
     if (this.doorOpen && p.y < 0.75 && Math.abs(p.x - DOOR.x) < DOOR.halfWidth) {
       this.flushStomach();
+      this.flushSeeds();
       this.run.stats.rooms++;
       this.state = 'exit';
     }
@@ -1013,13 +1052,54 @@ export class World {
   /** "Przyjdź, Duchu!" — Pentecost when the Spirit meter is full. */
   triggerUltimate(): boolean {
     const run = this.run;
-    if (!run.ultimateUnlocked || run.spirit < 100 || this.state !== 'playing') return false;
-    run.spirit = 0;
+    if (!run.ultimateUnlocked || run.fire < FIRE_MAX || this.state !== 'playing') return false;
+    run.fire = 0;
     this.startGrace(7);
     this.pentecostT = 7;
     run.hearts = Math.min(run.maxHearts, run.hearts + 1);
     this.emit({ type: 'ultimate' });
     return true;
+  }
+
+  /** A tongue of fire (Dz 2,3): one flame weakens and scatters every shadow around the angel. */
+  tongueOfFire(): boolean {
+    const run = this.run, p = this.player;
+    if (run.fire < 1 || this.state !== 'playing') return false;
+    run.fire -= 1;
+    for (const t of this.traumas) {
+      const dx = t.x - p.x, dy = t.y - p.y, d = Math.hypot(dx, dy) || 1e-6;
+      if (d > TONGUE_R + t.r) continue;
+      this.damage(t, TONGUE_DMG * run.mods.dmgMult);
+      const push = 2 + 7 * (1 - d / (TONGUE_R + t.r));
+      t.vx += (dx / d) * push;
+      t.vy += (dy / d) * push;
+    }
+    this.arrows = this.arrows.filter(a => dist2(a.x, a.y, p.x, p.y) > TONGUE_R ** 2);
+    const b = this.boss;
+    if (b && !b.cracked && dist2(b.x, b.y, p.x, p.y) < (TONGUE_R + b.r) ** 2) this.damageBoss(b.maxHp * TONGUE_BOSS);
+    p.iFrames = Math.max(p.iFrames, 0.5);
+    this.emit({ type: 'tongue', x: p.x, y: p.y, r: TONGUE_R });
+    return true;
+  }
+
+  /** Charge the Fire of the Spirit; a 'flame' event marks each flame that fills. */
+  private addFire(amount: number): void {
+    const run = this.run;
+    const before = Math.floor(run.fire);
+    run.fire = Math.min(FIRE_MAX, run.fire + amount);
+    const after = Math.floor(run.fire);
+    if (after > before) this.emit({ type: 'flame', n: after });
+  }
+
+  /** Leaving the room: light still flying home is gathered at once. */
+  private flushSeeds(): void {
+    for (const s of this.seeds) {
+      if (!s.alive) continue;
+      s.alive = false;
+      this.seedsTaken++;
+      this.run.stats.seeds++;
+      this.run.addLight(1);
+    }
   }
 
   /** After a level-up card has been chosen. */
@@ -1032,7 +1112,7 @@ export class World {
     if (this.state !== 'chapel') return;   // once per altar
     if (success) {
       this.run.auraBlessing += 0.3;
-      this.run.spirit = Math.min(100, this.run.spirit + 50);
+      this.addFire(1);
       this.run.hearts = Math.min(this.run.maxHearts, this.run.hearts + 1);
     }
     this.resume();
@@ -1046,7 +1126,7 @@ export class World {
     const { light, stats } = prev.entry;
     run.light = light;
     Object.assign(run.stats, { ...stats, digested: { ...stats.digested }, falls: run.stats.falls });
-    return new World({ run, layout: prev.layout, defs: prev.defs, seed });
+    return new World({ run, layout: prev.layout, defs: prev.defs, seed, attempt: prev.attempt + 1 });
   }
 
   drainEvents(): GameEvent[] {

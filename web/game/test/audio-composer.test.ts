@@ -7,7 +7,9 @@ import { CueQueue, LOOKAHEAD, Metronome, TICK_MS } from '../src/audio/scheduler'
 import { MAX_SFX_VOICES, SfxGate } from '../src/audio/sfx';
 import type { MusicMood, SfxName, SoundscapeId } from '../src/types';
 
-const EARTH: MusicMood = { mode: 1, intensity: 0.4, realm: 'earth' };
+const EARTH: MusicMood = { mode: 1, intensity: 0.4, realm: 'earth', track: 'malkut', scene: 'battle' };
+/** A chant mood (chant ignores track and scene). */
+const chantMood = (m: Pick<MusicMood, 'mode' | 'intensity' | 'realm'>): MusicMood => ({ ...m, track: 'malkut', scene: 'battle' });
 const pc = (midi: number): number => ((midi % 12) + 12) % 12;
 const notes = (cues: Cue[], part: 'lead' | 'low') => cues.filter((c): c is NoteCue => c.kind === 'note' && c.part === part);
 
@@ -42,7 +44,7 @@ const start = (soundscape: SoundscapeId, mood: MusicMood = EARTH, seed = 7) => n
 
 /** Silences between phrases: from each phrase's final release to the next phrase's first note. */
 function phraseGaps(cues: Cue[]): number[] {
-  const lead = cues.filter(c => c.kind !== 'bell' && c.part === 'lead');
+  const lead = cues.filter(c => (c.kind === 'note' || c.kind === 'rest') && c.part === 'lead');
   return lead.flatMap((c, i) => {
     const next = lead[i + 1];
     return c.kind === 'rest' && !c.breath && next?.kind === 'note' ? [next.at - c.at] : [];
@@ -59,6 +61,13 @@ describe('lookahead scheduling', () => {
     expect(q.size).toBe(1);
     q.clear();
     expect(q.take(10)).toEqual([]);
+  });
+
+  it('cuts what follows a moment, keeping the cues asked for', () => {
+    const q = new CueQueue<{ at: number; id: string }>();
+    for (const [at, id] of [[0.1, 'a'], [0.5, 'keep'], [0.6, 'b'], [0.2, 'c']] as const) q.push({ at, id });
+    q.cut(0.3, c => c.id === 'keep');
+    expect(q.take(10).map(c => c.id)).toEqual(['a', 'c', 'keep']);
   });
 
   it('beats the heart at the given rate, keeping phase when it changes and skipping missed beats', () => {
@@ -103,7 +112,7 @@ describe('composer', () => {
   });
 
   it('Byzantine: an ornamented melody over an ison that holds the final, re-taking breath now and then', () => {
-    const cues = start('bizantyjski', { mode: 5, intensity: 0.5, realm: 'earth' }).run(120);
+    const cues = start('bizantyjski', chantMood({ mode: 5, intensity: 0.5, realm: 'earth' })).run(120);
     const ison = notes(cues, 'low');
     expect(new Set(ison.map(n => n.midi))).toEqual(new Set([53])); // F3, the final of mode 5
     expect(ison.every(n => n.vowel === 'o' && n.level >= 0.6)).toBe(true);
@@ -111,11 +120,11 @@ describe('composer', () => {
     expect(sounding / 120).toBeGreaterThan(0.9);
     expect(cues.some(c => c.kind === 'rest' && c.part === 'low' && c.breath)).toBe(true);
     const melisma = (c: Cue[]) => notes(c, 'lead').filter(n => n.tie).length / notes(c, 'lead').length;
-    expect(melisma(cues)).toBeGreaterThan(2 * melisma(start('gregorianski', { mode: 5, intensity: 0.5, realm: 'earth' }).run(120)));
+    expect(melisma(cues)).toBeGreaterThan(2 * melisma(start('gregorianski', chantMood({ mode: 5, intensity: 0.5, realm: 'earth' })).run(120)));
   });
 
   it('bells: change ringing tuned to the mode, over a soft drone on the final', () => {
-    const cues = start('dzwony', { mode: 7, intensity: 0.5, realm: 'earth' }, 3).run(300);
+    const cues = start('dzwony', chantMood({ mode: 7, intensity: 0.5, realm: 'earth' }), 3).run(300);
     const bells = cues.filter(c => c.kind === 'bell');
     expect(bells.length).toBeGreaterThan(60);
     expect(bells.every(b => isInMode(b.midi, 7) && b.level > 0 && b.level <= 1 && Math.abs(b.pan) <= 0.5)).toBe(true);
@@ -158,9 +167,9 @@ describe('composer', () => {
   });
 
   it('a mood change waits for the phrase in progress', () => {
-    const clock = start('gregorianski', { mode: 1, intensity: 0.4, realm: 'earth' });
+    const clock = start('gregorianski', chantMood({ mode: 1, intensity: 0.4, realm: 'earth' }));
     let cues = clock.run(2); // the first phrase has begun
-    clock.composer.setMood({ mode: 3, intensity: 0.4, realm: 'earth' });
+    clock.composer.setMood(chantMood({ mode: 3, intensity: 0.4, realm: 'earth' }));
     cues = [...cues, ...clock.run(40)];
     const endings = cues.flatMap((c, i) => (c.kind === 'rest' && c.part === 'lead' && !c.breath ? [notes(cues.slice(0, i), 'lead').at(-1)!.midi] : []));
     expect(pc(endings[0])).toBe(2); // the phrase in progress still ends on D …
@@ -168,7 +177,7 @@ describe('composer', () => {
   });
 
   it('the invocation: a deep bell, three slow phrases in mode 8, then the soundscape again', () => {
-    const clock = start('gregorianski', { mode: 3, intensity: 0.9, realm: 'earth' });
+    const clock = start('gregorianski', chantMood({ mode: 3, intensity: 0.9, realm: 'earth' }));
     clock.run(5);
     clock.composer.invocation();
     const cues = clock.run(90);

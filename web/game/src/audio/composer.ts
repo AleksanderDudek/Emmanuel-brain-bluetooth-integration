@@ -1,16 +1,20 @@
 /**
- * The music director: turns the soundscape and mood into a stream of timed cues for the choir
- * and the bells. No Web Audio here, so it is unit-testable.
+ * The music director: turns the soundscape and mood into a stream of timed cues for the choir,
+ * the bells and the soundtrack's instruments. No Web Audio here, so it is unit-testable.
  *
- * Music is composed one block at a time (a psalm-tone phrase, or a touch of bells) just in time:
- * when the lookahead window reaches the end of the previous block and its silence. A mood change
- * therefore takes effect from the next phrase and never cuts one in half; a soundscape change
- * releases what is sounding (a fade of about a second) and starts the new soundscape CROSSFADE
- * seconds later, while bells already struck ring on.
+ * Music is composed one block at a time just in time, when the lookahead window reaches the end
+ * of the previous block: a psalm-tone phrase and its silence, a touch of bells, or one bar of the
+ * Psalm 150 soundtrack (arranger.ts). A mood change therefore takes effect from the next phrase
+ * or bar and never cuts one in half — except a new track or a victory, which start at the next
+ * beat when the next bar line is far off. A soundscape change releases what is sounding (a fade
+ * of about a second) and starts the new soundscape CROSSFADE seconds later, while bells already
+ * struck and notes already plucked ring on.
  */
 import type { MusicMood, SoundscapeId } from '../types';
+import { Arranger, type Key, type PsalmCue } from './arranger';
 import { plainHunt } from './bells';
 import { clamp, finalDegree, generatePhrase, midiOfDegree, organum, type ChantEvent, type Vowel } from './chant';
+import { finalPc, modeScale, type Piece } from './psalm';
 import { Rng } from './rng';
 import { CueQueue } from './scheduler';
 
@@ -44,7 +48,7 @@ export interface RestCue {
 
 export interface BellCue { kind: 'bell'; at: number; midi: number; level: number; pan: number }
 
-export type Cue = NoteCue | RestCue | BellCue;
+export type Cue = NoteCue | RestCue | BellCue | PsalmCue;
 
 /** Seconds from releasing the old soundscape to the first cue of the new one. */
 export const CROSSFADE = 1.6;
@@ -54,8 +58,11 @@ const VENI = 'eieaoiiueeuouiiaieueaaiaeueaieoa';
 
 const steady = (mood: MusicMood): MusicMood => ({ ...mood, intensity: clamp(mood.intensity, 0, 1) });
 
+/** A new track waits at most this long for the next bar line (else it starts on the next beat), s. */
+export const TRACK_WAIT = 2;
+
 /** Silence between phrases: 1.5–4 s, longer when calm; Hell lingers longer still. */
-export function phraseGap(rng: Rng, { intensity, realm }: MusicMood): number {
+export function phraseGap(rng: Rng, { intensity, realm }: Pick<MusicMood, 'intensity' | 'realm'>): number {
   const gap = clamp(4 - 2.5 * intensity + rng.range(-0.3, 0.3), 1.5, 4);
   return realm === 'hell' ? gap + 1.5 : gap;
 }
@@ -68,11 +75,18 @@ export class Composer {
   private horizon = 0;
   /** cues before this time have been handed out */
   private scheduled = 0;
+  private arranger: Arranger | null = null;
+  /** soundtrack instruments may be sounding (a soundscape change must stop them) */
+  private psalmSounding = false;
+  /** a stop for them is queued but not yet handed out (a second fade-out must keep it) */
+  private stopQueued = false;
 
   constructor(
     private soundscape: SoundscapeId,
     mood: MusicMood,
     seed = 1,
+    /** the player's variation per track ("next track"), owned by the caller */
+    private readonly variations: Readonly<Record<string, number>> = {},
   ) {
     this.rng = new Rng(seed);
     this.mood = steady(mood);
@@ -84,7 +98,9 @@ export class Composer {
       this.horizon = this.compose(Math.max(this.horizon, now + 0.05));
     }
     this.scheduled = Math.max(this.scheduled, until);
-    return this.queue.take(until);
+    const cues = this.queue.take(until);
+    if (this.stopQueued && cues.some(c => c.kind === 'stop')) this.stopQueued = false;
+    return cues;
   }
 
   setSoundscape(id: SoundscapeId): void {
@@ -93,18 +109,75 @@ export class Composer {
     this.fadeOut();
   }
 
-  /** Takes effect from the next phrase. */
+  /**
+   * Chant and bells: from the next phrase. The soundtrack: scene and intensity from the next bar;
+   * a new track at the next bar line or within TRACK_WAIT s; a victory fanfare on the next beat.
+   */
   setMood(mood: MusicMood): void {
     this.mood = steady(mood);
+    if (!this.arranger) return; // it will start in this mood
+    const playing = this.soundscape === 'psalm';
+    const change = this.arranger.setMood(this.mood, this.variation(this.mood.track), playing);
+    if (change && playing) this.snap(change === 'sting' ? 0 : TRACK_WAIT);
+  }
+
+  /** The player's "next track": the soundtrack moves to the piece's next variation; chant and bells begin afresh. */
+  nextTrack(): void {
+    if (this.soundscape === 'cisza') return;
+    if (this.soundscape !== 'psalm') {
+      this.fadeOut();
+      return;
+    }
+    if (!this.arranger) return; // it will start in the new variation anyway
+    this.arranger.change(this.variation(this.mood.track));
+    this.snap(TRACK_WAIT);
+  }
+
+  /** Key of what is playing, for melodic effects: the piece's, or the chant mode's final and scale. */
+  key(): Key {
+    if (this.soundscape === 'psalm' && this.arranger) return this.arranger.key();
+    return { tonic: 72 + finalPc(this.mood.mode), scale: modeScale(this.mood.mode) };
+  }
+
+  /** The piece playing, if the soundtrack is on. */
+  get piece(): Piece | null {
+    return this.soundscape === 'psalm' ? this.psalm().piece : null;
+  }
+
+  /** The piece playing or about to (a track change waits for the bar line): what to render ahead. */
+  get upcoming(): Piece | null {
+    return this.soundscape === 'psalm' ? this.psalm().upcoming : null;
+  }
+
+  /**
+   * The engine is suspending: drop what was queued and pick up again, from the next bar or
+   * phrase, once the clock runs again. Returns the end of what was already handed out — the
+   * engine silences everything from there, so no note scheduled ahead re-opens a voice.
+   */
+  interrupt(now: number): number {
+    const edge = Math.max(this.scheduled, now);
+    this.queue.clear();
+    this.arranger?.silence();
+    this.psalmSounding = false;
+    this.stopQueued = false;
+    this.scheduled = edge;
+    this.horizon = edge + 0.3;
+    return edge;
   }
 
   /**
    * The hymn to the Holy Spirit: one strike of a deep bell, then three solemn phrases in mode 8 on
-   * the vowels of "Veni Creator Spiritus"; afterwards the soundscape carries on.
+   * the vowels of "Veni Creator Spiritus"; afterwards the soundscape carries on. The soundtrack
+   * plays its own calm "Veni" (harp, choir and flute in mode 8) instead.
    */
   invocation(): void {
     this.fadeOut();
     let t = this.scheduled + 0.8;
+    if (this.soundscape === 'psalm') {
+      this.psalmSounding = true;
+      this.horizon = this.psalm().invocation(t, cue => this.queue.push(cue));
+      return;
+    }
     this.queue.push({ kind: 'bell', at: t, midi: 55, level: 0.9, pan: 0 }); // G, the final of mode 8
     t += 4;
     let syllable = 0;
@@ -119,6 +192,27 @@ export class Composer {
     this.horizon = t;
   }
 
+  private variation(track: string): number {
+    return Object.hasOwn(this.variations, track) ? this.variations[track] : 0;
+  }
+
+  private psalm(): Arranger {
+    this.arranger ??= new Arranger(this.mood.track, this.variation(this.mood.track), this.mood, this.rng);
+    return this.arranger;
+  }
+
+  /**
+   * Makes room for a change that must start soon: if the next bar line is more than `maxWait` s
+   * off, what is queued from the next beat on is dropped, and the arranger starts there.
+   */
+  private snap(maxWait: number): void {
+    if (!this.psalmSounding) return; // still fading in after a soundscape change: the new piece starts then anyway
+    const at = this.arranger!.boundary(this.scheduled + 0.02, maxWait);
+    if (at >= this.horizon - 1e-6) return;
+    this.queue.cut(at, cue => cue.kind === 'stop' || cue.kind === 'rest' || cue.kind === 'release'); // silencing is never undone
+    this.horizon = at;
+  }
+
   /**
    * Releases whatever is sounding; the next block starts after the crossfade. The release comes
    * just after the notes already handed out, whose automation runs up to 10 ms past their start.
@@ -127,12 +221,22 @@ export class Composer {
     const at = this.scheduled + 0.05;
     this.queue.clear();
     for (const part of ['lead', 'low'] as const) this.queue.push({ kind: 'rest', at, part, release: 0.45, breath: false });
+    if (this.psalmSounding || this.stopQueued) {
+      this.queue.push({ kind: 'stop', at, tau: 0.3 });
+      this.psalmSounding = false;
+      this.stopQueued = true;
+      this.arranger?.silence();
+    }
     this.horizon = at + CROSSFADE;
   }
 
   /** Composes one block from `start`; returns when the next may begin. */
   private compose(start: number): number {
     if (this.soundscape === 'dzwony') return this.bells(start);
+    if (this.soundscape === 'psalm') {
+      this.psalmSounding = true;
+      return this.psalm().compose(start, cue => this.queue.push(cue));
+    }
     const { mode, intensity, realm } = this.mood;
     const byzantine = this.soundscape === 'bizantyjski';
     const phrase = generatePhrase(this.rng, { ...this.mood, ornate: byzantine ? 0.5 + 0.4 * intensity : 0 });

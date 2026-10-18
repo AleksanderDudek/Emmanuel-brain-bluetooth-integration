@@ -94,7 +94,11 @@ bundled (no third-party requests), so the app works fully offline.
 action game (Pac-Man × Archero × survivors) in which a guardian angel eats and
 digests traumas, turning them into truths. It is served at `/holyholyholy/` as
 its own installable PWA and reuses BrainLink's Mendi Bluetooth adapter, fNIRS
-pipeline and balance tracker for optional prefrontal-cortex training.
+pipeline and balance tracker for optional prefrontal-cortex training: held
+focus (from the band, or from stillness without it) charges the Fire of the
+Spirit with a ×1.5/×2/×3 multiplier. Prayers are short "prayers of the heart"
+held in focus, with nothing to read. The music, "Psalm 150", has its own piece
+for each chapter.
 Design (Polish): [game/DESIGN.md](game/DESIGN.md).
 
 ```bash

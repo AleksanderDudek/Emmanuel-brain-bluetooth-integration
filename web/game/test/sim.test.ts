@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { blockedCells, computeField, fieldDirection, GW } from '../src/sim/flow';
 import { DOOR, generateRoom, mergeWalls, ROOM_W, START, type RoomLayout } from '../src/sim/room';
 import { BASE_POOL, MAX_LEVEL, modsFrom, Run } from '../src/sim/run';
-import { World, type External } from '../src/sim/world';
+import { CHAIN_WINDOW, FIRE_MAX, RISE_WEAKEN, TONGUE_R, World, type External } from '../src/sim/world';
 import type { ChapterDef, TraumaBehavior, TraumaDef, TraumaKind } from '../src/types';
 
 const KINDS: TraumaKind[] = ['lek', 'wstyd', 'gniew', 'rozpacz', 'odrzucenie', 'samotnosc', 'wina', 'nalog', 'pycha', 'zazdrosc', 'nieprzebaczenie', 'zwatpienie', 'kontrola', 'oskarzyciel'];
@@ -17,7 +17,7 @@ const CHAPTER: ChapterDef = {
   revelationId: 'r', mode: 1, realm: 'earth', report: 'x',
 };
 
-const CALM: External = { peace: 0, spiritRate: 0, restRate: 0.2, revelation: false };
+const CALM: External = { peace: 0, fireRate: 0, restRate: 0.2, revelation: false };
 const mods = modsFrom({}, 0);
 const run = (ch: ChapterDef = CHAPTER, pool = BASE_POOL) => new Run(ch, pool, mods, true, 1);
 
@@ -111,6 +111,20 @@ describe('world', () => {
     expect(w.run.stats.digested.lek).toBe(1);
   });
 
+  it('aims the Word at the nearest shadow in sight, not at one behind a wall', () => {
+    const w = new World({ run: run(), layout: { ...emptyLayout(), walls: [{ x: 3, y: 10, w: 3, h: 1 }] }, defs: DEFS, seed: 3 });
+    (w as unknown as { waves: unknown[] }).waves = [];
+    w.traumas = [];
+    w.player.x = 4.5; w.player.y = 12;
+    const hidden = w.spawnTrauma('lek', 4.5, 8.5);     // nearer, but the wall is in between
+    const open = w.spawnTrauma('lek', 7.8, 13.5);      // farther, in plain sight
+    hidden.state = open.state = 'normal';
+    hidden.speed = open.speed = 0;
+    steps(w, 2);
+    expect(open.state).toBe('weak');
+    expect(hidden.state).toBe('normal');
+  });
+
   it('digests slower on the move', () => {
     const w = quietWorld();
     w.stomach.push({ kind: 'lek', p: 0, light: 5 });
@@ -132,15 +146,22 @@ describe('world', () => {
     expect(mults).toEqual([1, 2, 4]);
   });
 
-  it('opens the door when the shadows are digested and most seeds gathered', () => {
-    const w = new World({ run: run(), layout: { ...emptyLayout(), seeds: [{ x: 1, y: 1 }, { x: 8, y: 1 }] }, defs: DEFS, seed: 1 });
+  it('opens the door when the shadows are eaten and digested; leaving gathers the light still on its way', () => {
+    const w = new World({ run: run(), layout: { ...emptyLayout(), seeds: [{ x: 1, y: 1 }, { x: 8, y: 13 }] }, defs: DEFS, seed: 1 });
     (w as unknown as { waves: unknown[] }).waves = [];
     w.traumas = [];
-    for (const s of w.seeds) { w.player.x = s.x; w.player.y = s.y; steps(w, 0.05); }
+    const t = w.spawnTrauma('lek', 4.5, 6);
+    t.state = 'normal';
+    steps(w, 0.1, 0, 0);
+    expect(w.doorOpen).toBe(false);           // a shadow is still there
+    w.traumas = [];
+    steps(w, 1 / 60);
     expect(w.doorOpen).toBe(true);
     w.player.x = DOOR.x; w.player.y = 0.5;
-    steps(w, 0.05);
+    steps(w, 1 / 60);
     expect(w.state).toBe('exit');
+    expect(w.seeds.every(s => !s.alive)).toBe(true);
+    expect(w.run.stats.seeds).toBe(2);
   });
 
   it('hurts on contact, falls at zero hearts, and the Helmet of Salvation lifts once', () => {
@@ -252,6 +273,19 @@ describe('world', () => {
     expect(w.state).toBe('fallen');
   });
 
+  it('grace grows with each rising: a flame of the Fire, and a stronghold already shaken (up to 40 %)', () => {
+    const r = run();
+    const w = new World({ run: r, layout: emptyLayout('boss'), defs: DEFS, seed: 5 });
+    expect(w.boss!.hp).toBe(w.boss!.maxHp);
+    expect(r.fire).toBe(0);
+    let again = World.retry(w, 6);
+    expect(again.attempt).toBe(1);
+    expect(r.fire).toBe(1);
+    expect(again.boss!.hp).toBeCloseTo(again.boss!.maxHp * (1 - RISE_WEAKEN));
+    for (let i = 0; i < 6; i++) again = World.retry(again, 7 + i);
+    expect(again.boss!.hp).toBeCloseTo(again.boss!.maxHp * 0.6);
+  });
+
   it('starting a room over after a fall re-earns its Light instead of counting it twice', () => {
     const r = run();
     r.light = 100;
@@ -289,7 +323,7 @@ describe('world', () => {
     steps(w, 21, 0, 0, { ...CALM, restRate: 0.2 });
     expect(w.sabbathBlessed).toBe(true);
     expect(r.hearts).toBe(r.maxHearts);
-    expect(r.spirit).toBe(100);
+    expect(r.fire).toBe(FIRE_MAX);
   });
 
   it('the chapel altar pauses for a focus task and blesses success', () => {
@@ -301,10 +335,11 @@ describe('world', () => {
     w.blessChapel(true);
     expect(w.state).toBe('playing');
     expect(r.auraBlessing).toBeGreaterThan(0);
-    const aura = r.auraBlessing, spirit = r.spirit;
+    expect(r.fire).toBe(1);                   // and a flame of the Fire of the Spirit
+    const aura = r.auraBlessing, fire = r.fire;
     w.blessChapel(true);                      // a second result for the same altar changes nothing
     expect(r.auraBlessing).toBe(aura);
-    expect(r.spirit).toBe(spirit);
+    expect(r.fire).toBe(fire);
   });
 
   it('a chained soul fragment is freed by standing still beside it', () => {
@@ -319,16 +354,70 @@ describe('world', () => {
     expect(w.run.stats.fragments).toBe(1);
   });
 
-  it('the Spirit charges and Pentecost makes all shadows edible', () => {
+  it('focus charges the Fire flame by flame; three flames call Pentecost, which makes all shadows edible', () => {
     const r = run();
     const w = quietWorld('battle', r);
     const t = w.spawnTrauma('lek', 2, 2);
     t.state = 'normal';
-    steps(w, 1, 0, 0, { ...CALM, spiritRate: 120 });
-    expect(r.spirit).toBe(100);
+    expect(w.triggerUltimate()).toBe(false);
+    steps(w, 1, 0, 0, { ...CALM, fireRate: 1.2 });
+    expect(r.fire).toBeCloseTo(1.2);
+    expect(w.drainEvents().filter(e => e.type === 'flame')).toEqual([{ type: 'flame', n: 1 }]);
+    expect(w.triggerUltimate()).toBe(false);  // three flames needed
+    steps(w, 2, 0, 0, { ...CALM, fireRate: 1.2 });
+    expect(r.fire).toBe(FIRE_MAX);
     expect(w.triggerUltimate()).toBe(true);
+    expect(r.fire).toBe(0);
     expect(t.state).toBe('fright');
     expect(w.pentecostT).toBeGreaterThan(6);
+  });
+
+  it('a tongue of fire spends one flame, weakens and scatters the shadows around the angel, and spares the far ones', () => {
+    const r = run();
+    const w = quietWorld('battle', r);
+    expect(w.tongueOfFire()).toBe(false);     // no flame yet
+    r.fire = 1.5;
+    const near = w.spawnTrauma('lek', w.player.x + 1.2, w.player.y);
+    const far = w.spawnTrauma('lek', w.player.x, w.player.y - TONGUE_R - 3);
+    near.state = far.state = 'normal';
+    expect(w.tongueOfFire()).toBe(true);
+    expect(r.fire).toBeCloseTo(0.5);
+    expect(near.state).toBe('weak');
+    expect(near.vx).toBeGreaterThan(0);       // pushed away from the angel
+    expect(far.state).toBe('normal');
+    expect(w.drainEvents().some(e => e.type === 'tongue')).toBe(true);
+    expect(w.tongueOfFire()).toBe(false);
+  });
+
+  it('shadows eaten in quick succession make a chain worth more Light', () => {
+    const w = quietWorld();
+    const eat = () => {
+      const t = w.spawnTrauma('lek', w.player.x, w.player.y);
+      t.state = 'weak';
+      t.t = 5;
+      w.step(1 / 60, 0, 0, CALM);
+    };
+    eat(); eat(); eat();
+    const events = w.drainEvents();
+    expect(events.filter(e => e.type === 'chain').map(e => (e as { n: number }).n)).toEqual([2, 3]);
+    expect(w.stomach[2].light).toBeGreaterThan(w.stomach[0].light);
+    steps(w, CHAIN_WINDOW + 0.5);
+    w.stomach = [];
+    eat();
+    expect(w.chain).toBe(1);                  // the chain broke after the window
+  });
+
+  it('once cleansed, the light flies to the angel and the door opens without hunting for seeds', () => {
+    const w = new World({ run: run(), layout: { ...emptyLayout(), seeds: [{ x: 1, y: 1 }, { x: 8, y: 13 }, { x: 8, y: 1 }] }, defs: DEFS, seed: 1 });
+    (w as unknown as { waves: unknown[] }).waves = [];
+    w.traumas = [];
+    steps(w, 1 / 60);
+    expect(w.cleansed).toBe(true);
+    expect(w.doorOpen).toBe(true);
+    expect(w.drainEvents().some(e => e.type === 'sweep')).toBe(true);
+    steps(w, 2);
+    expect(w.seeds.every(s => !s.alive)).toBe(true);
+    expect(w.run.stats.seeds).toBe(3);
   });
 
   it('runs a full battle room deterministically without errors', () => {

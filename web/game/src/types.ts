@@ -50,7 +50,8 @@ export type RankId =
 
 export type SkinSlot = 'halo' | 'robe' | 'wings';
 export type SkinId = string;
-export type SoundscapeId = 'gregorianski' | 'bizantyjski' | 'dzwony' | 'cisza';
+/** 'psalm' (default): the game soundtrack — Psalm 150's instruments, a piece per chapter; the rest: chant, bells, silence */
+export type SoundscapeId = 'psalm' | 'gregorianski' | 'bizantyjski' | 'dzwony' | 'cisza';
 
 /** The eight church modes (Gregorian numbering): 1 Dorian … 8 Hypomixolydian. */
 export type ChantMode = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -107,10 +108,12 @@ export interface ChapterDef {
 export interface PrayerDef {
   id: PrayerId;
   title: string;
-  /** one or two sentences shown before praying */
+  /** one or two sentences: what this prayer is about */
   intro: string;
-  /** the prayer itself, read aloud in 1–2 minutes (≈120–260 words), paragraphs separated by "\n\n" */
-  text: string;
+  /** the prayer of the heart: one short line (≤ 12 words), repeated in focus — in the heart or aloud */
+  invocation: string;
+  /** seconds of steady focus (×1) it takes; held focus multiplies the pace */
+  seconds: number;
   verse: Verse;
   unlocks: { realms?: RealmId[]; powers?: PowerId[]; skins?: SkinId[]; soundscapes?: SoundscapeId[]; ultimate?: boolean; codex?: boolean };
   /** what the player is told was unlocked, 1 sentence */
@@ -191,13 +194,27 @@ export interface StoryText {
 
 export type SfxName =
   | 'eat' | 'digest' | 'shoot' | 'hit' | 'weaken' | 'hurt' | 'seed' | 'grace' | 'levelup' | 'door'
-  | 'fragment' | 'boss' | 'revelation' | 'prayer_word' | 'ultimate' | 'bell' | 'click' | 'fall' | 'rank';
+  | 'fragment' | 'boss' | 'revelation' | 'prayer_word' | 'ultimate' | 'bell' | 'click' | 'fall' | 'rank'
+  /** a tongue of fire (spending one flame) */
+  | 'fire'
+  /** a flame of the Fire of the Spirit has filled */
+  | 'flame'
+  /** sustained focus reached the next multiplier */
+  | 'tier'
+  /** shadows eaten in a row; pass `step` = combo length so the notes climb */
+  | 'combo';
+
+/** What the music accompanies; each scene of a chapter is a variant of that chapter's piece. */
+export type MusicScene = 'menu' | 'battle' | 'chapel' | 'sabbath' | 'boss' | 'victory';
 
 export interface MusicMood {
   mode: ChantMode;
-  /** 0 = calm (menus, Sabbath) … 1 = intense (boss) */
+  /** 0 = calm (menus, Sabbath) … 1 = intense (boss); drives the adaptive layers */
   intensity: number;
   realm: 'heaven' | 'earth' | 'hell';
+  /** which piece: a chapter id (every chapter has its own track) or 'menu' */
+  track: string;
+  scene: MusicScene;
 }
 
 /** Procedural chant + effects. All methods are safe to call before unlock() (they no-op). */
@@ -209,11 +226,16 @@ export interface AudioApi {
   setMood(mood: MusicMood): void;
   /** the hymn to the Holy Spirit for the invocation scene (starts the music if stopped) */
   playInvocation(): void;
-  sfx(name: SfxName, opts?: { pan?: number; pitch?: number; volume?: number }): void;
+  /** `step`: a scale step of the current piece, so melodic effects (combo, digest, flame) fit the music */
+  sfx(name: SfxName, opts?: { pan?: number; pitch?: number; volume?: number; step?: number }): void;
   setVolumes(v: { master: number; music: number; sfx: number }): void;
   setMuted(muted: boolean): void;
   /** soft heartbeat-synced swell under the music (user's heart rate from the band); null = off */
   setHeartRate(bpm: number | null): void;
+  /** the player's "next track": the current piece moves on to its next variation */
+  nextTrack(): void;
+  /** short Polish label of what is playing, for the music controls (e.g. "Malkut · wariacja 2") */
+  readonly nowPlaying: string;
   suspend(): void;
   resume(): void;
 }

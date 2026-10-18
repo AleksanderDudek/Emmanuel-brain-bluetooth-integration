@@ -2,16 +2,18 @@
  * How the prefrontal cortex shapes the game (see DESIGN.md §8).
  *
  * fNIRS is slow (the haemodynamic response peaks ~10 s after the effort), so
- * the band never drives twitch actions — it nudges slow quantities:
- *   activation ↑ in battle  → the Spirit meter charges faster (up-regulation)
+ * the band never drives twitch actions — it drives slow quantities:
+ *   focus (activation ↑)     → charges the Fire of the Spirit; held focus multiplies it (×1.5/×2/×3)
  *   hemispheric balance      → the Peace aura grows
  *   activation ↓ in Sabbath  → rest restores faster (down-regulation)
  *   balance held ≥ 8 s       → a revelation can strike the stronghold
  * Without the band (or while its signal is unreliable) the same quantities
- * come from stillness, so the game is fully playable and nobody is punished.
+ * come from stillness, so the game is fully playable and nobody is punished;
+ * the band only adds (focus while moving, a higher multiplier).
  */
 import type { BalancePause, Recommendation } from '../../../src/core/types';
 import type { External } from '../sim/world';
+import { bandFocus, chargeFactor, FocusCharger, THRESHOLD, type FocusReading, type FocusState } from './focus';
 
 export interface NeuroState {
   source: 'band' | 'none';
@@ -41,10 +43,11 @@ export const NO_BAND: NeuroState = {
 export type Phase = 'battle' | 'boss' | 'sabbath' | 'chapel' | 'menu';
 
 export interface Effects extends External {
-  /** heart rate for the halo pulse and the chant's heartbeat swell */
+  /** heart rate for the halo pulse and the music's heartbeat swell */
   heartBpm: number | null;
-  /** how much of the current Spirit / Peace / rest comes from the band (0..1, for the HUD) */
-  bandSpirit: number;
+  /** live focus for the HUD meter: level, source, streak multiplier */
+  focus: FocusState;
+  /** how much of the current Peace / rest comes from the band (0..1, for the HUD) */
   bandPeace: number;
   bandRest: number;
   bandActive: boolean;
@@ -52,9 +55,11 @@ export interface Effects extends External {
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
-export const SPIRIT_STILL = 2.5;     // points/s while standing still
-export const SPIRIT_MOVING = 0.6;
-export const SPIRIT_BAND_MAX = 0.75; // ≈ +30 % on top of stillness at full focus
+/** flames per second of focused time at ×1 (one flame ≈ 24 s); the multiplier and depth of focus scale it */
+export const FIRE_BASE = 1 / 24;
+/** focus read from stillness: the praying posture, and the angel on the move */
+export const STILL_FOCUS = 0.62;
+export const MOVING_FOCUS = 0.12;
 export const REST_BASE = 0.2;        // hearts/s while resting (1 heart / 5 s)
 export const REST_BAND_MAX = 0.3;    // up to +30 % with deep calm
 const PEACE_TAU = 1.5;
@@ -63,6 +68,7 @@ const REVELATION_STREAK = 8;
 export class NeuroEffects {
   private peace = 0;
   private revelationHold = 0;
+  private readonly charger = new FocusCharger();
 
   update(dt: number, n: NeuroState, g: { still: number; phase: Phase }): Effects {
     const band = n.source === 'band' && n.reliable;
@@ -76,10 +82,9 @@ export class NeuroEffects {
     const target = Math.max(stillPeace, bandPeace);
     this.peace += (target - this.peace) * (1 - Math.exp(-dt / PEACE_TAU));
 
-    // Spirit: stillness (prayer) charges it; prefrontal engagement adds a bonus in battle
-    const engaging = g.phase === 'battle' || g.phase === 'boss';
-    const focus = band && engaging && n.activation !== null ? clamp01((n.activation - 0.5) / 0.3) : 0;
-    const spiritRate = (g.still > 0.12 ? SPIRIT_STILL : SPIRIT_MOVING) + SPIRIT_BAND_MAX * focus;
+    // Focus charges the Fire: the band counts even on the move; stillness (prayer) is everyone's fallback
+    const focus = this.charger.update(dt, focusReading(band ? bandFocus(n.activation) : null, g.still > 0.12));
+    const fireRate = g.phase === 'menu' ? 0 : FIRE_BASE * chargeFactor(focus);
 
     // Sabbath: lowering activation (resting the prefrontal cortex) deepens the rest
     const calm = band && g.phase === 'sabbath' && n.activation !== null ? clamp01((0.5 - n.activation) / 0.3) : 0;
@@ -95,19 +100,33 @@ export class NeuroEffects {
 
     return {
       peace: this.peace,
-      spiritRate,
+      fireRate,
       restRate,
       revelation: this.revelationHold > 0.5,
       heartBpm: n.source === 'band' && n.heartRate ? n.heartRate : null,
-      bandSpirit: focus,
+      focus,
       bandPeace: band ? bandPeace : 0,
       bandRest: calm,
       bandActive: band,
     };
   }
 
-  reset(): void {
+  /** A new room keeps the focus streak (concentration carries on); a new chapter (`full`) starts it afresh. */
+  reset(full = false): void {
     this.peace = 0;
     this.revelationHold = 0;
+    if (full) this.charger.reset();
   }
+}
+
+/**
+ * Where this tick's focus comes from. The band wins once it reads as focused (it then also counts
+ * while moving and can reach ×3); otherwise standing still is focus (×1.5 at most). The level is
+ * the better of the two, so wearing the band never lowers anything.
+ */
+export function focusReading(band: number | null, still: boolean): FocusReading {
+  const stillLevel = still ? STILL_FOCUS : MOVING_FOCUS;
+  if (band !== null && band >= THRESHOLD) return { level: Math.max(band, stillLevel), source: 'band' };
+  if (still) return { level: Math.max(stillLevel, band ?? 0), source: 'still' };
+  return band !== null ? { level: Math.max(band, stillLevel), source: 'band' } : { level: stillLevel, source: 'none' };
 }

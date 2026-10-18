@@ -30,20 +30,13 @@ export const STORY: StoryText = {
     '800 70 2222: Centrum Wsparcia dla Osób Dorosłych w Kryzysie Psychicznym, całą dobę (centrumwsparcia.pl)',
     '112: numer alarmowy, gdy zagrożone jest czyjeś życie lub zdrowie',
     'Poza Polską zadzwoń pod lokalny numer alarmowy. Numery sprawdzone w październiku 2026 roku.',
-  ].join('\n'),
+  ].join('\n\n'),   // one paragraph per line: each number must stand on its own
 
   intro: [
-    'Przed tronem Boga panuje cisza pełna światła. W tej ciszy Pan woła ciebie, anioła stróża.',
     '„Aniołom swoim przykazał o tobie, aby cię strzegli na wszystkich drogach twoich” (Ps 91,11). ' +
       'Dziś Bóg powierza ci człowieka. Ma na imię Adam.',
-    'Adam po hebrajsku znaczy „człowiek”. Mógłby być każdym z nas. ' +
-      'Nosi rany z dzieciństwa, z domu, ze szkoły i z miłości, która zawiodła. Niektóre bolą tak długo, że zamieniły się w cienie.',
-    'Cienie krążą po jego życiu i szepczą kłamstwa: że jest sam, że musi zasłużyć na miłość, że Bóg jest daleko. ' +
-      'Za nimi wznoszą się twierdze, wielkie kłamstwa, w które Adam uwierzył.',
-    'Oto twoja misja: przejdź przez życie Adama, od Królestwa aż do Korony. Stań w ciszy i mów Słowem, a cienie osłabną. ' +
-      'Wtedy je pochłoń i przetraw, bo każda rana może stać się prawdą.',
-    'Szukaj zagubionych odłamków jego duszy. Burz twierdze kłamstwa. Po każdym etapie wróć przed tron i zdaj sprawę z drogi.',
-    'Gdy zabraknie ci sił, módl się. Łaska jest darmowa, a modlitwa otwiera drogi, których jeszcze nie widzisz. Pan idzie z tobą.',
+    'Rany Adama zamieniły się w cienie, które szepczą mu kłamstwa. Za nimi stoją twierdze: kłamstwa, w które uwierzył.',
+    'Stań w ciszy, a Słowo osłabi cienie. Pochłoń je i przetraw w prawdę. Skupienie rozpala Ogień Ducha.',
   ],
 
   fall: [

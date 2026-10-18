@@ -3,10 +3,15 @@
  * calming down, nothing harsh. Each is synthesised per call from a few primitives (enveloped
  * tones, filtered noise, bell strikes, choral chords), and all its nodes are disconnected once
  * its last source has ended. Rapid-fire effects are rate-limited and simultaneous ones capped.
+ *
+ * The melodic ones (combo, digest, flame, tier, fire) are tuned to the music: they take their
+ * notes from the key of what is playing (the soundtrack's piece, or the chant's mode).
  */
 import type { SfxName } from '../types';
+import type { Key } from './arranger';
 import { BELL_PRIME_HZ } from './bells';
 import { clamp, midiToHz, type Vowel } from './chant';
+import { degreeMidi } from './psalm';
 import type { Rng } from './rng';
 import { FormantBank } from './voice';
 
@@ -18,7 +23,8 @@ export interface Kit {
   rng: Rng;
 }
 
-export interface SfxOptions { pan?: number; pitch?: number; volume?: number }
+/** `step`: a scale step for melodic effects (the combo's length, a tier). */
+export interface SfxOptions { pan?: number; pitch?: number; volume?: number; step?: number }
 
 /**
  * How long each effect sounds (s); `every`: minimum spacing of effects the game may fire every
@@ -44,6 +50,10 @@ const SPEC: Readonly<Record<SfxName, { dur: number; every?: number; major?: bool
   click: { dur: 0.05, every: 0.04 },
   fall: { dur: 1.1, major: true },
   rank: { dur: 3, major: true },
+  fire: { dur: 0.9, every: 0.12 },
+  flame: { dur: 1.1, every: 0.15 },
+  tier: { dur: 1.2, major: true },
+  combo: { dur: 0.6, every: 0.05 },
 };
 
 /** Simultaneous effects beyond which minor ones are dropped. */
@@ -219,12 +229,43 @@ class Fx {
   }
 }
 
-const PENTATONIC = [0, 2, 4, 7, 9];
+/** scale degrees of the tonic triad: consonant in every mode and scale */
+const TRIAD = [0, 2, 4];
 const I = [60, 64, 67, 72];
 const IV = [60, 65, 69, 72];
 const V = [59, 62, 67, 74];
 
-type Recipe = (fx: Fx, t: number, rng: Rng) => void;
+/** The key melodic effects play in, when none is given: C major. */
+export const DEFAULT_KEY: Key = { tonic: 72, scale: [0, 2, 4, 5, 7, 9, 11] };
+
+/**
+ * The notes (MIDI) of a melodic effect in a key, for its `step` (the combo's length, the flame's
+ * number, the tier; for digest, which chord tone):
+ * combo: climbing scale degrees from the octave below the tonic, two octaves at most;
+ * digest: a chime on a chord tone (root, third, fifth in turn) over the tonic's open chord;
+ * flame: a soft rise through a triad, a step higher with each flame (up to the fifth);
+ * tier: a rising fifth, an octave higher from tier 3; fire: the burst's bright chord.
+ */
+export function melodicNotes(name: 'combo' | 'digest' | 'flame' | 'tier' | 'fire', step: number, key: Key): number[] {
+  const at = (degree: number, octave = 0): number => degreeMidi(key.tonic + 12 * octave, key.scale, degree);
+  switch (name) {
+    case 'combo': return [at(Math.min(Math.max(step, 1) - 1, 14), -1)];
+    case 'digest': return [at(-7, -1), at(-3, -1), at(2, -1), at(4, -1), at([0, 2, 4][((step % 3) + 3) % 3])];
+    case 'flame': {
+      const base = Math.min(Math.max(step, 1) - 1, 4);
+      return [at(base), at(base + 2), at(base + 4)];
+    }
+    case 'tier': {
+      const low = step >= 3 ? 7 : 0;
+      return [at(low, -1), at(low + 4, -1)];
+    }
+    case 'fire': return [at(0), at(4), at(7), at(9)];
+  }
+}
+
+/** `step`: as the game passed it (a whole number), if it did. */
+interface Melodic { key: Key; step: number | undefined }
+type Recipe = (fx: Fx, t: number, rng: Rng, m: Melodic) => void;
 
 const RECIPES: Readonly<Record<SfxName, Recipe>> = {
   // a soft gulp, then a rising sparkle
@@ -232,7 +273,12 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
     fx.tone(t, 300, 0.12, { to: 140, gain: 0.3 });
     [84, 88, 91].forEach((m, i) => fx.tone(t + 0.09 + 0.06 * i, midiToHz(m), 0.3, { gain: 0.06 }));
   },
-  digest: (fx, t) => fx.chord(t, [48, 55, 64, 67], 1.2, { attack: 0.18, gain: 0.07 }),
+  // digested: a soft open chord on the key's tonic and a chime on one of its chord tones
+  digest: (fx, t, rng, { key, step }) => {
+    const notes = melodicNotes('digest', step ?? rng.int(0, 2), key);
+    fx.chord(t, notes.slice(0, 4), 1.2, { attack: 0.18, gain: 0.055 });
+    fx.tone(t + 0.12, midiToHz(notes[4]), 0.8, { gain: 0.05 });
+  },
   shoot: (fx, t) => {
     fx.noise(t, 0.12, { from: 3200, to: 1500, q: 1.4, gain: 0.08, attack: 0.008 });
     fx.tone(t, midiToHz(81), 0.16, { type: 'triangle', to: midiToHz(76), gain: 0.05 });
@@ -241,7 +287,8 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
   weaken: (fx, t) => [88, 86, 83, 81, 79].forEach((m, i) => fx.tone(t + 0.055 * i, midiToHz(m), 0.35, { gain: 0.045 })),
   hurt: (fx, t) => fx.tone(t, 130, 0.35, { to: 55, gain: 0.35, attack: 0.008 }),
   // a tiny bell, somewhere on a pentatonic scale, so a run of pickups makes a little tune
-  seed: (fx, t, rng) => fx.bell(t, 72 + 12 * rng.int(0, 1) + rng.pick(PENTATONIC), 0.2),
+  // a seed rings on a chord tone of the playing piece, never a semitone against it
+  seed: (fx, t, rng, { key }) => fx.bell(t, degreeMidi(72 + (key.tonic % 12) + 12 * rng.int(0, 1), key.scale, rng.pick(TRIAD)), 0.2),
   grace: (fx, t) => {
     fx.chord(t, [62, 66, 69, 74], 2, { attack: 0.3, gain: 0.06 });
     [86, 90, 93, 98].forEach((m, i) => fx.tone(t + 0.2 + 0.09 * i, midiToHz(m), 0.6, { gain: 0.03 }));
@@ -280,6 +327,38 @@ const RECIPES: Readonly<Record<SfxName, Recipe>> = {
   },
   // "Al-le-lu-i-a" on I–IV–I–V–I
   rank: (fx, t) => fx.choral(t, [I, IV, I, V, I], ['a', 'e', 'u', 'i', 'a'], 0.34, 0.14),
+  // a tongue of fire: a rushing whoosh, then a bright burst on the key's chord and a crackle
+  fire: (fx, t, rng, { key }) => {
+    fx.noise(t, 0.4, { from: 300, to: 2800, q: 0.8, gain: 0.12, attack: 0.25 });
+    melodicNotes('fire', 1, key).forEach((m, i) => fx.tone(t + 0.28 + 0.015 * i, midiToHz(m), 0.45, { type: i ? 'sine' : 'triangle', gain: 0.04 }));
+    for (let i = 0; i < 3; i++) fx.noise(t + rng.range(0.3, 0.6), 0.025, { from: rng.range(2500, 4500), to: 2000, q: 3, gain: 0.04, attack: 0.003 });
+  },
+  // a flame of the Spirit fills: a soft chime rising through the triad
+  flame: (fx, t, _rng, { key, step = 1 }) => {
+    melodicNotes('flame', step, key).forEach((m, i, all) => {
+      const last = i === all.length - 1;
+      fx.tone(t + 0.07 * i, midiToHz(m), last ? 0.9 : 0.35, { gain: 0.045 });
+      if (last) fx.tone(t + 0.07 * i, 2 * midiToHz(m), 0.5, { gain: 0.012 });
+    });
+  },
+  // focus reached the next multiplier: a rising fifth, brighter at higher tiers
+  tier: (fx, t, _rng, { key, step = 1 }) => {
+    const bright = clamp((step - 1) / 4, 0, 1);
+    melodicNotes('tier', step, key).forEach((m, i) => {
+      const hz = midiToHz(m);
+      fx.tone(t + 0.13 * i, hz, 0.7, { type: bright > 0.5 ? 'triangle' : 'sine', gain: 0.06 });
+      if (bright > 0) fx.tone(t + 0.13 * i, 2 * hz, 0.45, { gain: 0.025 * bright });
+      if (bright >= 1) fx.tone(t + 0.13 * i, 4 * hz, 0.3, { gain: 0.008 });
+    });
+  },
+  // shadows eaten in a row: each one a scale step higher, a sparkle once the run is long
+  combo: (fx, t, _rng, { key, step = 1 }) => {
+    const hz = midiToHz(melodicNotes('combo', step, key)[0]);
+    fx.tone(t, hz, 0.45, { gain: 0.085 });
+    fx.tone(t, hz, 0.3, { type: 'triangle', gain: 0.03 });
+    fx.tone(t, 2 * hz, 0.25, { gain: 0.025 });
+    if (step >= 8) fx.tone(t + 0.05, 4 * hz, 0.2, { gain: 0.01 });
+  },
 };
 
 /** Plays effects into `out`, through the gate. */
@@ -291,16 +370,13 @@ export class Sfx {
     private readonly out: AudioNode,
   ) {}
 
-  play(name: SfxName, { pan = 0, pitch = 1, volume = 1 }: SfxOptions = {}): void {
+  /** Plays an effect; melodic ones take their notes from `key`. */
+  play(name: SfxName, { pan = 0, pitch = 1, volume = 1, step }: SfxOptions = {}, key: Key = DEFAULT_KEY): void {
     const now = this.kit.ctx.currentTime;
     if (!this.gate.admit(name, now)) return;
     // NaN-proof: `NaN || x` is x
     const fx = new Fx(this.kit, this.out, clamp(pitch || 1, 0.25, 4), clamp(volume || 0, 0, 2), pan || 0);
-    RECIPES[name](fx, now + 0.005, this.kit.rng);
+    const melodic = step !== undefined && Number.isFinite(step) ? clamp(Math.round(step), 0, 99) : undefined;
+    RECIPES[name](fx, now + 0.005, this.kit.rng, { key, step: melodic });
   }
-}
-
-/** One strike of a church bell into `dest` (the bells of the music). */
-export function strikeBell(kit: Kit, dest: AudioNode, at: number, midi: number, level: number, pan: number): void {
-  new Fx(kit, dest, 1, level, pan).bell(at, midi, 1);
 }

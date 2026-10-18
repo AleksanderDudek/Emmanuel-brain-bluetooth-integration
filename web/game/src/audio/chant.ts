@@ -42,7 +42,7 @@ export interface Phrase {
   octaveDouble: boolean;
 }
 
-export interface PhraseOptions extends MusicMood {
+export interface PhraseOptions extends Pick<MusicMood, 'mode' | 'intensity' | 'realm'> {
   /** 0 = plain psalmody … 1 = richly ornamented, Byzantine style */
   ornate?: number;
   /** a broader, slower delivery (the invocation hymn) */

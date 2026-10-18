@@ -42,17 +42,31 @@ body.playing #stage { visibility: visible; }
 
 /* ─── HUD buttons over the canvas ─────────────────────────────── */
 #hud { position: absolute; inset: 0; pointer-events: none; display: none; }
+/* read by the renderer: the canvas HUD keeps clear of the notch and the home indicator */
+#safe-probe { position: fixed; left: 0; top: 0; width: 0; height: 0; visibility: hidden; pointer-events: none;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body.playing #hud { display: block; }
 .hud-btn {
   pointer-events: auto; position: absolute; font-family: var(--head); color: var(--tx);
   background: rgba(10, 12, 24, 0.6); border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
 }
 #btnPause { top: max(76px, calc(env(safe-area-inset-top) + 70px)); right: 12px; width: 40px; height: 40px; font-size: 12px; }
-#btnUltimate {
-  right: 14px; bottom: max(16px, env(safe-area-inset-bottom)); padding: 12px 18px; font-size: 14px; letter-spacing: 0.5px;
+#btnMusic { top: max(124px, calc(env(safe-area-inset-top) + 118px)); right: 12px; width: 40px; height: 40px; font-size: 16px; }
+#btnMusic[aria-pressed="false"] { opacity: 0.45; text-decoration: line-through; }
+/* the Fire of the Spirit: three flames; a tap spends one, three call Pentecost */
+#btnFire {
+  right: 14px; bottom: max(16px, env(safe-area-inset-bottom)); min-width: 92px; padding: 10px 16px 8px; font-size: 14px; letter-spacing: 0.5px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
 }
-#btnUltimate:disabled { opacity: 0.35; cursor: default; }
-#btnUltimate.ready { border-color: var(--gold); color: #1a1205; background: linear-gradient(180deg, #ffe7a3, #ffb347); box-shadow: 0 0 22px rgba(255, 179, 71, 0.6); animation: breathe 2.4s ease-in-out infinite; }
+#btnFire:disabled { opacity: 0.5; cursor: default; }
+#btnFire.lit { border-color: #ffb347; box-shadow: 0 0 16px rgba(255, 179, 71, 0.45); }
+#btnFire.ready { border-color: var(--gold); color: #1a1205; background: linear-gradient(180deg, #ffe7a3, #ffb347); box-shadow: 0 0 22px rgba(255, 179, 71, 0.6); animation: breathe 2.4s ease-in-out infinite; }
+#btnFire .pips { display: flex; gap: 6px; }
+#btnFire .pips i {
+  --f: 0; width: 10px; height: 14px; border-radius: 50% 50% 45% 45% / 65% 65% 35% 35%; border: 1px solid rgba(255, 179, 71, 0.7);
+  background: linear-gradient(to top, #ffb347 calc(var(--f) * 100%), transparent calc(var(--f) * 100%));
+}
+#btnFire.ready .pips i { border-color: #7a3d00; }
 @keyframes breathe { 50% { box-shadow: 0 0 34px rgba(255, 179, 71, 0.9); } }
 
 #banner {
@@ -169,23 +183,44 @@ body.playing #hud { display: block; }
 .bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
 .bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #f2c352, #fff1b8); transition: width 0.25s; }
 
-/* prayer */
+/* prayer of the heart: a lamp that fills with focus */
 .prayer .intro { text-align: center; }
-.prayer-text { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; max-height: 42vh; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-.prayer-text p { font-size: 20px; line-height: 1.6; color: var(--tx3) !important; }
-.w { transition: color 0.3s, text-shadow 0.3s; }
-.w.on { color: var(--gold2); text-shadow: 0 0 10px rgba(255, 215, 106, 0.35); }
-.w.next { border-bottom: 1px dashed var(--gold); }
-.seg { display: flex; justify-content: center; gap: 8px; }
-.seg .btn[aria-pressed='true'] { border-color: var(--gold); background: rgba(255, 215, 106, 0.12); }
-.btn.hold { user-select: none; -webkit-user-select: none; touch-action: none; }
-.btn.hold.active { box-shadow: 0 0 26px rgba(255, 215, 106, 0.7); }
+.lamp { --p: 0; position: relative; width: 132px; height: 132px; margin: 4px auto 0; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle, rgba(255, 179, 71, calc(0.08 + var(--p) * 0.3)) 0%, transparent 70%); }
+.lamp .flame { width: 46px; height: 64px; border-radius: 50% 50% 45% 45% / 62% 62% 38% 38%; transform-origin: 50% 85%;
+  transform: scale(calc(0.45 + var(--p) * 0.75)); background: radial-gradient(ellipse at 50% 70%, #fff6d8 0%, #ffd27a 35%, #ff9a3c 70%, rgba(255, 120, 40, 0) 100%);
+  filter: drop-shadow(0 0 calc(8px + var(--p) * 22px) rgba(255, 170, 60, 0.75)); animation: flicker 2.6s ease-in-out infinite; }
+.lamp.full .flame { filter: drop-shadow(0 0 34px rgba(255, 215, 106, 0.95)); }
+@keyframes flicker { 50% { transform: scale(calc(0.47 + var(--p) * 0.75)) rotate(-2deg); } }
+.invocation { text-align: center; font-family: var(--head); font-size: 22px; line-height: 1.4; color: var(--gold2) !important; text-shadow: 0 0 14px rgba(255, 215, 106, 0.25); }
+.bar.progress { height: 8px; }
+.bar.progress.full > div { background: linear-gradient(90deg, #ffd76a, #fff6d8); }
+.focus-row { display: flex; align-items: center; gap: 10px; }
+.focus-row .label { font-family: var(--head); font-size: 13px; color: var(--tx3); }
+.focus-meter { --threshold: 55%; position: relative; flex: 1; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.focus-meter .fill { height: 100%; width: 0; background: linear-gradient(90deg, #8a93b8, #cfd6f2); transition: width 0.2s; }
+.focus-meter.on .fill { background: linear-gradient(90deg, #ff9a3c, #ffe08a); }
+.focus-meter .tick { position: absolute; top: 0; bottom: 0; left: var(--threshold); width: 2px; background: rgba(255, 255, 255, 0.8); }
+.mult { font-family: var(--head); font-size: 18px; min-width: 44px; text-align: right; color: var(--tx3); }
+.mult.hot { color: var(--gold); }
+.mult.pop { animation: pop 0.5s ease-out; }
+@keyframes pop { 40% { transform: scale(1.5); } }
+.prayer .source { display: block; text-align: center; color: var(--tx3); font-size: 14px; min-height: 20px; }
+.voice-box { display: flex; justify-content: center; }
 .consent { background: rgba(255, 255, 255, 0.04); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .consent p { font-size: 15px; }
-.focus { text-align: center; color: #9ff0d0 !important; font-size: 15px; min-height: 22px; }
+
+/* music controls (pause, settings) */
+.music { display: flex; flex-direction: column; gap: 10px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.music .now { text-align: center; color: var(--gold2); font-size: 15px; }
+.music .styles { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.music .styles .btn[aria-pressed='true'] { border-color: var(--gold); background: rgba(255, 215, 106, 0.12); }
 
 /* revelation & report */
 .lie { text-align: center; font-size: 20px; color: var(--tx3) !important; }
+.lie-intro { text-align: center; color: var(--tx2) !important; }
+.lie-intro q { font-style: italic; color: #e6b9b9; }
+.invocation-small { font-family: var(--head); color: var(--gold2) !important; font-size: 15px; }
 .lie s { text-decoration-color: var(--gold); text-decoration-thickness: 2px; }
 .truths { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; }
 .truths li { font-size: 16px; color: var(--tx2); }

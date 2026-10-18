@@ -59,7 +59,7 @@ export const FRUITS: FruitDef[] = [
   {
     id: 'wiernosc',
     name: 'Wierność',
-    effect: 'Każdy poziom przyspiesza ładowanie mocy Ducha o 15%.',
+    effect: 'Każdy poziom przyspiesza ładowanie Ognia Ducha o 15%.',
     verse: verse('2 Tm 2,13'),
     maxLevel: 3,
     costs: [...COSTS],

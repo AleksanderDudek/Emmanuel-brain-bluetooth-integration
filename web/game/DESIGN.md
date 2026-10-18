@@ -10,6 +10,43 @@ z opaską fNIRS **Mendi** — wtedy staje się treningiem kory przedczołowej.
 
 ---
 
+## 0. Wersja 2 — co się zmieniło i dlaczego
+
+Po pierwszych grach rdzeń został (anioł zjada i trawi cienie, a każdy
+rozdział uzdrawia jedno kłamstwo w podświadomości Adama), ale gra była zbyt
+mało przyjemna:
+
+* **Za dużo czytania.** Do pierwszego ruchu mijały ~3 minuty: modlitwa ze 135
+  słów, siedem akapitów historii; wersety wyskakiwały w trakcie walki.
+* **Opaska działała niewidocznie.** Skupienie dawało ~30% premii do paska
+  Ducha. Nie było widać, że skupienie cokolwiek zmienia.
+* **Muzyka szybko nużyła.** Jeden generator tonów psalmowych, za głośno, bez
+  sterowania w trakcie gry.
+* **Mało satysfakcji z akcji.** Zbieranie 70% ziaren i czekanie przy drzwiach.
+
+Co zmieniamy:
+
+1. **Pierwszy ruch po ~40 s.** Inwokacja trwa 20 s (krótkie wezwanie i
+   kalibracja opaski), historia to 3 zdania, potem od razu Malkut i jego
+   kłamstwo.
+2. **Zero czytania w rozgrywce.** Modlitwa serca zamiast czytania (§7).
+   Prawda poznana w pokoju wraca jako werset w szepcie *między* pokojami,
+   a nie nad walką.
+3. **Skupienie, które coś ładuje** (§4, §8). Skupienie napełnia trzy płomienie
+   **Ognia Ducha**: jeden płomień to język ognia, trzy to Pięćdziesiątnica.
+   Na dole ekranu widać podgląd skupienia, a utrzymane skupienie daje mnożnik
+   ×1,5 / ×2 / ×3. Opaska działa także w ruchu i podnosi pułap mnożnika.
+4. **Soczystość.**
+   * Serie zjedzeń: +10% światła za ogniwo, dźwięki wspinają się po skali utworu.
+   * Krótkie zatrzymanie klatki przy trafieniu i liczby światła.
+   * Po oczyszczeniu pokoju światło samo przylatuje, a drzwi otwierają się
+     po strawieniu wszystkiego.
+5. **Muzyka gry „Psalm 150”** (§9): osobny utwór dla każdej sfery, warstwy
+   reagują na walkę, gra domyślnie ciszej, a sterowanie jest pod ręką
+   (♪, pauza, „następny utwór”).
+6. **Kłamstwo w centrum.** Widać je od początku rozdziału (ekran sfery), nosi
+   je twierdza, a przy objawieniu zostaje przekreślone.
+
 ## 1. Filary
 
 1. **Przetrawić, nie tylko pokonać.** Walka osłabia traumę, ale uzdrowienie
@@ -21,21 +58,26 @@ z opaską fNIRS **Mendi** — wtedy staje się treningiem kory przedczołowej.
 3. **Prawda zamiast kłamstwa.** Każda strawiona trauma staje się słowem
    prawdy z Pisma; każdy rozdział kończy objawienie kłamstwa, w które wierzy
    wielu chrześcijan.
-4. **Krótko i pięknie.** Pokoje po 30–90 s, rozdział 6–10 min, modlitwa 1–2 min.
-   Gra jedną ręką na telefonie.
-5. **Mózg jako sprzymierzeniec, nie strażnik.** Opaska dodaje premie za
-   skupienie i pokój, nigdy nie karze i nigdy nie blokuje gry.
+4. **Krótko i pięknie.** Pokoje po 30–90 s, rozdział 6–10 min, modlitwa serca
+   ok. minuty. Gra jedną ręką na telefonie.
+5. **Mózg jako sprzymierzeniec, nie strażnik.** Skupienie widać i czuć
+   (pasek, mnożnik, płomienie). Opaska tylko dodaje, nigdy nie karze i nigdy
+   nie blokuje gry.
+6. **Najpierw przyjemność.** Każde działanie ma natychmiastową, piękną
+   odpowiedź (dźwięk w skali utworu, błysk, liczby). Tekst nigdy nie przerywa
+   walki.
 
 ## 2. Pętla rozgrywki
 
 ```
-Inwokacja do Ducha Świętego (modlitwa + kalibracja opaski)
+Inwokacja do Ducha Świętego (20 s modlitwy serca + kalibracja opaski)
       ↓
 Drzewo (mapa sfer)  ──→  Modlitwy (klucze) · Owoce Ducha (talenty) · Skarbiec · Księga Prawdy
       ↓
-Rozdział = etap życia Adama
+Rozdział = etap życia Adama (najpierw jego kłamstwo)
   pokój ─ pokój ─ Kaplica/Szabat ─ pokój ─ pokój ─ Twierdza
-      ↓ (w pokoju: światło → poziom → wybór 1 z 3 darów)
+      ↓ (w pokoju: światło → poziom → wybór 1 z 3 darów;
+         skupienie → Ogień Ducha → język ognia / Pięćdziesiątnica)
 Objawienie (kłamstwo → prawda) → Raport dla Tronu → nowa sfera, ranga, manna
 ```
 
@@ -54,13 +96,15 @@ korzenie — zależnie od sfery), drzwi u góry.
 |---|---|
 | **Ruch** | wirtualny drążek: przeciągnij gdziekolwiek palcem (klawiatura: WASD/strzałki) |
 | **Bezruch = modlitwa** | gdy stoisz, anioł sam wypuszcza **Słowo** (Miecz Ducha, Ef 6,17) w najbliższego cienia — mechanika Archero: rusz się, by unikać; stań, by działać |
-| **Osłabienie** | Słowo nie zabija. Cień bez sił staje się **osłabiony** (blady, oszołomiony) na 5 s — wtedy można go **zjeść**. Jeśli nie zdążysz, odzyskuje połowę sił |
+| **Osłabienie** | Słowo nie zabija. Cień bez sił staje się **osłabiony** (blady, oszołomiony) na 6 s — wtedy można go **zjeść**. Jeśli nie zdążysz, odzyskuje połowę sił |
 | **Promień łaski** | 1–2 na pokój, w rogach (Pac-Manowe „power pellety”). Przez 6 s wszystkie cienie słabną i uciekają; zjadane po kolei dają serię ×1 ×2 ×4 ×8 |
-| **Pochłanianie i trawienie** | zjedzony cień trafia do serca (3 miejsca). Trawienie trwa 2 s, **w bezruchu 2× szybciej**. Po strawieniu cień staje się **prawdą**: unosi się słowo („UFNOŚĆ”) i — przy pierwszym razie w biegu — werset |
-| **Ziarna światła** | rozsiane jak kropki w Pac-Manie. Zebranie ≥ 70% i strawienie wszystkich cieni otwiera drzwi: „Effatha — otwórz się!” (Mk 7,34). Gdy pokój jest oczyszczony, resztki światła same lgną do anioła |
+| **Pochłanianie i trawienie** | zjedzony cień trafia do serca (3 miejsca). Trawienie trwa 2 s, **w bezruchu 2× szybciej**. Po strawieniu cień staje się **prawdą**: unosi się słowo („UFNOŚĆ”) i liczba światła; werset tej prawdy wraca w szepcie po pokoju |
+| **Seria** | cienie zjedzone jeden po drugim (do 2,5 s) tworzą serię: +10% światła za ogniwo (do ×2), napis „Seria ×N” i coraz wyższe dźwięki w skali utworu |
+| **Ziarna światła** | rozsiane jak kropki w Pac-Manie; zbierane w walce dają światło. Gdy wszystkie cienie są zjedzone i strawione, drzwi się otwierają: „Effatha — otwórz się!” (Mk 7,34), a resztki światła same przylatują do anioła |
+| **Ogień Ducha** | trzy płomienie ładowane **skupieniem** (§8). Przycisk „Ogień” (spacja): jeden płomień = **język ognia** (Dz 2,3) — osłabia i odrzuca cienie w promieniu ~2,8, rani twierdzę, gasi strzały. Trzy płomienie = **Pięćdziesiątnica** (po modlitwie „Przyjmuję Ducha Świętego”) |
 | **Fragment duszy** | jeden w pokoju (w Szeolu kilka, skutych — stań przy nim 2,5 s, by rozkuć). Fragmenty uzdrawiają Adama (portret w raporcie jaśnieje) |
 | **Rana** | dotyk silnego cienia lub ognista strzała (Ef 6,16) = −1 serce, chwila nietykalności |
-| **Upadek** | 0 serc → ekran „Choć upadłem, powstanę” (Mi 7,8), powtórka pokoju z pełnymi sercami; dary zostają, a światło z nieudanej próby zdobywa się w powtórce od nowa (nie liczy się podwójnie). Raport liczy: „upadłeś 2 razy i 2 razy powstałeś” |
+| **Upadek** | 0 serc → ekran „Choć upadłem, powstanę” (Mi 7,8), powtórka pokoju z pełnymi sercami; dary zostają, a światło z nieudanej próby zdobywa się w powtórce od nowa (nie liczy się podwójnie). **Łaska rośnie z każdym powstaniem:** co najmniej jeden płomień Ognia, a twierdza zaczyna o 10% słabsza za każdy upadek (do 40%) — bez pętli frustracji. Raport liczy: „upadłeś 2 razy i 2 razy powstałeś” |
 
 ### Cienie (traumy) — osobowości duchów z Pac-Mana
 
@@ -112,10 +156,13 @@ darów (Vampire/Monster Survivors). 20 darów z Pisma, każdy z poziomami:
 Część darów jest w puli od początku, resztę otwierają modlitwy (np. „Zbroja
 Boża” dodaje tarczę, pancerz, hełm i obuwie).
 
-**Duch (moc szczytowa).** Pasek Ducha ładuje się w bezruchu i za światło
-(z opaską — także za skupienie). Pełny → przycisk **„Przyjdź, Duchu!”** →
-Zesłanie: 7 s łaski dla wszystkich cieni, języki ognia, +1 serce. Otwiera go
-modlitwa „Przyjmuję Ducha Świętego”.
+**Ogień Ducha (moc szczytowa).** Trzy płomienie ładowane skupieniem
+(z opaską — także w ruchu; bez niej — w bezruchu), trochę także trawieniem,
+Kaplicą (+1) i Szabatem (do pełna). Jeden płomień: **język ognia** wokół
+anioła. Trzy płomienie: przycisk zmienia się w **„Przyjdź, Duchu!”** →
+Zesłanie: 7 s łaski dla wszystkich cieni, języki ognia, +1 serce (otwiera je
+modlitwa „Przyjmuję Ducha Świętego”). Wybór jest taktyczny: wydawać płomienie
+na bieżąco czy zbierać na Pięćdziesiątnicę.
 
 **Aura Pokoju (Szalom).** Krąg wokół anioła rośnie, gdy trwasz w pokoju
 (bez opaski: bezruch; z opaską: równowaga półkul). W kręgu cienie zwalniają,
@@ -170,27 +217,40 @@ Radość (+światło), Pokój (+aura), Cierpliwość (+trawienie), Uprzejmość
 (+przyciąganie ziaren), Dobroć (+łaska), Wierność (+Duch), Łagodność
 (+obrażenia), Opanowanie (+szybkostrzelność w bezruchu).
 
-## 7. Modlitwa jako klucz („płatność”)
+## 7. Modlitwa serca jako klucz („płatność”)
 
-Gracz otwiera talenty, krainy i wygląd **wypowiadając modlitwę z ekranu**
-(1–2 min). Teologicznie ramujemy to delikatnie: łaska jest darmowa —
-modlitwa w grze „otwiera ścieżki” jako odpowiedź, nie transakcja.
+Gracz otwiera talenty, krainy i wygląd **modlitwą serca**: jedno krótkie
+wezwanie (do 12 słów), powtarzane w skupieniu, aż lampa się napełni. Bez
+opaski trwa to 20–90 s, z opaską krócej. **Nic do czytania:** w wersji 2
+zniknęły długie teksty modlitw i tryb „czytam” (przytrzymaj i czytaj).
+Teologicznie ramujemy to delikatnie: łaska jest darmowa — modlitwa w grze
+„otwiera ścieżki” jako odpowiedź, nie transakcja. Modlitwa to uwaga
+skierowana do Boga, nie zaklęcie (por. kłamstwo „Modlitwa działa jak
+zaklęcie” w Księdze Prawdy).
 
-* **Głos:** Web Speech API (`pl-PL`), tekst podświetla się jak karaoke w
-  miarę rozpoznawania słów; tolerancja na błędy (dopasowanie rozmyte, bez
-  polskich znaków, ≥ 75% słów). **Prywatność:** w Chrome rozpoznawanie mowy
-  zwykle działa na serwerach Google — przed pierwszym użyciem gra to mówi i
-  pyta o zgodę.
-* **Czytanie:** zawsze dostępna alternatywa bez mikrofonu — przytrzymaj
-  przycisk, tekst odsłania się w tempie czytania na głos (dla osób, które nie
-  mogą lub nie chcą mówić; Firefox nie ma rozpoznawania mowy).
-* **Modlitwy i co otwierają:** Inwokacja do Ducha Świętego (start gry,
-  Gołębica) · Przyjmuję Ducha Świętego (moc Ducha, ogień, wicher) · Przeciw
-  ranom w linii rodu (kraina Ród) · Przebaczenie (77 razy, „Ucisz się!”) ·
-  Zbroja Boża (tarcza, pancerz, hełm, obuwie) · Modlitwa Jezusowa (chorał
-  bizantyjski, szata Przemienienia; mówiona z oddechem — zgrana z opaską) ·
-  Za zagubionych (kraina Szeol) · Wyrzeczenie się kłamstw (Księga Prawdy,
-  Miłość usuwa lęk) · Trisagion (finał).
+* **Skupienie modlitwy** (ten sam mechanizm co w walce, §8):
+  * **Opaska:** aktywacja kory, mnożnik do ×3. Działa nawet wtedy, gdy
+    dotykasz ekranu.
+  * **Głos (opcjonalnie):** każde rozpoznane powtórzenie wezwania od razu
+    dolewa oliwy do lampy i trzyma skupienie. Mnożnik do ×2. Tak jak w
+    Modlitwie Jezusowej czy różańcu.
+  * **Bezruch:** nie dotykasz ekranu ani klawiatury. Mnożnik do ×1,5.
+* **Prywatność głosu.** W Chrome rozpoznawanie mowy zwykle działa na serwerach
+  Google. Przed pierwszym użyciem gra to mówi i pyta o zgodę. Głos jest
+  wyłączony, dopóki gracz sam go nie włączy.
+* **Telefon nie gaśnie** w trakcie modlitwy (Screen Wake Lock).
+
+| Modlitwa | Wezwanie | Otwiera |
+|---|---|---|
+| Inwokacja do Ducha Świętego (start gry, 20 s) | „Przyjdź, Duchu Święty.” | chorał gregoriański, Gołębica, skrzydła gołębicy |
+| Przyjmuję Ducha Świętego | „Duchu Święty, przyjmuję Cię.” | Pięćdziesiątnica, Języki ognia, Wicher |
+| Przeciw ranom w linii rodu | „Jezu, uwolnij mój ród od ran.” | kraina Ród |
+| Przebaczenie | „Przebaczam, bo mnie przebaczono.” | 77 razy, „Ucisz się!” |
+| Zbroja Boża | „Przywdziewam zbroję Bożą.” | tarcza, pancerz, hełm, obuwie |
+| Modlitwa Jezusowa (90 s) | „Panie Jezu Chryste, Synu Boży, zmiłuj się nade mną, grzesznikiem.” | śpiew bizantyjski, szata Przemienienia |
+| Za zagubionych | „Panie, odnajdź to, co zginęło.” | kraina Szeol |
+| Wyrzeczenie się kłamstw | „Odrzucam kłamstwo, przyjmuję Prawdę.” | Księga Prawdy, Miłość usuwa lęk |
+| Trisagion | „Święty Boże, Święty Mocny, Święty a Nieśmiertelny, zmiłuj się nad nami.” | finał |
 
 ## 8. Opaska Mendi — trening kory przedczołowej w grze
 
@@ -200,50 +260,126 @@ utlenowania (ΔHbO/ΔHbR), tętno, jakość kontaktu, ruch głowy (IMU).
 Odpowiedź hemodynamiczna jest **wolna** (narasta 5–8 s, szczyt ~10 s) i
 zaszumiona (fale Mayera, oddech). Dlatego opaska **nie steruje szybkimi
 akcjami** — wpływa na wolne zmienne gry. Wykorzystujemy gotowe moduły
-aplikacji BrainLink: potok fNIRS, metrykę *aktywacji* (utlenowanie względem
-ostatnich 60 s), *asymetrię* i **tracker równowagi półkul**.
+aplikacji BrainLink: potok fNIRS, metrykę *aktywacji*, *asymetrię* i
+**tracker równowagi półkul**. W grze aktywację liczymy względem **ostatnich
+5 minut** (BrainLink: 1 minuta). Inaczej utrzymywane skupienie po pół minucie
+stawałoby się nową „normą” i mnożnik nie dałby się utrzymać.
+
+### Skupienie, które coś ładuje
+* **Próg i mnożnik.** Skupienie ≥ 0,55 (opaska: aktywacja wyraźnie powyżej
+  zwykłej) ładuje Ogień Ducha w walce i lampę w modlitwie. Utrzymywane
+  skupienie podnosi mnożnik:
+
+  | Utrzymane skupienie | Mnożnik |
+  |---|---|
+  | od początku | ×1 |
+  | 8 s | ×1,5 |
+  | 18 s | ×2 |
+  | 32 s | ×3 |
+
+* **Źródła i pułapy:**
+  * **opaska** do ×3, także gdy anioł się porusza (to jej przewaga);
+  * **głos** do ×2 (tylko modlitwa);
+  * **bezruch** do ×1,5 (każdy to ma).
+
+  Słabsze źródło nie „wpłaca” zapasu. Kolejny poziom trzeba zdobyć lepszym
+  źródłem, a gdy opaska wypadnie, mnożnik schodzi łagodnie do pułapu bezruchu.
+* **Łagodność.** Krótka utrata skupienia (do 2,5 s) nic nie zmienia. Potem
+  mnożnik schodzi o jeden poziom co 2,5 s, nigdy od razu do ×1. Nowy pokój
+  nie przerywa serii; nowy rozdział zaczyna od zera.
+* **Podgląd.**
+  * Pasek „Skupienie” na dole ekranu pokazuje poziom, kreskę progu i źródło
+    (opaska / bezruch / w ruchu), duży mnożnik ×N oraz cienki pasek postępu
+    do kolejnego poziomu.
+  * Gdy skupienie trwa, anioła otacza ciepła poświata.
+  * Awans mnożnika daje dźwięk i napis „Czuwanie ×2”.
+  * Najdłuższe czuwanie trafia do raportu rozdziału.
+* **Tempo.** Przy ×1 jeden płomień ładuje się ok. 24 s skupionego czasu, przy
+  ×3 ok. 8 s.
 
 ### Zasady projektowe
-1. **Blokowy trening góra–dół.** Pokoje walki (zaangażowanie → podnoszenie
-   aktywacji) przeplatają się z pokojami **Szabatu** (wyciszenie → jej
+1. **Blokowy trening góra–dół.** Pokoje walki (zaangażowanie, podnoszenie
+   aktywacji) przeplatają się z pokojami **Szabatu** (wyciszenie, jej
    obniżanie). To klasyczny układ blokowy z badań nad neurofeedbackiem fNIRS:
    ćwiczy *elastyczną kontrolę*, a nie tylko „więcej skupienia”.
-2. **Nagradzaj, nie karz.** Bez opaski gra działa tak samo; opaska dodaje
-   premie (najwyżej ~30%). Złe dane nigdy nie odbierają postępów.
+2. **Nagradzaj, nie karz.** Bez opaski gra działa tak samo (bezruch daje
+   skupienie). Opaska dodaje skupienie w ruchu i wyższy pułap mnożnika, a
+   poziom zawsze jest *lepszym* z dwóch odczytów. Złe dane nigdy nie odbierają
+   postępów.
 3. **Wstrzymanie przy złym sygnale.** Ruch głowy, słaby kontakt lub brak
    danych zamrażają wpływ opaski (jak w trenerze równowagi BrainLink).
-4. **Kalibracja w rytuale.** Inwokacja do Ducha Świętego to zarazem 10 s
-   linii bazowej i 15 s rozgrzewki — modlisz się w ciszy, a opaska się stroi.
-5. **Wolne sprzężenie zwrotne.** Wartości wygładzone (EMA kilka sekund),
-   zmiany stanów z opóźnieniem — zgodnie z dynamiką krwi, nie z tikiem gry.
+4. **Kalibracja w rytuale.** Inwokacja do Ducha Świętego (20 s) to zarazem
+   10 s linii bazowej: modlisz się w ciszy, a opaska się stroi.
+5. **Wolne sprzężenie zwrotne.** Wartości są wygładzone, a mnożnik rośnie w
+   skali dziesiątek sekund, zgodnie z dynamiką krwi, nie z tikiem gry.
 
 ### Mapowanie na mechanikę
 | Sygnał z opaski | Element gry | Kiedy |
 |---|---|---|
-| aktywacja kory (↑) | szybsze ładowanie **Ducha** | pokoje walki, twierdza |
+| aktywacja kory (↑), utrzymana | **Ogień Ducha** z mnożnikiem ×1,5–×3 | walka, twierdza |
+| aktywacja kory (↑), utrzymana | lampa **modlitwy serca** | ekran modlitwy |
 | równowaga półkul (asymetria w paśmie) | promień **Aury Pokoju** | zawsze |
 | wyciszenie: aktywacja ↓, spokojne tętno | szybsza regeneracja w **Szabacie** | pokoje Szabatu |
 | rekomendacja trenera (lewa/prawa) | zadanie w **Kaplicy** (lewa: słowa/liczby, prawa: obrót, wyobraźnia) | pokój Kaplicy |
 | utrzymana równowaga ≥ 8 s | **Objawienie** w walce z twierdzą: kłamstwo pęka, większe obrażenia | twierdza |
-| tętno | aureola pulsuje w rytmie serca, chorał delikatnie „oddycha” | zawsze |
-| Modlitwa Jezusowa | wskaźnik skupienia modlitwy (bez blokowania) | ekran modlitwy |
+| tętno | aureola pulsuje w rytmie serca, muzyka delikatnie „oddycha” | zawsze |
 
-**Bez opaski** te same elementy zasila zachowanie w grze: bezruch (Duch,
-Pokój), cierpliwe stanie w Szabacie, losowe zadanie w Kaplicy.
+**Bez opaski** te same elementy zasila zachowanie w grze: bezruch (skupienie,
+pokój), cierpliwe stanie w Szabacie, losowe zadanie w Kaplicy.
 
 Gra **niczego nie wysyła**: dane z opaski zostają w urządzeniu. To nie jest
 wyrób medyczny ani terapia; to ćwiczenie uwagi i spokoju w formie modlitwy.
 
-## 9. Dźwięk — chorał proceduralny
+## 9. Dźwięk — „Psalm 150” i chorał
 
-Muzyka jest **syntezowana na żywo** (Web Audio), bez nagrań: generator fraz
-według **tonów psalmowych** (intonacja → recytacja na tenorze → mediant →
-kadencja na finalis) w **ośmiu modach kościelnych** (każda sfera ma swój);
-chór kilku „głosów” z formantami samogłosek i pogłosem katedry. Pejzaże:
-**gregoriański** (schola unisono, przy dużej intensywności organum),
-**bizantyjski** (stały **ison** pod ozdobną melodią), **dzwony**, **cisza**.
-Zalety: zero licencji, działa offline, muzyka reaguje na grę (intensywność
-walki, Szeol niżej i ciemniej, Keter jaśniej).
+Muzyka jest **syntezowana na żywo** (Web Audio), bez nagrań i bez sieci.
+
+* **„Psalm 150” (domyślnie)** to muzyka gry na instrumentach z Psalmu 150:
+  lira (kinnor), bębenek (tof), dzwoneczki, cymbałki, flet, bas i burdon,
+  szofar przy twierdzy.
+  * **Osobny utwór dla każdej sfery** (i dla Drzewa): własne tempo, metrum
+    (także 6/8, 7/8), groove i motyw w modzie tej sfery.
+  * Utwór rozwija się w sekcjach z wariacjami, więc nie zapętla się w kółko.
+
+  | Utwór | Tempo | Metrum | Prowadzi |
+  |---|---|---|---|
+  | Drzewo Życia (menu) | 76 | 3/4 | lira |
+  | Malkut — Kołyska | 72 | 6/8 | flet |
+  | Jesod — Dom | 100 | 4/4 | lira |
+  | Hod — Szkoła | 116 | 4/4 | flet, lira szesnastkami |
+  | Necach — Pierwsza miłość | 120 | 7/8 (2+2+3) | flet |
+  | Tiferet — Ambicja | 126 | 4/4 | lira |
+  | Gewura — Gniew | 134 | 4/4 | flet, akcenty szofaru |
+  | Chesed — Upadek | 88 | 5/4 (3+2) | flet |
+  | Bina — Ciemna noc | 68 | 3/4 | flet |
+  | Chochma — Pustynia | 84 | 6/8 | flet |
+  | Keter — Dom Ojca | 80 | 4/4 | lira z chórem |
+  | Ród — Drzewo rodu | 110 | 7/8 (3+2+2) | lira |
+  | Szeol — Zstąpienie | 70 | 4/4 | niski flet nad bębnem jak bicie serca |
+
+* **Warstwy reagują na grę:**
+  * spokój: burdon i lira;
+  * walka: bas i bębny;
+  * więcej cieni albo łaska: pełny groove i melodia;
+  * twierdza: ciężkie bębny i szofar.
+
+  Kaplica i Szabat dostają wyciszone wersje utworu sfery, a zwycięstwo krótką
+  fanfarę.
+* **Dźwięki w skali utworu.** Seria zjedzeń, trawienie i płomienie grają nuty
+  bieżącego modu, więc akcja „gra” razem z muzyką.
+* **Sterowanie:**
+  * **♪** w rogu ekranu wycisza samą muzykę;
+  * w pauzie: głośność, „⏭ Następny utwór” (kolejna wariacja) i wybór stylu;
+  * w Ustawieniach: głośność ogólna, muzyki i efektów.
+
+  Domyślnie ciszej (muzyka 40%, efekty 70%). Zapisy z wersji 1 z fabrycznymi
+  głośnościami przechodzą na nowe. Wyciszona muzyka nie jest syntezowana (oszczędza
+  baterię telefonu); wraca od razu we właściwym miejscu utworu.
+* **Inne style:**
+  * **chorał gregoriański**: tony psalmowe, osiem modów, organum;
+  * **śpiew bizantyjski**: ison pod ozdobną melodią;
+  * **dzwony**: change ringing i Anioł Pański;
+  * **cisza**.
 
 ## 10. Grafika
 
@@ -286,8 +422,8 @@ web/game/
 │   ├── sim/              symulacja (stały krok 60 Hz, testowalna): pokój, cienie, dary
 │   ├── render/           Canvas 2D, sprite’y proceduralne, cząsteczki
 │   ├── input/            drążek dotykowy, klawiatura
-│   ├── neuro/            most do opaski (moduły BrainLink) + mapowanie na grę
-│   ├── prayer/           rozpoznawanie mowy, dopasowanie tekstu
+│   ├── neuro/            most do opaski (moduły BrainLink), skupienie i mnożnik (focus.ts), mapowanie na grę
+│   ├── prayer/           modlitwa serca (session.ts), rozpoznawanie mowy, liczenie powtórzeń
 │   └── ui/               ekrany (DOM): tytuł, inwokacja, drzewo, karty darów…
 └── test/
 ```
@@ -298,6 +434,8 @@ jednostkowo; render tylko rysuje stan. Postęp zapisuje się lokalnie
 
 ## 14. Co dalej (poza tą wersją)
 
+* tryb bez końca „Czuwanie” (fale cieni, ranking najdłuższego skupienia),
+* wibracje (haptyka) przy językach ognia i seriach na telefonach,
 * więcej układów pokoi i wariantów twierdz, codzienne „wyzwanie dnia”,
 * tryb wspólnej modlitwy (dwie osoby, dwie opaski),
 * wersja sklepowa (Capacitor) z natywnym Bluetooth — także iOS bez Bluefy,

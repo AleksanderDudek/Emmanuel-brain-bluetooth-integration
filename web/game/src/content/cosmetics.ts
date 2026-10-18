@@ -126,6 +126,12 @@ export const SKINS: SkinDef[] = [
 
 export const SOUNDSCAPES: SoundscapeDef[] = [
   {
+    id: 'psalm',
+    name: 'Psalm 150',
+    description: 'Muzyka gry na instrumentach z Psalmu 150: lira, bębenek, cymbały i flet. Każda sfera ma własny utwór.',
+    unlock: 'default',
+  },
+  {
     id: 'gregorianski',
     name: 'Chorał gregoriański',
     description: 'Spokojny, jednogłosowy śpiew Kościoła Zachodu w ośmiu tonach kościelnych.',

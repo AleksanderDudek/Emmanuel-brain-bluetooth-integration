@@ -31,6 +31,11 @@ export class CueQueue<T extends { at: number }> {
     this.items = [];
   }
 
+  /** Drops the cues at or after `from` — except those `keep` wants — so what follows can be re-composed. */
+  cut(from: number, keep: (cue: T) => boolean = () => false): void {
+    this.items = this.items.filter(cue => cue.at < from || keep(cue));
+  }
+
   get size(): number {
     return this.items.length;
   }

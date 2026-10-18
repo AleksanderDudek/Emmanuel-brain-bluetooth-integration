@@ -139,6 +139,7 @@ export function chapterIntroScreen(api: ScreenApi, ch: ChapterDef): HTMLElement 
     h('p', { class: 'sphere' }, `${ch.sphere.name} · ${ch.sphere.meaning}`),
     h('h1', null, ch.title),
     ...paragraphs(ch.story),
+    h('p', { class: 'lie-intro' }, 'Kłamstwo tej sfery: ', h('q', null, ch.boss.lie)),
     verseEl(ch.verse),
     h('p', { class: 'muted' }, `Cienie: ${ch.traumas.map(k => TRAUMAS[k].name).join(', ')}`),
     done ? h('p', { class: 'muted' }, `Ukończono ${done.times}× · fragmenty: ${done.fragments}`) : null,
@@ -242,17 +243,51 @@ export function chapelScreen(rec: Recommendation | null, bandUsed: boolean, onRe
     body, feedback, skip);
 }
 
-export function pauseScreen(onResume: () => void, onQuit: () => void, onSettings: () => void): HTMLElement {
+export function pauseScreen(api: ScreenApi, onResume: () => void, onQuit: () => void, onSettings: () => void): HTMLElement {
   return screen('pause', h('h2', null, 'Chwila ciszy'), h('p', { class: 'muted' }, '„Zatrzymajcie się i poznajcie, że Ja jestem Bogiem” (Ps 46,11)'),
-    btn('Wróć do gry', onResume, 'btn gold big', { 'data-autofocus': '' }), btn('Ustawienia', onSettings, 'btn'), btn('Wróć do Drzewa', onQuit, 'btn ghost'));
+    btn('Wróć do gry', onResume, 'btn gold big', { 'data-autofocus': '' }), musicControls(api), btn('Ustawienia', onSettings, 'btn'), btn('Wróć do Drzewa', onQuit, 'btn ghost'));
 }
 
-export function fallScreen(text: string, onRise: () => void): HTMLElement {
-  return screen('fall', h('h2', null, 'Upadek'), h('p', { class: 'big-text' }, text), btn('Powstań', onRise, 'btn gold big', { 'data-autofocus': '' }));
+/** Music at hand: what plays, volume, next track, style. */
+export function musicControls(api: ScreenApi): HTMLElement {
+  const s = api.save;
+  const now = h('p', { class: 'now', 'aria-live': 'polite' }, api.audio.nowPlaying);
+  const refresh = () => {
+    now.textContent = s.settings.musicMuted ? 'Muzyka wyłączona' : api.audio.nowPlaying;
+    syncMute();
+  };
+  const volume = h('input', { type: 'range', min: 0, max: 1, step: 0.05, value: String(s.settings.music), 'aria-label': 'Głośność muzyki' });
+  const mute = btn('', () => {
+    s.settings.musicMuted = !s.settings.musicMuted;
+    api.applySettings();
+    api.persist();
+    refresh();
+  }, 'btn small');
+  const syncMute = () => { mute.textContent = s.settings.musicMuted ? '♪ Włącz muzykę' : '♪ Wycisz muzykę'; };
+  volume.addEventListener('input', () => { s.settings.music = Number(volume.value); s.settings.musicMuted = false; api.applySettings(); refresh(); });
+  volume.addEventListener('change', () => api.persist());
+  const next = btn('⏭ Następny utwór', () => { api.audio.nextTrack(); refresh(); }, 'btn small');
+  const styles = h('div', { class: 'styles', role: 'group', 'aria-label': 'Styl muzyki' }, SOUNDSCAPES.filter(sc => soundscapeOwned(s, sc)).map(sc =>
+    btn(sc.name, () => {
+      s.soundscape = sc.id;
+      api.persist();
+      api.audio.setSoundscape(sc.id);
+      styles.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.id === sc.id)));
+      refresh();
+    }, 'btn small', { 'data-id': sc.id, 'aria-pressed': String(s.soundscape === sc.id) })));
+  refresh();
+  return h('section', { class: 'music' }, h('h3', null, 'Muzyka'), now,
+    h('label', { class: 'field' }, h('span', null, 'Głośność'), volume), h('div', { class: 'row center' }, mute, next), styles);
 }
 
-export function whisperScreen(v: Verse, onDone: () => void): HTMLElement {
-  const el = screen('whisper', h('p', { class: 'muted small' }, 'Szept z Tronu'), verseEl(v, 'verse big'));
+export function fallScreen(text: string, onRise: () => void, boss = false): HTMLElement {
+  return screen('fall', h('h2', null, 'Upadek'), h('p', { class: 'big-text' }, text),
+    h('p', { class: 'muted' }, boss ? 'Każde powstanie przynosi łaskę: płomień Ognia i twierdzę, która już się chwieje.' : 'Każde powstanie przynosi łaskę: płomień Ognia na nową próbę.'),
+    btn('Powstań', onRise, 'btn gold big', { 'data-autofocus': '' }));
+}
+
+export function whisperScreen(v: Verse, onDone: () => void, title = 'Szept z Tronu'): HTMLElement {
+  const el = screen('whisper', h('p', { class: 'muted small' }, title), verseEl(v, 'verse big'));
   el.addEventListener('click', onDone);
   return el;
 }
@@ -263,11 +298,18 @@ export function revelationScreen(rev: Revelation, onNext: () => void): HTMLEleme
     h('p', { class: 'lie' }, h('s', null, rev.lie)),
     h('h2', null, 'Prawda'),
     ...paragraphs(rev.truth),
-    ...rev.verses.map(v => verseEl(v)),
+    rev.verses[0] ? verseEl(rev.verses[0]) : null,
     btn('Przyjmuję', onNext, 'btn gold big', { 'data-autofocus': '' }));
 }
 
-export interface ReportData { run: Run; chapter: ChapterDef; manna: number; promoted: string | null }
+export interface ReportData {
+  run: Run;
+  chapter: ChapterDef;
+  manna: number;
+  promoted: string | null;
+  /** the longest held focus in this chapter, s, and the multiplier it reached */
+  focus: { streak: number; mult: number };
+}
 
 export function reportScreen(r: ReportData, onNext: () => void): HTMLElement {
   const st = r.run.stats;
@@ -282,6 +324,7 @@ export function reportScreen(r: ReportData, onNext: () => void): HTMLElement {
       h('div', null, h('b', null, `${st.fragments}/${st.fragmentsTotal}`), h('small', null, 'fragmentów duszy')),
       h('div', null, h('b', null, `✦ ${Math.floor(r.run.light)}`), h('small', null, 'światła')),
       h('div', null, h('b', null, `+${r.manna}`), h('small', null, 'manny'))),
+    r.focus.streak >= 5 ? h('p', { class: 'muted' }, `Najdłuższe czuwanie: ${Math.round(r.focus.streak)} s (×${String(r.focus.mult).replace('.', ',')}).`) : null,
     st.falls ? h('p', { class: 'muted' }, `Upadłeś ${st.falls} ${st.falls === 1 ? 'raz' : 'razy'} i ${st.falls === 1 ? 'raz' : st.falls + ' razy'} powstałeś (Mi 7,8).`) : h('p', { class: 'muted' }, 'Bez upadku. Chwała Bogu.'),
     r.promoted ? h('p', { class: 'promo' }, `Nowa ranga: ${r.promoted}`) : null,
     btn('Raport przyjęty', onNext, 'btn gold big', { 'data-autofocus': '' }));
@@ -292,11 +335,11 @@ export function reportScreen(r: ReportData, onNext: () => void): HTMLElement {
 export function prayersScreen(api: ScreenApi): HTMLElement {
   const back = () => api.show(prayersScreen(api));
   return screen('menu prayers', topBar('Modlitwy', api.map),
-    h('p', { class: 'muted' }, 'Modlitwa otwiera ścieżki, dary i wygląd anioła. Łaski nie kupuje się — modlitwa jest odpowiedzią na nią.'),
+    h('p', { class: 'muted' }, 'Modlitwa serca: jedno krótkie wezwanie powtarzane w skupieniu, aż lampa się napełni. Otwiera ścieżki, dary i wygląd anioła — łaski się nie kupuje.'),
     h('div', { class: 'list' }, PRAYERS.map(p => {
       const done = prayed(api.save, p.id);
       return h('button', { class: `item ${done ? 'done' : ''}`, type: 'button', on: { click: () => api.openPrayer(p, back) } },
-        h('h3', null, `${done ? '✓ ' : ''}${p.title}`), h('p', null, p.intro), h('small', null, `Otwiera: ${p.unlockText}`));
+        h('h3', null, `${done ? '✓ ' : ''}${p.title}`), h('p', { class: 'invocation-small' }, p.invocation), h('small', null, p.unlockText));
     })));
 }
 
@@ -397,7 +440,7 @@ export function bandScreen(api: ScreenApi): HTMLElement {
   const el = screen('menu band', topBar('Opaska Mendi', api.map),
     h('p', null, 'Gra działa bez opaski. Z opaską fNIRS Mendi staje się też ćwiczeniem kory przedczołowej:'),
     h('ul', { class: 'plain' },
-      h('li', null, h('b', null, 'Skupienie '), '(aktywacja kory) — szybciej ładuje Ducha w walce.'),
+      h('li', null, h('b', null, 'Skupienie '), '(aktywacja kory) — ładuje Ogień Ducha, także gdy anioł się porusza; utrzymane daje mnożnik do ×3 (bez opaski: bezruch, do ×1,5).'),
       h('li', null, h('b', null, 'Równowaga półkul '), '— poszerza Aurę Pokoju; w Kaplicy dobiera zadanie.'),
       h('li', null, h('b', null, 'Wyciszenie '), '— pogłębia odpoczynek w Szabacie.'),
       h('li', null, h('b', null, 'Utrzymana równowaga '), '— przy twierdzy wywołuje Objawienie.'),
@@ -427,7 +470,7 @@ export function settingsScreen(api: ScreenApi, onBack: () => void): HTMLElement 
     input.addEventListener('change', () => api.persist());
     return h('label', { class: 'field' }, h('span', null, label), input);
   };
-  const toggle = (label: string, key: 'muted' | 'reducedMotion') => {
+  const toggle = (label: string, key: 'muted' | 'musicMuted' | 'reducedMotion' | 'voicePrayer') => {
     const input = h('input', { type: 'checkbox' });
     input.checked = s[key];
     input.addEventListener('change', () => { s[key] = input.checked; api.applySettings(); api.persist(); });
@@ -459,12 +502,9 @@ export function settingsScreen(api: ScreenApi, onBack: () => void): HTMLElement 
     a.remove();
   };
   return screen('menu settings', h('header', { class: 'topbar' }, btn('← Wróć', onBack, 'btn ghost'), h('h2', null, 'Ustawienia')),
-    slider('Głośność', 'master'), slider('Chorał', 'music'), slider('Efekty', 'sfx'),
-    toggle('Wycisz', 'muted'), toggle('Ogranicz ruch (bez wstrząsów)', 'reducedMotion'),
-    h('label', { class: 'field' }, h('span', null, 'Modlitwa domyślnie'),
-      h('select', { on: { change: (e: Event) => { s.prayerMode = (e.target as HTMLSelectElement).value as 'voice' | 'read'; api.persist(); } } },
-        h('option', { value: 'voice', selected: s.prayerMode === 'voice' }, 'na głos (mikrofon)'),
-        h('option', { value: 'read', selected: s.prayerMode === 'read' }, 'czytanie'))),
+    slider('Głośność', 'master'), slider('Muzyka', 'music'), slider('Efekty', 'sfx'),
+    toggle('Wycisz wszystko', 'muted'), toggle('Bez muzyki (tylko efekty)', 'musicMuted'), toggle('Ogranicz ruch (bez wstrząsów)', 'reducedMotion'),
+    toggle('Modlitwa serca na głos (mikrofon, rozpoznawanie mowy)', 'voicePrayer'),
     h('section', null, h('h3', null, 'Postęp'),
       h('p', { class: 'muted small' }, 'Postęp jest zapisany tylko w tej przeglądarce. Zrób kopię zapasową, zanim wyczyścisz dane.'),
       h('div', { class: 'row' }, btn('Zapisz kopię', exportBtn, 'btn'), btn('Wczytaj kopię', () => file.click(), 'btn'), file),
@@ -482,9 +522,11 @@ export function helpScreen(onBack: () => void): HTMLElement {
       h('li', null, 'Przeciągnij palcem w dowolnym miejscu, aby iść (klawiatura: WASD / strzałki).'),
       h('li', null, 'Puść — anioł staje i modli się: Słowo samo leci w najbliższy cień.'),
       h('li', null, 'Słowo osłabia cienie. Osłabiony cień zjedz — trawienie zamienia go w prawdę. W bezruchu trawisz dwa razy szybciej.'),
-      h('li', null, 'Biały krzyż to Promień Łaski: przez chwilę wszystkie cienie słabną — zjadaj je seriami.'),
-      h('li', null, 'Zbierz ziarna światła i straw wszystkie cienie, by otworzyć drzwi (Effatha!).'),
-      h('li', null, 'Gdy pasek Ducha się napełni — „Przyjdź, Duchu!”.'))),
+      h('li', null, 'Biały krzyż to Promień Łaski: przez chwilę wszystkie cienie słabną — zjadaj je seriami. Cienie zjedzone jeden po drugim dają serię i więcej światła.'),
+      h('li', null, 'Straw wszystkie cienie, a drzwi się otworzą (Effatha!); resztki światła same przylecą.'),
+      h('li', null, 'Skupienie ładuje Ogień Ducha (pasek „Skupienie” na dole). Utrzymane skupienie daje mnożnik ×1,5 / ×2 / ×3.'),
+      h('li', null, 'Przycisk „Ogień” (spacja): jeden płomień to język ognia wokół anioła; trzy płomienie — „Przyjdź, Duchu!”.'),
+      h('li', null, 'Modlitwa serca: krótkie wezwanie powtarzane w skupieniu, aż lampa się napełni. Bez czytania.'))),
     h('section', { class: 'help-box' }, h('h3', null, 'Bezpieczeństwo'), ...paragraphs(STORY.disclaimer), ...paragraphs(STORY.crisisHelp)));
 }
 

@@ -25,7 +25,7 @@ const POWER_IDS = allOf<PowerId>()([
 const FRUIT_IDS = allOf<FruitId>()(['milosc', 'radosc', 'pokoj', 'cierpliwosc', 'uprzejmosc', 'dobroc', 'wiernosc', 'lagodnosc', 'opanowanie']);
 const PRAYER_IDS = allOf<PrayerId>()(['inwokacja', 'przyjmuje', 'rod', 'przebaczenie', 'zbroja', 'jezusowa', 'zagubieni', 'klamstwa', 'trisagion']);
 const RANK_IDS = allOf<RankId>()(['aniol', 'archaniol', 'zwierzchnosci', 'wladze', 'moce', 'panowania', 'trony', 'cherubini', 'serafini']);
-const SOUNDSCAPE_IDS = allOf<SoundscapeId>()(['gregorianski', 'bizantyjski', 'dzwony', 'cisza']);
+const SOUNDSCAPE_IDS = allOf<SoundscapeId>()(['psalm', 'gregorianski', 'bizantyjski', 'dzwony', 'cisza']);
 const REALM_IDS = allOf<RealmId>()(['malkut', 'jesod', 'hod', 'necach', 'tiferet', 'gewura', 'chesed', 'bina', 'chochma', 'keter', 'rod', 'szeol']);
 
 const BOOKS = new Set([
@@ -177,7 +177,7 @@ describe('text', () => {
     const prose = [
       ...CHAPTERS.flatMap(c => [c.story, c.report]),
       ...REVELATIONS.map(r => r.truth),
-      ...PRAYERS.flatMap(p => [p.intro, p.text]),
+      ...PRAYERS.map(p => p.intro),
       ...STORY.intro, ...STORY.finale, STORY.disclaimer, STORY.crisisHelp, STORY.support, STORY.sabbath,
     ];
     for (const s of prose) expect(s, s.slice(0, 60)).toMatch(DIACRITIC);
@@ -387,31 +387,27 @@ describe('prayers', () => {
     }
   });
 
-  it('can be read aloud: 120–260 words, words and plain punctuation only, blank-line paragraphs', () => {
+  it('are prayers of the heart, not texts to read: one short line, words and plain punctuation only', () => {
     for (const p of PRAYERS) {
-      const n = words(p.text);
-      expect(n, `${p.id}: ${n} words`).toBeGreaterThanOrEqual(120);
-      expect(n, `${p.id}: ${n} words`).toBeLessThanOrEqual(260);
-      expect(p.text, p.id).toMatch(/^[\p{L} ,.!?;:\n]+$/u);
-      expect(p.text, p.id).not.toMatch(/(?:^|\s)(?:św|np|itd|itp|ks|bł|tzw|wg)\./iu);
-      expect(p.text.endsWith('Amen.'), p.id).toBe(true);
-      for (const para of p.text.split('\n\n')) {
-        expect(para.length, p.id).toBeGreaterThan(0);
-        expect(para, p.id).not.toContain('\n');
-        expect(para, p.id).toBe(para.trim());
-      }
+      const n = words(p.invocation);
+      expect(n, `${p.id}: ${n} words`).toBeGreaterThanOrEqual(2);
+      expect(n, `${p.id}: ${n} words`).toBeLessThanOrEqual(12);
+      expect(p.invocation, p.id).toMatch(/^[\p{L} ,.!?;:]+$/u);
+      expect(p.invocation.endsWith('.'), p.id).toBe(true);
+      expect(p.seconds, p.id).toBeGreaterThanOrEqual(15);
+      expect(p.seconds, p.id).toBeLessThanOrEqual(120);
       expect(sentences(p.intro), `${p.id} intro`).toBeLessThanOrEqual(2);
       expect(sentences(p.unlockText), `${p.id} unlockText`).toBe(1);
       expect(p.unlockText, `${p.id}: prayer opens, never pays`).toMatch(/^Modlitwa otwiera /u);
     }
   });
 
-  it('keeps the traditional formulas', () => {
-    const count = (text: string, phrase: string) => text.split(phrase).length - 1;
-    expect(count(prayer('jezusowa').text, 'Panie Jezu Chryste, Synu Boży, zmiłuj się nade mną, grzesznikiem.')).toBeGreaterThanOrEqual(10);
-    expect(count(prayer('trisagion').text, 'Święty Boże, Święty Mocny, Święty a Nieśmiertelny, zmiłuj się nad nami.')).toBe(3);
-    expect(prayer('inwokacja').text).toMatch(/^Przyjdź, Duchu Święty\./u);
-    expect(prayer('przyjmuje').text).toMatch(/przyjmuję Cię/u);
+  it('keeps the traditional formulas, and the first prayer is short (it opens the game)', () => {
+    expect(prayer('jezusowa').invocation).toBe('Panie Jezu Chryste, Synu Boży, zmiłuj się nade mną, grzesznikiem.');
+    expect(prayer('trisagion').invocation).toBe('Święty Boże, Święty Mocny, Święty a Nieśmiertelny, zmiłuj się nad nami.');
+    expect(prayer('inwokacja').invocation).toBe('Przyjdź, Duchu Święty.');
+    expect(prayer('inwokacja').seconds).toBeLessThanOrEqual(30);
+    expect(prayer('przyjmuje').invocation).toMatch(/przyjmuję Cię/u);
   });
 });
 
@@ -532,7 +528,7 @@ describe('cosmetics', () => {
 
   it('has the designed soundscapes', () => {
     expect(SOUNDSCAPES.map(s => s.id)).toEqual([...SOUNDSCAPE_IDS]);
-    expect(SOUNDSCAPES.map(s => s.unlock)).toEqual(['default', { prayer: 'jezusowa' }, { light: 1500 }, 'default']);
+    expect(SOUNDSCAPES.map(s => s.unlock)).toEqual(['default', 'default', { prayer: 'jezusowa' }, { light: 1500 }, 'default']);
   });
 });
 
@@ -552,8 +548,8 @@ describe('story', () => {
   });
 
   it('has the expected shape', () => {
-    expect(STORY.intro.length).toBeGreaterThanOrEqual(5);
-    expect(STORY.intro.length).toBeLessThanOrEqual(8);
+    expect(STORY.intro.length).toBeGreaterThanOrEqual(2);
+    expect(STORY.intro.length).toBeLessThanOrEqual(4);
     expect(STORY.fall.length).toBeGreaterThanOrEqual(4);
     expect(STORY.finale.length).toBeGreaterThanOrEqual(5);
     expect(STORY.finale.length).toBeLessThanOrEqual(8);

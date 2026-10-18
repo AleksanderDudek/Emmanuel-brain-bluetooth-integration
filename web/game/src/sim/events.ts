@@ -11,6 +11,8 @@ export type GameEvent =
   | { type: 'blink'; x: number; y: number }
   | { type: 'arrow'; x: number; y: number }
   | { type: 'eat'; x: number; y: number; kind: TraumaKind | 'boss'; mult: number }
+  /** shadows eaten in a row */
+  | { type: 'chain'; n: number; x: number; y: number }
   | { type: 'full'; x: number; y: number }
   | { type: 'digest'; kind: TraumaKind; light: number }
   | { type: 'truth'; word: string; x: number; y: number; kind: TraumaKind }
@@ -20,6 +22,12 @@ export type GameEvent =
   | { type: 'graceEnd' }
   | { type: 'fragment'; x: number; y: number }
   | { type: 'door' }
+  /** the room is cleansed: the remaining light flies to the angel */
+  | { type: 'sweep' }
+  /** a flame of the Fire of the Spirit filled (n = flames now) */
+  | { type: 'flame'; n: number }
+  /** a tongue of fire around the angel */
+  | { type: 'tongue'; x: number; y: number; r: number }
   | { type: 'hurt'; x: number; y: number }
   | { type: 'block'; x: number; y: number }
   | { type: 'revive' }

@@ -1,9 +1,7 @@
 /**
- * Follows a prayer being read aloud: speech recognition output is matched
- * word by word against the text, forgiving recognition errors, Polish
- * inflection and a few skipped words.  The matched words light up like
- * karaoke.  Also a "read along" mode for players who cannot or do not want to
- * speak (the text reveals itself at reading pace while a button is held).
+ * Hears a prayer of the heart said aloud: a short invocation repeated again and again (like the
+ * Jesus Prayer). Speech recognition output is matched word by word, forgiving recognition slips,
+ * Polish inflection and a skipped word.
  */
 
 export function normalizeWord(w: string): string {
@@ -42,101 +40,48 @@ export function similar(spoken: string, expected: string): boolean {
   return k >= 4 && Math.min(spoken.length, expected.length) >= 5;
 }
 
-export interface PrayerProgress {
-  /** per display word: matched by voice */
-  matched: boolean[];
-  /** index of the next expected word (words before it are passed) */
-  pointer: number;
-  /** share of words actually matched */
-  ratio: number;
-  done: boolean;
-}
+/**
+ * Counts repetitions of the invocation in recognised speech. A repetition counts once at least
+ * 70 % of its words were heard in order; starting the invocation again closes the one before.
+ */
+export class RepetitionCounter {
+  private readonly words: string[];
+  private ptr = 0;
+  private hits = 0;
 
-const LOOKAHEAD = 5;
-
-export class PrayerMatcher {
-  readonly words: string[];
-  private readonly norm: string[];
-  private readonly matched: boolean[];
-  private pointer = 0;
-  private tentative = 0;
-
-  constructor(text: string) {
-    this.words = tokenize(text);
-    this.norm = this.words.map(normalizeWord);
-    this.matched = this.words.map(() => false);
-    // punctuation-only tokens count as passed
-    this.skipEmpty();
+  constructor(invocation: string) {
+    this.words = tokenize(invocation).map(normalizeWord).filter(Boolean);
   }
 
-  private skipEmpty(): void {
-    while (this.pointer < this.norm.length && !this.norm[this.pointer]) {
-      this.matched[this.pointer] = true;
-      this.pointer++;
-    }
-  }
-
-  /** Advance through `spoken` from `start`; returns the new pointer (marks matches when `commit`). */
-  private advance(spoken: string, start: number, commit: boolean): number {
-    let p = start;
-    for (const raw of tokenize(spoken)) {
+  /** Feed one final transcript; returns how many repetitions it completed. */
+  feed(text: string): number {
+    let reps = 0;
+    for (const raw of tokenize(text)) {
       const w = normalizeWord(raw);
-      if (!w) continue;
-      for (let k = p; k < Math.min(this.norm.length, p + LOOKAHEAD); k++) {
-        if (similar(w, this.norm[k])) {
-          if (commit) this.matched[k] = true;
-          p = k + 1;
-          while (p < this.norm.length && !this.norm[p]) { if (commit) this.matched[p] = true; p++; }
-          break;
-        }
+      if (!w || !this.words.length) continue;
+      let matched = -1;
+      for (let k = this.ptr; k < Math.min(this.words.length, this.ptr + 2); k++) {
+        if (similar(w, this.words[k])) { matched = k; break; }
+      }
+      if (matched < 0 && this.ptr > 0 && similar(w, this.words[0])) {
+        if (this.complete()) reps++;   // a new repetition began before this one was finished
+        this.ptr = 1;
+        this.hits = 1;
+        continue;
+      }
+      if (matched < 0) continue;
+      this.ptr = matched + 1;
+      this.hits++;
+      if (this.ptr >= this.words.length) {
+        if (this.complete()) reps++;
+        this.ptr = 0;
+        this.hits = 0;
       }
     }
-    return p;
+    return reps;
   }
 
-  /**
-   * Feed recognised speech. Final results are committed; interim ones only move
-   * the highlight ahead tentatively (they will be re-sent as final).
-   */
-  feed(spoken: string, final: boolean): PrayerProgress {
-    if (final) {
-      this.pointer = this.advance(spoken, this.pointer, true);
-      this.tentative = this.pointer;
-    } else {
-      this.tentative = this.advance(spoken, this.pointer, false);
-    }
-    return this.progress();
+  private complete(): boolean {
+    return this.hits >= Math.ceil(this.words.length * 0.7);
   }
-
-  progress(): PrayerProgress {
-    const total = this.words.length || 1;
-    const hits = this.matched.filter(Boolean).length;
-    const ratio = hits / total;
-    const atEnd = this.pointer >= this.words.length - 1;
-    return {
-      matched: [...this.matched],
-      pointer: Math.max(this.pointer, this.tentative),
-      ratio,
-      done: ratio >= 0.75 || (atEnd && ratio >= 0.6),
-    };
-  }
-}
-
-/** Read-along: reveal words at reading-aloud pace while the player holds the button. */
-export class ReadAlong {
-  readonly words: string[];
-  private pos = 0;
-
-  constructor(text: string, private readonly wordsPerSecond = 2.2) {
-    this.words = tokenize(text);
-  }
-
-  update(dt: number, holding: boolean): number {
-    if (holding) this.pos = Math.min(this.words.length, this.pos + dt * this.wordsPerSecond);
-    return Math.floor(this.pos);
-  }
-
-  get revealed(): number { return Math.floor(this.pos); }
-  get done(): boolean { return this.pos >= this.words.length; }
-  get seconds(): number { return this.words.length / this.wordsPerSecond; }
 }

@@ -14,14 +14,18 @@ export interface Settings {
   master: number;
   music: number;
   sfx: number;
+  /** everything silent */
   muted: boolean;
+  /** music off, effects on (the ♪ button) */
+  musicMuted: boolean;
   reducedMotion: boolean;
-  prayerMode: 'voice' | 'read';
+  /** repeat the prayers of the heart aloud (speech recognition) */
+  voicePrayer: boolean;
   voiceConsent: boolean;
 }
 
 export interface SaveData {
-  version: 1;
+  version: 2;
   createdAt: number;
   seenDisclaimer: boolean;
   seenIntro: boolean;
@@ -36,14 +40,18 @@ export interface SaveData {
   soundscape: SoundscapeId;
   /** revelation ids received */
   codex: string[];
-  stats: { traumas: number; fragments: number; falls: number; chapters: number; seconds: number };
+  /** bestStreak: the longest sustained focus, s */
+  stats: { traumas: number; fragments: number; falls: number; chapters: number; seconds: number; bestStreak: number };
   settings: Settings;
 }
 
 export const SAVE_KEY = 'holyholyholy.save';
 
+/** quiet by default: the music sits under the game */
+export const DEFAULT_VOLUMES = { master: 0.7, music: 0.4, sfx: 0.7 } as const;
+
 export const defaultSave = (): SaveData => ({
-  version: 1,
+  version: 2,
   createdAt: Date.now(),
   seenDisclaimer: false,
   seenIntro: false,
@@ -53,11 +61,13 @@ export const defaultSave = (): SaveData => ({
   manna: 0,
   fruits: {},
   equipped: { halo: 'halo_zlota', robe: 'szata_lniana', wings: 'skrzydla_biale' },
-  soundscape: 'gregorianski',
+  soundscape: 'psalm',
   codex: [],
-  stats: { traumas: 0, fragments: 0, falls: 0, chapters: 0, seconds: 0 },
-  settings: { master: 0.8, music: 0.7, sfx: 0.8, muted: false, reducedMotion: false, prayerMode: 'voice', voiceConsent: false },
+  stats: { traumas: 0, fragments: 0, falls: 0, chapters: 0, seconds: 0, bestStreak: 0 },
+  settings: { ...DEFAULT_VOLUMES, muted: false, musicMuted: false, reducedMotion: false, voicePrayer: false, voiceConsent: false },
 });
+
+const SOUNDSCAPES: readonly SoundscapeId[] = ['psalm', 'gregorianski', 'bizantyjski', 'dzwony', 'cisza'];
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -94,8 +104,16 @@ export function sanitize(raw: unknown): SaveData {
   const eq = isObj(raw.equipped) ? raw.equipped : {};
   const st = isObj(raw.stats) ? raw.stats : {};
   const se = isObj(raw.settings) ? raw.settings : {};
+  // version 1 → 2: the loud old defaults and the old default chant give way to the quieter game soundtrack;
+  // the read-aloud mode is gone (praying aloud stays, if the player had agreed to speech recognition)
+  const v1 = raw.version !== 2;
+  const oldLoud = v1 && se.master === 0.8 && se.music === 0.7 && se.sfx === 0.8;
+  const vol = (k: 'master' | 'music' | 'sfx') => (oldLoud ? DEFAULT_VOLUMES[k] : bounded(se[k], 0, 1, DEFAULT_VOLUMES[k]));
+  const soundscape = v1 && raw.soundscape === 'gregorianski' ? 'psalm'
+    : SOUNDSCAPES.includes(raw.soundscape as SoundscapeId) ? raw.soundscape as SoundscapeId : d.soundscape;
+  const voiceConsent = bool(se.voiceConsent, false);
   return {
-    version: 1,
+    version: 2,
     createdAt: num(raw.createdAt, d.createdAt),
     seenDisclaimer: bool(raw.seenDisclaimer, false),
     seenIntro: bool(raw.seenIntro, false),
@@ -109,17 +127,16 @@ export function sanitize(raw: unknown): SaveData {
       robe: typeof eq.robe === 'string' ? eq.robe : d.equipped.robe,
       wings: typeof eq.wings === 'string' ? eq.wings : d.equipped.wings,
     },
-    soundscape: (['gregorianski', 'bizantyjski', 'dzwony', 'cisza'] as const).includes(raw.soundscape as SoundscapeId)
-      ? raw.soundscape as SoundscapeId : d.soundscape,
+    soundscape,
     codex: Array.isArray(raw.codex) ? raw.codex.filter((x): x is string => typeof x === 'string') : [],
     stats: {
       traumas: count(st.traumas), fragments: count(st.fragments), falls: count(st.falls),
-      chapters: count(st.chapters), seconds: bounded(st.seconds, 0, 1e10),
+      chapters: count(st.chapters), seconds: bounded(st.seconds, 0, 1e10), bestStreak: bounded(st.bestStreak, 0, 1e7),
     },
     settings: {
-      master: bounded(se.master, 0, 1, d.settings.master), music: bounded(se.music, 0, 1, d.settings.music), sfx: bounded(se.sfx, 0, 1, d.settings.sfx),
-      muted: bool(se.muted, false), reducedMotion: bool(se.reducedMotion, false),
-      prayerMode: se.prayerMode === 'read' ? 'read' : 'voice', voiceConsent: bool(se.voiceConsent, false),
+      master: vol('master'), music: vol('music'), sfx: vol('sfx'),
+      muted: bool(se.muted, false), musicMuted: bool(se.musicMuted, false), reducedMotion: bool(se.reducedMotion, false),
+      voicePrayer: v1 ? voiceConsent && se.prayerMode !== 'read' : bool(se.voicePrayer, false), voiceConsent,
     },
   };
 }
