@@ -14,5 +14,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "test", "game/src", "game/test", "game/scripts", "vite.config.ts", "vite.game.config.ts", "pwa-assets.config.ts", "game/pwa-assets.config.ts"]
+  "include": ["src", "test", "game/src", "game/test", "game/scripts", "game3d/src", "game3d/test", "vite.config.ts", "vite.game.config.ts", "pwa-assets.config.ts", "game/pwa-assets.config.ts"]
 }

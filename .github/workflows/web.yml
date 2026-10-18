@@ -32,9 +32,21 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm test
+      # HolyHolyHoly 3D: the built libraries and content.json are current, the GDevelop project is valid
+      - run: npm run game3d:check
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+      # headless Chrome (preinstalled on the runner) plays a chapter of the exported game
+      - run: npm run game3d:smoke
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: holyholyholy3d-smoke
+          path: web/game3d/.smoke
+          if-no-files-found: ignore
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web/dist

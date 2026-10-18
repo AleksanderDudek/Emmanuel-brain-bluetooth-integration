@@ -103,7 +103,23 @@ Design (Polish): [game/DESIGN.md](game/DESIGN.md).
 
 ```bash
 npm run dev:game     # http://localhost:5173/holyholyholy/
-npm run build        # builds BrainLink and the game into dist/ and dist/holyholyholy/
+npm run build        # builds BrainLink and both games into dist/, dist/holyholyholy/ and dist/holyholyholy3d/
+```
+
+## HolyHolyHoly 3D (the GDevelop game)
+
+`game3d/` is a 3D reinterpretation of the game made with **GDevelop**: the angel breaks
+traumas into truths and tears down strongholds of lies, mixing Archero, survivors-likes
+and Endless Puncher, with no Pac-Man motif and no spoken prayers. The GDevelop project
+(`game3d/project`) opens in the GDevelop editor; the build checks and exports it
+headlessly to `/holyholyholy3d/`. It reuses the 2D game's content, its "Psalm 150" music
+engine and BrainLink's Mendi modules as GDevelop extensions.
+Details: [game3d/README.md](game3d/README.md); design (Polish): [game3d/DESIGN.md](game3d/DESIGN.md).
+
+```bash
+npm run dev:game3d     # export, then http://localhost:5175
+npm run game3d:check   # validate the GDevelop project
+npm run game3d:smoke   # headless Chrome plays a chapter (after an export)
 ```
 
 ## Not in the web app (yet)

@@ -1,0 +1,325 @@
+{
+  "author": "HolyHolyHoly",
+  "category": "Audio",
+  "dimension": "",
+  "extensionNamespace": "",
+  "fullName": "Psalm 150 soundtrack",
+  "gdevelopVersion": "",
+  "helpPath": "",
+  "iconUrl": "",
+  "name": "Psalm150",
+  "previewIconUrl": "",
+  "shortDescription": "The procedural soundtrack and sound effects of HolyHolyHoly (lyre, frame drum, flute, shofar), synthesised live.",
+  "version": "1.0.0",
+  "description": "Wraps lib/psalm150.js, built from the 2D game's Web Audio engine (web/game/src/audio): a piece per chapter, adaptive layers (battle, boss, sabbath, victory) and effects tuned to the playing key. No audio files, works offline. The first click or key press unlocks audio.",
+  "tags": [
+    "holyholyholy"
+  ],
+  "authorIds": [],
+  "dependencies": [],
+  "sourceFiles": [
+    {
+      "resourceName": "lib/psalm150.js",
+      "includePosition": "last"
+    }
+  ],
+  "globalVariables": [],
+  "sceneVariables": [],
+  "eventsFunctions": [
+    {
+      "description": "Starts audio (also done automatically on the first click or key press).",
+      "fullName": "Unlock audio",
+      "functionType": "Action",
+      "group": "Music",
+      "name": "Unlock",
+      "sentence": "Unlock audio",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const audio = window.Psalm150;",
+            "if (!audio) return;",
+            "audio.unlock();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Chooses the piece (a chapter id or \"menu\"), the scene (menu, battle, chapel, sabbath, boss, victory) and the intensity 0–1.",
+      "fullName": "Music mood",
+      "functionType": "Action",
+      "group": "Music",
+      "name": "SetMood",
+      "sentence": "Music: piece _PARAM1_, scene _PARAM2_, intensity _PARAM3_",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const audio = window.Psalm150;",
+            "if (!audio) return;",
+            "audio.setMood(eventsFunctionContext.getArgument(\"Track\"), eventsFunctionContext.getArgument(\"Scene\"), eventsFunctionContext.getArgument(\"Intensity\"));",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Piece: chapter id or \"menu\"",
+          "name": "Track",
+          "type": "string"
+        },
+        {
+          "description": "Scene: menu, battle, chapel, sabbath, boss or victory",
+          "name": "Scene",
+          "type": "string"
+        },
+        {
+          "description": "Intensity (0–1)",
+          "name": "Intensity",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Plays a sound effect; melodic effects use the scale step so they fit the music.",
+      "fullName": "Play an effect",
+      "functionType": "Action",
+      "group": "Effects",
+      "name": "PlaySfx",
+      "sentence": "Play effect _PARAM1_ (step _PARAM2_, pan _PARAM3_)",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const audio = window.Psalm150;",
+            "if (!audio) return;",
+            "audio.sfx(eventsFunctionContext.getArgument(\"Name\"), eventsFunctionContext.getArgument(\"Step\"), eventsFunctionContext.getArgument(\"Pan\"));",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Effect: shoot, hit, hurt, seed, levelup, combo, digest, fire, flame, tier, ultimate, boss, revelation, rank, click, fall, door, grace, bell, weaken",
+          "name": "Name",
+          "type": "string"
+        },
+        {
+          "description": "Scale step",
+          "name": "Step",
+          "type": "expression"
+        },
+        {
+          "description": "Pan (-1 left … 1 right)",
+          "name": "Pan",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Master, music and effects volumes (0–1).",
+      "fullName": "Volumes",
+      "functionType": "Action",
+      "group": "Music",
+      "name": "SetVolumes",
+      "sentence": "Volumes: master _PARAM1_, music _PARAM2_, effects _PARAM3_",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const audio = window.Psalm150;",
+            "if (!audio) return;",
+            "audio.setVolumes(eventsFunctionContext.getArgument(\"Master\"), eventsFunctionContext.getArgument(\"Music\"), eventsFunctionContext.getArgument(\"Effects\"));",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Master (0–1)",
+          "name": "Master",
+          "type": "expression"
+        },
+        {
+          "description": "Music (0–1)",
+          "name": "Music",
+          "type": "expression"
+        },
+        {
+          "description": "Effects (0–1)",
+          "name": "Effects",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Mutes or unmutes everything.",
+      "fullName": "Mute",
+      "functionType": "Action",
+      "group": "Music",
+      "name": "SetMuted",
+      "sentence": "Mute: _PARAM1_",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const audio = window.Psalm150;",
+            "if (!audio) return;",
+            "audio.setMuted(eventsFunctionContext.getArgument(\"Muted\"));",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Muted",
+          "name": "Muted",
+          "type": "yesorno"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "The current piece moves on to its next variation.",
+      "fullName": "Next variation",
+      "functionType": "Action",
+      "group": "Music",
+      "name": "NextTrack",
+      "sentence": "Next variation of the music",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const audio = window.Psalm150;",
+            "if (!audio) return;",
+            "audio.nextTrack();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "A soft swell under the music at the player's heart rate (0 = off).",
+      "fullName": "Heart rate swell",
+      "functionType": "Action",
+      "group": "Music",
+      "name": "SetHeartRate",
+      "sentence": "Heart rate swell: _PARAM1_ bpm",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const audio = window.Psalm150;",
+            "if (!audio) return;",
+            "audio.setHeartRate(eventsFunctionContext.getArgument(\"Bpm\"));",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Beats per minute (0 = off)",
+          "name": "Bpm",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Name of the piece and variation now playing.",
+      "fullName": "Now playing",
+      "functionType": "StringExpression",
+      "group": "Music",
+      "name": "NowPlaying",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const audio = window.Psalm150;",
+            "eventsFunctionContext.returnValue = audio ? audio.nowPlaying() : '';",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [],
+      "objectGroups": []
+    }
+  ],
+  "eventsFunctionsFolderStructure": {
+    "folderName": "__ROOT",
+    "children": [
+      {
+        "folderName": "Music",
+        "children": [
+          {
+            "functionName": "Unlock"
+          },
+          {
+            "functionName": "SetMood"
+          },
+          {
+            "functionName": "SetVolumes"
+          },
+          {
+            "functionName": "SetMuted"
+          },
+          {
+            "functionName": "NextTrack"
+          },
+          {
+            "functionName": "SetHeartRate"
+          },
+          {
+            "functionName": "NowPlaying"
+          }
+        ]
+      },
+      {
+        "folderName": "Effects",
+        "children": [
+          {
+            "functionName": "PlaySfx"
+          }
+        ]
+      }
+    ]
+  },
+  "eventsBasedBehaviors": [],
+  "eventsBasedObjects": []
+}

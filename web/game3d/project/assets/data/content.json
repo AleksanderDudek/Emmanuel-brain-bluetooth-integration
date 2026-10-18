@@ -1,0 +1,1691 @@
+{
+ "version": 1,
+ "title": {
+  "name": "HolyHolyHoly 3D",
+  "subtitle": "Burzenie twierdz",
+  "verse": {
+   "ref": "Iz 6,3",
+   "text": "I wołał jeden do drugiego, mówiąc: Święty, święty, święty, Pan zastępów; pełna jest wszystka ziemia chwały jego."
+  },
+  "motto": {
+   "ref": "2 Kor 10,4",
+   "text": "Albowiem broń żołnierstwa naszego nie jest cielesna, ale z Boga jest, mocna ku zburzeniu miejsc obronnych."
+  }
+ },
+ "story": {
+  "intro": [
+   "„Aniołom swoim przykazał o tobie, aby cię strzegli na wszystkich drogach twoich” (Ps 91,11). Dziś Bóg powierza ci człowieka. Ma na imię Adam.",
+   "Rany Adama stały się cieniami, które szepczą mu kłamstwa. Za nimi stoją twierdze: kłamstwa, w które uwierzył.",
+   "Stań w ciszy, a Słowo uderzy w cienie. Rozbij je, a każda rana stanie się prawdą. Skupienie rozpala Ogień Ducha, a twierdze padają."
+  ],
+  "howTo": [
+   "Ruch: WASD / strzałki albo lewy kciuk. Gdy stoisz, Słowo samo leci w najbliższy cień.",
+   "Cios Samsona: spacja / J albo przycisk z gwiazdą. Uderzaj seriami, zanim cień podejdzie. Pudło przerywa serię.",
+   "Ogień Ducha: E / K albo przycisk z płomieniem. Skupienie (bezruch albo opaska Mendi) napełnia trzy płomienie."
+  ],
+  "fall": [
+   "„Jeźli siedzę w ciemnościach, Pan jest światłością moją” (Mi 7,8). Upadek nie jest końcem. Wstań, On już podaje ci rękę.",
+   "„Bo choć siedm kroć upada sprawiedliwy, przecie zaś powstaje” (Prz 24,16). Siedem razy, siedemdziesiąt siedem razy: wstajemy dalej.",
+   "„Gdy padnie, nie stłucze się: albowiem Pan trzyma go za rękę jego” (Ps 37,24). Nie ma w tym wstydu. Odpocznij chwilę i spróbuj jeszcze raz.",
+   "Cień szepcze: „To koniec”. Bóg mówi: „To dopiero początek”. Wstań i idź dalej.",
+   "Łaska nie kończy się po pierwszym upadku. Ani po setnym. Weź głęboki oddech i spróbuj jeszcze raz."
+  ],
+  "finale": [
+   "Ostatnia twierdza upada. Nad Koroną rozlewa się światło, którego nie da się opisać słowami.",
+   "Adam stoi w progu domu Ojca. Jego rany stały się bliznami, a blizny świadectwem łaski. Niesie w sercu prawdy znalezione po drodze: Ufność, Godność, Nadzieję, Przebaczenie i Wolność.",
+   "Ojciec wybiega mu naprzeciw, obejmuje go i nie pozwala dokończyć przeprosin. Mówi tylko: „Jesteś mój. Jesteś w domu”.",
+   "Stajesz przed tronem razem z niezliczonymi aniołami. Serafini zakrywają twarze skrzydłami i wołają jeden do drugiego: „Święty, święty, święty, Pan zastępów; pełna jest wszystka ziemia chwały jego” (Iz 6,3).",
+   "A „otrze Bóg wszelką łzę z oczów ich; a śmierci więcej nie będzie, ani smutku, ani krzyku, ani boleści nie będzie” (Ap 21,4-5). Ten, który siedzi na tronie, mówi: „Oto wszystko nowe czynię” (Ap 21,5).",
+   "Dziękujemy za wspólną drogę. Adam jest w domu. Ty także."
+  ],
+  "disclaimer": "HolyHolyHoly to gra modlitwy i nadziei. Nie jest terapią ani leczeniem i nie zastąpi pomocy specjalisty. O zranieniach opowiada delikatnie, bez drastycznych scen. Jeśli nosisz w sobie ciężkie rany, porozmawiaj z kimś, komu ufasz: z przyjacielem, z duszpasterzem (księdzem albo pastorem), z psychologiem lub lekarzem psychiatrą. Sięgnięcie po pomoc to odwaga, nie słabość.",
+  "crisisHelp": "Jeśli przeżywasz kryzys, nie zostawaj z tym w pojedynkę. W Polsce możesz zadzwonić bezpłatnie:\n\n116 123: telefon zaufania dla dorosłych w kryzysie emocjonalnym, całą dobę (czat: 116sos.pl)\n\n116 111: telefon zaufania dla dzieci i młodzieży, całą dobę (116111.pl)\n\n800 70 2222: Centrum Wsparcia dla Osób Dorosłych w Kryzysie Psychicznym, całą dobę (centrumwsparcia.pl)\n\n112: numer alarmowy, gdy zagrożone jest czyjeś życie lub zdrowie\n\nPoza Polską zadzwoń pod lokalny numer alarmowy. Numery sprawdzone w październiku 2026 roku."
+ },
+ "chapters": [
+  {
+   "id": "malkut",
+   "index": 0,
+   "title": "Kołyska",
+   "sphere": "Malkut",
+   "meaning": "Królestwo",
+   "story": "Adam jest małym chłopcem. Noce są długie, a dom bywa głośny i niespokojny. Gdy płacze w ciemności, nikt nie przychodzi, i Adam zaczyna wierzyć, że nikt go nie widzi. Nawet Bóg.",
+   "verse": {
+    "ref": "Iz 49,15",
+    "text": "Izali może zapomnieć niewiasta niemowlątka swego, aby się nie zlitowała nad płodem żywota swego? A choćby też i one zapomniały, wszakże Ja ciebie nie zapomnę."
+   },
+   "realm": "earth",
+   "palette": {
+    "bg1": "#23220f",
+    "bg2": "#2e1b10",
+    "accent": "#c9b458",
+    "wall": "#5b5130",
+    "seed": "#f3e7b3"
+   },
+   "look": {
+    "background": "35;34;15",
+    "fog": "46;27;16",
+    "floor": "166;154;108",
+    "rim": "201;180;88",
+    "sky": "248;241;209",
+    "ground": "73;65;38"
+   },
+   "traumas": [
+    "lek",
+    "samotnosc",
+    "odrzucenie"
+   ],
+   "boss": {
+    "name": "Twierdza: Daleki Bóg",
+    "lie": "Bóg jest daleko i mnie nie widzi.",
+    "hp": 300
+   },
+   "revelation": {
+    "lie": "Bóg jest daleko i mnie nie widzi.",
+    "truth": "Bóg widział cię zawsze: w kołysce, w ciemności, przy każdej łzie, której nikt nie otarł. Nie jest daleko od żadnego z nas. Jest bliżej, niż sięga twój lęk.",
+    "verses": [
+     {
+      "ref": "Rdz 16,13",
+      "text": "I nazwała imię Pana, który mówił do niej: Tyś Bóg widzący mię; rzekła bowiem: Izalim tu nie widziała tyłu widzącego mię?"
+     },
+     {
+      "ref": "Dz 17,27",
+      "text": "Aby szukali Pana, owaby go snać namacali i znaleźli, aczkolwiek od każdego z nas nie jest daleko."
+     }
+    ]
+   },
+   "report": "Panie, Adam był małym dzieckiem i bał się ciemności. Dziś wie, że widziałeś każdą jego łzę.",
+   "node": {
+    "x": 0,
+    "y": 430
+   },
+   "unlockedBy": "",
+   "side": false,
+   "unlockedByTitle": ""
+  },
+  {
+   "id": "jesod",
+   "index": 1,
+   "title": "Dom",
+   "sphere": "Jesod",
+   "meaning": "Fundament",
+   "story": "Ojciec Adama często jest daleko, a gdy wraca, bywa zimny i surowy. Pochwała zdarza się rzadko, kara przychodzi za każdy błąd. Adam uczy się, że na miłość trzeba zapracować, i tak samo zaczyna myśleć o Bogu.",
+   "verse": {
+    "ref": "Ps 27,10",
+    "text": "Choć ojciec mój, i matka moja opuścili mię, wszakże Pan przyjął mię."
+   },
+   "realm": "earth",
+   "palette": {
+    "bg1": "#1a1029",
+    "bg2": "#26143a",
+    "accent": "#b48cff",
+    "wall": "#4f3d6e",
+    "seed": "#ecdfff"
+   },
+   "look": {
+    "background": "26;16;41",
+    "fog": "38;20;58",
+    "floor": "157;136;183",
+    "rim": "180;140;255",
+    "sky": "244;236;255",
+    "ground": "63;49;88"
+   },
+   "traumas": [
+    "odrzucenie",
+    "samotnosc",
+    "lek",
+    "gniew"
+   ],
+   "boss": {
+    "name": "Twierdza: Surowy Ojciec",
+    "lie": "Bóg jest jak surowy ojciec, który tylko czeka, aż się potknę.",
+    "hp": 380
+   },
+   "revelation": {
+    "lie": "Bóg jest jak surowy ojciec, który tylko czeka, aż się potknę.",
+    "truth": "Bóg nie jest odbiciem ludzi, którzy cię zranili. Jest Ojcem, który wybiega naprzeciw, obejmuje i całuje, zanim padną słowa przeprosin. Lituje się nad tobą tak, jak dobry ojciec lituje się nad dzieckiem.",
+    "verses": [
+     {
+      "ref": "Łk 15,20",
+      "text": "Tedy wstawszy, szedł do ojca swego. A gdy on jeszcze był opodal, ujrzał go ojciec jego, i użaliwszy się go, przybieżał, a padłszy na szyję jego, pocałował go."
+     },
+     {
+      "ref": "Ps 103,13",
+      "text": "Jako ma litość ojciec nad dziatkami, tak ma litość Pan nad tymi, którzy się go boją."
+     }
+    ]
+   },
+   "report": "Panie, Adam tęsknił za ojcem, który by go przytulił. Odkrywa, że Ty sam wybiegasz mu naprzeciw.",
+   "node": {
+    "x": 0,
+    "y": 230
+   },
+   "unlockedBy": "malkut",
+   "side": false,
+   "unlockedByTitle": "Kołyska"
+  },
+  {
+   "id": "hod",
+   "index": 2,
+   "title": "Szkoła",
+   "sphere": "Hod",
+   "meaning": "Chwała",
+   "story": "W szkole Adam słyszy przezwiska i śmiech za plecami. Słowa innych przyklejają się do niego jak etykiety. Z czasem zaczyna wierzyć, że jest dokładnie taki, jak o nim mówią.",
+   "verse": {
+    "ref": "Ps 34,6",
+    "text": "Którzy nań spoglądają, a zbiegają się do niego, oblicza ich nie będą zawstydzone."
+   },
+   "realm": "earth",
+   "palette": {
+    "bg1": "#24120a",
+    "bg2": "#33180b",
+    "accent": "#ff9f45",
+    "wall": "#6b4428",
+    "seed": "#ffe3c4"
+   },
+   "look": {
+    "background": "36;18;10",
+    "fog": "51;24;11",
+    "floor": "191;144;99",
+    "rim": "255;159;69",
+    "sky": "255;238;220",
+    "ground": "86;54;32"
+   },
+   "traumas": [
+    "wstyd",
+    "odrzucenie",
+    "oskarzyciel",
+    "lek"
+   ],
+   "boss": {
+    "name": "Twierdza: Etykieta",
+    "lie": "Jestem tym, co o mnie mówią.",
+    "hp": 460
+   },
+   "revelation": {
+    "lie": "Jestem tym, co o mnie mówią.",
+    "truth": "Słowa innych mogą zranić, ale nie mają ostatniego słowa. Bóg zna cię po imieniu i mówi: „mójeś ty” (Iz 43,1). Twoje prawdziwe imię brzmi: umiłowane dziecko Boga.",
+    "verses": [
+     {
+      "ref": "Iz 43,1",
+      "text": "Ale teraz tak mówi Pan, który cię stworzył, o Jakóbie; i który cię uczynił, o Izraelu! Nie bój się, bom cię odkupił, a wezwałem cię imieniem twojem; mójeś ty."
+     },
+     {
+      "ref": "1 J 3,1",
+      "text": "Patrzcie, jaką miłość dał nam Ojciec, abyśmy dziatkami Bożemi nazwani byli. Dlategoć świat nie zna nas, iż onego nie zna."
+     }
+    ]
+   },
+   "report": "Panie, Adam nosił imiona, które nadali mu inni. Teraz słyszy, jak Ty wołasz go po imieniu.",
+   "node": {
+    "x": -300,
+    "y": 110
+   },
+   "unlockedBy": "jesod",
+   "side": false,
+   "unlockedByTitle": "Dom"
+  },
+  {
+   "id": "necach",
+   "index": 3,
+   "title": "Pierwsza miłość",
+   "sphere": "Necach",
+   "meaning": "Zwycięstwo",
+   "story": "Adam zakochuje się pierwszy raz i otwiera serce jak nigdy wcześniej. Gdy zostaje zdradzony, coś w nim pęka. Postanawia, że już nikomu nie zaufa.",
+   "verse": {
+    "ref": "Ps 147,3",
+    "text": "Który uzdrawia skruszonych na sercu, a zawiązuje boleści ich."
+   },
+   "realm": "earth",
+   "palette": {
+    "bg1": "#0a1f17",
+    "bg2": "#0d2c20",
+    "accent": "#3ddc97",
+    "wall": "#2b5c47",
+    "seed": "#d4ffeb"
+   },
+   "look": {
+    "background": "10;31;23",
+    "fog": "13;44;32",
+    "floor": "103;172;136",
+    "rim": "61;220;151",
+    "sky": "229;255;243",
+    "ground": "34;74;57"
+   },
+   "traumas": [
+    "odrzucenie",
+    "zazdrosc",
+    "samotnosc",
+    "oskarzyciel"
+   ],
+   "boss": {
+    "name": "Twierdza: Zamknięte Serce",
+    "lie": "Miłość zawsze rani. Lepiej nikogo nie kochać.",
+    "hp": 540
+   },
+   "revelation": {
+    "lie": "Miłość zawsze rani. Lepiej nikogo nie kochać.",
+    "truth": "Ludzka miłość bywa krucha i potrafi zawieść. Boża miłość nie odstąpi od ciebie, nawet gdyby poruszyły się góry. Ona wypędza lęk i z czasem uczy serce znów ufać, mądrze i bezpiecznie.",
+    "verses": [
+     {
+      "ref": "Iz 54,10",
+      "text": "A choćby się i góry poruszyły, i pagórki się zachwiały: jednak miłosierdzie moje od ciebie nie odstąpi, a przymierze pokoju mego nie wzruszy się, mówi twój miłościwy Pan."
+     },
+     {
+      "ref": "1 J 4,18",
+      "text": "Nie maszci bojaźni w miłości, ale miłość doskonała precz wyrzuca bojaźń: bo bojaźń ma udręczenie, a kto się boi, nie jest doskonały w miłości."
+     }
+    ]
+   },
+   "report": "Panie, serce Adama było zamknięte na klucz. Uchyla się powoli, bo Twoja miłość nie odchodzi.",
+   "node": {
+    "x": 300,
+    "y": 110
+   },
+   "unlockedBy": "hod",
+   "side": false,
+   "unlockedByTitle": "Szkoła"
+  },
+  {
+   "id": "tiferet",
+   "index": 4,
+   "title": "Ambicja",
+   "sphere": "Tiferet",
+   "meaning": "Piękno",
+   "story": "Dorosły Adam pracuje bez wytchnienia. Każdy sukces cieszy go tylko przez chwilę, a każdy błąd boli długo. W głębi serca wierzy, że Bóg kocha go tylko wtedy, gdy jest najlepszy.",
+   "verse": {
+    "ref": "Mt 11,28",
+    "text": "Pójdźcie do mnie wszyscy, którzyście spracowani i obciążeni, a Ja wam sprawię odpocznienie;"
+   },
+   "realm": "earth",
+   "palette": {
+    "bg1": "#231b07",
+    "bg2": "#30250a",
+    "accent": "#ffd54f",
+    "wall": "#6a5a2c",
+    "seed": "#fff4c7"
+   },
+   "look": {
+    "background": "35;27;7",
+    "fog": "48;37;10",
+    "floor": "191;168;104",
+    "rim": "255;213;79",
+    "sky": "255;248;221",
+    "ground": "85;72;35"
+   },
+   "traumas": [
+    "kontrola",
+    "pycha",
+    "lek",
+    "oskarzyciel"
+   ],
+   "boss": {
+    "name": "Twierdza: Zasługa",
+    "lie": "Muszę zasłużyć na miłość Boga.",
+    "hp": 620
+   },
+   "revelation": {
+    "lie": "Muszę zasłużyć na miłość Boga.",
+    "truth": "Nie można zasłużyć na to, co już zostało dane. Chrystus umarł za nas, gdy jeszcze nie mieliśmy nic do pokazania. Zbawienie jest darem łaski, nie nagrodą za wysiłek, więc możesz odpocząć.",
+    "verses": [
+     {
+      "ref": "Ef 2,8-9",
+      "text": "Albowiem łaską jesteście zbawieni przez wiarę, i to nie jest z was, dar to Boży jest; Nie z uczynków, aby się kto nie chlubił."
+     },
+     {
+      "ref": "Rz 5,8",
+      "text": "Lecz zaleca Bóg miłość swoję ku nam, że gdy jeszcze byliśmy grzesznymi, Chrystus za nas umarł."
+     }
+    ]
+   },
+   "report": "Panie, Adam biegł bez końca, żeby zasłużyć na Twoją miłość. Dziś odpoczywa, bo otrzymał ją w darze.",
+   "node": {
+    "x": 0,
+    "y": -60
+   },
+   "unlockedBy": "necach",
+   "side": false,
+   "unlockedByTitle": "Pierwsza miłość"
+  },
+  {
+   "id": "gewura",
+   "index": 5,
+   "title": "Gniew",
+   "sphere": "Gewura",
+   "meaning": "Moc",
+   "story": "Stare rany zamieniają się w gniew. Adam wybucha na tych, których kocha, i nie potrafi przebaczyć tym, którzy go skrzywdzili. Boi się, że przebaczenie oznaczałoby udawanie, że nic się nie stało.",
+   "verse": {
+    "ref": "Ef 4,26",
+    "text": "Gniewajcie się, a nie grzeszcie; słońce niech nie zachodzi na rozgniewanie wasze."
+   },
+   "realm": "earth",
+   "palette": {
+    "bg1": "#26090c",
+    "bg2": "#360d11",
+    "accent": "#ff5252",
+    "wall": "#73303a",
+    "seed": "#ffd6d6"
+   },
+   "look": {
+    "background": "38;9;12",
+    "fog": "54;13;17",
+    "floor": "191;110;105",
+    "rim": "255;82;82",
+    "sky": "255;230;230",
+    "ground": "92;38;46"
+   },
+   "traumas": [
+    "gniew",
+    "nieprzebaczenie",
+    "pycha",
+    "oskarzyciel"
+   ],
+   "boss": {
+    "name": "Twierdza: Udawany Pokój",
+    "lie": "Przebaczyć to udawać, że nic się nie stało.",
+    "hp": 720
+   },
+   "revelation": {
+    "lie": "Przebaczyć to udawać, że nic się nie stało.",
+    "truth": "Przebaczenie nie zaprzecza krzywdzie, tylko najpierw ją nazywa. Józef powiedział braciom: „Wyście złe myślili przeciwko mnie, ale Bóg obrócił to w dobre” (Rdz 50,20). Przebaczyć znaczy oddać sąd Bogu i przestać nosić truciznę, a nie wracać tam, gdzie wciąż jest niebezpiecznie.",
+    "verses": [
+     {
+      "ref": "Rdz 50,20",
+      "text": "Wyście złe myślili przeciwko mnie, ale Bóg obrócił to w dobre, chcąc uczynić to, co się dziś dzieje, aby zachował tak wielki lud."
+     },
+     {
+      "ref": "Rz 12,19",
+      "text": "Nie mścijcie się sami, najmilsi: ale dajcie miejsce gniewowi; albowiem napisano: Mnie pomsta, a Ja oddam, mówi Pan."
+     }
+    ]
+   },
+   "report": "Panie, Adam nazwał krzywdę po imieniu i oddał Ci sąd. Gniew nie rządzi już jego sercem.",
+   "node": {
+    "x": -300,
+    "y": -170
+   },
+   "unlockedBy": "tiferet",
+   "side": false,
+   "unlockedByTitle": "Ambicja"
+  },
+  {
+   "id": "chesed",
+   "index": 6,
+   "title": "Upadek",
+   "sphere": "Chesed",
+   "meaning": "Miłosierdzie",
+   "story": "Żeby uciszyć ból, Adam sięga po coś, co obiecuje ulgę, a staje się łańcuchem. Upada, podnosi się i znów upada. Wina szepcze mu, że Bóg ma go już dość.",
+   "verse": {
+    "ref": "Iz 42,3",
+    "text": "Trzciny nałamanej nie dołamie, a lnu kurzącego się nie dogasi; ale sąd wyda według prawdy."
+   },
+   "realm": "earth",
+   "palette": {
+    "bg1": "#09142b",
+    "bg2": "#0c1c3f",
+    "accent": "#5aa9ff",
+    "wall": "#2e4a78",
+    "seed": "#d6eaff"
+   },
+   "look": {
+    "background": "9;20;43",
+    "fog": "12;28;63",
+    "floor": "116;149;183",
+    "rim": "90;169;255",
+    "sky": "230;242;255",
+    "ground": "37;59;96"
+   },
+   "traumas": [
+    "nalog",
+    "wina",
+    "wstyd",
+    "rozpacz",
+    "oskarzyciel"
+   ],
+   "boss": {
+    "name": "Twierdza: Ostatnia Szansa",
+    "lie": "Upadłem za wiele razy. Bóg ma mnie dość.",
+    "hp": 820
+   },
+   "revelation": {
+    "lie": "Upadłem za wiele razy. Bóg ma mnie dość.",
+    "truth": "Boże miłosierdzie nie wyczerpuje się, tylko odnawia się każdego poranka. Bóg nie trzyma gniewu na zawsze, bo kocha się w miłosierdziu. Gdy wracasz po raz setny, On wciąż wybiega ci naprzeciw.",
+    "verses": [
+     {
+      "ref": "Lm 3,22-23",
+      "text": "Wielkie jest miłosierdzie Pańskie, żeśmy do szczętu nie zginęli; nie ustawają zaiste litości jego. Ale się na każdy poranek odnawiają; wielka jest prawda twoja."
+     },
+     {
+      "ref": "Mi 7,18",
+      "text": "Któryż Bóg jest podobny tobie? Któryby nieprawość odpuszczał, i mijał przestępstwa ostatków dziedzictwa swego, któryby nie zatrzymywał na wieki gniewu swego, przeto, że się kocha w miłosierdziu."
+     }
+    ]
+   },
+   "report": "Panie, Adam upadał wiele razy. Za każdym razem Twoje miłosierdzie było nowe.",
+   "node": {
+    "x": 300,
+    "y": -170
+   },
+   "unlockedBy": "gewura",
+   "side": false,
+   "unlockedByTitle": "Gniew"
+  },
+  {
+   "id": "bina",
+   "index": 7,
+   "title": "Ciemna noc",
+   "sphere": "Bina",
+   "meaning": "Zrozumienie",
+   "story": "Przychodzi czas ciężkiej ciemności. Adam jest wyczerpany, nic go nie cieszy, a modlitwa wydaje się pusta. Ukrywa to przed wszystkimi, bo myśli, że wierzący nie powinien się smucić ani prosić o pomoc.",
+   "verse": {
+    "ref": "1 Krl 19,7",
+    "text": "Potem wrócił się Anioł Pański powtóre, i tknął go, a rzekł: Wstań, jedz, albowiem daleką masz drogę przed sobą."
+   },
+   "realm": "heaven",
+   "palette": {
+    "bg1": "#0b0920",
+    "bg2": "#120f33",
+    "accent": "#8f82ff",
+    "wall": "#3a3570",
+    "seed": "#dedaff"
+   },
+   "look": {
+    "background": "11;9;32",
+    "fog": "18;15;51",
+    "floor": "140;131;183",
+    "rim": "143;130;255",
+    "sky": "235;233;255",
+    "ground": "46;42;90"
+   },
+   "traumas": [
+    "rozpacz",
+    "samotnosc",
+    "wstyd",
+    "oskarzyciel"
+   ],
+   "boss": {
+    "name": "Twierdza: Maska",
+    "lie": "Chrześcijanin nie powinien się smucić ani prosić o pomoc.",
+    "hp": 940
+   },
+   "revelation": {
+    "lie": "Chrześcijanin nie powinien się smucić ani prosić o pomoc.",
+    "truth": "Jezus płakał przy grobie przyjaciela, więc smutek nie jest brakiem wiary. Bóg jest blisko ludzi o złamanym sercu, a nam każe nosić nawzajem swoje ciężary. Gdy prosisz o pomoc przyjaciela, duszpasterza, psychologa czy lekarza psychiatrę, okazujesz mądrość i odwagę, a nie słabość.",
+    "verses": [
+     {
+      "ref": "J 11,35",
+      "text": "I zapłakał Jezus."
+     },
+     {
+      "ref": "Ga 6,2",
+      "text": "Jedni drugich brzemiona noście, a tak wypełniajcie zakon Chrystusowy."
+     },
+     {
+      "ref": "Ps 34,19",
+      "text": "Bliski jest Pan tym, którzy są skruszonego serca, a utrapionych w duchu zachowuje."
+     }
+    ]
+   },
+   "report": "Panie, Adam przestał udawać, że wszystko jest dobrze. Poprosił ludzi o pomoc i nie jest już sam w ciemności.",
+   "node": {
+    "x": -300,
+    "y": -430
+   },
+   "unlockedBy": "chesed",
+   "side": false,
+   "unlockedByTitle": "Upadek"
+  },
+  {
+   "id": "chochma",
+   "index": 8,
+   "title": "Pustynia",
+   "sphere": "Chochma",
+   "meaning": "Mądrość",
+   "story": "Wiara Adama wysycha jak ziemia bez deszczu. Modlitwy zdają się odbijać od nieba, a Bóg milczy. Adam patrzy na innych i myśli, że Duch Święty jest dla nich, ale nie dla niego.",
+   "verse": {
+    "ref": "Pwt 32,10",
+    "text": "Znalazł go w ziemi pustej, i na puszczy wielkiej i strasznej; obwodził go, uczył go, strzegł go, jako źrenicy oka swego."
+   },
+   "realm": "heaven",
+   "palette": {
+    "bg1": "#121820",
+    "bg2": "#1b2430",
+    "accent": "#c3d6ea",
+    "wall": "#3e4b5d",
+    "seed": "#f0f5fb"
+   },
+   "look": {
+    "background": "18;24;32",
+    "fog": "27;36;48",
+    "floor": "164;169;174",
+    "rim": "195;214;234",
+    "sky": "246;249;253",
+    "ground": "50;60;74"
+   },
+   "traumas": [
+    "zwatpienie",
+    "samotnosc",
+    "kontrola",
+    "oskarzyciel"
+   ],
+   "boss": {
+    "name": "Twierdza: Zamknięte Niebo",
+    "lie": "Duch Święty jest tylko dla wybranych, nie dla mnie.",
+    "hp": 1080
+   },
+   "revelation": {
+    "lie": "Duch Święty jest tylko dla wybranych, nie dla mnie.",
+    "truth": "Obietnica Ducha jest także dla tych, „którzy daleko są” (Dz 2,39). Ojciec daje Ducha Świętego tym, którzy Go proszą: nie najlepszym, lecz proszącym. Wystarczy otworzyć serce i poprosić.",
+    "verses": [
+     {
+      "ref": "Łk 11,13",
+      "text": "Ponieważ tedy wy, będąc złymi, umiecie dobre dary dawać dzieciom waszym: jakoż daleko więcej Ojciec wasz niebieski da Ducha Świętego tym, którzy go oń proszą?"
+     },
+     {
+      "ref": "Dz 2,39",
+      "text": "Albowiemci wam ta obietnica należy i dziatkom waszym, i wszystkim, którzy daleko są, którekolwiek by powołał Pan, Bóg nasz."
+     }
+    ]
+   },
+   "report": "Panie, Adam myślał, że niebo jest dla niego zamknięte. Poprosił o Twojego Ducha i pustynia zaczyna kwitnąć.",
+   "node": {
+    "x": 300,
+    "y": -430
+   },
+   "unlockedBy": "bina",
+   "side": false,
+   "unlockedByTitle": "Ciemna noc"
+  },
+  {
+   "id": "keter",
+   "index": 9,
+   "title": "Dom Ojca",
+   "sphere": "Keter",
+   "meaning": "Korona",
+   "story": "Adam staje w progu domu Ojca. Drzwi są otwarte, ale stary głos mówi mu, że przeszłość zamyka mu drogę. To ostatnia twierdza i ostatni krok do domu.",
+   "verse": {
+    "ref": "J 14,2-3",
+    "text": "W domu Ojca mego wiele jest mieszkania; a jeźli nie, wżdybymci wam powiedział. Idę, abym wam zgotował miejsce; a gdy odejdę i zgotuję wam miejsce, przyjdę zasię i wezmę was do siebie, żebyście, gdziem ja jest, i wy byli."
+   },
+   "realm": "heaven",
+   "palette": {
+    "bg1": "#3a3122",
+    "bg2": "#4f4430",
+    "accent": "#fff3c2",
+    "wall": "#a38d5c",
+    "seed": "#ffffff"
+   },
+   "look": {
+    "background": "58;49;34",
+    "fog": "79;68;48",
+    "floor": "191;182;156",
+    "rim": "255;243;194",
+    "sky": "255;255;255",
+    "ground": "130;113;74"
+   },
+   "traumas": [
+    "oskarzyciel",
+    "wina",
+    "wstyd",
+    "pycha",
+    "lek"
+   ],
+   "boss": {
+    "name": "Twierdza: Stary Człowiek",
+    "lie": "Moja przeszłość mnie definiuje.",
+    "hp": 1250
+   },
+   "revelation": {
+    "lie": "Moja przeszłość mnie definiuje.",
+    "truth": "Twoja historia jest prawdziwa, ale nie jest twoim imieniem. W Chrystusie jesteś nowym stworzeniem i to, co stare, przeminęło. Ten, który siedzi na tronie, czyni wszystko nowe, także ciebie.",
+    "verses": [
+     {
+      "ref": "2 Kor 5,17",
+      "text": "A tak jeźli kto jest w Chrystusie, nowem jest stworzeniem; stare rzeczy przeminęły, oto się wszystkie nowemi stały."
+     },
+     {
+      "ref": "Ap 21,5",
+      "text": "I rzekł ten, który siedział na stolicy: Oto wszystko nowe czynię. I rzekł mi: Napisz: bo te słowa są wierne i prawdziwe."
+     }
+    ]
+   },
+   "report": "Panie, Adam jest w domu. Przeszłość nie jest już jego imieniem, bo Ty uczyniłeś go nowym.",
+   "node": {
+    "x": 0,
+    "y": -560
+   },
+   "unlockedBy": "chochma",
+   "side": false,
+   "unlockedByTitle": "Pustynia"
+  },
+  {
+   "id": "rod",
+   "index": 10,
+   "title": "Drzewo rodu",
+   "sphere": "Ród",
+   "meaning": "Pokolenia",
+   "story": "Anioł schodzi do korzeni rodzinnego drzewa Adama. Widzi wzorce, które powtarzały się przez pokolenia: milczenie, lęk, gniew i ucieczki. Adam boi się, że jest skazany powtarzać to samo.",
+   "verse": {
+    "ref": "Wj 20,6",
+    "text": "A czyniący miłosierdzie nad tysiącami tych, którzy mię miłują, i strzegą przykazania mego."
+   },
+   "realm": "earth",
+   "palette": {
+    "bg1": "#121d0e",
+    "bg2": "#271b0f",
+    "accent": "#94d36b",
+    "wall": "#55452a",
+    "seed": "#e6f6d2"
+   },
+   "look": {
+    "background": "18;29;14",
+    "fog": "39;27;15",
+    "floor": "143;168;116",
+    "rim": "148;211;107",
+    "sky": "240;250;228",
+    "ground": "68;55;34"
+   },
+   "traumas": [
+    "lek",
+    "gniew",
+    "nieprzebaczenie",
+    "kontrola"
+   ],
+   "boss": {
+    "name": "Twierdza: Klątwa Pokoleń",
+    "lie": "Jestem skazany powtarzać grzechy przodków.",
+    "hp": 700
+   },
+   "revelation": {
+    "lie": "Jestem skazany powtarzać grzechy przodków.",
+    "truth": "Każdy odpowiada za własne czyny: syn nie poniesie winy ojca. Chrystus wziął na siebie przekleństwo, abyśmy byli wolni, a w Nim zaczyna się nowe stworzenie. Możesz z wdzięcznością przyjąć dobro swojego rodu i z Bożą pomocą zakończyć to, co raniło.",
+    "verses": [
+     {
+      "ref": "Ez 18,20",
+      "text": "Dusza, która grzeszy, ta umrze; ale syn nie poniesie nieprawości ojcowskiej, ani ojciec poniesie nieprawości synowskiej; sprawiedliwość sprawiedliwego przy nim zostanie, a niepobożność niepobożnego nań przypadnie."
+     },
+     {
+      "ref": "Ga 3,13",
+      "text": "Ale Chrystus odkupił nas z przeklęstwa zakonu, stawszy się za nas przeklęstwem, (albowiem napisane: Przeklęty każdy, który wisi na drzewie)."
+     },
+     {
+      "ref": "2 Kor 5,17",
+      "text": "A tak jeźli kto jest w Chrystusie, nowem jest stworzeniem; stare rzeczy przeminęły, oto się wszystkie nowemi stały."
+     }
+    ]
+   },
+   "report": "Panie, Adam powierzył Ci historię swojego rodu. Stare wzorce tracą moc, a Twoje miłosierdzie płynie dalej.",
+   "node": {
+    "x": -330,
+    "y": 560
+   },
+   "unlockedBy": "gewura",
+   "side": true,
+   "unlockedByTitle": "Gniew"
+  },
+  {
+   "id": "szeol",
+   "index": 11,
+   "title": "Zstąpienie",
+   "sphere": "Szeol",
+   "meaning": "Otchłań",
+   "story": "W otchłani, dokąd nie dociera żadne światło, czekają zagubione części serca Adama: dziecięca radość, ufność i śmiech. Chrystus zstąpił tu wcześniej i zostawił ślady światła. Anioł idzie po tych śladach, żeby przynieść zagubione do domu.",
+   "verse": {
+    "ref": "Ps 139,8",
+    "text": "Jeźlibym wstąpił do nieba, jesteś tam; i jeźlibym sobie posłał w grobie, i tameś przytomny."
+   },
+   "realm": "hell",
+   "palette": {
+    "bg1": "#111010",
+    "bg2": "#1e1311",
+    "accent": "#ff7b3a",
+    "wall": "#4a3832",
+    "seed": "#ffd9bf"
+   },
+   "look": {
+    "background": "17;16;16",
+    "fog": "30;19;17",
+    "floor": "191;128;94",
+    "rim": "255;123;58",
+    "sky": "255;232;217",
+    "ground": "59;45;40"
+   },
+   "traumas": [
+    "rozpacz",
+    "samotnosc",
+    "wstyd",
+    "oskarzyciel"
+   ],
+   "boss": {
+    "name": "Twierdza: Bezdenna Ciemność",
+    "lie": "Moja ciemność jest dla Boga za głęboka.",
+    "hp": 800
+   },
+   "revelation": {
+    "lie": "Moja ciemność jest dla Boga za głęboka.",
+    "truth": "Chrystus zstąpił do najniższych miejsc ziemi, nawet do duchów w więzieniu, aby zanieść światło tam, gdzie nikt nie sięgał. Przyszedł szukać i zbawić to, co zginęło. Nie ma ciemności, do której Jego miłość nie mogłaby zejść.",
+    "verses": [
+     {
+      "ref": "1 P 3,18-19",
+      "text": "Bo i Chrystus raz za grzechy cierpiał, sprawiedliwy za niesprawiedliwych, aby nas przywiódł do Boga, umartwiony będąc ciałem, ale ożywiony duchem; Przez którego i tym duchom, którzy są w więzieniu, przyszedłszy kazał."
+     },
+     {
+      "ref": "Łk 19,10",
+      "text": "Bo przyszedł Syn człowieczy, aby szukał i zachował, co było zginęło."
+     },
+     {
+      "ref": "Ef 4,9",
+      "text": "Ale to, że wstąpił, cóż jest, jedno iż pierwej był zstąpił do najniższych stron ziemi?"
+     }
+    ]
+   },
+   "report": "Panie, w otchłani czekały zagubione części serca Adama. Ty byłeś tam pierwszy, a teraz wracają z Tobą do domu.",
+   "node": {
+    "x": 330,
+    "y": 560
+   },
+   "unlockedBy": "bina",
+   "side": true,
+   "unlockedByTitle": "Ciemna noc"
+  }
+ ],
+ "traumas": {
+  "lek": {
+   "kind": "lek",
+   "name": "Lęk",
+   "color": "#7fd6ff",
+   "colorRgb": "127;214;255",
+   "shape": "wisp",
+   "archetype": "chase",
+   "hp": 20,
+   "speed": 2.2,
+   "truth": "Ufność",
+   "verse": {
+    "ref": "Ps 56,4",
+    "text": "Któregokolwiek mię dnia strach ogarnia, ja w tobie ufam."
+   }
+  },
+  "wstyd": {
+   "kind": "wstyd",
+   "name": "Wstyd",
+   "color": "#ff86a6",
+   "colorRgb": "255;134;166",
+   "shape": "hood",
+   "archetype": "circle",
+   "hp": 20,
+   "speed": 2.4,
+   "truth": "Godność",
+   "verse": {
+    "ref": "Ps 3,4",
+    "text": "Ale ty, Panie! jesteś tarczą moją, chwałą moją, i wywyższającym głowę moję."
+   }
+  },
+  "gniew": {
+   "kind": "gniew",
+   "name": "Gniew",
+   "color": "#ff3b30",
+   "colorRgb": "255;59;48",
+   "shape": "horn",
+   "archetype": "charge",
+   "hp": 25,
+   "speed": 1.8,
+   "truth": "Łagodność",
+   "verse": {
+    "ref": "Prz 15,1",
+    "text": "Odpowiedź łagodna uśmierza gniew; ale słowa przykre wzruszają popędliwość."
+   }
+  },
+  "rozpacz": {
+   "kind": "rozpacz",
+   "name": "Rozpacz",
+   "color": "#4c6bff",
+   "colorRgb": "76;107;255",
+   "shape": "droop",
+   "archetype": "drift",
+   "hp": 18,
+   "speed": 2,
+   "truth": "Nadzieja",
+   "verse": {
+    "ref": "Rz 15,13",
+    "text": "A Bóg nadziei niech was napełni wszelką radością i pokojem w wierze, abyście obfitowali w nadziei przez moc Ducha Świętego."
+   }
+  },
+  "odrzucenie": {
+   "kind": "odrzucenie",
+   "name": "Odrzucenie",
+   "color": "#c25bff",
+   "colorRgb": "194;91;255",
+   "shape": "wisp",
+   "archetype": "chase",
+   "hp": 16,
+   "speed": 2.6,
+   "truth": "Przyjęcie",
+   "verse": {
+    "ref": "J 6,37",
+    "text": "Wszystko, co mi daje Ojciec, do mnie przyjdzie, a tego, co do mnie przyjdzie, nie wyrzucę precz."
+   }
+  },
+  "samotnosc": {
+   "kind": "samotnosc",
+   "name": "Samotność",
+   "color": "#8fa3b8",
+   "colorRgb": "143;163;184",
+   "shape": "droop",
+   "archetype": "drift",
+   "hp": 18,
+   "speed": 1.9,
+   "truth": "Obecność",
+   "verse": {
+    "ref": "J 14,18",
+    "text": "Nie zostawię was sierotami, przyjdę do was."
+   }
+  },
+  "wina": {
+   "kind": "wina",
+   "name": "Wina",
+   "color": "#ff8a1f",
+   "colorRgb": "255;138;31",
+   "shape": "boulder",
+   "archetype": "tank",
+   "hp": 50,
+   "speed": 1.3,
+   "truth": "Przebaczenie",
+   "verse": {
+    "ref": "Ps 103,12",
+    "text": "A jako daleko jest wschód od zachodu, tak daleko oddalił od nas przestępstwa nasze."
+   }
+  },
+  "nalog": {
+   "kind": "nalog",
+   "name": "Nałóg",
+   "color": "#33e07a",
+   "colorRgb": "51;224;122",
+   "shape": "cluster",
+   "archetype": "split",
+   "hp": 30,
+   "speed": 2,
+   "truth": "Wolność",
+   "verse": {
+    "ref": "J 8,36",
+    "text": "A przetoż jeźli was Syn wyswobodzi, prawdziwie wolnymi będziecie."
+   }
+  },
+  "pycha": {
+   "kind": "pycha",
+   "name": "Pycha",
+   "color": "#ffd84a",
+   "colorRgb": "255;216;74",
+   "shape": "boulder",
+   "archetype": "tank",
+   "hp": 55,
+   "speed": 1.2,
+   "truth": "Pokora",
+   "verse": {
+    "ref": "Mi 6,8",
+    "text": "Oznajmił ci człowiecze, co jest dobrego, i czegoż Pan chce po tobie; tylko abyś czynił sąd, a miłował miłosierdzie i pokornie chodził z Bogiem twoim."
+   }
+  },
+  "zazdrosc": {
+   "kind": "zazdrosc",
+   "name": "Zazdrość",
+   "color": "#b5f23a",
+   "colorRgb": "181;242;58",
+   "shape": "horn",
+   "archetype": "charge",
+   "hp": 22,
+   "speed": 1.9,
+   "truth": "Miłość",
+   "verse": {
+    "ref": "Rz 12,15",
+    "text": "Weselcie się z weselącymi, a płaczcie z płaczącymi."
+   }
+  },
+  "nieprzebaczenie": {
+   "kind": "nieprzebaczenie",
+   "name": "Nieprzebaczenie",
+   "color": "#c08457",
+   "colorRgb": "192;132;87",
+   "shape": "boulder",
+   "archetype": "tank",
+   "hp": 45,
+   "speed": 1.3,
+   "truth": "Miłosierdzie",
+   "verse": {
+    "ref": "Łk 6,36",
+    "text": "Przetoż bądźcie miłosierni, jako i Ojciec wasz miłosierny jest."
+   }
+  },
+  "zwatpienie": {
+   "kind": "zwatpienie",
+   "name": "Zwątpienie",
+   "color": "#e0b3ff",
+   "colorRgb": "224;179;255",
+   "shape": "shard",
+   "archetype": "blink",
+   "hp": 18,
+   "speed": 1.9,
+   "truth": "Wiara",
+   "verse": {
+    "ref": "Mk 9,24",
+    "text": "A zarazem zawoławszy ojciec onego młodzieńca, ze łzami rzekł: Wierzę, Panie! ty ratuj niedowiarstwa mego."
+   }
+  },
+  "kontrola": {
+   "kind": "kontrola",
+   "name": "Kontrola",
+   "color": "#22d3c5",
+   "colorRgb": "34;211;197",
+   "shape": "hood",
+   "archetype": "circle",
+   "hp": 22,
+   "speed": 2.2,
+   "truth": "Zaufanie",
+   "verse": {
+    "ref": "Prz 3,5-6",
+    "text": "Ufaj w Panu ze wszystkiego serca twego, a na rozumie twoim nie spolegaj. We wszystkich drogach twoich znaj go, a on prostować będzie ścieszki twoje."
+   }
+  },
+  "oskarzyciel": {
+   "kind": "oskarzyciel",
+   "name": "Oskarżyciel",
+   "color": "#ff4fda",
+   "colorRgb": "255;79;218",
+   "shape": "accuser",
+   "archetype": "ranged",
+   "hp": 22,
+   "speed": 1.6,
+   "truth": "Prawda",
+   "verse": {
+    "ref": "J 8,32",
+    "text": "Poznacie prawdę, a prawda was wyswobodzi."
+   }
+  }
+ },
+ "gifts": [
+  {
+   "id": "slowo",
+   "name": "Miecz Ducha",
+   "kind": "weapon",
+   "maxLevel": 5,
+   "description": "Słowo Boże jest mieczem Ducha: gdy stoisz w ciszy, anioł mówi Słowem, a cienie pękają.",
+   "levels": [
+    "Słowo leci w najbliższy cień, gdy stoisz",
+    "+30% obrażeń",
+    "+25% szybkostrzelności",
+    "Słowo przebija jeden cień",
+    "+30% obrażeń i szybsze Słowo"
+   ],
+   "verse": {
+    "ref": "Ef 6,17",
+    "text": "Przyłbicę też zbawienia weźmijcie i miecz Ducha, który jest słowo Boże!"
+   }
+  },
+  {
+   "id": "chleby",
+   "name": "Rozmnożenie chlebów",
+   "kind": "weapon",
+   "maxLevel": 4,
+   "description": "Jak pięć chlebów nakarmiło tysiące, tak jedno Słowo rozmnaża się w wachlarz światła.",
+   "levels": [
+    "2 Słowa naraz",
+    "3 Słowa naraz",
+    "4 Słowa naraz",
+    "5 Słów naraz"
+   ],
+   "verse": {
+    "ref": "Mt 14,20",
+    "text": "I jedli wszyscy, a nasyceni byli; i zebrali, co zbywało ułomków, dwanaście koszów pełnych."
+   }
+  },
+  {
+   "id": "tarcza",
+   "name": "Tarcza wiary",
+   "kind": "weapon",
+   "maxLevel": 4,
+   "description": "Tarcza wiary gasi ogniste strzały złego: krąży wokół anioła i rozbija cienie, które podejdą.",
+   "levels": [
+    "1 tarcza krąży wokół anioła",
+    "2 tarcze",
+    "3 tarcze, szybciej",
+    "4 tarcze, mocniej"
+   ],
+   "verse": {
+    "ref": "Ef 6,16",
+    "text": "A nade wszystko wziąwszy tarczę wiary, którą byście mogli wszystkie strzały ogniste onego złośnika zagasić."
+   }
+  },
+  {
+   "id": "ogien",
+   "name": "Języki ognia",
+   "kind": "weapon",
+   "maxLevel": 5,
+   "description": "W dniu Pięćdziesiątnicy Duch zstąpił jak języki ognia; teraz płomień otacza anioła.",
+   "levels": [
+    "Płomienie parzą cienie tuż obok",
+    "Szerszy krąg",
+    "Mocniejszy ogień",
+    "Szerszy krąg",
+    "Częstszy i mocniejszy ogień"
+   ],
+   "verse": {
+    "ref": "Dz 2,3",
+    "text": "I ukazały się im rozdzielone języki na kształt ognia, który usiadł na każdym z nich."
+   }
+  },
+  {
+   "id": "wicher",
+   "name": "Gwałtowny wicher",
+   "kind": "weapon",
+   "maxLevel": 4,
+   "description": "Szum gwałtownego wichru napełnił dom w dniu Pięćdziesiątnicy; teraz ten wiatr odpycha cienie.",
+   "levels": [
+    "Co 6 s wicher odrzuca cienie",
+    "Co 5 s",
+    "Co 4 s, dalej",
+    "Co 3 s, z obrażeniami"
+   ],
+   "verse": {
+    "ref": "Dz 2,2",
+    "text": "Tedy się stał z prędka z nieba szum, jakoby przypadającego wiatru gwałtownego i napełnił wszystek dom, kędy siedzieli."
+   }
+  },
+  {
+   "id": "golebica",
+   "name": "Gołębica",
+   "kind": "weapon",
+   "maxLevel": 4,
+   "description": "Nad Jordanem Duch zstąpił jak gołębica; teraz leci przy aniele i sama odnajduje cienie.",
+   "levels": [
+    "Gołębica uderza co 1,6 s",
+    "Co 1,3 s",
+    "Mocniej",
+    "Co 1 s, mocniej"
+   ],
+   "verse": {
+    "ref": "Mt 3,16",
+    "text": "A Jezus ochrzczony będąc, wnet wystąpił z wody, a oto się mu otworzyły niebiosa, i widział Ducha Bożego, zstępującego jako gołębicę, i przychodzącego na niego;"
+   }
+  },
+  {
+   "id": "eliasz",
+   "name": "Ogień Eliasza",
+   "kind": "weapon",
+   "maxLevel": 4,
+   "description": "Na górze Karmel ogień Pański spadł z nieba na modlitwę Eliasza; teraz spada na cienie.",
+   "levels": [
+    "Co 4 s ogień z nieba",
+    "Większy płomień",
+    "Co 3 s",
+    "Dwa płomienie naraz"
+   ],
+   "verse": {
+    "ref": "1 Krl 18,38",
+    "text": "Tedy spadł ogień Pański, i pożarł całopalenie, i drwa, i kamienie, i proch; a wodę, która była w rowie, wysuszył."
+   }
+  },
+  {
+   "id": "jerycho",
+   "name": "Trąby Jerycha",
+   "kind": "weapon",
+   "maxLevel": 3,
+   "description": "Mury Jerycha upadły od głosu trąb; ta fala gasi strzały i zatrzymuje cienie.",
+   "levels": [
+    "Co 8 s fala zatrzymuje cienie na 1,5 s",
+    "Co 7 s, na 2 s",
+    "Co 6 s, z obrażeniami"
+   ],
+   "verse": {
+    "ref": "Joz 6,20",
+    "text": "Tedy krzyczał lud, gdy zatrąbiono w trąby, albowiem gdy usłyszał lud głos trąb, krzyczał i lud wielkim głosem, i upadł mur na miejscu swem, i wszedł lud do miasta, każdy przeciw miejscu, gdzie stał, i wzięli miasto;"
+   }
+  },
+  {
+   "id": "dawid",
+   "name": "Proca Dawida",
+   "kind": "weapon",
+   "maxLevel": 4,
+   "description": "Mały Dawid jednym kamieniem z procy powalił olbrzyma; ten kamień zawsze leci w najsilniejszego.",
+   "levels": [
+    "Co 3 s kamień w najsilniejszy cień",
+    "Mocniejszy kamień",
+    "Co 2,2 s",
+    "Kamień przebija i rani twierdze podwójnie"
+   ],
+   "verse": {
+    "ref": "1 Sm 17,49",
+    "text": "A ściągnąwszy Dawid rękę swą do torby, wyjął z niej kamień, i cisnął z procy, a ugodził Filistyńczyka w czoło jego, tak iż utknął kamień w czole jego, i padł twarzą swą na ziemię."
+   }
+  },
+  {
+   "id": "samson",
+   "name": "Siła Samsona",
+   "kind": "strike",
+   "maxLevel": 4,
+   "description": "Samson modlił się: „zmocnij mię proszę tylko ten raz” (Sdz 16,28). Twój cios odrzuca cienie.",
+   "levels": [
+    "+40% siły ciosu",
+    "Dłuższy zasięg ciosu",
+    "+40% siły ciosu",
+    "Cios odpycha też cienie wokół"
+   ],
+   "verse": {
+    "ref": "Sdz 16,28",
+    "text": "Wzywał tedy Samson Pana, i rzekł: Panie Boże, wspomnij na mię, proszę, a zmocnij mię proszę tylko ten raz; Boże, abym się raz pomścił obu oczu moich nad Filistynami."
+   }
+  },
+  {
+   "id": "manna",
+   "name": "Manna",
+   "kind": "heal",
+   "maxLevel": 3,
+   "description": "Bóg karmił swój lud manną z nieba każdego dnia; tak samo odnawia twoje siły.",
+   "levels": [
+    "Odnawia jedno serce",
+    "Odnawia jedno serce",
+    "Odnawia dwa serca"
+   ],
+   "verse": {
+    "ref": "Wj 16,4",
+    "text": "Tedy rzekł Pan do Mojżesza: Oto, Ja, spuszczę wam, jako deszcz chleb z nieba, i będzie wychodził lud, a będzie zbierał, coby dość było na każdy dzień, abym go doświadczył, będzieli chodził w zakonie moim, czyli nie."
+   }
+  },
+  {
+   "id": "sandaly",
+   "name": "Obuwie pokoju",
+   "kind": "passive",
+   "maxLevel": 3,
+   "description": "Nogi obute w gotowość Ewangelii pokoju niosą anioła szybciej.",
+   "levels": [
+    "+12% szybkości",
+    "+12% szybkości",
+    "+12% szybkości"
+   ],
+   "verse": {
+    "ref": "Ef 6,15",
+    "text": "I obuwszy nogi w gotowość Ewangielii pokoju."
+   }
+  },
+  {
+   "id": "pancerz",
+   "name": "Pancerz sprawiedliwości",
+   "kind": "passive",
+   "maxLevel": 3,
+   "description": "Pancerz sprawiedliwości, nie twojej, lecz Bożej, chroni serce przed ranami.",
+   "levels": [
+    "12% szans uniknięcia rany",
+    "24% szans",
+    "36% szans"
+   ],
+   "verse": {
+    "ref": "Ef 6,14",
+    "text": "Stójcież tedy, przepasawszy biodra wasze prawdą i oblekłszy pancerz sprawiedliwości."
+   }
+  },
+  {
+   "id": "helm",
+   "name": "Hełm zbawienia",
+   "kind": "passive",
+   "maxLevel": 1,
+   "description": "Hełm zbawienia strzeże myśli; gdy wszystko wydaje się stracone, przypomina, że należysz do Boga.",
+   "levels": [
+    "Raz w rozdziale podnosi cię od razu z dwoma sercami"
+   ],
+   "verse": {
+    "ref": "Ef 6,17",
+    "text": "Przyłbicę też zbawienia weźmijcie i miecz Ducha, który jest słowo Boże!"
+   }
+  },
+  {
+   "id": "ucisz",
+   "name": "Ucisz się!",
+   "kind": "passive",
+   "maxLevel": 3,
+   "description": "Jezus zgromił wiatr i rzekł morzu: „Umilknij, a uśmierz się” (Mk 4,39); gdy cię zranią, burza zamiera.",
+   "levels": [
+    "Po ranie cienie obok zamierają na 1,5 s",
+    "Na 2,5 s",
+    "Na 3,5 s, w szerszym kręgu"
+   ],
+   "verse": {
+    "ref": "Mk 4,39",
+    "text": "A tak ocknąwszy się, zgromił wiatr, i rzekł morzu: Umilknij, a uśmierz się. I przestał wiatr, a stało się wielkie uciszenie."
+   }
+  },
+  {
+   "id": "milosc",
+   "name": "Miłość usuwa lęk",
+   "kind": "passive",
+   "maxLevel": 3,
+   "description": "Doskonała miłość usuwa lęk; im więcej miłości, tym słabsze cienie.",
+   "levels": [
+    "Cienie mają 10% mniej sił",
+    "20% mniej",
+    "30% mniej"
+   ],
+   "verse": {
+    "ref": "1 J 4,18",
+    "text": "Nie maszci bojaźni w miłości, ale miłość doskonała precz wyrzuca bojaźń: bo bojaźń ma udręczenie, a kto się boi, nie jest doskonały w miłości."
+   }
+  },
+  {
+   "id": "ryba",
+   "name": "Wielka ryba",
+   "kind": "passive",
+   "maxLevel": 3,
+   "description": "Bóg posłał wielką rybę, która ocaliła Jonasza; tak światło samo płynie do anioła z daleka.",
+   "levels": [
+    "+40% zasięgu przyciągania światła",
+    "+80%",
+    "+120%"
+   ],
+   "verse": {
+    "ref": "Jon 2,1",
+    "text": "Lecz Pan był nagotował rybę wielką, żeby pożarła Jonasza; i był Jonasz we wnętrznościach onej ryby trzy dni i trzy nocy."
+   }
+  },
+  {
+   "id": "serce",
+   "name": "Serce z ciała",
+   "kind": "passive",
+   "maxLevel": 2,
+   "description": "Bóg obiecał zabrać serce z kamienia i dać serce z ciała.",
+   "levels": [
+    "+1 serce",
+    "+1 serce"
+   ],
+   "verse": {
+    "ref": "Ez 36,26",
+    "text": "I dam wam serce nowe, a ducha nowego dam do wnętrzności waszych, i odejmę serce kamienne z ciała waszego, a dam wam serce mięsiste."
+   }
+  },
+  {
+   "id": "przebaczenie",
+   "name": "Siedemdziesiąt siedem razy",
+   "kind": "passive",
+   "maxLevel": 3,
+   "description": "Siedemdziesiąt siedem razy (Mt 18,22): łaska trwa dłużej, a seria ciosów nie gaśnie tak szybko.",
+   "levels": [
+    "+0,4 s łaski po ranie, dłuższa seria",
+    "+0,8 s",
+    "+1,2 s"
+   ],
+   "verse": {
+    "ref": "Mt 18,22",
+    "text": "I rzekł mu Jezus: Nie mówię ci aż do siedmiu kroć, ale aż do siedmdziesiąt siedmiu kroć."
+   }
+  }
+ ],
+ "fruits": [
+  {
+   "id": "milosc",
+   "name": "Miłość",
+   "effect": "Każdy poziom dodaje jedno serce.",
+   "verse": {
+    "ref": "Ga 5,22-23",
+    "text": "Ale owoc Ducha jest miłość, wesele, pokój, nieskwapliwość, dobrotliwość, dobroć, wiara, cichość, wstrzemięźliwość. Przeciwko takowym nie masz zakonu."
+   },
+   "maxLevel": 3,
+   "costs": [
+    20,
+    40,
+    80
+   ]
+  },
+  {
+   "id": "radosc",
+   "name": "Radość",
+   "effect": "Każdy poziom daje o 10% więcej światła.",
+   "verse": {
+    "ref": "Flp 4,4",
+    "text": "Radujcie się zawsze w Panu; znowu mówię, radujcie się."
+   },
+   "maxLevel": 3,
+   "costs": [
+    20,
+    40,
+    80
+   ]
+  },
+  {
+   "id": "pokoj",
+   "name": "Pokój",
+   "effect": "Każdy poziom wydłuża o 15% zasięg Słowa.",
+   "verse": {
+    "ref": "J 14,27",
+    "text": "Pokój zostawuję wam, pokój on mój daję wam; nie jako daje świat, ja wam daję; niechże się nie trwoży serce wasze, ani się lęka."
+   },
+   "maxLevel": 3,
+   "costs": [
+    20,
+    40,
+    80
+   ]
+  },
+  {
+   "id": "cierpliwosc",
+   "name": "Cierpliwość",
+   "effect": "Każdy poziom wydłuża serię ciosów o 0,25 s.",
+   "verse": {
+    "ref": "Iz 40,31",
+    "text": "Ale którzy oczekują Pana, nabywają nowej siły; podnoszą się piórami jako orły, bieżą a nie spracują się, chodzą a nie ustawają."
+   },
+   "maxLevel": 3,
+   "costs": [
+    20,
+    40,
+    80
+   ]
+  },
+  {
+   "id": "uprzejmosc",
+   "name": "Uprzejmość",
+   "effect": "Każdy poziom przyciąga światło z 25% dalszej odległości.",
+   "verse": {
+    "ref": "Prz 16,24",
+    "text": "Powieści wdzięczne są jako plastr miodu, słodkością duszy, a lekarstwem kościom."
+   },
+   "maxLevel": 3,
+   "costs": [
+    20,
+    40,
+    80
+   ]
+  },
+  {
+   "id": "dobroc",
+   "name": "Dobroć",
+   "effect": "Każdy poziom wydłuża łaskę po ranie o 0,4 s.",
+   "verse": {
+    "ref": "Ps 23,6",
+    "text": "Nadto dobrodziejstwo i miłosierdzie twe pójdą za mną po wszystkie dni żywota mego, a będę mieszkał w domu Pańskim na długie czasy."
+   },
+   "maxLevel": 3,
+   "costs": [
+    20,
+    40,
+    80
+   ]
+  },
+  {
+   "id": "wiernosc",
+   "name": "Wierność",
+   "effect": "Każdy poziom przyspiesza ładowanie Ognia Ducha o 15%.",
+   "verse": {
+    "ref": "2 Tm 2,13",
+    "text": "Jeźliśmy niewiernymi, on wiernym zostaje i zaprzeć samego siebie nie może."
+   },
+   "maxLevel": 3,
+   "costs": [
+    20,
+    40,
+    80
+   ]
+  },
+  {
+   "id": "lagodnosc",
+   "name": "Łagodność",
+   "effect": "Każdy poziom zwiększa obrażenia o 8%.",
+   "verse": {
+    "ref": "Mt 5,5",
+    "text": "Błogosławieni cisi; albowiem oni odziedziczą ziemię."
+   },
+   "maxLevel": 3,
+   "costs": [
+    20,
+    40,
+    80
+   ]
+  },
+  {
+   "id": "opanowanie",
+   "name": "Opanowanie",
+   "effect": "Każdy poziom zwiększa o 10% szybkostrzelność, gdy stoisz w miejscu.",
+   "verse": {
+    "ref": "Prz 16,32",
+    "text": "Lepszy jest nierychły do gniewu, niżeli mocarz; a kto panuje sercu swemu, lepszy jest, niżeli ten, co dobył miasta."
+   },
+   "maxLevel": 3,
+   "costs": [
+    20,
+    40,
+    80
+   ]
+  }
+ ],
+ "ranks": [
+  {
+   "id": "aniol",
+   "name": "Anioł",
+   "light": 0,
+   "wings": 2,
+   "verse": {
+    "ref": "Hbr 1,14",
+    "text": "Izali wszyscy nie są duchami usługującymi, którzy na posługę bywają posłani dla tych, którzy zbawienie odziedziczyć mają?"
+   },
+   "blessing": "Bóg posyła cię do służby, a Jego obecność idzie razem z tobą."
+  },
+  {
+   "id": "archaniol",
+   "name": "Archanioł",
+   "light": 300,
+   "wings": 2,
+   "verse": {
+    "ref": "Łk 1,19",
+    "text": "A odpowiadając Anioł, rzekł mu: Jam jest Gabryjel, który stoję przed obliczem Bożem, a posłanym jest, abym mówił do ciebie, a iżbym ci to wesołe poselstwo odniósł."
+   },
+   "blessing": "Stoisz przed obliczem Boga i niesiesz ludziom dobrą nowinę."
+  },
+  {
+   "id": "zwierzchnosci",
+   "name": "Anioł Zwierzchności",
+   "light": 900,
+   "wings": 2,
+   "verse": {
+    "ref": "Ef 3,10",
+    "text": "Aby teraz przez zbór wiadoma była księstwom i mocom na niebiesiech nader rozliczna mądrość Boża."
+   },
+   "blessing": "Przez twoją służbę objawia się rozliczna mądrość Boża."
+  },
+  {
+   "id": "wladze",
+   "name": "Anioł Władz",
+   "light": 1800,
+   "wings": 2,
+   "verse": {
+    "ref": "1 P 3,22",
+    "text": "Który jest na prawicy Bożej, szedłszy do nieba, podbiwszy sobie Aniołów i zwierzchności, i mocy."
+   },
+   "blessing": "Wszelka władza jest poddana Chrystusowi, a w Nim nic ci nie grozi."
+  },
+  {
+   "id": "moce",
+   "name": "Anioł Mocy",
+   "light": 3200,
+   "wings": 2,
+   "verse": {
+    "ref": "Ps 103,20",
+    "text": "Błogosławcież Panu Aniołowie jego mocni w sile, którzy czynicie rozkazania jego, posłusznymi będąc głosowi słowa jego."
+   },
+   "blessing": "Twoja siła rodzi się z posłuszeństwa Jego słowu."
+  },
+  {
+   "id": "panowania",
+   "name": "Anioł Panowań",
+   "light": 5000,
+   "wings": 2,
+   "verse": {
+    "ref": "Ef 1,21",
+    "text": "Wysoko nad wszystkie księstwa i zwierzchności, i mocy, i państwa, i nad wszelkie imię, które się mianuje, nie tylko w tym wieku, ale i w przyszłym;"
+   },
+   "blessing": "Chrystus jest ponad wszelkim panowaniem, a ty służysz Mu z radością."
+  },
+  {
+   "id": "trony",
+   "name": "Anioł Tronów",
+   "light": 7500,
+   "wings": 2,
+   "verse": {
+    "ref": "Kol 1,16",
+    "text": "Albowiem przezeń stworzone są wszystkie rzeczy, które są na niebie i na ziemi, widzialne i niewidzialne, bądź trony, bądź państwa, bądź księstwa, bądź zwierzchności, wszystko przezeń i dla niego stworzone jest."
+   },
+   "blessing": "Wszystko zostało stworzone przez Niego i dla Niego, także ty."
+  },
+  {
+   "id": "cherubini",
+   "name": "Cherub",
+   "light": 11000,
+   "wings": 4,
+   "verse": {
+    "ref": "Ez 10,21",
+    "text": "Po cztery twarze miał każdy z nich, i po cztery skrzydła każdy z nich, a podobieństwo rąk ludzkich pod skrzydłami ich."
+   },
+   "blessing": "Cztery skrzydła, by strzec świętości i nieść chwałę."
+  },
+  {
+   "id": "serafini",
+   "name": "Seraf",
+   "light": 16000,
+   "wings": 6,
+   "verse": {
+    "ref": "Iz 6,2",
+    "text": "Serafinowie stali nad nim, sześć skrzydeł miał każdy z nich; dwoma zakrywał twarz swoję, a dwoma przykrywał nogi swoje, a dwoma latał."
+   },
+   "blessing": "Płoniesz miłością przed tronem i wołasz: Święty, Święty, Święty."
+  }
+ ],
+ "tree": {
+  "paths": [
+   {
+    "cx": 150,
+    "cy": -495,
+    "length": 327,
+    "angle": 23.4
+   },
+   {
+    "cx": -150,
+    "cy": -495,
+    "length": 327,
+    "angle": 156.6
+   },
+   {
+    "cx": 0,
+    "cy": -310,
+    "length": 500,
+    "angle": 90
+   },
+   {
+    "cx": 0,
+    "cy": -430,
+    "length": 600,
+    "angle": 180
+   },
+   {
+    "cx": 300,
+    "cy": -300,
+    "length": 260,
+    "angle": 90
+   },
+   {
+    "cx": -300,
+    "cy": -300,
+    "length": 260,
+    "angle": 90
+   },
+   {
+    "cx": 150,
+    "cy": -245,
+    "length": 476,
+    "angle": 129
+   },
+   {
+    "cx": -150,
+    "cy": -245,
+    "length": 476,
+    "angle": 51
+   },
+   {
+    "cx": 0,
+    "cy": -170,
+    "length": 600,
+    "angle": 180
+   },
+   {
+    "cx": 150,
+    "cy": -115,
+    "length": 320,
+    "angle": 159.9
+   },
+   {
+    "cx": -150,
+    "cy": -115,
+    "length": 320,
+    "angle": 20.1
+   },
+   {
+    "cx": 300,
+    "cy": -30,
+    "length": 280,
+    "angle": 90
+   },
+   {
+    "cx": -300,
+    "cy": -30,
+    "length": 280,
+    "angle": 90
+   },
+   {
+    "cx": 150,
+    "cy": 25,
+    "length": 345,
+    "angle": 29.5
+   },
+   {
+    "cx": -150,
+    "cy": 25,
+    "length": 345,
+    "angle": 150.5
+   },
+   {
+    "cx": 0,
+    "cy": 85,
+    "length": 290,
+    "angle": 90
+   },
+   {
+    "cx": 0,
+    "cy": 110,
+    "length": 600,
+    "angle": 180
+   },
+   {
+    "cx": 150,
+    "cy": 170,
+    "length": 323,
+    "angle": 158.2
+   },
+   {
+    "cx": -150,
+    "cy": 170,
+    "length": 323,
+    "angle": 21.8
+   },
+   {
+    "cx": 0,
+    "cy": 330,
+    "length": 200,
+    "angle": 90
+   },
+   {
+    "cx": -165,
+    "cy": 495,
+    "length": 355,
+    "angle": 158.5
+   },
+   {
+    "cx": 165,
+    "cy": 495,
+    "length": 355,
+    "angle": 21.5
+   }
+  ]
+ }
+}

@@ -1,0 +1,4 @@
+# HolyHolyHoly 3D: smoke-test screenshots and local preview pages
+.smoke/
+.preview/
+project/.generated.json

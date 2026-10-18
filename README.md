@@ -254,6 +254,8 @@ cd web && npm ci && npm run dev
 The same package also contains **HolyHolyHoly** (`web/game/`), a Christian
 action game that can use the Mendi band for prefrontal-cortex training — see
 [web/game/DESIGN.md](web/game/DESIGN.md).
+**HolyHolyHoly 3D** (`web/game3d/`) is its 3D reinterpretation made with the
+GDevelop engine — see [web/game3d/README.md](web/game3d/README.md).
 
 ## Tests
 

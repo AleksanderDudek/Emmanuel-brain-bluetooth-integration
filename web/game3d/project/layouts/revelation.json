@@ -1,0 +1,3742 @@
+{
+  "b": 18,
+  "disableInputWhenNotFocused": true,
+  "mangledName": "Revelation",
+  "name": "Revelation",
+  "r": 26,
+  "standardSortMethod": true,
+  "stopSoundsOnStartup": true,
+  "title": "",
+  "v": 22,
+  "uiSettings": {},
+  "objectsGroups": [],
+  "variables": [
+    {
+      "name": "Page",
+      "type": "number",
+      "value": 1
+    },
+    {
+      "name": "T",
+      "type": "number",
+      "value": 0
+    },
+    {
+      "name": "Build",
+      "type": "boolean",
+      "value": false
+    }
+  ],
+  "instances": [
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 10,
+      "height": 3000,
+      "layer": "",
+      "locked": true,
+      "name": "Floor",
+      "persistentUuid": "c9ab28bc-d060-4fa8-b0b8-73613f2e57c4",
+      "width": 3000,
+      "x": -1500,
+      "y": -1500,
+      "z": -10,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 260,
+      "height": 260,
+      "layer": "",
+      "name": "Angel",
+      "persistentUuid": "8abfc51a-2e13-460d-9545-17ff406e43ad",
+      "width": 260,
+      "x": 0,
+      "y": 0,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 260,
+      "height": 120,
+      "layer": "",
+      "name": "Column",
+      "persistentUuid": "d2c37645-c29c-41c3-b063-2a87da10ab77",
+      "width": 120,
+      "x": -330,
+      "y": -260,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 260,
+      "height": 120,
+      "layer": "",
+      "name": "Column",
+      "persistentUuid": "27935911-ed0d-4b6a-a29a-be963ddb5cce",
+      "width": 120,
+      "x": 330,
+      "y": -260,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 70,
+      "height": 40,
+      "layer": "",
+      "name": "Candle",
+      "persistentUuid": "b3d72a06-b27d-4322-a320-051e6fc9e1fd",
+      "width": 40,
+      "x": -160,
+      "y": 160,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 70,
+      "height": 40,
+      "layer": "",
+      "name": "Candle",
+      "persistentUuid": "2a3b4a94-405c-43ab-8290-89d64ca949e0",
+      "width": 40,
+      "x": 160,
+      "y": 160,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": false,
+      "height": 0,
+      "layer": "",
+      "name": "Motes",
+      "persistentUuid": "ee0d6c1b-b4d1-40b7-aab9-53a4ef255200",
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "z": 140,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    }
+  ],
+  "objects": [
+    {
+      "assetStoreId": "",
+      "name": "Angel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 260,
+        "height": 260,
+        "isCastingShadow": true,
+        "isReceivingShadow": true,
+        "keepAspectRatio": true,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/angel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 260,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Fly2",
+            "source": "Fly2"
+          },
+          {
+            "loop": true,
+            "name": "Fly4",
+            "source": "Fly4"
+          },
+          {
+            "loop": true,
+            "name": "Fly6",
+            "source": "Fly6"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Floor",
+      "type": "Scene3D::Cube3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "width": 3000,
+        "height": 3000,
+        "depth": 10,
+        "enableTextureTransparency": false,
+        "facesOrientation": "Y",
+        "frontFaceResourceName": "assets/textures/floor-heaven.png",
+        "backFaceResourceName": "",
+        "backFaceUpThroughWhichAxisRotation": "X",
+        "leftFaceResourceName": "",
+        "rightFaceResourceName": "",
+        "topFaceResourceName": "",
+        "bottomFaceResourceName": "",
+        "frontFaceVisible": true,
+        "backFaceVisible": false,
+        "leftFaceVisible": false,
+        "rightFaceVisible": false,
+        "topFaceVisible": false,
+        "bottomFaceVisible": false,
+        "frontFaceResourceRepeat": true,
+        "backFaceResourceRepeat": false,
+        "leftFaceResourceRepeat": false,
+        "rightFaceResourceRepeat": false,
+        "topFaceResourceRepeat": false,
+        "bottomFaceResourceRepeat": false,
+        "materialType": "StandardWithoutMetalness",
+        "tint": "200;190;160",
+        "isCastingShadow": false,
+        "isReceivingShadow": true,
+        "tileScale": 0.3
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Column",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 260,
+        "height": 120,
+        "isCastingShadow": true,
+        "isReceivingShadow": true,
+        "keepAspectRatio": true,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/column.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 120,
+        "animations": []
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Candle",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 70,
+        "height": 40,
+        "isCastingShadow": true,
+        "isReceivingShadow": true,
+        "keepAspectRatio": true,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/candle.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 40,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Motes",
+      "type": "ParticleEmitter3D::ParticleEmitter3D",
+      "variant": "",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "EndColor": "255;255;255",
+        "StartColor": "255;236;170",
+        "SpayConeAngle": 360,
+        "EndScale": 0.2,
+        "Gravity": -30,
+        "StartSpeedMax": 70,
+        "StartSizeMin": 6,
+        "Duration": -1,
+        "Flow": 40,
+        "LifespanMin": 2,
+        "LifespanMax": 4,
+        "StartSizeMax": 16,
+        "StartSpeedMin": 20,
+        "StartOpacity": 220,
+        "EndOpacity": 0,
+        "Blending": "Additive",
+        "ShouldAutodestruct": false
+      },
+      "childrenContent": {
+        "Particle": {
+          "adaptCollisionMaskAutomatically": true,
+          "updateIfNotVisible": false,
+          "animations": [
+            {
+              "name": "Image",
+              "useMultipleDirections": false,
+              "directions": [
+                {
+                  "looping": false,
+                  "timeBetweenFrames": 0.08,
+                  "sprites": [
+                    {
+                      "hasCustomCollisionMask": false,
+                      "image": "assets/particles/spark.png",
+                      "points": [],
+                      "originPoint": {
+                        "name": "origine",
+                        "x": 0,
+                        "y": 0
+                      },
+                      "centerPoint": {
+                        "automatic": true,
+                        "name": "centre",
+                        "x": 0,
+                        "y": 0
+                      },
+                      "customCollisionMask": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "objectsFolderStructure": {
+    "folderName": "__ROOT",
+    "children": [
+      {
+        "objectName": "Angel"
+      },
+      {
+        "objectName": "Floor"
+      },
+      {
+        "objectName": "Column"
+      },
+      {
+        "objectName": "Candle"
+      },
+      {
+        "objectName": "Motes"
+      }
+    ]
+  },
+  "events": [
+    {
+      "type": "BuiltinCommonInstructions::Link",
+      "include": {
+        "includeConfig": 0
+      },
+      "target": "UI"
+    },
+    {
+      "colorB": 226,
+      "colorG": 144,
+      "colorR": 74,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Boot",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "The content (chapters, traumas, gifts…) comes from assets/data/content.json, built from the 2D game. The save lives in the browser storage and is merged over the defaults of the global variable Save."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            },
+            {
+              "type": {
+                "inverted": true,
+                "value": "HolyHoly::IsGlobalLoaded"
+              },
+              "parameters": [
+                "",
+                "\"Content\"",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "HolyHoly::LoadJsonIntoGlobal"
+              },
+              "parameters": [
+                "",
+                "assets/data/content.json",
+                "\"Content\"",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "HolyHoly::LoadSave"
+              },
+              "parameters": [
+                "",
+                "\"Save\"",
+                "\"holyholyholy3d.save.v1\"",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "HolyHoly::ExposeForTests"
+              },
+              "parameters": [
+                "",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "Psalm150::SetVolumes"
+              },
+              "parameters": [
+                "",
+                "Save.settings.master",
+                "Save.settings.music",
+                "Save.settings.sfx",
+                ""
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    },
+    {
+      "colorB": 194,
+      "colorG": 87,
+      "colorR": 126,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Rewards",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "The chapter is done: light joins the lifetime total (ranks), manna is given (more the first time), the truth is written in the Book of Truth."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Run.firstTime",
+                "True",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Run.oldRank",
+                "=",
+                "HolyHoly::RankName(Save.light)"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "Run.manna",
+                "=",
+                "20 + 6 * Run.chapter + floor(Run.light / 40)"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"\""
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::IsChapterDone"
+                  },
+                  "parameters": [
+                    "",
+                    "Run.chapter",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetBooleanVariable"
+                  },
+                  "parameters": [
+                    "Run.firstTime",
+                    "False",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Run.firstTime",
+                    "True",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Run.manna",
+                    "+",
+                    "30"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.chaptersDone",
+                    "+",
+                    "1"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.light",
+                    "+",
+                    "round(Run.light)"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.manna",
+                    "+",
+                    "Run.manna"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetBooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.done[Content.chapters[Run.chapter].id]",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.bestCombo",
+                    "=",
+                    "max(Save.bestCombo, Run.bestCombo)"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetStringVariable"
+                  },
+                  "parameters": [
+                    "Run.newRank",
+                    "=",
+                    "HolyHoly::RankName(Save.light)"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "HolyHoly::StoreSave"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Save\"",
+                    "\"holyholyholy3d.save.v1\"",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Psalm150::SetMood"
+                  },
+                  "parameters": [
+                    "",
+                    "Content.chapters[Run.chapter].id",
+                    "\"victory\"",
+                    "0.5",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "AnimatableCapability::AnimatableBehavior::SetName"
+                  },
+                  "parameters": [
+                    "Angel",
+                    "Animation",
+                    "=",
+                    "\"Fly\" + ToString(HolyHoly::RankWings(Save.light))"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetCameraCenterX"
+                  },
+                  "parameters": [
+                    "",
+                    "=",
+                    "260",
+                    "\"\"",
+                    "0"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetCameraCenterY"
+                  },
+                  "parameters": [
+                    "",
+                    "=",
+                    "760",
+                    "\"\"",
+                    "0"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Scene3D::SetCameraZ"
+                  },
+                  "parameters": [
+                    "",
+                    "=",
+                    "330",
+                    "\"\"",
+                    "0"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Scene3D::SetCameraRotationX"
+                  },
+                  "parameters": [
+                    "",
+                    "=",
+                    "72",
+                    "\"\"",
+                    "0"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Page",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "T",
+                    "=",
+                    "0"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Psalm150::PlaySfx"
+                  },
+                  "parameters": [
+                    "",
+                    "\"revelation\"",
+                    "0",
+                    "0",
+                    ""
+                  ]
+                }
+              ],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "BooleanVariable"
+                      },
+                      "parameters": [
+                        "Save.settings.effects",
+                        "True",
+                        ""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "EnableLayerEffect"
+                      },
+                      "parameters": [
+                        "",
+                        "\"\"",
+                        "\"Glow\"",
+                        "yes"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetLayerEffectBooleanParameter"
+                      },
+                      "parameters": [
+                        "",
+                        "\"\"",
+                        "\"Sun\"",
+                        "\"isCastingShadow\"",
+                        "yes"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "BooleanVariable"
+                      },
+                      "parameters": [
+                        "Save.settings.effects",
+                        "False",
+                        ""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "EnableLayerEffect"
+                      },
+                      "parameters": [
+                        "",
+                        "\"\"",
+                        "\"Glow\"",
+                        "no"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetLayerEffectBooleanParameter"
+                      },
+                      "parameters": [
+                        "",
+                        "\"\"",
+                        "\"Sun\"",
+                        "\"isCastingShadow\"",
+                        "no"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [],
+          "actions": [
+            {
+              "type": {
+                "value": "Rotate"
+              },
+              "parameters": [
+                "Angel",
+                "14",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "Scene3D::Base3DBehavior::SetZ"
+              },
+              "parameters": [
+                "Angel",
+                "Object3D",
+                "=",
+                "30 + sin(TimeFromStart() * 1.6) * 14"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "T",
+                "+",
+                "TimeDelta()"
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    },
+    {
+      "colorB": 80,
+      "colorG": 175,
+      "colorR": 76,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Pages",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "BooleanVariable"
+              },
+              "parameters": [
+                "Build",
+                "True",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Build",
+                "False",
+                ""
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiButton",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiButton",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiCard",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiCard",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiText",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiSmall",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiSmall",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiTitle",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiTitle",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiLabel",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiLabel",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiBig",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiBig",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "NumberVariable"
+                  },
+                  "parameters": [
+                    "Page",
+                    "=",
+                    "1"
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakePanel"
+                      },
+                      "parameters": [
+                        "",
+                        "UiPanel",
+                        "SceneWindowWidth() * 0.42 - 30",
+                        "40",
+                        "SceneWindowWidth() * 0.54 + 60",
+                        "640",
+                        "\"p1bg\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.42",
+                        "62",
+                        "SceneWindowWidth() * 0.54",
+                        "ToUpperCase(Content.chapters[Run.chapter].sphere) + \" · \" + Content.chapters[Run.chapter].title + \" · Objawienie\"",
+                        "\"left\"",
+                        "\"p1a\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.42",
+                        "100",
+                        "SceneWindowWidth() * 0.54",
+                        "\"Kłamstwo: „\" + Content.chapters[Run.chapter].revelation.lie + \"”\"",
+                        "\"left\"",
+                        "\"p1b\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiTitle",
+                        "SceneWindowWidth() * 0.42",
+                        "200",
+                        "SceneWindowWidth() * 0.54",
+                        "\"Prawda\"",
+                        "\"left\"",
+                        "\"p1c\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.42",
+                        "256",
+                        "SceneWindowWidth() * 0.54",
+                        "Content.chapters[Run.chapter].revelation.truth",
+                        "\"left\"",
+                        "\"p1d\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.42",
+                        "420",
+                        "SceneWindowWidth() * 0.54",
+                        "\"„\" + Content.chapters[Run.chapter].revelation.verses[0].text + \"” (\" + Content.chapters[Run.chapter].revelation.verses[0].ref + \")\"",
+                        "\"left\"",
+                        "\"p1e\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "SceneWindowWidth() * 0.42 + SceneWindowWidth() * 0.54 - 220",
+                        "600",
+                        "220",
+                        "56",
+                        "\"Dalej\"",
+                        "\"next\"",
+                        "0",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "NumberVariable"
+                  },
+                  "parameters": [
+                    "Page",
+                    "=",
+                    "2"
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakePanel"
+                      },
+                      "parameters": [
+                        "",
+                        "UiPanel",
+                        "SceneWindowWidth() * 0.42 - 30",
+                        "40",
+                        "SceneWindowWidth() * 0.54 + 60",
+                        "640",
+                        "\"p2bg\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiTitle",
+                        "SceneWindowWidth() * 0.42",
+                        "62",
+                        "SceneWindowWidth() * 0.54",
+                        "\"Raport dla Tronu\"",
+                        "\"left\"",
+                        "\"p2a\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.42",
+                        "124",
+                        "SceneWindowWidth() * 0.54",
+                        "Content.chapters[Run.chapter].report",
+                        "\"left\"",
+                        "\"p2b\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.42",
+                        "250",
+                        "SceneWindowWidth() * 0.54",
+                        "\"Zburzone cienie: \" + ToString(Run.destroyed) + NewLine() + \"Najdłuższa seria ciosów: ×\" + ToString(Run.bestCombo) + NewLine() + \"Najdłuższe czuwanie: \" + ToString(round(Run.focusHeld)) + \" s\" + NewLine() + \"Upadki i powstania: \" + ToString(Run.falls) + NewLine() + \"Poziom: \" + ToString(Run.level) + \" · czas: \" + HolyHoly::Clock(Run.time)",
+                        "\"left\"",
+                        "\"p2c\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.42",
+                        "420",
+                        "SceneWindowWidth() * 0.54",
+                        "\"Światło: +\" + ToString(round(Run.light)) + \"   ·   manna: +\" + ToString(Run.manna)",
+                        "\"left\"",
+                        "\"p2d\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.42",
+                        "470",
+                        "SceneWindowWidth() * 0.54",
+                        "\"\"",
+                        "\"left\"",
+                        "\"p2e\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "SceneWindowWidth() * 0.42 + SceneWindowWidth() * 0.54 - 220",
+                        "600",
+                        "220",
+                        "56",
+                        "\"Do Drzewa\"",
+                        "\"done\"",
+                        "0",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "NumberVariable"
+                  },
+                  "parameters": [
+                    "Page",
+                    "=",
+                    "3"
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakePanel"
+                      },
+                      "parameters": [
+                        "",
+                        "UiPanel",
+                        "SceneWindowWidth() * 0.42 - 30",
+                        "40",
+                        "SceneWindowWidth() * 0.54 + 60",
+                        "640",
+                        "\"p3bg\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiTitle",
+                        "SceneWindowWidth() * 0.42",
+                        "62",
+                        "SceneWindowWidth() * 0.54",
+                        "\"Święty, Święty, Święty\"",
+                        "\"left\"",
+                        "\"p3a\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.42",
+                        "124",
+                        "SceneWindowWidth() * 0.54",
+                        "Content.story.finale[0] + NewLine() + NewLine() + Content.story.finale[1] + NewLine() + NewLine() + Content.story.finale[2]",
+                        "\"left\"",
+                        "\"p3b\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.42",
+                        "470",
+                        "SceneWindowWidth() * 0.54",
+                        "\"„\" + Content.title.verse.text + \"” (\" + Content.title.verse.ref + \")\"",
+                        "\"left\"",
+                        "\"p3c\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "SceneWindowWidth() * 0.42 + SceneWindowWidth() * 0.54 - 220",
+                        "600",
+                        "220",
+                        "56",
+                        "\"Do Drzewa\"",
+                        "\"done\"",
+                        "0",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "OpacityCapability::OpacityBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Opacity",
+                    "=",
+                    "0"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "OpacityCapability::OpacityBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    "Opacity",
+                    "=",
+                    "250"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Create"
+                  },
+                  "parameters": [
+                    "",
+                    "UiBar",
+                    "SceneWindowWidth() * 0.42",
+                    "0",
+                    "\"UI\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetStringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "Key",
+                    "=",
+                    "\"strike\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetStringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "ResizableCapability::ResizableBehavior::SetSize"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "Resizable",
+                    "2",
+                    "5"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "PanelSpriteObject::SetColor"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "\"255;80;70\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetZOrder"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "=",
+                    "200"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "OpacityCapability::OpacityBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "Opacity",
+                    "=",
+                    "0"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Build",
+                "True",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "Page 1: the lie, crossed out; the truth; a verse."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "NumberVariable"
+              },
+              "parameters": [
+                "Page",
+                "=",
+                "1"
+              ]
+            }
+          ],
+          "actions": [],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p1a\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "0.2"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p1b\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "0.7"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p1c\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "2.3"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p1d\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "2.6"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p1e\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "3.6"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "Key",
+                    "=",
+                    "\"strike\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "1.6"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Key",
+                        "=",
+                        "\"p1b\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "SetNumberObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        "Index",
+                        "=",
+                        "1"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "OpacityCapability::OpacityBehavior::SetValue"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        "Opacity",
+                        "=",
+                        "255"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetXY"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        "=",
+                        "UiText.X()",
+                        "=",
+                        "UiText.Y() + 17"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "Tween::TweenBehavior::AddObjectWidthTween2"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        "Tween",
+                        "\"strike\"",
+                        "min(UiText.Width(), StrLength(UiText.Text::Value()) * 11.5)",
+                        "\"easeOutQuad\"",
+                        "0.6",
+                        "no"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "Psalm150::PlaySfx"
+                      },
+                      "parameters": [
+                        "",
+                        "\"weaken\"",
+                        "0",
+                        "0",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "2.5"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::Once"
+                  },
+                  "parameters": []
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Psalm150::PlaySfx"
+                  },
+                  "parameters": [
+                    "",
+                    "\"revelation\"",
+                    "2",
+                    "0",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "4.2"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "NumberVariable"
+              },
+              "parameters": [
+                "Page",
+                ">=",
+                "2"
+              ]
+            }
+          ],
+          "actions": [],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p2a\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "0.1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p2b\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "0.5"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p2c\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "1.2"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p2d\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "1.9"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p2e\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "2.4"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p3a\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "0.1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p3b\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "0.6"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"p3c\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "2.6"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "2.6"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiText",
+                "Key",
+                "=",
+                "\"p2e\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::CompareStrings"
+              },
+              "parameters": [
+                "Run.newRank",
+                "!=",
+                "Run.oldRank"
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiText",
+                "Text",
+                "=",
+                "\"Nowa ranga: \" + Run.newRank + \"!\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiText",
+                "Key",
+                "=",
+                "\"p2e\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::CompareStrings"
+              },
+              "parameters": [
+                "Run.newRank",
+                "=",
+                "Run.oldRank"
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiText",
+                "Text",
+                "=",
+                "\"Ranga: \" + Run.newRank"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "NumberVariable"
+              },
+              "parameters": [
+                "Page",
+                "=",
+                "2"
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::CompareNumbers"
+              },
+              "parameters": [
+                "T",
+                ">=",
+                "2.4"
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::Once"
+              },
+              "parameters": []
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::CompareStrings"
+              },
+              "parameters": [
+                "Run.newRank",
+                "!=",
+                "Run.oldRank"
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "Psalm150::PlaySfx"
+              },
+              "parameters": [
+                "",
+                "\"rank\"",
+                "0",
+                "0",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "Buttons and keys: a click or a key first shows everything at once, then moves on."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::Or"
+              },
+              "parameters": [],
+              "subInstructions": [
+                {
+                  "type": {
+                    "value": "KeyFromTextJustPressed"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Return\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "KeyFromTextJustPressed"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Space\""
+                  ]
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"skip\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"skip\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::CompareNumbers"
+              },
+              "parameters": [
+                "T",
+                "<",
+                "5"
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "T",
+                "=",
+                "5"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"skip\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::CompareNumbers"
+              },
+              "parameters": [
+                "T",
+                ">=",
+                "5"
+              ]
+            }
+          ],
+          "actions": [],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "NumberVariable"
+                  },
+                  "parameters": [
+                    "Page",
+                    "=",
+                    "1"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetStringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"next\""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "NumberVariable"
+                  },
+                  "parameters": [
+                    "Page",
+                    ">=",
+                    "2"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetStringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"done\""
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"next\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "Page",
+                "=",
+                "2"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "T",
+                "=",
+                "0"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Build",
+                "True",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"done\""
+              ]
+            },
+            {
+              "type": {
+                "value": "NumberVariable"
+              },
+              "parameters": [
+                "Page",
+                "=",
+                "2"
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::CompareStrings"
+              },
+              "parameters": [
+                "Content.chapters[Run.chapter].id",
+                "=",
+                "\"keter\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BooleanVariable"
+              },
+              "parameters": [
+                "Save.settings.seenFinale",
+                "False",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "Page",
+                "=",
+                "3"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "T",
+                "=",
+                "0"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Build",
+                "True",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Save.settings.seenFinale",
+                "True",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "HolyHoly::StoreSave"
+              },
+              "parameters": [
+                "",
+                "\"Save\"",
+                "\"holyholyholy3d.save.v1\"",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"done\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "Scene"
+              },
+              "parameters": [
+                "",
+                "\"Tree\"",
+                "yes"
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    }
+  ],
+  "layers": [
+    {
+      "ambientLightColorB": 200,
+      "ambientLightColorG": 200,
+      "ambientLightColorR": 200,
+      "camera2DPlaneMaxDrawingDistance": 5000,
+      "camera3DFarPlaneDistance": 10000,
+      "camera3DFieldOfView": 45,
+      "camera3DNearPlaneDistance": 3,
+      "cameraType": "",
+      "followBaseLayerCamera": false,
+      "isLightingLayer": false,
+      "isLocked": false,
+      "name": "",
+      "renderingType": "",
+      "visibility": true,
+      "cameras": [
+        {
+          "defaultSize": true,
+          "defaultViewport": true,
+          "height": 0,
+          "viewportBottom": 1,
+          "viewportLeft": 0,
+          "viewportRight": 1,
+          "viewportTop": 0,
+          "width": 0
+        }
+      ],
+      "effects": [
+        {
+          "effectType": "Scene3D::HemisphereLight",
+          "name": "Sky",
+          "doubleParameters": {
+            "elevation": 60,
+            "intensity": 0.7,
+            "rotation": 300
+          },
+          "stringParameters": {
+            "groundColor": "120;100;70",
+            "skyColor": "255;248;225",
+            "top": "Z+"
+          },
+          "booleanParameters": {}
+        },
+        {
+          "effectType": "Scene3D::DirectionalLight",
+          "name": "Sun",
+          "doubleParameters": {
+            "distanceFromCamera": 1500,
+            "elevation": 55,
+            "frustumSize": 3000,
+            "intensity": 0.9,
+            "minimumShadowBias": 0,
+            "rotation": 300,
+            "shadowDistance": 2200
+          },
+          "stringParameters": {
+            "color": "255;240;214",
+            "shadowQuality": "medium",
+            "shadowRenderingMode": "fittedToCameraView",
+            "top": "Z+"
+          },
+          "booleanParameters": {
+            "isCastingShadow": true
+          }
+        },
+        {
+          "effectType": "Scene3D::LinearFog",
+          "name": "Fog",
+          "doubleParameters": {
+            "far": 3000,
+            "near": 1000
+          },
+          "stringParameters": {
+            "color": "26;22;18"
+          },
+          "booleanParameters": {}
+        },
+        {
+          "effectType": "Scene3D::Bloom",
+          "name": "Glow",
+          "doubleParameters": {
+            "radius": 0.35,
+            "strength": 0.5,
+            "threshold": 0.88
+          },
+          "stringParameters": {},
+          "booleanParameters": {}
+        }
+      ]
+    },
+    {
+      "ambientLightColorB": 200,
+      "ambientLightColorG": 200,
+      "ambientLightColorR": 200,
+      "camera2DPlaneMaxDrawingDistance": 5000,
+      "camera3DFarPlaneDistance": 10000,
+      "camera3DFieldOfView": 45,
+      "camera3DNearPlaneDistance": 3,
+      "cameraType": "",
+      "followBaseLayerCamera": false,
+      "isLightingLayer": false,
+      "isLocked": false,
+      "name": "UI",
+      "renderingType": "2d",
+      "visibility": true,
+      "cameras": [
+        {
+          "defaultSize": true,
+          "defaultViewport": true,
+          "height": 0,
+          "viewportBottom": 1,
+          "viewportLeft": 0,
+          "viewportRight": 1,
+          "viewportTop": 0,
+          "width": 0
+        }
+      ],
+      "effects": []
+    }
+  ],
+  "behaviorsSharedData": [
+    {
+      "name": "Animation",
+      "type": "AnimatableCapability::AnimatableBehavior"
+    },
+    {
+      "name": "Effect",
+      "type": "EffectCapability::EffectBehavior"
+    },
+    {
+      "name": "Flippable",
+      "type": "FlippableCapability::FlippableBehavior"
+    },
+    {
+      "name": "Object3D",
+      "type": "Scene3D::Base3DBehavior"
+    },
+    {
+      "name": "Opacity",
+      "type": "OpacityCapability::OpacityBehavior"
+    },
+    {
+      "name": "Resizable",
+      "type": "ResizableCapability::ResizableBehavior"
+    },
+    {
+      "name": "Scale",
+      "type": "ScalableCapability::ScalableBehavior"
+    },
+    {
+      "name": "Text",
+      "type": "TextContainerCapability::TextContainerBehavior"
+    },
+    {
+      "name": "Tween",
+      "type": "Tween::TweenBehavior"
+    }
+  ]
+}

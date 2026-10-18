@@ -1,0 +1,2020 @@
+{
+  "firstLayout": "Title",
+  "gdVersion": {
+    "build": 269,
+    "major": 5,
+    "minor": 6,
+    "revision": 0
+  },
+  "properties": {
+    "adaptGameResolutionAtRuntime": true,
+    "antialiasingMode": "MSAA",
+    "antialisingEnabledOnMobile": false,
+    "folderProject": true,
+    "orientation": "landscape",
+    "packageName": "pl.holyholyholy.game3d",
+    "pixelsRounding": false,
+    "projectUuid": "",
+    "scaleMode": "linear",
+    "sizeOnStartupMode": "adaptWidth",
+    "templateSlug": "",
+    "version": "1.0.0",
+    "name": "HolyHolyHoly 3D",
+    "description": "Anioł stróż w trzech wymiarach rozbija traumy człowieka, zamienia je w prawdę i burzy twierdze kłamstw. Archero × survivors × Endless Puncher, muzyka „Psalm 150”, opcjonalnie opaska fNIRS Mendi.",
+    "author": "HolyHolyHoly",
+    "windowWidth": 1280,
+    "windowHeight": 720,
+    "latestCompilationDirectory": "",
+    "maxFPS": 60,
+    "minFPS": 20,
+    "verticalSync": false,
+    "platformSpecificAssets": {},
+    "loadingScreen": {
+      "backgroundColor": 460815,
+      "backgroundFadeInDuration": 0.2,
+      "backgroundImageResourceName": "",
+      "gdevelopLogoStyle": "light",
+      "logoAndProgressFadeInDuration": 0.2,
+      "logoAndProgressLogoFadeInDelay": 0,
+      "minDuration": 1.5,
+      "progressBarColor": 15253850,
+      "progressBarHeight": 20,
+      "progressBarMaxWidth": 200,
+      "progressBarMinWidth": 40,
+      "progressBarWidthPercent": 30,
+      "showGDevelopSplash": true,
+      "showProgressBar": true
+    },
+    "watermark": {
+      "placement": "bottom-left",
+      "showWatermark": true
+    },
+    "authorIds": [],
+    "authorUsernames": [],
+    "categories": [
+      "action",
+      "adventure"
+    ],
+    "playableDevices": [
+      "keyboard",
+      "mobile"
+    ],
+    "extensionProperties": [],
+    "platforms": [
+      {
+        "name": "GDevelop JS platform"
+      }
+    ],
+    "currentPlatform": "GDevelop JS platform"
+  },
+  "resources": {
+    "resources": [
+      {
+        "disablePreload": false,
+        "file": "assets/data/content.json",
+        "kind": "json",
+        "metadata": "",
+        "name": "assets/data/content.json",
+        "userAdded": true
+      },
+      {
+        "file": "assets/fonts/Cinzel-SemiBold.ttf",
+        "kind": "font",
+        "metadata": "",
+        "name": "assets/fonts/Cinzel-SemiBold.ttf",
+        "userAdded": true
+      },
+      {
+        "file": "assets/fonts/EBGaramond-Medium.ttf",
+        "kind": "font",
+        "metadata": "",
+        "name": "assets/fonts/EBGaramond-Medium.ttf",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/angel.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/angel.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/arena-rim.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/arena-rim.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/arrow.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/arrow.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/candle.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/candle.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/chain-pylon.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/chain-pylon.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/column-broken.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/column-broken.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/column.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/column.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/dove.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/dove.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fire-pillar.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fire-pillar.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/flame.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/flame.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/light-shard.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/light-shard.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/manna.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/manna.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/orb-done.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/orb-done.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/orb-locked.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/orb-locked.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/orb-open.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/orb-open.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/pew.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/pew.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/rock.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/rock.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/shield.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/shield.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/stone.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/stone.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/stronghold.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/stronghold.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-gniew.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-gniew.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-kontrola.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-kontrola.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-lek.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-lek.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-nalog.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-nalog.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-nieprzebaczenie.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-nieprzebaczenie.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-odrzucenie.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-odrzucenie.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-oskarzyciel.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-oskarzyciel.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-pycha.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-pycha.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-rozpacz.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-rozpacz.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-samotnosc.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-samotnosc.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-wina.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-wina.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-wstyd.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-wstyd.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-zazdrosc.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-zazdrosc.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/trauma-zwatpienie.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/trauma-zwatpienie.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/tree.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/tree.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/word.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/word.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/particles/soft.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/particles/soft.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/particles/spark.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/particles/spark.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-earth.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-earth.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-garden.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-garden.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-heaven.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-heaven.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-hell.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-hell.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/bar.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/bar.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/button-quiet.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/button-quiet.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/button.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/button.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/card.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/card.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/flame-empty.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/flame-empty.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/flame.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/flame.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/heart-empty.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/heart-empty.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/heart.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/heart.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/joystick-border.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/joystick-border.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/joystick-thumb.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/joystick-thumb.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/light.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/light.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/manna.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/manna.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/panel.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/panel.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/rotate-device.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/rotate-device.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/touch-fire.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/touch-fire.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/touch-strike.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/touch-strike.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "lib/mendi-focus.js",
+        "kind": "javascript",
+        "metadata": "",
+        "name": "lib/mendi-focus.js",
+        "userAdded": true
+      },
+      {
+        "file": "lib/psalm150.js",
+        "kind": "javascript",
+        "metadata": "",
+        "name": "lib/psalm150.js",
+        "userAdded": true
+      }
+    ]
+  },
+  "objects": [
+    {
+      "assetStoreId": "",
+      "bottomMargin": 30,
+      "height": 68,
+      "leftMargin": 30,
+      "name": "UiPanel",
+      "rightMargin": 30,
+      "texture": "assets/ui/panel.png",
+      "tiled": false,
+      "topMargin": 30,
+      "type": "PanelSpriteObject::PanelSprite",
+      "width": 68,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ]
+    },
+    {
+      "assetStoreId": "",
+      "bottomMargin": 34,
+      "height": 76,
+      "leftMargin": 34,
+      "name": "UiButton",
+      "rightMargin": 34,
+      "texture": "assets/ui/button.png",
+      "tiled": false,
+      "topMargin": 34,
+      "type": "PanelSpriteObject::PanelSprite",
+      "width": 76,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ]
+    },
+    {
+      "assetStoreId": "",
+      "bottomMargin": 30,
+      "height": 68,
+      "leftMargin": 30,
+      "name": "UiCard",
+      "rightMargin": 30,
+      "texture": "assets/ui/card.png",
+      "tiled": false,
+      "topMargin": 30,
+      "type": "PanelSpriteObject::PanelSprite",
+      "width": 68,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ]
+    },
+    {
+      "assetStoreId": "",
+      "bottomMargin": 5,
+      "height": 18,
+      "leftMargin": 5,
+      "name": "UiBar",
+      "rightMargin": 5,
+      "texture": "assets/ui/bar.png",
+      "tiled": false,
+      "topMargin": 5,
+      "type": "PanelSpriteObject::PanelSprite",
+      "width": 18,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ]
+    },
+    {
+      "assetStoreId": "",
+      "bold": false,
+      "italic": false,
+      "name": "UiText",
+      "smoothed": true,
+      "type": "TextObject::Text",
+      "underlined": false,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ],
+      "string": "",
+      "font": "assets/fonts/EBGaramond-Medium.ttf",
+      "textAlignment": "left",
+      "characterSize": 26,
+      "color": {
+        "b": 216,
+        "g": 236,
+        "r": 244
+      },
+      "content": {
+        "bold": false,
+        "isOutlineEnabled": false,
+        "isShadowEnabled": true,
+        "italic": false,
+        "outlineColor": "20;14;30",
+        "outlineThickness": 3,
+        "shadowAngle": 90,
+        "shadowBlurRadius": 3,
+        "shadowColor": "0;0;0",
+        "shadowDistance": 2,
+        "shadowOpacity": 160,
+        "smoothed": true,
+        "underlined": false,
+        "text": "",
+        "font": "assets/fonts/EBGaramond-Medium.ttf",
+        "textAlignment": "left",
+        "verticalTextAlignment": "top",
+        "characterSize": 26,
+        "lineHeight": 0,
+        "color": "244;236;216"
+      }
+    },
+    {
+      "assetStoreId": "",
+      "bold": false,
+      "italic": false,
+      "name": "UiSmall",
+      "smoothed": true,
+      "type": "TextObject::Text",
+      "underlined": false,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ],
+      "string": "",
+      "font": "assets/fonts/EBGaramond-Medium.ttf",
+      "textAlignment": "left",
+      "characterSize": 20,
+      "color": {
+        "b": 190,
+        "g": 204,
+        "r": 214
+      },
+      "content": {
+        "bold": false,
+        "isOutlineEnabled": false,
+        "isShadowEnabled": true,
+        "italic": false,
+        "outlineColor": "20;14;30",
+        "outlineThickness": 3,
+        "shadowAngle": 90,
+        "shadowBlurRadius": 3,
+        "shadowColor": "0;0;0",
+        "shadowDistance": 2,
+        "shadowOpacity": 160,
+        "smoothed": true,
+        "underlined": false,
+        "text": "",
+        "font": "assets/fonts/EBGaramond-Medium.ttf",
+        "textAlignment": "left",
+        "verticalTextAlignment": "top",
+        "characterSize": 20,
+        "lineHeight": 0,
+        "color": "214;204;190"
+      }
+    },
+    {
+      "assetStoreId": "",
+      "bold": false,
+      "italic": false,
+      "name": "UiTitle",
+      "smoothed": true,
+      "type": "TextObject::Text",
+      "underlined": false,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ],
+      "string": "",
+      "font": "assets/fonts/Cinzel-SemiBold.ttf",
+      "textAlignment": "left",
+      "characterSize": 44,
+      "color": {
+        "b": 110,
+        "g": 204,
+        "r": 240
+      },
+      "content": {
+        "bold": false,
+        "isOutlineEnabled": true,
+        "isShadowEnabled": true,
+        "italic": false,
+        "outlineColor": "40;26;10",
+        "outlineThickness": 3,
+        "shadowAngle": 90,
+        "shadowBlurRadius": 3,
+        "shadowColor": "0;0;0",
+        "shadowDistance": 2,
+        "shadowOpacity": 160,
+        "smoothed": true,
+        "underlined": false,
+        "text": "",
+        "font": "assets/fonts/Cinzel-SemiBold.ttf",
+        "textAlignment": "left",
+        "verticalTextAlignment": "top",
+        "characterSize": 44,
+        "lineHeight": 0,
+        "color": "240;204;110"
+      }
+    },
+    {
+      "assetStoreId": "",
+      "bold": false,
+      "italic": false,
+      "name": "UiLabel",
+      "smoothed": true,
+      "type": "TextObject::Text",
+      "underlined": false,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ],
+      "string": "",
+      "font": "assets/fonts/Cinzel-SemiBold.ttf",
+      "textAlignment": "left",
+      "characterSize": 22,
+      "color": {
+        "b": 12,
+        "g": 26,
+        "r": 40
+      },
+      "content": {
+        "bold": false,
+        "isOutlineEnabled": false,
+        "isShadowEnabled": false,
+        "italic": false,
+        "outlineColor": "20;14;30",
+        "outlineThickness": 3,
+        "shadowAngle": 90,
+        "shadowBlurRadius": 3,
+        "shadowColor": "0;0;0",
+        "shadowDistance": 2,
+        "shadowOpacity": 160,
+        "smoothed": true,
+        "underlined": false,
+        "text": "",
+        "font": "assets/fonts/Cinzel-SemiBold.ttf",
+        "textAlignment": "left",
+        "verticalTextAlignment": "top",
+        "characterSize": 22,
+        "lineHeight": 0,
+        "color": "40;26;12"
+      }
+    },
+    {
+      "assetStoreId": "",
+      "bold": false,
+      "italic": false,
+      "name": "UiBig",
+      "smoothed": true,
+      "type": "TextObject::Text",
+      "underlined": false,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ],
+      "string": "",
+      "font": "assets/fonts/Cinzel-SemiBold.ttf",
+      "textAlignment": "left",
+      "characterSize": 64,
+      "color": {
+        "b": 160,
+        "g": 232,
+        "r": 255
+      },
+      "content": {
+        "bold": false,
+        "isOutlineEnabled": true,
+        "isShadowEnabled": true,
+        "italic": false,
+        "outlineColor": "40;20;6",
+        "outlineThickness": 3,
+        "shadowAngle": 90,
+        "shadowBlurRadius": 3,
+        "shadowColor": "0;0;0",
+        "shadowDistance": 2,
+        "shadowOpacity": 160,
+        "smoothed": true,
+        "underlined": false,
+        "text": "",
+        "font": "assets/fonts/Cinzel-SemiBold.ttf",
+        "textAlignment": "left",
+        "verticalTextAlignment": "top",
+        "characterSize": 64,
+        "lineHeight": 0,
+        "color": "255;232;160"
+      }
+    },
+    {
+      "adaptCollisionMaskAutomatically": true,
+      "assetStoreId": "",
+      "name": "UiIcon",
+      "type": "Sprite",
+      "updateIfNotVisible": false,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ],
+      "animations": [
+        {
+          "name": "heart",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/ui/heart.png",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 48,
+                    "y": 48
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "heartEmpty",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/ui/heart-empty.png",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 48,
+                    "y": 48
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "flame",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/ui/flame.png",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 48,
+                    "y": 48
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "flameEmpty",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/ui/flame-empty.png",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 48,
+                    "y": 48
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "light",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/ui/light.png",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 32,
+                    "y": 32
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "manna",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/ui/manna.png",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 32,
+                    "y": 32
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "rotate",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/ui/rotate-device.png",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "objectsFolderStructure": {
+    "folderName": "__ROOT",
+    "children": [
+      {
+        "folderName": "Interfejs (UI)",
+        "children": [
+          {
+            "objectName": "UiPanel"
+          },
+          {
+            "objectName": "UiButton"
+          },
+          {
+            "objectName": "UiCard"
+          },
+          {
+            "objectName": "UiBar"
+          },
+          {
+            "objectName": "UiText"
+          },
+          {
+            "objectName": "UiSmall"
+          },
+          {
+            "objectName": "UiTitle"
+          },
+          {
+            "objectName": "UiLabel"
+          },
+          {
+            "objectName": "UiBig"
+          },
+          {
+            "objectName": "UiIcon"
+          }
+        ]
+      }
+    ]
+  },
+  "objectsGroups": [
+    {
+      "name": "UiAll",
+      "objects": [
+        {
+          "name": "UiPanel"
+        },
+        {
+          "name": "UiButton"
+        },
+        {
+          "name": "UiCard"
+        },
+        {
+          "name": "UiBar"
+        },
+        {
+          "name": "UiText"
+        },
+        {
+          "name": "UiSmall"
+        },
+        {
+          "name": "UiTitle"
+        },
+        {
+          "name": "UiLabel"
+        },
+        {
+          "name": "UiBig"
+        },
+        {
+          "name": "UiIcon"
+        }
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "name": "Content",
+      "type": "structure",
+      "children": []
+    },
+    {
+      "name": "Save",
+      "type": "structure",
+      "children": [
+        {
+          "name": "bestCombo",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "chaptersDone",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "done",
+          "type": "structure",
+          "children": []
+        },
+        {
+          "name": "falls",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "fruits",
+          "type": "structure",
+          "children": [
+            {
+              "name": "cierpliwosc",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "dobroc",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "lagodnosc",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "milosc",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "opanowanie",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "pokoj",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "radosc",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "uprzejmosc",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "wiernosc",
+              "type": "number",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "name": "light",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "manna",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "rises",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "selected",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "settings",
+          "type": "structure",
+          "children": [
+            {
+              "name": "effects",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "name": "master",
+              "type": "number",
+              "value": 0.7
+            },
+            {
+              "name": "music",
+              "type": "number",
+              "value": 0.4
+            },
+            {
+              "name": "seenDisclaimer",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "seenFinale",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "seenHowTo",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "sfx",
+              "type": "number",
+              "value": 0.7
+            },
+            {
+              "name": "shake",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        },
+        {
+          "name": "version",
+          "type": "number",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "Run",
+      "type": "structure",
+      "children": [
+        {
+          "name": "bestCombo",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "chapter",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "destroyed",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "falls",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "firstTime",
+          "type": "boolean",
+          "value": false
+        },
+        {
+          "name": "focusHeld",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "gifts",
+          "type": "structure",
+          "children": [
+            {
+              "name": "chleby",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "dawid",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "eliasz",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "golebica",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "helm",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "jerycho",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "manna",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "milosc",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "ogien",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "pancerz",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "przebaczenie",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "ryba",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "samson",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "sandaly",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "serce",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "slowo",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "tarcza",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "ucisz",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "wicher",
+              "type": "number",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "name": "level",
+          "type": "number",
+          "value": 1
+        },
+        {
+          "name": "light",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "manna",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "newRank",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "oldRank",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "time",
+          "type": "number",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "name": "Tuning",
+      "type": "structure",
+      "children": [
+        {
+          "name": "arenaRadius",
+          "type": "number",
+          "value": 1500
+        },
+        {
+          "name": "baseHearts",
+          "type": "number",
+          "value": 5
+        },
+        {
+          "name": "bossArrowSpeed",
+          "type": "number",
+          "value": 300
+        },
+        {
+          "name": "bossHpScale",
+          "type": "number",
+          "value": 6
+        },
+        {
+          "name": "chapterHp",
+          "type": "number",
+          "value": 0.2
+        },
+        {
+          "name": "comboWindow",
+          "type": "number",
+          "value": 1.1
+        },
+        {
+          "name": "eliteHp",
+          "type": "number",
+          "value": 4
+        },
+        {
+          "name": "eliteValue",
+          "type": "number",
+          "value": 6
+        },
+        {
+          "name": "fireBase",
+          "type": "number",
+          "value": 0.045454545454545456
+        },
+        {
+          "name": "grace",
+          "type": "number",
+          "value": 1.1
+        },
+        {
+          "name": "magnet",
+          "type": "number",
+          "value": 210
+        },
+        {
+          "name": "maxAlive",
+          "type": "number",
+          "value": 60
+        },
+        {
+          "name": "missCooldown",
+          "type": "number",
+          "value": 0.45
+        },
+        {
+          "name": "pentecostDamage",
+          "type": "number",
+          "value": 260
+        },
+        {
+          "name": "playerSpeed",
+          "type": "number",
+          "value": 330
+        },
+        {
+          "name": "punchCooldown",
+          "type": "number",
+          "value": 0.16
+        },
+        {
+          "name": "punchDamage",
+          "type": "number",
+          "value": 30
+        },
+        {
+          "name": "punchReach",
+          "type": "number",
+          "value": 190
+        },
+        {
+          "name": "shardSpeed",
+          "type": "number",
+          "value": 900
+        },
+        {
+          "name": "spawnInterval",
+          "type": "number",
+          "value": 1.45
+        },
+        {
+          "name": "spawnMin",
+          "type": "number",
+          "value": 0.4
+        },
+        {
+          "name": "stillDelay",
+          "type": "number",
+          "value": 0.18
+        },
+        {
+          "name": "strikeFire",
+          "type": "number",
+          "value": 0.05
+        },
+        {
+          "name": "tongueDamage",
+          "type": "number",
+          "value": 70
+        },
+        {
+          "name": "tongueRadius",
+          "type": "number",
+          "value": 330
+        },
+        {
+          "name": "traumaHpScale",
+          "type": "number",
+          "value": 1
+        },
+        {
+          "name": "traumaSpeed",
+          "type": "number",
+          "value": 70
+        },
+        {
+          "name": "waveHp",
+          "type": "number",
+          "value": 0.15
+        },
+        {
+          "name": "waveSeconds",
+          "type": "number",
+          "value": 55
+        },
+        {
+          "name": "waves",
+          "type": "number",
+          "value": 3
+        },
+        {
+          "name": "wordCooldown",
+          "type": "number",
+          "value": 0.42
+        },
+        {
+          "name": "wordDamage",
+          "type": "number",
+          "value": 12
+        },
+        {
+          "name": "wordRange",
+          "type": "number",
+          "value": 620
+        },
+        {
+          "name": "wordSpeed",
+          "type": "number",
+          "value": 1050
+        },
+        {
+          "name": "xpAdd",
+          "type": "number",
+          "value": 3
+        },
+        {
+          "name": "xpFirst",
+          "type": "number",
+          "value": 6
+        },
+        {
+          "name": "xpGrowth",
+          "type": "number",
+          "value": 1.32
+        }
+      ]
+    },
+    {
+      "name": "Ui",
+      "type": "structure",
+      "children": [
+        {
+          "name": "arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "clicked",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "lastWidth",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "top",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "touch",
+          "type": "boolean",
+          "value": false
+        }
+      ]
+    }
+  ],
+  "layouts": [
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/layouts/title"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/layouts/tree"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/layouts/arena"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/layouts/revelation"
+    }
+  ],
+  "externalEvents": [
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/externalEvents/ui"
+    }
+  ],
+  "eventsFunctionsExtensions": [
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/eventsFunctionsExtensions/spritemultitouchjoystick"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/eventsFunctionsExtensions/particleemitter3d"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/eventsFunctionsExtensions/shakeobject3d"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/eventsFunctionsExtensions/firebullet"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/eventsFunctionsExtensions/holyholy"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/eventsFunctionsExtensions/psalm150"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/eventsFunctionsExtensions/mendifocus"
+    }
+  ],
+  "externalLayouts": []
+}

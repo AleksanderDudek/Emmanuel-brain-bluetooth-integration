@@ -1,0 +1,1371 @@
+{
+  "author": "HolyHolyHoly",
+  "category": "General",
+  "dimension": "",
+  "extensionNamespace": "",
+  "fullName": "HolyHolyHoly helpers",
+  "gdevelopVersion": "",
+  "helpPath": "",
+  "iconUrl": "",
+  "name": "HolyHoly",
+  "previewIconUrl": "",
+  "shortDescription": "Content loading, saving, 3D-to-screen projection and device helpers for HolyHolyHoly 3D.",
+  "version": "1.0.0",
+  "description": "Small JavaScript helpers used by the scenes: load the game content (JSON) into a global variable, keep the save in the browser storage (merged over the defaults, so new fields keep their default values), project a 3D position to a 2D layer, and read device preferences (touch screen, reduced motion).",
+  "tags": [
+    "holyholyholy"
+  ],
+  "authorIds": [],
+  "dependencies": [],
+  "globalVariables": [],
+  "sceneVariables": [],
+  "eventsFunctions": [
+    {
+      "description": "Replaces the global variable with the content of a JSON resource (preloaded with the game).",
+      "fullName": "Load a JSON resource into a global variable",
+      "functionType": "Action",
+      "group": "Data",
+      "name": "LoadJsonIntoGlobal",
+      "sentence": "Load _PARAM1_ into global variable _PARAM2_",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const target = game.getVariables().get(eventsFunctionContext.getArgument(\"Variable\"));",
+            "const resource = eventsFunctionContext.getArgument(\"Resource\");",
+            "const manager = game.getJsonManager();",
+            "const apply = content => { if (content) target.fromJSObject(content); };",
+            "if (manager.isJsonLoaded(resource)) apply(manager.getLoadedJson(resource));",
+            "else manager.loadJson(resource, (error, content) => { if (error) console.error('HolyHoly: cannot load', resource, error); else apply(content); });",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "JSON resource",
+          "name": "Resource",
+          "type": "jsonResource"
+        },
+        {
+          "description": "Name of the global variable",
+          "name": "Variable",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Checks that a global structure variable has children (e.g. the content finished loading).",
+      "fullName": "Global variable has content",
+      "functionType": "Condition",
+      "group": "Data",
+      "name": "IsGlobalLoaded",
+      "sentence": "Global variable _PARAM1_ is loaded",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const v = runtimeScene.getGame().getVariables().get(eventsFunctionContext.getArgument(\"Variable\"));",
+            "eventsFunctionContext.returnValue = v.getType() === 'structure' && Object.keys(v.getAllChildren()).length > 0;",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Name of the global variable",
+          "name": "Variable",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Reads the save from the browser storage and merges it over the global variable (its current value holds the defaults). Unknown or broken data is ignored.",
+      "fullName": "Load the save",
+      "functionType": "Action",
+      "group": "Save",
+      "name": "LoadSave",
+      "sentence": "Load the save _PARAM2_ into global variable _PARAM1_",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const target = runtimeScene.getGame().getVariables().get(eventsFunctionContext.getArgument(\"Variable\"));",
+            "let saved = null;",
+            "try {",
+            "  saved = JSON.parse(window.localStorage.getItem(eventsFunctionContext.getArgument(\"Key\")) || 'null');",
+            "} catch (e) {",
+            "  saved = null; // private mode or corrupted data: keep the defaults",
+            "}",
+            "const merge = (variable, data) => {",
+            "  for (const key of Object.keys(data)) {",
+            "    const value = data[key];",
+            "    const child = variable.getChild(key);",
+            "    if (value && typeof value === 'object' && !Array.isArray(value) && child.getType() === 'structure') merge(child, value);",
+            "    else child.fromJSObject(value);",
+            "  }",
+            "};",
+            "if (saved && typeof saved === 'object' && !Array.isArray(saved)) merge(target, saved);",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Name of the global variable",
+          "name": "Variable",
+          "type": "string"
+        },
+        {
+          "description": "Storage key",
+          "name": "Key",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Writes the global variable to the browser storage (ignored when storage is unavailable).",
+      "fullName": "Store the save",
+      "functionType": "Action",
+      "group": "Save",
+      "name": "StoreSave",
+      "sentence": "Store global variable _PARAM1_ as save _PARAM2_",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const source = runtimeScene.getGame().getVariables().get(eventsFunctionContext.getArgument(\"Variable\"));",
+            "try {",
+            "  window.localStorage.setItem(eventsFunctionContext.getArgument(\"Key\"), JSON.stringify(source.toJSObject()));",
+            "} catch (e) {",
+            "  // storage full or blocked: the game goes on, progress stays in memory",
+            "}",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Name of the global variable",
+          "name": "Variable",
+          "type": "string"
+        },
+        {
+          "description": "Storage key",
+          "name": "Key",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "X on the 2D layers of a position in the 3D world (base layer camera).",
+      "fullName": "Screen X of a 3D position",
+      "functionType": "Expression",
+      "group": "3D",
+      "name": "ScreenX",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const camera = runtimeScene.getLayer('').getRenderer().getThreeCamera();",
+            "if (!camera || typeof THREE === 'undefined') { eventsFunctionContext.returnValue = 0; return; }",
+            "const v = new THREE.Vector3(eventsFunctionContext.getArgument(\"X\"), -eventsFunctionContext.getArgument(\"Y\"), eventsFunctionContext.getArgument(\"Z\"));",
+            "camera.updateMatrixWorld();",
+            "v.project(camera);",
+            "eventsFunctionContext.returnValue = (v.x + 1) / 2 * runtimeScene.getGame().getGameResolutionWidth();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [
+        {
+          "description": "X",
+          "name": "X",
+          "type": "expression"
+        },
+        {
+          "description": "Y",
+          "name": "Y",
+          "type": "expression"
+        },
+        {
+          "description": "Z (elevation)",
+          "name": "Z",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Y on the 2D layers of a position in the 3D world (base layer camera).",
+      "fullName": "Screen Y of a 3D position",
+      "functionType": "Expression",
+      "group": "3D",
+      "name": "ScreenY",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const camera = runtimeScene.getLayer('').getRenderer().getThreeCamera();",
+            "if (!camera || typeof THREE === 'undefined') { eventsFunctionContext.returnValue = 0; return; }",
+            "const v = new THREE.Vector3(eventsFunctionContext.getArgument(\"X\"), -eventsFunctionContext.getArgument(\"Y\"), eventsFunctionContext.getArgument(\"Z\"));",
+            "camera.updateMatrixWorld();",
+            "v.project(camera);",
+            "eventsFunctionContext.returnValue = (1 - v.y) / 2 * runtimeScene.getGame().getGameResolutionHeight();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [
+        {
+          "description": "X",
+          "name": "X",
+          "type": "expression"
+        },
+        {
+          "description": "Y",
+          "name": "Y",
+          "type": "expression"
+        },
+        {
+          "description": "Z (elevation)",
+          "name": "Z",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "The device has a touch screen.",
+      "fullName": "Touch screen",
+      "functionType": "Condition",
+      "group": "Device",
+      "name": "IsTouchDevice",
+      "sentence": "The device has a touch screen",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "eventsFunctionContext.returnValue = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "The system asks for less motion (no screen shake).",
+      "fullName": "Prefers reduced motion",
+      "functionType": "Condition",
+      "group": "Device",
+      "name": "PrefersReducedMotion",
+      "sentence": "The player prefers reduced motion",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "eventsFunctionContext.returnValue = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "A short vibration on phones that support it.",
+      "fullName": "Vibrate",
+      "functionType": "Action",
+      "group": "Device",
+      "name": "Vibrate",
+      "sentence": "Vibrate for _PARAM1_ ms",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "try { if (navigator.vibrate) navigator.vibrate(Math.max(0, Math.min(400, eventsFunctionContext.getArgument(\"Milliseconds\")))); } catch (e) {}",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Duration (ms)",
+          "name": "Milliseconds",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Seconds as m:ss.",
+      "fullName": "Clock text",
+      "functionType": "StringExpression",
+      "group": "Text",
+      "name": "Clock",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const s = Math.max(0, Math.ceil(eventsFunctionContext.getArgument(\"Seconds\")));",
+            "eventsFunctionContext.returnValue = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Seconds",
+          "name": "Seconds",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "A number with a decimal comma (1,5).",
+      "fullName": "Polish decimal",
+      "functionType": "StringExpression",
+      "group": "Text",
+      "name": "Decimal",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const v = Math.round(eventsFunctionContext.getArgument(\"Value\") * 10) / 10;",
+            "eventsFunctionContext.returnValue = String(v).replace('.', ',');",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Value",
+          "name": "Value",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Index of the angelic rank reached with this much light (Content.ranks).",
+      "fullName": "Rank index",
+      "functionType": "Expression",
+      "group": "Progress",
+      "name": "RankIndex",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const ranks = runtimeScene.getGame().getVariables().get('Content').getChild('ranks').getAllChildrenArray();",
+            "const light = eventsFunctionContext.getArgument(\"Light\");",
+            "let index = 0;",
+            "ranks.forEach((r, i) => { if (light >= r.getChild('light').getAsNumber()) index = i; });",
+            "eventsFunctionContext.returnValue = index;",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [
+        {
+          "description": "Lifetime light",
+          "name": "Light",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Number of wings (2, 4 or 6) of the rank reached with this much light.",
+      "fullName": "Wings of the rank",
+      "functionType": "Expression",
+      "group": "Progress",
+      "name": "RankWings",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const ranks = runtimeScene.getGame().getVariables().get('Content').getChild('ranks').getAllChildrenArray();",
+            "const light = eventsFunctionContext.getArgument(\"Light\");",
+            "let wings = 2;",
+            "ranks.forEach(r => { if (light >= r.getChild('light').getAsNumber()) wings = r.getChild('wings').getAsNumber(); });",
+            "eventsFunctionContext.returnValue = wings;",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [
+        {
+          "description": "Lifetime light",
+          "name": "Light",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Name of the angelic rank reached with this much light.",
+      "fullName": "Name of the rank",
+      "functionType": "StringExpression",
+      "group": "Progress",
+      "name": "RankName",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const ranks = runtimeScene.getGame().getVariables().get('Content').getChild('ranks').getAllChildrenArray();",
+            "const light = eventsFunctionContext.getArgument(\"Light\");",
+            "let name = '';",
+            "ranks.forEach(r => { if (light >= r.getChild('light').getAsNumber()) name = r.getChild('name').getAsString(); });",
+            "eventsFunctionContext.returnValue = name;",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Lifetime light",
+          "name": "Light",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Light needed for the next rank (0 at the last one).",
+      "fullName": "Light of the next rank",
+      "functionType": "Expression",
+      "group": "Progress",
+      "name": "NextRankLight",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const ranks = runtimeScene.getGame().getVariables().get('Content').getChild('ranks').getAllChildrenArray();",
+            "const light = eventsFunctionContext.getArgument(\"Light\");",
+            "const next = ranks.map(r => r.getChild('light').getAsNumber()).find(l => l > light);",
+            "eventsFunctionContext.returnValue = next === undefined ? 0 : next;",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [
+        {
+          "description": "Lifetime light",
+          "name": "Light",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "The chapter can be played: the first one, or the chapter that opens it is done.",
+      "fullName": "Chapter is open",
+      "functionType": "Condition",
+      "group": "Progress",
+      "name": "IsChapterOpen",
+      "sentence": "Chapter _PARAM1_ is open",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const chapters = game.getVariables().get('Content').getChild('chapters');",
+            "const index = Math.round(eventsFunctionContext.getArgument(\"Index\"));",
+            "if (index < 0 || index >= chapters.getChildrenCount()) { eventsFunctionContext.returnValue = false; return; }",
+            "const by = chapters.getChildAt(index).getChild('unlockedBy').getAsString();",
+            "const done = game.getVariables().get('Save').getChild('done');",
+            "eventsFunctionContext.returnValue = by === '' || (done.hasChild(by) && done.getChild(by).getAsBoolean());",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Chapter index",
+          "name": "Index",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "The chapter has been completed at least once.",
+      "fullName": "Chapter is done",
+      "functionType": "Condition",
+      "group": "Progress",
+      "name": "IsChapterDone",
+      "sentence": "Chapter _PARAM1_ is done",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const chapters = game.getVariables().get('Content').getChild('chapters');",
+            "const index = Math.round(eventsFunctionContext.getArgument(\"Index\"));",
+            "if (index < 0 || index >= chapters.getChildrenCount()) { eventsFunctionContext.returnValue = false; return; }",
+            "const id = chapters.getChildAt(index).getChild('id').getAsString();",
+            "const done = game.getVariables().get('Save').getChild('done');",
+            "eventsFunctionContext.returnValue = done.hasChild(id) && done.getChild(id).getAsBoolean();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Chapter index",
+          "name": "Index",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Publishes window.HolyHolyHoly3D = { game } so headless browser tests can read the state.",
+      "fullName": "Expose the game for automated tests",
+      "functionType": "Action",
+      "group": "Debug",
+      "name": "ExposeForTests",
+      "sentence": "Expose the game for automated tests",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "window.HolyHolyHoly3D = { game: runtimeScene.getGame() };",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Creates a 9-patch button with a centred caption. Clicking it sets Ui.clicked to its action (see the UI external events).",
+      "fullName": "Create a button",
+      "functionType": "Action",
+      "group": "UI",
+      "name": "MakeButton",
+      "sentence": "Button _PARAM1_ + _PARAM2_ at _PARAM3_;_PARAM4_ (_PARAM5_×_PARAM6_): _PARAM7_ → _PARAM8_",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [],
+          "actions": [
+            {
+              "type": {
+                "value": "Create"
+              },
+              "parameters": [
+                "",
+                "Button",
+                "GetArgumentAsNumber(\"X\")",
+                "GetArgumentAsNumber(\"Y\")",
+                "Layer"
+              ]
+            },
+            {
+              "type": {
+                "value": "ResizableCapability::ResizableBehavior::SetSize"
+              },
+              "parameters": [
+                "Button",
+                "Resizable",
+                "GetArgumentAsNumber(\"W\")",
+                "GetArgumentAsNumber(\"H\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringObjectVariable"
+              },
+              "parameters": [
+                "Button",
+                "Action",
+                "=",
+                "GetArgumentAsString(\"Action\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetNumberObjectVariable"
+              },
+              "parameters": [
+                "Button",
+                "Arg",
+                "=",
+                "GetArgumentAsNumber(\"Arg\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringObjectVariable"
+              },
+              "parameters": [
+                "Button",
+                "Panel",
+                "=",
+                "GetArgumentAsString(\"Panel\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetZOrder"
+              },
+              "parameters": [
+                "Button",
+                "=",
+                "100"
+              ]
+            },
+            {
+              "type": {
+                "value": "Create"
+              },
+              "parameters": [
+                "",
+                "Label",
+                "GetArgumentAsNumber(\"X\")",
+                "GetArgumentAsNumber(\"Y\")",
+                "Layer"
+              ]
+            },
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "Label",
+                "Text",
+                "=",
+                "GetArgumentAsString(\"Caption\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "TextObject::SetTextAlignment"
+              },
+              "parameters": [
+                "Label",
+                "\"center\""
+              ]
+            },
+            {
+              "type": {
+                "value": "TextObject::SetWrapping"
+              },
+              "parameters": [
+                "Label",
+                "yes"
+              ]
+            },
+            {
+              "type": {
+                "value": "TextObject::WrappingWidth"
+              },
+              "parameters": [
+                "Label",
+                "=",
+                "GetArgumentAsNumber(\"W\") - 16"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetXY"
+              },
+              "parameters": [
+                "Label",
+                "=",
+                "GetArgumentAsNumber(\"X\") + 8",
+                "=",
+                "GetArgumentAsNumber(\"Y\") + (GetArgumentAsNumber(\"H\") - Label.Height()) / 2"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringObjectVariable"
+              },
+              "parameters": [
+                "Label",
+                "Panel",
+                "=",
+                "GetArgumentAsString(\"Panel\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringObjectVariable"
+              },
+              "parameters": [
+                "Label",
+                "Action",
+                "=",
+                "GetArgumentAsString(\"Action\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetNumberObjectVariable"
+              },
+              "parameters": [
+                "Label",
+                "Arg",
+                "=",
+                "GetArgumentAsNumber(\"Arg\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetZOrder"
+              },
+              "parameters": [
+                "Label",
+                "=",
+                "101"
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareStrings"
+                  },
+                  "parameters": [
+                    "GetArgumentAsString(\"Panel\")",
+                    "!=",
+                    "\"\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetZOrder"
+                  },
+                  "parameters": [
+                    "Button",
+                    "+",
+                    "200"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareStrings"
+                  },
+                  "parameters": [
+                    "GetArgumentAsString(\"Panel\")",
+                    "!=",
+                    "\"\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetZOrder"
+                  },
+                  "parameters": [
+                    "Label",
+                    "+",
+                    "200"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Button",
+          "name": "Button",
+          "supplementaryInformation": "PanelSpriteObject::PanelSprite",
+          "type": "objectListOrEmptyIfJustDeclared"
+        },
+        {
+          "description": "Caption text",
+          "name": "Label",
+          "supplementaryInformation": "TextObject::Text",
+          "type": "objectListOrEmptyIfJustDeclared"
+        },
+        {
+          "description": "X",
+          "name": "X",
+          "type": "expression"
+        },
+        {
+          "description": "Y",
+          "name": "Y",
+          "type": "expression"
+        },
+        {
+          "description": "Width",
+          "name": "W",
+          "type": "expression"
+        },
+        {
+          "description": "Height",
+          "name": "H",
+          "type": "expression"
+        },
+        {
+          "description": "Caption",
+          "name": "Caption",
+          "type": "string"
+        },
+        {
+          "description": "Action",
+          "name": "Action",
+          "type": "string"
+        },
+        {
+          "description": "Argument",
+          "name": "Arg",
+          "type": "expression"
+        },
+        {
+          "description": "Panel",
+          "name": "Panel",
+          "type": "string"
+        },
+        {
+          "description": "Layer",
+          "name": "Layer",
+          "type": "layer"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Creates a wrapped text, aligned left, center or right inside the given width.",
+      "fullName": "Create a text",
+      "functionType": "Action",
+      "group": "UI",
+      "name": "MakeText",
+      "sentence": "Text _PARAM1_ at _PARAM2_;_PARAM3_ width _PARAM4_: _PARAM5_ (_PARAM6_, key _PARAM7_, panel _PARAM8_)",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [],
+          "actions": [
+            {
+              "type": {
+                "value": "Create"
+              },
+              "parameters": [
+                "",
+                "Text",
+                "GetArgumentAsNumber(\"X\")",
+                "GetArgumentAsNumber(\"Y\")",
+                "Layer"
+              ]
+            },
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "Text",
+                "Text",
+                "=",
+                "GetArgumentAsString(\"Content\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "TextObject::SetTextAlignment"
+              },
+              "parameters": [
+                "Text",
+                "GetArgumentAsString(\"Align\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "TextObject::SetWrapping"
+              },
+              "parameters": [
+                "Text",
+                "yes"
+              ]
+            },
+            {
+              "type": {
+                "value": "TextObject::WrappingWidth"
+              },
+              "parameters": [
+                "Text",
+                "=",
+                "GetArgumentAsNumber(\"W\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringObjectVariable"
+              },
+              "parameters": [
+                "Text",
+                "Key",
+                "=",
+                "GetArgumentAsString(\"Key\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringObjectVariable"
+              },
+              "parameters": [
+                "Text",
+                "Panel",
+                "=",
+                "GetArgumentAsString(\"Panel\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetZOrder"
+              },
+              "parameters": [
+                "Text",
+                "=",
+                "90"
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareStrings"
+                  },
+                  "parameters": [
+                    "GetArgumentAsString(\"Panel\")",
+                    "!=",
+                    "\"\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetZOrder"
+                  },
+                  "parameters": [
+                    "Text",
+                    "+",
+                    "200"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Text object",
+          "name": "Text",
+          "supplementaryInformation": "TextObject::Text",
+          "type": "objectListOrEmptyIfJustDeclared"
+        },
+        {
+          "description": "X",
+          "name": "X",
+          "type": "expression"
+        },
+        {
+          "description": "Y",
+          "name": "Y",
+          "type": "expression"
+        },
+        {
+          "description": "Width",
+          "name": "W",
+          "type": "expression"
+        },
+        {
+          "description": "Text",
+          "name": "Content",
+          "type": "string"
+        },
+        {
+          "description": "Alignment",
+          "name": "Align",
+          "supplementaryInformation": "[\"left\",\"center\",\"right\"]",
+          "type": "stringWithSelector"
+        },
+        {
+          "description": "Key (for updates)",
+          "name": "Key",
+          "type": "string"
+        },
+        {
+          "description": "Panel",
+          "name": "Panel",
+          "type": "string"
+        },
+        {
+          "description": "Layer",
+          "name": "Layer",
+          "type": "layer"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Creates a 9-patch panel (background of a dialog or a card).",
+      "fullName": "Create a panel",
+      "functionType": "Action",
+      "group": "UI",
+      "name": "MakePanel",
+      "sentence": "Panel _PARAM1_ at _PARAM2_;_PARAM3_ (_PARAM4_×_PARAM5_), key _PARAM6_, panel _PARAM7_",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [],
+          "actions": [
+            {
+              "type": {
+                "value": "Create"
+              },
+              "parameters": [
+                "",
+                "Panel",
+                "GetArgumentAsNumber(\"X\")",
+                "GetArgumentAsNumber(\"Y\")",
+                "Layer"
+              ]
+            },
+            {
+              "type": {
+                "value": "ResizableCapability::ResizableBehavior::SetSize"
+              },
+              "parameters": [
+                "Panel",
+                "Resizable",
+                "GetArgumentAsNumber(\"W\")",
+                "GetArgumentAsNumber(\"H\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringObjectVariable"
+              },
+              "parameters": [
+                "Panel",
+                "Key",
+                "=",
+                "GetArgumentAsString(\"Key\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringObjectVariable"
+              },
+              "parameters": [
+                "Panel",
+                "Panel",
+                "=",
+                "GetArgumentAsString(\"PanelName\")"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetZOrder"
+              },
+              "parameters": [
+                "Panel",
+                "=",
+                "50"
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareStrings"
+                  },
+                  "parameters": [
+                    "GetArgumentAsString(\"PanelName\")",
+                    "!=",
+                    "\"\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetZOrder"
+                  },
+                  "parameters": [
+                    "Panel",
+                    "+",
+                    "200"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Panel object",
+          "name": "Panel",
+          "supplementaryInformation": "PanelSpriteObject::PanelSprite",
+          "type": "objectListOrEmptyIfJustDeclared"
+        },
+        {
+          "description": "X",
+          "name": "X",
+          "type": "expression"
+        },
+        {
+          "description": "Y",
+          "name": "Y",
+          "type": "expression"
+        },
+        {
+          "description": "Width",
+          "name": "W",
+          "type": "expression"
+        },
+        {
+          "description": "Height",
+          "name": "H",
+          "type": "expression"
+        },
+        {
+          "description": "Key",
+          "name": "Key",
+          "type": "string"
+        },
+        {
+          "description": "Panel",
+          "name": "PanelName",
+          "type": "string"
+        },
+        {
+          "description": "Layer",
+          "name": "Layer",
+          "type": "layer"
+        }
+      ],
+      "objectGroups": []
+    }
+  ],
+  "eventsFunctionsFolderStructure": {
+    "folderName": "__ROOT",
+    "children": [
+      {
+        "folderName": "Data",
+        "children": [
+          {
+            "functionName": "LoadJsonIntoGlobal"
+          },
+          {
+            "functionName": "IsGlobalLoaded"
+          }
+        ]
+      },
+      {
+        "folderName": "Save",
+        "children": [
+          {
+            "functionName": "LoadSave"
+          },
+          {
+            "functionName": "StoreSave"
+          }
+        ]
+      },
+      {
+        "folderName": "3D",
+        "children": [
+          {
+            "functionName": "ScreenX"
+          },
+          {
+            "functionName": "ScreenY"
+          }
+        ]
+      },
+      {
+        "folderName": "Device",
+        "children": [
+          {
+            "functionName": "IsTouchDevice"
+          },
+          {
+            "functionName": "PrefersReducedMotion"
+          },
+          {
+            "functionName": "Vibrate"
+          }
+        ]
+      },
+      {
+        "folderName": "Text",
+        "children": [
+          {
+            "functionName": "Clock"
+          },
+          {
+            "functionName": "Decimal"
+          }
+        ]
+      },
+      {
+        "folderName": "Progress",
+        "children": [
+          {
+            "functionName": "RankIndex"
+          },
+          {
+            "functionName": "RankWings"
+          },
+          {
+            "functionName": "RankName"
+          },
+          {
+            "functionName": "NextRankLight"
+          },
+          {
+            "functionName": "IsChapterOpen"
+          },
+          {
+            "functionName": "IsChapterDone"
+          }
+        ]
+      },
+      {
+        "folderName": "Debug",
+        "children": [
+          {
+            "functionName": "ExposeForTests"
+          }
+        ]
+      },
+      {
+        "folderName": "UI",
+        "children": [
+          {
+            "functionName": "MakeButton"
+          },
+          {
+            "functionName": "MakeText"
+          },
+          {
+            "functionName": "MakePanel"
+          }
+        ]
+      }
+    ]
+  },
+  "eventsBasedBehaviors": [],
+  "eventsBasedObjects": []
+}

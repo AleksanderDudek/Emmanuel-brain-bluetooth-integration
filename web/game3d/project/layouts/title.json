@@ -1,0 +1,4936 @@
+{
+  "b": 30,
+  "disableInputWhenNotFocused": true,
+  "mangledName": "Title",
+  "name": "Title",
+  "r": 18,
+  "standardSortMethod": true,
+  "stopSoundsOnStartup": true,
+  "title": "",
+  "v": 14,
+  "uiSettings": {},
+  "objectsGroups": [],
+  "variables": [],
+  "instances": [
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 10,
+      "height": 4000,
+      "layer": "",
+      "locked": true,
+      "name": "Garden",
+      "persistentUuid": "87bf5592-3fdb-49e9-a711-b1b4bc73e9c7",
+      "width": 4000,
+      "x": -2000,
+      "y": -2000,
+      "z": -10,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 300,
+      "height": 300,
+      "layer": "",
+      "name": "Angel",
+      "persistentUuid": "81663797-1b0f-449f-b555-fc935169b03c",
+      "width": 300,
+      "x": 0,
+      "y": 0,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 240,
+      "height": 120,
+      "layer": "",
+      "name": "Column",
+      "persistentUuid": "5f4125e9-13d0-4250-b001-f2b6da8f94c1",
+      "width": 120,
+      "x": -330,
+      "y": -160,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 240,
+      "height": 120,
+      "layer": "",
+      "name": "Column",
+      "persistentUuid": "d488205a-9553-4749-9905-e9e9320f6c75",
+      "width": 120,
+      "x": -470,
+      "y": 60,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 240,
+      "height": 120,
+      "layer": "",
+      "name": "Column",
+      "persistentUuid": "ccecd5f1-a9a3-4c2c-b883-5f8f7460e48f",
+      "width": 120,
+      "x": 330,
+      "y": -160,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 240,
+      "height": 120,
+      "layer": "",
+      "name": "Column",
+      "persistentUuid": "6eae3051-681f-43d8-bde3-87d2b862e65d",
+      "width": 120,
+      "x": 470,
+      "y": 60,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 70,
+      "height": 40,
+      "layer": "",
+      "name": "Candle",
+      "persistentUuid": "c17658b7-a0c2-4e65-ad96-7c466fbb2a1f",
+      "width": 40,
+      "x": -260,
+      "y": 170,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 70,
+      "height": 40,
+      "layer": "",
+      "name": "Candle",
+      "persistentUuid": "6e3d98bd-29bd-4660-b66a-fb607f628117",
+      "width": 40,
+      "x": -150,
+      "y": 210,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 70,
+      "height": 40,
+      "layer": "",
+      "name": "Candle",
+      "persistentUuid": "98b23d29-0795-45b1-abed-b7c69a6bb8d1",
+      "width": 40,
+      "x": 150,
+      "y": 170,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 70,
+      "height": 40,
+      "layer": "",
+      "name": "Candle",
+      "persistentUuid": "1ef93093-d524-4a08-8ce9-471225ac466d",
+      "width": 40,
+      "x": 260,
+      "y": 210,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": false,
+      "height": 0,
+      "layer": "",
+      "name": "Motes",
+      "persistentUuid": "7bcc9e8b-428c-4a2b-81d5-7df5aa393cf3",
+      "width": 0,
+      "x": 0,
+      "y": 0,
+      "z": 120,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    }
+  ],
+  "objects": [
+    {
+      "assetStoreId": "",
+      "name": "Angel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 300,
+        "height": 300,
+        "isCastingShadow": true,
+        "isReceivingShadow": true,
+        "keepAspectRatio": true,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/angel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 300,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Fly2",
+            "source": "Fly2"
+          },
+          {
+            "loop": true,
+            "name": "Fly4",
+            "source": "Fly4"
+          },
+          {
+            "loop": true,
+            "name": "Fly6",
+            "source": "Fly6"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Garden",
+      "type": "Scene3D::Cube3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "width": 4000,
+        "height": 4000,
+        "depth": 10,
+        "enableTextureTransparency": false,
+        "facesOrientation": "Y",
+        "frontFaceResourceName": "assets/textures/floor-garden.png",
+        "backFaceResourceName": "",
+        "backFaceUpThroughWhichAxisRotation": "X",
+        "leftFaceResourceName": "",
+        "rightFaceResourceName": "",
+        "topFaceResourceName": "",
+        "bottomFaceResourceName": "",
+        "frontFaceVisible": true,
+        "backFaceVisible": false,
+        "leftFaceVisible": false,
+        "rightFaceVisible": false,
+        "topFaceVisible": false,
+        "bottomFaceVisible": false,
+        "frontFaceResourceRepeat": true,
+        "backFaceResourceRepeat": false,
+        "leftFaceResourceRepeat": false,
+        "rightFaceResourceRepeat": false,
+        "topFaceResourceRepeat": false,
+        "bottomFaceResourceRepeat": false,
+        "materialType": "StandardWithoutMetalness",
+        "tint": "120;112;150",
+        "isCastingShadow": false,
+        "isReceivingShadow": true,
+        "tileScale": 0.25
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Column",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 240,
+        "height": 120,
+        "isCastingShadow": true,
+        "isReceivingShadow": true,
+        "keepAspectRatio": true,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/column.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 120,
+        "animations": []
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Candle",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 70,
+        "height": 40,
+        "isCastingShadow": true,
+        "isReceivingShadow": true,
+        "keepAspectRatio": true,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/candle.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 40,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Orb",
+      "type": "Scene3D::Model3DObject",
+      "variables": [
+        {
+          "name": "Phase",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 90,
+        "height": 70,
+        "isCastingShadow": false,
+        "isReceivingShadow": true,
+        "keepAspectRatio": true,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/orb-done.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 70,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Motes",
+      "type": "ParticleEmitter3D::ParticleEmitter3D",
+      "variant": "",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "EndColor": "255;250;230",
+        "StartColor": "255;230;160",
+        "SpayConeAngle": 360,
+        "EndScale": 0.3,
+        "Gravity": -12,
+        "StartSpeedMax": 40,
+        "StartSizeMin": 6,
+        "Duration": -1,
+        "Flow": 14,
+        "LifespanMin": 3,
+        "LifespanMax": 6,
+        "StartSizeMax": 14,
+        "StartSpeedMin": 10,
+        "StartOpacity": 200,
+        "EndOpacity": 0,
+        "Blending": "Additive",
+        "ShouldAutodestruct": false
+      },
+      "childrenContent": {
+        "Particle": {
+          "adaptCollisionMaskAutomatically": true,
+          "updateIfNotVisible": false,
+          "animations": [
+            {
+              "name": "Image",
+              "useMultipleDirections": false,
+              "directions": [
+                {
+                  "looping": false,
+                  "timeBetweenFrames": 0.08,
+                  "sprites": [
+                    {
+                      "hasCustomCollisionMask": false,
+                      "image": "assets/particles/soft.png",
+                      "points": [],
+                      "originPoint": {
+                        "name": "origine",
+                        "x": 0,
+                        "y": 0
+                      },
+                      "centerPoint": {
+                        "automatic": true,
+                        "name": "centre",
+                        "x": 0,
+                        "y": 0
+                      },
+                      "customCollisionMask": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "objectsFolderStructure": {
+    "folderName": "__ROOT",
+    "children": [
+      {
+        "objectName": "Angel"
+      },
+      {
+        "objectName": "Garden"
+      },
+      {
+        "objectName": "Column"
+      },
+      {
+        "objectName": "Candle"
+      },
+      {
+        "objectName": "Orb"
+      },
+      {
+        "objectName": "Motes"
+      }
+    ]
+  },
+  "events": [
+    {
+      "type": "BuiltinCommonInstructions::Link",
+      "include": {
+        "includeConfig": 0
+      },
+      "target": "UI"
+    },
+    {
+      "colorB": 226,
+      "colorG": 144,
+      "colorR": 74,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Boot",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "The content (chapters, traumas, gifts…) comes from assets/data/content.json, built from the 2D game. The save lives in the browser storage and is merged over the defaults of the global variable Save."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            },
+            {
+              "type": {
+                "inverted": true,
+                "value": "HolyHoly::IsGlobalLoaded"
+              },
+              "parameters": [
+                "",
+                "\"Content\"",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "HolyHoly::LoadJsonIntoGlobal"
+              },
+              "parameters": [
+                "",
+                "assets/data/content.json",
+                "\"Content\"",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "HolyHoly::LoadSave"
+              },
+              "parameters": [
+                "",
+                "\"Save\"",
+                "\"holyholyholy3d.save.v1\"",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "HolyHoly::ExposeForTests"
+              },
+              "parameters": [
+                "",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "Psalm150::SetVolumes"
+              },
+              "parameters": [
+                "",
+                "Save.settings.master",
+                "Save.settings.music",
+                "Save.settings.sfx",
+                ""
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    },
+    {
+      "colorB": 194,
+      "colorG": 87,
+      "colorR": 126,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Scene",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetCameraCenterX"
+              },
+              "parameters": [
+                "",
+                "=",
+                "-360",
+                "\"\"",
+                "0"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetCameraCenterY"
+              },
+              "parameters": [
+                "",
+                "=",
+                "860",
+                "\"\"",
+                "0"
+              ]
+            },
+            {
+              "type": {
+                "value": "Scene3D::SetCameraZ"
+              },
+              "parameters": [
+                "",
+                "=",
+                "400",
+                "\"\"",
+                "0"
+              ]
+            },
+            {
+              "type": {
+                "value": "Scene3D::SetCameraRotationX"
+              },
+              "parameters": [
+                "",
+                "=",
+                "74",
+                "\"\"",
+                "0"
+              ]
+            },
+            {
+              "type": {
+                "value": "Psalm150::SetMood"
+              },
+              "parameters": [
+                "",
+                "\"menu\"",
+                "\"menu\"",
+                "0.12",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "AnimatableCapability::AnimatableBehavior::SetName"
+              },
+              "parameters": [
+                "Angel",
+                "Animation",
+                "=",
+                "\"Fly\" + ToString(HolyHoly::RankWings(Save.light))"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetAngle"
+              },
+              "parameters": [
+                "Angel",
+                "=",
+                "90"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"\""
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.effects",
+                    "True",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "EnableLayerEffect"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Glow\"",
+                    "yes"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetLayerEffectBooleanParameter"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Sun\"",
+                    "\"isCastingShadow\"",
+                    "yes"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.effects",
+                    "False",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "EnableLayerEffect"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Glow\"",
+                    "no"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetLayerEffectBooleanParameter"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Sun\"",
+                    "\"isCastingShadow\"",
+                    "no"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [],
+          "actions": [
+            {
+              "type": {
+                "value": "Rotate"
+              },
+              "parameters": [
+                "Angel",
+                "9",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            }
+          ],
+          "actions": [],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Create"
+                  },
+                  "parameters": [
+                    "",
+                    "Orb",
+                    "cos(ToRad(0)) * 210",
+                    "sin(ToRad(0)) * 210",
+                    "\"\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Scene3D::Base3DBehavior::SetZ"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Object3D",
+                    "=",
+                    "150"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Phase",
+                    "=",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Create"
+                  },
+                  "parameters": [
+                    "",
+                    "Orb",
+                    "cos(ToRad(60)) * 210",
+                    "sin(ToRad(60)) * 210",
+                    "\"\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Scene3D::Base3DBehavior::SetZ"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Object3D",
+                    "=",
+                    "150"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Phase",
+                    "=",
+                    "60"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Create"
+                  },
+                  "parameters": [
+                    "",
+                    "Orb",
+                    "cos(ToRad(120)) * 210",
+                    "sin(ToRad(120)) * 210",
+                    "\"\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Scene3D::Base3DBehavior::SetZ"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Object3D",
+                    "=",
+                    "150"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Phase",
+                    "=",
+                    "120"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Create"
+                  },
+                  "parameters": [
+                    "",
+                    "Orb",
+                    "cos(ToRad(180)) * 210",
+                    "sin(ToRad(180)) * 210",
+                    "\"\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Scene3D::Base3DBehavior::SetZ"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Object3D",
+                    "=",
+                    "150"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Phase",
+                    "=",
+                    "180"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Create"
+                  },
+                  "parameters": [
+                    "",
+                    "Orb",
+                    "cos(ToRad(240)) * 210",
+                    "sin(ToRad(240)) * 210",
+                    "\"\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Scene3D::Base3DBehavior::SetZ"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Object3D",
+                    "=",
+                    "150"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Phase",
+                    "=",
+                    "240"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Create"
+                  },
+                  "parameters": [
+                    "",
+                    "Orb",
+                    "cos(ToRad(300)) * 210",
+                    "sin(ToRad(300)) * 210",
+                    "\"\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Scene3D::Base3DBehavior::SetZ"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Object3D",
+                    "=",
+                    "150"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "Orb",
+                    "Phase",
+                    "=",
+                    "300"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [],
+          "actions": [
+            {
+              "type": {
+                "value": "SetNumberObjectVariable"
+              },
+              "parameters": [
+                "Orb",
+                "Phase",
+                "+",
+                "20 * TimeDelta()"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetXY"
+              },
+              "parameters": [
+                "Orb",
+                "=",
+                "cos(ToRad(Orb.Phase)) * 210",
+                "=",
+                "sin(ToRad(Orb.Phase)) * 210"
+              ]
+            },
+            {
+              "type": {
+                "value": "Scene3D::Base3DBehavior::SetZ"
+              },
+              "parameters": [
+                "Orb",
+                "Object3D",
+                "=",
+                "150 + sin(ToRad(Orb.Phase * 3)) * 25"
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    },
+    {
+      "colorB": 80,
+      "colorG": 175,
+      "colorR": 76,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Menu",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "The menu sits on the left; the angel stands on the right. Every panel sets Ui.top so only its buttons answer."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            }
+          ],
+          "actions": [],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiTitle",
+                    "70",
+                    "70",
+                    "620",
+                    "Content.title.name",
+                    "\"left\"",
+                    "\"\"",
+                    "\"\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiText",
+                    "74",
+                    "134",
+                    "600",
+                    "Content.title.subtitle",
+                    "\"left\"",
+                    "\"\"",
+                    "\"\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiSmall",
+                    "74",
+                    "182",
+                    "520",
+                    "\"„\" + Content.title.motto.text + \"” (\" + Content.title.motto.ref + \")\"",
+                    "\"left\"",
+                    "\"\"",
+                    "\"\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "70",
+                    "300",
+                    "320",
+                    "60",
+                    "\"Graj\"",
+                    "\"play\"",
+                    "0",
+                    "\"\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "70",
+                    "372",
+                    "320",
+                    "60",
+                    "\"Jak grać\"",
+                    "\"howto\"",
+                    "0",
+                    "\"\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "70",
+                    "444",
+                    "320",
+                    "60",
+                    "\"Opaska Mendi\"",
+                    "\"band\"",
+                    "0",
+                    "\"\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "70",
+                    "516",
+                    "320",
+                    "60",
+                    "\"Ustawienia\"",
+                    "\"settings\"",
+                    "0",
+                    "\"\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "70",
+                    "588",
+                    "320",
+                    "60",
+                    "\"Pomoc i bezpieczeństwo\"",
+                    "\"help\"",
+                    "0",
+                    "\"\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiSmall",
+                    "SceneWindowWidth() - 640",
+                    "SceneWindowHeight() - 44",
+                    "600",
+                    "\"\"",
+                    "\"right\"",
+                    "\"rank\"",
+                    "\"\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiSmall",
+                "Key",
+                "=",
+                "\"rank\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiSmall",
+                "Text",
+                "=",
+                "\"Twoja ranga: \" + HolyHoly::RankName(Save.light) + \" · światło \" + ToString(Save.light) + \" · manna \" + ToString(Save.manna)"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "KeyFromTextJustPressed"
+              },
+              "parameters": [
+                "",
+                "\"Return\""
+              ]
+            },
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"play\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"play\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BooleanVariable"
+              },
+              "parameters": [
+                "Save.settings.seenHowTo",
+                "False",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"howto\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"play\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "Scene"
+              },
+              "parameters": [
+                "",
+                "\"Tree\"",
+                "yes"
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    },
+    {
+      "colorB": 99,
+      "colorG": 30,
+      "colorR": 233,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Panels",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"close\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"\""
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Ui.top",
+                    "=",
+                    "\"\""
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        "Panel",
+                        "=",
+                        "\"howto\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        "Panel",
+                        "=",
+                        "\"howto\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        "Panel",
+                        "=",
+                        "\"howto\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        "Panel",
+                        "=",
+                        "\"howto\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Panel",
+                        "=",
+                        "\"howto\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiText",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Panel",
+                        "=",
+                        "\"howto\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        "Panel",
+                        "=",
+                        "\"howto\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        "Panel",
+                        "=",
+                        "\"howto\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        "Panel",
+                        "=",
+                        "\"howto\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Panel",
+                        "=",
+                        "\"howto\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        "Panel",
+                        "=",
+                        "\"band\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        "Panel",
+                        "=",
+                        "\"band\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        "Panel",
+                        "=",
+                        "\"band\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        "Panel",
+                        "=",
+                        "\"band\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Panel",
+                        "=",
+                        "\"band\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiText",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Panel",
+                        "=",
+                        "\"band\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        "Panel",
+                        "=",
+                        "\"band\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        "Panel",
+                        "=",
+                        "\"band\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        "Panel",
+                        "=",
+                        "\"band\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Panel",
+                        "=",
+                        "\"band\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        "Panel",
+                        "=",
+                        "\"settings\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        "Panel",
+                        "=",
+                        "\"settings\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        "Panel",
+                        "=",
+                        "\"settings\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        "Panel",
+                        "=",
+                        "\"settings\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Panel",
+                        "=",
+                        "\"settings\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiText",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Panel",
+                        "=",
+                        "\"settings\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        "Panel",
+                        "=",
+                        "\"settings\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        "Panel",
+                        "=",
+                        "\"settings\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        "Panel",
+                        "=",
+                        "\"settings\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Panel",
+                        "=",
+                        "\"settings\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        "Panel",
+                        "=",
+                        "\"help\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        "Panel",
+                        "=",
+                        "\"help\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        "Panel",
+                        "=",
+                        "\"help\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        "Panel",
+                        "=",
+                        "\"help\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Panel",
+                        "=",
+                        "\"help\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiText",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Panel",
+                        "=",
+                        "\"help\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        "Panel",
+                        "=",
+                        "\"help\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        "Panel",
+                        "=",
+                        "\"help\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        "Panel",
+                        "=",
+                        "\"help\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Panel",
+                        "=",
+                        "\"help\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        "Panel",
+                        "=",
+                        "\"disclaimer\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        "Panel",
+                        "=",
+                        "\"disclaimer\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        "Panel",
+                        "=",
+                        "\"disclaimer\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        "Panel",
+                        "=",
+                        "\"disclaimer\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Panel",
+                        "=",
+                        "\"disclaimer\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiText",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Panel",
+                        "=",
+                        "\"disclaimer\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        "Panel",
+                        "=",
+                        "\"disclaimer\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        "Panel",
+                        "=",
+                        "\"disclaimer\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        "Panel",
+                        "=",
+                        "\"disclaimer\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Panel",
+                        "=",
+                        "\"disclaimer\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "First launch: a gentle word that this is a game of prayer and hope, not therapy."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "BooleanVariable"
+              },
+              "parameters": [
+                "Save.settings.seenDisclaimer",
+                "False",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"help\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"help\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"help\""
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakePanel"
+                  },
+                  "parameters": [
+                    "",
+                    "UiPanel",
+                    "(SceneWindowWidth() - 760) / 2",
+                    "40",
+                    "760",
+                    "SceneWindowHeight() - 80",
+                    "\"\"",
+                    "\"help\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiTitle",
+                    "(SceneWindowWidth() - 760) / 2",
+                    "64",
+                    "760",
+                    "\"Zanim zaczniesz\"",
+                    "\"center\"",
+                    "\"\"",
+                    "\"help\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiSmall",
+                    "(SceneWindowWidth() - 680) / 2",
+                    "130",
+                    "680",
+                    "Content.story.disclaimer",
+                    "\"left\"",
+                    "\"\"",
+                    "\"help\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiSmall",
+                    "(SceneWindowWidth() - 680) / 2",
+                    "330",
+                    "680",
+                    "Content.story.crisisHelp",
+                    "\"left\"",
+                    "\"\"",
+                    "\"help\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 240) / 2",
+                    "SceneWindowHeight() - 110",
+                    "240",
+                    "56",
+                    "\"Rozumiem\"",
+                    "\"close\"",
+                    "0",
+                    "\"help\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetBooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.seenDisclaimer",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "HolyHoly::StoreSave"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Save\"",
+                    "\"holyholyholy3d.save.v1\"",
+                    ""
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"howto\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"howto\""
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakePanel"
+                  },
+                  "parameters": [
+                    "",
+                    "UiPanel",
+                    "(SceneWindowWidth() - 820) / 2",
+                    "60",
+                    "820",
+                    "600",
+                    "\"\"",
+                    "\"howto\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiTitle",
+                    "(SceneWindowWidth() - 820) / 2",
+                    "84",
+                    "820",
+                    "\"Jak grać\"",
+                    "\"center\"",
+                    "\"\"",
+                    "\"howto\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiText",
+                    "(SceneWindowWidth() - 740) / 2",
+                    "150",
+                    "740",
+                    "Content.story.intro[2]",
+                    "\"left\"",
+                    "\"\"",
+                    "\"howto\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiSmall",
+                    "(SceneWindowWidth() - 740) / 2",
+                    "250",
+                    "740",
+                    "Content.story.howTo[0] + NewLine() + NewLine() + Content.story.howTo[1] + NewLine() + NewLine() + Content.story.howTo[2]",
+                    "\"left\"",
+                    "\"\"",
+                    "\"howto\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiSmall",
+                    "(SceneWindowWidth() - 740) / 2",
+                    "470",
+                    "740",
+                    "\"Fale cieni trwają około minuty. Po trzech falach przychodzi twierdza kłamstwa. Gdy upadniesz, powstajesz: łaska nie kończy się po pierwszym upadku.\"",
+                    "\"left\"",
+                    "\"\"",
+                    "\"howto\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 240) / 2",
+                    "585",
+                    "240",
+                    "56",
+                    "\"Do dzieła\"",
+                    "\"howtoDone\"",
+                    "0",
+                    "\"howto\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"howtoDone\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Save.settings.seenHowTo",
+                "True",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "HolyHoly::StoreSave"
+              },
+              "parameters": [
+                "",
+                "\"Save\"",
+                "\"holyholyholy3d.save.v1\"",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "Scene"
+              },
+              "parameters": [
+                "",
+                "\"Tree\"",
+                "yes"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"band\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"band\""
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakePanel"
+                  },
+                  "parameters": [
+                    "",
+                    "UiPanel",
+                    "(SceneWindowWidth() - 760) / 2",
+                    "70",
+                    "760",
+                    "580",
+                    "\"\"",
+                    "\"band\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiTitle",
+                    "(SceneWindowWidth() - 760) / 2",
+                    "94",
+                    "760",
+                    "\"Opaska Mendi\"",
+                    "\"center\"",
+                    "\"\"",
+                    "\"band\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiSmall",
+                    "(SceneWindowWidth() - 680) / 2",
+                    "160",
+                    "680",
+                    "\"Opaska fNIRS Mendi mierzy pracę kory przedczołowej. W grze nie jest potrzebna: skupienie daje też bezruch. Z opaską skupienie liczy się nawet w ruchu, a mnożnik Ognia Ducha rośnie do ×3. Dane zostają w urządzeniu. To nie jest wyrób medyczny ani terapia.\"",
+                    "\"left\"",
+                    "\"\"",
+                    "\"band\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiText",
+                    "(SceneWindowWidth() - 680) / 2",
+                    "360",
+                    "680",
+                    "\"\"",
+                    "\"center\"",
+                    "\"bandStatus\"",
+                    "\"band\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 560) / 2",
+                    "470",
+                    "270",
+                    "58",
+                    "\"Połącz opaskę\"",
+                    "\"connect\"",
+                    "0",
+                    "\"band\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() + 20) / 2",
+                    "470",
+                    "270",
+                    "58",
+                    "\"Rozłącz\"",
+                    "\"disconnect\"",
+                    "0",
+                    "\"band\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 240) / 2",
+                    "565",
+                    "240",
+                    "56",
+                    "\"Zamknij\"",
+                    "\"close\"",
+                    "0",
+                    "\"band\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiText",
+                "Key",
+                "=",
+                "\"bandStatus\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiText",
+                "Text",
+                "=",
+                "MendiFocus::StatusText()"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"connect\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "MendiFocus::Connect"
+              },
+              "parameters": [
+                "",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"disconnect\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "MendiFocus::Disconnect"
+              },
+              "parameters": [
+                "",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"settings\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"settings\""
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakePanel"
+                  },
+                  "parameters": [
+                    "",
+                    "UiPanel",
+                    "(SceneWindowWidth() - 620) / 2",
+                    "(SceneWindowHeight() - 470) / 2",
+                    "620",
+                    "470",
+                    "\"\"",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiTitle",
+                    "(SceneWindowWidth() - 620) / 2",
+                    "(SceneWindowHeight() - 470) / 2 + 30",
+                    "620",
+                    "\"Ustawienia\"",
+                    "\"center\"",
+                    "\"\"",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiText",
+                    "(SceneWindowWidth() - 620) / 2 + 40",
+                    "(SceneWindowHeight() - 470) / 2 + 110 + 0",
+                    "300",
+                    "\"\"",
+                    "\"left\"",
+                    "\"setMaster\"",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 620) / 2 + 420",
+                    "(SceneWindowHeight() - 470) / 2 + 102 + 0",
+                    "70",
+                    "48",
+                    "\"−\"",
+                    "\"master-\"",
+                    "0",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 620) / 2 + 505",
+                    "(SceneWindowHeight() - 470) / 2 + 102 + 0",
+                    "70",
+                    "48",
+                    "\"+\"",
+                    "\"master+\"",
+                    "0",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiText",
+                    "(SceneWindowWidth() - 620) / 2 + 40",
+                    "(SceneWindowHeight() - 470) / 2 + 110 + 62",
+                    "300",
+                    "\"\"",
+                    "\"left\"",
+                    "\"setMusic\"",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 620) / 2 + 420",
+                    "(SceneWindowHeight() - 470) / 2 + 102 + 62",
+                    "70",
+                    "48",
+                    "\"−\"",
+                    "\"music-\"",
+                    "0",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 620) / 2 + 505",
+                    "(SceneWindowHeight() - 470) / 2 + 102 + 62",
+                    "70",
+                    "48",
+                    "\"+\"",
+                    "\"music+\"",
+                    "0",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiText",
+                    "(SceneWindowWidth() - 620) / 2 + 40",
+                    "(SceneWindowHeight() - 470) / 2 + 110 + 124",
+                    "300",
+                    "\"\"",
+                    "\"left\"",
+                    "\"setSfx\"",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 620) / 2 + 420",
+                    "(SceneWindowHeight() - 470) / 2 + 102 + 124",
+                    "70",
+                    "48",
+                    "\"−\"",
+                    "\"sfx-\"",
+                    "0",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 620) / 2 + 505",
+                    "(SceneWindowHeight() - 470) / 2 + 102 + 124",
+                    "70",
+                    "48",
+                    "\"+\"",
+                    "\"sfx+\"",
+                    "0",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiText",
+                    "(SceneWindowWidth() - 620) / 2 + 40",
+                    "(SceneWindowHeight() - 470) / 2 + 296",
+                    "330",
+                    "\"\"",
+                    "\"left\"",
+                    "\"setEffects\"",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 620) / 2 + 420",
+                    "(SceneWindowHeight() - 470) / 2 + 288",
+                    "155",
+                    "48",
+                    "\"Zmień\"",
+                    "\"effects\"",
+                    "0",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeText"
+                  },
+                  "parameters": [
+                    "",
+                    "UiText",
+                    "(SceneWindowWidth() - 620) / 2 + 40",
+                    "(SceneWindowHeight() - 470) / 2 + 358",
+                    "330",
+                    "\"\"",
+                    "\"left\"",
+                    "\"setShake\"",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 620) / 2 + 420",
+                    "(SceneWindowHeight() - 470) / 2 + 350",
+                    "155",
+                    "48",
+                    "\"Zmień\"",
+                    "\"shake\"",
+                    "0",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "(SceneWindowWidth() - 620) / 2 + 200",
+                    "(SceneWindowHeight() - 470) / 2 + 440",
+                    "220",
+                    "56",
+                    "\"Gotowe\"",
+                    "\"close\"",
+                    "0",
+                    "\"settings\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "colorB": 0,
+          "colorG": 152,
+          "colorR": 255,
+          "creationTime": 0,
+          "folded": true,
+          "name": "Settings",
+          "source": "",
+          "type": "BuiltinCommonInstructions::Group",
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"master-\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.master",
+                    "=",
+                    "clamp(round((Save.settings.master - 0.1) * 10) / 10, 0, 1)"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Psalm150::SetVolumes"
+                  },
+                  "parameters": [
+                    "",
+                    "Save.settings.master",
+                    "Save.settings.music",
+                    "Save.settings.sfx",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "HolyHoly::StoreSave"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Save\"",
+                    "\"holyholyholy3d.save.v1\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"master+\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.master",
+                    "=",
+                    "clamp(round((Save.settings.master + 0.1) * 10) / 10, 0, 1)"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Psalm150::SetVolumes"
+                  },
+                  "parameters": [
+                    "",
+                    "Save.settings.master",
+                    "Save.settings.music",
+                    "Save.settings.sfx",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "HolyHoly::StoreSave"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Save\"",
+                    "\"holyholyholy3d.save.v1\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"music-\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.music",
+                    "=",
+                    "clamp(round((Save.settings.music - 0.1) * 10) / 10, 0, 1)"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Psalm150::SetVolumes"
+                  },
+                  "parameters": [
+                    "",
+                    "Save.settings.master",
+                    "Save.settings.music",
+                    "Save.settings.sfx",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "HolyHoly::StoreSave"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Save\"",
+                    "\"holyholyholy3d.save.v1\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"music+\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.music",
+                    "=",
+                    "clamp(round((Save.settings.music + 0.1) * 10) / 10, 0, 1)"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Psalm150::SetVolumes"
+                  },
+                  "parameters": [
+                    "",
+                    "Save.settings.master",
+                    "Save.settings.music",
+                    "Save.settings.sfx",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "HolyHoly::StoreSave"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Save\"",
+                    "\"holyholyholy3d.save.v1\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"sfx-\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.sfx",
+                    "=",
+                    "clamp(round((Save.settings.sfx - 0.1) * 10) / 10, 0, 1)"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Psalm150::SetVolumes"
+                  },
+                  "parameters": [
+                    "",
+                    "Save.settings.master",
+                    "Save.settings.music",
+                    "Save.settings.sfx",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "HolyHoly::StoreSave"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Save\"",
+                    "\"holyholyholy3d.save.v1\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"sfx+\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.sfx",
+                    "=",
+                    "clamp(round((Save.settings.sfx + 0.1) * 10) / 10, 0, 1)"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Psalm150::SetVolumes"
+                  },
+                  "parameters": [
+                    "",
+                    "Save.settings.master",
+                    "Save.settings.music",
+                    "Save.settings.sfx",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "HolyHoly::StoreSave"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Save\"",
+                    "\"holyholyholy3d.save.v1\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"effects\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetBooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.effects",
+                    "Toggle",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "HolyHoly::StoreSave"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Save\"",
+                    "\"holyholyholy3d.save.v1\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"shake\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetBooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.shake",
+                    "Toggle",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "HolyHoly::StoreSave"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Save\"",
+                    "\"holyholyholy3d.save.v1\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Key",
+                    "=",
+                    "\"setMaster\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Text",
+                    "=",
+                    "\"Głośność: \" + ToString(round(Save.settings.master * 100)) + \"%\""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Key",
+                    "=",
+                    "\"setMusic\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Text",
+                    "=",
+                    "\"Muzyka: \" + ToString(round(Save.settings.music * 100)) + \"%\""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Key",
+                    "=",
+                    "\"setSfx\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Text",
+                    "=",
+                    "\"Efekty dźwiękowe: \" + ToString(round(Save.settings.sfx * 100)) + \"%\""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Key",
+                    "=",
+                    "\"setEffects\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.effects",
+                    "True",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Text",
+                    "=",
+                    "\"Grafika: pełna (poświata, cienie)\""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Key",
+                    "=",
+                    "\"setEffects\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.effects",
+                    "False",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Text",
+                    "=",
+                    "\"Grafika: lekka (dla telefonu)\""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Key",
+                    "=",
+                    "\"setShake\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.shake",
+                    "True",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Text",
+                    "=",
+                    "\"Wstrząsy ekranu: tak\""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Key",
+                    "=",
+                    "\"setShake\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.shake",
+                    "False",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Text",
+                    "=",
+                    "\"Wstrząsy ekranu: nie\""
+                  ]
+                }
+              ]
+            }
+          ],
+          "parameters": []
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"effects\""
+              ]
+            }
+          ],
+          "actions": [],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.effects",
+                    "True",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "EnableLayerEffect"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Glow\"",
+                    "yes"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetLayerEffectBooleanParameter"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Sun\"",
+                    "\"isCastingShadow\"",
+                    "yes"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.effects",
+                    "False",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "EnableLayerEffect"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Glow\"",
+                    "no"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetLayerEffectBooleanParameter"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Sun\"",
+                    "\"isCastingShadow\"",
+                    "no"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    }
+  ],
+  "layers": [
+    {
+      "ambientLightColorB": 200,
+      "ambientLightColorG": 200,
+      "ambientLightColorR": 200,
+      "camera2DPlaneMaxDrawingDistance": 5000,
+      "camera3DFarPlaneDistance": 10000,
+      "camera3DFieldOfView": 45,
+      "camera3DNearPlaneDistance": 3,
+      "cameraType": "",
+      "followBaseLayerCamera": false,
+      "isLightingLayer": false,
+      "isLocked": false,
+      "name": "",
+      "renderingType": "",
+      "visibility": true,
+      "cameras": [
+        {
+          "defaultSize": true,
+          "defaultViewport": true,
+          "height": 0,
+          "viewportBottom": 1,
+          "viewportLeft": 0,
+          "viewportRight": 1,
+          "viewportTop": 0,
+          "width": 0
+        }
+      ],
+      "effects": [
+        {
+          "effectType": "Scene3D::HemisphereLight",
+          "name": "Sky",
+          "doubleParameters": {
+            "elevation": 60,
+            "intensity": 0.55,
+            "rotation": 300
+          },
+          "stringParameters": {
+            "groundColor": "90;80;110",
+            "skyColor": "255;246;230",
+            "top": "Z+"
+          },
+          "booleanParameters": {}
+        },
+        {
+          "effectType": "Scene3D::DirectionalLight",
+          "name": "Sun",
+          "doubleParameters": {
+            "distanceFromCamera": 1500,
+            "elevation": 55,
+            "frustumSize": 3000,
+            "intensity": 0.8,
+            "minimumShadowBias": 0,
+            "rotation": 300,
+            "shadowDistance": 2200
+          },
+          "stringParameters": {
+            "color": "255;240;214",
+            "shadowQuality": "medium",
+            "shadowRenderingMode": "fittedToCameraView",
+            "top": "Z+"
+          },
+          "booleanParameters": {
+            "isCastingShadow": true
+          }
+        },
+        {
+          "effectType": "Scene3D::LinearFog",
+          "name": "Fog",
+          "doubleParameters": {
+            "far": 3200,
+            "near": 900
+          },
+          "stringParameters": {
+            "color": "20;16;34"
+          },
+          "booleanParameters": {}
+        },
+        {
+          "effectType": "Scene3D::Bloom",
+          "name": "Glow",
+          "doubleParameters": {
+            "radius": 0.35,
+            "strength": 0.5,
+            "threshold": 0.88
+          },
+          "stringParameters": {},
+          "booleanParameters": {}
+        }
+      ]
+    },
+    {
+      "ambientLightColorB": 200,
+      "ambientLightColorG": 200,
+      "ambientLightColorR": 200,
+      "camera2DPlaneMaxDrawingDistance": 5000,
+      "camera3DFarPlaneDistance": 10000,
+      "camera3DFieldOfView": 45,
+      "camera3DNearPlaneDistance": 3,
+      "cameraType": "",
+      "followBaseLayerCamera": false,
+      "isLightingLayer": false,
+      "isLocked": false,
+      "name": "UI",
+      "renderingType": "2d",
+      "visibility": true,
+      "cameras": [
+        {
+          "defaultSize": true,
+          "defaultViewport": true,
+          "height": 0,
+          "viewportBottom": 1,
+          "viewportLeft": 0,
+          "viewportRight": 1,
+          "viewportTop": 0,
+          "width": 0
+        }
+      ],
+      "effects": []
+    }
+  ],
+  "behaviorsSharedData": [
+    {
+      "name": "Animation",
+      "type": "AnimatableCapability::AnimatableBehavior"
+    },
+    {
+      "name": "Effect",
+      "type": "EffectCapability::EffectBehavior"
+    },
+    {
+      "name": "Flippable",
+      "type": "FlippableCapability::FlippableBehavior"
+    },
+    {
+      "name": "Object3D",
+      "type": "Scene3D::Base3DBehavior"
+    },
+    {
+      "name": "Opacity",
+      "type": "OpacityCapability::OpacityBehavior"
+    },
+    {
+      "name": "Resizable",
+      "type": "ResizableCapability::ResizableBehavior"
+    },
+    {
+      "name": "Scale",
+      "type": "ScalableCapability::ScalableBehavior"
+    },
+    {
+      "name": "Text",
+      "type": "TextContainerCapability::TextContainerBehavior"
+    },
+    {
+      "name": "Tween",
+      "type": "Tween::TweenBehavior"
+    }
+  ]
+}

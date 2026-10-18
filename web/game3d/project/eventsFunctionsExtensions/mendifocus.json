@@ -1,0 +1,614 @@
+{
+  "author": "HolyHolyHoly",
+  "category": "Input",
+  "dimension": "",
+  "extensionNamespace": "",
+  "fullName": "Mendi focus",
+  "gdevelopVersion": "",
+  "helpPath": "",
+  "iconUrl": "",
+  "name": "MendiFocus",
+  "previewIconUrl": "",
+  "shortDescription": "Focus that charges the Fire of the Spirit: standing still, or the Mendi fNIRS band (optional).",
+  "version": "1.0.0",
+  "description": "Wraps lib/mendi-focus.js, built from BrainLink's Mendi Web Bluetooth adapter and fNIRS pipeline and the 2D game's focus charger. Without the band, standing still is focus (multiplier up to ×1.5); the band adds focus while moving (up to ×3). It never lowers anything. Data stays on the device. Web Bluetooth works in Chrome and Edge (desktop and Android) and in Bluefy on iOS.",
+  "tags": [
+    "holyholyholy"
+  ],
+  "authorIds": [],
+  "dependencies": [],
+  "sourceFiles": [
+    {
+      "resourceName": "lib/mendi-focus.js",
+      "includePosition": "last"
+    }
+  ],
+  "globalVariables": [],
+  "sceneVariables": [],
+  "eventsFunctions": [
+    {
+      "description": "Opens the browser's Bluetooth chooser (call it right after a click or tap).",
+      "fullName": "Connect the band",
+      "functionType": "Action",
+      "group": "Band",
+      "name": "Connect",
+      "sentence": "Connect the Mendi band",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) {  return; }",
+            "focus.connect();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Disconnects the band.",
+      "fullName": "Disconnect the band",
+      "functionType": "Action",
+      "group": "Band",
+      "name": "Disconnect",
+      "sentence": "Disconnect the Mendi band",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) {  return; }",
+            "focus.disconnect();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "One tick of the focus charger; call it every frame during play. Standing still for more than 0.12 s counts as focus (as in the 2D game).",
+      "fullName": "Update focus",
+      "functionType": "Action",
+      "group": "Focus",
+      "name": "Update",
+      "sentence": "Update focus (delta _PARAM1_ s, standing still for _PARAM2_ s)",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) {  return; }",
+            "focus.update(eventsFunctionContext.getArgument(\"Delta\"), eventsFunctionContext.getArgument(\"StillSeconds\") > 0.12);",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Seconds since the last frame",
+          "name": "Delta",
+          "type": "expression"
+        },
+        {
+          "description": "How long the angel has stood still (s)",
+          "name": "StillSeconds",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "A new chapter starts the focus streak afresh.",
+      "fullName": "Reset focus",
+      "functionType": "Action",
+      "group": "Focus",
+      "name": "Reset",
+      "sentence": "Reset focus",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) {  return; }",
+            "focus.reset();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "The browser supports Web Bluetooth.",
+      "fullName": "Bluetooth available",
+      "functionType": "Condition",
+      "group": "Band",
+      "name": "IsSupported",
+      "sentence": "Web Bluetooth is available",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = false; return; }",
+            "eventsFunctionContext.returnValue = focus.supported();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "The band is connected (calibrating or ready).",
+      "fullName": "Band active",
+      "functionType": "Condition",
+      "group": "Band",
+      "name": "IsBandActive",
+      "sentence": "The Mendi band is active",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = false; return; }",
+            "eventsFunctionContext.returnValue = ['calibrating', 'ready', 'paused'].includes(focus.status());",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "True on the frame the focus multiplier went up.",
+      "fullName": "Multiplier rose",
+      "functionType": "Condition",
+      "group": "Focus",
+      "name": "TierJustRose",
+      "sentence": "The focus multiplier just rose",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = false; return; }",
+            "eventsFunctionContext.returnValue = focus.tierUp();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Focus is at or above the threshold (or within the grace period).",
+      "fullName": "Focused",
+      "functionType": "Condition",
+      "group": "Focus",
+      "name": "IsFocused",
+      "sentence": "The player is focused",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = false; return; }",
+            "eventsFunctionContext.returnValue = focus.focused();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Smoothed focus 0–1.",
+      "fullName": "Focus level",
+      "functionType": "Expression",
+      "group": "Focus",
+      "name": "Level",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = 0; return; }",
+            "eventsFunctionContext.returnValue = focus.level();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Focus level that counts as focused.",
+      "fullName": "Focus threshold",
+      "functionType": "Expression",
+      "group": "Focus",
+      "name": "Threshold",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = 0.55; return; }",
+            "eventsFunctionContext.returnValue = focus.threshold;",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Focus multiplier: 1, 1.5, 2 or 3.",
+      "fullName": "Multiplier",
+      "functionType": "Expression",
+      "group": "Focus",
+      "name": "Multiplier",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = 1; return; }",
+            "eventsFunctionContext.returnValue = focus.multiplier();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "0–1.",
+      "fullName": "Progress to the next multiplier",
+      "functionType": "Expression",
+      "group": "Focus",
+      "name": "ToNext",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = 0; return; }",
+            "eventsFunctionContext.returnValue = focus.toNext();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Charge per second in units of the base rate.",
+      "fullName": "Charge factor",
+      "functionType": "Expression",
+      "group": "Focus",
+      "name": "ChargeFactor",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = 0; return; }",
+            "eventsFunctionContext.returnValue = focus.chargeFactor();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Seconds of focus held without a break.",
+      "fullName": "Focus held",
+      "functionType": "Expression",
+      "group": "Focus",
+      "name": "HeldSeconds",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = 0; return; }",
+            "eventsFunctionContext.returnValue = focus.held();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Heart rate from the band (0 if none).",
+      "fullName": "Heart rate",
+      "functionType": "Expression",
+      "group": "Band",
+      "name": "HeartRate",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = 0; return; }",
+            "eventsFunctionContext.returnValue = focus.heartRate();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "0–1 while the band calibrates.",
+      "fullName": "Calibration progress",
+      "functionType": "Expression",
+      "group": "Band",
+      "name": "BaselineProgress",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = 0; return; }",
+            "eventsFunctionContext.returnValue = focus.baselineProgress();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "expression"
+      },
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "\"band\", \"still\" or \"none\".",
+      "fullName": "Focus source",
+      "functionType": "StringExpression",
+      "group": "Focus",
+      "name": "Source",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = 'none'; return; }",
+            "eventsFunctionContext.returnValue = focus.source();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "unsupported, off, connecting, calibrating, ready, paused or error.",
+      "fullName": "Band status",
+      "functionType": "StringExpression",
+      "group": "Band",
+      "name": "Status",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = 'unsupported'; return; }",
+            "eventsFunctionContext.returnValue = focus.status();",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "A sentence for the player.",
+      "fullName": "Band status (Polish)",
+      "functionType": "StringExpression",
+      "group": "Band",
+      "name": "StatusText",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const focus = window.MendiFocus;",
+            "if (!focus) { eventsFunctionContext.returnValue = ''; return; }",
+            "",
+            "const texts = {",
+            "  unsupported: 'Ta przeglądarka nie obsługuje Bluetooth. Użyj Chrome lub Edge (na iPhonie: Bluefy).',",
+            "  off: 'Opaska niepołączona. Skupienie daje bezruch (do ×1,5).',",
+            "  connecting: 'Łączenie z opaską…',",
+            "  calibrating: 'Kalibracja opaski: ' + Math.round(focus.baselineProgress() * 100) + '%. Spokojnie oddychaj.',",
+            "  ready: 'Opaska gotowa: skupienie liczy się także w ruchu (do ×3).',",
+            "  paused: 'Sygnał wstrzymany: ruch głowy albo słaby kontakt.',",
+            "  error: focus.error() || 'Nie udało się połączyć z opaską.',",
+            "};",
+            "eventsFunctionContext.returnValue = texts[focus.status()] || '';",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [],
+      "objectGroups": []
+    }
+  ],
+  "eventsFunctionsFolderStructure": {
+    "folderName": "__ROOT",
+    "children": [
+      {
+        "folderName": "Band",
+        "children": [
+          {
+            "functionName": "Connect"
+          },
+          {
+            "functionName": "Disconnect"
+          },
+          {
+            "functionName": "IsSupported"
+          },
+          {
+            "functionName": "IsBandActive"
+          },
+          {
+            "functionName": "HeartRate"
+          },
+          {
+            "functionName": "BaselineProgress"
+          },
+          {
+            "functionName": "Status"
+          },
+          {
+            "functionName": "StatusText"
+          }
+        ]
+      },
+      {
+        "folderName": "Focus",
+        "children": [
+          {
+            "functionName": "Update"
+          },
+          {
+            "functionName": "Reset"
+          },
+          {
+            "functionName": "TierJustRose"
+          },
+          {
+            "functionName": "IsFocused"
+          },
+          {
+            "functionName": "Level"
+          },
+          {
+            "functionName": "Threshold"
+          },
+          {
+            "functionName": "Multiplier"
+          },
+          {
+            "functionName": "ToNext"
+          },
+          {
+            "functionName": "ChargeFactor"
+          },
+          {
+            "functionName": "HeldSeconds"
+          },
+          {
+            "functionName": "Source"
+          }
+        ]
+      }
+    ]
+  },
+  "eventsBasedBehaviors": [],
+  "eventsBasedObjects": []
+}
