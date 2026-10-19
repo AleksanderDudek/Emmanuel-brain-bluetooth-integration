@@ -7,7 +7,8 @@
  * the healing scene with Christ's own words, the thought record, the tool kept in the toolbox,
  * and the breathing practice. Fails on any page error or console error.
  *
- *   npm run game3d:export && npm run game3d:smoke     (CHROME_PATH=… to choose the browser)
+ *   npm run game3d:export && npm run game3d:smoke     (CHROME_PATH=… to choose the browser,
+ *                                                     SMOKE_CPU_THROTTLE=4 to run as slowly as CI)
  *
  * Input goes through GDevelop's own keyboard handlers (document.onkeydown/onkeyup), the same path
  * a real key press takes, so the test does not depend on window focus in a headless browser.
@@ -82,6 +83,8 @@ let failed = false;
 try {
   const page = await browser.newPage();
   page.setDefaultTimeout(180_000);
+  // SMOKE_CPU_THROTTLE=4 runs the game as slowly as a CI runner does
+  if (Number(process.env.SMOKE_CPU_THROTTLE) > 1) await page.emulateCPUThrottling(Number(process.env.SMOKE_CPU_THROTTLE));
   page.on('pageerror', e => errors.push(`page error: ${e.message}`));
   page.on('console', m => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
   page.on('requestfailed', r => errors.push(`request failed: ${r.url()}`));
@@ -335,14 +338,21 @@ try {
     const wrong = order.findIndex(o => kinds[o] !== 'balanced');
     const right = order.findIndex(o => kinds[o] === 'balanced');
     if (!(await h.click('cbt', wrong))) return { ok: false, step: 'wrong' };
-    await h.wait(500);
+    // the page is built again with the explanation: wait for it before the next click (slow runners)
+    const explained = () => h.scene().getObjects('UiSmall').some(t => t.getVariables().get('Key').getAsString() === 'why');
+    if (!(await h.until(explained, 8000))) return { ok: false, step: 'no explanation' };
+    await h.frames(3);
     if (h.v('Page').getAsNumber() !== 1) return { ok: false, step: 'stayed', page: h.v('Page').getAsNumber() };
-    return { ok: await h.click('cbt', right), order, kinds };
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (!(await h.click('cbt', right))) return { ok: false, step: 'right' };
+      if (await h.until(() => h.v('Wait').getAsNumber() > 0 || h.v('Page').getAsNumber() === 2, 3000)) return { ok: true, order, kinds };
+    }
+    return { ok: false, step: 'balanced click not taken', order, kinds };
   });
   await page.screenshot({ path: join(SHOTS, '12-thought-record.png') });
   await check('the truth, the tool for life, the report; the toolbox keeps the tool', async () => {
     const h = window.HHH;
-    if (!(await h.until(() => h.v('Page').getAsNumber() === 2, 5000))) return false;
+    if (!(await h.until(() => h.v('Page').getAsNumber() === 2, 12_000))) return { ok: false, page: h.v('Page').getAsNumber(), wait: h.v('Wait').getAsNumber() };
     const saved = JSON.parse(localStorage.getItem('holyholyholy3d.save.v2') || '{}');
     return { ok: saved.done?.noc === true && saved.tools?.oddech === true && saved.light > 0 && saved.manna > 0, done: saved.done, tools: saved.tools };
   });
