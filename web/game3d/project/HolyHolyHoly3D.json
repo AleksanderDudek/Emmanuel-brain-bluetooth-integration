@@ -8008,7 +8008,17 @@
         {
           "name": "chapterHp",
           "type": "number",
-          "value": 0.2
+          "value": 0.1
+        },
+        {
+          "name": "chapterSpawn",
+          "type": "number",
+          "value": 0.015
+        },
+        {
+          "name": "chapterSpeed",
+          "type": "number",
+          "value": 0.02
         },
         {
           "name": "comboWindow",
@@ -8028,7 +8038,7 @@
         {
           "name": "grace",
           "type": "number",
-          "value": 1.1
+          "value": 1.4
         },
         {
           "name": "magnet",
@@ -8153,17 +8163,17 @@
         {
           "name": "xpAdd",
           "type": "number",
-          "value": 3
+          "value": 2
         },
         {
           "name": "xpFirst",
           "type": "number",
-          "value": 6
+          "value": 5
         },
         {
           "name": "xpGrowth",
           "type": "number",
-          "value": 1.3
+          "value": 1.22
         }
       ]
     },

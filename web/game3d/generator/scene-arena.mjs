@@ -322,13 +322,13 @@ function statsEvents() {
       set('St.shotCount', '=', `1 + ${step(L, 4)}`), set('St.shotArc', '=', '24'), set('St.shotLife', '=', '1.7'),
     ],
     rafal: [
-      set('St.shotDamage', '=', '6'), set('St.shotCooldown', '=', '1.7'), set('St.shotSpeed', '=', '620'), set('St.shotPierce', '=', '0'), set('St.burn', '=', '0'),
+      set('St.shotDamage', '=', '6'), set('St.shotCooldown', '=', '1.3'), set('St.shotSpeed', '=', '620'), set('St.shotPierce', '=', '0'), set('St.burn', '=', '0'),
       set('St.shotCount', '=', `1 + ${step(L, 5)}`), set('St.shotArc', '=', '30'), set('St.shotLife', '=', '0.55'),
-      set('St.poolR', '=', `120 * (1 + 0.3 * ${step(L, 2)})`), set('St.poolDps', '=', `22 * (1 + 0.4 * ${step(L, 4)})`), set('St.poolHeal', '=', `0.12 + 0.1 * ${step(L, 3)}`),
+      set('St.poolR', '=', `130 * (1 + 0.3 * ${step(L, 2)})`), set('St.poolDps', '=', `30 * (1 + 0.4 * ${step(L, 4)})`), set('St.poolHeal', '=', `0.12 + 0.1 * ${step(L, 3)}`),
       set('St.poolLife', '=', '3'), set('St.poolSlow', '=', '0'),
     ],
     selafiel: [
-      set('St.aura', '=', `150 * (1 + 0.25 * ${step(L, 2)} + 0.25 * ${step(L, 5)})`), set('St.auraDps', '=', `24 * (1 + 0.4 * ${step(L, 3)} + 0.3 * ${step(L, 5)})`),
+      set('St.aura', '=', `160 * (1 + 0.25 * ${step(L, 2)} + 0.25 * ${step(L, 5)})`), set('St.auraDps', '=', `34 * (1 + 0.4 * ${step(L, 3)} + 0.3 * ${step(L, 5)})`),
       set('St.auraSlow', '=', `0.3 + 0.2 * ${step(L, 4)}`), set('St.shotCount', '=', '0'),
     ],
     jehudiel: [
@@ -583,8 +583,8 @@ function signatureEvents() {
       ]),
     ]),
     group('Incense of Selaphiel', [
-      ev([hero('selafiel'), OR(cmp('Still', '>=', 'Tuning.stillDelay'), evo('sig-selafiel')), playing()], [set('AuraP', '=', `min(1, AuraP + 1.5 * ${dt})`)]),
-      ev([hero('selafiel'), cmp('Still', '<', 'Tuning.stillDelay'), noEvo('sig-selafiel')], [set('AuraP', '=', `max(0, AuraP - 2 * ${dt})`)]),
+      ev([hero('selafiel'), OR(cmp('Still', '>=', 'Tuning.stillDelay'), evo('sig-selafiel')), playing()], [set('AuraP', '=', `min(1, AuraP + 3 * ${dt})`)]),
+      ev([hero('selafiel'), cmp('Still', '<', 'Tuning.stillDelay'), noEvo('sig-selafiel')], [set('AuraP', '=', `max(0, AuraP - 0.7 * ${dt})`)]),
       ev([hero('selafiel')], [size('Aura', 'St.aura * 2 * AuraP + 1', 'St.aura * 2 * AuraP + 1'), set('AuraT', '-', dt)]),
       ev([hero('selafiel'), cmp('AuraT', '<=', '0'), cmp('AuraP', '>', '0.2'), playing()], [set('AuraT', '=', '0.4')], [
         ev([C('Distance', 'Traumas', 'Player', 'St.aura * AuraP')], [
@@ -1031,7 +1031,7 @@ function spawn(x, y, kindExpr, extra = []) {
     osetS(T, 'Kind', '=', 'kind'),
     osetS(T, 'Archetype', '=', 'Content.enemies[kind].archetype'),
     oset(T, 'MaxHp', '=', 'Content.enemies[kind].hp * (1 + Tuning.chapterHp * Chapter) * (1 + Tuning.waveHp * (min(Wave, Tuning.waves) - 1)) * St.hpMul * Tuning.traumaHpScale'),
-    oset(T, 'Speed', '=', 'Content.enemies[kind].speed * Tuning.traumaSpeed * (1 + 0.035 * Chapter)'),
+    oset(T, 'Speed', '=', 'Content.enemies[kind].speed * Tuning.traumaSpeed * (1 + Tuning.chapterSpeed * Chapter)'),
     oset(T, 'Dir', '=', 'RandomWithStep(-1, 1, 2)'),
     oset(T, 'T', '=', 'RandomFloatInRange(0, 2)'),
     oset(T, 'FireCD', '=', 'RandomFloatInRange(1.2, 2.6)'),
@@ -1059,9 +1059,9 @@ function waveEvents() {
     comment('Three waves of about a minute; shadows come from beyond the edge of the view, faster as the wave goes on. Between waves: the Sabbath, with a discernment card (name how a thought lies).'),
     ev([playing(), cmp('Wave', '<=', 'Tuning.waves')], [set('WaveTime', '-', dt), set('Run.time', '+', dt), set('SpawnT', '-', dt)]),
     ev([playing(), cmp('Wave', '<=', 'Tuning.waves'), cmp('SpawnT', '<=', '0'), cmp('SceneInstancesCount(Traumas)', '<', 'Tuning.maxAlive')], [
-      set('SpawnT', '=', 'max(Tuning.spawnMin, Tuning.spawnInterval * (1 - 0.16 * (Wave - 1)) * (1 - 0.025 * Chapter) * (0.55 + 0.45 * WaveTime / Tuning.waveSeconds))'),
+      set('SpawnT', '=', 'max(Tuning.spawnMin, Tuning.spawnInterval * (1 - 0.16 * (Wave - 1)) * (1 - Tuning.chapterSpawn * Chapter) * (0.55 + 0.45 * WaveTime / Tuning.waveSeconds))'),
     ], [
-      repeat('1 + floor((Tuning.waveSeconds - WaveTime) / 25) + floor((Wave - 1) / 2) + floor(Chapter / 4)', [], [...spawnAround], [
+      repeat('1 + floor((Tuning.waveSeconds - WaveTime) / 25) + floor((Wave - 1) / 2) + floor(Chapter / 5)', [], [...spawnAround], [
         spawn('sx', 'sy', `${CH}.enemies[RandomInRange(0, KindCount - 1)]`),
       ], { vars: { sa: 0, sx: 0, sy: 0, sk: 1 } }),
     ]),

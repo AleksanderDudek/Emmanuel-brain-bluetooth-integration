@@ -347,7 +347,7 @@
     {
       "name": "XpNext",
       "type": "number",
-      "value": 6
+      "value": 5
     },
     {
       "name": "Level",
@@ -10453,7 +10453,7 @@
                   "parameters": [
                     "St.shotCooldown",
                     "=",
-                    "1.7"
+                    "1.3"
                   ]
                 },
                 {
@@ -10523,7 +10523,7 @@
                   "parameters": [
                     "St.poolR",
                     "=",
-                    "120 * (1 + 0.3 * clamp(Run.gifts[SigId] - 1, 0, 1))"
+                    "130 * (1 + 0.3 * clamp(Run.gifts[SigId] - 1, 0, 1))"
                   ]
                 },
                 {
@@ -10533,7 +10533,7 @@
                   "parameters": [
                     "St.poolDps",
                     "=",
-                    "22 * (1 + 0.4 * clamp(Run.gifts[SigId] - 3, 0, 1))"
+                    "30 * (1 + 0.4 * clamp(Run.gifts[SigId] - 3, 0, 1))"
                   ]
                 },
                 {
@@ -10590,7 +10590,7 @@
                   "parameters": [
                     "St.aura",
                     "=",
-                    "150 * (1 + 0.25 * clamp(Run.gifts[SigId] - 1, 0, 1) + 0.25 * clamp(Run.gifts[SigId] - 4, 0, 1))"
+                    "160 * (1 + 0.25 * clamp(Run.gifts[SigId] - 1, 0, 1) + 0.25 * clamp(Run.gifts[SigId] - 4, 0, 1))"
                   ]
                 },
                 {
@@ -10600,7 +10600,7 @@
                   "parameters": [
                     "St.auraDps",
                     "=",
-                    "24 * (1 + 0.4 * clamp(Run.gifts[SigId] - 2, 0, 1) + 0.3 * clamp(Run.gifts[SigId] - 4, 0, 1))"
+                    "34 * (1 + 0.4 * clamp(Run.gifts[SigId] - 2, 0, 1) + 0.3 * clamp(Run.gifts[SigId] - 4, 0, 1))"
                   ]
                 },
                 {
@@ -17472,7 +17472,7 @@
                   "parameters": [
                     "AuraP",
                     "=",
-                    "min(1, AuraP + 1.5 * TimeDelta())"
+                    "min(1, AuraP + 3 * TimeDelta())"
                   ]
                 }
               ]
@@ -17519,7 +17519,7 @@
                   "parameters": [
                     "AuraP",
                     "=",
-                    "max(0, AuraP - 2 * TimeDelta())"
+                    "max(0, AuraP - 0.7 * TimeDelta())"
                   ]
                 }
               ]
@@ -27064,14 +27064,14 @@
               "parameters": [
                 "SpawnT",
                 "=",
-                "max(Tuning.spawnMin, Tuning.spawnInterval * (1 - 0.16 * (Wave - 1)) * (1 - 0.025 * Chapter) * (0.55 + 0.45 * WaveTime / Tuning.waveSeconds))"
+                "max(Tuning.spawnMin, Tuning.spawnInterval * (1 - 0.16 * (Wave - 1)) * (1 - Tuning.chapterSpawn * Chapter) * (0.55 + 0.45 * WaveTime / Tuning.waveSeconds))"
               ]
             }
           ],
           "events": [
             {
               "type": "BuiltinCommonInstructions::Repeat",
-              "repeatExpression": "1 + floor((Tuning.waveSeconds - WaveTime) / 25) + floor((Wave - 1) / 2) + floor(Chapter / 4)",
+              "repeatExpression": "1 + floor((Tuning.waveSeconds - WaveTime) / 25) + floor((Wave - 1) / 2) + floor(Chapter / 5)",
               "conditions": [],
               "actions": [
                 {
@@ -27210,7 +27210,7 @@
                             "Traumas",
                             "Speed",
                             "=",
-                            "Content.enemies[kind].speed * Tuning.traumaSpeed * (1 + 0.035 * Chapter)"
+                            "Content.enemies[kind].speed * Tuning.traumaSpeed * (1 + Tuning.chapterSpeed * Chapter)"
                           ]
                         },
                         {
@@ -27698,7 +27698,7 @@
                             "Traumas",
                             "Speed",
                             "=",
-                            "Content.enemies[kind].speed * Tuning.traumaSpeed * (1 + 0.035 * Chapter)"
+                            "Content.enemies[kind].speed * Tuning.traumaSpeed * (1 + Tuning.chapterSpeed * Chapter)"
                           ]
                         },
                         {
@@ -31311,7 +31311,7 @@
                                 "Traumas",
                                 "Speed",
                                 "=",
-                                "Content.enemies[kind].speed * Tuning.traumaSpeed * (1 + 0.035 * Chapter)"
+                                "Content.enemies[kind].speed * Tuning.traumaSpeed * (1 + Tuning.chapterSpeed * Chapter)"
                               ]
                             },
                             {

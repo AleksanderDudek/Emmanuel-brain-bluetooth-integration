@@ -14,14 +14,14 @@ export const SAVE_KEY = 'holyholyholy3d.save.v2';
 
 /** Balance in one place (seconds, GDevelop units, multipliers). */
 export const TUNING = {
-  arenaRadius: 1500, playerSpeed: 330, baseHearts: 5, grace: 1.1, stillDelay: 0.18,
+  arenaRadius: 1500, playerSpeed: 330, baseHearts: 5, grace: 1.4, stillDelay: 0.18,
   shotDamage: 12, shotCooldown: 0.42, shotRange: 620, shotSpeed: 1000,
   punchDamage: 30, punchReach: 190, punchCooldown: 0.16, missCooldown: 0.45, comboWindow: 1.1,
   prayerSeconds: 45, prayerPerKill: 1.6, prayerPerStrike: 0.6,
   magnet: 210, shardSpeed: 900,
   waveSeconds: 55, waves: 3, spawnInterval: 1.45, spawnMin: 0.4, maxAlive: 60,
-  traumaSpeed: 70, traumaHpScale: 1.0, chapterHp: 0.2, waveHp: 0.15, eliteHp: 4, eliteValue: 6,
-  xpFirst: 6, xpGrowth: 1.3, xpAdd: 3,
+  traumaSpeed: 70, traumaHpScale: 1.0, chapterHp: 0.1, chapterSpeed: 0.02, chapterSpawn: 0.015, waveHp: 0.15, eliteHp: 4, eliteValue: 6,
+  xpFirst: 5, xpGrowth: 1.22, xpAdd: 2,
   bossHpScale: 6, bossArrowSpeed: 300, praiseSeconds: 7, affirmGap: 0.45,
 };
 

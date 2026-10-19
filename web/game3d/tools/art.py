@@ -111,7 +111,8 @@ def make_flat(pipe):
 def generate(ids):
     items = load_manifest()
     lock = read_lock()
-    todo = [i for i in items if (i["id"] in ids if ids else lock.get(i["id"], {}).get("hash") != prompt_hash(i))]
+    # "keep": the pinned original stays even if the prompt changed (an earlier painting was the best one)
+    todo = [i for i in items if (i["id"] in ids if ids else lock.get(i["id"], {}).get("hash") != prompt_hash(i) and not (i.get("keep") and i["id"] in lock))]
     if not todo:
         print("Nothing to paint: every item matches the lock.")
         return
@@ -283,7 +284,7 @@ def show():
     lock = read_lock()
     items = load_manifest()
     for item in items:
-        state = "done" if lock.get(item["id"], {}).get("hash") == prompt_hash(item) else "missing" if item["id"] not in lock else "changed"
+        state = "missing" if item["id"] not in lock else "done" if item.get("keep") or lock[item["id"]].get("hash") == prompt_hash(item) else "changed"
         print(f"{state:8} {item['id']:34} → {item['out']}")
     stale = sorted(set(lock) - {i["id"] for i in items})
     if stale:

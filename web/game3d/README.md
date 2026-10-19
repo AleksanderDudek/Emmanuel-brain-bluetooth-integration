@@ -99,7 +99,8 @@ npm run game3d:billboards     # billboards and effect models from the paintings
 ```
 
 Prompts stay under CLIP's 77 tokens (`art.py` warns otherwise). To repaint one image, change
-its prompt or its `seed` in the manifest. The figures of Christ follow icon conventions (the
+its prompt or its `seed` in the manifest; `"keep": true` pins the chosen original even when the
+prompt changes (when an earlier painting was the best one). The figures of Christ follow icon conventions (the
 cruciform halo is His alone); a human icon painter should eventually repaint them.
 
 ## Extensions

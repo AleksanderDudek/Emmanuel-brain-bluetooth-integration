@@ -27,7 +27,7 @@ export function synaxisScene() {
     ...[-700, -520, 520, 700].map(x => instance('Candle', x - 260, 120, { w: 34, h: 34, d: 60 })),
     instance('Motes', -260, 0, { z: 160 }),
   ];
-  const baseX = i => `-575 + ${i} * 105`;
+  const baseX = i => `-560 + ${i} * 90`;
   const baseY = i => `-40 * abs(${i} - 3)`;
   const events = [
     link('UI'),
@@ -36,7 +36,7 @@ export function synaxisScene() {
       comment('The seven stand in an arc; the chosen one steps forward into the light.'),
       ev([begins()], [
         set('Sel', '=', 'Content.heroIndex[Save.hero]'),
-        A('SetCameraCenterX', '=', '10', '""'), A('SetCameraCenterY', '=', '720', '""'),
+        A('SetCameraCenterX', '=', '-30', '""'), A('SetCameraCenterY', '=', '740', '""'),
         A('Scene3D::SetCameraZ', '=', '300', '""'), A('Scene3D::SetCameraRotationX', '=', '72', '""'),
         A('Psalm150::SetMood', q('menu'), q('chapel'), '0.2'),
         setS('Ui.top', '=', q('info')), setB('Rebuild', true),

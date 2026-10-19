@@ -783,7 +783,7 @@
               "parameters": [
                 "",
                 "=",
-                "10",
+                "-30",
                 "\"\"",
                 "0"
               ]
@@ -795,7 +795,7 @@
               "parameters": [
                 "",
                 "=",
-                "720",
+                "740",
                 "\"\"",
                 "0"
               ]
@@ -974,7 +974,7 @@
                     "",
                     "Heroes",
                     "\"Hero_\" + Content.heroes[i].id",
-                    "-575 + i * 105",
+                    "-560 + i * 90",
                     "-40 * abs(i - 3)",
                     "\"\""
                   ]
@@ -1127,7 +1127,7 @@
                   "parameters": [
                     "Heroes",
                     "=",
-                    "lerp(Heroes.X(), -575 + Heroes.Index * 105, min(1, 8 * TimeDelta()))",
+                    "lerp(Heroes.X(), -560 + Heroes.Index * 90, min(1, 8 * TimeDelta()))",
                     "=",
                     "lerp(Heroes.Y(), -40 * abs(Heroes.Index - 3) + 90, min(1, 8 * TimeDelta()))"
                   ]
@@ -1180,7 +1180,7 @@
                   "parameters": [
                     "Heroes",
                     "=",
-                    "lerp(Heroes.X(), -575 + Heroes.Index * 105, min(1, 8 * TimeDelta()))",
+                    "lerp(Heroes.X(), -560 + Heroes.Index * 90, min(1, 8 * TimeDelta()))",
                     "=",
                     "lerp(Heroes.Y(), -40 * abs(Heroes.Index - 3), min(1, 8 * TimeDelta()))"
                   ]
