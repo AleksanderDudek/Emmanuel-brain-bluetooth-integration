@@ -214,7 +214,7 @@ export async function saveGameProject(project, file = PROJECT_FILE) {
       await saveProject(project, file);
       return;
     } catch (error) {
-      if (error?.code !== 'ENOENT' || !String(error.path).startsWith(PROJECT_DIR)) throw error;
+      if (error?.code !== 'ENOENT' || !String(error.path).startsWith(dirname(file))) throw error;
       await mkdir(dirname(error.path), { recursive: true });
       await writeFile(error.path, '{}');
     }

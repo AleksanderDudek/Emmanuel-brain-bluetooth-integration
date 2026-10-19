@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Builds project/assets/data/content.json from the 2D game's content (see content.mjs).
+ * Builds project/assets/data/content.json (see content.mjs): the 3D story and game data, with what
+ * the 2D game shares (Fruits of the Spirit, ranks, the Gdańsk Bible) read from web/game/src/content.
  *
  * The game loads the file into the global variable `Content` when it starts.
  *
@@ -40,6 +41,6 @@ async function loadContent() {
   } else {
     await mkdir(join(ASSETS, 'data'), { recursive: true });
     await writeFile(target, json);
-    console.log(`content.json: ${content.chapters.length} chapters, ${Object.keys(content.traumas).length} traumas, ${content.gifts.length} gifts, ${(json.length / 1024).toFixed(1)} KiB`);
+    console.log(`content.json: ${content.chapters.length} chapters, ${content.heroes.length} archangels, ${Object.keys(content.enemies).length} shadow-thoughts, ${content.skillOrder.length} gifts and virtues, ${(json.length / 1024).toFixed(1)} KiB`);
   }
 }

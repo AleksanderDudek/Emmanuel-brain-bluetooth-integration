@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * End-to-end smoke test of the exported game in headless Chrome: the title loads its content,
- * a chapter is played through (a level-up gift, a Samson strike, a tongue of fire, three short
- * waves, the stronghold), the revelation saves the progress, and the Tree opens the next sphere.
- * Fails on any page error or console error.
+ * End-to-end smoke test of the exported game in headless Chrome, the way a new player goes: the
+ * safety note, who you protect (a woman), how to play, the prologue, the Ladder, the archangels,
+ * the chapter's story, the fight (a true sentence from each broken shadow, a level-up card, a
+ * strike, the archangel's prayer, a discernment card, three waves, the stronghold, the praise),
+ * the healing scene with Christ's own words, the thought record, the tool kept in the toolbox,
+ * and the breathing practice. Fails on any page error or console error.
  *
  *   npm run game3d:export && npm run game3d:smoke     (CHROME_PATH=… to choose the browser)
  *
@@ -19,7 +21,7 @@ import puppeteer from 'puppeteer-core';
 import { EXPORT_DIR, GAME3D } from './paths.mjs';
 
 const SHOTS = join(GAME3D, '.smoke');
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.glb': 'model/gltf-binary', '.ttf': 'font/ttf', '.wasm': 'application/wasm', '.css': 'text/css' };
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg', '.glb': 'model/gltf-binary', '.ttf': 'font/ttf', '.wasm': 'application/wasm', '.css': 'text/css' };
 
 function chromePath() {
   const candidates = [
@@ -55,6 +57,11 @@ function serve(root) {
 }
 
 const step = (name) => console.log(`• ${name}`);
+/** A screenshot after the scene had time to fade in. */
+async function h_shot(page, file, ms) {
+  await page.evaluate(t => window.HHH.wait(t), ms);
+  await page.screenshot({ path: join(SHOTS, file) });
+}
 
 if (!existsSync(join(EXPORT_DIR, 'index.html'))) {
   console.error('No export found: run npm run game3d:export first.');
@@ -105,17 +112,34 @@ try {
     h.snapshot = () => {
       const scene = h.scene();
       const out = { scene: scene.getName(), fps: Math.round(1000 / Math.max(1, scene.getTimeManager().getElapsedTime())) };
-      for (const name of ['State', 'Wave', 'WaveTime', 'Still', 'Hearts', 'Flames']) {
+      for (const name of ['State', 'Wave', 'WaveTime', 'Still', 'Hearts', 'Prayer', 'Page', 'Line']) {
         try { out[name] = scene.getVariables().get(name).getValue(); } catch { /* not in this scene */ }
       }
       out.run = h.g('Run').toJSObject();
-      out.traumas = Object.keys(scene._instances.items || {}).filter(n => n.startsWith('Trauma_')).reduce((n, k) => n + scene.getObjects(k).length, 0);
+      out.top = h.g('Ui').getChild('top').getAsString();
       return out;
+    };
+    // a real mouse click on the button of the top panel with this action (and argument)
+    h.click = async (action, arg) => {
+      const top = h.g('Ui').getChild('top').getAsString();
+      const button = h.scene().getObjects('UiButton').find(b => b.getVariables().get('Action').getAsString() === action
+        && b.getVariables().get('Panel').getAsString() === top && (arg === undefined || b.getVariables().get('Arg').getAsNumber() === arg));
+      if (!button) return false;
+      const input = h.game.getInputManager();
+      input.onMouseMove(button.getX() + button.getWidth() / 2, button.getY() + button.getHeight() / 2);
+      await h.frames(2);
+      input.onMouseButtonPressed(0);
+      await h.frames(3);
+      input.onMouseButtonReleased(0);
+      await h.frames(3);
+      return true;
     };
     h.until = async (test, ms = 20_000) => {
       const end = performance.now() + ms;
       while (performance.now() < end) {
-        if (test()) return true;
+        let passed = false;
+        try { passed = test(); } catch { /* between scenes: nothing to read yet */ }
+        if (passed) return true;
         await h.wait(100);
       }
       return false;
@@ -128,23 +152,67 @@ try {
     step(name);
   };
 
-  await page.waitForFunction(() => window.HHH.g('Content').getChild('chapters').getChildrenCount() === 12, { timeout: 30_000 });
+  await page.waitForFunction(() => window.HHH.g('Content').getChild('chapters').getChildrenCount() === 10, { timeout: 30_000 });
   await check('title scene with the content loaded', () => window.HHH.scene().getName() === 'Title');
-  await page.screenshot({ path: join(SHOTS, '1-title.png') });
+  await page.screenshot({ path: join(SHOTS, '01-title.png') });
 
-  // a fresh save, short waves for the test
-  await page.evaluate(() => {
+  await check('first launch: the safety note, then who you protect (a woman named Ewa)', async () => {
     const h = window.HHH;
-    localStorage.removeItem('holyholyholy3d.save.v1');
+    if (!(await h.until(() => h.g('Ui').getChild('top').getAsString() === 'help', 5000))) return { ok: false, top: h.g('Ui').getChild('top').getAsString() };
     h.g('Save').getChild('settings').getChild('effects').setBoolean(false); // light graphics: headless rendering is slow
-    h.g('Tuning').getChild('waveSeconds').setNumber(40);
-    h.g('Run').getChild('chapter').setNumber(0);
-    h.game.getSceneStack().replace('Arena', true);
+    if (!(await h.click('helpDone'))) return { ok: false, step: 'helpDone' };
+    if (!(await h.click('play'))) return { ok: false, step: 'play' };
+    if (!(await h.until(() => h.g('Ui').getChild('top').getAsString() === 'profile', 3000))) return { ok: false, step: 'profile' };
+    if (!(await h.click('gender', 1))) return { ok: false, step: 'gender' };
+    await h.frames(5);
+    return { ok: h.g('Save').getChild('profile').getChild('gender').getAsString() === 'f' };
   });
-  await check('arena starts with the chapter card', async () => {
+  await page.screenshot({ path: join(SHOTS, '02-profile.png') });
+  await check('the profile is kept, how to play is shown, then the prologue', async () => {
     const h = window.HHH;
+    if (!(await h.click('profileDone'))) return { ok: false, step: 'profileDone' };
+    if (!(await h.until(() => h.g('Ui').getChild('top').getAsString() === 'howto', 3000))) return { ok: false, step: 'howto' };
+    if (!(await h.click('howtoDone'))) return { ok: false, step: 'howtoDone' };
+    if (!(await h.until(() => h.scene().getName() === 'Story', 8000))) return { ok: false, step: 'story' };
+    await h.wait(1500);
+    const saved = JSON.parse(localStorage.getItem('holyholyholy3d.save.v2') || '{}');
+    return { ok: saved.profile?.set === true && saved.profile?.gender === 'f', profile: saved.profile };
+  });
+  await page.screenshot({ path: join(SHOTS, '03-prologue.png') });
+  await check('the prologue reads line by line, in the woman\'s forms, and leads to the Ladder', async () => {
+    const h = window.HHH;
+    const lines = h.g('Run').getChild('lines').toJSObject();
+    const text = lines.map(l => l.text + l.quote + l.panel).join(' ');
+    if (/[{}|]/.test(text) || !/Ewa/.test(text)) return { ok: false, lines };
+    await h.press(32, 'Space');
+    await h.wait(400);
+    const line = h.v('Line').getAsNumber();
+    await h.press(27, 'Escape');
+    return { ok: line === 1 && (await h.until(() => h.scene().getName() === 'Ladder', 8000)), line };
+  });
+  await h_shot(page, '04-ladder.png', 1500);
+  await check('the first rung is open; entering it leads to the archangels', async () => {
+    const h = window.HHH;
+    if (h.scene().getObjects('OrbOpen').length !== 1 || h.scene().getObjects('OrbLocked').length !== 9) return { ok: false, open: h.scene().getObjects('OrbOpen').length };
+    if (!(await h.click('enter'))) return { ok: false, step: 'enter' };
+    return h.until(() => h.scene().getName() === 'Synaxis', 8000);
+  });
+  await h_shot(page, '05-synaxis.png', 2000);
+  await check('Uriel is open, Gabriel can be tried once; choosing Uriel tells the chapter\'s story', async () => {
+    const h = window.HHH;
+    if (!(await h.click('choose'))) return { ok: false, step: 'choose' };
+    if (!(await h.until(() => h.scene().getName() === 'Story', 8000))) return { ok: false, step: 'story' };
+    await h.wait(1500);
+    return { ok: h.g('Run').getChild('hero').getAsString() === 'uriel' && h.g('Run').getChild('lines').getChildrenCount() >= 3 };
+  });
+  await page.screenshot({ path: join(SHOTS, '06-story-intro.png') });
+  await check('the fight starts with the chapter card', async () => {
+    const h = window.HHH;
+    h.g('Tuning').getChild('waveSeconds').setNumber(40);
+    await h.press(27, 'Escape');
+    if (!(await h.until(() => h.scene().getName() === 'Arena', 10_000))) return false;
     await h.wait(500);
-    return h.scene().getName() === 'Arena' && h.v('State').getAsString() === 'intro';
+    return h.v('State').getAsString() === 'intro' && h.scene().getObjects('Hero_uriel').length === 1;
   });
   await check('a key starts the fight', async () => {
     const h = window.HHH;
@@ -152,36 +220,38 @@ try {
     await h.press(13, 'Enter');
     return h.until(() => h.v('State').getAsString() === 'play', 3000);
   });
-  await check('standing still, the Word destroys traumas and their light is collected', async () => {
+  await check('standing still, Uriel\'s flame breaks shadows; each leaves a true sentence and light', async () => {
     const h = window.HHH;
-    return h.until(() => h.g('Run').getChild('destroyed').getAsNumber() >= 2 && h.g('Run').getChild('light').getAsNumber() > 0, 60_000);
+    const ok = await h.until(() => h.g('Run').getChild('destroyed').getAsNumber() >= 2 && h.g('Run').getChild('light').getAsNumber() > 0, 60_000);
+    const truths = h.scene().getObjects('UiText').filter(t => t.getVariables().get('Key').getAsString() === 'truth').map(t => t.getText());
+    return { ok: ok && h.g('Run').getChild('reframes').getAsNumber() >= 2, truths };
   });
-  await check('standing still is focus: it charges the Fire of the Spirit without a band', async () => {
-    const h = window.HHH;
-    const before = h.v('Flames').getAsNumber();
-    await h.until(() => window.MendiFocus.source() === 'still' && window.MendiFocus.focused(), 10_000);
-    await h.wait(1500);
-    return { ok: window.MendiFocus.source() === 'still' && h.v('Flames').getAsNumber() > before, source: window.MendiFocus.source(), before, after: h.v('Flames').getAsNumber() };
-  });
-  await page.screenshot({ path: join(SHOTS, '2-arena.png') });
-  await check('a level brings 1 of 3 gifts, chosen with a key', async () => {
+  await page.screenshot({ path: join(SHOTS, '07-arena.png') });
+  await check('a level brings cards of gifts and virtues; one is chosen with a key', async () => {
     const h = window.HHH;
     h.v('Xp').setNumber(h.v('XpNext').getAsNumber() + 1);
     if (!(await h.until(() => h.v('State').getAsString() === 'levelup', 3000))) return false;
-    const before = JSON.stringify(h.g('Run').getChild('gifts').toJSObject());
-    await h.press(49, 'Digit1');
-    return (await h.until(() => h.v('State').getAsString() === 'play', 3000)) && JSON.stringify(h.g('Run').getChild('gifts').toJSObject()) !== before;
+    await h.wait(600);
+    return true;
   });
-  await check('Samson strikes a trauma in reach and builds a combo; a strike at nothing breaks it', async () => {
+  await page.screenshot({ path: join(SHOTS, '08-levelup.png') });
+  await check('the chosen card fills a slot', async () => {
+    const h = window.HHH;
+    const before = h.g('Run').getChild('weapons').getChildrenCount() + h.g('Run').getChild('virtues').getChildrenCount();
+    await h.press(49, 'Digit1');
+    if (!(await h.until(() => h.v('State').getAsString() === 'play', 3000))) return false;
+    const after = h.g('Run').getChild('weapons').getChildrenCount() + h.g('Run').getChild('virtues').getChildrenCount();
+    const sig = h.g('Run').getChild('gifts').getChild('sig-uriel').getAsNumber();
+    return { ok: after > before || sig > 1, before, after, sig };
+  });
+  await check('a strike in reach builds a combo; a strike at nothing breaks it', async () => {
     const h = window.HHH;
     h.v('XpNext').setNumber(1e9);
-    const kinds = ['Trauma_lek', 'Trauma_samotnosc', 'Trauma_odrzucenie'];
-    const traumas = () => kinds.flatMap(k => h.scene().getObjects(k));
+    const traumas = () => h.scene().getObjects('Enemy_lek').concat(h.scene().getObjects('Enemy_zwatpienie'), h.scene().getObjects('Enemy_samotnosc'));
     await h.until(() => traumas().length > 0, 8000);
     const p = h.scene().getObjects('Player')[0];
     const t = traumas()[0];
     t.getVariables().get('Hp').setNumber(9999);
-    // gifts such as the Shield of Faith may push it away: put it back in reach until a strike lands
     let hit = 0;
     for (let attempt = 0; attempt < 8 && hit < 1; attempt++) {
       for (const other of traumas()) if (other !== t) other.setX(p.getX() + 1500);
@@ -194,31 +264,47 @@ try {
     for (const any of traumas()) any.setX(p.getX() + 1500);
     await h.until(() => h.v('StrikeCD').getAsNumber() <= 0, 3000);
     await h.press(32, 'Space');
-    const after = h.v('Combo').getAsNumber();
-    const best = h.g('Run').getChild('bestCombo').getAsNumber();
-    return { ok: hit >= 1 && after === 0 && best >= 1, hit, after, best };
+    return { ok: hit >= 1 && h.v('Combo').getAsNumber() === 0, hit };
   });
-  await check('a flame of the Fire of the Spirit becomes a tongue of fire', async () => {
+  await check('a full prayer is prayed with E: Uriel\'s fire from heaven', async () => {
     const h = window.HHH;
-    h.v('Flames').setNumber(1.2);
+    h.v('Prayer').setNumber(100);
+    await h.frames(3);
     await h.press(69, 'KeyE');
-    return h.v('Flames').getAsNumber() < 1;
+    return { ok: h.v('Prayer').getAsNumber() < 50 };
   });
-  await check('three waves, each followed by a Sabbath, lead to the stronghold', async () => {
+  await check('after a wave, the discernment card: naming how a thought lies', async () => {
+    const h = window.HHH;
+    h.v('WaveTime').setNumber(0.2);
+    if (!(await h.until(() => h.v('State').getAsString() === 'discern' && h.g('Ui').getChild('top').getAsString() === 'disc', 8000))) return { ok: false, state: h.v('State').getAsString() };
+    await h.wait(500);
+    return true;
+  });
+  await page.screenshot({ path: join(SHOTS, '09-discernment.png') });
+  await check('the answer is explained, then the Sabbath goes on', async () => {
+    const h = window.HHH;
+    if (!(await h.click('disc', 0))) return { ok: false, step: 'disc' };
+    await h.wait(300);
+    if (!(await h.click('discDone'))) return { ok: false, step: 'discDone' };
+    return h.until(() => h.v('State').getAsString() === 'sabbath' || h.v('State').getAsString() === 'play', 3000);
+  });
+  await check('three waves lead to the stronghold of the chapter\'s lie', async () => {
     const h = window.HHH;
     h.g('Tuning').getChild('waveSeconds').setNumber(4);
     h.v('WaveTime').setNumber(0.5);
     const end = performance.now() + 150_000;
     while (performance.now() < end) {
       h.v('Hearts').setNumber(5);
-      if (h.v('State').getAsString() === 'levelup') await h.press(49, 'Digit1');
-      if (h.scene().getObjects('Stronghold').length > 0 && h.v('State').getAsString() === 'play') return true;
+      const state = h.v('State').getAsString();
+      if (state === 'levelup') await h.press(49, 'Digit1');
+      if (state === 'discern' && h.g('Ui').getChild('top').getAsString() === 'disc') await h.click('discSkip');
+      if (h.scene().getObjects('Stronghold').length > 0 && state === 'play') return true;
       await h.wait(150);
     }
     return false;
   });
-  await page.screenshot({ path: join(SHOTS, '3-stronghold.png') });
-  await check('the stronghold binds itself with chains, then falls', async () => {
+  await page.screenshot({ path: join(SHOTS, '10-stronghold.png') });
+  await check('the stronghold binds itself with chains, then falls; praise; the healing scene', async () => {
     const h = window.HHH;
     h.v('XpNext').setNumber(1e9);
     const boss = () => h.scene().getObjects('Stronghold')[0];
@@ -228,26 +314,57 @@ try {
     for (const pylon of h.scene().getObjects('ChainPylon')) pylon.getVariables().get('Hp').setNumber(-1);
     if (!(await h.until(() => boss().getVariables().get('Armor').getAsNumber() > 0, 3000))) return false;
     boss().getVariables().get('Hp').setNumber(-1);
-    return h.until(() => h.scene().getName() === 'Revelation', 12_000);
+    if (!(await h.until(() => h.v('State').getAsString() === 'praise', 12_000))) return { ok: false, state: h.v('State').getAsString() };
+    h.v('PraiseT').setNumber(0.5);
+    return h.until(() => h.scene().getName() === 'Story', 12_000);
   });
-  await check('the revelation saves the progress: chapter done, light and manna', async () => {
+  await h_shot(page, '11-healing.png', 2500);
+  await check('Christ speaks His own words, with the reference', async () => {
     const h = window.HHH;
-    await h.wait(1500);
-    const saved = JSON.parse(localStorage.getItem('holyholyholy3d.save.v1') || '{}');
-    return saved.done?.malkut === true && saved.light > 0 && saved.manna > 0;
+    const lines = h.g('Run').getChild('lines').toJSObject();
+    const christ = lines.filter(l => l.who === 'christ');
+    return { ok: christ.length > 0 && christ.every(l => l.quote.length > 5 && /\d/.test(l.ref)), christ };
   });
-  await page.screenshot({ path: join(SHOTS, '4-revelation.png') });
-  await check('Enter skips through the pages to the Tree, where the next sphere is open', async () => {
+  await check('the thought record: a distorted answer is explained, the balanced one transforms the lie', async () => {
     const h = window.HHH;
-    for (let i = 0; i < 4 && h.scene().getName() === 'Revelation'; i++) {
+    await h.press(27, 'Escape');
+    if (!(await h.until(() => h.scene().getName() === 'Revelation', 10_000))) return false;
+    await h.wait(1200);
+    const order = h.g('Run').getChild('order').toJSObject();
+    const kinds = h.g('Content').getChild('chapters').getChildAt(0).getChild('cbt').getChild('options').toJSObject().map(o => o.kind);
+    const wrong = order.findIndex(o => kinds[o] !== 'balanced');
+    const right = order.findIndex(o => kinds[o] === 'balanced');
+    if (!(await h.click('cbt', wrong))) return { ok: false, step: 'wrong' };
+    await h.wait(500);
+    if (h.v('Page').getAsNumber() !== 1) return { ok: false, step: 'stayed', page: h.v('Page').getAsNumber() };
+    return { ok: await h.click('cbt', right), order, kinds };
+  });
+  await page.screenshot({ path: join(SHOTS, '12-thought-record.png') });
+  await check('the truth, the tool for life, the report; the toolbox keeps the tool', async () => {
+    const h = window.HHH;
+    if (!(await h.until(() => h.v('Page').getAsNumber() === 2, 5000))) return false;
+    const saved = JSON.parse(localStorage.getItem('holyholyholy3d.save.v2') || '{}');
+    return { ok: saved.done?.noc === true && saved.tools?.oddech === true && saved.light > 0 && saved.manna > 0, done: saved.done, tools: saved.tools };
+  });
+  await h_shot(page, '13-truth.png', 4200);
+  await check('Enter skips through the pages to the Ladder, where the next rung is open', async () => {
+    const h = window.HHH;
+    for (let i = 0; i < 8 && h.scene().getName() === 'Revelation'; i++) {
       await h.press(13, 'Enter');
       await h.wait(300);
     }
-    if (!(await h.until(() => h.scene().getName() === 'Tree', 5000))) return false;
+    if (!(await h.until(() => h.scene().getName() === 'Ladder', 5000))) return false;
     await h.wait(800);
     return h.scene().getObjects('OrbDone').length === 1 && h.scene().getObjects('OrbOpen').length === 1;
   });
-  await page.screenshot({ path: join(SHOTS, '5-tree.png') });
+  await check('the toolbox opens with the breathing practice', async () => {
+    const h = window.HHH;
+    if (!(await h.click('tools'))) return { ok: false, step: 'tools' };
+    if (!(await h.click('breathe'))) return { ok: false, step: 'breathe' };
+    await h.wait(2500);
+    return h.v('Breathing').getAsBoolean();
+  });
+  await page.screenshot({ path: join(SHOTS, '14-breathing.png') });
 
   const real = errors.filter(e => !/favicon/.test(e));
   if (real.length) throw new Error(`errors in the page:\n${real.join('\n')}`);

@@ -20,10 +20,13 @@
     "fixtures": "python3 scripts/make_fixtures.py",
     "dev:game3d": "node game3d/tools/export.mjs && vite preview --outDir dist/holyholyholy3d --port 5175 --strictPort",
     "game3d:export": "node game3d/tools/export.mjs",
-    "game3d:check": "node game3d/tools/build-libs.mjs --check && node game3d/tools/build-content.mjs --check && node game3d/tools/export.mjs --check",
+    "game3d:check": "node game3d/tools/build-libs.mjs --check && node game3d/tools/build-content.mjs --check && node game3d/generator/build.mjs --check && node game3d/tools/export.mjs --check",
     "game3d:libs": "node game3d/tools/build-libs.mjs",
     "game3d:content": "node game3d/tools/build-content.mjs",
-    "game3d:assets": "node game3d/tools/build-models.mjs && node game3d/tools/build-textures.mjs",
+    "game3d:generate": "node game3d/generator/build.mjs --save",
+    "game3d:art": "${ART_PYTHON:-python3} game3d/tools/art.py generate && ${ART_PYTHON:-python3} game3d/tools/art.py process",
+    "game3d:billboards": "node game3d/tools/build-billboards.mjs",
+    "game3d:assets": "node game3d/tools/build-models.mjs && node game3d/tools/build-textures.mjs && node game3d/tools/build-billboards.mjs",
     "game3d:fonts": "python3 game3d/tools/build-fonts.py",
     "game3d:smoke": "node game3d/tools/smoke.mjs"
   },
@@ -35,6 +38,8 @@
     "idb": "8.0.3"
   },
   "devDependencies": {
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
     "@types/web-bluetooth": "0.0.21",
     "@types/wicg-file-system-access": "2023.10.7",
     "@vite-pwa/assets-generator": "1.0.4",

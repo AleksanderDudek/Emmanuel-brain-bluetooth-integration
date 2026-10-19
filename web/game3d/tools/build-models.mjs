@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Builds the 3D models of HolyHolyHoly 3D (project/assets/models/*.glb) from code: the angel with
- * two, four or six wings, the fourteen traumas, the strongholds, projectiles, pickups and props.
+ * Builds the low-poly 3D models of HolyHolyHoly 3D (project/assets/models/*.glb) from code: the
+ * props of the arenas, the spheres of the Ladder, the gifts that fly (shields, flames, the dove,
+ * fire from heaven), pickups and the stronghold's chains. The figures (archangels, shadows,
+ * strongholds, Christ, the people) are paintings on billboards: see build-billboards.mjs.
  *
- * The art is procedural on purpose, like the 2D game's: small files, one consistent low-poly
- * style, a palette taken from the game's content, and nothing that needs a licence. Models are
- * authored in GDevelop's convention (Z up, facing +X), so their objects keep rotation 0/0/0.
+ * Models are authored in GDevelop's convention (Z up, facing +X), so their objects keep
+ * rotation 0/0/0.
  *
  *   node game3d/tools/build-models.mjs
  */
@@ -15,7 +16,6 @@ import * as THREE from 'three';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ASSETS } from './paths.mjs';
-import { TRAUMA_COLORS, TRAUMA_SHAPES } from './palette.mjs';
 
 // GLTFExporter writes binary glTF through FileReader, which Node lacks.
 globalThis.FileReader ??= class {
@@ -135,214 +135,7 @@ const M = {
   chain: material('Chain', 0x4a4250, { emissive: 0x6a2020, glow: 0.4, roughness: 0.5, metalness: 0.5, flat: true }),
 };
 
-// ─── the angel ──────────────────────────────────────────────────────────────────────────────────
-
-/**
- * A wing spreading toward -Y (side -1) or +Y (side 1): a fan of broad feathers swept back from the
- * shoulder, lying flat so it reads from the game's camera above; the pivot raises it.
- */
-function wingMesh(name, side, size) {
-  const parts = [];
-  const feathers = 6;
-  for (let i = 0; i < feathers; i++) {
-    const t = i / (feathers - 1);
-    const len = size * (1 - 0.45 * t);
-    const sweep = 8 + 62 * t; // from straight out to swept back
-    const dir = [-Math.sin(deg(sweep)), side * Math.cos(deg(sweep))];
-    parts.push(place(sphere(1, 8, 4), {
-      at: [dir[0] * len * 0.5, dir[1] * len * 0.5, 0.01 * i],
-      rot: [0, 0, side > 0 ? sweep : 180 - sweep],
-      scale: [0.11 * size, len * 0.5, 0.022],
-    }));
-  }
-  return mesh(name, parts, M.wing);
-}
-
-/** Pivots at the shoulders: one pair flies; seraphim add a pair raised high and one lowered (Iz 6,2). */
-const WING_PAIRS = [
-  { pair: 1, at: [-0.16, 0, 0.6], size: 0.75, raise: 22 },
-  { pair: 2, at: [-0.12, 0, 0.8], size: 0.5, raise: 58 },
-  { pair: 3, at: [-0.15, 0, 0.38], size: 0.45, raise: -14 },
-];
-
-function angel() {
-  const robe = new THREE.LatheGeometry(
-    [[0.0, 0], [0.3, 0.0], [0.27, 0.12], [0.22, 0.35], [0.17, 0.55], [0.12, 0.66], [0, 0.68]].map(([r, z]) => new THREE.Vector2(r, z)),
-    16,
-  ).rotateX(Math.PI / 2);
-  const body = [
-    mesh('Robe', [place(robe), place(sphere(0.07), { at: [0.18, 0.17, 0.42] }), place(sphere(0.07), { at: [0.18, -0.17, 0.42] })], M.robe),
-    mesh('Trim', [place(torus(0.29, 0.025, 6, 20), { at: [0, 0, 0.03] }), place(torus(0.12, 0.02, 6, 16), { at: [0, 0, 0.64] })], M.trim),
-    mesh('Skin', [place(sphere(0.25, 18, 14), { at: [0, 0, 0.88] }), place(sphere(0.055), { at: [0.24, 0.2, 0.36] }), place(sphere(0.055), { at: [0.24, -0.2, 0.36] })], M.skin),
-    mesh('Hair', [place(new THREE.SphereGeometry(0.265, 16, 10, 0, TAU, 0, Math.PI / 2).rotateX(Math.PI / 2), { at: [-0.03, 0, 0.92], scale: [1, 1, 0.95] })], M.hair),
-    mesh('Eyes', [place(sphere(0.04, 8, 6), { at: [0.225, 0.085, 0.88], scale: [0.6, 1, 1.3] }), place(sphere(0.04, 8, 6), { at: [0.225, -0.085, 0.88], scale: [0.6, 1, 1.3] })], M.eyes),
-  ];
-  const halo = group('Halo', [mesh('HaloRing', [place(torus(0.2, 0.028, 8, 28))], M.halo)], [-0.02, 0, 1.24]);
-  const wings = [];
-  for (const { pair, at, size, raise } of WING_PAIRS) {
-    for (const [side, label] of [[-1, 'L'], [1, 'R']]) {
-      const pivot = group(`Wing${label}${pair}`, [wingMesh(`Feathers${label}${pair}`, side, size)], at);
-      pivot.rotation.set(deg(side * raise), 0, 0);
-      wings.push(pivot);
-    }
-  }
-  const root = group('Angel', [group('Body', [...body, halo, ...wings])]);
-
-  // Fly2 / Fly4 / Fly6: the visible pairs beat, the others fold away (scale 0)
-  const clips = [2, 4, 6].map(count => {
-    const duration = 0.9;
-    const tracks = [
-      track('position', 'Body', duration, wave(8, s => [0, 0, 0.03 * s])),
-      track('quaternion', 'Halo', duration, wave(8, (_, t) => quat(0, 0, 360 * t))),
-    ];
-    for (const { pair, raise } of WING_PAIRS) {
-      const shown = pair <= count / 2;
-      for (const [side, label] of [[-1, 'L'], [1, 'R']]) {
-        const amplitude = pair === 1 ? 26 : 14;
-        tracks.push(track('quaternion', `Wing${label}${pair}`, duration, wave(8, s => quat(side * (raise + amplitude * s), 0, 0))));
-        tracks.push(track('scale', `Wing${label}${pair}`, duration, wave(1, () => (shown ? [1, 1, 1] : [0.001, 0.001, 0.001]))));
-      }
-    }
-    return new THREE.AnimationClip(`Fly${count}`, duration, tracks);
-  });
-  return save('angel.glb', root, clips);
-}
-
-// ─── the traumas ────────────────────────────────────────────────────────────────────────────────
-
-/** The shadow's body: near-black, tinted toward its colour (mixed in sRGB, as the eye sees it). */
-const dark = (hex, amount = 0.16) => {
-  const base = 0x120e18;
-  const mix = shift => Math.round(((base >> shift) & 255) * (1 - amount) + ((hex >> shift) & 255) * amount);
-  return (mix(16) << 16) | (mix(8) << 8) | mix(0);
-};
-
-/** Glowing eyes looking forward (+X); `mood` tilts them: sad (down at the sides) or angry. */
-function eyesAt(x, z, spread, r, mood = 0) {
-  return [-1, 1].map(s => place(sphere(r, 10, 8), { at: [x, s * spread, z], rot: [s * mood, 0, 0], scale: [0.5, 1.15, 0.8] }));
-}
-
-const SHAPES = {
-  // drifts straight at the angel: a smoky flame with a tail
-  wisp: () => ({
-    body: [
-      place(sphere(0.42, 14, 10), { at: [0, 0, 0.5], scale: [1, 1, 1.1] }),
-      place(cone(0.28, 0.6, 9), { at: [-0.3, 0, 0.3], rot: [0, -115, 0] }),
-      place(cone(0.1, 0.42, 7), { at: [-0.12, 0.08, 0.92], rot: [10, -50, 0] }),
-      place(cone(0.08, 0.36, 7), { at: [-0.18, -0.1, 0.86], rot: [-12, -62, 0] }),
-    ],
-    glow: [...eyesAt(0.36, 0.58, 0.13, 0.075), place(torus(0.36, 0.022, 6, 22), { at: [0, 0, 0.3] })],
-  }),
-  // circles, then strikes: a hood with eyes in the dark
-  hood: () => ({
-    body: [
-      place(cone(0.42, 1.0, 12), { at: [0, 0, 0.5] }),
-      place(sphere(0.26, 12, 10), { at: [0.06, 0, 0.72] }),
-      place(cone(0.16, 0.3, 8), { at: [-0.05, 0, 1.08], rot: [0, -25, 0] }),
-    ],
-    glow: [...eyesAt(0.28, 0.74, 0.09, 0.06), place(torus(0.4, 0.025, 6, 24), { at: [0, 0, 0.06] })],
-  }),
-  // winds up and charges: a horned bull of anger
-  horn: () => ({
-    body: [
-      place(sphere(0.5, 14, 10), { at: [0, 0, 0.48], scale: [1.1, 1, 0.85] }),
-      place(cone(0.1, 0.42, 8), { at: [0.12, 0.3, 0.86], rot: [-35, 10, 0] }),
-      place(cone(0.1, 0.42, 8), { at: [0.12, -0.3, 0.86], rot: [35, 10, 0] }),
-      place(sphere(0.12), { at: [0.25, 0.3, 0.12] }),
-      place(sphere(0.12), { at: [0.25, -0.3, 0.12] }),
-    ],
-    glow: [...eyesAt(0.48, 0.58, 0.16, 0.07, 25), place(box(0.04, 0.4, 0.04), { at: [0.5, 0, 0.42] })],
-  }),
-  // drifts and keeps its distance: a heavy teardrop that weeps light
-  droop: () => ({
-    body: [
-      place(sphere(0.45, 14, 10), { at: [0, 0, 0.42], scale: [1, 1, 0.9] }),
-      place(cone(0.3, 0.55, 10), { at: [-0.05, 0, 0.88], rot: [0, -20, 0] }),
-    ],
-    glow: [...eyesAt(0.4, 0.55, 0.14, 0.065, -25), place(sphere(0.045), { at: [0.42, 0.16, 0.4], scale: [0.7, 0.7, 1.4] })],
-  }),
-  // slow and heavy: a boulder bound with a glowing chain
-  boulder: () => ({
-    body: [
-      place(dodeca(0.55), { at: [0, 0, 0.5], scale: [1, 1, 0.9] }),
-      place(dodeca(0.22), { at: [0.1, 0.35, 0.95] }),
-    ],
-    glow: [...eyesAt(0.5, 0.58, 0.18, 0.08, 15), place(torus(0.56, 0.05, 6, 18), { at: [0, 0, 0.45], rot: [12, 0, 0] })],
-  }),
-  // splits in two when it falls: bubbles that cling together
-  cluster: () => ({
-    body: [
-      place(sphere(0.34, 12, 9), { at: [0, 0, 0.38] }),
-      place(sphere(0.26, 12, 9), { at: [-0.12, 0.28, 0.62] }),
-      place(sphere(0.24, 12, 9), { at: [-0.1, -0.26, 0.66] }),
-      place(sphere(0.2, 10, 8), { at: [0.05, 0.02, 0.84] }),
-    ],
-    glow: [...eyesAt(0.31, 0.44, 0.1, 0.05), ...eyesAt(0.12, 0.68, 0.36, 0.04), ...eyesAt(0.22, 0.88, 0.06, 0.04)],
-  }),
-  // vanishes and reappears: shards of doubt around a cold core
-  shard: () => ({
-    body: [
-      place(octa(0.36), { at: [0, 0, 0.6], scale: [0.8, 0.8, 1.4] }),
-      place(tetra(0.2), { at: [-0.1, 0.38, 0.4], rot: [20, 30, 0] }),
-      place(tetra(0.18), { at: [-0.05, -0.36, 0.9], rot: [-30, 10, 40] }),
-      place(tetra(0.15), { at: [-0.3, 0.1, 1.05], rot: [10, 50, 20] }),
-    ],
-    glow: [...eyesAt(0.27, 0.66, 0.08, 0.05), place(octa(0.1), { at: [0, 0, 0.6] })],
-  }),
-  // keeps its distance and throws fiery accusations: a tall pointing figure
-  accuser: () => ({
-    body: [
-      place(cone(0.32, 1.3, 10), { at: [0, 0, 0.65] }),
-      place(sphere(0.2, 12, 10), { at: [0, 0, 1.18] }),
-      place(cyl(0.035, 0.05, 0.55, 6), { at: [0.3, 0.16, 0.85], rot: [0, 75, 0] }),
-      ...[0, 1, 2, 3, 4].map(i => place(cone(0.04, 0.16, 5), { at: [-0.02 + 0.12 * Math.cos((TAU * i) / 5), 0.12 * Math.sin((TAU * i) / 5), 1.38] })),
-    ],
-    glow: [...eyesAt(0.18, 1.2, 0.07, 0.045, 20), place(sphere(0.05), { at: [0.57, 0.16, 0.92] }), place(torus(0.3, 0.02, 6, 20), { at: [0, 0, 0.05] })],
-  }),
-};
-
-function trauma(kind) {
-  const color = TRAUMA_COLORS[kind];
-  const { body, glow } = SHAPES[TRAUMA_SHAPES[kind]]();
-  const bodyMat = material(`Shadow_${kind}`, dark(color), { emissive: color, glow: 0.035, roughness: 0.92 });
-  const glowMat = material(`Glow_${kind}`, color, { emissive: color, glow: 2.0, roughness: 0.4 });
-  const root = group(`Trauma_${kind}`, [group('Body', [mesh('Shadow', body, bodyMat), mesh('Glow', glow, glowMat)])]);
-  const duration = 1.6;
-  const clip = new THREE.AnimationClip('Idle', duration, [
-    track('scale', 'Body', duration, wave(8, s => [1 + 0.04 * s, 1 + 0.04 * s, 1 - 0.05 * s])),
-    track('position', 'Body', duration, wave(8, s => [0, 0, 0.04 * (1 + s)])),
-  ]);
-  return save(`trauma-${kind}.glb`, root, [clip]);
-}
-
-// ─── strongholds ───────────────────────────────────────────────────────────────────────────────
-
-function stronghold() {
-  const fort = [
-    place(cyl(0.95, 1.05, 0.35, 10), { at: [0, 0, 0.175] }),
-    place(cyl(0.62, 0.78, 1.7, 10), { at: [0, 0, 1.2] }),
-    place(cone(0.5, 0.8, 10), { at: [0, 0, 2.55] }),
-  ];
-  for (let i = 0; i < 10; i++) {
-    const a = (TAU * i) / 10;
-    fort.push(place(box(0.22, 0.22, 0.26), { at: [0.66 * Math.cos(a), 0.66 * Math.sin(a), 2.15], rot: [0, 0, (a * 180) / Math.PI] }));
-  }
-  const cracks = [
-    place(box(0.04, 0.05, 0.9), { at: [0.72, 0.12, 0.95], rot: [12, 0, 8] }),
-    place(box(0.04, 0.05, 0.6), { at: [0.66, -0.3, 1.5], rot: [-20, 0, -25] }),
-    place(box(0.04, 0.05, 0.7), { at: [-0.5, 0.48, 1.1], rot: [0, 18, 135] }),
-    place(box(0.05, 0.05, 0.5), { at: [-0.3, -0.62, 0.7], rot: [0, -10, -115] }),
-    place(box(0.04, 0.05, 0.6), { at: [0.1, 0.72, 1.6], rot: [25, 0, 90] }),
-  ];
-  const core = group('Core', [mesh('Eye', [place(sphere(0.2, 14, 10), { scale: [0.6, 1, 0.7] })], M.crack)], [0.66, 0, 1.75]);
-  const root = group('Stronghold', [group('Body', [mesh('Walls', fort, M.fort), mesh('Cracks', cracks, M.crack), core])]);
-  const duration = 2.4;
-  const clip = new THREE.AnimationClip('Idle', duration, [
-    track('scale', 'Core', duration, wave(8, s => [1, 1 + 0.25 * s, 1 + 0.25 * s])),
-    track('position', 'Body', duration, wave(8, s => [0, 0, 0.02 * s])),
-  ]);
-  return save('stronghold.glb', root, [clip]);
-}
+// ─── chains of the strongholds ──────────────────────────────────────────────────────────────────
 
 function chainPylon() {
   const stone = [place(cyl(0.12, 0.24, 1.3, 4), { at: [0, 0, 0.65], rot: [0, 0, 45] }), place(cone(0.13, 0.25, 4), { at: [0, 0, 1.42], rot: [0, 0, 45] })];
@@ -352,6 +145,12 @@ function chainPylon() {
   const clip = new THREE.AnimationClip('Idle', duration, [track('quaternion', 'Body', duration, wave(8, (_, t) => quat(0, 0, 360 * t)))]);
   return save('chain-pylon.glb', root, [clip]);
 }
+
+/** Glowing eyes looking forward (+X); `mood` tilts them: sad (down at the sides) or angry. */
+function eyesAt(x, z, spread, r, mood = 0) {
+  return [-1, 1].map(s => place(sphere(r, 10, 8), { at: [x, s * spread, z], rot: [s * mood, 0, 0], scale: [0.5, 1.15, 0.8] }));
+}
+
 
 // ─── projectiles, companions and pickups ───────────────────────────────────────────────────────
 
@@ -463,11 +262,7 @@ function arenaRim() {
 
 await mkdir(OUT, { recursive: true });
 const files = await Promise.all([
-  angel(),
-  ...Object.keys(TRAUMA_COLORS).map(trauma),
-  stronghold(),
   chainPylon(),
-  simple('word.glb', 'Word', [place(octa(0.5), { scale: [1.6, 0.35, 0.35] })], M.light),
   save('arrow.glb', group('Arrow', [mesh('Head', [place(cone(0.16, 0.45, 7), { rot: [0, 90, 0], at: [0.3, 0, 0] })], M.fire), mesh('Shaft', [place(cyl(0.05, 0.05, 0.8, 6), { rot: [0, 90, 0], at: [-0.2, 0, 0] })], M.fireCore)])),
   simple('stone.glb', 'Stone', [place(dodeca(0.5))], M.stone),
   save('shield.glb', group('Shield', [mesh('Disc', [place(cyl(0.5, 0.5, 0.08, 18), { rot: [0, 90, 0] })], M.gold), mesh('Cross', [place(box(0.06, 0.1, 0.7), { at: [0.06, 0, 0] }), place(box(0.06, 0.6, 0.1), { at: [0.06, 0, 0.1] })], M.light)])),

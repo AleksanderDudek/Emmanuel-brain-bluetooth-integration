@@ -632,6 +632,563 @@
       "objectGroups": []
     },
     {
+      "description": "Resolves the {man|woman} forms and the {imie} name of a text, for the person under the angel's protection (Save.profile).",
+      "fullName": "Text for the person",
+      "functionType": "StringExpression",
+      "group": "Story",
+      "name": "G",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "eventsFunctionContext.returnValue = G(eventsFunctionContext.getArgument(\"Text\"));",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Text with {a|b} forms",
+          "name": "Text",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Copies the lines of a scene (prologue, a chapter's intro or heal) into the global Run.lines, with the person's forms and name resolved.",
+      "fullName": "Load a story scene",
+      "functionType": "Action",
+      "group": "Story",
+      "name": "LoadScene",
+      "sentence": "Load story scene _PARAM1_",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const which = eventsFunctionContext.getArgument(\"Which\");",
+            "const content = g('Content');",
+            "const chapter = content.getChild('chapters').getChildAt(Math.max(0, g('Run').getChild('chapter').getAsNumber()));",
+            "const source = which === 'prologue' ? content.getChild('story').getChild('prologue') : chapter.getChild('story').getChild(which);",
+            "const lines = source.toJSObject() || [];",
+            "g('Run').getChild('lines').fromJSObject(lines.map(l => ({ who: l.who, text: G(l.text || ''), quote: G(l.quote || ''), ref: G(l.ref || ''), panel: G(l.panel || '') })));",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "prologue, intro or heal",
+          "name": "Which",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Fills Run.choices with up to N gifts or virtues the angel can take now: never more than four of each, the archangel's own gift only, and an evolution first when one is ready (a gift at its last level with its virtue owned).",
+      "fullName": "Draw gift choices",
+      "functionType": "Action",
+      "group": "Gifts",
+      "name": "DrawChoices",
+      "sentence": "Draw _PARAM1_ gift choices",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const content = g('Content'), run = g('Run');",
+            "const skills = content.getChild('skills').toJSObject();",
+            "const order = content.getChild('skillOrder').toJSObject();",
+            "const levels = run.getChild('gifts').toJSObject() || {};",
+            "const evo = run.getChild('evo').toJSObject() || {};",
+            "const hero = run.getChild('hero').getAsString();",
+            "const weapons = (run.getChild('weapons').toJSObject() || []).length;",
+            "const virtues = (run.getChild('virtues').toJSObject() || []).length;",
+            "const evolutions = [], pool = [];",
+            "for (const id of order) {",
+            "  const s = skills[id];",
+            "  const level = levels[id] || 0;",
+            "  if (s.kind === 'signature' && s.hero !== hero) continue;",
+            "  if (level >= s.maxLevel) {",
+            "    if (s.evolution.with && !evo[id] && (levels[s.evolution.with] || 0) > 0) evolutions.push({ id, evolve: true });",
+            "    continue;",
+            "  }",
+            "  if (level === 0 && !s.consumable && (s.kind === 'virtue' ? virtues >= 4 : weapons >= 4)) continue;",
+            "  pool.push({ id, evolve: false });",
+            "}",
+            "const count = Math.max(0, Math.round(eventsFunctionContext.getArgument(\"Count\")));",
+            "const choices = evolutions.slice(0, count);",
+            "while (choices.length < count && pool.length) choices.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);",
+            "run.getChild('choices').fromJSObject(choices);",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "How many",
+          "name": "Count",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Raises a gift or virtue one level (or evolves it) and fills its slot the first time.",
+      "fullName": "Take a gift",
+      "functionType": "Action",
+      "group": "Gifts",
+      "name": "TakeSkill",
+      "sentence": "Take gift _PARAM1_ (evolution: _PARAM2_)",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const run = g('Run');",
+            "const id = eventsFunctionContext.getArgument(\"Id\");",
+            "const skill = g('Content').getChild('skills').getChild(id).toJSObject();",
+            "if (!skill || !skill.kind) return;",
+            "if (eventsFunctionContext.getArgument(\"Evolve\")) { run.getChild('evo').getChild(id).setBoolean(true); return; }",
+            "const level = run.getChild('gifts').getChild(id);",
+            "level.setNumber(level.getAsNumber() + 1);",
+            "if (level.getAsNumber() === 1 && !skill.consumable) {",
+            "  const slots = run.getChild(skill.kind === 'virtue' ? 'virtues' : 'weapons');",
+            "  slots.pushValue(id);",
+            "}",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Gift id",
+          "name": "Id",
+          "type": "string"
+        },
+        {
+          "description": "Evolve it",
+          "name": "Evolve",
+          "type": "yesorno"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "The painting that shows a gift now: its first stage, its mature stage from level 3, or its evolution.",
+      "fullName": "Icon of a gift",
+      "functionType": "StringExpression",
+      "group": "Gifts",
+      "name": "SkillIcon",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const id = eventsFunctionContext.getArgument(\"Id\");",
+            "const skill = g('Content').getChild('skills').getChild(id).toJSObject();",
+            "const icons = (skill && skill.icons) || [];",
+            "if (!icons.length) { eventsFunctionContext.returnValue = ''; return; }",
+            "const run = g('Run');",
+            "const evolved = run.getChild('evo').hasChild(id) && run.getChild('evo').getChild(id).getAsBoolean();",
+            "const level = run.getChild('gifts').hasChild(id) ? run.getChild('gifts').getChild(id).getAsNumber() : 0;",
+            "eventsFunctionContext.returnValue = icons[Math.min(icons.length - 1, evolved ? 2 : level >= 3 ? 1 : 0)];",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Gift id",
+          "name": "Id",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "The painting of the card at this index of Run.choices (its evolution, or the stage it reaches if taken).",
+      "fullName": "Icon of a drawn card",
+      "functionType": "StringExpression",
+      "group": "Gifts",
+      "name": "ChoiceIcon",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const run = g('Run');",
+            "const choice = (run.getChild('choices').toJSObject() || [])[Math.round(eventsFunctionContext.getArgument(\"Index\"))];",
+            "const skill = choice && g('Content').getChild('skills').getChild(choice.id).toJSObject();",
+            "const icons = (skill && skill.icons) || [];",
+            "const level = choice && run.getChild('gifts').hasChild(choice.id) ? run.getChild('gifts').getChild(choice.id).getAsNumber() : 0;",
+            "eventsFunctionContext.returnValue = icons.length ? icons[Math.min(icons.length - 1, choice.evolve ? 2 : level + 1 >= 3 ? 1 : 0)] : '';",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Index in Run.choices",
+          "name": "Index",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "A realistic statement in the person's voice, for a shadow-thought of this kind.",
+      "fullName": "What a broken shadow leaves",
+      "functionType": "StringExpression",
+      "group": "Story",
+      "name": "Reframe",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const e = g('Content').getChild('enemies').getChild(eventsFunctionContext.getArgument(\"Kind\")).toJSObject();",
+            "eventsFunctionContext.returnValue = e && e.reframes ? G(pick(e.reframes)) : '';",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Shadow kind",
+          "name": "Kind",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Words of worth for the person, from the angel, in the second person.",
+      "fullName": "What the angel says",
+      "functionType": "StringExpression",
+      "group": "Story",
+      "name": "AngelWord",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const e = g('Content').getChild('enemies').getChild(eventsFunctionContext.getArgument(\"Kind\")).toJSObject();",
+            "eventsFunctionContext.returnValue = e && e.angel ? G(pick(e.angel)) : '';",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Shadow kind",
+          "name": "Kind",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "One of the thoughts of a shadow-thought.",
+      "fullName": "What a shadow whispers",
+      "functionType": "StringExpression",
+      "group": "Story",
+      "name": "Thought",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const e = g('Content').getChild('enemies').getChild(eventsFunctionContext.getArgument(\"Kind\")).toJSObject();",
+            "eventsFunctionContext.returnValue = e && e.thoughts ? G(pick(e.thoughts)) : '';",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Shadow kind",
+          "name": "Kind",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Fills Run.disc with a thought of a shadow of this chapter, the thinking error it hides (answer) and three options in random order.",
+      "fullName": "Draw a discernment card",
+      "functionType": "Action",
+      "group": "Story",
+      "name": "DrawDiscernment",
+      "sentence": "Draw a discernment card",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const content = g('Content');",
+            "const chapter = content.getChild('chapters').getChildAt(Math.max(0, g('Run').getChild('chapter').getAsNumber())).toJSObject();",
+            "const enemies = content.getChild('enemies').toJSObject();",
+            "const distortions = content.getChild('distortions').toJSObject();",
+            "const kind = pick(chapter.enemies);",
+            "const answer = enemies[kind].distortion;",
+            "const others = Object.keys(distortions).filter(d => d !== answer).sort(() => Math.random() - 0.5).slice(0, 2);",
+            "const options = [answer, ...others].sort(() => Math.random() - 0.5);",
+            "g('Run').getChild('disc').fromJSObject({",
+            "  kind, name: enemies[kind].name, thought: G(pick(enemies[kind].thoughts)), answer,",
+            "  answerName: G(distortions[answer].name), question: G(distortions[answer].question),",
+            "  options, names: options.map(d => G(distortions[d].name)),",
+            "});",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
+      "description": "Writes a random order of 0…N-1 into a global array variable (a path such as \"Run.order\").",
+      "fullName": "Shuffle an order",
+      "functionType": "Action",
+      "group": "Data",
+      "name": "Shuffle",
+      "sentence": "Shuffle 0…_PARAM2_-1 into global _PARAM1_",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const n = Math.max(0, Math.round(eventsFunctionContext.getArgument(\"Count\")));",
+            "const order = Array.from({ length: n }, (_, i) => i);",
+            "for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }",
+            "const [root, ...path] = String(eventsFunctionContext.getArgument(\"Variable\")).split('.');",
+            "let target = runtimeScene.getGame().getVariables().get(root);",
+            "for (const name of path) target = target.getChild(name);",
+            "target.fromJSObject(order);",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Global array variable (dotted path)",
+          "name": "Variable",
+          "type": "string"
+        },
+        {
+          "description": "N",
+          "name": "Count",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "The archangel can be chosen: one of the first two, or the chapter that brings him is done.",
+      "fullName": "Archangel is open",
+      "functionType": "Condition",
+      "group": "Progress",
+      "name": "IsHeroOpen",
+      "sentence": "Archangel _PARAM1_ is open",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const index = g('Content').getChild('heroIndex').getChild(eventsFunctionContext.getArgument(\"Id\")).getAsNumber();",
+            "const hero = g('Content').getChild('heroes').getChildAt(index).toJSObject();",
+            "const done = g('Save').getChild('done');",
+            "eventsFunctionContext.returnValue = !!hero && (hero.unlockedBy === '' || (done.hasChild(hero.unlockedBy) && done.getChild(hero.unlockedBy).getAsBoolean()));",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [
+        {
+          "description": "Archangel id",
+          "name": "Id",
+          "type": "string"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "Filled and empty dots: ●●●○○.",
+      "fullName": "Level pips text",
+      "functionType": "StringExpression",
+      "group": "Text",
+      "name": "PipsText",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const max = Math.max(0, Math.round(eventsFunctionContext.getArgument(\"Max\"))), level = Math.max(0, Math.min(max, Math.round(eventsFunctionContext.getArgument(\"Level\"))));",
+            "eventsFunctionContext.returnValue = '●'.repeat(level) + '○'.repeat(max - level);",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Level",
+          "name": "Level",
+          "type": "expression"
+        },
+        {
+          "description": "Max",
+          "name": "Max",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
       "description": "Creates a 9-patch button with a centred caption. Clicking it sets Ui.clicked to its action (see the UI external events).",
       "fullName": "Create a button",
       "functionType": "Action",
@@ -1269,6 +1826,9 @@
           },
           {
             "functionName": "IsGlobalLoaded"
+          },
+          {
+            "functionName": "Shuffle"
           }
         ]
       },
@@ -1316,6 +1876,9 @@
           },
           {
             "functionName": "Decimal"
+          },
+          {
+            "functionName": "PipsText"
           }
         ]
       },
@@ -1339,6 +1902,9 @@
           },
           {
             "functionName": "IsChapterDone"
+          },
+          {
+            "functionName": "IsHeroOpen"
           }
         ]
       },
@@ -1347,6 +1913,46 @@
         "children": [
           {
             "functionName": "ExposeForTests"
+          }
+        ]
+      },
+      {
+        "folderName": "Story",
+        "children": [
+          {
+            "functionName": "G"
+          },
+          {
+            "functionName": "LoadScene"
+          },
+          {
+            "functionName": "Reframe"
+          },
+          {
+            "functionName": "AngelWord"
+          },
+          {
+            "functionName": "Thought"
+          },
+          {
+            "functionName": "DrawDiscernment"
+          }
+        ]
+      },
+      {
+        "folderName": "Gifts",
+        "children": [
+          {
+            "functionName": "DrawChoices"
+          },
+          {
+            "functionName": "TakeSkill"
+          },
+          {
+            "functionName": "SkillIcon"
+          },
+          {
+            "functionName": "ChoiceIcon"
           }
         ]
       },

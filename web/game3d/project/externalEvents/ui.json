@@ -31,9 +31,9 @@
       ]
     },
     {
-      "colorB": 0,
-      "colorG": 152,
-      "colorR": 255,
+      "colorB": 99,
+      "colorG": 30,
+      "colorR": 233,
       "creationTime": 0,
       "name": "Buttons",
       "source": "",
@@ -248,9 +248,9 @@
       "parameters": []
     },
     {
-      "colorB": 99,
-      "colorG": 30,
-      "colorR": 233,
+      "colorB": 136,
+      "colorG": 150,
+      "colorR": 0,
       "creationTime": 0,
       "folded": true,
       "name": "Touch",
@@ -295,9 +295,9 @@
       "parameters": []
     },
     {
-      "colorB": 136,
-      "colorG": 150,
-      "colorR": 0,
+      "colorB": 72,
+      "colorG": 85,
+      "colorR": 121,
       "creationTime": 0,
       "folded": true,
       "name": "Turn the phone",
@@ -718,6 +718,33 @@
                   },
                   "parameters": [
                     "UiIcon",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiArt",
+                    "Panel",
+                    "=",
+                    "\"rotate\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiArt",
                     ""
                   ]
                 }

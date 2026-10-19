@@ -9,7 +9,45 @@
   "title": "",
   "v": 22,
   "uiSettings": {},
-  "objectsGroups": [],
+  "objectsGroups": [
+    {
+      "name": "Heroes",
+      "objects": [
+        {
+          "name": "Hero_uriel"
+        },
+        {
+          "name": "Hero_michal"
+        },
+        {
+          "name": "Hero_gabriel"
+        },
+        {
+          "name": "Hero_rafal"
+        },
+        {
+          "name": "Hero_selafiel"
+        },
+        {
+          "name": "Hero_barachiel"
+        },
+        {
+          "name": "Hero_jehudiel"
+        }
+      ]
+    },
+    {
+      "name": "People",
+      "objects": [
+        {
+          "name": "Person_m"
+        },
+        {
+          "name": "Person_f"
+        }
+      ]
+    }
+  ],
   "variables": [
     {
       "name": "Page",
@@ -25,6 +63,31 @@
       "name": "Build",
       "type": "boolean",
       "value": false
+    },
+    {
+      "name": "Picked",
+      "type": "array",
+      "children": [
+        {
+          "type": "number",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "name": "Wait",
+      "type": "number",
+      "value": 0
+    },
+    {
+      "name": "Breathing",
+      "type": "boolean",
+      "value": false
+    },
+    {
+      "name": "BreathT",
+      "type": "number",
+      "value": 0
     }
   ],
   "instances": [
@@ -36,7 +99,7 @@
       "layer": "",
       "locked": true,
       "name": "Floor",
-      "persistentUuid": "c9ab28bc-d060-4fa8-b0b8-73613f2e57c4",
+      "persistentUuid": "7079f7d5-9f6d-4c52-a9cc-99bb41a356a9",
       "width": 3000,
       "x": -1500,
       "y": -1500,
@@ -49,46 +112,15 @@
     {
       "angle": 0,
       "customSize": true,
-      "depth": 260,
-      "height": 260,
+      "depth": 2,
+      "height": 520,
       "layer": "",
-      "name": "Angel",
-      "persistentUuid": "8abfc51a-2e13-460d-9545-17ff406e43ad",
-      "width": 260,
-      "x": 0,
-      "y": 0,
-      "zOrder": 1,
-      "numberProperties": [],
-      "stringProperties": [],
-      "initialVariables": []
-    },
-    {
-      "angle": 0,
-      "customSize": true,
-      "depth": 260,
-      "height": 120,
-      "layer": "",
-      "name": "Column",
-      "persistentUuid": "d2c37645-c29c-41c3-b063-2a87da10ab77",
-      "width": 120,
-      "x": -330,
-      "y": -260,
-      "zOrder": 1,
-      "numberProperties": [],
-      "stringProperties": [],
-      "initialVariables": []
-    },
-    {
-      "angle": 0,
-      "customSize": true,
-      "depth": 260,
-      "height": 120,
-      "layer": "",
-      "name": "Column",
-      "persistentUuid": "27935911-ed0d-4b6a-a29a-be963ddb5cce",
-      "width": 120,
-      "x": 330,
-      "y": -260,
+      "name": "Light",
+      "persistentUuid": "9d9679c2-690b-428f-ac12-302388b64b54",
+      "width": 520,
+      "x": -20,
+      "y": 10,
+      "z": 2,
       "zOrder": 1,
       "numberProperties": [],
       "stringProperties": [],
@@ -101,9 +133,9 @@
       "height": 40,
       "layer": "",
       "name": "Candle",
-      "persistentUuid": "b3d72a06-b27d-4322-a320-051e6fc9e1fd",
+      "persistentUuid": "b4c01896-b541-42af-a0f2-fcf7937bd7d7",
       "width": 40,
-      "x": -160,
+      "x": -260,
       "y": 160,
       "zOrder": 1,
       "numberProperties": [],
@@ -117,9 +149,9 @@
       "height": 40,
       "layer": "",
       "name": "Candle",
-      "persistentUuid": "2a3b4a94-405c-43ab-8290-89d64ca949e0",
+      "persistentUuid": "e17659c4-3c2e-43e6-a672-f5daaf7bb791",
       "width": 40,
-      "x": 160,
+      "x": 220,
       "y": 160,
       "zOrder": 1,
       "numberProperties": [],
@@ -132,7 +164,7 @@
       "height": 0,
       "layer": "",
       "name": "Motes",
-      "persistentUuid": "ee0d6c1b-b4d1-40b7-aab9-53a4ef255200",
+      "persistentUuid": "69260ad2-50ad-4f43-ac52-488169eff3ae",
       "width": 0,
       "x": 0,
       "y": 0,
@@ -146,7 +178,7 @@
   "objects": [
     {
       "assetStoreId": "",
-      "name": "Angel",
+      "name": "Hero_uriel",
       "type": "Scene3D::Model3DObject",
       "variables": [],
       "effects": [],
@@ -154,33 +186,271 @@
       "content": {
         "centerLocation": "BottomCenterZ",
         "crossfadeDuration": 0.1,
-        "depth": 260,
-        "height": 260,
-        "isCastingShadow": true,
-        "isReceivingShadow": true,
-        "keepAspectRatio": true,
+        "depth": 321,
+        "height": 84,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
         "materialType": "StandardWithoutMetalness",
-        "modelResourceName": "assets/models/angel.glb",
+        "modelResourceName": "assets/models/hero-uriel.glb",
         "originLocation": "BottomCenterZ",
         "rotationX": 0,
         "rotationY": 0,
         "rotationZ": 0,
-        "width": 260,
+        "width": 210,
         "animations": [
           {
             "loop": true,
-            "name": "Fly2",
-            "source": "Fly2"
-          },
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_michal",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 332,
+        "height": 84,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-michal.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 210,
+        "animations": [
           {
             "loop": true,
-            "name": "Fly4",
-            "source": "Fly4"
-          },
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_gabriel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 334,
+        "height": 84,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-gabriel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 210,
+        "animations": [
           {
             "loop": true,
-            "name": "Fly6",
-            "source": "Fly6"
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_rafal",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 323,
+        "height": 84,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-rafal.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 210,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_selafiel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 317,
+        "height": 84,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-selafiel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 210,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_barachiel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 340,
+        "height": 84,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-barachiel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 210,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_jehudiel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 319,
+        "height": 84,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-jehudiel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 210,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Person_m",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 423,
+        "height": 50,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/person-m.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 120,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Person_f",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 438,
+        "height": 50,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/person-f.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 120,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
           }
         ]
       }
@@ -198,7 +468,7 @@
         "depth": 10,
         "enableTextureTransparency": false,
         "facesOrientation": "Y",
-        "frontFaceResourceName": "assets/textures/floor-heaven.png",
+        "frontFaceResourceName": "assets/textures/floor-mosaic.jpg",
         "backFaceResourceName": "",
         "backFaceUpThroughWhichAxisRotation": "X",
         "leftFaceResourceName": "",
@@ -218,7 +488,7 @@
         "topFaceResourceRepeat": false,
         "bottomFaceResourceRepeat": false,
         "materialType": "StandardWithoutMetalness",
-        "tint": "200;190;160",
+        "tint": "140;128;108",
         "isCastingShadow": false,
         "isReceivingShadow": true,
         "tileScale": 0.3
@@ -226,27 +496,33 @@
     },
     {
       "assetStoreId": "",
-      "name": "Column",
+      "name": "Light",
       "type": "Scene3D::Model3DObject",
       "variables": [],
       "effects": [],
       "behaviors": [],
       "content": {
-        "centerLocation": "BottomCenterZ",
+        "centerLocation": "ObjectCenter",
         "crossfadeDuration": 0.1,
-        "depth": 260,
-        "height": 120,
-        "isCastingShadow": true,
-        "isReceivingShadow": true,
-        "keepAspectRatio": true,
+        "depth": 2,
+        "height": 520,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
         "materialType": "StandardWithoutMetalness",
-        "modelResourceName": "assets/models/column.glb",
-        "originLocation": "BottomCenterZ",
+        "modelResourceName": "assets/models/fx-glow.glb",
+        "originLocation": "ObjectCenter",
         "rotationX": 0,
         "rotationY": 0,
         "rotationZ": 0,
-        "width": 120,
-        "animations": []
+        "width": 520,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
       }
     },
     {
@@ -350,13 +626,37 @@
     "folderName": "__ROOT",
     "children": [
       {
-        "objectName": "Angel"
+        "objectName": "Hero_uriel"
+      },
+      {
+        "objectName": "Hero_michal"
+      },
+      {
+        "objectName": "Hero_gabriel"
+      },
+      {
+        "objectName": "Hero_rafal"
+      },
+      {
+        "objectName": "Hero_selafiel"
+      },
+      {
+        "objectName": "Hero_barachiel"
+      },
+      {
+        "objectName": "Hero_jehudiel"
+      },
+      {
+        "objectName": "Person_m"
+      },
+      {
+        "objectName": "Person_f"
       },
       {
         "objectName": "Floor"
       },
       {
-        "objectName": "Column"
+        "objectName": "Light"
       },
       {
         "objectName": "Candle"
@@ -394,7 +694,7 @@
             "textG": 0,
             "textR": 0
           },
-          "comment": "The content (chapters, traumas, gifts…) comes from assets/data/content.json, built from the 2D game. The save lives in the browser storage and is merged over the defaults of the global variable Save."
+          "comment": "The content (chapters, archangels, shadow-thoughts, gifts…) comes from assets/data/content.json, built by tools/build-content.mjs. The save lives in the browser storage and is merged over the defaults of the global variable Save."
         },
         {
           "type": "BuiltinCommonInstructions::Standard",
@@ -438,7 +738,7 @@
               "parameters": [
                 "",
                 "\"Save\"",
-                "\"holyholyholy3d.save.v1\"",
+                "\"holyholyholy3d.save.v2\"",
                 ""
               ]
             }
@@ -503,7 +803,7 @@
             "textG": 0,
             "textR": 0
           },
-          "comment": "The chapter is done: light joins the lifetime total (ranks), manna is given (more the first time), the truth is written in the Book of Truth."
+          "comment": "The chapter is done: light joins the lifetime total (ranks), manna is given (more the first time), the tool is kept in the toolbox, an archangel may join."
         },
         {
           "type": "BuiltinCommonInstructions::Standard",
@@ -553,9 +853,30 @@
                 "value": "SetStringVariable"
               },
               "parameters": [
-                "Ui.top",
+                "Run.unlocked",
                 "=",
                 "\"\""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"page\""
+              ]
+            },
+            {
+              "type": {
+                "value": "HolyHoly::Shuffle"
+              },
+              "parameters": [
+                "",
+                "\"Run.order\"",
+                "3",
+                ""
               ]
             }
           ],
@@ -583,6 +904,33 @@
                     "Run.firstTime",
                     "False",
                     ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Run.hero",
+                    "=",
+                    "\"jehudiel\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Run.manna",
+                    "*",
+                    "1.25"
                   ]
                 }
               ]
@@ -621,6 +969,16 @@
                     "+",
                     "1"
                   ]
+                },
+                {
+                  "type": {
+                    "value": "SetStringVariable"
+                  },
+                  "parameters": [
+                    "Run.unlocked",
+                    "=",
+                    "Content.chapters[Run.chapter].unlocks"
+                  ]
                 }
               ]
             },
@@ -628,6 +986,16 @@
               "type": "BuiltinCommonInstructions::Standard",
               "conditions": [],
               "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Run.manna",
+                    "=",
+                    "round(Run.manna)"
+                  ]
+                },
                 {
                   "type": {
                     "value": "SetNumberVariable"
@@ -660,12 +1028,32 @@
                 },
                 {
                   "type": {
+                    "value": "SetBooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.tools[Content.chapters[Run.chapter].tool.id]",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
                     "value": "SetNumberVariable"
                   },
                   "parameters": [
                     "Save.bestCombo",
                     "=",
                     "max(Save.bestCombo, Run.bestCombo)"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Save.selected",
+                    "=",
+                    "min(Run.chapter + 1, VariableChildCount(Content.chapters) - 1)"
                   ]
                 },
                 {
@@ -685,7 +1073,7 @@
                   "parameters": [
                     "",
                     "\"Save\"",
-                    "\"holyholyholy3d.save.v1\"",
+                    "\"holyholyholy3d.save.v2\"",
                     ""
                   ]
                 },
@@ -695,21 +1083,10 @@
                   },
                   "parameters": [
                     "",
-                    "Content.chapters[Run.chapter].id",
+                    "Content.chapters[Run.chapter].track",
                     "\"victory\"",
                     "0.5",
                     ""
-                  ]
-                },
-                {
-                  "type": {
-                    "value": "AnimatableCapability::AnimatableBehavior::SetName"
-                  },
-                  "parameters": [
-                    "Angel",
-                    "Animation",
-                    "=",
-                    "\"Fly\" + ToString(HolyHoly::RankWings(Save.light))"
                   ]
                 },
                 {
@@ -719,7 +1096,7 @@
                   "parameters": [
                     "",
                     "=",
-                    "260",
+                    "300",
                     "\"\"",
                     "0"
                   ]
@@ -759,41 +1136,79 @@
                     "\"\"",
                     "0"
                   ]
-                },
-                {
-                  "type": {
-                    "value": "SetNumberVariable"
-                  },
-                  "parameters": [
-                    "Page",
-                    "=",
-                    "1"
-                  ]
-                },
-                {
-                  "type": {
-                    "value": "SetNumberVariable"
-                  },
-                  "parameters": [
-                    "T",
-                    "=",
-                    "0"
-                  ]
-                },
-                {
-                  "type": {
-                    "value": "Psalm150::PlaySfx"
-                  },
-                  "parameters": [
-                    "",
-                    "\"revelation\"",
-                    "0",
-                    "0",
-                    ""
-                  ]
                 }
               ],
               "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "CreateByName"
+                      },
+                      "parameters": [
+                        "",
+                        "Heroes",
+                        "\"Hero_\" + Run.hero",
+                        "-130",
+                        "0",
+                        "\"\""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "CreateByName"
+                      },
+                      "parameters": [
+                        "",
+                        "People",
+                        "\"Person_\" + Save.profile.gender",
+                        "90",
+                        "40",
+                        "\"\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetNumberVariable"
+                      },
+                      "parameters": [
+                        "Page",
+                        "=",
+                        "1"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetNumberVariable"
+                      },
+                      "parameters": [
+                        "T",
+                        "=",
+                        "0"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "Psalm150::PlaySfx"
+                      },
+                      "parameters": [
+                        "",
+                        "\"revelation\"",
+                        "0",
+                        "0",
+                        ""
+                      ]
+                    }
+                  ]
+                },
                 {
                   "type": "BuiltinCommonInstructions::Standard",
                   "conditions": [
@@ -884,27 +1299,6 @@
           "actions": [
             {
               "type": {
-                "value": "Rotate"
-              },
-              "parameters": [
-                "Angel",
-                "14",
-                ""
-              ]
-            },
-            {
-              "type": {
-                "value": "Scene3D::Base3DBehavior::SetZ"
-              },
-              "parameters": [
-                "Angel",
-                "Object3D",
-                "=",
-                "30 + sin(TimeFromStart() * 1.6) * 14"
-              ]
-            },
-            {
-              "type": {
                 "value": "SetNumberVariable"
               },
               "parameters": [
@@ -919,15 +1313,27 @@
       "parameters": []
     },
     {
-      "colorB": 80,
-      "colorG": 175,
-      "colorR": 76,
+      "colorB": 0,
+      "colorG": 152,
+      "colorR": 255,
       "creationTime": 0,
       "folded": true,
       "name": "Pages",
       "source": "",
       "type": "BuiltinCommonInstructions::Group",
       "events": [
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "Page 1: the thought record and three answers (shuffled: Run.order). Page 2: the truth. Page 3: the tool. Page 4: the report. Page 5: the finale, once, after the last chapter."
+        },
         {
           "type": "BuiltinCommonInstructions::Standard",
           "conditions": [
@@ -1230,6 +1636,33 @@
               "conditions": [
                 {
                   "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiArt",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiArt",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
                     "value": "NumberVariable"
                   },
                   "parameters": [
@@ -1252,59 +1685,11 @@
                       "parameters": [
                         "",
                         "UiPanel",
-                        "SceneWindowWidth() * 0.42 - 30",
-                        "40",
-                        "SceneWindowWidth() * 0.54 + 60",
-                        "640",
-                        "\"p1bg\"",
-                        "\"page\"",
-                        "\"UI\"",
-                        ""
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "BuiltinCommonInstructions::Standard",
-                  "conditions": [],
-                  "actions": [
-                    {
-                      "type": {
-                        "value": "HolyHoly::MakeText"
-                      },
-                      "parameters": [
-                        "",
-                        "UiSmall",
-                        "SceneWindowWidth() * 0.42",
-                        "62",
-                        "SceneWindowWidth() * 0.54",
-                        "ToUpperCase(Content.chapters[Run.chapter].sphere) + \" · \" + Content.chapters[Run.chapter].title + \" · Objawienie\"",
-                        "\"left\"",
-                        "\"p1a\"",
-                        "\"page\"",
-                        "\"UI\"",
-                        ""
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "BuiltinCommonInstructions::Standard",
-                  "conditions": [],
-                  "actions": [
-                    {
-                      "type": {
-                        "value": "HolyHoly::MakeText"
-                      },
-                      "parameters": [
-                        "",
-                        "UiText",
-                        "SceneWindowWidth() * 0.42",
-                        "100",
-                        "SceneWindowWidth() * 0.54",
-                        "\"Kłamstwo: „\" + Content.chapters[Run.chapter].revelation.lie + \"”\"",
-                        "\"left\"",
-                        "\"p1b\"",
+                        "SceneWindowWidth() * 0.4 - 30",
+                        "24",
+                        "SceneWindowWidth() * 0.56 + 50",
+                        "SceneWindowHeight() - 48",
+                        "\"cbg\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1323,36 +1708,12 @@
                       "parameters": [
                         "",
                         "UiTitle",
-                        "SceneWindowWidth() * 0.42",
-                        "200",
-                        "SceneWindowWidth() * 0.54",
-                        "\"Prawda\"",
+                        "SceneWindowWidth() * 0.4",
+                        "40",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Przemiana myśli\"",
                         "\"left\"",
-                        "\"p1c\"",
-                        "\"page\"",
-                        "\"UI\"",
-                        ""
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "BuiltinCommonInstructions::Standard",
-                  "conditions": [],
-                  "actions": [
-                    {
-                      "type": {
-                        "value": "HolyHoly::MakeText"
-                      },
-                      "parameters": [
-                        "",
-                        "UiText",
-                        "SceneWindowWidth() * 0.42",
-                        "256",
-                        "SceneWindowWidth() * 0.54",
-                        "Content.chapters[Run.chapter].revelation.truth",
-                        "\"left\"",
-                        "\"p1d\"",
+                        "\"ca\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1371,12 +1732,12 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.42",
-                        "420",
-                        "SceneWindowWidth() * 0.54",
-                        "\"„\" + Content.chapters[Run.chapter].revelation.verses[0].text + \"” (\" + Content.chapters[Run.chapter].revelation.verses[0].ref + \")\"",
+                        "SceneWindowWidth() * 0.4",
+                        "100",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Sytuacja: \" + HolyHoly::G(Content.chapters[Run.chapter].cbt.situation)",
                         "\"left\"",
-                        "\"p1e\"",
+                        "\"c1\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1390,19 +1751,516 @@
                   "actions": [
                     {
                       "type": {
-                        "value": "HolyHoly::MakeButton"
+                        "value": "HolyHoly::MakeText"
                       },
                       "parameters": [
                         "",
-                        "UiButton",
-                        "UiLabel",
-                        "SceneWindowWidth() * 0.42 + SceneWindowWidth() * 0.54 - 220",
-                        "600",
-                        "220",
-                        "56",
-                        "\"Dalej\"",
-                        "\"next\"",
-                        "0",
+                        "UiText",
+                        "SceneWindowWidth() * 0.4",
+                        "134",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Myśl: „\" + HolyHoly::G(Content.chapters[Run.chapter].cbt.thought) + \"”\"",
+                        "\"left\"",
+                        "\"c2\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "204",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Uczucie: \" + HolyHoly::G(Content.chapters[Run.chapter].cbt.feeling) + \" · jak kłamie: \" + HolyHoly::G(Content.distortions[HolyHoly::G(Content.chapters[Run.chapter].cbt.distortion)].name)",
+                        "\"left\"",
+                        "\"c3\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "240",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Pytanie: \" + HolyHoly::G(Content.distortions[HolyHoly::G(Content.chapters[Run.chapter].cbt.distortion)].question) + \" Jak odpowiesz tej myśli?\"",
+                        "\"left\"",
+                        "\"c4\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Repeat",
+                  "repeatExpression": "3",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "SetNumberVariable"
+                      },
+                      "parameters": [
+                        "o",
+                        "=",
+                        "Run.order[c]"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetNumberVariable"
+                      },
+                      "parameters": [
+                        "y",
+                        "=",
+                        "284 + c * 128"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakePanel"
+                      },
+                      "parameters": [
+                        "",
+                        "UiCard",
+                        "SceneWindowWidth() * 0.4",
+                        "y",
+                        "SceneWindowWidth() * 0.56",
+                        "120",
+                        "\"card\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ],
+                  "events": [
+                    {
+                      "type": "BuiltinCommonInstructions::Comment",
+                      "color": {
+                        "b": 109,
+                        "g": 230,
+                        "r": 255,
+                        "textB": 0,
+                        "textG": 0,
+                        "textR": 0
+                      },
+                      "comment": "Not chosen yet: the answer and a button. Chosen: what kind of answer it is and why, in its place."
+                    },
+                    {
+                      "type": "BuiltinCommonInstructions::Standard",
+                      "conditions": [
+                        {
+                          "type": {
+                            "value": "BuiltinCommonInstructions::CompareNumbers"
+                          },
+                          "parameters": [
+                            "Picked[c]",
+                            "=",
+                            "0"
+                          ]
+                        }
+                      ],
+                      "actions": [],
+                      "events": [
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "HolyHoly::MakeText"
+                              },
+                              "parameters": [
+                                "",
+                                "UiText",
+                                "SceneWindowWidth() * 0.4 + 18",
+                                "y + 12",
+                                "SceneWindowWidth() * 0.56 - 230",
+                                "HolyHoly::G(Content.chapters[Run.chapter].cbt.options[o].text)",
+                                "\"left\"",
+                                "\"opt\"",
+                                "\"page\"",
+                                "\"UI\"",
+                                ""
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "HolyHoly::MakeButton"
+                              },
+                              "parameters": [
+                                "",
+                                "UiButton",
+                                "UiLabel",
+                                "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 196",
+                                "y + 34",
+                                "180",
+                                "52",
+                                "\"Odpowiem tak\"",
+                                "\"cbt\"",
+                                "c",
+                                "\"page\"",
+                                "\"UI\"",
+                                ""
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "BuiltinCommonInstructions::Standard",
+                      "conditions": [
+                        {
+                          "type": {
+                            "value": "BuiltinCommonInstructions::CompareNumbers"
+                          },
+                          "parameters": [
+                            "Picked[c]",
+                            "=",
+                            "1"
+                          ]
+                        }
+                      ],
+                      "actions": [],
+                      "events": [
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "HolyHoly::MakeText"
+                              },
+                              "parameters": [
+                                "",
+                                "UiSmall",
+                                "SceneWindowWidth() * 0.4 + 18",
+                                "y + 10",
+                                "SceneWindowWidth() * 0.56 - 36",
+                                "\"\"",
+                                "\"left\"",
+                                "\"kind\"",
+                                "\"page\"",
+                                "\"UI\"",
+                                ""
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "HolyHoly::MakeText"
+                              },
+                              "parameters": [
+                                "",
+                                "UiSmall",
+                                "SceneWindowWidth() * 0.4 + 18",
+                                "y + 38",
+                                "SceneWindowWidth() * 0.56 - 36",
+                                "HolyHoly::G(Content.chapters[Run.chapter].cbt.options[o].why)",
+                                "\"left\"",
+                                "\"why\"",
+                                "\"page\"",
+                                "\"UI\"",
+                                ""
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [
+                            {
+                              "type": {
+                                "value": "StringObjectVariable"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Key",
+                                "=",
+                                "\"kind\""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "NumberObjectVariable"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Index",
+                                "=",
+                                "0"
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "StringVariable"
+                              },
+                              "parameters": [
+                                "Content.chapters[Run.chapter].cbt.options[o].kind",
+                                "=",
+                                "\"balanced\""
+                              ]
+                            }
+                          ],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Text",
+                                "=",
+                                "\"Zrównoważona ✓: prawdziwa i pomocna\""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "TextObject::ChangeColor"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "\"150;235;160\""
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [
+                            {
+                              "type": {
+                                "value": "StringObjectVariable"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Key",
+                                "=",
+                                "\"kind\""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "NumberObjectVariable"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Index",
+                                "=",
+                                "0"
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "StringVariable"
+                              },
+                              "parameters": [
+                                "Content.chapters[Run.chapter].cbt.options[o].kind",
+                                "=",
+                                "\"distorted\""
+                              ]
+                            }
+                          ],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Text",
+                                "=",
+                                "\"Zniekształcona\""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "TextObject::ChangeColor"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "\"255;150;140\""
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [
+                            {
+                              "type": {
+                                "value": "StringObjectVariable"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Key",
+                                "=",
+                                "\"kind\""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "NumberObjectVariable"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Index",
+                                "=",
+                                "0"
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "StringVariable"
+                              },
+                              "parameters": [
+                                "Content.chapters[Run.chapter].cbt.options[o].kind",
+                                "=",
+                                "\"sugar\""
+                              ]
+                            }
+                          ],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Text",
+                                "=",
+                                "\"Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem\""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "TextObject::ChangeColor"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "\"255;170;220\""
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [
+                            {
+                              "type": {
+                                "value": "StringObjectVariable"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Key",
+                                "=",
+                                "\"kind\""
+                              ]
+                            }
+                          ],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "SetNumberObjectVariable"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "Index",
+                                "=",
+                                "1"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ],
+                  "variables": [
+                    {
+                      "name": "c",
+                      "type": "number",
+                      "value": 0
+                    },
+                    {
+                      "name": "o",
+                      "type": "number",
+                      "value": 0
+                    },
+                    {
+                      "name": "y",
+                      "type": "number",
+                      "value": 0
+                    }
+                  ],
+                  "loopIndexVariable": "c"
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "BooleanVariable"
+                      },
+                      "parameters": [
+                        "Content.chapters[Run.chapter].cbt.helplines",
+                        "True",
+                        ""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "SceneWindowHeight() - 52",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Jeśli ta myśl jest ci bliska, nie zostawaj z nią sam: \" + Content.story.helplinesShort + \" (całą dobę)\"",
+                        "\"left\"",
+                        "\"help\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1439,11 +2297,11 @@
                       "parameters": [
                         "",
                         "UiPanel",
-                        "SceneWindowWidth() * 0.42 - 30",
-                        "40",
-                        "SceneWindowWidth() * 0.54 + 60",
-                        "640",
-                        "\"p2bg\"",
+                        "SceneWindowWidth() * 0.4 - 30",
+                        "24",
+                        "SceneWindowWidth() * 0.56 + 50",
+                        "SceneWindowHeight() - 48",
+                        "\"tbg\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1462,12 +2320,12 @@
                       "parameters": [
                         "",
                         "UiTitle",
-                        "SceneWindowWidth() * 0.42",
-                        "62",
-                        "SceneWindowWidth() * 0.54",
-                        "\"Raport dla Tronu\"",
+                        "SceneWindowWidth() * 0.4",
+                        "40",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Prawda\"",
                         "\"left\"",
-                        "\"p2a\"",
+                        "\"ta\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1486,12 +2344,36 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.42",
-                        "124",
-                        "SceneWindowWidth() * 0.54",
-                        "Content.chapters[Run.chapter].report",
+                        "SceneWindowWidth() * 0.4",
+                        "104",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Kłamstwo: „\" + HolyHoly::G(Content.chapters[Run.chapter].cbt.thought) + \"”\"",
                         "\"left\"",
-                        "\"p2b\"",
+                        "\"t1\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.4",
+                        "200",
+                        "SceneWindowWidth() * 0.56",
+                        "HolyHoly::G(Content.chapters[Run.chapter].cbt.truth)",
+                        "\"left\"",
+                        "\"t2\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1510,12 +2392,12 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.42",
-                        "250",
-                        "SceneWindowWidth() * 0.54",
-                        "\"Zburzone cienie: \" + ToString(Run.destroyed) + NewLine() + \"Najdłuższa seria ciosów: ×\" + ToString(Run.bestCombo) + NewLine() + \"Najdłuższe czuwanie: \" + ToString(round(Run.focusHeld)) + \" s\" + NewLine() + \"Upadki i powstania: \" + ToString(Run.falls) + NewLine() + \"Poziom: \" + ToString(Run.level) + \" · czas: \" + HolyHoly::Clock(Run.time)",
+                        "SceneWindowWidth() * 0.4",
+                        "360",
+                        "SceneWindowWidth() * 0.56",
+                        "\"„\" + HolyHoly::G(Content.chapters[Run.chapter].cbt.verse.text) + \"” (\" + HolyHoly::G(Content.chapters[Run.chapter].cbt.verse.ref) + \")\"",
                         "\"left\"",
-                        "\"p2c\"",
+                        "\"t3\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1533,37 +2415,13 @@
                       },
                       "parameters": [
                         "",
-                        "UiText",
-                        "SceneWindowWidth() * 0.42",
-                        "420",
-                        "SceneWindowWidth() * 0.54",
-                        "\"Światło: +\" + ToString(round(Run.light)) + \"   ·   manna: +\" + ToString(Run.manna)",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "460",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Przemienionych myśli w tym rozdziale: \" + ToString(Run.reframes) + \" · rozeznanych kłamstw: \" + ToString(Run.discRight)",
                         "\"left\"",
-                        "\"p2d\"",
-                        "\"page\"",
-                        "\"UI\"",
-                        ""
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "BuiltinCommonInstructions::Standard",
-                  "conditions": [],
-                  "actions": [
-                    {
-                      "type": {
-                        "value": "HolyHoly::MakeText"
-                      },
-                      "parameters": [
-                        "",
-                        "UiText",
-                        "SceneWindowWidth() * 0.42",
-                        "470",
-                        "SceneWindowWidth() * 0.54",
-                        "\"\"",
-                        "\"left\"",
-                        "\"p2e\"",
+                        "\"t4\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1583,12 +2441,12 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.42 + SceneWindowWidth() * 0.54 - 220",
-                        "600",
+                        "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 220",
+                        "SceneWindowHeight() - 100",
                         "220",
                         "56",
-                        "\"Do Drzewa\"",
-                        "\"done\"",
+                        "\"Dalej\"",
+                        "\"next\"",
                         "0",
                         "\"page\"",
                         "\"UI\"",
@@ -1626,11 +2484,11 @@
                       "parameters": [
                         "",
                         "UiPanel",
-                        "SceneWindowWidth() * 0.42 - 30",
-                        "40",
-                        "SceneWindowWidth() * 0.54 + 60",
-                        "640",
-                        "\"p3bg\"",
+                        "SceneWindowWidth() * 0.4 - 30",
+                        "24",
+                        "SceneWindowWidth() * 0.56 + 50",
+                        "SceneWindowHeight() - 48",
+                        "\"obg\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1649,36 +2507,12 @@
                       "parameters": [
                         "",
                         "UiTitle",
-                        "SceneWindowWidth() * 0.42",
-                        "62",
-                        "SceneWindowWidth() * 0.54",
-                        "\"Święty, Święty, Święty\"",
+                        "SceneWindowWidth() * 0.4",
+                        "40",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Narzędzie na drogę\"",
                         "\"left\"",
-                        "\"p3a\"",
-                        "\"page\"",
-                        "\"UI\"",
-                        ""
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "BuiltinCommonInstructions::Standard",
-                  "conditions": [],
-                  "actions": [
-                    {
-                      "type": {
-                        "value": "HolyHoly::MakeText"
-                      },
-                      "parameters": [
-                        "",
-                        "UiSmall",
-                        "SceneWindowWidth() * 0.42",
-                        "124",
-                        "SceneWindowWidth() * 0.54",
-                        "Content.story.finale[0] + NewLine() + NewLine() + Content.story.finale[1] + NewLine() + NewLine() + Content.story.finale[2]",
-                        "\"left\"",
-                        "\"p3b\"",
+                        "\"oa\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1697,12 +2531,108 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.42",
-                        "470",
-                        "SceneWindowWidth() * 0.54",
-                        "\"„\" + Content.title.verse.text + \"” (\" + Content.title.verse.ref + \")\"",
+                        "SceneWindowWidth() * 0.4",
+                        "100",
+                        "SceneWindowWidth() * 0.56",
+                        "Content.chapters[Run.chapter].tool.name",
                         "\"left\"",
-                        "\"p3c\"",
+                        "\"o1\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "140",
+                        "SceneWindowWidth() * 0.56",
+                        "HolyHoly::G(Content.chapters[Run.chapter].tool.summary)",
+                        "\"left\"",
+                        "\"o2\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "200",
+                        "SceneWindowWidth() * 0.56",
+                        "\"\"",
+                        "\"left\"",
+                        "\"steps\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "420",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Wyzwanie na dziś: \" + HolyHoly::G(Content.chapters[Run.chapter].tool.practice)",
+                        "\"left\"",
+                        "\"o3\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "490",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Co mówią badania: \" + Content.chapters[Run.chapter].tool.evidence",
+                        "\"left\"",
+                        "\"o4\"",
                         "\"page\"",
                         "\"UI\"",
                         ""
@@ -1722,11 +2652,424 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.42 + SceneWindowWidth() * 0.54 - 220",
-                        "600",
+                        "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 220",
+                        "SceneWindowHeight() - 100",
                         "220",
                         "56",
-                        "\"Do Drzewa\"",
+                        "\"Dalej\"",
+                        "\"next\"",
+                        "0",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "BooleanVariable"
+                      },
+                      "parameters": [
+                        "Content.chapters[Run.chapter].tool.breathing",
+                        "True",
+                        ""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "SceneWindowWidth() * 0.4",
+                        "SceneWindowHeight() - 100",
+                        "240",
+                        "56",
+                        "\"Ćwicz teraz\"",
+                        "\"breathe\"",
+                        "0",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "NumberVariable"
+                  },
+                  "parameters": [
+                    "Page",
+                    "=",
+                    "4"
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakePanel"
+                      },
+                      "parameters": [
+                        "",
+                        "UiPanel",
+                        "SceneWindowWidth() * 0.4 - 30",
+                        "24",
+                        "SceneWindowWidth() * 0.56 + 50",
+                        "SceneWindowHeight() - 48",
+                        "\"rbg\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiTitle",
+                        "SceneWindowWidth() * 0.4",
+                        "40",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Raport dla Tronu\"",
+                        "\"left\"",
+                        "\"ra\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "104",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Przemienione myśli: \" + ToString(Run.reframes) + NewLine() + \"Rozeznane kłamstwa: \" + ToString(Run.discRight) + NewLine() + \"Najdłuższa seria ciosów: ×\" + ToString(Run.bestCombo) + NewLine() + \"Najdłuższe czuwanie: \" + ToString(round(Run.focusHeld)) + \" s\" + NewLine() + \"Upadki i powstania: \" + ToString(Run.falls) + NewLine() + \"Poziom: \" + ToString(Run.level) + \" · czas: \" + HolyHoly::Clock(Run.time)",
+                        "\"left\"",
+                        "\"r1\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.4",
+                        "300",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Światło: +\" + ToString(round(Run.light)) + \"   ·   manna: +\" + ToString(Run.manna)",
+                        "\"left\"",
+                        "\"r2\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.4",
+                        "346",
+                        "SceneWindowWidth() * 0.56",
+                        "\"\"",
+                        "\"left\"",
+                        "\"r3\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.4",
+                        "410",
+                        "SceneWindowWidth() * 0.56",
+                        "\"\"",
+                        "\"left\"",
+                        "\"r4\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 240",
+                        "SceneWindowHeight() - 100",
+                        "240",
+                        "56",
+                        "\"Do Drabiny\"",
+                        "\"done\"",
+                        "0",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "NumberVariable"
+                  },
+                  "parameters": [
+                    "Page",
+                    "=",
+                    "5"
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakePanel"
+                      },
+                      "parameters": [
+                        "",
+                        "UiPanel",
+                        "SceneWindowWidth() * 0.4 - 30",
+                        "24",
+                        "SceneWindowWidth() * 0.56 + 50",
+                        "SceneWindowHeight() - 48",
+                        "\"fbg\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiTitle",
+                        "SceneWindowWidth() * 0.4",
+                        "40",
+                        "SceneWindowWidth() * 0.56",
+                        "\"Święty, Święty, Święty\"",
+                        "\"left\"",
+                        "\"fa\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "100",
+                        "SceneWindowWidth() * 0.56",
+                        "HolyHoly::G(Content.story.finale[0]) + NewLine() + NewLine() + HolyHoly::G(Content.story.finale[1]) + NewLine() + NewLine() + HolyHoly::G(Content.story.finale[2])",
+                        "\"left\"",
+                        "\"f1\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.4",
+                        "400",
+                        "SceneWindowWidth() * 0.56",
+                        "HolyHoly::G(Content.story.finale[3])",
+                        "\"left\"",
+                        "\"f2\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.4",
+                        "500",
+                        "SceneWindowWidth() * 0.56",
+                        "Content.story.support.text",
+                        "\"left\"",
+                        "\"f3\"",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "SceneWindowWidth() * 0.4",
+                        "SceneWindowHeight() - 100",
+                        "260",
+                        "56",
+                        "Content.story.support.button",
+                        "\"coffee\"",
+                        "0",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 240",
+                        "SceneWindowHeight() - 100",
+                        "240",
+                        "56",
+                        "\"Do Drabiny\"",
                         "\"done\"",
                         "0",
                         "\"page\"",
@@ -1750,6 +3093,16 @@
                     "Panel",
                     "=",
                     "\"page\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "Page",
+                    "!=",
+                    "1"
                   ]
                 }
               ],
@@ -1820,7 +3173,18 @@
             },
             {
               "type": "BuiltinCommonInstructions::Standard",
-              "conditions": [],
+              "conditions": [
+                {
+                  "type": {
+                    "value": "NumberVariable"
+                  },
+                  "parameters": [
+                    "Page",
+                    "=",
+                    "2"
+                  ]
+                }
+              ],
               "actions": [
                 {
                   "type": {
@@ -1829,7 +3193,7 @@
                   "parameters": [
                     "",
                     "UiBar",
-                    "SceneWindowWidth() * 0.42",
+                    "SceneWindowWidth() * 0.4",
                     "0",
                     "\"UI\""
                   ]
@@ -1883,7 +3247,7 @@
                   "parameters": [
                     "UiBar",
                     "=",
-                    "200"
+                    "300"
                   ]
                 },
                 {
@@ -1923,6 +3287,260 @@
                 "True",
                 ""
               ]
+            },
+            {
+              "type": {
+                "value": "ClearVariableChildren"
+              },
+              "parameters": [
+                "Picked"
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "PushNumber"
+                  },
+                  "parameters": [
+                    "Picked",
+                    "0"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "PushNumber"
+                  },
+                  "parameters": [
+                    "Picked",
+                    "0"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "PushNumber"
+                  },
+                  "parameters": [
+                    "Picked",
+                    "0"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "NumberVariable"
+              },
+              "parameters": [
+                "Page",
+                "=",
+                "1"
+              ]
+            },
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"cbt\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "Picked[Ui.arg]",
+                "=",
+                "1"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Build",
+                "True",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "o",
+                "=",
+                "Run.order[Ui.arg]"
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Content.chapters[Run.chapter].cbt.options[o].kind",
+                    "=",
+                    "\"balanced\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Psalm150::PlaySfx"
+                  },
+                  "parameters": [
+                    "",
+                    "\"revelation\"",
+                    "2",
+                    "0",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Wait",
+                    "=",
+                    "2.2"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "inverted": true,
+                    "value": "StringVariable"
+                  },
+                  "parameters": [
+                    "Content.chapters[Run.chapter].cbt.options[o].kind",
+                    "=",
+                    "\"balanced\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Psalm150::PlaySfx"
+                  },
+                  "parameters": [
+                    "",
+                    "\"weaken\"",
+                    "0",
+                    "0",
+                    ""
+                  ]
+                }
+              ]
+            }
+          ],
+          "variables": [
+            {
+              "name": "o",
+              "type": "number",
+              "value": 0
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::CompareNumbers"
+              },
+              "parameters": [
+                "Wait",
+                ">",
+                "0"
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "Wait",
+                "-",
+                "TimeDelta()"
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "Wait",
+                    "<=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Page",
+                    "=",
+                    "2"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "T",
+                    "=",
+                    "0"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetBooleanVariable"
+                  },
+                  "parameters": [
+                    "Build",
+                    "True",
+                    ""
+                  ]
+                }
+              ]
             }
           ]
         },
@@ -1936,7 +3554,7 @@
             "textG": 0,
             "textR": 0
           },
-          "comment": "Page 1: the lie, crossed out; the truth; a verse."
+          "comment": "Page 2: the lie is crossed out, then the truth appears."
         },
         {
           "type": "BuiltinCommonInstructions::Standard",
@@ -1948,7 +3566,7 @@
               "parameters": [
                 "Page",
                 "=",
-                "1"
+                "2"
               ]
             }
           ],
@@ -1965,7 +3583,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p1a\""
+                    "\"ta\""
                   ]
                 },
                 {
@@ -1975,7 +3593,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "0.2"
+                    "0.1"
                   ]
                 },
                 {
@@ -2029,7 +3647,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p1b\""
+                    "\"t1\""
                   ]
                 },
                 {
@@ -2039,7 +3657,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "0.7"
+                    "0.4"
                   ]
                 },
                 {
@@ -2093,7 +3711,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p1c\""
+                    "\"t2\""
                   ]
                 },
                 {
@@ -2103,7 +3721,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "2.3"
+                    "2"
                   ]
                 },
                 {
@@ -2157,7 +3775,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p1d\""
+                    "\"t3\""
                   ]
                 },
                 {
@@ -2167,7 +3785,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "2.6"
+                    "3"
                   ]
                 },
                 {
@@ -2221,7 +3839,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p1e\""
+                    "\"t4\""
                   ]
                 },
                 {
@@ -2282,6 +3900,70 @@
                     "value": "StringObjectVariable"
                   },
                   "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "3.8"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
                     "UiBar",
                     "Key",
                     "=",
@@ -2295,7 +3977,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "1.6"
+                    "1.2"
                   ]
                 },
                 {
@@ -2323,7 +4005,7 @@
                         "UiText",
                         "Key",
                         "=",
-                        "\"p1b\""
+                        "\"t1\""
                       ]
                     }
                   ],
@@ -2391,105 +4073,6 @@
                   ]
                 }
               ]
-            },
-            {
-              "type": "BuiltinCommonInstructions::Standard",
-              "conditions": [
-                {
-                  "type": {
-                    "value": "BuiltinCommonInstructions::CompareNumbers"
-                  },
-                  "parameters": [
-                    "T",
-                    ">=",
-                    "2.5"
-                  ]
-                },
-                {
-                  "type": {
-                    "value": "BuiltinCommonInstructions::Once"
-                  },
-                  "parameters": []
-                }
-              ],
-              "actions": [
-                {
-                  "type": {
-                    "value": "Psalm150::PlaySfx"
-                  },
-                  "parameters": [
-                    "",
-                    "\"revelation\"",
-                    "2",
-                    "0",
-                    ""
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "BuiltinCommonInstructions::Standard",
-              "conditions": [
-                {
-                  "type": {
-                    "value": "StringObjectVariable"
-                  },
-                  "parameters": [
-                    "UiAll",
-                    "Key",
-                    "=",
-                    "\"\""
-                  ]
-                },
-                {
-                  "type": {
-                    "value": "BuiltinCommonInstructions::CompareNumbers"
-                  },
-                  "parameters": [
-                    "T",
-                    ">=",
-                    "4.2"
-                  ]
-                },
-                {
-                  "type": {
-                    "value": "NumberObjectVariable"
-                  },
-                  "parameters": [
-                    "UiAll",
-                    "Index",
-                    "=",
-                    "0"
-                  ]
-                }
-              ],
-              "actions": [
-                {
-                  "type": {
-                    "value": "SetNumberObjectVariable"
-                  },
-                  "parameters": [
-                    "UiAll",
-                    "Index",
-                    "=",
-                    "1"
-                  ]
-                },
-                {
-                  "type": {
-                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
-                  },
-                  "parameters": [
-                    "UiAll",
-                    "Tween",
-                    "\"in\"",
-                    "255",
-                    "\"easeOutQuad\"",
-                    "0.6",
-                    "no"
-                  ]
-                }
-              ]
             }
           ]
         },
@@ -2503,7 +4086,7 @@
               "parameters": [
                 "Page",
                 ">=",
-                "2"
+                "3"
               ]
             }
           ],
@@ -2520,7 +4103,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p2a\""
+                    "\"oa\""
                   ]
                 },
                 {
@@ -2584,7 +4167,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p2b\""
+                    "\"o1\""
                   ]
                 },
                 {
@@ -2594,7 +4177,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "0.5"
+                    "0.44999999999999996"
                   ]
                 },
                 {
@@ -2648,7 +4231,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p2c\""
+                    "\"o2\""
                   ]
                 },
                 {
@@ -2658,7 +4241,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "1.2"
+                    "0.7999999999999999"
                   ]
                 },
                 {
@@ -2712,7 +4295,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p2d\""
+                    "\"steps\""
                   ]
                 },
                 {
@@ -2722,7 +4305,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "1.9"
+                    "1.15"
                   ]
                 },
                 {
@@ -2776,7 +4359,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p2e\""
+                    "\"o3\""
                   ]
                 },
                 {
@@ -2786,7 +4369,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "2.4"
+                    "1.5"
                   ]
                 },
                 {
@@ -2840,7 +4423,71 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p3a\""
+                    "\"o4\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "1.85"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"ra\""
                   ]
                 },
                 {
@@ -2904,7 +4551,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p3b\""
+                    "\"r1\""
                   ]
                 },
                 {
@@ -2914,7 +4561,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "0.6"
+                    "0.44999999999999996"
                   ]
                 },
                 {
@@ -2968,7 +4615,7 @@
                     "UiAll",
                     "Key",
                     "=",
-                    "\"p3c\""
+                    "\"r2\""
                   ]
                 },
                 {
@@ -2978,7 +4625,391 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "2.6"
+                    "0.7999999999999999"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"r3\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "1.15"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"r4\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "1.5"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"fa\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "1.85"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"f1\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "0.1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"f2\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "0.44999999999999996"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "0"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Index",
+                    "=",
+                    "1"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Tween::TweenBehavior::AddObjectOpacityTween2"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Tween",
+                    "\"in\"",
+                    "255",
+                    "\"easeOutQuad\"",
+                    "0.6",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiAll",
+                    "Key",
+                    "=",
+                    "\"f3\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "T",
+                    ">=",
+                    "0.7999999999999999"
                   ]
                 },
                 {
@@ -3042,7 +5073,7 @@
                   "parameters": [
                     "T",
                     ">=",
-                    "2.6"
+                    "2.2"
                   ]
                 },
                 {
@@ -3095,10 +5126,80 @@
                 "value": "StringObjectVariable"
               },
               "parameters": [
+                "UiSmall",
+                "Key",
+                "=",
+                "\"steps\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiSmall",
+                "Text",
+                "=",
+                "\"\""
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::ForEachChildVariable",
+              "iterableVariableName": "Content.chapters[Run.chapter].tool.steps",
+              "valueIteratorVariableName": "stepText",
+              "keyIteratorVariableName": "n",
+              "conditions": [],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Text",
+                        "=",
+                        "UiSmall.Text::Value() + ToString(ToNumber(n) + 1) + \". \" + HolyHoly::G(stepText) + NewLine()"
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "variables": [
+                {
+                  "name": "stepText",
+                  "type": "string",
+                  "value": ""
+                },
+                {
+                  "name": "n",
+                  "type": "string",
+                  "value": ""
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
                 "UiText",
                 "Key",
                 "=",
-                "\"p2e\""
+                "\"r3\""
               ]
             },
             {
@@ -3137,7 +5238,7 @@
                 "UiText",
                 "Key",
                 "=",
-                "\"p2e\""
+                "\"r3\""
               ]
             },
             {
@@ -3170,12 +5271,109 @@
           "conditions": [
             {
               "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiText",
+                "Key",
+                "=",
+                "\"r4\""
+              ]
+            },
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Run.unlocked",
+                "!=",
+                "\"\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiText",
+                "Text",
+                "=",
+                "\"Dołącza archanioł \" + Content.heroes[Content.heroIndex[Run.unlocked]].name + \": „\" + Content.heroes[Content.heroIndex[Run.unlocked]].meaning + \"”\""
+              ]
+            },
+            {
+              "type": {
+                "value": "TextObject::ChangeColor"
+              },
+              "parameters": [
+                "UiText",
+                "\"255;214;120\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiText",
+                "Key",
+                "=",
+                "\"r4\""
+              ]
+            },
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Run.unlocked",
+                "=",
+                "\"\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BooleanVariable"
+              },
+              "parameters": [
+                "Run.trial",
+                "True",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiText",
+                "Text",
+                "=",
+                "\"Próba z archaniołem \" + Content.heroes[Content.heroIndex[Run.hero]].name + \" zakończona.\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
                 "value": "NumberVariable"
               },
               "parameters": [
                 "Page",
                 "=",
-                "2"
+                "4"
               ]
             },
             {
@@ -3185,7 +5383,7 @@
               "parameters": [
                 "T",
                 ">=",
-                "2.4"
+                "1.2"
               ]
             },
             {
@@ -3196,12 +5394,12 @@
             },
             {
               "type": {
-                "value": "BuiltinCommonInstructions::CompareStrings"
+                "value": "StringVariable"
               },
               "parameters": [
-                "Run.newRank",
+                "Run.unlocked",
                 "!=",
-                "Run.oldRank"
+                "\"\""
               ]
             }
           ],
@@ -3216,6 +5414,61 @@
                 "0",
                 "0",
                 ""
+              ]
+            },
+            {
+              "type": {
+                "value": "Create"
+              },
+              "parameters": [
+                "",
+                "UiArt",
+                "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 90",
+                "420",
+                "\"UI\""
+              ]
+            },
+            {
+              "type": {
+                "value": "AnimatableCapability::AnimatableBehavior::SetName"
+              },
+              "parameters": [
+                "UiArt",
+                "Animation",
+                "=",
+                "Run.unlocked + \"-icon\""
+              ]
+            },
+            {
+              "type": {
+                "value": "ResizableCapability::ResizableBehavior::SetSize"
+              },
+              "parameters": [
+                "UiArt",
+                "Resizable",
+                "130",
+                "130"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringObjectVariable"
+              },
+              "parameters": [
+                "UiArt",
+                "Panel",
+                "=",
+                "\"page\""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetZOrder"
+              },
+              "parameters": [
+                "UiArt",
+                "=",
+                "300"
               ]
             }
           ]
@@ -3235,6 +5488,26 @@
         {
           "type": "BuiltinCommonInstructions::Standard",
           "conditions": [
+            {
+              "type": {
+                "value": "NumberVariable"
+              },
+              "parameters": [
+                "Page",
+                ">=",
+                "2"
+              ]
+            },
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"page\""
+              ]
+            },
             {
               "type": {
                 "value": "BuiltinCommonInstructions::Or"
@@ -3347,8 +5620,8 @@
                   },
                   "parameters": [
                     "Page",
-                    "=",
-                    "1"
+                    "<=",
+                    "3"
                   ]
                 }
               ],
@@ -3375,7 +5648,7 @@
                   "parameters": [
                     "Page",
                     ">=",
-                    "2"
+                    "4"
                   ]
                 }
               ],
@@ -3406,6 +5679,26 @@
                 "=",
                 "\"next\""
               ]
+            },
+            {
+              "type": {
+                "value": "NumberVariable"
+              },
+              "parameters": [
+                "Page",
+                ">=",
+                "2"
+              ]
+            },
+            {
+              "type": {
+                "value": "NumberVariable"
+              },
+              "parameters": [
+                "Page",
+                "<=",
+                "3"
+              ]
             }
           ],
           "actions": [
@@ -3415,8 +5708,8 @@
               },
               "parameters": [
                 "Page",
-                "=",
-                "2"
+                "+",
+                "1"
               ]
             },
             {
@@ -3461,17 +5754,17 @@
               "parameters": [
                 "Page",
                 "=",
-                "2"
+                "4"
               ]
             },
             {
               "type": {
-                "value": "BuiltinCommonInstructions::CompareStrings"
+                "value": "StringVariable"
               },
               "parameters": [
                 "Content.chapters[Run.chapter].id",
                 "=",
-                "\"keter\""
+                "\"anastasis\""
               ]
             },
             {
@@ -3493,7 +5786,7 @@
               "parameters": [
                 "Page",
                 "=",
-                "3"
+                "5"
               ]
             },
             {
@@ -3533,7 +5826,7 @@
               "parameters": [
                 "",
                 "\"Save\"",
-                "\"holyholyholy3d.save.v1\"",
+                "\"holyholyholy3d.save.v2\"",
                 ""
               ]
             },
@@ -3570,8 +5863,1562 @@
               },
               "parameters": [
                 "",
-                "\"Tree\"",
+                "\"Ladder\"",
                 "yes"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"coffee\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "LaunchFile"
+              },
+              "parameters": [
+                "Content.story.support.url",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"breathe\""
+              ]
+            }
+          ],
+          "actions": [],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiButton",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiButton",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiCard",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiCard",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiText",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiSmall",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiSmall",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiTitle",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiTitle",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiLabel",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiLabel",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiBig",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiBig",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiArt",
+                    "Panel",
+                    "=",
+                    "\"page\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiArt",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetBooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "BreathT",
+                    "=",
+                    "0"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetStringVariable"
+                  },
+                  "parameters": [
+                    "Ui.top",
+                    "=",
+                    "\"breath\""
+                  ]
+                }
+              ],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakePanel"
+                      },
+                      "parameters": [
+                        "",
+                        "UiPanel",
+                        "(SceneWindowWidth() - 720) / 2",
+                        "50",
+                        "720",
+                        "620",
+                        "\"\"",
+                        "\"breath\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiTitle",
+                        "(SceneWindowWidth() - 720) / 2",
+                        "70",
+                        "720",
+                        "\"Oddech z westchnieniem\"",
+                        "\"center\"",
+                        "\"\"",
+                        "\"breath\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Create"
+                      },
+                      "parameters": [
+                        "",
+                        "UiIcon",
+                        "SceneWindowWidth() / 2",
+                        "330",
+                        "\"UI\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "AnimatableCapability::AnimatableBehavior::SetName"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Animation",
+                        "=",
+                        "\"breath\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetStringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetStringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Key",
+                        "=",
+                        "\"breathCircle\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetZOrder"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "=",
+                        "300"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "(SceneWindowWidth() - 720) / 2 + 40",
+                        "520",
+                        "640",
+                        "\"\"",
+                        "\"center\"",
+                        "\"breathCue\"",
+                        "\"breath\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "(SceneWindowWidth() - 720) / 2 + 40",
+                        "566",
+                        "640",
+                        "\"\"",
+                        "\"center\"",
+                        "\"breathCount\"",
+                        "\"breath\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "(SceneWindowWidth() - 220) / 2",
+                        "606",
+                        "220",
+                        "50",
+                        "\"Zakończ\"",
+                        "\"breathStop\"",
+                        "0",
+                        "\"breath\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "colorB": 80,
+          "colorG": 175,
+          "colorR": 76,
+          "creationTime": 0,
+          "folded": true,
+          "name": "Guided breathing",
+          "source": "",
+          "type": "BuiltinCommonInstructions::Group",
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Comment",
+              "color": {
+                "b": 109,
+                "g": 230,
+                "r": 255,
+                "textB": 0,
+                "textG": 0,
+                "textR": 0
+              },
+              "comment": "Cyclic sighing: in through the nose (4 s), a short second sip (1 s), a long slow breath out (8 s); six rounds. Exhale-focused breathing has moderate evidence for lowering stress (Balban 2023)."
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "True",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "BreathT",
+                    "+",
+                    "TimeDelta()"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    "Key",
+                    "=",
+                    "\"breathCircle\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "mod(BreathT, 13)",
+                    "<",
+                    "4"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "ScalableCapability::ScalableBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    "Scale",
+                    "=",
+                    "0.55 + 0.55 * mod(BreathT, 13) / 4"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    "Key",
+                    "=",
+                    "\"breathCircle\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "mod(BreathT, 13)",
+                    ">=",
+                    "4"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "mod(BreathT, 13)",
+                    "<",
+                    "5"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "ScalableCapability::ScalableBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    "Scale",
+                    "=",
+                    "1.1 + 0.14 * (mod(BreathT, 13) - 4)"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    "Key",
+                    "=",
+                    "\"breathCircle\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "mod(BreathT, 13)",
+                    ">=",
+                    "5"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "ScalableCapability::ScalableBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    "Scale",
+                    "=",
+                    "1.24 - 0.69 * (mod(BreathT, 13) - 5) / 8"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "mod(BreathT, 13)",
+                    "<",
+                    "4"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "BreathT",
+                    "<",
+                    "78"
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Key",
+                        "=",
+                        "\"breathCue\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Text",
+                        "=",
+                        "\"Spokojny wdech nosem…\""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "mod(BreathT, 13)",
+                    ">=",
+                    "4"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "mod(BreathT, 13)",
+                    "<",
+                    "5"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "BreathT",
+                    "<",
+                    "78"
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Key",
+                        "=",
+                        "\"breathCue\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Text",
+                        "=",
+                        "\"…i jeszcze trochę powietrza\""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "mod(BreathT, 13)",
+                    ">=",
+                    "5"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "BreathT",
+                    "<",
+                    "78"
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Key",
+                        "=",
+                        "\"breathCue\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Text",
+                        "=",
+                        "\"Długi, powolny wydech ustami…\""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "BreathT",
+                    ">=",
+                    "78"
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Key",
+                        "=",
+                        "\"breathCue\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Text",
+                        "=",
+                        "\"Dobrze. Zauważ, jak teraz czuje się twoje ciało.\""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Key",
+                        "=",
+                        "\"breathCircle\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "ScalableCapability::ScalableBehavior::SetValue"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Scale",
+                        "=",
+                        "0.8"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "True",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Key",
+                        "=",
+                        "\"breathCount\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Text",
+                        "=",
+                        "\"Oddech \" + ToString(min(6, floor(BreathT / 13) + 1)) + \" z 6 · możesz zamknąć oczy\""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::Or"
+                  },
+                  "parameters": [],
+                  "subInstructions": [
+                    {
+                      "type": {
+                        "value": "StringVariable"
+                      },
+                      "parameters": [
+                        "Ui.clicked",
+                        "=",
+                        "\"breathStop\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "BuiltinCommonInstructions::And"
+                      },
+                      "parameters": [],
+                      "subInstructions": [
+                        {
+                          "type": {
+                            "value": "StringVariable"
+                          },
+                          "parameters": [
+                            "Ui.clicked",
+                            "=",
+                            "\"close\""
+                          ]
+                        },
+                        {
+                          "type": {
+                            "value": "StringVariable"
+                          },
+                          "parameters": [
+                            "Ui.top",
+                            "=",
+                            "\"breath\""
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetBooleanVariable"
+                  },
+                  "parameters": [
+                    "Breathing",
+                    "False",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetStringVariable"
+                  },
+                  "parameters": [
+                    "Ui.top",
+                    "=",
+                    "\"page\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetStringVariable"
+                  },
+                  "parameters": [
+                    "Ui.clicked",
+                    "=",
+                    "\"\""
+                  ]
+                }
+              ],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiPanel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiButton",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBar",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiText",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiText",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiTitle",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiLabel",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiBig",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiIcon",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        "Panel",
+                        "=",
+                        "\"breath\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "parameters": []
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"page\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::CompareNumbers"
+              },
+              "parameters": [
+                "Page",
+                "=",
+                "3"
+              ]
+            },
+            {
+              "type": {
+                "value": "SceneInstancesCount"
+              },
+              "parameters": [
+                "",
+                "UiPanel",
+                "=",
+                "0"
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Build",
+                "True",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "T",
+                "=",
+                "5"
               ]
             }
           ]

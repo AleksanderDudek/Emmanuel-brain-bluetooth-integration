@@ -1,237 +1,344 @@
-# HolyHolyHoly 3D: Burzenie twierdz — dokument projektowy
+# HolyHolyHoly 3D: Archaniołowie — dokument projektowy
 
-> „Albowiem broń żołnierstwa naszego nie jest cielesna, ale z Boga jest, mocna ku zburzeniu
-> miejsc obronnych” (2 Kor 10,4)
+> „Albowiem Aniołom swoim przykazał o tobie, aby cię strzegli na wszystkich drogach twoich”
+> (Ps 91,11)
 
-Przeglądarkowa gra 3D zrobiona w silniku **GDevelop**, nowa interpretacja
-[HolyHolyHoly](../game/DESIGN.md). Jesteś aniołem stróżem Adama. W kolejnych
-rozdziałach jego życia rozbijasz traumy, które zamieniają się w prawdę, i burzysz
-twierdze kłamstw, w które Adam uwierzył. Opaska fNIRS **Mendi** jest opcjonalna:
-z nią skupienie liczy się także w ruchu.
+Przeglądarkowa gra 3D w silniku **GDevelop**. Grasz aniołem stróżem: jednym z siedmiu
+archaniołów. Bóg powierza ci człowieka (mężczyznę albo kobietę, z imieniem, które możesz mu
+nadać, choćby swoim), który żyje w dzisiejszej Polsce i niesie prawdziwe rany: lęk, dom
+z alkoholem, porównywanie się w telefonie, odrzucenie, przemoc, wypalenie, nałóg, stratę,
+depresję. Rany mają kształt cieni, które szepczą kłamstwa. Rozbity cień zostawia po sobie
+prawdziwe zdanie, a twierdza kłamstwa pada. Wtedy przychodzi **Jezus**: w scenie
+uzdrowienia, Jego własnymi słowami z Ewangelii. Potem człowiek sam przemienia myśl i
+zabiera ze sobą jedno prawdziwe narzędzie na życie.
+
+Gra nie jest terapią. Jest grą, która uczy kilku umiejętności z terapii
+poznawczo-behawioralnej (CBT) i robi to w sposób zgodny z badaniami i z zasadami
+bezpiecznego mówienia o kryzysie. Źródła: §12.
 
 ---
 
-## 0. Co się zmieniło względem gry 2D
+## 0. Co się zmieniło (wersja 2)
 
-| | HolyHolyHoly (2D) | HolyHolyHoly 3D |
+| | v1: Burzenie twierdz | v2: Archaniołowie |
 |---|---|---|
-| Silnik | własny kod TypeScript, Canvas 2D | **GDevelop 5** (sceny, zdarzenia, rozszerzenia), renderowanie 3D (three.js) |
-| Rdzeń | Pac-Man × Archero × survivors: labirynt, ziarna, promienie łaski, duszki-cienie, **zjadanie i trawienie** | **Archero × survivors × Endless Puncher**: arena, fale, dary, ciosy w serii, **rozbijanie** traum |
-| Modlitwy | modlitwy serca jako klucze, opcjonalnie wypowiadane na głos | **brak modlitw mówionych** i ekranów modlitwy; nic nie trzeba mówić ani czytać w trakcie gry |
-| Odblokowania | modlitwa otwiera talenty i krainy | postęp: kolejne sfery otwiera ukończenie poprzedniej; Ród i Szeol otwierają Gewura i Bina |
-| Muzyka | „Psalm 150”, synteza na żywo | ten sam silnik muzyczny jako rozszerzenie GDevelop (`Psalm150`) |
-| Opaska | moduły BrainLink | te same moduły jako rozszerzenie GDevelop (`MendiFocus`) |
-
-Temat zostaje: **rany stają się prawdą**. Zamiast zjadać cień, anioł go rozbija;
-z rozbitego cienia wylatuje światło i unosi się jego prawda (Lęk → **UFNOŚĆ**,
-Wstyd → **GODNOŚĆ**…). Kłamstwo rozdziału nosi twierdza, a jej upadek kończy się
-objawieniem: kłamstwo zostaje przekreślone, a w jego miejsce pojawia się prawda
-i werset (Biblia Gdańska).
-
-Usunięte motywy Pac-Mana: labirynt i drzwi, ziarna do zbierania jak kropki,
-„power pellets”, duszki z osobowościami Blinky/Pinky/Inky/Clyde, zjadanie
-osłabionych cieni i serie zjedzeń.
+| Bohater | anonimowy anioł z 2/4/6 skrzydłami (low-poly) | **siedmiu archaniołów** z tradycji wschodniej, malowanych (realizm z ikoną) |
+| Człowiek | Adam, bez twarzy | **mężczyzna albo kobieta**, z imieniem; współczesna historia w dwóch wersjach |
+| Wrogowie | abstrakcyjne bryły-uczucia | **cienie-myśli**: malowane postaci, które wyglądają jak to, czym są (lęk z oczami i kablami, wstyd zakrywający twarz…) |
+| Po rozbiciu | słowo prawdy („UFNOŚĆ”) | **zdanie**: realistyczna myśl człowieka albo słowo anioła („Jesteś kochana”) |
+| Jezus | w wersetach | **przychodzi** w scenie uzdrowienia każdego rozdziału (Jego słowa, z odnośnikiem), podaje rękę przy upadku, wyprowadza z otchłani (Anastasis) |
+| Mapa | Drzewo Życia (sefiroty) | **Drabina** z ikony św. Jana Klimaka: 10 szczebli, Chrystus na szczycie |
+| Dary | 19 darów, bez limitu | **dar archanioła + 4 dary + 4 cnoty**, ewolucje, relikwiarze, losowanie ponowne (wzór: Heroes vs Hordes) |
+| Ogień Ducha | 3 płomienie | **Modlitwa archanioła**: każdy ma własną moc specjalną |
+| Między falami | Szabat (odpoczynek) | Szabat z kartą **Rozeznania**: nazwij, jak kłamie myśl |
+| Po twierdzy | objawienie | **Uwielbienie** (deszcz światła) → **uzdrowienie** z Jezusem → **przemiana myśli** (zapis myśli) → **narzędzie** na życie |
+| Grafika | proceduralna | malarstwo generowane lokalnie (SDXL) na billboardach 3D, ikony umiejętności dla każdego stopnia, panele historii |
 
 ## 1. Filary
 
-1. **Trzy gry w jednej, każda czytelna.** Stój, a Słowo strzela samo (Archero).
-   Fale cieni i 1 z 3 darów co poziom (survivors). Ciosy w serii, zanim cień
-   podejdzie, a pudło przerywa serię (Endless Puncher).
-2. **Łaska przed wysiłkiem.** Nie ma końca gry. Upadek to ekran „Choć upadłem,
-   powstanę” (Mi 7,8) i powrót z pełnymi sercami; z każdym upadkiem twierdza
-   słabnie o 10% (do 40%).
-3. **Prawda zamiast kłamstwa.** Każdy rozbity cień pokazuje swoją prawdę, każda
-   twierdza kończy się objawieniem i wpisem do Księgi Prawdy.
-4. **Nic do czytania w walce.** Teksty są na kartach przed rozdziałem, w objawieniu
-   i w menu. W walce są tylko krótkie napisy (fala, seria, Pięćdziesiątnica).
-5. **Mózg jako sprzymierzeniec.** Skupienie ładuje Ogień Ducha. Opaska tylko dodaje
-   (skupienie w ruchu, mnożnik do ×3), nigdy nie odbiera.
-6. **Najpierw przyjemność.** Natychmiastowa odpowiedź na każde działanie: iskry,
-   wstrząs, dźwięk w skali utworu, prawda unosząca się nad cieniem.
+1. **Wciągająca gra najpierw.** Szybka nagroda za każdy ruch, karta co 15–25 s, złota karta
+   ewolucji, relikwiarz z silnego cienia, deszcz światła po twierdzy. Wszystko z
+   Heroes vs Hordes, co służy radości, i nic, co służy chciwości (§5).
+2. **Prawda bez lukru.** Zdania, które zostają po cieniach, są wiarygodne: mówią o
+   procesie, o tym, co mogę, nazywają uczucie, odwołują się do wartości („Boję się i robię
+   jeden krok”). Słowa o wartości osoby („Jesteś kochany”) mówi **anioł**, w drugiej
+   osobie, jako dar. Tak zalecają badania (Wood 2009): u osób z niską samooceną zdanie
+   „Jestem osobą wartą miłości” powtarzane w pierwszej osobie pogarszało samopoczucie.
+3. **Umiejętności, nie pouczenia.** Każdy rozdział uczy jednej umiejętności z CBT/ACT,
+   którą da się zrobić jutro rano. Gra ćwiczy ją w walce (Rozeznanie, przemiana myśli,
+   cisza przy tęsknocie) i daje wyzwanie na dziś (wzór: SPARX, BMJ 2012).
+4. **Chrystus przychodzi, nie jest mocą.** Nie da się nim grać, przywołać go ani użyć jako
+   wzmocnienia. On podchodzi, mówi i podaje rękę; człowiek odpowiada.
+5. **Człowiek decyduje.** Archanioł walczy, ale przemianę myśli wybiera człowiek
+   (Dyrektorium o pobożności ludowej §217 ostrzega przed obrazem walki duchów, w której
+   człowiek jest bierny).
+6. **Bezpiecznie.** Nic drastycznego, żadnej metody, kryzys opowiedziany jako wyjście z
+   pomocą (efekt Papageno), numery pomocy tam, gdzie trzeba, możliwość pominięcia
+   rozdziału.
 
 ## 2. Pętla gry
 
 ```
-Tytuł (menu, opaska, ustawienia, pomoc)
+Tytuł ── pierwsze „Graj”: słowo o bezpieczeństwie → Kogo strzeżesz? (płeć, imię)
+   │                         → Jak grać → Prolog (scena z panelami)
    ↓
-Drzewo Życia (ogród z dziesięcioma sferami, Owoce Ducha, Księga Prawdy)
+Drabina (10 szczebli; Owoce Ducha, Księga Prawdy, Narzędzia z ćwiczeniem oddechu)
+   ↓ Wejdź
+Sobór Archaniołów (wybór stróża; zablokowanego można raz wypróbować)
    ↓
-Rozdział (Arena): karta rozdziału z kłamstwem
-   fala 1 (≈55 s) → Szabat → fala 2 → Szabat → fala 3 → Szabat → Twierdza
-   (w trakcie: światło → poziom → 1 z 3 darów; skupienie → Ogień Ducha)
+Historia: scena z życia (malowane panele; przed trudnymi rozdziałami nota i „Pomiń”)
    ↓
-Objawienie: kłamstwo przekreślone, prawda, werset → Raport dla Tronu (nagrody)
+Arena: fala 1 → Szabat + Rozeznanie → fala 2 → Szabat + Rozeznanie → fala 3
+       → Twierdza kłamstwa (3 fazy) → Uwielbienie (deszcz światła)
    ↓
-Drzewo: nowa sfera otwarta, ranga anielska, manna na Owoce Ducha
+Historia: uzdrowienie (przychodzi Jezus)
+   ↓
+Objawienie: przemiana myśli → Prawda + werset → Narzędzie na drogę → Raport, nagrody,
+            nowy archanioł → (po ostatnim rozdziale: finał)
+   ↓
+Drabina: kolejny szczebel otwarty
 ```
 
-* **Dary** (Miecz Ducha, Tarcza wiary…) trwają tylko jeden rozdział.
-  **Owoce Ducha**, ranga i Księga Prawdy zostają na zawsze.
-* **Światło** liczy się do rangi (dziewięć chórów: Anioł → … → Cherub (4 skrzydła)
-  → Seraf (6 skrzydeł, Iz 6,2)). **Manna** (nagroda za rozdział, więcej za pierwsze
-  ukończenie) kupuje Owoce Ducha.
+Rozdział trwa 4–6 minut walki plus 2–3 minuty historii i refleksji.
 
-## 3. Arena — sterowanie i mechanika
+## 3. Archaniołowie
 
-Okrągła arena (promień 1500) w kolorach rozdziału, z rekwizytami (kolumny, ławy,
-kamienie, świece, drzewa), widziana z góry i z tyłu.
+Siedmiu archaniołów Soboru (8 listopada) w polskiej formie imion. Michał, Gabriel i Rafał
+są czczeni w całym Kościele; pozostałych czterech gra podpisuje „imię w tradycji
+wschodniej (prawosławnej i wschodniokatolickiej)”: Kościół łaciński wymienia tylko trzech
+(Dyrektorium §217). Atrybuty ikonograficzne to konwencja rosyjska XVIII–XIX w.
 
-| Akcja | Klawiatura / mysz | Dotyk |
-|---|---|---|
-| Ruch | WASD / strzałki | lewy kciuk (drążek pojawia się tam, gdzie dotkniesz) |
-| Słowo (Archero) | samo, gdy stoisz | samo, gdy stoisz |
-| Cios Samsona | spacja / J / klik | przycisk z gwiazdą |
-| Ogień Ducha | E / K | przycisk z płomieniem |
-| Pauza | Esc / P / przycisk II | przycisk II |
-| Wybór daru | 1 / 2 / 3 lub klik | dotknięcie karty |
+| Archanioł | Znaczenie | Atrybut w ikonie | Dar (stojąc w ciszy) | Modlitwa (E) | Cecha | Dołącza |
+|---|---|---|---|---|---|---|
+| **Uriel** | Światło Boże | miecz i płomień | Płomień: podpala cień | Ogień Boży: 8 słupów ognia | +15% obrażeń | od początku |
+| **Michał** | Któż jak Bóg? | włócznia z chorągwią krzyża | Włócznia: przeszywa linię | Któż jak Bóg!: uderzenie i ogłuszenie wszystkiego wokół | +1 serce, dłuższa łaska; mocniej w twierdzę | od początku |
+| **Gabriel** | Moc Boża | latarnia ze świecą, zwierciadło | Latarnia: kula światła przez wszystko | Zwiastowanie: wszystko staje na 4 s | +20% światła | po „Nocy” (mówi „Nie bój się”) |
+| **Rafał** | Bóg uzdrawia | naczynie z lekiem, laska | Balsam: krąg, który rani i leczy | Uzdrowienie: wszystkie serca, łaska, wielki krąg | serce co 45 s | po „Domu” |
+| **Selafiel** | Modlitwa Boża | dłonie na piersi, kadzidło | Kadzidło: obłok rośnie w bezruchu | Cisza modlitwy: cienie zwalniają do ¼ | Modlitwa +30% szybciej | po „Ekranie” |
+| **Barachiel** | Błogosławieństwo | białe róże | Róże: wachlarz płatków, czasem serce | Błogosławieństwo: fala płatków i 3 serca | +1 losowanie, relikwiarz zawsze | po „Odrzuceniu” |
+| **Jehudiel** | Chwalący Boga | korona i bicz o trzech rzemieniach | Bicz: trzy rzemienie z bliska, odrzut | Korona: 8 s podwójnej siły | +25% manny, szybszy cios | po „Ciężarze” |
 
-* **Słowo (Archero).** Gdy anioł stoi (≥ 0,18 s), Słowo leci w najbliższy cień w
-  zasięgu 620. Rusz się, by uniknąć; stań, by działać.
-* **Cios Samsona (Endless Puncher).** Cios trafia najbliższy cień w zasięgu 190:
-  doskok, odrzut, ogłuszenie. Ciosy w odstępie do 1,1 s tworzą **serię ×N**:
-  +10% obrażeń za ogniwo (do ×2) i +5% światła (do ×2). Cios w pustkę przerywa serię
-  i kosztuje 0,45 s. Każde trafienie dolewa trochę Ognia Ducha.
-* **Ogień Ducha.** Trzy płomienie ładowane skupieniem (§6). Jeden płomień: **język
-  ognia** wokół anioła (promień 330, odrzut, gasi strzały). Trzy płomienie:
-  **Pięćdziesiątnica** (cała arena, +1 serce, 3 s łaski).
-* **Rany i łaska.** Dotyk cienia lub ognista strzała to −1 serce i chwila łaski.
-  Zero serc to upadek i powstanie (filar 2).
-* **Światło.** Rozbity cień zostawia okruchy światła; przyciąga je magnes (210),
-  resztę trzeba zebrać. Poziomy rosną (6, potem ×1,32 + 3).
+Każdy dar archanioła ma 5 poziomów (ikona zmienia się na 3. poziomie) i **ewolucję** z
+jedną cnotą (np. Włócznia + Pancerz → Chorągiew zwycięstwa: pięć włóczni w gwiazdę).
+Archanioła zablokowanego można **raz wypróbować** w dowolnym rozdziale.
 
-### Cienie (traumy)
+## 4. Arena
 
-Cień jest ciemną bryłą w barwie swojej rany, ze świecącymi oczami. Czternaście
-traum z gry 2D ma osiem sposobów poruszania się:
+**Sterowanie.** WASD/strzałki albo lewy kciuk; **spacja/J** – cios; **E/K** – modlitwa;
+1/2/3 – karty; Esc/P – pauza. Na dotyku: joystick, gwiazda (cios), płomień (modlitwa).
 
-| Ruch | Traumy | Jak walczy |
-|---|---|---|
-| pogoń | Lęk, Odrzucenie | prosto na anioła |
-| krążenie | Wstyd, Kontrola | krąży, potem uderza |
-| szarża | Gniew, Zazdrość | zbliża się, nabiera rozpędu (chwila na cios!), szarżuje |
-| dryf | Rozpacz, Samotność | podchodzi i trzyma się z boku |
-| ciężki | Wina, Pycha, Nieprzebaczenie | wolny, wytrzymały, więcej światła |
-| podział | Nałóg | rozbity dzieli się na dwa mniejsze |
-| przeskok | Zwątpienie | znika i pojawia się obok |
-| oskarżenia | Oskarżyciel (Ap 12,10) | trzyma dystans, ciska ogniste strzały (Ef 6,16) |
+* **Dar archanioła** działa, gdy stoisz (Archero): bezruch to modlitwa.
+* **Cios** (Endless Puncher): seria ciosów mnoży siłę i światło; pudło ją przerywa.
+* **Modlitwa archanioła** ładuje się w ciszy (bezruch albo opaska Mendi), od rozbitych
+  cieni i od ciosów; pełna świeci w prawym dolnym rogu.
 
-W połowie każdej fali przychodzi **silny cień** (×4 sił, ×1,5 rozmiaru, czasem
-zostawia mannę, która odnawia serce).
+**Cienie-myśli** (16): każdy ma kształt i kolor tego, czym jest, ruch (archetyp), kłamstwo,
+które szepcze (silne cienie noszą je nad głową), i zdania, w które się zmienia.
 
-### Dary (1 z 3 przy każdym poziomie)
+| Cień | Jak kłamie | Ruch | Szepcze | Zostaje po nim (przykład) |
+|---|---|---|---|---|
+| Lęk | katastrofizowanie | znika i pojawia się | „Zaraz stanie się coś strasznego.” | „Uczę się ufać, krok po kroku.” |
+| Wstyd | etykietowanie | krąży z dystansem | „Jestem żałosna.” | „Popełniłam błąd. Nie jestem błędem.” |
+| Gniew | „muszę/powinni” | szarżuje | „Muszę się bronić.” | „Nazywam gniew, zanim on mnie poprowadzi.” |
+| Samotność | przepowiadanie | krąży | „Muszę radzić sobie sam.” | „Jestem otoczony miłością, choć nie zawsze ją widzę.” |
+| Porównanie | niesprawiedliwe porównanie | okrąża | „Inni mają lepiej.” | „Porównuję swoje kulisy z cudzą wystawą.” |
+| Wina | branie winy na siebie | ciężki | „Powinienem był temu zapobiec.” | „Wtedy wiedziałem mniej niż dziś.” |
+| Nałóg | pułapka „jeszcze raz” | dzieli się | „Jeszcze raz i koniec.” | „Potknięcie to informacja, nie wyrok.” |
+| Perfekcjonizm | wszystko albo nic | goni | „Albo idealnie, albo wcale.” | „Wystarczająco dobrze to też dobrze.” |
+| Beznadzieja | przepowiadanie | ciężki | „Nic się nie zmieni.” | „Dziś mogę zrobić jeden mały krok.” |
+| Oskarżyciel | etykietowanie | strzela z dala | „Jesteś do niczego.” | „Krytyk mówi głośno, ale nie mówi prawdy.” |
+| Zwątpienie | rozumowanie emocjonalne | znika | „Bóg mnie opuścił.” | „Uczucie jest prawdziwe, ale nie jest dowodem.” |
+| Kontrola | przepowiadanie | okrąża | „Bez niego sobie nie poradzę.” | „Mam prawo do swoich pieniędzy, telefonu i przyjaciół.” |
+| **Tęsknota** | „powinnam już przestać” | łagodna | „Nie wolno mi płakać.” | „Tęsknota pokazuje, jak bardzo kochałam.” |
+| Milczenie | czytanie w myślach | goni | „Nikt mi nie uwierzy.” | „Mój głos ma znaczenie.” |
+| Odrzucenie | uogólnianie | szarżuje | „Nikt mnie nie zechce.” | „Jestem kochana, nawet gdy dziś tego nie czuję.” / (anioł) „Jesteś kochana.” |
+| Powinność | „muszę/powinnam” | ciężki | „Nie wolno mi odpocząć.” | „Odpoczynek to część pracy, nie nagroda za nią.” |
 
-Bronie działają same, reszta zmienia anioła. Opisy poziomów są w
-`assets/data/content.json`.
+**Tęsknota nie jest wrogiem.** Broń przez nią przechodzi i nie rani anioła, tylko go
+spowalnia. Gdy anioł stanie przy niej w ciszy, zamienia się w światło. Żałoby się nie
+pokonuje, żałobie się towarzyszy (defuzja, ACT).
 
-* **Bronie:** Miecz Ducha (Słowo: obrażenia, szybkostrzelność, przebicie),
-  Rozmnożenie chlebów (wachlarz 2–5 Słów), Tarcza wiary (krążące tarcze, gaszą
-  strzały), Języki ognia (płomienie wokół anioła), Gwałtowny wicher (fala odrzutu),
-  Gołębica (sama nurkuje w cienie), Ogień Eliasza (ogień z nieba), Trąby Jerycha
-  (fala zatrzymuje cienie i gasi strzały), Proca Dawida (kamień zawsze w
-  najsilniejszego, także w twierdzę).
-* **Cios:** Siła Samsona (siła, zasięg, odepchnięcie wokół).
-* **Anioł:** Manna (serca), Obuwie pokoju (szybkość), Pancerz sprawiedliwości (unik),
-  Hełm zbawienia (raz w rozdziale powstajesz od razu), „Ucisz się!” (po ranie cienie
-  zamierają), Miłość usuwa lęk (cienie słabsze), Wielka ryba (magnes), Serce z ciała
-  (+1 serce), Siedemdziesiąt siedem razy (dłuższa łaska i seria).
+Zdania po rozbitych cieniach pojawiają się co ~0,45 s (nie zalewają ekranu); około jedno na
+pięć to słowo anioła (złote), silne cienie zawsze zostawiają słowo anioła.
 
-### Szabat
+**Dary i cnoty** (karta przy każdym poziomie; po 4 sloty, jak w Heroes vs Hordes):
+dary to Tarcza wiary, Języki ognia, Gwałtowny wicher, Gołębica, Ogień Eliasza, Trąby
+Jerycha, Proca Dawida (+ dar archanioła); cnoty to Sandały pokoju, Pancerz sprawiedliwości,
+Hełm zbawienia, Ucisz się, Miłość, Ryba Jonasza, Serce z ciała, Siedemdziesiąt siedem razy,
+Rozmnożenie chlebów, Siła z wysoka (+ Manna, która nie zajmuje slotu). Każdy dar ma
+**ewolucję** z cnotą, np. Tarcza + Miłość → Pancerz wiary i miłości (1 Tes 5,8), Eliasz +
+Chleby → Chleb na drogę (1 Krl 19,7), Proca + Siła z wysoka → Olbrzym pada. Złota karta ewolucji zawsze jest
+pierwsza. Na karcie: malowana ikona stopnia, kropki poziomu, co daje, i z czym ewoluuje.
+Kontrola nad losem: **Losuj ponownie** (1, z Barachielem i w trybie łagodnym więcej) i
+**Odpuść** (+1 serce). Klik działa dopiero po 0,35 s (żeby trzymany klawisz nie wybrał w
+ciemno).
 
-Po każdej fali: cienie rozpadają się w światło, które samo leci do anioła, wraca
-jedno serce, muzyka cichnie. Po kilku sekundach przychodzi kolejna fala.
+**Relikwiarz** zostaje po silnym cieniu (połowa fali): daje jeden dar od razu (ewolucję,
+jeśli gotowa).
 
-## 4. Twierdze (2 Kor 10,4)
+**Szabat + Rozeznanie.** Po fali cienie znikają, światło leci do anioła, wraca serce, a
+gracz dostaje kartę: myśl cienia i trzy nazwy zniekształceń. Trafna odpowiedź: serce i
+modlitwa; nietrafna: poprawna odpowiedź i pytanie, które sprawdza taką myśl. Można pominąć.
 
-Ostatnia część rozdziału: twierdza z wypisanym kłamstwem (np. „Bóg jest daleko i
-mnie nie widzi”) wynurza się z ziemi. Ma trzy fazy:
+**Twierdza** (2 Kor 10,4): malowana twierdza kłamstwa rozdziału (np. wieża z ekranów, dom z
+zakratowanymi oknami, Bramy Otchłani). Faza 1: ogniste strzały; faza 2: łańcuchy kłamstwa
+(rozbij ciosem ×3), przyzywa cienie; faza 3: szarże. Skupienie ×2 i więcej: +25% obrażeń.
 
-1. **Ogniste strzały.** Pierścienie strzał co ~3,4 s; twierdza powoli sunie ku aniołowi.
-2. **Łańcuchy kłamstwa** (od 66%). Cztery słupy z łańcuchami; dopóki stoją,
-   twierdza jest nietykalna. Cios Samsona rani łańcuchy ×3. Twierdza przywołuje cienie.
-3. **Drżenie** (od 33%). Szarże i gęstsze pierścienie strzał.
+**Uwielbienie.** Po twierdzy przez 7 s pada deszcz światła (odpowiednik „Coin Rush” z HvH,
+ale jako radość, nie chciwość).
 
-Skupienie przebija kłamstwo: przy mnożniku ×2 i więcej twierdza dostaje o 25%
-więcej obrażeń. Upadek twierdzy: „Kłamstwo pęka”, zwolnienie czasu, deszcz światła,
-potem **Objawienie** i **Raport dla Tronu** (zburzone cienie, najdłuższa seria,
-najdłuższe czuwanie, upadki i powstania, światło, manna, ranga).
+**Upadek.** Nie ma końca gry. Gdy serca się skończą, człowiek upada, a ekran pokazuje
+dłoń Chrystusa (Mt 14,31) i werset; gracz tylko odpowiada: **„Chwyć Jego dłoń”**. Łaska nie
+jest zużywalna: można wstać zawsze; twierdza słabnie z każdym upadkiem.
 
-## 5. Świat i treść
+## 5. Co wzięliśmy z Heroes vs Hordes, a czego nie
 
-Dziesięć sfer Drzewa (Malkut → Keter) i dwie krainy poboczne (Ród, Szeol): te same
-rozdziały, historie Adama, kłamstwa, objawienia i wersety co w grze 2D. Treść
-pochodzi z `web/game/src/content` i jest budowana do `assets/data/content.json`
-(`npm run game3d:content`); test pilnuje, by była aktualna. Nowe w 3D są dary,
-kolory aren i wstęp.
+Wzięte (bo służą przyjemności i poczuciu sprawczości): karta co kilkanaście sekund z
+trzema wyborami; limit slotów, który zmusza do budowania zestawu; ewolucje z widoczną
+recepturą i złotą kartą na górze; relikwiarze z silnych przeciwników; bohaterowie z własnym
+darem, mocą specjalną i cechą; wybór bohatera z próbą; nagroda po bossie; stały,
+przewidywalny postęp między rozdziałami (Owoce Ducha za mannę, zawsze do odzyskania); czytelny
+interfejs (gruby pasek światła, sloty z ikonami, przycisk mocy w rogu).
 
-Drzewo Życia leży w ogrodzie jak mapa: złote ścieżki, kule sfer (złote ukończone,
-białe otwarte, ciemne zamknięte), anioł przy wybranej sferze. Po Keter przychodzi
-finał „Święty, Święty, Święty”.
+Odrzucone (wzorce drapieżne): energia i czekanie, waluty premium, skrzynki losowe za
+pieniądze, presja czasowych ofert, reklamy za nagrody, „wskrzeszenie za klejnoty”. Gra jest
+darmowa, bez reklam i bez zbierania danych. Wsparcie twórcy to zwykły link w menu i w finale,
+nigdy w walce i nigdy obok wizerunku Chrystusa.
 
-## 6. Skupienie i opaska Mendi
+## 6. Kogo strzeżesz: personalizacja
 
-Ten sam mechanizm co w grze 2D (`web/game/src/neuro/focus.ts`):
+Na początku gracz wybiera **mężczyznę albo kobietę** i może wpisać imię (domyślnie **Adam**
+albo **Ewa**: na ikonie Zmartwychwstania Chrystus wyciąga z grobów Adama i Ewę). Cała treść
+jest pisana w obu formach („{kochany|kochana}”, „{Popełniłem|Popełniłam}”) i rozwiązywana w
+grze (`HolyHoly::G`). Imię pojawia się tylko w mianowniku, więc każde imię brzmi poprawnie.
+Historia ma dwie wersje, które różnią się tam, gdzie różnią się dane (§7).
 
-* poziom skupienia 0–1, próg 0,55; utrzymane skupienie podnosi mnożnik ×1 → ×1,5
-  (8 s) → ×2 (18 s) → ×3 (32 s);
-* **bez opaski** skupieniem jest bezruch (mnożnik do ×1,5);
-* **z opaską** liczy się aktywacja kory przedczołowej, także w ruchu (do ×3);
-  zły sygnał (ruch głowy, słaby kontakt) wstrzymuje wpływ opaski;
-* krótka utrata skupienia (2,5 s) nic nie zmienia, potem mnożnik schodzi stopniami;
-* jeden płomień to ok. 25 s skupienia przy ×1, ok. 8 s przy ×3.
+## 7. Historia: dziesięć szczebli
 
-Opaskę łączy się w menu tytułowym („Opaska Mendi”); Web Bluetooth działa w Chrome i
-Edge (komputer, Android), na iPhonie w przeglądarce Bluefy. Dane zostają w urządzeniu.
-To nie jest wyrób medyczny ani terapia.
+Współczesna Polska (2026): blok na Woli, tramwaj we Wrocławiu, Wigilia w Kielcach, mecz w
+Łodzi, cmentarz w Radomiu, sala parafialna. Każdy rozdział opiera się na tym, co według
+badań rani najczęściej i najmocniej (wybór: częstość × szkoda × aktualność w Polsce).
 
-## 7. Dźwięk
+| # | Szczebel | On (Adam) | Ona (Ewa) | Jezus przychodzi (Ewangelia) | Umiejętność |
+|---|---|---|---|---|---|
+| 1 | Noc | atak paniki o 3:12, wiadomości o wojnie, sam po rozwodzie | atak paniki w tramwaju | idzie po wodzie i chwyta za rękę (Mt 14,27.31) | oddech z wydłużonym wydechem, 5-4-3-2-1 |
+| 2 | Dom | ojciec pił; „chłopaki nie płaczą” | stawała między kłócącymi się rodzicami | błogosławi dzieci (Mk 10,14.16) | nazwij uczucie |
+| 3 | Ekran | porównywanie statusu, „przegrałem życie” | ciało i filtry, uwagi męża | woła Zacheusza (Łk 19,5) | złap myśl (sytuacja–myśl–uczucie) |
+| 4 | Odrzucenie | rozwód, syn co drugi weekend | kontrola: telefon, pieniądze; odchodzi | dotyka trędowatego (Mk 1,41) | nazwij zniekształcenie |
+| 5 | Rana | pobity po meczu | przemoc seksualna sprzed lat (poza kadrem) | „Ani ten zgrzeszył” (J 9,3) / „Córko…” (Mk 5,34) | przesłuchaj myśl (dowody) |
+| 6 | Ciężar | utrata pracy, alimenty, piwo | opieka nad mamą po udarze | „Pójdźcie do mnie…” (Mt 11,28) / „Marto, Marto” | defuzja: „Mam myśl, że…” |
+| 7 | Nałóg | zakłady online, „odegram się” | wino w samotności | uwolniony Gerazeńczyk (Mk 5,15), „Syn wyswobodzi” (J 8,36) | przeczekaj falę, potknięcie ≠ upadek |
+| 8 | Strata | nagła śmierć ojca, nieodebrany telefon | poronienie w 11. tygodniu | „I zapłakał Jezus” (J 11,35.25) | mów do siebie jak do przyjaciela |
+| 9 | Ciemność | ukryta depresja, myśl kryzysowa | depresja po stracie, myśl kryzysowa | Emaus: „Zostań z nami” (Łk 24,29), „Jam jest z wami” (Mt 28,20) | plan bezpieczeństwa, sięgnij po ludzi |
+| 10 | Zmartwychwstanie | grupa wsparcia; Oskarżyciel zbiera wszystkie cienie | to samo | **Anastasis**: „Wstańcież, pójdźmy stąd” (J 14,31), „Oto wszystko nowe czynię” (Ap 21,5) | jeden mały krok (wartości) |
 
-Muzyka „Psalm 150” jest syntezowana na żywo (lira, bęben, flet, szofar; osobny utwór
-dla każdej sfery, warstwy zależne od walki; Szabat, twierdza i zwycięstwo mają własne
-sceny). Efekty grają nuty bieżącego utworu (seria ciosów i rozbijane cienie wspinają
-się po skali). Dźwięk rusza po pierwszym kliknięciu lub klawiszu. Głośność ogólną,
-muzyki i efektów zmienia się w Ustawieniach (także w pauzie), a „Następny utwór” w pauzie.
+Na karcie szczebla na Drabinie jest jedno zdanie z danymi i źródłem (np. „W 2024 r. w Polsce
+84% osób, które odebrały sobie życie, stanowili mężczyźni”).
 
-## 8. Grafika
+**Dlaczego tak (skrót danych, §12).** Najczęstsze zdarzenie traumatyczne na świecie to nagła
+śmierć bliskiej osoby (31,4%). Kobiety 2,3 razy częściej doświadczają przemocy partnera i
+przemocy seksualnej, które dają 42,7% całego PTSD; mężczyźni częściej doświadczają napaści i są
+świadkami śmierci. W Polsce najczęstszym zaburzeniem jest nadużywanie alkoholu (18,6%
+mężczyzn), kobiety mają dwa razy częściej napady paniki i depresję; tylko ~16% osób z
+zaburzeniami dostaje pomoc. Samotność „zawsze” odczuwa 8% dorosłych (dwa razy więcej niż w
+2017). Około 84% ofiar samobójstw to mężczyźni. Od 2023 r. polskie prawo uznaje przemoc
+ekonomiczną i cyberprzemoc za przemoc domową. Co czwarty dorosły dorastał w domu z alkoholem
+lub narkotykami, co trzeci doznał przemocy emocjonalnej.
 
-Wszystko jest proceduralne, jak w grze 2D: modele 3D (anioł z 2/4/6 skrzydłami,
-14 cieni, twierdza, pociski, rekwizyty) powstają w kodzie (`tools/build-models.mjs`),
-tekstury i ikony też (`tools/build-textures.mjs`). Niski poligon, ciepłe światło,
-poświata (bloom) na świetle i oczach cieni, mgła w barwie rozdziału. Ustawienie
-„Grafika: lekka” wyłącza poświatę i cienie (telefony).
+## 8. Myśli i umiejętności (CBT, ACT)
 
-## 9. Etyka i dostępność
+Pętla rozdziału to zapis myśli w działaniu: **rozpoznaj cień → nazwij, jak kłamie →
+przesłuchaj go → przemień**.
 
-* Przy pierwszym uruchomieniu: to gra modlitwy i nadziei, nie terapia; numery pomocy
-  kryzysowej (116 123, 116 111, 800 70 2222, 112) zawsze w „Pomoc i bezpieczeństwo”.
-* Traumy są abstrakcyjne (nazwy uczuć), bez przemocy wobec ludzi i bez drastycznych scen.
-* Wstrząsy ekranu można wyłączyć; gra respektuje systemowe „ogranicz ruch”.
-* Gra w poziomie; na telefonie w pionie pojawia się prośba o obrót.
-* Gra jest darmowa, bez reklam i zakupów. Ekran startowy i znak „Made with GDevelop”
-  zostają (ich usunięcie to funkcja płatnej subskrypcji GDevelop).
+* **W walce:** każdy cień to automatyczna myśl z jednym zniekształceniem (Beck, Burns):
+  wszystko albo nic, uogólnianie, filtr, umniejszanie dobrego, czytanie w myślach,
+  przepowiadanie, katastrofizowanie, rozumowanie emocjonalne, „muszę/powinienem”,
+  etykietowanie, branie winy na siebie, niesprawiedliwe porównanie, pułapka „jeszcze raz”.
+  Każde ma swoje pytanie sokratejskie (w Księdze Prawdy).
+* **Rozeznanie** (Szabat): nazwij zniekształcenie; nazwana myśl przestaje udawać fakt.
+* **Przemiana myśli** (Objawienie): sytuacja, myśl (kłamstwo twierdzy), uczucie 0–100,
+  zniekształcenie i pytanie; potem trzy odpowiedzi w losowej kolejności: **zniekształcona**,
+  **lukrowana** („już nigdy nie będę się bać”) i **zrównoważona**. Każda dostaje
+  wyjaśnienie; tylko zrównoważona przemienia kłamstwo. Uczy różnicy między prawdą a
+  „pozytywnym myśleniem”.
+* **Narzędzie na drogę:** kroki, wyzwanie na dziś, co mówią badania; zostaje w Narzędziach
+  na Drabinie. Oddech można ćwiczyć w grze (6 oddechów: 4 s wdechu, 1 s dobrania powietrza,
+  8 s wydechu).
+* **Tęsknota** uczy defuzji: nie każdą myśl trzeba pokonać.
 
-## 10. Architektura
+Ćwiczenia w grze mają uczciwie podany poziom dowodów (np. 5-4-3-2-1 to „sposób na
+uspokojenie, nie leczenie”).
 
-Projekt GDevelop leży w `web/game3d/project` jako **projekt wieloplikowy** (każda
-scena, zdarzenia zewnętrzne i rozszerzenie w osobnym JSON-ie) i otwiera się w
-edytorze GDevelop. Szczegóły techniczne i polecenia: [README.md](README.md).
+## 9. Jezus Chrystus
+
+* Przychodzi w scenie **uzdrowienia** każdego rozdziału, wzorowanej na scenie z Ewangelii; jest
+  namalowany w konwencji ikony (czerwony chiton, błękitny himation, krzyżowy nimb tylko u Niego).
+* Mówi **wyłącznie swoimi słowami z Ewangelii** (Biblia Gdańska, 1881, domena publiczna;
+  zweryfikowana werset po wersecie z Wikiźródłami), zawsze z odnośnikiem.
+* Przy upadku podaje rękę (Mt 14,31); gracz odpowiada.
+* W finale: **Anastasis**, Chrystus wyprowadza Adama/Ewę z grobu za nadgarstek, nad
+  rozbitymi bramami otchłani (homilia na Wielką Sobotę: „Wstań, pójdźmy stąd”).
+* **Nigdy:** grywalny, przywoływany, jako moc, wzmocnienie, czas odnowienia albo w walce;
+  nigdy obok wsparcia twórcy.
+* **Tryb „tylko światło”** (Ustawienia) dla tych, których tradycja nie przedstawia Chrystusa
+  w obrazach: w scenach z Nim panel zakrywa światło, zostają słowa.
+
+## 10. Bezpieczeństwo (zasady treści)
+
+1. Żadnej sceny ani metody samookaleczenia czy samobójstwa; wątek kryzysu kończy się
+   wyjściem dzięki ludziom i pomocy (efekt Papageno). Myśl kryzysowa zawsze z numerami.
+2. Numery (zweryfikowane w październiku 2026; sprawdzać przed każdym wydaniem): 116 123,
+   800 70 2222, 116 111, 800 120 002 (Niebieska Linia), 112. Są przy pierwszym
+   uruchomieniu, w pauzie („Pomoc w kryzysie”), w notach przed trudnymi rozdziałami, w HUD
+   rozdziału „Ciemność” i przy myśli kryzysowej.
+3. Przed trudnymi rozdziałami nota i **„Pomiń rozdział”** bez utraty postępu.
+4. Przemoc seksualna wyłącznie poza kadrem i symbolicznie; nigdy z perspektywy sprawcy.
+5. Nigdy nie obwiniamy ofiary: „Za przemoc odpowiada ten, kto jej używa”.
+6. Bez lukru: zdania wiarygodne, ból uznany przed nadzieją.
+7. Wiara nie zastępuje pomocy: modlitwa **i** lekarz, terapeuta, telefon. Cierpienie nie
+   jest karą; lament, wątpliwość i gniew wobec Boga są dozwolone.
+8. Wrogowie to myśli i rany, nigdy ludzie ani choroby; język: „odebrał sobie życie”.
+9. Bez diagnoz i ocen klinicznych; dane opaski zostają w urządzeniu.
+10. Rozdziały mężczyzny nie wyśmiewają słabości; rozdziały kobiety nie sprowadzają wartości
+    do wyglądu ani macierzyństwa.
+11. Docelowo PEGI 16. Przed wydaniem: przeczytanie scenariuszy przez psychoterapeutę (CBT,
+    trauma) i osoby z doświadczeniem, a scen z Chrystusem przez duchownych.
+
+## 11. Grafika, dźwięk, interfejs
+
+* **Styl:** realizm malarski połączony z ikoną: twarze i dłonie realistyczne, szaty, skrzydła
+  i nimby stylizowane; złoto, cynober, ultramaryna, biel ołowiana; światło od wewnątrz.
+* **Malowanie lokalne** (`tools/art.py`, DreamShaper XL Lightning na Apple Silicon, bez
+  kosztów i bez kluczy API): archaniołowie, ich portrety-medaliony, 16 cieni, 10 twierdz,
+  Chrystus, Adam i Ewa, 60 ikon umiejętności (dla każdego stopnia i ewolucji), 45 paneli
+  historii (obie wersje), 11 posadzek (bezszwowych), relikwiarz. Oryginały trafiają do
+  `~/generations` z plikiem opisu; wybrane są przypięte w `art/lock.json`.
+* **Billboardy 3D:** malowana postać na pionowym prostokącie z miękkim cieniem i oddechem
+  (`tools/billboard.mjs`), widoczna z kamery pod kątem; efekty (płomień, włócznia, kula,
+  balsam, kadzidło, bicz, płatki) to świecące płaszczyzny rysowane w kodzie.
+* **HUD:** medalion archanioła, serca i pasek modlitwy; pod nimi 4 dary i 4 cnoty z ikonami
+  i poziomami; gruby pasek światła z poziomem; fala i pauza; przycisk modlitwy z ikoną mocy;
+  pasek skupienia; twierdza i jej kłamstwo.
+* **Dźwięk:** „Psalm 150” bez zmian (synteza na żywo), utwór rozdziału z puli dziesięciu.
+
+## 12. Źródła (wybór)
+
+Benjet i in. 2016 (WHO WMH, 24 kraje); Kessler 2017; Tolin i Foa 2006; Swedo 2023 (CDC
+BRFSS); Hughes 2019; FDDS „Diagnoza przemocy wobec dzieci” 2023; Rzeszutek 2024; EZOP
+(Kiejna 2015) i EZOP II; Policja/KGP 2024–2025; Eurostat 2024 (przemoc wobec kobiet); CBOS
+2024 (samotność); Kelly 2019; Quenby 2021, Farren 2020 (poronienie); Lundorff 2017 (żałoba);
+Milner 2018 (praca); Tran 2024 (hazard); Wood 2009, Cohen i Sherman 2014 (afirmacje);
+Merry 2012 (SPARX); Balban 2023, Fincham 2023 (oddech); Lieberman 2007 (nazywanie uczuć);
+Masuda 2009 (defuzja); Neff i Germer 2013, Kross 2014 (współczucie dla siebie); Ekers 2014
+(aktywizacja); Stanley 2018 (plan bezpieczeństwa); Larimer 1999 (nawroty);
+Niederkrotenthaler 2010/2019/2020 i WHO 2023 (bezpieczne mówienie o samobójstwie).
+Ikonografia: OCA (Sobór archanioła Michała), cerkiew.info (ks. H. Paprocki), Dyrektorium o
+pobożności ludowej i liturgii §217, KKK 2129–2132, homilia na Wielką Sobotę.
+
+## 13. Architektura
+
+Źródłem prawdy jest **generator** (`generator/`): kod, który buduje projekt GDevelop
+(sceny, zdarzenia, obiekty, rozszerzenia) przez rdzeń GDevelopa, sprawdza każde zdarzenie
+i eksportuje grę. Szczegóły: [README.md](README.md).
 
 | Scena | Rola |
 |---|---|
-| `Title` | menu, panele: jak grać, opaska, ustawienia, pomoc |
-| `Tree` | Drzewo Życia, wybór rozdziału, Owoce Ducha, Księga Prawdy |
-| `Arena` | rozdział: fale, dary, Szabat, twierdza, upadek, pauza, HUD |
-| `Revelation` | objawienie, raport, nagrody, finał |
+| `Title` | menu; Kogo strzeżesz; jak grać; opaska; ustawienia; pomoc; wsparcie |
+| `Ladder` | Drabina; Owoce Ducha; Księga Prawdy (kłamstwa i myśli); Narzędzia + oddech |
+| `Synaxis` | wybór archanioła, próba |
+| `Story` | sceny historii (prolog, wstęp, uzdrowienie), nota i pominięcie rozdziału |
+| `Arena` | walka: dary, cnoty, ewolucje, relikwiarze, modlitwa, Rozeznanie, twierdza, uwielbienie, upadek, pauza, HUD |
+| `Revelation` | przemiana myśli, prawda, narzędzie, raport, nagrody, finał |
 
-Rozszerzenia: własne `HolyHoly` (treść, zapis, rzut 3D→ekran, przyciski i panele),
-`Psalm150` i `MendiFocus` (biblioteki JS z kodu gry 2D i BrainLink) oraz oficjalne
-z GDevelop: `FireBullet`, `SpriteMultitouchJoystick`, `ParticleEmitter3D`, `ShakeObject3D`.
+Treść (rozdziały, archaniołowie, dary, cienie, zniekształcenia, historia) jest w
+`tools/story.mjs` i `tools/game-data.mjs`, wersety w `tools/bible.mjs`; wszystko trafia do
+`assets/data/content.json`. Cały balans jest w zmiennej globalnej `Tuning`.
 
-Cały balans jest w zmiennej globalnej `Tuning` (wartości w §3–§4).
+## 14. Co dalej
 
-## 11. Co dalej
-
-* własne modele i animacje (np. z Blendera) w miejsce proceduralnych,
-* tryb bez końca („Czuwanie”: fale bez twierdzy, ranking najdłuższego skupienia),
-* więcej rodzajów twierdz i aren, codzienne wyzwanie,
-* wersja na telefony (eksport GDevelop do Androida/iOS) z natywnym Bluetooth,
-* tłumaczenie interfejsu (dziś tylko po polsku).
+* przeczytanie scenariuszy przez psychoterapeutę i duchownych; poprawki,
+* ręczne przemalowanie wizerunków Chrystusa przez artystę ikonopisa,
+* krótka, dobrowolna ankieta nastroju po rozdziale (jak w SPARX) z prośbą o kontakt z
+  człowiekiem przy wysokim wyniku, bez zapisywania danych,
+* tryb „Czuwanie” (fale bez końca), więcej twierdz, codzienne wyzwanie,
+* wersja na telefony (eksport GDevelop do Androida/iOS), tłumaczenia.

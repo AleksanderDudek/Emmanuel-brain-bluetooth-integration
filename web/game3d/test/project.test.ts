@@ -19,8 +19,8 @@ describe('the GDevelop project', () => {
     expect(main.properties.folderProject).toBe(true);
     expect(project.getFirstLayout()).toBe('Title');
     const scenes = Array.from({ length: project.getLayoutsCount() }, (_, i) => project.getLayoutAt(i).getName());
-    expect(scenes).toEqual(['Title', 'Tree', 'Arena', 'Revelation']);
-    for (const name of ['title', 'tree', 'arena', 'revelation']) expect(existsSync(join(PROJECT_DIR, 'layouts', `${name}.json`))).toBe(true);
+    expect(scenes).toEqual(['Title', 'Ladder', 'Synaxis', 'Story', 'Arena', 'Revelation']);
+    for (const name of ['title', 'ladder', 'synaxis', 'story', 'arena', 'revelation']) expect(existsSync(join(PROJECT_DIR, 'layouts', `${name}.json`))).toBe(true);
   });
 
   it('has only valid events: known instructions, right parameters, expressions that resolve', () => {
@@ -41,6 +41,12 @@ describe('the GDevelop project', () => {
     }
     expect(sources.sort()).toEqual(['lib/mendi-focus.js', 'lib/psalm150.js']);
     for (const s of sources) expect(resources.hasResource(s), s).toBe(true);
+  });
+
+  it('has a painting for every figure, gift, panel and floor of the art manifest (tools/art.py process)', () => {
+    const manifest = JSON.parse(readFileSync(join(PROJECT_DIR, '..', 'art', 'manifest.json'), 'utf8')) as { items: { out: string }[] };
+    const missing = manifest.items.map(i => i.out).filter(out => !existsSync(join(PROJECT_DIR, 'assets', out)));
+    expect(missing).toEqual([]);
   });
 
   it('keeps the GDevelop splash and watermark (removing them is a GDevelop subscription feature)', () => {

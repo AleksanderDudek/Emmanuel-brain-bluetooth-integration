@@ -70,11 +70,235 @@
   "resources": {
     "resources": [
       {
+        "file": "assets/bosses/anastasis.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/bosses/anastasis.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/bosses/ciemnosc.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/bosses/ciemnosc.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/bosses/ciezar.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/bosses/ciezar.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/bosses/dom.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/bosses/dom.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/bosses/ekran.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/bosses/ekran.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/bosses/nalog.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/bosses/nalog.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/bosses/noc.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/bosses/noc.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/bosses/odrzucenie.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/bosses/odrzucenie.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/bosses/rana.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/bosses/rana.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/bosses/strata.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/bosses/strata.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/christ/figure.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/christ/figure.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/christ/pantocrator.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/christ/pantocrator.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
         "disablePreload": false,
         "file": "assets/data/content.json",
         "kind": "json",
         "metadata": "",
         "name": "assets/data/content.json",
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/beznadzieja.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/beznadzieja.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/gniew.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/gniew.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/kontrola.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/kontrola.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/lek.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/lek.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/milczenie.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/milczenie.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/nalog.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/nalog.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/odrzucenie.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/odrzucenie.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/oskarzyciel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/oskarzyciel.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/perfekcja.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/perfekcja.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/porownanie.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/porownanie.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/powinnosc.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/powinnosc.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/samotnosc.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/samotnosc.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/tesknota.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/tesknota.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/wina.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/wina.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/wstyd.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/wstyd.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/enemies/zwatpienie.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/enemies/zwatpienie.webp",
+        "smoothed": true,
         "userAdded": true
       },
       {
@@ -92,10 +316,115 @@
         "userAdded": true
       },
       {
-        "file": "assets/models/angel.glb",
-        "kind": "model3D",
+        "file": "assets/heroes/barachiel-icon.webp",
+        "kind": "image",
         "metadata": "",
-        "name": "assets/models/angel.glb",
+        "name": "assets/heroes/barachiel-icon.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/barachiel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/barachiel.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/gabriel-icon.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/gabriel-icon.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/gabriel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/gabriel.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/jehudiel-icon.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/jehudiel-icon.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/jehudiel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/jehudiel.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/michal-icon.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/michal-icon.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/michal.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/michal.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/rafal-icon.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/rafal-icon.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/rafal.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/rafal.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/selafiel-icon.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/selafiel-icon.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/selafiel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/selafiel.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/uriel-icon.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/uriel-icon.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/heroes/uriel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/heroes/uriel.webp",
+        "smoothed": true,
         "userAdded": true
       },
       {
@@ -113,6 +442,76 @@
         "userAdded": true
       },
       {
+        "file": "assets/models/boss-anastasis.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/boss-anastasis.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/boss-ciemnosc.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/boss-ciemnosc.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/boss-ciezar.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/boss-ciezar.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/boss-dom.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/boss-dom.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/boss-ekran.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/boss-ekran.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/boss-nalog.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/boss-nalog.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/boss-noc.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/boss-noc.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/boss-odrzucenie.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/boss-odrzucenie.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/boss-rana.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/boss-rana.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/boss-strata.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/boss-strata.glb",
+        "userAdded": true
+      },
+      {
         "file": "assets/models/candle.glb",
         "kind": "model3D",
         "metadata": "",
@@ -124,6 +523,13 @@
         "kind": "model3D",
         "metadata": "",
         "name": "assets/models/chain-pylon.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/christ.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/christ.glb",
         "userAdded": true
       },
       {
@@ -148,6 +554,118 @@
         "userAdded": true
       },
       {
+        "file": "assets/models/enemy-beznadzieja.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-beznadzieja.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-gniew.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-gniew.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-kontrola.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-kontrola.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-lek.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-lek.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-milczenie.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-milczenie.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-nalog.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-nalog.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-odrzucenie.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-odrzucenie.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-oskarzyciel.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-oskarzyciel.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-perfekcja.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-perfekcja.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-porownanie.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-porownanie.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-powinnosc.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-powinnosc.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-samotnosc.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-samotnosc.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-tesknota.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-tesknota.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-wina.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-wina.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-wstyd.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-wstyd.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/enemy-zwatpienie.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/enemy-zwatpienie.glb",
+        "userAdded": true
+      },
+      {
         "file": "assets/models/fire-pillar.glb",
         "kind": "model3D",
         "metadata": "",
@@ -159,6 +677,118 @@
         "kind": "model3D",
         "metadata": "",
         "name": "assets/models/flame.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-flame.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-flame.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-glow.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-glow.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-incense.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-incense.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-lash.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-lash.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-orb.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-orb.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-petal.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-petal.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-pool.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-pool.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-spear.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-spear.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-vial.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-vial.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/hero-barachiel.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/hero-barachiel.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/hero-gabriel.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/hero-gabriel.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/hero-jehudiel.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/hero-jehudiel.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/hero-michal.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/hero-michal.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/hero-rafal.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/hero-rafal.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/hero-selafiel.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/hero-selafiel.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/hero-uriel.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/hero-uriel.glb",
         "userAdded": true
       },
       {
@@ -197,10 +827,31 @@
         "userAdded": true
       },
       {
+        "file": "assets/models/person-f.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/person-f.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/person-m.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/person-m.glb",
+        "userAdded": true
+      },
+      {
         "file": "assets/models/pew.glb",
         "kind": "model3D",
         "metadata": "",
         "name": "assets/models/pew.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/reliquary.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/reliquary.glb",
         "userAdded": true
       },
       {
@@ -225,122 +876,10 @@
         "userAdded": true
       },
       {
-        "file": "assets/models/stronghold.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/stronghold.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-gniew.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-gniew.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-kontrola.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-kontrola.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-lek.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-lek.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-nalog.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-nalog.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-nieprzebaczenie.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-nieprzebaczenie.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-odrzucenie.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-odrzucenie.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-oskarzyciel.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-oskarzyciel.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-pycha.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-pycha.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-rozpacz.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-rozpacz.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-samotnosc.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-samotnosc.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-wina.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-wina.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-wstyd.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-wstyd.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-zazdrosc.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-zazdrosc.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/trauma-zwatpienie.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/trauma-zwatpienie.glb",
-        "userAdded": true
-      },
-      {
         "file": "assets/models/tree.glb",
         "kind": "model3D",
         "metadata": "",
         "name": "assets/models/tree.glb",
-        "userAdded": true
-      },
-      {
-        "file": "assets/models/word.glb",
-        "kind": "model3D",
-        "metadata": "",
-        "name": "assets/models/word.glb",
         "userAdded": true
       },
       {
@@ -360,34 +899,938 @@
         "userAdded": true
       },
       {
-        "file": "assets/textures/floor-earth.png",
+        "file": "assets/people/man.webp",
         "kind": "image",
         "metadata": "",
-        "name": "assets/textures/floor-earth.png",
+        "name": "assets/people/man.webp",
         "smoothed": true,
         "userAdded": true
       },
       {
-        "file": "assets/textures/floor-garden.png",
+        "file": "assets/people/woman.webp",
         "kind": "image",
         "metadata": "",
-        "name": "assets/textures/floor-garden.png",
+        "name": "assets/people/woman.webp",
         "smoothed": true,
         "userAdded": true
       },
       {
-        "file": "assets/textures/floor-heaven.png",
+        "file": "assets/props/reliquary.webp",
         "kind": "image",
         "metadata": "",
-        "name": "assets/textures/floor-heaven.png",
+        "name": "assets/props/reliquary.webp",
         "smoothed": true,
         "userAdded": true
       },
       {
-        "file": "assets/textures/floor-hell.png",
+        "file": "assets/skills/chleby.webp",
         "kind": "image",
         "metadata": "",
-        "name": "assets/textures/floor-hell.png",
+        "name": "assets/skills/chleby.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/dawid-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/dawid-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/dawid-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/dawid-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/dawid-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/dawid-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/eliasz-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/eliasz-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/eliasz-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/eliasz-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/eliasz-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/eliasz-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/golebica-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/golebica-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/golebica-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/golebica-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/golebica-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/golebica-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/helm.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/helm.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/jerycho-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/jerycho-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/jerycho-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/jerycho-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/jerycho-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/jerycho-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/manna.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/manna.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/milosc.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/milosc.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ogien-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ogien-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ogien-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ogien-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ogien-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ogien-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/pancerz.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/pancerz.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/przebaczenie.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/przebaczenie.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ryba.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ryba.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/samson.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/samson.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sandaly.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sandaly.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/serce.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/serce.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-barachiel-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-barachiel-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-barachiel-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-barachiel-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-barachiel-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-barachiel-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-gabriel-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-gabriel-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-gabriel-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-gabriel-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-gabriel-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-gabriel-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-jehudiel-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-jehudiel-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-jehudiel-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-jehudiel-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-jehudiel-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-jehudiel-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-michal-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-michal-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-michal-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-michal-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-michal-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-michal-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-rafal-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-rafal-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-rafal-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-rafal-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-rafal-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-rafal-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-selafiel-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-selafiel-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-selafiel-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-selafiel-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-selafiel-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-selafiel-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-uriel-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-uriel-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-uriel-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-uriel-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/sig-uriel-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/sig-uriel-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/tarcza-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/tarcza-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/tarcza-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/tarcza-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/tarcza-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/tarcza-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ucisz.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ucisz.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ult-barachiel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ult-barachiel.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ult-gabriel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ult-gabriel.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ult-jehudiel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ult-jehudiel.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ult-michal.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ult-michal.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ult-rafal.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ult-rafal.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ult-selafiel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ult-selafiel.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/ult-uriel.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/ult-uriel.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/wicher-1.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/wicher-1.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/wicher-2.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/wicher-2.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/skills/wicher-3.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/skills/wicher-3.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/anastasis-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/anastasis-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/anastasis-intro-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/anastasis-intro-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/anastasis-intro-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/anastasis-intro-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/anastasis-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/anastasis-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/christ-hand.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/christ-hand.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ciemnosc-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ciemnosc-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ciemnosc-heal-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ciemnosc-heal-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ciemnosc-heal-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ciemnosc-heal-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ciemnosc-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ciemnosc-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ciezar-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ciezar-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ciezar-heal-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ciezar-heal-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ciezar-heal-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ciezar-heal-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ciezar-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ciezar-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/dom-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/dom-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/dom-heal-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/dom-heal-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/dom-heal-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/dom-heal-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/dom-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/dom-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ekran-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ekran-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ekran-heal-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ekran-heal-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ekran-heal-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ekran-heal-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/ekran-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/ekran-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/nalog-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/nalog-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/nalog-heal-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/nalog-heal-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/nalog-heal-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/nalog-heal-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/nalog-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/nalog-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/noc-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/noc-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/noc-heal-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/noc-heal-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/noc-heal-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/noc-heal-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/noc-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/noc-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/odrzucenie-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/odrzucenie-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/odrzucenie-heal-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/odrzucenie-heal-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/odrzucenie-heal-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/odrzucenie-heal-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/odrzucenie-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/odrzucenie-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/prolog-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/prolog-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/prolog-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/prolog-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/rana-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/rana-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/rana-heal-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/rana-heal-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/rana-heal-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/rana-heal-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/rana-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/rana-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/strata-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/strata-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/strata-heal-f.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/strata-heal-f.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/strata-heal-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/strata-heal-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/story/strata-m.webp",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/story/strata-m.webp",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-anastasis.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-anastasis.jpg",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-ciemnosc.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-ciemnosc.jpg",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-ciezar.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-ciezar.jpg",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-dom.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-dom.jpg",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-ekran.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-ekran.jpg",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-mosaic.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-mosaic.jpg",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-nalog.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-nalog.jpg",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-noc.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-noc.jpg",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-odrzucenie.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-odrzucenie.jpg",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-rana.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-rana.jpg",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/textures/floor-strata.jpg",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/textures/floor-strata.jpg",
         "smoothed": true,
         "userAdded": true
       },
@@ -396,6 +1839,14 @@
         "kind": "image",
         "metadata": "",
         "name": "assets/ui/bar.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/breath.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/breath.png",
         "smoothed": true,
         "userAdded": true
       },
@@ -1097,6 +2548,4341 @@
     {
       "adaptCollisionMaskAutomatically": true,
       "assetStoreId": "",
+      "name": "UiArt",
+      "type": "Sprite",
+      "updateIfNotVisible": false,
+      "variables": [
+        {
+          "name": "Panel",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Key",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Action",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "Arg",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [
+        {
+          "name": "Tween",
+          "type": "Tween::TweenBehavior"
+        }
+      ],
+      "animations": [
+        {
+          "name": "uriel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/uriel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 256,
+                    "y": 372
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "michal",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/michal.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 255.5,
+                    "y": 384
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "gabriel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/gabriel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 254,
+                    "y": 384
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "rafal",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/rafal.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 256,
+                    "y": 374
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "selafiel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/selafiel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 256,
+                    "y": 367.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "jehudiel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/jehudiel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 256,
+                    "y": 369.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "barachiel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/barachiel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 249.5,
+                    "y": 384
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "uriel-icon",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/uriel-icon.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 160,
+                    "y": 160
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "michal-icon",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/michal-icon.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 160,
+                    "y": 160
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "gabriel-icon",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/gabriel-icon.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 160,
+                    "y": 160
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "rafal-icon",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/rafal-icon.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 160,
+                    "y": 160
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "selafiel-icon",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/selafiel-icon.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 160,
+                    "y": 160
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "jehudiel-icon",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/jehudiel-icon.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 160,
+                    "y": 160
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "barachiel-icon",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/heroes/barachiel-icon.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 160,
+                    "y": 160
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-lek",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/lek.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 170,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-wstyd",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/wstyd.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 188,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-gniew",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/gniew.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 187.5,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-samotnosc",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/samotnosc.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 162,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-porownanie",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/porownanie.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 189.5,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-wina",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/wina.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 183,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-nalog",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/nalog.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 186,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-perfekcja",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/perfekcja.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 189,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-beznadzieja",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/beznadzieja.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 192,
+                    "y": 274.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-oskarzyciel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/oskarzyciel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 180,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-zwatpienie",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/zwatpienie.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 178.5,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-kontrola",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/kontrola.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 171,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-tesknota",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/tesknota.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 181.5,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-milczenie",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/milczenie.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 165.5,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-odrzucenie",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/odrzucenie.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 192,
+                    "y": 275
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "enemy-powinnosc",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/enemies/powinnosc.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 162.5,
+                    "y": 280
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "christ-pantocrator",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/christ/pantocrator.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 320,
+                    "y": 320
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "christ-figure",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/christ/figure.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 182,
+                    "y": 384
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "person-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/people/man.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 114.5,
+                    "y": 384
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "person-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/people/woman.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 110.5,
+                    "y": 384
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-uriel-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-uriel-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-uriel-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-uriel-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-uriel-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-uriel-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ult-uriel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ult-uriel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-michal-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-michal-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-michal-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-michal-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-michal-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-michal-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ult-michal",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ult-michal.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-gabriel-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-gabriel-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-gabriel-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-gabriel-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-gabriel-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-gabriel-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ult-gabriel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ult-gabriel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-rafal-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-rafal-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-rafal-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-rafal-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-rafal-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-rafal-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ult-rafal",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ult-rafal.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-selafiel-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-selafiel-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-selafiel-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-selafiel-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-selafiel-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-selafiel-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ult-selafiel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ult-selafiel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-jehudiel-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-jehudiel-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-jehudiel-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-jehudiel-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-jehudiel-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-jehudiel-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ult-jehudiel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ult-jehudiel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-barachiel-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-barachiel-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-barachiel-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-barachiel-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sig-barachiel-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sig-barachiel-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ult-barachiel",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ult-barachiel.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "tarcza-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/tarcza-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "tarcza-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/tarcza-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "tarcza-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/tarcza-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ogien-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ogien-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ogien-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ogien-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ogien-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ogien-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "wicher-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/wicher-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "wicher-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/wicher-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "wicher-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/wicher-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "golebica-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/golebica-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "golebica-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/golebica-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "golebica-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/golebica-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "eliasz-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/eliasz-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "eliasz-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/eliasz-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "eliasz-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/eliasz-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "jerycho-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/jerycho-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "jerycho-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/jerycho-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "jerycho-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/jerycho-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dawid-1",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/dawid-1.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dawid-2",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/dawid-2.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dawid-3",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/dawid-3.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "sandaly",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/sandaly.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "pancerz",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/pancerz.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "helm",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/helm.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ucisz",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ucisz.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "milosc",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/milosc.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ryba",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/ryba.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "serce",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/serce.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "przebaczenie",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/przebaczenie.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "manna",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/manna.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "chleby",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/chleby.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "samson",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/skills/samson.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "boss-noc",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/bosses/noc.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 210.5,
+                    "y": 320
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "boss-dom",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/bosses/dom.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 290,
+                    "y": 320
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "boss-ekran",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/bosses/ekran.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 286,
+                    "y": 320
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "boss-odrzucenie",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/bosses/odrzucenie.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 232,
+                    "y": 320
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "boss-rana",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/bosses/rana.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 216,
+                    "y": 320
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "boss-ciezar",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/bosses/ciezar.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 309.5,
+                    "y": 320
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "boss-nalog",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/bosses/nalog.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 265,
+                    "y": 320
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "boss-strata",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/bosses/strata.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 147,
+                    "y": 320
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "boss-ciemnosc",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/bosses/ciemnosc.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 320,
+                    "y": 300
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "boss-anastasis",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/bosses/anastasis.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 280.5,
+                    "y": 320
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "reliquary",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/props/reliquary.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 192,
+                    "y": 179.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "christ-hand",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/christ-hand.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "anastasis-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/anastasis-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "anastasis-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/anastasis-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "prolog-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/prolog-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "prolog-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/prolog-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "noc-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/noc-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "noc-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/noc-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "noc-heal-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/noc-heal-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "noc-heal-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/noc-heal-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dom-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/dom-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dom-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/dom-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dom-heal-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/dom-heal-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "dom-heal-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/dom-heal-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ekran-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ekran-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ekran-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ekran-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ekran-heal-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ekran-heal-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ekran-heal-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ekran-heal-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "odrzucenie-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/odrzucenie-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "odrzucenie-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/odrzucenie-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "odrzucenie-heal-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/odrzucenie-heal-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "odrzucenie-heal-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/odrzucenie-heal-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "rana-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/rana-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "rana-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/rana-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "rana-heal-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/rana-heal-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "rana-heal-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/rana-heal-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ciezar-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ciezar-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ciezar-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ciezar-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ciezar-heal-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ciezar-heal-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ciezar-heal-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ciezar-heal-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "nalog-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/nalog-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "nalog-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/nalog-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "nalog-heal-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/nalog-heal-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "nalog-heal-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/nalog-heal-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "strata-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/strata-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "strata-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/strata-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "strata-heal-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/strata-heal-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "strata-heal-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/strata-heal-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ciemnosc-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ciemnosc-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ciemnosc-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ciemnosc-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ciemnosc-heal-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ciemnosc-heal-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ciemnosc-heal-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/ciemnosc-heal-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "anastasis-intro-m",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/anastasis-intro-m.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "anastasis-intro-f",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/story/anastasis-intro-f.webp",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 480,
+                    "y": 328.5
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "adaptCollisionMaskAutomatically": true,
+      "assetStoreId": "",
       "name": "UiIcon",
       "type": "Sprite",
       "updateIfNotVisible": false,
@@ -1337,6 +7123,35 @@
               ]
             }
           ]
+        },
+        {
+          "name": "breath",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/ui/breath.png",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 128,
+                    "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
         }
       ]
     }
@@ -1373,6 +7188,9 @@
           },
           {
             "objectName": "UiBig"
+          },
+          {
+            "objectName": "UiArt"
           },
           {
             "objectName": "UiIcon"
@@ -1414,6 +7232,9 @@
         },
         {
           "name": "UiIcon"
+        },
+        {
+          "name": "UiArt"
         }
       ]
     }
@@ -1500,6 +7321,11 @@
           ]
         },
         {
+          "name": "hero",
+          "type": "string",
+          "value": "uriel"
+        },
+        {
           "name": "light",
           "type": "number",
           "value": 0
@@ -1510,9 +7336,40 @@
           "value": 0
         },
         {
+          "name": "profile",
+          "type": "structure",
+          "children": [
+            {
+              "name": "gender",
+              "type": "string",
+              "value": "m"
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "set",
+              "type": "boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "name": "reframes",
+          "type": "number",
+          "value": 0
+        },
+        {
           "name": "rises",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "seen",
+          "type": "structure",
+          "children": []
         },
         {
           "name": "selected",
@@ -1527,6 +7384,11 @@
               "name": "effects",
               "type": "boolean",
               "value": true
+            },
+            {
+              "name": "gentle",
+              "type": "boolean",
+              "value": false
             },
             {
               "name": "master",
@@ -1554,6 +7416,11 @@
               "value": false
             },
             {
+              "name": "seenPrologue",
+              "type": "boolean",
+              "value": false
+            },
+            {
               "name": "sfx",
               "type": "number",
               "value": 0.7
@@ -1562,13 +7429,64 @@
               "name": "shake",
               "type": "boolean",
               "value": true
+            },
+            {
+              "name": "veiled",
+              "type": "boolean",
+              "value": false
+            }
+          ]
+        },
+        {
+          "name": "tools",
+          "type": "structure",
+          "children": []
+        },
+        {
+          "name": "trials",
+          "type": "structure",
+          "children": [
+            {
+              "name": "barachiel",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "gabriel",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "jehudiel",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "michal",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "rafal",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "selafiel",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "uriel",
+              "type": "boolean",
+              "value": false
             }
           ]
         },
         {
           "name": "version",
           "type": "number",
-          "value": 1
+          "value": 2
         }
       ]
     },
@@ -1587,9 +7505,212 @@
           "value": 0
         },
         {
+          "name": "choices",
+          "type": "array",
+          "children": [
+            {
+              "type": "structure",
+              "children": [
+                {
+                  "name": "evolve",
+                  "type": "boolean",
+                  "value": false
+                },
+                {
+                  "name": "id",
+                  "type": "string",
+                  "value": ""
+                }
+              ]
+            }
+          ]
+        },
+        {
           "name": "destroyed",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "disc",
+          "type": "structure",
+          "children": [
+            {
+              "name": "answer",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "answerName",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "kind",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "names",
+              "type": "array",
+              "children": []
+            },
+            {
+              "name": "options",
+              "type": "array",
+              "children": []
+            },
+            {
+              "name": "question",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "thought",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "name": "discRight",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "evo",
+          "type": "structure",
+          "children": [
+            {
+              "name": "chleby",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "dawid",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "eliasz",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "golebica",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "helm",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "jerycho",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "manna",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "milosc",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "ogien",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "pancerz",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "przebaczenie",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "ryba",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "samson",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "sandaly",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "serce",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "sig-barachiel",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "sig-gabriel",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "sig-jehudiel",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "sig-michal",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "sig-rafal",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "sig-selafiel",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "sig-uriel",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "tarcza",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "ucisz",
+              "type": "boolean",
+              "value": false
+            },
+            {
+              "name": "wicher",
+              "type": "boolean",
+              "value": false
+            }
+          ]
         },
         {
           "name": "falls",
@@ -1686,7 +7807,37 @@
               "value": 0
             },
             {
-              "name": "slowo",
+              "name": "sig-barachiel",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "sig-gabriel",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "sig-jehudiel",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "sig-michal",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "sig-rafal",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "sig-selafiel",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "sig-uriel",
               "type": "number",
               "value": 0
             },
@@ -1708,6 +7859,11 @@
           ]
         },
         {
+          "name": "hero",
+          "type": "string",
+          "value": "uriel"
+        },
+        {
           "name": "level",
           "type": "number",
           "value": 1
@@ -1716,6 +7872,42 @@
           "name": "light",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "lines",
+          "type": "array",
+          "children": [
+            {
+              "type": "structure",
+              "children": [
+                {
+                  "name": "panel",
+                  "type": "string",
+                  "value": ""
+                },
+                {
+                  "name": "quote",
+                  "type": "string",
+                  "value": ""
+                },
+                {
+                  "name": "ref",
+                  "type": "string",
+                  "value": ""
+                },
+                {
+                  "name": "text",
+                  "type": "string",
+                  "value": ""
+                },
+                {
+                  "name": "who",
+                  "type": "string",
+                  "value": ""
+                }
+              ]
+            }
+          ]
         },
         {
           "name": "manna",
@@ -1728,7 +7920,32 @@
           "value": ""
         },
         {
+          "name": "next",
+          "type": "string",
+          "value": ""
+        },
+        {
           "name": "oldRank",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "order",
+          "type": "array",
+          "children": []
+        },
+        {
+          "name": "reframes",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "skipped",
+          "type": "boolean",
+          "value": false
+        },
+        {
+          "name": "story",
           "type": "string",
           "value": ""
         },
@@ -1736,6 +7953,26 @@
           "name": "time",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "trial",
+          "type": "boolean",
+          "value": false
+        },
+        {
+          "name": "unlocked",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "name": "virtues",
+          "type": "array",
+          "children": []
+        },
+        {
+          "name": "weapons",
+          "type": "array",
+          "children": []
         }
       ]
     },
@@ -1743,6 +7980,11 @@
       "name": "Tuning",
       "type": "structure",
       "children": [
+        {
+          "name": "affirmGap",
+          "type": "number",
+          "value": 0.45
+        },
         {
           "name": "arenaRadius",
           "type": "number",
@@ -1784,11 +8026,6 @@
           "value": 6
         },
         {
-          "name": "fireBase",
-          "type": "number",
-          "value": 0.045454545454545456
-        },
-        {
           "name": "grace",
           "type": "number",
           "value": 1.1
@@ -1809,14 +8046,29 @@
           "value": 0.45
         },
         {
-          "name": "pentecostDamage",
-          "type": "number",
-          "value": 260
-        },
-        {
           "name": "playerSpeed",
           "type": "number",
           "value": 330
+        },
+        {
+          "name": "praiseSeconds",
+          "type": "number",
+          "value": 7
+        },
+        {
+          "name": "prayerPerKill",
+          "type": "number",
+          "value": 1.6
+        },
+        {
+          "name": "prayerPerStrike",
+          "type": "number",
+          "value": 0.6
+        },
+        {
+          "name": "prayerSeconds",
+          "type": "number",
+          "value": 45
         },
         {
           "name": "punchCooldown",
@@ -1839,6 +8091,26 @@
           "value": 900
         },
         {
+          "name": "shotCooldown",
+          "type": "number",
+          "value": 0.42
+        },
+        {
+          "name": "shotDamage",
+          "type": "number",
+          "value": 12
+        },
+        {
+          "name": "shotRange",
+          "type": "number",
+          "value": 620
+        },
+        {
+          "name": "shotSpeed",
+          "type": "number",
+          "value": 1000
+        },
+        {
           "name": "spawnInterval",
           "type": "number",
           "value": 1.45
@@ -1852,21 +8124,6 @@
           "name": "stillDelay",
           "type": "number",
           "value": 0.18
-        },
-        {
-          "name": "strikeFire",
-          "type": "number",
-          "value": 0.05
-        },
-        {
-          "name": "tongueDamage",
-          "type": "number",
-          "value": 70
-        },
-        {
-          "name": "tongueRadius",
-          "type": "number",
-          "value": 330
         },
         {
           "name": "traumaHpScale",
@@ -1894,26 +8151,6 @@
           "value": 3
         },
         {
-          "name": "wordCooldown",
-          "type": "number",
-          "value": 0.42
-        },
-        {
-          "name": "wordDamage",
-          "type": "number",
-          "value": 12
-        },
-        {
-          "name": "wordRange",
-          "type": "number",
-          "value": 620
-        },
-        {
-          "name": "wordSpeed",
-          "type": "number",
-          "value": 1050
-        },
-        {
           "name": "xpAdd",
           "type": "number",
           "value": 3
@@ -1926,7 +8163,7 @@
         {
           "name": "xpGrowth",
           "type": "number",
-          "value": 1.32
+          "value": 1.3
         }
       ]
     },
@@ -1969,7 +8206,15 @@
     },
     {
       "__REFERENCE_TO_SPLIT_OBJECT": true,
-      "referenceTo": "/layouts/tree"
+      "referenceTo": "/layouts/ladder"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/layouts/synaxis"
+    },
+    {
+      "__REFERENCE_TO_SPLIT_OBJECT": true,
+      "referenceTo": "/layouts/story"
     },
     {
       "__REFERENCE_TO_SPLIT_OBJECT": true,

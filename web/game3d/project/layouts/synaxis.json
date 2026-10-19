@@ -1,0 +1,3194 @@
+{
+  "b": 14,
+  "disableInputWhenNotFocused": true,
+  "mangledName": "Synaxis",
+  "name": "Synaxis",
+  "r": 22,
+  "standardSortMethod": true,
+  "stopSoundsOnStartup": true,
+  "title": "",
+  "v": 18,
+  "uiSettings": {},
+  "objectsGroups": [
+    {
+      "name": "Heroes",
+      "objects": [
+        {
+          "name": "Hero_uriel"
+        },
+        {
+          "name": "Hero_michal"
+        },
+        {
+          "name": "Hero_gabriel"
+        },
+        {
+          "name": "Hero_rafal"
+        },
+        {
+          "name": "Hero_selafiel"
+        },
+        {
+          "name": "Hero_barachiel"
+        },
+        {
+          "name": "Hero_jehudiel"
+        }
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "name": "Sel",
+      "type": "number",
+      "value": 0
+    },
+    {
+      "name": "Rebuild",
+      "type": "boolean",
+      "value": false
+    }
+  ],
+  "instances": [
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 10,
+      "height": 4000,
+      "layer": "",
+      "locked": true,
+      "name": "Floor",
+      "persistentUuid": "3c552a05-eada-43c9-ab57-c3d37dcafae1",
+      "width": 4000,
+      "x": -2000,
+      "y": -2000,
+      "z": -10,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 60,
+      "height": 34,
+      "layer": "",
+      "name": "Candle",
+      "persistentUuid": "2384a740-41e2-4253-a121-24862c01a498",
+      "width": 34,
+      "x": -960,
+      "y": 120,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 60,
+      "height": 34,
+      "layer": "",
+      "name": "Candle",
+      "persistentUuid": "e7895f39-9bc7-4fef-aab4-fbe436b3c9ee",
+      "width": 34,
+      "x": -780,
+      "y": 120,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 60,
+      "height": 34,
+      "layer": "",
+      "name": "Candle",
+      "persistentUuid": "7b7bc1d2-1c65-4e68-ad59-3d1b0bad958f",
+      "width": 34,
+      "x": 260,
+      "y": 120,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": true,
+      "depth": 60,
+      "height": 34,
+      "layer": "",
+      "name": "Candle",
+      "persistentUuid": "c3ccbb5c-f935-4e9d-a590-73a33283a324",
+      "width": 34,
+      "x": 440,
+      "y": 120,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    },
+    {
+      "angle": 0,
+      "customSize": false,
+      "height": 0,
+      "layer": "",
+      "name": "Motes",
+      "persistentUuid": "ab518e76-54ce-47b6-a8c0-6e2326aabc5d",
+      "width": 0,
+      "x": -260,
+      "y": 0,
+      "z": 160,
+      "zOrder": 1,
+      "numberProperties": [],
+      "stringProperties": [],
+      "initialVariables": []
+    }
+  ],
+  "objects": [
+    {
+      "assetStoreId": "",
+      "name": "Hero_uriel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 206,
+        "height": 54,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-uriel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 135,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_michal",
+      "type": "Scene3D::Model3DObject",
+      "variables": [
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 213,
+        "height": 54,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-michal.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 135,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_gabriel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 215,
+        "height": 54,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-gabriel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 135,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_rafal",
+      "type": "Scene3D::Model3DObject",
+      "variables": [
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 207,
+        "height": 54,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-rafal.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 135,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_selafiel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 204,
+        "height": 54,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-selafiel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 135,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_barachiel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 218,
+        "height": 54,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-barachiel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 135,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Hero_jehudiel",
+      "type": "Scene3D::Model3DObject",
+      "variables": [
+        {
+          "name": "Index",
+          "type": "number",
+          "value": 0
+        }
+      ],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 205,
+        "height": 54,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/hero-jehudiel.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 135,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Floor",
+      "type": "Scene3D::Cube3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "width": 4000,
+        "height": 4000,
+        "depth": 10,
+        "enableTextureTransparency": false,
+        "facesOrientation": "Y",
+        "frontFaceResourceName": "assets/textures/floor-mosaic.jpg",
+        "backFaceResourceName": "",
+        "backFaceUpThroughWhichAxisRotation": "X",
+        "leftFaceResourceName": "",
+        "rightFaceResourceName": "",
+        "topFaceResourceName": "",
+        "bottomFaceResourceName": "",
+        "frontFaceVisible": true,
+        "backFaceVisible": false,
+        "leftFaceVisible": false,
+        "rightFaceVisible": false,
+        "topFaceVisible": false,
+        "bottomFaceVisible": false,
+        "frontFaceResourceRepeat": true,
+        "backFaceResourceRepeat": false,
+        "leftFaceResourceRepeat": false,
+        "rightFaceResourceRepeat": false,
+        "topFaceResourceRepeat": false,
+        "bottomFaceResourceRepeat": false,
+        "materialType": "StandardWithoutMetalness",
+        "tint": "110;98;84",
+        "isCastingShadow": false,
+        "isReceivingShadow": true,
+        "tileScale": 0.3
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Candle",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "BottomCenterZ",
+        "crossfadeDuration": 0.1,
+        "depth": 60,
+        "height": 34,
+        "isCastingShadow": true,
+        "isReceivingShadow": true,
+        "keepAspectRatio": true,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/candle.glb",
+        "originLocation": "BottomCenterZ",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 34,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Halo",
+      "type": "Scene3D::Model3DObject",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "centerLocation": "ObjectCenter",
+        "crossfadeDuration": 0.1,
+        "depth": 2,
+        "height": 220,
+        "isCastingShadow": false,
+        "isReceivingShadow": false,
+        "keepAspectRatio": false,
+        "materialType": "StandardWithoutMetalness",
+        "modelResourceName": "assets/models/fx-glow.glb",
+        "originLocation": "ObjectCenter",
+        "rotationX": 0,
+        "rotationY": 0,
+        "rotationZ": 0,
+        "width": 220,
+        "animations": [
+          {
+            "loop": true,
+            "name": "Idle",
+            "source": "Idle"
+          }
+        ]
+      }
+    },
+    {
+      "assetStoreId": "",
+      "name": "Motes",
+      "type": "ParticleEmitter3D::ParticleEmitter3D",
+      "variant": "",
+      "variables": [],
+      "effects": [],
+      "behaviors": [],
+      "content": {
+        "EndColor": "255;255;255",
+        "StartColor": "255;236;170",
+        "SpayConeAngle": 360,
+        "EndScale": 0.2,
+        "Gravity": -20,
+        "StartSpeedMax": 40,
+        "StartSizeMin": 5,
+        "Duration": -1,
+        "Flow": 24,
+        "LifespanMin": 2,
+        "LifespanMax": 5,
+        "StartSizeMax": 12,
+        "StartSpeedMin": 10,
+        "StartOpacity": 200,
+        "EndOpacity": 0,
+        "Blending": "Additive",
+        "ShouldAutodestruct": false
+      },
+      "childrenContent": {
+        "Particle": {
+          "adaptCollisionMaskAutomatically": true,
+          "updateIfNotVisible": false,
+          "animations": [
+            {
+              "name": "Image",
+              "useMultipleDirections": false,
+              "directions": [
+                {
+                  "looping": false,
+                  "timeBetweenFrames": 0.08,
+                  "sprites": [
+                    {
+                      "hasCustomCollisionMask": false,
+                      "image": "assets/particles/spark.png",
+                      "points": [],
+                      "originPoint": {
+                        "name": "origine",
+                        "x": 0,
+                        "y": 0
+                      },
+                      "centerPoint": {
+                        "automatic": true,
+                        "name": "centre",
+                        "x": 0,
+                        "y": 0
+                      },
+                      "customCollisionMask": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "objectsFolderStructure": {
+    "folderName": "__ROOT",
+    "children": [
+      {
+        "objectName": "Hero_uriel"
+      },
+      {
+        "objectName": "Hero_michal"
+      },
+      {
+        "objectName": "Hero_gabriel"
+      },
+      {
+        "objectName": "Hero_rafal"
+      },
+      {
+        "objectName": "Hero_selafiel"
+      },
+      {
+        "objectName": "Hero_barachiel"
+      },
+      {
+        "objectName": "Hero_jehudiel"
+      },
+      {
+        "objectName": "Floor"
+      },
+      {
+        "objectName": "Candle"
+      },
+      {
+        "objectName": "Halo"
+      },
+      {
+        "objectName": "Motes"
+      }
+    ]
+  },
+  "events": [
+    {
+      "type": "BuiltinCommonInstructions::Link",
+      "include": {
+        "includeConfig": 0
+      },
+      "target": "UI"
+    },
+    {
+      "colorB": 226,
+      "colorG": 144,
+      "colorR": 74,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Boot",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "The content (chapters, archangels, shadow-thoughts, gifts…) comes from assets/data/content.json, built by tools/build-content.mjs. The save lives in the browser storage and is merged over the defaults of the global variable Save."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            },
+            {
+              "type": {
+                "inverted": true,
+                "value": "HolyHoly::IsGlobalLoaded"
+              },
+              "parameters": [
+                "",
+                "\"Content\"",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "HolyHoly::LoadJsonIntoGlobal"
+              },
+              "parameters": [
+                "",
+                "assets/data/content.json",
+                "\"Content\"",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "HolyHoly::LoadSave"
+              },
+              "parameters": [
+                "",
+                "\"Save\"",
+                "\"holyholyholy3d.save.v2\"",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "HolyHoly::ExposeForTests"
+              },
+              "parameters": [
+                "",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "Psalm150::SetVolumes"
+              },
+              "parameters": [
+                "",
+                "Save.settings.master",
+                "Save.settings.music",
+                "Save.settings.sfx",
+                ""
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    },
+    {
+      "colorB": 194,
+      "colorG": 87,
+      "colorR": 126,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Scene",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "The seven stand in an arc; the chosen one steps forward into the light."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "SceneJustBegins"
+              },
+              "parameters": [
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "Sel",
+                "=",
+                "Content.heroIndex[Save.hero]"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetCameraCenterX"
+              },
+              "parameters": [
+                "",
+                "=",
+                "10",
+                "\"\"",
+                "0"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetCameraCenterY"
+              },
+              "parameters": [
+                "",
+                "=",
+                "720",
+                "\"\"",
+                "0"
+              ]
+            },
+            {
+              "type": {
+                "value": "Scene3D::SetCameraZ"
+              },
+              "parameters": [
+                "",
+                "=",
+                "300",
+                "\"\"",
+                "0"
+              ]
+            },
+            {
+              "type": {
+                "value": "Scene3D::SetCameraRotationX"
+              },
+              "parameters": [
+                "",
+                "=",
+                "72",
+                "\"\"",
+                "0"
+              ]
+            },
+            {
+              "type": {
+                "value": "Psalm150::SetMood"
+              },
+              "parameters": [
+                "",
+                "\"menu\"",
+                "\"chapel\"",
+                "0.2",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"info\""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Rebuild",
+                "True",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "Create"
+              },
+              "parameters": [
+                "",
+                "Halo",
+                "-260",
+                "0",
+                "\"\""
+              ]
+            },
+            {
+              "type": {
+                "value": "Scene3D::Base3DBehavior::SetZ"
+              },
+              "parameters": [
+                "Halo",
+                "Object3D",
+                "=",
+                "2"
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.effects",
+                    "True",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "EnableLayerEffect"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Glow\"",
+                    "yes"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetLayerEffectBooleanParameter"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Sun\"",
+                    "\"isCastingShadow\"",
+                    "yes"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.effects",
+                    "False",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "EnableLayerEffect"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Glow\"",
+                    "no"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetLayerEffectBooleanParameter"
+                  },
+                  "parameters": [
+                    "",
+                    "\"\"",
+                    "\"Sun\"",
+                    "\"isCastingShadow\"",
+                    "no"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Repeat",
+              "repeatExpression": "VariableChildCount(Content.heroes)",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "CreateByName"
+                  },
+                  "parameters": [
+                    "",
+                    "Heroes",
+                    "\"Hero_\" + Content.heroes[i].id",
+                    "-575 + i * 105",
+                    "-40 * abs(i - 3)",
+                    "\"\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetNumberObjectVariable"
+                  },
+                  "parameters": [
+                    "Heroes",
+                    "Index",
+                    "=",
+                    "i"
+                  ]
+                }
+              ],
+              "variables": [
+                {
+                  "name": "i",
+                  "type": "number",
+                  "value": 0
+                }
+              ],
+              "loopIndexVariable": "i"
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Create"
+                  },
+                  "parameters": [
+                    "",
+                    "UiArt",
+                    "SceneWindowWidth() * 0.275",
+                    "78",
+                    "\"UI\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "AnimatableCapability::AnimatableBehavior::SetName"
+                  },
+                  "parameters": [
+                    "UiArt",
+                    "Animation",
+                    "=",
+                    "\"christ-pantocrator\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "ResizableCapability::ResizableBehavior::SetSize"
+                  },
+                  "parameters": [
+                    "UiArt",
+                    "Resizable",
+                    "130",
+                    "130"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetStringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiArt",
+                    "Key",
+                    "=",
+                    "\"christ\""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.settings.veiled",
+                    "True",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        "Key",
+                        "=",
+                        "\"christ\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Delete"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::ForEach",
+          "object": "Heroes",
+          "conditions": [],
+          "actions": [],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "Heroes",
+                    "Index",
+                    "=",
+                    "Sel"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetXY"
+                  },
+                  "parameters": [
+                    "Heroes",
+                    "=",
+                    "lerp(Heroes.X(), -575 + Heroes.Index * 105, min(1, 8 * TimeDelta()))",
+                    "=",
+                    "lerp(Heroes.Y(), -40 * abs(Heroes.Index - 3) + 90, min(1, 8 * TimeDelta()))"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "ScalableCapability::ScalableBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "Heroes",
+                    "Scale",
+                    "=",
+                    "1.15"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetXY"
+                  },
+                  "parameters": [
+                    "Halo",
+                    "=",
+                    "Heroes.X()",
+                    "=",
+                    "Heroes.Y()"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "NumberObjectVariable"
+                  },
+                  "parameters": [
+                    "Heroes",
+                    "Index",
+                    "!=",
+                    "Sel"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetXY"
+                  },
+                  "parameters": [
+                    "Heroes",
+                    "=",
+                    "lerp(Heroes.X(), -575 + Heroes.Index * 105, min(1, 8 * TimeDelta()))",
+                    "=",
+                    "lerp(Heroes.Y(), -40 * abs(Heroes.Index - 3), min(1, 8 * TimeDelta()))"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "ScalableCapability::ScalableBehavior::SetValue"
+                  },
+                  "parameters": [
+                    "Heroes",
+                    "Scale",
+                    "=",
+                    "0.92"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    },
+    {
+      "colorB": 80,
+      "colorG": 175,
+      "colorR": 76,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Choosing",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"info\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::Or"
+              },
+              "parameters": [],
+              "subInstructions": [
+                {
+                  "type": {
+                    "value": "KeyFromTextJustPressed"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Left\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "KeyFromTextJustPressed"
+                  },
+                  "parameters": [
+                    "",
+                    "\"a\""
+                  ]
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"prev\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"info\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::Or"
+              },
+              "parameters": [],
+              "subInstructions": [
+                {
+                  "type": {
+                    "value": "KeyFromTextJustPressed"
+                  },
+                  "parameters": [
+                    "",
+                    "\"Right\""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "KeyFromTextJustPressed"
+                  },
+                  "parameters": [
+                    "",
+                    "\"d\""
+                  ]
+                }
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"next\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"info\""
+              ]
+            },
+            {
+              "type": {
+                "value": "KeyFromTextJustPressed"
+              },
+              "parameters": [
+                "",
+                "\"Return\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"choose\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"close\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"back\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"prev\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "Sel",
+                "=",
+                "mod(Sel - 1 + 7, 7)"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Rebuild",
+                "True",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"next\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetNumberVariable"
+              },
+              "parameters": [
+                "Sel",
+                "=",
+                "mod(Sel + 1, 7)"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Rebuild",
+                "True",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "A click on an archangel chooses him (the cursor is projected on the ground of the 3D layer)."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.top",
+                "=",
+                "\"info\""
+              ]
+            },
+            {
+              "type": {
+                "value": "MouseButtonFromTextReleased"
+              },
+              "parameters": [
+                "",
+                "\"Left\""
+              ]
+            },
+            {
+              "type": {
+                "inverted": true,
+                "value": "IsCursorOnObject"
+              },
+              "parameters": [
+                "UiPanel",
+                "",
+                "yes",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "inverted": true,
+                "value": "IsCursorOnObject"
+              },
+              "parameters": [
+                "UiButton",
+                "",
+                "yes",
+                ""
+              ]
+            }
+          ],
+          "actions": [],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "PickNearest"
+                  },
+                  "parameters": [
+                    "Heroes",
+                    "CursorX(\"\")",
+                    "CursorY(\"\")",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BuiltinCommonInstructions::CompareNumbers"
+                  },
+                  "parameters": [
+                    "Heroes.DistanceToPosition(CursorX(\"\"), CursorY(\"\"))",
+                    "<",
+                    "110"
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetNumberVariable"
+                  },
+                  "parameters": [
+                    "Sel",
+                    "=",
+                    "Heroes.Index"
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "SetBooleanVariable"
+                  },
+                  "parameters": [
+                    "Rebuild",
+                    "True",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "Psalm150::PlaySfx"
+                  },
+                  "parameters": [
+                    "",
+                    "\"click\"",
+                    "0",
+                    "0",
+                    ""
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"choose\""
+              ]
+            },
+            {
+              "type": {
+                "value": "HolyHoly::IsHeroOpen"
+              },
+              "parameters": [
+                "",
+                "Content.heroes[Sel].id",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Save.hero",
+                "=",
+                "Content.heroes[Sel].id"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Run.hero",
+                "=",
+                "Content.heroes[Sel].id"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Run.trial",
+                "False",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "HolyHoly::StoreSave"
+              },
+              "parameters": [
+                "",
+                "\"Save\"",
+                "\"holyholyholy3d.save.v2\"",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Run.story",
+                "=",
+                "\"intro\""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Run.next",
+                "=",
+                "\"Arena\""
+              ]
+            },
+            {
+              "type": {
+                "value": "Psalm150::PlaySfx"
+              },
+              "parameters": [
+                "",
+                "\"door\"",
+                "0",
+                "0",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "Scene"
+              },
+              "parameters": [
+                "",
+                "\"Story\"",
+                "yes"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"choose\""
+              ]
+            },
+            {
+              "type": {
+                "inverted": true,
+                "value": "HolyHoly::IsHeroOpen"
+              },
+              "parameters": [
+                "",
+                "Content.heroes[Sel].id",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "Psalm150::PlaySfx"
+              },
+              "parameters": [
+                "",
+                "\"weaken\"",
+                "0",
+                "0",
+                ""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"try\""
+              ]
+            },
+            {
+              "type": {
+                "inverted": true,
+                "value": "HolyHoly::IsHeroOpen"
+              },
+              "parameters": [
+                "",
+                "Content.heroes[Sel].id",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "BooleanVariable"
+              },
+              "parameters": [
+                "Save.trials[Content.heroes[Sel].id]",
+                "False",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Save.trials[Content.heroes[Sel].id]",
+                "True",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Run.hero",
+                "=",
+                "Content.heroes[Sel].id"
+              ]
+            },
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Run.trial",
+                "True",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "HolyHoly::StoreSave"
+              },
+              "parameters": [
+                "",
+                "\"Save\"",
+                "\"holyholyholy3d.save.v2\"",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Run.story",
+                "=",
+                "\"intro\""
+              ]
+            },
+            {
+              "type": {
+                "value": "SetStringVariable"
+              },
+              "parameters": [
+                "Run.next",
+                "=",
+                "\"Arena\""
+              ]
+            },
+            {
+              "type": {
+                "value": "Psalm150::PlaySfx"
+              },
+              "parameters": [
+                "",
+                "\"door\"",
+                "0",
+                "0",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "Scene"
+              },
+              "parameters": [
+                "",
+                "\"Story\"",
+                "yes"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Ui.clicked",
+                "=",
+                "\"back\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "Scene"
+              },
+              "parameters": [
+                "",
+                "\"Ladder\"",
+                "yes"
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    },
+    {
+      "colorB": 0,
+      "colorG": 152,
+      "colorR": 255,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Archangel card",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "Everything about the chosen archangel: name and meaning, the tradition that names him, his lore, his gift, his prayer, his trait, and how he is unlocked."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "BooleanVariable"
+              },
+              "parameters": [
+                "Rebuild",
+                "True",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "SetBooleanVariable"
+              },
+              "parameters": [
+                "Rebuild",
+                "False",
+                ""
+              ]
+            }
+          ],
+          "events": [
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiButton",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiButton",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiCard",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiCard",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiBar",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiText",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiText",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiSmall",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiSmall",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiTitle",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiTitle",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiLabel",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiLabel",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiBig",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiBig",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiIcon",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiArt",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "Delete"
+                  },
+                  "parameters": [
+                    "UiArt",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [],
+              "events": [
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakePanel"
+                      },
+                      "parameters": [
+                        "",
+                        "UiPanel",
+                        "SceneWindowWidth() * 0.55",
+                        "20",
+                        "SceneWindowWidth() * 0.43",
+                        "SceneWindowHeight() - 40",
+                        "\"\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiTitle",
+                        "SceneWindowWidth() * 0.55 + 30",
+                        "36",
+                        "SceneWindowWidth() * 0.43 - 60",
+                        "Content.heroes[Sel].name",
+                        "\"left\"",
+                        "\"\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.55 + 32",
+                        "96",
+                        "SceneWindowWidth() * 0.43 - 64",
+                        "\"„\" + Content.heroes[Sel].meaning + \"” · \" + Content.heroes[Sel].skill",
+                        "\"left\"",
+                        "\"meaning\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.55 + 32",
+                        "150",
+                        "SceneWindowWidth() * 0.43 - 64",
+                        "Content.heroes[Sel].lore",
+                        "\"left\"",
+                        "\"\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Create"
+                      },
+                      "parameters": [
+                        "",
+                        "UiArt",
+                        "SceneWindowWidth() * 0.55 + 66",
+                        "290",
+                        "\"UI\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "AnimatableCapability::AnimatableBehavior::SetName"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        "Animation",
+                        "=",
+                        "\"sig-\" + Content.heroes[Sel].id + \"-2\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "ResizableCapability::ResizableBehavior::SetSize"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        "Resizable",
+                        "68",
+                        "68"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetStringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        "Panel",
+                        "=",
+                        "\"info\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetZOrder"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        "=",
+                        "60"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.55 + 112",
+                        "256",
+                        "SceneWindowWidth() * 0.43 - 140",
+                        "\"Dar: \" + Content.skills[\"sig-\" + Content.heroes[Sel].id].name",
+                        "\"left\"",
+                        "\"\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.55 + 112",
+                        "290",
+                        "SceneWindowWidth() * 0.43 - 140",
+                        "Content.skills[\"sig-\" + Content.heroes[Sel].id].description",
+                        "\"left\"",
+                        "\"\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "Create"
+                      },
+                      "parameters": [
+                        "",
+                        "UiArt",
+                        "SceneWindowWidth() * 0.55 + 66",
+                        "392",
+                        "\"UI\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "AnimatableCapability::AnimatableBehavior::SetName"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        "Animation",
+                        "=",
+                        "\"ult-\" + Content.heroes[Sel].id"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "ResizableCapability::ResizableBehavior::SetSize"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        "Resizable",
+                        "68",
+                        "68"
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetStringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        "Panel",
+                        "=",
+                        "\"info\""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetZOrder"
+                      },
+                      "parameters": [
+                        "UiArt",
+                        "=",
+                        "60"
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiText",
+                        "SceneWindowWidth() * 0.55 + 112",
+                        "358",
+                        "SceneWindowWidth() * 0.43 - 140",
+                        "\"Modlitwa: \" + Content.heroes[Sel].ultimate.name",
+                        "\"left\"",
+                        "\"\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.55 + 112",
+                        "392",
+                        "SceneWindowWidth() * 0.43 - 140",
+                        "Content.heroes[Sel].ultimate.text",
+                        "\"left\"",
+                        "\"\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.55 + 32",
+                        "466",
+                        "SceneWindowWidth() * 0.43 - 64",
+                        "\"Cecha: \" + Content.heroes[Sel].passive.name + \". \" + Content.heroes[Sel].passive.text",
+                        "\"left\"",
+                        "\"\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.55 + 32",
+                        "508",
+                        "SceneWindowWidth() * 0.43 - 64",
+                        "\"„\" + Content.heroes[Sel].verse.text + \"” (\" + Content.heroes[Sel].verse.ref + \")\"",
+                        "\"left\"",
+                        "\"verse\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeText"
+                      },
+                      "parameters": [
+                        "",
+                        "UiSmall",
+                        "SceneWindowWidth() * 0.55 + 32",
+                        "SceneWindowHeight() - 132",
+                        "SceneWindowWidth() * 0.43 - 64",
+                        "\"\"",
+                        "\"left\"",
+                        "\"status\"",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "SceneWindowWidth() * 0.55 + 30",
+                        "SceneWindowHeight() - 96",
+                        "64",
+                        "52",
+                        "\"◀\"",
+                        "\"prev\"",
+                        "0",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "SceneWindowWidth() * 0.55 + 102",
+                        "SceneWindowHeight() - 96",
+                        "64",
+                        "52",
+                        "\"▶\"",
+                        "\"next\"",
+                        "0",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "SceneWindowWidth() * 0.55 + SceneWindowWidth() * 0.43 - 132",
+                        "SceneWindowHeight() - 96",
+                        "110",
+                        "52",
+                        "\"Wróć\"",
+                        "\"back\"",
+                        "0",
+                        "\"info\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::IsHeroOpen"
+                  },
+                  "parameters": [
+                    "",
+                    "Content.heroes[Sel].id",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "SceneWindowWidth() * 0.55 + 182",
+                    "SceneWindowHeight() - 100",
+                    "220",
+                    "58",
+                    "\"Wybierz\"",
+                    "\"choose\"",
+                    "0",
+                    "\"info\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "inverted": true,
+                    "value": "HolyHoly::IsHeroOpen"
+                  },
+                  "parameters": [
+                    "",
+                    "Content.heroes[Sel].id",
+                    ""
+                  ]
+                },
+                {
+                  "type": {
+                    "value": "BooleanVariable"
+                  },
+                  "parameters": [
+                    "Save.trials[Content.heroes[Sel].id]",
+                    "False",
+                    ""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "HolyHoly::MakeButton"
+                  },
+                  "parameters": [
+                    "",
+                    "UiButton",
+                    "UiLabel",
+                    "SceneWindowWidth() * 0.55 + 182",
+                    "SceneWindowHeight() - 100",
+                    "220",
+                    "58",
+                    "\"Wypróbuj (raz)\"",
+                    "\"try\"",
+                    "0",
+                    "\"info\"",
+                    "\"UI\"",
+                    ""
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [
+                {
+                  "type": {
+                    "value": "StringObjectVariable"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    "Panel",
+                    "=",
+                    "\"info\""
+                  ]
+                }
+              ],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetZOrder"
+                  },
+                  "parameters": [
+                    "UiPanel",
+                    "=",
+                    "40"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiSmall",
+                "Key",
+                "=",
+                "\"meaning\""
+              ]
+            },
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Content.heroes[Sel].tradition",
+                "=",
+                "\"wschodnia\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiSmall",
+                "Text",
+                "=",
+                "\"„\" + Content.heroes[Sel].meaning + \"” · imię w tradycji wschodniej (prawosławnej i wschodniokatolickiej)\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiSmall",
+                "Key",
+                "=",
+                "\"meaning\""
+              ]
+            },
+            {
+              "type": {
+                "value": "StringVariable"
+              },
+              "parameters": [
+                "Content.heroes[Sel].tradition",
+                "=",
+                "\"wspólna\""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiSmall",
+                "Text",
+                "=",
+                "\"„\" + Content.heroes[Sel].meaning + \"” · czczony w całym Kościele, na Wschodzie i na Zachodzie\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiSmall",
+                "Key",
+                "=",
+                "\"status\""
+              ]
+            },
+            {
+              "type": {
+                "value": "HolyHoly::IsHeroOpen"
+              },
+              "parameters": [
+                "",
+                "Content.heroes[Sel].id",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiSmall",
+                "Text",
+                "=",
+                "\"Gotów do drogi.\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiSmall",
+                "Key",
+                "=",
+                "\"status\""
+              ]
+            },
+            {
+              "type": {
+                "inverted": true,
+                "value": "HolyHoly::IsHeroOpen"
+              },
+              "parameters": [
+                "",
+                "Content.heroes[Sel].id",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "BooleanVariable"
+              },
+              "parameters": [
+                "Save.trials[Content.heroes[Sel].id]",
+                "False",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiSmall",
+                "Text",
+                "=",
+                "\"Dołączy na stałe po rozdziale „\" + Content.heroes[Sel].unlockedByTitle + \"”. Już teraz możesz go raz wypróbować.\""
+              ]
+            }
+          ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [
+            {
+              "type": {
+                "value": "StringObjectVariable"
+              },
+              "parameters": [
+                "UiSmall",
+                "Key",
+                "=",
+                "\"status\""
+              ]
+            },
+            {
+              "type": {
+                "inverted": true,
+                "value": "HolyHoly::IsHeroOpen"
+              },
+              "parameters": [
+                "",
+                "Content.heroes[Sel].id",
+                ""
+              ]
+            },
+            {
+              "type": {
+                "value": "BooleanVariable"
+              },
+              "parameters": [
+                "Save.trials[Content.heroes[Sel].id]",
+                "True",
+                ""
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": {
+                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+              },
+              "parameters": [
+                "UiSmall",
+                "Text",
+                "=",
+                "\"Dołączy na stałe po rozdziale „\" + Content.heroes[Sel].unlockedByTitle + \"” (próba wykorzystana).\""
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    }
+  ],
+  "layers": [
+    {
+      "ambientLightColorB": 200,
+      "ambientLightColorG": 200,
+      "ambientLightColorR": 200,
+      "camera2DPlaneMaxDrawingDistance": 5000,
+      "camera3DFarPlaneDistance": 10000,
+      "camera3DFieldOfView": 45,
+      "camera3DNearPlaneDistance": 3,
+      "cameraType": "",
+      "followBaseLayerCamera": false,
+      "isLightingLayer": false,
+      "isLocked": false,
+      "name": "",
+      "renderingType": "",
+      "visibility": true,
+      "cameras": [
+        {
+          "defaultSize": true,
+          "defaultViewport": true,
+          "height": 0,
+          "viewportBottom": 1,
+          "viewportLeft": 0,
+          "viewportRight": 1,
+          "viewportTop": 0,
+          "width": 0
+        }
+      ],
+      "effects": [
+        {
+          "effectType": "Scene3D::HemisphereLight",
+          "name": "Sky",
+          "doubleParameters": {
+            "elevation": 60,
+            "intensity": 0.7,
+            "rotation": 300
+          },
+          "stringParameters": {
+            "groundColor": "110;90;60",
+            "skyColor": "255;244;220",
+            "top": "Z+"
+          },
+          "booleanParameters": {}
+        },
+        {
+          "effectType": "Scene3D::DirectionalLight",
+          "name": "Sun",
+          "doubleParameters": {
+            "distanceFromCamera": 1500,
+            "elevation": 55,
+            "frustumSize": 3000,
+            "intensity": 0.85,
+            "minimumShadowBias": 0,
+            "rotation": 300,
+            "shadowDistance": 2200
+          },
+          "stringParameters": {
+            "color": "255;240;214",
+            "shadowQuality": "medium",
+            "shadowRenderingMode": "fittedToCameraView",
+            "top": "Z+"
+          },
+          "booleanParameters": {
+            "isCastingShadow": true
+          }
+        },
+        {
+          "effectType": "Scene3D::LinearFog",
+          "name": "Fog",
+          "doubleParameters": {
+            "far": 3400,
+            "near": 1200
+          },
+          "stringParameters": {
+            "color": "22;18;14"
+          },
+          "booleanParameters": {}
+        },
+        {
+          "effectType": "Scene3D::Bloom",
+          "name": "Glow",
+          "doubleParameters": {
+            "radius": 0.35,
+            "strength": 0.5,
+            "threshold": 0.88
+          },
+          "stringParameters": {},
+          "booleanParameters": {}
+        }
+      ]
+    },
+    {
+      "ambientLightColorB": 200,
+      "ambientLightColorG": 200,
+      "ambientLightColorR": 200,
+      "camera2DPlaneMaxDrawingDistance": 5000,
+      "camera3DFarPlaneDistance": 10000,
+      "camera3DFieldOfView": 45,
+      "camera3DNearPlaneDistance": 3,
+      "cameraType": "",
+      "followBaseLayerCamera": false,
+      "isLightingLayer": false,
+      "isLocked": false,
+      "name": "UI",
+      "renderingType": "2d",
+      "visibility": true,
+      "cameras": [
+        {
+          "defaultSize": true,
+          "defaultViewport": true,
+          "height": 0,
+          "viewportBottom": 1,
+          "viewportLeft": 0,
+          "viewportRight": 1,
+          "viewportTop": 0,
+          "width": 0
+        }
+      ],
+      "effects": []
+    }
+  ],
+  "behaviorsSharedData": [
+    {
+      "name": "Animation",
+      "type": "AnimatableCapability::AnimatableBehavior"
+    },
+    {
+      "name": "Effect",
+      "type": "EffectCapability::EffectBehavior"
+    },
+    {
+      "name": "Flippable",
+      "type": "FlippableCapability::FlippableBehavior"
+    },
+    {
+      "name": "Object3D",
+      "type": "Scene3D::Base3DBehavior"
+    },
+    {
+      "name": "Opacity",
+      "type": "OpacityCapability::OpacityBehavior"
+    },
+    {
+      "name": "Resizable",
+      "type": "ResizableCapability::ResizableBehavior"
+    },
+    {
+      "name": "Scale",
+      "type": "ScalableCapability::ScalableBehavior"
+    },
+    {
+      "name": "Text",
+      "type": "TextContainerCapability::TextContainerBehavior"
+    },
+    {
+      "name": "Tween",
+      "type": "Tween::TweenBehavior"
+    }
+  ]
+}

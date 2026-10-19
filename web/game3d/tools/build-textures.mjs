@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Builds the images of HolyHolyHoly 3D (project/assets/textures and project/assets/ui) from code:
- * tileable floors for the three realms (light and neutral, tinted per chapter in the game), the
- * 9-patch panels and buttons, HUD icons, touch controls and particle sprites.
+ * Builds the images of HolyHolyHoly 3D (project/assets/ui, particles, web) from code: the 9-patch
+ * panels and buttons, HUD icons, touch controls and particle sprites. The floors are paintings
+ * (tools/art.py).
  *
  * Shapes are drawn by supersampling an inside test (4×4 per pixel), so edges are smooth at any
  * size without a canvas library.
@@ -15,38 +15,6 @@ import { PNG } from 'pngjs';
 import { ASSETS } from './paths.mjs';
 
 const SS = 4;
-
-/** A deterministic RNG, so the images do not change between builds. */
-function rng(seed) {
-  let s = seed >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/** Tileable value noise: a lattice that wraps every `period` cells. */
-function noise2(seed, period) {
-  const r = rng(seed);
-  const grid = Array.from({ length: period * period }, r);
-  const at = (x, y) => grid[((y % period) + period) % period * period + (((x % period) + period) % period)];
-  const fade = t => t * t * (3 - 2 * t);
-  return (u, v) => {
-    const x = u * period, y = v * period;
-    const xi = Math.floor(x), yi = Math.floor(y);
-    const tx = fade(x - xi), ty = fade(y - yi);
-    const a = at(xi, yi), b = at(xi + 1, yi), c = at(xi, yi + 1), d = at(xi + 1, yi + 1);
-    return a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty;
-  };
-}
-
-const fbm = (seed, base = 4, octaves = 4) => {
-  const layers = Array.from({ length: octaves }, (_, i) => noise2(seed + i * 97, base << i));
-  return (u, v) => layers.reduce((sum, n, i) => sum + n(u, v) / 2 ** (i + 1), 0) / (1 - 2 ** -octaves);
-};
 
 function image(w, h, pixel) {
   const png = new PNG({ width: w, height: h });
@@ -128,69 +96,25 @@ const not = f => (x, y) => !f(x, y);
 const both = (f, g) => (x, y) => f(x, y) && g(x, y);
 const either = (...fs) => (x, y) => fs.some(f => f(x, y));
 
-// ─── floors ────────────────────────────────────────────────────────────────────────────────────
-
-/** Stone flags for earth: light grey, mortar lines, gentle wear. */
-function floorEarth(size = 512) {
-  const wear = fbm(11, 4, 5), grain = fbm(23, 32, 2);
-  const tiles = 4;
-  return image(size, size, (x, y) => {
-    const u = x / size, v = y / size;
-    const row = Math.floor(v * tiles);
-    const tu = (u * tiles + (row % 2) * 0.5) % 1, tv = (v * tiles) % 1;
-    const edge = Math.min(tu, 1 - tu, tv, 1 - tv);
-    const mortar = edge < 0.02 ? 0.8 : edge < 0.04 ? 0.92 : 1;
-    const shade = 0.8 + 0.18 * wear(u, v) + 0.05 * grain(u, v) + 0.04 * Math.sin((row * 7.3) % 6.28);
-    const g = 222 * shade * mortar;
-    return [g, g * 0.985, g * 0.96];
-  });
-}
-
-/** Marble for heaven: almost white, soft veins. */
-function floorHeaven(size = 512) {
-  const n = fbm(37, 3, 5);
-  const tiles = 2;
-  return image(size, size, (x, y) => {
-    const u = x / size, v = y / size;
-    const vein = Math.abs(Math.sin((u + v) * Math.PI * 4 + n(u, v) * 9));
-    const veins = vein < 0.06 ? 0.86 : 1;
-    const tu = (u * tiles) % 1, tv = (v * tiles) % 1;
-    const seam = Math.min(tu, 1 - tu, tv, 1 - tv) < 0.008 ? 0.9 : 1;
-    const g = (236 + 14 * n(u, v)) * veins * seam;
-    return [g, g * 0.99, g * 0.97];
-  });
-}
-
-/** Basalt for the depths: grey with dark cracks (tinted warm in Szeol). */
-function floorHell(size = 512) {
-  const n = fbm(53, 4, 5), c = fbm(71, 6, 3);
-  return image(size, size, (x, y) => {
-    const u = x / size, v = y / size;
-    const crack = Math.abs(c(u, v) - 0.5) < 0.018 ? 0.45 : 1;
-    const g = (150 + 70 * n(u, v)) * crack;
-    return [g, g * 0.95, g * 0.92];
-  });
-}
-
-/** Soft cloud floor of the Tree garden. */
-function floorGarden(size = 512) {
-  const n = fbm(91, 3, 5);
-  return image(size, size, (x, y) => {
-    const g = 205 + 45 * n(x / size, y / size);
-    return [g * 0.97, g, g * 0.95];
-  });
-}
-
 // ─── UI ────────────────────────────────────────────────────────────────────────────────────────
 
 const GOLD = [232, 193, 90];
 const INK = [16, 14, 26];
 
-/** 9-patch panel: dark glass with a thin gold rim (margins 24 px in the project). */
+/** Small gold diamonds in the four corners (they sit in the 9-patch corners, so they never stretch). */
+const corners = (at, r) => (x, y) => Math.abs(Math.abs(x) - at) + Math.abs(Math.abs(y) - at) <= r;
+
+/**
+ * 9-patch panel after an icon board (kovcheg): a raised gold margin, a thin red line (luzga) and a
+ * deep lapis field, with gold corner diamonds (margins 30 px in the project).
+ */
 function panel(size = 96) {
   return icon(size, [
-    { inside: roundRect(1, 1, 0.42), colour: solid([...GOLD, 200]) },
-    { inside: roundRect(0.955, 0.955, 0.38), colour: vertical([30, 26, 44, 236], [14, 12, 22, 240]) },
+    { inside: roundRect(1, 1, 0.3), colour: vertical([246, 214, 130, 245], [176, 128, 52, 245]) },
+    { inside: roundRect(0.93, 0.93, 0.26), colour: solid([70, 44, 18, 245]) },
+    { inside: roundRect(0.9, 0.9, 0.24), colour: solid([150, 30, 32, 245]) },
+    { inside: roundRect(0.87, 0.87, 0.22), colour: vertical([26, 30, 64, 244], [12, 12, 30, 248]) },
+    { inside: corners(0.72, 0.075), colour: solid([236, 196, 104, 235]) },
   ]);
 }
 
@@ -241,16 +165,14 @@ const spark = size => image(size, size, (x, y) => {
 // ─── build ─────────────────────────────────────────────────────────────────────────────────────
 
 const files = {
-  'textures/floor-earth.png': floorEarth(),
-  'textures/floor-heaven.png': floorHeaven(),
-  'textures/floor-hell.png': floorHell(),
-  'textures/floor-garden.png': floorGarden(),
   'ui/panel.png': panel(),
   'ui/button.png': button(),
   'ui/button-quiet.png': button(96, [214, 206, 236], [128, 118, 160]),
   'ui/card.png': icon(128, [
-    { inside: roundRect(1, 1, 0.22), colour: solid([...GOLD, 255]) },
-    { inside: roundRect(0.96, 0.96, 0.19), colour: vertical([44, 36, 66, 245], [20, 16, 30, 248]) },
+    { inside: roundRect(1, 1, 0.2), colour: vertical([250, 222, 140, 255], [190, 140, 60, 255]) },
+    { inside: roundRect(0.95, 0.95, 0.18), colour: solid([150, 30, 32, 250]) },
+    { inside: roundRect(0.93, 0.93, 0.17), colour: vertical([46, 40, 76, 246], [20, 18, 36, 250]) },
+    { inside: corners(0.8, 0.05), colour: solid([236, 196, 104, 230]) },
   ]),
   'ui/bar.png': icon(32, [{ inside: roundRect(1, 0.8, 0.79), colour: solid([255, 255, 255, 255]) }]),
   'ui/heart.png': heartIcon(radial([255, 140, 150, 255], [214, 48, 72, 255]), [255, 236, 236, 255]),
@@ -290,6 +212,13 @@ const files = {
     { inside: (x, y) => ((x / 0.62) ** 2 + ((y - 0.38) / 0.2) ** 2 <= 1) && ((x / 0.42) ** 2 + ((y - 0.38) / 0.1) ** 2 > 1), colour: solid([255, 214, 110, 255]) },
     { inside: diamond(0.3, 0.45), colour: vertical([255, 246, 210, 255], [235, 170, 60, 255]) },
   ]),
+  // guided breathing: a soft ring of light that grows and shrinks with the breath
+  'ui/breath.png': image(256, 256, (x, y) => {
+    const d = Math.hypot((x + 0.5) / 128 - 1, (y + 0.5) / 128 - 1);
+    const ring = Math.exp(-(((d - 0.82) / 0.07) ** 2));
+    const fill = Math.max(0, 1 - d) ** 1.2 * 0.45;
+    return [255, 226 + 20 * fill, 150 + 90 * fill, 255 * Math.min(1, ring + fill)];
+  }),
   'particles/soft.png': softDot(64),
   'particles/spark.png': spark(64),
 };

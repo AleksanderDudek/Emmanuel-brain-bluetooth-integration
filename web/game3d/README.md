@@ -1,13 +1,19 @@
-# HolyHolyHoly 3D — a GDevelop game
+# HolyHolyHoly 3D: Archaniołowie — a GDevelop game
 
-A 3D browser reinterpretation of [HolyHolyHoly](../game/DESIGN.md), built with
-[GDevelop](https://gdevelop.io) ([source](https://github.com/4ian/GDevelop)). A guardian
-angel breaks the traumas of a man named Adam, which turn into truths, and tears down the
-strongholds of the lies he believed (2 Cor 10:4). The play mixes Archero (the Word flies
-while you stand still), survivors-likes (waves, 1 of 3 gifts per level) and Endless Puncher
-(strikes in combos, a miss breaks the combo). There is no Pac-Man motif and no spoken
-prayer. The Mendi fNIRS band is optional. The game is in Polish. The design document, also
-in Polish, is [DESIGN.md](DESIGN.md).
+A 3D browser game built with [GDevelop](https://gdevelop.io)
+([source](https://github.com/4ian/GDevelop)), a reinterpretation of
+[HolyHolyHoly](../game/DESIGN.md). You play one of the seven archangels of the Eastern
+tradition, guardian of a person in today's Poland (a man or a woman, named by the player).
+Their wounds have become shadow-thoughts that whisper lies; broken, each leaves a true
+sentence behind. Behind the shadows stand strongholds of lies (2 Cor 10:4). After each
+stronghold, Christ comes in a healing scene, in His own words from the Gospel, and the person
+transforms the lie and takes one real skill into life (from CBT and ACT).
+
+The play mixes Archero (the archangel's gift acts while you stand still), survivors-likes and
+Heroes vs Hordes (waves, gift and virtue cards with slots, evolutions, reliquaries, a hero
+with his own prayer) and Endless Puncher (strike combos). The Mendi fNIRS band is optional.
+The game is in Polish; the design document, also in Polish, is [DESIGN.md](DESIGN.md). It is a
+game, not therapy: help lines are in the game where they matter.
 
 ```bash
 cd web
@@ -16,109 +22,135 @@ npm run dev:game3d     # check + export, then http://localhost:5175
 npm run build          # BrainLink, HolyHolyHoly and this game → dist/, dist/holyholyholy3d/
 ```
 
-## Opening it in GDevelop
+## Where things come from
 
-The game is a normal GDevelop project, saved as a **folder project** (one JSON file per
-scene, external events and extension, which keeps diffs readable):
+| What | Source of truth | Built by |
+|---|---|---|
+| Scenes, events, objects, the project's own extensions | `generator/*.mjs` | `npm run game3d:generate` (writes `project/`) |
+| Story, chapters, archangels, gifts, shadow-thoughts, thinking errors | `tools/story.mjs`, `tools/game-data.mjs` | `npm run game3d:content` (writes `assets/data/content.json`) |
+| Verses only the 3D game quotes | `tools/fetch-verses.py` (Gdańsk Bible, public domain, verified against Wikisource) | writes `tools/bible.mjs` |
+| Paintings (figures, icons, story panels, floors) | `art/manifest.json` (prompts) + `art/lock.json` (chosen originals) | `npm run game3d:art` (local model, see below) |
+| Billboard and effect models | the paintings + `tools/billboard.mjs` | `npm run game3d:billboards` |
+| Low-poly props, UI images, fonts | `tools/build-models.mjs`, `build-textures.mjs`, `build-fonts.py` | `npm run game3d:assets`, `game3d:fonts` |
+| Music and the focus band | `src/psalm150.ts`, `src/mendi-focus.ts` | `npm run game3d:libs` (writes `lib/*.js`) |
 
-```
+**The generator is the source of truth for the project.** It builds every scene with
+GDevelop's own core library (libGD.js), checks each action, condition and expression against
+GDevelop's metadata, and exports. You can open `project/HolyHolyHoly3D.json` in the GDevelop
+editor to look around, preview and experiment, but lasting changes go into `generator/`
+(otherwise the next `game3d:generate` overwrites them).
+
+## The project
+
+```text
 project/
 ├── HolyHolyHoly3D.json        ← open this in GDevelop (5.6.269 or newer)
-├── layouts/                   scenes: title, tree, arena, revelation
+├── layouts/                   scenes: title, ladder, synaxis, story, arena, revelation
 ├── externalEvents/ui.json     the UI events every scene links to
 ├── eventsFunctionsExtensions/ HolyHoly, Psalm150, MendiFocus + official extensions
-├── assets/                    models, textures, ui, particles, fonts, data/content.json
-└── lib/                       psalm150.js, mendi-focus.js (built; see below)
+├── assets/                    heroes, enemies, bosses, christ, people, props, skills, story,
+│                              models, textures, ui, particles, fonts, data/content.json
+└── lib/                       psalm150.js, mendi-focus.js (built)
 ```
 
-Open `project/HolyHolyHoly3D.json` in the GDevelop desktop app and press Preview. Edit
-scenes, events and objects in the editor as usual; `npm run game3d:check` then validates
-what you saved.
+| Scene | Role |
+|---|---|
+| `Title` | menu; who you protect (gender, name); how to play; Mendi band; settings; help and safety; support |
+| `Ladder` | the map (St John Climacus' Ladder); Fruits of the Spirit; Book of Truth (lies and thoughts); toolbox with guided breathing |
+| `Synaxis` | choosing the archangel (one trial for locked ones) |
+| `Story` | story scenes over painted panels: prologue, a chapter's intro (with a content note and skip), its healing scene |
+| `Arena` | the fight: gifts, virtues, evolutions, reliquaries, the archangel's prayer, discernment cards, the stronghold, praise, falling and rising, pause, HUD |
+| `Revelation` | the thought record, the truth, the tool for life, the report and rewards, the finale |
 
 How the events are organised:
 
-* **Groups and comments.** Each scene's events are grouped by system (Setup, Angel, Fire of
-  the Spirit, The Word, Strike of Samson, Gifts, Traumas, Waves, Stronghold, HUD…). Every
-  group starts with a comment that explains the rules.
-* **Balance in one place.** All numbers live in the global structure `Tuning` (speeds,
-  damage, wave length, spawn rate, stronghold HP).
-* **Content as data.** Chapters, traumas, gifts, fruits and ranks come from
-  `assets/data/content.json`, loaded into the global `Content` (`HolyHoly::LoadJsonIntoGlobal`).
-  Progress is in the global `Save`, kept in `localStorage` and merged over the defaults
-  (`HolyHoly::LoadSave` / `StoreSave`).
-* **UI.** These global objects are used by every scene: `UiPanel`, `UiButton` + `UiLabel`,
-  `UiText`, `UiTitle`, `UiIcon` and a few more. `HolyHoly::MakeButton`, `MakeText` and
-  `MakePanel` create them, and every UI object carries two variables:
-  * `Panel`: the panel it belongs to, so the whole panel can be deleted at once;
-  * `Key`: lets events update the text every frame (for example `UiText.Key = "wave"`).
-  A click on a button of the top panel (`Ui.top`) puts its `Action` into `Ui.clicked` for one
-  frame (external events `UI`), and scenes react with *Ui.clicked = "…"*.
-* **One creation per event.** GDevelop picks every instance created in an event. When an
-  event creates several objects of one kind, each creation and the actions that follow it
-  get their own sub-event. Otherwise the later actions would change all of them.
+* **Groups and comments.** Each scene's events are grouped by system, and each group starts
+  with a comment that explains its rules.
+* **Balance in one place.** All numbers live in the global structure `Tuning`.
+* **Content as data.** Everything the story says comes from `assets/data/content.json`,
+  loaded into the global `Content`. Texts hold the man's and the woman's forms
+  (`{kochany|kochana}`) and the person's name (`{imie}`); `HolyHoly::G()` resolves them.
+  Progress is in the global `Save` (`localStorage`, merged over the defaults).
+* **UI.** Global objects (`UiPanel`, `UiButton` + `UiLabel`, `UiText`, `UiArt` with every
+  painting as an animation…) are made by `HolyHoly::MakeButton`, `MakeText`, `MakePanel`.
+  Every UI object carries `Panel` (to delete a panel at once) and `Key` (to update a text). A
+  click on a button of the top panel (`Ui.top`) puts its `Action` into `Ui.clicked` for one
+  frame.
+* **Data-heavy rules in JavaScript helpers.** Drawing gift cards (slots, evolutions),
+  taking a gift, discernment cards, loading a story scene: `HolyHoly::DrawChoices`,
+  `TakeSkill`, `DrawDiscernment`, `LoadScene` (see `generator/ext.mjs`).
+* **Painted figures** are `Model3D` billboards: a cut-out painting standing on a quad with a
+  soft shadow and a breathing idle animation. The object's depth (Z size) compensates for the
+  camera's angle, its height (Y size) is the hitbox depth.
+
+## Paintings: a local pipeline
+
+`tools/art.py` paints everything with an open model on the machine (DreamShaper XL Lightning,
+SDXL, with the fp16-fixed VAE; Apple Silicon or CUDA), cuts figures out with BiRefNet
+(rembg), frames portraits and icons, and writes WebP/JPG into `project/assets`. No API key,
+no cost. Every original goes to `~/generations` (flat, with a JSON sidecar: model, prompt,
+seed, parameters) and the chosen one per id is pinned in `art/lock.json`, so the game files
+can always be rebuilt from the originals.
+
+```bash
+python3 -m venv ~/gdtools/art/venv && ~/gdtools/art/venv/bin/pip install torch diffusers transformers rembg pillow
+ART_PYTHON=~/gdtools/art/venv/bin/python npm run game3d:art   # paint what is new or changed (≈35 s an image on an M-series Mac), then process
+npm run game3d:billboards     # billboards and effect models from the paintings
+```
+
+Prompts stay under CLIP's 77 tokens (`art.py` warns otherwise). To repaint one image, change
+its prompt or its `seed` in the manifest. The figures of Christ follow icon conventions (the
+cruciform halo is His alone); a human icon painter should eventually repaint them.
 
 ## Extensions
 
 | Extension | What it is |
 |---|---|
-| `HolyHoly` | this game's helpers: content and save, 3D→screen projection (floating truths), touch / reduced-motion checks, rank and chapter queries, UI builders |
-| `Psalm150` | the "Psalm 150" soundtrack and effects: `lib/psalm150.js`, bundled from `../game/src/audio` (the 2D game's Web Audio engine) |
-| `MendiFocus` | focus and the optional Mendi band: `lib/mendi-focus.js`, bundled from BrainLink's Web Bluetooth adapter, fNIRS pipeline and the 2D game's focus charger |
+| `HolyHoly` | this game's helpers: content, save, 3D→screen projection, gendered texts, gift draws, story scenes, discernment, device checks, UI builders |
+| `Psalm150` | the "Psalm 150" soundtrack and effects: `lib/psalm150.js`, bundled from `../game/src/audio` |
+| `MendiFocus` | focus and the optional Mendi band: `lib/mendi-focus.js`, bundled from BrainLink's Web Bluetooth adapter and fNIRS pipeline |
 | `FireBullet`, `SpriteMultitouchJoystick`, `ParticleEmitter3D`, `ShakeObject3D` | official extensions from GDevelop's extension store |
-
-`Psalm150` and `MendiFocus` include their libraries through the extensions' **source files**,
-GDevelop's mechanism for JavaScript libraries. Previews and exports add them to the page.
-The libraries are built from `src/` (`npm run game3d:libs`), and `game3d:check` fails if the
-committed files are out of date. Both are safe without the library (they just do nothing).
 
 ## Toolchain: GDevelop without the editor
 
-`tools/` drives GDevelop's own core library (libGD.js) from the pinned npm package
-`gdcore-tools` (GDevelop 5.6.269 core and runtime). This lets CI check and export the game:
-
-* `tools/gdevelop.mjs` loads the project and **validates** the events of the scenes, the
-  external events and this project's own extensions:
-  * each action and condition must exist, with the parameter count its metadata declares;
-  * yes/no and true/false parameters must be literals (GDevelop silently compiles anything
-    else to `false`);
-  * in scenes and external events, each expression must parse and resolve: objects,
-    behaviors, variables (including locals), functions, Repeat counts.
-  Official store extensions are taken as published. The tool then exports the HTML5 game
-  and collects GDevelop's own diagnostics.
-* After the export it makes small fixes to the exported page. GDevelop 5.6.269 lists the
-  Draco decoder's `.wasm` among the page's scripts, so that tag is removed (later releases
-  fixed this). It also adds a `<title>`, `lang="pl"`, a favicon and a description.
+`tools/gdevelop.mjs` drives GDevelop's core (the pinned npm package `gdcore-tools`, GDevelop
+5.6.269). It validates the events (each instruction exists with the right parameters; yes/no
+parameters are literals; each expression parses and resolves objects, behaviors, variables and
+functions), exports the HTML5 game and collects GDevelop's diagnostics. After the export it
+removes the Draco `.wasm` from the page's scripts (a 5.6.269 quirk) and adds a `<title>`,
+`lang="pl"`, a favicon and a description.
 
 | Script | Does |
 |---|---|
-| `npm run game3d:check` | libraries and content up to date, project valid (no output files) |
+| `npm run game3d:check` | libraries and content up to date, `project/` exactly what `generator/` makes, project valid (no output files) |
+| `npm run game3d:generate` | rebuild the project from `generator/` |
 | `npm run game3d:export` | export to `dist/holyholyholy3d` (also part of `npm run build`) |
 | `npm run dev:game3d` | export and serve on port 5175 |
-| `npm run game3d:smoke` | headless Chrome plays a whole chapter (needs an export; `CHROME_PATH=` to pick the browser) |
-| `npm run game3d:content` | rebuild `assets/data/content.json` from `../game/src/content` |
+| `npm run game3d:smoke` | headless Chrome plays a whole first chapter (`CHROME_PATH=` to pick the browser) |
+| `npm run game3d:content` | rebuild `assets/data/content.json` |
+| `npm run game3d:art` / `game3d:billboards` | paint and process / build billboard models |
 | `npm run game3d:libs` | rebuild `lib/*.js` from `src/` |
-| `npm run game3d:assets` | rebuild models (`build-models.mjs`, three.js → GLB) and images (`build-textures.mjs`) |
-| `npm run game3d:fonts` | rebuild the fonts (Python + fontTools; Cinzel, EB Garamond subset with Polish letters) |
-
-Models, images, fonts, `content.json` and `lib/*.js` are generated: change their generators,
-not the files. The scenes, events and objects are the source: change them in GDevelop. The
-project was first written with GDevelop's core API. From now on, edit it as an ordinary
-GDevelop project.
+| `npm run game3d:assets` | rebuild low-poly models and UI images |
+| `npm run game3d:fonts` | rebuild the fonts (Cinzel, EB Garamond subset with Polish letters) |
 
 ## Tests
 
-* `npm test` (Vitest) covers the libraries, `content.json` (up to date and consistent),
-  and the project. For the project it loads `HolyHolyHoly3D.json` with libGD and requires
-  zero validation issues, all resource files, the extension source files, and the GDevelop
-  splash and watermark.
-* `npm run game3d:smoke` runs in headless Chrome. It plays the title, a chapter (a gift, a
-  strike combo, a tongue of fire, three waves, the stronghold and its chains), the
-  revelation and save, and the Tree with the next sphere open. Any page error fails it.
-  Screenshots go to `game3d/.smoke/` (git-ignored).
+* `npm test` (Vitest) covers the libraries, `content.json` and the project: content up to
+  date; every text resolving cleanly for a man and a woman; every chapter with its story,
+  stronghold, thought record (distorted, sugar-coated, balanced) and tool; Christ speaking
+  only Scripture, always with the reference; help lines and the safety rules; every painting
+  the content names present; zero validation issues in the project.
+* `npm run game3d:smoke` plays the way a new player does: the safety note, who you protect,
+  how to play, the prologue, the Ladder, the archangels, the chapter's story, the fight (true
+  sentences, a gift card, a strike, the prayer, a discernment card, three waves, the stronghold,
+  the praise), the healing scene, the thought record, the tool in the toolbox and the
+  breathing practice. Any page error fails it. Screenshots go to `game3d/.smoke/`.
 
 ## Licences
 
-The repository is AGPL-3.0-or-later. The GDevelop runtime and the official extensions are
-MIT (the export includes `LICENSE.GDevelop.txt`). The fonts Cinzel and EB Garamond are
-under the SIL Open Font License (`assets/fonts/OFL-*.txt`). The models, textures and music
-are generated by this repository's code.
+The repository is AGPL-3.0-or-later. The GDevelop runtime and the official extensions are MIT
+(the export includes `LICENSE.GDevelop.txt`). Cinzel and EB Garamond are under the SIL Open
+Font License (`assets/fonts/OFL-*.txt`). Scripture is the Gdańsk Bible (1881 edition, public
+domain). The paintings were made with DreamShaper XL Lightning (CreativeML Open RAIL++-M:
+outputs are free to use, within its use restrictions); models, textures and music are
+generated by this repository's code.
