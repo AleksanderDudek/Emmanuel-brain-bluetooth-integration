@@ -15,7 +15,7 @@ export const v = {
 };
 
 /** Variables every UI object carries, so the UiAll group can use them. */
-export const UI_VARS = () => [v.str('Panel'), v.str('Key'), v.str('Action'), v.num('Arg'), v.num('Index')];
+export const UI_VARS = () => [v.str('Panel'), v.str('Key'), v.str('Action'), v.num('Arg'), v.num('Index'), v.num('MaxH'), v.num('Size'), v.str('FitText')];
 
 const tween = () => defaultBehavior('Tween::TweenBehavior', 'Tween');
 

@@ -610,6 +610,40 @@
       "objectGroups": []
     },
     {
+      "description": "Every UI text made with a maximum height (HolyHoly::MakeText) whose content changed since it was last fitted is set back to its size and made smaller, a point at a time (down to 60 %), until it fits its room again.",
+      "fullName": "Fit the texts that changed",
+      "functionType": "Action",
+      "group": "UI",
+      "name": "FitTexts",
+      "sentence": "Fit the UI texts that changed",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "for (const name of ['UiText', 'UiSmall', 'UiTitle', 'UiLabel', 'UiBig']) {",
+            "  for (const t of runtimeScene.getObjects(name) || []) {",
+            "    const vars = t.getVariables();",
+            "    const maxH = vars.get('MaxH').getAsNumber();",
+            "    if (maxH <= 0 || vars.get('FitText').getAsString() === t.getText()) continue;",
+            "    vars.get('FitText').setString(t.getText());",
+            "    const base = vars.get('Size').getAsNumber() || t.getCharacterSize();",
+            "    const smallest = Math.max(10, Math.round(base * 0.6));",
+            "    let size = base;",
+            "    t.setCharacterSize(size);",
+            "    while (t.getHeight() > maxH && size > smallest) t.setCharacterSize(--size);",
+            "  }",
+            "}",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "parameters": [],
+      "objectGroups": []
+    },
+    {
       "description": "Publishes window.HolyHolyHoly3D = { game } so headless browser tests can read the state.",
       "fullName": "Expose the game for automated tests",
       "functionType": "Action",
@@ -1032,12 +1066,12 @@
       "objectGroups": []
     },
     {
-      "description": "Fills Run.disc with a thought of a shadow of this chapter, the thinking error it hides (answer) and three options in random order.",
-      "fullName": "Draw a discernment card",
+      "description": "Fills Run.voice with a speaking shadow of this chapter (Content.chapters[].voices, by index, wrapping around): what it says, the thinking error it hides with its signal words and testing question, what negates it and the truth, all resolved for the person.",
+      "fullName": "Draw a voice",
       "functionType": "Action",
       "group": "Story",
-      "name": "DrawDiscernment",
-      "sentence": "Draw a discernment card",
+      "name": "DrawVoice",
+      "sentence": "Draw voice number _PARAM1_ of this chapter",
       "events": [
         {
           "type": "BuiltinCommonInstructions::JsCode",
@@ -1052,45 +1086,15 @@
             "",
             "const content = g('Content');",
             "const chapter = content.getChild('chapters').getChildAt(Math.max(0, g('Run').getChild('chapter').getAsNumber())).toJSObject();",
-            "const enemies = content.getChild('enemies').toJSObject();",
-            "const distortions = content.getChild('distortions').toJSObject();",
-            "const kind = pick(chapter.enemies);",
-            "const answer = enemies[kind].distortion;",
-            "const others = Object.keys(distortions).filter(d => d !== answer).sort(() => Math.random() - 0.5).slice(0, 2);",
-            "const options = [answer, ...others].sort(() => Math.random() - 0.5);",
-            "g('Run').getChild('disc').fromJSObject({",
-            "  kind, name: enemies[kind].name, thought: G(pick(enemies[kind].thoughts)), answer,",
-            "  answerName: G(distortions[answer].name), question: G(distortions[answer].question),",
-            "  options, names: options.map(d => G(distortions[d].name)),",
+            "const voices = chapter.voices || [];",
+            "if (!voices.length) return;",
+            "const index = ((Math.round(eventsFunctionContext.getArgument(\"Index\")) % voices.length) + voices.length) % voices.length;",
+            "const v = voices[index];",
+            "const pattern = G(v.pattern);",
+            "const d = content.getChild('distortions').getChild(pattern).toJSObject() || {};",
+            "g('Run').getChild('voice').fromJSObject({",
+            "  index, kind: G(v.kind), says: G(v.says), pattern, patternName: G(d.name || ''), signal: G(d.signal || ''), question: G(d.question || ''), no: G(v.no), yes: G(v.yes),",
             "});",
-            ""
-          ],
-          "parameterObjects": "",
-          "useStrict": true,
-          "eventsSheetExpanded": true
-        }
-      ],
-      "parameters": [],
-      "objectGroups": []
-    },
-    {
-      "description": "Writes a random order of 0…N-1 into a global array variable (a path such as \"Run.order\").",
-      "fullName": "Shuffle an order",
-      "functionType": "Action",
-      "group": "Data",
-      "name": "Shuffle",
-      "sentence": "Shuffle 0…_PARAM2_-1 into global _PARAM1_",
-      "events": [
-        {
-          "type": "BuiltinCommonInstructions::JsCode",
-          "inlineCode": [
-            "const n = Math.max(0, Math.round(eventsFunctionContext.getArgument(\"Count\")));",
-            "const order = Array.from({ length: n }, (_, i) => i);",
-            "for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }",
-            "const [root, ...path] = String(eventsFunctionContext.getArgument(\"Variable\")).split('.');",
-            "let target = runtimeScene.getGame().getVariables().get(root);",
-            "for (const name of path) target = target.getChild(name);",
-            "target.fromJSObject(order);",
             ""
           ],
           "parameterObjects": "",
@@ -1100,13 +1104,61 @@
       ],
       "parameters": [
         {
-          "description": "Global array variable (dotted path)",
-          "name": "Variable",
-          "type": "string"
+          "description": "Voice index",
+          "name": "Index",
+          "type": "expression"
+        }
+      ],
+      "objectGroups": []
+    },
+    {
+      "description": "The time in the person's day while a stage of the chapter goes on (HH:MM), from the stage's start time at progress 0 to its end time at 1.",
+      "fullName": "Clock of the stage",
+      "functionType": "StringExpression",
+      "group": "Story",
+      "name": "StageClock",
+      "sentence": "",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::JsCode",
+          "inlineCode": [
+            "const game = runtimeScene.getGame();",
+            "const g = name => game.getVariables().get(name);",
+            "const female = g('Save').getChild('profile').getChild('gender').getAsString() === 'f';",
+            "const person = g('Save').getChild('profile').getChild('name').getAsString() || (female ? 'Ewa' : 'Adam');",
+            "/** {a|b}: the man's or the woman's form; {imie}: the person's name. */",
+            "const G = text => String(text).replace(/\\{imie\\}/g, person).replace(/\\{([^{}|]*)\\|([^{}]*)\\}/g, (_, m, f) => (female ? f : m));",
+            "const pick = list => list[Math.floor(Math.random() * list.length)];",
+            "",
+            "const chapter = g('Content').getChild('chapters').getChildAt(Math.max(0, g('Run').getChild('chapter').getAsNumber())).toJSObject();",
+            "const stage = (chapter.stages || [])[Math.round(eventsFunctionContext.getArgument(\"Stage\"))];",
+            "if (!stage) { eventsFunctionContext.returnValue = ''; return; }",
+            "const minutes = t => { const [h, m] = G(t).split(':').map(Number); return h * 60 + m; };",
+            "const from = minutes(stage.clock[0]);",
+            "let to = minutes(stage.clock[1]);",
+            "if (to < from) to += 24 * 60;",
+            "const p = Math.max(0, Math.min(1, eventsFunctionContext.getArgument(\"Progress\")));",
+            "const t = Math.round(from + (to - from) * p) % (24 * 60);",
+            "eventsFunctionContext.returnValue = String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');",
+            ""
+          ],
+          "parameterObjects": "",
+          "useStrict": true,
+          "eventsSheetExpanded": true
+        }
+      ],
+      "expressionType": {
+        "type": "string"
+      },
+      "parameters": [
+        {
+          "description": "Stage index",
+          "name": "Stage",
+          "type": "expression"
         },
         {
-          "description": "N",
-          "name": "Count",
+          "description": "Progress 0–1",
+          "name": "Progress",
           "type": "expression"
         }
       ],
@@ -1427,6 +1479,43 @@
                   ]
                 }
               ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::JsCode",
+              "inlineCode": [
+                "const maxH = Math.max(0, eventsFunctionContext.getArgument(\"H\") - 8);",
+                "for (const t of objects) {",
+                "  const vars = t.getVariables();",
+                "  vars.get('MaxH').setNumber(maxH);",
+                "  vars.get('Size').setNumber(t.getCharacterSize());",
+                "  vars.get('FitText').setString(t.getText());",
+                "  const smallest = Math.max(10, Math.round(t.getCharacterSize() * 0.6));",
+                "  let size = t.getCharacterSize();",
+                "  while (maxH > 0 && t.getHeight() > maxH && size > smallest) t.setCharacterSize(--size);",
+                "}",
+                ""
+              ],
+              "parameterObjects": "Label",
+              "useStrict": true,
+              "eventsSheetExpanded": true
+            },
+            {
+              "type": "BuiltinCommonInstructions::Standard",
+              "conditions": [],
+              "actions": [
+                {
+                  "type": {
+                    "value": "SetXY"
+                  },
+                  "parameters": [
+                    "Label",
+                    "=",
+                    "GetArgumentAsNumber(\"X\") + 8",
+                    "=",
+                    "GetArgumentAsNumber(\"Y\") + (GetArgumentAsNumber(\"H\") - Label.Height()) / 2"
+                  ]
+                }
+              ]
             }
           ]
         }
@@ -1493,12 +1582,12 @@
       "objectGroups": []
     },
     {
-      "description": "Creates a wrapped text, aligned left, center or right inside the given width.",
+      "description": "Creates a wrapped text, aligned left, center or right inside the given width. With a maximum height, a text that would run longer is set smaller (down to 60 %) until it fits.",
       "fullName": "Create a text",
       "functionType": "Action",
       "group": "UI",
       "name": "MakeText",
-      "sentence": "Text _PARAM1_ at _PARAM2_;_PARAM3_ width _PARAM4_: _PARAM5_ (_PARAM6_, key _PARAM7_, panel _PARAM8_)",
+      "sentence": "Text _PARAM1_ at _PARAM2_;_PARAM3_ width _PARAM4_: _PARAM5_ (_PARAM6_, key _PARAM7_, panel _PARAM8_, at most _PARAM10_ high)",
       "events": [
         {
           "type": "BuiltinCommonInstructions::Standard",
@@ -1615,6 +1704,25 @@
                   ]
                 }
               ]
+            },
+            {
+              "type": "BuiltinCommonInstructions::JsCode",
+              "inlineCode": [
+                "const maxH = Math.max(0, eventsFunctionContext.getArgument(\"MaxH\") - 0);",
+                "for (const t of objects) {",
+                "  const vars = t.getVariables();",
+                "  vars.get('MaxH').setNumber(maxH);",
+                "  vars.get('Size').setNumber(t.getCharacterSize());",
+                "  vars.get('FitText').setString(t.getText());",
+                "  const smallest = Math.max(10, Math.round(t.getCharacterSize() * 0.6));",
+                "  let size = t.getCharacterSize();",
+                "  while (maxH > 0 && t.getHeight() > maxH && size > smallest) t.setCharacterSize(--size);",
+                "}",
+                ""
+              ],
+              "parameterObjects": "Text",
+              "useStrict": true,
+              "eventsSheetExpanded": true
             }
           ]
         }
@@ -1666,6 +1774,11 @@
           "description": "Layer",
           "name": "Layer",
           "type": "layer"
+        },
+        {
+          "description": "Maximum height (0: any)",
+          "name": "MaxH",
+          "type": "expression"
         }
       ],
       "objectGroups": []
@@ -1826,9 +1939,6 @@
           },
           {
             "functionName": "IsGlobalLoaded"
-          },
-          {
-            "functionName": "Shuffle"
           }
         ]
       },
@@ -1909,6 +2019,23 @@
         ]
       },
       {
+        "folderName": "UI",
+        "children": [
+          {
+            "functionName": "FitTexts"
+          },
+          {
+            "functionName": "MakeButton"
+          },
+          {
+            "functionName": "MakeText"
+          },
+          {
+            "functionName": "MakePanel"
+          }
+        ]
+      },
+      {
         "folderName": "Debug",
         "children": [
           {
@@ -1935,7 +2062,10 @@
             "functionName": "Thought"
           },
           {
-            "functionName": "DrawDiscernment"
+            "functionName": "DrawVoice"
+          },
+          {
+            "functionName": "StageClock"
           }
         ]
       },
@@ -1953,20 +2083,6 @@
           },
           {
             "functionName": "ChoiceIcon"
-          }
-        ]
-      },
-      {
-        "folderName": "UI",
-        "children": [
-          {
-            "functionName": "MakeButton"
-          },
-          {
-            "functionName": "MakeText"
-          },
-          {
-            "functionName": "MakePanel"
           }
         ]
       }

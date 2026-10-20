@@ -20,7 +20,7 @@
     "templateSlug": "",
     "version": "1.0.0",
     "name": "HolyHolyHoly 3D",
-    "description": "Anioł stróż w trzech wymiarach rozbija traumy człowieka, zamienia je w prawdę i burzy twierdze kłamstw. Archero × survivors × Endless Puncher, muzyka „Psalm 150”, opcjonalnie opaska fNIRS Mendi.",
+    "description": "Anioł stróż w trzech wymiarach rozbija traumy człowieka, zamienia je w prawdę i ucisza kłamstwa, które przybrały własną postać. Archero × survivors × Endless Puncher, muzyka „Psalm 150”, opcjonalnie opaska fNIRS Mendi.",
     "author": "HolyHolyHoly",
     "windowWidth": 1280,
     "windowHeight": 720,
@@ -708,6 +708,13 @@
         "userAdded": true
       },
       {
+        "file": "assets/models/fx-memory.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-memory.glb",
+        "userAdded": true
+      },
+      {
         "file": "assets/models/fx-orb.glb",
         "kind": "model3D",
         "metadata": "",
@@ -736,10 +743,31 @@
         "userAdded": true
       },
       {
+        "file": "assets/models/fx-spring.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-spring.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-truth.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-truth.glb",
+        "userAdded": true
+      },
+      {
         "file": "assets/models/fx-vial.glb",
         "kind": "model3D",
         "metadata": "",
         "name": "assets/models/fx-vial.glb",
+        "userAdded": true
+      },
+      {
+        "file": "assets/models/fx-voice.glb",
+        "kind": "model3D",
+        "metadata": "",
+        "name": "assets/models/fx-voice.glb",
         "userAdded": true
       },
       {
@@ -1947,10 +1975,26 @@
         "userAdded": true
       },
       {
+        "file": "assets/ui/pointer.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/pointer.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
         "file": "assets/ui/rotate-device.png",
         "kind": "image",
         "metadata": "",
         "name": "assets/ui/rotate-device.png",
+        "smoothed": true,
+        "userAdded": true
+      },
+      {
+        "file": "assets/ui/touch-breath.png",
+        "kind": "image",
+        "metadata": "",
+        "name": "assets/ui/touch-breath.png",
         "smoothed": true,
         "userAdded": true
       },
@@ -2024,6 +2068,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -2071,6 +2130,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -2118,6 +2192,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -2165,6 +2254,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -2208,6 +2312,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -2282,6 +2401,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -2356,6 +2490,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -2430,6 +2579,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -2504,6 +2668,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -2576,6 +2755,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -5326,8 +5520,8 @@
                   "points": [],
                   "originPoint": {
                     "name": "origine",
-                    "x": 210.5,
-                    "y": 320
+                    "x": 247,
+                    "y": 384
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -5355,8 +5549,8 @@
                   "points": [],
                   "originPoint": {
                     "name": "origine",
-                    "x": 290,
-                    "y": 320
+                    "x": 255,
+                    "y": 384
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -5384,8 +5578,8 @@
                   "points": [],
                   "originPoint": {
                     "name": "origine",
-                    "x": 286,
-                    "y": 320
+                    "x": 240.5,
+                    "y": 384
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -5413,8 +5607,8 @@
                   "points": [],
                   "originPoint": {
                     "name": "origine",
-                    "x": 232,
-                    "y": 320
+                    "x": 256,
+                    "y": 354.5
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -5442,8 +5636,8 @@
                   "points": [],
                   "originPoint": {
                     "name": "origine",
-                    "x": 216,
-                    "y": 320
+                    "x": 240,
+                    "y": 384
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -5471,8 +5665,8 @@
                   "points": [],
                   "originPoint": {
                     "name": "origine",
-                    "x": 309.5,
-                    "y": 320
+                    "x": 216,
+                    "y": 384
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -5500,8 +5694,8 @@
                   "points": [],
                   "originPoint": {
                     "name": "origine",
-                    "x": 265,
-                    "y": 320
+                    "x": 256,
+                    "y": 382
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -5529,8 +5723,8 @@
                   "points": [],
                   "originPoint": {
                     "name": "origine",
-                    "x": 147,
-                    "y": 320
+                    "x": 256,
+                    "y": 378.5
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -5558,8 +5752,8 @@
                   "points": [],
                   "originPoint": {
                     "name": "origine",
-                    "x": 320,
-                    "y": 300
+                    "x": 231.5,
+                    "y": 384
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -5587,8 +5781,8 @@
                   "points": [],
                   "originPoint": {
                     "name": "origine",
-                    "x": 280.5,
-                    "y": 320
+                    "x": 256,
+                    "y": 352
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -6911,6 +7105,21 @@
           "name": "Index",
           "type": "number",
           "value": 0
+        },
+        {
+          "name": "MaxH",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "Size",
+          "type": "number",
+          "value": 0
+        },
+        {
+          "name": "FitText",
+          "type": "string",
+          "value": ""
         }
       ],
       "effects": [],
@@ -7140,6 +7349,35 @@
                     "name": "origine",
                     "x": 128,
                     "y": 128
+                  },
+                  "centerPoint": {
+                    "automatic": true,
+                    "name": "centre",
+                    "x": 0,
+                    "y": 0
+                  },
+                  "customCollisionMask": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "pointer",
+          "useMultipleDirections": false,
+          "directions": [
+            {
+              "looping": false,
+              "timeBetweenFrames": 0.08,
+              "sprites": [
+                {
+                  "hasCustomCollisionMask": false,
+                  "image": "assets/ui/pointer.png",
+                  "points": [],
+                  "originPoint": {
+                    "name": "origine",
+                    "x": 32,
+                    "y": 32
                   },
                   "centerPoint": {
                     "automatic": true,
@@ -7531,57 +7769,6 @@
           "value": 0
         },
         {
-          "name": "disc",
-          "type": "structure",
-          "children": [
-            {
-              "name": "answer",
-              "type": "string",
-              "value": ""
-            },
-            {
-              "name": "answerName",
-              "type": "string",
-              "value": ""
-            },
-            {
-              "name": "kind",
-              "type": "string",
-              "value": ""
-            },
-            {
-              "name": "name",
-              "type": "string",
-              "value": ""
-            },
-            {
-              "name": "names",
-              "type": "array",
-              "children": []
-            },
-            {
-              "name": "options",
-              "type": "array",
-              "children": []
-            },
-            {
-              "name": "question",
-              "type": "string",
-              "value": ""
-            },
-            {
-              "name": "thought",
-              "type": "string",
-              "value": ""
-            }
-          ]
-        },
-        {
-          "name": "discRight",
-          "type": "number",
-          "value": 0
-        },
-        {
           "name": "evo",
           "type": "structure",
           "children": [
@@ -7859,6 +8046,11 @@
           ]
         },
         {
+          "name": "healed",
+          "type": "number",
+          "value": 0
+        },
+        {
           "name": "hero",
           "type": "string",
           "value": "uriel"
@@ -7915,6 +8107,11 @@
           "value": 0
         },
         {
+          "name": "memories",
+          "type": "number",
+          "value": 0
+        },
+        {
           "name": "newRank",
           "type": "string",
           "value": ""
@@ -7930,9 +8127,9 @@
           "value": ""
         },
         {
-          "name": "order",
-          "type": "array",
-          "children": []
+          "name": "recognized",
+          "type": "number",
+          "value": 0
         },
         {
           "name": "reframes",
@@ -7943,6 +8140,11 @@
           "name": "skipped",
           "type": "boolean",
           "value": false
+        },
+        {
+          "name": "stage",
+          "type": "number",
+          "value": 0
         },
         {
           "name": "story",
@@ -7970,6 +8172,62 @@
           "children": []
         },
         {
+          "name": "voice",
+          "type": "structure",
+          "children": [
+            {
+              "name": "index",
+              "type": "number",
+              "value": 0
+            },
+            {
+              "name": "kind",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "no",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "pattern",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "patternName",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "question",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "says",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "signal",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "name": "yes",
+              "type": "string",
+              "value": ""
+            }
+          ]
+        },
+        {
+          "name": "voices",
+          "type": "number",
+          "value": 0
+        },
+        {
           "name": "weapons",
           "type": "array",
           "children": []
@@ -7988,7 +8246,7 @@
         {
           "name": "arenaRadius",
           "type": "number",
-          "value": 1500
+          "value": 3200
         },
         {
           "name": "baseHearts",
@@ -8004,6 +8262,21 @@
           "name": "bossHpScale",
           "type": "number",
           "value": 6
+        },
+        {
+          "name": "breathCooldown",
+          "type": "number",
+          "value": 12
+        },
+        {
+          "name": "breathSeconds",
+          "type": "number",
+          "value": 5.5
+        },
+        {
+          "name": "camZ",
+          "type": "number",
+          "value": 1180
         },
         {
           "name": "chapterHp",
@@ -8043,12 +8316,17 @@
         {
           "name": "magnet",
           "type": "number",
-          "value": 210
+          "value": 250
         },
         {
           "name": "maxAlive",
           "type": "number",
-          "value": 60
+          "value": 70
+        },
+        {
+          "name": "memoryReach",
+          "type": "number",
+          "value": 150
         },
         {
           "name": "missCooldown",
@@ -8058,7 +8336,7 @@
         {
           "name": "playerSpeed",
           "type": "number",
-          "value": 330
+          "value": 340
         },
         {
           "name": "praiseSeconds",
@@ -8113,7 +8391,7 @@
         {
           "name": "shotRange",
           "type": "number",
-          "value": 620
+          "value": 700
         },
         {
           "name": "shotSpeed",
@@ -8121,14 +8399,59 @@
           "value": 1000
         },
         {
+          "name": "spawnFar",
+          "type": "number",
+          "value": 1350
+        },
+        {
           "name": "spawnInterval",
           "type": "number",
-          "value": 1.45
+          "value": 1.25
         },
         {
           "name": "spawnMin",
           "type": "number",
-          "value": 0.4
+          "value": 0.38
+        },
+        {
+          "name": "spawnNear",
+          "type": "number",
+          "value": 1150
+        },
+        {
+          "name": "springRadius",
+          "type": "number",
+          "value": 150
+        },
+        {
+          "name": "springRefill",
+          "type": "number",
+          "value": 35
+        },
+        {
+          "name": "springTick",
+          "type": "number",
+          "value": 2
+        },
+        {
+          "name": "springWater",
+          "type": "number",
+          "value": 2
+        },
+        {
+          "name": "springs",
+          "type": "number",
+          "value": 3
+        },
+        {
+          "name": "stageHp",
+          "type": "number",
+          "value": 0.15
+        },
+        {
+          "name": "stageSeconds",
+          "type": "number",
+          "value": 60
         },
         {
           "name": "stillDelay",
@@ -8143,22 +8466,22 @@
         {
           "name": "traumaSpeed",
           "type": "number",
-          "value": 70
+          "value": 80
         },
         {
-          "name": "waveHp",
+          "name": "voiceGap",
           "type": "number",
-          "value": 0.15
+          "value": 24
         },
         {
-          "name": "waveSeconds",
+          "name": "voiceHp",
           "type": "number",
-          "value": 55
+          "value": 3.5
         },
         {
-          "name": "waves",
+          "name": "voiceValue",
           "type": "number",
-          "value": 3
+          "value": 5
         },
         {
           "name": "xpAdd",

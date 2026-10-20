@@ -7,11 +7,14 @@ import { ASSETS, GAME3D } from '../tools/paths.mjs';
 
 interface Line { who: string; text: string; quote?: string; ref?: string; panel: string }
 interface Option { text: string; why: string; kind: string }
+interface Stage { clock: string[]; title: string; sky: string; mod: string; enemies: string[]; caption: string; memories: string[]; look: Record<string, string | number> }
+interface Voice { kind: string; says: string; pattern: string; no: string; yes: string }
 interface Chapter {
   id: string; title: string; theme: string; place: string; fact: string; warning: string; helplines: boolean; track: string; floor: string;
   enemies: string[]; unlockedBy: string; unlocks: string; node: { x: number; y: number };
   boss: { name: string; lie: string; hp: number; art: string };
   story: { intro: Line[]; heal: Line[] };
+  stages: Stage[]; voices: Voice[];
   cbt: { situation: string; thought: string; distortion: string; options: Option[]; truth: string; verse: { ref: string; text: string }; helplines: boolean };
   tool: { id: string; name: string; steps: string[]; practice: string; evidence: string; breathing: boolean };
   look: Record<string, string>;
@@ -20,7 +23,7 @@ interface Skill { id: string; kind: string; hero: string; maxLevel: number; leve
 interface Hero { id: string; name: string; tradition: string; signature: string; unlockedBy: string; stats: Record<string, number>; ultimate: { name: string } }
 interface Enemy { kind: string; distortion: string; archetype: string; thoughts: string[]; reframes: string[]; angel: string[]; colorRgb: string }
 interface Content {
-  chapters: Chapter[]; heroes: Hero[]; skills: Record<string, Skill>; enemies: Record<string, Enemy>; distortions: Record<string, { name: string; question: string }>;
+  chapters: Chapter[]; heroes: Hero[]; skills: Record<string, Skill>; enemies: Record<string, Enemy & { name: string }>; distortions: Record<string, { name: string; question: string; signal: string }>;
   story: { prologue: Line[]; helplines: { number: string }[]; support: { url: string }; fall: { verses: { ref: string; text: string }[] } };
   ladder: { paths: { cx: number; cy: number; length: number; angle: number }[]; top: { x: number; y: number } };
 }
@@ -72,6 +75,63 @@ describe('content.json (the data the GDevelop project loads)', () => {
       for (const v of Object.values(c.look)) expect(v).toMatch(rgb);
       for (const k of c.enemies) expect(committed.enemies[k], `${c.id} → ${k}`).toBeDefined();
     });
+  });
+
+  it('every chapter is told in three stages of one day or night, with memories found in the fight', () => {
+    for (const c of committed.chapters) {
+      expect(c.stages, c.id).toHaveLength(3);
+      for (const st of c.stages) {
+        for (const g of ['m', 'f'] as const) {
+          const [from, to] = st.clock.map(t => resolve(t, g));
+          expect(from, c.id).toMatch(/^([01]\d|2[0-3]):[0-5]\d$/);
+          expect(to, c.id).toMatch(/^([01]\d|2[0-3]):[0-5]\d$/);
+          expect(from).not.toBe(to);
+        }
+        expect(['day', 'evening', 'dusk', 'night', 'deep']).toContain(st.sky);
+        expect(['', 'swarm', 'heavy', 'dark', 'voices']).toContain(st.mod);
+        expect(st.enemies.length).toBeGreaterThan(0);
+        for (const k of st.enemies) expect(c.enemies, `${c.id} → ${k}`).toContain(k);
+        expect(st.title.length).toBeGreaterThan(2);
+        expect(st.caption.length).toBeGreaterThan(30);
+        expect(st.memories).toHaveLength(2);
+        for (const m of st.memories) expect(m.length, m).toBeGreaterThan(20);
+        for (const k of ['background', 'fog', 'sky', 'ground', 'floor']) expect(st.look[k]).toMatch(rgb);
+        expect(st.look.near as number).toBeLessThan(st.look.far as number);
+      }
+      // the last stage is the one where the voices speak most: the story's core wound
+      expect(c.stages.some(st => st.mod === 'voices'), c.id).toBe(true);
+    }
+  });
+
+  it('the voices: a negative thought said aloud, its thinking error, what negates it and the truth', () => {
+    for (const c of committed.chapters) {
+      expect(c.voices.length, c.id).toBeGreaterThanOrEqual(4);
+      for (const v of c.voices) {
+        for (const g of ['m', 'f'] as const) {
+          expect(committed.distortions[resolve(v.pattern, g)], `${c.id}: ${v.pattern}`).toBeDefined();
+          expect(c.enemies, `${c.id}: ${v.kind}`).toContain(resolve(v.kind, g));
+        }
+        expect(v.says.length).toBeGreaterThan(8);
+        expect(v.no.length, v.no).toBeGreaterThan(20);
+        expect(v.yes.length, v.yes).toBeGreaterThan(20);
+        // the truth is said by the person, not as a slogan of worth
+        expect(v.yes).not.toMatch(/^Jesteś/);
+      }
+    }
+    // a crisis thought always comes with the help lines
+    const crisis = committed.chapters.find(c => c.id === 'ciemnosc')!;
+    for (const v of crisis.voices.filter(x => /zniknę|beze mnie/.test(x.says))) expect(v.no).toContain('116 123');
+    for (const d of Object.values(committed.distortions)) expect(d.signal.length, d.name).toBeGreaterThan(8);
+  });
+
+  it('the lies are personified, never fortresses: each chapter\'s lie has its own figure and name', () => {
+    expect(JSON.stringify(committed)).not.toMatch(/twierdz/i);
+    const names = committed.chapters.map(c => c.boss.name);
+    expect(new Set(names).size).toBe(names.length);
+    const shadows = new Set(Object.values(committed.enemies).map(e => e.name));
+    for (const n of names) expect(shadows.has(n), n).toBe(false);
+    const manifest = JSON.parse(readFileSync(join(GAME3D, 'art/manifest.json'), 'utf8')) as { items: { id: string; style: string }[] };
+    for (const c of committed.chapters) expect(manifest.items.find(i => i.id === `boss-${c.id}`)?.style, c.id).toBe('persona');
   });
 
   it('every story panel, model, floor and icon the content names is in the art manifest', () => {

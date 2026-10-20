@@ -16,9 +16,9 @@ const PANEL_ASPECT = 960 / 657;
 export function storyScene() {
   const textBox = [
     box('40', `${H} - 236`, `${W} - 80`, '216', { key: 'textBox' }),
-    label('UiSmall', '84', `${H} - 222`, 600, '', { key: 'speaker' }),
-    label('UiText', '84', `${H} - 188`, `${W} - 380`, '', { key: 'line' }),
-    label('UiSmall', '300', `${H} - 54`, `${W} - 640`, '', { key: 'ref' }),
+    label('UiSmall', '84', `${H} - 222`, 600, '', { key: 'speaker', h: 28 }),
+    label('UiText', '84', `${H} - 188`, `${W} - 380`, '', { key: 'line', h: 132 }),
+    label('UiSmall', '300', `${H} - 54`, `${W} - 640`, '', { key: 'ref', h: 28 }),
     button(`${W} - 270`, `${H} - 118`, '200', '56', 'Dalej ▶', 'next'),
     button(`${W} - 270`, `${H} - 186`, '200', '48', 'Pomiń', 'skip'),
   ];
@@ -44,8 +44,8 @@ export function storyScene() {
         setS('Ui.top', '=', q('note')),
         box(`(${W} - 820) / 2`, '90', '820', '520', { panel: 'note' }),
         label('UiTitle', `(${W} - 820) / 2`, '110', 820, 'Zanim wejdziesz', { panel: 'note', align: 'center' }),
-        label('UiText', `(${W} - 720) / 2`, '180', 720, '', { panel: 'note', align: 'center', expr: `HolyHoly::G(${CH}.warning)` }),
-        label('UiSmall', `(${W} - 720) / 2`, '360', 720, '', { panel: 'note', align: 'center', expr: '"Pomoc całą dobę: " + Content.story.helplinesShort + NewLine() + "To gra, nie terapia. Możesz w każdej chwili przerwać."' }),
+        label('UiText', `(${W} - 720) / 2`, '180', 720, '', { panel: 'note', align: 'center', h: 170, expr: `HolyHoly::G(${CH}.warning)` }),
+        label('UiSmall', `(${W} - 720) / 2`, '360', 720, '', { panel: 'note', align: 'center', h: 140, expr: '"Pomoc całą dobę: " + Content.story.helplinesShort + NewLine() + "To gra, nie terapia. Możesz w każdej chwili przerwać."' }),
         button(`(${W} - 560) / 2`, '520', '270', '58', 'Wchodzę', 'noteGo', { panel: 'note' }),
         button(`(${W} + 20) / 2`, '520', '270', '58', 'Pomiń rozdział', 'noteSkip', { panel: 'note' }),
       ]),

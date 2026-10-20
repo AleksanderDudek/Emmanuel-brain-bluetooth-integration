@@ -2242,9 +2242,9 @@
                       "parameters": [
                         "",
                         "UiPanel",
-                        "SceneWindowWidth() * 0.55",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20)",
                         "20",
-                        "SceneWindowWidth() * 0.43",
+                        "max(SceneWindowWidth() * 0.43, 560)",
                         "SceneWindowHeight() - 40",
                         "\"\"",
                         "\"info\"",
@@ -2265,14 +2265,15 @@
                       "parameters": [
                         "",
                         "UiTitle",
-                        "SceneWindowWidth() * 0.55 + 30",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 30",
                         "36",
-                        "SceneWindowWidth() * 0.43 - 60",
+                        "max(SceneWindowWidth() * 0.43, 560) - 60",
                         "Content.heroes[Sel].name",
                         "\"left\"",
                         "\"\"",
                         "\"info\"",
                         "\"UI\"",
+                        "54",
                         ""
                       ]
                     }
@@ -2289,14 +2290,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.55 + 32",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 32",
                         "96",
-                        "SceneWindowWidth() * 0.43 - 64",
+                        "max(SceneWindowWidth() * 0.43, 560) - 64",
                         "\"„\" + Content.heroes[Sel].meaning + \"” · \" + Content.heroes[Sel].skill",
                         "\"left\"",
                         "\"meaning\"",
                         "\"info\"",
                         "\"UI\"",
+                        "50",
                         ""
                       ]
                     }
@@ -2313,14 +2315,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.55 + 32",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 32",
                         "150",
-                        "SceneWindowWidth() * 0.43 - 64",
+                        "max(SceneWindowWidth() * 0.43, 560) - 64",
                         "Content.heroes[Sel].lore",
                         "\"left\"",
                         "\"\"",
                         "\"info\"",
                         "\"UI\"",
+                        "102",
                         ""
                       ]
                     }
@@ -2337,7 +2340,7 @@
                       "parameters": [
                         "",
                         "UiArt",
-                        "SceneWindowWidth() * 0.55 + 66",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 66",
                         "290",
                         "\"UI\""
                       ]
@@ -2398,14 +2401,15 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.55 + 112",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 112",
                         "256",
-                        "SceneWindowWidth() * 0.43 - 140",
+                        "max(SceneWindowWidth() * 0.43, 560) - 140",
                         "\"Dar: \" + Content.skills[\"sig-\" + Content.heroes[Sel].id].name",
                         "\"left\"",
                         "\"\"",
                         "\"info\"",
                         "\"UI\"",
+                        "32",
                         ""
                       ]
                     }
@@ -2422,14 +2426,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.55 + 112",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 112",
                         "290",
-                        "SceneWindowWidth() * 0.43 - 140",
+                        "max(SceneWindowWidth() * 0.43, 560) - 140",
                         "Content.skills[\"sig-\" + Content.heroes[Sel].id].description",
                         "\"left\"",
                         "\"\"",
                         "\"info\"",
                         "\"UI\"",
+                        "64",
                         ""
                       ]
                     }
@@ -2446,7 +2451,7 @@
                       "parameters": [
                         "",
                         "UiArt",
-                        "SceneWindowWidth() * 0.55 + 66",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 66",
                         "392",
                         "\"UI\""
                       ]
@@ -2507,14 +2512,15 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.55 + 112",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 112",
                         "358",
-                        "SceneWindowWidth() * 0.43 - 140",
+                        "max(SceneWindowWidth() * 0.43, 560) - 140",
                         "\"Modlitwa: \" + Content.heroes[Sel].ultimate.name",
                         "\"left\"",
                         "\"\"",
                         "\"info\"",
                         "\"UI\"",
+                        "32",
                         ""
                       ]
                     }
@@ -2531,14 +2537,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.55 + 112",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 112",
                         "392",
-                        "SceneWindowWidth() * 0.43 - 140",
+                        "max(SceneWindowWidth() * 0.43, 560) - 140",
                         "Content.heroes[Sel].ultimate.text",
                         "\"left\"",
                         "\"\"",
                         "\"info\"",
                         "\"UI\"",
+                        "70",
                         ""
                       ]
                     }
@@ -2555,14 +2562,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.55 + 32",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 32",
                         "466",
-                        "SceneWindowWidth() * 0.43 - 64",
+                        "max(SceneWindowWidth() * 0.43, 560) - 64",
                         "\"Cecha: \" + Content.heroes[Sel].passive.name + \". \" + Content.heroes[Sel].passive.text",
                         "\"left\"",
                         "\"\"",
                         "\"info\"",
                         "\"UI\"",
+                        "40",
                         ""
                       ]
                     }
@@ -2579,14 +2587,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.55 + 32",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 32",
                         "508",
-                        "SceneWindowWidth() * 0.43 - 64",
+                        "max(SceneWindowWidth() * 0.43, 560) - 64",
                         "\"„\" + Content.heroes[Sel].verse.text + \"” (\" + Content.heroes[Sel].verse.ref + \")\"",
                         "\"left\"",
                         "\"verse\"",
                         "\"info\"",
                         "\"UI\"",
+                        "SceneWindowHeight() - 646",
                         ""
                       ]
                     }
@@ -2603,14 +2612,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.55 + 32",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 32",
                         "SceneWindowHeight() - 132",
-                        "SceneWindowWidth() * 0.43 - 64",
+                        "max(SceneWindowWidth() * 0.43, 560) - 64",
                         "\"\"",
                         "\"left\"",
                         "\"status\"",
                         "\"info\"",
                         "\"UI\"",
+                        "30",
                         ""
                       ]
                     }
@@ -2628,7 +2638,7 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.55 + 30",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 30",
                         "SceneWindowHeight() - 96",
                         "64",
                         "52",
@@ -2654,7 +2664,7 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.55 + 102",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 102",
                         "SceneWindowHeight() - 96",
                         "64",
                         "52",
@@ -2680,7 +2690,7 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.55 + SceneWindowWidth() * 0.43 - 132",
+                        "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + max(SceneWindowWidth() * 0.43, 560) - 132",
                         "SceneWindowHeight() - 96",
                         "110",
                         "52",
@@ -2719,7 +2729,7 @@
                     "",
                     "UiButton",
                     "UiLabel",
-                    "SceneWindowWidth() * 0.55 + 182",
+                    "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 182",
                     "SceneWindowHeight() - 100",
                     "220",
                     "58",
@@ -2767,7 +2777,7 @@
                     "",
                     "UiButton",
                     "UiLabel",
-                    "SceneWindowWidth() * 0.55 + 182",
+                    "(SceneWindowWidth() - max(SceneWindowWidth() * 0.43, 560) - 20) + 182",
                     "SceneWindowHeight() - 100",
                     "220",
                     "58",

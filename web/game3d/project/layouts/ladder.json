@@ -1555,6 +1555,7 @@
                         "\"rank\"",
                         "\"\"",
                         "\"UI\"",
+                        "36",
                         ""
                       ]
                     }
@@ -1579,6 +1580,7 @@
                         "\"progress\"",
                         "\"\"",
                         "\"UI\"",
+                        "36",
                         ""
                       ]
                     }
@@ -1596,10 +1598,10 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() - 860",
-                        "28",
-                        "200",
-                        "54",
+                        "SceneWindowWidth() - 244",
+                        "20",
+                        "220",
+                        "52",
                         "\"Owoce Ducha\"",
                         "\"fruits\"",
                         "0",
@@ -1622,10 +1624,10 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() - 650",
-                        "28",
-                        "210",
-                        "54",
+                        "SceneWindowWidth() - 244",
+                        "80",
+                        "220",
+                        "52",
                         "\"Księga Prawdy\"",
                         "\"book\"",
                         "0",
@@ -1648,10 +1650,10 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() - 430",
-                        "28",
-                        "200",
-                        "54",
+                        "SceneWindowWidth() - 244",
+                        "140",
+                        "220",
+                        "52",
                         "\"Narzędzia\"",
                         "\"tools\"",
                         "0",
@@ -1674,10 +1676,10 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() - 220",
-                        "28",
-                        "196",
-                        "54",
+                        "SceneWindowWidth() - 244",
+                        "200",
+                        "220",
+                        "52",
                         "\"Menu\"",
                         "\"menu\"",
                         "0",
@@ -2739,13 +2741,14 @@
                         "",
                         "UiSmall",
                         "56",
-                        "SceneWindowHeight() - 312",
+                        "SceneWindowHeight() - 314",
                         "640",
                         "\"\"",
                         "\"left\"",
                         "\"place\"",
                         "\"\"",
                         "\"UI\"",
+                        "26",
                         ""
                       ]
                     }
@@ -2763,13 +2766,14 @@
                         "",
                         "UiTitle",
                         "54",
-                        "SceneWindowHeight() - 286",
+                        "SceneWindowHeight() - 288",
                         "640",
                         "\"\"",
                         "\"left\"",
                         "\"title\"",
                         "\"\"",
                         "\"UI\"",
+                        "54",
                         ""
                       ]
                     }
@@ -2787,13 +2791,14 @@
                         "",
                         "UiSmall",
                         "56",
-                        "SceneWindowHeight() - 228",
+                        "SceneWindowHeight() - 230",
                         "640",
                         "\"\"",
                         "\"left\"",
                         "\"fact\"",
                         "\"\"",
                         "\"UI\"",
+                        "78",
                         ""
                       ]
                     }
@@ -2811,13 +2816,14 @@
                         "",
                         "UiText",
                         "56",
-                        "SceneWindowHeight() - 150",
+                        "SceneWindowHeight() - 148",
                         "640",
                         "\"\"",
                         "\"left\"",
                         "\"lie\"",
                         "\"\"",
                         "\"UI\"",
+                        "62",
                         ""
                       ]
                     }
@@ -2887,13 +2893,14 @@
                         "",
                         "UiSmall",
                         "206",
-                        "SceneWindowHeight() - 68",
+                        "SceneWindowHeight() - 72",
                         "290",
                         "\"\"",
                         "\"left\"",
                         "\"status\"",
                         "\"\"",
                         "\"UI\"",
+                        "48",
                         ""
                       ]
                     }
@@ -3040,7 +3047,7 @@
                 "UiText",
                 "Text",
                 "=",
-                "\"Kłamstwo: „\" + HolyHoly::G(Content.chapters[Sel].boss.lie) + \"”\""
+                "Content.chapters[Sel].boss.name + \": „\" + HolyHoly::G(Content.chapters[Sel].boss.lie) + \"”\""
               ]
             }
           ]
@@ -3079,7 +3086,7 @@
                 "UiSmall",
                 "Text",
                 "=",
-                "\"Twierdza zburzona ✓\""
+                "Content.chapters[Sel].boss.name + \" milczy ✓\""
               ]
             }
           ]
@@ -3437,9 +3444,9 @@
                       "parameters": [
                         "",
                         "UiPanel",
-                        "(SceneWindowWidth() - 1140) / 2",
+                        "(SceneWindowWidth() - min(1140, SceneWindowWidth() - 20)) / 2",
                         "24",
-                        "1140",
+                        "min(1140, SceneWindowWidth() - 20)",
                         "680",
                         "\"\"",
                         "\"fruits\"",
@@ -3460,14 +3467,15 @@
                       "parameters": [
                         "",
                         "UiTitle",
-                        "(SceneWindowWidth() - 1140) / 2",
+                        "(SceneWindowWidth() - min(1140, SceneWindowWidth() - 20)) / 2",
                         "40",
-                        "1140",
+                        "min(1140, SceneWindowWidth() - 20)",
                         "\"Owoce Ducha\"",
                         "\"center\"",
                         "\"\"",
                         "\"fruits\"",
                         "\"UI\"",
+                        "52",
                         ""
                       ]
                     }
@@ -3484,14 +3492,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "(SceneWindowWidth() - 1140) / 2",
+                        "(SceneWindowWidth() - min(1140, SceneWindowWidth() - 20)) / 2 + 20",
                         "96",
-                        "1140",
+                        "min(1140, SceneWindowWidth() - 20) - 40",
                         "\"Manna: \" + ToString(Save.manna) + \" · „Ale owoc Ducha jest miłość, wesele, pokój…” (Ga 5,22)\"",
                         "\"center\"",
                         "\"\"",
                         "\"fruits\"",
                         "\"UI\"",
+                        "30",
                         ""
                       ]
                     }
@@ -3549,7 +3558,7 @@
                           "parameters": [
                             "fx",
                             "=",
-                            "(SceneWindowWidth() - 1140) / 2 + 30 + mod(i, 3) * 365"
+                            "(SceneWindowWidth() - min(1140, SceneWindowWidth() - 20)) / 2 + 30 + mod(i, 3) * (((min(1140, SceneWindowWidth() - 20) - 75) / 3) + 8)"
                           ]
                         },
                         {
@@ -3592,7 +3601,7 @@
                                     "UiCard",
                                     "fx",
                                     "fy",
-                                    "350",
+                                    "((min(1140, SceneWindowWidth() - 20) - 75) / 3)",
                                     "160",
                                     "\"\"",
                                     "\"fruits\"",
@@ -3615,12 +3624,13 @@
                                     "UiText",
                                     "fx + 20",
                                     "fy + 12",
-                                    "310",
+                                    "((min(1140, SceneWindowWidth() - 20) - 75) / 3) - 40",
                                     "fruit.name + \"  \" + HolyHoly::PipsText(lvl, fruit.maxLevel)",
                                     "\"left\"",
                                     "\"\"",
                                     "\"fruits\"",
                                     "\"UI\"",
+                                    "36",
                                     ""
                                   ]
                                 }
@@ -3639,12 +3649,13 @@
                                     "UiSmall",
                                     "fx + 20",
                                     "fy + 50",
-                                    "310",
+                                    "((min(1140, SceneWindowWidth() - 20) - 75) / 3) - 40",
                                     "fruit.effect",
                                     "\"left\"",
                                     "\"\"",
                                     "\"fruits\"",
                                     "\"UI\"",
+                                    "50",
                                     ""
                                   ]
                                 }
@@ -3687,7 +3698,7 @@
                                 "UiLabel",
                                 "fx + 20",
                                 "fy + 104",
-                                "310",
+                                "((min(1140, SceneWindowWidth() - 20) - 75) / 3) - 40",
                                 "44",
                                 "\"Przyjmij · \" + ToString(fruit.costs[lvl]) + \" manny\"",
                                 "\"buy\"",
@@ -3733,12 +3744,13 @@
                                 "UiSmall",
                                 "fx + 20",
                                 "fy + 116",
-                                "310",
+                                "((min(1140, SceneWindowWidth() - 20) - 75) / 3) - 40",
                                 "\"Potrzeba \" + ToString(fruit.costs[lvl]) + \" manny\"",
                                 "\"center\"",
                                 "\"\"",
                                 "\"fruits\"",
                                 "\"UI\"",
+                                "30",
                                 ""
                               ]
                             }
@@ -3768,12 +3780,13 @@
                                 "UiSmall",
                                 "fx + 20",
                                 "fy + 116",
-                                "310",
+                                "((min(1140, SceneWindowWidth() - 20) - 75) / 3) - 40",
                                 "\"Owoc dojrzał w pełni\"",
                                 "\"center\"",
                                 "\"\"",
                                 "\"fruits\"",
                                 "\"UI\"",
+                                "30",
                                 ""
                               ]
                             }
@@ -4276,7 +4289,7 @@
             "textG": 0,
             "textR": 0
           },
-          "comment": "Two parts: the lies whose strongholds fell, with the truth and a verse; and the thoughts met on the way, how each one lies, the question that tests it and what it turns into."
+          "comment": "Two parts: the lies that fell silent, with the truth and a verse; and the thoughts met on the way, how each one lies, the question that tests it and what it turns into."
         },
         {
           "type": "BuiltinCommonInstructions::Standard",
@@ -4863,6 +4876,7 @@
                         "\"\"",
                         "\"book\"",
                         "\"UI\"",
+                        "0",
                         ""
                       ]
                     }
@@ -4957,6 +4971,7 @@
                         "\"\"",
                         "\"book\"",
                         "\"UI\"",
+                        "28",
                         ""
                       ]
                     }
@@ -4976,11 +4991,12 @@
                         "(SceneWindowWidth() - 940) / 2 + 60",
                         "150",
                         "820",
-                        "\"Kłamstwo: „\" + HolyHoly::G(Content.chapters[Book].boss.lie) + \"”\"",
+                        "Content.chapters[Book].boss.name + \": „\" + HolyHoly::G(Content.chapters[Book].boss.lie) + \"”\"",
                         "\"left\"",
                         "\"\"",
                         "\"book\"",
                         "\"UI\"",
+                        "84",
                         ""
                       ]
                     }
@@ -5005,6 +5021,7 @@
                         "\"\"",
                         "\"book\"",
                         "\"UI\"",
+                        "170",
                         ""
                       ]
                     }
@@ -5029,6 +5046,7 @@
                         "\"\"",
                         "\"book\"",
                         "\"UI\"",
+                        "190",
                         ""
                       ]
                     }
@@ -5114,11 +5132,12 @@
                     "(SceneWindowWidth() - 940) / 2 + 90",
                     "260",
                     "760",
-                    "\"Księga jest jeszcze pusta. Każda zburzona twierdza zapisze tu kłamstwo, które upadło, i prawdę, która je zastąpiła.\"",
+                    "\"Księga jest jeszcze pusta. Każde kłamstwo, które zamilknie, zapisze się tu razem z prawdą, która je zastąpiła.\"",
                     "\"center\"",
                     "\"\"",
                     "\"book\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5734,6 +5753,7 @@
                         "\"\"",
                         "\"book\"",
                         "\"UI\"",
+                        "0",
                         ""
                       ]
                     }
@@ -5905,6 +5925,7 @@
                             "\"\"",
                             "\"book\"",
                             "\"UI\"",
+                            "40",
                             ""
                           ]
                         }
@@ -5924,11 +5945,12 @@
                             "(SceneWindowWidth() - 940) / 2 + 300",
                             "160",
                             "600",
-                            "\"Szepcze: „\" + HolyHoly::G(Content.enemies[k].thoughts[0]) + \"”\"",
+                            "\"Szepcze: „\" + HolyHoly::G(Content.enemies[k].thoughts[0]) + \"”\" + NewLine() + \"Sygnał: \" + HolyHoly::G(Content.distortions[Content.enemies[k].distortion].signal)",
                             "\"left\"",
                             "\"\"",
                             "\"book\"",
                             "\"UI\"",
+                            "84",
                             ""
                           ]
                         }
@@ -5953,6 +5975,7 @@
                             "\"\"",
                             "\"book\"",
                             "\"UI\"",
+                            "100",
                             ""
                           ]
                         }
@@ -5977,6 +6000,7 @@
                             "\"\"",
                             "\"book\"",
                             "\"UI\"",
+                            "100",
                             ""
                           ]
                         }
@@ -6001,6 +6025,7 @@
                             "\"\"",
                             "\"book\"",
                             "\"UI\"",
+                            "140",
                             ""
                           ]
                         }
@@ -6100,6 +6125,7 @@
                     "\"\"",
                     "\"book\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -6728,6 +6754,7 @@
                         "\"\"",
                         "\"tools\"",
                         "\"UI\"",
+                        "0",
                         ""
                       ]
                     }
@@ -6801,6 +6828,7 @@
                             "\"\"",
                             "\"tools\"",
                             "\"UI\"",
+                            "40",
                             ""
                           ]
                         }
@@ -6825,6 +6853,7 @@
                             "\"\"",
                             "\"tools\"",
                             "\"UI\"",
+                            "56",
                             ""
                           ]
                         }
@@ -6849,6 +6878,7 @@
                             "\"steps\"",
                             "\"tools\"",
                             "\"UI\"",
+                            "0",
                             ""
                           ]
                         }
@@ -6873,6 +6903,7 @@
                             "\"\"",
                             "\"tools\"",
                             "\"UI\"",
+                            "64",
                             ""
                           ]
                         }
@@ -6897,6 +6928,7 @@
                             "\"\"",
                             "\"tools\"",
                             "\"UI\"",
+                            "76",
                             ""
                           ]
                         }
@@ -7021,11 +7053,12 @@
                     "(SceneWindowWidth() - 940) / 2 + 90",
                     "260",
                     "760",
-                    "\"Po każdej zburzonej twierdzy dostaniesz tu jedno prawdziwe narzędzie: sposób radzenia sobie z myślami i uczuciami, sprawdzony w badaniach.\"",
+                    "\"Po każdym rozdziale dostaniesz tu jedno prawdziwe narzędzie: sposób radzenia sobie z myślami i uczuciami, sprawdzony w badaniach.\"",
                     "\"center\"",
                     "\"\"",
                     "\"tools\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -7494,6 +7527,7 @@
                         "\"\"",
                         "\"breath\"",
                         "\"UI\"",
+                        "0",
                         ""
                       ]
                     }
@@ -7579,6 +7613,7 @@
                         "\"breathCue\"",
                         "\"breath\"",
                         "\"UI\"",
+                        "0",
                         ""
                       ]
                     }
@@ -7603,6 +7638,7 @@
                         "\"breathCount\"",
                         "\"breath\"",
                         "\"UI\"",
+                        "0",
                         ""
                       ]
                     }

@@ -103,9 +103,9 @@ export function titleScene() {
     group('Menu', [
       comment('The menu sits on the left; the archangel stands on the right. Every panel sets Ui.top so only its buttons answer. The first "Graj" walks through: who you protect, how to play, the prologue.'),
       ev([begins()], [
-        label('UiTitle', '70', '56', 620, '', { expr: 'Content.title.name' }),
-        label('UiText', '74', '118', 600, '', { expr: 'Content.title.subtitle + ": siedmiu stróżów, jedna historia"' }),
-        label('UiSmall', '74', '160', 560, '', { expr: '"„" + Content.title.motto.text + "” (" + Content.title.motto.ref + ")"' }),
+        label('UiTitle', '70', '56', 620, '', { h: 56, expr: 'Content.title.name' }),
+        label('UiText', '74', '118', 600, '', { h: 36, expr: 'Content.title.subtitle + ": siedmiu stróżów, jedna historia"' }),
+        label('UiSmall', '74', '160', 560, '', { h: 76, expr: '"„" + Content.title.motto.text + "” (" + Content.title.motto.ref + ")"' }),
         button('70', '250', '330', '58', 'Graj', 'play'),
         button('70', '318', '330', '54', 'Kogo strzeżesz', 'profile'),
         button('70', '382', '330', '54', 'Jak grać', 'howto'),
@@ -136,8 +136,8 @@ export function titleScene() {
         ...P('help'),
         box(X(820), '30', '820', 'SceneWindowHeight() - 60', { panel: 'help' }),
         label('UiTitle', X(820), '48', 820, 'Zanim zaczniesz', { align: 'center', panel: 'help' }),
-        label('UiSmall', X(740), '112', 740, '', { panel: 'help', expr: 'Content.story.disclaimer' }),
-        label('UiSmall', X(740), '300', 740, '', { panel: 'help', expr: '"Jeśli przeżywasz kryzys, nie zostawaj z tym sam na sam. Pomoc w Polsce (bezpłatnie):" + NewLine() + NewLine() + Content.story.helplinesText' }),
+        label('UiSmall', X(740), '112', 740, '', { panel: 'help', h: 180, expr: 'Content.story.disclaimer' }),
+        label('UiSmall', X(740), '300', 740, '', { panel: 'help', h: 'SceneWindowHeight() - 420', expr: '"Jeśli przeżywasz kryzys, nie zostawaj z tym sam na sam. Pomoc w Polsce (bezpłatnie):" + NewLine() + NewLine() + Content.story.helplinesText' }),
         button('(SceneWindowWidth() - 240) / 2', 'SceneWindowHeight() - 100', '240', '56', 'Rozumiem', 'helpDone', { panel: 'help' }),
       ]),
       ev([clicked('helpDone')], [setB('Save.settings.seenDisclaimer', true), store(), setS('Ui.top', '=', '""')], [
@@ -148,8 +148,8 @@ export function titleScene() {
         ...P('howto'),
         box(X(860), '40', '860', '640', { panel: 'howto' }),
         label('UiTitle', X(860), '60', 860, 'Jak grać', { align: 'center', panel: 'howto' }),
-        label('UiSmall', X(780), '124', 780, '', { panel: 'howto', expr: 'Content.story.howTo[0] + NewLine() + NewLine() + Content.story.howTo[1] + NewLine() + NewLine() + Content.story.howTo[2] + NewLine() + NewLine() + Content.story.howTo[3] + NewLine() + NewLine() + Content.story.howTo[4]' }),
-        label('UiSmall', X(780), '520', 780, 'Nie ma końca gry: gdy cienie przytłoczą, ktoś poda rękę i wstaniesz. Między falami rozpoznajesz, jak kłamią myśli; po twierdzy uczysz się prawdziwego narzędzia na co dzień.', { panel: 'howto' }),
+        label('UiSmall', X(780), '120', 780, '', { panel: 'howto', h: 400, expr: 'Content.story.howToText' }),
+        label('UiSmall', X(780), '530', 780, 'Nie ma końca gry: gdy cienie przytłoczą, Ktoś poda rękę i wstaniesz. Między etapami zobaczysz, jak kłamie jedna myśl i co jest prawdą; na końcu dostaniesz narzędzie na co dzień.', { panel: 'howto', h: 72 }),
         button('(SceneWindowWidth() - 240) / 2', '610', '240', '56', 'Do dzieła', 'howtoDone', { panel: 'howto' }),
       ]),
       ev([clicked('howtoDone')], [setB('Save.settings.seenHowTo', true), store(), setS('Ui.top', '=', '""')], [

@@ -1,8 +1,10 @@
-// Revelation: after the healing scene, the person does the inner work. A thought record (the
-// situation, the lie, the feeling, the thinking error) asks how to answer the lie: three answers,
-// one distorted, one sugar-coated, one balanced; only the balanced one transforms it. Then the
-// truth and a verse, the skill to take into life (with a challenge for today), the report and
-// the rewards, an archangel who joins, and after the last chapter the finale.
+// Revelation: after the healing scene, the person does the inner work. A worked thought record
+// (the situation, the lie, the feeling, the thinking error with its signal words, the testing
+// question) shows three answers side by side, already named: the distorted one, the sugar-coated
+// one and the balanced one, each with why. Nothing is guessed: the person recognises the balanced
+// answer and takes it. Then the truth and a verse, the skill to take into life (with a challenge
+// for today), the report and the rewards, an archangel who joins, and after the last chapter the
+// finale.
 import { A, C, NOT, OR, ev, group, comment, q, set, setS, setB, is, isS, isB, cmp, cmpS, oisS, ois, oset, osetS, text, keyJust, link, begins, scene, animE, anim, setZ, width, size, tint, opacity, tweenOpacity, tweenWidth, forEachChild, repeat, dt } from './dsl.mjs';
 import { model, cube, particles, instance, v } from './objects.mjs';
 import { button, label, box, closePanel, sfx, clicked, SAVE_KEY, HERO_IDS, breathingPanel, breathingEvents } from './ui.mjs';
@@ -13,8 +15,9 @@ const CH = 'Content.chapters[Run.chapter]';
 const CBT = `${CH}.cbt`;
 const G = t => `HolyHoly::G(${t})`;
 const store = () => A('HolyHoly::StoreSave', q('Save'), q(SAVE_KEY));
-const X0 = 'SceneWindowWidth() * 0.4';
-const TW = 'SceneWindowWidth() * 0.56';
+// the page keeps a readable width (750) on every screen; the people stand to its left
+const X0 = 'min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)';
+const TW = '(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)';
 const ELEVATION = 18;
 
 /** Show the UI of a page step by step: every element starts transparent and fades in at its time. */
@@ -42,45 +45,51 @@ export function revelationScene() {
   ];
   const head = (title, k = 'h') => [
     box(`${X0} - 30`, '24', `${TW} + 50`, 'SceneWindowHeight() - 48', { key: `${k}bg`, panel: 'page' }),
-    label('UiTitle', X0, '40', TW, title, { key: `${k}a`, panel: 'page' }),
+    label('UiTitle', X0, '40', TW, title, { key: `${k}a`, panel: 'page', h: 52 }),
   ];
+  const DIST = `Content.distortions[${G(`${CBT}.distortion`)}]`;
+  // the head of the thought record flows: each line starts under the last one (cy)
   const cbtPage = [
-    ...head('Przemiana myśli', 'c'),
-    label('UiSmall', X0, '100', TW, '', { key: 'c1', panel: 'page', expr: `"Sytuacja: " + ${G(`${CBT}.situation`)}` }),
-    label('UiText', X0, '134', TW, '', { key: 'c2', panel: 'page', expr: `"Myśl: „" + ${G(`${CBT}.thought`)} + "”"` }),
-    label('UiSmall', X0, '204', TW, '', { key: 'c3', panel: 'page', expr: `"Uczucie: " + ${G(`${CBT}.feeling`)} + " · jak kłamie: " + ${G(`Content.distortions[${G(`${CBT}.distortion`)}].name`)}` }),
-    label('UiSmall', X0, '240', TW, '', { key: 'c4', panel: 'page', expr: `"Pytanie: " + ${G(`Content.distortions[${G(`${CBT}.distortion`)}].question`)} + " Jak odpowiesz tej myśli?"` }),
+    ...head('Zapis myśli', 'c'),
+    label('UiSmall', X0, '96', TW, '', { key: 'c1', panel: 'page', h: 50, expr: `"Sytuacja: " + ${G(`${CBT}.situation`)}` }),
+    set('cy', '=', 'UiSmall.Y() + UiSmall.Height() + 2'),
+    label('UiText', X0, 'cy', TW, '', { key: 'c2', panel: 'page', h: 62, expr: `"Myśl: „" + ${G(`${CBT}.thought`)} + "”"` }),
+    set('cy', '=', 'UiText.Y() + UiText.Height() + 2'),
+    label('UiSmall', X0, 'cy', TW, '', { key: 'c3', panel: 'page', h: 50, expr: `"Uczucie: " + ${G(`${CBT}.feeling`)} + ". Jak kłamie: " + ${G(`${DIST}.name`)} + " (" + ${G(`${DIST}.signal`)} + ")."` }),
+    set('cy', '=', 'UiSmall.Y() + UiSmall.Height() + 2'),
+    label('UiSmall', X0, 'cy', TW, '', { key: 'c4', panel: 'page', h: 50, expr: `"Pytanie: " + ${G(`${DIST}.question`)}` }),
+    set('cy', '=', 'UiSmall.Y() + UiSmall.Height() + 8'),
   ];
   const truthPage = [
     ...head('Prawda', 't'),
-    label('UiText', X0, '104', TW, '', { key: 't1', panel: 'page', expr: `"Kłamstwo: „" + ${G(`${CBT}.thought`)} + "”"` }),
-    label('UiText', X0, '200', TW, '', { key: 't2', panel: 'page', expr: G(`${CBT}.truth`) }),
-    label('UiSmall', X0, '360', TW, '', { key: 't3', panel: 'page', expr: `"„" + ${G(`${CBT}.verse.text`)} + "” (" + ${G(`${CBT}.verse.ref`)} + ")"` }),
-    label('UiSmall', X0, '460', TW, '', { key: 't4', panel: 'page', expr: '"Przemienionych myśli w tym rozdziale: " + ToString(Run.reframes) + " · rozeznanych kłamstw: " + ToString(Run.discRight)' }),
+    label('UiText', X0, '104', TW, '', { key: 't1', panel: 'page', h: 90, expr: `"Kłamstwo: „" + ${G(`${CBT}.thought`)} + "”"` }),
+    label('UiText', X0, '200', TW, '', { key: 't2', panel: 'page', h: 150, expr: G(`${CBT}.truth`) }),
+    label('UiSmall', X0, '360', TW, '', { key: 't3', panel: 'page', h: 90, expr: `"„" + ${G(`${CBT}.verse.text`)} + "” (" + ${G(`${CBT}.verse.ref`)} + ")"` }),
+    label('UiSmall', X0, '460', TW, '', { key: 't4', panel: 'page', h: 60, expr: '"Przemienionych myśli: " + ToString(Run.reframes) + " · uciszonych głosów: " + ToString(Run.voices) + " · odnalezionych wspomnień: " + ToString(Run.memories)' }),
     button(`${X0} + ${TW} - 220`, 'SceneWindowHeight() - 100', '220', '56', 'Dalej', 'next', { panel: 'page' }),
   ];
   const toolPage = [
     ...head('Narzędzie na drogę', 'o'),
-    label('UiText', X0, '100', TW, '', { key: 'o1', panel: 'page', expr: `${CH}.tool.name` }),
-    label('UiSmall', X0, '140', TW, '', { key: 'o2', panel: 'page', expr: G(`${CH}.tool.summary`) }),
+    label('UiText', X0, '100', TW, '', { key: 'o1', panel: 'page', h: 36, expr: `${CH}.tool.name` }),
+    label('UiSmall', X0, '140', TW, '', { key: 'o2', panel: 'page', h: 54, expr: G(`${CH}.tool.summary`) }),
     label('UiSmall', X0, '200', TW, '', { key: 'steps', panel: 'page' }),
-    label('UiSmall', X0, '420', TW, '', { key: 'o3', panel: 'page', expr: `"Wyzwanie na dziś: " + ${G(`${CH}.tool.practice`)}` }),
-    label('UiSmall', X0, '490', TW, '', { key: 'o4', panel: 'page', expr: `"Co mówią badania: " + ${CH}.tool.evidence` }),
+    label('UiSmall', X0, '420', TW, '', { key: 'o3', panel: 'page', h: 64, expr: `"Wyzwanie na dziś: " + ${G(`${CH}.tool.practice`)}` }),
+    label('UiSmall', X0, '490', TW, '', { key: 'o4', panel: 'page', h: 'SceneWindowHeight() - 610', expr: `"Co mówią badania: " + ${CH}.tool.evidence` }),
     button(`${X0} + ${TW} - 220`, 'SceneWindowHeight() - 100', '220', '56', 'Dalej', 'next', { panel: 'page' }),
   ];
   const reportPage = [
     ...head('Raport dla Tronu', 'r'),
-    label('UiSmall', X0, '104', TW, '', { key: 'r1', panel: 'page', expr: '"Przemienione myśli: " + ToString(Run.reframes) + NewLine() + "Rozeznane kłamstwa: " + ToString(Run.discRight) + NewLine() + "Najdłuższa seria ciosów: ×" + ToString(Run.bestCombo) + NewLine() + "Najdłuższe czuwanie: " + ToString(round(Run.focusHeld)) + " s" + NewLine() + "Upadki i powstania: " + ToString(Run.falls) + NewLine() + "Poziom: " + ToString(Run.level) + " · czas: " + HolyHoly::Clock(Run.time)' }),
-    label('UiText', X0, '300', TW, '', { key: 'r2', panel: 'page', expr: '"Światło: +" + ToString(round(Run.light)) + "   ·   manna: +" + ToString(Run.manna)' }),
-    label('UiText', X0, '346', TW, '', { key: 'r3', panel: 'page' }),
-    label('UiText', X0, '410', TW, '', { key: 'r4', panel: 'page' }),
+    label('UiSmall', X0, '104', TW, '', { key: 'r1', panel: 'page', h: 200, expr: '"Przemienione myśli: " + ToString(Run.reframes) + " · uciszone głosy: " + ToString(Run.voices) + NewLine() + "Rozpoznane kłamstwa: " + ToString(Run.recognized) + " · odnalezione wspomnienia: " + ToString(Run.memories) + " z 6" + NewLine() + "Serca odzyskane przy źródłach, w słowach prawdy i w oddechu: " + ToString(Run.healed) + NewLine() + "Najdłuższa seria ciosów: ×" + ToString(Run.bestCombo) + " · najdłuższe czuwanie: " + ToString(round(Run.focusHeld)) + " s" + NewLine() + "Upadki i powstania: " + ToString(Run.falls) + NewLine() + "Poziom: " + ToString(Run.level) + " · czas: " + HolyHoly::Clock(Run.time)' }),
+    label('UiText', X0, '310', TW, '', { key: 'r2', panel: 'page', h: 36, expr: '"Światło: +" + ToString(round(Run.light)) + "   ·   manna: +" + ToString(Run.manna)' }),
+    label('UiText', X0, '352', TW, '', { key: 'r3', panel: 'page', h: 36 }),
+    label('UiText', X0, '400', TW, '', { key: 'r4', panel: 'page', h: 100 }),
     button(`${X0} + ${TW} - 240`, 'SceneWindowHeight() - 100', '240', '56', 'Do Drabiny', 'done', { panel: 'page' }),
   ];
   const finalePage = [
     ...head('Święty, Święty, Święty', 'f'),
-    label('UiSmall', X0, '100', TW, '', { key: 'f1', panel: 'page', expr: `${G('Content.story.finale[0]')} + NewLine() + NewLine() + ${G('Content.story.finale[1]')} + NewLine() + NewLine() + ${G('Content.story.finale[2]')}` }),
-    label('UiText', X0, '400', TW, '', { key: 'f2', panel: 'page', expr: G('Content.story.finale[3]') }),
-    label('UiSmall', X0, '500', TW, '', { key: 'f3', panel: 'page', expr: 'Content.story.support.text' }),
+    label('UiSmall', X0, '100', TW, '', { key: 'f1', panel: 'page', h: 290, expr: `${G('Content.story.finale[0]')} + NewLine() + NewLine() + ${G('Content.story.finale[1]')} + NewLine() + NewLine() + ${G('Content.story.finale[2]')}` }),
+    label('UiText', X0, '400', TW, '', { key: 'f2', panel: 'page', h: 96, expr: G('Content.story.finale[3]') }),
+    label('UiSmall', X0, '500', TW, '', { key: 'f3', panel: 'page', h: 'SceneWindowHeight() - 620', expr: 'Content.story.support.text' }),
     button(X0, 'SceneWindowHeight() - 100', '260', '56', '', 'coffee', { panel: 'page', captionExpr: 'Content.story.support.button' }),
     button(`${X0} + ${TW} - 240`, 'SceneWindowHeight() - 100', '240', '56', 'Do Drabiny', 'done', { panel: 'page' }),
   ];
@@ -95,7 +104,6 @@ export function revelationScene() {
         set('Run.manna', '=', '20 + 6 * Run.chapter + floor(Run.light / 40)'),
         setS('Run.unlocked', '=', '""'),
         setS('Ui.top', '=', q('page')),
-        A('HolyHoly::Shuffle', q('Run.order'), '3'),
       ], [
         ev([C('HolyHoly::IsChapterDone', 'Run.chapter')], [setB('Run.firstTime', false)]),
         ev([isS('Run.hero', '=', q('jehudiel'))], [set('Run.manna', '*', '1.25')]),
@@ -124,32 +132,39 @@ export function revelationScene() {
       ev([], [set('T', '+', dt)]),
     ]),
     group('Pages', [
-      comment('Page 1: the thought record and three answers (shuffled: Run.order). Page 2: the truth. Page 3: the tool. Page 4: the report. Page 5: the finale, once, after the last chapter.'),
+      comment('Page 1: the worked thought record, three named answers. Page 2: the truth. Page 3: the tool. Page 4: the report. Page 5: the finale, once, after the last chapter.'),
       ev([isB('Build', true)], [setB('Build', false)], [
         ...closePanel('page'),
         ev([is('Page', '=', '1')], cbtPage, [
-          repeat('3', [], [
-            set('o', '=', 'Run.order[c]'),
-            set('y', '=', '284 + c * 128'),
-            A('HolyHoly::MakePanel', 'UiCard', X0, 'y', TW, '120', q('card'), q('page'), q('UI')),
-          ], [
-            comment('Not chosen yet: the answer and a button. Chosen: what kind of answer it is and why, in its place.'),
-            ev([cmp('Picked[c]', '=', '0')], [
-              label('UiText', `${X0} + 18`, 'y + 12', `${TW} - 230`, '', { panel: 'page', key: 'opt', expr: G(`${CBT}.options[o].text`) }),
-              button(`${X0} + ${TW} - 196`, 'y + 34', '180', '52', 'Odpowiem tak', 'cbt', { arg: 'c', panel: 'page' }),
+          comment('Three answers in order, each already named, with why: the distorted one, the sugar-coated one, then the balanced one, larger, with the button. Each card is drawn behind its lines, sized to them.'),
+          repeat('3', [], [], [
+            ev([cmp('c', '<', '2')], [
+              label('UiSmall', `${X0} + 18`, 'cy + 10', `${TW} - 36`, '', { panel: 'page', keyExpr: '"kind" + ToString(c)', h: 26, expr: `${CBT}.options[c].kindName` }),
+              set('cy0', '=', 'cy'), set('cy', '=', 'UiSmall.Y() + UiSmall.Height()'),
+              label('UiSmall', `${X0} + 18`, 'cy', `${TW} - 36`, '', { panel: 'page', key: 'opt', h: 48, expr: `"„" + ${G(`${CBT}.options[c].text`)} + "”"` }),
+              set('cy', '=', 'UiSmall.Y() + UiSmall.Height()'),
+              label('UiSmall', `${X0} + 18`, 'cy', `${TW} - 36`, '', { panel: 'page', key: 'why', h: 46, expr: G(`${CBT}.options[c].why`) }),
+              A('TextObject::ChangeColor', 'UiSmall', q('190;182;200')), set('cy', '=', 'UiSmall.Y() + UiSmall.Height() + 10'),
+              A('HolyHoly::MakePanel', 'UiCard', X0, 'cy0', TW, 'cy - cy0', q('card'), q('page'), q('UI')),
+              set('cy', '+', '8'),
             ]),
-            ev([cmp('Picked[c]', '=', '1')], [
-              label('UiSmall', `${X0} + 18`, 'y + 10', `${TW} - 36`, '', { panel: 'page', key: 'kind' }),
-              label('UiSmall', `${X0} + 18`, 'y + 38', `${TW} - 36`, '', { panel: 'page', key: 'why', expr: G(`${CBT}.options[o].why`) }),
-            ], [
-              ev([oisS('UiSmall', 'Key', '=', q('kind')), ois('UiSmall', 'Index', '=', '0'), isS(`${CBT}.options[o].kind`, '=', q('balanced'))], [text('UiSmall', q('Zrównoważona ✓: prawdziwa i pomocna')), A('TextObject::ChangeColor', 'UiSmall', q('150;235;160'))]),
-              ev([oisS('UiSmall', 'Key', '=', q('kind')), ois('UiSmall', 'Index', '=', '0'), isS(`${CBT}.options[o].kind`, '=', q('distorted'))], [text('UiSmall', q('Zniekształcona')), A('TextObject::ChangeColor', 'UiSmall', q('255;150;140'))]),
-              ev([oisS('UiSmall', 'Key', '=', q('kind')), ois('UiSmall', 'Index', '=', '0'), isS(`${CBT}.options[o].kind`, '=', q('sugar'))], [text('UiSmall', q('Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem')), A('TextObject::ChangeColor', 'UiSmall', q('255;170;220'))]),
-              ev([oisS('UiSmall', 'Key', '=', q('kind'))], [oset('UiSmall', 'Index', '=', '1')]),
+            ev([cmp('c', '=', '2')], [
+              label('UiSmall', `${X0} + 18`, 'cy + 10', `${TW} - 36`, '', { panel: 'page', keyExpr: '"kind" + ToString(c)', h: 26, expr: `${CBT}.options[c].kindName` }),
+              set('cy0', '=', 'cy'), set('cy', '=', 'UiSmall.Y() + UiSmall.Height()'),
+              label('UiText', `${X0} + 18`, 'cy', `${TW} - 36`, '', { panel: 'page', key: 'opt', h: 66, expr: `"„" + ${G(`${CBT}.options[c].text`)} + "”"` }),
+              set('cy', '=', 'UiText.Y() + UiText.Height()'),
+              label('UiSmall', `${X0} + 18`, 'cy', `${TW} - 36`, '', { panel: 'page', key: 'why', h: 'max(24, SceneWindowHeight() - 104 - cy)', expr: G(`${CBT}.options[c].why`) }),
+              set('cy', '=', 'UiSmall.Y() + UiSmall.Height() + 10'),
+              A('HolyHoly::MakePanel', 'UiCard', X0, 'cy0', TW, 'cy - cy0', q('chosen'), q('page'), q('UI')),
             ]),
-          ], { index: 'c', vars: { c: 0, o: 0, y: 0 } }),
-          ev([isB(`${CBT}.helplines`, true)], [label('UiSmall', X0, 'SceneWindowHeight() - 52', TW, '', { panel: 'page', key: 'help', expr: '"Jeśli ta myśl jest ci bliska, nie zostawaj z nią sam: " + Content.story.helplinesShort + " (całą dobę)"' })]),
-        ]),
+          ], { index: 'c', vars: { c: 0, cy0: 0 } }),
+          ev([oisS('UiCard', 'Key', '=', q('chosen'))], [tint('UiCard', q('255;214;120'))]),
+          ev([oisS('UiSmall', 'Key', '=', q('kind0'))], [A('TextObject::ChangeColor', 'UiSmall', q('255;150;140'))]),
+          ev([oisS('UiSmall', 'Key', '=', q('kind1'))], [A('TextObject::ChangeColor', 'UiSmall', q('255;170;220'))]),
+          ev([oisS('UiSmall', 'Key', '=', q('kind2'))], [A('TextObject::ChangeColor', 'UiSmall', q('150;235;160'))]),
+          ev([], [button(`${X0} + ${TW} - 250`, 'SceneWindowHeight() - 90', '250', '56', 'Tak odpowiem', 'cbtTake', { panel: 'page' })]),
+          ev([isB(`${CBT}.helplines`, true)], [label('UiSmall', X0, 'SceneWindowHeight() - 90', `${TW} - 270`, '', { panel: 'page', key: 'help', h: 60, expr: '"Jeśli ta myśl jest ci bliska, nie zostawaj z nią sam: " + Content.story.helplinesShort + " (całą dobę)"' })]),
+        ], { vars: { cy: 0 } }),
         ev([is('Page', '=', '2')], truthPage),
         ev([is('Page', '=', '3')], toolPage, [
           ev([isB(`${CH}.tool.breathing`, true)], [button(X0, 'SceneWindowHeight() - 100', '240', '56', 'Ćwicz teraz', 'breathe', { panel: 'page' })]),
@@ -163,11 +178,11 @@ export function revelationScene() {
           size('UiBar', '2', '5'), tint('UiBar', q('255;80;70')), A('SetZOrder', 'UiBar', '=', '300'), opacity('UiBar', '0'),
         ]),
       ]),
-      ev([begins()], [setB('Build', true), A('ClearVariableChildren', 'Picked')], [ev([], [A('PushNumber', 'Picked', '0'), A('PushNumber', 'Picked', '0'), A('PushNumber', 'Picked', '0')])]),
-      ev([is('Page', '=', '1'), clicked('cbt')], [set('Picked[Ui.arg]', '=', '1'), setB('Build', true), set('o', '=', 'Run.order[Ui.arg]')], [
-        ev([isS(`${CBT}.options[o].kind`, '=', q('balanced'))], [sfx('revelation', '2'), set('Wait', '=', '2.2')]),
-        ev([NOT(isS(`${CBT}.options[o].kind`, '=', q('balanced')))], [sfx('weaken')]),
-      ], { vars: { o: 0 } }),
+      ev([begins()], [setB('Build', true)]),
+      comment('The person takes the balanced answer: its card glows, and the truth follows.'),
+      ev([is('Page', '=', '1'), clicked('cbtTake'), cmp('Wait', '<=', '0')], [sfx('revelation', '2'), set('Wait', '=', '1.6')], [
+        ev([oisS('UiCard', 'Key', '=', q('chosen'))], [tint('UiCard', q('255;246;200'))]),
+      ]),
       ev([cmp('Wait', '>', '0')], [set('Wait', '-', dt)], [ev([cmp('Wait', '<=', '0')], [set('Page', '=', '2'), set('T', '=', '0'), setB('Build', true)])]),
       comment('Page 2: the lie is crossed out, then the truth appears.'),
       ev([is('Page', '=', '2')], [], [
@@ -223,7 +238,7 @@ export function revelationScene() {
     objects,
     instances,
     events,
-    variables: [v.num('Page', 1), v.num('T'), v.bool('Build'), v.array('Picked', [{ type: 'number', value: 0 }]), v.num('Wait'), v.bool('Breathing'), v.num('BreathT')],
+    variables: [v.num('Page', 1), v.num('T'), v.bool('Build'), v.num('Wait'), v.bool('Breathing'), v.num('BreathT')],
     groups: [['Heroes', HERO_IDS.map(id => `Hero_${id}`)], ['People', ['Person_m', 'Person_f']]],
   };
 }

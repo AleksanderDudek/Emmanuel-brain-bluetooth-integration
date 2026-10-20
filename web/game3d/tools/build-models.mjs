@@ -2,8 +2,8 @@
 /**
  * Builds the low-poly 3D models of HolyHolyHoly 3D (project/assets/models/*.glb) from code: the
  * props of the arenas, the spheres of the Ladder, the gifts that fly (shields, flames, the dove,
- * fire from heaven), pickups and the stronghold's chains. The figures (archangels, shadows,
- * strongholds, Christ, the people) are paintings on billboards: see build-billboards.mjs.
+ * fire from heaven), pickups and the chains of the lies. The figures (archangels, shadows,
+ * the lies personified, Christ, the people) are paintings on billboards: see build-billboards.mjs.
  *
  * Models are authored in GDevelop's convention (Z up, facing +X), so their objects keep
  * rotation 0/0/0.
@@ -135,7 +135,7 @@ const M = {
   chain: material('Chain', 0x4a4250, { emissive: 0x6a2020, glow: 0.4, roughness: 0.5, metalness: 0.5, flat: true }),
 };
 
-// ─── chains of the strongholds ──────────────────────────────────────────────────────────────────
+// ─── chains of the lies ─────────────────────────────────────────────────────────────────────────────
 
 function chainPylon() {
   const stone = [place(cyl(0.12, 0.24, 1.3, 4), { at: [0, 0, 0.65], rot: [0, 0, 45] }), place(cone(0.13, 0.25, 4), { at: [0, 0, 1.42], rot: [0, 0, 45] })];

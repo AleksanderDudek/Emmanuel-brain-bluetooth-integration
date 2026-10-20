@@ -37,46 +37,50 @@ export function ladderScene() {
   const [selX, selY] = node('Sel');
   const card = [
     box('24', 'SceneWindowHeight() - 330', '700', '310', { panel: '', key: 'card' }),
-    label('UiSmall', '56', 'SceneWindowHeight() - 312', 640, '', { key: 'place' }),
-    label('UiTitle', '54', 'SceneWindowHeight() - 286', 640, '', { key: 'title' }),
-    label('UiSmall', '56', 'SceneWindowHeight() - 228', 640, '', { key: 'fact' }),
-    label('UiText', '56', 'SceneWindowHeight() - 150', 640, '', { key: 'lie' }),
+    label('UiSmall', '56', 'SceneWindowHeight() - 314', 640, '', { key: 'place', h: 26 }),
+    label('UiTitle', '54', 'SceneWindowHeight() - 288', 640, '', { key: 'title', h: 54 }),
+    label('UiSmall', '56', 'SceneWindowHeight() - 230', 640, '', { key: 'fact', h: 78 }),
+    label('UiText', '56', 'SceneWindowHeight() - 148', 640, '', { key: 'lie', h: 62 }),
     button('56', 'SceneWindowHeight() - 78', '64', '50', '◀', 'prev'),
     button('128', 'SceneWindowHeight() - 78', '64', '50', '▶', 'next'),
-    label('UiSmall', '206', 'SceneWindowHeight() - 68', 290, '', { key: 'status' }),
+    label('UiSmall', '206', 'SceneWindowHeight() - 72', 290, '', { key: 'status', h: 48 }),
     button('500', 'SceneWindowHeight() - 82', '200', '58', 'Wejdź', 'enter'),
   ];
   const topBar = [
     box('24', '16', '520', '96', { key: 'topbar' }),
-    label('UiText', '50', '26', 480, '', { key: 'rank' }),
-    label('UiSmall', '50', '68', 480, '', { key: 'progress' }),
-    button('SceneWindowWidth() - 860', '28', '200', '54', 'Owoce Ducha', 'fruits'),
-    button('SceneWindowWidth() - 650', '28', '210', '54', 'Księga Prawdy', 'book'),
-    button('SceneWindowWidth() - 430', '28', '200', '54', 'Narzędzia', 'tools'),
-    button('SceneWindowWidth() - 220', '28', '196', '54', 'Menu', 'menu'),
+    label('UiText', '50', '26', 480, '', { key: 'rank', h: 36 }),
+    label('UiSmall', '50', '68', 480, '', { key: 'progress', h: 36 }),
+    // a column on the right: it fits next to the rank on any screen, 16:9, 16:10 or 4:3
+    button('SceneWindowWidth() - 244', '20', '220', '52', 'Owoce Ducha', 'fruits'),
+    button('SceneWindowWidth() - 244', '80', '220', '52', 'Księga Prawdy', 'book'),
+    button('SceneWindowWidth() - 244', '140', '220', '52', 'Narzędzia', 'tools'),
+    button('SceneWindowWidth() - 244', '200', '220', '52', 'Menu', 'menu'),
   ];
 
   // Fruits of the Spirit: nine cards in a 3×3 grid
-  const fx = '(SceneWindowWidth() - 1140) / 2';
+  // the grid narrows with the screen: panel FW wide, cards FC wide (16:10, 4:3)
+  const FW = 'min(1140, SceneWindowWidth() - 20)';
+  const FC = `((${FW} - 75) / 3)`;
+  const fx = `(SceneWindowWidth() - ${FW}) / 2`;
   const fruitCard = [
     ev([], [
-      set('fx', '=', `${fx} + 30 + mod(i, 3) * 365`),
+      set('fx', '=', `${fx} + 30 + mod(i, 3) * (${FC} + 8)`),
       set('fy', '=', '140 + floor(i / 3) * 166'),
       set('lvl', '=', 'Save.fruits[fruit.id]'),
     ], [
       ev([], [
-        box('fx', 'fy', '350', '160', { obj: 'UiCard', panel: 'fruits' }),
-        label('UiText', 'fx + 20', 'fy + 12', 310, '', { panel: 'fruits', expr: 'fruit.name + "  " + HolyHoly::PipsText(lvl, fruit.maxLevel)' }),
-        label('UiSmall', 'fx + 20', 'fy + 50', 310, '', { panel: 'fruits', expr: 'fruit.effect' }),
+        box('fx', 'fy', FC, '160', { obj: 'UiCard', panel: 'fruits' }),
+        label('UiText', 'fx + 20', 'fy + 12', `${FC} - 40`, '', { panel: 'fruits', h: 36, expr: 'fruit.name + "  " + HolyHoly::PipsText(lvl, fruit.maxLevel)' }),
+        label('UiSmall', 'fx + 20', 'fy + 50', `${FC} - 40`, '', { panel: 'fruits', h: 50, expr: 'fruit.effect' }),
       ]),
       ev([cmp('lvl', '<', 'fruit.maxLevel'), cmp('Save.manna', '>=', 'fruit.costs[lvl]')], [
-        button('fx + 20', 'fy + 104', '310', '44', '', 'buy', { arg: 'i', panel: 'fruits', captionExpr: '"Przyjmij · " + ToString(fruit.costs[lvl]) + " manny"' }),
+        button('fx + 20', 'fy + 104', `${FC} - 40`, '44', '', 'buy', { arg: 'i', panel: 'fruits', captionExpr: '"Przyjmij · " + ToString(fruit.costs[lvl]) + " manny"' }),
       ]),
       ev([cmp('lvl', '<', 'fruit.maxLevel'), cmp('Save.manna', '<', 'fruit.costs[lvl]')], [
-        label('UiSmall', 'fx + 20', 'fy + 116', 310, '', { panel: 'fruits', align: 'center', expr: '"Potrzeba " + ToString(fruit.costs[lvl]) + " manny"' }),
+        label('UiSmall', 'fx + 20', 'fy + 116', `${FC} - 40`, '', { panel: 'fruits', align: 'center', h: 30, expr: '"Potrzeba " + ToString(fruit.costs[lvl]) + " manny"' }),
       ]),
       ev([cmp('lvl', '>=', 'fruit.maxLevel')], [
-        label('UiSmall', 'fx + 20', 'fy + 116', 310, 'Owoc dojrzał w pełni', { panel: 'fruits', align: 'center' }),
+        label('UiSmall', 'fx + 20', 'fy + 116', `${FC} - 40`, 'Owoc dojrzał w pełni', { panel: 'fruits', align: 'center', h: 30 }),
       ]),
     ]),
     ev([], [set('i', '+', '1')]),
@@ -153,8 +157,8 @@ export function ladderScene() {
       ev([oisS('UiSmall', 'Key', '=', q('place'))], [text('UiSmall', `"Szczebel " + ToString(Sel + 1) + " · " + ToUpperCase(${G(`${CH}.place`)})`)]),
       ev([oisS('UiTitle', 'Key', '=', q('title'))], [text('UiTitle', `${CH}.title + " · " + ${G(`${CH}.theme`)}`)]),
       ev([oisS('UiSmall', 'Key', '=', q('fact'))], [text('UiSmall', G(`${CH}.fact`))]),
-      ev([oisS('UiText', 'Key', '=', q('lie'))], [text('UiText', `"Kłamstwo: „" + ${G(`${CH}.boss.lie`)} + "”"`)]),
-      ev([oisS('UiSmall', 'Key', '=', q('status')), C('HolyHoly::IsChapterDone', 'Sel')], [text('UiSmall', q('Twierdza zburzona ✓'))]),
+      ev([oisS('UiText', 'Key', '=', q('lie'))], [text('UiText', `${CH}.boss.name + ": „" + ${G(`${CH}.boss.lie`)} + "”"`)]),
+      ev([oisS('UiSmall', 'Key', '=', q('status')), C('HolyHoly::IsChapterDone', 'Sel')], [text('UiSmall', `${CH}.boss.name + " milczy ✓"`)]),
       ev([oisS('UiSmall', 'Key', '=', q('status')), NOT(C('HolyHoly::IsChapterDone', 'Sel')), C('HolyHoly::IsChapterOpen', 'Sel')], [text('UiSmall', q('Otwarty. Wejdź!'))]),
       ev([oisS('UiSmall', 'Key', '=', q('status')), NOT(C('HolyHoly::IsChapterOpen', 'Sel'))], [text('UiSmall', `"Najpierw: " + ${CH}.unlockedByTitle`)]),
       ev([oisS('UiButton', 'Action', '=', q('enter')), NOT(C('HolyHoly::IsChapterOpen', 'Sel'))], [tint('UiButton', q('120;112;130'))]),
@@ -169,9 +173,9 @@ export function ladderScene() {
       ev([isS('Reopen', '!=', '""')], [setS('Ui.clicked', '=', 'Reopen'), setS('Reopen', '=', '""')]),
       ev([clicked('fruits')], [...P('fruits')], [
         ev([], [
-          box('(SceneWindowWidth() - 1140) / 2', '24', '1140', '680', { panel: 'fruits' }),
-          label('UiTitle', '(SceneWindowWidth() - 1140) / 2', '40', 1140, 'Owoce Ducha', { panel: 'fruits', align: 'center' }),
-          label('UiSmall', '(SceneWindowWidth() - 1140) / 2', '96', 1140, '', { panel: 'fruits', align: 'center', expr: '"Manna: " + ToString(Save.manna) + " · „Ale owoc Ducha jest miłość, wesele, pokój…” (Ga 5,22)"' }),
+          box(fx, '24', FW, '680', { panel: 'fruits' }),
+          label('UiTitle', fx, '40', FW, 'Owoce Ducha', { panel: 'fruits', align: 'center', h: 52 }),
+          label('UiSmall', `${fx} + 20`, '96', `${FW} - 40`, '', { panel: 'fruits', align: 'center', h: 30, expr: '"Manna: " + ToString(Save.manna) + " · „Ale owoc Ducha jest miłość, wesele, pokój…” (Ga 5,22)"' }),
           button('(SceneWindowWidth() - 220) / 2', '636', '220', '52', 'Zamknij', 'close', { panel: 'fruits' }),
         ]),
         ev([], [], [forEachChild('Content.fruits', 'fruit', '', [], [], fruitCard)], { vars: { i: 0, fx: 0, fy: 0, lvl: 0, fruit: { id: '', name: '', effect: '', maxLevel: 0, costs: [] } } }),
@@ -185,7 +189,7 @@ export function ladderScene() {
       ]),
     ]),
     group('Book of Truth', [
-      comment('Two parts: the lies whose strongholds fell, with the truth and a verse; and the thoughts met on the way, how each one lies, the question that tests it and what it turns into.'),
+      comment('Two parts: the lies that fell silent, with the truth and a verse; and the thoughts met on the way, how each one lies, the question that tests it and what it turns into.'),
       ev([clicked('book')], [...P('book'), set('Book', '=', '-1'), set('BookStep', '=', '1'), setS('Ui.clicked', '=', q('bookMove'))]),
       ev([clicked('bookPrev')], [set('BookStep', '=', '-1'), setS('Ui.clicked', '=', q('bookMove'))]),
       ev([clicked('bookNext')], [set('BookStep', '=', '1'), setS('Ui.clicked', '=', q('bookMove'))]),
@@ -200,15 +204,15 @@ export function ladderScene() {
           button(`${BX} + 480`, '626', '170', '50', 'Zamknij', 'close', { panel: 'book' }),
         ]),
         ev([C('HolyHoly::IsChapterDone', 'Book')], [
-          label('UiSmall', `${BX} + 60`, '114', 820, '', { panel: 'book', align: 'center', expr: '"Szczebel " + ToString(Book + 1) + " · " + Content.chapters[Book].title' }),
-          label('UiText', `${BX} + 60`, '150', 820, '', { panel: 'book', expr: '"Kłamstwo: „" + HolyHoly::G(Content.chapters[Book].boss.lie) + "”"' }),
-          label('UiText', `${BX} + 60`, '240', 820, '', { panel: 'book', expr: '"Prawda: " + HolyHoly::G(Content.chapters[Book].cbt.truth)' }),
-          label('UiSmall', `${BX} + 60`, '420', 820, '', { panel: 'book', expr: '"„" + HolyHoly::G(Content.chapters[Book].cbt.verse.text) + "” (" + HolyHoly::G(Content.chapters[Book].cbt.verse.ref) + ")"' }),
+          label('UiSmall', `${BX} + 60`, '114', 820, '', { panel: 'book', align: 'center', h: 28, expr: '"Szczebel " + ToString(Book + 1) + " · " + Content.chapters[Book].title' }),
+          label('UiText', `${BX} + 60`, '150', 820, '', { panel: 'book', h: 84, expr: 'Content.chapters[Book].boss.name + ": „" + HolyHoly::G(Content.chapters[Book].boss.lie) + "”"' }),
+          label('UiText', `${BX} + 60`, '240', 820, '', { panel: 'book', h: 170, expr: '"Prawda: " + HolyHoly::G(Content.chapters[Book].cbt.truth)' }),
+          label('UiSmall', `${BX} + 60`, '420', 820, '', { panel: 'book', h: 190, expr: '"„" + HolyHoly::G(Content.chapters[Book].cbt.verse.text) + "” (" + HolyHoly::G(Content.chapters[Book].cbt.verse.ref) + ")"' }),
           button(`${BX} + 40`, '626', '90', '50', '◀', 'bookPrev', { panel: 'book' }),
           button(`${BX} + 810`, '626', '90', '50', '▶', 'bookNext', { panel: 'book' }),
         ]),
         ev([NOT(C('HolyHoly::IsChapterDone', 'Book'))], [
-          label('UiText', `${BX} + 90`, '260', 760, 'Księga jest jeszcze pusta. Każda zburzona twierdza zapisze tu kłamstwo, które upadło, i prawdę, która je zastąpiła.', { panel: 'book', align: 'center' }),
+          label('UiText', `${BX} + 90`, '260', 760, 'Księga jest jeszcze pusta. Każde kłamstwo, które zamilknie, zapisze się tu razem z prawdą, która je zastąpiła.', { panel: 'book', align: 'center' }),
         ]),
       ]),
       comment('Thoughts: every shadow-thought seen at least once, with its painting.'),
@@ -228,11 +232,11 @@ export function ladderScene() {
         ev([C('BooleanVariable', 'Save.seen[Content.enemyOrder[Page]]', 'True')], [setS('k', '=', 'Content.enemyOrder[Page]')], [
           ev([], [
             A('Create', 'UiArt', `${BX} + 170`, '330', q('UI')), animE('UiArt', '"enemy-" + k'), size('UiArt', '200', '292'), osetS('UiArt', 'Panel', '=', q('book')), A('SetZOrder', 'UiArt', '=', '280'),
-            label('UiText', `${BX} + 300`, '116', 600, '', { panel: 'book', expr: 'Content.enemies[k].name + " · " + HolyHoly::G(Content.enemies[k].distortionName)' }),
-            label('UiSmall', `${BX} + 300`, '160', 600, '', { panel: 'book', expr: '"Szepcze: „" + HolyHoly::G(Content.enemies[k].thoughts[0]) + "”"' }),
-            label('UiSmall', `${BX} + 300`, '250', 600, '', { panel: 'book', expr: '"Pytanie, które ją sprawdza: " + HolyHoly::G(Content.distortions[Content.enemies[k].distortion].question)' }),
-            label('UiText', `${BX} + 300`, '360', 600, '', { panel: 'book', expr: '"Prawdziwiej: „" + HolyHoly::G(Content.enemies[k].reframes[0]) + "”"' }),
-            label('UiSmall', `${BX} + 300`, '470', 600, '', { panel: 'book', expr: '"Anioł mówi: " + HolyHoly::G(Content.enemies[k].angel[0])' }),
+            label('UiText', `${BX} + 300`, '116', 600, '', { panel: 'book', h: 40, expr: 'Content.enemies[k].name + " · " + HolyHoly::G(Content.enemies[k].distortionName)' }),
+            label('UiSmall', `${BX} + 300`, '160', 600, '', { panel: 'book', h: 84, expr: '"Szepcze: „" + HolyHoly::G(Content.enemies[k].thoughts[0]) + "”" + NewLine() + "Sygnał: " + HolyHoly::G(Content.distortions[Content.enemies[k].distortion].signal)' }),
+            label('UiSmall', `${BX} + 300`, '250', 600, '', { panel: 'book', h: 100, expr: '"Pytanie, które ją sprawdza: " + HolyHoly::G(Content.distortions[Content.enemies[k].distortion].question)' }),
+            label('UiText', `${BX} + 300`, '360', 600, '', { panel: 'book', h: 100, expr: '"Prawdziwiej: „" + HolyHoly::G(Content.enemies[k].reframes[0]) + "”"' }),
+            label('UiSmall', `${BX} + 300`, '470', 600, '', { panel: 'book', h: 140, expr: '"Anioł mówi: " + HolyHoly::G(Content.enemies[k].angel[0])' }),
             button(`${BX} + 40`, '626', '90', '50', '◀', 'thoughtPrev', { panel: 'book' }),
             button(`${BX} + 810`, '626', '90', '50', '▶', 'thoughtNext', { panel: 'book' }),
           ]),
@@ -258,18 +262,18 @@ export function ladderScene() {
         ]),
         ev([C('BooleanVariable', 'Save.tools[Content.chapters[Tool].tool.id]', 'True')], [], [
           ev([], [
-            label('UiText', `${BX} + 60`, '114', 820, '', { panel: 'tools', align: 'center', expr: 'Content.chapters[Tool].tool.name + " · z rozdziału „" + Content.chapters[Tool].title + "”"' }),
-            label('UiSmall', `${BX} + 60`, '156', 820, '', { panel: 'tools', align: 'center', expr: 'HolyHoly::G(Content.chapters[Tool].tool.summary)' }),
+            label('UiText', `${BX} + 60`, '114', 820, '', { panel: 'tools', align: 'center', h: 40, expr: 'Content.chapters[Tool].tool.name + " · z rozdziału „" + Content.chapters[Tool].title + "”"' }),
+            label('UiSmall', `${BX} + 60`, '156', 820, '', { panel: 'tools', align: 'center', h: 56, expr: 'HolyHoly::G(Content.chapters[Tool].tool.summary)' }),
             label('UiSmall', `${BX} + 80`, '220', 780, '', { panel: 'tools', key: 'steps' }),
-            label('UiSmall', `${BX} + 80`, '470', 780, '', { panel: 'tools', expr: '"Wyzwanie na dziś: " + HolyHoly::G(Content.chapters[Tool].tool.practice)' }),
-            label('UiSmall', `${BX} + 80`, '540', 780, '', { panel: 'tools', expr: '"Co mówią badania: " + Content.chapters[Tool].tool.evidence' }),
+            label('UiSmall', `${BX} + 80`, '470', 780, '', { panel: 'tools', h: 64, expr: '"Wyzwanie na dziś: " + HolyHoly::G(Content.chapters[Tool].tool.practice)' }),
+            label('UiSmall', `${BX} + 80`, '540', 780, '', { panel: 'tools', h: 76, expr: '"Co mówią badania: " + Content.chapters[Tool].tool.evidence' }),
             button(`${BX} + 40`, '626', '90', '50', '◀', 'toolPrev', { panel: 'tools' }),
             button(`${BX} + 810`, '626', '90', '50', '▶', 'toolNext', { panel: 'tools' }),
           ]),
           ev([isB('Content.chapters[Tool].tool.breathing', true)], [button(`${BX} + 585`, '626', '200', '50', 'Ćwicz teraz', 'breathe', { panel: 'tools' })]),
         ]),
         ev([NOT(C('BooleanVariable', 'Save.tools[Content.chapters[Tool].tool.id]', 'True'))], [
-          label('UiText', `${BX} + 90`, '260', 760, 'Po każdej zburzonej twierdzy dostaniesz tu jedno prawdziwe narzędzie: sposób radzenia sobie z myślami i uczuciami, sprawdzony w badaniach.', { panel: 'tools', align: 'center' }),
+          label('UiText', `${BX} + 90`, '260', 760, 'Po każdym rozdziale dostaniesz tu jedno prawdziwe narzędzie: sposób radzenia sobie z myślami i uczuciami, sprawdzony w badaniach.', { panel: 'tools', align: 'center' }),
         ]),
       ]),
       ev([oisS('UiSmall', 'Key', '=', q('steps'))], [text('UiSmall', '""')], [

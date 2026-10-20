@@ -197,7 +197,7 @@ export async function exportGame(project, outDir) {
   await writeFile(index, html
     .replace(/\s*<script src="pixi-renderers\/draco\/gltf\/draco_decoder\.wasm[^"]*"[^>]*><\/script>/g, '')
     .replace(/<html[^>]*>/, '<html lang="pl">')
-    .replace('</head>', `    <title>${project.getName()}</title>\n    <link rel="icon" type="image/png" href="favicon.png">\n    <meta name="description" content="HolyHolyHoly 3D: anioł stróż rozbija traumy, zamienia je w prawdę i burzy twierdze kłamstw.">\n  </head>`));
+    .replace('</head>', `    <title>${project.getName()}</title>\n    <link rel="icon" type="image/png" href="favicon.png">\n    <meta name="description" content="HolyHolyHoly 3D: anioł stróż rozbija traumy, zamienia je w prawdę i ucisza kłamstwa.">\n  </head>`));
   return diagnostics(project);
 }
 

@@ -14,13 +14,16 @@ export const SAVE_KEY = 'holyholyholy3d.save.v2';
 
 /** Balance in one place (seconds, GDevelop units, multipliers). */
 export const TUNING = {
-  arenaRadius: 1500, playerSpeed: 330, baseHearts: 5, grace: 1.4, stillDelay: 0.18,
-  shotDamage: 12, shotCooldown: 0.42, shotRange: 620, shotSpeed: 1000,
+  arenaRadius: 3200, camZ: 1180, playerSpeed: 340, baseHearts: 5, grace: 1.4, stillDelay: 0.18,
+  shotDamage: 12, shotCooldown: 0.42, shotRange: 700, shotSpeed: 1000,
   punchDamage: 30, punchReach: 190, punchCooldown: 0.16, missCooldown: 0.45, comboWindow: 1.1,
   prayerSeconds: 45, prayerPerKill: 1.6, prayerPerStrike: 0.6,
-  magnet: 210, shardSpeed: 900,
-  waveSeconds: 55, waves: 3, spawnInterval: 1.45, spawnMin: 0.4, maxAlive: 60,
-  traumaSpeed: 70, traumaHpScale: 1.0, chapterHp: 0.1, chapterSpeed: 0.02, chapterSpawn: 0.015, waveHp: 0.15, eliteHp: 4, eliteValue: 6,
+  magnet: 250, shardSpeed: 900,
+  stageSeconds: 60, spawnInterval: 1.25, spawnMin: 0.38, spawnNear: 1150, spawnFar: 1350, maxAlive: 70,
+  traumaSpeed: 80, traumaHpScale: 1.0, chapterHp: 0.1, chapterSpeed: 0.02, chapterSpawn: 0.015, stageHp: 0.15, eliteHp: 4, eliteValue: 6,
+  voiceGap: 24, voiceHp: 3.5, voiceValue: 5,
+  springs: 3, springTick: 2, springWater: 2, springRefill: 35, springRadius: 150,
+  breathSeconds: 5.5, breathCooldown: 12, memoryReach: 150,
   xpFirst: 5, xpGrowth: 1.22, xpAdd: 2,
   bossHpScale: 6, bossArrowSpeed: 300, praiseSeconds: 7, affirmGap: 0.45,
 };
@@ -44,14 +47,15 @@ export function globalVariables() {
     ]),
     v.struct('Run', [
       v.num('chapter'), v.num('light'), v.num('destroyed'), v.num('bestCombo'), v.num('falls'), v.num('focusHeld'), v.num('level', 1), v.num('time'), v.num('manna'),
-      v.str('oldRank'), v.str('newRank'), v.bool('firstTime'), v.str('hero', 'uriel'), v.bool('trial'), v.num('reframes'), v.num('discRight'), v.str('unlocked'),
+      v.str('oldRank'), v.str('newRank'), v.bool('firstTime'), v.str('hero', 'uriel'), v.bool('trial'), v.num('reframes'), v.num('recognized'), v.str('unlocked'),
+      v.num('stage'), v.num('memories'), v.num('voices'), v.num('healed'),
       v.str('story'), v.str('next'), v.bool('skipped'),
       v.struct('gifts', SKILL_IDS.map(id => v.num(id))),
       v.struct('evo', SKILL_IDS.map(id => v.bool(id))),
-      v.array('weapons'), v.array('virtues'), v.array('order'),
+      v.array('weapons'), v.array('virtues'),
       v.array('choices', [{ type: 'structure', children: [v.str('id'), v.bool('evolve')] }]),
       v.array('lines', [{ type: 'structure', children: [v.str('who'), v.str('text'), v.str('quote'), v.str('ref'), v.str('panel')] }]),
-      v.struct('disc', [v.str('kind'), v.str('name'), v.str('thought'), v.str('answer'), v.str('answerName'), v.str('question'), v.array('options'), v.array('names')]),
+      v.struct('voice', [v.num('index'), v.str('kind'), v.str('says'), v.str('pattern'), v.str('patternName'), v.str('signal'), v.str('question'), v.str('no'), v.str('yes')]),
     ]),
     v.struct('Tuning', Object.entries(TUNING).map(([k, val]) => v.num(k, val))),
     v.struct('Ui', [v.str('clicked'), v.num('arg'), v.str('top'), v.num('lastWidth'), v.bool('touch')]),
@@ -74,7 +78,7 @@ export function globalObjects() {
     sprite('UiIcon', [
       ['heart', 'assets/ui/heart.png', 96], ['heartEmpty', 'assets/ui/heart-empty.png', 96], ['flame', 'assets/ui/flame.png', 96],
       ['flameEmpty', 'assets/ui/flame-empty.png', 96], ['light', 'assets/ui/light.png', 64], ['manna', 'assets/ui/manna.png', 64],
-      ['rotate', 'assets/ui/rotate-device.png', 256], ['breath', 'assets/ui/breath.png', 256],
+      ['rotate', 'assets/ui/rotate-device.png', 256], ['breath', 'assets/ui/breath.png', 256], ['pointer', 'assets/ui/pointer.png', 64],
     ]),
   ];
 }
@@ -85,8 +89,9 @@ export const UI_ALL = ['UiPanel', 'UiButton', 'UiCard', 'UiBar', 'UiText', 'UiSm
 
 export const button = (x, y, w, h, caption, action, { arg = 0, panel: p = '', layer = 'UI', captionExpr } = {}) =>
   A('HolyHoly::MakeButton', 'UiButton', 'UiLabel', x, y, w, h, captionExpr ?? q(caption), q(action), arg, q(p), q(layer));
-export const label = (obj, x, y, w, content, { align = 'left', key: k = '', panel: p = '', layer = 'UI', expr } = {}) =>
-  A('HolyHoly::MakeText', obj, x, y, w, expr ?? q(content), q(align), q(k), q(p), q(layer));
+/** A wrapped text; with `h`, a text that would run taller is set smaller until it fits. */
+export const label = (obj, x, y, w, content, { align = 'left', key: k = '', keyExpr, panel: p = '', layer = 'UI', expr, h = 0 } = {}) =>
+  A('HolyHoly::MakeText', obj, x, y, w, expr ?? q(content), q(align), keyExpr ?? q(k), q(p), q(layer), String(h));
 export const box = (x, y, w, h, { key: k = '', panel: p = '', layer = 'UI', obj = 'UiPanel' } = {}) =>
   A('HolyHoly::MakePanel', obj, x, y, w, h, q(k), q(p), q(layer));
 
@@ -104,14 +109,19 @@ export function uiExternalEvents() {
     comment('Shared UI of every scene. Buttons are UiButton panels with a UiLabel caption, made with HolyHoly::MakeButton. A click on a button of the top panel (Ui.top) sets Ui.clicked to its Action for this frame; the scene reacts to it below the link.'),
     ev([], [setS('Ui.clicked', '=', '""')]),
     group('Buttons', [
-      ev([C('IsCursorOnObject', 'UiButton'), C('Visible', 'UiButton'), C('BuiltinCommonInstructions::CompareStrings', 'UiButton.Panel', '=', 'Ui.top')], [tint('UiButton', q('255;250;235'))]),
+      comment('The panel is checked per button (an object variable condition), so a dialog button that lies over a button of the screen below still answers.'),
+      ev([C('IsCursorOnObject', 'UiButton'), C('Visible', 'UiButton'), oisS('UiButton', 'Panel', '=', 'Ui.top')], [tint('UiButton', q('255;250;235'))]),
       ev([NOT(C('IsCursorOnObject', 'UiButton')), C('Visible', 'UiButton')], [tint('UiButton', q('236;222;196'))]),
-      ev([C('MouseButtonFromTextReleased', q('Left')), C('IsCursorOnObject', 'UiButton'), C('Visible', 'UiButton'), C('BuiltinCommonInstructions::CompareStrings', 'UiButton.Panel', '=', 'Ui.top'), oisS('UiButton', 'Action', '!=', '""')],
+      ev([C('MouseButtonFromTextReleased', q('Left')), C('IsCursorOnObject', 'UiButton'), C('Visible', 'UiButton'), oisS('UiButton', 'Panel', '=', 'Ui.top'), oisS('UiButton', 'Action', '!=', '""')],
         [setS('Ui.clicked', '=', 'UiButton.Action'), set('Ui.arg', '=', 'UiButton.Arg'), sfx('click')]),
       ev([keyJust('Escape'), isS('Ui.top', '!=', '""')], [setS('Ui.clicked', '=', q('close'))]),
     ], { folded: false }),
     group('Touch', [
       ev([C('HasAnyTouchOrMouseStarted'), C('HolyHoly::IsTouchDevice')], [setB('Ui.touch', true)]),
+    ]),
+    group('Texts that fit', [
+      comment('A text made with a maximum height is fitted again whenever its content changes (HolyHoly::FitTexts), so updated labels never run out of their room.'),
+      ev([], [A('HolyHoly::FitTexts')]),
     ]),
     group('Turn the phone', [
       comment('The game is landscape: on a portrait screen a hint asks to turn the phone.'),
@@ -121,7 +131,7 @@ export function uiExternalEvents() {
         A('AnimatableCapability::AnimatableBehavior::SetName', 'UiIcon', 'Animation', '=', q('rotate')),
         osetS('UiIcon', 'Panel', '=', q('rotate')),
         A('SetZOrder', 'UiIcon', '=', '1000'),
-        A('HolyHoly::MakeText', 'UiText', '40', 'SceneWindowHeight() / 2 + 90', 'SceneWindowWidth() - 80', q('Obróć telefon poziomo'), q('center'), q('rotate'), q('rotate'), q('UI')),
+        A('HolyHoly::MakeText', 'UiText', '40', 'SceneWindowHeight() / 2 + 90', 'SceneWindowWidth() - 80', q('Obróć telefon poziomo'), q('center'), q('rotate'), q('rotate'), q('UI'), '0'),
       ]),
       ev([cmp('SceneWindowHeight()', '<=', 'SceneWindowWidth()')], [], closePanel('rotate')),
       ev([oisS('UiPanel', 'Key', '=', q('rotate'))], [A('SetZOrder', 'UiPanel', '=', '999')]),

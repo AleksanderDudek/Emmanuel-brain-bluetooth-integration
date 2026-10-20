@@ -1,10 +1,12 @@
-// Arena: one chapter of the person's story. Waves of shadow-thoughts (survivors), the archangel's
-// own gift that acts while the angel stands still (Archero), strikes in combos (Endless Puncher),
-// gifts and virtues at each level with evolutions and reliquaries (Heroes vs Hordes), the
-// archangel's prayer charged by stillness and focus, discernment cards between waves, the
-// stronghold of the chapter's lie, and the praise that follows. A broken shadow leaves a true
-// sentence behind: the person's own words, or the angel's.
-import { A, C, NOT, OR, AND, ev, group, comment, q, set, setS, setB, is, isS, isB, cmp, cmpS, oisS, ois, oisB, oset, osetS, osetB, text, keyJust, key, link, begins, scene, animE, anim, forEach, repeat, setZ, width, size, tint, opacity, scale, tweenOpacity, tweenPos, dt } from './dsl.mjs';
+// Arena: one chapter of the person's story, in three stages of one day or night (a clock runs,
+// the light changes, each stage has its own shadows and modifier). Shadow-thoughts come in hordes
+// (survivors), the archangel's own gift acts while the angel stands still (Archero), strikes go in
+// combos (Endless Puncher), gifts and virtues come at each level with evolutions and reliquaries
+// (Heroes vs Hordes). Voices (speaking shadows) say the person's thoughts aloud; silenced, they
+// show how the thought lies and what is true instead. Memories on the map tell the story. Springs,
+// words of truth and a breath heal. Between stages a recognition card shows a thought, its
+// thinking error and the answer; at the end the chapter's lie comes in its own figure.
+import { A, C, NOT, OR, AND, ev, group, comment, q, set, setS, setB, is, isS, isB, cmp, cmpS, oisS, ois, oisB, oset, osetS, osetB, text, keyJust, key, link, begins, scene, animE, anim, forEach, repeat, setZ, width, size, tint, opacity, scale, tweenOpacity, tweenPos, tweenWidth, dt } from './dsl.mjs';
 import { model, cube, particles, joystick, sprite, layer, effect, instance, v } from './objects.mjs';
 import { defaultBehavior } from './gd.mjs';
 import { exampleObject } from './base.mjs';
@@ -16,6 +18,7 @@ import { ENEMIES } from '../tools/game-data.mjs';
 const KINDS = ENEMIES.map(e => e.kind);
 const BIG = new Set(ENEMIES.filter(e => e.archetype === 'tank').map(e => e.kind));
 const R = 'Tuning.arenaRadius';
+const ST = 'Content.chapters[Chapter].stages[Stage - 1]';
 const PX = 'Player.X()', PY = 'Player.Y()';
 // skill ids may hold a hyphen (sig-uriel): always reach them with brackets
 const G = id => `Run.gifts["${id}"]`;
@@ -33,16 +36,17 @@ const banner = (expr, secs = 2.4) => [setS('BannerText', '=', expr), set('Banner
 const shake = s => set('Shake', '=', `max(Shake, ${s})`);
 const particle = (name, x, y, z = '40') => [A('Create', name, x, y, '""'), setZ(name, z)];
 const ARENA_ELEVATION = 48; // camera: CamTilt 42° from straight down
+const FLOOR = 7000;
 const FS = foreshortening(ARENA_ELEVATION);
 
-/** Variables every target (shadows, the stronghold, its chains) carries, so the Targets group can use them. */
+/** Variables every target (shadows, the lie personified, its chains) carries, so the Targets group can use them. */
 const targetVars = () => [
   v.num('Hp'), v.num('MaxHp'), v.num('Stun'), v.num('KnockT'), v.num('KnockA'), v.num('KnockS'), v.num('HitCD'), v.num('ShieldCD'),
   v.num('Armor', 1), v.num('PunchMul', 1), v.num('T'), v.bool('Dying'), v.str('Kind'), v.num('BurnT'), v.num('BurnDps'), v.num('HitT'), v.num('BaseScale', 1),
 ];
 const traumaVars = () => [
   ...targetVars(), v.num('Speed'), v.num('SpeedNow'), v.num('Slow'), v.num('SlowT'), v.str('Archetype'), v.str('State', 'walk'), v.num('Value', 1), v.bool('Elite'), v.bool('Small'),
-  v.num('Dir', 1), v.num('ChargeA'), v.num('FireCD', 2), v.num('Uid'),
+  v.num('Dir', 1), v.num('ChargeA'), v.num('FireCD', 2), v.num('Uid'), v.bool('Voice'),
 ];
 const shotVars = () => [v.num('Damage'), v.num('Pierce'), v.num('Grace'), v.num('Life', 2), v.num('Burn')];
 
@@ -86,7 +90,9 @@ export function arenaScene() {
   const burst = (name, image, content) => particles(name, image, { Duration: 0.08, ShouldAutodestruct: true, Blending: 'Additive', SpayConeAngle: 360, ...content });
   const heroes = HERO_IDS.map(id => billboard(`Hero_${id}`, `hero-${id}`, 150, 60));
   const enemies = KINDS.map(k => billboard(`Enemy_${k}`, `enemy-${k}`, BIG.has(k) ? 128 : 96, BIG.has(k) ? 66 : 50, { vars: traumaVars() }));
-  const bosses = CHAPTER_IDS.map(id => billboard(`Boss_${id}`, `boss-${id}`, 210, 100));
+  // the lie of the chapter, personified: a towering figure, three times a shadow's height
+  const bosses = CHAPTER_IDS.map(id => billboard(`Boss_${id}`, `boss-${id}`, 270, 100));
+  const memories = ['m', 'f'].map(g => billboard(`Memory_${g}`, `person-${g}`, 96, 40, { vars: [v.num('Index'), v.num('Stage'), v.num('Uid')] }));
   const shots = [
     flat('Bolt', 'assets/models/fx-flame.glb', 72, 36, shotVars()),
     flat('Spear', 'assets/models/fx-spear.glb', 170, 27, shotVars()),
@@ -97,15 +103,16 @@ export function arenaScene() {
     model('Stone', 'assets/models/stone.glb', { w: 26, h: 26, d: 26, origin: 'ObjectCenter', center: 'ObjectCenter', vars: shotVars() }),
   ];
   const objects = [
-    cube('Floor', { w: 3400, h: 3400, d: 10, top: floorTexture('noc'), topRepeat: true, tileScale: 0.3 }),
-    model('Rim', 'assets/models/arena-rim.glb', { w: 3000, h: 3000, d: 40, keepAspect: false, castShadow: false, receiveShadow: false }),
+    cube('Floor', { w: FLOOR, h: FLOOR, d: 10, top: floorTexture('noc'), topRepeat: true, tileScale: 0.3 }),
+    model('Rim', 'assets/models/arena-rim.glb', { w: 6400, h: 6400, d: 40, keepAspect: false, castShadow: false, receiveShadow: false }),
     ...props,
     // the angel's footprint: a soft light that carries the movement and the gifts; the painting follows it
     model('Player', 'assets/models/fx-glow.glb', { w: 112, h: 112, d: 2, keepAspect: false, castShadow: false, receiveShadow: false, anims: [['Idle', 'Idle']],
       behaviors: [topDown(), mapper(), fireBullet('ShotGun', TUNING.shotCooldown), fireBullet('SlingGun', 3), tween()] }),
     ...heroes,
     ...enemies,
-    model('Stronghold', 'assets/models/fx-glow.glb', { w: 220, h: 120, d: 2, keepAspect: false, castShadow: false, receiveShadow: false, vars: [...targetVars(), v.num('Phase', 1)], behaviors: [tween()] }),
+    // the lie's body: invisible, it carries movement and strength; its painting follows it
+    model('Liar', 'assets/models/fx-glow.glb', { w: 260, h: 130, d: 2, keepAspect: false, castShadow: false, receiveShadow: false, vars: [...targetVars(), v.num('Phase', 1)], behaviors: [tween()] }),
     ...bosses,
     model('ChainPylon', 'assets/models/chain-pylon.glb', { w: 80, h: 80, d: 140, anims: [['Idle', 'Idle']], vars: targetVars(), behaviors: [tween()] }),
     ...shots,
@@ -121,6 +128,11 @@ export function arenaScene() {
     model('LightShard', 'assets/models/light-shard.glb', { w: 30, h: 30, d: 44, anims: [['Idle', 'Idle']], castShadow: false, vars: [v.num('Value', 1), v.bool('Pull')], behaviors: [tween()] }),
     model('Manna', 'assets/models/manna.glb', { w: 54, h: 54, d: 30, anims: [['Idle', 'Idle']], castShadow: false }),
     billboard('Reliquary', 'reliquary', 70, 40),
+    flat('Spring', 'assets/models/fx-spring.glb', TUNING.springRadius * 2, TUNING.springRadius * 2, [v.num('Water', TUNING.springWater), v.num('Tick'), v.num('Dry')], [['Idle', 'Idle']]),
+    flat('Truth', 'assets/models/fx-truth.glb', 76, 76, [v.num('T')], [['Idle', 'Idle']]),
+    flat('VoiceRing', 'assets/models/fx-voice.glb', 230, 230, [v.num('Uid')], [['Idle', 'Idle']]),
+    flat('MemoryLight', 'assets/models/fx-memory.glb', 260, 260, [v.num('Uid')], [['Idle', 'Idle']]),
+    ...memories,
     burst('BurstShadow', 'assets/particles/soft.png', { StartColor: '90;60;140', EndColor: '255;236;180', StartOpacity: 230, EndOpacity: 0, Flow: 900, StartSizeMin: 16, StartSizeMax: 34, EndScale: 0.2, StartSpeedMin: 120, StartSpeedMax: 320, LifespanMin: 0.25, LifespanMax: 0.6, Gravity: -120 }),
     burst('BurstLight', 'assets/particles/spark.png', { StartColor: '255;236;160', EndColor: '255;255;255', StartOpacity: 255, EndOpacity: 0, Flow: 1200, StartSizeMin: 14, StartSizeMax: 30, EndScale: 0.2, StartSpeedMin: 200, StartSpeedMax: 520, LifespanMin: 0.3, LifespanMax: 0.8, Gravity: 200 }),
     burst('BurstFire', 'assets/particles/soft.png', { StartColor: '255;170;60', EndColor: '255;80;20', StartOpacity: 255, EndOpacity: 0, Flow: 1600, StartSizeMin: 20, StartSizeMax: 44, EndScale: 0.3, StartSpeedMin: 260, StartSpeedMax: 620, LifespanMin: 0.25, LifespanMax: 0.6, Gravity: -200 }),
@@ -130,15 +142,17 @@ export function arenaScene() {
     joystick('Joystick'),
     touchButton('TouchStrike', 'assets/ui/touch-strike.png', 'A'),
     touchButton('TouchPrayer', 'assets/ui/touch-fire.png', 'B'),
+    touchButton('TouchBreath', 'assets/ui/touch-breath.png', 'C'),
   ];
   const instances = [
-    instance('Floor', -1700, -1700, { z: -10, w: 3400, h: 3400, d: 10, locked: true }),
-    instance('Rim', 0, 0, { w: 3000, h: 3000, d: 40, locked: true }),
+    instance('Floor', -FLOOR / 2, -FLOOR / 2, { z: -10, w: FLOOR, h: FLOOR, d: 10, locked: true }),
+    instance('Rim', 0, 0, { w: 6400, h: 6400, d: 40, locked: true }),
     instance('Player', 0, 0, { z: 3, w: 112, h: 112, d: 2 }),
     instance('Motes', 0, 0, { z: 30 }),
     instance('Joystick', 200, 560, { layer: 'Touch' }),
     instance('TouchStrike', 1100, 560, { layer: 'Touch' }),
     instance('TouchPrayer', 1100, 380, { layer: 'Touch' }),
+    instance('TouchBreath', 1100, 380, { layer: 'Touch' }),
   ];
 
   const events = [
@@ -155,9 +169,12 @@ export function arenaScene() {
     traumaEvents(),
     pickupEvents(),
     levelUpEvents(),
-    waveEvents(),
-    discernmentEvents(),
-    strongholdEvents(),
+    stageEvents(),
+    voiceEvents(),
+    memoryEvents(),
+    healingEvents(),
+    recognitionEvents(),
+    liarEvents(),
     hurtEvents(),
     pauseEvents(),
     feedbackEvents(),
@@ -173,11 +190,11 @@ export function arenaScene() {
     background: [20, 16, 26],
     layers: [
       layer('', {
-        far: 6000,
+        far: 9000,
         effects: [
           effect('Scene3D::HemisphereLight', 'Sky', { elevation: 60, intensity: 0.62, rotation: 300 }, { groundColor: '70;60;80', skyColor: '255;246;230', top: 'Z+' }),
-          effect('Scene3D::DirectionalLight', 'Sun', { distanceFromCamera: 1500, elevation: 58, frustumSize: 2600, intensity: 0.85, minimumShadowBias: 0, rotation: 320, shadowDistance: 2400 }, { color: '255;240;214', shadowQuality: 'medium', shadowRenderingMode: 'fittedToCameraView', top: 'Z+' }, { isCastingShadow: true }),
-          effect('Scene3D::LinearFog', 'Fog', { near: 1300, far: 3400 }, { color: '30;24;40' }),
+          effect('Scene3D::DirectionalLight', 'Sun', { distanceFromCamera: 2200, elevation: 58, frustumSize: 3800, intensity: 0.85, minimumShadowBias: 0, rotation: 320, shadowDistance: 3400 }, { color: '255;240;214', shadowQuality: 'medium', shadowRenderingMode: 'fittedToCameraView', top: 'Z+' }, { isCastingShadow: true }),
+          effect('Scene3D::LinearFog', 'Fog', { near: 2300, far: 5400 }, { color: '30;24;40' }),
           effect('Scene3D::Bloom', 'Glow', { strength: 0.55, radius: 0.35, threshold: 0.86 }),
         ],
       }),
@@ -189,34 +206,38 @@ export function arenaScene() {
     events,
     variables: [
       v.str('State', 'intro'), v.str('PrevState'), v.num('StateT'), v.num('Chapter'), v.str('ChapterId'), v.num('KindCount'), v.str('SigId'),
-      v.num('Wave', 1), v.num('WaveTime'), v.num('SpawnT', 1.5), v.bool('EliteSpawned'), v.num('NextUid', 1),
+      v.num('Stage', 1), v.num('StageCount', 3), v.num('StageTime'), v.bool('StageBegin'), v.num('SpawnT', 1.5), v.bool('EliteSpawned'), v.num('NextUid', 1),
+      v.num('SpawnMul', 1), v.num('HpMul', 1), v.num('VoiceMul', 1), v.num('VoiceT', 12), v.num('VoiceNext'), v.num('SilT', -1), v.num('CardT', -1), v.num('MemoryT', -1),
+      v.num('BreathT'), v.num('BreathCD'), v.bool('SpringSeen'), v.bool('VoiceAlive'), v.bool('CardNow'), v.bool('Recognized'),
       v.num('Still'), v.num('Prayer'), v.bool('PrayerFull'), v.num('Hearts', 5), v.num('MaxHearts', 5), v.num('Invuln'), v.bool('HelmUsed'), v.num('Regen'), v.num('RegenT'),
       v.num('Xp'), v.num('XpNext', TUNING.xpFirst), v.num('Level', 1), v.num('LevelT'), v.bool('LevelBuild'), v.num('Rerolls', 1), v.num('RelicT'),
       v.num('Combo'), v.num('ComboT'), v.num('StrikeCD'), v.num('DashT'), v.num('DashA'), v.num('Chain'), v.num('ChainT'), v.num('SeedT'), v.num('AffT'),
       v.num('AuraP'), v.num('AuraT'), v.num('CrownT'), v.num('Heavy'),
       v.num('Shake'), v.str('BannerText'), v.num('BannerT'), v.num('FlashT'), v.num('MissT'), v.num('PraiseT'),
-      v.bool('StatsDirty', true), v.bool('HudDirty', true), v.bool('HurtNow'), v.bool('StrikeNow'), v.bool('UltNow'), v.bool('Hit'), v.bool('DiscAnswered'),
+      v.bool('StatsDirty', true), v.bool('HudDirty', true), v.bool('HurtNow'), v.bool('StrikeNow'), v.bool('UltNow'), v.bool('Hit'),
       v.struct('St', stats.map(k => v.num(k, 1))),
       v.struct('Tm', ['shieldAngle', 'ogien', 'wicher', 'golebica', 'eliasz', 'jerycho', 'music'].map(k => v.num(k, 1))),
       v.num('DashBoss'), v.num('BossArrowT', 3), v.num('BossSummonT', 5), v.num('BossDashT', 4), v.num('BossSpin'), v.num('Best'), v.num('BestX'), v.num('BestY'),
-      v.num('CamZ', 780), v.num('CamTilt', 90 - ARENA_ELEVATION), v.array('Props'),
+      v.num('CamZ', TUNING.camZ), v.num('CamTilt', 90 - ARENA_ELEVATION), v.num('CamLead', 150), v.array('Props'), v.num('VoiceLineT'),
     ],
     folders: {
       'Świat': ['Floor', 'Rim', 'Motes'],
       'Rekwizyty': props.map(p => p.name),
       'Anioł': ['Player', ...heroes.map(h => h.name)],
       'Cienie-myśli': enemies.map(e => e.name),
-      'Twierdza': ['Stronghold', ...bosses.map(b => b.name), 'ChainPylon'],
+      'Kłamstwo rozdziału': ['Liar', ...bosses.map(b => b.name), 'ChainPylon'],
+      'Historia i leczenie': ['Spring', 'Truth', 'VoiceRing', 'MemoryLight', ...memories.map(m => m.name)],
       'Dary archaniołów': [...shots.map(s => s.name), 'Pool', 'Aura'],
       'Dary wspólne': ['Shield', 'FlameRing', 'Dove', 'FirePillar', 'Shockwave'],
       'Światło, manna, relikwiarze': ['LightShard', 'Manna', 'Reliquary', 'Glow'],
       'Efekty': ['BurstShadow', 'BurstLight', 'BurstFire', 'BurstHeal', 'HitSpark', 'Arrow'],
-      'Dotyk': ['Joystick', 'TouchStrike', 'TouchPrayer'],
+      'Dotyk': ['Joystick', 'TouchStrike', 'TouchPrayer', 'TouchBreath'],
     },
     groups: [
       ['Heroes', heroes.map(h => h.name)],
       ['Traumas', enemies.map(e => e.name)],
-      ['Targets', [...enemies.map(e => e.name), 'Stronghold', 'ChainPylon']],
+      ['Targets', [...enemies.map(e => e.name), 'Liar', 'ChainPylon']],
+      ['Memories', memories.map(m => m.name)],
       ['Bosses', bosses.map(b => b.name)],
       ['PropsAll', props.map(p => p.name)],
       ['Shots', shots.map(s => s.name)],
@@ -228,30 +249,30 @@ export function arenaScene() {
 
 function setupEvents() {
   const prop = names => names.map(n => ev([], [A('PushString', 'Props', q(n))]));
+  const X = '(SceneWindowWidth() - 900) / 2';
   return group('Setup', [
-    comment('A chapter starts: its place (colours, floor painting), the chosen archangel with his own gift at level 1, the HUD and the intro card. Gifts of the run start from zero; the Fruits of the Spirit are lasting.'),
+    comment('A chapter starts: its place (colours, floor painting), the chosen archangel with his own gift at level 1, springs of living water spread over the map, the HUD and the intro card. Gifts of the run start from zero; the Fruits of the Spirit are lasting.'),
     ev([begins()], [
       set('Chapter', '=', 'Run.chapter'),
       setS('ChapterId', '=', `${CH}.id`),
       setS('SigId', '=', '"sig-" + Run.hero'),
-      set('KindCount', '=', `VariableChildCount(${CH}.enemies)`),
+      set('StageCount', '=', `VariableChildCount(${CH}.stages)`),
       set('Run.light', '=', '0'), set('Run.destroyed', '=', '0'), set('Run.bestCombo', '=', '0'), set('Run.falls', '=', '0'),
-      set('Run.focusHeld', '=', '0'), set('Run.level', '=', '1'), set('Run.time', '=', '0'), set('Run.reframes', '=', '0'), set('Run.discRight', '=', '0'),
+      set('Run.focusHeld', '=', '0'), set('Run.level', '=', '1'), set('Run.time', '=', '0'), set('Run.reframes', '=', '0'), set('Run.recognized', '=', '0'),
+      set('Run.stage', '=', '0'), set('Run.memories', '=', '0'), set('Run.voices', '=', '0'), set('Run.healed', '=', '0'),
       A('ClearVariableChildren', 'Run.weapons'), A('ClearVariableChildren', 'Run.virtues'),
       set('Prayer', '=', '0'), set('Xp', '=', '0'), set('XpNext', '=', 'Tuning.xpFirst'), set('Level', '=', '1'),
       set('Rerolls', '=', '1'),
-      set('Wave', '=', '1'), set('WaveTime', '=', 'Tuning.waveSeconds'), set('SpawnT', '=', '1.2'),
+      set('Stage', '=', '1'), set('StageTime', '=', 'Tuning.stageSeconds'), set('SpawnT', '=', '1.2'), setB('StageBegin', true),
+      set('VoiceT', '=', 'Tuning.voiceGap * 0.5'), set('VoiceNext', '=', '0'),
       setS('State', '=', q('intro')), set('StateT', '=', '0'), setB('HelmUsed', false), setB('StatsDirty', true), setB('HudDirty', true),
       setS('Ui.top', '=', '""'),
       A('SceneBackground', `${CH}.look.background`),
-      A('SetLayerEffectStringParameter', '""', q('Fog'), q('color'), `${CH}.look.fog`),
-      A('SetLayerEffectStringParameter', '""', q('Sky'), q('skyColor'), `${CH}.look.sky`),
-      A('SetLayerEffectStringParameter', '""', q('Sky'), q('groundColor'), `${CH}.look.ground`),
       A('Scene3D::Cube3DObject::SetTint', 'Floor', `${CH}.look.floor`),
       A('Scene3D::SetCameraZ', '=', 'CamZ', '""'),
       A('Scene3D::SetCameraRotationX', '=', 'CamTilt', '""'),
       A('SetCameraCenterX', '=', '0', '""'),
-      A('SetCameraCenterY', '=', 'CamZ * tan(ToRad(CamTilt))', '""'),
+      A('SetCameraCenterY', '=', 'CamZ * tan(ToRad(CamTilt)) - CamLead', '""'),
       A('CreateByName', 'Heroes', '"Hero_" + Run.hero', '0', '0', '""'),
       A('MendiFocus::Reset'),
       A('Psalm150::SetMood', `${CH}.track`, q('battle'), '0.3'),
@@ -264,23 +285,29 @@ function setupEvents() {
       ...CHAPTER_IDS.map(id => ev([isS('ChapterId', '=', q(id))], [A('Scene3D::Cube3DObject::SetFaceResource', 'Floor', q('front'), floorTexture(id))])),
       ev([hero('selafiel')], [A('Create', 'Aura', PX, PY, '""'), setZ('Aura', '4'), size('Aura', '1', '1')]),
       ev([], [], prop(['ColumnBroken', 'Rock', 'Candle', 'Tree', 'Pew', 'Column', 'Candle', 'Rock'])),
-      comment('Props: ruins of the inner world, scattered on the ring, never at the centre where the angel starts.'),
-      ev([], [], [repeat('14', [], [
+      comment('Props: ruins of the inner world, scattered over the whole map, never at the centre where the angel starts.'),
+      ev([], [], [repeat('40', [], [
         set('pa', '=', 'RandomFloatInRange(0, 360)'),
-        set('pd', '=', `RandomFloatInRange(420, ${R} - 180)`),
+        set('pd', '=', `RandomFloatInRange(480, ${R} - 180)`),
         A('CreateByName', 'PropsAll', 'Props[RandomInRange(0, VariableChildCount(Props) - 1)]', 'cos(ToRad(pa)) * pd', 'sin(ToRad(pa)) * pd', '""'),
         A('SetAngle', 'PropsAll', '=', 'RandomFloatInRange(0, 360)'),
       ])], { vars: { pa: 0, pd: 0 } }),
+      comment('Springs of living water (J 4,14): one in each third of the map, at different distances.'),
+      ev([], [set('pa', '=', 'RandomFloatInRange(0, 360)')], [repeat('Tuning.springs', [], [
+        set('pd', '=', `RandomFloatInRange(650, ${R} - 450)`),
+        A('Create', 'Spring', `cos(ToRad(pa + k * 360 / Tuning.springs)) * pd`, `sin(ToRad(pa + k * 360 / Tuning.springs)) * pd`, '""'),
+        setZ('Spring', '3'), oset('Spring', 'Water', '=', 'Tuning.springWater'),
+      ], [], { index: 'k' })], { vars: { pa: 0, pd: 0, k: 0 } }),
       ev([C('HolyHoly::IsTouchDevice')], [A('ShowLayer', q('Touch')), setB('Ui.touch', true)]),
       ev([NOT(C('HolyHoly::IsTouchDevice'))], [A('HideLayer', q('Touch'))]),
-      comment('The intro card: the place, the chapter, its lie, and the archangel who keeps watch.'),
+      comment('The intro card: the place, the chapter, the lie in its own figure, and the archangel who keeps watch.'),
       ev([], [
-        box('(SceneWindowWidth() - 860) / 2', '130', '860', '420', { panel: 'intro' }),
-        label('UiSmall', '(SceneWindowWidth() - 780) / 2', '156', 780, '', { panel: 'intro', align: 'center', expr: `ToUpperCase(HolyHoly::G(${CH}.place))` }),
-        label('UiTitle', '(SceneWindowWidth() - 780) / 2', '186', 780, '', { panel: 'intro', align: 'center', expr: `${CH}.title + " · " + HolyHoly::G(${CH}.theme)` }),
-        label('UiText', '(SceneWindowWidth() - 740) / 2', '262', 740, '', { panel: 'intro', align: 'center', expr: `"Twierdza kłamstwa: „" + HolyHoly::G(${CH}.boss.lie) + "”"` }),
-        label('UiSmall', '(SceneWindowWidth() - 740) / 2', '350', 740, '', { panel: 'intro', align: 'center', key: 'introHow', expr: `"Czuwa " + ${HERO}.name + ". " + "Stój, a jego dar sam uderzy; spacja to cios; E to modlitwa archanioła. Przetrwaj trzy fale cieni i zburz twierdzę."` }),
-        label('UiSmall', '(SceneWindowWidth() - 740) / 2', '492', 740, 'Naciśnij dowolny klawisz lub dotknij ekranu', { panel: 'intro', align: 'center', key: 'introHint' }),
+        box(X, '110', '900', '480', { panel: 'intro' }),
+        label('UiSmall', `${X} + 40`, '134', 820, '', { panel: 'intro', align: 'center', h: 30, expr: `ToUpperCase(HolyHoly::G(${CH}.place))` }),
+        label('UiTitle', `${X} + 40`, '166', 820, '', { panel: 'intro', align: 'center', h: 64, expr: `${CH}.title + " · " + HolyHoly::G(${CH}.theme)` }),
+        label('UiText', `${X} + 50`, '244', 800, '', { panel: 'intro', align: 'center', h: 100, expr: `"Kłamstwo tego rozdziału przyjdzie jako " + ${CH}.boss.name + ": „" + HolyHoly::G(${CH}.boss.lie) + "”"` }),
+        label('UiSmall', `${X} + 50`, '356', 800, '', { panel: 'intro', align: 'center', key: 'introHow', h: 140, expr: `"Czuwa " + ${HERO}.name + ". Stój, a jego dar sam uderzy; spacja to cios, E to modlitwa, Q to westchnienie, które leczy. Trzy etapy, trzy pory dnia: szukaj wspomnień, ucisz głosy, stań w źródle, gdy boli."` }),
+        label('UiSmall', `${X} + 50`, '540', 800, 'Naciśnij dowolny klawisz lub dotknij ekranu', { panel: 'intro', align: 'center', key: 'introHint', h: 30 }),
       ]),
     ], { vars: {} }),
   ]);
@@ -289,14 +316,13 @@ function setupEvents() {
 function introEvents() {
   return group('Intro', [
     ev([isS('State', '=', q('intro'))], [set('StateT', '+', dt), A('ActivateBehavior', 'Player', 'TopDownMovement', 'no')], [
-      ev([OR(cmp('StateT', '>', '7'), AND(cmp('StateT', '>', '0.8'), OR(C('AnyKeyPressed'), C('HasAnyTouchOrMouseStarted'))))], [
+      ev([OR(cmp('StateT', '>', '9'), AND(cmp('StateT', '>', '0.8'), OR(C('AnyKeyPressed'), C('HasAnyTouchOrMouseStarted'))))], [
         setS('State', '=', q('play')),
         A('ActivateBehavior', 'Player', 'TopDownMovement', 'yes'),
-        ...banner('"Fala 1 z " + ToString(Tuning.waves)'),
         sfx('door'),
       ], closePanel('intro')),
       ev([oisS('UiSmall', 'Key', '=', q('introHint'))], [opacity('UiSmall', '160 + 95 * sin(TimeFromStart() * 4)')]),
-      ev([oisS('UiSmall', 'Key', '=', q('introHow')), isB('Ui.touch', true)], [text('UiSmall', `"Czuwa " + ${HERO}.name + ". Stój, a jego dar sam uderzy; gwiazda to cios; płomień to modlitwa archanioła. Przetrwaj trzy fale i zburz twierdzę."`)]),
+      ev([oisS('UiSmall', 'Key', '=', q('introHow')), isB('Ui.touch', true), C('BuiltinCommonInstructions::Once')], [text('UiSmall', `"Czuwa " + ${HERO}.name + ". Stój, a jego dar sam uderzy; gwiazda to cios, płomień to modlitwa, niebieski krąg to westchnienie, które leczy. Szukaj wspomnień, ucisz głosy, stań w źródle, gdy boli."`)]),
     ]),
   ]);
 }
@@ -533,7 +559,7 @@ function signatureEvents() {
     ], [
       ev([ois(shot, 'Burn', '>', '0')], [oset('Targets', 'BurnT', '=', '2.5'), oset('Targets', 'BurnDps', '=', `max(Targets.BurnDps, ${shot}.Burn)`)]),
       ev([ois('Targets', 'Armor', '<=', '0'), oisS('Targets', 'Kind', '=', q('tesknota'))], [...banner(q('Tęsknoty nie pokona się siłą. Stań przy niej w ciszy.'), 1.6)]),
-      ev([ois('Targets', 'Armor', '<=', '0'), oisS('Targets', 'Kind', '=', q('stronghold'))], [...banner(q('Twierdza jest skuta łańcuchami: rozbij je ciosem!'), 1.4)]),
+      ev([ois('Targets', 'Armor', '<=', '0'), oisS('Targets', 'Kind', '=', q('liar'))], [...banner(q('Łańcuchy chronią kłamstwo: rozbij je ciosem!'), 1.4)]),
       ...events,
     ]),
     ev([ois(shot, 'Pierce', '<', '0')], [A('Delete', shot)]),
@@ -851,7 +877,12 @@ function traumaEvents() {
         A('Create', 'LightShard', `${T}.X() + RandomFloatInRange(-30, 30)`, `${T}.Y() + RandomFloatInRange(-30, 30)`, '""'),
         A('AddForceAL', 'LightShard', 'RandomFloatInRange(0, 360)', '160', '0.6'),
       ]),
-      ev([OR(oisB(T, 'Elite', true), AND(cmp('AffT', '<=', '0'), cmp('SceneInstancesCount(UiText)', '<', '30')))], [set('AffT', '=', 'Tuning.affirmGap'), set('w', '=', 'RandomFloat(1)')], [
+      ev([oisB(T, 'Voice', true)], [
+        set('SilT', '=', '0'), set('Run.voices', '+', '1'), set('Prayer', '=', 'min(100, Prayer + 15)'),
+        A('Create', 'Truth', `${T}.X()`, `${T}.Y()`, '""'), setZ('Truth', '40'), A('AddForceAL', 'Truth', 'RandomFloatInRange(0, 360)', '120', '0.5'),
+        ...particle('BurstLight', `${T}.X()`, `${T}.Y()`, '80'), shake('0.25'),
+      ]),
+      ev([NOT(oisB(T, 'Voice', true)), OR(oisB(T, 'Elite', true), AND(cmp('AffT', '<=', '0'), cmp('SceneInstancesCount(UiText)', '<', '30')))], [set('AffT', '=', 'Tuning.affirmGap'), set('w', '=', 'RandomFloat(1)')], [
         ev([OR(oisB(T, 'Elite', true), cmp('w', '<', '0.22'))], [
           label('UiText', `HolyHoly::ScreenX(${T}.X(), ${T}.Y(), 120) - 210`, `HolyHoly::ScreenY(${T}.X(), ${T}.Y(), 120) - 24`, 420, '', { align: 'center', key: 'truth', expr: `HolyHoly::AngelWord(${T}.Kind)` }),
           A('TextObject::ChangeColor', 'UiText', q('255;214;120')),
@@ -965,41 +996,52 @@ function levelUpEvents() {
         ...banner(q('Wszystkie dary pełne: łaska odnawia serca'), 1.6),
       ]),
       ev([cmp('VariableChildCount(Run.choices)', '>', '0')], [
-        box(`${cx} - 600`, '60', '1200', '610', { panel: 'levelup' }),
-        label('UiTitle', `${cx} - 600`, '76', 1200, '', { panel: 'levelup', align: 'center', expr: '"Poziom " + ToString(Level) + " · nowy dar"' }),
-        label('UiSmall', `${cx} - 600`, '130', 1200, 'Wybierz jeden: klawisze 1, 2, 3 albo kliknięcie', { panel: 'levelup', align: 'center' }),
+        // the panel and its three cards narrow with the screen (16:10 and 4:3 too)
+        set('pw', '=', 'min(1200, SceneWindowWidth() - 40)'), set('cw', '=', '(pw - 60) / 3'),
+        box(`${cx} - pw / 2`, '60', 'pw', '610', { panel: 'levelup' }),
+        label('UiTitle', `${cx} - pw / 2`, '76', 'pw', '', { panel: 'levelup', align: 'center', h: 52, expr: '"Poziom " + ToString(Level) + " · nowy dar"' }),
+        label('UiSmall', `${cx} - pw / 2`, '130', 'pw', 'Wybierz jeden: klawisze 1, 2, 3 albo kliknięcie', { panel: 'levelup', align: 'center', h: 26 }),
         button(`${cx} - 330`, '600', '300', '52', '', 'reroll', { panel: 'levelup', captionExpr: '"Losuj ponownie (" + ToString(Rerolls) + ")"' }),
         button(`${cx} + 30`, '600', '300', '52', 'Odpuść (+1 serce)', 'skipGift', { panel: 'levelup' }),
       ], [
         repeat('VariableChildCount(Run.choices)', [], [
           setS('id', '=', 'Run.choices[c].id'),
-          set('x', '=', `${cx} - 570 + c * 385`),
-          set('lvl', '=', 'Run.gifts[id]'),
-          A('HolyHoly::MakePanel', 'UiCard', 'x', '160', '370', '425', '"card" + ToString(c)', q('levelup'), q('UI')),
+          set('x', '=', `${cx} - pw / 2 + 22 + c * (cw + 8)`),
+          set('lvl', '=', 'Run.gifts[id]'), set('fb', '=', '522'),
+          A('HolyHoly::MakePanel', 'UiCard', 'x', '160', 'cw', '425', '"card" + ToString(c)', q('levelup'), q('UI')),
           // each creation gets its own sub-event (DSL): everything about the icon is set here, where it is the picked one
-          A('Create', 'UiArt', 'x + 185', '268', q('UI')), animE('UiArt', 'HolyHoly::ChoiceIcon(c)'), size('UiArt', '128', '128'), osetS('UiArt', 'Panel', '=', q('levelup')), A('SetZOrder', 'UiArt', '=', '290'),
-          button('x + 60', '530', '250', '46', '', 'pick', { arg: 'c', panel: 'levelup', captionExpr: '"Wybierz (" + ToString(c + 1) + ")"' }),
+          A('Create', 'UiArt', 'x + cw / 2', '268', q('UI')), animE('UiArt', 'HolyHoly::ChoiceIcon(c)'), size('UiArt', '128', '128'), osetS('UiArt', 'Panel', '=', q('levelup')), A('SetZOrder', 'UiArt', '=', '290'),
+          button('x + (cw - min(250, cw - 30)) / 2', '530', 'min(250, cw - 30)', '46', '', 'pick', { arg: 'c', panel: 'levelup', captionExpr: '"Wybierz (" + ToString(c + 1) + ")"' }),
         ], [
+          comment('The card\'s lines flow one under another (fy: the bottom of the last one) and shrink to fit above the button.'),
           ev([isB('Run.choices[c].evolve', true)], [
-            label('UiLabel', 'x + 16', '166', 338, 'EWOLUCJA', { panel: 'levelup', align: 'center', key: 'cardKind' }),
-            label('UiText', 'x + 16', '338', 338, '', { panel: 'levelup', align: 'center', expr: `${S}.evolution.name` }),
-            label('UiSmall', 'x + 22', '376', 326, '', { panel: 'levelup', align: 'center', expr: `${S}.evolution.text` }),
-            label('UiSmall', 'x + 22', '448', 326, '', { panel: 'levelup', align: 'center', expr: `"„" + HolyHoly::G(${S}.evolution.verse.text) + "” (" + HolyHoly::G(${S}.evolution.verse.ref) + ")"` }),
+            label('UiLabel', 'x + 16', '166', 'cw - 32', 'EWOLUCJA', { panel: 'levelup', align: 'center', key: 'cardKind', h: 30 }),
+            label('UiText', 'x + 16', '338', 'cw - 32', '', { panel: 'levelup', align: 'center', h: 64, expr: `${S}.evolution.name` }),
+            set('fy', '=', 'UiText.Y() + UiText.Height() + 4'),
+            label('UiSmall', 'x + 22', 'fy', 'cw - 44', '', { panel: 'levelup', align: 'center', h: '(522 - fy) * 0.55', expr: `${S}.evolution.text` }),
+            set('fy', '=', 'UiSmall.Y() + UiSmall.Height() + 6'),
+            label('UiSmall', 'x + 22', 'fy', 'cw - 44', '', { panel: 'levelup', align: 'center', h: '522 - fy', expr: `"„" + HolyHoly::G(${S}.evolution.verse.text) + "” (" + HolyHoly::G(${S}.evolution.verse.ref) + ")"` }),
           ]),
           ev([isB('Run.choices[c].evolve', false)], [
-            label('UiText', 'x + 16', '338', 338, '', { panel: 'levelup', align: 'center', expr: `${S}.name + "  " + HolyHoly::PipsText(lvl + 1, ${S}.maxLevel)` }),
-            label('UiSmall', 'x + 22', '374', 326, '', { panel: 'levelup', align: 'center', expr: `${S}.levels[lvl]` }),
-            label('UiSmall', 'x + 22', '426', 326, '', { panel: 'levelup', align: 'center', expr: `${S}.description` }),
+            label('UiText', 'x + 16', '338', 'cw - 32', '', { panel: 'levelup', align: 'center', h: 64, expr: `${S}.name + "  " + HolyHoly::PipsText(lvl + 1, ${S}.maxLevel)` }),
+            set('fy', '=', 'UiText.Y() + UiText.Height() + 2'),
+            label('UiSmall', 'x + 22', 'fy', 'cw - 44', '', { panel: 'levelup', align: 'center', h: 52, expr: `${S}.levels[lvl]` }),
+            A('TextObject::ChangeColor', 'UiSmall', q('255;226;150')),
+            set('fy', '=', 'UiSmall.Y() + UiSmall.Height() + 6'),
           ], [
-            ev([cmpS(`${S}.kind`, '=', q('virtue'))], [label('UiLabel', 'x + 16', '166', 338, 'Cnota', { panel: 'levelup', align: 'center', key: 'cardKind' })]),
-            ev([cmpS(`${S}.kind`, '=', q('weapon'))], [label('UiLabel', 'x + 16', '166', 338, 'Dar', { panel: 'levelup', align: 'center', key: 'cardKind' })]),
-            ev([cmpS(`${S}.kind`, '=', q('signature'))], [label('UiLabel', 'x + 16', '166', 338, 'Dar archanioła', { panel: 'levelup', align: 'center', key: 'cardKind' })]),
-            ev([cmpS(`${S}.evolution.with`, '!=', '""')], [label('UiSmall', 'x + 22', '500', 326, '', { panel: 'levelup', align: 'center', expr: `"Ewoluuje z cnotą: " + Content.skills[${S}.evolution.with].name` })]),
+            ev([cmpS(`${S}.evolution.with`, '!=', '""')], [
+              label('UiSmall', 'x + 22', '496', 'cw - 44', '', { panel: 'levelup', align: 'center', h: 26, expr: `"Ewoluuje z cnotą: " + Content.skills[${S}.evolution.with].name` }),
+              set('fb', '=', 'UiSmall.Y() - 4'),
+            ]),
+            ev([], [label('UiSmall', 'x + 22', 'fy', 'cw - 44', '', { panel: 'levelup', align: 'center', h: 'fb - fy', expr: `${S}.description` })]),
+            ev([cmpS(`${S}.kind`, '=', q('virtue'))], [label('UiLabel', 'x + 16', '166', 'cw - 32', 'Cnota', { panel: 'levelup', align: 'center', key: 'cardKind', h: 30 })]),
+            ev([cmpS(`${S}.kind`, '=', q('weapon'))], [label('UiLabel', 'x + 16', '166', 'cw - 32', 'Dar', { panel: 'levelup', align: 'center', key: 'cardKind', h: 30 })]),
+            ev([cmpS(`${S}.kind`, '=', q('signature'))], [label('UiLabel', 'x + 16', '166', 'cw - 32', 'Dar archanioła', { panel: 'levelup', align: 'center', key: 'cardKind', h: 30 })]),
           ]),
           ev([oisS('UiLabel', 'Key', '=', q('cardKind'))], [A('TextObject::ChangeColor', 'UiLabel', q('255;214;120'))]),
           ev([isB('Run.choices[c].evolve', true), oisS('UiCard', 'Key', '=', '"card" + ToString(c)')], [tint('UiCard', q('255;214;120'))]),
-        ], { index: 'c', vars: { c: 0, x: 0, lvl: 0, id: '' } }),
-      ]),
+        ], { index: 'c', vars: { c: 0, x: 0, lvl: 0, id: '', fy: 0, fb: 522 } }),
+      ], { vars: { pw: 1200, cw: 380 } }),
     ]),
     ev([isS('State', '=', q('levelup')), keyJust('Num1')], [setS('Ui.clicked', '=', q('pick')), set('Ui.arg', '=', '0')]),
     ev([isS('State', '=', q('levelup')), keyJust('Num2'), cmp('VariableChildCount(Run.choices)', '>=', '2')], [setS('Ui.clicked', '=', q('pick')), set('Ui.arg', '=', '1')]),
@@ -1020,7 +1062,7 @@ function levelUpEvents() {
   ]);
 }
 
-// ─── waves and the Sabbath between them ────────────────────────────────────────────────────────
+// ─── stages: one day or night of the person, and the rest between them ─────────────────────────
 
 function spawn(x, y, kindExpr, extra = []) {
   const T = 'Traumas';
@@ -1030,7 +1072,7 @@ function spawn(x, y, kindExpr, extra = []) {
   ], [ev([], [
     osetS(T, 'Kind', '=', 'kind'),
     osetS(T, 'Archetype', '=', 'Content.enemies[kind].archetype'),
-    oset(T, 'MaxHp', '=', 'Content.enemies[kind].hp * (1 + Tuning.chapterHp * Chapter) * (1 + Tuning.waveHp * (min(Wave, Tuning.waves) - 1)) * St.hpMul * Tuning.traumaHpScale'),
+    oset(T, 'MaxHp', '=', 'Content.enemies[kind].hp * (1 + Tuning.chapterHp * Chapter) * (1 + Tuning.stageHp * (min(Stage, StageCount) - 1)) * St.hpMul * Tuning.traumaHpScale * HpMul'),
     oset(T, 'Speed', '=', 'Content.enemies[kind].speed * Tuning.traumaSpeed * (1 + Tuning.chapterSpeed * Chapter)'),
     oset(T, 'Dir', '=', 'RandomWithStep(-1, 1, 2)'),
     oset(T, 'T', '=', 'RandomFloatInRange(0, 2)'),
@@ -1047,44 +1089,96 @@ function spawn(x, y, kindExpr, extra = []) {
   ])], { vars: { kind: '' } });
 }
 
-function waveEvents() {
-  const spawnAround = [
-    set('sa', '=', 'RandomFloatInRange(0, 360)'),
-    set('sx', '=', `${PX} + cos(ToRad(sa)) * RandomFloatInRange(720, 900)`),
-    set('sy', '=', `${PY} + sin(ToRad(sa)) * RandomFloatInRange(720, 900)`),
-    set('sk', '=', `min(1, (${R} - 90) / max(1, sqrt(sx * sx + sy * sy)))`),
-    set('sx', '*', 'sk'), set('sy', '*', 'sk'),
-  ];
-  return group('Waves', [
-    comment('Three waves of about a minute; shadows come from beyond the edge of the view, faster as the wave goes on. Between waves: the Sabbath, with a discernment card (name how a thought lies).'),
-    ev([playing(), cmp('Wave', '<=', 'Tuning.waves')], [set('WaveTime', '-', dt), set('Run.time', '+', dt), set('SpawnT', '-', dt)]),
-    ev([playing(), cmp('Wave', '<=', 'Tuning.waves'), cmp('SpawnT', '<=', '0'), cmp('SceneInstancesCount(Traumas)', '<', 'Tuning.maxAlive')], [
-      set('SpawnT', '=', 'max(Tuning.spawnMin, Tuning.spawnInterval * (1 - 0.16 * (Wave - 1)) * (1 - Tuning.chapterSpawn * Chapter) * (0.55 + 0.45 * WaveTime / Tuning.waveSeconds))'),
+/** A point beyond the edge of the view, inside the map. */
+const spawnAround = [
+  set('sa', '=', 'RandomFloatInRange(0, 360)'),
+  set('sx', '=', `${PX} + cos(ToRad(sa)) * RandomFloatInRange(Tuning.spawnNear, Tuning.spawnFar)`),
+  set('sy', '=', `${PY} + sin(ToRad(sa)) * RandomFloatInRange(Tuning.spawnNear, Tuning.spawnFar)`),
+  set('sk', '=', `min(1, (${R} - 90) / max(1, sqrt(sx * sx + sy * sy)))`),
+  set('sx', '*', 'sk'), set('sy', '*', 'sk'),
+];
+const stageKind = `${ST}.enemies[RandomInRange(0, VariableChildCount(${ST}.enemies) - 1)]`;
+/** Width of the band at the top (stage card, voices): clear of the gift slots on the left and the clock on the right. */
+const ZW = 'min(880, SceneWindowWidth() - 524)';
+/** Width of the band at the bottom (memories): clear of the prayer button. */
+const MW = 'min(920, SceneWindowWidth() - 400)';
+
+function stageEvents() {
+  const W = 'SceneWindowWidth()';
+  const mod = name => isS(`${ST}.mod`, '=', q(name));
+  return group('Stages', [
+    comment('A chapter is three stages of one day or night (Content.chapters[].stages): the clock runs from the stage\'s start to its end time, the light and the fog change (evening, dusk, night, small hours, day), each stage has its own shadows, a modifier (swarm: many weak; heavy: fewer, stronger; dark: the fog closes in; voices: the shadows speak more often), a caption that says what is happening, and two memories somewhere on the map. Between stages: the Sabbath and a recognition card.'),
+    ev([isB('StageBegin', true)], [
+      setB('StageBegin', false), set('Run.stage', '=', 'Stage - 1'), setB('CardNow', true), setB('EliteSpawned', false),
+      A('SceneBackground', `${ST}.look.background`),
+      A('SetLayerEffectStringParameter', '""', q('Fog'), q('color'), `${ST}.look.fog`),
+      A('SetLayerEffectParameter', '""', q('Fog'), q('near'), `${ST}.look.near`),
+      A('SetLayerEffectParameter', '""', q('Fog'), q('far'), `${ST}.look.far`),
+      A('SetLayerEffectStringParameter', '""', q('Sky'), q('skyColor'), `${ST}.look.sky`),
+      A('SetLayerEffectStringParameter', '""', q('Sky'), q('groundColor'), `${ST}.look.ground`),
+      A('Scene3D::Cube3DObject::SetTint', 'Floor', `${ST}.look.floor`),
+      set('SpawnMul', '=', '1'), set('HpMul', '=', '1'), set('VoiceMul', '=', '1'),
     ], [
-      repeat('1 + floor((Tuning.waveSeconds - WaveTime) / 25) + floor((Wave - 1) / 2) + floor(Chapter / 5)', [], [...spawnAround], [
-        spawn('sx', 'sy', `${CH}.enemies[RandomInRange(0, KindCount - 1)]`),
+      ev([mod('swarm')], [set('SpawnMul', '=', '0.65'), set('HpMul', '=', '0.7')]),
+      ev([mod('heavy')], [set('SpawnMul', '=', '1.4'), set('HpMul', '=', '1.6')]),
+      ev([mod('voices')], [set('VoiceMul', '=', '0.5'), set('VoiceT', '=', 'min(VoiceT, 8)')]),
+      comment('Two memories of this stage: a pale figure of the person, far enough to be looked for.'),
+      repeat('2', [], [
+        // toward the middle of the map (±100°), so a memory is never pushed back onto the angel at the edge
+        set('ma', '=', `AngleBetweenPositions(${PX}, ${PY}, 0, 0) + RandomFloatInRange(-100, 100)`), set('md', '=', 'RandomFloatInRange(900, 1700)'),
+        set('mx', '=', `${PX} + cos(ToRad(ma)) * md`), set('my', '=', `${PY} + sin(ToRad(ma)) * md`),
+        set('mk', '=', `min(1, (${R} - 250) / max(1, sqrt(mx * mx + my * my)))`),
+        set('mx', '*', 'mk'), set('my', '*', 'mk'),
+        A('CreateByName', 'Memories', '"Memory_" + Save.profile.gender', 'mx', 'my', '""'),
+        oset('Memories', 'Index', '=', 'k'), oset('Memories', 'Stage', '=', 'Stage - 1'), oset('Memories', 'Uid', '=', 'NextUid'),
+        A('Create', 'MemoryLight', 'mx', 'my', '""'), setZ('MemoryLight', '4'), oset('MemoryLight', 'Uid', '=', 'NextUid'),
+        set('NextUid', '+', '1'),
+      ], [], { index: 'k', vars: { k: 0, ma: 0, md: 0, mx: 0, my: 0, mk: 1 } }),
+    ]),
+    comment('The stage card: the time, the title and what is happening, at the top, while the fight goes on.'),
+    ev([isB('CardNow', true), playing()], [setB('CardNow', false), set('CardT', '=', '7.5'), sfx('bell')], [
+      ...['stageBack', 'stageTitle', 'stageCaption'].map(k => ev([oisS('UiAll', 'Key', '=', q(k))], [A('Delete', 'UiAll')])),
+      ev([], [
+        A('Create', 'UiBar', `${W} / 2 - ${ZW} / 2`, '104', q('UI')), osetS('UiBar', 'Key', '=', q('stageBack')), size('UiBar', ZW, '128'), tint('UiBar', q('14;10;24')), opacity('UiBar', '170'), A('SetZOrder', 'UiBar', '=', '55'),
+        label('UiTitle', `${W} / 2 - ${ZW} / 2 + 10`, '110', `${ZW} - 20`, '', { key: 'stageTitle', align: 'center', h: 52, expr: `HolyHoly::StageClock(Stage - 1, 0) + " · " + HolyHoly::G(${ST}.title)` }),
+        label('UiSmall', `${W} / 2 - ${ZW} / 2 + 20`, '166', `${ZW} - 40`, '', { key: 'stageCaption', align: 'center', h: 60, expr: `HolyHoly::G(${ST}.caption)` }),
+      ]),
+    ]),
+    ev([cmp('CardT', '>', '0')], [set('CardT', '-', dt)], [
+      ev([cmp('CardT', '<', '1'), OR(oisS('UiAll', 'Key', '=', q('stageTitle')), oisS('UiAll', 'Key', '=', q('stageCaption')))], [opacity('UiAll', '255 * max(0, CardT)')]),
+      ev([cmp('CardT', '<', '1'), oisS('UiBar', 'Key', '=', q('stageBack'))], [opacity('UiBar', '170 * max(0, CardT)')]),
+      ev([cmp('CardT', '<=', '0')], [], ['stageBack', 'stageTitle', 'stageCaption'].map(k => ev([oisS('UiAll', 'Key', '=', q(k))], [A('Delete', 'UiAll')]))),
+    ]),
+    comment('Shadows come from beyond the edge of the view, faster as the stage goes on.'),
+    ev([playing(), cmp('Stage', '<=', 'StageCount')], [set('StageTime', '-', dt), set('Run.time', '+', dt), set('SpawnT', '-', dt)]),
+    ev([playing(), cmp('Stage', '<=', 'StageCount'), cmp('SpawnT', '<=', '0'), cmp('SceneInstancesCount(Traumas)', '<', 'Tuning.maxAlive')], [
+      set('SpawnT', '=', 'max(Tuning.spawnMin, Tuning.spawnInterval * SpawnMul * (1 - 0.16 * (Stage - 1)) * (1 - Tuning.chapterSpawn * Chapter) * (0.55 + 0.45 * StageTime / Tuning.stageSeconds))'),
+    ], [
+      repeat('1 + floor((Tuning.stageSeconds - StageTime) / 25) + floor((Stage - 1) / 2) + floor(Chapter / 5)', [], [...spawnAround], [
+        spawn('sx', 'sy', stageKind),
       ], { vars: { sa: 0, sx: 0, sy: 0, sk: 1 } }),
     ]),
-    comment('Halfway through a wave comes one strong shadow: bigger, richer in light, its thought written above it, a reliquary inside.'),
-    ev([playing(), cmp('Wave', '<=', 'Tuning.waves'), isB('EliteSpawned', false), cmp('WaveTime', '<', 'Tuning.waveSeconds / 2')], [setB('EliteSpawned', true), ...banner(q('Silny cień nadchodzi'), 1.4)], [
+    comment('Halfway through a stage comes one strong shadow: bigger, richer in light, its thought written above it, a reliquary inside.'),
+    ev([playing(), cmp('Stage', '<=', 'StageCount'), isB('EliteSpawned', false), cmp('StageTime', '<', 'Tuning.stageSeconds / 2')], [setB('EliteSpawned', true), ...banner(q('Silny cień nadchodzi'), 1.4)], [
       ev([], [...spawnAround], [
-        spawn('sx', 'sy', `${CH}.enemies[RandomInRange(0, KindCount - 1)]`, [
+        spawn('sx', 'sy', stageKind, [
           oset('Traumas', 'MaxHp', '*', 'Tuning.eliteHp'), osetB('Traumas', 'Elite', true), oset('Traumas', 'Speed', '*', '0.85'), oset('Traumas', 'BaseScale', '=', '1.5'), scale('Traumas', '1.5'),
           oset('Traumas', 'Uid', '=', 'NextUid'), oset('Traumas', 'Value', '=', 'Tuning.eliteValue'), set('NextUid', '+', '1'),
-          label('UiSmall', '0', '0', 460, '', { align: 'center', key: 'thought', expr: '"„" + HolyHoly::Thought(Traumas.Kind) + "”"' }),
+          label('UiSmall', '0', '0', 420, '', { align: 'center', key: 'thought', expr: '"„" + HolyHoly::Thought(Traumas.Kind) + "”"' }),
           oset('UiSmall', 'Arg', '=', 'Traumas.Uid'),
           A('TextObject::ChangeColor', 'UiSmall', q('255;180;190')),
           A('SetZOrder', 'UiSmall', '=', '15'),
         ]),
       ], { vars: { sa: 0, sx: 0, sy: 0, sk: 1 } }),
     ]),
-    ev([playing(), cmp('Wave', '<=', 'Tuning.waves'), cmp('WaveTime', '<=', '0')], [
+    comment('The end of a stage: the shadows dissolve into light, a heart comes back, and the Sabbath begins.'),
+    ev([playing(), cmp('Stage', '<=', 'StageCount'), cmp('StageTime', '<=', '0')], [
       setS('State', '=', q('sabbath')), set('StateT', '=', '0'),
       set('Hearts', '=', 'min(MaxHearts, Hearts + 1)'),
       A('Delete', 'Arrow'),
       sfx('door'),
-      ...banner('"Fala " + ToString(Wave) + " oczyszczona · Szabat"', 2),
-      setB('DiscAnswered', false),
+      ...banner('"Etap " + ToString(Stage) + " za tobą · cisza"', 2),
+      setB('Recognized', false),
     ], [
       forEach('Traumas', [], [
         ...particle('BurstShadow', 'Traumas.X()', 'Traumas.Y()', '30'),
@@ -1093,71 +1187,276 @@ function waveEvents() {
       ]),
     ]),
     ev([isS('State', '=', q('sabbath'))], [set('StateT', '+', dt)], [
-      ev([cmp('StateT', '>', '1.2'), isB('DiscAnswered', false), cmp('Wave', '<=', 'Tuning.waves')], [setS('State', '=', q('discern')), setS('Ui.clicked', '=', q('discOpen'))]),
+      ev([cmp('StateT', '>', '1.2'), isB('Recognized', false), cmp('Stage', '<=', 'StageCount')], [setS('State', '=', q('recognize')), setS('Ui.clicked', '=', q('recogOpen'))]),
       ev([OR(cmp('StateT', '>', '6'), AND(cmp('StateT', '>', '3'), cmp('SceneInstancesCount(LightShard)', '=', '0')))], [
-        set('Wave', '+', '1'), set('WaveTime', '=', 'Tuning.waveSeconds'), setB('EliteSpawned', false), set('SpawnT', '=', '1'),
+        set('Stage', '+', '1'), set('StageTime', '=', 'Tuning.stageSeconds'), set('SpawnT', '=', '1'),
       ], [
-        ev([cmp('Wave', '<=', 'Tuning.waves')], [setS('State', '=', q('play')), ...banner('"Fala " + ToString(Wave) + " z " + ToString(Tuning.waves)')]),
-        ev([cmp('Wave', '>', 'Tuning.waves')], [setS('State', '=', q('bossIntro')), set('StateT', '=', '0')]),
+        ev([cmp('Stage', '<=', 'StageCount')], [setS('State', '=', q('play')), setB('StageBegin', true)]),
+        ev([cmp('Stage', '>', 'StageCount')], [setS('State', '=', q('bossIntro')), set('StateT', '=', '0')]),
       ]),
     ]),
   ]);
 }
 
-/** Discernment ("rozeznanie duchów"): name how a shadow's thought lies (CBT: identify the distortion). */
-function discernmentEvents() {
-  const W = 900, X = `(SceneWindowWidth() - ${W}) / 2`;
-  return group('Discernment', [
-    comment('Between waves a shadow\'s thought is shown; the player names the thinking error behind it. Right: a heart and prayer. Wrong: the right answer and the question that tests such a thought, still a little prayer. It can be skipped.'),
-    ev([isS('State', '=', q('discern')), clicked('discOpen')], [
-      A('HolyHoly::DrawDiscernment'), setS('Ui.top', '=', q('disc')), A('ChangeLayerTimeScale', '""', '0'), sfx('bell'),
-      box(X, '90', W, '520', { panel: 'disc' }),
-      label('UiTitle', X, '108', W, 'Rozeznanie', { panel: 'disc', align: 'center' }),
-      label('UiSmall', `${X} + 60`, '170', W - 120, '', { panel: 'disc', align: 'center', expr: '"Cień „" + Run.disc.name + "” szepcze:"' }),
-      label('UiText', `${X} + 60`, '204', W - 120, '', { panel: 'disc', align: 'center', expr: '"„" + Run.disc.thought + "”"' }),
-      label('UiSmall', `${X} + 60`, '282', W - 120, 'Jak kłamie ta myśl?', { panel: 'disc', align: 'center', key: 'discAsk' }),
+// ─── voices: the shadows that speak, and what rises when they are silenced ─────────────────────
+
+function voiceEvents() {
+  const T = 'Traumas';
+  const W = 'SceneWindowWidth()';
+  const V = 'Run.voice';
+  const flow = (k, at) => ev([oisS('UiAll', 'Key', '=', q(k)), cmp('SilT', '>=', at), ois('UiAll', 'Index', '=', '0')], [oset('UiAll', 'Index', '=', '1'), tweenOpacity('UiAll', 'in', '255', '0.5')]);
+  return group('Voices', [
+    comment('Every so often a shadow speaks: a Voice (Content.chapters[].voices, in order) carries one of the person\'s own negative thoughts, said aloud above it. It is bigger, slower and stronger. Silenced, it shows what happened to the thought: it is crossed out, its thinking error is named, what negates it appears, and the true thought rises in gold. It leaves a word of truth that heals.'),
+    // an inverted object condition would be true while any other shadow lives: count the voices instead
+    ev([], [setB('VoiceAlive', false)]),
+    ev([oisB(T, 'Voice', true)], [setB('VoiceAlive', true)]),
+    // the gap runs only while no voice speaks, so two silenced voices never come back to back
+    ev([playing(), cmp('Stage', '<=', 'StageCount'), isB('VoiceAlive', false)], [set('VoiceT', '-', dt)]),
+    ev([playing(), cmp('Stage', '<=', 'StageCount'), cmp('VoiceT', '<=', '0'), isB('VoiceAlive', false)], [
+      set('VoiceT', '=', 'Tuning.voiceGap * VoiceMul'),
+      A('HolyHoly::DrawVoice', 'VoiceNext'), set('VoiceNext', '+', '1'),
     ], [
-      repeat('3', [], [button(`${X} + 90`, '322 + k * 66', `${W - 180}`, '56', '', 'disc', { arg: 'k', panel: 'disc', captionExpr: 'Run.disc.names[k]' })], [], { index: 'k', vars: { k: 0 } }),
-      ev([], [button(`${X} + ${W / 2 - 110}`, '540', '220', '50', 'Pomiń', 'discSkip', { panel: 'disc' })]),
-    ]),
-    ev([isS('State', '=', q('discern')), clicked('disc')], [setB('DiscAnswered', true)], [
-      ...closePanel('disc'),
-      ev([], [box(X, '120', W, '440', { panel: 'disc' }), button(`${X} + ${W / 2 - 110}`, '486', '220', '54', 'Dalej', 'discDone', { panel: 'disc' })]),
-      ev([cmpS('Run.disc.options[Ui.arg]', '=', 'Run.disc.answer')], [
-        set('Hearts', '=', 'min(MaxHearts, Hearts + 1)'), set('Prayer', '=', 'min(100, Prayer + 25)'), set('Run.discRight', '+', '1'), sfx('revelation', '1'),
-        label('UiTitle', X, '140', W, 'Rozpoznane!', { panel: 'disc', align: 'center' }),
-        label('UiText', `${X} + 60`, '210', W - 120, '', { panel: 'disc', align: 'center', expr: '"To " + ToLowerCase(Run.disc.answerName) + ". Myśl nazwana po imieniu przestaje udawać fakt."' }),
-        label('UiSmall', `${X} + 60`, '330', W - 120, '', { panel: 'disc', align: 'center', expr: '"Pytanie, które ją sprawdza: " + Run.disc.question + NewLine() + NewLine() + "+1 serce, modlitwa rośnie."' }),
+      ev([], [...spawnAround], [
+        spawn('sx', 'sy', `${V}.kind`, [
+          osetB(T, 'Voice', true), oset(T, 'MaxHp', '*', 'Tuning.voiceHp'), oset(T, 'Speed', '*', '0.8'), oset(T, 'BaseScale', '=', '1.35'), scale(T, '1.35'),
+          oset(T, 'Uid', '=', 'NextUid'), oset(T, 'Value', '=', 'Tuning.voiceValue'),
+          label('UiText', '0', '0', 440, '', { align: 'center', key: 'voiceSays', expr: `"„" + ${V}.says + "”"` }),
+          oset('UiText', 'Arg', '=', 'NextUid'),
+          A('TextObject::ChangeColor', 'UiText', q('255;170;190')),
+          A('TextObject::Text::SetOutlineEnabled', 'UiText', 'yes'), A('TextObject::Text::SetOutlineColor', 'UiText', q('40;10;24')),
+          A('SetZOrder', 'UiText', '=', '16'),
+          A('Create', 'VoiceRing', 'sx', 'sy', '""'), setZ('VoiceRing', '5'), oset('VoiceRing', 'Uid', '=', 'NextUid'),
+          set('NextUid', '+', '1'),
+        ]),
+      ], { vars: { sa: 0, sx: 0, sy: 0, sk: 1 } }),
+      ev([], [sfx('weaken'), set('VoiceLineT', '=', '5')]),
+      comment('Wherever it is, the voice is heard: its words at the top of the screen for a few seconds.'),
+      // a voice is louder than the stage card: the card makes room for it
+      ...['voiceBack', 'voiceLine', 'stageBack', 'stageTitle', 'stageCaption'].map(k => ev([oisS('UiAll', 'Key', '=', q(k))], [A('Delete', 'UiAll')])),
+      ev([], [set('CardT', '=', '-1')]),
+      ev([cmp('SilT', '<', '0')], [
+        A('Create', 'UiBar', `${W} / 2 - ${ZW} / 2`, '104', q('UI')), osetS('UiBar', 'Key', '=', q('voiceBack')), size('UiBar', ZW, '64'), tint('UiBar', q('30;8;20')), opacity('UiBar', '170'), A('SetZOrder', 'UiBar', '=', '55'),
+        label('UiText', `${W} / 2 - ${ZW} / 2 + 20`, '114', `${ZW} - 40`, '', { key: 'voiceLine', align: 'center', h: 44, expr: `"Głos szepcze: „" + ${V}.says + "”"` }),
+        A('TextObject::ChangeColor', 'UiText', q('255;170;190')),
       ]),
-      ev([cmpS('Run.disc.options[Ui.arg]', '!=', 'Run.disc.answer')], [
-        set('Prayer', '=', 'min(100, Prayer + 10)'), sfx('weaken'),
-        label('UiTitle', X, '140', W, 'Prawie', { panel: 'disc', align: 'center' }),
-        label('UiText', `${X} + 60`, '210', W - 120, '', { panel: 'disc', align: 'center', expr: '"Tym razem to raczej: " + ToLowerCase(Run.disc.answerName) + ". Takie myśli często mieszają kilka sposobów kłamania."' }),
-        label('UiSmall', `${X} + 60`, '330', W - 120, '', { panel: 'disc', align: 'center', expr: '"Pytanie, które ją sprawdza: " + Run.disc.question' }),
-      ]),
-      ev([], [setS('Ui.top', '=', q('disc'))]),
     ]),
-    ev([isS('State', '=', q('discern')), OR(clicked('discDone'), clicked('discSkip'), AND(clicked('close'), isS('Ui.top', '=', q('disc'))))], [
-      setB('DiscAnswered', true), setS('State', '=', q('sabbath')), setS('Ui.top', '=', '""'), A('ChangeLayerTimeScale', '""', '1'),
-    ], closePanel('disc')),
+    ev([cmp('VoiceLineT', '>', '0')], [set('VoiceLineT', '-', dt)], [
+      ev([cmp('VoiceLineT', '<', '1'), oisS('UiText', 'Key', '=', q('voiceLine'))], [opacity('UiText', '255 * max(0, VoiceLineT)')]),
+      ev([cmp('VoiceLineT', '<', '1'), oisS('UiBar', 'Key', '=', q('voiceBack'))], [opacity('UiBar', '170 * max(0, VoiceLineT)')]),
+      ev([cmp('VoiceLineT', '<=', '0')], [], ['voiceBack', 'voiceLine'].map(k => ev([oisS('UiAll', 'Key', '=', q(k))], [A('Delete', 'UiAll')]))),
+    ]),
+    comment('The voice\'s words and its ring follow it; when it is gone (silenced or swept away by the Sabbath) they go too.'),
+    forEach('UiText', [oisS('UiText', 'Key', '=', q('voiceSays'))], [setB('found', false)], [
+      ev([ois(T, 'Uid', '=', 'UiText.Arg'), oisB(T, 'Voice', true)], [
+        A('SetXY', 'UiText', '=', `HolyHoly::ScreenX(${T}.X(), ${T}.Y(), 300) - UiText.Width() / 2`, '=', `HolyHoly::ScreenY(${T}.X(), ${T}.Y(), 300) - UiText.Height()`),
+        setB('found', true),
+      ]),
+      ev([isB('found', false)], [A('Delete', 'UiText')]),
+    ], { vars: { found: false } }),
+    forEach('VoiceRing', [], [setB('found', false), scale('VoiceRing', '1 + 0.08 * sin(TimeFromStart() * 5)')], [
+      ev([ois(T, 'Uid', '=', 'VoiceRing.Uid'), oisB(T, 'Voice', true)], [A('SetXY', 'VoiceRing', '=', `${T}.X()`, '=', `${T}.Y()`), setB('found', true)]),
+      ev([isB('found', false)], [A('Delete', 'VoiceRing')]),
+    ], { vars: { found: false } }),
+    comment('Silenced: the lines of the thought record of this one thought, one after another (SilT), in flow (each line below the last), then they fade.'),
+    ev([cmp('SilT', '=', '0')], [set('SilT', '=', '0.01')], [
+      ...['silBack', 'silSays', 'silStrike', 'silPattern', 'silNo', 'silYes', 'stageBack', 'stageTitle', 'stageCaption', 'voiceBack', 'voiceLine'].map(k => ev([oisS('UiAll', 'Key', '=', q(k))], [A('Delete', 'UiAll')])),
+      ev([], [set('CardT', '=', '-1')]),
+      ev([], [
+        A('Create', 'UiBar', `${W} / 2 - ${ZW} / 2`, '100', q('UI')), osetS('UiBar', 'Key', '=', q('silBack')), size('UiBar', ZW, '200'), tint('UiBar', q('14;10;24')), opacity('UiBar', '0'), A('SetZOrder', 'UiBar', '=', '55'),
+        label('UiText', `${W} / 2 - ${ZW} / 2 + 20`, '106', `${ZW} - 40`, '', { key: 'silSays', align: 'center', h: 38, expr: `"„" + ${V}.says + "”"` }),
+        A('TextObject::ChangeColor', 'UiText', q('255;170;190')), set('sy', '=', 'UiText.Y() + UiText.Height() + 2'),
+        // the strike line is placed from the text's size here, where the text is the picked one
+        set('sw', '=', 'min(UiText.Width(), StrLength(UiText.Text::Value()) * 12)'), set('sm', '=', 'UiText.Y() + UiText.Height() / 2'),
+        A('Create', 'UiBar', `${W} / 2 - sw / 2`, 'sm', q('UI')), osetS('UiBar', 'Key', '=', q('silStrike')), size('UiBar', '2', '4'), tint('UiBar', q('255;80;80')), A('SetZOrder', 'UiBar', '=', '95'),
+        tweenWidth('UiBar', 'strike', 'sw', '0.5'),
+        label('UiSmall', `${W} / 2 - ${ZW} / 2 + 20`, 'sy', `${ZW} - 40`, '', { key: 'silPattern', align: 'center', h: 28, expr: `"Jak kłamie: " + ${V}.patternName + " (" + ${V}.signal + ")"` }),
+        set('sy', '=', 'UiSmall.Y() + UiSmall.Height() + 4'),
+        label('UiText', `${W} / 2 - ${ZW} / 2 + 20`, 'sy', `${ZW} - 40`, '', { key: 'silNo', align: 'center', h: 62, expr: `"Nie: " + ${V}.no` }),
+        set('sy', '=', 'UiText.Y() + UiText.Height() + 4'),
+        label('UiText', `${W} / 2 - ${ZW} / 2 + 20`, 'sy', `${ZW} - 40`, '', { key: 'silYes', align: 'center', h: 'max(30, 298 - sy)', expr: `${V}.yes` }),
+        A('TextObject::ChangeColor', 'UiText', q('255;214;120')),
+        set('sy', '=', 'UiText.Y() + UiText.Height() + 8'),
+      ], [], { vars: { sy: 0, sw: 0, sm: 0 } }),
+    ]),
+    ev([cmp('SilT', '>', '0')], [set('SilT', '+', dt)], [
+      ev([OR(oisS('UiAll', 'Key', '=', q('silPattern')), oisS('UiAll', 'Key', '=', q('silNo')), oisS('UiAll', 'Key', '=', q('silYes'))), ois('UiAll', 'Index', '=', '0'), cmp('SilT', '<', '0.1')], [opacity('UiAll', '0')]),
+      ev([oisS('UiBar', 'Key', '=', q('silBack')), cmp('SilT', '<', '0.1')], [opacity('UiBar', '170')]),
+      flow('silPattern', '0.6'), flow('silNo', '1.4'), flow('silYes', '2.4'),
+      ev([cmp('SilT', '>', '2.4'), cmp('SilT', '<', '2.5'), C('BuiltinCommonInstructions::Once')], [sfx('revelation', '1')]),
+      ev([cmp('SilT', '>', '7.5'), OR(...['silSays', 'silStrike', 'silPattern', 'silNo', 'silYes'].map(k => oisS('UiAll', 'Key', '=', q(k))))], [opacity('UiAll', '255 * max(0, 8.5 - SilT)')]),
+      ev([cmp('SilT', '>', '7.5'), oisS('UiBar', 'Key', '=', q('silBack'))], [opacity('UiBar', '170 * max(0, 8.5 - SilT)')]),
+      ev([cmp('SilT', '>', '8.5')], [set('SilT', '=', '-1')], ['silBack', 'silSays', 'silStrike', 'silPattern', 'silNo', 'silYes'].map(k => ev([oisS('UiAll', 'Key', '=', q(k))], [A('Delete', 'UiAll')]))),
+    ]),
   ]);
 }
 
-// ─── the stronghold and the praise ──────────────────────────────────────────────────────────────
+// ─── memories: the story, found on the map ─────────────────────────────────────────────────────
 
-function strongholdEvents() {
-  const S = 'Stronghold';
+function memoryEvents() {
+  const W = 'SceneWindowWidth()', H = 'SceneWindowHeight()';
+  const MEM = 'Content.chapters[Chapter].stages[Memories.Stage].memories[Memories.Index]';
+  return group('Memories', [
+    comment('A memory is a pale figure of the person standing somewhere on the map. Reaching it shows a fragment of the story (from the everyday to the core wound) at the bottom of the screen while the fight goes on, and gives light. A pointer at the edge of the screen leads to the nearest one; when hearts run low, it leads to a spring instead.'),
+    forEach('Memories', [OR(playing(), isS('State', '=', q('sabbath'))), C('Distance', 'Memories', 'Player', 'Tuning.memoryReach')], [
+      set('Run.memories', '+', '1'), sfx('bell'), ...particle('BurstLight', 'Memories.X()', 'Memories.Y()', '60'),
+      set('MemoryT', '=', '8'),
+    ], [
+      ...['memoryBack', 'memoryHead', 'memory'].map(k => ev([oisS('UiAll', 'Key', '=', q(k))], [A('Delete', 'UiAll')])),
+      ev([], [
+        A('Create', 'UiBar', `${W} / 2 - ${MW} / 2 - 20`, `${H} - 216`, q('UI')), osetS('UiBar', 'Key', '=', q('memoryBack')), size('UiBar', `${MW} + 40`, '128'), tint('UiBar', q('16;14;30')), opacity('UiBar', '180'), A('SetZOrder', 'UiBar', '=', '55'),
+        label('UiSmall', `${W} / 2 - ${MW} / 2`, `${H} - 210`, MW, '', { key: 'memoryHead', align: 'center', h: 28, expr: '"WSPOMNIENIE · " + ToString(Run.memories) + " z " + ToString(StageCount * 2)' }),
+        A('TextObject::ChangeColor', 'UiSmall', q('190;200;255')),
+        label('UiText', `${W} / 2 - ${MW} / 2`, `${H} - 180`, MW, '', { key: 'memory', align: 'center', h: 88, expr: `HolyHoly::G(${MEM})` }),
+        A('TextObject::ChangeColor', 'UiText', q('232;236;255')),
+      ]),
+      repeat('6', [], [A('Create', 'LightShard', 'Memories.X() + RandomFloatInRange(-40, 40)', 'Memories.Y() + RandomFloatInRange(-40, 40)', '""'), A('AddForceAL', 'LightShard', 'RandomFloatInRange(0, 360)', '160', '0.6')]),
+      ev([ois('MemoryLight', 'Uid', '=', 'Memories.Uid')], [A('Delete', 'MemoryLight')]),
+      ev([], [A('Delete', 'Memories')]),
+    ]),
+    ev([cmp('MemoryT', '>', '0')], [set('MemoryT', '-', dt)], [
+      ev([cmp('MemoryT', '<', '1'), OR(oisS('UiAll', 'Key', '=', q('memory')), oisS('UiAll', 'Key', '=', q('memoryHead')))], [opacity('UiAll', '255 * max(0, MemoryT)')]),
+      ev([cmp('MemoryT', '<', '1'), oisS('UiBar', 'Key', '=', q('memoryBack'))], [opacity('UiBar', '180 * max(0, MemoryT)')]),
+      ev([cmp('MemoryT', '<=', '0')], [], ['memoryBack', 'memoryHead', 'memory'].map(k => ev([oisS('UiAll', 'Key', '=', q(k))], [A('Delete', 'UiAll')]))),
+    ]),
+    ev([], [A('Scene3D::Model3DObject::SetScaleX', 'Memories', '=', '1 + 0.04 * sin(TimeFromStart() * 2)'), scale('MemoryLight', '1 + 0.1 * sin(TimeFromStart() * 3)')]),
+    comment('The pointer: to the nearest spring with water when half the hearts are gone, otherwise to a voice that speaks, otherwise to the nearest memory; hidden when the target is close.'),
+    ev([begins()], [
+      A('Create', 'UiIcon', '0', '0', q('UI')), anim('UiIcon', 'pointer'), osetS('UiIcon', 'Key', '=', q('pointer')), A('SetZOrder', 'UiIcon', '=', '64'), A('Hide', 'UiIcon'),
+      label('UiSmall', '0', '0', 160, '', { key: 'pointerText', align: 'center', h: 26 }),
+    ]),
+    ev([], [setB('PtOn', false)], [
+      ev([OR(playing(), isS('State', '=', q('sabbath'))), cmp('Hearts', '<=', 'MaxHearts / 2'), ois('Spring', 'Water', '>', '0'), C('PickNearest', 'Spring', PX, PY)], [
+        set('PtX', '=', 'Spring.X()'), set('PtY', '=', 'Spring.Y()'), setB('PtOn', true), setS('PtKind', '=', q('źródło')),
+      ]),
+      ev([playing(), isB('PtOn', false), oisB('Traumas', 'Voice', true), C('PickNearest', 'Traumas', PX, PY)], [
+        set('PtX', '=', 'Traumas.X()'), set('PtY', '=', 'Traumas.Y()'), setB('PtOn', true), setS('PtKind', '=', q('głos')),
+      ]),
+      ev([OR(playing(), isS('State', '=', q('sabbath'))), isB('PtOn', false), C('PickNearest', 'Memories', PX, PY)], [
+        set('PtX', '=', 'Memories.X()'), set('PtY', '=', 'Memories.Y()'), setB('PtOn', true), setS('PtKind', '=', q('wspomnienie')),
+      ]),
+      ev([isB('PtOn', true)], [set('PtA', '=', `AngleBetweenPositions(${PX}, ${PY}, PtX, PtY)`)]),
+      ev([oisS('UiIcon', 'Key', '=', q('pointer'))], [A('Hide', 'UiIcon')], [
+        ev([isB('PtOn', true), cmp(`DistanceBetweenPositions(${PX}, ${PY}, PtX, PtY)`, '>', '700')], [
+          A('Show', 'UiIcon'), A('SetAngle', 'UiIcon', '=', 'PtA'),
+          // an ellipse around the angel, flatter above it, where the voices and the stage card are
+          A('SetXY', 'UiIcon', '=', `${W} / 2 + cos(ToRad(PtA)) * (${W} / 2 - 70)`, '=', `${H} / 2 + 40 + sin(ToRad(PtA)) * (130 + 100 * clamp(sin(ToRad(PtA)) + 1, 0, 1))`),
+          scale('UiIcon', '0.9 + 0.12 * sin(TimeFromStart() * 5)'),
+        ]),
+        ev([isS('PtKind', '=', q('źródło'))], [A('ChangeColor', 'UiIcon', q('150;210;255'))]),
+        ev([isS('PtKind', '=', q('wspomnienie'))], [A('ChangeColor', 'UiIcon', q('255;255;255'))]),
+        ev([isS('PtKind', '=', q('głos'))], [A('ChangeColor', 'UiIcon', q('255;140;170'))]),
+      ]),
+      ev([oisS('UiSmall', 'Key', '=', q('pointerText'))], [text('UiSmall', '""')], [
+        ev([isB('PtOn', true), cmp(`DistanceBetweenPositions(${PX}, ${PY}, PtX, PtY)`, '>', '700')], [
+          text('UiSmall', 'PtKind'),
+          A('SetXY', 'UiSmall', '=', `${W} / 2 + cos(ToRad(PtA)) * (${W} / 2 - 160) - 80`, '=', `${H} / 2 + 40 + sin(ToRad(PtA)) * (90 + 100 * clamp(sin(ToRad(PtA)) + 1, 0, 1)) - 12`),
+        ]),
+      ]),
+    ], { vars: { PtX: 0, PtY: 0, PtA: 0, PtOn: false, PtKind: '' } }),
+  ]);
+}
+
+// ─── healing: springs, words of truth, the breath ──────────────────────────────────────────────
+
+function healingEvents() {
+  const heal = why => [set('Hearts', '+', '1'), set('Run.healed', '+', '1'), sfx('grace'), ...particle('BurstHeal', PX, PY, '50'), ...banner(q(why), 1.4)];
+  return group('Healing', [
+    comment('Three ways to heal, besides the Sabbath and manna. Springs of living water (J 4,14): standing in one gives a heart every few seconds until it runs dry; it fills again after a while. A silenced voice leaves a word of truth: taking it gives a heart. And the breath: holding Q (or the breath button) while standing still, one cyclic sigh (in, a second sip, a long breath out) gives a heart, then needs a rest.'),
+    forEach('Spring', [], [size('Spring', `Tuning.springRadius * 2 * (0.35 + 0.65 * Spring.Water / Tuning.springWater)`, `Tuning.springRadius * 2 * (0.35 + 0.65 * Spring.Water / Tuning.springWater)`)], [
+      ev([ois('Spring', 'Water', '<=', '0')], [oset('Spring', 'Dry', '+', dt)], [
+        ev([ois('Spring', 'Dry', '>=', 'Tuning.springRefill')], [oset('Spring', 'Water', '=', 'Tuning.springWater'), oset('Spring', 'Dry', '=', '0')]),
+      ]),
+      ev([OR(playing(), isS('State', '=', q('sabbath'))), ois('Spring', 'Water', '>', '0'), cmp('Hearts', '<', 'MaxHearts'), C('Distance', 'Player', 'Spring', 'Tuning.springRadius')], [oset('Spring', 'Tick', '+', dt)], [
+        ev([ois('Spring', 'Tick', '>=', 'Tuning.springTick')], [oset('Spring', 'Tick', '=', '0'), oset('Spring', 'Water', '-', '1'), ...heal('Źródło: +1 serce')], [
+          ev([isB('SpringSeen', false)], [setB('SpringSeen', true), ...banner(q('Źródło wody żywej (J 4,14): +1 serce'), 2.2)]),
+        ]),
+      ]),
+    ]),
+    ev([], [oset('Truth', 'T', '+', dt), setZ('Truth', '40 + 10 * sin(TimeFromStart() * 4)')]),
+    forEach('Truth', [C('CollisionNP', 'Truth', 'Player')], [A('Delete', 'Truth')], [
+      ev([cmp('Hearts', '<', 'MaxHearts')], heal('Słowo prawdy: +1 serce')),
+      ev([cmp('Hearts', '>=', 'MaxHearts')], [set('Prayer', '=', 'min(100, Prayer + 20)'), sfx('grace'), ...banner(q('Słowo prawdy: modlitwa rośnie'), 1.4)]),
+    ]),
+    ev([C('Distance', 'Truth', 'Player', 'St.magnet')], [A('AddForceTowardPosition', 'Truth', PX, PY, '500', '0')]),
+    ev([cmp('BreathCD', '>', '0')], [set('BreathCD', '-', dt)]),
+    ev([playing(), OR(key('q'), C('SpriteMultitouchJoystick::IsButtonPressed', '1', q('C'))), cmp('Still', '>', '0.1'), cmp('BreathCD', '<=', '0'), cmp('Hearts', '<', 'MaxHearts')], [set('BreathT', '+', dt)]),
+    ev([cmp('BreathT', '>', '0'), OR(NOT(playing()), AND(NOT(key('q')), NOT(C('SpriteMultitouchJoystick::IsButtonPressed', '1', q('C')))), cmp('Still', '<=', '0.1'))], [set('BreathT', '=', '0')]),
+    ev([cmp('BreathT', '>=', 'Tuning.breathSeconds')], [set('BreathT', '=', '0'), set('BreathCD', '=', 'Tuning.breathCooldown')], [
+      ev([cmp('Hearts', '<', 'MaxHearts')], heal('Westchnienie: +1 serce')),
+    ]),
+    ev([begins()], [
+      A('Create', 'UiIcon', '0', '0', q('UI')), anim('UiIcon', 'breath'), osetS('UiIcon', 'Key', '=', q('breathRing')), A('SetZOrder', 'UiIcon', '=', '30'), A('Hide', 'UiIcon'),
+      label('UiSmall', '0', '0', 300, '', { key: 'breathCue', align: 'center', h: 28 }),
+    ]),
+    ev([oisS('UiIcon', 'Key', '=', q('breathRing'))], [A('Hide', 'UiIcon')], [
+      ev([cmp('BreathT', '>', '0')], [A('Show', 'UiIcon'), A('SetXY', 'UiIcon', '=', `HolyHoly::ScreenX(${PX}, ${PY}, 110)`, '=', `HolyHoly::ScreenY(${PX}, ${PY}, 110)`)], [
+        ev([cmp('BreathT', '<', '2')], [scale('UiIcon', '0.35 + 0.4 * BreathT / 2')]),
+        ev([cmp('BreathT', '>=', '2'), cmp('BreathT', '<', '2.5')], [scale('UiIcon', '0.75 + 0.2 * (BreathT - 2) / 0.5')]),
+        ev([cmp('BreathT', '>=', '2.5')], [scale('UiIcon', '0.95 - 0.6 * (BreathT - 2.5) / (Tuning.breathSeconds - 2.5)')]),
+      ]),
+    ]),
+    ev([oisS('UiSmall', 'Key', '=', q('breathCue'))], [text('UiSmall', '""')], [
+      ev([cmp('BreathT', '>', '0')], [A('SetXY', 'UiSmall', '=', `HolyHoly::ScreenX(${PX}, ${PY}, 0) - 150`, '=', `HolyHoly::ScreenY(${PX}, ${PY}, 0) + 16`)], [
+        ev([cmp('BreathT', '<', '2')], [text('UiSmall', q('wdech nosem…'))]),
+        ev([cmp('BreathT', '>=', '2'), cmp('BreathT', '<', '2.5')], [text('UiSmall', q('…i jeszcze trochę'))]),
+        ev([cmp('BreathT', '>=', '2.5')], [text('UiSmall', q('długi wydech ustami…'))]),
+      ]),
+    ]),
+  ]);
+}
+
+/** Recognition: between stages, one thought of this chapter, shown with its answer (no guessing). */
+function recognitionEvents() {
+  const WD = 900, X = `(SceneWindowWidth() - ${WD}) / 2`;
+  const V = 'Run.voice';
+  return group('Recognition', [
+    comment('Between stages the last voice of the stage is shown whole, as a worked example: what it said, how it lies (the thinking error and its signal words), the question that tests it, what negates it and the truth. Nothing to guess: the player reads and says the truth aloud (a heart and prayer). The lines flow one under another and shrink to fit.'),
+    ev([isS('State', '=', q('recognize')), clicked('recogOpen')], [
+      setS('Ui.top', '=', q('recog')), A('ChangeLayerTimeScale', '""', '0'), sfx('bell'),
+    ], [
+      ev([cmp('VoiceNext', '=', '0')], [A('HolyHoly::DrawVoice', 'Stage - 1'), set('VoiceNext', '=', 'Stage')]),
+      ev([cmp('VoiceNext', '>', '0')], [A('HolyHoly::DrawVoice', 'VoiceNext - 1')]),
+      ev([], [
+        box(X, '70', WD, '580', { panel: 'recog' }),
+        label('UiTitle', X, '88', WD, 'Rozpoznanie', { panel: 'recog', align: 'center', h: 50 }),
+        label('UiSmall', `${X} + 60`, '146', WD - 120, '', { panel: 'recog', align: 'center', h: 28, expr: 'HolyHoly::G("Głos, który {imie} słyszy") + " (" + HolyHoly::StageClock(Stage - 1, 1) + "):"' }),
+        set('ry', '=', 'UiSmall.Y() + UiSmall.Height() + 2'),
+        label('UiText', `${X} + 60`, 'ry', WD - 120, '', { panel: 'recog', align: 'center', h: 70, expr: `"„" + ${V}.says + "”"` }),
+        A('TextObject::ChangeColor', 'UiText', q('255;170;190')), set('ry', '=', 'UiText.Y() + UiText.Height() + 10'),
+        label('UiSmall', `${X} + 60`, 'ry', WD - 120, '', { panel: 'recog', h: 56, expr: `"Jak kłamie: " + ${V}.patternName + ". Sygnał: " + ${V}.signal + "."` }),
+        set('ry', '=', 'UiSmall.Y() + UiSmall.Height() + 6'),
+        label('UiSmall', `${X} + 60`, 'ry', WD - 120, '', { panel: 'recog', h: 56, expr: `"Pytanie, które ją sprawdza: " + ${V}.question` }),
+        set('ry', '=', 'UiSmall.Y() + UiSmall.Height() + 10'),
+        label('UiText', `${X} + 60`, 'ry', WD - 120, '', { panel: 'recog', h: 90, expr: `"Nie: " + ${V}.no` }),
+        set('ry', '=', 'UiText.Y() + UiText.Height() + 8'),
+        label('UiText', `${X} + 60`, 'ry', WD - 120, '', { panel: 'recog', h: 90, expr: `"Prawda: " + ${V}.yes` }),
+        A('TextObject::ChangeColor', 'UiText', q('255;214;120')),
+        button(`${X} + ${WD / 2 - 200}`, '578', '400', '56', 'Powiedz to na głos (+1 serce)', 'recogSay', { panel: 'recog' }),
+      ], [], { vars: { ry: 0 } }),
+    ], { vars: { ry: 0 } }),
+    ev([isS('State', '=', q('recognize')), OR(clicked('recogSay'), AND(clicked('close'), isS('Ui.top', '=', q('recog'))))], [
+      setB('Recognized', true), setS('State', '=', q('sabbath')), setS('Ui.top', '=', '""'), A('ChangeLayerTimeScale', '""', '1'),
+      set('Hearts', '=', 'min(MaxHearts, Hearts + 1)'), set('Prayer', '=', 'min(100, Prayer + 20)'), set('Run.recognized', '+', '1'), sfx('revelation', '1'),
+      ...banner(q('Prawda powiedziana: +1 serce'), 1.6),
+    ], closePanel('recog')),
+  ]);
+}
+
+// ─── the lie of the chapter, personified, and the praise ────────────────────────────────────────
+
+function liarEvents() {
+  const S = 'Liar';
   const ring = n => repeat(n, [], [
     A('Create', 'Arrow', `${S}.X()`, `${S}.Y()`, '""'),
     setZ('Arrow', '70'),
     A('SetAngle', 'Arrow', '=', `k * 360 / (${n}) + BossSpin`),
     A('AddForceAL', 'Arrow', 'Arrow.Angle()', 'Tuning.bossArrowSpeed', '1'),
   ], [], { index: 'k', vars: { k: 0 } });
-  return group('Stronghold', [
-    comment('2 Kor 10,4: the stronghold carries the chapter\'s lie. Phase 1 rains fiery arrows; phase 2 binds itself with chains (break them with strikes, ×3); phase 3 charges. Each fall makes it 10% weaker. Its painting follows the invisible Stronghold object.'),
+  return group('The lie personified', [
+    comment('At the end of the chapter its lie comes in its own figure (an allegory, as in Prudentius\' Psychomachia: Dread, the Heart of Stone, Semblance, Emptiness…), saying the lie aloud above it. Phase 1 rains fiery arrows (Ef 6,16); phase 2 binds the person with chains (break them with strikes, ×3) and calls shadows; phase 3 charges. Each fall makes it 10% weaker. Its painting follows the invisible Liar object.'),
     ev([isS('State', '=', q('bossIntro'))], [set('StateT', '+', dt)], [
       ev([C('BuiltinCommonInstructions::Once')], [
-        set('sx', '=', PX), set('sy', '=', `${PY} - 300`),
+        set('sx', '=', PX), set('sy', '=', `${PY} - 460`),
         set('sk', '=', `min(1, (${R} - 260) / max(1, sqrt(sx * sx + sy * sy)))`),
         A('Create', S, 'sx * sk', 'sy * sk', '""'), A('Hide', S),
         A('CreateByName', 'Bosses', `${CH}.boss.art`, 'sx * sk', 'sy * sk', '""'),
@@ -1165,16 +1464,24 @@ function strongholdEvents() {
         A('Tween::AddObjectPositionZTween2', 'Bosses', 'Tween', 'Object3D', q('rise'), '0', q('easeOutCubic'), '1.6', 'no'),
         oset(S, 'MaxHp', '=', `${CH}.boss.hp * Tuning.bossHpScale * (1 - min(0.4, 0.1 * Run.falls)) * St.hpMul`),
         oset(S, 'Hp', '=', `${S}.MaxHp`),
-        oset(S, 'Armor', '=', '1'), oset(S, 'PunchMul', '=', '1'), oset(S, 'Phase', '=', '1'), osetS(S, 'Kind', '=', q('stronghold')),
+        oset(S, 'Armor', '=', '1'), oset(S, 'PunchMul', '=', '1'), oset(S, 'Phase', '=', '1'), osetS(S, 'Kind', '=', q('liar')),
         set('BossArrowT', '=', '2.5'), set('BossSummonT', '=', '4'), set('BossDashT', '=', '4'),
         sfx('boss'), shake('0.6'), A('HolyHoly::Vibrate', '150'),
         ...banner(`${CH}.boss.name`, 3.2),
+        label('UiText', '0', '0', 520, '', { align: 'center', key: 'lieSays', expr: `"„" + HolyHoly::G(${CH}.boss.lie) + "”"` }),
+        A('TextObject::ChangeColor', 'UiText', q('255;150;150')), A('TextObject::Text::SetOutlineEnabled', 'UiText', 'yes'), A('TextObject::Text::SetOutlineColor', 'UiText', q('40;6;10')),
+        A('SetZOrder', 'UiText', '=', '16'),
       ], [], { vars: {} }),
       ev([cmp('StateT', '>', '2.8')], [setS('State', '=', q('play'))]),
     ], { vars: { sx: 0, sy: 0, sk: 1 } }),
-    ev([], [A('SetXY', 'Bosses', '=', `${S}.X()`, '=', `${S}.Y() + 1`)]),
-    ev([playing(), cmp('SceneInstancesCount(Stronghold)', '>', '0')], [set('BossArrowT', '-', dt), set('BossSummonT', '-', dt), set('BossDashT', '-', dt), set('BossSpin', '+', `17 * ${dt}`)], [
-      comment('Focus pierces the lie: with the multiplier at ×2 or more, everything hurts the stronghold 25% more.'),
+    // once the lie is gone its painting sinks where it stood (Liar.X() of no instance would be 0)
+    ev([cmp('SceneInstancesCount(Liar)', '>', '0')], [A('SetXY', 'Bosses', '=', `${S}.X()`, '=', `${S}.Y() + 1`)]),
+    ev([oisS('UiText', 'Key', '=', q('lieSays')), cmp('SceneInstancesCount(Liar)', '>', '0')], [
+      A('SetXY', 'UiText', '=', `HolyHoly::ScreenX(${S}.X(), ${S}.Y(), 520) - UiText.Width() / 2`, '=', `max(96, HolyHoly::ScreenY(${S}.X(), ${S}.Y(), 520) - UiText.Height())`),
+    ]),
+    ev([oisS('UiText', 'Key', '=', q('lieSays')), cmp('SceneInstancesCount(Liar)', '=', '0')], [A('Delete', 'UiText')]),
+    ev([playing(), cmp('SceneInstancesCount(Liar)', '>', '0')], [set('BossArrowT', '-', dt), set('BossSummonT', '-', dt), set('BossDashT', '-', dt), set('BossSpin', '+', `17 * ${dt}`)], [
+      comment('Focus pierces the lie: with the multiplier at ×2 or more, everything hurts it 25% more.'),
       ev([ois(S, 'Armor', '>', '0'), cmp('MendiFocus::Multiplier()', '>=', '2')], [oset(S, 'Armor', '=', '1.25')]),
       ev([ois(S, 'Armor', '>', '0'), cmp('MendiFocus::Multiplier()', '<', '2'), NOT(hero('michal'))], [oset(S, 'Armor', '=', '1')]),
       ev([ois(S, 'Armor', '>', '0'), cmp('MendiFocus::Multiplier()', '<', '2'), hero('michal')], [oset(S, 'Armor', '=', '1.1')]),
@@ -1189,7 +1496,7 @@ function strongholdEvents() {
         ], [], { index: 'k', vars: { k: 0 } }),
       ]),
       ev([ois(S, 'Phase', '=', '2'), ois(S, 'Armor', '<=', '0'), cmp('SceneInstancesCount(ChainPylon)', '=', '0')], [oset(S, 'Armor', '=', '1'), sfx('revelation'), ...banner(q('Łańcuchy pękają!'), 2)]),
-      ev([ois(S, 'Phase', '=', '2'), ois(S, 'Armor', '>', '0'), cmp(`${S}.Hp`, '<', `${S}.MaxHp * 0.33`)], [oset(S, 'Phase', '=', '3'), shake('0.4'), ...banner(q('Twierdza drży!'), 1.8)]),
+      ev([ois(S, 'Phase', '=', '2'), ois(S, 'Armor', '>', '0'), cmp(`${S}.Hp`, '<', `${S}.MaxHp * 0.33`)], [oset(S, 'Phase', '=', '3'), shake('0.4'), ...banner(`${CH}.boss.name + " słabnie!"`, 1.8)]),
       ev([ois(S, 'Phase', '!=', '3')], [A('AddForceTowardPosition', S, PX, PY, '38', '0')]),
       ev([ois(S, 'Phase', '=', '3'), cmp('BossDashT', '<=', '0')], [set('BossDashT', '=', '4.5'), set('DashBoss', '=', `${S}.AngleToPosition(${PX}, ${PY})`), oset(S, 'T', '=', '0'), shake('0.2')]),
       ev([ois(S, 'Phase', '=', '3'), cmp('BossDashT', '>', '3.9')], [A('AddForceAL', S, 'DashBoss', '520', '0')]),
@@ -1207,10 +1514,10 @@ function strongholdEvents() {
     ev([playing()], [], [
       ev([ois('ChainPylon', 'Hp', '<=', '0')], [sfx('revelation'), ...particle('BurstLight', 'ChainPylon.X()', 'ChainPylon.Y()', '70'), A('Delete', 'ChainPylon')]),
     ]),
-    ev([playing(), cmp('SceneInstancesCount(Stronghold)', '>', '0'), ois(S, 'Hp', '<=', '0')], [
+    ev([playing(), cmp('SceneInstancesCount(Liar)', '>', '0'), ois(S, 'Hp', '<=', '0')], [
       setS('State', '=', q('bossDown')), set('StateT', '=', '0'),
       sfx('revelation'), shake('0.8'), A('HolyHoly::Vibrate', '200'),
-      ...banner(`"Kłamstwo pęka: „" + HolyHoly::G(${CH}.boss.lie) + "”"`, 3.5),
+      ...banner(`${CH}.boss.name + " milknie"`, 3.5),
       ...particle('BurstLight', `${S}.X()`, `${S}.Y()`, '150'), ...particle('BurstShadow', `${S}.X()`, `${S}.Y()`, '80'),
       A('Tween::AddObjectPositionZTween2', 'Bosses', 'Tween', 'Object3D', q('sink'), '-520', q('easeInCubic'), '2.2', 'yes'),
       A('Delete', S), A('Delete', 'ChainPylon'), A('Delete', 'Arrow'),
@@ -1226,7 +1533,7 @@ function strongholdEvents() {
         ...banner(q('Uwielbienie! Zbieraj światło'), 2.6), sfx('rank'),
       ]),
     ]),
-    comment('Praise: after the stronghold, light rains on the angel for a few seconds (Heroes vs Hordes\' coin rush, as joy rather than greed). Then the healing scene with Christ.'),
+    comment('Praise: after the lie falls silent, light rains on the angel for a few seconds (Heroes vs Hordes\' coin rush, as joy rather than greed). Then the healing scene with Christ.'),
     ev([isS('State', '=', q('praise'))], [set('PraiseT', '-', dt), set('SeedT', '-', dt), A('ActivateBehavior', 'Player', 'TopDownMovement', 'yes')], [
       ev([cmp('SeedT', '<=', '0')], [set('SeedT', '=', '0.08')], [
         repeat('2', [], [
@@ -1244,16 +1551,17 @@ function strongholdEvents() {
   ]);
 }
 
+
 // ─── wounds, falling and rising ────────────────────────────────────────────────────────────────
 
 function hurtEvents() {
   const X = '(SceneWindowWidth() - 940) / 2';
   return group('Wounds and rising', [
-    comment('No game over: when the shadows overwhelm, the person falls and Christ reaches out a hand (Mt 14,31). The player only responds: "Take His hand". Grace grows with each fall: the stronghold gets weaker, the wave gives more time.'),
+    comment('No game over: when the shadows overwhelm, the person falls and Christ reaches out a hand (Mt 14,31). The player only responds: "Take His hand". Grace grows with each fall: the lie gets weaker, the stage gives more time.'),
     ev([isB('HurtNow', true), cmp('Invuln', '<=', '0'), playing()], [setB('HurtNow', false)], [
       ev([cmp('RandomFloatInRange(0, 100)', '<', 'St.dodge')], [set('Invuln', '=', '0.4'), sfx('grace'), ...banner(q('Pancerz sprawiedliwości: unik'), 1)]),
       ev([cmp('Invuln', '<=', '0')], [
-        set('Hearts', '-', '1'), set('Invuln', '=', 'St.grace'), set('FlashT', '=', '0.35'),
+        set('Hearts', '-', '1'), set('Invuln', '=', 'St.grace'), set('FlashT', '=', '0.35'), set('BreathT', '=', '0'),
         sfx('hurt'), shake('0.35'), A('HolyHoly::Vibrate', '80'), set('Combo', '=', '0'),
       ], [
         ev([isB('Save.settings.gentle', true)], [set('Invuln', '+', '0.6')]),
@@ -1268,10 +1576,10 @@ function hurtEvents() {
           sfx('fall'),
           A('Psalm150::SetMood', `${CH}.track`, q('sabbath'), '0.05'),
           box(X, '60', '940', '600', { panel: 'fall' }),
-          label('UiTitle', X, '80', 940, 'Choć upadłem, powstanę', { panel: 'fall', align: 'center', key: 'fallTitle' }),
-          label('UiText', `${X} + 470`, '150', 420, '', { panel: 'fall', expr: 'HolyHoly::G(Content.story.fall.lines[RandomInRange(0, VariableChildCount(Content.story.fall.lines) - 1)])' }),
+          label('UiTitle', X, '80', 940, 'Choć upadłem, powstanę', { panel: 'fall', align: 'center', key: 'fallTitle', h: 52 }),
+          label('UiText', `${X} + 470`, '150', 420, '', { panel: 'fall', h: 170, expr: 'HolyHoly::G(Content.story.fall.lines[RandomInRange(0, VariableChildCount(Content.story.fall.lines) - 1)])' }),
           set('fv', '=', 'RandomInRange(0, VariableChildCount(Content.story.fall.verses) - 1)'),
-          label('UiSmall', `${X} + 470`, '330', 420, '', { panel: 'fall', expr: '"„" + Content.story.fall.verses[fv].text + "” (" + Content.story.fall.verses[fv].ref + ")"' }),
+          label('UiSmall', `${X} + 470`, '330', 420, '', { panel: 'fall', h: 220, expr: '"„" + Content.story.fall.verses[fv].text + "” (" + Content.story.fall.verses[fv].ref + ")"' }),
           button(`${X} + 520`, '570', '320', '60', '', 'rise', { panel: 'fall', captionExpr: 'Content.story.fall.button' }),
         ], [
           ev([isB('Save.settings.veiled', false)], [
@@ -1287,7 +1595,7 @@ function hurtEvents() {
       setS('State', '=', q('play')), setS('Ui.top', '=', '""'),
       A('ChangeLayerTimeScale', '""', '1'),
       set('Hearts', '=', 'MaxHearts'), set('Invuln', '=', '3'), set('Prayer', '=', 'max(Prayer, 30)'),
-      set('WaveTime', '=', 'max(WaveTime, 20)'),
+      set('StageTime', '=', 'max(StageTime, 20)'),
       set('Save.rises', '+', '1'),
       sfx('grace'), ...banner(q('Wstań: łaska nie kończy się po upadku'), 2.2),
       ...particle('BurstLight', PX, PY, '60'),
@@ -1296,7 +1604,7 @@ function hurtEvents() {
       ...closePanel('fall'),
       ev([C('Distance', 'Traumas', 'Player', '650'), NOT(oisB('Traumas', 'Elite', true))], [A('Delete', 'Traumas')]),
       ev([], [A('Delete', 'Arrow')]),
-      ev([ois('Stronghold', 'Hp', '>', '0'), cmp('Run.falls', '<=', '4')], [oset('Stronghold', 'Hp', '-', 'Stronghold.MaxHp * 0.1')]),
+      ev([ois('Liar', 'Hp', '>', '0'), cmp('Run.falls', '<=', '4')], [oset('Liar', 'Hp', '-', 'Liar.MaxHp * 0.1')]),
     ]),
     ev([cmp('Invuln', '>', '0')], [set('Invuln', '-', dt)]),
     ev([cmp('Invuln', '>', '0'), cmp('mod(floor(Invuln * 12), 2)', '=', '0')], [A('Hide', 'Heroes')]),
@@ -1315,13 +1623,13 @@ function pauseEvents() {
       A('ChangeLayerTimeScale', '""', '0'),
       box(X, '70', '560', '590', { panel: 'pause' }),
       label('UiTitle', X, '92', 560, 'Pauza', { panel: 'pause', align: 'center' }),
-      label('UiSmall', '(SceneWindowWidth() - 500) / 2', '150', 500, '', { panel: 'pause', align: 'center', key: 'nowPlaying' }),
+      label('UiSmall', '(SceneWindowWidth() - 500) / 2', '150', 500, '', { panel: 'pause', align: 'center', key: 'nowPlaying', h: 40 }),
       button('(SceneWindowWidth() - 340) / 2', '200', '340', '56', 'Wróć do gry', 'resume', { panel: 'pause' }),
       button('(SceneWindowWidth() - 340) / 2', '268', '340', '56', 'Ustawienia', 'settings', { panel: 'pause' }),
       button('(SceneWindowWidth() - 340) / 2', '336', '340', '56', 'Następny utwór', 'nexttrack', { panel: 'pause' }),
       button('(SceneWindowWidth() - 340) / 2', '404', '340', '56', 'Pomoc w kryzysie', 'helplines', { panel: 'pause' }),
       button('(SceneWindowWidth() - 340) / 2', '472', '340', '56', 'Opuść rozdział', 'leave', { panel: 'pause' }),
-      label('UiSmall', '(SceneWindowWidth() - 500) / 2', '548', 500, 'To gra, nie terapia. Jeśli jest ci ciężko, porozmawiaj z kimś.', { panel: 'pause', align: 'center' }),
+      label('UiSmall', '(SceneWindowWidth() - 500) / 2', '546', 500, 'To gra, nie terapia. Jeśli jest ci ciężko, porozmawiaj z kimś.', { panel: 'pause', align: 'center', h: 54 }),
     ]),
     ev([oisS('UiSmall', 'Key', '=', q('nowPlaying'))], [text('UiSmall', '"♪ " + Psalm150::NowPlaying()')]),
     ev([isS('State', '=', q('pause')), OR(clicked('resume'), AND(clicked('close'), isS('Ui.top', '=', q('pause'))))], [
@@ -1334,7 +1642,7 @@ function pauseEvents() {
       setS('Ui.top', '=', q('help')),
       box('(SceneWindowWidth() - 820) / 2', '60', '820', '600', { panel: 'help' }),
       label('UiTitle', '(SceneWindowWidth() - 820) / 2', '80', 820, 'Pomoc w kryzysie', { panel: 'help', align: 'center' }),
-      label('UiSmall', '(SceneWindowWidth() - 740) / 2', '146', 740, '', { panel: 'help', expr: 'Content.story.helplinesText + NewLine() + NewLine() + "Jeśli myślisz o odebraniu sobie życia, nie zostawaj z tym sam na sam. Zadzwoń teraz albo powiedz komuś obok."' }),
+      label('UiSmall', '(SceneWindowWidth() - 740) / 2', '146', 740, '', { panel: 'help', h: 430, expr: 'Content.story.helplinesText + NewLine() + NewLine() + "Jeśli myślisz o odebraniu sobie życia, nie zostawaj z tym sam na sam. Zadzwoń teraz albo powiedz komuś obok."' }),
       button('(SceneWindowWidth() - 240) / 2', '590', '240', '54', 'Wróć', 'close', { panel: 'help' }),
     ]),
     ev([isS('State', '=', q('pause')), clicked('close'), isS('Ui.top', '=', q('help'))], [setS('Ui.top', '=', q('pause'))], closePanel('help')),
@@ -1353,10 +1661,10 @@ function pauseEvents() {
 
 function feedbackEvents() {
   return group('Camera, music and effects', [
-    comment('The camera follows the angel from above and behind; a short shake on strong hits (off in the settings or with reduced motion).'),
+    comment('The camera follows the angel from above and behind, from far enough to see the shadows coming; it leads a little ahead (CamLead), so the angel stands below the centre and the top of the screen is free for the voices and the stage card. A short shake on strong hits (off in the settings or with reduced motion).'),
     ev([], [
       A('SetCameraCenterX', '=', `lerp(CameraCenterX(""), ${PX}, min(1, 7 * ${dt}))`, '""'),
-      A('SetCameraCenterY', '=', `lerp(CameraCenterY(""), ${PY} + CamZ * tan(ToRad(CamTilt)), min(1, 7 * ${dt}))`, '""'),
+      A('SetCameraCenterY', '=', `lerp(CameraCenterY(""), ${PY} + CamZ * tan(ToRad(CamTilt)) - CamLead, min(1, 7 * ${dt}))`, '""'),
     ]),
     ev([cmp('Shake', '>', '0'), isB('Save.settings.shake', true), NOT(C('HolyHoly::PrefersReducedMotion'))], [
       A('SetCameraCenterX', '+', 'RandomFloatInRange(-1, 1) * Shake * 26', '""'),
@@ -1373,12 +1681,12 @@ function feedbackEvents() {
       ev([ois('Shockwave', 'T', '>', 'Shockwave.Life + 0.1')], [A('Delete', 'Shockwave')]),
       ev([ois('Glow', 'T', '>', '0.45')], [A('Delete', 'Glow')]),
     ]),
-    comment('The music follows the fight: the chapter\'s piece, more layers with more shadows, the boss scene for the stronghold (Psalm150 extension).'),
+    comment('The music follows the fight: the chapter\'s piece, more layers with more shadows, the boss scene for the lie personified (Psalm150 extension).'),
     ev([], [set('Tm.music', '-', dt)], [
       ev([cmp('Tm.music', '<=', '0')], [set('Tm.music', '=', '0.5')], [
-        ev([playing(), cmp('Wave', '<=', 'Tuning.waves')], [A('Psalm150::SetMood', `${CH}.track`, q('battle'), 'clamp(0.3 + SceneInstancesCount(Traumas) / 45, 0.3, 0.8)')]),
-        ev([OR(isS('State', '=', q('bossIntro')), AND(playing(), cmp('Wave', '>', 'Tuning.waves')))], [A('Psalm150::SetMood', `${CH}.track`, q('boss'), '0.85 + 0.05 * (Stronghold.Phase - 1)')]),
-        ev([OR(isS('State', '=', q('sabbath')), isS('State', '=', q('discern')))], [A('Psalm150::SetMood', `${CH}.track`, q('sabbath'), '0.05')]),
+        ev([playing(), cmp('Stage', '<=', 'StageCount')], [A('Psalm150::SetMood', `${CH}.track`, q('battle'), 'clamp(0.3 + SceneInstancesCount(Traumas) / 45, 0.3, 0.8)')]),
+        ev([OR(isS('State', '=', q('bossIntro')), AND(playing(), cmp('Stage', '>', 'StageCount')))], [A('Psalm150::SetMood', `${CH}.track`, q('boss'), '0.85 + 0.05 * (Liar.Phase - 1)')]),
+        ev([OR(isS('State', '=', q('sabbath')), isS('State', '=', q('recognize')))], [A('Psalm150::SetMood', `${CH}.track`, q('sabbath'), '0.05')]),
         ev([OR(isS('State', '=', q('bossDown')), isS('State', '=', q('praise')))], [A('Psalm150::SetMood', `${CH}.track`, q('victory'), '0.7')]),
       ]),
     ]),
@@ -1407,44 +1715,45 @@ function hudEvents() {
     ev([oisS('UiArt', 'Key', '=', q(k)), ois('UiArt', 'Index', '>=', `VariableChildCount(${list})`)], [A('Hide', 'UiArt')]),
     forEach('UiSmall', [oisS('UiSmall', 'Key', '=', q(`${k}Lv`))], [text('UiSmall', '""')], [
       ev([ois('UiSmall', 'Index', '<', `VariableChildCount(${list})`)], [text('UiSmall', `HolyHoly::PipsText(Run.gifts[${list}[UiSmall.Index]], Content.skills[${list}[UiSmall.Index]].maxLevel)`)]),
-      ev([ois('UiSmall', 'Index', '<', `VariableChildCount(${list})`), isB(`Run.evo[${list}[UiSmall.Index]]`, true)], [text('UiSmall', q('★ ewolucja'))]),
+      ev([ois('UiSmall', 'Index', '<', `VariableChildCount(${list})`), isB(`Run.evo[${list}[UiSmall.Index]]`, true)], [text('UiSmall', q('★'))]),
     ]),
   ];
+  const progress = '1 - clamp(StageTime / Tuning.stageSeconds, 0, 1)';
   return group('HUD', [
-    comment('Top left: the archangel\'s portrait, hearts and prayer; below, the four gifts and four virtues. Top centre: level and a thick light bar, the chapter; under it the stronghold. Top right: wave and pause. Bottom right: the prayer button with the archangel\'s icon. Bottom centre: focus.'),
+    comment('Top left: the archangel\'s portrait, hearts, prayer (its percentage under the bar), then the four gifts and four virtues. Top centre: the light bar with the level, the chapter and the stage under it; the lie\'s strength when it comes. Top right: the person\'s clock (it runs with the stage), the time left, pause. Bottom right: the prayer button. Bottom centre: focus. Banners appear under the angel, so they never cover it.'),
     ev([begins()], [
       ...art('portrait', '70', '70', '112'),
-      label('UiSmall', '134', '2', 360, '', { key: 'heroName', expr: `${HERO}.name + " · " + ${HERO}.meaning` }),
+      label('UiSmall', '134', '4', 360, '', { key: 'heroName', h: 26, expr: `${HERO}.name + " · " + ${HERO}.meaning` }),
       ...bar('prayerBg', '132', '64', '232', '16', '40;32;56', 58),
       ...bar('prayer', '134', '66', '10', '12', '255;214;120', 59),
-      label('UiSmall', '372', '56', 140, '', { key: 'prayerPct' }),
-      ...bar('xpBg', `${W} / 2 - 300`, '12', '600', '24', '30;24;44', 58),
-      ...bar('xp', `${W} / 2 - 297`, '15', '10', '18', '240;204;110', 59),
-      label('UiSmall', `${W} / 2 - 290`, '14', 120, '', { key: 'level' }),
-      label('UiSmall', `${W} / 2 - 300`, '38', 600, '', { key: 'chapter', align: 'center' }),
-      label('UiText', `${W} - 330`, '18', 210, '', { key: 'wave', align: 'right' }),
+      label('UiSmall', '134', '82', 230, '', { key: 'prayerPct', h: 24 }),
+      ...bar('xpBg', `${W} / 2 - 250`, '12', '500', '24', '30;24;44', 58),
+      ...bar('xp', `${W} / 2 - 247`, '15', '10', '18', '240;204;110', 59),
+      label('UiSmall', `${W} / 2 - 260`, '40', 520, '', { key: 'chapter', align: 'center', h: 26 }),
+      label('UiTitle', `${W} - 330`, '6', 210, '', { key: 'clock', align: 'right' }),
+      label('UiSmall', `${W} - 330`, '54', 210, '', { key: 'wave', align: 'right', h: 26 }),
       button(`${W} - 100`, '16', '76', '48', 'II', 'pause'),
       ...bar('focusBg', `${W} / 2 - 180`, `${H} - 34`, '360', '14', '40;32;56', 58),
       ...bar('focus', `${W} / 2 - 178`, `${H} - 32`, '10', '10', '160;220;255', 59),
       ...bar('focusMark', `${W} / 2 - 180 + 360 * MendiFocus::Threshold()`, `${H} - 38`, '3', '22', '255;255;255', 60),
-      label('UiSmall', `${W} / 2 - 300`, `${H} - 64`, 600, '', { key: 'focus', align: 'center' }),
+      label('UiSmall', `${W} / 2 - 300`, `${H} - 64`, 600, '', { key: 'focus', align: 'center', h: 26 }),
       ...art('ult', `${W} - 92`, `${H} - 250`, '104'),
-      label('UiSmall', `${W} - 172`, `${H} - 192`, 160, '', { key: 'ultText', align: 'center' }),
-      label('UiTitle', `${W} - 330`, '230', 300, '', { key: 'combo', align: 'right' }),
-      label('UiBig', '40', '250', `${W} - 80`, '', { key: 'banner', align: 'center' }),
+      label('UiSmall', `${W} - 172`, `${H} - 192`, 160, '', { key: 'ultText', align: 'center', h: 50 }),
+      label('UiTitle', `${W} - 330`, '330', 300, '', { key: 'combo', align: 'right' }),
+      label('UiBig', '40', `${H} / 2 + 86`, `${W} - 80`, '', { key: 'banner', align: 'center' }),
       ...bar('bossBg', `${W} / 2 - 300`, '70', '600', '18', '40;20;24', 58),
       ...bar('boss', `${W} / 2 - 298`, '72', '10', '14', '255;90;60', 59),
-      label('UiSmall', `${W} / 2 - 420`, '92', 840, '', { key: 'bossLie', align: 'center' }),
-      label('UiSmall', '16', `${H} - 30`, 520, '', { key: 'helplines' }),
+      label('UiSmall', '16', `${H} - 30`, 520, '', { key: 'helplines', h: 26 }),
       ...bar('flash', '0', '0', W, H, '255;40;60', 40),
     ], [
-      slotRow('slotW', '138'),
-      slotRow('slotV', '200'),
+      slotRow('slotW', '156'),
+      slotRow('slotV', '230'),
       ev([oisS('UiArt', 'Key', '=', q('portrait'))], [animE('UiArt', 'Run.hero + "-icon"'), size('UiArt', '112', '112')]),
       ev([oisS('UiArt', 'Key', '=', q('ult'))], [animE('UiArt', '"ult-" + Run.hero'), size('UiArt', '104', '104'), osetS('UiArt', 'Action', '=', q('pray'))]),
       ev([oisS('UiSmall', 'Key', '=', q('heroName'))], [A('TextObject::ChangeColor', 'UiSmall', q('255;226;150'))]),
       ev([oisS('UiSmall', 'Key', '=', q('helplines')), isB(`${CH}.helplines`, true)], [text('UiSmall', '"Pomoc całą dobę: " + Content.story.helplinesShort')]),
-      ev([oisS('UiSmall', 'Key', '=', q('chapter'))], [text('UiSmall', `${CH}.title + " · " + HolyHoly::G(${CH}.place)`)]),
+      ev([oisS('UiTitle', 'Key', '=', q('clock'))], [A('TextObject::Text::SetFontSize', 'UiTitle', '=', '34')]),
+      ev([oisS('UiBig', 'Key', '=', q('banner'))], [A('TextObject::Text::SetFontSize', 'UiBig', '=', '46')]),
     ]),
     ev([isB('HudDirty', true)], [setB('HudDirty', false)], [
       ev([oisS('UiIcon', 'Key', '=', q('heart'))], [A('Delete', 'UiIcon')]),
@@ -1462,10 +1771,13 @@ function hudEvents() {
     keyed('UiArt', 'ult', [opacity('UiArt', '90 + 120 * Prayer / 100'), size('UiArt', '96', '96')], [cmp('Prayer', '<', '100')]),
     keyed('UiSmall', 'ultText', [text('UiSmall', `${HERO}.ultimate.name + NewLine() + "(E)"`)], [isB('Ui.touch', false)]),
     keyed('UiSmall', 'ultText', [text('UiSmall', `${HERO}.ultimate.name`)], [isB('Ui.touch', true)]),
-    keyed('UiBar', 'xp', [width('UiBar', '594 * clamp(Xp / XpNext, 0, 1) + 0.01')]),
-    keyed('UiSmall', 'level', [text('UiSmall', '"Poziom " + ToString(Level)'), A('SetZOrder', 'UiSmall', '=', '70')]),
-    keyed('UiText', 'wave', [text('UiText', '"Fala " + ToString(Wave) + "/" + ToString(Tuning.waves) + " · " + HolyHoly::Clock(WaveTime)')], [cmp('Wave', '<=', 'Tuning.waves')]),
-    keyed('UiText', 'wave', [text('UiText', q('Twierdza'))], [cmp('Wave', '>', 'Tuning.waves')]),
+    keyed('UiBar', 'xp', [width('UiBar', '494 * clamp(Xp / XpNext, 0, 1) + 0.01')]),
+    keyed('UiSmall', 'chapter', [text('UiSmall', `"Poziom " + ToString(Level) + " · " + ${CH}.title + " · etap " + ToString(Stage) + " z " + ToString(StageCount) + " · " + HolyHoly::G(${ST}.title)`)], [cmp('Stage', '<=', 'StageCount')]),
+    keyed('UiSmall', 'chapter', [text('UiSmall', `"Poziom " + ToString(Level) + " · " + ${CH}.title + " · " + ${CH}.boss.name`)], [cmp('Stage', '>', 'StageCount')]),
+    keyed('UiTitle', 'clock', [text('UiTitle', `HolyHoly::StageClock(Stage - 1, ${progress})`)], [cmp('Stage', '<=', 'StageCount')]),
+    keyed('UiTitle', 'clock', [text('UiTitle', 'HolyHoly::StageClock(StageCount - 1, 1)')], [cmp('Stage', '>', 'StageCount')]),
+    keyed('UiSmall', 'wave', [text('UiSmall', '"zostało " + HolyHoly::Clock(StageTime)')], [cmp('Stage', '<=', 'StageCount')]),
+    keyed('UiSmall', 'wave', [text('UiSmall', `${CH}.boss.name`)], [cmp('Stage', '>', 'StageCount')]),
     keyed('UiBar', 'focus', [width('UiBar', '356 * clamp(MendiFocus::Level(), 0, 1) + 0.01')]),
     keyed('UiBar', 'focus', [tint('UiBar', q('255;214;120'))], [C('MendiFocus::IsFocused')]),
     keyed('UiBar', 'focus', [tint('UiBar', q('160;200;255'))], [NOT(C('MendiFocus::IsFocused'))]),
@@ -1479,21 +1791,20 @@ function hudEvents() {
     ev([cmp('BannerT', '>', '0')], [set('BannerT', '-', `${dt} / max(0.1, TimeScale())`)]),
     keyed('UiBar', 'flash', [opacity('UiBar', '160 * clamp(FlashT / 0.35, 0, 1)')]),
     ev([cmp('FlashT', '>', '0')], [set('FlashT', '-', dt)]),
-    ev([cmp('SceneInstancesCount(Stronghold)', '>', '0')], [], [
-      keyed('UiBar', 'boss', [width('UiBar', '596 * clamp(Stronghold.Hp / max(1, Stronghold.MaxHp), 0, 1) + 0.01'), opacity('UiBar', '255')]),
+    ev([cmp('SceneInstancesCount(Liar)', '>', '0')], [], [
+      keyed('UiBar', 'boss', [width('UiBar', '596 * clamp(Liar.Hp / max(1, Liar.MaxHp), 0, 1) + 0.01'), opacity('UiBar', '255')]),
       keyed('UiBar', 'bossBg', [opacity('UiBar', '255')]),
-      keyed('UiSmall', 'bossLie', [text('UiSmall', `${CH}.boss.name + ": „" + HolyHoly::G(${CH}.boss.lie) + "”"`)]),
     ]),
-    ev([cmp('SceneInstancesCount(Stronghold)', '=', '0')], [], [
+    ev([cmp('SceneInstancesCount(Liar)', '=', '0')], [], [
       keyed('UiBar', 'boss', [opacity('UiBar', '0')]),
       keyed('UiBar', 'bossBg', [opacity('UiBar', '0')]),
-      keyed('UiSmall', 'bossLie', [text('UiSmall', '""')]),
     ]),
     comment('Touch controls sit by the screen edges whatever the width.'),
     ev([], [
       A('SetXY', 'TouchStrike', '=', `${W} - 130`, '=', `${H} - 140`),
       A('SetXY', 'TouchPrayer', '=', `${W} - 290`, '=', `${H} - 110`),
-      scale('TouchStrike', '0.8'), scale('TouchPrayer', '0.62'),
+      A('SetXY', 'TouchBreath', '=', `${W} - 260`, '=', `${H} - 270`),
+      scale('TouchStrike', '0.8'), scale('TouchPrayer', '0.62'), scale('TouchBreath', '0.55'),
     ]),
   ]);
 }

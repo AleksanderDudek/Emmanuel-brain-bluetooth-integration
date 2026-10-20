@@ -5,13 +5,17 @@ A 3D browser game built with [GDevelop](https://gdevelop.io)
 [HolyHolyHoly](../game/DESIGN.md). You play one of the seven archangels of the Eastern
 tradition, guardian of a person in today's Poland (a man or a woman, named by the player).
 Their wounds have become shadow-thoughts that whisper lies; broken, each leaves a true
-sentence behind. Behind the shadows stand strongholds of lies (2 Cor 10:4). After each
-stronghold, Christ comes in a healing scene, in His own words from the Gospel, and the person
-transforms the lie and takes one real skill into life (from CBT and ACT).
+sentence behind. A chapter is three stages of one day or night of the person (a clock runs,
+the light changes); memories found on the map tell the story, and some shadows speak the
+person's thoughts aloud: silenced, they show how the thought lies and what is true instead.
+At the end the chapter's lie comes in its own figure (Dread, the Heart of Stone, Semblance…).
+Then Christ comes in a healing scene, in His own words from the Gospel, and the person
+works through the lie and takes one real skill into life (from CBT and ACT).
 
 The play mixes Archero (the archangel's gift acts while you stand still), survivors-likes and
-Heroes vs Hordes (waves, gift and virtue cards with slots, evolutions, reliquaries, a hero
-with his own prayer) and Endless Puncher (strike combos). The Mendi fNIRS band is optional.
+Heroes vs Hordes (stages, gift and virtue cards with slots, evolutions, reliquaries, a hero
+with his own prayer) and Endless Puncher (strike combos). Healing comes from springs of
+living water, words of truth and a breath (hold Q while standing still). The Mendi fNIRS band is optional.
 The game is in Polish; the design document, also in Polish, is [DESIGN.md](DESIGN.md). It is a
 game, not therapy: help lines are in the game where they matter.
 
@@ -59,7 +63,7 @@ project/
 | `Ladder` | the map (St John Climacus' Ladder); Fruits of the Spirit; Book of Truth (lies and thoughts); toolbox with guided breathing |
 | `Synaxis` | choosing the archangel (one trial for locked ones) |
 | `Story` | story scenes over painted panels: prologue, a chapter's intro (with a content note and skip), its healing scene |
-| `Arena` | the fight: gifts, virtues, evolutions, reliquaries, the archangel's prayer, discernment cards, the stronghold, praise, falling and rising, pause, HUD |
+| `Arena` | the fight: three timed stages with memories and voices, springs and the breath, gifts, virtues, evolutions, reliquaries, the archangel's prayer, the recognition card, the lie in its own figure, praise, falling and rising, pause, HUD |
 | `Revelation` | the thought record, the truth, the tool for life, the report and rewards, the finale |
 
 How the events are organised:
@@ -77,8 +81,12 @@ How the events are organised:
   click on a button of the top panel (`Ui.top`) puts its `Action` into `Ui.clicked` for one
   frame.
 * **Data-heavy rules in JavaScript helpers.** Drawing gift cards (slots, evolutions),
-  taking a gift, discernment cards, loading a story scene: `HolyHoly::DrawChoices`,
-  `TakeSkill`, `DrawDiscernment`, `LoadScene` (see `generator/ext.mjs`).
+  taking a gift, drawing a voice, the stage clock, loading a story scene: `HolyHoly::DrawChoices`,
+  `TakeSkill`, `DrawVoice`, `StageClock`, `LoadScene` (see `generator/ext.mjs`).
+* **Text always fits.** `HolyHoly::MakeText` takes a maximum height (the `h` option of
+  `label()` in `generator/ui.mjs`): a text that would run taller is set smaller, a point at a
+  time, down to 60 %. Cards lay their lines out in flow (each line starts under the last one,
+  from its real height), and panels narrow with the screen (16:9, 16:10, 4:3).
 * **Painted figures** are `Model3D` billboards: a cut-out painting standing on a quad with a
   soft shadow and a breathing idle animation. The object's depth (Z size) compensates for the
   camera's angle, its height (Y size) is the hitbox depth.
@@ -107,7 +115,7 @@ cruciform halo is His alone); a human icon painter should eventually repaint the
 
 | Extension | What it is |
 |---|---|
-| `HolyHoly` | this game's helpers: content, save, 3D→screen projection, gendered texts, gift draws, story scenes, discernment, device checks, UI builders |
+| `HolyHoly` | this game's helpers: content, save, 3D→screen projection, gendered texts, gift draws, story scenes, voices, the stage clock, device checks, UI builders (with text fitting) |
 | `Psalm150` | the "Psalm 150" soundtrack and effects: `lib/psalm150.js`, bundled from `../game/src/audio` |
 | `MendiFocus` | focus and the optional Mendi band: `lib/mendi-focus.js`, bundled from BrainLink's Web Bluetooth adapter and fNIRS pipeline |
 | `FireBullet`, `SpriteMultitouchJoystick`, `ParticleEmitter3D`, `ShakeObject3D` | official extensions from GDevelop's extension store |
@@ -138,14 +146,21 @@ removes the Draco `.wasm` from the page's scripts (a 5.6.269 quirk) and adds a `
 
 * `npm test` (Vitest) covers the libraries, `content.json` and the project: content up to
   date; every text resolving cleanly for a man and a woman; every chapter with its story,
-  stronghold, thought record (distorted, sugar-coated, balanced) and tool; Christ speaking
-  only Scripture, always with the reference; help lines and the safety rules; every painting
+  three stages (clocks, skies, modifiers, memories), four voices (a known thinking error, a
+  negation and a truth), the lie personified (never a fortress: no "twierdza" anywhere), a
+  thought record (distorted, sugar-coated, balanced) and a tool; Christ speaking only
+  Scripture, always with the reference; help lines with every crisis thought; every painting
   the content names present; zero validation issues in the project.
 * `npm run game3d:smoke` plays the way a new player does: the safety note, who you protect,
   how to play, the prologue, the Ladder, the archangels, the chapter's story, the fight (true
-  sentences, a gift card, a strike, the prayer, a discernment card, three waves, the stronghold,
-  the praise), the healing scene, the thought record, the tool in the toolbox and the
-  breathing practice. Any page error fails it. Screenshots go to `game3d/.smoke/`.
+  sentences, a gift card, a strike, the prayer, a voice silenced with its negation and truth,
+  healing by a word of truth, a spring and a breath, a memory, the recognition card, three
+  stages, the lie in its own figure, the praise), the healing scene, the worked thought
+  record, the tool in the toolbox, the Fruits, the Book of Truth and the breathing practice.
+  On every screen it photographs it checks the layout: no two texts of a panel overlap, none
+  runs out of its panel or the screen, no caption is taller than its button. Any page error
+  or layout issue fails it. `SMOKE_SIZE=864x540` plays it on a 16:10 screen, `720x540` on
+  4:3. Screenshots go to `game3d/.smoke/`.
 
 ## Licences
 

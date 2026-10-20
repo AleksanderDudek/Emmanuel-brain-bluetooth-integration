@@ -11,8 +11,9 @@ import { floorTexture } from './art.mjs';
 const HERO = 'Content.heroes[Sel]';
 const store = () => A('HolyHoly::StoreSave', q('Save'), q(SAVE_KEY));
 const ID = `${HERO}.id`;
-const PX = 'SceneWindowWidth() * 0.55';
-const PW = 'SceneWindowWidth() * 0.43';
+// the panel is never narrower than its row of buttons (16:10 and 4:3 screens too)
+const PW = 'max(SceneWindowWidth() * 0.43, 560)';
+const PX = `(SceneWindowWidth() - ${PW} - 20)`;
 
 export function synaxisScene() {
   const objects = [
@@ -94,18 +95,18 @@ export function synaxisScene() {
         ...closePanel('info'),
         ev([], [
           A('HolyHoly::MakePanel', 'UiPanel', PX, '20', PW, 'SceneWindowHeight() - 40', q(''), q('info'), q('UI')),
-          label('UiTitle', `${PX} + 30`, '36', `${PW} - 60`, '', { panel: 'info', expr: `${HERO}.name` }),
-          label('UiSmall', `${PX} + 32`, '96', `${PW} - 64`, '', { panel: 'info', key: 'meaning', expr: `"„" + ${HERO}.meaning + "” · " + ${HERO}.skill` }),
-          label('UiSmall', `${PX} + 32`, '150', `${PW} - 64`, '', { panel: 'info', expr: `${HERO}.lore` }),
+          label('UiTitle', `${PX} + 30`, '36', `${PW} - 60`, '', { panel: 'info', h: 54, expr: `${HERO}.name` }),
+          label('UiSmall', `${PX} + 32`, '96', `${PW} - 64`, '', { panel: 'info', key: 'meaning', h: 50, expr: `"„" + ${HERO}.meaning + "” · " + ${HERO}.skill` }),
+          label('UiSmall', `${PX} + 32`, '150', `${PW} - 64`, '', { panel: 'info', h: 102, expr: `${HERO}.lore` }),
           A('Create', 'UiArt', `${PX} + 66`, '290', q('UI')), animE('UiArt', `"sig-" + ${ID} + "-2"`), size('UiArt', '68', '68'), osetS('UiArt', 'Panel', '=', q('info')), A('SetZOrder', 'UiArt', '=', '60'),
-          label('UiText', `${PX} + 112`, '256', `${PW} - 140`, '', { panel: 'info', expr: `"Dar: " + Content.skills["sig-" + ${ID}].name` }),
-          label('UiSmall', `${PX} + 112`, '290', `${PW} - 140`, '', { panel: 'info', expr: `Content.skills["sig-" + ${ID}].description` }),
+          label('UiText', `${PX} + 112`, '256', `${PW} - 140`, '', { panel: 'info', h: 32, expr: `"Dar: " + Content.skills["sig-" + ${ID}].name` }),
+          label('UiSmall', `${PX} + 112`, '290', `${PW} - 140`, '', { panel: 'info', h: 64, expr: `Content.skills["sig-" + ${ID}].description` }),
           A('Create', 'UiArt', `${PX} + 66`, '392', q('UI')), animE('UiArt', `"ult-" + ${ID}`), size('UiArt', '68', '68'), osetS('UiArt', 'Panel', '=', q('info')), A('SetZOrder', 'UiArt', '=', '60'),
-          label('UiText', `${PX} + 112`, '358', `${PW} - 140`, '', { panel: 'info', expr: `"Modlitwa: " + ${HERO}.ultimate.name` }),
-          label('UiSmall', `${PX} + 112`, '392', `${PW} - 140`, '', { panel: 'info', expr: `${HERO}.ultimate.text` }),
-          label('UiSmall', `${PX} + 32`, '466', `${PW} - 64`, '', { panel: 'info', expr: `"Cecha: " + ${HERO}.passive.name + ". " + ${HERO}.passive.text` }),
-          label('UiSmall', `${PX} + 32`, '508', `${PW} - 64`, '', { panel: 'info', key: 'verse', expr: `"„" + ${HERO}.verse.text + "” (" + ${HERO}.verse.ref + ")"` }),
-          label('UiSmall', `${PX} + 32`, 'SceneWindowHeight() - 132', `${PW} - 64`, '', { panel: 'info', key: 'status' }),
+          label('UiText', `${PX} + 112`, '358', `${PW} - 140`, '', { panel: 'info', h: 32, expr: `"Modlitwa: " + ${HERO}.ultimate.name` }),
+          label('UiSmall', `${PX} + 112`, '392', `${PW} - 140`, '', { panel: 'info', h: 70, expr: `${HERO}.ultimate.text` }),
+          label('UiSmall', `${PX} + 32`, '466', `${PW} - 64`, '', { panel: 'info', h: 40, expr: `"Cecha: " + ${HERO}.passive.name + ". " + ${HERO}.passive.text` }),
+          label('UiSmall', `${PX} + 32`, '508', `${PW} - 64`, '', { panel: 'info', key: 'verse', h: 'SceneWindowHeight() - 646', expr: `"„" + ${HERO}.verse.text + "” (" + ${HERO}.verse.ref + ")"` }),
+          label('UiSmall', `${PX} + 32`, 'SceneWindowHeight() - 132', `${PW} - 64`, '', { panel: 'info', key: 'status', h: 30 }),
           button(`${PX} + 30`, 'SceneWindowHeight() - 96', '64', '52', '◀', 'prev', { panel: 'info' }),
           button(`${PX} + 102`, 'SceneWindowHeight() - 96', '64', '52', '▶', 'next', { panel: 'info' }),
           button(`${PX} + ${PW} - 132`, 'SceneWindowHeight() - 96', '110', '52', 'Wróć', 'back', { panel: 'info' }),

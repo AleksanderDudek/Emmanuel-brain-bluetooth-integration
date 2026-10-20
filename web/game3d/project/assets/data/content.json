@@ -4,8 +4,8 @@
   "name": "HolyHolyHoly 3D",
   "subtitle": "Archaniołowie",
   "motto": {
-   "ref": "2 Kor 10,4",
-   "text": "Albowiem broń żołnierstwa naszego nie jest cielesna, ale z Boga jest, mocna ku zburzeniu miejsc obronnych."
+   "ref": "2 Kor 10,5",
+   "text": "Podbijając wszelaką myśl pod posłuszeństwo Chrystusowe."
   },
   "verse": {
    "ref": "Iz 6,3",
@@ -28,7 +28,7 @@
    },
    {
     "who": "narrator",
-    "text": "Nikt tego nie widzi, ale myśli, które szepczą w ciemności, mają kształt cieni. Każdy cień kłamie trochę inaczej. Za nimi stoją twierdze: kłamstwa, w które {imie} {uwierzył|uwierzyła}.",
+    "text": "Nikt tego nie widzi, ale myśli, które szepczą w ciemności, mają kształt cieni. Każdy cień kłamie trochę inaczej. Za nimi stoją większe postacie: kłamstwa, w które {imie} {uwierzył|uwierzyła} tak dawno, że brzmią jak {jego|jej} własny głos.",
     "panel": "prolog-{m|f}"
    },
    {
@@ -38,17 +38,18 @@
    },
    {
     "who": "narrator",
-    "text": "Rozbite cienie zostawią po sobie prawdziwe słowa. Twierdze upadną. A w najciemniejszej chwili nie przyjdziesz {mu|jej} na pomoc sam.",
+    "text": "Rozbite cienie zostawią po sobie prawdziwe słowa. Kłamstwa stracą głos. A w najciemniejszej chwili nie przyjdziesz {mu|jej} na pomoc sam.",
     "panel": "prolog-{m|f}"
    }
   ],
   "howTo": [
-   "Ruch: WASD / strzałki albo lewy kciuk. Gdy stoisz w miejscu, twój archanioł sam atakuje najbliższy cień (to jego dar, a moc rośnie z poziomem).",
-   "Cios: spacja / J albo przycisk z gwiazdą. Uderzaj seriami, zanim cień podejdzie. Pudło przerywa serię.",
-   "Modlitwa: E / K albo przycisk z ikoną archanioła. Ładuje się, gdy stoisz w ciszy (albo z opaską Mendi) i gdy cienie pękają.",
-   "Co poziom wybierasz dar albo cnotę (najwyżej po cztery). Dar na najwyższym poziomie i jego cnota dają złotą kartę: ewolucję.",
-   "Rozbity cień zostawia prawdziwe zdanie. Czytaj je: to nie dekoracja, tylko sedno gry."
+   "Ruch: WASD lub strzałki (na telefonie lewy kciuk). Gdy stoisz, twój archanioł sam uderza w najbliższy cień.",
+   "Cios: spacja lub J. Seria ciosów mnoży siłę i światło, pudło ją przerywa. Modlitwa: E lub K, gdy pasek jest pełny.",
+   "Leczenie: stań w Źródle (niebieski krąg), podnieś złote Słowo prawdy albo przytrzymaj Q w bezruchu: jedno spokojne westchnienie oddaje serce.",
+   "Rozdział ma trzy etapy, każdy o innej porze dnia. Jasna postać na mapie to wspomnienie (prowadzi do niej strzałka): z nich składa się historia.",
+   "Głos to cień, który mówi na głos. Ucisz go, a zobaczysz, jak kłamie i co jest prawdą. Na końcu przychodzi kłamstwo rozdziału we własnej postaci."
   ],
+  "howToText": "Ruch: WASD lub strzałki (na telefonie lewy kciuk). Gdy stoisz, twój archanioł sam uderza w najbliższy cień.\n\nCios: spacja lub J. Seria ciosów mnoży siłę i światło, pudło ją przerywa. Modlitwa: E lub K, gdy pasek jest pełny.\n\nLeczenie: stań w Źródle (niebieski krąg), podnieś złote Słowo prawdy albo przytrzymaj Q w bezruchu: jedno spokojne westchnienie oddaje serce.\n\nRozdział ma trzy etapy, każdy o innej porze dnia. Jasna postać na mapie to wspomnienie (prowadzi do niej strzałka): z nich składa się historia.\n\nGłos to cień, który mówi na głos. Ucisz go, a zobaczysz, jak kłamie i co jest prawdą. Na końcu przychodzi kłamstwo rozdziału we własnej postaci.",
   "fall": {
    "panel": "christ-hand",
    "lines": [
@@ -79,7 +80,7 @@
    "button": "Chwyć Jego dłoń"
   },
   "finale": [
-   "Ostatnia twierdza upada. Na drabinie, po której {imie} wspinał{|a} się szczebel po szczeblu, nie ma już cieni. Są blizny. I prawdy znalezione po drodze.",
+   "Ostatnie kłamstwo milknie. Na drabinie, po której {imie} wspinał{|a} się szczebel po szczeblu, nie ma już cieni. Są blizny. I prawdy znalezione po drodze.",
    "Rany nie zniknęły bez śladu, ale przestały rządzić. {imie} ma narzędzia, ludzi i Kogoś, kto zszedł po {niego|nią} na samo dno.",
    "Stajesz przed tronem razem z niezliczonymi aniołami. Serafini zakrywają twarze skrzydłami i wołają: „Święty, święty, święty”.",
    "Dziękujemy za wspólną drogę. Jeśli coś z tej gry zostanie z tobą, niech to będzie to: nie musisz iść przez to w pojedynkę, a prośba o pomoc to początek, nie koniec."
@@ -803,7 +804,7 @@
     "Co 3 s kamień w najsilniejszy cień",
     "Mocniejszy kamień",
     "Co 2,2 s",
-    "Kamień przebija i rani twierdze podwójnie"
+    "Kamień przebija i podwójnie rani wielkie kłamstwa"
    ],
    "verse": {
     "ref": "1 Sm 17,49",
@@ -1192,18 +1193,18 @@
    "color": "#7d9cff",
    "thoughts": [
     "Zaraz stanie się coś strasznego.",
-    "Nie dam rady, jeśli to się powtórzy.",
-    "A co, jeśli…?"
+    "Jeśli to wróci, nie wytrzymam.",
+    "A jeśli to coś poważnego?"
    ],
    "reframes": [
-    "Boję się i robię jeden krok.",
-    "Lęk to alarm, nie wyrok.",
-    "Mogę oddychać spokojnie, nawet gdy się boję.",
-    "Nie znam przyszłości. Znam następny krok.",
-    "Uczę się ufać, krok po kroku."
+    "To lęk. Szczyt mija po kilku minutach.",
+    "Nie muszę uciekać, żeby lęk opadł.",
+    "Wydech dłuższy niż wdech. Jeszcze raz.",
+    "Martwię się na zapas. Wracam do tego, co jest teraz.",
+    "Boję się i mimo to robię następny krok."
    ],
    "angel": [
-    "Jesteś {bezpieczny|bezpieczna} w Bożych rękach."
+    "Ten alarm dzwoni za głośno. Jesteś {bezpieczny|bezpieczna}."
    ],
    "colorRgb": "125;156;255",
    "distortionName": "Katastrofizowanie"
@@ -1218,16 +1219,16 @@
    "color": "#b07ab8",
    "thoughts": [
     "{Jestem żałosny.|Jestem żałosna.}",
-    "{Gdyby wiedzieli, jaki naprawdę jestem…|Gdyby wiedzieli, jaka naprawdę jestem…}",
+    "Gdyby znali mnie naprawdę, odeszliby.",
     "Coś jest ze mną nie tak."
    ],
    "reframes": [
-    "{Popełniłem błąd. Nie jestem błędem.|Popełniłam błąd. Nie jestem błędem.}",
-    "Mogę być sobą przy ludziach, którym ufam.",
-    "Moja wartość nie zależy od jednej chwili."
+    "{Zrobiłem coś źle. To nie znaczy, że jestem zły.|Zrobiłam coś źle. To nie znaczy, że jestem zła.}",
+    "{Wstyd chce, żebym się schował. Powiem o tym jednej osobie.|Wstyd chce, żebym się schowała. Powiem o tym jednej osobie.}",
+    "Jedna chwila to nie cały człowiek."
    ],
    "angel": [
-    "{Jesteś kochany taki, jaki jesteś.|Jesteś kochana taka, jaka jesteś.}"
+    "Nie musisz się chować. {Jesteś kochany.|Jesteś kochana.}"
    ],
    "colorRgb": "176;122;184",
    "distortionName": "Etykietowanie"
@@ -1241,18 +1242,18 @@
    "speed": 1.8,
    "color": "#e0583a",
    "thoughts": [
-    "Muszę się bronić, nikomu nie ufam.",
-    "Nie powinni tak robić!",
-    "Wszyscy są przeciwko mnie."
+    "Nie powinni tak ze mną robić!",
+    "Muszę im pokazać.",
+    "Nikomu nie można ufać."
    ],
    "reframes": [
-    "Nazywam gniew, zanim on mnie poprowadzi.",
-    "Mogę się złościć i nikogo nie krzywdzić.",
-    "Gniew pokazuje, że coś jest dla mnie ważne.",
-    "Pauza: stop, oddech, dopiero potem słowo."
+    "{Jestem zły, bo coś było dla mnie ważne.|Jestem zła, bo coś było dla mnie ważne.}",
+    "Najpierw dziesięć oddechów, potem słowa.",
+    "Mogę powiedzieć „nie zgadzam się” bez krzyku.",
+    "Złość pokazuje moją granicę. Nazwę ją spokojnie."
    ],
    "angel": [
-    "Twoja złość może służyć dobru."
+    "Twoja złość ma powód. Nie musi mieć ostatniego słowa."
    ],
    "colorRgb": "224;88;58",
    "distortionName": "„Muszę” i „{powinienem|powinnam}”"
@@ -1271,13 +1272,13 @@
     "Nie będę się narzucać."
    ],
    "reframes": [
-    "Mogę napisać do jednej osoby.",
-    "Proszenie o pomoc to umiejętność, nie słabość.",
-    "{Ktoś też czeka, aż odezwę się pierwszy.|Ktoś też czeka, aż odezwę się pierwsza.}",
-    "{Jestem otoczony miłością, choć nie zawsze ją widzę.|Jestem otoczona miłością, choć nie zawsze ją widzę.}"
+    "Napiszę dziś jedno zdanie do jednej osoby.",
+    "{Nie wiem, czy ktoś zadzwoni. Wiem, że ja mogę zadzwonić pierwszy.|Nie wiem, czy ktoś zadzwoni. Wiem, że ja mogę zadzwonić pierwsza.}",
+    "Prośba o pomoc to umiejętność, nie słabość.",
+    "Inni też czekają, aż ktoś się odezwie."
    ],
    "angel": [
-    "Nie jesteś {sam|sama}."
+    "Nie jesteś {sam|sama}. Nawet teraz."
    ],
    "colorRgb": "143;163;184",
    "distortionName": "Przepowiadanie przyszłości"
@@ -1292,17 +1293,17 @@
    "color": "#6ad1c9",
    "thoughts": [
     "Inni mają lepiej.",
-    "{Jestem gorszy.|Jestem gorsza.}",
+    "{Jestem gorszy od nich.|Jestem gorsza od nich.}",
     "Wszyscy już coś osiągnęli."
    ],
    "reframes": [
-    "Porównuję swoje kulisy z cudzą wystawą.",
-    "Porównuję się ze sobą sprzed roku.",
-    "Moje życie ma swoje tempo.",
-    "Moje ciało nie jest projektem do oceny."
+    "Widzę ich wystawę, nie ich kulisy.",
+    "Porównam się ze sobą sprzed roku.",
+    "Odkładam telefon. Wracam do swojego dnia.",
+    "Cudzy sukces nie odbiera mi wartości."
    ],
    "angel": [
-    "Bóg patrzy na serce."
+    "Bóg nie patrzy na ranking. Patrzy na ciebie."
    ],
    "colorRgb": "106;209;201",
    "distortionName": "Niesprawiedliwe porównanie"
@@ -1321,12 +1322,13 @@
     "Nie zasługuję na przebaczenie."
    ],
    "reframes": [
-    "Biorę odpowiedzialność za swoją część, nie za wszystko.",
+    "Odpowiadam za swoją część. Nie za całość.",
     "{Wtedy wiedziałem mniej niż dziś.|Wtedy wiedziałam mniej niż dziś.}",
-    "Naprawiam, co się da. Resztę oddaję Bogu."
+    "Przeproszę za to, co moje. Resztę puszczam.",
+    "Żal to nie to samo co wina."
    ],
    "angel": [
-    "Nikt cię nie potępia."
+    "Nikt cię nie potępia. Możesz zacząć od nowa."
    ],
    "colorRgb": "138;111;79",
    "distortionName": "Branie winy na siebie"
@@ -1342,16 +1344,16 @@
    "thoughts": [
     "Jeszcze raz i koniec.",
     "Bez tego nie wytrzymam.",
-    "{Znowu się złamałem. Jestem stracony.|Znowu się złamałam. Jestem stracona.}"
+    "{Znowu przegrałem. Jestem stracony.|Znowu się złamałam. Jestem stracona.}"
    ],
    "reframes": [
-    "Fala pragnienia opada. Przeczekam ją.",
+    "Głód rośnie, a potem opada. Przeczekam dwadzieścia minut.",
     "Potknięcie to informacja, nie wyrok.",
-    "Dzwonię do kogoś, zanim sięgnę.",
+    "Najpierw dzwonię, potem decyduję.",
     "Każdy zakład to nowe losowanie. Zamykam aplikację."
    ],
    "angel": [
-    "Zawsze możesz wrócić na drogę."
+    "Możesz wrócić na drogę już dziś."
    ],
    "colorRgb": "192;80;138",
    "distortionName": "Pułapka „jeszcze raz”"
@@ -1370,12 +1372,12 @@
     "{Muszę być najlepszy.|Muszę być najlepsza.}"
    ],
    "reframes": [
-    "Część wyszła dobrze, część do poprawy.",
-    "Wystarczająco dobrze to też dobrze.",
-    "Uczę się, a nauka to próby i błędy."
+    "Dziewięć rzeczy wyszło, jedna nie. Liczę wszystkie dziesięć.",
+    "Wystarczająco dobrze to standard, nie porażka.",
+    "Oddaję to dziś. Poprawię jutro, jeśli trzeba."
    ],
    "angel": [
-    "Nie musisz być {idealny|idealna}, żeby być {kochany|kochana}."
+    "Twoja wartość nie zależy od wyniku."
    ],
    "colorRgb": "232;226;208",
    "distortionName": "Wszystko albo nic"
@@ -1394,9 +1396,10 @@
     "Zawsze będzie tak źle."
    ],
    "reframes": [
-    "Nie znam przyszłości. Dziś mogę zrobić jeden mały krok.",
-    "Już kiedyś było inaczej.",
-    "Nadzieja to decyzja na dziś, nie tylko uczucie."
+    "Tak czuję dziś. To nie jest prognoza na zawsze.",
+    "Już raz było lepiej. Może być znowu.",
+    "Jeden mały krok na dziś: prysznic, spacer albo wiadomość.",
+    "Nie muszę czuć nadziei, żeby zrobić krok."
    ],
    "angel": [
     "Twoja historia się nie skończyła."
@@ -1418,12 +1421,13 @@
     "Kto by cię chciał?"
    ],
    "reframes": [
-    "Mówię do siebie jak do przyjaciela.",
-    "Krytyk mówi głośno, ale nie mówi prawdy.",
-    "Mogę się mylić i dalej się uczyć."
+    "Ten głos krzyczy, ale nie ma dowodów.",
+    "{Nie powiedziałbym tak do przyjaciela. Do siebie też nie muszę.|Nie powiedziałabym tak do przyjaciółki. Do siebie też nie muszę.}",
+    "Mylę się czasem. Jak każdy człowiek.",
+    "Dobra krytyka mówi, co poprawić. Ta tylko rani."
    ],
    "angel": [
-    "Oskarżyciel został strącony. Nikt cię nie potępia."
+    "Oskarżyciel kłamie. Bóg mówi do ciebie inaczej."
    ],
    "colorRgb": "168;58;82",
    "distortionName": "Etykietowanie"
@@ -1438,13 +1442,14 @@
    "color": "#9aa0b5",
    "thoughts": [
     "Bóg mnie opuścił.",
-    "Czuję, że to bez sensu, więc tak jest.",
+    "Czuję pustkę, więc nic tu nie ma.",
     "Modlitwa nic nie da."
    ],
    "reframes": [
     "Uczucie jest prawdziwe, ale nie jest dowodem.",
-    "Mogę przynieść Bogu także gniew i pytania.",
-    "Wierzę. Pomóż mi w mojej niewierze."
+    "Mogę przyjść do Boga z gniewem i pytaniami.",
+    "Wierzę. Zaradź mojej niewierze.",
+    "Psalmiści też wołali: „Dlaczego?”."
    ],
    "angel": [
     "Bóg nie odszedł. Jest bliżej, niż czujesz."
@@ -1467,7 +1472,7 @@
    ],
    "reframes": [
     "Są ludzie i miejsca, które pomagają odejść bezpiecznie.",
-    "Zajmuję się tym, na co mam wpływ. Resztę odpuszczam.",
+    "Robię to, na co mam wpływ. Resztę zostawiam.",
     "Mam prawo do swoich pieniędzy, telefonu i przyjaciół."
    ],
    "angel": [
@@ -1490,9 +1495,10 @@
     "Czas miał leczyć, a nie leczy."
    ],
    "reframes": [
-    "{Żałoba nie ma terminu. Tęsknota pokazuje, jak bardzo kochałem.|Żałoba nie ma terminu. Tęsknota pokazuje, jak bardzo kochałam.}",
-    "Mogę płakać. Jezus też płakał.",
-    "Noszę w sobie miłość, nie tylko ból."
+    "Żałoba nie ma terminu.",
+    "{Tęsknię, bo kochałem.|Tęsknię, bo kochałam.}",
+    "Jezus też płakał przy grobie przyjaciela.",
+    "Mogę nosić ból i dalej żyć."
    ],
    "angel": [
     "Twoja miłość nie umarła."
@@ -1514,9 +1520,10 @@
     "Jak powiem, będzie gorzej."
    ],
    "reframes": [
-    "Mogę powiedzieć jednej zaufanej osobie.",
+    "Nie wiem, co pomyślą. Mogę sprawdzić u jednej osoby.",
     "Mój głos ma znaczenie.",
-    "Za przemoc odpowiada ten, kto jej używa."
+    "Za przemoc odpowiada ten, kto jej używa.",
+    "Są ludzie, których zawodem jest wysłuchać."
    ],
    "angel": [
     "Twój głos jest słyszany."
@@ -1539,12 +1546,12 @@
    ],
    "reframes": [
     "Jedno odejście nie mówi wszystkiego o mnie.",
-    "Dziś trudno mi to poczuć, ale są ludzie, którym na mnie zależy.",
-    "{Jestem wart miłości, także gdy ktoś odchodzi.|Jestem warta miłości, także gdy ktoś odchodzi.}",
-    "{Jestem kochany, nawet gdy dziś tego nie czuję.|Jestem kochana, nawet gdy dziś tego nie czuję.}"
+    "Są ludzie, którym na mnie zależy. Wymienię trzech.",
+    "„Zawsze”? Przypomnę sobie choć jeden wyjątek.",
+    "Boli, bo mi zależało. To nie jest wada."
    ],
    "angel": [
-    "{Jesteś kochany.|Jesteś kochana.}"
+    "{Jesteś kochany. Także teraz.|Jesteś kochana. Także teraz.}"
    ],
    "colorRgb": "200;107;133",
    "distortionName": "Nadmierne uogólnianie"
@@ -1559,13 +1566,14 @@
    "color": "#b8a46a",
    "thoughts": [
     "Nie wolno mi odpocząć.",
-    "{Jak odpocznę, to znaczy, że jestem leniwy.|Jak odpocznę, to znaczy, że jestem leniwa.}",
+    "{Jak odpocznę, będę leniwy.|Jak odpocznę, będę leniwa.}",
     "Muszę wszystko ogarnąć."
    ],
    "reframes": [
     "Odpoczynek to część pracy, nie nagroda za nią.",
-    "Wybieram, co dziś najważniejsze.",
-    "Nie muszę dźwigać wszystkiego {sam|sama}."
+    "Wybieram trzy rzeczy na dziś. Reszta poczeka.",
+    "Mogę poprosić kogoś o jedną rzecz.",
+    "„Muszę” zamieniam na „chcę” albo „nie dziś”."
    ],
    "angel": [
     "Jesteś {wart|warta} odpoczynku."
@@ -1596,66 +1604,79 @@
   "wszystko-albo-nic": {
    "id": "wszystko-albo-nic",
    "name": "Wszystko albo nic",
-   "question": "Czy jest coś pomiędzy całkowitym sukcesem a porażką?"
+   "signal": "„albo… albo”, „idealnie”, „wcale”, „wszystko stracone”",
+   "question": "Co leży pomiędzy całkowitym sukcesem a porażką?"
   },
   "uogolnianie": {
    "id": "uogolnianie",
    "name": "Nadmierne uogólnianie",
+   "signal": "„zawsze”, „nigdy”, „nikt”, „wszyscy”",
    "question": "Zawsze? Nikt? Znajdę choć jeden wyjątek?"
   },
   "filtr": {
    "id": "filtr",
    "name": "Filtr umysłowy",
+   "signal": "jeden zły szczegół zasłania cały obraz",
    "question": "Co pomijam w tym obrazie?"
   },
   "umniejszanie": {
    "id": "umniejszanie",
    "name": "Umniejszanie dobrego",
+   "signal": "„to się nie liczy”, „to nic takiego”, „{miałem|miałam} szczęście”",
    "question": "Gdyby zrobił to przyjaciel, czy to też by się nie liczyło?"
   },
   "czytanie-mysli": {
    "id": "czytanie-mysli",
    "name": "Czytanie w myślach",
+   "signal": "„na pewno myśli, że…”, „wszyscy widzą”",
    "question": "Skąd wiem, co myślą inni? Czy mogę zapytać?"
   },
   "przepowiadanie": {
    "id": "przepowiadanie",
    "name": "Przepowiadanie przyszłości",
+   "signal": "„nic się nie zmieni”, „i tak”, „już nigdy”",
    "question": "Jak często moje czarne prognozy naprawdę się sprawdzały?"
   },
   "katastrofizacja": {
    "id": "katastrofizacja",
    "name": "Katastrofizowanie",
-   "question": "Co najgorszego, co najlepszego, a co najbardziej prawdopodobne? Co mogę zrobić, jeśli stanie się najgorsze?"
+   "signal": "„zaraz”, „na pewno”, „najgorsze”, „nie wytrzymam”",
+   "question": "Co najgorszego, co najlepszego, a co najbardziej prawdopodobne? Co zrobię, jeśli stanie się najgorsze?"
   },
   "rozumowanie-emocjonalne": {
    "id": "rozumowanie-emocjonalne",
    "name": "Rozumowanie emocjonalne",
+   "signal": "„czuję, więc tak jest”",
    "question": "Czy uczucie jest dowodem?"
   },
   "powinnosci": {
    "id": "powinnosci",
    "name": "„Muszę” i „{powinienem|powinnam}”",
-   "question": "Kto tak mówi? Czego naprawdę chcę?"
+   "signal": "„muszę”, „{powinienem|powinnam}”, „nie wolno mi”",
+   "question": "Kto ustalił tę zasadę? Czego naprawdę chcę?"
   },
   "etykietka": {
    "id": "etykietka",
    "name": "Etykietowanie",
+   "signal": "„jestem…” i jedno słowo o całym sobie",
    "question": "Czy jestem jednym czynem, czy całym człowiekiem?"
   },
   "personalizacja": {
    "id": "personalizacja",
    "name": "Branie winy na siebie",
+   "signal": "„to przeze mnie”, „to moja wina”",
    "question": "Co jeszcze się do tego przyczyniło? Kto tu za co odpowiada?"
   },
   "porownanie": {
    "id": "porownanie",
    "name": "Niesprawiedliwe porównanie",
+   "signal": "„inni mają”, „gorszy niż”, „już dawno”",
    "question": "Czy porównuję swoje kulisy z cudzą wystawą?"
   },
   "jeszcze-raz": {
    "id": "jeszcze-raz",
    "name": "Pułapka „jeszcze raz”",
+   "signal": "„jeszcze raz”, „ostatni”, „tylko dziś”",
    "question": "Czy „jeszcze raz” kiedykolwiek był ostatni?"
   }
  },
@@ -1699,7 +1720,7 @@
     "samotnosc"
    ],
    "boss": {
-    "name": "Twierdza Paniki",
+    "name": "Trwoga",
     "hp": 60,
     "lie": "{Zaraz umrę i nikt mi nie pomoże.|Zaraz zwariuję i wszyscy to zobaczą.}",
     "art": "Boss_noc"
@@ -1730,7 +1751,7 @@
     "heal": [
      {
       "who": "narrator",
-      "text": "Twierdza Paniki pada. W ciszy, która po niej zostaje, {imie} widzi coś, czego się nie {spodziewał|spodziewała}.",
+      "text": "Trwoga milknie. W ciszy, która po niej zostaje, {imie} widzi coś, czego się nie {spodziewał|spodziewała}.",
       "panel": "noc-heal-{m|f}"
      },
      {
@@ -1764,6 +1785,128 @@
      }
     ]
    },
+   "stages": [
+    {
+     "index": 0,
+     "clock": [
+      "{22:40|07:20}",
+      "{00:30|07:41}"
+     ],
+     "title": "{Nagłówki|Przystanek}",
+     "sky": "evening",
+     "mod": "swarm",
+     "enemies": [
+      "lek",
+      "samotnosc"
+     ],
+     "caption": "{{imie} przewija wiadomości w łóżku: wojna, zwolnienia, ceny. Telefon gaśnie dopiero po północy.|Przystanek przy Dominikańskim. Tłum, spóźniony tramwaj, w słuchawkach podcast o kryzysie.}",
+     "memories": [
+      "{Na lodówce wciąż wisi magnes z wesela. Od rozwodu nikt go nie zdjął.|Rok temu przeprowadziła się do Wrocławia za pracą męża. Nie zna tu nikogo poza nim.}",
+      "{Wiadomość do brata, zaczęta trzy dni temu. Wciąż niewysłana.|W kalendarzu: „kardiolog”, przekreślone. Bała się, co usłyszy.}"
+     ],
+     "look": {
+      "background": "40;33;42",
+      "fog": "40;33;42",
+      "sky": "223;208;211",
+      "ground": "74;58;66",
+      "floor": "169;152;135",
+      "near": 2300,
+      "far": 5400
+     }
+    },
+    {
+     "index": 1,
+     "clock": [
+      "{00:30|07:41}",
+      "{03:12|07:52}"
+     ],
+     "title": "{Bezsenność|Tłok}",
+     "sky": "night",
+     "mod": "dark",
+     "enemies": [
+      "lek",
+      "zwatpienie",
+      "samotnosc"
+     ],
+     "caption": "{Sufit, zegar, sufit. Każdy dźwięk z klatki schodowej brzmi jak alarm.|W tramwaju ścisk. Ktoś napiera z tyłu, drzwi się zamykają, robi się duszno.}",
+     "memories": [
+      "{Ostatnie badanie: „serce zdrowe”. A co, jeśli lekarz się pomylił?|Pierwszy atak przyszedł w galerii handlowej. Od tamtej pory omija galerie.}",
+      "{Babcia mawiała: „W nocy wszystko wydaje się większe”. Zapomniał o tym.|Mąż mówi: „Weź się w garść”. Ona próbuje. Codziennie.}"
+     ],
+     "look": {
+      "background": "15;19;40",
+      "fog": "15;19;40",
+      "sky": "176;191;244",
+      "ground": "40;42;70",
+      "floor": "132;132;142",
+      "near": 1075,
+      "far": 2525
+     }
+    },
+    {
+     "index": 2,
+     "clock": [
+      "{03:12|07:52}",
+      "{03:40|08:05}"
+     ],
+     "title": "Atak",
+     "sky": "deep",
+     "mod": "voices",
+     "enemies": [
+      "lek",
+      "zwatpienie",
+      "samotnosc"
+     ],
+     "caption": "{3:12. Serce wali, ręce drętwieją, brakuje tchu. {imie} siada na brzegu łóżka, pewien, że umiera.|Serce wali, przed oczami mroczki. {imie} ściska poręcz, pewna, że zaraz zemdleje na oczach wszystkich.}",
+     "memories": [
+      "{Telefon w dłoni. Wpisane 112, kciuk nad zieloną słuchawką.|Pani obok pyta: „Wszystko dobrze?”. {imie} nie może wydobyć słowa.}",
+      "{Dwa lata temu było tak samo. Przeszło po dziesięciu minutach.|Następny przystanek za dwie minuty. Dwie minuty to wieczność.}"
+     ],
+     "look": {
+      "background": "11;13;29",
+      "fog": "11;13;29",
+      "sky": "149;153;209",
+      "ground": "31;31;55",
+      "floor": "111;108;121",
+      "near": 1725,
+      "far": 4050
+     }
+    }
+   ],
+   "voices": [
+    {
+     "index": 0,
+     "kind": "lek",
+     "says": "{To zawał. Na pewno zawał.|Zaraz zemdleję. Na pewno zemdleję.}",
+     "pattern": "katastrofizacja",
+     "no": "Kołatanie serca, drętwienie rąk i duszność to typowe objawy paniki. Szczyt mija w kilka minut.",
+     "yes": "To atak paniki. Jest okropny, ale minie. Wydłużam wydech i czekam."
+    },
+    {
+     "index": 1,
+     "kind": "lek",
+     "says": "Jeśli to się powtórzy, nie wytrzymam.",
+     "pattern": "przepowiadanie",
+     "no": "{Wytrzymałem każdy dotychczasowy atak. Wszystkie minęły.|Wytrzymałam każdy dotychczasowy atak. Wszystkie minęły.}",
+     "yes": "Nie lubię tego uczucia, ale umiem je przeczekać. Mam na to sposób."
+    },
+    {
+     "index": 2,
+     "kind": "samotnosc",
+     "says": "{Jestem z tym zupełnie sam.|Jestem z tym zupełnie sama.}",
+     "pattern": "uogolnianie",
+     "no": "{Jest brat, jest lekarz, jest telefon 116 123. W nocy łatwo o nich zapomnieć.|Jest siostra, jest lekarz, jest telefon 116 123. W panice łatwo o nich zapomnieć.}",
+     "yes": "{Rano zadzwonię do brata i powiem, co się dzieje.|Wieczorem zadzwonię do siostry i powiem, co się dzieje.}"
+    },
+    {
+     "index": 3,
+     "kind": "zwatpienie",
+     "says": "{Czuję, że umieram, więc pewnie umieram.|Czuję, że zwariuję, więc pewnie wariuję.}",
+     "pattern": "rozumowanie-emocjonalne",
+     "no": "To częsta myśl podczas paniki. Panika przeraża, ale nie zabija i nie odbiera rozumu.",
+     "yes": "To uczucie, nie diagnoza. Nazywam je: panika. I ona opada."
+    }
+   ],
    "cbt": {
     "situation": "{Noc, serce wali, w telefonie wiadomości o wojnie.|Tłok w tramwaju, duszno, serce wali.}",
     "thought": "{Zaraz umrę i nikt mi nie pomoże.|Zaraz zwariuję i wszyscy to zobaczą.}",
@@ -1771,22 +1914,25 @@
     "distortion": "katastrofizacja",
     "options": [
      {
-      "text": "Skoro tak się czuję, to na pewno coś mi jest. Zaraz stanie się najgorsze. Muszę uciekać.",
-      "why": "To katastrofizowanie, wzmocnione uczuciem, które udaje dowód. Ucieczka da ulgę na chwilę, ale nauczy mózg, że naprawdę było groźnie.",
-      "kind": "distorted"
+      "text": "Skoro tak się czuję, to coś jest bardzo nie tak. Muszę stąd uciec, zanim będzie za późno.",
+      "why": "Uczucie udaje tu dowód, a ucieczka ratunek. Ulga przyjdzie, ale mózg zapamięta, że było groźnie, i następnym razem alarm zadzwoni szybciej.",
+      "kind": "distorted",
+      "kindName": "Zniekształcona: utrwala kłamstwo"
      },
      {
-      "text": "Nic mi nie jest i już nigdy więcej się nie przestraszę.",
-      "why": "Brzmi dobrze, ale takiej obietnicy nikt nie dotrzyma. Przy następnym ataku ta myśl pęknie i zostawi wstyd.",
-      "kind": "sugar"
+      "text": "Od dziś koniec z lękiem. Nigdy więcej się tak nie poczuję.",
+      "why": "Takiej obietnicy nie da się dotrzymać. Przy następnym ataku pęknie i zostawi wstyd, że „znowu”.",
+      "kind": "sugar",
+      "kindName": "Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem"
      },
      {
-      "text": "To atak paniki: nieprzyjemny, ale niegroźny. Minie za kilka minut. Wydłużam wydech i zostaję.",
-      "why": "Prawdziwe i pomocne: nazywa to, co się dzieje, i daje następny krok.",
-      "kind": "balanced"
+      "text": "To atak paniki: bardzo nieprzyjemny, ale nie groźny. Szczyt mija w kilka minut. Zostaję, wydłużam wydech i nazywam to, co widzę.",
+      "why": "Nazywa to, co się dzieje, mówi, ile to potrwa, i daje konkretny następny krok.",
+      "kind": "balanced",
+      "kindName": "Zrównoważona: prawdziwa i pomocna"
      }
     ],
-    "truth": "Lęk to alarm, nie wyrok. Mogę się bać i dalej oddychać, dalej iść. Nie znam przyszłości, ale znam następny krok.",
+    "truth": "Panika jest głośna, ale nie groźna. Nie muszę przed nią uciekać, żeby minęła. Wiem, co robić: wydłużyć wydech i zostać.",
     "verse": {
      "ref": "J 14,27",
      "text": "Pokój zostawuję wam, pokój on mój daję wam; nie jako daje świat, ja wam daję; niechże się nie trwoży serce wasze, ani się lęka."
@@ -1841,7 +1987,7 @@
     "wstyd"
    ],
    "boss": {
-    "name": "Twierdza Milczenia",
+    "name": "Kamienne Serce",
     "hp": 70,
     "lie": "{Prawdziwy facet nie płacze. Moje uczucia się nie liczą.|To przeze mnie się kłócili. Muszę wszystkich pilnować.}",
     "art": "Boss_dom"
@@ -1872,7 +2018,7 @@
     "heal": [
      {
       "who": "narrator",
-      "text": "Twierdza Milczenia pęka. {imie} wraca pamięcią do ciemnej kuchni i znów jest {małym chłopcem|małą dziewczynką}. Ale tym razem nie jest {sam|sama}.",
+      "text": "Kamienne Serce pęka. {imie} wraca pamięcią do ciemnej kuchni i znów jest {małym chłopcem|małą dziewczynką}. Ale tym razem nie jest {sam|sama}.",
       "panel": "dom-heal-{m|f}"
      },
      {
@@ -1901,6 +2047,129 @@
      }
     ]
    },
+   "stages": [
+    {
+     "index": 0,
+     "clock": [
+      "{15:00|16:00}",
+      "{16:30|17:30}"
+     ],
+     "title": "{Przyjazd|Opłatek}",
+     "sky": "day",
+     "mod": "",
+     "enemies": [
+      "milczenie",
+      "wstyd"
+     ],
+     "caption": "{Radom, urodziny ojca. Tort, kawa, telewizor. Wszyscy mówią trochę za cicho.|Wigilia u rodziców w Kielcach. Dwanaście potraw, opłatek i dobrze znane napięcie w powietrzu.}",
+     "memories": [
+      "{Ojciec od ośmiu lat nie pije. Mama wciąż chowa butelki „na wszelki wypadek”.|Mama prosi: „Tylko nie zaczynaj o pracy taty”. {imie} od dziecka wie, których tematów nie poruszać.}",
+      "Na ścianie zdjęcie z komunii. Uśmiech na zdjęciu jest wyćwiczony."
+     ],
+     "look": {
+      "background": "75;69;69",
+      "fog": "75;69;69",
+      "sky": "255;234;207",
+      "ground": "88;73;65",
+      "floor": "175;169;162",
+      "near": 2530,
+      "far": 5940
+     }
+    },
+    {
+     "index": 1,
+     "clock": [
+      "{16:30|17:30}",
+      "{18:00|19:00}"
+     ],
+     "title": "{Przy stole|Kłótnia}",
+     "sky": "evening",
+     "mod": "heavy",
+     "enemies": [
+      "gniew",
+      "wina",
+      "milczenie"
+     ],
+     "caption": "{Ojciec rzuca: „No i co z tą twoją robotą?”. {imie} czuje, jak zaciska mu się szczęka.|Przy karpiu ojciec podnosi głos, mama odpowiada ostrzej. {imie} wstaje dolać barszczu, jak zawsze, kiedy robi się gorąco.}",
+     "memories": [
+      "{Kuchnia, rok 1998. Trzask talerza o kafelki. Mama szepcze: „Idź do pokoju i nie płacz”.|Ma siedem lat i stoi między rodzicami z misiem w rękach. Myśli: jak będę grzeczna, przestaną.}",
+      "{Nauczył się wtedy jednego: jak się nic nie czuje, to nic nie boli.|Nauczyła się wtedy jednego: pilnować wszystkich, zanim ktoś wybuchnie.}"
+     ],
+     "look": {
+      "background": "53;38;30",
+      "fog": "53;38;30",
+      "sky": "255;214;167",
+      "ground": "91;64;48",
+      "floor": "169;152;135",
+      "near": 2300,
+      "far": 5400
+     }
+    },
+    {
+     "index": 2,
+     "clock": [
+      "{18:00|19:00}",
+      "{19:30|21:00}"
+     ],
+     "title": "{Powrót|Zmywanie}",
+     "sky": "night",
+     "mod": "voices",
+     "enemies": [
+      "gniew",
+      "wina",
+      "milczenie",
+      "wstyd"
+     ],
+     "caption": "{W samochodzie, w drodze do Warszawy. Radio gra, a w środku ten sam kamień co zawsze.|Po kolacji {imie} zmywa dłużej, niż trzeba. W kuchni jest bezpiecznie, jak trzydzieści lat temu.}",
+     "memories": [
+      "{Pierwsze piwo wypił w wieku czternastu lat. Żeby choć raz poczuć się dorosłym.|Do dziś przeprasza, zanim ktokolwiek zdąży się zdenerwować.}",
+      "{Gdyby ktoś zapytał, co czuje, odpowiedziałby: „nic”. I sam by w to uwierzył.|Gdyby ktoś zapytał, czego chce na święta, odpowiedziałaby: „żeby był spokój”.}"
+     ],
+     "look": {
+      "background": "27;23;29",
+      "fog": "27;23;29",
+      "sky": "205;196;205",
+      "ground": "56;47;54",
+      "floor": "132;132;142",
+      "near": 1955,
+      "far": 4590
+     }
+    }
+   ],
+   "voices": [
+    {
+     "index": 0,
+     "kind": "milczenie",
+     "says": "{Facet nie płacze. Zaciśnij zęby.|Nie wolno psuć świąt. Uśmiechaj się.}",
+     "pattern": "powinnosci",
+     "no": "{To zasada z kuchni sprzed lat, nie prawo natury. Łzy to reakcja ciała, nie słabość.|To zasada z dzieciństwa. Spokój przy stole nie zależy tylko ode mnie.}",
+     "yes": "{Jest mi przykro i jestem zły. Mogę to powiedzieć jednym zdaniem.|Mogę wyjść na chwilę na balkon i złapać oddech. Święta to przetrwają.}"
+    },
+    {
+     "index": 1,
+     "kind": "wina",
+     "says": "{To przeze mnie ojciec pił.|To przeze mnie się kłócą.}",
+     "pattern": "personalizacja",
+     "no": "{Dziecko nie odpowiada za nałóg dorosłego. Nigdy.|Dziecko nie odpowiada za kłótnie dorosłych. Za swoje słowa odpowiadają oni.}",
+     "yes": "{Ojciec pił z własnych powodów. Ja byłem dzieckiem.|Ich kłótnie należą do nich. Ja mogę zadbać o siebie.}"
+    },
+    {
+     "index": 2,
+     "kind": "gniew",
+     "says": "{Nie powinien tak do mnie mówić. Zaraz mu pokażę.|Oni zawsze muszą wszystko zepsuć.}",
+     "pattern": "{powinnosci|uogolnianie}",
+     "no": "{Mogę się nie zgadzać z tym, co mówi. Wybuch nic nie zmieni, a zostawi mi wstyd.|„Zawsze” to za dużo. Bywały spokojne Wigilie, choć rzadko.}",
+     "yes": "{Powiem spokojnie: „Tato, nie rozmawiajmy dziś o pracy”.|Ten wieczór jest trudny. Nie muszę go naprawiać.}"
+    },
+    {
+     "index": 3,
+     "kind": "wstyd",
+     "says": "Coś jest ze mną nie tak, skoro nic nie czuję.",
+     "pattern": "etykietka",
+     "no": "Odcinanie uczuć to sposób, w jaki dziecko przetrwało trudny dom. To nawyk, nie wada.",
+     "yes": "Uczę się czuć na nowo. Zaczynam od nazwania jednego uczucia dziennie."
+    }
+   ],
    "cbt": {
     "situation": "{Ojciec przy stole rzuca kąśliwą uwagę o pracy.|Rodzice podnoszą głos przy wigilijnym stole.}",
     "thought": "{Prawdziwy facet nie płacze. Moje uczucia się nie liczą.|To przeze mnie się kłócili. Muszę wszystkich pilnować.}",
@@ -1910,20 +2179,23 @@
      {
       "text": "{Muszę to w sobie zdusić, bo inaczej wybuchnę.|Muszę coś zrobić, żeby przestali. To moja rola.}",
       "why": "{„Muszę” zamyka uczucia w piwnicy, a one i tak wychodzą: złością, piciem, bezsennością.|To branie na siebie cudzej odpowiedzialności. Jako dziecko nie mogłaś tego zmienić, a jako dorosła nie musisz.}",
-      "kind": "distorted"
+      "kind": "distorted",
+      "kindName": "Zniekształcona: utrwala kłamstwo"
      },
      {
       "text": "Przeszłość już mnie nie dotyczy. Nic nie czuję i dobrze.",
       "why": "Odcięcie od uczuć chroni przez chwilę, ale odcina też od radości i bliskości.",
-      "kind": "sugar"
+      "kind": "sugar",
+      "kindName": "Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem"
      },
      {
       "text": "{Czuję złość i smutek. Mogę je nazwać i nie muszę nimi rzucać ani ich dusić.|Za kłótnie rodziców odpowiadają rodzice. Mogę wyjść na chwilę i odetchnąć.}",
       "why": "{Nazywa uczucia takimi, jakie są, i daje wolność ruchu.|Oddaje odpowiedzialność tym, do których należy, i daje wolność ruchu.}",
-      "kind": "balanced"
+      "kind": "balanced",
+      "kindName": "Zrównoważona: prawdziwa i pomocna"
      }
     ],
-    "truth": "{Prawdziwy mężczyzna czuje i umie o tym powiedzieć. Nazwać, co czuję, to też odwaga.|Nie muszę pilnować cudzych emocji. Za nie odpowiada ten, kto je ma.}",
+    "truth": "{Moje uczucia się liczą, także złość i smutek. Mogę je nazwać i nikogo przy tym nie skrzywdzić.|Za kłótnie dorosłych odpowiadają dorośli. Nie muszę pilnować cudzych emocji, żeby być bezpieczną.}",
     "verse": {
      "ref": "Ps 27,10",
      "text": "Choć ojciec mój, i matka moja opuścili mię, wszakże Pan przyjął mię."
@@ -1977,7 +2249,7 @@
     "samotnosc"
    ],
    "boss": {
-    "name": "Twierdza Porównań",
+    "name": "Pozór",
     "hp": 80,
     "lie": "{Wszyscy mają więcej niż ja. Przegrałem życie.|Muszę wyglądać jak dziewczyny z ekranu, żeby ktoś mnie pokochał.}",
     "art": "Boss_ekran"
@@ -2008,7 +2280,7 @@
     "heal": [
      {
       "who": "narrator",
-      "text": "Twierdza Porównań się sypie. Na ulicy pod blokiem Ktoś woła w górę, jakby znał imię każdego na każdym balkonie.",
+      "text": "Pozór traci maskę. Na ulicy pod blokiem Ktoś woła w górę, jakby znał imię każdego na każdym balkonie.",
       "panel": "ekran-heal-{m|f}"
      },
      {
@@ -2042,6 +2314,129 @@
      }
     ]
    },
+   "stages": [
+    {
+     "index": 0,
+     "clock": [
+      "{21:30|07:00}",
+      "{23:00|07:30}"
+     ],
+     "title": "{Po pracy|Lustro}",
+     "sky": "evening",
+     "mod": "swarm",
+     "enemies": [
+      "porownanie",
+      "samotnosc"
+     ],
+     "caption": "{Kawalerka, wieczór. Jedna ręka na pilocie, druga na telefonie. Najpierw tylko sprawdza wiadomości.|Łazienka, siódma rano. {imie} maluje się przed pracą i omija wzrokiem swoje odbicie.}",
+     "memories": [
+      "{Zdjęcie kolegi z liceum: dom pod Warszawą, dwoje dzieci, pies. Polubione o 21:47.|Mąż rzucił przy śniadaniu: „Mogłabyś coś ze sobą zrobić”. Tak, jakby mówił o pogodzie.}",
+      "{Mama pyta przez telefon: „A ty kiedy?”. Nie mówi, co ma na myśli. Nie musi.|W szafie sukienka o rozmiar za mała, kupiona „na motywację” dwa lata temu.}"
+     ],
+     "look": {
+      "background": "38;36;42",
+      "fog": "38;36;42",
+      "sky": "206;214;211",
+      "ground": "68;64;66",
+      "floor": "169;152;135",
+      "near": 2300,
+      "far": 5400
+     }
+    },
+    {
+     "index": 1,
+     "clock": [
+      "{23:00|12:30}",
+      "{01:00|13:00}"
+     ],
+     "title": "{Przewijanie|Przerwa}",
+     "sky": "night",
+     "mod": "",
+     "enemies": [
+      "porownanie",
+      "perfekcja",
+      "wstyd"
+     ],
+     "caption": "{Dubaj, nowe auto, awans. Kciuk przesuwa dalej, a {imie} czuje się coraz mniejszy.|Przerwa w pracy. Kanapka i sto zdjęć dziewczyn bez porów, bez zmęczenia, bez jednego gorszego dnia.}",
+     "memories": [
+      "{W notatkach w telefonie lista: „Do 35: mieszkanie, żona, własna firma”. Ma 34 lata.|Pod zdjęciem dawnej koleżanki komentarz: „Ideał!”. {imie} od razu porównuje uda.}",
+      "{Ostatnie zdjęcie, które sam wrzucił, ma trzy lata.|Koleżanka mówi: „Świetnie wyglądasz”. {imie} słyszy: „Wcześniej wyglądałaś źle”.}"
+     ],
+     "look": {
+      "background": "13;22;40",
+      "fog": "13;22;40",
+      "sky": "160;196;244",
+      "ground": "35;47;70",
+      "floor": "132;132;142",
+      "near": 1955,
+      "far": 4590
+     }
+    },
+    {
+     "index": 2,
+     "clock": [
+      "{01:00|23:00}",
+      "{01:40|23:40}"
+     ],
+     "title": "{Pierwsza czterdzieści|Przed snem}",
+     "sky": "deep",
+     "mod": "voices",
+     "enemies": [
+      "porownanie",
+      "perfekcja",
+      "wstyd",
+      "samotnosc"
+     ],
+     "caption": "{Pierwsza czterdzieści. Bateria 9%. W głowie już tylko jedno zdanie.|W łóżku, w ciemności, telefon tuż przy twarzy. Filtr za filtrem, a pod spodem ta sama myśl.}",
+     "memories": [
+      "{Ojciec mówił: „Z ciebie nic nie będzie”. Dziś {imie} mówi to sobie sam.|Babcia powiedziała przy rodzinie, gdy {imie} miała dwanaście lat: „Ale się zaokrągliła”. Wszyscy się zaśmiali.}",
+      "{Rano znów wstanie do pracy, której nie lubi, żeby spłacić rzeczy, których nie potrzebuje.|Od lat nie ma zdjęcia, na którym nie wciąga brzucha.}"
+     ],
+     "look": {
+      "background": "9;15;29",
+      "fog": "9;15;29",
+      "sky": "136;157;209",
+      "ground": "27;35;55",
+      "floor": "111;108;121",
+      "near": 1725,
+      "far": 4050
+     }
+    }
+   ],
+   "voices": [
+    {
+     "index": 0,
+     "kind": "porownanie",
+     "says": "{Wszyscy już coś mają. Tylko nie ja.|Wszystkie są piękniejsze ode mnie.}",
+     "pattern": "porownanie",
+     "no": "{Widzę ich zdjęcia, nie ich kredyty, kłótnie i bezsenne noce.|Widzę filtr, dobre światło i dziesiąte ujęcie, nie zwykły wtorek.}",
+     "yes": "{W tym roku spłaciłem długi i zacząłem biegać. To moje kulisy i są w porządku.|Moje ciało nosi mnie do pracy, na spacer i do ludzi. Nie jest projektem do oceny.}"
+    },
+    {
+     "index": 1,
+     "kind": "perfekcja",
+     "says": "{Albo dom i awans, albo jestem nikim.|Albo wyglądam idealnie, albo nie wychodzę.}",
+     "pattern": "wszystko-albo-nic",
+     "no": "Między „wszystko” a „nic” jest cała reszta życia.",
+     "yes": "{Moje życie to więcej niż mieszkanie i stanowisko.|Wychodzę taka, jaka jestem dziś. To wystarczy, żeby spotkać ludzi.}"
+    },
+    {
+     "index": 2,
+     "kind": "wstyd",
+     "says": "{Przegrałem życie.|Jestem brzydka.}",
+     "pattern": "etykietka",
+     "no": "{Jedno słowo nie opisze 34 lat. Mam pracę, przyjaciół i plany.|Jedno słowo nie opisze człowieka. Ludzie, którzy mnie lubią, nie lubią mnie za wygląd.}",
+     "yes": "{Jestem w drodze, nie na mecie.|Jestem kimś więcej niż moje odbicie.}"
+    },
+    {
+     "index": 3,
+     "kind": "samotnosc",
+     "says": "{Nikogo nie obchodzi, co u mnie.|Nikt mnie takiej nie zechce.}",
+     "pattern": "{czytanie-mysli|przepowiadanie}",
+     "no": "{Nie wiem tego. Od miesięcy nikogo nie pytałem.|Nie znam przyszłości. Znam ludzi, którzy już chcą mnie obok siebie.}",
+     "yes": "{Odkładam telefon i piszę do Marka: „Co u ciebie naprawdę?”.|Odkładam telefon na noc poza sypialnię.}"
+    }
+   ],
    "cbt": {
     "situation": "{Zdjęcie znajomego przed nowym domem.|Zdjęcie influencerki po filtrach.}",
     "thought": "{Wszyscy mają więcej niż ja. Przegrałem życie.|Muszę wyglądać jak dziewczyny z ekranu, żeby ktoś mnie pokochał.}",
@@ -2051,20 +2446,23 @@
      {
       "text": "{Inni dali radę, ja nie. Jestem nieudacznikiem.|Jestem brzydka. Nikt mnie takiej nie zechce.}",
       "why": "Porównanie plus etykietka: jedno zdjęcie staje się wyrokiem o całym człowieku.",
-      "kind": "distorted"
+      "kind": "distorted",
+      "kindName": "Zniekształcona: utrwala kłamstwo"
      },
      {
       "text": "{Jestem lepszy od nich wszystkich.|Jestem najpiękniejsza i koniec.}",
       "why": "To ta sama gra w porównania, tylko na odwrót. Wystarczy jedno kolejne zdjęcie, żeby ta pewność się rozsypała.",
-      "kind": "sugar"
+      "kind": "sugar",
+      "kindName": "Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem"
      },
      {
       "text": "{Widzę cudzą wystawę, nie kulisy. Sprawdzę, co mi się udało w tym roku, i odłożę telefon na noc.|Widzę filtr i dobre światło, nie prawdziwy dzień. Moje ciało pozwala mi żyć. Odkładam telefon.}",
       "why": "Realistyczne: nazywa, co naprawdę widać, i wraca do własnego życia.",
-      "kind": "balanced"
+      "kind": "balanced",
+      "kindName": "Zrównoważona: prawdziwa i pomocna"
      }
     ],
-    "truth": "{Jestem kimś więcej niż mój wynik.|Jestem kimś więcej niż mój wygląd.} Ci, którzy mnie znają, cenią mnie za to, {jaki|jaka} jestem.",
+    "truth": "{Moja wartość nie zależy od tego, co mam w porównaniu z innymi.|Moja wartość nie zależy od tego, jak wypadam na zdjęciu.} Porównuję się ze sobą sprzed roku, nie z cudzą wystawą.",
     "verse": {
      "ref": "1 Sm 16,7",
      "text": "Albowiem Ja nie patrzę na to, na co patrzy człowiek; bo człowiek patrzy na to, co jest przed oczyma, ale Pan patrzy na serce."
@@ -2118,7 +2516,7 @@
     "oskarzyciel"
    ],
    "boss": {
-    "name": "Twierdza Odrzucenia",
+    "name": "Pustka",
     "hp": 90,
     "lie": "{Straciłem wszystko. Nikt mnie już nie zechce.|Bez niego sobie nie poradzę. Nikt inny mnie nie zechce.}",
     "art": "Boss_odrzucenie"
@@ -2149,7 +2547,7 @@
     "heal": [
      {
       "who": "narrator",
-      "text": "Twierdza Odrzucenia pada. {imie} wciąż jest {sam|sama}, ale cisza brzmi inaczej. Ktoś siada obok.",
+      "text": "Pustka się rozwiewa. {imie} wciąż jest {sam|sama}, ale cisza brzmi inaczej. Ktoś siada obok.",
       "panel": "odrzucenie-heal-{m|f}"
      },
      {
@@ -2176,6 +2574,130 @@
      }
     ]
    },
+   "stages": [
+    {
+     "index": 0,
+     "clock": [
+      "{16:00|18:00}",
+      "{18:00|20:30}"
+     ],
+     "title": "{Pożegnanie|Walizka}",
+     "sky": "day",
+     "mod": "",
+     "enemies": [
+      "odrzucenie",
+      "samotnosc"
+     ],
+     "caption": "{Niedziela. Kuba pakuje plecak. O osiemnastej trzeba go odwieźć do mamy.|Tomek jest w pracy do dziewiątej. {imie} pakuje walizkę szybko, jakby ktoś stał za plecami.}",
+     "memories": [
+      "{Rysunek na lodówce: tata i ja, a nad nami ogromne słońce.|Tomek zabrał jej kartę, „bo nie umie oszczędzać”. Na swoje konto nie wpłaca nic od dwóch lat.}",
+      "{Sąd przyznał opiekę co drugi weekend. Sędzia patrzyła w akta, nie na niego.|W telefonie zostały tylko kontakty, które Tomek zaakceptował.}"
+     ],
+     "look": {
+      "background": "70;71;81",
+      "fog": "70;71;81",
+      "sky": "230;234;240",
+      "ground": "77;75;79",
+      "floor": "175;169;162",
+      "near": 2530,
+      "far": 5940
+     }
+    },
+    {
+     "index": 1,
+     "clock": [
+      "{18:00|20:30}",
+      "{20:00|22:30}"
+     ],
+     "title": "{Pusto|Telefon}",
+     "sky": "dusk",
+     "mod": "heavy",
+     "enemies": [
+      "odrzucenie",
+      "samotnosc",
+      "kontrola",
+      "oskarzyciel"
+     ],
+     "caption": "{Mieszkanie po powrocie. Kartony nierozpakowane od roku. Za głośno tyka zegar.|Dworzec. Telefon wibruje: dziesięć wiadomości, potem dwadzieścia. „Gdzie jesteś?”, „Wracaj”, „Pożałujesz”.}",
+     "memories": [
+      "{Żona powiedziała na koniec: „Ty nigdy nic nie mówisz”. Dopiero teraz rozumie, co miała na myśli.|Kiedyś odwołała spotkanie z siostrą, bo Tomek „źle się czuł”. Potem drugie i trzecie.}",
+      "{Trzy nieodebrane połączenia od Marka. Odpisze jutro. Od miesiąca odpisuje jutro.|Pierwszy raz krzyknął na nią w podróży poślubnej. Przeprosił kwiatami.}"
+     ],
+     "look": {
+      "background": "38;35;50",
+      "fog": "38;35;50",
+      "sky": "217;202;226",
+      "ground": "67;59;76",
+      "floor": "153;140;146",
+      "near": 2185,
+      "far": 5130
+     }
+    },
+    {
+     "index": 2,
+     "clock": [
+      "{20:00|22:30}",
+      "{23:00|23:50}"
+     ],
+     "title": "{Niedziela wieczorem|Poczekalnia}",
+     "sky": "night",
+     "mod": "voices",
+     "enemies": [
+      "odrzucenie",
+      "samotnosc",
+      "kontrola",
+      "oskarzyciel"
+     ],
+     "caption": "{Kolacja dla jednej osoby. Telefon milczy, a w głowie robi się coraz głośniej.|Wrocław Główny, 23:50. Pociąg do siostry dopiero o szóstej. Ławka, walizka i strach, że jednak wróci.}",
+     "memories": [
+      "{Kuba zapytał w samochodzie: „Tato, czemu już z nami nie mieszkasz?”. Nie umiał odpowiedzieć.|Siostra napisała tylko: „Czekam. Nie musisz nic tłumaczyć”.}",
+      "{W aplikacji randkowej pięć dopasowań, zero odpowiedzi. Usunął ją o północy.|Na tablicy w poczekalni plakat: „Niebieska Linia 800 120 002”. Robi mu zdjęcie.}"
+     ],
+     "look": {
+      "background": "21;25;40",
+      "fog": "21;25;40",
+      "sky": "181;196;236",
+      "ground": "45;50;67",
+      "floor": "132;132;142",
+      "near": 1955,
+      "far": 4590
+     }
+    }
+   ],
+   "voices": [
+    {
+     "index": 0,
+     "kind": "odrzucenie",
+     "says": "{Skoro ona odeszła, to każdy odejdzie.|Nikt inny mnie nie zechce.}",
+     "pattern": "{uogolnianie|przepowiadanie}",
+     "no": "{Rozpadło się jedno małżeństwo. To nie jest prawo, które obowiązuje resztę życia.|To zdanie latami powtarzał Tomek. Nie jest moje.}",
+     "yes": "{Boli, bo mi zależało. Mogę się uczyć na tym rozstaniu, nie przekreślając siebie.|Mam siostrę, która czeka. To już ktoś.}"
+    },
+    {
+     "index": 1,
+     "kind": "{samotnosc|kontrola}",
+     "says": "{Facet musi radzić sobie sam.|Bez niego sobie nie poradzę.}",
+     "pattern": "{powinnosci|przepowiadanie}",
+     "no": "{Ta zasada zostawia mnie samego z bólem, a nie silniejszego.|Radziłam sobie, zanim go poznałam. To on mówił, że nie umiem.}",
+     "yes": "{Odpiszę dziś Markowi. Jedno zdanie: „Ciężko mi”.|Są ludzie i miejsca, które pomagają odejść bezpiecznie. Jutro dzwonię na Niebieską Linię.}"
+    },
+    {
+     "index": 2,
+     "kind": "oskarzyciel",
+     "says": "{Ty nigdy nic nie mówisz. To twoja wina.|Może przesadzam. Może to ja jestem problemem.}",
+     "pattern": "{etykietka|personalizacja}",
+     "no": "{Za małżeństwo odpowiadają dwie osoby. Moja część to milczenie i mogę się go oduczyć.|Kontrolowanie pieniędzy, telefonu i przyjaciół to przemoc. Nie przesadzam.}",
+     "yes": "{Biorę odpowiedzialność za swoją część i uczę się mówić.|Za przemoc odpowiada ten, kto jej używa. Nie ja.}"
+    },
+    {
+     "index": 3,
+     "kind": "samotnosc",
+     "says": "{Kuba będzie miał nowego tatę.|Siostra pewnie ma mnie już dość.}",
+     "pattern": "{przepowiadanie|czytanie-mysli}",
+     "no": "{Kuba ma jednego tatę. Moje miejsce zależy od tego, czy będę dzwonił, a nie od kogoś innego.|Siostra napisała: „Czekam”. Wierzę temu, co napisała, a nie temu, co sobie dopowiadam.}",
+     "yes": "{W środę dzwonię do Kuby, w sobotę idziemy na basen.|Jutro rano będę u siostry. Dziś wystarczy dotrwać do pociągu.}"
+    }
+   ],
    "cbt": {
     "situation": "{Kuba wraca do mamy. Mieszkanie pustoszeje.|Telefon wibruje: dziesięć wiadomości od Tomka.}",
     "thought": "{Straciłem wszystko. Nikt mnie już nie zechce.|Bez niego sobie nie poradzę. Nikt inny mnie nie zechce.}",
@@ -2185,17 +2707,20 @@
      {
       "text": "{Skoro ona odeszła, to każdy odejdzie.|Wrócę. Bez niego i tak sobie nie poradzę.}",
       "why": "{Jedno rozstanie staje się prawem natury: to nadmierne uogólnianie.|To przepowiadanie przyszłości podsunięte przez kogoś, kto długo powtarzał, że sobie nie poradzisz.}",
-      "kind": "distorted"
+      "kind": "distorted",
+      "kindName": "Zniekształcona: utrwala kłamstwo"
      },
      {
       "text": "{Nie potrzebuję nikogo. Sam dla siebie jestem najlepszym towarzystwem.|Nic się nie stało, wszystko jest w porządku.}",
       "why": "Zaprzeczenie chroni przed bólem na chwilę, ale zamyka drogę do pomocy.",
-      "kind": "sugar"
+      "kind": "sugar",
+      "kindName": "Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem"
      },
      {
       "text": "{Rozwód boli, ale nie odebrał mi tego, że jestem ojcem. Zadzwonię do syna w środę i napiszę dziś do kolegi.|Tak to czuję, bo długo słyszałam, że jestem nic niewarta. Są ludzie i miejsca, które pomagają odejść bezpiecznie.}",
       "why": "Uznaje ból i pokazuje prawdziwe możliwości.",
-      "kind": "balanced"
+      "kind": "balanced",
+      "kindName": "Zrównoważona: prawdziwa i pomocna"
      }
     ],
     "truth": "{Jestem wart miłości także wtedy, gdy ktoś odchodzi. Mogę odezwać się pierwszy.|Mam prawo do swoich pieniędzy, telefonu i przyjaciół. Nie zasłużyłam na kontrolę.}",
@@ -2252,7 +2777,7 @@
     "lek"
    ],
    "boss": {
-    "name": "Twierdza Wstydu",
+    "name": "Piętno",
     "hp": 100,
     "lie": "{Jestem słaby. Facetowi nikt nie uwierzy.|Sama się prosiłam. To moja wina.}",
     "art": "Boss_rana"
@@ -2283,7 +2808,7 @@
     "heal": [
      {
       "who": "narrator",
-      "text": "{Twierdza Wstydu pęka. {imie} siedzi na krawężniku, a Ktoś przyklęka obok i nie pyta, czemu się nie bronił.|Twierdza Wstydu pęka. Ktoś klęka w bezpiecznej odległości. Nie zbliża się bez pozwolenia. Czeka.}",
+      "text": "{Piętno blednie. {imie} siedzi na krawężniku, a Ktoś przyklęka obok i nie pyta, czemu się nie bronił.|Piętno blednie. Ktoś klęka w bezpiecznej odległości. Nie zbliża się bez pozwolenia. Czeka.}",
       "panel": "rana-heal-{m|f}"
      },
      {
@@ -2310,6 +2835,129 @@
      }
     ]
    },
+   "stages": [
+    {
+     "index": 0,
+     "clock": [
+      "{17:30|09:00}",
+      "{18:10|10:00}"
+     ],
+     "title": "{Objazd|Wiadomości}",
+     "sky": "day",
+     "mod": "swarm",
+     "enemies": [
+      "lek",
+      "milczenie"
+     ],
+     "caption": "{Pół roku później. {imie} wraca z pracy i znowu nadkłada dwadzieścia minut, żeby ominąć tamtą ulicę.|Poranne wiadomości: znowu sprawa szefa, który „tylko odprowadzał” pracownicę. {imie} wyłącza radio, ale jest już za późno.}",
+     "memories": [
+      "{Nowy telefon, nowy numer, nowe konto. Stary telefon zabrali.|Od pięciu lat nie chodzi na imprezy firmowe. Zawsze ma wymówkę.}",
+      "{Kolega z pracy żartuje: „Co, boisz się Bałut?”. Śmieje się razem z nim.|Zmieniła pracę pół roku po tamtym wieczorze. Nikomu nie powiedziała dlaczego.}"
+     ],
+     "look": {
+      "background": "69;65;77",
+      "fog": "69;65;77",
+      "sky": "236;223;235",
+      "ground": "77;67;76",
+      "floor": "175;169;162",
+      "near": 2530,
+      "far": 5940
+     }
+    },
+    {
+     "index": 1,
+     "clock": [
+      "{23:30|14:00}",
+      "{23:40|15:00}"
+     ],
+     "title": "{Tamta noc|Winda}",
+     "sky": "dusk",
+     "mod": "heavy",
+     "enemies": [
+      "wstyd",
+      "wina",
+      "lek"
+     ],
+     "caption": "{Wspomnienie wraca bez pytania: trzech chłopaków, pytanie o papierosa, potem już tylko asfalt i dzwonienie w uszach.|W windzie ktoś staje za blisko. Ten sam zapach wody kolońskiej i nagle znów jest tamten wieczór.}",
+     "memories": [
+      "{Rozcięty łuk brwiowy zszyli na SOR-ze. Lekarka zapytała, czy zgłosi to na policję. Powiedział, że nie warto.|Pamięta tylko fragmenty. Tego, co stało się potem, nie musi nazywać.}",
+      "{Nikt nie zapytał, jak się czuje. Pytali tylko, ile mu zabrali.|Następnego dnia szef przyniósł jej kawę, jakby nic się nie stało.}"
+     ],
+     "look": {
+      "background": "37;29;45",
+      "fog": "37;29;45",
+      "sky": "223;190;220",
+      "ground": "67;50;73",
+      "floor": "153;140;146",
+      "near": 2185,
+      "far": 5130
+     }
+    },
+    {
+     "index": 2,
+     "clock": [
+      "{03:00|23:00}",
+      "{03:30|23:50}"
+     ],
+     "title": "{Koszmar|Siostra}",
+     "sky": "deep",
+     "mod": "voices",
+     "enemies": [
+      "wstyd",
+      "milczenie",
+      "wina",
+      "lek"
+     ],
+     "caption": "{Budzi się zlany potem. Serce wali tak, jakby znów leżał na tamtej ulicy.|Mieszkanie siostry. {imie} pierwszy raz od pięciu lat mówi na głos: „Muszę ci coś powiedzieć”.}",
+     "memories": [
+      "{Od pół roku śpi przy zapalonym świetle w przedpokoju.|Siostra nie przerywa. Przynosi koc i siada obok.}",
+      "{W wyszukiwarce wpisał: „czy to normalne, że po pobiciu…”. Zamknął kartę, zanim pokazały się wyniki.|Na kartce numer 116 123 i adres poradni. Siostra zapisała je dużymi literami.}"
+     ],
+     "look": {
+      "background": "15;14;26",
+      "fog": "15;14;26",
+      "sky": "157;149;199",
+      "ground": "35;31;51",
+      "floor": "111;108;121",
+      "near": 1725,
+      "far": 4050
+     }
+    }
+   ],
+   "voices": [
+    {
+     "index": 0,
+     "kind": "wina",
+     "says": "{Mogłem się bronić.|Sama się prosiłam.}",
+     "pattern": "personalizacja",
+     "no": "{W takiej chwili ciało samo wybiera: walcz, uciekaj albo zastygnij. Tego się nie wybiera świadomie.|Nikt nie prosi się o przemoc. Alkohol ani zgoda na odprowadzenie nie są zgodą na nic więcej.}",
+     "yes": "Za przemoc odpowiada ten, kto jej używa. Nie ja."
+    },
+    {
+     "index": 1,
+     "kind": "wstyd",
+     "says": "{Co ze mnie za facet.|Jestem brudna.}",
+     "pattern": "etykietka",
+     "no": "{Napaść nie odbiera męskości. Odbiera poczucie bezpieczeństwa, a to da się odbudować.|To uczucie wstydu, nie fakt. Nic nie odebrało mi godności.}",
+     "yes": "{Przeżyłem napaść i mam prawo do pomocy.|Moja godność jest nienaruszona. Mam prawo do pomocy.}"
+    },
+    {
+     "index": 2,
+     "kind": "milczenie",
+     "says": "{Facetowi nikt nie uwierzy.|Po tylu latach nikt mi nie uwierzy.}",
+     "pattern": "{czytanie-mysli|przepowiadanie}",
+     "no": "{Policja i psycholodzy przyjmują zgłoszenia także od mężczyzn. Nie muszę zgadywać, co pomyślą.|Nie ma terminu ważności na to, żeby powiedzieć prawdę i dostać wsparcie.}",
+     "yes": "{Powiem o tym jednej osobie i umówię się do psychologa.|Powiedziałam siostrze. Jutro zadzwonię pod 116 123.}"
+    },
+    {
+     "index": 3,
+     "kind": "lek",
+     "says": "To się zaraz powtórzy.",
+     "pattern": "katastrofizacja",
+     "no": "To wspomnienie, nie dzisiaj. Ciało reaguje, jakby działo się to teraz, ale jestem gdzie indziej.",
+     "yes": "{Nazywam pięć rzeczy, które widzę. Jest dzisiaj. Jestem bezpieczny.|Nazywam pięć rzeczy, które widzę. Jest dzisiaj. Jestem bezpieczna.}"
+    }
+   ],
    "cbt": {
     "situation": "{Wieczorem trzeba przejść tą samą ulicą.|W wiadomościach mówią o podobnej sprawie.}",
     "thought": "{Jestem słaby. Facetowi nikt nie uwierzy.|Sama się prosiłam. To moja wina.}",
@@ -2319,17 +2967,20 @@
      {
       "text": "{Powinienem był im oddać. Jestem żałosny.|Powinnam była wiedzieć. Sama jestem sobie winna.}",
       "why": "{To branie na siebie winy sprawców.|To branie na siebie winy sprawcy.} Ofiara nie odpowiada za przemoc.",
-      "kind": "distorted"
+      "kind": "distorted",
+      "kindName": "Zniekształcona: utrwala kłamstwo"
      },
      {
       "text": "Nic się nie stało. Zapomnę i już.",
       "why": "Zapomnieć na zawołanie się nie da. Zaprzeczanie trzyma ranę zamkniętą, ale niezagojoną.",
-      "kind": "sugar"
+      "kind": "sugar",
+      "kindName": "Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem"
      },
      {
       "text": "{Za to odpowiadają napastnicy, nie ja. Nie muszę tego dźwigać sam: mogę zgłosić się na policję i do psychologa.|Za to odpowiada on, nie ja. Mogę szukać pomocy: u bliskiej osoby, pod numerem 116 123, u psychologa.}",
       "why": "Odpowiedzialność trafia tam, gdzie powinna, a ty odzyskujesz swobodę działania.",
-      "kind": "balanced"
+      "kind": "balanced",
+      "kindName": "Zrównoważona: prawdziwa i pomocna"
      }
     ],
     "truth": "Za przemoc odpowiada ten, kto jej używa. {Nie zasłużyłem|Nie zasłużyłam} na to i mogę szukać pomocy.",
@@ -2386,7 +3037,7 @@
     "beznadzieja"
    ],
    "boss": {
-    "name": "Twierdza Powinności",
+    "name": "Nadzorca",
     "hp": 110,
     "lie": "{Jak nie zarabiam, nie jestem nic wart.|Nie wolno mi odpocząć, bo wszystko się zawali.}",
     "art": "Boss_ciezar"
@@ -2417,7 +3068,7 @@
     "heal": [
      {
       "who": "narrator",
-      "text": "{Twierdza Powinności pada. Przy kuchennym stole Ktoś siada naprzeciwko i łamie chleb. Rachunki mogą poczekać do rana.|Twierdza Powinności pada. Przy szpitalnym łóżku Ktoś staje obok. Pierwszy raz od tygodni {imie} pozwala sobie oprzeć głowę na czyimś ramieniu.}",
+      "text": "{Nadzorca odkłada swoją księgę. Przy kuchennym stole Ktoś siada naprzeciwko i łamie chleb. Rachunki mogą poczekać do rana.|Nadzorca odkłada swoją księgę. Przy szpitalnym łóżku Ktoś staje obok. Pierwszy raz od tygodni {imie} pozwala sobie oprzeć głowę na czyimś ramieniu.}",
       "panel": "ciezar-heal-{m|f}"
      },
      {
@@ -2446,6 +3097,129 @@
      }
     ]
    },
+   "stages": [
+    {
+     "index": 0,
+     "clock": [
+      "{08:00|05:40}",
+      "{12:00|09:00}"
+     ],
+     "title": "{Ogłoszenia|Pociąg}",
+     "sky": "day",
+     "mod": "swarm",
+     "enemies": [
+      "powinnosc",
+      "perfekcja"
+     ],
+     "caption": "{Pierwszy poniedziałek bez pracy. {imie} wstaje o siódmej, jakby nic się nie zmieniło, i do południa przegląda ogłoszenia.|Pociąg do Kielc, 5:40. Laptop na kolanach, pierwsza wideokonferencja na korytarzu szpitala.}",
+     "memories": [
+      "{Dziesięć lat pracy zmieściło się w jednym kartonie: kubek, ładowarka, zdjęcie syna.|Brat obiecał, że przyjedzie „w przyszłym miesiącu”. Mówi tak od pół roku.}",
+      "{Byłej żonie nie powiedział. Alimenty przeleje z oszczędności.|W telefonie wiadomość od pielęgniarki: „Mama pytała w nocy o panią”.}"
+     ],
+     "look": {
+      "background": "73;72;79",
+      "fog": "73;72;79",
+      "sky": "247;242;229",
+      "ground": "83;78;76",
+      "floor": "175;169;162",
+      "near": 2530,
+      "far": 5940
+     }
+    },
+    {
+     "index": 1,
+     "clock": [
+      "{15:00|13:00}",
+      "{18:00|17:00}"
+     ],
+     "title": "{Odmowa|Sala 214}",
+     "sky": "dusk",
+     "mod": "heavy",
+     "enemies": [
+      "powinnosc",
+      "perfekcja",
+      "oskarzyciel"
+     ],
+     "caption": "{Mail: „Dziękujemy, wybraliśmy innego kandydata”. Trzeci w tym tygodniu.|Sala 214. Mama nie pamięta, gdzie jest. {imie} karmi ją łyżeczką i jednocześnie odpisuje szefowi.}",
+     "memories": [
+      "{Ojciec zawsze mówił: „Facet, który nie zarabia, nie jest facetem”.|Mama zawsze mówiła: „Kobieta da radę wszystkiemu”. Teraz nie może utrzymać łyżki.}",
+      "{Mama dzwoni i pyta o pracę. Słyszy, że wszystko gra.|Ostatni urlop: dwa lata temu. Przerwany, bo mama upadła.}"
+     ],
+     "look": {
+      "background": "42;36;48",
+      "fog": "42;36;48",
+      "sky": "234;210;214",
+      "ground": "73;62;73",
+      "floor": "153;140;146",
+      "near": 2185,
+      "far": 5130
+     }
+    },
+    {
+     "index": 2,
+     "clock": [
+      "{21:00|22:00}",
+      "{23:00|23:30}"
+     ],
+     "title": "{Kuchnia|Mail}",
+     "sky": "night",
+     "mod": "voices",
+     "enemies": [
+      "powinnosc",
+      "perfekcja",
+      "oskarzyciel",
+      "beznadzieja"
+     ],
+     "caption": "{Kuchnia, rachunki na stole. Najpierw jedno piwo „na sen”. Potem drugie.|Hotel przy szpitalu. Mail od szefa o 22:07: „Na jutro rano, proszę”. {imie} otwiera laptopa.}",
+     "memories": [
+      "{Rachunek za prąd, rata, alimenty. Liczy trzy razy i za każdym razem wychodzi mniej.|Śpi po pięć godzin. W lustrze widzi zmęczoną twarz mamy sprzed lat.}",
+      "{Kiedyś biegał w niedziele. Buty stoją w przedpokoju od roku.|Przyjaciółka napisała: „Kiedy kawa?”. {imie} odpisała: „Po wszystkim”.}"
+     ],
+     "look": {
+      "background": "24;26;38",
+      "fog": "24;26;38",
+      "sky": "197;204;226",
+      "ground": "50;52;65",
+      "floor": "132;132;142",
+      "near": 1955,
+      "far": 4590
+     }
+    }
+   ],
+   "voices": [
+    {
+     "index": 0,
+     "kind": "powinnosc",
+     "says": "{Muszę utrzymać rodzinę. Bez pracy jestem nikim.|Muszę wszystko ogarnąć sama.}",
+     "pattern": "powinnosci",
+     "no": "{Praca to coś, co robię, a nie to, kim jestem. Szukanie pracy też jest pracą.|„Muszę wszystko” to przepis na wypalenie, nie na troskę o mamę.}",
+     "yes": "{Dziś wysyłam trzy CV i idę pobiegać. To wystarczy na jeden dzień.|Proszę brata o jeden weekend w miesiącu. Konkretnie, z datami.}"
+    },
+    {
+     "index": 1,
+     "kind": "perfekcja",
+     "says": "{Albo znajdę coś równie dobrego, albo nie ma po co.|Albo jestem przy mamie cały czas, albo jestem złą córką.}",
+     "pattern": "wszystko-albo-nic",
+     "no": "{Praca „na teraz” też jest pracą i też płaci rachunki.|Dobra córka to też córka, która śpi i je. Mama potrzebuje mnie przytomnej.}",
+     "yes": "{Biorę pod uwagę także oferty na przeczekanie. To etap, nie wyrok.|Ustalam godziny odwiedzin, które da się utrzymać miesiącami.}"
+    },
+    {
+     "index": 2,
+     "kind": "oskarzyciel",
+     "says": "{Nieudacznik. Nawet pracy nie umiesz utrzymać.|Jesteś złą córką.}",
+     "pattern": "etykietka",
+     "no": "{Firma zwolniła czterdzieści osób naraz. To restrukturyzacja, nie ocena mnie.|Zła córka nie jeździłaby co tydzień do Kielc o 5:40.}",
+     "yes": "{Straciłem pracę. Nie straciłem tego, co umiem.|Kocham mamę i mam swoje granice. Jedno nie wyklucza drugiego.}"
+    },
+    {
+     "index": 3,
+     "kind": "beznadzieja",
+     "says": "Nic się nie zmieni. Już zawsze tak będzie.",
+     "pattern": "przepowiadanie",
+     "no": "{Szukanie pracy trwa często miesiącami. Jestem w trzecim tygodniu.|Stan mamy się zmienia, plan opieki też może się zmienić: opiekunka, dzienny dom opieki, pomoc z gminy.}",
+     "yes": "Nie wiem, jak będzie za rok. Wiem, co zrobię jutro rano."
+    }
+   ],
    "cbt": {
     "situation": "{Kolejny dzień bez pracy, rachunki na stole.|Szef pisze o dwudziestej drugiej, mama woła z łóżka.}",
     "thought": "{Jak nie zarabiam, nie jestem nic wart.|Nie wolno mi odpocząć, bo wszystko się zawali.}",
@@ -2455,17 +3229,20 @@
      {
       "text": "{Jestem nieudacznikiem. Prawdziwy facet utrzymuje rodzinę.|Jestem złą córką. Muszę wszystko ogarniać sama.}",
       "why": "„Muszę” i „{powinienem|powinnam}” zamieniają się w etykietkę i zabierają ostatnie siły.",
-      "kind": "distorted"
+      "kind": "distorted",
+      "kindName": "Zniekształcona: utrwala kłamstwo"
      },
      {
       "text": "Wszystko jest w porządku, nie muszę niczego zmieniać.",
       "why": "Udawanie, że daje się radę, prowadzi prosto do wypalenia.",
-      "kind": "sugar"
+      "kind": "sugar",
+      "kindName": "Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem"
      },
      {
       "text": "{Odpoczynek to część pracy, nie nagroda. Zmęczony zrobię mniej, nie więcej. Jutro wyślę trzy CV i pójdę pobiegać.|Odpoczynek to część pracy, nie nagroda. Zmęczona zrobię mniej, nie więcej. Poproszę o pomoc i prześpię się dziś osiem godzin.}",
       "why": "Realistyczne i konkretne: siły to też zasób, o który trzeba dbać.",
-      "kind": "balanced"
+      "kind": "balanced",
+      "kindName": "Zrównoważona: prawdziwa i pomocna"
      }
     ],
     "truth": "Jestem kimś więcej niż to, ile zarobię i ile zrobię. Mogę odpocząć i nadal być kimś wartościowym.",
@@ -2522,7 +3299,7 @@
     "gniew"
    ],
    "boss": {
-    "name": "Twierdza Nałogu",
+    "name": "Lichwiarz",
     "hp": 120,
     "lie": "{Jeszcze jeden zakład i się odegram.|Bez tego nie wytrzymam wieczoru.}",
     "art": "Boss_nalog"
@@ -2553,7 +3330,7 @@
     "heal": [
      {
       "who": "narrator",
-      "text": "Twierdza Nałogu pada. Łańcuchy, które wydawały się z żelaza, pękają jak nitki.",
+      "text": "Lichwiarz traci swoje łańcuchy. Te, które wydawały się z żelaza, pękają jak nitki.",
       "panel": "nalog-heal-{m|f}"
      },
      {
@@ -2587,6 +3364,129 @@
      }
     ]
    },
+   "stages": [
+    {
+     "index": 0,
+     "clock": [
+      "{19:00|18:00}",
+      "{21:00|20:00}"
+     ],
+     "title": "{Mecz|Po pracy}",
+     "sky": "evening",
+     "mod": "swarm",
+     "enemies": [
+      "nalog",
+      "samotnosc"
+     ],
+     "caption": "{Liga Mistrzów, piwo, aplikacja otwarta „tylko dla emocji”. Pierwszy zakład wchodzi.|Kawalerka po wyprowadzce od siostry. Wieczory są najgorsze. Jeden kieliszek do kolacji.}",
+     "memories": [
+      "{Zaczęło się od bonusu na start: „Postaw 50 zł, dorzucimy 200”.|Butelki wynosi do śmietnika na sąsiedniej ulicy, żeby sąsiedzi nie widzieli.}",
+      "{Na koncie minus osiemnaście tysięcy. Nikt o tym nie wie.|Siostra pyta: „Wpadniesz w piątek?”. Odpisuje, że jest zmęczona.}"
+     ],
+     "look": {
+      "background": "50;28;40",
+      "fog": "50;28;40",
+      "sky": "255;185;191",
+      "ground": "85;53;60",
+      "floor": "169;152;135",
+      "near": 2300,
+      "far": 5400
+     }
+    },
+    {
+     "index": 1,
+     "clock": [
+      "{23:00|20:00}",
+      "{01:00|22:00}"
+     ],
+     "title": "{Odgrywanie|Drugi kieliszek}",
+     "sky": "night",
+     "mod": "heavy",
+     "enemies": [
+      "nalog",
+      "wstyd",
+      "gniew"
+     ],
+     "caption": "{Druga połowa przegrana. Trzeba odrobić. Kurs 4,5, „pewniak”.|Drugi kieliszek, trzeci. Tomek pisze z nowego numeru. Wino na chwilę ucisza to, co nie chce być ciche.}",
+     "memories": [
+      "{Szybka pożyczka w aplikacji: decyzja w kwadrans. Trzecia w tym miesiącu.|Tata mówił: „Kieliszek na nerwy jeszcze nikomu nie zaszkodził”. Obiecywała sobie, że nie będzie jak on.}",
+      "{Alimenty za ten miesiąc poszły na zakład. Przeleje „jak się odegra”.|Rano boli głowa, a w telefonie wiadomości, których nie pamięta.}"
+     ],
+     "look": {
+      "background": "24;15;38",
+      "fog": "24;15;38",
+      "sky": "205;170;226",
+      "ground": "50;37;65",
+      "floor": "132;132;142",
+      "near": 1955,
+      "far": 4590
+     }
+    },
+    {
+     "index": 2,
+     "clock": [
+      "{02:00|23:00}",
+      "{03:00|00:30}"
+     ],
+     "title": "{Druga w nocy|Pusta butelka}",
+     "sky": "deep",
+     "mod": "voices",
+     "enemies": [
+      "nalog",
+      "samotnosc",
+      "wstyd",
+      "gniew"
+     ],
+     "caption": "{Druga w nocy, liga koreańska. {imie} obstawia mecze drużyn, których nazw nie umie wymówić.|Butelka pusta, zanim zdążyła pomyśleć. W szafce jest druga, „dla gości”.}",
+     "memories": [
+      "{Syn zapytał przez telefon: „Tato, przyjdziesz na mój mecz?”. Obiecał. Nie pamięta daty.|W pracy pomyliła raport. Szefowa zapytała, czy wszystko w porządku.}",
+      "{W wyszukiwarce: „jak przestać grać”. Pierwszy wynik to reklama kasyna.|W kalendarzu zakreślony dzień: „od poniedziałku przerwa”. To już czwarty poniedziałek.}"
+     ],
+     "look": {
+      "background": "19;9;27",
+      "fog": "19;9;27",
+      "sky": "172;136;194",
+      "ground": "39;27;51",
+      "floor": "111;108;121",
+      "near": 1725,
+      "far": 4050
+     }
+    }
+   ],
+   "voices": [
+    {
+     "index": 0,
+     "kind": "nalog",
+     "says": "{Jeszcze jeden zakład i się odegram.|Jeszcze jeden kieliszek i przestanie boleć.}",
+     "pattern": "jeszcze-raz",
+     "no": "{Bukmacher zarabia na tym, że w sumie przegrywam więcej, niż wygrywam. „Odegranie się” to jego plan, nie mój.|Alkohol uspokaja na godzinę, potem nasila lęk i bezsenność. Ból wraca rano, większy.}",
+     "yes": "{Zamykam aplikację i blokuję strony. Odegram się, wracając do życia, nie do kursów.|Odstawiam kieliszek i przeczekuję falę dwadzieścia minut. Dzwonię do siostry.}"
+    },
+    {
+     "index": 1,
+     "kind": "nalog",
+     "says": "{Wszystko stracone, to mogę grać dalej.|Znowu się złamałam. Nie ma sensu przestawać.}",
+     "pattern": "wszystko-albo-nic",
+     "no": "{Potknięcie to jeden wieczór, nie cała droga. Każdy dzień bez zakładu liczy się osobno.|Potknięcie to jeden wieczór, nie cała droga. Każdy dzień bez picia liczy się osobno.}",
+     "yes": "{Sprawdzam, co do tego doprowadziło, i w czwartek idę na mityng.|Zapisuję, co poprzedziło picie. Rano dzwonię do poradni.}"
+    },
+    {
+     "index": 2,
+     "kind": "wstyd",
+     "says": "{Jak ktoś się dowie, będzie po mnie.|Jestem żałosna. Piję sama w kuchni.}",
+     "pattern": "{katastrofizacja|etykietka}",
+     "no": "{Ukrywane długi rosną. Prawda powiedziana komuś to pierwszy krok do ich spłaty.|Piję, bo boli. To problem, który się leczy, a nie wyrok o mnie.}",
+     "yes": "{Powiem prawdę jednej osobie i zapiszę się do poradni.|Mam problem z alkoholem i szukam pomocy. To zdanie jest odważne, nie żałosne.}"
+    },
+    {
+     "index": 3,
+     "kind": "samotnosc",
+     "says": "{Sam narobiłem, sam muszę to naprawić.|Nikt nie musi wiedzieć. Poradzę sobie sama.}",
+     "pattern": "powinnosci",
+     "no": "Z nałogu rzadko wychodzi się w pojedynkę. Z pomocą ludzi szanse wyraźnie rosną.",
+     "yes": "{W czwartek idę na pierwszy mityng Anonimowych Hazardzistów.|Jutro dzwonię do poradni uzależnień. Numer mam zapisany.}"
+    }
+   ],
    "cbt": {
     "situation": "{Przegrany zakład o północy.|Samotny wieczór po ciężkim dniu.}",
     "thought": "{Jeszcze jeden zakład i się odegram.|Bez tego nie wytrzymam wieczoru.}",
@@ -2596,17 +3496,20 @@
      {
       "text": "{Jeszcze raz i się odegram. Tym razem musi wejść.|Bez tego nie zasnę. Jeden kieliszek to nic.}",
       "why": "Pułapka „jeszcze raz”: każdy zakład to nowe losowanie, a każdy kieliszek uczy mózg, że inaczej się nie da.",
-      "kind": "distorted"
+      "kind": "distorted",
+      "kindName": "Zniekształcona: utrwala kłamstwo"
      },
      {
       "text": "Od jutra rzucam na zawsze i nigdy więcej mnie nie pociągnie.",
       "why": "Obietnica bez planu. Przy pierwszej fali pęknie i zostawi wstyd.",
-      "kind": "sugar"
+      "kind": "sugar",
+      "kindName": "Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem"
      },
      {
       "text": "Pragnienie to fala: rośnie, osiąga szczyt i opada w ciągu kilkunastu minut. Przeczekam ją, dzwoniąc do kogoś. Jeśli się potknę, wracam na drogę od razu.",
       "why": "Realistyczne: zakłada trudność i ma plan na upadek.",
-      "kind": "balanced"
+      "kind": "balanced",
+      "kindName": "Zrównoważona: prawdziwa i pomocna"
      }
     ],
     "truth": "Potknięcie to informacja, nie wyrok. Sprawdzam, co do niego doprowadziło, i wracam na drogę już dziś.",
@@ -2664,7 +3567,7 @@
     "beznadzieja"
    ],
    "boss": {
-    "name": "Twierdza Straty",
+    "name": "Sędzia",
     "hp": 130,
     "lie": "{Powinienem był odebrać. To moja wina.|Moje ciało zawiodło. To przeze mnie.}",
     "art": "Boss_strata"
@@ -2695,7 +3598,7 @@
     "heal": [
      {
       "who": "narrator",
-      "text": "Twierdza Straty pada, ale smutek zostaje. I tak ma być.",
+      "text": "Sędzia milknie, ale smutek zostaje. I tak ma być.",
       "panel": "strata-heal-{m|f}"
      },
      {
@@ -2729,6 +3632,129 @@
      }
     ]
    },
+   "stages": [
+    {
+     "index": 0,
+     "clock": [
+      "{09:00|08:00}",
+      "{11:00|09:00}"
+     ],
+     "title": "{Wszystkich Świętych|Oddział}",
+     "sky": "day",
+     "mod": "",
+     "enemies": [
+      "tesknota",
+      "zwatpienie"
+     ],
+     "caption": "{Cmentarz w Radomiu, 1 listopada. Znicze, tłum, sąsiedzi, którzy składają kondolencje po raz drugi.|Szpital, oddział ginekologiczny. Za ścianą płacze noworodek.}",
+     "memories": [
+      "{Ojciec zmarł nagle, na zawał, w sobotę rano. Miał sześćdziesiąt cztery lata.|Jedenasty tydzień. Zdążyła kupić książkę z imionami.}",
+      "{Mama trzyma się jego ramienia przez całą mszę.|Lekarz powiedział: „Takie rzeczy się zdarzają”. Wyszedł, zanim zdążyła o cokolwiek zapytać.}"
+     ],
+     "look": {
+      "background": "74;70;71",
+      "fog": "74;70;71",
+      "sky": "255;236;213",
+      "ground": "88;75;65",
+      "floor": "175;169;162",
+      "near": 2530,
+      "far": 5940
+     }
+    },
+    {
+     "index": 1,
+     "clock": [
+      "{14:00|15:00}",
+      "{16:00|17:00}"
+     ],
+     "title": "{Obiad|Powrót}",
+     "sky": "dusk",
+     "mod": "heavy",
+     "enemies": [
+      "tesknota",
+      "wina",
+      "beznadzieja"
+     ],
+     "caption": "{Obiad u mamy. Puste krzesło przy stole i nikt nie wie, czy przestawić talerz.|Powrót do mieszkania. Na półce w łazience wciąż leży test z dwiema kreskami.}",
+     "memories": [
+      "{Na wieszaku wciąż wisi jego kurtka. Pachnie papierosami, które rzucał przez dwadzieścia lat.|Poza siostrą nikomu nie zdążyła powiedzieć. Teraz nie ma komu powiedzieć, że już nie.}",
+      "{Ostatnie, co od niego usłyszał, to było: „No to cześć”. Dwa tygodnie przed śmiercią.|Koleżanka z pracy wrzuca zdjęcie USG. {imie} przewija szybko, z dłonią na brzuchu.}"
+     ],
+     "look": {
+      "background": "43;34;39",
+      "fog": "43;34;39",
+      "sky": "243;204;197",
+      "ground": "78;59;61",
+      "floor": "153;140;146",
+      "near": 2185,
+      "far": 5130
+     }
+    },
+    {
+     "index": 2,
+     "clock": [
+      "{21:00|19:00}",
+      "{22:00|20:00}"
+     ],
+     "title": "{Nieodebrane|Sklep}",
+     "sky": "night",
+     "mod": "voices",
+     "enemies": [
+      "tesknota",
+      "wina",
+      "zwatpienie",
+      "beznadzieja"
+     ],
+     "caption": "{Wieczorem w domu {imie} znów otwiera historię połączeń. Piątek, 18:42, Tata. Nieodebrane.|Tydzień później. Sklep meblowy i dział dziecięcy, którego nie da się ominąć w drodze do kasy.}",
+     "memories": [
+      "{Był zmęczony. Pomyślał: oddzwonię jutro. Jutro była sobota.|Ciocia przy rodzinnym obiedzie: „Następne się uda, jesteś młoda”. Chciała dobrze.}",
+      "{Ojciec od ośmiu lat nie pił. Chciał coś powiedzieć? Tego już się nie dowie.|W nocy {imie} szuka w internecie, co zrobiła źle. Lekarze piszą, że nic.}"
+     ],
+     "look": {
+      "background": "26;24;31",
+      "fog": "26;24;31",
+      "sky": "205;199;210",
+      "ground": "56;50;54",
+      "floor": "132;132;142",
+      "near": 1955,
+      "far": 4590
+     }
+    }
+   ],
+   "voices": [
+    {
+     "index": 0,
+     "kind": "wina",
+     "says": "{Gdybym odebrał, żyłby.|To przez to, że dźwigałam zakupy.}",
+     "pattern": "personalizacja",
+     "no": "{Zawał nie czekał na moją rozmowę. Telefon nie zatrzymałby serca.|Wczesne poronienia mają zwykle przyczyny genetyczne. Zakupy, stres ani kawa ich nie powodują.}",
+     "yes": "{Nie wiedziałem, że to ostatni telefon. Kochałem go i on o tym wiedział.|To nie moja wina. Mogę opłakiwać moje dziecko.}"
+    },
+    {
+     "index": 1,
+     "kind": "tesknota",
+     "says": "{Powinienem już przestać o tym myśleć.|Powinnam już się pozbierać. To był dopiero jedenasty tydzień.}",
+     "pattern": "powinnosci",
+     "no": "{Żałoba nie ma terminu. Po nagłej śmierci trwa często dłużej.|Żałoba nie zależy od tygodnia ciąży. Straciłam dziecko i plany.}",
+     "yes": "{Mogę tęsknić i dalej żyć. Jedno nie wyklucza drugiego.|Daję sobie prawo do płaczu. Mogę nadać dziecku imię, jeśli zechcę.}"
+    },
+    {
+     "index": 2,
+     "kind": "zwatpienie",
+     "says": "{Gdzie był Bóg w sobotę rano?|Bóg mnie ukarał.}",
+     "pattern": "{rozumowanie-emocjonalne|personalizacja}",
+     "no": "{To pytanie zadawał już Hiob i psalmiści. Wolno je zadać i nie stracić wiary.|Cierpienie nie jest karą. Jezus wprost odrzucił takie myślenie (J 9,3).}",
+     "yes": "Mogę przyjść do Boga ze złością i pytaniami. To też jest modlitwa."
+    },
+    {
+     "index": 3,
+     "kind": "beznadzieja",
+     "says": "{Już nigdy nie będzie normalnie.|Już nigdy nie będę mamą.}",
+     "pattern": "przepowiadanie",
+     "no": "{Nie będzie tak jak przedtem. Może być inaczej i nadal dobrze.|Tego nie wiem. Wiem, że teraz mam prawo do żałoby.}",
+     "yes": "{W niedzielę zabiorę mamę na spacer. Pogadamy o tacie.|Dziś odpoczywam. Jutro zapytam lekarza o wszystko, o co nie zdążyłam.}"
+    }
+   ],
    "cbt": {
     "situation": "{Nieodebrane połączenie w telefonie.|Przypadkiem mija w sklepie dziecięce łóżeczka.}",
     "thought": "{Powinienem był odebrać. To moja wina.|Moje ciało zawiodło. To przeze mnie.}",
@@ -2738,17 +3764,20 @@
      {
       "text": "{Gdybym odebrał, wszystko byłoby inaczej. Nie zasługuję na spokój.|To przeze mnie. Pewnie Bóg mnie ukarał.}",
       "why": "{Tak działa myślenie „po fakcie”: dziś wiesz to, czego wtedy nie wiedziałeś.|Cierpienie nie jest dowodem kary. Takie myśli tylko dokładają ciężaru.}",
-      "kind": "distorted"
+      "kind": "distorted",
+      "kindName": "Zniekształcona: utrwala kłamstwo"
      },
      {
       "text": "Wszystko dzieje się po coś. Nie ma co płakać.",
       "why": "To odbiera prawo do żałoby. Smutek nie jest brakiem wiary.",
-      "kind": "sugar"
+      "kind": "sugar",
+      "kindName": "Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem"
      },
      {
       "text": "{Wtedy nie wiedziałem, co się stanie. Kochałem go. Mogę tęsknić i nie oskarżać się.|Wczesne poronienie zwykle ma przyczyny, na które nikt nie ma wpływu. Mogę płakać i nie obwiniać siebie.}",
       "why": "Daje miejsce na ból, ale zdejmuje z niego fałszywą winę.",
-      "kind": "balanced"
+      "kind": "balanced",
+      "kindName": "Zrównoważona: prawdziwa i pomocna"
      }
     ],
     "truth": "Żałoba nie ma terminu. {Tęsknota pokazuje, jak bardzo kochałem.|Tęsknota pokazuje, jak bardzo kochałam.} Mogę mówić do siebie tak, jak {mówiłbym do przyjaciela|mówiłabym do przyjaciółki} w żałobie.",
@@ -2805,7 +3834,7 @@
     "zwatpienie"
    ],
    "boss": {
-    "name": "Twierdza Ciemności",
+    "name": "Mgła",
     "hp": 140,
     "lie": "{Nikt nie zauważy, jak zniknę.|Wszystkim byłoby beze mnie lepiej.}",
     "art": "Boss_ciemnosc"
@@ -2843,7 +3872,7 @@
     "heal": [
      {
       "who": "narrator",
-      "text": "{Twierdza Ciemności pada. {imie} bierze telefon i pisze do Marka: „Nie jest dobrze. Możesz przyjechać?”. Marek jest po dwudziestu minutach. Rano jadą razem do lekarza.|Twierdza Ciemności pada. {imie} pisze siostrze prawdę: „Nie daję rady. Boję się swoich myśli”. Siostra zostaje na noc. Rano dzwonią razem do poradni.}",
+      "text": "{Mgła się rozwiewa. {imie} bierze telefon i pisze do Marka: „Nie jest dobrze. Możesz przyjechać?”. Marek jest po dwudziestu minutach. Rano jadą razem do lekarza.|Mgła się rozwiewa. {imie} pisze siostrze prawdę: „Nie daję rady. Boję się swoich myśli”. Siostra zostaje na noc. Rano dzwonią razem do poradni.}",
       "panel": "ciemnosc-heal-{m|f}"
      },
      {
@@ -2877,6 +3906,129 @@
      }
     ]
    },
+   "stages": [
+    {
+     "index": 0,
+     "clock": [
+      "{16:00|12:00}",
+      "{18:00|14:00}"
+     ],
+     "title": "{Listopad|Środek dnia}",
+     "sky": "dusk",
+     "mod": "swarm",
+     "enemies": [
+      "beznadzieja",
+      "samotnosc"
+     ],
+     "caption": "{Miesiąc po pogrzebie. Listopad, szesnasta i już ciemno. W nowej pracy {imie} żartuje z kolegami, jakby nic się nie stało.|Po stracie dziecka {imie} przestała wychodzić. Zasłonięte okna w środku dnia.}",
+     "memories": [
+      "{Od tygodni nic nie smakuje. Je, bo trzeba.|Jest na zwolnieniu. Szefowa pisze: „Wracaj, kiedy będziesz gotowa”.}",
+      "{Po pracy siedzi godzinę na ławce, zanim wróci do pustego mieszkania.|Kwiaty od siostry uschły w wazonie. Nie ma siły ich wyrzucić.}"
+     ],
+     "look": {
+      "background": "28;24;37",
+      "fog": "28;24;37",
+      "sky": "188;173;203",
+      "ground": "49;41;55",
+      "floor": "153;140;146",
+      "near": 2185,
+      "far": 5130
+     }
+    },
+    {
+     "index": 1,
+     "clock": [
+      "{19:00|17:00}",
+      "{22:00|20:00}"
+     ],
+     "title": "{W ciemności|Jest ok}",
+     "sky": "night",
+     "mod": "dark",
+     "enemies": [
+      "beznadzieja",
+      "samotnosc",
+      "oskarzyciel"
+     ],
+     "caption": "{Mieszkanie bez zapalonego światła. Telewizor gra bez dźwięku. {imie} nie pamięta, kiedy ostatnio coś poczuł.|Siostra pisze codziennie. {imie} odpisuje „jest ok” i odwraca się do ściany.}",
+     "memories": [
+      "{Na stole nieotwarte listy i niezapłacone rachunki. Otwarcie ich wydaje się ponad siły.|Od pięciu dni nie myła głowy. Lustro w łazience zasłoniła ręcznikiem.}",
+      "{Mama dzwoni codziennie o 20:00. Odbiera i mówi: „Wszystko dobrze”.|Tomek pisał kiedyś, że nikt jej nie zechce. Teraz ten głos brzmi jak jej własny.}"
+     ],
+     "look": {
+      "background": "12;16;29",
+      "fog": "12;16;29",
+      "sky": "155;170;215",
+      "ground": "30;34;49",
+      "floor": "132;132;142",
+      "near": 1075,
+      "far": 2525
+     }
+    },
+    {
+     "index": 2,
+     "clock": [
+      "{23:00|22:00}",
+      "{00:30|23:30}"
+     ],
+     "title": "Najciemniej",
+     "sky": "deep",
+     "mod": "voices",
+     "enemies": [
+      "beznadzieja",
+      "samotnosc",
+      "oskarzyciel",
+      "zwatpienie"
+     ],
+     "caption": "Noc. Myśli zwalniają i ciemnieją. Jedna z nich wraca częściej niż inne.",
+     "memories": [
+      "{Marek napisał trzy dni temu: „Stary, odezwij się”. Wiadomość wciąż nieprzeczytana.|Siostra zostawiła na stole kartkę: „Jestem pod telefonem całą dobę. Naprawdę”.}",
+      "{Na lodówce kartka z numerem 116 123. Mama przykleiła ją „na wszelki wypadek”.|W telefonie zapisany numer 116 123. {imie} długo na niego patrzy.}"
+     ],
+     "look": {
+      "background": "9;10;20",
+      "fog": "9;10;20",
+      "sky": "132;136;186",
+      "ground": "22;24;38",
+      "floor": "111;108;121",
+      "near": 1725,
+      "far": 4050
+     }
+    }
+   ],
+   "voices": [
+    {
+     "index": 0,
+     "kind": "beznadzieja",
+     "says": "Zawsze będzie tak źle.",
+     "pattern": "przepowiadanie",
+     "no": "Depresja zawsze mówi „zawsze”. To objaw choroby, nie prognoza. Depresję się leczy.",
+     "yes": "Dziś robię jedną rzecz: mówię komuś, jak naprawdę jest."
+    },
+    {
+     "index": 1,
+     "kind": "samotnosc",
+     "says": "{Nikt nie zauważy, jak zniknę.|Wszystkim byłoby beze mnie lepiej.}",
+     "pattern": "{przepowiadanie|czytanie-mysli}",
+     "no": "{To myśl z kryzysu: brzmi jak prawda, ale nią nie jest. Mama dzwoni codziennie, Marek pisze. Zauważają. Pomoc: 116 123, 800 70 2222.|To myśl z kryzysu: brzmi jak prawda, ale nią nie jest. Siostra pisze codziennie. Dla niej to nieprawda. Pomoc: 116 123, 800 70 2222.}",
+     "yes": "{Piszę do Marka: „Nie jest dobrze. Możesz przyjechać?”.|Piszę siostrze prawdę: „Boję się swoich myśli”.}"
+    },
+    {
+     "index": 2,
+     "kind": "oskarzyciel",
+     "says": "{Jesteś ciężarem dla wszystkich.|Jesteś słaba, skoro nie umiesz się pozbierać.}",
+     "pattern": "etykietka",
+     "no": "{Ciężarem jest choroba, nie ja. Ludzie, którzy mnie kochają, wolą pomóc niż stracić.|Depresja to choroba, nie słabość charakteru. Z zapalenia płuc też nikt nie „pozbiera się” siłą woli.}",
+     "yes": "{Pozwalam sobie pomóc. Jutro rano idę z Markiem do lekarza.|Rano dzwonię z siostrą do poradni. To jest siła.}"
+    },
+    {
+     "index": 3,
+     "kind": "zwatpienie",
+     "says": "Czuję pustkę, więc nic już nie ma sensu.",
+     "pattern": "rozumowanie-emocjonalne",
+     "no": "Pustka to objaw depresji. Uczucie jest prawdziwe, ale nie jest dowodem.",
+     "yes": "Nie muszę dziś rozwiązać całego życia. Wystarczy przejść przez tę noc z kimś na telefonie."
+    }
+   ],
    "cbt": {
     "situation": "{Niedziela wieczorem, pusto i ciemno.|Kolejny dzień w łóżku.}",
     "thought": "{Nikt nie zauważy, jak zniknę.|Wszystkim byłoby beze mnie lepiej.}",
@@ -2886,17 +4038,20 @@
      {
       "text": "Zawsze będzie tak źle. Nie ma sensu nikomu mówić.",
       "why": "To depresja przepowiada przyszłość. Zawsze mówi „zawsze”, a to objaw, nie prognoza.",
-      "kind": "distorted"
+      "kind": "distorted",
+      "kindName": "Zniekształcona: utrwala kłamstwo"
      },
      {
       "text": "Wystarczy pozytywnie myśleć i samo przejdzie.",
       "why": "Depresja nie mija od pozytywnego myślenia. Potrzebuje ludzi i często leczenia.",
-      "kind": "sugar"
+      "kind": "sugar",
+      "kindName": "Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem"
      },
      {
       "text": "To myśl z kryzysu, a nie prawda o mnie. Dziś mówię o niej komuś zaufanemu albo dzwonię pod 116 123.",
       "why": "Tak wygląda pierwszy krok do wyjścia z kryzysu: nazwać myśl i nie zostać z nią samemu.",
-      "kind": "balanced"
+      "kind": "balanced",
+      "kindName": "Zrównoważona: prawdziwa i pomocna"
      }
     ],
     "truth": "Nie znam przyszłości. Już kiedyś było inaczej. Dziś robię jeden krok: odzywam się do człowieka.",
@@ -2956,7 +4111,7 @@
     "odrzucenie"
    ],
    "boss": {
-    "name": "Bramy Otchłani",
+    "name": "Otchłań",
     "hp": 170,
     "lie": "{Nic się nie zmieniło. Jesteś taki sam jak zawsze.|Nic się nie zmieniło. Jesteś taka sama jak zawsze.}",
     "art": "Boss_anastasis"
@@ -2980,7 +4135,7 @@
      },
      {
       "who": "narrator",
-      "text": "Tej nocy Oskarżyciel zbiera wszystkie cienie naraz. To ostatnia próba: przekonać {go|ją}, że nic się nie zmieniło.",
+      "text": "Tej nocy Otchłań zbiera wszystkie cienie naraz. To ostatnia próba: przekonać {go|ją}, że nic się nie zmieniło.",
       "panel": "anastasis-intro-{m|f}"
      },
      {
@@ -2992,7 +4147,7 @@
     "heal": [
      {
       "who": "narrator",
-      "text": "Bramy Otchłani pękają i padają na krzyż. Klucze, zamki i łańcuchy leżą rozsypane w ciemności.",
+      "text": "Otchłań pada pod stopy Chrystusa. Klucze, zamki i łańcuchy leżą rozsypane w ciemności.",
       "panel": "anastasis-{m|f}"
      },
      {
@@ -3033,6 +4188,133 @@
      }
     ]
    },
+   "stages": [
+    {
+     "index": 0,
+     "clock": [
+      "18:00",
+      "19:00"
+     ],
+     "title": "Krąg",
+     "sky": "evening",
+     "mod": "",
+     "enemies": [
+      "wstyd",
+      "lek",
+      "odrzucenie"
+     ],
+     "caption": "Sala parafialna, Wielka Sobota. Krąg krzeseł, herbata w plastikowych kubkach, ludzie, którzy też coś przeszli.",
+     "memories": [
+      "Na tablicy korkowej kartka: „Grupa wsparcia, soboty 18:00. Nie trzeba nic mówić”.",
+      "{Za pierwszym razem przyszedł z nim Marek. Teraz {imie} przychodzi sam.|Za pierwszym razem przyszła z nią siostra. Teraz {imie} przychodzi sama.}"
+     ],
+     "look": {
+      "background": "47;34;25",
+      "fog": "47;34;25",
+      "sky": "255;223;167",
+      "ground": "97;70;43",
+      "floor": "169;152;135",
+      "near": 2300,
+      "far": 5400
+     }
+    },
+    {
+     "index": 1,
+     "clock": [
+      "19:00",
+      "20:00"
+     ],
+     "title": "Opowieść",
+     "sky": "dusk",
+     "mod": "heavy",
+     "enemies": [
+      "wstyd",
+      "wina",
+      "beznadzieja",
+      "oskarzyciel"
+     ],
+     "caption": "{imie} pierwszy raz mówi na głos o tym, co {przeżył|przeżyła}. Głos drży, ale nikt się nie odwraca.",
+     "memories": [
+      "Pani Grażyna, od dwóch lat wdowa, kiwa głową przy każdym zdaniu.",
+      "Ktoś bez słowa podaje chusteczki."
+     ],
+     "look": {
+      "background": "38;29;32",
+      "fog": "38;29;32",
+      "sky": "243;211;191",
+      "ground": "84;62;55",
+      "floor": "153;140;146",
+      "near": 2185,
+      "far": 5130
+     }
+    },
+    {
+     "index": 2,
+     "clock": [
+      "22:00",
+      "23:30"
+     ],
+     "title": "Wigilia Paschalna",
+     "sky": "night",
+     "mod": "voices",
+     "enemies": [
+      "oskarzyciel",
+      "wstyd",
+      "beznadzieja",
+      "lek",
+      "wina",
+      "odrzucenie"
+     ],
+     "caption": "Noc Zmartwychwstania. Po wyjściu z sali wszystkie stare głosy wracają naraz, jakby to była ich ostatnia szansa.",
+     "memories": [
+      "W kościele zapalają paschał. Od jednej świecy zapalają się setki.",
+      "W kieszeni kartka z planem na trudne wieczory. Pognieciona, bo często po nią sięga."
+     ],
+     "look": {
+      "background": "21;20;25",
+      "fog": "21;20;25",
+      "sky": "205;204;205",
+      "ground": "61;52;49",
+      "floor": "132;132;142",
+      "near": 1955,
+      "far": 4590
+     }
+    }
+   ],
+   "voices": [
+    {
+     "index": 0,
+     "kind": "oskarzyciel",
+     "says": "Znowu się boisz. Cała ta praca poszła na marne.",
+     "pattern": "wszystko-albo-nic",
+     "no": "Gorszy dzień nie kasuje pół roku drogi. Zdrowienie nie idzie po linii prostej.",
+     "yes": "Zmieniło się wiele, choć nie wszystko. Mam narzędzia i ludzi."
+    },
+    {
+     "index": 1,
+     "kind": "wstyd",
+     "says": "{Wszyscy w grupie widzą, jaki jestem żałosny.|Wszyscy w grupie widzą, jaka jestem żałosna.}",
+     "pattern": "czytanie-mysli",
+     "no": "Nie wiem, co widzą. Widzę, że kiwają głowami i wracają co tydzień, tak jak ja.",
+     "yes": "Moja historia ma blizny. Nie muszę ich ukrywać przed ludźmi, którzy mają swoje."
+    },
+    {
+     "index": 2,
+     "kind": "beznadzieja",
+     "says": "To wszystko i tak wróci.",
+     "pattern": "przepowiadanie",
+     "no": "Może wrócić. Wtedy będę {wiedział|wiedziała} więcej niż ostatnio: znam sygnały, mam plan i numery.",
+     "yes": "Nie walczę z przyszłością. Robię dziś jeden mały krok, który jest dla mnie ważny."
+    },
+    {
+     "index": 3,
+     "kind": "wina",
+     "says": "Za późno, żeby cokolwiek naprawić.",
+     "pattern": "przepowiadanie",
+     "no": "Nie wszystko da się naprawić. Wiele da się zacząć od nowa: rozmowę, relację, dzień.",
+     "yes": "{W środę dzwonię do Kuby, w niedzielę jadę do mamy.|W niedzielę jadę do siostry, w poniedziałek wracam do pracy na pół etatu.}"
+    }
+   ],
    "cbt": {
     "situation": "Ktoś wypomina dawny błąd i wraca stary lęk.",
     "thought": "{Nic się nie zmieniło. Jesteś taki sam jak zawsze.|Nic się nie zmieniło. Jesteś taka sama jak zawsze.}",
@@ -3042,17 +4324,20 @@
      {
       "text": "{Skoro wciąż czasem się boję, to nic się nie zmieniło. Jestem przegrany.|Skoro wciąż czasem się boję, to nic się nie zmieniło. Jestem przegrana.}",
       "why": "Wszystko albo nic plus etykietka: jeden gorszy dzień ma przekreślić całą drogę.",
-      "kind": "distorted"
+      "kind": "distorted",
+      "kindName": "Zniekształcona: utrwala kłamstwo"
      },
      {
       "text": "Już nigdy nie będzie mi źle. Jestem {całkowicie uzdrowiony|całkowicie uzdrowiona}.",
       "why": "Piękne, ale nieprawdziwe. Gorsze dni przyjdą, a wtedy taka myśl zawstydzi.",
-      "kind": "sugar"
+      "kind": "sugar",
+      "kindName": "Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem"
      },
      {
       "text": "Zmieniło się wiele, choć nie wszystko. Mam narzędzia i ludzi. Dziś zrobię jeden mały krok, który jest dla mnie ważny.",
       "why": "Uczciwie: widzi postęp, przyjmuje trudność i patrzy na następny krok.",
-      "kind": "balanced"
+      "kind": "balanced",
+      "kindName": "Zrównoważona: prawdziwa i pomocna"
      }
     ],
     "truth": "Jestem w drodze. Upadki się zdarzą, ale wiem, jak wstać i do kogo się zwrócić. Krok po kroku, z Bogiem i z ludźmi.",

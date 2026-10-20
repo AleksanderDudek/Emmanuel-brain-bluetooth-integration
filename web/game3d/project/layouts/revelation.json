@@ -65,16 +65,6 @@
       "value": false
     },
     {
-      "name": "Picked",
-      "type": "array",
-      "children": [
-        {
-          "type": "number",
-          "value": 0
-        }
-      ]
-    },
-    {
       "name": "Wait",
       "type": "number",
       "value": 0
@@ -99,7 +89,7 @@
       "layer": "",
       "locked": true,
       "name": "Floor",
-      "persistentUuid": "7079f7d5-9f6d-4c52-a9cc-99bb41a356a9",
+      "persistentUuid": "55454c98-32ec-42bd-aa55-94a91bec15d6",
       "width": 3000,
       "x": -1500,
       "y": -1500,
@@ -116,7 +106,7 @@
       "height": 520,
       "layer": "",
       "name": "Light",
-      "persistentUuid": "9d9679c2-690b-428f-ac12-302388b64b54",
+      "persistentUuid": "1fb6f7bc-e6a7-4776-a2da-c617da5f6189",
       "width": 520,
       "x": -20,
       "y": 10,
@@ -133,7 +123,7 @@
       "height": 40,
       "layer": "",
       "name": "Candle",
-      "persistentUuid": "b4c01896-b541-42af-a0f2-fcf7937bd7d7",
+      "persistentUuid": "dcb783a6-e9b5-4680-ae6a-f51fada77889",
       "width": 40,
       "x": -260,
       "y": 160,
@@ -149,7 +139,7 @@
       "height": 40,
       "layer": "",
       "name": "Candle",
-      "persistentUuid": "e17659c4-3c2e-43e6-a672-f5daaf7bb791",
+      "persistentUuid": "bcbbb5b1-6c5f-4fe7-a5db-0327782e7b04",
       "width": 40,
       "x": 220,
       "y": 160,
@@ -164,7 +154,7 @@
       "height": 0,
       "layer": "",
       "name": "Motes",
-      "persistentUuid": "69260ad2-50ad-4f43-ac52-488169eff3ae",
+      "persistentUuid": "420c4789-22b1-44a6-ac50-8bade51f8dde",
       "width": 0,
       "x": 0,
       "y": 0,
@@ -675,9 +665,9 @@
       "target": "UI"
     },
     {
-      "colorB": 226,
-      "colorG": 144,
-      "colorR": 74,
+      "colorB": 0,
+      "colorG": 152,
+      "colorR": 255,
       "creationTime": 0,
       "folded": true,
       "name": "Boot",
@@ -784,9 +774,9 @@
       "parameters": []
     },
     {
-      "colorB": 194,
-      "colorG": 87,
-      "colorR": 126,
+      "colorB": 99,
+      "colorG": 30,
+      "colorR": 233,
       "creationTime": 0,
       "folded": true,
       "name": "Rewards",
@@ -866,17 +856,6 @@
                 "Ui.top",
                 "=",
                 "\"page\""
-              ]
-            },
-            {
-              "type": {
-                "value": "HolyHoly::Shuffle"
-              },
-              "parameters": [
-                "",
-                "\"Run.order\"",
-                "3",
-                ""
               ]
             }
           ],
@@ -1313,9 +1292,9 @@
       "parameters": []
     },
     {
-      "colorB": 0,
-      "colorG": 152,
-      "colorR": 255,
+      "colorB": 72,
+      "colorG": 85,
+      "colorR": 121,
       "creationTime": 0,
       "folded": true,
       "name": "Pages",
@@ -1332,7 +1311,7 @@
             "textG": 0,
             "textR": 0
           },
-          "comment": "Page 1: the thought record and three answers (shuffled: Run.order). Page 2: the truth. Page 3: the tool. Page 4: the report. Page 5: the finale, once, after the last chapter."
+          "comment": "Page 1: the worked thought record, three named answers. Page 2: the truth. Page 3: the tool. Page 4: the report. Page 5: the finale, once, after the last chapter."
         },
         {
           "type": "BuiltinCommonInstructions::Standard",
@@ -1685,9 +1664,9 @@
                       "parameters": [
                         "",
                         "UiPanel",
-                        "SceneWindowWidth() * 0.4 - 30",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 30",
                         "24",
-                        "SceneWindowWidth() * 0.56 + 50",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) + 50",
                         "SceneWindowHeight() - 48",
                         "\"cbg\"",
                         "\"page\"",
@@ -1708,14 +1687,15 @@
                       "parameters": [
                         "",
                         "UiTitle",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "40",
-                        "SceneWindowWidth() * 0.56",
-                        "\"Przemiana myśli\"",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
+                        "\"Zapis myśli\"",
                         "\"left\"",
                         "\"ca\"",
                         "\"page\"",
                         "\"UI\"",
+                        "52",
                         ""
                       ]
                     }
@@ -1732,15 +1712,26 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
-                        "100",
-                        "SceneWindowWidth() * 0.56",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
+                        "96",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"Sytuacja: \" + HolyHoly::G(Content.chapters[Run.chapter].cbt.situation)",
                         "\"left\"",
                         "\"c1\"",
                         "\"page\"",
                         "\"UI\"",
+                        "50",
                         ""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetNumberVariable"
+                      },
+                      "parameters": [
+                        "cy",
+                        "=",
+                        "UiSmall.Y() + UiSmall.Height() + 2"
                       ]
                     }
                   ]
@@ -1756,15 +1747,26 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.4",
-                        "134",
-                        "SceneWindowWidth() * 0.56",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
+                        "cy",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"Myśl: „\" + HolyHoly::G(Content.chapters[Run.chapter].cbt.thought) + \"”\"",
                         "\"left\"",
                         "\"c2\"",
                         "\"page\"",
                         "\"UI\"",
+                        "62",
                         ""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetNumberVariable"
+                      },
+                      "parameters": [
+                        "cy",
+                        "=",
+                        "UiText.Y() + UiText.Height() + 2"
                       ]
                     }
                   ]
@@ -1780,15 +1782,26 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
-                        "204",
-                        "SceneWindowWidth() * 0.56",
-                        "\"Uczucie: \" + HolyHoly::G(Content.chapters[Run.chapter].cbt.feeling) + \" · jak kłamie: \" + HolyHoly::G(Content.distortions[HolyHoly::G(Content.chapters[Run.chapter].cbt.distortion)].name)",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
+                        "cy",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
+                        "\"Uczucie: \" + HolyHoly::G(Content.chapters[Run.chapter].cbt.feeling) + \". Jak kłamie: \" + HolyHoly::G(Content.distortions[HolyHoly::G(Content.chapters[Run.chapter].cbt.distortion)].name) + \" (\" + HolyHoly::G(Content.distortions[HolyHoly::G(Content.chapters[Run.chapter].cbt.distortion)].signal) + \").\"",
                         "\"left\"",
                         "\"c3\"",
                         "\"page\"",
                         "\"UI\"",
+                        "50",
                         ""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetNumberVariable"
+                      },
+                      "parameters": [
+                        "cy",
+                        "=",
+                        "UiSmall.Y() + UiSmall.Height() + 2"
                       ]
                     }
                   ]
@@ -1804,74 +1817,222 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
-                        "240",
-                        "SceneWindowWidth() * 0.56",
-                        "\"Pytanie: \" + HolyHoly::G(Content.distortions[HolyHoly::G(Content.chapters[Run.chapter].cbt.distortion)].question) + \" Jak odpowiesz tej myśli?\"",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
+                        "cy",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
+                        "\"Pytanie: \" + HolyHoly::G(Content.distortions[HolyHoly::G(Content.chapters[Run.chapter].cbt.distortion)].question)",
                         "\"left\"",
                         "\"c4\"",
                         "\"page\"",
                         "\"UI\"",
+                        "50",
                         ""
+                      ]
+                    },
+                    {
+                      "type": {
+                        "value": "SetNumberVariable"
+                      },
+                      "parameters": [
+                        "cy",
+                        "=",
+                        "UiSmall.Y() + UiSmall.Height() + 8"
                       ]
                     }
                   ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Comment",
+                  "color": {
+                    "b": 109,
+                    "g": 230,
+                    "r": 255,
+                    "textB": 0,
+                    "textG": 0,
+                    "textR": 0
+                  },
+                  "comment": "Three answers in order, each already named, with why: the distorted one, the sugar-coated one, then the balanced one, larger, with the button. Each card is drawn behind its lines, sized to them."
                 },
                 {
                   "type": "BuiltinCommonInstructions::Repeat",
                   "repeatExpression": "3",
                   "conditions": [],
-                  "actions": [
-                    {
-                      "type": {
-                        "value": "SetNumberVariable"
-                      },
-                      "parameters": [
-                        "o",
-                        "=",
-                        "Run.order[c]"
-                      ]
-                    },
-                    {
-                      "type": {
-                        "value": "SetNumberVariable"
-                      },
-                      "parameters": [
-                        "y",
-                        "=",
-                        "284 + c * 128"
-                      ]
-                    },
-                    {
-                      "type": {
-                        "value": "HolyHoly::MakePanel"
-                      },
-                      "parameters": [
-                        "",
-                        "UiCard",
-                        "SceneWindowWidth() * 0.4",
-                        "y",
-                        "SceneWindowWidth() * 0.56",
-                        "120",
-                        "\"card\"",
-                        "\"page\"",
-                        "\"UI\"",
-                        ""
-                      ]
-                    }
-                  ],
+                  "actions": [],
                   "events": [
                     {
-                      "type": "BuiltinCommonInstructions::Comment",
-                      "color": {
-                        "b": 109,
-                        "g": 230,
-                        "r": 255,
-                        "textB": 0,
-                        "textG": 0,
-                        "textR": 0
-                      },
-                      "comment": "Not chosen yet: the answer and a button. Chosen: what kind of answer it is and why, in its place."
+                      "type": "BuiltinCommonInstructions::Standard",
+                      "conditions": [
+                        {
+                          "type": {
+                            "value": "BuiltinCommonInstructions::CompareNumbers"
+                          },
+                          "parameters": [
+                            "c",
+                            "<",
+                            "2"
+                          ]
+                        }
+                      ],
+                      "actions": [],
+                      "events": [
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "HolyHoly::MakeText"
+                              },
+                              "parameters": [
+                                "",
+                                "UiSmall",
+                                "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + 18",
+                                "cy + 10",
+                                "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 36",
+                                "Content.chapters[Run.chapter].cbt.options[c].kindName",
+                                "\"left\"",
+                                "\"kind\" + ToString(c)",
+                                "\"page\"",
+                                "\"UI\"",
+                                "26",
+                                ""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "SetNumberVariable"
+                              },
+                              "parameters": [
+                                "cy0",
+                                "=",
+                                "cy"
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "SetNumberVariable"
+                              },
+                              "parameters": [
+                                "cy",
+                                "=",
+                                "UiSmall.Y() + UiSmall.Height()"
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "HolyHoly::MakeText"
+                              },
+                              "parameters": [
+                                "",
+                                "UiSmall",
+                                "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + 18",
+                                "cy",
+                                "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 36",
+                                "\"„\" + HolyHoly::G(Content.chapters[Run.chapter].cbt.options[c].text) + \"”\"",
+                                "\"left\"",
+                                "\"opt\"",
+                                "\"page\"",
+                                "\"UI\"",
+                                "48",
+                                ""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "SetNumberVariable"
+                              },
+                              "parameters": [
+                                "cy",
+                                "=",
+                                "UiSmall.Y() + UiSmall.Height()"
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "HolyHoly::MakeText"
+                              },
+                              "parameters": [
+                                "",
+                                "UiSmall",
+                                "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + 18",
+                                "cy",
+                                "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 36",
+                                "HolyHoly::G(Content.chapters[Run.chapter].cbt.options[c].why)",
+                                "\"left\"",
+                                "\"why\"",
+                                "\"page\"",
+                                "\"UI\"",
+                                "46",
+                                ""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "TextObject::ChangeColor"
+                              },
+                              "parameters": [
+                                "UiSmall",
+                                "\"190;182;200\""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "SetNumberVariable"
+                              },
+                              "parameters": [
+                                "cy",
+                                "=",
+                                "UiSmall.Y() + UiSmall.Height() + 10"
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "HolyHoly::MakePanel"
+                              },
+                              "parameters": [
+                                "",
+                                "UiCard",
+                                "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
+                                "cy0",
+                                "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
+                                "cy - cy0",
+                                "\"card\"",
+                                "\"page\"",
+                                "\"UI\"",
+                                ""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "SetNumberVariable"
+                              },
+                              "parameters": [
+                                "cy",
+                                "+",
+                                "8"
+                              ]
+                            }
+                          ]
+                        }
+                      ]
                     },
                     {
                       "type": "BuiltinCommonInstructions::Standard",
@@ -1881,14 +2042,59 @@
                             "value": "BuiltinCommonInstructions::CompareNumbers"
                           },
                           "parameters": [
-                            "Picked[c]",
+                            "c",
                             "=",
-                            "0"
+                            "2"
                           ]
                         }
                       ],
                       "actions": [],
                       "events": [
+                        {
+                          "type": "BuiltinCommonInstructions::Standard",
+                          "conditions": [],
+                          "actions": [
+                            {
+                              "type": {
+                                "value": "HolyHoly::MakeText"
+                              },
+                              "parameters": [
+                                "",
+                                "UiSmall",
+                                "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + 18",
+                                "cy + 10",
+                                "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 36",
+                                "Content.chapters[Run.chapter].cbt.options[c].kindName",
+                                "\"left\"",
+                                "\"kind\" + ToString(c)",
+                                "\"page\"",
+                                "\"UI\"",
+                                "26",
+                                ""
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "SetNumberVariable"
+                              },
+                              "parameters": [
+                                "cy0",
+                                "=",
+                                "cy"
+                              ]
+                            },
+                            {
+                              "type": {
+                                "value": "SetNumberVariable"
+                              },
+                              "parameters": [
+                                "cy",
+                                "=",
+                                "UiSmall.Y() + UiSmall.Height()"
+                              ]
+                            }
+                          ]
+                        },
                         {
                           "type": "BuiltinCommonInstructions::Standard",
                           "conditions": [],
@@ -1900,83 +2106,26 @@
                               "parameters": [
                                 "",
                                 "UiText",
-                                "SceneWindowWidth() * 0.4 + 18",
-                                "y + 12",
-                                "SceneWindowWidth() * 0.56 - 230",
-                                "HolyHoly::G(Content.chapters[Run.chapter].cbt.options[o].text)",
+                                "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + 18",
+                                "cy",
+                                "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 36",
+                                "\"„\" + HolyHoly::G(Content.chapters[Run.chapter].cbt.options[c].text) + \"”\"",
                                 "\"left\"",
                                 "\"opt\"",
                                 "\"page\"",
                                 "\"UI\"",
+                                "66",
                                 ""
                               ]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "BuiltinCommonInstructions::Standard",
-                          "conditions": [],
-                          "actions": [
+                            },
                             {
                               "type": {
-                                "value": "HolyHoly::MakeButton"
+                                "value": "SetNumberVariable"
                               },
                               "parameters": [
-                                "",
-                                "UiButton",
-                                "UiLabel",
-                                "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 196",
-                                "y + 34",
-                                "180",
-                                "52",
-                                "\"Odpowiem tak\"",
-                                "\"cbt\"",
-                                "c",
-                                "\"page\"",
-                                "\"UI\"",
-                                ""
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "BuiltinCommonInstructions::Standard",
-                      "conditions": [
-                        {
-                          "type": {
-                            "value": "BuiltinCommonInstructions::CompareNumbers"
-                          },
-                          "parameters": [
-                            "Picked[c]",
-                            "=",
-                            "1"
-                          ]
-                        }
-                      ],
-                      "actions": [],
-                      "events": [
-                        {
-                          "type": "BuiltinCommonInstructions::Standard",
-                          "conditions": [],
-                          "actions": [
-                            {
-                              "type": {
-                                "value": "HolyHoly::MakeText"
-                              },
-                              "parameters": [
-                                "",
-                                "UiSmall",
-                                "SceneWindowWidth() * 0.4 + 18",
-                                "y + 10",
-                                "SceneWindowWidth() * 0.56 - 36",
-                                "\"\"",
-                                "\"left\"",
-                                "\"kind\"",
-                                "\"page\"",
-                                "\"UI\"",
-                                ""
+                                "cy",
+                                "=",
+                                "UiText.Y() + UiText.Height()"
                               ]
                             }
                           ]
@@ -1992,221 +2141,49 @@
                               "parameters": [
                                 "",
                                 "UiSmall",
-                                "SceneWindowWidth() * 0.4 + 18",
-                                "y + 38",
-                                "SceneWindowWidth() * 0.56 - 36",
-                                "HolyHoly::G(Content.chapters[Run.chapter].cbt.options[o].why)",
+                                "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + 18",
+                                "cy",
+                                "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 36",
+                                "HolyHoly::G(Content.chapters[Run.chapter].cbt.options[c].why)",
                                 "\"left\"",
                                 "\"why\"",
                                 "\"page\"",
                                 "\"UI\"",
+                                "max(24, SceneWindowHeight() - 104 - cy)",
                                 ""
                               ]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "BuiltinCommonInstructions::Standard",
-                          "conditions": [
-                            {
-                              "type": {
-                                "value": "StringObjectVariable"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "Key",
-                                "=",
-                                "\"kind\""
-                              ]
                             },
                             {
                               "type": {
-                                "value": "NumberObjectVariable"
+                                "value": "SetNumberVariable"
                               },
                               "parameters": [
-                                "UiSmall",
-                                "Index",
+                                "cy",
                                 "=",
-                                "0"
-                              ]
-                            },
-                            {
-                              "type": {
-                                "value": "StringVariable"
-                              },
-                              "parameters": [
-                                "Content.chapters[Run.chapter].cbt.options[o].kind",
-                                "=",
-                                "\"balanced\""
-                              ]
-                            }
-                          ],
-                          "actions": [
-                            {
-                              "type": {
-                                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "Text",
-                                "=",
-                                "\"Zrównoważona ✓: prawdziwa i pomocna\""
-                              ]
-                            },
-                            {
-                              "type": {
-                                "value": "TextObject::ChangeColor"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "\"150;235;160\""
+                                "UiSmall.Y() + UiSmall.Height() + 10"
                               ]
                             }
                           ]
                         },
                         {
                           "type": "BuiltinCommonInstructions::Standard",
-                          "conditions": [
-                            {
-                              "type": {
-                                "value": "StringObjectVariable"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "Key",
-                                "=",
-                                "\"kind\""
-                              ]
-                            },
-                            {
-                              "type": {
-                                "value": "NumberObjectVariable"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "Index",
-                                "=",
-                                "0"
-                              ]
-                            },
-                            {
-                              "type": {
-                                "value": "StringVariable"
-                              },
-                              "parameters": [
-                                "Content.chapters[Run.chapter].cbt.options[o].kind",
-                                "=",
-                                "\"distorted\""
-                              ]
-                            }
-                          ],
+                          "conditions": [],
                           "actions": [
                             {
                               "type": {
-                                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
+                                "value": "HolyHoly::MakePanel"
                               },
                               "parameters": [
-                                "UiSmall",
-                                "Text",
-                                "=",
-                                "\"Zniekształcona\""
-                              ]
-                            },
-                            {
-                              "type": {
-                                "value": "TextObject::ChangeColor"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "\"255;150;140\""
-                              ]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "BuiltinCommonInstructions::Standard",
-                          "conditions": [
-                            {
-                              "type": {
-                                "value": "StringObjectVariable"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "Key",
-                                "=",
-                                "\"kind\""
-                              ]
-                            },
-                            {
-                              "type": {
-                                "value": "NumberObjectVariable"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "Index",
-                                "=",
-                                "0"
-                              ]
-                            },
-                            {
-                              "type": {
-                                "value": "StringVariable"
-                              },
-                              "parameters": [
-                                "Content.chapters[Run.chapter].cbt.options[o].kind",
-                                "=",
-                                "\"sugar\""
-                              ]
-                            }
-                          ],
-                          "actions": [
-                            {
-                              "type": {
-                                "value": "TextContainerCapability::TextContainerBehavior::SetValue"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "Text",
-                                "=",
-                                "\"Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem\""
-                              ]
-                            },
-                            {
-                              "type": {
-                                "value": "TextObject::ChangeColor"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "\"255;170;220\""
-                              ]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "BuiltinCommonInstructions::Standard",
-                          "conditions": [
-                            {
-                              "type": {
-                                "value": "StringObjectVariable"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "Key",
-                                "=",
-                                "\"kind\""
-                              ]
-                            }
-                          ],
-                          "actions": [
-                            {
-                              "type": {
-                                "value": "SetNumberObjectVariable"
-                              },
-                              "parameters": [
-                                "UiSmall",
-                                "Index",
-                                "=",
-                                "1"
+                                "",
+                                "UiCard",
+                                "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
+                                "cy0",
+                                "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
+                                "cy - cy0",
+                                "\"chosen\"",
+                                "\"page\"",
+                                "\"UI\"",
+                                ""
                               ]
                             }
                           ]
@@ -2221,17 +2198,146 @@
                       "value": 0
                     },
                     {
-                      "name": "o",
-                      "type": "number",
-                      "value": 0
-                    },
-                    {
-                      "name": "y",
+                      "name": "cy0",
                       "type": "number",
                       "value": 0
                     }
                   ],
                   "loopIndexVariable": "c"
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        "Key",
+                        "=",
+                        "\"chosen\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "PanelSpriteObject::SetColor"
+                      },
+                      "parameters": [
+                        "UiCard",
+                        "\"255;214;120\""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Key",
+                        "=",
+                        "\"kind0\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "TextObject::ChangeColor"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "\"255;150;140\""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Key",
+                        "=",
+                        "\"kind1\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "TextObject::ChangeColor"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "\"255;170;220\""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [
+                    {
+                      "type": {
+                        "value": "StringObjectVariable"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "Key",
+                        "=",
+                        "\"kind2\""
+                      ]
+                    }
+                  ],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "TextObject::ChangeColor"
+                      },
+                      "parameters": [
+                        "UiSmall",
+                        "\"150;235;160\""
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BuiltinCommonInstructions::Standard",
+                  "conditions": [],
+                  "actions": [
+                    {
+                      "type": {
+                        "value": "HolyHoly::MakeButton"
+                      },
+                      "parameters": [
+                        "",
+                        "UiButton",
+                        "UiLabel",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + (SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 250",
+                        "SceneWindowHeight() - 90",
+                        "250",
+                        "56",
+                        "\"Tak odpowiem\"",
+                        "\"cbtTake\"",
+                        "0",
+                        "\"page\"",
+                        "\"UI\"",
+                        ""
+                      ]
+                    }
+                  ]
                 },
                 {
                   "type": "BuiltinCommonInstructions::Standard",
@@ -2255,18 +2361,26 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
-                        "SceneWindowHeight() - 52",
-                        "SceneWindowWidth() * 0.56",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
+                        "SceneWindowHeight() - 90",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 270",
                         "\"Jeśli ta myśl jest ci bliska, nie zostawaj z nią sam: \" + Content.story.helplinesShort + \" (całą dobę)\"",
                         "\"left\"",
                         "\"help\"",
                         "\"page\"",
                         "\"UI\"",
+                        "60",
                         ""
                       ]
                     }
                   ]
+                }
+              ],
+              "variables": [
+                {
+                  "name": "cy",
+                  "type": "number",
+                  "value": 0
                 }
               ]
             },
@@ -2297,9 +2411,9 @@
                       "parameters": [
                         "",
                         "UiPanel",
-                        "SceneWindowWidth() * 0.4 - 30",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 30",
                         "24",
-                        "SceneWindowWidth() * 0.56 + 50",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) + 50",
                         "SceneWindowHeight() - 48",
                         "\"tbg\"",
                         "\"page\"",
@@ -2320,14 +2434,15 @@
                       "parameters": [
                         "",
                         "UiTitle",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "40",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"Prawda\"",
                         "\"left\"",
                         "\"ta\"",
                         "\"page\"",
                         "\"UI\"",
+                        "52",
                         ""
                       ]
                     }
@@ -2344,14 +2459,15 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "104",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"Kłamstwo: „\" + HolyHoly::G(Content.chapters[Run.chapter].cbt.thought) + \"”\"",
                         "\"left\"",
                         "\"t1\"",
                         "\"page\"",
                         "\"UI\"",
+                        "90",
                         ""
                       ]
                     }
@@ -2368,14 +2484,15 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "200",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "HolyHoly::G(Content.chapters[Run.chapter].cbt.truth)",
                         "\"left\"",
                         "\"t2\"",
                         "\"page\"",
                         "\"UI\"",
+                        "150",
                         ""
                       ]
                     }
@@ -2392,14 +2509,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "360",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"„\" + HolyHoly::G(Content.chapters[Run.chapter].cbt.verse.text) + \"” (\" + HolyHoly::G(Content.chapters[Run.chapter].cbt.verse.ref) + \")\"",
                         "\"left\"",
                         "\"t3\"",
                         "\"page\"",
                         "\"UI\"",
+                        "90",
                         ""
                       ]
                     }
@@ -2416,14 +2534,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "460",
-                        "SceneWindowWidth() * 0.56",
-                        "\"Przemienionych myśli w tym rozdziale: \" + ToString(Run.reframes) + \" · rozeznanych kłamstw: \" + ToString(Run.discRight)",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
+                        "\"Przemienionych myśli: \" + ToString(Run.reframes) + \" · uciszonych głosów: \" + ToString(Run.voices) + \" · odnalezionych wspomnień: \" + ToString(Run.memories)",
                         "\"left\"",
                         "\"t4\"",
                         "\"page\"",
                         "\"UI\"",
+                        "60",
                         ""
                       ]
                     }
@@ -2441,7 +2560,7 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 220",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + (SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 220",
                         "SceneWindowHeight() - 100",
                         "220",
                         "56",
@@ -2484,9 +2603,9 @@
                       "parameters": [
                         "",
                         "UiPanel",
-                        "SceneWindowWidth() * 0.4 - 30",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 30",
                         "24",
-                        "SceneWindowWidth() * 0.56 + 50",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) + 50",
                         "SceneWindowHeight() - 48",
                         "\"obg\"",
                         "\"page\"",
@@ -2507,14 +2626,15 @@
                       "parameters": [
                         "",
                         "UiTitle",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "40",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"Narzędzie na drogę\"",
                         "\"left\"",
                         "\"oa\"",
                         "\"page\"",
                         "\"UI\"",
+                        "52",
                         ""
                       ]
                     }
@@ -2531,14 +2651,15 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "100",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "Content.chapters[Run.chapter].tool.name",
                         "\"left\"",
                         "\"o1\"",
                         "\"page\"",
                         "\"UI\"",
+                        "36",
                         ""
                       ]
                     }
@@ -2555,14 +2676,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "140",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "HolyHoly::G(Content.chapters[Run.chapter].tool.summary)",
                         "\"left\"",
                         "\"o2\"",
                         "\"page\"",
                         "\"UI\"",
+                        "54",
                         ""
                       ]
                     }
@@ -2579,14 +2701,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "200",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"\"",
                         "\"left\"",
                         "\"steps\"",
                         "\"page\"",
                         "\"UI\"",
+                        "0",
                         ""
                       ]
                     }
@@ -2603,14 +2726,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "420",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"Wyzwanie na dziś: \" + HolyHoly::G(Content.chapters[Run.chapter].tool.practice)",
                         "\"left\"",
                         "\"o3\"",
                         "\"page\"",
                         "\"UI\"",
+                        "64",
                         ""
                       ]
                     }
@@ -2627,14 +2751,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "490",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"Co mówią badania: \" + Content.chapters[Run.chapter].tool.evidence",
                         "\"left\"",
                         "\"o4\"",
                         "\"page\"",
                         "\"UI\"",
+                        "SceneWindowHeight() - 610",
                         ""
                       ]
                     }
@@ -2652,7 +2777,7 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 220",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + (SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 220",
                         "SceneWindowHeight() - 100",
                         "220",
                         "56",
@@ -2689,7 +2814,7 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "SceneWindowHeight() - 100",
                         "240",
                         "56",
@@ -2732,9 +2857,9 @@
                       "parameters": [
                         "",
                         "UiPanel",
-                        "SceneWindowWidth() * 0.4 - 30",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 30",
                         "24",
-                        "SceneWindowWidth() * 0.56 + 50",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) + 50",
                         "SceneWindowHeight() - 48",
                         "\"rbg\"",
                         "\"page\"",
@@ -2755,14 +2880,15 @@
                       "parameters": [
                         "",
                         "UiTitle",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "40",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"Raport dla Tronu\"",
                         "\"left\"",
                         "\"ra\"",
                         "\"page\"",
                         "\"UI\"",
+                        "52",
                         ""
                       ]
                     }
@@ -2779,14 +2905,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "104",
-                        "SceneWindowWidth() * 0.56",
-                        "\"Przemienione myśli: \" + ToString(Run.reframes) + NewLine() + \"Rozeznane kłamstwa: \" + ToString(Run.discRight) + NewLine() + \"Najdłuższa seria ciosów: ×\" + ToString(Run.bestCombo) + NewLine() + \"Najdłuższe czuwanie: \" + ToString(round(Run.focusHeld)) + \" s\" + NewLine() + \"Upadki i powstania: \" + ToString(Run.falls) + NewLine() + \"Poziom: \" + ToString(Run.level) + \" · czas: \" + HolyHoly::Clock(Run.time)",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
+                        "\"Przemienione myśli: \" + ToString(Run.reframes) + \" · uciszone głosy: \" + ToString(Run.voices) + NewLine() + \"Rozpoznane kłamstwa: \" + ToString(Run.recognized) + \" · odnalezione wspomnienia: \" + ToString(Run.memories) + \" z 6\" + NewLine() + \"Serca odzyskane przy źródłach, w słowach prawdy i w oddechu: \" + ToString(Run.healed) + NewLine() + \"Najdłuższa seria ciosów: ×\" + ToString(Run.bestCombo) + \" · najdłuższe czuwanie: \" + ToString(round(Run.focusHeld)) + \" s\" + NewLine() + \"Upadki i powstania: \" + ToString(Run.falls) + NewLine() + \"Poziom: \" + ToString(Run.level) + \" · czas: \" + HolyHoly::Clock(Run.time)",
                         "\"left\"",
                         "\"r1\"",
                         "\"page\"",
                         "\"UI\"",
+                        "200",
                         ""
                       ]
                     }
@@ -2803,14 +2930,15 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.4",
-                        "300",
-                        "SceneWindowWidth() * 0.56",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
+                        "310",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"Światło: +\" + ToString(round(Run.light)) + \"   ·   manna: +\" + ToString(Run.manna)",
                         "\"left\"",
                         "\"r2\"",
                         "\"page\"",
                         "\"UI\"",
+                        "36",
                         ""
                       ]
                     }
@@ -2827,14 +2955,15 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.4",
-                        "346",
-                        "SceneWindowWidth() * 0.56",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
+                        "352",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"\"",
                         "\"left\"",
                         "\"r3\"",
                         "\"page\"",
                         "\"UI\"",
+                        "36",
                         ""
                       ]
                     }
@@ -2851,14 +2980,15 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.4",
-                        "410",
-                        "SceneWindowWidth() * 0.56",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
+                        "400",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"\"",
                         "\"left\"",
                         "\"r4\"",
                         "\"page\"",
                         "\"UI\"",
+                        "100",
                         ""
                       ]
                     }
@@ -2876,7 +3006,7 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 240",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + (SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 240",
                         "SceneWindowHeight() - 100",
                         "240",
                         "56",
@@ -2919,9 +3049,9 @@
                       "parameters": [
                         "",
                         "UiPanel",
-                        "SceneWindowWidth() * 0.4 - 30",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 30",
                         "24",
-                        "SceneWindowWidth() * 0.56 + 50",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) + 50",
                         "SceneWindowHeight() - 48",
                         "\"fbg\"",
                         "\"page\"",
@@ -2942,14 +3072,15 @@
                       "parameters": [
                         "",
                         "UiTitle",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "40",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "\"Święty, Święty, Święty\"",
                         "\"left\"",
                         "\"fa\"",
                         "\"page\"",
                         "\"UI\"",
+                        "52",
                         ""
                       ]
                     }
@@ -2966,14 +3097,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "100",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "HolyHoly::G(Content.story.finale[0]) + NewLine() + NewLine() + HolyHoly::G(Content.story.finale[1]) + NewLine() + NewLine() + HolyHoly::G(Content.story.finale[2])",
                         "\"left\"",
                         "\"f1\"",
                         "\"page\"",
                         "\"UI\"",
+                        "290",
                         ""
                       ]
                     }
@@ -2990,14 +3122,15 @@
                       "parameters": [
                         "",
                         "UiText",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "400",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "HolyHoly::G(Content.story.finale[3])",
                         "\"left\"",
                         "\"f2\"",
                         "\"page\"",
                         "\"UI\"",
+                        "96",
                         ""
                       ]
                     }
@@ -3014,14 +3147,15 @@
                       "parameters": [
                         "",
                         "UiSmall",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "500",
-                        "SceneWindowWidth() * 0.56",
+                        "(SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50)",
                         "Content.story.support.text",
                         "\"left\"",
                         "\"f3\"",
                         "\"page\"",
                         "\"UI\"",
+                        "SceneWindowHeight() - 620",
                         ""
                       ]
                     }
@@ -3039,7 +3173,7 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.4",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                         "SceneWindowHeight() - 100",
                         "260",
                         "56",
@@ -3065,7 +3199,7 @@
                         "",
                         "UiButton",
                         "UiLabel",
-                        "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 240",
+                        "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + (SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 240",
                         "SceneWindowHeight() - 100",
                         "240",
                         "56",
@@ -3193,7 +3327,7 @@
                   "parameters": [
                     "",
                     "UiBar",
-                    "SceneWindowWidth() * 0.4",
+                    "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800)",
                     "0",
                     "\"UI\""
                   ]
@@ -3287,51 +3421,20 @@
                 "True",
                 ""
               ]
-            },
-            {
-              "type": {
-                "value": "ClearVariableChildren"
-              },
-              "parameters": [
-                "Picked"
-              ]
-            }
-          ],
-          "events": [
-            {
-              "type": "BuiltinCommonInstructions::Standard",
-              "conditions": [],
-              "actions": [
-                {
-                  "type": {
-                    "value": "PushNumber"
-                  },
-                  "parameters": [
-                    "Picked",
-                    "0"
-                  ]
-                },
-                {
-                  "type": {
-                    "value": "PushNumber"
-                  },
-                  "parameters": [
-                    "Picked",
-                    "0"
-                  ]
-                },
-                {
-                  "type": {
-                    "value": "PushNumber"
-                  },
-                  "parameters": [
-                    "Picked",
-                    "0"
-                  ]
-                }
-              ]
             }
           ]
+        },
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "The person takes the balanced answer: its card glows, and the truth follows."
         },
         {
           "type": "BuiltinCommonInstructions::Standard",
@@ -3353,28 +3456,30 @@
               "parameters": [
                 "Ui.clicked",
                 "=",
-                "\"cbt\""
+                "\"cbtTake\""
+              ]
+            },
+            {
+              "type": {
+                "value": "BuiltinCommonInstructions::CompareNumbers"
+              },
+              "parameters": [
+                "Wait",
+                "<=",
+                "0"
               ]
             }
           ],
           "actions": [
             {
               "type": {
-                "value": "SetNumberVariable"
+                "value": "Psalm150::PlaySfx"
               },
               "parameters": [
-                "Picked[Ui.arg]",
-                "=",
-                "1"
-              ]
-            },
-            {
-              "type": {
-                "value": "SetBooleanVariable"
-              },
-              "parameters": [
-                "Build",
-                "True",
+                "",
+                "\"revelation\"",
+                "2",
+                "0",
                 ""
               ]
             },
@@ -3383,9 +3488,9 @@
                 "value": "SetNumberVariable"
               },
               "parameters": [
-                "o",
+                "Wait",
                 "=",
-                "Run.order[Ui.arg]"
+                "1.6"
               ]
             }
           ],
@@ -3395,76 +3500,27 @@
               "conditions": [
                 {
                   "type": {
-                    "value": "StringVariable"
+                    "value": "StringObjectVariable"
                   },
                   "parameters": [
-                    "Content.chapters[Run.chapter].cbt.options[o].kind",
+                    "UiCard",
+                    "Key",
                     "=",
-                    "\"balanced\""
+                    "\"chosen\""
                   ]
                 }
               ],
               "actions": [
                 {
                   "type": {
-                    "value": "Psalm150::PlaySfx"
+                    "value": "PanelSpriteObject::SetColor"
                   },
                   "parameters": [
-                    "",
-                    "\"revelation\"",
-                    "2",
-                    "0",
-                    ""
-                  ]
-                },
-                {
-                  "type": {
-                    "value": "SetNumberVariable"
-                  },
-                  "parameters": [
-                    "Wait",
-                    "=",
-                    "2.2"
+                    "UiCard",
+                    "\"255;246;200\""
                   ]
                 }
               ]
-            },
-            {
-              "type": "BuiltinCommonInstructions::Standard",
-              "conditions": [
-                {
-                  "type": {
-                    "inverted": true,
-                    "value": "StringVariable"
-                  },
-                  "parameters": [
-                    "Content.chapters[Run.chapter].cbt.options[o].kind",
-                    "=",
-                    "\"balanced\""
-                  ]
-                }
-              ],
-              "actions": [
-                {
-                  "type": {
-                    "value": "Psalm150::PlaySfx"
-                  },
-                  "parameters": [
-                    "",
-                    "\"weaken\"",
-                    "0",
-                    "0",
-                    ""
-                  ]
-                }
-              ]
-            }
-          ],
-          "variables": [
-            {
-              "name": "o",
-              "type": "number",
-              "value": 0
             }
           ]
         },
@@ -5423,7 +5479,7 @@
               "parameters": [
                 "",
                 "UiArt",
-                "SceneWindowWidth() * 0.4 + SceneWindowWidth() * 0.56 - 90",
+                "min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) + (SceneWindowWidth() - min(SceneWindowWidth() * 0.4, SceneWindowWidth() - 800) - 50) - 90",
                 "420",
                 "\"UI\""
               ]
@@ -6286,6 +6342,7 @@
                         "\"\"",
                         "\"breath\"",
                         "\"UI\"",
+                        "0",
                         ""
                       ]
                     }
@@ -6371,6 +6428,7 @@
                         "\"breathCue\"",
                         "\"breath\"",
                         "\"UI\"",
+                        "0",
                         ""
                       ]
                     }
@@ -6395,6 +6453,7 @@
                         "\"breathCount\"",
                         "\"breath\"",
                         "\"UI\"",
+                        "0",
                         ""
                       ]
                     }
@@ -6431,9 +6490,9 @@
           ]
         },
         {
-          "colorB": 80,
-          "colorG": 175,
-          "colorR": 76,
+          "colorB": 136,
+          "colorG": 150,
+          "colorR": 0,
           "creationTime": 0,
           "folded": true,
           "name": "Guided breathing",

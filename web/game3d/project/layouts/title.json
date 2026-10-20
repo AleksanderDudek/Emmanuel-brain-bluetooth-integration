@@ -1411,6 +1411,7 @@
                     "\"\"",
                     "\"\"",
                     "\"UI\"",
+                    "56",
                     ""
                   ]
                 }
@@ -1435,6 +1436,7 @@
                     "\"\"",
                     "\"\"",
                     "\"UI\"",
+                    "36",
                     ""
                   ]
                 }
@@ -1459,6 +1461,7 @@
                     "\"\"",
                     "\"\"",
                     "\"UI\"",
+                    "76",
                     ""
                   ]
                 }
@@ -1665,6 +1668,7 @@
                     "\"rank\"",
                     "\"\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -4021,6 +4025,7 @@
                     "\"\"",
                     "\"help\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -4045,6 +4050,7 @@
                     "\"\"",
                     "\"help\"",
                     "\"UI\"",
+                    "180",
                     ""
                   ]
                 }
@@ -4069,6 +4075,7 @@
                     "\"\"",
                     "\"help\"",
                     "\"UI\"",
+                    "SceneWindowHeight() - 420",
                     ""
                   ]
                 }
@@ -4545,6 +4552,7 @@
                     "\"\"",
                     "\"howto\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -4562,13 +4570,14 @@
                     "",
                     "UiSmall",
                     "(SceneWindowWidth() - 780) / 2",
-                    "124",
+                    "120",
                     "780",
-                    "Content.story.howTo[0] + NewLine() + NewLine() + Content.story.howTo[1] + NewLine() + NewLine() + Content.story.howTo[2] + NewLine() + NewLine() + Content.story.howTo[3] + NewLine() + NewLine() + Content.story.howTo[4]",
+                    "Content.story.howToText",
                     "\"left\"",
                     "\"\"",
                     "\"howto\"",
                     "\"UI\"",
+                    "400",
                     ""
                   ]
                 }
@@ -4586,13 +4595,14 @@
                     "",
                     "UiSmall",
                     "(SceneWindowWidth() - 780) / 2",
-                    "520",
+                    "530",
                     "780",
-                    "\"Nie ma końca gry: gdy cienie przytłoczą, ktoś poda rękę i wstaniesz. Między falami rozpoznajesz, jak kłamią myśli; po twierdzy uczysz się prawdziwego narzędzia na co dzień.\"",
+                    "\"Nie ma końca gry: gdy cienie przytłoczą, Ktoś poda rękę i wstaniesz. Między etapami zobaczysz, jak kłamie jedna myśl i co jest prawdą; na końcu dostaniesz narzędzie na co dzień.\"",
                     "\"left\"",
                     "\"\"",
                     "\"howto\"",
                     "\"UI\"",
+                    "72",
                     ""
                   ]
                 }
@@ -5069,6 +5079,7 @@
                     "\"\"",
                     "\"band\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5093,6 +5104,7 @@
                     "\"\"",
                     "\"band\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5117,6 +5129,7 @@
                     "\"bandStatus\"",
                     "\"band\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5352,6 +5365,7 @@
                     "\"\"",
                     "\"settings\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5376,6 +5390,7 @@
                     "\"setMaster\"",
                     "\"settings\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5452,6 +5467,7 @@
                     "\"setMusic\"",
                     "\"settings\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5528,6 +5544,7 @@
                     "\"setSfx\"",
                     "\"settings\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5604,6 +5621,7 @@
                     "\"setEffects\"",
                     "\"settings\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5654,6 +5672,7 @@
                     "\"setShake\"",
                     "\"settings\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5704,6 +5723,7 @@
                     "\"setGentle\"",
                     "\"settings\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -5754,6 +5774,7 @@
                     "\"setVeiled\"",
                     "\"settings\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -6856,6 +6877,7 @@
                     "\"\"",
                     "\"support\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -6880,6 +6902,7 @@
                     "\"\"",
                     "\"support\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -6904,6 +6927,7 @@
                     "\"\"",
                     "\"support\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -7083,6 +7107,7 @@
                     "\"\"",
                     "\"profile\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -7107,6 +7132,7 @@
                     "\"\"",
                     "\"profile\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -7327,6 +7353,7 @@
                     "\"\"",
                     "\"profile\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }
@@ -7391,6 +7418,7 @@
                     "\"profileHint\"",
                     "\"profile\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }

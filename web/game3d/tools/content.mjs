@@ -19,6 +19,35 @@ export function genderForms(text) {
   return [pick(0), pick(1)];
 }
 
+/**
+ * Times of day of a stage: the light of the chapter is mixed toward these colours, and the fog
+ * draws nearer at night (mod "dark" brings it nearer still). Distances suit the Arena camera.
+ */
+const SKIES = {
+  day: { sky: '255;250;240', fog: '118;116;126', ground: '110;100;96', floor: '205;200;192', mix: 0.45, distance: 1.1 },
+  evening: { sky: '255;206;150', fog: '70;48;40', ground: '120;84;60', floor: '196;164;132', mix: 0.42, distance: 1 },
+  dusk: { sky: '226;176;206', fog: '50;36;58', ground: '90;64;90', floor: '156;134;156', mix: 0.42, distance: 0.95 },
+  night: { sky: '150;170;232', fog: '12;16;36', ground: '40;44;70', floor: '112;118;146', mix: 0.48, distance: 0.85 },
+  deep: { sky: '112;112;176', fog: '6;6;18', ground: '24;24;44', floor: '82;82;108', mix: 0.58, distance: 0.75 },
+};
+const MODS = ['', 'swarm', 'heavy', 'dark', 'voices'];
+/** The three answers of a thought record, in the order they are written and shown. */
+const KINDS = [
+  { id: 'distorted', name: 'Zniekształcona: utrwala kłamstwo' },
+  { id: 'sugar', name: 'Lukrowana: brzmi pięknie, ale nie wytrzyma zderzenia z życiem' },
+  { id: 'balanced', name: 'Zrównoważona: prawdziwa i pomocna' },
+];
+const FOG = { near: 2300, far: 5400 };
+const mixRgb = (a, b, t) => {
+  const [x, y] = [a, b].map(c => c.split(';').map(Number));
+  return x.map((v, i) => Math.round(v + (y[i] - v) * t)).join(';');
+};
+const minutes = clock => {
+  const m = /^(\d{2}):(\d{2})$/.exec(clock);
+  if (!m || +m[1] > 23 || +m[2] > 59) throw new Error(`bad clock ${clock}`);
+  return +m[1] * 60 + +m[2];
+};
+
 const hex = s => s.toLowerCase();
 const rgbOf = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const rgb = h => rgbOf(h).join(';');
@@ -110,6 +139,29 @@ export function makeContent(c) {
     for (const kind of ch.enemies) if (!ENEMIES.some(e => e.kind === kind)) throw new Error(`${ch.id}: unknown enemy ${kind}`);
     for (const d of genderForms(ch.cbt.distortion)) if (!distortions[d]) throw new Error(`${ch.id}: unknown distortion ${d}`);
     if (ch.cbt.options.length !== 3) throw new Error(`${ch.id}: the thought record needs 3 options`);
+    if (ch.stages.length !== 3) throw new Error(`${ch.id}: a chapter has 3 stages`);
+    const stages = ch.stages.map((st, i) => {
+      if (!SKIES[st.sky]) throw new Error(`${ch.id} stage ${i + 1}: unknown sky ${st.sky}`);
+      if (!MODS.includes(st.mod)) throw new Error(`${ch.id} stage ${i + 1}: unknown mod ${st.mod}`);
+      for (const kind of st.enemies) if (!ch.enemies.includes(kind)) throw new Error(`${ch.id} stage ${i + 1}: ${kind} is not a shadow of this chapter`);
+      if (st.memories.length !== 2) throw new Error(`${ch.id} stage ${i + 1}: a stage has 2 memories`);
+      for (const clock of st.clock) for (const form of genderForms(clock)) minutes(form);
+      const sky = SKIES[st.sky], dark = st.mod === 'dark' ? 0.55 : 1;
+      const fog = mixRgb(ch.look.fog, sky.fog, sky.mix);
+      return {
+        index: i, clock: st.clock, title: st.title, sky: st.sky, mod: st.mod, enemies: st.enemies, caption: st.caption, memories: st.memories,
+        look: {
+          background: fog, fog, sky: mixRgb(ch.look.sky, sky.sky, sky.mix), ground: mixRgb(ch.look.ground, sky.ground, sky.mix), floor: mixRgb(ch.look.floor, sky.floor, sky.mix),
+          near: Math.round(FOG.near * sky.distance * dark), far: Math.round(FOG.far * sky.distance * dark),
+        },
+      };
+    });
+    if (ch.voices.length < 4) throw new Error(`${ch.id}: a chapter needs at least 4 voices`);
+    const voices = ch.voices.map((vc, i) => {
+      for (const kind of genderForms(vc.kind)) if (!ch.enemies.includes(kind)) throw new Error(`${ch.id} voice ${i + 1}: ${kind} is not a shadow of this chapter`);
+      for (const d of genderForms(vc.pattern)) if (!distortions[d]) throw new Error(`${ch.id} voice ${i + 1}: unknown pattern ${d}`);
+      return { index: i, kind: vc.kind, says: vc.says, pattern: vc.pattern, no: vc.no, yes: vc.yes };
+    });
     return {
       id: ch.id,
       index,
@@ -125,13 +177,15 @@ export function makeContent(c) {
       enemies: ch.enemies,
       boss: { ...ch.boss, art: `Boss_${ch.id}` },
       story: { intro: scene(ch.story.intro), heal: scene(ch.story.heal) },
+      stages,
+      voices,
       cbt: {
         situation: ch.cbt.situation,
         thought: ch.boss.lie,
         feeling: ch.cbt.feeling,
         distortion: ch.cbt.distortion,
         // kind of each option, in the order written: distorted, sugar-coated, balanced
-        options: ch.cbt.options.map((o, i) => ({ text: o.text, why: o.why, kind: ['distorted', 'sugar', 'balanced'][i] })),
+        options: ch.cbt.options.map((o, i) => ({ text: o.text, why: o.why, kind: KINDS[i].id, kindName: KINDS[i].name })),
         truth: ch.cbt.truth,
         verse: verse(ch.cbt.verse),
         helplines: Boolean(ch.cbt.helplines),
@@ -168,12 +222,13 @@ export function makeContent(c) {
     title: {
       name: 'HolyHolyHoly 3D',
       subtitle: 'Archaniołowie',
-      motto: { ref: '2 Kor 10,4', text: (c.BIBLE['2 Kor 10,4'] ?? '').replace(/^\((.*)\)$/, '$1') },
+      motto: verse({ ref: '2 Kor 10,5', from: 'podbijając' }),
       verse: { ref: 'Iz 6,3', text: c.BIBLE['Iz 6,3'] },
     },
     story: {
       prologue: scene(PROLOGUE),
       howTo: HOW_TO,
+      howToText: HOW_TO.join('\n\n'),
       fall: { panel: FALL.panel, lines: FALL.lines, verses: FALL.verses.map(verse), button: FALL.button },
       finale: FINALE,
       disclaimer: DISCLAIMER,

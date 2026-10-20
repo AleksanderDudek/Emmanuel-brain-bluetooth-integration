@@ -201,6 +201,22 @@ const id = chapters.getChildAt(index).getChild('id').getAsString();
 const done = game.getVariables().get('Save').getChild('done');
 eventsFunctionContext.returnValue = done.hasChild(id) && done.getChild(id).getAsBoolean();
 `, 'Progress'),
+    action('FitTexts', 'Fit the texts that changed', 'Every UI text made with a maximum height (HolyHoly::MakeText) whose content changed since it was last fitted is set back to its size and made smaller, a point at a time (down to 60 %), until it fits its room again.',
+      'Fit the UI texts that changed', [], `
+for (const name of ['UiText', 'UiSmall', 'UiTitle', 'UiLabel', 'UiBig']) {
+  for (const t of runtimeScene.getObjects(name) || []) {
+    const vars = t.getVariables();
+    const maxH = vars.get('MaxH').getAsNumber();
+    if (maxH <= 0 || vars.get('FitText').getAsString() === t.getText()) continue;
+    vars.get('FitText').setString(t.getText());
+    const base = vars.get('Size').getAsNumber() || t.getCharacterSize();
+    const smallest = Math.max(10, Math.round(base * 0.6));
+    let size = base;
+    t.setCharacterSize(size);
+    while (t.getHeight() > maxH && size > smallest) t.setCharacterSize(--size);
+  }
+}
+`, 'UI'),
     action('ExposeForTests', 'Expose the game for automated tests', 'Publishes window.HolyHolyHoly3D = { game } so headless browser tests can read the state.',
       'Expose the game for automated tests', [], `
 window.HolyHolyHoly3D = { game: runtimeScene.getGame() };
@@ -296,32 +312,32 @@ eventsFunctionContext.returnValue = e && e.angel ? G(pick(e.angel)) : '';`, 'Sto
       [param('Kind', 'string', 'Shadow kind')], `${GLOBALS}
 const e = g('Content').getChild('enemies').getChild(${arg('Kind')}).toJSObject();
 eventsFunctionContext.returnValue = e && e.thoughts ? G(pick(e.thoughts)) : '';`, 'Story'),
-    action('DrawDiscernment', 'Draw a discernment card', 'Fills Run.disc with a thought of a shadow of this chapter, the thinking error it hides (answer) and three options in random order.',
-      'Draw a discernment card', [], `${GLOBALS}
+    action('DrawVoice', 'Draw a voice', 'Fills Run.voice with a speaking shadow of this chapter (Content.chapters[].voices, by index, wrapping around): what it says, the thinking error it hides with its signal words and testing question, what negates it and the truth, all resolved for the person.',
+      'Draw voice number _PARAM1_ of this chapter', [param('Index', 'expression', 'Voice index')], `${GLOBALS}
 const content = g('Content');
 const chapter = content.getChild('chapters').getChildAt(Math.max(0, g('Run').getChild('chapter').getAsNumber())).toJSObject();
-const enemies = content.getChild('enemies').toJSObject();
-const distortions = content.getChild('distortions').toJSObject();
-const kind = pick(chapter.enemies);
-const answer = enemies[kind].distortion;
-const others = Object.keys(distortions).filter(d => d !== answer).sort(() => Math.random() - 0.5).slice(0, 2);
-const options = [answer, ...others].sort(() => Math.random() - 0.5);
-g('Run').getChild('disc').fromJSObject({
-  kind, name: enemies[kind].name, thought: G(pick(enemies[kind].thoughts)), answer,
-  answerName: G(distortions[answer].name), question: G(distortions[answer].question),
-  options, names: options.map(d => G(distortions[d].name)),
+const voices = chapter.voices || [];
+if (!voices.length) return;
+const index = ((Math.round(${arg('Index')}) % voices.length) + voices.length) % voices.length;
+const v = voices[index];
+const pattern = G(v.pattern);
+const d = content.getChild('distortions').getChild(pattern).toJSObject() || {};
+g('Run').getChild('voice').fromJSObject({
+  index, kind: G(v.kind), says: G(v.says), pattern, patternName: G(d.name || ''), signal: G(d.signal || ''), question: G(d.question || ''), no: G(v.no), yes: G(v.yes),
 });
 `, 'Story'),
-    action('Shuffle', 'Shuffle an order', 'Writes a random order of 0…N-1 into a global array variable (a path such as "Run.order").',
-      'Shuffle 0…_PARAM2_-1 into global _PARAM1_', [param('Variable', 'string', 'Global array variable (dotted path)'), param('Count', 'expression', 'N')], `
-const n = Math.max(0, Math.round(${arg('Count')}));
-const order = Array.from({ length: n }, (_, i) => i);
-for (let i = n - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-const [root, ...path] = String(${arg('Variable')}).split('.');
-let target = runtimeScene.getGame().getVariables().get(root);
-for (const name of path) target = target.getChild(name);
-target.fromJSObject(order);
-`, 'Data'),
+    stringExpression('StageClock', 'Clock of the stage', 'The time in the person\'s day while a stage of the chapter goes on (HH:MM), from the stage\'s start time at progress 0 to its end time at 1.',
+      [param('Stage', 'expression', 'Stage index'), param('Progress', 'expression', 'Progress 0–1')], `${GLOBALS}
+const chapter = g('Content').getChild('chapters').getChildAt(Math.max(0, g('Run').getChild('chapter').getAsNumber())).toJSObject();
+const stage = (chapter.stages || [])[Math.round(${arg('Stage')})];
+if (!stage) { eventsFunctionContext.returnValue = ''; return; }
+const minutes = t => { const [h, m] = G(t).split(':').map(Number); return h * 60 + m; };
+const from = minutes(stage.clock[0]);
+let to = minutes(stage.clock[1]);
+if (to < from) to += 24 * 60;
+const p = Math.max(0, Math.min(1, ${arg('Progress')}));
+const t = Math.round(from + (to - from) * p) % (24 * 60);
+eventsFunctionContext.returnValue = String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');`, 'Story'),
     condition('IsHeroOpen', 'Archangel is open', 'The archangel can be chosen: one of the first two, or the chapter that brings him is done.',
       'Archangel _PARAM1_ is open', [param('Id', 'string', 'Archangel id')], `${GLOBALS}
 const index = g('Content').getChild('heroIndex').getChild(${arg('Id')}).getAsNumber();
@@ -432,6 +448,19 @@ export function uiFunctions() {
     actions: [Ai('SetZOrder', obj, '+', '200')],
     events: [],
   });
+  // a text taller than its room is set smaller, a point at a time, down to 60 % of its size; the
+  // room and the size are kept on the object, so HolyHoly::FitTexts fits it again when it changes
+  const fit = (obj, heightArg, margin = 0) => js(`
+const maxH = Math.max(0, eventsFunctionContext.getArgument(${JSON.stringify(heightArg)}) - ${margin});
+for (const t of objects) {
+  const vars = t.getVariables();
+  vars.get('MaxH').setNumber(maxH);
+  vars.get('Size').setNumber(t.getCharacterSize());
+  vars.get('FitText').setString(t.getText());
+  const smallest = Math.max(10, Math.round(t.getCharacterSize() * 0.6));
+  let size = t.getCharacterSize();
+  while (maxH > 0 && t.getHeight() > maxH && size > smallest) t.setCharacterSize(--size);
+}`, obj);
   return [
     eventsFn('MakeButton', 'Create a button', 'Creates a 9-patch button with a centred caption. Clicking it sets Ui.clicked to its action (see the UI external events).',
       'Button _PARAM1_ + _PARAM2_ at _PARAM3_;_PARAM4_ (_PARAM5_×_PARAM6_): _PARAM7_ → _PARAM8_',
@@ -458,14 +487,14 @@ export function uiFunctions() {
         Ai('SetStringObjectVariable', 'Label', 'Action', '=', S('Action')),
         Ai('SetNumberObjectVariable', 'Label', 'Arg', '=', N('Arg')),
         Ai('SetZOrder', 'Label', '=', '101'),
-      ], [above('Button', 'Panel'), above('Label', 'Panel')])]),
-    eventsFn('MakeText', 'Create a text', 'Creates a wrapped text, aligned left, center or right inside the given width.',
-      'Text _PARAM1_ at _PARAM2_;_PARAM3_ width _PARAM4_: _PARAM5_ (_PARAM6_, key _PARAM7_, panel _PARAM8_)',
+      ], [above('Button', 'Panel'), above('Label', 'Panel'), fit('Label', 'H', 8), std([Ai('SetXY', 'Label', '=', `${N('X')} + 8`, '=', `${N('Y')} + (${N('H')} - Label.Height()) / 2`)])])]),
+    eventsFn('MakeText', 'Create a text', 'Creates a wrapped text, aligned left, center or right inside the given width. With a maximum height, a text that would run longer is set smaller (down to 60 %) until it fits.',
+      'Text _PARAM1_ at _PARAM2_;_PARAM3_ width _PARAM4_: _PARAM5_ (_PARAM6_, key _PARAM7_, panel _PARAM8_, at most _PARAM10_ high)',
       [objParam('Text', 'TextObject::Text', 'Text object'), { name: 'X', type: 'expression', description: 'X' }, { name: 'Y', type: 'expression', description: 'Y' },
         { name: 'W', type: 'expression', description: 'Width' }, { name: 'Content', type: 'string', description: 'Text' },
         { name: 'Align', type: 'stringWithSelector', supplementaryInformation: '["left","center","right"]', description: 'Alignment' },
         { name: 'Key', type: 'string', description: 'Key (for updates)' }, { name: 'Panel', type: 'string', description: 'Panel' },
-        { name: 'Layer', type: 'layer', description: 'Layer' }],
+        { name: 'Layer', type: 'layer', description: 'Layer' }, { name: 'MaxH', type: 'expression', description: 'Maximum height (0: any)' }],
       [std([
         Ai('Create', 'Text', N('X'), N('Y'), 'Layer'),
         Ai('TextContainerCapability::TextContainerBehavior::SetValue', 'Text', 'Text', '=', S('Content')),
@@ -475,7 +504,7 @@ export function uiFunctions() {
         Ai('SetStringObjectVariable', 'Text', 'Key', '=', S('Key')),
         Ai('SetStringObjectVariable', 'Text', 'Panel', '=', S('Panel')),
         Ai('SetZOrder', 'Text', '=', '90'),
-      ], [above('Text', 'Panel')])]),
+      ], [above('Text', 'Panel'), fit('Text', 'MaxH')])]),
     eventsFn('MakePanel', 'Create a panel', 'Creates a 9-patch panel (background of a dialog or a card).',
       'Panel _PARAM1_ at _PARAM2_;_PARAM3_ (_PARAM4_×_PARAM5_), key _PARAM6_, panel _PARAM7_',
       [objParam('Panel', 'PanelSpriteObject::PanelSprite', 'Panel object'), { name: 'X', type: 'expression', description: 'X' }, { name: 'Y', type: 'expression', description: 'Y' },

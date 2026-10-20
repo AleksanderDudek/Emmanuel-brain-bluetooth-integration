@@ -52,7 +52,7 @@ export function projectBase() {
   Object.assign(p.properties, {
     name: 'HolyHolyHoly 3D',
     author: 'HolyHolyHoly',
-    description: 'Anioł stróż w trzech wymiarach rozbija traumy człowieka, zamienia je w prawdę i burzy twierdze kłamstw. Archero × survivors × Endless Puncher, muzyka „Psalm 150”, opcjonalnie opaska fNIRS Mendi.',
+    description: 'Anioł stróż w trzech wymiarach rozbija traumy człowieka, zamienia je w prawdę i ucisza kłamstwa, które przybrały własną postać. Archero × survivors × Endless Puncher, muzyka „Psalm 150”, opcjonalnie opaska fNIRS Mendi.',
     packageName: 'pl.holyholyholy.game3d',
     version: '1.0.0',
     windowWidth: 1280,

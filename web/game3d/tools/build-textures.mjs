@@ -219,6 +219,15 @@ const files = {
     const fill = Math.max(0, 1 - d) ** 1.2 * 0.45;
     return [255, 226 + 20 * fill, 150 + 90 * fill, 255 * Math.min(1, ring + fill)];
   }),
+  // the screen-edge pointer to a memory or a spring: a chevron pointing right (+X)
+  'ui/pointer.png': icon(64, [
+    { inside: (x, y) => x >= -0.8 && x <= 0.9 && Math.abs(y) <= (0.9 - x) * 0.55, colour: solid([40, 26, 12, 220]) },
+    { inside: (x, y) => x >= -0.62 && x <= 0.74 && Math.abs(y) <= (0.74 - x) * 0.55, colour: vertical([255, 236, 170, 255], [230, 170, 70, 255]) },
+  ]),
+  'ui/touch-breath.png': touchButton([
+    { inside: ring(0.5, 0.6), colour: solid([200, 230, 255, 255]) },
+    { inside: circle(0, 0, 0.28), colour: radial([255, 255, 255, 255], [140, 200, 255, 255]) },
+  ], [140, 200, 255]),
   'particles/soft.png': softDot(64),
   'particles/spark.png': spark(64),
 };

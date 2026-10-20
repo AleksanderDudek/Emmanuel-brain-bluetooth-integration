@@ -7,8 +7,9 @@ Przeglądarkowa gra 3D w silniku **GDevelop**. Grasz aniołem stróżem: jednym 
 archaniołów. Bóg powierza ci człowieka (mężczyznę albo kobietę, z imieniem, które możesz mu
 nadać, choćby swoim), który żyje w dzisiejszej Polsce i niesie prawdziwe rany: lęk, dom
 z alkoholem, porównywanie się w telefonie, odrzucenie, przemoc, wypalenie, nałóg, stratę,
-depresję. Rany mają kształt cieni, które szepczą kłamstwa. Rozbity cień zostawia po sobie
-prawdziwe zdanie, a twierdza kłamstwa pada. Wtedy przychodzi **Jezus**: w scenie
+depresję. Rany mają kształt cieni, które szepczą kłamstwa; niektóre mówią na głos. Rozbity
+cień zostawia po sobie prawdziwe zdanie, a kłamstwo rozdziału, które przyszło we własnej
+postaci, milknie. Wtedy przychodzi **Jezus**: w scenie
 uzdrowienia, Jego własnymi słowami z Ewangelii. Potem człowiek sam przemienia myśl i
 zabiera ze sobą jedno prawdziwe narzędzie na życie.
 
@@ -18,7 +19,27 @@ bezpiecznego mówienia o kryzysie. Źródła: §12.
 
 ---
 
-## 0. Co się zmieniło (wersja 2)
+## 0. Co się zmieniło (wersja 3: Etapy)
+
+| | v2 | v3 |
+|---|---|---|
+| Rozdział | trzy anonimowe fale po minucie | **trzy etapy** jednego dnia albo nocy człowieka: każdy ma godzinę (zegar biegnie, np. 22:40 → 00:30), tytuł, porę światła (wieczór, zmierzch, noc, głęboka noc, dzień), własne cienie i modyfikator (rój, ciężar, ciemność, głosy) |
+| Historia w walce | tylko przed i po walce | **karta etapu** (godzina, tytuł, co się dzieje) i **wspomnienia**: blada postać człowieka na mapie; dojście do niej odsłania fragment historii, od codzienności do sedna rany (2 na etap, wskazuje je strzałka) |
+| Głosy | myśl nad silnym cieniem | **Głos**: co ~24 s cień, który mówi na głos myśl człowieka z tej historii („To zawał. Na pewno zawał.”). Uciszony: myśl zostaje przekreślona, pada nazwa zniekształcenia i jego sygnały, potem **zaprzeczenie** („Nie: …”) i **prawda** (złota). Zostawia Słowo prawdy |
+| Leczenie | manna, Szabat, Rafał | dodatkowo **Źródła** wody żywej (J 4,14: 3 na mapie, serce co 2 s, wysychają i wracają), **Słowo prawdy** po Głosie (serce) i **westchnienie** (przytrzymaj Q w bezruchu: wdech, dobranie, długi wydech = serce; przerywa je ruch i rana) |
+| Kłamstwo rozdziału | malowana twierdza, wieża, brama | **uosobienie** (jak w Psychomachii Prudencjusza): Trwoga, Kamienne Serce, Pozór, Pustka, Piętno, Nadzorca, Lichwiarz, Sędzia, Mgła, Otchłań; mówi swoje kłamstwo na głos. Żadnej budowli |
+| Między etapami | Rozeznanie: zgadnij nazwę zniekształcenia (3 przyciski) | **Rozpoznanie**: przykład bez zgadywania. Głos etapu, jak kłamie (nazwa + słowa-sygnały), pytanie, „Nie: …”, „Prawda: …”; gracz mówi prawdę na głos (+1 serce) |
+| Przemiana myśli | wybierz jedną z trzech odpowiedzi w losowej kolejności | **zapis myśli z przykładem**: trzy odpowiedzi podpisane (zniekształcona, lukrowana, zrównoważona), każda z uzasadnieniem; człowiek bierze zrównoważoną |
+| Teksty | część zdań jak hasła („Uczę się ufać, krok po kroku”) | zdania konkretne: proces, fakt, następny krok („To lęk. Szczyt mija po kilku minutach.”) |
+| Kamera i mapa | blisko, arena r = 1500 | dalej (postaci ok. 2/3 dawnej wielkości), mapa r = 3200, 40 rekwizytów |
+| Interfejs | stałe pozycje, napisy nachodziły na siebie | tekst sam się zmniejsza, gdy nie mieści się w swoim miejscu (do 60%); karty układają się w pionie według wysokości; panele zwężają się na ekranach 16:10 i 4:3; test w przeglądarce sprawdza, czy żadne dwa napisy panelu nie nachodzą na siebie |
+
+Dlaczego tak: gracz ma **rozpoznawać** wzorce, nie zgadywać (w CBT uczy się na przykładach z
+własnego życia: najpierw zobaczyć, jak myśl kłamie, potem samemu to zauważać). Głosy i
+wspomnienia niosą historię w trakcie walki, więc widać, jak głęboka jest rana. Uosobienia
+zamiast budowli: kłamstwo mówi, ma twarz i można je usłyszeć, a nie tylko zburzyć.
+
+## 0a. Co się zmieniło (wersja 2)
 
 | | v1: Burzenie twierdz | v2: Archaniołowie |
 |---|---|---|
@@ -37,7 +58,7 @@ bezpiecznego mówienia o kryzysie. Źródła: §12.
 ## 1. Filary
 
 1. **Wciągająca gra najpierw.** Szybka nagroda za każdy ruch, karta co 15–25 s, złota karta
-   ewolucji, relikwiarz z silnego cienia, deszcz światła po twierdzy. Wszystko z
+   ewolucji, relikwiarz z silnego cienia, deszcz światła po ostatniej walce. Wszystko z
    Heroes vs Hordes, co służy radości, i nic, co służy chciwości (§5).
 2. **Prawda bez lukru.** Zdania, które zostają po cieniach, są wiarygodne: mówią o
    procesie, o tym, co mogę, nazywają uczucie, odwołują się do wartości („Boję się i robię
@@ -45,7 +66,7 @@ bezpiecznego mówienia o kryzysie. Źródła: §12.
    osobie, jako dar. Tak zalecają badania (Wood 2009): u osób z niską samooceną zdanie
    „Jestem osobą wartą miłości” powtarzane w pierwszej osobie pogarszało samopoczucie.
 3. **Umiejętności, nie pouczenia.** Każdy rozdział uczy jednej umiejętności z CBT/ACT,
-   którą da się zrobić jutro rano. Gra ćwiczy ją w walce (Rozeznanie, przemiana myśli,
+   którą da się zrobić jutro rano. Gra ćwiczy ją w walce (Głosy, Rozpoznanie, zapis myśli, westchnienie,
    cisza przy tęsknocie) i daje wyzwanie na dziś (wzór: SPARX, BMJ 2012).
 4. **Chrystus przychodzi, nie jest mocą.** Nie da się nim grać, przywołać go ani użyć jako
    wzmocnienia. On podchodzi, mówi i podaje rękę; człowiek odpowiada.
@@ -68,8 +89,8 @@ Sobór Archaniołów (wybór stróża; zablokowanego można raz wypróbować)
    ↓
 Historia: scena z życia (malowane panele; przed trudnymi rozdziałami nota i „Pomiń”)
    ↓
-Arena: fala 1 → Szabat + Rozeznanie → fala 2 → Szabat + Rozeznanie → fala 3
-       → Twierdza kłamstwa (3 fazy) → Uwielbienie (deszcz światła)
+Arena: etap 1 (godzina, wspomnienia, Głosy) → Szabat + Rozpoznanie → etap 2 → Szabat +
+       Rozpoznanie → etap 3 → kłamstwo we własnej postaci (3 fazy) → Uwielbienie
    ↓
 Historia: uzdrowienie (przychodzi Jezus)
    ↓
@@ -91,7 +112,7 @@ wschodniej (prawosławnej i wschodniokatolickiej)”: Kościół łaciński wymi
 | Archanioł | Znaczenie | Atrybut w ikonie | Dar (stojąc w ciszy) | Modlitwa (E) | Cecha | Dołącza |
 |---|---|---|---|---|---|---|
 | **Uriel** | Światło Boże | miecz i płomień | Płomień: podpala cień | Ogień Boży: 8 słupów ognia | +15% obrażeń | od początku |
-| **Michał** | Któż jak Bóg? | włócznia z chorągwią krzyża | Włócznia: przeszywa linię | Któż jak Bóg!: uderzenie i ogłuszenie wszystkiego wokół | +1 serce, dłuższa łaska; mocniej w twierdzę | od początku |
+| **Michał** | Któż jak Bóg? | włócznia z chorągwią krzyża | Włócznia: przeszywa linię | Któż jak Bóg!: uderzenie i ogłuszenie wszystkiego wokół | +1 serce, dłuższa łaska; mocniej w kłamstwo rozdziału | od początku |
 | **Gabriel** | Moc Boża | latarnia ze świecą, zwierciadło | Latarnia: kula światła przez wszystko | Zwiastowanie: wszystko staje na 4 s | +20% światła | po „Nocy” (mówi „Nie bój się”) |
 | **Rafał** | Bóg uzdrawia | naczynie z lekiem, laska | Balsam: krąg, który rani i leczy | Uzdrowienie: wszystkie serca, łaska, wielki krąg | serce co 45 s | po „Domu” |
 | **Selafiel** | Modlitwa Boża | dłonie na piersi, kadzidło | Kadzidło: obłok rośnie w bezruchu | Cisza modlitwy: cienie zwalniają do ¼ | Modlitwa +30% szybciej | po „Ekranie” |
@@ -153,23 +174,52 @@ Kontrola nad losem: **Losuj ponownie** (1, z Barachielem i w trybie łagodnym wi
 **Odpuść** (+1 serce). Klik działa dopiero po 0,35 s (żeby trzymany klawisz nie wybrał w
 ciemno).
 
-**Relikwiarz** zostaje po silnym cieniu (połowa fali): daje jeden dar od razu (ewolucję,
+**Relikwiarz** zostaje po silnym cieniu (połowa etapu): daje jeden dar od razu (ewolucję,
 jeśli gotowa).
 
-**Szabat + Rozeznanie.** Po fali cienie znikają, światło leci do anioła, wraca serce, a
-gracz dostaje kartę: myśl cienia i trzy nazwy zniekształceń. Trafna odpowiedź: serce i
-modlitwa; nietrafna: poprawna odpowiedź i pytanie, które sprawdza taką myśl. Można pominąć.
+**Etapy.** Rozdział to trzy chwile jednego dnia albo nocy (`stages` w `tools/story.mjs`):
+zegar w prawym górnym rogu biegnie od godziny początku do godziny końca etapu, światło i
+mgła zmieniają się z porą (wieczór, zmierzch, noc, głęboka noc, dzień), a modyfikator
+zmienia walkę: **rój** (więcej słabszych cieni), **ciężar** (mniej, ale silniejszych),
+**ciemność** (mgła podchodzi blisko), **głosy** (cienie mówią dwa razy częściej). Na
+początku etapu u góry ekranu pojawia się karta: godzina, tytuł i zdanie o tym, co się dzieje.
 
-**Twierdza** (2 Kor 10,4): malowana twierdza kłamstwa rozdziału (np. wieża z ekranów, dom z
-zakratowanymi oknami, Bramy Otchłani). Faza 1: ogniste strzały; faza 2: łańcuchy kłamstwa
-(rozbij ciosem ×3), przyzywa cienie; faza 3: szarże. Skupienie ×2 i więcej: +25% obrażeń.
+**Wspomnienia.** W każdym etapie na mapie stoją dwie blade postacie człowieka. Dojście do
+nich odsłania fragment historii (na dole ekranu, walka trwa dalej) i daje światło.
+Fragmenty idą od codzienności do sedna rany. Strzałka przy krawędzi ekranu prowadzi do
+najbliższego; gdy brakuje połowy serc, prowadzi do Źródła, a gdy mówi Głos, do niego.
 
-**Uwielbienie.** Po twierdzy przez 7 s pada deszcz światła (odpowiednik „Coin Rush” z HvH,
-ale jako radość, nie chciwość).
+**Głosy.** Co ~24 s (w etapie „głosy” co ~12 s) przychodzi cień, który mówi na głos jedną
+z myśli człowieka (4 na rozdział: `voices`), większy, wolniejszy i silniejszy, z czerwonym
+kręgiem. Jego słowa wiszą nad nim i pojawiają się u góry ekranu. Uciszony pokazuje zapis
+jednej myśli: jego zdanie zostaje przekreślone, pada nazwa zniekształcenia z jego
+słowami-sygnałami, potem zaprzeczenie („Nie: …”) i prawda (złota). Zostawia **Słowo prawdy**.
+
+**Leczenie.** Oprócz Szabatu (+1 serce), manny i Rafała: **Źródła** wody żywej (J 4,14),
+trzy na mapie: stojąc w źródle, odzyskujesz serce co 2 s, aż wyschnie (2 serca); napełnia
+się po 35 s. **Słowo prawdy** po uciszonym Głosie: serce (albo modlitwa, gdy serca są
+pełne). **Westchnienie**: przytrzymaj Q (na dotyku niebieski przycisk) w bezruchu: wdech,
+krótkie dobranie powietrza i długi wydech (5,5 s) oddają serce, potem 12 s odpoczynku.
+Ruch albo rana je przerywa. To ćwiczenie z pierwszego rozdziału, użyte w walce.
+
+**Szabat + Rozpoznanie.** Po etapie cienie znikają, światło leci do anioła, wraca serce, a
+gracz dostaje kartę z przykładem, bez zgadywania: Głos tego etapu (co mówił), jak kłamie
+(nazwa zniekształcenia i jego sygnały), pytanie, które je sprawdza, zaprzeczenie i prawda.
+Przycisk „Powiedz to na głos”: +1 serce i modlitwa.
+
+**Kłamstwo we własnej postaci.** Na końcu rozdziału przychodzi jego kłamstwo jako postać
+alegoryczna (jak w Psychomachii Prudencjusza, gdzie cnoty i wady walczą jako osoby):
+Trwoga, Kamienne Serce, Pozór, Pustka, Piętno, Nadzorca, Lichwiarz, Sędzia, Mgła, Otchłań
+(z ikony Zmartwychwstania). Mówi swoje kłamstwo na głos. Faza 1: ogniste strzały (Ef 6,16);
+faza 2: łańcuchy kłamstwa (rozbij ciosem ×3), przyzywa cienie; faza 3: szarże. Skupienie
+×2 i więcej: +25% obrażeń.
+
+**Uwielbienie.** Gdy kłamstwo milknie, przez 7 s pada deszcz światła (odpowiednik „Coin
+Rush” z HvH, ale jako radość, nie chciwość).
 
 **Upadek.** Nie ma końca gry. Gdy serca się skończą, człowiek upada, a ekran pokazuje
 dłoń Chrystusa (Mt 14,31) i werset; gracz tylko odpowiada: **„Chwyć Jego dłoń”**. Łaska nie
-jest zużywalna: można wstać zawsze; twierdza słabnie z każdym upadkiem.
+jest zużywalna: można wstać zawsze; kłamstwo słabnie z każdym upadkiem.
 
 ## 5. Co wzięliśmy z Heroes vs Hordes, a czego nie
 
@@ -212,6 +262,18 @@ badań rani najczęściej i najmocniej (wybór: częstość × szkoda × aktualn
 | 9 | Ciemność | ukryta depresja, myśl kryzysowa | depresja po stracie, myśl kryzysowa | Emaus: „Zostań z nami” (Łk 24,29), „Jam jest z wami” (Mt 28,20) | plan bezpieczeństwa, sięgnij po ludzi |
 | 10 | Zmartwychwstanie | grupa wsparcia; Oskarżyciel zbiera wszystkie cienie | to samo | **Anastasis**: „Wstańcież, pójdźmy stąd” (J 14,31), „Oto wszystko nowe czynię” (Ap 21,5) | jeden mały krok (wartości) |
 
+Kłamstwa rozdziałów w swojej postaci: **Trwoga** (Noc), **Kamienne Serce** (Dom, Ez 36,26),
+**Pozór** (Ekran), **Pustka** (Odrzucenie), **Piętno** (Rana), **Nadzorca** (Ciężar, jak
+nadzorcy w Egipcie, Wj 5), **Lichwiarz** (Nałóg: obiecuje ulgę, zabiera więcej, niż dał),
+**Sędzia** (Strata: wewnętrzny sąd „po fakcie”), **Mgła** (Ciemność), **Otchłań**
+(Zmartwychwstanie, związana jak na ikonie Anastasis). Malowane jako zakapturzone postacie
+bez twarzy (bez nimbów, czaszek i krzyży), żeby nikt nie pomylił ich ze świętymi ani nie
+łączył Ciemności ze śmiercią.
+
+Każdy rozdział ma trzy etapy z godzinami (np. Noc, on: 22:40 Nagłówki → 00:30 Bezsenność →
+3:12 Atak; ona: 7:20 Przystanek → 7:41 Tłok → 7:52 Atak), po dwa wspomnienia na etap i
+cztery Głosy. Wszystko w `tools/story.mjs`, w obu wersjach.
+
 Na karcie szczebla na Drabinie jest jedno zdanie z danymi i źródłem (np. „W 2024 r. w Polsce
 84% osób, które odebrały sobie życie, stanowili mężczyźni”).
 
@@ -235,12 +297,15 @@ przesłuchaj go → przemień**.
   przepowiadanie, katastrofizowanie, rozumowanie emocjonalne, „muszę/powinienem”,
   etykietowanie, branie winy na siebie, niesprawiedliwe porównanie, pułapka „jeszcze raz”.
   Każde ma swoje pytanie sokratejskie (w Księdze Prawdy).
-* **Rozeznanie** (Szabat): nazwij zniekształcenie; nazwana myśl przestaje udawać fakt.
-* **Przemiana myśli** (Objawienie): sytuacja, myśl (kłamstwo twierdzy), uczucie 0–100,
-  zniekształcenie i pytanie; potem trzy odpowiedzi w losowej kolejności: **zniekształcona**,
-  **lukrowana** („już nigdy nie będę się bać”) i **zrównoważona**. Każda dostaje
-  wyjaśnienie; tylko zrównoważona przemienia kłamstwo. Uczy różnicy między prawdą a
-  „pozytywnym myśleniem”.
+* **Głosy** (w walce): myśl powiedziana na głos, po uciszeniu rozebrana na części:
+  zniekształcenie z sygnałami, zaprzeczenie, prawda. Każde zniekształcenie ma swoje
+  słowa-sygnały („zawsze”, „nikt”, „na pewno”…), po których łatwiej je rozpoznać w życiu.
+* **Rozpoznanie** (Szabat): pokazany przykład, nie zagadka. Nazwana myśl przestaje udawać fakt.
+* **Zapis myśli** (Objawienie): sytuacja, myśl (kłamstwo rozdziału), uczucie 0–100,
+  zniekształcenie z sygnałami i pytanie; potem trzy odpowiedzi obok siebie, już podpisane:
+  **zniekształcona**, **lukrowana** („nigdy więcej się tak nie poczuję”) i **zrównoważona**,
+  każda z uzasadnieniem. Człowiek bierze zrównoważoną. Uczy różnicy między prawdą a
+  „pozytywnym myśleniem” przez porównanie, bez ryzyka „złej odpowiedzi”.
 * **Narzędzie na drogę:** kroki, wyzwanie na dziś, co mówią badania; zostaje w Narzędziach
   na Drabinie. Oddech można ćwiczyć w grze (6 oddechów: 4 s wdechu, 1 s dobrania powietrza,
   8 s wydechu).
@@ -289,16 +354,22 @@ uspokojenie, nie leczenie”).
 * **Styl:** realizm malarski połączony z ikoną: twarze i dłonie realistyczne, szaty, skrzydła
   i nimby stylizowane; złoto, cynober, ultramaryna, biel ołowiana; światło od wewnątrz.
 * **Malowanie lokalne** (`tools/art.py`, DreamShaper XL Lightning na Apple Silicon, bez
-  kosztów i bez kluczy API): archaniołowie, ich portrety-medaliony, 16 cieni, 10 twierdz,
+  kosztów i bez kluczy API): archaniołowie, ich portrety-medaliony, 16 cieni, 10 uosobień kłamstw,
   Chrystus, Adam i Ewa, 60 ikon umiejętności (dla każdego stopnia i ewolucji), 45 paneli
   historii (obie wersje), 11 posadzek (bezszwowych), relikwiarz. Oryginały trafiają do
   `~/generations` z plikiem opisu; wybrane są przypięte w `art/lock.json`.
 * **Billboardy 3D:** malowana postać na pionowym prostokącie z miękkim cieniem i oddechem
   (`tools/billboard.mjs`), widoczna z kamery pod kątem; efekty (płomień, włócznia, kula,
   balsam, kadzidło, bicz, płatki) to świecące płaszczyzny rysowane w kodzie.
-* **HUD:** medalion archanioła, serca i pasek modlitwy; pod nimi 4 dary i 4 cnoty z ikonami
-  i poziomami; gruby pasek światła z poziomem; fala i pauza; przycisk modlitwy z ikoną mocy;
-  pasek skupienia; twierdza i jej kłamstwo.
+* **HUD:** medalion archanioła, serca i pasek modlitwy (procent pod paskiem); pod nimi 4 dary
+  i 4 cnoty z ikonami i poziomami; pasek światła, a pod nim poziom, rozdział i etap; zegar
+  człowieka i czas etapu w prawym górnym rogu, pauza; przycisk modlitwy z ikoną mocy; pasek
+  skupienia; siła kłamstwa, gdy przyjdzie. Kamera stoi dalej i patrzy trochę przed anioła,
+  więc górny pas ekranu jest wolny na kartę etapu i Głosy, a dolny na wspomnienia.
+* **Tekst mieści się zawsze:** każdy napis ma swoją wysokość i sam się zmniejsza (do 60%),
+  karty układają linie jedna pod drugą według ich wysokości, panele zwężają się na
+  ekranach 16:10 i 4:3. Test w przeglądarce (`game3d:smoke`) sprawdza na każdym ekranie, czy
+  żadne dwa napisy jednego panelu nie nachodzą na siebie i czy nie wychodzą poza panel.
 * **Dźwięk:** „Psalm 150” bez zmian (synteza na żywo), utwór rozdziału z puli dziesięciu.
 
 ## 12. Źródła (wybór)
@@ -327,7 +398,7 @@ i eksportuje grę. Szczegóły: [README.md](README.md).
 | `Ladder` | Drabina; Owoce Ducha; Księga Prawdy (kłamstwa i myśli); Narzędzia + oddech |
 | `Synaxis` | wybór archanioła, próba |
 | `Story` | sceny historii (prolog, wstęp, uzdrowienie), nota i pominięcie rozdziału |
-| `Arena` | walka: dary, cnoty, ewolucje, relikwiarze, modlitwa, Rozeznanie, twierdza, uwielbienie, upadek, pauza, HUD |
+| `Arena` | walka: etapy, wspomnienia, Głosy, źródła i westchnienie, dary, cnoty, ewolucje, relikwiarze, modlitwa, Rozpoznanie, kłamstwo we własnej postaci, uwielbienie, upadek, pauza, HUD |
 | `Revelation` | przemiana myśli, prawda, narzędzie, raport, nagrody, finał |
 
 Treść (rozdziały, archaniołowie, dary, cienie, zniekształcenia, historia) jest w
@@ -340,5 +411,5 @@ Treść (rozdziały, archaniołowie, dary, cienie, zniekształcenia, historia) j
 * ręczne przemalowanie wizerunków Chrystusa przez artystę ikonopisa,
 * krótka, dobrowolna ankieta nastroju po rozdziale (jak w SPARX) z prośbą o kontakt z
   człowiekiem przy wysokim wyniku, bez zapisywania danych,
-* tryb „Czuwanie” (fale bez końca), więcej twierdz, codzienne wyzwanie,
+* tryb „Czuwanie” (etapy bez końca), więcej uosobień kłamstw, codzienne wyzwanie,
 * wersja na telefony (eksport GDevelop do Androida/iOS), tłumaczenia.

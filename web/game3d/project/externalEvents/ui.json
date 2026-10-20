@@ -31,14 +31,26 @@
       ]
     },
     {
-      "colorB": 99,
-      "colorG": 30,
-      "colorR": 233,
+      "colorB": 139,
+      "colorG": 125,
+      "colorR": 96,
       "creationTime": 0,
       "name": "Buttons",
       "source": "",
       "type": "BuiltinCommonInstructions::Group",
       "events": [
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "The panel is checked per button (an object variable condition), so a dialog button that lies over a button of the screen below still answers."
+        },
         {
           "type": "BuiltinCommonInstructions::Standard",
           "conditions": [
@@ -63,10 +75,11 @@
             },
             {
               "type": {
-                "value": "BuiltinCommonInstructions::CompareStrings"
+                "value": "StringObjectVariable"
               },
               "parameters": [
-                "UiButton.Panel",
+                "UiButton",
+                "Panel",
                 "=",
                 "Ui.top"
               ]
@@ -153,10 +166,11 @@
             },
             {
               "type": {
-                "value": "BuiltinCommonInstructions::CompareStrings"
+                "value": "StringObjectVariable"
               },
               "parameters": [
-                "UiButton.Panel",
+                "UiButton",
+                "Panel",
                 "=",
                 "Ui.top"
               ]
@@ -248,9 +262,9 @@
       "parameters": []
     },
     {
-      "colorB": 136,
-      "colorG": 150,
-      "colorR": 0,
+      "colorB": 226,
+      "colorG": 144,
+      "colorR": 74,
       "creationTime": 0,
       "folded": true,
       "name": "Touch",
@@ -295,9 +309,49 @@
       "parameters": []
     },
     {
-      "colorB": 72,
-      "colorG": 85,
-      "colorR": 121,
+      "colorB": 194,
+      "colorG": 87,
+      "colorR": 126,
+      "creationTime": 0,
+      "folded": true,
+      "name": "Texts that fit",
+      "source": "",
+      "type": "BuiltinCommonInstructions::Group",
+      "events": [
+        {
+          "type": "BuiltinCommonInstructions::Comment",
+          "color": {
+            "b": 109,
+            "g": 230,
+            "r": 255,
+            "textB": 0,
+            "textG": 0,
+            "textR": 0
+          },
+          "comment": "A text made with a maximum height is fitted again whenever its content changes (HolyHoly::FitTexts), so updated labels never run out of their room."
+        },
+        {
+          "type": "BuiltinCommonInstructions::Standard",
+          "conditions": [],
+          "actions": [
+            {
+              "type": {
+                "value": "HolyHoly::FitTexts"
+              },
+              "parameters": [
+                "",
+                ""
+              ]
+            }
+          ]
+        }
+      ],
+      "parameters": []
+    },
+    {
+      "colorB": 80,
+      "colorG": 175,
+      "colorR": 76,
       "creationTime": 0,
       "folded": true,
       "name": "Turn the phone",
@@ -430,6 +484,7 @@
                     "\"rotate\"",
                     "\"rotate\"",
                     "\"UI\"",
+                    "0",
                     ""
                   ]
                 }

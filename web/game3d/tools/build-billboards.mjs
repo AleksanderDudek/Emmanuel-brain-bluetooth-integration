@@ -4,7 +4,7 @@
  *
  *   hero-<id>.glb      the archangels          (from assets/heroes/<id>.webp)
  *   enemy-<kind>.glb   the shadow-thoughts     (from assets/enemies/<kind>.webp)
- *   boss-<id>.glb      the strongholds         (from assets/bosses/<id>.webp)
+ *   boss-<id>.glb      the lies personified    (from assets/bosses/<id>.webp)
  *   christ.glb, person-m.glb, person-f.glb, reliquary.glb
  *   fx-*.glb           projectiles, auras and pools: flat glowing quads, drawn here in code
  *
@@ -146,7 +146,44 @@ const glow = draw(128, 128, (u, v) => {
   return [255, 236, 170, Math.max(0, 1 - d) ** 2 + rays];
 });
 
+/** A spring of living water (J 4,14): a blue pool with ripples and a bright rim. */
+const spring = draw(256, 256, (u, v) => {
+  const x = u * 2 - 1, d = Math.hypot(x, v);
+  if (d > 1) return [0, 0, 0, 0];
+  const rim = Math.exp(-(((d - 0.9) / 0.05) ** 2));
+  const ripples = (0.5 + 0.5 * Math.cos(d * 26)) * smooth(0.95, 0.2, d) * 0.35;
+  const fill = 0.35 * smooth(1, 0.3, d);
+  return [...mixc([60, 140, 230], [220, 245, 255], Math.min(1, rim + ripples)), Math.min(1, fill + ripples + rim * 0.9)];
+});
+
+/** The ring under a speaking shadow: a red-violet halo that pulses. */
+const voiceRing = draw(256, 256, (u, v) => {
+  const x = u * 2 - 1, d = Math.hypot(x, v);
+  const ring = Math.exp(-(((d - 0.78) / 0.08) ** 2));
+  const haze = Math.max(0, 1 - d) ** 2 * 0.35;
+  return [...mixc([150, 40, 90], [255, 140, 170], ring), Math.min(1, ring * 0.95 + haze)];
+});
+
+/** A word of truth left by a silenced voice: a gold disc with four rays. */
+const truth = draw(128, 128, (u, v) => {
+  const x = u * 2 - 1, d = Math.hypot(x, v);
+  const core = smooth(0.5, 0.2, d);
+  const rays = (Math.exp(-((x / 0.06) ** 2)) + Math.exp(-((v / 0.06) ** 2))) * Math.max(0, 1 - d);
+  return [...mixc([255, 200, 80], [255, 255, 235], core), Math.min(1, core + rays * 0.8 + Math.max(0, 1 - d) ** 2 * 0.5)];
+});
+
+/** The light around a memory: pale silver mist. */
+const memory = draw(256, 256, (u, v) => {
+  const x = u * 2 - 1, d = Math.hypot(x, v);
+  const n = vnoise(x * 5 + 3, v * 5 + 7);
+  return [...mixc([170, 180, 220], [255, 255, 255], n), Math.max(0, 1 - d) ** 1.6 * (0.45 + 0.4 * n)];
+});
+
 const EFFECTS = [
+  ['fx-spring.glb', spring, 1, 12],
+  ['fx-voice.glb', voiceRing, 1, 50],
+  ['fx-truth.glb', truth, 1, 90],
+  ['fx-memory.glb', memory, 1, 15],
   ['fx-flame.glb', flame, 0.5],
   ['fx-spear.glb', spear, 40 / 256],
   ['fx-orb.glb', orb, 1],
