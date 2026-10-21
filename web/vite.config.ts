@@ -26,9 +26,9 @@ export default defineConfig({
       registerType: 'prompt',
       pwaAssets: { config: true },
       manifest: {
-        name: 'BrainLink fNIRS',
+        name: 'BrainLink',
         short_name: 'BrainLink',
-        description: 'Neurofeedback z opaską fNIRS Mendi: hemodynamika na żywo, trening równowagi półkul, sesje zapisane lokalnie.',
+        description: 'Neurofeedback z opaską fNIRS Mendi lub EEG BrainAccess HALO: trening skupienia, równowaga półkul, gry, sygnał na żywo, sesje zapisane lokalnie.',
         lang: 'pl',
         theme_color: '#0a0b0d',
         background_color: '#0a0b0d',

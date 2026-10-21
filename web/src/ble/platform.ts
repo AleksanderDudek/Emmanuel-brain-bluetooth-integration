@@ -118,7 +118,12 @@ const TURN_ON: Record<Platform, Omit<Guidance, 'canConnect'>> = {
   },
 };
 
-export function guidance(platform: Platform, browser: BrowserKind, status: BtStatus): Guidance {
+/** How the messages name the headband: the band itself, its phone app, and its entry in the browser's chooser. */
+export interface BandNames { band: string; app: string; listed: string }
+export const MENDI_NAMES: BandNames = { band: 'Mendi', app: 'Mendi', listed: 'Mendi' };
+export const HALO_NAMES: BandNames = { band: 'BrainAccess HALO', app: 'BrainAccess', listed: 'BA HALO…' };
+
+export function guidance(platform: Platform, browser: BrowserKind, status: BtStatus, names: BandNames = MENDI_NAMES): Guidance {
   if (status === 'insecure') {
     return { title: 'Wymagane HTTPS', canConnect: false,
              steps: ['Przeglądarka udostępnia Bluetooth tylko stronom otwartym przez HTTPS (lub localhost).'] };
@@ -143,20 +148,20 @@ export function guidance(platform: Platform, browser: BrowserKind, status: BtSta
   }
   const base = TURN_ON[platform];
   if (status === 'unavailable') return { ...base, canConnect: platform === 'android' };
-  return { title: 'Łączenie z opaską Mendi', canConnect: true,
-           steps: ['Naładuj i włącz opaskę.', 'Zamknij aplikację Mendi na telefonie — opaska przyjmuje jedno połączenie naraz.',
-                   'Naciśnij „Połącz” i wybierz „Mendi” z listy przeglądarki.', ...base.steps] };
+  return { title: `Łączenie z opaską ${names.band}`, canConnect: true,
+           steps: ['Naładuj i włącz opaskę.', `Zamknij aplikację ${names.app} na telefonie — opaska przyjmuje jedno połączenie naraz.`,
+                   `Naciśnij „Połącz” i wybierz „${names.listed}” z listy przeglądarki.`, ...base.steps] };
 }
 
 export interface BleErrorInfo { message: string; cancelled: boolean; showGuidance: boolean }
 
 /** Turn a Web Bluetooth exception into a user-facing message. */
-export function explainBleError(e: unknown): BleErrorInfo {
+export function explainBleError(e: unknown, names: BandNames = MENDI_NAMES): BleErrorInfo {
   const name = (e as { name?: string })?.name ?? '';
   const msg = (e as { message?: string })?.message ?? String(e);
   if (name === 'NotFoundError' && /cancel/i.test(msg)) return { message: 'Anulowano wybór urządzenia.', cancelled: true, showGuidance: false };
   if (name === 'NotFoundError' && /servic|characteristic/i.test(msg)) {
-    return { message: 'To urządzenie nie wygląda na opaskę Mendi (brak usługi Mendi) albo ma nieobsługiwane oprogramowanie.',
+    return { message: `To urządzenie nie wygląda na opaskę ${names.band} (brak jej usługi Bluetooth) albo ma nieobsługiwane oprogramowanie.`,
              cancelled: false, showGuidance: false };
   }
   if (name === 'NotFoundError' || /adapter not available/i.test(msg)) {
@@ -169,7 +174,7 @@ export function explainBleError(e: unknown): BleErrorInfo {
   if (name === 'NotAllowedError') return { message: 'Przeglądarka lub system zablokowały dostęp do Bluetooth.', cancelled: false, showGuidance: true };
   if (name === 'NotSupportedError') return { message: 'To urządzenie nie obsługuje Bluetooth Low Energy.', cancelled: false, showGuidance: true };
   if (name === 'NetworkError') {
-    return { message: 'Nie udało się połączyć — opaska poza zasięgiem albo połączona z telefonem (zamknij aplikację Mendi).',
+    return { message: `Nie udało się połączyć — opaska poza zasięgiem albo połączona z telefonem (zamknij aplikację ${names.app}).`,
              cancelled: false, showGuidance: false };
   }
   return { message: msg || 'Nieznany błąd Bluetooth.', cancelled: false, showGuidance: false };

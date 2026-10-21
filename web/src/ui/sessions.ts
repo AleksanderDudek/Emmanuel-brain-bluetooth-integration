@@ -1,5 +1,10 @@
-/** Sessions tab: everything saved in the browser and in the chosen folder. */
+/** Sesje: focus-training results, and the recordings saved in the browser and in the chosen folder. */
+import type { SessionDB } from '../storage/db';
 import type { SessionMeta } from '../storage/format';
+import { SCENES } from '../training/scene';
+import type { TrainingResult } from '../training/score';
+import type { SceneId } from '../settings';
+import { drawOverview } from './focus';
 import { folderSupported, type FolderStore } from '../storage/folder';
 import { download, type SessionLibrary } from '../storage/library';
 import { $, fmtDur, h, run, toast } from './dom';
@@ -11,17 +16,46 @@ const where = (m: SessionMeta): string => {
 
 export class SessionsView {
   constructor(private readonly library: SessionLibrary, private readonly folder: FolderStore,
-              private readonly activeId: () => string | null) {
+              private readonly activeId: () => string | null, private readonly db: SessionDB,
+              private readonly onTrainingsChanged: (list: TrainingResult[]) => void) {
     $('btnRefreshSessions').addEventListener('click', run(() => this.refresh()));
+  }
+
+  /** The training results, newest first, with their curves. */
+  renderTrainings(list: TrainingResult[]): void {
+    const FACES = ['😞', '🙁', '😐', '🙂', '😄'];
+    $('trainingsHint').textContent = list.length ? `${list.length} · wszystkie na tym urządzeniu` : '';
+    const rows = list.map(r => {
+      const spark = h('canvas', { 'aria-hidden': 'true' });
+      const pct = r.activity_avg_pct;
+      const date = new Date(r.start_time * 1000).toLocaleString('pl-PL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      const meta = [date, fmtDur(r.played_sec) + ' min', `aktywność ${pct === null ? '—' : (pct >= 0 ? '+' : '−') + Math.abs(pct).toFixed(1) + '%'}`,
+                    `kontrola ${r.control_sec} s`, r.tool === 'eeg' ? 'EEG' : 'fNIRS', r.device,
+                    r.mood ? `nastrój ${FACES[r.mood.face - 1]}${r.mood.words.length ? ' ' + r.mood.words.join(', ') : ''}` : '',
+                    r.completed ? '' : 'przerwana'].filter(Boolean).join(' · ');
+      const row = h('div', { class: 'session training' },
+        h('div', { class: 'num' }, String(r.points), h('small', null, 'tlen')),
+        h('div', { class: 'name' }, `Trening skupienia · ${SCENES[r.scene as SceneId]?.name ?? r.scene}`),
+        h('div', { class: 'meta' }, meta),
+        h('div', { class: 'actions' }, spark, h('button', { class: 'btn danger', type: 'button', on: { click: run(async () => {
+          if (!confirm('Usunąć ten wynik treningu? Tego nie da się cofnąć.')) return;
+          await this.db.deleteTraining(r.id);
+          toast('Usunięto wynik');
+          this.onTrainingsChanged(await this.db.listTrainings());
+        }) } }, 'Usuń')));
+      requestAnimationFrame(() => drawOverview(spark, r.series, SCENES[r.scene as SceneId]?.fill ?? SCENES.hills.fill));
+      return row;
+    });
+    $('trainingList').replaceChildren(...(rows.length ? rows : [h('p', { class: 'muted' }, 'Jeszcze żadnego treningu. Zacznij w „Trening → Trening skupienia”.')]));
   }
 
   async refresh(): Promise<void> {
     const list = await this.library.list();
     const rows = list.map(m => this.row(m));
-    $('sessionList').replaceChildren(...(rows.length ? rows : [h('p', { class: 'muted' }, 'Brak zapisanych sesji. Nagraj pierwszą w panelu „Nagrywanie”.')]));
+    $('sessionList').replaceChildren(...(rows.length ? rows : [h('p', { class: 'muted' }, 'Brak nagrań. Nagrywanie znajdziesz w „Sygnał” (fNIRS).')]));
     const perm = await this.folder.permission(false);
     $('sessionsHint').textContent = perm === 'prompt'
-      ? 'Sesje z folderu pojawią się po przyznaniu dostępu (panel „Przechowywanie sesji”).'
+      ? 'Sesje z folderu pojawią się po przyznaniu dostępu (Ustawienia → Przechowywanie sesji).'
       : 'CSV ma te same kolumny co nagrania serwera BrainLink (surowe ramki, ΔHbO/ΔHbR, znaczniki).';
   }
 

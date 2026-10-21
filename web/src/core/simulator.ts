@@ -13,6 +13,7 @@
  */
 
 import { pyRound } from './dsp';
+import { normalGenerator } from './random';
 import { Frame } from './proto';
 import { DEFAULT_FNIRS_CONFIG, EXTINCTION, MENDI_SAMPLE_RATE, validateConfig } from './pipeline';
 import type { FNIRSConfig } from './types';
@@ -53,30 +54,6 @@ export const FNIRS_SCENARIOS: Record<string, [string, number][]> = {
 };
 
 type Side = 'l' | 'r' | 'p';
-
-/** Seeded standard-normal generator: mulberry32 uniforms + Box–Muller. */
-function normalGenerator(seed: number): () => number {
-  let a = seed >>> 0;
-  const uniform = (): number => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-  let spare: number | null = null;
-  return () => {
-    if (spare !== null) {
-      const z = spare;
-      spare = null;
-      return z;
-    }
-    const r = Math.sqrt(-2 * Math.log(1 - uniform())); // 1 − u ∈ (0, 1], so log is finite
-    const theta = 2 * Math.PI * uniform();
-    spare = r * Math.sin(theta);
-    return r * Math.cos(theta);
-  };
-}
 
 export interface FNIRSSimulatorOptions {
   fs?: number;

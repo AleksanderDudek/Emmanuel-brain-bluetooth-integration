@@ -1,6 +1,6 @@
 /** Bluetooth status banner + guidance dialog ("how do I turn Bluetooth on here?"). */
 import {
-  bluetoothStatus, detectBrowser, detectPlatform, explainBleError, guidance, watchAvailability, type BtStatus,
+  bluetoothStatus, detectBrowser, detectPlatform, explainBleError, guidance, MENDI_NAMES, watchAvailability, type BandNames, type BtStatus,
 } from '../ble/platform';
 import { $, h, toast } from './dom';
 
@@ -10,9 +10,11 @@ export class BluetoothUi {
   private readonly browser = detectBrowser();
   private readonly dialog = $<HTMLDialogElement>('btDialog');
 
-  constructor(private readonly connect: () => void) {
+  /** @param names how to call the headband of the active tool */
+  constructor(private readonly connect: () => void, private readonly names: () => BandNames = () => MENDI_NAMES) {
     $('btBannerHelp').addEventListener('click', () => this.open());
     $('btnBtHelp').addEventListener('click', () => this.open());
+    // the guidance dialog sits above the device sheet; "connect now" must still be a direct click
     $('btDialogConnect').addEventListener('click', () => { this.dialog.close(); this.connect(); });
   }
 
@@ -40,7 +42,7 @@ export class BluetoothUi {
   }
 
   open(status: BtStatus = this.status): void {
-    const g = guidance(this.platform, this.browser, status);
+    const g = guidance(this.platform, this.browser, status, this.names());
     $('btDialogTitle').textContent = g.title;
     $('btDialogSteps').replaceChildren(...g.steps.map(s => h('li', null, s)));
     const link = $<HTMLAnchorElement>('btDialogLink');
@@ -57,7 +59,7 @@ export class BluetoothUi {
 
   /** Show a failed connection attempt to the user, with guidance where it helps. */
   handleError(e: unknown): void {
-    const info = explainBleError(e);
+    const info = explainBleError(e, this.names());
     if (info.cancelled) return;
     toast(info.message, true);
     if (info.showGuidance) this.open(this.status === 'available' ? 'unavailable' : this.status);

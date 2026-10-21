@@ -29,7 +29,7 @@ brainlink-desktop/
 │   ├── fnirs.html      ← Real-time fNIRS dashboard (/fnirs, /fnirs#balance)
 │   └── fnirs-balance.js ← Balance trainer view + task bank
 ├── tests/              ← pytest suite (no hardware needed)
-├── web/                ← fNIRS web app (PWA): Web Bluetooth, offline, no server needed
+├── web/                ← BrainLink web app (PWA) for Mendi + HALO: Web Bluetooth, offline, no server needed
 ├── recordings/         ← Saved EEG sessions (gitignored)
 ├── requirements.txt
 ├── requirements-dev.txt ← pytest, httpx, protobuf (tests only)
@@ -241,11 +241,22 @@ experiments and neurofeedback, not diagnosis or therapy.
 
 ## Web app (no server)
 
-`web/` is the Mendi fNIRS part as an installable Progressive Web App: Web
-Bluetooth, the full pipeline and balance trainer in the browser, sessions in
-IndexedDB or a local folder, works offline. Chrome/Edge/Opera on Windows,
-macOS, Android and ChromeOS; iOS through the Bluefy browser. See
-[web/README.md](web/README.md).
+`web/` is BrainLink as an installable Progressive Web App for **both headbands**: Mendi
+(fNIRS) and BrainAccess HALO (EEG), each over Web Bluetooth and each with a simulator. You
+choose the band at the top of the app. Inside it:
+
+* a **focus training** modelled on Mendi's default one (an orb riding the activity curve, points,
+  control, day score and streak);
+* the balance trainer;
+* the two HolyHolyHoly games, run inside the app on the band that is already connected;
+* live signal views, and sessions in IndexedDB or a local folder.
+
+It works offline. It runs in Chrome/Edge/Opera on Windows, macOS, Android and ChromeOS, and on
+iOS through the Bluefy browser. See [web/README.md](web/README.md) and
+[web/DESIGN.md](web/DESIGN.md).
+
+The server's dashboards (`/` for EEG, `/fnirs` for fNIRS) share an **EEG · HALO | fNIRS · Mendi**
+switch in their top bar.
 
 ```bash
 cd web && npm ci && npm run dev

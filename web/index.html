@@ -3,22 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'none'">
-<meta name="description" content="Neurofeedback z opaską fNIRS Mendi: hemodynamika na żywo, trening równowagi półkul, sesje zapisane lokalnie.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-src 'self'; base-uri 'self'; form-action 'none'">
+<meta name="description" content="Neurofeedback z opaską fNIRS Mendi lub EEG BrainAccess HALO: trening skupienia, równowaga półkul, gry, sygnał na żywo i sesje zapisane lokalnie.">
 <meta name="color-scheme" content="dark">
-<title>BrainLink fNIRS</title>
+<title>BrainLink</title>
 </head>
-<body>
-<div class="shell">
+<body data-tool="none">
+<svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-train" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 19c3-4 5-6 9-6s6 2 9 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-signal" viewBox="0 0 24 24"><path d="M2 12h3l2.5-6 4 13 3-9 2 4H22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-sessions" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 9h8M8 13h8M8 17h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M5 7h9M18 7h1M5 17h3M12 17h7M5 12h5M14 12h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="10" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+  <symbol id="i-drop" viewBox="0 0 24 24"><path d="M12 3.5C9 8 6.5 11 6.5 14.5a5.5 5.5 0 0 0 11 0C17.5 11 15 8 12 3.5z" fill="currentColor"/></symbol>
+  <symbol id="i-brain" viewBox="0 0 24 24"><path d="M11 5.2A3 3 0 0 0 6 6.5a3 3 0 0 0-2 4.8A3.2 3.2 0 0 0 6 16.8 3 3 0 0 0 11 18.6zM13 5.2a3 3 0 0 1 5 1.3 3 3 0 0 1 2 4.8 3.2 3.2 0 0 1-2 5.5 3 3 0 0 1-5 1.8z" fill="currentColor"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4.5 16.5a8 8 0 1 1 15 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 14.5 15.5 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="14.5" r="1.6" fill="currentColor"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z" fill="currentColor"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-8.5z" fill="currentColor"/></symbol>
+  <symbol id="i-bt" viewBox="0 0 24 24"><path d="m7 7 10 10-5 4V3l5 4L7 17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+</svg>
 
-<header class="topbar">
-  <h1>Brain<span>Link</span><small>fNIRS · Mendi</small></h1>
-  <div class="status">
-    <div class="dot" id="dot"></div>
-    <span id="statusText">Uruchamianie…</span>
-    <span class="muted" id="rateText"></span>
-    <button class="btn" type="button" id="btnInstall" hidden>Zainstaluj aplikację</button>
+<div class="app">
+<header class="appbar">
+  <a class="brand" href="#start" aria-label="BrainLink — start">Brain<span>Link</span></a>
+  <div class="toolswitch" role="radiogroup" aria-label="Opaska">
+    <button type="button" role="radio" aria-checked="false" data-tool="fnirs"><b>fNIRS</b><small>Mendi</small></button>
+    <button type="button" role="radio" aria-checked="false" data-tool="eeg"><b>EEG</b><small>HALO</small></button>
+  </div>
+  <div class="appbar-end">
+    <a class="recpill" id="recPill" href="#sygnal" hidden><i></i><span id="recPillText">REC</span></a>
+    <button class="btn ghost" type="button" id="btnInstall" hidden>Zainstaluj</button>
     <button class="btn on" type="button" id="btnUpdate" hidden>Nowa wersja — odśwież</button>
+    <button class="devchip" type="button" id="devChip" aria-haspopup="dialog" aria-controls="deviceSheet">
+      <i class="dot" id="chipDot"></i>
+      <span class="devchip-text"><b id="chipName">Wybierz opaskę</b><small id="chipMeta"></small></span>
+    </button>
   </div>
 </header>
 
@@ -27,60 +49,120 @@
   <button class="btn" type="button" id="btBannerHelp">Jak włączyć?</button>
 </div>
 
-<main class="main">
-  <div class="tabs" role="tablist" aria-label="Widok">
-    <button class="tab" type="button" role="tab" id="tabMonitor" aria-controls="viewMonitor" aria-selected="true" data-view="monitor">Monitor</button>
-    <button class="tab" type="button" role="tab" id="tabBalance" aria-controls="viewBalance" aria-selected="false" data-view="balance">Trening równowagi</button>
-    <button class="tab" type="button" role="tab" id="tabSessions" aria-controls="viewSessions" aria-selected="false" data-view="sessions">Sesje</button>
-  </div>
+<nav class="rail" aria-label="Główna nawigacja">
+  <a href="#start" data-nav="start"><svg><use href="#i-home"/></svg><span>Start</span></a>
+  <a href="#trening" data-nav="trening"><svg><use href="#i-train"/></svg><span>Trening</span></a>
+  <a href="#sygnal" data-nav="sygnal"><svg><use href="#i-signal"/></svg><span>Sygnał</span></a>
+  <a href="#sesje" data-nav="sesje"><svg><use href="#i-sessions"/></svg><span>Sesje</span></a>
+  <a href="#ustawienia" data-nav="ustawienia"><svg><use href="#i-settings"/></svg><span>Ustawienia</span></a>
+</nav>
 
-  <section class="view" id="viewMonitor" role="tabpanel" aria-labelledby="tabMonitor">
-    <div class="stats">
-      <div class="stat"><div class="k">Tętno</div><div class="v"><span id="hr">—</span><small>bpm</small></div></div>
-      <div class="stat"><div class="k">ΔHbO śr.</div><div class="v hbo"><span id="hboAvg">—</span><small>µM</small></div></div>
-      <div class="stat"><div class="k">ΔHbR śr.</div><div class="v hbr"><span id="hbrAvg">—</span><small>µM</small></div></div>
-      <div class="stat"><div class="k">Ruch</div><div class="v" id="motion">—</div></div>
+<main class="main" id="main" tabindex="-1">
+
+  <!-- ── Start ─────────────────────────────────────────────────── -->
+  <section class="view" id="view-start" aria-labelledby="startTitle">
+    <header class="hero">
+      <p class="eyebrow" id="startDate"></p>
+      <h1 id="startTitle">Dobry dzień na trening</h1>
+      <p class="lede" id="startLede"></p>
+    </header>
+
+    <div class="tool-pick" id="toolPick" hidden>
+      <button type="button" class="tool-card" data-pick="fnirs">
+        <span class="tool-card-kicker">fNIRS</span>
+        <span class="tool-card-title">Mendi</span>
+        <span class="tool-card-text">Przepływ krwi i natlenienie kory przedczołowej. Trening skupienia, równowaga półkul i gry.</span>
+      </button>
+      <button type="button" class="tool-card" data-pick="eeg">
+        <span class="tool-card-kicker">EEG</span>
+        <span class="tool-card-title">BrainAccess HALO</span>
+        <span class="tool-card-text">Fale mózgowe z czterech elektrod. Trening skupienia i metryki na żywo.</span>
+      </button>
+      <p class="muted">Nie masz opaski przy sobie? Wybierz którąkolwiek — każda ma symulator.</p>
     </div>
 
-    <div class="card">
-      <div class="card-head">Hemodynamika kory przedczołowej
-        <div class="legend"><span><i class="sw-hbo"></i>ΔHbO</span><span><i class="sw-hbr"></i>ΔHbR</span><span class="hint">ostatnie 10 s</span></div>
+    <div class="next card" id="nextStep" hidden>
+      <ol class="steps" id="steps" aria-label="Przygotowanie"></ol>
+      <div class="next-body">
+        <h2 id="nextTitle"></h2>
+        <p class="muted" id="nextText"></p>
+        <div class="progress" id="nextProgress" hidden><div></div></div>
       </div>
-      <div id="baselineBox" class="muted baseline">
-        Zbieranie linii bazowej — siedź spokojnie… <span id="baselinePct">0%</span>
-        <div class="progress"><div id="baselineBar"></div></div>
-      </div>
-      <div class="grid2">
-        <div class="chart"><span class="lbl">Lewa</span><span class="val" id="valL">—</span><canvas id="chartL"></canvas></div>
-        <div class="chart"><span class="lbl">Prawa</span><span class="val" id="valR">—</span><canvas id="chartR"></canvas></div>
+      <div class="row next-actions" id="nextActions"></div>
+    </div>
+
+
+    <div class="today" id="today" hidden>
+      <h2 class="section-title">Dziś</h2>
+      <div class="today-grid">
+        <div class="card score-card">
+          <div class="ring" id="todayRing" role="img"></div>
+          <div>
+            <p class="score-label" id="todayLabel"></p>
+            <p class="muted" id="todayMeta"></p>
+          </div>
+        </div>
+        <div class="card" id="lastSession"></div>
       </div>
     </div>
 
-    <div class="grid2">
+    <h2 class="section-title">Szybki start</h2>
+    <div class="tiles" id="quickTiles"></div>
+  </section>
+
+  <!-- ── Trening ───────────────────────────────────────────────── -->
+  <section class="view" id="view-trening" aria-labelledby="treningTitle" hidden>
+    <header class="view-head">
+      <h1 id="treningTitle">Trening</h1>
+      <p class="lede">Ćwiczenia neurofeedbacku i gry, które czytają opaskę połączoną w aplikacji.</p>
+    </header>
+    <div class="activities" id="activities"></div>
+  </section>
+
+  <!-- ── Trening skupienia: przygotowanie ──────────────────────── -->
+  <section class="view" id="view-focus" aria-labelledby="focusTitle" hidden>
+    <a class="back" href="#trening">← Trening</a>
+    <header class="view-head">
+      <h1 id="focusTitle">Trening skupienia</h1>
+      <p class="lede">Utrzymaj kulę wysoko. Rośnie, gdy kora przedczołowa pracuje mocniej niż na początku sesji — opada, gdy uwaga odpłynie. Rozluźnij się i delikatnie „podnoś” ją myślą.</p>
+    </header>
+    <div class="focus-setup">
+      <div class="card scene-card">
+        <div class="card-head">Sceneria</div>
+        <div class="scenes" id="scenePick" role="radiogroup" aria-label="Sceneria"></div>
+      </div>
       <div class="card">
-        <div class="card-head">Metryki <span class="hint">0–1, względem ostatnich 60 s</span></div>
-        <div class="metric-row"><span class="metric-label">Aktywacja</span><div class="metric-bar-bg"><div class="metric-bar-fill act" id="barAct"></div></div><span class="metric-val" id="valAct">—</span></div>
-        <div class="metric-row"><span class="metric-label">Asymetria</span><div class="metric-bar-bg"><div class="mid"></div><div class="metric-bar-fill asym" id="barAsym"></div></div><span class="metric-val" id="valAsym">—</span></div>
-        <div class="muted mt8">Asymetria: &lt;0.5 lewa · 0.5 równowaga · &gt;0.5 prawa · <a href="#balance" class="acc">trening równowagi →</a></div>
+        <div class="card-head">Sesja</div>
+        <div class="field"><span>Długość</span><div class="seg" id="lenPick" role="radiogroup" aria-label="Długość sesji"></div></div>
+        <label class="switch"><input type="checkbox" id="optMood"><span>Pytanie o samopoczucie</span></label>
+        <label class="switch"><input type="checkbox" id="optBreath"><span>Oddech przed sesją (1 min)</span></label>
+        <div class="card-head mt16">Wygląd</div>
+        <label class="switch"><input type="checkbox" id="optGlow"><span>Poświata kuli</span></label>
+        <label class="switch"><input type="checkbox" id="optZoom"><span>Dynamiczne przybliżenie</span></label>
+        <label class="switch"><input type="checkbox" id="optHud"><span>Wyniki na ekranie</span></label>
+        <div class="card-head mt16">Dźwięk</div>
+        <label class="switch"><input type="checkbox" id="optSound"><span>Pejzaż dźwiękowy</span></label>
+        <label class="switch"><input type="checkbox" id="optChime"><span>Dzwonek za punkty</span></label>
+        <label class="field"><span>Głośność</span><input type="range" id="optVolume" min="0" max="1" step="0.05"></label>
       </div>
-      <div class="card">
-        <div class="card-head">Puls (kanał centralny) <span class="hint">IR, 5 s</span></div>
-        <div class="chart"><canvas id="chartPulse" class="short"></canvas></div>
+      <div class="card start-card">
+        <div class="card-head">Gotowość <span class="badge" id="focusBadge">—</span></div>
+        <p id="focusReady" class="ready-text"></p>
+        <ul class="tips" id="focusTips"></ul>
+        <button class="btn primary big" type="button" id="btnFocusStart"><svg><use href="#i-play"/></svg>Rozpocznij</button>
+        <p class="muted mt8" id="focusHint"></p>
       </div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">Jakość sygnału <span class="hint">SCI ≥ 0.75 = dobry kontakt</span></div>
-      <div class="q" id="quality"></div>
-    </div>
-
-    <div class="card">
-      <div class="card-head">Surowe dane <span class="hint">ostatnia ramka</span></div>
-      <div class="kv" id="rawKv"></div>
     </div>
   </section>
 
-  <section class="view" id="viewBalance" role="tabpanel" aria-labelledby="tabBalance" hidden>
+  <!-- ── Równowaga półkul (fNIRS) ──────────────────────────────── -->
+  <section class="view" id="view-balance" aria-labelledby="balanceTitle" hidden>
+    <a class="back" href="#trening">← Trening</a>
+    <header class="view-head">
+      <h1 id="balanceTitle">Równowaga półkul</h1>
+      <p class="lede">Zadanie dobierane do tego, która strona kory przedczołowej przeważa. Cel: utrzymać obie w równowadze.</p>
+    </header>
+    <div class="needs-tool" data-needs="fnirs"></div>
     <div class="card">
       <div class="card-head">Równowaga półkul <span class="badge zone-paused" id="balZoneBadge">—</span></div>
       <div class="gauge-track">
@@ -128,101 +210,216 @@
     <p class="disclaimer">Przypisanie zadań do półkul to uproszczenie — w korze przedczołowej większość zadań angażuje obie strony, a opaska mierzy tylko jej fragment. Widok służy do eksperymentów i neurofeedbacku, nie do diagnozy ani terapii. Podczas ruchu lub słabego kontaktu informacja zwrotna jest wstrzymywana.</p>
   </section>
 
-  <section class="view" id="viewSessions" role="tabpanel" aria-labelledby="tabSessions" hidden>
+  <!-- ── Sygnał ────────────────────────────────────────────────── -->
+  <section class="view" id="view-sygnal" aria-labelledby="sygnalTitle" hidden>
+    <header class="view-head row-head">
+      <div>
+        <h1 id="sygnalTitle">Sygnał</h1>
+        <p class="lede" id="sygnalLede">Dane z opaski na żywo.</p>
+      </div>
+      <span class="muted mono" id="rateText"></span>
+    </header>
+    <div class="needs-tool" data-needs="any"></div>
+
+    <div class="monitor" id="monitorFnirs" hidden>
+      <div class="stats">
+        <div class="stat"><div class="k">Tętno</div><div class="v"><span id="hr">—</span><small>bpm</small></div></div>
+        <div class="stat"><div class="k">ΔHbO śr.</div><div class="v hbo"><span id="hboAvg">—</span><small>µM</small></div></div>
+        <div class="stat"><div class="k">ΔHbR śr.</div><div class="v hbr"><span id="hbrAvg">—</span><small>µM</small></div></div>
+        <div class="stat"><div class="k">Ruch</div><div class="v" id="motion">—</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Hemodynamika kory przedczołowej
+          <div class="legend"><span><i class="sw-hbo"></i>ΔHbO</span><span><i class="sw-hbr"></i>ΔHbR</span><span class="hint">ostatnie 10 s</span></div>
+        </div>
+        <div id="baselineBox" class="muted baseline">
+          Zbieranie linii bazowej — siedź spokojnie… <span id="baselinePct">0%</span>
+          <div class="progress"><div id="baselineBar"></div></div>
+        </div>
+        <div class="grid2">
+          <div class="chart"><span class="lbl">Lewa</span><span class="val" id="valL">—</span><canvas id="chartL"></canvas></div>
+          <div class="chart"><span class="lbl">Prawa</span><span class="val" id="valR">—</span><canvas id="chartR"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="card-head">Metryki <span class="hint">0–1, względem ostatnich 60 s</span></div>
+          <div class="metric-row"><span class="metric-label">Aktywacja</span><div class="metric-bar-bg"><div class="metric-bar-fill act" id="barAct"></div></div><span class="metric-val" id="valAct">—</span></div>
+          <div class="metric-row"><span class="metric-label">Asymetria</span><div class="metric-bar-bg"><div class="mid"></div><div class="metric-bar-fill asym" id="barAsym"></div></div><span class="metric-val" id="valAsym">—</span></div>
+          <div class="muted mt8">Asymetria: &lt;0.5 lewa · 0.5 równowaga · &gt;0.5 prawa · <a href="#trening/balance" class="acc">trening równowagi →</a></div>
+        </div>
+        <div class="card">
+          <div class="card-head">Puls (kanał centralny) <span class="hint">IR, 5 s</span></div>
+          <div class="chart"><canvas id="chartPulse" class="short"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Jakość sygnału <span class="hint">SCI ≥ 0.75 = dobry kontakt</span></div>
+        <div class="q" id="quality"></div>
+      </div>
+
+      <div class="card" id="recCard">
+        <div class="card-head">Nagrywanie <span class="badge" id="recBadge">—</span></div>
+        <div class="rec-grid">
+          <div class="row">
+            <input id="recName" aria-label="Nazwa sesji" placeholder="nazwa sesji" class="grow">
+            <label class="inline">czas [s]<input id="recDur" aria-label="Czas trwania w sekundach" type="number" value="600" min="10" max="7200" class="w80"></label>
+            <button class="btn primary" type="button" id="btnRec">● Start</button>
+            <button class="btn danger" type="button" id="btnRecStop">■ Stop</button>
+          </div>
+          <div class="row">
+            <button class="btn" type="button" data-mark="task_start">Znacznik: start zadania</button>
+            <button class="btn" type="button" data-mark="task_end">koniec</button>
+            <input id="markCustom" aria-label="Własny znacznik" placeholder="własny znacznik" class="grow">
+            <button class="btn" type="button" id="btnMark">Dodaj</button>
+          </div>
+        </div>
+        <p class="muted mt8">Nagranie zapisuje surowe ramki, ΔHbO/ΔHbR i znaczniki — w przeglądarce albo w folderze (Ustawienia). Trening skupienia dodaje swoje znaczniki sam.</p>
+      </div>
+
+      <details class="card">
+        <summary class="card-head">Surowe dane <span class="hint">ostatnia ramka · rozwiń</span></summary>
+        <div class="kv" id="rawKv"></div>
+      </details>
+    </div>
+
+    <div class="monitor" id="monitorEeg" hidden>
+      <div class="stats" id="eegStats"></div>
+      <div class="grid2">
+        <div class="card">
+          <div class="card-head">Metryki <span class="hint">0–1</span></div>
+          <div id="eegMetrics"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">Kontakt elektrod <span class="hint">rozrzut z ostatniej sekundy</span></div>
+          <div class="q q4" id="eegContact"></div>
+          <div class="card-head mt16">Combo</div>
+          <div class="combos" id="eegCombos"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">EEG <span class="hint">po filtrze 50 Hz · ostatnie 2 s</span></div>
+        <div class="wave-grid" id="eegWaves"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">Moc pasm <span class="hint">Welch, ostatnia sekunda · skala log</span></div>
+        <div class="band-grid" id="eegBands"></div>
+      </div>
+      <p class="disclaimer">EEG w przeglądarce: te same filtry i metryki co serwer BrainLink. Klasyfikator stanów, kalibracja z przewodnikiem, kreator combo i nagrywanie EEG działają w aplikacji serwerowej (<span class="mono">python run.py</span>). HALO nie przesyła impedancji przez Bluetooth, więc kontakt jest szacowany z amplitudy.</p>
+    </div>
+  </section>
+
+  <!-- ── Sesje ─────────────────────────────────────────────────── -->
+  <section class="view" id="view-sesje" aria-labelledby="sesjeTitle" hidden>
+    <header class="view-head">
+      <h1 id="sesjeTitle">Sesje</h1>
+      <p class="lede">Wyniki treningów i nagrania sygnału. Wszystko zostaje na tym urządzeniu.</p>
+    </header>
     <div class="card">
-      <div class="card-head">Zapisane sesje <button class="btn" type="button" id="btnRefreshSessions">Odśwież</button></div>
+      <div class="card-head">Treningi skupienia <span class="hint" id="trainingsHint"></span></div>
+      <div class="sessions" id="trainingList"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">Nagrania <button class="btn" type="button" id="btnRefreshSessions">Odśwież</button></div>
       <div class="sessions" id="sessionList"></div>
       <p class="muted mt8" id="sessionsHint"></p>
     </div>
   </section>
-</main>
 
-<aside class="sidebar">
-  <div class="card">
-    <div class="card-head">Źródło</div>
-    <div class="row">
-      <button class="btn" type="button" data-src="simulator">Symulator</button>
-      <button class="btn" type="button" data-src="device">Mendi</button>
-      <button class="btn" type="button" data-src="off">Wyłącz</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">Opaska Mendi <span class="badge" id="devBadge">rozłączona</span></div>
-    <div class="row">
-      <button class="btn" type="button" id="btnConnect">Połącz</button>
-      <button class="btn danger" type="button" id="btnDisconnect">Rozłącz</button>
-      <button class="btn" type="button" id="btnBtHelp">Pomoc Bluetooth</button>
-    </div>
-    <div class="kv" id="devKv"></div>
-    <p class="muted mt8">Zamknij aplikację Mendi na telefonie — opaska obsługuje jedno połączenie Bluetooth naraz.</p>
-  </div>
-
-  <div class="card">
-    <div class="card-head">Linia bazowa</div>
-    <p class="muted mb8">ΔHb liczone są względem średniej intensywności z pierwszych sekund. Zresetuj po poprawieniu opaski.</p>
-    <button class="btn" type="button" id="btnBaseline">Resetuj linię bazową</button>
-  </div>
-
-  <div class="card" id="simCard">
-    <div class="card-head">Symulator</div>
-    <div class="row" id="simStates"></div>
-    <div class="row mt8" id="simScenarios"></div>
-    <div class="muted mt6" id="simInfo"></div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">Nagrywanie <span class="badge" id="recBadge">—</span></div>
-    <div class="row">
-      <input id="recName" aria-label="Nazwa sesji" placeholder="nazwa sesji" class="grow">
-      <input id="recDur" aria-label="Czas trwania w sekundach" type="number" value="600" min="10" max="7200" class="w70" title="czas trwania [s]">
-    </div>
-    <div class="row mt8">
-      <button class="btn" type="button" id="btnRec">● Start</button>
-      <button class="btn danger" type="button" id="btnRecStop">■ Stop</button>
-    </div>
-    <div class="row mt10">
-      <button class="btn" type="button" data-mark="task_start">Znacznik: start zadania</button>
-      <button class="btn" type="button" data-mark="task_end">koniec</button>
-    </div>
-    <div class="row mt6">
-      <input id="markCustom" aria-label="Własny znacznik" placeholder="własny znacznik" class="grow">
-      <button class="btn" type="button" id="btnMark">Dodaj</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-head">Przechowywanie sesji</div>
-    <div class="row" role="radiogroup" aria-label="Gdzie zapisywać sesje">
-      <button class="btn" type="button" role="radio" data-store="browser">Przeglądarka</button>
-      <button class="btn" type="button" role="radio" data-store="folder" id="btnStoreFolder">Folder lokalny</button>
-    </div>
-    <div class="kv" id="storeKv"></div>
-    <div class="row mt8">
-      <button class="btn" type="button" id="btnPickFolder">Wybierz folder</button>
-      <button class="btn" type="button" id="btnFolderAccess" hidden>Przyznaj dostęp</button>
-      <button class="btn" type="button" id="btnPersist" hidden>Chroń przed usunięciem</button>
-    </div>
-    <p class="muted mt8" id="storeHint"></p>
-  </div>
-
-  <div class="card">
-    <details>
-      <summary class="card-head">Parametry MBLL <span class="hint">rozwiń</span></summary>
-      <div class="grid2">
-        <label class="f">Czerwony [nm]<select id="cfgRed"></select></label>
-        <label class="f">IR [nm]<select id="cfgIr"></select></label>
-        <label class="f">Odległość [cm]<input id="cfgSep" type="number" step="0.1"></label>
-        <label class="f">DPF<input id="cfgDpf" type="number" step="0.1"></label>
-        <label class="f">Dolnoprzep. [Hz]<input id="cfgLp" type="number" step="0.05"></label>
-        <label class="f">Górnoprzep. [Hz]<input id="cfgHp" type="number" step="0.001"></label>
+  <!-- ── Ustawienia ────────────────────────────────────────────── -->
+  <section class="view" id="view-ustawienia" aria-labelledby="ustawieniaTitle" hidden>
+    <header class="view-head">
+      <h1 id="ustawieniaTitle">Ustawienia</h1>
+    </header>
+    <div class="settings-grid">
+      <div class="card">
+        <div class="card-head">Przechowywanie sesji</div>
+        <div class="row" role="radiogroup" aria-label="Gdzie zapisywać sesje">
+          <button class="btn" type="button" role="radio" data-store="browser">Przeglądarka</button>
+          <button class="btn" type="button" role="radio" data-store="folder" id="btnStoreFolder">Folder lokalny</button>
+        </div>
+        <div class="kv" id="storeKv"></div>
+        <div class="row mt8">
+          <button class="btn" type="button" id="btnPickFolder">Wybierz folder</button>
+          <button class="btn" type="button" id="btnFolderAccess" hidden>Przyznaj dostęp</button>
+          <button class="btn" type="button" id="btnPersist" hidden>Chroń przed usunięciem</button>
+        </div>
+        <p class="muted mt8" id="storeHint"></p>
       </div>
-      <button class="btn mt10" type="button" id="btnCfg">Zastosuj (resetuje bazę)</button>
-      <p class="disclaimer mt10">Mendi nie publikuje długości fal, odległości źródło–detektor ani DPF. Wartości domyślne są typowe dla konsumenckiego fNIRS — traktuj ΔHbO/ΔHbR jako zmiany względne. Integracja oparta na nieoficjalnym, odtworzonym protokole Bluetooth.</p>
-    </details>
-  </div>
-</aside>
+
+      <div class="card">
+        <details>
+          <summary class="card-head">Parametry MBLL (fNIRS) <span class="hint">rozwiń</span></summary>
+          <div class="grid2">
+            <label class="f">Czerwony [nm]<select id="cfgRed"></select></label>
+            <label class="f">IR [nm]<select id="cfgIr"></select></label>
+            <label class="f">Odległość [cm]<input id="cfgSep" type="number" step="0.1"></label>
+            <label class="f">DPF<input id="cfgDpf" type="number" step="0.1"></label>
+            <label class="f">Dolnoprzep. [Hz]<input id="cfgLp" type="number" step="0.05"></label>
+            <label class="f">Górnoprzep. [Hz]<input id="cfgHp" type="number" step="0.001"></label>
+          </div>
+          <button class="btn mt10" type="button" id="btnCfg">Zastosuj (resetuje bazę)</button>
+          <p class="disclaimer mt10">Mendi nie publikuje długości fal, odległości źródło–detektor ani DPF. Wartości domyślne są typowe dla konsumenckiego fNIRS — traktuj ΔHbO/ΔHbR jako zmiany względne. Integracja oparta na nieoficjalnym, odtworzonym protokole Bluetooth.</p>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="card-head">Dane treningów</div>
+        <p class="muted mb8">Wyniki treningu skupienia (punkty, kontrola, przebieg sesji, samopoczucie).</p>
+        <div class="row">
+          <button class="btn" type="button" id="btnExportTrainings">Eksportuj (JSON)</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">O aplikacji</div>
+        <p class="muted">BrainLink działa w całości w przeglądarce: Bluetooth, przetwarzanie sygnału i zapis. Nic nie jest wysyłane na zewnątrz.</p>
+        <p class="disclaimer mt8">To narzędzie do neurofeedbacku i eksperymentów, nie wyrób medyczny — nie służy do diagnozy ani terapii. Integracje z opaskami opierają się na nieoficjalnych, odtworzonych protokołach Bluetooth; trening skupienia jest wzorowany na treningu z aplikacji Mendi, ale nie jest z nią związany.</p>
+      </div>
+    </div>
+  </section>
+</main>
 </div>
+
+<!-- ── device sheet ─────────────────────────────────────────────── -->
+<dialog id="deviceSheet" class="sheet" aria-labelledby="sheetTitle">
+  <div class="sheet-head">
+    <div>
+      <p class="eyebrow" id="sheetKicker"></p>
+      <h2 id="sheetTitle">Opaska</h2>
+    </div>
+    <button class="icon-btn" type="button" id="sheetClose" aria-label="Zamknij"><svg><use href="#i-close"/></svg></button>
+  </div>
+  <div class="sheet-body">
+    <div class="sources" role="radiogroup" aria-label="Źródło sygnału" id="sourcePick">
+      <button type="button" role="radio" class="source" data-src="device"><b id="srcDeviceName">Opaska</b><small id="srcDeviceText">Połącz przez Bluetooth</small></button>
+      <button type="button" role="radio" class="source" data-src="simulator"><b>Symulator</b><small>Sztuczny sygnał do prób</small></button>
+      <button type="button" role="radio" class="source" data-src="off"><b>Wyłączone</b><small>Bez sygnału</small></button>
+    </div>
+    <div class="dev-status" id="devStatus">
+      <div class="row"><span class="badge" id="devBadge">rozłączona</span><span class="muted" id="devSignal"></span></div>
+      <div class="kv" id="devKv"></div>
+      <div class="row mt8">
+        <button class="btn" type="button" id="btnConnect"><svg><use href="#i-bt"/></svg>Połącz</button>
+        <button class="btn danger" type="button" id="btnDisconnect">Rozłącz</button>
+        <button class="btn ghost" type="button" id="btnBtHelp">Pomoc Bluetooth</button>
+      </div>
+      <p class="muted mt8" id="devNote"></p>
+    </div>
+    <div class="sim" id="simCard">
+      <div class="card-head">Symulator <span class="hint" id="simInfo"></span></div>
+      <div class="row" id="simStates"></div>
+      <div class="row mt8" id="simScenarios"></div>
+    </div>
+    <div class="row sheet-foot">
+      <button class="btn" type="button" id="btnBaseline">Nowa linia bazowa</button>
+      <span class="muted">po poprawieniu opaski</span>
+    </div>
+  </div>
+</dialog>
 
 <dialog id="btDialog" aria-labelledby="btDialogTitle">
   <form method="dialog">
@@ -235,6 +432,19 @@
     </div>
   </form>
 </dialog>
+
+<!-- ── full-screen layers ───────────────────────────────────────── -->
+<div class="immersive" id="immersive" hidden></div>
+<div class="game-layer" id="gameLayer" hidden>
+  <div class="game-bar">
+    <b id="gameTitle"></b>
+    <span class="muted" id="gameLink"></span>
+    <button class="btn ghost" type="button" id="gameBand"><svg><use href="#i-bt"/></svg>Opaska</button>
+    <button class="icon-btn" type="button" id="gameFull" aria-label="Pełny ekran"><svg><use href="#i-expand"/></svg></button>
+    <button class="icon-btn" type="button" id="gameClose" aria-label="Zamknij grę"><svg><use href="#i-close"/></svg></button>
+  </div>
+  <div class="game-frame" id="gameFrame"></div>
+</div>
 
 <div class="toast" id="toast" role="status"></div>
 <script type="module" src="/src/main.ts"></script>

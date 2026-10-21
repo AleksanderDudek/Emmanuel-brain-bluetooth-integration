@@ -5,11 +5,13 @@
  *   - FocusCharger / focusReading: held focus raises a ×1.5 / ×2 / ×3 multiplier.
  *
  * Without the band, standing still is focus (up to ×1.5), so the game is fully playable; the band
- * only adds (focus while moving, up to ×3). Nothing leaves the device.
+ * only adds (focus while moving, up to ×3). Nothing leaves the device. Opened from the BrainLink
+ * app (`?hub=1`), the app's band is used right away.
  *
  * Built into project/lib/mendi-focus.js by `npm run game3d:libs`.
  */
 import { NeuroBridge } from '../../game/src/neuro/bridge';
+import { embeddedInHub } from '../../src/hub/link';
 import { focusReading, NO_BAND, type NeuroState } from '../../game/src/neuro/effects';
 import { bandFocus, chargeFactor, FocusCharger, THRESHOLD, type FocusState } from '../../game/src/neuro/focus';
 
@@ -63,6 +65,11 @@ export function createMendiFocus(makeBridge: () => NeuroBridge = () => new Neuro
   let lastError = '';
   let state: FocusState = charger.update(0, { level: 0, source: 'none' });
   const neuro = (): NeuroState => bridge?.state ?? NO_BAND;
+  if (embeddedInHub()) {
+    // opened from the BrainLink app: its band (or simulator) is lent at once, no chooser
+    bridge = makeBridge();
+    bridge.followHub();
+  }
 
   return {
     threshold: THRESHOLD,

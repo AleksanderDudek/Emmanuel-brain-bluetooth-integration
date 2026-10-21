@@ -40,3 +40,4 @@ logs/
 # ─── Web app (web/) ──────────────────────────────────────────────────
 node_modules/
 dev-dist/
+web/.smoke/

@@ -10,7 +10,8 @@ function setupCanvas(c: HTMLCanvasElement) {
   return { ctx, w: r.width, h: r.height };
 }
 
-export const cssVar = (n: string): string => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+/** A CSS custom property as seen by the body, where the active tool's colours are set. */
+export const cssVar = (n: string): string => getComputedStyle(document.body).getPropertyValue(n).trim();
 
 export function drawLines(canvas: HTMLCanvasElement, series: number[][], colors: string[], symmetric = true): void {
   if (!canvas.getBoundingClientRect().width) return;   // hidden tab

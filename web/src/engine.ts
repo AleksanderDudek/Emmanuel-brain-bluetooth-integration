@@ -8,7 +8,8 @@ import { MendiDevice, type MendiInfo } from './ble/mendi';
 import { BalanceTracker } from './core/balance';
 import { FNIRSPipeline } from './core/pipeline';
 import { FNIRSSimulator } from './core/simulator';
-import { HEMO_CHANNELS, type BalanceConfig, type BalanceState, type FNIRSConfig, type Snapshot } from './core/types';
+import type { Frame } from './core/proto';
+import { HEMO_CHANNELS, type BalanceConfig, type BalanceState, type Derived, type FNIRSConfig, type Snapshot } from './core/types';
 import type { SessionMeta } from './storage/format';
 import type { SessionLibrary } from './storage/library';
 import type { Recorder, RecorderInfo } from './storage/recorder';
@@ -35,6 +36,8 @@ export interface EngineFrame extends Partial<Snapshot> {
 
 export interface SavedEvent { meta: SessionMeta; movedToFolder: boolean; error?: string }
 
+export interface TickFrames { frames: Frame[]; derived: Derived }
+
 function holdFor(snap: Snapshot): string | null {
   if (snap.motion) return 'motion';
   if (HEMO_CHANNELS.some(ch => ['poor', 'light_leak', 'no_signal'].includes(snap.quality[ch].label))) return 'poor_signal';
@@ -42,7 +45,8 @@ function holdFor(snap: Snapshot): string | null {
 }
 
 /**
- * Events: 'frame' (CustomEvent<EngineFrame>, 10 Hz), 'device' (band state changed),
+ * Events: 'frame' (CustomEvent<EngineFrame>, 10 Hz), 'frames' (CustomEvent<{ frames, derived }>, the
+ * raw frames and their ΔHb of a tick, when there were any), 'device' (band state changed),
  * 'saved' (CustomEvent<SavedEvent>, a recording was finalised), 'error' (CustomEvent<string>).
  */
 export class Engine extends EventTarget {
@@ -51,6 +55,8 @@ export class Engine extends EventTarget {
   readonly balance: BalanceTracker;
   readonly device: MendiDevice;
   source: Source = 'simulator';
+  /** bumped whenever the signal starts afresh (new source, new baseline): consumers re-baseline too */
+  epoch = 0;
   private lastFramesAt: number | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   private wasStreaming = false;
@@ -98,9 +104,11 @@ export class Engine extends EventTarget {
       : this.simulator.generateFrames();
     const derived = this.pipeline.push(frames);
     if (this.source === 'device' && this.pipeline.adaptRate()) {
+      this.epoch++;
       console.info(`fNIRS sample rate set to measured ${this.pipeline.fs} Hz (baseline restarted)`);
     }
     if (frames.length && this.recorder.recording) this.recorder.add(frames, derived);
+    if (frames.length) this.dispatchEvent(new CustomEvent<TickFrames>('frames', { detail: { frames, derived } }));
 
     const now = performance.now() / 1000;
     if (frames.length) this.lastFramesAt = now;
@@ -118,6 +126,7 @@ export class Engine extends EventTarget {
   /** Change source. A new signal, or a restarted stream, needs a new baseline. */
   setSource(name: Source, force = false): void {
     if (force || name !== this.source) {
+      this.epoch++;
       if (name === 'simulator' && this.pipeline.fs !== this.simulator.fs) this.pipeline.setRate(this.simulator.fs);
       else this.pipeline.reset();
       this.simulator.resync();
@@ -159,10 +168,14 @@ export class Engine extends EventTarget {
 
   setSimState(state: string): void { this.simulator.setState(state); }
 
-  baselineReset(): void { this.pipeline.reset(); }
+  baselineReset(): void {
+    this.pipeline.reset();
+    this.epoch++;
+  }
 
   setFnirsConfig(overrides: Partial<FNIRSConfig>): FNIRSConfig {
     const cfg = this.pipeline.setConfig(overrides);
+    this.epoch++;
     this.simulator.cfg = cfg;
     this.settings.fnirsConfig = cfg;
     return cfg;

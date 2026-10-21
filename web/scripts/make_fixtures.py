@@ -314,7 +314,112 @@ def balance_fixture() -> dict:
     return {"initial_config": initial, "ops": s.ops}
 
 
+# ─── eeg.json ─────────────────────────────────────────────────────────
+
+def eeg_fixture() -> dict:
+    """EEG port (web/src/core/eeg, web/src/ble/halo.ts) against brainlink/dsp.py, features.py, halo_ble.py."""
+    from scipy.signal import iirnotch, tf2sos, welch
+    import brainlink.features as features_mod
+    from brainlink.constants import CHANNELS, SAMPLE_RATE
+    from brainlink.dsp import DSPPipeline
+    from brainlink.features import FeatureEngine
+    from brainlink.halo_ble import HALOBleAdapter
+    from brainlink.simulator import EEGSimulator
+
+    b, a = iirnotch(50.0, Q=30, fs=SAMPLE_RATE)
+    notch = tf2sos(b, a)
+
+    rng = np.random.default_rng(31)
+    welch_cases = []
+    for n in (250, 200, 128):
+        t = np.arange(n) / SAMPLE_RATE
+        x = np.array(rounded(4 * np.sin(2 * np.pi * 10 * t) + 2 * np.sin(2 * np.pi * 22 * t + 0.4)
+                             + 1.5 * rng.normal(size=n) + 3.0, 6))
+        f, p = welch(x, fs=SAMPLE_RATE, nperseg=min(128, n))
+        welch_cases.append({"x": x.tolist(), "freqs": rounded(f, 12), "psd": rounded(p, 14)})
+
+    # The simulator draws from NumPy's global generator: seed it, round its output, replay it in TS
+    np.random.seed(5)
+    sim = EEGSimulator()
+    dsp = DSPPipeline()
+    chunks, checkpoints = [], []
+    plan = [("baseline", 30), ("focus", 25), ("stress", 25), ("eyes_closed", 20), ("flow", 20)]
+    for state, ticks in plan:
+        sim.set_state(state)
+        for _ in range(ticks):
+            raw = sim.generate(SAMPLE_RATE // 10)
+            raw = {ch: np.array(rounded(raw[ch], 6)) for ch in CHANNELS}
+            chunks.append({ch: raw[ch].tolist() for ch in CHANNELS})
+            dsp.push(raw)
+            cp = {"tick": len(chunks) - 1, "len": len(dsp.buffers["Fp1"]),
+                  "tail": {ch: rounded(dsp.buffers[ch][-8:], 12) for ch in CHANNELS}}
+            if dsp.has_enough():
+                cp["band_powers"] = {ch: {k: round(v, 12) for k, v in bp.items()}
+                                     for ch, bp in dsp.compute_band_powers().items()}
+                cp["blinks"] = dsp.detect_blinks()
+            checkpoints.append(cp)
+
+    # Features: band powers with phases that trip every combo; the clock is the tick count / 10
+    clock = {"t": 1000.0}
+    features_mod.time.time = lambda: clock["t"]
+    eng = FeatureEngine()
+    rng = np.random.default_rng(17)
+    feats = []
+
+    def bands(fp_alpha, fp_beta, fp_theta, occ_alpha, jitter=0.05):
+        def j(v):
+            return round(float(v * (1 + jitter * rng.normal())), 6)
+        out = {}
+        for ch in CHANNELS:
+            front = ch.startswith("Fp")
+            out[ch] = {"delta": j(6.0), "theta": j(fp_theta if front else 3.0),
+                       "alpha": j(fp_alpha if front else occ_alpha), "beta": j(fp_beta if front else 1.5), "gamma": j(0.6)}
+        return out
+
+    phases = [  # (ticks, fp_alpha, fp_beta, fp_theta, occ_alpha, blinks)
+        (30, 4.0, 3.0, 5.0, 8.0, 1),     # baseline
+        (60, 1.2, 4.0, 4.0, 1.3, 0),     # focus + high coherence → super_flow
+        (40, 1.0, 3.0, 9.0, 20.0, 28),   # blinks → stress, low fronto-occipital coherence → panic
+        (40, 3.0, 1.0, 2.0, 30.0, 0),    # strong occipital alpha, calm → zen_heal
+        (40, 1.0, 3.5, 8.0, 1.0, 22),    # stress + focus → berserker
+        (20, 0.005, 0.004, 0.003, 0.002, 0),  # tiny powers: the 0.01 floors
+    ]
+    for ticks, fa, fb, ft, oa, blinks in phases:
+        for _ in range(ticks):
+            clock["t"] = round(clock["t"] + 0.1, 1)
+            bp = bands(fa, fb, ft, oa)
+            res = eng.compute(bp, blinks)
+            feats.append({"t": clock["t"], "band_powers": bp, "blinks": blinks, **res})
+
+    # HALO packets: deltas incl. out-of-range first records, a footer-only and a malformed packet
+    halo = object.__new__(HALOBleAdapter)
+    halo._accum = [0.0] * 6
+    halo._buffer = {ch: [] for ch in CHANNELS}
+    halo._sample_rate = SAMPLE_RATE
+    rng = np.random.default_rng(3)
+    packets = []
+    for k in range(12):
+        n = int(rng.integers(1, 20))
+        body = rng.integers(-40, 40, size=n * 6)
+        if k % 3 == 0:
+            body[:6] = rng.choice([-128, -127, 127, 120, -100, 5], size=6)
+        pkt = bytes([int(v) & 0xFF for v in body]) + bytes([0x0F, k, 0, 0, 0, 0])
+        packets.append(list(pkt))
+    packets.insert(4, [0x0F, 1, 0, 0, 0, 0])          # footer only
+    packets.insert(7, list(range(13)))                 # unexpected size
+    outputs = []
+    for pkt in packets:
+        before = len(halo._buffer["Fp1"])
+        halo._parse_eeg_packet(bytearray(pkt))
+        outputs.append({ch: rounded(halo._buffer[ch][before:], 9) for ch in CHANNELS})
+
+    return {"notch_sos": notch.tolist(), "welch": welch_cases, "chunks": chunks, "checkpoints": checkpoints,
+            "features": feats, "halo": {"packets": packets, "outputs": outputs}}
+
+
+FIXTURES = {"dsp": dsp_fixture, "pipeline": pipeline_fixture, "balance": balance_fixture, "eeg": eeg_fixture}
+
 if __name__ == "__main__":
-    write("dsp.json", dsp_fixture())
-    write("pipeline.json", pipeline_fixture())
-    write("balance.json", balance_fixture())
+    # make_fixtures.py [name …] — all of them by default
+    for name in sys.argv[1:] or FIXTURES:
+        write(f"{name}.json", FIXTURES[name]())

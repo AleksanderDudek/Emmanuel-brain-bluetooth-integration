@@ -3,8 +3,12 @@
  * Web Bluetooth adapter (incl. the firmware-1.0.1 sensor wake), the fNIRS
  * pipeline (ΔHbO/ΔHbR, activation, asymmetry, heart rate, quality, motion)
  * and the hemispheric balance tracker.  Nothing leaves the device.
+ *
+ * Opened by the BrainLink app (embedded, `?hub=1`), the band is the app's:
+ * a HubDevice lends its frames (or its simulator's), so nothing is paired twice.
  */
 import { MendiDevice } from '../../../src/ble/mendi';
+import { embeddedInHub, HubDevice, type NeuroDevice } from '../../../src/hub/link';
 import { BalanceTracker } from '../../../src/core/balance';
 import { FNIRSPipeline } from '../../../src/core/pipeline';
 import { HEMO_CHANNELS } from '../../../src/core/types';
@@ -13,8 +17,10 @@ import { NO_BAND, type NeuroState } from './effects';
 const TICK_MS = 100;
 const STALE_SEC = 1.5;
 
+const defaultDevice = (): NeuroDevice => (embeddedInHub() ? new HubDevice() : new MendiDevice());
+
 export class NeuroBridge extends EventTarget {
-  readonly device: MendiDevice;
+  readonly device: NeuroDevice;
   // activation is judged against the last five minutes (BrainLink uses one): held focus stays above its
   // reference instead of becoming the new normal, which the focus multiplier needs
   private pipeline = new FNIRSPipeline({ activation_window_sec: 300 });
@@ -24,16 +30,44 @@ export class NeuroBridge extends EventTarget {
   private wasStreaming = false;
   state: NeuroState = NO_BAND;
 
-  constructor(device: MendiDevice = new MendiDevice()) {
+  constructor(device: NeuroDevice = defaultDevice()) {
     super();
     this.device = device;
     this.device.addEventListener('change', () => this.onDeviceChange());
   }
 
-  static supported(): boolean { return MendiDevice.supported(); }
+  static supported(): boolean { return embeddedInHub() || MendiDevice.supported(); }
+
+  /** The band is lent by the BrainLink app this game is embedded in. */
+  get viaHub(): boolean { return this.device instanceof HubDevice; }
+
+  /** Embedded and the app has an fNIRS signal ready to lend: connecting needs no chooser. */
+  get hubReady(): boolean {
+    const hub = this.device instanceof HubDevice ? this.device.hub : null;
+    return !!hub && hub.tool === 'fnirs' && hub.streaming;
+  }
+
+  /**
+   * Embedded in BrainLink: take the app's signal as soon as it has one — the player chose the band (or the
+   * simulator) there already.  Only once: after the player disconnects here, the game stays without it.
+   */
+  followHub(): void {
+    if (!(this.device instanceof HubDevice)) return;
+    const join = () => {
+      if (this.timer || this.declined || this.joining || !this.hubReady) return;
+      this.joining = true;
+      this.connect().catch(() => undefined).finally(() => { this.joining = false; });
+    };
+    this.device.addEventListener('change', join);
+    join();
+  }
+
+  private joining = false;
+  private declined = false;
 
   /** Show the browser's chooser and start streaming. Must run from a user gesture. */
   async connect(): Promise<void> {
+    this.declined = false;
     await this.device.request();
     await this.device.startStream();
     this.restartBaseline();
@@ -41,6 +75,7 @@ export class NeuroBridge extends EventTarget {
   }
 
   async disconnect(): Promise<void> {
+    this.declined = true;
     this.stop();
     await this.device.disconnect();
     this.state = NO_BAND;

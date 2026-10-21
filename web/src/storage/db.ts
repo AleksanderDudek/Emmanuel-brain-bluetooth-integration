@@ -6,25 +6,39 @@
  * default home for sessions and the journal for everything being recorded.
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import type { TrainingResult } from '../training/score';
 import type { Chunk, SessionMeta } from './format';
 
 interface BrainLinkDB extends DBSchema {
   sessions: { key: string; value: SessionMeta; indexes: { by_start: number } };
   chunks: { key: [string, number]; value: Chunk; indexes: { by_session: string } };
   settings: { key: string; value: unknown };
+  /** v2: results of the focus training */
+  trainings: { key: string; value: TrainingResult; indexes: { by_start: number } };
 }
 
 export class SessionDB {
   private constructor(private readonly db: IDBPDatabase<BrainLinkDB>) {}
 
-  static async open(name = 'brainlink'): Promise<SessionDB> {
-    const db = await openDB<BrainLinkDB>(name, 1, {
-      upgrade(d) {
-        d.createObjectStore('sessions', { keyPath: 'session_id' }).createIndex('by_start', 'start_time');
-        d.createObjectStore('chunks', { keyPath: ['session_id', 'seq'] }).createIndex('by_session', 'session_id');
-        d.createObjectStore('settings');
+  /**
+   * @param onBlocked an older tab keeps the database open, so the upgrade waits until it is closed
+   */
+  static async open(name = 'brainlink', onBlocked?: () => void): Promise<SessionDB> {
+    let opened: IDBPDatabase<BrainLinkDB> | null = null;
+    const db = await openDB<BrainLinkDB>(name, 2, {
+      blocked: () => onBlocked?.(),
+      // a newer version (another tab, after an update) wants to upgrade: step aside instead of blocking it
+      blocking: () => opened?.close(),
+      upgrade(d, oldVersion) {
+        if (oldVersion < 1) {
+          d.createObjectStore('sessions', { keyPath: 'session_id' }).createIndex('by_start', 'start_time');
+          d.createObjectStore('chunks', { keyPath: ['session_id', 'seq'] }).createIndex('by_session', 'session_id');
+          d.createObjectStore('settings');
+        }
+        if (oldVersion < 2) d.createObjectStore('trainings', { keyPath: 'id' }).createIndex('by_start', 'start_time');
       },
     });
+    opened = db;
     return new SessionDB(db);
   }
 
@@ -67,6 +81,15 @@ export class SessionDB {
   async deleteChunks(id: string): Promise<void> {
     await this.db.delete('chunks', IDBKeyRange.bound([id, 0], [id, Number.MAX_SAFE_INTEGER]));
   }
+
+  // ── training results ────────────────────────────────────────────
+  putTraining(r: TrainingResult): Promise<string> { return this.db.put('trainings', r); }
+
+  async listTrainings(): Promise<TrainingResult[]> {
+    return (await this.db.getAllFromIndex('trainings', 'by_start')).reverse();   // newest first
+  }
+
+  deleteTraining(id: string): Promise<void> { return this.db.delete('trainings', id); }
 
   // ── settings ─────────────────────────────────────────────────────
   async getSetting<T>(key: string): Promise<T | undefined> { return (await this.db.get('settings', key)) as T | undefined; }

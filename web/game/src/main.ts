@@ -70,6 +70,7 @@ class Game {
   };
 
   constructor() {
+    this.neuro.followHub();   // opened from BrainLink: use the app's band
     window.addEventListener('resize', () => this.renderer.resize());
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
@@ -180,6 +181,7 @@ class Game {
   /** Before the invocation: connect the band (optional) so the prayer doubles as its calibration. */
   private bandOffer(): void {
     if (!NeuroBridge.supported()) return this.invocation();
+    if (this.neuro.hubReady) return this.invocation();   // opened from BrainLink with a live signal: followHub took it
     const status = h('p', { class: 'status', role: 'status' });
     const connect = btn('Połącz opaskę', () => {
       status.textContent = 'Łączenie…';
@@ -192,7 +194,9 @@ class Game {
     }, 'btn gold big');
     const el = screen('notice',
       h('h2', null, 'Opaska Mendi'),
-      h('p', null, 'Masz opaskę fNIRS Mendi? Połącz ją teraz — modlitwa do Ducha Świętego będzie jednocześnie jej kalibracją. Gra działa też bez opaski.'),
+      h('p', null, this.neuro.viaHub
+        ? 'Gra jest otwarta w BrainLink. Połącz tam opaskę Mendi albo włącz symulator (przycisk urządzenia u góry), a potem wróć tutaj. Gra działa też bez opaski.'
+        : 'Masz opaskę fNIRS Mendi? Połącz ją teraz — modlitwa do Ducha Świętego będzie jednocześnie jej kalibracją. Gra działa też bez opaski.'),
       connect, btn('Graj bez opaski', () => this.invocation(), 'btn'), status);
     showScreen(el);
   }

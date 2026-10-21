@@ -151,18 +151,22 @@ details[open]>summary{margin-bottom:12px}
   .stats.stats3{grid-template-columns:repeat(2,1fr)}
   .task-prompt.big{font-size:28px}
 }
+.toolnav{display:flex;padding:3px;border-radius:999px;background:var(--bg3);border:1px solid rgba(255,255,255,.06);margin-right:auto;margin-left:18px}
+.toolnav a{color:var(--tx2);text-decoration:none;font-size:12px;padding:5px 12px;border-radius:999px;border:0}
+.toolnav a:hover{color:var(--tx)}
+.toolnav a[aria-current="page"]{background:var(--acc-dim);color:var(--acc)}
 </style>
 </head>
 <body>
 <div class="shell">
 
 <div class="topbar">
-  <h1>Brain<span>Link</span><small>fNIRS · Mendi</small></h1>
+  <h1>Brain<span>Link</span></h1>
+  <nav class="toolnav" aria-label="Opaska"><a href="/">EEG · HALO</a><a href="/fnirs" aria-current="page">fNIRS · Mendi</a></nav>
   <div class="status">
     <div class="dot" id="dot"></div>
     <span id="statusText">Łączenie…</span>
     <span class="muted" id="rateText"></span>
-    <a href="/">← Dashboard EEG</a>
   </div>
 </div>
 
