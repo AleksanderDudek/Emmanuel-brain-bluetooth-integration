@@ -1,4 +1,4 @@
-/** Trening: the activities and games, each with the tools it works with (DESIGN.md §2). */
+/** The exercises (Trening) and the games (Gry), each with the tools it works with (DESIGN.md §2). */
 import type { HubStatus } from '../hub';
 import type { SceneId } from '../settings';
 import type { Tool } from '../tools';
@@ -50,6 +50,9 @@ export const ACTIVITIES: Activity[] = [
   },
 ];
 
+export const EXERCISES = (): Activity[] => ACTIVITIES.filter(a => !a.optional);
+export const GAME_ACTIVITIES = (): Activity[] => ACTIVITIES.filter(a => a.optional);
+
 const TAG: Record<Tool, string> = { fnirs: 'fNIRS', eeg: 'EEG' };
 
 /** Why an activity cannot use the current tool (null = it can). */
@@ -63,8 +66,9 @@ export class ActivitiesView {
   private scene: SceneId | null = null;
   private readonly cards = new Map<Activity['id'], { el: HTMLAnchorElement; why: HTMLElement }>();
 
-  constructor() {
-    $('activities').replaceChildren(...ACTIVITIES.map(a => {
+  /** @param containerId where the cards go; @param list which activities */
+  constructor(containerId: string, list: Activity[]) {
+    $(containerId).replaceChildren(...list.map(a => {
       const art = h('div', { class: `art ${a.art}` }, artImage(a));
       if (a.id === 'focus') art.append(h('canvas', { class: 'scene-art', 'aria-hidden': 'true' }));
       const why = h('p', { class: 'why' });
@@ -73,7 +77,7 @@ export class ActivitiesView {
         h('div', { class: 'body' },
           h('div', { class: 'tags' }, a.tools.map(t => h('span', { class: 'badge' }, a.optional ? `${TAG[t]} · opcjonalnie` : TAG[t]))),
           h('h2', null, a.title), h('p', null, a.text), why,
-          h('span', { class: 'btn cta' + (a.id === 'focus' ? ' primary' : '') }, `${a.cta} →`)));
+          h('span', { class: 'btn cta' + (a.id === 'focus' || a.optional ? ' primary' : '') }, `${a.cta} →`)));
       this.cards.set(a.id, { el, why });
       return el;
     }));
@@ -83,7 +87,8 @@ export class ActivitiesView {
     if (st.tool !== this.tool) {
       this.tool = st.tool;
       for (const a of ACTIVITIES) {
-        const c = this.cards.get(a.id)!;
+        const c = this.cards.get(a.id);
+        if (!c) continue;
         const why = whyNot(a, st.tool);
         c.why.textContent = why ?? '';
         c.el.setAttribute('aria-disabled', String(!!why && !a.optional));
@@ -91,7 +96,7 @@ export class ActivitiesView {
     }
     if (scene !== this.scene) {
       this.scene = scene;
-      const canvas = this.cards.get('focus')!.el.querySelector('canvas');
+      const canvas = this.cards.get('focus')?.el.querySelector('canvas');
       if (canvas) requestAnimationFrame(() => drawScenePreview(canvas, scene));
     }
   }

@@ -8,17 +8,20 @@ also has a simulator. The UI is in Polish.
 
 What is in it (layout and decisions: [DESIGN.md](DESIGN.md)):
 
-* **Start**: pick the band (fNIRS · Mendi or EEG · HALO; the switch at the top changes it
-  any time). Below that are the one next step (connect, or use the simulator, then the
-  baseline, then training), quick launch, and today's score.
+* **Start**: pick the band (*Opaska: Mendi | HALO*; the switch at the top changes it any
+  time). Below that are:
+  * the one next step: connect or use the simulator, then the baseline, then training;
+  * two rows, **Trenuj** and **Graj**, that open every exercise and both games;
+  * today's score.
 * **Trening**:
   * **Focus training** (*Trening skupienia*), a browser copy of Mendi's default training.
     It has a mood check, breathwork, calibration and the game: an orb riding a scrolling
     activity curve over parallax hills, with stars for points. Then a summary with the day
     score, streak and milestones. It works with both bands.
   * The **hemispheric balance trainer** (fNIRS).
-  * The two **HolyHolyHoly** games. They run *inside* the app and use the band that is
-    already connected (see below).
+* **Gry**: the two **HolyHolyHoly** games, with one line saying which signal they will read.
+  They run *inside* the app and use the band that is already connected (see below). The
+  fNIRS *Sygnał* view opens them too ("Graj z tym sygnałem").
 * **Sygnał**: the live instrument view of the active band. fNIRS shows ΔHbO/ΔHbR, heart rate,
   SCI, motion, activation/asymmetry and recording with event markers. EEG shows six metrics,
   the traces after the 50 Hz notch, band powers, electrode contact and combos.
@@ -51,7 +54,8 @@ npm run dev          # http://localhost:5173 (localhost counts as a secure conte
 npm test             # Vitest: codecs, fNIRS + EEG parity with the Python code, storage, Bluetooth adapters, hub, training
 npm run build        # static site in dist/ (typecheck + app + both games + service workers + icons)
 npm run preview      # serve dist/ locally
-npm run app:smoke    # after a build: headless Chrome goes through the app on the simulators (screenshots in .smoke/)
+npm run app:smoke    # after a build: headless Chrome goes through the app on the simulators (screenshots in .smoke/;
+                     # BASE_PATH=/repo/ for a build made for a sub-path, as CI does)
 ```
 
 Web Bluetooth needs **HTTPS** (or `localhost`). Any static host works:

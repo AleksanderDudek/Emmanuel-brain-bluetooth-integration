@@ -193,7 +193,8 @@ describe('router', () => {
     expect(parseRoute('#trening/focus')).toMatchObject({ view: 'focus', nav: 'trening' });
     expect(parseRoute('#balance')).toMatchObject({ view: 'balance', nav: 'trening', hash: 'trening/balance' });
     expect(parseRoute('#sessions')).toMatchObject({ view: 'sesje' });
-    expect(parseRoute('#gra/holyholyholy3d')).toMatchObject({ view: 'trening', game: 'holyholyholy3d' });
+    expect(parseRoute('#gra/holyholyholy3d')).toMatchObject({ view: 'gry', nav: 'gry', game: 'holyholyholy3d' });
+    expect(parseRoute('#gry')).toMatchObject({ view: 'gry', nav: 'gry', game: null });
     expect(parseRoute('#gra/nope')).toMatchObject({ view: 'start' });
     expect(parseRoute('#whatever')).toMatchObject({ view: 'start' });
   });

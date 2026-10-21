@@ -8,7 +8,7 @@ import type { SceneId } from '../settings';
 import { TOOL_INFO, type Tool } from '../tools';
 import { drawScenePreview, SCENES } from '../training/scene';
 import { dayScore, type TrainingResult } from '../training/score';
-import { ACTIVITIES, artImage, whyNot } from './activities';
+import { artImage, EXERCISES, GAME_ACTIVITIES, whyNot, type Activity } from './activities';
 import { $, fmtDur, h } from './dom';
 import { drawOverview } from './focus';
 
@@ -110,7 +110,7 @@ export class StartView {
     } else if (st.signal.reliable) {
       title = st.source === 'simulator' ? 'Symulator gotowy' : 'Wszystko gotowe';
       text = st.source === 'simulator' ? 'Sztuczny sygnał — dobry do zapoznania się z treningiem.' : 'Sygnał dobry. Wybierz ćwiczenie albo zacznij od treningu skupienia.';
-      actions = [btn('Trening skupienia', '#trening/focus', true), btn('Sygnał na żywo', '#sygnal')];
+      actions = [btn('Trening skupienia', '#trening/focus', true), btn('Gry', '#gry'), btn('Sygnał na żywo', '#sygnal')];
     } else {
       title = st.signal.reason ? REASON_TEXT[st.signal.reason] : 'Czekam na sygnał';
       text = st.signal.reason === 'poor_signal' ? info.fit : 'Trening wstrzyma punkty, dopóki sygnał się nie poprawi.';
@@ -125,18 +125,19 @@ export class StartView {
     const key = `${tool}|${this.scene()}`;
     if (key === this.tilesFor) return;
     this.tilesFor = key;
-    const tiles = ACTIVITIES.map(a => {
+    const tile = (a: Activity, extra = '') => {
       const why = whyNot(a, tool);
-      const el = h('a', { class: 'tile' + (a.id === 'focus' ? ' feature' : ''), href: a.href, 'aria-disabled': String(!!why && !a.optional) },
+      return h('a', { class: `tile${a.id === 'focus' ? ' feature' : ''}${extra}`, href: a.href, 'aria-disabled': String(!!why && !a.optional) },
         a.id === 'focus' ? h('canvas', { 'aria-hidden': 'true' }) : h('div', { class: `tile-art ${a.art}` }, artImage(a)),
-        h('span', { class: 'tag' }, a.tools.map(t => (t === 'fnirs' ? 'fNIRS' : 'EEG')).join(' · ') + (a.optional ? ' · opcj.' : '')),
-        h('b', null, a.title), h('small', null, why ?? (a.id === 'focus' ? 'Utrzymaj kulę wysoko — 3 do 15 minut.' : a.optional ? 'Gra przejmie opaskę z aplikacji.' : 'Zadania dobierane do półkul.')));
-      return el;
-    });
-    tiles.push(h('a', { class: 'tile', href: '#sygnal' }, h('div', { class: 'tile-art art-signal' }), h('span', { class: 'tag' }, 'na żywo'),
-      h('b', null, 'Sygnał'), h('small', null, tool === 'eeg' ? 'Fale, pasma, metryki EEG.' : 'ΔHbO/ΔHbR, tętno, jakość, nagrywanie.')));
-    $('quickTiles').replaceChildren(...tiles);
-    const canvas = $('quickTiles').querySelector<HTMLCanvasElement>('.tile.feature canvas');
+        h('span', { class: 'tag' }, a.tools.map(t => (t === 'fnirs' ? 'fNIRS' : 'EEG')).join(' · ') + (a.optional ? ' · opcjonalnie' : '')),
+        h('b', null, a.title),
+        h('small', null, why ?? (a.id === 'focus' ? 'Utrzymaj kulę wysoko — 3 do 15 minut.' : a.optional ? 'Przejmie opaskę połączoną w BrainLink.' : 'Zadania dobierane do półkul.')));
+    };
+    $('trainTiles').replaceChildren(...EXERCISES().map(a => tile(a)),
+      h('a', { class: 'tile', href: '#sygnal' }, h('div', { class: 'tile-art art-signal' }), h('span', { class: 'tag' }, 'na żywo'),
+        h('b', null, 'Sygnał'), h('small', null, tool === 'eeg' ? 'Fale, pasma, metryki EEG.' : 'ΔHbO/ΔHbR, tętno, jakość, nagrywanie.')));
+    $('gameTiles').replaceChildren(...GAME_ACTIVITIES().map(a => tile(a, ' tile-game')));
+    const canvas = $('trainTiles').querySelector<HTMLCanvasElement>('.tile.feature canvas');
     if (canvas) requestAnimationFrame(() => drawScenePreview(canvas, this.scene()));
   }
 

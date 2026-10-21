@@ -12,6 +12,8 @@
  *
  *   npm run game3d:export && npm run game3d:smoke     (CHROME_PATH=… to choose the browser,
  *                                                     SMOKE_CPU_THROTTLE=4 to run as slowly as CI,
+ *                                                     SMOKE_SLACK=4 to give every wait 4× longer, the
+ *                                                     default on CI,
  *                                                     SMOKE_SIZE=864x540 for a 16:10 screen)
  *
  * Input goes through GDevelop's own keyboard handlers (document.onkeydown/onkeyup), the same path
@@ -190,8 +192,10 @@ try {
       }
       return issues;
     };
+    // the waits are in wall-clock time, but the game counts game time, which falls behind when frames are slow
+    // (≈20 fps on a shared CI runner): `slack` stretches every wait there
     h.until = async (test, ms = 20_000) => {
-      const end = performance.now() + ms;
+      const end = performance.now() + ms * (h.slack ?? 1);
       while (performance.now() < end) {
         let passed = false;
         try { passed = test(); } catch { /* between scenes: nothing to read yet */ }
@@ -201,6 +205,8 @@ try {
       return false;
     };
   });
+  const slack = Number(process.env.SMOKE_SLACK) || (process.env.CI ? 4 : 1);
+  await page.evaluate(k => { window.HHH.slack = k; }, slack);
   const check = async (name, fn, ...args) => {
     const result = await page.evaluate(fn, ...args);
     const ok = typeof result === 'object' && result !== null ? result.ok : result;
@@ -301,14 +307,16 @@ try {
     return true;
   });
   await shot('08-levelup.png', ['levelup']);
-  await check('the chosen card fills a slot', async () => {
+  await check('the chosen card is taken (a slot, a level, or a consumable like manna)', async () => {
     const h = window.HHH;
-    const before = h.g('Run').getChild('weapons').getChildrenCount() + h.g('Run').getChild('virtues').getChildrenCount();
+    // the three cards are random: a gift or virtue fills a slot, a known one levels up, manna takes no slot at all,
+    // so count the levels of all gifts — every choice adds one
+    const levels = () => Object.values(h.g('Run').getChild('gifts').toJSObject()).reduce((a, b) => a + Number(b), 0);
+    const choice = h.g('Run').getChild('choices').getChild(0).getChild('id').getAsString();
+    const before = levels();
     await h.press(49, 'Digit1');
-    if (!(await h.until(() => h.v('State').getAsString() === 'play', 3000))) return false;
-    const after = h.g('Run').getChild('weapons').getChildrenCount() + h.g('Run').getChild('virtues').getChildrenCount();
-    const sig = h.g('Run').getChild('gifts').getChild('sig-uriel').getAsNumber();
-    return { ok: after > before || sig > 1, before, after, sig };
+    if (!(await h.until(() => h.v('State').getAsString() === 'play', 6000))) return false;
+    return { ok: levels() === before + 1, choice, before, after: levels() };
   });
   await check('a strike in reach builds a combo; a strike at nothing breaks it', async () => {
     const h = window.HHH;
@@ -356,7 +364,8 @@ try {
     // out of the angel's reach, so the word of truth stays on the ground until it is taken
     voice.setPosition(p.getX() + 650, p.getY());
     voice.getVariables().get('Hp').setNumber(-1);
-    if (!(await h.until(() => h.v('SilT').getAsNumber() > 3, 8000))) return { ok: false, step: 'no silenced block', silT: h.v('SilT').getAsNumber() };
+    // game seconds: on a slow runner (≈20 fps) the game clock runs behind the wall clock, so wait generously
+    if (!(await h.until(() => h.v('SilT').getAsNumber() > 3, 25_000))) return { ok: false, step: 'no silenced block', silT: h.v('SilT').getAsNumber() };
     const run = h.g('Run').getChild('voice').toJSObject();
     const texts = ['silSays', 'silPattern', 'silNo', 'silYes'].map(k => h.keyed(k === 'silPattern' ? 'UiSmall' : 'UiText', k)[0]?.getText() ?? '');
     const strike = h.keyed('UiBar', 'silStrike')[0];

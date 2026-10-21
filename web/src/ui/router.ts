@@ -1,11 +1,11 @@
 /**
- * Hash routes of the app (DESIGN.md §2): five destinations in the rail, plus
- * the activities under Trening.  Old links (#balance, #sessions, #monitor)
- * still land where they used to.
+ * Hash routes of the app (DESIGN.md §2): six destinations in the rail, the
+ * exercises under Trening and the games under Gry.  Old links (#balance,
+ * #sessions, #monitor) still land where they used to.
  */
 
-export type ViewId = 'start' | 'trening' | 'focus' | 'balance' | 'sygnal' | 'sesje' | 'ustawienia';
-export type NavId = 'start' | 'trening' | 'sygnal' | 'sesje' | 'ustawienia';
+export type ViewId = 'start' | 'trening' | 'focus' | 'balance' | 'gry' | 'sygnal' | 'sesje' | 'ustawienia';
+export type NavId = 'start' | 'trening' | 'gry' | 'sygnal' | 'sesje' | 'ustawienia';
 export type GameId = 'holyholyholy' | 'holyholyholy3d';
 
 export interface Route { view: ViewId; nav: NavId; game: GameId | null; hash: string }
@@ -19,8 +19,8 @@ export function parseRoute(hash: string): Route {
   const [head, sub] = h.split('/');
   if (head === 'trening' && sub === 'focus') return { view: 'focus', nav: 'trening', game: null, hash: h };
   if (head === 'trening' && sub === 'balance') return { view: 'balance', nav: 'trening', game: null, hash: h };
-  if (head === 'gra' && GAMES.includes(sub as GameId)) return { view: 'trening', nav: 'trening', game: sub as GameId, hash: h };
-  if (head === 'start' || head === 'trening' || head === 'sygnal' || head === 'sesje' || head === 'ustawienia') {
+  if (head === 'gra' && GAMES.includes(sub as GameId)) return { view: 'gry', nav: 'gry', game: sub as GameId, hash: h };
+  if (head === 'start' || head === 'trening' || head === 'gry' || head === 'sygnal' || head === 'sesje' || head === 'ustawienia') {
     return { view: head, nav: head, game: null, hash: head };
   }
   return { view: 'start', nav: 'start', game: null, hash: 'start' };

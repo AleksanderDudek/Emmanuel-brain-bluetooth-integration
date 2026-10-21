@@ -57,6 +57,8 @@ h1,h2,h3{font-family:var(--font-head);font-weight:500;letter-spacing:-.01em;font
 .brand{font-family:var(--font-head);font-size:21px;font-weight:600;text-decoration:none;letter-spacing:-.02em;font-variation-settings:"opsz" 48}
 .brand span{color:var(--tool);transition:color .4s}
 .appbar-end{margin-left:auto;display:flex;align-items:center;gap:10px}
+.toolpick{display:flex;align-items:center;gap:10px}
+.toolpick-label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--tx3)}
 .toolswitch{display:flex;padding:3px;border-radius:999px;background:var(--ink-3);border:1px solid var(--line)}
 .toolswitch button{display:flex;align-items:baseline;gap:6px;background:none;border:0;color:var(--tx2);font:inherit;padding:6px 14px;border-radius:999px;cursor:pointer;transition:background .2s,color .2s}
 .toolswitch button b{font-weight:700;font-size:13px;letter-spacing:.02em}
@@ -203,7 +205,19 @@ details:not([open])>summary{margin-bottom:0}
 .tile .tile-art{position:absolute;inset:0;pointer-events:none}
 .tile b{position:relative;font-family:var(--font-head);font-size:20px;font-weight:500;line-height:1.15;font-variation-settings:"opsz" 48}
 .tile small{position:relative;color:var(--tx2);font-size:12.5px}
-.tile.feature{grid-column:span 2;grid-row:span 2;min-height:350px}
+.tile.feature{grid-column:span 2;min-height:230px}
+.tile.tile-game{grid-column:span 2;min-height:230px}
+.tile.tile-game b{font-size:28px}
+.start-row{display:flex;flex-direction:column;gap:12px}
+.row-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.more{color:var(--tool);text-decoration:none;font-size:13.5px;font-weight:650;white-space:nowrap}
+.more:hover{text-decoration:underline}
+.games-status{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px}
+.games-status>span{flex:1;min-width:220px}
+.play-card{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+  background:linear-gradient(100deg,var(--tool-dim),transparent 60%),var(--ink-2);border-color:var(--line-2)}
+.play-card>div:first-child{display:flex;flex-direction:column;gap:2px}
+.play-card b{font-family:var(--font-head);font-size:20px;font-weight:500}
 .tile.feature b{font-size:30px}
 .tile[aria-disabled="true"]{opacity:.45}
 .tile .tag{position:absolute;top:14px;left:16px;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx2)}
@@ -426,8 +440,8 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .calib-bar{width:min(320px,70vw)}
 .calib-reason{color:var(--warn);min-height:20px;font-size:14px}
 
-.game{position:absolute;inset:0;overflow:hidden;cursor:pointer;touch-action:manipulation}
-.game canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.immersive .game{position:absolute;inset:0;overflow:hidden;cursor:pointer;touch-action:manipulation}
+.immersive .game canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .hud{position:absolute;left:0;right:0;top:0;padding:max(14px,env(safe-area-inset-top)) 18px 0;display:flex;flex-direction:column;align-items:center;gap:12px;
   pointer-events:none;transition:opacity .35s}
 .hud.hide{opacity:0}
@@ -443,7 +457,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .hud-card small{display:block;font-size:12.5px;opacity:.85}
 .hud-card b{font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}
 .hud-card.hide{opacity:0}
-.game .end{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));pointer-events:auto;z-index:2}
+.immersive .game .end{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));pointer-events:auto;z-index:2}
 .cue{position:absolute;left:50%;top:22%;transform:translateX(-50%);max-width:min(640px,86vw);text-align:center;font-family:var(--font-head);font-weight:400;
   font-size:clamp(18px,2.6vw,26px);color:rgba(255,255,255,.92);text-shadow:0 2px 16px rgba(0,0,0,.45);opacity:0;transition:opacity 1.2s ease;pointer-events:none}
 .cue.show{opacity:1}
@@ -474,7 +488,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 @media (max-width:1100px){
   .focus-setup{grid-template-columns:1fr 1fr}
   .focus-setup .start-card{order:-1}
-  .tile.feature{grid-row:auto;min-height:240px}
+  .tile.feature,.tile.tile-game{min-height:210px}
   .focus-setup .start-card{grid-column:1/-1}
   .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -489,6 +503,9 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .banner{padding-left:16px;padding-right:16px}
   .toolswitch button{padding:5px 11px}
   .toolswitch button small{display:none}
+  .toolpick-label{display:none}
+  .rail a{font-size:10px}
+  .rail a svg{padding:3px 9px}
   .devchip-text small{display:none}
   .grid2,.today-grid,.settings-grid,.activities,.tool-pick,.focus-setup{grid-template-columns:minmax(0,1fr)}
   .activity.feature{grid-template-columns:minmax(0,1fr)}
@@ -501,7 +518,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .q.q4{grid-template-columns:repeat(2,1fr)}
   .wave-grid{grid-template-columns:minmax(0,1fr)}
   .sources{grid-template-columns:minmax(0,1fr)}
-  .tile.feature{grid-column:1/-1}
+  .tile.feature,.tile.tile-game{grid-column:1/-1}
   .task-prompt.big{font-size:32px}
   .row-head{flex-direction:column;align-items:flex-start}
   .session.training{grid-template-columns:auto minmax(0,1fr)}

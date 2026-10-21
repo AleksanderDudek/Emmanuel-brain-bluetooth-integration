@@ -20,11 +20,13 @@ on Mendi's own. Decisions are recorded with the reason behind them, so they can 
 
 ```
 ┌ app bar ─────────────────────────────────────────────────────────────────┐
-│ BrainLink   [ fNIRS · Mendi | EEG · HALO ]          ● Mendi · 82% · REC  │
+│ BrainLink   Opaska [ Mendi · fNIRS | HALO · EEG ]   ● Mendi · 82% · REC  │
 ├──────┬───────────────────────────────────────────────────────────────────┤
-│ rail │  Start      — status, the next step, quick launch, recent results │
-│      │  Trening    — focus training (Mendi-style), balance trainer, games │
-│      │  Sygnał     — the live monitor of the chosen tool (+ recording)    │
+│ rail │  Start      — status, the next step, "Trenuj" and "Graj" rows, today│
+│      │  Trening    — focus training (Mendi-style), balance trainer         │
+│      │  Gry        — both games, and which signal they will read          │
+│      │  Sygnał     — the live monitor of the chosen tool (+ recording,     │
+│      │               "play with this signal")                              │
 │      │  Sesje      — training results and recordings                      │
 │      │  Ustawienia — storage, pipeline parameters, about                  │
 └──────┴───────────────────────────────────────────────────────────────────┘
@@ -36,21 +38,28 @@ on Mendi's own. Decisions are recorded with the reason behind them, so they can 
   (a `<dialog>`), the one place to connect, disconnect, pick the simulator, reset the
   baseline and get Bluetooth help. This replaces four sidebar cards.
 * **Start** shows one primary action that depends on the state: *choose a tool*, then *connect
-  or use the simulator*, then *wait for the baseline*, then *start training*. Under it are
-  quick-launch tiles and the last results.
-* **Trening** is the hub for activities. Each card says which tools it supports. Activities
-  that need the other tool are shown greyed out, with the reason.
+  or use the simulator*, then *wait for the baseline*, then *start training*. Under it are two
+  labelled rows, **Trenuj** (focus training, balance, the signal) and **Graj** (both games),
+  and today's results.
+* **Trening** holds the exercises, and **Gry** holds the games. They are separate destinations
+  because "where are the games?" was the first question after the first redesign. Each card
+  says which tools it supports, and activities that need the other tool are greyed out with
+  the reason. Gry opens with one line saying which signal the games will read (the band, the
+  simulator, or none), with the action that changes it.
+* The fNIRS **Sygnał** view starts with "play with this signal", which opens the games straight
+  from the instrument view.
 * **Sygnał** is the instrument view: the existing fNIRS monitor, or a new EEG monitor
   (metrics, traces, band powers, contact, combos). Recording controls live here, where the
   signal is.
-* Deep links: `#start`, `#trening`, `#sygnal`, `#sesje`, `#ustawienia`, `#trening/focus`,
+* Deep links: `#start`, `#trening`, `#gry`, `#sygnal`, `#sesje`, `#ustawienia`, `#trening/focus`,
   `#trening/balance`, `#gra/holyholyholy`, `#gra/holyholyholy3d`. The old `#balance` and
   `#sessions` links are redirected.
 
 **Why:** the old page put fourteen controls next to the charts and gave nobody a starting
-point. Grouping by task (train / watch / review / configure) follows the platforms' navigation
-guidelines: 3–5 top-level destinations, on a rail for large screens and a bottom bar for
-compact ones.
+point. Grouping by task (train / play / watch / review / configure) follows the platforms'
+navigation guidelines: a handful of top-level destinations, on a rail for large screens and
+a bottom bar for compact ones. The headband switch names the devices first (Mendi, HALO),
+because people know their band by name, not by the technique.
 
 ## 3. Tool management
 

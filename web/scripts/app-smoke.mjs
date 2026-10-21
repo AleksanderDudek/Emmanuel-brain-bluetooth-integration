@@ -7,7 +7,8 @@
  * then a switch to EEG and its signal view. Every view is checked at desktop and phone width
  * for horizontal overflow. Fails on any page error, console error or failed request.
  *
- *   npm run build && npm run app:smoke        (CHROME_PATH=… to choose the browser)
+ *   npm run build && npm run app:smoke        (CHROME_PATH=… to choose the browser; BASE_PATH=/repo/
+ *                                             when the build was made for a sub-path, as on GitHub Pages)
  *
  * Screenshots land in web/.smoke/ (git-ignored).
  */
@@ -21,6 +22,8 @@ import puppeteer from 'puppeteer-core';
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(WEB, 'dist');
 const SHOTS = join(WEB, '.smoke');
+// the build's base path (GitHub Pages: /<repo>/): the server answers under it, like the real host
+const BASE = (process.env.BASE_PATH ?? '/').replace(/\/?$/, '/');
 const TYPES = {
   '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webp': 'image/webp',
@@ -43,7 +46,9 @@ function serve(root) {
   const server = createServer((req, res) => {
     let file;
     try {
-      const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname));
+      let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+      if (!path.startsWith(BASE)) throw new Error('outside the base path');
+      path = normalize(`/${path.slice(BASE.length)}`);
       file = join(root, path.endsWith('/') ? `${path}index.html` : path);
     } catch {
       res.writeHead(400).end();
@@ -93,7 +98,7 @@ try {
   page.on('dialog', d => void d.accept());   // confirm() when ending a session, switching tools
 
   const shot = (name, fullPage = false) => page.screenshot({ path: join(SHOTS, `${name}.png`), fullPage });
-  const viewOf = hash => (hash.startsWith('trening/') ? hash.split('/')[1] : hash.startsWith('gra/') ? 'trening' : hash);
+  const viewOf = hash => (hash.startsWith('trening/') ? hash.split('/')[1] : hash.startsWith('gra/') ? 'gry' : hash);
   const go = async hash => {
     await page.evaluate(h => { location.hash = h; }, hash);
     await page.waitForFunction(v => !document.getElementById(`view-${v}`)?.hidden, {}, viewOf(hash));
@@ -107,7 +112,7 @@ try {
   };
 
   step('first run: Start asks for a band');
-  await page.goto(`${origin}/?debug&trainingSec=40`, { waitUntil: 'networkidle0' });
+  await page.goto(`${origin}${BASE}?debug&trainingSec=40`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('#toolPick:not([hidden])');
   await shot('01-start-first-run');
   await overflow('start');
@@ -119,7 +124,9 @@ try {
   await page.waitForFunction(() => /linia bazowa|sygnał/.test(document.getElementById('chipMeta').textContent));
   await shot('02-start-baseline');
   await page.waitForFunction(() => document.getElementById('chipMeta').textContent.includes('sygnał dobry'), { timeout: 40_000 });
-  await shot('03-start-ready');
+  await shot('03-start-ready', true);
+  const startGames = await page.evaluate(() => document.querySelectorAll('#gameTiles .tile').length);
+  if (startGames !== 2) throw new Error(`Start should offer both games, found ${startGames}`);
 
   step('Trening hub');
   await go('trening');
@@ -192,9 +199,15 @@ try {
   await shot('16-device-sheet');
   await page.click('#sheetClose');
 
+  step('Gry');
+  await go('gry');
+  await page.waitForFunction(() => document.getElementById('gamesStatus').textContent.includes('symulatora'));
+  await shot('16b-gry', true);
+
   if (existsSync(join(DIST, 'holyholyholy', 'index.html'))) {
-    step("HolyHolyHoly inside the app, on the app's simulator");
-    await go('gra/holyholyholy');
+    step("HolyHolyHoly from the Start tile, inside the app, on the app's simulator");
+    await go('start');
+    await page.click('#gameTiles .tile[href="#gra/holyholyholy"]');
     await page.waitForSelector('#gameLayer:not([hidden]) iframe');
     await page.waitForFunction(() => !document.getElementById('gameLink').textContent.includes('wczytuje'), { timeout: 30_000 });
     const sent0 = await page.evaluate(() => globalThis.brainlink.hub.games.sent);
@@ -240,7 +253,7 @@ try {
 
   step('phone width: every view');
   await page.setViewport(PHONE);
-  for (const v of ['start', 'trening', 'trening/focus', 'sygnal', 'sesje', 'ustawienia']) {
+  for (const v of ['start', 'trening', 'trening/focus', 'gry', 'sygnal', 'sesje', 'ustawienia']) {
     await go(v);
     await overflow(`phone ${v}`);
     await shot(`20-phone-${v.replace('/', '-')}`, true);

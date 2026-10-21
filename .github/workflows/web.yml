@@ -37,15 +37,22 @@ jobs:
       - run: npm run build
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
-      # headless Chrome (preinstalled on the runner) plays a chapter of the exported game
-      - run: npm run game3d:smoke
+      # headless Chrome (preinstalled on the runner) goes through the app on the simulators and plays a chapter of
+      # the exported 3D game; end-to-end runs on a shared runner get one retry before they fail the deploy
+      - run: npm run app:smoke || { echo '::warning::app smoke failed once, retrying'; npm run app:smoke; }
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+          BASE_PATH: /${{ github.event.repository.name }}/
+      - run: npm run game3d:smoke || { echo '::warning::game3d smoke failed once, retrying'; npm run game3d:smoke; }
         env:
           CHROME_PATH: /usr/bin/google-chrome
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: holyholyholy3d-smoke
-          path: web/game3d/.smoke
+          name: smoke-screenshots
+          path: |
+            web/.smoke
+            web/game3d/.smoke
           if-no-files-found: ignore
       - uses: actions/upload-pages-artifact@v3
         with:

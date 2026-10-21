@@ -10,7 +10,7 @@ import { SessionLibrary } from './storage/library';
 import { Recorder } from './storage/recorder';
 import type { Tool } from './tools';
 import type { TrainingResult } from './training/score';
-import { ActivitiesView } from './ui/activities';
+import { ActivitiesView, EXERCISES, GAME_ACTIVITIES } from './ui/activities';
 import { AppBar } from './ui/appbar';
 import { BalanceView } from './ui/balance';
 import { DeviceSheet } from './ui/device-sheet';
@@ -50,7 +50,8 @@ async function main(): Promise<void> {
   const eegMonitor = new EegMonitor();
   const recording = new RecordingCard(engine, folder, settings, save);
   const settingsView = new SettingsView(engine, folder, settings, save, db);
-  const activities = new ActivitiesView();
+  const activities = new ActivitiesView('activities', EXERCISES());
+  const gameCards = new ActivitiesView('gamesList', GAME_ACTIVITIES());
   const awake = new ScreenAwake();
 
   let trainings: TrainingResult[] = await db.listTrainings().catch(() => []);
@@ -65,7 +66,7 @@ async function main(): Promise<void> {
     pickTool, connect: sheet.connect, openSheet: () => sheet.open(),
     simulator: run(async () => { await hub.useSimulator(); toast('Symulator włączony'); }),
   }, () => settings.training.scene);
-  const games = new GameLayer(hub, () => router.go('trening'), () => sheet.open());
+  const games = new GameLayer(hub, () => router.go('gry'), () => sheet.open());
   const runner = new FocusRunner({
     hub, db, settings,
     mark: label => { if (engine.recorder.recording) engine.mark(label); },
@@ -83,6 +84,7 @@ async function main(): Promise<void> {
     if (r.view === 'start') start.shown(); else start.hidden();
     if (r.view === 'focus') focusSetup.shown();
     if (r.view === 'trening') activities.shown();
+    if (r.view === 'gry') gameCards.shown();
     if (r.view === 'sesje') {
       void sessions.refresh();
       sessions.renderTrainings(trainings);
@@ -126,6 +128,30 @@ async function main(): Promise<void> {
     return { state: engine.simulator.state, auto: a ? { scenario: a.scenario, text: `${a.scenario}: ${a.state} (${Math.round(a.elapsed_sec)}/${a.total_sec} s)` } : null };
   };
 
+  /** Gry: one line on which signal the games will read, with the action that changes it. */
+  let gamesSig = '';
+  const renderGamesStatus = (s: HubStatus) => {
+    const live = s.tool === 'fnirs' && (s.source === 'simulator' || (s.source === 'device' && s.device.streaming));
+    const sig = `${s.tool}|${s.source}|${live}|${s.device.name}`;
+    if (sig === gamesSig) return;
+    gamesSig = sig;
+    const btn = (label: string, fn: () => void, primary = false) => h('button', { class: `btn${primary ? ' primary' : ''}`, type: 'button', on: { click: fn } }, label);
+    let dot = 'live', text: string, actions: HTMLElement[] = [];
+    if (live) {
+      text = s.source === 'simulator' ? 'Gry dostaną sygnał z symulatora BrainLink.' : `Gry dostaną sygnał z opaski ${s.device.name ?? 'Mendi'} połączonej w BrainLink.`;
+    } else if (s.tool === 'eeg') {
+      dot = 'wait';
+      text = 'Gry czytają opaskę Mendi (fNIRS). Wybrana jest HALO (EEG), więc zagrasz bez opaski.';
+      actions = [btn('Przełącz na Mendi', () => pickTool('fnirs'))];
+    } else {
+      dot = 'wait';
+      text = 'Opaska Mendi nie jest połączona — zagrasz bez niej (skupienie z bezruchu), albo połącz ją teraz.';
+      actions = s.tool ? [btn('Połącz Mendi', sheet.connect, true), btn('Użyj symulatora', run(async () => { await hub.useSimulator(); }))]
+        : [btn('Wybierz Mendi', () => pickTool('fnirs'), true)];
+    }
+    $('gamesStatus').replaceChildren(h('i', { class: `dot ${dot}` }), h('span', null, text), h('div', { class: 'row' }, actions));
+  };
+
   let lastTool: Tool | null | undefined;
   const renderStatus = (s: HubStatus) => {
     appbar.render(s);
@@ -136,6 +162,10 @@ async function main(): Promise<void> {
     if (v === 'start') start.render(s);
     if (v === 'focus') focusSetup.render(s);
     if (v === 'trening') activities.render(s, settings.training.scene);
+    if (v === 'gry') {
+      gameCards.render(s, settings.training.scene);
+      renderGamesStatus(s);
+    }
     if (s.tool !== lastTool) {
       lastTool = s.tool;
       $('monitorFnirs').hidden = s.tool !== 'fnirs';
