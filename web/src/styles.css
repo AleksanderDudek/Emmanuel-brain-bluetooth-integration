@@ -438,7 +438,8 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .calib-brain{width:min(42vmin,240px);height:auto;color:rgba(255,255,255,.85);animation:calib 2.6s ease-in-out infinite}
 @keyframes calib{0%,100%{opacity:.45;filter:drop-shadow(0 0 0 rgba(255,140,220,0))}50%{opacity:1;filter:drop-shadow(0 0 18px rgba(255,140,220,.55))}}
 .calib-bar{width:min(320px,70vw)}
-.calib-reason{color:var(--warn);min-height:20px;font-size:14px}
+.calib-reason{color:var(--warn);min-height:20px;font-size:14px;max-width:56ch}
+.calib-detail{color:var(--tx3);font-size:12px;min-height:16px}
 
 .immersive .game{position:absolute;inset:0;overflow:hidden;cursor:pointer;touch-action:manipulation}
 .immersive .game canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
@@ -464,6 +465,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .hold{position:absolute;left:50%;bottom:max(26px,env(safe-area-inset-bottom));transform:translateX(-50%);padding:8px 16px;border-radius:999px;background:rgba(8,9,14,.62);
   color:var(--warn);font-size:13.5px;font-weight:600;pointer-events:none;transition:opacity .3s}
 .hold[hidden]{display:none}
+.hold.soft{color:rgba(255,255,255,.75);background:rgba(8,9,14,.4);font-weight:500;font-size:12.5px}
 .sim-focus{position:absolute;left:max(16px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));background:rgba(8,9,14,.6);border-color:rgba(255,255,255,.25);color:#fff}
 .sim-focus.on{background:rgba(255,255,255,.9);color:#141018;border-color:#fff}
 

@@ -3,7 +3,7 @@
  * train), quick launch, and today's score with the last session.
  */
 import type { HubStatus } from '../hub';
-import { REASON_TEXT } from '../hub';
+import { REASON_TEXT, WARNING_TEXT } from '../hub';
 import type { SceneId } from '../settings';
 import { TOOL_INFO, type Tool } from '../tools';
 import { drawScenePreview, SCENES } from '../training/scene';
@@ -64,7 +64,7 @@ export class StartView {
   render(st: HubStatus): void {
     if (!this.visible) return;
     const step = this.stepOf(st);
-    const sig = `${st.tool}|${st.source}|${step}|${st.signal.reason}|${step === 'baseline' ? Math.round(st.signal.progress * 20) : ''}|${st.device.connected}`;
+    const sig = `${st.tool}|${st.source}|${step}|${st.signal.reason}|${st.signal.warning}|${step === 'baseline' ? Math.round(st.signal.progress * 20) : ''}|${st.device.connected}`;
     if (sig === this.sig) return;
     this.sig = sig;
     const tool = st.tool;
@@ -108,8 +108,10 @@ export class StartView {
       text = `Siedź spokojnie i oddychaj swobodnie — ${Math.round(st.signal.progress * 100)}%.`;
       actions = [btn('Sygnał na żywo', '#sygnal')];
     } else if (st.signal.reliable) {
-      title = st.source === 'simulator' ? 'Symulator gotowy' : 'Wszystko gotowe';
-      text = st.source === 'simulator' ? 'Sztuczny sygnał — dobry do zapoznania się z treningiem.' : 'Sygnał dobry. Wybierz ćwiczenie albo zacznij od treningu skupienia.';
+      title = st.source === 'simulator' ? 'Symulator gotowy' : st.signal.warning ? 'Gotowe — sygnał słaby' : 'Wszystko gotowe';
+      text = st.source === 'simulator' ? 'Sztuczny sygnał — dobry do zapoznania się z treningiem.'
+        : st.signal.warning ? `${WARNING_TEXT[st.signal.warning]}.${st.signal.detail ? ` (${st.signal.detail})` : ''}`
+        : 'Sygnał dobry. Wybierz ćwiczenie albo zacznij od treningu skupienia.';
       actions = [btn('Trening skupienia', '#trening/focus', true), btn('Gry', '#gry'), btn('Sygnał na żywo', '#sygnal')];
     } else {
       title = st.signal.reason ? REASON_TEXT[st.signal.reason] : 'Czekam na sygnał';

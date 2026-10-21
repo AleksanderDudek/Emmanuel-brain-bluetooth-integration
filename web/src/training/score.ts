@@ -106,6 +106,8 @@ export interface TrainingResult {
   activity_avg_pct: number | null;
   activity_max_pct: number | null;
   reliable_pct: number;
+  /** share of the reliable time with a weak-signal warning (low SCI, room light) */
+  weak_signal_pct?: number;
   /** activity % per second of play */
   series: (number | null)[];
 }

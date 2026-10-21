@@ -21,7 +21,7 @@ const PAUSE_TXT: Record<string, string> = {
   waiting: 'Czekam na dane — trwa zbieranie linii bazowej.',
   warming_up: 'Stabilizowanie metryki asymetrii',
   motion: 'Wykryto ruch — siedź nieruchomo.',
-  poor_signal: 'Słaby kontakt optod — popraw opaskę.',
+  poor_signal: 'Brak kontaktu optod — sprawdź, czy opaska przylega do skóry.',
   no_data: 'Brak nowych danych z opaski — sprawdź połączenie.',
   off: 'Źródło wyłączone — wybierz symulator lub opaskę.',
 };

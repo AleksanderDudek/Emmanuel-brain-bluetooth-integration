@@ -83,7 +83,7 @@
     waiting: 'Czekam na dane — trwa zbieranie linii bazowej.',
     warming_up: 'Stabilizowanie metryki asymetrii',
     motion: 'Wykryto ruch — siedź nieruchomo.',
-    poor_signal: 'Słaby kontakt optod — popraw opaskę.',
+    poor_signal: 'Brak kontaktu optod — sprawdź, czy opaska przylega do skóry.',
     off: 'Źródło wyłączone — wybierz symulator lub opaskę.',
     no_data: 'Brak nowych danych z opaski — sprawdź połączenie.',
   };

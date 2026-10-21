@@ -4,7 +4,7 @@
  * summary.  The session logic lives in src/training/session.ts.
  */
 import type { Hub, HubSample, HubStatus } from '../hub';
-import { REASON_TEXT } from '../hub';
+import { REASON_TEXT, WARNING_TEXT } from '../hub';
 import type { AppSettings, SceneId, TrainingPrefs } from '../settings';
 import type { SessionDB } from '../storage/db';
 import { TOOL_INFO } from '../tools';
@@ -143,6 +143,10 @@ export class FocusSetup {
       text = `Połącz ${TOOL_INFO[tool].device} albo włącz symulator.`;
       label = 'brak sygnału'; can = false;
       note = 'Przycisk opaski w prawym górnym rogu.';
+    } else if (st.signal.reliable && st.signal.warning) {
+      text = `${WARNING_TEXT[st.signal.warning]}.`;
+      label = 'gotowe · słaby sygnał'; cls += ' warn';
+      note = st.signal.detail ? `Jakość: ${st.signal.detail}. SCI ≥ 0,75 = dobry kontakt.` : '';
     } else if (st.signal.reliable) {
       text = st.source === 'simulator' ? 'Symulator gotowy.' : 'Sygnał dobry — możesz zaczynać.';
       label = 'gotowe'; cls += ' ok';
@@ -191,7 +195,7 @@ export class FocusRunner {
   private shownCues = new Set<string>();
   private dipSec = 0;
   private ui: {
-    cal?: { bar: HTMLElement; text: HTMLElement; reason: HTMLElement };
+    cal?: { bar: HTMLElement; text: HTMLElement; reason: HTMLElement; detail: HTMLElement };
     game?: { hud: HTMLElement; card: HTMLElement; bar: HTMLElement; points: HTMLElement; act: HTMLElement; ctrl: HTMLElement;
              cardVal: HTMLElement; cue: HTMLElement; hold: HTMLElement; sim: HTMLButtonElement | null };
   } = {};
@@ -319,14 +323,15 @@ export class FocusRunner {
     if (!this.active || !this.session) return;
     this.session.beginCalibration();
     const bar = h('div'), text = h('p', { class: 'muted' }), reason = h('p', { class: 'calib-reason', role: 'status' });
+    const detail = h('p', { class: 'calib-detail mono' });
     const tool = this.session!.tool;
-    this.ui.cal = { bar, text, reason };
+    this.ui.cal = { bar, text, reason, detail };
     this.show(h('div', { class: 'phase' }, this.closeBtn(() => this.cancel()),
       brain(),
       h('p', { class: 'eyebrow' }, 'Kalibracja'),
       h('h2', null, tool === 'fnirs' ? 'Szukam przepływu krwi i tlenu…' : 'Szukam fal mózgowych…'),
       h('div', { class: 'progress calib-bar' }, bar), text,
-      h('p', { class: 'muted' }, 'Siedź spokojnie, z miękką, nieskupioną uwagą — to punkt odniesienia dla całej sesji.'), reason));
+      h('p', { class: 'muted' }, 'Siedź spokojnie, z miękką, nieskupioną uwagą — to punkt odniesienia dla całej sesji.'), reason, detail));
     this.d.mark('training:start');
   }
 
@@ -338,8 +343,10 @@ export class FocusRunner {
     const p = baseline ? st.progress * 0.4 : 0.4 + ses.calProgress * 0.6;
     ui.bar.style.width = `${Math.round(p * 100)}%`;
     ui.text.textContent = baseline ? `Linia bazowa opaski: ${Math.round(st.progress * 100)}%` : `Punkt odniesienia: ${Math.round(ses.calProgress * 100)}%`;
-    const r = ses.reason && ses.reason !== 'baseline' ? REASON_TEXT[ses.reason] : '';
+    const r = ses.reason && ses.reason !== 'baseline' ? REASON_TEXT[ses.reason] : ses.warning ? WARNING_TEXT[ses.warning] : '';
     if (ui.reason.textContent !== r) ui.reason.textContent = r;
+    const d = this.d.hub.status.signal.detail ?? '';
+    if (ui.detail.textContent !== d) ui.detail.textContent = d;
   }
 
   // ── game ───────────────────────────────────────────────────────
@@ -427,8 +434,11 @@ export class FocusRunner {
     g.cardVal.textContent = signPct(ses.level);
     const reason = ses.recalibrating ? `Nowa linia bazowa — kalibruję ponownie (${Math.round(ses.meter.calProgressNow * 100)}%)`
       : ses.reliable ? '' : ses.reason ? REASON_TEXT[ses.reason] : 'Czekam na sygnał';
-    g.hold.hidden = !reason;
-    if (g.hold.textContent !== reason) g.hold.textContent = reason;
+    // a weak signal is only mentioned, softly: the game goes on
+    const note = reason || (ses.warning ? WARNING_TEXT[ses.warning].split(';')[0] : '');
+    g.hold.hidden = !note;
+    g.hold.classList.toggle('soft', !reason && !!note);
+    if (g.hold.textContent !== note) g.hold.textContent = note;
   }
 
   private onSample(sample: HubSample): void {
@@ -540,6 +550,7 @@ export class FocusRunner {
       h('p', { class: 'muted' }, [
         `Zaangażowanie ${day.commitment}/70 · wynik ${day.performance}/30.`,
         r.reliable_pct < 90 ? ` Sygnał wiarygodny przez ${r.reliable_pct}% czasu.` : '',
+        (r.weak_signal_pct ?? 0) >= 30 ? ` Słaby kontakt przez ${r.weak_signal_pct}% sesji — wynik może być mniej dokładny.` : '',
         r.source === 'simulator' ? ' Sesja na symulatorze.' : '',
         r.completed ? '' : ' Sesja zakończona przed czasem.',
       ].join('')),

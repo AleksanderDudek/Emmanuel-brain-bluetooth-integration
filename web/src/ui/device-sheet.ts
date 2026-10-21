@@ -9,7 +9,7 @@ import { HALO_NAMES, MENDI_NAMES } from '../ble/platform';
 import { EEG_SCENARIOS, EEG_STATES } from '../core/eeg/simulator';
 import { FNIRS_SCENARIOS, FNIRS_STATES } from '../core/simulator';
 import type { Hub, HubStatus } from '../hub';
-import { REASON_TEXT } from '../hub';
+import { REASON_TEXT, WARNING_TEXT } from '../hub';
 import { TOOL_INFO, type Tool } from '../tools';
 import { BluetoothUi } from './bluetooth';
 import { $, fill, h, run, toast } from './dom';
@@ -111,7 +111,10 @@ export class DeviceSheet {
     const badge = $('devBadge');
     badge.textContent = !d.connected ? (d.reconnecting ? 'ponowne łączenie…' : 'rozłączona') : d.streaming ? (d.stale ? 'brak danych' : 'strumień') : 'połączona';
     badge.className = 'badge' + (d.connected && d.streaming && !d.stale ? ' ok' : d.connected || d.reconnecting ? ' warn' : '');
-    $('devSignal').textContent = s.source !== 'device' ? '' : s.signal.reliable ? 'sygnał dobry' : s.signal.reason ? REASON_TEXT[s.signal.reason] : '';
+    const sg = s.signal;
+    $('devSignal').textContent = s.source !== 'device' ? ''
+      : sg.reliable ? (sg.warning ? WARNING_TEXT[sg.warning] : 'sygnał dobry') + (sg.detail ? ` (${sg.detail})` : '')
+      : sg.reason ? REASON_TEXT[sg.reason] : '';
     $<HTMLButtonElement>('btnConnect').hidden = d.connected || d.reconnecting;
     $<HTMLButtonElement>('btnConnect').disabled = !tool;
     $<HTMLButtonElement>('btnDisconnect').hidden = !d.connected && !d.reconnecting;   // also stops a reconnect loop

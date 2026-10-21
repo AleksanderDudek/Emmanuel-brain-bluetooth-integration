@@ -69,6 +69,34 @@ describe('Hub', () => {
     expect(hub.settings.simulator.fnirs).toBe(true);
   });
 
+  it('a weak contact warns but does not pause; a band off the skin does', async () => {
+    const { hub, tick, samples } = await setup({ tool: 'fnirs', simulator: { fnirs: true, eeg: false } });
+    hub.start();
+    hub.fnirs.stop();
+    tick(130);
+    // what a real Mendi often reports with a good fit: low SCI on the forehead channels, some room light
+    const q = (label: string) => ({ sci: 0.31, ambient_ratio: 0.28, dc: 40000, label });
+    const real = hub.fnirs.tick.bind(hub.fnirs);
+    hub.fnirs.tick = () => {
+      const f = real();
+      f.quality = { left: q(labelL), right: q('poor'), pulse: q('good') } as never;
+      return f;
+    };
+    let labelL = 'poor';
+    let s = tick(3);
+    expect(s.signal.reliable).toBe(true);
+    expect(s.signal.warning).toBe('weak_contact');
+    expect(s.signal.detail).toContain('SCI 0.31');
+    expect(samples.at(-1)!.reliable).toBe(true);
+    labelL = 'light_leak';
+    expect(tick().signal.warning).toBe('light_leak');
+    labelL = 'no_signal';
+    s = tick();
+    expect(s.signal.reliable).toBe(false);
+    expect(s.signal.reason).toBe('poor_signal');
+    expect(s.signal.warning).toBeNull();
+  });
+
   it('switches to EEG: the fNIRS source goes off, the EEG engine runs', async () => {
     const { hub, tick, settings } = await setup({ tool: 'fnirs', simulator: { fnirs: true, eeg: true } });
     hub.start();
@@ -131,7 +159,7 @@ describe('Hub', () => {
 });
 
 describe('FocusSession', () => {
-  const sample = (x: number | null, p: Partial<HubSample> = {}): HubSample => ({ tool: 'fnirs', x, reliable: true, reason: null, dt: 0.1, epoch: 1, ...p });
+  const sample = (x: number | null, p: Partial<HubSample> = {}): HubSample => ({ tool: 'fnirs', x, reliable: true, reason: null, warning: null, dt: 0.1, epoch: 1, ...p });
 
   it('ignores the signal during the mood check and breathwork', () => {
     const s = new FocusSession('fnirs', 30);

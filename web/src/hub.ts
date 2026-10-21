@@ -29,8 +29,15 @@ export interface DeviceSummary {
   stale: boolean;
 }
 
-/** Why the signal cannot be trusted right now (null = it can). */
+/** Why the signal cannot be used right now (null = it can). */
 export type SignalReason = 'no_tool' | 'off' | 'no_device' | 'connecting' | 'no_data' | 'baseline' | 'motion' | 'poor_signal';
+
+/**
+ * Usable, but worth fixing: weak optode coupling (low SCI: little heartbeat in the forehead channels),
+ * strong room light, or a noisy EEG electrode.  Nothing is paused for these — Mendi's own app trains
+ * through them too; a band that is actually off the skin is `poor_signal` and does pause.
+ */
+export type SignalWarning = 'weak_contact' | 'light_leak' | 'noisy';
 
 export interface HubStatus {
   tool: Tool | null;
@@ -42,6 +49,9 @@ export interface HubStatus {
     /** baseline / warm-up progress, 0..1 */
     progress: number;
     quality: 'good' | 'fair' | 'poor' | null;
+    warning: SignalWarning | null;
+    /** per-channel numbers behind the quality, for the curious (e.g. "L: SCI 0.42 · P: SCI 0.37") */
+    detail: string | null;
     heartRate: number | null;
   };
   recording: RecorderInfo | null;
@@ -53,6 +63,7 @@ export interface HubSample {
   x: number | null;
   reliable: boolean;
   reason: SignalReason | null;
+  warning: SignalWarning | null;
   dt: number;
   /** the engine's signal epoch: a change means a new baseline, so earlier references no longer hold */
   epoch: number;
@@ -66,7 +77,13 @@ export const REASON_TEXT: Record<SignalReason, string> = {
   no_data: 'Brak danych z opaski',
   baseline: 'Zbieranie linii bazowej — siedź spokojnie',
   motion: 'Wykryto ruch — siedź nieruchomo',
-  poor_signal: 'Słaby kontakt czujników — popraw opaskę',
+  poor_signal: 'Brak kontaktu czujników — sprawdź, czy opaska przylega do skóry',
+};
+
+export const WARNING_TEXT: Record<SignalWarning, string> = {
+  weak_contact: 'Słaby kontakt czujników — dociśnij opaskę tuż nad brwiami; trening działa dalej',
+  light_leak: 'Dużo światła z otoczenia — przyciemnij pokój lub osłoń opaskę; trening działa dalej',
+  noisy: 'Zakłócenia na elektrodzie — dociśnij ją do skóry; trening działa dalej',
 };
 
 const STALE_SEC = 1.5;
@@ -229,9 +246,17 @@ export class Hub extends EventTarget {
       battery: d.battery?.percent ?? null, charging: !!d.battery?.charging, stale: d.data_stale,
     };
     const fresh = this.fresh('fnirs', (f.frames_this_tick ?? 0) > 0);
-    const labels = f.quality ? HEMO_CHANNELS.map(ch => f.quality![ch].label) : [];
-    const poor = labels.some(l => l === 'poor' || l === 'light_leak' || l === 'no_signal');
-    const quality = !f.baseline_ready || !labels.length ? null : poor ? 'poor' : labels.some(l => l === 'fair') ? 'fair' : 'good';
+    const q = f.quality;
+    const labels = q ? HEMO_CHANNELS.map(ch => q[ch].label) : [];
+    const offSkin = labels.includes('no_signal');
+    const warning: SignalWarning | null = labels.includes('light_leak') ? 'light_leak' : labels.includes('poor') ? 'weak_contact' : null;
+    const quality = !f.baseline_ready || !labels.length ? null
+      : offSkin || warning ? 'poor' : labels.includes('fair') ? 'fair' : 'good';
+    const detail = q && q.left.sci !== null ? HEMO_CHANNELS.map(ch => {
+      const c = q[ch];
+      const amb = c.ambient_ratio !== null && c.ambient_ratio > 0.2 ? ` · światło ${Math.round(c.ambient_ratio * 100)}%` : '';
+      return `${ch === 'left' ? 'L' : 'P'}: SCI ${c.sci === null ? '—' : c.sci.toFixed(2)}${amb}`;
+    }).join('   ') : null;
     let reason: SignalReason | null = null;
     if (!this.tool) reason = 'no_tool';
     else if (f.source === 'off') reason = 'off';
@@ -240,11 +265,11 @@ export class Hub extends EventTarget {
     else if (!fresh) reason = 'no_data';
     else if (!f.baseline_ready) reason = 'baseline';
     else if (f.motion) reason = 'motion';
-    else if (poor) reason = 'poor_signal';
+    else if (offSkin) reason = 'poor_signal';
     this.publish({
       tool: this.tool, source: f.source, device, recording: f.recording,
       signal: { reliable: reason === null, reason, progress: f.baseline_ready ? 1 : f.baseline_progress ?? 0, quality,
-                heartRate: f.heart_rate_bpm ?? null },
+                warning: reason === null ? warning : null, detail, heartRate: f.heart_rate_bpm ?? null },
     }, oxy);
   }
 
@@ -257,20 +282,23 @@ export class Hub extends EventTarget {
     };
     const fresh = this.fresh('eeg', f.samples_this_tick > 0);
     const labels = Object.values(f.contact).map(c => c.label);
-    const poor = labels.some(l => l === 'flat' || l === 'noisy');
+    const flat = labels.includes('flat');
+    const noisy = labels.includes('noisy');
     let reason: SignalReason | null = null;
     if (f.source === 'off') reason = 'off';
     else if (f.source === 'device' && d.reconnecting) reason = 'connecting';
     else if (f.source === 'device' && !d.connected) reason = 'no_device';
     else if (!fresh) reason = 'no_data';
     else if (!f.ready) reason = 'baseline';
-    else if (poor) reason = 'poor_signal';
+    else if (flat) reason = 'poor_signal';
     const bp = f.band_powers;
     const x = bp && f.samples_this_tick > 0
       ? Math.log(Math.max((bp.Fp1.beta + bp.Fp2.beta) / 2, 1e-6) / Math.max((bp.Fp1.alpha + bp.Fp2.alpha) / 2, 1e-6)) : null;
     this.publish({
       tool: 'eeg', source: f.source, device, recording: null,
-      signal: { reliable: reason === null, reason, progress: f.ready ? 1 : f.warmup_progress, quality: !f.ready ? null : poor ? 'poor' : 'good',
+      signal: { reliable: reason === null, reason, progress: f.ready ? 1 : f.warmup_progress,
+                quality: !f.ready ? null : flat || noisy ? 'poor' : 'good', warning: reason === null && noisy ? 'noisy' : null,
+                detail: f.ready ? Object.entries(f.contact).map(([ch, c]) => `${ch}: ${c.sd === null ? '—' : c.sd + ' µV'}`).join('   ') : null,
                 heartRate: null },
     }, x);
   }
@@ -287,7 +315,9 @@ export class Hub extends EventTarget {
     if (status.tool) {
       const s = status.signal;
       const epoch = status.tool === 'eeg' ? this.eeg.epoch : this.fnirs.epoch;
-      this.dispatchEvent(new CustomEvent<HubSample>('sample', { detail: { tool: status.tool, x, reliable: s.reliable, reason: s.reason, dt: this.dt(), epoch } }));
+      this.dispatchEvent(new CustomEvent<HubSample>('sample', {
+        detail: { tool: status.tool, x, reliable: s.reliable, reason: s.reason, warning: s.warning, dt: this.dt(), epoch },
+      }));
     }
   }
 
@@ -295,7 +325,7 @@ export class Hub extends EventTarget {
     return {
       tool: this.tool, source: 'off', recording: null,
       device: { kind: this.tool === 'eeg' ? 'halo' : 'mendi', connected: false, streaming: false, reconnecting: false, name: null, battery: null, charging: false, stale: false },
-      signal: { reliable: false, reason: this.tool ? 'off' : 'no_tool', progress: 0, quality: null, heartRate: null },
+      signal: { reliable: false, reason: this.tool ? 'off' : 'no_tool', progress: 0, quality: null, warning: null, detail: null, heartRate: null },
     };
   }
 

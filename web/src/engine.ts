@@ -38,9 +38,14 @@ export interface SavedEvent { meta: SessionMeta; movedToFolder: boolean; error?:
 
 export interface TickFrames { frames: Frame[]; derived: Derived }
 
+/**
+ * Only a band that is off the skin pauses the feedback (same rule as brainlink/fnirs_api.py): a low SCI
+ * (little heartbeat in the forehead channels) or room light makes the signal noisier but still usable —
+ * a real Mendi often reads "poor" there with a good fit, and pausing on it stalled the trainers for good.
+ */
 function holdFor(snap: Snapshot): string | null {
   if (snap.motion) return 'motion';
-  if (HEMO_CHANNELS.some(ch => ['poor', 'light_leak', 'no_signal'].includes(snap.quality[ch].label))) return 'poor_signal';
+  if (HEMO_CHANNELS.some(ch => snap.quality[ch].label === 'no_signal')) return 'poor_signal';
   return null;
 }
 

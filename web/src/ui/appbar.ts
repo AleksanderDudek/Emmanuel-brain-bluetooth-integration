@@ -65,7 +65,10 @@ export class AppBar {
     } else {
       title = s.source === 'simulator' ? 'Symulator' : (s.device.name ?? TOOL_INFO[s.tool].device);
       const bat = s.source === 'device' && s.device.battery !== null ? ` · ${s.device.battery}%` : '';
-      if (sig.reliable) {
+      if (sig.reliable && sig.warning) {
+        cls = 'wait';
+        sub = (sig.warning === 'light_leak' ? 'dużo światła' : 'sygnał słaby') + bat;
+      } else if (sig.reliable) {
         cls = 'live';
         sub = (sig.quality === 'fair' ? 'sygnał średni' : 'sygnał dobry') + bat;
       } else if (sig.reason === 'baseline') {

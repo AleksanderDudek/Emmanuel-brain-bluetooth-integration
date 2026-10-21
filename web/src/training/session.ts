@@ -3,7 +3,7 @@
  * samples, then the game clock, the activity curve and the score.  The UI
  * (src/ui/focus.ts) only draws what this holds.
  */
-import type { HubSample, SignalReason } from '../hub';
+import type { HubSample, SignalReason, SignalWarning } from '../hub';
 import type { Tool } from '../tools';
 import { ActivityMeter, EEG_METER, FNIRS_METER, type MeterConfig } from './meter';
 import { HISTORY_SEC, type HistoryPoint } from './scene';
@@ -25,6 +25,9 @@ export class FocusSession {
   level: number | null = null;
   reliable = false;
   reason: SignalReason | null = null;
+  /** usable, but weak (low SCI, room light, a noisy electrode) */
+  warning: SignalWarning | null = null;
+  private weakSec = 0;
   /** engine baseline (0..1) while it is still being collected, then the meter's calibration */
   calProgress = 0;
   calStage: 'baseline' | 'reference' = 'baseline';
@@ -52,6 +55,7 @@ export class FocusSession {
     const out: TickOutcome = { star: false, calibrated: false, finished: false };
     if (this.phase === 'prep' || this.phase === 'done' || s.tool !== this.tool) return out;
     this.reason = s.reason;
+    this.warning = s.warning;
     if (this.epoch !== null && s.epoch !== this.epoch) {
       // ΔHb (or the EEG buffers) start again from a new baseline: the old reference means nothing now
       this.meter.reset();
@@ -77,6 +81,7 @@ export class FocusSession {
     const usable = r.reliable && r.activity !== null && !this.recalibrating;
     const res = this.scorer.tick(usable ? r.activity : null, usable, s.dt);
     this.gameT += s.dt;
+    if (usable && s.warning) this.weakSec += s.dt;
     this.history.push({ t: this.gameT, a: this.level ?? 0, reliable: usable, star: res.star || undefined });
     while (this.history.length && this.gameT - this.history[0].t > HISTORY_SEC + 4) this.history.shift();
     out.star = res.star;
@@ -106,6 +111,7 @@ export class FocusSession {
       points: Math.floor(s.points), control_sec: Math.round(s.control),
       activity_avg_pct: round1(s.meanActivity), activity_max_pct: round1(s.maxActivity === -Infinity ? null : s.maxActivity),
       reliable_pct: s.playedSec > 0 ? Math.round((100 * s.reliableSec) / s.playedSec) : 0,
+      weak_signal_pct: s.reliableSec > 0 ? Math.round((100 * this.weakSec) / s.reliableSec) : 0,
       series: s.series,
     };
   }

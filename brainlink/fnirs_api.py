@@ -268,9 +268,12 @@ async def fnirs_balance_reset():
 
 
 def _balance_hold(snap: dict) -> Optional[str]:
+    # Only a band that is off the skin pauses the feedback.  A low SCI (little heartbeat in the
+    # forehead channels) or room light makes the signal noisier but still usable — a real Mendi
+    # often reads "poor" there with a good fit, and pausing on it stalled the trainer for good.
     if snap["motion"]:
         return "motion"
-    if any(snap["quality"][ch]["label"] in ("poor", "light_leak", "no_signal") for ch in HEMO_CHANNELS):
+    if any(snap["quality"][ch]["label"] == "no_signal" for ch in HEMO_CHANNELS):
         return "poor_signal"
     return None
 

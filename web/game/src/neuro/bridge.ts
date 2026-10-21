@@ -114,7 +114,8 @@ export class NeuroBridge extends EventTarget {
     if (frames.length) this.lastFramesAt = now;
     const stale = this.lastFramesAt === null || now - this.lastFramesAt > STALE_SEC;
     const snap = this.pipeline.snapshot();
-    const poor = HEMO_CHANNELS.some(ch => ['poor', 'light_leak', 'no_signal'].includes(snap.quality[ch].label));
+    // only a band off the skin counts as no signal: low SCI or room light is noisier but usable (as in BrainLink)
+    const poor = HEMO_CHANNELS.some(ch => snap.quality[ch].label === 'no_signal');
     const hold = stale ? 'no_data' : snap.motion ? 'motion' : poor ? 'poor_signal' : null;
     const b = this.balance.update(snap.metrics.asymmetry, now, hold);
     const info = this.device.info;
