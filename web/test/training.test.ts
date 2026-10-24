@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ActivityMeter, FNIRS_METER } from '../src/training/meter';
 import {
-  dayScore, isTopSession, newMilestones, SessionScorer, streakDays, type TrainingResult,
+  dayScore, isTopSession, newMilestones, restedYesterday, SessionScorer, streakDays, type TrainingResult,
 } from '../src/training/score';
 
 const DAY = 86400;
@@ -95,6 +95,17 @@ describe('day score, streak, milestones', () => {
     expect(streakDays([...before, today], NOW)).toBe(9);
     expect(newMilestones(before, today, NOW).map(m => m.id)).toEqual([]);
     expect(streakDays(days(3, 4, 5), NOW)).toBe(0);              // yesterday and the day before both missed
+  });
+
+  it('names the forgiven day a day of rest when today’s session carries the streak over it', () => {
+    const days = (...ds: number[]) => ds.map(d => result({ start_time: NOW - d * DAY }));
+    expect(restedYesterday(days(0, 2, 3), NOW)).toBe(true);     // yesterday missed, the streak goes on
+    expect(dayScore(days(0, 2, 3), NOW).rested).toBe(true);
+    expect(restedYesterday(days(0, 1, 2), NOW)).toBe(false);    // no gap
+    expect(restedYesterday(days(2, 3), NOW)).toBe(false);       // nothing today yet
+    expect(streakDays(days(0, 2, 3, 5), NOW)).toBe(3);          // the second gap ends the streak, yesterday's is the rest day
+    expect(restedYesterday(days(0, 2, 3, 5), NOW)).toBe(true);
+    expect(restedYesterday(days(0, 3), NOW)).toBe(false);       // two days missed are no rest day
   });
 
   it('adds commitment and performance', () => {

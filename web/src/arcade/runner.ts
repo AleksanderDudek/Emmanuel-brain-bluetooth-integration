@@ -628,7 +628,8 @@ export class ArcadeRunner {
         h('p', { class: 'eyebrow' }, t('sum.day')),
         h('h2', null, day.label),
         h('p', { class: 'muted' }, t(r.source === 'simulator' ? 'sum.dayPartsSim' : 'sum.dayParts', { commitment: day.commitment, performance: day.performance })),
-        day.streak > 0 ? h('p', { class: 'streak mt8' }, icon('i-flame'), t('sum.streak', { n: day.streak })) : null)),
+        day.streak > 0 ? h('p', { class: 'streak mt8' }, icon('i-flame'), t('sum.streak', { n: day.streak })) : null,
+        day.rested ? h('p', { class: 'muted' }, t('sum.rested')) : null)),
       miles.map(m => h('div', { class: 'milestone' }, icon('i-star'), t('sum.milestone', { title: m.title }))),
       h('div', { class: 'row arcade-again' }, again,
         h('button', { class: 'btn big', type: 'button', on: { click: () => { this.session = null; this.leave(); } } }, t('sum.done')))));

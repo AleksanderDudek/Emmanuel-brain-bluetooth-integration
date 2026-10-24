@@ -177,7 +177,20 @@ export function streakDays(results: readonly TrainingResult[], nowSec = Date.now
   return n;
 }
 
-export interface DayScore { score: number; commitment: number; performance: number; label: string; minutes: number; streak: number }
+/**
+ * Today has a session, yesterday none, and the day before one: the streak walks back from today, so
+ * yesterday is its first gap and always the forgiven one (FREEZE_DAYS) — a day of rest that kept it.
+ */
+export function restedYesterday(results: readonly TrainingResult[], nowSec = Date.now() / 1000): boolean {
+  const days = new Set(results.map(r => dayKey(r.start_time)));
+  return days.has(dayKey(nowSec)) && !days.has(dayKey(nowSec - DAY)) && days.has(dayKey(nowSec - 2 * DAY));
+}
+
+export interface DayScore {
+  score: number; commitment: number; performance: number; label: string; minutes: number; streak: number;
+  /** yesterday was the streak's forgiven day: the summary calls it a day of rest, so it reads as rest, not luck */
+  rested: boolean;
+}
 
 export const SCORE_LABELS: [number, string][] = [
   [85, t('score.master')], [70, t('score.great')], [50, t('score.solid')], [30, t('score.momentum')], [0, t('score.start')],
@@ -203,7 +216,7 @@ export function dayScore(results: readonly TrainingResult[], nowSec = Date.now()
   const score = Math.round(Math.min(100, commitment + performance));
   return {
     score, commitment: Math.round(commitment), performance: Math.round(performance),
-    label: SCORE_LABELS.find(([min]) => score >= min)![1], minutes, streak,
+    label: SCORE_LABELS.find(([min]) => score >= min)![1], minutes, streak, rested: restedYesterday(results, nowSec),
   };
 }
 
