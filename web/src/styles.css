@@ -246,6 +246,11 @@ details:not([open])>summary{margin-bottom:0}
 .art-geoda{background:radial-gradient(circle at 50% 30%,rgba(199,125,255,.45),transparent 45%),linear-gradient(160deg,#2a2033,#141020 70%)}
 .art-latarnik{background:radial-gradient(circle at 50% 50%,rgba(255,210,122,.32),transparent 42%),linear-gradient(180deg,#0b1630,#050a18)}
 .art-motylarnia{background:radial-gradient(circle at 62% 38%,rgba(242,194,48,.35),transparent 45%),linear-gradient(160deg,#c9e08b,#5f8f3e)}
+.art-arka{background:radial-gradient(circle at 50% 28%,rgba(255,226,170,.42),transparent 46%),radial-gradient(circle at 50% 100%,rgba(127,179,90,.35),transparent 50%),linear-gradient(170deg,#6b4a2f,#3b2a1e 72%)}
+.art-urodzaj{background:radial-gradient(circle at 50% 66%,rgba(163,36,59,.42),transparent 40%),radial-gradient(circle at 28% 34%,rgba(107,123,58,.38),transparent 44%),linear-gradient(165deg,#efe4cc,#d6c08f 74%)}
+.art-wzlot{background:radial-gradient(circle at 70% 26%,rgba(255,236,200,.6),transparent 40%),linear-gradient(180deg,#f6c1b6 0%,#dceff7 52%,#c98a5a 53%,#8a4f36 100%)}
+.art-glina{background:radial-gradient(ellipse at 50% 74%,rgba(196,103,63,.55),transparent 36%),linear-gradient(180deg,#3f6e9c 0%,#7db3dc 30%,#f4efe6 31%,#e9d8bc 100%)}
+.art-zrodla{background:radial-gradient(circle at 40% 58%,rgba(47,179,196,.55),transparent 38%),radial-gradient(circle at 66% 40%,rgba(143,175,126,.45),transparent 34%),linear-gradient(160deg,#e8ddc8,#c7a46e 82%)}
 .art-img{position:absolute;pointer-events:none;user-select:none}
 .art-img-holyholyholy{left:50%;top:50%;height:78%;transform:translate(-50%,-50%);border-radius:22%;filter:drop-shadow(0 10px 30px rgba(255,214,120,.25))}
 .art-img-holyholyholy3d{right:4%;top:-6%;height:150%;filter:drop-shadow(0 12px 40px rgba(0,0,0,.5))}

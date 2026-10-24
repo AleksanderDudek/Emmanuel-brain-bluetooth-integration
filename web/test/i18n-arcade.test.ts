@@ -55,8 +55,8 @@ describe('the arcade catalog', () => {
   });
 
   it('keeps the Polish registry texts (the source)', () => {
-    expect(ARCADE.map(a => a.title)).toEqual(['Geoda', 'Latarnik', 'Motylarnia']);
-    expect(ARCADE.map(a => a.unit)).toEqual(['ct', 'łodzi', 'mm']);
+    expect(ARCADE.map(a => a.title)).toEqual(['Geoda', 'Latarnik', 'Motylarnia', 'Arka', 'Urodzaj', 'Wzlot', 'Glina', 'Źródła']);
+    expect(ARCADE.map(a => a.unit)).toEqual(['ct', 'łodzi', 'mm', 'par', 'pkt', 'm', 'cm', 'dzbanów']);
     for (const a of ARCADE) {
       expect(a.how).toHaveLength(3);
       expect(a.tips.length).toBeGreaterThanOrEqual(5);
@@ -66,9 +66,9 @@ describe('the arcade catalog', () => {
 
   it('gives the games the glossary’s titles and the runner its words in English, German and Swedish', async () => {
     const titles: Record<Exclude<Lang, 'pl'>, string[]> = {
-      en: ['Geode', 'Lighthouse Keeper', 'Butterfly House'],
-      de: ['Geode', 'Leuchtturmwärter', 'Schmetterlingshaus'],
-      sv: ['Geod', 'Fyrvaktaren', 'Fjärilshuset'],
+      en: ['Geode', 'Lighthouse Keeper', 'Butterfly House', 'The Ark', 'Harvest', 'Updraft', 'Clay', 'Wellsprings'],
+      de: ['Geode', 'Leuchtturmwärter', 'Schmetterlingshaus', 'Die Arche', 'Ernte', 'Aufwind', 'Töpferton', 'Quellen'],
+      sv: ['Geod', 'Fyrvaktaren', 'Fjärilshuset', 'Arken', 'Skörd', 'Uppvind', 'Lera', 'Källorna'],
     };
     const words = {
       en: { streak: '2-day streak', best: 'Best: 12 boats', parts: 'Commitment 40/70 · performance 9/30', again: 'Play again' },

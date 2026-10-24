@@ -72,6 +72,46 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { targetRate: 0.5, adapt: 0.08 }, root: '2co5.17',
     load: () => import('./motylarnia/index').then(m => m.default),
   },
+  {
+    id: 'arka', kind: 'puzzle', title: t('arka.title'), tagline: t('arka.tagline'), text: t('arka.text'),
+    how: [t('arka.how1'), t('arka.how2'), t('arka.how3')],
+    tips: [t('arka.tip1'), t('arka.tip2'), t('arka.tip3'), t('arka.tip4'), t('arka.tip5')],
+    unit: t('arka.unit'), art: 'art-arka', fill: ['#efe4cf', '#c08a3e', '#6b4a2f', '#3b2a1e'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'gen8.1',
+    load: () => import('./arka/index').then(m => m.default),
+  },
+  {
+    id: 'urodzaj', kind: 'arcade', title: t('urodzaj.title'), tagline: t('urodzaj.tagline'), text: t('urodzaj.text'),
+    how: [t('urodzaj.how1'), t('urodzaj.how2'), t('urodzaj.how3')],
+    tips: [t('urodzaj.tip1'), t('urodzaj.tip2'), t('urodzaj.tip3'), t('urodzaj.tip4'), t('urodzaj.tip5'), t('urodzaj.tip6')],
+    unit: t('urodzaj.unit'), art: 'art-urodzaj', fill: ['#f2dea0', '#d4a640', '#b5523b', '#4b2e5a'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { targetRate: 0.5, adapt: 0.08 }, root: 'deu8.10',
+    load: () => import('./urodzaj/index').then(m => m.default),
+  },
+  {
+    id: 'wzlot', kind: 'arcade', title: t('wzlot.title'), tagline: t('wzlot.tagline'), text: t('wzlot.text'),
+    how: [t('wzlot.how1'), t('wzlot.how2'), t('wzlot.how3')],
+    tips: [t('wzlot.tip1'), t('wzlot.tip2'), t('wzlot.tip3'), t('wzlot.tip4'), t('wzlot.tip5')],
+    unit: t('wzlot.unit'), art: 'art-wzlot', fill: ['#f9d5a7', '#f2b26b', '#c97a4a', '#6c5b9a'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'deu32.11',
+    load: () => import('./wzlot/index').then(m => m.default),
+  },
+  {
+    id: 'glina', kind: 'craft', title: t('glina.title'), tagline: t('glina.tagline'), text: t('glina.text'),
+    how: [t('glina.how1'), t('glina.how2'), t('glina.how3')],
+    tips: [t('glina.tip1'), t('glina.tip2'), t('glina.tip3'), t('glina.tip4'), t('glina.tip5'), t('glina.tip6')],
+    unit: t('glina.unit'), art: 'art-glina', fill: ['#9ccbea', '#e9d8bc', '#c4673f', '#6e4632'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'jer18.6',
+    load: () => import('./glina/index').then(m => m.default),
+  },
+  {
+    id: 'zrodla', kind: 'puzzle', title: t('zrodla.title'), tagline: t('zrodla.tagline'), text: t('zrodla.text'),
+    how: [t('zrodla.how1'), t('zrodla.how2'), t('zrodla.how3')],
+    tips: [t('zrodla.tip1'), t('zrodla.tip2'), t('zrodla.tip3'), t('zrodla.tip4'), t('zrodla.tip5'), t('zrodla.tip6')],
+    unit: t('zrodla.unit'), art: 'art-zrodla', fill: ['#cdf3ef', '#2fb3c4', '#1c6e96', '#4f7a43'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { targetRate: 0.55, adapt: 0.08 }, root: 'psa84.5-6',
+    load: () => import('./zrodla/index').then(m => m.default),
+  },
 ];
 
 export const arcadeEntry = (id: string): ArcadeEntry | undefined => ARCADE.find(a => a.id === id);
