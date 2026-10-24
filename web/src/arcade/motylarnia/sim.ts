@@ -959,7 +959,7 @@ export class MothSim {
   /**
    * The summary's closing passage (kit/scripture.ts), one of those the session fits, in turn from
    * session to session: the full Atlas is all things made new, a new species the earth full of His
-   * creatures, a deep chrysalis the wings of those who wait; the lilies and the birds fit every day.
+   * creatures, a deep chrysalis a season for everything; the lilies and the birds fit every day.
    * The lobby already opens with 2 Corinthians 5:17.
    */
   private closingVerse(): PassageId {
@@ -967,7 +967,7 @@ export class MothSim {
     if (fresh && SPECIES.every(s => (this.p.atlas[s.id]?.n ?? 0) > 0)) return 'rev21.5';
     const fit: PassageId[] = [];
     if (fresh) fit.push('psa104.24');
-    if (this.counts.restOk > 0) fit.push('isa40.31');
+    if (this.counts.restOk > 0) fit.push('ecc3.1');
     fit.push('mat6.28-29', 'mat6.26');
     return inTurn(fit, this.p.sessions);
   }
