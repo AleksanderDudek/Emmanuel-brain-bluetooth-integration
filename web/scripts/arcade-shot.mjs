@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
  * Look at one arcade game while working on it: headless Chrome opens the app from a running Vite
- * dev server, picks fNIRS on the simulator, starts the game from its lobby, plays it with the
+ * dev server, picks a band (Mendi by default) on the simulator, starts the game from its lobby, plays it with the
  * simulator's focus switch and generic taps (like scripts/app-smoke.mjs), and saves screenshots
  * of the lobby, the calibration intro, play (desktop, phone portrait and landscape) and the summary.
  *
  *   npx vite --port 5181 --strictPort &            (one dev server per game is fine)
- *   node scripts/arcade-shot.mjs --port 5181 --game <id> --out /tmp/shots [--sec 40] [--focus on|off|toggle] [--lang pl|en|de|sv]
+ *   node scripts/arcade-shot.mjs --port 5181 --game <id> --out /tmp/shots [--sec 40] [--focus on|off|toggle] [--lang pl|en|de|sv] [--tool fnirs|eeg]
  *
  * Prints the game's debug state every few seconds and fails on page errors.
  */
@@ -27,8 +27,10 @@ const sec = Math.max(10, Number(arg('sec', '40')) || 40);
 const focus = arg('focus', 'toggle');
 // the script clicks Polish labels on the way in; --lang switches the language for the game itself
 const lang = arg('lang', 'pl');
-if (!game) {
-  console.error('usage: node scripts/arcade-shot.mjs --port <dev server port> --game <id> --out <dir>');
+// the band: Mendi (fnirs) or HALO (eeg), each on its own simulator
+const tool = arg('tool', 'fnirs');
+if (!game || !['fnirs', 'eeg'].includes(tool)) {
+  console.error('usage: node scripts/arcade-shot.mjs --port <dev server port> --game <id> --out <dir> [--tool fnirs|eeg]');
   process.exit(2);
 }
 const chrome = [process.env.CHROME_PATH, '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome', '/usr/bin/chromium']
@@ -57,12 +59,12 @@ try {
   const state = () => page.evaluate(() => globalThis.brainlink?.arcade?.debug ?? null);
 
   await page.goto(`http://localhost:${port}/?debug&trainingSec=${sec}&lang=${lang}`, { waitUntil: 'networkidle0' });
-  await page.waitForSelector('[data-pick="fnirs"]');
-  await page.click('[data-pick="fnirs"]');
+  await page.waitForSelector(`[data-pick="${tool}"]`);
+  await page.click(`[data-pick="${tool}"]`);
   await page.waitForFunction(() => !document.getElementById('nextStep').hidden);
   await page.evaluate(() => globalThis.brainlink.hub.useSimulator());
   await page.waitForFunction(() => globalThis.brainlink.hub.status.signal.reliable, { timeout: 40_000 });
-  log('simulator ready');
+  log(`simulator ready (${tool})`);
   await page.evaluate(id => { location.hash = `gra/${id}`; }, game);
   await page.waitForFunction(() => !document.getElementById('btnArcadePlay').disabled, { timeout: 30_000 });
   await sleep(1200);
