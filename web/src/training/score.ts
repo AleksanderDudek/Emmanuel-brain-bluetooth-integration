@@ -86,9 +86,24 @@ export class SessionScorer {
 
 export interface Mood { face: 1 | 2 | 3 | 4 | 5; words: string[] }
 
+/** What an arcade game adds to a session's training numbers (src/arcade). */
+export interface GameResult {
+  /** the arcade game's id */
+  id: string;
+  title: string;
+  /** the game's headline number for this session, and its unit ("pięter", "pkt") */
+  score: number;
+  unit: string;
+  /** the game's best before this session (null: the first one) */
+  best: number | null;
+  /** a few lines for the summary and Sesje: [label, value] */
+  stats: [string, string][];
+}
+
 export interface TrainingResult {
   id: string;
-  kind: 'focus';
+  /** 'focus' = the focus training; 'game' = an arcade game (its own numbers in `game`) */
+  kind: 'focus' | 'game';
   tool: Tool;
   source: 'device' | 'simulator';
   device: string;
@@ -110,6 +125,7 @@ export interface TrainingResult {
   weak_signal_pct?: number;
   /** activity % per second of play */
   series: (number | null)[];
+  game?: GameResult;
 }
 
 const dayKey = (epochSec: number): string => {
@@ -118,15 +134,28 @@ const dayKey = (epochSec: number): string => {
 };
 const DAY = 86400;
 
-/** Consecutive days with a session, counting back from today (or from yesterday if today has none yet). */
+/** A streak survives one missed day in any FREEZE_DAYS (a "streak freeze", as in Duolingo): life happens. */
+export const FREEZE_DAYS = 7;
+
+/**
+ * Days with a session in the current streak, counting back from today (or from yesterday if today
+ * has none yet).  A single missed day between two session days is forgiven once per FREEZE_DAYS;
+ * it keeps the streak going but does not count as a day.
+ */
 export function streakDays(results: readonly TrainingResult[], nowSec = Date.now() / 1000): number {
   const days = new Set(results.map(r => dayKey(r.start_time)));
   let t = nowSec;
-  if (!days.has(dayKey(t))) t -= DAY;
-  let n = 0;
-  while (days.has(dayKey(t))) {
-    n++;
+  // today may still bring a session: until it does, a missed yesterday can already be the frozen day
+  // (otherwise the morning after a gap would read 0 and the next session would re-announce milestones)
+  const pending = !days.has(dayKey(t));
+  if (pending) t -= DAY;
+  let n = 0, walked = 0, frozeAt = -Infinity;
+  for (;;) {
+    if (days.has(dayKey(t))) n++;
+    else if ((n > 0 || (pending && walked === 0)) && walked - frozeAt >= FREEZE_DAYS && days.has(dayKey(t - DAY))) frozeAt = walked;
+    else break;
     t -= DAY;
+    walked++;
   }
   return n;
 }
@@ -165,9 +194,9 @@ export interface Milestone { id: string; title: string }
 
 const MILESTONES: { id: string; title: string; reached: (all: readonly TrainingResult[], streak: number) => boolean }[] = [
   { id: 'first', title: 'Pierwsza sesja', reached: all => all.length >= 1 },
-  { id: 'streak3', title: '3 dni z rzędu', reached: (_, s) => s >= 3 },
-  { id: 'streak7', title: 'Tydzień z rzędu', reached: (_, s) => s >= 7 },
-  { id: 'streak30', title: '30 dni z rzędu', reached: (_, s) => s >= 30 },
+  { id: 'streak3', title: 'Seria 3 dni', reached: (_, s) => s >= 3 },
+  { id: 'streak7', title: 'Seria 7 dni', reached: (_, s) => s >= 7 },
+  { id: 'streak30', title: 'Seria 30 dni', reached: (_, s) => s >= 30 },
   { id: 'sessions10', title: '10 sesji', reached: all => all.length >= 10 },
   { id: 'sessions50', title: '50 sesji', reached: all => all.length >= 50 },
   { id: 'hour', title: 'Pierwsza godzina treningu', reached: all => all.reduce((s, r) => s + r.played_sec, 0) >= 3600 },

@@ -1,14 +1,24 @@
 /**
  * Hash routes of the app (DESIGN.md §2): six destinations in the rail, the
- * exercises under Trening and the games under Gry.  Old links (#balance,
+ * exercises under Trening and the games under Gry — the arcade games' lobbies
+ * (#gra/<id>) and the embedded HolyHolyHoly games.  Old links (#balance,
  * #sessions, #monitor) still land where they used to.
  */
+import { ARCADE } from '../arcade/registry';
 
-export type ViewId = 'start' | 'trening' | 'focus' | 'balance' | 'gry' | 'sygnal' | 'sesje' | 'ustawienia';
+export type ViewId = 'start' | 'trening' | 'focus' | 'balance' | 'gry' | 'arcade' | 'sygnal' | 'sesje' | 'ustawienia';
 export type NavId = 'start' | 'trening' | 'gry' | 'sygnal' | 'sesje' | 'ustawienia';
 export type GameId = 'holyholyholy' | 'holyholyholy3d';
 
-export interface Route { view: ViewId; nav: NavId; game: GameId | null; hash: string }
+export interface Route {
+  view: ViewId;
+  nav: NavId;
+  /** an embedded game (the full-screen layer over Gry) */
+  game: GameId | null;
+  /** an arcade game whose lobby is shown */
+  arcade: string | null;
+  hash: string;
+}
 
 const LEGACY: Record<string, string> = { balance: 'trening/balance', sessions: 'sesje', monitor: 'sygnal', '': 'start' };
 const GAMES: readonly GameId[] = ['holyholyholy', 'holyholyholy3d'];
@@ -17,13 +27,15 @@ export function parseRoute(hash: string): Route {
   let h = hash.replace(/^#/, '');
   h = LEGACY[h] ?? h;
   const [head, sub] = h.split('/');
-  if (head === 'trening' && sub === 'focus') return { view: 'focus', nav: 'trening', game: null, hash: h };
-  if (head === 'trening' && sub === 'balance') return { view: 'balance', nav: 'trening', game: null, hash: h };
-  if (head === 'gra' && GAMES.includes(sub as GameId)) return { view: 'gry', nav: 'gry', game: sub as GameId, hash: h };
+  const none = { game: null, arcade: null };
+  if (head === 'trening' && sub === 'focus') return { view: 'focus', nav: 'trening', ...none, hash: h };
+  if (head === 'trening' && sub === 'balance') return { view: 'balance', nav: 'trening', ...none, hash: h };
+  if (head === 'gra' && GAMES.includes(sub as GameId)) return { view: 'gry', nav: 'gry', game: sub as GameId, arcade: null, hash: h };
+  if (head === 'gra' && ARCADE.some(a => a.id === sub)) return { view: 'arcade', nav: 'gry', game: null, arcade: sub, hash: h };
   if (head === 'start' || head === 'trening' || head === 'gry' || head === 'sygnal' || head === 'sesje' || head === 'ustawienia') {
-    return { view: head, nav: head, game: null, hash: head };
+    return { view: head, nav: head, ...none, hash: head };
   }
-  return { view: 'start', nav: 'start', game: null, hash: 'start' };
+  return { view: 'start', nav: 'start', ...none, hash: 'start' };
 }
 
 /** Shows one view at a time; calls `onRoute` after every change (also for the first one). */

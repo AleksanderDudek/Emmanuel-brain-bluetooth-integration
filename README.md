@@ -248,6 +248,10 @@ choose the band at the top of the app. Inside it:
 * a **focus training** modelled on Mendi's default one (an orb riding the activity curve, points,
   control, day score and streak);
 * the balance trainer;
+* three training games for either band — **Geoda** (a Block Blast-style puzzle whose crystals
+  grow with steady focus), **Latarnik** (a one-tap lighthouse game: focus stretches the beam,
+  calm lights the sea) and **Motylarnia** (a caterpillar's path becomes a unique butterfly) —
+  each session a full neurofeedback session ([design and research](web/src/arcade/DESIGN.md));
 * the two HolyHolyHoly games, run inside the app on the band that is already connected;
 * live signal views, and sessions in IndexedDB or a local folder.
 

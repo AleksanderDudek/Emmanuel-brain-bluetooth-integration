@@ -223,12 +223,24 @@ describe('router', () => {
     expect(parseRoute('#sessions')).toMatchObject({ view: 'sesje' });
     expect(parseRoute('#gra/holyholyholy3d')).toMatchObject({ view: 'gry', nav: 'gry', game: 'holyholyholy3d' });
     expect(parseRoute('#gry')).toMatchObject({ view: 'gry', nav: 'gry', game: null });
+    expect(parseRoute('#gra/geoda')).toMatchObject({ view: 'arcade', nav: 'gry', arcade: 'geoda', game: null });
+    expect(parseRoute('#gra/latarnik')).toMatchObject({ view: 'arcade', arcade: 'latarnik' });
+    expect(parseRoute('#gra/motylarnia')).toMatchObject({ view: 'arcade', arcade: 'motylarnia' });
     expect(parseRoute('#gra/nope')).toMatchObject({ view: 'start' });
     expect(parseRoute('#whatever')).toMatchObject({ view: 'start' });
   });
 });
 
 describe('settings and storage upgrades', () => {
+  it('fills in the games\' preferences for settings saved before they existed', async () => {
+    const db = await SessionDB.open(`app-${dbn++}`);
+    cleanups.push(() => db.close());
+    await db.setSetting('app_settings', { ...DEFAULT_SETTINGS, arcade: undefined, tool: 'eeg' });
+    expect((await loadSettings(db)).arcade).toEqual(DEFAULT_SETTINGS.arcade);
+    await db.setSetting('app_settings', { ...DEFAULT_SETTINGS, arcade: { minutes: 10 } });
+    expect((await loadSettings(db)).arcade).toEqual({ ...DEFAULT_SETTINGS.arcade, minutes: 10 });
+  });
+
   it('reads settings saved before the tool switch as fNIRS on the simulator', async () => {
     const db = await SessionDB.open(`app-${dbn++}`);
     cleanups.push(() => db.close());

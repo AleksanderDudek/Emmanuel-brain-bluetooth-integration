@@ -73,10 +73,28 @@ describe('SessionScorer', () => {
 
 describe('day score, streak, milestones', () => {
   it('counts the streak back from today or yesterday', () => {
-    const rs = [0, 1, 2, 4].map(d => result({ start_time: NOW - d * DAY }));
+    const rs = [0, 1, 2, 5].map(d => result({ start_time: NOW - d * DAY }));
     expect(streakDays(rs, NOW)).toBe(3);
     expect(streakDays(rs.slice(1), NOW)).toBe(2);   // nothing today yet: yesterday's streak still stands
     expect(streakDays([], NOW)).toBe(0);
+  });
+
+  it('forgives one missed day a week (a streak freeze), not two', () => {
+    const days = (...ds: number[]) => ds.map(d => result({ start_time: NOW - d * DAY }));
+    expect(streakDays(days(0, 1, 3, 4), NOW)).toBe(4);          // day 2 missed: frozen, not counted
+    expect(streakDays(days(0, 2, 4), NOW)).toBe(2);             // a second gap within the week ends it
+    expect(streakDays(days(0, 2, 3, 4, 5, 6, 7, 8, 10), NOW)).toBe(9);   // gaps 7 days apart are both forgiven
+    expect(streakDays(days(0, 1, 4), NOW)).toBe(2);             // two missed days in a row are no freeze
+  });
+
+  it('keeps a frozen streak in the morning after the missed day, and does not re-announce milestones', () => {
+    const days = (...ds: number[]) => ds.map(d => result({ start_time: NOW - d * DAY }));
+    const before = days(2, 3, 4, 5, 6, 7, 8, 9);                 // 8 days, yesterday missed, nothing yet today
+    expect(streakDays(before, NOW)).toBe(8);
+    const today = result({ start_time: NOW - 60 });
+    expect(streakDays([...before, today], NOW)).toBe(9);
+    expect(newMilestones(before, today, NOW).map(m => m.id)).toEqual([]);
+    expect(streakDays(days(3, 4, 5), NOW)).toBe(0);              // yesterday and the day before both missed
   });
 
   it('adds commitment and performance', () => {

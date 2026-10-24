@@ -2,13 +2,14 @@
  * Start: today's date, the one next step (pick a band → connect → baseline →
  * train), quick launch, and today's score with the last session.
  */
+import { resultFill } from '../arcade/registry';
 import type { HubStatus } from '../hub';
 import { REASON_TEXT, WARNING_TEXT } from '../hub';
 import type { SceneId } from '../settings';
 import { TOOL_INFO, type Tool } from '../tools';
-import { drawScenePreview, SCENES } from '../training/scene';
+import { drawScenePreview } from '../training/scene';
 import { dayScore, type TrainingResult } from '../training/score';
-import { artImage, EXERCISES, GAME_ACTIVITIES, whyNot, type Activity } from './activities';
+import { artImage, drawArcadeCards, EXERCISES, GAME_ACTIVITIES, whyNot, type Activity } from './activities';
 import { $, fmtDur, h } from './dom';
 import { drawOverview } from './focus';
 
@@ -129,16 +130,19 @@ export class StartView {
     this.tilesFor = key;
     const tile = (a: Activity, extra = '') => {
       const why = whyNot(a, tool);
-      return h('a', { class: `tile${a.id === 'focus' ? ' feature' : ''}${extra}`, href: a.href, 'aria-disabled': String(!!why && !a.optional) },
-        a.id === 'focus' ? h('canvas', { 'aria-hidden': 'true' }) : h('div', { class: `tile-art ${a.art}` }, artImage(a)),
+      return h('a', { class: `tile${a.id === 'focus' ? ' feature' : ''}${extra}`, href: a.href, 'data-activity': a.id, 'aria-disabled': String(!!why && !a.optional) },
+        a.id === 'focus' ? h('canvas', { 'aria-hidden': 'true' })
+          : h('div', { class: `tile-art ${a.art}` }, a.arcade ? h('canvas', { class: 'arcade-art', 'aria-hidden': 'true' }) : artImage(a)),
         h('span', { class: 'tag' }, a.tools.map(t => (t === 'fnirs' ? 'fNIRS' : 'EEG')).join(' · ') + (a.optional ? ' · opcjonalnie' : '')),
         h('b', null, a.title),
-        h('small', null, why ?? (a.id === 'focus' ? 'Utrzymaj kulę wysoko — 3 do 15 minut.' : a.optional ? 'Przejmie opaskę połączoną w BrainLink.' : 'Zadania dobierane do półkul.')));
+        h('small', null, why ?? (a.id === 'focus' ? 'Utrzymaj kulę wysoko — 3 do 15 minut.' : a.arcade ? a.arcade.tagline
+          : a.optional ? 'Przejmie opaskę połączoną w BrainLink.' : 'Zadania dobierane do półkul.')));
     };
     $('trainTiles').replaceChildren(...EXERCISES().map(a => tile(a)),
       h('a', { class: 'tile', href: '#sygnal' }, h('div', { class: 'tile-art art-signal' }), h('span', { class: 'tag' }, 'na żywo'),
         h('b', null, 'Sygnał'), h('small', null, tool === 'eeg' ? 'Fale, pasma, metryki EEG.' : 'ΔHbO/ΔHbR, tętno, jakość, nagrywanie.')));
     $('gameTiles').replaceChildren(...GAME_ACTIVITIES().map(a => tile(a, ' tile-game')));
+    drawArcadeCards($('gameTiles'), GAME_ACTIVITIES());
     const canvas = $('trainTiles').querySelector<HTMLCanvasElement>('.tile.feature canvas');
     if (canvas) requestAnimationFrame(() => drawScenePreview(canvas, this.scene()));
   }
@@ -160,11 +164,12 @@ export class StartView {
     const stat = (k: string, v: string, unit = '') => h('div', { class: 'stat' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v, unit ? h('small', null, unit) : null));
     const spark = h('canvas', { class: 'spark', 'aria-label': 'Przebieg ostatniej sesji' });
     $('lastSession').replaceChildren(
-      h('div', { class: 'card-head' }, 'Ostatnia sesja', h('span', { class: 'hint' }, new Date(last.start_time * 1000).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))),
+      h('div', { class: 'card-head' }, last.kind === 'game' && last.game ? `Ostatnia sesja · ${last.game.title}` : 'Ostatnia sesja',
+        h('span', { class: 'hint' }, new Date(last.start_time * 1000).toLocaleString('pl-PL', { weekday: 'short', hour: '2-digit', minute: '2-digit' }))),
       h('div', { class: 'last' },
         stat('Aktywność', pct === null ? '—' : `${pct >= 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)}%`), stat('Kontrola', String(last.control_sec), 's'),
         stat('Tlen', String(last.points), 'p'), stat('Sesja', fmtDur(last.played_sec), 'min')),
       spark);
-    requestAnimationFrame(() => drawOverview(spark, last.series, SCENES[(last.scene as SceneId) in SCENES ? (last.scene as SceneId) : 'hills'].fill));
+    requestAnimationFrame(() => drawOverview(spark, last.series, resultFill(last)));
   }
 }

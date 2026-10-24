@@ -19,9 +19,19 @@ What is in it (layout and decisions: [DESIGN.md](DESIGN.md)):
     activity curve over parallax hills, with stars for points. Then a summary with the day
     score, streak and milestones. It works with both bands.
   * The **hemispheric balance trainer** (fNIRS).
-* **Gry**: the two **HolyHolyHoly** games, with one line saying which signal they will read.
-  They run *inside* the app and use the band that is already connected (see below). The
-  fNIRS *Sygnał* view opens them too ("Graj z tym sygnałem").
+* **Gry**:
+  * three **training games** built on the band's signal, for Mendi or HALO
+    ([design and research](src/arcade/DESIGN.md)). Each session is a full neurofeedback session
+    that counts toward the day score and the streak:
+    * **Geoda**: a Block Blast-style puzzle in which steady focus grows the crystals you place
+      and calm polishes them;
+    * **Latarnik**: a one-tap lighthouse game in which focus stretches the beam toward far boats
+      and calm makes the sea glow;
+    * **Motylarnia**: a caterpillar eats a path across a leaf that becomes a one-of-a-kind
+      butterfly. Focus sets the appetite, calm the colours.
+  * the two **HolyHolyHoly** games, with one line saying which signal they will read. They run
+    *inside* the app and use the band that is already connected (see below). The fNIRS *Sygnał*
+    view opens them too ("Graj z tym sygnałem").
 * **Sygnał**: the live instrument view of the active band. fNIRS shows ΔHbO/ΔHbR, heart rate,
   SCI, motion, activation/asymmetry and recording with event markers. EEG shows six metrics,
   the traces after the 50 Hz notch, band powers, electrode contact and combos.
@@ -56,6 +66,8 @@ npm run build        # static site in dist/ (typecheck + app + both games + serv
 npm run preview      # serve dist/ locally
 npm run app:smoke    # after a build: headless Chrome goes through the app on the simulators (screenshots in .smoke/;
                      # BASE_PATH=/repo/ for a build made for a sub-path, as CI does)
+node scripts/arcade-shot.mjs --port 5173 --game geoda --out .smoke/arcade
+                     # with `npm run dev` running: plays one training game on the simulator and saves screenshots
 ```
 
 Web Bluetooth needs **HTTPS** (or `localhost`). Any static host works:
@@ -113,6 +125,9 @@ src/
 ├── hub/         `brainlink-hub` protocol: lends the band's frames to a game in an <iframe>
 ├── training/    focus training: activity meter, scoring (day score, streak, milestones), session,
 │                canvas scene, Web Audio soundscape
+├── arcade/      the training games: kit/ (focus for games, session, audio, juice, progress, the game
+│                contract), runner (full-screen session), lobby, registry, and geoda/, latarnik/,
+│                motylarnia/ — each lazily loaded
 └── ui/          DOM views (built with createElement, no innerHTML): router, app bar, device sheet,
                  Start, Trening, focus training, balance, signal (fNIRS/EEG), sessions, settings, games
 ```

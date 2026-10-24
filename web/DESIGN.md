@@ -24,7 +24,7 @@ on Mendi's own. Decisions are recorded with the reason behind them, so they can 
 ├──────┬───────────────────────────────────────────────────────────────────┤
 │ rail │  Start      — status, the next step, "Trenuj" and "Graj" rows, today│
 │      │  Trening    — focus training (Mendi-style), balance trainer         │
-│      │  Gry        — both games, and which signal they will read          │
+│      │  Gry        — 3 training games + HolyHolyHoly; the signal they read │
 │      │  Sygnał     — the live monitor of the chosen tool (+ recording,     │
 │      │               "play with this signal")                              │
 │      │  Sesje      — training results and recordings                      │
@@ -39,21 +39,23 @@ on Mendi's own. Decisions are recorded with the reason behind them, so they can 
   baseline and get Bluetooth help. This replaces four sidebar cards.
 * **Start** shows one primary action that depends on the state: *choose a tool*, then *connect
   or use the simulator*, then *wait for the baseline*, then *start training*. Under it are two
-  labelled rows, **Trenuj** (focus training, balance, the signal) and **Graj** (both games),
-  and today's results.
+  labelled rows, **Trenuj** (focus training, balance, the signal) and **Graj** (every game, a
+  swipeable shelf on phones), and today's results.
 * **Trening** holds the exercises, and **Gry** holds the games. They are separate destinations
   because "where are the games?" was the first question after the first redesign. Each card
   says which tools it supports, and activities that need the other tool are greyed out with
   the reason. Gry opens with one line saying which signal the games will read (the band, the
-  simulator, or none), with the action that changes it.
+  simulator, or none), with the action that changes it, then two sections: **Gry treningowe**
+  (§9, either band) and **HolyHolyHoly** (Mendi, playable without a band).
 * The fNIRS **Sygnał** view starts with "play with this signal", which opens the games straight
   from the instrument view.
 * **Sygnał** is the instrument view: the existing fNIRS monitor, or a new EEG monitor
   (metrics, traces, band powers, contact, combos). Recording controls live here, where the
   signal is.
 * Deep links: `#start`, `#trening`, `#gry`, `#sygnal`, `#sesje`, `#ustawienia`, `#trening/focus`,
-  `#trening/balance`, `#gra/holyholyholy`, `#gra/holyholyholy3d`. The old `#balance` and
-  `#sessions` links are redirected.
+  `#trening/balance`, `#gra/holyholyholy`, `#gra/holyholyholy3d`, and the training games' lobbies
+  `#gra/geoda`, `#gra/latarnik`, `#gra/motylarnia`. The old `#balance` and `#sessions` links are
+  redirected.
 
 **Why:** the old page put fourteen controls next to the charts and gave nobody a starting
 point. Grouping by task (train / play / watch / review / configure) follows the platforms'
@@ -172,8 +174,12 @@ that scalar (`src/training/meter.ts`):
 
   Labels: *Dobry początek* < 30 ≤ *Budujesz rozpęd* < 50 ≤ *Solidna rutyna* < 70 ≤
   *Świetna forma* < 85 ≤ *Mistrzowska rutyna*.
-* Milestones: first session, the 3rd, 7th and 30th day in a row, the 10th and 50th session,
-  and the first 60 minutes.
+* Milestones: a first session, streaks of 3, 7 and 30 days, the 10th and 50th session, and the
+  first 60 minutes.
+* **The streak forgives one missed day in any seven** (a "streak freeze", as in Duolingo, whose
+  data show freezes keep people coming back): the missed day keeps the streak alive but does
+  not count as a day, already on the morning after it (before the day's first session). Mendi recommends about three sessions a week, so a strict daily chain
+  punished exactly the people doing it right.
 * Results are kept in IndexedDB (`trainings` store, DB v2). They show on Start and in Sesje.
   If a recording is running, the training adds markers (`training:start`, `:calibrated`, `:end`).
 
@@ -231,6 +237,54 @@ review videos from 2023 to 2026, and neurofounders.co (2026).
 * Unit: the EEG parity fixtures, focus meter, training scoring, hub protocol (`HubDevice` ↔
   `GameHost`), tool switching.
 * End to end: `npm run app:smoke` runs headless Chrome through the app with the simulator. It
-  chooses a tool, does a short focus training to its summary, opens the balance trainer,
-  launches the 2D game in the overlay and checks that frames arrive, switches to EEG and
-  checks the monitor, and checks every view at phone and desktop width for overflow.
+  chooses a tool, does a short focus training to its summary, opens the balance trainer, plays
+  every training game from its lobby through a 40 s session to its summary (taps, Space and
+  the simulator's focus switch) and checks Sesje lists them, launches the 2D game in the
+  overlay and checks that frames arrive, switches to EEG and checks the monitor, and checks
+  every view at phone and desktop width for overflow.
+* While working on one game: `node scripts/arcade-shot.mjs --port <dev server> --game <id>`
+  plays it from a running `vite` dev server and saves screenshots of the lobby, the calibration
+  intro, play at three sizes and the summary.
+
+## 9. Gry treningowe: Geoda, Latarnik, Motylarnia
+
+Three games whose every session is a neurofeedback session. The research behind them, why these
+three, and the rules they share are in [`src/arcade/DESIGN.md`](src/arcade/DESIGN.md); each game's
+rules are in its own module.
+
+* **Where:** cards in Gry (first section) and on Start's Graj shelf. A card opens the game's
+  **lobby** (`#gra/<id>`): an animated picture of the player's own world (their village, cabinet
+  or glasshouse), "Jak gra opaska" in three lines, the player's progress (records, album, the
+  daily challenge), the session length (3 / 5 / 10 min), sound and vibration, and the readiness
+  of the signal with one button, "Graj". They work with both bands (Mendi and HALO) and need a
+  signal: the band or its simulator.
+* **A session** (`src/arcade/runner.ts`) is full screen: the calibration is the game's own intro
+  scene with a card at the bottom (reference progress, a rotating tip that teaches the controls
+  or suggests a mental strategy), then 3-2-1, then play. The top strip holds the session time and
+  the pause button; pause (also Escape, or a hidden tab) offers "Wróć do gry", "Zakończ i zapisz"
+  (after 30 s), "Porzuć", and the band's sheet, so a dropped band can be reconnected mid-session.
+  Bad signal shows the same banner as the focus training, and the game freezes the brain's part
+  at neutral. Time up waits for the current move (at most 30 s). A calibration under 5 minutes
+  old on the same signal is reused, so "Jeszcze raz" on the summary starts at once. The layer is
+  modal (the app underneath is inert; the device sheet still opens above it), the session clock
+  starts at "Start!", and a hidden tab, the back button or Escape during the countdown pause the
+  game as soon as play begins, with every held key and pointer released for the game. An
+  abandoned session leaves the game's progress as it was; a game that fails mid-play keeps the
+  training (after 30 s) but not its half-changed progress.
+* **The summary** leads with the game's own number (carats, boats, millimetres of wingspan), its
+  record and highlights, then the training numbers (Aktywność, Kontrola, Tlen, time) with the
+  session curve, then the day score and the streak.
+* **Saved** as a training result with `kind: 'game'` and a `game` block (id, title, score, unit,
+  best, stats), so Sesje, Start's "Ostatnia sesja", the day score, the streak and the milestones
+  all include them. Each game's progress (album, records, unlocks, the daily challenge) is a JSON
+  object in IndexedDB's settings store under `arcade:<id>`.
+* **The signal for games** (`src/arcade/kit/focus.ts`): the training's activity % against an
+  adaptive threshold (~60 % of the reliable time above it, never below +1 %; `adapt` 0.08 for
+  block games), smoothed over ~2 s with hysteresis and a 3 s grace against Mayer waves. Push and
+  rest blocks are judged once, at their end, fairly for both sides (`RoundJudge.from(tuning)`),
+  and the session's contrast (push minus rest) is reported. A player's first three sessions get
+  a lower floor and judges that lean further toward them on both sides (moving the threshold
+  instead would make focus blocks easier only by making rest blocks harder).
+* **Code:** `src/arcade/kit/` (focus, session, audio, juice, progress, the game contract), the
+  runner and lobby, `registry.ts` (what the app shows without loading a game; each game is its
+  own lazily loaded chunk), and one folder per game.

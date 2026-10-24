@@ -88,6 +88,36 @@ export function drawOverview(canvas: HTMLCanvasElement, series: readonly (number
 
 const signPct = (v: number | null) => (v === null ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`);
 
+/** What a setup screen says about the signal before a session (the focus training, the arcade lobbies). */
+export interface Readiness { text: string; label: string; cls: string; can: boolean; note: string }
+
+export function readiness(st: HubStatus, simNote: string): Readiness {
+  const tool = st.tool;
+  let text: string, cls = 'badge', label: string, can = true, note = '';
+  if (!tool) {
+    text = 'Wybierz opaskę u góry: fNIRS (Mendi) albo EEG (HALO).';
+    label = 'brak opaski'; can = false;
+  } else if (st.source === 'off' || st.signal.reason === 'no_device') {
+    text = `Połącz ${TOOL_INFO[tool].device} albo włącz symulator.`;
+    label = 'brak sygnału'; can = false;
+    note = 'Przycisk opaski w prawym górnym rogu.';
+  } else if (st.signal.reliable && st.signal.warning) {
+    text = `${WARNING_TEXT[st.signal.warning]}.`;
+    label = 'gotowe · słaby sygnał'; cls += ' warn';
+    note = st.signal.detail ? `Jakość: ${st.signal.detail}. SCI ≥ 0,75 = dobry kontakt.` : '';
+  } else if (st.signal.reliable) {
+    text = st.source === 'simulator' ? 'Symulator gotowy.' : 'Sygnał dobry — możesz zaczynać.';
+    label = 'gotowe'; cls += ' ok';
+    if (st.source === 'simulator') note = simNote;
+  } else {
+    text = st.signal.reason ? REASON_TEXT[st.signal.reason] : 'Czekam na sygnał';
+    label = st.signal.reason === 'baseline' ? `linia bazowa ${Math.round(st.signal.progress * 100)}%` : 'czekam';
+    cls += ' warn';
+    note = 'Możesz zacząć — kalibracja poczeka na dobry sygnał.';
+  }
+  return { text, label, cls, can, note };
+}
+
 // ── setup view ─────────────────────────────────────────────────────
 export class FocusSetup {
   private previewsDrawn = false;
@@ -135,28 +165,7 @@ export class FocusSetup {
   render(st: HubStatus): void {
     const badge = $('focusBadge'), ready = $('focusReady'), hint = $('focusHint'), btn = $<HTMLButtonElement>('btnFocusStart');
     const tool = st.tool;
-    let text: string, cls = 'badge', label: string, can = true, note = '';
-    if (!tool) {
-      text = 'Wybierz opaskę u góry: fNIRS (Mendi) albo EEG (HALO).';
-      label = 'brak opaski'; can = false;
-    } else if (st.source === 'off' || st.signal.reason === 'no_device') {
-      text = `Połącz ${TOOL_INFO[tool].device} albo włącz symulator.`;
-      label = 'brak sygnału'; can = false;
-      note = 'Przycisk opaski w prawym górnym rogu.';
-    } else if (st.signal.reliable && st.signal.warning) {
-      text = `${WARNING_TEXT[st.signal.warning]}.`;
-      label = 'gotowe · słaby sygnał'; cls += ' warn';
-      note = st.signal.detail ? `Jakość: ${st.signal.detail}. SCI ≥ 0,75 = dobry kontakt.` : '';
-    } else if (st.signal.reliable) {
-      text = st.source === 'simulator' ? 'Symulator gotowy.' : 'Sygnał dobry — możesz zaczynać.';
-      label = 'gotowe'; cls += ' ok';
-      if (st.source === 'simulator') note = 'Na symulatorze kulą sterujesz przyciskiem „Symuluj skupienie” w trakcie gry.';
-    } else {
-      text = st.signal.reason ? REASON_TEXT[st.signal.reason] : 'Czekam na sygnał';
-      label = st.signal.reason === 'baseline' ? `linia bazowa ${Math.round(st.signal.progress * 100)}%` : 'czekam';
-      cls += ' warn';
-      note = 'Możesz zacząć — kalibracja poczeka na dobry sygnał.';
-    }
+    const { text, label, cls, can, note } = readiness(st, 'Na symulatorze kulą sterujesz przyciskiem „Symuluj skupienie” w trakcie gry.');
     if (ready.textContent !== text) ready.textContent = text;
     badge.textContent = label;
     badge.className = cls;
@@ -541,7 +550,7 @@ export class FocusRunner {
         h('p', { class: 'eyebrow' }, 'Wynik dnia'),
         h('h2', null, day.label),
         h('p', { class: 'muted' }, `Sesja ${todayCount} · ${time}${top && todayCount > 1 ? ' · najlepsza dziś' : ''}`),
-        day.streak > 0 ? h('p', { class: 'streak mt8' }, icon('i-flame'), `${day.streak} ${day.streak === 1 ? 'dzień' : 'dni'} z rzędu`) : null)),
+        day.streak > 0 ? h('p', { class: 'streak mt8' }, icon('i-flame'), `Seria ${day.streak} ${day.streak === 1 ? 'dzień' : 'dni'}`) : null)),
       miles.map(m => h('div', { class: 'milestone' }, icon('i-star'), `Nowy kamień milowy: ${m.title}`)),
       h('div', { class: 'summary-grid' },
         stat('Aktywność', signPct(r.activity_avg_pct)), stat('Kontrola', String(r.control_sec), 's'),

@@ -48,6 +48,17 @@ export class ActivityMeter {
   /** 0..1 through the calibration window right now */
   get calProgressNow(): number { return this.ref !== null ? 1 : Math.min(1, this.calT / this.cfg.calSec); }
 
+  /** The calibrated reference (null while calibrating), to carry over to the next session on the same signal. */
+  get reference(): number | null { return this.ref; }
+
+  /** Start calibrated, at a reference taken moments ago on the same signal (same tool, same engine epoch). */
+  adopt(ref: number): void {
+    this.reset();
+    this.ref = ref;
+    this.calT = this.cfg.calSec;
+    this.calSum = ref * this.cfg.calSec;
+  }
+
   /** Start over: a new calibration. */
   reset(): void {
     this.smooth = null;

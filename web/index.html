@@ -24,6 +24,7 @@
   <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z" fill="currentColor"/></symbol>
   <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2 1-3.5 2-4.5 0 2 1 3 2 3 0-3-1-5 1-8.5z" fill="currentColor"/></symbol>
   <symbol id="i-bt" viewBox="0 0 24 24"><path d="m7 7 10 10-5 4V3l5 4L7 17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 6v12M15.5 6v12" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
   <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
 </svg>
 
@@ -134,10 +135,45 @@
   <section class="view" id="view-gry" aria-labelledby="gryTitle" hidden>
     <header class="view-head">
       <h1 id="gryTitle">Gry</h1>
-      <p class="lede">Gry otwierają się tutaj, w BrainLink, i od razu czytają opaskę Mendi połączoną w aplikacji (albo jej symulator) — bez ponownego parowania. Działają też bez opaski.</p>
+      <p class="lede">Gry otwierają się tutaj, w BrainLink, i od razu czytają opaskę połączoną w aplikacji (albo jej symulator) — bez ponownego parowania.</p>
     </header>
     <div class="card games-status" id="gamesStatus" role="status"></div>
+    <div class="row-title"><h2 class="section-title">Gry treningowe</h2><span class="muted">Mendi albo HALO · każda sesja liczy się do wyniku dnia i serii</span></div>
     <div class="activities games" id="gamesList"></div>
+    <div class="row-title mt16"><h2 class="section-title">HolyHolyHoly</h2><span class="muted">opaska Mendi · działają też bez opaski</span></div>
+    <div class="activities games" id="gamesHoly"></div>
+  </section>
+
+  <!-- ── Gra (arcade): poczekalnia ────────────────────────────── -->
+  <section class="view" id="view-arcade" aria-labelledby="arcadeTitle" hidden>
+    <a class="back" href="#gry">← Gry</a>
+    <div class="arcade-lobby">
+      <div class="arcade-hero">
+        <canvas id="arcadeHero" aria-hidden="true"></canvas>
+        <div class="arcade-hero-text">
+          <p class="eyebrow" id="arcadeKicker"></p>
+          <h1 id="arcadeTitle"></h1>
+          <p class="lede" id="arcadeTagline"></p>
+        </div>
+      </div>
+      <div class="card start-card arcade-start">
+        <div class="card-head">Gotowość <span class="badge" id="arcadeBadge">—</span></div>
+        <p id="arcadeReady" class="ready-text"></p>
+        <button class="btn primary big" type="button" id="btnArcadePlay" disabled><svg><use href="#i-play"/></svg>Graj</button>
+        <p class="muted" id="arcadeHint"></p>
+        <div class="field"><span>Długość sesji</span><div class="seg" id="arcadeLen" role="radiogroup" aria-label="Długość sesji"></div></div>
+        <label class="switch"><input type="checkbox" id="arcadeSound"><span>Dźwięk</span></label>
+        <label class="switch"><input type="checkbox" id="arcadeHaptics"><span>Wibracje (telefon)</span></label>
+      </div>
+      <div class="card arcade-how-card">
+        <div class="card-head">Jak gra opaska</div>
+        <ul class="tips arcade-how" id="arcadeHow"></ul>
+      </div>
+      <div class="card arcade-progress">
+        <div class="card-head">Postępy</div>
+        <div id="arcadeProgressBody"></div>
+      </div>
+    </div>
   </section>
 
   <!-- ── Trening skupienia: przygotowanie ──────────────────────── -->
@@ -348,7 +384,7 @@
       <p class="lede">Wyniki treningów i nagrania sygnału. Wszystko zostaje na tym urządzeniu.</p>
     </header>
     <div class="card">
-      <div class="card-head">Treningi skupienia <span class="hint" id="trainingsHint"></span></div>
+      <div class="card-head">Treningi i gry <span class="hint" id="trainingsHint"></span></div>
       <div class="sessions" id="trainingList"></div>
     </div>
     <div class="card">
@@ -464,6 +500,7 @@
 
 <!-- ── full-screen layers ───────────────────────────────────────── -->
 <div class="immersive" id="immersive" hidden></div>
+<div class="immersive arcade-layer" id="arcadeLayer" hidden></div>
 <div class="game-layer" id="gameLayer" hidden>
   <div class="game-bar">
     <b id="gameTitle"></b>

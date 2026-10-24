@@ -1,5 +1,7 @@
 /** BrainLink — Progressive Web App entry point (layout and flows: DESIGN.md). */
 import './styles.css';
+import { ArcadeLobby } from './arcade/lobby';
+import { ArcadeRunner } from './arcade/runner';
 import { Engine, type EngineFrame, type SavedEvent } from './engine';
 import { EegEngine, type EegFrame } from './eeg-engine';
 import { Hub, type HubStatus } from './hub';
@@ -8,7 +10,7 @@ import { SessionDB } from './storage/db';
 import { FolderStore } from './storage/folder';
 import { SessionLibrary } from './storage/library';
 import { Recorder } from './storage/recorder';
-import type { Tool } from './tools';
+import { TOOL_INFO, type Tool } from './tools';
 import type { TrainingResult } from './training/score';
 import { ActivitiesView, EXERCISES, GAME_ACTIVITIES } from './ui/activities';
 import { AppBar } from './ui/appbar';
@@ -51,7 +53,8 @@ async function main(): Promise<void> {
   const recording = new RecordingCard(engine, folder, settings, save);
   const settingsView = new SettingsView(engine, folder, settings, save, db);
   const activities = new ActivitiesView('activities', EXERCISES());
-  const gameCards = new ActivitiesView('gamesList', GAME_ACTIVITIES());
+  const gameCards = new ActivitiesView('gamesList', GAME_ACTIVITIES().filter(a => a.arcade));
+  const holyCards = new ActivitiesView('gamesHoly', GAME_ACTIVITIES().filter(a => !a.arcade));
   const awake = new ScreenAwake();
 
   let trainings: TrainingResult[] = await db.listTrainings().catch(() => []);
@@ -77,6 +80,18 @@ async function main(): Promise<void> {
     },
   });
   const focusSetup = new FocusSetup(settings, save, () => runner.start());
+  const arcade = new ArcadeRunner({
+    hub, db, settings,
+    mark: label => { if (engine.recorder.recording) engine.mark(label); },
+    onSaved: r => setTrainings([r, ...trainings]),
+    onExit: () => lobby.resume(),
+    history: () => trainings,
+    openSheet: () => sheet.open(),
+  });
+  const lobby = new ArcadeLobby({ db, settings, save, onPlay: (entry, mod, progress) => {
+    lobby.suspend();
+    arcade.start(entry, mod, progress);
+  } });
 
   // ── views ─────────────────────────────────────────────────────────
   const onRoute = (r: Route) => {
@@ -84,7 +99,9 @@ async function main(): Promise<void> {
     if (r.view === 'start') start.shown(); else start.hidden();
     if (r.view === 'focus') focusSetup.shown();
     if (r.view === 'trening') activities.shown();
-    if (r.view === 'gry') gameCards.shown();
+    if (r.view === 'gry') { gameCards.shown(); holyCards.shown(); }
+    if (r.view === 'arcade' && r.arcade) void lobby.show(r.arcade).catch(e => toast(`Nie udało się wczytać gry: ${e instanceof Error ? e.message : String(e)}`, true));
+    else lobby.hide();
     if (r.view === 'sesje') {
       void sessions.refresh();
       sessions.renderTrainings(trainings);
@@ -131,23 +148,26 @@ async function main(): Promise<void> {
   /** Gry: one line on which signal the games will read, with the action that changes it. */
   let gamesSig = '';
   const renderGamesStatus = (s: HubStatus) => {
-    const live = s.tool === 'fnirs' && (s.source === 'simulator' || (s.source === 'device' && s.device.streaming));
+    const live = s.source === 'simulator' || (s.source === 'device' && s.device.streaming);
     const sig = `${s.tool}|${s.source}|${live}|${s.device.name}`;
     if (sig === gamesSig) return;
     gamesSig = sig;
     const btn = (label: string, fn: () => void, primary = false) => h('button', { class: `btn${primary ? ' primary' : ''}`, type: 'button', on: { click: fn } }, label);
     let dot = 'live', text: string, actions: HTMLElement[] = [];
-    if (live) {
-      text = s.source === 'simulator' ? 'Gry dostaną sygnał z symulatora BrainLink.' : `Gry dostaną sygnał z opaski ${s.device.name ?? 'Mendi'} połączonej w BrainLink.`;
-    } else if (s.tool === 'eeg') {
-      dot = 'wait';
-      text = 'Gry czytają opaskę Mendi (fNIRS). Wybrana jest HALO (EEG), więc zagrasz bez opaski.';
+    if (live && s.tool === 'fnirs') {
+      text = s.source === 'simulator' ? 'Wszystkie gry dostaną sygnał z symulatora BrainLink.' : `Wszystkie gry dostaną sygnał z opaski ${s.device.name ?? 'Mendi'} połączonej w BrainLink.`;
+    } else if (live && s.tool === 'eeg') {
+      text = `Gry treningowe czytają ${s.source === 'simulator' ? 'symulator HALO' : `opaskę ${s.device.name ?? 'HALO'}`} (EEG). HolyHolyHoly czyta tylko Mendi — z HALO zagrasz w nie bez opaski.`;
       actions = [btn('Przełącz na Mendi', () => pickTool('fnirs'))];
+    } else if (!s.tool) {
+      dot = 'wait';
+      text = 'Wybierz opaskę. Gry treningowe potrzebują sygnału (opaski albo symulatora), HolyHolyHoly działa też bez niej.';
+      actions = [btn('Wybierz Mendi', () => pickTool('fnirs'), true), btn('Wybierz HALO', () => pickTool('eeg'))];
     } else {
       dot = 'wait';
-      text = 'Opaska Mendi nie jest połączona — zagrasz bez niej (skupienie z bezruchu), albo połącz ją teraz.';
-      actions = s.tool ? [btn('Połącz Mendi', sheet.connect, true), btn('Użyj symulatora', run(async () => { await hub.useSimulator(); }))]
-        : [btn('Wybierz Mendi', () => pickTool('fnirs'), true)];
+      const band = TOOL_INFO[s.tool].device;
+      text = `${band} nie jest połączona. Gry treningowe potrzebują sygnału — połącz opaskę albo użyj symulatora. HolyHolyHoly działa też bez niej.`;
+      actions = [btn(`Połącz ${s.tool === 'fnirs' ? 'Mendi' : 'HALO'}`, sheet.connect, true), btn('Użyj symulatora', run(async () => { await hub.useSimulator(); }))];
     }
     $('gamesStatus').replaceChildren(h('i', { class: `dot ${dot}` }), h('span', null, text), h('div', { class: 'row' }, actions));
   };
@@ -161,9 +181,11 @@ async function main(): Promise<void> {
     const v = router.current.view;
     if (v === 'start') start.render(s);
     if (v === 'focus') focusSetup.render(s);
+    if (v === 'arcade') lobby.render(s);
     if (v === 'trening') activities.render(s, settings.training.scene);
     if (v === 'gry') {
       gameCards.render(s, settings.training.scene);
+      holyCards.render(s, settings.training.scene);
       renderGamesStatus(s);
     }
     if (s.tool !== lastTool) {
@@ -172,7 +194,7 @@ async function main(): Promise<void> {
       $('monitorEeg').hidden = s.tool !== 'eeg';
       $('sygnalLede').textContent = s.tool === 'eeg' ? 'EEG z BrainAccess HALO na żywo.' : s.tool === 'fnirs' ? 'Hemodynamika kory przedczołowej z opaski Mendi na żywo.' : 'Dane z opaski na żywo.';
     }
-    awake.set(!!s.recording?.recording || (s.source === 'device' && s.device.streaming) || runner.active || games.current !== null);
+    awake.set(!!s.recording?.recording || (s.source === 'device' && s.device.streaming) || runner.active || arcade.active || games.current !== null);
   };
 
   // ── per tick ──────────────────────────────────────────────────────
@@ -207,7 +229,7 @@ async function main(): Promise<void> {
   hub.start();
   // ?debug: the live objects in the console (and for scripts/app-smoke.mjs)
   if (import.meta.env.DEV || new URLSearchParams(location.search).has('debug')) {
-    Object.assign(globalThis, { brainlink: { hub, engine, eeg, settings, db, router } });
+    Object.assign(globalThis, { brainlink: { hub, engine, eeg, settings, db, router, arcade, lobby } });
   }
 
   // ── safety nets for recordings ────────────────────────────────────
@@ -215,7 +237,7 @@ async function main(): Promise<void> {
     if (document.visibilityState === 'hidden') void recorder.checkpoint();   // mobile may kill hidden tabs
   });
   window.addEventListener('beforeunload', e => {
-    if (recorder.recording || runner.active) e.preventDefault();
+    if (recorder.recording || runner.active || arcade.active) e.preventDefault();
   });
 
   await Promise.all([sheet.bt.init(), settingsView.renderStorage()]);

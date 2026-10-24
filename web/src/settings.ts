@@ -22,6 +22,16 @@ export interface TrainingPrefs {
   mood: boolean;
 }
 
+/** The arcade games' shared preferences (src/arcade). */
+export interface ArcadePrefs {
+  minutes: 3 | 5 | 10;
+  sound: boolean;
+  /** 0..1 */
+  volume: number;
+  /** short vibrations on phones that have them */
+  haptics: boolean;
+}
+
 export interface AppSettings {
   storageTarget: StorageTarget;
   fnirsConfig?: Partial<FNIRSConfig>;
@@ -32,14 +42,17 @@ export interface AppSettings {
   /** the source to resume on start (the band needs a click, so it resumes as "off") */
   simulator: Record<Tool, boolean>;
   training: TrainingPrefs;
+  arcade: ArcadePrefs;
 }
 
 const KEY = 'app_settings';
 export const DEFAULT_TRAINING: TrainingPrefs = {
   minutes: 5, breathwork: true, scene: 'hills', glow: true, zoom: true, hud: true, sound: true, chime: true, volume: 0.5, mood: true,
 };
+export const DEFAULT_ARCADE: ArcadePrefs = { minutes: 5, sound: true, volume: 0.6, haptics: true };
 export const DEFAULT_SETTINGS: AppSettings = {
   storageTarget: 'browser', recordingDurationSec: 600, tool: null, simulator: { fnirs: false, eeg: false }, training: DEFAULT_TRAINING,
+  arcade: DEFAULT_ARCADE,
 };
 
 export async function loadSettings(db: SessionDB): Promise<AppSettings> {
@@ -51,6 +64,7 @@ export async function loadSettings(db: SessionDB): Promise<AppSettings> {
     tool: saved.tool ?? (legacy ? 'fnirs' : null),
     simulator: { ...DEFAULT_SETTINGS.simulator, ...(legacy ? { fnirs: true } : {}), ...saved.simulator },
     training: { ...DEFAULT_TRAINING, ...saved.training },
+    arcade: { ...DEFAULT_ARCADE, ...saved.arcade },
   };
 }
 

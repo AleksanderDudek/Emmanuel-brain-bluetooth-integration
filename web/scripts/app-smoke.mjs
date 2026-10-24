@@ -3,7 +3,8 @@
  * End-to-end smoke test of the BrainLink app (dist/) in headless Chrome, on the simulators:
  * the first run (choose fNIRS, use the simulator, wait for the baseline), a short focus
  * training from the mood check to its summary and the result on Start and in Sesje, the
- * balance trainer, the signal view, both games inside the app receiving the app's frames,
+ * balance trainer, the signal view, every arcade game from its lobby through a simulated session
+ * to its summary, both HolyHolyHoly games inside the app receiving the app's frames,
  * then a switch to EEG and its signal view. Every view is checked at desktop and phone width
  * for horizontal overflow. Fails on any page error, console error or failed request.
  *
@@ -98,7 +99,9 @@ try {
   page.on('dialog', d => void d.accept());   // confirm() when ending a session, switching tools
 
   const shot = (name, fullPage = false) => page.screenshot({ path: join(SHOTS, `${name}.png`), fullPage });
-  const viewOf = hash => (hash.startsWith('trening/') ? hash.split('/')[1] : hash.startsWith('gra/') ? 'gry' : hash);
+  // #gra/holyholyholy* opens the game layer over Gry; #gra/<arcade id> is that game's lobby
+  const viewOf = hash => (hash.startsWith('trening/') ? hash.split('/')[1]
+    : hash.startsWith('gra/') ? (hash.startsWith('gra/holyholyholy') ? 'gry' : 'arcade') : hash);
   const go = async hash => {
     await page.evaluate(h => { location.hash = h; }, hash);
     await page.waitForFunction(v => !document.getElementById(`view-${v}`)?.hidden, {}, viewOf(hash));
@@ -126,7 +129,9 @@ try {
   await page.waitForFunction(() => document.getElementById('chipMeta').textContent.includes('sygnał dobry'), { timeout: 40_000 });
   await shot('03-start-ready', true);
   const startGames = await page.evaluate(() => document.querySelectorAll('#gameTiles .tile').length);
-  if (startGames !== 2) throw new Error(`Start should offer both games, found ${startGames}`);
+  const arcadeIds = await page.evaluate(() => [...document.querySelectorAll('#gameTiles .tile')].map(t => t.getAttribute('href').replace('#gra/', ''))
+    .filter(id => !id.startsWith('holyholyholy')));
+  if (startGames !== 2 + arcadeIds.length || arcadeIds.length < 3) throw new Error(`Start should offer every game, found ${startGames} (${arcadeIds})`);
 
   step('Trening hub');
   await go('trening');
@@ -204,6 +209,56 @@ try {
   await page.waitForFunction(() => document.getElementById('gamesStatus').textContent.includes('symulatora'));
   await shot('16b-gry', true);
 
+  // the arcade games: lobby → calibration (the first one) → play on the simulator → summary → Sesje
+  for (const [i, id] of arcadeIds.entries()) {
+    step(`arcade game ${id}: lobby`);
+    await go(`gra/${id}`);
+    await page.waitForFunction(() => !document.getElementById('btnArcadePlay').disabled, { timeout: 30_000 });
+    await sleep(900);
+    await shot(`30-${id}-lobby`);
+    await overflow(`lobby ${id}`);
+    step(`arcade game ${id}: calibration and play`);
+    await page.click('#btnArcadePlay');
+    await page.waitForSelector('#arcadeLayer:not([hidden]) .arcade canvas');
+    if (i === 0) {
+      await page.waitForSelector('#arcadeLayer .arcade-card .calib-bar');
+      await sleep(3000);
+      await shot(`31-${id}-calibration`);
+    }
+    await page.waitForFunction(() => globalThis.brainlink.arcade.debug?.stage === 'play', { timeout: 60_000 });
+    await page.click('#arcadeLayer .sim-focus');
+    // generic input: a tap in the middle and Space now and then; the games make progress with it
+    const box = await page.evaluate(() => { const r = document.querySelector('#arcadeLayer canvas').getBoundingClientRect(); return { x: r.width / 2, y: r.height * 0.6 }; });
+    let tapped = 0;
+    const deadline = Date.now() + 22_000;
+    while (Date.now() < deadline) {
+      await page.mouse.click(box.x, box.y);
+      if (tapped++ % 3 === 0) await page.keyboard.press('Space');
+      await sleep(650);
+    }
+    const mid = await page.evaluate(() => globalThis.brainlink.arcade.debug);
+    console.log(`  ${id}: t ${mid.t.toFixed(0)} s, focus ${mid.level.toFixed(2)}, score ${mid.outcome?.score} ${mid.outcome?.unit}`);
+    await shot(`32-${id}-play`);
+    if (!(mid.outcome && mid.outcome.score > 0)) throw new Error(`${id}: no score after 22 s of simulated focus and taps`);
+    await page.setViewport({ width: 390, height: 844 });
+    await sleep(900);
+    await shot(`33-${id}-play-phone`);
+    await page.setViewport(DESKTOP);
+    step(`arcade game ${id}: summary`);
+    await page.waitForSelector('#arcadeLayer .arcade-summary', { timeout: 90_000 });
+    await sleep(800);
+    await shot(`34-${id}-summary`);
+    console.log(`  summary: ${await text('#arcadeLayer .arcade-big')} · ${await text('#arcadeLayer .summary h2')}`);
+    await clickText('#arcadeLayer .btn', 'Gotowe');
+    await page.waitForFunction(() => document.getElementById('arcadeLayer').hidden);
+    await sleep(500);
+    await shot(`35-${id}-lobby-after`, true);
+  }
+  await go('sesje');
+  const gameRows = await page.evaluate(() => [...document.querySelectorAll('#trainingList .session .name')].filter(n => n.textContent.startsWith('Gra ·')).length);
+  if (gameRows !== arcadeIds.length) throw new Error(`Sesje should list ${arcadeIds.length} game sessions, found ${gameRows}`);
+  await shot('36-sesje-games');
+
   if (existsSync(join(DIST, 'holyholyholy', 'index.html'))) {
     step("HolyHolyHoly from the Start tile, inside the app, on the app's simulator");
     await go('start');
@@ -253,7 +308,7 @@ try {
 
   step('phone width: every view');
   await page.setViewport(PHONE);
-  for (const v of ['start', 'trening', 'trening/focus', 'gry', 'sygnal', 'sesje', 'ustawienia']) {
+  for (const v of ['start', 'trening', 'trening/focus', 'gry', ...arcadeIds.map(id => `gra/${id}`), 'sygnal', 'sesje', 'ustawienia']) {
     await go(v);
     await overflow(`phone ${v}`);
     await shot(`20-phone-${v.replace('/', '-')}`, true);
