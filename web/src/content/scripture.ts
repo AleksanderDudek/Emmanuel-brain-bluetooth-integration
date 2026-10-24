@@ -30,6 +30,7 @@ export type PassageId =
   | 'lam3.22-23'
   | 'exo20.8'
   | 'gen2.2'
+  | 'psa107.29-30'
   | 'psa1.2-3'
   | 'php4.8'
   | 'psa119.105'
@@ -81,6 +82,8 @@ export type PassageId =
   | 'ezk47.12'
   | 'rev22.2'
   | 'rev21.5'
+  | 'isa54.11-12'
+  | 'rev21.19-20'
   | 'mat5.14-16'
   | 'psa150.6'
   | 'psa96.1'
@@ -218,6 +221,12 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['And by the seventh day God had finished the work He had been doing; so on that day He rested from all His work.', 'Genesis 2:2'],
     de: ['Und also vollendete Gott am siebenten Tage seine Werke, die er machte, und ruhte am siebenten Tage von allen seinen Werken, die er machte.', '1. Mose 2,2'],
     sv: ['Och Gud fullbordade på sjunde dagen det verk som han hade gjort; och han vilade på sjunde dagen från allt det verk som han hade gjort.', '1 Mos 2:2'],
+  },
+  'psa107.29-30': {
+    pl: ['Obraca burzę w ciszę, tak, że umilkną nawałności ich. I weselą się, że ucichło; a tak przywodzi ich do portu pożądanego.', 'Ps 107,29–30'],
+    en: ['He calmed the storm to a whisper, and the waves of the sea were hushed. They rejoiced in the silence, and He guided them to the harbor they desired.', 'Psalm 107:29–30'],
+    de: ['…und stillte das Ungewitter, daß die Wellen sich legten und sie froh wurden, daß es still geworden war und er sie zu Lande brachte nach ihrem Wunsch…', 'Psalm 107,29–30'],
+    sv: ['Han förbytte stormen i lugn, så att böljorna omkring dem tystnade. Och de blevo glada att det vart stilla, och han förde dem till den hamn dit de ville.', 'Ps 107:29–30'],
   },
   'psa1.2-3': {
     pl: ['Ale w zakonie Pańskim jest kochanie jego, a w zakonie jego rozmyśla we dnie i w nocy. Albowiem będzie jako drzewo nad strumieniem wód w sadzone, które owoc swój wydaje czasu swego, a liść jego nie opada; i wszystko, cokolwiek czynić będzie, poszczęści się.', 'Ps 1,2–3'],
@@ -524,6 +533,18 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['And the One seated on the throne said, “Behold, I make all things new.” Then He said, “Write this down, for these words are faithful and true.”', 'Revelation 21:5'],
     de: ['Und der auf dem Stuhl saß, sprach: Siehe, ich mache alles neu! Und er spricht zu mir: Schreibe; denn diese Worte sind wahrhaftig und gewiß!', 'Offenbarung 21,5'],
     sv: ['Och han som satt på tronen sade: »Se, jag gör allting nytt.» Ytterligare sade han: »Skriv: ty dessa ord äro visa och sanna.»', 'Upp 21:5'],
+  },
+  'isa54.11-12': {
+    pl: ['O utrapiona, wichrem rozmiotana, z pociechy obrana! oto Ja położę na karbunkułach kamienie twoje, a na szafirach założę cię. I uczynię z kryształu okna twoje, a bramy twoje z kamienia rubinowego, i wszystkie granice twoje z kamienia kosztownego.', 'Iz 54,11–12'],
+    en: ['O afflicted city, lashed by storms, without solace, surely I will set your stones in antimony and lay your foundations with sapphires. I will make your pinnacles of rubies, your gates of sparkling jewels, and all your walls of precious stones.', 'Isaiah 54:11–12'],
+    de: ['Du Elende, über die alle Wetter gehen, und du Trostlose, siehe, ich will deine Steine wie einen Schmuck legen und will deinen Grund mit Saphiren legen und deine Zinnen aus Kristallen machen und deine Tore von Rubinen und alle deine Grenzen von erwählten Steinen…', 'Jesaja 54,11–12'],
+    sv: ['Du arma, som har blivit så hemsökt av stormar utan att få någon tröst, se, med spetsglans vill jag nu mura dina stenar och giva dig grundvalar av safirer, jag vill göra dina tinnar av rubiner och dina portar av kristall och hela din ringmur av ädla stenar.', 'Jes 54:11–12'],
+  },
+  'rev21.19-20': {
+    pl: ['A grunty muru miasta ozdobione były wszelkim kamieniem drogim. Pierwszy grunt był jaspis, wtóry szafir, trzeci chalcedon, czwarty szmaragd. Piąty sardoniks, szósty sardyjusz, siódmy chrysolit, ósmy beryllus, dziewiąty topazyjusz, dziesiąty chrysopras, jedenasty hijacynt, dwunasty ametyst.', 'Ap 21,19–20'],
+    en: ['The foundations of the city walls were adorned with every kind of precious stone: The first foundation was jasper, the second sapphire, the third chalcedony, the fourth emerald, the fifth sardonyx, the sixth carnelian, the seventh chrysolite, the eighth beryl, the ninth topaz, the tenth chrysoprase, the eleventh jacinth, and the twelfth amethyst.', 'Revelation 21:19–20'],
+    de: ['Und die Grundsteine der Mauer um die Stadt waren geschmückt mit allerlei Edelgestein. Der erste Grund war ein Jaspis, der andere ein Saphir, der dritte ein Chalzedonier, der vierte ein Smaragd, der fünfte ein Sardonix, der sechste ein Sarder, der siebente ein Chrysolith, der achte ein Berill, der neunte ein Topas, der zehnte ein Chrysopras, der elfte ein Hyazinth, der zwölfte ein Amethyst.', 'Offenbarung 21,19–20'],
+    sv: ['Stadsmurens grundstenar voro skönt lagda och utgjordes av alla slags ädelstenar. Den första grundstenen var en jaspis, den andra en safir, den tredje en kalcedon, den fjärde en smaragd, den femte en sardonyx, den sjätte en karneol, den sjunde en krysolit, den åttonde den beryll, den nionde en topas, den tionde en krysopras, den elfte en hyacint, den tolfte en ametist.', 'Upp 21:19–20'],
   },
   'mat5.14-16': {
     pl: ['Wy jesteście światłość świata, nie może się miasto ukryć na górze leżące. Ani zapalają świecy, i stawiają jej pod korzec, ale na świecznik, i świeci wszystkim, którzy są w domu. Tak niechaj świeci światłość wasza przed ludźmi, aby uczynki wasze dobre widzieli, a chwalili ojca waszego, który jest w niebiesiech.', 'Mt 5,14–16'],

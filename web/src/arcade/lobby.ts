@@ -1,7 +1,7 @@
 /**
  * A game's lobby (#gra/<id>, DESIGN.md §9): the game's animated picture, how the band plays it,
- * the player's progress (records, collection), the session length and sound, and the readiness
- * of the signal with the one button that starts.
+ * the passage the game takes root in, the player's progress (records, collection), the session
+ * length and sound, and the readiness of the signal with the one button that starts.
  */
 import type { HubStatus } from '../hub';
 import { BAND_NAME, t } from '../i18n/arcade';
@@ -12,6 +12,7 @@ import { readiness } from '../ui/focus';
 import { loadProgress, saveProgress } from './kit/progress';
 import type { ArcadeModule } from './kit/types';
 import { arcadeEntry, type ArcadeEntry } from './registry';
+import { verseSlot } from './verse';
 
 const LENGTHS: ArcadePrefs['minutes'][] = [3, 5, 10];
 
@@ -74,6 +75,7 @@ export class ArcadeLobby {
       const [a, b] = entry.tools.map(tool => BAND_NAME[tool]);
       $('arcadeKicker').textContent = b ? t('lobby.kicker2', { a, b }) : t('lobby.kicker', { band: a });
       $('arcadeHow').replaceChildren(...entry.how.map(line => h('li', null, line)));
+      $('arcadeRoot').replaceChildren(verseSlot(entry.root));
       $('arcadeProgressBody').replaceChildren(h('p', { class: 'muted' }, t('lobby.loading')));
       document.body.dataset.arcade = entry.id;
     }

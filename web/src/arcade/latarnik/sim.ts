@@ -28,6 +28,7 @@
 import { mulberry32 } from '../../core/random';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
+import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import { fmtNum } from '../../i18n';
 import { AMBER, LETTERS, TIERS, TIER_NAME, TIPS, VILLAGE, type AmberPiece, type Tier } from './content';
@@ -396,6 +397,7 @@ export class LatarnikSim {
   konwojJudged = 0;
   blindFar = 0;
   nuggetsFound = 0;
+  ciszeWon = 0;
   private gotNew = false;
   private pity = false;
   /** what the summary may tell (result() ranks it) */
@@ -699,7 +701,10 @@ export class LatarnikSim {
         this.emit({ type: 'washUp', nuggets: found });
         this.crafted(addCrumbs(this.p, found.length));
       }
-      if (verdict) this.albumDraw();
+      if (verdict) {
+        this.ciszeWon++;
+        this.albumDraw();
+      }
     }
     this.judge.reset();
     this.emit({ type: 'blockEnd', block: b, verdict });
@@ -1133,8 +1138,21 @@ export class LatarnikSim {
     ];
     return {
       score: this.score, unit: unit(this.score), record: this.bestBefore !== null && this.score > this.bestBefore,
-      stats, highlights: this.highlights(watchBest, far),
+      stats, highlights: this.highlights(watchBest, far), verse: this.closingVerse(),
     };
+  }
+
+  /**
+   * The summary's closing passage (kit/scripture.ts), one of those the night fits, in turn from
+   * session to session: a Cisza won is the stilled sea, boats home are the haven and the waters
+   * passed, and the lamp fits every night.  The lobby already opens with Matthew 5:14-16.
+   */
+  private closingVerse(): PassageId {
+    const fit: PassageId[] = [];
+    if (this.ciszeWon > 0) fit.push('mrk4.39');
+    if (this.score > 0) fit.push('psa107.29-30', 'isa43.2');
+    fit.push('psa119.105');
+    return inTurn(fit, this.session);
   }
 
   /**

@@ -1117,6 +1117,20 @@ describe('Noc dnia, result, the smoke path', () => {
     expect([...other.values()].slice(0, 5)).not.toEqual([...steady.seen.values()].slice(0, 5).map(s => s.split(' ').slice(0, 2).join(' ')));
   });
 
+  it('closes the night with a passage that fits it, a different one session by session', () => {
+    const verse = (o: { sessions: number; boats: number; calm: number }) => {
+      const sim = quiet({ progress: { sessions: o.sessions - 1 } });
+      sim.score = o.boats;
+      sim.ciszeWon = o.calm;
+      return sim.result().verse;
+    };
+    expect(verse({ sessions: 1, boats: 0, calm: 0 })).toBe('psa119.105');      // the lamp fits every night
+    expect(verse({ sessions: 1, boats: 3, calm: 0 })).toBe('psa107.29-30');    // boats home: the haven
+    expect(verse({ sessions: 2, boats: 3, calm: 0 })).toBe('isa43.2');         // … the waters passed
+    expect(verse({ sessions: 1, boats: 3, calm: 1 })).toBe('mrk4.39');         // a Cisza won: the stilled sea
+    expect(verse({ sessions: 4, boats: 3, calm: 1 })).toBe('psa119.105');
+  });
+
   it('result() is idempotent: records with Math.max, counters only during play', () => {
     const sim = makeSim({ progress: { sessions: 5, bestSession: 3, bestWatch: 2 }, planned: 120, seed: 2 });
     const clock = { t: 0 };

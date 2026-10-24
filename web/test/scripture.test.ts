@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { drawPassage, layoutPassage, verseCard, wrapLines } from '../src/arcade/kit/scripture';
+import { drawPassage, inTurn, layoutPassage, verseCard, wrapLines } from '../src/arcade/kit/scripture';
 import { BIBLE_NAMES, passage, SCRIPTURE, type PassageId } from '../src/content/scripture';
 import { LANGS } from '../src/i18n';
 
@@ -92,6 +92,14 @@ describe('kit/scripture: verses on screen', () => {
     drawPassage(ctx, p, layoutPassage(ctx, p, 300, 300), 150, 0, { text: '#fff', ref: '#aaa' });
     expect(c.drawn.at(-1)).toBe('Ps 46,11 · Biblia Gdańska');
     expect(c.drawn.slice(0, -1).join(' ')).toBe(p.text);
+  });
+
+  it('takes the passages a session fits in turn: the first session gets the best fit, and no count breaks it', () => {
+    const fit: PassageId[] = ['mrk4.39', 'psa107.29-30', 'psa119.105'];
+    expect([1, 2, 3, 4].map(n => inTurn(fit, n))).toEqual(['mrk4.39', 'psa107.29-30', 'psa119.105', 'mrk4.39']);
+    expect(inTurn(fit, 0)).toBe('mrk4.39');
+    expect(inTurn(fit, -3)).toBe('mrk4.39');
+    expect(inTurn(['psa46.10'], 7)).toBe('psa46.10');
   });
 
   it('builds the summary card from the passage', () => {

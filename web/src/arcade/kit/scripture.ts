@@ -6,6 +6,7 @@
  *
  *   layoutPassage / drawPassage  the canvas layout that always fits its box (the font shrinks, then wraps)
  *   verseCard                    the DOM card the runner shows in the summary (ArcadeOutcome.verse)
+ *   inTurn                       one of the passages a session fits, a different one session by session
  */
 import { passage, type Passage, type PassageId } from '../../content/scripture';
 import { h } from '../../ui/dom';
@@ -90,6 +91,13 @@ export function drawPassage(ctx: CanvasRenderingContext2D, p: Passage, l: Passag
   ctx.fillText(`${p.ref} · ${p.bible}`, cx, top + l.lines.length * l.lineH + Math.round(l.size * 0.55));
   ctx.restore();
 }
+
+/**
+ * One of the passages that fit a session, taken in turn from session to session so the closing
+ * verse stays fresh: `n` counts the sessions (the first, 1, gets the first passage, the one that
+ * fits best).
+ */
+export const inTurn = (fit: readonly PassageId[], n: number): PassageId => fit[(Math.max(1, Math.floor(n)) - 1) % fit.length];
 
 /** The summary's verse card: the passage in the page's language, its reference and edition. */
 export function verseCard(id: PassageId): HTMLElement {

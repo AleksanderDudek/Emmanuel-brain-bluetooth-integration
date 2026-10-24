@@ -791,6 +791,7 @@ describe('the session', () => {
       expect(sim.done.length).toBe(1);
       expect(t).toBeLessThan(40 + 30);           // within the runner's overtime
       expect(sim.done[0].species.id).toBe('pawik');   // the very first egg is always a peacock
+      expect(sim.result().verse).toBe('psa104.24');  // a new species: the earth full of His creatures
     }
   });
 

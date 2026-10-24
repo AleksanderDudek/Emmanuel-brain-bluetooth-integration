@@ -12,6 +12,7 @@ import { mulberry32 } from '../../core/random';
 import { fmtNum, fmtSigned } from '../../i18n';
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
+import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeGame, ArcadeOutcome, GameEnv, PointerInput } from '../kit/types';
 import { GeodaSound } from './audio';
 import { CLARITY, MINERALS, STRATEGIES, TIERS, type Pt } from './content';
@@ -478,7 +479,23 @@ export class GeodaGame implements ArcadeGame {
     if (blind) hl.push(t('hl.blind', { grown: blind.grown, total: blind.total, clarity: CLARITY[blind.clarity] }));
     const finest = st.best;
     if (finest && finest.clarity >= 2 && finest.cells >= 3) hl.push(t('hl.finest', { n: finest.cells, clarity: CLARITY[finest.clarity] }));
-    return { score: s.carats, unit: 'ct', record: isRecord, stats, highlights: hl.slice(0, 4) };
+    return { score: s.carats, unit: 'ct', record: isRecord, stats, highlights: hl.slice(0, 4), verse: this.closingVerse() };
+  }
+
+  /**
+   * The summary's closing passage (kit/scripture.ts), one of those the session fits, in turn from
+   * session to session: the full cabinet is the city's twelve foundations, a rare find the pearl of
+   * great price, a polished Szlif the refiner; living stones and the house fit every wall.  The
+   * lobby already opens with Isaiah 54:11-12.
+   */
+  private closingVerse(): PassageId {
+    const rolls = this.settled?.rolls ?? [];
+    if (rolls.some(r => r.outcome === 'new') && found(this.p) === MINERALS.length) return 'rev21.19-20';
+    const fit: PassageId[] = [];
+    if (rolls.some(r => r.outcome !== 'dust' && r.specimen.tier >= 2)) fit.push('mat13.45-46');
+    if (this.sim.stats.polished > 0) fit.push('mal3.3');
+    fit.push('1pe2.5', 'psa127.1');
+    return inTurn(fit, this.p.sessions);
   }
 
   destroy(): void {

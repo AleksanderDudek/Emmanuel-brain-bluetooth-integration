@@ -9,6 +9,7 @@ import type { Tool } from '../tools';
 import { SCENES } from '../training/scene';
 import type { TrainingResult } from '../training/score';
 import type { FocusTuning } from './kit/focus';
+import type { PassageId } from './kit/scripture';
 import type { ArcadeModule } from './kit/types';
 
 export interface ArcadeEntry {
@@ -34,6 +35,8 @@ export interface ArcadeEntry {
   focusChip: boolean;
   /** the game's own adaptive-threshold settings, over the kit's defaults */
   tuning?: Partial<FocusTuning>;
+  /** the passage the game takes root in (kit/scripture.ts): its lobby opens with it */
+  root: PassageId;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   load: () => Promise<ArcadeModule<any>>;
 }
@@ -44,7 +47,7 @@ export const ARCADE: ArcadeEntry[] = [
     how: [t('geoda.how1'), t('geoda.how2'), t('geoda.how3')],
     tips: [t('geoda.tip1'), t('geoda.tip2'), t('geoda.tip3'), t('geoda.tip4'), t('geoda.tip5'), t('geoda.tip6')],
     unit: t('geoda.unit'), art: 'art-geoda', fill: ['#ffd6f5', '#c77dff', '#9b5de5', '#3c1f6e'], tools: ['fnirs', 'eeg'], focusChip: false,
-    tuning: { adapt: 0.08 },
+    tuning: { adapt: 0.08 }, root: 'isa54.11-12',
     load: () => import('./geoda/index').then(m => m.default),
   },
   {
@@ -52,7 +55,7 @@ export const ARCADE: ArcadeEntry[] = [
     how: [t('latarnik.how1'), t('latarnik.how2'), t('latarnik.how3')],
     tips: [t('latarnik.tip1'), t('latarnik.tip2'), t('latarnik.tip3'), t('latarnik.tip4'), t('latarnik.tip5')],
     unit: t('latarnik.unit'), art: 'art-latarnik', fill: ['#ffe9a8', '#ffd27a', '#ff7a59', '#0b1630'], tools: ['fnirs', 'eeg'], focusChip: false,
-    tuning: { adapt: 0.08 },
+    tuning: { adapt: 0.08 }, root: 'mat5.14-16',
     load: () => import('./latarnik/index').then(m => m.default),
   },
   {
@@ -60,7 +63,7 @@ export const ARCADE: ArcadeEntry[] = [
     how: [t('motylarnia.how1'), t('motylarnia.how2'), t('motylarnia.how3')],
     tips: [t('motylarnia.tip1'), t('motylarnia.tip2'), t('motylarnia.tip3'), t('motylarnia.tip4'), t('motylarnia.tip5')],
     unit: t('motylarnia.unit'), art: 'art-motylarnia', fill: ['#f2c230', '#e0453a', '#c2408f', '#3a5bd9'], tools: ['fnirs', 'eeg'], focusChip: false,
-    tuning: { targetRate: 0.5, adapt: 0.08 },
+    tuning: { targetRate: 0.5, adapt: 0.08 }, root: '2co5.17',
     load: () => import('./motylarnia/index').then(m => m.default),
   },
 ];

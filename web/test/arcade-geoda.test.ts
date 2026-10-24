@@ -1203,6 +1203,7 @@ describe('Geoda game', () => {
     expect(a.stats.map(s => s[0])).toEqual(['Kryształy', 'Linie', 'Najdłuższa ciągłość', 'Czyste i lśniące', 'Rytm', 'Bloki w normie', 'Szlif', 'Gablota']);
     expect(p.best['40']).toBe(a.score);
     expect(a.record).toBe(false);                    // nothing to beat on a first try
+    expect(a.verse).toBe('1pe2.5');                  // a first wall of common finds: the living stones
     game.destroy();
   });
 

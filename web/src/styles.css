@@ -586,6 +586,17 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-verse{margin:0;padding:16px 20px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line-2);max-width:62ch}
 .arcade-verse blockquote{margin:0;font-family:var(--font-head);font-style:italic;font-size:18px;line-height:1.45;color:var(--tx)}
 .arcade-verse figcaption{margin-top:8px;font-size:12px;font-weight:650;letter-spacing:.04em;color:var(--tx2)}
+/* in the summary the card spans the column like the lines around it; the verse keeps a readable measure */
+.arcade-summary .arcade-verse{max-width:none}
+.arcade-summary .arcade-verse blockquote{max-width:62ch}
+/* a verse card loads its passages on first use (src/arcade/verse.ts): the slot itself takes no room */
+.verse-slot{display:contents}
+/* the lobby's root passage: an epigraph under the hero, across the lobby */
+.arcade-root{grid-column:1/-1;padding:2px 0 2px 18px;border-left:2px solid var(--tool)}
+.arcade-root:not(:has(.arcade-verse)){display:none}
+.arcade-root .arcade-verse{padding:0;background:none;border:0;max-width:68ch}
+.arcade-root .arcade-verse blockquote{font-size:16px;line-height:1.5;color:var(--tx2)}
+.arcade-root .arcade-verse figcaption{margin-top:6px;color:var(--tx3)}
 .arcade-record{display:inline-flex;align-items:center;gap:6px;color:#ffd28a;font-weight:700}
 .arcade-record svg{width:18px;height:18px}
 .arcade-again{position:sticky;bottom:0;padding:14px 0 max(10px,env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,#07080d 38%)}

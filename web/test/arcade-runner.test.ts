@@ -31,7 +31,7 @@ function stubGame(env: GameEnv<P>, opts: { padThrowsAfter?: number } = {}) {
     finish: () => calls.push('finish'),
     result: () => {
       env.progress.best = Math.max(env.progress.best, score);
-      return { score, unit: 'pkt', record: score > 0, stats: [['Rzuty', String(score)]], highlights: [] };
+      return { score, unit: 'pkt', record: score > 0, stats: [['Rzuty', String(score)]], highlights: [], verse: 'psa46.10' };
     },
     destroy: () => calls.push('destroy'),
   };
@@ -40,7 +40,7 @@ function stubGame(env: GameEnv<P>, opts: { padThrowsAfter?: number } = {}) {
 
 const ENTRY: ArcadeEntry = {
   id: 'stub', title: 'Stub', tagline: '', text: '', how: [], tips: ['tip'], unit: 'pkt', art: '', fill: ['#000', '#111', '#222', '#333'],
-  tools: ['fnirs', 'eeg'], focusChip: false, load: async () => { throw new Error('not used'); },
+  tools: ['fnirs', 'eeg'], focusChip: false, root: 'psa23.1-3', load: async () => { throw new Error('not used'); },
 };
 
 let games: ReturnType<typeof stubGame>[] = [];
@@ -145,6 +145,8 @@ describe('ArcadeRunner', () => {
     expect(summary.textContent).toContain('Seria 1 dzień');
     expect([...summary.querySelectorAll('.stat .k')].map(k => k.textContent)).toEqual(['Rzuty', 'Aktywność', 'Kontrola', 'Tlen', 'Sesja']);
     expect([...summary.querySelectorAll('.arcade-again .btn')].map(b => b.textContent)).toEqual(['Jeszcze raz', 'Gotowe']);
+    // the game's closing verse, once the scripture chunk is in
+    await vi.waitFor(() => expect(summary.querySelector('.arcade-verse figcaption')?.textContent).toBe('Ps 46,11 · Biblia Gdańska'));
   });
 
   it('pauses at the start of play when asked during the countdown, and releases held keys when the tab hides', async () => {

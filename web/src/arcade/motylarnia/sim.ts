@@ -29,6 +29,7 @@ import { BlockContrast, type FocusFrame } from '../kit/focus';
 import { mulberry32 } from '../../core/random';
 import { fmtSigned } from '../../i18n';
 import type { Tool } from '../../tools';
+import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
   ABERRATION_FORM, CLASS_FROM, DANDELION_BONUS, HABITATS, NEUTRAL_DEPTH, PIGMENTS, RASPBERRY_POLLEN, SIZE_CLASSES, SPECIES,
@@ -949,7 +950,26 @@ export class MothSim {
     ];
     if (c.blindN) stats.push([t('stat.blind'), `${c.blindOk}/${c.blindN}`]);
     if (c.pollen) stats.push([t('stat.pollen'), `+${c.pollen}`]);
-    return { score, unit: 'mm', record: this.bestBefore !== null && score > this.bestBefore, stats, highlights: this.highlights() };
+    return {
+      score, unit: 'mm', record: this.bestBefore !== null && score > this.bestBefore, stats, highlights: this.highlights(),
+      verse: this.closingVerse(),
+    };
+  }
+
+  /**
+   * The summary's closing passage (kit/scripture.ts), one of those the session fits, in turn from
+   * session to session: the full Atlas is all things made new, a new species the earth full of His
+   * creatures, a deep chrysalis the wings of those who wait; the lilies and the birds fit every day.
+   * The lobby already opens with 2 Corinthians 5:17.
+   */
+  private closingVerse(): PassageId {
+    const fresh = this.done.some(o => o.isNew);
+    if (fresh && SPECIES.every(s => (this.p.atlas[s.id]?.n ?? 0) > 0)) return 'rev21.5';
+    const fit: PassageId[] = [];
+    if (fresh) fit.push('psa104.24');
+    if (this.counts.restOk > 0) fit.push('isa40.31');
+    fit.push('mat6.28-29', 'mat6.26');
+    return inTurn(fit, this.p.sessions);
   }
 
   /**

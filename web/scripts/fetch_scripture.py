@@ -119,7 +119,7 @@ PASSAGES: list[tuple[str, str]] = [
     ("psa37.7", "Psalm 37:7"), ("psa23.1-3", "Psalm 23:1-3"), ("psa4.8", "Psalm 4:8"), ("psa127.2", "Psalm 127:2"),
     ("isa26.3", "Isaiah 26:3"), ("isa40.31", "Isaiah 40:31"), ("mat11.28", "Matthew 11:28"), ("mrk6.31", "Mark 6:31"),
     ("mrk4.39", "Mark 4:39"), ("1ki19.12", "1 Kings 19:12"), ("lam3.22-23", "Lamentations 3:22-23"),
-    ("exo20.8", "Exodus 20:8"), ("gen2.2", "Genesis 2:2"),
+    ("exo20.8", "Exodus 20:8"), ("gen2.2", "Genesis 2:2"), ("psa107.29-30", "Psalm 107:29-30"),
     # attention and the Word
     ("psa1.2-3", "Psalm 1:2-3"), ("php4.8", "Philippians 4:8"), ("psa119.105", "Psalm 119:105"),
     ("psa119.18", "Psalm 119:18"), ("luk10.42", "Luke 10:42"), ("col3.23", "Colossians 3:23"), ("pro4.23", "Proverbs 4:23"),
@@ -140,7 +140,7 @@ PASSAGES: list[tuple[str, str]] = [
     ("jhn15.5", "John 15:5"), ("gal5.22-23", "Galatians 5:22-23"), ("1co3.6", "1 Corinthians 3:6"),
     ("mat7.24-25", "Matthew 7:24-25"), ("1pe2.5", "1 Peter 2:5"), ("neh6.15", "Nehemiah 6:15"), ("psa127.1", "Psalm 127:1"),
     ("exo31.3", "Exodus 31:3"), ("ecc3.1", "Ecclesiastes 3:1"), ("ezk47.12", "Ezekiel 47:12"), ("rev22.2", "Revelation 22:2"),
-    ("rev21.5", "Revelation 21:5"),
+    ("rev21.5", "Revelation 21:5"), ("isa54.11-12", "Isaiah 54:11-12"), ("rev21.19-20", "Revelation 21:19-20"),
     # light, praise, joy, hope
     ("mat5.14-16", "Matthew 5:14-16"), ("psa150.6", "Psalm 150:6"), ("psa96.1", "Psalm 96:1"), ("1sa16.23", "1 Samuel 16:23"),
     ("psa121.1-2", "Psalm 121:1-2"), ("psa84.5-6", "Psalm 84:5-6"), ("psa126.5", "Psalm 126:5"), ("mat2.10", "Matthew 2:10"),
