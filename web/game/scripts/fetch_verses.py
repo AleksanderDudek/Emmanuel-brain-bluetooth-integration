@@ -63,7 +63,7 @@ GETBIBLE_URL = "https://api.getbible.net/v2/polgdanska.json"
 GETBIBLE_SHA1 = "e5dfe3af42ffaa39c5c398928d4835b0fccbfa35"
 WIKISOURCE_API = "https://pl.wikisource.org/w/api.php"
 USER_AGENT = ("HolyHolyHoly-verse-check/1.0 "
-              "(https://github.com/AleksanderDudek/brainlink-bluetooth-macos-integration)")
+              "(https://github.com/AleksanderDudek/Emmanuel-brain-bluetooth-integration)")
 
 GAME = Path(__file__).resolve().parents[1]           # web/game
 REPO = GAME.parents[1]
