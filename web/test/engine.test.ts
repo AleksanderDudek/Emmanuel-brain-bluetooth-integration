@@ -7,7 +7,7 @@ import { SessionDB } from '../src/storage/db';
 import { FolderStore } from '../src/storage/folder';
 import { SessionLibrary } from '../src/storage/library';
 import { Recorder } from '../src/storage/recorder';
-import { fakeMendi, sleep } from './helpers';
+import { fakeMendi } from './helpers';
 
 let dbn = 0;
 const clock = { ms: 1_000_000 };
@@ -107,8 +107,8 @@ describe('Engine', () => {
     expect(f.balance?.paused).toBe('no_data');
 
     fake.drop();
-    await sleep(80);                                     // adapter reconnects and resumes by itself
-    expect(device.isStreaming).toBe(true);
+    // the adapter reconnects and resumes by itself (polled: a busy test run can take longer than the 10 ms delay)
+    await vi.waitFor(() => expect(device.isStreaming).toBe(true), { timeout: 2000, interval: 10 });
     fake.stopFrames();
     fake.pushFrames(3);
     f = tick(engine);
