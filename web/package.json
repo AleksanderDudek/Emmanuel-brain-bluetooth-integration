@@ -18,6 +18,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "fixtures": "python3 scripts/make_fixtures.py",
+    "scripture": "python3 -I scripts/fetch_scripture.py",
     "dev:game3d": "node game3d/tools/export.mjs && vite preview --outDir dist/holyholyholy3d --port 5175 --strictPort",
     "game3d:export": "node game3d/tools/export.mjs",
     "game3d:check": "node game3d/tools/build-libs.mjs --check && node game3d/tools/build-content.mjs --check && node game3d/generator/build.mjs --check && node game3d/tools/export.mjs --check",
