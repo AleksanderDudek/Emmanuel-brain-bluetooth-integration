@@ -89,6 +89,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "LAM": ("Lamentations", "Lm", "Klagelieder", "klagelieder", "Klagovisorna", "Klag"),
     "EZK": ("Ezekiel", "Ez", "Hesekiel", "hesekiel", "Hesekiel", "Hes"),
     "DAN": ("Daniel", "Dn", "Daniel", "daniel", "Daniel", "Dan"),
+    "MIC": ("Micah", "Mi", "Micha", "micha", "Mika", "Mika"),
     "MAL": ("Malachi", "Ml", "Maleachi", "maleachi", "Malaki", "Mal"),
     "MAT": ("Matthew", "Mt", "Matthäus", "matthaeus", "Matteusevangeliet", "Matt"),
     "MRK": ("Mark", "Mk", "Markus", "markus", "Markusevangeliet", "Mark"),
@@ -146,6 +147,20 @@ PASSAGES: list[tuple[str, str]] = [
     ("psa121.1-2", "Psalm 121:1-2"), ("psa84.5-6", "Psalm 84:5-6"), ("psa126.5", "Psalm 126:5"), ("mat2.10", "Matthew 2:10"),
     ("luk2.14", "Luke 2:14"), ("isa43.2", "Isaiah 43:2"), ("mat1.23", "Matthew 1:23"), ("num6.24-26", "Numbers 6:24-26"),
     ("rom15.13", "Romans 15:13"), ("2co5.17", "2 Corinthians 5:17"), ("heb12.1", "Hebrews 12:1"), ("jas1.5", "James 1:5"),
+    # the five faith games: Arka (the ark after the flood)
+    ("gen8.1", "Genesis 8:1"), ("gen8.11", "Genesis 8:11"), ("gen8.17", "Genesis 8:17"), ("gen9.13", "Genesis 9:13"),
+    ("psa36.6", "Psalm 36:6"),
+    # Urodzaj (the good land, the field's edge, the open table)
+    ("deu8.8", "Deuteronomy 8:8"), ("deu8.10", "Deuteronomy 8:10"), ("psa65.11", "Psalm 65:11"), ("deu32.2", "Deuteronomy 32:2"),
+    ("psa133.3", "Psalm 133:3"), ("luk14.13-14", "Luke 14:13-14"), ("rut2.16", "Ruth 2:16"),
+    # Wzlot (the eagle and its young)
+    ("deu32.11", "Deuteronomy 32:11"), ("exo19.4", "Exodus 19:4"), ("psa91.4", "Psalm 91:4"), ("psa103.5", "Psalm 103:5"),
+    # (not Job 39:27: the Gdańsk and 1917 Bibles start Job 39 at English 38:39, and the witnesses share that numbering)
+    # Glina (the potter's house; the vessels of Scripture)
+    ("2co4.7", "2 Corinthians 4:7"), ("isa61.3", "Isaiah 61:3"), ("mat10.42", "Matthew 10:42"), ("gen18.4", "Genesis 18:4"),
+    ("1ki17.14", "1 Kings 17:14"), ("jer32.14", "Jeremiah 32:14"), ("mic4.4", "Micah 4:4"),
+    # Źródła (springs in the dry valley)
+    ("psa84.3", "Psalm 84:3"), ("isa35.7", "Isaiah 35:7"), ("isa41.18", "Isaiah 41:18"), ("isa58.11", "Isaiah 58:11"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
@@ -156,6 +171,17 @@ DROP: dict[str, dict[str, str]] = {
     "psa127.1": {"en": "A song of ascents. Of Solomon.", "pl": "Pieśń stopni dla Salomona.",
                  "de": "Ein Lied Salomos im Höhern Chor.", "sv": "En vallfartssång; av Salomo."},
 }
+
+# Known misprints in a primary source, corrected to the witness that prints the edition right: (wrong, right).
+# The run fails if the wrong text is gone, so a corrected upstream is noticed.
+FIX: dict[str, dict[str, tuple[str, str]]] = {
+    "psa133.3": {"de": ("verheizt", "verheißt")},   # eBible's Luther 1912 lost the ß; bibel-online.net has „verheißt“
+}
+
+# The Gdańsk Bible starts every verse with a capital, even inside a sentence ("ślepych, A będziesz"): a verse that
+# continues one ending in , ; or : starts lower case when its first word is one of these (never a name or "Pan").
+PL_CONTINUE = {"A", "Ale", "Albo", "Albowiem", "Ani", "Aż", "Aby", "Abyś", "Ażeby", "Bo", "Gdy", "Gdyż", "I", "Iż", "Jako",
+               "Kiedy", "Lecz", "Nadto", "Oto", "Owszem", "Przetoż", "Także", "Tedy", "Więc", "Zaiste", "Że"}
 
 # getbible "polgdanska" records that hold two verses (chapter ends fitted to English chapter lengths):
 # split after `marker`, the verse boundary printed in the Gdańsk Bible (fetch_verses.SPLITS has Ps 46,11).
@@ -598,6 +624,29 @@ def refs(p: Passage) -> dict[str, str]:
             "de": f"{de_name} {p.ch},{native}", "sv": f"{sv_abbr} {p.ch}:{native}"}
 
 
+def join(lang: str, verses: list[str]) -> str:
+    """The passage's verses as one text (Polish: a continuing verse starts lower case, see PL_CONTINUE); a
+    typewriter dash (" -- ", the 1917 Bible's transcription) becomes the spaced en dash it stands for."""
+    out: list[str] = []
+    for v in verses:
+        first = v.split(" ", 1)[0]
+        if lang == "pl" and out and out[-1].rstrip()[-1:] in ",;:" and first in PL_CONTINUE:
+            v = v[0].lower() + v[1:]
+        out.append(v)
+    return " ".join(out).replace(" -- ", " – ")
+
+
+def fix(lang: str, pid: str, text: str, failures: list[str]) -> str:
+    """Correct a known misprint of the primary source (FIX)."""
+    wrong, right = FIX.get(pid, {}).get(lang, ("", ""))
+    if not wrong:
+        return text
+    if wrong not in text:
+        failures.append(f"{pid} {lang}: the misprint {wrong!r} is gone; drop its FIX rule")
+        return text
+    return text.replace(wrong, right, 1)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--data-dir", type=Path,
@@ -630,7 +679,7 @@ def main() -> None:
         r = refs(p)
         out[pid] = {}
         for lang in ("pl", "en", "de", "sv"):
-            joined = edges(balance_quotes(drop(lang, pid, " ".join(p.texts[lang]), failures)))
+            joined = edges(balance_quotes(drop(lang, pid, fix(lang, pid, join(lang, p.texts[lang]), failures), failures)))
             check_chars(f"{pid} {lang}", joined, failures)
             out[pid][lang] = (joined, r[lang])
             report.append(f"  ⇒ {lang} [{r[lang]}] {joined}")

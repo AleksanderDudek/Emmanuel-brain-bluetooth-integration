@@ -100,6 +100,33 @@ export type PassageId =
   | '2co5.17'
   | 'heb12.1'
   | 'jas1.5'
+  | 'gen8.1'
+  | 'gen8.11'
+  | 'gen8.17'
+  | 'gen9.13'
+  | 'psa36.6'
+  | 'deu8.8'
+  | 'deu8.10'
+  | 'psa65.11'
+  | 'deu32.2'
+  | 'psa133.3'
+  | 'luk14.13-14'
+  | 'rut2.16'
+  | 'deu32.11'
+  | 'exo19.4'
+  | 'psa91.4'
+  | 'psa103.5'
+  | '2co4.7'
+  | 'isa61.3'
+  | 'mat10.42'
+  | 'gen18.4'
+  | '1ki17.14'
+  | 'jer32.14'
+  | 'mic4.4'
+  | 'psa84.3'
+  | 'isa35.7'
+  | 'isa41.18'
+  | 'isa58.11'
   ;
 
 export interface Passage {
@@ -238,7 +265,7 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     pl: ['A dalej mówiąc, bracia, cokolwiek jest prawdziwego, cokolwiek poczciwego, cokolwiek sprawiedliwego, cokolwiek czystego, cokolwiek przyjemnego, cokolwiek chwalebnego, jeźli która cnota i jeźli która chwała, o tem przemyślajcie.', 'Flp 4,8'],
     en: ['Finally, brothers, whatever is true, whatever is honorable, whatever is right, whatever is pure, whatever is lovely, whatever is admirable—if anything is excellent or praiseworthy—think on these things.', 'Philippians 4:8'],
     de: ['Weiter, liebe Brüder, was wahrhaftig ist, was ehrbar, was gerecht, was keusch, was lieblich, was wohllautet, ist etwa eine Tugend, ist etwa ein Lob, dem denket nach!', 'Philipper 4,8'],
-    sv: ['För övrigt, mina bröder, vad sant är, vad värdigt, vad rätt, vad rent är, vad som är älskligt och värt att akta, ja, allt vad dygd heter, och allt som förtjänar att prisas -- tänken på allt sådant.', 'Fil 4:8'],
+    sv: ['För övrigt, mina bröder, vad sant är, vad värdigt, vad rätt, vad rent är, vad som är älskligt och värt att akta, ja, allt vad dygd heter, och allt som förtjänar att prisas – tänken på allt sådant.', 'Fil 4:8'],
   },
   'psa119.105': {
     pl: ['Słowo twe jest pochodnią nogą moim, a światłością ścieszce mojej.', 'Ps 119,105'],
@@ -445,7 +472,7 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     sv: ['Så långt som öster är från väster låter han våra överträdelser vara från oss.', 'Ps 103:12'],
   },
   'mrk4.26-28': {
-    pl: ['I mówił: Takie jest królestwo Boże, jako gdyby człowiek wrzucił nasienie w ziemię; A spałby i wstawałby we dnie i w nocy, a nasienie by weszło i urosło, gdy on nie wie. Boć ziemia sama z siebie pożytek wydawa, naprzód trawę, potem kłos, a potem zupełne zboże w kłosie.', 'Mk 4,26–28'],
+    pl: ['I mówił: Takie jest królestwo Boże, jako gdyby człowiek wrzucił nasienie w ziemię; a spałby i wstawałby we dnie i w nocy, a nasienie by weszło i urosło, gdy on nie wie. Boć ziemia sama z siebie pożytek wydawa, naprzód trawę, potem kłos, a potem zupełne zboże w kłosie.', 'Mk 4,26–28'],
     en: ['Jesus also said, The kingdom of God is like a man who scatters seed on the ground. Night and day he sleeps and wakes, and the seed sprouts and grows, though he knows not how. All by itself the earth produces a crop—first the stalk, then the head, then grain that ripens within.', 'Mark 4:26–28'],
     de: ['Und er sprach: Das Reich Gottes hat sich also, als wenn ein Mensch Samen aufs Land wirft und schläft und steht auf Nacht und Tag; und der Same geht auf und wächst, daß er\'s nicht weiß. Denn die Erde bringt von selbst zum ersten das Gras, darnach die Ähren, darnach den vollen Weizen in den Ähren.', 'Markus 4,26–28'],
     sv: ['Och han sade: Så är det med Guds rike, som när en man sår säd i jorden; och han sover, och han vaknar, och nätter och dagar gå, och säden skjuter upp och växer i höjden, han vet själv icke huru. Av sig själv bär jorden frukt, först strå och sedan ax, och omsider finnes fullbildat vete i axet.', 'Mark 4:26–28'],
@@ -481,7 +508,7 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     sv: ['Jag planterade, Apollos vattnade, men Gud gav växten.', '1 Kor 3:6'],
   },
   'mat7.24-25': {
-    pl: ['Wszelkiego tedy, który słucha tych słów moich i czyni je, przypodobam mężowi mądremu, który zbudował dom swój na opoce; I spadł gwałtowny deszcz, i przyszła powódź, i wiatry wiały, i uderzyły na on dom, ale nie upadł, bo był założony na opoce.', 'Mt 7,24–25'],
+    pl: ['Wszelkiego tedy, który słucha tych słów moich i czyni je, przypodobam mężowi mądremu, który zbudował dom swój na opoce; i spadł gwałtowny deszcz, i przyszła powódź, i wiatry wiały, i uderzyły na on dom, ale nie upadł, bo był założony na opoce.', 'Mt 7,24–25'],
     en: ['Therefore everyone who hears these words of Mine and acts on them is like a wise man who built his house on the rock. The rain fell, the torrents raged, and the winds blew and beat against that house; yet it did not fall, because its foundation was on the rock.', 'Matthew 7:24–25'],
     de: ['Darum, wer diese meine Rede hört und tut sie, den vergleiche ich einem klugen Mann, der sein Haus auf einen Felsen baute. Da nun ein Platzregen fiel und ein Gewässer kam und wehten die Winde und stießen an das Haus, fiel es doch nicht; denn es war auf einen Felsen gegründet.', 'Matthäus 7,24–25'],
     sv: ['Därför, var och en som hör dessa mina ord och gör efter dem, han må liknas vid en förståndig man som byggde sitt hus på hälleberget. Och slagregn föll, och vattenströmmarna kommo, och vindarna blåste och kastade sig mot det huset; och likväl föll det icke omkull, eftersom det var grundat på hälleberget.', 'Matt 7:24–25'],
@@ -641,6 +668,168 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['Now if any of you lacks wisdom, he should ask God, who gives generously to all without finding fault, and it will be given to him.', 'James 1:5'],
     de: ['So aber jemand unter euch Weisheit mangelt, der bitte Gott, der da gibt einfältig jedermann und rücket\'s niemand auf, so wird sie ihm gegeben werden.', 'Jakobus 1,5'],
     sv: ['Men om någon av eder brister i vishet, så må han utbedja sig sådan från Gud, som giver åt alla villigt och utan hårda ord, och den skall bliva honom given.', 'Jak 1:5'],
+  },
+  'gen8.1': {
+    pl: ['I wspomniał Bóg na Noego i na wszystkie zwierzęta, i na wszystko bydło, które było z nim w korabiu; i przywiódł Bóg wiatr na ziemię, a zastanowiły się wody.', 'Rdz 8,1'],
+    en: ['But God remembered Noah and all the animals and livestock that were with him in the ark. And God sent a wind over the earth, and the waters began to subside.', 'Genesis 8:1'],
+    de: ['Da gedachte Gott an Noah und an alle Tiere und an alles Vieh, das mit ihm in dem Kasten war, und ließ Wind auf Erden kommen, und die Wasser fielen…', '1. Mose 8,1'],
+    sv: ['Då tänkte Gud på Noa och på alla de vilda djur och alla de boskapsdjur som voro med honom i arken. Och Gud lät en vind gå fram över jorden, så att vattnet sjönk undan…', '1 Mos 8:1'],
+  },
+  'gen8.11': {
+    pl: ['I wróciła do niego gołębica pod wieczór; a oto, różdżka oliwy urwana w uściech jej; a tak poznał Noe, że opadły wody z wierzchu ziemi.', 'Rdz 8,11'],
+    en: ['And behold, the dove returned to him in the evening with a freshly plucked olive leaf in her beak. So Noah knew that the waters had receded from the earth.', 'Genesis 8:11'],
+    de: ['Die kam zu ihm zur Abendzeit, und siehe, ein Ölblatt hatte sie abgebrochen und trug\'s in ihrem Munde. Da merkte Noah, daß das Gewässer gefallen wäre auf Erden.', '1. Mose 8,11'],
+    sv: ['Och duvan kom till honom mot aftonen, och se, då hade hon ett friskt olivlöv i sin näbb. Då förstod Noa att vattnet hade sjunkit undan från jorden.', '1 Mos 8:11'],
+  },
+  'gen8.17': {
+    pl: ['Wszystkie zwierzęta, które są z tobą, z wszelkiego ciała, z ptastwa i z bydła, i z wszelkiej gadziny, płazającej się po ziemi, wywiedź z sobą, a niech się rozpładzają na ziemi, i niech rosną, i rozmnażają się na ziemi.', 'Rdz 8,17'],
+    en: ['Bring out all the living creatures that are with you—birds, livestock, and everything that crawls upon the ground—so that they can spread out over the earth and be fruitful and multiply upon it.', 'Genesis 8:17'],
+    de: ['Allerlei Getier, das bei dir ist, von allerlei Fleisch, an Vögeln, an Vieh und an allerlei Gewürm, das auf Erden kriecht, das gehe heraus mit dir, daß sie sich regen auf Erden und fruchtbar seien und sich mehren auf Erden.', '1. Mose 8,17'],
+    sv: ['Alla djur som du har hos dig, vad slags kött det vara må, både fåglar och fyrfotadjur och alla kräldjur som röra sig på jorden, skall du låta gå ut med dig, för att de må växa till på jorden och vara fruktsamma och föröka sig på jorden.', '1 Mos 8:17'],
+  },
+  'gen9.13': {
+    pl: ['Łuk mój położyłem na obłoku, który będzie na znak przymierza między mną, i między ziemią.', 'Rdz 9,13'],
+    en: ['I have set My rainbow in the clouds, and it will be a sign of the covenant between Me and the earth.', 'Genesis 9:13'],
+    de: ['Meinen Bogen habe ich gesetzt in die Wolken; der soll das Zeichen sein des Bundes zwischen mir und der Erde.', '1. Mose 9,13'],
+    sv: ['…min båge sätter jag i skyn; den skall vara tecknet till förbundet mellan mig och jorden.', '1 Mos 9:13'],
+  },
+  'psa36.6': {
+    pl: ['Sprawiedliwość twoja, jako góry najwyższe; sądy twoje, jako przepaść wielka; ludzie i zwierzęta zachowuje, Panie!', 'Ps 36,7'],
+    en: ['Your righteousness is like the highest mountains; Your judgments are like the deepest sea. O LORD, You preserve man and beast.', 'Psalm 36:6'],
+    de: ['Deine Gerechtigkeit steht wie die Berge Gottes und dein Recht wie eine große Tiefe. HERR, du hilfst Menschen und Vieh.', 'Psalm 36,7'],
+    sv: ['Din rättfärdighet är såsom väldiga berg, dina rätter såsom det stora havsdjupet; både människor och djur hjälper du, HERRE.', 'Ps 36:7'],
+  },
+  'deu8.8': {
+    pl: ['Do ziemi obfitej w pszenicę, i w jęczmień, i w wino, i w figi, i w jabłka granatowe; do ziemi hojnej w oliwę i w miód…', 'Pwt 8,8'],
+    en: ['…a land of wheat, barley, vines, fig trees, and pomegranates; a land of olive oil and honey…', 'Deuteronomy 8:8'],
+    de: ['…ein Land, darin Weizen, Gerste, Weinstöcke, Feigenbäume und Granatäpfel sind; ein Land darin Ölbäume und Honig wachsen…', '5. Mose 8,8'],
+    sv: ['…ett land med vete och korn, med vinträd, fikonträd och granatträd, ett land med ädla olivträd och med honung…', '5 Mos 8:8'],
+  },
+  'deu8.10': {
+    pl: ['Gdy będziesz jadł, a najesz się, będziesz chwalił Pana, Boga twego, za ziemię wyborną, którą dał tobie.', 'Pwt 8,10'],
+    en: ['When you eat and are satisfied, you are to bless the LORD your God for the good land that He has given you.', 'Deuteronomy 8:10'],
+    de: ['Und wenn du gegessen hast und satt bist, sollst du den HERRN, deinen Gott, loben für das gute Land, das er dir gegeben hat.', '5. Mose 8,10'],
+    sv: ['Där skall du äta och bliva mätt, och du skall så lova HERREN, din Gud, för det goda land som han har givit dig.', '5 Mos 8:10'],
+  },
+  'psa65.11': {
+    pl: ['Koronujesz rok dobrocią twą, a ścieżki twoje skrapiasz tłustością.', 'Ps 65,12'],
+    en: ['You crown the year with Your bounty, and Your paths overflow with plenty.', 'Psalm 65:11'],
+    de: ['Du krönst das Jahr mit deinem Gut, und deine Fußtapfen triefen von Fett.', 'Psalm 65,12'],
+    sv: ['Du kröner året med ditt goda, och dina spår drypa av fetma.', 'Ps 65:12'],
+  },
+  'deu32.2': {
+    pl: ['Kropić będzie jako deszcz nauka moja, popłynie jako rosa wymowa moja, jako drobny deszcz na zioła, a jako krople na trawę.', 'Pwt 32,2'],
+    en: ['Let my teaching fall like rain and my speech settle like dew, like gentle rain on new grass, like showers on tender plants.', 'Deuteronomy 32:2'],
+    de: ['Meine Lehre triefe wie der Regen, und meine Rede fließe wie Tau, wie der Regen auf das Gras und wie die Tropfen auf das Kraut.', '5. Mose 32,2'],
+    sv: ['Såsom regnet drype min lära, såsom daggen flöde mitt tal, såsom rikligt regn på grönska och såsom en regnskur på gräsets brodd.', '5 Mos 32:2'],
+  },
+  'psa133.3': {
+    pl: ['Jako rosa Hermon, która zstępuje na góry Syońskie; albowiem tam daje Pan błogosławieństwo i żywot aż na wieki.', 'Ps 133,3'],
+    en: ['It is like the dew of Hermon falling on the mountains of Zion. For there the LORD has bestowed the blessing of life forevermore.', 'Psalm 133:3'],
+    de: ['…wie der Tau, der vom Hermon herabfällt auf die Berge Zions. Denn daselbst verheißt der HERR Segen und Leben immer und ewiglich.', 'Psalm 133,3'],
+    sv: ['Det är likt Hermons dagg, som faller ned på Sions-bergen. Ty där beskär HERREN välsignelse, liv till evig tid.', 'Ps 133:3'],
+  },
+  'luk14.13-14': {
+    pl: ['Ale gdy sprawujesz ucztę, wezwijże ubogich, ułomnych, chromych i ślepych, a będziesz błogosławionym; bo nie mają tobie czem nagrodzić, ale ci będzie nagrodzono przy zmartwychwstaniu sprawiedliwych.', 'Łk 14,13–14'],
+    en: ['But when you host a banquet, invite the poor, the crippled, the lame, and the blind, and you will be blessed. Since they cannot repay you, you will be repaid at the resurrection of the righteous.', 'Luke 14:13–14'],
+    de: ['Sondern wenn du ein Mahl machst, so lade die Armen, die Krüppel, die Lahmen, die Blinden, so bist du selig; denn sie haben\'s dir nicht zu vergelten, es wird dir aber vergolten werden in der Auferstehung der Gerechten.', 'Lukas 14,13–14'],
+    sv: ['Nej, när du gör gästabud, så bjud fattiga, krymplingar, halta, blinda. Salig är du då; ty eftersom de icke förmå vedergälla dig, skall du få din vedergällning vid de rättfärdigas uppståndelse.', 'Luk 14:13–14'],
+  },
+  'rut2.16': {
+    pl: ['Owszem umyślnie upuszczajcie jej z snopów, a zostawiajcie, aby zbierała, a nie fukajcie na nią.', 'Rt 2,16'],
+    en: ['Rather, pull out for her some stalks from the bundles and leave them for her to gather. Do not rebuke her.', 'Ruth 2:16'],
+    de: ['Auch von den Haufen laßt übrigbleiben und laßt liegen, daß sie es auflese, und niemand schelte sie darum.', 'Ruth 2,16'],
+    sv: ['Ja, I mån till och med draga ut strån ur knipporna åt henne och låta dem ligga, så att hon får plocka upp dem, och ingen må banna henne därför.', 'Rut 2:16'],
+  },
+  'deu32.11': {
+    pl: ['Jako orzeł wybawia orlęta swoje, nad orlętami swojemi latając, rozszerza skrzydła swoje, bierze je i nosi je na skrzydłach swoich…', 'Pwt 32,11'],
+    en: ['As an eagle stirs up its nest and hovers over its young, He spread His wings to catch them and carried them on His pinions.', 'Deuteronomy 32:11'],
+    de: ['Wie ein Adler ausführt seine Jungen und über ihnen schwebt, breitete er seine Fittiche aus und nahm ihn und trug ihn auf seinen Flügeln.', '5. Mose 32,11'],
+    sv: ['Likasom en örn lockar sin avkomma ut till flykt och svävar upp ovanför sina ungar, så bredde han ut sina vingar och tog honom och bar honom på sina fjädrar.', '5 Mos 32:11'],
+  },
+  'exo19.4': {
+    pl: ['Wyście widzieli, com uczynił Egipczanom, i jakom was nosił niby na skrzydłach orłowych, i przywiodłem was do siebie.', 'Wj 19,4'],
+    en: ['You have seen for yourselves what I did to Egypt, and how I carried you on eagles’ wings and brought you to Myself.', 'Exodus 19:4'],
+    de: ['Ihr habt gesehen, was ich den Ägyptern getan habe, und wie ich euch getragen habe auf Adlerflügeln und habe euch zu mir gebracht.', '2. Mose 19,4'],
+    sv: ['I haven själva sett vad jag har gjort med egyptierna, och huru jag har burit eder på örnvingar och fört eder till mig.', '2 Mos 19:4'],
+  },
+  'psa91.4': {
+    pl: ['Pierzem swem okryje cię, a pod skrzydłami jego bezpiecznym będziesz; prawda jego tarczą i puklerzem.', 'Ps 91,4'],
+    en: ['He will cover you with His feathers; under His wings you will find refuge; His faithfulness is a shield and rampart.', 'Psalm 91:4'],
+    de: ['Er wird dich mit seinen Fittichen decken, und deine Zuversicht wird sein unter seinen Flügeln. Seine Wahrheit ist Schirm und Schild…', 'Psalm 91,4'],
+    sv: ['Med sina fjädrar skall han betäcka dig, och under hans vingar skall du finna tillflykt; hans trofasthet är sköld och skärm.', 'Ps 91:4'],
+  },
+  'psa103.5': {
+    pl: ['Który nasyca dobrem usta twoje, a odnawia jako orła młodość twoję.', 'Ps 103,5'],
+    en: ['…who satisfies you with good things, so that your youth is renewed like the eagle’s.', 'Psalm 103:5'],
+    de: ['…der deinen Mund fröhlich macht, und du wieder jung wirst wie ein Adler.', 'Psalm 103,5'],
+    sv: ['…han som mättar ditt begär med sitt goda, så att du bliver ung på nytt såsom en örn.', 'Ps 103:5'],
+  },
+  '2co4.7': {
+    pl: ['A mamy ten skarb w naczyniu glinianem, aby dostojność tej mocy była z Boga, a nie z nas.', '2 Kor 4,7'],
+    en: ['Now we have this treasure in jars of clay to show that this surpassingly great power is from God and not from us.', '2 Corinthians 4:7'],
+    de: ['Wir haben aber solchen Schatz in irdischen Gefäßen, auf daß die überschwengliche Kraft sei Gottes und nicht von uns.', '2. Korinther 4,7'],
+    sv: ['Men denna skatt hava vi i lerkärl, för att den översvinnliga kraften skall befinnas vara Guds och icke något som kommer från oss.', '2 Kor 4:7'],
+  },
+  'isa61.3': {
+    pl: ['Abym sprawił radość płaczącym w Syonie, a dał im ozdobę miasto popiołu, olejek wesela miasto smutku, odzienie chwały miasto ściśnionego; i będą nazwani drzewami sprawiedliwości, szczepieniem Pańskiem, abym był uwielbiony.', 'Iz 61,3'],
+    en: ['…to console the mourners in Zion—to give them a crown of beauty for ashes, the oil of joy for mourning, and a garment of praise for a spirit of despair. So they will be called oaks of righteousness, the planting of the LORD, that He may be glorified.', 'Isaiah 61:3'],
+    de: ['…zu schaffen den Traurigen zu Zion, daß ihnen Schmuck für Asche und Freudenöl für Traurigkeit und schöne Kleider für einen betrübten Geist gegeben werden, daß sie genannt werden die Bäume der Gerechtigkeit, Pflanzen des HERRN zum Preise.', 'Jesaja 61,3'],
+    sv: ['…då han skall låta de sörjande i Sion få huvudprydnad i stället för aska, glädjeolja i stället för sorg, högtidskläder i stället för en bedrövad ande; och de skola kallas »rättfärdighetens terebinter», »HERRENS plantering, som han vill förhärliga sig med».', 'Jes 61:3'],
+  },
+  'mat10.42': {
+    pl: ['Kto by też napoił jednego z tych to małych tylko kubkiem zimnej wody w imię ucznia, zaprawdę powiadam wam, nie straci zapłaty swojej.', 'Mt 10,42'],
+    en: ['And if anyone gives even a cup of cold water to one of these little ones because he is My disciple, truly I tell you, he will never lose his reward.', 'Matthew 10:42'],
+    de: ['Und wer dieser Geringsten einen nur mit einem Becher kalten Wassers tränkt in eines Jüngers Namen, wahrlich ich sage euch: es wird ihm nicht unbelohnt bleiben.', 'Matthäus 10,42'],
+    sv: ['Och den som giver en av dessa små allenast en bägare friskt vatten att dricka, därför att det är en lärjunge – sannerligen säger jag eder: Han skall ingalunda gå miste om sin lön.', 'Matt 10:42'],
+  },
+  'gen18.4': {
+    pl: ['Przyniosą trochę wody, a umyjecie nogi wasze, i odpoczniecie pod drzewem.', 'Rdz 18,4'],
+    en: ['Let a little water be brought, that you may wash your feet and rest yourselves under the tree.', 'Genesis 18:4'],
+    de: ['Man soll euch ein wenig Wasser bringen und eure Füße waschen, und lehnt euch unter den Baum.', '1. Mose 18,4'],
+    sv: ['Låt mig hämta litet vatten, så att I kunnen två edra fötter; och vilen eder under trädet.', '1 Mos 18:4'],
+  },
+  '1ki17.14': {
+    pl: ['Albowiem tak powiedział Pan, Bóg Izraelski: Mąka z garnca tego nie będzie strawiona, ani oliwy z tej bańki ubędzie, aż do dnia, gdy Pan spuści deszcz na ziemię.', '1 Krl 17,14'],
+    en: ['…for this is what the LORD, the God of Israel, says: ‘The jar of flour will not be exhausted and the jug of oil will not run dry until the day the LORD sends rain upon the face of the earth.’', '1 Kings 17:14'],
+    de: ['Denn also spricht der HERR, der Gott Israels: Das Mehl im Kad soll nicht verzehrt werden, und dem Ölkrug soll nichts mangeln bis auf den Tag, da der HERR regnen lassen wird auf Erden.', '1. Könige 17,14'],
+    sv: ['Ty så säger HERREN, Israels Gud: Mjölet i krukan skall icke taga slut, och oljan i kruset skall icke tryta, intill den dag då HERREN låter det regna på jorden.', '1 Kung 17:14'],
+  },
+  'jer32.14': {
+    pl: ['Tak mówi Pan zastępów, Bóg Izraelski: Weźmij te zapisy, ten zapis tego kupna, jako zapieczętowany, tak i ten zapis otworzony, a włóż je w naczynie gliniane, aby trwały przez wiele lat…', 'Jr 32,14'],
+    en: ['This is what the LORD of Hosts, the God of Israel, says: Take these deeds—both the sealed copy and the open copy of the deed of purchase—and put them in a clay jar to preserve them for a long time.', 'Jeremiah 32:14'],
+    de: ['So spricht der HERR Zebaoth, der Gott Israels: Nimm diese Briefe, den versiegelten Kaufbrief samt dieser offenen Abschrift, und lege sie in ein irdenes Gefäß, daß sie lange bleiben mögen.', 'Jeremia 32,14'],
+    sv: ['Så säger HERREN Sebaot, Israels Gud: Tag du dessa brev, både detta förseglade köpebrev och detta öppna brev, och lägg dem i ett lerkärl, för att de må vara i behåll för lång tid.', 'Jer 32:14'],
+  },
+  'mic4.4': {
+    pl: ['Ale każdy będzie siedział pod winną macicą swoją, i pod figowem drzewem swojem, a nie będzie nikt, coby ich przestraszył; bo to usta Pana zastępów mówiły.', 'Mi 4,4'],
+    en: ['And each man will sit under his own vine and under his own fig tree, with no one to frighten him. For the mouth of the LORD of Hosts has spoken.', 'Micah 4:4'],
+    de: ['Ein jeglicher wird unter seinem Weinstock und Feigenbaum wohnen ohne Scheu; denn der Mund des HERRN Zebaoth hat\'s geredet.', 'Micha 4,4'],
+    sv: ['Och var och en skall sitta under sitt vinträd och sitt fikonträd, och ingen skall förskräcka honom; ty så har HERREN Sebaots mun talat.', 'Mika 4:4'],
+  },
+  'psa84.3': {
+    pl: ['Oto i wróbel znalazł sobie domek, i jaskółka gniazdo swoje, gdzie pokłada ptaszęta swe, u ołtarzów twoich, Panie zastępów, królu mój i Boże mój!', 'Ps 84,4'],
+    en: ['Even the sparrow has found a home, and the swallow a nest for herself, where she places her young near Your altars, O LORD of Hosts, my King and my God.', 'Psalm 84:3'],
+    de: ['Denn der Vogel hat ein Haus gefunden und die Schwalbe ihr Nest, da sie Junge hecken: deine Altäre, HERR Zebaoth, mein König und Gott.', 'Psalm 84,4'],
+    sv: ['Ty sparven har funnit ett hus och svalan ett bo åt sig, där hon kan lägga sina ungar: dina altaren, HERRE Sebaot, min konung och min Gud.', 'Ps 84:4'],
+  },
+  'isa35.7': {
+    pl: ['I stanie się miejsce suche jeziorem, a bezwodne źródłami wód; w łożyskach smoków, kędy legali, trawa, trzcina, i sitowie rość będzie.', 'Iz 35,7'],
+    en: ['The parched ground will become a pool, the thirsty land springs of water. In the haunt where jackals once lay, there will be grass and reeds and papyrus.', 'Isaiah 35:7'],
+    de: ['Und wo es zuvor trocken gewesen ist, sollen Teiche stehen; und wo es dürr gewesen ist, sollen Brunnquellen sein. Da zuvor die Schakale gelegen haben, soll Gras und Rohr und Schilf stehen.', 'Jesaja 35,7'],
+    sv: ['Av förbränt land skall bliva en sjö och av torr mark vattenkällor; på den plats, där ökenhundar lägrade sig, skall växa gräs jämte vass och rör.', 'Jes 35:7'],
+  },
+  'isa41.18': {
+    pl: ['Otworzę rzeki na miejscach wysokich, a źródła w pośród równin; obrócę pustynie w jeziora wód, a ziemię suchą w strumienie wód.', 'Iz 41,18'],
+    en: ['I will open rivers on the barren heights, and fountains in the middle of the valleys. I will turn the desert into a pool of water, and the dry land into flowing springs.', 'Isaiah 41:18'],
+    de: ['Sondern ich will Wasserflüsse auf den Höhen öffnen und Brunnen mitten auf den Feldern und will die Wüste zu Wasserseen machen und das dürre Land zu Wasserquellen…', 'Jesaja 41,18'],
+    sv: ['Jag skall låta strömmar rinna upp på höjderna och källor i dalarna; jag skall göra öknen till en vattenrik sjö och torrt land till källsprång.', 'Jes 41:18'],
+  },
+  'isa58.11': {
+    pl: ['Bo cię Pan ustawicznie poprowadzi, i nasyci pod największą suszą duszę twoję, a kości twoje utuczy, i będziesz jako ogród wilgotny, a jako zdrój wód, którego wody nie ustawają.', 'Iz 58,11'],
+    en: ['The LORD will always guide you; He will satisfy you in a sun-scorched land and strengthen your frame. You will be like a well-watered garden, like a spring whose waters never fail.', 'Isaiah 58:11'],
+    de: ['…und der HERR wird dich immerdar führen und deine Seele sättigen in der Dürre und deine Gebeine stärken; und du wirst sein wie ein gewässerter Garten und wie eine Wasserquelle, welcher es nimmer an Wasser fehlt…', 'Jesaja 58,11'],
+    sv: ['Och HERREN skall leda dig beständigt; han skall mätta dig mitt i ödemarken och giva styrka åt benen i din kropp. Och du skall vara lik en vattenrik trädgård och likna ett källsprång, vars vatten aldrig tryter.', 'Jes 58:11'],
   },
 };
 
