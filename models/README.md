@@ -27,10 +27,18 @@ python models/download_datasets.py --all
 
 # 3. Train the mental state classifier
 python models/train_mental_states.py
+#    --recordings adds your labelled recordings: put "mental_state_label": "<state>"
+#    into a recording's recordings/<id>_meta.json
+python models/train_mental_states.py --recordings
 
 # 4. The trained model is saved to models/trained/mental_state_clf.joblib
 #    and is automatically loaded by the desktop server on startup.
 ```
+
+Features from recordings are made by the live pipeline itself (`brainlink.dsp.DSPPipeline`,
+replayed 0.1 s at a time, one window per second once its 2 s buffer is full), so training and
+the live classifier see band powers from the same estimator. Datasets in other formats should go
+through `brainlink.dsp.band_powers` the same way.
 
 ## Mental States Detected
 

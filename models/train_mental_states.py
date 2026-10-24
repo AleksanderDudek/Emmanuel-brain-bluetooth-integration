@@ -131,13 +131,41 @@ def generate_synthetic_data(n_per_class: int = 500) -> tuple:
     return np.array(X), np.array(y)
 
 
-def load_brainlink_recordings() -> tuple:
-    """Load labeled recordings from the server's own recording system."""
+def features_from_recording(csv_path: Path, hop_sec: float = 1.0) -> list:
+    """
+    Feature vectors of one raw recording, made by the live pipeline itself: the samples go
+    through brainlink's DSPPipeline 0.1 s at a time, as in the server's loop, and once its
+    2 s buffer is full one vector is taken every ``hop_sec`` — so training sees exactly the
+    band powers the live classifier gets.
+    """
+    if str(ROOT.parent) not in sys.path:
+        sys.path.insert(0, str(ROOT.parent))
+    from brainlink.constants import BUFFER_SAMPLES, STREAM_HZ
+    from brainlink.dsp import DSPPipeline
+
+    with open(csv_path) as f:
+        rows = list(csv.DictReader(f))
+    raw = {ch: np.array([float(r[ch]) for r in rows]) for ch in CHANNELS}
+    chunk = SAMPLE_RATE // STREAM_HZ
+    every = max(1, round(hop_sec * STREAM_HZ))
+    dsp, feats = DSPPipeline(), []
+    for tick, start in enumerate(range(0, len(rows) - chunk + 1, chunk)):
+        dsp.push({ch: raw[ch][start:start + chunk] for ch in CHANNELS})
+        if len(dsp.buffers[CHANNELS[0]]) >= BUFFER_SAMPLES and tick % every == every - 1:
+            feats.append(extract_features(dsp.compute_band_powers()))
+    return feats
+
+
+def load_brainlink_recordings(recordings_dir: Path = RECORDINGS_DIR) -> tuple:
+    """
+    Labelled recordings of the server (``<id>_data.csv`` raw samples): label one by adding
+    ``"mental_state_label": "<state>"`` to its ``<id>_meta.json``.
+    """
     X, y = [], []
-    if not RECORDINGS_DIR.exists():
+    if not recordings_dir.exists():
         return np.array(X), np.array(y)
 
-    for meta_path in RECORDINGS_DIR.glob("*_meta.json"):
+    for meta_path in sorted(recordings_dir.glob("*_meta.json")):
         with open(meta_path) as f:
             meta = json.load(f)
         label = meta.get("mental_state_label")
@@ -146,14 +174,15 @@ def load_brainlink_recordings() -> tuple:
         csv_path = meta_path.with_name(meta_path.stem.replace("_meta", "_data") + ".csv")
         if not csv_path.exists():
             continue
-        # This is a placeholder — would need full DSP pipeline to convert
-        # raw samples into band powers. For now, skip raw recordings.
-        print(f"  Found labeled recording: {meta.get('name')} → {label}")
+        feats = features_from_recording(csv_path)
+        print(f"  {meta.get('name', csv_path.stem)} → {label}: {len(feats)} windows")
+        X += feats
+        y += [label] * len(feats)
 
     return np.array(X), np.array(y)
 
 
-def train():
+def train(include_recordings: bool = False):
     """Train the mental state classifier and save it."""
     from sklearn.ensemble import RandomForestClassifier
     from sklearn.model_selection import cross_val_score
@@ -165,6 +194,12 @@ def train():
     print(f"  Synthetic samples: {len(X_syn)} ({len(MENTAL_STATES)} classes × 800)")
 
     X, y = X_syn, y_syn
+    if include_recordings:
+        print("\nLoading labelled recordings (features from the live DSP pipeline)...")
+        X_rec, y_rec = load_brainlink_recordings()
+        print(f"  Recorded windows: {len(X_rec)}")
+        if len(X_rec):
+            X, y = np.vstack([X, X_rec]), np.concatenate([y, y_rec])
 
     # Encode labels
     le = LabelEncoder()
@@ -223,4 +258,4 @@ if __name__ == "__main__":
         print("  pip install scikit-learn joblib")
         sys.exit(1)
 
-    train()
+    train(include_recordings=args.recordings)
