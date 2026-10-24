@@ -1,6 +1,9 @@
-/** The exercises (Trening) and the games (Gry), each with the bands it works with (DESIGN.md §2). */
+/**
+ * The exercises (Trening) and the games (Gry), each with the bands it works with (DESIGN.md §2):
+ * the cards, the game of the day and the "new" mark on a game never played.
+ */
 import { drawArcadeArt } from '../arcade/art';
-import { ARCADE, type ArcadeEntry } from '../arcade/registry';
+import { ARCADE, gameOfDay, type ArcadeEntry } from '../arcade/registry';
 import type { HubStatus } from '../hub';
 import { lang } from '../i18n';
 import { t } from '../i18n/shell';
@@ -68,6 +71,8 @@ export const ACTIVITIES: Activity[] = [
 
 export const EXERCISES = (): Activity[] => ACTIVITIES.filter(a => a.group === 'train');
 export const GAME_ACTIVITIES = (): Activity[] => ACTIVITIES.filter(a => a.group === 'game');
+/** The game of the day's card (registry.ts gameOfDay). */
+export const TODAYS_GAME = (day?: string): Activity => arcadeActivity(gameOfDay(day));
 
 /** The card's tags: the bands by name ("Mendi", "HALO"), and "bez opaski też" for a game that runs without one. */
 export function bandTags(a: Activity): string[] {
@@ -98,27 +103,36 @@ export function drawArcadeCards(root: HTMLElement, list: Activity[]): void {
   });
 }
 
+export interface ActivitiesOptions {
+  /** wide cards (the art beside the text), as the focus training's */
+  feature?: boolean;
+  /** a line over each card's title ("Gra dnia") */
+  kicker?: string;
+}
+
 export class ActivitiesView {
   private tool: Tool | null | undefined = undefined;
   private scene: SceneId | null = null;
   private artDrawn = false;
-  private readonly cards = new Map<Activity['id'], { el: HTMLAnchorElement; why: HTMLElement }>();
+  private readonly cards = new Map<Activity['id'], { el: HTMLAnchorElement; why: HTMLElement; tags: HTMLElement }>();
 
   /** @param containerId where the cards go; @param list which activities */
-  constructor(private readonly containerId: string, private readonly list: Activity[]) {
+  constructor(private readonly containerId: string, private readonly list: Activity[], opts: ActivitiesOptions = {}) {
     $(containerId).replaceChildren(...list.map(a => {
       const art = h('div', { class: `art ${a.art}` }, artImage(a));
       if (a.id === 'focus') art.append(h('canvas', { class: 'scene-art', 'aria-hidden': 'true' }));
       if (a.arcade) art.append(h('canvas', { class: 'scene-art arcade-art', 'aria-hidden': 'true' }));
       const why = h('p', { class: 'why' });
       const note = polishNote(a);
-      const el = h('a', { class: 'activity' + (a.id === 'focus' ? ' feature' : ''), href: a.href, 'data-activity': a.id },
+      const tags = h('div', { class: 'tags' }, bandTags(a).map(x => h('span', { class: 'badge' }, x)), note ? h('span', { class: 'badge lang-note' }, note) : null);
+      const el = h('a', { class: 'activity' + (a.id === 'focus' || opts.feature ? ' feature' : ''), href: a.href, 'data-activity': a.id },
         art,
         h('div', { class: 'body' },
-          h('div', { class: 'tags' }, bandTags(a).map(x => h('span', { class: 'badge' }, x)), note ? h('span', { class: 'badge lang-note' }, note) : null),
+          opts.kicker ? h('p', { class: 'eyebrow' }, opts.kicker) : null,
+          tags,
           h('h2', null, a.title), h('p', null, a.text), why,
           h('span', { class: 'btn cta' + (a.id === 'focus' || a.group === 'game' ? ' primary' : '') }, `${a.cta} →`)));
-      this.cards.set(a.id, { el, why });
+      this.cards.set(a.id, { el, why, tags });
       return el;
     }));
   }
@@ -142,6 +156,17 @@ export class ActivitiesView {
     if (!this.artDrawn) {
       this.artDrawn = true;
       drawArcadeCards($(this.containerId), this.list);
+    }
+  }
+
+  /** Mark the arcade games never played (`played`: the ids of games with a saved session). */
+  setPlayed(played: ReadonlySet<string>): void {
+    for (const a of this.list) {
+      const c = this.cards.get(a.id);
+      if (!c || !a.arcade) continue;
+      const mark = c.tags.querySelector('.badge.new');
+      if (played.has(a.id)) mark?.remove();
+      else if (!mark) c.tags.prepend(h('span', { class: 'badge new' }, t('tag.new')));
     }
   }
 

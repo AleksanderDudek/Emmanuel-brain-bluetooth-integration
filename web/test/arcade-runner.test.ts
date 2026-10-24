@@ -39,7 +39,7 @@ function stubGame(env: GameEnv<P>, opts: { padThrowsAfter?: number } = {}) {
 }
 
 const ENTRY: ArcadeEntry = {
-  id: 'stub', title: 'Stub', tagline: '', text: '', how: [], tips: ['tip'], unit: 'pkt', art: '', fill: ['#000', '#111', '#222', '#333'],
+  id: 'stub', kind: 'puzzle', title: 'Stub', tagline: '', text: '', how: [], tips: ['tip'], unit: 'pkt', art: '', fill: ['#000', '#111', '#222', '#333'],
   tools: ['fnirs', 'eeg'], focusChip: false, root: 'psa23.1-3', load: async () => { throw new Error('not used'); },
 };
 

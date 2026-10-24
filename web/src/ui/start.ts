@@ -3,7 +3,7 @@
  * train), quick launch, and today's score with the last session.  On the first
  * run (no band chosen yet) it greets with the name and the tagline.
  */
-import { arcadeEntry, resultFill } from '../arcade/registry';
+import { arcadeEntry, gameOfDay, resultFill } from '../arcade/registry';
 import type { HubStatus } from '../hub';
 import { REASON_TEXT, WARNING_TEXT } from '../hub';
 import { fmtDate, fmtSigned } from '../i18n';
@@ -128,7 +128,8 @@ export class StartView {
   }
 
   private renderTiles(tool: Tool | null): void {
-    const key = `${tool}|${this.scene()}`;
+    const today = gameOfDay().id;
+    const key = `${tool}|${this.scene()}|${today}`;
     if (key === this.tilesFor) return;
     this.tilesFor = key;
     const tile = (a: Activity, extra = '') => {
@@ -137,7 +138,7 @@ export class StartView {
       return h('a', { class: `tile${a.id === 'focus' ? ' feature' : ''}${extra}`, href: a.href, 'data-activity': a.id, 'aria-disabled': String(!!why && !a.optional) },
         a.id === 'focus' ? h('canvas', { 'aria-hidden': 'true' })
           : h('div', { class: `tile-art ${a.art}` }, a.arcade ? h('canvas', { class: 'arcade-art', 'aria-hidden': 'true' }) : artImage(a)),
-        h('span', { class: 'tag' }, bandTags(a).join(' · ')),
+        h('span', { class: 'tag' }, a.id === today ? t('tag.today') : bandTags(a).join(' · ')),
         note ? h('span', { class: 'lang-note' }, note) : null,
         h('b', null, a.title),
         h('small', null, why ?? (a.id === 'focus' ? t('tile.focus') : a.arcade ? a.arcade.tagline
@@ -146,8 +147,10 @@ export class StartView {
     $('trainTiles').replaceChildren(...EXERCISES().map(a => tile(a)),
       h('a', { class: 'tile', href: '#sygnal' }, h('div', { class: 'tile-art art-signal' }), h('span', { class: 'tag' }, t('tile.live')),
         h('b', null, t('tile.signal')), h('small', null, tool === 'eeg' ? t('tile.signalEeg') : t('tile.signalFnirs'))));
-    $('gameTiles').replaceChildren(...GAME_ACTIVITIES().map(a => tile(a, ' tile-game')));
-    drawArcadeCards($('gameTiles'), GAME_ACTIVITIES());
+    // the game of the day leads the row
+    const games = GAME_ACTIVITIES().sort((a, b) => Number(b.id === today) - Number(a.id === today));
+    $('gameTiles').replaceChildren(...games.map(a => tile(a, ' tile-game')));
+    drawArcadeCards($('gameTiles'), games);
     const canvas = $('trainTiles').querySelector<HTMLCanvasElement>('.tile.feature canvas');
     if (canvas) requestAnimationFrame(() => drawScenePreview(canvas, this.scene()));
   }

@@ -1,6 +1,7 @@
 /** Emmanuel — Progressive Web App entry point (layout and flows: DESIGN.md). */
 import './styles.css';
 import { ArcadeLobby } from './arcade/lobby';
+import { gameOfDay, KINDS } from './arcade/registry';
 import { ArcadeRunner } from './arcade/runner';
 import { Engine, type EngineFrame, type SavedEvent } from './engine';
 import { EegEngine, type EegFrame } from './eeg-engine';
@@ -15,7 +16,7 @@ import { SessionLibrary } from './storage/library';
 import { Recorder } from './storage/recorder';
 import { TOOL_INFO, type Tool } from './tools';
 import type { TrainingResult } from './training/score';
-import { ActivitiesView, EXERCISES, GAME_ACTIVITIES } from './ui/activities';
+import { ActivitiesView, EXERCISES, GAME_ACTIVITIES, TODAYS_GAME } from './ui/activities';
 import { AppBar } from './ui/appbar';
 import { BalanceView } from './ui/balance';
 import { BuyBox } from './ui/buy';
@@ -67,8 +68,13 @@ async function main(): Promise<void> {
   const recording = new RecordingCard(engine, folder, settings, save);
   const settingsView = new SettingsView(engine, folder, settings, save, db);
   const activities = new ActivitiesView('activities', EXERCISES());
-  const gameCards = new ActivitiesView('gamesList', GAME_ACTIVITIES().filter(a => a.arcade));
+  // the Games tab: the game of the day (a new one at midnight), the arcade games by kind, HolyHolyHoly
+  const kindCards = KINDS.map(k => new ActivitiesView(`games-${k}`, GAME_ACTIVITIES().filter(a => a.arcade?.kind === k)));
   const holyCards = new ActivitiesView('gamesHoly', GAME_ACTIVITIES().filter(a => !a.arcade));
+  const todayCard = () => new ActivitiesView('gameOfDay', [TODAYS_GAME()], { feature: true, kicker: t('tag.today') });
+  let today = { id: gameOfDay().id, view: todayCard() };
+  let played = new Set<string>();
+  const gameViews = () => [today.view, ...kindCards, holyCards];
   const buy = new BuyBox();
   const awake = new ScreenAwake();
 
@@ -76,6 +82,8 @@ async function main(): Promise<void> {
   const setTrainings = (list: TrainingResult[]) => {
     trainings = list;
     start.setTrainings(list);
+    played = new Set(list.flatMap(r => (r.kind === 'game' && r.game ? [r.game.id] : [])));
+    for (const v of gameViews()) v.setPlayed(played);
     if (router.current.view === 'sesje') sessions.renderTrainings(list);
   };
   const sessions = new SessionsView(library, folder, () => (recorder.recording ? recorder.meta?.session_id ?? null : null), db, setTrainings);
@@ -127,7 +135,13 @@ async function main(): Promise<void> {
     if (r.view === 'start') start.shown(); else start.hidden();
     if (r.view === 'focus') focusSetup.shown();
     if (r.view === 'trening') activities.shown();
-    if (r.view === 'gry') { gameCards.shown(); holyCards.shown(); }
+    if (r.view === 'gry') {
+      if (gameOfDay().id !== today.id) {
+        today = { id: gameOfDay().id, view: todayCard() };
+        today.view.setPlayed(played);
+      }
+      for (const v of gameViews()) v.shown();
+    }
     if (r.view === 'arcade' && r.arcade) {
       void lobby.show(r.arcade).catch(e => toast(t('main.gameFailed', { error: e instanceof Error ? e.message : String(e) }), true));
     } else lobby.hide();
@@ -216,8 +230,7 @@ async function main(): Promise<void> {
     if (v === 'arcade') lobby.render(s);
     if (v === 'trening') activities.render(s, settings.training.scene);
     if (v === 'gry') {
-      gameCards.render(s, settings.training.scene);
-      holyCards.render(s, settings.training.scene);
+      for (const v of gameViews()) v.render(s, settings.training.scene);
       renderGamesStatus(s);
     }
     if (s.tool !== lastTool) {
@@ -256,7 +269,7 @@ async function main(): Promise<void> {
     void settingsView.renderStorage();
   });
 
-  start.setTrainings(trainings);
+  setTrainings(trainings);
   router.start();
   revealPage();   // the current view has rendered in this language
   hub.start();
