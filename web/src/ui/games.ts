@@ -2,22 +2,18 @@
  * Games inside the app (DESIGN.md §4): a full-screen layer with the game in a
  * same-origin <iframe> (`?hub=1`), fed with the app's band through the
  * Hub's GameHost — the band stays connected here, the game never pairs it.
+ * The HolyHolyHoly games are separate apps and stay in Polish inside.
  */
 import type { Hub, HubStatus } from '../hub';
+import { t } from '../i18n/shell';
 import type { GameId } from './router';
 import { $, h } from './dom';
 
 export interface GameInfo { id: GameId; title: string; path: string; text: string }
 
 export const GAMES: Record<GameId, GameInfo> = {
-  holyholyholy: {
-    id: 'holyholyholy', title: 'HolyHolyHoly', path: 'holyholyholy/',
-    text: 'Anioł stróż zjada i trawi traumy, zamieniając je w prawdę. Skupienie ładuje Ogień Ducha, równowaga półkul — Aurę Pokoju.',
-  },
-  holyholyholy3d: {
-    id: 'holyholyholy3d', title: 'HolyHolyHoly 3D', path: 'holyholyholy3d/',
-    text: 'Siedmiu archaniołów, opowieść z Chrystusem i prawdziwe umiejętności CBT. Utrzymane skupienie daje mnożnik do ×3.',
-  },
+  holyholyholy: { id: 'holyholyholy', title: 'HolyHolyHoly', path: 'holyholyholy/', text: t('game.holy.text') },
+  holyholyholy3d: { id: 'holyholyholy3d', title: 'HolyHolyHoly 3D', path: 'holyholyholy3d/', text: t('game.holy3d.text') },
 };
 
 export class GameLayer {
@@ -70,11 +66,13 @@ export class GameLayer {
   render(s: HubStatus): void {
     if (!this.current) return;
     let text: string;
-    if (s.tool !== 'fnirs') text = 'Gra czyta opaskę Mendi (fNIRS) — teraz bez opaski';
-    else if (s.source === 'simulator') text = 'Sygnał: symulator BrainLink';
-    else if (s.source === 'device' && s.device.streaming) text = `Opaska z BrainLink: ${s.device.name ?? 'Mendi'}${s.device.battery !== null ? ` · ${s.device.battery}%` : ''}`;
-    else text = 'Bez opaski — połącz ją w BrainLink, gra przejmie sygnał';
-    if (!this.hub.games.connected) text += ' · gra się wczytuje…';
+    if (s.tool !== 'fnirs') text = t('game.noBand');
+    else if (s.source === 'simulator') text = t('game.sim');
+    else if (s.source === 'device' && s.device.streaming) {
+      const name = s.device.name ?? 'Mendi';
+      text = s.device.battery !== null ? t('game.bandBattery', { name, pct: s.device.battery }) : t('game.band', { name });
+    } else text = t('game.connectHint');
+    if (!this.hub.games.connected) text += ` · ${t('game.loading')}`;
     if (text !== this.lastSig) {
       this.lastSig = text;
       $('gameLink').textContent = text;

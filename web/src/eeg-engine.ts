@@ -11,6 +11,7 @@ import { EEGSimulator, type EegAutoProgress } from './core/eeg/simulator';
 import { EEG_CHANNELS, EEG_SAMPLE_RATE, WINDOW_SAMPLES, type BandPowers, type EegChannel, type EegMetrics } from './core/eeg/types';
 import { std } from './core/dsp';
 import type { Source } from './engine';
+import { t } from './i18n/signal';
 
 export const EEG_STREAM_HZ = 10;
 const STALE_SEC = 1.5;
@@ -153,7 +154,7 @@ export class EegEngine extends EventTarget {
   }
 
   async useDevice(): Promise<void> {
-    if (!this.device.isConnected) throw new Error('Najpierw połącz opaskę');
+    if (!this.device.isConnected) throw new Error(t('err.connectFirst'));
     let restarted = false;
     if (!this.device.isStreaming) {
       await this.device.startStream();

@@ -19,6 +19,7 @@ import {
   ABERRATION_ODDS, ABERRATION_PITY, HABITATS, RADIANT_ABERRATION_BOOST, SPECIES, TIERS, speciesById,
   type Aberration, type HabitatId, type Species, type TierIndex,
 } from './content';
+import { t } from './i18n';
 
 /** Butterfly flags (bit mask). */
 export const F = {
@@ -169,8 +170,8 @@ export interface EggOffer {
 }
 
 export const SOURCE_TEXT: Record<EggSource, string> = {
-  first: 'Pierwsze jajo', daily: 'Liść dnia', pity: 'Gwarantowane', pollen: 'Za pyłek', laid: 'Twoje jajo',
-  welcome: 'Ktoś zostawił jajeczko…', wild: 'Dzikie jajo',
+  first: t('src.first'), daily: t('src.daily'), pity: t('src.pity'), pollen: t('src.pollen'), laid: t('src.laid'),
+  welcome: t('src.welcome'), wild: t('src.wild'),
 };
 
 /**
@@ -344,7 +345,10 @@ export function laterEggs(p: MothProgress, day: string): { sp: Species; n: numbe
 }
 
 export function eggsLine(items: { sp: Species; n: number; isNew: boolean }[]): string {
-  return items.map(i => `${i.n > 1 ? `${i.n}× ` : ''}${i.sp.name}${i.isNew ? ' (nowy!)' : ''}`).join(', ');
+  return items.map(i => {
+    const name = i.n > 1 ? t('eggs.n', { n: i.n, name: i.sp.name }) : i.sp.name;
+    return i.isNew ? t('eggs.new', { name }) : name;
+  }).join(', ');
 }
 
 /** Stats for the lobby: species found, butterflies, the biggest, radiant ones. */

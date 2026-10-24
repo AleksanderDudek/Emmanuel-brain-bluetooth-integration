@@ -8,6 +8,7 @@
  */
 import type { SessionDB } from './db';
 import { chunkToCsv, csvHeaderLine, fileNames, type Chunk, type SessionMeta } from './format';
+import { t } from '../i18n/signal';
 
 const HANDLE_KEY = 'folder_handle';
 
@@ -43,8 +44,8 @@ export class FolderStore {
 
   private async granted(): Promise<FileSystemDirectoryHandle> {
     const h = await this.getHandle();
-    if (!h) throw new Error('Nie wybrano folderu');
-    if ((await h.queryPermission({ mode: 'readwrite' })) !== 'granted') throw new Error('Brak dostępu do folderu');
+    if (!h) throw new Error(t('folder.none'));
+    if ((await h.queryPermission({ mode: 'readwrite' })) !== 'granted') throw new Error(t('folder.denied'));
     return h;
   }
 
@@ -89,7 +90,7 @@ export class FolderStore {
 
   async readFile(name: string): Promise<File> {
     const h = await this.getHandle();
-    if (!h) throw new Error('Nie wybrano folderu');
+    if (!h) throw new Error(t('folder.none'));
     return (await h.getFileHandle(name)).getFile();
   }
 

@@ -4,8 +4,10 @@
  * habitats, the host plants, and the 18 species — wing family, ground colours, markings in the
  * wing's polar coordinates (u across the wings from the forewing's leading edge to the hindwing's
  * inner edge, s from the body to the margin), the classic three-pigment recipe, the caterpillar
- * and the pupa.  Pure data: geometry lives in leaf.ts and wing.ts, drawing in paint.ts.
+ * and the pupa.  Pure data: geometry lives in leaf.ts and wing.ts, drawing in paint.ts.  The names
+ * come from the catalog (i18n.ts) in the page's language; what is saved refers to species by `id`.
  */
+import { t } from './i18n';
 
 export type PigmentPattern = 'dot' | 'stripe' | 'ring' | 'cross' | 'petal';
 
@@ -20,11 +22,11 @@ export interface Pigment {
 }
 
 export const PIGMENTS: readonly Pigment[] = [
-  { name: 'czerwień', color: '#E0453A', dark: '#9E2A22', pattern: 'dot', note: 0 },
-  { name: 'ultramaryna', color: '#3A5BD9', dark: '#22378F', pattern: 'stripe', note: 2 },
-  { name: 'żółcień', color: '#F2C230', dark: '#B58612', pattern: 'ring', note: 4 },
-  { name: 'zieleń', color: '#2F9E7A', dark: '#1B6A50', pattern: 'cross', note: 1 },
-  { name: 'purpura', color: '#C2408F', dark: '#82245E', pattern: 'petal', note: 3 },
+  { name: t('pig.red'), color: '#E0453A', dark: '#9E2A22', pattern: 'dot', note: 0 },
+  { name: t('pig.blue'), color: '#3A5BD9', dark: '#22378F', pattern: 'stripe', note: 2 },
+  { name: t('pig.yellow'), color: '#F2C230', dark: '#B58612', pattern: 'ring', note: 4 },
+  { name: t('pig.green'), color: '#2F9E7A', dark: '#1B6A50', pattern: 'cross', note: 1 },
+  { name: t('pig.magenta'), color: '#C2408F', dark: '#82245E', pattern: 'petal', note: 3 },
 ];
 export const RED = 0, BLUE = 1, YELLOW = 2, GREEN = 3, MAGENTA = 4;
 
@@ -46,10 +48,10 @@ export interface Tier {
 }
 
 export const TIERS: readonly Tier[] = [
-  { name: 'Pospolity', cls: '', odds: 0.62, pity: 0, dup: 5, price: 40, color: '#6F8A4A' },
-  { name: 'Rzadki', cls: 'rare', odds: 0.26, pity: 5, dup: 15, price: 120, color: '#3F66C9' },
-  { name: 'Wyjątkowy', cls: 'epic', odds: 0.10, pity: 15, dup: 40, price: 300, color: '#8A44C2' },
-  { name: 'Legendarny', cls: 'legend', odds: 0.02, pity: 28, dup: 100, price: 800, color: '#B98310' },
+  { name: t('tier.common'), cls: '', odds: 0.62, pity: 0, dup: 5, price: 40, color: '#6F8A4A' },
+  { name: t('tier.rare'), cls: 'rare', odds: 0.26, pity: 5, dup: 15, price: 120, color: '#3F66C9' },
+  { name: t('tier.epic'), cls: 'epic', odds: 0.10, pity: 15, dup: 40, price: 300, color: '#8A44C2' },
+  { name: t('tier.legend'), cls: 'legend', odds: 0.02, pity: 28, dup: 100, price: 800, color: '#B98310' },
 ];
 
 /** Aberrations rolled at emergence (×1.5 for a radiant butterfly), and their pity in butterflies. */
@@ -57,20 +59,22 @@ export const ABERRATION_ODDS = { gyn: 0.005, albino: 0.02, melanic: 0.02 } as co
 export const RADIANT_ABERRATION_BOOST = 1.5;
 export const ABERRATION_PITY = 40;
 export type Aberration = keyof typeof ABERRATION_ODDS;
-export const ABERRATION_NAME: Record<Aberration, string> = { gyn: 'gynandromorf', albino: 'albinotyczna', melanic: 'melanistyczna' };
+/** an aberration's name in a list ("odmiany: albinotyczna") */
+export const ABERRATION_NAME: Record<Aberration, string> = { gyn: t('ab.gyn'), albino: t('ab.albino'), melanic: t('ab.melanic') };
+/** an aberration named after its species ("rusałka pawik (odmiana albinotyczna)") */
+export const ABERRATION_FORM: Record<Aberration, string> = { gyn: t('ab.gyn.form'), albino: t('ab.albino.form'), melanic: t('ab.melanic.form') };
 
 export type HabitatId = 'ogrod' | 'laka';
 export interface Habitat { id: HabitatId; name: string; /** butterflies needed to open it */ unlock: number }
 export const HABITATS: readonly Habitat[] = [
-  { id: 'ogrod', name: 'Ogród', unlock: 0 },
-  { id: 'laka', name: 'Łąka', unlock: 6 },
+  { id: 'ogrod', name: t('hab.ogrod'), unlock: 0 },
+  { id: 'laka', name: t('hab.laka'), unlock: 6 },
 ];
 
 export type PlantId = 'pokrzywa' | 'kapusta' | 'rzezucha' | 'kruszyna' | 'koniczyna' | 'trawa' | 'szczaw' | 'fiolek' | 'przytulia' | 'marchew';
 
 export interface PlantLook {
-  name: string;
-  /** "na pokrzywie" */
+  /** "na pokrzywie": where its caterpillar eats */
   on: string;
   /** leaf greens: shadow, body, light; the vein colour */
   dark: string;
@@ -80,16 +84,16 @@ export interface PlantLook {
 }
 
 export const PLANTS: Record<PlantId, PlantLook> = {
-  pokrzywa: { name: 'pokrzywa', on: 'na pokrzywie', dark: '#4C7A34', mid: '#74A54A', light: '#A9CF74', vein: '#C3E08E' },
-  kapusta: { name: 'kapusta', on: 'na kapuście', dark: '#4E7F68', mid: '#7FAE90', light: '#BCD8BD', vein: '#D9EBD2' },
-  rzezucha: { name: 'rzeżucha', on: 'na rzeżusze', dark: '#5A8A3A', mid: '#86B858', light: '#C2DE8C', vein: '#D6EBA6' },
-  kruszyna: { name: 'kruszyna', on: 'na kruszynie', dark: '#3F7A34', mid: '#68A84A', light: '#A8D27A', vein: '#C6E59A' },
-  koniczyna: { name: 'koniczyna', on: 'na koniczynie', dark: '#3E7438', mid: '#64A04E', light: '#9ECB7A', vein: '#C2E0A2' },
-  trawa: { name: 'trawa', on: 'na trawie', dark: '#55913A', mid: '#7FBA50', light: '#BBDC82', vein: '#D2EAA0' },
-  szczaw: { name: 'szczaw', on: 'na szczawiu', dark: '#557F33', mid: '#7FAE4C', light: '#B7D37A', vein: '#C98C6E' },
-  fiolek: { name: 'fiołek', on: 'na fiołku', dark: '#3A6E37', mid: '#5E9A4C', light: '#96C478', vein: '#BCDDA0' },
-  przytulia: { name: 'przytulia', on: 'na przytulii', dark: '#4A7E3A', mid: '#73AA52', light: '#ADD27E', vein: '#CBE6A2' },
-  marchew: { name: 'marchew', on: 'na marchwi', dark: '#4F8638', mid: '#79B250', light: '#B2D77E', vein: '#CFE8A0' },
+  pokrzywa: { on: t('on.pokrzywa'), dark: '#4C7A34', mid: '#74A54A', light: '#A9CF74', vein: '#C3E08E' },
+  kapusta: { on: t('on.kapusta'), dark: '#4E7F68', mid: '#7FAE90', light: '#BCD8BD', vein: '#D9EBD2' },
+  rzezucha: { on: t('on.rzezucha'), dark: '#5A8A3A', mid: '#86B858', light: '#C2DE8C', vein: '#D6EBA6' },
+  kruszyna: { on: t('on.kruszyna'), dark: '#3F7A34', mid: '#68A84A', light: '#A8D27A', vein: '#C6E59A' },
+  koniczyna: { on: t('on.koniczyna'), dark: '#3E7438', mid: '#64A04E', light: '#9ECB7A', vein: '#C2E0A2' },
+  trawa: { on: t('on.trawa'), dark: '#55913A', mid: '#7FBA50', light: '#BBDC82', vein: '#D2EAA0' },
+  szczaw: { on: t('on.szczaw'), dark: '#557F33', mid: '#7FAE4C', light: '#B7D37A', vein: '#C98C6E' },
+  fiolek: { on: t('on.fiolek'), dark: '#3A6E37', mid: '#5E9A4C', light: '#96C478', vein: '#BCDDA0' },
+  przytulia: { on: t('on.przytulia'), dark: '#4A7E3A', mid: '#73AA52', light: '#ADD27E', vein: '#CBE6A2' },
+  marchew: { on: t('on.marchew'), dark: '#4F8638', mid: '#79B250', light: '#B2D77E', vein: '#CFE8A0' },
 };
 
 export type WingFamily = 'nymph' | 'pierid' | 'brimstone' | 'swallowtail' | 'lycaenid' | 'satyr' | 'skipper' | 'hawk' | 'burnet';
@@ -149,7 +153,7 @@ const border = (s0: number, c: string, u0 = 0, u1 = 1): Mark => ({ k: 'sector', 
 export const SPECIES: readonly Species[] = [
   // ── Ogród ───────────────────────────────────────────────────────
   {
-    id: 'bielinek', name: 'bielinek kapustnik', habitat: 'ogrod', tier: 0, plant: 'kapusta', span: [50, 65], family: 'pierid',
+    id: 'bielinek', name: t('sp.bielinek'), habitat: 'ogrod', tier: 0, plant: 'kapusta', span: [50, 65], family: 'pierid',
     look: {
       fore: '#F4F1E7', hind: '#F1EEE2',
       marks: [
@@ -172,7 +176,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'girdled', color: '#BCC47E', accent: '#2A2A2A' },
   },
   {
-    id: 'zorzynek', name: 'zorzynek rzeżuchowiec', habitat: 'ogrod', tier: 1, plant: 'rzezucha', span: [35, 48], family: 'pierid',
+    id: 'zorzynek', name: t('sp.zorzynek'), habitat: 'ogrod', tier: 1, plant: 'rzezucha', span: [35, 48], family: 'pierid',
     look: {
       fore: '#F7F5EE', hind: '#F2F2E7',
       marks: [
@@ -197,7 +201,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'girdled', color: '#A2B47E', accent: '#E6DEC0' },
   },
   {
-    id: 'pawik', name: 'rusałka pawik', habitat: 'ogrod', tier: 0, plant: 'pokrzywa', span: [50, 60], family: 'nymph',
+    id: 'pawik', name: t('sp.pawik'), habitat: 'ogrod', tier: 0, plant: 'pokrzywa', span: [50, 60], family: 'nymph',
     look: {
       fore: '#A8302A', hind: '#9C2B27',
       marks: [
@@ -214,7 +218,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'hanging', color: '#8E8B6A', accent: '#D8B24A' },
   },
   {
-    id: 'pokrzywnik', name: 'rusałka pokrzywnik', habitat: 'ogrod', tier: 0, plant: 'pokrzywa', span: [40, 50], family: 'nymph',
+    id: 'pokrzywnik', name: t('sp.pokrzywnik'), habitat: 'ogrod', tier: 0, plant: 'pokrzywa', span: [40, 50], family: 'nymph',
     look: {
       fore: '#E06E28', hind: '#D9652A',
       marks: [
@@ -237,7 +241,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'hanging', color: '#9A8A62', accent: '#D9B44A' },
   },
   {
-    id: 'admiral', name: 'rusałka admirał', habitat: 'ogrod', tier: 1, plant: 'pokrzywa', span: [55, 65], family: 'nymph',
+    id: 'admiral', name: t('sp.admiral'), habitat: 'ogrod', tier: 1, plant: 'pokrzywa', span: [55, 65], family: 'nymph',
     look: {
       fore: '#221D1E', hind: '#1F1B1C',
       marks: [
@@ -257,7 +261,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'hanging', color: '#7E6E5E', accent: '#C9A64A' },
   },
   {
-    id: 'cytrynek', name: 'cytrynek', habitat: 'ogrod', tier: 0, plant: 'kruszyna', span: [50, 60], family: 'brimstone',
+    id: 'cytrynek', name: t('sp.cytrynek'), habitat: 'ogrod', tier: 0, plant: 'kruszyna', span: [50, 60], family: 'brimstone',
     look: {
       fore: '#F3DA3A', hind: '#EFD43E',
       marks: [
@@ -272,7 +276,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'girdled', color: '#8DB45A', accent: '#C9DC8A' },
   },
   {
-    id: 'ikar', name: 'modraszek ikar', habitat: 'ogrod', tier: 0, plant: 'koniczyna', span: [25, 35], family: 'lycaenid',
+    id: 'ikar', name: t('sp.ikar'), habitat: 'ogrod', tier: 0, plant: 'koniczyna', span: [25, 35], family: 'lycaenid',
     look: {
       fore: '#7387E3', hind: '#6E83DF',
       marks: [border(0.95, '#2B2E4A')],
@@ -291,7 +295,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'girdled', color: '#9AA86A', accent: '#C2C88A' },
   },
   {
-    id: 'paz', name: 'paź królowej', habitat: 'ogrod', tier: 3, plant: 'marchew', span: [65, 80], family: 'swallowtail',
+    id: 'paz', name: t('sp.paz'), habitat: 'ogrod', tier: 3, plant: 'marchew', span: [65, 80], family: 'swallowtail',
     look: {
       fore: '#F1D24E', hind: '#EFCE4A',
       marks: [
@@ -311,7 +315,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'girdled', color: '#A9B87A', accent: '#D9C77A' },
   },
   {
-    id: 'fruczak', name: 'fruczak gołąbek', habitat: 'ogrod', tier: 2, plant: 'przytulia', span: [40, 50], family: 'hawk',
+    id: 'fruczak', name: t('sp.fruczak'), habitat: 'ogrod', tier: 2, plant: 'przytulia', span: [40, 50], family: 'hawk',
     look: {
       fore: '#7A6D5E', hind: '#E2892E',
       marks: [
@@ -329,7 +333,7 @@ export const SPECIES: readonly Species[] = [
   },
   // ── Łąka ────────────────────────────────────────────────────────
   {
-    id: 'polowiec', name: 'polowiec szachownica', habitat: 'laka', tier: 0, plant: 'trawa', span: [45, 55], family: 'satyr',
+    id: 'polowiec', name: t('sp.polowiec'), habitat: 'laka', tier: 0, plant: 'trawa', span: [45, 55], family: 'satyr',
     look: {
       fore: '#F3EEDD', hind: '#F1ECDA',
       marks: [
@@ -349,7 +353,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'hanging', color: '#C9B98E', accent: '#9A8A62' },
   },
   {
-    id: 'przestrojnik', name: 'przestrojnik trawnik', habitat: 'laka', tier: 0, plant: 'trawa', span: [40, 50], family: 'satyr',
+    id: 'przestrojnik', name: t('sp.przestrojnik'), habitat: 'laka', tier: 0, plant: 'trawa', span: [40, 50], family: 'satyr',
     look: {
       fore: '#6E5238', hind: '#694E35',
       marks: [
@@ -364,7 +368,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'hanging', color: '#9DB46A', accent: '#5E6E3A' },
   },
   {
-    id: 'strzepotek', name: 'strzępotek ruczajnik', habitat: 'laka', tier: 0, plant: 'trawa', span: [25, 35], family: 'satyr',
+    id: 'strzepotek', name: t('sp.strzepotek'), habitat: 'laka', tier: 0, plant: 'trawa', span: [25, 35], family: 'satyr',
     look: {
       fore: '#E1A14A', hind: '#DA9A48',
       marks: [
@@ -378,7 +382,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'hanging', color: '#9CC06A', accent: '#E0E8B8' },
   },
   {
-    id: 'czerwonczyk', name: 'czerwończyk nieparek', habitat: 'laka', tier: 1, plant: 'szczaw', span: [30, 40], family: 'lycaenid',
+    id: 'czerwonczyk', name: t('sp.czerwonczyk'), habitat: 'laka', tier: 1, plant: 'szczaw', span: [30, 40], family: 'lycaenid',
     look: {
       fore: '#E9561F', hind: '#E4521F',
       marks: [
@@ -394,7 +398,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'girdled', color: '#A69A6E', accent: '#6E6448' },
   },
   {
-    id: 'szlaczkon', name: 'szlaczkoń siarecznik', habitat: 'laka', tier: 1, plant: 'koniczyna', span: [40, 50], family: 'pierid',
+    id: 'szlaczkon', name: t('sp.szlaczkon'), habitat: 'laka', tier: 1, plant: 'koniczyna', span: [40, 50], family: 'pierid',
     look: {
       fore: '#F0E49E', hind: '#ECDF96',
       marks: [
@@ -411,7 +415,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'girdled', color: '#9AC06A', accent: '#E8E09A' },
   },
   {
-    id: 'dostojka', name: 'dostojka aglaja', habitat: 'laka', tier: 3, plant: 'fiolek', span: [50, 60], family: 'nymph',
+    id: 'dostojka', name: t('sp.dostojka'), habitat: 'laka', tier: 3, plant: 'fiolek', span: [50, 60], family: 'nymph',
     look: {
       fore: '#E2873A', hind: '#DE8238',
       marks: [
@@ -429,7 +433,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'hanging', color: '#7A6650', accent: '#C9A65A' },
   },
   {
-    id: 'karlatek', name: 'karłątek ryska', habitat: 'laka', tier: 0, plant: 'trawa', span: [24, 30], family: 'skipper',
+    id: 'karlatek', name: t('sp.karlatek'), habitat: 'laka', tier: 0, plant: 'trawa', span: [24, 30], family: 'skipper',
     look: {
       fore: '#D98A30', hind: '#D4852F',
       marks: [border(0.92, '#4A3420')],
@@ -440,7 +444,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'girdled', color: '#B8C88A', accent: '#8A9A5A' },
   },
   {
-    id: 'argus', name: 'modraszek argus', habitat: 'laka', tier: 0, plant: 'koniczyna', span: [22, 28], family: 'lycaenid',
+    id: 'argus', name: t('sp.argus'), habitat: 'laka', tier: 0, plant: 'koniczyna', span: [22, 28], family: 'lycaenid',
     look: {
       fore: '#5F7BD9', hind: '#5B77D4',
       marks: [border(0.85, '#22243A')],
@@ -458,7 +462,7 @@ export const SPECIES: readonly Species[] = [
     pupa: { kind: 'girdled', color: '#A0B070', accent: '#C8CC90' },
   },
   {
-    id: 'krasnik', name: 'kraśnik sześcioplamek', habitat: 'laka', tier: 2, plant: 'koniczyna', span: [30, 38], family: 'burnet',
+    id: 'krasnik', name: t('sp.krasnik'), habitat: 'laka', tier: 2, plant: 'koniczyna', span: [30, 38], family: 'burnet',
     look: {
       fore: '#1F2C44', hind: '#C8232C',
       marks: [
@@ -480,15 +484,8 @@ export const SPECIES: readonly Species[] = [
 
 export const speciesById = (id: string): Species => SPECIES.find(s => s.id === id) ?? SPECIES[2];
 
-/** Polish title case for the start of a line ("Rusałka pawik"). */
+/** A capital at the start of a line ("Rusałka pawik", "Påfågelöga"); English and German names have one already. */
 export const capital = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
-
-/** The Polish noun form for a count: 1 motyl, 2–4 motyle (22–24…), 5+ motyli. */
-export function plural(n: number, one: string, few: string, many: string): string {
-  if (n === 1) return one;
-  const d = n % 10, t = n % 100;
-  return d >= 2 && d <= 4 && (t < 10 || t >= 20) ? few : many;
-}
 
 /**
  * The size classes: the eaten share of the leaf at which each starts.  Calibrated with a steering bot

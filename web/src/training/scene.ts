@@ -4,6 +4,7 @@
  * leading edge at a fixed x, the baseline line, and stars where points were
  * earned.  Canvas 2D, no assets; four scenes share one renderer.
  */
+import { t } from '../i18n/training';
 import type { SceneId } from '../settings';
 
 export interface HistoryPoint {
@@ -18,6 +19,7 @@ export interface HistoryPoint {
 interface Layer { color: string; base: number; amp: number; freqs: [number, number, number]; speed: number; peaks?: boolean; caps?: string }
 
 interface SceneSpec {
+  /** in the page's language */
   name: string;
   sky: [string, string];
   layers: Layer[];
@@ -31,7 +33,7 @@ interface SceneSpec {
 
 export const SCENES: Record<SceneId, SceneSpec> = {
   hills: {
-    name: 'Wzgórza', sky: ['#353c4a', '#4a5261'], clouds: 'rgba(160,168,180,.55)', starCount: 18,
+    name: t('scene.hills'), sky: ['#353c4a', '#4a5261'], clouds: 'rgba(160,168,180,.55)', starCount: 18,
     layers: [
       { color: '#6a7381', base: 0.30, amp: 0.10, freqs: [0.9, 2.1, 3.7], speed: 0.12 },
       { color: '#575f6d', base: 0.42, amp: 0.07, freqs: [1.3, 2.9, 5.1], speed: 0.25 },
@@ -40,7 +42,7 @@ export const SCENES: Record<SceneId, SceneSpec> = {
     fill: ['#ffb08a', '#ff6fa8', '#e81fd8', '#7a2fd8'],
   },
   dunes: {
-    name: 'Wydmy', sky: ['#f4b27c', '#d9785f'], clouds: 'rgba(255,226,196,.45)', starCount: 0,
+    name: t('scene.dunes'), sky: ['#f4b27c', '#d9785f'], clouds: 'rgba(255,226,196,.45)', starCount: 0,
     sun: { x: 0.74, y: 0.2, r: 0.07, color: 'rgba(255,240,205,.9)' },
     layers: [
       { color: '#e39c6c', base: 0.36, amp: 0.06, freqs: [0.7, 1.6, 2.4], speed: 0.12 },
@@ -50,7 +52,7 @@ export const SCENES: Record<SceneId, SceneSpec> = {
     fill: ['#fff0b8', '#ff9f6e', '#e8378f', '#6e2a9e'],
   },
   snow: {
-    name: 'Śnieżne szczyty', sky: ['#7d97b8', '#c5d4e5'], clouds: 'rgba(255,255,255,.6)', starCount: 0,
+    name: t('scene.snow'), sky: ['#7d97b8', '#c5d4e5'], clouds: 'rgba(255,255,255,.6)', starCount: 0,
     layers: [
       { color: '#aebdd0', base: 0.26, amp: 0.16, freqs: [1.1, 2.3, 4.7], speed: 0.1, peaks: true, caps: 'rgba(255,255,255,.92)' },
       { color: '#8396b0', base: 0.40, amp: 0.10, freqs: [1.6, 3.1, 5.9], speed: 0.22, peaks: true, caps: 'rgba(240,246,255,.7)' },
@@ -59,7 +61,7 @@ export const SCENES: Record<SceneId, SceneSpec> = {
     fill: ['#ffe2f0', '#ff8fc0', '#d63bd6', '#5b37c9'],
   },
   space: {
-    name: 'Kosmos', sky: ['#140b2b', '#2c1252'], clouds: null, starCount: 140, planets: true,
+    name: t('scene.space'), sky: ['#140b2b', '#2c1252'], clouds: null, starCount: 140, planets: true,
     layers: [],
     fill: ['#ffd27a', '#ff7fb0', '#c43ae0', '#4b2bb8'],
   },

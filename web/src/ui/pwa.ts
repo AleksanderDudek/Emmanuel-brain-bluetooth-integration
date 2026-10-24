@@ -1,5 +1,6 @@
 /** Install button and the "new version" prompt (never reloads by itself during a recording). */
 import { registerSW } from 'virtual:pwa-register';
+import { t } from '../i18n/shell';
 import { $, toast } from './dom';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -11,10 +12,10 @@ export function setupPwa(isRecording: () => boolean): void {
   const btnUpdate = $<HTMLButtonElement>('btnUpdate');
   const updateSW = registerSW({
     onNeedRefresh() { btnUpdate.hidden = false; },
-    onOfflineReady() { toast('Aplikacja jest gotowa do pracy offline'); },
+    onOfflineReady() { toast(t('pwa.offline')); },
   });
   btnUpdate.addEventListener('click', () => {
-    if (isRecording() && !confirm('Trwa nagrywanie. Odświeżenie je przerwie (zapisane fragmenty zostaną). Kontynuować?')) return;
+    if (isRecording() && !confirm(t('pwa.recConfirm'))) return;
     void updateSW(true);
   });
 
@@ -32,5 +33,5 @@ export function setupPwa(isRecording: () => boolean): void {
     deferred = null;
     btnInstall.hidden = true;
   });
-  window.addEventListener('appinstalled', () => { btnInstall.hidden = true; toast('Zainstalowano BrainLink'); });
+  window.addEventListener('appinstalled', () => { btnInstall.hidden = true; toast(t('pwa.installed')); });
 }

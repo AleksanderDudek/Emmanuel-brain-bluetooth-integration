@@ -7,13 +7,14 @@
  */
 import { clamp } from '../kit/juice';
 import { fitFont, rrect, SANS, SERIF, wrap } from './art';
-import { CLARITY } from './content';
+import { CLARITY, SIZES } from './content';
+import { t } from './i18n';
 import type { Layout } from './layout';
 import { sizeClass } from './meta';
 import { clarityOf, type GeodaSim } from './sim';
 
 export const PHASE_COLOR = { wzrost: '#ffd48a', zbior: '#e7b9ff', szlif: '#a9d4ff' } as const;
-const PHASE_NAME = { wzrost: 'Wzrost', zbior: 'Zbiór', szlif: 'Szlif' } as const;
+const PHASE_NAME = { wzrost: t('block.wzrost'), zbior: t('block.zbior'), szlif: t('block.szlif') } as const;
 export const INK = '#efe8dc';
 /** the shine past the Szlif's pass mark */
 export const POLISH_ON = '#fff0b8';
@@ -29,18 +30,27 @@ export type Measure = (text: string, px: number, weight: number) => number;
 
 export interface StatusRow { name: string; nameFs: number; tele: string | null; teleFs: number }
 
+/** The next block's telegraph ("za chwilę szlif") and its short form for a narrow column ("→ szlif"). */
+export interface Telegraph { long: string; short: string }
+
+/** The telegraphs before a Wzrost and before a Szlif. */
+export const TELEGRAPH: Readonly<Record<'wzrost' | 'szlif', Telegraph>> = {
+  wzrost: { long: t('tele.wzrost'), short: t('tele.wzrostShort') },
+  szlif: { long: t('tele.szlif'), short: t('tele.szlifShort') },
+};
+
 /**
  * The block's name (capitals, 700) and the telegraph (600) on one row `w` px wide, at most
  * `fs` / `small` px: the name hair-spaced when both fit, else plain, else with the short telegraph
  * ("→ szlif"), else both in smaller type down to 9 px; on the narrowest column the name alone
  * (the light, the hum and the tick still announce the block).
  */
-export function statusRow(measure: Measure, name: string, tele: string | null, w: number, fs: number, small: number): StatusRow {
+export function statusRow(measure: Measure, name: string, tele: Telegraph | null, w: number, fs: number, small: number): StatusRow {
   const caps = name.toUpperCase(), spaced = caps.split('').join(HAIR);
-  const short = tele ? tele.replace(/^za chwilę /, '→ ') : null;
-  const fits = (n: string, nf: number, t: string | null, tf: number) => measure(n, nf, 700) + (t ? ROW_GAP + measure(t, tf, 600) : 0) <= w;
-  for (const [n, t] of [[spaced, tele], [caps, tele], [caps, short]] as const) {
-    if (fits(n, fs, t, small)) return { name: n, nameFs: fs, tele: t, teleFs: small };
+  const long = tele ? tele.long : null, short = tele ? tele.short : null;
+  const fits = (n: string, nf: number, tt: string | null, tf: number) => measure(n, nf, 700) + (tt ? ROW_GAP + measure(tt, tf, 600) : 0) <= w;
+  for (const [n, tt] of [[spaced, long], [caps, long], [caps, short]] as const) {
+    if (fits(n, fs, tt, small)) return { name: n, nameFs: fs, tele: tt, teleFs: small };
   }
   for (let nf = fs, tf = small; nf > ROW_MIN || tf > ROW_MIN;) {
     nf = Math.max(ROW_MIN, nf - 0.5);
@@ -59,7 +69,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, l: Layout, sim: GeodaSim,
   const phase = sim.phase === 'wzrost' || sim.phase === 'zbior' || sim.phase === 'szlif' ? sim.phase : null;
   const carats = Math.round(shown);
   const size = sizeClass(sim.carats);
-  const goal = size.next ? `Okaz ${size.name} · do ${size.next} ${size.need} ct` : `Okaz ${size.name}`;
+  const goal = t(SIZES[size.size].goal, { need: size.need ?? 0 });
   ctx.save();
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
@@ -74,7 +84,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, l: Layout, sim: GeodaSim,
     ctx.font = `600 14px ${SANS}`;
     ctx.fillStyle = 'rgba(239,232,220,0.6)';
     ctx.fillText('ct', hud.x + nw + 5, base);
-    fitFont(ctx, goal, 12, colW + 6, SANS, 500);
+    fitFont(ctx, goal, 12, colW + 6, SANS, 500, ROW_MIN);
     ctx.fillStyle = 'rgba(239,232,220,0.55)';
     ctx.fillText(goal, hud.x, base + 19);
     const w = Math.min(172, colW - 8);
@@ -92,7 +102,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, l: Layout, sim: GeodaSim,
     ctx.fillStyle = 'rgba(239,232,220,0.6)';
     ctx.fillText('ct', x + nw + 6, y);
     y += Math.round(clamp(big * 0.36, 17, 24));
-    fitFont(ctx, goal, 13, w, SANS, 500);
+    fitFont(ctx, goal, 13, w, SANS, 500, ROW_MIN);
     ctx.fillStyle = 'rgba(239,232,220,0.55)';
     ctx.fillText(goal, x, y);
     y += clamp(l.cell * 0.55, 16, 34);
@@ -130,7 +140,7 @@ function drawStatus(ctx: CanvasRenderingContext2D, sim: GeodaSim, phase: 'wzrost
     return ctx.measureText(text).width;
   };
   // the row: the block's name, and on its right the next block's telegraph
-  const row = statusRow(measure, blind ? 'Ciemna komora' : PHASE_NAME[phase], tg ? `za chwilę ${tg.to}` : null, w, fs, small);
+  const row = statusRow(measure, blind ? t('block.blind') : PHASE_NAME[phase], tg ? TELEGRAPH[tg.to] : null, w, fs, small);
   ctx.textAlign = 'left';
   ctx.font = `700 ${row.nameFs}px ${SANS}`;
   ctx.fillStyle = col;
@@ -161,7 +171,7 @@ function drawStatus(ctx: CanvasRenderingContext2D, sim: GeodaSim, phase: 'wzrost
     // the drip: the band's activity right now
     const drip = blind ? 0 : clamp(sim.drip / 3.5);
     if (!compact) {
-      label('Kapanie', yy + small, blind ? 'w ciemności' : undefined);
+      label(t('meter.drip'), yy + small, blind ? t('meter.dark') : undefined);
       yy += small + 7;
     }
     ctx.fillStyle = blind ? 'rgba(200,226,255,0.25)' : 'rgba(200,226,255,0.9)';
@@ -176,7 +186,7 @@ function drawStatus(ctx: CanvasRenderingContext2D, sim: GeodaSim, phase: 'wzrost
     // continuity → clarity: mleczny under 4 s, czysty to 12 s, lśniący after
     const cont = sim.brain.cont, cl = clarityOf(cont);
     if (!compact) {
-      label('Ciągłość', yy + small, blind ? '' : `${Math.floor(cont)} s`);
+      label(t('meter.steady'), yy + small, blind ? '' : `${Math.floor(cont)} s`);
       yy += small + 7;
     }
     const segs = [[0, 4], [4, 12], [12, 16]] as const;
@@ -197,14 +207,15 @@ function drawStatus(ctx: CanvasRenderingContext2D, sim: GeodaSim, phase: 'wzrost
     });
     if (compact) {
       ctx.fillStyle = 'rgba(239,232,220,0.8)';
-      put(blind ? 'rośnie w ciemności' : `${CLARITY[cl]}${cont >= 1 ? ` · ${Math.floor(cont)} s` : ''}`, x, yy + 6 + small + 4, small, 600, w);
+      const clarity = cont >= 1 ? t('meter.clarity', { clarity: CLARITY[cl], sec: Math.floor(cont) }) : CLARITY[cl];
+      put(blind ? t('meter.growingDark') : clarity, x, yy + 6 + small + 4, small, 600, w);
       yy += 6 + small + 6;
     } else yy += 6 + small + 8;
   } else if (phase === 'szlif') {
     // the shine fills with the calm part of the judged window; past the mark the best gem polishes
     const need = sim.polishNeed, on = sim.shine >= need && sim.bowl.length > 0;
     if (!compact) {
-      label('Połysk', yy + small, on ? 'poleruje' : 'ze spokoju');
+      label(t('meter.shine'), yy + small, on ? t('meter.polishing') : t('meter.fromCalm'));
       yy += small + 7;
     }
     const bh = compact ? 5 : 6;
@@ -214,7 +225,7 @@ function drawStatus(ctx: CanvasRenderingContext2D, sim: GeodaSim, phase: 'wzrost
     ctx.fill();
     if (compact) {
       ctx.fillStyle = on ? POLISH_ON : 'rgba(222,234,255,0.8)';
-      put(on ? 'połysk ze spokoju · poleruje' : 'połysk ze spokoju', x, yy + 6 + small + 4, small, 600, w);
+      put(on ? t('meter.shineOn') : t('meter.shineLine'), x, yy + 6 + small + 4, small, 600, w);
     }
     yy += 6 + small + 8;
   }

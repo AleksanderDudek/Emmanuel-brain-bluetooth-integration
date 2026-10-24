@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_TUNING, FocusInput, type FocusFrame } from '../src/arcade/kit/focus';
 import { drawCocoon } from '../src/arcade/motylarnia/butterfly';
-import { CLASS_FROM, DANDELION_BONUS, NEUTRAL_DEPTH, PLANTS, SPECIES, TIERS, plural, speciesById, type PlantId } from '../src/arcade/motylarnia/content';
+import { CLASS_FROM, DANDELION_BONUS, NEUTRAL_DEPTH, PLANTS, SPECIES, TIERS, speciesById, type PlantId } from '../src/arcade/motylarnia/content';
+import { CATALOGS, t, type Key } from '../src/arcade/motylarnia/i18n';
 import { TOP, computeLayout, inRect, sideArea, toLeaf, toScreen } from '../src/arcade/motylarnia/layout';
 import { CELL, GRID_H, GRID_W, LEAF_H, LEAF_W, buildLeaf, leafDist, placeDots } from '../src/arcade/motylarnia/leaf';
 import {
@@ -9,7 +10,7 @@ import {
   pollenTarget, rollAberration, rollTier, type EggOffer, type EmergeInput, type MothProgress,
 } from '../src/arcade/motylarnia/meta';
 import { progressPanel } from '../src/arcade/motylarnia/panel';
-import { MothRenderer } from '../src/arcade/motylarnia/render';
+import { MothRenderer, splitName } from '../src/arcade/motylarnia/render';
 import { BUD, sideGeometry, stemPoint } from '../src/arcade/motylarnia/scenery';
 import {
   BITE, DMIN, GRACE, KEEP_MIN, LEAF_RANGE, MARGIN_EASY, MARGIN_START, MIN_BLOCK, MothSim, NEUTRAL_V, PAUSE_MAX, REST_RANGE, SILK_HOLD, SPEED, T_EMERGE, T_LEAF, TURN,
@@ -17,6 +18,7 @@ import {
 } from '../src/arcade/motylarnia/sim';
 import { decodePath, encodePath, insideWing, mapPath, resamplePath, scribble, wingPoint, wingShape } from '../src/arcade/motylarnia/wing';
 import { mulberry32 } from '../src/core/random';
+import { catalogProblems } from '../src/i18n';
 
 const DAY = '2026-10-23';
 const DT = 1 / 60;
@@ -731,9 +733,10 @@ describe('the session', () => {
     expect(h.length).toBe(4);
     expect(h).toContain('Nowe siedlisko: Łąka — 9 gatunków');
     expect(h.some(l => /^Promienn[ey]: .* · jedwabna nić na skrzydle$/.test(l))).toBe(true);
-    expect(plural(1, 'gatunek', 'gatunki', 'gatunków')).toBe('gatunek');
-    expect([2, 4, 22, 104].map(n => plural(n, 'motyl', 'motyle', 'motyli'))).toEqual(['motyle', 'motyle', 'motyle', 'motyle']);
-    expect([5, 12, 14, 25, 111].map(n => plural(n, 'motyl', 'motyle', 'motyli'))).toEqual(['motyli', 'motyli', 'motyli', 'motyli', 'motyli']);
+    // the Polish counts: 1 gatunek; 2–4 motyle (22–24…); 5+ motyli
+    expect(t('hl.habitat', { habitat: 'Łąka', n: 1 })).toBe('Nowe siedlisko: Łąka — 1 gatunek');
+    expect([2, 4, 22, 104].map(n => t('finale.line', { n, mm: 0 }))).toEqual([2, 4, 22, 104].map(n => `Dziś ${n} motyle · 0 mm`));
+    expect([5, 12, 14, 25, 111].map(n => t('finale.line', { n, mm: 0 }))).toEqual([5, 12, 14, 25, 111].map(n => `Dziś ${n} motyli · 0 mm`));
   });
 
   it('counts the current caterpillar\'s wingspan live, so the score grows while it eats', () => {
@@ -1188,5 +1191,56 @@ describe('the side view', () => {
     view.resize(844, 390, 1);
     expect(view.floaters.items.length).toBe(0);
     expect(view.particles.count).toBe(0);
+  });
+});
+
+describe('the texts in four languages', () => {
+  it('has every text in pl, en, de and sv, with the same placeholders and the plural forms each needs', () => {
+    expect(catalogProblems(CATALOGS)).toEqual([]);
+  });
+
+  it('names every species and host plant in each language, none of them left in Polish, no two alike', () => {
+    for (const lang of ['en', 'de', 'sv'] as const) {
+      const names = SPECIES.map(s => CATALOGS[lang][`sp.${s.id}` as Key] as string);
+      expect(new Set(names).size, lang).toBe(SPECIES.length);
+      for (const s of SPECIES) expect(CATALOGS[lang][`sp.${s.id}` as Key], `${lang} ${s.id}`).not.toBe(CATALOGS.pl[`sp.${s.id}` as Key]);
+      for (const id of Object.keys(PLANTS)) expect(CATALOGS[lang][`on.${id}` as Key], `${lang} ${id}`).not.toBe(CATALOGS.pl[`on.${id}` as Key]);
+    }
+    // the game shows the page's language (Polish in the tests)
+    expect(speciesById('pawik').name).toBe('rusałka pawik');
+    expect(PLANTS.pokrzywa.on).toBe('na pokrzywie');
+  });
+
+  it('saves species by id, never by name, so a collection reads in any language', () => {
+    const sim = newSim({ plannedSec: 180, seed: 4 });
+    run(sim, 190, s => (s.phase === 'feed' ? 10 : -6));
+    expect(sim.done.length).toBeGreaterThan(1);
+    const saved = JSON.stringify(sim.p);
+    for (const s of SPECIES) {
+      for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+        const name = CATALOGS[lang][`sp.${s.id}` as Key] as string;
+        if (name !== s.id) expect(saved, `${lang} ${s.id}`).not.toContain(`"${name}"`);
+      }
+    }
+    for (const o of sim.done) expect(saved).toContain(`"sp":"${o.species.id}"`);
+  });
+
+  it('breaks a long name into two balanced lines at a space or a hyphen', () => {
+    const chars = { measureText: (s: string) => ({ width: s.length }) as TextMetrics };
+    expect(splitName(chars, 'Schwarzkolbiger Braun-Dickkopffalter')).toEqual(['Schwarzkolbiger', 'Braun-Dickkopffalter']);
+    expect(splitName(chars, 'Sechsfleck-Widderchen')).toEqual(['Sechsfleck-', 'Widderchen']);
+    expect(splitName(chars, 'sexfläckig bastardsvärmare')).toEqual(['sexfläckig', 'bastardsvärmare']);
+    expect(splitName(chars, 'Taubenschwänzchen')).toBeNull();
+  });
+
+  it('writes the contrast with the language\'s decimal comma and a real minus', () => {
+    const up = newSim({ species: 'pawik' });
+    untilPhase(up, 'spin', 14);
+    untilPhase(up, 'emerge', 2);
+    expect(up.result().stats).toContainEqual(['Kontrast', '+12,0 %']);
+    const down = newSim({ species: 'pawik' });
+    untilPhase(down, 'spin', 2);
+    untilPhase(down, 'emerge', 14);
+    expect(down.result().stats).toContainEqual(['Kontrast', '−12,0 %']);
   });
 });

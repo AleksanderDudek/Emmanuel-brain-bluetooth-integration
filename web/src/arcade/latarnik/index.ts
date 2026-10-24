@@ -12,7 +12,7 @@ import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, PointerInput } from '../kit/types';
 import { LatarnikSound } from './audio';
-import { boatWord } from './content';
+import { unit } from './i18n';
 import { freshProgress, type LatarnikProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -112,7 +112,7 @@ const mod: ArcadeModule<LatarnikProgress> = {
   freshProgress,
   create: env => new LatarnikGame(env),
   best: p => (p.sessions > 0 ? p.bestSession : null),
-  unit: boatWord,
+  unit,
   progressPanel: p => progressPanel(p),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
 };

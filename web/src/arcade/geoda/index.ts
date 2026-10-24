@@ -5,7 +5,8 @@
  * rest block polishes the round's best gem.  Every session cracks one geode for the cabinet.
  *
  * This module is the arcade contract: progress defaults, the session (game.ts), the best score,
- * the lobby's progress card (panel.ts) and the animated picture (preview.ts).
+ * the lobby's progress card (panel.ts) and the animated picture (preview.ts).  The headline unit,
+ * "ct", reads the same in every language; the game's words are in i18n.ts.
  */
 import type { ArcadeModule } from '../kit/types';
 import { GeodaGame } from './game';

@@ -12,6 +12,7 @@ import type { Frame } from '../core/proto';
 import type { Derived, FNIRSConfig } from '../core/types';
 import type { SessionDB } from './db';
 import { CSV_HEADER, newSessionId, packChunk, type Marker, type SessionMeta, type StorageTarget } from './format';
+import { t } from '../i18n/signal';
 
 export interface RecorderInfo {
   session_id: string | null;
@@ -82,7 +83,7 @@ export class Recorder {
 
   /** Starts synchronously (a double click cannot create two sessions); the metadata write is awaited. */
   async start(o: StartOptions): Promise<RecorderInfo> {
-    if (this.current) throw new Error('Nagrywanie już trwa');
+    if (this.current) throw new Error(t('rec.running'));
     const meta: SessionMeta = {
       session_id: newSessionId(), modality: 'fnirs', device: o.device, name: o.name, source: o.source,
       duration_sec: o.durationSec, start_time: this.clock() / 1000, end_time: null, sample_count: 0, columns: CSV_HEADER,
@@ -143,7 +144,7 @@ export class Recorder {
   /** Stop and finalise. `recording` turns false immediately, so a new session can start meanwhile. */
   async stop(): Promise<SessionMeta & { error?: string }> {
     const s = this.current;
-    if (!s) throw new Error('Brak nagrania');
+    if (!s) throw new Error(t('rec.none'));
     this.current = null;
     if (s.nextMarker && s.frames.length) {
       // a marker set after the last frame: put it on that frame rather than lose it from the CSV
@@ -155,7 +156,7 @@ export class Recorder {
     s.flush();
     await s.chain;
     const final: SessionMeta = { ...s.meta, end_time: this.clock() / 1000, sample_count: s.saved };
-    if (s.error) final.notes = `${final.notes ? final.notes + ' ' : ''}[niekompletne: ${s.error.message}]`;
+    if (s.error) final.notes = `${final.notes ? final.notes + ' ' : ''}${t('rec.incomplete', { error: s.error.message })}`;
     await this.db.putMeta(final);
     return s.error ? { ...final, error: s.error.message } : final;
   }

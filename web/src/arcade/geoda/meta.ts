@@ -67,12 +67,12 @@ export const sessionXp = (zoneSec: number, carats: number): number => Math.round
 /** The specimen's size from the session's carats (cm). */
 export const specimenCm = (carats: number): number => Math.round((1 + 0.9 * Math.sqrt(Math.max(0, carats))) * 10) / 10;
 
-/** The size class for the carats so far, the next one ("do dużego") and the carats it needs (null at the top). */
-export function sizeClass(carats: number): { name: string; next: string | null; need: number } {
+/** The size class for the carats so far (an index into SIZES) and the carats the next one needs (null at the top). */
+export function sizeClass(carats: number): { size: number; need: number | null } {
   let i = 0;
   while (i < SIZES.length - 1 && carats >= SIZES[i + 1].ct) i++;
   const n = SIZES[i + 1];
-  return { name: SIZES[i].name, next: n ? n.gen : null, need: n ? n.ct - carats : 0 };
+  return { size: i, need: n ? n.ct - carats : null };
 }
 
 /** How fine the session was for the roll: 0.6 × the share of clear cells + 0.4 × the longest hold over 30 s. */

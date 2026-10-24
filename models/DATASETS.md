@@ -151,11 +151,11 @@ Add **#3 (PhysioNet Motor Imagery)** + **#9 (BCI Competition)** to detect
 
 ### Phase 3: Meditation & breathing
 Use **#1 (DEAP)** low-arousal high-valence segments + **#7 (DREAMER)** +
-your own recorded sessions (via BrainLink's built-in recorder) to train
+your own recorded sessions (via the desktop server's built-in recorder) to train
 `meditation` and `breathing_rhythm` states.
 
 ### Phase 4: Personal calibration
-Fine-tune on the user's own recorded data (BrainLink recordings) to adapt
+Fine-tune on the user's own recorded data (the server's recordings) to adapt
 the model to individual EEG signatures — this is the most impactful step
 for a consumer 4-channel device.
 

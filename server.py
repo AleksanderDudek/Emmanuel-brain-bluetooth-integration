@@ -1,4 +1,4 @@
-# BrainLink — EEG-to-Game Real-time Engine
+# Emmanuel desktop server — EEG/fNIRS-to-Game Real-time Engine
 # Copyright (C) 2026 Aleksander Dudek
 #
 # This program is free software: you can redistribute it and/or modify
@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 """
-BrainLink Server — Real-time EEG-to-Game pipeline.
+Emmanuel desktop server — real-time EEG/fNIRS-to-game pipeline.
 
 FastAPI backend that reads from either the built-in EEG simulator or a
 real BrainAccess HALO device (EEG) and/or a Mendi headband (fNIRS,
@@ -124,7 +124,7 @@ async def lifespan(_app: FastAPI):
     await asyncio.to_thread(fnirs_shutdown)
 
 
-app = FastAPI(title="BrainLink", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Emmanuel desktop server", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -742,7 +742,7 @@ if __name__ == "__main__":
             webbrowser.open(f"http://localhost:{PORT}")
         threading.Thread(target=_open_browser, daemon=True).start()
 
-    print(f"\n  BrainLink v0.1")
+    print(f"\n  Emmanuel desktop server v0.1")
     print(f"  Dashboard:  http://localhost:{PORT}")
     print(f"  fNIRS:      http://localhost:{PORT}/fnirs   (Mendi)")
     print(f"  API docs:   http://localhost:{PORT}/docs")

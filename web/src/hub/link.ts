@@ -1,11 +1,13 @@
 /**
  * Game side of `brainlink-hub` (./protocol.ts): a stand-in for MendiDevice
- * that takes its frames from the BrainLink app embedding the game, so the
+ * that takes its frames from the Emmanuel app embedding the game, so the
  * game reuses the app's band connection (or its simulator) instead of
  * pairing again.  It offers what the games' NeuroBridge uses — `isStreaming`,
  * `isConnected`, `drain()`, `info`, `request()`, `startStream()`,
  * `disconnect()` and 'change' events — and the game keeps its own pipeline,
  * baseline and balance tracker.
+ *
+ * Its messages show inside the HolyHolyHoly games, which are Polish only: they stay Polish here.
  */
 import type { MendiInfo } from '../ble/mendi';
 import { Frame } from '../core/proto';
@@ -22,7 +24,7 @@ export interface NeuroDevice extends EventTarget {
   drain(): Frame[];
 }
 
-/** True when this page was opened by BrainLink as an embedded game (`?hub=1` inside a same-origin frame). */
+/** True when this page was opened by Emmanuel as an embedded game (`?hub=1` inside a same-origin frame). */
 export function embeddedInHub(win: Window = window): boolean {
   try {
     return new URLSearchParams(win.location.search).has(HUB_PARAM) && win.parent !== win
@@ -105,16 +107,16 @@ export class HubDevice extends EventTarget implements NeuroDevice {
   get info(): MendiInfo {
     const s = this.status;
     if (!s || !this.isConnected) return { ...OFFLINE_INFO, frames_dropped: this.dropped };
-    const name = s.source === 'simulator' ? 'Symulator (BrainLink)' : `${s.device?.device_name ?? 'Mendi'} (BrainLink)`;
+    const name = s.source === 'simulator' ? 'Symulator (Emmanuel)' : `${s.device?.device_name ?? 'Mendi'} (Emmanuel)`;
     return { ...(s.device ?? OFFLINE_INFO), connected: true, streaming: true, device_name: name, frames_dropped: this.dropped };
   }
 
   /** "Connect": take the app's signal. Rejects with guidance when the app has none to lend. */
   async request(): Promise<MendiInfo> {
     const s = this.status;
-    if (!s) throw new HubError('BrainLink nie odpowiada — zamknij grę i otwórz ją ponownie.');
-    if (s.tool !== 'fnirs') throw new HubError('BrainLink używa teraz EEG. Gry czytają opaskę Mendi (fNIRS) — przełącz narzędzie u góry.');
-    if (!s.streaming) throw new HubError('Połącz opaskę Mendi albo włącz symulator w BrainLink (przycisk urządzenia u góry).');
+    if (!s) throw new HubError('Emmanuel nie odpowiada — zamknij grę i otwórz ją ponownie.');
+    if (s.tool !== 'fnirs') throw new HubError('Emmanuel używa teraz opaski HALO (EEG). Ta gra czyta tylko opaskę Mendi — przełącz opaskę u góry na Mendi.');
+    if (!s.streaming) throw new HubError('Połącz opaskę Mendi albo włącz symulator w Emmanuelu (przycisk opaski u góry).');
     this.attached = true;
     this.frames = [];
     this.win.parent.postMessage(hubMessage('want', {}), this.win.location.origin);

@@ -4,6 +4,8 @@
  * and across sessions the day score (Commitment + Performance), streak and
  * milestones — modelled on Mendi's.
  */
+import { LANGS } from '../i18n';
+import { CATALOGS, t } from '../i18n/training';
 import type { Tool } from '../tools';
 
 /** activity (%) from which the signal counts as elevated */
@@ -84,7 +86,22 @@ export class SessionScorer {
 
 // ── across sessions ────────────────────────────────────────────────
 
+/** The feeling words of the mood check, in the order they are offered. */
+export const FEELINGS = ['calm', 'energy', 'focus', 'joy', 'gratitude', 'curiosity', 'tiredness', 'stress', 'unease', 'tension',
+  'distraction', 'sadness'] as const;
+export type Feeling = (typeof FEELINGS)[number];
+
+/** `words`: the feeling words as the player saw them, in the language of that session (Polish before there were others). */
 export interface Mood { face: 1 | 2 | 3 | 4 | 5; words: string[] }
+
+/** each feeling word of every language → its feeling */
+const FEELING_OF = new Map<string, Feeling>(FEELINGS.flatMap(f => LANGS.map(l => [String(CATALOGS[l][`feel.${f}`]).toLowerCase(), f] as const)));
+
+/** A saved feeling word in the page's language (a word it does not know stays as it is). */
+export function feelingText(word: string): string {
+  const f = FEELING_OF.get(word.toLowerCase());
+  return f ? t(`feel.${f}`) : word;
+}
 
 /** What an arcade game adds to a session's training numbers (src/arcade). */
 export interface GameResult {
@@ -163,7 +180,7 @@ export function streakDays(results: readonly TrainingResult[], nowSec = Date.now
 export interface DayScore { score: number; commitment: number; performance: number; label: string; minutes: number; streak: number }
 
 export const SCORE_LABELS: [number, string][] = [
-  [85, 'Mistrzowska rutyna'], [70, 'Świetna forma'], [50, 'Solidna rutyna'], [30, 'Budujesz rozpęd'], [0, 'Dobry początek'],
+  [85, t('score.master')], [70, t('score.great')], [50, t('score.solid')], [30, t('score.momentum')], [0, t('score.start')],
 ];
 
 /** The day score (0–100) after today's sessions: Commitment ≤ 70 + Performance ≤ 30. */
@@ -193,13 +210,13 @@ export function dayScore(results: readonly TrainingResult[], nowSec = Date.now()
 export interface Milestone { id: string; title: string }
 
 const MILESTONES: { id: string; title: string; reached: (all: readonly TrainingResult[], streak: number) => boolean }[] = [
-  { id: 'first', title: 'Pierwsza sesja', reached: all => all.length >= 1 },
-  { id: 'streak3', title: 'Seria 3 dni', reached: (_, s) => s >= 3 },
-  { id: 'streak7', title: 'Seria 7 dni', reached: (_, s) => s >= 7 },
-  { id: 'streak30', title: 'Seria 30 dni', reached: (_, s) => s >= 30 },
-  { id: 'sessions10', title: '10 sesji', reached: all => all.length >= 10 },
-  { id: 'sessions50', title: '50 sesji', reached: all => all.length >= 50 },
-  { id: 'hour', title: 'Pierwsza godzina treningu', reached: all => all.reduce((s, r) => s + r.played_sec, 0) >= 3600 },
+  { id: 'first', title: t('mile.first'), reached: all => all.length >= 1 },
+  { id: 'streak3', title: t('mile.streak', { n: 3 }), reached: (_, s) => s >= 3 },
+  { id: 'streak7', title: t('mile.streak', { n: 7 }), reached: (_, s) => s >= 7 },
+  { id: 'streak30', title: t('mile.streak', { n: 30 }), reached: (_, s) => s >= 30 },
+  { id: 'sessions10', title: t('mile.sessions', { n: 10 }), reached: all => all.length >= 10 },
+  { id: 'sessions50', title: t('mile.sessions', { n: 50 }), reached: all => all.length >= 50 },
+  { id: 'hour', title: t('mile.hour'), reached: all => all.reduce((s, r) => s + r.played_sec, 0) >= 3600 },
 ];
 
 /** Milestones reached by adding `latest` to `before`. */

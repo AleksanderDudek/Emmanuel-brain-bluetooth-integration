@@ -1,42 +1,52 @@
-# BrainLink — web app (PWA)
+# Emmanuel — web app (PWA)
 
-BrainLink as an installable, offline-capable web app for **both headbands**:
-**Mendi** (fNIRS) and **BrainAccess HALO** (EEG). It needs no Python server. The bands
+**Emmanuel. God with us.** Neurofeedback that trains the stillness where prayer begins.
+
+Emmanuel (Hebrew *ʿImmanu-El*, "God with us") is an installable, offline-capable web app for
+**both headbands**: **Mendi** (fNIRS) and **BrainAccess HALO** (EEG). It trains the quiet,
+steady attention that meditation and contemplative prayer cultivate, with honest live feedback,
+and turns the practice into games worth coming back to. It needs no Python server. The bands
 connect through **Web Bluetooth**, the signal processing runs in the browser, and sessions are
 stored **in the browser** (IndexedDB) or, optionally, in a **local folder** you choose. Each band
-also has a simulator. The UI is in Polish.
+also has a simulator. The UI is in **Polish, English, German and Swedish**; the two HolyHolyHoly
+games are in Polish.
 
-What is in it (layout and decisions: [DESIGN.md](DESIGN.md)):
+What is in it (layout and decisions: [DESIGN.md](DESIGN.md); languages: §10; the name and its
+message: §11):
 
-* **Start**: pick the band (*Opaska: Mendi | HALO*; the switch at the top changes it any
-  time). Below that are:
+* **Home** (`#start`): pick the band (*Headband: Mendi | HALO*; the switch at the top changes it
+  any time). Below that are:
   * the one next step: connect or use the simulator, then the baseline, then training;
-  * two rows, **Trenuj** and **Graj**, that open every exercise and both games;
+  * two rows, **Train** and **Play**, that open every exercise and every game;
   * today's score.
-* **Trening**:
-  * **Focus training** (*Trening skupienia*), a browser copy of Mendi's default training.
-    It has a mood check, breathwork, calibration and the game: an orb riding a scrolling
-    activity curve over parallax hills, with stars for points. Then a summary with the day
-    score, streak and milestones. It works with both bands.
-  * The **hemispheric balance trainer** (fNIRS).
-* **Gry**:
+* **Training** (`#trening`):
+  * **Focus training**, a browser copy of Mendi's default training. It has a mood check,
+    breathwork, calibration and the game: an orb riding a scrolling activity curve over parallax
+    hills, with stars for points. Then a summary with the day score, streak and milestones. It
+    works with both bands.
+  * The **hemispheric balance trainer** (Mendi).
+* **Games** (`#gry`):
   * three **training games** built on the band's signal, for Mendi or HALO
     ([design and research](src/arcade/DESIGN.md)). Each session is a full neurofeedback session
     that counts toward the day score and the streak:
-    * **Geoda**: a Block Blast-style puzzle in which steady focus grows the crystals you place
-      and calm polishes them;
-    * **Latarnik**: a one-tap lighthouse game in which focus stretches the beam toward far boats
-      and calm makes the sea glow;
-    * **Motylarnia**: a caterpillar eats a path across a leaf that becomes a one-of-a-kind
-      butterfly. Focus sets the appetite, calm the colours.
+    * **Geode** (*Geoda*): a Block Blast-style puzzle in which steady focus grows the crystals
+      you place and calm polishes them;
+    * **Lighthouse Keeper** (*Latarnik*): a one-tap lighthouse game in which focus stretches the
+      beam toward far boats and calm makes the sea glow;
+    * **Butterfly House** (*Motylarnia*): a caterpillar eats a path across a leaf that becomes a
+      one-of-a-kind butterfly. Focus sets the appetite, calm the colours.
   * the two **HolyHolyHoly** games, with one line saying which signal they will read. They run
-    *inside* the app and use the band that is already connected (see below). The fNIRS *Sygnał*
-    view opens them too ("Graj z tym sygnałem").
-* **Sygnał**: the live instrument view of the active band. fNIRS shows ΔHbO/ΔHbR, heart rate,
-  SCI, motion, activation/asymmetry and recording with event markers. EEG shows six metrics,
-  the traces after the 50 Hz notch, band powers, electrode contact and combos.
-* **Sesje**: training results with their curves, and the recordings with CSV/JSON export.
-* **Ustawienia**: storage, the MBLL parameters, exporting the training results.
+    *inside* the app and use the band that is already connected (see below). The Mendi *Signal*
+    view opens them too ("Play with this signal").
+* **Signal** (`#sygnal`): the live instrument view of the active band. Mendi shows ΔHbO/ΔHbR,
+  heart rate, SCI, motion, activation/asymmetry and recording with event markers. HALO shows six
+  metrics, the traces after the 50 Hz notch, band powers, electrode contact and combos.
+* **Sessions** (`#sesje`): training results with their curves, and the recordings with CSV/JSON
+  export.
+* **Settings** (`#ustawienia`): the language, storage, the MBLL parameters, exporting the
+  training results, and *About Emmanuel*.
+* Every tab ends with **where to get a headband**: the makers' own shops for Mendi and
+  BrainAccess HALO (no prices, no affiliation), shrinking to one line once a band streams.
 
 ## Where it works
 
@@ -53,7 +63,7 @@ Source: MDN browser-compat-data (`Bluetooth.requestDevice`, `Window.showDirector
 **Bluetooth off?** A web page cannot switch Bluetooth on. The app detects it
 (`navigator.bluetooth.getAvailability()`), shows OS-specific steps with a deep
 link where one exists (Windows `ms-settings:bluetooth`, macOS System
-Settings), and Chrome on Android prompts by itself when you press *Połącz*.
+Settings), and Chrome on Android prompts by itself when you press *Connect*.
 
 ## Run
 
@@ -66,9 +76,15 @@ npm run build        # static site in dist/ (typecheck + app + both games + serv
 npm run preview      # serve dist/ locally
 npm run app:smoke    # after a build: headless Chrome goes through the app on the simulators (screenshots in .smoke/;
                      # BASE_PATH=/repo/ for a build made for a sub-path, as CI does)
-node scripts/arcade-shot.mjs --port 5173 --game geoda --out .smoke/arcade
+node scripts/arcade-shot.mjs --port 5173 --game geoda --out .smoke/arcade [--lang de]
                      # with `npm run dev` running: plays one training game on the simulator and saves screenshots
+node scripts/i18n-shot.mjs --port 5173 --out .smoke/i18n [--langs pl,de] [--views start,gry]
+                     # every tab and lobby in each language at desktop and phone size: screenshots, plus
+                     # sideways scroll, cut-off text, Polish left on other pages and missing texts
 ```
+
+Add `?lang=en` (or `pl`, `de`, `sv`) to the address to open the app in one language; the
+choice in *Settings → Language* is remembered.
 
 Web Bluetooth needs **HTTPS** (or `localhost`). Any static host works:
 GitHub Pages (workflow in `.github/workflows/web.yml`; set `BASE_PATH=/<repo>/`
@@ -76,7 +92,7 @@ and enable *Settings → Pages → Source: GitHub Actions*), Netlify, Cloudflare
 Pages, or your own server.  To try it on a phone during development, use a
 tunnel with HTTPS or deploy a preview.
 
-Install it from the browser's menu or the *Zainstaluj* button. On
+Install it from the browser's menu or the *Install* button. On
 iOS (Bluefy or Safari): *Share → Add to Home Screen*.
 
 ## Storage
@@ -90,14 +106,14 @@ iOS (Bluefy or Safari): *Share → Add to Home Screen*.
   Android 132+). A session is journalled in IndexedDB while recording and
   written to the folder as `<id>_fnirs.csv` + `<id>_meta.json` when it ends;
   the browser copy is then freed. The folder is remembered; browsers re-ask
-  for access after a restart (*Przyznaj dostęp*). Sessions already in the
-  folder — including ones recorded by the Python server — show up in *Sesje*.
+  for access after a restart (*Grant access*). Sessions already in the
+  folder — including ones recorded by the Python server — show up in *Sessions*.
 
 The CSV has the same columns as the server's recordings
 (`brainlink/fnirs_recorder.py`), so both open in the same analysis scripts.
 
 Focus-training results (points, control, mean activity, the per-second curve, mood) are kept in
-IndexedDB too (store `trainings`). *Ustawienia → Dane treningów* exports them as JSON. A
+IndexedDB too (store `trainings`). *Settings → Training data* exports them as JSON. A
 recording running during a training gets its markers (`training:start`, `:calibrated`, `:end`).
 
 ## Architecture
@@ -127,9 +143,12 @@ src/
 │                canvas scene, Web Audio soundscape
 ├── arcade/      the training games: kit/ (focus for games, session, audio, juice, progress, the game
 │                contract), runner (full-screen session), lobby, registry, and geoda/, latarnik/,
-│                motylarnia/ — each lazily loaded
+│                motylarnia/ — each lazily loaded, each with its own i18n.ts
+├── i18n/        the language (pl, en, de, sv), translator with plurals, number/date formats, and the
+│                catalogs: page, shell, training, signal, arcade
 └── ui/          DOM views (built with createElement, no innerHTML): router, app bar, device sheet,
-                 Start, Trening, focus training, balance, signal (fNIRS/EEG), sessions, settings, games
+                 Home, Training, focus training, balance, signal (Mendi/HALO), sessions, settings,
+                 games, the language picker, where to get a headband
 ```
 
 The fNIRS and EEG ports are checked against fixtures generated from the Python/SciPy
@@ -146,7 +165,7 @@ and forwards the band's raw frames to it, or the simulator's, every tick (`src/h
 game's `NeuroBridge` gets a `HubDevice` instead of a `MendiDevice` and keeps its own pipeline,
 baseline and balance tracker. In practice:
 
-* a band connected in BrainLink is used by the game at once, with no second pairing;
+* a band connected in Emmanuel is used by the game at once, with no second pairing;
 * switching the source or reconnecting the band gives the game a new baseline;
 * opened on their own, the games still pair the band themselves, as before.
 
@@ -155,7 +174,7 @@ baseline and balance tracker. In practice:
 `game/` is a second app in this package: **HolyHolyHoly**, a calm Christian
 action game (Pac-Man × Archero × survivors) in which a guardian angel eats and
 digests traumas, turning them into truths. It is served at `/holyholyholy/` as
-its own installable PWA and reuses BrainLink's Mendi Bluetooth adapter, fNIRS
+its own installable PWA and reuses the app's Mendi Bluetooth adapter, fNIRS
 pipeline and balance tracker for optional prefrontal-cortex training: held
 focus (from the band, or from stillness without it) charges the Fire of the
 Spirit with a ×1.5/×2/×3 multiplier. Prayers are short "prayers of the heart"
@@ -165,7 +184,7 @@ Design (Polish): [game/DESIGN.md](game/DESIGN.md).
 
 ```bash
 npm run dev:game     # http://localhost:5173/holyholyholy/
-npm run build        # builds BrainLink and both games into dist/, dist/holyholyholy/ and dist/holyholyholy3d/
+npm run build        # builds the app and both games into dist/, dist/holyholyholy/ and dist/holyholyholy3d/
 ```
 
 ## HolyHolyHoly 3D (the GDevelop game)
@@ -178,7 +197,7 @@ Hordes (gift slots, evolutions, reliquaries, heroes with their own prayer) and E
 Puncher. The project (`game3d/project`) is generated from `game3d/generator/`, opens in the
 GDevelop editor, and the build checks and exports it headlessly to `/holyholyholy3d/`. The
 paintings are made locally with an open model (`game3d/tools/art.py`). It reuses the 2D
-game's "Psalm 150" music engine, its Bible text and BrainLink's Mendi modules.
+game's "Psalm 150" music engine, its Bible text and the app's Mendi modules.
 Details: [game3d/README.md](game3d/README.md); design (Polish): [game3d/DESIGN.md](game3d/DESIGN.md).
 
 ```bash

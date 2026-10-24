@@ -1,11 +1,58 @@
-# BrainLink — EEG-to-Game Real-time Engine
+# Emmanuel
+
+**God with us.** Neurofeedback that trains the stillness where prayer begins.
+
+Emmanuel (Hebrew *ʿImmanu-El*, "God with us", Isaiah 7:14) is about becoming still before God.
+It pairs a consumer brain headband, **Mendi** (fNIRS) or **BrainAccess HALO** (EEG), with
+practices that settle and steady attention, the kind that meditation and contemplative prayer
+cultivate, and gives honest live feedback on them. God is already with us; the practice helps
+us notice. Emmanuel trains attention and calm. It does not promise spiritual experiences, and
+it is not a medical device.
+
+This repository holds the app and the desktop server it grew from.
+
+## The app (`web/`)
+
+Emmanuel runs in the browser as an installable Progressive Web App for **both headbands**, each
+over Web Bluetooth and each with a simulator, with no server needed. You choose the band at the
+top of the app. Inside it:
+
+* a **focus training** modelled on Mendi's default one (an orb riding the activity curve,
+  points, control, day score and streak);
+* the hemispheric balance trainer;
+* three training games for either band — **Geode** (a Block Blast-style puzzle whose crystals
+  grow with steady focus), **Lighthouse Keeper** (a one-tap lighthouse game: focus stretches the
+  beam, calm lights the sea) and **Butterfly House** (a caterpillar's path becomes a unique
+  butterfly) — each session a full neurofeedback session
+  ([design and research](web/src/arcade/DESIGN.md));
+* two Christian games, run inside the app on the band that is already connected (in Polish);
+* live signal views, sessions in IndexedDB or a local folder, and where to get each headband.
+
+It speaks Polish, English, German and Swedish, works offline, and keeps everything on the
+device. It runs in Chrome/Edge/Opera on Windows, macOS, Android and ChromeOS, and on iOS through
+the Bluefy browser. See [web/README.md](web/README.md) and [web/DESIGN.md](web/DESIGN.md)
+(§10 languages, §11 the name and its message).
+
+```bash
+cd web && npm ci && npm run dev
+```
+
+**HolyHolyHoly** (`web/game/`) is a Christian action game that can use the Mendi band for
+prefrontal-cortex training — see [web/game/DESIGN.md](web/game/DESIGN.md).
+**HolyHolyHoly 3D: Archaniołowie** (`web/game3d/`) is its 3D reinterpretation made with the
+GDevelop engine: seven archangels, a man's or a woman's story in today's Poland, Christ in the
+healing scenes, and real CBT skills — see [web/game3d/README.md](web/game3d/README.md).
+
+## Desktop server
 
 A self-contained desktop application that processes **BrainAccess HALO** EEG
 data and **Mendi** fNIRS data (or simulated data for either) and exposes
-game-ready brain metrics in real time over WebSocket and a REST API.
+game-ready brain metrics in real time over WebSocket and a REST API. Its
+dashboards (`/` for HALO, `/fnirs` for Mendi) share a **HALO · EEG | Mendi · fNIRS**
+switch in their top bar. The Python package keeps the project's first name, `brainlink`.
 
 ```
-brainlink-desktop/
+Emmanuel-brain-bluetooth-integration/
 ├── run.py              ← One-command launcher (creates venv, installs deps, starts server)
 ├── server.py           ← FastAPI app — routes + background EEG loop
 ├── brainlink/          ← Core pipeline package
@@ -29,14 +76,14 @@ brainlink-desktop/
 │   ├── fnirs.html      ← Real-time fNIRS dashboard (/fnirs, /fnirs#balance)
 │   └── fnirs-balance.js ← Balance trainer view + task bank
 ├── tests/              ← pytest suite (no hardware needed)
-├── web/                ← BrainLink web app (PWA) for Mendi + HALO: Web Bluetooth, offline, no server needed
+├── web/                ← Emmanuel, the web app (PWA) for Mendi + HALO: Web Bluetooth, offline, no server needed
 ├── recordings/         ← Saved EEG sessions (gitignored)
 ├── requirements.txt
 ├── requirements-dev.txt ← pytest, httpx, protobuf (tests only)
 └── LICENSE
 ```
 
-## Quick start
+### Quick start
 
 ```bash
 python run.py
@@ -54,14 +101,14 @@ python run.py --no-open      # skip auto-opening browser
 python run.py --install      # install deps only
 ```
 
-## Requirements
+### Requirements
 
 - **Python 3.10+**
 - No other manual setup required — everything is installed automatically
 
-## What you get
+### What you get
 
-### Real-time dashboard  `http://localhost:8420`
+#### Real-time dashboard  `http://localhost:8420`
 
 | Panel | Contents |
 |---|---|
@@ -73,7 +120,7 @@ python run.py --install      # install deps only
 | Settings | Live sliders for sensitivity, dead-zone, and smoothing per metric |
 | Simulator | 6 manual states + 4 auto-scenarios |
 
-### WebSocket stream  `ws://localhost:8420/api/v1/stream`
+#### WebSocket stream  `ws://localhost:8420/api/v1/stream`
 
 10 Hz push, JSON frame:
 
@@ -93,7 +140,7 @@ python run.py --install      # install deps only
 }
 ```
 
-### REST API  `http://localhost:8420/docs`
+#### REST API  `http://localhost:8420/docs`
 
 Full Swagger UI at `/docs`.  Key endpoints:
 
@@ -109,7 +156,7 @@ Full Swagger UI at `/docs`.  Key endpoints:
 | `POST` | `/api/v1/recording/start` | Start a session recording |
 | `POST` | `/api/v1/debug/set-state/{state}` | Change simulator state |
 
-### EEG simulator
+#### EEG simulator
 
 | State | What it simulates |
 |---|---|
@@ -123,7 +170,7 @@ Full Swagger UI at `/docs`.  Key endpoints:
 **Auto-scenarios** loop through realistic gaming sessions automatically:
 `gaming_session` · `horror_game` · `meditation_trainer` · `crafting_focus`
 
-## Connecting a real HALO device
+### Connecting a real HALO device
 
 The server auto-detects which backend is available:
 
@@ -142,7 +189,7 @@ curl -X POST http://localhost:8420/api/v1/device/connect \
 curl -X POST http://localhost:8420/api/v1/source/device
 ```
 
-## Mendi fNIRS headband
+### Mendi fNIRS headband
 
 The [Mendi](https://www.mendi.io/) is a consumer fNIRS band over the
 prefrontal cortex.  Mendi has **no official SDK**; this integration speaks its
@@ -154,7 +201,7 @@ Open **`http://localhost:8420/fnirs`**, close the Mendi phone app (the band
 accepts one BLE connection at a time), switch the band on and click
 **Połącz z pierwszą**.  Sit still for ~10 s while the baseline is collected.
 
-### What you get
+#### What you get
 
 | Output | Notes |
 |---|---|
@@ -165,7 +212,7 @@ accepts one BLE connection at a time), switch the band on and click
 | `activation`, `asymmetry` (0–1) | Game-friendly metrics relative to the last 60 s |
 | Raw frames | IR / red / ambient × 3 channels, IMU, temperature (~31 Hz) |
 
-### API (`/api/v1/fnirs`, all under `/docs`)
+#### API (`/api/v1/fnirs`, all under `/docs`)
 
 | Method | Path | Description |
 |---|---|---|
@@ -193,7 +240,7 @@ curl -X POST localhost:8420/api/v1/fnirs/recording/start -H 'Content-Type: appli
 The EEG and fNIRS pipelines are independent, so a HALO and a Mendi can stream
 at the same time.
 
-### Hemispheric balance trainer
+#### Hemispheric balance trainer
 
 The **Trening równowagi** tab of `/fnirs` (deep link `/fnirs#balance`) turns
 the `asymmetry` metric into guided practice aimed at balance:
@@ -218,7 +265,7 @@ Mapping tasks to hemispheres is a simplification — prefrontal responses are
 largely bilateral and the band sees only part of the cortex.  Use it for
 experiments and neurofeedback, not diagnosis or therapy.
 
-### Caveats
+#### Caveats
 
 - Tested on firmware 1.0.1 / hardware r2.1b-ty1.  That firmware leaves the
   optical front-end idle (one frame per connection, then silence), unlike what
@@ -239,48 +286,14 @@ experiments and neurofeedback, not diagnosis or therapy.
 - Consumer device, prefrontal only, few channels: good for prototyping and
   neurofeedback, not a substitute for a research-grade fNIRS system.
 
-## Web app (no server)
-
-`web/` is BrainLink as an installable Progressive Web App for **both headbands**: Mendi
-(fNIRS) and BrainAccess HALO (EEG), each over Web Bluetooth and each with a simulator. You
-choose the band at the top of the app. Inside it:
-
-* a **focus training** modelled on Mendi's default one (an orb riding the activity curve, points,
-  control, day score and streak);
-* the balance trainer;
-* three training games for either band — **Geoda** (a Block Blast-style puzzle whose crystals
-  grow with steady focus), **Latarnik** (a one-tap lighthouse game: focus stretches the beam,
-  calm lights the sea) and **Motylarnia** (a caterpillar's path becomes a unique butterfly) —
-  each session a full neurofeedback session ([design and research](web/src/arcade/DESIGN.md));
-* the two HolyHolyHoly games, run inside the app on the band that is already connected;
-* live signal views, and sessions in IndexedDB or a local folder.
-
-It works offline. It runs in Chrome/Edge/Opera on Windows, macOS, Android and ChromeOS, and on
-iOS through the Bluefy browser. See [web/README.md](web/README.md) and
-[web/DESIGN.md](web/DESIGN.md).
-
-The server's dashboards (`/` for EEG, `/fnirs` for fNIRS) share an **EEG · HALO | fNIRS · Mendi**
-switch in their top bar.
-
-```bash
-cd web && npm ci && npm run dev
-```
-
-The same package also contains **HolyHolyHoly** (`web/game/`), a Christian
-action game that can use the Mendi band for prefrontal-cortex training — see
-[web/game/DESIGN.md](web/game/DESIGN.md).
-**HolyHolyHoly 3D: Archaniołowie** (`web/game3d/`) is its 3D reinterpretation made with
-the GDevelop engine: seven archangels, a man's or a woman's story in today's Poland, Christ
-in the healing scenes, and real CBT skills — see [web/game3d/README.md](web/game3d/README.md).
-
-## Tests
+### Tests
 
 ```bash
 pip install -r requirements-dev.txt
 pytest
 ```
 
-## Project structure
+### Project structure
 
 ```
 brainlink/

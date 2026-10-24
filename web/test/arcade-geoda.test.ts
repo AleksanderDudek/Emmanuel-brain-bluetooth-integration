@@ -5,9 +5,10 @@ import { dayKey } from '../src/arcade/kit/progress';
 import type { GameEnv } from '../src/arcade/kit/types';
 import geoda from '../src/arcade/geoda/index';
 import { geodePath, WALL_BED } from '../src/arcade/geoda/art';
-import { CRAFT_DUST, DUST, MINERALS, NEW_FIRST, PITY, SHAPES, TIERS } from '../src/arcade/geoda/content';
+import { CLARITY, CRAFT_DUST, DUST, MINERALS, NEW_FIRST, PITY, SHAPES, SIZES, STRATEGIES, TIERS } from '../src/arcade/geoda/content';
 import { GeodaGame } from '../src/arcade/geoda/game';
-import { statusRow, type Measure } from '../src/arcade/geoda/hud';
+import { statusRow, TELEGRAPH, type Measure } from '../src/arcade/geoda/hud';
+import { CATALOGS, t, type GeodaKey } from '../src/arcade/geoda/i18n';
 import { cellAt, computeLayout, trayBand, trayCellFor } from '../src/arcade/geoda/layout';
 import {
   bestCarats, crackGeodes, craft, crack, depth, found, freshProgress, quality, record, rollTier, SessionCredit, sizeClass, specimenCm, tierOdds, xpFor,
@@ -20,6 +21,7 @@ import {
 } from '../src/arcade/geoda/sim';
 import { bestSpot, EMPTY, FTUE_GAP, GEM, generateWall, lineCells, N, regrowLines, ROCK, spotScore, tapSpot, Wall } from '../src/arcade/geoda/wall';
 import { mulberry32, normalGenerator } from '../src/core/random';
+import { catalogProblems, LANGS, type Plural } from '../src/i18n';
 
 // ── helpers ─────────────────────────────────────────────────────
 
@@ -977,8 +979,11 @@ describe('Geoda progress', () => {
     expect(xpFor(2)).toBe(60);
     expect(depth(59).level).toBe(1);
     expect(depth(60)).toEqual({ level: 2, from: 60, to: 200 });
-    expect(sizeClass(10)).toEqual({ name: 'drobny', next: 'małego', need: 20 });
-    expect(sizeClass(500).next).toBeNull();
+    expect(sizeClass(10)).toEqual({ size: 0, need: 20 });
+    expect(t(SIZES[sizeClass(10).size].goal, { need: 20 })).toBe('Okaz drobny · do małego 20 ct');
+    expect(sizeClass(160)).toEqual({ size: 3, need: 90 });
+    expect(sizeClass(500)).toEqual({ size: SIZES.length - 1, need: null });
+    expect(t(SIZES[SIZES.length - 1].goal)).toBe('Okaz wielki');
     expect(TIERS.length).toBe(4);
   });
 });
@@ -992,27 +997,33 @@ describe('Geoda on screen', () => {
   const measure: Measure = (text, px) => [...text].reduce((s, ch) => s + em(ch) * px, 0);
   const used = (r: ReturnType<typeof statusRow>) => measure(r.name, r.nameFs, 700) + (r.tele ? 8 + measure(r.tele, r.teleFs, 600) : 0);
 
-  it('fits the block’s name and the telegraph into the HUD’s column, never running together', () => {
+  it('fits the block’s name and the telegraph into the HUD’s column, never running together, in every language', () => {
     expect(measure(['C', 'I', 'E', 'M', 'N', 'A', ' ', 'K', 'O', 'M', 'O', 'R', 'A'].join(HAIR), 11, 700)).toBeCloseTo(100.2, -1);
     expect(measure('za chwilę szlif', 10.5, 600)).toBeCloseTo(68.7, -1);
-    for (const w of [88, 110, 140, 150, 168, 172, 196, 244]) {
-      for (const name of ['Wzrost', 'Zbiór', 'Szlif', 'Ciemna komora']) {
-        for (const tele of [null, 'za chwilę szlif', 'za chwilę wzrost']) {
-          for (const [fs, small] of [[11, 10.5], [13, 11.5]]) {
-            const r = statusRow(measure, name, tele, w, fs, small);
-            expect(used(r)).toBeLessThanOrEqual(w);
-            expect(r.nameFs).toBeGreaterThanOrEqual(9);
-            expect(r.name.replaceAll(HAIR, '')).toBe(name.toUpperCase());
+    for (const lang of LANGS) {
+      const c = CATALOGS[lang] as Record<GeodaKey, string>;
+      const teles = [null, { long: c['tele.szlif'], short: c['tele.szlifShort'] }, { long: c['tele.wzrost'], short: c['tele.wzrostShort'] }];
+      for (const w of [88, 110, 140, 150, 168, 172, 196, 244]) {
+        for (const name of [c['block.wzrost'], c['block.zbior'], c['block.szlif'], c['block.blind']]) {
+          for (const tele of teles) {
+            for (const [fs, small] of [[11, 10.5], [13, 11.5]]) {
+              const r = statusRow(measure, name, tele, w, fs, small);
+              expect(used(r)).toBeLessThanOrEqual(w);
+              expect(r.nameFs).toBeGreaterThanOrEqual(9);
+              expect(r.name.replaceAll(HAIR, '')).toBe(name.toUpperCase());
+              // on the 390 px phone's column the next block is still announced, at least in short
+              if (tele && w >= 168) expect(r.tele).not.toBeNull();
+            }
           }
         }
       }
     }
     // the reviewer's case, a 390 px phone's 168 px column: the name loses its hair spaces, the telegraph stays whole
-    expect(statusRow(measure, 'Ciemna komora', 'za chwilę szlif', 168, 11, 10.5)).toEqual({ name: 'CIEMNA KOMORA', nameFs: 11, tele: 'za chwilę szlif', teleFs: 10.5 });
+    expect(statusRow(measure, 'Ciemna komora', TELEGRAPH.szlif, 168, 11, 10.5)).toEqual({ name: 'CIEMNA KOMORA', nameFs: 11, tele: 'za chwilę szlif', teleFs: 10.5 });
     // a 360 px phone's 140 px column: the short telegraph
-    expect(statusRow(measure, 'Ciemna komora', 'za chwilę wzrost', 140, 11, 10.5).tele).toBe('→ wzrost');
+    expect(statusRow(measure, 'Ciemna komora', TELEGRAPH.wzrost, 140, 11, 10.5).tele).toBe('→ wzrost');
     // room enough: hair-spaced capitals
-    expect(statusRow(measure, 'Wzrost', 'za chwilę szlif', 244, 13, 11.5).name).toBe([...'WZROST'].join(HAIR));
+    expect(statusRow(measure, 'Wzrost', TELEGRAPH.szlif, 244, 13, 11.5).name).toBe([...'WZROST'].join(HAIR));
     // the HUD's status column on the phones it must fit (portrait): at least the 140 px tested above
     for (const [w, h] of [[360, 740], [390, 844], [430, 932]] as const) {
       const l = computeLayout(w, h);
@@ -1492,5 +1503,53 @@ describe('Geoda game', () => {
     expect(panel.querySelector('.arcade-album > div.epic')).not.toBeNull();
     expect(panel.querySelector('.arcade-daily')).not.toBeNull();
     expect(panel.querySelector('.arcade-meter i i')).not.toBeNull();
+  });
+});
+
+// ── the languages ───────────────────────────────────────────────
+
+describe('Geoda in four languages', () => {
+  it('has every text in Polish, English, German and Swedish, with the same placeholders and the plural forms each needs', () => {
+    expect(catalogProblems(CATALOGS)).toEqual([]);
+  });
+
+  it('translates every text: only names and number templates read the same in all four, and no Polish letter is left in the others', () => {
+    const same = new Set<GeodaKey>(['meter.clarity', 'finale.size', 'panel.tile', 'panel.oddsItem', 'mineral.opal']);
+    const texts = (m: unknown) => (typeof m === 'string' ? [m] : Object.values(m as Plural).filter((v): v is string => typeof v === 'string'));
+    for (const key of Object.keys(CATALOGS.pl) as GeodaKey[]) {
+      const pl = JSON.stringify(CATALOGS.pl[key]);
+      const differs = (['en', 'de', 'sv'] as const).some(l => JSON.stringify(CATALOGS[l][key]) !== pl);
+      expect(differs || same.has(key), key).toBe(true);
+      for (const l of ['en', 'de', 'sv'] as const) {
+        for (const s of texts(CATALOGS[l][key])) expect(s, `${l}.${key}`).not.toMatch(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/);
+      }
+    }
+  });
+
+  it('keeps the canvas’s one-line texts short enough for a 390 px phone, and the cabinet tile’s notes within its 10 mono characters', () => {
+    // Manrope's advance widths, roughly (em), as in "Geoda on screen"; the hint line shrinks its type from 13.5 px to 10.5 px
+    const em = (ch: string) => (ch === ' ' ? 0.26 : ch !== ch.toLowerCase() ? 0.64 : 0.47);
+    const width = (text: string, px: number) => [...text].reduce((s, ch) => s + em(ch) * px, 0);
+    const room = computeLayout(390, 844).hint.w;
+    const hints: GeodaKey[] = ['hint.blind', 'hint.jam', 'hint.drag', 'hint.drip', 'hint.closeGap', 'hint.lines', 'hint.feed', 'hint.clarity', 'hint.daily', 'hint.full',
+      'strategy.count', 'strategy.plan', 'strategy.picture', 'strategy.route', 'strategy.stones'];
+    for (const l of LANGS) {
+      const c = CATALOGS[l] as Record<GeodaKey, string>;
+      for (const k of hints) expect(width(c[k], 11.5), `${l}.${k}`).toBeLessThanOrEqual(room);
+      for (const k of ['panel.calib', 'panel.museumShort', 'tier.common', 'tier.fine', 'tier.rare'] as const) expect(c[k].length, `${l}.${k}`).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it('bends the counts in Polish (tests run in Polish) and builds the words from the catalog', () => {
+    expect([1, 2, 5, 12, 22].map(n => t('hint.toFull', { n }))).toEqual([
+      'Jeszcze 1 komórka do pełnej geody.', 'Jeszcze 2 komórki do pełnej geody.', 'Jeszcze 5 komórek do pełnej geody.',
+      'Jeszcze 12 komórek do pełnej geody.', 'Jeszcze 22 komórki do pełnej geody.',
+    ]);
+    expect(t('hl.finest', { n: 4, clarity: CLARITY[3] })).toBe('Najczystszy kryształ: 4 komórki, lśniący');
+    expect(t('finale.extra', { n: 1 })).toBe('+1 okaz z pełnej geody');
+    expect(MINERALS.map(m => m.title)).toEqual(['Ametyst', 'Cytryn', 'Kwarc różowy', 'Akwamaryn', 'Malachit', 'Fluoryt', 'Agat', 'Turmalin', 'Opal']);
+    expect(TIERS).toEqual(['zwykły', 'piękny', 'rzadki', 'muzealny']);
+    expect(CLARITY.slice(1)).toEqual(['mleczny', 'czysty', 'lśniący']);
+    expect(STRATEGIES[0]).toBe('Licz w myślach wstecz od 100 co 7.');
   });
 });

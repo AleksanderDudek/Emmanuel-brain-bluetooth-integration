@@ -5,6 +5,7 @@
 import type { SessionDB } from './db';
 import type { FolderStore } from './folder';
 import { chunkToCsv, csvHeaderLine, type SessionMeta } from './format';
+import { t } from '../i18n/signal';
 
 export class SessionLibrary {
   constructor(private readonly db: SessionDB, private readonly folder: FolderStore) {}
@@ -43,7 +44,7 @@ export class SessionLibrary {
     if (meta.storage !== 'folder') return { meta, movedToFolder: false };
     try {
       if ((await this.folder.permission(false)) !== 'granted') {
-        return { meta, movedToFolder: false, error: 'Brak dostępu do folderu — sesja została w przeglądarce' };
+        return { meta, movedToFolder: false, error: t('folder.keptInBrowser') };
       }
       return { meta: await this.moveToFolder(meta), movedToFolder: true };
     } catch (e) {
@@ -66,7 +67,7 @@ export class SessionLibrary {
         count += c.n;
         if (c.n) last = c.t[c.n - 1];
       });
-      await this.db.putMeta({ ...m, end_time: last, sample_count: count, notes: (m.notes ? m.notes + ' ' : '') + '[przerwane]' });
+      await this.db.putMeta({ ...m, end_time: last, sample_count: count, notes: (m.notes ? m.notes + ' ' : '') + t('rec.interrupted') });
       fixed++;
     }
     return fixed;

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-BrainLink — one-command launcher.
+Emmanuel desktop server — one-command launcher.
 
 Usage:
     python run.py              # install deps + start server + open browser
@@ -52,21 +52,21 @@ def install_deps():
 
 
 def run_server(port: int, no_open: bool):
-    """Start the BrainLink server."""
+    """Start the desktop server."""
     python = get_python()
     env = os.environ.copy()
     env["BRAINLINK_PORT"] = str(port)
     if no_open:
         env["BRAINLINK_NO_OPEN"] = "1"
-    print(f"[3/3] Starting BrainLink on port {port}...")
+    print(f"[3/3] Starting the Emmanuel desktop server on port {port}...")
     try:
         subprocess.check_call([python, str(SRV)], env=env)
     except KeyboardInterrupt:
-        print("\n  BrainLink stopped. See you next time!")
+        print("\n  Emmanuel desktop server stopped. See you next time!")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="BrainLink launcher")
+    parser = argparse.ArgumentParser(description="Emmanuel desktop server launcher")
     parser.add_argument("--port", type=int, default=8420, help="Server port (default: 8420)")
     parser.add_argument("--no-open", action="store_true", help="Don't open browser automatically")
     parser.add_argument("--install", action="store_true", help="Only install dependencies, don't start")
@@ -74,7 +74,7 @@ def main():
 
     print()
     print("  ╔══════════════════════════════════════╗")
-    print("  ║     BrainLink — EEG Game Engine      ║")
+    print("  ║      Emmanuel — desktop server       ║")
     print("  ╚══════════════════════════════════════╝")
     print()
 

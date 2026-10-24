@@ -16,6 +16,7 @@
  * serial number is not read: Web Bluetooth blocks that characteristic.
  */
 import { EEG_CHANNELS, EEG_SAMPLE_RATE, type EegChannel } from '../core/eeg/types';
+import { t } from '../i18n/signal';
 
 export const SVC_CONTROL = 'ace20bb6-5d39-45de-9f21-b101acf45b9b';
 export const HALO_CHR = {
@@ -129,7 +130,7 @@ export class HaloDevice extends EventTarget {
 
   /** Show the browser's device chooser and connect. Must be called from a user gesture. */
   async request(): Promise<HaloInfo> {
-    if (!this.bt) throw Object.assign(new Error('Web Bluetooth is not available'), { name: 'NotSupportedError' });
+    if (!this.bt) throw Object.assign(new Error(t('err.noBluetooth')), { name: 'NotSupportedError' });
     return this.connect(await this.bt.requestDevice(HALO_REQUEST_OPTIONS));
   }
 
@@ -206,7 +207,7 @@ export class HaloDevice extends EventTarget {
   async startStream(): Promise<void> {
     const myGen = this.gen;
     const data = this.chars.get(HALO_CHR.data);
-    if (!this.connected || !data) throw new Error('Opaska nie jest połączona');
+    if (!this.connected || !data) throw new Error(t('err.notConnected'));
     this.chunks = [];
     this.buffered = 0;
     this.decoder.reset();

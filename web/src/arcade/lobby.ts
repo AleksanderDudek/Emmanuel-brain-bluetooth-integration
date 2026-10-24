@@ -4,6 +4,7 @@
  * of the signal with the one button that starts.
  */
 import type { HubStatus } from '../hub';
+import { BAND_NAME, t } from '../i18n/arcade';
 import type { AppSettings, ArcadePrefs } from '../settings';
 import type { SessionDB } from '../storage/db';
 import { $, h, run } from '../ui/dom';
@@ -36,7 +37,7 @@ export class ArcadeLobby {
     const p = d.settings.arcade;
     $('arcadeLen').replaceChildren(...LENGTHS.map(m => h('button', {
       class: 'btn', type: 'button', role: 'radio', 'aria-checked': String(p.minutes === m), on: { click: () => this.set({ minutes: m }) },
-    }, `${m} min`)));
+    }, t('lobby.minutes', { n: m }))));
     const bind = (id: string, key: 'sound' | 'haptics') => {
       const el = $<HTMLInputElement>(id);
       el.checked = p[key];
@@ -45,7 +46,7 @@ export class ArcadeLobby {
     bind('arcadeSound', 'sound');
     bind('arcadeHaptics', 'haptics');
     $('btnArcadePlay').addEventListener('click', run(() => {
-      if (!this.entry || !this.mod || !this.progress) throw new Error('Gra jeszcze się wczytuje');
+      if (!this.entry || !this.mod || !this.progress) throw new Error(t('lobby.notReady'));
       this.d.onPlay(this.entry, this.mod, this.progress);
     }));
     window.addEventListener('resize', () => { if (this.visible) this.sizeHero(); });
@@ -70,9 +71,10 @@ export class ArcadeLobby {
       this.progress = null;
       $('arcadeTitle').textContent = entry.title;
       $('arcadeTagline').textContent = entry.tagline;
-      $('arcadeKicker').textContent = `Gra · ${entry.tools.map(t => (t === 'fnirs' ? 'Mendi' : 'HALO')).join(' lub ')}`;
-      $('arcadeHow').replaceChildren(...entry.how.map(t => h('li', null, t)));
-      $('arcadeProgressBody').replaceChildren(h('p', { class: 'muted' }, 'Wczytuję…'));
+      const [a, b] = entry.tools.map(tool => BAND_NAME[tool]);
+      $('arcadeKicker').textContent = b ? t('lobby.kicker2', { a, b }) : t('lobby.kicker', { band: a });
+      $('arcadeHow').replaceChildren(...entry.how.map(line => h('li', null, line)));
+      $('arcadeProgressBody').replaceChildren(h('p', { class: 'muted' }, t('lobby.loading')));
       document.body.dataset.arcade = entry.id;
     }
     if (!this.mod && this.loading !== id) {
@@ -153,10 +155,11 @@ export class ArcadeLobby {
     if (!this.visible || !this.entry) return;
     const tool = st.tool;
     const supported = !tool || this.entry.tools.includes(tool);
-    let { text, label, cls, can, note } = readiness(st, 'Na symulatorze skupieniem sterujesz przyciskiem „Symuluj skupienie” w trakcie gry.');
+    let { text, label, cls, can, note } = readiness(st, t('lobby.simNote', { button: t('run.simulate') }));
     if (!supported) {
-      text = 'Ta gra czyta opaskę Mendi (fNIRS) — przełącz narzędzie u góry.';
-      label = 'inna opaska'; cls = 'badge warn'; can = false; note = '';
+      // the band this game reads (all three read both today; a one-band game names its band)
+      text = t('lobby.otherBand', { band: BAND_NAME[this.entry.tools[0]] });
+      label = t('lobby.otherBandBadge'); cls = 'badge warn'; can = false; note = '';
     }
     const loaded = !!this.mod && !!this.progress;
     const sig = `${text}|${label}|${can}|${note}|${loaded}`;
@@ -167,6 +170,6 @@ export class ArcadeLobby {
     badge.textContent = label;
     badge.className = cls;
     $<HTMLButtonElement>('btnArcadePlay').disabled = !can || !loaded;
-    $('arcadeHint').textContent = loaded ? note : 'Wczytuję grę…';
+    $('arcadeHint').textContent = loaded ? note : t('lobby.loadingGame');
   }
 }

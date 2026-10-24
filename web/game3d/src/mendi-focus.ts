@@ -1,11 +1,11 @@
 /**
  * Focus for HolyHolyHoly 3D, exposed as `window.MendiFocus` for the GDevelop extension of the
  * same name. It reuses the 2D game's tested modules unchanged:
- *   - NeuroBridge: BrainLink's Mendi Web Bluetooth adapter, fNIRS pipeline and balance tracker;
+ *   - NeuroBridge: the Emmanuel app's Mendi Web Bluetooth adapter, fNIRS pipeline and balance tracker;
  *   - FocusCharger / focusReading: held focus raises a ×1.5 / ×2 / ×3 multiplier.
  *
  * Without the band, standing still is focus (up to ×1.5), so the game is fully playable; the band
- * only adds (focus while moving, up to ×3). Nothing leaves the device. Opened from the BrainLink
+ * only adds (focus while moving, up to ×3). Nothing leaves the device. Opened from the Emmanuel
  * app (`?hub=1`), the app's band is used right away.
  *
  * Built into project/lib/mendi-focus.js by `npm run game3d:libs`.
@@ -66,7 +66,7 @@ export function createMendiFocus(makeBridge: () => NeuroBridge = () => new Neuro
   let state: FocusState = charger.update(0, { level: 0, source: 'none' });
   const neuro = (): NeuroState => bridge?.state ?? NO_BAND;
   if (embeddedInHub()) {
-    // opened from the BrainLink app: its band (or simulator) is lent at once, no chooser
+    // opened from the Emmanuel app: its band (or simulator) is lent at once, no chooser
     bridge = makeBridge();
     bridge.followHub();
   }

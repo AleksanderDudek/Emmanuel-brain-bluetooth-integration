@@ -69,7 +69,7 @@ describe('brainlink-hub protocol', () => {
     expect(got).toHaveLength(4);
     expect(got[0]).toBeInstanceOf(Frame);
     expect(got[0].accel_g[2]).toBeCloseTo(1, 3);  // getters work: real Frames again
-    expect(dev.info.device_name).toBe('Symulator (BrainLink)');
+    expect(dev.info.device_name).toBe('Symulator (Emmanuel)');
     expect(host.sent).toBe(4);   // nothing was sent before the game connected
   });
 

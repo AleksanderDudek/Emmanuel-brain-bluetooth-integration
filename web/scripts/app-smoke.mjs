@@ -115,7 +115,8 @@ try {
   };
 
   step('first run: Start asks for a band');
-  await page.goto(`${origin}${BASE}?debug&trainingSec=40`, { waitUntil: 'networkidle0' });
+  // the smoke clicks Polish labels: pin the language (the other languages get their own pass below)
+  await page.goto(`${origin}${BASE}?debug&trainingSec=40&lang=pl`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('#toolPick:not([hidden])');
   await shot('01-start-first-run');
   await overflow('start');

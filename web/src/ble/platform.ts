@@ -13,7 +13,10 @@
  * Support (MDN browser-compat-data): Chrome/Edge/Opera on Windows, macOS,
  * ChromeOS and Android; Linux behind a flag; no Firefox, no Safari, and no
  * browser on iOS except the third-party Bluefy browser.
+ *
+ * The texts are in the page's language (src/i18n/shell.ts).
  */
+import { t } from '../i18n/shell';
 
 export type Platform = 'windows' | 'macos' | 'linux' | 'chromeos' | 'android' | 'ios' | 'other';
 export type BrowserKind = 'chromium' | 'firefox' | 'safari' | 'bluefy' | 'other';
@@ -75,7 +78,7 @@ export interface Guidance {
   title: string;
   steps: string[];
   link?: { href: string; label: string };
-  /** true when pressing "Połącz" can still work (the browser chooser may prompt by itself) */
+  /** true when pressing "Connect" can still work (the browser chooser may prompt by itself) */
   canConnect: boolean;
 }
 
@@ -83,39 +86,20 @@ const BLUEFY = 'https://apps.apple.com/app/id1492822055';
 
 const TURN_ON: Record<Platform, Omit<Guidance, 'canConnect'>> = {
   windows: {
-    title: 'Włącz Bluetooth w Windows',
-    steps: ['Otwórz Ustawienia → Bluetooth i urządzenia i przestaw Bluetooth na „Włączone”.',
-            'Albo kliknij ikonę sieci/głośnika na pasku zadań i włącz kafelek Bluetooth.'],
-    link: { href: 'ms-settings:bluetooth', label: 'Otwórz ustawienia Bluetooth' },
+    title: t('bt.win.title'),
+    steps: [t('bt.win.1'), t('bt.win.2')],
+    link: { href: 'ms-settings:bluetooth', label: t('bt.win.link') },
   },
   macos: {
-    title: 'Włącz Bluetooth na Macu',
-    steps: ['Kliknij Centrum sterowania na pasku menu → Bluetooth → włącz.',
-            'Za pierwszym razem macOS zapyta, czy przeglądarka może używać Bluetooth — zezwól (Ustawienia systemowe → Prywatność i ochrona → Bluetooth).'],
-    link: { href: 'x-apple.systempreferences:com.apple.BluetoothSettings', label: 'Otwórz Ustawienia systemowe → Bluetooth' },
+    title: t('bt.mac.title'),
+    steps: [t('bt.mac.1'), t('bt.mac.2')],
+    link: { href: 'x-apple.systempreferences:com.apple.BluetoothSettings', label: t('bt.mac.link') },
   },
-  android: {
-    title: 'Włącz Bluetooth na Androidzie',
-    steps: ['Przesuń palcem w dół od góry ekranu i włącz kafelek Bluetooth.',
-            'Po naciśnięciu „Połącz” Chrome sam poprosi o włączenie Bluetooth i o zgodę na „Urządzenia w pobliżu” (na starszym Androidzie: lokalizację).'],
-  },
-  chromeos: {
-    title: 'Włącz Bluetooth w ChromeOS',
-    steps: ['Kliknij zegar w prawym dolnym rogu → kafelek Bluetooth → włącz.'],
-  },
-  linux: {
-    title: 'Włącz Bluetooth w Linuksie',
-    steps: ['Włącz Bluetooth w ustawieniach systemu albo poleceniem: bluetoothctl power on.',
-            'Chrome na Linuksie wymaga też flagi: chrome://flags/#enable-experimental-web-platform-features (wklej w pasek adresu, włącz, uruchom ponownie).'],
-  },
-  ios: {
-    title: 'Włącz Bluetooth na iPhonie/iPadzie',
-    steps: ['Ustawienia → Bluetooth → włącz (albo Centrum sterowania).'],
-  },
-  other: {
-    title: 'Włącz Bluetooth',
-    steps: ['Włącz Bluetooth w ustawieniach systemu.'],
-  },
+  android: { title: t('bt.android.title'), steps: [t('bt.android.1'), t('bt.android.2')] },
+  chromeos: { title: t('bt.cros.title'), steps: [t('bt.cros.1')] },
+  linux: { title: t('bt.linux.title'), steps: [t('bt.linux.1'), t('bt.linux.2')] },
+  ios: { title: t('bt.ios.title'), steps: [t('bt.ios.1')] },
+  other: { title: t('bt.other.title'), steps: [t('bt.other.1')] },
 };
 
 /** How the messages name the headband: the band itself, its phone app, and its entry in the browser's chooser. */
@@ -124,33 +108,23 @@ export const MENDI_NAMES: BandNames = { band: 'Mendi', app: 'Mendi', listed: 'Me
 export const HALO_NAMES: BandNames = { band: 'BrainAccess HALO', app: 'BrainAccess', listed: 'BA HALO…' };
 
 export function guidance(platform: Platform, browser: BrowserKind, status: BtStatus, names: BandNames = MENDI_NAMES): Guidance {
-  if (status === 'insecure') {
-    return { title: 'Wymagane HTTPS', canConnect: false,
-             steps: ['Przeglądarka udostępnia Bluetooth tylko stronom otwartym przez HTTPS (lub localhost).'] };
-  }
+  if (status === 'insecure') return { title: t('bt.https.title'), canConnect: false, steps: [t('bt.https.1')] };
   if (status === 'unsupported') {
     if (platform === 'ios') {
-      return { title: 'iPhone / iPad: otwórz w przeglądarce Bluefy', canConnect: false, link: { href: BLUEFY, label: 'Bluefy w App Store' },
-               steps: ['Safari i Chrome na iOS nie obsługują Web Bluetooth (ograniczenie Apple).',
-                       'Zainstaluj darmową przeglądarkę Bluefy i otwórz w niej ten adres.',
-                       'Włącz Bluetooth: Ustawienia → Bluetooth.',
-                       'Do czasu połączenia możesz korzystać z symulatora.'] };
+      return { title: t('bt.bluefy.title'), canConnect: false, link: { href: BLUEFY, label: t('bt.bluefy.link') },
+               steps: [t('bt.bluefy.1'), t('bt.bluefy.2'), t('bt.bluefy.3'), t('bt.bluefy.4')] };
     }
     if (platform === 'linux' && browser === 'chromium') {
-      return { title: 'Chrome na Linuksie: włącz Web Bluetooth', canConnect: false,
-               steps: ['Wklej w pasek adresu: chrome://flags/#enable-experimental-web-platform-features',
-                       'Ustaw „Enabled” i uruchom przeglądarkę ponownie.', 'Upewnij się, że działa BlueZ (bluetoothctl power on).'] };
+      return { title: t('bt.flag.title'), canConnect: false, steps: [t('bt.flag.1'), t('bt.flag.2'), t('bt.flag.3')] };
     }
-    const which = browser === 'firefox' ? 'Firefox' : browser === 'safari' ? 'Safari' : 'Ta przeglądarka';
-    return { title: `${which} nie obsługuje Web Bluetooth`, canConnect: false,
-             steps: ['Otwórz tę stronę w Chrome, Edge lub Operze (Windows, macOS, Android, ChromeOS).',
-                     'Do tego czasu możesz korzystać z symulatora i przeglądać zapisane sesje.'] };
+    const named = browser === 'firefox' ? 'Firefox' : browser === 'safari' ? 'Safari' : null;
+    return { title: named ? t('bt.noWeb.named', { browser: named }) : t('bt.noWeb.this'), canConnect: false,
+             steps: [t('bt.noWeb.1'), t('bt.noWeb.2')] };
   }
   const base = TURN_ON[platform];
   if (status === 'unavailable') return { ...base, canConnect: platform === 'android' };
-  return { title: `Łączenie z opaską ${names.band}`, canConnect: true,
-           steps: ['Naładuj i włącz opaskę.', `Zamknij aplikację ${names.app} na telefonie — opaska przyjmuje jedno połączenie naraz.`,
-                   `Naciśnij „Połącz” i wybierz „${names.listed}” z listy przeglądarki.`, ...base.steps] };
+  return { title: t('bt.connect.title', { band: names.band }), canConnect: true,
+           steps: [t('bt.connect.1'), t('bt.connect.2', { app: names.app }), t('bt.connect.3', { listed: names.listed }), ...base.steps] };
 }
 
 export interface BleErrorInfo { message: string; cancelled: boolean; showGuidance: boolean }
@@ -159,23 +133,18 @@ export interface BleErrorInfo { message: string; cancelled: boolean; showGuidanc
 export function explainBleError(e: unknown, names: BandNames = MENDI_NAMES): BleErrorInfo {
   const name = (e as { name?: string })?.name ?? '';
   const msg = (e as { message?: string })?.message ?? String(e);
-  if (name === 'NotFoundError' && /cancel/i.test(msg)) return { message: 'Anulowano wybór urządzenia.', cancelled: true, showGuidance: false };
+  if (name === 'NotFoundError' && /cancel/i.test(msg)) return { message: t('bt.err.cancelled'), cancelled: true, showGuidance: false };
   if (name === 'NotFoundError' && /servic|characteristic/i.test(msg)) {
-    return { message: `To urządzenie nie wygląda na opaskę ${names.band} (brak jej usługi Bluetooth) albo ma nieobsługiwane oprogramowanie.`,
-             cancelled: false, showGuidance: false };
+    return { message: t('bt.err.wrongDevice', { band: names.band }), cancelled: false, showGuidance: false };
   }
   if (name === 'NotFoundError' || /adapter not available/i.test(msg)) {
-    return { message: 'Bluetooth jest wyłączony albo niedostępny.', cancelled: false, showGuidance: true };
+    return { message: t('bt.off'), cancelled: false, showGuidance: true };
   }
   if (name === 'SecurityError') {
-    return { message: /gesture/i.test(msg) ? 'Połączenie trzeba rozpocząć kliknięciem.' : 'Bluetooth wymaga HTTPS i strony otwartej bezpośrednio (nie w ramce).',
-             cancelled: false, showGuidance: false };
+    return { message: /gesture/i.test(msg) ? t('bt.err.gesture') : t('bt.err.security'), cancelled: false, showGuidance: false };
   }
-  if (name === 'NotAllowedError') return { message: 'Przeglądarka lub system zablokowały dostęp do Bluetooth.', cancelled: false, showGuidance: true };
-  if (name === 'NotSupportedError') return { message: 'To urządzenie nie obsługuje Bluetooth Low Energy.', cancelled: false, showGuidance: true };
-  if (name === 'NetworkError') {
-    return { message: `Nie udało się połączyć — opaska poza zasięgiem albo połączona z telefonem (zamknij aplikację ${names.app}).`,
-             cancelled: false, showGuidance: false };
-  }
-  return { message: msg || 'Nieznany błąd Bluetooth.', cancelled: false, showGuidance: false };
+  if (name === 'NotAllowedError') return { message: t('bt.err.blocked'), cancelled: false, showGuidance: true };
+  if (name === 'NotSupportedError') return { message: t('bt.err.noBle'), cancelled: false, showGuidance: true };
+  if (name === 'NetworkError') return { message: t('bt.err.network', { app: names.app }), cancelled: false, showGuidance: false };
+  return { message: msg || t('bt.err.unknown'), cancelled: false, showGuidance: false };
 }

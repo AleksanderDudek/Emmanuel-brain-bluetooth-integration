@@ -27,12 +27,14 @@
  */
 import { BlockContrast, type FocusFrame } from '../kit/focus';
 import { mulberry32 } from '../../core/random';
+import { fmtSigned } from '../../i18n';
 import type { Tool } from '../../tools';
 import type { ArcadeOutcome } from '../kit/types';
 import {
-  ABERRATION_NAME, CLASS_FROM, DANDELION_BONUS, HABITATS, NEUTRAL_DEPTH, PIGMENTS, RASPBERRY_POLLEN, SIZE_CLASSES, SPECIES,
-  capital, plural, speciesById, type Aberration, type HabitatId, type SizeClass, type Species,
+  ABERRATION_FORM, CLASS_FROM, DANDELION_BONUS, HABITATS, NEUTRAL_DEPTH, PIGMENTS, RASPBERRY_POLLEN, SIZE_CLASSES, SPECIES,
+  capital, speciesById, type Aberration, type HabitatId, type SizeClass, type Species,
 } from './content';
+import { t } from './i18n';
 import { CELL, GRID_W, buildLeaf, leafDist, leafNormal, placeDots, type Bite, type Dot, type LeafModel, type Treat, type TreatKind } from './leaf';
 import {
   F, beginSession, drawEggs, emerge, eggsLine, hatch, laterEggs, type ButterflyRec, type EggOffer, type MothProgress,
@@ -937,17 +939,16 @@ export class MothSim {
     this.p.bestSession = Math.max(this.p.bestSession, done.reduce((s, o) => s + o.rec.mm, 0));
     const biggest = done.reduce<Outcome | null>((b, o) => (!b || o.rec.mm > b.rec.mm ? o : b), null);
     const contrast = this.contrast.contrast;
-    const pct = (v: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1).replace('.', ',')} %`;
     const stats: [string, string][] = [
-      ['Motyle', String(done.length)],
-      ['Największy', biggest ? `${biggest.rec.mm} mm` : '—'],
-      ['Śmiałe linie', `${c.pushOk}/${c.pushJudged}`],
-      ['Głębokie barwy', `${c.restOk}/${c.restJudged}`],
-      ['Promienne', String(done.filter(o => o.radiant).length)],
-      ['Kontrast', contrast === null ? '—' : pct(contrast)],
+      [t('stat.butterflies'), String(done.length)],
+      [t('stat.biggest'), biggest ? `${biggest.rec.mm} mm` : '—'],
+      [t('stat.bold'), `${c.pushOk}/${c.pushJudged}`],
+      [t('stat.deep'), `${c.restOk}/${c.restJudged}`],
+      [t('stat.radiant'), String(done.filter(o => o.radiant).length)],
+      [t('stat.contrast'), contrast === null ? '—' : t('pct', { v: fmtSigned(contrast, 1) })],
     ];
-    if (c.blindN) stats.push(['Bez podglądu', `${c.blindOk}/${c.blindN}`]);
-    if (c.pollen) stats.push(['Pyłek', `+${c.pollen}`]);
+    if (c.blindN) stats.push([t('stat.blind'), `${c.blindOk}/${c.blindN}`]);
+    if (c.pollen) stats.push([t('stat.pollen'), `+${c.pollen}`]);
     return { score, unit: 'mm', record: this.bestBefore !== null && score > this.bestBefore, stats, highlights: this.highlights() };
   }
 
@@ -965,31 +966,28 @@ export class MothSim {
     const lines: string[] = [];
     // new species, an aberration in brackets after its species, or on its own
     const odd = new Map<string, string>();
-    for (const o of done) if (o.aberration && !odd.has(o.species.name)) odd.set(o.species.name, ABERRATION_NAME[o.aberration]);
+    for (const o of done) if (o.aberration && !odd.has(o.species.name)) odd.set(o.species.name, ABERRATION_FORM[o.aberration]);
     const fresh = species(o => o.isNew);
-    const freshText = fresh.map(n => (odd.has(n) ? `${n} (odmiana ${odd.get(n)})` : n)).join(', ');
-    const oddText = [...odd].filter(([n]) => !fresh.includes(n)).map(([n, a]) => `odmiana ${a}: ${n}`);
-    if (fresh.length || oddText.length) lines.push(line(fresh.length > 0 && `${fresh.length > 1 ? 'nowe gatunki' : 'nowy gatunek'}: ${freshText}`, ...oddText));
+    const freshText = fresh.map(n => (odd.has(n) ? t('hl.withForm', { name: n, form: odd.get(n)! }) : n)).join(', ');
+    const oddText = [...odd].filter(([n]) => !fresh.includes(n)).map(([n, form]) => t('hl.form', { form, name: n }));
+    if (fresh.length || oddText.length) lines.push(line(fresh.length > 0 && t(fresh.length > 1 ? 'hl.newN' : 'hl.new1', { list: freshText }), ...oddText));
     const opened = done.find(o => o.opened)?.opened;
     const habitat = HABITATS.find(hb => hb.id === opened);
-    if (habitat) {
-      const n = SPECIES.filter(s => s.habitat === habitat.id).length;
-      lines.push(`Nowe siedlisko: ${habitat.name} — ${n} ${plural(n, 'gatunek', 'gatunki', 'gatunków')}`);
-    }
+    if (habitat) lines.push(t('hl.habitat', { habitat: habitat.name, n: SPECIES.filter(s => s.habitat === habitat.id).length }));
     const radiant = species(o => o.radiant), silk = done.some(o => o.silk);
-    if (radiant.length) lines.push(line(`${radiant.length > 1 ? 'promienne' : 'promienny'}: ${radiant.join(', ')}`, silk && 'jedwabna nić na skrzydle'));
-    else if (silk) lines.push('Jedwabna nić: 8 s równego skupienia na skrzydle');
+    if (radiant.length) lines.push(line(t(radiant.length > 1 ? 'hl.radiantN' : 'hl.radiant1', { list: radiant.join(', ') }), silk && t('hl.silkOnWing')));
+    else if (silk) lines.push(t('hl.silk', { s: SILK_HOLD }));
     const later = laterEggs(this.p, this.o.day), daily = done.some(o => o.daily);
-    if (later.length) lines.push(line(daily && 'liść dnia gotowy', `jutro wyklują się: ${eggsLine(later)}`));
-    else if (daily) lines.push('Liść dnia: motyl wyhodowany');
+    if (later.length) lines.push(line(daily && t('hl.dailyDone'), t('hl.tomorrow', { list: eggsLine(later) })));
+    else if (daily) lines.push(t('hl.daily'));
     const classic = species(o => o.classic).join(', ');
     const best = new Map<string, Outcome>();
     for (const o of done) if (o.record && (best.get(o.species.id)?.rec.mm ?? 0) < o.rec.mm) best.set(o.species.id, o);
-    const records = [...best.values()].map(o => `${o.species.name} ${o.rec.mm} mm`).join(', ');
-    if (classic || records) lines.push(line(!!classic && `forma klasyczna: ${classic}`, !!records && `rekord gatunku: ${records}`));
+    const records = [...best.values()].map(o => t('hl.recordItem', { name: o.species.name, mm: o.rec.mm })).join(', ');
+    if (classic || records) lines.push(line(!!classic && t('hl.classic', { list: classic }), !!records && t('hl.records', { list: records })));
     const tip = this.p.sessions <= 1 && done.length > 0;
     const out = lines.slice(0, tip ? 3 : 4);
-    if (tip) out.push('Gdy je — planuj trasę i patrz na jej głowę. Gdy wisi — rozluźnij czoło i patrz miękko.');
+    if (tip) out.push(t('hl.tip'));
     return out;
   }
 }

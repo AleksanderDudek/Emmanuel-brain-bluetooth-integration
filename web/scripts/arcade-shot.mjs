@@ -6,7 +6,7 @@
  * of the lobby, the calibration intro, play (desktop, phone portrait and landscape) and the summary.
  *
  *   npx vite --port 5181 --strictPort &            (one dev server per game is fine)
- *   node scripts/arcade-shot.mjs --port 5181 --game <id> --out /tmp/shots [--sec 40] [--focus on|off|toggle]
+ *   node scripts/arcade-shot.mjs --port 5181 --game <id> --out /tmp/shots [--sec 40] [--focus on|off|toggle] [--lang pl|en|de|sv]
  *
  * Prints the game's debug state every few seconds and fails on page errors.
  */
@@ -25,6 +25,8 @@ const out = arg('out', '.smoke/arcade');
 // the app ignores ?trainingSec below 10 (it would play a full-length session), so neither do we go there
 const sec = Math.max(10, Number(arg('sec', '40')) || 40);
 const focus = arg('focus', 'toggle');
+// the script clicks Polish labels on the way in; --lang switches the language for the game itself
+const lang = arg('lang', 'pl');
 if (!game) {
   console.error('usage: node scripts/arcade-shot.mjs --port <dev server port> --game <id> --out <dir>');
   process.exit(2);
@@ -54,12 +56,12 @@ try {
   const shot = name => page.screenshot({ path: join(out, `${game}-${name}.png`) });
   const state = () => page.evaluate(() => globalThis.brainlink?.arcade?.debug ?? null);
 
-  await page.goto(`http://localhost:${port}/?debug&trainingSec=${sec}`, { waitUntil: 'networkidle0' });
+  await page.goto(`http://localhost:${port}/?debug&trainingSec=${sec}&lang=${lang}`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('[data-pick="fnirs"]');
   await page.click('[data-pick="fnirs"]');
   await page.waitForFunction(() => !document.getElementById('nextStep').hidden);
-  await page.evaluate(() => [...document.querySelectorAll('#nextActions button')].find(b => b.textContent.trim() === 'Użyj symulatora').click());
-  await page.waitForFunction(() => document.getElementById('chipMeta').textContent.includes('sygnał dobry'), { timeout: 40_000 });
+  await page.evaluate(() => globalThis.brainlink.hub.useSimulator());
+  await page.waitForFunction(() => globalThis.brainlink.hub.status.signal.reliable, { timeout: 40_000 });
   log('simulator ready');
   await page.evaluate(id => { location.hash = `gra/${id}`; }, game);
   await page.waitForFunction(() => !document.getElementById('btnArcadePlay').disabled, { timeout: 30_000 });
@@ -108,7 +110,7 @@ try {
   await sleep(900);
   await shot('6-summary');
   log(`summary: ${await page.evaluate(() => document.querySelector('#arcadeLayer .arcade-big')?.textContent)}`);
-  await page.evaluate(() => [...document.querySelectorAll('#arcadeLayer .btn')].find(b => b.textContent.trim() === 'Gotowe').click());
+  await page.evaluate(() => [...document.querySelectorAll('#arcadeLayer .arcade-again .btn')].at(-1).click());   // "Gotowe" in any language
   await sleep(800);
   await page.screenshot({ path: join(out, `${game}-7-lobby-after.png`), fullPage: true });
 } catch (e) {

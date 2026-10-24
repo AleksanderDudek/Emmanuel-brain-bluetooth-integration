@@ -26,10 +26,11 @@ export default defineConfig({
       registerType: 'prompt',
       pwaAssets: { config: true },
       manifest: {
-        name: 'BrainLink',
-        short_name: 'BrainLink',
-        description: 'Neurofeedback z opaską fNIRS Mendi lub EEG BrainAccess HALO: trening skupienia, równowaga półkul, gry, sygnał na żywo, sesje zapisane lokalnie.',
-        lang: 'pl',
+        name: 'Emmanuel',
+        short_name: 'Emmanuel',
+        // one manifest for four languages (pl, en, de, sv): English is the shared one
+        description: 'Emmanuel — God with us. Neurofeedback that trains the stillness where prayer begins: focus training, contemplative games and Christian games for the Mendi (fNIRS) and BrainAccess HALO (EEG) headbands. Polish, English, German and Swedish; works offline, nothing leaves the device.',
+        lang: 'en',
         theme_color: '#0a0b0d',
         background_color: '#0a0b0d',
         display: 'standalone',
@@ -44,7 +45,7 @@ export default defineConfig({
         navigateFallbackDenylist: [/\/holyholyholy(3d)?(\/|$)/],
         globIgnores: ['holyholyholy/**', 'holyholyholy3d/**'],
         // Off on purpose: Workbox deletes every "-precache-" cache whose name contains this SW's scope, and the
-        // game's cache name (…-precache-v2-<scope>holyholyholy/) does, so each BrainLink update would wipe the
+        // game's cache name (…-precache-v2-<scope>holyholyholy/) does, so each app update would wipe the
         // game's offline copy. Precache v2 already prunes its own stale entries.
         cleanupOutdatedCaches: false,
       },
@@ -54,5 +55,6 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     include: ['test/**/*.test.ts', 'game/test/**/*.test.ts', 'game3d/test/**/*.test.ts'],
+    setupFiles: ['test/setup.ts'],
   },
 });

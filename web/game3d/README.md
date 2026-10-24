@@ -23,7 +23,7 @@ game, not therapy: help lines are in the game where they matter.
 cd web
 npm ci
 npm run dev:game3d     # check + export, then http://localhost:5175
-npm run build          # BrainLink, HolyHolyHoly and this game → dist/, dist/holyholyholy3d/
+npm run build          # Emmanuel, HolyHolyHoly and this game → dist/, dist/holyholyholy3d/
 ```
 
 ## Where things come from
@@ -117,7 +117,7 @@ cruciform halo is His alone); a human icon painter should eventually repaint the
 |---|---|
 | `HolyHoly` | this game's helpers: content, save, 3D→screen projection, gendered texts, gift draws, story scenes, voices, the stage clock, device checks, UI builders (with text fitting) |
 | `Psalm150` | the "Psalm 150" soundtrack and effects: `lib/psalm150.js`, bundled from `../game/src/audio` |
-| `MendiFocus` | focus and the optional Mendi band: `lib/mendi-focus.js`, bundled from BrainLink's Web Bluetooth adapter and fNIRS pipeline |
+| `MendiFocus` | focus and the optional Mendi band: `lib/mendi-focus.js`, bundled from the app's Web Bluetooth adapter and fNIRS pipeline |
 | `FireBullet`, `SpriteMultitouchJoystick`, `ParticleEmitter3D`, `ShakeObject3D` | official extensions from GDevelop's extension store |
 
 ## Toolchain: GDevelop without the editor

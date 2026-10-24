@@ -11,8 +11,9 @@
  * panels and egg cards with their shadows, the emergence card, the glows.  A frame is a few copies
  * and sprites; it makes no gradient.
  */
+import { fmtNum } from '../../i18n';
 import { Floaters, Particles, ease } from '../kit/juice';
-import { PLANTS, SIZE_CLASSES, TIERS, capital, plural, speciesById, type Species } from './content';
+import { PLANTS, SIZE_CLASSES, TIERS, capital, speciesById, type Species } from './content';
 import {
   drawButterfly, drawChrysalis, drawSilhouette, paintWing, spriteOfRecord, wingMidY, type ButterflySprite, type ChrysalisLook, type WingBitmap,
 } from './butterfly';
@@ -26,15 +27,15 @@ import {
   mix, paintLeaf, paintLeafShadow, paintPaper, paintSoil, punchBites, rgba, roundRect, treatSprite, dotSprite, wrapLines,
   type BodyPoint,
 } from './paint';
+import { t } from './i18n';
 import { drawStemLeaves, paintCornerLeaves, paintGlasshouse, paintSideBackdrop, paintStem, sideGeometry, type SideGeom } from './scenery';
 import { PICK_GRACE, T_LEAF, T_SPIN, sizeClass, type MothSim, type Round } from './sim';
 
 const TAU = Math.PI * 2;
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
-/** the emergence card's tag for a blind cocoon whose colours deepened anyway */
-const BLIND_OK = 'Bez podglądu ✓';
-/** the emergence card's height with its row of tags (it hangs 6 px under the runner's top bar) */
-const CARD_H = 96;
+/** the emergence card's height without tags, and what each row of tags adds (it hangs 6 px under the runner's top bar) */
+const CARD_BASE = 70;
+const CARD_ROW = 26;
 /** room around a cached egg card or HUD panel for its shadow (CSS px) */
 const SHADOW_PAD = 30;
 /** the cloud shadow's puffs: offset (×R) and size */
@@ -44,11 +45,34 @@ const GOLD = 'gold';
 const S_COLOUR = '#C2408F';
 const B_COLOUR = '#3A5BD9';
 /** HUD labels with shorter forms for narrow columns: the first that fits at a readable size is used */
-const S_WAKING = ['ŚMIAŁE LINIE · ROZKRĘCA SIĘ', 'ROZKRĘCA SIĘ'];
-const S_NAME = ['ŚMIAŁE LINIE', 'LINIE'];
-const B_WAKING = ['BARWY · CHWILA SPOKOJU', 'CHWILA SPOKOJU'];
-const B_NAME = ['BARWY'];
+const S_WAKING = [t('hud.linesWaking'), t('hud.waking')];
+const S_NAME = [t('hud.lines'), t('hud.linesShort')];
+const B_WAKING = [t('hud.coloursSettling'), t('hud.settling')];
+const B_NAME = [t('hud.colours')];
 const READABLE = 9.5;
+const GOLDEN_HOUR = t('finale.title');
+
+/** A name set in one line, or in two when one line would get too small: the lines, their size and line height. */
+interface NameFit { lines: string[]; size: number; lh: number }
+
+/**
+ * The break of a name into two lines that balances them, at the current font: at a space, or after a
+ * hyphen (which stays on the first line).  Null for a single word without a hyphen.
+ */
+export function splitName(ctx: Pick<CanvasRenderingContext2D, 'measureText'>, text: string): [string, string] | null {
+  let best: [string, string] | null = null, bestW = Infinity;
+  for (let i = 1; i < text.length - 1; i++) {
+    const c = text[i];
+    if (c !== ' ' && c !== '-') continue;
+    const a = c === ' ' ? text.slice(0, i) : text.slice(0, i + 1), b = text.slice(i + 1);
+    const w = Math.max(ctx.measureText(a).width, ctx.measureText(b).width);
+    if (w < bestW) {
+      bestW = w;
+      best = [a, b];
+    }
+  }
+  return best;
+}
 /** the egg cards' telegraph: its track and the time left */
 const TRACK = rgba(INK, 0.12);
 const TRACK_LEFT = rgba(INK, 0.55);
@@ -82,7 +106,7 @@ export class MothRenderer {
   private introBg: HTMLCanvasElement | null = null;
   private inner: { round: Round; pale: WingBitmap | null; deep: WingBitmap | null } | null = null;
   private readonly look: ChrysalisLook = { kind: 'hanging', color: '', accent: '', glass: 0, depth: 0, blind: false, pale: null, deep: null, warm: 0 };
-  private hero: { round: Round; sprite: ButterflySprite; shell: string; seam: string; card: HTMLCanvasElement | null } | null = null;
+  private hero: { round: Round; sprite: ButterflySprite; shell: string; seam: string; card: HTMLCanvasElement | null; cardH: number } | null = null;
   /** the finale's butterflies, painted a couple per frame */
   private readonly finale: ButterflySprite[] = [];
   private finalePx = 0;
@@ -90,6 +114,9 @@ export class MothRenderer {
   private faces = new WeakMap<EggOffer, (HTMLCanvasElement | undefined)[]>();
   private readonly eggTints = new Map<Species, string>();
   private readonly names = new Map<Species, string>();
+  /** how a name and a hint were set for a width (the HUD asks every frame; kept once the fonts are in) */
+  private readonly nameFits = new Map<string, NameFit>();
+  private readonly hintFits = new Map<string, { size: number; lines: string[] }>();
   private canopyFill: CanvasGradient | null = null;
   private readonly meterFills = new Map<string, CanvasGradient>();
   private glowArt: HTMLCanvasElement | null = null;
@@ -124,6 +151,8 @@ export class MothRenderer {
     this.stage = null;
     this.prepared.clear();
     this.panels.clear();
+    this.nameFits.clear();
+    this.hintFits.clear();
     this.faces = new WeakMap();
     if (this.hero) this.hero.card = null;
     this.finale.length = 0;
@@ -313,6 +342,40 @@ export class MothRenderer {
     return n;
   }
 
+  /**
+   * Fit a species name (the serif at 600) into `maxW`: one line from `size` down to `one` px, else two
+   * lines balanced at a space or hyphen, from `two` px down to 10 (German "Schwarzkolbiger
+   * Braun-Dickkopffalter" needs them); a single long word stays on one line, shrunk to 9 at the least.
+   * Sets the context's font.
+   */
+  private fitName(ctx: CanvasRenderingContext2D, text: string, maxW: number, size: number, one: number, two: number): NameFit {
+    const key = `${text}|${Math.round(maxW)}|${size}|${one}|${two}`;
+    let f = this.nameFits.get(key);
+    if (!f) {
+      const s1 = fitFont(ctx, text, maxW, size, 600, SERIF, one);
+      const fits = ctx.measureText(text).width <= maxW;
+      const split = fits ? null : splitName(ctx, text);
+      if (!split) f = { lines: [text], size: fits ? s1 : fitFont(ctx, text, maxW, one, 600, SERIF, 9), lh: 0 };
+      else {
+        let s = Math.min(two, size);
+        const wider = (): number => {
+          ctx.font = `600 ${s}px ${SERIF}`;
+          return Math.max(ctx.measureText(split[0]).width, ctx.measureText(split[1]).width);
+        };
+        while (s > 10 && wider() > maxW) s -= 0.5;
+        f = { lines: split, size: s, lh: Math.round(s * 1.2) };
+      }
+      if (fontsReady()) this.nameFits.set(key, f);
+    }
+    ctx.font = `600 ${f.size}px ${SERIF}`;
+    return f;
+  }
+
+  /** The lines of a fitted name, the first baseline at `y` (current font and alignment). */
+  private drawName(ctx: CanvasRenderingContext2D, f: NameFit, x: number, y: number): void {
+    for (let i = 0; i < f.lines.length; i++) ctx.fillText(f.lines[i], x, y + i * f.lh);
+  }
+
   private eggTint(sp: Species): string {
     let t = this.eggTints.get(sp);
     if (!t) this.eggTints.set(sp, (t = mix(sp.larva.body, '#E8E0B0', 0.55)));
@@ -493,7 +556,7 @@ export class MothRenderer {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'alphabetic';
       ctx.fillStyle = INK;
-      const title = r.last ? 'Złota godzina — ostatni liść' : r.index === 1 ? 'Nowy liść — wybierz jajo' : `Liść ${r.index} — wybierz jajo`;
+      const title = r.last ? t('cards.last') : r.index === 1 ? t('cards.first') : t('cards.nth', { n: r.index });
       const ty = L.cards[0].y - 20;
       fitFont(ctx, title, w - 32, 22, 600, SERIF);
       ctx.fillText(title, w / 2, ty);
@@ -509,12 +572,12 @@ export class MothRenderer {
       ctx.fillStyle = INK_SOFT;
       const hy = L.cards[0].y + L.cards[0].h + 24;
       if (hy < h - 64) {
-        const hint = 'Stuknij jajo — bez wyboru wykluje się lewe';
+        const hint = t('cards.hint');
         fitFont(ctx, hint, w - 32, 13, 500, SANS);
         ctx.fillText(hint, w / 2, hy);
       } else {
         // no room under the cards (a short landscape screen): a short note after the title
-        const note = 'bez wyboru — lewe jajo', nx = w / 2 + titleW / 2 + 16, room = w - nx - 16;
+        const note = t('cards.note'), nx = w / 2 + titleW / 2 + 16, room = w - nx - 16;
         fitFont(ctx, note, room, 12.5, 600, SANS, 10);
         if (ctx.measureText(note).width <= room) {
           ctx.textAlign = 'left';
@@ -589,18 +652,23 @@ export class MothRenderer {
     ctx.lineWidth = focus ? 3 : o.tier ? 2 : 1;
     roundRect(ctx, x + 1, y + 1, cw - 2, ch - 2, 17);
     ctx.stroke();
-    const pad = Math.max(10, cw * 0.07);
-    // tier and source
+    const pad = Math.max(10, cw * 0.07), inner = cw - pad * 2;
+    // tier and source share the top row when both fit; else the source takes a second row under it
+    // (German "AUSSERGEWÖHNLICH" next to "Für Blütenstaub"), and the "new" badge moves down with it
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';
     ctx.fillStyle = darken(tier.color, 0.15);
-    fitFont(ctx, tier.name.toUpperCase(), cw * 0.55, 11, 800, SANS);
-    ctx.fillText(tier.name.toUpperCase(), x + pad, y + pad + 9);
+    const tierText = tier.name.toUpperCase();
+    fitFont(ctx, tierText, inner, 11, 800, SANS, 8);
+    const tierW = ctx.measureText(tierText).width;
+    ctx.fillText(tierText, x + pad, y + pad + 9);
     ctx.textAlign = 'right';
     ctx.fillStyle = INK_SOFT;
-    const src = SOURCE_TEXT[o.source];
-    fitFont(ctx, src, cw * 0.48, 10.5, 600, SANS, 8);
-    ctx.fillText(src, x + cw - pad, y + pad + 9);
+    const src = SOURCE_TEXT[o.source], room = inner - tierW - 10;
+    fitFont(ctx, src, room, 10.5, 600, SANS, 8.5);
+    const row2 = ctx.measureText(src).width > room ? 13 : 0;
+    if (row2) fitFont(ctx, src, inner, 10.5, 600, SANS, 8);
+    ctx.fillText(src, x + cw - pad, y + pad + 9 + row2);
     // the species silhouette (the egg rocks in front of it, drawn every frame)
     const artY = y + ch * 0.4, sz = Math.min(cw * 0.36, ch * 0.2);
     const halo = ctx.createRadialGradient(0, artY, 0, 0, artY, sz * 1.6);
@@ -609,18 +677,16 @@ export class MothRenderer {
     ctx.fillStyle = halo;
     ctx.fillRect(-sz * 1.7, artY - sz * 1.7, sz * 3.4, sz * 3.4);
     drawSilhouette(ctx, sp, 0, artY - wingMidY(sp) * sz, sz, rgba(darken(sp.look.fore, 0.2), 0.28));
-    // name, plant
+    // name (two lines when one would be too small), plant
     ctx.textAlign = 'center';
     ctx.fillStyle = INK;
-    const name = this.nameOf(sp);
-    const nameSize = fitFont(ctx, name, cw - pad * 2, 17, 600, SERIF, 11);
-    const lines = nameSize <= 12 ? wrapLines(ctx, name, cw - pad * 2) : [name];
-    if (lines.length > 1) fitFont(ctx, name, cw * 2, 14, 600, SERIF);
+    const nf = this.fitName(ctx, this.nameOf(sp), inner, 17, 13, 14), half = nf.lh / 2;
     const ny = y + ch * 0.7;
-    lines.slice(0, 2).forEach((l, k2) => ctx.fillText(l, 0, ny + k2 * 17 - (lines.length > 1 ? 8 : 0)));
+    this.drawName(ctx, nf, 0, ny - half);
     ctx.fillStyle = INK_SOFT;
-    fitFont(ctx, PLANTS[sp.plant].on, cw - pad * 2, 12, 500, SANS);
-    ctx.fillText(PLANTS[sp.plant].on, 0, ny + 18 + (lines.length > 1 ? 9 : 0));
+    const on = PLANTS[sp.plant].on;
+    fitFont(ctx, on, inner, 12, 500, SANS);
+    ctx.fillText(on, 0, ny + 18 + half);
     // the classic recipe, and "new"
     const ry = y + ch - pad - 6, dotR = Math.max(5, Math.min(8, cw * 0.04));
     sp.classic.forEach((p, k2) => {
@@ -628,14 +694,15 @@ export class MothRenderer {
       ctx.drawImage(s, (k2 - 1) * dotR * 2.6 - s.width / d / 2, ry - s.height / d / 2, s.width / d, s.height / d);
     });
     if (o.isNew) {
+      const word = t('cards.new');
       ctx.font = `800 10px ${SANS}`;
-      const tw = ctx.measureText('NOWY').width + 12;
+      const tw = ctx.measureText(word).width + 12;
       ctx.fillStyle = '#C9952E';
-      roundRect(ctx, x + cw - pad - tw + 4, y + pad + 18, tw, 17, 8.5);
+      roundRect(ctx, x + cw - pad - tw + 4, y + pad + 18 + row2, tw, 17, 8.5);
       ctx.fill();
       ctx.fillStyle = '#FFF8E6';
       ctx.textAlign = 'center';
-      ctx.fillText('NOWY', x + cw - pad - tw / 2 + 4, y + pad + 30);
+      ctx.fillText(word, x + cw - pad - tw / 2 + 4, y + pad + 30 + row2);
     }
     if (fontsReady()) faces[k] = c;
     return c;
@@ -806,8 +873,8 @@ export class MothRenderer {
     }
   }
 
-  /** Palette slots (newest right) and the species' recipe. */
-  private palette(r: Round, x: number, y: number, maxW: number, withRecipe: boolean): void {
+  /** Palette slots (newest right) and the species' recipe; `cap`: the largest slot radius. */
+  private palette(r: Round, x: number, y: number, maxW: number, withRecipe: boolean, cap = 11): void {
     const { ctx } = this, d = this.dpr;
     let sig = r.palette.length;
     for (const p of r.palette) sig = sig * 8 + p + 1;
@@ -815,7 +882,7 @@ export class MothRenderer {
       if (r.palette.length) this.slotPop[Math.min(2, r.palette.length - 1)] = 1;
       this.lastPalette = sig;
     }
-    const sr = Math.min(11, maxW / 9);
+    const sr = Math.min(cap, maxW / 9);
     for (let i = 0; i < 3; i++) {
       const cx = x + sr + i * sr * 2.5, p = r.palette[i];
       this.slotPop[i] = Math.max(0, this.slotPop[i] - 0.05);
@@ -856,30 +923,32 @@ export class MothRenderer {
     const lag = b.clock < sim.lag;
     const mm = sim.provisional ?? 0;
     const cls = SIZE_CLASSES[sizeClass(sim.eatenShare(r))];
-    this.hudFrame(PANEL_FEED, PANEL_FEED - 20);
     const { ctx } = this;
     if (L.wide) {
       const x = L.info.x, y = L.info.y, w = L.info.w;
-      this.label(`ŻER · ${left} s`, x, y + 14, w);
+      // a name on two lines pushes the column's rows (and its panel) down by a line
+      const nf = this.fitName(ctx, this.nameOf(sp), w, 22, 14, 16), dy = nf.lines.length > 1 ? nf.lh : 0;
+      this.hudFrame(PANEL_FEED + dy, PANEL_FEED - 20);
+      this.label(t('hud.feed', { s: left }), x, y + 14, w);
       ctx.fillStyle = INK;
       ctx.textAlign = 'left';
-      fitFont(ctx, this.nameOf(sp), w, 22, 600, SERIF, 12);
-      ctx.fillText(this.nameOf(sp), x, y + 42);
+      ctx.font = `600 ${nf.size}px ${SERIF}`;
+      this.drawName(ctx, nf, x, y + (dy ? 39 : 42));
       ctx.fillStyle = INK_SOFT;
       fitFont(ctx, PLANTS[sp.plant].on, w, 13, 500, SANS);
-      ctx.fillText(PLANTS[sp.plant].on, x, y + 62);
-      this.label('BARWNIKI', x, y + 94, w);
-      this.palette(r, x, y + 116, w, false);
-      this.label('FORMA KLASYCZNA', x, y + 152, w);
+      ctx.fillText(PLANTS[sp.plant].on, x, y + 62 + dy);
+      this.label(t('hud.pigments'), x, y + 94 + dy, w);
+      this.palette(r, x, y + 116 + dy, w, false);
+      this.label(t('hud.classic'), x, y + 152 + dy, w);
       const d = this.dpr, alpha = ctx.globalAlpha;
       sp.classic.forEach((p, k) => {
         const s = dotSprite(p, 7 * d);
         ctx.globalAlpha = alpha * (r.palette.includes(p) ? 1 : 0.42);
-        ctx.drawImage(s, x + 8 + k * 20 - s.width / d / 2, y + 170 - s.height / d / 2, s.width / d, s.height / d);
+        ctx.drawImage(s, x + 8 + k * 20 - s.width / d / 2, y + 170 + dy - s.height / d / 2, s.width / d, s.height / d);
       });
       ctx.globalAlpha = alpha;
       const sx = L.stats.x, sw = L.stats.w, ry = L.stats.y;
-      this.label('ROZPIĘTOŚĆ', sx + sw, ry + 14, sw, 'right');
+      this.label(t('hud.span'), sx + sw, ry + 14, sw, 'right');
       ctx.textAlign = 'right';
       ctx.fillStyle = INK;
       ctx.font = `600 ${Math.min(40, sw * 0.24)}px ${SERIF}`;
@@ -889,17 +958,16 @@ export class MothRenderer {
       ctx.fillText('mm', sx + sw, ry + 54);
       this.classBadge(cls, sx + sw - 16, ry + 76);
       if (lag) this.label(S_WAKING, sx + sw, ry + 112, sw, 'right');
-      else this.meterLabel(S_NAME, 'SKUPIENIE', sx + sw, ry + 112, sw, S_COLOUR);
+      else this.meterLabel(S_NAME, t('hud.focus'), sx + sw, ry + 112, sw, S_COLOUR);
       this.meter(sx, ry + 120, sw, b.meter, S_COLOUR, b.meter >= 1);
-      this.label(`DZIŚ RAZEM ${sim.score} MM`, sx + sw, ry + 156, sw, 'right');
+      const total = fmtNum(sim.score);
+      this.label([t('hud.today', { mm: total }), t('hud.todayShort', { mm: total })], sx + sw, ry + 156, sw, 'right');
     } else {
       const x = L.info.x, y = L.info.y, w = L.info.w;
-      this.label(`ŻER · ${left} s`, x, y + 12, w);
-      ctx.fillStyle = INK;
-      ctx.textAlign = 'left';
-      fitFont(ctx, this.nameOf(sp), w, 17, 600, SERIF, 11);
-      ctx.fillText(this.nameOf(sp), x, y + 33);
-      this.palette(r, x, y + 52, w, true);
+      this.hudFrame(PANEL_FEED, PANEL_FEED - 20);
+      this.label(t('hud.feed', { s: left }), x, y + 12, w);
+      const slots = this.stripName(sp, x, y, w);
+      this.palette(r, x, slots.y, w, true, slots.r);
       const sx = L.stats.x, sw = L.stats.w;
       ctx.textAlign = 'right';
       ctx.fillStyle = INK;
@@ -910,8 +978,8 @@ export class MothRenderer {
       ctx.fillStyle = INK_SOFT;
       ctx.fillText('mm', sx + sw - 30, y + 32);
       this.classBadge(cls, sx + sw - 12, y + 25);
-      if (lag) this.label('ROZKRĘCA SIĘ', sx + sw, y + 48, sw, 'right');
-      else this.meterLabel(S_NAME, 'SKUPIENIE', sx + sw, y + 48, sw, S_COLOUR);
+      if (lag) this.label(t('hud.waking'), sx + sw, y + 48, sw, 'right');
+      else this.meterLabel(S_NAME, t('hud.focus'), sx + sw, y + 48, sw, S_COLOUR);
       this.meter(sx + sw * 0.25, y + 54, sw * 0.75, b.meter, S_COLOUR, b.meter >= 1);
     }
     // the very first leaf: how to steer; the first two leaves of a session, once it has woken up: what
@@ -920,14 +988,27 @@ export class MothRenderer {
     if (b.clock < steer) {
       const k = clamp01(b.clock / 0.4) * clamp01((steer - b.clock) / 0.6);
       toScreen(L, r.cat.x, r.cat.y, this.pt);
-      this.hint('Prowadź palcem — gąsienica skręca w jego stronę', this.pt.x, this.pt.y - 46, k);
+      this.hint(t('hint.steer'), this.pt.x, this.pt.y - 46, k);
     }
     const from = Math.max(sim.lag, steer) + 0.3;
     if (r.index <= 2 && b.clock > from && b.clock < from + 4.6) {
       const k = clamp01((b.clock - from) / 0.4) * clamp01((from + 4.6 - b.clock) / 0.5);
       // above the runner's signal banner (bottom centre)
-      this.hint('Skupienie — gąsienica je szybciej, linie grubieją', this.w / 2, this.h - 96, k);
+      this.hint(t('hint.focus'), this.w / 2, this.h - 96, k, true);
     }
+  }
+
+  /**
+   * The species name in the strip of a tall screen, under its label: one line, or two smaller ones
+   * when one would be too small (the palette under it then gets smaller slots).  Returns where the
+   * palette's slots go: their centre line and largest radius.
+   */
+  private stripName(sp: Species, x: number, y: number, w: number): { y: number; r: number } {
+    const { ctx } = this, nf = this.fitName(ctx, this.nameOf(sp), w, 17, 12, 12), two = nf.lines.length > 1;
+    ctx.fillStyle = INK;
+    ctx.textAlign = 'left';
+    this.drawName(ctx, nf, x, two ? y + 25 : y + 33);
+    return two ? { y: y + 55, r: 8.5 } : { y: y + 52, r: 11 };
   }
 
   private classBadge(cls: string, cx: number, cy: number): void {
@@ -953,25 +1034,39 @@ export class MothRenderer {
     } else this.panel(8, L.info.y - 4, this.w - 16, STRIP);
   }
 
-  private hint(text: string, x: number, y: number, alpha: number): void {
+  /**
+   * A dark rounded bubble: one line from 14 px down to 12.5, else wrapped at 13 px (German and Swedish
+   * run long).  `centred`: a hint at the bottom centre, which on a wide screen may use the room between
+   * the side columns for one longer line.
+   */
+  private hint(text: string, x: number, y: number, alpha: number, centred = false): void {
     if (alpha <= 0.01) return;
-    const { ctx } = this, base = ctx.globalAlpha;
+    const { ctx } = this, base = ctx.globalAlpha, L = this.L;
     ctx.globalAlpha = base * alpha;
-    const size = fitFont(ctx, text, Math.min(this.w - 40, 320), 14, 600, SANS, 11);
-    const lines = size <= 11 ? wrapLines(ctx, text, Math.min(this.w - 40, 260)) : null;
+    const between = centred && L.wide ? Math.min(520, L.stats.x - (L.info.x + L.info.w) - 40) : 0;
+    const maxW = Math.min(this.w - 40, Math.max(320, between)), key = `${text}|${maxW}`;
+    let fit = this.hintFits.get(key);
+    if (!fit) {
+      const size = fitFont(ctx, text, maxW, 14, 600, SANS, 12.5);
+      if (ctx.measureText(text).width <= maxW) fit = { size, lines: [text] };
+      else {
+        ctx.font = `600 13px ${SANS}`;
+        fit = { size: 13, lines: wrapLines(ctx, text, Math.min(this.w - 40, Math.max(300, maxW * 0.75))) };
+      }
+      if (fontsReady()) this.hintFits.set(key, fit);
+    }
+    ctx.font = `600 ${fit.size}px ${SANS}`;
     let tw = 0;
-    if (lines) for (const l of lines) tw = Math.max(tw, ctx.measureText(l).width);
-    else tw = ctx.measureText(text).width;
+    for (const l of fit.lines) tw = Math.max(tw, ctx.measureText(l).width);
     tw += 24;
-    const n = lines ? lines.length : 1, th = n * 18 + 14;
+    const th = fit.lines.length * 18 + 14;
     const bx = Math.max(12, Math.min(this.w - tw - 12, x - tw / 2)), by = Math.max(TOP + 80, y - th);
     ctx.fillStyle = 'rgba(47,58,38,.88)';
     roundRect(ctx, bx, by, tw, th, 12);
     ctx.fill();
     ctx.fillStyle = '#FBF7EC';
     ctx.textAlign = 'center';
-    if (lines) lines.forEach((l, i) => ctx.fillText(l, bx + tw / 2, by + 21 + i * 18));
-    else ctx.fillText(text, bx + tw / 2, by + 21);
+    fit.lines.forEach((l, i) => ctx.fillText(l, bx + tw / 2, by + 21 + i * 18));
     ctx.globalAlpha = base;
   }
 
@@ -1085,22 +1180,22 @@ export class MothRenderer {
   private hudRest(sim: MothSim, r: Round): void {
     const L = this.layoutFor(r), sp = r.species!, b = r.restBlock;
     const { ctx } = this;
-    const phase = sim.phase === 'spin' ? 'PRZĘDZENIE' : r.blind ? 'KOKON' : 'POCZWARKA';
     const left = b ? Math.max(0, Math.ceil(b.len - b.clock)) : 0;
     const lag = !!b && b.clock < sim.lag;
-    const title = sim.phase === 'spin' ? phase : `${phase} · ${left} s`;
+    const title = sim.phase === 'spin' ? t('hud.spin') : t(r.blind ? 'hud.cocoon' : 'hud.chrysalis', { s: left });
     this.hudFrame(PANEL_REST, PANEL_REST);
     const x = L.info.x, y = L.info.y, w = L.info.w;
     if (L.wide) {
       this.label(title, x, y + 14, w);
+      // a second line of the name fits above the palette's label
+      const nf = this.fitName(ctx, this.nameOf(sp), w, 22, 14, 16);
       ctx.fillStyle = INK;
       ctx.textAlign = 'left';
-      fitFont(ctx, this.nameOf(sp), w, 22, 600, SERIF, 12);
-      ctx.fillText(this.nameOf(sp), x, y + 42);
-      this.label('BARWNIKI', x, y + 94, w);
+      this.drawName(ctx, nf, x, nf.lines.length > 1 ? y + 39 : y + 42);
+      this.label(t('hud.pigments'), x, y + 94, w);
       this.palette(r, x, y + 116, w, false);
       const sx = L.stats.x, sw = L.stats.w, ry = L.stats.y;
-      this.label('ROZPIĘTOŚĆ', sx + sw, ry + 14, sw, 'right');
+      this.label(t('hud.span'), sx + sw, ry + 14, sw, 'right');
       ctx.textAlign = 'right';
       ctx.fillStyle = INK;
       ctx.font = `600 ${Math.min(40, sw * 0.24)}px ${SERIF}`;
@@ -1110,28 +1205,25 @@ export class MothRenderer {
       ctx.fillText('mm', sx + sw, ry + 54);
       if (b && !r.blind) {
         if (lag) this.label(B_WAKING, sx + sw, ry + 112, sw, 'right');
-        else this.meterLabel(B_NAME, 'SPOKÓJ', sx + sw, ry + 112, sw, B_COLOUR);
+        else this.meterLabel(B_NAME, t('hud.calm'), sx + sw, ry + 112, sw, B_COLOUR);
         this.meter(sx, ry + 120, sw, b.meter, B_COLOUR, b.meter >= 1);
-      } else if (r.blind) this.label('BEZ PODGLĄDU', sx + sw, ry + 112, sw, 'right');
+      } else if (r.blind) this.label(t('hud.blind'), sx + sw, ry + 112, sw, 'right');
     } else {
       this.label(title, x, y + 12, w);
-      ctx.fillStyle = INK;
-      ctx.textAlign = 'left';
-      fitFont(ctx, this.nameOf(sp), w, 17, 600, SERIF, 11);
-      ctx.fillText(this.nameOf(sp), x, y + 33);
-      this.palette(r, x, y + 52, w, false);
+      const slots = this.stripName(sp, x, y, w);
+      this.palette(r, x, slots.y, w, false, slots.r);
       const sx = L.stats.x, sw = L.stats.w;
       if (b && !r.blind) {
-        if (lag) this.label('CHWILA SPOKOJU', sx + sw, y + 30, sw, 'right');
-        else this.meterLabel(B_NAME, 'SPOKÓJ', sx + sw, y + 30, sw, B_COLOUR);
+        if (lag) this.label(t('hud.settling'), sx + sw, y + 30, sw, 'right');
+        else this.meterLabel(B_NAME, t('hud.calm'), sx + sw, y + 30, sw, B_COLOUR);
         this.meter(sx + sw * 0.25, y + 38, sw * 0.75, b.meter, B_COLOUR, b.meter >= 1);
-      } else if (r.blind) this.label('KOKON BEZ PODGLĄDU', sx + sw, y + 30, sw, 'right');
+      } else if (r.blind) this.label(t('hud.blindLong'), sx + sw, y + 30, sw, 'right');
     }
     // the first two chrysalises, and the session's first blind cocoon, say how to rest
     if (sim.phase === 'chrysalis' && b && b.clock < 6.5 && (r.index <= 2 || (r.blind && sim.counts.blindN === 0))) {
       const k = clamp01((b.clock - 3.2) / 0.4) * clamp01((6.5 - b.clock) / 0.5);
       // above the runner's signal banner (bottom centre)
-      this.hint(r.blind ? 'Kokon nic nie pokazuje — odpocznij jak zwykle' : 'Rozluźnij czoło i patrz miękko — barwy zgęstnieją', this.w / 2, this.h - 96, k);
+      this.hint(t(r.blind ? 'hint.blind' : 'hint.rest'), this.w / 2, this.h - 96, k, true);
     }
   }
 
@@ -1141,7 +1233,7 @@ export class MothRenderer {
     if (!o) return;
     if (!this.hero || this.hero.round !== r) {
       const px = Math.min(520, Math.max(120, Math.min(w * 0.4, h * 0.3) * this.dpr));
-      this.hero = { round: r, sprite: spriteOfRecord(o.rec, px), shell: rgba(lighten(sp.pupa.color, 0.35), 0.8), seam: rgba(darken(sp.pupa.color, 0.3), 0.6), card: null };
+      this.hero = { round: r, sprite: spriteOfRecord(o.rec, px), shell: rgba(lighten(sp.pupa.color, 0.35), 0.8), seam: rgba(darken(sp.pupa.color, 0.3), 0.6), card: null, cardH: CARD_BASE + CARD_ROW };
     }
     const hero = this.hero, t = sim.phaseT, still = this.opts.reducedMotion;
     // the shell clears, shivers and splits; a blind cocoon's silk first melts away around it
@@ -1191,7 +1283,8 @@ export class MothRenderer {
     const grow = still ? clamp01((t - 0.6) / 0.6) : ease.outCubic(clamp01((t - 0.6) / 2.6));
     const flyK = still ? 0 : clamp01((t - 3.9) / 1.1);
     // on a short screen it settles below the card as the card comes in
-    const below = Math.max(0, Math.min(TOP + CARD_H + 16 + size * 0.75, a.y1 - size * 0.75) - g.cy);
+    const cardH = this.emergeCardArt(r).h;
+    const below = Math.max(0, Math.min(TOP + 6 + cardH + 10 + size * 0.75, a.y1 - size * 0.75) - g.cy);
     const cx = g.cx + flyK * flyK * w * 0.35, cy = g.cy + below * ease.inOutSine(clamp01((t - 1.2) / 0.8)) - flyK * h * 0.5;
     let open = 1;
     if (!still && t > 3.2) open = 0.55 + 0.45 * Math.cos((t - 3.2) * 9);
@@ -1211,34 +1304,58 @@ export class MothRenderer {
     this.emergeCard(r, clamp01((t - 1.5) / 0.5));
   }
 
-  /** The emergence card (species, size, its tags), painted once per butterfly, sliding in with `k`. */
+  /** The emergence card's picture and height (painted once per butterfly once the fonts are in). */
+  private emergeCardArt(r: Round): { card: HTMLCanvasElement; h: number } {
+    const hero = this.hero!;
+    if (hero.card) return { card: hero.card, h: hero.cardH };
+    const art = this.paintEmergeCard(r, Math.min(this.w - 24, 420));
+    hero.cardH = art.h;
+    if (fontsReady()) hero.card = art.card;
+    return art;
+  }
+
+  /** The emergence card (species, size, its tags), sliding in with `k`. */
   private emergeCard(r: Round, k: number): void {
-    const o = r.outcome, hero = this.hero;
-    if (!o || !hero || k <= 0) return;
+    if (!r.outcome || !this.hero || k <= 0) return;
     const { ctx, w } = this, d = this.dpr;
     const cw = Math.min(w - 24, 420), x = (w - cw) / 2, y = TOP + 6;
-    let card = hero.card;
-    if (!card) {
-      card = this.paintEmergeCard(r, cw);
-      if (fontsReady()) hero.card = card;
-    }
+    const { card } = this.emergeCardArt(r);
     ctx.globalAlpha = k;
     ctx.drawImage(card, x - SHADOW_PAD, y - SHADOW_PAD + (1 - k) * -10, card.width / d, card.height / d);
     ctx.globalAlpha = 1;
   }
 
-  private paintEmergeCard(r: Round, cw: number): HTMLCanvasElement {
-    const o = r.outcome!, tags: string[] = [];
-    if (o.isNew) tags.push('Nowy gatunek!');
-    if (o.radiant) tags.push('Promienny!');
-    if (o.aberration) tags.push('Odmiana!');
+  /**
+   * The card: the name, its size, and its tags, the special ones gold, in at most two rows (German and
+   * Swedish tags run long); a tag that fits neither row stays off, and the least important come last.
+   */
+  private paintEmergeCard(r: Round, cw: number): { card: HTMLCanvasElement; h: number } {
+    const o = r.outcome!, tags: { text: string; special: boolean }[] = [];
+    const tag = (text: string, special = false) => tags.push({ text, special });
+    if (o.isNew) tag(t('tag.new'), true);
+    if (o.radiant) tag(t('tag.radiant'), true);
+    if (o.aberration) tag(t('tag.aberration'), true);
     // the blind cocoon's result, revealed only now
-    if (o.blind && o.deep) tags.push(BLIND_OK);
-    if (o.classic) tags.push('Forma klasyczna');
-    if (o.record) tags.push('Rekord gatunku');
-    if (o.silk) tags.push('Jedwabna nić');
-    if (o.daily) tags.push('Liść dnia');
-    const ch = tags.length ? CARD_H : 70, d = this.dpr;
+    if (o.blind && o.deep) tag(t('tag.blind'), true);
+    if (o.classic) tag(t('tag.classic'));
+    if (o.record) tag(t('tag.record'));
+    if (o.silk) tag(t('tag.silk'));
+    if (o.daily) tag(t('tag.daily'));
+    // rows of tags: [first tag, past the last, total width]
+    const m = this.ctx, room = cw - 24, rows: [number, number, number][] = [];
+    m.save();
+    m.font = `700 11.5px ${SANS}`;
+    const widths = tags.map(tg => m.measureText(tg.text).width + 18);
+    m.restore();
+    for (let i = 0; i < tags.length; i++) {
+      const row = rows[rows.length - 1];
+      if (row && row[2] + 6 + widths[i] <= room) {
+        row[1] = i + 1;
+        row[2] += 6 + widths[i];
+      } else if (rows.length < 2 && widths[i] <= room) rows.push([i, i + 1, widths[i]]);
+      else break;
+    }
+    const ch = CARD_BASE + rows.length * CARD_ROW, d = this.dpr;
     const c = canvas((cw + 2 * SHADOW_PAD) * d, (ch + 2 * SHADOW_PAD) * d), p = ctx2d(c);
     p.scale(d, d);
     p.translate(SHADOW_PAD, SHADOW_PAD);
@@ -1255,27 +1372,24 @@ export class MothRenderer {
     fitFont(p, name, cw - 32, 24, 600, SERIF, 14);
     p.fillText(name, cw / 2, 32);
     p.fillStyle = INK_SOFT;
-    const sub = `${o.rec.mm} mm · rozmiar ${o.cls}${o.pollen ? ` · +${o.pollen} pyłku` : ''}`;
+    const sub = t(o.pollen ? 'out.subPollen' : 'out.sub', { mm: o.rec.mm, cls: o.cls, pollen: o.pollen });
     fitFont(p, sub, cw - 32, 13, 600, SANS);
     p.fillText(sub, cw / 2, 54);
-    if (tags.length) {
-      p.font = `700 11.5px ${SANS}`;
-      const widths = tags.map(t => p.measureText(t).width + 18);
-      let total = widths.reduce((s, v) => s + v + 6, -6);
-      let shown = tags.length;
-      while (total > cw - 24 && shown > 1) total -= widths[--shown] + 6;
+    p.font = `700 11.5px ${SANS}`;
+    rows.forEach(([from, to, total], row) => {
       let tx = cw / 2 - total / 2;
-      for (let i = 0; i < shown; i++) {
-        const special = tags[i].startsWith('Promienny') || tags[i].startsWith('Nowy') || tags[i].startsWith('Odmiana') || tags[i] === BLIND_OK;
+      const ty = 66 + row * CARD_ROW;
+      for (let i = from; i < to; i++) {
+        const { text, special } = tags[i];
         p.fillStyle = special ? '#C9952E' : 'rgba(47,58,38,.12)';
-        roundRect(p, tx, 66, widths[i], 20, 10);
+        roundRect(p, tx, ty, widths[i], 20, 10);
         p.fill();
         p.fillStyle = special ? '#FFF8E6' : INK;
-        p.fillText(tags[i], tx + widths[i] / 2, 80);
+        p.fillText(text, tx + widths[i] / 2, ty + 14);
         tx += widths[i] + 6;
       }
-    }
-    return c;
+    });
+    return { card: c, h: ch };
   }
 
   // ── the finale: today's butterflies over the glasshouse ────────
@@ -1298,7 +1412,7 @@ export class MothRenderer {
       drawButterfly(ctx, this.finale[i], x, y, size * (0.8 + 0.4 * (1 - k)), flap, Math.sin(ang) * 0.3, clamp01(k * 6) * clamp01((1 - k) * 5));
     }
     const mm = list.reduce((s, o) => s + o.rec.mm, 0);
-    const line = list.length ? `Dziś ${list.length} ${plural(list.length, 'motyl', 'motyle', 'motyli')} · ${mm} mm` : 'Motyle odpoczywają';
+    const line = list.length ? t('finale.line', { n: list.length, mm: fmtNum(mm) }) : t('finale.none');
     const big = Math.min(46, Math.max(26, w * 0.05)), ty = Math.max(TOP + big + 20, h * 0.26);
     const gr = Math.min(w * 0.42, 380);
     ctx.globalAlpha = 0.8;
@@ -1306,8 +1420,8 @@ export class MothRenderer {
     ctx.globalAlpha = 1;
     ctx.textAlign = 'center';
     ctx.fillStyle = '#4A2E14';
-    fitFont(ctx, 'Złota godzina', w - 40, big, 600, SERIF);
-    ctx.fillText('Złota godzina', w / 2, ty);
+    fitFont(ctx, GOLDEN_HOUR, w - 40, big, 600, SERIF);
+    ctx.fillText(GOLDEN_HOUR, w / 2, ty);
     ctx.fillStyle = '#7A5230';
     fitFont(ctx, line, w - 40, Math.max(14, big * 0.4), 600, SANS);
     ctx.fillText(line, w / 2, ty + big * 0.75);

@@ -7,6 +7,8 @@
 import type { Hub, HubSample } from '../hub';
 import { REASON_TEXT, WARNING_TEXT } from '../hub';
 import { mulberry32 } from '../core/random';
+import { fmtNum, fmtSigned } from '../i18n';
+import { BAND_NAME, t } from '../i18n/arcade';
 import type { AppSettings } from '../settings';
 import type { SessionDB } from '../storage/db';
 import { TOOL_INFO, type Tool } from '../tools';
@@ -33,7 +35,7 @@ const icon = (id: string) => {
 
 /** Longest a game may keep a finished session going to resolve its current move (s). */
 const OVERTIME_SEC = 30;
-const COUNTDOWN = ['3', '2', '1', 'Start!'];
+const COUNTDOWN = ['3', '2', '1', t('run.go')];
 
 export interface ArcadeDeps {
   hub: Hub;
@@ -114,7 +116,7 @@ export class ArcadeRunner {
   start(entry: ArcadeEntry, mod: ArcadeModule, progress: object): void {
     if (this.active) return;
     const tool = this.d.hub.tool;
-    if (!tool) throw new Error('Najpierw wybierz opaskę');
+    if (!tool) throw new Error(t('run.noBand'));
     const prefs = this.d.settings.arcade;
     this.audio = new ArcadeAudio(prefs.volume, prefs.sound);
     this.audio.start();
@@ -184,32 +186,32 @@ export class ArcadeRunner {
     const overlay = h('div', { class: 'arcade-overlay' });
     const timeBar = h('i');
     const clock = h('span', { class: 'arcade-clock mono' });
-    const pause = h('button', { class: 'icon-btn arcade-pause', type: 'button', 'aria-label': 'Pauza' }, icon('i-pause'));
+    const pause = h('button', { class: 'icon-btn arcade-pause', type: 'button', 'aria-label': t('run.pause') }, icon('i-pause'));
     pause.addEventListener('click', e => {
       e.stopPropagation();
       if (this.stage === 'play') this.setPaused(!this.session?.paused); else this.requestPause();
     });
     const top = h('div', { class: 'arcade-top' },
-      h('div', { class: 'arcade-time', role: 'progressbar', 'aria-label': 'Czas sesji', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, timeBar),
+      h('div', { class: 'arcade-time', role: 'progressbar', 'aria-label': t('run.time'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, timeBar),
       clock, pause);
     const hold = h('div', { class: 'hold', hidden: true, role: 'status' });
     let chip: HTMLElement | null = null, chipBar: HTMLElement | null = null, chipHold: HTMLElement | null = null;
     if (entry.focusChip) {
       chipBar = h('i');
       chipHold = h('small');
-      chip = h('div', { class: 'arcade-chip', title: 'Skupienie: kreska to próg, który dopasowuje się do Ciebie' },
+      chip = h('div', { class: 'arcade-chip', title: t('run.chip') },
         icon('i-brain'), h('span', { class: 'arcade-chip-bar' }, chipBar, h('b')), chipHold);
     }
     let sim: HTMLButtonElement | null = null;
     if (this.d.hub.status.source === 'simulator') {
-      sim = h('button', { class: 'btn sim-focus', type: 'button', 'aria-pressed': 'false' }, '▲ Symuluj skupienie');
+      sim = h('button', { class: 'btn sim-focus', type: 'button', 'aria-pressed': 'false' }, `▲ ${t('run.simulate')}`);
       sim.addEventListener('click', e => {
         e.stopPropagation();
         this.toggleSim();
         wrap.focus({ preventScroll: true });   // else Space and Enter (the games' keys) would press this button again
       });
     }
-    const wrap = h('div', { class: 'arcade', role: 'application', tabindex: '-1', 'aria-label': `${entry.title}. Spacja albo stuknięcie — akcja, Escape — pauza.` },
+    const wrap = h('div', { class: 'arcade', role: 'application', tabindex: '-1', 'aria-label': t('run.keys', { title: entry.title }) },
       canvas, hud, top, chip, hold, sim, overlay);
     const pos = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect();
@@ -271,12 +273,12 @@ export class ArcadeRunner {
     const tip = h('p', { class: 'arcade-tip', 'aria-live': 'polite' });
     ui.cal = { bar, text, reason, tip };
     ui.overlay.replaceChildren(h('div', { class: 'arcade-card' },
-      h('p', { class: 'eyebrow' }, 'Kalibracja'),
-      h('h2', null, this.session!.tool === 'fnirs' ? 'Szukam przepływu krwi i tlenu…' : 'Szukam fal mózgowych…'),
+      h('p', { class: 'eyebrow' }, t('cal.eyebrow')),
+      h('h2', null, t(this.session!.tool === 'fnirs' ? 'cal.fnirs' : 'cal.eeg')),
       h('div', { class: 'progress calib-bar' }, bar), text,
-      h('p', { class: 'muted' }, 'Siedź spokojnie, z miękką uwagą — to punkt odniesienia dla całej sesji.'),
+      h('p', { class: 'muted' }, t('cal.still')),
       tip, reason,
-      h('button', { class: 'btn ghost', type: 'button', on: { click: () => this.cancel() } }, 'Wróć')));
+      h('button', { class: 'btn ghost', type: 'button', on: { click: () => this.cancel() } }, t('cal.back'))));
     let i = 0;
     const showTip = () => { tip.textContent = entry.tips[i++ % entry.tips.length]; };
     showTip();
@@ -292,7 +294,7 @@ export class ArcadeRunner {
     const baseline = c.calStage === 'baseline';
     const p = baseline ? st.progress * 0.4 : 0.4 + c.calProgress * 0.6;
     cal.bar.style.width = `${Math.round(p * 100)}%`;
-    cal.text.textContent = baseline ? `Linia bazowa opaski: ${Math.round(st.progress * 100)}%` : `Punkt odniesienia: ${Math.round(c.calProgress * 100)}%`;
+    cal.text.textContent = baseline ? t('cal.baseline', { pct: Math.round(st.progress * 100) }) : t('cal.reference', { pct: Math.round(c.calProgress * 100) });
     const r = c.reason && c.reason !== 'baseline' ? REASON_TEXT[c.reason] : c.warning ? WARNING_TEXT[c.warning] : '';
     if (cal.reason.textContent !== r) cal.reason.textContent = r;
     this.calT = p;
@@ -337,15 +339,15 @@ export class ArcadeRunner {
   }
 
   // ── the loop ───────────────────────────────────────────────────
-  private loop = (t: number): void => {
+  private loop = (ms: number): void => {
     if (!this.active || this.stage === 'summary') return;
-    const dt = Math.min(0.05, Math.max(0, (t - this.lastFrame) / 1000));
-    this.lastFrame = t;
+    const dt = Math.min(0.05, Math.max(0, (ms - this.lastFrame) / 1000));
+    this.lastFrame = ms;
     const ses = this.session!, game = this.game!;
     const paused = ses.paused;
     if (this.stage === 'calibration' || this.stage === 'countdown') this.safe(() => game.intro(dt, this.stage === 'countdown' ? 1 : this.calT));
     else if (this.stage === 'play' && !paused) {
-      const now = ses.t + Math.min(0.15, (t - this.lastSampleAt) / 1000);
+      const now = ses.t + Math.min(0.15, (ms - this.lastSampleAt) / 1000);
       this.safe(() => game.update(dt, ses.frame, now));
     }
     if (!paused || this.stage !== 'play') this.safe(() => game.draw());
@@ -361,7 +363,7 @@ export class ArcadeRunner {
     } catch (e) {
       this.broken = true;
       console.error(e);
-      toast(`Błąd gry: ${e instanceof Error ? e.message : String(e)}`, true);
+      toast(t('run.gameError', { msg: e instanceof Error ? e.message : String(e) }), true);
       if (this.session?.phase === 'play' && this.session.worthSaving) void this.complete();
       else this.cancel();
     }
@@ -377,7 +379,7 @@ export class ArcadeRunner {
       ui.time.parentElement?.setAttribute('aria-valuenow', String(pct));
     }
     const left = Math.max(0, ses.plannedSec - ses.t);
-    const txt = this.stage !== 'play' ? '' : ses.timeUp ? 'dogrywka' : fmtDur(left);
+    const txt = this.stage !== 'play' ? '' : ses.timeUp ? t('run.overtime') : fmtDur(left);
     if (ui.clock.textContent !== txt) ui.clock.textContent = txt;
     if (ui.chipBar) {
       const f = ses.frame;
@@ -393,8 +395,8 @@ export class ArcadeRunner {
     const ses = this.session!, ui = this.ui;
     if (!ui) return;
     const c = ses.core;
-    const reason = c.recalibrating ? `Nowa linia bazowa — kalibruję ponownie (${Math.round(c.meter.calProgressNow * 100)}%)`
-      : c.reliable ? '' : c.reason ? REASON_TEXT[c.reason] : 'Czekam na sygnał';
+    const reason = c.recalibrating ? t('note.recalibrating', { pct: Math.round(c.meter.calProgressNow * 100) })
+      : c.reliable ? '' : c.reason ? REASON_TEXT[c.reason] : t('note.waiting');
     const note = reason || (c.warning ? WARNING_TEXT[c.warning].split(';')[0] : '');
     ui.hold.hidden = !note;
     ui.hold.classList.toggle('soft', !reason && !!note);
@@ -458,14 +460,14 @@ export class ArcadeRunner {
       this.audio?.suspend();
       const keep = ses.worthSaving;
       ui.overlay.replaceChildren(h('div', { class: 'arcade-card' },
-        h('p', { class: 'eyebrow' }, 'Pauza'),
+        h('p', { class: 'eyebrow' }, t('pause.eyebrow')),
         h('h2', null, this.entry!.title),
-        h('p', { class: 'muted' }, `Zagrane ${fmtDur(ses.t)} z ${fmtDur(ses.plannedSec)}.${keep ? '' : ' Sesja krótsza niż 30 s nie zostanie zapisana.'}`),
+        h('p', { class: 'muted' }, t(keep ? 'pause.played' : 'pause.playedShort', { played: fmtDur(ses.t), planned: fmtDur(ses.plannedSec) })),
         h('div', { class: 'row center' },
-          h('button', { class: 'btn primary big', type: 'button', on: { click: () => this.setPaused(false) } }, 'Wróć do gry'),
-          keep ? h('button', { class: 'btn big', type: 'button', on: { click: () => void this.complete() } }, 'Zakończ i zapisz') : null,
-          h('button', { class: 'btn ghost big', type: 'button', on: { click: () => this.cancel() } }, keep ? 'Porzuć' : 'Wyjdź')),
-        h('button', { class: 'btn ghost', type: 'button', on: { click: () => this.d.openSheet() } }, icon('i-bt'), 'Opaska')));
+          h('button', { class: 'btn primary big', type: 'button', on: { click: () => this.setPaused(false) } }, t('pause.resume')),
+          keep ? h('button', { class: 'btn big', type: 'button', on: { click: () => void this.complete() } }, t('pause.save')) : null,
+          h('button', { class: 'btn ghost big', type: 'button', on: { click: () => this.cancel() } }, t(keep ? 'pause.discard' : 'pause.leave'))),
+        h('button', { class: 'btn ghost', type: 'button', on: { click: () => this.d.openSheet() } }, icon('i-bt'), t('pause.band', { band: BAND_NAME[ses.tool] }))));
       (ui.overlay.querySelector('.btn.primary') as HTMLButtonElement | null)?.focus();
     } else {
       ui.overlay.replaceChildren();
@@ -526,7 +528,7 @@ export class ArcadeRunner {
     return { stage: this.stage, t: ses.t, level: ses.frame.level, reliable: ses.frame.reliable, outcome };
   }
 
-  /** Leave without saving (calibration "Wróć", pause "Porzuć"). */
+  /** Leave without saving (calibration "Wróć", pause "Porzuć" / "Wyjdź"). */
   cancel(): void {
     if (!this.active || this.completing) return;
     const ses = this.session;
@@ -577,12 +579,12 @@ export class ArcadeRunner {
     const before = await this.d.db.listTrainings().catch(() => [] as TrainingResult[]);
     const result = ses.toResult({
       id: `game_${entry.id}_${Date.now()}`, source: st.source === 'device' ? 'device' : 'simulator',
-      device: st.source === 'device' ? (st.device.name ?? TOOL_INFO[ses.tool].device) : 'Symulator',
-    }, { id: entry.id, title: entry.title, score: outcome.score, unit: outcome.unit, best, stats: outcome.stats });
+      device: st.source === 'device' ? (st.device.name ?? TOOL_INFO[ses.tool].device) : t('run.simulator'),
+    }, { id: entry.id, title: entry.title.replace(/\u00ad/g, ''), score: outcome.score, unit: outcome.unit, best, stats: outcome.stats });
     try {
       await Promise.all([this.d.db.putTraining(result), saveProgress(this.d.db, entry.id, this.progress!)]);
     } catch (e) {
-      toast(`Nie udało się zapisać: ${e instanceof Error ? e.message : String(e)}`, true);
+      toast(t('run.saveError', { msg: e instanceof Error ? e.message : String(e) }), true);
     }
     const all = [result, ...before];
     this.d.onSaved(result);
@@ -592,12 +594,14 @@ export class ArcadeRunner {
   private summary(r: TrainingResult, o: ArcadeOutcome, day: ReturnType<typeof dayScore>, miles: { title: string }[]): void {
     this.setStage('summary');
     const entry = this.entry!, mod = this.mod!, progress = this.progress!;
-    const signPct = (v: number | null) => (v === null ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`);
+    const signPct = (v: number | null) => (v === null ? '—' : t('sum.pct', { v: fmtSigned(v, 1) }));
+    /** a count, or a score with decimals should a game ever give one */
+    const num = (v: number) => fmtNum(v, Number.isInteger(v) ? 0 : 1);
     const stat = (k: string, v: string, unit = '') => h('div', { class: 'stat' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v, unit ? h('small', null, unit) : null));
-    const ring = h('div', { class: 'ring', role: 'img', 'aria-label': `Wynik dnia ${day.score} na 100` }, h('b', null, String(day.score)));
+    const ring = h('div', { class: 'ring', role: 'img', 'aria-label': t('sum.ring', { score: day.score }) }, h('b', null, String(day.score)));
     ring.style.setProperty('--p', String(day.score));
-    const overview = h('canvas', { class: 'overview', 'aria-label': 'Przebieg aktywności w sesji' });
-    const again = h('button', { class: 'btn primary big', type: 'button' }, 'Jeszcze raz');
+    const overview = h('canvas', { class: 'overview', 'aria-label': t('sum.curve') });
+    const again = h('button', { class: 'btn primary big', type: 'button' }, t('sum.again'));
     again.addEventListener('click', run(() => {
       this.active = false;
       this.ui = null;
@@ -606,25 +610,26 @@ export class ArcadeRunner {
     const el = h('div', { class: 'summary arcade-summary' }, h('div', { class: 'summary-inner' },
       h('div', { class: 'arcade-score' },
         h('p', { class: 'eyebrow' }, entry.title),
-        h('div', { class: 'arcade-big' }, h('b', null, String(o.score)), h('span', null, o.unit)),
-        o.record ? h('p', { class: 'arcade-record' }, icon('i-star'), 'Nowy rekord!')
-          : r.game?.best !== null && r.game?.best !== undefined ? h('p', { class: 'muted' }, `Rekord: ${r.game.best} ${mod.unit?.(r.game.best) ?? entry.unit}`) : null),
-      o.highlights.map(t => h('div', { class: 'milestone' }, icon('i-star'), t)),
+        h('div', { class: 'arcade-big' }, h('b', null, num(o.score)), h('span', null, o.unit)),
+        o.record ? h('p', { class: 'arcade-record' }, icon('i-star'), t('sum.record'))
+          : r.game?.best !== null && r.game?.best !== undefined
+            ? h('p', { class: 'muted' }, t('sum.best', { score: num(r.game.best), unit: mod.unit?.(r.game.best) ?? entry.unit })) : null),
+      o.highlights.map(line => h('div', { class: 'milestone' }, icon('i-star'), line)),
       o.stats.length ? h('div', { class: 'summary-grid' }, o.stats.slice(0, 8).map(([k, v]) => stat(k, v))) : null,
       h('div', { class: 'card' },
-        h('div', { class: 'card-head' }, 'Trening', h('span', { class: 'hint' }, 'aktywność względem początku · linia = 0')),
+        h('div', { class: 'card-head' }, t('sum.training'), h('span', { class: 'hint' }, t('sum.trainingHint'))),
         h('div', { class: 'summary-grid' },
-          stat('Aktywność', signPct(r.activity_avg_pct)), stat('Kontrola', String(r.control_sec), 's'),
-          stat('Tlen', String(r.points), 'p'), stat('Sesja', fmtDur(r.played_sec), 'min')),
+          stat(t('sum.activity'), signPct(r.activity_avg_pct)), stat(t('sum.control'), num(r.control_sec), 's'),
+          stat(t('sum.oxygen'), num(r.points), t('sum.points')), stat(t('sum.session'), fmtDur(r.played_sec), 'min')),
         overview),
       h('div', { class: 'summary-top' }, ring, h('div', null,
-        h('p', { class: 'eyebrow' }, 'Wynik dnia'),
+        h('p', { class: 'eyebrow' }, t('sum.day')),
         h('h2', null, day.label),
-        h('p', { class: 'muted' }, `Zaangażowanie ${day.commitment}/70 · wynik ${day.performance}/30${r.source === 'simulator' ? ' · symulator' : ''}`),
-        day.streak > 0 ? h('p', { class: 'streak mt8' }, icon('i-flame'), `Seria ${day.streak} ${day.streak === 1 ? 'dzień' : 'dni'}`) : null)),
-      miles.map(m => h('div', { class: 'milestone' }, icon('i-star'), `Nowy kamień milowy: ${m.title}`)),
+        h('p', { class: 'muted' }, t(r.source === 'simulator' ? 'sum.dayPartsSim' : 'sum.dayParts', { commitment: day.commitment, performance: day.performance })),
+        day.streak > 0 ? h('p', { class: 'streak mt8' }, icon('i-flame'), t('sum.streak', { n: day.streak })) : null)),
+      miles.map(m => h('div', { class: 'milestone' }, icon('i-star'), t('sum.milestone', { title: m.title }))),
       h('div', { class: 'row arcade-again' }, again,
-        h('button', { class: 'btn big', type: 'button', on: { click: () => { this.session = null; this.leave(); } } }, 'Gotowe'))));
+        h('button', { class: 'btn big', type: 'button', on: { click: () => { this.session = null; this.leave(); } } }, t('sum.done')))));
     this.root.replaceChildren(el);
     again.focus({ preventScroll: true });
     requestAnimationFrame(() => drawOverview(overview, r.series, entry.fill));

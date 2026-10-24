@@ -29,7 +29,9 @@ import { mulberry32 } from '../../core/random';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import type { ArcadeOutcome } from '../kit/types';
-import { AMBER, LETTERS, TIERS, TIER_NAME, TIPS, VILLAGE, boatWord, boats, crates, farShips, plural, type AmberPiece, type Tier } from './content';
+import { fmtNum } from '../../i18n';
+import { AMBER, LETTERS, TIERS, TIER_NAME, TIPS, VILLAGE, type AmberPiece, type Tier } from './content';
+import { farShips, t, unit } from './i18n';
 import { addCrumbs, daysBetween, drawAmber, nextMissing, village, welcomeBonus, type LatarnikProgress } from './meta';
 
 export const TAU = Math.PI * 2;
@@ -450,7 +452,7 @@ export class LatarnikSim {
       p.reachDay = day;
       p.reachBest = 0;
     }
-    if (p.reachPrev > 0) this.ghost = { reach: p.reachPrev, label: daysBetween(p.reachPrevDay, day) === 1 ? 'wczoraj' : 'ostatnio' };
+    if (p.reachPrev > 0) this.ghost = { reach: p.reachPrev, label: t(daysBetween(p.reachPrevDay, day) === 1 ? 'ring.yesterday' : 'ring.lately') };
     const bonus = welcomeBonus(p, day);
     p.lastDay = day;
     p.lastCrates = 0;
@@ -1120,17 +1122,17 @@ export class LatarnikSim {
     p.farthest = Math.max(p.farthest, far);
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;   // no "−0.0%"
     const stats: [string, string][] = [
-      ['Najlepsza wachta', boats(watchBest)],
-      ['Skrzynie', String(this.crates)],
-      ['Najdalsze światło', `${far}%`],
-      ['Seria idealnych', String(this.maxStreak)],
-      ['Gwiazdy latarni', this.konwojJudged ? `${this.starsWon}/${this.konwojJudged}` : '—'],
-      ['Bursztyny z dna', String(this.nuggetsFound)],
-      ['Kontrast', c === null ? '—' : `${c > 0 ? '+' : c < 0 ? '−' : ''}${Math.abs(c).toFixed(1)}%`],
-      ['Wachty', String(this.watch)],
+      [t('stat.bestWatch'), t('boats', { n: watchBest })],
+      [t('stat.crates'), String(this.crates)],
+      [t('stat.farthest'), t('pct', { n: far })],
+      [t('stat.streak'), String(this.maxStreak)],
+      [t('stat.stars'), this.konwojJudged ? `${this.starsWon}/${this.konwojJudged}` : '—'],
+      [t('stat.amber'), String(this.nuggetsFound)],
+      [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
+      [t('stat.watches'), String(this.watch)],
     ];
     return {
-      score: this.score, unit: boatWord(this.score), record: this.bestBefore !== null && this.score > this.bestBefore,
+      score: this.score, unit: unit(this.score), record: this.bestBefore !== null && this.score > this.bestBefore,
       stats, highlights: this.highlights(watchBest, far),
     };
   }
@@ -1146,37 +1148,38 @@ export class LatarnikSim {
       const pieces = this.newAmber.map(i => AMBER[i]).sort((a, b) => TIERS.indexOf(b.tier) - TIERS.indexOf(a.tier));
       add(pieces[0].tier === 'legend' || pieces[0].tier === 'epic' ? 0 : 4, amberLine(pieces));
     }
-    if (this.builtNow.length) add(1, `Port rośnie: ${this.builtNow.map(s => VILLAGE[s].name.toLowerCase()).join(', ')}`);
+    if (this.builtNow.length) add(1, t('port.grows', { names: this.builtNow.map(s => VILLAGE[s].name).join(', ') }));
     if (this.bestBefore !== null) {
       // records share one line when there are several
       const one: string[] = [], part: string[] = [];
       if (watchBest > this.before.watch) {
-        one.push(`Rekord wachty: ${boats(watchBest)}`);
-        part.push(`wachta ${boats(watchBest)}`);
+        const boats = t('boats', { n: watchBest });
+        one.push(t('hl.record.watch', { boats }));
+        part.push(t('hl.records.watch', { boats }));
       }
       if (this.maxStreak > this.before.streak) {
-        one.push(`Rekord serii idealnych: ${this.maxStreak}`);
-        part.push(`seria ${this.maxStreak} idealnych`);
+        one.push(t('hl.record.streak', { n: this.maxStreak }));
+        part.push(t('hl.records.streak', { n: this.maxStreak }));
       }
       if (far > this.before.farthest) {
-        one.push(`Rekord zasięgu: ${far}%`);
-        part.push(`zasięg ${far}%`);
+        one.push(t('hl.record.reach', { n: far }));
+        part.push(t('hl.records.reach', { n: far }));
       }
-      if (part.length) add(2, part.length === 1 ? one[0] : `Rekordy: ${part.join(', ')}`);
+      if (part.length) add(2, part.length === 1 ? one[0] : t('hl.records', { list: part.join(', ') }));
     }
-    if (this.letterNow) add(3, `List z butelki ${this.letterNow}/${LETTERS.length}`);
-    if (this.tallNow) add(5, this.tallNow > 1 ? `Żaglowce w porcie: ${this.tallNow}` : 'Żaglowiec w porcie');
+    if (this.letterNow) add(3, t('bottle', { n: this.letterNow, total: LETTERS.length }));
+    if (this.tallNow) add(5, this.tallNow > 1 ? t('hl.talls', { n: this.tallNow }) : t('hl.tall'));
     if (this.blindFarAll > 0) add(6, farShips(this.blindFarAll));
-    if (this.fullNow) add(7, this.fullNow > 1 ? `Pełne światło ×${this.fullNow}` : 'Pełne światło');
-    if (this.welcomeNow) add(8, `Wędzarnia: ${crates(this.welcomeNow)} na powitanie`);
+    if (this.fullNow) add(7, this.fullNow > 1 ? t('hl.fulls', { n: this.fullNow }) : t('title.full'));
+    if (this.welcomeNow) add(8, t('hl.welcome', { crates: t('crates', { n: this.welcomeNow }) }));
     return notes.sort((a, b) => a.rank - b.rank).slice(0, 5).map(n => n.text);   // a stable sort: time order within a rank
   }
 }
 
 /** "Nowy bursztyn: jaszczurka (legendarny)", or the session's new pieces in one line, the rarest first. */
 function amberLine(pieces: readonly AmberPiece[]): string {
-  const named = pieces.slice(0, 3).map(a => `${a.name.toLowerCase()} (${TIER_NAME[a.tier]})`).join(', ');
-  if (pieces.length === 1) return `Nowy bursztyn: ${named}`;
+  const named = pieces.slice(0, 3).map(a => t('hl.piece', { name: a.name, tier: TIER_NAME[a.tier] })).join(', ');
+  if (pieces.length === 1) return t('hl.amber', { piece: named });
   const more = pieces.length - 3;
-  return `Nowe bursztyny: ${named}${more > 0 ? ` i ${more} ${plural(more, 'inny', 'inne', 'innych')}` : ''}`;
+  return more > 0 ? t('hl.ambersMore', { pieces: named, n: more }) : t('hl.ambers', { pieces: named });
 }

@@ -21,6 +21,7 @@ import {
   SENSOR_DISABLE_PAYLOAD, SENSOR_ENABLE_PAYLOAD, decodeAdc, decodeCalibration, decodeDiagnostics, decodeFrame,
   decodeSensor, encodeCalibration, encodeSensor, type Adc, type Calibration, type Diagnostics, type Frame, type Sensor,
 } from '../core/proto';
+import { t } from '../i18n/signal';
 
 export const mendiUuid = (short: number): string => `fc3e${short.toString(16).padStart(4, '0')}-c6c4-49e6-922a-6e551c455af5`;
 export const SVC_MENDI = mendiUuid(0xabb0);
@@ -136,7 +137,7 @@ export class MendiDevice extends EventTarget {
 
   /** Show the browser's device chooser and connect. Must be called from a user gesture. */
   async request(): Promise<MendiInfo> {
-    if (!this.bt) throw Object.assign(new Error('Web Bluetooth is not available'), { name: 'NotSupportedError' });
+    if (!this.bt) throw Object.assign(new Error(t('err.noBluetooth')), { name: 'NotSupportedError' });
     const device = await this.bt.requestDevice(REQUEST_OPTIONS);
     return this.connect(device);
   }
@@ -260,7 +261,7 @@ export class MendiDevice extends EventTarget {
   async startStream(): Promise<void> {
     const myGen = this.gen;
     const ch = this.chars.get(CHR.frame);
-    if (!this.connected || !ch) throw new Error('Opaska nie jest połączona');
+    if (!this.connected || !ch) throw new Error(t('err.notConnected'));
     this.frames = [];
     ch.removeEventListener('characteristicvaluechanged', this.onFrame);
     ch.addEventListener('characteristicvaluechanged', this.onFrame);
@@ -331,7 +332,7 @@ export class MendiDevice extends EventTarget {
 
   async setCalibration(c: Calibration): Promise<void> {
     const ch = this.chars.get(CHR.calibration);
-    if (!ch) throw new Error('Opaska nie jest połączona');
+    if (!ch) throw new Error(t('err.notConnected'));
     await this.op(() => ch.writeValueWithResponse(encodeCalibration(c) as BufferSource));
   }
 

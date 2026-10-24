@@ -1,9 +1,11 @@
-/** The exercises (Trening) and the games (Gry), each with the tools it works with (DESIGN.md §2). */
+/** The exercises (Trening) and the games (Gry), each with the bands it works with (DESIGN.md §2). */
 import { drawArcadeArt } from '../arcade/art';
 import { ARCADE, type ArcadeEntry } from '../arcade/registry';
 import type { HubStatus } from '../hub';
+import { lang } from '../i18n';
+import { t } from '../i18n/shell';
 import type { SceneId } from '../settings';
-import type { Tool } from '../tools';
+import { TOOL_INFO, type Tool } from '../tools';
 import { drawScenePreview } from '../training/scene';
 import { GAMES } from './games';
 import { $, h } from './dom';
@@ -21,6 +23,8 @@ export interface Activity {
   tools: Tool[];
   /** usable without a band of these tools (the games) */
   optional?: boolean;
+  /** a separate app that stays in Polish inside (HolyHolyHoly): its card says so in the other languages */
+  polishOnly?: boolean;
   /** a picture from the game's own build, relative to the app's base */
   img?: string;
   /** an arcade game: the art is a still from its own preview */
@@ -37,27 +41,27 @@ export function artImage(a: Activity): HTMLImageElement | null {
 
 /** An arcade game's card, from the registry. */
 const arcadeActivity = (a: ArcadeEntry): Activity => ({
-  id: a.id, group: 'game', title: a.title, text: a.text, href: `#gra/${a.id}`, cta: 'Graj', art: a.art, tools: a.tools, arcade: a,
+  id: a.id, group: 'game', title: a.title, text: a.text, href: `#gra/${a.id}`, cta: t('act.play'), art: a.art, tools: a.tools, arcade: a,
 });
 
 export const ACTIVITIES: Activity[] = [
   {
-    id: 'focus', group: 'train', title: 'Trening skupienia', href: '#trening/focus', cta: 'Przygotuj sesję', art: 'art-orb', tools: ['fnirs', 'eeg'],
-    text: 'Kula unosi się, gdy kora przedczołowa pracuje mocniej niż na początku sesji. 3–15 minut, punkty za utrzymanie, wynik dnia i seria — jak w treningu Mendi.',
+    id: 'focus', group: 'train', title: t('common.focusTraining'), href: '#trening/focus', cta: t('act.focus.cta'), art: 'art-orb', tools: ['fnirs', 'eeg'],
+    text: t('act.focus.text'),
   },
   {
-    id: 'balance', group: 'train', title: 'Równowaga półkul', href: '#trening/balance', cta: 'Otwórz', art: 'art-balance', tools: ['fnirs'],
-    text: 'Zadania słowne, przestrzenne i uważność dobierane do tego, która strona kory przeważa.',
+    id: 'balance', group: 'train', title: t('act.balance.title'), href: '#trening/balance', cta: t('act.balance.cta'), art: 'art-balance', tools: ['fnirs'],
+    text: t('act.balance.text'),
   },
   ...ARCADE.map(arcadeActivity),
   {
-    id: 'holyholyholy', group: 'game', title: GAMES.holyholyholy.title, href: '#gra/holyholyholy', cta: 'Graj', art: 'art-holy', tools: ['fnirs'], optional: true,
-    img: 'holyholyholy/icon.svg',
+    id: 'holyholyholy', group: 'game', title: GAMES.holyholyholy.title, href: '#gra/holyholyholy', cta: t('act.play'), art: 'art-holy', tools: ['fnirs'],
+    optional: true, polishOnly: true, img: 'holyholyholy/icon.svg',
     text: GAMES.holyholyholy.text,
   },
   {
-    id: 'holyholyholy3d', group: 'game', title: GAMES.holyholyholy3d.title, href: '#gra/holyholyholy3d', cta: 'Graj', art: 'art-holy3d', tools: ['fnirs'], optional: true,
-    img: 'holyholyholy3d/michal.webp',
+    id: 'holyholyholy3d', group: 'game', title: GAMES.holyholyholy3d.title, href: '#gra/holyholyholy3d', cta: t('act.play'), art: 'art-holy3d', tools: ['fnirs'],
+    optional: true, polishOnly: true, img: 'holyholyholy3d/michal.webp',
     text: GAMES.holyholyholy3d.text,
   },
 ];
@@ -65,12 +69,23 @@ export const ACTIVITIES: Activity[] = [
 export const EXERCISES = (): Activity[] => ACTIVITIES.filter(a => a.group === 'train');
 export const GAME_ACTIVITIES = (): Activity[] => ACTIVITIES.filter(a => a.group === 'game');
 
-const TAG: Record<Tool, string> = { fnirs: 'fNIRS', eeg: 'EEG' };
+/** The card's tags: the bands by name ("Mendi", "HALO"), and "bez opaski też" for a game that runs without one. */
+export function bandTags(a: Activity): string[] {
+  return [...a.tools.map(x => TOOL_INFO[x].band), ...(a.optional ? [t('tag.optional')] : [])];
+}
 
-/** Why an activity cannot use the current tool (null = it can). */
-export function whyNot(a: Activity, tool: Tool | null): string | null {
+/** "In Polish" on a game that stays Polish inside — nothing to say on a Polish page. */
+export const polishNote = (a: Activity): string | null => (a.polishOnly && lang !== 'pl' ? t('tag.inPolish') : null);
+
+/**
+ * Why an activity cannot use the current band (null = it can). It names bands, never techniques;
+ * `short` is the one-line version for Start's small tiles.
+ */
+export function whyNot(a: Activity, tool: Tool | null, short = false): string | null {
   if (!tool || a.tools.includes(tool)) return null;
-  return a.optional ? 'Z EEG gra działa bez opaski — opaskę Mendi czyta po przełączeniu na fNIRS.' : 'Wymaga opaski fNIRS (Mendi) — przełącz narzędzie u góry.';
+  const need = TOOL_INFO[a.tools[0]].band, have = TOOL_INFO[tool].band;
+  if (short) return a.optional ? t('why.optionalShort', { have }) : t('why.requiredShort', { need });
+  return a.optional ? t('why.optional', { need, have }) : t('why.required', { need });
 }
 
 /** Draw the arcade cards' art in `root` (after it is laid out: a hidden canvas has no size). */
@@ -96,10 +111,11 @@ export class ActivitiesView {
       if (a.id === 'focus') art.append(h('canvas', { class: 'scene-art', 'aria-hidden': 'true' }));
       if (a.arcade) art.append(h('canvas', { class: 'scene-art arcade-art', 'aria-hidden': 'true' }));
       const why = h('p', { class: 'why' });
+      const note = polishNote(a);
       const el = h('a', { class: 'activity' + (a.id === 'focus' ? ' feature' : ''), href: a.href, 'data-activity': a.id },
         art,
         h('div', { class: 'body' },
-          h('div', { class: 'tags' }, a.tools.map(t => h('span', { class: 'badge' }, a.optional ? `${TAG[t]} · opcjonalnie` : TAG[t]))),
+          h('div', { class: 'tags' }, bandTags(a).map(x => h('span', { class: 'badge' }, x)), note ? h('span', { class: 'badge lang-note' }, note) : null),
           h('h2', null, a.title), h('p', null, a.text), why,
           h('span', { class: 'btn cta' + (a.id === 'focus' || a.group === 'game' ? ' primary' : '') }, `${a.cta} →`)));
       this.cards.set(a.id, { el, why });

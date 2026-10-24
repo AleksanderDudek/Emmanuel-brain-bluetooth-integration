@@ -2,6 +2,7 @@
 import type { Engine, EngineFrame } from '../engine';
 import type { AppSettings } from '../settings';
 import type { FolderStore } from '../storage/folder';
+import { t } from '../i18n/shell';
 import { $, run, toast } from './dom';
 
 export class RecordingCard {
@@ -11,22 +12,22 @@ export class RecordingCard {
     const dur = $<HTMLInputElement>('recDur');
     dur.value = String(settings.recordingDurationSec);
     $('btnRec').addEventListener('click', run(async () => {
-      if (engine.source === 'off') throw new Error('Najpierw włącz źródło sygnału (przycisk opaski u góry)');
+      if (engine.source === 'off') throw new Error(t('rec.needSource'));
       if (settings.storageTarget === 'folder' && (await folder.permission(true)) !== 'granted') {
-        toast('Brak dostępu do folderu — sesja zostanie w przeglądarce', true);
+        toast(t('rec.noFolder'), true);
       }
       settings.recordingDurationSec = Number(dur.value) || 600;
       await save();
       await engine.startRecording($<HTMLInputElement>('recName').value, settings.recordingDurationSec);
-      toast('Nagrywanie rozpoczęte');
+      toast(t('rec.started'));
     }));
     $('btnRecStop').addEventListener('click', run(async () => {
-      if (!engine.recorder.recording) throw new Error('Nic nie jest nagrywane');
+      if (!engine.recorder.recording) throw new Error(t('rec.nothing'));
       await engine.stopRecording();
     }));
     const mark = (label: string) => {
       if (!label) return;
-      toast(engine.mark(label) ? `Znacznik: ${label}` : 'Znaczniki zapisują się tylko podczas nagrywania', !engine.recorder.recording);
+      toast(engine.mark(label) ? t('rec.marked', { label }) : t('rec.marksOnlyRec'), !engine.recorder.recording);
     };
     document.querySelectorAll<HTMLButtonElement>('[data-mark]').forEach(b => b.addEventListener('click', () => mark(b.dataset.mark!)));
     $('btnMark').addEventListener('click', () => {
@@ -40,16 +41,16 @@ export class RecordingCard {
     const rec = f.recording.recording;
     const badge = $('recBadge');
     if (rec) {
-      badge.textContent = `REC ${Math.floor(f.recording.elapsed_sec)} s · ${f.recording.markers} zn.`;
+      badge.textContent = t('rec.badge', { s: Math.floor(f.recording.elapsed_sec), m: f.recording.markers });
       badge.className = 'badge bad';
     } else {
-      badge.textContent = 'gotowe';
+      badge.textContent = t('rec.ready');
       badge.className = 'badge';
     }
     if (rec !== this.lastRecording) {
       document.querySelectorAll<HTMLButtonElement>('[data-mark], #btnMark').forEach(x => {
         x.disabled = !rec;
-        x.title = rec ? '' : 'Znaczniki zapisują się tylko podczas nagrywania';
+        x.title = rec ? '' : t('rec.marksOnlyRec');
       });
       $<HTMLButtonElement>('btnRec').disabled = rec;
       $<HTMLButtonElement>('btnRecStop').disabled = !rec;

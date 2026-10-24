@@ -11,7 +11,7 @@
   "previewIconUrl": "",
   "shortDescription": "Focus that charges the Fire of the Spirit: standing still, or the Mendi fNIRS band (optional).",
   "version": "1.0.0",
-  "description": "Wraps lib/mendi-focus.js, built from BrainLink's Mendi Web Bluetooth adapter and fNIRS pipeline and the 2D game's focus charger. Without the band, standing still is focus (multiplier up to ×1.5); the band adds focus while moving (up to ×3). It never lowers anything. Data stays on the device. Web Bluetooth works in Chrome and Edge (desktop and Android) and in Bluefy on iOS.",
+  "description": "Wraps lib/mendi-focus.js, built from the Emmanuel app's Mendi Web Bluetooth adapter and fNIRS pipeline and the 2D game's focus charger. Without the band, standing still is focus (multiplier up to ×1.5); the band adds focus while moving (up to ×3). It never lowers anything. Data stays on the device. Web Bluetooth works in Chrome and Edge (desktop and Android) and in Bluefy on iOS.",
   "tags": [
     "holyholyholy"
   ],

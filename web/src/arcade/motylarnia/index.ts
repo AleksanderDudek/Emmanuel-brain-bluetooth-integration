@@ -10,6 +10,7 @@ import { buzz } from '../kit/juice';
 import type { ArcadeGame, ArcadeModule, GameEnv, PointerInput } from '../kit/types';
 import { PIGMENTS, RASPBERRY_POLLEN, SIZE_CLASSES } from './content';
 import { MothSound } from './audio';
+import { t } from './i18n';
 import { toScreen } from './layout';
 import { freshProgress, type MothProgress } from './meta';
 import { INK } from './paint';
@@ -75,26 +76,26 @@ class Motylarnia implements ArcadeGame {
       case 'treat': {
         const p = at(e.x, e.y);
         v.particles.burst(p.x, p.y, 18, { color: e.kind === 'malina' ? '#D23452' : '#FFFFFF', speed: e.kind === 'malina' ? 120 : 60, life: 1.1, g: e.kind === 'malina' ? 160 : -30, shape: e.kind === 'malina' ? 'dot' : 'spark', size: 2.5 });
-        fl.add(e.kind === 'malina' ? `+${RASPBERRY_POLLEN} pyłku` : 'Większe skrzydła', p.x, p.y - 20, { color: e.kind === 'malina' ? '#A3243D' : INK, size: 20 });
+        fl.add(e.kind === 'malina' ? t('fl.pollen', { n: RASPBERRY_POLLEN }) : t('fl.wings'), p.x, p.y - 20, { color: e.kind === 'malina' ? '#A3243D' : INK, size: 20 });
         this.haptic(12);
         break;
       }
       case 'class':
-        fl.add(`Rozmiar ${SIZE_CLASSES[e.cls]}`, v.w / 2, v.h * 0.32, { color: INK, size: 26 });
+        fl.add(t('fl.size', { cls: SIZE_CLASSES[e.cls] }), v.w / 2, v.h * 0.32, { color: INK, size: 26 });
         this.haptic(15);
         break;
       case 'bold':
-        fl.add('Śmiałe linie!', v.w / 2, v.h * 0.38, { color: '#8E2C67', size: 28, dur: 1.6 });
+        fl.add(t('fl.bold'), v.w / 2, v.h * 0.38, { color: '#8E2C67', size: 28, dur: 1.6 });
         break;
       case 'silk':
-        fl.add('Jedwabna nić!', v.w / 2, v.h * 0.44, { color: '#8A6A12', size: 26, dur: 1.6 });
+        fl.add(t('fl.silk'), v.w / 2, v.h * 0.44, { color: '#8A6A12', size: 26, dur: 1.6 });
         break;
       case 'full':
-        fl.add('Najedzona!', v.w / 2, v.h * 0.5, { color: INK, size: 36, dur: 1.4 });
+        fl.add(t('fl.full'), v.w / 2, v.h * 0.5, { color: INK, size: 36, dur: 1.4 });
         this.haptic(25);
         break;
       case 'deep':
-        fl.add('Głębokie barwy', v.w / 2, v.h * 0.62, { color: '#22378F', size: 26, dur: 1.8 });
+        fl.add(t('fl.deep'), v.w / 2, v.h * 0.62, { color: '#22378F', size: 26, dur: 1.8 });
         break;
       case 'emerge':
         this.haptic([20, 40, 30]);

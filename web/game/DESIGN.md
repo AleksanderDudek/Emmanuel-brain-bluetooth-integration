@@ -260,9 +260,9 @@ utlenowania (ΔHbO/ΔHbR), tętno, jakość kontaktu, ruch głowy (IMU).
 Odpowiedź hemodynamiczna jest **wolna** (narasta 5–8 s, szczyt ~10 s) i
 zaszumiona (fale Mayera, oddech). Dlatego opaska **nie steruje szybkimi
 akcjami** — wpływa na wolne zmienne gry. Wykorzystujemy gotowe moduły
-aplikacji BrainLink: potok fNIRS, metrykę *aktywacji*, *asymetrię* i
+aplikacji Emmanuel: potok fNIRS, metrykę *aktywacji*, *asymetrię* i
 **tracker równowagi półkul**. W grze aktywację liczymy względem **ostatnich
-5 minut** (BrainLink: 1 minuta). Inaczej utrzymywane skupienie po pół minucie
+5 minut** (Emmanuel: 1 minuta). Inaczej utrzymywane skupienie po pół minucie
 stawałoby się nową „normą” i mnożnik nie dałby się utrzymać.
 
 ### Skupienie, które coś ładuje
@@ -307,7 +307,7 @@ stawałoby się nową „normą” i mnożnik nie dałby się utrzymać.
    poziom zawsze jest *lepszym* z dwóch odczytów. Złe dane nigdy nie odbierają
    postępów.
 3. **Wstrzymanie przy złym sygnale.** Ruch głowy, słaby kontakt lub brak
-   danych zamrażają wpływ opaski (jak w trenerze równowagi BrainLink).
+   danych zamrażają wpływ opaski (jak w trenerze równowagi Emmanuela).
 4. **Kalibracja w rytuale.** Inwokacja do Ducha Świętego (20 s) to zarazem
    10 s linii bazowej: modlisz się w ciszy, a opaska się stroi.
 5. **Wolne sprzężenie zwrotne.** Wartości są wygładzone, a mnożnik rośnie w
@@ -422,7 +422,7 @@ web/game/
 │   ├── sim/              symulacja (stały krok 60 Hz, testowalna): pokój, cienie, dary
 │   ├── render/           Canvas 2D, sprite’y proceduralne, cząsteczki
 │   ├── input/            drążek dotykowy, klawiatura
-│   ├── neuro/            most do opaski (moduły BrainLink), skupienie i mnożnik (focus.ts), mapowanie na grę
+│   ├── neuro/            most do opaski (moduły Emmanuela), skupienie i mnożnik (focus.ts), mapowanie na grę
 │   ├── prayer/           modlitwa serca (session.ts), rozpoznawanie mowy, liczenie powtórzeń
 │   └── ui/               ekrany (DOM): tytuł, inwokacja, drzewo, karty darów…
 └── test/

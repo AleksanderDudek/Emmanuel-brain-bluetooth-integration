@@ -1,11 +1,22 @@
-/** Ustawienia: where sessions are stored, the MBLL parameters, exporting the training results. */
+/** Ustawienia: where sessions are stored, the MBLL parameters, exporting the training results. (The language card: language.ts.) */
 import { EXTINCTION } from '../core/pipeline';
 import type { Engine } from '../engine';
+import { fmtNum } from '../i18n';
+import { t } from '../i18n/shell';
 import type { AppSettings } from '../settings';
 import { requestPersistence, storageInfo, type SessionDB } from '../storage/db';
 import { folderSupported, type FolderStore } from '../storage/folder';
 import { download } from '../storage/library';
-import { $, fmtBytes, h, run, toast } from './dom';
+import { $, h, run, toast } from './dom';
+
+/** A byte count in this language's number style ("1,5 MB"). */
+const bytes = (b: number | null): string => {
+  if (b === null) return '—';
+  const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0, v = b;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return `${fmtNum(v, v < 10 && i ? 1 : 0)} ${u[i]}`;
+};
 
 export class SettingsView {
   constructor(private readonly engine: Engine, private readonly folder: FolderStore, private readonly settings: AppSettings,
@@ -14,9 +25,9 @@ export class SettingsView {
     this.initConfig();
     $('btnExportTrainings').addEventListener('click', run(async () => {
       const all = await db.listTrainings();
-      if (!all.length) throw new Error('Nie ma jeszcze żadnych treningów');
+      if (!all.length) throw new Error(t('ust.noResults'));
       const stamp = new Date().toISOString().slice(0, 10);
-      download(new Blob([JSON.stringify(all, null, 1)], { type: 'application/json' }), `brainlink_treningi_${stamp}.json`);
+      download(new Blob([JSON.stringify(all, null, 1)], { type: 'application/json' }), `emmanuel_${t('ust.exportFile')}_${stamp}.json`);
     }));
   }
 
@@ -29,12 +40,12 @@ export class SettingsView {
     document.querySelectorAll<HTMLButtonElement>('[data-store]').forEach(b => b.addEventListener('click', run(async () => {
       if (b.dataset.store === 'folder') {
         if (!(await this.folder.getHandle())) await this.folder.pick();
-        if ((await this.folder.permission(true)) !== 'granted') throw new Error('Nie przyznano dostępu do folderu');
+        if ((await this.folder.permission(true)) !== 'granted') throw new Error(t('ust.noAccess'));
       }
       this.settings.storageTarget = b.dataset.store as AppSettings['storageTarget'];
       await this.save();
       await this.renderStorage();
-      toast(this.settings.storageTarget === 'folder' ? 'Nowe sesje trafią do folderu' : 'Nowe sesje zostaną w przeglądarce');
+      toast(this.settings.storageTarget === 'folder' ? t('ust.toFolder') : t('ust.toBrowser'));
     })));
     $('btnPickFolder').addEventListener('click', run(async () => {
       await this.folder.pick();
@@ -46,7 +57,7 @@ export class SettingsView {
       await this.renderStorage();
     }));
     $('btnPersist').addEventListener('click', run(async () => {
-      toast((await requestPersistence()) ? 'Dane chronione przed automatycznym usunięciem' : 'Przeglądarka odmówiła — zainstaluj aplikację lub dodaj zakładkę');
+      toast((await requestPersistence()) ? t('ust.persisted') : t('ust.persistRefused'));
       await this.renderStorage();
     }));
   }
@@ -58,15 +69,13 @@ export class SettingsView {
     const kv = (k: string, v: string) => [h('span', null, k), h('span', null, v)];
     const el = $('storeKv');
     el.replaceChildren(...[
-      kv('przeglądarka', info.usage === null ? '—' : `${fmtBytes(info.usage)} z ${fmtBytes(info.quota)}`),
-      kv('ochrona', info.persisted === null ? '—' : info.persisted ? 'trwała' : 'zwykła (może zostać usunięta przy braku miejsca)'),
-      folderSupported() ? kv('folder', name ? `${name}${perm === 'granted' ? '' : ' · brak dostępu'}` : 'nie wybrano') : [],
+      kv(t('ust.kvBrowser'), info.usage === null ? '—' : t('ust.usage', { used: bytes(info.usage), quota: bytes(info.quota) })),
+      kv(t('ust.kvProtection'), info.persisted === null ? '—' : info.persisted ? t('ust.persistent') : t('ust.bestEffort')),
+      folderSupported() ? kv(t('ust.kvFolder'), name ? (perm === 'granted' ? name : t('ust.folderNoAccess', { name })) : t('ust.notChosen')) : [],
     ].flat());
     $('btnFolderAccess').hidden = perm !== 'prompt';
     $('btnPersist').hidden = info.persisted !== false;
-    $('storeHint').textContent = folderSupported()
-      ? 'Godzina nagrania fNIRS zajmuje ok. 10 MB. W trybie „Folder” sesja zapisuje się najpierw w przeglądarce, a po zakończeniu trafia do folderu jako CSV + JSON.'
-      : 'Ta przeglądarka nie zapisuje do folderów (działa w Chrome/Edge na komputerze i Androidzie). Sesje zostają w przeglądarce — pobierzesz je jako CSV w „Sesjach”.';
+    $('storeHint').textContent = folderSupported() ? t('ust.hintFolder') : t('ust.hintNoFolder');
   }
 
   private initConfig(): void {
@@ -85,7 +94,7 @@ export class SettingsView {
       this.engine.setFnirsConfig({ red_nm: num('cfgRed'), ir_nm: num('cfgIr'), separation_cm: num('cfgSep'),
                                    dpf_red: dpf, dpf_ir: dpf, lp_hz: num('cfgLp'), hp_hz: num('cfgHp') });
       await this.save();
-      toast('Zastosowano — zbieranie nowej linii bazowej');
+      toast(t('ust.applied'));
     }));
   }
 }

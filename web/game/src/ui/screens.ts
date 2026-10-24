@@ -451,8 +451,8 @@ export function bandScreen(api: ScreenApi): HTMLElement {
         h('p', null, `Połączona: ${st.device_name ?? 'Mendi'} · bateria ${st.battery ? st.battery.percent + '%' : '—'}`),
         h('p', null, ns.baselineReady ? `Sygnał: ${ns.reliable ? 'dobry' : 'czekam'} · tętno ${ns.heartRate ? Math.round(ns.heartRate) : '—'}` : `Kalibracja: ${Math.round(ns.baselineProgress * 100)}%`),
         btn('Rozłącz', () => { void n.disconnect().then(render); }, 'btn'))
-      : btn(n.viaHub ? 'Użyj opaski z BrainLink' : 'Połącz opaskę', connect, 'btn gold big'),
-    n.viaHub && !st.connected ? h('p', { class: 'muted small' }, 'Gra jest otwarta w BrainLink: połącz opaskę albo włącz symulator w aplikacji (przycisk urządzenia u góry).') : null,
+      : btn(n.viaHub ? 'Użyj opaski z Emmanuela' : 'Połącz opaskę', connect, 'btn gold big'),
+    n.viaHub && !st.connected ? h('p', { class: 'muted small' }, 'Gra jest otwarta w Emmanuelu: połącz opaskę albo włącz symulator w aplikacji (przycisk urządzenia u góry).') : null,
     status);
   return el;
 }

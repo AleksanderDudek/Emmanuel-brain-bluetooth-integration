@@ -1,7 +1,9 @@
 /**
  * The arcade games (DESIGN.md §9): what the app shows about each one without loading it (cards,
  * lobby text, colours), and how to load it — every game is its own chunk, fetched on first use.
+ * The texts are in this page load's language (src/i18n/arcade.ts).
  */
+import { t } from '../i18n/arcade';
 import type { SceneId } from '../settings';
 import type { Tool } from '../tools';
 import { SCENES } from '../training/scene';
@@ -11,6 +13,7 @@ import type { ArcadeModule } from './kit/types';
 
 export interface ArcadeEntry {
   id: string;
+  /** in the page's language; a long German compound carries soft hyphens (U+00AD) where it may break */
   title: string;
   /** one line under the title */
   tagline: string;
@@ -20,7 +23,7 @@ export interface ArcadeEntry {
   how: string[];
   /** tutorial lines shown during calibration */
   tips: string[];
-  /** the headline unit ("pięter") */
+  /** the headline unit ("ct"); a game whose unit bends with the count gives `unit(n)` in its module */
   unit: string;
   /** CSS class of the card art (a gradient in styles.css) */
   art: string;
@@ -37,60 +40,26 @@ export interface ArcadeEntry {
 
 export const ARCADE: ArcadeEntry[] = [
   {
-    id: 'geoda', title: 'Geoda', tagline: 'Wyhoduj kryształy i domknij nimi skałę.',
-    text: 'Klocki jak w Block Blast, ale rosną z Twojego skupienia: im równiej je trzymasz, tym czystszy kryształ. Pełne linie pękają na koniec bloku.',
-    how: [
-      'Wzrost: spokojne skupienie przyspiesza kapanie — karmiony kryształ rośnie.',
-      'Im dłużej równo, tym czystszy kryształ: mleczny, czysty, lśniący.',
-      'Szlif: odpocznij — spokój poleruje zbiór.',
-    ],
-    tips: [
-      'Przeciągnij kryształ na ścianę — pasuje bez obracania, jak w Block Blast.',
-      'Stuknij kryształ w tacce, by go karmić. Rośnie tylko karmiony.',
-      'Spróbuj liczyć w myślach wstecz od 100 co 7 — wielu osobom to przyspiesza kapanie.',
-      'Pełne linie świecą i pękają razem na końcu Wzrostu.',
-      'W Szlifie rozluźnij czoło i patrz miękko — spokój poleruje.',
-      'Zapełnij geodę prawie całą, a przy zbiorze pęknie w całości — z dodatkowym okazem.',
-    ],
-    unit: 'ct', art: 'art-geoda', fill: ['#ffd6f5', '#c77dff', '#9b5de5', '#3c1f6e'], tools: ['fnirs', 'eeg'], focusChip: false,
+    id: 'geoda', title: t('geoda.title'), tagline: t('geoda.tagline'), text: t('geoda.text'),
+    how: [t('geoda.how1'), t('geoda.how2'), t('geoda.how3')],
+    tips: [t('geoda.tip1'), t('geoda.tip2'), t('geoda.tip3'), t('geoda.tip4'), t('geoda.tip5'), t('geoda.tip6')],
+    unit: t('geoda.unit'), art: 'art-geoda', fill: ['#ffd6f5', '#c77dff', '#9b5de5', '#3c1f6e'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 },
     load: () => import('./geoda/index').then(m => m.default),
   },
   {
-    id: 'latarnik', title: 'Latarnik', tagline: 'Skup światło i sprowadź łodzie do portu.',
-    text: 'Stuknij, gdy promień latarni padnie na łódź. Skupienie wydłuża światło, spokój rozświetla morze i wyrzuca na brzeg bursztyny.',
-    how: [
-      'Konwój: zaplanuj w myślach kurs łodzi — promień sięgnie dalej.',
-      'Cisza: odpuść — morze świeci samo i odsłania bursztyny.',
-      'Stuknięcie zawsze należy do Ciebie, opaska zmienia zasięg i blask.',
-    ],
-    tips: [
-      'Stuknij w dowolnym miejscu, gdy promień przechodzi przez łódź.',
-      'Środek promienia to „Idealnie”. Seria idealnych podnosi dźwięk dzwonu.',
-      'Światło rozpala się powoli, kilka sekund po wysiłku. Nie poganiaj go.',
-      'W Konwoju spróbuj zaplanować w myślach drogę każdej łodzi do portu.',
-      'W Ciszy rozluźnij czoło i oddychaj zwyczajnie — morze rozjaśni się samo.',
-    ],
-    unit: 'łodzi', art: 'art-latarnik', fill: ['#ffe9a8', '#ffd27a', '#ff7a59', '#0b1630'], tools: ['fnirs', 'eeg'], focusChip: false,
+    id: 'latarnik', title: t('latarnik.title'), tagline: t('latarnik.tagline'), text: t('latarnik.text'),
+    how: [t('latarnik.how1'), t('latarnik.how2'), t('latarnik.how3')],
+    tips: [t('latarnik.tip1'), t('latarnik.tip2'), t('latarnik.tip3'), t('latarnik.tip4'), t('latarnik.tip5')],
+    unit: t('latarnik.unit'), art: 'art-latarnik', fill: ['#ffe9a8', '#ffd27a', '#ff7a59', '#0b1630'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 },
     load: () => import('./latarnik/index').then(m => m.default),
   },
   {
-    id: 'motylarnia', title: 'Motylarnia', tagline: 'Gąsienica rysuje skrzydła, Twój umysł je barwi.',
-    text: 'Prowadź gąsienicę po liściu: skupienie wzmaga apetyt i pogrubia linie, spokój w poczwarce pogłębia barwy. Każdy motyl jest jedyny.',
-    how: [
-      'Żer: skupienie — gąsienica je szybciej i rysuje śmielsze linie.',
-      'Poczwarka: spokój — barwy skrzydeł głębieją.',
-      'Ścieżka Twojego palca staje się wzorem skrzydeł.',
-    ],
-    tips: [
-      'Prowadź gąsienicę palcem albo myszą. Strzałki też skręcają.',
-      'Kropki barwnika dają kolory skrzydeł — przepis gatunku jest na karcie.',
-      'Gąsienica rozkręca się powoli: apetyt rośnie kilka sekund po wysiłku.',
-      'Przy żerze spróbuj planować trasę i wyobrażać sobie gotowy wzór.',
-      'Gdy wisi poczwarka, rozluźnij czoło i patrz miękko — barwy zgęstnieją.',
-    ],
-    unit: 'mm', art: 'art-motylarnia', fill: ['#f2c230', '#e0453a', '#c2408f', '#3a5bd9'], tools: ['fnirs', 'eeg'], focusChip: false,
+    id: 'motylarnia', title: t('motylarnia.title'), tagline: t('motylarnia.tagline'), text: t('motylarnia.text'),
+    how: [t('motylarnia.how1'), t('motylarnia.how2'), t('motylarnia.how3')],
+    tips: [t('motylarnia.tip1'), t('motylarnia.tip2'), t('motylarnia.tip3'), t('motylarnia.tip4'), t('motylarnia.tip5')],
+    unit: t('motylarnia.unit'), art: 'art-motylarnia', fill: ['#f2c230', '#e0453a', '#c2408f', '#3a5bd9'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { targetRate: 0.5, adapt: 0.08 },
     load: () => import('./motylarnia/index').then(m => m.default),
   },

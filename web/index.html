@@ -4,11 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-src 'self'; base-uri 'self'; form-action 'none'">
-<meta name="description" content="Neurofeedback z opaską fNIRS Mendi lub EEG BrainAccess HALO: trening skupienia, równowaga półkul, gry, sygnał na żywo i sesje zapisane lokalnie.">
+<meta name="description" content="Emmanuel: gry i trening skupienia z opaską Mendi (fNIRS) albo BrainAccess HALO (EEG). Równowaga półkul, sygnał na żywo i sesje zapisane tylko na tym urządzeniu." data-i18n-attr="content:meta.description">
 <meta name="color-scheme" content="dark">
-<title>BrainLink</title>
+<title>Emmanuel</title>
 </head>
 <body data-tool="none">
+<!-- Texts: index.html holds the Polish ones; main() swaps in the page's language from src/i18n/page.ts (data-i18n, data-i18n-attr). -->
 <svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
   <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
   <symbol id="i-train" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3 19c3-4 5-6 9-6s6 2 9 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
@@ -26,13 +27,14 @@
   <symbol id="i-bt" viewBox="0 0 24 24"><path d="m7 7 10 10-5 4V3l5 4L7 17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8.5 6v12M15.5 6v12" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
   <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M3.5 12h17M12 3.5c2.4 2.5 3.5 5.3 3.5 8.5s-1.1 6-3.5 8.5c-2.4-2.5-3.5-5.3-3.5-8.5s1.1-6 3.5-8.5z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
 </svg>
 
 <div class="app">
 <header class="appbar">
-  <a class="brand" href="#start" aria-label="BrainLink — start">Brain<span>Link</span></a>
+  <a class="brand" href="#start" aria-label="Emmanuel — start" data-i18n-attr="aria-label:brand.aria">Emmanu<span>el</span></a>
   <div class="toolpick">
-    <span class="toolpick-label" id="toolLabel">Opaska</span>
+    <span class="toolpick-label" id="toolLabel" data-i18n="bar.band">Opaska</span>
     <div class="toolswitch" role="radiogroup" aria-labelledby="toolLabel">
       <button type="button" role="radio" aria-checked="false" data-tool="fnirs"><b>Mendi</b><small>fNIRS</small></button>
       <button type="button" role="radio" aria-checked="false" data-tool="eeg"><b>HALO</b><small>EEG</small></button>
@@ -40,27 +42,27 @@
   </div>
   <div class="appbar-end">
     <a class="recpill" id="recPill" href="#sygnal" hidden><i></i><span id="recPillText">REC</span></a>
-    <button class="btn ghost" type="button" id="btnInstall" hidden>Zainstaluj</button>
-    <button class="btn on" type="button" id="btnUpdate" hidden>Nowa wersja — odśwież</button>
+    <button class="btn ghost" type="button" id="btnInstall" hidden data-i18n="bar.install">Zainstaluj</button>
+    <button class="btn on" type="button" id="btnUpdate" hidden data-i18n="bar.update">Nowa wersja — odśwież</button>
     <button class="devchip" type="button" id="devChip" aria-haspopup="dialog" aria-controls="deviceSheet">
       <i class="dot" id="chipDot"></i>
-      <span class="devchip-text"><b id="chipName">Wybierz opaskę</b><small id="chipMeta"></small></span>
+      <span class="devchip-text"><b id="chipName" data-i18n="bar.chooseBand">Wybierz opaskę</b><small id="chipMeta"></small></span>
     </button>
   </div>
 </header>
 
 <div class="banner" id="btBanner" hidden>
   <span id="btBannerText"></span>
-  <button class="btn" type="button" id="btBannerHelp">Jak włączyć?</button>
+  <button class="btn" type="button" id="btBannerHelp" data-i18n="bar.btHow">Jak włączyć?</button>
 </div>
 
-<nav class="rail" aria-label="Główna nawigacja">
-  <a href="#start" data-nav="start"><svg><use href="#i-home"/></svg><span>Start</span></a>
-  <a href="#trening" data-nav="trening"><svg><use href="#i-train"/></svg><span>Trening</span></a>
-  <a href="#gry" data-nav="gry"><svg><use href="#i-games"/></svg><span>Gry</span></a>
-  <a href="#sygnal" data-nav="sygnal"><svg><use href="#i-signal"/></svg><span>Sygnał</span></a>
-  <a href="#sesje" data-nav="sesje"><svg><use href="#i-sessions"/></svg><span>Sesje</span></a>
-  <a href="#ustawienia" data-nav="ustawienia"><svg><use href="#i-settings"/></svg><span>Ustawienia</span></a>
+<nav class="rail" aria-label="Główna nawigacja" data-i18n-attr="aria-label:nav.aria">
+  <a href="#start" data-nav="start"><svg><use href="#i-home"/></svg><span data-i18n="nav.start">Start</span></a>
+  <a href="#trening" data-nav="trening"><svg><use href="#i-train"/></svg><span data-i18n="nav.trening">Trening</span></a>
+  <a href="#gry" data-nav="gry"><svg><use href="#i-games"/></svg><span data-i18n="nav.gry">Gry</span></a>
+  <a href="#sygnal" data-nav="sygnal"><svg><use href="#i-signal"/></svg><span data-i18n="nav.sygnal">Sygnał</span></a>
+  <a href="#sesje" data-nav="sesje"><svg><use href="#i-sessions"/></svg><span data-i18n="nav.sesje">Sesje</span></a>
+  <a href="#ustawienia" data-nav="ustawienia"><svg><use href="#i-settings"/></svg><span data-i18n="nav.ustawienia">Ustawienia</span></a>
 </nav>
 
 <main class="main" id="main" tabindex="-1">
@@ -69,7 +71,7 @@
   <section class="view" id="view-start" aria-labelledby="startTitle">
     <header class="hero">
       <p class="eyebrow" id="startDate"></p>
-      <h1 id="startTitle">Dobry dzień na trening</h1>
+      <h1 id="startTitle" data-i18n="start.title">Dobry dzień na trening</h1>
       <p class="lede" id="startLede"></p>
     </header>
 
@@ -77,18 +79,19 @@
       <button type="button" class="tool-card" data-pick="fnirs">
         <span class="tool-card-kicker">fNIRS</span>
         <span class="tool-card-title">Mendi</span>
-        <span class="tool-card-text">Przepływ krwi i natlenienie kory przedczołowej. Trening skupienia, równowaga półkul i gry.</span>
+        <span class="tool-card-text" data-i18n="start.mendiText">Natlenienie kory przedczołowej, tuż nad brwiami. Trening skupienia, równowaga półkul i wszystkie gry.</span>
       </button>
       <button type="button" class="tool-card" data-pick="eeg">
         <span class="tool-card-kicker">EEG</span>
         <span class="tool-card-title">BrainAccess HALO</span>
-        <span class="tool-card-text">Fale mózgowe z czterech elektrod. Trening skupienia i metryki na żywo.</span>
+        <span class="tool-card-text" data-i18n="start.haloText">Fale mózgowe z czterech elektrod. Trening skupienia, gry treningowe i fale na żywo.</span>
       </button>
-      <p class="muted">Nie masz opaski przy sobie? Wybierz którąkolwiek — każda ma symulator.</p>
+      <p class="muted" data-i18n="start.noBand">Nie masz opaski przy sobie? Wybierz którąkolwiek — każda ma symulator.</p>
+      <div class="lang-row" data-lang-pick="row" role="group" aria-label="Język / Language" data-i18n-attr="aria-label:lang.title"></div>
     </div>
 
     <div class="next card" id="nextStep" hidden>
-      <ol class="steps" id="steps" aria-label="Przygotowanie"></ol>
+      <ol class="steps" id="steps" aria-label="Przygotowanie" data-i18n-attr="aria-label:start.stepsAria"></ol>
       <div class="next-body">
         <h2 id="nextTitle"></h2>
         <p class="muted" id="nextText"></p>
@@ -99,16 +102,16 @@
 
 
     <section class="start-row" aria-labelledby="rowTrain">
-      <div class="row-title"><h2 class="section-title" id="rowTrain">Trenuj</h2><a class="more" href="#trening">Wszystkie ćwiczenia →</a></div>
+      <div class="row-title"><h2 class="section-title" id="rowTrain" data-i18n="start.rowTrain">Trenuj</h2><a class="more" href="#trening" data-i18n="start.allExercises">Wszystkie ćwiczenia →</a></div>
       <div class="tiles" id="trainTiles"></div>
     </section>
     <section class="start-row" aria-labelledby="rowPlay">
-      <div class="row-title"><h2 class="section-title" id="rowPlay">Graj</h2><a class="more" href="#gry">Wszystkie gry →</a></div>
+      <div class="row-title"><h2 class="section-title" id="rowPlay" data-i18n="start.rowPlay">Graj</h2><a class="more" href="#gry" data-i18n="start.allGames">Wszystkie gry →</a></div>
       <div class="tiles" id="gameTiles"></div>
     </section>
 
     <div class="today" id="today" hidden>
-      <h2 class="section-title">Dziś</h2>
+      <h2 class="section-title" data-i18n="start.today">Dziś</h2>
       <div class="today-grid">
         <div class="card score-card">
           <div class="ring" id="todayRing" role="img"></div>
@@ -120,33 +123,36 @@
         <div class="card" id="lastSession"></div>
       </div>
     </div>
+    <aside class="buy" data-buy hidden></aside>
   </section>
 
   <!-- ── Trening ───────────────────────────────────────────────── -->
   <section class="view" id="view-trening" aria-labelledby="treningTitle" hidden>
     <header class="view-head">
-      <h1 id="treningTitle">Trening</h1>
-      <p class="lede">Ćwiczenia neurofeedbacku z opaską połączoną w aplikacji. Gry znajdziesz w zakładce <a class="acc" href="#gry">Gry</a>.</p>
+      <h1 id="treningTitle" data-i18n="trening.title">Trening</h1>
+      <p class="lede"><span data-i18n="trening.lede">Ćwiczenia neurofeedbacku z opaską połączoną w aplikacji.</span> <a class="acc" href="#gry" data-i18n="trening.gamesLink">Gry znajdziesz w zakładce Gry →</a></p>
     </header>
     <div class="activities" id="activities"></div>
+    <aside class="buy" data-buy hidden></aside>
   </section>
 
   <!-- ── Gry ───────────────────────────────────────────────────── -->
   <section class="view" id="view-gry" aria-labelledby="gryTitle" hidden>
     <header class="view-head">
-      <h1 id="gryTitle">Gry</h1>
-      <p class="lede">Gry otwierają się tutaj, w BrainLink, i od razu czytają opaskę połączoną w aplikacji (albo jej symulator) — bez ponownego parowania.</p>
+      <h1 id="gryTitle" data-i18n="gry.title">Gry</h1>
+      <p class="lede" data-i18n="gry.lede">Gry otwierają się tutaj i od razu czytają opaskę połączoną w aplikacji (albo jej symulator) — bez ponownego parowania.</p>
     </header>
     <div class="card games-status" id="gamesStatus" role="status"></div>
-    <div class="row-title"><h2 class="section-title">Gry treningowe</h2><span class="muted">Mendi albo HALO · każda sesja liczy się do wyniku dnia i serii</span></div>
+    <div class="row-title"><h2 class="section-title" data-i18n="gry.training">Gry treningowe</h2><span class="muted" data-i18n="gry.trainingNote">Mendi albo HALO · każda sesja liczy się do wyniku dnia i serii</span></div>
     <div class="activities games" id="gamesList"></div>
-    <div class="row-title mt16"><h2 class="section-title">HolyHolyHoly</h2><span class="muted">opaska Mendi · działają też bez opaski</span></div>
+    <div class="row-title mt16"><h2 class="section-title">HolyHolyHoly</h2><span class="muted" data-i18n="gry.holyNote">Mendi · działają też bez opaski</span></div>
     <div class="activities games" id="gamesHoly"></div>
+    <aside class="buy" data-buy hidden></aside>
   </section>
 
   <!-- ── Gra (arcade): poczekalnia ────────────────────────────── -->
   <section class="view" id="view-arcade" aria-labelledby="arcadeTitle" hidden>
-    <a class="back" href="#gry">← Gry</a>
+    <a class="back" href="#gry" data-i18n="common.back.gry">← Gry</a>
     <div class="arcade-lobby">
       <div class="arcade-hero">
         <canvas id="arcadeHero" aria-hidden="true"></canvas>
@@ -157,20 +163,20 @@
         </div>
       </div>
       <div class="card start-card arcade-start">
-        <div class="card-head">Gotowość <span class="badge" id="arcadeBadge">—</span></div>
+        <div class="card-head"><span data-i18n="common.ready">Gotowość</span> <span class="badge" id="arcadeBadge">—</span></div>
         <p id="arcadeReady" class="ready-text"></p>
-        <button class="btn primary big" type="button" id="btnArcadePlay" disabled><svg><use href="#i-play"/></svg>Graj</button>
+        <button class="btn primary big" type="button" id="btnArcadePlay" disabled><svg><use href="#i-play"/></svg><span data-i18n="lobby.play">Graj</span></button>
         <p class="muted" id="arcadeHint"></p>
-        <div class="field"><span>Długość sesji</span><div class="seg" id="arcadeLen" role="radiogroup" aria-label="Długość sesji"></div></div>
-        <label class="switch"><input type="checkbox" id="arcadeSound"><span>Dźwięk</span></label>
-        <label class="switch"><input type="checkbox" id="arcadeHaptics"><span>Wibracje (telefon)</span></label>
+        <div class="field"><span data-i18n="common.sessionLength">Długość sesji</span><div class="seg" id="arcadeLen" role="radiogroup" aria-label="Długość sesji" data-i18n-attr="aria-label:common.sessionLength"></div></div>
+        <label class="switch"><input type="checkbox" id="arcadeSound"><span data-i18n="common.sound">Dźwięk</span></label>
+        <label class="switch"><input type="checkbox" id="arcadeHaptics"><span data-i18n="lobby.haptics">Wibracje (telefon)</span></label>
       </div>
       <div class="card arcade-how-card">
-        <div class="card-head">Jak gra opaska</div>
+        <div class="card-head" data-i18n="lobby.how">Jak gra opaska</div>
         <ul class="tips arcade-how" id="arcadeHow"></ul>
       </div>
       <div class="card arcade-progress">
-        <div class="card-head">Postępy</div>
+        <div class="card-head" data-i18n="lobby.progress">Postępy</div>
         <div id="arcadeProgressBody"></div>
       </div>
     </div>
@@ -178,35 +184,35 @@
 
   <!-- ── Trening skupienia: przygotowanie ──────────────────────── -->
   <section class="view" id="view-focus" aria-labelledby="focusTitle" hidden>
-    <a class="back" href="#trening">← Trening</a>
+    <a class="back" href="#trening" data-i18n="common.back.trening">← Trening</a>
     <header class="view-head">
-      <h1 id="focusTitle">Trening skupienia</h1>
-      <p class="lede">Utrzymaj kulę wysoko. Rośnie, gdy kora przedczołowa pracuje mocniej niż na początku sesji — opada, gdy uwaga odpłynie. Rozluźnij się i delikatnie „podnoś” ją myślą.</p>
+      <h1 id="focusTitle" data-i18n="common.focusTraining">Trening skupienia</h1>
+      <p class="lede" data-i18n="focus.lede">Utrzymaj kulę wysoko. Rośnie, gdy kora przedczołowa pracuje mocniej niż na początku sesji — opada, gdy uwaga odpłynie. Rozluźnij się i delikatnie „podnoś” ją myślą.</p>
     </header>
     <div class="focus-setup">
       <div class="card scene-card">
-        <div class="card-head">Sceneria</div>
-        <div class="scenes" id="scenePick" role="radiogroup" aria-label="Sceneria"></div>
+        <div class="card-head" data-i18n="focus.scene">Sceneria</div>
+        <div class="scenes" id="scenePick" role="radiogroup" aria-label="Sceneria" data-i18n-attr="aria-label:focus.scene"></div>
       </div>
       <div class="card">
-        <div class="card-head">Sesja</div>
-        <div class="field"><span>Długość</span><div class="seg" id="lenPick" role="radiogroup" aria-label="Długość sesji"></div></div>
-        <label class="switch"><input type="checkbox" id="optMood"><span>Pytanie o samopoczucie</span></label>
-        <label class="switch"><input type="checkbox" id="optBreath"><span>Oddech przed sesją (1 min)</span></label>
-        <div class="card-head mt16">Wygląd</div>
-        <label class="switch"><input type="checkbox" id="optGlow"><span>Poświata kuli</span></label>
-        <label class="switch"><input type="checkbox" id="optZoom"><span>Dynamiczne przybliżenie</span></label>
-        <label class="switch"><input type="checkbox" id="optHud"><span>Wyniki na ekranie</span></label>
-        <div class="card-head mt16">Dźwięk</div>
-        <label class="switch"><input type="checkbox" id="optSound"><span>Pejzaż dźwiękowy</span></label>
-        <label class="switch"><input type="checkbox" id="optChime"><span>Dzwonek za punkty</span></label>
-        <label class="field"><span>Głośność</span><input type="range" id="optVolume" min="0" max="1" step="0.05"></label>
+        <div class="card-head" data-i18n="common.session">Sesja</div>
+        <div class="field"><span data-i18n="focus.length">Długość</span><div class="seg" id="lenPick" role="radiogroup" aria-label="Długość sesji" data-i18n-attr="aria-label:common.sessionLength"></div></div>
+        <label class="switch"><input type="checkbox" id="optMood"><span data-i18n="focus.mood">Pytanie o samopoczucie</span></label>
+        <label class="switch"><input type="checkbox" id="optBreath"><span data-i18n="focus.breath">Oddech przed sesją (1 min)</span></label>
+        <div class="card-head mt16" data-i18n="focus.look">Wygląd</div>
+        <label class="switch"><input type="checkbox" id="optGlow"><span data-i18n="focus.glow">Poświata kuli</span></label>
+        <label class="switch"><input type="checkbox" id="optZoom"><span data-i18n="focus.zoom">Dynamiczne przybliżenie</span></label>
+        <label class="switch"><input type="checkbox" id="optHud"><span data-i18n="focus.hud">Wyniki na ekranie</span></label>
+        <div class="card-head mt16" data-i18n="common.sound">Dźwięk</div>
+        <label class="switch"><input type="checkbox" id="optSound"><span data-i18n="focus.soundscape">Pejzaż dźwiękowy</span></label>
+        <label class="switch"><input type="checkbox" id="optChime"><span data-i18n="focus.chime">Dzwonek za punkty</span></label>
+        <label class="field"><span data-i18n="focus.volume">Głośność</span><input type="range" id="optVolume" min="0" max="1" step="0.05"></label>
       </div>
       <div class="card start-card">
-        <div class="card-head">Gotowość <span class="badge" id="focusBadge">—</span></div>
+        <div class="card-head"><span data-i18n="common.ready">Gotowość</span> <span class="badge" id="focusBadge">—</span></div>
         <p id="focusReady" class="ready-text"></p>
         <ul class="tips" id="focusTips"></ul>
-        <button class="btn primary big" type="button" id="btnFocusStart"><svg><use href="#i-play"/></svg>Rozpocznij</button>
+        <button class="btn primary big" type="button" id="btnFocusStart"><svg><use href="#i-play"/></svg><span data-i18n="focus.start">Rozpocznij</span></button>
         <p class="muted mt8" id="focusHint"></p>
       </div>
     </div>
@@ -214,28 +220,28 @@
 
   <!-- ── Równowaga półkul (fNIRS) ──────────────────────────────── -->
   <section class="view" id="view-balance" aria-labelledby="balanceTitle" hidden>
-    <a class="back" href="#trening">← Trening</a>
+    <a class="back" href="#trening" data-i18n="common.back.trening">← Trening</a>
     <header class="view-head">
-      <h1 id="balanceTitle">Równowaga półkul</h1>
-      <p class="lede">Zadanie dobierane do tego, która strona kory przedczołowej przeważa. Cel: utrzymać obie w równowadze.</p>
+      <h1 id="balanceTitle" data-i18n="balance.title">Równowaga półkul</h1>
+      <p class="lede" data-i18n="balance.lede">Zadanie dobierane do tego, która strona kory przedczołowej przeważa. Cel: utrzymać obie w równowadze.</p>
     </header>
     <div class="needs-tool" data-needs="fnirs"></div>
     <div class="card">
-      <div class="card-head">Równowaga półkul <span class="badge zone-paused" id="balZoneBadge">—</span></div>
+      <div class="card-head"><span data-i18n="balance.title">Równowaga półkul</span> <span class="badge zone-paused" id="balZoneBadge">—</span></div>
       <div class="gauge-track">
         <div class="gauge-band" id="balBand"></div>
         <div class="gauge-mid"></div>
-        <div class="gauge-raw" id="balRaw" title="bieżąca (niewygładzona)"></div>
-        <div class="gauge-marker" id="balMarker" title="wygładzona"></div>
+        <div class="gauge-raw" id="balRaw" title="bieżąca (niewygładzona)" data-i18n-attr="title:balance.raw"></div>
+        <div class="gauge-marker" id="balMarker" title="wygładzona" data-i18n-attr="title:balance.smoothed"></div>
       </div>
-      <div class="gauge-labels"><span>← lewa przeważa</span><b id="balValue">—</b><span>prawa przeważa →</span></div>
+      <div class="gauge-labels"><span data-i18n="balance.leftDom">← lewa przeważa</span><b id="balValue">—</b><span data-i18n="balance.rightDom">prawa przeważa →</span></div>
       <div class="bal-status" id="balStatus">—</div>
-      <div class="chart mt12"><span class="lbl">Asymetria wygładzona · 90 s · pas = równowaga</span><canvas id="balTrend" class="trend"></canvas></div>
+      <div class="chart mt12"><span class="lbl" data-i18n="balance.trend">Asymetria wygładzona · 90 s · pas = równowaga</span><canvas id="balTrend" class="trend"></canvas></div>
     </div>
 
     <div class="card task-card" id="balTaskCard" data-rec="paused">
-      <div class="task-kicker" id="balTaskKicker">Wstrzymane</div>
-      <h2 class="task-title" id="balTaskTitle">Czekam na dane</h2>
+      <div class="task-kicker" id="balTaskKicker" data-i18n="balance.paused">Wstrzymane</div>
+      <h2 class="task-title" id="balTaskTitle" data-i18n="balance.waiting">Czekam na dane</h2>
       <div class="task-body" id="balTaskBody"></div>
       <div class="sr-only" id="balAnnounce" aria-live="polite"></div>
       <div class="task-timer" aria-hidden="true"><div id="balTaskTimer"></div></div>
@@ -244,35 +250,35 @@
 
     <div class="grid2 start">
       <div class="card">
-        <div class="card-head">Sesja <button class="btn" type="button" id="balReset">Wyzeruj</button></div>
+        <div class="card-head"><span data-i18n="common.session">Sesja</span> <button class="btn" type="button" id="balReset" data-i18n="balance.reset">Wyzeruj</button></div>
         <div class="stats stats3" id="balStats"></div>
       </div>
       <div class="card">
         <details>
-          <summary class="card-head">Ustawienia równowagi <span class="hint">rozwiń</span></summary>
+          <summary class="card-head"><span data-i18n="balance.settings">Ustawienia równowagi</span> <span class="hint" data-i18n="common.expand">rozwiń</span></summary>
           <div class="grid2">
-            <label class="f">Dolna granica<input id="balLow" type="number" step="0.01" min="0.01" max="0.99"></label>
-            <label class="f">Górna granica<input id="balHigh" type="number" step="0.01" min="0.01" max="0.99"></label>
-            <label class="f">Utrzymanie strefy [s]<input id="balDwell" type="number" step="1" min="0" max="600"></label>
-            <label class="f">Wygładzanie [s]<input id="balSmooth" type="number" step="0.5" min="0" max="600"></label>
+            <label class="f"><span data-i18n="balance.low">Dolna granica</span><input id="balLow" type="number" step="0.01" min="0.01" max="0.99"></label>
+            <label class="f"><span data-i18n="balance.high">Górna granica</span><input id="balHigh" type="number" step="0.01" min="0.01" max="0.99"></label>
+            <label class="f"><span data-i18n="balance.dwell">Utrzymanie strefy [s]</span><input id="balDwell" type="number" step="1" min="0" max="600"></label>
+            <label class="f"><span data-i18n="balance.smooth">Wygładzanie [s]</span><input id="balSmooth" type="number" step="0.5" min="0" max="600"></label>
           </div>
           <div class="row mt10">
-            <button class="btn" type="button" id="balSave">Zapisz</button>
-            <button class="btn" type="button" id="balDefaults">Domyślne (0.47–0.53)</button>
+            <button class="btn" type="button" id="balSave" data-i18n="common.save">Zapisz</button>
+            <button class="btn" type="button" id="balDefaults" data-i18n="balance.defaults">Domyślne (0,47–0,53)</button>
           </div>
-          <p class="muted mt8">Zalecenie zmienia się dopiero, gdy nowa strefa utrzyma się przez „utrzymanie strefy”.</p>
+          <p class="muted mt8" data-i18n="balance.dwellNote">Zalecenie zmienia się dopiero, gdy nowa strefa utrzyma się przez „utrzymanie strefy”.</p>
         </details>
       </div>
     </div>
-    <p class="disclaimer">Przypisanie zadań do półkul to uproszczenie — w korze przedczołowej większość zadań angażuje obie strony, a opaska mierzy tylko jej fragment. Widok służy do eksperymentów i neurofeedbacku, nie do diagnozy ani terapii. Podczas ruchu lub słabego kontaktu informacja zwrotna jest wstrzymywana.</p>
+    <p class="disclaimer" data-i18n="balance.disclaimer">Przypisanie zadań do półkul to uproszczenie — w korze przedczołowej większość zadań angażuje obie strony, a opaska mierzy tylko jej fragment. Widok służy do eksperymentów i neurofeedbacku, nie do diagnozy ani terapii. Podczas ruchu lub słabego kontaktu informacja zwrotna jest wstrzymywana.</p>
   </section>
 
   <!-- ── Sygnał ────────────────────────────────────────────────── -->
   <section class="view" id="view-sygnal" aria-labelledby="sygnalTitle" hidden>
     <header class="view-head row-head">
       <div>
-        <h1 id="sygnalTitle">Sygnał</h1>
-        <p class="lede" id="sygnalLede">Dane z opaski na żywo.</p>
+        <h1 id="sygnalTitle" data-i18n="sig.title">Sygnał</h1>
+        <p class="lede" id="sygnalLede" data-i18n="sig.lede">Dane z opaski na żywo.</p>
       </div>
       <span class="muted mono" id="rateText"></span>
     </header>
@@ -280,73 +286,73 @@
 
     <div class="monitor" id="monitorFnirs" hidden>
       <div class="card play-card">
-        <div><b>Graj z tym sygnałem</b><span class="muted">Gra przejmie opaskę (albo symulator) prosto z tego widoku.</span></div>
+        <div><b data-i18n="sig.play">Graj z tym sygnałem</b><span class="muted" data-i18n="sig.playText">Gra przejmie opaskę (albo symulator) prosto z tego widoku.</span></div>
         <div class="row">
           <a class="btn primary" href="#gra/holyholyholy"><svg><use href="#i-games"/></svg>HolyHolyHoly</a>
           <a class="btn" href="#gra/holyholyholy3d"><svg><use href="#i-games"/></svg>HolyHolyHoly 3D</a>
-          <a class="btn ghost" href="#trening/focus">Trening skupienia</a>
+          <a class="btn ghost" href="#trening/focus" data-i18n="common.focusTraining">Trening skupienia</a>
         </div>
       </div>
       <div class="stats">
-        <div class="stat"><div class="k">Tętno</div><div class="v"><span id="hr">—</span><small>bpm</small></div></div>
-        <div class="stat"><div class="k">ΔHbO śr.</div><div class="v hbo"><span id="hboAvg">—</span><small>µM</small></div></div>
-        <div class="stat"><div class="k">ΔHbR śr.</div><div class="v hbr"><span id="hbrAvg">—</span><small>µM</small></div></div>
-        <div class="stat"><div class="k">Ruch</div><div class="v" id="motion">—</div></div>
+        <div class="stat"><div class="k" data-i18n="sig.hr">Tętno</div><div class="v"><span id="hr">—</span><small>bpm</small></div></div>
+        <div class="stat"><div class="k" data-i18n="sig.hboAvg">ΔHbO śr.</div><div class="v hbo"><span id="hboAvg">—</span><small>µM</small></div></div>
+        <div class="stat"><div class="k" data-i18n="sig.hbrAvg">ΔHbR śr.</div><div class="v hbr"><span id="hbrAvg">—</span><small>µM</small></div></div>
+        <div class="stat"><div class="k" data-i18n="sig.motion">Ruch</div><div class="v" id="motion">—</div></div>
       </div>
 
       <div class="card">
-        <div class="card-head">Hemodynamika kory przedczołowej
-          <div class="legend"><span><i class="sw-hbo"></i>ΔHbO</span><span><i class="sw-hbr"></i>ΔHbR</span><span class="hint">ostatnie 10 s</span></div>
+        <div class="card-head"><span data-i18n="sig.hemo">Hemodynamika kory przedczołowej</span>
+          <div class="legend"><span><i class="sw-hbo"></i>ΔHbO</span><span><i class="sw-hbr"></i>ΔHbR</span><span class="hint" data-i18n="sig.last10">ostatnie 10 s</span></div>
         </div>
         <div id="baselineBox" class="muted baseline">
-          Zbieranie linii bazowej — siedź spokojnie… <span id="baselinePct">0%</span>
+          <span data-i18n="sig.baseline">Zbieranie linii bazowej — siedź spokojnie…</span> <span id="baselinePct">0%</span>
           <div class="progress"><div id="baselineBar"></div></div>
         </div>
         <div class="grid2">
-          <div class="chart"><span class="lbl">Lewa</span><span class="val" id="valL">—</span><canvas id="chartL"></canvas></div>
-          <div class="chart"><span class="lbl">Prawa</span><span class="val" id="valR">—</span><canvas id="chartR"></canvas></div>
+          <div class="chart"><span class="lbl" data-i18n="sig.left">Lewa</span><span class="val" id="valL">—</span><canvas id="chartL"></canvas></div>
+          <div class="chart"><span class="lbl" data-i18n="sig.right">Prawa</span><span class="val" id="valR">—</span><canvas id="chartR"></canvas></div>
         </div>
       </div>
 
       <div class="grid2">
         <div class="card">
-          <div class="card-head">Metryki <span class="hint">0–1, względem ostatnich 60 s</span></div>
-          <div class="metric-row"><span class="metric-label">Aktywacja</span><div class="metric-bar-bg"><div class="metric-bar-fill act" id="barAct"></div></div><span class="metric-val" id="valAct">—</span></div>
-          <div class="metric-row"><span class="metric-label">Asymetria</span><div class="metric-bar-bg"><div class="mid"></div><div class="metric-bar-fill asym" id="barAsym"></div></div><span class="metric-val" id="valAsym">—</span></div>
-          <div class="muted mt8">Asymetria: &lt;0.5 lewa · 0.5 równowaga · &gt;0.5 prawa · <a href="#trening/balance" class="acc">trening równowagi →</a></div>
+          <div class="card-head"><span data-i18n="sig.metrics">Metryki</span> <span class="hint" data-i18n="sig.metricsHint">0–1, względem ostatnich 60 s</span></div>
+          <div class="metric-row"><span class="metric-label" data-i18n="sig.activation">Aktywacja</span><div class="metric-bar-bg"><div class="metric-bar-fill act" id="barAct"></div></div><span class="metric-val" id="valAct">—</span></div>
+          <div class="metric-row"><span class="metric-label" data-i18n="sig.asymmetry">Asymetria</span><div class="metric-bar-bg"><div class="mid"></div><div class="metric-bar-fill asym" id="barAsym"></div></div><span class="metric-val" id="valAsym">—</span></div>
+          <div class="muted mt8"><span data-i18n="sig.asymNote">Asymetria: &lt;0,5 lewa · 0,5 równowaga · &gt;0,5 prawa ·</span> <a href="#trening/balance" class="acc" data-i18n="sig.balanceLink">trening równowagi →</a></div>
         </div>
         <div class="card">
-          <div class="card-head">Puls (kanał centralny) <span class="hint">IR, 5 s</span></div>
+          <div class="card-head"><span data-i18n="sig.pulse">Puls (kanał centralny)</span> <span class="hint">IR, 5 s</span></div>
           <div class="chart"><canvas id="chartPulse" class="short"></canvas></div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-head">Jakość sygnału <span class="hint">SCI ≥ 0.75 = dobry kontakt</span></div>
+        <div class="card-head"><span data-i18n="sig.quality">Jakość sygnału</span> <span class="hint" data-i18n="sig.qualityHint">SCI ≥ 0,75 = dobry kontakt</span></div>
         <div class="q" id="quality"></div>
       </div>
 
       <div class="card" id="recCard">
-        <div class="card-head">Nagrywanie <span class="badge" id="recBadge">—</span></div>
+        <div class="card-head"><span data-i18n="rec.title">Nagrywanie</span> <span class="badge" id="recBadge">—</span></div>
         <div class="rec-grid">
           <div class="row">
-            <input id="recName" aria-label="Nazwa sesji" placeholder="nazwa sesji" class="grow">
-            <label class="inline">czas [s]<input id="recDur" aria-label="Czas trwania w sekundach" type="number" value="600" min="10" max="7200" class="w80"></label>
-            <button class="btn primary" type="button" id="btnRec">● Start</button>
-            <button class="btn danger" type="button" id="btnRecStop">■ Stop</button>
+            <input id="recName" aria-label="Nazwa sesji" placeholder="nazwa sesji" class="grow" data-i18n-attr="aria-label:rec.nameAria placeholder:rec.namePh">
+            <label class="inline"><span data-i18n="rec.dur">czas [s]</span><input id="recDur" aria-label="Czas trwania w sekundach" type="number" value="600" min="10" max="7200" class="w80" data-i18n-attr="aria-label:rec.durAria"></label>
+            <button class="btn primary" type="button" id="btnRec" data-i18n="rec.start">● Start</button>
+            <button class="btn danger" type="button" id="btnRecStop" data-i18n="rec.stop">■ Stop</button>
           </div>
           <div class="row">
-            <button class="btn" type="button" data-mark="task_start">Znacznik: start zadania</button>
-            <button class="btn" type="button" data-mark="task_end">koniec</button>
-            <input id="markCustom" aria-label="Własny znacznik" placeholder="własny znacznik" class="grow">
-            <button class="btn" type="button" id="btnMark">Dodaj</button>
+            <button class="btn" type="button" data-mark="task_start" data-i18n="rec.markStart">Znacznik: start zadania</button>
+            <button class="btn" type="button" data-mark="task_end" data-i18n="rec.markEnd">koniec</button>
+            <input id="markCustom" aria-label="Własny znacznik" placeholder="własny znacznik" class="grow" data-i18n-attr="aria-label:rec.customAria placeholder:rec.customPh">
+            <button class="btn" type="button" id="btnMark" data-i18n="rec.add">Dodaj</button>
           </div>
         </div>
-        <p class="muted mt8">Nagranie zapisuje surowe ramki, ΔHbO/ΔHbR i znaczniki — w przeglądarce albo w folderze (Ustawienia). Trening skupienia dodaje swoje znaczniki sam.</p>
+        <p class="muted mt8" data-i18n="rec.note">Nagranie zapisuje surowe ramki, ΔHbO/ΔHbR i znaczniki — w przeglądarce albo w folderze (Ustawienia). Trening skupienia dodaje swoje znaczniki sam.</p>
       </div>
 
       <details class="card">
-        <summary class="card-head">Surowe dane <span class="hint">ostatnia ramka · rozwiń</span></summary>
+        <summary class="card-head"><span data-i18n="sig.raw">Surowe dane</span> <span class="hint" data-i18n="sig.rawHint">ostatnia ramka · rozwiń</span></summary>
         <div class="kv" id="rawKv"></div>
       </details>
     </div>
@@ -355,96 +361,111 @@
       <div class="stats" id="eegStats"></div>
       <div class="grid2">
         <div class="card">
-          <div class="card-head">Metryki <span class="hint">0–1</span></div>
+          <div class="card-head"><span data-i18n="sig.metrics">Metryki</span> <span class="hint">0–1</span></div>
           <div id="eegMetrics"></div>
         </div>
         <div class="card">
-          <div class="card-head">Kontakt elektrod <span class="hint">rozrzut z ostatniej sekundy</span></div>
+          <div class="card-head"><span data-i18n="eeg.contact">Kontakt elektrod</span> <span class="hint" data-i18n="eeg.contactHint">rozrzut z ostatniej sekundy</span></div>
           <div class="q q4" id="eegContact"></div>
-          <div class="card-head mt16">Combo</div>
+          <div class="card-head mt16" data-i18n="eeg.combo">Combo</div>
           <div class="combos" id="eegCombos"></div>
         </div>
       </div>
       <div class="card">
-        <div class="card-head">EEG <span class="hint">po filtrze 50 Hz · ostatnie 2 s</span></div>
+        <div class="card-head">EEG <span class="hint" data-i18n="eeg.wavesHint">po filtrze 50 Hz · ostatnie 2 s</span></div>
         <div class="wave-grid" id="eegWaves"></div>
       </div>
       <div class="card">
-        <div class="card-head">Moc pasm <span class="hint">Welch, ostatnia sekunda · skala log</span></div>
+        <div class="card-head"><span data-i18n="eeg.bands">Moc pasm</span> <span class="hint" data-i18n="eeg.bandsHint">Welch, ostatnia sekunda · skala log</span></div>
         <div class="band-grid" id="eegBands"></div>
       </div>
-      <p class="disclaimer">EEG w przeglądarce: te same filtry i metryki co serwer BrainLink. Klasyfikator stanów, kalibracja z przewodnikiem, kreator combo i nagrywanie EEG działają w aplikacji serwerowej (<span class="mono">python run.py</span>). HALO nie przesyła impedancji przez Bluetooth, więc kontakt jest szacowany z amplitudy.</p>
+      <p class="disclaimer"><span data-i18n="eeg.note">EEG w przeglądarce: te same filtry i metryki co serwer na komputerze. Klasyfikator stanów, kalibracja z przewodnikiem, kreator combo i nagrywanie EEG są tylko w serwerze.</span> <span data-i18n="eeg.server">Serwer uruchomisz poleceniem</span> <span class="mono">python run.py</span>. <span data-i18n="eeg.contactNote">HALO nie przesyła impedancji przez Bluetooth, więc kontakt jest szacowany z amplitudy.</span></p>
     </div>
+    <aside class="buy" data-buy hidden></aside>
   </section>
 
   <!-- ── Sesje ─────────────────────────────────────────────────── -->
   <section class="view" id="view-sesje" aria-labelledby="sesjeTitle" hidden>
     <header class="view-head">
-      <h1 id="sesjeTitle">Sesje</h1>
-      <p class="lede">Wyniki treningów i nagrania sygnału. Wszystko zostaje na tym urządzeniu.</p>
+      <h1 id="sesjeTitle" data-i18n="ses.title">Sesje</h1>
+      <p class="lede" data-i18n="ses.lede">Wyniki treningów i nagrania sygnału. Wszystko zostaje na tym urządzeniu.</p>
     </header>
     <div class="card">
-      <div class="card-head">Treningi i gry <span class="hint" id="trainingsHint"></span></div>
+      <div class="card-head"><span data-i18n="ses.trainings">Treningi i gry</span> <span class="hint" id="trainingsHint"></span></div>
       <div class="sessions" id="trainingList"></div>
     </div>
     <div class="card">
-      <div class="card-head">Nagrania <button class="btn" type="button" id="btnRefreshSessions">Odśwież</button></div>
+      <div class="card-head"><span data-i18n="ses.recordings">Nagrania</span> <button class="btn" type="button" id="btnRefreshSessions" data-i18n="ses.refresh">Odśwież</button></div>
       <div class="sessions" id="sessionList"></div>
       <p class="muted mt8" id="sessionsHint"></p>
     </div>
+    <aside class="buy" data-buy hidden></aside>
   </section>
 
   <!-- ── Ustawienia ────────────────────────────────────────────── -->
   <section class="view" id="view-ustawienia" aria-labelledby="ustawieniaTitle" hidden>
     <header class="view-head">
-      <h1 id="ustawieniaTitle">Ustawienia</h1>
+      <h1 id="ustawieniaTitle" data-i18n="ust.title">Ustawienia</h1>
     </header>
     <div class="settings-grid">
       <div class="card">
-        <div class="card-head">Przechowywanie sesji</div>
-        <div class="row" role="radiogroup" aria-label="Gdzie zapisywać sesje">
-          <button class="btn" type="button" role="radio" data-store="browser">Przeglądarka</button>
-          <button class="btn" type="button" role="radio" data-store="folder" id="btnStoreFolder">Folder lokalny</button>
+        <div class="card-head" data-i18n="lang.title">Język / Language</div>
+        <div class="row lang-pick" data-lang-pick="buttons" role="group" aria-label="Język / Language" data-i18n-attr="aria-label:lang.title"></div>
+        <p class="muted mt8" data-i18n="lang.note">Aplikacja uruchomi się ponownie w wybranym języku.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head" data-i18n="ust.storage">Przechowywanie sesji</div>
+        <div class="row" role="radiogroup" aria-label="Gdzie zapisywać sesje" data-i18n-attr="aria-label:ust.storageAria">
+          <button class="btn" type="button" role="radio" data-store="browser" data-i18n="ust.browser">Przeglądarka</button>
+          <button class="btn" type="button" role="radio" data-store="folder" id="btnStoreFolder" data-i18n="ust.folder">Folder lokalny</button>
         </div>
         <div class="kv" id="storeKv"></div>
         <div class="row mt8">
-          <button class="btn" type="button" id="btnPickFolder">Wybierz folder</button>
-          <button class="btn" type="button" id="btnFolderAccess" hidden>Przyznaj dostęp</button>
-          <button class="btn" type="button" id="btnPersist" hidden>Chroń przed usunięciem</button>
+          <button class="btn" type="button" id="btnPickFolder" data-i18n="ust.pickFolder">Wybierz folder</button>
+          <button class="btn" type="button" id="btnFolderAccess" hidden data-i18n="ust.grant">Przyznaj dostęp</button>
+          <button class="btn" type="button" id="btnPersist" hidden data-i18n="ust.persist">Chroń przed usunięciem</button>
         </div>
         <p class="muted mt8" id="storeHint"></p>
       </div>
 
       <div class="card">
         <details>
-          <summary class="card-head">Parametry MBLL (fNIRS) <span class="hint">rozwiń</span></summary>
+          <summary class="card-head"><span data-i18n="ust.mbll">Parametry MBLL (fNIRS)</span> <span class="hint" data-i18n="common.expand">rozwiń</span></summary>
           <div class="grid2">
-            <label class="f">Czerwony [nm]<select id="cfgRed"></select></label>
+            <label class="f"><span data-i18n="ust.red">Czerwony [nm]</span><select id="cfgRed"></select></label>
             <label class="f">IR [nm]<select id="cfgIr"></select></label>
-            <label class="f">Odległość [cm]<input id="cfgSep" type="number" step="0.1"></label>
+            <label class="f"><span data-i18n="ust.sep">Odległość [cm]</span><input id="cfgSep" type="number" step="0.1"></label>
             <label class="f">DPF<input id="cfgDpf" type="number" step="0.1"></label>
-            <label class="f">Dolnoprzep. [Hz]<input id="cfgLp" type="number" step="0.05"></label>
-            <label class="f">Górnoprzep. [Hz]<input id="cfgHp" type="number" step="0.001"></label>
+            <label class="f"><span data-i18n="ust.lp">Dolnoprzep. [Hz]</span><input id="cfgLp" type="number" step="0.05"></label>
+            <label class="f"><span data-i18n="ust.hp">Górnoprzep. [Hz]</span><input id="cfgHp" type="number" step="0.001"></label>
           </div>
-          <button class="btn mt10" type="button" id="btnCfg">Zastosuj (resetuje bazę)</button>
-          <p class="disclaimer mt10">Mendi nie publikuje długości fal, odległości źródło–detektor ani DPF. Wartości domyślne są typowe dla konsumenckiego fNIRS — traktuj ΔHbO/ΔHbR jako zmiany względne. Integracja oparta na nieoficjalnym, odtworzonym protokole Bluetooth.</p>
+          <button class="btn mt10" type="button" id="btnCfg" data-i18n="ust.apply">Zastosuj (resetuje bazę)</button>
+          <p class="disclaimer mt10" data-i18n="ust.mbllNote">Mendi nie publikuje długości fal, odległości źródło–detektor ani DPF. Wartości domyślne są typowe dla konsumenckiego fNIRS — traktuj ΔHbO/ΔHbR jako zmiany względne. Połączenie z opaską opiera się na nieoficjalnym, odtworzonym protokole Bluetooth.</p>
         </details>
       </div>
 
       <div class="card">
-        <div class="card-head">Dane treningów</div>
-        <p class="muted mb8">Wyniki treningu skupienia (punkty, kontrola, przebieg sesji, samopoczucie).</p>
+        <div class="card-head" data-i18n="ust.data">Dane treningów</div>
+        <p class="muted mb8" data-i18n="ust.dataNote">Wyniki treningu skupienia i gier (punkty, kontrola, przebieg sesji, samopoczucie).</p>
         <div class="row">
-          <button class="btn" type="button" id="btnExportTrainings">Eksportuj (JSON)</button>
+          <button class="btn" type="button" id="btnExportTrainings" data-i18n="ust.export">Eksportuj (JSON)</button>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-head">O aplikacji</div>
-        <p class="muted">BrainLink działa w całości w przeglądarce: Bluetooth, przetwarzanie sygnału i zapis. Nic nie jest wysyłane na zewnątrz.</p>
-        <p class="disclaimer mt8">To narzędzie do neurofeedbacku i eksperymentów, nie wyrób medyczny — nie służy do diagnozy ani terapii. Integracje z opaskami opierają się na nieoficjalnych, odtworzonych protokołach Bluetooth; trening skupienia jest wzorowany na treningu z aplikacji Mendi, ale nie jest z nią związany.</p>
+        <div class="card-head" data-i18n="ust.about">O Emmanuelu</div>
+        <p class="about-meaning" data-i18n="ust.aboutMeaning">Emmanuel (hebr. ʿImmanu-El) znaczy „Bóg z nami” (Iz 7,14). Bóg już jest z nami — często brakuje nam tylko ciszy, by to zauważyć.</p>
+        <p class="mt8" data-i18n="ust.aboutWhat">Emmanuel czyta opaskę na żywo i pomaga ćwiczyć spokojną, równą uwagę znaną z medytacji i modlitwy kontemplacyjnej, a samą praktykę zamienia w gry, do których chce się wracać. Nie wytwarza wiary ani przeżyć duchowych — ćwiczy ciszę, w której można słuchać.</p>
+        <blockquote class="about-verse mt12">
+          <p data-i18n="ust.aboutVerse">„Uspokójcie się, a wiedzcie, żem Ja Bóg.”</p>
+          <cite data-i18n="ust.aboutVerseRef">Ps 46,11 · Biblia Gdańska</cite>
+        </blockquote>
+        <p class="muted mt12" data-i18n="ust.aboutText">Emmanuel działa w całości w przeglądarce: Bluetooth, przetwarzanie sygnału i zapis. Nic nie jest wysyłane na zewnątrz.</p>
+        <p class="disclaimer mt8" data-i18n="ust.aboutNote">Emmanuel to aplikacja do neurofeedbacku i eksperymentów, a nie wyrób medyczny — nie służy do diagnozy ani terapii. Połączenia z opaskami opierają się na nieoficjalnych, odtworzonych protokołach Bluetooth; trening skupienia jest wzorowany na treningu z aplikacji Mendi, ale nie jest z nią związany.</p>
       </div>
     </div>
+    <aside class="buy" data-buy hidden></aside>
   </section>
 </main>
 </div>
@@ -454,34 +475,34 @@
   <div class="sheet-head">
     <div>
       <p class="eyebrow" id="sheetKicker"></p>
-      <h2 id="sheetTitle">Opaska</h2>
+      <h2 id="sheetTitle" data-i18n="common.band">Opaska</h2>
     </div>
-    <button class="icon-btn" type="button" id="sheetClose" aria-label="Zamknij"><svg><use href="#i-close"/></svg></button>
+    <button class="icon-btn" type="button" id="sheetClose" aria-label="Zamknij" data-i18n-attr="aria-label:common.close"><svg><use href="#i-close"/></svg></button>
   </div>
   <div class="sheet-body">
-    <div class="sources" role="radiogroup" aria-label="Źródło sygnału" id="sourcePick">
-      <button type="button" role="radio" class="source" data-src="device"><b id="srcDeviceName">Opaska</b><small id="srcDeviceText">Połącz przez Bluetooth</small></button>
-      <button type="button" role="radio" class="source" data-src="simulator"><b>Symulator</b><small>Sztuczny sygnał do prób</small></button>
-      <button type="button" role="radio" class="source" data-src="off"><b>Wyłączone</b><small>Bez sygnału</small></button>
+    <div class="sources" role="radiogroup" aria-label="Źródło sygnału" id="sourcePick" data-i18n-attr="aria-label:sheet.sourceAria">
+      <button type="button" role="radio" class="source" data-src="device"><b id="srcDeviceName" data-i18n="common.band">Opaska</b><small id="srcDeviceText" data-i18n="sheet.connectBt">Połącz przez Bluetooth</small></button>
+      <button type="button" role="radio" class="source" data-src="simulator"><b data-i18n="common.simulator">Symulator</b><small data-i18n="sheet.simText">Sztuczny sygnał do prób</small></button>
+      <button type="button" role="radio" class="source" data-src="off"><b data-i18n="sheet.off">Wyłączone</b><small data-i18n="sheet.offText">Bez sygnału</small></button>
     </div>
     <div class="dev-status" id="devStatus">
-      <div class="row"><span class="badge" id="devBadge">rozłączona</span><span class="muted" id="devSignal"></span></div>
+      <div class="row"><span class="badge" id="devBadge" data-i18n="sheet.disconnected">rozłączona</span><span class="muted" id="devSignal"></span></div>
       <div class="kv" id="devKv"></div>
       <div class="row mt8">
-        <button class="btn" type="button" id="btnConnect"><svg><use href="#i-bt"/></svg>Połącz</button>
-        <button class="btn danger" type="button" id="btnDisconnect">Rozłącz</button>
-        <button class="btn ghost" type="button" id="btnBtHelp">Pomoc Bluetooth</button>
+        <button class="btn" type="button" id="btnConnect"><svg><use href="#i-bt"/></svg><span data-i18n="sheet.connect">Połącz</span></button>
+        <button class="btn danger" type="button" id="btnDisconnect" data-i18n="sheet.disconnect">Rozłącz</button>
+        <button class="btn ghost" type="button" id="btnBtHelp" data-i18n="sheet.btHelp">Pomoc Bluetooth</button>
       </div>
       <p class="muted mt8" id="devNote"></p>
     </div>
     <div class="sim" id="simCard">
-      <div class="card-head">Symulator <span class="hint" id="simInfo"></span></div>
+      <div class="card-head"><span data-i18n="common.simulator">Symulator</span> <span class="hint" id="simInfo"></span></div>
       <div class="row" id="simStates"></div>
       <div class="row mt8" id="simScenarios"></div>
     </div>
     <div class="row sheet-foot">
-      <button class="btn" type="button" id="btnBaseline">Nowa linia bazowa</button>
-      <span class="muted">po poprawieniu opaski</span>
+      <button class="btn" type="button" id="btnBaseline" data-i18n="sheet.baseline">Nowa linia bazowa</button>
+      <span class="muted" data-i18n="sheet.baselineNote">po poprawieniu opaski</span>
     </div>
   </div>
 </dialog>
@@ -492,8 +513,8 @@
     <ol id="btDialogSteps"></ol>
     <div class="row mt10">
       <a class="btn" id="btDialogLink" hidden></a>
-      <button class="btn" type="button" id="btDialogConnect" hidden>Połącz teraz</button>
-      <button class="btn" value="close">Zamknij</button>
+      <button class="btn" type="button" id="btDialogConnect" hidden data-i18n="bt.connectNow">Połącz teraz</button>
+      <button class="btn" value="close" data-i18n="common.close">Zamknij</button>
     </div>
   </form>
 </dialog>
@@ -505,9 +526,9 @@
   <div class="game-bar">
     <b id="gameTitle"></b>
     <span class="muted" id="gameLink"></span>
-    <button class="btn ghost" type="button" id="gameBand"><svg><use href="#i-bt"/></svg>Opaska</button>
-    <button class="icon-btn" type="button" id="gameFull" aria-label="Pełny ekran"><svg><use href="#i-expand"/></svg></button>
-    <button class="icon-btn" type="button" id="gameClose" aria-label="Zamknij grę"><svg><use href="#i-close"/></svg></button>
+    <button class="btn ghost" type="button" id="gameBand"><svg><use href="#i-bt"/></svg><span data-i18n="common.band">Opaska</span></button>
+    <button class="icon-btn" type="button" id="gameFull" aria-label="Pełny ekran" data-i18n-attr="aria-label:game.fullscreen"><svg><use href="#i-expand"/></svg></button>
+    <button class="icon-btn" type="button" id="gameClose" aria-label="Zamknij grę" data-i18n-attr="aria-label:game.close"><svg><use href="#i-close"/></svg></button>
   </div>
   <div class="game-frame" id="gameFrame"></div>
 </div>

@@ -10,7 +10,8 @@
  * again only when they change, so a frame leaves no garbage.
  */
 import { approach, clamp, ease } from '../kit/juice';
-import { AMBER, DUPLICATE_OKRUCHY, SETS, TIER_NAME, boatWord, boats, crates, crumbs, farShips } from './content';
+import { AMBER, DUPLICATE_OKRUCHY, SETS, TIER_NAME } from './content';
+import { bare, farShips, t } from './i18n';
 import { BOTTOM, TOP, cardSlot, lanternRow, layout, type Layout, type Rect } from './layout';
 import { C, SANS, SERIF, amberSprite, paintBoat, sprites, type AmberSprite, type BoatLook } from './paint';
 import { Queue, type QueueOpts } from './queue';
@@ -72,6 +73,11 @@ const PAD = 3;
 const MAX_BOXES = 40;
 const DAWN = '#ffc9b4';
 const EYEBROW_MAX = 16;
+/** The words the HUD draws every frame, looked up once (the language is settled when the app loads). */
+const TXT = {
+  dawn: t('block.dawn'), warmup: t('block.warmup'), cisza: t('block.cisza'), konwoj: t('block.konwoj'), blind: t('block.blind'),
+  nextCisza: t('next.cisza'), nextKonwoj: t('next.konwoj'), fog: t('fog'), armed: t('hud.armed'), ladder: t('hud.ladder'), soon: t('watch.soon'),
+};
 
 export class Hud {
   private L: Layout = layout(390, 844);
@@ -95,13 +101,15 @@ export class Hud {
   private fonts = Hud.fontsFor(1);
   private readonly nameFit = fitSlot();
   private readonly tipWrap = { text: '', maxW: -1, font: '', lines: [] as string[] };
-  private readonly watchTxt = new NumText(n => `WACHTA ${n}`);
+  private readonly watchTxt = new NumText(n => t('hud.watch', { n }));
   private readonly browX = new Float32Array(EYEBROW_MAX);
   private browText = '';
   private readonly scoreTxt = new NumText(n => String(n));
-  private readonly portTxt = new NumText(n => `${boatWord(n)} w porcie`);
-  private readonly crateTxt = new NumText(crates);
-  private readonly streakTxt = new NumText(n => `Idealnie ×${n}`);
+  private readonly portTxt = new NumText(n => bare('hud.inPort', n));
+  private readonly portFit = fitSlot();
+  private readonly watchFit = fitSlot();
+  private readonly crateTxt = new NumText(n => t('crates', { n }));
+  private readonly streakTxt = new NumText(n => t('hud.streak', { n }));
 
   constructor(private readonly ctx: CanvasRenderingContext2D) {}
 
@@ -110,7 +118,7 @@ export class Hud {
       eyebrow: font(700, 10.5 * u, SANS), tip: font(500, 13.5 * u, SANS), next: font(650, 12.5 * u, SANS), fog: font(600, 12.5 * u, SANS),
       score: font(400, 46 * u, SERIF), scoreSub: font(650, 12 * u, SANS), ladder: font(650, 11.5 * u, SANS),
       cardTitle: font(650, 14.5 * u, SANS), cardSub: font(500, 12 * u, SANS),
-      watchTitle: font(500, 30 * u, SERIF, true), watchLine: font(650, 15 * u, SANS), watchSmall: font(500, 12.5 * u, SANS),
+      watchLine: font(650, 15 * u, SANS), watchSmall: font(500, 12.5 * u, SANS),
     };
   }
 
@@ -157,20 +165,20 @@ export class Hud {
 
   /** The watch's "Świt" card. */
   watchEnd(watch: number, n: number): void {
-    this.watchCard = { line: `Wachta ${watch} · ${boats(n)}`, t: 0 };
+    this.watchCard = { line: t('watch.line', { n: watch, boats: t('boats', { n }) }), t: 0 };
   }
 
   /** A piece of amber, new or a duplicate, in the card slot. */
   card(piece: number, isNew: boolean, via: 'draw' | 'craft' | 'pity'): void {
-    const a = AMBER[piece], name = a.name.toLowerCase();
-    const title = !isNew ? `Już masz: ${name}` : via === 'craft' ? `Z okruchów: ${name}` : via === 'pity' ? `Fala przyniosła: ${name}` : `Nowy bursztyn: ${name}`;
-    const sub = isNew ? `${TIER_NAME[a.tier]} · ${SETS[a.set].name}` : `+${crumbs(DUPLICATE_OKRUCHY)}`;
+    const a = AMBER[piece], name = a.name;
+    const title = t(!isNew ? 'card.dup' : via === 'craft' ? 'card.craft' : via === 'pity' ? 'card.pity' : 'card.new', { name });
+    const sub = isNew ? `${TIER_NAME[a.tier]} · ${SETS[a.set].name}` : `+${t('crumbs', { n: DUPLICATE_OKRUCHY })}`;
     this.cards.push(newCard('amber', piece, isNew, 0, title, sub), { dur: 2.8, min: 2.2, rank: 1 });
   }
 
   /** The blind Konwój's reveal: how many ships came in from afar, in the card slot. */
   reveal(far: number): void {
-    this.cards.push(newCard('reveal', -1, false, far, farShips(far), 'Konwój w ciemno'), { dur: 3.4, min: 2.6, rank: 0 });
+    this.cards.push(newCard('reveal', -1, false, far, farShips(far), TXT.blind), { dur: 3.4, min: 2.6, rank: 0 });
   }
 
   /** Keep floating words off a label of the reach ring this frame (the view calls it as it draws them). */
@@ -354,7 +362,7 @@ export class Hud {
     const b = sim.block;
     const kind = b.kind;
     const color = dawn ? DAWN : kind === 'cisza' ? '#8cf0dd' : kind === 'konwoj' ? '#ffa48a' : C.cream;
-    const name = dawn ? 'Świt' : kind === 'warmup' ? 'Pierwsza wachta' : kind === 'cisza' ? 'Cisza' : b.blind ? 'Konwój w ciemno' : 'Konwój';
+    const name = dawn ? TXT.dawn : kind === 'warmup' ? TXT.warmup : kind === 'cisza' ? TXT.cisza : b.blind ? TXT.blind : TXT.konwoj;
     ctx.textAlign = 'left';
     ctx.font = F.eyebrow;
     ctx.fillStyle = 'rgba(239,232,220,.5)';
@@ -391,11 +399,11 @@ export class Hud {
         ctx.fill();
         ctx.globalAlpha = 1;
         ctx.font = F.next;
-        ctx.fillText(next.kind === 'cisza' ? 'Za chwilę: Cisza' : 'Za chwilę: Konwój', x0 + 13, y + 21 * u);
+        ctx.fillText(next.kind === 'cisza' ? TXT.nextCisza : TXT.nextKonwoj, x0 + 13, y + 21 * u);
       } else if (!sim.reliable) {
         ctx.font = F.fog;
         ctx.fillStyle = 'rgba(200,214,240,.75)';
-        ctx.fillText('Mgła: łodzie czekają', x0, y + 21 * u);
+        ctx.fillText(TXT.fog, x0, y + 21 * u);
       }
     }
     const statusBottom = y + 30 * u;
@@ -410,9 +418,13 @@ export class Hud {
     ctx.scale(pop, pop);
     ctx.fillText(this.scoreTxt.get(sim.score), 0, 0);
     ctx.restore();
-    ctx.font = F.scoreSub;
+    // the words under the score keep to its column (German and Swedish run long)
+    const sub = this.portTxt.get(sim.score);
+    this.fitIn(this.portFit, sub, scoreW, 12 * u, 650, SANS);
+    ctx.font = this.portFit.font;
     ctx.fillStyle = 'rgba(239,232,220,.62)';
-    ctx.fillText(this.portTxt.get(sim.score), right, top + scoreSize * 0.95 + 18 * u);
+    ctx.fillText(sub, right, top + scoreSize * 0.95 + 18 * u);
+    ctx.font = F.scoreSub;
     ctx.fillStyle = 'rgba(255,200,120,.85)';
     const crateLine = this.crateTxt.get(sim.crates, ctx);
     ctx.fillText(crateLine, right, top + scoreSize * 0.95 + 36 * u);
@@ -562,7 +574,7 @@ export class Hud {
     }
     ctx.font = this.fonts.ladder;
     ctx.fillStyle = sim.armed ? C.gold : 'rgba(239,232,220,.55)';
-    const label = sim.armed ? 'Pełne światło — stuknij' : sim.streak > 0 ? this.streakTxt.get(sim.streak) : 'Seria idealnych';
+    const label = sim.armed ? TXT.armed : sim.streak > 0 ? this.streakTxt.get(sim.streak) : TXT.ladder;
     ctx.fillText(label, right, y - r - 8 * u);
   }
 
@@ -616,15 +628,16 @@ export class Hud {
       ctx.globalAlpha = a;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = F.watchTitle;
+      this.fitIn(this.watchFit, TXT.dawn, cw - 24, 30 * u, 500, SERIF, true);   // "Morgendämmerung" is long
+      ctx.font = this.watchFit.font;
       ctx.fillStyle = '#ffe1d2';
-      ctx.fillText('Świt', cx, cy - 26 * u);
+      ctx.fillText(TXT.dawn, cx, cy - 26 * u);
       ctx.font = F.watchLine;
       ctx.fillStyle = C.text;
       ctx.fillText(this.watchCard.line, cx, cy + 8 * u);
       ctx.font = F.watchSmall;
       ctx.fillStyle = 'rgba(239,232,220,.6)';
-      ctx.fillText('Nowa wachta za chwilę', cx, cy + 32 * u);
+      ctx.fillText(TXT.soon, cx, cy + 32 * u);
       ctx.restore();
     }
     const head = this.cards.head;

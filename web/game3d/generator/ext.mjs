@@ -388,7 +388,7 @@ const ret = (expr, fallback) => focus(`eventsFunctionContext.returnValue = ${exp
 
 export const mendiFocus = extension('MendiFocus', 'Mendi focus',
   'Focus that charges the Fire of the Spirit: standing still, or the Mendi fNIRS band (optional).',
-  'Wraps lib/mendi-focus.js, built from BrainLink\'s Mendi Web Bluetooth adapter and fNIRS pipeline and the 2D game\'s focus charger. Without the band, standing still is focus (multiplier up to ×1.5); the band adds focus while moving (up to ×3). It never lowers anything. Data stays on the device. Web Bluetooth works in Chrome and Edge (desktop and Android) and in Bluefy on iOS.',
+  'Wraps lib/mendi-focus.js, built from the Emmanuel app\'s Mendi Web Bluetooth adapter and fNIRS pipeline and the 2D game\'s focus charger. Without the band, standing still is focus (multiplier up to ×1.5); the band adds focus while moving (up to ×3). It never lowers anything. Data stays on the device. Web Bluetooth works in Chrome and Edge (desktop and Android) and in Bluefy on iOS.',
   'Input',
   [
     action('Connect', 'Connect the band', 'Opens the browser\'s Bluetooth chooser (call it right after a click or tap).', 'Connect the Mendi band', [], focus('focus.connect();'), 'Band'),

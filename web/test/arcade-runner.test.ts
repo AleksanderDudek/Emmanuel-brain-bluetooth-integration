@@ -138,7 +138,13 @@ describe('ArcadeRunner', () => {
     expect(games[0].calls).toContain('finish');
     expect(progress).toEqual({ best: 1, coins: 1 });
     expect(t.progressSaves.at(-1)).toEqual({ best: 1, coins: 1 });
-    expect(document.querySelector('#arcadeLayer .arcade-summary')).not.toBeNull();
+    const summary = document.querySelector('#arcadeLayer .arcade-summary')!;
+    expect(summary.querySelector('.arcade-big')?.textContent).toBe('1pkt');
+    expect(summary.textContent).toContain('Nowy rekord!');
+    expect(summary.textContent).toContain('Wynik dnia');
+    expect(summary.textContent).toContain('Seria 1 dzień');
+    expect([...summary.querySelectorAll('.stat .k')].map(k => k.textContent)).toEqual(['Rzuty', 'Aktywność', 'Kontrola', 'Tlen', 'Sesja']);
+    expect([...summary.querySelectorAll('.arcade-again .btn')].map(b => b.textContent)).toEqual(['Jeszcze raz', 'Gotowe']);
   });
 
   it('pauses at the start of play when asked during the countdown, and releases held keys when the tab hides', async () => {
@@ -149,7 +155,10 @@ describe('ArcadeRunner', () => {
     await vi.advanceTimersByTimeAsync(2500);
     expect(t.debug()?.stage).toBe('play');
     expect(games[0].calls).toContain('pause:true');
-    expect(document.querySelector('#arcadeLayer .arcade-card')?.textContent).toContain('Pauza');
+    const card = document.querySelector('#arcadeLayer .arcade-card')?.textContent ?? '';
+    expect(card).toContain('Pauza');
+    expect(card).toContain('Zagrane 0:00 z 0:40. Sesja krótsza niż 30 s nie zostanie zapisana.');
+    expect(card).toContain('Opaska Mendi');
     t.key('Escape');                                   // resume
     t.key('ArrowLeft');
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });

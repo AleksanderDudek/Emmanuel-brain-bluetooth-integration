@@ -1,4 +1,4 @@
-/* BrainLink — "a night instrument": deep ink, warm text, the active headband's colour as the only accent.
+/* Emmanuel — "a night instrument": deep ink, warm text, the active headband's colour as the only accent.
    Fraunces (display) · Manrope (interface) · JetBrains Mono (data), all bundled: no third-party requests. */
 @import '@fontsource-variable/fraunces/opsz.css';
 @import '@fontsource-variable/manrope/index.css';
@@ -36,6 +36,10 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
              radial-gradient(700px 600px at 100% 110%,rgba(120,90,200,.07),transparent 70%);transition:background .6s ease}
 body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.07;mix-blend-mode:overlay;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+/* until main() has put this language's texts in place, the app stays hidden (no flash of index.html's Polish ones);
+   main() and its error path lift it, and should the script never run, it lifts itself after 2 s */
+html:not([data-texts]) .app{visibility:hidden;animation:texts-guard 0s 2s forwards}
+@keyframes texts-guard{to{visibility:visible}}
 a{color:inherit}
 .sprite{position:absolute;width:0;height:0;overflow:hidden}
 svg{width:1.15em;height:1.15em;flex:none}
@@ -44,6 +48,8 @@ svg{width:1.15em;height:1.15em;flex:none}
 .muted{color:var(--tx3);font-size:12.5px}
 .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);font-weight:600}
 .lede{color:var(--tx2);font-size:15px;max-width:62ch}
+.lede a.acc{text-decoration:none;font-weight:600}
+.lede a.acc:hover{text-decoration:underline}
 .disclaimer{font-size:11px;color:var(--tx3);line-height:1.65;max-width:90ch}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .mt6{margin-top:6px}.mt8{margin-top:8px}.mt10{margin-top:10px}.mt12{margin-top:12px}.mt16{margin-top:16px}.mb8{margin-bottom:8px}
@@ -168,8 +174,9 @@ details:not([open])>summary{margin-bottom:0}
 
 /* ── start ───────────────────────────────────────────────────── */
 .hero{padding:18px 0 6px}
-.hero h1{font-size:clamp(36px,5.4vw,62px);line-height:1.02;margin:8px 0 12px;font-weight:400;font-variation-settings:"opsz" 144}
+.hero h1{font-size:clamp(36px,5.4vw,62px);line-height:1.02;margin:8px 0 12px;font-weight:400;font-variation-settings:"opsz" 144;text-wrap:balance}   /* no lone last word ("…mit / uns.") on phones */
 .hero h1 em{font-style:italic;color:var(--tool)}
+.hero h1 .accent{color:var(--tool)}   /* the wordmark's "el" on the first-run Start */
 .tool-pick{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .tool-pick[hidden]{display:none}
 .tool-pick .muted{grid-column:1/-1}
@@ -212,7 +219,7 @@ details:not([open])>summary{margin-bottom:0}
 #gameTiles .tile.tile-game{grid-column:auto;min-height:220px}
 #gameTiles .tile.tile-game b{font-size:22px}
 .start-row{display:flex;flex-direction:column;gap:12px}
-.row-title{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.row-title{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:2px 12px}
 .more{color:var(--tool);text-decoration:none;font-size:13.5px;font-weight:650;white-space:nowrap}
 .more:hover{text-decoration:underline}
 .games-status{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 18px}
@@ -223,7 +230,10 @@ details:not([open])>summary{margin-bottom:0}
 .play-card b{font-family:var(--font-head);font-size:20px;font-weight:500}
 .tile.feature b{font-size:30px}
 .tile[aria-disabled="true"]{opacity:.45}
-.tile .tag{position:absolute;top:14px;left:16px;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx2)}
+.tile .tag{position:relative;margin:-4px 0 auto -2px;padding-bottom:10px;font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--tx2);
+  line-height:1.45;text-shadow:0 1px 8px rgba(0,0,0,.7)}
+.tile .lang-note{position:relative;align-self:flex-start;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx);
+  padding:2px 8px;border-radius:999px;background:rgba(6,7,11,.62);border:1px solid var(--line-2)}
 .art-orb{background:radial-gradient(130px 90px at 70% 38%,rgba(255,255,255,.95) 0 14%,rgba(255,255,255,.15) 15%,transparent 40%),
   linear-gradient(180deg,transparent 52%,rgba(229,46,214,.85) 52%,rgba(122,52,220,.9) 100%),
   linear-gradient(180deg,#3b4352,#596273 48%,#454d5c 52%)}
@@ -242,7 +252,7 @@ details:not([open])>summary{margin-bottom:0}
 .tile .art-img-holyholyholy3d{right:-6%;top:-8%;height:125%;opacity:.9}
 .tile .art-img-holyholyholy{top:14%;height:46%;transform:translateX(-50%)}
 .activity .art,.tile-art{overflow:hidden}
-.tile-art::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,7,11,.5),transparent 28%,transparent 35%,rgba(6,7,11,.78))}
+.tile-art::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,7,11,.7),transparent 30%,transparent 35%,rgba(6,7,11,.78))}
 .tile b,.tile small{text-shadow:0 1px 12px rgba(0,0,0,.6)}
 .art-signal{background:repeating-linear-gradient(90deg,transparent 0 22px,rgba(255,255,255,.03) 22px 23px),var(--ink-3)}
 .art-signal::after{content:"";position:absolute;left:0;right:0;top:38%;height:40px;opacity:.8;
@@ -274,6 +284,7 @@ details:not([open])>summary{margin-bottom:0}
 .activity .cta{margin-top:auto;padding-top:8px}
 .activity[aria-disabled="true"] .art{filter:grayscale(.8) brightness(.6)}
 .activity .why{font-size:12.5px;color:var(--warn)}
+.badge.lang-note{border-style:dashed;color:var(--tx)}
 .needs-tool:empty{display:none}
 .needs-tool{border:1px dashed rgba(255,176,32,.4);color:var(--warn);border-radius:var(--r-lg);padding:14px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 
@@ -329,6 +340,7 @@ details:not([open])>summary{margin-bottom:0}
 .qc.poor,.qc.light_leak,.qc.no_signal,.qc.flat,.qc.noisy{border-color:var(--bad)}
 .qc.poor .l,.qc.light_leak .l,.qc.no_signal .l,.qc.flat .l,.qc.noisy .l{color:var(--bad)}
 .rec-grid{display:flex;flex-direction:column;gap:10px}
+.rec-grid .grow{min-width:150px}   /* a name or marker field wraps to its own line before its placeholder is cut */
 .wave-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .band-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
 .band-cell .ch{font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.1em;margin-bottom:6px}
@@ -523,7 +535,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-album>div.rare{border-color:rgba(122,162,255,.45)}
 .arcade-album>div.epic{border-color:rgba(190,120,255,.55)}
 .arcade-album>div.legend{border-color:rgba(255,200,90,.65);box-shadow:0 0 18px rgba(255,200,90,.12) inset}
-.arcade-album>div small{font-family:var(--mono);font-size:10px;color:var(--tx3)}
+.arcade-album>div small{font-family:var(--mono);font-size:10px;color:var(--tx3);overflow-wrap:anywhere}
 .arcade-daily{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--ink-1);border:1px dashed var(--line-2)}
 .arcade-daily b{font-weight:650}
 .arcade-daily p{color:var(--tx2);font-size:13px;margin-top:2px}
@@ -575,6 +587,37 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-record svg{width:18px;height:18px}
 .arcade-again{position:sticky;bottom:0;padding:14px 0 max(10px,env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,#07080d 38%)}
 
+/* ── the language picker (src/ui/language.ts) ────────────────── */
+.lang-row{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:2px 4px;color:var(--tx3);font-size:12.5px}
+.lang-row svg{width:17px;height:17px;margin-right:4px}
+.lang-btn{background:none;border:0;color:var(--tx2);font:inherit;font-weight:600;padding:6px 10px;border-radius:999px;cursor:pointer;min-height:32px;transition:color .2s,background .2s}
+.lang-btn:hover{color:var(--tx);background:var(--ink-3)}
+.lang-btn[aria-current="true"],.lang-pick .btn[aria-current="true"]{background:var(--tool-dim);color:var(--tool);border-color:var(--tool)}
+.lang-btn:focus-visible{outline:2px solid var(--tool);outline-offset:2px}
+
+/* ── where to buy (src/ui/buy.ts) ────────────────────────────── */
+.buy[hidden]{display:none}
+.buy.card{margin-top:6px}
+.buy-bands{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.buy-band{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:14px;background:var(--ink-1);border:1px solid var(--line)}
+.buy-band.on{border-color:var(--tool);background:linear-gradient(120deg,var(--tool-dim),transparent 65%),var(--ink-1)}
+.buy-band h3{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;font-size:21px;line-height:1.2}
+.buy-band h3 small{font-family:var(--font);font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--tx3)}
+.buy-band h3 .badge{font-family:var(--font);align-self:center}
+.buy-band p{color:var(--tx2);font-size:13px}
+.buy-band .buy-app{color:var(--tx3);margin-bottom:6px}
+.buy-band .btn{align-self:flex-start;margin-top:auto}
+.buy-note{margin-top:12px;font-size:11.5px;color:var(--tx3)}
+.buy.line{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin-top:6px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--tx3)}
+.buy.line a{color:var(--tx2);font-weight:650;text-decoration:none}
+.buy.line a:hover{color:var(--tool);text-decoration:underline}
+
+/* settings: about Emmanuel */
+.about-meaning{font-family:var(--font-head);font-size:18px;line-height:1.4;color:var(--tx);text-wrap:pretty}
+.about-verse{margin:0;padding:12px 16px;border-left:2px solid #ffd27a;background:rgba(255,210,122,.06);border-radius:0 12px 12px 0}
+.about-verse p{font-family:var(--font-head);font-style:italic;font-size:17px;color:var(--tx);text-wrap:balance}
+.about-verse cite{display:block;margin-top:4px;font-style:normal;font-size:12px;color:var(--tx3)}
+
 /* ── responsive ──────────────────────────────────────────────── */
 @media (max-width:1100px){
   .focus-setup{grid-template-columns:1fr 1fr}
@@ -601,7 +644,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .toolswitch button{padding:5px 11px}
   .toolswitch button small{display:none}
   .toolpick-label{display:none}
-  .rail a{font-size:10px}
+  .rail a{font-size:clamp(9px,2.6vw,10px)}   /* six tabs: "Einstellungen", "Inställningar" still fit on a 360 px phone */
   .rail a svg{padding:3px 9px}
   .devchip-text small{display:none}
   .grid2,.today-grid,.settings-grid,.activities,.tool-pick,.focus-setup{grid-template-columns:minmax(0,1fr)}
@@ -615,6 +658,9 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .q.q4{grid-template-columns:repeat(2,1fr)}
   .wave-grid{grid-template-columns:minmax(0,1fr)}
   .sources{grid-template-columns:minmax(0,1fr)}
+  .buy-bands{grid-template-columns:minmax(0,1fr)}
+  .buy.line .buy-sep{display:none}
+  .buy.line .buy-indep{flex-basis:100%}   /* the note on its own line: no separator left dangling at a wrap */
   .tile.feature,.tile.tile-game{grid-column:1/-1}
   .task-prompt.big{font-size:32px}
   .row-head{flex-direction:column;align-items:flex-start}
@@ -625,7 +671,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 @media (max-width:460px){
   .brand{font-size:18px}
   .devchip{padding:6px 10px}
-  .devchip-text b{font-size:12px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .devchip-text b{font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .q{grid-template-columns:minmax(0,1fr)}
   .tiles{grid-template-columns:minmax(0,1fr)}
   .tile.feature{min-height:190px}

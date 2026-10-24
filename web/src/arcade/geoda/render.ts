@@ -8,14 +8,16 @@
  * calibration's "Kropla"; the HUD (hud.ts) and the finisher (finale.ts) on top.  It reads the sim
  * and the player's hand; the game forwards the sim's events for the juice.
  */
+import { fmtNum } from '../../i18n';
 import { approach, clamp, ease, Floaters, lerp, Particles, Shake } from '../kit/juice';
 import {
-  drawGeode, druse, fitFont, GEODE_REACH, GEODE_SEED, geodePath, hash, MONO, mix, rgba, ROCK_VARIANTS, rrect, rrectPath, SANS, SERIF, sparkle, TAU, TileCache,
+  drawGeode, druse, fitFont, fitLines, GEODE_REACH, GEODE_SEED, geodePath, hash, MONO, mix, rgba, ROCK_VARIANTS, rrect, rrectPath, SANS, SERIF, sparkle, TAU, TileCache,
   WALL_BED,
 } from './art';
 import { CLARITY, GEMS, REST_TIPS, type Pt } from './content';
 import { drawFinale, type FinaleView } from './finale';
 import { drawHint, drawHud, PHASE_COLOR, POLISH_ON } from './hud';
+import { t } from './i18n';
 import { trayBand, trayCellFor, type Layout, type Rect } from './layout';
 import { clarityOf, complete, crystalCells, prefixOffset, type BowlGem, type GeodaEvent, type GeodaSim } from './sim';
 import { GEM, grabCell, N, ROCK } from './wall';
@@ -47,7 +49,7 @@ const RUBBLE = 0.3;
 /** The Szlif's mist over the wall and the tray, at its fullest. */
 const MIST = 0.88;
 /** The block's verdict under the Zbiór's caption (none without enough reliable data). */
-const verdictLine = (ok: boolean | null): string => (ok === true ? 'Równy wzrost' : ok === false ? 'Tym razem nierówno' : '');
+const verdictLine = (ok: boolean | null): string => (ok === true ? t('verdict.steady') : ok === false ? t('verdict.uneven') : '');
 
 export class GeodaRenderer {
   private w = 1;
@@ -109,7 +111,7 @@ export class GeodaRenderer {
     const cellXY = (i: number) => [l.wall.x + (i % N) * l.cell + l.cell / 2, l.wall.y + Math.floor(i / N) * l.cell + l.cell / 2] as const;
     switch (e.type) {
       case 'wzrost':
-        this.caption = { text: 'Wzrost', sub: e.blind ? 'Ciemna komora: kryształ rośnie w ciemności' : '', t: 0, color: PHASE_COLOR.wzrost, zbior: false };
+        this.caption = { text: t('block.wzrost'), sub: e.blind ? t('caption.blind') : '', t: 0, color: PHASE_COLOR.wzrost, zbior: false };
         for (const s of e.refill) this.trayPop[s] = 1;
         break;
       case 'grow':
@@ -132,7 +134,7 @@ export class GeodaRenderer {
         this.wiggle[e.slot] = 1;
         if (e.cell >= 0) {
           const [x, y] = cellXY(e.cell);
-          this.floaters.add('nie pasuje', x, y, { color: 'rgba(239,232,220,0.75)', size: Math.round(clamp(l.cell * 0.3, 12, 17)), dur: 0.9 });
+          this.floaters.add(t('float.nofit'), x, y, { color: 'rgba(239,232,220,0.75)', size: Math.round(clamp(l.cell * 0.3, 12, 17)), dur: 0.9 });
         }
         break;
       }
@@ -142,7 +144,7 @@ export class GeodaRenderer {
         if (e.cell >= 0 && this.waitT > 1.6) {
           this.waitT = 0;
           const [x, y] = cellXY(e.cell);
-          this.floaters.add('kryształ kiełkuje', x, y, { color: 'rgba(214,190,255,0.85)', size: Math.round(clamp(l.cell * 0.3, 12, 17)), dur: 1 });
+          this.floaters.add(t('float.sprouting'), x, y, { color: 'rgba(214,190,255,0.85)', size: Math.round(clamp(l.cell * 0.3, 12, 17)), dur: 1 });
         }
         break;
       }
@@ -153,12 +155,12 @@ export class GeodaRenderer {
         break;
       }
       case 'reveal': {
-        this.reveal = { slot: e.slot, text: `${e.grown} z ${e.total} · ${CLARITY[e.clarity]}`, t: 0 };
+        this.reveal = { slot: e.slot, text: t('tray.reveal', { grown: e.grown, total: e.total, clarity: CLARITY[e.clarity] }), t: 0 };
         this.trayPop[e.slot] = 1;
         break;
       }
       case 'zbior':
-        this.caption = e.lines.length ? { text: e.full ? 'Pełna geoda!' : 'Zbiór', sub: '', t: 0, color: PHASE_COLOR.zbior, zbior: true } : null;
+        this.caption = e.lines.length ? { text: e.full ? t('full.title') : t('block.zbior'), sub: '', t: 0, color: PHASE_COLOR.zbior, zbior: true } : null;
         break;
       case 'verdict': {
         // the Wzrost's judgement under the Zbiór's caption, or alone when no line breaks
@@ -184,9 +186,12 @@ export class GeodaRenderer {
         break;
       }
       case 'bonus': {
-        const x = l.wall.x + l.wall.w / 2, y = l.wall.y + l.wall.h * 0.42;
+        // under the Zbiór's caption: the number rises 46 px and must not run into the verdict (a short wall on a phone's side)
+        const size = Math.round(clamp(l.cell * 0.62, 20, 40)), verdict = l.wall.y + l.wall.h * 0.22 + clamp(l.cell * 0.48, 20, 30);
+        const x = l.wall.x + l.wall.w / 2, y = Math.max(l.wall.y + l.wall.h * 0.42, verdict + 52 + size / 2);
         // a single line has no bonus (its crystals paid when set): no "+0 ct", only the burst
-        if (e.carats > 0) this.floaters.add(`×${1 + e.mult}  +${e.carats} ct`, x, y, { color: '#ffd48a', size: Math.round(clamp(l.cell * 0.62, 20, 40)), dur: 1.6 });
+        const mult = 1 + e.mult;
+        if (e.carats > 0) this.floaters.add(`×${fmtNum(mult, Number.isInteger(mult) ? 0 : 1)}  +${e.carats} ct`, x, y, { color: '#ffd48a', size, dur: 1.6 });
         if (!this.still) {
           for (let i = 0; i < Math.min(4, e.lines); i++) {
             const g = GEMS[i % GEMS.length];
@@ -778,17 +783,20 @@ export class GeodaRenderer {
     const ty = l.wall.y + l.wall.h * 0.28;
     ctx.shadowColor = 'rgba(0,0,0,0.6)';
     ctx.shadowBlur = 12;
-    fitFont(ctx, 'Szlif', Math.round(clamp(s * 0.66, 24, 44)), l.wall.w * 0.8, SERIF, 500);
+    const title = t('block.szlif'), line = t('rest.line', { tip });
+    fitFont(ctx, title, Math.round(clamp(s * 0.66, 24, 44)), l.wall.w * 0.8, SERIF, 500);
     ctx.fillStyle = '#d7e9ff';
-    ctx.fillText('Szlif', cx, ty);
-    fitFont(ctx, `Odpocznij. ${tip}`, Math.round(clamp(s * 0.3, 13, 18)), l.wall.w * 0.94, SANS, 500);
+    ctx.fillText(title, cx, ty);
+    // one line, or two on a narrow wall (a phone on its side), above the bowl's halo
+    const words = fitLines(ctx, line, Math.round(clamp(s * 0.3, 13, 18)), l.wall.w * 0.94, SANS, 500, 12);
     ctx.fillStyle = 'rgba(222,234,255,0.82)';
-    ctx.fillText(`Odpocznij. ${tip}`, cx, ty + clamp(s * 0.5, 22, 32));
+    words.lines.forEach((ln, i) => ctx.fillText(ln, cx, ty + clamp(s * 0.5, 22, 32) + i * Math.round(words.size * 1.25)));
     if (this.polishT >= 0 && this.polishT < 2.2) {
       ctx.globalAlpha = k * clamp(1 - (this.polishT - 1.6) / 0.6);
-      fitFont(ctx, 'Wypolerowany', Math.round(clamp(s * 0.36, 14, 22)), l.wall.w * 0.8, SANS, 700);
+      const polished = t('rest.polished');
+      fitFont(ctx, polished, Math.round(clamp(s * 0.36, 14, 22)), l.wall.w * 0.8, SANS, 700);
       ctx.fillStyle = '#fff3d6';
-      ctx.fillText('Wypolerowany', cx, cy + depth + clamp(s * 0.55, 20, 34));
+      ctx.fillText(polished, cx, cy + depth + clamp(s * 0.55, 20, 34));
     }
     ctx.restore();
   }
@@ -808,7 +816,7 @@ export class GeodaRenderer {
       if (s >= sim.slots) {
         // the first session opens one slot per round: until then a dormant seed
         this.drawSeed(r, 0, 0, false);
-        this.slotLabel(r, `od ${s + 1}. Wzrostu`, 'rgba(239,232,220,0.42)', false);
+        this.slotLabel(r, t('tray.later', { n: s + 1 }), 'rgba(239,232,220,0.42)', false);
         ctx.restore();
         continue;
       }
@@ -854,7 +862,7 @@ export class GeodaRenderer {
         // an empty slot: a seed that sprouts from the next grown cell (the water's slot), or waits for it
         const k = sim.sprout[s], growing = s === target;
         this.drawSeed(r, k, this.trayPop[s], growing);
-        this.slotLabel(r, growing || k > 0 ? 'kiełkuje' : 'nasiono czeka', growing ? 'rgba(226,212,255,0.62)' : 'rgba(239,232,220,0.4)', false);
+        this.slotLabel(r, growing || k > 0 ? t('tray.sprouting') : t('tray.waiting'), growing ? 'rgba(226,212,255,0.62)' : 'rgba(239,232,220,0.4)', false);
         ctx.restore();
         continue;
       }
@@ -882,7 +890,7 @@ export class GeodaRenderer {
           ctx.strokeStyle = 'rgba(169,150,220,0.25)';
           ctx.stroke();
         }
-        this.slotLabel(r, 'w ciemności', 'rgba(200,190,240,0.7)', true, 600);
+        this.slotLabel(r, t('tray.dark'), 'rgba(200,190,240,0.7)', true, 600);
         ctx.restore();
         continue;
       }
@@ -915,7 +923,7 @@ export class GeodaRenderer {
         ctx.font = `500 11px ${MONO}`;
         ctx.textAlign = 'right';
         ctx.fillStyle = complete(c) ? '#ffd48a' : 'rgba(239,232,220,0.55)';
-        ctx.fillText(complete(c) ? 'pełny' : `${c.grown}/${c.ghost.length}`, r.x + r.w - 9, r.y + r.h - 8);
+        ctx.fillText(complete(c) ? t('tray.full') : `${c.grown}/${c.ghost.length}`, r.x + r.w - 9, r.y + r.h - 8);
       }
       if (hand.press?.slot === s && hand.press.k > 0.12) {
         // the hold that crumbles: the slot's edge fills, clockwise from its top left
@@ -1060,10 +1068,11 @@ export class GeodaRenderer {
       ctx.fillText(c.text, cx, cy);
     }
     if (c.sub) {
-      // under the title, or on its own (a verdict without a harvest), a little larger
-      fitFont(ctx, c.sub, Math.round(clamp(l.cell * (c.text ? 0.3 : 0.36), 13, c.text ? 17 : 20)), l.wall.w * 0.94, SANS, 600);
+      // under the title, or on its own (a verdict without a harvest), a little larger; two lines on a narrow wall
+      const sub = fitLines(ctx, c.sub, Math.round(clamp(l.cell * (c.text ? 0.3 : 0.36), 13, c.text ? 17 : 20)), l.wall.w * 0.94, SANS, 600, 12);
       ctx.fillStyle = c.text ? 'rgba(239,232,220,0.92)' : c.color;
-      ctx.fillText(c.sub, cx, c.text ? cy + clamp(l.cell * 0.48, 20, 30) : cy);
+      const y0 = c.text ? cy + clamp(l.cell * 0.48, 20, 30) : cy;
+      sub.lines.forEach((ln, i) => ctx.fillText(ln, cx, y0 + i * Math.round(sub.size * 1.25)));
     }
     ctx.restore();
   }
@@ -1138,9 +1147,10 @@ export class GeodaRenderer {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
         const hud = l.hud;
-        fitFont(ctx, 'Źródło znalezione', 22, hud.w, SERIF, 500);
+        const found = t('calib.found');
+        fitFont(ctx, found, 22, hud.w, SERIF, 500);
         ctx.fillStyle = '#d7e9ff';
-        ctx.fillText('Źródło znalezione', hud.x + hud.w / 2, hud.y + (l.landscape ? hud.h * 0.3 : hud.h * 0.55));
+        ctx.fillText(found, hud.x + hud.w / 2, hud.y + (l.landscape ? hud.h * 0.3 : hud.h * 0.55));
         ctx.globalAlpha = 1;
       }
     }

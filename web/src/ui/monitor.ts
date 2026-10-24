@@ -1,13 +1,15 @@
 /** Monitor tab: haemodynamics, heart rate, metrics, signal quality, raw frame. */
 import { OPTICAL_CHANNELS, type ChannelQuality, type OpticalChannel } from '../core/types';
 import type { EngineFrame } from '../engine';
+import { t } from '../i18n/signal';
 import { cssVar, drawLines } from './charts';
 import { $, fill, fmt, h } from './dom';
 
+// the readouts here are instrument values: they keep a fixed decimal point (fmt), like the server's dashboard
 const QL: Record<ChannelQuality['label'], string> = {
-  good: 'dobra', fair: 'średnia', poor: 'słaba', light_leak: 'przeciek światła', no_signal: 'brak sygnału', warming_up: 'rozgrzewanie',
+  good: t('q.good'), fair: t('q.fair'), poor: t('q.poor'), light_leak: t('q.light_leak'), no_signal: t('q.no_signal'), warming_up: t('q.warming_up'),
 };
-export const CHN: Record<OpticalChannel, string> = { left: 'lewy', right: 'prawy', pulse: 'puls' };
+export const CHN: Record<OpticalChannel, string> = { left: t('ch.left'), right: t('ch.right'), pulse: t('ch.pulse') };
 
 const pair = (hbo: number | null | undefined, hbr: number | null | undefined) =>
   [h('span', { class: 'hbo' }, fmt(hbo, 3)), ' / ', h('span', { class: 'hbr' }, fmt(hbr, 3))];
@@ -24,7 +26,7 @@ export function renderMonitor(f: EngineFrame): void {
   $('hboAvg').textContent = fmt(avg(f.hbo), 3);
   $('hbrAvg').textContent = fmt(avg(f.hbr), 3);
   const motion = $('motion');
-  motion.textContent = f.motion ? 'TAK' : 'nie';
+  motion.textContent = f.motion ? t('mon.yes') : t('mon.no');
   motion.style.color = f.motion ? cssVar('--amber') : '';
 
   const p = f.preview;
@@ -57,10 +59,10 @@ export function renderMonitor(f: EngineFrame): void {
     const imu = f.imu;
     fill($('rawKv'),
       OPTICAL_CHANNELS.map(ch => [h('span', null, CHN[ch]), h('span', null, `IR ${f.raw![ch].ir} · RED ${f.raw![ch].red} · AMB ${f.raw![ch].amb}`)]),
-      h('span', null, 'akcel.'), h('span', null, `${(imu?.accel_g ?? []).map(v => fmt(v, 2)).join(' / ')} g`),
-      h('span', null, 'żyroskop'), h('span', null, `${(imu?.gyro_dps ?? []).map(v => fmt(v, 1)).join(' / ')} °/s`),
-      h('span', null, 'temp.'), h('span', null, `${fmt(imu?.temp_c, 1)} °C`),
-      h('span', null, 'ramki'), h('span', null, String(f.total_frames ?? 0)),
-      h('span', null, 'częstotliwość'), h('span', null, `${fmt(f.sample_rate, 1)} Hz (zmierzona ${fmt(f.measured_rate, 1)})`));
+      h('span', null, t('mon.accel')), h('span', null, `${(imu?.accel_g ?? []).map(v => fmt(v, 2)).join(' / ')} g`),
+      h('span', null, t('mon.gyro')), h('span', null, `${(imu?.gyro_dps ?? []).map(v => fmt(v, 1)).join(' / ')} °/s`),
+      h('span', null, t('mon.temp')), h('span', null, `${fmt(imu?.temp_c, 1)} °C`),
+      h('span', null, t('mon.frames')), h('span', null, String(f.total_frames ?? 0)),
+      h('span', null, t('mon.rate')), h('span', null, t('mon.rateValue', { rate: fmt(f.sample_rate, 1), measured: fmt(f.measured_rate, 1) })));
   }
 }

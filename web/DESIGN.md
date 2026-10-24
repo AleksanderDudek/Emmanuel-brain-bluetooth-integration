@@ -1,8 +1,12 @@
-# BrainLink web app: design
+# Emmanuel web app: design
 
 This document describes how the web app (`web/`) is organised: what the user sees, how the
-two headbands are managed, how the games get the live signal, and the focus training modelled
-on Mendi's own. Decisions are recorded with the reason behind them, so they can be revisited.
+two headbands are managed, how the games get the live signal, the focus training modelled
+on Mendi's own, the four languages and the brand. Decisions are recorded with the reason
+behind them, so they can be revisited.
+
+UI texts are quoted in Polish where the decision was made on them; Polish is the source
+language, and each text's English, German and Swedish forms are in the catalogs (§10).
 
 ## 1. Goals
 
@@ -15,53 +19,75 @@ on Mendi's own. Decisions are recorded with the reason behind them, so they can 
    start from inside the app and use the band that is already connected. They never ask to
    pair it again.
 4. **A browser copy of Mendi's default training**, driven by the same fNIRS pipeline.
+5. **Four languages, one meaning.** Polish (the source), English, German and Swedish, each
+   written for its readers rather than word for word (§10).
+6. **A name that says what it is for.** Emmanuel, "God with us": the app trains the stillness
+   where prayer begins, and says so plainly, without promising experiences (§11).
 
 ## 2. Information architecture
 
 ```
 ┌ app bar ─────────────────────────────────────────────────────────────────┐
-│ BrainLink   Opaska [ Mendi · fNIRS | HALO · EEG ]   ● Mendi · 82% · REC  │
+│ Emmanuel   Headband [ Mendi · fNIRS | HALO · EEG ]  ● Mendi · 82% · REC  │
 ├──────┬───────────────────────────────────────────────────────────────────┤
-│ rail │  Start      — status, the next step, "Trenuj" and "Graj" rows, today│
-│      │  Trening    — focus training (Mendi-style), balance trainer         │
-│      │  Gry        — 3 training games + HolyHolyHoly; the signal they read │
-│      │  Sygnał     — the live monitor of the chosen tool (+ recording,     │
-│      │               "play with this signal")                              │
-│      │  Sesje      — training results and recordings                      │
-│      │  Ustawienia — storage, pipeline parameters, about                  │
+│ rail │  Home      — status, the next step, "Train" and "Play" rows, today│
+│      │  Training  — focus training (Mendi-style), balance trainer        │
+│      │  Games     — 3 training games + HolyHolyHoly; the signal they read│
+│      │  Signal    — the live monitor of the chosen band (+ recording,    │
+│      │              "play with this signal")                             │
+│      │  Sessions  — training results and recordings                      │
+│      │  Settings  — language, storage, pipeline parameters, about        │
+│      │  (every tab ends with where to get the headbands)                 │
 └──────┴───────────────────────────────────────────────────────────────────┘
           on phones the rail becomes a bottom tab bar
 ```
 
-* **App bar**: a tool switch (segmented control) and a **device chip**: a status dot, the
-  device name, battery and signal quality. Pressing the chip opens the **device sheet**
-  (a `<dialog>`), the one place to connect, disconnect, pick the simulator, reset the
-  baseline and get Bluetooth help. This replaces four sidebar cards.
-* **Start** shows one primary action that depends on the state: *choose a tool*, then *connect
+* **App bar**: the wordmark, a band switch (segmented control: *Mendi* over a small *fNIRS*,
+  *HALO* over *EEG*) and a **device chip**: a status dot, the device name, battery and signal
+  quality. Pressing the chip opens the **device sheet** (a `<dialog>`), the one place to
+  connect, disconnect, pick the simulator, reset the baseline and get Bluetooth help. This
+  replaces four sidebar cards.
+* **Home** shows one primary action that depends on the state: *choose a band*, then *connect
   or use the simulator*, then *wait for the baseline*, then *start training*. Under it are two
-  labelled rows, **Trenuj** (focus training, balance, the signal) and **Graj** (every game, a
+  labelled rows, **Train** (focus training, balance, the signal) and **Play** (every game, a
   swipeable shelf on phones), and today's results.
-* **Trening** holds the exercises, and **Gry** holds the games. They are separate destinations
-  because "where are the games?" was the first question after the first redesign. Each card
-  says which tools it supports, and activities that need the other tool are greyed out with
-  the reason. Gry opens with one line saying which signal the games will read (the band, the
-  simulator, or none), with the action that changes it, then two sections: **Gry treningowe**
-  (§9, either band) and **HolyHolyHoly** (Mendi, playable without a band).
-* The fNIRS **Sygnał** view starts with "play with this signal", which opens the games straight
+* **Training** holds the exercises, and **Games** holds the games. They are separate
+  destinations because "where are the games?" was the first question after the first redesign.
+  Each card says which bands it works with ("Mendi · HALO"), and activities that need the other
+  band are greyed out with the reason. Games opens with one line saying which signal the games
+  will read (the band, the simulator, or none), with the action that changes it, then two
+  sections: **Training games** (§9, either band) and **HolyHolyHoly** (Mendi, playable without
+  a band, in Polish).
+* The Mendi **Signal** view starts with "play with this signal", which opens the games straight
   from the instrument view.
-* **Sygnał** is the instrument view: the existing fNIRS monitor, or a new EEG monitor
+* **Signal** is the instrument view: the existing fNIRS monitor, or a new EEG monitor
   (metrics, traces, band powers, contact, combos). Recording controls live here, where the
   signal is.
+* **Where to get a headband** (`src/ui/buy.ts`) ends every tab. While no real band streams it
+  is a card: each band, what it measures and what it does here, the chosen one first. Once a
+  band streams it shrinks to one quiet line. The links go to the makers' own shops
+  (mendi.io, brainaccess.ai) in a new tab with `rel="noopener noreferrer"`. There are no prices
+  (they change and differ by country), and a note says the app is not affiliated with the
+  makers and earns nothing from the links.
 * Deep links: `#start`, `#trening`, `#gry`, `#sygnal`, `#sesje`, `#ustawienia`, `#trening/focus`,
   `#trening/balance`, `#gra/holyholyholy`, `#gra/holyholyholy3d`, and the training games' lobbies
-  `#gra/geoda`, `#gra/latarnik`, `#gra/motylarnia`. The old `#balance` and `#sessions` links are
-  redirected.
+  `#gra/geoda`, `#gra/latarnik`, `#gra/motylarnia`. The slugs stay Polish in every language, so a
+  shared link works for everyone. The old `#balance` and `#sessions` links are redirected.
 
 **Why:** the old page put fourteen controls next to the charts and gave nobody a starting
 point. Grouping by task (train / play / watch / review / configure) follows the platforms'
 navigation guidelines: a handful of top-level destinations, on a rail for large screens and
-a bottom bar for compact ones. The headband switch names the devices first (Mendi, HALO),
-because people know their band by name, not by the technique.
+a bottom bar for compact ones.
+
+**Naming the bands.** People know their band by name, not by the technique, so the app names
+the device everywhere: **Mendi** and **HALO** (**BrainAccess HALO** on first mention and where
+it is bought or connected). The technique (fNIRS, EEG) is only a qualifier: the switch's small
+subtitle, "Mendi (fNIRS)" in explanations, the instrument views. Cards and tags show bands,
+never techniques, and no sentence names a band on one side and a technique on the other. (The
+mixed form, "Z EEG gra działa bez opaski — opaskę Mendi czyta po przełączeniu na fNIRS", was a
+reported bug; it now reads "Ta gra czyta tylko opaskę Mendi. Z HALO zagrasz bez opaski — albo
+przełącz opaskę u góry na Mendi.") The bands are a *headband* / *opaska* / *Stirnband* /
+*pannband*, never a "tool".
 
 ## 3. Tool management
 
@@ -98,13 +124,14 @@ A game opened in a background tab would also have its timers throttled. So games
 the app**, in a full-screen `<iframe>` overlay, and the app forwards the band's raw frames to them.
 
 ```
-BrainLink (hub)                                 game iframe (/holyholyholy/?hub=1)
+Emmanuel (hub)                                  game iframe (/holyholyholy/?hub=1)
 Engine.tick ──'frames'──► GameHost ──postMessage──► HubDevice (MendiDevice look-alike)
                                                      └► NeuroBridge → its own pipeline,
                                                         baseline, balance tracker (unchanged)
 ```
 
-* The protocol is `brainlink-hub` v1, same-origin only (origin checked on both sides):
+* The protocol is `brainlink-hub` v1 (the app's first name, kept like the other internal
+  identifiers, §11), same-origin only (origin checked on both sides):
   `hello` (game) → `welcome` (hub: tool, source, device info) → `frames` (batches at 10 Hz)
   and `status` (connection or source changed).
 * `HubDevice` gives the game what `MendiDevice` gives it (`isStreaming`, `drain()`, `info`,
@@ -143,10 +170,10 @@ reference). It uses its own art and no Mendi logo or name inside the game.
 * A thin line marks the **baseline (+0 %)**. The orb starts on it.
 * Layered hill silhouettes and clouds scroll with parallax. The landscape changes with the scene.
 * **Stars** drop onto the curve each time 10 points are earned, with a soft chime.
-* HUD: session progress bar; 💧 **Tlen** (points), 🧠 **Aktywność** (%), ⏱ **Kontrola** (s);
-  an "Aktywność +x.x %" card bottom right. Tapping the screen hides or shows the HUD, and
-  ✕ ends the session.
-* Text cues fade in from time to time (in Polish): "Celem treningu jest poprawa skupienia",
+* HUD: session progress bar; 💧 **Tlen** (*Oxygen*, points), 🧠 **Aktywność** (*Activity*, %),
+  ⏱ **Kontrola** (*Control*, s); an "Aktywność +x.x %" card bottom right. Tapping the screen
+  hides or shows the HUD, and ✕ ends the session.
+* Text cues fade in from time to time (the Polish source): "Celem treningu jest poprawa skupienia",
   "…sterując grą umysłem", "Skup się, ale zostań rozluźniony", and later "Twój mózg staje się
   silniejszy z każdą sesją", "Chwilowe spadki to część drogi", "Miłego treningu!".
 * While the signal is unreliable (motion, contact, no data), a quiet banner says why,
@@ -167,7 +194,7 @@ that scalar (`src/training/meter.ts`):
 * **Kontrola:** the longest hold at ≥ +1 %, with dips shorter than 1.5 s forgiven ("steadiness,
   not peak").
 * **Aktywność** in the summary is the mean activity over the reliable part of the game.
-* **Wynik dnia (0–100)**, like the Mendi Score, is *Commitment* plus *Performance*:
+* **Wynik dnia** (*Day score*, 0–100), like the Mendi Score, is *Commitment* plus *Performance*:
   * Commitment, up to 70: minutes today ×4 (up to 40), plus the days trained in the last 7
     ×(20/7) (up to 20), plus the day streak ×2 (up to 10).
   * Performance, up to 30: today's mean activity, with +20 % or more earning the full 30.
@@ -180,7 +207,7 @@ that scalar (`src/training/meter.ts`):
   data show freezes keep people coming back): the missed day keeps the streak alive but does
   not count as a day, already on the morning after it (before the day's first session). Mendi recommends about three sessions a week, so a strict daily chain
   punished exactly the people doing it right.
-* Results are kept in IndexedDB (`trainings` store, DB v2). They show on Start and in Sesje.
+* Results are kept in IndexedDB (`trainings` store, DB v2). They show on Home and in Sessions.
   If a recording is running, the training adds markers (`training:start`, `:calibrated`, `:end`).
 
 **Sound:** a generated soundscape (a soft detuned pad with a slow filter sweep) and a bell
@@ -229,6 +256,8 @@ review videos from 2023 to 2026, and neurofounders.co (2026).
 * **Motion:** one staggered reveal when a view opens, a breathing dot while the baseline
   is collected, and nothing else that moves without a reason. Everything respects
   `prefers-reduced-motion`.
+* **The brand mark** (§11): the wordmark lights *El* in the accent, and the icon's synapse holds
+  the one gold star. Gold stays in the mark; the interface keeps its tool and status colours.
 * Accessibility: the existing patterns are kept (ARIA tabs → a navigation landmark with
   `aria-current`, live regions for status, visible focus rings, ≥ 44 px targets on touch).
 
@@ -239,43 +268,50 @@ review videos from 2023 to 2026, and neurofounders.co (2026).
 * End to end: `npm run app:smoke` runs headless Chrome through the app with the simulator. It
   chooses a tool, does a short focus training to its summary, opens the balance trainer, plays
   every training game from its lobby through a 40 s session to its summary (taps, Space and
-  the simulator's focus switch) and checks Sesje lists them, launches the 2D game in the
+  the simulator's focus switch) and checks Sessions lists them, launches the 2D game in the
   overlay and checks that frames arrive, switches to EEG and checks the monitor, and checks
-  every view at phone and desktop width for overflow.
-* While working on one game: `node scripts/arcade-shot.mjs --port <dev server> --game <id>`
-  plays it from a running `vite` dev server and saves screenshots of the lobby, the calibration
-  intro, play at three sizes and the summary.
+  every view at phone and desktop width for overflow. It runs in Polish (`?lang=pl`).
+* While working on one game: `node scripts/arcade-shot.mjs --port <dev server> --game <id>
+  [--lang de]` plays it from a running `vite` dev server and saves screenshots of the lobby, the
+  calibration intro, play at three sizes and the summary.
+* Languages (§10): every catalog has a test (`catalogProblems`), and the unit tests run in Polish
+  (`test/setup.ts` pins it). `node scripts/i18n-shot.mjs --port <server>` visits every tab and
+  lobby in all four languages at desktop and phone width, saves screenshots, and reports a page
+  that scrolls sideways, cut-off text, Polish left on a non-Polish page and missing keys.
 
-## 9. Gry treningowe: Geoda, Latarnik, Motylarnia
+## 9. Training games: Geode, Lighthouse Keeper, Butterfly House
+
+(*Gry treningowe: Geoda, Latarnik, Motylarnia*; German *Geode, Leuchtturmwärter,
+Schmetterlingshaus*; Swedish *Geod, Fyrvaktaren, Fjärilshuset*.)
 
 Three games whose every session is a neurofeedback session. The research behind them, why these
 three, and the rules they share are in [`src/arcade/DESIGN.md`](src/arcade/DESIGN.md); each game's
 rules are in its own module.
 
-* **Where:** cards in Gry (first section) and on Start's Graj shelf. A card opens the game's
+* **Where:** cards in Games (first section) and on Home's Play shelf. A card opens the game's
   **lobby** (`#gra/<id>`): an animated picture of the player's own world (their village, cabinet
-  or glasshouse), "Jak gra opaska" in three lines, the player's progress (records, album, the
-  daily challenge), the session length (3 / 5 / 10 min), sound and vibration, and the readiness
-  of the signal with one button, "Graj". They work with both bands (Mendi and HALO) and need a
-  signal: the band or its simulator.
+  or glasshouse), "How your headband plays" in three lines, the player's progress (records,
+  album, the daily challenge), the session length (3 / 5 / 10 min), sound and vibration, and the
+  readiness of the signal with one button, "Play". They work with both bands (Mendi and HALO)
+  and need a signal: the band or its simulator.
 * **A session** (`src/arcade/runner.ts`) is full screen: the calibration is the game's own intro
   scene with a card at the bottom (reference progress, a rotating tip that teaches the controls
   or suggests a mental strategy), then 3-2-1, then play. The top strip holds the session time and
-  the pause button; pause (also Escape, or a hidden tab) offers "Wróć do gry", "Zakończ i zapisz"
-  (after 30 s), "Porzuć", and the band's sheet, so a dropped band can be reconnected mid-session.
+  the pause button; pause (also Escape, or a hidden tab) offers "Resume", "End and save"
+  (after 30 s), "Discard", and the band's sheet, so a dropped band can be reconnected mid-session.
   Bad signal shows the same banner as the focus training, and the game freezes the brain's part
   at neutral. Time up waits for the current move (at most 30 s). A calibration under 5 minutes
-  old on the same signal is reused, so "Jeszcze raz" on the summary starts at once. The layer is
+  old on the same signal is reused, so "Play again" on the summary starts at once. The layer is
   modal (the app underneath is inert; the device sheet still opens above it), the session clock
   starts at "Start!", and a hidden tab, the back button or Escape during the countdown pause the
   game as soon as play begins, with every held key and pointer released for the game. An
   abandoned session leaves the game's progress as it was; a game that fails mid-play keeps the
   training (after 30 s) but not its half-changed progress.
 * **The summary** leads with the game's own number (carats, boats, millimetres of wingspan), its
-  record and highlights, then the training numbers (Aktywność, Kontrola, Tlen, time) with the
+  record and highlights, then the training numbers (Activity, Control, Oxygen, time) with the
   session curve, then the day score and the streak.
 * **Saved** as a training result with `kind: 'game'` and a `game` block (id, title, score, unit,
-  best, stats), so Sesje, Start's "Ostatnia sesja", the day score, the streak and the milestones
+  best, stats), so Sessions, Home's "Last session", the day score, the streak and the milestones
   all include them. Each game's progress (album, records, unlocks, the daily challenge) is a JSON
   object in IndexedDB's settings store under `arcade:<id>`.
 * **The signal for games** (`src/arcade/kit/focus.ts`): the training's activity % against an
@@ -288,3 +324,89 @@ rules are in its own module.
 * **Code:** `src/arcade/kit/` (focus, session, audio, juice, progress, the game contract), the
   runner and lobby, `registry.ts` (what the app shows without loading a game; each game is its
   own lazily loaded chunk), and one folder per game.
+
+## 10. Languages
+
+Polish, English, German and Swedish. Polish is the source of every text. The other three are
+written for their readers rather than word for word: one glossary across the app (*Activity*,
+*Control*, *Oxygen*, *Day score*; a *headband*, never a *tool*), "du" in German and Swedish,
+each language's quotation marks (pl „…”, de „…“, sv ”…”), and no slogans or "concentrate
+harder" (texts suggest strategies).
+
+* **Which language** is settled once, when `src/i18n` is first imported, so any module may
+  translate while it loads: a page's pinned language (`<meta name="i18n-lang">`), then `?lang=`,
+  then the saved choice (`localStorage` key `brainlink.lang`), then the browser's preferred
+  languages (Norwegian and Danish readers get Swedish), else English. **Settings → Language**
+  saves a choice and reloads the app. A reload is simpler and safer than re-rendering a running
+  training or game, and the choice is rare.
+* **Catalogs** sit next to the code that shows them: `src/i18n/page.ts` (the static page),
+  `shell.ts` (Home, Training, Games, the device sheet, Bluetooth help, Settings, where to buy),
+  `training.ts`, `signal.ts`, `arcade.ts` (the runner and the lobbies), and
+  `src/arcade/<game>/i18n.ts` for each game. `pl` is the source; `en`, `de` and `sv` are typed
+  `Catalog<Key>`, so the compiler rejects a missing text. `translator()` turns a catalog into
+  `t(key, params)`: `{name}` placeholders are filled from `params`, and a text with plural forms
+  is chosen by `params.n` with `Intl.PluralRules` (Polish needs *one*, *few* and *many*).
+* **Sentences, not pieces.** One key per sentence with placeholders. Translated fragments are
+  never glued together, because word order differs.
+* **Numbers and dates** go through `fmtNum`, `fmtSigned` (with a real minus sign) and `fmtDate`
+  in the page's locale: 1,5 in Polish, German and Swedish, 1.5 in English. Instrument readouts
+  (µM, Hz, SCI) keep fixed decimals.
+* **Static HTML** carries the Polish texts with `data-i18n="key"` and
+  `data-i18n-attr="aria-label:key"`. `main()` swaps in the page's language and then sets
+  `data-texts` on `<html>`; until then the app is hidden (`html:not([data-texts]) .app`, shown
+  anyway after 2 s), so no Polish flashes.
+* **Fitting.** German and Swedish run 20–35 % longer than English. Long titles carry soft
+  hyphens, labels wrap, and canvas texts are measured and shrunk. On a 390 px phone nothing may
+  overflow, which `scripts/i18n-shot.mjs` checks (§8).
+* **Saved data keeps ids, not words** (scenes, moods, games, milestones), so a session saved in
+  one language reads in another. The stat labels stored with a game result are the exception:
+  they stay in the language they were saved in.
+* **In Polish only:** the two HolyHolyHoly games, whose text is a Polish story with Polish Bible
+  verses. Each pins `<meta name="i18n-lang" content="pl">` (the 3D game's library inserts it
+  before anything else loads), so the shared modules they use speak Polish, and their cards say
+  "In Polish" in the other languages.
+
+## 11. Brand: Emmanuel
+
+**Emmanuel** is Hebrew *ʿImmanu-El*, "God with us" (Isaiah 7:14, Matthew 1:23). The project's
+aim is to help a person come closer to God the Creator through the quiet, steady attention that
+meditation and contemplative prayer cultivate, trained with live feedback from the band. The
+message keeps the order the name gives: God is already with us, and the practice only helps us
+notice. So the app says plainly that it trains attention and calm. It never claims to produce
+faith or spiritual experiences, to "hack" or "unlock" anything, or to alter consciousness on
+demand, and it says that it is not a medical device.
+
+| | Polish | English | German | Swedish |
+|---|---|---|---|---|
+| Tagline | „Bóg z nami.” | "God with us." | „Gott ist mit uns.“ | ”Gud är med oss.” |
+| Descriptor | Trenuj ciszę, w której zaczyna się modlitwa. | Train the stillness where prayer begins. | Übe die Stille, in der Gebet beginnt. | Träna stillheten där bönen börjar. |
+| Psalm 46 | „Uspokójcie się, a wiedzcie, żem Ja Bóg.” (Ps 46,11, Biblia Gdańska) | "Be still, and know that I am God." (Psalm 46:10, KJV) | „Seid stille und erkennet, daß ich Gott bin.“ (Psalm 46,11, Luther 1912) | ”Bliven stilla och besinnen att jag är Gud.” (Psaltaren 46:11, Bibel 1917) |
+
+The German tagline is never „Gott mit uns“: that was the motto on Prussian and Wehrmacht belt
+buckles. „Gott ist mit uns“ keeps the meaning without the echo. Swedish keeps the full sentence,
+*Gud är med oss*, for the same reason („Gott mit uns“ was also the Swedish army's field word at
+Breitenfeld in 1631). The Bible verses are quoted from public-domain translations only, checked
+against their texts; modern translations are under copyright.
+
+**Where the message shows:**
+
+* the app bar's wordmark `Emmanu<span>el</span>`, whose accent lights *El*, Hebrew for God;
+* the document title ("Emmanuel · God with us" in each language) and the web manifest's name
+  and description;
+* Home on the first run: the title is the wordmark with the tagline ("Emmanuel. *God with
+  us.*"), and the intro opens with the descriptor;
+* **Settings → About Emmanuel**: what the name means, what the app does and does not do,
+  Psalm 46 ("Be still…") in the reader's language, then privacy and the medical disclaimer;
+* the icon (`public/favicon.svg`, from which the PWA icons are generated): a neuron whose
+  synapse holds a small gold star, the place where attention meets the light;
+* the desktop server's dashboards (`dashboard/`), which use the same wordmark.
+
+**Voice:** quiet, warm, reverent without being churchy, honest; light in the games. Short
+sentences, second person, no exclamation marks in the faith texts. Avoided words: "neurohacking",
+"hack", "unlock", "altered states", "energy", "guaranteed", "cure", "therapy". Positioning,
+audience, objections and voice are kept in `.agents/product-marketing.md` at the repository root.
+
+**Internal names keep the first name**, BrainLink, so nothing a user has breaks: the IndexedDB
+database `brainlink`, the `brainlink-hub` protocol, the `globalThis.brainlink` debug object, the
+`brainlink.lang` storage key, CSS classes, file names, and the Python package `brainlink/`.
+Saved sessions, installed apps and scripts keep working.

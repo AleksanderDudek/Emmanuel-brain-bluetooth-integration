@@ -86,7 +86,7 @@ describe('Hub', () => {
     let s = tick(3);
     expect(s.signal.reliable).toBe(true);
     expect(s.signal.warning).toBe('weak_contact');
-    expect(s.signal.detail).toContain('SCI 0.31');
+    expect(s.signal.detail).toContain('SCI 0,31');   // the page's number style (tests run in Polish)
     expect(samples.at(-1)!.reliable).toBe(true);
     labelL = 'light_leak';
     expect(tick().signal.warning).toBe('light_leak');

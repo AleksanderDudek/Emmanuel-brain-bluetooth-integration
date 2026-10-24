@@ -195,7 +195,7 @@ class Game {
     const el = screen('notice',
       h('h2', null, 'Opaska Mendi'),
       h('p', null, this.neuro.viaHub
-        ? 'Gra jest otwarta w BrainLink. Połącz tam opaskę Mendi albo włącz symulator (przycisk urządzenia u góry), a potem wróć tutaj. Gra działa też bez opaski.'
+        ? 'Gra jest otwarta w Emmanuelu. Połącz tam opaskę Mendi albo włącz symulator (przycisk urządzenia u góry), a potem wróć tutaj. Gra działa też bez opaski.'
         : 'Masz opaskę fNIRS Mendi? Połącz ją teraz — modlitwa do Ducha Świętego będzie jednocześnie jej kalibracją. Gra działa też bez opaski.'),
       connect, btn('Graj bez opaski', () => this.invocation(), 'btn'), status);
     showScreen(el);

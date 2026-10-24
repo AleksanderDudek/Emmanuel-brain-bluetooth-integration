@@ -9,8 +9,9 @@
  * never leaves the screen.  A frame allocates nothing: points go through one scratch pair.
  */
 import { Particles, approach, clamp, ease } from '../kit/juice';
-import { LETTERS, VILLAGE, boats, crates, crumbs } from './content';
+import { LETTERS, VILLAGE } from './content';
 import { Hud, NumText, age, fitSlot, font } from './hud';
+import { t } from './i18n';
 import { DuskIntro } from './intro';
 import { BOTTOM, TOP, layout, type Layout } from './layout';
 import { village, type LatarnikProgress } from './meta';
@@ -30,6 +31,9 @@ const RING_MAX = 1.03;
 /** The beam's drawn length at most (R). */
 const BEAM_MAX = 1.05;
 const GHOST_DASH = [3, 7];
+/** Words drawn every frame of a moment, looked up once. */
+const DAWN_TITLE = t('block.dawn');
+const TAP_NOW = t('lesson.tap');
 
 export class LatarnikView {
   private readonly ctx: CanvasRenderingContext2D;
@@ -65,7 +69,7 @@ export class LatarnikView {
   private reefDash = NO_DASH;
   private reachDash = NO_DASH;
   private labelFonts = ['', ''];
-  private readonly reachTxt = new NumText(n => `zasięg ${n}%`);
+  private readonly reachTxt = new NumText(n => t('ring.reach', { n }));
   private ghostText = '';
   private ghostW = 0;
   private readonly dawnTitle = fitSlot();
@@ -133,10 +137,10 @@ export class LatarnikView {
         }
         const { x: fx, y: fy } = this.px(e.boats[0].a, e.boats[0].r);
         if (e.full) {
-          this.hud.title('Pełne światło', C.cream, 26 * u, { dur: 1.5, min: 1, rank: 2, keep: 1.5 });
+          this.hud.title(t('title.full'), C.cream, 26 * u, { dur: 1.5, min: 1, rank: 2, keep: 1.5 });
           if (!this.opts.reducedMotion) this.particles.burst(cx, cy, 1, { color: C.gold, speed: 0, life: 1, size: R * 0.45, shape: 'ring', g: 0 });
-        } else if (e.perfect) this.hud.float('Idealnie', fx, fy - 34 * u, C.cream, 21 * u, true);
-        if (szereg >= 2 && !e.full) this.hud.float(`Szereg ×${szereg}`, fx, fy - 58 * u, C.coral, 19 * u, true, 1.3);
+        } else if (e.perfect) this.hud.float(t('fx.perfect'), fx, fy - 34 * u, C.cream, 21 * u, true);
+        if (szereg >= 2 && !e.full) this.hud.float(t('fx.row', { n: szereg }), fx, fy - 58 * u, C.coral, 19 * u, true, 1.3);
         break;
       }
       case 'empty':
@@ -149,11 +153,11 @@ export class LatarnikView {
         this.short = 1;
         if (!e.hint) break;
         const { x, y } = this.px(e.boat.a, e.boat.r);
-        this.hud.float(`zabrakło ${Math.max(1, Math.round(e.short * 100))}%`, x, y - 16 * u, 'rgba(255,210,122,.85)', 13 * u, false, 1.3);
+        this.hud.float(t('fx.short', { n: Math.max(1, Math.round(e.short * 100)) }), x, y - 16 * u, 'rgba(255,210,122,.85)', 13 * u, false, 1.3);
         break;
       }
       case 'armed':
-        this.hud.title('Pełne światło gotowe', C.gold, 21 * u, { dur: 1.6, min: 1, rank: 2, keep: 2 });
+        this.hud.title(t('title.armed'), C.gold, 21 * u, { dur: 1.6, min: 1, rank: 2, keep: 2 });
         break;
       case 'home':
         if (e.boat.kind !== 'butelka') {
@@ -171,19 +175,19 @@ export class LatarnikView {
       }
       case 'bottle': {
         const { x, y } = this.px(e.boat.a, e.boat.r);
-        this.hud.float(`List z butelki ${e.letter}/${LETTERS.length}`, x, y - 30 * u, '#bfe8cf', 17 * u, true, 2.2);
+        this.hud.float(t('bottle', { n: e.letter, total: LETTERS.length }), x, y - 30 * u, '#bfe8cf', 17 * u, true, 2.2);
         break;
       }
       case 'tallShip': {
         const { x, y } = this.px(e.boat.a, e.boat.r);
-        this.hud.float('Żaglowiec!', x, y - 52 * u, C.cream, 22 * u, true, 1.8);
+        this.hud.float(t('fx.tall'), x, y - 52 * u, C.cream, 22 * u, true, 1.8);
         break;
       }
       case 'watchEnd':
         this.hud.watchEnd(e.watch, e.boats);
         break;
       case 'watchStart':
-        this.hud.title('Nowa wachta', C.cream, 24 * u, { dur: 1.6, min: 1, rank: 1 });
+        this.hud.title(t('title.watch'), C.cream, 24 * u, { dur: 1.6, min: 1, rank: 1 });
         this.hud.popLanterns();
         break;
       case 'telegraph':
@@ -192,7 +196,7 @@ export class LatarnikView {
       case 'blockStart': {
         if (e.index === 0) break;
         const k = e.block.kind;
-        const title = k === 'warmup' ? 'Pierwsza wachta' : k === 'cisza' ? 'Cisza' : e.block.blind ? 'Konwój w ciemno' : 'Konwój';
+        const title = t(k === 'warmup' ? 'block.warmup' : k === 'cisza' ? 'block.cisza' : e.block.blind ? 'block.blind' : 'block.konwoj');
         // after the star of the block that just ended, if there is one
         this.hud.title(title, k === 'cisza' ? '#9ff3e4' : k === 'konwoj' ? '#ffb39c' : C.cream, 30 * u, { dur: 2.4, min: 1.6, rank: 1 });
         break;
@@ -200,11 +204,11 @@ export class LatarnikView {
       case 'steady': {
         // under the reach's label: the lens tightens a notch
         const p = this.hud.under(0, this.at) ? this.at : this.px(-0.75, sim.reach);
-        this.hud.float(`Stały blask +${Math.round(e.bonus * 100)}%`, p.x, p.y + 10 * u, C.gold, 14 * u, false, 1.6);
+        this.hud.float(t('fx.steady', { n: Math.round(e.bonus * 100) }), p.x, p.y + 10 * u, C.gold, 14 * u, false, 1.6);
         break;
       }
       case 'star': {
-        this.hud.title('Gwiazda latarni', C.gold, 24 * u, { dur: 1.8, min: 0.9, rank: 0 });
+        this.hud.title(t('title.star'), C.gold, 24 * u, { dur: 1.8, min: 0.9, rank: 0 });
         this.hud.popStar();
         this.hud.popLantern(e.lanterns - 1);
         // the convoy's cargo comes in from the horizon as one stream
@@ -226,7 +230,7 @@ export class LatarnikView {
           const { x: tx, y: ty } = this.px(n.a, 0.15);
           this.fly(x, y, tx, ty, 'amber', 0.9, i * 0.15);
         });
-        this.hud.floatIsland(`+${crumbs(e.nuggets.length)}`, C.honey, 15 * u, 2);
+        this.hud.floatIsland(`+${t('crumbs', { n: e.nuggets.length })}`, C.honey, 15 * u, 2);
         break;
       }
       case 'amber':
@@ -234,14 +238,14 @@ export class LatarnikView {
         break;
       case 'built':
         this.particles.burst(cx, cy + s * 0.3, 24, { color: C.gold, speed: 90, spread: TAU, g: 40, drag: 1.5, life: 1.1, size: 2.2, shape: 'spark' });
-        this.hud.floatIsland(`Port rośnie: ${VILLAGE[e.step].name.toLowerCase()}`, C.gold, 15 * u, 2.2);
+        this.hud.floatIsland(t('port.grows', { names: VILLAGE[e.step].name }), C.gold, 15 * u, 2.2);
         break;
       case 'welcome':
-        this.hud.floatIsland(`Wędzarnia: +${crates(e.crates)}`, C.honey, 14 * u, 2.6);
+        this.hud.floatIsland(t('fx.welcome', { crates: t('crates', { n: e.crates }) }), C.honey, 14 * u, 2.6);
         break;
       case 'finale':
         this.hud.clearTitles();   // "Świt" takes the title's place
-        this.dawnLine = `Tej nocy w porcie: ${boats(sim.score)}`;
+        this.dawnLine = t('dawn.line', { boats: t('boats', { n: sim.score }) });
         this.buildConstellation(sim);
         break;
       default:
@@ -799,9 +803,9 @@ export class LatarnikView {
       ctx.textBaseline = 'bottom';
       const ty = y - boat * 1.25;
       ctx.fillStyle = 'rgba(5,10,24,.6)';
-      ctx.fillText('Stuknij teraz', x + 1, ty + 1);
+      ctx.fillText(TAP_NOW, x + 1, ty + 1);
       ctx.fillStyle = C.cream;
-      ctx.fillText('Stuknij teraz', x, ty);
+      ctx.fillText(TAP_NOW, x, ty);
     }
     ctx.restore();
   }
@@ -880,12 +884,13 @@ export class LatarnikView {
       ctx.globalAlpha = k;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      const big = this.hud.fitIn(this.dawnTitle, 'Świt', R * 1.6, 44 * u, 500, SERIF, true);
+      // as wide as the line under it: "Morgendämmerung" needs the room, and it stays over the sea
+      const big = this.hud.fitIn(this.dawnTitle, DAWN_TITLE, Math.min(w - 32, R * 1.9), 44 * u, 500, SERIF, true);
       ctx.font = this.dawnTitle.font;
       ctx.fillStyle = 'rgba(40,20,40,.35)';
-      ctx.fillText('Świt', cx + 1.5, cy - R * 0.5 + 2);
+      ctx.fillText(DAWN_TITLE, cx + 1.5, cy - R * 0.5 + 2);
       ctx.fillStyle = '#fff3e6';
-      ctx.fillText('Świt', cx, cy - R * 0.5);
+      ctx.fillText(DAWN_TITLE, cx, cy - R * 0.5);
       this.hud.fitIn(this.dawnSub, this.dawnLine, Math.min(w - 32, R * 1.9), 16 * u, 600, SANS);
       ctx.font = this.dawnSub.font;
       ctx.fillStyle = 'rgba(255,243,230,.9)';

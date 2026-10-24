@@ -1,12 +1,12 @@
 """
-Training pipeline for the BrainLink mental state classifier.
+Training pipeline for the desktop server's mental state classifier.
 
 Produces a lightweight scikit-learn model that maps 4-channel band powers
 to mental state labels, usable at 10 Hz in the real-time game loop.
 
 Usage:
     python models/train_mental_states.py                # Train on synthetic data
-    python models/train_mental_states.py --recordings   # Include BrainLink recordings
+    python models/train_mental_states.py --recordings   # Include the server's own recordings
 """
 
 import argparse
@@ -132,7 +132,7 @@ def generate_synthetic_data(n_per_class: int = 500) -> tuple:
 
 
 def load_brainlink_recordings() -> tuple:
-    """Load labeled recordings from BrainLink's own recording system."""
+    """Load labeled recordings from the server's own recording system."""
     X, y = [], []
     if not RECORDINGS_DIR.exists():
         return np.array(X), np.array(y)
@@ -211,8 +211,8 @@ def train():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train BrainLink mental state classifier")
-    parser.add_argument("--recordings", action="store_true", help="Include BrainLink recordings")
+    parser = argparse.ArgumentParser(description="Train the desktop server's mental state classifier")
+    parser.add_argument("--recordings", action="store_true", help="Include the server's own recordings")
     args = parser.parse_args()
 
     try:

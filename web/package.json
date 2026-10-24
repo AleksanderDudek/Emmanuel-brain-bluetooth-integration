@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "BrainLink fNIRS (Mendi) as an installable, offline Progressive Web App: Web Bluetooth, live haemodynamics, balance trainer, sessions stored in the browser or a local folder.",
+  "description": "Emmanuel — God with us. Neurofeedback for the Mendi (fNIRS) and BrainAccess HALO (EEG) headbands as an installable, offline Progressive Web App: Web Bluetooth, focus training, training games, balance trainer, sessions stored in the browser or a local folder; Polish, English, German and Swedish.",
   "license": "AGPL-3.0-or-later",
   "engines": {
     "node": ">=22.12.0"

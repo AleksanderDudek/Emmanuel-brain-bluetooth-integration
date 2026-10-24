@@ -10,6 +10,7 @@ import { FNIRSPipeline } from './core/pipeline';
 import { FNIRSSimulator } from './core/simulator';
 import type { Frame } from './core/proto';
 import { HEMO_CHANNELS, type BalanceConfig, type BalanceState, type Derived, type FNIRSConfig, type Snapshot } from './core/types';
+import { t } from './i18n/signal';
 import type { SessionMeta } from './storage/format';
 import type { SessionLibrary } from './storage/library';
 import type { Recorder, RecorderInfo } from './storage/recorder';
@@ -99,7 +100,7 @@ export class Engine extends EventTarget {
     const err = this.recorder.error;
     if (err && this.recorder.meta?.session_id !== this.reportedError) {
       this.reportedError = this.recorder.meta?.session_id ?? null;
-      this.fail(`Zapis nagrania nie powiódł się: ${err.message}`);
+      this.fail(t('rec.writeFailed', { error: err.message }));
     }
     if (this.source === 'off') {
       return { ts: Date.now(), source: 'off', device: this.device.info, simulator: null, recording: this.recorder.info() };
@@ -141,7 +142,7 @@ export class Engine extends EventTarget {
   }
 
   async useDevice(): Promise<void> {
-    if (!this.device.isConnected) throw new Error('Najpierw połącz opaskę');
+    if (!this.device.isConnected) throw new Error(t('err.connectFirst'));
     let restarted = false;
     if (!this.device.isStreaming) {
       await this.device.startStream();
@@ -216,10 +217,10 @@ export class Engine extends EventTarget {
     try {
       const { error, ...meta } = await this.recorder.stop();
       const res = await this.library.finalize(meta);
-      const detail = error ? { ...res, error: [`Część danych nie została zapisana (${error})`, res.error].filter(Boolean).join('. ') } : res;
+      const detail = error ? { ...res, error: [t('rec.partLost', { error }), res.error].filter(Boolean).join('. ') } : res;
       this.dispatchEvent(new CustomEvent<SavedEvent>('saved', { detail }));
     } catch (e) {
-      this.fail(`Nie udało się zakończyć nagrania: ${e instanceof Error ? e.message : String(e)}`);
+      this.fail(t('rec.finishFailed', { error: e instanceof Error ? e.message : String(e) }));
     }
   }
 

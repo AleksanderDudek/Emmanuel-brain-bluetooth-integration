@@ -9,12 +9,14 @@
  * summary; the ambient pad follows what `padLevel` gives it.
  */
 import { mulberry32 } from '../../core/random';
+import { fmtNum, fmtSigned } from '../../i18n';
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
 import type { ArcadeGame, ArcadeOutcome, GameEnv, PointerInput } from '../kit/types';
 import { GeodaSound } from './audio';
 import { CLARITY, MINERALS, STRATEGIES, TIERS, type Pt } from './content';
 import type { FinaleView } from './finale';
+import { pct, t } from './i18n';
 import { cellAt, computeLayout, slotAt, type Layout } from './layout';
 import { bestCarats, crackGeodes, depth, found, record, SessionCredit, type Cracked, type GeodaProgress } from './meta';
 import { GeodaRenderer, type Hand } from './render';
@@ -28,7 +30,6 @@ const NEAR_FULL = 6;
 /** the ambient pad in a Szlif: dark, a little lighter with calm (no live focus in the sound of a rest) */
 const PAD_REST = 0.1, PAD_CALM = 0.2;
 
-const cellsWord = (n: number) => (n === 1 ? 'komórka' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'komórki' : 'komórek');
 /** A session length for the words: "3 min", "40 s". */
 const lengthWord = (sec: number) => (Math.round(sec) % 60 === 0 ? `${Math.round(sec) / 60} min` : `${Math.round(sec)} s`);
 
@@ -72,7 +73,7 @@ export class GeodaGame implements ArcadeGame {
       ftue, beginner: p.sessions < 3, blind: p.sessions >= 3, tuning: env.tuning,
     });
     const ctx = env.canvas.getContext('2d');
-    if (!ctx) throw new Error('Brak płótna 2D');
+    if (!ctx) throw new Error('Geoda needs a 2D canvas');
     this.view = new GeodaRenderer(ctx, env.reducedMotion);
     this.sound = new GeodaSound(env.audio);
     this.view.onSplash = pitch => { if (this.playing || !this.begun) this.sound.drip(pitch); };
@@ -290,24 +291,24 @@ export class GeodaGame implements ArcadeGame {
   private hint(): string | null {
     const sim = this.sim;
     if (sim.phase !== 'wzrost') return null;
-    if (sim.blindSlot >= 0 && this.hintT < 8) return 'Ciemna komora: kryształ rośnie w ciemności, zobaczysz go przy zbiorze.';
+    if (sim.blindSlot >= 0 && this.hintT < 8) return t('hint.blind');
     // a jam: no crystal fits, and one could crumble (not the Ciemna komora's, which the hands cannot reach)
-    if (this.jam && sim.tray.some((c, s) => c && c.grown > 1 && s !== sim.blindSlot)) return 'Nic nie pasuje: przytrzymaj kryształ, by go rozkruszyć.';
+    if (this.jam && sim.tray.some((c, s) => c && c.grown > 1 && s !== sim.blindSlot)) return t('hint.jam');
     if (sim.ftue) {
       if (sim.round === 0) {
         const c = sim.tray[0], open = FTUE_GAP.some(i => sim.wall.cells[i].k === EMPTY);
-        if (!sim.stats.placed) return c && c.grown >= 2 ? 'Przeciągnij kryształ do świecącej szczeliny.' : 'Spokojne skupienie przyspiesza kapanie.';
-        if (open) return 'Domknij szczelinę: pełny rząd pęknie na końcu Wzrostu.';
-        return 'Pełne linie świecą i pękają na końcu Wzrostu.';
+        if (!sim.stats.placed) return c && c.grown >= 2 ? t('hint.drag') : t('hint.drip');
+        if (open) return t('hint.closeGap');
+        return t('hint.lines');
       }
-      if (sim.round === 1 && this.hintT < 10) return 'Stuknij kryształ w tacce, by go karmić. Rośnie tylko karmiony.';
-      if (sim.round === 2 && this.hintT < 10) return 'Dłużej równo = czystszy kryształ: mleczny, czysty, lśniący.';
+      if (sim.round === 1 && this.hintT < 10) return t('hint.feed');
+      if (sim.round === 2 && this.hintT < 10) return t('hint.clarity');
     }
-    if (this.daily && sim.round === 0 && this.hintT < 7) return 'Geoda dnia: dziś ta sama ściana i nasiona dla wszystkich.';
+    if (this.daily && sim.round === 0 && this.hintT < 7) return t('hint.daily');
     if (this.hintT < 6) return STRATEGIES[sim.round % STRATEGIES.length];
     const left = sim.toFull;
-    if (left === 0) return 'Pełna geoda! Pęknie cała na końcu Wzrostu.';
-    if (left !== null && left <= NEAR_FULL) return `Jeszcze ${left} ${cellsWord(left)} do pełnej geody.`;
+    if (left === 0) return t('hint.full');
+    if (left !== null && left <= NEAR_FULL) return t('hint.toFull', { n: left });
     return null;
   }
 
@@ -447,36 +448,36 @@ export class GeodaGame implements ArcadeGame {
     const judged = st.focusJudged + st.restJudged;
     const roll = this.settled?.rolls[0];
     const stats: [string, string][] = [
-      ['Kryształy', String(st.placed)],
-      ['Linie', String(st.lines)],
-      ['Najdłuższa ciągłość', `${Math.round(s.brain.longest)} s`],
-      ['Czyste i lśniące', share === null ? '—' : `${Math.round(share * 100)}%`],
-      ['Rytm', rytm === null ? '—' : `${rytm >= 0 ? '+' : '−'}${Math.abs(rytm).toFixed(1)}%`],
-      ['Bloki w normie', judged ? `${st.focusPass + st.restPass} z ${judged}` : '—'],
-      ['Szlif', st.szlifs ? `${st.polished} z ${st.szlifs}` : '—'],
-      ['Gablota', `${found(p)}/${MINERALS.length}`],
+      [t('stat.crystals'), String(st.placed)],
+      [t('stat.lines'), String(st.lines)],
+      [t('word.longest'), `${Math.round(s.brain.longest)} s`],
+      [t('stat.clear'), share === null ? '—' : pct(Math.round(share * 100))],
+      [t('stat.rhythm'), rytm === null ? '—' : pct(fmtSigned(rytm, 1))],
+      [t('stat.blocks'), judged ? t('ofTotal', { a: st.focusPass + st.restPass, b: judged }) : '—'],
+      [t('block.szlif'), st.szlifs ? t('ofTotal', { a: st.polished, b: st.szlifs }) : '—'],
+      [t('word.cabinet'), `${found(p)}/${MINERALS.length}`],
     ];
     // the record is the runner's (over every session length); a best for this length gets a line of its own
     const best = this.bestBefore, lengthBest = this.lengthBest;
     const isRecord = best !== null && s.carats > best;
     const hl: string[] = [];
-    if (st.firstCrystal) hl.push('Pierwszy kryształ');
+    if (st.firstCrystal) hl.push(t('hl.first'));
     if (roll) {
-      const m = MINERALS[roll.specimen.m].title, tier = TIERS[roll.specimen.tier];
-      hl.push(roll.outcome === 'new' ? `Nowy okaz: ${m}, ${tier}, ${roll.specimen.cm.toFixed(1)} cm`
-        : roll.outcome === 'upgrade' ? `Lepszy okaz: ${m}, teraz ${tier}` : `Duplikat: ${m} → +${roll.dust} pyłu`);
+      const mineral = MINERALS[roll.specimen.m].title, tier = TIERS[roll.specimen.tier];
+      hl.push(roll.outcome === 'new' ? t('hl.new', { mineral, tier, cm: fmtNum(roll.specimen.cm, 1) })
+        : roll.outcome === 'upgrade' ? t('hl.upgrade', { mineral, tier }) : t('hl.dust', { mineral, dust: roll.dust }));
     }
-    if (!isRecord && lengthBest !== null && s.carats > lengthBest) hl.push(`Rekord ${lengthWord(this.env.plannedSec)}: ${s.carats} ct`);
-    if (st.fullGeodes) hl.push(st.fullGeodes > 1 ? `Pełna geoda ×${st.fullGeodes}` : 'Pełna geoda!');
+    if (!isRecord && lengthBest !== null && s.carats > lengthBest) hl.push(t('hl.lengthBest', { length: lengthWord(this.env.plannedSec), ct: s.carats }));
+    if (st.fullGeodes) hl.push(st.fullGeodes > 1 ? t('hl.fullMany', { count: st.fullGeodes }) : t('full.title'));
     const set = this.settled;
-    if (set && set.crafted.length) hl.push(`Z pyłu: ${set.crafted.map(m => MINERALS[m].title).join(', ')}`);
+    if (set && set.crafted.length) hl.push(t('hl.crafted', { minerals: set.crafted.map(m => MINERALS[m].title).join(', ') }));
     const level = depth(p.xp).level;
-    if (level > this.credit.levelBefore) hl.push(`Głębokość ${level}`);
-    if (this.dailyKey) hl.push('Geoda dnia zaliczona');
+    if (level > this.credit.levelBefore) hl.push(t('hl.depth', { level }));
+    if (this.dailyKey) hl.push(t('hl.daily'));
     const blind = st.blind[0];
-    if (blind) hl.push(`Ciemna komora: ${blind.grown} z ${blind.total}, ${CLARITY[blind.clarity]}`);
+    if (blind) hl.push(t('hl.blind', { grown: blind.grown, total: blind.total, clarity: CLARITY[blind.clarity] }));
     const finest = st.best;
-    if (finest && finest.clarity >= 2 && finest.cells >= 3) hl.push(`Najczystszy kryształ: ${finest.cells} ${cellsWord(finest.cells)}, ${CLARITY[finest.clarity]}`);
+    if (finest && finest.clarity >= 2 && finest.cells >= 3) hl.push(t('hl.finest', { n: finest.cells, clarity: CLARITY[finest.clarity] }));
     return { score: s.carats, unit: 'ct', record: isRecord, stats, highlights: hl.slice(0, 4) };
   }
 

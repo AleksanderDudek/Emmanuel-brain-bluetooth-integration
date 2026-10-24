@@ -1,14 +1,17 @@
 /** Sygnał for EEG: metrics, electrode contact, combos, traces and band powers (like the server's dashboard). */
 import { BAND_NAMES, EEG_CHANNELS, EEG_METRICS, type EegChannel, type EegMetric } from '../core/eeg/types';
 import type { EegContact, EegFrame } from '../eeg-engine';
+import { t } from '../i18n/signal';
 import { cssVar, drawLines } from './charts';
 import { $, fmt, h } from './dom';
 
-const METRIC_LABELS: Record<EegMetric, string> = {
-  focus: 'Skupienie', calm: 'Spokój', valence: 'Waleczność', instability: 'Niestabilność', stress: 'Stres', flow: 'Flow',
+const METRIC_LABELS = Object.fromEntries(EEG_METRICS.map(m => [m, t(`eeg.${m}`)])) as Record<EegMetric, string>;
+const CONTACT_LABELS: Record<EegContact, string> = {
+  good: t('contact.good'), flat: t('contact.flat'), noisy: t('contact.noisy'), warming_up: t('contact.warming_up'),
 };
-const CONTACT_LABELS: Record<EegContact, string> = { good: 'dobry', flat: 'brak (płaski)', noisy: 'zakłócenia', warming_up: 'rozgrzewanie' };
-const COMBO_LABELS: Record<string, string> = { super_flow: 'Super flow', panic: 'Panika', zen_heal: 'Zen', berserker: 'Berserker' };
+const COMBO_LABELS: Record<string, string> = {
+  super_flow: t('combo.super_flow'), panic: t('combo.panic'), zen_heal: t('combo.zen_heal'), berserker: t('combo.berserker'),
+};
 
 export class EegMonitor {
   private readonly bars = new Map<EegMetric, { fill: HTMLElement; val: HTMLElement }>();
@@ -22,7 +25,7 @@ export class EegMonitor {
       const v = h('span', null, '—');
       return { el: h('div', { class: 'stat' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v, unit ? h('small', null, unit) : null)), v };
     };
-    const s = { focus: stat('Skupienie', '%'), calm: stat('Spokój', '%'), blinks: stat('Mrugnięcia', '/s'), contact: stat('Kontakt', '/ 4') };
+    const s = { focus: stat(METRIC_LABELS.focus, '%'), calm: stat(METRIC_LABELS.calm, '%'), blinks: stat(t('eeg.blinks'), '/s'), contact: stat(t('eeg.contact'), '/ 4') };
     $('eegStats').replaceChildren(...Object.values(s).map(x => x.el));
     this.stats = { focus: s.focus.v, calm: s.calm.v, blinks: s.blinks.v, contact: s.contact.v };
     $('eegMetrics').replaceChildren(...EEG_METRICS.map(m => {
@@ -65,7 +68,7 @@ export class EegMonitor {
       this.comboSig = sig;
       $('eegCombos').replaceChildren(...(f.active_combos.length
         ? f.active_combos.map(c => h('span', { class: 'combo' }, COMBO_LABELS[c] ?? c))
-        : [h('span', { class: 'muted' }, 'Brak aktywnych combo')]));
+        : [h('span', { class: 'muted' }, t('eeg.noCombos'))]));
     }
     if (f.preview) {
       const color = cssVar('--tool');

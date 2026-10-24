@@ -3,10 +3,12 @@
  * part on a ring of crystals with the specimen in their light, then its name, tier, size and what
  * it did for the cabinet (a new specimen, a better one, or pył).
  */
+import { fmtNum } from '../../i18n';
 import { clamp, ease } from '../kit/juice';
 import { drawSpecimen, fitFont, hash, rgba, SANS, SERIF, TAU } from './art';
 import { MINERALS, TIERS } from './content';
 import { INK } from './hud';
+import { t as tr } from './i18n';
 import { TOP } from './layout';
 import { FINALE_SEC, type GeodaSim } from './sim';
 
@@ -30,9 +32,10 @@ export function drawFinale(ctx: CanvasRenderingContext2D, sim: GeodaSim, f: Fina
   ctx.textBaseline = 'alphabetic';
   if (t < 3) {
     ctx.globalAlpha = clamp(t / 0.5) * clamp((3 - t) / 0.4);
-    fitFont(ctx, 'Rozłup geodę', 30, w - 40, SERIF, 500);
+    const title = tr('finale.title');
+    fitFont(ctx, title, 30, w - 40, SERIF, 500);
     ctx.fillStyle = INK;
-    ctx.fillText('Rozłup geodę', cx, cy - R * 1.35);
+    ctx.fillText(title, cx, cy - R * 1.35);
     ctx.globalAlpha = 1;
   }
   const jit = !still && crack > 0 && crack < 1 ? Math.sin(t * 61) * 2.5 * (1 - open) : 0;
@@ -125,15 +128,23 @@ export function drawFinale(ctx: CanvasRenderingContext2D, sim: GeodaSim, f: Fina
     fitFont(ctx, mn.title, 34, w - 40, SERIF, 500);
     ctx.fillStyle = INK;
     ctx.fillText(mn.title, cx, y);
-    const line = `${TIERS[f.tier]} · ${f.cm.toFixed(1)} cm`;
+    const line = tr('finale.size', { tier: TIERS[f.tier], cm: fmtNum(f.cm, 1) });
     fitFont(ctx, line, 16, w - 40, SANS, 600);
     ctx.fillStyle = f.tier >= 3 ? '#ffd48a' : f.tier >= 1 ? '#d6b8ff' : 'rgba(239,232,220,0.75)';
     ctx.fillText(line, cx, y + 28);
-    const out = f.outcome === 'new' ? 'Nowy okaz w gablocie' : f.outcome === 'upgrade' ? 'Lepszy okaz w gablocie' : `Duplikat: +${f.dust} pyłu`;
-    const more = f.extra ? ` · i jeszcze ${f.extra} z pełnej geody` : '';
-    fitFont(ctx, out + more, 14, w - 40, SANS, 600);
+    // what it did for the cabinet, and the Pełna geoda's extra specimens: one line when they fit it, else two
+    const out = f.outcome === 'new' ? tr('finale.new') : f.outcome === 'upgrade' ? tr('finale.upgrade') : tr('finale.dust', { dust: f.dust });
+    const more = f.extra ? tr('finale.extra', { n: f.extra }) : '';
+    const one = more ? `${out} · ${more}` : out;
     ctx.fillStyle = '#ffe6b0';
-    ctx.fillText(out + more, cx, y + 52);
+    fitFont(ctx, one, 14, w - 40, SANS, 600, more ? 12 : 10);
+    if (!more || ctx.measureText(one).width <= w - 40) ctx.fillText(one, cx, y + 52);
+    else {
+      fitFont(ctx, out, 14, w - 40, SANS, 600);
+      ctx.fillText(out, cx, y + 50);
+      fitFont(ctx, more, 13, w - 40, SANS, 600);
+      ctx.fillText(more, cx, y + 69);
+    }
   }
   ctx.restore();
 }

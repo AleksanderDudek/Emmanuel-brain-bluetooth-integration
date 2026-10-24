@@ -4,10 +4,12 @@
  * drawn small at the tier found), the depth level's meter, the daily geode, and the published odds
  * of a specimen.
  */
+import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
 import { dayKey } from '../kit/progress';
 import { drawSpecimen } from './art';
 import { CRAFT_DUST, MINERALS, NEW_FIRST, PITY, TIER_ODDS, TIERS } from './content';
+import { pct, t } from './i18n';
 import { bestCarats, depth, found, type GeodaProgress } from './meta';
 
 const TIER_CLASS = ['on', 'on rare', 'on epic', 'on legend'];
@@ -29,16 +31,19 @@ function specimenTile(i: number, tier: number | null | undefined): HTMLElement {
       ctx.fillRect(0, 0, 52, 40);
     }
   }
-  const note = !known ? null : i === 0 && tier === 0 ? 'kalibracja' : TIERS[tier];
-  return h('div', { class: known ? TIER_CLASS[tier] : '', title: known ? `${m.title}: ${TIERS[tier]}${i === 0 && tier === 0 ? ' (za kalibrację)' : ''}` : 'Jeszcze nie znaleziony' },
+  // the amethyst comes with the calibration; the note is short (10 characters fit a desktop tile)
+  const calib = known && i === 0 && tier === 0;
+  const note = !known ? null : calib ? t('panel.calib') : tier === TIERS.length - 1 ? t('panel.museumShort') : TIERS[tier];
+  const title = !known ? t('panel.notFound') : t(calib ? 'panel.tileCalib' : 'panel.tile', { mineral: m.title, tier: TIERS[tier] });
+  return h('div', { class: known ? TIER_CLASS[tier] : '', title },
     c, known ? m.title : '?', note ? h('small', null, note) : null);
 }
 
 /** The daily geode's line: it starts with the second session (the first one teaches on its own wall). */
 function dailyText(p: GeodaProgress, done: boolean): string {
-  if (done) return `Zagrana: ${p.dailyBest} ct. Jutro nowa ściana.`;
-  if (p.sessions === 0) return 'Od drugiej sesji: codziennie ta sama ściana i nasiona dla wszystkich.';
-  return 'Ta sama ściana i nasiona dla wszystkich. Twoja następna sesja zagra dzisiejszą.';
+  if (done) return t('panel.dailyDone', { ct: p.dailyBest });
+  if (p.sessions === 0) return t('panel.dailyLater');
+  return t('panel.dailyNext');
 }
 
 export function progressPanel(p: GeodaProgress): HTMLElement {
@@ -48,24 +53,28 @@ export function progressPanel(p: GeodaProgress): HTMLElement {
   const fill = h('i');
   fill.style.width = `${Math.round((100 * (p.xp - d.from)) / Math.max(1, d.to - d.from))}%`;
   const dailyDone = p.dailyDay === dayKey();
-  const odds = TIER_ODDS.map((o, t) => `${TIERS[t]} ${Math.round(o * 100)}%`).join(', ');
+  const odds = TIER_ODDS.map((o, tier) => t('panel.oddsItem', { tier: TIERS[tier], pct: pct(Math.round(o * 100)) })).join(', ');
   // records per length, once the player has played more than one
   const perLength = LENGTHS.filter(s => p.best[String(s)] !== undefined).map(s => `${s / 60} min: ${p.best[String(s)]} ct`);
   return h('div', { class: 'arcade-panel' },
     h('div', { class: 'arcade-stats' },
-      stat('Rekord', best === null ? '—' : String(best), best === null ? '' : 'ct'),
-      stat('Najdłuższa ciągłość', String(p.longestCont), 's'),
-      stat('Gablota', `${found(p)}/${MINERALS.length}`),
-      stat('Głębokość', String(d.level))),
-    perLength.length > 1 ? h('p', { class: 'muted' }, `Rekordy: ${perLength.join(' · ')}`) : null,
+      stat(t('panel.best'), best === null ? '—' : String(best), best === null ? '' : 'ct'),
+      stat(t('word.longest'), String(p.longestCont), 's'),
+      stat(t('word.cabinet'), `${found(p)}/${MINERALS.length}`),
+      stat(t('panel.depth'), String(d.level))),
+    perLength.length > 1 ? h('p', { class: 'muted' }, t('panel.bests', { list: perLength.join(' · ') })) : null,
     h('div', { class: 'arcade-meter' },
-      h('span', null, `Głębokość ${d.level + 1}`, h('b', null, `${p.xp - d.from}/${d.to - d.from} XP`)), h('i', null, fill)),
-    h('div', { class: 'arcade-sub' }, `Gablota${p.biggest ? ` · największy okaz ${p.biggest.toFixed(1)} cm` : ''} · pył ${p.dust}/${CRAFT_DUST}`),
+      h('span', null, t('panel.nextDepth', { level: d.level + 1 }), h('b', null, `${p.xp - d.from}/${d.to - d.from} XP`)), h('i', null, fill)),
+    h('div', { class: 'arcade-sub' }, p.biggest
+      ? t('panel.cabinetLineBiggest', { cm: fmtNum(p.biggest, 1), dust: p.dust, need: CRAFT_DUST })
+      : t('panel.cabinetLine', { dust: p.dust, need: CRAFT_DUST })),
     h('div', { class: 'arcade-album' }, MINERALS.map((_, i) => specimenTile(i, p.gablota[i]))),
     h('div', { class: `arcade-daily${dailyDone ? ' done' : ''}` },
-      h('div', null, h('b', null, 'Geoda dnia'), h('p', null, dailyText(p, dailyDone))),
+      h('div', null, h('b', null, t('panel.daily')), h('p', null, dailyText(p, dailyDone))),
       h('span', { class: `badge${dailyDone ? ' ok' : ''}` }, dailyDone ? '1/1' : '0/1')),
-    h('p', { class: 'muted' }, `Szanse okazu: ${odds} — lepsze za czyste kryształy. `
-      + `Piękny najpóźniej co ${PITY[1]} sesji, rzadki co ${PITY[2]}, muzealny co ${PITY[3]}. `
-      + `Minerał: w pierwszych ${NEW_FIRST} geodach zawsze nowy, potem każdy 1 na ${MINERALS.length}.`));
+    h('p', { class: 'muted' }, [
+      t('panel.odds', { odds }),
+      t('panel.pity', { fine: PITY[1], rare: PITY[2], museum: PITY[3] }),
+      t('panel.newRule', { first: NEW_FIRST, all: MINERALS.length }),
+    ].join(' ')));
 }

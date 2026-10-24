@@ -6,11 +6,14 @@
 import type { Hub, HubSample, HubStatus } from '../hub';
 import { REASON_TEXT, WARNING_TEXT } from '../hub';
 import type { AppSettings, SceneId, TrainingPrefs } from '../settings';
+import { fmtDate, fmtNum, fmtSigned } from '../i18n';
+import { t as tSignal } from '../i18n/signal';
+import { t } from '../i18n/training';
 import type { SessionDB } from '../storage/db';
 import { TOOL_INFO } from '../tools';
 import { TrainingAudio } from '../training/audio';
 import { drawScenePreview, SceneRenderer, SCENES } from '../training/scene';
-import { dayScore, isTopSession, newMilestones, type Mood, type TrainingResult } from '../training/score';
+import { dayScore, FEELINGS, isTopSession, newMilestones, type Mood, type TrainingResult } from '../training/score';
 import { FocusSession } from '../training/session';
 import { $, fmtDur, h, run, toast } from './dom';
 
@@ -24,17 +27,18 @@ function s<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, s
 const icon = (id: string) => s('svg', { 'aria-hidden': 'true' }, s('use', { href: `#${id}` }));
 
 const LENGTHS: TrainingPrefs['minutes'][] = [3, 5, 10, 15];
-const FACE_LABELS = ['Bardzo źle', 'Źle', 'Tak sobie', 'Dobrze', 'Bardzo dobrze'];
-const FEELINGS = ['spokój', 'energia', 'skupienie', 'radość', 'wdzięczność', 'ciekawość', 'zmęczenie', 'stres', 'niepokój', 'napięcie', 'rozproszenie', 'smutek'];
+const FACE_LABELS = [t('face.1'), t('face.2'), t('face.3'), t('face.4'), t('face.5')];
 const CUES: { at: number | 'half' | 'last'; text: string }[] = [
-  { at: 2, text: 'Celem treningu jest poprawa skupienia' },
-  { at: 8, text: '…przez sterowanie grą samym umysłem' },
-  { at: 14, text: 'Skup się, ale zostań rozluźniony' },
-  { at: 24, text: 'Miłego treningu!' },
-  { at: 'half', text: 'Twój mózg staje się silniejszy z każdą sesją' },
-  { at: 'last', text: 'Jeszcze chwila — utrzymaj kulę wysoko' },
+  { at: 2, text: t('cue.aim') },
+  { at: 8, text: t('cue.how') },
+  { at: 14, text: t('cue.relax') },
+  { at: 24, text: t('cue.enjoy') },
+  { at: 'half', text: t('cue.half') },
+  { at: 'last', text: t('cue.last') },
 ];
-const DIP_CUE = 'Chwilowe spadki to część drogi';
+const DIP_CUE = t('cue.dip');
+/** "12%" / "12 %" as the language writes it */
+const pct = (v: string | number) => t('pct', { v });
 
 function face(level: number): SVGSVGElement {
   const k = [-7, -3.5, 0, 4.5, 8][level];
@@ -86,7 +90,7 @@ export function drawOverview(canvas: HTMLCanvasElement, series: readonly (number
   ctx.setLineDash([]);
 }
 
-const signPct = (v: number | null) => (v === null ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}%`);
+const signPct = (v: number | null) => (v === null ? '—' : pct(fmtSigned(v, 1)));
 
 /** What a setup screen says about the signal before a session (the focus training, the arcade lobbies). */
 export interface Readiness { text: string; label: string; cls: string; can: boolean; note: string }
@@ -95,25 +99,25 @@ export function readiness(st: HubStatus, simNote: string): Readiness {
   const tool = st.tool;
   let text: string, cls = 'badge', label: string, can = true, note = '';
   if (!tool) {
-    text = 'Wybierz opaskę u góry: fNIRS (Mendi) albo EEG (HALO).';
-    label = 'brak opaski'; can = false;
+    text = t('ready.pickBand');
+    label = t('ready.noBand'); can = false;
   } else if (st.source === 'off' || st.signal.reason === 'no_device') {
-    text = `Połącz ${TOOL_INFO[tool].device} albo włącz symulator.`;
-    label = 'brak sygnału'; can = false;
-    note = 'Przycisk opaski w prawym górnym rogu.';
+    text = t('ready.connect', { device: TOOL_INFO[tool].device });
+    label = t('ready.noSignal'); can = false;
+    note = t('ready.where');
   } else if (st.signal.reliable && st.signal.warning) {
     text = `${WARNING_TEXT[st.signal.warning]}.`;
-    label = 'gotowe · słaby sygnał'; cls += ' warn';
-    note = st.signal.detail ? `Jakość: ${st.signal.detail}. SCI ≥ 0,75 = dobry kontakt.` : '';
+    label = t('ready.weak'); cls += ' warn';
+    note = st.signal.detail ? t('ready.quality', { detail: st.signal.detail, sci: fmtNum(0.75, 2) }) : '';
   } else if (st.signal.reliable) {
-    text = st.source === 'simulator' ? 'Symulator gotowy.' : 'Sygnał dobry — możesz zaczynać.';
-    label = 'gotowe'; cls += ' ok';
+    text = st.source === 'simulator' ? t('ready.simulator') : t('ready.good');
+    label = t('ready.ready'); cls += ' ok';
     if (st.source === 'simulator') note = simNote;
   } else {
-    text = st.signal.reason ? REASON_TEXT[st.signal.reason] : 'Czekam na sygnał';
-    label = st.signal.reason === 'baseline' ? `linia bazowa ${Math.round(st.signal.progress * 100)}%` : 'czekam';
+    text = st.signal.reason ? REASON_TEXT[st.signal.reason] : t('ready.waiting');
+    label = st.signal.reason === 'baseline' ? t('ready.baseline', { pct: Math.round(st.signal.progress * 100) }) : t('ready.wait');
     cls += ' warn';
-    note = 'Możesz zacząć — kalibracja poczeka na dobry sygnał.';
+    note = t('ready.canStart');
   }
   return { text, label, cls, can, note };
 }
@@ -165,17 +169,17 @@ export class FocusSetup {
   render(st: HubStatus): void {
     const badge = $('focusBadge'), ready = $('focusReady'), hint = $('focusHint'), btn = $<HTMLButtonElement>('btnFocusStart');
     const tool = st.tool;
-    const { text, label, cls, can, note } = readiness(st, 'Na symulatorze kulą sterujesz przyciskiem „Symuluj skupienie” w trakcie gry.');
+    const { text, label, cls, can, note } = readiness(st, t('setup.simNote'));
     if (ready.textContent !== text) ready.textContent = text;
     badge.textContent = label;
     badge.className = cls;
     btn.disabled = !can;
     if (hint.textContent !== note) hint.textContent = note;
-    const tips = tool ? [TOOL_INFO[tool].fit, 'Usiądź wygodnie, ekran na wysokości oczu, ogranicz ruchy głowy.', 'Przyciemnij światło i wycisz powiadomienia.'] : [];
+    const tips = tool ? [TOOL_INFO[tool].fit, t('setup.tipPosture'), t('setup.tipRoom')] : [];
     const tipsEl = $('focusTips');
     if (tipsEl.dataset.tool !== (tool ?? '')) {
       tipsEl.dataset.tool = tool ?? '';
-      tipsEl.replaceChildren(...tips.map(t => h('li', null, t)));
+      tipsEl.replaceChildren(...tips.map(tip => h('li', null, tip)));
     }
   }
 }
@@ -228,7 +232,7 @@ export class FocusRunner {
   start(): void {
     if (this.active) return;
     const tool = this.d.hub.tool;
-    if (!tool) throw new Error('Najpierw wybierz opaskę');
+    if (!tool) throw new Error(tSignal('err.noTool'));
     const p = this.d.settings.training;
     this.active = true;
     this.root.hidden = false;
@@ -252,15 +256,15 @@ export class FocusRunner {
   }
 
   private closeBtn(onClick: () => void): HTMLButtonElement {
-    return h('button', { class: 'icon-btn top-close', type: 'button', 'aria-label': 'Przerwij', on: { click: onClick } }, icon('i-close'));
+    return h('button', { class: 'icon-btn top-close', type: 'button', 'aria-label': t('run.close'), on: { click: onClick } }, icon('i-close'));
   }
 
   // ── mood ───────────────────────────────────────────────────────
   private mood(next: () => void): void {
     let pick: number | null = null;
     const words = new Set<string>();
-    const done = h('button', { class: 'btn primary big', type: 'button', disabled: true }, 'Dalej');
-    const faces = h('div', { class: 'faces', role: 'group', 'aria-label': 'Samopoczucie' }, FACE_LABELS.map((label, i) => {
+    const done = h('button', { class: 'btn primary big', type: 'button', disabled: true }, t('mood.next'));
+    const faces = h('div', { class: 'faces', role: 'group', 'aria-label': t('mood.group') }, FACE_LABELS.map((label, i) => {
       const b = h('button', { class: 'face', type: 'button', 'aria-pressed': 'false', 'aria-label': label, title: label }, face(i));
       b.addEventListener('click', () => {
         pick = i;
@@ -269,7 +273,8 @@ export class FocusRunner {
       });
       return b;
     }));
-    const wordEls = h('div', { class: 'words' }, FEELINGS.map(wd => {
+    // the word as shown is what is saved (feelingText() shows it in another language later)
+    const wordEls = h('div', { class: 'words' }, FEELINGS.map(f => t(`feel.${f}`)).map(wd => {
       const b = h('button', { class: 'btn', type: 'button', 'aria-pressed': 'false' }, wd);
       b.addEventListener('click', () => {
         if (words.has(wd)) words.delete(wd);
@@ -284,17 +289,17 @@ export class FocusRunner {
       next();
     });
     this.show(h('div', { class: 'phase' }, this.closeBtn(() => this.cancel()),
-      h('p', { class: 'eyebrow' }, 'Przed sesją'), h('h2', null, 'Jak się dziś czujesz?'), faces,
-      h('p', { class: 'muted' }, 'Wybierz do pięciu słów, które pasują (opcjonalnie):'), wordEls,
-      h('div', { class: 'row center' }, done, h('button', { class: 'btn ghost', type: 'button', on: { click: next } }, 'Pomiń'))));
+      h('p', { class: 'eyebrow' }, t('mood.eyebrow')), h('h2', null, t('mood.title')), faces,
+      h('p', { class: 'muted' }, t('mood.words')), wordEls,
+      h('div', { class: 'row center' }, done, h('button', { class: 'btn ghost', type: 'button', on: { click: next } }, t('run.skip')))));
   }
 
   // ── breathwork: cyclic sighing ─────────────────────────────────
   private breath(): void {
     const TOTAL = 60;
-    const steps: [string, number, number][] = [['Wdech nosem', 2.5, 0.82], ['Jeszcze krótki wdech', 1, 1], ['Długi wydech ustami', 5.5, 0.42]];
+    const steps: [string, number, number][] = [[t('breath.in'), 2.5, 0.82], [t('breath.top'), 1, 1], [t('breath.out'), 5.5, 0.42]];
     const rings = [h('i'), h('i'), h('i')];
-    const word = h('b', null, 'Gotowi?');
+    const word = h('b', null, t('breath.ready'));
     const count = h('small', null, `${TOTAL} s`);
     const circle = h('div', { class: 'breath', 'aria-live': 'polite' }, rings, word, count);
     let t0 = performance.now(), stepIdx = -1, stepEnd = 0, alive = true;
@@ -320,9 +325,9 @@ export class FocusRunner {
       requestAnimationFrame(tick);
     };
     this.show(h('div', { class: 'phase' }, this.closeBtn(() => this.cancel()),
-      h('p', { class: 'eyebrow' }, 'Oddech · westchnienie cykliczne'),
-      h('h2', null, 'Dwa wdechy nosem, długi wydech ustami'),
-      circle, h('div', { class: 'row center mt16' }, h('button', { class: 'btn ghost', type: 'button', on: { click: finish } }, 'Pomiń'))));
+      h('p', { class: 'eyebrow' }, t('breath.eyebrow')),
+      h('h2', null, t('breath.title')),
+      circle, h('div', { class: 'row center mt16' }, h('button', { class: 'btn ghost', type: 'button', on: { click: finish } }, t('run.skip')))));
     t0 = performance.now();
     requestAnimationFrame(tick);
   }
@@ -337,10 +342,10 @@ export class FocusRunner {
     this.ui.cal = { bar, text, reason, detail };
     this.show(h('div', { class: 'phase' }, this.closeBtn(() => this.cancel()),
       brain(),
-      h('p', { class: 'eyebrow' }, 'Kalibracja'),
-      h('h2', null, tool === 'fnirs' ? 'Szukam przepływu krwi i tlenu…' : 'Szukam fal mózgowych…'),
+      h('p', { class: 'eyebrow' }, t('cal.eyebrow')),
+      h('h2', null, tool === 'fnirs' ? t('cal.fnirs') : t('cal.eeg')),
       h('div', { class: 'progress calib-bar' }, bar), text,
-      h('p', { class: 'muted' }, 'Siedź spokojnie, z miękką, nieskupioną uwagą — to punkt odniesienia dla całej sesji.'), reason, detail));
+      h('p', { class: 'muted' }, t('cal.advice')), reason, detail));
     this.d.mark('training:start');
   }
 
@@ -351,7 +356,7 @@ export class FocusRunner {
     const st = this.d.hub.status.signal;
     const p = baseline ? st.progress * 0.4 : 0.4 + ses.calProgress * 0.6;
     ui.bar.style.width = `${Math.round(p * 100)}%`;
-    ui.text.textContent = baseline ? `Linia bazowa opaski: ${Math.round(st.progress * 100)}%` : `Punkt odniesienia: ${Math.round(ses.calProgress * 100)}%`;
+    ui.text.textContent = baseline ? t('cal.baseline', { pct: Math.round(st.progress * 100) }) : t('cal.reference', { pct: Math.round(ses.calProgress * 100) });
     const r = ses.reason && ses.reason !== 'baseline' ? REASON_TEXT[ses.reason] : ses.warning ? WARNING_TEXT[ses.warning] : '';
     if (ui.reason.textContent !== r) ui.reason.textContent = r;
     const d = this.d.hub.status.signal.detail ?? '';
@@ -366,17 +371,17 @@ export class FocusRunner {
       const v = h('b', null, '0');
       return { el: h('span', { title: label, 'aria-label': label }, icon(id), v), v };
     };
-    const points = num('i-drop', 'Tlen (punkty)'), act = num('i-brain', 'Aktywność'), ctrl = num('i-gauge', 'Kontrola');
+    const points = num('i-drop', t('hud.points')), act = num('i-brain', t('hud.activity')), ctrl = num('i-gauge', t('hud.control'));
     const bar = h('div');
     const hud = h('div', { class: 'hud' + (p.hud ? '' : ' hide') }, h('div', { class: 'hud-bar' }, bar), h('div', { class: 'hud-nums' }, points.el, act.el, ctrl.el));
-    const cardVal = h('b', null, '+0.0%');
-    const card = h('div', { class: 'hud-card' + (p.hud ? '' : ' hide') }, icon('i-brain'), h('small', null, 'Aktywność'), cardVal);
+    const cardVal = h('b', null, signPct(0));
+    const card = h('div', { class: 'hud-card' + (p.hud ? '' : ' hide') }, icon('i-brain'), h('small', null, t('hud.activity')), cardVal);
     const cue = h('div', { class: 'cue', 'aria-live': 'polite' });
     const hold = h('div', { class: 'hold', hidden: true, role: 'status' });
-    const end = h('button', { class: 'icon-btn end', type: 'button', 'aria-label': 'Zakończ sesję', on: { click: (e: Event) => { e.stopPropagation(); this.askEnd(); } } }, icon('i-close'));
+    const end = h('button', { class: 'icon-btn end', type: 'button', 'aria-label': t('hud.end'), on: { click: (e: Event) => { e.stopPropagation(); this.askEnd(); } } }, icon('i-close'));
     let sim: HTMLButtonElement | null = null;
     if (this.d.hub.status.source === 'simulator') {
-      sim = h('button', { class: 'btn sim-focus', type: 'button', 'aria-pressed': 'false' }, '▲ Symuluj skupienie');
+      sim = h('button', { class: 'btn sim-focus', type: 'button', 'aria-pressed': 'false' }, t('hud.simFocus'));
       sim.addEventListener('click', e => {
         e.stopPropagation();
         this.simFocus = !this.simFocus;
@@ -386,7 +391,7 @@ export class FocusRunner {
         this.d.hub.setSimState(this.simFocus ? (tool === 'fnirs' ? 'task' : 'focus') : (tool === 'fnirs' ? 'rest' : 'baseline'));
       });
     }
-    const stage = h('div', { class: 'game', role: 'application', 'aria-label': 'Trening skupienia. Stuknij, aby ukryć lub pokazać wyniki.' },
+    const stage = h('div', { class: 'game', role: 'application', 'aria-label': t('hud.stage') },
       canvas, hud, card, cue, hold, end, sim);
     stage.addEventListener('click', () => {
       hud.classList.toggle('hide');
@@ -437,12 +442,12 @@ export class FocusRunner {
     if (!g) return;
     g.bar.style.width = `${ses.progress * 100}%`;
     g.points.textContent = String(Math.floor(ses.scorer.points));
-    const a = ses.level === null ? '—' : `${Math.round(ses.level)}%`;
-    g.act.textContent = ses.level !== null && ses.level > 0 ? `+${a}` : a;
+    const lv = ses.level === null ? null : Math.round(ses.level);
+    g.act.textContent = lv === null ? '—' : pct(lv === 0 ? fmtNum(0) : fmtSigned(lv, 0));
     g.ctrl.textContent = `${Math.round(ses.scorer.control)} s`;
     g.cardVal.textContent = signPct(ses.level);
-    const reason = ses.recalibrating ? `Nowa linia bazowa — kalibruję ponownie (${Math.round(ses.meter.calProgressNow * 100)}%)`
-      : ses.reliable ? '' : ses.reason ? REASON_TEXT[ses.reason] : 'Czekam na sygnał';
+    const reason = ses.recalibrating ? t('hud.recalibrating', { pct: Math.round(ses.meter.calProgressNow * 100) })
+      : ses.reliable ? '' : ses.reason ? REASON_TEXT[ses.reason] : t('ready.waiting');
     // a weak signal is only mentioned, softly: the game goes on
     const note = reason || (ses.warning ? WARNING_TEXT[ses.warning].split(';')[0] : '');
     g.hold.hidden = !note;
@@ -477,7 +482,7 @@ export class FocusRunner {
     const ses = this.session;
     if (!ses || this.completing) return;
     const keep = ses.worthSaving;
-    if (!confirm(keep ? 'Zakończyć sesję teraz? Wynik zostanie zapisany.' : 'Zakończyć sesję? Jest za krótka, by ją zapisać.')) return;
+    if (!confirm(keep ? t('end.keep') : t('end.short'))) return;
     if (keep) void this.complete();
     else this.cancel();
   }
@@ -524,12 +529,12 @@ export class FocusRunner {
     const before = await this.d.db.listTrainings().catch(() => [] as TrainingResult[]);
     const result = ses.toResult({
       id: `focus_${Date.now()}`, source: st.source === 'device' ? 'device' : 'simulator',
-      device: st.source === 'device' ? (st.device.name ?? TOOL_INFO[ses.tool].device) : 'Symulator', scene: this.d.settings.training.scene,
+      device: st.source === 'device' ? (st.device.name ?? TOOL_INFO[ses.tool].device) : t('run.simulator'), scene: this.d.settings.training.scene,
     });
     try {
       await this.d.db.putTraining(result);
     } catch (e) {
-      toast(`Nie udało się zapisać wyniku: ${e instanceof Error ? e.message : String(e)}`, true);
+      toast(t('run.saveFailed', { error: e instanceof Error ? e.message : String(e) }), true);
     }
     const all = [result, ...before];
     const day = dayScore(all);
@@ -540,32 +545,32 @@ export class FocusRunner {
   }
 
   private summary(r: TrainingResult, day: ReturnType<typeof dayScore>, miles: { title: string }[], top: boolean, todayCount: number): void {
-    const ring = h('div', { class: 'ring', role: 'img', 'aria-label': `Wynik dnia ${day.score} na 100` }, h('b', null, String(day.score)));
+    const ring = h('div', { class: 'ring', role: 'img', 'aria-label': t('sum.ring', { score: day.score }) }, h('b', null, String(day.score)));
     ring.style.setProperty('--p', String(day.score));
     const stat = (k: string, v: string, unit = '') => h('div', { class: 'stat' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v, unit ? h('small', null, unit) : null));
-    const overview = h('canvas', { class: 'overview', 'aria-label': 'Przebieg aktywności w sesji' });
-    const time = new Date(r.start_time * 1000).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+    const overview = h('canvas', { class: 'overview', 'aria-label': t('sum.overview') });
+    const time = fmtDate(r.start_time * 1000, { hour: '2-digit', minute: '2-digit' });
     const el = h('div', { class: 'summary' }, h('div', { class: 'summary-inner' },
       h('div', { class: 'summary-top' }, ring, h('div', null,
-        h('p', { class: 'eyebrow' }, 'Wynik dnia'),
+        h('p', { class: 'eyebrow' }, t('sum.eyebrow')),
         h('h2', null, day.label),
-        h('p', { class: 'muted' }, `Sesja ${todayCount} · ${time}${top && todayCount > 1 ? ' · najlepsza dziś' : ''}`),
-        day.streak > 0 ? h('p', { class: 'streak mt8' }, icon('i-flame'), `Seria ${day.streak} ${day.streak === 1 ? 'dzień' : 'dni'}`) : null)),
-      miles.map(m => h('div', { class: 'milestone' }, icon('i-star'), `Nowy kamień milowy: ${m.title}`)),
+        h('p', { class: 'muted' }, t(top && todayCount > 1 ? 'sum.sessionBest' : 'sum.session', { n: todayCount, time })),
+        day.streak > 0 ? h('p', { class: 'streak mt8' }, icon('i-flame'), t('sum.streak', { n: day.streak })) : null)),
+      miles.map(m => h('div', { class: 'milestone' }, icon('i-star'), t('sum.milestone', { title: m.title }))),
       h('div', { class: 'summary-grid' },
-        stat('Aktywność', signPct(r.activity_avg_pct)), stat('Kontrola', String(r.control_sec), 's'),
-        stat('Tlen', String(r.points), 'p'), stat('Sesja', fmtDur(r.played_sec), 'min')),
-      h('div', { class: 'card' }, h('div', { class: 'card-head' }, 'Przebieg sesji', h('span', { class: 'hint' }, 'aktywność względem początku · linia = 0')), overview),
+        stat(t('hud.activity'), signPct(r.activity_avg_pct)), stat(t('hud.control'), String(r.control_sec), 's'),
+        stat(t('sum.oxygen'), String(r.points), t('unit.points')), stat(t('sum.sessionStat'), fmtDur(r.played_sec), 'min')),
+      h('div', { class: 'card' }, h('div', { class: 'card-head' }, t('sum.curve'), h('span', { class: 'hint' }, t('sum.curveHint'))), overview),
       h('p', { class: 'muted' }, [
-        `Zaangażowanie ${day.commitment}/70 · wynik ${day.performance}/30.`,
-        r.reliable_pct < 90 ? ` Sygnał wiarygodny przez ${r.reliable_pct}% czasu.` : '',
-        (r.weak_signal_pct ?? 0) >= 30 ? ` Słaby kontakt przez ${r.weak_signal_pct}% sesji — wynik może być mniej dokładny.` : '',
-        r.source === 'simulator' ? ' Sesja na symulatorze.' : '',
-        r.completed ? '' : ' Sesja zakończona przed czasem.',
-      ].join('')),
+        t('sum.parts', { commitment: day.commitment, performance: day.performance }),
+        r.reliable_pct < 90 ? t('sum.reliable', { pct: r.reliable_pct }) : '',
+        (r.weak_signal_pct ?? 0) >= 30 ? t('sum.weak', { pct: r.weak_signal_pct ?? 0 }) : '',
+        r.source === 'simulator' ? t('sum.simulator') : '',
+        r.completed ? '' : t('sum.early'),
+      ].filter(Boolean).join(' ')),
       h('div', { class: 'row' },
-        h('button', { class: 'btn primary big', type: 'button', on: { click: () => this.leave('again') } }, 'Nowa sesja'),
-        h('button', { class: 'btn big', type: 'button', on: { click: () => this.leave('done') } }, 'Gotowe'))));
+        h('button', { class: 'btn primary big', type: 'button', on: { click: () => this.leave('again') } }, t('sum.again')),
+        h('button', { class: 'btn big', type: 'button', on: { click: () => this.leave('done') } }, t('sum.done')))));
     this.show(el);
     this.session = null;
     requestAnimationFrame(() => drawOverview(overview, r.series, SCENES[this.d.settings.training.scene].fill));

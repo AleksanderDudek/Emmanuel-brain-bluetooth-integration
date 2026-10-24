@@ -1,4 +1,4 @@
-# BrainLink — Mental State Models
+# Emmanuel — Mental State Models
 
 Trained models and training infrastructure for EEG-based mental state classification.
 
@@ -29,7 +29,7 @@ python models/download_datasets.py --all
 python models/train_mental_states.py
 
 # 4. The trained model is saved to models/trained/mental_state_clf.joblib
-#    and is automatically loaded by the BrainLink server on startup.
+#    and is automatically loaded by the desktop server on startup.
 ```
 
 ## Mental States Detected

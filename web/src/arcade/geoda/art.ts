@@ -790,6 +790,29 @@ export function fitFont(ctx: CanvasRenderingContext2D, text: string, size: numbe
   return s;
 }
 
+/**
+ * Text for a place with room for a second line: one line while it fits `maxW` at `comfy` px or more,
+ * else two lines from `size` down to `min` px — split after a sentence or a clause when both halves
+ * fit, else as evenly as the words go.  Sets the font; returns the lines and their size.
+ */
+export function fitLines(ctx: CanvasRenderingContext2D, text: string, size: number, maxW: number, family: string, weight: number, comfy: number, min = 10): { lines: string[]; size: number } {
+  const one = fitFont(ctx, text, size, maxW, family, weight, Math.min(size, comfy));
+  const words = text.split(' ');
+  if (ctx.measureText(text).width <= maxW || words.length < 2) return { lines: [text], size: one };
+  for (let s = size; ; s = Math.max(min, s - 1)) {
+    ctx.font = `${weight} ${s}px ${family}`;
+    let even = [text], ew = Infinity, clause: string[] | null = null, cw = Infinity;
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
+      const w = Math.max(ctx.measureText(a).width, ctx.measureText(b).width);
+      if (w < ew) [ew, even] = [w, [a, b]];
+      if (w <= maxW && /[.,:;!?]$/.test(a) && w < cw) [cw, clause] = [w, [a, b]];
+    }
+    if (clause) return { lines: clause, size: s };
+    if (ew <= maxW || s <= min) return { lines: even, size: s };
+  }
+}
+
 /** Words wrapped into lines no wider than `maxW` at the current font. */
 export function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
   const out: string[] = [];

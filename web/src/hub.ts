@@ -16,6 +16,8 @@ import { GameHost } from './hub/host';
 import type { HubStatusMsg } from './hub/protocol';
 import type { Frame } from './core/proto';
 import { HEMO_CHANNELS, type Derived } from './core/types';
+import { fmtNum } from './i18n';
+import { t } from './i18n/signal';
 import { TOOL_INFO, type Tool } from './tools';
 
 export interface DeviceSummary {
@@ -50,7 +52,7 @@ export interface HubStatus {
     progress: number;
     quality: 'good' | 'fair' | 'poor' | null;
     warning: SignalWarning | null;
-    /** per-channel numbers behind the quality, for the curious (e.g. "L: SCI 0.42 · P: SCI 0.37") */
+    /** per-channel numbers behind the quality, for the curious (e.g. "L: SCI 0,42 · P: SCI 0,37"), in the page's language */
     detail: string | null;
     heartRate: number | null;
   };
@@ -69,22 +71,14 @@ export interface HubSample {
   epoch: number;
 }
 
-export const REASON_TEXT: Record<SignalReason, string> = {
-  no_tool: 'Wybierz opaskę',
-  off: 'Źródło wyłączone',
-  no_device: 'Opaska niepołączona',
-  connecting: 'Ponowne łączenie z opaską…',
-  no_data: 'Brak danych z opaski',
-  baseline: 'Zbieranie linii bazowej — siedź spokojnie',
-  motion: 'Wykryto ruch — siedź nieruchomo',
-  poor_signal: 'Brak kontaktu czujników — sprawdź, czy opaska przylega do skóry',
-};
+const REASONS: readonly SignalReason[] = ['no_tool', 'off', 'no_device', 'connecting', 'no_data', 'baseline', 'motion', 'poor_signal'];
+const WARNINGS: readonly SignalWarning[] = ['weak_contact', 'light_leak', 'noisy'];
 
-export const WARNING_TEXT: Record<SignalWarning, string> = {
-  weak_contact: 'Słaby kontakt czujników — dociśnij opaskę tuż nad brwiami; trening działa dalej',
-  light_leak: 'Dużo światła z otoczenia — przyciemnij pokój lub osłoń opaskę; trening działa dalej',
-  noisy: 'Zakłócenia na elektrodzie — dociśnij ją do skóry; trening działa dalej',
-};
+/** Why the signal is not usable, as a sentence (in the page's language). */
+export const REASON_TEXT = Object.fromEntries(REASONS.map(r => [r, t(`reason.${r}`)])) as Record<SignalReason, string>;
+
+/** What to do about a weak signal; the part before ";" is short enough for a game's HUD. */
+export const WARNING_TEXT = Object.fromEntries(WARNINGS.map(w => [w, t(`warn.${w}`)])) as Record<SignalWarning, string>;
 
 const STALE_SEC = 1.5;
 
@@ -183,7 +177,7 @@ export class Hub extends EventTarget {
 
   // ── sources (of the active tool) ──────────────────────────────────
   private requireTool(): Tool {
-    if (!this.tool) throw new Error('Najpierw wybierz opaskę');
+    if (!this.tool) throw new Error(t('err.noTool'));
     return this.tool;
   }
 
@@ -254,9 +248,10 @@ export class Hub extends EventTarget {
       : offSkin || warning ? 'poor' : labels.includes('fair') ? 'fair' : 'good';
     const detail = q && q.left.sci !== null ? HEMO_CHANNELS.map(ch => {
       const c = q[ch];
-      const amb = c.ambient_ratio !== null && c.ambient_ratio > 0.2 ? ` · światło ${Math.round(c.ambient_ratio * 100)}%` : '';
-      return `${ch === 'left' ? 'L' : 'P'}: SCI ${c.sci === null ? '—' : c.sci.toFixed(2)}${amb}`;
-    }).join('   ') : null;
+      const side = t(ch === 'left' ? 'sig.left' : 'sig.right'), sci = c.sci === null ? '—' : fmtNum(c.sci, 2);
+      return c.ambient_ratio !== null && c.ambient_ratio > 0.2
+        ? t('sig.sciLight', { side, sci, light: Math.round(c.ambient_ratio * 100) }) : t('sig.sci', { side, sci });
+    }).join(' · ') : null;
     let reason: SignalReason | null = null;
     if (!this.tool) reason = 'no_tool';
     else if (f.source === 'off') reason = 'off';
@@ -298,7 +293,7 @@ export class Hub extends EventTarget {
       tool: 'eeg', source: f.source, device, recording: null,
       signal: { reliable: reason === null, reason, progress: f.ready ? 1 : f.warmup_progress,
                 quality: !f.ready ? null : flat || noisy ? 'poor' : 'good', warning: reason === null && noisy ? 'noisy' : null,
-                detail: f.ready ? Object.entries(f.contact).map(([ch, c]) => `${ch}: ${c.sd === null ? '—' : c.sd + ' µV'}`).join('   ') : null,
+                detail: f.ready ? Object.entries(f.contact).map(([ch, c]) => `${ch}: ${c.sd === null ? '—' : `${fmtNum(c.sd, 1)} µV`}`).join(' · ') : null,
                 heartRate: null },
     }, x);
   }
@@ -337,5 +332,5 @@ export class Hub extends EventTarget {
   }
 
   /** "Mendi" / "BrainAccess HALO" for messages. */
-  get deviceLabel(): string { return this.tool ? TOOL_INFO[this.tool].device : 'opaska'; }
+  get deviceLabel(): string { return this.tool ? TOOL_INFO[this.tool].device : t('sig.headband'); }
 }

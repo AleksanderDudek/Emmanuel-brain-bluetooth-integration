@@ -1,9 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="cell" x1="0.1" y1="0.95" x2="0.9" y2="0.05">
+      <stop offset="0" stop-color="#ff7a59"/>
+      <stop offset="1" stop-color="#ff5ca0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffd27a" stop-opacity=".8"/>
+      <stop offset="1" stop-color="#ffd27a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="star" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff3c4"/>
+      <stop offset="1" stop-color="#ffc24d"/>
+    </linearGradient>
+  </defs>
   <rect width="512" height="512" rx="112" fill="#0a0b0d"/>
-  <g fill="none" stroke-linecap="round" stroke-width="30">
-    <path d="M244 132c-62-26-136 10-140 84-30 18-36 66-10 92-12 44 22 86 70 86 18 26 52 34 80 20" stroke="#3d9eff"/>
-    <path d="M268 132c62-26 136 10 140 84 30 18 36 66 10 92 12 44-22 86-70 86-18 26-52 34-80 20" stroke="#ff5ca0"/>
-    <path d="M256 120v300" stroke="#00e5a0"/>
+  <g transform="translate(250 266) scale(0.9) translate(-262 -276)">
+    <g fill="none" stroke="url(#cell)" stroke-width="30" stroke-linecap="round">
+      <path d="M196 238C172 204 150 176 118 152M150 180C138 152 140 126 150 104"/>
+      <path d="M158 292C126 292 102 300 78 318M118 296C102 276 88 262 68 256"/>
+      <path d="M192 330C174 362 162 392 160 426M168 382C144 392 124 406 106 428"/>
+      <path d="M248 338C260 370 282 396 308 414"/>
+      <path d="M268 246C302 222 330 206 362 196"/>
+    </g>
+    <circle cx="222" cy="284" r="66" fill="url(#cell)"/>
+    <circle cx="242" cy="266" r="16" fill="#fff" opacity=".3"/>
+    <circle cx="384" cy="188" r="28" fill="url(#cell)"/>
+    <circle cx="438" cy="142" r="58" fill="url(#glow)"/>
+    <path d="M438 98C442 126 452 136 480 142C452 148 442 158 438 186C434 158 424 148 396 142C424 136 434 126 438 98Z" fill="url(#star)"/>
+    <circle cx="438" cy="142" r="8" fill="#fffaf0"/>
   </g>
-  <circle cx="256" cy="270" r="26" fill="#00e5a0"/>
 </svg>

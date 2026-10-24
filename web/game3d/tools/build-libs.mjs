@@ -3,7 +3,7 @@
  * Builds the JavaScript libraries that the GDevelop project includes through its extensions'
  * "source files": project/lib/psalm150.js (soundtrack and effects) and project/lib/mendi-focus.js
  * (Mendi band + focus multiplier). They are bundled from game3d/src, which reuses the 2D game's
- * and BrainLink's TypeScript modules, so both games share one tested implementation.
+ * and the Emmanuel app's TypeScript modules, so both games share one tested implementation.
  *
  *   node game3d/tools/build-libs.mjs           build
  *   node game3d/tools/build-libs.mjs --check   fail if the committed files are out of date

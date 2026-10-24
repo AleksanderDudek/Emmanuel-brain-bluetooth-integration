@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import type { GameEnv } from '../src/arcade/kit/types';
-import { AMBER, CRAFT_OKRUCHY, LETTERS, START_CRATES, TIPS, VILLAGE, boatWord, farShips, plural } from '../src/arcade/latarnik/content';
+import { AMBER, CRAFT_OKRUCHY, LETTERS, START_CRATES, TIPS, VILLAGE } from '../src/arcade/latarnik/content';
+import { CATALOGS, bare, cap, farShips, t, unit } from '../src/arcade/latarnik/i18n';
 import latarnik from '../src/arcade/latarnik/index';
 import { BOTTOM, TOP, cardSlot, layout, lanternRow } from '../src/arcade/latarnik/layout';
 import {
@@ -15,6 +16,7 @@ import {
   BANDS, DEG, LatarnikSim, RULES, angDiff, beginnerBonus, cargoAt, drifted, holdTarget, pickBand, planBlocks, reachFor, type Boat, type SimEvent,
 } from '../src/arcade/latarnik/sim';
 import { mulberry32 } from '../src/core/random';
+import { LANGS, catalogProblems } from '../src/i18n';
 
 const DAY = '2026-10-23';
 const STEP = 1 / 60;
@@ -989,7 +991,8 @@ describe('the harbour, the album, the letters', () => {
     expect(farShips(1)).toBe('Z daleka dopłynął 1 statek');
     expect(farShips(3)).toBe('Z daleka dopłynęły 3 statki');
     expect(farShips(5)).toBe('Z daleka dopłynęło 5 statków');
-    expect([plural(1, 'a', 'b', 'c'), plural(4, 'a', 'b', 'c'), plural(12, 'a', 'b', 'c'), plural(22, 'a', 'b', 'c')]).toEqual(['a', 'b', 'c', 'b']);
+    expect(farShips(22)).toBe('Z daleka dopłynęły 22 statki');
+    expect(farShips(0)).toBe('Tym razem z daleka nie dopłynął żaden statek');
   });
 
   it('keeps yesterday\'s best reach as a faint ring to beat', () => {
@@ -1016,6 +1019,41 @@ describe('the harbour, the album, the letters', () => {
     const units = [...el.querySelectorAll('.arcade-stats .v small')].map(s => s.textContent);
     expect(units.slice(0, 2)).toEqual(['łódź', 'łodzie']);
     expect(el.textContent).toContain('tyle samo minut');
+  });
+});
+
+describe('the texts in four languages', () => {
+  it('gives every text in pl, en, de and sv, with the same placeholders and the plural forms each language needs', () => {
+    expect(catalogProblems(CATALOGS)).toEqual([]);
+  });
+
+  it('leaves no Polish behind: only these texts read the same as the Polish ones', () => {
+    const same: Record<string, string[]> = {};
+    for (const l of LANGS.filter(x => x !== 'pl')) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      same[l] = Object.keys(CATALOGS.pl).filter(k => JSON.stringify(cat[k]) === JSON.stringify((CATALOGS.pl as Record<string, unknown>)[k]));
+      for (const [k, v] of Object.entries(cat)) expect(JSON.stringify(v), `${l}.${k}`).not.toMatch(/[ąćęłńśźżĄĆĘŁŃŚŹŻ]/);
+    }
+    expect(same).toEqual({
+      en: ['pct', 'hl.piece', 'panel.signed', 'panel.tile'],
+      de: ['stat.contrast', 'hl.piece'],
+      sv: ['stat.contrast', 'hl.piece'],
+    });
+  });
+
+  it('signs every letter with Hania\'s name at its end, in every language (the lobby signs it apart)', () => {
+    for (const l of LANGS) {
+      for (let i = 1; i <= LETTERS.length; i++) expect((CATALOGS[l] as Record<string, string>)[`letter.${i}`], `${l} letter ${i}`).toMatch(/\. Hania$/);
+    }
+  });
+
+  it('writes names as they read inside a sentence and makes labels of them with cap()', () => {
+    expect(VILLAGE.map(s => s.name)).toContain('chata rybacka');
+    expect(cap(VILLAGE[3].name)).toBe('Chata rybacka');
+    expect(cap(AMBER[0].name)).toBe('Komar');
+    // German nouns keep their capital inside a sentence
+    expect(CATALOGS.de['amber.komar']).toBe('Mücke');
+    expect(CATALOGS.de['village.chata']).toBe('Fischerhütte');
   });
 });
 
@@ -1098,12 +1136,15 @@ describe('Noc dnia, result, the smoke path', () => {
     expect(first.record).toBe(true);
     expect(sim.p.bestSession).toBe(first.score);
     expect(first.stats).toHaveLength(8);
-    expect(first.unit).toBe(boatWord(first.score));
+    expect(first.unit).toBe(unit(first.score));
   });
 
   it('names the boats with the right Polish plural (1 łódź, 2–4 łodzie, 5+ łodzi, 12–14 łodzi, 22–24 łodzie)', () => {
-    expect([1, 2, 4, 5, 12, 14, 21, 22, 24, 25, 112].map(boatWord))
+    expect([1, 2, 4, 5, 12, 14, 21, 22, 24, 25, 112].map(unit))
       .toEqual(['łódź', 'łodzie', 'łodzie', 'łodzi', 'łodzi', 'łodzi', 'łodzi', 'łodzie', 'łodzie', 'łodzi', 'łodzi']);
+    expect([0, 1, 3, 5].map(n => t('crates', { n }))).toEqual(['0 skrzyń', '1 skrzynia', '3 skrzynie', '5 skrzyń']);
+    expect([1, 2, 25].map(n => t('crumbs', { n }))).toEqual(['1 okruch', '2 okruchy', '25 okruchów']);
+    expect([1, 3, 13].map(n => bare('hud.inPort', n))).toEqual(['łódź w porcie', 'łodzie w porcie', 'łodzi w porcie']);   // under the score
     const sim = quiet();
     for (const [score, unit] of [[0, 'łodzi'], [1, 'łódź'], [3, 'łodzie'], [13, 'łodzi'], [23, 'łodzie']] as const) {
       sim.score = score;
@@ -1406,7 +1447,7 @@ describe('Latarnik as the runner plays it', () => {
       game.finish!();
       const out = game.result();
       expect(out.score, `${w}×${h}`).toBeGreaterThan(0);
-      expect(out.unit).toBe(boatWord(out.score));
+      expect(out.unit).toBe(unit(out.score));
       expect(progress.sessions).toBe(1);
       game.destroy();
     }

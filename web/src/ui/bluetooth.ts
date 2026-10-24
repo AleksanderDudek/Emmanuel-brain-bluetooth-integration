@@ -2,6 +2,7 @@
 import {
   bluetoothStatus, detectBrowser, detectPlatform, explainBleError, guidance, MENDI_NAMES, watchAvailability, type BandNames, type BtStatus,
 } from '../ble/platform';
+import { t } from '../i18n/shell';
 import { $, h, toast } from './dom';
 
 export class BluetoothUi {
@@ -10,7 +11,7 @@ export class BluetoothUi {
   private readonly browser = detectBrowser();
   private readonly dialog = $<HTMLDialogElement>('btDialog');
 
-  /** @param names how to call the headband of the active tool */
+  /** @param names how to call the headband that is chosen */
   constructor(private readonly connect: () => void, private readonly names: () => BandNames = () => MENDI_NAMES) {
     $('btBannerHelp').addEventListener('click', () => this.open());
     $('btnBtHelp').addEventListener('click', () => this.open());
@@ -24,17 +25,15 @@ export class BluetoothUi {
     watchAvailability(available => {
       this.status = available ? 'available' : 'unavailable';
       this.renderBanner();
-      if (available) toast('Bluetooth włączony');
+      if (available) toast(t('bt.on'));
     });
   }
 
   private renderBanner(): void {
     const text: Partial<Record<BtStatus, string>> = {
-      unsupported: this.platform === 'ios'
-        ? 'Na iPhonie/iPadzie Bluetooth działa w przeglądarce Bluefy. Symulator działa wszędzie.'
-        : 'Ta przeglądarka nie obsługuje Bluetooth — użyj Chrome, Edge lub Opery. Symulator działa wszędzie.',
-      unavailable: 'Bluetooth jest wyłączony albo niedostępny.',
-      insecure: 'Bluetooth wymaga połączenia HTTPS.',
+      unsupported: this.platform === 'ios' ? t('bt.bannerIos') : t('bt.bannerUnsupported'),
+      unavailable: t('bt.off'),
+      insecure: t('bt.bannerHttps'),
     };
     const msg = text[this.status];
     $('btBanner').hidden = !msg;
@@ -51,7 +50,7 @@ export class BluetoothUi {
       link.href = g.link.href;
       link.textContent = g.link.label;
       // App Store opens in a new tab; OS settings URLs must stay in the same context
-      if (g.link.href.startsWith('http')) { link.target = '_blank'; link.rel = 'noopener'; } else { link.removeAttribute('target'); }
+      if (g.link.href.startsWith('http')) { link.target = '_blank'; link.rel = 'noopener noreferrer'; } else { link.removeAttribute('target'); }
     }
     $('btDialogConnect').hidden = !g.canConnect;
     if (!this.dialog.open) this.dialog.showModal();
