@@ -19,6 +19,7 @@ import { ArcadeAudio } from './kit/audio';
 import { BEGINNER_SESSIONS, BEGINNER_TUNING, DEFAULT_TUNING, type FocusTuning } from './kit/focus';
 import { reducedMotion } from './kit/juice';
 import { dayKey, daySeed, saveProgress } from './kit/progress';
+import { verseCard } from './kit/scripture';
 import { ArcadeSession, type CarriedCalibration } from './kit/session';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome } from './kit/types';
 import type { ArcadeEntry } from './registry';
@@ -615,6 +616,7 @@ export class ArcadeRunner {
           : r.game?.best !== null && r.game?.best !== undefined
             ? h('p', { class: 'muted' }, t('sum.best', { score: num(r.game.best), unit: mod.unit?.(r.game.best) ?? entry.unit })) : null),
       o.highlights.map(line => h('div', { class: 'milestone' }, icon('i-star'), line)),
+      o.verse ? verseCard(o.verse) : null,
       o.stats.length ? h('div', { class: 'summary-grid' }, o.stats.slice(0, 8).map(([k, v]) => stat(k, v))) : null,
       h('div', { class: 'card' },
         h('div', { class: 'card-head' }, t('sum.training'), h('span', { class: 'hint' }, t('sum.trainingHint'))),

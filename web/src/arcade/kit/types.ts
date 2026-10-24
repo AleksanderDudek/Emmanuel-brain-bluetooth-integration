@@ -6,6 +6,7 @@
 import type { Tool } from '../../tools';
 import type { ArcadeAudio } from './audio';
 import type { FocusFrame, FocusTuning } from './focus';
+import type { PassageId } from './scripture';
 
 /** What the runner gives a game. */
 export interface GameEnv<P extends object> {
@@ -45,6 +46,8 @@ export interface ArcadeOutcome {
   stats: [string, string][];
   /** moments worth a line of their own ("Nowy gatunek: szczupak") */
   highlights: string[];
+  /** a passage to close the session with (kit/scripture.ts); the summary shows it under the headline */
+  verse?: PassageId;
 }
 
 export interface ArcadeGame {

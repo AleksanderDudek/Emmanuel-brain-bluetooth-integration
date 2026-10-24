@@ -583,6 +583,9 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-big{display:flex;align-items:baseline;gap:10px}
 .arcade-big b{font-family:var(--font-head);font-size:clamp(64px,12vw,104px);font-weight:500;line-height:1;font-variant-numeric:tabular-nums}
 .arcade-big span{font-size:18px;color:var(--tx2)}
+.arcade-verse{margin:0;padding:16px 20px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid var(--line-2);max-width:62ch}
+.arcade-verse blockquote{margin:0;font-family:var(--font-head);font-style:italic;font-size:18px;line-height:1.45;color:var(--tx)}
+.arcade-verse figcaption{margin-top:8px;font-size:12px;font-weight:650;letter-spacing:.04em;color:var(--tx2)}
 .arcade-record{display:inline-flex;align-items:center;gap:6px;color:#ffd28a;font-weight:700}
 .arcade-record svg{width:18px;height:18px}
 .arcade-again{position:sticky;bottom:0;padding:14px 0 max(10px,env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,#07080d 38%)}
