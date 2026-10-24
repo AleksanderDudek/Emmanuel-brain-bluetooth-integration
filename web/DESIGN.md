@@ -32,7 +32,7 @@ language, and each text's English, German and Swedish forms are in the catalogs 
 ├──────┬───────────────────────────────────────────────────────────────────┤
 │ rail │  Home      — status, the next step, "Train" and "Play" rows, today│
 │      │  Training  — focus training (Mendi-style), balance trainer        │
-│      │  Games     — 3 training games + HolyHolyHoly; the signal they read│
+│      │  Games     — 8 training games + HolyHolyHoly; the signal they read│
 │      │  Signal    — the live monitor of the chosen band (+ recording,    │
 │      │              "play with this signal")                             │
 │      │  Sessions  — training results and recordings                      │
@@ -55,9 +55,13 @@ language, and each text's English, German and Swedish forms are in the catalogs 
   destinations because "where are the games?" was the first question after the first redesign.
   Each card says which bands it works with ("Mendi · HALO"), and activities that need the other
   band are greyed out with the reason. Games opens with one line saying which signal the games
-  will read (the band, the simulator, or none), with the action that changes it, then two
-  sections: **Training games** (§9, either band) and **HolyHolyHoly** (Mendi, playable without
-  a band, in Polish).
+  will read (the band, the simulator, or none), with the action that changes it, then the **game
+  of the day** (a wide card; every training game in turn, one a day, the same for everyone), then
+  **Training games** (§9, either band) in three rows by kind of play — puzzles, skill games,
+  creative — with a "new" mark on a game the player has never played, then **HolyHolyHoly**
+  (Mendi, playable without a band, in Polish). On a phone the training-game cards turn compact (the
+  picture beside the words), so ten games stay a short list. Home's Play shelf leads with the game
+  of the day.
 * The Mendi **Signal** view starts with "play with this signal", which opens the games straight
   from the instrument view.
 * **Signal** is the instrument view: the existing fNIRS monitor, or a new EEG monitor
@@ -71,7 +75,8 @@ language, and each text's English, German and Swedish forms are in the catalogs 
   makers and earns nothing from the links.
 * Deep links: `#start`, `#trening`, `#gry`, `#sygnal`, `#sesje`, `#ustawienia`, `#trening/focus`,
   `#trening/balance`, `#gra/holyholyholy`, `#gra/holyholyholy3d`, and the training games' lobbies
-  `#gra/geoda`, `#gra/latarnik`, `#gra/motylarnia`. The slugs stay Polish in every language, so a
+  `#gra/geoda`, `#gra/latarnik`, `#gra/motylarnia`, `#gra/arka`, `#gra/urodzaj`, `#gra/wzlot`,
+  `#gra/glina`, `#gra/zrodla`. The slugs stay Polish in every language, so a
   shared link works for everyone. The old `#balance` and `#sessions` links are redirected.
 
 **Why:** the old page put fourteen controls next to the charts and gave nobody a starting
@@ -287,20 +292,24 @@ review videos from 2023 to 2026, and neurofounders.co (2026).
   lobby in all four languages at desktop and phone width, saves screenshots, and reports a page
   that scrolls sideways, cut-off text, Polish left on a non-Polish page and missing keys.
 
-## 9. Training games: Geode, Lighthouse Keeper, Butterfly House
+## 9. Training games
 
-(*Gry treningowe: Geoda, Latarnik, Motylarnia*; German *Geode, Leuchtturmwärter,
-Schmetterlingshaus*; Swedish *Geod, Fyrvaktaren, Fjärilshuset*.)
+(*Gry treningowe*: Geoda, Latarnik, Motylarnia, Arka, Urodzaj, Wzlot, Glina, Źródła; English
+*Geode, Lighthouse Keeper, Butterfly House, The Ark, Harvest, Updraft, Clay, Wellsprings*; German
+*Geode, Leuchtturmwärter, Schmetterlingshaus, Die Arche, Ernte, Aufwind, Töpferton, Quellen*;
+Swedish *Geod, Fyrvaktaren, Fjärilshuset, Arken, Skörd, Uppvind, Lera, Källorna*.)
 
-Three games whose every session is a neurofeedback session. The research behind them, why these
-three, and the rules they share are in [`src/arcade/DESIGN.md`](src/arcade/DESIGN.md); each game's
-rules are in its own module.
+Eight games whose every session is a neurofeedback session, each rooted in the Christian faith with
+gaming first. The research behind them, how they were chosen, how the faith shapes them and the
+rules they share are in [`src/arcade/DESIGN.md`](src/arcade/DESIGN.md); each game's rules are in its
+own module.
 
 * **Where:** cards in Games (first section) and on Home's Play shelf. A card opens the game's
   **lobby** (`#gra/<id>`): an animated picture of the player's own world (their village, cabinet
   or glasshouse), "How your headband plays" in three lines, the player's progress (records,
-  album, the daily challenge), the session length (3 / 5 / 10 min), sound and vibration, and the
-  readiness of the signal with one button, "Play". They work with both bands (Mendi and HALO)
+  album, the daily challenge), the passage of Scripture the game takes root in (an epigraph under the
+  picture), the session length (3 / 5 / 10 min), sound and vibration, and the readiness of the
+  signal with one button, "Play". They work with both bands (Mendi and HALO)
   and need a signal: the band or its simulator.
 * **A session** (`src/arcade/runner.ts`) is full screen: the calibration is the game's own intro
   scene with a card at the bottom (reference progress, a rotating tip that teaches the controls
@@ -315,8 +324,9 @@ rules are in its own module.
   game as soon as play begins, with every held key and pointer released for the game. An
   abandoned session leaves the game's progress as it was; a game that fails mid-play keeps the
   training (after 30 s) but not its half-changed progress.
-* **The summary** leads with the game's own number (carats, boats, millimetres of wingspan), its
-  record and highlights, then the training numbers (Activity, Control, Oxygen, time) with the
+* **The summary** leads with the game's own number (carats, boats, millimetres of wingspan, pairs,
+  points, metres, centimetres, jars), its record and highlights, a closing passage of Scripture
+  chosen by what happened in the session, then the training numbers (Activity, Control, Oxygen, time) with the
   session curve, then the day score and the streak.
 * **Saved** as a training result with `kind: 'game'` and a `game` block (id, title, score, unit,
   best, stats), so Sessions, Home's "Last session", the day score, the streak and the milestones

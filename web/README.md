@@ -76,12 +76,22 @@ npm run build        # static site in dist/ (typecheck + app + both games + serv
 npm run preview      # serve dist/ locally
 npm run app:smoke    # after a build: headless Chrome goes through the app on the simulators (screenshots in .smoke/;
                      # BASE_PATH=/repo/ for a build made for a sub-path, as CI does)
-node scripts/arcade-shot.mjs --port 5173 --game geoda --out .smoke/arcade [--lang de]
-                     # with `npm run dev` running: plays one training game on the simulator and saves screenshots
+node scripts/arcade-shot.mjs --port 5173 --game geoda --out .smoke/arcade [--lang de] [--tool eeg]
+                     # with `npm run dev` running: plays one training game on a band's simulator (Mendi by
+                     # default, HALO with --tool eeg) and saves screenshots
 node scripts/i18n-shot.mjs --port 5173 --out .smoke/i18n [--langs pl,de] [--views start,gry]
                      # every tab and lobby in each language at desktop and phone size: screenshots, plus
                      # sideways scroll, cut-off text, Polish left on other pages and missing texts
+SCRIPTURE_DATA_DIR=/tmp/scripture npm run scripture -- --report /tmp/scripture/report.txt
+                     # regenerates src/content/scripture.ts: every passage the games quote, from four
+                     # public-domain Bibles (BSB, Biblia Gdańska, Luther 1912, Bibel 1917), each checked
+                     # against a second source; downloads stay in the data dir, outside the repository
 ```
+
+To quote a new passage in a game, add it to `PASSAGES` in `scripts/fetch_scripture.py`, run the
+script, and read the four texts it prints for the passage before committing: the check compares
+each edition with a second copy of the same edition, so a chapter that one edition numbers
+differently (Job 39 in the Polish and Swedish Bibles) would pass with the wrong verse.
 
 Add `?lang=en` (or `pl`, `de`, `sv`) to the address to open the app in one language; the
 choice in *Settings → Language* is remembered.

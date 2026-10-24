@@ -1,7 +1,8 @@
-# Gry treningowe: three Mendi games (design)
+# Gry treningowe: the arcade games (design)
 
-Three games built on the band's prefrontal signal: **Geoda**, **Latarnik** and **Motylarnia**. Every
-session of them is a full neurofeedback session — calibrated, scored like the focus training, saved
+Eight games built on the band's prefrontal signal: **Geoda**, **Latarnik** and **Motylarnia** (§3),
+and **Arka**, **Urodzaj**, **Wzlot**, **Glina** and **Źródła** (§6), all rooted in the Christian faith
+with gaming first (§5). Every session of them is a full neurofeedback session — calibrated, scored like the focus training, saved
 with the trainings, counted toward the day score and the streak — with a game on top that borrows
 the loops of today's most played mobile games. The app-level design is in `web/DESIGN.md` (§9);
 this file records the research behind the games, why these three, and the shared rules.
@@ -93,3 +94,72 @@ the day score); a game owns its canvas, its rules and its progress (`kit/types.t
 
 Every game must make progress with the smoke test's crude input (a tap in the centre every 0.65 s,
 Space now and then, the simulator's focus on), so its headline score accrues during play.
+
+## 5. Rooted in faith, gaming first
+
+Emmanuel's games take root in Christian faith, but the game comes first: each core loop is one of
+the most played mobile cores and must be fun without reading a word. The faith is the world, its
+names and images, its grace, and Scripture at resting points — shown, never preached.
+
+* **Practices as mechanics.** A push block is biblical meditation that fills the mind (picture,
+  plan, count, recall), never "emptying" it; a rest block is stillness; the daily challenge is the
+  day's bread; blind blocks are walking without seeing; a beginner's gentler judges are the bruised
+  reed. The words stay plain: verdicts are named in craft and nature words (leaf, drop, feather,
+  glaze), never holiness words.
+* **Grace mechanics.** What goes wrong is caught, reshaped or carried — Noah's hand leads an animal
+  back, the potter gathers the slumped clay, the parent eagle catches the eaglet, what spills from a
+  basket goes to the gleaners. Nothing is ever lost for a bad signal or a bad move, and rest is
+  celebrated.
+* **Gift and craft.** Grace never waits on the band: every rescue, the base progress and the day's
+  gift (the same for everyone who comes, Matthew 20) come from showing up and touch. The band only
+  adds craft: reach, depth, rarity, beauty.
+* **The band measures attention, not holiness.** No faith meter, no prayer power, no "blessings" as a
+  currency, no promise that playing produces faith or an experience of God.
+* **Reverence.** No depiction of God the Father; Jesus only indirectly; no cross as an object; no
+  angels to command, no demons, no occult or New Age frames, no prosperity promises. Each Bible symbol
+  belongs to one game (the dove and the rainbow to Arka, the eagle to Wzlot, the Songs of Ascents to
+  Źródła), so the set never repeats itself.
+* **Scripture** comes only from `src/content/scripture.ts`, generated and checked against a second
+  source in four public-domain editions (BSB, Biblia Gdańska, Luther 1912, Bibel 1917) by
+  `web/scripts/fetch_scripture.py`. Every lobby opens with the game's root passage (the registry's
+  `root`), and every summary closes with a passage that fits what happened in the session, a
+  different one session by session (`kit/scripture.ts` `inTurn`); a game names passages by id and
+  never types a verse. The passages load as a chunk of their own (`src/arcade/verse.ts`).
+
+| | root passage (the lobby) | closing passages (the summary, by what happened) |
+|---|---|---|
+| Geoda | Isaiah 54:11-12 | a rare find: Matthew 13:45-46; a polished Szlif: Malachi 3:3; the cabinet complete: Revelation 21:19-20; else 1 Peter 2:5, Psalm 127:1 |
+| Latarnik | Matthew 5:14-16 | a calm won: Mark 4:39; boats home: Psalm 107:29-30, Isaiah 43:2; Psalm 119:105 |
+| Motylarnia | 2 Corinthians 5:17 | the atlas complete: Revelation 21:5; a new species: Psalm 104:24; a deep chrysalis: Ecclesiastes 3:1; Matthew 6:28-29, 6:26 |
+| Arka | Genesis 8:1 | the dove's leaf: Genesis 8:11; a new kind: Genesis 8:17; Genesis 9:13, Psalm 36:6, Lamentations 3:22-23 |
+| Urodzaj | Deuteronomy 8:10 | Ruth comes to the table: Ruth 2:16; a new fruit: Deuteronomy 8:8; the great cluster: Psalm 65:11; a spill: Leviticus 19:9, John 6:12; dew: Deuteronomy 32:2, Psalm 133:3; a new guest: Luke 14:13-14; the day's bread: Matthew 6:11; Psalm 126:5 |
+| Wzlot | Deuteronomy 32:11 | a catch: Psalm 91:4; a high climb: Isaiah 40:31; new plumage: Psalm 103:5; Exodus 19:4 |
+| Glina | Jeremiah 18:6 | a reshaped vessel: Jeremiah 18:4; a household's story complete: Numbers 6:24-26; a glass glaze: Isaiah 61:3; a calm fire: Psalm 37:7; 2 Corinthians 4:7, Colossians 3:23 |
+| Źródła | Psalm 84:5-6 | a stage of the road: Psalm 121:1-2; a river-deep field: Isaiah 35:7; a nest: Psalm 84:3; a closed valley: Isaiah 41:18; green: 1 Corinthians 3:6; a Stream passed: Psalm 1:2-3; Isaiah 58:11, Psalm 23:1-3 |
+
+## 6. The five faith games: how they were chosen
+
+Six designers, each in one genre of the 2025–2026 charts (sort and escape puzzles, merge and
+builders, rhythm, cozy craft, physics arcade, tiles and roguelites), proposed two concepts each, next
+to four in-house ones: sixteen in all, every one rooted in a Bible story or a Christian practice.
+Three judges scored every concept — neurofeedback validity and feasibility, the free-to-play
+player's appetite, and faithfulness to Scripture and the guardrails — and the set had to differ in
+genre, world, verb, the regulation skill it trains and its part of Scripture, from each other and
+from the three earlier games.
+
+| | Arka | Urodzaj | Wzlot | Glina | Źródła |
+|---|---|---|---|---|---|
+| Borrowed core | Arrows escape puzzles, Bus Jam's landing | Suika's physics merge | Tiny Wings' hold and release | pottery sims, Good Pizza's orders | Infinity Loop's rotate-to-connect |
+| World | the ark's deck after the flood, a woodcut | a hillside orchard as an early-church floor mosaic | the biblical wilderness by day, in parallax | a whitewashed potter's courtyard | a pilgrim's relief map, seen from above |
+| Hands do | tap an animal: it walks out the way it faces | aim and drop fruit | hold to dive, release to glide | pull and shape clay on the wheel | tap a stone to turn its channel |
+| Push block | the Day: focus lays planks (more room on the landing) | Zbiór: focus sends the vine to draw alike fruit together | Lekcja lotu: attention opens the wings; returns are celebrated | Toczenie: an even focus raises the chalk line and trues the clay | Nurt: focus is the springs' flow |
+| Rest block | the Evening: the deck sleeps, calm brings the dove's leaf | Rosa: under the linen, calm settles the dew | Wznoszenie: calm strengthens the thermals | Wypał: calm melts the ash into glaze | Sela: the stones rest, calm greens the valley |
+| Skill | sustain | down-regulate | recover | modulate (an even level, not a peak) | switch |
+| Root | Genesis 6–9 | Deuteronomy 8, Leviticus 19, Ruth 2, Luke 14 | Deuteronomy 32:11 | Jeremiah 18 | Psalm 84, the Songs of Ascents |
+
+The runner-up was **Kłosy** (TriPeaks solitaire in Boaz's field), left out only because Urodzaj took
+the harvest; it is the first candidate for a ninth game.
+
+The Games tab now shows the arcade games by kind (puzzles: Geoda, Arka, Źródła; skill: Latarnik,
+Urodzaj, Wzlot; creative: Motylarnia, Glina), opens with a **game of the day** (every game in turn,
+the same for everyone that day), and marks a game the player has never played as new.
