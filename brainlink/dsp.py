@@ -3,7 +3,32 @@
 import numpy as np
 from scipy.signal import butter, iirnotch, sosfilt, welch
 
-from .constants import BANDS, CHANNELS, SAMPLE_RATE, WINDOW_SAMPLES
+from .constants import BANDS, BUFFER_SAMPLES, CHANNELS, PSD_SEGMENT_SEC, SAMPLE_RATE, WINDOW_SAMPLES
+
+
+def band_densities(freqs: np.ndarray, psd: np.ndarray, df: float) -> dict[str, float]:
+    """
+    Mean power density of each band (µV²/Hz): the PSD integrated over the band, each
+    bin weighted by the part of its width [f − df/2, f + df/2] inside the band, then
+    divided by the band's width.  Bins on a band edge are split between the two bands
+    instead of counted twice, and the result does not depend on the bin width.
+    """
+    out = {}
+    for band, (lo, hi) in BANDS.items():
+        inside = np.clip(freqs + df / 2, lo, hi) - np.clip(freqs - df / 2, lo, hi)
+        out[band] = float(np.sum(psd * inside) / (hi - lo))
+    return out
+
+
+def band_powers(signal: np.ndarray, fs: float = SAMPLE_RATE) -> dict[str, float]:
+    """
+    Band power densities {band: µV²/Hz} of one channel by Welch's method: 1 s Hann
+    segments (1 Hz bins) with 50 % overlap over all of ``signal`` — three averaged
+    segments for the live 2 s buffer.  The one estimator for live metrics and training.
+    """
+    nperseg = min(round(fs * PSD_SEGMENT_SEC), len(signal))
+    freqs, psd = welch(signal, fs=fs, nperseg=nperseg)
+    return band_densities(freqs, psd, fs / nperseg)
 
 
 class DSPPipeline:
@@ -72,24 +97,16 @@ class DSPPipeline:
             )
 
             self.buffers[ch] = np.concatenate([self.buffers[ch], notched])
-            if len(self.buffers[ch]) > SAMPLE_RATE * 2:
-                self.buffers[ch] = self.buffers[ch][-SAMPLE_RATE * 2:]
+            if len(self.buffers[ch]) > BUFFER_SAMPLES:
+                self.buffers[ch] = self.buffers[ch][-BUFFER_SAMPLES:]
 
     def has_enough(self) -> bool:
-        """Return True when all channels have at least one full FFT window."""
+        """Return True when all channels hold at least one full Welch segment (1 s)."""
         return all(len(self.buffers[ch]) >= WINDOW_SAMPLES for ch in CHANNELS)
 
     def compute_band_powers(self) -> dict[str, dict[str, float]]:
-        """Return per-channel band power estimates {channel: {band: µV²}}."""
-        result = {}
-        for ch in CHANNELS:
-            buf = self.buffers[ch][-WINDOW_SAMPLES:]
-            freqs, psd = welch(buf, fs=SAMPLE_RATE, nperseg=min(128, len(buf)))
-            result[ch] = {
-                band: float(np.mean(psd[(freqs >= lo) & (freqs <= hi)]) or 0.0)
-                for band, (lo, hi) in BANDS.items()
-            }
-        return result
+        """Return per-channel band power densities {channel: {band: µV²/Hz}} over the whole buffer."""
+        return {ch: band_powers(self.buffers[ch]) for ch in CHANNELS}
 
     def detect_blinks(self) -> int:
         """Count blink artifacts in the last second using frontal channels."""

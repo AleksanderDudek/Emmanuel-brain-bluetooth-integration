@@ -17,7 +17,9 @@ BANDS: dict[str, tuple[float, float]] = {
 }
 
 # ─── DSP / streaming ──────────────────────────────────────────────────
-WINDOW_SAMPLES = SAMPLE_RATE * 1    # 1-second FFT window
+BUFFER_SAMPLES = SAMPLE_RATE * 2    # per-channel ring buffer: the 2 s the band powers are computed from
+PSD_SEGMENT_SEC = 1.0               # Welch segment: 1 s Hann → 1 Hz bins (3 segments over the 2 s buffer)
+WINDOW_SAMPLES = SAMPLE_RATE * 1    # 1 s: enough signal to start, and the blink counter's window
 STREAM_HZ = 10                      # WebSocket push rate
 PUSH_INTERVAL = 1.0 / STREAM_HZ
 

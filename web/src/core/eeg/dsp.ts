@@ -3,12 +3,12 @@
  *
  * Per channel: DC/drift removal (high-pass as signal − exponential moving
  * average, τ = 0.5 s), a 50 Hz notch (`scipy.signal.iirnotch`, Q = 30), a 2 s
- * ring buffer, band powers from Welch's method on the last second, and a
- * blink counter on the frontal channels.  Checked against SciPy through
- * test/fixtures/eeg.json.
+ * ring buffer, band powers from Welch's method over the whole buffer (1 s
+ * segments, 1 Hz bins), and a blink counter on the frontal channels.  Checked
+ * against SciPy through test/fixtures/eeg.json.
  */
 import { mean, sosfilt, sosfiltZi, std, type Sos } from '../dsp';
-import { BANDS, EEG_CHANNELS, EEG_SAMPLE_RATE, WINDOW_SAMPLES, type Band, type BandPowers, type EegChannel, type EegChunk } from './types';
+import { BANDS, BUFFER_SAMPLES, EEG_CHANNELS, EEG_SAMPLE_RATE, PSD_SEGMENT_SEC, WINDOW_SAMPLES, type Band, type BandPowers, type EegChannel, type EegChunk } from './types';
 
 /** `scipy.signal.iirnotch(w0, Q, fs)` as one second-order section (what `tf2sos` makes of it). */
 export function iirnotch(w0Hz: number, q: number, fs: number): Sos {
@@ -68,7 +68,7 @@ export function welch(x: ArrayLike<number>, fs: number, nperseg: number): { freq
     for (let i = 0; i < n; i++) seg[i] = (x[off + i] - m) * win[i];
     for (let k = 0; k < nf; k++) {
       let re = 0, im = 0;
-      for (let i = 0, idx = 0; i < n; i++, idx = (idx + k) % n) {
+      for (let i = 0, idx = 0; i < n; i++, idx = idx + k < n ? idx + k : idx + k - n) {   // (i·k) mod n; k < n
         re += seg[i] * cos[idx];
         im -= seg[i] * sin[idx];
       }
@@ -82,6 +82,34 @@ export function welch(x: ArrayLike<number>, fs: number, nperseg: number): { freq
   return { freqs, psd };
 }
 
+/**
+ * Mean power density of each band (µV²/Hz), as `band_densities` in dsp.py: the PSD
+ * integrated over the band, each bin weighted by the part of its width [f − df/2, f + df/2]
+ * inside the band, then divided by the band's width.  Edge bins are split between the two
+ * bands instead of counted twice, and the result does not depend on the bin width.
+ */
+export function bandDensities(freqs: ArrayLike<number>, psd: ArrayLike<number>, df: number): Record<Band, number> {
+  const clip = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  const out = {} as Record<Band, number>;
+  for (const [band, [lo, hi]] of Object.entries(BANDS) as [Band, readonly [number, number]][]) {
+    let sum = 0;
+    for (let k = 0; k < freqs.length; k++) sum += psd[k] * (clip(freqs[k] + df / 2, lo, hi) - clip(freqs[k] - df / 2, lo, hi));
+    out[band] = sum / (hi - lo);
+  }
+  return out;
+}
+
+/**
+ * Band power densities of one channel by Welch's method, as `band_powers` in dsp.py: 1 s Hann
+ * segments (1 Hz bins) with 50 % overlap over the whole signal — three averaged segments for the
+ * 2 s buffer.
+ */
+export function bandPowers(signal: ArrayLike<number>, fs: number): Record<Band, number> {
+  const nperseg = Math.min(Math.round(fs * PSD_SEGMENT_SEC), signal.length);
+  const { freqs, psd } = welch(signal, fs, nperseg);
+  return bandDensities(freqs, psd, fs / nperseg);
+}
+
 function median(x: ArrayLike<number>): number {
   const s = Array.from(x).sort((a, b) => a - b);
   const h = s.length >> 1;
@@ -93,7 +121,7 @@ export class EegDsp {
   static readonly HP_ALPHA = Math.exp(-1 / (EEG_SAMPLE_RATE * 0.5));
   readonly notchSos: Sos = iirnotch(50, 30, EEG_SAMPLE_RATE);
   readonly buffers: Record<EegChannel, Float64Array>;
-  private readonly cap = EEG_SAMPLE_RATE * 2;
+  private readonly cap = BUFFER_SAMPLES;
   private hpState: Record<EegChannel, number | null>;
   private notchState: Record<EegChannel, number[][] | null>;
 
@@ -133,19 +161,10 @@ export class EegDsp {
     return EEG_CHANNELS.every(ch => this.buffers[ch].length >= WINDOW_SAMPLES);
   }
 
-  /** {channel: {band: µV²/Hz}} from the last second (Welch, 128-sample segments). */
+  /** {channel: {band: µV²/Hz}} over the whole buffer (up to 2 s). */
   bandPowers(): BandPowers {
     const out = {} as BandPowers;
-    for (const ch of EEG_CHANNELS) {
-      const buf = this.buffers[ch].subarray(-WINDOW_SAMPLES);
-      const { freqs, psd } = welch(buf, EEG_SAMPLE_RATE, Math.min(128, buf.length));
-      out[ch] = {} as Record<Band, number>;
-      for (const [band, [lo, hi]] of Object.entries(BANDS) as [Band, [number, number]][]) {
-        const sel: number[] = [];
-        for (let k = 0; k < freqs.length; k++) if (freqs[k] >= lo && freqs[k] <= hi) sel.push(psd[k]);
-        out[ch][band] = sel.length ? mean(sel) || 0 : 0;
-      }
-    }
+    for (const ch of EEG_CHANNELS) out[ch] = bandPowers(this.buffers[ch], EEG_SAMPLE_RATE);
     return out;
   }
 

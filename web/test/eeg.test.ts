@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { HaloDecoder, HaloDevice, HALO_CHR, STREAM_CONFIG, SVC_CONTROL } from '../src/ble/halo';
 import { sosfiltZi } from '../src/core/dsp';
-import { EegDsp, detrend, iirnotch, welch } from '../src/core/eeg/dsp';
+import { EegDsp, bandDensities, bandPowers, detrend, iirnotch, welch } from '../src/core/eeg/dsp';
 import { FeatureEngine, type FeatureResult } from '../src/core/eeg/features';
 import { EEGSimulator } from '../src/core/eeg/simulator';
-import { EEG_CHANNELS, type BandPowers, type EegChannel } from '../src/core/eeg/types';
+import { BANDS, BAND_NAMES, EEG_CHANNELS, type Band, type BandPowers, type EegChannel } from '../src/core/eeg/types';
 import { EegEngine } from '../src/eeg-engine';
 import { FakeChar, sleep } from './helpers';
 import eegJson from './fixtures/eeg.json?raw';
@@ -14,7 +14,7 @@ interface Checkpoint { tick: number; len: number; tail: Record<EegChannel, numbe
 type FeatureCase = { t: number; band_powers: BandPowers; blinks: number } & FeatureResult;
 const fx = JSON.parse(eegJson) as {
   notch_sos: number[][];
-  welch: { x: number[]; freqs: number[]; psd: number[] }[];
+  welch: { x: number[]; nperseg: number; freqs: number[]; psd: number[]; bands: Record<Band, number> }[];
   chunks: Record<EegChannel, number[]>[];
   checkpoints: Checkpoint[];
   features: FeatureCase[];
@@ -29,13 +29,39 @@ describe('EEG DSP (parity with brainlink/dsp.py)', () => {
     sos[0].forEach((v, i) => expect(close(v, fx.notch_sos[0][i], 1e-12, 1e-14)).toBe(true));
   });
 
-  it('computes Welch PSDs like scipy.signal.welch', () => {
+  it('computes Welch PSDs like scipy.signal.welch and band densities like dsp.py', () => {
     for (const c of fx.welch) {
-      const { freqs, psd } = welch(c.x, 250, Math.min(128, c.x.length));
+      const { freqs, psd } = welch(c.x, 250, c.nperseg);
       expect(freqs.length).toBe(c.freqs.length);
       freqs.forEach((f, k) => expect(close(f, c.freqs[k])).toBe(true));
       psd.forEach((p, k) => expect(close(p, c.psd[k], 1e-8, 1e-12)).toBe(true));
+      const bands = bandDensities(freqs, psd, 250 / c.nperseg);
+      for (const b of BAND_NAMES) expect(close(bands[b], c.bands[b], 1e-8, 1e-12)).toBe(true);
     }
+  });
+
+  it('band densities do not depend on the bin width and count each bin once', () => {
+    for (const nperseg of [250, 128]) {
+      const df = 250 / nperseg;
+      const freqs = Float64Array.from({ length: Math.floor(nperseg / 2) + 1 }, (_, k) => k * df);
+      const flat = bandDensities(freqs, new Float64Array(freqs.length).fill(1), df);
+      for (const b of BAND_NAMES) expect(flat[b]).toBeCloseTo(1, 12);                 // a flat 1 µV²/Hz spectrum
+      // bins split at an edge go half to each band: the bands' powers add up to the 0.5–45 Hz total
+      const psd = freqs.map(f => 1 + f / 10);
+      const dens = bandDensities(freqs, psd, df);
+      const total = BAND_NAMES.reduce((s, b) => s + dens[b] * (BANDS[b][1] - BANDS[b][0]), 0);
+      let expected = 0;
+      for (let k = 0; k < freqs.length; k++) expected += psd[k] * Math.max(0, Math.min(45, freqs[k] + df / 2) - Math.max(0.5, freqs[k] - df / 2));
+      expect(total).toBeCloseTo(expected, 9);
+    }
+  });
+
+  it('puts a 10 Hz rhythm in alpha, with its power intact and no spill into theta or beta', () => {
+    const x = Float64Array.from({ length: 500 }, (_, i) => 4 * Math.sin((2 * Math.PI * 10 * i) / 250));
+    const bp = bandPowers(x, 250);
+    expect(bp.alpha * 5).toBeCloseTo(8, 6);                        // A²/2 µV² over the 5 Hz band
+    expect(bp.theta).toBeLessThan(1e-9);
+    expect(bp.beta).toBeLessThan(1e-9);
   });
 
   it('replays the server pipeline: buffers, band powers, blinks', () => {

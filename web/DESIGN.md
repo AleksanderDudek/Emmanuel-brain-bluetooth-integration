@@ -112,6 +112,14 @@ The EEG path is ported from the Python server, the same way the fNIRS path was:
 | `features.py` (6 metrics, combos) | `src/core/eeg/features.ts` | same fixture, tick by tick |
 | `simulator.py` | `src/core/eeg/simulator.ts` | behavioural tests |
 
+**Band powers** (`band_powers` in dsp.py, `bandPowers` in dsp.ts): Welch's method over the whole
+2 s buffer in 1 s Hann segments, so 1 Hz bins and three averaged segments at 50 % overlap. Each
+band's PSD is integrated over the band, with a bin on a band edge split between the two bands by
+overlap, and divided by the band's width: the values stay mean densities (µV²/Hz), the unit the
+metrics' thresholds were set in, and do not depend on the bin width. (Until issue #1 it was the
+last second in 128-sample segments: 1.95 Hz bins, two per band for delta, theta and alpha, and an
+8–9 Hz alpha peak read largely as theta.)
+
 These stay on the server: the trained mental-state classifier (scikit-learn), guided
 calibration, the combo editor and EEG recording. The EEG monitor says so in one line.
 HALO reports no impedance over BLE, so contact is a labelled heuristic: the spread of the last

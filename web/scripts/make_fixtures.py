@@ -321,7 +321,7 @@ def eeg_fixture() -> dict:
     from scipy.signal import iirnotch, tf2sos, welch
     import brainlink.features as features_mod
     from brainlink.constants import CHANNELS, SAMPLE_RATE
-    from brainlink.dsp import DSPPipeline
+    from brainlink.dsp import DSPPipeline, band_densities
     from brainlink.features import FeatureEngine
     from brainlink.halo_ble import HALOBleAdapter
     from brainlink.simulator import EEGSimulator
@@ -331,12 +331,16 @@ def eeg_fixture() -> dict:
 
     rng = np.random.default_rng(31)
     welch_cases = []
-    for n in (250, 200, 128):
+    # (samples, segment): the live 2 s buffer in 1 s segments first, then 1.95 Hz grids whose
+    # bins do not line up with the band edges
+    for n, nperseg in ((500, 250), (250, 250), (250, 128), (200, 128), (128, 128)):
         t = np.arange(n) / SAMPLE_RATE
         x = np.array(rounded(4 * np.sin(2 * np.pi * 10 * t) + 2 * np.sin(2 * np.pi * 22 * t + 0.4)
                              + 1.5 * rng.normal(size=n) + 3.0, 6))
-        f, p = welch(x, fs=SAMPLE_RATE, nperseg=min(128, n))
-        welch_cases.append({"x": x.tolist(), "freqs": rounded(f, 12), "psd": rounded(p, 14)})
+        f, p = welch(x, fs=SAMPLE_RATE, nperseg=nperseg)
+        bands = band_densities(f, p, SAMPLE_RATE / nperseg)
+        welch_cases.append({"x": x.tolist(), "nperseg": nperseg, "freqs": rounded(f, 12), "psd": rounded(p, 14),
+                            "bands": {k: round(v, 12) for k, v in bands.items()}})
 
     # The simulator draws from NumPy's global generator: seed it, round its output, replay it in TS
     np.random.seed(5)

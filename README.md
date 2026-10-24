@@ -140,6 +140,9 @@ python run.py --install      # install deps only
 }
 ```
 
+`band_powers` holds each band's mean power density (µV²/Hz) over the last 2 s: Welch's
+method with 1 s segments (1 Hz bins), each band's spectrum integrated and divided by its width.
+
 #### REST API  `http://localhost:8420/docs`
 
 Full Swagger UI at `/docs`.  Key endpoints:

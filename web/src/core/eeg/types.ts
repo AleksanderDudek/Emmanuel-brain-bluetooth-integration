@@ -17,7 +17,11 @@ export const BANDS = {
 export type Band = keyof typeof BANDS;
 export const BAND_NAMES = Object.keys(BANDS) as Band[];
 
-/** One-second analysis window. */
+/** The per-channel ring buffer: the 2 s the band powers are computed from. */
+export const BUFFER_SAMPLES = EEG_SAMPLE_RATE * 2;
+/** Welch segment: 1 s Hann → 1 Hz bins (three segments over the 2 s buffer). */
+export const PSD_SEGMENT_SEC = 1;
+/** One second: enough signal to start, and the window of the blink counter and contact check. */
 export const WINDOW_SAMPLES = EEG_SAMPLE_RATE;
 
 /** Samples per channel in µV, oldest first. */
