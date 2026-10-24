@@ -34,7 +34,8 @@ describe('MendiDevice', () => {
   it('leaves firmware that streams on its own untouched', async () => {
     const fake = fakeMendi({ streamsOnItsOwn: true });
     cleanup.push(fake.stopFrames);
-    const m = new MendiDevice({ graceMs: 80 });
+    // the grace has to see 5 frames of the 10 ms emitter: 80 ms did, until a loaded runner delayed the timer
+    const m = new MendiDevice({ graceMs: 400 });
     await m.connect(fake.device);
     await m.startStream();
     const writes = fake.chars[CHR.sensor].writes.map(b => decodeSensor(b)!);

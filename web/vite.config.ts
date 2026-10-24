@@ -56,5 +56,8 @@ export default defineConfig({
     environment: 'happy-dom',
     include: ['test/**/*.test.ts', 'game/test/**/*.test.ts', 'game3d/test/**/*.test.ts'],
     setupFiles: ['test/setup.ts'],
+    // The arcade and game3d tests play minutes of game time or load the GDevelop core: 2–4 s alone, and
+    // over the 5 s default when every file runs at once on a two-core CI runner. A hang still fails.
+    testTimeout: 30_000,
   },
 });
