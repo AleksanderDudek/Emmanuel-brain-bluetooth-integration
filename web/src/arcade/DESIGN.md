@@ -308,7 +308,8 @@ the parable's man, not a picture of Christ.
 * **Meta.** The hundred (Luke 15:4): the flock grows across sessions toward a hundred; the lost lamb
   of each pasture is found by walking to it and carried on the shoulders to the fold, and gets a name
   and a bell (a collection of twelve). Three missions; the day's hill; the day's gift.
-* **Headline.** Sheep brought into the fold this session (`unit(n)` bends). **Closing:** the lost
+* **Headline.** Sheep gathered this session, in the flock and in the fold (`unit(n)` bends), so the
+  number climbs the moment a sheep joins. **Closing:** the lost
   lamb carried home: Luke 15:4-6 or Isaiah 40:11; the voice across the hill: John 10:3, John 10:27; a
   calm night: Luke 2:8; a big flock: Ezekiel 34:12; else Psalm 100:3.
 
