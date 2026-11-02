@@ -116,7 +116,8 @@ names and images, its grace, and Scripture at resting points — shown, never pr
 * **The band measures attention, not holiness.** No faith meter, no prayer power, no "blessings" as a
   currency, no promise that playing produces faith or an experience of God.
 * **Reverence.** No depiction of God the Father; Jesus only indirectly; no cross as an object; no
-  angels to command, no demons, no occult or New Age frames, no prosperity promises. Each Bible symbol
+  occult or New Age frames, no prosperity promises. Angels and demons appear only as §8.1 allows
+  (the founder's decision of 2026-11-02, for Anioł Stróż and Zastępy). Each Bible symbol
   belongs to one game (the dove and the rainbow to Arka, the eagle to Wzlot, the Songs of Ascents to
   Źródła), so the set never repeats itself.
 * **Scripture** comes only from `src/content/scripture.ts`, generated and checked against a second
@@ -357,3 +358,157 @@ The game says which block it is in through `ArcadeGame.signal()` (want: focus / 
 blind); a game without it is read as free throughout. The game's own block cards may judge a block
 by time above the adaptive threshold (`RoundJudge`) while the dock compares means: the two can
 differ on a close block, and the dock's numbers say why.
+
+## 8. Three games the founder asked for: Anioł Stróż, Zastępy, Firmament
+
+The founder asked for three games by name and model: a guardian angel defending a sleeping child,
+built like the two-sided tap brawlers (Endless Puncher); angels against demons in waves from two
+bases, built like the lane battlers (We Are Warriors!); and a match-3 saga about space and stars
+(Candy Crush Saga), where held attention earns the special tools that finish a hard level. Each
+takes the **genre's** core (the verbs, the loop, the progression) and makes it ours — our own
+world, rules, roster, levels and art; no source game's names, numbers, layouts or assets are copied.
+
+### 8.1 Angels, demons, nightmares (the reverence rule widened)
+
+* **Angels** are God's messengers and guardians (Hebrews 1:14): sent, serving, never worshipped,
+  never commanded by prayer or by the band. The player *plays* the angel's part in a story, the way
+  an actor does; the light is God's, the angel carries it (John 1:5). Drawn with reverence: white,
+  gold and light, wings, no glamour or weapons of cruelty — a sword or a spear of light, a shield,
+  a trumpet.
+* **Jesus is never shown.** In Anioł Stróż He sends the angel (Matthew 18:10) — said in the story
+  card, never pictured; God the Father is never pictured.
+* **Demons and nightmares** are shadows: ink, smoke, ash and ember eyes, silhouettes that dissolve
+  into light. No gore, no blood, no occult signs, no horror for its own sake — a child must be able
+  to play. They are always beaten by light and never win for good: a lost fight is a retreat, the
+  next dawn always comes.
+* **Exclusive symbols.** The child's bed, the night lamp and the dream to Anioł Stróż; the two gates,
+  the hosts and the trumpet to Zastępy; the stars, the telescope and the constellations to Firmament.
+
+### 8.2 Anioł Stróż — the guardian at a child's bed (two-sided tap brawler)
+
+*Psalm 91:11 — "For He will command His angels concerning you, to guard you in all your ways."*
+Jesus sends you to keep a child's sleep (Matthew 18:10). Each session is one night.
+
+* **View and verb.** A side view of a child's bedroom at night (a cross-section: a window on the
+  left, a door on the right, a warm lamp, toys); the child sleeps in a bed at the centre, the angel
+  hovers over it. Zmory (nightmares: shadow creatures) creep in from both sides toward the bed. A tap
+  on the left or right half (←/→, A/D) strikes that side with a sweep of light that reaches R; it
+  hits the nearest Zmora inside the reach. A tap in the middle third and Space strike the side whose
+  Zmora is nearer (the smoke's input). A strike with nothing in reach is a whiff: 0.25 s of recovery,
+  the combo resets. Hits build a combo (×2 at 10, ×3 at 25) and juice: hit-stop, sparks, shake.
+* **The Zmory.** *Mara* walks, one hit. *Skoczek* leaps in an arc — hit it as it lands. *Widmo*
+  flickers, two hits. *Pancerna* wears armour of shadow: strikes bounce until the aura has cracked
+  it. *Rój*, a cluster of small shades, breaks into three. The night ends with *Koszmar*, a great
+  shadow that attacks from alternating sides in phases.
+* **Push — Czuwanie** (vigil): `level` is the **aura**, a circle of light around the angel and the
+  bed. Inside it the Zmory slow down and take light damage per second in proportion to how far the
+  level stands above the threshold; while the level is above 0.5 the aura cracks armour. `hold`
+  charges the **Płomień** (5 s Mendi / 3 s HALO of held focus): at full, a radiant burst banishes every
+  Zmora on screen, then the charge starts again. Outside push blocks the aura is a faint candle.
+* **Rest — Kołysanka** (lullaby): the Zmory draw back into the dark; the angel sings over the bed.
+  `calm` fills the child's dream bubble with stars: it refills **Sen** (the dream light) and pays
+  feathers. A passed rest: "spokojny sen", a feather bonus.
+* **Grace.** A Zmora reaching the bed dims Sen; when Sen runs out the child stirs, the angel comforts
+  it, the Zmory near the bed scatter and Sen comes back to half; only the combo is lost. Nothing ends
+  the night early.
+* **Levels and gifts.** Feathers banished out of the Zmory are XP; every level-up pauses for a choice
+  of one of three gifts for the night (longer reach, a double strike, a wing shield that stops one
+  Zmora per wave at the bed, a spear of light that strikes through a line, a wider aura, a faster
+  Płomień, a night lamp that keeps a small aura in rest blocks). Across sessions the angel's rank
+  (all feathers ever) widens the pool of gifts and makes the room cosier (a star mobile, a night
+  light, a book, a blanket with stars); nights grow harder in their mix.
+* **Blind — Mgła snu:** every 4th push from the 3rd session the aura is not drawn and does not act;
+  at the block's end its last 15 s of focus become a dawn burst of the same strength, all at once.
+* **The signal in sight.** The aura's radius (live), the Płomień's ring (hold), a strip of stars along
+  the window sill (the history, kit/trace).
+* **Headline.** Zmory banished (`zmora/zmory/zmór`). **Closing:** the first night: Matthew 18:10;
+  a Płomień: Psalm 34:7; Koszmar banished: John 1:5; many Zmory: Psalm 91:5; Sen never ran out:
+  Proverbs 3:24; a long vigil: Psalm 121:4; a passed rest: Psalm 4:8; a new rank: Hebrews 1:14;
+  else Psalm 127:2.
+
+### 8.3 Zastępy — the hosts at the two gates (lane battler)
+
+*Revelation 12:7-8 — "Michael and his angels fought against the dragon … but he was not strong
+enough."* The gate of light on the left, the gate of ash on the right, one road between them.
+
+* **View and verb.** A side view of one road across a sky of clouds and rock, the gates at both ends
+  (the camera pans with a drag; it follows the front by default). Light flows into a bar over time;
+  unit cards along the bottom cost light and have a short cooldown; a tap on a card (or 1–5, Space
+  = the cheapest ready card) sends that unit out of the gate. Units walk toward the enemy and fight on
+  contact by themselves; the battle is won when the gate of ash falls.
+* **The host.** Strażnik (sword, cheap), Łucznik (bow of light, ranged), Tarczownik (shield, slow and
+  sturdy), Jeździec (on a white horse, fast — Revelation 19:14), Serafin (flies, fire over an area),
+  and later Archanioł (a hero with a long cooldown). **The demons** (shadows): Chochlik, Cień, Ogar
+  (fast), Bestia (brute), Skrzydlak (flies); the last battle of each circle sends the Smok.
+* **Gold and the gate.** Every demon beaten and every battle won pays gold; gold raises the gate of
+  light (levels 1–10: walls, light income, a beam that shoots from the gate, more card slots) and the
+  units (levels 1–5 each). Battles go in circles of ten, harder each time; a circle's tenth battle is
+  the Smok.
+* **Push — Natarcie** (the advance): `level` above the threshold speeds the flow of light (up to
+  ×2.2 at the top; never below the base flow — no penalty), so a held focus fields a larger host;
+  `hold` charges the **Trąba** (trumpet): at full a tap on it (or T) sounds it — a shockwave throws
+  the demons back and wounds them.
+* **Rest — Cisza** (*Exodus 14:14 — "The LORD will fight for you; you need only to be still."*): the
+  demons' waves slow; `calm` mends the gate's walls and lays a shield of light on the front-line units.
+* **Grace.** If the gate of light falls, the host withdraws: the gold of the battle is kept, the
+  battle starts again with the gate's walls one level stronger for that try. Never an ending.
+* **Blind — Mgła bitewna:** the push block's extra light is not shown and not paid while it runs; at
+  its end it is paid at once by the block's last 15 s of focus.
+* **The signal in sight.** The light stream into the bar (live), the trumpet's ring (hold), a line
+  of banners along the road (the history).
+* **Headline.** Demons beaten (`demonów`). **Closing:** a battle won: Ephesians 6:10-11; a comeback
+  after a withdrawal: Romans 12:21; the Smok beaten: 1 John 4:4; the trumpet: James 4:7; a new gate
+  level: 2 Corinthians 10:4; a passed rest: Exodus 14:14; else Revelation 12:7-8.
+
+### 8.4 Firmament — stars in threes (match-3 saga)
+
+*Psalm 147:4 — "He determines the number of the stars; He calls them each by name."* A night sky in
+constellations, each a path of levels.
+
+* **Board and verb.** 8×8 cells, six kinds of sky bodies with distinct silhouettes and colours (a
+  gold star, a silver crescent, a blue ringed planet, an orange sun, a violet nebula, a green
+  meteorite); swap two neighbours (a drag, or a tap and a tap) to line up three or more; an
+  invalid swap bounces back for free. Cleared bodies fall and refill from above; cascades multiply.
+  Space shows a hint, a second Space plays it (keyboard play and the smoke); arrows and Enter move
+  a cursor and swap.
+* **Specials.** Four in a line make a Kometa (clears its row or column, by the line's direction);
+  an L or a T makes a Supernowa (a 3×3 blast, twice); five in a line make a Pulsar (swapped with a
+  body, it clears every body of that kind). Specials swapped together combine (two comets a cross,
+  a comet and a supernova three rows and three columns, two supernovae 5×5, a pulsar and a special
+  turn every body of a kind into that special, two pulsars the whole board).
+* **Levels.** Goals by level: a score; collect N of a kind; clear the stardust (layers on cells,
+  cleared by matches on them); break asteroids (blockers, 1–3 hits from neighbouring matches);
+  bring satellites down to the bottom row. Moves are limited (15–30); one to three stars by score.
+  The first constellations are hand-made; later ones come from a seeded generator, the same level
+  for everyone, never starting with a match and always with a move (a reshuffle when none is left).
+* **The telescope (push — Obserwacja):** `level` above the threshold gathers light into the lens;
+  each full lens (about 8 s of good focus) puts an **instrument** in the tray (at most 3): a comet to
+  place, a ray that breaks one body or blocker, gravity (one free swap without a match), a supernova
+  to place; a hold of 12 s or more turns the next one into a pulsar. Using one is touch: tap the
+  instrument, then the cell. This is the founder's rule: in the hard parts, focusing is what earns
+  the tools that finish the level.
+* **Rest — Cisza nocy:** `calm` brightens the sky; at each threshold a falling star crosses the
+  board and turns a body into a comet (a gift), and the best move glows.
+* **Out of moves — Ratunek.** The telescope opens once per attempt: six seconds of the block's own
+  state (focus above the threshold in a push block, calm below it in a rest block or a free stretch)
+  give five more moves. A second failure starts the level again — no lives, no waiting.
+* **Blind — Zachmurzenie:** clouds cover the lens: instruments gathered during the block appear at its
+  end.
+* **The signal in sight.** The lens filling (live), its rim (hold), a band of the Milky Way across the
+  top of the sky (the history).
+* **Meta.** The constellation map (saga path), stars per level, a tray that grows to 4 and new
+  instruments unlocked by constellation; the day's level (seeded, the same for everyone).
+* **Headline.** Points (`pkt`). **Closing:** a constellation complete: Isaiah 40:26; three stars:
+  Genesis 15:5; a pulsar: Daniel 12:3; a rescue: Philippians 2:15; a long cascade: Job 38:7; a new
+  instrument: 1 Corinthians 15:41; a passed rest: Jeremiah 31:35; else Genesis 1:16, Psalm 19:1.
+
+### 8.5 How they fit the set
+
+| | Anioł Stróż | Zastępy | Firmament |
+|---|---|---|---|
+| Kind (the Games tab) | arcade | arcade | puzzle |
+| Genre core | two-sided tap brawler | lane battler, two bases | match-3 saga |
+| Hands | tap left / right | send units, sound the trumpet | swap, place instruments |
+| Push block | the aura wounds and cracks armour; Płomień | faster light, the trumpet | the telescope earns instruments |
+| Rest block | the lullaby refills the dream | the walls mend, shields | falling stars, the hint |
+| Grace | the child is comforted, Sen back to half | the host withdraws, keeps the gold | five more moves for six seconds of focus or calm |

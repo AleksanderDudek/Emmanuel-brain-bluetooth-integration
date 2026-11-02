@@ -172,6 +172,15 @@ PASSAGES: list[tuple[str, str]] = [
     # Pasterz (the flock on the hills)
     ("jhn10.3", "John 10:3"), ("isa40.11", "Isaiah 40:11"), ("ezk34.12", "Ezekiel 34:12"), ("luk2.8", "Luke 2:8"),
     ("psa100.3", "Psalm 100:3"),
+    # Anioł Stróż (the guardian angel at a child's bed, the nightmares driven off by light)
+    ("psa91.11", "Psalm 91:11"), ("mat18.10", "Matthew 18:10"), ("psa34.7", "Psalm 34:7"), ("jhn1.5", "John 1:5"),
+    ("psa91.5", "Psalm 91:5"), ("pro3.24", "Proverbs 3:24"), ("psa121.4", "Psalm 121:4"), ("heb1.14", "Hebrews 1:14"),
+    # Zastępy (the hosts: angels against demons, two gates, waves)
+    ("rev12.7-8", "Revelation 12:7-8"), ("eph6.10-11", "Ephesians 6:10-11"), ("rom12.21", "Romans 12:21"),
+    ("1jn4.4", "1 John 4:4"), ("jas4.7", "James 4:7"), ("2co10.4", "2 Corinthians 10:4"), ("exo14.14", "Exodus 14:14"),
+    # Firmament (stars in threes, the telescope of attention)
+    ("dan12.3", "Daniel 12:3"), ("php2.15", "Philippians 2:15"), ("job38.7", "Job 38:7"), ("1co15.41", "1 Corinthians 15:41"),
+    ("jer31.35", "Jeremiah 31:35"), ("gen1.16", "Genesis 1:16"),
 ]
 
 DROP: dict[str, dict[str, str]] = {

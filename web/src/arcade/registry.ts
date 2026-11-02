@@ -136,6 +136,30 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { targetRate: 0.55, adapt: 0.08 }, root: 'luk15.4-6',
     load: () => import('./pasterz/index').then(m => m.default),
   },
+  {
+    id: 'aniol', kind: 'arcade', title: t('aniol.title'), tagline: t('aniol.tagline'), text: t('aniol.text'),
+    how: [t('aniol.how1'), t('aniol.how2'), t('aniol.how3')],
+    tips: [t('aniol.tip1'), t('aniol.tip2'), t('aniol.tip3'), t('aniol.tip4'), t('aniol.tip5')],
+    unit: t('aniol.unit'), art: 'art-aniol', fill: ['#fff3c4', '#f5c96a', '#6f6bb8', '#1c1d3f'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa91.11',
+    load: () => import('./aniol/index').then(m => m.default),
+  },
+  {
+    id: 'zastepy', kind: 'arcade', title: t('zastepy.title'), tagline: t('zastepy.tagline'), text: t('zastepy.text'),
+    how: [t('zastepy.how1'), t('zastepy.how2'), t('zastepy.how3')],
+    tips: [t('zastepy.tip1'), t('zastepy.tip2'), t('zastepy.tip3'), t('zastepy.tip4'), t('zastepy.tip5')],
+    unit: t('zastepy.unit'), art: 'art-zastepy', fill: ['#fff1c9', '#e8b04a', '#8a4a3a', '#2a1f2e'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'rev12.7-8',
+    load: () => import('./zastepy/index').then(m => m.default),
+  },
+  {
+    id: 'firmament', kind: 'puzzle', title: t('firmament.title'), tagline: t('firmament.tagline'), text: t('firmament.text'),
+    how: [t('firmament.how1'), t('firmament.how2'), t('firmament.how3')],
+    tips: [t('firmament.tip1'), t('firmament.tip2'), t('firmament.tip3'), t('firmament.tip4'), t('firmament.tip5')],
+    unit: t('firmament.unit'), art: 'art-firmament', fill: ['#e9e4ff', '#9d8cff', '#3b3f9e', '#0b0f2e'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa147.4',
+    load: () => import('./firmament/index').then(m => m.default),
+  },
 ];
 
 export const arcadeEntry = (id: string): ArcadeEntry | undefined => ARCADE.find(a => a.id === id);

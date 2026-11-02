@@ -147,6 +147,27 @@ export type PassageId =
   | 'ezk34.12'
   | 'luk2.8'
   | 'psa100.3'
+  | 'psa91.11'
+  | 'mat18.10'
+  | 'psa34.7'
+  | 'jhn1.5'
+  | 'psa91.5'
+  | 'pro3.24'
+  | 'psa121.4'
+  | 'heb1.14'
+  | 'rev12.7-8'
+  | 'eph6.10-11'
+  | 'rom12.21'
+  | '1jn4.4'
+  | 'jas4.7'
+  | '2co10.4'
+  | 'exo14.14'
+  | 'dan12.3'
+  | 'php2.15'
+  | 'job38.7'
+  | '1co15.41'
+  | 'jer31.35'
+  | 'gen1.16'
   ;
 
 export interface Passage {
@@ -970,6 +991,132 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['Know that the LORD is God. It is He who made us, and we are His; we are His people, and the sheep of His pasture.', 'Psalm 100:3'],
     de: ['Erkennt, daß der HERR Gott ist! Er hat uns gemacht, und nicht wir selbst, zu seinem Volk und zu Schafen seiner Weide.', 'Psalm 100,3'],
     sv: ['Förnimmen att HERREN är Gud. Han har gjort oss, och icke vi själva, till sitt folk och till får i sin hjord.', 'Ps 100:3'],
+  },
+  'psa91.11': {
+    pl: ['Albowiem Aniołom swoim przykazał o tobie, aby cię strzegli na wszystkich drogach twoich.', 'Ps 91,11'],
+    en: ['For He will command His angels concerning you to guard you in all your ways.', 'Psalm 91:11'],
+    de: ['Denn er hat seinen Engeln befohlen über dir, daß sie dich behüten auf allen deinen Wegen…', 'Psalm 91,11'],
+    sv: ['Ty han skall giva sina änglar befallning om dig, att de skola bevara dig på alla dina vägar.', 'Ps 91:11'],
+  },
+  'mat18.10': {
+    pl: ['Patrzajcież, abyście nie gardzili żadnym z tych maluczkich; albowiem wam powiadam, iż Aniołowie ich w niebiesiech zawsze patrzą na oblicze Ojca mojego, który jest w niebiesiech.', 'Mt 18,10'],
+    en: ['See that you do not look down on any of these little ones. For I tell you that their angels in heaven always see the face of My Father in heaven.', 'Matthew 18:10'],
+    de: ['Sehet zu, daß ihr nicht jemand von diesen Kleinen verachtet. Denn ich sage euch: Ihre Engel im Himmel sehen allezeit in das Angesicht meines Vaters im Himmel.', 'Matthäus 18,10'],
+    sv: ['Sen till, att I icke förakten någon av dessa små; ty jag säger eder att deras änglar i himmelen alltid se min himmelske Faders ansikte.', 'Matt 18:10'],
+  },
+  'psa34.7': {
+    pl: ['Zatacza obóz Anioł Pański około tych, którzy się go boją, i wyrywa ich.', 'Ps 34,8'],
+    en: ['The angel of the LORD encamps around those who fear Him, and he delivers them.', 'Psalm 34:7'],
+    de: ['Der Engel des HERRN lagert sich um die her, so ihn fürchten, und hilft ihnen aus.', 'Psalm 34,8'],
+    sv: ['HERRENS ängel slår sitt läger omkring dem som frukta honom, och han befriar dem.', 'Ps 34:8'],
+  },
+  'jhn1.5': {
+    pl: ['A ta światłość w ciemnościach świeci, ale ciemności jej nie ogarnęły.', 'J 1,5'],
+    en: ['The Light shines in the darkness, and the darkness has not overcome it.', 'John 1:5'],
+    de: ['Und das Licht scheint in der Finsternis, und die Finsternis hat\'s nicht begriffen.', 'Johannes 1,5'],
+    sv: ['Och ljuset lyser i mörkret, och mörkret har icke fått makt därmed.', 'Joh 1:5'],
+  },
+  'psa91.5': {
+    pl: ['Nie ulękniesz się strachu nocnego, ani strzały latającej we dnie…', 'Ps 91,5'],
+    en: ['You will not fear the terror of the night, nor the arrow that flies by day…', 'Psalm 91:5'],
+    de: ['…daß du nicht erschrecken müssest vor dem Grauen der Nacht, vor den Pfeilen, die des Tages fliegen…', 'Psalm 91,5'],
+    sv: ['Du skall icke behöva frukta nattens fasor, icke pilen, som flyger om dagen…', 'Ps 91:5'],
+  },
+  'pro3.24': {
+    pl: ['Jeźli się układziesz, nie będziesz się lękał; a gdy się uspokoisz, wdzięczny będzie sen twój.', 'Prz 3,24'],
+    en: ['When you lie down, you will not be afraid; when you rest, your sleep will be sweet.', 'Proverbs 3:24'],
+    de: ['Legst du dich, so wirst du dich nicht fürchten, sondern süß schlafen…', 'Sprüche 3,24'],
+    sv: ['När du lägger dig, skall intet förskräcka dig, och sedan du har lagt dig, skall du sova sött.', 'Ords 3:24'],
+  },
+  'psa121.4': {
+    pl: ['Oto nie drzemie ani śpi ten, który strzeże Izraela.', 'Ps 121,4'],
+    en: ['Behold, the Protector of Israel will neither slumber nor sleep.', 'Psalm 121:4'],
+    de: ['Siehe, der Hüter Israels schläft noch schlummert nicht.', 'Psalm 121,4'],
+    sv: ['Nej, han som bevarar Israel, han slumrar icke, han sover icke.', 'Ps 121:4'],
+  },
+  'heb1.14': {
+    pl: ['Izali wszyscy nie są duchami usługującymi, którzy na posługę bywają posłani dla tych, którzy zbawienie odziedziczyć mają?', 'Hbr 1,14'],
+    en: ['Are not the angels ministering spirits sent to serve those who will inherit salvation?', 'Hebrews 1:14'],
+    de: ['Sind sie nicht allzumal dienstbare Geister, ausgesandt zum Dienst um derer willen, die ererben sollen die Seligkeit?', 'Hebräer 1,14'],
+    sv: ['Äro de icke allasammans tjänsteandar, som sändas ut till tjänst för deras skull som skola få frälsning till arvedel?', 'Hebr 1:14'],
+  },
+  'rev12.7-8': {
+    pl: ['I stała się bitwa na niebie. Michał i Aniołowie jego potykali się z smokiem, smok się też potykał i aniołowie jego. Ale nie przemogli, ani miejsce ich dalej znalezione jest na niebie.', 'Ap 12,7–8'],
+    en: ['Then a war broke out in heaven: Michael and his angels fought against the dragon, and the dragon and his angels fought back. But the dragon was not strong enough, and no longer was any place found in heaven for him and his angels.', 'Revelation 12:7–8'],
+    de: ['Und es erhob sich ein Streit im Himmel: Michael und seine Engel stritten mit dem Drachen; und der Drache stritt und seine Engel, und siegten nicht, auch ward ihre Stätte nicht mehr gefunden im Himmel.', 'Offenbarung 12,7–8'],
+    sv: ['Och en strid uppstod i himmelen: Mikael och hans änglar gåvo sig i strid med draken; och draken och hans änglar stridde mot dem, men de förmådde intet mot dem, och i himmelen fanns nu icke mer någon plats för dem.', 'Upp 12:7–8'],
+  },
+  'eph6.10-11': {
+    pl: ['Na ostatek, bracia moi! zmacniajcie się w Panu i w sile mocy jego; Obleczcie się w zupełną zbroję Bożą, abyście mogli stać przeciwko zasadzkom dyjabelskim.', 'Ef 6,10–11'],
+    en: ['Finally, be strong in the Lord and in His mighty power. Put on the full armor of God, so that you can make your stand against the devil’s schemes.', 'Ephesians 6:10–11'],
+    de: ['Zuletzt, meine Brüder, seid stark in dem HERRN und in der Macht seiner Stärke. Ziehet an den Harnisch Gottes, daß ihr bestehen könnet gegen die listigen Anläufe des Teufels.', 'Epheser 6,10–11'],
+    sv: ['För övrigt, bliven allt starkare i Herren och i hans väldiga kraft. Ikläden eder hela Guds vapenrustning, så att I kunnen hålla stånd emot djävulens listiga angrepp.', 'Ef 6:10–11'],
+  },
+  'rom12.21': {
+    pl: ['Nie daj się zwyciężyć złemu, ale złe dobrem zwyciężaj.', 'Rz 12,21'],
+    en: ['Do not be overcome by evil, but overcome evil with good.', 'Romans 12:21'],
+    de: ['Laß dich nicht das Böse überwinden, sondern überwinde das Böse mit Gutem.', 'Römer 12,21'],
+    sv: ['Låt dig icke övervinnas av det onda, utan övervinn det onda med det goda.', 'Rom 12:21'],
+  },
+  '1jn4.4': {
+    pl: ['Wy z Boga jesteście, dziateczki! i zwyciężyliście ich; iż większy jest ten, który w was jest, niż ten, który jest na świecie.', '1 J 4,4'],
+    en: ['You, little children, are from God and have overcome them, because greater is He who is in you than he who is in the world.', '1 John 4:4'],
+    de: ['Kindlein, ihr seid von Gott und habt jene überwunden; denn der in euch ist, ist größer, als der in der Welt ist.', '1. Johannes 4,4'],
+    sv: ['I, kära barn, I ären av Gud och haven övervunnit dessa; ty han som är i eder är större än den som är i världen.', '1 Joh 4:4'],
+  },
+  'jas4.7': {
+    pl: ['Poddajcież się tedy Bogu, a dajcie odpór dyjabłu, a uciecze od was.', 'Jk 4,7'],
+    en: ['Submit yourselves, then, to God. Resist the devil, and he will flee from you.', 'James 4:7'],
+    de: ['So seid nun Gott untertänig. Widerstehet dem Teufel, so flieht er von euch…', 'Jakobus 4,7'],
+    sv: ['Så varen nu Gud underdåniga, men stån emot djävulen, så skall han fly bort ifrån eder.', 'Jak 4:7'],
+  },
+  '2co10.4': {
+    pl: ['(Albowiem broń żołnierstwa naszego nie jest cielesna, ale z Boga jest, mocna ku zburzeniu miejsc obronnych.)…', '2 Kor 10,4'],
+    en: ['The weapons of our warfare are not the weapons of the flesh. Instead, they have divine power to demolish strongholds.', '2 Corinthians 10:4'],
+    de: ['Denn die Waffen unsrer Ritterschaft sind nicht fleischlich, sondern mächtig vor Gott, zu zerstören Befestigungen…', '2. Korinther 10,4'],
+    sv: ['Våra stridsvapen äro nämligen icke av köttslig art; de äro tvärtom så mäktiga inför Gud, att de kunna bryta ned fästen.', '2 Kor 10:4'],
+  },
+  'exo14.14': {
+    pl: ['Pan będzie walczył za was, a wy milczeć będziecie.', 'Wj 14,14'],
+    en: ['The LORD will fight for you; you need only to be still.', 'Exodus 14:14'],
+    de: ['Der HERR wird für euch streiten, und ihr werdet still sein.', '2. Mose 14,14'],
+    sv: ['HERREN skall strida för eder, och I skolen vara stilla därvid.', '2 Mos 14:14'],
+  },
+  'dan12.3': {
+    pl: ['Ale ci, którzy innych nauczają, świecić się będą jako światłość na niebie, a którzy wielu ku sprawiedliwości przywodzą, jako gwiazdy na wieki wieczne.', 'Dn 12,3'],
+    en: ['Then the wise will shine like the brightness of the heavens, and those who lead many to righteousness will shine like the stars forever and ever.', 'Daniel 12:3'],
+    de: ['Die Lehrer aber werden leuchten wie des Himmels Glanz, und die, so viele zur Gerechtigkeit weisen, wie die Sterne immer und ewiglich.', 'Daniel 12,3'],
+    sv: ['De förståndiga skola då lysa, såsom fästet lyser, och de som hava fört de många till rättfärdighet såsom stjärnor, alltid och evinnerligen.', 'Dan 12:3'],
+  },
+  'php2.15': {
+    pl: ['Abyście byli bez nagany i szczeremi dziatkami Bożemi, nienaganionymi w pośrodku narodu złego i przewrotnego, między którymi świecicie jako światła na świecie.', 'Flp 2,15'],
+    en: ['…so that you may be blameless and pure, children of God without fault in a crooked and perverse generation, in which you shine as lights in the world…', 'Philippians 2:15'],
+    de: ['…auf daß ihr seid ohne Tadel und lauter und Gottes Kinder, unsträflich mitten unter dem unschlachtigen und verkehrten Geschlecht, unter welchem ihr scheinet als Lichter in der Welt…', 'Philipper 2,15'],
+    sv: ['…så att I bliven otadliga och rena, Guds ostraffliga barn mitt ibland »ett vrångt och avogt släkte», inom vilket I lysen såsom himlaljus i världen…', 'Fil 2:15'],
+  },
+  'job38.7': {
+    pl: ['Gdy wespół śpiewały gwiazdy zaranne, a weselili się wszyscy synowie Boży.', 'Hi 38,7'],
+    en: ['…while the morning stars sang together and all the sons of God shouted for joy?', 'Job 38:7'],
+    de: ['…da mich die Morgensterne miteinander lobten und jauchzten alle Kinder Gottes?', 'Hiob 38,7'],
+    sv: ['…medan morgonstjärnorna tillsammans jublade och alla Guds söner höjde glädjerop?', 'Job 38:7'],
+  },
+  '1co15.41': {
+    pl: ['Insza chwała słońca, a insza chwała księżyca, i insza chwała gwiazd; albowiem gwiazda od gwiazdy różna jest w jasności.', '1 Kor 15,41'],
+    en: ['The sun has one degree of splendor, the moon another, and the stars another; and star differs from star in splendor.', '1 Corinthians 15:41'],
+    de: ['Eine andere Klarheit hat die Sonne, eine andere Klarheit hat der Mond, eine andere Klarheit haben die Sterne; denn ein Stern übertrifft den andern an Klarheit.', '1. Korinther 15,41'],
+    sv: ['En härlighet har solen, en annan härlighet har månen, åter en annan härlighet hava stjärnorna; ja, den ena stjärnan är icke lik den andra i härlighet. -…', '1 Kor 15:41'],
+  },
+  'jer31.35': {
+    pl: ['Tak mówi Pan, który daje słońce na światłość we dnie, postanowienie miesiąca i gwiazd na światłość w nocy; który rozdziela morze, a huczą nawałności jego; Pan zastępów imię jego.', 'Jr 31,35'],
+    en: ['Thus says the LORD, who gives the sun for light by day, who sets in order the moon and stars for light by night, who stirs up the sea so that its waves roar—the LORD of Hosts is His name…', 'Jeremiah 31:35'],
+    de: ['So spricht der HERR, der die Sonne dem Tage zum Licht gibt und den Mond und die Sterne nach ihrem Lauf der Nacht zum Licht; der das Meer bewegt, daß seine Wellen brausen, HERR Zebaoth ist sein Name…', 'Jeremia 31,35'],
+    sv: ['Så säger HERREN, han som har satt solen till att lysa om dagen och månen och stjärnorna till att lysa om natten, i ordnad gång, han som rör upp havet, så att dess böljor brusa, han vilkens namn är HERREN Sebaot…', 'Jer 31:35'],
+  },
+  'gen1.16': {
+    pl: ['I uczynił Bóg dwa światła wielkie: światło większe, aby rządziło dzień, a światło mniejsze, aby rządziło noc, i gwiazdy.', 'Rdz 1,16'],
+    en: ['God made two great lights: the greater light to rule the day and the lesser light to rule the night. And He made the stars as well.', 'Genesis 1:16'],
+    de: ['Und Gott machte zwei große Lichter: ein großes Licht, das den Tag regiere, und ein kleines Licht, das die Nacht regiere, dazu auch Sterne.', '1. Mose 1,16'],
+    sv: ['Gud gjorde de två stora ljusen, det större ljuset till att råda över dagen, och det mindre ljuset till att råda över natten, så ock stjärnorna.', '1 Mos 1:16'],
   },
 };
 

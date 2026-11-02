@@ -60,7 +60,7 @@ language, and each text's English, German and Swedish forms are in the catalogs 
   **Training games** (§9, either band) in four rows by kind of play — puzzles, runs, skill
   games, creative — with a "new" mark on a game the player has never played, then **HolyHolyHoly**
   (Mendi, playable without a band, in Polish). On a phone the training-game cards turn compact (the
-  picture beside the words), so thirteen games stay a short list. Home's Play shelf leads with the game
+  picture beside the words), so sixteen games stay a short list. Home's Play shelf leads with the game
   of the day.
 * The Mendi **Signal** view starts with "play with this signal", which opens the games straight
   from the instrument view.
@@ -295,13 +295,14 @@ review videos from 2023 to 2026, and neurofounders.co (2026).
 ## 9. Training games
 
 (*Gry treningowe*: Geoda, Latarnik, Motylarnia, Arka, Urodzaj, Wzlot, Glina, Źródła, Posłaniec,
-Zacheusz, Pasterz; English *Geode, Lighthouse Keeper, Butterfly House, The Ark, Harvest, Updraft,
-Clay, Wellsprings, The Messenger, Zacchaeus, The Shepherd*; German *Geode, Leuchtturmwärter,
-Schmetterlingshaus, Die Arche, Ernte, Aufwind, Töpferton, Quellen, Der Bote, Zachäus, Der Hirte*;
+Zacheusz, Pasterz, Anioł Stróż, Zastępy, Firmament; English *Geode, Lighthouse Keeper, Butterfly
+House, The Ark, Harvest, Updraft, Clay, Wellsprings, The Messenger, Zacchaeus, The Shepherd, Guardian
+Angel, The Hosts, Firmament*; German *Geode, Leuchtturmwärter, Schmetterlingshaus, Die Arche, Ernte,
+Aufwind, Töpferton, Quellen, Der Bote, Zachäus, Der Hirte, Schutzengel, Heerscharen, Firmament*;
 Swedish *Geod, Fyrvaktaren, Fjärilshuset, Arken, Skörd, Uppvind, Lera, Källorna, Budbäraren,
-Sackeus, Herden*.)
+Sackeus, Herden, Skyddsängeln, Härskarorna, Himlavalvet*.)
 
-Eleven games whose every session is a neurofeedback session, each rooted in the Christian faith with
+Fourteen games whose every session is a neurofeedback session, each rooted in the Christian faith with
 gaming first. The research behind them, how they were chosen, how the faith shapes them and the
 rules they share are in [`src/arcade/DESIGN.md`](src/arcade/DESIGN.md); each game's rules are in its
 own module.
