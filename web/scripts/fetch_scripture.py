@@ -89,6 +89,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "LAM": ("Lamentations", "Lm", "Klagelieder", "klagelieder", "Klagovisorna", "Klag"),
     "EZK": ("Ezekiel", "Ez", "Hesekiel", "hesekiel", "Hesekiel", "Hes"),
     "DAN": ("Daniel", "Dn", "Daniel", "daniel", "Daniel", "Dan"),
+    "HAB": ("Habakkuk", "Ha", "Habakuk", "habakuk", "Habackuk", "Hab"),
     "MIC": ("Micah", "Mi", "Micha", "micha", "Mika", "Mika"),
     "MAL": ("Malachi", "Ml", "Maleachi", "maleachi", "Malaki", "Mal"),
     "MAT": ("Matthew", "Mt", "Matthäus", "matthaeus", "Matteusevangeliet", "Matt"),
@@ -103,6 +104,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "EPH": ("Ephesians", "Ef", "Epheser", "epheser", "Efesierbrevet", "Ef"),
     "PHP": ("Philippians", "Flp", "Philipper", "philipper", "Filipperbrevet", "Fil"),
     "COL": ("Colossians", "Kol", "Kolosser", "kolosser", "Kolosserbrevet", "Kol"),
+    "2TH": ("2 Thessalonians", "2 Tes", "2. Thessalonicher", "2_thessalonicher", "Andra Thessalonikerbrevet", "2 Tess"),
     "HEB": ("Hebrews", "Hbr", "Hebräer", "hebraeer", "Hebreerbrevet", "Hebr"),
     "JAS": ("James", "Jk", "Jakobus", "jakobus", "Jakobsbrevet", "Jak"),
     "1PE": ("1 Peter", "1 P", "1. Petrus", "1_petrus", "Första Petrusbrevet", "1 Petr"),
@@ -161,6 +163,15 @@ PASSAGES: list[tuple[str, str]] = [
     ("1ki17.14", "1 Kings 17:14"), ("jer32.14", "Jeremiah 32:14"), ("mic4.4", "Micah 4:4"),
     # Źródła (springs in the dry valley)
     ("psa84.3", "Psalm 84:3"), ("isa35.7", "Isaiah 35:7"), ("isa41.18", "Isaiah 41:18"), ("isa58.11", "Isaiah 58:11"),
+    # the three run games: Posłaniec (the messenger on the road to the churches)
+    ("isa52.7", "Isaiah 52:7"), ("isa52.8", "Isaiah 52:8"), ("hab3.19", "Habakkuk 3:19"), ("pro25.25", "Proverbs 25:25"),
+    ("rom10.15", "Romans 10:15"), ("2th3.1", "2 Thessalonians 3:1"), ("php3.14", "Philippians 3:14"), ("1co9.24", "1 Corinthians 9:24"),
+    # Zacheusz (Jericho, the sycamore-fig)
+    ("luk19.3-4", "Luke 19:3-4"), ("luk19.5", "Luke 19:5"), ("luk19.6", "Luke 19:6"), ("luk19.8", "Luke 19:8"),
+    ("luk19.10", "Luke 19:10"), ("heb12.2", "Hebrews 12:2"), ("psa34.5", "Psalm 34:5"),
+    # Pasterz (the flock on the hills)
+    ("jhn10.3", "John 10:3"), ("isa40.11", "Isaiah 40:11"), ("ezk34.12", "Ezekiel 34:12"), ("luk2.8", "Luke 2:8"),
+    ("psa100.3", "Psalm 100:3"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
@@ -170,6 +181,12 @@ DROP: dict[str, dict[str, str]] = {
     "psa121.1-2": {"en": "A song of ascents.", "pl": "Pieśń stopni.", "de": "Ein Lied im höhern Chor.", "sv": "En vallfartssång."},
     "psa127.1": {"en": "A song of ascents. Of Solomon.", "pl": "Pieśń stopni dla Salomona.",
                  "de": "Ein Lied Salomos im Höhern Chor.", "sv": "En vallfartssång; av Salomo."},
+}
+
+# Musical directions printed at the end of a verse (Habakkuk 3:19's subscript, "for the choirmaster"), cut like DROP.
+DROP_END: dict[str, dict[str, str]] = {
+    "hab3.19": {"en": "For the choirmaster. With stringed instruments.", "pl": "Przedniejszemu nad śpiewakami na muzycznem naczyniu mojem.",
+                "de": "Vorzusingen auf meinem Saitenspiel.", "sv": "För sångmästaren, med mitt strängaspel."},
 }
 
 # Known misprints in a primary source, corrected to the witness that prints the edition right: (wrong, right).
@@ -465,12 +482,18 @@ def parse_ref(ref: str) -> tuple[str, int, int, int]:
 
 def drop(lang: str, pid: str, text: str, failures: list[str]) -> str:
     prefix = DROP.get(pid, {}).get(lang)
-    if not prefix:
-        return text
-    if not text.startswith(prefix):
-        failures.append(f"{pid} {lang}: drop rule {prefix!r} does not match {text[:60]!r}")
-        return text
-    return text[len(prefix):].lstrip()
+    if prefix:
+        if text.startswith(prefix):
+            text = text[len(prefix):].lstrip()
+        else:
+            failures.append(f"{pid} {lang}: drop rule {prefix!r} does not match {text[:60]!r}")
+    suffix = DROP_END.get(pid, {}).get(lang)
+    if suffix:
+        if text.endswith(suffix):
+            text = text[:-len(suffix)].rstrip()
+        else:
+            failures.append(f"{pid} {lang}: drop-end rule {suffix!r} does not match {text[-60:]!r}")
+    return text
 
 
 class Sources:

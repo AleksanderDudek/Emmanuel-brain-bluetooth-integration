@@ -127,6 +127,26 @@ export type PassageId =
   | 'isa35.7'
   | 'isa41.18'
   | 'isa58.11'
+  | 'isa52.7'
+  | 'isa52.8'
+  | 'hab3.19'
+  | 'pro25.25'
+  | 'rom10.15'
+  | '2th3.1'
+  | 'php3.14'
+  | '1co9.24'
+  | 'luk19.3-4'
+  | 'luk19.5'
+  | 'luk19.6'
+  | 'luk19.8'
+  | 'luk19.10'
+  | 'heb12.2'
+  | 'psa34.5'
+  | 'jhn10.3'
+  | 'isa40.11'
+  | 'ezk34.12'
+  | 'luk2.8'
+  | 'psa100.3'
   ;
 
 export interface Passage {
@@ -830,6 +850,126 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['The LORD will always guide you; He will satisfy you in a sun-scorched land and strengthen your frame. You will be like a well-watered garden, like a spring whose waters never fail.', 'Isaiah 58:11'],
     de: ['…und der HERR wird dich immerdar führen und deine Seele sättigen in der Dürre und deine Gebeine stärken; und du wirst sein wie ein gewässerter Garten und wie eine Wasserquelle, welcher es nimmer an Wasser fehlt…', 'Jesaja 58,11'],
     sv: ['Och HERREN skall leda dig beständigt; han skall mätta dig mitt i ödemarken och giva styrka åt benen i din kropp. Och du skall vara lik en vattenrik trädgård och likna ett källsprång, vars vatten aldrig tryter.', 'Jes 58:11'],
+  },
+  'isa52.7': {
+    pl: ['O jako piękne są na górach nogi tego, co pocieszne rzeczy zwiastuje, i opowiada pokój; tego, co zwiastuje dobre, i opowiada zbawienie, a mówi do Syonu: Bóg twój króluje!', 'Iz 52,7'],
+    en: ['How beautiful on the mountains are the feet of those who bring good news, who proclaim peace, who bring good tidings, who proclaim salvation, who say to Zion, “Your God reigns!”', 'Isaiah 52:7'],
+    de: ['Wie lieblich sind auf den Bergen die Füße der Boten, die da Frieden verkündigen, Gutes predigen, Heil verkündigen, die da sagen zu Zion: Dein Gott ist König!', 'Jesaja 52,7'],
+    sv: ['Huru ljuvliga äro icke glädjebudbärarens fotsteg, när han kommer över bergen för att förkunna frid och frambära gott budskap och förkunna frälsning, i det han säger till Sion: »Din Gud är nu konung!»', 'Jes 52:7'],
+  },
+  'isa52.8': {
+    pl: ['Wynoszą głos stróżowie twoi, głos wynoszą, a społem wykrzykać będą; bo okiem w oko ujrzą, że zasię Pan Syon przywiedzie.', 'Iz 52,8'],
+    en: ['Listen! Your watchmen lift up their voices, together they shout for joy. For every eye will see when the LORD returns to Zion.', 'Isaiah 52:8'],
+    de: ['Deine Wächter rufen laut mit ihrer Stimme und rühmen miteinander; denn man wird\'s mit Augen sehen, wenn der HERR Zion bekehrt.', 'Jesaja 52,8'],
+    sv: ['Hör, huru dina väktare upphäva sin röst och jubla allasammans, ty de se för sina ögon, huru HERREN vänder tillbaka till Sion.', 'Jes 52:8'],
+  },
+  'hab3.19': {
+    pl: ['Panujący Pan jest siłą moją, który czyni nogi moje, jako nogi łani, i po miejscach wysokich poprowadzi mię.', 'Ha 3,19'],
+    en: ['GOD the Lord is my strength; He makes my feet like those of a deer; He makes me walk upon the heights!', 'Habakkuk 3:19'],
+    de: ['Denn der HERR ist meine Kraft und wird meine Füße machen wie Hirschfüße und wird mich auf meine Höhen führen.', 'Habakuk 3,19'],
+    sv: ['HERREN, Herren är min starkhet; han gör mina fötter såsom hindens och låter mig gå fram över mina höjder.', 'Hab 3:19'],
+  },
+  'pro25.25': {
+    pl: ['Jako woda chłodna duszy pragnącej: tak wieść dobra z ziemi dalekiej.', 'Prz 25,25'],
+    en: ['Like cold water to a weary soul is good news from a distant land.', 'Proverbs 25:25'],
+    de: ['Eine gute Botschaft aus fernen Landen ist wie kalt Wasser einer durstigen Seele.', 'Sprüche 25,25'],
+    sv: ['Såsom friskt vatten för den försmäktande, så är ett gott budskap ifrån fjärran land.', 'Ords 25:25'],
+  },
+  'rom10.15': {
+    pl: ['Jakoż też będą kazać, jeźliby nie byli posłani? Jako napisano: O jako śliczne są nogi tych, którzy opowiadają pokój, tych, którzy opowiadają dobre rzeczy.', 'Rz 10,15'],
+    en: ['And how can they preach unless they are sent? As it is written: “How beautiful are the feet of those who bring good news!”', 'Romans 10:15'],
+    de: ['Wie sollen sie aber predigen, wo sie nicht gesandt werden? Wie denn geschrieben steht: “Wie lieblich sich die Füße derer, die den Frieden verkündigen, die das Gute verkündigen!”', 'Römer 10,15'],
+    sv: ['Och huru skulle predikare kunna komma, om de icke bleve sända? Så är och skrivet: »Huru ljuvliga äro icke fotstegen av de män som frambära gott budskap!»', 'Rom 10:15'],
+  },
+  '2th3.1': {
+    pl: ['Na ostatek, bracia! módlcie się za nas, aby się słowo Pańskie szerzyło i rozsławiało, jako i u was…', '2 Tes 3,1'],
+    en: ['Finally, brothers, pray for us, that the word of the Lord may spread quickly and be held in honor, just as it was with you.', '2 Thessalonians 3:1'],
+    de: ['Weiter, liebe Brüder, betet für uns, daß das Wort des HERRN laufe und gepriesen werde wie bei euch…', '2. Thessalonicher 3,1'],
+    sv: ['För övrigt, käre bröder, bedjen för oss, att Herrens ord må hava framgång och komma till ära hos andra likasom hos eder…', '2 Tess 3:1'],
+  },
+  'php3.14': {
+    pl: ['Ale jedno czynię, że tego, co za mną jest, zapamiętywając, a do tego się, co przede mną jest, spiesząc, bieżę do kresu ku zakładowi powołania onego Bożego, które jest z góry w Chrystusie Jezusie.', 'Flp 3,14'],
+    en: ['I press on toward the goal to win the prize of God’s heavenly calling in Christ Jesus.', 'Philippians 3:14'],
+    de: ['…und jage nach dem vorgesteckten Ziel, nach dem Kleinod, welches vorhält die himmlische Berufung Gottes in Christo Jesu.', 'Philipper 3,14'],
+    sv: ['…och jagar mot målet, för att få den segerlön som hålles framför oss genom Guds kallelse ovanifrån, i Kristus Jesus.', 'Fil 3:14'],
+  },
+  '1co9.24': {
+    pl: ['Azaż nie wiecie, iż ci, którzy w zawód bieżą, wszyscyć więc bieżą, lecz jeden zakład bierze? Także bieżcie, abyście otrzymali.', '1 Kor 9,24'],
+    en: ['Do you not know that in a race all the runners run, but only one receives the prize? Run in such a way as to take the prize.', '1 Corinthians 9:24'],
+    de: ['Wisset ihr nicht, daß die, so in den Schranken laufen, die laufen alle, aber einer erlangt das Kleinod? Laufet nun also, daß ihr es ergreifet!', '1. Korinther 9,24'],
+    sv: ['I veten ju, att fastän de som löpa på tävlingsbanan allasammans löpa, så vinner allenast en segerlönen. Löpen såsom denne, för att I mån vinna lönen.', '1 Kor 9:24'],
+  },
+  'luk19.3-4': {
+    pl: ['I żądał widzieć Jezusa, co by zacz był; lecz nie mógł przed ludem, bo był małego wzrostu. A bieżawszy naprzód, wstąpił na drzewo leśnej figi, aby go ujrzał; bo tamtędy iść miał.', 'Łk 19,3–4'],
+    en: ['He was trying to see who Jesus was, but could not see over the crowd because he was small in stature. So he ran on ahead and climbed a sycamore tree to see Him, since Jesus was about to pass that way.', 'Luke 19:3–4'],
+    de: ['Und er begehrte Jesum zu sehen, wer er wäre, und konnte nicht vor dem Volk; denn er war klein von Person. Und er lief voraus und stieg auf einen Maulbeerbaum, auf daß er ihn sähe: denn allda sollte er durchkommen.', 'Lukas 19,3–4'],
+    sv: ['Denne ville gärna veta vem som var Jesus och ville se honom, men han kunde det icke för folkets skull, ty han var liten till växten. Då skyndade han i förväg och steg upp i ett mullbärsfikonträd för att få se honom, ty han skulle komma den vägen fram.', 'Luk 19:3–4'],
+  },
+  'luk19.5': {
+    pl: ['A gdy przyszedł na ono miejsce, spojrzawszy Jezus w górę, ujrzał go, i rzekł do niego: Zacheuszu! zstąp prędko na dół, albowiem dziś muszę zostać w domu twoim.', 'Łk 19,5'],
+    en: ['When Jesus came to that place, He looked up and said, “Zacchaeus, hurry down, for I must stay at your house today.”', 'Luke 19:5'],
+    de: ['Und als Jesus kam an die Stätte, sah er auf und ward sein gewahr und sprach zu ihm: Zachäus, steig eilend hernieder; denn ich muß heute in deinem Hause einkehren!', 'Lukas 19,5'],
+    sv: ['När Jesus nu kom till det stället, såg han upp och sade till honom: »Sackeus, skynda dig ned, ty i dag måste jag gästa i ditt hus.»', 'Luk 19:5'],
+  },
+  'luk19.6': {
+    pl: ['I zstąpił prędko i przyjął go z radością.', 'Łk 19,6'],
+    en: ['So Zacchaeus hurried down and welcomed Him joyfully.', 'Luke 19:6'],
+    de: ['Und er stieg eilend hernieder und nahm ihn auf mit Freuden.', 'Lukas 19,6'],
+    sv: ['Och han skyndade sig ned och tog emot honom med glädje.', 'Luk 19:6'],
+  },
+  'luk19.8': {
+    pl: ['A stanąwszy Zacheusz, rzekł do Pana: Oto połowę majętności moich dam ubogim, Panie! a jeźliżem kogo w czem podszedł, oddam w czwórnasób.', 'Łk 19,8'],
+    en: ['But Zacchaeus stood up and said to the Lord, “Look, Lord, half of my possessions I give to the poor, and if I have cheated anyone, I will repay it fourfold.”', 'Luke 19:8'],
+    de: ['Zachäus aber trat dar und sprach zu dem HERRN: Siehe, HERR, die Hälfte meiner Güter gebe ich den Armen, und so ich jemand betrogen habe, das gebe ich vierfältig wieder.', 'Lukas 19,8'],
+    sv: ['Men Sackeus trädde fram och sade till Herren: Herre, hälften av mina ägodelar giver jag nu åt de fattiga; och om jag har utkrävt för mycket av någon, så giver jag fyradubbelt igen.', 'Luk 19:8'],
+  },
+  'luk19.10': {
+    pl: ['Bo przyszedł Syn człowieczy, aby szukał i zachował, co było zginęło.', 'Łk 19,10'],
+    en: ['For the Son of Man came to seek and to save the lost.', 'Luke 19:10'],
+    de: ['Denn des Menschen Sohn ist gekommen, zu suchen und selig zu machen, das verloren ist.', 'Lukas 19,10'],
+    sv: ['Ty Människosonen har kommit för att uppsöka och frälsa det som var förlorat.', 'Luk 19:10'],
+  },
+  'heb12.2': {
+    pl: ['Patrząc na Jezusa, wodza i dokończyciela wiary, który dla wystawionej sobie radości, podjął krzyż, wzgardziwszy sromotę, i usiadł na prawicy stolicy Bożej.', 'Hbr 12,2'],
+    en: ['Let us fix our eyes on Jesus, the author and perfecter of our faith, who for the joy set before Him endured the cross, scorning its shame, and sat down at the right hand of the throne of God.', 'Hebrews 12:2'],
+    de: ['…und aufsehen auf Jesum, den Anfänger und Vollender des Glaubens; welcher, da er wohl hätte mögen Freude haben, erduldete das Kreuz und achtete der Schande nicht und hat sich gesetzt zur Rechten auf den Stuhl Gottes.', 'Hebräer 12,2'],
+    sv: ['Och må vi därvid se på Jesus, trons hövding och fullkomnare, på honom, som i stället för att taga den glädje som låg framför honom, utstod korsets lidande och aktade smäleken för intet, och som nu sitter på högra sidan om Guds tron.', 'Hebr 12:2'],
+  },
+  'psa34.5': {
+    pl: ['Którzy nań spoglądają, a zbiegają się do niego, oblicza ich nie będą zawstydzone.', 'Ps 34,6'],
+    en: ['Those who look to Him are radiant with joy; their faces shall never be ashamed.', 'Psalm 34:5'],
+    de: ['Welche auf ihn sehen, die werden erquickt, und ihr Angesicht wird nicht zu Schanden.', 'Psalm 34,6'],
+    sv: ['De som skåda upp till honom stråla av fröjd, och deras ansikten behöva icke rodna av blygsel.', 'Ps 34:6'],
+  },
+  'jhn10.3': {
+    pl: ['Temu odźwierny otwiera i owce słuchają głosu jego, a on swoich własnych owiec z imienia woła i wywodzi je.', 'J 10,3'],
+    en: ['The gatekeeper opens the gate for him, and the sheep listen for his voice. He calls his own sheep by name and leads them out.', 'John 10:3'],
+    de: ['Dem tut der Türhüter auf, und die Schafe hören seine Stimme; und er ruft seine Schafe mit Namen und führt sie aus.', 'Johannes 10,3'],
+    sv: ['För honom öppnar dörrvaktaren, och fåren lyssna till hans röst, och han kallar sina får vid namn och för dem ut.', 'Joh 10:3'],
+  },
+  'isa40.11': {
+    pl: ['Jako pasterz trzodę swoję paść będzie; do naręcza swego zgromadzi baranki, i na łonie swem piastować je będzie, a kotne zwolna poprowadzi.', 'Iz 40,11'],
+    en: ['He tends His flock like a shepherd; He gathers the lambs in His arms and carries them close to His heart. He gently leads the nursing ewes.', 'Isaiah 40:11'],
+    de: ['Er wird seine Herde weiden wie ein Hirte; er wird die Lämmer in seine Arme sammeln und in seinem Busen tragen und die Schafmütter führen.', 'Jesaja 40,11'],
+    sv: ['Han för sin hjord i bet såsom en herde, han samlar lammen i sin famn och bär dem i sitt sköte och sakta för han moderfåren fram.', 'Jes 40:11'],
+  },
+  'ezk34.12': {
+    pl: ['Jako się pyta pasterz o trzodę swoję, kiedy bywa w pośrodku owiec swoich rozproszonych: tak się Ja będę pytał za owcami mojemi, i wyrwę je ze wszystkich miejsc, kędy były rozproszone w dzień obłoku i chmury…', 'Ez 34,12'],
+    en: ['As a shepherd looks for his scattered sheep when he is among the flock, so I will look for My flock. I will rescue them from all the places to which they were scattered on a day of clouds and darkness.', 'Ezekiel 34:12'],
+    de: ['Wie ein Hirte seine Schafe sucht, wenn sie von seiner Herde verirrt sind, also will ich meine Schafe suchen und will sie erretten von allen Örtern, dahin sie zerstreut waren zur Zeit, da es trüb und finster war.', 'Hesekiel 34,12'],
+    sv: ['Likasom en herde letar tillsammans sin hjord, när hans får äro förströdda omkring honom, så skall ock jag leta tillsammans mina får och rädda dem från alla de orter till vilka de förskingrades på en dag av moln och töcken.', 'Hes 34:12'],
+  },
+  'luk2.8': {
+    pl: ['A byli pasterze w onej krainie w polu nocujący i straż nocną trzymający nad stadem swojem.', 'Łk 2,8'],
+    en: ['And there were shepherds residing in the fields nearby, keeping watch over their flocks by night.', 'Luke 2:8'],
+    de: ['Und es waren Hirten in derselben Gegend auf dem Felde bei den Hürden, die hüteten des Nachts ihre Herde.', 'Lukas 2,8'],
+    sv: ['I samma nejd voro då några herdar ute på marken och höllo vakt om natten över sin hjord.', 'Luk 2:8'],
+  },
+  'psa100.3': {
+    pl: ['Wiedzcież, żeć Pan jest Bogiem; on uczynił nas, a nie my samych siebie, abyśmy byli ludem jego, i owcami pastwiska jego.', 'Ps 100,3'],
+    en: ['Know that the LORD is God. It is He who made us, and we are His; we are His people, and the sheep of His pasture.', 'Psalm 100:3'],
+    de: ['Erkennt, daß der HERR Gott ist! Er hat uns gemacht, und nicht wir selbst, zu seinem Volk und zu Schafen seiner Weide.', 'Psalm 100,3'],
+    sv: ['Förnimmen att HERREN är Gud. Han har gjort oss, och icke vi själva, till sitt folk och till får i sin hjord.', 'Ps 100:3'],
   },
 };
 
