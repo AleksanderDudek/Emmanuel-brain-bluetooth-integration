@@ -251,6 +251,9 @@ details:not([open])>summary{margin-bottom:0}
 .art-wzlot{background:radial-gradient(circle at 70% 26%,rgba(255,236,200,.6),transparent 40%),linear-gradient(180deg,#f6c1b6 0%,#dceff7 52%,#c98a5a 53%,#8a4f36 100%)}
 .art-glina{background:radial-gradient(ellipse at 50% 74%,rgba(196,103,63,.55),transparent 36%),linear-gradient(180deg,#3f6e9c 0%,#7db3dc 30%,#f4efe6 31%,#e9d8bc 100%)}
 .art-zrodla{background:radial-gradient(circle at 40% 58%,rgba(47,179,196,.55),transparent 38%),radial-gradient(circle at 66% 40%,rgba(143,175,126,.45),transparent 34%),linear-gradient(160deg,#e8ddc8,#c7a46e 82%)}
+.art-poslaniec{background:radial-gradient(ellipse at 50% 30%,rgba(255,214,150,.75),transparent 46%),linear-gradient(180deg,#2e3a59 0%,#c8553d 38%,#f4a259 54%,#b9a07a 55%,#7b6a55 100%)}
+.art-zacheusz{background:radial-gradient(circle at 78% 24%,rgba(253,231,169,.7),transparent 32%),linear-gradient(180deg,#f7d58c 0%,#e9a23b 46%,#c98f55 47%,#8a5a3a 100%)}
+.art-pasterz{background:radial-gradient(circle at 46% 56%,rgba(255,250,232,.65),transparent 22%),radial-gradient(circle at 30% 30%,rgba(168,198,108,.6),transparent 40%),linear-gradient(160deg,#cfe0a0,#6f9a52 70%,#4a6b3d)}
 .art-img{position:absolute;pointer-events:none;user-select:none}
 .art-img-holyholyholy{left:50%;top:50%;height:78%;transform:translate(-50%,-50%);border-radius:22%;filter:drop-shadow(0 10px 30px rgba(255,214,120,.25))}
 .art-img-holyholyholy3d{right:4%;top:-6%;height:150%;filter:drop-shadow(0 12px 40px rgba(0,0,0,.5))}

@@ -294,12 +294,14 @@ review videos from 2023 to 2026, and neurofounders.co (2026).
 
 ## 9. Training games
 
-(*Gry treningowe*: Geoda, Latarnik, Motylarnia, Arka, Urodzaj, Wzlot, Glina, Źródła; English
-*Geode, Lighthouse Keeper, Butterfly House, The Ark, Harvest, Updraft, Clay, Wellsprings*; German
-*Geode, Leuchtturmwärter, Schmetterlingshaus, Die Arche, Ernte, Aufwind, Töpferton, Quellen*;
-Swedish *Geod, Fyrvaktaren, Fjärilshuset, Arken, Skörd, Uppvind, Lera, Källorna*.)
+(*Gry treningowe*: Geoda, Latarnik, Motylarnia, Arka, Urodzaj, Wzlot, Glina, Źródła, Posłaniec,
+Zacheusz, Pasterz; English *Geode, Lighthouse Keeper, Butterfly House, The Ark, Harvest, Updraft,
+Clay, Wellsprings, The Messenger, Zacchaeus, The Shepherd*; German *Geode, Leuchtturmwärter,
+Schmetterlingshaus, Die Arche, Ernte, Aufwind, Töpferton, Quellen, Der Bote, Zachäus, Der Hirte*;
+Swedish *Geod, Fyrvaktaren, Fjärilshuset, Arken, Skörd, Uppvind, Lera, Källorna, Budbäraren,
+Sackeus, Herden*.)
 
-Eight games whose every session is a neurofeedback session, each rooted in the Christian faith with
+Eleven games whose every session is a neurofeedback session, each rooted in the Christian faith with
 gaming first. The research behind them, how they were chosen, how the faith shapes them and the
 rules they share are in [`src/arcade/DESIGN.md`](src/arcade/DESIGN.md); each game's rules are in its
 own module.

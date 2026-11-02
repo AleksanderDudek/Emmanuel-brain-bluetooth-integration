@@ -14,8 +14,8 @@ import type { PassageId } from './kit/scripture';
 import type { ArcadeModule } from './kit/types';
 
 /** What kind of play a game is: the Games tab shows the games in these sections, in this order. */
-export type ArcadeKind = 'puzzle' | 'arcade' | 'craft';
-export const KINDS: readonly ArcadeKind[] = ['puzzle', 'arcade', 'craft'];
+export type ArcadeKind = 'puzzle' | 'run' | 'arcade' | 'craft';
+export const KINDS: readonly ArcadeKind[] = ['puzzle', 'run', 'arcade', 'craft'];
 
 export interface ArcadeEntry {
   id: string;
@@ -111,6 +111,30 @@ export const ARCADE: ArcadeEntry[] = [
     unit: t('zrodla.unit'), art: 'art-zrodla', fill: ['#cdf3ef', '#2fb3c4', '#1c6e96', '#4f7a43'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { targetRate: 0.55, adapt: 0.08 }, root: 'psa84.5-6',
     load: () => import('./zrodla/index').then(m => m.default),
+  },
+  {
+    id: 'poslaniec', kind: 'run', title: t('poslaniec.title'), tagline: t('poslaniec.tagline'), text: t('poslaniec.text'),
+    how: [t('poslaniec.how1'), t('poslaniec.how2'), t('poslaniec.how3')],
+    tips: [t('poslaniec.tip1'), t('poslaniec.tip2'), t('poslaniec.tip3'), t('poslaniec.tip4'), t('poslaniec.tip5')],
+    unit: t('poslaniec.unit'), art: 'art-poslaniec', fill: ['#ffe2b8', '#f4a259', '#c8553d', '#2e3a59'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'isa52.7',
+    load: () => import('./poslaniec/index').then(m => m.default),
+  },
+  {
+    id: 'zacheusz', kind: 'run', title: t('zacheusz.title'), tagline: t('zacheusz.tagline'), text: t('zacheusz.text'),
+    how: [t('zacheusz.how1'), t('zacheusz.how2'), t('zacheusz.how3')],
+    tips: [t('zacheusz.tip1'), t('zacheusz.tip2'), t('zacheusz.tip3'), t('zacheusz.tip4'), t('zacheusz.tip5')],
+    unit: t('zacheusz.unit'), art: 'art-zacheusz', fill: ['#fde7a9', '#e9a23b', '#7a9e3d', '#5b3a6e'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'luk19.3-4',
+    load: () => import('./zacheusz/index').then(m => m.default),
+  },
+  {
+    id: 'pasterz', kind: 'arcade', title: t('pasterz.title'), tagline: t('pasterz.tagline'), text: t('pasterz.text'),
+    how: [t('pasterz.how1'), t('pasterz.how2'), t('pasterz.how3')],
+    tips: [t('pasterz.tip1'), t('pasterz.tip2'), t('pasterz.tip3'), t('pasterz.tip4'), t('pasterz.tip5')],
+    unit: t('pasterz.unit'), art: 'art-pasterz', fill: ['#eef3d2', '#a8c66c', '#5f8a4a', '#2f3e5c'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { targetRate: 0.55, adapt: 0.08 }, root: 'luk15.4-6',
+    load: () => import('./pasterz/index').then(m => m.default),
   },
 ];
 
