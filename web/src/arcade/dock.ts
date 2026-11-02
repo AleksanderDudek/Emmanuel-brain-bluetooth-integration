@@ -7,11 +7,14 @@
  *   the chart     the last CHART_SEC of activity % against the calibration (0), the adaptive
  *                 threshold dashed, gold above it, the blocks as bands, gaps where the signal
  *                 failed, a veil over a blind block, the band's delay bracketed at "now"
- *   now           the block and its seconds, a verdict in plain words (kit/coach.ts), the numbers
+ *   the task      what to do in the head in this block (a strategy, a new one block by block)
+ *   now           the block and its seconds, a verdict in plain words (kit/coach.ts), and the gauge
+ *                 of what the band drives in this game ("Aura światła 72%"), with the numbers
  *   the block     whether the block that just ended moved the brain against the one before
  *   the session   focus − rest so far
  *
- * The runner feeds it every tick of play; it holds no game state of its own.
+ * The runner feeds it every tick of play; it holds no game state of its own.  When a push or rest
+ * block begins it calls `onBlock`, so the runner can put the block's instruction over the game.
  */
 import { fmtSigned } from '../i18n';
 import { BAND_NAME, t } from '../i18n/arcade';
@@ -26,7 +29,24 @@ import type { SignalPhase } from './kit/types';
 export const CHART_SEC = 45;
 
 /** What the dock's text shows; set() writes only what changed. */
-interface DockText { eyebrow: string; state: string; tone: string; nums: string; block: string; session: string }
+interface DockText { eyebrow: string; task: string; state: string; tone: string; meter: string; value: string; nums: string; block: string; session: string }
+
+/** What the band drives in the game (the registry's `brain`). */
+export interface BrainLink { focus: string; rest: string; meter: string; meterRest: string }
+
+/** A push or rest block began: its instruction (for the runner's banner). */
+export interface BlockStart { want: 'focus' | 'rest'; blind: boolean; task: string; effect: string }
+
+/** The strategies the dock suggests, in turn (i18n `task.focus1…`, `task.rest1…`). */
+export const FOCUS_TASKS = 8;
+export const REST_TASKS = 5;
+
+/** The n-th strategy for a kind of block (0-based, cycling). */
+export function taskText(want: 'focus' | 'rest', n: number): string {
+  const len = want === 'focus' ? FOCUS_TASKS : REST_TASKS;
+  const i = (((n % len) + len) % len) + 1;
+  return want === 'focus' ? t(`task.focus${i as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`) : t(`task.rest${i as 1 | 2 | 3 | 4 | 5}`);
+}
 
 const pct = (v: number) => t('sum.pct', { v: fmtSigned(v, 1) });
 
@@ -42,7 +62,11 @@ export class SignalDock {
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D | null;
   private readonly eyebrow: HTMLElement;
+  private readonly task: HTMLElement;
   private readonly state: HTMLElement;
+  private readonly meterName: HTMLElement;
+  private readonly meterBar: HTMLElement;
+  private readonly meterVal: HTMLElement;
   private readonly nums: HTMLElement;
   private readonly block: HTMLElement;
   private readonly session: HTMLElement;
@@ -56,29 +80,43 @@ export class SignalDock {
   private now = 0;
   private wasBlind = false;
   private playing = false;
-  private text: DockText = { eyebrow: '', state: '', tone: '', nums: '', block: '', session: '' };
+  private text: DockText = { eyebrow: '', task: '', state: '', tone: '', meter: '', value: '', nums: '', block: '', session: '' };
+  /** blocks begun so far, per kind (the strategy turns with them), and the current one's task */
+  private begun = { focus: 0, rest: 0 };
+  private taskNow = '';
+  private seen = false;
+  /** a push or rest block began (the runner shows its instruction over the game) */
+  onBlock: ((b: BlockStart) => void) | null = null;
 
-  constructor(readonly tool: Tool) {
+  /** `seed` turns where the strategies start, so sessions do not always open with the same one. */
+  constructor(readonly tool: Tool, readonly brain: BrainLink, seed = 0) {
+    this.begun = { focus: seed, rest: seed };
     this.lag = LAG_SEC[tool];
     this.coach = new SignalCoach(this.lag);
     this.style = STYLE(this.lag);
     this.canvas = h('canvas', { role: 'img', 'aria-label': t('dock.chart', { n: CHART_SEC }) });
     this.ctx = this.canvas.getContext('2d');
     this.eyebrow = h('p', { class: 'dock-eyebrow' });
+    this.task = h('p', { class: 'dock-task' });
     this.state = h('p', { class: 'dock-state', role: 'status' });
-    this.nums = h('p', { class: 'dock-nums mono' });
+    this.meterName = h('span');
+    this.meterBar = h('i');
+    this.meterVal = h('b', { class: 'mono' });
+    this.nums = h('small', { class: 'mono' });
     this.block = h('p', { class: 'dock-block' });
     this.session = h('p', { class: 'dock-session' });
     this.el = h('section', { class: 'arcade-dock', 'aria-label': t('dock.title', { band: BAND_NAME[tool] }) },
       h('div', { class: 'dock-chart' }, this.canvas),
-      h('div', { class: 'dock-text' }, this.eyebrow, this.state, this.nums, this.block, this.session));
+      h('div', { class: 'dock-text' }, this.eyebrow, this.task, this.state,
+        h('p', { class: 'dock-meter', hidden: true }, this.meterName, h('span', { class: 'dock-bar' }, this.meterBar, h('em')), this.meterVal, this.nums),
+        this.block, this.session));
     this.idle();
   }
 
   /** Before play (calibration, countdown): the chart is empty and says when it starts. */
   idle(): void {
     this.playing = false;
-    this.set({ eyebrow: t('dock.title', { band: BAND_NAME[this.tool] }), state: t('dock.cal'), tone: 'idle', nums: '', block: '', session: '' });
+    this.set({ eyebrow: t('dock.title', { band: BAND_NAME[this.tool] }), task: '', state: t('dock.cal'), tone: 'idle', meter: '', value: '', nums: '', block: '', session: '' });
   }
 
   /** The dock's size changed (it was shown, the window resized). */
@@ -99,11 +137,23 @@ export class SignalDock {
     if (this.wasBlind && !phase.blind) this.trace.unveil(tSec);
     this.wasBlind = phase.blind;
     this.trace.push(tSec, f, phase.want, phase.blind);
+    const was = { want: this.coach.want, blind: this.coach.blind };
     this.coach.push(tSec, f, phase, dt);
-    this.render();
+    if (phase.want !== 'free' && (!this.seen || phase.want !== was.want || phase.blind !== was.blind)) this.begin(phase.want, phase.blind, was);
+    else if (phase.want === 'free' && was.want !== 'free') this.taskNow = '';
+    this.seen = true;
+    this.render(f);
   }
 
-  private render(): void {
+  /** A push or rest block began: the next strategy, and the banner. */
+  private begin(want: 'focus' | 'rest', blind: boolean, was: { want: string; blind: boolean }): void {
+    // a veil lifted inside the same push (the game shows its telegraph): the block and its task go on
+    if (this.taskNow && was.want === want && was.blind && !blind) return;
+    this.taskNow = taskText(want, this.begun[want]++);
+    this.onBlock?.({ want, blind, task: this.taskNow, effect: want === 'focus' ? this.brain.focus : this.brain.rest });
+  }
+
+  private render(f: FocusFrame): void {
     const c = this.coach;
     const sec = Math.floor(c.blockSec);
     const eyebrow = c.want === 'free' ? t('want.free') : t(c.blind ? 'want.blind' : c.want === 'focus' ? 'want.focus' : 'want.rest', { s: sec });
@@ -112,8 +162,17 @@ export class SignalDock {
       ? t('dock.nowNone', { th: pct(c.threshold) })
       : t('dock.now', { v: pct(c.activity), th: pct(c.threshold) });
     const con = c.contrast.contrast;
+    // the gauge: what the band drives in this game, as the game reads it (level in focus, calm in rest)
+    const rest = c.want === 'rest';
+    const hidden = c.blind || !f.reliable;
+    const v = rest ? f.calm : f.level;
+    const value = hidden ? t('dock.meterOff') : `${Math.round(v * 100)}%`;
+    this.meterBar.style.width = hidden ? '0%' : `${(v * 100).toFixed(1)}%`;
+    this.meterBar.parentElement!.classList.toggle('rest', rest);
+    this.meterBar.parentElement!.classList.toggle('on', !hidden && (rest ? !f.focused && v >= 0.5 : v >= 0.5));
+    const task = this.taskNow ? `${t('task.label')}: ${this.taskNow}` : c.want === 'free' && c.report === null ? `${t('task.label')}: ${t('task.free')}` : '';
     this.set({
-      eyebrow, tone, nums,
+      eyebrow, tone, nums, task, value, meter: rest ? this.brain.meterRest : this.brain.meter,
       state: stateText(c.state, c.activity !== null ? c.activity - c.threshold : 0, this.lag),
       block: reportText(c.report),
       session: con === null ? t('sess.none') : t('sess', { d: pct(con) }),
@@ -123,6 +182,12 @@ export class SignalDock {
   private set(x: DockText): void {
     const o = this.text;
     if (o.eyebrow !== x.eyebrow) this.eyebrow.textContent = x.eyebrow;
+    if (o.task !== x.task) this.task.textContent = x.task;
+    if (o.meter !== x.meter) {
+      this.meterName.textContent = x.meter;
+      this.meterName.parentElement!.hidden = !x.meter;   // no gauge before play
+    }
+    if (o.value !== x.value) this.meterVal.textContent = x.value;
     if (o.state !== x.state) this.state.textContent = x.state;
     if (o.tone !== x.tone) this.state.dataset.tone = x.tone;
     if (o.nums !== x.nums) this.nums.textContent = x.nums;

@@ -85,6 +85,7 @@ try {
   if (focus !== 'off') await page.click('#arcadeLayer .sim-focus');
   const box = await page.evaluate(() => { const r = document.querySelector('#arcadeLayer canvas').getBoundingClientRect(); return { x: r.width / 2, y: r.height * 0.6 }; });
   let n = 0, shots = 0;
+  const bannersShot = new Set();
   const end = Date.now() + (sec - 6) * 1000;
   while (Date.now() < end) {
     await page.mouse.click(box.x, box.y);
@@ -96,6 +97,12 @@ try {
       // the signal dock's words (src/arcade/dock.ts), when it is shown
       const dock = await page.evaluate(() => [...document.querySelectorAll('#arcadeLayer .arcade.docked .dock-text p')].map(p => p.textContent).filter(Boolean).join(' | '));
       if (dock) log(`  dock: ${dock}`);
+    }
+    // the first block banner of each kind (the runner's instruction over the game)
+    const ban = await page.evaluate(() => document.querySelector('#arcadeLayer .arcade-banner:not([hidden])')?.getAttribute('data-kind') ?? null);
+    if (ban && !bannersShot.has(ban)) {
+      bannersShot.add(ban);
+      await shot(`3-banner-${ban}`);
     }
     // two early shots, then one every ~26 s for long sessions (blocks, rests, the dock's block reports)
     if (n === 12 || n === 34 || (n > 34 && n % 40 === 0)) await shot(`3-play-${++shots}`);

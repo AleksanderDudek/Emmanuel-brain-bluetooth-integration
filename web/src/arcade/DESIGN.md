@@ -359,6 +359,29 @@ blind); a game without it is read as free throughout. The game's own block cards
 by time above the adaptive threshold (`RoundJudge`) while the dock compares means: the two can
 differ on a close block, and the dock's numbers say why.
 
+### 7.8 What to do, and what it drives: instructions in every game
+
+The founder's next two complaints: *"the games don't tell me what I am supposed to do"* and *"the
+coupling between the game's mechanic and the Mendi reading is not clear"*. Three answers, the same
+in all fourteen games, driven by the registry's `brain` texts (what the signal above the threshold
+does in this game, what calm does, and the names of the two quantities):
+
+1. **The calibration card** gets "Jak sterujesz opaską": Skupienie → what it drives, Odpoczynek → what
+   calm drives, Rękami → what the hands do, and one line on the conversion — the band measures
+   activity against the calibration; above the threshold the game's quantity grows, 50 % at the
+   threshold, 100 % well above it.
+2. **The block banner**: when a push or rest block begins, the runner puts its instruction over the
+   game for five seconds (never in the way of a tap): the block's name, *what to do in the head* — a
+   concrete strategy that changes block by block (subtract sevens, words on a letter, plan tomorrow,
+   picture a room; in rest: slow breathing, a soft forehead, listening, counting breaths) — and →
+   what it drives in this game.
+3. **The dock** keeps the task on screen for the whole block ("W głowie: …") and shows the game's own
+   quantity as a gauge with the threshold marked at its middle ("Zasięg światła 72%"), next to the raw
+   numbers (activity and threshold, in %): the conversion from the band to the game, in sight.
+
+The strategies are those fNIRS neurofeedback studies use for the prefrontal cortex (mental arithmetic,
+verbal fluency, planning, vivid imagery) and never "concentrate harder" (§5).
+
 ## 8. Three games the founder asked for: Anioł Stróż, Zastępy, Firmament
 
 The founder asked for three games by name and model: a guardian angel defending a sleeping child,

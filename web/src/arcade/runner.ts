@@ -15,7 +15,7 @@ import { TOOL_INFO, type Tool } from '../tools';
 import { dayScore, newMilestones, type TrainingResult } from '../training/score';
 import { $, fmtDur, h, run, toast } from '../ui/dom';
 import { drawOverview } from '../ui/focus';
-import { SignalDock } from './dock';
+import { SignalDock, type BlockStart } from './dock';
 import { ArcadeAudio } from './kit/audio';
 import { BEGINNER_SESSIONS, BEGINNER_TUNING, DEFAULT_TUNING, type FocusTuning } from './kit/focus';
 import { reducedMotion } from './kit/juice';
@@ -34,6 +34,9 @@ const icon = (id: string) => {
   svg.append(use);
   return svg;
 };
+
+/** How long a block's instruction stays over the game (ms). */
+const BANNER_MS = 5200;
 
 /** Longest a game may keep a finished session going to resolve its current move (s). */
 const OVERTIME_SEC = 30;
@@ -85,10 +88,11 @@ export class ArcadeRunner {
     wrap: HTMLElement; canvas: HTMLCanvasElement; hud: HTMLElement; overlay: HTMLElement;
     time: HTMLElement; clock: HTMLElement; hold: HTMLElement; pause: HTMLButtonElement;
     chip: HTMLElement | null; chipBar: HTMLElement | null; chipHold: HTMLElement | null; sim: HTMLButtonElement | null;
-    dock: SignalDock; dockBtn: HTMLButtonElement;
+    dock: SignalDock; dockBtn: HTMLButtonElement; banner: HTMLElement;
     cal?: { bar: HTMLElement; text: HTMLElement; reason: HTMLElement; tip: HTMLElement };
   } | null = null;
   private tipTimer: ReturnType<typeof setInterval> | null = null;
+  private bannerTimer: ReturnType<typeof setTimeout> | null = null;
   private countTimer: ReturnType<typeof setTimeout> | null = null;
   /** a pause asked for during the countdown: it takes effect when play begins */
   private pauseAtStart = false;
@@ -197,7 +201,10 @@ export class ArcadeRunner {
       if (this.stage === 'play') this.setPaused(!this.session?.paused); else this.requestPause();
     });
     // the signal dock under the game: the band's chart in plain sight, switched in the top bar
-    const dock = new SignalDock(this.session!.tool);
+    // the strategies start somewhere new each session, so the first block is not always the same task
+    const dock = new SignalDock(this.session!.tool, entry.brain, Math.floor(Date.now() / 60_000) % 40);
+    const banner = h('div', { class: 'arcade-banner', role: 'status', 'aria-live': 'polite', hidden: true });
+    dock.onBlock = b => this.showBanner(b);
     const docked = this.d.settings.arcade.signal;
     const dockBtn = h('button', { class: 'icon-btn arcade-dock-btn', type: 'button', 'aria-label': t('dock.toggle'), title: t('dock.toggle'), 'aria-pressed': String(docked) }, icon('i-signal'));
     dockBtn.addEventListener('click', e => {
@@ -226,7 +233,7 @@ export class ArcadeRunner {
       });
     }
     const wrap = h('div', { class: docked ? 'arcade docked' : 'arcade', role: 'application', tabindex: '-1', 'aria-label': t('run.keys', { title: entry.title }) },
-      canvas, hud, dock.el, top, chip, hold, sim, overlay);
+      canvas, hud, dock.el, top, chip, hold, banner, sim, overlay);
     const pos = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top, id: e.pointerId };
@@ -248,7 +255,7 @@ export class ArcadeRunner {
     canvas.addEventListener('pointerup', send('up'));
     canvas.addEventListener('pointercancel', send('up'));
     this.root.replaceChildren(wrap);
-    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn };
+    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn, banner };
     wrap.focus({ preventScroll: true });
   }
 
@@ -273,6 +280,27 @@ export class ArcadeRunner {
     this.ui.sim.classList.toggle('on', this.simFocus);
     const eeg = ses.tool === 'eeg';
     this.d.hub.setSimState(this.simFocus ? (eeg ? 'focus' : 'task') : (eeg ? 'baseline' : 'rest'));
+  }
+
+  /**
+   * A push or rest block began: say over the game what to do in the head and what the band drives
+   * (DESIGN §7.8), for a few seconds, never in the way of a tap (pointer-events: none).
+   */
+  private showBanner(b: BlockStart): void {
+    const ui = this.ui;
+    if (!ui) return;
+    const title = b.want === 'rest' ? t('ban.rest') : b.blind ? t('ban.blind') : t('ban.focus');
+    ui.banner.dataset.kind = b.want;
+    ui.banner.replaceChildren(
+      h('b', { class: 'ban-chip' }, title),
+      h('p', { class: 'ban-task' }, `${t('task.label')}: ${b.task}`),
+      h('p', { class: 'ban-link' }, `→ ${b.blind ? t('ban.blindNote') : b.effect}`));
+    ui.banner.hidden = false;
+    ui.banner.classList.remove('show');
+    void ui.banner.offsetWidth;
+    ui.banner.classList.add('show');
+    if (this.bannerTimer) clearTimeout(this.bannerTimer);
+    this.bannerTimer = setTimeout(() => { if (this.ui === ui) ui.banner.hidden = true; }, BANNER_MS);
   }
 
   /** Show or hide the signal dock (a setting kept across sessions); the game's canvas takes the room. */
@@ -303,7 +331,7 @@ export class ArcadeRunner {
       h('h2', null, t(this.session!.tool === 'fnirs' ? 'cal.fnirs' : 'cal.eeg')),
       h('div', { class: 'progress calib-bar' }, bar), text,
       h('p', { class: 'muted' }, t('cal.still')),
-      tip, reason,
+      tip, reason, this.howBrain(entry),
       h('button', { class: 'btn ghost', type: 'button', on: { click: () => this.cancel() } }, t('cal.back'))));
     let i = 0;
     const showTip = () => { tip.textContent = entry.tips[i++ % entry.tips.length]; };
@@ -311,6 +339,19 @@ export class ArcadeRunner {
     if (this.tipTimer) clearInterval(this.tipTimer);
     this.tipTimer = setInterval(showTip, 5000);
     this.renderCalibration();
+  }
+
+  /** The calibration card's "how you play with the band": what focus and calm drive here, and the hands. */
+  private howBrain(entry: ArcadeEntry): HTMLElement {
+    const row = (kind: string, chip: string, text: string) =>
+      h('li', { 'data-kind': kind }, h('b', { class: 'ban-chip' }, chip), h('span', null, kind === 'hands' ? text : `→ ${text}`));
+    return h('div', { class: 'arcade-howbrain' },
+      h('p', { class: 'eyebrow' }, t('cal.howTitle')),
+      h('ul', null,
+        row('focus', t('ban.focus'), entry.brain.focus),
+        row('rest', t('ban.rest'), entry.brain.rest),
+        row('hands', t('cal.handsTitle'), entry.how[2] ?? '')),
+      h('p', { class: 'muted' }, t('cal.meterNote', { meter: entry.brain.meter })));
   }
 
   private renderCalibration(): void {
@@ -539,6 +580,8 @@ export class ArcadeRunner {
     this.tipTimer = null;
     if (this.countTimer) clearTimeout(this.countTimer);
     this.countTimer = null;
+    if (this.bannerTimer) clearTimeout(this.bannerTimer);
+    this.bannerTimer = null;
     this.keysDown.clear();
     this.pointersDown.clear();
     try { this.game?.destroy(); } catch (e) { console.error(e); }

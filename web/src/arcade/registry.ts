@@ -43,9 +43,20 @@ export interface ArcadeEntry {
   tuning?: Partial<FocusTuning>;
   /** the passage the game takes root in (kit/scripture.ts): its lobby opens with it */
   root: PassageId;
+  /**
+   * What the band drives in this game, in plain words (the calibration card, the block banner, the
+   * signal dock): what the signal above the threshold does in push blocks, what calm does in rest
+   * blocks, and the names of the quantities the dock's gauge shows (it follows `level` and `calm`).
+   */
+  brain: { focus: string; rest: string; meter: string; meterRest: string };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   load: () => Promise<ArcadeModule<any>>;
 }
+
+type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament';
+const brain = (id: GameId): ArcadeEntry['brain'] => ({
+  focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
+});
 
 export const ARCADE: ArcadeEntry[] = [
   {
@@ -54,6 +65,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('geoda.tip1'), t('geoda.tip2'), t('geoda.tip3'), t('geoda.tip4'), t('geoda.tip5'), t('geoda.tip6')],
     unit: t('geoda.unit'), art: 'art-geoda', fill: ['#ffd6f5', '#c77dff', '#9b5de5', '#3c1f6e'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 }, root: 'isa54.11-12',
+    brain: brain('geoda'),
     load: () => import('./geoda/index').then(m => m.default),
   },
   {
@@ -62,6 +74,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('latarnik.tip1'), t('latarnik.tip2'), t('latarnik.tip3'), t('latarnik.tip4'), t('latarnik.tip5')],
     unit: t('latarnik.unit'), art: 'art-latarnik', fill: ['#ffe9a8', '#ffd27a', '#ff7a59', '#0b1630'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 }, root: 'mat5.14-16',
+    brain: brain('latarnik'),
     load: () => import('./latarnik/index').then(m => m.default),
   },
   {
@@ -70,6 +83,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('motylarnia.tip1'), t('motylarnia.tip2'), t('motylarnia.tip3'), t('motylarnia.tip4'), t('motylarnia.tip5')],
     unit: t('motylarnia.unit'), art: 'art-motylarnia', fill: ['#f2c230', '#e0453a', '#c2408f', '#3a5bd9'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { targetRate: 0.5, adapt: 0.08 }, root: '2co5.17',
+    brain: brain('motylarnia'),
     load: () => import('./motylarnia/index').then(m => m.default),
   },
   {
@@ -78,6 +92,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('arka.tip1'), t('arka.tip2'), t('arka.tip3'), t('arka.tip4'), t('arka.tip5')],
     unit: t('arka.unit'), art: 'art-arka', fill: ['#efe4cf', '#c08a3e', '#6b4a2f', '#3b2a1e'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 }, root: 'gen8.1',
+    brain: brain('arka'),
     load: () => import('./arka/index').then(m => m.default),
   },
   {
@@ -86,6 +101,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('urodzaj.tip1'), t('urodzaj.tip2'), t('urodzaj.tip3'), t('urodzaj.tip4'), t('urodzaj.tip5'), t('urodzaj.tip6')],
     unit: t('urodzaj.unit'), art: 'art-urodzaj', fill: ['#f2dea0', '#d4a640', '#b5523b', '#4b2e5a'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { targetRate: 0.5, adapt: 0.08 }, root: 'deu8.10',
+    brain: brain('urodzaj'),
     load: () => import('./urodzaj/index').then(m => m.default),
   },
   {
@@ -94,6 +110,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('wzlot.tip1'), t('wzlot.tip2'), t('wzlot.tip3'), t('wzlot.tip4'), t('wzlot.tip5')],
     unit: t('wzlot.unit'), art: 'art-wzlot', fill: ['#f9d5a7', '#f2b26b', '#c97a4a', '#6c5b9a'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 }, root: 'deu32.11',
+    brain: brain('wzlot'),
     load: () => import('./wzlot/index').then(m => m.default),
   },
   {
@@ -102,6 +119,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('glina.tip1'), t('glina.tip2'), t('glina.tip3'), t('glina.tip4'), t('glina.tip5'), t('glina.tip6')],
     unit: t('glina.unit'), art: 'art-glina', fill: ['#9ccbea', '#e9d8bc', '#c4673f', '#6e4632'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 }, root: 'jer18.6',
+    brain: brain('glina'),
     load: () => import('./glina/index').then(m => m.default),
   },
   {
@@ -110,6 +128,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('zrodla.tip1'), t('zrodla.tip2'), t('zrodla.tip3'), t('zrodla.tip4'), t('zrodla.tip5'), t('zrodla.tip6')],
     unit: t('zrodla.unit'), art: 'art-zrodla', fill: ['#cdf3ef', '#2fb3c4', '#1c6e96', '#4f7a43'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { targetRate: 0.55, adapt: 0.08 }, root: 'psa84.5-6',
+    brain: brain('zrodla'),
     load: () => import('./zrodla/index').then(m => m.default),
   },
   {
@@ -118,6 +137,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('poslaniec.tip1'), t('poslaniec.tip2'), t('poslaniec.tip3'), t('poslaniec.tip4'), t('poslaniec.tip5')],
     unit: t('poslaniec.unit'), art: 'art-poslaniec', fill: ['#ffe2b8', '#f4a259', '#c8553d', '#2e3a59'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 }, root: 'isa52.7',
+    brain: brain('poslaniec'),
     load: () => import('./poslaniec/index').then(m => m.default),
   },
   {
@@ -126,6 +146,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('zacheusz.tip1'), t('zacheusz.tip2'), t('zacheusz.tip3'), t('zacheusz.tip4'), t('zacheusz.tip5')],
     unit: t('zacheusz.unit'), art: 'art-zacheusz', fill: ['#fde7a9', '#e9a23b', '#7a9e3d', '#5b3a6e'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 }, root: 'luk19.3-4',
+    brain: brain('zacheusz'),
     load: () => import('./zacheusz/index').then(m => m.default),
   },
   {
@@ -134,6 +155,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('pasterz.tip1'), t('pasterz.tip2'), t('pasterz.tip3'), t('pasterz.tip4'), t('pasterz.tip5')],
     unit: t('pasterz.unit'), art: 'art-pasterz', fill: ['#eef3d2', '#a8c66c', '#5f8a4a', '#2f3e5c'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { targetRate: 0.55, adapt: 0.08 }, root: 'luk15.4-6',
+    brain: brain('pasterz'),
     load: () => import('./pasterz/index').then(m => m.default),
   },
   {
@@ -142,6 +164,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('aniol.tip1'), t('aniol.tip2'), t('aniol.tip3'), t('aniol.tip4'), t('aniol.tip5')],
     unit: t('aniol.unit'), art: 'art-aniol', fill: ['#fff3c4', '#f5c96a', '#6f6bb8', '#1c1d3f'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 }, root: 'psa91.11',
+    brain: brain('aniol'),
     load: () => import('./aniol/index').then(m => m.default),
   },
   {
@@ -150,6 +173,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('zastepy.tip1'), t('zastepy.tip2'), t('zastepy.tip3'), t('zastepy.tip4'), t('zastepy.tip5')],
     unit: t('zastepy.unit'), art: 'art-zastepy', fill: ['#fff1c9', '#e8b04a', '#8a4a3a', '#2a1f2e'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 }, root: 'rev12.7-8',
+    brain: brain('zastepy'),
     load: () => import('./zastepy/index').then(m => m.default),
   },
   {
@@ -158,6 +182,7 @@ export const ARCADE: ArcadeEntry[] = [
     tips: [t('firmament.tip1'), t('firmament.tip2'), t('firmament.tip3'), t('firmament.tip4'), t('firmament.tip5')],
     unit: t('firmament.unit'), art: 'art-firmament', fill: ['#e9e4ff', '#9d8cff', '#3b3f9e', '#0b0f2e'], tools: ['fnirs', 'eeg'], focusChip: false,
     tuning: { adapt: 0.08 }, root: 'psa147.4',
+    brain: brain('firmament'),
     load: () => import('./firmament/index').then(m => m.default),
   },
 ];
