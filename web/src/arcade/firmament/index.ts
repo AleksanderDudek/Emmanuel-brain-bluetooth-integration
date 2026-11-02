@@ -1,12 +1,154 @@
-/** A placeholder until the game is built (DESIGN.md §8): the registry can load it, nothing more. */
-import { h } from '../../ui/dom';
-import type { ArcadeModule } from '../kit/types';
+/**
+ * Firmament (stars in threes): a match-3 saga in the night sky after Psalm 147:4 — "He determines
+ * the number of the stars; He calls them each by name."  Swap two neighbouring sky bodies (a drag,
+ * or a tap and a tap) to line up three or more; four make a comet, an L or a T a supernova, five a
+ * pulsar; levels with goals and limited moves, one to three stars, constellations of ten.  The band
+ * is the telescope: in an Obserwacja the level above the threshold gathers light into the lens, and
+ * a full lens puts an instrument in the tray (a held focus of 12 s makes it a pulsar); in the Cisza
+ * nocy calm brings falling stars that leave comets; out of moves, six seconds of the block's own
+ * state give five more.  The Milky Way across the top keeps the last 40 s.
+ *
+ * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts with the
+ * match-3 engine in board.ts, the levels in levels.ts, the numbers in rules.ts and the meta in
+ * meta.ts), the pictures (render.ts with hud.ts and layout.ts, intro.ts for calibration, preview.ts
+ * for the lobby, all drawn with paint.ts), the sound (audio.ts) and the lobby's card (panel.ts); the
+ * data in content.ts, the words in i18n.ts.
+ */
+import type { FocusFrame } from '../kit/focus';
+import { buzz } from '../kit/juice';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, PointerInput, SignalPhase } from '../kit/types';
+import { FirmamentSound } from './audio';
+import { unit } from './i18n';
+import { bestOf, freshProgress, type FirmamentProgress } from './meta';
+import { progressPanel } from './panel';
+import { drawPreview } from './preview';
+import { FirmamentView } from './render';
+import { FirmamentSim, RULES, type SimEvent } from './sim';
 
-const mod: ArcadeModule<{ sessions: number }> = {
-  freshProgress: () => ({ sessions: 0 }),
-  create: () => { throw new Error('firmament: not built yet'); },
-  best: () => null,
-  progressPanel: () => h('div', null),
-  preview: () => undefined,
+class FirmamentGame implements ArcadeGame {
+  private readonly sim: FirmamentSim;
+  private readonly view: FirmamentView;
+  private readonly sound: FirmamentSound;
+  /** a drag in progress: the cell it began on and where */
+  private drag: { id: number; cell: number; x: number; y: number; done: boolean } | null = null;
+
+  constructor(private readonly env: GameEnv<FirmamentProgress>) {
+    this.sim = new FirmamentSim({
+      progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+    });
+    this.view = new FirmamentView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg' });
+    this.sound = new FirmamentSound(env.audio);
+    this.view.onStep = (st, bonus) => this.sound.step(st, bonus);
+    // the app's ?debug view lets the screenshot scripts reach the rules (never in normal play)
+    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __firmament?: FirmamentSim }).__firmament = this.sim;
+  }
+
+  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr); }
+
+  intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
+
+  start(): void {
+    this.sim.start();
+    this.sound.start();
+    this.view.start();
+    this.drain();
+  }
+
+  update(dt: number, f: FocusFrame, t: number): void {
+    this.sim.update(dt, f, t);
+    this.drain();
+    this.view.update(dt, this.sim);
+  }
+
+  draw(): void { this.view.draw(this.sim); }
+
+  /** A tap selects, uses an instrument or swaps with the selected neighbour; a drag swaps toward where it goes. */
+  pointer(e: PointerInput): void {
+    const sim = this.sim;
+    if (e.type === 'down') {
+      const hit = this.view.hit(sim, e.x, e.y);
+      this.drag = null;
+      if (!hit) sim.tap(-1);
+      else if ('restart' in hit) sim.restart();
+      else if ('slot' in hit) sim.pickTool(hit.slot);
+      else {
+        sim.tap(hit.cell);
+        if (sim.selected === hit.cell) this.drag = { id: e.id, cell: hit.cell, x: e.x, y: e.y, done: false };
+      }
+    } else if (e.type === 'move') {
+      const d = this.drag;
+      if (!d || d.done || d.id !== e.id || sim.selected !== d.cell) return;
+      const dx = e.x - d.x, dy = e.y - d.y, reach = this.view.cellSize * RULES.dragCell;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < reach) return;
+      d.done = true;
+      const B = sim.board;
+      const r = B.r(d.cell) + (Math.abs(dy) > Math.abs(dx) ? Math.sign(dy) : 0);
+      const c = B.c(d.cell) + (Math.abs(dx) >= Math.abs(dy) ? Math.sign(dx) : 0);
+      if (B.inside(r, c)) sim.tap(B.at(r, c));
+    } else if (this.drag?.id === e.id) this.drag = null;
+    this.drain();
+  }
+
+  /** Arrows and Enter move the cursor and swap, Space hints and plays, 1–4 pick an instrument. */
+  key(key: string, down: boolean): boolean {
+    const used = this.sim.key(key, down);
+    if (used) this.drain();
+    return used;
+  }
+
+  pause(paused: boolean): void {
+    if (paused) this.drag = null;
+  }
+
+  private drain(): void {
+    for (const e of this.sim.take()) {
+      this.view.on(e, this.sim);
+      this.sound.on(e);
+      if (this.env.haptics) haptic(e);
+    }
+  }
+
+  padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
+
+  canStop(): boolean { return this.sim.canStop(); }
+
+  /** What the block asks of the brain, for the runner's signal dock. */
+  signal(): SignalPhase {
+    const s = this.sim, b = s.block;
+    if (!s.started || s.phase !== 'play' || !b || b.kind === 'warmup') return { want: 'free', blind: false };
+    // the strategy the status shows, so the dock and the runner's banner say the same words
+    return { want: b.kind === 'obs' ? 'focus' : 'rest', blind: s.blind, task: s.tip || undefined };
+  }
+
+  /** Ended early: the sim settles at once; its events are dropped (the view and the sound are about to go). */
+  finish(): void {
+    this.sim.finish();
+    this.sim.take();
+  }
+
+  result(): ArcadeOutcome { return this.sim.result(); }
+
+  destroy(): void { this.drag = null; }
+}
+
+function haptic(e: SimEvent): void {
+  switch (e.type) {
+    case 'resolve': buzz(e.res.steps.length > 2 ? [8, 30, 8, 30, 12] : 8); break;
+    case 'bounce': buzz(14); break;
+    case 'instrument': buzz([12, 40, 12, 40, 20]); break;
+    case 'falling': buzz([6, 30, 10]); break;
+    case 'won': buzz([10, 30, 10, 30, 30]); break;
+    case 'rescue': buzz([20, 40, 20]); break;
+    default: break;
+  }
+}
+
+const mod: ArcadeModule<FirmamentProgress> = {
+  freshProgress,
+  create: env => new FirmamentGame(env),
+  best: p => (p.sessions > 0 ? bestOf(p) : null),
+  unit,
+  progressPanel: p => progressPanel(p),
+  preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
 };
 export default mod;
