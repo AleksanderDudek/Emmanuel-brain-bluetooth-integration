@@ -53,3 +53,17 @@ describe('the signal dock', () => {
     expect(text()).not.toContain('90%');
   });
 });
+
+describe('the signal dock and a game’s own strategy', () => {
+  it('shows the game’s task when the game gives one, in the dock and the banner', () => {
+    const dock = new SignalDock('fnirs', BRAIN);
+    const seen: BlockStart[] = [];
+    dock.onBlock = b => seen.push(b);
+    let t = feed(dock, 0, 3, { want: 'focus', blind: false, task: 'Count back from 300 in sevens.' }, frame(4));
+    expect(seen[0].task).toBe('Count back from 300 in sevens.');
+    expect(dock.el.querySelector('.dock-task')!.textContent).toContain('Count back from 300 in sevens.');
+    t = feed(dock, t, 3, { want: 'focus', blind: false, task: 'Picture the room.' }, frame(4));
+    expect(seen).toHaveLength(1);
+    expect(dock.el.querySelector('.dock-task')!.textContent).toContain('Picture the room.');
+  });
+});

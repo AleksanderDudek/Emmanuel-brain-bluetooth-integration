@@ -139,17 +139,19 @@ export class SignalDock {
     this.trace.push(tSec, f, phase.want, phase.blind);
     const was = { want: this.coach.want, blind: this.coach.blind };
     this.coach.push(tSec, f, phase, dt);
-    if (phase.want !== 'free' && (!this.seen || phase.want !== was.want || phase.blind !== was.blind)) this.begin(phase.want, phase.blind, was);
+    if (phase.want !== 'free' && (!this.seen || phase.want !== was.want || phase.blind !== was.blind)) this.begin(phase.want, phase.blind, was, phase.task);
     else if (phase.want === 'free' && was.want !== 'free') this.taskNow = '';
+    else if (phase.want !== 'free' && phase.task && phase.task !== this.taskNow) this.taskNow = phase.task;   // the game turned its strategy
     this.seen = true;
     this.render(f);
   }
 
   /** A push or rest block began: the next strategy, and the banner. */
-  private begin(want: 'focus' | 'rest', blind: boolean, was: { want: string; blind: boolean }): void {
+  private begin(want: 'focus' | 'rest', blind: boolean, was: { want: string; blind: boolean }, gameTask?: string): void {
     // a veil lifted inside the same push (the game shows its telegraph): the block and its task go on
     if (this.taskNow && was.want === want && was.blind && !blind) return;
-    this.taskNow = taskText(want, this.begun[want]++);
+    // the game's own strategy when it shows one, so the HUD, the dock and the banner say the same
+    this.taskNow = gameTask || taskText(want, this.begun[want]++);
     this.onBlock?.({ want, blind, task: this.taskNow, effect: want === 'focus' ? this.brain.focus : this.brain.rest });
   }
 

@@ -9,8 +9,11 @@ import type { FocusFrame, FocusTuning } from './focus';
 import type { PassageId } from './scripture';
 import type { TracePhase } from './trace';
 
-/** What the current block asks of the brain (ArcadeGame.signal). */
-export interface SignalPhase { want: TracePhase; blind: boolean }
+/**
+ * What the current block asks of the brain (ArcadeGame.signal).  `task`: the game's own strategy for
+ * the block, when its HUD shows one — the runner's dock and banner then show the same words.
+ */
+export interface SignalPhase { want: TracePhase; blind: boolean; task?: string }
 
 export const FREE_PHASE: SignalPhase = { want: 'free', blind: false };
 
