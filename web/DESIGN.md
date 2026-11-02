@@ -57,10 +57,10 @@ language, and each text's English, German and Swedish forms are in the catalogs 
   band are greyed out with the reason. Games opens with one line saying which signal the games
   will read (the band, the simulator, or none), with the action that changes it, then the **game
   of the day** (a wide card; every training game in turn, one a day, the same for everyone), then
-  **Training games** (§9, either band) in three rows by kind of play — puzzles, skill games,
-  creative — with a "new" mark on a game the player has never played, then **HolyHolyHoly**
+  **Training games** (§9, either band) in four rows by kind of play — puzzles, runs, skill
+  games, creative — with a "new" mark on a game the player has never played, then **HolyHolyHoly**
   (Mendi, playable without a band, in Polish). On a phone the training-game cards turn compact (the
-  picture beside the words), so ten games stay a short list. Home's Play shelf leads with the game
+  picture beside the words), so thirteen games stay a short list. Home's Play shelf leads with the game
   of the day.
 * The Mendi **Signal** view starts with "play with this signal", which opens the games straight
   from the instrument view.

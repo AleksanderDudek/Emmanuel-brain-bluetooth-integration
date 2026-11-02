@@ -326,4 +326,5 @@ the parable's man, not a picture of Christ.
 | Signal in sight | ribbon of dawn + ladder | skyline of palms + sightline | call ring + footprints + tally |
 | Symbols (exclusive) | the road, feet, watchmen, the seven churches | the sycamore-fig, Jericho's palms | sheep, the fold, the lost lamb |
 
-The Games tab gains a section **Biegi** (runs) after the puzzles.
+The Games tab gains a section **Biegi** (runs: Posłaniec, Zacheusz) after the puzzles; Pasterz joins
+the skill games. The game of the day now cycles through eleven.
