@@ -13,7 +13,7 @@ import { fmtNum, fmtSigned } from '../../i18n';
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
 import { inTurn, type PassageId } from '../kit/scripture';
-import type { ArcadeGame, ArcadeOutcome, GameEnv, PointerInput } from '../kit/types';
+import type { ArcadeGame, ArcadeOutcome, GameEnv, PointerInput, SignalPhase } from '../kit/types';
 import { GeodaSound } from './audio';
 import { CLARITY, MINERALS, STRATEGIES, TIERS, type Pt } from './content';
 import type { FinaleView } from './finale';
@@ -434,6 +434,13 @@ export class GeodaGame implements ArcadeGame {
 
   pause(paused: boolean): void {
     if (paused) this.cancelHand();
+  }
+
+  /** What the block asks of the brain, for the runner's signal dock. */
+  signal(): SignalPhase {
+    const s = this.sim;
+    if (s.phase === 'wzrost') return { want: 'focus', blind: !!s.block?.blind };
+    return { want: s.phase === 'szlif' ? 'rest' : 'free', blind: false };
   }
 
   canStop(): boolean {

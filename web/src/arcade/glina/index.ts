@@ -14,7 +14,7 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, PointerInput } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, PointerInput, SignalPhase } from '../kit/types';
 import { GlinaSound } from './audio';
 import { t } from './i18n';
 import { hit, inPlay, vesselU } from './layout';
@@ -159,6 +159,14 @@ class GlinaGame implements ArcadeGame {
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
 
   canStop(): boolean { return this.sim.canStop(); }
+  /** What the block asks of the brain, for the runner's signal dock. */
+  signal(): SignalPhase {
+    const s = this.sim;
+    if (!s.started) return { want: 'free', blind: false };
+    if (s.phase === 'throw') return { want: 'focus', blind: s.blind };
+    if (s.phase === 'fire') return { want: 'rest', blind: s.closed };
+    return { want: 'free', blind: false };
+  }
 
   /** Ended early: the sim settles the vessel on the wheel and the day; the view and the sound are about to go. */
   finish(): void {

@@ -329,3 +329,31 @@ the parable's man, not a picture of Christ.
 
 The Games tab gains a section **Biegi** (runs: Posłaniec, Zacheusz) after the puzzles; Pasterz joins
 the skill games. The game of the day now cycles through eleven.
+
+### 7.7 The signal dock: the plain chart under every game
+
+The in-world pictures of §7.2 teach the rhythm, but they ask the player to read a metaphor, and the
+earlier eight games draw no history at all. A player asked the plain question — *"I do not see what
+the band shows; is what I am doing reaching my brain right now?"* — so the runner now docks a strip
+under every one of the eleven games (`src/arcade/dock.ts`), switched by the signal button in the top
+bar and on by default (`settings.arcade.signal`). The game's canvas takes the room above it.
+
+1. **The chart** — the last 45 s of activity % against the calibration's 0, through the same
+   `SignalTrace` and `drawTrace` as the in-world histories, so the marks keep their meaning: the
+   adaptive threshold dashed, gold above it, focus and rest blocks as named bands, a dotted gap where
+   the signal failed, a veil over a blind block until it ends, and the band's delay bracketed and
+   named at "now" ("~5 s opóźnienia").
+2. **Now, in words** (`kit/coach.ts`, `SignalCoach`) — the block and its seconds, then one verdict:
+   above the threshold ("Działa — +2,4% nad progiem"), rising, or below it; in rest, sunk, sinking,
+   or still high. In the first seconds of a block, before the delay has passed, it says "wait" instead
+   of "no". Bad signal is "no signal", never low; a blind block says nothing until it ends.
+3. **The block** — when a push or rest block ends, its mean activity after the delay against the
+   previous block of the other kind (the first push against the calibration): "Ostatni blok
+   skupienia: +1,8% względem odpoczynku — mózg zareagował", about flat, or the other way (0.5 % is the
+   line). This is the contrast fNIRS studies measure, and the honest answer to the player's question.
+4. **The session** — focus − rest so far (`BlockContrast`).
+
+The game says which block it is in through `ArcadeGame.signal()` (want: focus / rest / free, and
+blind); a game without it is read as free throughout. The game's own block cards may judge a block
+by time above the adaptive threshold (`RoundJudge`) while the dock compares means: the two can
+differ on a close block, and the dock's numbers say why.

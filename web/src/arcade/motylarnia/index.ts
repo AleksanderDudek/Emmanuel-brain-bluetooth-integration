@@ -7,7 +7,7 @@
 import { mulberry32 } from '../../core/random';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, GameEnv, PointerInput } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, GameEnv, PointerInput, SignalPhase } from '../kit/types';
 import { PIGMENTS, RASPBERRY_POLLEN, SIZE_CLASSES } from './content';
 import { MothSound } from './audio';
 import { t } from './i18n';
@@ -122,6 +122,14 @@ class Motylarnia implements ArcadeGame {
   key(key: string, down: boolean): boolean { return this.sim.key(key, down); }
 
   canStop(): boolean { return this.sim.canStop(); }
+  /** What the block asks of the brain, for the runner's signal dock. */
+  signal(): SignalPhase {
+    const s = this.sim;
+    if (!s.started) return { want: 'free', blind: false };
+    if (s.phase === 'feed') return { want: 'focus', blind: false };
+    if (s.phase === 'spin' || s.phase === 'chrysalis') return { want: 'rest', blind: !!s.round?.blind };
+    return { want: 'free', blind: false };
+  }
 
   /** The pad follows the appetite and a seen chrysalis' clearing, and holds still in a blind cocoon. */
   padLevel(): number | null { return this.sim.padLevel(); }

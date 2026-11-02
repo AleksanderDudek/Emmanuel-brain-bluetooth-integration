@@ -14,7 +14,7 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, PointerInput } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, PointerInput, SignalPhase } from '../kit/types';
 import { PoslaniecSound } from './audio';
 import { Gestures, keyMove } from './input';
 import { bestOf, freshProgress, type PoslaniecProgress } from './meta';
@@ -97,6 +97,12 @@ class PoslaniecGame implements ArcadeGame {
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
 
   canStop(): boolean { return this.sim.canStop(); }
+  /** What the block asks of the brain, for the runner's signal dock. */
+  signal(): SignalPhase {
+    const s = this.sim, b = s.block;
+    if (!s.started || s.phase !== 'play' || !b || b.kind === 'warmup') return { want: 'free', blind: false };
+    return { want: b.kind === 'push' ? 'focus' : 'rest', blind: this.sim.blind };
+  }
 
   finish(): void {
     this.sim.finish();

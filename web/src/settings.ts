@@ -30,6 +30,8 @@ export interface ArcadePrefs {
   volume: number;
   /** short vibrations on phones that have them */
   haptics: boolean;
+  /** the signal dock under the game: the band's chart and what it means, in plain words */
+  signal: boolean;
 }
 
 export interface AppSettings {
@@ -49,7 +51,7 @@ const KEY = 'app_settings';
 export const DEFAULT_TRAINING: TrainingPrefs = {
   minutes: 5, breathwork: true, scene: 'hills', glow: true, zoom: true, hud: true, sound: true, chime: true, volume: 0.5, mood: true,
 };
-export const DEFAULT_ARCADE: ArcadePrefs = { minutes: 5, sound: true, volume: 0.6, haptics: true };
+export const DEFAULT_ARCADE: ArcadePrefs = { minutes: 5, sound: true, volume: 0.6, haptics: true, signal: true };
 export const DEFAULT_SETTINGS: AppSettings = {
   storageTarget: 'browser', recordingDurationSec: 600, tool: null, simulator: { fnirs: false, eeg: false }, training: DEFAULT_TRAINING,
   arcade: DEFAULT_ARCADE,

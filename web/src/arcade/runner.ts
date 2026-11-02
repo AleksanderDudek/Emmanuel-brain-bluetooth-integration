@@ -15,12 +15,13 @@ import { TOOL_INFO, type Tool } from '../tools';
 import { dayScore, newMilestones, type TrainingResult } from '../training/score';
 import { $, fmtDur, h, run, toast } from '../ui/dom';
 import { drawOverview } from '../ui/focus';
+import { SignalDock } from './dock';
 import { ArcadeAudio } from './kit/audio';
 import { BEGINNER_SESSIONS, BEGINNER_TUNING, DEFAULT_TUNING, type FocusTuning } from './kit/focus';
 import { reducedMotion } from './kit/juice';
 import { dayKey, daySeed, saveProgress } from './kit/progress';
 import { ArcadeSession, type CarriedCalibration } from './kit/session';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome } from './kit/types';
+import { FREE_PHASE, type ArcadeGame, type ArcadeModule, type ArcadeOutcome } from './kit/types';
 import type { ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
 
@@ -51,6 +52,8 @@ export interface ArcadeDeps {
   history: () => readonly TrainingResult[];
   /** the device sheet (a modal dialog, so it opens above the game): reconnect mid-session */
   openSheet: () => void;
+  /** persist the settings (the signal dock's switch) */
+  save: () => unknown;
 }
 
 type Stage = 'calibration' | 'countdown' | 'play' | 'summary';
@@ -82,6 +85,7 @@ export class ArcadeRunner {
     wrap: HTMLElement; canvas: HTMLCanvasElement; hud: HTMLElement; overlay: HTMLElement;
     time: HTMLElement; clock: HTMLElement; hold: HTMLElement; pause: HTMLButtonElement;
     chip: HTMLElement | null; chipBar: HTMLElement | null; chipHold: HTMLElement | null; sim: HTMLButtonElement | null;
+    dock: SignalDock; dockBtn: HTMLButtonElement;
     cal?: { bar: HTMLElement; text: HTMLElement; reason: HTMLElement; tip: HTMLElement };
   } | null = null;
   private tipTimer: ReturnType<typeof setInterval> | null = null;
@@ -192,9 +196,18 @@ export class ArcadeRunner {
       e.stopPropagation();
       if (this.stage === 'play') this.setPaused(!this.session?.paused); else this.requestPause();
     });
+    // the signal dock under the game: the band's chart in plain sight, switched in the top bar
+    const dock = new SignalDock(this.session!.tool);
+    const docked = this.d.settings.arcade.signal;
+    const dockBtn = h('button', { class: 'icon-btn arcade-dock-btn', type: 'button', 'aria-label': t('dock.toggle'), title: t('dock.toggle'), 'aria-pressed': String(docked) }, icon('i-signal'));
+    dockBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      this.setDocked(!this.d.settings.arcade.signal);
+      wrap.focus({ preventScroll: true });
+    });
     const top = h('div', { class: 'arcade-top' },
       h('div', { class: 'arcade-time', role: 'progressbar', 'aria-label': t('run.time'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, timeBar),
-      clock, pause);
+      clock, dockBtn, pause);
     const hold = h('div', { class: 'hold', hidden: true, role: 'status' });
     let chip: HTMLElement | null = null, chipBar: HTMLElement | null = null, chipHold: HTMLElement | null = null;
     if (entry.focusChip) {
@@ -212,8 +225,8 @@ export class ArcadeRunner {
         wrap.focus({ preventScroll: true });   // else Space and Enter (the games' keys) would press this button again
       });
     }
-    const wrap = h('div', { class: 'arcade', role: 'application', tabindex: '-1', 'aria-label': t('run.keys', { title: entry.title }) },
-      canvas, hud, top, chip, hold, sim, overlay);
+    const wrap = h('div', { class: docked ? 'arcade docked' : 'arcade', role: 'application', tabindex: '-1', 'aria-label': t('run.keys', { title: entry.title }) },
+      canvas, hud, dock.el, top, chip, hold, sim, overlay);
     const pos = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top, id: e.pointerId };
@@ -235,7 +248,7 @@ export class ArcadeRunner {
     canvas.addEventListener('pointerup', send('up'));
     canvas.addEventListener('pointercancel', send('up'));
     this.root.replaceChildren(wrap);
-    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim };
+    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn };
     wrap.focus({ preventScroll: true });
   }
 
@@ -247,6 +260,7 @@ export class ArcadeRunner {
     this.ui.canvas.width = Math.round(w * dpr);
     this.ui.canvas.height = Math.round(hh * dpr);
     this.safe(() => this.game!.resize(w, hh, dpr));
+    if (this.ui.wrap.classList.contains('docked')) this.ui.dock.resize();
     // a resized canvas is blank: while paused the loop does not draw, so draw the frame once here
     if (this.session?.paused) this.safe(() => this.game!.draw());
   }
@@ -259,6 +273,17 @@ export class ArcadeRunner {
     this.ui.sim.classList.toggle('on', this.simFocus);
     const eeg = ses.tool === 'eeg';
     this.d.hub.setSimState(this.simFocus ? (eeg ? 'focus' : 'task') : (eeg ? 'baseline' : 'rest'));
+  }
+
+  /** Show or hide the signal dock (a setting kept across sessions); the game's canvas takes the room. */
+  private setDocked(on: boolean): void {
+    const ui = this.ui;
+    if (!ui) return;
+    this.d.settings.arcade.signal = on;
+    void this.d.save();
+    ui.wrap.classList.toggle('docked', on);
+    ui.dockBtn.setAttribute('aria-pressed', String(on));
+    this.resize();
   }
 
   // ── calibration and countdown ──────────────────────────────────
@@ -352,6 +377,7 @@ export class ArcadeRunner {
       this.safe(() => game.update(dt, ses.frame, now));
     }
     if (!paused || this.stage !== 'play') this.safe(() => game.draw());
+    if (this.ui?.wrap.classList.contains('docked')) this.ui.dock.draw();
     this.renderTop();
     this.raf = requestAnimationFrame(this.loop);
   };
@@ -414,6 +440,11 @@ export class ArcadeRunner {
       return;
     }
     if (this.stage !== 'play' || ses.paused) return;
+    if (this.ui) {
+      let phase = FREE_PHASE;
+      if (this.game?.signal) this.safe(() => { phase = this.game!.signal!(); });
+      this.ui.dock.push(ses.t, tick.frame, phase, s.dt);
+    }
     let pad: number | null = tick.frame.reliable ? tick.frame.level : 0;
     if (this.game?.padLevel) this.safe(() => { pad = this.game!.padLevel!(tick.frame); });
     if (pad !== null && Number.isFinite(pad)) this.audio?.focus(pad);

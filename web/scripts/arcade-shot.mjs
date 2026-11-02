@@ -93,8 +93,12 @@ try {
     if (n % 8 === 0) {
       const s = await state();
       if (s) log(`t ${s.t.toFixed(1)} · focus ${s.level.toFixed(2)}${s.reliable ? '' : ' (unreliable)'} · ${s.outcome?.score} ${s.outcome?.unit} · ${JSON.stringify(s.outcome?.stats ?? [])}`);
+      // the signal dock's words (src/arcade/dock.ts), when it is shown
+      const dock = await page.evaluate(() => [...document.querySelectorAll('#arcadeLayer .arcade.docked .dock-text p')].map(p => p.textContent).filter(Boolean).join(' | '));
+      if (dock) log(`  dock: ${dock}`);
     }
-    if (n === 12 || n === 34) await shot(`3-play-${++shots}`);
+    // two early shots, then one every ~26 s for long sessions (blocks, rests, the dock's block reports)
+    if (n === 12 || n === 34 || (n > 34 && n % 40 === 0)) await shot(`3-play-${++shots}`);
     if (n === 20) {
       await page.setViewport({ width: 390, height: 844 });
       await sleep(700);

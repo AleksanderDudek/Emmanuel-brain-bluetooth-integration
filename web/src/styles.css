@@ -557,8 +557,10 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-chips span.on{color:var(--tx);border-color:var(--tool);background:var(--tool-dim)}
 
 .arcade{position:absolute;inset:0;overflow:hidden;touch-action:none;outline:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.arcade canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.arcade-hud{position:absolute;inset:0;pointer-events:none;z-index:2}
+.arcade{--dock:0px}
+.arcade.docked{--dock:132px}
+.arcade>canvas{position:absolute;left:0;top:0;width:100%;height:calc(100% - var(--dock));display:block}
+.arcade-hud{position:absolute;inset:0 0 var(--dock) 0;pointer-events:none;z-index:2}
 .arcade-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:12px;z-index:3;pointer-events:none;
   padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 0 max(16px,env(safe-area-inset-left))}
 .arcade-time{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.16);overflow:hidden}
@@ -566,6 +568,44 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-clock{min-width:64px;text-align:right;font-size:13px;color:rgba(255,255,255,.88);text-shadow:0 1px 6px rgba(0,0,0,.55)}
 .arcade-pause{pointer-events:auto;width:44px;height:44px}
 .arcade-pause svg{width:20px;height:20px}
+.arcade-dock-btn{pointer-events:auto;width:44px;height:44px;opacity:.7}
+.arcade-dock-btn svg{width:20px;height:20px}
+.arcade-dock-btn[aria-pressed="true"]{opacity:1;background:rgba(255,255,255,.16)}
+/* the signal dock: the band's chart and its plain words under the game (src/arcade/dock.ts) */
+.arcade-dock{position:absolute;left:0;right:0;bottom:0;height:var(--dock);display:none;grid-template-columns:minmax(0,1fr) minmax(260px,380px);gap:16px;z-index:3;
+  padding:10px max(16px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
+  background:#0b0c13;border-top:1px solid rgba(255,255,255,.1);color:#fff}
+.arcade.docked .arcade-dock{display:grid}
+.dock-chart{position:relative;min-width:0;min-height:0}
+.dock-chart canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.dock-text{display:flex;flex-direction:column;justify-content:center;gap:3px;min-width:0;overflow:hidden}
+.dock-text p{margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dock-text p:empty{display:none}
+.dock-eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.dock-text .dock-state{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:650;white-space:normal;line-height:1.25;color:rgba(255,255,255,.8)}
+.dock-state::before{content:"";flex:none;width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
+.dock-state[data-tone="good"]{color:#8fe3a8}
+.dock-state[data-tone="warn"]{color:#ffb36b}
+.dock-state[data-tone="blind"]{color:#c9b8ff}
+.dock-nums{font-size:11.5px;color:rgba(255,255,255,.6)}
+.dock-text .dock-block{font-size:12px;color:rgba(255,255,255,.85);white-space:normal;line-height:1.3}
+.dock-session{font-size:12px;color:rgba(255,255,255,.6)}
+.arcade.docked .hold{bottom:calc(var(--dock) + 14px)}
+.arcade.docked .sim-focus{bottom:calc(var(--dock) + 12px)}
+.arcade.docked[data-stage="calibration"] .arcade-overlay{padding-bottom:calc(var(--dock) + 12px)}
+@media (max-width:640px){
+  .arcade.docked{--dock:200px}
+  .arcade-dock{grid-template-columns:minmax(0,1fr);grid-template-rows:80px minmax(0,1fr);gap:6px;padding-top:8px}
+  .dock-text{justify-content:flex-start}
+  .dock-text .dock-state{font-size:14px}
+  .dock-text .dock-block,.dock-session{font-size:11.5px}
+}
+@media (max-height:500px) and (min-width:641px){
+  .arcade.docked{--dock:104px}
+  .arcade-dock{grid-template-columns:minmax(0,1fr) minmax(220px,320px);padding-top:6px}
+  .dock-text .dock-state{font-size:13px}
+  .dock-session{display:none}
+}
 .arcade-chip{position:absolute;left:max(16px,env(safe-area-inset-left));top:calc(max(10px,env(safe-area-inset-top)) + 44px);z-index:3;display:flex;align-items:center;gap:8px;
   padding:6px 11px;border-radius:999px;background:rgba(8,9,14,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fff;pointer-events:none;transition:opacity .3s}
 .arcade-chip svg{width:18px;height:18px;opacity:.8}

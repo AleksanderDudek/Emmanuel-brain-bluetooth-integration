@@ -7,6 +7,12 @@ import type { Tool } from '../../tools';
 import type { ArcadeAudio } from './audio';
 import type { FocusFrame, FocusTuning } from './focus';
 import type { PassageId } from './scripture';
+import type { TracePhase } from './trace';
+
+/** What the current block asks of the brain (ArcadeGame.signal). */
+export interface SignalPhase { want: TracePhase; blind: boolean }
+
+export const FREE_PHASE: SignalPhase = { want: 'free', blind: false };
 
 /** What the runner gives a game. */
 export interface GameEnv<P extends object> {
@@ -73,6 +79,13 @@ export interface ArcadeGame {
    * this method the pad follows `level` (and goes dark while the signal is unreliable).
    */
   padLevel?(f: FocusFrame): number | null;
+  /**
+   * What the current block asks of the brain, for the runner's signal dock (its chart's bands and
+   * its plain-words verdict): 'focus' in a push block, 'rest' in a rest block, 'free' in a warm-up,
+   * a finale or between blocks; `blind` while a blind block hides the signal (the dock veils it too,
+   * and reveals it when the block ends).  Without this method the dock reads the whole session as 'free'.
+   */
+  signal?(): SignalPhase;
   /**
    * The session ends before the game's own ending ("Zakończ i zapisz", the overtime limit): settle
    * now (credit the session, roll what the ending would have rolled).  Called once, right before

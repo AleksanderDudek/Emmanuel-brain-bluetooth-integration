@@ -82,7 +82,7 @@ function setup() {
   const settings: AppSettings = structuredClone(DEFAULT_SETTINGS);
   const deps: ArcadeDeps = {
     hub: hub as unknown as Hub, db: db as unknown as SessionDB, settings, mark: vi.fn(), onSaved: vi.fn(), onExit: vi.fn(),
-    history: () => [], openSheet: vi.fn(),
+    history: () => [], openSheet: vi.fn(), save: vi.fn(),
   };
   const runner = new ArcadeRunner(deps);
   const sample = (x: number, n = 1) => {

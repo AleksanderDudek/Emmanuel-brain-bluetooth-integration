@@ -111,6 +111,7 @@ async function main(): Promise<void> {
     onExit: () => lobby.resume(),
     history: () => trainings,
     openSheet: () => sheet.open(),
+    save,
   });
   const lobby = new ArcadeLobby({ db, settings, save, onPlay: (entry, mod, progress) => {
     lobby.suspend();

@@ -14,7 +14,7 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, PointerInput } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, PointerInput, SignalPhase } from '../kit/types';
 import { WzlotSound } from './audio';
 import { freshProgress, type WzlotProgress } from './meta';
 import { bestOf, progressPanel } from './panel';
@@ -85,6 +85,12 @@ class WzlotGame implements ArcadeGame {
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
 
   canStop(): boolean { return this.sim.canStop(); }
+  /** What the block asks of the brain, for the runner's signal dock. */
+  signal(): SignalPhase {
+    const s = this.sim, b = s.block;
+    if (!s.started || s.phase !== 'play' || !b || b.kind === 'warmup') return { want: 'free', blind: false };
+    return { want: b.kind === 'lekcja' ? 'focus' : 'rest', blind: b.blind };
+  }
 
   /** Ended early: the sim settles at once; the view and the sound are about to go, so its events are dropped. */
   finish(): void {
