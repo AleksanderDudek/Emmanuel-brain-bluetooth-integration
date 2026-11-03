@@ -82,7 +82,9 @@ const PHONE = { width: 390, height: 844, deviceScaleFactor: 2 };
 const browser = await puppeteer.launch({
   executablePath: chromePath(),
   headless: true,
-  args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--autoplay-policy=no-user-gesture-required'],
+  // WebGL on SwiftShader (no GPU on CI), but 2D canvases on Skia's CPU rasteriser: through SwiftShader
+  // the arcade games drew 4–12 fps (the runner's step cap then slowed their clocks to a third), on the CPU 45–55
+  args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--disable-accelerated-2d-canvas', '--autoplay-policy=no-user-gesture-required'],
   defaultViewport: DESKTOP,
   protocolTimeout: 300_000,
 });
