@@ -26,6 +26,8 @@ const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(WEB, 'dist');
 const SHOTS = join(WEB, '.smoke', 'cards');
 const RELAY = process.env.RELAY_URL ?? '';
+// the build's base path (CI builds for GitHub Pages under /<repo>/), as in app-smoke.mjs
+const BASE = (process.env.BASE_PATH ?? '/').replace(/\/?$/, '/');
 const TYPES = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json',
   '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webp': 'image/webp',
@@ -47,7 +49,9 @@ function serve(root) {
   const server = createServer((req, res) => {
     let file;
     try {
-      const path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname));
+      let path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+      if (!path.startsWith(BASE)) throw new Error('outside the base path');
+      path = normalize(`/${path.slice(BASE.length)}`);
       file = join(root, path.endsWith('/') ? `${path}index.html` : path);
     } catch {
       res.writeHead(400).end();
@@ -157,7 +161,7 @@ try {
   };
 
   step('first run: choose fNIRS, use the simulator');
-  await page.goto(`${origin}/?trainingSec=20&lang=pl`, { waitUntil: 'networkidle0' });
+  await page.goto(`${origin}${BASE}?trainingSec=20&lang=pl`, { waitUntil: 'networkidle0' });
   await page.waitForSelector('#toolPick:not([hidden])');
   await page.click('[data-pick="fnirs"]');
   await page.waitForFunction(() => document.body.dataset.tool === 'fnirs' && !document.getElementById('nextStep').hidden);
@@ -269,7 +273,7 @@ try {
   const lone = await ctx.newPage();
   watch(lone, 'pad-join');
   await lone.setViewport(PHONE);
-  await lone.goto(`${origin}/pad.html`, { waitUntil: 'networkidle0' });
+  await lone.goto(`${origin}${BASE}pad.html`, { waitUntil: 'networkidle0' });
   await lone.waitForSelector('.k-join input');
   await lone.screenshot({ path: join(SHOTS, '14-pad-join.png') });
   await lone.close();
@@ -341,12 +345,12 @@ try {
     const p = await ctx.newPage();
     watch(p, lang);
     await p.setViewport(PHONE);
-    await p.goto(`${origin}/?lang=${lang}#karty`, { waitUntil: 'networkidle0' });
+    await p.goto(`${origin}${BASE}?lang=${lang}#karty`, { waitUntil: 'networkidle0' });
     await p.waitForSelector('#view-karty .k-module');
     await sleep(600);
     await p.screenshot({ path: join(SHOTS, `20-home-${lang}.png`), fullPage: true });
     await overflow(`cards home (${lang}, phone)`, p);
-    await p.goto(`${origin}/?lang=${lang}#karty/gra/obie`, { waitUntil: 'networkidle0' });
+    await p.goto(`${origin}${BASE}?lang=${lang}#karty/gra/obie`, { waitUntil: 'networkidle0' });
     await p.waitForSelector('#view-karty .k-start');
     await overflow(`lobby (${lang}, phone)`, p);
     await p.close();

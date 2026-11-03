@@ -168,9 +168,10 @@ export class RelayLink extends DuoLink {
     ws.onclose = e => {
       if (this.ws !== ws) return;
       this.ws = null;
-      // 4000 bad room, 4001 replaced by a newer connection, 4002 room full: retrying would not help
-      // (4003 "too slow" and the network's own closes are worth a reconnect)
-      if (e.code === 4000 || e.code === 4001 || e.code === 4002) {
+      // 4000 bad room, 4001 replaced by a newer connection, 4002 room full, 4004 another board holds the
+      // room: retrying would not help (4003 "too slow", 4005 "too many connections" and the network's own
+      // closes are worth a reconnect)
+      if (e.code === 4000 || e.code === 4001 || e.code === 4002 || e.code === 4004) {
         this.refused = e.reason || String(e.code);
         this.closed = true;
       }

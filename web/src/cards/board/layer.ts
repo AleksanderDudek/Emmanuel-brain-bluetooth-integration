@@ -13,7 +13,7 @@ import { TOOL_INFO } from '../../tools';
 import type { TrainingResult } from '../../training/score';
 import { itemSvg, svgEl } from '../art/draw';
 import { ChannelLink, LocalLink, newRoom, padUrl, RelayLink, type DuoLink, type LinkKind, type LinkMessage, type PeerEvent } from '../duo/link';
-import { asPadMsg, PROTOCOL, type BoardMsg, type PadLayout, type PadState } from '../duo/protocol';
+import { asPadMsg, PROTOCOL, type BoardMsg, type FeedbackMsg, type PadLayout, type PadState } from '../duo/protocol';
 import { qrMatrix, qrPath } from '../duo/qr';
 import { gameMeta } from '../games';
 import { headline, sessionStats, unitOf } from '../games/stats';
@@ -74,8 +74,8 @@ export interface LayerDeps {
   onClose: () => void;
 }
 
-/** A pad that has said nothing for this long is gone (ms); it pings every few seconds. */
-const PAD_SILENT_MS = 9000;
+/** A pad that has said nothing for this long is gone (ms); it pings every 1.5 s (pad/view.ts). */
+export const PAD_SILENT_MS = 4000;
 /** The rest between the daily workout's games (s). */
 const REST_SEC = 15;
 /** The shortest game worth saving (s of play). */
@@ -111,6 +111,8 @@ export class CardsLayer {
   private startedAt = 0;
   private restUntil = 0;
   private lastLayout: PadLayout | null = null;
+  /** the items marked done on the current layout (found targets, passed stops): a rejoined pad gets them again */
+  private kept: FeedbackMsg[] = [];
   private lastState: { state: PadState; input: boolean; text?: string } = { state: 'pairing', input: false };
   private seq = 0;
   private ui: {
@@ -130,6 +132,8 @@ export class CardsLayer {
   constructor(private readonly d: LayerDeps) {}
 
   get active(): boolean { return this.step !== 'closed'; }
+  /** something would be lost by leaving: the reference, a game or the rest between games (not pairing, not the saved summary) */
+  get busy(): boolean { return this.step === 'baseline' || this.step === 'game' || this.step === 'rest'; }
 
   // ── opening and closing ──────────────────────────────────────────
 
@@ -144,6 +148,7 @@ export class CardsLayer {
     this.padPause = false;
     this.padRtt = null;
     this.lastLayout = null;
+    this.kept = [];
     this.lastState = { state: 'pairing', input: false };
     this.baseUi = null;
     this.pairStatus = null;
@@ -179,7 +184,10 @@ export class CardsLayer {
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.padView?.destroy();
     this.padView = null;
-    setTimeout(() => { this.link?.close(); this.padLink?.close(); this.link = this.padLink = null; }, 200);
+    // the "bye" gets a moment to leave; the links are taken now, so a session opened meanwhile keeps its own
+    const link = this.link, padLink = this.padLink;
+    this.link = this.padLink = null;
+    setTimeout(() => { link?.close(); padLink?.close(); }, 200);
     if (this.rawRecording) void this.d.record.stop();
     this.rawRecording = false;
     this.root?.remove();
@@ -204,7 +212,9 @@ export class CardsLayer {
     } else if (kind === 'channel') {
       this.link = new ChannelLink(this.room, 'board', 'board');
     } else {
-      this.link = new RelayLink(RelayLink.urlFor(this.room, 'board', 'board'), 'board');
+      // an id of its own per session: the relay lets only this board back into the room (brainlink/duo_api.py)
+      const id = `b${Math.random().toString(36).slice(2, 12)}`;
+      this.link = new RelayLink(RelayLink.urlFor(this.room, 'board', id), 'board');
       this.link.addEventListener('peer', e => {
         const p = (e as CustomEvent<PeerEvent>).detail;
         if (p.role === 'pad' && p.event === 'leave' && p.id === this.padId) this.padSeen = 0;
@@ -245,6 +255,7 @@ export class CardsLayer {
     const g = this.currentGame();
     this.send({ t: 'hello', v: PROTOCOL, game: g ?? '', title: g ? t(`game.${g}.title`) : t('pad.title'), marks: !!this.plan?.marks });
     if (this.lastLayout) this.send({ t: 'layout', seq: ++this.seq, layout: this.lastLayout });
+    for (const fb of this.kept) this.send(fb);
     this.send({ t: 'state', ...this.lastState });
   }
 
@@ -255,6 +266,7 @@ export class CardsLayer {
 
   private padLayout(layout: PadLayout): void {
     this.lastLayout = layout;
+    this.kept = [];
     this.send({ t: 'layout', seq: ++this.seq, layout });
   }
 
@@ -438,9 +450,7 @@ export class CardsLayer {
   private ensureStage(game: GameId): Stage {
     const ui = this.ui!;
     if (!this.stage || this.stageGame !== game) {
-      const meta = gameMeta(game)!;
-      const probe = meta.create({ rng: Math.random, level: 1 });
-      this.stage = new Stage(game, probe.rule() !== null);
+      this.stage = new Stage(game);
       this.stage.marks = !!this.plan?.marks;
       this.stageGame = game;
       ui.stageBox.replaceChildren(this.stage.el);
@@ -465,9 +475,12 @@ export class CardsLayer {
     const level = plan.levels[game] ?? 1;
     const rng = mulberry32((Date.now() ^ 0x5bd1e995) >>> 0);
     this.loop = new TrialLoop(meta, { rng, level, plannedSec: seconds, practice: plan.practice[game] ?? true }, {
-      show: (s, legend, cue) => stage.show(s, legend, cue),
+      show: (s, legend, cue) => stage.show(s, legend, cue, this.loop?.rule != null),
       layout: l => this.padLayout(l),
-      feedback: fb => this.send(fb),
+      feedback: fb => {
+        if (fb.keep && fb.ok) this.kept.push(fb);
+        this.send(fb);
+      },
       padState: (s, input, text) => this.padState(s, input, text ?? (s === 'practice' && !input ? t('run.practice') : undefined)),
       countdown: n => {
         stage.countdown(n);
@@ -510,9 +523,12 @@ export class CardsLayer {
     const loop = this.loop;
     if (this.step === 'game' && loop) {
       // the pad went quiet: stop the clock instead of counting misses it cannot help
+      // as of the last word from it: the silent seconds are not play, and their timeouts are not misses
       if (loop.phase === 'play' && !this.padPresent) {
+        if (this.padSeen > 0) loop.lost(this.padSeen, now);
         this.pause(t('run.padLost'));
         this.padPause = true;
+        this.renderScore();
       }
       // (a tick can end the game: endGame() clears this.loop, so the clock reads the loop it ticked)
       loop.tick(now);

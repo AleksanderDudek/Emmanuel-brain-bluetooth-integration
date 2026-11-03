@@ -27,8 +27,11 @@ export interface PadViewOptions {
   embedded?: boolean;
 }
 
-/** Ping often while the estimate settles, then every few seconds to follow drift (ms). */
-const PING_FAST = 400, PING_SLOW = 4000, FAST_PINGS = 8;
+/**
+ * Ping often while the estimate settles, then every 1.5 s: to follow drift, and as the heartbeat that
+ * tells the board the pad is still there (it pauses after 4 s of silence, board/layer.ts) (ms).
+ */
+const PING_FAST = 400, PING_SLOW = 1500, FAST_PINGS = 8;
 
 export class PadView {
   readonly clock = new ClockSync();

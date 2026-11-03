@@ -137,7 +137,7 @@ async function main(): Promise<void> {
   let leaving = false;
   const bandInUse = () => { const d = hub.active?.device; return !!d && (d.isConnected || d.info.reconnecting); };
   new LanguagePicker({
-    state: () => ({ band: bandInUse(), recording: recorder.recording, session: runner.active || arcade.active || cards.active || games.current !== null }),
+    state: () => ({ band: bandInUse(), recording: recorder.recording, session: runner.active || arcade.active || cards.busy || games.current !== null }),
     release: async () => {
       leaving = true;   // the reload is confirmed: no second question from beforeunload
       if (recorder.recording) await engine.stopRecording();
@@ -301,7 +301,7 @@ async function main(): Promise<void> {
     if (document.visibilityState === 'hidden') void recorder.checkpoint();   // mobile may kill hidden tabs
   });
   window.addEventListener('beforeunload', e => {
-    if (!leaving && (recorder.recording || runner.active || arcade.active || cards.active)) e.preventDefault();
+    if (!leaving && (recorder.recording || runner.active || arcade.active || cards.busy)) e.preventDefault();
   });
 
   await Promise.all([sheet.bt.init(), settingsView.renderStorage()]);

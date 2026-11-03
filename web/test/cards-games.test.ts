@@ -14,9 +14,10 @@ export function solve(eng: GameEngine, spec: TrialSpec, layout: PadLayout): { it
   const items = layout.panels.flatMap((p, panel) => p.items.map(it => ({ ...it, panel })));
   if (eng.id === 'stroop' && stim.kind === 'item') return [{ item: stim.item.label!, panel: 0 }];
   if (stim.kind === 'item') {
-    // no rule: the answer looks like the cue (Kolorowe palce)
+    // no rule: the answer looks like the cue (Kolorowe palce); a rule by shape (cards 25, 30) is read by the shape
     const rule = eng.rule();
-    const ans = rule ? rule.rows.find(r => r.cue.id === stim.item.id)!.answer.id : stim.item.id;
+    const row = rule?.rows.find(r => r.cue.id === stim.item.id || (r.cue.shape !== undefined && r.cue.shape === stim.item.shape));
+    const ans = rule ? row!.answer.id : stim.item.id;
     return Array.from({ length: stim.count ?? 1 }, () => ({ item: ans, panel: 0 }));
   }
   if (stim.kind === 'pair') {
@@ -112,7 +113,7 @@ describe('the two-screen games', () => {
   });
 
   it('the rule-switch level deals a different rule and says so', () => {
-    const eng = gameMeta('gesty')!.create({ rng: mulberry32(5), level: 7 });
+    const eng = gameMeta('gesty')!.create({ rng: mulberry32(5), level: 9 });
     const first = JSON.stringify(eng.rule());
     let switched = false;
     for (let i = 0; i < 20; i++) {
@@ -202,5 +203,37 @@ describe('session statistics', () => {
     const s = sessionStats('sekwencja', recs, 60);
     expect(headline('sekwencja', s)).toBe(4);
     expect(s.spanMean).toBe(3.7);
+  });
+});
+
+describe('the games follow their cards', () => {
+  it('Dłoń, pięść, kant: each card its own colours, and on cards 25 and 30 the shape decides', () => {
+    const ruleAt = (level: number) => gameMeta('gesty')!.create({ rng: mulberry32(1), level }).rule()!.rows
+      .map(r => `${r.cue.color ?? r.cue.shape}→${r.answer.id}`);
+    expect(ruleAt(1)).toEqual(['coral→palm', 'navy→fist', 'yellow→edge']);                       // card 03
+    expect(ruleAt(4)).toEqual(['magenta→palm', 'teal→fist', 'yellow→edge']);                     // card 13
+    expect(ruleAt(5)).toEqual(['magenta→palm', 'navy→fist', 'yellow→edge', 'teal→twoTips', 'peach→twoFlat']);   // card 21
+    expect(ruleAt(7)).toEqual(['ink→fist', 'ink→twoTips', 'ink→twoFlat']);                       // card 25 (shapes in ink)
+    const card30 = gameMeta('gesty')!.create({ rng: mulberry32(1), level: 8, fixed: true });
+    expect(card30.rule()!.rows.map(r => `${r.cue.shape}→${r.answer.id}`)).toEqual(['hand→palm', 'circle→fist', 'pill→edge']);
+    // the colour only distracts: the same shape in any colour asks for the same gesture
+    const seen = new Map<string, Set<string>>();
+    for (let i = 0; i < 60; i++) {
+      const spec = card30.start();
+      const it = (spec.stim as { item: { shape: string; color: string } }).item;
+      if (!seen.has(it.shape)) seen.set(it.shape, new Set());
+      seen.get(it.shape)!.add(it.color);
+      card30.timeout();
+      card30.finish(i, 0);
+    }
+    expect([...seen.values()].some(c => c.size > 1)).toBe(true);
+  });
+
+  it('Obie ręce: card 32\'s blocks in its order, and card 23\'s wheel in plain purple', () => {
+    const eng = gameMeta('obie')!.create({ rng: mulberry32(1), level: 6, fixed: true });
+    expect(eng.layout().panels[0].items.map(i => i.color)).toEqual(['coral', 'yellow', 'peach', 'green', 'navy', 'purple', 'magenta', 'grey', 'teal']);
+    const wheel = gameMeta('obie')!.create({ rng: mulberry32(1), level: 4, fixed: true });
+    expect(wheel.layout().panels[0].items.map(i => i.color)).toContain('purple');
+    expect(wheel.layout().panels[0].items.map(i => i.color)).not.toContain('violet');
   });
 });

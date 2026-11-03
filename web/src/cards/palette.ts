@@ -14,6 +14,8 @@ export const COLORS = {
   peach: '#FFB38A',
   magenta: '#C2379B',
   violet: '#4E0C93',
+  /** card 32's green block (only there) */
+  green: '#4E8B4A',
   grey: '#9CA3AF',
   ink: '#111827',
 } as const;
@@ -24,7 +26,7 @@ export const COLOR_IDS = Object.keys(COLORS) as ColorId[];
 /** Text that stays readable on each colour (the light ones take ink, the dark ones white). */
 export const ON_COLOR: Readonly<Record<ColorId, string>> = {
   navy: '#fff', purple: '#fff', coral: '#fff', teal: '#073b39', yellow: '#3b2a00', peach: '#4a2410',
-  magenta: '#fff', violet: '#fff', grey: '#111827', ink: '#fff',
+  magenta: '#fff', violet: '#fff', green: '#fff', grey: '#111827', ink: '#fff',
 };
 
 /**
@@ -33,12 +35,14 @@ export const ON_COLOR: Readonly<Record<ColorId, string>> = {
  * rule by symbol.  The symbols are not the game shapes, so they never answer a shape question.
  */
 export const COLOR_MARK: Readonly<Record<ColorId, string>> = {
-  navy: '●', purple: '◆', coral: '▲', teal: '■', yellow: '✚', peach: '◐', magenta: '✱', violet: '◇', grey: '○', ink: '✕',
+  navy: '●', purple: '◆', coral: '▲', teal: '■', yellow: '✚', peach: '◐', magenta: '✱', violet: '◇', green: '♣', grey: '○', ink: '✕',
 };
 
 /** The shapes of cards 12, 16, 23 and 31, drawn in a 100×100 box. */
-export type ShapeId = 'circle' | 'square' | 'triangle' | 'star' | 'heart' | 'hexagon';
+export type ShapeId = 'circle' | 'square' | 'triangle' | 'star' | 'heart' | 'hexagon' | 'pill' | 'twoDots' | 'hand';
+/** The six shapes of the shape games (cards 23, 31); cards 25 and 30 add a pill, two dots and a hand. */
 export const SHAPE_IDS: readonly ShapeId[] = ['circle', 'square', 'triangle', 'star', 'heart', 'hexagon'];
+export const ALL_SHAPE_IDS: readonly ShapeId[] = [...SHAPE_IDS, 'pill', 'twoDots', 'hand'];
 
 const star = (): string => {
   const pts: string[] = [];
@@ -66,4 +70,9 @@ export const SHAPE_PATH: Readonly<Record<ShapeId, string>> = {
   star: star(),
   heart: 'M50 88C20 66 8 50 8 33C8 19 19 9 32 9c8 0 14 4 18 10c4-6 10-10 18-10c13 0 24 10 24 24c0 17-12 33-42 55Z',
   hexagon: hexagon(),
+  pill: 'M22 35h56a15 15 0 0 1 0 30h-56a15 15 0 0 1 0-30Z',
+  twoDots: 'M29 36a14 14 0 1 1 0 28a14 14 0 1 1 0-28ZM71 36a14 14 0 1 1 0 28a14 14 0 1 1 0-28Z',
+  // a flat hand, fingers up: the palm, four fingers and the thumb (card 30's big hand)
+  hand: 'M29 52h44v24a16 16 0 0 1-16 16h-12a16 16 0 0 1-16-16ZM29 56V30a5.5 5.5 0 0 1 11 0V56ZM41 54V20a5.5 5.5 0 0 1 11 0V54Z'
+    + 'M53 54V23a5.5 5.5 0 0 1 11 0V54ZM65 56V33a5 5 0 0 1 10 0V58ZM30 70L15 55a5.5 5.5 0 0 1 8-7.5L36 60Z',
 };

@@ -8,8 +8,8 @@
  *
  * Version 1.  Every message is a small JSON object with a type `t`.
  */
-import type { GlyphId } from '../art/glyphs';
-import type { ColorId, ShapeId } from '../palette';
+import { GLYPH_IDS, type GlyphId } from '../art/glyphs';
+import { ALL_SHAPE_IDS, COLOR_IDS, type ColorId, type ShapeId } from '../palette';
 
 export const PROTOCOL = 1;
 
@@ -79,8 +79,7 @@ export type BoardMsg = HelloMsg | LayoutMsg | StateMsg | FeedbackMsg | PongMsg |
 export interface JoinMsg { t: 'join'; v: number; w: number; h: number; touch: boolean }
 /**
  * A tap: `ts` on the pad's clock, `tb` the same moment on the board's clock (the pad's best offset
- * estimate; null before the first sync), the panel and the item.  Taps outside every item are sent
- * too (item ''), so a miss can count as an error where the game says so.
+ * estimate; null before the first sync), the panel and the item.  Taps outside every item are not sent.
  */
 export interface TapMsg { t: 'tap'; item: string; panel: number; ts: number; tb: number | null; n: number }
 export interface PingMsg { t: 'ping'; a: number }
@@ -93,9 +92,49 @@ const TYPES_FROM_PAD = new Set(['join', 'tap', 'ping', 'sync', 'ready', 'leave']
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-/** A message from the board, or null (anything else: another app's message, a relay notice, garbage). */
+const str = (v: unknown, max: number): boolean => typeof v === 'string' && v.length <= max;
+const optStr = (v: unknown, max: number): boolean => v === undefined || str(v, max);
+const num = (v: unknown): boolean => typeof v === 'number' && Number.isFinite(v);
+const optNum = (v: unknown): boolean => v === undefined || num(v);
+const optBool = (v: unknown): boolean => v === undefined || typeof v === 'boolean';
+const oneOf = (v: unknown, set: readonly string[]): boolean => typeof v === 'string' && set.includes(v);
+const ARRANGES: readonly Arrange[] = ['grid', 'ring', 'hand', 'quad', 'field'];
+const STATES: readonly PadState[] = ['pairing', 'idle', 'practice', 'countdown', 'play', 'pause', 'done'];
+
+function isItem(v: unknown): boolean {
+  return isObj(v) && str(v.id, 32)
+    && (v.color === undefined || oneOf(v.color, COLOR_IDS)) && (v.glyph === undefined || oneOf(v.glyph, GLYPH_IDS))
+    && (v.shape === undefined || oneOf(v.shape, ALL_SHAPE_IDS)) && optStr(v.label, 16)
+    && (v.pips === undefined || (Number.isInteger(v.pips) && (v.pips as number) >= 1 && (v.pips as number) <= 6))
+    && optNum(v.x) && optNum(v.y) && optNum(v.r) && optBool(v.done)
+    && (v.look === undefined || v.look === 'cross' || v.look === 'quarter');
+}
+
+/** A layout the pad can draw: one or two panels, each a known arrangement of well-formed items. */
+export function isLayout(v: unknown): v is PadLayout {
+  return isObj(v) && Array.isArray(v.panels) && v.panels.length >= 1 && v.panels.length <= 2
+    && v.panels.every(p => isObj(p) && oneOf(p.arrange, ARRANGES) && Array.isArray(p.items) && p.items.length <= 200
+      && p.items.every(isItem) && (p.cols === undefined || (Number.isInteger(p.cols) && (p.cols as number) >= 1 && (p.cols as number) <= 12))
+      && optStr(p.caption, 80) && optNum(p.aspect));
+}
+
+/**
+ * A message from the board, or null (anything else: another app's message, a relay notice, garbage).
+ * Checked field by field: over the relay it comes from another device, and a malformed one must not
+ * break the pad's drawing.
+ */
 export function asBoardMsg(v: unknown): BoardMsg | null {
-  return isObj(v) && typeof v.t === 'string' && TYPES_FROM_BOARD.has(v.t) ? (v as unknown as BoardMsg) : null;
+  if (!isObj(v) || typeof v.t !== 'string' || !TYPES_FROM_BOARD.has(v.t)) return null;
+  let ok: boolean;
+  switch (v.t) {
+    case 'hello': ok = num(v.v) && str(v.game, 32) && str(v.title, 120) && typeof v.marks === 'boolean'; break;
+    case 'layout': ok = Number.isInteger(v.seq) && isLayout(v.layout); break;
+    case 'state': ok = oneOf(v.state, STATES) && typeof v.input === 'boolean' && optStr(v.text, 300); break;
+    case 'fb': ok = str(v.item, 32) && typeof v.ok === 'boolean' && optBool(v.keep) && (v.panel === undefined || Number.isInteger(v.panel)); break;
+    case 'pong': ok = num(v.a) && num(v.b); break;
+    default: ok = true;   // bye
+  }
+  return ok ? (v as unknown as BoardMsg) : null;
 }
 
 /** A message from a pad, or null.  Taps are checked field by field: they decide scores. */
@@ -107,5 +146,8 @@ export function asPadMsg(v: unknown): PadMsg | null {
     return ok ? (v as unknown as TapMsg) : null;
   }
   if (v.t === 'ping') return Number.isFinite(v.a) ? (v as unknown as PingMsg) : null;
+  // the sync estimate is saved with the session; the join's size and touch only shape the pairing screen
+  if (v.t === 'sync') return num(v.offset) && num(v.rtt) && (v.rtt as number) >= 0 ? (v as unknown as SyncMsg) : null;
+  if (v.t === 'join') return num(v.v) && num(v.w) && num(v.h) && typeof v.touch === 'boolean' ? (v as unknown as JoinMsg) : null;
   return v as unknown as PadMsg;
 }

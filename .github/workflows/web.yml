@@ -43,6 +43,11 @@ jobs:
         env:
           CHROME_PATH: /usr/bin/google-chrome
           BASE_PATH: /${{ github.event.repository.name }}/
+      # the exercise cards: split screen, a pad in a second window, the day's workout, a paper session
+      - run: npm run cards:smoke || { echo '::warning::cards smoke failed once, retrying'; npm run cards:smoke; }
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+          BASE_PATH: /${{ github.event.repository.name }}/
       - run: npm run game3d:smoke || { echo '::warning::game3d smoke failed once, retrying'; npm run game3d:smoke; }
         env:
           CHROME_PATH: /usr/bin/google-chrome

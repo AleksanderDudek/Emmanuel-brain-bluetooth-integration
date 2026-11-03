@@ -6,7 +6,7 @@
  * shape whose colour is one hand's answer and whose shape is the other's (card 23), a coloured
  * number (card 32) — and both hands answer together.  Besides speed and accuracy the game
  * measures the *asynchrony*: how far apart the two touches land.  Moving both hands together
- * while each does something different is the point of the book's two-page spreads, and the gap
+ * while each does something different is the point of the cards' two-page spreads, and the gap
  * between the hands is a direct measure of how well that coordination works.
  */
 import type { PadItem, PadLayout, PadPanel } from '../duo/protocol';
@@ -33,10 +33,10 @@ const shapes = (ss: ShapeId[]): PadItem[] => ss.map(s => ({ id: `R:${s}`, shape:
 const digits = (): PadItem[] => Array.from({ length: 9 }, (_, i) => ({ id: `R:${i + 1}`, label: String(i + 1) }));
 
 /** Card 23's wheels: six colours for one hand, six shapes for the other. */
-const WHEEL_COLORS: ColorId[] = ['yellow', 'teal', 'navy', 'violet', 'coral', 'peach'];
+const WHEEL_COLORS: ColorId[] = ['yellow', 'teal', 'navy', 'purple', 'coral', 'peach'];
 const WHEEL_SHAPES: ShapeId[] = ['triangle', 'circle', 'square', 'hexagon', 'star', 'heart'];
-/** Card 32's colour blocks (3 × 3), in the cards' palette. */
-const BLOCKS: ColorId[] = ['coral', 'yellow', 'peach', 'teal', 'navy', 'purple', 'magenta', 'grey', 'violet'];
+/** Card 32's colour blocks (3 × 3), row by row: red, yellow, orange / green, blue, purple / magenta, grey, teal. */
+const BLOCKS: ColorId[] = ['coral', 'yellow', 'peach', 'green', 'navy', 'purple', 'magenta', 'grey', 'teal'];
 
 export const BI_LEVELS: BiLevel[] = [
   // card 10: three hands a side, each tile = one colour of each side

@@ -25,6 +25,7 @@ WS = "/api/v1/duo/ws"
 @pytest.fixture
 def client():
     duo._rooms.clear()
+    duo._joins.clear()
     app = FastAPI()
     app.include_router(duo.router)               # router only, like the fNIRS API tests
     with TestClient(app) as c:                   # one event loop shared by every socket of a test
@@ -130,17 +131,50 @@ def test_peer_events_and_empty_rooms_are_deleted(client):
     wait_until(lambda: "ROOM2" not in duo._rooms)
 
 
-def test_new_board_replaces_the_old_one(client):
+def test_a_reconnecting_board_replaces_its_old_socket(client):
     with connect(client, "ABCD", "board", "b1") as b1, connect(client, "ABCD", "pad", "p1") as pad:
         skip(b1, pad, b1)                              # welcomes, join
-        with connect(client, "ABCD", "board", "b2") as b2:
+        with connect(client, "ABCD", "board", "b1") as again:
             assert closed_with(b1) == (4001, "replaced")
-            assert recv(b2) == {"t": "relay", "room": "ABCD", "role": "board", "id": "b2",
-                                "peers": [{"role": "pad", "id": "p1"}]}
+            assert recv(again) == {"t": "relay", "room": "ABCD", "role": "board", "id": "b1",
+                                   "peers": [{"role": "pad", "id": "p1"}]}
             assert recv(pad) == peer("leave", "board", "b1")
-            assert recv(pad) == peer("join", "board", "b2")
+            assert recv(pad) == peer("join", "board", "b1")
             pad.send_json({"t": "hi"})
-            assert recv(b2) == {"t": "hi", "from": "p1"}
+            assert recv(again) == {"t": "hi", "from": "p1"}
+
+
+def test_another_board_cannot_take_the_room_over(client):
+    with connect(client, "ABCD", "board", "b1") as b1, connect(client, "ABCD", "pad", "p1") as pad:
+        skip(b1, pad, b1)
+        with connect(client, "ABCD", "board", "intruder") as b2:
+            assert closed_with(b2) == (4004, "room taken")
+        pad.send_json({"t": "hi"})
+        assert recv(b1) == {"t": "hi", "from": "p1"}   # the game goes on with its own board
+    # once the board has left, the room is free again
+    with connect(client, "ABCD", "board", "b2") as b2:
+        assert recv(b2)["role"] == "board"
+
+
+def test_pages_from_other_sites_are_refused(client):
+    with client.websocket_connect(f"{WS}/ABCD?role=pad&id=p1", headers={"origin": "https://evil.example"}) as ws:
+        assert closed_with(ws) == (4000, "origin")
+    with client.websocket_connect(f"{WS}/ABCD?role=pad&id=p1", headers={"origin": "http://testserver"}) as ws:
+        assert recv(ws)["t"] == "relay"                # the app's own page (same host) is welcome
+
+
+def test_connections_from_one_address_are_rate_limited(client, monkeypatch):
+    monkeypatch.setattr(duo, "JOINS_PER_MIN", 3)
+    clock = [1000.0]
+    monkeypatch.setattr(duo, "_now", lambda: clock[0])
+    for k in range(3):
+        with connect(client, "ABCD", "pad", f"p{k}") as ws:
+            assert recv(ws)["t"] == "relay"
+    with connect(client, "ABCD", "pad", "p9") as ws:
+        assert closed_with(ws) == (4005, "too many connections")
+    clock[0] += 61
+    with connect(client, "ABCD", "pad", "p9") as ws:
+        assert recv(ws)["t"] == "relay"
 
 
 def test_pad_with_the_same_id_replaces_its_old_socket(client):

@@ -31,7 +31,7 @@ export type PaperSpeed = 'slow' | 'medium' | 'fast';
 /** A printed card done with the band on (the paper session, src/cards/paper.ts). */
 export interface PaperRecord {
   card: number;
-  /** each timed attempt: the time it took (null: not finished in its block), and the book's target for that speed */
+  /** each timed attempt: the time it took (null: not finished in its block), and the card's target for that speed */
   blocks: { speed: PaperSpeed; sec: number | null; target: number | null }[];
   /** the player's own stars, as on the card (1–3), and errors they noticed */
   stars: 1 | 2 | 3 | null;

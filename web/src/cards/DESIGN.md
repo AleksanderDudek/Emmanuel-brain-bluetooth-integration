@@ -1,7 +1,7 @@
 # Exercise cards ("Karty ćwiczeń"): design
 
-The exercise cards are 32 printed brain-training cards ("Wersja 4K", redrawn from photos of a
-workbook). This module does three things with them:
+The exercise cards are 32 printed brain-training cards, the author's own artwork ("Wersja 4K",
+§9). This module does three things with them:
 
 1. **A printable set.** Anyone can download all 32 cards (PDF or a ZIP of PNGs) or one card, and
    do them on paper while the app records a Mendi or HALO session (*the paper session*, §6.2).
@@ -32,15 +32,18 @@ language); English, German and Swedish are in `i18n*.ts`.
 
 ## 2. The cards
 
-`catalog.ts` lists the 32 cards: their times (read from the photos' badges: slow, medium, fast,
-the book's turtle, dog and cheetah), tags, whether the redraw was corrected (§2.1), and, for the
+`catalog.ts` lists the 32 cards: their times (read from the cards' badges: slow, medium, fast,
+the turtle, dog and cheetah), tags, whether the redraw was corrected (§2.1), and, for the
 7 print-only cards, why they have no game (§4.1).
 
-### 2.1 Checked against the photos
+### 2.1 Checked against the reference photos
 
-Every 4K card was compared with its photo. 15 had errors in the redraw (missing or extra dots,
-wrong colours, a wrong legend, rule tiles that did not match the photo); they were redrawn, and
-the corrected images are the ones the app serves. Each corrected card says what was fixed
+Every 4K card was compared, element by element, with a reference photo of its exercise (the
+photos are not in the repository, §9). 23 had errors in their first version (missing or extra
+dots and links, wrong colours or shades, wrong or missing legends and arrows, rule tiles that did
+not match): 15 were found by a first check and 8 more by a second, independent one, which also
+caught what the first had missed on cards already corrected. They were corrected, and the
+corrected images are the ones the app serves. Each corrected card says what was fixed
 (`fix.cNN` in `i18n-cards.ts`). The cards' titles and instructions in the images stay in English,
 as drawn; the app gives each card a title and a how-to in all four languages.
 
@@ -84,7 +87,7 @@ games (`games/index.ts`), each with levels taken from its cards:
 | Game | Cards | Skill | What a trial is |
 |---|---|---|---|
 | Kolorowe palce | 07, 02, 14, 04 | reaction speed | a colour → the same colour (3, 4, then 5 fingers of a hand, then 6 discs) |
-| Dłoń, pięść, kant | 03, 13, 21, 25, 30 | rules | a colour → its gesture (palm, fist, edge…; later counted repetitions and a rule that changes) |
+| Dłoń, pięść, kant | 03, 13, 21, 25, 30 | rules | a colour → its gesture, each card with its own colours (palm, fist, edge…; counted repetitions on 13, five gestures on 21); on 25 and 30 the shape decides and the colour only distracts; last, a rule that changes |
 | Znaki dłoni | 18, 27, 31 | rules | a colour, later a shape → a hand sign |
 | Ćwiartki | 24 | rules | a coloured crosshair → its quarter |
 | Obie ręce | 10, 05, 16, 23, 32 | coordination | two answers at once, one per hand; their gap is measured |
@@ -98,8 +101,9 @@ The 7 cards that stay on paper:
 
 * **01, 06, 11, 15 — tracing** (lines, spirals, both hands at once). The task is the movement
   itself, which a tap cannot capture.
-* **22 — unclear.** The photo does not settle what the colour pairs ask for; a game built on a
-  guess would teach the wrong rule.
+* **22 — strokes.** A short stroke drawn through every dot (down on the left page, across on the
+  right, as the dashed line at the first dot and the brown disc show): the task is the movement,
+  like the tracing cards.
 * **26 — counting on fingers.** The answer is a number shown with the fingers, which the screen
   cannot see.
 * **28 — a hand on a hand.** The answer is the whole hand laid on a big coloured hand (with face
@@ -109,9 +113,9 @@ They are all in the printable set and can be done with the band in a paper sessi
 
 ### 4.2 Difficulty that follows the player
 
-A staircase (`adaptive.ts`): three successes in a row → one level up; two failures among the last
-four → one level down. It settles where about four trials in five succeed, the edge where training
-works. Memory spans use the span rule (one success → longer, two failures in a row → shorter).
+A staircase (`adaptive.ts`): three successes in a row → one level up (two for Kod kolorów, Szlak and
+Znajdź kolor, whose trials are long); two failures among the last four → one level down. It
+settles where about four trials in five succeed, the edge where training works. Memory spans use the span rule (one success → longer, two failures in a row → shorter).
 The next session starts one level below where the last one ended, as a warm-up (the lobby says so
 and can reset it).
 
@@ -170,11 +174,19 @@ the relay keeps nothing. The board shows a QR code and a 4-character room code (
 characters); the pad page is `pad.html#r=ROOM&v=relay` and opens in the board's language
 (`?lang=`).
 
+The room code is short so it can be typed, so the relay guards the room in other ways: a board
+connects with an id of its own per session, and only that id may come back into the room (another
+board is turned away while it is connected); browser pages from other sites are refused (their
+`Origin` is not this server); and one address may open at most 60 connections a minute, so codes
+cannot be guessed at speed. Every message from the other side is checked field by field before it
+is used (`duo/protocol.ts`): a malformed layout is dropped rather than drawn.
+
 ### 5.2 Timing
 
 * **Clock sync** (`duo/clock.ts`): the pad pings; the board answers at once with its time.
   offset = b − (a + c) / 2, taken from the sample with the smallest round trip among the last 12
-  (within 60 s). Eight fast pings settle it, then one every 4 s follows drift. Each tap carries
+  (within 60 s). Eight fast pings settle it, then one every 1.5 s follows drift
+  and doubles as the pad's heartbeat. Each tap carries
   its time on the board's clock (`tb`).
 * **Onset**: the board draws a cue inside an animation frame, and the frame's timestamp is the
   onset (`board/loop.ts`). **Response**: the pad uses `pointerdown` (not `click`, which comes a
@@ -184,9 +196,11 @@ characters); the pad page is `pad.html#r=ROOM&v=relay` and opens in the board's 
 * The trial cycle: a random wait (so the cue cannot be anticipated) → present → input until done
   or the deadline → the verdict for 380 ms. Practice trials (fixed level, not recorded) and a
   3-2-1 countdown come first.
-* **Pauses**: the board pauses when its tab is hidden, and when the pad has been silent for 9 s
+* **Pauses**: the board pauses when its tab is hidden, and when the pad has been silent for 4 s
   ("the pad disconnected — waiting for it"); it carries on by itself when the pad is back.
-  Paused time is not play time.
+  Paused time is not play time. A pause for a lost pad is dated back to the pad's last message:
+  the silent seconds are not play, and the trials that timed out in them are dropped (the player
+  could not answer them).
 
 ### 5.3 The pad
 
@@ -229,7 +243,7 @@ all three.
 ### 6.2 The paper session
 
 For any card, printed or on a tablet (`board/paper.ts`): a 20 s rest (the reference), then the
-card three times (slow, medium, fast, the book's times), each started and stopped with "Gotowe",
+card three times (slow, medium, fast, the card's times), each started and stopped with "Gotowe",
 with 15 s rests between. At the end the player gives the card's stars and the errors they noticed.
 The app records the times and, with a band, the activity per attempt.
 
@@ -257,5 +271,6 @@ page exports all trials as CSV (one row per trial) and any session as JSON.
 
 ## 9. Rights
 
-The card layouts follow a commercial workbook's exercises. The printable set is meant for the
-user's own practice and testing; check the rights before distributing it publicly.
+The cards are the author's own artwork (the "Wersja 4K" set), and they are the only card images
+the app serves or the repository holds. The photos they were checked against (§2.1) are a
+reference for accuracy only: they stay outside the repository and are never served.

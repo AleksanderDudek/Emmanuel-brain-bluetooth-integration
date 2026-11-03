@@ -29,7 +29,7 @@ export class Stage {
   private legendKey = '';
   marks = false;
 
-  constructor(private readonly game: GameId, private readonly hasRule: boolean) {
+  constructor(private readonly game: GameId) {
     this.el = h('div', 'k-stage-wrap');
     const panel = h('div', 'k-stage');
     this.cue = h('p', 'k-cue');
@@ -40,7 +40,7 @@ export class Stage {
     this.toast.hidden = true;
     panel.append(this.cue, this.main, this.count, this.toast);
     this.legend = h('aside', 'k-legend');
-    this.legend.hidden = !hasRule;
+    this.legend.hidden = true;
     this.el.append(panel, this.legend);
   }
 
@@ -48,12 +48,16 @@ export class Stage {
     return this.game === 'stroop' ? tileSvg(it, { marks: this.marks }) : itemSvg(it, { marks: this.marks });
   }
 
-  show(stim: Stim, legend: Legend | null, cue: TrialSpec['cue'] | null): void {
+  /**
+   * `ruled`: the current level has a rule at all (Szlak's number trails have none, its colour chains
+   * do); without one the rule's panel is hidden, with one it shows the rule or "from memory".
+   */
+  show(stim: Stim, legend: Legend | null, cue: TrialSpec['cue'] | null, ruled = legend !== null): void {
     this.cue.textContent = cue === 'reverse' ? t('run.reverse') : cue === 'switch' ? t('run.switch') : '';
     this.cue.hidden = !cue;
     this.main.dataset.kind = stim.kind;
     this.main.replaceChildren(...this.draw(stim));
-    this.renderLegend(legend);
+    this.renderLegend(legend, ruled);
   }
 
   private draw(s: Stim): Node[] {
@@ -121,8 +125,9 @@ export class Stage {
     return b;
   }
 
-  private renderLegend(legend: Legend | null): void {
-    if (!this.hasRule) return;
+  private renderLegend(legend: Legend | null, ruled: boolean): void {
+    this.legend.hidden = !ruled;
+    if (!ruled) return;
     const key = legend ? JSON.stringify(legend) : 'memory';
     if (key === this.legendKey) return;
     this.legendKey = key;

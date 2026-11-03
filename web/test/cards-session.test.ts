@@ -6,8 +6,11 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mulberry32 } from '../src/core/random';
-import { CardsLayer, type SessionPlan } from '../src/cards/board/layer';
+import { CardsLayer, PAD_SILENT_MS, type SessionPlan } from '../src/cards/board/layer';
+import { asBoardMsg, asPadMsg } from '../src/cards/duo/protocol';
 import { GRACE_MS, TrialLoop, type LoopOutput } from '../src/cards/board/loop';
+import { PaperRun } from '../src/cards/board/paper';
+import { CARDS } from '../src/cards/catalog';
 import { gameMeta } from '../src/cards/games';
 import { BimanualEngine } from '../src/cards/games/bimanual';
 import { TrailEngine } from '../src/cards/games/field';
@@ -65,7 +68,7 @@ describe('cards: the trial loop at its edges', () => {
   });
 
   it('a rule change cut by a pause is announced again on the next trial', () => {
-    const { loop, shows } = harness('gesty', 7);   // from memory, a new rule every 8 trials
+    const { loop, shows } = harness('gesty', 9);   // from memory, a new rule every 8 trials
     loop.begin(0);
     let now = 0, switched = false;
     for (let k = 0; k < 14 && !switched; k++) {
@@ -258,5 +261,168 @@ describe('cards: one session after another', () => {
     expect(layer.band.phase).not.toBe('play');
     expect(layer.band.scorer.series.length).toBe(0);
     layer.close();
+  });
+});
+
+// ── the fixes after the second review ───────────────────────────────
+
+describe('cards: the rule panel follows the level', () => {
+  beforeEach(() => {
+    vi.stubGlobal('requestAnimationFrame', () => 1);
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+  });
+  afterEach(() => {
+    document.body.replaceChildren();
+    vi.unstubAllGlobals();
+  });
+
+  it('Szlak shows the colour chain on its chain levels, and no panel on its number trails', () => {
+    const { d } = deps({ tool: null, source: 'none', device: {} });
+    const layer: Any = new CardsLayer(d);
+    const legend = () => document.querySelector<HTMLElement>('.k-legend')!;
+    layer.open(plan({ games: ['szlak'], levels: { szlak: 3 }, practice: { szlak: false } }));
+    play(layer, 1500);
+    expect(layer.loop.level).toBe(3);
+    expect(legend().hidden).toBe(false);
+    expect(legend().querySelectorAll('.k-legend-row').length).toBeGreaterThan(0);
+    layer.close();
+
+    layer.open(plan({ games: ['szlak'], levels: { szlak: 1 }, practice: { szlak: false } }));
+    play(layer, 1500);
+    expect(legend().hidden).toBe(true);
+    layer.close();
+  });
+});
+
+describe('cards: a pad that goes quiet', () => {
+  beforeEach(() => {
+    vi.stubGlobal('requestAnimationFrame', () => 1);
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+  });
+  afterEach(() => {
+    document.body.replaceChildren();
+    vi.unstubAllGlobals();
+  });
+
+  it('the silent seconds are not play, and the trials that timed out in them are dropped', () => {
+    const { loop } = harness('palce', 1, 120);
+    loop.begin(0);
+    let now = 0;
+    for (; loop.phase !== 'play'; now += 16) loop.tick(now);
+    for (let k = 0; k < 3; k++) {
+      now = untilInput(loop, now);
+      const s = (loop as Any).spec as TrialSpec;
+      loop.tap((s.stim as Any).item?.id ?? (s.stim as Any).items?.[0]?.id ?? '', 0, now + 300, now + 300);
+      now += 400;
+    }
+    const kept = loop.trials.length;
+    const silentFrom = now;
+    // the pad is gone: trials time out one after another
+    for (const end = now + 15_000; now < end; now += 16) loop.tick(now);
+    expect(loop.trials.length).toBeGreaterThan(kept);
+    const played = loop.playedMs(now);
+    loop.lost(silentFrom, now);
+    expect(loop.phase).toBe('paused');
+    expect(loop.trials.filter(r => r.timeout).length).toBe(loop.trials.slice(0, kept).filter(r => r.timeout).length);
+    expect(loop.trials.length).toBe(kept);
+    expect(loop.playedMs(now)).toBeLessThan(played - 14_000);
+    loop.resume(now + 2000);
+    expect(loop.playedMs(now + 3000)).toBeCloseTo(loop.playedMs(now + 2000) + 1000, -1);
+  });
+
+  it('the board notices a silent pad within 4 s', () => {
+    expect(PAD_SILENT_MS).toBeLessThanOrEqual(4000);
+  });
+
+  it('a rejoined pad gets back the items it had already marked done', () => {
+    const { d } = deps({ tool: null, source: 'none', device: {} });
+    const layer: Any = new CardsLayer(d);
+    const sent: Any[] = [];
+    layer.open(plan({ games: ['szukaj'], pad: 'channel', practice: { szukaj: false } }));
+    layer.onPad({ data: { t: 'join', v: 1, w: 1, h: 1, touch: true }, from: 'p1' });
+    buttonByText(t('pair.continue'))!.click();
+    layer.send = (m: Any) => sent.push(m);
+    layer.kept = [];
+    layer.padLayout({ panels: [{ arrange: 'field', items: [] }] });
+    layer.kept.push({ t: 'fb', item: 'd3', ok: true, keep: true });
+    sent.length = 0;
+    layer.greet();
+    const types = sent.map(m => m.t);
+    expect(types).toEqual(['hello', 'layout', 'fb', 'state']);
+    expect(sent[2]).toMatchObject({ item: 'd3', keep: true });
+    layer.padLayout({ panels: [{ arrange: 'field', items: [] }] });
+    expect(layer.kept).toEqual([]);
+    layer.close();
+  });
+});
+
+describe('cards: messages from the other screen are checked', () => {
+  it('a malformed layout, state or sync is dropped; well-formed ones pass', () => {
+    const good = { t: 'layout', seq: 1, layout: { panels: [{ arrange: 'grid', items: [{ id: 'a', color: 'coral' }] }] } };
+    expect(asBoardMsg(good)).not.toBeNull();
+    expect(asBoardMsg({ ...good, layout: { panels: [{ arrange: 'grid', items: [{ id: 'a', glyph: 'nope' }] }] } })).toBeNull();
+    expect(asBoardMsg({ ...good, layout: { panels: 'x' } })).toBeNull();
+    expect(asBoardMsg({ t: 'state', state: 'play', input: 'yes' })).toBeNull();
+    expect(asBoardMsg({ t: 'state', state: 'play', input: true })).not.toBeNull();
+    expect(asBoardMsg({ t: 'fb', item: 'a', ok: true })).not.toBeNull();
+    expect(asPadMsg({ t: 'sync', offset: 1.5, rtt: 'slow' })).toBeNull();
+    expect(asPadMsg({ t: 'sync', offset: 1.5, rtt: 12 })).not.toBeNull();
+    expect(asPadMsg({ t: 'join', v: 1, w: 'x', h: 1, touch: true })).toBeNull();
+  });
+});
+
+describe('cards: the paper session saves once, and says when it could not', () => {
+  beforeEach(() => {
+    vi.stubGlobal('requestAnimationFrame', () => 1);
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+  });
+  afterEach(() => {
+    document.body.replaceChildren();
+    vi.unstubAllGlobals();
+  });
+
+  function toRating(run: Any) {
+    run.open(CARDS[6]);
+    buttonByText(t('paper.start'))!.click();
+    for (let k = 0; k < 3; k++) {
+      run.phase.until = 0;
+      run.frame(performance.now());
+      buttonByText(t('paper.done'))!.click();
+    }
+    run.phase.until = 0;
+    run.frame(performance.now());
+    expect(run.phase.kind).toBe('rate');
+    expect(run.busy).toBe(true);
+  }
+
+  it('a double tap on "save" writes one session', async () => {
+    const { d, puts } = deps({ tool: null, source: 'none', device: {} });
+    const run: Any = new PaperRun(d);
+    toRating(run);
+    const save = buttonByText(t('paper.save'))!;
+    save.click();
+    save.click();
+    await flush(); await flush();
+    expect(puts).toHaveLength(1);
+    expect(run.busy).toBe(false);
+  });
+
+  it('a failed save says why and can be tried again', async () => {
+    const { d, puts } = deps({ tool: null, source: 'none', device: {} });
+    let fail = true;
+    const put = d.store.put;
+    d.store.put = async (s: Any) => { if (fail) throw new Error('disk full'); return put(s); };
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const run: Any = new PaperRun(d);
+    toRating(run);
+    buttonByText(t('paper.save'))!.click();
+    await flush(); await flush();
+    err.mockRestore();
+    expect(document.body.textContent).toContain('disk full');
+    expect(buttonByText(t('paper.save'))!.disabled).toBe(false);
+    fail = false;
+    buttonByText(t('paper.save'))!.click();
+    await flush(); await flush();
+    expect(puts).toHaveLength(1);
   });
 });

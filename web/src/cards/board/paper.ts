@@ -1,7 +1,7 @@
 /**
  * The paper session (src/cards/DESIGN.md §6.2): a printed card (or one open on a tablet) done
  * with the band on, as a small block-design experiment.  Rest, slow attempt, rest, medium, rest,
- * fast, rest — the book's own three paces, each timed against the target it prints under its
+ * fast, rest — the card's own three paces, each timed against the target it prints under its
  * tortoise, dog and cheetah, with the band's activity kept per block.  The first rest is the
  * band's reference; the rests between attempts give the contrast that a single task cannot.
  */
@@ -43,7 +43,7 @@ const FIRST_REST = 20;
 const REST = 15;
 const SPEEDS: PaperSpeed[] = ['slow', 'medium', 'fast'];
 
-type Phase = { kind: 'intro' } | { kind: 'rest'; until: number; next: PaperSpeed | null; first: boolean } | { kind: 'task'; speed: PaperSpeed; from: number; max: number } | { kind: 'rate' };
+type Phase = { kind: 'intro' } | { kind: 'saved' } | { kind: 'rest'; until: number; next: PaperSpeed | null; first: boolean } | { kind: 'task'; speed: PaperSpeed; from: number; max: number } | { kind: 'rate' };
 
 export class PaperRun {
   private root: HTMLElement | null = null;
@@ -66,6 +66,8 @@ export class PaperRun {
   constructor(private readonly d: PaperDeps) {}
 
   get active(): boolean { return this.root !== null; }
+  /** attempts are running or waiting to be saved */
+  get busy(): boolean { return this.root !== null && this.phase.kind !== 'intro' && this.phase.kind !== 'saved'; }
 
   open(c: CardInfo): void {
     if (this.root) return;
@@ -141,8 +143,15 @@ export class PaperRun {
     const bar = h('div', 'k-bar');
     bar.append(h('i'));
     this.why = h('p', 'k-why');
+    // the first rest waits for the band's reference; with poor contact it could wait for ever, so it can go on without
+    const skip = first && this.band ? button(t('paper.baseSkip'), () => {
+      this.band = null;
+      this.bandMeta = null;
+      skip?.remove();
+      if (this.why) this.why.textContent = '';
+    }, 'k-btn-ui') : null;
     this.body!.replaceChildren(h('div', 'k-message', h('h2', null, t('paper.rest')),
-      h('p', null, t('paper.restText', { next: next ? t(`speed.${next}`) : t('paper.rate') })), bar, this.why));
+      h('p', null, t('paper.restText', { next: next ? t(`speed.${next}`) : t('paper.rate') })), bar, this.why, skip));
   }
 
   private task(speed: PaperSpeed): void {
@@ -210,10 +219,21 @@ export class PaperRun {
     errors.setAttribute('aria-label', t('paper.errors'));
     const list = h('ul', 'k-paper-times', ...this.blocks.map(b => h('li', null, h('b', null, t(`speed.${b.speed}`)), ' ',
       b.sec === null ? t('paper.notDone') : b.target ? t('paper.vsTarget', { sec: t('card.sec', { n: fmtNum(b.sec, 1) }), target: t('card.sec', { n: b.target }) }) : t('card.sec', { n: fmtNum(b.sec, 1) }))));
-    const save = button(t('paper.save'), () => void this.save(stars, errors.value === '' ? null : Math.max(0, Math.round(Number(errors.value)))), 'k-btn-ui primary big');
+    // one save per run: the button is off while it saves, and back on (with the reason) if it failed
+    const failed = h('p', 'k-why');
+    const save = button(t('paper.save'), () => {
+      if (save.disabled) return;
+      save.disabled = true;
+      failed.textContent = '';
+      this.save(stars, errors.value === '' ? null : Math.max(0, Math.round(Number(errors.value)))).catch(e => {
+        console.error(e);
+        failed.textContent = t('paper.saveFailed', { error: e instanceof Error ? e.message : String(e) });
+        save.disabled = false;
+      });
+    }, 'k-btn-ui primary big');
     this.body!.replaceChildren(h('div', 'k-message k-rate', h('h2', null, t('paper.rate')), h('h3', null, t('paper.result')), list,
       h('label', 'k-field', h('span', 'k-label', t('paper.stars')), starRow),
-      h('label', 'k-field', h('span', 'k-label', t('paper.errors')), errors), save));
+      h('label', 'k-field', h('span', 'k-label', t('paper.errors')), errors), failed, save));
   }
 
   private async save(stars: 1 | 2 | 3 | null, errors: number | null): Promise<void> {
@@ -225,6 +245,7 @@ export class PaperRun {
       paper: { card: c.n, blocks: this.blocks, stars, errors },
     };
     await this.d.store.put(session);
+    this.phase = { kind: 'saved' };
     this.d.mark(`karty:papier:${c.id}:end`);
     this.d.onSaved(session);
     if (this.band && this.bandMeta && this.band.scorer.playedSec >= 20) {

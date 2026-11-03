@@ -26,9 +26,11 @@ import os
 import re
 import socket
 import time
+from collections import deque
 from functools import partial
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, FastAPI, Query, WebSocket
 from fastapi.responses import HTMLResponse
@@ -50,12 +52,15 @@ MAX_FRAME = 16 * 1024      # bytes per message
 RATE = 200.0               # flood guard: messages per second per connection…
 BURST = 200.0              # …with this many allowed at once
 OUTBOX_MAX = 1024          # frames queued for a client that is not reading → it is dropped
+JOINS_PER_MIN = 60         # connections per client address per minute: room codes are short, so no guessing at speed
 
 # Close codes (4000–4999 are free for applications)
 CLOSE_INVALID = 4000       # bad room code, role or id
 CLOSE_REPLACED = 4001      # the same board / pad id connected again
 CLOSE_FULL = 4002          # room already has MAX_PADS pads
 CLOSE_TOO_SLOW = 4003      # more than OUTBOX_MAX frames waiting for this client
+CLOSE_TAKEN = 4004         # the room already has a board with another id
+CLOSE_BUSY = 4005          # too many connections from this address in the last minute
 
 _now = time.monotonic      # the clock the flood guard uses (tests freeze it)
 _dumps = partial(json.dumps, ensure_ascii=False, separators=(",", ":"))
@@ -150,11 +155,17 @@ def _welcome(room: _Room, c: _Client) -> str:
     return _dumps({"t": "relay", "room": room.code, "role": c.role, "id": c.id, "peers": peers})
 
 
-def _join(code: str, c: _Client) -> bool:
-    """Register a client (replacing an older socket with the same slot).  False = room full."""
+def _join(code: str, c: _Client) -> Optional[tuple[int, str]]:
+    """Register a client (replacing an older socket with the same slot).  The close code and reason if refused.
+
+    A board may only replace a board with the same id (its own reconnect): someone else who learns the
+    room code cannot take the game over while its board is connected.
+    """
     room = _rooms.get(code) or _Room(code)
     if c.role == "pad" and c.id not in room.pads and len(room.pads) >= MAX_PADS:
-        return False
+        return CLOSE_FULL, "room full"
+    if c.role == "board" and room.board is not None and room.board.id != c.id:
+        return CLOSE_TAKEN, "room taken"
     _rooms[code] = room
     c.room = room
     if c.role == "board":
@@ -170,7 +181,7 @@ def _join(code: str, c: _Client) -> bool:
         if old is not None:
             o.send(_peer("leave", old))
         o.send(_peer("join", c))
-    return True
+    return None
 
 
 def _leave(c: _Client) -> None:
@@ -234,6 +245,32 @@ def _on_frame(c: _Client, msg: dict) -> None:
         pad.send(text)
 
 
+_joins: dict[str, deque] = {}
+
+
+def _too_many(addr: str) -> bool:
+    """Count a connection from `addr`; True when it is over JOINS_PER_MIN in the last minute."""
+    now = _now()
+    q = _joins.setdefault(addr, deque())
+    while q and now - q[0] > 60.0:
+        q.popleft()
+    if len(q) >= JOINS_PER_MIN:
+        return True
+    q.append(now)
+    if len(_joins) > 4096:                       # forget idle addresses
+        for a in [a for a, d in _joins.items() if not d or now - d[-1] > 60.0]:
+            del _joins[a]
+    return False
+
+
+def _foreign_origin(ws: WebSocket) -> bool:
+    """A browser page from another site (its Origin is not this server): the relay serves only its own app."""
+    origin = ws.headers.get("origin")
+    if not origin:
+        return False                             # not a browser (tests, tools)
+    return urlsplit(origin).netloc.lower() != (ws.headers.get("host") or "").lower()
+
+
 def _invalid(room: str, role: str, cid: str) -> Optional[str]:
     if not ROOM_RE.fullmatch(room):
         return "invalid room"
@@ -247,13 +284,20 @@ def _invalid(room: str, role: str, cid: str) -> Optional[str]:
 @router.websocket("/ws/{room}")
 async def duo_ws(ws: WebSocket, room: str, role: str = "", client_id: str = Query("", alias="id")):
     await ws.accept()   # accept first so the client gets a close code and reason, not a failed handshake
+    if _foreign_origin(ws):
+        await ws.close(CLOSE_INVALID, "origin")
+        return
+    if _too_many(ws.client.host if ws.client else ""):
+        await ws.close(CLOSE_BUSY, "too many connections")
+        return
     problem = _invalid(room, role, client_id)
     if problem:
         await ws.close(CLOSE_INVALID, problem)
         return
     c = _Client(ws, role, client_id)
-    if not _join(room, c):
-        await ws.close(CLOSE_FULL, "room full")
+    refused = _join(room, c)
+    if refused:
+        await ws.close(*refused)
         return
     writer = asyncio.create_task(c.pump())
     try:

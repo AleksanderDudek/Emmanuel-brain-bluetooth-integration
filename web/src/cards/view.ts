@@ -70,7 +70,7 @@ export class CardsModule {
   private readonly layer: CardsLayer;
   private readonly paper: PaperRun;
   private bandLine: HTMLElement | null = null;
-  private busy = false;
+  private working = false;
 
   constructor(private readonly d: CardsDeps, private readonly root: HTMLElement) {
     const saveTraining = async (r: TrainingResult) => {
@@ -99,6 +99,7 @@ export class CardsModule {
   private savePrefs(): void { void this.d.store.set('prefs', this.prefs); }
 
   get active(): boolean { return this.layer.active || this.paper.active; }
+  get busy(): boolean { return this.layer.busy || this.paper.busy; }
 
   show(sub: string | null): void {
     this.sub = sub;
@@ -243,8 +244,8 @@ export class CardsModule {
   private fileStatus: HTMLElement | null = null;
 
   private async downloadAll(kind: 'pdf' | 'zip'): Promise<void> {
-    if (this.busy) return;
-    this.busy = true;
+    if (this.working) return;
+    this.working = true;
     const status = this.fileStatus;
     const say = (s: string) => { if (status) status.textContent = s; };
     try {
@@ -263,7 +264,7 @@ export class CardsModule {
     } catch (e) {
       say(t('home.fileFailed', { error: e instanceof Error ? e.message : String(e) }));
     } finally {
-      this.busy = false;
+      this.working = false;
     }
   }
 
@@ -290,7 +291,7 @@ export class CardsModule {
     layout.append(fig);
     const side = h('div', 'k-cardside');
     side.append(h('section', 'k-panel-card', h('h2', null, t('card.how')), h('p', null, tc(howKey(c)))));
-    // the book's three target times
+    // the card's three target times
     const times = h('section', 'k-panel-card k-times');
     times.append(h('h2', null, t('card.times')));
     const table = h('table');

@@ -66,6 +66,10 @@ export class TrialLoop {
   private countAt = 0;
   private countN = 3;
   private playStart = 0;
+  /** when play last (re)started: a pause can be dated back to no earlier than this */
+  private runFrom = 0;
+  /** play time (ms) at which each recorded trial ended, beside `trials` */
+  private readonly endedAt: number[] = [];
   private pausedAt = 0;
   private pausedFrom: LoopPhase = 'play';
   private pausedMs = 0;
@@ -133,6 +137,7 @@ export class TrialLoop {
         else {
           this.phase = 'play';
           this.playStart = now;
+          this.runFrom = now;
           this.pausedMs = 0;
           this.out.padState('play', false);
           this.inner = 'wait';
@@ -240,6 +245,7 @@ export class TrialLoop {
       return;
     }
     this.trials.push(rec);
+    this.endedAt.push(this.playedMs(now));
     this.out.trial(rec);
     if (eng.level !== before) {
       this.out.level(eng.level, eng.level > before ? 1 : -1);
@@ -261,6 +267,25 @@ export class TrialLoop {
     this.out.padState('pause', false);
   }
 
+  /**
+   * The pad went silent at `since` (board ms, before `now`): pause as of then, so the silent stretch
+   * is not play time, and drop the trials that timed out in it — misses the player could not help.
+   * Their level changes stay (the staircase recovers within a few trials).
+   */
+  lost(since: number, now: number): void {
+    if (this.phase !== 'play') return;
+    const from = Math.min(now, Math.max(since, this.runFrom));
+    const cut = this.playedMs(from);
+    for (let k = this.trials.length - 1; k >= 0 && this.endedAt[k] > cut; k--) {
+      if (this.trials[k].timeout) {
+        this.trials.splice(k, 1);
+        this.endedAt.splice(k, 1);
+      }
+    }
+    this.pause(now);
+    this.pausedAt = from;
+  }
+
   resume(now: number): void {
     if (this.phase !== 'paused') return;
     const from = this.pausedFrom;
@@ -268,7 +293,10 @@ export class TrialLoop {
       this.startCountdown(now);
       return;
     }
-    if (from === 'play') this.pausedMs += now - this.pausedAt;
+    if (from === 'play') {
+      this.pausedMs += now - this.pausedAt;
+      this.runFrom = now;
+    }
     // paused on the last practice trial's verdict: practice is over
     if (from === 'practice' && this.practiceLeft <= 0) {
       this.practiceEngine = null;

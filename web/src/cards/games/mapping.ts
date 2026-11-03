@@ -2,11 +2,12 @@
  * Rule games (src/cards/DESIGN.md §4.3): the board shows a cue, the pad has the answers, and a
  * rule maps one to the other.  Four games share this engine:
  *
- * * **Kolorowe palce** (cards 02, 07, 14) — the cue is a colour, the answer its finger or disc:
+ * * **Kolorowe palce** (cards 02, 04, 07, 14) — the cue is a colour, the answer its finger or disc:
  *   choice reaction time with 3 to 6 choices (Hick's law: each doubling of choices costs time).
  * * **Dłoń, pięść, kant** (cards 03, 13, 21, 25, 30) — a colour means a gesture: palm, fist, the
- *   edge of the hand (Luria's fist–edge–palm), later five gestures, counted repetitions (card 13)
- *   and a rule that changes mid-game.
+ *   edge of the hand (Luria's fist–edge–palm), each card with its own colours: card 03, counted
+ *   repetitions (card 13), five gestures (card 21); then the shape decides and the colour only
+ *   distracts (cards 25 and 30), and last a rule that changes mid-game.
  * * **Znaki dłoni** (cards 18, 27, 31) — a colour, then a shape, means a hand sign.
  * * **Ćwiartki** (card 24) — a colour means a quarter of the crosshair.
  *
@@ -37,6 +38,11 @@ export interface MapLevel {
   counts?: boolean;
   /** the rule is dealt anew every this many trials (shown on the board for the first trial after) */
   reshuffle?: number;
+  /**
+   * The shape decides, the colour does not (cards 25 and 30): the cues are the shapes in many colours,
+   * and the rule on the board shows each shape once, in ink.
+   */
+  byShape?: { cues: PadItem[]; map: Record<string, string> };
 }
 
 const glyph = (g: GlyphId): PadItem => ({ id: g, glyph: g });
@@ -65,23 +71,43 @@ export const PALCE: MapLevel[] = (() => {
   ];
 })();
 
-/** Card 21's rule: the magenta hand = palm, the navy disc = fist, the yellow pill = edge, two teal dots = two fingertips, the peach bar = two fingers flat. */
-const GESTURE_COLORS: ColorId[] = ['magenta', 'navy', 'yellow', 'teal', 'peach'];
 const GESTURES: GlyphId[] = ['palm', 'fist', 'edge', 'twoTips', 'twoFlat'];
+/** Card 03: the coral hand = palm, the navy disc = fist, the yellow pill = edge. */
+const CARD03: ColorId[] = ['coral', 'navy', 'yellow'];
+/** Card 13: the magenta hand = palm, the teal disc = fist, the yellow pill = edge. */
+const CARD13: ColorId[] = ['magenta', 'teal', 'yellow'];
+/** Card 21: the magenta hand = palm, the navy disc = fist, the yellow pill = edge, two teal dots = two fingertips, the peach bar = two fingers flat. */
+const CARD21: ColorId[] = ['magenta', 'navy', 'yellow', 'teal', 'peach'];
+/** Card 25: a circle = fist, two dots = two fingertips (a V), a pill = two fingers flat, whatever their colour. */
+const CARD25: [ShapeId, GlyphId][] = [['circle', 'fist'], ['twoDots', 'twoTips'], ['pill', 'twoFlat']];
+/** Card 30: a hand = palm, a circle = fist, a pill = edge, whatever their colour. */
+const CARD30: [ShapeId, GlyphId][] = [['hand', 'palm'], ['circle', 'fist'], ['pill', 'edge']];
+/** The colours the shapes of cards 25 and 30 come in. */
+const SHAPE_COLORS: ColorId[] = ['coral', 'navy', 'teal', 'yellow', 'magenta', 'purple', 'peach'];
 
 export const GESTY: MapLevel[] = (() => {
-  const set = (n: 3 | 5, extra: Partial<MapLevel>): MapLevel => ({
-    cues: GESTURE_COLORS.slice(0, n).map(c => dot(c)), answers: GESTURES.slice(0, n).map(glyph),
-    map: zipMap(GESTURE_COLORS.slice(0, n), GESTURES.slice(0, n)), arrange: 'grid', cols: n, legend: true, deadlineMs: 2400, ...extra,
+  const byColor = (colors: ColorId[], extra: Partial<MapLevel>): MapLevel => ({
+    cues: colors.map(c => dot(c)), answers: GESTURES.slice(0, colors.length).map(glyph),
+    map: zipMap(colors, GESTURES.slice(0, colors.length)), arrange: 'grid', cols: colors.length, legend: true, deadlineMs: 2400, ...extra,
   });
+  const byShape = (pairs: [ShapeId, GlyphId][], extra: Partial<MapLevel>): MapLevel => {
+    const cues = pairs.flatMap(([s]) => SHAPE_COLORS.map(c => ({ id: `${s}:${c}`, shape: s, color: c })));
+    return {
+      cues, answers: pairs.map(([, g]) => glyph(g)), map: Object.fromEntries(cues.map(q => [q.id, pairs.find(([s]) => s === q.shape)![1]])),
+      arrange: 'grid', cols: pairs.length, legend: true, deadlineMs: 2400,
+      byShape: { cues: pairs.map(([s]) => shape(s)), map: Object.fromEntries(pairs) }, ...extra,
+    };
+  };
   return [
-    set(3, { hint: true }),                                 // card 03: the rule on the board, the buttons hint at it
-    set(3, { deadlineMs: 2000 }),
-    set(3, { legend: false, deadlineMs: 1800 }),            // from memory
-    set(3, { legend: false, counts: true, deadlineMs: 3200 }),   // card 13: count the dots
-    set(5, { deadlineMs: 2400 }),                           // card 21: five gestures
-    set(5, { legend: false, deadlineMs: 2000 }),
-    set(3, { legend: false, reshuffle: 8, deadlineMs: 2000 }),  // the rule changes: flexibility
+    byColor(CARD03, { hint: true }),                                   // card 03: the rule on the board, the buttons hint at it
+    byColor(CARD03, { deadlineMs: 2000 }),
+    byColor(CARD03, { legend: false, deadlineMs: 1800 }),              // from memory
+    byColor(CARD13, { counts: true, deadlineMs: 3200 }),               // card 13: its own colours, count the dots
+    byColor(CARD21, { deadlineMs: 2400 }),                             // card 21: five gestures
+    byColor(CARD21, { legend: false, deadlineMs: 2000 }),
+    byShape(CARD25, { deadlineMs: 2400 }),                             // card 25: the shape decides, the colour distracts
+    byShape(CARD30, { deadlineMs: 2200 }),                             // card 30: the same with a hand
+    byColor(CARD03, { legend: false, reshuffle: 8, deadlineMs: 2000 }), // the rule changes: flexibility
   ];
 })();
 
@@ -169,6 +195,7 @@ export class MappingEngine implements GameEngine {
 
   rule(): Legend | null {
     const c = this.cfg;
+    if (c.byShape) return { rows: c.byShape.cues.map(q => ({ cue: q, answer: c.answers.find(a => a.id === c.byShape!.map[q.id])! })) };
     // every answer is its own cue (Kolorowe palce: a colour, the same colour): there is no rule to show
     if (c.cues.every(q => this.map[q.id] === q.id)) return null;
     return { rows: c.cues.map(q => ({ cue: q, answer: c.answers.find(a => a.id === this.map[q.id])! })) };

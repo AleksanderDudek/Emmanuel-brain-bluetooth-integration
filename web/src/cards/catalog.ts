@@ -1,9 +1,9 @@
 /**
- * The 32 exercise cards (src/cards/DESIGN.md §2): the user's "Wersja 4K" redraws of a spiral-bound
- * book's spreads, checked one by one against photos of the book.  Each card has its picture (a
+ * The 32 exercise cards (src/cards/DESIGN.md §2): the author's own "Wersja 4K" artwork, checked one
+ * by one against reference photos (kept outside the repository).  Each card has its picture (a
  * preview that is cached offline, and the 4K original fetched on demand), the target times the
- * book prints under its animals (tortoise, dog, cheetah), what it trains, the two-screen games
- * built on it, and — for the ones whose redraw had to be corrected — what changed.
+ * card prints under its animals (tortoise, dog, cheetah), what it trains, the two-screen games
+ * built on it, and — for the ones whose first version had to be corrected — what changed.
  */
 import { gamesOfCard } from './games';
 import type { CardKey } from './i18n-cards';
@@ -26,7 +26,7 @@ export interface CardInfo {
 
 const T = (...rows: [number, number, number][]) => rows;
 
-/** Read from the photos' badges (two of them, 16 right and 24 right, are slightly blurred). */
+/** Read from the cards' badges (checked against the reference photos, where 16 right and 24 right are slightly blurred). */
 const RAW: Omit<CardInfo, 'id' | 'fixed'>[] = [
   { n: 1, times: T([10, 9, 8]), tags: ['trace', 'both'], why: 'trace' },
   { n: 2, times: T([15, 13, 10]), tags: ['both', 'rules'] },
@@ -49,7 +49,7 @@ const RAW: Omit<CardInfo, 'id' | 'fixed'>[] = [
   { n: 19, times: T([25, 20, 15], [35, 30, 25]), tags: ['count', 'attention'] },
   { n: 20, times: T([25, 20, 15]), tags: ['inhibition', 'count'] },
   { n: 21, times: T([20, 15, 10]), tags: ['rules', 'both'] },
-  { n: 22, times: T([15, 12, 10]), tags: ['both', 'inhibition'], why: 'unclear' },
+  { n: 22, times: T([15, 12, 10]), tags: ['trace', 'both', 'inhibition'], why: 'trace' },
   { n: 23, times: T([30, 15, 10]), tags: ['both', 'attention'] },
   { n: 24, times: T([20, 15, 10], [10, 8, 6]), tags: ['rules', 'memory'] },
   { n: 25, times: T([20, 13, 8]), tags: ['rules', 'both'] },
@@ -63,7 +63,7 @@ const RAW: Omit<CardInfo, 'id' | 'fixed'>[] = [
 ];
 
 /** The cards whose redraw was corrected (src/cards/i18n-cards.ts `fix.cNN`). */
-export const FIXED = new Set([2, 3, 8, 11, 12, 13, 14, 17, 18, 21, 22, 27, 29, 30, 31]);
+export const FIXED = new Set([2, 3, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 23, 24, 25, 26, 27, 29, 30, 31]);
 
 export const CARDS: readonly CardInfo[] = RAW.map(c => ({ ...c, id: String(c.n).padStart(2, '0'), fixed: FIXED.has(c.n) }));
 

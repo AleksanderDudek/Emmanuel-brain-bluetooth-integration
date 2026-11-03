@@ -44,8 +44,10 @@ export class CardsEntry {
     this.section = s;
   }
 
-  /** A session or a paper run is on (the app keeps the screen awake and asks before leaving). */
+  /** A session or a paper run is open (the app keeps the screen awake). */
   get active(): boolean { return !!this.mod?.active; }
+  /** …and leaving now would lose something (the app asks first); not while pairing or on a saved summary */
+  get busy(): boolean { return !!this.mod?.busy; }
 
   private load(): Promise<Module> {
     this.loading ??= (async () => {
