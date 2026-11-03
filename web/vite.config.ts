@@ -1,4 +1,5 @@
 /// <reference types="vitest/config" />
+import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -12,6 +13,8 @@ export default defineConfig({
     sourcemap: true,
     // keep fonts as files: the CSP allows font-src 'self' only, and files cache better
     assetsInlineLimit: (file: string) => (/\.woff2?$/.test(file) ? false : undefined),
+    // two pages: the app, and the exercise cards' pad for a second screen (src/cards/pad/main.ts)
+    rolldownOptions: { input: { main: resolve(import.meta.dirname, 'index.html'), pad: resolve(import.meta.dirname, 'pad.html') } },
   },
   plugins: [
     {
@@ -42,8 +45,23 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallback: 'index.html',
         // the games are separate apps: dist/holyholyholy (its own PWA) and dist/holyholyholy3d (GDevelop export)
-        navigateFallbackDenylist: [/\/holyholyholy(3d)?(\/|$)/],
-        globIgnores: ['holyholyholy/**', 'holyholyholy3d/**'],
+        // pad.html is its own page (the exercise cards' second screen), not the app's fallback
+        // (Workbox tests the path with its query: pad.html?lang=pl must be let through too)
+        navigateFallbackDenylist: [/\/holyholyholy(3d)?(\/|$)/, /\/pad\.html(\?|$)/],
+        // the pad's link carries the board's language (?lang=): the precached page serves it offline
+        ignoreURLParametersMatching: [/^utm_/, /^fbclid$/, /^lang$/],
+        // the exercise cards' images (4K ~9 MB, previews ~1 MB) are cached the first time they are shown,
+        // not precached: the app's install stays the same size for those who never open the cards
+        globIgnores: ['holyholyholy/**', 'holyholyholy3d/**', 'cards/**'],
+        runtimeCaching: [{
+          urlPattern: ({ url }) => url.pathname.includes('/cards/full/'),
+          handler: 'CacheFirst',
+          options: { cacheName: 'cards-full', expiration: { maxEntries: 40 } },
+        }, {
+          urlPattern: ({ url }) => url.pathname.includes('/cards/thumb/'),
+          handler: 'CacheFirst',
+          options: { cacheName: 'cards-thumb', expiration: { maxEntries: 40 } },
+        }],
         // Off on purpose: Workbox deletes every "-precache-" cache whose name contains this SW's scope, and the
         // game's cache name (…-precache-v2-<scope>holyholyholy/) does, so each app update would wipe the
         // game's offline copy. Precache v2 already prunes its own stale entries.

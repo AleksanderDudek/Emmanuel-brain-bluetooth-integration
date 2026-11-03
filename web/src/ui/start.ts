@@ -141,7 +141,7 @@ export class StartView {
         h('span', { class: 'tag' }, a.id === today ? t('tag.today') : bandTags(a).join(' · ')),
         note ? h('span', { class: 'lang-note' }, note) : null,
         h('b', null, a.title),
-        h('small', null, why ?? (a.id === 'focus' ? t('tile.focus') : a.arcade ? a.arcade.tagline
+        h('small', null, why ?? a.tile ?? (a.id === 'focus' ? t('tile.focus') : a.arcade ? a.arcade.tagline
           : a.optional ? t('tile.holy') : t('tile.balance'))));
     };
     $('trainTiles').replaceChildren(...EXERCISES().map(a => tile(a)),

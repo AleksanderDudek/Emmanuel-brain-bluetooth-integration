@@ -31,7 +31,8 @@ language, and each text's English, German and Swedish forms are in the catalogs 
 │ Emmanuel   Headband [ Mendi · fNIRS | HALO · EEG ]  ● Mendi · 82% · REC  │
 ├──────┬───────────────────────────────────────────────────────────────────┤
 │ rail │  Home      — status, the next step, "Train" and "Play" rows, today│
-│      │  Training  — focus training (Mendi-style), balance trainer        │
+│      │  Training  — focus training (Mendi-style), balance trainer,       │
+│      │              exercise cards (print + two-screen games)            │
 │      │  Games     — 8 training games + HolyHolyHoly; the signal they read│
 │      │  Signal    — the live monitor of the chosen band (+ recording,    │
 │      │              "play with this signal")                             │
@@ -284,6 +285,9 @@ review videos from 2023 to 2026, and neurofounders.co (2026).
   the simulator's focus switch) and checks Sessions lists them, launches the 2D game in the
   overlay and checks that frames arrive, switches to EEG and checks the monitor, and checks
   every view at phone and desktop width for overflow. It runs in Polish (`?lang=pl`).
+* The exercise cards (`src/cards/DESIGN.md` §8): `npm run cards:smoke` plays a split-screen
+  game with the band, a game with the pad in a second window, the day's workout and the paper
+  session's start, and, with `RELAY_URL` set, a game with the pad over the desktop server's relay.
 * While working on one game: `node scripts/arcade-shot.mjs --port <dev server> --game <id>
   [--lang de]` plays it from a running `vite` dev server and saves screenshots of the lobby, the
   calibration intro, play at three sizes and the summary.

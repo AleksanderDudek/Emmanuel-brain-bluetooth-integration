@@ -22,6 +22,7 @@ see brainlink/fnirs_api.py) and exposes game-ready metrics via:
   - WebSocket  /api/v1/stream   (10 Hz push)
   - REST API   /api/v1/…       (Swagger at /docs)
   - Dashboard  /               (static HTML)
+  - Web app    /app/           (desktop build; two-screen games relay, see brainlink/duo_api.py)
 """
 
 import asyncio
@@ -53,6 +54,7 @@ from brainlink.mental_state import MentalStateClassifier, STATE_META
 from brainlink.recorder import SessionRecorder
 from brainlink.simulator import EEGSimulator, AUTO_SCENARIOS
 from brainlink.fnirs_api import router as fnirs_router, fnirs_loop, fnirs_shutdown
+from brainlink.duo_api import router as duo_router, lan_urls, mount_app
 
 # ─── Optional hardware backends ──────────────────────────────────────
 try:
@@ -132,6 +134,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(fnirs_router)   # Mendi fNIRS — /api/v1/fnirs/…
+app.include_router(duo_router)     # Two-screen games relay — /api/v1/duo/…
 
 # ─── Calibration ──────────────────────────────────────────────────────
 
@@ -728,6 +731,10 @@ async def fnirs_dashboard():
     return FileResponse(str(_HERE / "dashboard" / "fnirs.html"))
 
 
+# Web app desktop build (web/dist-desktop) for two-screen games, or a "not built yet" page
+APP_BUILT = mount_app(app)
+
+
 # ─── Direct-run entry point ───────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -746,5 +753,10 @@ if __name__ == "__main__":
     print(f"  Dashboard:  http://localhost:{PORT}")
     print(f"  fNIRS:      http://localhost:{PORT}/fnirs   (Mendi)")
     print(f"  API docs:   http://localhost:{PORT}/docs")
+    if APP_BUILT:
+        lan = lan_urls(PORT)
+        print(f"  Web app:    http://localhost:{PORT}/app/")
+        if lan:
+            print(f"  On the LAN: {lan[0]}   (second screen)")
     print(f"  Press Ctrl+C to stop\n")
     uvicorn.run(app, host="0.0.0.0", port=PORT, log_level="warning")

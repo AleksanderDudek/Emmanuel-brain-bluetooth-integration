@@ -1,0 +1,9 @@
+/* The exercise cards' card in Trening and tile on Start (src/cards/entry.ts): a corner of a printed card —
+   the violet-to-navy frame and a few of its flat dots. The module's own styles load with it (cards.css). */
+.art-cards{background:
+  radial-gradient(circle at 22% 34%,#FE6F61 0 9%,transparent 9.5%),
+  radial-gradient(circle at 42% 58%,#FFD25A 0 9%,transparent 9.5%),
+  radial-gradient(circle at 62% 36%,#00CFC1 0 9%,transparent 9.5%),
+  radial-gradient(circle at 80% 62%,#7B61FF 0 9%,transparent 9.5%),
+  radial-gradient(circle at 92% 8%,rgba(183,168,255,.45) 0 16%,transparent 16.5%),
+  linear-gradient(135deg,#7B61FF 0%,#494ECE 45%,#0C3992 100%)}

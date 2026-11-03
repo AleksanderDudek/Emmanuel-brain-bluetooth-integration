@@ -25,6 +25,13 @@ message: §11):
     hills, with stars for points. Then a summary with the day score, streak and milestones. It
     works with both bands.
   * The **hemispheric balance trainer** (Mendi).
+  * **Exercise cards** (*Karty ćwiczeń*, `#karty`; [design](src/cards/DESIGN.md)): the 32 printed
+    brain-training cards, checked against their photos, to download (PDF or PNGs) and do on
+    paper with the band recording, and 10 games made from 25 of them, played on **two
+    screens**: the board shows the cue, the buttons are on a phone or tablet, in a second
+    window, or on the other half of the same screen. Every trial is timed and judged, the
+    difficulty follows the player, every session is kept (CSV/JSON export), and with a band the
+    session is recorded in rest and play blocks.
 * **Games** (`#gry`):
   * three **training games** built on the band's signal, for Mendi or HALO
     ([design and research](src/arcade/DESIGN.md)). Each session is a full neurofeedback session
@@ -76,6 +83,9 @@ npm run build        # static site in dist/ (typecheck + app + both games + serv
 npm run preview      # serve dist/ locally
 npm run app:smoke    # after a build: headless Chrome goes through the app on the simulators (screenshots in .smoke/;
                      # BASE_PATH=/repo/ for a build made for a sub-path, as CI does)
+npm run cards:smoke  # after a build: the exercise cards end to end — split screen, second window, workout, paper
+                     # session (RELAY_URL=http://127.0.0.1:8420/app/ adds the phone relay; screenshots in .smoke/cards/)
+npm run build:desktop  # the app for the desktop server's /app/ (web/dist-desktop): the phone pad over the LAN relay
 node scripts/arcade-shot.mjs --port 5173 --game geoda --out .smoke/arcade [--lang de] [--tool eeg]
                      # with `npm run dev` running: plays one training game on a band's simulator (Mendi by
                      # default, HALO with --tool eeg) and saves screenshots
@@ -151,6 +161,9 @@ src/
 ├── hub/         `brainlink-hub` protocol: lends the band's frames to a game in an <iframe>
 ├── training/    focus training: activity meter, scoring (day score, streak, milestones), session,
 │                canvas scene, Web Audio soundscape
+├── cards/       the exercise cards: catalog, print (PDF/ZIP writers), games/ (10 engines, staircases, stats),
+│                duo/ (board↔pad protocol, links, clock sync, QR), board/ (trial loop, stage, band, session layer,
+│                paper session), pad/ (the pad view; pad.html), store (own IndexedDB) — lazily loaded
 ├── arcade/      the training games: kit/ (focus for games, session, audio, juice, progress, the game
 │                contract), runner (full-screen session), lobby, registry, and geoda/, latarnik/,
 │                motylarnia/ — each lazily loaded, each with its own i18n.ts

@@ -4,6 +4,7 @@
  */
 import { drawArcadeArt } from '../arcade/art';
 import { ARCADE, gameOfDay, type ArcadeEntry } from '../arcade/registry';
+import { CARDS_ACTIVITY } from '../cards/entry';
 import type { HubStatus } from '../hub';
 import { lang } from '../i18n';
 import { t } from '../i18n/shell';
@@ -32,6 +33,8 @@ export interface Activity {
   img?: string;
   /** an arcade game: the art is a still from its own preview */
   arcade?: ArcadeEntry;
+  /** the line under the title on Start's tile, when it is not one of the standard ones */
+  tile?: string;
 }
 
 /** The game's picture over its card's gradient; it simply stays away when the game is not built (dev server). */
@@ -56,6 +59,8 @@ export const ACTIVITIES: Activity[] = [
     id: 'balance', group: 'train', title: t('act.balance.title'), href: '#trening/balance', cta: t('act.balance.cta'), art: 'art-balance', tools: ['fnirs'],
     text: t('act.balance.text'),
   },
+  // the exercise cards (src/cards): two-screen games and printable cards, with either band or none
+  CARDS_ACTIVITY,
   ...ARCADE.map(arcadeActivity),
   {
     id: 'holyholyholy', group: 'game', title: GAMES.holyholyholy.title, href: '#gra/holyholyholy', cta: t('act.play'), art: 'art-holy', tools: ['fnirs'],

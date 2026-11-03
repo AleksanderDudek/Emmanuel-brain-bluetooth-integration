@@ -20,6 +20,10 @@ top of the app. Inside it:
 * a **focus training** modelled on Mendi's default one (an orb riding the activity curve,
   points, control, day score and streak);
 * the hemispheric balance trainer;
+* **exercise cards**: 32 printable brain-training cards (checked against the original photos) to
+  do on paper with the band recording, and 10 games made from them for **two screens** — the
+  board shows the cue, a phone or tablet is the touch pad — with speed, accuracy, levels and
+  every session kept ([design](web/src/cards/DESIGN.md));
 * three training games for either band — **Geode** (a Block Blast-style puzzle whose crystals
   grow with steady focus), **Lighthouse Keeper** (a one-tap lighthouse game: focus stretches the
   beam, calm lights the sea) and **Butterfly House** (a caterpillar's path becomes a unique
@@ -70,7 +74,8 @@ Emmanuel-brain-bluetooth-integration/
 │   ├── fnirs_simulator.py ← Mendi-like frame simulator (block-design scenarios)
 │   ├── fnirs_balance.py   ← Hemispheric balance tracker (trainer view)
 │   ├── fnirs_recorder.py  ← fNIRS CSV recorder with event markers
-│   └── fnirs_api.py    ← /api/v1/fnirs/* router + WebSocket + loop
+│   ├── fnirs_api.py    ← /api/v1/fnirs/* router + WebSocket + loop
+│   └── duo_api.py      ← /api/v1/duo/* LAN relay for two-screen games + the /app/ web app route
 ├── dashboard/
 │   ├── index.html      ← Real-time EEG dashboard
 │   ├── fnirs.html      ← Real-time fNIRS dashboard (/fnirs, /fnirs#balance)
@@ -289,6 +294,59 @@ experiments and neurofeedback, not diagnosis or therapy.
 - Consumer device, prefrontal only, few channels: good for prototyping and
   neurofeedback, not a substitute for a research-grade fNIRS system.
 
+### Two-screen games (relay)
+
+In a two-screen game one device, the *board* (usually the computer running
+this server), shows the instructions, and a phone or tablet on the same Wi-Fi,
+the *pad*, is the touch controller.  The HTTPS-hosted app cannot open `ws://`
+connections, so for two devices the server serves the app itself over plain
+HTTP on the LAN and relays JSON messages between the board and the pads.  The
+relay only passes messages on: they never leave the local network and nothing
+is stored.
+
+Build the desktop version of the app once (needs Node.js), then start the server:
+
+```bash
+cd web && npm ci && npm run build:desktop    # → web/dist-desktop/
+python run.py
+```
+
+The app is at `http://localhost:8420/app/`; the address for the second device
+is printed at startup and listed in `lan` from `/api/v1/duo/info`.  The build is
+picked up when the server starts.  Without it, `/app/` shows the build command.
+
+To play: open `http://localhost:8420/app/` on the computer, go to *Trening → Karty
+ćwiczeń*, pick a game and *Na telefonie lub tablecie* (phone or tablet), press
+*Zacznij* and scan the QR code with the phone (or type the room code on
+`…/app/pad.html`).  The phone must be on the same Wi-Fi; on macOS allow incoming
+connections for Python when asked, or the phone cannot reach the server.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET`  | `/api/v1/duo/info` | `port`, `app` (build present), `app_path`, `lan` (app URLs on this machine's IPv4 addresses, private ranges first), `hostname` |
+| `WS`   | `/api/v1/duo/ws/{room}?role=board\|pad&id=…` | Message relay for one room |
+| `GET`  | `/app/` | The web app's desktop build (`web/dist-desktop`) |
+
+Relay rules:
+
+- Room code `[A-Z2-9]{4,8}`, `role` `board` or `pad`, `id` `[A-Za-z0-9_-]{1,32}`;
+  anything else is closed with code `4000`.
+- One board per room: a new board replaces the old one, which is closed with
+  `4001`.  Up to 4 pads; a fifth is closed with `4002`.  A pad that reconnects
+  with the same `id` replaces its old socket (`4001`).
+- Messages are JSON objects in text frames, at most 16 KiB.  A pad's message
+  goes to the board with `"from": <pad id>` added (or overwritten).  A board's
+  message goes to the pad named in `"to"`, or to every pad when there is no
+  `"to"`, unchanged.  Messages are passed on in the order they arrive.
+- On joining, a client gets `{"t":"relay","room":…,"role":…,"id":…,"peers":[{"role":…,"id":…}]}`;
+  after that `{"t":"peer","event":"join"|"leave","role":…,"id":…}` when the other
+  side joins or leaves (the board hears about pads, pads about the board).
+- Errors go back to the sender as `{"t":"relay-error","error":…}`: `too_big`,
+  `bad_json` (not a JSON object), `no_board` (a pad message with no board),
+  `no_pad` (a board message to an unknown `"to"`, which is echoed back).
+- More than about 200 messages a second from one connection are dropped.  A
+  client that stops reading is closed with `4003` once 1024 messages are waiting.
+
 ### Tests
 
 ```bash
@@ -314,7 +372,8 @@ brainlink/
 ├── fnirs_simulator.py — FNIRSSimulator + FNIRS_SCENARIOS
 ├── fnirs_balance.py   — BalanceTracker, BalanceConfig
 ├── fnirs_recorder.py  — FNIRSRecorder (CSV + JSON, event markers)
-└── fnirs_api.py   — FastAPI router, WebSocket and background loop
+├── fnirs_api.py   — FastAPI router, WebSocket and background loop
+└── duo_api.py     — two-screen games relay (router + WebSocket), LAN addresses, /app/ mount
 ```
 
 ## License

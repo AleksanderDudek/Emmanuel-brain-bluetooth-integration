@@ -3,6 +3,7 @@ import './styles.css';
 import { ArcadeLobby } from './arcade/lobby';
 import { gameOfDay, KINDS } from './arcade/registry';
 import { ArcadeRunner } from './arcade/runner';
+import { CardsEntry } from './cards/entry';
 import { Engine, type EngineFrame, type SavedEvent } from './engine';
 import { EegEngine, type EegFrame } from './eeg-engine';
 import { Hub, type HubStatus } from './hub';
@@ -117,12 +118,26 @@ async function main(): Promise<void> {
     lobby.suspend();
     arcade.start(entry, mod, progress);
   } });
+  // the exercise cards (src/cards): printable cards and two-screen games, loaded the first time #karty opens
+  const cards = new CardsEntry({
+    hub, db, openSheet: () => sheet.open(),
+    onTraining: r => setTrainings([r, ...trainings]),
+    mark: label => { if (engine.recorder.recording) engine.mark(label); },
+    record: {
+      start: async (name, sec) => {
+        if (engine.recorder.recording || hub.tool !== 'fnirs') return false;
+        await engine.startRecording(name, sec);
+        return true;
+      },
+      stop: () => engine.stopRecording(),
+    },
+  });
 
   // ── the language: choosing one reloads the app, so it asks first when that would cut something off ──
   let leaving = false;
   const bandInUse = () => { const d = hub.active?.device; return !!d && (d.isConnected || d.info.reconnecting); };
   new LanguagePicker({
-    state: () => ({ band: bandInUse(), recording: recorder.recording, session: runner.active || arcade.active || games.current !== null }),
+    state: () => ({ band: bandInUse(), recording: recorder.recording, session: runner.active || arcade.active || cards.active || games.current !== null }),
     release: async () => {
       leaving = true;   // the reload is confirmed: no second question from beforeunload
       if (recorder.recording) await engine.stopRecording();
@@ -135,6 +150,7 @@ async function main(): Promise<void> {
     balance.setActive(r.view === 'balance');
     if (r.view === 'start') start.shown(); else start.hidden();
     if (r.view === 'focus') focusSetup.shown();
+    if (r.view === 'karty') cards.show(r.cards); else cards.hide();
     if (r.view === 'trening') activities.shown();
     if (r.view === 'gry') {
       if (gameOfDay().id !== today.id) {
@@ -229,6 +245,7 @@ async function main(): Promise<void> {
     if (v === 'start') start.render(s);
     if (v === 'focus') focusSetup.render(s);
     if (v === 'arcade') lobby.render(s);
+    if (v === 'karty') cards.renderStatus(s);
     if (v === 'trening') activities.render(s, settings.training.scene);
     if (v === 'gry') {
       for (const v of gameViews()) v.render(s, settings.training.scene);
@@ -240,7 +257,7 @@ async function main(): Promise<void> {
       $('monitorEeg').hidden = s.tool !== 'eeg';
       $('sygnalLede').textContent = s.tool === 'eeg' ? t('sig.ledeEeg') : s.tool === 'fnirs' ? t('sig.ledeFnirs') : tPage('sig.lede');
     }
-    awake.set(!!s.recording?.recording || (s.source === 'device' && s.device.streaming) || runner.active || arcade.active || games.current !== null);
+    awake.set(!!s.recording?.recording || (s.source === 'device' && s.device.streaming) || runner.active || arcade.active || cards.active || games.current !== null);
   };
 
   // ── per tick ──────────────────────────────────────────────────────
@@ -284,7 +301,7 @@ async function main(): Promise<void> {
     if (document.visibilityState === 'hidden') void recorder.checkpoint();   // mobile may kill hidden tabs
   });
   window.addEventListener('beforeunload', e => {
-    if (!leaving && (recorder.recording || runner.active || arcade.active)) e.preventDefault();
+    if (!leaving && (recorder.recording || runner.active || arcade.active || cards.active)) e.preventDefault();
   });
 
   await Promise.all([sheet.bt.init(), settingsView.renderStorage()]);
