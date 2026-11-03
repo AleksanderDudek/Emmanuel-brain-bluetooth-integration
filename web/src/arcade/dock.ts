@@ -57,6 +57,9 @@ const STYLE = (lag: number): TraceStyle => ({
   lag: { sec: lag, color: 'rgba(255,255,255,.6)' },
 });
 
+/** The chart's paint rate at most (Hz). */
+const DRAW_HZ = 15;
+
 export class SignalDock {
   readonly el: HTMLElement;
   private readonly canvas: HTMLCanvasElement;
@@ -80,6 +83,9 @@ export class SignalDock {
   private now = 0;
   private wasBlind = false;
   private playing = false;
+  /** the chart changed since it was last drawn, and when that was (performance.now ms) */
+  private dirty = true;
+  private drawnAt = -Infinity;
   private text: DockText = { eyebrow: '', task: '', state: '', tone: '', meter: '', value: '', nums: '', block: '', session: '' };
   /** blocks begun so far, per kind (the strategy turns with them), and the current one's task */
   private begun = { focus: 0, rest: 0 };
@@ -116,6 +122,7 @@ export class SignalDock {
   /** Before play (calibration, countdown): the chart is empty and says when it starts. */
   idle(): void {
     this.playing = false;
+    this.dirty = true;
     this.set({ eyebrow: t('dock.title', { band: BAND_NAME[this.tool] }), task: '', state: t('dock.cal'), tone: 'idle', meter: '', value: '', nums: '', block: '', session: '' });
   }
 
@@ -127,12 +134,15 @@ export class SignalDock {
     this.hh = Math.max(0, r.height);
     this.canvas.width = Math.round(this.w * this.dpr);
     this.canvas.height = Math.round(this.hh * this.dpr);
+    this.dirty = true;
+    this.drawnAt = -Infinity;
     this.draw();
   }
 
   /** One tick of play: `t` = seconds of play, `phase` = the game's block. */
   push(tSec: number, f: FocusFrame, phase: SignalPhase, dt: number): void {
     this.playing = true;
+    this.dirty = true;
     this.now = tSec;
     if (this.wasBlind && !phase.blind) this.trace.unveil(tSec);
     this.wasBlind = phase.blind;
@@ -198,10 +208,18 @@ export class SignalDock {
     this.text = x;
   }
 
-  /** Every animation frame. */
+  /**
+   * Every animation frame; it paints only when a sample came in, and at most DRAW_HZ times a second —
+   * a 45 s chart needs no 60 fps, and the frames it leaves go to the game (on a slow phone the runner's
+   * 0.05 s step cap would otherwise slow the game's clock).
+   */
   draw(): void {
     const ctx = this.ctx, w = this.w, hh = this.hh;
     if (!ctx || w < 20 || hh < 20) return;
+    const ms = performance.now();
+    if (!this.dirty || ms - this.drawnAt < 1000 / DRAW_HZ) return;
+    this.dirty = false;
+    this.drawnAt = ms;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, w, hh);
     const box = { x: 40, y: 14, w: w - 40 - 34, h: hh - 14 - 14 };

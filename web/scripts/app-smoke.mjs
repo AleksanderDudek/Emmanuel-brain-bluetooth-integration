@@ -133,6 +133,9 @@ try {
   const arcadeIds = await page.evaluate(() => [...document.querySelectorAll('#gameTiles .tile')].map(t => t.getAttribute('href').replace('#gra/', ''))
     .filter(id => !id.startsWith('holyholyholy')));
   if (startGames !== 2 + arcadeIds.length || arcadeIds.length < 3) throw new Error(`Start should offer every game, found ${startGames} (${arcadeIds})`);
+  // ARCADE_ONLY=zastepy,aniol plays just those (a quick local check); the full run plays every game
+  const only = process.env.ARCADE_ONLY?.split(',').filter(Boolean);
+  if (only) arcadeIds.splice(0, arcadeIds.length, ...arcadeIds.filter(id => only.includes(id)));
 
   step('Trening hub');
   await go('trening');
@@ -231,16 +234,24 @@ try {
     // generic input: a tap in the middle and Space now and then; the games make progress with it
     const box = await page.evaluate(() => { const r = document.querySelector('#arcadeLayer canvas').getBoundingClientRect(); return { x: r.width / 2, y: r.height * 0.6 }; });
     let tapped = 0;
-    const deadline = Date.now() + 22_000;
-    while (Date.now() < deadline) {
+    const scored = () => page.evaluate(() => (globalThis.brainlink.arcade.debug?.outcome?.score ?? 0) > 0);
+    // 22 s of play, and up to 14 s more (inside the 40 s session) while nothing has scored: a slow CI machine runs under
+    // 20 fps, where the runner's 0.05 s step cap slows the games' clocks
+    const start = Date.now();
+    // frames painted while the taps go on: under 20 fps the runner's step cap slows the game's clock
+    await page.evaluate(() => { const c = globalThis.__smokeFrames = { n: 0, on: true }; const f = () => { c.n++; if (c.on) requestAnimationFrame(f); }; requestAnimationFrame(f); });
+    while (Date.now() - start < 22_000 || (Date.now() - start < 36_000 && !(await scored()))) {
       await page.mouse.click(box.x, box.y);
       if (tapped++ % 3 === 0) await page.keyboard.press('Space');
       await sleep(650);
     }
     const mid = await page.evaluate(() => globalThis.brainlink.arcade.debug);
-    console.log(`  ${id}: t ${mid.t.toFixed(0)} s, focus ${mid.level.toFixed(2)}, score ${mid.outcome?.score} ${mid.outcome?.unit}`);
+    const frames = await page.evaluate(() => { globalThis.__smokeFrames.on = false; return globalThis.__smokeFrames.n; });
+    const waited = ((Date.now() - start) / 1000).toFixed(0);
+    const fps = (frames / ((Date.now() - start) / 1000)).toFixed(0);
+    console.log(`  ${id}: t ${mid.t.toFixed(0)} s, focus ${mid.level.toFixed(2)}, score ${mid.outcome?.score} ${mid.outcome?.unit} (${waited} s of taps, ${fps} fps)`);
     await shot(`32-${id}-play`);
-    if (!(mid.outcome && mid.outcome.score > 0)) throw new Error(`${id}: no score after 22 s of simulated focus and taps`);
+    if (!(mid.outcome && mid.outcome.score > 0)) throw new Error(`${id}: no score after ${waited} s of simulated focus and taps`);
     await page.setViewport({ width: 390, height: 844 });
     await sleep(900);
     await shot(`33-${id}-play-phone`);
