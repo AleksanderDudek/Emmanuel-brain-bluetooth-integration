@@ -1,131 +1,81 @@
 /**
- * Where Urodzaj's play view puts things.  The basket is centred horizontally in every layout (the
- * smoke test's centre taps aim at it), sized in px per W (`s`) so its world box — 1.07 W wide and
- * 1.275 W tall with the walls, the floor and the room above the rim for the largest drop — fits
- * between the runner's strips (the clock and pause button on top, the signal banner and simulator
- * button below).  On a portrait phone the HUD stacks above the basket and the stamp slot sits in the
- * hills between them; when wide, the score and the table panel take the left column, the next fruit,
- * the ladder, the block and the stamps the right one.
+ * Where Urodzaj's scene sits on the canvas: the basket's scale S (CSS px per W), its centre and floor,
+ * the twine Feliks flies along, the next fruit's bubble, the circle of fruits, the gleaners and the
+ * table.  Two shapes: wide (a desktop or a phone held sideways) puts the circle left of the basket and
+ * the table right of it, and lets the basket rise into the band between the runner's Mendi panel and
+ * score when it is clear of both; tall (a phone upright) keeps everything under the runner's HUD and
+ * draws the circle as a strip under the basket.
  */
-import { clamp } from '../kit/juice';
-import { BASKET } from './physics';
-
-/** The runner's own UI: the top strip (timer, pause), the bottom strip (signal banner, simulator button). */
-export const TOP = 64;
-export const BOTTOM = 66;
-
-/** The basket's world box (W): width with the walls, height from under the floor to the top of the largest hanging fruit. */
-export const BOX_W = 1.07;
-export const BOX_H = 1.275;
-/** the largest drop (a fig) and its top above the hang line (W) */
-export const DROP_MAX_R = 0.079;
-
-export interface Rect { x: number; y: number; w: number; h: number }
+import { BASKET } from './rules';
 
 export interface Layout {
   w: number;
   h: number;
-  /** UI scale */
-  u: number;
-  portrait: boolean;
-  /** px per W, the basket's centre x and the floor's y (screen px) */
-  s: number;
+  wide: boolean;
+  /** CSS px per W, the basket's centre x and its floor's y */
+  S: number;
   cx: number;
-  floorY: number;
-  rimY: number;
-  hangY: number;
-  /** the vine border's width at both sides */
-  border: number;
-  /** the HUD's places: the score, the next fruit's roundel (its centre and radius), the ladder strip, the block label, the tip */
-  score: Rect;
+  floor: number;
+  /** the ground line (the basket stands on it) */
+  ground: number;
+  /** the next fruit's bubble: centre and radius */
   next: { x: number; y: number; r: number };
-  ladder: Rect;
-  label: Rect;
-  tip: Rect;
-  /** at most this many lines of tip */
-  tipLines: number;
-  /** the stamp slot's centre and the width a stamp may take */
-  stamp: { x: number; y: number; w: number };
-  /** the table panel (wide layouts only) */
-  table: Rect | null;
-  /** where the gleaners stand (the field's edge, left of the basket) */
-  gleaners: { x: number; y: number; size: number };
+  /** the circle of fruits: a ring (wide) or a strip (tall) */
+  ring: { x: number; y: number; r: number; strip: boolean; w: number };
+  /** the gleaners stand here (their feet) */
+  glean: { x: number; y: number; s: number };
+  /** the table (wide: right of the basket; tall: off screen right) */
+  table: { x: number; y: number; w: number; on: boolean };
+  /** the top of the play (below the runner's HUD where it must be) */
+  top: number;
 }
 
-/** World x and y (W, y up) to screen px. */
-export const sx = (L: Layout, x: number): number => L.cx + x * L.s;
-export const sy = (L: Layout, y: number): number => L.floorY - y * L.s;
+/** The runner's panel and score sizes on a wide screen (CSS px), for the "rise between them" check. */
+const PANEL_W = 350;
+const SCORE_W = 240;
 
-export function layout(w: number, h: number): Layout {
-  const u = clamp(Math.min(w, h) / 430, 0.84, 1.25);
-  const border = Math.round(12 * u);
-  const portrait = h >= 1.15 * w;
-  let s: number, floorY: number;
-  if (portrait) {
-    s = Math.min((w - 32) / BOX_W, (h - TOP - BOTTOM - 124 * u - 14) / BOX_H, 600);
-    floorY = h - BOTTOM - 4 - BASKET.wall * Math.max(60, s);
-  } else {
-    const colW = clamp(0.22 * w, 170 * u, 340);
-    s = Math.min((h - TOP - BOTTOM - 8) / BOX_H, (w - 2 * colW) / BOX_W, 600);
-    // the woven floor band under the floor stays above the bottom strip
-    floorY = h - BOTTOM - 4 - BASKET.wall * Math.max(60, s);
+export function computeLayout(w: number, h: number, hudTop: number): Layout {
+  const wide = w >= h * 1.05;
+  // the scene's height in W: from Feliks's head (over the twine) to the ground under the basket
+  const above = BASKET.hang + 0.24, below = 0.07;
+  const sideW = 1 + 0.12;
+  const margin = 10;
+  if (wide) {
+    const sBelow = Math.min((h - hudTop - margin * 2) / (above + below), (w * 0.5) / sideW);
+    // free of the panel and the score at its width: the basket may start high
+    const sHigh = Math.min((h - margin * 2 - 6) / (above + below), (w * 0.5) / sideW);
+    const halfPx = (sHigh * sideW) / 2 + 30;
+    const clear = w / 2 - halfPx > PANEL_W && w / 2 - halfPx > SCORE_W;
+    const S = Math.max(40, clear ? sHigh : sBelow);
+    const top = clear ? margin : hudTop;
+    const floor = Math.min(h - margin - below * S, top + above * S + Math.max(0, (h - top - margin - (above + below) * S) / 2));
+    const cx = w / 2;
+    const left = cx - S * 0.56;
+    const ringR = Math.max(34, Math.min(110, (left - 24) * 0.42, (floor - hudTop) * 0.3));
+    return {
+      w, h, wide, S, cx, floor, ground: floor + below * S, top,
+      next: { x: cx + S * 0.5 + Math.min(70, S * 0.22), y: floor - BASKET.hang * S, r: Math.max(18, S * 0.09) },
+      ring: { x: Math.max(ringR + 16, left - ringR - 40), y: Math.max(hudTop + ringR + 26, floor - (BASKET.rim * S) * 0.62), r: ringR, strip: false, w: ringR * 2 },
+      glean: { x: left - S * 0.16, y: floor + below * S, s: S * 0.36 },
+      table: { x: cx + S * 0.62 + 12, y: floor + below * S, w: Math.max(80, Math.min(w - (cx + S * 0.62) - 24, S * 0.9)), on: w - (cx + S * 0.62) > 110 },
+    };
   }
-  s = Math.max(60, s);
+  const stripH = 30;
+  const S = Math.max(40, Math.min((h - hudTop - margin - stripH) / (above + below), (w - 24) / sideW));
   const cx = w / 2;
-  const rimY = floorY - BASKET.rim * s;
-  const hangY = floorY - BASKET.hang * s;
-  const boxTop = hangY - DROP_MAX_R * s;
-  const L: Layout = {
-    w, h, u, portrait, s, cx, floorY, rimY, hangY, border,
-    score: { x: 0, y: 0, w: 0, h: 0 }, next: { x: 0, y: 0, r: 0 }, ladder: { x: 0, y: 0, w: 0, h: 0 }, label: { x: 0, y: 0, w: 0, h: 0 },
-    tip: { x: 0, y: 0, w: 0, h: 0 }, tipLines: 2, stamp: { x: cx, y: 0, w: 0 }, table: null,
-    gleaners: { x: 0, y: 0, size: 0 },
+  const floor = hudTop + above * S + Math.max(0, (h - hudTop - margin - stripH - (above + below) * S) * 0.35);
+  const ground = floor + below * S;
+  return {
+    w, h, wide, S, cx, floor, ground, top: hudTop,
+    next: { x: cx + S * 0.5 - Math.max(16, S * 0.07), y: floor - BASKET.hang * S - S * 0.02, r: Math.max(14, S * 0.065) },
+    ring: { x: cx, y: Math.min(h - stripH / 2 - 4, ground + stripH / 2 + 4), r: 12, strip: true, w: Math.min(w - 24, S * 1.1) },
+    glean: { x: cx - S * 0.42, y: ground, s: S * 0.24 },
+    table: { x: w + 40, y: ground, w: 100, on: false },
   };
-  if (portrait) {
-    // the HUD stack: the score row, the ladder, the block, the tip — compressed on a short phone
-    const avail = boxTop - TOP - 4;
-    const f = Math.min(u, avail / 142);
-    const pad = 18;
-    let y = TOP + 6 * f;
-    L.score = { x: pad, y, w: w - 2 * pad - 60 * u, h: 44 * f };
-    L.next = { x: w - pad - 20 * u, y: y + 24 * f, r: 20 * Math.min(u, f + 0.1) };
-    y += 50 * f;
-    L.ladder = { x: pad, y, w: w - 2 * pad, h: 16 * f };
-    y += 22 * f;
-    L.label = { x: pad, y, w: w - 2 * pad, h: 22 * f };
-    y += 28 * f;
-    L.tip = { x: pad + 6, y, w: w - 2 * pad - 12, h: 36 * f };
-    L.tipLines = 2;
-    const below = y + 36 * f;
-    const room = boxTop - below;
-    // the stamp in the hills between the HUD and the basket, or over the basket's empty top on a short phone
-    L.stamp = { x: cx, y: room > 90 * u ? below + room * 0.46 : hangY + 6 * u, w: Math.min(w - 40, 320 * u) };
-    // no room beside the basket on a phone: the gleaners stand on the hill above the twig, at the left
-    const size = 30 * u;
-    L.gleaners = { x: border + 34 * u, y: hangY - DROP_MAX_R * s - 10 * u - size * 0.5, size };
-  } else {
-    const left = sx(L, -BOX_W / 2), right = sx(L, BOX_W / 2);
-    // the gleaners at the field's edge, low beside the basket's left wall (the table panel ends above them)
-    const size = 30 * u;
-    L.gleaners = { x: left - 30 * u, y: floorY - 0.2 * s, size };
-    const lx = border + 14 * u, lw = Math.max(80, left - 16 - lx);
-    const rx = right + 16, rw = Math.max(80, w - border - 14 * u - rx);
-    let y = TOP + 8;
-    L.score = { x: lx, y, w: lw, h: 56 * u };
-    const tableTop = y + 66 * u;
-    const th = Math.min(h - BOTTOM - 8 - tableTop, lw * 0.78, L.gleaners.y - size - 16 * u - tableTop);
-    L.table = th > 90 * u ? { x: lx, y: tableTop, w: lw, h: th } : null;
-    let ry = TOP + 8;
-    L.next = { x: rx + 22 * u, y: ry + 24 * u, r: 20 * u };
-    ry += 54 * u;
-    L.ladder = { x: rx, y: ry, w: rw, h: 16 * u };
-    ry += 26 * u;
-    L.label = { x: rx, y: ry, w: rw, h: 24 * u };
-    ry += 32 * u;
-    L.tipLines = 3;
-    L.tip = { x: rx, y: ry, w: rw, h: 18 * u * 3 };
-    ry += L.tip.h + 18 * u;
-    L.stamp = { x: rx + rw / 2, y: Math.min(h - BOTTOM - 60 * u, ry + 44 * u), w: rw };
-  }
-  return L;
 }
+
+/** World (W, y up) to the canvas (CSS px). */
+export const sx = (l: Layout, x: number): number => l.cx + x * l.S;
+export const sy = (l: Layout, y: number): number => l.floor - y * l.S;
+/** The canvas to the world's x (the aim). */
+export const worldX = (l: Layout, px: number): number => (px - l.cx) / l.S;

@@ -5,8 +5,11 @@
  * cities, their postcards, the messenger seen from behind (tunic, cloak in the jar's colour, the
  * satchel with the letters), silver drachmas, sandals and the satchel, and a watchtower's fire.
  *
+ * Version 2 adds the cast: Klekot the stork (the companion, whose wings are the band's gauge) and
+ * Bela the goat (the chaser who eats letters), and the road's power-ups: the seal ×2 and the shield.
+ *
  * The palette is a painted dawn: indigo, plum and apricot sky, mauve and olive hills, warm limestone
- * paving.  Gold is kept for the signal (above the threshold) and the heights; drachmas are silver.
+ * paving.  Gold is kept for the signal (above the threshold) and the flight; drachmas are silver.
  */
 import type { CityId } from './content';
 
@@ -459,4 +462,257 @@ export function paintFire(ctx: CanvasRenderingContext2D, x: number, y: number, s
     ctx.closePath();
     ctx.fill();
   }
+}
+
+// ── v2: the cast and the power-ups ───────────────────────────────
+/**
+ * Klekot the stork in flight, seen from the side (facing right), centred at (x, y), `s` px across his
+ * body.  `flap` the wingbeat phase (rad), `spread` 0..1 how wide the wings open (the band's lift),
+ * `gold` 0..1 how much of the gold of a lift above the threshold the feather tips carry.
+ */
+export function paintStork(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, flap: number, spread: number, gold: number, legsDown = false): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const beat = Math.sin(flap);
+  const span = s * (0.75 + 0.75 * spread);
+  // the far wing (behind the body)
+  const wing = (dir: number, shade: string) => {
+    const tipY = -beat * span * 0.55 * dir;
+    ctx.fillStyle = shade;
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.12, -s * 0.05);
+    ctx.quadraticCurveTo(-s * 0.05, tipY * 0.6 - s * 0.1, s * 0.05 + span * 0.25, tipY - s * 0.05 * dir);
+    ctx.lineTo(s * 0.25, tipY * 0.55);
+    ctx.quadraticCurveTo(s * 0.18, -s * 0.02, s * 0.15, s * 0.02);
+    ctx.closePath();
+    ctx.fill();
+    // the black flight feathers, gold at the tips above the threshold
+    ctx.strokeStyle = '#1d1a22';
+    ctx.lineWidth = Math.max(1.5, s * 0.07);
+    for (let i = 0; i < 4; i++) {
+      const k = i / 3;
+      const bx = s * (-0.05 + 0.08 * i), by = tipY * (0.45 + 0.15 * k);
+      ctx.beginPath();
+      ctx.moveTo(bx, by * 0.9);
+      ctx.lineTo(bx + span * 0.2, by + tipY * 0.25 - s * 0.03);
+      ctx.stroke();
+    }
+    if (gold > 0.02) {
+      ctx.strokeStyle = `rgba(255,207,110,${Math.min(1, gold)})`;
+      ctx.lineWidth = Math.max(1.5, s * 0.06);
+      for (let i = 0; i < 4; i++) {
+        const bx = s * (-0.05 + 0.08 * i) + span * 0.2, by = tipY * (0.45 + 0.05 * i) + tipY * 0.25 - s * 0.03;
+        ctx.beginPath();
+        ctx.moveTo(bx - span * 0.05, by - tipY * 0.06);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+      }
+    }
+  };
+  wing(-1, '#d9d4cc');
+  // the legs trailing behind (or hanging, carrying)
+  ctx.strokeStyle = '#e2553a';
+  ctx.lineWidth = Math.max(1.2, s * 0.045);
+  ctx.beginPath();
+  if (legsDown) {
+    ctx.moveTo(-s * 0.05, s * 0.12);
+    ctx.lineTo(-s * 0.08, s * 0.5);
+    ctx.moveTo(s * 0.05, s * 0.12);
+    ctx.lineTo(s * 0.06, s * 0.5);
+  } else {
+    ctx.moveTo(-s * 0.3, s * 0.03);
+    ctx.lineTo(-s * 0.85, s * 0.08);
+  }
+  ctx.stroke();
+  // the body, the neck and the head
+  ctx.fillStyle = '#fbf8f2';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.36, s * 0.16, -0.05, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#1d1a22';
+  ctx.beginPath();
+  ctx.ellipse(-s * 0.22, s * 0.02, s * 0.14, s * 0.08, 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#fbf8f2';
+  ctx.lineWidth = s * 0.11;
+  ctx.beginPath();
+  ctx.moveTo(s * 0.28, -s * 0.03);
+  ctx.quadraticCurveTo(s * 0.45, -s * 0.12, s * 0.55, -s * 0.1);
+  ctx.stroke();
+  ctx.fillStyle = '#fbf8f2';
+  ctx.beginPath();
+  ctx.arc(s * 0.57, -s * 0.11, s * 0.075, 0, Math.PI * 2);
+  ctx.fill();
+  // a funny eye and the long red beak
+  ctx.fillStyle = '#1d1a22';
+  ctx.beginPath();
+  ctx.arc(s * 0.59, -s * 0.13, s * 0.022, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e2553a';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.62, -s * 0.13);
+  ctx.lineTo(s * 0.98, -s * 0.06);
+  ctx.lineTo(s * 0.62, -s * 0.08);
+  ctx.closePath();
+  ctx.fill();
+  // the postman's cap
+  ctx.fillStyle = '#2f4f8f';
+  ctx.beginPath();
+  ctx.ellipse(s * 0.56, -s * 0.18, s * 0.075, s * 0.035, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  wing(1, '#ffffff');
+  ctx.restore();
+}
+
+/**
+ * Bela the goat, chasing, seen from behind and a little from the side: feet at (x, y), `s` px per
+ * metre.  `t` the run cycle, `chew` 0..1 (a letter in her mouth when caught).
+ */
+export function paintGoat(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t: number, chew: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  const bob = Math.abs(Math.sin(t * 9)) * s * 0.05;
+  ctx.translate(0, -bob);
+  // the legs, trotting
+  ctx.strokeStyle = '#6d625a';
+  ctx.lineWidth = s * 0.07;
+  ctx.lineCap = 'round';
+  for (const [lx, ph] of [[-0.18, 0], [0.18, Math.PI], [-0.12, Math.PI], [0.12, 0]] as const) {
+    const lift = Math.max(0, Math.sin(t * 9 + ph)) * 0.12;
+    ctx.beginPath();
+    ctx.moveTo(lx * s, -0.45 * s);
+    ctx.lineTo(lx * s * 1.1, (-0.02 - lift) * s + bob);
+    ctx.stroke();
+  }
+  // the body from behind: a round white rump with a tuft of a tail
+  ctx.fillStyle = '#f4efe6';
+  ctx.beginPath();
+  ctx.ellipse(0, -0.62 * s, 0.3 * s, 0.26 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ddd4c6';
+  ctx.beginPath();
+  ctx.ellipse(0.04 * s, -0.55 * s, 0.24 * s, 0.17 * s, 0, 0, Math.PI);
+  ctx.fill();
+  ctx.fillStyle = '#f4efe6';
+  ctx.beginPath();
+  ctx.ellipse(0, -0.86 * s, 0.05 * s, 0.08 * s, Math.sin(t * 14) * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  // the head turned to the side: horns, an ear, the beard, a googly eye
+  const hx = 0.24 * s, hy = -0.98 * s;
+  ctx.fillStyle = '#f4efe6';
+  ctx.beginPath();
+  ctx.ellipse(hx, hy, 0.13 * s, 0.11 * s, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(hx + 0.12 * s, hy + 0.06 * s, 0.08 * s, 0.06 * s, 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#8a7a66';
+  ctx.lineWidth = 0.045 * s;
+  ctx.beginPath();
+  ctx.moveTo(hx - 0.04 * s, hy - 0.09 * s);
+  ctx.quadraticCurveTo(hx - 0.14 * s, hy - 0.25 * s, hx - 0.2 * s, hy - 0.16 * s);
+  ctx.moveTo(hx + 0.03 * s, hy - 0.1 * s);
+  ctx.quadraticCurveTo(hx - 0.03 * s, hy - 0.28 * s, hx - 0.1 * s, hy - 0.22 * s);
+  ctx.stroke();
+  ctx.fillStyle = '#e9e0d2';
+  ctx.beginPath();
+  ctx.ellipse(hx - 0.12 * s, hy + 0.01 * s, 0.09 * s, 0.035 * s, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#d9cfc0';
+  ctx.beginPath();
+  ctx.moveTo(hx + 0.12 * s, hy + 0.1 * s);
+  ctx.lineTo(hx + 0.1 * s, hy + 0.25 * s);
+  ctx.lineTo(hx + 0.18 * s, hy + 0.1 * s);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(hx + 0.05 * s, hy - 0.02 * s, 0.045 * s, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#2b2219';
+  ctx.beginPath();
+  ctx.arc(hx + 0.065 + Math.sin(t * 3) * 0.012 * s, hy - 0.015 * s, 0.022 * s, 0, Math.PI * 2);
+  ctx.fill();
+  if (chew > 0) {
+    // the letter in her mouth, chewed
+    ctx.save();
+    ctx.translate(hx + 0.2 * s, hy + 0.08 * s);
+    ctx.rotate(0.3 + Math.sin(t * 16) * 0.15 * chew);
+    ctx.fillStyle = '#f3e6c4';
+    ctx.fillRect(-0.02 * s, -0.06 * s, 0.2 * s, 0.13 * s);
+    ctx.strokeStyle = '#b9412e';
+    ctx.lineWidth = 0.02 * s;
+    ctx.strokeRect(-0.02 * s, -0.06 * s, 0.2 * s, 0.13 * s);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/** The seal ×2: a red wax seal with "×2", `r` px. */
+export function paintSeal(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.fillStyle = '#b9412e';
+  ctx.beginPath();
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2, rr = r * (i % 2 ? 0.82 : 0.95);
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#d95a44';
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.62, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ffe7c8';
+  ctx.font = font(800, r * 0.72, SANS);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('×2', x, y + r * 0.04);
+}
+
+/** The watchmen's shield: round, bronze rim, `r` px. */
+export function paintShield(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.fillStyle = '#9a6a2e';
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#c8553d';
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#f1d08a';
+  ctx.lineWidth = Math.max(1.5, r * 0.12);
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.8, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#f1d08a';
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** A letter of the day's word on the road: a glowing parchment tile, `r` px. */
+export function paintLetterTile(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, ch: string, t: number): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.2);
+  g.addColorStop(0, `rgba(255,214,120,${0.35 + 0.15 * Math.sin(t * 5)})`);
+  g.addColorStop(1, 'rgba(255,214,120,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 2.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = C.parchment;
+  ctx.strokeStyle = C.edge;
+  ctx.lineWidth = Math.max(1, r * 0.1);
+  ctx.beginPath();
+  ctx.roundRect(x - r, y - r, r * 2, r * 2, r * 0.3);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = C.ink;
+  ctx.font = font(800, r * 1.3, SERIF);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(ch, x, y + r * 0.08);
 }

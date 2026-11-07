@@ -1,236 +1,100 @@
 /**
- * Urodzaj's rules and state, without the DOM or the canvas (so every rule is unit-tested).
+ * Urodzaj's rules and state, without the DOM or the canvas (so every rule is unit-tested): Suika Game
+ * in Boaz's field.
  *
- * A woven basket on a hillside orchard: the player aims a hanging fruit and drops it (physics.ts);
- * two alike fruit that touch join into the next of nine tiers, olive to the great cluster, and a merge
- * soon after the basket's last one is a chain link (×1 + 0.25 a link, up to ×3).  A great cluster
- * crowns the basket (+150) and a new one comes with a breather of small fruit.  A heap whose top stays
- * over the rim for 2 s tips: what is above the rim rolls to the gleaners at the field's edge, every
- * point stays, and a new basket with one olive slides in — nothing is ever subtracted.
+ *   the basket     Feliks the sparrow carries the next fruit along the twine over a wicker basket; the
+ *                  player moves him (drag, mouse, ← →) and lets go (release, tap, Space): the fruit
+ *                  falls straight down.  Two alike fruit that touch join into the next of eleven,
+ *                  olive to the great cluster (physics.ts); the points are Suika's triangular ladder,
+ *                  times a chain multiplier when merges cascade.  Two great clusters leave on the pole.
+ *                  Only the five smallest are dropped; the next one shows in its bubble.
+ *   the rim        the overflow line: a fruit over it for 2 s ends the basket — a tally with stars, the
+ *                  basket is carried to the table, a new one slides in.  The session goes on and every
+ *                  point stays (never a lost session).
+ *   Wiatr żniwny   the push block (charge): past the lead-in the wind's strength `w` follows the level;
+ *                  above the threshold it fills the charge, and a full charge blows the harvest wind —
+ *                  the basket rocks and settles, then the wind draws alike neighbours together (the
+ *                  big moment).  A passed block adds charge.  Blind: the wind hides; at the block's
+ *                  end the veil lifts and what it gathered blows at once.
+ *   Pokłosie       the rest block (gleaners, Ruth 2): past the lead-in calm fills the gleaners' step;
+ *                  each full step takes the smallest fruit off the heap to the table (space and
+ *                  points).  A passed block: two more.
  *
- * The band adds craft, never grace.  The session alternates Zbiór (push: the vine V follows `level`
- * after a lead-in, shoots grow from steady `hold`, and tendrils reach between alike fruit that almost
- * touch) and Rosa (rest: a linen cloth covers the basket and the dew D gathers from `calm`).  Each
- * block is judged once on its last 15 s by the kit's RoundJudge and pays out in one visible beat
- * right after it: the vine gathers the tied pairs (Zbiór), the dew settles the heap and bridges near
- * pairs (Rosa).  While the signal is unreliable V, K and D freeze (the block clock runs on); a block
- * with under 8 reliable seconds pays at the neutral floor without a verdict.
- *
- * The evening at the table ends every session: the day's loaf (the same for everyone who comes),
- * Ruth and Naomi by the story, and the guests drawn with published odds and pity.  On the day's first
- * session ("Kosz dnia") the n-th drop and the block plan come from the date, so everyone playing the
- * same length meets the same fruit in the same order.
- *
- * Lengths are W (the basket's inner width at the rim), y up, the floor at 0; times in seconds.
+ * While the signal is unreliable `w`, the charge and the gleaners freeze (never a loss).  Each block
+ * is judged once at its end (RoundJudge over its last 15 s), contrasted for the summary
+ * (BlockContrast).  Lengths are W, y up, the basket's floor at 0; times in seconds.
  */
 import { mulberry32 } from '../../core/random';
-import { fmtNum, fmtSigned } from '../../i18n';
+import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
-import { approach, clamp } from '../kit/juice';
+import { approach, clamp, ease } from '../kit/juice';
 import { inTurn, type PassageId } from '../kit/scripture';
+import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome } from '../kit/types';
-import {
-  BREATHER, DUPLICATE_GRAIN, GREAT_BONUS, MAX_TIER, TABLE_STEPS, TIER_NAME, TIPS, fruit, guestById, tierFromU, type GuestId, type Tier,
-} from './content';
-import { cap, t, unit } from './i18n';
-import { drawGuest, loafDue, naomiDue, nextMissing, ruthDue, tablePoints, tableState, type Draw, type UrodzajProgress } from './meta';
-import { BASKET, PHYS, World, type Body, type Merge, type Pair } from './physics';
+import { DROP_TIERS, LINES, MAX_TIER, TIPS, festName, festivalAt, fruit, tierFromU } from './content';
+import { cap, pts, t, unit } from './i18n';
+import { dailyDue, festFeed, migrate, starsFor, type FestEvent, type UrodzajProgress } from './meta';
+import { PHYS, World, type Body, type Merge, type Pair } from './physics';
+import { BASKET, RULES } from './rules';
+import { Talk } from './talk';
 
-export const RULES = {
-  /** the aim keeps the hanging fruit this far inside the rim (W) */
-  aimPad: 0.005,
-  /** a pointer down eases the aim to the finger over this long (s) */
-  aimSnap: 0.06,
-  /** the hanging fruit sways ±1 px at 1.2 Hz (also with reduced motion): no two drops land dead centre on each other */
-  sway: 0.003,
-  swayHz: 1.2,
-  keySpeed: 0.5,
-  keySpeedMax: 1.6,
-  keyRamp: 0.6,
-  keyTap: 0.02,
-  /** after a drop; a release in its last `buffer` s drops when it ends */
-  cooldown: 0.45,
-  buffer: 0.2,
-  chainWindow: 0.8,
-  chainStep: 0.25,
-  chainCap: 3,
-  overflowSec: 2,
-  overflowWarn: 0.4,
-  overflowExempt: 1,
-  overflowSpeed: 0.3,
-  warnEvery: 0.5,
-  /** a basket change: the new basket stands at `fresh` s, drops open at `change` s */
-  change: 0.8,
-  fresh: 0.5,
-  // the block plan
-  zbior: 24,
-  rosa: 26,
-  jitter: 3,
-  pairSec: 50,
-  telegraph: 4,
-  minBlock: 12,
-  finale: 6,
-  // the vine (Zbiór)
-  leadZbior: 5,
-  leadZbiorEeg: 2,
-  vineFrom: 0.35,
-  vineSpan: 0.5,
-  vineTau: 6,
-  shootSec: 6,
-  shootK: 0.1,
-  shootMax: 3,
-  shootDecay: 3,
-  /** A = 0.20 + 1.00 V + K (+0.15): up to the 1.65 r the design caps the vine at (tuned up from 0.70 V with the bot harness) */
-  allowBase: 0.2,
-  allowV: 1,
-  leafBonus: 0.15,
-  vineEvery: 0.2,
-  vineMax: 12,
-  vineRange: 1.6,
-  clear: 0.85,
-  gatherMax: 10,
-  gatherGap: 0.12,
-  pull: 0.45,
-  gatherBeat: 0.4,
-  /** a fruit faster than this is still falling: the vine leaves it (W/s) */
-  gatherSpeed: 0.3,
-  /** reach is measured in the pair's radius, but never less than this (W): small fruit get a usable reach too */
-  reachR: 0.1,
-  // the dew (Rosa)
-  leadRosa: 4,
-  leadRosaEeg: 2,
-  dewGain: 0.065,
-  dewLeak: 0.01,
-  /** B = 0.15 + 1.00 D (+0.10): tuned up from 0.60 D with the bot harness, rolling fruit leave few near pairs */
-  bridgeBase: 0.15,
-  bridgeD: 1,
-  dropBonus: 0.1,
-  settle: 1.2,
-  settleMu: 0.85,
-  settleG: 0.5,
-  /** the sigh's shiver (W at D = 1): rolling fruit are already compact, so the dew shakes them a little to find their neighbours */
-  jiggle: 0.02,
-  jiggleEvery: 0.1,
-  bridgeMax: 8,
-  bridgeGap: 0.1,
-  bridgeSlide: 0.3,
-  settleBeat: 0.25,
-  beads: 36,
-  glistenDry: 0.03,
-  /** the cloth: drawn over 0.8 s once the gather is done, lifted over 1 s */
-  veilIn: 0.8,
-  veilOut: 1,
-  // the signal
-  neutralSec: 8,
-  neutral: 0.4,
-  fogGap: 2,
-  recover: 6,
-  // the evening (seconds into the finisher)
-  carryAt: 1.4,
-  resolveAt: 2,
-  enoughAt: 4.6,
-  // feats
-  deepDew: 0.8,
-  legendContrast: 4,
-  maxDraws: 3,
-  ghostIdle: 3,
-  ghostSessions: 2,
-} as const;
+export { BASKET, RULES };
 
-/** On "Kosz dnia" the n-th drop draws from mulberry32(daySeed + DROP_STEP · n)… */
+/** On Kosz dnia the n-th drop draws from mulberry32(daySeed + DROP_STEP · n): the same fruit for everyone that day. */
 export const DROP_STEP = 7919;
-/** …and the day's block plan from its own stream. */
-export const PLAN_SALT = 0x6b43a9b5;
 
-export type BlockKind = 'warmup' | 'zbior' | 'rosa';
+export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
-export type Phase = 'play' | 'evening' | 'done';
+export type Phase = 'play' | 'finale' | 'done';
 
-/** A fruit the vine or the dew is pulling to its partner (kinematic on its way; `t` < 0 until it starts). */
-export interface Pull { a: Body; b: Body; t: number; dur: number; x0: number; y0: number; kind: 'vine' | 'dew' }
+/** A fruit the wind is drawing to its partner. */
+export interface Pull { a: Body; b: Body; t: number; dur: number; x0: number; y0: number }
+/** A small fruit a gleaner carries to the table. */
+export interface Flight { body: Body; t: number; x0: number; y0: number }
+/** A fruit as it lay when the basket was carried off (the view slides it to the table). */
+export interface Snap { tier: number; x: number; y: number; r: number; angle: number }
+/** The basket being carried to the table: the tally, then the slide. */
+export interface Change { t: number; final: boolean; snaps: Snap[]; score: number; stars: number; index: number }
 
-/** A fruit as the basket held it when the basket changed (the view carries these off). */
-export interface Snap { tier: number; x: number; y: number; r: number; angle: number; spill: boolean }
-
-export interface Change { kind: 'spill' | 'great'; t: number; snaps: Snap[]; pts: number; fresh: boolean }
-
-/** The payout right after a block: the vine's gather (after Zbiór) or the dew's settle (after Rosa). */
-export interface Payout {
-  kind: 'gather' | 'settle';
-  /** seconds since the block ended, from −beat */
-  t: number;
-  step: 'beat' | 'sigh' | 'pulls' | 'done';
-  blind: boolean;
-  /** the gather's allowance A, the bridges' range B (in r) */
-  range: number;
-  dew: number;
-  /** pairs found and pulls still to start */
-  pairs: [Body, Body][];
-  next: number;
-  merged: number;
-  /** the first gather of the player's life */
-  first: boolean;
-  /** the rim was warning when the Rosa ended */
-  warned: boolean;
-  jiggle: number;
-}
-
-export type GuestVia = 'story' | 'draw' | 'craft';
+export type HintKey = 'aim' | 'drop' | 'next' | 'merge' | 'ring' | 'line' | 'wind' | 'windFull' | 'glean' | 'blind' | 'pole';
+/** Where a coach mark points: Feliks, the next bubble, the circle, the rim gauge, the gleaners, or a point in the basket. */
+export type HintAt = 'feliks' | 'next' | 'ring' | 'rim' | 'gleaners' | 'basket';
 
 export type SimEvent =
   | { type: 'drop'; tier: number; x: number }
-  | { type: 'hang'; tier: number }
-  | { type: 'land'; tier: number; speed: number; x: number; y: number }
-  | { type: 'merge'; tier: number; x: number; y: number; pts: number; link: number; mult: number; first: boolean; via: 'touch' | 'vine' | 'dew' }
-  | { type: 'great'; x: number; y: number; pts: number }
-  | { type: 'warnTick'; k: number }
-  | { type: 'spill'; pts: number; spilled: number }
-  | { type: 'greatBasket'; pts: number }
-  | { type: 'newBasket' }
+  | { type: 'land'; tier: number; x: number; y: number; speed: number }
+  /** `link` 0 = a lone merge; `first` = the first of its tier ever; `pulled` = the wind brought them together */
+  | { type: 'merge'; tier: number; x: number; y: number; pts: number; link: number; mult: number; pulled: boolean; first: boolean }
+  | { type: 'pole'; x: number; y: number; pts: number }
+  | { type: 'danger'; on: boolean }
+  | { type: 'basketEnd'; index: number; score: number; stars: number; top: number; record: boolean; toRecord: number | null; final: boolean }
+  | { type: 'basketNew'; index: number }
+  | { type: 'windUp'; hidden: boolean }
+  | { type: 'wind'; pairs: number; power: number }
+  | { type: 'ready' }
+  | { type: 'glean'; tier: number; x: number; y: number; pts: number }
+  | { type: 'telegraph'; next: Block | null }
   | { type: 'blockStart'; block: Block; index: number }
-  | { type: 'telegraph'; next: BlockKind | 'evening' }
-  | { type: 'stamp'; kind: 'leaf' | 'drop' | 'almost'; block: 'zbior' | 'rosa'; have: number; need: number }
-  | { type: 'gather'; pairs: number; blind: boolean }
-  | { type: 'gathered'; merged: number; first: boolean }
-  | { type: 'pull'; kind: 'vine' | 'dew'; tier: number }
-  | { type: 'revealZbior'; pairs: number }
-  | { type: 'revealRosa'; pct: number }
-  | { type: 'settle'; dew: number; blind: boolean }
-  | { type: 'settled'; merged: number }
-  | { type: 'saved' }
-  | { type: 'veil'; on: boolean }
-  | { type: 'shoot'; n: number; blind: boolean }
-  | { type: 'bead'; n: number }
-  | { type: 'tableStep'; step: number }
-  | { type: 'lesson' }
-  | { type: 'evening' }
-  | { type: 'carry' }
-  | { type: 'loaf' }
-  | { type: 'guest'; id: GuestId; isNew: boolean; via: GuestVia; tier: Tier | null; grain: number }
-  | { type: 'enough' };
+  | { type: 'blockEnd'; block: Block; verdict: boolean | null; share: number; need: number }
+  | { type: 'reveal'; charge: number }
+  | { type: 'hint'; key: HintKey; at: HintAt; x: number; y: number }
+  | { type: 'mission'; fest: number; mission: number }
+  | { type: 'festival'; fest: number }
+  | { type: 'finale' }
+  | { type: 'end' };
 
 const NO_EVENTS: readonly SimEvent[] = [];
 
-// ── pure rules ───────────────────────────────────────────────────
-/** Points for making tier k by a merge: k(k − 1). */
-export const mergePoints = (k: number): number => k * (k - 1);
+/** Suika's points for making tier k: T(k) = k(k + 1) / 2. */
+export const mergePoints = (tier: number): number => fruit(tier).pts;
 
-/** The chain's multiplier for a link (0: the first merge): 1 + 0.25 a link, at most ×3. */
+/** The chain's multiplier for a link (0 = a lone merge). */
 export const chainMult = (link: number): number => Math.min(RULES.chainCap, 1 + RULES.chainStep * Math.max(0, link));
 
-/** The vine's target from the level: 0 up to 0.35, 1 from 0.85. */
-export const vineTarget = (level: number): number => clamp((level - RULES.vineFrom) / RULES.vineSpan);
+/** The charge a second of wind of strength w adds. */
+export const chargeRate = (w: number): number => RULES.chargeRate * clamp((w - RULES.chargeFrom) / RULES.chargeSpan);
 
-/** The shoots' bonus for `hold` seconds of steady focus: +0.10 per full 6 s, at most +0.30. */
-export const shootBonus = (hold: number): number => RULES.shootK * Math.min(RULES.shootMax, Math.floor(Math.max(0, hold) / RULES.shootSec));
-
-/** The vine's allowance A (in a pair's radius): 0.20 + 1.00 V + K, +0.15 after "Liść". */
-export const allowance = (V: number, K: number, leaf = false): number => RULES.allowBase + RULES.allowV * clamp(V) + K + (leaf ? RULES.leafBonus : 0);
-
-/** The dew bridges' range B (in r): 0.15 + 1.00 D, +0.10 after "Kropla". */
-export const bridgeRange = (D: number, drop = false): number => RULES.bridgeBase + RULES.bridgeD * clamp(D) + (drop ? RULES.dropBonus : 0);
-
-/** No block under `min` s: lift the short ones and take the time from the others, keeping the total. */
+/** Shorter blocks borrow from the longer ones so none is under `min` (in place). */
 export function liftShort(durs: number[], min: number): void {
   const short = durs.reduce((s, d) => s + Math.max(0, min - d), 0);
   if (short <= 0) return;
@@ -239,34 +103,48 @@ export function liftShort(durs: number[], min: number): void {
   for (let i = 0; i < durs.length; i++) durs[i] = durs[i] < min ? min : durs[i] - (durs[i] - min) * k;
 }
 
+/** The evening's free seconds at the session's end: 10 s in sessions of 2 min and more, 6 s in shorter ones. */
+export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RULES.finale.long : RULES.finale.short);
+
 /**
- * The session's blocks: the first-ever session opens with "Pierwszy kosz" (8 s in a session up to
- * a minute, 20 s up to 200 s, else 30 s), then Zbiór/Rosa pairs (24 ± 3 s and 26 ± 3 s, scaled to
- * fill the session) ending with a Rosa, which flows into the 6 s evening.  No block under 12 s.
+ * The session's blocks.  A first-ever session opens with the warm-up (30 s in 5 and 10 min, 20 s in
+ * 3, 6 s in a 40 s test); then Wiatr / Pokłosie pairs (24 ± 4 s and 24 ± 3 s, scaled to end on time,
+ * jittered only when there is room), ending with a Pokłosie, leaving the evening's seconds at the end.
+ * No block under 12 s.
  */
 export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const plan: Block[] = [];
-  let left = Math.max(0, plannedSec - RULES.finale);
-  if (firstEver) {
-    const warm = plannedSec <= 60 ? 8 : plannedSec <= 200 ? 20 : 30;
-    plan.push({ kind: 'warmup', dur: warm, blind: false });
-    left = Math.max(0, left - warm);
+  const R = RULES;
+  const fin = finaleFor(plannedSec);
+  const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
+  if (plannedSec <= 60) {
+    const left = Math.max(2 * R.minBlock, plannedSec - fin);
+    if (firstEver) {
+      const warm = R.warm.test, rest = Math.max(2 * R.minBlock, left - warm);
+      return [b('warmup', warm), b('push', rest / 2), b('rest', rest / 2)];
+    }
+    const rest = Math.max(R.minBlock, Math.min(14, left / 2));
+    return [b('push', left - rest), b('rest', rest)];
   }
-  let pairs = Math.max(1, Math.round(left / RULES.pairSec));
-  if (left / (pairs * RULES.pairSec) > 1.12) pairs++;
-  const jitter = left / (pairs * RULES.pairSec) >= 0.75 ? 1 : 0;   // short sessions: no jitter, or a block falls under 12 s
+  const plan: Block[] = [];
+  let left = plannedSec - fin;
+  if (firstEver) {
+    const warm = plannedSec >= 300 ? R.warm.long : R.warm.short;
+    plan.push(b('warmup', warm));
+    left -= warm;
+  }
+  const pair = R.push[0] + R.rest[0];
+  const pairs = Math.max(1, Math.round(left / pair));
+  const jitter = pairs >= 2 && left / (pairs * pair) >= 0.85 ? 1 : 0;
   const durs: number[] = [];
-  for (let i = 0; i < pairs; i++) durs.push(RULES.zbior + jitter * (2 * rnd() - 1) * RULES.jitter, RULES.rosa + jitter * (2 * rnd() - 1) * RULES.jitter);
-  const sum = durs.reduce((s, d) => s + d, 0);
-  for (let i = 0; i < durs.length; i++) durs[i] *= sum > 0 ? left / sum : 0;
-  liftShort(durs, RULES.minBlock);
-  durs.forEach((dur, i) => plan.push({ kind: i % 2 ? 'rosa' : 'zbior', dur, blind: false }));
+  for (let i = 0; i < pairs; i++) durs.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1], R.rest[0] + jitter * (rnd() * 2 - 1) * R.rest[1]);
+  const scale = left / durs.reduce((s, d) => s + d, 0);
+  for (let i = 0; i < durs.length; i++) durs[i] *= scale;
+  liftShort(durs, R.minBlock);
+  durs.forEach((dur, i) => plan.push(b(i % 2 ? 'rest' : 'push', dur)));
   return plan;
 }
 
-const speedOf = (b: Body): number => Math.hypot(b.vx, b.vy);
-
-/** Greedy pairing, smallest gap first, each fruit once; the upper fruit (the left one on a tie) is the one that moves. */
+/** Disjoint pairs from a list, nearest first. */
 function pickPairs(found: readonly Pair[], max: number): [Body, Body][] {
   const used = new Set<number>();
   const out: [Body, Body][] = [];
@@ -275,13 +153,14 @@ function pickPairs(found: readonly Pair[], max: number): [Body, Body][] {
     if (used.has(p.a.id) || used.has(p.b.id)) continue;
     used.add(p.a.id);
     used.add(p.b.id);
-    const aUp = Math.abs(p.a.y - p.b.y) < 1e-6 ? p.a.x < p.b.x : p.a.y > p.b.y;
-    out.push(aUp ? [p.a, p.b] : [p.b, p.a]);
+    // the higher one is drawn down to the lower (it looks like settling, not lifting)
+    out.push(p.a.y >= p.b.y ? [p.a, p.b] : [p.b, p.a]);
   }
   return out;
 }
 
-// ── the session ──────────────────────────────────────────────────
+const speedOf = (b: Body): number => Math.hypot(b.vx, b.vy);
+
 export interface SimInit {
   progress: UrodzajProgress;
   rng: () => number;
@@ -289,348 +168,425 @@ export interface SimInit {
   daySeed: number;
   plannedSec: number;
   eeg: boolean;
-  /** the session's focus tuning (the kit's defaults, the game's entry, a beginner's bias): the blocks' judges follow it */
+  /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
 }
 
+/** The basket now: its number in the session, its points, merges and the biggest fruit in it so far. */
+export interface Basket { index: number; score: number; merges: number; top: number; t: number }
+
 export class UrodzajSim {
-  readonly p: UrodzajProgress;
-  readonly plannedSec: number;
+  readonly progress: UrodzajProgress;
   readonly world = new World();
+  readonly plannedSec: number;
+  readonly eeg: boolean;
+  readonly plan: Block[];
+  readonly trace = new SignalTrace(40, 0.1);
+  readonly talk: Talk;
   readonly contrast = new BlockContrast(4);
-  private readonly rng: () => number;
   private readonly judge: RoundJudge;
-  private readonly events: SimEvent[] = [];
+  private readonly rng: () => number;
+  private readonly day: string;
+  private readonly daySeed: number;
+  private events: SimEvent[] = [];
 
+  // ── the session ──
   started = false;
-  /** this session's number in the game (1 = the first ever) */
-  session = 0;
-  /** the day's first session: "Kosz dnia" */
-  daily = false;
-  plan: Block[] = [];
-  blockIndex = 0;
-  /** seconds into the block (wall clock: the block runs on while the signal is unreliable) */
-  blockT = 0;
-  private telegraphed = false;
   phase: Phase = 'play';
-  /** seconds into the evening */
-  phaseT = 0;
-  clock = 0;
-  tip = '';
-
-  // the aim and the drops
-  aim = 0;
-  private aimTo = 0;
-  private aimSnap = 0;
-  private keyDir = 0;
-  private keyT = 0;
-  cooldown = 0;
-  private armed = false;
-  private buffered = false;
-  /** drops made this session, into this basket, and the breather's small drops still to come */
-  dropN = 0;
-  basketDrops = 0;
-  breather = 0;
-  private dropSeed = 0;
-  private readonly us: number[] = [];
-  /** the newest drop: exempt from the overflow until 1 s after it first touched */
-  lastDrop: Body | null = null;
-  /** seconds without input (the ghost hand) */
-  idle = 0;
-
-  // the basket
-  basketPts = 0;
-  baskets = 1;
-  /** the overflow timer (s) */
-  overT = 0;
-  private warnClock = 0;
-  change: Change | null = null;
-
-  // the score
+  t = 0;
+  /** seconds since the session ended (the last tally) */
+  doneT = 0;
   score = 0;
-  private lastMergeT = -Infinity;
-  link = 0;
-  maxChain = 0;
-  private bestBasketNow = 0;
-  greats = 0;
-  spilled = false;
+  readonly daily: boolean;
+  /** this is the player's first session ever (the warm-up, the coach marks, the opening card) */
+  readonly firstEver: boolean;
+  readonly session: number;
+  private readonly bestBefore: number;
+  private readonly bestBasketBefore: number;
+  private readonly base: { harvest: number; baskets: number; merges: number; made: number[]; winds: number; gleaned: number; poles: number; bestTier: number };
 
-  // the band
-  reliable = false;
-  /** the drifting mist while the signal is unreliable (0..1) */
-  mist = 0;
-  V = 0;
-  K = 0;
-  private kDecay = 0;
-  shoots = 0;
-  D = 0;
-  beads = 0;
-  hold = 0;
-  calm = 0;
-  private rawHold = 0;
-  private holdCarry = 0;
-  private fogT = 0;
-  private recover = 0;
-  private blockReliable = 0;
-  /** the vine's live pairs (a sighted Zbiór after its lead-in), refreshed every 0.2 s */
-  readonly vine: Pair[] = [];
-  private vineClock = 0;
-  /** the fruit's dew glisten after a settle (cosmetic), and the cloth over the basket (0..1) */
-  glisten = 0;
-  veil = 0;
-  payout: Payout | null = null;
-  readonly pulls: Pull[] = [];
-  private readonly found: Pair[] = [];
+  // ── the blocks ──
+  blockIndex = 0;
+  blockT = 0;
+  telegraphed = false;
+  tip = '';
+  private relSec = 0;
+  private pushesBase: number;
+  private pushesBegun = 0;
+  /** per block: passed or not (null: no verdict) */
+  readonly verdicts: { kind: BlockKind; verdict: boolean | null }[] = [];
 
-  // the session's tallies
-  leaves = 0;
-  zbiorJudged = 0;
+  // ── the dropper ──
+  aim = 0;
+  aimTarget = 0;
+  /** the fruit Feliks carries and the next one */
+  cur = 1;
+  next = 1;
+  cooldown = 0;
+  private pending = false;
+  private keyDir = 0;
+  private keyHeld = 0;
   drops = 0;
-  rosaJudged = 0;
-  rosaEnded = 0;
-  deepest = 0;
-  private rosaDeep = false;
-  private blindRosaPassed = false;
-  /** the highest tier made by a merge this session, and the tiers seen in it (dropped or made), as bits */
-  highestMade = 0;
-  seen = 0;
-  /** tiers made for the first time in the player's life this session */
-  readonly firstTiers: number[] = [];
-  private lessonDone = false;
-  private resolved = false;
-  private carried = false;
-  private enough = false;
-  loafNow = false;
-  ruthNow = false;
-  naomiNow = false;
-  readonly guestsNow: { id: GuestId; isNew: boolean; via: GuestVia }[] = [];
-  readonly builtNow: number[] = [];
-  private gotNew = false;
-  private pity = false;
-  private readonly bestBefore: number | null;
-  private readonly before: { basket: number; chain: number; tier: number };
-  /** Zbiór and Rosa blocks begun before this session and in it (they reach the progress only in result()) */
-  private zbioryBase = 0;
-  private zbioryBegun = 0;
-  private rosyBase = 0;
-  private rosyBegun = 0;
+  /** the last dropped fruit, while it falls (the guide stays off it; it is exempt from the rim) */
+  falling: Body | null = null;
+  lastInput = 0;
 
-  constructor(private readonly init: SimInit) {
-    this.p = init.progress;
+  // ── the basket ──
+  basket: Basket = { index: 1, score: 0, merges: 0, top: 0, t: 0 };
+  change: Change | null = null;
+  overT = 0;
+  danger = false;
+  private dangerPeak = 0;
+  private link = 0;
+  private lastMergeT = -99;
+  /** a hit-stop: the world waits this long (s) */
+  freeze = 0;
+
+  // ── the wind (push) ──
+  /** its strength 0..1 (0.5 = the threshold): what the rim shows and the panel's gauge reads */
+  w: number = RULES.windNeutral;
+  charge = 0;
+  wind: { t: number; stage: 'up' | 'shake'; power: number; hidden: boolean } | null = null;
+  readonly pulls: Pull[] = [];
+  private goodT = 0;
+  private goodSaid = false;
+  private readySaid = false;
+  /** the band's frame this tick */
+  reliable = false;
+  level = 0;
+  calm = 0;
+
+  // ── the gleaners (rest) ──
+  glean = 0;
+  readonly flights: Flight[] = [];
+  private gleanSaid = false;
+
+  // ── stats ──
+  readonly made = new Array<number>(MAX_TIER).fill(0);
+  merges = 0;
+  winds = 0;
+  gleaned = 0;
+  poles = 0;
+  bestChain = 0;
+  bestBasket = 0;
+  basketsDone = 0;
+  stars: number[] = [];
+  readonly firsts: number[] = [];
+  readonly fests: number[] = [];
+  /** the opening card (first session) and the festival card */
+  story: { kind: 'open' | 'fest'; t: number; dur: number; fest: number } | null = null;
+  private hinted = new Set<HintKey>();
+  private swallow = false;
+
+  constructor(init: SimInit) {
+    this.progress = migrate(init.progress);
+    const p = this.progress;
     this.rng = init.rng;
+    this.day = init.day;
+    this.daySeed = init.daySeed;
     this.plannedSec = init.plannedSec;
+    this.eeg = init.eeg;
     this.judge = RoundJudge.from(init.tuning);
-    this.bestBefore = this.p.sessions > 0 ? this.p.bestSession : null;
-    this.before = { basket: this.p.bestBasket, chain: this.p.bestChain, tier: this.p.bestTier };
+    this.firstEver = p.sessions === 0;
+    this.session = p.sessions + 1;
+    this.daily = dailyDue(p, init.day);
+    this.bestBefore = p.bestSession;
+    this.bestBasketBefore = p.bestBasket;
+    this.base = { harvest: p.harvest, baskets: p.baskets, merges: p.merges, made: p.made.slice(), winds: p.winds, gleaned: p.gleaned, poles: p.poles, bestTier: p.bestTier };
+    this.pushesBase = p.pushes;
+    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng);
+    this.talk = new Talk(LINES, init.rng);
   }
 
+  // ── what the view and the runner read ──
   get block(): Block { return this.plan[this.blockIndex]; }
-  get next(): Block | null { return this.plan[this.blockIndex + 1] ?? null; }
-  get lead(): number {
-    const k = this.block?.kind;
-    return k === 'zbior' ? (this.init.eeg ? RULES.leadZbiorEeg : RULES.leadZbior) : k === 'rosa' ? (this.init.eeg ? RULES.leadRosaEeg : RULES.leadRosa) : 0;
-  }
-  /** A sighted Zbiór past its lead-in: the vine shows. */
-  get vineLive(): boolean {
+  get nextBlock(): Block | null { return this.plan[this.blockIndex + 1] ?? null; }
+  get pushBlock(): boolean { return this.phase === 'play' && this.block.kind === 'push'; }
+  get restBlock(): boolean { return this.phase === 'play' && this.block.kind === 'rest'; }
+  get blind(): boolean { return this.pushBlock && this.block.blind; }
+  get lead(): number { return this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs; }
+  get restLead(): number { return this.eeg ? RULES.restLead.eeg : RULES.restLead.fnirs; }
+  /** a push block past its lead-in, the wind in sight */
+  get sighted(): boolean { return this.pushBlock && !this.block.blind && this.blockT >= this.lead; }
+  /** the gleaners work: a rest block past its lead-in */
+  get gleaning(): boolean { return this.restBlock && this.blockT >= this.restLead; }
+  /** drops are open: not between baskets, not over a story card, the session not over */
+  get open(): boolean { return this.started && this.phase !== 'done' && !this.change && !this.story; }
+  get hangR(): number { return fruit(this.cur).r; }
+  /** the hanging fruit's x, kept inside the walls */
+  get hangX(): number { return this.clampAim(this.aim + this.sway, this.cur); }
+  /** the hanging fruit's little sway (W) */
+  get sway(): number { return RULES.sway * Math.sin(2 * Math.PI * RULES.swayHz * this.t); }
+  /** the runner's banner (the first ~4.5 s of a block) and the block's telegraph: Feliks keeps quiet */
+  get talkBlocked(): boolean {
+    if (this.story || (this.change && this.change.t < RULES.tally)) return true;
+    if (this.phase !== 'play') return false;
     const b = this.block;
-    return this.phase === 'play' && b?.kind === 'zbior' && !b.blind && this.blockT >= this.lead;
+    return (b.kind !== 'warmup' && this.blockT < 4.5) || this.blockT >= b.dur - RULES.telegraph;
   }
-  /** The vine's allowance now (the gather adds "Liść" only after the verdict). */
-  get allowance(): number { return allowance(this.V, this.K); }
-  /** Drops are open: the warm-up or a Zbiór, no payout and no basket change running. */
-  get open(): boolean {
-    const k = this.block?.kind;
-    return this.started && this.phase === 'play' && (k === 'warmup' || k === 'zbior') && !this.payout && !this.change;
+  /** the panel's gauge: the wind's strength in a push block (null blind / no signal), the gleaners' pace (calm) in rest */
+  meter(): number | null {
+    if (!this.started || this.phase !== 'play' || !this.reliable) return null;
+    const b = this.block;
+    if (b.kind === 'push') return b.blind ? null : clamp(this.w);
+    if (b.kind === 'rest') return clamp(this.calm);
+    return null;
   }
-  /** Where the hanging fruit is (and would drop): the aim and its sway. */
-  get hangX(): number {
-    const m = this.aimRange();
-    return clamp(this.aim + RULES.sway * Math.sin(2 * Math.PI * RULES.swayHz * this.clock), -m, m);
-  }
-  /** The fruit waiting at the hang line (null while the cooldown runs or drops are shut). */
-  get hanging(): number | null { return this.open && this.cooldown <= 0 ? this.tierOf(0) : null; }
-  /** The fruit after the one hanging (or about to hang): "Następny". */
-  get upcoming(): number { return this.tierOf(1); }
-  /** The rim's warning (0..1 from 0.4 s to 2 s over the rim). */
-  get warning(): number { return this.overT < RULES.overflowWarn ? 0 : clamp((this.overT - RULES.overflowWarn) / (RULES.overflowSec - RULES.overflowWarn)); }
-  /** "Przesuń i puść": the first two sessions, drops open and no input for 3 s. */
-  get ghost(): boolean { return this.session <= RULES.ghostSessions && this.open && this.idle >= RULES.ghostIdle; }
-  /** A verse may show only once the session is over (the summary's card); never during play. */
-  get verseMayShow(): boolean { return this.phase === 'done'; }
 
+  private clampAim(x: number, tier: number): number {
+    const r = fruit(tier).r, lim = BASKET.half - r - 0.002;
+    return Math.max(-lim, Math.min(lim, x));
+  }
+
+  private emit(e: SimEvent): void { this.events.push(e); }
+
+  take(): readonly SimEvent[] {
+    if (!this.events.length) return NO_EVENTS;
+    const out = this.events;
+    this.events = [];
+    return out;
+  }
+
+  // ── start ──
   start(): void {
     if (this.started) return;
     this.started = true;
-    const p = this.p, day = this.init.day;
-    // the session (and its blocks, and the day's "Kosz dnia") reach the progress in result(), which
-    // only a saved session calls: an abandoned first attempt leaves the next one the first
-    this.session = p.sessions + 1;
-    this.zbioryBase = p.zbiory;
-    this.rosyBase = p.rosy;
-    this.daily = p.dailyDay !== day;
-    this.pity = this.session - p.lastNewSession >= 2 && nextMissing(p, false) !== null;
-    this.dropSeed = Math.floor(this.rng() * 4294967296) >>> 0;
-    this.plan = planBlocks(this.plannedSec, this.session === 1, this.daily ? mulberry32((this.init.daySeed ^ PLAN_SALT) >>> 0) : this.rng);
-    this.breather = this.session === 1 ? BREATHER : 0;
-    this.freshBasket();
+    // the tutorial's first drops pair up, so the first merge comes at once
+    this.cur = this.drawTier(0);
+    this.next = this.drawTier(1);
     this.startBlock(0);
+    if (this.firstEver) {
+      this.story = { kind: 'open', t: 0, dur: 9, fest: 0 };
+    } else this.talk.ask('open', 3, 8);
   }
 
-  // ── input ──────────────────────────────────────────────────────
-  /** A finger or the mouse went down at world x: the aim eases there over 60 ms. */
+  /** The tier of the n-th drop of the session (0-based). */
+  drawTier(n: number): number {
+    if (this.firstEver && n < 4) return [1, 1, 2, 2][n];
+    const u = this.daily ? mulberry32((this.daySeed + DROP_STEP * n) >>> 0)() : this.rng();
+    return Math.min(DROP_TIERS, tierFromU(u));
+  }
+
+  // ── input ──
+  /** A press: the aim goes to the finger (a press on a story card closes it instead). */
   pointerDown(x: number): void {
-    this.aimTo = x;
-    this.aimSnap = RULES.aimSnap;
-    this.idle = 0;
+    this.lastInput = this.t;
+    if (this.story) {
+      this.story = null;
+      this.swallow = true;
+      this.afterStory();
+      return;
+    }
+    this.aimTarget = x;
+    this.aim = approach(this.aim, x, 1 / 60, RULES.aimSnap);
   }
 
-  /** Moved (a drag, or a hovering mouse): the aim follows. */
+  /** A drag (or a hovering mouse) moves the aim. */
   pointerMove(x: number): void {
-    this.aimTo = x;
-    if (this.aimSnap <= 0) this.aim = x;
-    this.idle = 0;
+    this.aimTarget = x;
+    if (Math.abs(x - this.aim) > 0.02) this.moved();
   }
 
-  /** Let go: the drop is armed and applied on the next update (a pause disarms it). */
+  /** The release drops the fruit where the finger is. */
   pointerUp(x: number): void {
-    this.aimTo = x;
-    this.armed = true;
-    this.idle = 0;
+    this.lastInput = this.t;
+    if (this.swallow) {
+      this.swallow = false;
+      return;
+    }
+    this.aimTarget = x;
+    this.aim = x;
+    this.requestDrop();
   }
 
-  /** ← / → held (−1, +1) or released (0); a tap moves 0.02 W at once. */
+  /** ← → held: −1, 0, 1. */
   keyAim(dir: number): void {
-    if (dir !== 0 && dir !== this.keyDir) this.aimTo += dir * RULES.keyTap;
-    this.keyDir = dir;
-    this.keyT = 0;
-    this.idle = 0;
+    this.keyDir = Math.sign(dir);
+    this.keyHeld = 0;
+    this.lastInput = this.t;
+    if (this.keyDir) {
+      this.aimTarget = this.aim + this.keyDir * 0.02;
+      this.moved();
+    }
   }
 
   /** Space, Enter or ↓. */
   keyDrop(): void {
-    this.armed = true;
-    this.idle = 0;
+    this.lastInput = this.t;
+    if (this.story) {
+      this.story = null;
+      this.afterStory();
+      return;
+    }
+    this.aimTarget = this.aim;
+    this.requestDrop();
   }
 
-  /** The runner paused (its synthetic "up" for a held pointer must not drop a fruit). */
-  disarm(): void {
-    this.armed = false;
-    this.buffered = false;
+  /** The runner pauses: held keys and a pending drop are let go. */
+  release(): void {
     this.keyDir = 0;
+    this.pending = false;
+    this.swallow = false;
   }
 
-  // ── a frame ─────────────────────────────────────────────────────
+  private moved(): void {
+    if (this.firstEver && this.hinted.has('aim') && !this.hinted.has('drop')) this.hint('drop', 'feliks');
+  }
+
+  private requestDrop(): void {
+    if (!this.open) return;
+    if (this.cooldown <= 0) this.drop();
+    else if (this.cooldown <= RULES.buffer) this.pending = true;
+  }
+
+  private drop(): void {
+    this.pending = false;
+    const tier = this.cur, x = this.clampAim(this.aimTarget + this.sway, tier);
+    this.aim = this.aimTarget = this.clampAim(this.aimTarget, tier);
+    const b = this.world.add(tier, x, BASKET.hang);
+    this.falling = b;
+    this.drops++;
+    this.cur = this.next;
+    this.next = this.drawTier(this.drops + 1);
+    this.cooldown = RULES.cooldown;
+    // a chain is a cascade: a new drop starts a new one
+    this.link = -1;
+    this.lastMergeT = -99;
+    this.emit({ type: 'drop', tier, x });
+    if (this.firstEver) {
+      this.hinted.add('aim');
+      this.hinted.add('drop');
+      if (this.drops === 2) this.hint('next', 'next');
+    }
+  }
+
+  private afterStory(): void {
+    if (this.firstEver) this.hint('aim', 'feliks');
+    this.talk.ask(this.firstEver ? 'warm' : 'open', 3, 8);
+  }
+
+  private hint(key: HintKey, at: HintAt, x = 0, y = 0): void {
+    if (this.hinted.has(key)) return;
+    this.hinted.add(key);
+    this.emit({ type: 'hint', key, at, x, y });
+  }
+
+  // ── the frame ──
   update(dt: number, f: FocusFrame, t: number): void {
     if (!this.started || !(dt > 0)) return;
-    this.clock += dt;
-    this.idle += dt;
-    this.steer(dt);
+    dt = Math.min(dt, 0.1);
+    this.t = t;
+    if (this.phase === 'done') {
+      this.doneT += dt;
+      this.tickChange(dt);
+      this.talk.update(dt, t, this.talkBlocked);
+      return;
+    }
+    if (this.story) {
+      this.story.t += dt;
+      if (this.story.t >= this.story.dur) {
+        const was = this.story.kind;
+        this.story = null;
+        if (was === 'open') this.afterStory();
+      }
+    }
     this.brain(dt, f);
-    if (this.phase === 'play') this.schedule(dt, f, t);
-    else if (this.phase === 'evening') this.evening(dt);
-    this.dropping(dt);
-    this.paying(dt);
-    this.changing(dt);
-    this.world.advance(dt);
-    this.drain();
-    this.overflow(dt);
-    this.vineTick(dt);
-    this.veiling(dt);
-    if (this.block?.kind === 'zbior') this.glisten = Math.max(0, this.glisten - RULES.glistenDry * dt);
-  }
-
-  private aimRange(): number {
-    return BASKET.rimHalf - fruit(this.tierOf(0)).r - RULES.aimPad;
+    this.schedule(dt, f, t);
+    if ((this.phase as Phase) === 'done') return;
+    this.steer(dt);
+    if (this.freeze > 0) this.freeze = Math.max(0, this.freeze - dt);
+    else if (!this.change) {
+      this.cooldown = Math.max(0, this.cooldown - dt);
+      if (this.pending && this.cooldown <= 0 && this.open) this.drop();
+      this.world.advance(dt);
+      this.drainWorld();
+      this.tickWind(dt);
+      this.tickPulls(dt);
+      this.tickGlean(dt);
+      this.drainWorld();
+      this.tickOverflow(dt);
+      this.basket.t += dt;
+    }
+    this.tickChange(dt);
+    // idle: Feliks nudges, and the first session's aim hint comes back
+    if (this.open && t - this.lastInput >= RULES.idleHint * 2 && this.drops > 0) {
+      this.lastInput = t;
+      this.talk.ask('idle', 1, 4);
+    }
+    this.talk.update(dt, t, this.talkBlocked);
   }
 
   private steer(dt: number): void {
-    if (this.keyDir !== 0) {
-      this.keyT += dt;
-      const v = RULES.keySpeed + (RULES.keySpeedMax - RULES.keySpeed) * clamp(this.keyT / RULES.keyRamp);
-      this.aimTo += this.keyDir * v * dt;
-      this.aimSnap = 0;
+    if (this.keyDir) {
+      this.keyHeld += dt;
+      const v = Math.min(RULES.keyMax, RULES.keySpeed + (RULES.keyMax - RULES.keySpeed) * clamp(this.keyHeld / RULES.keyRamp));
+      this.aimTarget = this.clampAim(this.aimTarget + this.keyDir * v * dt, this.cur);
     }
-    const m = this.aimRange();
-    this.aimTo = clamp(this.aimTo, -m, m);
-    if (this.aimSnap > 0) {
-      this.aim += (this.aimTo - this.aim) * Math.min(1, dt / this.aimSnap);
-      this.aimSnap = Math.max(0, this.aimSnap - dt);
-      if (this.aimSnap <= 0) this.aim = this.aimTo;
-    } else this.aim = this.aimTo;
-    this.aim = clamp(this.aim, -m, m);
+    this.aimTarget = Math.max(-BASKET.half, Math.min(BASKET.half, this.aimTarget));
+    this.aim = approach(this.aim, this.aimTarget, dt, RULES.aimSnap);
   }
 
-  /**
-   * The band's slow quantities.  In a Zbiór after its lead-in the vine follows the level (τ 6 s) and
-   * shoots grow from the hold; in a Rosa after its lead-in the dew gathers from calm.  Unreliable:
-   * everything holds.  After a dropout of 2 s or more the kit's level and calm climb back from 0, so
-   * for 6 s nothing may fall (V does not drop, the dew does not leak).
-   */
+  // ── the band ──
   private brain(dt: number, f: FocusFrame): void {
+    const R = RULES;
     this.reliable = f.reliable;
-    this.mist = approach(this.mist, f.reliable ? 0 : 1, dt, 0.7);
-    if (!f.reliable) {
-      this.fogT += dt;
-      this.calm = 0;
+    this.level = f.reliable ? f.level : 0;
+    this.calm = f.reliable ? f.calm : 0;
+    const b = this.block;
+    const play = this.phase === 'play';
+    const want: TracePhase = !play ? 'free' : b.kind === 'push' ? 'focus' : b.kind === 'rest' ? 'rest' : 'free';
+    this.trace.push(this.t, f, want, this.blind);
+    if (play && b.kind !== 'warmup' && f.reliable) this.relSec += dt;
+    const live = this.pushBlock && this.blockT >= this.lead && f.reliable;
+    // the wind follows the level past the lead-in; it eases back to neutral outside push blocks and freezes without signal
+    if (live) this.w = approach(this.w, clamp(f.level), dt, R.windTau);
+    else if (!this.pushBlock) this.w = approach(this.w, R.windNeutral, dt, 2);
+    if (live && !this.block.blind && this.pushesBase === 0) this.hint('wind', 'rim');
+    if (live && !this.change) {
+      const cap = this.block.blind ? R.blindCap : 1;
+      const before = this.charge;
+      this.charge = Math.min(cap, this.charge + chargeRate(this.w) * dt);
+      if (!this.block.blind) {
+        if (this.w >= 0.5) this.goodT += dt;
+        else this.goodT = 0;
+        if (this.goodT >= 4 && !this.goodSaid) {
+          this.goodSaid = true;
+          this.talk.ask('good', 2, 4);
+        }
+        if (before < 0.85 && this.charge >= 0.85 && !this.readySaid) {
+          this.readySaid = true;
+          this.talk.ask('ready', 2, 3);
+          this.emit({ type: 'ready' });
+        }
+        if (this.charge >= 1 && !this.wind) this.blow(1, false);
+      }
+    }
+    // the gleaners: calm fills their step past the lead-in
+    if (this.gleaning && f.reliable && !this.change) this.glean = Math.min(1 + R.passGlean, this.glean + R.gleanRate * clamp(f.calm) * dt);
+  }
+
+  // ── the blocks ──
+  private schedule(dt: number, f: FocusFrame, t: number): void {
+    if (this.phase === 'finale') {
+      if (t >= this.plannedSec) this.endSession();
       return;
     }
-    if (this.fogT > 0) {
-      if (this.fogT >= RULES.fogGap) this.recover = RULES.recover;
-      if (f.hold < this.rawHold) this.holdCarry += this.rawHold;   // the kit restarted a hold the gap broke: the stretch carries on
-      this.fogT = 0;
-    } else this.recover = Math.max(0, this.recover - dt);
-    if (!f.focused && this.recover <= 0) this.holdCarry = 0;
-    this.rawHold = f.hold;
-    this.calm = f.calm;
-    if (this.phase !== 'play') return;
-    const b = this.block, lead = this.lead;
-    if (b.kind === 'zbior') {
-      if (this.blockT < lead) {
-        this.hold = 0;
-        return;
-      }
-      const v = approach(this.V, vineTarget(f.level), dt, RULES.vineTau);
-      this.V = this.recover > 0 ? Math.max(this.V, v) : v;
-      this.hold = Math.min(this.holdCarry + f.hold, this.blockT - lead);
-      const target = shootBonus(this.hold);
-      if (target > this.K + 1e-9) {
-        this.K = target;
-        this.kDecay = 0;
-        this.shoots = Math.round(target / RULES.shootK);
-        this.emit({ type: 'shoot', n: this.shoots, blind: b.blind });
-      } else if (target < this.K - 1e-9) {
-        // the hold broke: the shoots ease off over 3 s instead of vanishing
-        if (this.kDecay === 0) this.kDecay = this.K / RULES.shootDecay;
-        this.K = Math.max(target, this.K - this.kDecay * dt);
-      } else this.kDecay = 0;
-    } else if (b.kind === 'rosa') {
-      if (this.blockT < lead) return;
-      const leak = this.recover > 0 ? 0 : RULES.dewLeak;
-      this.D = clamp(this.D + (RULES.dewGain * f.calm - leak) * dt);
-      const n = Math.round(RULES.beads * this.D);
-      if (n > this.beads && !b.blind) this.emit({ type: 'bead', n });
-      this.beads = n;
-    }
-  }
-
-  private schedule(dt: number, f: FocusFrame, t: number): void {
-    const b = this.block;
+    const b = this.block, R = RULES;
     this.blockT += dt;
-    if (f.reliable) this.blockReliable += dt;
     if (b.kind !== 'warmup') {
-      const want = b.kind === 'zbior' ? 'focus' : 'rest';
+      const want = b.kind === 'push' ? 'focus' : 'rest';
       this.judge.push(want, f, dt);
       this.contrast.push(want, f.activity, f.reliable, this.blockT, dt);
     }
-    if (b.kind === 'warmup') this.tip = TIPS.warmup[Math.floor(this.blockT / 9) % TIPS.warmup.length];
     const last = this.blockIndex >= this.plan.length - 1;
-    if (!this.telegraphed && this.blockT >= b.dur - RULES.telegraph) {
+    if (!this.telegraphed && this.blockT >= b.dur - R.telegraph) {
       this.telegraphed = true;
-      this.emit({ type: 'telegraph', next: last ? 'evening' : this.plan[this.blockIndex + 1].kind });
+      this.emit({ type: 'telegraph', next: last ? null : this.plan[this.blockIndex + 1] });
     }
-    if ((last && this.blockT >= b.dur) || t >= this.plannedSec - RULES.finale) {
+    if ((last && this.blockT >= b.dur) || t >= this.plannedSec - finaleFor(this.plannedSec)) {
       this.endBlock();
-      this.startEvening();
+      this.phase = 'finale';
+      this.emit({ type: 'finale' });
     } else if (!last && this.blockT >= b.dur) {
       this.endBlock();
       this.startBlock(this.blockIndex + 1);
@@ -641,653 +597,443 @@ export class UrodzajSim {
     this.blockIndex = i;
     this.blockT = 0;
     this.telegraphed = false;
-    this.blockReliable = 0;
+    this.relSec = 0;
+    this.judge.reset();
     const b = this.plan[i];
     const first = !this.plan.slice(0, i).some(x => x.kind === b.kind);
-    if (b.kind === 'zbior') {
-      this.zbioryBegun++;
-      b.blind = this.session >= 3 && (this.zbioryBase + this.zbioryBegun) % 4 === 0;
-      this.V = 0;
-      this.K = 0;
-      this.kDecay = 0;
-      this.shoots = 0;
-      this.hold = 0;
-      this.holdCarry = 0;
-      this.vine.length = 0;
-      this.vineClock = 0;
-    } else if (b.kind === 'rosa') {
-      this.rosyBegun++;
-      b.blind = this.session >= 3 && (this.rosyBase + this.rosyBegun) % 4 === 2;
-      this.D = 0;
-      this.beads = 0;
-      this.vine.length = 0;
-    }
-    const list = b.kind === 'warmup' ? TIPS.warmup : b.kind === 'zbior' ? (b.blind ? TIPS.zbiorBlind : TIPS.zbior) : b.blind ? TIPS.rosaBlind : TIPS.rosa;
-    // the lines rotate from session to session; the first sessions' first blocks explain themselves
-    this.tip = first && this.session <= 2 && b.kind === 'zbior' && !b.blind ? TIPS.firstZbior
-      : first && this.session <= 2 && b.kind === 'rosa' && !b.blind ? TIPS.firstRosa
-        : list[(this.session - 1 + i) % list.length];
+    if (b.kind === 'push') {
+      this.pushesBegun++;
+      b.blind = this.session >= RULES.blindFrom && !first && (this.pushesBase + this.pushesBegun) % RULES.blindEvery === 0;
+      this.goodT = 0;
+      this.goodSaid = false;
+      this.readySaid = false;
+      this.talk.ask(b.blind ? 'blind' : 'push', 2, 12);
+      if (b.blind && this.progress.pushes === 0) this.hint('blind', 'rim');
+      this.progress.pushes = this.pushesBase + this.pushesBegun;
+    } else if (b.kind === 'rest') {
+      this.glean = 0;
+      this.gleanSaid = false;
+      this.talk.ask('rest', 2, 12);
+    } else this.talk.ask('warm', 1, 8);
+    this.tip = this.tipFor(b, i, first);
     this.emit({ type: 'blockStart', block: b, index: i });
   }
 
-  /** The block's verdict (none on the neutral floor), its stamp, and the payout that follows right after it. */
+  private tipFor(b: Block, i: number, first: boolean): string {
+    if (b.kind === 'warmup') return TIPS.warmup;
+    if (b.kind === 'push') {
+      if (b.blind) return TIPS.blind[(this.session + i) % TIPS.blind.length];
+      if (first && this.pushesBase === 0) return TIPS.firstPush;
+      return TIPS.push[(this.session - 1 + i) % TIPS.push.length];
+    }
+    if (first && this.session === 1) return TIPS.firstRest;
+    return TIPS.rest[(this.session - 1 + i) % TIPS.rest.length];
+  }
+
+  /** The block's end: its verdict and what it pays — after its judged window, never during it. */
   private endBlock(): void {
     const b = this.block;
-    if (b.kind === 'warmup') return;
-    const neutral = this.blockReliable < RULES.neutralSec;
-    const verdict = neutral ? null : this.judge.verdict();
-    const measured = this.judge.measured;
-    const want = b.kind === 'zbior' ? 'focus' : 'rest';
-    const have = Math.round(this.judge.share * measured * 10) / 10;
-    const need = Math.round(this.judge.need(want) * measured * 10) / 10;
+    let verdict: boolean | null = null, share = 0, need = 0;
+    if (b.kind !== 'warmup') {
+      const want = b.kind === 'push' ? 'focus' : 'rest';
+      share = this.judge.share;
+      need = this.judge.need(want);
+      verdict = this.relSec >= RULES.minReliable ? this.judge.verdict() : null;
+      if (b.kind === 'push') {
+        if (verdict) this.charge = Math.min(b.blind ? RULES.blindCap + 1 : 1, this.charge + RULES.passCharge);
+        if (b.blind) {
+          this.trace.unveil(this.t);
+          this.emit({ type: 'reveal', charge: this.charge });
+          const n = Math.floor(this.charge);
+          if (n >= 1 && !this.wind) this.blow(n, true);
+        } else if (this.charge >= 1 && !this.wind) this.blow(1, false);
+      } else if (verdict) {
+        this.glean += RULES.passGlean;
+      }
+    }
+    this.verdicts.push({ kind: b.kind, verdict });
     this.judge.reset();
-    if (b.kind === 'zbior') {
-      if (neutral) this.V = Math.max(this.V, RULES.neutral);
-      if (verdict !== null) {
-        this.zbiorJudged++;
-        if (verdict) this.leaves++;
-        this.emit({ type: 'stamp', kind: verdict ? 'leaf' : 'almost', block: 'zbior', have, need });
-      }
-      this.finishPayout();
-      this.payout = {
-        kind: 'gather', t: -RULES.gatherBeat, step: 'beat', blind: b.blind, range: allowance(this.V, this.K, verdict === true), dew: 0,
-        pairs: [], next: 0, merged: 0, first: this.zbioryBase + this.zbioryBegun === 1, warned: false, jiggle: 0,
-      };
-      this.vine.length = 0;
-    } else {
-      if (neutral) this.D = Math.max(this.D, RULES.neutral);
-      this.rosaEnded++;
-      if (verdict !== null) {
-        this.rosaJudged++;
-        if (verdict) this.drops++;
-        if (verdict && b.blind) this.blindRosaPassed = true;
-        this.emit({ type: 'stamp', kind: verdict ? 'drop' : 'almost', block: 'rosa', have, need });
-      }
-      if (!neutral && this.D >= RULES.deepDew) this.rosaDeep = true;
-      this.deepest = Math.max(this.deepest, this.D);
-      this.finishPayout();
-      this.payout = {
-        kind: 'settle', t: -RULES.settleBeat, step: 'beat', blind: b.blind, range: bridgeRange(this.D, verdict === true), dew: this.D,
-        pairs: [], next: 0, merged: 0, first: false, warned: this.overT >= RULES.overflowWarn, jiggle: 0,
-      };
+    this.emit({ type: 'blockEnd', block: b, verdict, share, need });
+  }
+
+  // ── the harvest wind ──
+  /** Start the wind: the wind-up, then the shake, then the pull of alike neighbours (power = how many charges it spends). */
+  private blow(power: number, hidden: boolean): void {
+    if (this.change || this.phase === 'done') return;
+    this.charge = Math.max(0, this.charge - power);
+    this.wind = { t: 0, stage: 'up', power, hidden };
+    this.emit({ type: 'windUp', hidden });
+  }
+
+  private tickWind(dt: number): void {
+    const w = this.wind;
+    if (!w) return;
+    w.t += dt;
+    const R = RULES;
+    if (w.stage === 'up' && w.t >= R.windUp) {
+      w.stage = 'shake';
+      w.t = 0;
+      this.world.shake(R.shakeSec, R.shakeAcc, R.shakeHz);
+      this.world.settle(R.shakeMu, R.shakeG, PHYS.restitution * 0.5);
+      this.freeze = R.stopBig;
+      this.winds++;
+      this.sync();
+    } else if (w.stage === 'shake' && w.t >= R.shakeSec) {
+      this.world.settle(1, 1, PHYS.restitution);
+      const found = this.world.pairs([], { maxGap: R.windGap, limit: 40, clear: R.windClear, minR: 0.05 });
+      const pairs = pickPairs(found, R.windPairs * w.power);
+      for (const [a, b] of pairs) this.startPull(a, b);
+      this.wind = null;
+      this.emit({ type: 'wind', pairs: pairs.length, power: w.power });
+      this.talk.ask('wind', 4, 4);
+      if (this.firstEver || this.progress.winds <= 1) this.hint('windFull', 'basket');
     }
   }
 
-  // ── the payouts ─────────────────────────────────────────────────
-  private paying(dt: number): void {
-    this.pulling(dt);
-    const po = this.payout;
-    if (!po) return;
-    po.t += dt;
-    if (po.step === 'beat' && po.t >= 0) {
-      if (po.kind === 'gather') {
-        po.pairs = this.gatherPairs(po.range);
-        if (po.blind) this.emit({ type: 'revealZbior', pairs: po.pairs.length });
-        this.emit({ type: 'gather', pairs: po.pairs.length, blind: po.blind });
-        po.step = 'pulls';
-        po.t = 0;
-      } else {
-        if (po.blind) this.emit({ type: 'revealRosa', pct: Math.round(po.dew * 100) });
-        this.glisten = Math.max(this.glisten, po.dew);
-        this.world.settle(1 - RULES.settleMu * po.dew, 1 + RULES.settleG * po.dew, 0);
-        this.emit({ type: 'settle', dew: po.dew, blind: po.blind });
-        po.step = 'sigh';
-        po.t = 0;
-      }
-    }
-    if (po.step === 'sigh') {
-      po.jiggle -= dt;
-      if (po.jiggle <= 0 && po.dew > 0) {
-        po.jiggle += RULES.jiggleEvery;
-        const amp = RULES.jiggle * po.dew;
-        for (const b of this.world.bodies) if (!b.kinematic && speedOf(b) < 0.05) this.world.nudge(b, (this.rng() * 2 - 1) * amp);
-      }
-      if (po.t >= RULES.settle) {
-        this.world.settle(1, 1, PHYS.restitution);
-        po.pairs = this.bridgePairs(po.range);
-        po.step = 'pulls';
-        po.t = 0;
-      }
-    }
-    if (po.step === 'pulls') {
-      const gap = po.kind === 'gather' ? RULES.gatherGap : RULES.bridgeGap;
-      while (po.next < po.pairs.length && po.t >= po.next * gap) {
-        const [a, b] = po.pairs[po.next++];
-        this.startPull(a, b, po.kind === 'gather' ? 'vine' : 'dew');
-      }
-      if (po.next >= po.pairs.length && !this.pulls.length) this.endPayout(po);
-    }
-  }
-
-  private gatherPairs(range: number): [Body, Body][] {
-    this.world.pairs(this.found, { maxGap: range, limit: 64, clear: RULES.clear, maxSpeed: RULES.gatherSpeed, minR: RULES.reachR });
-    return pickPairs(this.found, RULES.gatherMax);
-  }
-
-  private bridgePairs(range: number): [Body, Body][] {
-    this.world.pairs(this.found, { maxGap: range, limit: 64, maxSpeed: RULES.gatherSpeed, minR: RULES.reachR });
-    return pickPairs(this.found, RULES.bridgeMax);
-  }
-
-  private endPayout(po: Payout): void {
-    po.step = 'done';
-    this.payout = null;
-    if (po.kind === 'gather') this.emit({ type: 'gathered', merged: po.merged, first: po.first });
-    else {
-      this.emit({ type: 'settled', merged: po.merged });
-      // the settle took the heap back under the rim: the overflow timer starts over
-      if (!this.overRim()) {
-        if (po.warned) this.emit({ type: 'saved' });
-        this.overT = 0;
-      }
-    }
-  }
-
-  /** A payout still running when the next block's ends early (a very short block): it finishes at once. */
-  private finishPayout(): void {
-    if (!this.payout && !this.pulls.length) return;
-    const po = this.payout;
-    if (po) {
-      if (po.step === 'beat') po.pairs = po.kind === 'gather' ? this.gatherPairs(po.range) : this.bridgePairs(po.range);
-      else if (po.step === 'sigh') {
-        this.world.settle(1, 1, PHYS.restitution);
-        po.pairs = this.bridgePairs(po.range);
-      }
-      for (; po.next < po.pairs.length; po.next++) {
-        const [a, b] = po.pairs[po.next];
-        if (this.world.has(a) && this.world.has(b)) {
-          this.world.joinAt(a, b);
-          po.merged++;
-        }
-      }
-    }
-    for (const pl of this.pulls) {
-      if (this.world.has(pl.a) && this.world.has(pl.b)) this.world.joinAt(pl.a, pl.b);
-      else if (this.world.has(pl.a)) pl.a.kinematic = false;
-    }
-    this.pulls.length = 0;
-    this.world.settle(1, 1, PHYS.restitution);
-    this.drain();
-    if (po) {
-      po.step = 'done';
-      this.payout = null;
-    }
-  }
-
-  private startPull(a: Body, b: Body, kind: 'vine' | 'dew'): void {
-    if (!this.world.has(a) || !this.world.has(b)) return;
+  private startPull(a: Body, b: Body): void {
     a.kinematic = true;
-    a.vx = a.vy = 0;
-    this.world.wake();   // what rested on it must feel the gap
-    this.pulls.push({ a, b, t: 0, dur: kind === 'vine' ? RULES.pull : RULES.bridgeSlide, x0: a.x, y0: a.y, kind });
-    this.emit({ type: 'pull', kind, tier: a.tier });
+    this.pulls.push({ a, b, t: 0, dur: RULES.windPull, x0: a.x, y0: a.y });
   }
 
-  /** The pulled fruit travel along their tendril (eased in and out, lifted over the heap) and join their partner where it is. */
-  private pulling(dt: number): void {
-    let n = 0;
-    for (const pl of this.pulls) {
-      pl.t += dt;
-      const { a, b } = pl;
-      if (!this.world.has(a)) continue;
-      if (!this.world.has(b)) {
-        a.kinematic = false;   // its partner went in another chain: let it go where it is
+  private tickPulls(dt: number): void {
+    for (let i = this.pulls.length - 1; i >= 0; i--) {
+      const p = this.pulls[i];
+      if (!this.world.has(p.a) || !this.world.has(p.b)) {
+        if (this.world.has(p.a)) p.a.kinematic = false;
+        this.pulls.splice(i, 1);
         continue;
       }
-      const k = clamp(pl.t / pl.dur);
-      const e = k * k * (3 - 2 * k);
-      const lift = Math.sin(Math.PI * k) * (pl.kind === 'vine' ? 0.05 : 0.02);
-      a.x = pl.x0 + (b.x - pl.x0) * e;
-      a.y = pl.y0 + (b.y - pl.y0) * e + lift;
+      p.t += dt;
+      const k = ease.inOutSine(clamp(p.t / p.dur));
+      p.a.x = p.x0 + (p.b.x - p.x0) * k;
+      p.a.y = p.y0 + (p.b.y - p.y0) * k;
+      p.a.vx = p.a.vy = 0;
+      const gap = Math.hypot(p.a.x - p.b.x, p.a.y - p.b.y) - p.a.r - p.b.r;
+      if (p.t >= p.dur || gap <= 0) {
+        this.pulls.splice(i, 1);
+        p.a.kinematic = false;
+        this.world.joinAt(p.a, p.b);
+      }
+    }
+  }
+
+  // ── the gleaners ──
+  private tickGlean(dt: number): void {
+    const R = RULES;
+    for (let i = this.flights.length - 1; i >= 0; i--) {
+      const fl = this.flights[i];
+      fl.t += dt;
+      const k = clamp(fl.t / R.gleanFlight);
+      const tx = -BASKET.half - 0.28, ty = 0.08;
+      fl.body.x = fl.x0 + (tx - fl.x0) * ease.inOutSine(k);
+      fl.body.y = fl.y0 + (ty - fl.y0) * k + Math.sin(Math.PI * k) * 0.25;
       if (k >= 1) {
-        this.world.joinAt(a, b);
-        const po = this.payout;
-        if (po) po.merged++;
-        continue;
-      }
-      this.pulls[n++] = pl;
-    }
-    this.pulls.length = n;
-  }
-
-  // ── drops ──────────────────────────────────────────────────────
-  /** The tier of the drop `offset` places ahead: each basket's first is an olive, a breather's are small. */
-  tierOf(offset: number): number {
-    if (this.basketDrops + offset === 0) return 1;
-    return tierFromU(this.dropU(this.dropN + offset), this.breather - offset > 0);
-  }
-
-  /** The n-th drop's uniform: on "Kosz dnia" from the date, else from the session's own stream (the same n, the same number). */
-  dropU(n: number): number {
-    while (this.us.length <= n) {
-      const k = this.us.length;
-      const seed = this.daily ? this.init.daySeed : this.dropSeed;
-      this.us.push(mulberry32((seed + DROP_STEP * k) >>> 0)());
-    }
-    return this.us[n];
-  }
-
-  private dropping(dt: number): void {
-    if (this.cooldown > 0) {
-      this.cooldown -= dt;
-      if (this.cooldown <= 0) {
-        this.cooldown = 0;
-        if (this.open) this.emit({ type: 'hang', tier: this.tierOf(0) });
-        if (this.buffered) {
-          this.buffered = false;
-          if (this.open) this.drop();
+        this.flights.splice(i, 1);
+        const tier = fl.body.tier;
+        this.world.remove(fl.body);
+        const p = fruit(tier).pts * R.gleanMult;
+        this.addPoints(p);
+        this.gleaned++;
+        this.sync();
+        this.emit({ type: 'glean', tier, x: tx, y: ty, pts: p });
+        if (!this.gleanSaid) {
+          this.gleanSaid = true;
+          this.talk.ask('glean', 2, 4);
         }
       }
     }
-    if (!this.armed) return;
-    this.armed = false;
-    if (!this.open) return;
-    if (this.cooldown <= 0) this.drop();
-    else if (this.cooldown <= RULES.buffer) this.buffered = true;
-  }
-
-  private drop(): void {
-    if (this.world.count >= PHYS.maxBodies) {
-      this.spill();   // a basket this full tips at once (nothing is lost)
+    if (this.glean < 1 || this.change) return;
+    // the smallest fruit first, the highest of them (a gleaner reaches in from the rim)
+    let pick: Body | null = null;
+    for (const b of this.world.bodies) {
+      if (b.kinematic || b.dead || b === this.falling || b.tier > R.gleanTier || b.touched < 0) continue;
+      if (!pick || b.tier < pick.tier || (b.tier === pick.tier && b.y > pick.y)) pick = b;
+    }
+    if (!pick) {
+      this.glean = Math.min(this.glean, 1);
       return;
     }
-    const tier = this.tierOf(0);
-    const x = this.hangX;
-    this.lastDrop = this.world.add(tier, x, BASKET.hang);
-    this.dropN++;
-    this.basketDrops++;
-    if (this.breather > 0) this.breather--;
-    this.cooldown = RULES.cooldown;
-    this.idle = 0;
-    this.seen |= 1 << tier;
-    this.emit({ type: 'drop', tier, x });
+    this.glean -= 1;
+    pick.kinematic = true;
+    this.world.wake();
+    this.flights.push({ body: pick, t: 0, x0: pick.x, y0: pick.y });
+    if (this.progress.gleaned === 0 || this.firstEver) this.hint('glean', 'gleaners');
   }
 
-  // ── what the world did ──────────────────────────────────────────
-  private drain(): void {
+  // ── merges and points ──
+  private drainWorld(): void {
     const w = this.world;
     for (const l of w.landings) {
-      if (l.body.dead) continue;
-      this.emit({ type: 'land', tier: l.body.tier, speed: l.speed, x: l.body.x, y: l.body.y });
+      if (l.body === this.falling) this.falling = null;
+      if (l.speed > 0.4) this.emit({ type: 'land', tier: l.body.tier, x: l.body.x, y: l.body.y, speed: l.speed });
     }
     w.landings.length = 0;
-    if (!w.merges.length) return;
-    const list = w.merges.splice(0, w.merges.length);
-    for (const m of list) this.merged(m);
+    if (this.falling && (this.falling.dead || this.world.t - this.falling.born > 3)) this.falling = null;
+    for (const m of w.merges) this.merged(m);
+    w.merges.length = 0;
+    for (const p of w.poles) this.pole(p.x, p.y);
+    w.poles.length = 0;
+  }
+
+  private chainLink(): number {
+    this.link = this.link >= 0 && this.world.t - this.lastMergeT <= RULES.chainWindow ? this.link + 1 : 0;
+    this.lastMergeT = this.world.t;
+    this.bestChain = Math.max(this.bestChain, this.link + 1);
+    return this.link;
   }
 
   private merged(m: Merge): void {
-    const k = m.tier;
-    this.link = m.t - this.lastMergeT <= RULES.chainWindow ? this.link + 1 : 0;
-    this.lastMergeT = m.t;
-    const mult = chainMult(this.link);
-    const pts = Math.round(mergePoints(k) * mult);
-    this.maxChain = Math.max(this.maxChain, this.link + 1);
-    this.addPoints(pts);
-    const first = k > this.p.bestTier;
-    if (first) {
-      this.p.bestTier = k;
-      this.firstTiers.push(k);
-    }
-    this.highestMade = Math.max(this.highestMade, k);
-    this.seen |= 1 << k;
-    const via = !m.pulled ? 'touch' : this.payout?.kind === 'settle' ? 'dew' : 'vine';
-    this.emit({ type: 'merge', tier: k, x: m.x, y: m.y, pts, link: this.link, mult, first, via });
-    if (this.session === 1 && !this.lessonDone) {
-      this.lessonDone = true;
-      this.emit({ type: 'lesson' });
-    }
-    if (k >= MAX_TIER) this.great(m);
+    const link = this.chainLink();
+    const mult = chainMult(link);
+    const p = Math.round(mergePoints(m.tier) * mult);
+    const first = this.base.bestTier < m.tier && !this.firsts.includes(m.tier) && this.made[m.tier - 1] === 0 && this.base.made[m.tier - 1] === 0;
+    this.made[m.tier - 1]++;
+    this.merges++;
+    this.basket.merges++;
+    this.basket.top = Math.max(this.basket.top, m.tier);
+    if (first) this.firsts.push(m.tier);
+    this.addPoints(p);
+    this.sync();
+    if (m.tier >= RULES.stopTier) this.freeze = Math.max(this.freeze, RULES.stopBig);
+    this.emit({ type: 'merge', tier: m.tier, x: m.x, y: m.y, pts: p, link, mult, pulled: m.pulled, first });
+    this.fest(festFeed(this.progress, 'merges', 1));
+    this.fest(festFeed(this.progress, 'make', m.tier));
+    if (link + 1 >= 2) this.fest(festFeed(this.progress, 'chain', link + 1));
+    if (first && m.tier >= 3) this.talk.ask('newTier', 3, 4);
+    else if (m.tier >= 8) this.talk.ask('big', 3, 4);
+    else if (link + 1 >= 3) this.talk.ask('chain', 2, 3);
+    if (this.firstEver && !this.hinted.has('merge')) this.hint('merge', 'basket', m.x, m.y);
+    else if (this.firstEver && this.merges >= 4) this.hint('ring', 'ring');
+  }
+
+  private pole(x: number, y: number): void {
+    const link = this.chainLink();
+    const p = Math.round((mergePoints(MAX_TIER) + RULES.poleBonus) * chainMult(link));
+    this.poles++;
+    this.addPoints(p);
+    this.sync();
+    this.freeze = RULES.stopBig * 1.5;
+    this.emit({ type: 'pole', x, y, pts: p });
+    this.talk.ask('pole', 4, 4);
+    if (this.base.poles === 0) this.hint('pole', 'basket', x, y);
   }
 
   private addPoints(n: number): void {
-    if (n <= 0) return;
-    const before = tableState(tablePoints(this.p)).built;
+    if (!(n > 0)) return;
     this.score += n;
-    this.basketPts += n;
-    this.p.harvest += n;
-    this.stepsSince(before);
+    this.basket.score += n;
+    this.bestBasket = Math.max(this.bestBasket, this.basket.score);
+    this.fest(festFeed(this.progress, 'harvest', n));
+    this.fest(festFeed(this.progress, 'basket', this.basket.score));
   }
 
-  private stepsSince(before: number): void {
-    const after = tableState(tablePoints(this.p)).built;
-    for (let s = before; s < after; s++) {
-      this.builtNow.push(s);
-      this.emit({ type: 'tableStep', step: s });
+  private fest(evs: FestEvent[]): void {
+    for (const e of evs) {
+      if (e.kind === 'mission') this.emit({ type: 'mission', fest: e.fest, mission: e.mission });
+      else {
+        this.fests.push(e.fest);
+        this.emit({ type: 'festival', fest: e.fest });
+        this.talk.ask('fest', 4, 6);
+        if (!this.story && this.phase !== 'done') this.story = { kind: 'fest', t: 0, dur: 3.2, fest: e.fest };
+      }
     }
   }
 
-  /** The great cluster: +150, the basket is complete and carried to the table; a new one comes with a breather. */
-  private great(m: Merge): void {
-    this.addPoints(GREAT_BONUS);
-    this.greats++;
-    this.p.greatClusters++;
-    this.emit({ type: 'great', x: m.x, y: m.y, pts: GREAT_BONUS });
-    this.emit({ type: 'greatBasket', pts: this.basketPts });
-    this.startChange('great');
+  /** Live counters into the progress: the base at the session's start plus this session's (set, never added: idempotent). */
+  private sync(): void {
+    const p = this.progress, b = this.base;
+    p.harvest = Math.max(p.harvest, b.harvest + this.score);
+    p.merges = Math.max(p.merges, b.merges + this.merges);
+    p.winds = Math.max(p.winds, b.winds + this.winds);
+    p.gleaned = Math.max(p.gleaned, b.gleaned + this.gleaned);
+    p.poles = Math.max(p.poles, b.poles + this.poles);
+    p.baskets = Math.max(p.baskets, b.baskets + this.basketsDone);
+    for (let i = 0; i < MAX_TIER; i++) p.made[i] = Math.max(p.made[i] ?? 0, b.made[i] + this.made[i]);
+    let top = 0;
+    for (let i = 0; i < MAX_TIER; i++) if (this.made[i] > 0) top = i + 1;
+    p.bestTier = Math.max(p.bestTier, top);
+    p.bestChain = Math.max(p.bestChain, this.bestChain);
+    p.bestBasket = Math.max(p.bestBasket, this.bestBasket);
   }
 
-  // ── the rim and the basket ──────────────────────────────────────
-  /** A slow fruit over the rim (the newest drop until 1 s after it first touched does not count). */
+  // ── the rim ──
+  /** A fruit that counts for the rim: settled in the heap (one still falling, just dropped or flying never does). */
+  private settled(b: Body): boolean {
+    return !b.kinematic && b !== this.falling && this.world.t - b.born >= RULES.overExempt && b.touched >= 0;
+  }
+
+  /** A settled fruit over the rim (one bouncing up never counts). */
   private overRim(): boolean {
-    const w = this.world, last = this.lastDrop;
-    for (const b of w.bodies) {
-      if (b.kinematic || b.y + b.r <= BASKET.rim || speedOf(b) >= RULES.overflowSpeed) continue;
-      if (b === last && (b.touched < 0 || w.t - b.touched < RULES.overflowExempt)) continue;
-      return true;
-    }
+    for (const b of this.world.bodies) if (this.settled(b) && b.y + b.r > BASKET.rim && speedOf(b) < RULES.overSpeed) return true;
     return false;
   }
 
-  /** The overflow timer runs only while drops are open; it is held through payouts and Rosa. */
-  private overflow(dt: number): void {
-    if (!this.open) return;
-    if (this.overRim()) this.overT += dt;
-    else this.overT = 0;
-    if (this.overT >= RULES.overflowWarn) {
-      this.warnClock -= dt;
-      if (this.warnClock <= 0) {
-        this.warnClock = RULES.warnEvery;
-        this.emit({ type: 'warnTick', k: this.warning });
+  /** The top of the settled heap (W). */
+  heapTop(): number {
+    let top = 0;
+    for (const b of this.world.bodies) if (this.settled(b)) top = Math.max(top, b.y + b.r);
+    return top;
+  }
+
+  private tickOverflow(dt: number): void {
+    const over = this.overRim();
+    this.overT = over ? this.overT + dt : Math.max(0, this.overT - dt * 0.5);
+    this.dangerPeak = Math.max(this.dangerPeak, this.overT);
+    const near = this.heapTop() > BASKET.rim - RULES.warnGap;
+    const danger = this.overT > 0 || near;
+    if (danger !== this.danger) {
+      this.danger = danger;
+      this.emit({ type: 'danger', on: danger });
+      if (danger) {
+        this.talk.ask('near', 3, 2);
+        if (this.firstEver || this.progress.baskets === 0) this.hint('line', 'rim');
+      } else {
+        if (this.dangerPeak > 0.8) this.talk.ask('saved', 2, 3);
+        this.dangerPeak = 0;
       }
-    } else this.warnClock = 0;
-    if (this.overT >= RULES.overflowSec) this.spill();
-  }
-
-  /** "Na skraj pola": what is over the rim rolls to the gleaners, the rest goes to the table, every point stays. */
-  private spill(): void {
-    this.spilled = true;
-    let n = 0;
-    for (const b of this.world.bodies) if (b.y + b.r > BASKET.rim) n++;
-    this.emit({ type: 'spill', pts: this.basketPts, spilled: n });
-    this.startChange('spill');
-  }
-
-  private startChange(kind: Change['kind']): void {
-    const snaps: Snap[] = [];
-    for (const b of this.world.bodies) {
-      if (b.tier >= MAX_TIER && kind === 'great') continue;   // the cluster flies to the table on its own
-      snaps.push({ tier: b.tier, x: b.x, y: b.y, r: b.r, angle: b.angle, spill: kind === 'spill' && b.y + b.r > BASKET.rim });
     }
-    this.bestBasketNow = Math.max(this.bestBasketNow, this.basketPts);
-    this.change = { kind, t: 0, snaps, pts: this.basketPts, fresh: false };
-    this.world.clear();
-    this.pulls.length = 0;
-    const po = this.payout;
-    if (po) po.next = po.pairs.length;   // its pairs went with the basket
-    this.vine.length = 0;
-    this.lastDrop = null;
-    this.overT = 0;
-    this.basketPts = 0;
-    if (kind === 'great') this.breather = BREATHER;
+    if (this.overT >= RULES.overflowSec) this.endBasket(false);
   }
 
-  private changing(dt: number): void {
+  /** The basket is full (or the session is over): the tally, then it is carried to the table. */
+  private endBasket(final: boolean): void {
+    if (this.change) return;
+    const bk = this.basket;
+    const stars = starsFor(bk.score, RULES.stars);
+    this.basketsDone++;
+    this.stars.push(stars);
+    const record = bk.score > this.bestBasketBefore && bk.score > 0 && this.bestBasketBefore > 0;
+    const gap = this.bestBasketBefore - bk.score;
+    const toRecord = gap > 0 && gap <= Math.max(60, this.bestBasketBefore * 0.25) ? gap : null;
+    this.sync();
+    this.fest(festFeed(this.progress, 'stars', stars));
+    const snaps: Snap[] = this.world.bodies.map(b => ({ tier: b.tier, x: b.x, y: b.y, r: b.r, angle: b.angle }));
+    this.change = { t: 0, final, snaps, score: bk.score, stars, index: bk.index };
+    // what was in the air stops with the basket: a wind not yet blown keeps its charge
+    if (this.wind && this.wind.stage === 'up') this.charge = Math.min(1, this.charge + this.wind.power);
+    this.wind = null;
+    this.world.settle(1, 1, PHYS.restitution);
+    this.world.shakeEnd = 0;
+    this.pulls.length = 0;
+    for (const fl of this.flights) {
+      const p = fruit(fl.body.tier).pts * RULES.gleanMult;
+      this.addPoints(p);
+      this.gleaned++;
+    }
+    this.flights.length = 0;
+    this.overT = 0;
+    this.falling = null;
+    if (this.danger) {
+      this.danger = false;
+      this.emit({ type: 'danger', on: false });
+    }
+    this.emit({ type: 'basketEnd', index: bk.index, score: bk.score, stars, top: bk.top, record, toRecord, final });
+    if (!final) this.talk.ask('basket', 4, 5);
+  }
+
+  private tickChange(dt: number): void {
     const c = this.change;
     if (!c) return;
+    const before = c.t;
     c.t += dt;
-    if (!c.fresh && c.t >= RULES.fresh) {
-      c.fresh = true;
-      this.baskets++;
-      this.freshBasket();
-      this.emit({ type: 'newBasket' });
+    if (c.final) return;
+    if (before < RULES.tally && c.t >= RULES.tally) {
+      // the old basket goes to the table, a new one comes in
+      this.world.clear();
+      this.basket = { index: c.index + 1, score: 0, merges: 0, top: 0, t: 0 };
+      this.link = 0;
+      this.emit({ type: 'basketNew', index: this.basket.index });
     }
-    if (c.t >= RULES.change) this.change = null;
-  }
-
-  /** A new basket holds one olive at rest at the bottom centre; its first drop is an olive too. */
-  private freshBasket(): void {
-    const olive = this.world.add(1, 0, fruit(1).r);
-    olive.touched = this.world.t;
-    olive.restT = PHYS.restSec;
-    olive.resting = true;
-    this.basketDrops = 0;
-    this.lastMergeT = -Infinity;
-    this.link = 0;
-  }
-
-  // ── the vine's tendrils and the cloth ───────────────────────────
-  private vineTick(dt: number): void {
-    if (!this.vineLive || this.payout || this.change) {
-      this.vine.length = 0;
-      this.vineClock = 0;
-      return;
-    }
-    this.vineClock -= dt;
-    if (this.vineClock > 0) return;
-    this.vineClock = RULES.vineEvery;
-    this.world.pairs(this.vine, { maxGap: RULES.vineRange, limit: RULES.vineMax, clear: RULES.clear, resting: true, minR: RULES.reachR });
-  }
-
-  /**
-   * The linen covers the basket in a Rosa as soon as the gather is done (rule 5: rest is not spent
-   * planning) and lifts in its last 4 s, at the push telegraph — the next Zbiór starts informed.
-   */
-  private veiling(dt: number): void {
-    const b = this.block;
-    const want = this.phase === 'play' && b?.kind === 'rosa' && this.payout?.kind !== 'gather' && this.blockT < b.dur - RULES.telegraph ? 1 : 0;
-    const was = this.veil;
-    if (want > this.veil) this.veil = Math.min(1, this.veil + dt / RULES.veilIn);
-    else if (want < this.veil) this.veil = Math.max(0, this.veil - dt / RULES.veilOut);
-    if (was === 0 && this.veil > 0) this.emit({ type: 'veil', on: true });
-    else if (was === 1 && this.veil < 1) this.emit({ type: 'veil', on: false });
-  }
-
-  // ── the evening ────────────────────────────────────────────────
-  private startEvening(): void {
-    this.phase = 'evening';
-    this.phaseT = 0;
-    this.emit({ type: 'evening' });
-  }
-
-  private evening(dt: number): void {
-    this.phaseT += dt;
-    if (!this.carried && this.phaseT >= RULES.carryAt) {
-      this.carried = true;
-      this.emit({ type: 'carry' });
-    }
-    if (!this.resolved && this.phaseT >= RULES.resolveAt) this.resolveEvening();
-    if (!this.enough && this.phaseT >= RULES.enoughAt) {
-      this.enough = true;
-      this.emit({ type: 'enough' });
-    }
-    if (this.phaseT >= RULES.finale && !this.payout && !this.pulls.length && !this.change) this.phase = 'done';
-  }
-
-  /** The draw's tier is the session's best feat: legendary for the contrast, epic for a blind Rosa passed, rare for deep dew. */
-  private eveningTier(): Tier {
-    const c = this.contrast.contrast;
-    if (c !== null && c >= RULES.legendContrast) return 'legend';
-    if (this.blindRosaPassed) return 'epic';
-    if (this.rosaDeep) return 'rare';
-    return 'common';
-  }
-
-  /** The day's loaf, the story's guests and the draws (one every evening, one more per great cluster, three at most). */
-  private resolveEvening(): void {
-    if (this.resolved) return;
-    this.resolved = true;
-    const p = this.p;
-    if (loafDue(p, this.init.day)) {
-      const before = tableState(tablePoints(p)).built;
-      p.loaves++;
-      p.loafDay = this.init.day;
-      this.loafNow = true;
-      this.emit({ type: 'loaf' });
-      this.stepsSince(before);
-    }
-    if (ruthDue(p, this.session, this.spilled)) {
-      p.ruthAt = this.session;
-      this.ruthNow = true;
-      this.storyGuest('rut');
-    } else if (naomiDue(p, this.session)) {
-      p.naomiAt = this.session;
-      this.naomiNow = true;
-      this.storyGuest('noemi');
-    }
-    const tiers: Tier[] = [this.eveningTier()];
-    for (let i = 0; i < this.greats && tiers.length < RULES.maxDraws; i++) tiers.push('rare');
-    tiers.forEach((tier, i) => this.drew(drawGuest(p, tier, this.rng, i === 0 && this.pity && !this.gotNew), 'draw'));
-  }
-
-  private storyGuest(id: GuestId): void {
-    this.p.guests.push(id);
-    this.newGuest(id, 'story', null);
-  }
-
-  private drew(d: Draw, via: GuestVia): void {
-    if (d.isNew) this.newGuest(d.id, via, d.tier);
-    else {
-      this.guestsNow.push({ id: d.id, isNew: false, via });
-      this.emit({ type: 'guest', id: d.id, isNew: false, via, tier: d.tier, grain: DUPLICATE_GRAIN });
-    }
-    for (const id of d.crafted) this.newGuest(id, 'craft', guestById(id)?.tier ?? null);
-  }
-
-  private newGuest(id: GuestId, via: GuestVia, tier: Tier | null): void {
-    this.gotNew = true;
-    this.p.lastNewSession = this.session;
-    this.guestsNow.push({ id, isNew: true, via });
-    this.emit({ type: 'guest', id, isNew: true, via, tier, grain: 0 });
-  }
-
-  /**
-   * The session ends before its own evening ("Zakończ i zapisz", the overtime limit): settle as the
-   * evening would — the open block is judged and paid out without animation, the day's loaf, the
-   * story's guests and the draws (with pity) are resolved.  Nothing more once the evening is done.
-   */
-  finish(): void {
-    if (!this.started || this.phase === 'done') return;
-    if (this.phase === 'play') this.endBlock();
-    this.finishPayout();
-    if (this.change) {
-      if (!this.change.fresh) this.baskets++;
+    if (c.t >= RULES.tally + RULES.slide) {
       this.change = null;
+      this.cooldown = 0.15;
     }
-    this.resolveEvening();
+  }
+
+  // ── the end ──
+  private endSession(): void {
+    if (this.phase === 'done') return;
     this.phase = 'done';
+    this.doneT = 0;
+    this.story = null;
+    this.change = null;
+    this.endBasket(true);
+    this.talk.clear();
+    this.talk.ask('end', 5, 6);
+    this.emit({ type: 'end' });
   }
 
-  // ── output ──────────────────────────────────────────────────────
-  private emit(e: SimEvent): void { this.events.push(e); }
-
-  /** The events since the last call, oldest first (most frames have none: then nothing is allocated). */
-  take(): readonly SimEvent[] {
-    if (!this.events.length) return NO_EVENTS;
-    const out = this.events.slice();
-    this.events.length = 0;
-    return out;
+  /** Ended early ("Zakończ i zapisz", the overtime limit): settle at once. */
+  finish(): void {
+    if (!this.started) this.started = true;
+    if (this.phase !== 'done' && this.blockIndex < this.plan.length && this.phase === 'play') this.endBlock();
+    this.endSession();
   }
 
-  /**
-   * What the ambient pad's brightness follows (kit/types.ts): steady in the warm-up, the vine in a
-   * sighted Zbiór; held still in a blind Zbiór, in Rosa (the sound sets its own fixed dusk there), in
-   * the evening and while the signal is unreliable, so no live feedback leaks where the screen has none.
-   */
   padLevel(f: FocusFrame): number | null {
-    if (!this.started || !f.reliable || this.phase !== 'play') return null;
-    const b = this.block;
-    if (b.kind === 'warmup') return 0.5;
-    if (b.kind === 'zbior' && !b.blind) return this.V;
-    return null;
+    return this.sighted && f.reliable ? f.level : null;
   }
 
-  /** Time is up: the session may stop once the evening has played and nothing is moving to the table. */
+  /** The session may stop once the last basket's tally has been seen (at most ~2 s). */
   canStop(): boolean {
-    return this.phase === 'done' && !this.payout && !this.pulls.length && !this.change;
+    return this.phase === 'done' ? this.doneT >= 1.8 : !this.started;
   }
 
-  /**
-   * The session's numbers, idempotent.  Only a saved session calls it for good, so the session, its
-   * blocks and the day's "Kosz dnia" are counted here; records go into the progress with Math.max.
-   */
+  // ── the summary ──
   result(): ArcadeOutcome {
-    const p = this.p;
-    if (this.started) {
-      p.sessions = Math.max(p.sessions, this.session);
-      p.zbiory = Math.max(p.zbiory, this.zbioryBase + this.zbioryBegun);
-      p.rosy = Math.max(p.rosy, this.rosyBase + this.rosyBegun);
-      if (this.daily) {
-        p.dailyDay = this.init.day;
-        p.dailyScore = this.score;
-        p.dailyBest = Math.max(p.dailyBest, this.score);
-      }
-      p.lastDay = this.init.day;
-    }
-    const basket = Math.max(this.bestBasketNow, this.basketPts);
-    const dew = Math.round(this.deepest * 100);
+    const p = this.progress;
+    this.sync();
+    p.sessions = Math.max(p.sessions, this.session);
     p.bestSession = Math.max(p.bestSession, this.score);
-    p.bestBasket = Math.max(p.bestBasket, basket);
-    p.bestTier = Math.max(p.bestTier, this.highestMade);
-    p.bestChain = Math.max(p.bestChain, this.maxChain);
-    p.bestDew = Math.max(p.bestDew, dew);
-    const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;   // no "−0.0%"
+    p.lastDay = this.day;
+    if (this.daily) {
+      p.dailyDay = this.day;
+      p.dailyScore = Math.max(p.dailyDay === this.day ? p.dailyScore : 0, this.score);
+      p.dailyBest = Math.max(p.dailyBest, this.score);
+    }
+    const baskets = this.basketsDone + (this.phase === 'done' ? 0 : 1);
+    const top = this.topTier();
     const stats: [string, string][] = [
-      [t('stat.bestBasket'), t('pts', { n: basket })],
-      [t('stat.baskets'), String(this.baskets)],
-      [t('stat.highest'), this.highestMade ? cap(fruit(this.highestMade).name) : '—'],
-      [t('stat.chain'), this.maxChain ? `×${this.maxChain}` : '—'],
-      [t('stat.leaves'), this.zbiorJudged ? `${this.leaves}/${this.zbiorJudged}` : '—'],
-      [t('stat.drops'), this.rosaJudged ? `${this.drops}/${this.rosaJudged}` : '—'],
-      [t('stat.dew'), this.rosaEnded ? t('pct', { n: dew }) : '—'],
-      [t('stat.contrast'), c === null ? '—' : t('pct', { n: c === 0 ? fmtNum(0, 1) : fmtSigned(c, 1) })],
+      [t('stat.baskets'), fmtNum(baskets)],
+      [t('stat.bestBasket'), pts(this.bestBasket)],
+      [t('stat.top'), top > 0 ? cap(fruit(top).name) : '—'],
+      [t('stat.chain'), this.bestChain > 1 ? `×${fmtNum(this.bestChain)}` : '—'],
+      [t('stat.winds'), fmtNum(this.winds)],
+      [t('stat.gleaned'), fmtNum(this.gleaned)],
     ];
+    const c = this.contrast.contrast;
+    if (c !== null) stats.push([t('stat.contrast'), `${c >= 0 ? '+' : '−'}${fmtNum(Math.abs(c), 1)}%`]);
     return {
-      score: this.score, unit: unit(this.score), record: this.bestBefore !== null && this.score > this.bestBefore,
-      stats, highlights: this.highlights(basket), verse: this.closingVerse(),
+      score: this.score, unit: unit(this.score), record: this.score > this.bestBefore && this.bestBefore > 0, stats,
+      highlights: this.highlights(), verse: this.closingVerse(),
     };
   }
 
-  /**
-   * The summary's closing passage (kit/scripture.ts), one the session fits, in turn from session to
-   * session — the best fit first: Ruth's own evening closes on Ruth 2:16 (once in a life); then a new
-   * fruit (the good land's fruit), a great cluster (the year crowned), a spill (the field's edge,
-   * nothing wasted), the dew (passed, deep), a new guest (the open table), the day's loaf, and the
-   * reaping with joy that fits every evening.  The lobby already opens with Deuteronomy 8:10.
-   */
-  closingVerse(): PassageId {
-    if (this.ruthNow) return 'rut2.16';
-    const fit: PassageId[] = [];
-    if (this.firstTiers.length || this.session === 1) fit.push('deu8.8');
-    if (this.greats > 0) fit.push('psa65.11');
-    if (this.spilled) fit.push('lev19.9', 'jhn6.12');
-    if (this.drops > 0) fit.push('deu32.2');
-    if (this.rosaDeep) fit.push('psa133.3');
-    if (this.guestsNow.some(g => g.isNew)) fit.push('luk14.13-14');
-    if (this.loafNow) fit.push('mat6.11');
-    fit.push('psa126.5');
-    return inTurn(fit, this.session);
+  /** The biggest fruit made this session (0: none). */
+  topTier(): number {
+    for (let i = MAX_TIER - 1; i >= 0; i--) if (this.made[i] > 0) return i + 1;
+    return 0;
   }
 
-  /** At most five lines for the summary, the best moments first: guests, the table, records, great clusters, a first fruit, the loaf. */
-  private highlights(basket: number): string[] {
-    const notes: { rank: number; text: string }[] = [];
-    const add = (rank: number, text: string) => notes.push({ rank, text });
-    if (this.ruthNow) add(0, t('hl.ruth'));
-    if (this.naomiNow) add(0, t('hl.naomi'));
-    const others = this.guestsNow.filter(g => g.isNew && g.via !== 'story').map(g => guestById(g.id)!);
-    if (others.length === 1) add(0, t('hl.guest', { name: others[0].name, tier: others[0].tier ? TIER_NAME[others[0].tier] : '' }));
-    else if (others.length > 1) add(0, t('hl.guests', { names: others.map(g => g.name).join(', ') }));
-    if (this.builtNow.length) {
-      add(1, this.builtNow.includes(TABLE_STEPS.length - 1) ? t('hl.tableDone') : t('hl.table', { names: this.builtNow.map(s => TABLE_STEPS[s].name).join(', ') }));
-    }
-    if (this.bestBefore !== null) {
-      // records share one line when there are several
-      const one: string[] = [], part: string[] = [];
-      if (basket > this.before.basket) {
-        const pts = t('pts', { n: basket });
-        one.push(t('hl.record.basket', { pts }));
-        part.push(t('hl.records.basket', { pts }));
-      }
-      if (this.maxChain > this.before.chain && this.maxChain > 1) {
-        one.push(t('hl.record.chain', { n: this.maxChain }));
-        part.push(t('hl.records.chain', { n: this.maxChain }));
-      }
-      if (part.length) add(2, part.length === 1 ? one[0] : t('hl.records', { list: part.join(', ') }));
-    }
-    if (this.greats) add(3, this.greats > 1 ? t('hl.greats', { n: this.greats }) : t('hl.great'));
-    if (this.firstTiers.length) add(4, t('hl.record.tier', { name: fruit(Math.max(...this.firstTiers)).name }));
-    if (this.loafNow) add(5, t('hl.loaf'));
-    return notes.sort((a, b) => a.rank - b.rank).slice(0, 5).map(n => n.text);   // a stable sort: time order within a rank
+  private highlights(): string[] {
+    const out: string[] = [];
+    for (const tier of this.firsts.slice(-3)) out.push(t('hl.first', { fruit: fruit(tier).name }));
+    if (this.poles) out.push(t('hl.pole', { n: this.poles }));
+    for (const f of this.fests) out.push(t('hl.fest', { fest: festName(festivalAt(f)) }));
+    if (this.score > this.bestBefore && this.bestBefore > 0) out.push(t('hl.record'));
+    else if (this.bestBefore > 0 && this.bestBefore - this.score > 0 && this.bestBefore - this.score <= this.bestBefore * 0.2) out.push(t('hl.near', { n: this.bestBefore - this.score }));
+    if (this.daily) out.push(t('hl.daily'));
+    out.push(t(`close.${1 + ((this.session - 1) % 4)}` as 'close.1'));
+    return out;
+  }
+
+  closingVerse(): PassageId {
+    const n = this.session;
+    if (this.poles > 0 || this.topTier() >= MAX_TIER) return 'psa65.11';
+    if (this.firsts.length) return inTurn(['deu8.8', 'psa65.11'], n);
+    if (this.fests.length) return 'luk14.13-14';
+    if (this.gleaned >= 4) return inTurn(['rut2.16', 'lev19.9', 'jhn6.12'], n);
+    if (this.daily) return 'mat6.11';
+    return inTurn(['psa126.5', '2co9.7', 'deu8.10'], n);
   }
 }

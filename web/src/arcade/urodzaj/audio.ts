@@ -1,47 +1,39 @@
 /**
- * Urodzaj's sound, on the kit's synthesiser (kit/audio.ts): a warm pad in D whose filter follows
- * what the screen shows (the runner drives it from UrodzajSim.padLevel: the vine in a sighted Zbiór,
- * held still in Rosa, in blind blocks and in the evening), a soft rush as a fruit leaves the twig, a
- * thud as it lands (deeper for bigger fruit), a plucked pair for every merge pitched by its tier and
- * a step higher for each link of a chain, bells for the great cluster, a wooden tick while the rim
- * warns and a patter of fruit rolling to the gleaners; the vine's shoots chime, the dew drips, the
- * crickets sing under the linen, and the evening closes on the lyre over an open fifth.
+ * Urodzaj's sound, on the kit's synthesiser (kit/audio.ts): a warm pad (G major, a harvest evening)
+ * whose filter follows the wind in a sighted push block (the runner drives it from padLevel); a soft
+ * "plop" for every drop and a thud by the fruit's size when it lands; the merge's pop — pitched to the
+ * fruit (bigger is lower) with a lyre pluck that climbs a pentatonic ladder as a chain goes on (Suika's
+ * and Candy Crush's rising pitch); a heartbeat tick while the rim is crossed; the wind's rising whoosh
+ * and its chime; a gentle bell for each gleaned fruit; a chord when a basket goes to the table.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
 import type { SimEvent, UrodzajSim } from './sim';
 
-const DAY_CHORD = [73.42, 110, 146.83, 220];
-const DUSK_CHORD = [61.74, 92.5, 123.47, 185];
-const ROOT = 293.66;
+const DAY = [98, 146.83, 196, 246.94];
+const DUSK = [98, 146.83, 174.61, 233.08];
+const ROOT = 523.25;
 
 export class UrodzajSound {
-  private cricket = 2;
-  private wind = 6;
+  private tick = 0;
+  private landGap = 0;
 
   constructor(private readonly a: ArcadeAudio) {}
 
   start(): void {
-    this.a.pad({ notes: DAY_CHORD, dark: 280, bright: 1600, gain: 0.05 });
+    this.a.pad({ notes: DAY, dark: 300, bright: 2200, gain: 0.04 });
   }
 
   update(dt: number, sim: UrodzajSim): void {
     const a = this.a;
     if (!a.on) return;
-    const b = sim.block;
-    const rest = sim.phase !== 'play' || b?.kind === 'rosa';
-    // crickets under the linen and in the evening
-    this.cricket -= dt;
-    if (rest && this.cricket <= 0) {
-      this.cricket = 0.9 + Math.random() * 1.6;
-      const f = 4200 + Math.random() * 600;
-      for (let i = 0; i < 3; i++) a.tone(f, 0.03, { type: 'sine', gain: 0.008, at: i * 0.06 });
-    }
-    // a breath of wind through the orchard now and then
-    this.wind -= dt;
-    if (this.wind <= 0) {
-      this.wind = 7 + Math.random() * 6;
-      a.noiseBurst(1.6, { type: 'bandpass', freq: 500, sweepTo: 900, q: 0.7, gain: 0.012 });
-    }
+    this.landGap = Math.max(0, this.landGap - dt);
+    if (sim.overT > 0) {
+      this.tick -= dt;
+      if (this.tick <= 0) {
+        this.tick = Math.max(0.18, 0.5 - sim.overT * 0.15);
+        a.tone(880, 0.06, { type: 'square', gain: 0.025 });
+      }
+    } else this.tick = 0;
   }
 
   on(e: SimEvent): void {
@@ -49,99 +41,68 @@ export class UrodzajSound {
     if (!a.on) return;
     switch (e.type) {
       case 'drop':
-        a.noiseBurst(0.12, { type: 'bandpass', freq: 1400, sweepTo: 700, q: 1.5, gain: 0.02 });
+        a.tone(520 - e.tier * 40, 0.08, { type: 'sine', gain: 0.05, slideTo: 300 });
         break;
       case 'land':
-        if (e.speed < 0.35) break;
-        a.noiseBurst(0.08, { type: 'lowpass', freq: 520 - e.tier * 35, gain: Math.min(0.06, 0.02 + e.speed * 0.02) });
-        a.tone(150 - e.tier * 9, 0.09, { type: 'sine', gain: 0.03, slideTo: 90 });
+        if (this.landGap > 0) break;
+        this.landGap = 0.05;
+        a.noiseBurst(0.12, { type: 'lowpass', freq: 600 - e.tier * 30, sweepTo: 150, gain: Math.min(0.06, 0.015 + e.speed * 0.02) });
         break;
       case 'merge': {
-        // a plucked pair, lower for bigger fruit, a pentatonic step up for each link of a chain
-        const f = ladder(Math.max(0, 9 - e.tier) + Math.min(6, e.link), ROOT);
-        this.pluck(f, 0, e.via === 'touch' ? 0.06 : 0.05);
-        this.pluck(f * 1.5, 0.08, 0.04);
-        if (e.via === 'dew') a.tone(f * 3, 0.4, { type: 'sine', gain: 0.012, at: 0.1 });
+        // the pop: lower for a bigger fruit, and the pluck climbs with the chain
+        const f = 900 / (1 + e.tier * 0.18);
+        a.tone(f, 0.14, { type: 'sine', gain: 0.09, slideTo: f * 1.6 });
+        a.noiseBurst(0.05, { type: 'bandpass', freq: 2200, q: 1.5, gain: 0.03 });
+        this.pluck(ladder(e.link + Math.min(4, Math.floor(e.tier / 2)), ROOT), 0.02, 0.05);
+        if (e.tier >= 7) [0, 4, 7].forEach((n, i) => a.bell(ladder(n + e.tier - 5, ROOT / 2), 0.05, 1.6, 0.05 + i * 0.07));
+        if (e.first) [0, 2, 4, 7].forEach((n, i) => this.pluck(ladder(n + 5, ROOT), 0.2 + i * 0.1, 0.045));
         break;
       }
-      case 'great':
-        [0, 2, 4, 5, 7, 9].forEach((n, i) => a.bell(ladder(n, ROOT), 0.06, 2, i * 0.1));
+      case 'pole':
+        [0, 2, 4, 5, 7, 9, 12].forEach((n, i) => a.bell(ladder(n, ROOT / 2), 0.06, 2, i * 0.09));
         break;
-      case 'warnTick':
-        a.noiseBurst(0.03, { type: 'bandpass', freq: 1800, q: 6, gain: 0.02 + 0.02 * e.k });
+      case 'danger':
+        if (e.on) a.tone(220, 0.25, { type: 'triangle', gain: 0.04, slideTo: 180 });
         break;
-      case 'spill':
-        for (let i = 0; i < 6; i++) a.noiseBurst(0.05, { type: 'lowpass', freq: 400 + i * 30, gain: 0.03, at: i * 0.09 });
-        this.pluck(ladder(2, ROOT / 2), 0.5, 0.04);
+      case 'windUp':
+        a.noiseBurst(1.1, { type: 'bandpass', freq: 400, sweepTo: 1800, q: 0.9, gain: e.hidden ? 0.03 : 0.045 });
         break;
-      case 'newBasket':
-        a.noiseBurst(0.2, { type: 'bandpass', freq: 600, q: 2, gain: 0.02 });
+      case 'wind':
+        a.noiseBurst(1.3, { type: 'bandpass', freq: 1800, sweepTo: 500, q: 0.7, gain: 0.04 });
+        [0, 4, 7, 12].forEach((n, i) => a.bell(ladder(n, ROOT), 0.045, 1.8, 0.1 + i * 0.08));
+        break;
+      case 'ready':
+        a.bell(ladder(9, ROOT), 0.03, 1.2);
+        break;
+      case 'glean':
+        a.bell(ladder(2 + e.tier, ROOT / 2), 0.04, 1.4);
+        break;
+      case 'basketEnd':
+        [0, 4, 7].forEach((n, i) => this.pluck(ladder(n + e.stars, ROOT / 2), i * 0.12, 0.05));
         break;
       case 'blockStart':
-        a.padChord(e.block.kind === 'rosa' ? DUSK_CHORD : DAY_CHORD, 3);
+        a.padChord(e.block.kind === 'rest' ? DUSK : DAY, 3);
         break;
       case 'telegraph':
-        if (e.next === 'rosa' || e.next === 'evening') {
-          this.pluck(ladder(4, ROOT), 0, 0.04);
-          this.pluck(ladder(2, ROOT), 0.3, 0.04);
-        } else {
-          this.pluck(ladder(2, ROOT), 0, 0.04);
-          this.pluck(ladder(4, ROOT), 0.3, 0.04);
-        }
+        this.pluck(ladder(e.next?.kind === 'rest' ? 4 : 2, ROOT), 0, 0.035);
+        this.pluck(ladder(e.next?.kind === 'rest' ? 2 : 4, ROOT), 0.3, 0.035);
         break;
-      case 'stamp':
-        if (e.kind === 'almost') this.pluck(ladder(1, ROOT / 2), 0, 0.035);
-        else [0, 2, 4].forEach((n, i) => a.bell(ladder(n + (e.kind === 'drop' ? 5 : 0), ROOT), 0.05, 1.6, i * 0.12));
+      case 'mission':
+        [0, 4].forEach((n, i) => a.bell(ladder(n + 7, ROOT), 0.04, 1.4, i * 0.1));
         break;
-      case 'revealZbior': case 'revealRosa':
-        [0, 4].forEach((n, i) => a.bell(ladder(n, ROOT), 0.045, 1.6, i * 0.14));
+      case 'festival':
+        [0, 2, 4, 7, 9].forEach((n, i) => this.pluck(ladder(n, ROOT), i * 0.14, 0.05));
         break;
-      case 'gather':
-        if (e.pairs > 0) a.noiseBurst(0.5, { type: 'bandpass', freq: 900, sweepTo: 2200, q: 1, gain: 0.02 });
+      case 'end':
+        a.padChord([98, 146.83, 196, 293.66], 3);
         break;
-      case 'settle':
-        if (e.dew > 0.05) a.noiseBurst(1, { type: 'highpass', freq: 3000, gain: 0.012 });
-        break;
-      case 'saved':
-        a.bell(ladder(7, ROOT), 0.05, 1.6);
-        break;
-      case 'shoot':
-        if (!e.blind) a.bell(ladder(5 + e.n, ROOT), 0.035, 1.2);
-        break;
-      case 'bead': {
-        const f = 1600 + Math.random() * 500;
-        a.tone(f, 0.07, { type: 'sine', gain: 0.015, slideTo: f * 0.6 });
-        break;
-      }
-      case 'veil':
-        a.noiseBurst(0.6, { type: 'bandpass', freq: 1200, sweepTo: 500, q: 0.8, gain: 0.012 });
-        break;
-      case 'tableStep':
-        [0, 4, 7].forEach((n, i) => a.bell(ladder(n, ROOT / 2), 0.05, 2, i * 0.12));
-        break;
-      case 'evening':
-        a.padChord([73.42, 110, 146.83, 185], 3);
-        break;
-      case 'loaf':
-        a.bell(ladder(2, ROOT), 0.045, 1.6);
-        break;
-      case 'guest':
-        if (e.isNew) [0, 2, 4, 7].forEach((n, i) => this.pluck(ladder(n, ROOT), i * 0.13, 0.05));
-        else this.pluck(ladder(4, ROOT), 0, 0.04);
-        break;
-      case 'enough':
-        a.tone(73.42, 4, { type: 'sine', gain: 0.045, attack: 0.8 });
-        a.tone(110, 3.8, { type: 'sine', gain: 0.035, attack: 1 });
-        [0, 2, 4, 7, 9].forEach((n, i) => this.pluck(ladder(n, ROOT), 0.4 + i * 0.28, 0.045));
-        break;
-      default:
-        break;
+      default: break;
     }
   }
 
   /** A plucked, lyre-like string: a quick triangle with a quiet octave. */
   private pluck(f: number, at: number, gain = 0.06): void {
-    this.a.tone(f, 0.8, { type: 'triangle', gain, at, attack: 0.004 });
-    this.a.tone(f * 2, 0.45, { type: 'sine', gain: gain * 0.25, at, attack: 0.004 });
+    this.a.tone(f, 0.7, { type: 'triangle', gain, at, attack: 0.004 });
+    this.a.tone(f * 2, 0.4, { type: 'sine', gain: gain * 0.25, at, attack: 0.004 });
   }
 }

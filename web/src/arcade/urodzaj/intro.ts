@@ -1,107 +1,57 @@
 /**
- * Urodzaj's calibration intro, "the floor is laid": while the reference fills (`p` 0..1) the
- * orchard's mosaic is set stone by stone on the bare cream bedding, from the middle outward, as a
- * mosaicist would lay it; the empty basket in the middle comes first, the hills and the sky after,
- * and at 1 the morning light falls across the finished floor.  The runner's calibration card covers
- * the lower part of the screen, so the basket sits high.  The finished floor is baked once per size;
- * a frame draws it and covers the stones not yet laid.
+ * Urodzaj's calibration intro: morning on Boaz's field.  The empty basket waits at the field's edge,
+ * Feliks the sparrow flies in along the twine, and while the reference fills (`p` 0..1) the fruits of
+ * the ladder appear one by one in a ring over the basket, olive to the great cluster — the circle the
+ * game climbs.  The runner's calibration card covers the lower part of the screen, so the scene sits high.
  */
-import { clamp } from '../kit/juice';
-import { fruit } from './content';
+import { approach, clamp } from '../kit/juice';
+import { MAX_TIER, fruit } from './content';
 import type { UrodzajProgress } from './meta';
-import { C, DAY, bakeScene, fruitArt, hash, mix, paintBasket, paintFrame, paintRim, paintVineLeaf, type Baked } from './mosaic';
+import { C, TAU, paintBasketBack, paintBasketFront, paintField, paintFruit, paintGleaner, paintRim, paintSparrow, type FruitSprites, type SparrowPose } from './paint';
 
 export class UrodzajIntro {
   private clock = 0;
-  private light = 0;
-  private floor: Baked | null = null;
-  private key = '';
-  /** each cell's turn to be laid (0..1), by its distance from the middle with a little scatter */
-  private order: Float32Array = new Float32Array(0);
-  private cols = 0;
-  private rows = 0;
-  private tile = 10;
+  private shown = 0;
+  private readonly pose: SparrowPose = { flip: 1, flap: 0.6, beat: 0, strain: 0, talk: false, blink: false, scared: false, t: 0 };
 
-  draw(ctx: CanvasRenderingContext2D, w: number, h: number, dt: number, p: number, progress: UrodzajProgress, dpr: number): void {
+  draw(ctx: CanvasRenderingContext2D, w: number, h: number, dt: number, p: number, _progress: UrodzajProgress, sprites: FruitSprites | null): void {
     if (w < 2 || h < 2) return;
     this.clock += dt;
-    this.light = p >= 0.999 ? Math.min(1, this.light + dt / 0.8) : Math.max(0, this.light - dt);
-    const key = `${w}|${h}|${dpr}`;
-    if (!this.floor || key !== this.key) this.bake(w, h, dpr, progress);
-    ctx.drawImage(this.floor!.c, 0, 0, w, h);
-    // the stones still to lay: bare bedding, the next ones being pressed in
-    const laid = clamp(p) * 1.04;
-    const t = this.tile;
-    for (let j = 0; j < this.rows; j++) {
-      for (let i = 0; i < this.cols; i++) {
-        const o = this.order[j * this.cols + i];
-        if (o <= laid - 0.04) continue;
-        const k = clamp((laid - o + 0.04) / 0.04);
-        ctx.fillStyle = k > 0 ? mix(C.grout, C.ground, 1 - k) : (i + j) % 2 ? C.ground : '#ECE0C6';
-        ctx.fillRect(i * t, j * t, t + 0.5, t + 0.5);
-      }
+    this.shown = approach(this.shown, clamp(p), dt, 0.4);
+    const k = this.shown, t = this.clock;
+    // the runner's card sits in the middle (wide) or over the lower part (tall): the scene goes beside it or above it
+    const wide = w > h * 1.2;
+    const free = (w - 540) / 2;
+    const S = wide ? Math.max(60, Math.min(free * 0.62, h * 0.36)) : Math.max(60, Math.min(w * 0.36, h * 0.2));
+    const cx = wide ? Math.max(S * 0.7, free / 2) : w / 2;
+    const floor = wide ? h * 0.78 : Math.max(S * 1.3, h * 0.3);
+    paintField(ctx, w, h, floor + S * 0.07, t);
+    const bp = { x0: cx - S / 2, x1: cx + S / 2, floor, rim: floor - S * 0.62, wall: Math.max(6, S * 0.045), charge: k * 0.6, veiled: false, burst: 0, t };
+    paintBasketBack(ctx, bp);
+    paintBasketFront(ctx, bp);
+    paintRim(ctx, bp, { wind: null, live: false, danger: 0, over: 0, waiting: false, t });
+    // the ring of fruits, appearing as the reference fills
+    const ringR = S * 0.5, rx = cx, ry = bp.rim - S * 0.55;
+    for (let i = 0; i < MAX_TIER; i++) {
+      const on = clamp((k * MAX_TIER - i) * 1.5);
+      if (on <= 0) continue;
+      const a = -Math.PI / 2 + (i / MAX_TIER) * TAU + t * 0.15;
+      const R = S * 0.035 * (1 + i * 0.09) * on;
+      paintFruit(ctx, sprites, i + 1, rx + Math.cos(a) * ringR, ry + Math.sin(a) * ringR * 0.55, R, 0, 0, i < 3 ? 'calm' : 'happy');
     }
-    // the morning light across the finished floor
-    if (this.light > 0) {
-      ctx.save();
-      ctx.globalAlpha = this.light * 0.45;
-      const g = ctx.createLinearGradient(0, 0, w, h);
-      g.addColorStop(0, 'rgba(255,244,214,.9)');
-      g.addColorStop(0.5, 'rgba(255,244,214,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, w, h);
-      ctx.restore();
-    }
-  }
-
-  private bake(w: number, h: number, dpr: number, progress: UrodzajProgress): void {
-    this.key = `${w}|${h}|${dpr}`;
-    const tile = Math.round(Math.max(12, Math.min(w, h) / 34));
-    const top = 64, bottom = 66;
-    const horizon = h * (h > w ? 0.2 : 0.24);
-    const b = bakeScene(w, h, dpr, horizon, Math.max(8, tile * 0.75), DAY, top, bottom);
-    const g = b.c.getContext('2d')!;
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    paintFrame(g, w, h, top, bottom, Math.max(8, tile * 0.75), DAY.frame);
-    // the empty basket, high in the middle, with the one olive every new basket holds
-    const s = Math.min(w * 0.42, h * 0.3, 300);
-    const cx = w / 2, floorY = h * (h > w ? 0.46 : 0.5);
-    const X = (x: number) => cx + x * s, Y = (y: number) => floorY - y * s;
-    paintBasket(g, X, Y, s, 'back');
-    const olive = fruitArt(1, fruit(1).r * s, dpr);
-    g.drawImage(olive.c, X(0) - olive.size / 2, Y(fruit(1).r) - olive.size / 2, olive.size, olive.size);
-    // the player's best fruit beside it, waiting on the twig
-    const best = Math.max(2, Math.min(7, progress.bestTier));
-    const art = fruitArt(best, fruit(best).r * s, dpr);
-    const twigY = Y(1.16) - 0.079 * s - 6;
-    g.strokeStyle = C.brown;
-    g.lineCap = 'round';
-    g.lineWidth = Math.max(2, s * 0.01);
-    g.beginPath();
-    g.moveTo(X(-0.56), twigY + 3);
-    g.quadraticCurveTo(cx, twigY - 4, X(0.56), twigY + 2);
-    g.stroke();
-    for (let i = 0; i < 7; i++) paintVineLeaf(g, X(-0.5 + i / 6), twigY - 3 + (i % 2) * 5, Math.max(3, s * 0.014), i % 2 ? 0.6 : -0.6);
-    g.lineWidth = Math.max(1.2, s * 0.005);
-    g.beginPath();
-    g.moveTo(X(0.18), twigY);
-    g.lineTo(X(0.18), Y(1.16) - fruit(best).r * s);
-    g.stroke();
-    g.drawImage(art.c, X(0.18) - art.size / 2, Y(1.16) - art.size / 2, art.size, art.size);
-    paintBasket(g, X, Y, s, 'front');
-    paintRim(g, X, Y, s);
-    this.floor = b;
-    this.tile = tile;
-    this.cols = Math.ceil(w / tile);
-    this.rows = Math.ceil(h / tile);
-    this.order = new Float32Array(this.cols * this.rows);
-    const midX = cx, midY = floorY - s * 0.5;
-    const far = Math.hypot(Math.max(midX, w - midX), Math.max(midY, h - midY));
-    for (let j = 0; j < this.rows; j++) {
-      for (let i = 0; i < this.cols; i++) {
-        const d = Math.hypot((i + 0.5) * tile - midX, (j + 0.5) * tile - midY) / far;
-        this.order[j * this.cols + i] = clamp(d * 0.92 + (hash(i * 31.7 + j * 7.3) - 0.5) * 0.12);
-      }
-    }
+    // Feliks flies in and hovers over the basket
+    const fx = cx - S * 0.9 * (1 - clamp(t / 2.2)) + Math.sin(t * 1.3) * S * 0.08;
+    this.pose.t = t;
+    this.pose.beat += dt * 18;
+    paintSparrow(ctx, fx, bp.rim - S * 0.12, Math.max(22, S * 0.16), this.pose);
+    if (wide) {
+      // the gleaners wait on the other side of the card
+      const gx = w - free / 2;
+      paintGleaner(ctx, gx - S * 0.2, floor + S * 0.07, S * 0.5, 0.2 + 0.1 * Math.sin(t), '#8c6a3e', '#d9c9a3');
+      paintGleaner(ctx, gx + S * 0.2, floor + S * 0.07, S * 0.45, 0.3 + 0.1 * Math.sin(t + 1), '#b5523b', '#efe4cc');
+    } else paintGleaner(ctx, cx - S * 0.85, floor + S * 0.07, S * 0.34, 0.2 + 0.1 * Math.sin(t), '#8c6a3e', '#d9c9a3');
+    // a first olive in his feet once the ring is full
+    if (k > 0.98) paintFruit(ctx, sprites, 1, fx, bp.rim - S * 0.06, fruit(1).r * S * 1.4, 0, 0, 'happy');
+    void C;
   }
 }

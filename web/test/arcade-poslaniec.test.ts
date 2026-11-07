@@ -1,42 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
-import { CITIES, CLOAKS, MISSIONS, TIPS } from '../src/arcade/poslaniec/content';
-import { CATALOGS, km, metres, t } from '../src/arcade/poslaniec/i18n';
+import { CITIES, UP_IDS, dayWord, missionSet, missionText, taskFor, upPrice } from '../src/arcade/poslaniec/content';
+import { CATALOGS, metres, t } from '../src/arcade/poslaniec/i18n';
 import { Gestures, keyMove, swipe, tapAt } from '../src/arcade/poslaniec/input';
 import {
-  LAP, bestFor, bestOf, citiesBetween, cloakOf, cloaksEarned, freshProgress, postcards, routeAt, toNextCloak, turnPages, type PoslaniecProgress,
+  LAP, buyUp, citiesBetween, countMission, dayBefore, flightSecFor, freshProgress, migrate, multOf, postcards, powerSecFor, routeAt, wordComplete, wordToday,
+  type PoslaniecProgress,
 } from '../src/arcade/poslaniec/meta';
-import { GRAVITY, RULES, jumpV } from '../src/arcade/poslaniec/rules';
-import { PoslaniecSim, blindBonus, difficultyFor, planBlocks, speedFor, type SimEvent } from '../src/arcade/poslaniec/sim';
-import { PASS, Track, groundAt, type ObKind, type Obstacle } from '../src/arcade/poslaniec/track';
+import { GRAVITY, RULES, difficultyFor, jumpV, liftOf, speedFor } from '../src/arcade/poslaniec/rules';
+import { PoslaniecSim, planBlocks, type SimEvent } from '../src/arcade/poslaniec/sim';
+import { SAY } from '../src/arcade/poslaniec/talk';
+import { Track, surfaceOf, type ObKind, type Obstacle } from '../src/arcade/poslaniec/track';
+import { mergeSaved } from '../src/arcade/kit/progress';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 
-const DAY = '2026-11-02';
+const DAY = '2026-11-07';
 const STEP = 1 / 60;
-
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
-const BEGINNER: FocusTuning = { ...TUNING, ...BEGINNER_TUNING };
 
 const frame = (p: Partial<FocusFrame> = {}): FocusFrame =>
   ({ reliable: true, activity: 0, threshold: 2, level: 0.3, focused: false, hold: 0, calm: 0.5, ...p });
-const focused = (hold: number, level = 0.8): FocusFrame => frame({ activity: 6, level, focused: true, hold, calm: 0.1 });
-const calm = (c = 0.8): FocusFrame => frame({ activity: -3, level: 0.1, focused: false, hold: 0, calm: c });
+const focused = (level = 0.9): FocusFrame => frame({ activity: 6, level, focused: true, hold: 10, calm: 0.05 });
+const calm = (c = 0.85): FocusFrame => frame({ activity: -3, level: 0.1, calm: c });
+const lost: FocusFrame = { reliable: false, activity: null, threshold: 2, level: 0, focused: false, hold: 0, calm: 0 };
 
-type SimOpts = { progress?: Partial<PoslaniecProgress>; planned?: number; seed?: number; day?: string; eeg?: boolean; daySeed?: number; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<PoslaniecProgress>; planned?: number; seed?: number; eeg?: boolean; daySeed?: number; tuning?: FocusTuning };
 
 function makeSim(o: SimOpts = {}): PoslaniecSim {
   const sim = new PoslaniecSim({
-    progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: o.day ?? DAY,
+    progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY,
     daySeed: o.daySeed ?? 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
   });
   sim.start();
   return sim;
 }
 
-/** A returning player's session (no warm-up, not the day's first): the rules one at a time. */
-const later = (o: SimOpts = {}) => makeSim({ ...o, progress: { sessions: 5, dailyDay: DAY, giftDay: DAY, pushes: 1, ...o.progress } });
+/** A returning player who has learnt the controls (no lesson road). */
+const later = (o: SimOpts = {}) => makeSim({
+  ...o, progress: { sessions: 5, pushes: 1, taught: ['jump', 'roll', 'lane', 'ramp', 'wings', 'tower', 'goat'], ...o.progress },
+});
 
 type Clock = { t: number };
 function drive(sim: PoslaniecSim, sec: number, f: FocusFrame | ((t: number) => FocusFrame), clock: Clock = { t: 0 }, each?: (t: number) => void): SimEvent[] {
@@ -53,730 +57,816 @@ function drive(sim: PoslaniecSim, sec: number, f: FocusFrame | ((t: number) => F
 
 const ofType = <K extends SimEvent['type']>(evs: readonly SimEvent[], type: K) => evs.filter((e): e is Extract<SimEvent, { type: K }> => e.type === type);
 
-/** An empty road from here on (nothing more is made), for placing obstacles by hand. */
+/** An empty road from here on: nothing more is made. */
 function emptyRoad(sim: PoslaniecSim): void {
-  sim.track.obstacles.length = 0;
-  sim.track.coins.length = 0;
-  sim.track.powers.length = 0;
-  sim.track.cursor = 1e9;
+  const tr = sim.track;
+  tr.obstacles.length = 0;
+  tr.coins.length = 0;
+  tr.powers.length = 0;
+  tr.letters.length = 0;
+  tr.cursor = 1e9;
+  tr.fill = () => undefined;
 }
 
 let obId = 1e6;
-function place(sim: PoslaniecSim, kind: ObKind, lane: number, ahead: number, len?: number, o: Partial<Obstacle> = {}): Obstacle {
+function place(sim: PoslaniecSim, kind: ObKind, lane: number, ahead: number, o: Partial<Obstacle> = {}): Obstacle {
   const ob: Obstacle = {
-    id: ++obId, kind, lane, width: 1, z: sim.z + ahead, len: len ?? (kind === 'cart' ? 5 : kind === 'wagon' ? 18 : 0.7),
-    ramp: kind === 'wagon', dir: 1, walking: false, hit: false, cleared: false, born: 0, look: 0, ...o,
+    id: ++obId, kind, lane, z: sim.z + ahead, len: kind === 'wagon' ? 10 : kind === 'cart' ? RULES.cartLen : kind === 'low' ? RULES.lowLen : RULES.highLen,
+    ramp: false, meet: sim.z + ahead, rolling: false, hit: false, passed: false, look: 0, ...o,
   };
   sim.track.obstacles.push(ob);
   return ob;
 }
 
-/** Play to the start of block i. */
+/** Play until block i begins. */
 function toBlock(sim: PoslaniecSim, i: number, f: FocusFrame | ((t: number) => FocusFrame) = frame(), clock: Clock = { t: 0 }): SimEvent[] {
   const out: SimEvent[] = [];
-  while (sim.blockIndex < i && sim.phase === 'play') out.push(...drive(sim, STEP, f, clock));
+  let guard = 0;
+  while (sim.blockIndex < i && guard++ < 100000) out.push(...drive(sim, STEP, f, clock));
   return out;
 }
 
-// ── the moves ─────────────────────────────────────────────────────
-describe('the moves', () => {
-  it('jumps a 0.7 s arc to about 1.45 m, and higher in sandals', () => {
-    expect(2 * jumpV(RULES.jumpTop) / GRAVITY).toBeCloseTo(RULES.jumpSec, 5);
-    const sim = later();
-    emptyRoad(sim);
-    const clock = { t: 0 };
-    drive(sim, 0.2, frame(), clock);
-    sim.act('jump');
-    let air = 0, top = 0;
-    while (sim.airborne && air < 3) {
-      drive(sim, STEP, frame(), clock);
-      air += STEP;
-      top = Math.max(top, sim.y);
-    }
-    expect(air).toBeGreaterThan(0.66);
-    expect(air).toBeLessThan(0.74);
-    expect(top).toBeCloseTo(RULES.jumpTop, 1);
-    sim.sandalsT = 5;
-    sim.act('jump');
-    top = 0;
-    drive(sim, 1.2, frame(), clock, () => { top = Math.max(top, sim.y); });
-    expect(top).toBeGreaterThan(2.4);
-  });
-
-  it('slides for 0.7 s; a slide in the air slams down and slides on landing', () => {
-    const sim = later();
-    emptyRoad(sim);
-    const clock = { t: 0 };
-    sim.act('slide');
-    expect(sim.sliding).toBe(true);
-    drive(sim, 0.65, frame(), clock);
-    expect(sim.sliding).toBe(true);
-    drive(sim, 0.1, frame(), clock);
-    expect(sim.sliding).toBe(false);
-    sim.act('jump');
-    drive(sim, 0.15, frame(), clock);
-    sim.act('slide');
-    let down = 0;
-    while (sim.airborne && down < 1) { drive(sim, STEP, frame(), clock); down += STEP; }
-    expect(down).toBeLessThan(0.15);
-    expect(sim.sliding).toBe(true);
-  });
-
-  it('changes lanes over about 0.15 s, never past the road\'s edge', () => {
-    const sim = later();
-    emptyRoad(sim);
-    const clock = { t: 0 };
-    sim.act('left');
-    expect(sim.lane).toBe(-1);
-    drive(sim, 0.15, frame(), clock);
-    expect(Math.abs(sim.x + 1)).toBeLessThan(0.06);
-    const evs = drive(sim, 0.05, frame(), clock, () => undefined);
-    sim.act('left');
-    expect(sim.lane).toBe(-1);
-    expect(ofType([...evs, ...sim.take()], 'bump').length).toBe(1);
-  });
-
-  it('is deterministic: the same seed and the same hands give the same run', () => {
-    const run = () => {
-      const sim = later({ seed: 7 });
-      drive(sim, 30, frame(), { t: 0 }, tt => { if (Math.round(tt * 60) % 47 === 0) sim.act(tt % 2 < 1 ? 'left' : 'right'); });
-      return [sim.z, sim.x, sim.coins, sim.stumbles];
-    };
-    expect(run()).toEqual(run());
-  });
-});
-
-// ── the road ──────────────────────────────────────────────────────
-describe('the road', () => {
-  /** every slice of road has a lane the runner can pass: free, or a jump, a slide, a wagon's ramp or roof */
-  function passable(tr: Track, to: number): number {
-    let worst = 3;
-    for (let z = 0; z < to; z += 0.5) {
-      let ok = 0;
-      for (const lane of [-1, 0, 1]) {
-        const here = tr.obstacles.filter(o => o.kind !== 'goat' && Math.abs(o.lane - lane) <= (o.width - 1) / 2 + 0.01 && z >= o.z && z <= o.z + o.len);
-        if (here.every(o => PASS[o.kind] !== 'lane' || o.kind === 'wagon')) ok++;
-      }
-      worst = Math.min(worst, ok);
-    }
-    return worst;
-  }
-
-  it('always leaves a passable line, at every difficulty', () => {
-    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
-      for (const d of [0, 0.4, 1]) {
-        const tr = new Track(seed * 977, 0);
-        tr.fill(3000, d);
-        expect(tr.rowsMade).toBeGreaterThan(20);
-        expect(passable(tr, 3000), `seed ${seed}, d ${d}`).toBeGreaterThanOrEqual(1);
-      }
-    }
-  });
-
-  it('makes the same road from the same seed, on any device', () => {
-    const a = new Track(99, 0), b = new Track(99, 0), c = new Track(100, 0);
-    for (const tr of [a, b, c]) tr.fill(800, 0.5);
-    const sig = (tr: Track) => tr.obstacles.map(o => `${o.kind}${o.lane}@${o.z.toFixed(2)}`).join();
-    expect(sig(a)).toBe(sig(b));
-    expect(sig(a)).not.toBe(sig(c));
-  });
-
-  it('grows harder gently with distance: closer rows, more of them filled', () => {
-    expect(difficultyFor(0)).toBeCloseTo(RULES.d0);
-    expect(difficultyFor(2000)).toBeGreaterThan(0.5);
-    expect(difficultyFor(8000)).toBeLessThan(1);
-    const count = (d: number) => { const tr = new Track(5, 0); tr.fill(2000, d); return tr.obstacles.length; };
-    expect(count(1)).toBeGreaterThan(count(0) * 1.3);
+describe('the rules', () => {
+  it('jumps clear a fence, the sandals reach a roof, the speed rises within a run', () => {
+    expect(jumpV(RULES.jumpTop) ** 2 / (2 * GRAVITY)).toBeCloseTo(RULES.jumpTop, 6);
+    expect(RULES.jumpTop).toBeGreaterThan(RULES.lowTop);
+    expect(RULES.sandalTop).toBeGreaterThan(RULES.wagonTop);
+    expect(RULES.rollH).toBeLessThan(RULES.highGap);
     expect(speedFor(0)).toBe(RULES.vMin);
-    expect(speedFor(3000)).toBeGreaterThan(11.5);
-    expect(speedFor(1e6)).toBeLessThanOrEqual(RULES.vMax);
+    expect(speedFor(5000)).toBeGreaterThan(speedFor(500));
+    expect(speedFor(1e7)).toBeLessThanOrEqual(RULES.vMax);
+    expect(difficultyFor(0)).toBeCloseTo(RULES.d0);
+    expect(difficultyFor(3000)).toBeGreaterThan(0.7);
   });
 
-  it('teaches the first-ever session: a wall, an arch and a cart in the middle lane, with hints', () => {
-    const sim = makeSim({ planned: 300 });
-    expect(sim.block.kind).toBe('warmup');
-    const first = sim.track.obstacles.slice().sort((a, b) => a.z - b.z).slice(0, 3);
-    expect(first.map(o => o.kind)).toEqual(['wall', 'arch', 'cart']);
-    expect(first.every(o => o.lane === 0)).toBe(true);
-    const hints = new Set<string>();
-    const acted = new Set<number>();
-    drive(sim, 14, frame(), { t: 0 }, () => {
-      const hint = sim.lessonHint;
-      if (!hint) return;
-      hints.add(hint);
-      const ob = sim.track.obstacles.find(o => !o.hit && !o.cleared && o.z > sim.z && o.lane === sim.lane);
-      if (!ob || acted.has(ob.id)) return;
-      const lead = hint === 'jump' ? sim.v * 0.3 : hint === 'slide' ? sim.v * 0.15 : 10;
-      if (ob.z - sim.z <= lead) {
-        acted.add(ob.id);
-        sim.act(hint);
-      }
-    });
-    expect(sim.stumbles).toBe(0);
-    expect([...hints].sort()).toEqual(['jump', 'right', 'slide']);
-  });
-
-  it('lifts the runner up a wagon\'s ramp onto its roof, and counts the wagon', () => {
-    const sim = later();
-    emptyRoad(sim);
-    place(sim, 'wagon', 0, 6, 18);
-    const clock = { t: 0 };
-    let top = 0;
-    drive(sim, 2.2, frame(), clock, () => { top = Math.max(top, sim.y); });
-    expect(top).toBeCloseTo(RULES.wagonTop, 1);
-    expect(sim.stumbles).toBe(0);
-    expect(sim.wagons).toBe(1);
-    expect(groundAt(sim.track.obstacles, 0, sim.track.obstacles[0].z + 2)).toBeCloseTo(RULES.wagonTop / 2, 5);
+  it('lifts the wings only above the threshold', () => {
+    expect(liftOf(0.5)).toBe(0);
+    expect(liftOf(0.3)).toBe(0);
+    expect(liftOf(RULES.liftFull)).toBe(1);
+    expect(liftOf(0.6)).toBeGreaterThan(0);
   });
 });
 
-// ── grace ─────────────────────────────────────────────────────────
-describe('stumbles, never an ending', () => {
-  it('a wall not jumped is a stumble: a second slowed, the combo reset, the run goes on', () => {
-    const sim = later();
-    emptyRoad(sim);
-    sim.combo = 12;
-    place(sim, 'wall', 0, 8);
-    const clock = { t: 0 };
-    const z0 = sim.z;
-    const evs = drive(sim, 1.2, frame(), clock);
-    expect(ofType(evs, 'stumble').length).toBe(1);
-    expect(sim.combo).toBe(0);
-    expect(sim.stumbleT).toBeGreaterThan(0);
-    drive(sim, 2, frame(), clock);
-    expect(sim.z - z0).toBeGreaterThan(20);
-    expect(sim.score).toBeGreaterThan(20);
-  });
-
-  it('a jump clears a wall and a goat, a slide an arch; a jump under an arch is a stumble', () => {
-    const sim = later();
-    emptyRoad(sim);
-    const clock = { t: 0 };
-    const pass = (kind: ObKind, move: 'jump' | 'slide') => {
-      const ob = place(sim, kind, 0, 14, undefined, { dir: 0 });
-      while (ob.z - sim.z > sim.v * (move === 'jump' ? 0.3 : 0.15)) drive(sim, STEP, frame(), clock);
-      sim.act(move);
-      return ofType(drive(sim, 1.6, frame(), clock), 'clear').length;
-    };
-    expect(pass('wall', 'jump')).toBe(1);
-    expect(pass('goat', 'jump')).toBe(1);
-    expect(pass('arch', 'slide')).toBe(1);
-    expect(pass('column', 'jump')).toBe(1);
-    expect(sim.jumps).toBe(3);
-    expect(sim.slides).toBe(1);
-    expect(sim.stumbles).toBe(0);
-    pass('branch', 'jump');
-    expect(sim.stumbles).toBe(1);
-  });
-
-  it('a cart beside the runner holds a lane change back until it has passed', () => {
-    const sim = later();
-    emptyRoad(sim);
-    const cart = place(sim, 'cart', 1, -1, 4);
-    const clock = { t: 0 };
-    sim.act('right');
-    expect(sim.lane).toBe(0);
-    const evs = drive(sim, 0.45, frame(), clock);
-    expect(sim.lane).toBe(1);
-    expect(ofType(evs, 'lane').length).toBe(1);
-    expect(cart.hit).toBe(false);
-    expect(sim.stumbles).toBe(0);
-  });
-
-  it('two stumbles within 8 s call the mule cart: the road ahead clears and the messenger rides', () => {
-    const sim = later();
-    emptyRoad(sim);
-    const clock = { t: 0 };
-    place(sim, 'wall', 0, 6);
-    place(sim, 'wall', 0, 30);
-    const evs = drive(sim, 4.5, frame(), clock);
-    expect(ofType(evs, 'stumble').length).toBe(2);
-    expect(ofType(evs, 'mule').length).toBe(1);
-    expect(sim.muleT).toBeGreaterThan(0);
-    expect(sim.safe).toBe(true);
-    expect(sim.track.obstacles.filter(o => o.z > sim.z + 2).length).toBe(0);
-    const evs2 = drive(sim, RULES.muleSec, frame(), clock);
-    expect(ofType(evs2, 'muleEnd').length).toBe(1);
-    expect(sim.mules).toBe(1);
-  });
-});
-
-// ── drachmas and power-ups ────────────────────────────────────────
-describe('drachmas and the road\'s gifts', () => {
-  it('picks up drachmas in the lane; the satchel reaches every lane; every 25 in a row pay 5 more', () => {
-    const sim = later();
-    emptyRoad(sim);
-    const c = (lane: number, ahead: number) => sim.track.coins.push({ id: ++obId, lane, z: sim.z + ahead, y: 0.6, taken: false, high: false });
-    c(0, 5);
-    c(1, 6);
-    const clock = { t: 0 };
-    drive(sim, 1, frame(), clock);
-    expect(sim.coins).toBe(1);
-    sim.satchelT = 5;
-    c(1, 5);
-    c(-1, 6);
-    drive(sim, 1, frame(), clock);
-    expect(sim.coins).toBe(4);
-    sim.combo = 24;
-    c(0, 4);
-    const evs = drive(sim, 1, frame(), clock);
-    expect(ofType(evs, 'combo')[0]?.bonus).toBe(RULES.comboBonus);
-    expect(sim.drachmaGain).toBe(5 + RULES.comboBonus);
-  });
-
-  it('puts sandals and a satchel on the road for everyone, band or not', () => {
-    const tr = new Track(3, 0);
-    tr.fill(2000, 0.5);
-    const kinds = new Set(tr.powers.map(p => p.kind));
-    expect(kinds).toEqual(new Set(['sandals', 'satchel']));
-    const sim = later();
-    emptyRoad(sim);
-    sim.track.powers.push({ id: 1, kind: 'sandals', lane: 0, z: sim.z + 4, taken: false });
-    drive(sim, 1, frame({ reliable: false, activity: null }));
-    expect(sim.sandalsT).toBeGreaterThan(8);
-  });
-});
-
-// ── the band: Na wyżyny ───────────────────────────────────────────
-describe('Na wyżyny: the glow, the ladder and the heights', () => {
-  it('lights the glow with the level only after the lead-in (5 s Mendi, 2 s HALO)', () => {
-    for (const [eeg, lead] of [[false, 5], [true, 2]] as const) {
-      const sim = later({ eeg });
-      const clock = { t: 0 };
-      drive(sim, lead - 0.3, frame({ level: 0.9 }), clock);
-      expect(sim.glow).toBe(0);
-      drive(sim, 1.5, frame({ level: 0.9 }), clock);
-      expect(sim.glow).toBeGreaterThan(0.5);
-    }
-  });
-
-  it('widens the drachmas\' reach with the level in a sighted push', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    drive(sim, 7, frame({ level: 1 }), clock);
-    emptyRoad(sim);
-    sim.track.coins.push({ id: 1, lane: sim.lane + 1 > 1 ? sim.lane - 1 : sim.lane + 1, z: sim.z + 4, y: 0.6, taken: false, high: false });
-    const before = sim.coins;
-    drive(sim, 0.8, frame({ level: 1 }), clock);
-    expect(sim.coins).toBe(before + 1);
-  });
-
-  it('climbs a rung a second of hold and rises onto the heights at the top: 5 s Mendi, 3 s HALO', () => {
-    for (const [eeg, lead, need] of [[false, 5, 5], [true, 2, 3]] as const) {
-      const sim = later({ eeg });
-      const clock = { t: 0 };
-      const evs = drive(sim, lead + need + 0.5, tt => focused(tt), clock);
-      const rungs = ofType(evs, 'rung').map(e => e.n);
-      expect(rungs).toEqual(Array.from({ length: need }, (_, i) => i + 1));
-      const h = ofType(evs, 'heights');
-      expect(h.length, `eeg ${eeg}`).toBe(1);
-      expect(h[0].bonus).toBe(false);
-    }
-  });
-
-  it('stays on the heights while focused (at most 12 s), free of obstacles and rich in drachmas, then glides down onto a clear stretch', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    drive(sim, 10.5, tt => focused(tt), clock);
-    expect(sim.onHeights).toBe(true);
-    drive(sim, 1, tt => focused(tt), clock);
-    expect(sim.heights).toBe('high');
-    expect(sim.y).toBeCloseTo(RULES.heightsY, 1);
-    const coins0 = sim.coins, stumbles0 = sim.stumbles;
-    const evs = drive(sim, 13, tt => focused(tt), clock);
-    expect(sim.coins - coins0).toBeGreaterThan(40);
-    expect(sim.stumbles).toBe(stumbles0);
-    const glide = evs.findIndex(e => e.type === 'glide');
-    expect(glide).toBeGreaterThan(-1);
-    expect(sim.heightsSec).toBeLessThan(RULES.heightsMax + RULES.riseSec + RULES.glideSec + 0.2);
-    // the clear stretch: nothing within 1.5 s of running after the landing
-    drive(sim, 1.5, tt => focused(tt), clock);
-    expect(sim.track.obstacles.filter(o => o.z > sim.z && o.z < sim.z + sim.v * 1.2).length).toBe(0);
-  });
-
-  it('leaves the heights when focus leaves (past the kit\'s grace), and holds them through a bad signal', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    drive(sim, 12, tt => focused(tt), clock);
-    expect(sim.heights).toBe('high');
-    drive(sim, 2, frame({ reliable: false, activity: null }), clock);
-    expect(sim.heights).toBe('high');
-    const evs = drive(sim, 0.2, frame({ focused: false }), clock);
-    expect(ofType(evs, 'glide').length).toBe(1);
-  });
-
-  it('keeps the ladder\'s rungs through a bad signal, and never shows them falling for it', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    drive(sim, 8, tt => focused(tt), clock);
-    const rungs = sim.rungs;
-    expect(rungs).toBeGreaterThanOrEqual(2);
-    drive(sim, 2, frame({ reliable: false, activity: null, hold: 0 }), clock);
-    expect(sim.rungs).toBe(rungs);
-  });
-});
-
-// ── the band: Strażnice ───────────────────────────────────────────
-describe('Strażnice: the watchtowers', () => {
-  it('has no obstacles, runs slower, and passes a pair of towers every ~2.5 s', () => {
-    const sim = later({ planned: 40 });
-    const clock = { t: 0 };
-    toBlock(sim, 1, frame(), clock);
-    expect(sim.block.kind).toBe('rest');
-    drive(sim, 1, calm(), clock);
-    const ahead = sim.track.obstacles.filter(o => !o.hit && o.z > sim.z + 1);
-    expect(ahead.length).toBe(0);
-    expect(sim.v).toBeLessThan(speedFor(sim.z));
-    const evs = drive(sim, 9, calm(), clock);
-    const towers = ofType(evs, 'tower');
-    expect(towers.length).toBeGreaterThanOrEqual(3);
-    expect(towers.length).toBeLessThanOrEqual(5);
-  });
-
-  it('kindles each tower by calm as it passes (after the lead-in); a bad signal lights it at a neutral glow, not counted', () => {
-    const sim = later({ planned: 40 });
-    const clock = { t: 0 };
-    toBlock(sim, 1, frame(), clock);
-    const evs = drive(sim, 12, tt => (tt % 4 < 2 ? calm(0.9) : frame({ reliable: false, activity: null, calm: 0 })), clock);
-    const towers = ofType(evs, 'tower');
-    for (const e of towers) {
-      if (e.tower.measured) expect(e.tower.fire).toBeCloseTo(0.9, 5);
-      else expect(e.tower.fire).toBe(RULES.fireNeutral);
-      expect(e.lit).toBe(e.tower.measured && e.tower.fire! > RULES.fireLit);
-    }
-    expect(towers.some(e => e.tower.measured)).toBe(true);
-    expect(sim.firesLit).toBe(towers.filter(e => e.lit).length);
-  });
-});
-
-// ── verdicts and the blind block ──────────────────────────────────
-describe('the verdicts', () => {
-  it('judges each block at its end: a passed push pays drachmas, a passed rest is the watchmen\'s song', () => {
-    const sim = later({ planned: 40 });
-    const clock = { t: 0 };
-    const evs = drive(sim, 40, tt => (sim.block.kind === 'push' ? focused(tt) : calm()), clock);
-    const ends = ofType(evs, 'blockEnd');
-    expect(ends.map(e => [e.block.kind, e.verdict])).toEqual([['push', true], ['rest', true]]);
-    expect(ends[0].pay).toBe(RULES.pushPay);
-    expect(ends[1].pay).toBe(RULES.songPay);
-    expect(sim.songs).toBe(1);
-    expect(ends[0].t1).toBeGreaterThan(ends[0].t0);
-  });
-
-  it('has no verdict for a block with fewer than 8 reliable seconds', () => {
-    const sim = later({ planned: 40 });
-    const evs = drive(sim, 25, frame({ reliable: false, activity: null }));
-    expect(ofType(evs, 'blockEnd')[0].verdict).toBeNull();
-  });
-});
-
-describe('Mgła na przełęczy: the blind push', () => {
-  /** a session whose second push is the 4th of the player's life */
-  const blindSession = () => later({ planned: 300, progress: { sessions: 4, pushes: 2 } });
-
-  it('comes every 4th push from the 3rd session, never a session\'s first', () => {
-    const sim = blindSession();
-    const clock = { t: 0 };
-    expect(sim.block.blind).toBe(false);
-    toBlock(sim, 2, frame(), clock);
-    expect(sim.block.kind).toBe('push');
-    expect(sim.block.blind).toBe(true);
-    expect(later({ progress: { sessions: 1, pushes: 3 } }).block.blind).toBe(false);
-  });
-
-  it('veils the ribbon and opens no heights; at its end the veil lifts and the judged share becomes heights (at least 2 s)', () => {
-    const sim = blindSession();
-    const clock = { t: 0 };
-    toBlock(sim, 2, frame(), clock);
-    const evs = drive(sim, sim.block.dur + 0.2, tt => focused(tt), clock);
-    expect(ofType(evs, 'heights').filter(e => !e.bonus).length).toBe(0);
-    expect(ofType(evs, 'rung').length).toBe(0);
-    const reveal = ofType(evs, 'blindReveal')[0];
-    expect(reveal.sec).toBe(Math.round(blindBonus(reveal.share, true)));
-    expect(ofType(evs, 'heights').filter(e => e.bonus).length).toBe(1);
-    expect(sim.trace.samples.every(s => !s.veiled)).toBe(true);
-    expect(blindBonus(0, true)).toBe(RULES.blindMin);
-    expect(blindBonus(1, true)).toBe(RULES.heightsMax);
-    expect(blindBonus(0.9, false)).toBe(0);
-  });
-
-  it('holds the pad and the glow still in rest and blind blocks', () => {
-    const sim = blindSession();
-    const clock = { t: 0 };
-    drive(sim, 8, frame({ level: 0.9 }), clock);
-    expect(sim.padLevel(frame({ level: 0.9 }))).toBeCloseTo(sim.glow, 5);
-    toBlock(sim, 1, frame(), clock);
-    expect(sim.padLevel(frame())).toBeNull();
-    toBlock(sim, 2, frame(), clock);
-    drive(sim, 8, frame({ level: 0.9 }), clock);
-    expect(sim.padLevel(frame({ level: 0.9 }))).toBeNull();
-    expect(sim.glow).toBe(0);
-    expect(makeSim().padLevel(frame())).toBe(0.5);
-  });
-});
-
-// ── the plan ──────────────────────────────────────────────────────
 describe('the block plan', () => {
-  it('plays 40 s as warm-up 6, push 14.5, rest 14.5 (else push 21, rest 14), and alternates longer sessions, ending in rest', () => {
-    expect(planBlocks(40, true, () => 0.5).map(b => [b.kind, b.dur])).toEqual([['warmup', 6], ['push', 14.5], ['rest', 14.5]]);
-    expect(planBlocks(40, false, () => 0.5).map(b => [b.kind, b.dur])).toEqual([['push', 21], ['rest', 14]]);
-    for (const sec of [180, 300, 600]) {
-      const p = planBlocks(sec, sec === 300, mulberry32(sec));
-      expect(p.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - RULES.finale, 6);
-      expect(p[p.length - 1].kind).toBe('rest');
-      expect(p.every(b => b.dur >= RULES.minBlock - 1e-9)).toBe(true);
+  it('fits any session of 10 s or more with push and rest blocks and a finale', () => {
+    for (const planned of [10, 40, 60, 180, 300, 600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(3));
+        expect(plan.some(b => b.kind === 'push'), `${planned}`).toBe(true);
+        expect(plan.some(b => b.kind === 'rest'), `${planned}`).toBe(true);
+        expect(plan[plan.length - 1].kind).toBe('finale');
+        for (let i = 1; i < plan.length; i++) expect(plan[i].start).toBeCloseTo(plan[i - 1].start + plan[i - 1].dur, 6);
+        for (const b of plan) if (b.kind === 'push' || b.kind === 'rest') expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        if (planned >= 180) for (const b of plan) if (b.kind === 'push' || b.kind === 'rest') expect(b.dur).toBeLessThanOrEqual(32);
+      }
     }
-    expect(planBlocks(300, true, () => 0.5)[0]).toEqual({ kind: 'warmup', dur: 30, blind: false });
-    expect(planBlocks(180, true, () => 0.5)[0].dur).toBe(20);
   });
 
-  it('telegraphs the next block 4 s ahead, then the finisher at the inn; may stop once done or 3 s after time', () => {
-    const sim = later({ planned: 40 });
+  it('teaches in a warm-up the first time only (a short run-up later)', () => {
+    expect(planBlocks(300, true, mulberry32(1))[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+    expect(planBlocks(300, false, mulberry32(1))[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.later });
+    expect(planBlocks(40, false, mulberry32(1))[0].kind).toBe('push');
+  });
+
+  it('telegraphs the next block and says it in the panel, counting down', () => {
+    const sim = later();
     const clock = { t: 0 };
-    const evs = drive(sim, 42, frame(), clock);
-    const tele = ofType(evs, 'telegraph');
-    expect(tele.length).toBe(1);
-    expect(ofType(evs, 'finale').length).toBe(1);
-    expect(ofType(evs, 'inn').length).toBe(1);
-    expect(sim.canStop()).toBe(true);
-    const s2 = later({ planned: 40 });
-    drive(s2, 36, frame());
-    expect(s2.canStop()).toBe(false);
+    const b = sim.plan[1];
+    const evs = drive(sim, b.start - 2, frame(), clock);
+    expect(ofType(evs, 'telegraph')).toHaveLength(1);
+    expect(ofType(evs, 'telegraph')[0].next).toBe('push');
+    const s = sim.signal();
+    expect(s.want).toBe('free');
+    expect(s.next).toBe('focus');
+    drive(sim, 3, frame(), clock);
+    const p = sim.signal();
+    expect(p.want).toBe('focus');
+    expect(p.task).toBe(taskFor('push', 0));
+    expect(p.left!).toBeGreaterThan(b.dur - 2);
+    expect(p.next).toBeNull();
   });
 });
 
-// ── the meta ──────────────────────────────────────────────────────
-describe('the road to the seven churches, the jar, the errands', () => {
-  it('lays the seven cities 2–4.5 km apart from Ephesus, then a second journey', () => {
-    expect(CITIES.map(c => c.id)).toEqual(['efez', 'smyrna', 'pergamon', 'tiatyra', 'sardes', 'filadelfia', 'laodycea']);
-    expect(LAP).toBe(19500);
-    expect(routeAt(0)).toEqual({ lap: 1, city: 0, next: 1, into: 0, leg: 2000 });
-    expect(routeAt(2100)).toMatchObject({ city: 1, next: 2, into: 100, leg: 2500 });
-    expect(routeAt(LAP + 10)).toMatchObject({ lap: 2, city: 0, into: 10 });
-    expect(citiesBetween(1900, 2100)).toEqual([{ lap: 1, city: 1 }]);
-    expect(citiesBetween(LAP - 100, LAP + 2100)).toEqual([{ lap: 1, city: 6 }, { lap: 2, city: 1 }]);
-    expect(postcards(0)).toEqual([true, false, false, false, false, false, false]);
-    expect(postcards(4600).filter(Boolean).length).toBe(3);
-    expect(postcards(LAP + 1).every(Boolean)).toBe(true);
-    for (const c of CITIES) expect(c.ref).toMatch(/^Ap [23],\d+–\d+$/);
+describe('the hands', () => {
+  it('maps swipes, taps and keys; a centre tap and Space jump', () => {
+    expect(swipe(-40, 2)).toBe('left');
+    expect(swipe(40, 2)).toBe('right');
+    expect(swipe(0, -40)).toBe('jump');
+    expect(swipe(0, 40)).toBe('roll');
+    expect(swipe(10, 5)).toBeNull();
+    expect(tapAt(640, 1280)).toBe('jump');
+    expect(tapAt(100, 1280)).toBe('left');
+    expect(tapAt(1200, 1280)).toBe('right');
+    expect(keyMove(' ')).toBe('jump');
+    expect(keyMove('ArrowDown')).toBe('roll');
+    expect(keyMove('a')).toBe('left');
+    expect(keyMove('x')).toBeNull();
+    const g = new Gestures(1280);
+    g.pointer('down', 1, 640, 480, 0);
+    expect(g.pointer('up', 1, 641, 481, 0.1)).toBe('jump');
+    g.pointer('down', 2, 640, 480, 0);
+    expect(g.pointer('move', 2, 600, 480, 0.05)).toBe('left');
+    expect(g.pointer('up', 2, 560, 480, 0.1)).toBeNull();
   });
 
-  it('delivers a letter the moment a city is reached, and closes with Romans 10:15', () => {
-    const sim = later({ planned: 40, progress: { metres: 1950, sessions: 4 } });
-    const evs = drive(sim, 40, frame());
-    const city = ofType(evs, 'city');
-    expect(city).toEqual([{ type: 'city', city: 1, lap: 1 }]);
-    expect(sim.closingVerse()).toBe('rom10.15');
-    expect(sim.result().highlights[0]).toContain('Smyrny');
-    expect(sim.p.metres).toBe(1950 + sim.score);
-  });
-
-  it('dresses the messenger from the jar: cloaks at 0, 250, 800 and 2000 drachmas', () => {
-    expect(CLOAKS.map(c => c.at)).toEqual([0, 250, 800, 2000]);
-    expect(cloaksEarned(0)).toBe(1);
-    expect(cloaksEarned(800)).toBe(3);
-    expect(toNextCloak(300)).toEqual({ have: 50, need: 550, index: 2 });
-    expect(toNextCloak(5000)).toBeNull();
-    const p = { ...freshProgress(), drachmas: 900, cloak: 1 };
-    expect(cloakOf(p)).toBe(1);
-    p.cloak = 3;
-    expect(cloakOf(p)).toBe(2);
-    const sim = later({ progress: { drachmas: 249 } });
+  it('changes lanes at once and snaps across in about a tenth of a second', () => {
+    const sim = later();
     emptyRoad(sim);
-    sim.track.coins.push({ id: 1, lane: 0, z: sim.z + 3, y: 0.6, taken: false, high: false });
-    const evs = drive(sim, 1, frame());
-    expect(ofType(evs, 'cloak')).toEqual([{ type: 'cloak', index: 1 }]);
+    sim.act('left');
+    expect(sim.r.lane).toBe(-1);
+    drive(sim, 0.13, frame());
+    expect(sim.r.x).toBeCloseTo(-RULES.laneW, 6);
+    sim.act('left');
+    expect(sim.r.lane).toBe(-1);
+    expect(ofType(sim.take(), 'bump')).toHaveLength(1);
   });
 
-  it('keeps three errands open; a done one pays and its page turns after the session', () => {
-    const p = freshProgress();
-    expect(p.missions).toEqual(['slide10', 'coins300', 'heights20']);
-    expect(MISSIONS.length).toBeGreaterThanOrEqual(8);
-    const opened = turnPages(p, ['coins300']);
-    expect(opened).toEqual(['jump15']);
-    expect(p.missions).toEqual(['slide10', 'jump15', 'heights20']);
-    const sim = later({ planned: 40, progress: { missions: ['km2', 'slide10', 'coins300'], missionNext: 3 } });
-    sim.z = 1999.5;
-    const evs = drive(sim, 1, frame());
-    expect(ofType(evs, 'mission').map(e => e.id)).toEqual(['km2']);
-    expect(ofType(evs, 'drachmas').some(e => e.why === 'mission' && e.n === RULES.missionPay)).toBe(true);
+  it('jumps a fence and rolls under a beam; standing into either is a stumble', () => {
+    const sim = later();
+    emptyRoad(sim);
+    place(sim, 'low', 0, 3);
+    sim.act('jump');
+    let evs = drive(sim, 1, frame());
+    expect(ofType(evs, 'stumble')).toHaveLength(0);
+    expect(ofType(evs, 'cleared')[0]?.kind).toBe('low');
+    place(sim, 'high', 0, 4);
+    sim.act('roll');
+    evs = drive(sim, 1, frame());
+    expect(ofType(evs, 'stumble')).toHaveLength(0);
+    expect(ofType(evs, 'cleared')[0]?.kind).toBe('high');
+    place(sim, 'low', 0, 4);
+    evs = drive(sim, 1, frame());
+    expect(ofType(evs, 'stumble')).toHaveLength(1);
   });
 
-  it('runs the day\'s road on the day\'s first session (the same for everyone), and gives the day\'s gift once', () => {
-    const a = makeSim({ progress: { sessions: 4, pushes: 1 }, seed: 1 });
-    const b = makeSim({ progress: { sessions: 9, pushes: 1 }, seed: 2 });
-    const sig = (s: PoslaniecSim) => s.track.obstacles.map(o => `${o.kind}${o.lane}@${o.z.toFixed(1)}`).join();
-    expect(a.daily && b.daily).toBe(true);
-    expect(sig(a)).toBe(sig(b));
-    expect(sig(later({ seed: 1 }))).not.toBe(sig(later({ seed: 2 })));
-    const sim = makeSim({ planned: 40, progress: { sessions: 4, pushes: 1 } });
-    const evs = drive(sim, 42, frame());
-    expect(ofType(evs, 'gift')).toEqual([{ type: 'gift', n: RULES.giftPay }]);
-    expect(sim.p.giftDay).toBe(DAY);
-    expect(sim.p.dailyDay).toBe(DAY);
-    sim.result();
-    expect(sim.p.dailyMetres).toBe(sim.score);
+  it('a roll pressed in the air slams down and rolls on landing; a jump pressed just before landing jumps (buffer)', () => {
+    const sim = later();
+    emptyRoad(sim);
+    sim.act('jump');
+    drive(sim, 0.12, frame());
+    sim.act('roll');
+    const evs = drive(sim, 0.2, frame());
+    expect(ofType(evs, 'slam')).toHaveLength(1);
+    expect(sim.r.grounded).toBe(true);
+    expect(sim.r.rollT).toBeGreaterThan(0);
+    sim.take();
+    const s2 = later();
+    emptyRoad(s2);
+    s2.act('jump');
+    drive(s2, RULES.jumpSec - 0.08, frame());
+    s2.act('jump');
+    const e2 = drive(s2, 0.2, frame());
+    expect(ofType(e2, 'jump')).toHaveLength(1);
+  });
+
+  it('runs up a ramp onto a wagon roof and along it; a wagon without a ramp in the lane is a hit', () => {
+    const sim = later();
+    emptyRoad(sim);
+    place(sim, 'wagon', 0, 8, { ramp: true, len: 20 });
+    const evs = drive(sim, 1.6, frame());
+    expect(ofType(evs, 'roof')).toHaveLength(1);
+    expect(sim.r.y).toBeCloseTo(RULES.wagonTop, 3);
+    expect(ofType(evs, 'stumble')).toHaveLength(0);
+    // off the end, down onto the road
+    drive(sim, 2, frame());
+    expect(sim.r.y).toBe(0);
+    place(sim, 'wagon', 0, 4);
+    expect(ofType(drive(sim, 0.6, frame()), 'stumble')).toHaveLength(1);
+  });
+
+  it('a lane change into a wagon\'s side bounces back with a stumble', () => {
+    const sim = later();
+    emptyRoad(sim);
+    place(sim, 'wagon', -1, -3, { len: 12 });
+    sim.act('left');
+    expect(sim.r.lane).toBe(0);
+    const evs = sim.take();
+    expect(ofType(evs, 'stumble')[0]).toMatchObject({ side: true });
+    expect(ofType(evs, 'bump')).toHaveLength(1);
+  });
+
+  it('meets an oncoming cart where it was planned; leaving the lane passes it', () => {
+    const sim = later();
+    emptyRoad(sim);
+    const c = place(sim, 'cart', 0, 60);
+    drive(sim, 0.5, frame());
+    expect(c.rolling).toBe(true);
+    expect(c.z).toBeGreaterThan(60);
+    sim.act('right');
+    const evs = drive(sim, 6, frame());
+    expect(ofType(evs, 'stumble')).toHaveLength(0);
+    expect(c.z).toBeLessThan(sim.z);
   });
 });
 
-// ── the summary ───────────────────────────────────────────────────
+describe('the goat and the runs', () => {
+  it('a stumble brings Bela to the heels; a second while she is close ends the run, and a new run starts', () => {
+    const sim = later();
+    emptyRoad(sim);
+    place(sim, 'low', 0, 3);
+    drive(sim, 0.5, frame());
+    expect(sim.goatNear).toBeGreaterThan(0);
+    const before = sim.score;
+    place(sim, 'low', 0, 3);
+    const evs = drive(sim, 0.6, frame());
+    const caught = ofType(evs, 'caught');
+    expect(caught).toHaveLength(1);
+    expect(sim.phase).toBe('caught');
+    expect(caught[0].tally.metres).toBeGreaterThan(0);
+    const e2 = drive(sim, RULES.caughtSec + 0.2, frame());
+    expect(ofType(e2, 'newRun')).toHaveLength(1);
+    expect(sim.phase).toBe('play');
+    expect(sim.run.n).toBe(2);
+    expect(sim.score).toBeGreaterThanOrEqual(before);
+    expect(sim.runMetres).toBeLessThan(10);
+  });
+
+  it('she falls back after a clean stretch: a later stumble is only a stumble', () => {
+    const sim = later();
+    emptyRoad(sim);
+    place(sim, 'low', 0, 3);
+    drive(sim, RULES.goatNear + 0.5, frame());
+    expect(sim.goatNear).toBe(0);
+    place(sim, 'low', 0, 3);
+    const evs = drive(sim, 0.6, frame());
+    expect(ofType(evs, 'stumble')[0]).toMatchObject({ caught: false });
+  });
+
+  it('the shield takes a hit instead of a stumble', () => {
+    const sim = later();
+    emptyRoad(sim);
+    sim.shield = true;
+    place(sim, 'low', 0, 3);
+    const evs = drive(sim, 0.6, frame());
+    expect(ofType(evs, 'shieldBreak')).toHaveLength(1);
+    expect(ofType(evs, 'stumble')).toHaveLength(0);
+    expect(sim.shield).toBe(false);
+    expect(sim.goatNear).toBe(0);
+  });
+
+  it('never ends a run in the first-ever lesson', () => {
+    const sim = makeSim({ planned: 300 });
+    emptyRoad(sim);
+    for (let i = 0; i < 3; i++) {
+      place(sim, 'low', 0, 3);
+      drive(sim, 0.7, frame());
+    }
+    expect(sim.phase).toBe('play');
+    expect(sim.run.n).toBe(1);
+  });
+});
+
+describe('drachmas, power-ups, the score', () => {
+  it('scores metres × the multiplier, doubled by the seal', () => {
+    const sim = later({ progress: { sets: 2 } });
+    emptyRoad(sim);
+    expect(sim.mult).toBe(3);
+    const s0 = sim.score, z0 = sim.z;
+    drive(sim, 1, frame());
+    expect(sim.score - s0).toBeCloseTo((sim.z - z0) * 3, 3);
+    sim.powers.double = 5;
+    const s1 = sim.score, z1 = sim.z;
+    drive(sim, 1, frame());
+    expect(sim.score - s1).toBeCloseTo((sim.z - z1) * 6, 3);
+  });
+
+  it('picks up drachmas in the lane, not a lane away; the satchel pulls them from beside', () => {
+    const sim = later();
+    emptyRoad(sim);
+    sim.track.coins.push({ id: 1, lane: 0, z: sim.z + 4, y: 0.9, taken: false, sky: false }, { id: 2, lane: 1, z: sim.z + 4, y: 0.9, taken: false, sky: false });
+    let evs = drive(sim, 0.6, frame());
+    expect(ofType(evs, 'coin')).toHaveLength(1);
+    sim.powers.magnet = 5;
+    sim.track.coins.push({ id: 3, lane: 1, z: sim.z + 6, y: 0.9, taken: false, sky: false });
+    evs = drive(sim, 0.2, frame());
+    expect(ofType(evs, 'coin')).toHaveLength(1);
+    expect(sim.p.drachmas).toBe(2);
+  });
+
+  it('gives the power-ups their upgraded length', () => {
+    const sim = later({ progress: { ups: { magnet: 2, sandals: 0, double: 0, wings: 0 } } });
+    emptyRoad(sim);
+    sim.track.powers.push({ id: 9, kind: 'magnet', lane: 0, z: sim.z + 3, y: 1, taken: false });
+    const evs = drive(sim, 0.4, frame());
+    expect(ofType(evs, 'power')[0].kind).toBe('magnet');
+    expect(sim.powers.magnet).toBeGreaterThan(powerSecFor(2) - 0.5);
+    expect(powerSecFor(2)).toBe(RULES.powerSec + 2 * RULES.powerStep);
+  });
+
+  it('jumps onto a wagon\'s roof in sandals', () => {
+    const sim = later();
+    emptyRoad(sim);
+    sim.powers.sandals = 9;
+    place(sim, 'wagon', 0, 7, { len: 16 });
+    sim.act('jump');
+    const evs = drive(sim, 1.2, frame());
+    expect(ofType(evs, 'stumble')).toHaveLength(0);
+    expect(sim.r.roof).toBe(true);
+  });
+
+  it('delivers a letter at each relay station', () => {
+    const sim = later();
+    emptyRoad(sim);
+    const evs = drive(sim, (RULES.stationEvery + 30) / RULES.vMin, frame());
+    expect(ofType(evs, 'station').length).toBeGreaterThanOrEqual(1);
+    expect(sim.p.stations).toBeGreaterThanOrEqual(1);
+  });
+
+  it('spells the day\'s word from letters on the road; done, it pays and counts the streak', () => {
+    const sim = later();
+    emptyRoad(sim);
+    const word = sim.word;
+    expect(word.length).toBeGreaterThan(2);
+    let evs: SimEvent[] = [];
+    for (let i = 0; i < word.length; i++) {
+      sim.track.letters.push({ id: 100 + i, lane: 0, z: sim.z + 3, y: 1.1, taken: false });
+      evs = evs.concat(drive(sim, 0.4, frame()));
+    }
+    expect(ofType(evs, 'letter').map(e => e.ch).join('')).toBe(word);
+    expect(ofType(evs, 'word')).toHaveLength(1);
+    expect(sim.p.wordDone).toBe(true);
+    expect(sim.p.wordStreak).toBe(1);
+  });
+});
+
+describe('the wings (push)', () => {
+  it('fill only past the lead-in of a sighted push, from a level above the threshold; full = the flight', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    toBlock(sim, 1, frame(), clock);
+    expect(sim.block.kind).toBe('push');
+    drive(sim, RULES.leadIn.fnirs - 0.5, focused(), clock);
+    expect(sim.charge).toBe(0);
+    const evs = drive(sim, RULES.fillSec.fnirs + 1.5, focused(), clock);
+    expect(ofType(evs, 'full')).toHaveLength(1);
+    expect(ofType(evs, 'flight').map(e => e.stage)).toContain('start');
+    expect(sim.flying).toBe(true);
+  });
+
+  it('on HALO the lead-in is 2 s and the ring fills faster', () => {
+    const sim = later({ eeg: true });
+    const clock = { t: 0 };
+    toBlock(sim, 1, frame(), clock);
+    const evs = drive(sim, RULES.leadIn.eeg + RULES.fillSec.eeg + 1, focused(), clock);
+    expect(ofType(evs, 'flight').length).toBeGreaterThan(0);
+  });
+
+  it('a level at or below the threshold adds nothing, and a lost signal freezes it (never a loss)', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    toBlock(sim, 1, frame(), clock);
+    drive(sim, 10, frame({ level: 0.5 }), clock);
+    expect(sim.charge).toBe(0);
+    drive(sim, 3, focused(), clock);
+    const c = sim.charge;
+    expect(c).toBeGreaterThan(0);
+    drive(sim, 4, lost, clock);
+    expect(sim.charge).toBe(c);
+    expect(sim.meter()).toBeNull();
+  });
+
+  it('flies over everything along a trail of drachmas and lands on a clear stretch', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    toBlock(sim, 1, frame(), clock);
+    drive(sim, RULES.leadIn.fnirs + RULES.fillSec.fnirs + 1.5, focused(), clock);
+    expect(sim.flying).toBe(true);
+    const evs = drive(sim, RULES.flightRise + RULES.flightMax + RULES.flightGlide + 1, frame({ level: 0.3 }), clock);
+    expect(ofType(evs, 'stumble')).toHaveLength(0);
+    expect(ofType(evs, 'coin').filter(e => e.sky).length).toBeGreaterThan(10);
+    expect(ofType(evs, 'flight').map(e => e.stage)).toEqual(['glide', 'end']);
+    expect(sim.flying).toBe(false);
+    expect(sim.r.y).toBe(0);
+    expect(sim.flights).toBe(1);
+    expect(flightSecFor(3)).toBe(RULES.flightSec + 3);
+  });
+
+  it('shows the lift in the panel: the level in a push, calm in a rest, nothing blind or without a signal', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    toBlock(sim, 1, frame(), clock);
+    drive(sim, 0.1, focused(0.8), clock);
+    expect(sim.meter()).toBeCloseTo(0.8);
+    toBlock(sim, 2, frame(), clock);
+    expect(sim.block.kind).toBe('rest');
+    drive(sim, 0.1, calm(0.7), clock);
+    expect(sim.meter()).toBeCloseTo(0.7);
+    expect(sim.padLevel(calm())).toBeNull();
+  });
+});
+
+describe('Mgła: the blind push', () => {
+  it('comes every 4th push from the 3rd session, never a session\'s first', () => {
+    const sim = later({ progress: { sessions: 2, pushes: 2 } });
+    const clock = { t: 0 };
+    toBlock(sim, 1, frame(), clock);
+    expect(sim.block.blind).toBe(false);
+    toBlock(sim, 3, frame(), clock);
+    expect(sim.p.pushes).toBe(4);
+    expect(sim.block.blind).toBe(true);
+    expect(sim.signal().blind).toBe(true);
+    expect(sim.meter()).toBeNull();
+    const fresh = later({ progress: { sessions: 1, pushes: 3 } });
+    toBlock(fresh, 1, frame());
+    expect(fresh.block.blind).toBe(false);
+  });
+
+  it('hides the wings while it runs and reveals them at its end (flying if the ring is full)', () => {
+    const sim = later({ progress: { sessions: 2, pushes: 2 } });
+    const clock = { t: 0 };
+    toBlock(sim, 3, frame(), clock);
+    expect(sim.block.blind).toBe(true);
+    const evs = toBlock(sim, 4, focused(), clock);
+    expect(ofType(evs, 'flight')).toHaveLength(1);
+    expect(ofType(evs, 'reveal')).toHaveLength(1);
+    expect(ofType(evs, 'full')).toHaveLength(0);
+    expect(sim.trace.samples.some(s => s.veiled)).toBe(false);
+  });
+});
+
+describe('Strażnice: the rest road', () => {
+  it('is slower and quieter, and calm lights each tower passed; three fires throw a shield', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    toBlock(sim, 2, frame(), clock);
+    expect(sim.block.kind).toBe('rest');
+    expect(sim.track.mode).toBe('rest');
+    const evs = drive(sim, sim.block.dur - 0.5, calm(), clock);
+    const fires = ofType(evs, 'fire').filter(e => e.lit);
+    expect(fires.length).toBeGreaterThanOrEqual(3);
+    expect(ofType(evs, 'shieldGift').length).toBeGreaterThanOrEqual(1);
+    expect(sim.shield).toBe(true);
+  });
+
+  it('a busy mind leaves a tower unlit, a lost signal leaves it neutral — never a penalty', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    toBlock(sim, 2, frame(), clock);
+    const evs = drive(sim, 12, t => (t < 100 ? frame({ calm: 0.2 }) : lost), clock);
+    expect(ofType(evs, 'fire').every(e => e.lit !== true)).toBe(true);
+    const s2 = later();
+    const c2 = { t: 0 };
+    toBlock(s2, 2, frame(), c2);
+    const e2 = drive(s2, 12, lost, c2);
+    expect(ofType(e2, 'fire').every(e => e.lit === null)).toBe(true);
+    expect(ofType(e2, 'stumble')).toHaveLength(0);
+  });
+
+  it('judges each block once at its end; a passed rest is the watchmen\'s song', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    toBlock(sim, 2, focused(), clock);
+    const evs = toBlock(sim, 3, calm(), clock);
+    const v = ofType(evs, 'verdict');
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatchObject({ kind: 'rest', pass: true });
+    expect(sim.songs).toBe(1);
+  });
+
+  it('gives no verdict without enough signal', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    toBlock(sim, 1, frame(), clock);
+    const evs = toBlock(sim, 2, lost, clock);
+    expect(ofType(evs, 'verdict')[0].pass).toBeNull();
+  });
+});
+
+describe('the missions and the multiplier', () => {
+  it('come in sets of three; a set done raises the multiplier for good', () => {
+    const p = freshProgress();
+    expect(multOf(p)).toBe(1);
+    const set = missionSet(0);
+    expect(set).toHaveLength(3);
+    for (const m of set) countMission(p, m.kind, m.target);
+    expect(p.sets).toBe(1);
+    expect(multOf(p)).toBe(2);
+    expect(p.mprog).toEqual([0, 0, 0]);
+    expect(missionSet(8)[0].target).toBe(Math.round(missionSet(0)[0].target * 1.5));
+  });
+
+  it('counts the in-one-run kinds as the best run, the others as a sum', () => {
+    const p = freshProgress();
+    countMission(p, 'coinsRun', 50);
+    countMission(p, 'coinsRun', 30);
+    expect(p.mprog[0]).toBe(50);
+    countMission(p, 'jumps', 4);
+    countMission(p, 'jumps', 4);
+    expect(p.mprog[1]).toBe(8);
+  });
+
+  it('pops a mission live in play and lifts the multiplier at once', () => {
+    const sim = later({ progress: { mprog: [80, 10, 4] } });
+    emptyRoad(sim);
+    sim.act('roll');
+    const evs = sim.take().concat(drive(sim, 0.2, frame()));
+    expect(ofType(evs, 'mission')).toHaveLength(1);
+    expect(ofType(evs, 'mult')[0].mult).toBe(2);
+    expect(sim.mult).toBe(2);
+  });
+});
+
+describe('the meta', () => {
+  it('walks the road to the seven churches and delivers a city on the way', () => {
+    expect(routeAt(0)).toMatchObject({ lap: 1, city: 0, next: 1 });
+    expect(routeAt(RULES.legs[0])).toMatchObject({ city: 1 });
+    expect(routeAt(LAP + 10).lap).toBe(2);
+    expect(citiesBetween(1990, 2010)).toEqual([{ lap: 1, city: 1 }]);
+    expect(postcards(0).filter(Boolean)).toHaveLength(1);
+    const sim = later({ progress: { metres: RULES.legs[0] - 20 } });
+    emptyRoad(sim);
+    const evs = drive(sim, 3, frame());
+    expect(ofType(evs, 'city')[0]).toMatchObject({ city: 1, lap: 1 });
+  });
+
+  it('buys upgrades with drachmas, dearer each level, up to the top', () => {
+    const p = freshProgress();
+    p.drachmas = 100;
+    expect(buyUp(p, 'magnet')).toBe(true);
+    expect(p.ups.magnet).toBe(1);
+    expect(p.drachmas).toBe(100 - RULES.upCost[0]);
+    expect(buyUp(p, 'magnet')).toBe(false);
+    p.ups.wings = RULES.upMax;
+    p.drachmas = 1e6;
+    expect(upPrice(RULES.upMax)).toBeNull();
+    expect(buyUp(p, 'wings')).toBe(false);
+    expect(UP_IDS).toHaveLength(4);
+  });
+
+  it('keeps the day\'s word per day and the streak only for days in a row', () => {
+    const p = freshProgress();
+    wordToday(p, '2026-11-06');
+    wordComplete(p, '2026-11-06');
+    wordToday(p, '2026-11-07');
+    expect(p.wordDone).toBe(false);
+    wordComplete(p, '2026-11-07');
+    expect(p.wordStreak).toBe(2);
+    wordToday(p, '2026-11-09');
+    wordComplete(p, '2026-11-09');
+    expect(p.wordStreak).toBe(1);
+    expect(dayBefore('2026-03-01')).toBe('2026-02-28');
+    expect(dayWord(1)).toBe(dayWord(11));
+  });
+
+  it('migrates a realistic old save in place: the record and sessions kept, the road and drachmas carried, the rest fresh', () => {
+    const old = {
+      v: 1, sessions: 7, metres: 5321.4, drachmas: 412, cloak: 2, pushes: 9,
+      missions: ['slide10', 'coins300', 'heights20'], missionsDone: 4, missionNext: 7,
+      best: { 300: 1840, 180: 990 }, lastLen: 300, bestCombo: 75, heightsBest: 14, firesBest: 6,
+      dailyDay: '2026-11-03', dailyMetres: 1200, giftDay: '2026-11-03',
+    };
+    const p = migrate(mergeSaved(freshProgress(), old));
+    expect(p.ver).toBe(2);
+    expect(p.sessions).toBe(7);
+    expect(p.metres).toBe(5321);
+    expect(p.drachmas).toBe(412);
+    expect(p.best).toBe(1840);
+    expect(p.bestMetres).toBe(1840);
+    expect(p.pushes).toBe(9);
+    expect(p.sets).toBe(0);
+    expect(p.ups).toEqual({ magnet: 0, sandals: 0, double: 0, wings: 0 });
+    for (const k of ['v', 'cloak', 'missions', 'lastLen', 'bestCombo', 'giftDay']) expect(k in p).toBe(false);
+    // and it plays
+    const sim = new PoslaniecSim({ progress: p, rng: mulberry32(2), day: DAY, daySeed: 1, plannedSec: 60, eeg: false, tuning: TUNING });
+    sim.start();
+    drive(sim, 5, frame());
+    expect(sim.score).toBeGreaterThan(0);
+    expect(migrate(p)).toBe(p);
+  });
+
+  it('never crashes on a damaged save', () => {
+    const p = migrate(mergeSaved(freshProgress(), { ver: 2, sessions: 'x', ups: 'no', mprog: null, taught: [1, 'jump'], best: -5, wordDone: 'yes' }));
+    expect(p.sessions).toBe(0);
+    expect(p.ups.magnet).toBe(0);
+    expect(p.mprog).toEqual([0, 0, 0]);
+    expect(p.taught).toEqual(['jump']);
+    expect(p.best).toBe(0);
+    expect(p.wordDone).toBe(false);
+    expect(migrate(mergeSaved(freshProgress(), null)).ver).toBe(2);
+  });
+});
+
+describe('the coach marks', () => {
+  it('in the first-ever session teach jump, roll, a lane and the ramp on the lesson road, one at a time', () => {
+    const sim = makeSim({ planned: 300 });
+    const evs = drive(sim, RULES.warm.long, frame());
+    const what = ofType(evs, 'teach').map(e => e.what);
+    expect(what.slice(0, 4)).toEqual(['jump', 'roll', 'lane', 'ramp']);
+  });
+
+  it('stop teaching a control once it was done', () => {
+    const sim = makeSim({ planned: 300 });
+    sim.act('jump');
+    sim.act('roll');
+    sim.act('left');
+    const evs = drive(sim, 12, frame());
+    expect(ofType(evs, 'teach').map(e => e.what)).not.toContain('jump');
+    expect(sim.p.taught).toEqual(expect.arrayContaining(['jump', 'roll', 'lane']));
+  });
+
+  it('explain a power-up the first time it is picked, never again', () => {
+    const sim = later();
+    emptyRoad(sim);
+    sim.track.powers.push({ id: 9, kind: 'double', lane: 0, z: sim.z + 3, y: 1, taken: false });
+    let evs = drive(sim, 0.4, frame());
+    expect(ofType(evs, 'teach').map(e => e.what)).toEqual(['power.double']);
+    sim.track.powers.push({ id: 10, kind: 'double', lane: 0, z: sim.z + 3, y: 1, taken: false });
+    evs = drive(sim, 0.4, frame());
+    expect(ofType(evs, 'teach')).toHaveLength(0);
+  });
+});
+
+describe('Klekot, the companion', () => {
+  it('has every line in the catalog in four languages, each at most 90 characters', () => {
+    for (const [m, n] of Object.entries(SAY)) {
+      expect(n, m).toBeGreaterThanOrEqual(3);
+      for (let i = 1; i <= n; i++) {
+        for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+          const s = (CATALOGS[l] as Record<string, unknown>)[`say.${m}.${i}`];
+          expect(typeof s, `${l} say.${m}.${i}`).toBe('string');
+          expect((s as string).length, `${l} say.${m}.${i}`).toBeLessThanOrEqual(90);
+        }
+      }
+    }
+  });
+
+  it('speaks one line at a time, never repeats one, keeps quiet over a telegraph and the banner', () => {
+    const sim = later({ planned: 300 });
+    const clock = { t: 0 };
+    let last: unknown = null;
+    drive(sim, 120, t => (t % 50 < 25 ? focused() : calm()), clock, () => {
+      const l = sim.talk.current;
+      if (!l || l === last) return;
+      last = l;
+      const b = sim.block, nx = sim.plan[sim.blockIndex + 1];
+      if (nx) expect(clock.t < b.start + b.dur - RULES.telegraph).toBe(true);
+    });
+    const texts = sim.talk.said.map(l => l.text);
+    expect(new Set(texts).size).toBe(texts.length);
+    expect(texts.length).toBeGreaterThan(3);
+  });
+});
+
 describe('the summary', () => {
-  it('result() is idempotent: records with Math.max, the total once, when settled', () => {
-    const sim = later({ planned: 40, progress: { metres: 500 } });
-    drive(sim, 42, frame());
+  it('result() is idempotent; finish() settles once, records with Math.max', () => {
+    const sim = later({ planned: 60, progress: { best: 10 } });
+    const clock = { t: 0 };
+    drive(sim, 30, focused(), clock);
     const a = sim.result(), b = sim.result();
     expect(a).toEqual(b);
-    expect(sim.p.metres).toBe(500 + sim.score);
-    expect(bestFor(sim.p, 40)).toBe(a.score);
-    expect(a.unit).toBe('m');
-    expect(a.stats.length).toBeLessThanOrEqual(8);
-    expect(sim.p.sessions).toBe(6);
-  });
-
-  it('settles an early end once: the open block is judged, the session counted', () => {
-    const sim = later({ planned: 300 });
-    drive(sim, 10, frame());
+    expect(a.score).toBeGreaterThan(0);
     sim.finish();
     sim.finish();
-    expect(sim.phase).toBe('done');
     expect(sim.p.sessions).toBe(6);
-    expect(sim.p.metres).toBe(sim.score);
-    expect(sim.result().score).toBe(sim.score);
-  });
-
-  it('closes with a passage the session fits, in turn from session to session, never the root', () => {
-    const sim = later({ planned: 40 });
-    drive(sim, 42, tt => (sim.block.kind === 'push' ? focused(tt) : calm()));
-    const v = sim.closingVerse();
-    expect(['hab3.19', 'isa52.8']).toContain(v);
-    expect(v).not.toBe('isa52.7');
-    expect(passage(v).text.length).toBeGreaterThan(10);
-    const quiet = later({ planned: 40, progress: { sessions: 6 } });
-    drive(quiet, 42, frame({ reliable: false, activity: null }));
-    expect(['pro25.25', '2th3.1']).toContain(quiet.closingVerse());
-  });
-
-  it('marks a record against the same session length only, and shows it in the lobby', async () => {
-    const sim = later({ planned: 40, progress: { best: { 40: 50, 300: 9999 }, lastLen: 40 } });
-    drive(sim, 42, frame());
+    expect(sim.p.best).toBe(Math.max(10, a.score));
+    expect(sim.result().score).toBe(a.score);
     expect(sim.result().record).toBe(true);
-    expect(bestOf(sim.p)).toBe(sim.score);
-    const mod = (await import('../src/arcade/poslaniec/index')).default;
-    expect(mod.best(freshProgress())).toBeNull();
-    expect(mod.best(sim.p)).toBe(sim.score);
+  });
+
+  it('closes with a passage that fits and exists, and the story\'s closing line', () => {
+    const sim = later({ planned: 60 });
+    drive(sim, 20, frame());
+    const r = sim.result();
+    expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+    expect(r.highlights[r.highlights.length - 1]).toMatch(/Klekot/);
+    const city = later({ progress: { metres: RULES.legs[0] - 30 } });
+    drive(city, 5, frame());
+    expect(city.result().verse).toBe('rom10.15');
+  });
+
+  it('can stop at once unless a flight is mid-air', () => {
+    const sim = later();
+    expect(sim.canStop()).toBe(true);
+    sim.flight = { stage: 'fly', t: 0, len: 8 };
+    expect(sim.canStop()).toBe(false);
+    sim.flight.t = 6;
+    expect(sim.canStop()).toBe(true);
   });
 });
 
-// ── the hands ─────────────────────────────────────────────────────
-describe('the hands', () => {
-  it('reads swipes by their main direction once longer than 30 px, taps by thirds, keys by arrows, WASD and Space', () => {
-    expect(swipe(10, 5)).toBeNull();
-    expect(swipe(-40, 10)).toBe('left');
-    expect(swipe(40, -10)).toBe('right');
-    expect(swipe(5, -40)).toBe('jump');
-    expect(swipe(5, 40)).toBe('slide');
-    expect(tapAt(50, 390)).toBe('left');
-    expect(tapAt(195, 390)).toBe('jump');
-    expect(tapAt(380, 390)).toBe('right');
-    expect(['ArrowLeft', 'a', 'ArrowRight', 'D', 'ArrowUp', 'w', ' ', 'ArrowDown', 's', 'Enter'].map(keyMove))
-      .toEqual(['left', 'left', 'right', 'right', 'jump', 'jump', 'jump', 'slide', 'slide', null]);
-    const g = new Gestures(390);
-    expect(g.pointer('down', 1, 200, 400, 0)).toBeNull();
-    expect(g.pointer('move', 1, 200, 360, 0.05)).toBe('jump');
-    expect(g.pointer('up', 1, 200, 300, 0.1)).toBeNull();
-    g.pointer('down', 2, 20, 400, 1);
-    expect(g.pointer('up', 2, 22, 402, 1.1)).toBe('left');
-    g.pointer('down', 3, 20, 400, 2);
-    expect(g.pointer('up', 3, 22, 402, 3)).toBeNull();
-  });
-});
-
-// ── the smoke path ────────────────────────────────────────────────
 describe('the smoke path', () => {
-  /** The smoke test's input: a tap at the centre every ~0.65 s (a jump), Space now and then, the simulator's focus on. */
-  function smoke(progress: Partial<PoslaniecProgress>, seed: number, eeg: boolean) {
-    const sim = makeSim({ progress, planned: 40, seed, daySeed: seed * 7 + 1, tuning: BEGINNER, eeg });
-    const focus = new FocusInput(BEGINNER);
-    const g = new Gestures(1280);
-    let f = focus.push(0, true, 0.1), hub = 0, tap = 0, taps = 0, at1 = 0, at22 = 0;
-    for (let tt = 0; tt < 22 + 1e-9; tt += STEP) {
-      hub += STEP;
-      if (hub >= 0.1) {
-        hub -= 0.1;
-        f = focus.push(20 * (1 - Math.exp(-tt / 4)), true, 0.1);
+  it('a tap in the centre every 0.65 s and Space every 2 s score by 22 s, live, first-ever or not, on either band', () => {
+    for (const progress of [{}, { sessions: 4, taught: ['jump', 'roll', 'lane', 'ramp'] }]) {
+      for (const eeg of [false, true]) {
+        const sim = makeSim({ planned: 40, progress, eeg });
+        const clock = { t: 0 };
+        let lastTap = 0, lastSpace = 0, prev = 0, grew = 0;
+        drive(sim, 22, focused(), clock, t => {
+          if (t - lastTap >= 0.65) { lastTap = t; sim.act(tapAt(640, 1280)); }
+          if (t - lastSpace >= 2) { lastSpace = t; sim.act(keyMove(' ')!); }
+          const h = sim.headline().value;
+          if (h > prev) grew++;
+          prev = h;
+        });
+        expect(sim.result().score).toBeGreaterThan(0);
+        expect(sim.headline().value).toBe(sim.result().score);
+        expect(grew).toBeGreaterThan(20);
       }
-      sim.update(STEP, f, tt);
-      if ((tap += STEP) >= 0.65) {
-        tap -= 0.65;
-        g.pointer('down', 1, 640, 480, tt);
-        const m = g.pointer('up', 1, 640, 480, tt + 0.05);
-        if (m) sim.act(m);
-        if (taps++ % 3 === 0) sim.act(keyMove(' ')!);
-      }
-      sim.take();
-      if (tt <= 1) at1 = sim.result().score;
-      at22 = sim.result().score;
     }
-    return { at1, at22, sim };
-  }
+  });
 
-  it('scores within the first second and keeps scoring at 22 s, on either band, through any stumbles', () => {
-    for (const eeg of [false, true]) {
-      for (const seed of [1, 2, 3]) {
-        const r = smoke({}, seed, eeg);
-        expect(r.at1, `eeg ${eeg}, seed ${seed}`).toBeGreaterThan(0);
-        expect(r.at22, `eeg ${eeg}, seed ${seed}`).toBeGreaterThan(150);
+  it('makes a passable road: a bot that dodges with the generic moves survives most of a long run', () => {
+    const sim = later({ planned: 600, seed: 7 });
+    const clock = { t: 0 };
+    drive(sim, 200, frame(), clock, () => {
+      // a fair bot: for what is just ahead in its lane, pick the move the obstacle asks for
+      if (sim.phase !== 'play' || sim.flying) return;
+      for (const o of sim.track.obstacles) {
+        const d = o.z - (o.ramp ? RULES.rampLen : 0) - sim.z;
+        if (o.hit || o.lane !== sim.r.lane || d < 0 || d > (o.kind === 'cart' ? 22 : 7)) continue;
+        if (o.kind === 'low' && d < 3.2 && sim.r.grounded) sim.act('jump');
+        else if (o.kind === 'high' && d < 2.5 && sim.r.grounded && sim.r.rollT <= 0) sim.act('roll');
+        else if ((o.kind === 'wagon' && !o.ramp && sim.r.y < 1) || o.kind === 'cart') {
+          for (const dir of [-1, 1] as const) {
+            const to = sim.r.lane + dir;
+            if (to < -1 || to > 1) continue;
+            const free = !sim.track.obstacles.some(q => q.lane === to && !q.hit && q.z + q.len > sim.z - 1 && q.z - (q.ramp ? RULES.rampLen : 0) < sim.z + 8 && (q.kind === 'wagon' || q.kind === 'cart'));
+            if (free) { sim.act(dir < 0 ? 'left' : 'right'); break; }
+          }
+        }
+        break;
       }
-    }
-    expect(smoke({ sessions: 6, dailyDay: DAY }, 3, false).at22).toBeGreaterThan(150);
+    });
+    expect(sim.metresAll).toBeGreaterThan(2000);
+    expect(sim.runs).toBeLessThanOrEqual(6);
   });
 });
 
-// ── the texts ─────────────────────────────────────────────────────
 describe('the texts in four languages', () => {
-  it('gives every text in pl, en, de and sv, with the same placeholders and the plural forms each language needs', () => {
+  it('gives every text in pl, en, de and sv, with the same placeholders and the plural forms', () => {
     expect(catalogProblems(CATALOGS)).toEqual([]);
   });
 
-  it('names every city, cloak and errand, and writes distances and seconds with a no-break space', () => {
-    for (const c of CITIES) expect(c.name.length).toBeGreaterThan(3);
-    for (const m of MISSIONS) expect(m.name.length).toBeGreaterThan(5);
-    expect(CLOAKS.map(c => c.name)).toEqual(['Surowa wełna', 'Czerwień marzanny', 'Indygo', 'Purpura z Tiatyry']);
+  it('names cities, missions, upgrades and words', () => {
+    expect(CITIES).toHaveLength(7);
+    expect(CITIES[1].name).toBe('Smyrna');
+    for (let k = 0; k < 10; k++) for (const m of missionSet(k)) expect(missionText(m)).toMatch(/\d/);
+    expect(t('up.wings')).not.toBe('');
     expect(metres(1234)).toBe('1 234 m');
-    expect(km(1234)).toBe('1,2 km');
-    expect(t('sec', { n: 5 })).toBe('5 s');
-    expect(TIPS.push.length).toBe(5);
-    for (const cat of Object.values(CATALOGS)) {
-      for (const m of Object.values(cat)) {
-        for (const s of typeof m === 'string' ? [m] : Object.values(m)) expect(s).not.toMatch(/\d (s|m|km)\b/);
+  });
+
+  it('never asks to concentrate harder, never uses holiness words or "hack"; no Polish in the others', () => {
+    for (const [l, cat] of Object.entries(CATALOGS)) {
+      for (const [k, v] of Object.entries(cat)) {
+        const texts = typeof v === 'string' ? [v] : Object.values(v as unknown as Record<string, string>);
+        for (const s of texts) {
+          expect(s, `${l}.${k}`).not.toMatch(/mocniej|harder|stärker|hårdare|hack|unlock|odblokuj|święt|holy|heilig|helig|błogosław|bless|segen|välsign/i);
+          if (l !== 'pl') expect(s, `${l}.${k}`).not.toMatch(/[ąćęłńśźżĄĆĘŁŃŚŹŻ]|\b(opask[aęi]|się)\b/);
+        }
       }
     }
   });
+});
 
-  it('never asks to concentrate harder, and names verdicts in craft and nature words', () => {
-    for (const cat of Object.values(CATALOGS)) {
-      const all = Object.values(cat).flatMap(m => (typeof m === 'string' ? [m] : Object.values(m))).join(' ').toLowerCase();
-      for (const word of [/skup się/, /concentrate/, /konzentr/, /koncentrera/, /hack/, /odblok/, /unlock/, /błogosław/, /bless/, /segen/, /välsign/, /\bbóg\b/, /\bgod\b/, /\bgott\b/, /\bgud\b/]) expect(all).not.toMatch(word);
+describe('the track', () => {
+  it('makes the same road from the same seed and never blocks all three lanes with wagons at once', () => {
+    const a = new Track(11, 30), b = new Track(11, 30);
+    a.fill(3000, 0.8);
+    b.fill(3000, 0.8);
+    expect(a.obstacles.map(o => [o.kind, o.lane, Math.round(o.z)])).toEqual(b.obstacles.map(o => [o.kind, o.lane, Math.round(o.z)]));
+    for (let z = 30; z < 2900; z += 1) {
+      const walls = [-1, 0, 1].filter(l => a.obstacles.some(o => o.lane === l && (o.kind === 'wagon' && !o.ramp) && z >= o.z && z <= o.z + o.len));
+      const ramps = [-1, 0, 1].filter(l => a.obstacles.some(o => o.lane === l && o.kind === 'wagon' && (o.ramp || a.obstacles.some(q => q.ramp && q.lane === l && q.z <= o.z && o.z - q.z < 80))));
+      if (walls.length === 3) expect(ramps.length, `z ${z}`).toBeGreaterThan(0);
     }
   });
-});
 
-describe('the lobby (panel.ts)', () => {
-  it('builds the progress card from elements: seven postcards, the jar\'s cloaks to choose from, three errands', async () => {
-    const { progressPanel } = await import('../src/arcade/poslaniec/panel');
-    const p = { ...freshProgress(), sessions: 3, metres: 4600, drachmas: 900, cloak: 2, best: { 300: 2100 }, lastLen: 300 };
-    let saved = 0;
-    const el = progressPanel(p, () => { saved++; });
-    expect(el.querySelectorAll('.arcade-album > div').length).toBe(7);
-    expect(el.querySelectorAll('.arcade-album > div.on').length).toBe(3);
-    expect(el.textContent).toContain('Tiatyry');
-    const chips = [...el.querySelectorAll<HTMLElement>('[role="button"]')];
-    expect(chips.length).toBe(3);
-    expect(chips[2].classList.contains('on')).toBe(true);
-    chips[0].click();
-    expect(p.cloak).toBe(0);
-    expect(saved).toBe(1);
-    expect(chips[0].classList.contains('on')).toBe(true);
+  it('a wagon\'s surface: the ramp rises to the roof', () => {
+    const o: Obstacle = { id: 1, kind: 'wagon', lane: 0, z: 100, len: 10, ramp: true, meet: 100, rolling: false, hit: false, passed: false, look: 0 };
+    expect(surfaceOf(o, 100 - RULES.rampLen)).toBe(0);
+    expect(surfaceOf(o, 100 - RULES.rampLen / 2)).toBeCloseTo(RULES.wagonTop / 2);
+    expect(surfaceOf(o, 105)).toBe(RULES.wagonTop);
+    expect(surfaceOf(o, 111)).toBe(-1);
+  });
+
+  it('keeps the rest road gentle: no carts, no wagons', () => {
+    const tr = new Track(5, 0);
+    tr.mode = 'rest';
+    tr.fill(2000, 0.9);
+    expect(tr.obstacles.every(o => o.kind === 'low' || o.kind === 'high')).toBe(true);
   });
 });
 
+describe('the lobby', () => {
+  it('shows a record only after a first session', async () => {
+    const mod = (await import('../src/arcade/poslaniec/index')).default;
+    const p = mod.freshProgress();
+    expect(mod.best(p)).toBeNull();
+    p.sessions = 1;
+    p.best = 1234;
+    expect(mod.best(p)).toBe(1234);
+    const how = mod.howto!();
+    expect(how.hands.length).toBeGreaterThanOrEqual(1);
+    expect(how.hands.length).toBeLessThanOrEqual(3);
+    expect((how.tips ?? []).length).toBeLessThanOrEqual(2);
+  });
+});
+
+// keep the beginner tuning import meaningful: a beginner session plays the same rules
+describe('a beginner', () => {
+  it('plays with the beginner tuning', () => {
+    const sim = makeSim({ tuning: { ...TUNING, ...BEGINNER_TUNING }, planned: 40 });
+    drive(sim, 10, frame());
+    expect(sim.score).toBeGreaterThan(0);
+  });
+});

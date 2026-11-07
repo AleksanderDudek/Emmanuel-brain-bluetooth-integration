@@ -5,10 +5,8 @@
  * blocks, a dotted gap where the band lost the signal (never a low value), a mist over a blind block
  * that lifts at its end, the threshold as a faint dashed line, the bracket at the "now" end marking
  * the band's delay ("≈5 s" Mendi, "≈1 s" HALO), and the newest point as a small rising sun.
- *
- * Also the block card's mini-curve: one block's samples in their own range.
  */
-import type { TraceLayout, TraceSample } from '../kit/trace';
+import type { TraceLayout } from '../kit/trace';
 import { C, SANS, font, hash } from './paint';
 
 const GOLD = '255,207,110';
@@ -149,43 +147,6 @@ export function paintRibbon(ctx: CanvasRenderingContext2D, l: TraceLayout, o: { 
       ctx.arc(last.x, last.y, r, 0, Math.PI * 2);
       ctx.fill();
     }
-  }
-  ctx.restore();
-}
-
-/** A block's own curve in miniature (the block card): its samples in their own range; `shown` fades a blind block's reveal. */
-export function paintMiniCurve(ctx: CanvasRenderingContext2D, samples: readonly TraceSample[], x: number, y: number, w: number, h: number, shown: number, u: number): void {
-  if (samples.length < 2) return;
-  let lo = Infinity, hi = -Infinity;
-  for (const s of samples) {
-    lo = Math.min(lo, s.threshold);
-    hi = Math.max(hi, s.threshold);
-    if (s.reliable && s.activity !== null) { lo = Math.min(lo, s.activity); hi = Math.max(hi, s.activity); }
-  }
-  if (hi - lo < 3) { const m = (hi + lo) / 2; lo = m - 1.5; hi = m + 1.5; }
-  const t0 = samples[0].t, t1 = samples[samples.length - 1].t;
-  const X = (t: number) => x + ((t - t0) / Math.max(0.1, t1 - t0)) * w;
-  const Y = (v: number) => y + h * (1 - (v - lo) / (hi - lo));
-  ctx.save();
-  ctx.setLineDash([2, 3]);
-  ctx.strokeStyle = 'rgba(80,60,40,.45)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  samples.forEach((s, i) => (i ? ctx.lineTo(X(s.t), Y(s.threshold)) : ctx.moveTo(X(s.t), Y(s.threshold))));
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.globalAlpha = shown;
-  ctx.lineWidth = 2 * u;
-  ctx.lineCap = 'round';
-  for (let i = 1; i < samples.length; i++) {
-    const a = samples[i - 1], b = samples[i];
-    if (!a.reliable || !b.reliable || a.activity === null || b.activity === null) continue;
-    const up = a.activity >= a.threshold && b.activity >= b.threshold;
-    ctx.strokeStyle = up ? '#d9952a' : '#c98a92';
-    ctx.beginPath();
-    ctx.moveTo(X(a.t), Y(a.activity));
-    ctx.lineTo(X(b.t), Y(b.activity));
-    ctx.stroke();
   }
   ctx.restore();
 }

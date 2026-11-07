@@ -1,38 +1,41 @@
 /**
- * Urodzaj's circle world: the fruit in the woven basket, position-based and robust for stacking.
+ * Urodzaj's circle world: the fruit in the basket, position-based and robust for stacking (Suika's
+ * feel: fruit bounce a little, roll off one another, pile up and shove their neighbours on a merge).
  *
- * Units are W (the basket's inner width at the rim); y points up and the floor is y = 0.  The walls
- * are two straight lines from (±0.42, 0) to (±0.50, 1.00), carried on above the rim so a heap that
- * rises over it stays in the basket (the overflow rule decides what spills, sim.ts).
+ * Units are W (the basket's inner width); y points up and the floor is y = 0.  The walls stand at
+ * x = ±BASKET.half and go on above the rim, so a heap that rises over it stays in the basket (the
+ * overflow rule decides when a basket is full, sim.ts).
  *
- * The fruit are discs that roll.  Each fixed step of 1/120 s integrates gravity and damping, then
- * solves 8 iterations of walls and contacts from the floor up: a touching pair is pushed apart along
- * its centres (mass ∝ r², every correction capped at 0.02 W, so a growing merge eases its neighbours
- * aside instead of blowing them apart), and the slip of their surfaces is held inside the friction
- * cone — split between moving and turning, so a fruit balanced on another rolls off instead of
- * standing as a tower.  Then positions turn back into velocities, with Coulomb friction and
- * restitution per contact (the XPBD velocity pass).  A fruit that rests on two supports (or the floor)
- * sleeps until the heap changes around it, so a still basket stays still.  Alike fruit that touch
- * merge into the next tier at their midpoint, one merge per body per step; the new fruit's radius
- * grows over 0.12 s.
+ * Each fixed step of 1/120 s integrates gravity, the wind's sway and damping, then solves 8
+ * iterations of walls and contacts from the floor up: a touching pair is pushed apart along its
+ * centres (mass ∝ r², every correction capped, so a growing merge eases its neighbours aside instead
+ * of blowing them apart), and the slip of their surfaces is held inside the friction cone — split
+ * between moving and turning, so a fruit balanced on another rolls off instead of standing as a
+ * tower.  Then positions turn back into velocities with Coulomb friction and restitution per contact.
+ * A fruit that rests on two supports (or the floor) sleeps until the heap changes around it.  Alike
+ * fruit that touch merge into the next tier at their midpoint (one merge per body per step); the new
+ * fruit grows from the larger parent's size to its own.  Two great clusters that touch are carried off
+ * on the pole (Numbers 13:23): both leave the basket.
  *
- * Kinematic bodies (a fruit the vine or the dew is pulling) collide with nothing: the sim moves them.
+ * Kinematic bodies (a fruit the wind or a gleaner is moving) collide with nothing: the sim moves them.
  * The same inputs at the same frames give the same basket: every step is fixed and the order of work
  * is stable (ids break ties), so tests and the day's shared drops can rely on it.
  */
 import { FRUITS, MAX_TIER } from './content';
+import { BASKET } from './rules';
+
 
 export const PHYS = {
   step: 1 / 120,
   iterations: 8,
   maxSteps: 6,
-  gravity: 3.2,
+  gravity: 3.6,
   restitution: 0.18,
   friction: 0.42,
   damping: 0.6,
   /** rolling slows a little faster than sliding, so a lone fruit on the floor comes to rest */
   spinDamping: 1.2,
-  maxBodies: 60,
+  maxBodies: 90,
   grow: 0.12,
   cap: 0.02,
   /** restitution applies only to contacts approaching faster than this (W/s) */
@@ -48,17 +51,10 @@ export const PHYS = {
   margin: 0.02,
 } as const;
 
-/** The basket in W: floor and rim half-widths, the rim's height, the drawn wall, the hanging fruit's line. */
-export const BASKET = { floor: 0.42, rimHalf: 0.5, rim: 1, wall: 0.035, hang: 1.16 } as const;
+const HALF = BASKET.half;
 
-const SLANT = (BASKET.rimHalf - BASKET.floor) / BASKET.rim;
-const WALL_LEN = Math.hypot(SLANT, 1);
-/** the left wall's inward normal; the right wall mirrors its x */
-const NX = 1 / WALL_LEN;
-const NY = SLANT / WALL_LEN;
-
-/** The basket's inner half-width at height y. */
-export const halfWidthAt = (y: number): number => BASKET.floor + SLANT * Math.max(0, y);
+/** The basket's inner half-width (its walls are straight). */
+export const halfWidthAt = (_y: number): number => HALF;
 
 export interface Body {
   readonly id: number;
@@ -114,13 +110,16 @@ export interface Merge {
   x: number;
   y: number;
   t: number;
-  /** a pull ended in it (the gather's vine, the dew's bridge), else two fruit met */
+  /** a pull ended in it (the wind brought them together), else two fruit met */
   pulled: boolean;
 }
 
+/** Two great clusters met: both leave the basket on the pole, at (x, y). */
+export interface Pole { x: number; y: number; t: number }
+
 export interface Landing { body: Body; speed: number }
 
-/** An alike pair (the vine and the dew): `gap` = centre distance − both radii (W). */
+/** An alike pair (the wind's pull): `gap` = centre distance − both radii (W). */
 export interface Pair { a: Body; b: Body; gap: number; r: number }
 
 interface Contact { a: Body; b: Body; nx: number; ny: number; lambda: number }
@@ -200,12 +199,17 @@ export class World {
   t = 0;
   private acc = 0;
   private ids = 0;
-  /** the dew's settle: friction and gravity scales, restitution (set through settle()) */
+  /** the wind's sway: a sideways acceleration (W/s²) at a frequency (Hz), until shakeEnd (world time) */
+  shakeAcc = 0;
+  shakeHz = 3;
+  shakeEnd = 0;
+  /** the wind's settle: friction and gravity scales, restitution (set through settle()) */
   muScale = 1;
   gScale = 1;
   bounce: number = PHYS.restitution;
   /** what happened since the sim last drained them */
   readonly merges: Merge[] = [];
+  readonly poles: Pole[] = [];
   readonly landings: Landing[] = [];
   private readonly byX: Body[] = [];
   private readonly byY: Body[] = [];
@@ -238,20 +242,31 @@ export class World {
     for (const b of this.bodies) b.dead = true;
     this.bodies.length = 0;
     this.merges.length = 0;
+    this.poles.length = 0;
     this.landings.length = 0;
   }
+
+  /** The wind shakes the basket for `sec`: a sideways sway of `acc` W/s² at `hz`, waking the heap. */
+  shake(sec: number, acc: number, hz: number): void {
+    this.shakeAcc = acc;
+    this.shakeHz = hz;
+    this.shakeEnd = this.t + sec;
+    this.wake();
+  }
+
+  get shaking(): boolean { return this.t < this.shakeEnd; }
 
   has(b: Body | null | undefined): b is Body { return !!b && !b.dead; }
 
   /**
-   * The heap changed (a merge, a fruit taken out, the dew's settle): every sleeping fruit feels gravity
+   * The heap changed (a merge, a fruit taken out, the wind's settle): every sleeping fruit feels gravity
    * for a step — one that lost its support falls (and stops resting), one still held goes back to sleep.
    */
   wake(): void {
     for (const b of this.bodies) b.woke = true;
   }
 
-  /** The dew's settle (or back to normal): friction and gravity scales and the restitution. */
+  /** The wind's settle (or back to normal): friction and gravity scales and the restitution. */
   settle(muScale: number, gScale: number, bounce: number): void {
     if (muScale === this.muScale && gScale === this.gScale && bounce === this.bounce) return;
     this.muScale = muScale;
@@ -277,6 +292,13 @@ export class World {
     const h = PHYS.step;
     this.t += h;
     const g = PHYS.gravity * this.gScale;
+    // the wind's sway eases in and out over its span, so the heap rocks and settles rather than jumps
+    let ax = 0;
+    if (this.t < this.shakeEnd) {
+      const left = this.shakeEnd - this.t;
+      ax = this.shakeAcc * Math.sin(2 * Math.PI * this.shakeHz * this.t) * Math.min(1, left * 2);
+      for (const b of this.bodies) b.woke = true;
+    }
     const damp = 1 - PHYS.damping * h, spinDamp = 1 - PHYS.spinDamping * h;
     for (const b of this.bodies) {
       b.contact = false;
@@ -295,6 +317,7 @@ export class World {
       b.vxPre = b.vyPre = 0;
       if (b.kinematic || (b.sleeping && !b.woke)) continue;
       b.vy -= g * h;
+      b.vx += ax * h;
       b.vx *= damp;
       b.vy *= damp;
       b.spin *= spinDamp;
@@ -358,21 +381,19 @@ export class World {
       b.lf += d;
       stick(b, null, 0, 1, b.lf, mu);
     }
-    let s = (b.x + BASKET.floor) * NX + b.y * NY;
+    let s = b.x + HALF;
     if (s < r) {
       const d = Math.min(r - s, cap);
-      b.x += NX * d;
-      b.y += NY * d;
+      b.x += d;
       b.ll += d;
-      stick(b, null, NX, NY, b.ll, mu);
+      stick(b, null, 1, 0, b.ll, mu);
     }
-    s = (BASKET.floor - b.x) * NX + b.y * NY;
+    s = HALF - b.x;
     if (s < r) {
       const d = Math.min(r - s, cap);
-      b.x -= NX * d;
-      b.y += NY * d;
+      b.x -= d;
       b.lr += d;
-      stick(b, null, -NX, NY, b.lr, mu);
+      stick(b, null, -1, 0, b.lr, mu);
     }
   }
 
@@ -430,8 +451,8 @@ export class World {
           b.floor = true;
           this.touchOf(b);
         }
-        if ((b.x + BASKET.floor) * NX + b.y * NY - b.r <= NEAR) this.touchOf(b);
-        if ((BASKET.floor - b.x) * NX + b.y * NY - b.r <= NEAR) this.touchOf(b);
+        if (b.x + HALF - b.r <= NEAR) this.touchOf(b);
+        if (HALF - b.x - b.r <= NEAR) this.touchOf(b);
       }
       if (b.lf > 0) {
         b.floor = true;
@@ -440,11 +461,11 @@ export class World {
       }
       if (b.ll > 0) {
         this.touchOf(b);
-        settleContact(b, null, NX, NY, b.ll, mu, this.bounce, h);
+        settleContact(b, null, 1, 0, b.ll, mu, this.bounce, h);
       }
       if (b.lr > 0) {
         this.touchOf(b);
-        settleContact(b, null, -NX, NY, b.lr, mu, this.bounce, h);
+        settleContact(b, null, -1, 0, b.lr, mu, this.bounce, h);
       }
       // a supported fruit that barely moves stops; one on a single fruit keeps rolling until it finds a seat
       const speed = Math.hypot(b.vx, b.vy), rim = Math.abs(b.spin) * b.r;
@@ -474,11 +495,16 @@ export class World {
     let any = false;
     for (const c of this.active) {
       const a = c.a, b = c.b;
-      if (a.dead || b.dead || a.tier !== b.tier || a.tier >= MAX_TIER) continue;
+      if (a.dead || b.dead || a.tier !== b.tier) continue;
       const rr = a.r + b.r + PHYS.touch;
       const dx = a.x - b.x, dy = a.y - b.y;
       if (dx * dx + dy * dy > rr * rr) continue;
-      this.join(a, b, (a.x + b.x) / 2, (a.y + b.y) / 2, false);
+      if (a.tier >= MAX_TIER) {
+        // two great clusters: carried off together on the pole
+        a.dead = b.dead = true;
+        this.wake();
+        this.poles.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, t: this.t });
+      } else this.join(a, b, (a.x + b.x) / 2, (a.y + b.y) / 2, false);
       any = true;
     }
     if (any) this.compact();
@@ -514,7 +540,7 @@ export class World {
     this.bodies.length = n;
   }
 
-  /** Move a body sideways without giving it speed (the dew's jiggle); the solver settles it. */
+  /** Move a body sideways without giving it speed; the solver settles it. */
   nudge(b: Body, dx: number): void {
     b.x += dx;
     b.px += dx;
@@ -531,8 +557,7 @@ export class World {
 
   /** Where a fruit of radius `r` dropped at `x` would first touch (its centre's height): a body, a wall or the floor. */
   dropY(x: number, r: number): number {
-    // a wall: the height below which the centre at x would be closer than r to it
-    let y = Math.max(r, (r - (x + BASKET.floor) * NX) / NY, (r - (BASKET.floor - x) * NX) / NY);
+    let y = r;
     for (const b of this.bodies) {
       if (b.kinematic) continue;
       const R = b.r + r, dx = b.x - x;
@@ -543,7 +568,7 @@ export class World {
   }
 
   /**
-   * Alike pairs (tiers 1–8) not yet touching, nearest first, at most `limit`: within `maxGap` × r
+   * Alike pairs (tiers 1–10) not yet touching, nearest first, at most `limit`: within `maxGap` × r
    * (r the pair's radius, at least `minR`),
    * optionally only resting fruit, only slow ones, and only with a clear line between them (no third
    * fruit within `clear` of its own radius of the gap).

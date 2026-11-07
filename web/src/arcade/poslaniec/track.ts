@@ -1,318 +1,353 @@
 /**
- * The road ahead of the messenger, made in seeded chunks (the same seed gives the same road on any
- * device): rows of obstacles across the three lanes that always leave a passable line — a free lane
- * the runner can reach with at most one lane change per row, or an obstacle in it that a jump or a
- * slide clears — trains of carts with a ramped wagon to run along, full-width columns and aqueduct
- * arches, goats crossing; drachmas in lines and arcs along the passable line; sandals and a satchel
- * now and then.  Pure: no DOM, randomness only from its own generator.
+ * The road ahead of the messenger, made in seeded patterns (the same seed gives the same road on any
+ * device), with the original's vocabulary in our world:
  *
- * Quiet stretches (rest blocks, the heights, the mule cart) clear what lies ahead and make only
- * drachmas (or nothing) until the road resumes.
+ *   low      a low fence or a fallen column across one lane — jump it
+ *   high     a beam on two posts with a hanging sign — roll under it
+ *   wagon    a parked wagon blocking a lane; its roof is a road of its own; a `ramp` at its near end
+ *            lets the runner run up onto it, and wagons nose to tail make a roof run
+ *   cart     an ox-cart coming down the lane toward the runner — leave the lane (or vault it in sandals)
+ *
+ * Every row leaves a passable line: a lane the runner can reach with one lane change, free or with
+ * an obstacle a jump or a roll clears.  Drachmas come in lines along the passable line, in arcs over
+ * fences and along roofs; power-ups and the day's letters sit in free lanes.  The rest road (the
+ * watchtowers' block) is made of the gentle patterns only, further apart.  Pure: no DOM; randomness
+ * only from its own generator.
  */
 import { mulberry32 } from '../../core/random';
-import { RULES, span } from './rules';
+import type { PowerKind } from './content';
+import { POWER_KINDS } from './content';
+import { GRAVITY, RULES, jumpV, span } from './rules';
 
-export type ObKind = 'wall' | 'column' | 'arch' | 'branch' | 'cart' | 'wagon' | 'goat';
-/** how an obstacle is passed: jump over, slide under, change lane (or run up a wagon's ramp) */
-export const PASS: Readonly<Record<ObKind, 'jump' | 'slide' | 'lane'>> = {
-  wall: 'jump', column: 'jump', arch: 'slide', branch: 'slide', cart: 'lane', wagon: 'lane', goat: 'jump',
-};
+export type ObKind = 'low' | 'high' | 'wagon' | 'cart';
 
 export interface Obstacle {
   readonly id: number;
   readonly kind: ObKind;
-  /** the centre lane (−1..1; a goat's is where it is now) and how many lanes it spans (1 or 3) */
-  lane: number;
-  readonly width: 1 | 3;
-  /** its near end along the road and its length (m) */
-  readonly z: number;
+  readonly lane: number;
+  /** the near end along the road (a cart's moves toward the runner) and the length (m) */
+  z: number;
   readonly len: number;
   /** a wagon's ramp at its near end */
   readonly ramp: boolean;
-  /** a goat's crossing direction (+1 to the right) and whether it walks */
-  readonly dir: number;
-  walking: boolean;
-  /** it was hit (a stumble passes through it) or cleared by a move */
+  /** a cart: where it meets the runner, whether it rolls yet */
+  readonly meet: number;
+  rolling: boolean;
+  /** hit once (a stumble passes through it), or passed by a move (for the tallies and the near-miss) */
   hit: boolean;
-  cleared: boolean;
-  /** play time it appeared (the picture fades it in) */
-  readonly born: number;
+  passed: boolean;
   /** a visual variant */
   readonly look: number;
 }
 
-export interface Coin { readonly id: number; lane: number; readonly z: number; readonly y: number; taken: boolean; /** on the heights' road */ readonly high: boolean }
-export type PowerKind = 'sandals' | 'satchel';
-export interface Power { readonly id: number; readonly kind: PowerKind; readonly lane: number; readonly z: number; taken: boolean }
+export interface Coin { readonly id: number; lane: number; z: number; y: number; taken: boolean; /** the flight's trail */ readonly sky: boolean }
+export interface Power { readonly id: number; readonly kind: PowerKind; readonly lane: number; readonly z: number; readonly y: number; taken: boolean }
+export interface Letter { readonly id: number; readonly lane: number; readonly z: number; readonly y: number; taken: boolean }
 
-/** What a quiet stretch makes: a few drachmas (rest), or nothing (the heights, the mule cart). */
-export type QuietMode = 'coins' | 'none';
+export type RoadMode = 'lesson' | 'run' | 'rest';
+/** The lesson's items, one control each (the first-ever session's warm-up). */
+export type Lesson = 'jump' | 'roll' | 'lane' | 'ramp';
 
-const LANES = [-1, 0, 1] as const;
+export const LANES = [-1, 0, 1] as const;
 
-/** Something removed from the road ahead (the picture lets it fade). */
-export interface Gone { kind: 'ob' | 'coin'; item: Obstacle | Coin; t: number }
+/** Roof height of a wagon at `z` (m), or −1 outside it; the ramp rises from 0 to the roof. */
+export function surfaceOf(o: Obstacle, z: number): number {
+  if (o.kind !== 'wagon') return -1;
+  const z0 = o.ramp ? o.z - RULES.rampLen : o.z;
+  if (z < z0 || z > o.z + o.len) return -1;
+  if (o.ramp && z < o.z) return RULES.wagonTop * (z - z0) / RULES.rampLen;
+  return RULES.wagonTop;
+}
 
 export class Track {
   readonly obstacles: Obstacle[] = [];
   readonly coins: Coin[] = [];
   readonly powers: Power[] = [];
-  readonly gone: Gone[] = [];
+  readonly letters: Letter[] = [];
   /** the road is made up to here (m) */
   cursor: number;
-  private quietMode: QuietMode | null = null;
+  mode: RoadMode = 'run';
+  /** the lesson's queue (the first-ever warm-up repeats a control until it was done) */
+  lessons: Lesson[] = [];
+  /** the next power-up and letter at (m); letters only while the day's word is open */
+  private nextPower: number;
+  private nextLetter: number;
+  wantLetters = false;
   private readonly rnd: () => number;
   private ids = 0;
-  private safe = 0;
-  private nextPower: number;
-  private powerFlip: boolean;
-  /** the warm-up's lesson: a wall, an arch and a cart, one at a time */
-  private lesson: boolean;
-  /** play time (s), for the fade-ins */
-  now = 0;
-  /** rows made, for the tests */
-  rowsMade = 0;
+  /** the lane the last row left free */
+  private free = 0;
+  /** patterns made (for the tests) */
+  made = 0;
+  /** the lesson items made, with where they stand (the sim points the coach marks at them) */
+  readonly lessonAt: { kind: Lesson; z: number; lane: number }[] = [];
 
-  constructor(seed: number, startZ: number, opts: { lesson?: boolean } = {}) {
+  constructor(seed: number, startZ: number) {
     this.rnd = mulberry32(seed >>> 0);
     this.cursor = startZ;
-    this.lesson = !!opts.lesson;
-    this.nextPower = startZ + RULES.powerEvery * (0.6 + 0.5 * this.rnd());
-    this.powerFlip = this.rnd() < 0.5;
+    this.nextPower = startZ + RULES.powerEvery * (0.5 + 0.4 * this.rnd());
+    this.nextLetter = startZ + RULES.letterEvery * (0.4 + 0.3 * this.rnd());
   }
 
-  get quiet(): QuietMode | null { return this.quietMode; }
+  private id(): number { return ++this.ids; }
+  private pick<T>(xs: readonly T[]): T { return xs[Math.floor(this.rnd() * xs.length) % xs.length]; }
 
   /** Make the road up to `to` (m) at difficulty `d` (0..1). */
   fill(to: number, d: number): void {
-    while (this.cursor < to) {
-      if (this.quietMode) this.quietChunk();
-      else if (this.lesson) this.lessonChunk();
-      else this.chunk(d);
+    let guard = 0;
+    while (this.cursor < to && guard++ < 200) {
+      if (this.mode === 'lesson' && this.lessons.length) this.lesson(this.lessons.shift()!);
+      else if (this.mode === 'rest') this.restPattern(d);
+      else this.pattern(this.mode === 'lesson' ? 0.05 : d);
+      this.made++;
     }
   }
 
-  /** From `z` on, the road is quiet: what lies there is cleared (it fades), and only `mode` is made. */
-  hush(z: number, mode: QuietMode): void {
-    this.quietMode = mode;
-    this.clearFrom(z);
-    this.cursor = Math.min(this.cursor, Math.max(z, 0));
-  }
-
-  /** The road resumes from `z` (what a quiet stretch made beyond it is cleared, then made again). */
-  resume(z: number): void {
-    if (!this.quietMode) return;
-    this.quietMode = null;
-    this.clearFrom(z);
-    this.cursor = z;
-    this.safe = 0;
-  }
-
-  /** Clear everything (obstacles, drachmas, power-ups) from `z` on. */
-  clearFrom(z: number, onlyLow = false): void {
+  /** Clear what lies from `from` on (a change of road) and make it again from there. */
+  clearFrom(from: number): void {
     let n = 0;
-    for (const o of this.obstacles) {
-      if (o.z + o.len > z && !o.hit) this.gone.push({ kind: 'ob', item: o, t: this.now });
-      else this.obstacles[n++] = o;
-    }
+    for (const o of this.obstacles) if (o.hit || o.z - (o.ramp ? RULES.rampLen : 0) < from) this.obstacles[n++] = o;
     this.obstacles.length = n;
     n = 0;
-    for (const c of this.coins) {
-      if (c.z >= z && !c.taken && !(onlyLow && c.high)) this.gone.push({ kind: 'coin', item: c, t: this.now });
-      else this.coins[n++] = c;
-    }
+    for (const c of this.coins) if (c.z < from || c.sky) this.coins[n++] = c;
     this.coins.length = n;
     n = 0;
-    for (const p of this.powers) if (p.z < z || p.taken) this.powers[n++] = p;
+    for (const p of this.powers) if (p.z < from) this.powers[n++] = p;
     this.powers.length = n;
+    n = 0;
+    for (const l of this.letters) if (l.z < from) this.letters[n++] = l;
+    this.letters.length = n;
+    this.cursor = Math.min(this.cursor, from);
   }
 
-  /** Forget what lies behind `z` (and faded leftovers). */
-  trim(z: number): void {
-    const keep = <T extends { z: number }>(xs: T[], len: (x: T) => number) => {
-      let n = 0;
-      for (const x of xs) if (x.z + len(x) >= z) xs[n++] = x;
-      xs.length = n;
-    };
-    keep(this.obstacles, o => o.len);
-    keep(this.coins, () => 0);
-    keep(this.powers, () => 0);
+  /** A clear stretch [from, to): nothing stands there; the road resumes after it. */
+  clearStretch(from: number, to: number): void {
     let n = 0;
-    for (const g of this.gone) if (this.now - g.t < 0.6) this.gone[n++] = g;
-    this.gone.length = n;
-  }
-
-  /**
-   * Drachmas on the heights' road from `z0` up to `z1`: a line snaking across the lanes (steer to
-   * follow it), and every sixth row a full row.  Returns where the next row would be.
-   */
-  heightsCoins(z0: number, z1: number): number {
-    let z = z0;
-    for (; z < z1; z += RULES.heightsCoinGap) {
-      const k = Math.round(z / RULES.heightsCoinGap);
-      const lanes = k % 6 === 0 ? LANES : [Math.round(Math.sin(k * 0.33) * 1.2)];
-      for (const lane of lanes) this.coins.push({ id: ++this.ids, lane: Math.max(-1, Math.min(1, lane)), z, y: RULES.heightsY + 0.6, taken: false, high: true });
+    for (const o of this.obstacles) {
+      const z0 = o.z - (o.ramp ? RULES.rampLen : 0);
+      if (o.hit || o.z + o.len < from || z0 > to || o.kind === 'cart') this.obstacles[n++] = o;
     }
-    return z;
+    this.obstacles.length = n;
+    if (this.cursor < to) this.cursor = to;
   }
 
-  // ── making ──────────────────────────────────────────────────────
-  private ob(kind: ObKind, lane: number, z: number, len: number, o: { width?: 1 | 3; ramp?: boolean; dir?: number } = {}): Obstacle {
-    const ob: Obstacle = {
-      id: ++this.ids, kind, lane, width: o.width ?? 1, z, len, ramp: !!o.ramp, dir: o.dir ?? 1, walking: false,
-      hit: false, cleared: false, born: this.now, look: Math.floor(this.rnd() * 4),
-    };
+  /** Forget what lies behind the runner (`z` = the runner's distance). */
+  prune(z: number): void {
+    let n = 0;
+    for (const o of this.obstacles) if (o.z + o.len > z - 12) this.obstacles[n++] = o;
+    this.obstacles.length = n;
+    n = 0;
+    for (const c of this.coins) if (c.z > z - 6 && !c.taken) this.coins[n++] = c;
+    this.coins.length = n;
+    n = 0;
+    for (const p of this.powers) if (p.z > z - 6 && !p.taken) this.powers[n++] = p;
+    this.powers.length = n;
+    n = 0;
+    for (const l of this.letters) if (l.z > z - 6 && !l.taken) this.letters[n++] = l;
+    this.letters.length = n;
+  }
+
+  // ── pieces ────────────────────────────────────────────────────
+  private ob(kind: ObKind, lane: number, z: number, o: { len?: number; ramp?: boolean } = {}): Obstacle {
+    const len = o.len ?? (kind === 'low' ? RULES.lowLen : kind === 'high' ? RULES.highLen : kind === 'cart' ? RULES.cartLen : span(RULES.wagonLen, this.rnd()));
+    const ob: Obstacle = { id: this.id(), kind, lane, z, len, ramp: !!o.ramp, meet: z, rolling: false, hit: false, passed: false, look: Math.floor(this.rnd() * 4) };
     this.obstacles.push(ob);
     return ob;
   }
 
-  private coinLine(lane: number, z0: number, z1: number, gap = 2.2, y = 0.6): void {
-    for (let z = z0; z <= z1; z += gap) this.coins.push({ id: ++this.ids, lane, z, y, taken: false, high: false });
+  private coinLine(lane: number, z: number, n: number, y = 0.9): void {
+    for (let i = 0; i < n; i++) this.coins.push({ id: this.id(), lane, z: z + i * RULES.coinGap, y, taken: false, sky: false });
   }
 
-  /** An arc of drachmas over a jump at `z` (the jump's own curve). */
-  private coinArc(lane: number, z: number, speedish = 11): void {
-    const T = RULES.jumpSec, top = RULES.jumpTop;
+  /** An arc of drachmas over a fence at `z`: where a jump started at the right moment carries the runner. */
+  private coinArc(lane: number, z: number, v = 13): void {
+    const vy = jumpV(RULES.jumpTop), air = (2 * vy) / GRAVITY;
+    const start = z + RULES.lowLen / 2 - (air * v) / 2;
     for (let i = 0; i <= 6; i++) {
-      const s = i / 6;
-      this.coins.push({ id: ++this.ids, lane, z: z - speedish * T * 0.5 + s * speedish * T, y: 0.6 + 4 * top * s * (1 - s), taken: false, high: false });
+      const tt = (air * i) / 6;
+      this.coins.push({ id: this.id(), lane, z: start + v * tt, y: 0.9 + vy * tt - (GRAVITY * tt * tt) / 2, taken: false, sky: false });
     }
   }
 
-  private pick<T>(xs: readonly T[]): T { return xs[Math.min(xs.length - 1, Math.floor(this.rnd() * xs.length))]; }
-
-  private quietChunk(): void {
-    const z = this.cursor + 8;
-    if (this.quietMode === 'coins' && this.rnd() < 0.7) this.coinLine(this.pick(LANES), z, z + 10 + this.rnd() * 8, 2.4);
-    this.cursor = z + 26 + this.rnd() * 10;
+  /** Drachmas in the sky: the flight's trail, weaving across the lanes from `z` for `len` m (the sim calls it). */
+  skyTrail(z: number, len: number): void {
+    let lane = this.free, k = 0;
+    for (let s = 0; s < len; s += RULES.flightCoinGap, k++) {
+      if (k % 9 === 8) lane = Math.max(-1, Math.min(1, lane + (this.rnd() < 0.5 ? -1 : 1)));
+      this.coins.push({ id: this.id(), lane, z: z + s, y: RULES.flightY + 0.2, taken: false, sky: true });
+    }
   }
 
-  /** The warm-up's lesson: jump a wall, slide under an arch, step round a cart — in the middle lane, with room. */
-  private lessonChunk(): void {
-    const z = this.cursor + 34;
-    this.ob('wall', 0, z, RULES.wallLen);
-    this.coinArc(0, z);
-    this.ob('arch', 0, z + 40, RULES.archLen);
-    this.coinLine(0, z + 38, z + 42, 1.6, 0.35);
-    this.ob('cart', 0, z + 82, 6);
-    this.coinLine(1, z + 76, z + 92, 2.2);
-    this.cursor = z + 110;
-    this.safe = 1;
-    this.lesson = false;
+  /** A power-up and the day's letter, in the free lane, when their turn has come. */
+  private extras(z: number, lane: number): void {
+    if (z >= this.nextPower) {
+      this.nextPower = z + RULES.powerEvery * (0.7 + 0.6 * this.rnd());
+      this.powers.push({ id: this.id(), kind: this.pick(POWER_KINDS), lane, z, y: 1.0, taken: false });
+      return;
+    }
+    if (this.wantLetters && z >= this.nextLetter && !this.letters.some(l => !l.taken)) {
+      this.nextLetter = z + RULES.letterEvery * (0.75 + 0.5 * this.rnd());
+      this.letters.push({ id: this.id(), lane, z, y: 1.1, taken: false });
+    }
   }
 
-  private chunk(d: number): void {
+  /** A neighbouring lane of `l` (or `l` itself) — the next free lane is never two changes away. */
+  private near(l: number): number {
+    const opts = LANES.filter(x => Math.abs(x - l) <= 1);
+    return this.pick(opts);
+  }
+
+  // ── the patterns ──────────────────────────────────────────────
+  /** One pattern of the run's road at difficulty `d`, starting at the cursor. */
+  private pattern(d: number): void {
+    const gap = span(RULES.rowGap, d);
+    const z = this.cursor;
     const r = this.rnd();
-    const z0 = this.cursor + span(RULES.chunkGap, d) * (0.85 + 0.3 * this.rnd());
     let end: number;
-    if (d >= 0.15 && r < 0.12) end = this.goats(z0, d);
-    else if (d >= 0.25 && r < 0.2) end = this.fullRow(z0, this.rnd() < 0.5 ? 'column' : 'arch');
-    else if (r < 0.36) end = this.train(z0, d);
-    else end = this.rows(z0, d);
-    this.cursor = end;
-    if (this.cursor >= this.nextPower) this.power();
+    if (d < 0.25) end = r < 0.45 ? this.rows(z, gap, d, 2) : r < 0.75 ? this.parked(z, gap, d) : this.rampRun(z, d);
+    else if (r < 0.28) end = this.rows(z, gap, d, 3 + Math.floor(d * 3));
+    else if (r < 0.48) end = this.parked(z, gap, d);
+    else if (r < 0.66) end = this.rampRun(z, d);
+    else if (r < 0.84) end = this.oncoming(z, gap, d);
+    else end = this.slalom(z, gap, d);
+    this.cursor = end + span(RULES.patternGap, d);
   }
 
-  /** Rows across the lanes with a passable line through them. */
-  private rows(z0: number, d: number): number {
-    const n = 2 + Math.floor(this.rnd() * (2 + 3 * d));
-    const gap = span(RULES.rowGap, d) * (0.92 + 0.16 * this.rnd());
-    let z = z0;
+  /** Rows of fences and beams: one lane (two when harder) blocked by a jump or a roll; drachmas on the free line. */
+  private rows(z: number, gap: number, d: number, n: number): number {
+    let at = z;
     for (let i = 0; i < n; i++) {
-      const prev = this.safe;
-      if (this.rnd() < 0.35 + 0.3 * d) this.safe = Math.max(-1, Math.min(1, this.safe + (this.rnd() < 0.5 ? -1 : 1)));
-      // what the safe lane holds: nothing, or something a jump or a slide clears
-      const cells: (ObKind | null)[] = [null, null, null];
-      if (this.rnd() < 0.2 + 0.45 * d) cells[this.safe + 1] = this.pick(['wall', 'column', 'arch', 'branch'] as const);
-      const fill = 0.4 + 0.45 * d;
-      for (const lane of LANES) {
-        if (lane === this.safe || this.rnd() >= fill) continue;
-        const r = this.rnd();
-        cells[lane + 1] = r < 0.45 ? 'cart' : r < 0.6 ? 'wall' : r < 0.72 ? 'column' : r < 0.88 ? 'arch' : 'branch';
+      const free = this.near(this.free);
+      const blocked = LANES.filter(l => l !== free);
+      const many = this.rnd() < 0.25 + d * 0.5 ? 2 : 1;
+      const lanes = many === 2 ? blocked : [this.pick(blocked)];
+      for (const l of lanes) {
+        const kind: ObKind = this.rnd() < 0.5 ? 'low' : 'high';
+        this.ob(kind, l, at);
+        if (kind === 'low' && this.rnd() < 0.5) this.coinArc(l, at);
       }
-      if (!cells.some(Boolean)) {
-        const others = LANES.filter(l => l !== this.safe);
-        cells[this.pick(others) + 1] = 'cart';
-      }
-      // a cart in the lane the line moves into ends with room to step in behind it
-      const room = this.safe !== prev ? 9 : 5;
-      for (const lane of LANES) {
-        const k = cells[lane + 1];
-        if (!k) continue;
-        const len = k === 'cart' ? Math.min(span(RULES.cartLen, this.rnd()), gap - room) : k === 'wall' || k === 'column' ? RULES.wallLen : RULES.archLen;
-        this.ob(k, lane, z, Math.max(2.5, len));
-      }
-      // drachmas along the line: an arc over a jump, a low line under an arch, else a line into the row
-      const s = cells[this.safe + 1];
-      if (s === 'wall' || s === 'column') this.coinArc(this.safe, z);
-      else if (s === 'arch' || s === 'branch') this.coinLine(this.safe, z - 2, z + 2, 1.6, 0.35);
-      else if (this.rnd() < 0.75) this.coinLine(this.safe, z - gap * 0.55, z + 3, 2.2);
-      this.rowsMade++;
-      z += gap;
+      // sometimes the free lane gets a fence too (a jump on the best line), the drachmas over it
+      if (d > 0.4 && this.rnd() < 0.3) {
+        this.ob('low', free, at);
+        this.coinArc(free, at);
+      } else this.coinLine(free, at - 6, 4);
+      this.extras(at + gap / 2, free);
+      this.free = free;
+      at += gap;
     }
-    return z;
+    return at - gap;
   }
 
-  /** A train: a long covered wagon with a ramp to run up, carts beside it, drachmas on its roof. */
-  private train(z0: number, d: number): number {
-    const lane = this.safe;
+  /** Parked wagons in one or two lanes; the free lane carries drachmas, sometimes a fence or a beam. */
+  private parked(z: number, gap: number, d: number): number {
+    const free = this.near(this.free);
+    const others = LANES.filter(l => l !== free);
     const len = span(RULES.wagonLen, this.rnd());
-    this.ob('wagon', lane, z0, len, { ramp: true });
-    this.coinLine(lane, z0 + RULES.rampLen + 1, z0 + len - 1, 2.2, RULES.wagonTop + 0.6);
-    for (const other of LANES) {
-      if (other === lane) continue;
-      if (this.rnd() < 0.45 + 0.4 * d) {
-        // a caravan: carts nose to tail, the length of the wagon
-        let z = z0 + this.rnd() * 3;
-        while (z < z0 + len - 3) {
-          const l = Math.min(span(RULES.cartLen, this.rnd()), z0 + len - z);
-          if (l >= 2.5) this.ob('cart', other, z, l);
-          z += l + 0.6;
-        }
-      } else if (this.rnd() < 0.5) this.coinLine(other, z0, z0 + len * 0.6, 2.4);
+    const two = this.rnd() < 0.4 + d * 0.4;
+    for (const l of two ? others : [this.pick(others)]) {
+      const w = this.ob('wagon', l, z + this.rnd() * 3, { len });
+      if (this.rnd() < 0.5) this.coinLine(l, w.z + 1, Math.floor(len / RULES.coinGap) - 1, RULES.wagonTop + 0.9);
     }
-    this.rowsMade++;
-    return z0 + len + 6;
+    this.coinLine(free, z - 4, 6);
+    if (d > 0.3 && this.rnd() < 0.5) this.ob(this.rnd() < 0.5 ? 'low' : 'high', free, z + len * 0.6);
+    this.extras(z + len + gap * 0.5, free);
+    this.free = free;
+    return z + len;
   }
 
-  /** A fallen column or an aqueduct's arches across the whole road. */
-  private fullRow(z0: number, kind: 'column' | 'arch'): number {
-    this.ob(kind, 0, z0, kind === 'column' ? RULES.wallLen : RULES.archLen, { width: 3 });
-    if (kind === 'column') this.coinArc(this.safe, z0);
-    else this.coinLine(this.safe, z0 - 2, z0 + 2, 1.6, 0.35);
-    this.rowsMade++;
-    return z0 + 14;
-  }
-
-  /** Goats crossing the road: one or two, from either side. */
-  private goats(z0: number, d: number): number {
-    const n = d > 0.5 && this.rnd() < 0.5 ? 2 : 1;
-    let z = z0;
+  /** A ramp up onto a wagon and more wagons nose to tail: a roof run; the ground lanes beside are harder. */
+  private rampRun(z: number, d: number): number {
+    const lane = this.near(this.free);
+    const n = 2 + Math.floor(this.rnd() * (1 + d * 2.5));
+    let at = z + RULES.rampLen;
     for (let i = 0; i < n; i++) {
-      const dir = this.rnd() < 0.5 ? 1 : -1;
-      this.ob('goat', -1.7 * dir, z, RULES.goatLen, { dir });
-      this.coinLine(this.safe, z - 8, z - 2, 2.2);
-      this.rowsMade++;
-      z += 16;
+      const len = span(RULES.wagonLen, this.rnd());
+      this.ob('wagon', lane, at, { len, ramp: i === 0 });
+      this.coinLine(lane, at + 1, Math.floor(len / RULES.coinGap) - 1, RULES.wagonTop + 0.9);
+      at += len + 0.8;
     }
-    return z;
+    const end = at;
+    // beside the roof: wagons to hop across onto, or fences and beams on the ground
+    for (const l of LANES.filter(x => x !== lane)) {
+      if (this.rnd() < 0.35 + d * 0.3) this.ob('wagon', l, z + RULES.rampLen + 4 + this.rnd() * 6, { len: span(RULES.wagonLen, this.rnd()) });
+      else {
+        for (let s = z + 10; s < end - 6; s += span(RULES.rowGap, d) * 1.2) this.ob(this.rnd() < 0.5 ? 'low' : 'high', l, s);
+      }
+    }
+    this.lessonAt.push({ kind: 'ramp', z, lane });
+    this.extras(end + 8, lane);
+    this.free = lane;
+    return end;
   }
 
-  private power(): void {
-    this.powerFlip = !this.powerFlip;
-    this.powers.push({ id: ++this.ids, kind: this.powerFlip ? 'sandals' : 'satchel', lane: this.safe, z: this.cursor + 6, taken: false });
-    this.nextPower = this.cursor + RULES.powerEvery * (0.67 + 0.66 * this.rnd());
-    this.cursor += 12;
+  /** An ox-cart coming down a lane, a parked wagon beside it, the drachmas show the way out. */
+  private oncoming(z: number, gap: number, d: number): number {
+    const free = this.near(this.free);
+    const others = LANES.filter(l => l !== free);
+    const cl = this.pick(others);
+    this.ob('cart', cl, z + 30, { len: RULES.cartLen });
+    const wl = others.find(l => l !== cl)!;
+    if (this.rnd() < 0.4 + d * 0.5) this.ob('wagon', wl, z + 8 + this.rnd() * 10);
+    this.coinLine(free, z + 10, 8);
+    this.extras(z + 30 + gap, free);
+    this.free = free;
+    return z + 30 + RULES.cartLen + 30;
   }
-}
 
-/** The ground under a lane position at z: a wagon's ramp and roof lift it. */
-export function groundAt(obs: readonly Obstacle[], x: number, z: number): number {
-  let g = 0;
-  for (const o of obs) {
-    if (o.kind !== 'wagon' || Math.abs(x - o.lane) > 0.5 || z < o.z || z > o.z + o.len) continue;
-    const into = z - o.z;
-    g = Math.max(g, o.ramp && into < RULES.rampLen ? (into / RULES.rampLen) * RULES.wagonTop : RULES.wagonTop);
+  /** Wagons in turn across the lanes: weave between them along a line of drachmas. */
+  private slalom(z: number, gap: number, d: number): number {
+    let lane = this.free, at = z;
+    const n = 3 + Math.floor(d * 2);
+    for (let i = 0; i < n; i++) {
+      const next = lane === 0 ? this.pick([-1, 1]) : 0;
+      // the lane the runner is in gets a wagon: step over to `next`
+      this.ob('wagon', lane, at + 6, { len: span(RULES.wagonLen, 0.2) });
+      this.coinLine(next, at, 5);
+      lane = next;
+      at += gap * 1.15;
+    }
+    this.free = lane;
+    this.extras(at, lane);
+    return at;
   }
-  return g;
+
+  /** The watchtowers' road: single fences or beams far apart, long lines of drachmas. */
+  private restPattern(d: number): void {
+    const z = this.cursor;
+    const free = this.near(this.free);
+    if (this.rnd() < 0.6) {
+      const l = this.pick(LANES.filter(x => x !== free));
+      this.ob(this.rnd() < 0.5 ? 'low' : 'high', l, z);
+    }
+    this.coinLine(free, z - 8, 8);
+    this.extras(z + 10, free);
+    this.free = free;
+    this.cursor = z + span(RULES.rowGap, d) * 2.2;
+  }
+
+  // ── the lesson (the first-ever warm-up) ───────────────────────
+  private lesson(kind: Lesson): void {
+    const z = this.cursor;
+    if (kind === 'jump') for (const l of LANES) this.ob('low', l, z);
+    else if (kind === 'roll') for (const l of LANES) this.ob('high', l, z);
+    else if (kind === 'lane') {
+      // a wagon in the middle and a beam beside it: step aside to the open lane
+      this.ob('wagon', 0, z, { len: 10 });
+      const open = this.rnd() < 0.5 ? -1 : 1;
+      this.ob('wagon', -open, z, { len: 10 });
+      this.coinLine(open, z - 6, 7);
+      this.lessonAt.push({ kind, z, lane: open });
+      this.cursor = z + 10 + 40;
+      return;
+    } else {
+      this.ob('wagon', 0, z + RULES.rampLen, { len: 12, ramp: true });
+      this.coinLine(0, z + RULES.rampLen + 1, 4, RULES.wagonTop + 0.9);
+      this.lessonAt.push({ kind, z, lane: 0 });
+      this.cursor = z + RULES.rampLen + 12 + 40;
+      return;
+    }
+    this.coinLine(0, z + 4, 4);
+    this.lessonAt.push({ kind, z, lane: 0 });
+    this.cursor = z + 42;
+  }
 }

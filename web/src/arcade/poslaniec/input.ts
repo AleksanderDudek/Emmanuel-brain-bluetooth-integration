@@ -3,9 +3,9 @@
  * or the mouse moving more than `swipePx` from where it went down) acts the moment it is long
  * enough, in its main direction; a short press with little movement is a tap — the left third of
  * the screen steps a lane left, the right third a lane right, the middle third jumps (so does Space,
- * the smoke test's input).  Keys: ←/→/A/D lanes, ↑/W/Space jump, ↓/S slide.  Pure: no DOM.
+ * the smoke test's input).  Keys: ←/→/A/D lanes, ↑/W/Space jump, ↓/S roll.  Pure: no DOM.
  */
-export type Move = 'left' | 'right' | 'jump' | 'slide';
+export type Move = 'left' | 'right' | 'jump' | 'roll';
 
 export const SWIPE_PX = 30;
 /** a press longer than this (s) without a swipe does nothing */
@@ -49,7 +49,7 @@ export class Gestures {
 export function swipe(dx: number, dy: number): Move | null {
   if (Math.hypot(dx, dy) < SWIPE_PX) return null;
   if (Math.abs(dx) >= Math.abs(dy)) return dx < 0 ? 'left' : 'right';
-  return dy < 0 ? 'jump' : 'slide';
+  return dy < 0 ? 'jump' : 'roll';
 }
 
 /** A tap's move by where it lands across the screen: thirds. */
@@ -64,7 +64,7 @@ export function keyMove(key: string): Move | null {
     case 'ArrowLeft': case 'a': return 'left';
     case 'ArrowRight': case 'd': return 'right';
     case 'ArrowUp': case 'w': case ' ': return 'jump';
-    case 'ArrowDown': case 's': return 'slide';
+    case 'ArrowDown': case 's': return 'roll';
     default: return null;
   }
 }

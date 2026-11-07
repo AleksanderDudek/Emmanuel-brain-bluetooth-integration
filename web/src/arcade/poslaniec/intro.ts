@@ -2,20 +2,20 @@
  * Posłaniec's calibration intro, "Przed świtem" (before dawn): the Roman road runs out of Ephesus
  * into the dark hills; the messenger stands at its start with the satchel of letters.  While the
  * reference fills (`p` 0..1) the night pales to dawn, the stars go out, the sun rises behind the far
- * hills and the first light runs along the road; at 1 the messenger leans forward, ready to run.
+ * hills, the first light runs along the road and Klekot the stork glides in; at 1 the messenger
+ * leans forward, ready to run.
  * The runner's calibration card covers the lower part of the screen, so the messenger stands high.
  */
 import { approach, clamp, ease } from '../kit/juice';
-import { CLOAKS } from './content';
-import { cloakOf, type PoslaniecProgress } from './meta';
-import { hash, paintRunner, skyAt, type RunnerPose, type SkyLook } from './paint';
-import { paintRoadView } from './preview';
+import type { PoslaniecProgress } from './meta';
+import { hash, paintRunner, paintStork, skyAt, type RunnerPose, type SkyLook } from './paint';
+import { CLOAK, paintRoadView } from './preview';
 
 export class PoslaniecIntro {
   private clock = 0;
   private shown = 0;
   private readonly sky: SkyLook = skyAt(-1);
-  private readonly pose: RunnerPose = { stride: 0, air: 0, slide: 0, lean: 0, squash: 0, stumble: 0, wool: CLOAKS[0].wool, trim: CLOAKS[0].trim, t: 0, alpha: 1 };
+  private readonly pose: RunnerPose = { stride: 0, air: 0, slide: 0, lean: 0, squash: 0, stumble: 0, wool: CLOAK.wool, trim: CLOAK.trim, t: 0, alpha: 1 };
 
   draw(ctx: CanvasRenderingContext2D, w: number, h: number, dt: number, p: number, progress: PoslaniecProgress): void {
     if (w < 2 || h < 2) return;
@@ -50,10 +50,8 @@ export class PoslaniecIntro {
       ctx.restore();
     }
     // the messenger at the road's start, high enough to clear the calibration card
-    const cloak = CLOAKS[cloakOf(progress)];
+    void progress;
     const pose = this.pose;
-    pose.wool = cloak.wool;
-    pose.trim = cloak.trim;
     pose.t = t;
     pose.lean = k > 0.85 ? -0.08 * clamp((k - 0.85) / 0.15) : 0;
     pose.stride = k > 0.95 ? t * 0.8 : 0.5;
@@ -64,5 +62,8 @@ export class PoslaniecIntro {
     ctx.ellipse(w / 2, fy, s * 0.4, s * 0.1, 0, 0, Math.PI * 2);
     ctx.fill();
     paintRunner(ctx, w / 2, fy + Math.sin(t * 1.5) * 0.6, s, pose);
+    // Klekot glides in with the light and circles over the road
+    const sk = ease.outCubic(clamp((k - 0.2) / 0.7));
+    paintStork(ctx, w * (1.15 - 0.4 * sk) + Math.sin(t) * w * 0.02, horizon * (0.55 + 0.1 * Math.sin(t * 1.3)), s * 0.9, t * 6, 0.5 + 0.5 * k, k > 0.9 ? 0.6 : 0);
   }
 }

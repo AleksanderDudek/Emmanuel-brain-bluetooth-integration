@@ -1,16 +1,19 @@
 /**
  * Posłaniec's picture for the lobby's hero and the game card: the messenger running away from us
  * down the Roman road into the dawn hills, drachmas glinting ahead, the ribbon of dawn across the
- * sky.  In the lobby (with the player's progress) he wears the player's cloak and the next city
- * stands on the far hills; on the cards (no progress) Smyrna in undyed wool.  Drawn every frame in
+ * sky, Klekot the stork overhead and Bela the goat at his heels.  In the lobby (with the player's
+ * progress) the next city stands on the far hills; on the cards (no progress) Smyrna.  Drawn every frame in
  * the lobby, so it stays cheap.  `paintRoadView` is shared with the calibration intro.
  */
-import { CITY_IDS, CLOAKS, type CityId } from './content';
-import { cloakOf, routeAt, type PoslaniecProgress } from './meta';
-import { hex, mix, paintCity, paintCoin, paintHills, paintRunner, paintSky, rgb, skyAt, type RGB, type RunnerPose, type SkyLook } from './paint';
+import { CITY_IDS, type CityId } from './content';
+import { routeAt, type PoslaniecProgress } from './meta';
+import { hex, mix, paintCity, paintCoin, paintGoat, paintHills, paintRunner, paintSky, paintStork, rgb, skyAt, type RGB, type RunnerPose, type SkyLook } from './paint';
+
+/** The messenger's cloak: madder red with an ochre trim. */
+export const CLOAK = { wool: '#b8412e', trim: '#e8b04a' } as const;
 
 const sky: SkyLook = skyAt(0);
-const pose: RunnerPose = { stride: 0, air: 0, slide: 0, lean: 0, squash: 0, stumble: 0, wool: CLOAKS[0].wool, trim: CLOAKS[0].trim, t: 0, alpha: 1 };
+const pose: RunnerPose = { stride: 0, air: 0, slide: 0, lean: 0, squash: 0, stumble: 0, wool: CLOAK.wool, trim: CLOAK.trim, t: 0, alpha: 1 };
 const PAVE: [RGB, RGB] = [hex('#c7ad87'), hex('#b49873')];
 
 /** A straight road from the bottom edge to the vanishing point, its paving scrolling with `run` (m). */
@@ -83,18 +86,19 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     const m = F / d;   // px per metre at that depth
     paintCoin(ctx, w / 2, horizon + K / d - 0.6 * m, Math.max(1.5, 0.27 * m), t * 4 + i);
   }
-  // the messenger
-  const cloak = CLOAKS[p ? cloakOf(p) : 0];
+  // the messenger, Klekot the stork above, Bela the goat at his heels
   pose.stride = t * 2.6;
-  pose.wool = cloak.wool;
-  pose.trim = cloak.trim;
   pose.t = t;
+  const ss = Math.max(18, h * 0.16);
+  paintStork(ctx, w * 0.74 + Math.sin(t * 0.8) * w * 0.03, h * 0.3 + Math.sin(t * 1.3) * h * 0.02, ss, t * 6, 0.8, 0.5);
   const s = Math.max(22, h * 0.19);
   ctx.fillStyle = 'rgba(30,20,20,.25)';
   ctx.beginPath();
   ctx.ellipse(w / 2, h * 0.93, s * 0.4, s * 0.1, 0, 0, Math.PI * 2);
   ctx.fill();
   paintRunner(ctx, w / 2, h * 0.93, s, pose);
+  const goatX = w * 0.5 + s * 0.9 + Math.sin(t * 0.5) * s * 0.3;
+  paintGoat(ctx, goatX, h * 1.02, s * 0.9, t, 0);
   // a warm light from the low sun
   const g = ctx.createLinearGradient(w, 0, 0, h);
   g.addColorStop(0, 'rgba(255,226,184,.18)');
