@@ -1,133 +1,174 @@
 /**
- * Every number of Chleby i ryby in one place (sim.ts and hill.ts re-export it): the hillside lane,
- * the basket and its stream, the bread, the gates and the golden gate, the gulls and the Pelikan,
- * the groups of the hungry, the levels and chapters, the blocks and the meta game.  Tuning moves a
- * number here and nowhere else; the tests read the same object.
+ * Every number of Chleby i ryby (v2, after Mob Control) in one place: the terrace up the hill, the
+ * basket-cannon and its stream of bread-bearers, the gates, the golden gate, the Big Basket (the
+ * champion), the gull waves, Gerwazy and the Pelikan, the tables of the hungry, the levels and
+ * chapters, the blocks and the meta game.  Tuning moves a number here and nowhere else; the tests
+ * read the same object.
  *
- * World units ("u", about a metre) on the lane up the hill: x across it (0..laneW), y up the hill
- * from the boy's basket (0) to the row of the hungry (laneH).
+ * World units ("u", about a metre) on one terrace of the hillside: x across it (0..laneW), y up the
+ * hill from the boy's basket (0) to the tables of the hungry (laneH).
  */
 export const RULES = {
-  // ── the lane ─────────────────────────────────────────────────
+  // ── the terrace ──────────────────────────────────────────────
   laneW: 10,
   laneH: 20,
-  /** bread keeps this far from the lane's edges (it bounces back) */
-  edge: 0.35,
+  /** runners keep this far from the lane's edges */
+  edge: 0.4,
 
-  // ── the basket and the stream ────────────────────────────────
-  /** the basket slides toward the finger at this speed (u/s); arrows move it at keySpeed */
-  aimSpeed: 26,
-  keySpeed: 9,
-  /** a held press pours this many pieces a second, + per stream level */
+  // ── the basket-cannon ────────────────────────────────────────
+  /** the basket slides toward the finger at this speed (u/s); the arrows move it at keySpeed */
+  aimSpeed: 30,
+  keySpeed: 10,
+  /** a held press pours this many runners a second, + per Strumień level */
   stream: 5,
-  streamPerLevel: 1,
-  /** a press pours a volley at once (a tap = a short volley), this many pieces over volleySec */
-  volley: 4,
-  volleySec: 0.22,
+  streamPerLevel: 1.2,
+  /** a press fires a burst at once (a tap = a burst of `burst` runners over burstSec) */
+  burst: 3,
+  burstSec: 0.2,
+  /** bursts no closer than this (s) */
+  burstGap: 0.5,
   /** a press held longer than this starts the stream (s) */
-  holdAfter: 0.25,
-  /** every n-th piece is a fish: by fish level 0..3 */
-  fishEvery: [6, 5, 4, 3],
-  /** the bread's speed up the hill (u/s) and its sideways spread (u/s) */
-  loafSpeed: 7.2,
-  fishSpeed: 11,
-  bigSpeed: 3.4,
-  spread: 0.9,
-  /** live pieces at most: past this a multiplying gate makes a piece heavier (it feeds more) instead */
-  maxPieces: 260,
+  holdAfter: 0.22,
+  /** a gull that reaches the basket pecks it: the stream jams this long (s) */
+  jamSec: 0.7,
+
+  // ── the runners (bread-bearers: a loaf on little legs) ───────
+  /** speed up the hill (u/s): a loaf, a fish (Ryby upgrade), the Big Basket */
+  loafSpeed: 4.6,
+  fishSpeed: 6.4,
+  bigSpeed: 2.3,
+  /** sideways wander (u/s) and the pull toward the nearest hungry table in the top rows */
+  wander: 0.7,
+  pullFrom: 13,
+  pull: 2.6,
+  /** collision radii (u) */
+  runnerR: 0.26,
+  bigR: 0.85,
+  /** live runners at most: past this a multiplying gate makes runners heavier instead (a stack of loaves) */
+  maxRunners: 240,
+  /** every n-th runner is a fish (worth fishW) by Ryby level 0..3 (0: none) */
+  fishEvery: [0, 7, 5, 3],
+  fishW: 2,
 
   // ── the gates ────────────────────────────────────────────────
-  /** a gate's depth (u): a piece passes it when it crosses its line inside its width */
-  gateDepth: 0.4,
-  /** a grey gate swallows pieces until its count is used up, then breaks for this long (s) */
-  greyBack: 5,
+  /** half width of a gate (u) by kind, and how fast gates slide (rad/s base, + per level) */
+  gateHalf: 1.35,
+  goldHalf: 1.6,
+  slideBase: 0.55,
+  slidePerLevel: 0.04,
+  slideMax: 1.25,
+  /** a green +N gate pops N runners when touched, then recharges this long (s) */
+  addBack: 1.1,
+  /** a grey −N gate swallows N runners, then breaks for this long (s) */
+  greyBack: 4.5,
   /** the golden gate: ×1 below the threshold (never less), ×2 at it, ×5 at goldTop and above; in halves */
   goldAt: 2,
   goldMax: 5,
   goldTop: 0.9,
-  /** the start gate (an upgrade): a ×2 gate near the basket, its width by level 1..4 */
-  startY: 2.4,
-  startW: [0, 1.5, 2.1, 2.7, 3.3],
+  /** the start gate (Bramka startowa): a ×2 gate just above the basket, its half width by level 1..3 */
+  startY: 2.2,
+  startHalf: [0, 0.9, 1.3, 1.8],
+  /** the Big Basket spills this many runners per point of a gate's multiplier above 1 */
+  bigSpill: 5,
 
-  // ── the big basket (hold) ────────────────────────────────────
-  /** a held focus this long (s) fills it, Mendi / HALO; a broken hold lets an unfilled charge sink at this share of the fill rate */
+  // ── the Big Basket (the champion) ─────────────────────────────
+  /** a held focus this long (s) in a sighted Rozdawanie fills it, Mendi / HALO */
   bigHold: { fnirs: 6, eeg: 3 },
-  bigSink: 0.5,
-  /** it splits into this many loaves (+ per big-basket level) at the top or at a gate */
-  bigLoaves: 20,
-  bigPerLevel: 5,
+  /** pouring alone fills it too, slowly: this share per runner fired (+ per Wielki kosz level) */
+  bigPerShot: 1 / 500,
+  bigPerShotLevel: 1 / 2000,
+  /** its weight (people it feeds): base + per Wielki kosz level */
+  bigW: 30,
+  bigWPerLevel: 10,
 
-  // ── the gulls ────────────────────────────────────────────────
-  /** a gull every gap s (− per level, at least gullMin), a flock of three every 3rd from level 2; Mirka once a level from level 1 */
-  gullFirst: 7,
-  gullGap: 7,
-  gullGapPerLevel: 0.25,
-  gullMin: 3.6,
-  gullSpeed: 3.3,
-  gullR: 0.62,
-  flockFrom: 2,
+  // ── the gulls (the opposing waves) ───────────────────────────
+  /** the first wave after this long on a terrace (s), then every gap s (− per level, at least waveMin) */
+  waveFirst: 6,
+  waveFirstEver: 13,
+  waveGap: 7,
+  waveGapPerLevel: 0.25,
+  waveMin: 4,
+  /** a wave's size: base + per level, at most */
+  waveN: 5,
+  wavePerLevel: 1.6,
+  waveMax: 36,
+  /** waddle speed down the hill (u/s), and their radius */
+  gullSpeed: 1.5,
+  gullR: 0.36,
+  /** Gerwazy, the fat gull: worth this many, from this level, every n-th wave */
+  fatW: 6,
+  fatFrom: 3,
+  fatEvery: 3,
+  fatR: 0.6,
+  /** Mirka leads a wave now and then (worth mirkaW), from this level, every n-th wave */
+  mirkaW: 4,
   mirkaFrom: 1,
-  mirkaAt: 14,
-  mirkaTakes: 5,
-  /** the band the gulls cross (u up the hill) */
-  gullY: [6, 15.5],
+  mirkaEvery: 4,
+  /** after a rest block the next wave waits this long (s) */
+  waveAfterRest: 4,
 
-  // ── the Pelikan (each chapter's last level) ──────────────────
-  pelikanY: 9.6,
-  pelikanR: 1.45,
-  pelikanPouch: 70,
-  pelikanPerChapter: 25,
-  pelikanSlide: 2.6,
+  // ── the Pelikan (each chapter's last level, on its last terrace) ─
+  pelikanY: 16,
+  pelikanStop: 6.5,
+  pelikanSpeed: 0.32,
+  pelikanR: 1.35,
+  pelikanPouch: 40,
+  pelikanPerChapter: 12,
+  pelikanSway: 0.45,
 
-  // ── the hungry ───────────────────────────────────────────────
-  /** groups in a level: 4, + 0.8 a level, at most 12; a group is 50 or 100 (Mark 6:40) */
-  groups: 4,
-  groupsPerLevel: 0.8,
-  groupsMax: 12,
-  /** how likely a group is a hundred: + per level, at most */
-  hundred: 0.15,
-  hundredPerLevel: 0.08,
-  hundredMax: 0.6,
-  /** the front row holds this many groups at most; the next row steps in when it is fed */
-  rowMax: 3,
+  // ── the tables of the hungry (the "base") ────────────────────
+  /** a terrace's hunger: base + per level, × (1 + circle growth) for each time round the path */
+  hunger: 110,
+  hungerPerLevel: 28,
+  hungerMax: 900,
+  circleHunger: 0.3,
+  /** a boss terrace is this much hungrier */
+  bossHunger: 1.15,
+  /** two tables (left and right) on a terrace from this level, on every other terrace */
+  twoFrom: 2,
+  /** grace: after this long on a terrace the disciples help (hunger falls by helpRate/s, growing) */
+  helpAfter: 40,
+  helpRate: 1.2,
+  helpGrow: 0.15,
 
   // ── a level ──────────────────────────────────────────────────
-  /** its time: base + per person (s); when it runs out the disciples feed the rest (at half) */
-  timeBase: 20,
-  timePerPerson: 0.12,
-  /** levels in a chapter (the last one is the Pelikan's); chapters before the hills come round again (harder) */
+  /** terraces in a level: 1, 2 from level twoTerraces, 3 from level threeTerraces */
+  twoTerraces: 2,
+  threeTerraces: 8,
+  /** levels in a chapter (the last one is the Pelikan's); the path has six chapters, then comes round harder */
   chapter: 4,
   chapters: 6,
-  /** the hunger grows by this share each time round */
-  circleHunger: 0.3,
-  /** three stars: fed by the player with this share of the time left, or this many baskets in the level */
-  starTime: 0.35,
-  starBaskets: 3,
-  /** between levels: the celebration (s), the card of upgrades (s, auto-continue), the next level's card */
+  /** the climb between terraces (s), the celebration after a level (s), the card of upgrades (auto-continue s) */
+  climb: 1.6,
   wonHold: 2.6,
-  upgradeSec: 4.5,
+  cardSec: 6,
   /** the card of upgrades shows at most once in this long (s), so short levels flow on */
-  upgradeGap: 40,
-  /** the session ends: a level at least this much fed is finished by the disciples */
+  cardGap: 40,
+  /** three stars: a level done within par (s) = 3, within starSlow × par = 2, else 1; par = Σ (parBase + hunger / parRate) */
+  parBase: 6,
+  parRate: 22,
+  starSlow: 1.6,
+  /** the session ends: a terrace fed at least this share counts as done by the disciples */
   finishShare: 0.5,
 
-  // ── Na trawie (rest) ─────────────────────────────────────────
-  /** calm 1 fills a basket of crumbs in this long (s); at most this many in a level; the brain's lead-in */
-  basketSec: 5.5,
-  basketsMax: 12,
+  // ── Na trawie (rest) and the crumbs bank ─────────────────────
+  /** calm 1 fills a basket of crumbs in this long (s); the brain's lead-in in a rest (s) */
+  basketSec: 8,
   calmLead: { fnirs: 4, eeg: 2 },
-
-  // ── the meta: grain for the upgrades ─────────────────────────
-  grainPerStar: 8,
-  grainPerBasket: 4,
-  grainPelikan: 20,
-  giftGrain: 30,
-  /** upgrade prices by level (the next level's price is at the current level's index) */
+  /** a snatched or swallowed loaf leaves this much of a basket in crumbs */
+  crumbPerLoaf: 0.012,
+  /** baskets for a finished level (one more for three stars); for a sated Pelikan */
+  basketsLevel: 1,
+  basketsThree: 1,
+  basketsPelikan: 2,
+  /** the day's gift (baskets) */
+  giftBaskets: 3,
+  /** upgrade prices in baskets by level (the next level's price is at the current level's index) */
   prices: {
-    stream: [30, 60, 100, 150],
-    start: [40, 75, 120, 180],
-    fish: [30, 60, 100],
-    big: [45, 80, 130, 190],
+    rate: [4, 7, 11, 16],
+    fish: [4, 8, 13],
+    big: [5, 9, 14, 20],
+    start: [5, 9, 14],
   },
 
   // ── the session ──────────────────────────────────────────────
@@ -148,14 +189,15 @@ export const RULES = {
   blindFrom: 3,
   /** a block needs this many reliable seconds for a verdict */
   minReliable: 8,
-  /** a blind block pours this many loaves per second of its judged window spent above the threshold */
-  blindLoaves: 2.6,
-  /** the warm-up's hint shows after this long without a press (s) */
-  idleHint: 3,
+  /** a blind block pours this many runners per second of its judged window spent above the threshold */
+  blindRunners: 2.4,
+  /** a coach mark is repeated at most this often (s) until its control is done, at most hintTimes times */
+  hintEvery: 9,
+  hintTimes: 3,
 } as const;
 
 export type Upgrade = keyof typeof RULES.prices;
-export const UPGRADES: readonly Upgrade[] = ['stream', 'start', 'fish', 'big'];
+export const UPGRADES: readonly Upgrade[] = ['rate', 'fish', 'big', 'start'];
 
 /** The golden gate's multiplier for a level: ×1 below the threshold (never less), ×2 at it, up to ×5; in halves. */
 export function goldMult(level: number): number {

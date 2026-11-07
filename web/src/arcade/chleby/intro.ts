@@ -7,7 +7,7 @@
  */
 import { approach, clamp, ease } from '../kit/juice';
 import type { ChlebyProgress } from './meta';
-import { placeOf } from './hill';
+import { placeOf } from './field';
 import { C, PALETTES, paintBoy, paintFish, paintGrass, paintGroup, paintGull, paintLake, paintLoaf, paintSky } from './paint';
 
 export class ChlebyIntro {

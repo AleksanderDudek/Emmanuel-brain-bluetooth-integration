@@ -1,12 +1,12 @@
 /**
  * Chleby i ryby's sound, on the kit's synthesiser (kit/audio.ts): a warm pad in D whose filter
  * follows the golden gate in a sighted Rozdawanie (the runner drives it from ChlebySim.padLevel) and
- * holds still elsewhere; the basket's soft "pop" as bread leaves it (thinned out when it pours),
+ * holds still elsewhere; the basket's soft "pop" as a runner leaves it (thinned out when it pours),
  * a bright tick through a green gate, a rising chime through a honey one, a sparkle through the
- * golden gate that climbs with its multiplier, a dull thud into a grey one and its crack; the gulls'
- * squawk, Mirka's laugh, the splash; the pelican's gulp; a crowd's cheer when a group is fed; the
- * big basket's swell and burst; the waves and a hummed tune in a rest; the level's fanfare.  A
- * missed verdict makes no sound.
+ * golden gate that climbs with its multiplier, a dull thud into a grey one and its crack; a wave of
+ * gulls squawking, the snatch, the peck, Mirka's laugh; the pelican's gulp; a table's cheer; the Big
+ * Basket's swell and its spill; the lake and a hummed tune in a rest; the level's fanfare.  A missed
+ * verdict makes no sound.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
 import type { ChlebySim, SimEvent } from './sim';
@@ -26,6 +26,8 @@ export class ChlebySound {
   private gateT = 0;
   private goldT = 0;
   private feedT = 0;
+  private snatchT = 0;
+  private gulpT = 0;
 
   constructor(private readonly a: ArcadeAudio) {}
 
@@ -39,6 +41,8 @@ export class ChlebySound {
     this.gateT -= dt;
     this.goldT -= dt;
     this.feedT -= dt;
+    this.snatchT -= dt;
+    this.gulpT -= dt;
     if (!a.on) return;
     if (sim.restBlock) {
       this.tuneT -= dt;
@@ -91,37 +95,46 @@ export class ChlebySound {
         a.noiseBurst(0.3, { type: 'bandpass', freq: 900, sweepTo: 300, gain: 0.06 });
         a.tone(98, 0.25, { type: 'triangle', gain: 0.05, slideTo: 70 });
         break;
-      case 'leap':
-        a.tone(700, 0.12, { type: 'sine', gain: 0.025, slideTo: 1400 });
-        break;
-      case 'split':
+      case 'spill':
         a.noiseBurst(0.35, { type: 'bandpass', freq: 1200, sweepTo: 3600, gain: 0.05 });
         [0, 4, 7, 12].forEach((n, i) => a.bell(ladder(n, ROOT), 0.04, 1, i * 0.04));
         break;
       case 'feed':
         if (this.feedT <= 0) {
-          this.feedT = 0.08;
-          a.tone(1318, 0.05, { type: 'sine', gain: 0.012 });
+          this.feedT = 0.07;
+          // a soft munch that climbs a little with the crowd's size
+          a.tone(e.big ? 330 : 1318, e.big ? 0.4 : 0.05, { type: 'sine', gain: e.big ? 0.05 : 0.012, slideTo: e.big ? 660 : undefined });
         }
         break;
-      case 'fed':
-        // a little crowd cheer and a rising bell
-        a.noiseBurst(0.8, { type: 'bandpass', freq: 1500, q: 0.6, gain: 0.035 });
-        [0, 2, 4].forEach((n, i) => a.bell(ladder(n + 7, ROOT), 0.04, 1.1, i * 0.08));
+      case 'tableFed':
+        a.noiseBurst(0.8, { type: 'bandpass', freq: 1500, q: 0.6, gain: 0.04 });
+        [0, 2, 4].forEach((n, i) => a.bell(ladder(n + 7, ROOT), 0.045, 1.1, i * 0.08));
         break;
-      case 'gull':
-        if (e.kind === 'mirka' || !e.flock) a.tone(e.kind === 'mirka' ? 1250 : 1500, 0.22, { type: 'sawtooth', gain: 0.012, slideTo: 900 });
+      case 'wave':
+        a.tone(e.fat ? 900 : 1500, 0.22, { type: 'sawtooth', gain: 0.012, slideTo: e.fat ? 600 : 900 });
+        if (e.mirka) [0, 0.18, 0.36].forEach(at => a.tone(1300, 0.12, { type: 'sawtooth', gain: 0.013, slideTo: 1000, at }));
         break;
-      case 'steal':
-        a.tone(1600, 0.16, { type: 'square', gain: 0.01, slideTo: 1100 });
-        if (e.laugh) [0, 0.18, 0.36].forEach(at => a.tone(1300, 0.12, { type: 'sawtooth', gain: 0.014, slideTo: 1000, at }));
+      case 'snatch':
+        if (this.snatchT <= 0) {
+          this.snatchT = 0.1;
+          a.tone(1600, 0.1, { type: 'square', gain: 0.008, slideTo: 1100 });
+        }
         break;
-      case 'knock':
-        a.noiseBurst(0.5, { type: 'lowpass', freq: 1400, sweepTo: 300, gain: 0.06 });
-        a.tone(400, 0.25, { type: 'sine', gain: 0.03, slideTo: 180 });
+      case 'peck':
+        a.tone(900, 0.06, { type: 'square', gain: 0.02 });
+        a.tone(700, 0.06, { type: 'square', gain: 0.02, at: 0.09 });
+        break;
+      case 'shoo':
+        if (this.snatchT <= 0) {
+          this.snatchT = 0.15;
+          a.noiseBurst(0.25, { type: 'highpass', freq: 2000, gain: 0.02 });
+        }
         break;
       case 'gulp':
-        a.tone(220, 0.14, { type: 'sine', gain: 0.03, slideTo: 110 });
+        if (this.gulpT <= 0) {
+          this.gulpT = 0.12;
+          a.tone(220, 0.14, { type: 'sine', gain: 0.035, slideTo: 110 });
+        }
         break;
       case 'pelikan':
         a.tone(98, 0.6, { type: 'triangle', gain: 0.04, slideTo: 82 });
@@ -129,6 +142,9 @@ export class ChlebySound {
       case 'sated':
         a.tone(82, 0.5, { type: 'sine', gain: 0.05, slideTo: 165 });
         [0, 4, 7].forEach((n, i) => a.bell(ladder(n, ROOT), 0.04, 1.2, 0.2 + i * 0.1));
+        break;
+      case 'cleared':
+        [0, 4, 7].forEach((n, i) => a.bell(ladder(n + 5, ROOT), 0.04, 1, i * 0.06));
         break;
       case 'won':
         [0, 2, 4, 7, 9, 12].forEach((n, i) => a.bell(ladder(n, ROOT), 0.05, 1.4, i * 0.08));
@@ -142,7 +158,7 @@ export class ChlebySound {
         a.bell(ladder(e.pass ? 9 : 4 + (e.n % 5), ROOT / 2), 0.04, 1.4);
         break;
       case 'blindPay':
-        if (e.loaves > 0) a.noiseBurst(0.9, { type: 'bandpass', freq: 500, sweepTo: 3000, gain: 0.04 });
+        if (e.runners > 0) a.noiseBurst(0.9, { type: 'bandpass', freq: 500, sweepTo: 3000, gain: 0.04 });
         break;
       case 'buy':
       case 'gift':

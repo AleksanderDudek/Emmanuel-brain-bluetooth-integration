@@ -407,11 +407,11 @@ export type GoldMode = 'live' | 'wait' | 'blind' | 'rest' | 'off';
 export function paintGoldGate(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, s: number, o: {
   mult: string; level: number; mode: GoldMode; flash: number; t: number; thr: string; reliable: boolean;
 }): void {
-  const postH = s * 1.45, half = w / 2;
+  const postH = s * 1.25, half = w / 2;
   const x0 = x - half, x1 = x + half;
   const ay = y - postH;
   // the arch: as wide as the gate, never much taller than a post (a flat arc in a deep perspective)
-  const R = half, RY = Math.min(half, s * 1.25);
+  const R = half, RY = Math.min(half, s * 0.95);
   const live = o.mode === 'live';
   // ground line
   ctx.fillStyle = 'rgba(120,80,0,.2)';
@@ -861,4 +861,259 @@ export function paintStar(ctx: CanvasRenderingContext2D, x: number, y: number, r
   ctx.strokeStyle = on ? C.goldDeep : 'rgba(90,70,40,.4)';
   ctx.lineWidth = Math.max(1, r * 0.12);
   ctx.stroke();
+}
+
+// ── v2: the crowd cannon's cast ────────────────────────────────────
+/**
+ * A bread-bearer seen from behind as it runs up the hill: a loaf (or a silver fish) on two little
+ * kicking legs with tiny arms pumping; a heavier runner (past the crowd cap) carries a stack and a
+ * number.  `y` is where its feet touch the grass; `s` = px per u at that depth.
+ */
+export function paintRunner(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, o: { kind: 'loaf' | 'fish'; step: number; w: number; gold: boolean }): void {
+  const r = s * 0.36;
+  if (r < 0.8) return;
+  const kick = Math.sin(o.step);
+  const hop = Math.abs(Math.cos(o.step)) * r * 0.25;
+  // shadow
+  ctx.fillStyle = 'rgba(30,40,20,.2)';
+  ellipse(ctx, x, y, r * 0.9, r * 0.3);
+  ctx.fill();
+  // legs
+  ctx.strokeStyle = '#5a3a1c';
+  ctx.lineWidth = Math.max(1, r * 0.2);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - r * 0.3, y - r * 0.6 - hop);
+  ctx.lineTo(x - r * 0.35 + kick * r * 0.25, y - r * 0.05 - Math.max(0, kick) * r * 0.25);
+  ctx.moveTo(x + r * 0.3, y - r * 0.6 - hop);
+  ctx.lineTo(x + r * 0.35 - kick * r * 0.25, y - r * 0.05 - Math.max(0, -kick) * r * 0.25);
+  ctx.stroke();
+  const by = y - r * 1.15 - hop;
+  if (o.kind === 'fish') {
+    paintFish(ctx, x, by, r * 0.95, kick * 0.6);
+  } else {
+    // a stack for a heavy runner
+    const stack = Math.min(3, o.w >= 4 ? 3 : o.w);
+    for (let i = stack - 1; i >= 1; i--) paintLoaf(ctx, x + (i % 2 ? r * 0.25 : -r * 0.25), by - i * r * 0.7, r * 0.85);
+    paintLoaf(ctx, x, by, r);
+  }
+  // arms pumping
+  ctx.strokeStyle = '#5a3a1c';
+  ctx.lineWidth = Math.max(0.8, r * 0.14);
+  ctx.beginPath();
+  ctx.moveTo(x - r * 0.9, by + r * 0.05);
+  ctx.lineTo(x - r * 1.25, by - r * 0.25 + kick * r * 0.3);
+  ctx.moveTo(x + r * 0.9, by + r * 0.05);
+  ctx.lineTo(x + r * 1.25, by - r * 0.25 - kick * r * 0.3);
+  ctx.stroke();
+  if (o.gold) {
+    ctx.fillStyle = 'rgba(255,226,120,.75)';
+    ctx.beginPath();
+    ctx.arc(x + r * 0.5, by - r * 0.5, r * 0.22, 0, TAU);
+    ctx.fill();
+  }
+  if (o.w >= 4 && r > 3) {
+    ctx.font = font(900, Math.max(8, r * 1.2), SANS);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(60,35,10,.8)';
+    ctx.strokeText(`${o.w}`, x, by - r * 2.2);
+    ctx.fillStyle = '#fff3c0';
+    ctx.fillText(`${o.w}`, x, by - r * 2.2);
+  }
+}
+
+/** The Big Basket, the champion: a giant basket of bread waddling on little legs, its worth over it. */
+export function paintBigBasket(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, o: { step: number; w: number; t: number }): void {
+  const r = s * 0.85;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  glow(ctx, x, y - r, r * 2.4, C.goldGlow, 0.35 + 0.1 * Math.sin(o.t * 6));
+  ctx.restore();
+  ctx.fillStyle = 'rgba(30,40,20,.25)';
+  ellipse(ctx, x, y, r * 1.1, r * 0.3);
+  ctx.fill();
+  const hop = Math.abs(Math.sin(o.step)) * r * 0.12;
+  paintBasket(ctx, x, y - r * 0.95 - hop, r, { fill: 1, legs: o.step / 10, gold: true });
+  if (r > 6) {
+    ctx.font = font(900, Math.max(10, r * 0.7), SANS);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(90,50,0,.85)';
+    ctx.strokeText(`${o.w}`, x, y - r * 2.1 - hop);
+    ctx.fillStyle = '#fff3c0';
+    ctx.fillText(`${o.w}`, x, y - r * 2.1 - hop);
+  }
+}
+
+/**
+ * A gull on foot, waddling down the hill toward the viewer: white body, folded grey wings, a yellow
+ * beak, orange feet; Mirka in her red kerchief, Gerwazy round as a loaf.  Dozing, it sits with its
+ * eyes shut; flying off, the caller uses paintGull.
+ */
+export function paintGullWalk(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, o: { kind: 'gull' | 'fat' | 'mirka'; step: number; doze: boolean; t: number }): void {
+  const fat = o.kind === 'fat';
+  const r = s * (fat ? 0.78 : 0.48);
+  if (r < 0.8) return;
+  const sway = o.doze ? 0 : Math.sin(o.step) * 0.12;
+  ctx.fillStyle = 'rgba(30,40,20,.22)';
+  ellipse(ctx, x, y, r * 0.9, r * 0.28);
+  ctx.fill();
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(sway);
+  const sit = o.doze ? r * 0.35 : 0;
+  // feet
+  if (!o.doze) {
+    ctx.fillStyle = '#f08a2c';
+    const k = Math.sin(o.step) * r * 0.15;
+    ellipse(ctx, -r * 0.3, -r * 0.05 + k, r * 0.22, r * 0.1);
+    ctx.fill();
+    ellipse(ctx, r * 0.3, -r * 0.05 - k, r * 0.22, r * 0.1);
+    ctx.fill();
+  }
+  // body
+  ctx.fillStyle = C.gullShade;
+  ellipse(ctx, 0, -r * 0.95 + sit, r * (fat ? 1.05 : 0.72), r * (fat ? 0.9 : 0.8));
+  ctx.fill();
+  ctx.fillStyle = C.gull;
+  ellipse(ctx, 0, -r * 0.9 + sit, r * (fat ? 0.85 : 0.55), r * (fat ? 0.78 : 0.68));
+  ctx.fill();
+  // folded wings
+  ctx.fillStyle = C.gullWing;
+  for (const side of [-1, 1]) {
+    ellipse(ctx, side * r * (fat ? 0.85 : 0.6), -r * 1.0 + sit, r * 0.28, r * 0.6, side * 0.25);
+    ctx.fill();
+  }
+  // head
+  const hy = -r * (fat ? 1.85 : 1.75) + sit;
+  ctx.fillStyle = C.gull;
+  ctx.beginPath();
+  ctx.arc(0, hy, r * 0.45, 0, TAU);
+  ctx.fill();
+  if (o.kind === 'mirka') {
+    ctx.fillStyle = C.kerchief;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.45, hy + r * 0.3);
+    ctx.lineTo(r * 0.45, hy + r * 0.3);
+    ctx.lineTo(0, hy + r * 0.8);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // eyes (shut when dozing) and the beak pointing at us
+  ctx.strokeStyle = '#222';
+  ctx.fillStyle = '#222';
+  ctx.lineWidth = Math.max(0.8, r * 0.07);
+  for (const side of [-1, 1]) {
+    if (o.doze) {
+      ctx.beginPath();
+      ctx.arc(side * r * 0.2, hy - r * 0.05, r * 0.1, 0.1, Math.PI - 0.1);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(side * r * 0.2, hy - r * 0.08, Math.max(0.7, r * 0.08), 0, TAU);
+      ctx.fill();
+    }
+  }
+  if (!o.doze && (o.kind === 'mirka' || fat)) {
+    // a cheeky (or greedy) eyebrow
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.32, hy - r * 0.28);
+    ctx.lineTo(-r * 0.08, hy - r * 0.22);
+    ctx.moveTo(r * 0.32, hy - r * 0.28);
+    ctx.lineTo(r * 0.08, hy - r * 0.22);
+    ctx.stroke();
+  }
+  ctx.fillStyle = C.beak;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.14, hy + r * 0.05);
+  ctx.lineTo(r * 0.14, hy + r * 0.05);
+  ctx.lineTo(0, hy + r * 0.42);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#d6453a';
+  ctx.beginPath();
+  ctx.arc(0, hy + r * 0.3, r * 0.05, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+  if (o.doze && s > 6) {
+    ctx.fillStyle = 'rgba(60,80,90,.75)';
+    ctx.font = font(800, Math.max(8, r * 0.8), SANS);
+    ctx.textAlign = 'left';
+    const k = (o.t * 0.6 + x * 0.01) % 1;
+    ctx.globalAlpha = 1 - k;
+    ctx.fillText('z', x + r * 0.5 + k * r, y - r * 2.2 - k * r * 1.5);
+    ctx.globalAlpha = 1;
+  }
+}
+
+/**
+ * A table of the hungry (the "base"): a cloth on the grass with the group around it and the hunger
+ * over them — a bar that empties as they eat and the number of people still hungry.  Fed, they stand
+ * and cheer (`cheer` counts up from 0), then sit content; in a rest they sit down neatly.
+ */
+export function paintTable(ctx: CanvasRenderingContext2D, cx: number, cy: number, w: number, s: number, o: {
+  seed: number; hunger: number; full: number; fed: boolean; bite: number; cheer: number; rest: boolean; t: number; label: string;
+}): void {
+  // the cloth
+  ctx.fillStyle = '#efe4cc';
+  ctx.beginPath();
+  ctx.roundRect(cx - w * 0.42, cy - s * 0.35, w * 0.84, s * 0.7, s * 0.2);
+  ctx.fill();
+  ctx.strokeStyle = C.kerchief;
+  ctx.lineWidth = Math.max(1, s * 0.05);
+  ctx.setLineDash([s * 0.15, s * 0.12]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const cheering = o.fed && o.cheer < 1.6;
+  paintGroup(ctx, cx, cy - s * 0.05 + (o.bite < 0.15 && !o.fed ? -s * 0.05 : 0), w, s * 0.9, {
+    seed: o.seed, size: w > s * 5 ? 100 : 50, fed: 0, cheer: cheering ? o.cheer / 1.6 : 0, done: o.fed && !cheering, t: o.t, rest: o.rest, active: !o.fed,
+  });
+  // the hunger bar
+  const bw = Math.min(w * 0.7, s * 5), bh = Math.max(6, s * 0.36);
+  const by = cy - s * 1.9;
+  const k = o.full > 0 ? Math.max(0, Math.min(1, o.hunger / o.full)) : 0;
+  if (!o.fed) {
+    ctx.fillStyle = 'rgba(40,25,10,.55)';
+    ctx.beginPath();
+    ctx.roundRect(cx - bw / 2 - 2, by - bh / 2 - 2, bw + 4, bh + 4, bh);
+    ctx.fill();
+    ctx.fillStyle = '#fbefd8';
+    ctx.beginPath();
+    ctx.roundRect(cx - bw / 2, by - bh / 2, bw, bh, bh / 2);
+    ctx.fill();
+    if (k > 0.002) {
+      ctx.fillStyle = o.bite < 0.12 ? '#ffb070' : '#e2793a';
+      ctx.beginPath();
+      ctx.roundRect(cx - bw / 2, by - bh / 2, Math.max(bh, bw * k), bh, bh / 2);
+      ctx.fill();
+    }
+    ctx.font = font(900, Math.max(10, bh * 1.35), SANS);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(50,30,10,.75)';
+    ctx.strokeText(o.label, cx, by - bh * 0.7);
+    ctx.fillStyle = '#fff6e0';
+    ctx.fillText(o.label, cx, by - bh * 0.7);
+  } else {
+    const a = Math.max(0, 1 - Math.max(0, o.cheer - 1.2));
+    if (a > 0) {
+      ctx.globalAlpha = a;
+      ctx.fillStyle = C.green;
+      ctx.beginPath();
+      ctx.arc(cx, by, bh * 1.1, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = Math.max(2, bh * 0.3);
+      ctx.beginPath();
+      ctx.moveTo(cx - bh * 0.5, by);
+      ctx.lineTo(cx - bh * 0.1, by + bh * 0.4);
+      ctx.lineTo(cx + bh * 0.55, by - bh * 0.45);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
 }
