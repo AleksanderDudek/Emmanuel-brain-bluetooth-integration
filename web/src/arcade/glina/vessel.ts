@@ -10,8 +10,8 @@
  * a flame blush, iron speckle or a moon-white haze over the glaze.  The same code draws the small
  * vessels on the street, in the book's tiles and in the lobby (fewer rows, no specks).
  */
-import { RINGS } from './clay';
-import type { Attachment, GlazeId, KilnGift } from './content';
+import type { Attachment, GlazeId, KilnGift, PatternId } from './content';
+import { RINGS } from './shape';
 import { C, GLAZE, hash, mix, strips } from './paint';
 
 const TAU = Math.PI * 2;
@@ -50,12 +50,16 @@ export interface VesselLook {
   rows: number;
   specks: boolean;
   alpha: number;
+  /** painted bands (height 0..1, colour, pattern, how far painted in 0..1) */
+  bands: readonly VBand[] | null;
 }
+
+export interface VBand { u: number; glaze: GlazeId; pattern: PatternId; k: number }
 
 export function look(): VesselLook {
   return {
     x: 0, y: 0, scale: 1, H: 1, r: new Float64Array(RINGS), body: 'wet', porcelain: false, glaze: null, fired: 0, gloss: 0.4, wavy: 0,
-    runs: 0, gift: null, wall: 0.6, rot: 0, attach: null, glow: 0, rows: 140, specks: true, alpha: 1,
+    runs: 0, gift: null, wall: 0.6, rot: 0, attach: null, glow: 0, rows: 140, specks: true, alpha: 1, bands: null,
   };
 }
 
@@ -131,7 +135,7 @@ export function drawVessel(ctx: CanvasRenderingContext2D, v: VesselLook): void {
   const ringed = v.body !== 'glazed' || (v.glaze === 'miod' || v.glaze === 'zelazo');
   for (let j = 0; j < n; j++) {
     const yy = v.y - (j + 1) * rowH, rp = rowR[j];
-    const ring = !small && ringed && ((j * rowH) % 7.5) < rowH;
+    const ring = !small && ringed && ((j * rowH) % 7.5) < rowH && (v.body !== 'glazed' || v.fired > 0.9);
     const img = ring ? (v.body === 'glazed' ? pool.base : st.ring) : st.base;
     ctx.drawImage(img, v.x - rp, yy - 0.6, rp * 2, rowH + 1.2);
   }
@@ -167,6 +171,7 @@ export function drawVessel(ctx: CanvasRenderingContext2D, v: VesselLook): void {
     }
   }
   if (v.body === 'glazed') overlays(ctx, v, n, Hpx);
+  if (v.body === 'glazed' && v.bands && v.bands.length) bands(ctx, v, n, Hpx);
   rim(ctx, v, n, Hpx, sf);
   if (v.attach && v.attach.length) attachments(ctx, v, n, Hpx, sf.color);
   if (v.glow > 0.01) {
@@ -178,6 +183,92 @@ export function drawVessel(ctx: CanvasRenderingContext2D, v: VesselLook): void {
     ctx.fillStyle = C.chamber2;
     ctx.fillRect(v.x - widest(v.r) * v.scale - 2, v.y - Hpx - 2, widest(v.r) * v.scale * 2 + 4, Hpx + 4);
     ctx.restore();
+  }
+  ctx.restore();
+}
+
+/** A band's colour as fired so far (raw glaze is chalky until the kiln matures it). */
+function bandColor(v: VesselLook, g: GlazeId): string {
+  const c = GLAZE[g].c;
+  const k = Math.min(1, Math.max(0, v.fired));
+  return k >= 0.999 ? c : mix(mix(c, '#FBF7EE', 0.5), c, k);
+}
+
+/**
+ * The painted bands, turning with the pot: a plain stripe is shaded row by row like the body (its
+ * colour's strips); the patterns are marks laid around the circumference, foreshortened toward the
+ * edges, those on the far side hidden.  A band still being painted shows the share already done.
+ */
+function bands(ctx: CanvasRenderingContext2D, v: VesselLook, n: number, Hpx: number): void {
+  ctx.save();
+  silhouette(ctx, v, n, Hpx);
+  ctx.clip();
+  const rowH = Hpx / n;
+  for (const b of v.bands!) {
+    const col = bandColor(v, b.glaze);
+    const half = b.pattern === 'pas' ? 0.035 : 0.05;
+    const j0 = Math.max(0, Math.floor((b.u - half) * n)), j1 = Math.min(n - 1, Math.ceil((b.u + half) * n));
+    const k = Math.min(1, Math.max(0, b.k));
+    if (b.pattern === 'pas') {
+      const st = strips(col);
+      ctx.globalAlpha = v.alpha * (0.35 + 0.65 * k);
+      for (let j = j0; j <= j1; j++) {
+        const yy = v.y - (j + 1) * rowH, rp = rowR[j];
+        const w = rp * 2 * k;
+        ctx.drawImage(st.base, v.x - rp, yy - 0.6, w, rowH + 1.2);
+      }
+      ctx.globalAlpha = v.alpha;
+      continue;
+    }
+    const jm = Math.min(n - 1, Math.max(0, Math.round(b.u * n)));
+    const rp = rowR[jm], yc = v.y - b.u * Hpx, hh = Math.max(2, (j1 - j0) * rowH * 0.5);
+    const marks = Math.max(10, Math.round(rp / 4));
+    ctx.fillStyle = col;
+    ctx.strokeStyle = col;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const shown = Math.ceil(marks * k);
+    if (b.pattern === 'fala' || b.pattern === 'zygzak') {
+      ctx.lineWidth = Math.max(1.4, hh * 0.45);
+      ctx.beginPath();
+      let pen = false;
+      const steps = marks * 4;
+      for (let i = 0; i <= steps; i++) {
+        if (i / steps > k) break;
+        const a = (i / steps) * TAU + v.rot, c = Math.cos(a);
+        if (c < 0.02) { pen = false; continue; }
+        const ph = (i / steps) * marks;
+        const off = b.pattern === 'fala' ? Math.sin(ph * TAU) : (Math.abs(((ph * 2) % 2) - 1) * 2 - 1);
+        const px = v.x + rp * Math.sin(a), py = yc + off * hh * 0.8;
+        if (!pen) { ctx.moveTo(px, py); pen = true; } else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      continue;
+    }
+    for (let i = 0; i < shown; i++) {
+      const a = (i / marks) * TAU + v.rot, c = Math.cos(a);
+      if (c < 0.05) continue;
+      const px = v.x + rp * Math.sin(a);
+      ctx.globalAlpha = v.alpha * (0.45 + 0.55 * c);
+      if (b.pattern === 'kropki') {
+        ctx.beginPath();
+        ctx.ellipse(px, yc, Math.max(0.8, hh * 0.55 * c), Math.max(0.8, hh * 0.55), 0, 0, TAU);
+        ctx.fill();
+      } else {
+        // an olive sprig: a stem and two leaves
+        ctx.lineWidth = Math.max(0.8, hh * 0.18);
+        ctx.beginPath();
+        ctx.moveTo(px - hh * 0.6 * c, yc + hh * 0.5);
+        ctx.lineTo(px + hh * 0.6 * c, yc - hh * 0.5);
+        ctx.stroke();
+        for (const s of [-1, 1]) {
+          ctx.beginPath();
+          ctx.ellipse(px + s * hh * 0.25 * c, yc + s * hh * 0.1, Math.max(0.6, hh * 0.45 * c), Math.max(0.6, hh * 0.2), s * 0.7, 0, TAU);
+          ctx.fill();
+        }
+      }
+    }
+    ctx.globalAlpha = v.alpha;
   }
   ctx.restore();
 }

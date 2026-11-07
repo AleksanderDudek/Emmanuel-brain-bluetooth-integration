@@ -1,252 +1,223 @@
 /**
- * What Glina remembers between sessions and the pure rules of its meta game: the street's three
- * households and their stories, the Book of Vessels (a page per form with the best vessel and its
- * marks), the street's everyday items, kiln gifts with published odds and pity, the date-seeded
- * form of the day, the day's gift (the same for everyone who comes), glazes, and the dates behind
- * the welcome back.  No DOM; randomness only from the caller's generator.
+ * What Glina remembers between sessions (v2) and the pure rules of its meta game: the purse and the
+ * shop (glazes, patterns, the wheel and the kiln), the shelf (the best piece of every form, the
+ * collection), the forms open to order (one more for every few stars), the three households'
+ * stories, the kiln's gifts, the coach marks already shown and the records.  No DOM; randomness only
+ * from the caller's generator.
+ *
+ * A v1 save (the chalk-line Glina) is migrated in place on first use: its session count stays, its
+ * best session (in centimetres, a unit the shop no longer counts in) is kept as `legacyCm` for the
+ * records, and the glazes it had and the households' story steps stay; the rest starts fresh.
+ * Fields of an unexpected type never crash the game: they are read as their fresh value.
  */
-import { mulberry32 } from '../../core/random';
-import { CLAY, RINGS, U } from './clay';
 import {
-  DAY_GIFTS, FORM, FORMS, GIFT_GLAZE, GIFT_ODDS, GLAZES, HOUSES, PITY_GIFT, PITY_MOON, START_GLAZES, STORY,
-  type FormId, type GiftId, type GlazeId, type HouseId, type KilnGift,
+  FORM, FORMS, FORMS_START, FORM_IDS, FORM_STEP, GLAZES, HOUSES, KILN_GIFTS, PATTERNS, SHOP, START_GLAZES, START_PATTERNS,
+  type FormId, type GlazeId, type HouseId, type KilnGift, type PatternId, type ShopItem,
 } from './content';
+import { RINGS } from './shape';
 
-/** A fired vessel, enough to draw it again. */
-export interface VesselRec {
+/** A painted band: its height (u × 100), colour and pattern. */
+export type BandRec = [number, GlazeId, PatternId];
+
+/** A sold piece, enough to draw it again on the shelf. */
+export interface PieceRec {
   f: FormId;
-  /** height, cm (1 decimal) */
+  /** height (cm, 1 decimal) and the radius ÷ height × 100 at the rings */
   h: number;
-  /** the 16 radius ÷ height ratios × 100, integers */
   q: number[];
+  g: GlazeId;
+  b: BandRec[];
   stars: 1 | 2 | 3;
-  /** similarity × 100 */
-  sim: number;
-  /** 0 mocna, 1 zgrabna, 2 cienka, 3 skorupka */
-  wall: number;
-  centre: boolean;
-  glaze: GlazeId;
-  /** the firing's G × 100 */
-  runs: number;
+  /** the shape's match × 100 */
+  m: number;
   gift: KilnGift | null;
-  second: boolean;
-  porcelain: boolean;
 }
 
-/** A page of the Book of Vessels: how many were fired, the best one, the tallest height (cm), the marks earned (MARK bits). */
-export interface Page { n: number; best: VesselRec; tall: number; marks: number }
-
-export interface StreetItem { f: FormId; glaze: GlazeId }
-
 export interface GlinaProgress {
-  v: 1;
-  /** saved sessions (this session is sessions + 1; set in result() with Math.max) */
+  ver: 2;
   sessions: number;
-  /** vessels fired, all time (counted at each opening), and their heights (cm) */
-  vessels: number;
-  cmTotal: number;
-  /** story steps delivered per household (0..4), the households that have ordered, the day of the last step */
-  steps: Record<HouseId, number>;
-  introduced: HouseId[];
-  storyDay: string;
-  /** the last 3 everyday deliveries per house (by its door, in their glazes) */
-  street: Record<HouseId, StreetItem[]>;
-  book: Partial<Record<FormId, Page>>;
-  /** the most recently opened page (the lobby's wheel turns it; the panel shows its verse) */
-  newest: FormId | null;
-  /** vessels since the last kiln gift and since the last moon white (pity) */
-  sinceGift: number;
-  sinceMoon: number;
-  /** throws and firings begun, all time (every 4th is blind from session 3); set in result() only */
-  throwsBegun: number;
-  firingsBegun: number;
+  /** the best session (sykli) */
+  best: number;
+  /** the v1 record in centimetres, kept for the records card */
+  legacyCm: number;
+  /** sykli to spend, and all ever earned */
+  purse: number;
+  earned: number;
+  /** pieces sold, stars earned, ★★★ pieces, master spins — all time */
+  sold: number;
+  stars: number;
+  three: number;
+  spins: number;
+  /** the best streak of ★★★ sales in a row */
+  bestStreak: number;
+  /** what the shop sold */
   glazes: GlazeId[];
-  /** the day's gifts received (unique) and the day whose gift was received */
-  gifts: GiftId[];
-  giftDay: string;
-  /** the day of the last form of the day and its best shape (similarity × 100) */
-  dailyDay: string;
-  dailyBest: number;
-  /** the last day played and how many sessions that day */
+  patterns: PatternId[];
+  wheel: number;
+  kiln: number;
+  /** the best piece of every form (the collection) */
+  shelf: Partial<Record<FormId, PieceRec>>;
+  /** each household's story steps delivered (0..4) */
+  steps: Record<HouseId, number>;
+  /** the kiln's gifts received, by kind */
+  gifts: Record<string, number>;
+  /** Toczenie (push) blocks begun, all time: every 4th is blind from the 3rd session */
+  pushes: number;
+  /** coach marks already shown */
+  seen: string[];
   lastDay: string;
-  todayN: number;
-  /** Druga forma vessels, all time */
-  seconds: number;
-  /** records: the best session (cm), the tallest vessel (cm), most ★★★ in one session */
-  bestSession: number;
-  tallest: number;
-  bestThree: number;
 }
 
 export function freshProgress(): GlinaProgress {
   return {
-    v: 1, sessions: 0, vessels: 0, cmTotal: 0,
-    steps: { karczma: 0, piekarnia: 0, mlodzi: 0 }, introduced: [], storyDay: '',
-    street: { karczma: [], piekarnia: [], mlodzi: [] }, book: {}, newest: null,
-    sinceGift: 0, sinceMoon: 0, throwsBegun: 0, firingsBegun: 0, glazes: [...START_GLAZES],
-    gifts: [], giftDay: '', dailyDay: '', dailyBest: 0, lastDay: '', todayN: 0, seconds: 0,
-    bestSession: 0, tallest: 0, bestThree: 0,
+    ver: 2, sessions: 0, best: 0, legacyCm: 0, purse: 0, earned: 0, sold: 0, stars: 0, three: 0, spins: 0, bestStreak: 0,
+    glazes: [...START_GLAZES], patterns: [...START_PATTERNS], wheel: 0, kiln: 0, shelf: {},
+    steps: { karczma: 0, piekarnia: 0, mlodzi: 0 }, gifts: {}, pushes: 0, seen: [], lastDay: '',
   };
 }
 
-// ── the street ───────────────────────────────────────────────────
-/** The next household to meet, in street order (null: everyone has ordered). */
-export function nextIntroduction(p: GlinaProgress): HouseId | null {
-  return HOUSES.find(h => !p.introduced.includes(h)) ?? null;
+const num = (v: unknown, def = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : def);
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+const nat = (v: unknown, def = 0, max = Infinity): number => Math.min(max, Math.max(0, Math.floor(num(v, def))));
+
+function cleanPiece(v: unknown, f: FormId): PieceRec | null {
+  if (!isObj(v)) return null;
+  const q = Array.isArray(v.q) && v.q.length === RINGS && v.q.every(x => typeof x === 'number' && Number.isFinite(x)) ? (v.q as number[]) : null;
+  if (!q) return null;
+  const g = GLAZES.includes(v.g as GlazeId) ? (v.g as GlazeId) : 'biel';
+  const b = Array.isArray(v.b) ? (v.b as unknown[]).filter((x): x is BandRec => Array.isArray(x) && x.length === 3
+    && typeof x[0] === 'number' && GLAZES.includes(x[1] as GlazeId) && PATTERNS.includes(x[2] as PatternId)).slice(0, 4) : [];
+  const stars = Math.min(3, Math.max(1, Math.round(num(v.stars, 1)))) as 1 | 2 | 3;
+  const gift = KILN_GIFTS.includes(v.gift as KilnGift) ? (v.gift as KilnGift) : null;
+  return { f, h: Math.max(1, num(v.h, FORM[f].N)), q, g, b, stars, m: nat(v.m, 0, 100), gift };
 }
 
-/** The household whose story goes on today: the fewest steps done (< 4), ties in street order (null: every story is told). */
-export function nextStoryHouse(p: GlinaProgress): HouseId | null {
+/**
+ * Bring a loaded save to v2, in place.  An old (v1) or unknown save keeps its session count, its
+ * best (as legacyCm), its glazes and its households' steps; a v2 save has every field checked.
+ */
+export function migrate(p: GlinaProgress): GlinaProgress {
+  const raw = p as unknown as Record<string, unknown>;
+  const fresh = freshProgress();
+  if (raw.ver !== 2 || 'v' in raw) {
+    const sessions = nat(raw.sessions);
+    const legacyCm = nat(raw.bestSession);
+    const glazes = Array.isArray(raw.glazes) ? (raw.glazes as unknown[]).filter((g): g is GlazeId => GLAZES.includes(g as GlazeId)) : [];
+    const steps = isObj(raw.steps) ? raw.steps : {};
+    for (const k of Object.keys(raw)) delete raw[k];
+    Object.assign(raw, fresh, {
+      sessions, legacyCm,
+      glazes: [...new Set([...START_GLAZES, ...glazes])],
+      steps: Object.fromEntries(HOUSES.map(h => [h, nat(steps[h], 0, 4)])),
+    });
+    return p;
+  }
+  const f = fresh as unknown as Record<string, unknown>;
+  for (const k of Object.keys(raw)) if (!(k in f)) delete raw[k];
+  for (const [k, def] of Object.entries(f)) {
+    const v = raw[k];
+    if (typeof def === 'number') raw[k] = nat(v, def, k === 'wheel' || k === 'kiln' ? 3 : Infinity);
+    else if (typeof def === 'string') raw[k] = typeof v === 'string' ? v : def;
+  }
+  const arr = (v: unknown) => (Array.isArray(v) ? v : []);
+  p.glazes = [...new Set([...START_GLAZES, ...arr(raw.glazes).filter((g): g is GlazeId => GLAZES.includes(g as GlazeId))])];
+  p.patterns = [...new Set([...START_PATTERNS, ...arr(raw.patterns).filter((x): x is PatternId => PATTERNS.includes(x as PatternId))])];
+  p.seen = arr(raw.seen).filter((x): x is string => typeof x === 'string');
+  const shelf = isObj(raw.shelf) ? raw.shelf : {};
+  p.shelf = {};
+  for (const id of FORM_IDS) {
+    const rec = cleanPiece(shelf[id], id);
+    if (rec) p.shelf[id] = rec;
+  }
+  const steps = isObj(raw.steps) ? raw.steps : {};
+  p.steps = Object.fromEntries(HOUSES.map(h => [h, nat(steps[h], 0, 4)])) as Record<HouseId, number>;
+  const gifts = isObj(raw.gifts) ? raw.gifts : {};
+  p.gifts = Object.fromEntries(KILN_GIFTS.filter(g => num(gifts[g]) > 0).map(g => [g, nat(gifts[g])]));
+  raw.ver = 2;
+  return p;
+}
+
+/** The best headline so far (null: never played). */
+export const bestOf = (p: GlinaProgress): number | null => (p.sessions > 0 ? p.best : null);
+
+// ── forms ────────────────────────────────────────────────────────
+/** How many forms are open to order (by stars earned, all time). */
+export const openCount = (p: GlinaProgress): number => Math.min(FORMS.length, FORMS_START + Math.floor(p.stars / FORM_STEP));
+
+/** The forms open to order, easiest first. */
+export const openForms = (p: GlinaProgress): FormId[] => FORMS.slice(0, openCount(p)).map(f => f.id);
+
+/** Stars still needed for the next form (null: all are open). */
+export function starsToNext(p: GlinaProgress): number | null {
+  const n = openCount(p);
+  return n >= FORMS.length ? null : (n - FORMS_START + 1) * FORM_STEP - p.stars;
+}
+
+// ── the shelf ────────────────────────────────────────────────────
+/** Whether `a` is a better shelf piece than `b`: by stars, then by shape. */
+export const better = (a: PieceRec, b: PieceRec): boolean => (a.stars !== b.stars ? a.stars > b.stars : a.m > b.m);
+
+/** Put a sold piece on the shelf: 'new' (its form's first), 'up' (a better one), or 'same'. */
+export function shelve(p: GlinaProgress, rec: PieceRec): 'new' | 'up' | 'same' {
+  const had = p.shelf[rec.f];
+  if (!had) {
+    p.shelf[rec.f] = rec;
+    return 'new';
+  }
+  if (better(rec, had)) {
+    p.shelf[rec.f] = rec;
+    return 'up';
+  }
+  return 'same';
+}
+
+export const shelfCount = (p: GlinaProgress): number => FORM_IDS.filter(f => p.shelf[f]).length;
+
+// ── the shop ────────────────────────────────────────────────────
+export function owned(p: GlinaProgress, it: ShopItem): boolean {
+  switch (it.kind) {
+    case 'glaze': return p.glazes.includes(it.ref);
+    case 'pattern': return p.patterns.includes(it.ref);
+    case 'wheel': return p.wheel >= it.ref;
+    case 'kiln': return p.kiln >= it.ref;
+  }
+}
+
+/** An item is on sale when it is not owned and its earlier level is (wheel 2 after wheel 1). */
+export function onSale(p: GlinaProgress, it: ShopItem): boolean {
+  if (owned(p, it)) return false;
+  if (it.kind === 'wheel') return p.wheel === it.ref - 1;
+  if (it.kind === 'kiln') return p.kiln === it.ref - 1;
+  return true;
+}
+
+/** The shop's window: the next few items on sale, cheapest first. */
+export const window_ = (p: GlinaProgress, n = 4): ShopItem[] => SHOP.filter(it => onSale(p, it)).sort((a, b) => a.price - b.price).slice(0, n);
+
+/** Buy an item with the purse; false when it cannot be bought. */
+export function buy(p: GlinaProgress, id: string): boolean {
+  const it = SHOP.find(x => x.id === id);
+  if (!it || !onSale(p, it) || p.purse < it.price) return false;
+  p.purse -= it.price;
+  switch (it.kind) {
+    case 'glaze': p.glazes.push(it.ref); break;
+    case 'pattern': p.patterns.push(it.ref); break;
+    case 'wheel': p.wheel = it.ref; break;
+    case 'kiln': p.kiln = it.ref; break;
+  }
+  return true;
+}
+
+/** The kiln shelf's capacity (pieces per firing). */
+export const capacity = (p: GlinaProgress): number => 3 + p.kiln;
+
+// ── the households ──────────────────────────────────────────────
+/** The household whose story goes on next: the fewest steps (< 4), ties in street order (null: all told). */
+export function nextStory(p: GlinaProgress): HouseId | null {
   let best: HouseId | null = null;
   for (const h of HOUSES) if (p.steps[h] < 4 && (best === null || p.steps[h] < p.steps[best])) best = h;
   return best;
 }
 
-/** The form a household's step asks for (1..4). */
-export const storyForm = (h: HouseId, step: number): FormId => STORY[h][Math.min(3, Math.max(0, step - 1))];
-
-/** A house is alive once its fourth step is delivered. */
-export const alive = (p: GlinaProgress, h: HouseId): boolean => p.steps[h] >= 4;
-
-/** An everyday delivery stands by its house's door: the last three are kept. */
-export function addToStreet(p: GlinaProgress, h: HouseId, item: StreetItem): void {
-  const list = p.street[h];
-  list.push(item);
-  while (list.length > 3) list.shift();
-}
-
-// ── the book ─────────────────────────────────────────────────────
-/** Whether `a` is a better page vessel than `b`: by stars, then shape, then height. */
-export function better(a: VesselRec, b: VesselRec): boolean {
-  if (a.stars !== b.stars) return a.stars > b.stars;
-  if (a.sim !== b.sim) return a.sim > b.sim;
-  return a.h > b.h;
-}
-
-/** Put a fired vessel in the book: a new page (true) or one more on its page, which keeps the best and every mark. */
-export function addToBook(p: GlinaProgress, rec: VesselRec, marks: number): boolean {
-  const page = p.book[rec.f];
-  if (!page) {
-    p.book[rec.f] = { n: 1, best: rec, tall: rec.h, marks };
-    return true;
-  }
-  page.n++;
-  page.marks |= marks;
-  page.tall = Math.max(page.tall ?? 0, rec.h);
-  if (better(rec, page.best)) page.best = rec;
-  return false;
-}
-
-/** The forms with an open page, in the book's order. */
-export const openForms = (p: GlinaProgress): FormId[] => FORMS.filter(f => p.book[f.id]).map(f => f.id);
-
-/** The tallest vessel of a form so far (cm; 0: none): the ruler's chalk tick to beat. */
-export function tallestOf(p: GlinaProgress, f: FormId): number {
-  const page = p.book[f];
-  return page ? Math.max(page.tall ?? 0, page.best.h) : 0;
-}
-
-// ── glazes ───────────────────────────────────────────────────────
-/** The glaze an order asks for: the form's own, or honey, then tin white, while it is locked. */
-export function orderGlaze(p: GlinaProgress, want: GlazeId): GlazeId {
-  if (p.glazes.includes(want)) return want;
-  return p.glazes.includes('miod') ? 'miod' : 'biel';
-}
-
-/** The cut's buckets: the order's glaze first, then up to two other unlocked ones, chosen in turn by `turn`. */
-export function buckets(p: GlinaProgress, own: GlazeId, turn: number): GlazeId[] {
-  const others = GLAZES.filter(g => g !== own && p.glazes.includes(g));
-  const out: GlazeId[] = [own];
-  for (let i = 0; i < Math.min(2, others.length); i++) out.push(others[(turn + i) % others.length]);
-  return out;
-}
-
-// ── kiln gifts ───────────────────────────────────────────────────
-/** One roll's gift for a uniform `u` (the published odds; a calm fire doubles them). */
-export function giftFor(u: number, calm: boolean): KilnGift | null {
-  const k = calm ? 2 : 1;
-  const moon = GIFT_ODDS.moon * k, speckle = moon + GIFT_ODDS.speckle * k, blush = speckle + GIFT_ODDS.blush * k;
-  return u < moon ? 'moon' : u < speckle ? 'speckle' : u < blush ? 'blush' : null;
-}
-
-/**
- * The kiln gift of one vessel at its opening, with pity: after 4 vessels without a gift the 5th
- * gets one for sure (drawn by the relative odds), after 29 without moon white the 30th is moon white.
- * `first`: the very first vessel ever, whose flame blush is guaranteed.  Updates the pity counters.
- */
-export function rollGift(p: GlinaProgress, calm: boolean, rnd: () => number, first = false): KilnGift | null {
-  let gift: KilnGift | null;
-  if (first) gift = 'blush';
-  else if (p.sinceMoon >= PITY_MOON) gift = 'moon';
-  else {
-    gift = giftFor(rnd(), calm);
-    if (!gift && p.sinceGift >= PITY_GIFT) {
-      const sum = GIFT_ODDS.moon + GIFT_ODDS.speckle + GIFT_ODDS.blush;
-      const v = rnd() * sum;
-      gift = v < GIFT_ODDS.moon ? 'moon' : v < GIFT_ODDS.moon + GIFT_ODDS.speckle ? 'speckle' : 'blush';
-    }
-  }
-  p.sinceGift = gift ? 0 : p.sinceGift + 1;
-  p.sinceMoon = gift === 'moon' ? 0 : p.sinceMoon + 1;
-  return gift;
-}
-
-// ── the day ──────────────────────────────────────────────────────
-const dayNum = (d: string): number | null => {
-  const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) / 86400000 : null;
-};
-
-/** Whole days from `a` to `b` ("YYYY-MM-DD"); null when either is missing. */
-export function daysBetween(a: string, b: string): number | null {
-  const x = dayNum(a), y = dayNum(b);
-  return x === null || y === null ? null : Math.round(y - x);
-}
-
-/** Days since 2026-01-01: every ten days in a row, everyone who comes receives all ten gifts. */
-export const dayIndex = (day: string): number => daysBetween('2026-01-01', day) ?? 0;
-
-/** The day's gift at the gate, the same for everyone whatever they made. */
-export const dayGift = (day: string): GiftId => DAY_GIFTS[((dayIndex(day) % DAY_GIFTS.length) + DAY_GIFTS.length) % DAY_GIFTS.length];
-
-/** Receive the day's gift (once a day): a pigment unlocks its glaze.  Returns the gift (null: already received today). */
-export function receiveDayGift(p: GlinaProgress, day: string): GiftId | null {
-  if (p.giftDay === day) return null;
-  const g = dayGift(day);
-  p.giftDay = day;
-  if (!p.gifts.includes(g)) p.gifts.push(g);
-  const glaze = GIFT_GLAZE[g];
-  if (glaze && !p.glazes.includes(glaze)) p.glazes.push(glaze);
-  return g;
-}
-
-/** After two days away or more, the first lump of the session is porcelain ("Glina czekała na Ciebie"). */
-export function welcomeBack(p: GlinaProgress, day: string): boolean {
-  const away = daysBetween(p.lastDay, day);
-  return away !== null && away >= 2;
-}
-
-/** The form of the day, the same for every potter: the form, a variant of its outline and the glaze, all from the day's seed. */
-export interface DailyForm { f: FormId; q: Float64Array; glaze: GlazeId }
-
-export function dailyForm(daySeed: number): DailyForm {
-  const rnd = mulberry32(daySeed);
-  const form = FORMS[Math.min(FORMS.length - 1, Math.floor(rnd() * FORMS.length))];
-  const a = 0.12 * (rnd() - 0.5), c = 0.2 + 0.6 * rnd();
-  const q = new Float64Array(RINGS);
-  for (let k = 0; k < RINGS; k++) {
-    const z = (U[k] - c) / 0.18;
-    q[k] = Math.max(0.08, form.q[k] + a * Math.exp(-z * z));
-  }
-  // the same clamps as the clay's: the foot between 0.3 and 0.9 of the widest ring
-  let body = 0;
-  for (let k = 1; k < RINGS; k++) body = Math.max(body, q[k]);
-  q[0] = Math.min(CLAY.footHi * body, Math.max(CLAY.footLo * body, q[0]));
-  const glaze = GLAZES[Math.min(GLAZES.length - 1, Math.floor(rnd() * GLAZES.length))];
-  return { f: form.id, q, glaze };
-}
-
-/** The three easiest open forms (Złota godzina, the victory lap). */
-export function easiest(p: GlinaProgress): FormId[] {
-  return openForms(p).sort((a, b) => FORM[a].ease - FORM[b].ease).slice(0, 3);
-}
+/** Shop items owned (for the records): glazes, patterns, upgrade levels. */
+export const ownedCount = (p: GlinaProgress): number => SHOP.filter(it => owned(p, it)).length;

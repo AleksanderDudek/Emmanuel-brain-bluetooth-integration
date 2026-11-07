@@ -1,126 +1,137 @@
 /**
- * Where Glina's play view puts things: the runner's own strips stay clear (the timer and the pause
- * button on top, the signal banner and the simulator button below), the HUD band sits under the
- * top strip, the card zone (the gate, the cut with its glaze buckets, the opening) over the
- * courtyard wall — across the top on a portrait phone, in the left column when wide — and the stage,
- * where the vessel stands on the wheel head with the ruler beside it.  The stage's scale (px per
- * cm) is fixed per form, so the tallest and widest vessel a form allows still fits, and an ordinary
- * one looks like the hero.  Pure geometry: the sim's tests use it too.
+ * Where everything sits in the workshop (CSS px), for landscape and portrait: the counter with the
+ * customer and the order ticket on the left, the wheel in the middle (the pot's foot on its head,
+ * the spirit level on its frame, the Gotowe button beside it), the kiln with its heat gauge on the
+ * right, the shelf with the cat along the back wall, and the glazing palette at the bottom.  The
+ * runner's HUD covers the band above `top`: nothing that must be read or touched sits there.
  */
-import { clamp } from '../kit/juice';
-import { limits, type ClayForm } from './clay';
-
-/** The runner's own UI: the top strip (timer, pause), the bottom strip (signal banner, simulator button). */
-export const TOP = 64;
-export const BOTTOM = 66;
+import { RULES } from './rules';
+import { widestOf, type Target } from './shape';
 
 export interface Rect { x: number; y: number; w: number; h: number }
 
 export interface Layout {
   w: number;
   h: number;
-  kind: 'portrait' | 'landscape' | 'desktop';
-  /** UI scale for fonts and strokes */
-  u: number;
-  /** the HUD band under the runner's strip */
-  hudY: number;
-  hudH: number;
-  /** the cards' zone */
-  card: Rect;
-  /** the stage: the wheel's axis (x), the wheel head (the vessel's foot, y), the stage's top, the widest half-width */
-  axis: number;
-  foot: number;
   top: number;
-  halfW: number;
-  /** the ruler's left edge (px) */
-  ruler: number;
-  /** the courtyard: the wall's top, the floor line, the gate arch (behind the card zone), the kiln when wide */
-  wallTop: number;
+  portrait: boolean;
+  /** a size unit: ~1 on a desktop, smaller on a phone */
+  u: number;
+  /** the wheel's axis, and the pot's foot (the wheel head's top) */
+  axis: number;
   floor: number;
-  gate: Rect;
-  kiln: Rect | null;
-  /** pixels per cm are never more than this (small forms do not balloon) */
-  maxScale: number;
+  /** the pot's room: up from the floor, and to each side of the axis */
+  stageH: number;
+  stageW: number;
+  /** the wheel head (an ellipse) and the frame's spirit level */
+  wheel: { x: number; y: number; rx: number; ry: number };
+  level: Rect;
+  /** the master's hand ring */
+  charge: { x: number; y: number; r: number };
+  done: Rect;
+  ticket: Rect;
+  /** the customer's feet and height (px) */
+  customer: { x: number; y: number; s: number };
+  kiln: Rect;
+  /** the heat gauge: a half dial (its centre at the bottom) */
+  gauge: { x: number; y: number; r: number };
+  /** the kiln shelf where the batch dries */
+  shelf: Rect;
+  /** the cat on the back shelf */
+  cat: { x: number; y: number; s: number };
+  /** the glazing palette: the colours' row and the patterns' row */
+  colors: Rect;
+  patterns: Rect;
+  /** the glazing wheel's floor (higher than the throwing wheel's: the palette sits under it) */
+  glazeFloor: number;
 }
 
-export function layout(w: number, h: number): Layout {
-  const kind: Layout['kind'] = h > w ? 'portrait' : h < 560 ? 'landscape' : 'desktop';
-  if (kind === 'portrait') {
-    const u = clamp(w / 390, 0.86, 1.25);
-    const hudY = TOP, hudH = 48 * u;
-    const card = { x: 16, y: hudY + hudH, w: w - 32, h: 150 * u };
-    const top = card.y + card.h + 34 * u;
-    const foot = Math.max(top + 160, h - 144 * Math.min(1, h / 844));
-    const halfW = Math.min(w * 0.35, 190);
-    const floor = Math.min(foot - 150 * u, top + (foot - top) * 0.45);
+export function layout(w: number, h: number, top: number): Layout {
+  const portrait = h > w * 1.05;
+  const u = Math.max(0.55, Math.min(1.15, Math.min(w / 1100, h / 640)));
+  const T = Math.min(h * 0.5, Math.max(0, top));
+  if (!portrait) {
+    const floor = h - Math.max(48, Math.min(90, h * 0.14));
+    const axis = w * 0.5;
+    const stageTop = T + 22;
+    const stageH = Math.max(60, floor - stageTop);
+    const stageW = Math.min(w * 0.17, 260);
+    const wheelRx = Math.min(stageW * 1.05, 170 * u);
+    const ticketW = Math.min(250, Math.max(170, w * 0.2));
+    const kilnW = Math.min(230, Math.max(130, w * 0.17));
+    const kilnH = Math.min(kilnW * 1.0, (floor - T) * 0.62);
+    const gaugeR = Math.min(kilnW * 0.5, (floor - T) * 0.22);
+    const colH = Math.min(60, Math.max(42, h * 0.075));
     return {
-      w, h, kind, u, hudY, hudH, card, axis: w / 2, foot, top, halfW, ruler: w / 2 + halfW + 10 * u,
-      wallTop: hudY + 50 * u, floor, gate: { x: 14, y: card.y + card.h + 10, w: Math.min(118 * u, w * 0.3), h: Math.max(80, floor - card.y - card.h - 10) },
-      kiln: null, maxScale: 17 * u,
+      w, h, top: T, portrait, u, axis, floor, stageH, stageW,
+      wheel: { x: axis, y: floor, rx: wheelRx, ry: wheelRx * 0.2 },
+      level: { x: axis - 46 * u, y: floor + Math.max(14, 20 * u), w: 92 * u, h: 18 * u },
+      charge: { x: axis - wheelRx - 46 * u, y: floor - 40 * u, r: 26 * u },
+      done: { x: axis + wheelRx + 18 * u, y: floor - 64 * u, w: 128 * u, h: 52 * u },
+      ticket: { x: 16, y: T + 10, w: ticketW, h: Math.max(70, Math.min(176, Math.max(128, (floor - T) * 0.4), floor - T - 30)) },
+      customer: { x: 16 + ticketW * 0.5, y: floor + 26 * u, s: Math.min(190, (floor - T) * 0.42) },
+      kiln: { x: w - kilnW - 24 * u, y: floor + 24 * u - kilnH, w: kilnW, h: kilnH },
+      gauge: { x: w - kilnW / 2 - 24 * u, y: floor + 24 * u - kilnH - 18 * u, r: gaugeR },
+      shelf: { x: axis + stageW + 34 * u, y: T + 44, w: Math.max(80, w - 28 - (axis + stageW + 34 * u)), h: 10 },
+      cat: { x: w - 28 - 34 * u, y: T + 44, s: 46 * u },
+      colors: { x: axis - 240 * u, y: h - colH - 8, w: 480 * u, h: colH },
+      patterns: { x: axis - 170 * u, y: h - colH * 2 - 14, w: 340 * u, h: colH * 0.86 },
+      glazeFloor: h - colH * 2 - 34,
     };
   }
-  if (kind === 'landscape') {
-    const u = clamp(h / 390, 0.86, 1.2);
-    const hudY = TOP, hudH = 36 * u;
-    const card = { x: 16, y: hudY + hudH, w: Math.min(w * 0.32, 270 * u), h: Math.min(220 * u, h - hudY - hudH - BOTTOM - 8) };
-    const foot = h - BOTTOM - 8;
-    const top = hudY + 40 * u;
-    const axis = Math.max(card.x + card.w + 150 * u, w * 0.56);
-    const halfW = Math.min(140 * u, (w - axis) - 120 * u);
-    const floor = top + (foot - top) * 0.62;
-    return {
-      w, h, kind, u, hudY, hudH, card, axis, foot, top, halfW, ruler: axis + halfW + 10 * u,
-      wallTop: hudY + 6 * u, floor, gate: { x: 30, y: floor - (floor - hudY) * 0.86, w: Math.min(150 * u, card.w * 0.7), h: (floor - hudY) * 0.86 },
-      kiln: { x: w - Math.min(170 * u, w * 0.19), y: floor - 150 * u, w: Math.min(170 * u, w * 0.19), h: 150 * u }, maxScale: 16 * u,
-    };
-  }
-  const u = clamp(Math.min(w / 1440, h / 900) * 1.15, 1, 1.5);
-  const hudY = TOP, hudH = 56 * u;
-  const card = { x: 40, y: hudY + hudH + 10, w: Math.min(400 * u, w * 0.3), h: Math.min(300 * u, h * 0.4) };
-  const foot = h - 140 * Math.min(1.2, h / 900);
-  const top = hudY + hudH + 30;
-  const halfW = Math.min(w * 0.18, 280 * u);
-  const floor = top + (foot - top) * 0.62;
-  const kw = Math.min(w * 0.22, 340 * u), kh = kw * 0.86;
+  // portrait: the ticket on the left under the HUD, the kiln (with the cat on it) and the shelf on the
+  // right, the pot in the middle, the customer at the bottom left, the Gotowe button and the master's
+  // hand in the floor band under the wheel
+  const floor = h - Math.max(76, h * 0.13);
+  const ticketW = Math.min(200, w * 0.52);
+  const ticketH = Math.min(150, Math.max(110, (floor - T) * 0.3));
+  const axis = w * 0.5;
+  const stageTop = T + ticketH + 22;
+  const stageH = Math.max(60, floor - stageTop);
+  const stageW = w * 0.28;
+  const wheelRx = Math.min(stageW * 1.1, 130);
+  const kilnW = Math.min(92, w - ticketW - 40);
+  const kilnH = kilnW * 0.9;
+  const colH = Math.min(52, Math.max(40, w * 0.11));
+  const bandY = floor + 14;
   return {
-    w, h, kind, u, hudY, hudH, card, axis: w / 2, foot, top, halfW, ruler: w / 2 + halfW + 14 * u,
-    wallTop: hudY + 20 * u, floor, gate: { x: 64, y: floor - (floor - hudY) * 0.72, w: Math.min(220 * u, card.w * 0.62), h: (floor - hudY) * 0.72 },
-    kiln: { x: w - kw - Math.max(40, w * 0.055), y: floor - kh * 0.92, w: kw, h: kh }, maxScale: 22 * u,
+    w, h, top: T, portrait, u, axis, floor, stageH, stageW,
+    wheel: { x: axis, y: floor, rx: wheelRx, ry: wheelRx * 0.2 },
+    level: { x: axis - 36, y: floor + 18, w: 72, h: 15 },
+    charge: { x: 34, y: bandY + 24, r: 20 },
+    done: { x: w - 122, y: bandY, w: 110, h: 46 },
+    ticket: { x: 10, y: T + 8, w: ticketW, h: ticketH },
+    customer: { x: 40, y: floor - 6, s: Math.min(110, stageH * 0.42) },
+    kiln: { x: w - kilnW - 12, y: T + 26, w: kilnW, h: kilnH },
+    gauge: { x: w - kilnW / 2 - 12, y: T + 18, r: kilnW * 0.42 },
+    shelf: { x: ticketW + 22, y: T + ticketH + 6, w: w - ticketW - 30, h: 6 },
+    cat: { x: w - kilnW / 2 - 12, y: T + 30, s: 34 },
+    colors: { x: 8, y: h - colH - 6, w: w - 16, h: colH },
+    patterns: { x: 30, y: h - colH * 2 - 12, w: w - 60, h: colH * 0.86 },
+    glazeFloor: h - colH * 2 - 30,
   };
 }
 
-/**
- * Pixels per cm of the stage for a form: its tallest vessel (the line at its highest) fits the
- * stage with room above, and its widest likely one (the outline at that height, a little wider)
- * fits the half-width; never more than the layout's cap.
- */
-export function stageScale(L: Layout, f: ClayForm): number {
-  const lim = limits(f);
-  const byHeight = (L.foot - L.top) / (1.04 * lim.Hmax);
-  const byWidth = L.halfW / (1.12 * lim.maxQ * lim.Hmax);
-  return Math.max(1, Math.min(byHeight, byWidth, L.maxScale));
+/** px per cm for an order, so that the tallest and widest the clay may go still fit the stage. */
+export function stageScale(L: Layout, t: Target, room = L.stageH): number {
+  const tall = t.H * Math.min(RULES.hMax, 1.32);
+  const wide = widestOf(t.r) * 1.32;
+  return Math.max(1, Math.min((room * 0.94) / tall, (L.stageW * 1.25) / wide));
 }
 
-/** The finger's height on a vessel `H` cm tall (0 foot … 1 rim, clamped to [0.05, 1]). */
-export function vesselU(L: Layout, scale: number, H: number, y: number): number {
-  return clamp((L.foot - y) / Math.max(1, H * scale), 0.05, 1);
-}
-
-/** The play area: the whole canvas but the runner's top strip. */
-export function inPlay(L: Layout, _x: number, y: number): boolean {
-  return y >= TOP && y <= L.h;
-}
-
-/** The cut's glaze buckets, in a row along the card's lower edge (written into `out`). */
-export function bucketRects(L: Layout, n: number, out: Rect[]): Rect[] {
-  const c = L.card, u = L.u;
-  const size = Math.min(58 * u, (c.w - 24) / Math.max(1, n) - 10);
-  const gap = Math.min(16 * u, size * 0.3);
-  const total = n * size + (n - 1) * gap;
-  const x0 = c.x + (c.w - total) / 2, y = c.y + c.h - size - 12 * u;
-  out.length = n;
-  for (let i = 0; i < n; i++) out[i] = { x: x0 + i * (size + gap), y, w: size, h: size };
+/** The swatches of a row of `n` (circles in a rect). */
+export function rowSlots(r: Rect, n: number): { x: number; y: number; r: number }[] {
+  const out: { x: number; y: number; r: number }[] = [];
+  if (n <= 0) return out;
+  const cell = Math.min(r.w / n, r.h * 1.5);
+  const rad = Math.min(cell * 0.4, r.h * 0.44);
+  const x0 = r.x + (r.w - cell * n) / 2 + cell / 2;
+  for (let i = 0; i < n; i++) out.push({ x: x0 + i * cell, y: r.y + r.h / 2, r: rad });
   return out;
 }
 
-export const hit = (r: Rect, x: number, y: number): boolean => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+export const hit = (r: Rect, x: number, y: number, pad = 0): boolean =>
+  x >= r.x - pad && x <= r.x + r.w + pad && y >= r.y - pad && y <= r.y + r.h + pad;
+
+export const hitCircle = (c: { x: number; y: number; r: number }, x: number, y: number, pad = 6): boolean =>
+  Math.hypot(x - c.x, y - c.y) <= c.r + pad;

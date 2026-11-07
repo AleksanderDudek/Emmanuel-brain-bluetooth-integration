@@ -1,20 +1,17 @@
 /**
- * Glina's places, painted as flat, sun-bleached gouache shapes: the potter's courtyard (sky over a
- * hill town, the whitewashed wall with its terracotta coping, the gate arch with a slice of the
- * street, the fig tree, the paved floor, and the beehive kiln when the screen is wide), baked to an
- * offscreen layer once per size; the leaf shadows and a cloud's shadow drift over it live.  The kiln
- * up close for the firing (its glowing door, the vessel inside, ash motes; plugged for a closed
- * kiln), the opening with its steam, and the street at sunset with the three households' houses,
- * their vessels in use and the houses that came alive.  No faces anywhere: neighbours are warm
- * silhouettes.
+ * Glina's places and people, painted as flat, warm gouache shapes: the potter's house of Jeremiah 18
+ * (a whitewashed room lit from an arched window, beams, the back shelf, the packed-earth floor, the
+ * counter on the left), baked to an offscreen layer once per size; the beehive kiln of mud bricks;
+ * the customers (robed figures with simple, friendly faces, each with a look of their own); Szamot
+ * the cat on the shelf (sitting, sleeping, delighted, startled), and a shekel.
  */
-import { clamp } from '../kit/juice';
-import { RINGS } from './clay';
-import { FORM, HOUSES, STORY, type GiftId, type HouseId } from './content';
+import type { CustomerId, Look } from './content';
+import { LOOK } from './content';
 import type { Layout, Rect } from './layout';
-import type { GlinaProgress, StreetItem, VesselRec } from './meta';
-import { C, GLAZE, almond, cat, hash, mix } from './paint';
-import { drawVessel, look, type VesselLook } from './vessel';
+import type { PieceRec } from './meta';
+import { C, hash, mix } from './paint';
+import { RINGS } from './shape';
+import { look, type VesselLook } from './vessel';
 
 const TAU = Math.PI * 2;
 
@@ -29,110 +26,149 @@ function offscreen(w: number, h: number, dpr: number): { c: HTMLCanvasElement; c
   return { c, ctx };
 }
 
-// ── pieces ───────────────────────────────────────────────────────
-/** A soft round shadow sprite (leaf shadows, the cloud), made once. */
-let blob: HTMLCanvasElement | null = null;
-export function softBlob(): HTMLCanvasElement | null {
-  if (blob || typeof document === 'undefined') return blob;
-  const o = offscreen(64, 64, 1);
-  if (!o) return null;
-  const g = o.ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-  g.addColorStop(0, 'rgba(107,91,115,1)');
-  g.addColorStop(0.55, 'rgba(107,91,115,.55)');
-  g.addColorStop(1, 'rgba(107,91,115,0)');
-  o.ctx.fillStyle = g;
-  o.ctx.fillRect(0, 0, 64, 64);
-  blob = o.c;
-  return blob;
+// ── the room ─────────────────────────────────────────────────────
+/** The workshop's room, baked once per size. */
+export class Room {
+  private layer: HTMLCanvasElement | null = null;
+  private key = '';
+
+  draw(ctx: CanvasRenderingContext2D, L: Layout, dpr: number): void {
+    const key = `${L.w}x${L.h}@${dpr}:${L.top}`;
+    if (key !== this.key) {
+      this.key = key;
+      const o = offscreen(L.w, L.h, dpr);
+      this.layer = o ? (paintRoom(o.ctx, L), o.c) : null;
+    }
+    if (this.layer) ctx.drawImage(this.layer, 0, 0, L.w, L.h);
+    else paintRoom(ctx, L);
+  }
 }
 
-/** A flat-roofed hill-town house seen far off. */
-function farHouse(ctx: CanvasRenderingContext2D, x: number, base: number, w: number, h: number, i: number): void {
-  ctx.fillStyle = mix(C.whitewash, C.sand, 0.25 + hash(i) * 0.3);
-  ctx.fillRect(x, base - h, w, h);
-  ctx.fillStyle = 'rgba(107,91,115,.18)';
-  ctx.fillRect(x + w * 0.72, base - h, w * 0.28, h);
-  ctx.fillStyle = 'rgba(59,42,34,.42)';
-  const n = 1 + Math.floor(hash(i + 3) * 3);
-  for (let k = 0; k < n; k++) ctx.fillRect(x + w * (0.18 + k * 0.26), base - h * 0.62, Math.max(1.5, w * 0.1), Math.max(2, h * 0.22));
-  if (hash(i + 5) < 0.3) {
-    ctx.fillStyle = mix(C.whitewash, C.sand, 0.2);
+function paintRoom(ctx: CanvasRenderingContext2D, L: Layout): void {
+  const { w, h } = L;
+  const floorY = L.floor + 6 * L.u;
+  // the back wall: whitewash, warmer and darker away from the window
+  const wall = ctx.createLinearGradient(0, 0, w, 0);
+  wall.addColorStop(0, '#F6EEDF');
+  wall.addColorStop(0.45, '#EFE2CC');
+  wall.addColorStop(1, '#D9C3A3');
+  ctx.fillStyle = wall;
+  ctx.fillRect(0, 0, w, floorY);
+  // the plaster's unevenness
+  for (let i = 0; i < 26; i++) {
+    const r = 30 + hash(i + 3) * 90;
+    const g = ctx.createRadialGradient(hash(i + 1) * w, hash(i + 2) * floorY, 0, hash(i + 1) * w, hash(i + 2) * floorY, r);
+    g.addColorStop(0, `rgba(170,130,90,${(0.025 + hash(i) * 0.03).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(170,130,90,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, floorY);
+  }
+  // a dado: the wall's lower band, rubbed darker by years of work
+  const dado = ctx.createLinearGradient(0, floorY - (floorY - L.top) * 0.28, 0, floorY);
+  dado.addColorStop(0, 'rgba(176,122,85,0)');
+  dado.addColorStop(0.08, 'rgba(176,122,85,.16)');
+  dado.addColorStop(1, 'rgba(140,90,60,.22)');
+  ctx.fillStyle = dado;
+  ctx.fillRect(0, floorY - (floorY - L.top) * 0.28, w, (floorY - L.top) * 0.28);
+  // the arched window on the left: sky, hills, a cypress, and its light on the wall
+  const win = { x: L.portrait ? w * 0.04 : w * 0.06, y: L.portrait ? 18 : 30, w: L.portrait ? w * 0.26 : Math.min(200, w * 0.14), h: 0 };
+  win.h = win.w * 1.35;
+  const light = ctx.createRadialGradient(win.x + win.w * 1.6, win.y + win.h * 1.6, 0, win.x + win.w * 1.6, win.y + win.h * 1.6, Math.max(w, h) * 0.6);
+  light.addColorStop(0, 'rgba(255,236,196,.55)');
+  light.addColorStop(1, 'rgba(255,236,196,0)');
+  ctx.fillStyle = light;
+  ctx.fillRect(0, 0, w, floorY);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(win.x, win.y + win.h);
+  ctx.lineTo(win.x, win.y + win.w / 2);
+  ctx.arc(win.x + win.w / 2, win.y + win.w / 2, win.w / 2, Math.PI, TAU);
+  ctx.lineTo(win.x + win.w, win.y + win.h);
+  ctx.closePath();
+  ctx.clip();
+  const sky = ctx.createLinearGradient(0, win.y, 0, win.y + win.h);
+  sky.addColorStop(0, C.sky);
+  sky.addColorStop(1, C.horizon);
+  ctx.fillStyle = sky;
+  ctx.fillRect(win.x, win.y, win.w, win.h);
+  ctx.fillStyle = '#B9C79A';
+  ctx.beginPath();
+  ctx.moveTo(win.x, win.y + win.h);
+  for (let x = 0; x <= win.w; x += 6) ctx.lineTo(win.x + x, win.y + win.h * (0.7 + 0.08 * Math.sin(x / 18)));
+  ctx.lineTo(win.x + win.w, win.y + win.h);
+  ctx.fill();
+  ctx.fillStyle = '#8FA27A';
+  ctx.beginPath();
+  ctx.moveTo(win.x, win.y + win.h);
+  for (let x = 0; x <= win.w; x += 6) ctx.lineTo(win.x + x, win.y + win.h * (0.82 + 0.05 * Math.sin(x / 11 + 2)));
+  ctx.lineTo(win.x + win.w, win.y + win.h);
+  ctx.fill();
+  ctx.fillStyle = '#4F6B3A';
+  ctx.beginPath();
+  ctx.ellipse(win.x + win.w * 0.7, win.y + win.h * 0.62, win.w * 0.06, win.h * 0.2, 0, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = mix(C.wood, '#000000', 0.1);
+  ctx.lineWidth = Math.max(4, win.w * 0.05);
+  ctx.beginPath();
+  ctx.moveTo(win.x, win.y + win.h);
+  ctx.lineTo(win.x, win.y + win.w / 2);
+  ctx.arc(win.x + win.w / 2, win.y + win.w / 2, win.w / 2, Math.PI, TAU);
+  ctx.lineTo(win.x + win.w, win.y + win.h);
+  ctx.closePath();
+  ctx.stroke();
+  // the sill
+  ctx.fillStyle = mix(C.wood, '#E9D8BC', 0.3);
+  ctx.fillRect(win.x - 8, win.y + win.h, win.w + 16, 7);
+  // the beams under the ceiling
+  ctx.fillStyle = mix(C.wood, '#3B2A22', 0.35);
+  ctx.fillRect(0, 0, w, 10);
+  for (let x = w * 0.18; x < w; x += w * 0.28) {
+    ctx.fillStyle = mix(C.wood, '#3B2A22', 0.25);
+    ctx.fillRect(x, 0, 16, 14);
+  }
+  // the back shelf (the kiln shelf's board is drawn live) and some old pots on the wall shelf
+  const sh = L.shelf;
+  ctx.fillStyle = mix(C.wood, '#000000', 0.08);
+  ctx.fillRect(sh.x - 12, sh.y, sh.w + 24, sh.h);
+  ctx.fillStyle = 'rgba(59,42,34,.2)';
+  ctx.fillRect(sh.x - 12, sh.y + sh.h, sh.w + 24, 5);
+  for (const k of [0.08, 0.92]) {
+    ctx.fillStyle = mix(C.wood, '#000000', 0.2);
     ctx.beginPath();
-    ctx.arc(x + w / 2, base - h, w * 0.28, Math.PI, TAU);
+    ctx.moveTo(sh.x + sh.w * k - 4, sh.y + sh.h);
+    ctx.lineTo(sh.x + sh.w * k + 4, sh.y + sh.h);
+    ctx.lineTo(sh.x + sh.w * k, sh.y + sh.h + 16);
+    ctx.fill();
+  }
+  // the floor: packed earth with a warm sheen, darker at the front
+  const fl = ctx.createLinearGradient(0, floorY, 0, h);
+  fl.addColorStop(0, '#C9A57A');
+  fl.addColorStop(1, '#A47E57');
+  ctx.fillStyle = fl;
+  ctx.fillRect(0, floorY, w, h - floorY);
+  ctx.fillStyle = 'rgba(59,42,34,.18)';
+  ctx.fillRect(0, floorY, w, 3);
+  for (let i = 0; i < 40; i++) {
+    ctx.fillStyle = `rgba(90,60,35,${(0.05 + hash(i + 50) * 0.06).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.ellipse(hash(i + 51) * w, floorY + hash(i + 52) * (h - floorY), 10 + hash(i + 53) * 30, 2 + hash(i + 54) * 4, 0, 0, TAU);
+    ctx.fill();
+  }
+  // clay splashes near the wheel
+  for (let i = 0; i < 16; i++) {
+    ctx.fillStyle = 'rgba(110,70,50,.25)';
+    ctx.beginPath();
+    ctx.ellipse(L.axis + (hash(i + 70) - 0.5) * L.wheel.rx * 3, floorY + 6 + hash(i + 71) * 30, 2 + hash(i + 72) * 5, 1 + hash(i + 73) * 2, 0, 0, TAU);
     ctx.fill();
   }
 }
 
-/** A gouache hill line between x0 and x1 at `y`, `amp` high, filled down to `bottom`. */
-function hills(ctx: CanvasRenderingContext2D, x0: number, x1: number, y: number, amp: number, bottom: number, color: string, seed: number): void {
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(x0, bottom);
-  for (let x = x0; x <= x1 + 8; x += 8) {
-    const k = x / 140;
-    ctx.lineTo(x, y - amp * (0.5 + 0.3 * Math.sin(k + seed) + 0.2 * Math.sin(k * 2.7 + seed * 1.7)));
-  }
-  ctx.lineTo(x1, bottom);
-  ctx.closePath();
-  ctx.fill();
-}
-
-/** A fig leaf: five rounded lobes. */
-function figLeaf(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, a: number, color: string): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(a);
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  for (let i = 0; i < 5; i++) {
-    const la = -Math.PI / 2 + (i - 2) * 0.62;
-    const lr = s * (i === 2 ? 1 : i === 1 || i === 3 ? 0.86 : 0.6);
-    ctx.moveTo(0, 0);
-    ctx.quadraticCurveTo(Math.cos(la - 0.35) * lr * 0.9, Math.sin(la - 0.35) * lr * 0.9, Math.cos(la) * lr, Math.sin(la) * lr);
-    ctx.quadraticCurveTo(Math.cos(la + 0.35) * lr * 0.9, Math.sin(la + 0.35) * lr * 0.9, 0, 0);
-  }
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(30,50,20,.35)';
-  ctx.lineWidth = Math.max(0.6, s * 0.05);
-  ctx.beginPath();
-  for (let i = 0; i < 5; i++) {
-    const la = -Math.PI / 2 + (i - 2) * 0.62;
-    ctx.moveTo(0, 0);
-    ctx.lineTo(Math.cos(la) * s * 0.6, Math.sin(la) * s * 0.6);
-  }
-  ctx.stroke();
-  ctx.restore();
-}
-
-/** The fig tree: a grey trunk from behind the wall and a canopy of broad leaves. */
-function figTree(ctx: CanvasRenderingContext2D, cx: number, top: number, s: number, wallTop: number): void {
-  ctx.strokeStyle = '#7A6E64';
-  ctx.lineCap = 'round';
-  ctx.lineWidth = s * 0.16;
-  ctx.beginPath();
-  ctx.moveTo(cx + s * 0.1, wallTop + s * 0.4);
-  ctx.quadraticCurveTo(cx - s * 0.2, top + s * 1.1, cx + s * 0.15, top + s * 0.55);
-  ctx.stroke();
-  ctx.lineWidth = s * 0.07;
-  ctx.beginPath();
-  ctx.moveTo(cx, top + s * 0.9);
-  ctx.quadraticCurveTo(cx - s * 0.7, top + s * 0.6, cx - s * 1.1, top + s * 0.7);
-  ctx.moveTo(cx + s * 0.1, top + s * 0.75);
-  ctx.quadraticCurveTo(cx + s * 0.7, top + s * 0.5, cx + s * 1.2, top + s * 0.62);
-  ctx.stroke();
-  for (let i = 0; i < 26; i++) {
-    const a = hash(i + 200) * TAU, d = Math.sqrt(hash(i + 201)) * s * 1.25;
-    const lx = cx + Math.cos(a) * d * 1.25, ly = top + s * 0.55 + Math.sin(a) * d * 0.62;
-    const tone = hash(i + 202);
-    figLeaf(ctx, lx, ly, s * (0.32 + hash(i + 203) * 0.16), a * 0.5 - 0.4, tone < 0.33 ? '#3E6630' : tone < 0.7 ? C.fig : '#6E9A4C');
-  }
-}
-
-/** The beehive kiln of mud bricks: a dome with a door arch (dark when cold), soot above the door. */
-export function kilnDome(ctx: CanvasRenderingContext2D, r: Rect, door: 'cold' | 'glow' | 'plugged' | 'open', heat: number): void {
+// ── the kiln ─────────────────────────────────────────────────────
+/** The beehive kiln of mud bricks: a dome with a door arch, its fire `heat` 0..1 (0 = cold). */
+export function kilnDome(ctx: CanvasRenderingContext2D, r: Rect, heat: number, flicker: number): void {
   const cx = r.x + r.w / 2, base = r.y + r.h;
-  const dw = r.w * 0.36, dh = r.h * 0.42;
-  // the dome
+  const dw = r.w * 0.4, dh = r.h * 0.46;
   const g = ctx.createLinearGradient(r.x, 0, r.x + r.w, 0);
   g.addColorStop(0, mix(C.brick, '#E0A27A', 0.35));
   g.addColorStop(0.45, C.brick);
@@ -144,12 +180,11 @@ export function kilnDome(ctx: CanvasRenderingContext2D, r: Rect, door: 'cold' | 
   ctx.bezierCurveTo(r.x + r.w * 0.78, r.y, r.x + r.w, r.y + r.h * 0.18, r.x + r.w, base);
   ctx.closePath();
   ctx.fill();
-  // brick courses
   ctx.save();
   ctx.clip();
   ctx.strokeStyle = 'rgba(58,42,38,.28)';
   ctx.lineWidth = 1;
-  const course = Math.max(6, r.h / 14);
+  const course = Math.max(6, r.h / 12);
   for (let y = base - course, row = 0; y > r.y; y -= course, row++) {
     ctx.beginPath();
     ctx.moveTo(r.x, y);
@@ -163,9 +198,16 @@ export function kilnDome(ctx: CanvasRenderingContext2D, r: Rect, door: 'cold' | 
       ctx.stroke();
     }
   }
-  // soot over the door, and the vent at the top
+  // the heat glows through the bricks
+  if (heat > 0.01) {
+    const hg = ctx.createRadialGradient(cx, base - dh * 0.5, 0, cx, base - dh * 0.5, r.w * 0.8);
+    hg.addColorStop(0, `rgba(255,140,60,${(0.35 * heat).toFixed(3)})`);
+    hg.addColorStop(1, 'rgba(255,140,60,0)');
+    ctx.fillStyle = hg;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+  }
   const sg = ctx.createRadialGradient(cx, base - dh * 1.05, 0, cx, base - dh * 1.05, dw * 1.3);
-  sg.addColorStop(0, 'rgba(58,42,38,.55)');
+  sg.addColorStop(0, 'rgba(58,42,38,.5)');
   sg.addColorStop(1, 'rgba(58,42,38,0)');
   ctx.fillStyle = sg;
   ctx.fillRect(r.x, r.y, r.w, r.h);
@@ -174,517 +216,339 @@ export function kilnDome(ctx: CanvasRenderingContext2D, r: Rect, door: 'cold' | 
   ctx.beginPath();
   ctx.ellipse(cx, r.y + r.h * 0.04, r.w * 0.07, r.h * 0.025, 0, 0, TAU);
   ctx.fill();
-  // the door arch
+  // the door
   ctx.beginPath();
   ctx.moveTo(cx - dw / 2, base);
   ctx.lineTo(cx - dw / 2, base - dh + dw / 2);
   ctx.arc(cx, base - dh + dw / 2, dw / 2, Math.PI, TAU);
   ctx.lineTo(cx + dw / 2, base);
   ctx.closePath();
-  if (door === 'cold') {
-    ctx.fillStyle = '#2A1D18';
-    ctx.fill();
-  } else if (door === 'plugged') {
-    ctx.fillStyle = mix(C.brick, '#5A3A2A', 0.35);
-    ctx.fill();
-    ctx.save();
-    ctx.clip();
-    ctx.strokeStyle = 'rgba(40,26,20,.45)';
-    for (let y = base - course * 0.8, row = 0; y > base - dh; y -= course * 0.8, row++) {
-      ctx.beginPath();
-      ctx.moveTo(cx - dw, y);
-      ctx.lineTo(cx + dw, y);
-      ctx.stroke();
-      for (let x = cx - dw + (row % 2) * course * 0.8; x < cx + dw; x += course * 1.6) {
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.lineTo(x, y + course * 0.8);
-        ctx.stroke();
-      }
-    }
-    ctx.restore();
-    // the spy-holes, a steady glow
-    for (const k of [-0.22, 0.22]) {
-      ctx.fillStyle = `rgba(255,170,90,${(0.7 + 0.2 * heat).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.arc(cx + k * dw, base - dh * 0.55, Math.max(2, dw * 0.05), 0, TAU);
-      ctx.fill();
-    }
-  } else {
-    const gg = ctx.createRadialGradient(cx, base - dh * 0.4, 0, cx, base - dh * 0.4, dh * 0.9);
-    const k = door === 'open' ? 0.45 + 0.4 * heat : 0.75 + 0.25 * heat;
-    gg.addColorStop(0, mix('#3A2A26', C.chamber1, k));
-    gg.addColorStop(0.55, mix('#3A2A26', C.chamber2, k));
-    gg.addColorStop(1, mix('#2A1D18', C.ember, k * 0.85));
-    ctx.fillStyle = gg;
-    ctx.fill();
-  }
-  // the arch's stones
+  const k = Math.min(1, heat) * (0.85 + 0.15 * flicker);
+  const gg = ctx.createRadialGradient(cx, base - dh * 0.35, 0, cx, base - dh * 0.35, dh);
+  gg.addColorStop(0, mix('#2A1D18', C.chamber1, k));
+  gg.addColorStop(0.55, mix('#2A1D18', C.chamber2, k));
+  gg.addColorStop(1, mix('#1E140F', C.ember, k * 0.85));
+  ctx.fillStyle = gg;
+  ctx.fill();
   ctx.strokeStyle = mix(C.brick, '#E8C49C', 0.35);
   ctx.lineWidth = Math.max(2, dw * 0.08);
-  ctx.beginPath();
-  ctx.moveTo(cx - dw / 2, base);
-  ctx.lineTo(cx - dw / 2, base - dh + dw / 2);
-  ctx.arc(cx, base - dh + dw / 2, dw / 2, Math.PI, TAU);
-  ctx.lineTo(cx + dw / 2, base);
   ctx.stroke();
-  // the firebox mouth below the door, and a stack of olive prunings
   ctx.fillStyle = '#20150F';
   ctx.fillRect(cx - dw * 0.3, base - course * 0.9, dw * 0.6, course * 0.9);
+  // a smoke wisp from the vent while it fires
+  if (heat > 0.2) {
+    ctx.strokeStyle = `rgba(120,110,105,${(0.25 * heat).toFixed(3)})`;
+    ctx.lineWidth = Math.max(2, r.w * 0.04);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let i = 0; i <= 10; i++) {
+      const yy = r.y - i * r.h * 0.05, xx = cx + Math.sin(i * 0.8 + flicker * 6) * r.w * 0.04 * (i / 10);
+      if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
+    }
+    ctx.stroke();
+  }
 }
 
-/** The door's chamber in the kiln rect (where the vessel sits while it fires). */
+/** The kiln door's chamber (where the batch shows while it fires). */
 export function kilnDoor(r: Rect): Rect {
   const cx = r.x + r.w / 2, base = r.y + r.h;
-  const dw = r.w * 0.36, dh = r.h * 0.42;
+  const dw = r.w * 0.4, dh = r.h * 0.46;
   return { x: cx - dw / 2, y: base - dh, w: dw, h: dh };
 }
 
-// ── the courtyard ────────────────────────────────────────────────
-export interface CourtyardDyn {
-  t: number;
-  /** 0 morning … 1 the golden hour */
-  light: number;
-  /** the cloud's shadow when the signal fails (0..1) */
-  cloud: number;
-  /** leaf shadows move (not with reduced motion) */
-  still: boolean;
-  /** the received gifts that live in the courtyard, and today's treat */
-  gifts: readonly GiftId[];
-  treat: GiftId | null;
-}
+// ── people ───────────────────────────────────────────────────────
+export type Mood = 'wait' | 'happy' | 'meh' | 'wow';
 
-export class Courtyard {
-  private bg: HTMLCanvasElement | null = null;
-  private key = '';
-
-  /** The static layer for this size (sky, town, wall, gate, fig tree, floor, the kiln when wide). */
-  bake(L: Layout, dpr: number): HTMLCanvasElement | null {
-    const key = `${L.w}x${L.h}@${dpr}`;
-    if (this.bg && this.key === key) return this.bg;
-    const o = offscreen(L.w, L.h, dpr);
-    if (!o) return null;
-    paintCourtyard(o.ctx, L);
-    this.bg = o.c;
-    this.key = key;
-    return this.bg;
-  }
-
-  draw(ctx: CanvasRenderingContext2D, L: Layout, dpr: number, d: CourtyardDyn): void {
-    const bg = this.bake(L, dpr);
-    if (bg) ctx.drawImage(bg, 0, 0, L.w, L.h);
-    else {
-      ctx.fillStyle = C.whitewash;
-      ctx.fillRect(0, 0, L.w, L.h);
-    }
-    // leaf shadows drifting over the wall
-    const sp = softBlob();
-    if (sp) {
-      ctx.save();
-      ctx.globalAlpha = 0.18;
-      const wallH = L.floor - L.wallTop;
-      for (let i = 0; i < 7; i++) {
-        const drift = d.still ? 0 : Math.sin(d.t * 0.21 + i * 1.9) * 14 * L.u;
-        const x = L.w * (0.52 + 0.46 * hash(i + 300)) + drift, y = L.wallTop + wallH * (0.08 + 0.5 * hash(i + 301));
-        const s = (46 + 40 * hash(i + 302)) * L.u;
-        ctx.drawImage(sp, x - s, y - s * 0.6, s * 2, s * 1.2);
-      }
-      ctx.restore();
-    }
-    gifts(ctx, L, d);
-    // the light of the day: a cool morning, a neutral noon, the golden hour's warmth
-    const warm = clamp((d.light - 0.55) / 0.45);
-    ctx.save();
-    if (warm > 0) {
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.globalAlpha = 0.28 * warm;
-      ctx.fillStyle = C.golden;
-      ctx.fillRect(0, 0, L.w, L.h);
-    } else if (d.light < 0.25) {
-      ctx.globalAlpha = 0.07 * (1 - d.light / 0.25);
-      ctx.fillStyle = '#BFD6EA';
-      ctx.fillRect(0, 0, L.w, L.h);
-    }
-    ctx.restore();
-    // a cloud's shadow drifts over the courtyard while the signal fails
-    if (d.cloud > 0.01 && sp) {
-      ctx.save();
-      ctx.globalAlpha = 0.3 * d.cloud;
-      const cx = L.w * (0.3 + 0.4 * Math.sin(d.t * 0.07)), s = Math.max(L.w, L.h) * 0.6;
-      ctx.drawImage(sp, cx - s, L.h * 0.45 - s * 0.6, s * 2, s * 1.2);
-      ctx.restore();
-    }
-  }
-}
-
-function paintCourtyard(ctx: CanvasRenderingContext2D, L: Layout): void {
-  const { w, h, wallTop, floor } = L;
-  // the sky: deep at the top (the runner's white timer stays readable), pale at the horizon
-  const sky = ctx.createLinearGradient(0, 0, 0, wallTop);
-  sky.addColorStop(0, C.zenith);
-  sky.addColorStop(Math.min(0.9, 80 / Math.max(1, wallTop)), C.sky);
-  sky.addColorStop(1, C.horizon);
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, w, wallTop + 2);
-  // the hill town beyond the wall
-  const town = wallTop + 2;
-  hills(ctx, 0, w, town - 18 * L.u, 26 * L.u, town, mix(C.olive, C.horizon, 0.62), 1.3);
-  hills(ctx, 0, w, town - 6 * L.u, 18 * L.u, town, mix(C.sand, C.olive, 0.25), 4.1);
-  for (let i = 0; i < 14; i++) {
-    const hw = (14 + hash(i + 50) * 16) * L.u, hh = (9 + hash(i + 51) * 14) * L.u;
-    const x = (hash(i + 52) * 1.1 - 0.05) * w;
-    farHouse(ctx, x, town + 1, hw, hh, i);
-  }
-  for (let i = 0; i < 5; i++) {
-    const x = hash(i + 90) * w, s = (6 + hash(i + 91) * 5) * L.u;
-    ctx.fillStyle = mix(C.olive, '#3E5A2A', 0.4);
-    ctx.beginPath();
-    ctx.ellipse(x, town - s * 1.2, s * 0.45, s * 1.5, 0, 0, TAU);
-    ctx.fill();
-  }
-  // the wall: whitewash in the sun, its grain, the terracotta coping
-  const wall = ctx.createLinearGradient(0, wallTop, 0, floor);
-  wall.addColorStop(0, '#F8F4EC');
-  wall.addColorStop(1, mix(C.whitewash, C.sand, 0.35));
-  ctx.fillStyle = wall;
-  ctx.fillRect(0, wallTop, w, floor - wallTop);
-  ctx.fillStyle = 'rgba(107,91,115,.05)';
-  for (let i = 0; i < 520; i++) {
-    const gx = hash(i * 3 + 1) * w, gy = wallTop + hash(i * 3 + 2) * (floor - wallTop);
-    ctx.fillRect(gx, gy, 1 + hash(i * 3 + 3) * 2, 1);
-  }
-  for (let i = 0; i < 6; i++) {
-    // patches of older plaster
-    ctx.fillStyle = `rgba(233,216,188,${(0.25 + hash(i + 120) * 0.25).toFixed(3)})`;
-    ctx.beginPath();
-    ctx.ellipse(hash(i + 121) * w, wallTop + (0.3 + hash(i + 122) * 0.6) * (floor - wallTop), (20 + hash(i + 123) * 40) * L.u, (8 + hash(i + 124) * 14) * L.u, 0, 0, TAU);
-    ctx.fill();
-  }
-  const cop = 9 * L.u;
-  ctx.fillStyle = C.terracotta;
-  ctx.fillRect(0, wallTop - cop * 0.4, w, cop);
-  ctx.fillStyle = 'rgba(80,30,16,.35)';
-  ctx.fillRect(0, wallTop + cop * 0.6, w, Math.max(1, cop * 0.25));
-  ctx.fillStyle = 'rgba(255,214,180,.4)';
-  for (let x = 0; x < w; x += 12 * L.u) ctx.fillRect(x, wallTop - cop * 0.4, 6 * L.u, Math.max(1, cop * 0.2));
-  // the fig tree over the wall, away from the gate
-  const figX = L.kind === 'desktop' ? L.card.x + L.card.w + (L.axis - L.halfW - L.card.x - L.card.w) * 0.5 : w * 0.86;
-  figTree(ctx, figX, wallTop - 70 * L.u, 62 * L.u, wallTop);
-  // the gate arch with a slice of the street beyond (its houses' items are drawn live)
-  gateArch(ctx, L.gate, L.u);
-  // the floor: sun sand with large flagstones, a cool shadow along the wall
-  const fl = ctx.createLinearGradient(0, floor, 0, h);
-  fl.addColorStop(0, mix(C.sand, C.shadow, 0.12));
-  fl.addColorStop(0.18, C.sand);
-  fl.addColorStop(1, mix(C.sand, '#FFFFFF', 0.2));
-  ctx.fillStyle = fl;
-  ctx.fillRect(0, floor, w, h - floor);
-  ctx.strokeStyle = 'rgba(138,90,60,.14)';
-  ctx.lineWidth = 1;
-  for (let i = 1; i < 7; i++) {
-    const y = floor + (h - floor) * (i / 7) ** 1.4;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(w, y);
-    ctx.stroke();
-  }
-  for (let i = -8; i <= 8; i++) {
-    ctx.beginPath();
-    ctx.moveTo(L.axis + i * 46 * L.u, floor);
-    ctx.lineTo(L.axis + i * 120 * L.u, h);
-    ctx.stroke();
-  }
-  // the kiln at the side when the screen is wide
-  if (L.kiln) {
-    ctx.fillStyle = 'rgba(107,91,115,.25)';
-    ctx.beginPath();
-    ctx.ellipse(L.kiln.x + L.kiln.w * 0.5, L.kiln.y + L.kiln.h, L.kiln.w * 0.62, L.kiln.w * 0.09, 0, 0, TAU);
-    ctx.fill();
-    kilnDome(ctx, L.kiln, 'cold', 0);
-  }
-}
-
-function gateArch(ctx: CanvasRenderingContext2D, g: Rect, u: number): void {
-  const r = g.w / 2, top = g.y + r;
+/**
+ * A customer behind the counter: a robed figure with a head covering, a friendly face (two eyes,
+ * a mouth by mood), arms when they hold out a pot.  (x, y) are the feet; `s` the height; `bob` a
+ * small walking or delighted hop.
+ */
+export function customer(ctx: CanvasRenderingContext2D, who: CustomerId, x: number, y: number, s: number, mood: Mood, bob: number, alpha = 1): void {
+  const lk: Look = LOOK[who];
   ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(g.x, g.y + g.h);
-  ctx.lineTo(g.x, top);
-  ctx.arc(g.x + r, top, r, Math.PI, TAU);
-  ctx.lineTo(g.x + g.w, g.y + g.h);
-  ctx.closePath();
-  ctx.clip();
-  // beyond the gate: the sky, the house across the street, the road
-  ctx.fillStyle = C.horizon;
-  ctx.fillRect(g.x, g.y, g.w, g.h);
-  const road = g.y + g.h * 0.78;
-  ctx.fillStyle = mix(C.whitewash, C.sand, 0.15);
-  ctx.fillRect(g.x - 2, g.y + g.h * 0.18, g.w + 4, road - g.y - g.h * 0.18);
-  ctx.fillStyle = C.terracotta;
-  ctx.fillRect(g.x - 2, g.y + g.h * 0.18, g.w + 4, 4 * u);
-  ctx.fillStyle = mix(C.wood, '#2E4A6E', 0.35);
-  ctx.fillRect(g.x + g.w * 0.56, road - g.h * 0.34, g.w * 0.2, g.h * 0.34);
-  ctx.fillStyle = 'rgba(59,42,34,.5)';
-  ctx.fillRect(g.x + g.w * 0.16, road - g.h * 0.4, g.w * 0.14, g.h * 0.12);
-  ctx.fillStyle = mix(C.sand, '#FFFFFF', 0.1);
-  ctx.fillRect(g.x, road, g.w, g.h - (road - g.y));
-  ctx.fillStyle = 'rgba(107,91,115,.18)';
-  ctx.fillRect(g.x, road, g.w, 3 * u);
+  ctx.globalAlpha = alpha;
+  if (lk.two) {
+    // the newlyweds: two, a little smaller, side by side
+    figure(ctx, { ...lk, robe: '#4F7A3A', hcol: '#C4673F', beard: false }, x - s * 0.17, y, s * 0.86, mood, bob);
+    figure(ctx, { ...lk, robe: '#3F6E9C', head: 'cap', hcol: '#E9D8BC', beard: true }, x + s * 0.17, y, s * 0.92, mood, -bob);
+  } else figure(ctx, lk, x, y, s * lk.tall, mood, bob);
   ctx.restore();
-  // the arch's stones
-  ctx.strokeStyle = mix(C.sand, C.wood, 0.25);
-  ctx.lineWidth = 7 * u;
-  ctx.beginPath();
-  ctx.moveTo(g.x, g.y + g.h);
-  ctx.lineTo(g.x, top);
-  ctx.arc(g.x + r, top, r, Math.PI, TAU);
-  ctx.lineTo(g.x + g.w, g.y + g.h);
-  ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,250,240,.6)';
-  ctx.lineWidth = 2 * u;
-  ctx.beginPath();
-  ctx.arc(g.x + r, top, r + 2.5 * u, Math.PI * 1.05, Math.PI * 1.6);
-  ctx.stroke();
 }
 
-/** The courtyard's gifts: a cat on the coping, an almond sprig, a woven mat by the wheel, a bell at the gate, today's treat. */
-function gifts(ctx: CanvasRenderingContext2D, L: Layout, d: CourtyardDyn): void {
-  const u = L.u;
-  if (d.gifts.includes('mata')) {
-    ctx.save();
-    ctx.translate(L.axis - L.halfW * 1.15, L.foot + 18 * u);
-    ctx.fillStyle = '#C9A96E';
+function figure(ctx: CanvasRenderingContext2D, lk: Look, x: number, y: number, s: number, mood: Mood, bob: number): void {
+  const by = y - Math.abs(bob) * s * 0.04;
+  const skin = '#C99A72', dark = mix(lk.robe, '#000000', 0.25);
+  // the robe: a soft bell
+  ctx.fillStyle = lk.robe;
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.24, by);
+  ctx.bezierCurveTo(x - s * 0.26, by - s * 0.4, x - s * 0.2, by - s * 0.66, x - s * 0.12, by - s * 0.72);
+  ctx.lineTo(x + s * 0.12, by - s * 0.72);
+  ctx.bezierCurveTo(x + s * 0.2, by - s * 0.66, x + s * 0.26, by - s * 0.4, x + s * 0.24, by);
+  ctx.closePath();
+  ctx.fill();
+  // a sash and the robe's trim
+  ctx.fillStyle = lk.trim;
+  ctx.fillRect(x - s * 0.2, by - s * 0.42, s * 0.4, s * 0.045);
+  ctx.strokeStyle = dark;
+  ctx.lineWidth = Math.max(1, s * 0.012);
+  ctx.beginPath();
+  ctx.moveTo(x, by - s * 0.7);
+  ctx.lineTo(x, by - s * 0.44);
+  ctx.stroke();
+  // the head
+  const hy = by - s * 0.82, hr = s * 0.11;
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(x, hy, hr * 0.92, hr, 0, 0, TAU);
+  ctx.fill();
+  if (lk.beard) {
+    ctx.fillStyle = '#5A3A28';
     ctx.beginPath();
-    ctx.ellipse(0, 0, 46 * u, 11 * u, 0, 0, TAU);
+    ctx.ellipse(x, hy + hr * 0.55, hr * 0.7, hr * 0.55, 0, 0, Math.PI);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(110,80,40,.45)';
-    ctx.lineWidth = 1.2;
-    for (let i = -3; i <= 3; i++) {
+  }
+  // the head covering
+  ctx.fillStyle = lk.hcol;
+  ctx.beginPath();
+  if (lk.head === 'scarf') {
+    ctx.moveTo(x - hr * 1.15, hy + hr * 1.3);
+    ctx.quadraticCurveTo(x - hr * 1.35, hy - hr * 1.5, x, hy - hr * 1.2);
+    ctx.quadraticCurveTo(x + hr * 1.35, hy - hr * 1.5, x + hr * 1.15, hy + hr * 1.3);
+    ctx.quadraticCurveTo(x + hr * 0.9, hy - hr * 0.5, x, hy - hr * 0.7);
+    ctx.quadraticCurveTo(x - hr * 0.9, hy - hr * 0.5, x - hr * 1.15, hy + hr * 1.3);
+  } else if (lk.head === 'turban') {
+    ctx.ellipse(x, hy - hr * 0.7, hr * 1.1, hr * 0.62, 0, 0, TAU);
+  } else if (lk.head === 'cap') {
+    ctx.ellipse(x, hy - hr * 0.55, hr * 0.95, hr * 0.55, 0, Math.PI, TAU);
+  } else {
+    ctx.ellipse(x, hy - hr * 0.55, hr * 0.92, hr * 0.5, 0, Math.PI, TAU);
+  }
+  ctx.fill();
+  // the face
+  ctx.fillStyle = '#2B1B12';
+  const ey = hy - hr * 0.05;
+  if (mood === 'happy' || mood === 'wow') {
+    ctx.strokeStyle = '#2B1B12';
+    ctx.lineWidth = Math.max(1, hr * 0.13);
+    ctx.lineCap = 'round';
+    for (const sx of [-1, 1]) {
       ctx.beginPath();
-      ctx.ellipse(0, 0, 46 * u * (1 - Math.abs(i) * 0.12), 11 * u * (1 - Math.abs(i) * 0.12), 0, 0, TAU);
+      ctx.arc(x + sx * hr * 0.36, ey + hr * 0.06, hr * 0.14, Math.PI * 1.1, Math.PI * 1.9);
       ctx.stroke();
     }
-    ctx.restore();
+  } else {
+    for (const sx of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(x + sx * hr * 0.36, ey, Math.max(1, hr * 0.1), 0, TAU);
+      ctx.fill();
+    }
   }
-  if (d.gifts.includes('kot')) cat(ctx, L.w * (L.kind === 'portrait' ? 0.62 : 0.4), L.wallTop - 3 * u, 22 * u, d.t);
-  if (d.gifts.includes('migdal')) almond(ctx, L.gate.x + L.gate.w + 26 * u, L.floor - 2, 30 * u);
-  if (d.gifts.includes('dzwonek')) {
-    const x = L.gate.x + L.gate.w * 0.5, y = L.gate.y + 8 * u;
-    ctx.strokeStyle = '#5E4636';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(x, y - 6 * u);
-    ctx.lineTo(x, y);
+  ctx.strokeStyle = '#6E2E22';
+  ctx.lineWidth = Math.max(1, hr * 0.11);
+  ctx.beginPath();
+  if (mood === 'wow') {
+    ctx.fillStyle = '#6E2E22';
+    ctx.ellipse(x, ey + hr * 0.45, hr * 0.16, hr * 0.2, 0, 0, TAU);
+    ctx.fill();
+  } else if (mood === 'meh') {
+    ctx.moveTo(x - hr * 0.25, ey + hr * 0.5);
+    ctx.lineTo(x + hr * 0.25, ey + hr * 0.44);
     ctx.stroke();
-    ctx.fillStyle = '#B8862E';
+  } else {
+    ctx.arc(x, ey + hr * 0.3, hr * (mood === 'happy' ? 0.32 : 0.22), 0.2 * Math.PI, 0.8 * Math.PI);
+    ctx.stroke();
+  }
+  // cheeks
+  ctx.fillStyle = 'rgba(217,101,59,.28)';
+  for (const sx of [-1, 1]) {
     ctx.beginPath();
-    ctx.moveTo(x - 6 * u, y + 9 * u);
-    ctx.quadraticCurveTo(x - 5 * u, y, x, y);
-    ctx.quadraticCurveTo(x + 5 * u, y, x + 6 * u, y + 9 * u);
+    ctx.arc(x + sx * hr * 0.55, ey + hr * 0.32, hr * 0.15, 0, TAU);
+    ctx.fill();
+  }
+}
+
+/** The cat's pose. */
+export type CatPose = 'sit' | 'sleep' | 'happy' | 'shock' | 'talk';
+
+/**
+ * Szamot the ginger cat sitting on the shelf: body, head with ears, eyes by pose, whiskers, a tail
+ * that swishes over the shelf's edge.  (x, y) is where he sits (the shelf's top); `s` his height.
+ */
+export function cat(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t: number, pose: CatPose): void {
+  const fur = '#D9873F', dark = '#A85E26', light = '#F2C48A';
+  ctx.save();
+  ctx.translate(x, y);
+  // the tail over the edge
+  ctx.strokeStyle = fur;
+  ctx.lineWidth = s * 0.12;
+  ctx.lineCap = 'round';
+  const sw = pose === 'sleep' ? 0.2 : Math.sin(t * (pose === 'happy' ? 6 : 2.2)) * (pose === 'shock' ? 0.1 : 0.6);
+  ctx.beginPath();
+  ctx.moveTo(s * 0.25, -s * 0.05);
+  ctx.quadraticCurveTo(s * 0.55, s * 0.1, s * (0.5 + 0.12 * sw), s * (0.45 + 0.05 * sw));
+  ctx.stroke();
+  if (pose === 'sleep') {
+    const br = 1 + 0.04 * Math.sin(t * 1.8);
+    ctx.fillStyle = fur;
+    ctx.beginPath();
+    ctx.ellipse(0, -s * 0.2 * br, s * 0.42, s * 0.22 * br, 0, Math.PI, TAU);
+    ctx.lineTo(s * 0.42, 0);
+    ctx.lineTo(-s * 0.42, 0);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-s * 0.3, -s * 0.18, s * 0.17, 0, TAU);
+    ctx.fill();
+    ears(ctx, -s * 0.3, -s * 0.3, s * 0.7, fur, light);
+    ctx.strokeStyle = '#3B2A22';
+    ctx.lineWidth = Math.max(1, s * 0.025);
+    for (const sx of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(-s * 0.3 + sx * s * 0.07, -s * 0.18, s * 0.04, 0.1 * Math.PI, 0.9 * Math.PI);
+      ctx.stroke();
+    }
+    // z z
+    ctx.fillStyle = 'rgba(59,42,34,.5)';
+    ctx.font = `700 ${Math.round(s * 0.22)}px system-ui, sans-serif`;
+    ctx.fillText('z', -s * 0.5, -s * 0.5 - (t % 2) * s * 0.1);
+    ctx.restore();
+    return;
+  }
+  const hop = pose === 'happy' ? Math.abs(Math.sin(t * 8)) * s * 0.05 : pose === 'shock' ? s * 0.06 : 0;
+  ctx.translate(0, -hop);
+  // the body
+  ctx.fillStyle = fur;
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.28, 0);
+  ctx.bezierCurveTo(-s * 0.34, -s * 0.36, -s * 0.18, -s * 0.6, 0, -s * 0.6);
+  ctx.bezierCurveTo(s * 0.18, -s * 0.6, s * 0.34, -s * 0.36, s * 0.28, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = light;
+  ctx.beginPath();
+  ctx.ellipse(0, -s * 0.24, s * 0.12, s * 0.2, 0, 0, TAU);
+  ctx.fill();
+  // stripes
+  ctx.strokeStyle = dark;
+  ctx.lineWidth = Math.max(1, s * 0.03);
+  for (const k of [-0.2, 0.2]) {
+    ctx.beginPath();
+    ctx.moveTo(k * s, -s * 0.5);
+    ctx.quadraticCurveTo(k * s * 1.3, -s * 0.4, k * s * 1.2, -s * 0.3);
+    ctx.stroke();
+  }
+  // the head
+  const hy = -s * 0.72, hr = s * 0.22;
+  ctx.fillStyle = fur;
+  ctx.beginPath();
+  ctx.ellipse(0, hy, hr * 1.1, hr, 0, 0, TAU);
+  ctx.fill();
+  ears(ctx, 0, hy - hr * 0.5, s, fur, light);
+  // eyes
+  const blink = pose !== 'shock' && (t % 4.2) < 0.12;
+  if (pose === 'happy') {
+    ctx.strokeStyle = '#3B2A22';
+    ctx.lineWidth = Math.max(1, s * 0.03);
+    for (const sx of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(sx * hr * 0.42, hy + hr * 0.05, hr * 0.16, Math.PI * 1.1, Math.PI * 1.9);
+      ctx.stroke();
+    }
+  } else {
+    for (const sx of [-1, 1]) {
+      ctx.fillStyle = '#F5E27A';
+      ctx.beginPath();
+      ctx.ellipse(sx * hr * 0.42, hy - hr * 0.02, hr * 0.2, blink ? hr * 0.03 : hr * (pose === 'shock' ? 0.26 : 0.18), 0, 0, TAU);
+      ctx.fill();
+      if (!blink) {
+        ctx.fillStyle = '#2B1B12';
+        ctx.beginPath();
+        ctx.ellipse(sx * hr * 0.42, hy - hr * 0.02, hr * (pose === 'shock' ? 0.12 : 0.06), hr * (pose === 'shock' ? 0.16 : 0.15), 0, 0, TAU);
+        ctx.fill();
+      }
+    }
+  }
+  // the nose, the mouth, the whiskers
+  ctx.fillStyle = '#C4673F';
+  ctx.beginPath();
+  ctx.moveTo(-hr * 0.1, hy + hr * 0.25);
+  ctx.lineTo(hr * 0.1, hy + hr * 0.25);
+  ctx.lineTo(0, hy + hr * 0.36);
+  ctx.fill();
+  ctx.strokeStyle = '#3B2A22';
+  ctx.lineWidth = Math.max(0.8, s * 0.018);
+  ctx.beginPath();
+  if (pose === 'talk' && Math.sin(t * 14) > 0) {
+    ctx.ellipse(0, hy + hr * 0.5, hr * 0.12, hr * 0.12, 0, 0, TAU);
+  } else if (pose === 'shock') {
+    ctx.ellipse(0, hy + hr * 0.52, hr * 0.1, hr * 0.14, 0, 0, TAU);
+  } else {
+    ctx.moveTo(-hr * 0.2, hy + hr * 0.45);
+    ctx.quadraticCurveTo(0, hy + hr * 0.58, hr * 0.2, hy + hr * 0.45);
+  }
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,248,236,.85)';
+  for (const sx of [-1, 1]) for (const k of [-0.08, 0.06]) {
+    ctx.beginPath();
+    ctx.moveTo(sx * hr * 0.3, hy + hr * 0.36);
+    ctx.lineTo(sx * hr * 1.35, hy + hr * (0.3 + k * 3));
+    ctx.stroke();
+  }
+  // the front paws
+  ctx.fillStyle = light;
+  for (const sx of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(sx * s * 0.1, -s * 0.03, s * 0.08, s * 0.05, 0, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function ears(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, fur: string, light: string): void {
+  for (const sx of [-1, 1]) {
+    ctx.fillStyle = fur;
+    ctx.beginPath();
+    ctx.moveTo(x + sx * s * 0.08, y + s * 0.04);
+    ctx.lineTo(x + sx * s * 0.2, y - s * 0.14);
+    ctx.lineTo(x + sx * s * 0.24, y + s * 0.06);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = light;
+    ctx.beginPath();
+    ctx.moveTo(x + sx * s * 0.12, y + s * 0.03);
+    ctx.lineTo(x + sx * s * 0.2, y - s * 0.08);
+    ctx.lineTo(x + sx * s * 0.21, y + s * 0.04);
     ctx.closePath();
     ctx.fill();
   }
-  if (d.treat) {
-    const x = L.gate.x + L.gate.w + 70 * u, y = L.floor + 8 * u;
-    ctx.fillStyle = '#A8885E';
-    ctx.beginPath();
-    ctx.ellipse(x, y, 20 * u, 6 * u, 0, 0, TAU);
-    ctx.fill();
-    for (let i = 0; i < 6; i++) {
-      ctx.fillStyle = d.treat === 'figi' ? '#5B3A5E' : d.treat === 'oliwki' ? '#5E6B2E' : '#C99A5B';
-      ctx.beginPath();
-      ctx.arc(x - 12 * u + i * 4.8 * u, y - 4 * u - (i % 2) * 3 * u, (d.treat === 'chleb' ? 7 : 3.4) * u, 0, TAU);
-      ctx.fill();
-      if (d.treat === 'chleb') break;
-    }
-  }
 }
 
-/** A neighbour in the gate's arch: a warm silhouette, no face (`k` 0..1 as they step in). */
-export function neighbour(ctx: CanvasRenderingContext2D, g: Rect, k: number, traveller: boolean, u: number): void {
-  if (k <= 0.01) return;
-  const x = g.x + g.w * (0.5 + (1 - k) * 0.4), base = g.y + g.h - 2;
-  const hgt = Math.min(g.h * 0.62, g.w * 1.3);
-  ctx.save();
-  ctx.globalAlpha = Math.min(1, k * 1.4);
-  ctx.fillStyle = traveller ? '#6B5240' : '#7A5A48';
-  // the robe
+/** A shekel: a small silver coin with a rim. */
+export function coin(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, spin: number): void {
+  const sx = Math.max(0.15, Math.abs(Math.cos(spin)));
+  ctx.fillStyle = '#B8B2A6';
   ctx.beginPath();
-  ctx.moveTo(x - hgt * 0.2, base);
-  ctx.quadraticCurveTo(x - hgt * 0.22, base - hgt * 0.55, x - hgt * 0.1, base - hgt * 0.78);
-  ctx.lineTo(x + hgt * 0.1, base - hgt * 0.78);
-  ctx.quadraticCurveTo(x + hgt * 0.22, base - hgt * 0.55, x + hgt * 0.2, base);
-  ctx.closePath();
+  ctx.ellipse(x, y, r * sx, r, 0, 0, TAU);
   ctx.fill();
-  // the head, covered
-  ctx.fillStyle = traveller ? '#8A6E52' : '#A6745A';
+  ctx.fillStyle = '#E6E1D6';
   ctx.beginPath();
-  ctx.ellipse(x, base - hgt * 0.86, hgt * 0.085, hgt * 0.1, 0, 0, TAU);
+  ctx.ellipse(x - r * 0.12 * sx, y - r * 0.12, r * 0.72 * sx, r * 0.72, 0, 0, TAU);
   ctx.fill();
-  ctx.fillStyle = traveller ? '#C8B48E' : '#E4D3B4';
+  ctx.strokeStyle = '#8E877A';
+  ctx.lineWidth = Math.max(0.8, r * 0.14);
   ctx.beginPath();
-  ctx.moveTo(x - hgt * 0.11, base - hgt * 0.8);
-  ctx.quadraticCurveTo(x - hgt * 0.12, base - hgt * 1.0, x, base - hgt * 0.99);
-  ctx.quadraticCurveTo(x + hgt * 0.12, base - hgt * 1.0, x + hgt * 0.12, base - hgt * 0.74);
-  ctx.quadraticCurveTo(x + hgt * 0.05, base - hgt * 0.84, x - hgt * 0.11, base - hgt * 0.8);
-  ctx.fill();
-  if (traveller) {
-    ctx.strokeStyle = '#5E4636';
-    ctx.lineWidth = 2 * u;
-    ctx.beginPath();
-    ctx.moveTo(x + hgt * 0.26, base);
-    ctx.lineTo(x + hgt * 0.22, base - hgt * 0.95);
-    ctx.stroke();
-  }
-  ctx.restore();
+  ctx.ellipse(x, y, r * sx, r, 0, 0, TAU);
+  ctx.stroke();
 }
 
-// ── the street ───────────────────────────────────────────────────
-/** A vessel record drawn small (the street, the tiles, the lobby). */
-export function recLook(v: VesselLook, rec: VesselRec, x: number, y: number, scale: number, rows = 40): VesselLook {
-  const f = FORM[rec.f];
-  const H = rec.h || f.N;
-  v.x = x;
-  v.y = y;
-  v.scale = scale;
-  v.H = H;
-  const r = v.r as Float64Array;
-  for (let k = 0; k < RINGS; k++) r[k] = ((rec.q[k] ?? Math.round(f.q[k] * 100)) / 100) * H;
-  v.body = 'glazed';
-  v.porcelain = rec.porcelain;
-  v.glaze = rec.glaze;
-  v.fired = 1;
-  v.gloss = 0.6;
-  v.wavy = 0;
-  v.runs = rec.runs / 100;
-  v.gift = rec.gift;
-  v.wall = [0.9, 0.6, 0.4, 0.25][rec.wall] ?? 0.6;
-  v.attach = f.attach;
-  v.glow = 0;
-  v.rows = rows;
-  v.specks = false;
-  v.alpha = 1;
-  return v;
-}
-
-const streetLook = look();
-
-export interface StreetDyn { t: number; dusk: number; glint: number; alive: readonly HouseId[]; lamps: boolean }
-
-/**
- * The street at sunset: the three households' houses side by side, each with its door, windows and
- * awning, the vessels of its story in use (from the book) and its last everyday deliveries by the
- * door, the houses come alive lit and with two figures on the step.  Drawn in `r`.
- */
-export function drawStreet(ctx: CanvasRenderingContext2D, r: Rect, p: GlinaProgress, d: StreetDyn): void {
-  const sky = ctx.createLinearGradient(0, r.y, 0, r.y + r.h * 0.6);
-  sky.addColorStop(0, mix(C.zenith, C.sunset3, d.dusk));
-  sky.addColorStop(0.55, mix(C.sky, C.sunset1, d.dusk));
-  sky.addColorStop(1, mix(C.horizon, C.sunset2, d.dusk * 0.8));
-  ctx.fillStyle = sky;
-  ctx.fillRect(r.x, r.y, r.w, r.h);
-  // the sun low over the hills
-  ctx.fillStyle = `rgba(255,214,150,${(0.85 * d.dusk).toFixed(3)})`;
-  ctx.beginPath();
-  ctx.arc(r.x + r.w * 0.78, r.y + r.h * 0.42, Math.min(r.w, r.h) * 0.06, 0, TAU);
-  ctx.fill();
-  hills(ctx, r.x, r.x + r.w, r.y + r.h * 0.46, r.h * 0.07, r.y + r.h, mix(C.olive, C.sunset3, 0.55 * d.dusk), 2.2);
-  const ground = r.y + r.h * 0.8;
-  ctx.fillStyle = mix(C.sand, C.sunset2, 0.25 * d.dusk);
-  ctx.fillRect(r.x, ground, r.w, r.y + r.h - ground);
-  const n = HOUSES.length, gap = r.w * 0.03, hw = (r.w - gap * (n + 1)) / n;
-  const hh = Math.min(r.h * 0.42, hw * 1.05);
-  HOUSES.forEach((h, i) => house(ctx, r.x + gap + i * (hw + gap), ground, hw, hh, h, p, d, i));
-}
-
-function house(ctx: CanvasRenderingContext2D, x: number, base: number, w: number, h: number, id: HouseId, p: GlinaProgress, d: StreetDyn, i: number): void {
-  const alive = d.alive.includes(id);
-  const wall = mix(C.whitewash, C.sunset1, 0.28 * d.dusk);
-  ctx.fillStyle = wall;
-  ctx.fillRect(x, base - h, w, h);
-  ctx.fillStyle = `rgba(107,91,115,${(0.15 + 0.15 * d.dusk).toFixed(3)})`;
-  ctx.fillRect(x + w * 0.78, base - h, w * 0.22, h);
-  ctx.fillStyle = mix(C.terracotta, C.sunset3, 0.3 * d.dusk);
-  ctx.fillRect(x - 3, base - h - 5, w + 6, 6);
-  // the door
-  const dw = w * 0.22, dh = h * 0.52, dx = x + w * (i === 1 ? 0.56 : 0.16);
-  ctx.fillStyle = alive ? '#F2C48A' : mix(C.wood, '#2E2A3A', 0.35 * d.dusk);
-  ctx.beginPath();
-  ctx.roundRect(dx, base - dh, dw, dh, [dw / 2, dw / 2, 0, 0]);
-  ctx.fill();
-  // the windows, lit where a lamp was made or the house is alive
-  const lit = alive || (id === 'piekarnia' && (p.steps.piekarnia >= 4 || d.lamps));
-  for (let k = 0; k < 2; k++) {
-    const wx = x + w * (i === 1 ? 0.14 + k * 0.2 : 0.52 + k * 0.22), wy = base - h * 0.72;
-    ctx.fillStyle = lit ? `rgba(255,206,130,${(0.6 + 0.35 * d.dusk).toFixed(3)})` : 'rgba(59,42,34,.55)';
-    ctx.fillRect(wx, wy, w * 0.12, h * 0.16);
-  }
-  // an awning
-  ctx.fillStyle = id === 'karczma' ? '#B9653E' : id === 'piekarnia' ? '#C9A24E' : '#7E8C4F';
-  ctx.beginPath();
-  ctx.moveTo(dx - w * 0.05, base - dh - h * 0.06);
-  ctx.lineTo(dx + dw + w * 0.05, base - dh - h * 0.06);
-  ctx.lineTo(dx + dw + w * 0.09, base - dh + h * 0.04);
-  ctx.lineTo(dx - w * 0.09, base - dh + h * 0.04);
-  ctx.closePath();
-  ctx.fill();
-  if (id === 'mlodzi' && p.steps.mlodzi >= 3) {
-    // the vine from the planter up the wall (over the door when alive)
-    ctx.strokeStyle = '#4F7A3A';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(dx + dw + w * 0.12, base - 4);
-    ctx.bezierCurveTo(dx + dw + w * 0.2, base - h * 0.4, dx + dw * 0.5, base - h * (alive ? 0.95 : 0.7), dx - w * 0.04, base - dh - h * 0.1);
-    ctx.stroke();
-    ctx.fillStyle = '#5E8E44';
-    for (let k = 0; k < (alive ? 12 : 6); k++) {
-      ctx.beginPath();
-      ctx.arc(dx + dw * (1.3 - k * 0.12) , base - h * (0.2 + k * 0.06), 3 + hash(k + 70) * 2, 0, TAU);
-      ctx.fill();
-    }
-  }
-  // the story's vessels in use, from the book (drawn small, the player's own shapes and glazes)
-  const s = Math.max(1.2, h / 52);
-  let ix = x + w * 0.06;
-  const done = p.steps[id];
-  for (let k = 0; k < done; k++) {
-    const rec = p.book[STORY[id][k]]?.best;
-    if (!rec) continue;
-    const sc = Math.min(s, (h * 0.32) / Math.max(1, rec.h));
-    drawVessel(ctx, recLook(streetLook, rec, ix + 8 * s, base - 1, sc, 26));
-    ix += Math.max(12 * s, Math.max(...rec.q) / 100 * rec.h * sc * 2.4);
-  }
-  // the everyday deliveries by the door
-  const items: readonly StreetItem[] = p.street[id];
-  items.forEach((it, k) => {
-    const rec = p.book[it.f]?.best;
-    if (!rec) return;
-    const sc = Math.min(s * 0.8, (h * 0.24) / Math.max(1, rec.h));
-    drawVessel(ctx, recLook(streetLook, { ...rec, glaze: it.glaze }, x + w * (0.66 + k * 0.11), base - 1, sc, 20));
+// ── pieces drawn small ───────────────────────────────────────────
+/** A shelf piece's look (the lobby, the panel's tiles, the shelf). */
+export function recLook(v: VesselLook, rec: PieceRec, x: number, y: number, scale: number, rows = 40): VesselLook {
+  const r = new Float64Array(RINGS);
+  for (let k = 0; k < RINGS; k++) r[k] = (rec.q[k] ?? 40) / 100 * rec.h;
+  return Object.assign(v, look(), {
+    x, y, scale, H: rec.h, r, body: 'glazed', glaze: rec.g, fired: 1, gloss: 0.6, gift: rec.gift, rows, specks: false,
+    bands: rec.b.map(([u, g, p]) => ({ u: u / 100, glaze: g, pattern: p, k: 1 })), wall: 0.5,
   });
-  if (alive) {
-    // two figures on the step, warm silhouettes in the doorway's light
-    for (const k of [-1, 1]) {
-      const fx = dx + dw / 2 + k * dw * 0.9, fh = h * 0.42;
-      ctx.fillStyle = 'rgba(70,46,40,.85)';
-      ctx.beginPath();
-      ctx.moveTo(fx - fh * 0.14, base);
-      ctx.quadraticCurveTo(fx - fh * 0.16, base - fh * 0.6, fx, base - fh * 0.78);
-      ctx.quadraticCurveTo(fx + fh * 0.16, base - fh * 0.6, fx + fh * 0.14, base);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(fx, base - fh * 0.86, fh * 0.09, 0, TAU);
-      ctx.fill();
-    }
-  }
-  if (d.glint > 0) {
-    ctx.fillStyle = `rgba(255,248,220,${(0.6 * d.glint).toFixed(3)})`;
-    ctx.beginPath();
-    ctx.arc(x + w * 0.2, base - h * 0.2, 3 + 4 * d.glint, 0, TAU);
-    ctx.fill();
-  }
 }
-
-/** The glaze's own colour, for chips and the buckets. */
-export const glazeColor = (g: keyof typeof GLAZE): string => GLAZE[g].c;

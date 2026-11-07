@@ -4,14 +4,29 @@
  * ram's-head spiral potters wedge into it; the folds deepen and the surface smooths as the reference
  * fills (`p` 0..1), the morning light warms over the wall and the fig's leaf shadows come.  The wheel
  * waits at the side; at p = 1 the lump rests on it, ready.  No text: the runner's card below holds
- * the words.  The scene keeps to the upper part of the screen, above that card.  When the clay has
- * waited two days or more for the player, the lump is white porcelain.
+ * the words.  The scene keeps to the upper part of the screen, above that card.
  */
 import { clamp, ease } from '../kit/juice';
-import { dayKey } from '../kit/progress';
-import { welcomeBack, type GlinaProgress } from './meta';
+import type { GlinaProgress } from './meta';
 import { C, hand, hash, mix } from './paint';
-import { softBlob } from './scene';
+
+/** A soft round shadow sprite (the leaf shadows), made once. */
+let blob: HTMLCanvasElement | null = null;
+function softBlob(): HTMLCanvasElement | null {
+  if (blob || typeof document === 'undefined') return blob;
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const ctx = c.getContext('2d');
+  if (!ctx) return null;
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(107,91,115,1)');
+  g.addColorStop(0.55, 'rgba(107,91,115,.55)');
+  g.addColorStop(1, 'rgba(107,91,115,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  blob = c;
+  return blob;
+}
 
 const TAU = Math.PI * 2;
 
@@ -20,7 +35,7 @@ export class KneadIntro {
   private ready = 0;
   private bg: { w: number; h: number; sky: CanvasGradient; wall: CanvasGradient } | null = null;
 
-  draw(ctx: CanvasRenderingContext2D, w: number, h: number, dt: number, p: number, progress: GlinaProgress, still: boolean): void {
+  draw(ctx: CanvasRenderingContext2D, w: number, h: number, dt: number, p: number, _progress: GlinaProgress, still: boolean): void {
     if (w < 2 || h < 2) return;
     this.clock += dt;
     this.ready = p >= 0.999 ? Math.min(1, this.ready + dt / 0.9) : Math.max(0, this.ready - dt);
@@ -88,7 +103,7 @@ export class KneadIntro {
     ctx.ellipse(wx, wy - 2, wr * 0.92, wr * 0.19, 0, 0, TAU);
     ctx.fill();
     // the lump, wedged: forward and back every 1.2 s, the spiral's folds deepening
-    const porcelain = welcomeBack(progress, dayKey());
+    const porcelain = false as boolean;
     const body = porcelain ? C.porcelainWet : C.wet;
     const cycle = still ? 0.5 : (t / 1.2) % 1;
     const push = Math.sin(cycle * TAU) * (1 - this.ready);

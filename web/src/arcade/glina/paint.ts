@@ -2,7 +2,7 @@
  * Glina's drawing primitives (Canvas 2D, no assets), shared by the play view, the calibration
  * intro, the lobby preview and the Postępy tiles: the sunlit palette, the shading strips the
  * vessel renderer stretches row by row (one per clay state and glaze, made once), the potter's
- * hands (warm silhouettes, no faces anywhere), and small shapes — stars, chalk strokes, a cat.
+ * hands (warm silhouettes), and small shapes: stars and cards.
  * Everything is drawn in CSS pixels; what a frame draws again and again is made once.
  */
 import type { GlazeId } from './content';
@@ -30,9 +30,11 @@ export const GLAZE: Readonly<Record<GlazeId, { c: string; pool: string; gloss: n
   seledyn: { c: '#A5C4AE', pool: '#6F9A84', gloss: 0.95 },
   kobalt: { c: '#2C4E9E', pool: '#1C3270', gloss: 0.95 },
   zelazo: { c: '#8C3B22', pool: '#4E1D10', gloss: 0.55 },
+  oliwka: { c: '#7E8C4F', pool: '#4F5A2C', gloss: 0.7 },
+  turkus: { c: '#3FA7A3', pool: '#1F6F72', gloss: 0.95 },
+  purpura: { c: '#7A2E5C', pool: '#4A1636', gloss: 0.9 },
 };
 
-const TAU = Math.PI * 2;
 
 /** Stable pseudo-random numbers for decorations (the same every frame). */
 export function hash(i: number): number {
@@ -220,72 +222,5 @@ export function hand(ctx: CanvasRenderingContext2D, x: number, y: number, s: num
     ctx.lineTo(s * 0.22, fy * 1.05);
     ctx.stroke();
   }
-  ctx.restore();
-}
-
-/** A cat asleep on the wall (a day's gift): a curled silhouette with one ear up. */
-export function cat(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t: number): void {
-  const breath = 1 + 0.03 * Math.sin(t * 1.6);
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = '#5A4A52';
-  ctx.beginPath();
-  ctx.ellipse(0, -s * 0.28 * breath, s * 0.62, s * 0.3 * breath, 0, Math.PI, TAU);
-  ctx.lineTo(s * 0.62, 0);
-  ctx.lineTo(-s * 0.62, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(s * 0.5, -s * 0.24, s * 0.22, 0, TAU);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(s * 0.4, -s * 0.38);
-  ctx.lineTo(s * 0.46, -s * 0.58);
-  ctx.lineTo(s * 0.56, -s * 0.42);
-  ctx.closePath();
-  ctx.moveTo(s * 0.58, -s * 0.4);
-  ctx.lineTo(s * 0.7, -s * 0.56);
-  ctx.lineTo(s * 0.72, -s * 0.34);
-  ctx.closePath();
-  ctx.fill();
-  // the tail along the coping
-  ctx.strokeStyle = '#5A4A52';
-  ctx.lineWidth = s * 0.1;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(-s * 0.58, -s * 0.06);
-  ctx.quadraticCurveTo(-s * 0.9, -s * 0.02, -s * 0.98, s * 0.12);
-  ctx.stroke();
-  ctx.restore();
-}
-
-/** A sprig of almond blossom in a small jar (a day's gift). */
-export function almond(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.strokeStyle = '#6B4A35';
-  ctx.lineWidth = Math.max(1, s * 0.05);
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(0, -s * 0.3);
-  ctx.quadraticCurveTo(-s * 0.1, -s * 0.8, s * 0.2, -s * 1.2);
-  ctx.moveTo(-s * 0.04, -s * 0.7);
-  ctx.quadraticCurveTo(-s * 0.4, -s * 0.9, -s * 0.46, -s * 1.1);
-  ctx.stroke();
-  for (let i = 0; i < 9; i++) {
-    const bx = (hash(i + 40) - 0.45) * s * 0.8, by = -s * (0.75 + hash(i + 41) * 0.5);
-    ctx.fillStyle = i % 3 ? '#FBE9EE' : '#F2C6D2';
-    ctx.beginPath();
-    ctx.arc(bx, by, s * (0.07 + hash(i + 42) * 0.04), 0, TAU);
-    ctx.fill();
-  }
-  ctx.fillStyle = C.terracotta;
-  ctx.beginPath();
-  ctx.moveTo(-s * 0.16, -s * 0.34);
-  ctx.quadraticCurveTo(-s * 0.26, -s * 0.1, -s * 0.14, 0);
-  ctx.lineTo(s * 0.14, 0);
-  ctx.quadraticCurveTo(s * 0.26, -s * 0.1, s * 0.16, -s * 0.34);
-  ctx.closePath();
-  ctx.fill();
   ctx.restore();
 }

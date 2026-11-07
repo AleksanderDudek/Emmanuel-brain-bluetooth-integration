@@ -1,52 +1,52 @@
 /**
- * Glina's "Postępy" card in the lobby, from the app's existing .arcade-* classes: the numbers, the
- * street (each household's story, n/4, lit once its house came alive), the Book of Vessels (a tile
- * per form with the player's best vessel drawn small, how many and the tallest; a silhouette until
- * its page opens), the verse of the newest page that has one (one at most), the glazes, the form of
- * the day and the day's gift at the gate, and the published kiln-gift odds folded to one line.  It
- * stays short on a phone: the odds are a tap away and the book's tiles are small.
+ * Glina's "Postępy" card in the lobby, from the app's shared .arcade-* classes: the purse and the
+ * records, the workshop's shop (the next few items on sale, each a button that spends the purse —
+ * glazes, patterns, a smoother wheel, a bigger kiln), the shelf (the best piece of every form,
+ * drawn small; an outline until it is made; the stars to the next form), the neighbours' stories
+ * (n/4 each), and the glazes and patterns owned.
  */
 import { h } from '../../ui/dom';
-import { dayKey, daySeed } from '../kit/progress';
-import { verseCard } from '../kit/scripture';
-import { FORM, FORMS, GIFT_ODDS, GLAZES, GLAZE_NAME, HOUSES, HOUSE_NAME, MARK_NAME, DAY_GIFT_NAME, type Form } from './content';
-import { cap, cmText, pctText, t } from './i18n';
-import { dailyForm, dayGift, type GlinaProgress } from './meta';
+import { fmtNum } from '../../i18n';
+import { CUSTOMER_NAME, FORMS, GLAZES, GLAZE_NAME, HOUSES, PATTERNS, PATTERN_NAME, type Form, type ShopItem } from './content';
+import { cap, coinsText, t } from './i18n';
+import { buy, migrate, shelfCount, starsToNext, window_, type GlinaProgress } from './meta';
+import { GLAZE } from './paint';
 import { recLook } from './scene';
 import { drawVessel, look } from './vessel';
 
-const pct = (v: number) => `${Math.round(v * 100)}%`;
 const tileLook = look();
 
 function stat(k: string, v: string, unit = ''): HTMLElement {
   return h('div', { class: 'stat' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v, unit ? h('small', null, unit) : null));
 }
 
-/** A book tile: the best vessel of the form, drawn small, or its silhouette until the page opens. */
-function tile(p: GlinaProgress, f: Form): HTMLElement {
-  const page = p.book[f.id];
+function canvas(w: number, hh: number, draw: (ctx: CanvasRenderingContext2D) => void): HTMLCanvasElement {
   const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
-  const c = h('canvas', { width: String(Math.round(52 * dpr)), height: String(Math.round(40 * dpr)), 'aria-hidden': 'true' });
+  const c = h('canvas', { width: String(Math.round(w * dpr)), height: String(Math.round(hh * dpr)), 'aria-hidden': 'true' });
   const ctx = c.getContext('2d');
   if (ctx) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (page) {
-      const rec = page.best;
+    draw(ctx);
+  }
+  return c;
+}
+
+/** A shelf tile: the best piece of the form, or its outline until it is made. */
+function tile(p: GlinaProgress, f: Form): HTMLElement {
+  const rec = p.shelf[f.id];
+  const c = canvas(52, 40, ctx => {
+    if (rec) {
       let maxQ = 0;
       for (const q of rec.q) maxQ = Math.max(maxQ, q / 100);
       const scale = Math.min(34 / Math.max(1, rec.h), 21 / Math.max(0.5, maxQ * rec.h));
       drawVessel(ctx, recLook(tileLook, rec, 26, 37, scale, 30));
-    } else silhouette(ctx, f);
-  }
-  const marks = page ? MARK_NAME.filter(([bit]) => page.marks & bit).map(([, name]) => name) : [];
-  const title = page ? [cap(f.name), f.use, ...marks].join(' · ') : t('panel.tileHidden');
-  const cls = page ? (page.best.stars === 3 ? 'on epic' : page.best.gift === 'moon' ? 'on legend' : page.best.gift ? 'on rare' : 'on') : null;
-  return h('div', { class: cls, title }, c, page ? cap(f.name) : '?',
-    h('small', null, page ? t('panel.page', { n: page.n, cm: cmText(page.tall ?? page.best.h) }) : ''));
+    } else outline(ctx, f);
+  });
+  const cls = rec ? (rec.stars === 3 ? 'on epic' : rec.gift ? 'on rare' : 'on') : null;
+  return h('div', { class: cls, title: cap(f.name) }, c, rec ? cap(f.name) : '?', h('small', null, rec ? '★'.repeat(rec.stars) : ''));
 }
 
-/** An unopened page: the form's outline in faint chalk. */
-function silhouette(ctx: CanvasRenderingContext2D, f: Form): void {
+function outline(ctx: CanvasRenderingContext2D, f: Form): void {
   let maxQ = 0;
   for (const q of f.q) maxQ = Math.max(maxQ, q);
   const s = Math.min(34 / f.N, 21 / (maxQ * f.N));
@@ -60,39 +60,103 @@ function silhouette(ctx: CanvasRenderingContext2D, f: Form): void {
   ctx.stroke();
 }
 
-export function progressPanel(p: GlinaProgress): HTMLElement {
-  const day = dayKey();
-  const open = FORMS.filter(f => p.book[f.id]).length;
-  const parts: (HTMLElement | null)[] = [
+function itemName(it: ShopItem): string {
+  switch (it.kind) {
+    case 'glaze': return cap(GLAZE_NAME[it.ref]);
+    case 'pattern': return cap(PATTERN_NAME[it.ref]);
+    case 'wheel': return `${t('shop.wheel')} ${it.ref}`;
+    case 'kiln': return `${t('shop.kiln')} ${it.ref}`;
+  }
+}
+
+function itemNote(it: ShopItem): string {
+  return t(it.kind === 'glaze' ? 'shop.glazeNote' : it.kind === 'pattern' ? 'shop.patternNote' : it.kind === 'wheel' ? 'shop.wheelNote' : 'shop.kilnNote');
+}
+
+function itemIcon(it: ShopItem): HTMLCanvasElement {
+  return canvas(32, 32, ctx => {
+    if (it.kind === 'glaze') {
+      ctx.fillStyle = GLAZE[it.ref].c;
+      ctx.beginPath();
+      ctx.arc(16, 16, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.4)';
+      ctx.beginPath();
+      ctx.arc(12, 12, 4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (it.kind === 'pattern') {
+      ctx.fillStyle = '#B07A55';
+      ctx.fillRect(2, 10, 28, 12);
+      ctx.strokeStyle = '#2C4E9E';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= 12; i++) ctx.lineTo(3 + i * 2.2, 16 + Math.sin(i * 1.3) * 3);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = it.kind === 'wheel' ? '#8E6A50' : '#9C5B3B';
+      ctx.beginPath();
+      if (it.kind === 'wheel') ctx.ellipse(16, 18, 13, 5, 0, 0, Math.PI * 2);
+      else { ctx.moveTo(4, 28); ctx.quadraticCurveTo(4, 4, 16, 4); ctx.quadraticCurveTo(28, 4, 28, 28); }
+      ctx.fill();
+      ctx.fillStyle = '#F2C230';
+      ctx.font = '800 11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(it.ref), 16, it.kind === 'wheel' ? 14 : 24);
+    }
+  });
+}
+
+/** A button that spends the purse: disabled when it does not reach. */
+function button(label: string, can: boolean, onClick: () => void): HTMLButtonElement {
+  const b = h('button', { class: can ? 'btn primary' : 'btn', type: 'button', disabled: can ? null : 'disabled' }, label);
+  b.addEventListener('click', e => {
+    e.preventDefault();
+    if (can) onClick();
+  });
+  return b;
+}
+
+export function progressPanel(p: GlinaProgress, save: () => void): HTMLElement {
+  migrate(p);
+  const root = h('div', { class: 'arcade-panel' });
+  const render = (): void => {
+    while (root.firstChild) root.removeChild(root.firstChild);
+    for (const el of build(p, () => {
+      save();
+      render();
+    })) root.appendChild(el);
+  };
+  render();
+  return root;
+}
+
+function build(p: GlinaProgress, changed: () => void): HTMLElement[] {
+  const next = starsToNext(p);
+  const shop = window_(p, 4).map(it => {
+    const right = button(`${t('panel.buy')} · ${fmtNum(it.price)}`, p.purse >= it.price, () => {
+      if (buy(p, it.id)) changed();
+    });
+    right.style.marginLeft = 'auto';
+    return h('div', { class: 'arcade-daily' }, itemIcon(it), h('div', null, h('b', null, itemName(it)), h('p', null, itemNote(it))), right);
+  });
+  const out: HTMLElement[] = [
     h('div', { class: 'arcade-stats' },
-      stat(t('panel.vessels'), String(p.vessels)),
-      stat(t('panel.best'), p.sessions > 0 ? String(p.bestSession) : '—', p.sessions > 0 ? 'cm' : ''),
-      stat(t('panel.tallest'), p.tallest > 0 ? cmText(p.tallest).replace(/\s*cm$/, '') : '—', p.tallest > 0 ? 'cm' : ''),
-      stat(t('panel.forms'), String(open), '/12')),
-    h('div', { class: 'arcade-sub' }, t('panel.street')),
-    h('div', { class: 'arcade-chips' }, HOUSES.map(x => h('span', { class: p.steps[x] >= 4 ? 'on' : null },
-      p.steps[x] >= 4 ? t('panel.alive', { house: HOUSE_NAME[x] }) : t('panel.steps', { house: HOUSE_NAME[x], n: p.steps[x] })))),
-    h('div', { class: 'arcade-sub' }, t('panel.book', { n: open })),
+      stat(t('panel.purse'), coinsText(p.purse)),
+      stat(t('panel.best'), p.sessions > 0 ? coinsText(p.best) : '—'),
+      stat(t('panel.stars'), fmtNum(p.stars)),
+      stat(t('panel.streak'), p.bestStreak ? fmtNum(p.bestStreak) : '—')),
+    h('div', { class: 'arcade-sub' }, t('panel.shop')),
+    ...(shop.length ? shop : [h('p', { class: 'muted' }, t('panel.soldOut'))]),
+    h('div', { class: 'arcade-sub' }, `${t('panel.shelf')} · ${t('panel.shelfN', { n: shelfCount(p) })}`),
     h('div', { class: 'arcade-album' }, FORMS.map(f => tile(p, f))),
+    h('p', { class: 'muted' }, next === null ? t('panel.allForms') : t('panel.next', { n: next })),
+    h('div', { class: 'arcade-sub' }, t('panel.stories')),
+    h('div', { class: 'arcade-chips' }, HOUSES.map(x => h('span', { class: p.steps[x] >= 4 ? 'on' : null }, `${cap(CUSTOMER_NAME[x])} ${p.steps[x]}/4`))),
+    h('div', { class: 'arcade-chips' },
+      GLAZES.filter(g => p.glazes.includes(g)).map(g => h('span', { class: 'on' }, cap(GLAZE_NAME[g]))),
+      PATTERNS.filter(x => p.patterns.includes(x)).map(x => h('span', null, cap(PATTERN_NAME[x])))),
+    h('p', { class: 'muted' }, `${t('panel.wheel')} · ${t('panel.level', { n: p.wheel })} · ${t('panel.kiln')} · ${t('panel.level', { n: p.kiln })}`),
   ];
-  // the newest page's verse, when it has one (one verse at most)
-  const newest = p.newest ? FORM[p.newest] : null;
-  if (newest?.verse) parts.push(verseCard(newest.verse));
-  parts.push(h('div', { class: 'arcade-sub' }, t('panel.glazes')),
-    h('div', { class: 'arcade-chips' }, GLAZES.map(g => h('span', { class: p.glazes.includes(g) ? 'on' : null }, cap(GLAZE_NAME[g])))));
-  // the form of the day, the same for every potter today, and the day's gift
-  const daily = dailyForm(daySeed('glina', day));
-  const doneDaily = p.dailyDay === day;
-  parts.push(h('div', { class: doneDaily ? 'arcade-daily done' : 'arcade-daily' },
-    h('div', null, h('b', null, t('panel.daily')),
-      h('p', null, t('panel.dailyForm', { form: FORM[daily.f].name })),
-      h('p', null, doneDaily ? t('panel.dailyDone', { pct: pctText(p.dailyBest / 100) }) : t('panel.dailyTodo'))),
-    h('span', { class: doneDaily ? 'badge ok' : 'badge' }, doneDaily ? '1/1' : '0/1')));
-  const gift = dayGift(day), got = p.giftDay === day;
-  parts.push(h('p', { class: 'muted' }, t('panel.gift', { gift: DAY_GIFT_NAME[gift] }), ' — ', t(got ? 'panel.giftDone' : 'panel.giftTodo')));
-  // the published odds, a tap away
-  parts.push(h('details', null, h('summary', { class: 'muted' }, `${t('panel.oddsFold')} ▾`),
-    h('p', { class: 'muted mt10' }, t('panel.odds', { a: pct(GIFT_ODDS.blush), b: pct(GIFT_ODDS.speckle), c: pct(GIFT_ODDS.moon) }))));
-  if (p.seconds > 0) parts.push(h('p', { class: 'muted' }, `${t('panel.seconds')}: ${p.seconds}`));
-  return h('div', { class: 'arcade-panel' }, parts);
+  if (p.legacyCm > 0) out.push(h('p', { class: 'muted' }, `${t('panel.legacy')}: ${fmtNum(p.legacyCm)}`));
+  return out;
 }

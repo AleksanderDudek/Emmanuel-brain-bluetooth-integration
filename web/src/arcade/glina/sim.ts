@@ -1,113 +1,40 @@
 /**
- * Glina's rules and state, without the DOM or the canvas (so every rule is unit-tested).
+ * Glina's session, without the DOM (DESIGN.md §6, Glina v2): the potter's workshop after Let's
+ * Create! Pottery.  Customers come to the counter with an order (a silhouette, a glaze, sometimes a
+ * painted band); the player shapes the lump on the wheel (a finger on the wall pulls it in or out at
+ * that height, a finger at the rim pulls it up or presses it down), says "Gotowe" (the master's hand
+ * finishes a poor shape toward the order), and the piece dries on the kiln shelf.  Then the batch is
+ * glazed (a tap on a colour dips it, a drag on the turning pot paints a band), fired (stop the heat
+ * needle in the green, gold at its heart) and sold: each customer reacts, pays and tips by the stars.
  *
- * A session is a potter's day, vessel by vessel: U bramy (a neighbour at the gate with an order),
- * Toczenie (the push block: pull and shape the clay on the wheel), Drut (the wire cuts it off; the
- * card shows its height, stars and wall; a glaze is chosen), Wypał (the rest block: the kiln, the
- * wheel out of view), Otwarcie (the door opens on the fired vessel, which goes to its neighbour),
- * and after the last vessel Zachód, the street at sunset.  The plan scales to the session.
- *
- * The band only adds craft; every vessel is thrown, fired and delivered by touch and by showing up.
- * In a throw an even, steady level does three things, all fill-only:
- *   F  the chalk line the walls may rise to: F += 0.125·max(0, level − 0.35)·dt
- *   T  trueness, the modulate skill: an even level near or above the threshold (the residual spread
- *      of the twice-smoothed level around its own trend over the last 10 s) fills it; it shows as
- *      a glossier sheen and a truer rim, never as a wobble, and T ≥ 0.5 is "Na środku"
- *   the wall grade, judged once at the cut by three RoundJudges whose thresholds sit at the level
- *      bands 0.5, 0.65 and 0.8: mocna, zgrabna, cienka, skorupka
- * In a firing, calm melts the ash into glaze runs (G), and the kit's rest judge gives "Spokojny
- * ogień", which doubles the kiln-gift odds.  Nothing accrues during a block's lag (5 s Mendi, 2 s
- * HALO) or while the band's numbers climb back after a dropout; an unreliable frame freezes all of
- * it and stops the block clock (8 s at most per block, the plan gives the time back), and a block
- * with too little reliable time gets the neutral outcome — never a loss.  From the third session
- * every 4th throw is "Na wyczucie" (blind: a dusk line instead of the chalk line, revealed at the
- * cut) and every 4th firing a closed kiln.
- *
- * Verses never appear during play: the summary's closing passage comes from result().
+ * The blocks: a Toczenie (push) is the wheel's time — the band's steadiness stills the wheel (the
+ * spirit level on its frame), draws the master's guide line, makes the clay obey, and a held focus
+ * fills the master's hand, whose golden spin trues a piece to the order.  A Wypał (rest) is the
+ * kiln's — calm keeps the heat even (the needle slows, the green widens).  A free stretch (the first
+ * session's warm-up) runs a whole order at a time.  Nothing is ever lost: a piece unfinished at a
+ * block's end is finished by the master, a batch unsold at the end is sold, a poor firing still sells.
  */
-import { fmtNum } from '../../i18n';
-import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
+import type { FocusFrame, FocusTuning } from '../kit/focus';
+import { BlockContrast, RoundJudge } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import { inTurn, type PassageId } from '../kit/scripture';
-import type { ArcadeOutcome } from '../kit/types';
-import { CLAY, Clay, lineAt, nextStar, starsFor, type ClayForm, type PullResult } from './clay';
+import { SignalTrace } from '../kit/trace';
 import {
-  CLOSING, DAY_GIFT_NAME, FORM, HOUSES, HOUSE_NAME, KILN_GIFT_NAME, MARK, TIPS, glazeMark, runBand,
-  type Form, type FormId, type GiftId, type GlazeId, type HintKey, type HouseId, type KilnGift,
+  CLOSING, FORM, HOUSES, KILN_GIFT_NAME, LINES, REACT, STORY, TIPS, WALKINS, formTarget, storyAsk, storyThanks,
+  type CustomerId, type FormId, type GlazeId, type HouseId, type KilnGift, type PatternId, type Reaction,
 } from './content';
-import { cmText, pctText, t, type Key } from './i18n';
+import { fmtInt, t } from './i18n';
 import {
-  addToBook, addToStreet, alive, buckets, dailyForm, easiest, nextIntroduction, nextStoryHouse, openForms, orderGlaze,
-  receiveDayGift, rollGift, storyForm, tallestOf, welcomeBack, type DailyForm, type GlinaProgress, type VesselRec,
+  capacity, migrate, nextStory, openCount, openForms, shelfCount, shelve, type BandRec, type GlinaProgress, type PieceRec,
 } from './meta';
+import { RULES, gradeAt, needleSpeed, shapeStars, starsOf, type FireGrade } from './rules';
+import { Pot, RINGS, type Target } from './shape';
+import { Talk } from './talk';
 
-export const RULES = {
-  /** a vessel's share of a session (s): gate + throw + cut + firing + opening */
-  vesselSec: 58,
-  /** sessions this short play the compact cycle */
-  compactSec: 60,
-  normal: { gate: 3.5, firstGate: 5, cut: 3.5, open: 3, finale: 4, throw: 26, firstThrow: 24, fire: 22, jThrow: 3, jFire: 2 },
-  compact: { gate: 3, firstGate: 3, cut: 2.5, open: 2.5, finale: 3, throw: 16, firstThrow: 16, fire: 13, jThrow: 0, jFire: 0 },
-  /** no block is shorter, also when the plan gives paused time back (s) */
-  minBlock: 12,
-  /** the block clock stops at most this long per block while the signal is unreliable (s) */
-  maxPause: 8,
-  /** the sponge trues the rim in a throw's last seconds (input locked) */
-  sponge: 3,
-  /** the lag from a block's start before the brain counts (s) */
-  lagFnirs: 5,
-  lagEeg: 2,
-  /** the chalk line: F += fRate·max(0, level − fFloor)·dt, drawn eased with τ lineTau */
-  fRate: 0.125,
-  fFloor: 0.35,
-  lineTau: 0.6,
-  /**
-   * Trueness: the level smoothed again (τ), a detrended window of `window` s, T += tRate·even·work·dt
-   * with even = 1 − sd / sdRef and work = smoothstep(workLo, workHi, mean).  Tuned with the harness
-   * in arcade-glina.test.ts: without control a throw ends near T 0.4 (Na środku about one vessel in
-   * three), with control nearly always; HALO's shorter second smoothing leaves more spread, so its
-   * reference is wider.
-   */
-  tau2Fnirs: 2.5,
-  tau2Eeg: 1.5,
-  window: 10,
-  windowMin: 4,
-  sdRefFnirs: 0.03,
-  sdRefEeg: 0.04,
-  workLo: 0.4,
-  workHi: 0.6,
-  tRate: 0.07,
-  centre: 0.5,
-  trueSteps: [0.25, 0.5, 0.75],
-  /** the wall grade's level bands (judge thresholds at these levels): without control mocna ≈ 1/3, zgrabna ≈ 1/3, cienka ≈ 1/5, skorupka ≈ 1/10 */
-  bands: [0.5, 0.57, 0.63],
-  /** the glaze runs in a firing: G += gRate·calm·dt */
-  gRate: 0.07,
-  /** a dropout this long clears trueness's window and starts `recover` s in which nothing accrues */
-  gap: 2,
-  recover: 4,
-  /** a block needs this many reliable scored seconds for a verdict; below it the neutral floor */
-  scoredMin: 8,
-  neutral: 0.4,
-  /** a key held this long pulls continuously (a shorter press is one small pull) */
-  pressHold: 0.3,
-  /** blind throws and closed kilns from this session on */
-  blindFrom: 3,
-  /** how long the hints and the coaching line stay (s) */
-  hintShape: 3,
-  hintLine: 4.5,
-  hintEven: 3.5,
-  tipSec: 6,
-  /** at most this often a drag's pulls and shapes are told to the sound (s) */
-  touchTell: 0.14,
-} as const;
+export type BlockKind = 'warmup' | 'push' | 'rest';
+export interface Block { kind: BlockKind; dur: number; blind: boolean }
 
-// ── the plan ─────────────────────────────────────────────────────
-export type StepKind = 'gate' | 'throw' | 'cut' | 'fire' | 'open';
-export interface Step { kind: StepKind; dur: number; vessel: number }
-export interface Plan { steps: Step[]; finale: number; vessels: number; compact: boolean }
-
-/** No block under `min` s: lift the short ones and take the time from the others, keeping the total. */
+/** No block under `min` s: the short ones take their missing time from the long ones. */
 function liftShort(durs: number[], min: number): void {
   const short = durs.reduce((s, d) => s + Math.max(0, min - d), 0);
   if (short <= 0) return;
@@ -117,1142 +44,1081 @@ function liftShort(durs: number[], min: number): void {
 }
 
 /**
- * The session's steps: n = max(1, round((plannedSec − finisher) / 58)) vessels, each a gate, a throw,
- * the cut, a firing and the opening, then the finisher.  Throws are 26 s (the first 24 s), firings
- * 22 s, with a little jitter when the room allows it, all scaled so the plan ends at `plannedSec`;
- * sessions ≤ 60 s play the compact cycle (16 s and 13 s).  No block under 12 s.
+ * The session's blocks, filling `plannedSec`: a first-ever session opens with a warm-up (one whole
+ * order, taught), then Toczenie / Wypał pairs (25 ± 4 s, 25 ± 3 s, scaled to end on time, jittered
+ * when there is room) ending with a Wypał, so every batch is fired and sold.  A test session under a
+ * minute: whatever fits.
  */
-export function planSession(plannedSec: number, firstEver: boolean, rnd: () => number): Plan {
-  const compact = plannedSec <= RULES.compactSec;
-  const T = compact ? RULES.compact : RULES.normal;
-  const n = Math.max(1, Math.round((plannedSec - T.finale) / RULES.vesselSec));
-  const gates = n * T.gate + (firstEver ? T.firstGate - T.gate : 0);
-  const left = Math.max(0, plannedSec - gates - n * (T.cut + T.open) - T.finale);
-  const nominal: number[] = [];
-  for (let i = 0; i < n; i++) nominal.push(i === 0 ? T.firstThrow : T.throw, T.fire);
-  const sum = nominal.reduce((s, d) => s + d, 0);
-  const jitter = left / sum >= 0.75 ? 1 : 0;
-  const durs = nominal.map((d, i) => d + jitter * (rnd() * 2 - 1) * (i % 2 ? T.jFire : T.jThrow));
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
+  const R = RULES;
+  const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
+  const total = Math.max(10, plannedSec);
+  if (total <= 60) {
+    const warm = firstEver ? Math.min(R.warm.test, total * 0.3) : 0;
+    const left = total - warm;
+    const rest = Math.min(16, left / 2);
+    const plan = [b('push', left - rest), b('rest', rest)];
+    return warm > 0 ? [b('warmup', warm), ...plan] : plan;
+  }
+  const plan: Block[] = [];
+  let left = total;
+  if (firstEver) {
+    const warm = total >= 300 ? R.warm.long : R.warm.short;
+    plan.push(b('warmup', warm));
+    left -= warm;
+  }
+  const pair = R.push[0] + R.rest[0];
+  const pairs = Math.max(1, Math.round(left / pair));
+  const jitter = pairs >= 2 && left / (pairs * pair) >= 0.85 ? 1 : 0;
+  const durs: number[] = [];
+  for (let i = 0; i < pairs; i++) durs.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1], R.rest[0] + jitter * (rnd() * 2 - 1) * R.rest[1]);
   const scale = left / durs.reduce((s, d) => s + d, 0);
   for (let i = 0; i < durs.length; i++) durs[i] *= scale;
-  liftShort(durs, RULES.minBlock);
-  const steps: Step[] = [];
-  for (let i = 0; i < n; i++) {
-    steps.push({ kind: 'gate', dur: i === 0 && firstEver ? T.firstGate : T.gate, vessel: i });
-    steps.push({ kind: 'throw', dur: durs[2 * i], vessel: i });
-    steps.push({ kind: 'cut', dur: T.cut, vessel: i });
-    steps.push({ kind: 'fire', dur: durs[2 * i + 1], vessel: i });
-    steps.push({ kind: 'open', dur: T.open, vessel: i });
-  }
-  return { steps, finale: T.finale, vessels: n, compact };
+  liftShort(durs, R.minBlock);
+  durs.forEach((dur, i) => plan.push(b(i % 2 ? 'rest' : 'push', dur)));
+  return plan;
 }
 
-// ── orders ───────────────────────────────────────────────────────
-export type OrderKind = 'intro' | 'story' | 'daily' | 'everyday' | 'golden';
-
+// ── the work ─────────────────────────────────────────────────────
 export interface Order {
-  /** the vessel's slot in the session (0-based) */
-  index: number;
-  kind: OrderKind;
-  form: Form;
-  /** what the clay matches: the form's height and outline (the form of the day has its own variant) */
-  clay: ClayForm;
-  /** the household (null: the traveller with the form of the day) and its name */
-  house: HouseId | null;
-  who: string;
-  /** the story step this order is (1..4; 0 for everyday orders and the form of the day) */
-  step: number;
+  id: number;
+  customer: CustomerId;
+  form: FormId;
+  target: Target;
   glaze: GlazeId;
+  band: { glaze: GlazeId; pattern: PatternId } | null;
+  /** a household's story step (1..4) */
+  story: { house: HouseId; step: number } | null;
+  market: boolean;
+  /** what the customer says at the counter */
   line: string;
-  thanks: string;
-  /** the welcome back: this lump is porcelain */
-  porcelain: boolean;
-  /** the very first vessel ever: never blind, no overpull, gentler stars, a guaranteed flame blush */
-  first: boolean;
 }
 
-/** What the cut shows, right after the throw's judged window. */
-export interface CutCard {
-  h: number;
+export interface Band { u: number; glaze: GlazeId; pattern: PatternId; t: number }
+
+export interface Piece {
+  order: Order;
+  H: number;
+  r: Float64Array;
+  match: number;
+  assisted: boolean;
+  spun: boolean;
+  /** made in a push block that passed */
+  steady: boolean;
+  glaze: GlazeId | null;
+  bands: Band[];
+  /** glazed by the apprentice (time ran out, or Space) */
+  auto: boolean;
+  fire: FireGrade | null;
+  sold: boolean;
+  /** the sale */
   stars: 1 | 2 | 3;
-  sim: number;
-  /** the next star's threshold when the shape fell within 5 points of it */
-  next: number | null;
-  /** 0 mocna … 3 skorupka; verdict null: too little reliable signal (the neutral zgrabna) */
-  wall: number;
-  verdict: boolean | null;
-  centre: boolean;
-  blind: boolean;
-  /** cm the last pull added (the floors, the blind reveal) */
-  raised: number;
-  formBest: boolean;
-  buckets: GlazeId[];
-}
-
-/** What the opening shows: the fired vessel, its stamps, and its neighbour's thanks. */
-export interface OpenCard {
-  rec: VesselRec;
-  band: number;
-  calm: boolean;
+  price: number;
+  tip: number;
+  reaction: Reaction;
   gift: KilnGift | null;
-  isNew: boolean;
-  first: boolean;
-  closed: boolean;
-  who: string;
-  thanks: string;
 }
 
-export interface FinaleCard { vessels: number; cm: number; gift: GiftId | null; enough: boolean; alive: HouseId[] }
+export type WheelStage = 'idle' | 'walk' | 'shape' | 'assist' | 'spin' | 'cut';
+export type KilnStage = 'cold' | 'glaze' | 'heat' | 'fire' | 'open' | 'sell' | 'cool';
+export type Finger = { mode: 'wall'; u: number; d: number; held: number } | { mode: 'rim'; H: number; held: number };
 
-export type SimEvent =
-  | { type: 'gate'; order: Order }
-  | { type: 'throw'; blind: boolean }
-  | { type: 'pull'; dh: number; tap: boolean }
-  | { type: 'shape'; dr: number }
-  | { type: 'contact' }
-  | { type: 'strain' }
-  | { type: 'slump' }
-  | { type: 'gather' }
-  | { type: 'centre' }
-  | { type: 'true'; step: number }
-  | { type: 'sponge' }
-  | { type: 'cut'; card: CutCard }
-  | { type: 'glaze'; index: number }
-  | { type: 'fire'; closed: boolean }
-  | { type: 'runs'; band: number }
-  | { type: 'open'; card: OpenCard }
-  | { type: 'alive'; house: HouseId }
-  | { type: 'hint'; key: HintKey }
-  | { type: 'finale'; card: FinaleCard }
+export type Card =
+  | { kind: 'open'; t: number; dur: number }
+  | { kind: 'tally'; t: number; dur: number; n: number; coins: number; three: number }
+  | { kind: 'story'; t: number; dur: number; house: HouseId; step: number; text: string };
+
+export type GlinaEvent =
+  | { type: 'walk'; order: Order }
+  | { type: 'order'; order: Order }
+  | { type: 'stroke'; mode: 'wall' | 'rim' }
+  | { type: 'assist' }
+  | { type: 'spin' }
+  | { type: 'charged' }
+  | { type: 'cut'; piece: Piece; market: boolean }
+  | { type: 'glazeStart'; piece: Piece; index: number }
+  | { type: 'dip'; glaze: GlazeId }
+  | { type: 'band'; u: number; glaze: GlazeId; pattern: PatternId }
+  | { type: 'brush'; pattern: PatternId }
+  | { type: 'glazeDone'; piece: Piece; auto: boolean }
+  | { type: 'heat' }
+  | { type: 'fire'; grade: FireGrade; x: number; auto: boolean }
+  | { type: 'open' }
+  | { type: 'sale'; piece: Piece; streak: number }
+  | { type: 'market'; n: number; coins: number }
+  | { type: 'newForm'; form: FormId; outcome: 'new' | 'up' }
+  | { type: 'unlock'; form: FormId }
+  | { type: 'story'; house: HouseId; step: number }
+  | { type: 'gift'; gift: KilnGift; coins: number }
+  | { type: 'reveal'; share: number; coins: number }
+  | { type: 'telegraph'; next: Block }
+  | { type: 'blockStart'; block: Block; index: number }
+  | { type: 'blockEnd'; block: Block; verdict: boolean | null }
+  | { type: 'card'; card: Card }
   | { type: 'done' };
-
-const NO_EVENTS: readonly SimEvent[] = [];
-
-export type Phase = StepKind | 'finale' | 'done';
 
 export interface SimInit {
   progress: GlinaProgress;
   rng: () => number;
-  day: string;
-  daySeed: number;
   plannedSec: number;
   eeg: boolean;
-  /** the session's focus tuning (the kit's defaults, the game's entry, a beginner's bias): the judges follow it */
   tuning: FocusTuning;
+  day?: string;
 }
-
-/** The detrended window of trueness: (t, x, weight) samples of the twice-smoothed level, the last 10 s. */
-class Window {
-  private readonly t = new Float64Array(1024);
-  private readonly x = new Float64Array(1024);
-  private readonly w = new Float64Array(1024);
-  private head = 0;
-  private n = 0;
-  sec = 0;
-
-  clear(): void { this.head = 0; this.n = 0; this.sec = 0; }
-
-  push(t: number, x: number, w: number, span: number): void {
-    const cap = this.t.length;
-    const i = (this.head + this.n) % cap;
-    if (this.n === cap) { this.sec -= this.w[this.head]; this.head = (this.head + 1) % cap; this.n--; }
-    this.t[i] = t; this.x[i] = x; this.w[i] = w;
-    this.n++;
-    this.sec += w;
-    while (this.n > 0 && this.t[this.head] < t - span) {
-      this.sec -= this.w[this.head];
-      this.head = (this.head + 1) % cap;
-      this.n--;
-    }
-  }
-
-  /**
-   * The weighted mean and the residual spread around a weighted quadratic fit: the slow bend of a
-   * block's haemodynamic onset (rest to focus, a rise that levels off) is the trend, not unsteadiness,
-   * while a swing within the window (a Mayer wave, a wandering mind) stays in the residual.
-   */
-  fit(out: { m: number; sd: number }): void {
-    const cap = this.t.length;
-    let sw = 0, st = 0, sx = 0;
-    for (let j = 0; j < this.n; j++) {
-      const i = (this.head + j) % cap;
-      sw += this.w[i]; st += this.w[i] * this.t[i]; sx += this.w[i] * this.x[i];
-    }
-    if (sw <= 0) { out.m = 0; out.sd = 0; return; }
-    const tm = st / sw, xm = sx / sw;
-    // normal equations of x − x̄ ≈ b·τ + c·(τ² − m2) with τ = t − t̄ (the centred quadratic keeps them well-conditioned)
-    let m2 = 0;
-    for (let j = 0; j < this.n; j++) {
-      const i = (this.head + j) % cap, d = this.t[i] - tm;
-      m2 += this.w[i] * d * d;
-    }
-    m2 /= sw;
-    let s11 = 0, s12 = 0, s22 = 0, r1 = 0, r2 = 0;
-    for (let j = 0; j < this.n; j++) {
-      const i = (this.head + j) % cap, w = this.w[i];
-      const a = this.t[i] - tm, q = a * a - m2, y = this.x[i] - xm;
-      s11 += w * a * a; s12 += w * a * q; s22 += w * q * q; r1 += w * a * y; r2 += w * q * y;
-    }
-    const det = s11 * s22 - s12 * s12;
-    const b = det > 1e-12 ? (r1 * s22 - r2 * s12) / det : s11 > 1e-12 ? r1 / s11 : 0;
-    const c = det > 1e-12 ? (s11 * r2 - s12 * r1) / det : 0;
-    let ss = 0;
-    for (let j = 0; j < this.n; j++) {
-      const i = (this.head + j) % cap;
-      const a = this.t[i] - tm;
-      const e = this.x[i] - xm - b * a - c * (a * a - m2);
-      ss += this.w[i] * e * e;
-    }
-    out.m = xm;
-    out.sd = Math.sqrt(ss / sw);
-  }
-}
-
-const smoothstep = (a: number, b: number, x: number): number => {
-  const k = clamp((x - a) / (b - a));
-  return k * k * (3 - 2 * k);
-};
-
-const frameCopy = (): FocusFrame => ({ reliable: false, activity: null, threshold: 0, level: 0, focused: false, hold: 0, calm: 0 });
 
 export class GlinaSim {
   readonly p: GlinaProgress;
   readonly plannedSec: number;
-  readonly day: string;
   private readonly rng: () => number;
-  private readonly lag: number;
-  private readonly tau2: number;
-  private readonly sdRef: number;
-  private readonly events: SimEvent[] = [];
+  private readonly judge: RoundJudge;
+  readonly contrast = new BlockContrast(4);
+  /** the band's last 40 s: the throwing rings on the wheel head */
+  readonly trace = new SignalTrace(40, 0.5);
+  readonly talk: Talk;
+  private readonly events: GlinaEvent[] = [];
+  readonly eeg: boolean;
+  readonly lead: number;
+  readonly restLead: number;
+  readonly firstEver: boolean;
+  readonly session: number;
+  readonly plan: Block[];
 
   started = false;
-  /** this session's number in the game (1 = the first ever) */
-  session = 0;
-  plan: Plan = { steps: [], finale: 0, vessels: 0, compact: false };
-  /** the step running now (an index into plan.steps); the finisher comes after the last */
-  si = 0;
-  phase: Phase = 'gate';
-  /** seconds in this phase (play time) */
-  phaseT = 0;
-  /** seconds into the block (throws and firings: the block clock stops while the signal is unreliable) */
+  ended = false;
+  blockIndex = 0;
   blockT = 0;
-  private paused = 0;
-  /** play time, the sum of the frames (the window's clock) */
-  clock = 0;
+  private telegraphed = false;
+  t = 0;
+  tip = '';
+  card: Card | null = null;
+  lastInput = 0;
 
-  // the vessel on the wheel
+  // the wheel
+  wheel: WheelStage = 'idle';
+  wheelT = 0;
   order: Order | null = null;
-  clay: Clay | null = null;
-  blind = false;
-  closed = false;
-  sponge = false;
-  /** the cut's buckets and the one picked */
-  buckets: GlazeId[] = [];
-  pick = 0;
-  glaze: GlazeId = 'biel';
-  cutCard: CutCard | null = null;
-  openCard: OpenCard | null = null;
-  finaleCard: FinaleCard | null = null;
-  /** the current vessel's record once fired */
-  rec: VesselRec | null = null;
+  pot: Pot | null = null;
+  finger: Finger | null = null;
+  private from: { H: number; r: Float64Array } | null = null;
+  private to: { H: number; r: Float64Array } | null = null;
+  /** the wheel's turn (rad) and its speed */
+  rot = 0;
+  private orderSeq = 0;
+  private storyDone = false;
+  readonly queue: Order[] = [];
 
-  // the brain
+  // the kiln
+  kiln: KilnStage = 'cold';
+  kilnT = 0;
+  /** the batch on the kiln shelf, and the market basket */
+  batch: Piece[] = [];
+  market: Piece[] = [];
+  glazeIdx = 0;
+  brush: { glaze: GlazeId; pattern: PatternId };
+  needle = 0;
+  private needleDir = 1;
+  fired: { grade: FireGrade; x: number } | null = null;
+  saleIdx = 0;
+  /** the kiln comes to heat at this block time (a rest), or after `freeHeat` in a free stretch */
+  private heatAt = 0;
+
+  // the band
   reliable = false;
   level = 0;
-  F = 0;
-  T = 0;
-  G = 0;
-  /** the line drawn (eased; cm) */
-  lineShown = 0;
-  private L2 = 0.3;
-  private readonly win = new Window();
-  private readonly fitOut = { m: 0, sd: 0 };
-  /** the window's last mean and spread (the tuning harness and tests read them) */
-  m = 0;
-  sd = 0;
-  private scored = 0;
-  private gapT = 0;
-  private gapCleared = false;
-  private recover = 0;
-  private readonly judges: RoundJudge[];
-  private readonly shifts: number[];
-  private readonly bandFrames: FocusFrame[] = [frameCopy(), frameCopy(), frameCopy()];
-  private readonly restJudge: RoundJudge;
-  readonly contrast = new BlockContrast(4);
-  private trueStep = 0;
-  private centreShown = false;
-  private runsShown = 0;
-  private lineClimbed = false;
+  calm = 0;
+  /** steadiness 0..1 (0.5 at the threshold), the even heat 0..1, the master's hand 0..1 */
+  steady: number;
+  heat = 0.5;
+  charge = 0;
+  private goodT = 0;
+  private goodSaid = false;
+  private heatSaid = false;
+  private relSec = 0;
+  guideSeen = false;
+  blindShare = -1;
+  private pushesBegun = 0;
+  private readonly pushesBase: number;
+  private lastPushPassed = false;
 
-  // touch and keys
-  private press = { down: false, t: 0 };
-  private shapeDir = 0;
-  private handDir = 0;
-  private tellPull = 0;
-  private tellShape = 0;
-  private tellT = 0;
+  // the score
+  score = 0;
+  sold = 0;
+  three = 0;
+  streak = 0;
+  bestStreak = 0;
+  bestMatch = 0;
+  perfects = 0;
+  spins = 0;
+  gifts: KilnGift[] = [];
+  readonly newForms: FormId[] = [];
+  readonly stories: { house: HouseId; step: number }[] = [];
+  readonly unlocked: FormId[] = [];
+  readonly bestBefore: number;
+  private readonly openBefore: number;
 
-  // hints and coaching
-  hint: HintKey | null = null;
-  hintT = 0;
-  private hintDur = 0;
-  private readonly hintQueue: { key: HintKey; dur: number }[] = [];
-  private readonly hintsSeen = new Set<HintKey>();
-  tip = '';
-  tipT = 0;
-
-  // the session's tallies
-  /** heights of the vessels cut so far (cm) */
-  readonly heights: number[] = [];
-  /** the vessels fired this session, in order (the finisher draws them on the street) */
-  readonly made: VesselRec[] = [];
-  private threes = 0;
-  private thin = 0;
-  private centres = 0;
-  private calms = 0;
-  private firingsJudged = 0;
-  private throwsJudged = 0;
-  private dailySim = -1;
-  private readonly newForms: FormId[] = [];
-  private readonly aliveNow: HouseId[] = [];
-  private readonly stepsNow: { house: HouseId; n: number }[] = [];
-  private readonly giftsNow: { gift: KilnGift; form: FormId }[] = [];
-  private dayGiftNow: GiftId | null = null;
-  private secondNow = false;
-  private porcelainNow = false;
-  private mantleNow = false;
-  private tallestNow = 0;
-  /** session-start snapshots: the records to beat, the counters, the day */
-  private readonly bestBefore: number | null;
-  private readonly before: { tallest: number; three: number; seconds: number };
-  private throwsBase = 0;
-  private firingsBase = 0;
-  private throwsBegun = 0;
-  private firingsBegun = 0;
-  private closedDue = false;
-  private dailyOpen = false;
-  private dailyPlaced = false;
-  private daily: DailyForm | null = null;
-  private porcelainDue = false;
-  private todayN = 1;
-  private prevForm: FormId | null = null;
-
-  constructor(private readonly init: SimInit) {
-    this.p = init.progress;
+  constructor(init: SimInit) {
+    const p = (this.p = migrate(init.progress));
     this.rng = init.rng;
-    this.day = init.day;
     this.plannedSec = init.plannedSec;
-    this.lag = init.eeg ? RULES.lagEeg : RULES.lagFnirs;
-    this.tau2 = init.eeg ? RULES.tau2Eeg : RULES.tau2Fnirs;
-    this.sdRef = init.eeg ? RULES.sdRefEeg : RULES.sdRefFnirs;
-    this.judges = RULES.bands.map(() => RoundJudge.from(init.tuning));
-    this.shifts = RULES.bands.map(b => init.tuning.width * Math.log(b / (1 - b)));
-    this.restJudge = RoundJudge.from(init.tuning);
-    this.bestBefore = this.p.sessions > 0 ? this.p.bestSession : null;
-    this.before = { tallest: this.p.tallest, three: this.p.bestThree, seconds: this.p.seconds };
+    this.eeg = init.eeg;
+    this.judge = RoundJudge.from(init.tuning);
+    this.lead = RULES.leadIn[init.eeg ? 'eeg' : 'fnirs'];
+    this.restLead = RULES.restLead[init.eeg ? 'eeg' : 'fnirs'];
+    this.firstEver = p.sessions === 0;
+    this.session = p.sessions + 1;
+    this.pushesBase = p.pushes;
+    this.bestBefore = p.best;
+    this.openBefore = openCount(p);
+    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng);
+    this.talk = new Talk(LINES, init.rng);
+    this.steady = this.base;
+    this.brush = { glaze: p.glazes[0] ?? 'biel', pattern: p.patterns[0] ?? 'pas' };
+    if (init.day) p.lastDay = init.day;
   }
 
-  get step(): Step | null { return this.plan.steps[this.si] ?? null; }
-  get vesselIndex(): number { return this.step?.vessel ?? Math.max(0, this.plan.vessels - 1); }
-  /** the length of the running phase (s) */
-  get phaseDur(): number { return this.phase === 'finale' ? this.plan.finale : this.step?.dur ?? 0; }
-  /** the running block's progress 0..1 (throws and firings on the block clock, the rest on play time) */
-  get progress(): number {
-    const d = this.phaseDur;
-    if (d <= 0) return 1;
-    return clamp((this.phase === 'throw' || this.phase === 'fire' ? this.blockT : this.phaseT) / d);
-  }
-  /** the first-ever session */
-  get firstSession(): boolean { return this.session === 1; }
-  /** the cap the wall may rise to in a blind throw: the dusk line at the neutral height */
-  get duskLine(): number { return this.order ? lineAt(this.order.clay, RULES.neutral) : 0; }
-  /** the trueness the screen shows (neutral in a blind throw) and the runs (hidden in a closed kiln until it opens) */
-  get shownT(): number { return this.blind && this.phase === 'throw' ? 0.5 : this.T; }
-  get shownG(): number { return this.closed && this.phase === 'fire' ? 0 : this.G; }
-  /** the light of the day: 0 morning … 1 the golden hour of the last vessel */
-  get light(): number { return this.plan.vessels > 1 ? this.vesselIndex / (this.plan.vessels - 1) : 0.4; }
-  get golden(): boolean { return this.order?.kind === 'golden'; }
-  /** a verse may show now (never during play: the summary closes with result().verse) */
-  get verseNow(): PassageId | null { return null; }
+  /** steadiness without the band's say: the threshold, plus the wheel's upgrades */
+  get base(): number { return RULES.neutral + RULES.wheelStep * this.p.wheel; }
 
-  /** the headline: the vessels cut so far plus the one on the wheel once its walls were first pulled */
-  get score(): number {
-    let s = 0;
-    for (const h of this.heights) s += h;
-    if (this.phase === 'throw' && this.clay?.opened) s += this.clay.H;
-    return Math.round(s);
+  // ── the blocks ──────────────────────────────────────────────────
+  get block(): Block { return this.plan[Math.min(this.blockIndex, this.plan.length - 1)]; }
+  get next(): Block | null { return this.plan[this.blockIndex + 1] ?? null; }
+  get pushBlock(): boolean { return !this.ended && this.block.kind === 'push'; }
+  get restBlock(): boolean { return !this.ended && this.block.kind === 'rest'; }
+  get freeBlock(): boolean { return !this.ended && this.block.kind === 'warmup'; }
+  get blind(): boolean { return this.pushBlock && this.block.blind; }
+  /** a push past the band's delay: steadiness answers the band */
+  get live(): boolean { return this.pushBlock && this.blockT >= this.lead; }
+  get sighted(): boolean { return this.live && !this.block.blind; }
+  get warming(): boolean { return this.restBlock && this.blockT >= this.restLead; }
+  get telegraphing(): boolean { return !this.ended && this.blockT >= this.block.dur - RULES.telegraph && this.blockIndex < this.plan.length - 1; }
+  get left(): number { return Math.max(0, this.block.dur - this.blockT); }
+  /** the station in front of the player */
+  get station(): 'wheel' | 'kiln' {
+    if (this.restBlock) return 'kiln';
+    if (this.pushBlock) return 'wheel';
+    return this.kiln !== 'cold' && this.kiln !== 'cool' ? 'kiln' : 'wheel';
   }
-
-  /** the day's cm with one decimal (the finisher's line) */
-  get cm(): number {
-    let s = 0;
-    for (const h of this.heights) s += h;
-    if (this.phase === 'throw' && this.clay?.opened) s += this.clay.H;
-    return s;
+  /** the guide line shows: a sighted push, steady enough */
+  get guide(): boolean { return this.sighted && this.reliable && this.steady >= RULES.guideAt && this.wheel === 'shape'; }
+  get talkBlocked(): boolean {
+    if (this.card) return true;
+    if (this.ended) return false;
+    if (this.block.kind !== 'warmup' && this.blockT < RULES.bannerSec) return true;
+    return this.telegraphing;
   }
+  /** the piece on the glazing wheel */
+  get glazing(): Piece | null { return this.kiln === 'glaze' ? this.batch[this.glazeIdx] ?? null : null; }
+  get cap(): number { return capacity(this.p); }
 
   start(): void {
     if (this.started) return;
     this.started = true;
-    const p = this.p, day = this.day;
-    this.session = p.sessions + 1;
-    this.throwsBase = p.throwsBegun;
-    this.firingsBase = p.firingsBegun;
-    this.dailyOpen = p.dailyDay !== day;
-    this.daily = dailyForm(this.init.daySeed);
-    this.porcelainDue = welcomeBack(p, day);
-    this.todayN = (p.lastDay === day ? p.todayN : 0) + 1;
-    this.plan = planSession(this.plannedSec, p.vessels === 0, this.rng);
-    this.si = 0;
-    this.startGate(0);
+    this.p.sessions++;
+    if (this.firstEver) this.setCard({ kind: 'open', t: 0, dur: RULES.openCard });
+    else this.talk.ask('open', 2, 8);
+    this.startBlock(0);
+    if (this.wheel === 'idle') this.nextOrder();
   }
 
-  // ── a frame ─────────────────────────────────────────────────────
+  // ── orders ──────────────────────────────────────────────────────
+  private pick<T>(xs: readonly T[]): T { return xs[Math.min(xs.length - 1, Math.floor(this.rng() * xs.length))]; }
+
+  /** The next order: a household's story step first in a session, then regulars and walk-ins; the market when the shelf is full. */
+  makeOrder(): Order {
+    const p = this.p, id = ++this.orderSeq;
+    const market = this.batch.length >= this.cap && !this.freeBlock;
+    const owned = p.glazes;
+    let customer: CustomerId, form: FormId, story: Order['story'] = null;
+    const nextHouse = nextStory(p);
+    if (!market && !this.storyDone && nextHouse) {
+      this.storyDone = true;
+      const step = p.steps[nextHouse] + 1;
+      customer = nextHouse;
+      form = STORY[nextHouse][step - 1];
+      story = { house: nextHouse, step };
+    } else {
+      customer = market ? 'targ' : this.pick([...WALKINS, ...HOUSES] as CustomerId[]);
+      const open = openForms(p);
+      form = this.pick(open.length ? open : (['kubek'] as FormId[]));
+    }
+    const glaze = this.pick(owned);
+    let band: Order['band'] = null;
+    if (!market && p.sold + this.sold >= 2 && this.rng() < 0.55) {
+      const others = owned.filter(g => g !== glaze);
+      band = { glaze: this.pick(others.length ? others : owned), pattern: this.pick(p.patterns) };
+    }
+    const line = story ? storyAsk(story.house, story.step) : market ? t('ask.market') : t(`ask.${1 + Math.floor(this.rng() * 6)}` as 'ask.1');
+    return { id, customer, form, target: formTarget(form), glaze, band, story, market, line };
+  }
+
+  private nextOrder(): void {
+    if (this.ended) return;
+    if (this.restBlock) {
+      this.wheel = 'idle';
+      return;
+    }
+    const o = this.makeOrder();
+    this.order = o;
+    this.pot = null;
+    this.wheel = 'walk';
+    this.wheelT = 0;
+    this.emit({ type: 'walk', order: o });
+  }
+
+  // ── the hands: the wheel ───────────────────────────────────────
+  /** A finger on the wall (u: 0..1 of the pot's height, d: cm from the axis). */
+  touchWall(u: number, d: number): void {
+    if (this.wheel !== 'shape' || this.card) return;
+    this.lastInput = this.t;
+    const held = this.finger?.held ?? 0;
+    this.finger = { mode: 'wall', u: clamp(u), d: Math.max(0, d), held };
+  }
+
+  /** A finger at the rim: the height it wants (cm). */
+  touchRim(H: number): void {
+    if (this.wheel !== 'shape' || this.card) return;
+    this.lastInput = this.t;
+    const held = this.finger?.held ?? 0;
+    this.finger = { mode: 'rim', H, held };
+  }
+
+  /** The finger lifts: a short touch (a tap) still nudges the clay a little. */
+  release(): void {
+    const f = this.finger;
+    this.finger = null;
+    if (!f || !this.pot || this.wheel !== 'shape') return;
+    const nudge = 0.14 - f.held;
+    if (nudge > 0) this.applyFinger(f, nudge);
+  }
+
+  private applyFinger(f: Finger, dt: number): void {
+    const pot = this.pot;
+    if (!pot) return;
+    if (f.mode === 'wall') pot.wall(f.u, f.d, dt, this.steady, () => this.rng() * 2 - 1);
+    else pot.height(f.H, dt);
+  }
+
+  /** "Gotowe": the piece is done; a poor shape gets the master's hand first. */
+  done(): boolean {
+    if (this.card) return false;
+    if (this.wheel !== 'shape' || !this.pot) return false;
+    this.lastInput = this.t;
+    this.finger = null;
+    const goal = RULES.assist + RULES.assistSteady * clamp((this.steady - 0.5) / 0.5);
+    const k = this.pot.shareFor(goal);
+    if (k > 0.001) {
+      this.from = this.pot.snap();
+      const tmp = new Pot(this.pot.target);
+      tmp.blend(this.from, this.from, 0);
+      tmp.toward(k);
+      this.to = tmp.snap();
+      this.wheel = 'assist';
+      this.wheelT = 0;
+      this.emit({ type: 'assist' });
+    } else this.cut(false);
+    return true;
+  }
+
+  /** The master's spin: the piece trues to the order in a golden turn. */
+  private spin(): void {
+    if (!this.pot) return;
+    this.charge = 0;
+    this.spins++;
+    this.p.spins++;
+    this.from = this.pot.snap();
+    const tmp = new Pot(this.pot.target);
+    tmp.blend(this.from, this.from, 0);
+    tmp.toward(tmp.shareFor(0.97));
+    this.to = tmp.snap();
+    this.wheel = 'spin';
+    this.wheelT = 0;
+    this.finger = null;
+    this.emit({ type: 'spin' });
+    this.talk.ask('master', 4, 5);
+  }
+
+  private cut(assisted: boolean, spun = false): void {
+    const pot = this.pot, o = this.order;
+    if (!pot || !o) return;
+    const piece: Piece = {
+      order: o, H: pot.H, r: Float64Array.from(pot.r), match: pot.match, assisted, spun, steady: false,
+      glaze: null, bands: [], auto: false, fire: null, sold: false, stars: 1, price: 0, tip: 0, reaction: 'r1', gift: null,
+    };
+    this.bestMatch = Math.max(this.bestMatch, piece.match);
+    const market = o.market || (this.batch.length >= this.cap && !this.freeBlock);
+    if (market) this.market.push(piece);
+    else this.batch.push(piece);
+    this.wheel = 'cut';
+    this.wheelT = 0;
+    this.emit({ type: 'cut', piece, market });
+    if (market && this.market.length === 1) this.talk.ask('market', 2, 5);
+    if (!spun && piece.match < 0.5) this.talk.ask('sloppy', 1, 4);
+  }
+
+  // ── the hands: the kiln ────────────────────────────────────────
+  /** A colour: the brush takes it; the first, or the brush's own colour again, dips the piece. */
+  pickGlaze(g: GlazeId): boolean {
+    const pc = this.glazing;
+    if (!pc || this.card || !this.p.glazes.includes(g)) return false;
+    this.lastInput = this.t;
+    const dip = pc.glaze === null || this.brush.glaze === g;
+    this.brush.glaze = g;
+    if (dip) {
+      pc.glaze = g;
+      this.emit({ type: 'dip', glaze: g });
+    }
+    return true;
+  }
+
+  pickPattern(pt: PatternId): boolean {
+    if (!this.glazing || this.card || !this.p.patterns.includes(pt)) return false;
+    this.lastInput = this.t;
+    this.brush.pattern = pt;
+    this.emit({ type: 'brush', pattern: pt });
+    return true;
+  }
+
+  /** A band painted at height u (0..1) in the brush's colour and pattern (a band near it is painted over). */
+  paint(u: number): boolean {
+    const pc = this.glazing;
+    if (!pc || this.card) return false;
+    this.lastInput = this.t;
+    if (pc.glaze === null) return this.pickGlaze(this.brush.glaze);
+    const uu = clamp(u, 0.08, 0.94);
+    const near = pc.bands.findIndex(b => Math.abs(b.u - uu) < RULES.bandGap);
+    if (near >= 0) {
+      const b = pc.bands[near];
+      if (b.glaze === this.brush.glaze && b.pattern === this.brush.pattern) return false;
+      pc.bands.splice(near, 1);
+    }
+    if (pc.bands.length >= RULES.bandsMax) pc.bands.shift();
+    pc.bands.push({ u: uu, glaze: this.brush.glaze, pattern: this.brush.pattern, t: 0 });
+    this.emit({ type: 'band', u: uu, glaze: this.brush.glaze, pattern: this.brush.pattern });
+    return true;
+  }
+
+  /** "Gotowe" at the glazing wheel: an undipped piece takes the order's colour; the next piece comes. */
+  glazeDone(auto = false): boolean {
+    const pc = this.glazing;
+    if (!pc || (this.card && !auto)) return false;
+    if (!auto) this.lastInput = this.t;
+    if (pc.glaze === null) pc.glaze = this.p.glazes.includes(pc.order.glaze) ? pc.order.glaze : this.brush.glaze;
+    if (auto) pc.auto = true;
+    this.emit({ type: 'glazeDone', piece: pc, auto });
+    this.glazeIdx++;
+    this.nextGlaze();
+    return true;
+  }
+
+  /** Space at the glazing wheel: the order's glaze and band, as asked, then the next piece. */
+  glazeAsAsked(): boolean {
+    const pc = this.glazing;
+    if (!pc || this.card) return false;
+    const o = pc.order;
+    if (pc.glaze === null && this.p.glazes.includes(o.glaze)) {
+      pc.glaze = o.glaze;
+      this.emit({ type: 'dip', glaze: o.glaze });
+    }
+    if (o.band && !pc.bands.some(b => b.glaze === o.band!.glaze && b.pattern === o.band!.pattern)) {
+      pc.bands.push({ u: 0.62, glaze: o.band.glaze, pattern: o.band.pattern, t: 0 });
+      this.emit({ type: 'band', u: 0.62, glaze: o.band.glaze, pattern: o.band.pattern });
+    }
+    return this.glazeDone(false);
+  }
+
+  /** A tap at the kiln while the needle runs: it stops there. */
+  stopNeedle(auto = false): boolean {
+    if (this.kiln !== 'fire' || (this.card && !auto)) return false;
+    if (!auto) this.lastInput = this.t;
+    const grade = auto ? (gradeAt(this.needle, this.heat, this.p.kiln) === 'perfect' ? 'perfect' : 'good') : gradeAt(this.needle, this.heat, this.p.kiln);
+    this.fired = { grade, x: this.needle };
+    this.lastFired = this.batch.filter(pc => !pc.sold);
+    for (const pc of this.lastFired) pc.fire = grade;
+    if (grade === 'perfect') this.perfects++;
+    this.kiln = 'open';
+    this.kilnT = 0;
+    this.emit({ type: 'fire', grade, x: this.needle, auto });
+    if (grade === 'perfect') this.talk.ask('perfect', 3, 5);
+    else if (grade !== 'good') this.talk.ask('miss', 2, 5);
+    return true;
+  }
+
+  /** Space: finish what is in front of the player. */
+  space(): boolean {
+    if (this.card) return this.dismiss();
+    if (this.station === 'wheel' && this.wheel === 'shape') return this.done();
+    if (this.kiln === 'glaze') return this.glazeAsAsked();
+    if (this.kiln === 'fire') return this.stopNeedle();
+    if (this.kiln === 'sell' || this.kiln === 'open') return this.hurry();
+    return false;
+  }
+
+  /** A tap while the kiln opens or sells: the next customer steps up at once. */
+  hurry(): boolean {
+    if (this.kiln === 'open') { this.kilnT = RULES.openSec; return true; }
+    if (this.kiln === 'sell') { this.kilnT = RULES.saleSec; return true; }
+    return false;
+  }
+
+  /** A tap closes a story card. */
+  dismiss(): boolean {
+    if (!this.card) return false;
+    if (this.card.kind === 'open' && this.card.t < 0.6) return true;
+    this.card = null;
+    return true;
+  }
+
+  private setCard(c: Card): void {
+    this.card = c;
+    this.finger = null;
+    this.talk.clear();
+    this.emit({ type: 'card', card: c });
+  }
+
+  // ── the frame ───────────────────────────────────────────────────
   update(dt: number, f: FocusFrame, t: number): void {
-    if (!this.started || !(dt > 0)) return;
-    this.clock += dt;
-    this.phaseT += dt;
+    if (!this.started) return;
+    this.t = t;
     this.reliable = f.reliable;
-    if (f.reliable) this.level = f.level;
-    this.signal(dt, f);
-    this.ageHints(dt);
-    switch (this.phase) {
-      case 'gate':
-        if (this.phaseT >= this.phaseDur) this.next();
+    this.level = f.level;
+    this.calm = f.calm;
+    if (this.card) {
+      this.card.t += dt;
+      if (this.card.t >= this.card.dur) this.card = null;
+    }
+    if (!this.ended) {
+      this.band(dt, f);
+      this.schedule(dt, f);
+      if (!this.card || this.card.kind !== 'open') {
+        this.wheelStep(dt);
+        this.kilnStep(dt);
+      }
+      if (t >= this.plannedSec) this.end();
+    }
+    this.rot += dt * (this.wheel === 'spin' ? 16 : this.wheel === 'shape' || this.wheel === 'assist' ? 9 : this.wheel === 'cut' || this.wheel === 'walk' ? 6 : 1.2);
+    this.talk.update(dt, t, this.talkBlocked);
+  }
+
+  /** Steadiness, the master's hand and the even heat from the band. */
+  private band(dt: number, f: FocusFrame): void {
+    const R = RULES;
+    const phase = this.pushBlock ? 'focus' : this.restBlock ? 'rest' : 'free';
+    this.trace.push(this.t, f, phase, this.blind);
+    if (f.reliable && !this.freeBlock) this.relSec += dt;
+    const top = Math.min(1, 1 + R.wheelStep * this.p.wheel);
+    if (this.live && f.reliable) {
+      this.steady = approach(this.steady, clamp(clamp(f.level) + R.wheelStep * this.p.wheel, 0, top), dt, R.steadyTau);
+      if (this.steady >= 0.5) {
+        this.charge = Math.min(1, this.charge + dt / R.chargeSec[this.eeg ? 'eeg' : 'fnirs']);
+        this.goodT += dt;
+        if (this.sighted && this.goodT >= R.goodSec && !this.goodSaid) {
+          this.goodSaid = true;
+          this.talk.ask('good', 3, 5);
+        }
+      } else this.goodT = 0;
+      if (this.charge >= 1 && this.sighted && this.wheel === 'shape' && this.pot) this.spin();
+    } else this.steady = approach(this.steady, this.base, dt, 0.9);
+    if (this.warming && f.reliable) {
+      this.heat = approach(this.heat, clamp(f.calm), dt, R.heatTau);
+      if (this.heat >= 0.6 && !this.heatSaid) {
+        this.heatSaid = true;
+        this.talk.ask('heat', 2, 5);
+      }
+    } else if (!this.restBlock || !f.reliable) this.heat = approach(this.heat, 0.5, dt, 1.2);
+  }
+
+  private wheelStep(dt: number): void {
+    const R = RULES;
+    this.wheelT += dt;
+    switch (this.wheel) {
+      case 'walk':
+        if (this.wheelT >= R.walkSec && this.order) {
+          this.pot = new Pot(this.order.target);
+          this.wheel = 'shape';
+          this.wheelT = 0;
+          this.emit({ type: 'order', order: this.order });
+        }
         break;
-      case 'throw':
-        this.throwFrame(dt, f);
+      case 'shape':
+        if (this.pot) {
+          if (this.finger && this.wheelT >= R.lumpSec) {
+            this.finger.held += dt;
+            this.applyFinger(this.finger, dt);
+            if (this.finger.held % 0.2 < dt) this.emit({ type: 'stroke', mode: this.finger.mode });
+          }
+          this.pot.true_(dt, this.steady >= 0.5 ? this.steady : this.steady * 0.4);
+          if (!this.guideSeen && this.guide) this.guideSeen = true;
+        }
         break;
+      case 'assist':
+      case 'spin': {
+        const dur = this.wheel === 'spin' ? R.spinSec : R.assistSec;
+        const k = Math.min(1, this.wheelT / dur);
+        const e = k * k * (3 - 2 * k);
+        if (this.pot && this.from && this.to) this.pot.blend(this.from, this.to, e);
+        if (k >= 1) this.cut(this.wheel === 'assist', this.wheel === 'spin');
+        break;
+      }
       case 'cut':
-        if (this.phaseT >= this.phaseDur) this.next();
-        break;
-      case 'fire':
-        this.fireFrame(dt, f);
-        break;
-      case 'open':
-        if (this.phaseT >= this.phaseDur) this.next();
-        break;
-      case 'finale':
-        if (this.phaseT >= this.plan.finale) {
-          this.phase = 'done';
-          this.phaseT = 0;
-          this.emit({ type: 'done' });
+        if (this.wheelT >= R.cutSec) {
+          this.pot = null;
+          this.wheel = 'idle';
+          if (this.freeBlock) this.startKiln();
+          else this.nextOrder();
         }
         break;
       default:
         break;
     }
-    if (this.phase !== 'finale' && this.phase !== 'done') {
-      this.fitPlan(t);
-      // time is up mid-block (a plan that could not fit, a slow device): settle, then the finisher
-      if (t >= this.plannedSec) {
-        this.settle();
-        this.startFinale();
-      }
-    }
-    this.tellTouch(dt);
   }
 
-  /** Dropouts: a long one clears trueness's window, and when the signal returns nothing accrues for a while. */
-  private signal(dt: number, f: FocusFrame): void {
-    if (!f.reliable) {
-      this.gapT += dt;
-      if (this.gapT >= RULES.gap && !this.gapCleared) {
-        this.win.clear();
-        this.gapCleared = true;
-      }
+  /** The kiln takes the batch: glazing first. */
+  private startKiln(): void {
+    if (!this.batch.some(p => !p.sold)) {
+      this.kiln = this.restBlock ? 'cool' : 'cold';
       return;
     }
-    if (this.gapT > 0) {
-      if (this.gapT >= RULES.gap) this.recover = RULES.recover;
-      this.gapT = 0;
-      this.gapCleared = false;
-    } else if (this.recover > 0) {
-      this.recover = Math.max(0, this.recover - dt);
-      if (this.recover === 0) this.L2 = f.level;   // a fresh start for the second smoothing
-    }
+    this.glazeIdx = this.batch.findIndex(p => !p.sold && p.glaze === null);
+    if (this.glazeIdx < 0) this.glazeIdx = this.batch.length;
+    this.kiln = 'glaze';
+    this.kilnT = 0;
+    this.heatAt = this.restBlock
+      ? clamp(this.block.dur * RULES.heatAt, Math.min(RULES.heatMin, this.block.dur * 0.4), Math.max(this.block.dur * 0.4, this.block.dur - RULES.heatEnd))
+      : 0;
+    this.nextGlaze();
   }
 
-  /** The block clock: it stops while the signal is unreliable, at most 8 s per block. */
-  private blockClock(dt: number, f: FocusFrame): void {
-    if (!f.reliable && this.paused < RULES.maxPause) this.paused += dt;
-    else this.blockT += dt;
-  }
-
-  // ── the throw ───────────────────────────────────────────────────
-  private throwFrame(dt: number, f: FocusFrame): void {
-    const clay = this.clay!, o = this.order!;
-    this.blockClock(dt, f);
-    const dur = this.phaseDur;
-    if (!this.sponge && this.blockT >= dur - RULES.sponge) {
-      this.sponge = true;
-      clay.calm();
-      clay.overpull = false;
-      this.press.down = false;
-      this.emit({ type: 'sponge' });
-    }
-    this.throwBrain(dt, f);
-    const target = lineAt(o.clay, this.F);
-    this.lineShown = approach(this.lineShown, target, dt, RULES.lineTau);
-    clay.line = this.blind ? this.duskLine : this.lineShown;
-    // held keys: a press is one small pull; held on, the wall rises 0.25·N per s
-    if (this.press.down && !this.sponge) {
-      this.press.t += dt;
-      clay.keyHold = this.press.t >= RULES.pressHold;
-    } else clay.keyHold = false;
-    if (!this.sponge && clay.free) {
-      if (this.shapeDir) {
-        clay.shape(this.shapeDir * CLAY.keyShape * dt);
-        this.tellShape += CLAY.keyShape * dt;
-      }
-      if (this.handDir) clay.hand = clamp(clay.hand + this.handDir * CLAY.handSpeed * dt, 0.05, 1);
-    }
-    const strained = clay.strain > 0;
-    const was = clay.H;
-    const happened = clay.update(dt, true);
-    if (clay.keyHold && clay.H > was) this.tellPull += clay.H - was;
-    if (!strained && clay.strain > 0) this.emit({ type: 'strain' });
-    if (happened === 'slump') {
-      this.secondNow = true;
-      this.emit({ type: 'slump' });
-    } else if (happened === 'gather') this.emit({ type: 'gather' });
-    if (this.blockT >= dur) this.next();
-  }
-
-  private throwBrain(dt: number, f: FocusFrame): void {
-    // the wall grade's judges see every tick (they skip unreliable ones themselves), each at its level band
-    for (let i = 0; i < this.judges.length; i++) {
-      const fr = this.bandFrames[i];
-      fr.reliable = f.reliable;
-      fr.activity = f.activity;
-      fr.threshold = f.threshold + this.shifts[i];
-      fr.level = f.level;
-      fr.calm = f.calm;
-      this.judges[i].push('focus', fr, dt);
-    }
-    this.contrast.push('focus', f.activity, f.reliable, this.blockT, dt);
-    if (!f.reliable || this.recover > 0) return;
-    this.L2 = approach(this.L2, f.level, dt, this.tau2);
-    this.win.push(this.clock, this.L2, dt, RULES.window);
-    if (this.blockT < this.lag) return;
-    this.scored += dt;
-    const F0 = this.F;
-    this.F = Math.min(1, this.F + RULES.fRate * Math.max(0, f.level - RULES.fFloor) * dt);
-    if (this.F > F0 && !this.lineClimbed && this.F > 0.01) {
-      this.lineClimbed = true;
-      if (this.firstSession && !this.blind) this.showHint('line', RULES.hintLine);
-    }
-    if (this.win.sec >= RULES.windowMin) {
-      this.win.fit(this.fitOut);
-      this.m = this.fitOut.m;
-      this.sd = this.fitOut.sd;
-      const even = clamp(1 - this.sd / this.sdRef), work = smoothstep(RULES.workLo, RULES.workHi, this.m);
-      this.T = Math.min(1, this.T + RULES.tRate * even * work * dt);
-    }
-    if (this.blind) return;
-    while (this.trueStep < RULES.trueSteps.length && this.T >= RULES.trueSteps[this.trueStep]) {
-      this.trueStep++;
-      this.emit({ type: 'true', step: this.trueStep });
-      if (this.trueStep === 1 && this.firstSession) this.showHint('even', RULES.hintEven);
-    }
-    if (!this.centreShown && this.T >= RULES.centre) {
-      this.centreShown = true;
-      this.emit({ type: 'centre' });
-    }
-  }
-
-  // ── the firing ──────────────────────────────────────────────────
-  private fireFrame(dt: number, f: FocusFrame): void {
-    this.blockClock(dt, f);
-    this.restJudge.push('rest', f, dt);
-    this.contrast.push('rest', f.activity, f.reliable, this.blockT, dt);
-    if (f.reliable && this.recover <= 0 && this.blockT >= this.lag) {
-      this.scored += dt;
-      this.G = Math.min(1, this.G + RULES.gRate * f.calm * dt);
-      const band = runBand(this.G);
-      if (band > this.runsShown) {
-        this.runsShown = band;
-        if (!this.closed) this.emit({ type: 'runs', band });
-      }
-    }
-    if (this.blockT >= this.phaseDur) this.next();
-  }
-
-  // ── the steps ───────────────────────────────────────────────────
-  private next(): void {
-    this.si++;
-    const s = this.step;
-    if (!s) {
-      this.startFinale();
+  private nextGlaze(): void {
+    while (this.glazeIdx < this.batch.length && (this.batch[this.glazeIdx].sold || this.batch[this.glazeIdx].glaze !== null)) this.glazeIdx++;
+    if (this.glazeIdx >= this.batch.length) {
+      this.kiln = 'heat';
+      this.kilnT = 0;
+      if (!this.freeBlock) this.heatAt = Math.max(this.heatAt, this.blockT);
       return;
     }
-    switch (s.kind) {
-      case 'gate': this.startGate(s.vessel); break;
-      case 'throw': this.startThrow(); break;
-      case 'cut': this.cut(); break;
-      case 'fire': this.startFire(); break;
-      case 'open': this.open(false); break;
-    }
+    const pc = this.batch[this.glazeIdx];
+    this.brush.glaze = this.p.glazes.includes(pc.order.glaze) ? pc.order.glaze : this.brush.glaze;
+    this.emit({ type: 'glazeStart', piece: pc, index: this.glazeIdx });
   }
 
-  private enter(phase: Phase): void {
-    this.phase = phase;
-    this.phaseT = 0;
-    this.blockT = 0;
-    this.paused = 0;
-    this.scored = 0;
-  }
-
-  private startGate(i: number): void {
-    this.enter('gate');
-    const o = this.orderFor(i);
-    this.order = o;
-    this.clay = new Clay(o.clay);
-    this.clay.overpull = !o.first;
-    this.blind = false;
-    this.closed = false;
-    this.cutCard = null;
-    this.openCard = null;
-    this.rec = null;
-    this.F = 0;
-    this.T = 0;
-    this.G = 0;
-    this.lineShown = this.clay.lim.Hmin;
-    this.clay.line = this.lineShown;
-    if (o.porcelain) this.porcelainNow = true;
-    this.emit({ type: 'gate', order: o });
-  }
-
-  private startThrow(): void {
-    this.enter('throw');
-    const o = this.order!, clay = this.clay!;
-    this.throwsBegun++;
-    const n = this.plan.vessels;
-    this.blind = this.session >= RULES.blindFrom && (this.throwsBase + this.throwsBegun) % 4 === 0
-      && o.index > 0 && o.index < n - 1 && o.kind !== 'daily' && !o.first;
-    this.F = 0;
-    this.T = 0;
-    this.sponge = false;
-    this.trueStep = 0;
-    this.centreShown = false;
-    this.lineClimbed = false;
-    this.L2 = this.reliable ? this.level : 0.3;
-    this.win.clear();
-    for (const j of this.judges) j.reset();
-    clay.overpull = !o.first;
-    clay.line = this.blind ? this.duskLine : this.lineShown;
-    this.setTip(this.blind ? TIPS.blind : TIPS.throw[(this.session - 1 + o.index) % TIPS.throw.length], this.blind);
-    if (o.first) this.showHint('pull', Infinity);
-    this.emit({ type: 'throw', blind: this.blind });
-  }
-
-  /**
-   * The wire: the judges' verdicts and the floors, the blind reveal and the last pull, the shape's
-   * stars; the vessel's height is kept for the headline.  The glaze buckets come up.
-   */
-  private cut(): void {
-    const clay = this.clay!, o = this.order!;
-    clay.calm();
-    clay.release();
-    this.press.down = false;
-    this.shapeDir = 0;
-    this.handDir = 0;
-    const scoredOk = this.scored >= RULES.scoredMin - 0.25;
-    let wall = 1, verdict: boolean | null = null;
-    if (scoredOk) {
-      const v = this.judges.map(j => j.verdict());
-      verdict = v[0];
-      if (verdict !== null) {
-        wall = !v[0] ? 0 : !v[1] ? 1 : !v[2] ? 2 : 3;
-        this.throwsJudged++;
+  private kilnStep(dt: number): void {
+    const R = RULES;
+    this.kilnT += dt;
+    for (const pc of this.batch) for (const b of pc.bands) b.t = Math.min(1, b.t + dt / R.bandSec);
+    switch (this.kiln) {
+      case 'glaze':
+        // the kiln is hot and the batch is not ready: the apprentice glazes the rest as asked
+        if (this.restBlock && this.blockT >= this.heatAt) while (this.kiln === 'glaze') this.glazeDone(true);
+        break;
+      case 'heat': {
+        const ready = this.freeBlock || !this.restBlock ? this.kilnT >= R.freeHeat : this.blockT >= this.heatAt;
+        if (ready) {
+          this.kiln = 'fire';
+          this.kilnT = 0;
+          this.needle = 0;
+          this.needleDir = 1;
+          this.emit({ type: 'heat' });
+        }
+        break;
       }
-    }
-    if (!scoredOk || verdict === null) {
-      // too little reliable signal: the neutral outcome (never a loss, never a brain stamp)
-      this.F = Math.max(this.F, RULES.neutral);
-      this.T = Math.max(this.T, RULES.neutral);
-      wall = 1;
-      verdict = null;
-    }
-    if (this.blind) this.F = Math.max(this.F, RULES.neutral);
-    const lineCut = clay.line;
-    const lineFinal = lineAt(o.clay, this.F);
-    const raised = clay.lastPull(lineCut, lineFinal);
-    this.lineShown = Math.max(this.lineShown, lineFinal);
-    const sim = clay.similarity();
-    const stars = starsFor(sim, o.first);
-    const h = Math.round(clay.H * 10) / 10;
-    const centre = this.T >= RULES.centre;
-    this.heights.push(h);
-    this.tallestNow = Math.max(this.tallestNow, h);
-    if (stars === 3) this.threes++;
-    if (wall >= 2) this.thin++;
-    if (centre) this.centres++;
-    for (const j of this.judges) j.reset();
-    this.enter('cut');
-    this.buckets = buckets(this.p, o.glaze, this.p.vessels + o.index);
-    this.pick = 0;
-    this.cutCard = {
-      h, stars, sim, next: nextStar(sim, o.first), wall, verdict, centre, blind: this.blind, raised,
-      formBest: tallestOf(this.p, o.form.id) > 0 && h > tallestOf(this.p, o.form.id), buckets: this.buckets,
-    };
-    if (o.first) this.showHint('glaze', Infinity);
-    this.emit({ type: 'cut', card: this.cutCard });
-  }
-
-  private startFire(): void {
-    this.enter('fire');
-    const o = this.order!;
-    this.glaze = this.buckets[this.pick] ?? o.glaze;
-    this.firingsBegun++;
-    const n = this.plan.vessels, last = o.index === n - 1;
-    if (this.session >= RULES.blindFrom && (this.firingsBase + this.firingsBegun) % 4 === 2) this.closedDue = true;
-    // never right after a blind throw (it moves to the next firing), never the session's last firing
-    this.closed = this.closedDue && !this.blind && !last;
-    if (this.closed) this.closedDue = false;
-    this.G = 0;
-    this.runsShown = 0;
-    this.restJudge.reset();
-    this.setTip(this.closed ? TIPS.closed : TIPS.fire[(this.session - 1 + o.index) % TIPS.fire.length], this.closed);
-    if (o.first) this.showHint('kiln', Infinity);
-    else this.clearHint();
-    this.emit({ type: 'fire', closed: this.closed });
-  }
-
-  /**
-   * The kiln opens: the floors and the rest verdict, the kiln gift (pity, the first vessel's blush),
-   * the vessel's page in the book, and the delivery to its neighbour (a story step, the street).
-   * `early`: the session ends now (finish(), time up) — G at least 0.4 and no verdict.
-   */
-  private open(early: boolean): void {
-    const o = this.order!, clay = this.clay!, card = this.cutCard!, p = this.p;
-    let calm = false;
-    if (early || this.scored < RULES.scoredMin - 0.25) this.G = Math.max(this.G, RULES.neutral);
-    else {
-      const v = this.restJudge.verdict();
-      if (v !== null) {
-        this.firingsJudged++;
-        calm = v;
-        if (v) this.calms++;
-      } else this.G = Math.max(this.G, RULES.neutral);
-    }
-    const gift = rollGift(p, calm, this.rng, o.first);
-    const band = runBand(this.G);
-    const rec: VesselRec = {
-      f: o.form.id, h: card.h, q: clay.ratios(), stars: card.stars, sim: Math.round(card.sim * 100), wall: card.wall,
-      centre: card.centre, glaze: this.glaze, runs: Math.round(this.G * 100), gift, second: clay.second, porcelain: o.porcelain,
-    };
-    let marks = glazeMark(this.glaze);
-    if (rec.centre) marks |= MARK.centre;
-    if (calm) marks |= MARK.calm;
-    if (rec.wall === 3) marks |= MARK.eggshell;
-    if (band === 3) marks |= MARK.mantle;
-    if (rec.second) marks |= MARK.second;
-    if (gift) marks |= MARK[gift];
-    if (rec.porcelain) marks |= MARK.porcelain;
-    const isNew = addToBook(p, rec, marks);
-    p.vessels++;
-    p.cmTotal = Math.round((p.cmTotal + rec.h) * 10) / 10;
-    p.newest = rec.f;
-    if (rec.second) p.seconds++;
-    if (isNew) this.newForms.push(rec.f);
-    if (gift) this.giftsNow.push({ gift, form: rec.f });
-    if (band === 3) this.mantleNow = true;
-    this.rec = rec;
-    this.made.push(rec);
-    this.prevForm = rec.f;
-    // the delivery
-    if (o.house && (o.kind === 'intro' || o.kind === 'story')) {
-      const h = o.house;
-      if (!p.introduced.includes(h)) p.introduced.push(h);
-      p.steps[h] = Math.max(p.steps[h], o.step);
-      p.storyDay = this.day;
-      if (o.step >= 4) {
-        this.aliveNow.push(h);
-        this.emit({ type: 'alive', house: h });
-      } else this.stepsNow.push({ house: h, n: o.step });
-    } else if (o.house) addToStreet(p, o.house, { f: rec.f, glaze: rec.glaze });
-    if (o.kind === 'daily') this.dailySim = Math.max(this.dailySim, rec.sim);
-    this.enter('open');
-    this.openCard = { rec, band, calm, gift, isNew, first: o.first, closed: this.closed, who: o.who, thanks: o.thanks };
-    this.clearHint();
-    this.emit({ type: 'open', card: this.openCard });
-  }
-
-  private startFinale(): void {
-    this.phase = 'finale';
-    this.phaseT = 0;
-    this.si = this.plan.steps.length;
-    this.clearHint();
-    this.tip = '';
-    const g = receiveDayGift(this.p, this.day);
-    if (g) this.dayGiftNow = g;
-    this.finaleCard = {
-      vessels: this.made.length, cm: this.cm, gift: g, enough: this.todayN >= 3,
-      alive: HOUSES.filter(h => alive(this.p, h)),
-    };
-    this.emit({ type: 'finale', card: this.finaleCard });
-  }
-
-  /** Settle the vessel on the wheel now: cut it, fire it with G ≥ 0.4 and no verdict, open and deliver it. */
-  private settle(): void {
-    if (this.phase === 'throw') {
-      this.cut();
-      this.startFire();
-      this.open(true);
-    } else if (this.phase === 'cut') {
-      this.startFire();
-      this.open(true);
-    } else if (this.phase === 'fire') this.open(true);
-    // the gate: the lump was never thrown; the opening: delivered already
-  }
-
-  /**
-   * The session ends before its own sunset ("Zakończ i zapisz", the runner's overtime limit):
-   * settle the vessel on the wheel as the day would, give the day's gift if due.  Nothing more once
-   * the sunset has begun.  The view is gone by then: no animation follows.
-   */
-  finish(): void {
-    if (!this.started || this.phase === 'finale' || this.phase === 'done') return;
-    this.settle();
-    this.startFinale();
-    this.phase = 'done';
-  }
-
-  /**
-   * The plan ends with the session.  When the signal (or a slow device) held a block clock back,
-   * later throws give the time back first, then the running throw, then the firings before the
-   * last, down to 12 s each, so the last firing stays whole.
-   */
-  private fitPlan(t: number): void {
-    const steps = this.plan.steps, i0 = this.si, cur = steps[i0];
-    if (!cur) return;
-    const inBlock = cur.kind === 'throw' || cur.kind === 'fire';
-    let need = Math.max(0, cur.dur - (inBlock ? this.blockT : this.phaseT));
-    for (let i = i0 + 1; i < steps.length; i++) need += steps[i].dur;
-    let over = need + this.plan.finale - (this.plannedSec - t);
-    if (over < 0.05) return;
-    over = this.giveBack(over, i0 + 1, 'throw');
-    if (over > 0 && cur.kind === 'throw') {
-      const k = Math.min(over, Math.max(0, cur.dur - Math.max(RULES.minBlock, this.blockT)));
-      cur.dur -= k;
-      over -= k;
-    }
-    if (over > 0) {
-      const lastFire = steps.length - 2;
-      if (cur.kind === 'fire' && i0 !== lastFire) {
-        const k = Math.min(over, Math.max(0, cur.dur - Math.max(RULES.minBlock, this.blockT)));
-        cur.dur -= k;
-        over -= k;
+      case 'fire': {
+        const surge = 1 + R.surge * (1 - this.heat) * Math.sin(this.kilnT * 3.1);
+        this.needle += this.needleDir * needleSpeed(this.heat) * surge * dt;
+        if (this.needle >= 1) { this.needle = 2 - this.needle; this.needleDir = -1; }
+        if (this.needle <= 0) { this.needle = -this.needle; this.needleDir = 1; }
+        const late = this.restBlock ? this.blockT >= this.block.dur - R.fireEnd : this.kilnT >= 7;
+        if (late) this.stopNeedle(true);
+        break;
       }
-      if (over > 0) this.giveBack(over, i0 + 1, 'fire', lastFire);
+      case 'open':
+        if (this.kilnT >= R.openSec) {
+          this.kiln = 'sell';
+          this.kilnT = R.saleSec * 0.6;
+          this.saleIdx = 0;
+          this.emit({ type: 'open' });
+        }
+        break;
+      case 'sell':
+        if (this.kilnT >= R.saleSec) {
+          this.kilnT = 0;
+          if (!this.sellNext()) this.afterSales();
+        }
+        break;
+      default:
+        break;
     }
   }
 
-  /** Take up to `over` s from the steps of `kind` from `from` on (never the step `skip`), each in proportion to its time above 12 s. */
-  private giveBack(over: number, from: number, kind: StepKind, skip = -1): number {
-    const steps = this.plan.steps;
-    let spare = 0;
-    for (let i = from; i < steps.length; i++) if (steps[i].kind === kind && i !== skip) spare += Math.max(0, steps[i].dur - RULES.minBlock);
-    if (spare <= 0) return over;
-    const k = Math.min(1, over / spare);
-    for (let i = from; i < steps.length; i++) if (steps[i].kind === kind && i !== skip) steps[i].dur -= Math.max(0, steps[i].dur - RULES.minBlock) * k;
-    return over - spare * k;
+  /** Sell the next fired piece to its customer; false when the batch is all sold. */
+  private sellNext(): boolean {
+    const pc = this.batch.find(p => !p.sold);
+    if (!pc) return false;
+    this.sell(pc);
+    return true;
   }
 
-  // ── orders ──────────────────────────────────────────────────────
-  /**
-   * What the gate brings for slot `i`: a household not met yet (in street order, step 1); in slot 0
-   * the story step of the day; the form of the day in the first free slot from the second that is
-   * not the last; Złota godzina in the last slot (an easy open form, in golden light); else an
-   * everyday order, an open form weighted by 1 / (1 + times fired), never the previous vessel's.
-   */
-  private orderFor(i: number): Order {
-    const p = this.p, n = this.plan.vessels, last = i === n - 1;
-    const intro = nextIntroduction(p);
-    if (intro) return this.storyOrder(i, 'intro', intro, 1);
-    if (i === 0 && p.storyDay !== this.day) {
-      const h = nextStoryHouse(p);
-      if (h) return this.storyOrder(i, 'story', h, p.steps[h] + 1);
-    }
-    if (this.dailyOpen && !this.dailyPlaced && i >= 1 && !last && this.daily) {
-      this.dailyPlaced = true;
-      const d = this.daily, form = FORM[d.f];
-      return {
-        index: i, kind: 'daily', form, clay: { N: form.N, q: d.q }, house: null, who: t('gate.dailyWho'), step: 0, glaze: d.glaze,
-        line: t('gate.dailyLine'), thanks: t('thanks.daily'), porcelain: this.porcelain(i), first: false,
-      };
-    }
-    const golden = last && n >= 2;
-    let pool = golden ? easiest(p) : openForms(p);
-    if (pool.length > 1 && this.prevForm) pool = pool.filter(f => f !== this.prevForm);
-    if (!pool.length) pool = ['kubek'];
-    let total = 0;
-    for (const f of pool) total += 1 / (1 + (p.book[f]?.n ?? 0));
-    let u = this.rng() * total, pickF = pool[pool.length - 1];
-    for (const f of pool) {
-      u -= 1 / (1 + (p.book[f]?.n ?? 0));
-      if (u <= 0) { pickF = f; break; }
-    }
-    const form = FORM[pickF];
-    const h = form.house;
-    return {
-      index: i, kind: golden ? 'golden' : 'everyday', form, clay: { N: form.N, q: form.q }, house: h, who: HOUSE_NAME[h], step: 0,
-      glaze: orderGlaze(p, form.glaze), line: t(`again.${form.id}` as Key),
-      thanks: t(`thanksAgain.${h}.${(p.vessels + i) % 2 ? 'b' : 'a'}` as Key), porcelain: this.porcelain(i), first: false,
-    };
+  private afterSales(): void {
+    const sold = this.batch.filter(p => p.sold);
+    const coins = sold.reduce((s, p) => s + p.price + p.tip, 0);
+    const three = sold.filter(p => p.stars === 3).length;
+    this.batch = [];
+    this.sellMarket();
+    this.kiln = this.restBlock ? 'cool' : 'cold';
+    this.kilnT = 0;
+    if (sold.length && !this.card) this.setCard({ kind: 'tally', t: 0, dur: RULES.cardSec, n: sold.length, coins, three });
+    if (this.freeBlock) this.nextOrder();
   }
 
-  private storyOrder(i: number, kind: 'intro' | 'story', h: HouseId, step: number): Order {
-    const form = FORM[storyForm(h, step)];
-    return {
-      index: i, kind, form, clay: { N: form.N, q: form.q }, house: h, who: HOUSE_NAME[h], step, glaze: orderGlaze(this.p, form.glaze),
-      line: t(`story.${h}.${step}` as Key), thanks: t(`thanks.${h}.${step}` as Key), porcelain: this.porcelain(i),
-      first: this.p.vessels === 0 && i === 0,
-    };
-  }
-
-  private porcelain(i: number): boolean { return i === 0 && this.porcelainDue; }
-
-  // ── hints and coaching ──────────────────────────────────────────
-  private showHint(key: HintKey, dur: number): void {
-    if (this.hintsSeen.has(key)) return;
-    this.hintsSeen.add(key);
-    if (this.hint && this.hintT < this.hintDur && this.hintDur !== Infinity) {
-      this.hintQueue.push({ key, dur });
-      return;
-    }
-    this.hint = key;
-    this.hintT = 0;
-    this.hintDur = dur;
-    this.emit({ type: 'hint', key });
-  }
-
-  private clearHint(): void {
-    this.hint = null;
-    this.hintQueue.length = 0;
-  }
-
-  private ageHints(dt: number): void {
-    this.tipT += dt;
-    if (!this.hint) return;
-    this.hintT += dt;
-    if (this.hint === 'pull' && this.clay?.opened) this.hintDur = Math.min(this.hintDur, this.hintT);
-    if (this.hintT >= this.hintDur) {
-      this.hint = null;
-      const q = this.hintQueue.shift();
-      if (q) {
-        this.hint = q.key;
-        this.hintT = 0;
-        this.hintDur = q.dur;
-        this.emit({ type: 'hint', key: q.key });
-      }
-    }
-  }
-
-  /** The coaching line at a block's start: sessions 1–5, and every blind block. */
-  private setTip(text: string, always: boolean): void {
-    this.tip = this.session <= 5 || always ? text : '';
-    this.tipT = 0;
-  }
-
-  // ── input ───────────────────────────────────────────────────────
-  /** Touch shapes the clay now (not at the gate, not in the sponge's seconds, not while it slumps). */
-  get inputOpen(): boolean { return this.phase === 'throw' && !this.sponge && !!this.clay?.free; }
-
-  /** A tap anywhere on the play area: in a throw a small pull (taps never overpull). */
-  tap(): void {
-    if (!this.inputOpen) return;
-    const clay = this.clay!, before = clay.H;
-    const res = clay.tap();
-    this.afterPull(res, clay.H - before, true);
-  }
-
-  /** A finger lands at height `u` of the vessel (0 foot … 1 rim), on `side` of the axis: the hand moves there. */
-  touch(u: number, side: number): void {
-    if (this.phase === 'throw' && this.clay) this.clay.touch(u, side);
-  }
-
-  /** A drag step (px): `dxOut` away from the axis on the finger's side, `dyUp` upward; the finger at `fingerY`, the hand at `u`. */
-  drag(dxOut: number, dyUp: number, fingerY: number, u: number, scale: number): void {
-    if (!this.inputOpen) return;
-    const clay = this.clay!, before = clay.H;
-    const res = clay.drag(dxOut, dyUp, fingerY, u, scale);
-    if (dyUp > 0) this.afterPull(res, clay.H - before, false);
-    if (dxOut) this.tellShape += Math.abs((CLAY.drag * dxOut) / scale);
-  }
-
-  /** The finger lifted. */
-  release(): void { this.clay?.release(); }
-
-  private afterPull(res: PullResult, dh: number, tap: boolean): void {
-    if (dh > 0) {
-      if (tap) this.emit({ type: 'pull', dh, tap: true });
-      else this.tellPull += dh;
-    }
-    if (res === 'contact') {
-      this.emit({ type: 'contact' });
-      if (this.order?.first) this.showHint('shape', RULES.hintShape);
-      if (this.session === 2) this.showHint('over', RULES.hintLine);
-    }
-  }
-
-  /** Space, ↑ or Enter: a press is a small pull; held, the wall rises steadily. */
-  pressKey(down: boolean): void {
-    if (down) {
-      if (this.press.down) return;
-      this.press.down = true;
-      this.press.t = 0;
-      this.tap();
+  /** Quality, stars, price and the customer's reaction. */
+  private sell(pc: Piece): void {
+    const R = RULES, p = this.p, o = pc.order, form = FORM[o.form];
+    if (pc.glaze === null) pc.glaze = p.glazes.includes(o.glaze) ? o.glaze : p.glazes[0];
+    if (!pc.fire) pc.fire = 'good';
+    const deco = decoOf(pc);
+    const fq = pc.fire === 'perfect' ? R.fireQ.perfect : pc.fire === 'good' ? R.fireQ.good : R.fireQ.off;
+    const q = R.qShape * pc.match + R.qDeco * deco + R.qFire * fq;
+    pc.stars = pc.spun ? 3 : starsOf(q);
+    const fm = pc.fire === 'perfect' ? R.fireMult.perfect : pc.fire === 'good' ? R.fireMult.good : R.fireMult.off;
+    if (pc.order.market) {
+      pc.price = Math.max(1, Math.round(form.price * (R.pFloor + q) * fm * R.market));
+      pc.tip = 0;
     } else {
-      this.press.down = false;
-      this.press.t = 0;
-      if (this.clay) this.clay.keyHold = false;
+      if (pc.stars === 3) this.streak++;
+      else this.streak = 0;
+      this.bestStreak = Math.max(this.bestStreak, this.streak);
+      const sm = Math.min(R.streakMax, 1 + R.streakStep * Math.max(0, this.streak - 1));
+      pc.price = Math.max(1, Math.round(form.price * (R.pFloor + q) * fm * (pc.steady ? 1 + R.passPush : 1) * sm));
+      const house = (HOUSES as readonly string[]).includes(o.customer);
+      const flair = !o.band ? Math.min(2, pc.bands.length) * 2 : 0;
+      pc.tip = Math.round(form.price * R.tips[pc.stars - 1] * (pc.spun ? R.spinTip : 1)) + (house ? R.regularTip : 0) + flair;
+    }
+    pc.reaction = reactionOf(pc);
+    pc.sold = true;
+    this.sold++;
+    if (pc.stars === 3) this.three++;
+    this.bank(pc.price + pc.tip);
+    p.sold++;
+    p.stars += pc.stars;
+    if (pc.stars === 3) p.three++;
+    this.emit({ type: 'sale', piece: pc, streak: pc.order.market ? 0 : this.streak });
+    if (pc.stars === 3) this.talk.ask('sale3', 2, 4);
+    else if (pc.stars === 1) this.talk.ask('sale1', 2, 4);
+    if (deco < R.decoBody && !pc.order.market) this.talk.ask('color', 1, 4);
+    // the shelf, the households, the forms
+    const out = shelve(p, recOf(pc));
+    if (out !== 'same') {
+      if (out === 'new') this.newForms.push(o.form);
+      this.emit({ type: 'newForm', form: o.form, outcome: out });
+      if (out === 'new') this.talk.ask('newForm', 3, 5);
+    }
+    if (o.story && pc.stars >= 2 && p.steps[o.story.house] === o.story.step - 1) {
+      p.steps[o.story.house] = o.story.step;
+      this.stories.push(o.story);
+      this.emit({ type: 'story', house: o.story.house, step: o.story.step });
+      if (!this.card) this.setCard({ kind: 'story', t: 0, dur: RULES.cardSec + 1.2, house: o.story.house, step: o.story.step, text: storyThanks(o.story.house, o.story.step) });
+    }
+    const open = openCount(p);
+    const forms = openForms(p);
+    if (open > this.openBefore + this.unlocked.length) {
+      const f = forms[open - 1];
+      this.unlocked.push(f);
+      this.emit({ type: 'unlock', form: f });
     }
   }
 
-  /** ← / →: narrow (−1) or widen (+1) at the hand's height while held; 0 stops. */
-  shapeKey(dir: number): void { this.shapeDir = Math.sign(dir); }
-
-  /** W / S: move the hand up (+1) or down (−1) while held; 0 stops. */
-  handKey(dir: number): void { this.handDir = Math.sign(dir); }
-
-  /** Pick the glaze in bucket `i` at the cut (a tap on it, or 1 / 2 / 3). */
-  pickGlaze(i: number): void {
-    if (this.phase !== 'cut' || i < 0 || i >= this.buckets.length || i === this.pick) return;
-    this.pick = i;
-    this.emit({ type: 'glaze', index: i });
-  }
-
-  /** Every key and finger is up (the runner paused, the window lost focus). */
-  releaseAll(): void {
-    this.pressKey(false);
-    this.shapeDir = 0;
-    this.handDir = 0;
-    this.release();
-  }
-
-  /** A drag's pulls and shapes reach the sound at most ~7 times a second, summed. */
-  private tellTouch(dt: number): void {
-    this.tellT -= dt;
-    if (this.tellT > 0) return;
-    if (this.tellPull > 0.02) {
-      this.emit({ type: 'pull', dh: this.tellPull, tap: false });
-      this.tellT = RULES.touchTell;
-    } else if (this.tellShape > 0.02) {
-      this.emit({ type: 'shape', dr: this.tellShape });
-      this.tellT = RULES.touchTell;
+  /** The market basket sells as one lot at the stall. */
+  private sellMarket(): void {
+    if (!this.market.length) return;
+    let coins = 0;
+    for (const pc of this.market) {
+      if (pc.glaze === null) pc.glaze = this.p.glazes.includes(pc.order.glaze) ? pc.order.glaze : this.p.glazes[0];
+      if (!pc.fire) pc.fire = this.fired?.grade ?? 'good';
+      const q = RULES.qShape * pc.match + RULES.qDeco * decoOf(pc) + RULES.qFire * RULES.fireQ.good;
+      pc.stars = starsOf(q);
+      pc.price = Math.max(1, Math.round(FORM[pc.order.form].price * (RULES.pFloor + q) * RULES.market));
+      pc.sold = true;
+      coins += pc.price;
+      this.sold++;
+      this.p.sold++;
     }
-    this.tellPull = 0;
-    this.tellShape = 0;
+    const n = this.market.length;
+    this.market = [];
+    this.bank(coins);
+    this.emit({ type: 'market', n, coins });
   }
 
-  // ── output ──────────────────────────────────────────────────────
-  private emit(e: SimEvent): void { this.events.push(e); }
-
-  /** The events since the last call, oldest first (most frames have none: then nothing is allocated). */
-  take(): readonly SimEvent[] {
-    if (!this.events.length) return NO_EVENTS;
-    const out = this.events.slice();
-    this.events.length = 0;
-    return out;
+  private bank(coins: number): void {
+    const c = Math.max(0, Math.round(coins));
+    this.score += c;
+    this.p.purse += c;
+    this.p.earned += c;
   }
 
-  /**
-   * What the ambient pad's brightness follows (kit/types.ts): the chalk line's fill in a visible
-   * throw with a reliable frame; held still everywhere else (blind throws, firings, the gate, the
-   * cut, the opening, the finisher, unreliable frames), so the sound never leaks feedback.
-   */
-  padLevel(f: FocusFrame): number | null {
-    if (!this.started || !f.reliable || this.phase !== 'throw' || this.blind || !this.order) return null;
-    const lim = this.clay!.lim;
-    return clamp((this.lineShown - lim.Hmin) / (lim.Hmax - lim.Hmin));
+  private schedule(dt: number, f: FocusFrame): void {
+    const b = this.block;
+    this.blockT += dt;
+    if (b.kind !== 'warmup') {
+      const want = b.kind === 'push' ? 'focus' : 'rest';
+      this.judge.push(want, f, dt);
+      this.contrast.push(want, f.activity, f.reliable, this.blockT, dt);
+    }
+    const last = this.blockIndex >= this.plan.length - 1;
+    if (!this.telegraphed && !last && this.blockT >= b.dur - RULES.telegraph) {
+      this.telegraphed = true;
+      this.emit({ type: 'telegraph', next: this.plan[this.blockIndex + 1] });
+    }
+    if (!last && this.blockT >= b.dur) {
+      this.endBlock();
+      this.startBlock(this.blockIndex + 1);
+    }
   }
 
-  /** Time is up: the session may stop once the sunset has played. */
-  canStop(): boolean { return this.phase === 'done'; }
-
-  /**
-   * The session's numbers, idempotent.  Only a saved session calls it for good, so the session, its
-   * blocks and the day are counted here; records go into the progress with Math.max.
-   */
-  result(): ArcadeOutcome {
-    const p = this.p, score = this.score;
-    if (this.started) {
-      p.sessions = Math.max(p.sessions, this.session);
-      p.throwsBegun = Math.max(p.throwsBegun, this.throwsBase + this.throwsBegun);
-      p.firingsBegun = Math.max(p.firingsBegun, this.firingsBase + this.firingsBegun);
-      if (this.dailySim >= 0) {
-        if (p.dailyDay !== this.day) {
-          p.dailyDay = this.day;
-          p.dailyBest = this.dailySim;
-        } else p.dailyBest = Math.max(p.dailyBest, this.dailySim);
+  private startBlock(i: number): void {
+    this.blockIndex = i;
+    this.blockT = 0;
+    this.telegraphed = false;
+    this.relSec = 0;
+    this.judge.reset();
+    const b = this.plan[i];
+    const first = !this.plan.slice(0, i).some(x => x.kind === b.kind);
+    if (b.kind === 'push') {
+      this.pushesBegun++;
+      this.p.pushes = this.pushesBase + this.pushesBegun;
+      b.blind = this.session >= RULES.blindFrom && !first && this.p.pushes % RULES.blindEvery === 0;
+      this.goodT = 0;
+      this.goodSaid = false;
+      this.talk.ask(b.blind ? 'blind' : 'push', 2, 12);
+      if (this.wheel === 'idle') this.nextOrder();
+    } else if (b.kind === 'rest') {
+      this.heat = 0.5;
+      this.heatSaid = false;
+      this.lastFired = [];
+      this.talk.ask('rest', 2, 12);
+      if (this.wheel === 'walk') {
+        this.wheel = 'idle';
+        this.order = null;
       }
-      p.todayN = p.lastDay === this.day ? Math.max(p.todayN, this.todayN) : this.todayN;
-      p.lastDay = this.day;
+      this.startKiln();
+    } else this.talk.ask('warm', 1, 10);
+    this.tip = this.tipFor(b, i);
+    this.emit({ type: 'blockStart', block: b, index: i });
+  }
+
+  private tipFor(b: Block, i: number): string {
+    if (b.kind === 'warmup') return TIPS.warm;
+    if (b.kind === 'push') return b.blind ? TIPS.blind[(this.session + i) % TIPS.blind.length] : TIPS.push[(this.session - 1 + i) % TIPS.push.length];
+    return TIPS.rest[(this.session - 1 + i) % TIPS.rest.length];
+  }
+
+  /** A block's end: its verdict, what it pays, and the hand-over between the stations. */
+  private endBlock(): void {
+    const b = this.block;
+    let verdict: boolean | null = null;
+    if (b.kind !== 'warmup') {
+      const want = b.kind === 'push' ? 'focus' : 'rest';
+      const share = this.judge.share;
+      verdict = this.relSec >= RULES.minReliable ? this.judge.verdict() : null;
+      if (b.kind === 'push') {
+        this.lastPushPassed = verdict === true;
+        if (verdict === true) this.charge = Math.min(1, this.charge + RULES.passCharge);
+        if (b.blind) {
+          this.trace.unveil(this.t);
+          const s = this.judge.measured > 0 ? share : 0;
+          this.blindShare = Math.max(this.blindShare, Math.round(s * 100));
+          const coins = Math.round(Math.max(0, s - this.judge.need(want) * 0.5) * 100 * RULES.blindCoins);
+          this.bank(coins);
+          this.emit({ type: 'reveal', share: s, coins });
+        }
+        // the piece on the wheel: the master finishes it, and it joins the batch
+        this.finishWheel();
+        if (this.lastPushPassed) for (const pc of this.batch) if (!pc.sold) pc.steady = true;
+      } else {
+        this.settleKiln();
+        if (verdict === true) this.kilnGift();
+      }
+    } else {
+      this.finishWheel();
+      this.settleKiln();
     }
-    p.bestSession = Math.max(p.bestSession, score);
-    p.tallest = Math.max(p.tallest, this.tallestNow);
-    p.bestThree = Math.max(p.bestThree, this.threes);
-    const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
-    const n = this.heights.length;
+    this.judge.reset();
+    this.emit({ type: 'blockEnd', block: b, verdict });
+  }
+
+  /** The piece in hand is finished by the master's hand, at once. */
+  private finishWheel(): void {
+    if (this.wheel === 'walk') {
+      this.wheel = 'idle';
+      this.order = null;
+      return;
+    }
+    if (this.wheel === 'shape' && this.pot) {
+      const k = this.pot.shareFor(RULES.assist);
+      if (k > 0) this.pot.toward(k);
+      this.cut(k > 0);
+    } else if ((this.wheel === 'assist' || this.wheel === 'spin') && this.pot && this.to) {
+      const spun = this.wheel === 'spin';
+      this.pot.blend(this.to, this.to, 1);
+      this.cut(!spun, spun);
+    }
+    if (this.wheel === 'cut') {
+      this.pot = null;
+      this.wheel = 'idle';
+    }
+  }
+
+  /** Whatever the kiln still holds is glazed, fired and sold now (nothing is lost). */
+  private settleKiln(): void {
+    while (this.kiln === 'glaze') this.glazeDone(true);
+    if (!this.lastFired.length) this.lastFired = this.batch.filter(pc => !pc.sold);
+    for (const pc of this.batch) if (!pc.sold && !pc.fire) pc.fire = this.fired?.grade ?? 'good';
+    let any = false;
+    for (const pc of this.batch) if (!pc.sold) { this.sell(pc); any = true; }
+    if (any || this.batch.length || this.market.length) {
+      this.batch = [];
+      this.sellMarket();
+    }
+    this.kiln = 'cold';
+    this.kilnT = 0;
+    this.fired = null;
+  }
+
+  /** A passed Wypał: the kiln's gift on the batch's best piece, and a little more for every piece fired. */
+  private kilnGift(): void {
+    const u = this.rng();
+    const gift: KilnGift = u < 0.12 ? 'moon' : u < 0.42 ? 'speckle' : 'blush';
+    const fired = this.lastFired;
+    const coins = RULES.giftCoins * Math.max(1, fired.length);
+    this.bank(coins);
+    this.gifts.push(gift);
+    this.p.gifts[gift] = (this.p.gifts[gift] ?? 0) + 1;
+    const best = fired.slice().sort((a, b) => b.stars - a.stars || b.match - a.match)[0];
+    if (best) {
+      best.gift = gift;
+      const rec = this.p.shelf[best.order.form];
+      if (rec && rec.m === Math.round(best.match * 100) && !rec.gift) rec.gift = gift;
+    }
+    this.emit({ type: 'gift', gift, coins });
+    this.talk.ask('gift', 3, 5);
+  }
+
+  /** the pieces of the last firing (for the kiln's gift) */
+  private lastFired: Piece[] = [];
+
+  private end(): void {
+    if (this.ended) return;
+    this.endBlock();
+    this.finishWheel();
+    this.settleKiln();
+    this.ended = true;
+    this.finger = null;
+    this.p.best = Math.max(this.p.best, this.score);
+    this.p.bestStreak = Math.max(this.p.bestStreak, this.bestStreak);
+    this.talk.ask('end', 5, 8);
+    this.emit({ type: 'done' });
+  }
+
+  finish(): void {
+    if (this.started) this.end();
+  }
+
+  /** Time is up: wait a moment for a sale in flight (at most a few seconds; the runner caps it). */
+  canStop(): boolean {
+    return this.ended || this.kiln !== 'sell';
+  }
+
+  take(): GlinaEvent[] {
+    if (!this.events.length) return [];
+    return this.events.splice(0);
+  }
+
+  private emit(e: GlinaEvent): void {
+    this.events.push(e);
+    if (this.events.length > 400) this.events.shift();
+  }
+
+  // ── what the runner reads ───────────────────────────────────────
+  /** The panel's gauge: steadiness in a push past the lead-in, the even heat in a rest, else nothing. */
+  meter(): number | null {
+    if (!this.started || this.ended || !this.reliable) return null;
+    if (this.pushBlock) return this.block.blind ? null : clamp(this.steady);
+    if (this.restBlock) return clamp(this.heat);
+    return null;
+  }
+
+  padLevel(f: FocusFrame): number | null {
+    return this.sighted && f.reliable ? f.level : null;
+  }
+
+  headlineSub(): string {
+    if (this.streak >= 2) return t('sub.streak', { n: this.streak });
+    const rec = this.bestBefore;
+    if (rec > this.score && this.p.sessions > 1) return t('sub.toRecord', { n: fmtInt(rec - this.score) });
+    if (this.sold) return t('sub.sold', { n: this.sold });
+    return t('sub.purse', { n: fmtInt(this.p.purse) });
+  }
+
+  result(): { score: number; record: boolean; stats: [string, string][]; highlights: string[]; verse: PassageId } {
+    const p = this.p;
+    p.best = Math.max(p.best, this.score);
+    p.bestStreak = Math.max(p.bestStreak, this.bestStreak);
     const stats: [string, string][] = [
-      [t('stat.vessels'), String(n)],
-      [t('stat.tallest'), this.tallestNow > 0 ? cmText(this.tallestNow) : '—'],
-      [t('stat.three'), String(this.threes)],
-      [t('stat.thin'), this.throwsJudged ? `${this.thin}/${this.throwsJudged}` : '—'],
-      [t('stat.centre'), n ? `${this.centres}/${n}` : '—'],
-      [t('stat.calm'), this.firingsJudged ? `${this.calms}/${this.firingsJudged}` : '—'],
-      [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
-      [t('stat.daily'), this.dailySim >= 0 ? pctText(this.dailySim / 100) : '—'],
+      [t('stat.sold'), fmtInt(this.sold)],
+      [t('stat.three'), fmtInt(this.three)],
+      [t('stat.match'), this.bestMatch ? t('pct', { n: Math.round(this.bestMatch * 100) }) : '—'],
+      [t('stat.perfect'), fmtInt(this.perfects)],
+      [t('stat.spins'), fmtInt(this.spins)],
+      [t('stat.purse'), fmtInt(p.purse)],
     ];
-    return {
-      score, unit: t('unit'), record: this.bestBefore !== null && score > this.bestBefore,
-      stats, highlights: this.highlights(), verse: this.closingVerse(),
-    };
-  }
-
-  /**
-   * The summary's closing passage (kit/scripture.ts): the first Druga forma ever is Jeremiah 18:4,
-   * the first session the treasure in clay jars; otherwise the passages the session fits, best fit
-   * first, taken in turn from session to session.  The lobby already opens with Jeremiah 18:6.
-   */
-  closingVerse(): PassageId {
-    if (this.secondNow && this.before.seconds === 0) return CLOSING.second;
-    if (this.session <= 1) return CLOSING.clay;
-    const fit: PassageId[] = [];
-    if (this.secondNow) fit.push(CLOSING.second);
-    if (this.aliveNow.length) fit.push(CLOSING.alive);
-    if (this.mantleNow) fit.push(CLOSING.mantle);
-    if (this.calms > 0) fit.push(CLOSING.calm);
-    fit.push(CLOSING.clay, CLOSING.work);
-    return inTurn(fit, this.session);
-  }
-
-  /**
-   * At most five lines for the summary, the session's best moments first: new pages, a house come
-   * alive, records, kiln gifts, the form of the day, the day's gift, Druga forma, porcelain, story
-   * steps.  The first session ends with one strategy to try.
-   */
-  private highlights(): string[] {
-    const out: string[] = [];
-    if (this.newForms.length === 1) out.push(t('hl.form', { form: FORM[this.newForms[0]].name }));
-    else if (this.newForms.length > 1) out.push(t('hl.forms', { forms: this.newForms.map(f => FORM[f].name).join(', ') }));
-    for (const h of this.aliveNow) out.push(t(`alive.${h}` as Key));
-    if (this.bestBefore !== null) {
-      if (this.tallestNow > this.before.tallest) out.push(t('hl.tallest', { cm: cmText(this.tallestNow) }));
-      if (this.threes > this.before.three && this.threes > 1) out.push(t('hl.three', { n: this.threes }));
-    }
-    if (this.giftsNow.length === 1) out.push(t('hl.gift', { gift: KILN_GIFT_NAME[this.giftsNow[0].gift], form: FORM[this.giftsNow[0].form].name }));
-    else if (this.giftsNow.length > 1) {
-      out.push(t('hl.gifts', { list: this.giftsNow.map(g => `${KILN_GIFT_NAME[g.gift]} (${FORM[g.form].name})`).join(', ') }));
-    }
-    if (this.dailySim >= 0) out.push(t('hl.daily', { pct: pctText(this.dailySim / 100) }));
-    if (this.dayGiftNow) out.push(t('hl.dayGift', { gift: DAY_GIFT_NAME[this.dayGiftNow] }));
-    if (this.secondNow) out.push(t('hl.second'));
-    if (this.porcelainNow) out.push(t('hl.porcelain'));
-    for (const s of this.stepsNow) out.push(t('hl.step', { house: HOUSE_NAME[s.house], n: s.n }));
-    if (this.session === 1) return [...out.slice(0, 4), TIPS.throw[2]];
-    return out.slice(0, 5);
+    const hl: string[] = [];
+    for (const f of this.newForms) hl.push(t('hl.newForm', { form: FORM[f].name }));
+    for (const s of this.stories) hl.push(t('hl.story', { who: t(`who.${s.house}` as 'who.karczma'), n: s.step }));
+    for (const g of this.gifts) hl.push(t('hl.gift', { gift: KILN_GIFT_NAME[g] }));
+    for (const f of this.unlocked) hl.push(t('hl.unlock', { form: FORM[f].name }));
+    if (this.bestStreak >= 3) hl.push(t('hl.streak', { n: this.bestStreak }));
+    if (this.bestBefore > 0 && this.score > this.bestBefore) hl.push(t('hl.record', { n: fmtInt(this.score) }));
+    else if (this.score > 0 && this.bestBefore > this.score) hl.push(t('hl.toBest', { n: fmtInt(this.bestBefore - this.score) }));
+    if (this.blindShare >= 0) hl.push(t('hl.blind', { pct: this.blindShare }));
+    hl.push(t(this.spins ? 'hl.closeMaster' : this.three ? 'hl.closeThree' : 'hl.close', { n: shelfCount(p) }));
+    let verse: PassageId;
+    if (this.stories.some(s => s.step >= 4)) verse = CLOSING.story;
+    else if (this.spins) verse = CLOSING.master;
+    else if (this.gifts.length) verse = CLOSING.calm;
+    else if (this.newForms.length) verse = CLOSING.glaze;
+    else verse = inTurn([CLOSING.clay, CLOSING.work], this.session);
+    return { score: this.score, record: this.bestBefore > 0 && this.score > this.bestBefore, stats, highlights: hl, verse };
   }
 }
+
+/** A piece's decoration against its order, 0..1. */
+export function decoOf(pc: Pick<Piece, 'glaze' | 'bands' | 'order'>): number {
+  const R = RULES, o = pc.order;
+  let d = pc.glaze === o.glaze ? R.decoBody : R.decoBodyWrong;
+  if (o.band) {
+    const col = pc.bands.filter(b => b.glaze === o.band!.glaze);
+    if (col.length) d += R.decoBandColor;
+    if (col.some(b => b.pattern === o.band!.pattern)) d += R.decoBandPattern;
+  } else d += R.decoBandColor + R.decoBandPattern;
+  return clamp(d);
+}
+
+function reactionOf(pc: Piece): Reaction {
+  if (pc.spun) return 'rMaster';
+  if (pc.stars < 3 && pc.fire === 'hot') return 'rHot';
+  if (pc.stars < 3 && pc.fire === 'soft') return 'rSoft';
+  if (pc.glaze !== pc.order.glaze && pc.stars < 3) return 'rColor';
+  return pc.stars === 3 ? 'r3' : pc.stars === 2 ? 'r2' : 'r1';
+}
+
+/** The reaction's words for a sale (one of three, by the piece's order id). */
+export const reactionText = (pc: Piece): string => REACT[pc.reaction][pc.order.id % REACT[pc.reaction].length];
+
+/** A sold piece as the shelf keeps it. */
+export function recOf(pc: Piece): PieceRec {
+  const q: number[] = [];
+  for (let k = 0; k < RINGS; k++) q.push(Math.round((pc.r[k] / pc.H) * 100));
+  const b: BandRec[] = pc.bands.map(x => [Math.round(x.u * 100), x.glaze, x.pattern]);
+  return { f: pc.order.form, h: Math.round(pc.H * 10) / 10, q, g: pc.glaze ?? 'biel', b, stars: pc.stars, m: Math.round(pc.match * 100), gift: pc.gift };
+}
+
+/** The shape's stars as the ticket shows them live. */
+export const liveStars = (m: number): 1 | 2 | 3 => shapeStars(m);
