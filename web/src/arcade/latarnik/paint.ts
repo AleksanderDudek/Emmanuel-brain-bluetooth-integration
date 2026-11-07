@@ -539,6 +539,11 @@ export function boatPaths(): Record<BoatKind, BoatShape> {
   for (const mx of [0.24, -0.02, -0.26]) tall.roundRect(mx - 0.035, -0.3, 0.07, 0.6, 0.02);
   const cargo = new Path2D();
   for (let i = 0; i < 4; i++) cargo.roundRect(-0.28 + i * 0.15, -0.12, 0.12, 0.24, 0.015);
+  // the rowboat: a thwart and two oars out to the sides
+  const oars = new Path2D();
+  oars.roundRect(-0.08, -0.2, 0.1, 0.4, 0.02);
+  oars.roundRect(-0.06, -0.62, 0.05, 0.44, 0.02);
+  oars.roundRect(-0.06, 0.18, 0.05, 0.44, 0.02);
   const bottle = new Path2D();
   bottle.roundRect(-0.36, -0.15, 0.56, 0.3, 0.12);
   bottle.roundRect(0.16, -0.07, 0.22, 0.14, 0.04);
@@ -549,6 +554,9 @@ export function boatPaths(): Record<BoatKind, BoatShape> {
     drobnicowiec: { hull: hull(0.2, 0.5), deck: cargo, len: 1.6, lantern: [-0.4, 0] },
     zaglowiec: { hull: hull(0.17, 0.5), deck: rect(-0.42, -0.08, 0.14, 0.16), sail: tall, len: 1.7, lantern: [0.42, 0] },
     butelka: { hull: bottle, deck: rect(-0.24, -0.06, 0.34, 0.12, 0.05), len: 0.62, lantern: [0, 0] },
+    mgla: { hull: hull(0.19), deck: rect(-0.34, -0.11, 0.3, 0.22), len: 1, lantern: [0.08, 0] },
+    flotylla: { hull: hull(0.17, 0.48), deck: rect(-0.3, -0.09, 0.26, 0.18), sail, len: 1.05, lantern: [0.12, 0] },
+    lodka: { hull: hull(0.22, 0.42), deck: oars, len: 0.72, lantern: [-0.3, 0] },
   };
   return shapes;
 }
@@ -959,5 +967,200 @@ function paintInclusion(ctx: CanvasRenderingContext2D, kind: Inclusion, s: numbe
       break;
     }
   }
+  ctx.restore();
+}
+
+// ── version 2: the whale, Zośka the gull, the flotilla's number, the squall's rain ──
+/** The whale's back breaking the water at (x, y), `s` px long, `up` 0..1 how far it has surfaced, with its spout. */
+export function paintWhale(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, up: number, t: number, lit: number): void {
+  if (up <= 0.01) return;
+  ctx.save();
+  ctx.translate(x, y);
+  // the water ring around it
+  ctx.globalAlpha = 0.45 * up;
+  ctx.strokeStyle = 'rgba(210,228,255,.7)';
+  ctx.lineWidth = Math.max(1, s * 0.02);
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.06, s * (0.55 + 0.05 * Math.sin(t * 3)), s * 0.16, 0, 0, TAU);
+  ctx.stroke();
+  // the back: a long dark dome, a pale ridge, the small fin
+  ctx.globalAlpha = up;
+  const k = 0.35 + 0.65 * up;
+  ctx.fillStyle = lit > 0 ? '#5b6f92' : '#2b3a58';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.5, s * 0.15 * k, 0, Math.PI, TAU);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = lit > 0 ? 'rgba(220,232,255,.55)' : 'rgba(150,170,210,.35)';
+  ctx.beginPath();
+  ctx.ellipse(-s * 0.06, -s * 0.09 * k, s * 0.3, s * 0.025, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = lit > 0 ? '#5b6f92' : '#2b3a58';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.12, -s * 0.13 * k);
+  ctx.lineTo(s * 0.2, -s * 0.24 * k);
+  ctx.lineTo(s * 0.24, -s * 0.12 * k);
+  ctx.closePath();
+  ctx.fill();
+  // the spout
+  const sp = Math.max(0, Math.sin(t * 2.2));
+  ctx.strokeStyle = 'rgba(235,244,255,.8)';
+  ctx.lineWidth = Math.max(1, s * 0.022);
+  ctx.lineCap = 'round';
+  for (let i = -1; i <= 1; i++) {
+    ctx.globalAlpha = up * (0.4 + 0.5 * sp);
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.28, -s * 0.13 * k);
+    ctx.quadraticCurveTo(-s * 0.28 + i * s * 0.06, -s * (0.32 + 0.12 * sp), -s * 0.28 + i * s * 0.14, -s * (0.26 + 0.1 * sp));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Bubbles rising where the whale will surface (`k` 0..1 through the warning). */
+export function paintBubbles(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, k: number, t: number): void {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(220,236,255,.75)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 9; i++) {
+    const q = (t * 0.9 + hash(i + 40)) % 1;
+    const bx = x + (hash(i + 41) - 0.5) * s * 0.7, by = y + (hash(i + 42) - 0.5) * s * 0.3;
+    ctx.globalAlpha = k * (1 - q) * 0.8;
+    ctx.beginPath();
+    ctx.arc(bx, by, 1 + q * s * 0.06, 0, TAU);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+export interface GullPose { talk: boolean; cheer: number; flap: number; face: 1 | -1 }
+
+/** Zośka the herring gull, sitting, `s` px tall, facing `face`: white head, grey back, black wingtips, a yellow beak with its red spot. */
+export function paintGull(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t: number, pose: GullPose): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(pose.face, 1);
+  const bob = Math.sin(t * 2.1) * s * 0.015 - pose.cheer * s * 0.08 * Math.abs(Math.sin(t * 12));
+  ctx.translate(0, bob);
+  // the post she sits on
+  ctx.fillStyle = '#5a3d27';
+  ctx.beginPath();
+  ctx.roundRect(-s * 0.2, s * 0.36, s * 0.4, s * 0.64, s * 0.05);
+  ctx.fill();
+  ctx.fillStyle = '#7a5537';
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.36, s * 0.2, s * 0.06, 0, 0, TAU);
+  ctx.fill();
+  // legs
+  ctx.strokeStyle = '#f0b25a';
+  ctx.lineWidth = Math.max(1, s * 0.035);
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.05, s * 0.26);
+  ctx.lineTo(-s * 0.05, s * 0.36);
+  ctx.moveTo(s * 0.06, s * 0.26);
+  ctx.lineTo(s * 0.06, s * 0.36);
+  ctx.stroke();
+  // body
+  ctx.fillStyle = '#f4f1ea';
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.1, s * 0.28, s * 0.2, -0.15, 0, TAU);
+  ctx.fill();
+  // wing (grey back, black tip), lifted when she flaps or cheers
+  const lift = Math.max(pose.flap, pose.cheer) * Math.abs(Math.sin(t * 14)) * 0.7;
+  ctx.save();
+  ctx.translate(s * 0.02, s * 0.02);
+  ctx.rotate(-0.25 - lift);
+  ctx.fillStyle = '#9aa6b8';
+  ctx.beginPath();
+  ctx.ellipse(-s * 0.08, 0, s * 0.26, s * 0.11, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#1d2230';
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.28, -s * 0.04);
+  ctx.lineTo(-s * 0.46, s * 0.02);
+  ctx.lineTo(-s * 0.3, s * 0.07);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(-s * 0.36, s * 0.02, s * 0.018, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+  // head
+  ctx.fillStyle = '#fbfaf6';
+  ctx.beginPath();
+  ctx.arc(s * 0.22, -s * 0.14, s * 0.13, 0, TAU);
+  ctx.fill();
+  // eye (a stern little look: the bosun)
+  ctx.fillStyle = '#1b1b1b';
+  ctx.beginPath();
+  ctx.arc(s * 0.26, -s * 0.17, s * 0.022, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = '#9aa6b8';
+  ctx.lineWidth = Math.max(1, s * 0.02);
+  ctx.beginPath();
+  ctx.moveTo(s * 0.21, -s * 0.215);
+  ctx.lineTo(s * 0.3, -s * 0.2);
+  ctx.stroke();
+  // beak: opens when she talks
+  const open = pose.talk ? 0.5 + 0.5 * Math.sin(t * 18) : 0;
+  ctx.fillStyle = '#f2c230';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.33, -s * 0.15);
+  ctx.lineTo(s * 0.5, -s * (0.13 + 0.02 * open));
+  ctx.lineTo(s * 0.33, -s * 0.11);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(s * 0.33, -s * 0.11);
+  ctx.lineTo(s * 0.47, -s * (0.1 - 0.05 * open));
+  ctx.lineTo(s * 0.33, -s * 0.085);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#e0453a';
+  ctx.beginPath();
+  ctx.arc(s * 0.44, -s * (0.105 - 0.03 * open), s * 0.016, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A flotilla boat's number in a small round badge; `now` glows gold (its turn). */
+export function paintBadge(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, n: number, now: boolean, alpha: number): void {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = now ? C.gold : 'rgba(18,26,48,.85)';
+  ctx.strokeStyle = now ? '#fff4cf' : 'rgba(255,255,255,.45)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = now ? '#2a1a08' : C.cream;
+  ctx.font = `700 ${Math.round(r * 1.25)}px ${SANS}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(n), x, y + r * 0.06);
+  ctx.restore();
+}
+
+/** The squall's rain: slanted streaks over the whole stage, `k` its strength, `dir` the wind's side. */
+export function paintRain(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, k: number, dir: number): void {
+  if (k <= 0.01) return;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(190,210,240,.32)';
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = Math.min(1, k);
+  const n = Math.round(70 * Math.min(1.6, k));
+  const slant = 0.35 * dir;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const q = (t * (1.1 + hash(i + 900)) + hash(i + 901)) % 1;
+    const x = ((hash(i + 902) * (w + 200) + q * slant * h) % (w + 200)) - 100;
+    const y = q * (h + 40) - 20;
+    const len = 10 + 14 * hash(i + 903);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + slant * len, y + len);
+  }
+  ctx.stroke();
   ctx.restore();
 }

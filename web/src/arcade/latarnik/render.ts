@@ -9,17 +9,18 @@
  * never leaves the screen.  A frame allocates nothing: points go through one scratch pair.
  */
 import { Particles, approach, clamp, ease } from '../kit/juice';
-import { LETTERS, VILLAGE } from './content';
+import { LETTERS, UPGRADE_NAME, UPGRADE_WHAT, VILLAGE } from './content';
 import { Hud, NumText, age, fitSlot, font } from './hud';
-import { t } from './i18n';
+import { cap, nightName, t } from './i18n';
 import { DuskIntro } from './intro';
 import { BOTTOM, TOP, layout, type Layout } from './layout';
-import { village, type LatarnikProgress } from './meta';
+import { starsOf, village, type LatarnikProgress } from './meta';
 import {
-  C, HARBOUR, NO_DASH, SANS, SERIF, amberSprite, hash, paintBeam, paintBoat, paintBuoy, paintIsland, paintIsolines, paintSandbank, sprites,
-  type AmberSprite, type BoatLook, type IslandLook,
+  C, HARBOUR, NO_DASH, SANS, SERIF, amberSprite, hash, paintBadge, paintBeam, paintBoat, paintBubbles, paintBuoy, paintIsland, paintIsolines, paintRain,
+  paintSandbank, paintWhale, sprites, type AmberSprite, type BoatLook, type IslandLook,
 } from './paint';
-import { DEG, RULES, TAU, angDiff, type Boat, type LatarnikSim, type Nugget, type SimEvent } from './sim';
+import { UPGRADE_MAX } from './rules';
+import { DEG, RULES, TAU, angDiff, reachFor, type Boat, type LatarnikSim, type Nugget, type SimEvent } from './sim';
 
 /** a crate or a piece of amber flying along a curve; `t` starts below 0 for a staggered start */
 interface Flier { x0: number; y0: number; x1: number; y1: number; bend: number; t: number; dur: number; kind: 'crate' | 'amber' }
@@ -33,7 +34,9 @@ const BEAM_MAX = 1.05;
 const GHOST_DASH = [3, 7];
 /** Words drawn every frame of a moment, looked up once. */
 const DAWN_TITLE = t('block.dawn');
-const TAP_NOW = t('lesson.tap');
+const THRESHOLD = t('ring.threshold');
+/** a ring that spreads on the water (the bell where a fog-bound boat hides, a found boat) */
+interface Ripple { a: number; r: number; t: number; dur: number; color: string }
 
 export class LatarnikView {
   private readonly ctx: CanvasRenderingContext2D;
@@ -68,6 +71,7 @@ export class LatarnikView {
   /** made once per size: the dashes of the reef and the reach ring, the labels' fonts */
   private reefDash = NO_DASH;
   private reachDash = NO_DASH;
+  private thresholdDash = NO_DASH;
   private labelFonts = ['', ''];
   private readonly reachTxt = new NumText(n => t('ring.reach', { n }));
   private ghostText = '';
@@ -83,19 +87,28 @@ export class LatarnikView {
   private readonly at = { x: 0, y: 0 };
   private readonly dusk = new DuskIntro();
   private readonly hud: Hud;
+  private readonly ripples: Ripple[] = [];
+  /** the squall's wind: its warning streaks and its blow (0..1), its side (+1 clockwise) */
+  private wind = 0;
+  private windDir = 1;
+  private rain = 0;
+  private whaleLit = 0;
+  private hudTop = TOP + 60;
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.hud = new Hud(this.ctx);
   }
 
-  resize(w: number, h: number, dpr: number): void {
-    const L = (this.L = layout(w, h));
+  resize(w: number, h: number, dpr: number, hudTop = this.hudTop): void {
+    this.hudTop = hudTop;
+    const L = (this.L = layout(w, h, hudTop));
     this.dpr = dpr;
     this.grad = null;
     this.fog = null;
     this.reefDash = [L.R * 0.012, L.R * 0.03];
     this.reachDash = [0.01, Math.max(7, L.R * 0.024)];
+    this.thresholdDash = [2, Math.max(5, L.R * 0.016)];
     this.labelFonts = [font(650, 11 * L.u, SANS), font(650, 10.5 * L.u, SANS)];
     this.reachTxt.reset();
     this.ghostText = '';
@@ -110,6 +123,15 @@ export class LatarnikView {
 
   /** What the title over the sea and the card slot show now, and where the card is (tests and debugging). */
   get showing() { return this.hud.showing; }
+
+  /** Where things are (index.ts points its coach marks at them). */
+  get layout(): Layout { return this.L; }
+
+  /** A point on the sea in CSS px (a copy). */
+  point(a: number, r: number): { x: number; y: number } {
+    const p = this.px(a, r);
+    return { x: p.x, y: p.y };
+  }
 
   /** The point at bearing `a` and distance `r` (R) on the sea, in the scratch pair. */
   private px(a: number, r: number): { x: number; y: number } {
@@ -134,6 +156,7 @@ export class LatarnikView {
           if (b.kind === 'butelka') continue;
           szereg++;
           this.hud.float(`+${b.cargo}`, x, y - 10 * u, C.gold, 17 * u);
+          if (b.kind === 'mgla') this.hud.float(t('fx.found'), x, y - 30 * u, '#d8e6ff', 15 * u, true, 1.2);
         }
         const { x: fx, y: fy } = this.px(e.boats[0].a, e.boats[0].r);
         if (e.full) {
@@ -183,24 +206,78 @@ export class LatarnikView {
         this.hud.float(t('fx.tall'), x, y - 52 * u, C.cream, 22 * u, true, 1.8);
         break;
       }
-      case 'watchEnd':
-        this.hud.watchEnd(e.watch, e.boats);
-        break;
-      case 'watchStart':
-        this.hud.title(t('title.watch'), C.cream, 24 * u, { dur: 1.6, min: 1, rank: 1 });
+      case 'nightStart':
+        if (sim.story) break;   // the opening card names the first night's place already
+        this.hud.title(`${t('sub.night', { n: e.spec.n + 1, got: 0, goal: 0 }).split(' · ')[0]} · ${nightName(e.spec.kind)}`, e.spec.boss ? '#ffb39c' : C.cream, 26 * u,
+          { dur: 2, min: 1.2, rank: 1 });
         this.hud.popLanterns();
+        this.rain = e.spec.boss ? 0.5 : 0;
+        break;
+      case 'nightWon':
+        this.particles.burst(cx, cy, 40, { color: C.gold, speed: 160, spread: TAU, g: 30, drag: 1.4, life: 1.3, size: 2.4, shape: 'spark' });
+        if (!this.opts.reducedMotion) this.particles.burst(cx, cy, 1, { color: C.cream, speed: 0, life: 1.1, size: R * 0.7, shape: 'ring', g: 0 });
+        this.hud.gull.cheer = 2;
+        this.rain = 0;
+        break;
+      case 'rewind':
+        this.hud.popLanterns();
+        this.hud.gull.flap = 1;
+        break;
+      case 'progress':
+        this.hud.popGoal();
+        break;
+      case 'order': {
+        const { x, y } = this.px(e.boat.a, e.boat.r);
+        this.hud.float(t('fx.order', { n: e.want }), x, y - 18 * u, C.gold, 15 * u, false, 1.2);
+        break;
+      }
+      case 'spotted':
+        this.ripples.push({ a: e.boat.a, r: e.boat.r, t: 0, dur: 0.9, color: 'rgba(255,233,168,.8)' });
+        break;
+      case 'ring':
+        this.ripples.push({ a: e.boat.a, r: e.boat.r, t: 0, dur: 1.6, color: 'rgba(190,230,255,.55)' });
+        break;
+      case 'bump': {
+        const { x, y } = this.px(e.boat.a, e.boat.r);
+        this.hud.float(t('fx.bump'), x, y - 14 * u, C.cream, 14 * u, true, 1.1);
+        break;
+      }
+      case 'rescue': {
+        const { x, y } = this.px(e.boat.a0, e.boat.r0);
+        this.hud.float(t('fx.rescue'), x, y - 40 * u, '#bfe8cf', 19 * u, true, 1.8);
+        this.hud.gull.cheer = 1.5;
+        break;
+      }
+      case 'flotilla':
+        if (e.counted) this.hud.floatIsland(t('fx.flotilla'), C.gold, 15 * u, 1.8);
+        break;
+      case 'whaleWarn':
+        break;
+      case 'whale': {
+        const { x, y } = this.px(e.whale.a, e.whale.r);
+        this.whaleLit = 1;
+        this.particles.burst(x, y - R * 0.04, 26, { color: '#e8f4ff', speed: 120, angle: -Math.PI / 2, spread: 1.2, g: 160, life: 0.9, size: 2.2, shape: 'spark' });
+        this.hud.float(`${t('fx.whale')} +${e.crates}`, x, y - 36 * u, '#cfe6ff', 21 * u, true, 1.8);
+        this.hud.gull.cheer = 1.2;
+        break;
+      }
+      case 'gustWarn':
+        this.windDir = e.kind === 'fast' ? 1 : -1;
+        this.hud.title(t(e.kind === 'fast' ? 'fx.gustFast' : 'fx.gustBack'), '#ffb39c', 20 * u, { dur: RULES.gustWarn, min: 1, rank: 0 });
+        break;
+      case 'gust':
+        this.shake = this.opts.reducedMotion ? 0 : 0.35;
+        break;
+      case 'upgrade':
+        this.hud.note(t('fx.upgrade', { name: cap(UPGRADE_NAME[e.upgrade]), lv: e.level, max: UPGRADE_MAX[e.upgrade] }), cap(UPGRADE_WHAT[e.upgrade]));
+        this.particles.burst(cx, cy, 30, { color: C.cream, speed: 110, spread: TAU, g: 0, drag: 2, life: 1, size: 2, shape: 'spark' });
         break;
       case 'telegraph':
         this.pulse = { color: e.next === 'cisza' ? C.teal : C.coral, at: e.next === 'cisza' ? 'shore' : 'horizon', t: 0 };
         break;
-      case 'blockStart': {
-        if (e.index === 0) break;
-        const k = e.block.kind;
-        const title = t(k === 'warmup' ? 'block.warmup' : k === 'cisza' ? 'block.cisza' : e.block.blind ? 'block.blind' : 'block.konwoj');
-        // after the star of the block that just ended, if there is one
-        this.hud.title(title, k === 'cisza' ? '#9ff3e4' : k === 'konwoj' ? '#ffb39c' : C.cream, 30 * u, { dur: 2.4, min: 1.6, rank: 1 });
+      case 'blockStart':
+        // the runner's banner names the block; the sea answers with its telegraph's colour only
         break;
-      }
       case 'steady': {
         // under the reach's label: the lens tightens a notch
         const p = this.hud.under(0, this.at) ? this.at : this.px(-0.75, sim.reach);
@@ -209,7 +286,6 @@ export class LatarnikView {
       }
       case 'star': {
         this.hud.title(t('title.star'), C.gold, 24 * u, { dur: 1.8, min: 0.9, rank: 0 });
-        this.hud.popStar();
         this.hud.popLantern(e.lanterns - 1);
         // the convoy's cargo comes in from the horizon as one stream
         const { x, y } = this.px(hash(sim.starsWon * 7 + 1) * TAU, 0.96);
@@ -239,9 +315,6 @@ export class LatarnikView {
       case 'built':
         this.particles.burst(cx, cy + s * 0.3, 24, { color: C.gold, speed: 90, spread: TAU, g: 40, drag: 1.5, life: 1.1, size: 2.2, shape: 'spark' });
         this.hud.floatIsland(t('port.grows', { names: VILLAGE[e.step].name }), C.gold, 15 * u, 2.2);
-        break;
-      case 'welcome':
-        this.hud.floatIsland(t('fx.welcome', { crates: t('crates', { n: e.crates }) }), C.honey, 14 * u, 2.6);
         break;
       case 'finale':
         this.hud.clearTitles();   // "Świt" takes the title's place
@@ -280,6 +353,11 @@ export class LatarnikView {
     this.clock += dt;
     this.particles.update(dt);
     age(this.fliers, dt);
+    age(this.ripples, dt);
+    const g = sim.gust;
+    this.wind = approach(this.wind, g.state === 'blow' ? 1 : g.state === 'warn' ? 0.55 : 0, dt, 0.25);
+    this.rain = approach(this.rain, sim.spec.boss && sim.phase === 'play' ? 0.45 + 0.6 * this.wind : 0, dt, 0.6);
+    this.whaleLit = Math.max(0, this.whaleLit - dt * 0.8);
     this.hud.update(dt);
     if (this.pulse && (this.pulse.t += dt) > RULES.telegraph) this.pulse = null;
     this.flare = Math.max(0, this.flare - dt * 3.5);
@@ -291,7 +369,7 @@ export class LatarnikView {
     this.beamLen = approach(this.beamLen, sim.blind ? 1.02 : sim.reach, dt, 0.25);
     const dawn = sim.phase === 'finale' || sim.phase === 'done';
     this.rings = approach(this.rings, dawn ? 0 : 1, dt, 0.35);
-    const dawnWant = dawn ? 1 : sim.phase === 'watchEnd' ? 0.45 : 0;
+    const dawnWant = dawn ? 1 : sim.phase === 'between' ? 0.3 : 0;
     this.dawn = approach(this.dawn, dawnWant, dt, dawnWant > this.dawn ? 0.7 : 0.5);
     this.fadeIn = Math.max(0, this.fadeIn - dt * 1.4);
     this.shake = Math.max(0, this.shake - dt * 2);
@@ -321,15 +399,18 @@ export class LatarnikView {
     this.drawDecor(t);
     this.drawNuggets(sim, t);
     this.drawRings(sim, t);
+    this.drawWhale(sim, t);
     this.drawBoats(sim, t, false);
+    this.drawRipples();
     this.drawFog(sim, t);
-    paintIsland(ctx, cx, cy, L.s, t, this.island(sim.p.crates));
+    paintIsland(ctx, cx, cy, L.s, t, this.island(starsOf(sim.p)));
     this.drawBeam(sim, t);
     this.drawLamp(sim, t);
     this.drawBoats(sim, t, true);
     this.drawLesson(sim, t);
     this.drawFliers();
     this.particles.draw(ctx);
+    this.drawWind(t);
     this.drawDawn(sim, t);
     ctx.restore();
     this.hud.draw(sim, t);
@@ -342,10 +423,10 @@ export class LatarnikView {
   }
 
   /** The island's look for the village the crates have built (worked out again only when they change). */
-  private island(crates: number): IslandLook {
-    if (crates !== this.cratesSeen) {
-      this.cratesSeen = crates;
-      const v = village(crates);
+  private island(stars: number): IslandLook {
+    if (stars !== this.cratesSeen) {
+      this.cratesSeen = stars;
+      const v = village(stars);
       this.look.built = v.built;
       this.look.partial = v.next ? v.have / v.need : 0;
     }
@@ -527,6 +608,33 @@ export class LatarnikView {
         this.ringLabel(1, this.ghostText, this.ghostW, gr, -2.35, 'rgba(230,236,255,.45)', 10.5 * u, fade);
         ghost = true;
       }
+      // the threshold, marked on the sea itself: the reach the band's threshold gives (0.71 R); the light
+      // past it turns the ring gold and its ticks bright
+      const tr = reachFor(0.5) * R, over = sim.reach >= reachFor(0.5);
+      ctx.globalAlpha = fade * (sim.reliable ? 1 : 0.4);
+      ctx.strokeStyle = over ? 'rgba(255,210,122,.55)' : 'rgba(200,214,240,.28)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash(this.thresholdDash);
+      ctx.beginPath();
+      ctx.arc(cx, cy, tr, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash(NO_DASH);
+      ctx.lineWidth = over ? 2.2 : 1.4;
+      ctx.strokeStyle = over ? C.gold : 'rgba(220,230,250,.5)';
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * TAU + 0.13;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * (tr - 4 * u), cy + Math.sin(a) * (tr - 4 * u));
+        ctx.lineTo(cx + Math.cos(a) * (tr + 4 * u), cy + Math.sin(a) * (tr + 4 * u));
+        ctx.stroke();
+      }
+      ctx.font = this.labelFonts[1];
+      ctx.globalAlpha = fade * 0.75;
+      ctx.fillStyle = over ? C.gold : 'rgba(220,230,250,.7)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(THRESHOLD, cx + Math.cos(2.2) * (tr + 12 * u), cy + Math.sin(2.2) * (tr + 12 * u));
+      ctx.globalAlpha = 1;
       const rr = Math.min(sim.reach, RING_MAX) * R;
       if (sim.reach > 1) {
         // the light reaches past the horizon: the horizon itself lights up, the more the farther
@@ -619,6 +727,13 @@ export class LatarnikView {
         heading = b.a + Math.PI + Math.sin(t * 0.9 + b.phase) * 0.07;
       }
       if (b.r > RULES.far) alpha *= 1 - 0.55 * sim.fog;
+      if (b.hidden && b.state === 'sea') {
+        // a fog-bound boat or the rowboat: seen only while the light has found it
+        const k = clamp(b.seen / 0.5);
+        this.hiddenHint(b, x, y, t, k);
+        alpha *= k;
+        if (alpha <= 0.01) continue;
+      }
       // the beam lights a boat as it passes over it (if the light reaches it)
       let light = 0;
       if (b.state === 'sea' && b.r <= reachPx + 0.01) {
@@ -638,6 +753,10 @@ export class LatarnikView {
         ctx.arc(x, y, Math.max(1.8, boat * 0.09), 0, TAU);
         ctx.fill();
         ctx.globalAlpha = 1;
+      }
+      if (b.order > 0 && b.state === 'sea') {
+        const now = sim.flotilla?.id === b.group && sim.flotilla.next === b.order;
+        paintBadge(ctx, x, y - boat * 0.75, Math.max(7, boat * 0.3), b.order, now, alpha * (now ? 0.85 + 0.15 * Math.sin(t * 6) : 0.85));
       }
       if (b.kind === 'butelka' && b.state === 'sea') {
         ctx.globalAlpha = 0.35 + 0.25 * Math.sin(t * 3 + b.phase);
@@ -686,14 +805,96 @@ export class LatarnikView {
     paintBoat(ctx, b.kind, x, y, heading, boat * (1 - 0.35 * q), look, glow);
   }
 
+  /** Where a hidden boat is, a hint only: a mist puff over a fog-bound boat, oar splashes by the rowboat. */
+  private hiddenHint(b: Boat, x: number, y: number, t: number, seen: number): void {
+    const { ctx } = this;
+    const { boat } = this.L;
+    ctx.save();
+    if (b.kind === 'mgla') {
+      const sp = sprites().cream;
+      ctx.globalAlpha = 0.16 * (1 - seen * 0.6) * (0.8 + 0.2 * Math.sin(t * 0.8 + b.phase));
+      ctx.drawImage(sp, x - boat * 1.6, y - boat * 1.1, boat * 3.2, boat * 2.2);
+    } else {
+      // two little splashes of the oars, now and then
+      const q = (t * 0.7 + b.phase) % 1;
+      if (q < 0.3) {
+        ctx.globalAlpha = (1 - q / 0.3) * 0.7 * (1 - seen);
+        ctx.fillStyle = '#e8f1ff';
+        for (const sgn of [-1, 1]) {
+          ctx.beginPath();
+          ctx.arc(x + Math.cos(b.a + Math.PI / 2) * boat * 0.45 * sgn, y + Math.sin(b.a + Math.PI / 2) * boat * 0.45 * sgn, 1.2 + q * 4, 0, TAU);
+          ctx.fill();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  private drawRipples(): void {
+    const { ctx } = this;
+    const { boat } = this.L;
+    if (!this.ripples.length) return;
+    ctx.save();
+    ctx.lineWidth = 1.4;
+    for (const r of this.ripples) {
+      const k = r.t / r.dur;
+      const { x, y } = this.px(r.a, r.r);
+      ctx.globalAlpha = (1 - k) * 0.9;
+      ctx.strokeStyle = r.color;
+      ctx.beginPath();
+      ctx.arc(x, y, boat * (0.5 + 1.6 * ease.outCubic(k)), 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** The whale: bubbles while it comes up, then its back and spout; lit for a moment after a flash. */
+  private drawWhale(sim: LatarnikSim, t: number): void {
+    const w = sim.whale;
+    if (w.state === 'idle' && this.whaleLit <= 0) return;
+    const { x, y } = this.px(w.a, w.r);
+    const size = this.L.boat * 2.4;
+    if (w.state === 'warn') paintBubbles(this.ctx, x, y, size, clamp(w.t / RULES.whaleWarn), t);
+    else if (w.state === 'up') {
+      const up = Math.min(clamp(w.t / 0.4), clamp((RULES.whaleUp - w.t) / 0.5));
+      // the beam over it warms it
+      const d = Math.abs(angDiff(w.a, sim.beam));
+      paintWhale(this.ctx, x, y, size, up, t, d < RULES.wedge * 1.2 && w.r <= sim.reach ? 1 : 0);
+    }
+  }
+
+  /** The squall: rain over everything, and in a gust's warning and blow, streaks of wind across the sea. */
+  private drawWind(t: number): void {
+    const { ctx } = this;
+    const { w, h, cx, cy, R } = this.L;
+    paintRain(ctx, w, h, this.opts.reducedMotion ? t * 0.4 : t, this.rain, this.windDir);
+    if (this.wind < 0.02) return;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(220,235,255,.5)';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 1.6;
+    for (let i = 0; i < 14; i++) {
+      const r = (0.3 + 0.68 * hash(i + 950)) * R;
+      const a0 = hash(i + 951) * TAU + this.windDir * t * (0.9 + 0.6 * hash(i + 952));
+      const len = (0.25 + 0.3 * hash(i + 953)) * this.wind;
+      ctx.globalAlpha = this.wind * (0.35 + 0.4 * hash(i + 954));
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, a0, a0 + len * this.windDir, this.windDir < 0);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   private drawFog(sim: LatarnikSim, t: number): void {
-    if (sim.fog < 0.01) return;
+    // a fog night keeps banks of mist over the far sea, whatever the signal
+    const mist = sim.spec.kind === 'mgla' && !sim.ended ? 0.55 : 0;
+    if (sim.fog < 0.01 && mist === 0) return;
     const { ctx } = this;
     const { cx, cy, R } = this.L;
     if (!this.fog) this.fog = fogSprite(R);
     const size = R * 3.4;
     ctx.save();
-    ctx.globalAlpha = sim.fog * 0.95;
+    ctx.globalAlpha = Math.max(sim.fog * 0.95, mist);
     ctx.translate(cx, cy);
     ctx.rotate(this.opts.reducedMotion ? 0 : t * 0.015);
     ctx.drawImage(this.fog, -size / 2, -size / 2, size, size);
@@ -709,6 +910,8 @@ export class LatarnikView {
     // gold, turning part-way to coral as the lens concentrates toward full reach
     const coral = sim.blind ? 0 : 0.6 * clamp((sim.reach - 0.85) / 0.25);
     paintBeam(ctx, cx, cy, sim.beam, len, intensity, coral);
+    // the workshop's second beam, opposite and shorter
+    if (sim.second) paintBeam(ctx, cx, cy, sim.beam + Math.PI, Math.max(R * 0.15, Math.min(this.beamLen * RULES.secondReach, BEAM_MAX) * R), intensity * 0.7, 0);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     if (this.short > 0 && !sim.blind) {
@@ -797,15 +1000,12 @@ export class LatarnikView {
     ctx.arc(x, y, boat * (0.9 + 0.25 * p), 0, TAU);
     ctx.stroke();
     if (hold) {
-      ctx.globalAlpha = 1;
-      ctx.font = font(700, 15 * u, SANS);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      const ty = y - boat * 1.25;
-      ctx.fillStyle = 'rgba(5,10,24,.6)';
-      ctx.fillText(TAP_NOW, x + 1, ty + 1);
-      ctx.fillStyle = C.cream;
-      ctx.fillText(TAP_NOW, x, ty);
+      // a second ring closing in: "now" (the coach mark says it in words)
+      const q = (t * 1.6) % 1;
+      ctx.globalAlpha = 0.7 * (1 - q);
+      ctx.beginPath();
+      ctx.arc(x, y, boat * (2.2 - 1.2 * q) * (0.9 + 0.1 * u), 0, TAU);
+      ctx.stroke();
     }
     ctx.restore();
   }
@@ -903,7 +1103,7 @@ export class LatarnikView {
   intro(dt: number, p: number, progress: LatarnikProgress): void {
     const { w, h } = this.L;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.dusk.draw(this.ctx, w, h, dt, p, this.island(progress.crates).built);
+    this.dusk.draw(this.ctx, w, h, dt, p, this.island(starsOf(progress)).built);
   }
 }
 

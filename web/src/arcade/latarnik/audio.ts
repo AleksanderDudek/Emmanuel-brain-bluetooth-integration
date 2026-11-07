@@ -7,6 +7,7 @@
  * crates and amber.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
+import { RULES } from './rules';
 import type { LatarnikSim, SimEvent } from './sim';
 
 /** D major 7, low and warm; Cisza moves to an open G for its glass-harmonica feel. */
@@ -47,7 +48,7 @@ export class LatarnikSound {
           break;
         }
         // one pentatonic step up per perfect in a row, capped at an octave
-        const step = e.perfect ? Math.min(e.streak, 5) : 0;
+        const step = e.perfect ? Math.min(e.streak, 9) : 0;
         a.combo(step, BELL_ROOT, 0.09);
         if (e.boats.length > 1) a.bell(ladder(step + 2, BELL_ROOT), 0.06, 1.3, 0.06);
         break;
@@ -114,11 +115,61 @@ export class LatarnikSound {
       case 'built':
         [0, 4, 7, 9].forEach((n, i) => a.bell(ladder(n, BELL_ROOT / 2), 0.05, 2, i * 0.12));
         break;
-      case 'watchEnd':
+      case 'rewind':
         [4, 2, 0].forEach((n, i) => a.bell(ladder(n, BELL_ROOT), 0.06, 1.6, i * 0.16));
         break;
-      case 'watchStart':
+      case 'nightStart':
         a.bell(ladder(0, BELL_ROOT), 0.06, 1.4);
+        if (e.spec.boss) a.tone(55, 2.6, { type: 'sawtooth', gain: 0.025, attack: 0.8 });
+        break;
+      case 'nightWon':
+        // a fanfare of bells, one more for each star
+        [0, 2, 4, 7, 9, 12].slice(0, 3 + e.stars).forEach((n, i) => a.bell(ladder(n, BELL_ROOT), 0.07, 2, i * 0.11));
+        break;
+      case 'progress':
+        a.bell(ladder(4 + Math.min(e.got, 8), BELL_ROOT), 0.035, 0.9, 0.05);
+        break;
+      case 'order':
+        a.tone(330, 0.12, { type: 'sine', gain: 0.04 });
+        a.tone(294, 0.14, { type: 'sine', gain: 0.035, at: 0.1 });
+        break;
+      case 'spotted':
+        a.bell(ladder(8, BELL_ROOT), 0.03, 0.8);
+        break;
+      case 'ring':
+        // the bell rings where a boat hides in the fog: a soft far bell
+        a.bell(BELL_ROOT * 1.5, 0.025, 1.6);
+        break;
+      case 'bump':
+        a.noiseBurst(0.12, { freq: 260, q: 2, gain: 0.06 });
+        a.tone(110, 0.2, { type: 'triangle', gain: 0.05 });
+        break;
+      case 'rescue':
+        [0, 4, 7, 12].forEach((n, i) => a.bell(ladder(n, BELL_ROOT), 0.06, 1.8, i * 0.08));
+        break;
+      case 'flotilla':
+        if (e.counted) [2, 4, 7].forEach((n, i) => a.bell(ladder(n, BELL_ROOT), 0.06, 1.6, i * 0.1));
+        break;
+      case 'whaleWarn':
+        for (let i = 0; i < 5; i++) a.noiseBurst(0.06, { type: 'bandpass', freq: 500 + i * 120, q: 6, gain: 0.03, at: i * 0.22 });
+        break;
+      case 'whaleUp':
+        // a long low call and the spout's hiss
+        a.tone(98, 1.6, { type: 'sine', gain: 0.06, attack: 0.3, slideTo: 130 });
+        a.noiseBurst(0.7, { type: 'highpass', freq: 1800, gain: 0.03, at: 0.3 });
+        break;
+      case 'whale':
+        a.tone(130, 1.2, { type: 'sine', gain: 0.06, attack: 0.1, slideTo: 196 });
+        [0, 4, 7].forEach((n, i) => a.bell(ladder(n + 5, BELL_ROOT), 0.05, 1.6, 0.1 + i * 0.1));
+        break;
+      case 'gustWarn':
+        a.noiseBurst(RULES.gustWarn, { type: 'bandpass', freq: 400, sweepTo: 1600, q: 0.8, gain: 0.04 });
+        break;
+      case 'gust':
+        a.noiseBurst(RULES.gustBlow, { type: 'lowpass', freq: 1200, sweepTo: 300, gain: 0.07 });
+        break;
+      case 'upgrade':
+        [0, 4, 7, 9, 12].forEach((n, i) => a.bell(ladder(n, BELL_ROOT / 2), 0.06, 2, i * 0.09));
         break;
       case 'finale':
         a.padChord(CALM, 2);

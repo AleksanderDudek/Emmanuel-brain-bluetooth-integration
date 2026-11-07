@@ -1,19 +1,25 @@
 /**
- * Latarnik's HUD and overlays on the play canvas: the block (name, a strategy to try, its
- * progress, the telegraph), the harbour's score, crates and stars, the watch's lanterns and the
- * ladder of perfects; floating words, the title over the sea (a block's name, a star, "Pełne
- * światło") and the cards (a watch's "Świt", a new piece of amber, the blind Konwój's reveal).
- * Titles take turns and so do cards (queue.ts).  The amber and reveal cards sit off the sea — under
- * it on a phone, in the left column when wide — and floating words keep clear of them, of the
- * HUD's blocks, of the ring's labels and of each other.  At dawn the status reads "Świt".  Every
- * string is fitted to its room, so it reads on a 390 px phone too; texts, sizes and fonts are made
- * again only when they change, so a frame leaves no garbage.
+ * Latarnik's own overlays on the play canvas (version 2).  The runner's standard HUD now shows the
+ * block, its strategy, the gauge and the score, so this draws only what belongs to the game:
+ *
+ *   the deck      the night's three lanterns, the perfect ladder (8 = Pełne światło), the night's
+ *                 goal chip with its count and its three stars as they stand
+ *   Zośka         the gull on her post and her speech bubble (talk.ts says what and when)
+ *   the words     floating words ("Idealnie", "+3"), titles over the sea (a night's name, Pełne
+ *                 światło, Blask latarni) and the card slot (amber, the blind reveal)
+ *   the cards     the opening story with the root verse, and the card between two nights (its
+ *                 stars, the next night's name, goal and one sentence of story)
+ *
+ * Titles take turns and so do cards (queue.ts); floating words keep clear of the deck, the cards,
+ * the titles and each other.  Every string is fitted to its room, so it reads on a 390 px phone.
  */
 import { approach, clamp, ease } from '../kit/juice';
+import { drawPassage, layoutPassage, passage, type PassageLayout } from '../kit/scripture';
 import { AMBER, DUPLICATE_OKRUCHY, SETS, TIER_NAME } from './content';
-import { bare, farShips, t } from './i18n';
-import { BOTTOM, TOP, cardSlot, lanternRow, layout, type Layout, type Rect } from './layout';
-import { C, SANS, SERIF, amberSprite, paintBoat, sprites, type AmberSprite, type BoatLook } from './paint';
+import { farShips, goalText, nightName, storyText, t } from './i18n';
+import { BOTTOM, TOP, layout, type Layout, type Rect } from './layout';
+import { nightSpec } from './nights';
+import { C, SANS, SERIF, amberSprite, paintBoat, paintGull, sprites, type AmberSprite, type BoatLook, type GullPose } from './paint';
 import { Queue, type QueueOpts } from './queue';
 import { RULES, TAU, type LatarnikSim } from './sim';
 
@@ -50,34 +56,24 @@ export class NumText {
   reset(): void { this.n = NaN; }
 }
 
-/** A word that pops, rises `rise` px and fades; `x` and `off` are where the layout put it this frame. */
 interface Float {
   text: string; x0: number; y: number; t: number; dur: number; color: string; size: number; font: string; rise: number;
   w: number; x: number; off: number; placed: boolean;
 }
-/** A title over the sea; `fit` (its font size), `font` and `w` are measured for the current layout. */
 interface Title { text: string; color: string; size: number; fit: number; w: number; font: string }
-/** A card's lines are written once; `tw` is the room they were laid out for, `icon` the amber drawn once. */
 interface Card {
-  kind: 'amber' | 'reveal';
+  kind: 'amber' | 'reveal' | 'note';
   piece: number; isNew: boolean; far: number;
   title: string; sub: string;
   tw: number; lines: string[]; font2: string;
   icon: AmberSprite | null; iconU: number;
 }
 
-/** The title's line, above the lamp (in R). */
-const TITLE_Y = 0.5;
-/** Room kept around a floating word (px), and the most obstacles one can meet. */
+/** The title's line, below the lamp (in R, upward positive): the runner's block banner owns the space above it. */
+const TITLE_Y = -0.46;
 const PAD = 3;
 const MAX_BOXES = 40;
-const DAWN = '#ffc9b4';
-const EYEBROW_MAX = 16;
-/** The words the HUD draws every frame, looked up once (the language is settled when the app loads). */
-const TXT = {
-  dawn: t('block.dawn'), warmup: t('block.warmup'), cisza: t('block.cisza'), konwoj: t('block.konwoj'), blind: t('block.blind'),
-  nextCisza: t('next.cisza'), nextKonwoj: t('next.konwoj'), fog: t('fog'), armed: t('hud.armed'), ladder: t('hud.ladder'), soon: t('watch.soon'),
-};
+const TXT = { armed: t('hud.armed'), ladder: t('hud.ladder'), blind: t('block.blind'), open: t('open.title'), openText: t('open.text'), openTap: t('open.tap'), again: t('card.again'), rule: t('stars.rule') };
 
 export class Hud {
   private L: Layout = layout(390, 844);
@@ -85,40 +81,30 @@ export class Hud {
   private readonly floats: Float[] = [];
   private readonly titles = new Queue<Title>();
   private readonly cards = new Queue<Card>(0.3, 0.35);
-  private watchCard: { line: string; t: number } | null = null;
   private readonly lanternPop = [0, 0, 0];
-  private starPop = 0;
-  /** obstacles for floating words, (x0, y0, x1, y1) each: first the HUD's blocks from the last draw */
+  private goalPop = 0;
   private readonly boxes = new Float32Array(MAX_BOXES * 4);
   private hudBoxes = 0;
-  /** the reach ring's labels, reserved by the view: slot 0 the reach, slot 1 the last day's ring */
   private readonly labels = new Float32Array(8);
   private readonly labelOn = [false, false];
-  /** the card slot, placed with the HUD every frame */
-  private readonly slot: Rect = { x: 0, y: 0, w: 0, h: 0 };
   private readonly look: BoatLook = { light: 0, lit: false, dark: false, alpha: 1 };
-  // fonts, texts and sizes made once per layout or per change
+  readonly gull: GullPose = { talk: false, cheer: 0, flap: 0, face: 1 };
   private fonts = Hud.fontsFor(1);
-  private readonly nameFit = fitSlot();
-  private readonly tipWrap = { text: '', maxW: -1, font: '', lines: [] as string[] };
-  private readonly watchTxt = new NumText(n => t('hud.watch', { n }));
-  private readonly browX = new Float32Array(EYEBROW_MAX);
-  private browText = '';
-  private readonly scoreTxt = new NumText(n => String(n));
-  private readonly portTxt = new NumText(n => bare('hud.inPort', n));
-  private readonly portFit = fitSlot();
-  private readonly watchFit = fitSlot();
-  private readonly crateTxt = new NumText(n => t('crates', { n }));
   private readonly streakTxt = new NumText(n => t('hud.streak', { n }));
+  private readonly bubbleWrap = { text: '', maxW: -1, lines: [] as string[] };
+  private goalKey = '';
+  private goalLines = { head: '', goal: '', count: '' };
+  private readonly goalFit = fitSlot();
+  private openLay: { lay: PassageLayout; w: number; h: number; text: string[] } | null = null;
+  private between: { key: string; title: string; lines: string[]; tw: number } | null = null;
 
   constructor(private readonly ctx: CanvasRenderingContext2D) {}
 
   private static fontsFor(u: number) {
     return {
-      eyebrow: font(700, 10.5 * u, SANS), tip: font(500, 13.5 * u, SANS), next: font(650, 12.5 * u, SANS), fog: font(600, 12.5 * u, SANS),
-      score: font(400, 46 * u, SERIF), scoreSub: font(650, 12 * u, SANS), ladder: font(650, 11.5 * u, SANS),
-      cardTitle: font(650, 14.5 * u, SANS), cardSub: font(500, 12 * u, SANS),
-      watchLine: font(650, 15 * u, SANS), watchSmall: font(500, 12.5 * u, SANS),
+      ladder: font(650, 11.5 * u, SANS), cardTitle: font(650, 14.5 * u, SANS), cardSub: font(500, 12 * u, SANS),
+      goalHead: font(750, 10.5 * u, SANS), goal: font(650, 13 * u, SANS), count: font(500, 22 * u, SERIF),
+      bubble: font(600, 13.5 * u, SANS), cardBig: font(500, 26 * u, SERIF), cardLine: font(600, 13.5 * u, SANS), cardSmall: font(500, 12 * u, SANS),
     };
   }
 
@@ -126,17 +112,16 @@ export class Hud {
     this.L = L;
     this.dpr = dpr;
     this.fonts = Hud.fontsFor(L.u);
-    this.nameFit.maxW = -1;
-    this.tipWrap.maxW = -1;
-    this.browText = '';
-    this.crateTxt.reset();
+    this.goalKey = '';
+    this.bubbleWrap.maxW = -1;
+    this.openLay = null;
+    this.between = null;
     const head = this.titles.head;
     if (head) head.item.fit = 0;
     const card = this.cards.head;
     if (card) card.item.tw = -1;
   }
 
-  /** A word that pops, rises and fades ("Idealnie", "+3"). */
   float(text: string, x: number, y: number, color: string, size: number, serif = false, dur = 1.1, rise = 40): void {
     const f = font(serif ? 500 : 700, size, serif ? SERIF : SANS, serif);
     this.ctx.font = f;
@@ -145,7 +130,7 @@ export class Hud {
     if (this.floats.length > 14) this.floats.shift();
   }
 
-  /** A word about the island (crumbs, the smokehouse, a new village step), beside it on the dark water: right, else left, else above. */
+  /** A word about the island (crumbs, a village step), beside it on the dark water: right, else left, else above. */
   floatIsland(text: string, color: string, size: number, dur: number): void {
     const { cx, cy, s, w } = this.L;
     this.ctx.font = font(700, size, SANS);
@@ -156,17 +141,11 @@ export class Hud {
     else this.float(text, cx, cy - s * 1.5, color, size, false, dur, 16);
   }
 
-  /** A title over the sea for a moment; titles take turns, the more important (lower rank) first. */
   title(text: string, color: string, size: number, o: QueueOpts): void {
     this.titles.push({ text, color, size, fit: 0, w: 0, font: '' }, o);
   }
 
   clearTitles(): void { this.titles.clear(); }
-
-  /** The watch's "Świt" card. */
-  watchEnd(watch: number, n: number): void {
-    this.watchCard = { line: t('watch.line', { n: watch, boats: t('boats', { n }) }), t: 0 };
-  }
 
   /** A piece of amber, new or a duplicate, in the card slot. */
   card(piece: number, isNew: boolean, via: 'draw' | 'craft' | 'pity'): void {
@@ -176,12 +155,16 @@ export class Hud {
     this.cards.push(newCard('amber', piece, isNew, 0, title, sub), { dur: 2.8, min: 2.2, rank: 1 });
   }
 
-  /** The blind Konwój's reveal: how many ships came in from afar, in the card slot. */
+  /** The blind Konwój's reveal: how many ships came in from afar. */
   reveal(far: number): void {
     this.cards.push(newCard('reveal', -1, false, far, farShips(far), TXT.blind), { dur: 3.4, min: 2.6, rank: 0 });
   }
 
-  /** Keep floating words off a label of the reach ring this frame (the view calls it as it draws them). */
+  /** A short note in the card slot (an upgrade: what it does). */
+  note(title: string, sub: string): void {
+    this.cards.push(newCard('note', -1, true, 0, title, sub), { dur: 3, min: 2.2, rank: 1 });
+  }
+
   reserve(slot: 0 | 1, x0: number, y0: number, x1: number, y1: number): void {
     const b = this.labels, j = slot * 4;
     b[j] = x0;
@@ -193,7 +176,6 @@ export class Hud {
 
   release(slot: 0 | 1): void { this.labelOn[slot] = false; }
 
-  /** A reserved label's centre below it (x, y), for a word that belongs to it; false when it is not drawn. */
   under(slot: 0 | 1, out: { x: number; y: number }): boolean {
     if (!this.labelOn[slot]) return false;
     const b = this.labels, j = slot * 4;
@@ -202,7 +184,6 @@ export class Hud {
     return true;
   }
 
-  /** Whether a box meets the title showing now (the view lets its ring labels step back). */
   overTitle(x0: number, y0: number, x1: number, y1: number): boolean {
     const ti = this.titleNow();
     if (!ti) return false;
@@ -213,32 +194,35 @@ export class Hud {
 
   /** What the title line and the card slot show now, and where the card is (tests and debugging). */
   get showing(): { title: string | null; card: string | null; slot: Rect } {
-    const t = this.titles.head, c = this.cards.head;
-    return { title: t ? t.item.text : null, card: c ? c.item.title : null, slot: { ...this.slot } };
+    const ti = this.titles.head, c = this.cards.head;
+    return { title: ti ? ti.item.text : null, card: c ? c.item.title : null, slot: { ...this.L.card } };
   }
 
   popLantern(i: number): void { this.lanternPop[clamp(i, 0, 2)] = 1; }
   popLanterns(): void { this.lanternPop.fill(1); }
-  popStar(): void { this.starPop = 1; }
+  popGoal(): void { this.goalPop = 1; }
 
   update(dt: number): void {
     this.titles.update(dt);
     this.cards.update(dt);
-    if (this.watchCard && (this.watchCard.t += dt) > RULES.watchCard + 0.3) this.watchCard = null;
     for (let i = 0; i < 3; i++) this.lanternPop[i] = Math.max(0, this.lanternPop[i] - dt * 1.4);
-    this.starPop = Math.max(0, this.starPop - dt * 0.5);
+    this.goalPop = Math.max(0, this.goalPop - dt * 2.2);
+    this.gull.cheer = Math.max(0, this.gull.cheer - dt);
+    this.gull.flap = Math.max(0, this.gull.flap - dt * 1.5);
     age(this.floats, dt);
     this.layoutFloats(dt);
   }
 
   draw(sim: LatarnikSim, t: number): void {
-    this.drawHud(sim, t);
+    this.drawDeck(sim, t);
+    this.drawGull(sim, t);
     this.drawFloats();
-    this.drawTitle();
+    if (sim.phase !== 'between' && !sim.story) this.drawTitle();
     this.drawCards();
+    if (sim.phase === 'between') this.drawBetween(sim);
+    if (sim.story) this.drawOpen(sim);
   }
 
-  /** The largest font size ≤ `size` at which `text` fits `maxW`, kept in `slot` (with its font) until text or room change. */
   fitIn(slot: Fit, text: string, maxW: number, size: number, weight: number, family: string, italic = false): number {
     if (slot.text !== text || slot.maxW !== maxW || slot.size !== size) {
       this.ctx.font = font(weight, size, family, italic);
@@ -263,30 +247,22 @@ export class Hud {
     return i + 1;
   }
 
-  /**
-   * Each word where it wants to be, unless that meets an obstacle: then the nearest free spot just
-   * above or below one.  Older words keep their place and become obstacles for newer ones; a word
-   * eases to a new spot instead of jumping.
-   */
   private layoutFloats(dt: number): void {
-    const { w, h, cx, cy, R, s, u } = this.L;
+    const { w, h, cx, cy, R, s } = this.L;
     let n = this.hudBoxes;
-    n = this.box(n, cx - s * 1.3, cy - s * 0.8, cx + s * 1.3, cy + s * 2.5);   // the island with its pier
+    n = this.box(n, cx - s * 1.3, cy - s * 0.8, cx + s * 1.3, cy + s * 2.5);
     const ti = this.titleNow();
     if (ti) {
       const y = cy - R * TITLE_Y;
       n = this.box(n, cx - ti.w / 2 - 8, y - ti.fit * 0.75, cx + ti.w / 2 + 8, y + ti.fit * 0.6);
     }
-    if (this.cards.head) n = this.box(n, this.slot.x, this.slot.y - 4, this.slot.x + this.slot.w, this.slot.y + this.slot.h + 10);
-    if (this.watchCard) {
-      const cw = Math.min(w - 32, 270 * u), ch = 118 * u;
-      n = this.box(n, cx - cw / 2, cy - ch / 2, cx + cw / 2, cy + ch / 2);
-    }
+    const c = this.L.card;
+    if (this.cards.head) n = this.box(n, c.x, c.y - 4, c.x + c.w, c.y + c.h + 10);
     for (let i = 0; i < 2; i++) {
       const j = i * 4;
       if (this.labelOn[i]) n = this.box(n, this.labels[j], this.labels[j + 1], this.labels[j + 2], this.labels[j + 3]);
     }
-    const top = TOP + 4, bottom = h - BOTTOM;
+    const top = Math.max(TOP + 4, this.L.top), bottom = h - BOTTOM;
     for (const f of this.floats) {
       const half = f.w / 2 + PAD, hh = f.size * 0.6 + PAD;
       const x = clamp(f.x0, half + 6, w - half - 6);
@@ -299,20 +275,19 @@ export class Hud {
     }
   }
 
-  /** The smallest vertical shift that keeps the box clear of the first `n` obstacles and inside [top, bottom]. */
   private clearShift(x0: number, y0: number, x1: number, y1: number, n: number, top: number, bottom: number): number {
     if (this.clear(x0, y0, x1, y1, 0, n, top, bottom)) return 0;
     const b = this.boxes;
     let best = 0, bestAbs = Infinity;
     for (let i = 0; i < n; i++) {
       const j = i * 4;
-      if (b[j] >= x1 || b[j + 2] <= x0) continue;   // never in the way
+      if (b[j] >= x1 || b[j + 2] <= x0) continue;
       const up = b[j + 1] - y1, down = b[j + 3] - y0;
       if (Math.abs(up) < bestAbs && this.clear(x0, y0, x1, y1, up, n, top, bottom)) { best = up; bestAbs = Math.abs(up); }
       if (Math.abs(down) < bestAbs && this.clear(x0, y0, x1, y1, down, n, top, bottom)) { best = down; bestAbs = Math.abs(down); }
     }
     if (bestAbs < Infinity) return best;
-    return y0 < top ? top - y0 : y1 > bottom ? bottom - y1 : 0;   // no free spot: at least stay on the stage
+    return y0 < top ? top - y0 : y1 > bottom ? bottom - y1 : 0;
   }
 
   private clear(x0: number, y0: number, x1: number, y1: number, d: number, n: number, top: number, bottom: number): boolean {
@@ -346,166 +321,103 @@ export class Hud {
     ctx.restore();
   }
 
-  private drawHud(sim: LatarnikSim, t: number): void {
-    const { ctx, L, fonts: F } = this;
-    const { w, cx, R, u, portrait } = L;
+  /** The night's lanterns, the perfect ladder and the goal chip. */
+  private drawDeck(sim: LatarnikSim, t: number): void {
+    const { ctx, L } = this;
+    const { u } = L;
     if (!sim.block) return;
-    const x0 = 18, top = TOP + 10 * u;
-    const right = w - 18;
-    const scoreW = 118 * u;
-    const statusW = portrait ? w - 36 - scoreW - 12 : Math.max(120, cx - R - 30);
-    // at dawn the night is over: the status reads "Świt", without a line, a bar or a telegraph
-    const dawn = sim.phase === 'finale' || sim.phase === 'done';
     ctx.save();
-    ctx.textBaseline = 'alphabetic';
-    // the block: its name, the line under it, its progress, the telegraph
-    const b = sim.block;
-    const kind = b.kind;
-    const color = dawn ? DAWN : kind === 'cisza' ? '#8cf0dd' : kind === 'konwoj' ? '#ffa48a' : C.cream;
-    const name = dawn ? TXT.dawn : kind === 'warmup' ? TXT.warmup : kind === 'cisza' ? TXT.cisza : b.blind ? TXT.blind : TXT.konwoj;
-    ctx.textAlign = 'left';
-    ctx.font = F.eyebrow;
-    ctx.fillStyle = 'rgba(239,232,220,.5)';
-    this.eyebrow(sim.watch, x0, top + 10 * u, 1.6 * u);
-    const nameSize = this.fitIn(this.nameFit, name, statusW, 27 * u, 500, SERIF);
-    ctx.font = this.nameFit.font;
-    ctx.fillStyle = color;
-    ctx.fillText(name, x0, top + 10 * u + nameSize + 2);
-    let y = top + 10 * u + nameSize + 8 * u;
-    // the lines keep their room at dawn, so nothing below them moves
-    const lines = this.wrapTip(sim.tip, statusW);
-    ctx.font = F.tip;
-    ctx.fillStyle = 'rgba(239,232,220,.78)';
-    for (let i = 0; i < lines.length; i++) {
-      y += 17 * u;
-      if (!dawn) ctx.fillText(lines[i], x0, y);
-    }
-    y += 12 * u;
+    const dawn = sim.ended;
     if (!dawn) {
-      const barW = Math.min(statusW, 170 * u);
-      const prog = clamp(sim.blockT / b.dur);
-      ctx.fillStyle = 'rgba(255,255,255,.13)';
-      ctx.fillRect(x0, y, barW, 3);
-      ctx.fillStyle = color;
-      ctx.fillRect(x0, y, barW * prog, 3);
-      const next = sim.next;
-      if (next && sim.toNext !== null && sim.toNext <= RULES.telegraph) {
-        const nc = next.kind === 'cisza' ? '#8cf0dd' : '#ffa48a';
-        const p = 0.5 + 0.5 * Math.sin(t * 6);
-        ctx.fillStyle = nc;
-        ctx.globalAlpha = 0.6 + 0.4 * p;
-        ctx.beginPath();
-        ctx.arc(x0 + 4, y + 17 * u, 3.5, 0, TAU);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.font = F.next;
-        ctx.fillText(next.kind === 'cisza' ? TXT.nextCisza : TXT.nextKonwoj, x0 + 13, y + 21 * u);
-      } else if (!sim.reliable) {
-        ctx.font = F.fog;
-        ctx.fillStyle = 'rgba(200,214,240,.75)';
-        ctx.fillText(TXT.fog, x0, y + 21 * u);
-      }
+      this.lanterns(sim, L.lanterns.x, L.lanterns.y, u);
+      this.ladder(sim, L.ladder.x, L.ladder.y, u, t);
     }
-    const statusBottom = y + 30 * u;
-    // the score: boats in the harbour, crates
-    ctx.textAlign = 'right';
-    const scoreSize = 46 * u;
-    ctx.font = F.score;
-    ctx.fillStyle = C.cream;
-    const pop = this.starPop > 0 ? 1 + 0.12 * ease.outElastic(1 - this.starPop) * this.starPop : 1;
-    ctx.save();
-    ctx.translate(right, top + scoreSize * 0.95);
-    ctx.scale(pop, pop);
-    ctx.fillText(this.scoreTxt.get(sim.score), 0, 0);
+    const talking = !!sim.talk.line && L.bubbleOnGoal;
+    if (!talking && !(L.portrait && this.cards.head)) this.goalChip(sim);
     ctx.restore();
-    // the words under the score keep to its column (German and Swedish run long)
-    const sub = this.portTxt.get(sim.score);
-    this.fitIn(this.portFit, sub, scoreW, 12 * u, 650, SANS);
-    ctx.font = this.portFit.font;
-    ctx.fillStyle = 'rgba(239,232,220,.62)';
-    ctx.fillText(sub, right, top + scoreSize * 0.95 + 18 * u);
-    ctx.font = F.scoreSub;
-    ctx.fillStyle = 'rgba(255,200,120,.85)';
-    const crateLine = this.crateTxt.get(sim.crates, ctx);
-    ctx.fillText(crateLine, right, top + scoreSize * 0.95 + 36 * u);
-    this.crateIcon(right - this.crateTxt.w - 13 * u, top + scoreSize * 0.95 + 31.5 * u, 9 * u);
-    if (sim.starsWon > 0) this.starRow(right, top + scoreSize * 0.95 + 54 * u, sim.starsWon, u);
-    // lanterns and the perfect ladder: under the sea on a phone, in the columns when wide
-    let ly: number, sy: number;
-    if (portrait) ly = sy = lanternRow(L);
-    else {
-      ly = statusBottom + 20 * u;
-      sy = top + scoreSize * 0.95 + (sim.starsWon > 0 ? 88 : 66) * u;
-    }
-    this.lanterns(sim, x0, ly, u);
-    this.ladder(sim, right, sy, u, t);
-    ctx.restore();
-    cardSlot(L, ly + 14 * u, this.slot);
-    // the blocks floating words keep clear of
-    const s = 12.5 * u;
-    let nb = this.box(0, x0 - 6, top - 4, x0 + statusW + 6, statusBottom);
-    nb = this.box(nb, right - scoreW - 12, top - 4, right + 6, top + scoreSize * 0.95 + (sim.starsWon > 0 ? 62 : 42) * u);
-    nb = this.box(nb, x0 - 6, ly - s * 1.5, x0 + s * 6.4, ly + s);
-    nb = this.box(nb, right - Math.max(RULES.fullLight * 12 * u, 150 * u) - 6, sy - 4.2 * u - 22 * u, right + 6, sy + 4.2 * u + 4);
+    // the deck is where floating words do not go
+    const s = 12.5 * u, g = L.goal;
+    let nb = this.box(0, L.lanterns.x - 6, L.lanterns.y - s * 1.5, L.lanterns.x + s * 6.4, L.lanterns.y + s);
+    nb = this.box(nb, L.ladder.x - Math.max(RULES.fullLight * 12 * u, 150 * u) - 6, L.ladder.y - 26 * u, L.ladder.x + 6, L.ladder.y + 6 * u);
+    nb = this.box(nb, g.x - 4, g.y - 4, g.x + g.w + 4, g.y + g.h + 4);
+    nb = this.box(nb, 0, 0, L.w, L.top);
     this.hudBoxes = nb;
   }
 
-  /** "WACHTA 2", letter-spaced (the letters' offsets measured once per text and layout). */
-  private eyebrow(watch: number, x: number, y: number, gap: number): void {
-    const { ctx } = this;
-    const text = this.watchTxt.get(watch);
-    const n = Math.min(text.length, EYEBROW_MAX);
-    if (this.browText !== text) {
-      this.browText = text;
-      let xx = 0;
-      for (let i = 0; i < n; i++) {
-        this.browX[i] = xx;
-        xx += ctx.measureText(text[i]).width + gap;
+  private goalChip(sim: LatarnikSim): void {
+    const { ctx, L, fonts: F } = this;
+    const { u } = L;
+    const g = L.goal, spec = sim.spec;
+    const done = Math.min(sim.got, spec.goal);
+    const key = `${spec.n}|${done}|${g.w}`;
+    if (key !== this.goalKey) {
+      this.goalKey = key;
+      this.goalLines = {
+        head: `${t('sub.night', { n: spec.n + 1, got: done, goal: spec.goal }).split(' · ')[0]} · ${nightName(spec.kind)}`.toLocaleUpperCase(),
+        goal: goalText(spec.kind, spec.goal),
+        count: `${done}/${spec.goal}`,
+      };
+    }
+    const pop = this.goalPop > 0 ? 1 + 0.06 * ease.outBack(1 - this.goalPop) * this.goalPop * 4 : 1;
+    ctx.save();
+    ctx.fillStyle = spec.boss ? 'rgba(40,18,26,.72)' : 'rgba(8,14,32,.66)';
+    ctx.strokeStyle = spec.boss ? 'rgba(255,122,89,.5)' : 'rgba(255,210,122,.32)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(g.x, g.y, g.w, g.h, 10 * u);
+    ctx.fill();
+    ctx.stroke();
+    const pad = 9 * u;
+    // the count, big on the right, popping when it grows
+    ctx.font = F.count;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    const cw = ctx.measureText(this.goalLines.count).width;
+    ctx.save();
+    ctx.translate(g.x + g.w - pad, g.y + g.h * 0.5 + (L.portrait ? 0 : 6 * u));
+    ctx.scale(pop, pop);
+    ctx.fillStyle = C.gold;
+    ctx.fillText(this.goalLines.count, 0, 0);
+    ctx.restore();
+    // the three stars as they stand: ★ the goal, ★★ lanterns, ★★★ the streak
+    const sr = 5 * u;
+    const sx = L.portrait ? g.x + g.w - pad - cw - 8 * u - sr : g.x + g.w - pad - sr;
+    const sy = L.portrait ? g.y + g.h * 0.5 : g.y + 11 * u;
+    const st = [sim.got >= spec.goal, sim.lost <= RULES.lostStar, sim.nightStreak >= RULES.streakStar];
+    for (let i = 0; i < 3; i++) {
+      this.starPath(sx - (2 - i) * sr * 2.5, sy, sr);
+      if (st[i]) {
+        ctx.fillStyle = i === 1 ? 'rgba(255,210,122,.55)' : C.gold;
+        ctx.fill();
+      } else {
+        ctx.strokeStyle = 'rgba(255,255,255,.35)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
       }
     }
-    for (let i = 0; i < n; i++) ctx.fillText(text[i], x + this.browX[i], y);
-  }
-
-  /** The block's line broken to the status column (kept until the line or the room changes). */
-  private wrapTip(text: string, maxW: number): string[] {
-    const k = this.tipWrap, f = this.fonts.tip;
-    if (k.text !== text || k.maxW !== maxW || k.font !== f) {
-      k.text = text;
-      k.maxW = maxW;
-      k.font = f;
-      k.lines = this.wrapLines(text, maxW, f);
+    // the night's name and its goal
+    const textW = g.w - pad * 2 - (L.portrait ? cw + sr * 7.5 + 10 * u : Math.max(cw, sr * 7.5)) - 6 * u;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = F.goalHead;
+    ctx.fillStyle = spec.boss ? '#ffb39c' : 'rgba(255,210,122,.85)';
+    const headY = g.y + (L.portrait ? 13 * u : 17 * u);
+    ctx.fillText(clip(ctx, this.goalLines.head, textW), g.x + pad, headY);
+    this.fitIn(this.goalFit, this.goalLines.goal, textW, 13 * u, 650, SANS);
+    ctx.font = this.goalFit.font;
+    ctx.fillStyle = C.text;
+    ctx.fillText(this.goalLines.goal, g.x + pad, headY + (L.portrait ? 16 * u : 20 * u));
+    if (!L.portrait && g.h > 56 * u) {
+      // the squall's strength: a bar that empties boat by boat
+      if (spec.boss) {
+        const bw = textW, by = headY + 30 * u;
+        ctx.fillStyle = 'rgba(255,255,255,.12)';
+        ctx.fillRect(g.x + pad, by, bw, 4 * u);
+        ctx.fillStyle = C.coral;
+        ctx.fillRect(g.x + pad, by, bw * (sim.left / spec.goal), 4 * u);
+      }
     }
-    return k.lines;
-  }
-
-  private crateIcon(x: number, y: number, s: number): void {
-    const { ctx } = this;
-    ctx.fillStyle = '#b8864c';
-    ctx.fillRect(x - s / 2, y - s / 2, s, s);
-    ctx.fillStyle = '#e1b878';
-    ctx.fillRect(x - s / 2, y - s / 2, s, s * 0.3);
-  }
-
-  private starPath(x: number, y: number, r: number): void {
-    const { ctx } = this;
-    ctx.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.45 : r;
-      ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
-    }
-    ctx.closePath();
-  }
-
-  private starRow(right: number, y: number, n: number, u: number): void {
-    const { ctx } = this;
-    const r = 6 * u, shown = Math.min(n, 8);
-    for (let i = 0; i < shown; i++) {
-      const x = right - r - i * r * 2.4;
-      const pop = i === shown - 1 && this.starPop > 0 ? 1 + 0.6 * this.starPop : 1;
-      ctx.fillStyle = C.gold;
-      this.starPath(x, y, r * pop);
-      ctx.fill();
-    }
+    ctx.restore();
   }
 
   private lanterns(sim: LatarnikSim, x: number, y: number, u: number): void {
@@ -514,7 +426,7 @@ export class Hud {
     const s = 12.5 * u;
     for (let i = 0; i < RULES.lanterns; i++) {
       const lx = x + s * 0.6 + i * s * 2.3;
-      const on = i < sim.lanterns && sim.phase !== 'watchEnd';
+      const on = i < sim.lanterns && sim.phase !== 'between';
       const pop = this.lanternPop[i];
       if (on) {
         ctx.save();
@@ -523,7 +435,6 @@ export class Hud {
         ctx.drawImage(sp.cream, lx - s * 2, y - s * 2.2, s * 4, s * 4);
         ctx.restore();
       }
-      // the lantern: a handle, a cap, a glass body, a base
       ctx.strokeStyle = on ? '#6b5236' : 'rgba(255,255,255,.2)';
       ctx.lineWidth = Math.max(1, s * 0.1);
       ctx.beginPath();
@@ -551,7 +462,7 @@ export class Hud {
     }
   }
 
-  private ladder(sim: LatarnikSim, right: number, y: number, u: number, t: number): void {
+  private ladder(sim: LatarnikSim, right: number, y: number, u: number, time: number): void {
     const { ctx } = this;
     const n = RULES.fullLight;
     const r = 4.2 * u, gap = 12 * u;
@@ -561,24 +472,90 @@ export class Hud {
     for (let i = 0; i < n; i++) {
       const x = right - r - (n - 1 - i) * gap;
       const on = i < filled;
-      ctx.fillStyle = on ? C.gold : 'rgba(255,255,255,.16)';
-      if (sim.armed) ctx.globalAlpha = 0.65 + 0.35 * Math.sin(t * 6 + i * 0.6);
+      // the fifth diamond is the night's third star
+      ctx.fillStyle = on ? C.gold : i === RULES.streakStar - 1 ? 'rgba(255,210,122,.32)' : 'rgba(255,255,255,.16)';
+      if (sim.armed) ctx.globalAlpha = 0.65 + 0.35 * Math.sin(time * 6 + i * 0.6);
+      const big = on && i === filled - 1 ? 1.25 : 1;
       ctx.beginPath();
-      ctx.moveTo(x, y - r);
-      ctx.lineTo(x + r, y);
-      ctx.lineTo(x, y + r);
-      ctx.lineTo(x - r, y);
+      ctx.moveTo(x, y - r * big);
+      ctx.lineTo(x + r * big, y);
+      ctx.lineTo(x, y + r * big);
+      ctx.lineTo(x - r * big, y);
       ctx.closePath();
       ctx.fill();
       ctx.globalAlpha = 1;
     }
     ctx.font = this.fonts.ladder;
-    ctx.fillStyle = sim.armed ? C.gold : 'rgba(239,232,220,.55)';
+    ctx.fillStyle = sim.armed ? C.gold : 'rgba(239,232,220,.62)';
     const label = sim.armed ? TXT.armed : sim.streak > 0 ? this.streakTxt.get(sim.streak) : TXT.ladder;
     ctx.fillText(label, right, y - r - 8 * u);
   }
 
-  /** The title showing now, measured for the current layout (null: none). */
+  /** Zośka on her post, and her bubble when she talks. */
+  private drawGull(sim: LatarnikSim, t: number): void {
+    const { ctx, L } = this;
+    const g = L.gull;
+    const line = sim.talk.line;
+    this.gull.talk = !!line;
+    this.gull.face = g.face;
+    if (g.s > 0) paintGull(ctx, g.x, g.y - g.s, g.s, t, this.gull);
+    if (!line || (L.portrait && this.cards.head)) return;
+    const a = Math.min(1, line.t / 0.15, (line.dur - line.t) / 0.25);
+    if (a <= 0) return;
+    const b = L.bubble, F = this.fonts, u = L.u;
+    const pad = 9 * u, lh = 17 * u;
+    if (this.bubbleWrap.text !== line.text || this.bubbleWrap.maxW !== b.w) {
+      this.bubbleWrap.text = line.text;
+      this.bubbleWrap.maxW = b.w;
+      this.bubbleWrap.lines = this.wrapLines(line.text, b.w - pad * 2, F.bubble);
+    }
+    const lines = this.bubbleWrap.lines;
+    let size = 13.5 * u, f = F.bubble;
+    let bh = lines.length * lh + pad * 1.4;
+    const fits = bh <= b.h + 6 * u;
+    if (!fits) {
+      // a small room: a smaller font
+      size = 12 * u;
+      f = font(600, size, SANS);
+      bh = Math.min(b.h + 10 * u, lines.length * size * 1.22 + pad * 1.2);
+    }
+    const by = L.bubbleOnGoal ? b.y + (b.h - bh) / 2 : b.y + b.h - bh;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#fbf6ea';
+    ctx.strokeStyle = 'rgba(40,30,20,.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(b.x, by, b.w, bh, 12 * u);
+    ctx.fill();
+    ctx.stroke();
+    // the tail toward her beak
+    const beakX = g.x + g.s * 0.45 * g.face, beakY = g.y - g.s * 1.12;
+    const tx = clamp(beakX + 10 * u, b.x + 14 * u, b.x + b.w - 14 * u);
+    const ty = L.bubbleOnGoal ? by + bh * 0.6 : by + bh;
+    ctx.beginPath();
+    if (g.s <= 0) {
+      // no post to point at
+    } else if (L.bubbleOnGoal) {
+      ctx.moveTo(b.x, by + bh * 0.4);
+      ctx.lineTo(beakX + 4 * u, beakY + 4 * u);
+      ctx.lineTo(b.x, ty);
+    } else {
+      ctx.moveTo(tx - 8 * u, ty - 1);
+      ctx.lineTo(beakX + 2 * u, beakY - 2 * u);
+      ctx.lineTo(tx + 6 * u, ty - 1);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#2a2016';
+    ctx.font = f;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const step = fits ? lh : size * 1.22;
+    lines.forEach((ln, i) => ctx.fillText(ln, b.x + pad, by + pad * 0.7 + i * step));
+    ctx.restore();
+  }
+
   private titleNow(): Title | null {
     const head = this.titles.head;
     if (!head) return null;
@@ -608,7 +585,6 @@ export class Hud {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = ti.font;
-    // a soft dark halo keeps it readable over the beam and the glow
     ctx.shadowColor = 'rgba(3,6,16,.8)';
     ctx.shadowBlur = ti.fit * 0.5;
     ctx.fillStyle = ti.color;
@@ -616,34 +592,131 @@ export class Hud {
     ctx.restore();
   }
 
+  /** The card between two nights: the stars won, the next night's name, its goal and its story; or the night again. */
+  private drawBetween(sim: LatarnikSim): void {
+    const { ctx, L, fonts: F } = this;
+    const { cx, cy, u, w, R } = L;
+    const k = sim.phaseT;
+    const a = Math.min(1, k / 0.25) * Math.min(1, Math.max(0, (RULES.nightCard - k) / 0.3));
+    if (a <= 0) return;
+    const cw = Math.min(w - 28, 340 * u, R * 2.1), pad = 14 * u;
+    const won = sim.between === 'won';
+    const next = won ? nightSpec(sim.p.night) : sim.spec;
+    const key = `${sim.between}|${sim.spec.n}|${next.n}|${cw}`;
+    if (!this.between || this.between.key !== key) {
+      const title = won ? t('card.won', { n: sim.spec.n + 1 }) : TXT.again;
+      const lines = won
+        ? [t('card.next', { n: next.n + 1, name: nightName(next.kind) }), goalText(next.kind, next.goal), storyText(next.kind)]
+        : [t('card.againSub', { n: sim.spec.n + 1, got: sim.got, goal: sim.spec.goal })];
+      this.between = { key, title, lines: [], tw: cw - pad * 2 };
+      this.ctx.font = F.cardSmall;
+      for (let i = 0; i < lines.length; i++) {
+        const f = i < 2 ? F.cardLine : F.cardSmall;
+        for (const ln of this.wrapLines(lines[i], cw - pad * 2, f)) this.between.lines.push(`${i < 2 ? 'B' : 'S'}${ln}`);
+      }
+    }
+    const lines = this.between.lines;
+    const starH = won ? 38 * u : 0;
+    const ch = pad * 2 + 30 * u + starH + lines.length * 18 * u + 4 * u;
+    const y0 = clamp(cy - ch / 2, L.top + 4, L.h - BOTTOM - ch - 4);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(8,12,26,.9)';
+    ctx.strokeStyle = won ? 'rgba(255,210,122,.45)' : 'rgba(255,122,89,.45)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(cx - cw / 2, y0 + (1 - ease.outCubic(Math.min(1, k / 0.35))) * 14, cw, ch, 16);
+    ctx.fill();
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const slot = fitSlot();
+    this.fitIn(slot, this.between.title, cw - pad * 2, 26 * u, 500, SERIF, true);
+    ctx.font = slot.font;
+    ctx.fillStyle = won ? '#ffe1d2' : '#ffb39c';
+    let y = y0 + pad + 14 * u;
+    ctx.fillText(this.between.title, cx, y);
+    y += 22 * u;
+    if (won) {
+      const sr = 13 * u;
+      for (let i = 0; i < 3; i++) {
+        const on = i < sim.lastStars;
+        const q = ease.outBack(clamp((k - 0.25 - i * 0.22) / 0.3));
+        this.starPath(cx + (i - 1) * sr * 2.6, y + sr, sr * (on ? Math.max(0.01, q) : 1));
+        if (on) {
+          ctx.fillStyle = C.gold;
+          ctx.fill();
+        } else {
+          ctx.strokeStyle = 'rgba(255,255,255,.3)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
+      }
+      y += starH;
+    }
+    for (const ln of lines) {
+      ctx.font = ln[0] === 'B' ? F.cardLine : F.cardSmall;
+      ctx.fillStyle = ln[0] === 'B' ? C.text : 'rgba(239,232,220,.7)';
+      ctx.fillText(ln.slice(1), cx, y);
+      y += 18 * u;
+    }
+    ctx.restore();
+  }
+
+  /** The first-ever session's opening card: the story in three sentences and the root verse. */
+  private drawOpen(sim: LatarnikSim): void {
+    const s = sim.story!;
+    const { ctx, L, fonts: F } = this;
+    const { cx, u, w, h } = L;
+    const a = Math.min(1, s.t / 0.3) * Math.min(1, Math.max(0, (s.dur - s.t) / 0.3));
+    const cw = Math.min(w - 24, 440 * u), pad = 16 * u;
+    const top = Math.max(L.top, TOP) + 6, bottom = h - BOTTOM - 6;
+    const ch = Math.min(bottom - top, 420 * u);
+    const y0 = top + (bottom - top - ch) / 2;
+    if (!this.openLay || this.openLay.w !== cw || this.openLay.h !== ch) {
+      const text = this.wrapLines(TXT.openText, cw - pad * 2, F.cardLine);
+      const verseH = ch - pad * 2 - 34 * u - text.length * 19 * u - 40 * u;
+      this.openLay = { lay: layoutPassage(ctx, passage('mat5.14-16'), cw - pad * 2, Math.max(40, verseH), { max: 16, min: 10 }), w: cw, h: ch, text };
+    }
+    const o = this.openLay;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(8,12,26,.93)';
+    ctx.strokeStyle = 'rgba(255,210,122,.45)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(cx - cw / 2, y0, cw, ch, 18);
+    ctx.fill();
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = F.cardBig;
+    ctx.fillStyle = C.gold;
+    let y = y0 + pad;
+    ctx.fillText(TXT.open, cx, y);
+    y += 36 * u;
+    ctx.font = F.cardLine;
+    ctx.fillStyle = C.text;
+    for (const ln of o.text) {
+      ctx.fillText(ln, cx, y);
+      y += 19 * u;
+    }
+    y += 8 * u;
+    drawPassage(ctx, passage('mat5.14-16'), o.lay, cx, y, { text: '#fff1cf', ref: C.gold });
+    ctx.font = F.cardSmall;
+    ctx.fillStyle = 'rgba(239,232,220,.6)';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(TXT.openTap, cx, y0 + ch - pad * 0.8);
+    ctx.restore();
+  }
+
   private drawCards(): void {
     const { ctx, fonts: F } = this;
-    const { cx, cy, u, w } = this.L;
-    if (this.watchCard) {
-      const k = this.watchCard.t;
-      const a = Math.min(1, k / 0.25) * Math.min(1, Math.max(0, (RULES.watchCard + 0.3 - k) / 0.3));
-      const cw = Math.min(w - 32, 270 * u), ch = 118 * u;
-      this.cardBox(cx - cw / 2, cy - ch / 2, cw, ch, a);
-      ctx.save();
-      ctx.globalAlpha = a;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      this.fitIn(this.watchFit, TXT.dawn, cw - 24, 30 * u, 500, SERIF, true);   // "Morgendämmerung" is long
-      ctx.font = this.watchFit.font;
-      ctx.fillStyle = '#ffe1d2';
-      ctx.fillText(TXT.dawn, cx, cy - 26 * u);
-      ctx.font = F.watchLine;
-      ctx.fillStyle = C.text;
-      ctx.fillText(this.watchCard.line, cx, cy + 8 * u);
-      ctx.font = F.watchSmall;
-      ctx.fillStyle = 'rgba(239,232,220,.6)';
-      ctx.fillText(TXT.soon, cx, cy + 32 * u);
-      ctx.restore();
-    }
+    const { u } = this.L;
     const head = this.cards.head;
     if (!head) return;
     const a = this.cards.alpha;
-    const card = head.item, sl = this.slot;
+    const card = head.item, sl = this.L.card;
     const cw = sl.w, ch = sl.h;
     const x = sl.x, y = sl.y + (1 - ease.outCubic(Math.min(1, head.t / 0.4))) * 10;
     this.cardBox(x, y, cw, ch, a);
@@ -657,16 +730,24 @@ export class Hud {
         card.iconU = u;
       }
       ctx.drawImage(card.icon.c, ix - card.icon.w / 2, iy - card.icon.h / 2, card.icon.w, card.icon.h);
-    } else {
-      // a cargo ship with its lantern lit, or a dark silhouette when none came from afar
+    } else if (card.kind === 'reveal') {
       const look = this.look;
       look.lit = card.far > 0;
       look.dark = card.far === 0;
       look.alpha = a;
       paintBoat(ctx, 'drobnicowiec', ix, iy, -0.35, 27 * u, look, sprites().cream);
+    } else {
+      // an upgrade: the lamp's glow
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.drawImage(sprites().cream, ix - 26 * u, iy - 26 * u, 52 * u, 52 * u);
+      ctx.restore();
+      ctx.fillStyle = '#fffaf0';
+      ctx.beginPath();
+      ctx.arc(ix, iy, 6 * u, 0, TAU);
+      ctx.fill();
     }
-    ctx.globalAlpha = a;   // the icon's painter leaves the alpha at 1
-    // the title on one line, or two when it does not fit
+    ctx.globalAlpha = a;
     if (card.tw !== tw) this.layoutCard(card, tw);
     const one = card.lines.length === 1;
     ctx.textAlign = 'left';
@@ -681,11 +762,10 @@ export class Hud {
     }
     ctx.font = F.cardSub;
     ctx.fillStyle = 'rgba(239,232,220,.62)';
-    ctx.fillText(card.sub, tx, iy + (one ? 11 : 17) * u);
+    ctx.fillText(clip(ctx, card.sub, tw), tx, iy + (one ? 11 : 17) * u);
     ctx.restore();
   }
 
-  /** A card's title laid out for `tw` px: one line, or two (the second fitted to the room). */
   private layoutCard(card: Card, tw: number): void {
     const F = this.fonts, u = this.L.u;
     const lines = this.wrapLines(card.title, tw, F.cardTitle);
@@ -704,7 +784,7 @@ export class Hud {
     const { ctx } = this;
     ctx.save();
     ctx.globalAlpha = a;
-    ctx.fillStyle = 'rgba(8,12,26,.84)';
+    ctx.fillStyle = 'rgba(8,12,26,.88)';
     ctx.strokeStyle = 'rgba(255,255,255,.12)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -712,6 +792,16 @@ export class Hud {
     ctx.fill();
     ctx.stroke();
     ctx.restore();
+  }
+
+  private starPath(x: number, y: number, r: number): void {
+    const { ctx } = this;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.45 : r;
+      ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+    }
+    ctx.closePath();
   }
 
   /** `text` broken into lines of at most `maxW` in font `f`. */
@@ -730,6 +820,14 @@ export class Hud {
     if (line) lines.push(line);
     return lines;
   }
+}
+
+/** `text` cut to `maxW` in the context's font, with "…" when cut. */
+function clip(ctx: CanvasRenderingContext2D, text: string, maxW: number): string {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let s = text;
+  while (s.length > 1 && ctx.measureText(`${s}…`).width > maxW) s = s.slice(0, -1);
+  return `${s.trimEnd()}…`;
 }
 
 function newCard(kind: Card['kind'], piece: number, isNew: boolean, far: number, title: string, sub: string): Card {

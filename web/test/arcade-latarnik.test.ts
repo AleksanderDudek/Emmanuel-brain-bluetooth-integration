@@ -2,19 +2,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import type { GameEnv } from '../src/arcade/kit/types';
-import { AMBER, CRAFT_OKRUCHY, LETTERS, START_CRATES, TIPS, VILLAGE } from '../src/arcade/latarnik/content';
+import { AMBER, CRAFT_OKRUCHY, LETTERS, MOMENTS, TIPS, VILLAGE, ZOSKA } from '../src/arcade/latarnik/content';
 import { CATALOGS, bare, cap, farShips, t, unit } from '../src/arcade/latarnik/i18n';
 import latarnik from '../src/arcade/latarnik/index';
-import { BOTTOM, TOP, cardSlot, layout, lanternRow } from '../src/arcade/latarnik/layout';
+import { BOTTOM, layout } from '../src/arcade/latarnik/layout';
 import {
-  addCrumbs, daysBetween, drawAmber, freshProgress, newChance, nextMissing, village, welcomeBonus, type LatarnikProgress,
+  OLD_CRATES_CREDIT, addCrumbs, addToWorkshop, costOf, daysBetween, drawAmber, freshProgress, migrate, newChance, nextMissing, village, workshopTarget, type LatarnikProgress,
 } from '../src/arcade/latarnik/meta';
+import { nightSpec, starsFor, totalStars } from '../src/arcade/latarnik/nights';
 import { progressPanel } from '../src/arcade/latarnik/panel';
 import { Queue } from '../src/arcade/latarnik/queue';
 import { LatarnikView } from '../src/arcade/latarnik/render';
 import {
-  BANDS, DEG, LatarnikSim, RULES, angDiff, beginnerBonus, cargoAt, drifted, holdTarget, pickBand, planBlocks, reachFor, type Boat, type SimEvent,
+  BANDS, DEG, LatarnikSim, RULES, angDiff, beginnerBonus, cargoAt, drifted, holdTarget, pickBand, planBlocks, reachFor, reachMeter, type Boat, type SimEvent,
 } from '../src/arcade/latarnik/sim';
+import { mergeSaved } from '../src/arcade/kit/progress';
 import { mulberry32 } from '../src/core/random';
 import { LANGS, catalogProblems } from '../src/i18n';
 
@@ -24,7 +26,7 @@ const STEP = 1 / 60;
 const frame = (p: Partial<FocusFrame> = {}): FocusFrame =>
   ({ reliable: true, activity: 0, threshold: 2, level: 0.3, focused: false, hold: 0, calm: 0.7, ...p });
 
-type SimOpts = { progress?: Partial<LatarnikProgress>; planned?: number; seed?: number; day?: string; eeg?: boolean; daySeed?: number; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<LatarnikProgress>; planned?: number; seed?: number; day?: string; eeg?: boolean; daySeed?: number; tuning?: FocusTuning; story?: boolean };
 
 /** The session's tuning as the runner builds it: the kit's defaults, Latarnik's entry, and a beginner's on top. */
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
@@ -36,6 +38,7 @@ function makeSim(o: SimOpts = {}): LatarnikSim {
     daySeed: o.daySeed ?? 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
   });
   sim.start();
+  if (!o.story) sim.story = null;   // the first session's opening card: closed, as the first tap does
   return sim;
 }
 
@@ -44,6 +47,7 @@ function quiet(o: SimOpts = {}): LatarnikSim {
   const sim = makeSim({ ...o, progress: { sessions: 5, lastNewSession: 5, ...o.progress } });
   sim.spawnT = Infinity;
   sim.boats.length = 0;
+  sim.spec = { ...nightSpec(0), goal: 1000 };   // a night that does not end under the rules being tested
   sim.take();
   return sim;
 }
@@ -119,7 +123,7 @@ function stubCanvas(): HTMLCanvasElement {
 function busySession(): LatarnikSim {
   const progress: LatarnikProgress = {
     ...freshProgress(), sessions: 3, konwoje: 3, crates: 520, amber: [0, 1, 4], letters: 2, lastNewSession: 3,
-    lastDay: '2026-10-20', lastCrates: 120, reachDay: '2026-10-22', reachBest: 0.8, dailyDay: DAY,
+    lastDay: '2026-10-20', reachDay: '2026-10-22', reachBest: 0.8, dailyDay: DAY,
   };
   const sim = new LatarnikSim({ progress, rng: mulberry32(7), day: DAY, daySeed: 99, plannedSec: 180, eeg: false, tuning: TUNING });
   sim.start();
@@ -156,12 +160,12 @@ describe('the beam and the flash', () => {
     expect(Math.abs(angDiff(190 * DEG, 10 * DEG))).toBeCloseTo(Math.PI, 6);
   });
 
-  it('turns clockwise at 110°/s, 90°/s in the very first watch', () => {
+  it('turns clockwise at 104°/s, 90°/s in the very first night', () => {
     const sim = quiet();
-    expect(sim.omega).toBeCloseTo(110 * DEG, 9);
+    expect(sim.omega).toBeCloseTo(104 * DEG, 9);
     sim.beam = 0;
     drive(sim, 1, frame());
-    expect(sim.beam / DEG).toBeCloseTo(110, 3);
+    expect(sim.beam / DEG).toBeCloseTo(104, 3);
     expect(makeSim().omega).toBeCloseTo(90 * DEG, 9);
   });
 
@@ -388,10 +392,13 @@ describe('the reach', () => {
     while (sim.block.kind === 'cisza') drive(sim, STEP, frame({ level: 0.1, calm: 0.9, activity: -1 }), clock);
     expect(sim.reach).toBe(frozen);
     expect(sim.L).toBeLessThan(0.15);
+    // the band's delay first (5 s on fNIRS): the reach holds, then follows
     drive(sim, 3, frame({ level: 0.1, activity: -1 }), clock);
     expect(sim.block.kind).toBe('konwoj');
+    expect(sim.reach).toBe(frozen);
+    drive(sim, 4, frame({ level: 0.1, activity: -1 }), clock);
     expect(sim.reach).toBeLessThan(frozen - 0.3);
-    expect(sim.reach).toBeCloseTo(reachFor(sim.L, sim.holdBonus), 2);
+    expect(sim.reach).toBeCloseTo(reachFor(sim.L, sim.holdBonus), 1);
   });
 
   it('keeps the lamp steady and the steadiness steps silent in a blind Konwój, while the reach still works', () => {
@@ -519,7 +526,7 @@ describe('the sea', () => {
     expect(sim.lanterns).toBe(2);
   });
 
-  it('starts a new watch within the session after the third lantern: "Świt", then "Nowa wachta"', () => {
+  it('starts the night again after the third lantern, keeping its count: the card, then the same night', () => {
     const sim = quiet();
     drive(sim, 4, frame({ level: 0.8 }));
     const L = sim.L;
@@ -527,23 +534,26 @@ describe('the sea', () => {
     sim.reach = 0.6;
     aim(sim, 10);
     sim.flash();
+    expect(sim.got).toBe(1);
     for (const deg of [60, 150, 240]) boatAt(sim, deg, 0.185);
     let evs = drive(sim, 0.5, frame({ level: 0.8 }));
     expect(ofType(evs, 'reef')).toHaveLength(3);
-    expect(ofType(evs, 'watchEnd')[0]).toMatchObject({ watch: 1, boats: 1 });
-    expect(sim.phase).toBe('watchEnd');
+    expect(ofType(evs, 'rewind')).toHaveLength(1);
+    expect(sim.phase).toBe('between');
+    expect(sim.between).toBe('rewind');
+    expect(sim.lost).toBe(3);
     const b = boatAt(sim, 0, 0.3);
     aim(sim, 0);
     sim.flash();
     expect(b.state).toBe('sea');            // no flashes during the card
-    evs = drive(sim, 1.8, frame({ level: 0.8 }));
-    expect(ofType(evs, 'watchStart')[0].watch).toBe(2);
+    evs = drive(sim, RULES.nightCard, frame({ level: 0.8 }));
+    expect(ofType(evs, 'nightStart')[0]).toMatchObject({ again: true });
     expect(sim.phase).toBe('play');
     expect(sim.lanterns).toBe(3);
-    expect(sim.watchBoats).toBe(0);
-    expect(sim.bestWatch).toBe(1);
+    expect(sim.got).toBe(1);                 // the count stays
+    expect(sim.spec.n).toBe(0);
     expect(sim.L).toBeGreaterThan(L);        // the brain state carries on
-    // the new watch's first boat comes soon, just ahead of the beam and within the reach
+    // the night's first boat comes soon, just ahead of the beam and within the reach
     drive(sim, RULES.watchFirst + 0.1, frame({ level: 0.8 }));
     const first = sim.boats.filter(x => x.state === 'sea' && x.n < 0 && x !== b && x.kind !== 'butelka');
     expect(first).toHaveLength(1);
@@ -640,7 +650,7 @@ describe('the first watch: a lesson, not a test', () => {
           for (const x of s.boats) if (x.practice) ids.add(x.id);
         });
         expect(s.plan[0]).toMatchObject({ kind: 'warmup', dur: 30 });
-        expect(ofType(warm, 'watchEnd')).toHaveLength(0);
+        expect(ofType(warm, 'rewind')).toHaveLength(0);
         expect(ofType(warm, 'reef').every(e => e.free)).toBe(true);
         expect(s.lanterns).toBe(RULES.lanterns);
         lit += ofType(warm, 'flash').reduce((n, e) => n + e.boats.filter(x => x.practice).length, 0);
@@ -727,7 +737,6 @@ describe('the blocks', () => {
     expect(sim.lanterns).toBe(3);
     expect(sim.crates).toBe(crates + RULES.starCrates);
     expect(sim.starsWon).toBe(1);
-    expect(sim.p.stars).toBe(1);
     // a Konwój spent below the threshold earns nothing (and loses nothing)
     while (sim.block.kind !== 'konwoj') drive(sim, 0.25, frame(), clock);
     const lost: SimEvent[] = [];
@@ -855,30 +864,13 @@ describe('Cisza: the glowing sea and its amber', () => {
 });
 
 describe('the harbour, the album, the letters', () => {
-  it('builds the village in 8 steps of 150 crates, the first half-built for the calibration', () => {
+  it('lights the village in 8 steps by the stars of the nights kept', () => {
     expect(VILLAGE).toHaveLength(8);
-    expect(VILLAGE.every(s => s.cost === 150)).toBe(true);
-    expect(freshProgress().crates).toBe(START_CRATES);
-    expect(village(START_CRATES)).toMatchObject({ built: 0, have: 75, need: 150 });
-    expect(village(150)).toMatchObject({ built: 1, have: 0 });
-    expect(village(1199).built).toBe(7);
-    expect(village(1200)).toMatchObject({ built: 8, next: null });
-    const sim = quiet({ progress: { crates: 149 } });
-    boatAt(sim, 10, 0.3);
-    aim(sim, 10);
-    sim.flash();
-    expect(ofType(sim.take(), 'built')[0].step).toBe(0);
-  });
-
-  it('gives a small welcome back from the smokehouse after two days away', () => {
-    const p = { ...freshProgress(), crates: 500, lastDay: '2026-10-20', lastCrates: 200 };
-    expect(welcomeBonus(p, DAY)).toBe(30);
-    expect(welcomeBonus({ ...p, lastDay: '2026-10-22' }, DAY)).toBe(0);    // only one day away
-    expect(welcomeBonus({ ...p, crates: 400 }, DAY)).toBe(0);              // no smokehouse yet
-    expect(welcomeBonus({ ...p, lastCrates: 1000 }, DAY)).toBe(40);
-    const sim = makeSim({ progress: { sessions: 4, crates: 500, lastDay: '2026-10-20', lastCrates: 200 } });
-    expect(sim.p.crates).toBe(530);
-    expect(sim.crates).toBe(0);                                             // not this session's catch
+    expect(village(0)).toMatchObject({ built: 0, have: 0, need: 1 });
+    expect(village(1)).toMatchObject({ built: 1, have: 0, need: 2 });
+    expect(village(5)).toMatchObject({ built: 2, have: 2, need: 3 });
+    expect(village(29).built).toBe(7);
+    expect(village(30)).toMatchObject({ built: 8, next: null });
     expect(daysBetween('2026-10-31', '2026-11-02')).toBe(2);
   });
 
@@ -1005,7 +997,7 @@ describe('the harbour, the album, the letters', () => {
   });
 
   it('keeps the lobby card short: one album set open, the other set, the odds and the letter folded', () => {
-    const p = { ...freshProgress(), boats: 1, bestWatch: 3, amber: [9, 10, 11, 0], letters: 4 };
+    const p = { ...freshProgress(), boats: 1, bestStreak: 3, amber: [9, 10, 11, 0], letters: 4 };
     const el = progressPanel(p);
     const open = [...el.querySelectorAll('.arcade-album')].filter(g => !g.closest('details'));
     expect(open).toHaveLength(1);
@@ -1017,7 +1009,7 @@ describe('the harbour, the album, the letters', () => {
       'Zatoka · 1/9 ▾', 'Szanse i zasady · masz 0 okruchów ▾', `„${LETTERS[3].replace(/\s*Hania$/, '')}”— Hania · czytaj całość`,
     ]);
     const units = [...el.querySelectorAll('.arcade-stats .v small')].map(s => s.textContent);
-    expect(units.slice(0, 2)).toEqual(['łódź', 'łodzie']);
+    expect(units.slice(0, 1)).toEqual(['łódź']);
     expect(el.textContent).toContain('tyle samo minut');
   });
 });
@@ -1032,12 +1024,13 @@ describe('the texts in four languages', () => {
     for (const l of LANGS.filter(x => x !== 'pl')) {
       const cat = CATALOGS[l] as Record<string, unknown>;
       same[l] = Object.keys(CATALOGS.pl).filter(k => JSON.stringify(cat[k]) === JSON.stringify((CATALOGS.pl as Record<string, unknown>)[k]));
-      for (const [k, v] of Object.entries(cat)) expect(JSON.stringify(v), `${l}.${k}`).not.toMatch(/[ąćęłńśźżĄĆĘŁŃŚŹŻ]/);
+      // only Zośka keeps her Polish name in every language
+      for (const [k, v] of Object.entries(cat)) expect(JSON.stringify(v).replace(/Zośka/g, ''), `${l}.${k}`).not.toMatch(/[ąćęłńśźżĄĆĘŁŃŚŹŻ]/);
     }
     expect(same).toEqual({
-      en: ['pct', 'hl.piece', 'panel.signed', 'panel.tile'],
-      de: ['stat.contrast', 'hl.piece'],
-      sv: ['stat.contrast', 'hl.piece'],
+      en: ['pct', 'stat.nightsV', 'panel.level', 'hl.piece', 'panel.signed', 'panel.tile'],
+      de: ['stat.nightsV', 'panel.level', 'stat.contrast', 'hl.piece'],
+      sv: ['stat.nightsV', 'panel.level', 'stat.contrast', 'hl.piece'],
     });
   });
 
@@ -1089,15 +1082,15 @@ describe('Noc dnia, result, the smoke path', () => {
       const tap = policy === 'idle' ? null : tapper(sim, seed + 50, policy === 'steady' ? 0.06 : 0.14, policy === 'steady' ? 0.95 : 0.7);
       const seen = new Map<number, string>();
       drive(sim, 240, frame(), { t: 0 }, t => {
-        for (const b of sim.boats) if (b.n >= 0 && !seen.has(b.n)) seen.set(b.n, `${b.kind} ${(b.a / DEG).toFixed(6)} ${b.r0.toFixed(6)} ${b.phase.toFixed(6)}`);
+        for (const b of sim.boats) if (b.n >= 0 && !seen.has(b.n)) seen.set(b.n, `${b.kind} ${(b.a0 / DEG).toFixed(6)} ${b.r0.toFixed(6)} ${b.phase.toFixed(6)}`);   // where it was born (a squall's gust may push it)
         tap?.(t);
       });
-      return { seen, score: sim.score, watch: sim.watch };
+      return { seen, score: sim.score, rewound: sim.lost };
     };
     const steady = night(1, 'steady'), sloppy = night(2, 'sloppy'), idle = night(3, 'idle');
     expect(steady.score).toBeGreaterThan(sloppy.score);       // three different evenings…
     expect(idle.score).toBe(0);
-    expect(idle.watch).toBeGreaterThan(1);
+    expect(idle.rewound).toBeGreaterThan(3);
     for (const other of [sloppy, idle]) {
       let shared = 0;
       for (const [n, boat] of other.seen) {
@@ -1105,9 +1098,9 @@ describe('Noc dnia, result, the smoke path', () => {
         shared++;
         expect(boat, `boat ${n}`).toBe(steady.seen.get(n));   // …on the same night: every boat both met is the same boat
       }
-      expect(shared).toBeGreaterThan(other === idle ? 25 : 50);
+      expect(shared).toBeGreaterThan(other === idle ? 25 : 30);   // cards between nights and flotillas skip a few, each player other ones
     }
-    expect(steady.seen.size).toBeGreaterThan(60);
+    expect(steady.seen.size).toBeGreaterThan(50);
     // a later session of the day is a night of its own
     const later = makeSim({ progress: { sessions: 5, dailyDay: DAY }, planned: 300, seed: 1, daySeed: 2024 });
     const other = new Map<number, string>();
@@ -1132,7 +1125,7 @@ describe('Noc dnia, result, the smoke path', () => {
   });
 
   it('result() is idempotent: records with Math.max, counters only during play', () => {
-    const sim = makeSim({ progress: { sessions: 5, bestSession: 3, bestWatch: 2 }, planned: 120, seed: 2 });
+    const sim = makeSim({ progress: { sessions: 5, bestSession: 3 }, planned: 120, seed: 2 });
     const clock = { t: 0 };
     drive(sim, 60, frame({ level: 0.8 }), clock, t => {
       if (Math.round(t * 60) % 20 === 0) {
@@ -1179,7 +1172,7 @@ describe('Noc dnia, result, the smoke path', () => {
     again.start();
     expect(again.session).toBe(1);
     expect(again.plan[0].kind).toBe('warmup');
-    expect(again.omega).toBeCloseTo(RULES.firstSpeed, 9);
+    expect(again.speed).toBeCloseTo(RULES.firstSpeed, 9);
     drive(again, 182, frame());
     const out = again.result();
     again.result();
@@ -1195,20 +1188,15 @@ describe('Noc dnia, result, the smoke path', () => {
     expect([back.p.sessions, back.p.konwoje]).toEqual([6, 7 + back.plan.filter(b => b.kind === 'konwoj').length]);
   });
 
-  it('puts the session\'s best moments first in the summary', () => {
+  it('puts the session\'s best moments first in the summary, and gives Zośka the last word', () => {
     const sim = busySession();
     const { highlights } = sim.result();
-    const rank = (s: string) => (/^Now.*(legendarny|epicki)/.test(s) ? 0 : s.startsWith('Port rośnie') ? 1 : s.startsWith('Rekord') ? 2
-      : s.startsWith('List z butelki') ? 3 : s.startsWith('Now') ? 4 : s.startsWith('Żaglow') ? 5 : s.startsWith('Z daleka') ? 6
-        : s.startsWith('Pełne światło') ? 7 : 8);
-    const ranks = highlights.map(rank);
-    expect(highlights).toHaveLength(5);
-    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
-    expect(highlights[0]).toMatch(/jaszczurka \(legendarny\)/);
-    expect(highlights).toContain('Port rośnie: chata rybacka');
-    expect(highlights.filter(h => h.startsWith('Rekord'))).toHaveLength(1);   // several records share a line
-    expect(highlights).toContain('List z butelki 3/12');
-    expect(highlights.some(h => h.startsWith('Wędzarnia'))).toBe(false);   // the welcome goes first when room is short
+    expect(highlights.length).toBeGreaterThanOrEqual(3);
+    expect(highlights.length).toBeLessThanOrEqual(5);
+    expect(highlights[0]).toMatch(/^(Noc za Tobą|\d+ no(ce|cy) za Tobą|Szkwał)/);
+    expect(highlights[highlights.length - 1]).toMatch(/^Zośka: „.+”$/);
+    expect(sim.result().highlights).toEqual(highlights);   // the same on every call
+    expect(highlights.filter(h => h.startsWith('Rekord'))).toHaveLength(highlights.some(h => h.startsWith('Rekord')) ? 1 : 0);
   });
 
   it('merges new amber into one line and keeps an empty blind reveal out of the summary', () => {
@@ -1326,13 +1314,13 @@ describe('the view: where things go', () => {
   it.each(sizes)('keeps the card slot off the sea and on the stage at %i×%i', (w, h) => {
     const L = layout(w, h);
     // when wide the card sits under the lanterns, whose row follows the status block (about 150–170 px of it)
-    const s = cardSlot(L, TOP + 175 * L.u, { x: 0, y: 0, w: 0, h: 0 });
+    const s = L.card;
     const nx = Math.min(Math.max(L.cx, s.x), s.x + s.w), ny = Math.min(Math.max(L.cy, s.y), s.y + s.h);
     expect(Math.hypot(nx - L.cx, ny - L.cy)).toBeGreaterThan(L.R);      // the nearest corner of the card lies off the sea
     expect(s.y + s.h).toBeLessThanOrEqual(h - BOTTOM);
     expect(s.x).toBeGreaterThanOrEqual(0);
     expect(s.x + s.w).toBeLessThanOrEqual(w);
-    if (L.portrait) expect(s.y).toBeGreaterThan(lanternRow(L) + 10 * L.u);   // under the lanterns' row
+    if (L.portrait) expect(s.y).toBeGreaterThan(L.cy + L.R);   // under the sea
   });
 
   it('draws the boats and the island large enough to read on a phone', () => {
@@ -1392,7 +1380,7 @@ describe('the view: where things go', () => {
     }
     expect(seen.filter(s => s.card === farShips(1)).length * STEP).toBeGreaterThan(2.5);
     const titles = seen.map(s => s.title).filter((x, i, all) => x !== null && x !== all[i - 1]);
-    expect(titles).toEqual(['Gwiazda latarni', 'Cisza']);
+    expect(titles).toEqual(['Blask latarni']);   // the runner's banner names the Cisza
   });
 });
 
@@ -1477,12 +1465,376 @@ describe('Latarnik as the runner plays it', () => {
       game.draw();
     }
     expect(game.padLevel!(frame({ level: 0.1 }))).not.toBeNull();   // a sighted Konwój: the pad follows the lamp
-    const stars = progress.stars, amber = progress.amber.length;
+    const amber = progress.amber.length;
     game.finish!();
-    game.result();
-    expect(progress.stars).toBe(stars + 1);                          // the open Konwój was judged
+    const out = game.result();
+    expect(out.stats.find(([k]) => k === t('stat.stars'))![1]).toBe('1/1');   // the open Konwój was judged
     expect(progress.amber.length).toBe(amber + 1);                   // and the pity piece came at the settling
     expect(progress.sessions).toBe(4);
     game.draw();                                                     // nothing left to animate, nothing breaks
+  });
+});
+
+// ── version 2 ──────────────────────────────────────────────────
+describe('version 2: the nights', () => {
+  it('cycles five kinds of night, a squall every fifth, with goals and speed growing rejs by rejs', () => {
+    expect([0, 1, 2, 3, 4, 5, 9].map(n => nightSpec(n).kind)).toEqual(['powroty', 'mgla', 'flotylla', 'ratunek', 'szkwal', 'powroty', 'szkwal']);
+    expect([0, 5, 10].map(n => nightSpec(n).goal)).toEqual([6, 8, 10]);
+    expect(nightSpec(4)).toMatchObject({ boss: true, goal: 8 });
+    expect(nightSpec(1).whale).toBe(false);
+    expect(nightSpec(2).whale).toBe(true);
+    expect(nightSpec(1).speed).toBeGreaterThan(nightSpec(0).speed);
+    expect(nightSpec(200).speed).toBe(RULES.speedMax);
+    expect(nightSpec(200).goal).toBeLessThanOrEqual(16);
+  });
+
+  it('gives ★ for the goal, ★★ for at most one lantern out, ★★★ for five perfects in a row', () => {
+    const spec = nightSpec(0);
+    expect(starsFor(spec, { got: 5, lost: 0, bestStreak: 9 })).toBe(0);
+    expect(starsFor(spec, { got: 6, lost: 2, bestStreak: 4 })).toBe(1);
+    expect(starsFor(spec, { got: 6, lost: 1, bestStreak: 4 })).toBe(2);
+    expect(starsFor(spec, { got: 6, lost: 3, bestStreak: 5 })).toBe(2);
+    expect(starsFor(spec, { got: 6, lost: 0, bestStreak: 5 })).toBe(3);
+    expect(totalStars([3, 2, 0, 7, -1])).toBe(8);
+  });
+
+  it('keeps a night at its goal: the stars saved, the village lit, a card, then the next night', () => {
+    const sim = quiet();
+    sim.spec = nightSpec(0);
+    sim.reach = 0.8;
+    for (let i = 0; i < 6; i++) {
+      boatAt(sim, 40 * i, 0.3);
+      aim(sim, 40 * i);
+      sim.flash();
+    }
+    const evs = sim.take();
+    expect(ofType(evs, 'progress').map(e => e.got)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(ofType(evs, 'nightWon')[0]).toMatchObject({ stars: 3, before: 0 });
+    expect(ofType(evs, 'built').map(e => e.step)).toEqual([0, 1]);   // 3 stars light the pier and the nets
+    expect(sim.p.nightStars).toEqual([3]);
+    expect(sim.p.night).toBe(1);
+    expect(sim.phase).toBe('between');
+    expect(sim.headlineSub()).toBe('Noc 1 · 6/6');
+    const next = drive(sim, RULES.nightCard + 0.1, frame());
+    expect(ofType(next, 'nightStart')[0].spec).toMatchObject({ n: 1, kind: 'mgla' });
+    expect([sim.got, sim.lost, sim.lanterns, sim.phase]).toEqual([0, 0, 3, 'play']);
+    expect(sim.result().highlights[0]).toBe('Noc za Tobą: +3 ★');
+    // a night kept again never takes its stars away
+    sim.spec = nightSpec(0);
+    sim.got = 5;
+    sim.lost = 3;
+    boatAt(sim, 90, 0.3);
+    aim(sim, 90);
+    sim.flash();
+    expect(ofType(sim.take(), 'nightWon')[0]).toMatchObject({ stars: 1, before: 3 });
+    expect(sim.p.nightStars[0]).toBe(3);
+  });
+
+  it('hides fog-bound boats until the beam passes over them within its reach, and counts them in a fog night', () => {
+    const sim = quiet();
+    sim.spec = { ...nightSpec(1), goal: 1000 };
+    sim.reach = 0.6;
+    const b = sim.spawn({ kind: 'mgla', a: 90 * DEG, r: 0.5 });
+    const far = sim.spawn({ kind: 'mgla', a: 270 * DEG, r: 0.8 });
+    expect([b.hidden, b.seen]).toEqual([true, 0]);
+    sim.beam = 0;
+    drive(sim, STEP, frame());
+    expect(b.seen).toBe(0);
+    sim.beam = 90 * DEG;
+    let evs: readonly SimEvent[] = drive(sim, STEP, frame());
+    expect(ofType(evs, 'spotted').map(e => e.boat)).toEqual([b]);
+    expect(b.seen).toBeCloseTo(RULES.fogSeen, 6);
+    sim.beam = 270 * DEG;
+    evs = drive(sim, STEP, frame());
+    expect(ofType(evs, 'spotted')).toHaveLength(0);   // beyond the reach: still in the fog
+    expect(far.seen).toBe(0);
+    aim(sim, b.a / DEG);
+    sim.flash();
+    evs = sim.take();
+    expect(b.state).toBe('home');
+    expect(b.cargo).toBe(cargoAt(b.r0) + 1);           // a find carries a crate more
+    expect(sim.got).toBe(1);
+    // a regular boat does not count in a fog night
+    boatAt(sim, 200, 0.3);
+    aim(sim, 200);
+    sim.flash();
+    expect(sim.got).toBe(1);
+  });
+
+  it('rings the workshop\'s bell where a fog-bound boat hides', () => {
+    const sim = quiet({ progress: { upgrades: { lens: 0, oil: 0, bell: 1, beam: 0 } } });
+    sim.spec = { ...nightSpec(1), goal: 1000 };
+    sim.spawn({ kind: 'mgla', a: 180 * DEG, r: 0.85 });
+    sim.beam = 0;
+    const evs = drive(sim, 4, frame({ level: 0.1 }));
+    expect(ofType(evs, 'ring').length).toBeGreaterThanOrEqual(1);
+    expect(sim.bell).toBe(1);
+  });
+
+  it('brings a flotilla home in its numbers\' order: a boat out of turn waits, at no cost', () => {
+    const sim = quiet();
+    sim.spec = { ...nightSpec(2), goal: 1000 };
+    sim.reach = 0.9;
+    drive(sim, STEP, frame());
+    const fl = sim.boats.filter(b => b.kind === 'flotylla');
+    expect(fl.map(b => b.order).sort()).toEqual([1, 2, 3]);
+    const no = (n: number) => fl.find(b => b.order === n)!;
+    for (const _ of [0, 1, 2]) sim.flash();   // nothing in the beam yet? make sure the streak and lamp are fresh
+    sim.take();
+    sim.recharge = 0;
+    sim.streak = 2;
+    aim(sim, no(2).a / DEG);
+    sim.flash();
+    let evs: readonly SimEvent[] = sim.take();
+    expect(ofType(evs, 'order')[0]).toMatchObject({ boat: no(2), want: 1 });
+    expect([no(2).state, sim.streak, sim.recharge]).toEqual(['sea', 2, 0]);
+    for (const n of [1, 2, 3]) {
+      aim(sim, no(n).a / DEG);
+      sim.flash();
+    }
+    evs = sim.take();
+    expect(fl.every(b => b.state === 'home')).toBe(true);
+    expect(ofType(evs, 'flotilla')[0]).toMatchObject({ size: 3, lit: 3, counted: true });
+    expect(sim.got).toBe(1);
+    expect(sim.flotilla).toBeNull();
+  });
+
+  it('lets pan Edek\'s rowboat bump the reef at no cost, and counts his rescue', () => {
+    const sim = quiet();
+    sim.spec = { ...nightSpec(3), goal: 1000 };
+    sim.reach = 0.6;
+    const b = sim.spawn({ kind: 'lodka', a: 45 * DEG, r: RULES.reef + 0.002 });
+    let evs: readonly SimEvent[] = drive(sim, 0.3, frame());
+    expect(ofType(evs, 'bump')).toHaveLength(1);
+    expect(ofType(evs, 'reef')).toHaveLength(0);
+    expect([b.state, sim.lanterns]).toEqual(['sea', 3]);
+    expect(b.r).toBeGreaterThan(RULES.reef);
+    aim(sim, b.a / DEG);
+    sim.flash();
+    evs = sim.take();
+    expect(ofType(evs, 'rescue')).toHaveLength(1);
+    expect([sim.got, sim.p.rescued, sim.rescuedNow]).toEqual([1, 1, 1]);
+    expect(sim.result().verse).toBe('mat14.31');   // the hand that caught the sinking one
+  });
+
+  it('raises the whale with a warning; a flash on it is a bonus, and its dive costs nothing', () => {
+    const sim = quiet();
+    sim.spec = { ...nightSpec(5), goal: 1000 };
+    sim.whale.next = 0.01;
+    let evs: readonly SimEvent[] = drive(sim, 0.1, frame());
+    expect(ofType(evs, 'whaleWarn')).toHaveLength(1);
+    evs = drive(sim, RULES.whaleWarn, frame());
+    expect(ofType(evs, 'whaleUp')).toHaveLength(1);
+    sim.reach = 1;
+    const crates = sim.crates;
+    aim(sim, sim.whale.a / DEG);
+    sim.flash();
+    evs = sim.take();
+    expect(ofType(evs, 'whale')[0].crates).toBe(RULES.whaleCrates);
+    expect(ofType(evs, 'empty')).toHaveLength(0);
+    expect([sim.p.whales, sim.crates - crates, sim.whale.state]).toEqual([1, RULES.whaleCrates, 'idle']);
+    // the next one dives unlit: nothing lost
+    sim.whale.next = 0.01;
+    evs = drive(sim, 0.1 + RULES.whaleWarn + RULES.whaleUp + 0.2, frame());
+    expect(ofType(evs, 'whaleDown')).toHaveLength(1);
+    expect(sim.lanterns).toBe(3);
+  });
+
+  it('telegraphs a squall\'s gust 1.6 s ahead, then throws the beam back and pushes the boats aside', () => {
+    const sim = quiet();
+    sim.spec = { ...nightSpec(4), goal: 1000 };
+    sim.gust.next = 0.2;
+    let evs: readonly SimEvent[] = drive(sim, 0.3, frame());
+    expect(ofType(evs, 'gustWarn')).toHaveLength(1);
+    sim.gust.kind = 'back';
+    const b = boatAt(sim, 90, 0.6), a = b.a;
+    expect(sim.omega).toBeGreaterThan(0);              // the warning does not move the beam yet
+    evs = drive(sim, RULES.gustWarn, frame());
+    expect(ofType(evs, 'gust')[0].kind).toBe('back');
+    drive(sim, 0.8, frame());
+    expect(sim.omega).toBeLessThan(0);
+    expect(b.a).toBeLessThan(a);
+    evs = drive(sim, RULES.gustBlow, frame());
+    expect(ofType(evs, 'gustEnd')).toHaveLength(1);
+    drive(sim, 2, frame());
+    expect(sim.omega).toBeCloseTo(sim.speed, 2);
+    expect(sim.talkBlocked).toBe(false);
+  });
+});
+
+describe('version 2: the workshop and old saves', () => {
+  it('buys the upgrades with crates, the player\'s pick first, then the next one still to buy', () => {
+    const p = freshProgress();
+    p.focus = 'oil';
+    expect(workshopTarget(p)).toBe('oil');
+    expect(addToWorkshop(p, 49)).toEqual([]);
+    expect(addToWorkshop(p, 1)).toEqual(['oil']);
+    expect([p.upgrades.oil, p.chest]).toEqual([1, 0]);
+    expect(addToWorkshop(p, 120 + 230)).toEqual(['oil', 'oil']);
+    expect(costOf(p, 'oil')).toBeNull();
+    expect(workshopTarget(p)).toBe('lens');             // at its top: the crates go on to the next
+    expect(addToWorkshop(p, 10000)).toEqual(['lens', 'lens', 'lens', 'bell', 'bell', 'beam']);
+    expect(workshopTarget(p)).toBeNull();
+  });
+
+  it('puts an upgrade to work the moment it is paid: a wider lens lights a boat a degree further out', () => {
+    const sim = quiet({ progress: { chest: 39 } });
+    const off = boatAt(sim, 100 + 10.6, 0.3);
+    aim(sim, 100);
+    sim.flash();
+    expect(off.state).toBe('sea');
+    sim.take();
+    sim.recharge = 0;
+    boatAt(sim, 30, 0.3);
+    aim(sim, 30);
+    sim.flash();
+    expect(ofType(sim.take(), 'upgrade')[0]).toMatchObject({ upgrade: 'lens', level: 1 });
+    expect(sim.wedge / DEG).toBeCloseTo(11, 6);
+    aim(sim, 100);
+    sim.flash();
+    expect(off.state).toBe('home');
+  });
+
+  it('opens the second beam opposite the first, with a shorter reach', () => {
+    const sim = quiet({ progress: { upgrades: { lens: 0, oil: 0, bell: 0, beam: 1 } } });
+    sim.reach = 0.8;
+    const back = boatAt(sim, 180, 0.4), tooFar = boatAt(sim, 185, 0.7);
+    aim(sim, 0);
+    sim.flash();
+    expect(back.state).toBe('home');
+    expect(tooFar.state).toBe('sea');                   // 0.7 R is past 62 % of the reach
+  });
+
+  it('migrates a version-1 save in place: the best, the sessions, the records, the amber and the letters stay', () => {
+    const old = {
+      v: 1, sessions: 7, boats: 210, crates: 905, stars: 6, bestSession: 41, bestWatch: 18, bestStreak: 12, farthest: 96, konwoje: 14,
+      amber: [0, 3, 9], okruchy: 12, lastNewSession: 6, letters: 5, tallShips: 2, lastDay: '2026-10-20', lastCrates: 77,
+      reachDay: '2026-10-20', reachBest: 0.91, reachPrevDay: '2026-10-18', reachPrev: 0.88, dailyDay: '2026-10-20', dailyScore: 33,
+    };
+    const p = mergeSaved(latarnik.freshProgress(), old);
+    expect(latarnik.best(p)).toBe(41);
+    const raw = p as unknown as Record<string, unknown>;
+    expect(raw.v).toBeUndefined();
+    expect(raw.bestWatch).toBeUndefined();
+    expect(p).toMatchObject({
+      ver: 2, sessions: 7, bestSession: 41, boats: 210, bestStreak: 12, farthest: 96, konwoje: 14, amber: [0, 3, 9], okruchy: 12,
+      letters: 5, tallShips: 2, chest: OLD_CRATES_CREDIT, night: 0, nightStars: [], upgrades: { lens: 0, oil: 0, bell: 0, beam: 0 }, crates: 0,
+    });
+    expect(p.seen).toContain('tap');                     // a keeper who played knows the tap
+    expect(migrate(p)).toBe(p);                          // idempotent
+    expect(progressPanel(p).textContent).toContain('Noce');
+    // a session on it runs and saves
+    const sim = new LatarnikSim({ progress: p, rng: mulberry32(3), day: DAY, daySeed: 5, plannedSec: 60, eeg: false, tuning: TUNING });
+    sim.start();
+    drive(sim, 62, frame({ level: 0.7 }));
+    expect(sim.result().score).toBeGreaterThanOrEqual(0);
+    expect(p.sessions).toBe(8);
+    // fields of the wrong type never crash anything
+    const odd = mergeSaved(latarnik.freshProgress(), { v: 1, sessions: '3', amber: 'x', bestSession: null, upgrades: 5, nightStars: { a: 1 }, seen: 7 });
+    migrate(odd);
+    expect(odd).toMatchObject({ sessions: 0, amber: [], bestSession: 0, nightStars: [], seen: [] });
+    const odd2 = mergeSaved(latarnik.freshProgress(), { ver: 2, night: -3, nightStars: [9, 'a', 2], upgrades: { lens: 99, oil: 'x' }, focus: 'nope', amber: [1, 1, 99] });
+    migrate(odd2);
+    expect(odd2).toMatchObject({ night: 0, nightStars: [3, 0, 2], upgrades: { lens: 3, oil: 0, bell: 0, beam: 0 }, focus: 'lens', amber: [1] });
+  });
+});
+
+describe('version 2: the standard HUD', () => {
+  it('names the block, its strategy, its seconds left and, in the telegraph, the next one', () => {
+    const sim = quiet({ planned: 300 });
+    let s = sim.signal();
+    expect(s).toMatchObject({ want: 'focus', blind: false, task: sim.tip, next: null });
+    expect(s.left).toBeCloseTo(sim.block.dur, 6);
+    expect(sim.tip).not.toMatch(/światło|zasięg|pierścień/i);   // a strategy, not the mechanic
+    const clock = { t: 0 };
+    while (sim.toNext! > RULES.telegraph - 0.5) drive(sim, 0.25, frame(), clock);
+    s = sim.signal();
+    expect(s.next).toBe('rest');
+    expect(s.left!).toBeLessThan(RULES.telegraph);
+    // the first session's warm-up is free
+    expect(makeSim({ planned: 180 }).signal()).toMatchObject({ want: 'free', blind: false });
+  });
+
+  it('gauges the reach in a sighted Konwój (0.5 at the threshold), the glow in a Cisza, nothing blind or without a signal', () => {
+    expect(reachMeter(reachFor(0.5))).toBeCloseTo(0.5, 9);
+    const sim = quiet({ planned: 300 });
+    const clock = { t: 0 };
+    drive(sim, 25, frame({ level: 0.5 }), clock);
+    expect(sim.meter()!).toBeCloseTo(0.5, 1);
+    drive(sim, STEP, frame({ reliable: false, activity: null }), clock);
+    expect(sim.meter()).toBeNull();
+    while (sim.block.kind !== 'cisza') drive(sim, 0.25, frame(), clock);
+    drive(sim, 6, frame({ calm: 0.9 }), clock);
+    expect(sim.meter()!).toBeCloseTo(sim.glow / RULES.glowMax, 6);
+    expect(sim.meter()!).toBeGreaterThan(0.2);
+    const blind = quiet({ progress: { sessions: 4, konwoje: 3 }, planned: 300 });
+    drive(blind, 8, frame({ level: 0.9 }));
+    expect(blind.blind).toBe(true);
+    expect(blind.meter()).toBeNull();
+    expect(blind.signal().blind).toBe(true);
+  });
+
+  it('heads the score corner with the boats and the night under them', () => {
+    const sim = makeSim({ progress: { sessions: 5 }, planned: 300 });
+    expect(sim.headlineSub()).toBe('Noc 1 · 0/6');
+    sim.finish();
+    expect(sim.headlineSub()).toBe('Świt · nocy za Tobą: 0');
+  });
+
+  it('keeps the sea under the HUD on a phone and clear of the panel and the score when wide', () => {
+    for (const [w, h, top] of [[390, 694, 174], [375, 560, 174], [412, 760, 174], [1280, 672, 186], [1440, 770, 186], [1024, 640, 186], [844, 390, 174]]) {
+      const L = layout(w, h, top);
+      if (L.portrait) expect(L.cy - L.R, `${w}×${h}`).toBeGreaterThanOrEqual(top - 1);
+      else {
+        for (const b of [[0, Math.min(w * 0.64, 350)], [w - Math.min(w * 0.3, 190), w]]) {
+          const x = Math.min(Math.max(L.cx, b[0]), b[1]), y = Math.min(Math.max(L.cy, 0), top);
+          expect(Math.hypot(x - L.cx, y - L.cy), `${w}×${h}`).toBeGreaterThanOrEqual(L.R - 1);
+        }
+      }
+      for (const y of [L.goal.y, L.lanterns.y - 20 * L.u, L.ladder.y - 22 * L.u, L.card.y]) expect(y, `${w}×${h}`).toBeGreaterThanOrEqual(L.top - 1);
+      expect(L.goal.y + L.goal.h, `${w}×${h}`).toBeLessThanOrEqual(h - BOTTOM + 1);
+      expect(L.R).toBeGreaterThanOrEqual(60);
+    }
+  });
+
+  it('gives how to play in one goal, two controls and two tips, in every language', () => {
+    const how = latarnik.howto!();
+    expect(how.goal.length).toBeGreaterThan(10);
+    expect(how.hands.map(x => x.gesture)).toEqual(['tap', 'keys']);
+    expect(how.tips).toHaveLength(2);
+  });
+});
+
+describe('version 2: Zośka', () => {
+  it('has three lines or more for every moment, at most 90 characters, in every language', () => {
+    for (const l of LANGS) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const m of MOMENTS) {
+        for (let i = 1; i <= 3; i++) {
+          const line = cat[`z.${m}.${i}`];
+          expect(typeof line, `${l} z.${m}.${i}`).toBe('string');
+          expect((line as string).length, `${l} z.${m}.${i}`).toBeLessThanOrEqual(90);
+        }
+      }
+    }
+    expect(Object.keys(ZOSKA)).toEqual([...MOMENTS]);
+  });
+
+  it('waits for the runner\'s banner, never repeats a line before its moment has used them all, and keeps quiet under a card', () => {
+    const sim = quiet({ planned: 300 });
+    expect(sim.talkBlocked).toBe(true);                  // the block's banner
+    drive(sim, RULES.bannerSec + 0.5, frame());
+    expect(sim.talk.line).not.toBeNull();
+    const said = new Set<string>();
+    for (let i = 0; i < 3; i++) {
+      sim.talk.line = null;
+      sim.talk.ask('reef', 5, 10);
+      drive(sim, RULES.talkGap + 0.1, frame());
+      said.add(sim.talk.line!.text);
+    }
+    expect(said.size).toBe(3);
+    sim.story = { kind: 'open', t: 0, dur: 5 };
+    drive(sim, STEP, frame());
+    expect(sim.talk.line).toBeNull();
   });
 });

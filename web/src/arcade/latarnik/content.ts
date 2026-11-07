@@ -1,24 +1,25 @@
 /**
- * Latarnik's data: the fishing village built from delivered crates, the amber album ("Bursztyny"),
- * the letters in bottles ("Listy z butelki") and the short lines the game shows during play.
+ * Latarnik's data: the fishing village lit by the nights kept, the workshop's upgrades, the amber
+ * album ("Bursztyny"), the letters in bottles ("Listy z butelki"), Zośka the gull's lines and the
+ * strategies the panel shows during play.
  * Everything a designer may want to tune without touching the rules (sim.ts); the words themselves
  * live in the catalog (i18n.ts), in the language of this page load.
  */
-import { t } from './i18n';
+import { t, type Key } from './i18n';
+import type { Upgrade } from './rules';
 
 /** A step of the village; `name` reads inside a sentence ("Port rośnie: chata rybacka"), cap() makes a label of it. */
-export interface VillageStep { id: string; name: string; short: string; cost: number }
+export interface VillageStep { id: string; name: string; short: string }
 
 type VillageId = 'pomost' | 'sieci' | 'wedzarnia' | 'chata' | 'chata2' | 'kapliczka' | 'lodzie' | 'muzeum';
-const step = (id: VillageId): VillageStep => ({ id, name: t(`village.${id}`), short: t(`village.${id}.short`), cost: 150 });
+const step = (id: VillageId): VillageStep => ({ id, name: t(`village.${id}`), short: t(`village.${id}.short`) });
 
-/** The harbour around the lighthouse, built in this order; one step is about one session of play. */
+/** The harbour around the lighthouse, lit in this order by the stars of the nights kept (rules.ts VILLAGE_STARS). */
 export const VILLAGE: readonly VillageStep[] = (['pomost', 'sieci', 'wedzarnia', 'chata', 'chata2', 'kapliczka', 'lodzie', 'muzeum'] as const).map(step);
 
-/** The first step starts half-built, "za kalibrację" (an endowed start). */
-export const START_CRATES = 75;
-/** The village step whose smoke turns days away into a welcome-back bonus. */
-export const SMOKEHOUSE = 2;
+/** The workshop's upgrades, as they read inside a sentence ("Warsztat: soczewka"), and what each level does. */
+export const UPGRADE_NAME: Record<Upgrade, string> = { lens: t('up.lens'), oil: t('up.oil'), bell: t('up.bell'), beam: t('up.beam') };
+export const UPGRADE_WHAT: Record<Upgrade, string> = { lens: t('up.lens.what'), oil: t('up.oil.what'), bell: t('up.bell.what'), beam: t('up.beam.what') };
 
 export type Tier = 'common' | 'rare' | 'epic' | 'legend';
 export const TIERS: readonly Tier[] = ['common', 'rare', 'epic', 'legend'];
@@ -67,7 +68,7 @@ export const LETTERS: readonly string[] = [
   t('letter.7'), t('letter.8'), t('letter.9'), t('letter.10'), t('letter.11'), t('letter.12'),
 ];
 
-/** The line under the block's name: strategies to try, never "concentrate harder". */
+/** The panel's "W głowie": strategies to try in the head, never "concentrate harder" and never the mechanic. */
 export const TIPS = {
   warmup: [t('tip.warmup.1'), t('tip.warmup.2'), t('tip.warmup.3')],
   konwoj: [t('tip.konwoj.1'), t('tip.konwoj.2'), t('tip.konwoj.3'), t('tip.konwoj.4'), t('tip.konwoj.5')],
@@ -77,3 +78,13 @@ export const TIPS = {
   firstKonwoj: t('tip.firstKonwoj'),
   firstCisza: t('tip.firstCisza'),
 } as const;
+
+/** The moments Zośka the gull has something to say about (three lines or more each, talk.ts picks). */
+export const MOMENTS = [
+  'open', 'warm', 'push', 'blind', 'rest', 'good', 'short', 'perfect', 'full', 'reef', 'rewind', 'night', 'won', 'three',
+  'boss', 'fog', 'flotilla', 'order', 'rescue', 'bump', 'whale', 'bottle', 'upgrade', 'end',
+] as const;
+export type Moment = (typeof MOMENTS)[number];
+export const ZOSKA_LINES = 3;
+export const ZOSKA: Record<Moment, readonly string[]> = Object.fromEntries(
+  MOMENTS.map(m => [m, Array.from({ length: ZOSKA_LINES }, (_, i) => t(`z.${m}.${i + 1}` as Key))])) as unknown as Record<Moment, readonly string[]>;

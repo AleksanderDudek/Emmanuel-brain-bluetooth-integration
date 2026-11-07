@@ -6,8 +6,8 @@
  * looks are reused.
  */
 import { clamp } from '../kit/juice';
-import { village, type LatarnikProgress } from './meta';
-import { C, hash, paintBeam, paintBoat, paintIsland, paintIsolines, sprites, type BoatLook, type IslandLook } from './paint';
+import { starsOf, village, type LatarnikProgress } from './meta';
+import { C, hash, paintBeam, paintBoat, paintIsland, paintIsolines, sprites, type BoatLook, type IslandLook, paintGull, type GullPose } from './paint';
 import type { BoatKind } from './sim';
 
 const TAU = Math.PI * 2;
@@ -18,6 +18,7 @@ const DOTS = [0.01, 9];
 let cache: { ctx: CanvasRenderingContext2D; w: number; h: number; bg: CanvasGradient } | null = null;
 const look: IslandLook = { built: 3, partial: 0.4, lamp: 1, windows: 1 };
 const boat: BoatLook = { light: 0, lit: false, dark: false, alpha: 1 };
+const gull: GullPose = { talk: false, cheer: 0, flap: 0, face: 1 };
 let cratesSeen = -1;
 
 export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, p?: LatarnikProgress): void {
@@ -55,10 +56,10 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     paintBoat(ctx, KINDS[i], x, y, home ? a + Math.PI * 0.75 : a + Math.PI, Math.max(10, R * 0.055), boat, sp.cream);
   }
   // the player's village (the cards: a small generic one)
-  const crates = p ? p.crates : -2;
+  const crates = p ? starsOf(p) : -2;
   if (crates !== cratesSeen) {
     cratesSeen = crates;
-    const v = p ? village(p.crates) : null;
+    const v = p ? village(crates) : null;
     look.built = v ? v.built : 3;
     look.partial = v ? (v.next ? v.have / v.need : 0) : 0.4;
   }
@@ -73,6 +74,10 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   ctx.beginPath();
   ctx.arc(cx, cy, Math.max(1.5, s * 0.1), 0, TAU);
   ctx.fill();
+  // Zośka on her post in the corner, keeping an eye on things
+  const gs = Math.min(w, h) * 0.13;
+  gull.talk = Math.sin(t * 0.7) > 0.85;
+  paintGull(ctx, w * 0.08 + gs * 0.4, h - gs * 1.05, gs, t, gull);
   // the reach, dotted
   ctx.save();
   ctx.strokeStyle = 'rgba(255,214,140,.5)';
