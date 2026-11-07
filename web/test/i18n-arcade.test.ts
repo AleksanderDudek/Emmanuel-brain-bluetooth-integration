@@ -56,7 +56,7 @@ describe('the arcade catalog', () => {
 
   it('keeps the Polish registry texts (the source)', () => {
     expect(ARCADE.map(a => a.title)).toEqual(['Geoda', 'Latarnik', 'Motylarnia', 'Arka', 'Urodzaj', 'Wzlot', 'Glina', 'Źródła', 'Posłaniec', 'Zacheusz', 'Pasterz', 'Anioł Stróż', 'Zastępy', 'Firmament', 'Dolina', 'Chleby i ryby', 'Jerzy i smok']);
-    expect(ARCADE.map(a => a.unit)).toEqual(['ct', 'łodzi', 'mm', 'par', 'pkt', 'm', 'cm', 'dzbanów', 'm', 'denarów', 'owiec', 'zmór', 'demonów', 'pkt', 'm', 'nakarmionych', 'łusek']);
+    expect(ARCADE.map(a => a.unit)).toEqual(['ct', 'łodzi', 'pkt', 'par', 'pkt', 'pkt', 'sykli', 'dzbanów', 'pkt', 'denarów', 'owiec', 'zmór', 'demonów', 'pkt', 'm', 'nakarmionych', 'łusek']);
     for (const a of ARCADE) {
       expect(a.how).toHaveLength(3);
       expect(a.tips.length).toBeGreaterThanOrEqual(5);

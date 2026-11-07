@@ -309,7 +309,11 @@ Sackeus, Herden, Skyddsängeln, Härskarorna, Himlavalvet, Dalen, Bröd och fisk
 Seventeen games whose every session is a neurofeedback session, each rooted in the Christian faith with
 gaming first. The research behind them, how they were chosen, how the faith shapes them and the
 rules they share are in [`src/arcade/DESIGN.md`](src/arcade/DESIGN.md); each game's rules are in its
-own module.
+own module. Since version 2 (2026-11-07, §10 there) the runner draws one standard HUD in all of them,
+so the band reads the same everywhere: the Mendi panel (the block, the gauge of what the band drives
+with its threshold, what to do in the head, the verdict), the score corner, coach marks, and "how to
+play" on the calibration card and behind the ? button (`src/arcade/mendi.ts`). Fourteen games were
+rebuilt on their models' mechanics and three expanded.
 
 * **Where:** cards in Games (first section) and on Home's Play shelf. A card opens the game's
   **lobby** (`#gra/<id>`): an animated picture of the player's own world (their village, cabinet
