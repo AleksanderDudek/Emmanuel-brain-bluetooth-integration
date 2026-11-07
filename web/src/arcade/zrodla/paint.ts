@@ -1,13 +1,13 @@
 /**
- * Źródła's drawing primitives (Canvas 2D, no assets), shared by the play view, the calibration intro,
- * the lobby preview and the album tiles: a pilgrim's relief map seen from above.  Limestone land with
- * contour lines, carved channel stones (baked once per shape, rotation and size), turquoise water —
- * the only saturated colour on the board — terraced fields and their pools, rose rock, springs in the
- * border, sage green with flowers, the sparrow and the swallow of Psalm 84:3 with their nest, tiny
- * pilgrims, the day's trees and the album's places of water.  Everything is drawn in CSS pixels;
- * what does not change per frame is made once and found again by its numbers.
+ * Źródła's drawing primitives (Canvas 2D, no assets), shared by the play view, the calibration
+ * intro and the lobby preview: a pilgrim's valley seen from above.  Limestone land with contour
+ * lines, carved channel stones (the seven of Pipe Mania and the pool), turquoise water — the one
+ * saturated colour on the board — rose rock, the spring's well-head with its sluice gate, gardens
+ * that green and bloom, tiny pilgrims, trees, and Kumka the tree frog in her straw hat.  Everything
+ * is drawn in CSS pixels.
  */
-import { BIT, DX, DY } from './valley';
+import type { Kind } from './grid';
+import type { TraceBar } from '../kit/trace';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
@@ -18,7 +18,7 @@ export const C = {
   lime: '#E8DDC8', limeLight: '#F3ECDD', limeDeep: '#D9CBB0', groove: '#9C8B70', ochre: '#C7A46E', rose: '#C98F7A', roseDeep: '#9E6656',
   ink: '#2B2A33', inkSoft: 'rgba(43,42,51,.62)', water: '#2FB3C4', pool: '#1C6E96', foam: '#CFF6F3',
   sage: '#8FAF7E', olive: '#4F7A43', anemone: '#D2453B', crocus: '#9B7FD1', oleander: '#E79AB0',
-  sparrow: '#7A5A3C', sparrowLight: '#C9A77C', swallow: '#23314F', throat: '#B5532E',
+  frog: '#6DBE4B', frogDeep: '#3F8A34', frogBelly: '#E3F2B8', straw: '#E7C46B', strawDeep: '#B98E3A', still: '#9FE3F0', clay: '#B9744F',
   predawn: '#5B5B8F', morning: '#FFF4DA', fire: '#F2A04A', gold: '#F4C76B', night: '#1d1b2b',
 } as const;
 
@@ -79,245 +79,6 @@ export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w
   ctx.arcTo(x, y + h, x, y, rr);
   ctx.arcTo(x, y, x + w, y, rr);
   ctx.closePath();
-}
-
-// ── a channel's shape ────────────────────────────────────────────
-/** The groove and the water as fractions of a stone. */
-export const GROOVE = 0.28;
-export const STREAM = 0.16;
-
-/** Whether a port mask is a bend (two adjacent sides): its channel is a quarter arc. */
-export const isBend = (m: number): boolean => m === 3 || m === 6 || m === 12 || m === 9;
-
-/**
- * Trace the channel of port mask `m` in a stone of size `s` centred at (0, 0): a quarter arc for a
- * bend, else straight arms from the middle to each open side.  `only` limits it to one side's arm
- * (−1: all of them).
- */
-export function traceChannel(ctx: CanvasRenderingContext2D, m: number, s: number, only = -1): void {
-  const h = s / 2;
-  if (isBend(m)) {
-    const [a, b] = [0, 1, 2, 3].filter(d => m & BIT[d]);
-    const cx = (DX[a] + DX[b]) * h, cy = (DY[a] + DY[b]) * h;
-    const a0 = Math.atan2(DY[a] * h - cy, DX[a] * h - cx), a1 = Math.atan2(DY[b] * h - cy, DX[b] * h - cx);
-    let d = a1 - a0;
-    while (d > Math.PI) d -= TAU;
-    while (d < -Math.PI) d += TAU;
-    if (only >= 0 && only !== a && only !== b) return;
-    // one side's arm of a bend is the half of the arc next to it
-    const from = only === b ? a0 + d / 2 : a0, to = only === a ? a0 + d / 2 : a1;
-    ctx.moveTo(cx + Math.cos(from) * h, cy + Math.sin(from) * h);
-    ctx.arc(cx, cy, h, from, to, d < 0);
-    return;
-  }
-  for (let d = 0; d < 4; d++) {
-    if (!(m & BIT[d]) || (only >= 0 && only !== d)) continue;
-    ctx.moveTo(0, 0);
-    ctx.lineTo(DX[d] * (h + 1), DY[d] * (h + 1));
-  }
-}
-
-/** The length of one side's arm in a stone of size `s` (a bend's is a quarter of the arc's circle, halved). */
-export const armLength = (m: number, s: number): number => (isBend(m) ? (Math.PI * s) / 8 : s / 2);
-
-// ── the stone sprites ───────────────────────────────────────────
-export type StoneLook = 'stone' | 'fixed' | 'well' | 'four';
-
-interface SpriteSet { s: number; dpr: number; map: Map<string, HTMLCanvasElement | null> }
-let sprites: SpriteSet = { s: 0, dpr: 0, map: new Map() };
-
-/**
- * A carved stone of size `s` (CSS px) with channel mask `m`, baked at the screen's resolution once:
- * a limestone square with a bevel (light from the top left), the groove cut into it with its shaded
- * walls, a round basin for an end, a scalloped rosette for a four-way, a curb and a dark eye for a
- * well, a double border for a pre-set stone.
- */
-export function stoneSprite(m: number, look: StoneLook, s: number, dpr: number): HTMLCanvasElement | null {
-  if (sprites.s !== s || sprites.dpr !== dpr) sprites = { s, dpr, map: new Map() };
-  const key = `${m}|${look}`;
-  if (sprites.map.has(key)) return sprites.map.get(key)!;
-  const px = Math.ceil(s * dpr);
-  const cv = canvas(px, px);
-  sprites.map.set(key, cv);
-  const ctx = cv?.getContext('2d');
-  if (!cv || !ctx) return cv;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  paintStoneBase(ctx, s, look, m);
-  // the groove on a layer of its own: colour, then its shaded walls
-  const g = canvas(px, px), gx = g?.getContext('2d');
-  if (g && gx) {
-    const gw = s * GROOVE;
-    const groove = (c: CanvasRenderingContext2D, dx: number, dy: number) => {
-      c.save();
-      c.translate(s / 2 + dx, s / 2 + dy);
-      c.lineCap = 'round';
-      c.lineJoin = 'round';
-      c.lineWidth = gw;
-      c.strokeStyle = '#000';
-      c.fillStyle = '#000';
-      c.beginPath();
-      traceChannel(c, m, s);
-      c.stroke();
-      const basin = look === 'four' ? s * 0.31 : look === 'well' ? s * 0.27 : m === 1 || m === 2 || m === 4 || m === 8 ? s * 0.2 : 0;
-      if (basin) {
-        c.beginPath();
-        c.arc(0, 0, basin, 0, TAU);
-        c.fill();
-      }
-      c.restore();
-    };
-    gx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    groove(gx, 0, 0);
-    // clip the groove to the stone's face, so arms stop at its rounded edge
-    gx.globalCompositeOperation = 'destination-in';
-    gx.beginPath();
-    roundRect(gx, 0.75, 0.75, s - 1.5, s - 1.5, s * 0.12);
-    gx.fill();
-    gx.globalCompositeOperation = 'source-in';
-    const fill = gx.createLinearGradient(0, 0, s, s);
-    fill.addColorStop(0, '#a8977b');
-    fill.addColorStop(1, '#bcab8e');
-    gx.fillStyle = fill;
-    gx.fillRect(0, 0, s, s);
-    // the walls: shadow along the upper left, light along the lower right
-    const band = (dx: number, dy: number, color: string) => {
-      const b = canvas(px, px), bx = b?.getContext('2d');
-      if (!b || !bx) return;
-      bx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      groove(bx, 0, 0);
-      bx.globalCompositeOperation = 'destination-out';
-      groove(bx, dx, dy);
-      bx.globalCompositeOperation = 'source-in';
-      bx.fillStyle = color;
-      bx.fillRect(0, 0, s, s);
-      gx.save();
-      gx.globalCompositeOperation = 'source-atop';
-      gx.setTransform(1, 0, 0, 1, 0, 0);
-      gx.drawImage(b, 0, 0);
-      gx.restore();
-    };
-    const k = Math.max(1.2, s * 0.045);
-    band(k, k, 'rgba(70,52,30,.55)');
-    band(-k * 0.7, -k * 0.7, 'rgba(255,250,236,.55)');
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(g, 0, 0);
-    ctx.restore();
-  }
-  if (look === 'well') {
-    // the well's curb and its dark eye of water
-    const r = s * 0.2;
-    ctx.save();
-    ctx.translate(s / 2, s / 2);
-    ctx.lineWidth = s * 0.06;
-    ctx.strokeStyle = '#efe5d2';
-    ctx.beginPath();
-    ctx.arc(0, 0, r + s * 0.05, 0, TAU);
-    ctx.stroke();
-    const eye = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 0, 0, 0, r);
-    eye.addColorStop(0, '#2b5f73');
-    eye.addColorStop(1, '#0f2732');
-    ctx.fillStyle = eye;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, TAU);
-    ctx.fill();
-    ctx.restore();
-  }
-  if (look === 'four') {
-    // the rosette's scalloped rim around its round basin
-    ctx.save();
-    ctx.translate(s / 2, s / 2);
-    ctx.strokeStyle = 'rgba(120,98,66,.55)';
-    ctx.lineWidth = Math.max(1, s * 0.018);
-    ctx.beginPath();
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * TAU + Math.PI / 8;
-      ctx.moveTo(Math.cos(a) * s * 0.36 + Math.cos(a + 1.2) * s * 0.06, Math.sin(a) * s * 0.36 + Math.sin(a + 1.2) * s * 0.06);
-      ctx.arc(Math.cos(a) * s * 0.36, Math.sin(a) * s * 0.36, s * 0.06, a + 1.2, a - 1.2, true);
-    }
-    ctx.stroke();
-    ctx.restore();
-  }
-  return cv;
-}
-
-function paintStoneBase(ctx: CanvasRenderingContext2D, s: number, look: StoneLook, m: number): void {
-  const r = s * 0.12, g = 0.75;
-  ctx.save();
-  // the soft shadow it casts on the land
-  ctx.fillStyle = 'rgba(80,60,40,.18)';
-  ctx.beginPath();
-  roundRect(ctx, g + s * 0.02, g + s * 0.035, s - 2 * g, s - 2 * g, r);
-  ctx.fill();
-  const face = ctx.createLinearGradient(0, 0, s, s);
-  face.addColorStop(0, look === 'fixed' ? '#ede2cc' : '#f8f2e6');
-  face.addColorStop(1, look === 'fixed' ? '#d6c7aa' : '#e2d5bc');
-  ctx.fillStyle = face;
-  ctx.beginPath();
-  roundRect(ctx, g, g, s - 2 * g, s - 2 * g, r);
-  ctx.fill();
-  ctx.clip();
-  // limestone grain: a few faint flecks and pores, the same for every stone of a kind
-  for (let i = 0; i < 26; i++) {
-    const x = hash(i * 3 + m) * s, y = hash(i * 5 + 1 + m) * s;
-    ctx.fillStyle = i % 3 ? 'rgba(150,128,96,.12)' : 'rgba(255,255,255,.35)';
-    ctx.beginPath();
-    ctx.arc(x, y, 0.4 + hash(i + 40) * s * 0.012, 0, TAU);
-    ctx.fill();
-  }
-  ctx.restore();
-  // the bevel: a lit rim along the top and left, shade along the bottom and right
-  ctx.save();
-  ctx.lineWidth = Math.max(1, s * 0.03);
-  ctx.strokeStyle = 'rgba(255,253,246,.85)';
-  ctx.beginPath();
-  ctx.moveTo(g + r, g + 1);
-  ctx.lineTo(s - g - r, g + 1);
-  ctx.moveTo(g + 1, g + r);
-  ctx.lineTo(g + 1, s - g - r);
-  ctx.stroke();
-  ctx.strokeStyle = 'rgba(110,86,56,.35)';
-  ctx.beginPath();
-  ctx.moveTo(g + r, s - g - 1);
-  ctx.lineTo(s - g - r, s - g - 1);
-  ctx.moveTo(s - g - 1, g + r);
-  ctx.lineTo(s - g - 1, s - g - r);
-  ctx.stroke();
-  if (look === 'fixed') {
-    // a pre-set stone's carved double border
-    ctx.strokeStyle = 'rgba(120,96,64,.5)';
-    ctx.lineWidth = Math.max(1, s * 0.016);
-    for (const k of [0.07, 0.115]) {
-      ctx.beginPath();
-      roundRect(ctx, s * k, s * k, s * (1 - 2 * k), s * (1 - 2 * k), s * 0.08);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
-}
-
-// ── water ────────────────────────────────────────────────────────
-/** Water standing in a channel's arm, from its outer end to `k` of the way in (k 0..1), or the reverse. */
-export function strokeArm(ctx: CanvasRenderingContext2D, m: number, s: number, d: number, from: number, to: number): void {
-  const h = s / 2;
-  if (to <= from) return;
-  if (isBend(m)) {
-    const [a, b] = [0, 1, 2, 3].filter(x => m & BIT[x]);
-    const cx = (DX[a] + DX[b]) * h, cy = (DY[a] + DY[b]) * h;
-    const a0 = Math.atan2(DY[a] * h - cy, DX[a] * h - cx), a1 = Math.atan2(DY[b] * h - cy, DX[b] * h - cx);
-    let span = a1 - a0;
-    while (span > Math.PI) span -= TAU;
-    while (span < -Math.PI) span += TAU;
-    // the arm of side d runs from that side's end (0) to the arc's middle (1)
-    const startA = d === a ? a0 : a1, dir = d === a ? span / 2 : -span / 2;
-    const p0 = startA + dir * from, p1 = startA + dir * to;
-    ctx.moveTo(cx + Math.cos(p0) * h, cy + Math.sin(p0) * h);
-    ctx.arc(cx, cy, h, p0, p1, dir < 0);
-    return;
-  }
-  const ex = DX[d] * h, ey = DY[d] * h;
-  ctx.moveTo(ex * (1 - from), ey * (1 - from));
-  ctx.lineTo(ex * (1 - to), ey * (1 - to));
 }
 
 // ── the land ─────────────────────────────────────────────────────
@@ -405,154 +166,6 @@ export function paintRock(ctx: CanvasRenderingContext2D, x: number, y: number, s
   ctx.fillStyle = 'rgba(255,236,224,.22)';
   shape(-s * 0.12, -s * 0.04, -s * 0.05);
   ctx.fill();
-  ctx.restore();
-}
-
-/** A terraced field patch in a cell of size `s` at (x, y): ochre terraces around a basin (dry). */
-export function paintFieldBed(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
-  ctx.save();
-  const inset = s * 0.06;
-  const g = ctx.createRadialGradient(x + s / 2, y + s / 2, s * 0.1, x + s / 2, y + s / 2, s * 0.7);
-  g.addColorStop(0, '#d9be8f');
-  g.addColorStop(1, '#c9a873');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  roundRect(ctx, x + inset, y + inset, s - 2 * inset, s - 2 * inset, s * 0.2);
-  ctx.fill();
-  // two inner terrace lines
-  ctx.strokeStyle = 'rgba(120,88,48,.38)';
-  ctx.lineWidth = Math.max(1, s * 0.014);
-  for (const k of [0.15, 0.24]) {
-    ctx.beginPath();
-    roundRect(ctx, x + s * k, y + s * k, s * (1 - 2 * k), s * (1 - 2 * k), s * 0.16);
-    ctx.stroke();
-  }
-  ctx.strokeStyle = 'rgba(255,244,222,.5)';
-  ctx.beginPath();
-  roundRect(ctx, x + inset + 1, y + inset + 1, s - 2 * inset - 2, s - 2 * inset - 2, s * 0.2);
-  ctx.stroke();
-  ctx.restore();
-}
-
-/** The water colour of a pool at depth level `d` (0..4, fractional): turquoise at the ankle, pool blue for a river. */
-export const poolColor = (d: number): string => mix(C.water, C.pool, Math.max(0, Math.min(1, (d - 1) / 3)));
-
-// ── living things ────────────────────────────────────────────────
-/**
- * A small bird seen from above and a little from the side (2–4 calligraphic strokes): the sparrow
- * round and brown with a short beak, the swallow navy with long wings, a forked tail and a rust
- * throat.  `flap` 0..1 opens the wings.  Size `s` is its length.
- */
-export function paintBird(ctx: CanvasRenderingContext2D, kind: 'sparrow' | 'swallow', x: number, y: number, s: number, facing: number, flap = 0): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(facing < 0 ? -1 : 1, 1);
-  const body = kind === 'sparrow' ? C.sparrow : C.swallow;
-  if (flap > 0.02) {
-    ctx.strokeStyle = body;
-    ctx.lineWidth = s * 0.14;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-s * 0.05, -s * 0.1);
-    ctx.quadraticCurveTo(-s * 0.3, -s * (0.25 + 0.45 * flap), -s * 0.55, -s * (0.1 + 0.5 * flap));
-    ctx.moveTo(s * 0.05, -s * 0.1);
-    ctx.quadraticCurveTo(s * 0.1, -s * (0.3 + 0.4 * flap), -s * 0.05, -s * (0.2 + 0.6 * flap));
-    ctx.stroke();
-  }
-  if (kind === 'swallow') {
-    // forked tail
-    ctx.fillStyle = body;
-    ctx.beginPath();
-    ctx.moveTo(-s * 0.18, s * 0.02);
-    ctx.lineTo(-s * 0.62, -s * 0.08);
-    ctx.lineTo(-s * 0.36, s * 0.06);
-    ctx.lineTo(-s * 0.6, s * 0.18);
-    ctx.closePath();
-    ctx.fill();
-  } else {
-    ctx.fillStyle = mix(C.sparrow, '#3c2a1c', 0.3);
-    ctx.beginPath();
-    ctx.moveTo(-s * 0.2, 0);
-    ctx.lineTo(-s * 0.48, -s * 0.06);
-    ctx.lineTo(-s * 0.45, s * 0.08);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.fillStyle = body;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, s * 0.3, s * (kind === 'sparrow' ? 0.21 : 0.16), 0, 0, TAU);
-  ctx.fill();
-  // belly / throat
-  ctx.fillStyle = kind === 'sparrow' ? C.sparrowLight : '#efe6d6';
-  ctx.beginPath();
-  ctx.ellipse(s * 0.04, s * 0.08, s * 0.2, s * 0.1, 0, 0, TAU);
-  ctx.fill();
-  ctx.fillStyle = body;
-  ctx.beginPath();
-  ctx.arc(s * 0.28, -s * 0.08, s * 0.13, 0, TAU);
-  ctx.fill();
-  if (kind === 'swallow') {
-    ctx.fillStyle = C.throat;
-    ctx.beginPath();
-    ctx.arc(s * 0.33, -s * 0.01, s * 0.07, 0, TAU);
-    ctx.fill();
-  }
-  ctx.fillStyle = '#e8b04a';
-  ctx.beginPath();
-  ctx.moveTo(s * 0.4, -s * 0.1);
-  ctx.lineTo(s * 0.5, -s * 0.06);
-  ctx.lineTo(s * 0.39, -s * 0.04);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#16120e';
-  ctx.beginPath();
-  ctx.arc(s * 0.31, -s * 0.11, Math.max(0.6, s * 0.03), 0, TAU);
-  ctx.fill();
-  ctx.restore();
-}
-
-/** A woven nest cup (size `s` across), with young raising their heads. */
-export function paintNest(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, young: boolean, t: number): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.fillStyle = 'rgba(60,40,24,.25)';
-  ctx.beginPath();
-  ctx.ellipse(s * 0.06, s * 0.12, s * 0.55, s * 0.3, 0, 0, TAU);
-  ctx.fill();
-  ctx.fillStyle = '#8a6a44';
-  ctx.beginPath();
-  ctx.ellipse(0, 0, s * 0.5, s * 0.3, 0, 0, TAU);
-  ctx.fill();
-  ctx.fillStyle = '#4e3a24';
-  ctx.beginPath();
-  ctx.ellipse(0, -s * 0.03, s * 0.32, s * 0.16, 0, 0, TAU);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(196,160,108,.75)';
-  ctx.lineWidth = Math.max(0.7, s * 0.05);
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI;
-    ctx.moveTo(-s * 0.48 * Math.cos(a), s * 0.05 + Math.sin(a) * s * 0.18);
-    ctx.quadraticCurveTo(0, s * 0.32, s * 0.48 * Math.cos(a + 0.4), s * 0.04);
-  }
-  ctx.stroke();
-  if (young) {
-    for (let i = 0; i < 3; i++) {
-      const bob = Math.sin(t * 4 + i * 2) * s * 0.03;
-      const hx = (i - 1) * s * 0.17, hy = -s * 0.12 + bob;
-      ctx.fillStyle = '#8b7357';
-      ctx.beginPath();
-      ctx.arc(hx, hy, s * 0.09, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = '#f2c84b';
-      ctx.beginPath();
-      ctx.moveTo(hx - s * 0.04, hy - s * 0.05);
-      ctx.lineTo(hx, hy - s * 0.15);
-      ctx.lineTo(hx + s * 0.04, hy - s * 0.05);
-      ctx.closePath();
-      ctx.fill();
-    }
-  }
   ctx.restore();
 }
 
@@ -662,192 +275,723 @@ export function paintTree(ctx: CanvasRenderingContext2D, kind: TreeKind, x: numb
   ctx.restore();
 }
 
-// ── the album's places of water ─────────────────────────────────
+
+// ── the channels ─────────────────────────────────────────────────
+
+/** The midpoint of side `d` of a cell of size `s` centred at (0, 0); side −1 is the middle. */
+function sidePt(d: number, s: number): [number, number] {
+  const h = s / 2;
+  return d === 0 ? [0, -h] : d === 1 ? [h, 0] : d === 2 ? [0, h] : d === 3 ? [-h, 0] : [0, 0];
+}
+
 /**
- * One of the six places of water in a w × h box at (x, y): Beer-lahai-roi's desert well with an
- * acacia at dusk, Rehoboth's well on an open plain, Elim's twelve springs among palms, the rock at
- * Horeb, Hezekiah's tunnel and Jacob's well at noon.  `dawn`: the morning light's gold rim and warm
- * wash.  `found` false draws its silhouette only.
+ * A point `u` (0..1) of the way from side `a` to side `b` across a cell of size `s` centred at
+ * (0, 0): straight when the sides face each other (or from the middle, a = −1), a quarter arc
+ * around their shared corner when they meet.
  */
-export function paintPlace(ctx: CanvasRenderingContext2D, id: number, x: number, y: number, w: number, h: number, dawn: boolean, found = true): void {
+export function wayPoint(a: number, b: number, s: number, u: number): [number, number] {
+  const [ax, ay] = sidePt(a, s), [bx, by] = sidePt(b, s);
+  if (a < 0 || (a + 2) % 4 === b) return [ax + (bx - ax) * u, ay + (by - ay) * u];
+  const cx = ax + bx, cy = ay + by;   // the shared corner
+  const a0 = Math.atan2(ay - cy, ax - cx), a1 = Math.atan2(by - cy, bx - cx);
+  let da = a1 - a0;
+  if (da > Math.PI) da -= TAU;
+  if (da < -Math.PI) da += TAU;
+  const ang = a0 + da * u, r = s / 2;
+  return [cx + Math.cos(ang) * r, cy + Math.sin(ang) * r];
+}
+
+/** Trace the way from side `a` to side `b`, from `u0` to `u1`, as a path in a cell centred at (cx, cy). */
+export function tracePath(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, a: number, b: number, u0 = 0, u1 = 1): void {
+  const n = 10;
+  for (let i = 0; i <= n; i++) {
+    const u = u0 + (u1 - u0) * (i / n);
+    const [x, y] = wayPoint(a, b, s, u);
+    if (i) ctx.lineTo(cx + x, cy + y);
+    else ctx.moveTo(cx + x, cy + y);
+  }
+}
+
+/** The ways a stone holds, as side pairs (a cross has two). */
+export function waysOf(kind: Kind): [number, number][] {
+  switch (kind) {
+    case 'h': case 'ph': return [[3, 1]];
+    case 'v': case 'pv': return [[0, 2]];
+    case 'ne': return [[0, 1]];
+    case 'nw': return [[0, 3]];
+    case 'se': return [[2, 1]];
+    case 'sw': return [[2, 3]];
+    case 'x': return [[3, 1], [0, 2]];
+  }
+}
+
+export type StoneLook = 'laid' | 'aqueduct' | 'oneway' | 'queue' | 'ghost';
+
+/**
+ * A carved channel stone filling a cell of size `s` at (x, y): a limestone slab with a bevel and
+ * the groove(s) of its kind; a pool has an oval basin; an old aqueduct is rose stone with arches;
+ * a one-way stone has a chevron toward `oneway`.
+ */
+export function paintStone(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, kind: Kind, look: StoneLook, seed = 1, oneway = -1): void {
+  const cx = x + s / 2, cy = y + s / 2, inset = s * 0.05, r = s * 0.14;
+  const ghost = look === 'ghost';
   ctx.save();
-  ctx.beginPath();
-  roundRect(ctx, x, y, w, h, Math.min(w, h) * 0.14);
-  ctx.clip();
-  const skies = ['#d99a6c', '#e8d9b5', '#e4cf9f', '#d8c3a5', '#cdbfa8', '#f0dfb2'];
-  const lands = ['#c69468', '#d8c39a', '#d3b680', '#c49a80', '#bfae90', '#ddc28e'];
-  const g = ctx.createLinearGradient(x, y, x, y + h);
-  g.addColorStop(0, found ? skies[id] : '#3a3a48');
-  g.addColorStop(1, found ? lands[id] : '#2c2c38');
+  if (ghost) ctx.globalAlpha *= 0.5;
+  // the slab
+  if (!ghost) {
+    ctx.fillStyle = 'rgba(80,60,40,.25)';
+    ctx.beginPath();
+    roundRect(ctx, x + inset + s * 0.03, y + inset + s * 0.05, s - 2 * inset, s - 2 * inset, r);
+    ctx.fill();
+  }
+  const aq = look === 'aqueduct';
+  const g = ctx.createLinearGradient(x, y, x + s, y + s);
+  g.addColorStop(0, aq ? '#e7c2b0' : '#f7f0e2');
+  g.addColorStop(1, aq ? '#c48f78' : '#d8c8a8');
   ctx.fillStyle = g;
-  ctx.fillRect(x, y, w, h);
-  const u = Math.min(w, h);
-  const ink = found ? null : 'rgba(255,255,255,.12)';
-  const well = (cx: number, cy: number, r: number) => {
-    ctx.fillStyle = ink ?? '#e9dfcc';
+  ctx.beginPath();
+  roundRect(ctx, x + inset, y + inset, s - 2 * inset, s - 2 * inset, r);
+  ctx.fill();
+  ctx.strokeStyle = aq ? 'rgba(120,64,48,.45)' : 'rgba(140,116,80,.45)';
+  ctx.lineWidth = Math.max(1, s * 0.02);
+  ctx.stroke();
+  // speckles
+  ctx.fillStyle = aq ? 'rgba(110,60,44,.18)' : 'rgba(120,100,70,.16)';
+  for (let i = 0; i < 6; i++) {
     ctx.beginPath();
-    ctx.ellipse(cx, cy, r, r * 0.55, 0, 0, TAU);
+    ctx.arc(x + s * (0.15 + 0.7 * hash(seed + i)), y + s * (0.15 + 0.7 * hash(seed * 3 + i)), Math.max(0.6, s * 0.012), 0, TAU);
     ctx.fill();
-    ctx.fillStyle = ink ?? '#1f4f62';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy - r * 0.05, r * 0.62, r * 0.32, 0, 0, TAU);
-    ctx.fill();
-    if (!ink) {
-      ctx.strokeStyle = 'rgba(120,96,64,.55)';
-      ctx.lineWidth = Math.max(0.6, r * 0.08);
+  }
+  if (aq) {
+    // arches along the slab's foot
+    ctx.strokeStyle = 'rgba(110,60,44,.4)';
+    ctx.lineWidth = Math.max(1, s * 0.018);
+    for (let i = 0; i < 3; i++) {
       ctx.beginPath();
-      ctx.ellipse(cx, cy, r, r * 0.55, 0, 0, TAU);
+      ctx.arc(x + s * (0.25 + i * 0.25), y + s * 0.92, s * 0.08, Math.PI, 0);
       ctx.stroke();
     }
-  };
-  const palm = (cx: number, cy: number, s: number) => {
-    ctx.strokeStyle = ink ?? '#7a5a36';
-    ctx.lineWidth = Math.max(0.8, s * 0.08);
+  }
+  // the groove
+  ctx.lineCap = 'butt';
+  for (const [a, b] of waysOf(kind)) {
+    ctx.strokeStyle = aq ? '#8a5644' : C.groove;
+    ctx.lineWidth = s * 0.3;
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.quadraticCurveTo(cx + s * 0.1, cy - s * 0.5, cx, cy - s);
+    tracePath(ctx, cx, cy, s, a, b);
     ctx.stroke();
-    ctx.strokeStyle = ink ?? '#4f7a43';
-    ctx.lineWidth = Math.max(0.8, s * 0.1);
-    for (let i = 0; i < 5; i++) {
-      const a = Math.PI + (i / 4) * Math.PI;
-      ctx.beginPath();
-      ctx.moveTo(cx, cy - s);
-      ctx.quadraticCurveTo(cx + Math.cos(a) * s * 0.4, cy - s - s * 0.25, cx + Math.cos(a) * s * 0.6, cy - s + s * 0.25 + Math.sin(a) * s * 0.05);
-      ctx.stroke();
-    }
-  };
-  const pool = (cx: number, cy: number, rx: number, ry: number) => {
-    ctx.fillStyle = ink ?? C.water;
+    ctx.strokeStyle = aq ? '#a8705c' : '#b9a684';
+    ctx.lineWidth = s * 0.2;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
+    tracePath(ctx, cx, cy, s, a, b);
+    ctx.stroke();
+  }
+  if (kind === 'x') {
+    // the crossing: the north–south groove passes under a slab bridge
+    ctx.fillStyle = aq ? '#d9a893' : '#e9dcc3';
+    ctx.fillRect(cx - s * 0.15, cy - s * 0.06, s * 0.3, s * 0.12);
+  }
+  if (kind === 'ph' || kind === 'pv') {
+    ctx.fillStyle = C.groove;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, s * 0.3, s * 0.3, 0, 0, TAU);
     ctx.fill();
-    if (!ink) {
-      ctx.strokeStyle = 'rgba(207,246,243,.8)';
-      ctx.lineWidth = Math.max(0.6, ry * 0.12);
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, rx * 0.6, ry * 0.5, 0, Math.PI * 1.1, Math.PI * 1.7);
-      ctx.stroke();
-    }
-  };
-  switch (id) {
-    case 0: { // Beer-lahai-roi: a desert well, a lone acacia, dusk
-      if (!ink) {
-        ctx.fillStyle = 'rgba(255,224,170,.55)';
-        ctx.beginPath();
-        ctx.arc(x + w * 0.8, y + h * 0.32, u * 0.12, 0, TAU);
-        ctx.fill();
-      }
-      well(x + w * 0.42, y + h * 0.68, u * 0.18);
-      ctx.strokeStyle = ink ?? '#5a4430';
-      ctx.lineWidth = Math.max(0.8, u * 0.03);
-      ctx.beginPath();
-      ctx.moveTo(x + w * 0.74, y + h * 0.78);
-      ctx.lineTo(x + w * 0.72, y + h * 0.5);
-      ctx.stroke();
-      ctx.fillStyle = ink ?? '#6b7a4a';
-      ctx.beginPath();
-      ctx.ellipse(x + w * 0.72, y + h * 0.46, u * 0.2, u * 0.07, 0, 0, TAU);
-      ctx.fill();
-      break;
-    }
-    case 1: { // Rehoboth: a well on a wide open plain
-      ctx.strokeStyle = ink ?? 'rgba(140,110,70,.35)';
-      ctx.lineWidth = 0.8;
-      for (let i = 1; i < 5; i++) {
-        ctx.beginPath();
-        ctx.moveTo(x, y + h * (0.45 + i * 0.12));
-        ctx.lineTo(x + w, y + h * (0.42 + i * 0.12));
-        ctx.stroke();
-      }
-      well(x + w * 0.5, y + h * 0.62, u * 0.2);
-      break;
-    }
-    case 2: { // Elim: twelve springs among seventy palms
-      for (let i = 0; i < 12; i++) pool(x + w * (0.12 + (i % 6) * 0.15), y + h * (0.62 + Math.floor(i / 6) * 0.18), u * 0.045, u * 0.03);
-      for (let i = 0; i < 7; i++) palm(x + w * (0.06 + i * 0.145), y + h * (0.5 + (i % 2) * 0.06), u * 0.3);
-      break;
-    }
-    case 3: { // the rock at Horeb: water from a cleft into a pool
-      ctx.fillStyle = ink ?? C.rose;
-      ctx.beginPath();
-      ctx.moveTo(x + w * 0.18, y + h * 0.72);
-      ctx.lineTo(x + w * 0.28, y + h * 0.3);
-      ctx.lineTo(x + w * 0.55, y + h * 0.18);
-      ctx.lineTo(x + w * 0.8, y + h * 0.36);
-      ctx.lineTo(x + w * 0.86, y + h * 0.72);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = ink ?? C.water;
-      ctx.lineWidth = Math.max(1, u * 0.05);
-      ctx.beginPath();
-      ctx.moveTo(x + w * 0.52, y + h * 0.42);
-      ctx.quadraticCurveTo(x + w * 0.5, y + h * 0.62, x + w * 0.52, y + h * 0.8);
-      ctx.stroke();
-      pool(x + w * 0.52, y + h * 0.86, u * 0.26, u * 0.08);
-      break;
-    }
-    case 4: { // Hezekiah's tunnel: a rock arch, a channel into a pool, a wall's stones above
-      ctx.fillStyle = ink ?? '#b99a7e';
-      ctx.fillRect(x, y + h * 0.18, w, h * 0.5);
-      ctx.fillStyle = ink ? 'rgba(0,0,0,.2)' : '#2a2026';
-      ctx.beginPath();
-      ctx.moveTo(x + w * 0.36, y + h * 0.68);
-      ctx.lineTo(x + w * 0.36, y + h * 0.45);
-      ctx.arc(x + w * 0.5, y + h * 0.45, w * 0.14, Math.PI, 0);
-      ctx.lineTo(x + w * 0.64, y + h * 0.68);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = ink ?? 'rgba(90,64,48,.5)';
-      ctx.lineWidth = 0.8;
-      for (let r = 0; r < 2; r++) {
-        for (let c = 0; c < 6; c++) {
-          ctx.strokeRect(x + (c + (r % 2) * 0.5) * w * 0.18 - w * 0.05, y + h * (0.04 + r * 0.07), w * 0.18, h * 0.07);
-        }
-      }
-      ctx.strokeStyle = ink ?? C.water;
-      ctx.lineWidth = Math.max(1, u * 0.05);
-      ctx.beginPath();
-      ctx.moveTo(x + w * 0.5, y + h * 0.66);
-      ctx.lineTo(x + w * 0.5, y + h * 0.8);
-      ctx.stroke();
-      pool(x + w * 0.5, y + h * 0.86, u * 0.3, u * 0.08);
-      break;
-    }
-    default: { // Jacob's well at noon: a round well, a water jar, a short shadow, a road passing
-      ctx.strokeStyle = ink ?? 'rgba(150,120,80,.45)';
-      ctx.lineWidth = Math.max(1, u * 0.08);
-      ctx.beginPath();
-      ctx.moveTo(x - w * 0.1, y + h * 0.95);
-      ctx.quadraticCurveTo(x + w * 0.4, y + h * 0.55, x + w * 1.1, y + h * 0.62);
-      ctx.stroke();
-      well(x + w * 0.42, y + h * 0.66, u * 0.2);
-      ctx.fillStyle = ink ?? '#b5623b';
-      ctx.beginPath();
-      ctx.ellipse(x + w * 0.72, y + h * 0.66, u * 0.06, u * 0.09, 0, 0, TAU);
-      ctx.fill();
-      ctx.fillRect(x + w * 0.72 - u * 0.025, y + h * 0.66 - u * 0.13, u * 0.05, u * 0.05);
-      if (!ink) {
-        ctx.fillStyle = 'rgba(255,248,214,.45)';
-        ctx.beginPath();
-        ctx.arc(x + w * 0.5, y + h * 0.12, u * 0.16, 0, TAU);
-        ctx.fill();
-      }
-      break;
-    }
+    ctx.fillStyle = '#b9a684';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, s * 0.24, s * 0.24, 0, 0, TAU);
+    ctx.fill();
   }
-  if (dawn && found) {
-    ctx.fillStyle = 'rgba(255,214,140,.18)';
-    ctx.fillRect(x, y, w, h);
-  }
-  ctx.restore();
-  if (dawn && found) {
+  if (oneway >= 0) {
+    const [dx, dy] = sidePt(oneway, 1);
     ctx.save();
-    ctx.strokeStyle = C.gold;
-    ctx.lineWidth = Math.max(1.2, u * 0.035);
-    ctx.beginPath();
-    roundRect(ctx, x + 0.75, y + 0.75, w - 1.5, h - 1.5, Math.min(w, h) * 0.14);
-    ctx.stroke();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.atan2(dy, dx));
+    ctx.strokeStyle = '#fff6e0';
+    ctx.lineWidth = Math.max(1.5, s * 0.05);
+    ctx.lineCap = 'round';
+    for (const k of [-0.12, 0.08]) {
+      ctx.beginPath();
+      ctx.moveTo(s * (k - 0.06), -s * 0.08);
+      ctx.lineTo(s * (k + 0.04), 0);
+      ctx.lineTo(s * (k - 0.06), s * 0.08);
+      ctx.stroke();
+    }
     ctx.restore();
   }
+  ctx.restore();
+}
+
+/**
+ * Water along a way from side `a` to side `b` (u0..u1) in a cell centred at (cx, cy): a turquoise
+ * stream with a light edge and ripples drifting at `flow` (cells per second, 0 = still).
+ */
+export function paintWater(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, a: number, b: number, u0: number, u1: number,
+  o: { t: number; flow: number; still: boolean; color?: string; width?: number }): void {
+  if (u1 <= u0) return;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const w = s * (o.width ?? 0.17);
+  ctx.strokeStyle = o.color ?? C.water;
+  ctx.lineWidth = w;
+  ctx.beginPath();
+  tracePath(ctx, cx, cy, s, a, b, u0, u1);
+  ctx.stroke();
+  // ripples
+  ctx.strokeStyle = o.still ? 'rgba(255,255,255,.75)' : 'rgba(207,246,243,.8)';
+  ctx.lineWidth = Math.max(1, w * 0.28);
+  ctx.setLineDash([s * 0.07, s * 0.16]);
+  ctx.lineDashOffset = o.still ? 0 : -o.t * s * Math.max(0.25, o.flow) * 1.2;
+  ctx.beginPath();
+  tracePath(ctx, cx, cy, s, a, b, u0, u1);
+  ctx.stroke();
+  ctx.setLineDash(NO_DASH);
+  ctx.restore();
+}
+
+/** A pool's basin filling (0..1) at the cell centred at (cx, cy). */
+export function paintPoolFill(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number, fill: number, t: number): void {
+  if (fill <= 0) return;
+  ctx.save();
+  ctx.fillStyle = mix(C.water, C.pool, 0.35);
+  ctx.globalAlpha = 0.35 + 0.65 * fill;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, s * 0.24 * Math.sqrt(fill), s * 0.24 * Math.sqrt(fill), 0, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(207,246,243,.7)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy, s * 0.16 * fill * (0.8 + 0.2 * Math.sin(t * 3)), s * 0.16 * fill, 0, 0, TAU);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * The spring's well-head in a cell of size `s` at (x, y): a ring of stones around a bubbling pool,
+ * its outlet groove toward side `dir`, and the wooden sluice gate across the outlet, lowered by
+ * `gate` (0 open … 1 nearly shut).  `count` 0..1 is the countdown's ring (null when the water runs).
+ */
+export function paintSpring(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, dir: number, o: { t: number; gate: number; count: number | null; running: boolean; still: boolean; hidden: boolean }): void {
+  const cx = x + s / 2, cy = y + s / 2;
+  ctx.save();
+  // the outlet groove
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = C.groove;
+  ctx.lineWidth = s * 0.3;
+  ctx.beginPath();
+  tracePath(ctx, cx, cy, s, -1, dir);
+  ctx.stroke();
+  // the stone ring
+  ctx.fillStyle = 'rgba(70,52,36,.28)';
+  ctx.beginPath();
+  ctx.arc(cx + s * 0.03, cy + s * 0.05, s * 0.4, 0, TAU);
+  ctx.fill();
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * TAU;
+    ctx.fillStyle = i % 2 ? '#d9c9aa' : '#e8dcc4';
+    ctx.beginPath();
+    ctx.ellipse(cx + Math.cos(a) * s * 0.32, cy + Math.sin(a) * s * 0.32, s * 0.11, s * 0.09, a, 0, TAU);
+    ctx.fill();
+  }
+  // the pool
+  const g = ctx.createRadialGradient(cx - s * 0.06, cy - s * 0.06, s * 0.02, cx, cy, s * 0.27);
+  g.addColorStop(0, o.still ? C.still : C.foam);
+  g.addColorStop(0.45, C.water);
+  g.addColorStop(1, C.pool);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.25, 0, TAU);
+  ctx.fill();
+  // bubbles: quicker while the water runs, none while it stands still
+  if (!o.still) {
+    ctx.strokeStyle = 'rgba(255,255,255,.7)';
+    ctx.lineWidth = 1;
+    const k = o.running ? 1.6 : 0.8;
+    for (let i = 0; i < 3; i++) {
+      const p = (o.t * k * (1 - o.gate * 0.6) + i / 3) % 1;
+      ctx.globalAlpha = 1 - p;
+      ctx.beginPath();
+      ctx.arc(cx, cy, s * (0.04 + 0.2 * p), 0, TAU);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  // the countdown ring
+  if (o.count !== null) {
+    ctx.strokeStyle = C.gold;
+    ctx.lineWidth = Math.max(2, s * 0.06);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 0.44, -Math.PI / 2, -Math.PI / 2 + TAU * Math.max(0, Math.min(1, o.count)));
+    ctx.stroke();
+  }
+  // the sluice gate across the outlet
+  const [ox, oy] = sidePt(dir, s);
+  const gx = cx + ox * 0.62, gy = cy + oy * 0.62;
+  ctx.translate(gx, gy);
+  ctx.rotate(dir === 0 || dir === 2 ? 0 : Math.PI / 2);
+  ctx.fillStyle = '#6d4c2f';
+  ctx.fillRect(-s * 0.2, -s * 0.05, s * 0.04, s * 0.1);
+  ctx.fillRect(s * 0.16, -s * 0.05, s * 0.04, s * 0.1);
+  if (!o.hidden) {
+    const shut = Math.max(0, Math.min(1, o.gate));
+    ctx.fillStyle = shut > 0.5 ? C.gold : '#a77a4c';
+    ctx.fillRect(-s * 0.17, -s * 0.035, s * 0.34 * (0.15 + 0.85 * shut), s * 0.07);
+  }
+  ctx.restore();
+}
+
+/** The garden a valley's water must reach: a walled plot with a fig tree, its gate toward side `dir`. */
+export function paintGardenEnd(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, dir: number, wet: boolean, t: number): void {
+  const cx = x + s / 2, cy = y + s / 2;
+  ctx.save();
+  ctx.fillStyle = wet ? '#8fc46e' : '#c9b98a';
+  ctx.beginPath();
+  roundRect(ctx, x + s * 0.06, y + s * 0.06, s * 0.88, s * 0.88, s * 0.12);
+  ctx.fill();
+  ctx.strokeStyle = '#a58a62';
+  ctx.lineWidth = s * 0.07;
+  ctx.stroke();
+  // the gate
+  const [ox, oy] = sidePt(dir, s);
+  ctx.strokeStyle = wet ? C.water : C.groove;
+  ctx.lineWidth = s * 0.22;
+  ctx.beginPath();
+  ctx.moveTo(cx + ox, cy + oy);
+  ctx.lineTo(cx + ox * 0.45, cy + oy * 0.45);
+  ctx.stroke();
+  paintTree(ctx, 'fig', cx - s * 0.04, cy - s * 0.02, s * 0.26, wet ? 2 : 1, 5);
+  if (wet) {
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU + t * 0.3;
+      paintFlower(ctx, cx + Math.cos(a) * s * 0.34, cy + Math.sin(a) * s * 0.34, s * 0.07, i, t);
+    }
+  } else {
+    // a little banner: the goal
+    ctx.fillStyle = 'rgba(255,248,230,.9)';
+    ctx.beginPath();
+    ctx.arc(cx + s * 0.28, cy - s * 0.28, s * 0.1, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = C.water;
+    ctx.beginPath();
+    ctx.arc(cx + s * 0.28, cy - s * 0.28, s * 0.05 * (1 + 0.15 * Math.sin(t * 4)), 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** One flower: anemone red, crocus purple or oleander pink, with a little sway. */
+export function paintFlower(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, i: number, t: number): void {
+  const col = [C.anemone, C.crocus, C.oleander, '#F2D24B'][i % 4];
+  const sw = Math.sin(t * 2 + i) * r * 0.15;
+  ctx.fillStyle = col;
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * TAU + i;
+    ctx.beginPath();
+    ctx.arc(x + sw + Math.cos(a) * r * 0.55, y + Math.sin(a) * r * 0.55, r * 0.48, 0, TAU);
+    ctx.fill();
+  }
+  ctx.fillStyle = '#fff3b0';
+  ctx.beginPath();
+  ctx.arc(x + sw, y, r * 0.3, 0, TAU);
+  ctx.fill();
+}
+
+/** The garden calm grows on a wet cell: grass tufts in its corners as `green` rises, flowers in bloom. */
+export function paintGreen(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, green: number, bloom: boolean, seed: number, t: number): void {
+  if (green <= 0.02) return;
+  ctx.save();
+  ctx.fillStyle = `rgba(143,175,126,${(0.18 + 0.32 * green).toFixed(3)})`;
+  ctx.beginPath();
+  roundRect(ctx, x + 1, y + 1, s - 2, s - 2, s * 0.16);
+  ctx.fill();
+  const tufts = 4 + Math.floor(green * 6);
+  ctx.strokeStyle = C.olive;
+  ctx.lineWidth = Math.max(1, s * 0.022);
+  ctx.lineCap = 'round';
+  for (let i = 0; i < tufts; i++) {
+    const corner = i % 4;
+    const px = x + s * ((corner % 2 ? 0.82 : 0.18) + (hash(seed + i) - 0.5) * 0.16);
+    const py = y + s * ((corner > 1 ? 0.84 : 0.16) + (hash(seed * 3 + i) - 0.5) * 0.16);
+    const hgt = s * 0.12 * Math.min(1, green * 1.4);
+    for (let k = -1; k <= 1; k++) {
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.quadraticCurveTo(px + k * hgt * 0.3, py - hgt * 0.6, px + k * hgt * 0.5 + Math.sin(t * 1.5 + i) * 1.2, py - hgt);
+      ctx.stroke();
+    }
+  }
+  if (bloom) for (let i = 0; i < 4; i++) {
+    const corner = i % 4;
+    paintFlower(ctx, x + s * (corner % 2 ? 0.8 : 0.2), y + s * (corner > 1 ? 0.78 : 0.22), s * 0.075, seed + i, t);
+  }
+  ctx.restore();
+}
+
+// ── Kumka ────────────────────────────────────────────────────────
+export interface FrogPose {
+  t: number;
+  /** 0..1: the eyes shut */
+  blink: number;
+  /** the mouth moves (talking) */
+  talk: boolean;
+  /** 0..1 up: a hop */
+  hop: number;
+  /** −1..1: where she looks */
+  look: number;
+  /** cheering arms up */
+  cheer: boolean;
+}
+
+/** Kumka the tree frog in her pilgrim's straw hat, sitting; (x, y) is her feet's middle, `s` her height. */
+export function paintFrog(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, p: FrogPose): void {
+  const lift = p.hop * s * 0.25;
+  const squash = 1 + Math.sin(p.t * 2.2) * 0.02 - p.hop * 0.06;
+  ctx.save();
+  ctx.translate(x, y);
+  // shadow
+  ctx.fillStyle = 'rgba(40,40,20,.22)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.42 * (1 - p.hop * 0.3), s * 0.08, 0, 0, TAU);
+  ctx.fill();
+  ctx.translate(0, -lift);
+  ctx.scale(1 / squash, squash);
+  // back legs
+  ctx.fillStyle = C.frogDeep;
+  for (const k of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(k * s * 0.3, -s * 0.12, s * 0.18, s * 0.12, k * 0.4, 0, TAU);
+    ctx.fill();
+  }
+  // body
+  const g = ctx.createRadialGradient(-s * 0.08, -s * 0.42, s * 0.05, 0, -s * 0.3, s * 0.42);
+  g.addColorStop(0, '#8fd86a');
+  g.addColorStop(1, C.frog);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(0, -s * 0.3, s * 0.34, s * 0.3, 0, 0, TAU);
+  ctx.fill();
+  // belly
+  ctx.fillStyle = C.frogBelly;
+  ctx.beginPath();
+  ctx.ellipse(0, -s * 0.2, s * 0.2, s * 0.17, 0, 0, TAU);
+  ctx.fill();
+  // front arms with orange toe pads
+  for (const k of [-1, 1]) {
+    const up = p.cheer ? 1 : 0;
+    const hx = k * s * (0.22 + up * 0.12), hy = -s * (0.06 + up * 0.5);
+    ctx.strokeStyle = C.frog;
+    ctx.lineWidth = s * 0.08;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(k * s * 0.18, -s * 0.24);
+    ctx.lineTo(hx, hy);
+    ctx.stroke();
+    ctx.fillStyle = '#F2A04A';
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.arc(hx + i * s * 0.035, hy + (up ? -s * 0.03 : s * 0.02), s * 0.025, 0, TAU);
+      ctx.fill();
+    }
+  }
+  // eyes
+  for (const k of [-1, 1]) {
+    const ex = k * s * 0.17, ey = -s * 0.56;
+    ctx.fillStyle = C.frog;
+    ctx.beginPath();
+    ctx.arc(ex, ey, s * 0.14, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#fffdf2';
+    ctx.beginPath();
+    ctx.arc(ex, ey, s * 0.105, 0, TAU);
+    ctx.fill();
+    if (p.blink < 0.6) {
+      ctx.fillStyle = '#1c1a17';
+      ctx.beginPath();
+      ctx.ellipse(ex + p.look * s * 0.03, ey + s * 0.01, s * 0.06, s * 0.07 * (1 - p.blink), 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(ex + p.look * s * 0.03 - s * 0.02, ey - s * 0.02, s * 0.02, 0, TAU);
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = C.frogDeep;
+      ctx.lineWidth = Math.max(1, s * 0.025);
+      ctx.beginPath();
+      ctx.arc(ex, ey - s * 0.01, s * 0.07, 0.15 * Math.PI, 0.85 * Math.PI);
+      ctx.stroke();
+    }
+  }
+  // cheeks and mouth
+  ctx.fillStyle = 'rgba(242,140,120,.45)';
+  for (const k of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(k * s * 0.2, -s * 0.36, s * 0.05, s * 0.03, 0, 0, TAU);
+    ctx.fill();
+  }
+  ctx.strokeStyle = C.frogDeep;
+  ctx.lineWidth = Math.max(1, s * 0.025);
+  ctx.beginPath();
+  const open = p.talk ? Math.abs(Math.sin(p.t * 14)) : 0;
+  if (open > 0.3) {
+    ctx.fillStyle = '#7a2e2a';
+    ctx.ellipse(0, -s * 0.38, s * 0.08, s * 0.04 * open, 0, 0, TAU);
+    ctx.fill();
+  } else {
+    ctx.arc(0, -s * 0.42, s * 0.12, 0.2 * Math.PI, 0.8 * Math.PI);
+    ctx.stroke();
+  }
+  // the straw hat, tilted
+  ctx.save();
+  ctx.translate(s * 0.02, -s * 0.7);
+  ctx.rotate(-0.18 + Math.sin(p.t * 1.3) * 0.03);
+  ctx.fillStyle = C.strawDeep;
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.02, s * 0.36, s * 0.07, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = C.straw;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.34, s * 0.06, 0, 0, TAU);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.16, 0);
+  ctx.quadraticCurveTo(-s * 0.15, -s * 0.18, 0, -s * 0.19);
+  ctx.quadraticCurveTo(s * 0.15, -s * 0.18, s * 0.16, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = C.water;
+  ctx.fillRect(-s * 0.16, -s * 0.05, s * 0.32, s * 0.035);
+  ctx.restore();
+  ctx.restore();
+}
+
+/** Kumka's speech bubble: wrapped text, a tail toward (tx, ty); returns nothing, fits inside [0, w]. */
+export function paintBubble(ctx: CanvasRenderingContext2D, text: string, tx: number, ty: number, maxW: number, w: number, alpha: number, above = true): void {
+  const size = Math.max(11, Math.min(15, maxW / 16));
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = font(600, size, SANS);
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let line = '';
+  for (const wd of words) {
+    const nx = line ? `${line} ${wd}` : wd;
+    if (line && ctx.measureText(nx).width > maxW - 20) { lines.push(line); line = wd; } else line = nx;
+  }
+  if (line) lines.push(line);
+  const lh = size * 1.25;
+  const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 20);
+  const bh = lines.length * lh + 14;
+  const bx = Math.max(6, Math.min(w - bw - 6, tx - bw * 0.3));
+  const by = above ? ty - bh - 12 : ty + 12;
+  ctx.fillStyle = 'rgba(40,30,20,.18)';
+  ctx.beginPath();
+  roundRect(ctx, bx + 2, by + 3, bw, bh, 12);
+  ctx.fill();
+  ctx.fillStyle = '#fffaf0';
+  ctx.beginPath();
+  roundRect(ctx, bx, by, bw, bh, 12);
+  ctx.fill();
+  ctx.beginPath();
+  const tx2 = Math.max(bx + 14, Math.min(bx + bw - 14, tx));
+  if (above) { ctx.moveTo(tx2 - 7, by + bh - 1); ctx.lineTo(tx, ty - 2); ctx.lineTo(tx2 + 7, by + bh - 1); } else { ctx.moveTo(tx2 - 7, by + 1); ctx.lineTo(tx, ty + 2); ctx.lineTo(tx2 + 7, by + 1); }
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(79,122,67,.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  roundRect(ctx, bx, by, bw, bh, 12);
+  ctx.stroke();
+  ctx.fillStyle = C.ink;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  lines.forEach((l, i) => ctx.fillText(l, bx + 10, by + 7 + i * lh));
+  ctx.restore();
+}
+
+// ── the gauge ────────────────────────────────────────────────────
+export interface GaugeState {
+  /** the sluice 0..1 (0.5 = the threshold), null: hidden */
+  value: number | null;
+  /** the charge of the still water 0..1 */
+  charge: number;
+  still: number;
+  /** the countdown's seconds (null: the water runs) */
+  count: number | null;
+  /** the rest's green 0..1 (null: not a rest) */
+  green: number | null;
+  hidden: boolean;
+  label: string;
+  thr: string;
+  sub: string;
+  t: number;
+}
+
+/**
+ * The spring's manometer: a dial over 240°, its threshold mark at the top (the panel's "próg"),
+ * gold beyond it; the needle is the sluice; the charge of the still water fills the outer ring;
+ * in a rest a green arc of calm; underground (blind) it is covered with earth.
+ */
+export function paintGauge(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, g: GaugeState): void {
+  const a0 = Math.PI * (5 / 6) , sweep = Math.PI * (4 / 3);
+  const ang = (v: number) => a0 + sweep * Math.max(0, Math.min(1, v));
+  ctx.save();
+  // the housing
+  ctx.fillStyle = 'rgba(60,44,30,.28)';
+  ctx.beginPath();
+  ctx.arc(x + r * 0.05, y + r * 0.08, r * 1.08, 0, TAU);
+  ctx.fill();
+  const hg = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+  hg.addColorStop(0, '#e9d6a8');
+  hg.addColorStop(1, '#a9824c');
+  ctx.fillStyle = hg;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 1.06, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = g.still > 0 ? '#e9fbff' : '#fbf5e6';
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.9, 0, TAU);
+  ctx.fill();
+  // the charge ring
+  if (g.charge > 0 || g.still > 0) {
+    ctx.strokeStyle = g.still > 0 ? C.still : C.water;
+    ctx.lineWidth = r * 0.09;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(x, y, r * 1.0, -Math.PI / 2, -Math.PI / 2 + TAU * (g.still > 0 ? 1 : Math.min(1, g.charge)));
+    ctx.stroke();
+  }
+  // the scale: cool below the threshold, gold above
+  ctx.lineCap = 'butt';
+  ctx.lineWidth = r * 0.14;
+  ctx.strokeStyle = 'rgba(47,179,196,.35)';
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.7, ang(0), ang(0.5));
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(244,199,107,.85)';
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.7, ang(0.5), ang(1));
+  ctx.stroke();
+  if (g.green !== null) {
+    ctx.strokeStyle = C.olive;
+    ctx.lineWidth = r * 0.12;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.52, ang(0), ang(g.green));
+    ctx.stroke();
+  }
+  // ticks
+  ctx.strokeStyle = 'rgba(43,42,51,.5)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 8; i++) {
+    const a = ang(i / 8);
+    ctx.beginPath();
+    ctx.moveTo(x + Math.cos(a) * r * 0.78, y + Math.sin(a) * r * 0.78);
+    ctx.lineTo(x + Math.cos(a) * r * 0.86, y + Math.sin(a) * r * 0.86);
+    ctx.stroke();
+  }
+  // the threshold mark
+  const at = ang(0.5);
+  ctx.strokeStyle = C.ink;
+  ctx.lineWidth = Math.max(2, r * 0.05);
+  ctx.beginPath();
+  ctx.moveTo(x + Math.cos(at) * r * 0.58, y + Math.sin(at) * r * 0.58);
+  ctx.lineTo(x + Math.cos(at) * r * 0.92, y + Math.sin(at) * r * 0.92);
+  ctx.stroke();
+  ctx.fillStyle = C.ink;
+  ctx.font = font(700, Math.max(9, r * 0.15), SANS);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(g.thr, x, y - r * 1.1);
+  if (g.hidden) {
+    // underground: earth over the dial
+    ctx.fillStyle = '#8a6a4a';
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.9, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,240,210,.85)';
+    ctx.font = font(700, Math.max(10, r * 0.2), SANS);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(g.sub, x, y);
+  } else if (g.value !== null) {
+    // the needle
+    const a = ang(g.value);
+    ctx.strokeStyle = g.value >= 0.5 ? '#b5532e' : C.pool;
+    ctx.lineWidth = Math.max(2, r * 0.06);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - Math.cos(a) * r * 0.12, y - Math.sin(a) * r * 0.12);
+    ctx.lineTo(x + Math.cos(a) * r * 0.76, y + Math.sin(a) * r * 0.76);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#6d4c2f';
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.09, 0, TAU);
+  ctx.fill();
+  // the centre's word: the countdown, still, or the pace
+  if (!g.hidden) {
+    ctx.textBaseline = 'middle';
+    if (g.count !== null) {
+      ctx.fillStyle = C.pool;
+      ctx.font = font(800, r * 0.42, SANS);
+      ctx.fillText(String(Math.max(0, Math.ceil(g.count))), x, y + r * 0.42);
+    } else if (g.still > 0) {
+      ctx.fillStyle = C.pool;
+      ctx.font = font(800, r * 0.22, SANS);
+      ctx.fillText(g.sub, x, y + r * 0.45);
+    } else {
+      ctx.fillStyle = C.inkSoft;
+      ctx.font = font(700, r * 0.18, SANS);
+      ctx.fillText(g.sub, x, y + r * 0.45);
+    }
+  }
+  // the label under the dial
+  ctx.fillStyle = C.ink;
+  ctx.font = font(800, Math.max(11, r * 0.2), SANS);
+  ctx.textBaseline = 'top';
+  ctx.fillText(g.label, x, y + r * 1.14);
+  ctx.restore();
+}
+
+/** The band's last 40 s as reeds along the valley's foot: gold heads above the threshold, cool behind a rest, gaps without signal. */
+export function paintReeds(ctx: CanvasRenderingContext2D, bars: TraceBar[], x: number, y: number, w: number, h: number): void {
+  const n = bars.length;
+  if (!n) return;
+  const dx = w / n;
+  ctx.save();
+  ctx.lineCap = 'round';
+  bars.forEach((b, i) => {
+    const px = x + (i + 0.5) * dx;
+    if (b.phase === 'rest') {
+      ctx.fillStyle = 'rgba(47,179,196,.12)';
+      ctx.fillRect(px - dx / 2, y, dx, h);
+    }
+    if (b.empty) return;
+    if (!b.reliable) {
+      ctx.fillStyle = 'rgba(120,100,70,.35)';
+      ctx.fillRect(px - 1, y + h - 2, 2, 2);
+      return;
+    }
+    const hh = h * (0.2 + 0.8 * b.level);
+    ctx.globalAlpha = b.shown;
+    ctx.strokeStyle = '#7d9a5e';
+    ctx.lineWidth = Math.max(1, dx * 0.32);
+    ctx.beginPath();
+    ctx.moveTo(px, y + h);
+    ctx.lineTo(px + Math.sin(i) * 0.6, y + h - hh);
+    ctx.stroke();
+    ctx.fillStyle = b.above ? C.gold : '#8c6d4a';
+    ctx.beginPath();
+    ctx.ellipse(px, y + h - hh, Math.max(1, dx * 0.3), Math.max(1.5, h * 0.12), 0, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+  // the threshold line
+  ctx.strokeStyle = 'rgba(43,42,51,.35)';
+  ctx.setLineDash([3, 4]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, y + h - h * 0.6);
+  ctx.lineTo(x + w, y + h - h * 0.6);
+  ctx.stroke();
+  ctx.setLineDash(NO_DASH);
+  ctx.restore();
 }
