@@ -1,867 +1,606 @@
 /**
- * Wzlot's play view, all on the canvas: the wilderness by day in parallax (the sky turning from
- * dawn to dusk across the session, three ranges in the colours of the land under the eaglet), the
- * sandstone hills of the terrain with their crags and wadis, the thermals' warm columns, the
- * eaglet — wings folded tight while held (a dive), spread by the wings' lift while let go (a
- * glide) — and the parent eagle ahead of it in a Lekcja with its golden wake, circling back on a
- * lapse, hidden in a cloud in a blind block, swooping under the eaglet to carry it, and spreading
- * its wings over the nest at the finisher.  The mist of an unreliable signal fills the valleys.
- * It only reads the sim (sim.ts); the HUD lives in hud.ts, the calibration in intro.ts.
+ * Wzlot's play view (Canvas 2D): Tiny Wings' look made our own — a camera that keeps the eaglet a
+ * third in from the left and zooms out as it climbs so the hills stay in sight; the sky turning
+ * from afternoon to dusk to night as the day runs out; three parallax ranges and the grań's ground
+ * in the colours of its land, with strata following the curve; the promyki, the podmuch, the cloud
+ * deck, the thermals; the eaglet with its trail (golden in a Poryw), Leon the lark beside it, the
+ * mother eagle when she catches; the night creeping in from the left.
  *
- * The camera follows the eaglet: the ground under it rests low on the screen, and a climb zooms
- * out (never past the world made ahead, so the screen shows the same hills on every device).
+ * The band in the world: the sun on its arc across the sky is the day's clock, and in a push block
+ * its halo is the gauge (the threshold dotted on the sun itself, the rim gold above it), the Poryw's
+ * charge fills around it, and the arc behind the sun keeps the history — gold where focus held the
+ * sun up, cool where the day ran through a rest.  In a blind block a cloud covers the sun.
+ *
+ * The runner's standard HUD (the Mendi panel, the score) covers the top band (`hudTop`): the play
+ * stays below it.  hud.ts draws the words, the bubble and the cards.
  */
-import { approach, clamp, ease } from '../kit/juice';
-import { LANDS, STAGES, VISTAS, missionById, type Land } from './content';
-import { Hud } from './hud';
-import { t } from './i18n';
+import { approach, clamp, Particles, Shake } from '../kit/juice';
+import { fmtInt, t } from './i18n';
 import { WzlotIntro } from './intro';
 import { layout, type Layout } from './layout';
-import type { WzlotProgress } from './meta';
+import { type WzlotProgress } from './meta';
 import {
-  C, LAND_LOOK, LANDS_SEED, SANS, SERIF, font, hash, mixInto, paintCloud, paintEagle, paintEaglet, paintNest, paintRange, paintSky,
-  paintSpire, paintThermal, paintVista, rgb, skyAt, type EagletPose, type RGB, type SkyLook,
+  C, LAND_LOOK, LANDS, LANDS_SEED, hash, mix, mixInto, paintCloud, paintCoin, paintEagle, paintEaglet, paintLark, paintNestFamily, paintOrb,
+  paintRange, paintSky, paintSpire, paintSunGauge, paintThermal, rgb, skyAt, type EagletPose, type Land, type LandLook, type RGB, type SkyLook,
 } from './paint';
-import { RULES, type SimEvent, type WzlotSim } from './sim';
+import { Hud } from './hud';
+import { RULES } from './rules';
+import type { Anchor, SimEvent, WzlotSim } from './sim';
 
 const TAU = Math.PI * 2;
-const TXT = {
-  smooth: t('fx.smooth'), soar: t('fx.soar'), crag: t('fx.crag'), back: t('fx.return'), beat: t('fx.wingbeat'), carried: t('fx.carried'),
-  thermal: t('fx.thermal'), vista: t('fx.vista'), daily: t('daily.title'), finale: t('finale.title'), finaleSub: t('finale.sub'),
-};
-
-/** A bit of dust, a feather or a spark, in world units (it stays where it was made as the camera moves). */
-interface Bit { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; g: number }
-
-/** The colours of the land being flown, eased toward the next land's at a wadi. */
-interface LandNow { far: RGB; mid: RGB; near: RGB; ground: RGB; strata: RGB; green: RGB }
-const landNow = (): LandNow => ({ far: [0, 0, 0], mid: [0, 0, 0], near: [0, 0, 0], ground: [0, 0, 0], strata: [0, 0, 0], green: [0, 0, 0] });
-
-const TRAIL = 48;
+const TRAIL = 56;
+const BINS = 48;
+const NIGHT: RGB = [22, 26, 58];
 
 export class WzlotView {
+  readonly hud = new Hud();
   private readonly ctx: CanvasRenderingContext2D;
-  private w = 1280;
-  private h = 800;
+  private L: Layout = layout(800, 600, 0);
   private dpr = 1;
-  L: Layout = layout(1280, 800);
-  readonly hud: Hud;
-  private readonly intro0 = new WzlotIntro();
-  private started = false;
-  private clock = 0;
-  private fadeIn = 1;
-  // the camera
+  private hudTop = 0;
+  private readonly introScene = new WzlotIntro();
+  private readonly particles = new Particles(520);
+  private readonly shake: Shake;
+  private time = 0;
+  // the camera: world x at the eaglet's place, the world y at the screen's floor, px per sh
   private camX = 0;
-  private camY = 0;
-  private zoom = 1;
-  private ground = 0;
-  private camReady = false;
-  // the land's colours
-  private land: Land = 'negev';
-  private readonly cur = landNow();
-  private landInit = false;
-  private readonly sky: SkyLook = skyAt(0);
-  private readonly tmp: RGB = [0, 0, 0];
-  private ridgeSeen = -1;
-  // the eaglet and the parent
-  private fold = 0;
-  private flap = 0;
-  private flapT = 0;
-  private glow = 0;
-  private readonly pose: EagletPose = { stage: 1, fold: 0, spread: 0.55, flap: 0, glow: 0 };
-  private px = 0;
-  private py = 0;
-  private pAlpha = 0;
-  private pFace = 1;
-  private pFlap = 0;
-  private readonly trail = new Ring(TRAIL);
+  private floorY = -0.6;
+  private S = 200;
+  private span = 1.4;
+  private snap = true;
+  // the eaglet's trail (world), the drawn fold, Leon's place (px)
+  private readonly trail = new Float32Array(TRAIL * 3);
+  private trailN = 0;
+  private trailI = 0;
   private trailT = 0;
-  private readonly wake = new Ring(TRAIL);
-  private wakeGold = 0;
-  private cloudK = 0;
-  private mist = 0;
-  // moments
-  private readonly bits: Bit[] = [];
-  private readonly usedFade = new Map<number, number>();
-  private vistaT = -1;
-  private vistaLand: Land = 'negev';
-  private vistaLight: 'dawn' | 'dusk' = 'dawn';
-  private finaleT = -1;
-  private nestT = -1;
-  private bump = 0;
+  private fold = 0;
+  private larkX = 0;
+  private larkY = 0;
+  private flash = 0;
+  private skyPhase = 0.5;
+  private readonly sky: SkyLook = skyAt(0.5);
+  private readonly pose: EagletPose = { stage: 1, fold: 0, spread: 0.7, flap: 0, glow: 0 };
+  private readonly tmp: RGB = [0, 0, 0];
+  /** the sun's arc history: per bin, -1 untouched, else 0 plain, 1 held by focus, 2 a rest */
+  private readonly track = new Int8Array(BINS).fill(-1);
+  private sunPos = { x: 0, y: 0 };
+  private lastThermal: { x: number; y: number } | null = null;
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean }) {
     this.ctx = canvas.getContext('2d')!;
-    this.hud = new Hud(this.ctx);
-    this.hud.resize(this.L);
+    this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number): void {
-    this.w = w;
-    this.h = h;
+  resize(w: number, h: number, dpr: number, hudTop: number): void {
     this.dpr = dpr;
-    this.L = layout(w, h);
+    this.hudTop = hudTop;
+    this.L = layout(w, h, hudTop);
     this.hud.resize(this.L);
-  }
-
-  start(): void {
-    this.started = true;
-    this.fadeIn = 1;
+    this.snap = true;
   }
 
   intro(dt: number, p: number, progress: WzlotProgress): void {
-    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.intro0.draw(this.ctx, this.w, this.h, dt, p, progress);
+    const ctx = this.ctx;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.introScene.draw(ctx, this.L.w, this.L.h, dt, p, progress);
   }
 
-  // ── world ↔ screen ──────────────────────────────────────────────
-  private get S(): number { return this.L.base * this.zoom; }
-  private sx(x: number): number { return this.L.ex + (x - this.camX) * this.S; }
-  private sy(y: number): number { return this.L.gy - (y - this.camY) * this.S; }
+  start(): void {
+    this.snap = true;
+  }
 
-  // ── reacting to the rules ───────────────────────────────────────
+  // ── world ↔ screen ─────────────────────────────────────────────
+  sx(x: number): number { return this.L.ex + (x - this.camX) * this.S; }
+  sy(y: number): number { return this.L.bottom - (y - this.floorY) * this.S; }
+  private wx(px: number): number { return this.camX + (px - this.L.ex) / this.S; }
+
+  /** Where a coach mark points (CSS px), kept clear of the screen's sides so the bubble fits. */
+  anchor(a: Anchor, sim: WzlotSim): { x: number; y: number } | null {
+    const p = this.rawAnchor(a, sim);
+    if (!p) return null;
+    const m = Math.min(170 * this.L.u, this.L.w / 2);
+    return { x: clamp(p.x, m, this.L.w - m), y: p.y };
+  }
+
+  private rawAnchor(a: Anchor, sim: WzlotSim): { x: number; y: number } | null {
+    const L = this.L, e = sim.eaglet;
+    switch (a) {
+      case 'eaglet': return { x: this.sx(e.x), y: this.sy(e.y) - 18 * L.u };
+      case 'sun': return { x: this.sunPos.x, y: this.sunPos.y + 24 * L.u };
+      case 'crag': {
+        const g = sim.terrain.byIndex(sim.granIdx);
+        if (!g) return null;
+        return { x: clamp(this.sx(g.crag), 40, L.w - 40), y: clamp(this.sy(g.cragY), L.top + 40, L.bottom - 20) };
+      }
+      case 'thermal': return this.lastThermal ? { x: clamp(this.sx(this.lastThermal.x), 40, L.w - 40), y: clamp(this.sy(this.lastThermal.y), L.top + 40, L.bottom - 20) } : null;
+      case 'night': return { x: L.w * 0.12, y: L.cardY };
+      default: return null;
+    }
+  }
+
+  // ── events ─────────────────────────────────────────────────────
   on(e: SimEvent, sim: WzlotSim): void {
-    const eg = sim.eaglet, rm = this.opts.reducedMotion;
-    const ex = this.sx(eg.x), ey = this.sy(eg.y);
-    const u = this.L.u;
+    const L = this.L, u = L.u, hud = this.hud;
+    const ex = this.sx(sim.eaglet.x), ey = this.sy(sim.eaglet.y);
+    const gold = '#ffd36b';
     switch (e.type) {
-      case 'land': {
-        const n = e.cls === 'smooth' ? 8 : e.cls === 'stall' ? 10 : 5;
-        this.dust(eg.x, eg.y, rm ? 2 : n, e.cls === 'smooth' ? 'rgba(255,236,196,.9)' : 'rgba(214,180,130,.9)');
-        if (e.cls === 'smooth') this.hud.float(e.chain >= 2 ? `${TXT.smooth} ×${e.chain}` : TXT.smooth, ex, ey - 34 * u, '#3f7a3a', 15, 1.1);
-        else if (e.cls === 'near') this.hud.float(t('fx.near', { deg: Math.round(e.deg) }), ex, ey - 34 * u, '#8a6a2a', 13, 1.1);
-        if (e.cls === 'stall') this.bump = 1;
+      case 'dawn':
+        this.trailN = 0;
+        this.track.fill(-1);
+        this.snap = true;
+        break;
+      case 'takeoff':
+        this.particles.burst(ex, ey, 14, { color: '#f4ecdc', size: 2.5, speed: 90, spread: Math.PI, angle: -Math.PI / 2, g: 120 });
+        break;
+      case 'perfect': {
+        hud.float(e.chain > 1 ? t('fx.chain', { n: e.chain }) : t('fx.perfect'), ex, ey - 30 * u, gold, 18 + Math.min(6, e.chain));
+        hud.float(`+${fmtInt(e.pts)}`, ex + 30 * u, ey - 6 * u, '#fff6dc', 15, 0.9);
+        this.particles.burst(ex, ey, 18 + e.chain * 3, { color: gold, size: 3, speed: 170, shape: 'spark', g: 60, life: 0.7 });
+        this.shake.add(0.12);
         break;
       }
-      case 'soar':
-        this.hud.float(TXT.soar, ex, ey - 54 * u, '#b6781e', 19, 1.5, 44);
-        this.sparks(eg.x, eg.y, rm ? 4 : 14);
-        this.hud.popScore();
+      case 'fever':
+        hud.say(e.band ? t('fx.bandFever') : t('fx.fever'), '×2', '#ffcf5a', 2);
+        this.particles.burst(ex, ey, 60, { color: '#ffcf5a', size: 3.5, speed: 260, shape: 'spark', g: 40, life: 1 });
+        this.flash = 1;
+        this.shake.add(0.35);
         break;
-      case 'crag':
-        this.hud.float(TXT.crag, ex + 20 * u, ey - 46 * u, '#7a4a22', 16, 1.2);
+      case 'feverEnd':
+        hud.float(t('fx.feverEnd'), ex, ey - 26 * u, '#f6e6c8', 14);
         break;
-      case 'catch':
-        this.dust(eg.x, eg.y, rm ? 2 : 6, 'rgba(230,214,190,.8)');
+      case 'bump':
+        hud.float(t('fx.bump'), ex, ey - 24 * u, '#f2b28a', 17);
+        this.particles.burst(ex, ey + 6, 16, { color: rgb(this.land(sim, sim.eaglet.x).ground), size: 3, speed: 120, angle: -Math.PI / 2, spread: 2, g: 420 });
+        this.shake.add(0.3);
         break;
-      case 'carried':
+      case 'coin':
+        this.particles.burst(this.sx(e.x), this.sy(e.y), 6, { color: '#ffe08a', size: 2, speed: 80, g: 0, life: 0.4 });
+        if (e.streak >= 5 && e.streak % 5 === 0) hud.float(`×${e.streak}`, this.sx(e.x), this.sy(e.y) - 14, gold, 14, 0.7);
         break;
-      case 'step':
-        this.hud.float(t('fx.step', { n: Math.round(e.bonus * 100) }), this.sx(this.px), this.sy(this.py) - 26 * u, '#b6781e', 13, 1.3);
-        break;
-      case 'return':
-        this.hud.float(TXT.back, this.sx(this.px), this.sy(this.py) - 30 * u, e.gold ? '#c48a12' : '#7a4a22', e.gold ? 18 : 15, 1.5, 40);
-        this.wakeGold = 1;
-        if (!rm) this.sparks(this.px, this.py, 10);
-        break;
-      case 'thermal':
-        this.hud.float(TXT.thermal, ex, ey - 40 * u, '#8a3f16', 14, 1.3);
-        break;
-      case 'climbTop':
-        break;
-      case 'vistaSeen':
-        this.vistaT = 0;
-        this.vistaLand = this.land;
-        this.vistaLight = e.light;
-        break;
-      case 'vista': {
-        const v = VISTAS[e.index];
-        const title = !e.isNew ? t('card.vistaDup', { name: v.name, down: RULES.dupDown }) : e.via === 'craft' ? t('card.vistaCraft', { name: v.name }) : t('card.vista', { name: v.name });
-        this.hud.card(title, '', { rank: 1, dur: 3, vista: { land: v.land, light: v.light } });
-        break;
-      }
-      case 'feather':
-        this.hud.popFeather();
-        if (e.why === 'mission' || e.why === 'session') this.hud.float(t('fx.feather', { n: e.why === 'session' ? RULES.featherSession : RULES.featherMission }), this.L.scoreX - 50 * u, this.L.scoreY + 100 * u, '#8a5a34', 13, 1.4);
-        break;
-      case 'blockEnd': {
-        const b = e.block;
-        if (b.kind === 'warmup' || e.verdict === null) break;
-        if (e.verdict) {
-          this.hud.card(t('card.feather'), b.kind === 'wzn' ? t('card.feather.wzn') : t('card.feather.lekcja'), { rank: 0, dur: 2.8, icon: 'feather' });
-          if (b.kind === 'wzn') this.hud.card(t('card.strong'), '', { rank: 1, dur: 2.4, icon: 'thermal' });
-        } else {
-          this.hud.card(t('card.near', { share: Math.round(e.share * 100), need: Math.round(e.need * 100) }), '', { rank: 0, dur: 2.4, color: '#6d5a3a' });
-        }
-        break;
-      }
-      case 'blindReveal':
-        this.hud.card(t('blind.reveal', { n: e.sec }), '', { rank: 0, dur: 2.8, icon: 'thermal' });
-        break;
-      case 'blockStart': {
-        const b = e.block;
-        if (b.stretch) this.hud.card(t('block.stretch'), t('tip.stretch'), { rank: 2, dur: 2.6 });
-        break;
-      }
-      case 'mission': {
-        this.hud.card(t('card.mission', { name: missionById(e.id)?.name ?? e.id }), '', { rank: 1, dur: 2.8, icon: 'log' });
-        break;
-      }
-      case 'stage': {
-        const st = STAGES[e.stage - 1];
-        this.hud.card(t('card.stage', { name: st.name }), st.skill, { rank: 0, dur: 3.2, icon: 'stage' });
-        if (!rm) this.sparks(eg.x, eg.y, 18);
-        break;
-      }
-      case 'gift':
-        this.hud.card(t('card.gift', { n: e.feathers }), '', { rank: 2, dur: 2.4, icon: 'feather' });
-        break;
-      case 'wingbeat':
-        this.flapT = 0.45;
-        this.hud.float(TXT.beat, ex, ey - 40 * u, '#7a4a22', 14, 1.1);
-        this.dust(eg.x, eg.y - 0.02, rm ? 2 : 6, 'rgba(255,248,230,.8)');
-        break;
-      case 'finale':
-        this.finaleT = 0;
-        this.hud.clearCards();
-        break;
-      case 'nest':
-        this.nestT = 0;
-        if (!rm) this.sparks(eg.x, eg.y + 0.05, 16);
-        break;
-      default:
-        break;
-    }
-  }
-
-  private dust(x: number, y: number, n: number, color: string): void {
-    for (let i = 0; i < n; i++) {
-      const a = Math.PI + (Math.random() - 0.5) * 1.6;
-      const s = 0.25 + Math.random() * 0.35;
-      this.bit({ x, y, vx: Math.cos(a) * s, vy: Math.abs(Math.sin(a)) * s * 0.6 + 0.1, life: 0.6, max: 0.6, size: 2 + Math.random() * 2, color, g: -0.4 });
-    }
-  }
-
-  private sparks(x: number, y: number, n: number): void {
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * TAU, s = 0.2 + Math.random() * 0.4;
-      this.bit({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.9, max: 0.9, size: 1.5 + Math.random() * 1.8, color: '#ffd98a', g: 0.15 });
-    }
-  }
-
-  private bit(b: Bit): void {
-    if (this.bits.length >= 120) this.bits.shift();
-    this.bits.push(b);
-  }
-
-  // ── a frame ──────────────────────────────────────────────────────
-  update(dt: number, sim: WzlotSim): void {
-    this.clock += dt;
-    this.fadeIn = Math.max(0, this.fadeIn - dt * 1.5);
-    this.hud.update(dt, sim);
-    const e = sim.eaglet, T = sim.terrain, L = this.L;
-    // the land under the eaglet: each ridge is one of the four, in turn
-    const ridge = T.ridgeAt(e.x);
-    const idx = ridge?.index ?? 0;
-    this.land = LANDS[idx % LANDS.length];
-    if (ridge && idx !== this.ridgeSeen) {
-      if (this.ridgeSeen >= 0 && ridge.spec.daily) this.hud.card(TXT.daily, '', { rank: 2, dur: 2 });
-      this.ridgeSeen = idx;
-    }
-    const target = LAND_LOOK[this.land];
-    const k = this.landInit ? 1 - Math.exp(-dt / 1.4) : 1;
-    this.landInit = true;
-    for (const key of ['far', 'mid', 'near', 'ground', 'strata', 'green'] as const) mixInto(this.cur[key], this.cur[key], target[key], k);
-    // the camera: the ground under the eaglet (smoothed) rests at gy; a climb zooms out, then lifts the view
-    let gsum = 0;
-    for (let i = 0; i < 5; i++) gsum += T.height(e.x - 0.2 + i * 0.35);
-    const g = gsum / 5;
-    const fin = sim.finale;
-    const focusY = fin && sim.phase !== 'play' ? Math.max(e.y, fin.ny + 0.15) : e.y;
-    if (!this.camReady) {
-      this.ground = g;
-      this.camX = e.x;
-      this.camY = g;
-      this.camReady = true;
-    }
-    this.ground = approach(this.ground, g, dt, 0.45);
-    const room = L.gy - L.ceiling;
-    const alt = Math.max(0, focusY - this.ground);
-    const zMin = (L.w - L.ex) / (L.ahead * L.base);
-    const zWant = clamp(room / Math.max(1e-3, alt * L.base + 30), zMin, 1);
-    this.zoom = approach(this.zoom, zWant, dt, zWant < this.zoom ? 0.35 : 0.8);
-    const S = L.base * this.zoom;
-    const over = Math.max(0, alt * S - room) / S;
-    this.camY = approach(this.camY, this.ground + over, dt, over > 0 ? 0.1 : 0.3);
-    // never under the HUD: a fast climb pulls the view up with it
-    const hi = focusY - (L.gy - L.ceiling) / S;
-    if (this.camY < hi) this.camY = hi;
-    const xWant = fin && sim.phase !== 'play' ? e.x + (fin.nx - e.x) * 0.35 : e.x;
-    this.camX = approach(this.camX, xWant, dt, e.caught ? 0.25 : 0.08);
-    // the wings: folded while held, opening as the glide begins; a beat flaps them
-    this.fold = approach(this.fold, sim.held && e.mode !== 'climb' ? 1 : 0, dt, 0.06);
-    if (this.flapT > 0) this.flapT = Math.max(0, this.flapT - dt);
-    const climbing = e.mode === 'climb' || (sim.phase !== 'play' && this.nestT < 0);
-    this.flap = this.flapT > 0 ? this.flap + dt * 22 : climbing ? this.flap + dt * 7 : approach(this.flap, Math.round(this.flap / TAU) * TAU, dt, 0.15);
-    this.glow = approach(this.glow, sim.soaring ? 1 : 0, dt, 0.3);
-    this.wakeGold = Math.max(0, this.wakeGold - dt / Math.max(0.5, RULES.retDur));
-    this.bump = Math.max(0, this.bump - dt * 3);
-    this.cloudK = approach(this.cloudK, sim.parent === 'cloud' ? 1 : 0, dt, 0.6);
-    this.mist = approach(this.mist, sim.fog, dt, 0.4);
-    if (this.vistaT >= 0 && (this.vistaT += dt) > 3.6) this.vistaT = -1;
-    if (this.finaleT >= 0) this.finaleT += dt;
-    if (this.nestT >= 0) this.nestT += dt;
-    this.parentTick(dt, sim);
-    // a thermal ridden fades slowly (the climb is still in it)
-    for (const th of sim.thermals) {
-      const f = this.usedFade.get(th.id) ?? 1;
-      if (th.used && e.mode !== 'climb') this.usedFade.set(th.id, Math.max(0.25, f - dt / 2.5));
-      else if (!this.usedFade.has(th.id)) this.usedFade.set(th.id, 1);
-    }
-    if (this.usedFade.size > 12) for (const id of this.usedFade.keys()) if (!sim.thermals.some(th => th.id === id)) this.usedFade.delete(id);
-    // the trails: the eaglet's (soaring) and the parent's wake
-    this.trailT += dt;
-    if (this.trailT >= 1 / 40) {
-      this.trailT = 0;
-      this.trail.push(e.x, e.y);
-      this.wake.push(this.px - 0.06, this.py);
-    }
-    // world bits
-    let n = 0;
-    for (const b of this.bits) {
-      b.life -= dt;
-      if (b.life <= 0) continue;
-      b.vy -= b.g * dt;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      this.bits[n++] = b;
-    }
-    this.bits.length = n;
-  }
-
-  /** Where the parent flies for its mode; it eases there (and sits right under the eaglet in a carry). */
-  private parentTick(dt: number, sim: WzlotSim): void {
-    const e = sim.eaglet, T = sim.terrain, c = this.clock;
-    let tx = e.x + 3, ty = e.y + 2.4, ta = 0, tau = 0.6;
-    switch (sim.parent) {
-      case 'ahead': {
-        tx = e.x + 0.9;
-        ty = Math.max(e.y + 0.3, T.height(tx) + 0.45) + 0.04 * Math.sin(c * 1.3);
-        ta = 1;
-        tau = 0.45;
-        break;
-      }
-      case 'telegraph':
-        tx = e.x + 1.5;
-        ty = e.y + 0.85;
-        ta = 0.8;
-        tau = 0.9;
-        break;
-      case 'circling':
-        tx = e.x + 0.6 + 0.32 * Math.cos(c * 1.7);
-        ty = Math.max(e.y, T.height(e.x + 0.6) + 0.3) + 0.5 + 0.18 * Math.sin(c * 1.7);
-        ta = 1;
-        tau = 0.35;
+      case 'orb':
+        hud.float(t('fx.orb'), this.sx(e.x), this.sy(e.y) - 20 * u, '#cdeeff', 17);
+        this.particles.burst(this.sx(e.x), this.sy(e.y), 26, { color: '#d9f3ff', size: 2.5, speed: 200, shape: 'ring', g: 0, life: 0.6 });
+        this.shake.add(0.15);
         break;
       case 'cloud':
-        tx = e.x + 1.2;
-        ty = e.y + 1.1;
-        ta = 0;
+        hud.float(`${t('fx.cloud')} +${fmtInt(e.pts)}`, ex, ey + 30 * u, '#ffffff', 17);
+        this.particles.burst(ex, ey, 20, { color: 'rgba(255,255,255,.9)', size: 5, speed: 80, g: -10, drag: 2, life: 1 });
+        break;
+      case 'gran':
+        hud.say(t('fx.gran', { n: e.index + 1 }), e.sun > 0 ? t('fx.sun', { n: Math.round(e.sun) }) : `+${fmtInt(e.pts)}`, '#ffe3a0');
+        this.particles.burst(ex, ey, 30, { color: '#fff1c8', size: 3, speed: 160, shape: 'spark', g: 30, life: 0.9 });
+        if (e.sun > 0) this.particles.burst(this.sunPos.x, this.sunPos.y, 24, { color: '#ffd36b', size: 2.5, speed: 120, shape: 'spark', g: 0, life: 0.8 });
+        break;
+      case 'leap':
+        this.shake.add(0.2);
+        this.particles.burst(ex, ey, 24, { color: '#fff1c8', size: 2.5, speed: 150, angle: Math.PI, spread: 1.4, g: 80 });
+        break;
+      case 'leapDone':
+        hud.float(`${t('fx.leap')} +${fmtInt(e.pts)}`, ex, ey - 40 * u, gold, 19);
+        break;
+      case 'land':
+        if (e.pts > 0) hud.float(`${t('fx.air', { n: e.air.toFixed(1) })} +${fmtInt(e.pts)}`, ex, ey - 22 * u, '#fff6dc', 14, 1);
+        if (e.cls === 'smooth' || e.cls === 'near') this.particles.burst(ex, ey + 4, 8, { color: 'rgba(255,240,210,.9)', size: 2, speed: 70, angle: Math.PI, spread: 1, g: 100 });
         break;
       case 'catch':
-        if (e.mode === 'carry' || e.mode === 'catch') {
-          tx = e.x - (e.mode === 'catch' ? 0.05 : 0.01);
-          ty = e.y - 0.05;
-          ta = 1;
-          tau = e.mode === 'carry' ? 0.02 : 0.12;
-        } else {
-          tx = e.x + 0.4;
-          ty = e.y + 0.4;
-          ta = 1;
-        }
+        hud.float(t('fx.caught'), ex, ey - 30 * u, '#fff1d6', 17, 1.6);
         break;
-      case 'nest': {
-        const f = sim.finale;
-        if (this.nestT >= 0 && f) {
-          // over the nest with its wings spread
-          tx = f.nx + 0.02;
-          ty = f.ny + 0.42 + 0.02 * Math.sin(c * 2);
-        } else {
-          tx = e.x - 0.25;
-          ty = e.y + 0.18;
-        }
-        ta = 1;
-        tau = 0.35;
+      case 'thermalRise':
+        this.lastThermal = { x: e.thermal.x, y: e.thermal.base + 0.5 };
         break;
-      }
+      case 'thermal':
+        hud.float(t('fx.thermal'), ex, ey - 26 * u, '#ffd8a8', 16);
+        break;
+      case 'climbTop':
+        hud.float(`+${fmtInt(e.pts)}`, ex, ey - 20 * u, '#ffe7c0', 15);
+        break;
+      case 'nightfall':
+        this.shake.add(0.1);
+        break;
+      case 'blockEnd':
+        if (e.block.kind === 'push' && e.block.blind) hud.say(t('fx.blind', { n: Math.round(e.sunHeld) }), e.verdict ? `+${fmtInt(e.pts)}` : '', '#f3e7ff', 2.6);
+        else if (e.verdict && e.block.kind === 'push') hud.float(`${t('fx.pushPass')} +${RULES.pushSun} s`, this.sunPos.x, this.sunPos.y + 46 * u, '#ffe08a', 18, 1.8);
+        else if (e.verdict && e.block.kind === 'rest') hud.float(t('fx.restPass'), ex, ey - 40 * u, '#ffd8a8', 15, 1.6);
+        break;
+      case 'lesson':
+        hud.say(t('fx.lesson', { text: e.text }), '', '#e6f4c8', 2.6);
+        break;
+      case 'nest':
+        hud.say(t('fx.nest', { m: e.level }), t('tally.nest', { m: e.level }), '#ffe3a0', 2.8);
+        break;
+      case 'hatch':
+        hud.say(t('hatch', { n: e.n }), '', '#fff1d6', 2.8);
+        break;
       default:
         break;
     }
-    // never under the HUD: at most this high on the screen
-    const top = this.camY + (this.L.gy - this.L.ceiling - 12 * this.L.u) / this.S;
-    if (sim.parent !== 'catch') ty = Math.min(ty, top);
-    if (this.pAlpha < 0.02 && ta > 0) {
-      // it comes in from high up ahead
-      this.px = e.x + 1.8;
-      this.py = e.y + 1.2;
+  }
+
+  // ── the frame ──────────────────────────────────────────────────
+  update(dt: number, sim: WzlotSim): void {
+    this.time += dt;
+    const L = this.L, e = sim.eaglet, T = sim.terrain;
+    // the camera: fit the ground ahead and the eaglet, zoom out as it climbs
+    const ahead = (L.w - L.ex) / this.S;
+    const low = T.lowest(e.x - 0.5, e.x + Math.min(4, ahead));
+    const top = Math.max(e.y, T.height(e.x)) + 0.4;
+    const want = clamp(top - low + 0.25, 1.15, 3.8);
+    this.span = this.snap ? want : approach(this.span, want, dt, want > this.span ? 0.25 : 0.9);
+    const S = Math.min((L.bottom - L.top) / (this.span + 0.12), L.w / L.minWorldW);
+    this.S = this.snap ? S : approach(this.S, S, dt, 0.2);
+    this.camX = this.snap || Math.abs(e.x - this.camX) > 3 ? e.x : approach(this.camX, e.x, dt, 0.05);
+    const floor = low - 0.12;
+    this.floorY = this.snap ? floor : approach(this.floorY, floor, dt, 0.3);
+    this.snap = false;
+    // the trail
+    this.trailT += dt;
+    if (e.airborne || e.mode === 'ground') {
+      if (this.trailT > 0.025) {
+        this.trailT = 0;
+        const i = this.trailI * 3;
+        this.trail[i] = e.x;
+        this.trail[i + 1] = e.y;
+        this.trail[i + 2] = sim.fever ? 1 : 0;
+        this.trailI = (this.trailI + 1) % TRAIL;
+        this.trailN = Math.min(TRAIL, this.trailN + 1);
+      }
+    } else this.trailN = 0;
+    this.fold = approach(this.fold, sim.held && sim.dayPhase === 'fly' ? 1 : 0, dt, 0.05);
+    this.flash = Math.max(0, this.flash - dt * 2.5);
+    // the sky follows the day: afternoon to dusk, night at nightfall, dawn in the nest
+    const phase = sim.dayPhase === 'nest' ? 0.12 : sim.dayPhase === 'fly' ? 0.5 + 0.5 * sim.sunAt : 1.35;
+    this.skyPhase = approach(this.skyPhase, phase, dt, sim.dayPhase === 'nest' ? 0.6 : 1.2);
+    skyAt(this.skyPhase, this.sky);
+    // the sun's arc history
+    if (sim.dayPhase === 'fly') {
+      const b = Math.min(BINS - 1, Math.floor(this.sunQ(sim) * BINS));
+      const mark = sim.inPush && sim.sunFrac > 0.25 && !sim.blind ? 1 : sim.inRest ? 2 : 0;
+      this.track[b] = Math.max(this.track[b], mark) as -1 | 0 | 1 | 2;
     }
-    const ox = this.px;
-    this.px = approach(this.px, tx, dt, tau);
-    this.py = approach(this.py, ty, dt, tau);
-    if (sim.parent !== 'catch') this.py = Math.min(this.py, top);
-    this.pAlpha = approach(this.pAlpha, ta, dt, ta > this.pAlpha ? 0.4 : 0.6);
-    const vx = (this.px - ox) / Math.max(1e-4, dt);
-    if (sim.parent === 'circling') this.pFace = Math.sin(c * 1.7) > 0 ? -1 : 1;
-    else if (Math.abs(vx - (e.speed || 0)) > 0.05 || sim.parent !== 'catch') this.pFace = vx < -0.3 ? -1 : 1;
-    this.pFlap += dt * (sim.parent === 'circling' ? 4 : sim.parent === 'nest' && this.nestT >= 0 ? 3 : 2.4);
+    // Leon: beside the eaglet, a little ahead and above (on the nest's rim at home)
+    const home = sim.dayPhase === 'nest' || sim.dayPhase === 'tally';
+    const nx = this.sx(0), ny = this.sy(T.height(0));
+    const tx = home ? nx + 46 * L.u : this.sx(e.x) + 0.32 * this.S;
+    const ty = home ? ny - 18 * L.u : this.sy(e.y) - 0.24 * this.S + Math.sin(this.time * 2.3) * 5;
+    this.larkX = approach(this.larkX || tx, clamp(tx, 20, L.w - 20), dt, 0.18);
+    this.larkY = approach(this.larkY || ty, clamp(ty, L.top + 30, L.bottom - 20), dt, 0.18);
+    this.particles.update(dt);
+    this.hud.update(dt, sim);
+  }
+
+  private sunQ(sim: WzlotSim): number { return 0.5 + 0.5 * sim.sunAt; }
+
+  private land(sim: WzlotSim, x: number): LandLook {
+    const g = sim.terrain.granAt(x);
+    return LAND_LOOK[LANDS[(g?.index ?? 0) % LANDS.length]];
   }
 
   draw(sim: WzlotSim): void {
-    const { ctx } = this;
-    if (this.w < 2 || this.h < 2 || !this.started) return;
+    const ctx = this.ctx, L = this.L;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const rm = this.opts.reducedMotion;
-    const phase = this.finaleT >= 0 ? 1 + 0.35 * clamp(this.finaleT / 4.5) : sim.dayPhase;
-    const sky = skyAt(phase, this.sky);
+    const off = this.shake.offset(1 / 60, 10);
     ctx.save();
-    if (this.bump > 0 && !rm) ctx.translate(0, Math.sin(this.clock * 50) * this.bump * 2.5);
-    paintSky(ctx, -4, -4, this.w + 8, this.h + 8, phase, sky, this.clock);
-    this.drawSkyClouds(sky, rm);
-    this.drawRanges(sky);
-    this.drawThermals(sim, rm);
-    this.drawNest(sim);
-    this.drawGround(sim, sky);
-    this.drawNestTop(sim);
-    this.drawMist(sim);
-    this.drawWake(sim);
-    this.drawTrail();
-    // the parent under the eaglet in a carry (the eaglet rides on its wings), else above
-    const e = sim.eaglet;
-    const carrying = e.caught;
-    if (carrying) this.drawParent();
-    this.drawEaglet(sim);
-    if (!carrying) this.drawParent();
-    this.drawBits();
-    if (this.cloudK > 0.01) this.drawCloud();
-    if (this.vistaT >= 0) this.drawVistaGlow();
-    // the light of the hour over everything
-    if (sky.night > 0) {
-      ctx.fillStyle = `rgba(16,20,48,${(0.38 * sky.night).toFixed(3)})`;
-      ctx.fillRect(0, 0, this.w, this.h);
-    }
+    ctx.translate(off.x, off.y);
+    const night = this.sky.night;
+    paintSky(ctx, -12, -12, L.w + 24, L.h + 24, this.skyPhase, this.sky, this.time, false);
+    this.drawStars(ctx, night);
+    const g0 = sim.terrain.granAt(this.camX);
+    const land: Land = LANDS[(g0?.index ?? 0) % LANDS.length];
+    this.drawRanges(ctx, land);
+    this.drawSun(ctx, sim);
+    this.drawClouds(ctx);
+    this.drawThermals(ctx, sim);
+    this.drawGround(ctx, sim);
+    this.drawNest(ctx, sim);
+    this.drawPickups(ctx, sim);
+    this.drawTrail(ctx);
+    this.drawBirds(ctx, sim);
+    this.particles.draw(ctx);
+    this.drawNight(ctx, sim);
     ctx.restore();
-    this.drawGhostHand();
-    this.hud.draw(sim);
-    if (this.nestT >= 0) this.drawFinaleText();
-    if (this.fadeIn > 0) {
-      ctx.globalAlpha = ease.inOutSine(this.fadeIn);
-      ctx.fillStyle = '#1c1610';
-      ctx.fillRect(0, 0, this.w, this.h);
-      ctx.globalAlpha = 1;
+    if (this.flash > 0) {
+      ctx.fillStyle = `rgba(255,236,170,${(0.35 * this.flash).toFixed(3)})`;
+      ctx.fillRect(0, 0, L.w, L.h);
     }
+    this.hud.draw(ctx, sim, { x: this.larkX, y: this.larkY - 10 * L.u }, this.time);
   }
 
-  // ── the backdrop ─────────────────────────────────────────────────
-  private drawSkyClouds(sky: SkyLook, rm: boolean): void {
-    const { ctx, w } = this;
-    const drift = rm ? 0 : this.clock * 4;
-    for (let i = 0; i < 4; i++) {
-      const span = w + 300;
-      const x = ((hash(i + 40) * span - this.camX * 18 * (0.5 + 0.3 * i) - drift * (1 + i * 0.3)) % span + span) % span - 150;
-      const y = this.L.ceiling * 0.6 + hash(i + 41) * this.h * 0.3;
-      paintCloud(ctx, x, y, 140 + 80 * hash(i + 42), 40 + 20 * hash(i + 43), 0.5 * (1 - sky.night * 0.7), i + 1, '255,250,244');
-    }
-  }
-
-  /**
-   * Three ranges in the land's colours, hazed by the sky, each moving slower than the ground.  They
-   * are sized by the sky's room on the screen (not the zoom), so a climb never makes them loom.
-   */
-  private drawRanges(sky: SkyLook): void {
-    const { ctx, w, h } = this;
+  private drawStars(ctx: CanvasRenderingContext2D, night: number): void {
+    if (night <= 0.02) return;
     const L = this.L;
-    const seed = LANDS_SEED[this.land];
-    const room = L.gy - L.ceiling * 0.7;
-    const lift = Math.min(room * 0.5, (this.camY - this.ground) * this.S);   // a climb lifts the view: the ranges sink a little
-    const layers: [number, number, number, number, number, RGB, number][] = [
-      // parallax, density, foot above gy (share of the room), height (share), vertical follow, colour, haze
-      [0.06, 1.4, 0.34, 0.5, 0.25, this.cur.far, 0.5],
-      [0.16, 2.0, 0.17, 0.36, 0.45, this.cur.mid, 0.32],
-      [0.34, 2.8, 0.02, 0.26, 0.7, this.cur.near, 0.16],
-    ];
-    layers.forEach(([par, dens, foot, height, follow, color, haze], i) => {
-      const k = dens / L.base;
-      const x0 = this.camX * par * dens * 1.5 + i * 7.3 - L.ex * k;
-      const base = L.gy - foot * room + lift * follow;
-      mixInto(this.tmp, color, sky.mid, haze);
-      mixInto(this.tmp, this.tmp, sky.light, 0.12);
-      if (sky.night > 0) mixInto(this.tmp, this.tmp, [30, 32, 60], 0.5 * sky.night);
-      paintRange(ctx, w, x0, k, base, height * room, this.tmp, this.land, i as 0 | 1 | 2, seed + i * 10, h + 4);
-    });
-  }
-
-  /** A vista opens: the land's panorama glows in the sky for a moment. */
-  private drawVistaGlow(): void {
-    const { ctx, L } = this;
-    const k = this.vistaT;
-    const a = Math.min(1, k / 0.6, (3.6 - k) / 0.8);
-    if (a <= 0) return;
-    const u = L.u;
-    const vw = Math.min(this.w - 40, 420 * u), vh = vw * 0.36;
-    const x = (this.w - vw) / 2, y = L.cardY - vh / 2 - 10 * u;
-    ctx.save();
-    ctx.globalAlpha = a * 0.95;
-    ctx.fillStyle = 'rgba(43,34,25,.25)';
-    ctx.beginPath();
-    ctx.roundRect(x + 2, y + 3, vw, vh, 14);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.roundRect(x, y, vw, vh, 14);
-    ctx.clip();
-    paintVista(ctx, this.vistaLand, this.vistaLight, x, y, vw, vh);
-    ctx.restore();
-    ctx.save();
-    ctx.globalAlpha = a;
-    ctx.strokeStyle = 'rgba(251,243,228,.9)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.roundRect(x, y, vw, vh, 14);
-    ctx.stroke();
-    // its caption on a paper strip under the frame
-    ctx.font = font(650, 14 * u, SANS);
-    const tw = ctx.measureText(TXT.vista).width;
-    const pw = tw + 24 * u, ph = 26 * u;
-    ctx.fillStyle = 'rgba(251,243,228,.94)';
-    ctx.beginPath();
-    ctx.roundRect(this.w / 2 - pw / 2, y + vh - ph / 2, pw, ph, ph / 2);
-    ctx.fill();
-    ctx.fillStyle = '#7a4a22';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(TXT.vista, this.w / 2, y + vh + 0.5);
-    ctx.restore();
-  }
-
-  // ── the ground ──────────────────────────────────────────────────
-  private drawGround(sim: WzlotSim, sky: SkyLook): void {
-    const { ctx, w, h } = this;
-    const T = sim.terrain, S = this.S;
-    const end = T.end;
-    const ground = this.cur.ground, strata = this.cur.strata;
-    mixInto(this.tmp, ground, sky.light, 0.18);
-    if (sky.night > 0) mixInto(this.tmp, this.tmp, [40, 38, 70], 0.45 * sky.night);
-    const top = rgb(this.tmp);
-    const g = ctx.createLinearGradient(0, this.sy(this.ground + 0.3), 0, this.sy(this.ground - 1.2));
-    g.addColorStop(0, top);
-    mixInto(this.tmp, strata, [60, 34, 20], 0.35);
-    if (sky.night > 0) mixInto(this.tmp, this.tmp, [30, 28, 56], 0.5 * sky.night);
-    g.addColorStop(1, rgb(this.tmp));
-    const step = 4;
-    const heights = this.heights(sim, step);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.moveTo(-step, h + 4);
-    for (let i = 0; i < heights.length; i++) ctx.lineTo(i * step - step, heights[i]);
-    ctx.lineTo(w + step * 2, h + 4);
-    ctx.closePath();
-    ctx.fill();
-    // strata: lines following the slope, deeper and fainter
-    ctx.lineWidth = 1.5;
-    for (let s = 1; s <= 3; s++) {
-      ctx.strokeStyle = rgb(strata, 0.42 - s * 0.08);
-      ctx.beginPath();
-      const off = s * 0.07 * S;
-      for (let i = 0; i < heights.length; i++) ctx.lineTo(i * step - step, heights[i] + off + Math.sin(i * 0.09 + s) * 1.5);
-      ctx.stroke();
-    }
-    // the sunlit rim
-    mixInto(this.tmp, ground, [255, 244, 220], 0.5);
-    ctx.strokeStyle = rgb(this.tmp, sky.night > 0 ? 0.9 - 0.6 * sky.night : 0.9);
-    ctx.lineWidth = Math.max(2, S * 0.008);
-    ctx.beginPath();
-    for (let i = 0; i < heights.length; i++) ctx.lineTo(i * step - step, heights[i]);
-    ctx.stroke();
-    // the wadis: shadow in the gorge; the crags: a cairn of stones
-    for (const r of T.ridges) {
-      const x0 = this.sx(r.wadiX0), x1 = this.sx(r.wadiX1);
-      if (x1 < -10 || x0 > w + 10) continue;
-      if (!r.spec.gentle) {
-        // the gorge's shaded walls: a band under its surface, fading down
-        const band = S * 0.3;
-        const gg = ctx.createLinearGradient(0, this.sy(r.rimY), 0, this.sy(r.rimY) + S * 0.9);
-        gg.addColorStop(0, 'rgba(60,32,22,.4)');
-        gg.addColorStop(1, 'rgba(60,32,22,0)');
-        ctx.fillStyle = gg;
-        ctx.beginPath();
-        for (let x = x0; x <= x1 + 0.5; x += step) ctx.lineTo(x, this.sy(T.height(r.wadiX0 + (x - x0) / S)));
-        for (let x = x1; x >= x0 - 0.5; x -= step) ctx.lineTo(x, this.sy(T.height(r.wadiX0 + (x - x0) / S)) + band);
-        ctx.closePath();
-        ctx.fill();
-      }
-      const cx = this.sx(r.crag), cy = this.sy(r.cragY);
-      if (cx > -20 && cx < w + 20) this.cairn(cx - S * 0.05, cy, S * 0.05, r.spec.daily);
-    }
-    // a few tufts in the green lands' troughs
-    const green = this.cur.green;
-    if (this.land === 'jordan' || this.land === 'hermon' || this.land === 'wadi') {
-      ctx.strokeStyle = rgb(green, 0.85);
-      ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      const left = this.camX - this.L.ex / S, right = left + w / S;
-      for (const r of T.ridges) for (const tx of r.troughs) {
-        if (tx < left - 0.1 || tx > right + 0.1 || tx > end) continue;
-        const px = this.sx(tx), py = this.sy(T.height(tx));
-        for (let j = 0; j < 5; j++) {
-          const ox = (hash(tx * 13 + j) - 0.5) * S * 0.12;
-          const hh = S * (0.02 + 0.02 * hash(tx * 7 + j));
-          ctx.moveTo(px + ox, py + 1);
-          ctx.lineTo(px + ox + hh * 0.3, py - hh);
-        }
-      }
-      ctx.stroke();
-    }
-  }
-
-  private heightsBuf = new Float32Array(0);
-  /** The ground's screen y every `step` px across the screen (one lookup per column, reused). */
-  private heights(sim: WzlotSim, step: number): Float32Array {
-    const n = Math.ceil(this.w / step) + 4;
-    if (this.heightsBuf.length !== n) this.heightsBuf = new Float32Array(n);
-    const T = sim.terrain, S = this.S, end = T.end;
-    for (let i = 0; i < n; i++) {
-      const px = i * step - step;
-      const wx = Math.min(end, this.camX + (px - this.L.ex) / S);
-      this.heightsBuf[i] = this.sy(T.height(wx));
-    }
-    return this.heightsBuf;
-  }
-
-  private cairn(x: number, y: number, s: number, daily: boolean): void {
-    const { ctx } = this;
-    ctx.fillStyle = '#8f7356';
-    for (let i = 0; i < 3; i++) {
-      const r = s * (0.42 - i * 0.1);
-      ctx.beginPath();
-      ctx.ellipse(x, y - s * (0.25 + i * 0.55) * 0.7, r, r * 0.7, 0, 0, TAU);
-      ctx.fill();
-    }
-    if (daily) {
-      // the day's ridge: a pale ribbon on its cairn
-      ctx.strokeStyle = C.gold;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(x, y - s * 1.5);
-      ctx.quadraticCurveTo(x + s * 0.6, y - s * 1.9, x + s * 1.2, y - s * 1.6);
-      ctx.stroke();
-    }
-  }
-
-  // ── thermals, the nest, the mist ────────────────────────────────
-  private drawThermals(sim: WzlotSim, rm: boolean): void {
-    const S = this.S;
-    for (const th of sim.thermals) {
-      const x = this.sx(th.x);
-      if (x < -S || x > this.w + S) continue;
-      const k = sim.strengthOf(th);
-      const a = clamp(th.age / 1.2) * (this.usedFade.get(th.id) ?? 1);
-      const floor = this.sy(th.base - 0.05), top = this.sy(th.base + 1.1 + 2.4 * k);
-      paintThermal(this.ctx, x, floor, top, RULES.thermalHalf * S, k, this.clock + th.id, a, rm);
-    }
-  }
-
-  private drawNest(sim: WzlotSim): void {
-    const f = sim.finale;
-    if (!f) return;
-    const S = this.S, T = sim.terrain;
-    const x = this.sx(f.nx);
-    if (x < -S || x > this.w + S) return;
-    const foot = this.sy(T.height(f.nx) - 0.12), top = this.sy(f.ny - 0.03);
-    paintSpire(this.ctx, x, foot, top, S * 0.12, this.cur.near, this.cur.strata);
-  }
-
-  /** The nest on its spire, over the ground (drawn after it). */
-  private drawNestTop(sim: WzlotSim): void {
-    const f = sim.finale;
-    if (!f) return;
-    const S = this.S, x = this.sx(f.nx);
-    if (x < -S || x > this.w + S) return;
-    paintNest(this.ctx, x, this.sy(f.ny - 0.03) + S * 0.005, S * 0.2);
-  }
-
-  private drawMist(sim: WzlotSim): void {
-    if (this.mist < 0.02) return;
-    const { ctx } = this;
-    const step = 6;
-    const heights = this.heights(sim, step);
-    const fogY = this.sy(this.ground + 0.14);
-    const a = this.mist;
-    ctx.save();
-    const g = ctx.createLinearGradient(0, fogY - 30, 0, fogY + this.S * 0.3);
-    g.addColorStop(0, 'rgba(244,240,234,0)');
-    g.addColorStop(0.25, `rgba(244,240,234,${(0.7 * a).toFixed(3)})`);
-    g.addColorStop(1, `rgba(236,232,226,${(0.85 * a).toFixed(3)})`);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.moveTo(-step, Math.min(fogY - 30, heights[0]));
-    for (let i = 0; i < heights.length; i++) ctx.lineTo(i * step - step, Math.min(fogY - 30 + Math.sin(i * 0.15 + this.clock * 0.6) * 4, heights[i]));
-    for (let i = heights.length - 1; i >= 0; i--) ctx.lineTo(i * step - step, heights[i]);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
-  // ── the birds ───────────────────────────────────────────────────
-  private drawWake(sim: WzlotSim): void {
-    if (this.pAlpha < 0.05 || this.wake.n < 3) return;
-    const sighted = sim.sighted && sim.parent === 'ahead';
-    const k = clamp(sim.follow / RULES.stepMax);
-    const a = this.pAlpha * (sighted ? 0.18 + 0.55 * k : 0.08) + 0.5 * this.wakeGold;
-    if (a < 0.03) return;
-    this.ribbon(this.wake, `rgba(255,214,120,${Math.min(0.9, a).toFixed(3)})`, (2 + 4 * k + 3 * this.wakeGold) * this.L.u);
-  }
-
-  private drawTrail(): void {
-    if (this.glow < 0.05 || this.trail.n < 3) return;
-    this.ribbon(this.trail, `rgba(255,220,140,${(0.7 * this.glow).toFixed(3)})`, 3 * this.L.u);
-  }
-
-  /** A fading ribbon through a ring of world points, newest brightest. */
-  private ribbon(r: Ring, color: string, width: number): void {
-    const { ctx } = this;
-    const n = r.n;
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineCap = 'round';
-    for (let i = 1; i < n; i++) {
-      ctx.globalAlpha = 1 - i / n;
-      ctx.lineWidth = width * (1 - i / n) + 0.5;
-      ctx.beginPath();
-      ctx.moveTo(this.sx(r.x(i - 1)), this.sy(r.y(i - 1)));
-      ctx.lineTo(this.sx(r.x(i)), this.sy(r.y(i)));
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  private drawEaglet(sim: WzlotSim): void {
-    const e = sim.eaglet, S = this.S;
-    const size = Math.max(30, S * 0.13);
-    const p = this.pose;
-    p.stage = sim.stage;
-    p.fold = e.mode === 'ground' && !sim.held ? Math.max(this.fold, 0.55) : this.fold;
-    p.spread = clamp(sim.wShown, 0.4, 1);
-    p.flap = this.flap;
-    p.glow = this.glow;
-    const nested = this.nestT >= 0;
-    if (nested) p.fold = 1;
-    const x = this.sx(e.x), y = this.sy(e.y) - size * (nested ? 0.12 : 0.28);
-    // a dive's speed lines
-    if (sim.held && e.speed > 2 && !this.opts.reducedMotion) {
-      const { ctx } = this;
-      ctx.strokeStyle = 'rgba(255,250,240,.55)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      for (let i = 0; i < 3; i++) {
-        const oy = (i - 1) * size * 0.25, len = size * (0.8 + 0.4 * hash(i + Math.floor(this.clock * 12)));
-        ctx.moveTo(x - size * 0.7, y + oy);
-        ctx.lineTo(x - size * 0.7 - len, y + oy + Math.sin(e.angle) * len);
-      }
-      ctx.stroke();
-    }
-    paintEaglet(this.ctx, x, y, size, e.angle, p);
-  }
-
-  private drawParent(): void {
-    if (this.pAlpha < 0.02) return;
-    const S = this.S;
-    const size = Math.max(38, S * 0.18);
-    paintEagle(this.ctx, this.sx(this.px), this.sy(this.py), size, 0.05 * Math.sin(this.clock), this.pFlap, this.pFace, this.pAlpha);
-  }
-
-  private drawBits(): void {
-    const { ctx } = this;
-    for (const b of this.bits) {
-      ctx.globalAlpha = Math.max(0, b.life / b.max);
-      ctx.fillStyle = b.color;
-      ctx.beginPath();
-      ctx.arc(this.sx(b.x), this.sy(b.y), b.size, 0, TAU);
-      ctx.fill();
+    ctx.fillStyle = '#fff8e6';
+    for (let i = 0; i < 60; i++) {
+      ctx.globalAlpha = night * (0.3 + 0.5 * hash(i * 3 + 3)) * (0.75 + 0.25 * Math.sin(this.time * 1.7 + i));
+      ctx.fillRect(hash(i * 3 + 1) * L.w, hash(i * 3 + 2) * L.h * 0.6, 1.5, 1.5);
     }
     ctx.globalAlpha = 1;
   }
 
-  /** The blind block's cloud: a soft veil over the sky, the parent somewhere inside it. */
-  private drawCloud(): void {
-    const { ctx, w, L } = this;
-    const a = this.cloudK;
-    const g = ctx.createLinearGradient(0, 0, 0, L.gy);
-    g.addColorStop(0, `rgba(236,238,242,${(0.75 * a).toFixed(3)})`);
-    g.addColorStop(0.7, `rgba(236,238,242,${(0.3 * a).toFixed(3)})`);
-    g.addColorStop(1, 'rgba(236,238,242,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, w, L.gy);
-    const drift = this.opts.reducedMotion ? 0 : Math.sin(this.clock * 0.2) * 20;
-    for (let i = 0; i < 3; i++) paintCloud(ctx, w * (0.35 + i * 0.3) + drift * (i - 1), L.ceiling + 30 * L.u + i * 18, w * 0.45, 90 * L.u, a * 0.85, i + 7, '246,246,248');
+  private shade(c: RGB, haze: number): RGB {
+    mixInto(this.tmp, c, this.sky.mid, haze);
+    mixInto(this.tmp, this.tmp, this.sky.light, 0.12);
+    return mixInto(this.tmp, this.tmp, NIGHT, 0.6 * this.sky.night);
   }
 
-  private drawGhostHand(): void {
-    const a = this.hud.hintAlpha;
-    if (a < 0.02) return;
-    const { ctx, L } = this;
-    const k = (this.clock % 1.6) / 1.6;
-    const press = k < 0.5;
-    const x = L.w / 2, y = L.h * 0.6;
-    ctx.save();
-    ctx.globalAlpha = a * 0.85;
-    ctx.fillStyle = 'rgba(251,243,228,.9)';
-    ctx.strokeStyle = 'rgba(43,34,25,.6)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x, y, (press ? 16 : 22) * L.u, 0, TAU);
-    ctx.fill();
-    ctx.stroke();
-    if (press) {
-      ctx.globalAlpha = a * (1 - k * 2) * 0.6;
+  private drawRanges(ctx: CanvasRenderingContext2D, land: Land): void {
+    const L = this.L, Lk = LAND_LOOK[land], seed = LANDS_SEED[land];
+    const unit = Math.max(160, Math.min(L.h, L.w * 0.8));
+    const base = L.bottom - (L.bottom - L.top) * 0.18;
+    const x = this.camX;
+    paintRange(ctx, L.w, x * 0.06, 1.5 / unit, base - unit * 0.1, unit * 0.34, this.shade(Lk.far, 0.5), land, 0, seed, L.h + 4);
+    paintRange(ctx, L.w, 3 + x * 0.14, 2 / unit, base + unit * 0.02, unit * 0.3, this.shade(Lk.mid, 0.32), land, 1, seed + 10, L.h + 4);
+    paintRange(ctx, L.w, 6 + x * 0.3, 2.8 / unit, base + unit * 0.14, unit * 0.22, this.shade(Lk.near, 0.18), land, 2, seed + 20, L.h + 4);
+  }
+
+  /** The sun on its arc, the arc's history, the night's end of it; the band's gauge on the sun. */
+  private drawSun(ctx: CanvasRenderingContext2D, sim: WzlotSim): void {
+    const L = this.L, u = L.u;
+    const at = (q: number) => ({ x: L.arcX0 + (L.arcX1 - L.arcX0) * q, y: L.arcTop + L.arcH * (1 - Math.sin(Math.PI * q)) });
+    // the track from noon to the night
+    ctx.lineWidth = 3 * u;
+    ctx.lineCap = 'round';
+    for (let b = 0; b < BINS; b++) {
+      const q0 = 0.5 + (0.5 * b) / BINS, q1 = 0.5 + (0.5 * (b + 1)) / BINS;
+      const a = at(q0), c = at(q1);
+      const m = this.track[b];
+      ctx.strokeStyle = m === 1 ? 'rgba(255,200,70,.95)' : m === 2 ? 'rgba(140,200,235,.8)' : m === 0 ? 'rgba(255,250,235,.55)' : 'rgba(255,250,235,.22)';
+      ctx.setLineDash(m < 0 ? [2, 6] : []);
       ctx.beginPath();
-      ctx.arc(x, y, (22 + 30 * k) * L.u, 0, TAU);
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(c.x, c.y);
       ctx.stroke();
     }
-    ctx.restore();
-  }
-
-  private drawFinaleText(): void {
-    const { ctx, w, L } = this;
-    const k = clamp((this.nestT - 0.3) / 0.9);
-    if (k <= 0) return;
-    const u = L.u;
-    ctx.save();
-    ctx.globalAlpha = k;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    let size = 34 * u;
-    ctx.font = font(500, size, SERIF, true);
-    const tw = ctx.measureText(TXT.finale).width;
-    if (tw > w - 40) {
-      size = Math.max(16, (size * (w - 40)) / tw);
-      ctx.font = font(500, size, SERIF, true);
+    ctx.setLineDash([]);
+    ctx.lineCap = 'butt';
+    // the night waits at the arc's end
+    const n = at(1);
+    ctx.fillStyle = 'rgba(30,34,70,.75)';
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, 9 * u, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#f6edd2';
+    ctx.beginPath();
+    ctx.arc(n.x - 2 * u, n.y, 5 * u, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(30,34,70,1)';
+    ctx.beginPath();
+    ctx.arc(n.x + 0.5 * u, n.y - 1.5 * u, 4.5 * u, 0, TAU);
+    ctx.fill();
+    if (sim.dayPhase === 'tally' || sim.dayPhase === 'dusk') {
+      this.sunPos = at(1);
+      return;
     }
-    const y = L.tall ? L.h * 0.34 : L.h * 0.3;
-    ctx.lineWidth = 4;
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(20,20,46,.45)';
-    ctx.strokeText(TXT.finale, w / 2, y);
-    ctx.fillStyle = '#fff8ea';
-    ctx.fillText(TXT.finale, w / 2, y);
-    ctx.font = font(650, 14 * u, SANS);
-    ctx.fillStyle = 'rgba(255,248,234,.92)';
-    ctx.fillText(TXT.finaleSub, w / 2, y + size * 0.95);
-    ctx.restore();
+    const p = at(this.sunQ(sim));
+    this.sunPos = p;
+    const meter = sim.inPush ? sim.meter() : null;
+    const charge = sim.inPush && !sim.blind && !sim.fever ? sim.charge : 0;
+    paintSunGauge(ctx, p.x, p.y, 13 * u, meter, charge, sim.blind, this.time, mix(this.sky.sun, [255, 190, 90], 0.35 * sim.sunAt));
+    if (sim.blind) {
+      ctx.font = `700 ${Math.round(11 * u)}px "Manrope Variable", Manrope, system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(80,70,100,.9)';
+      ctx.fillText(t('fx.veil'), p.x, p.y + 4);
+    }
   }
+
+  private drawClouds(ctx: CanvasRenderingContext2D): void {
+    const L = this.L, y = this.sy(RULES.cloudY);
+    if (y < L.top - 80 || y > L.bottom) return;
+    const step = 0.9, first = Math.floor(this.wx(-60) / step);
+    for (let i = first; i < first + 40; i++) {
+      const wx = i * step + hash(i) * 0.4;
+      const px = this.sx(wx);
+      if (px > L.w + 80) break;
+      const k = 0.7 + 0.5 * hash(i + 9);
+      paintCloud(ctx, px, y - 0.04 * this.S + hash(i + 3) * 0.06 * this.S, 0.6 * k * this.S, 0.2 * k * this.S, 0.85 * (1 - 0.6 * this.sky.night), i);
+    }
+  }
+
+  private drawThermals(ctx: CanvasRenderingContext2D, sim: WzlotSim): void {
+    for (const th of sim.thermals) {
+      const x = this.sx(th.x);
+      if (x < -60 || x > this.L.w + 60) continue;
+      const floor = this.sy(th.base), top = this.sy(th.base + 1 + 1.6 * sim.T);
+      paintThermal(ctx, x, floor, top, RULES.thermalHalf * this.S, sim.T, this.time, clamp(th.age / 0.8) * (th.used ? 0.45 : 1), this.opts.reducedMotion);
+    }
+  }
+
+  private drawGround(ctx: CanvasRenderingContext2D, sim: WzlotSim): void {
+    const L = this.L, T = sim.terrain;
+    const x0 = this.wx(-4), x1 = this.wx(L.w + 4);
+    const step = 4 / this.S;
+    for (const g of T.granie) {
+      const a = Math.max(x0, g.x0), b = Math.min(x1, g.gapX1);
+      if (a >= b) continue;
+      const lk = LAND_LOOK[LANDS[g.index % LANDS.length]];
+      const ground = this.shade(lk.ground, 0.04).slice() as RGB;
+      const strata = this.shade(lk.strata, 0.04).slice() as RGB;
+      ctx.fillStyle = rgb(ground);
+      ctx.beginPath();
+      ctx.moveTo(this.sx(a), L.h + 4);
+      for (let x = a; x <= b + step; x += step) ctx.lineTo(this.sx(Math.min(x, b)), this.sy(T.height(Math.min(x, b))));
+      ctx.lineTo(this.sx(b), L.h + 4);
+      ctx.closePath();
+      ctx.fill();
+      // strata following the curve, Tiny Wings' stripes in sandstone
+      for (let k = 1; k <= 4; k++) {
+        const d = 0.05 * k + 0.02 * k * k;
+        ctx.strokeStyle = rgb(strata, 0.5 - k * 0.07);
+        ctx.lineWidth = Math.max(1.5, (0.022 - 0.003 * k) * this.S);
+        ctx.beginPath();
+        for (let x = a; x <= b + step; x += step * 2) {
+          const xx = Math.min(x, b);
+          ctx.lineTo(this.sx(xx), this.sy(T.height(xx) - d));
+        }
+        ctx.stroke();
+      }
+      // the sunlit rim and its grass
+      ctx.strokeStyle = rgb(mix(ground, [255, 246, 222], 0.55));
+      ctx.lineWidth = Math.max(2, 0.012 * this.S);
+      ctx.beginPath();
+      for (let x = a; x <= b + step; x += step) {
+        const xx = Math.min(x, b);
+        ctx.lineTo(this.sx(xx), this.sy(T.height(xx)) + 1);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = rgb(this.shade(lk.green, 0.05), 0.85);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const gs = 0.11;
+      for (let x = Math.ceil(a / gs) * gs; x < b; x += gs) {
+        if (hash(Math.round(x / gs)) < 0.55 || T.slope(x) > 0.5) continue;
+        const px = this.sx(x), py = this.sy(T.height(x));
+        const hh = (4 + 5 * hash(Math.round(x / gs) + 3)) * this.L.u;
+        ctx.moveTo(px, py);
+        ctx.lineTo(px - 2, py - hh);
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + 3, py - hh * 0.8);
+      }
+      ctx.stroke();
+      // the crag's flag of light: the leap starts here
+      const cx = this.sx(g.crag), cy = this.sy(g.cragY);
+      if (cx > -20 && cx < L.w + 20) {
+        ctx.strokeStyle = 'rgba(94,61,34,.85)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx, cy - 0.16 * this.S);
+        ctx.stroke();
+        ctx.fillStyle = '#ffcf5a';
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - 0.16 * this.S);
+        ctx.lineTo(cx + 0.09 * this.S, cy - 0.13 * this.S + Math.sin(this.time * 5) * 2);
+        ctx.lineTo(cx, cy - 0.1 * this.S);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    // the gorges' mist: soft puffs low in the gap
+    for (const g of T.granie) {
+      const a = this.sx(g.gapX0), b = this.sx(g.gapX1);
+      if (b < -60 || a > L.w + 60) continue;
+      const y = this.sy(g.catchY) + 0.08 * this.S, w = b - a;
+      const drift = Math.sin(this.time * 0.4 + g.index) * 0.04 * w;
+      for (let i = 0; i < 3; i++) paintCloud(ctx, a + w * (0.25 + 0.25 * i) + drift, y + (i % 2) * 0.05 * this.S, w * 0.55, 0.22 * this.S, 0.75 * (1 - 0.5 * this.sky.night), g.index * 7 + i, '250,246,240');
+    }
+  }
+
+  private drawNest(ctx: CanvasRenderingContext2D, sim: WzlotSim): void {
+    const x = this.sx(0), y = this.sy(sim.terrain.height(0));
+    if (x < -120 || x > this.L.w + 120) return;
+    const p = sim.p;
+    // the nest's crag: a rocky spire under it, down to the floor of the screen
+    const lk = LAND_LOOK[LANDS[0]];
+    paintSpire(ctx, x - 0.12 * this.S, this.L.h + 4, y + 0.02 * this.S, 0.3 * this.S, this.shade(lk.near, 0.05).slice() as RGB, this.shade(lk.strata, 0.05).slice() as RGB);
+    paintNestFamily(ctx, x - 0.02 * this.S, y + 0.01 * this.S, Math.max(46, 0.32 * this.S), p.nest, p.eggs, p.chicks, this.time);
+  }
+
+  private drawPickups(ctx: CanvasRenderingContext2D, sim: WzlotSim): void {
+    const L = this.L, r = Math.max(4, 0.022 * this.S);
+    for (const g of sim.terrain.granie) {
+      if (this.sx(g.gapX1) < -20 || this.sx(g.x0) > L.w + 20) continue;
+      for (const c of g.coins) {
+        if (c.taken) continue;
+        const px = this.sx(c.x);
+        if (px < -10 || px > L.w + 10) continue;
+        paintCoin(ctx, px, this.sy(c.y), r, this.time, 1);
+      }
+      for (const o of g.orbs) {
+        if (o.taken) continue;
+        const px = this.sx(o.x);
+        if (px < -30 || px > L.w + 30) continue;
+        paintOrb(ctx, px, this.sy(o.y), Math.max(10, 0.06 * this.S), this.time);
+      }
+    }
+  }
+
+  private drawTrail(ctx: CanvasRenderingContext2D): void {
+    const n = this.trailN;
+    if (n < 2) return;
+    ctx.lineCap = 'round';
+    for (let k = 1; k < n; k++) {
+      const i0 = ((this.trailI - n + k - 1 + TRAIL) % TRAIL) * 3, i1 = ((this.trailI - n + k + TRAIL) % TRAIL) * 3;
+      const a = k / n;
+      const fever = this.trail[i1 + 2] > 0;
+      ctx.strokeStyle = fever ? `rgba(255,${190 + Math.round(40 * Math.sin(k * 0.5 + this.time * 8))},70,${(0.9 * a).toFixed(3)})` : `rgba(255,252,240,${(0.45 * a).toFixed(3)})`;
+      ctx.lineWidth = (fever ? 7 : 3) * a * this.L.u;
+      ctx.beginPath();
+      ctx.moveTo(this.sx(this.trail[i0]), this.sy(this.trail[i0 + 1]));
+      ctx.lineTo(this.sx(this.trail[i1]), this.sy(this.trail[i1 + 1]));
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+  }
+
+  private drawBirds(ctx: CanvasRenderingContext2D, sim: WzlotSim): void {
+    const L = this.L, e = sim.eaglet;
+    const size = Math.max(26, 0.13 * this.S);
+    const x = this.sx(e.x), y = this.sy(e.y);
+    // the mother: under the eaglet in a catch, carrying it
+    if (e.caught) {
+      const k = e.mode === 'catch' ? clamp(e.catchT / RULES.swoop) : 1;
+      paintEagle(ctx, x - (1 - k) * L.w * 0.4, y + size * 0.5 - (1 - k) * L.h * 0.3, size * 2, 0.05, this.time * 6, 1, 1);
+    }
+    const pose = this.pose;
+    pose.stage = sim.plumage;
+    pose.fold = sim.dayPhase === 'dusk' || e.mode === 'nest' ? 0.9 : this.fold;
+    pose.spread = e.mode === 'climb' ? 0.95 : 0.7;
+    pose.flap = e.mode === 'climb' ? this.time * 10 : 0;
+    pose.glow = sim.fever ? 0.7 + 0.3 * Math.sin(this.time * 10) : 0;
+    const lift = e.mode === 'ground' || e.mode === 'nest' ? size * 0.22 : 0;
+    if (sim.fever) {
+      const g = ctx.createRadialGradient(x, y - lift, 0, x, y - lift, size * 1.6);
+      g.addColorStop(0, 'rgba(255,214,110,.5)');
+      g.addColorStop(1, 'rgba(255,214,110,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x - size * 2, y - lift - size * 2, size * 4, size * 4);
+    }
+    const squash = 1 + 0.12 * this.fold;
+    ctx.save();
+    ctx.translate(x, y - lift);
+    ctx.scale(squash, 1 / squash);
+    paintEaglet(ctx, 0, 0, size, e.mode === 'nest' ? 0 : e.angle, pose);
+    ctx.restore();
+    if (sim.dayPhase === 'dusk' || (e.mode === 'nest' && sim.dayPhase === 'tally')) {
+      ctx.font = `italic 700 ${Math.round(14 * L.u)}px "Fraunces Variable", Fraunces, Georgia, serif`;
+      ctx.fillStyle = 'rgba(255,248,230,.9)';
+      ctx.textAlign = 'center';
+      for (let i = 0; i < 3; i++) {
+        const k = (this.time * 0.6 + i / 3) % 1;
+        ctx.globalAlpha = Math.sin(Math.PI * k);
+        ctx.fillText('z', x + size * 0.4 + k * 18, y - lift - size * 0.5 - k * 26);
+      }
+      ctx.globalAlpha = 1;
+    }
+    // Leon
+    const home = sim.dayPhase === 'nest' || sim.dayPhase === 'tally';
+    paintLark(ctx, this.larkX, this.larkY, Math.max(18, 0.075 * this.S), this.time * 16, home);
+  }
+
+  /** The night: it creeps in from the left as the day runs out, and covers all at nightfall. */
+  private drawNight(ctx: CanvasRenderingContext2D, sim: WzlotSim): void {
+    const L = this.L;
+    if (sim.dayPhase !== 'fly') return;
+    const k = clamp(1 - sim.dayLeft / 20);
+    if (k <= 0) return;
+    const w = L.w * (0.15 + 0.55 * k);
+    const g = ctx.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, `rgba(18,20,48,${(0.85 * k).toFixed(3)})`);
+    g.addColorStop(1, 'rgba(18,20,48,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(-12, -12, w + 12, L.h + 24);
+    ctx.fillStyle = '#fff8e6';
+    for (let i = 0; i < 18; i++) {
+      const px = hash(i * 5 + 1) * w * 0.8;
+      ctx.globalAlpha = k * (1 - px / w) * (0.5 + 0.5 * Math.sin(this.time * 2 + i));
+      ctx.fillRect(px, L.top + hash(i * 5 + 2) * (L.bottom - L.top) * 0.6, 1.6, 1.6);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** The hud reads Layout; the index reads the canvas band. */
+  get layout(): Layout { return this.L; }
+  get top(): number { return this.hudTop; }
 }
 
-/** The last few world points of a trail; index 0 is the newest. */
-class Ring {
-  private readonly buf: Float32Array;
-  private head = 0;
-  n = 0;
-  constructor(private readonly cap: number) { this.buf = new Float32Array(cap * 2); }
-  push(x: number, y: number): void {
-    this.buf[this.head * 2] = x;
-    this.buf[this.head * 2 + 1] = y;
-    this.head = (this.head + 1) % this.cap;
-    this.n = Math.min(this.cap, this.n + 1);
-  }
-  private at(i: number): number { return ((this.head - 1 - i) % this.cap + this.cap) % this.cap; }
-  x(i: number): number { return this.buf[this.at(i) * 2]; }
-  y(i: number): number { return this.buf[this.at(i) * 2 + 1]; }
-}
+export { C };

@@ -1,13 +1,13 @@
 /**
  * Wzlot's calibration intro, "Gniazdo" (the nest), after Deuteronomy 32:11: before dawn the eaglet
  * sleeps in its nest on a crag over the wilderness.  While the reference fills (`p` 0..1) the sky
- * pales from night to dawn, the parent eagle circles in and comes to hover over the nest with its
+ * pales from night to dawn, the mother eagle circles in and comes to hover over the nest with its
  * wings spread, and the eaglet wakes; at 1 the sun clears the far hills.  The runner's calibration
  * card covers the lower part of the screen, so the crag and the nest sit high.
  */
 import { approach, clamp, ease } from '../kit/juice';
-import { stageOf, type WzlotProgress } from './meta';
-import { LAND_LOOK, mixInto, paintEagle, paintEaglet, paintNest, paintRange, paintSky, paintSpire, rgb, skyAt, type EagletPose, type RGB, type SkyLook } from './paint';
+import { migrate, plumageOf, type WzlotProgress } from './meta';
+import { LAND_LOOK, mixInto, paintEagle, paintEaglet, paintLark, paintNestFamily, paintRange, paintSky, paintSpire, rgb, skyAt, type EagletPose, type RGB, type SkyLook } from './paint';
 
 export class WzlotIntro {
   private clock = 0;
@@ -48,13 +48,16 @@ export class WzlotIntro {
     const ns = Math.max(40, unit * 0.22);
     // the eaglet in the nest: asleep (folded, its head low) until the light comes
     const pose = this.pose;
-    pose.stage = stageOf(progress.feathers);
+    migrate(progress);
+    pose.stage = plumageOf(progress);
     pose.fold = 1 - 0.6 * clamp((k - 0.6) / 0.4);
     pose.flap = k > 0.85 ? Math.sin(t * 6) * 0.6 : 0;
     const es = ns * 0.42;
     paintEaglet(ctx, nx, ny - es * 0.25 - Math.sin(t * 1.4) * 0.6, es, k > 0.6 ? 0.15 : -0.1, pose);
-    paintNest(ctx, nx, ny, ns);
-    // the parent circles in and spreads its wings over the nest
+    paintNestFamily(ctx, nx, ny, ns, progress.nest, progress.eggs, progress.chicks, t);
+    // Leon wakes up first, of course, on the nest's rim
+    paintLark(ctx, nx + ns * 0.55, ny - ns * 0.16 - Math.abs(Math.sin(t * 3)) * ns * 0.05 * k, ns * 0.2, 0, true);
+    // the mother circles in and spreads its wings over the nest
     const arrive = ease.outCubic(clamp(k / 0.85));
     const ang = t * 0.9;
     const r = (1 - arrive) * Math.min(w, h) * 0.35;

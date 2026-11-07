@@ -1,16 +1,18 @@
 /**
  * Wzlot's drawing primitives (Canvas 2D, no assets), shared by the play view, the calibration
- * intro, the lobby and the progress card: the biblical wilderness by day as flat gouache layers —
- * a sky that turns from dawn through noon to dusk (and night for the finisher), three parallax
- * ranges of hills in the colours of the four lands (the Negev's rose cliffs and mesas, the acacia
- * wadi, the Jordan's green ribbon, snowy Hermon far off), the sandstone ground with its strata,
- * the eaglet in its three plumages, the parent eagle, the thermals' warm columns, the mist of an
- * unreliable signal, the cloud of a blind block, the nest on its crag, and the eight vistas.
+ * intro, the lobby and the progress card: the biblical wilderness as flat gouache layers — a sky
+ * that turns from noon through dusk to night as the day runs out, three parallax ranges in the
+ * colours of the four lands (the Negev's rose cliffs and mesas, the acacia wadi, the Jordan's green
+ * ribbon, snowy Hermon far off) — each grań wears one of them — the sandstone ground with its
+ * strata, the eaglet in its three plumages, the mother eagle, Leon the lark, the promyki and the
+ * podmuch, the thermals' warm columns, clouds, the nest with its eggs and chicks, and the sun on its
+ * arc with the band's halo (the threshold ring on the sun itself).
  *
- * The eagle belongs to Wzlot alone (DESIGN.md §5).  Nothing here depicts God: the parent is an eagle
- * and only an eagle.
+ * The eagle belongs to Wzlot alone (DESIGN.md §5).  Nothing here depicts God: the mother is an eagle
+ * and only an eagle, and the sun is the sun.
  */
-import type { Land, Light } from './content';
+export type Land = 'negev' | 'wadi' | 'jordan' | 'hermon';
+export const LANDS: readonly Land[] = ['negev', 'wadi', 'jordan', 'hermon'];
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
@@ -82,7 +84,7 @@ export function skyAt(phase: number, out?: SkyLook): SkyLook {
 }
 
 /** The sky: its gradient, the sun on its arc across the session (the moon and stars at night). */
-export function paintSky(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, phase: number, s: SkyLook, t = 0): void {
+export function paintSky(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, phase: number, s: SkyLook, t = 0, sun = true): void {
   const g = ctx.createLinearGradient(0, y, 0, y + h);
   g.addColorStop(0, rgb(s.top));
   g.addColorStop(0.55, rgb(s.mid));
@@ -93,12 +95,14 @@ export function paintSky(ctx: CanvasRenderingContext2D, x: number, y: number, w:
   const p = Math.min(1, phase);
   const sx = x + w * (0.12 + 0.76 * p), sy = y + h * (0.62 - 0.5 * Math.sin(Math.PI * p));
   const r = Math.max(10, Math.min(w, h) * 0.05);
-  const halo = ctx.createRadialGradient(sx, sy, r * 0.5, sx, sy, r * 5);
-  halo.addColorStop(0, rgb(s.sun, 0.55 * (1 - s.night)));
-  halo.addColorStop(1, rgb(s.sun, 0));
-  ctx.fillStyle = halo;
-  ctx.fillRect(sx - r * 5, sy - r * 5, r * 10, r * 10);
-  if (s.night < 1) {
+  if (sun) {
+    const halo = ctx.createRadialGradient(sx, sy, r * 0.5, sx, sy, r * 5);
+    halo.addColorStop(0, rgb(s.sun, 0.55 * (1 - s.night)));
+    halo.addColorStop(1, rgb(s.sun, 0));
+    ctx.fillStyle = halo;
+    ctx.fillRect(sx - r * 5, sy - r * 5, r * 10, r * 10);
+  }
+  if (!sun) { /* the play view draws its own sun (the band's gauge) */ } else if (s.night < 1) {
     ctx.fillStyle = rgb(s.sun, 1 - s.night);
     ctx.beginPath();
     ctx.arc(sx, sy, r, 0, TAU);
@@ -625,39 +629,307 @@ export function paintNest(ctx: CanvasRenderingContext2D, x: number, y: number, s
   ctx.stroke();
 }
 
-// ── the vistas ───────────────────────────────────────────────────
-/**
- * A vista of the land in its light: the land's ranges under a dawn or dusk sky, small enough for a
- * tile, large enough for the card over the play.  `found` false paints it as a dim silhouette.
- */
-export function paintVista(ctx: CanvasRenderingContext2D, land: Land, light: Light, x: number, y: number, w: number, h: number, found = true): void {
+export const LANDS_SEED: Readonly<Record<Land, number>> = { negev: 11, wadi: 23, jordan: 37, hermon: 53 };
+
+// ── v2: promyki, the podmuch, the lark, the sun's gauge, the nest's family, the bubble ──────────
+/** A promyk (a sunbeam, Tiny Wings' coin): a small gold sun with six rays, turning. */
+export function paintCoin(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number, glow = 1): void {
   ctx.save();
-  ctx.beginPath();
-  ctx.rect(x, y, w, h);
-  ctx.clip();
   ctx.translate(x, y);
-  const sky = skyAt(light === 'dawn' ? 0.04 : 0.97);
-  paintSky(ctx, 0, 0, w, h, light === 'dawn' ? 0.04 : 0.96, sky);
-  const L = LAND_LOOK[land];
-  const k = 4.2 / Math.max(40, w);
-  const seed = LANDS_SEED[land];
-  const lit = (c: RGB, f: number) => mix(c, sky.light, f);
-  paintRange(ctx, w, 0.3, k * 0.8, h * 0.66, h * 0.44, lit(L.far, 0.35), land, 0, seed, h);
-  paintRange(ctx, w, 1.7, k, h * 0.84, h * 0.34, lit(L.mid, 0.2), land, 1, seed + 10, h);
-  paintRange(ctx, w, 3.1, k * 1.3, h * 1.02, h * 0.3, lit(L.near, 0.12), land, 2, seed + 20, h);
-  // a warm light from the low sun
-  const g = ctx.createLinearGradient(light === 'dawn' ? 0 : w, 0, light === 'dawn' ? w : 0, 0);
-  g.addColorStop(0, rgb(sky.light, 0.28));
-  g.addColorStop(1, rgb(sky.light, 0));
+  ctx.rotate(t * 1.6 + x * 0.01);
+  ctx.strokeStyle = `rgba(255,214,110,${(0.85 * glow).toFixed(3)})`;
+  ctx.lineWidth = Math.max(1, r * 0.28);
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * TAU;
+    ctx.moveTo(Math.cos(a) * r * 1.15, Math.sin(a) * r * 1.15);
+    ctx.lineTo(Math.cos(a) * r * 1.65, Math.sin(a) * r * 1.65);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#ffcf57';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,248,214,.9)';
+  ctx.beginPath();
+  ctx.arc(-r * 0.3, -r * 0.3, r * 0.38, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** The podmuch (a gust, Tiny Wings' speed orb): a cool swirl of wind in a pale ring. */
+export function paintOrb(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number): void {
+  const g = ctx.createRadialGradient(x, y, r * 0.1, x, y, r);
+  g.addColorStop(0, 'rgba(225,246,255,.95)');
+  g.addColorStop(0.6, 'rgba(120,196,232,.55)');
+  g.addColorStop(1, 'rgba(90,160,220,0)');
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
-  if (!found) {
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = 'rgba(38,36,46,.92)';
-    ctx.fillRect(0, 0, w, h);
-    ctx.globalCompositeOperation = 'source-over';
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.85)';
+  ctx.lineWidth = Math.max(1.2, r * 0.12);
+  for (let i = 0; i < 3; i++) {
+    const a0 = t * 3 + (i * TAU) / 3;
+    ctx.beginPath();
+    ctx.arc(x, y, r * (0.35 + 0.18 * i), a0, a0 + 2.2);
+    ctx.stroke();
+  }
+}
+
+/**
+ * Leon the lark: a small streaky brown bird with a crest, facing right, wings beating (flap in
+ * radians) or folded when it sits.  `size` ≈ its body length (px).
+ */
+export function paintLark(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, flap: number, sitting = false): void {
+  const s = size;
+  ctx.save();
+  ctx.translate(x, y);
+  // tail
+  ctx.fillStyle = '#6b5236';
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.3, -s * 0.02);
+  ctx.lineTo(-s * 0.62, -s * 0.1);
+  ctx.lineTo(-s * 0.6, s * 0.08);
+  ctx.closePath();
+  ctx.fill();
+  // body
+  ctx.fillStyle = '#a5845a';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.36, s * 0.22, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#efe2c8';
+  ctx.beginPath();
+  ctx.ellipse(s * 0.06, s * 0.08, s * 0.24, s * 0.12, 0, 0, Math.PI);
+  ctx.fill();
+  // streaks
+  ctx.strokeStyle = 'rgba(80,58,34,.6)';
+  ctx.lineWidth = Math.max(0.7, s * 0.03);
+  ctx.beginPath();
+  for (let i = 0; i < 3; i++) {
+    ctx.moveTo(-s * 0.18 + i * s * 0.1, -s * 0.1);
+    ctx.lineTo(-s * 0.12 + i * s * 0.1, -s * 0.02);
+  }
+  ctx.stroke();
+  // head, crest, beak, eye
+  const hx = s * 0.32, hy = -s * 0.14, hr = s * 0.15;
+  ctx.fillStyle = '#a5845a';
+  ctx.beginPath();
+  ctx.arc(hx, hy, hr, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#7d5f3a';
+  ctx.beginPath();
+  ctx.moveTo(hx - hr * 0.6, hy - hr * 0.5);
+  ctx.lineTo(hx - hr * 0.2, hy - hr * 2);
+  ctx.lineTo(hx + hr * 0.3, hy - hr * 0.7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#e1b85a';
+  ctx.beginPath();
+  ctx.moveTo(hx + hr * 0.8, hy - hr * 0.15);
+  ctx.lineTo(hx + hr * 1.8, hy + hr * 0.1);
+  ctx.lineTo(hx + hr * 0.8, hy + hr * 0.35);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = C.eye;
+  ctx.beginPath();
+  ctx.arc(hx + hr * 0.3, hy - hr * 0.15, Math.max(1, hr * 0.2), 0, TAU);
+  ctx.fill();
+  // the wing
+  ctx.fillStyle = '#7d5f3a';
+  if (sitting) {
+    ctx.beginPath();
+    ctx.ellipse(-s * 0.04, -s * 0.03, s * 0.24, s * 0.12, -0.1, 0, TAU);
+    ctx.fill();
+  } else {
+    const up = Math.sin(flap);
+    ctx.beginPath();
+    ctx.moveTo(s * 0.08, -s * 0.08);
+    ctx.quadraticCurveTo(-s * 0.05, -s * (0.25 + 0.4 * up), -s * 0.4, -s * (0.1 + 0.5 * up));
+    ctx.quadraticCurveTo(-s * 0.2, -s * 0.02, -s * 0.12, s * 0.02);
+    ctx.closePath();
+    ctx.fill();
+  }
+  if (sitting) {
+    ctx.strokeStyle = '#6b5236';
+    ctx.lineWidth = Math.max(0.8, s * 0.04);
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.02, s * 0.2);
+    ctx.lineTo(-s * 0.04, s * 0.32);
+    ctx.moveTo(s * 0.1, s * 0.2);
+    ctx.lineTo(s * 0.1, s * 0.32);
+    ctx.stroke();
   }
   ctx.restore();
 }
 
-export const LANDS_SEED: Readonly<Record<Land, number>> = { negev: 11, wadi: 23, jordan: 37, hermon: 53 };
+/** A chick in the nest: a round ball of down with a beak open (cheering) or shut. */
+export function paintChick(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, cheer: number): void {
+  ctx.fillStyle = '#f4ecdc';
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = C.beak;
+  const open = Math.max(0, cheer) * r * 0.35;
+  ctx.beginPath();
+  ctx.moveTo(x + r * 0.55, y - r * 0.15 - open * 0.5);
+  ctx.lineTo(x + r * 1.15, y - open * 0.2);
+  ctx.lineTo(x + r * 0.55, y + r * 0.1 + open * 0.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = C.eye;
+  ctx.beginPath();
+  ctx.arc(x + r * 0.3, y - r * 0.3, Math.max(0.8, r * 0.13), 0, TAU);
+  ctx.fill();
+}
+
+/** An egg: cream with brown speckles. */
+export function paintEgg(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.fillStyle = '#f2e8d4';
+  ctx.beginPath();
+  ctx.ellipse(x, y, r * 0.78, r, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(140,100,60,.55)';
+  for (let i = 0; i < 4; i++) ctx.fillRect(x + (hash(i + x) - 0.5) * r, y + (hash(i + 7 + x) - 0.5) * r * 1.2, 1.5, 1.5);
+}
+
+/**
+ * The nest of a level: the bowl grows with it (twigs, then a woven rim, then a lining of down and a
+ * ring of green sprigs), with its eggs (not yet hatched) and chicks beside the sleeping or waiting eaglet.
+ */
+export function paintNestFamily(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, level: number, eggs: number, chicks: number, t: number): void {
+  const s = size * (1 + 0.06 * Math.min(6, level - 1));
+  paintNest(ctx, x, y, s);
+  if (level >= 2) {
+    ctx.strokeStyle = C.stick2;
+    ctx.lineWidth = Math.max(1, s * 0.03);
+    ctx.beginPath();
+    ctx.ellipse(x, y + s * 0.05, s * 0.48, s * 0.12, 0, 0.1, Math.PI - 0.1);
+    ctx.stroke();
+  }
+  if (level >= 4) {
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI * (0.15 + 0.7 * (i / 4));
+      const px = x + Math.cos(a) * s * 0.5, py = y + s * 0.08 + Math.sin(a) * s * 0.08;
+      ctx.fillStyle = '#7d9a4e';
+      ctx.beginPath();
+      ctx.ellipse(px, py, s * 0.07, s * 0.025, a, 0, TAU);
+      ctx.fill();
+    }
+  }
+  const hatched = Math.min(chicks, 4), unhatched = Math.min(Math.max(0, eggs - chicks), 3);
+  for (let i = 0; i < unhatched; i++) paintEgg(ctx, x + s * (0.22 + 0.1 * i), y - s * 0.03, s * 0.07);
+  for (let i = 0; i < hatched; i++) {
+    const cx = x - s * (0.22 + 0.11 * i), bob = Math.sin(t * 6 + i * 1.7);
+    paintChick(ctx, cx, y - s * 0.07 - Math.max(0, bob) * s * 0.03, s * 0.075, bob);
+  }
+}
+
+/**
+ * The sun on its arc, with the band's gauge on it: the halo's radius is the gauge (0..1), a dotted
+ * ring marks the threshold (0.5), the rim turns gold above it.  `charge` (0..1) is the Poryw filling
+ * around it; `veiled` hides the sun in a cloud (a blind block).
+ */
+export function paintSunGauge(
+  ctx: CanvasRenderingContext2D, x: number, y: number, r: number, meter: number | null, charge: number, veiled: boolean, t: number, warm: RGB,
+): void {
+  if (veiled) {
+    paintCloud(ctx, x, y + r * 0.2, r * 4.4, r * 2.4, 0.95, 3, '236,232,240');
+    return;
+  }
+  if (meter !== null) {
+    const R0 = r * 1.5, R1 = r * 3.1;
+    const rad = R0 + (R1 - R0) * Math.max(0, Math.min(1, meter));
+    const on = meter >= 0.5;
+    const g = ctx.createRadialGradient(x, y, r, x, y, rad);
+    g.addColorStop(0, on ? 'rgba(255,214,110,.55)' : 'rgba(255,236,200,.35)');
+    g.addColorStop(1, 'rgba(255,220,140,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = on ? 'rgba(255,196,64,.95)' : 'rgba(255,248,230,.75)';
+    ctx.lineWidth = on ? 3 : 2;
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, TAU);
+    ctx.stroke();
+    // the threshold, dotted on the sun itself
+    ctx.setLineDash([3, 4]);
+    ctx.strokeStyle = 'rgba(70,52,40,.6)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x, y, (R0 + R1) / 2, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  ctx.fillStyle = rgb(warm);
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.45)';
+  ctx.beginPath();
+  ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.4, 0, TAU);
+  ctx.fill();
+  if (charge > 0.01) {
+    const cr = r * 3.5;
+    ctx.strokeStyle = 'rgba(255,255,255,.25)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(x, y, cr, 0, TAU);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(255,${Math.round(170 + 60 * Math.sin(t * 6))},60,.95)`;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(x, y, cr, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, charge));
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+}
+
+/** A drawn speech bubble with a tail toward (tx, ty); the text wrapped to `maxW`. Returns its box. */
+export function paintBubble(
+  ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, size: number, tx: number, ty: number, alpha: number, bounds: { x0: number; y0: number; x1: number; y1: number },
+): void {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.font = font(650, size, SANS);
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let line = '';
+  for (const w of words) {
+    const next = line ? `${line} ${w}` : w;
+    if (line && ctx.measureText(next).width > maxW) {
+      lines.push(line);
+      line = w;
+    } else line = next;
+  }
+  if (line) lines.push(line);
+  const lh = size * 1.25, pad = size * 0.6;
+  const w = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width))) + pad * 2;
+  const h = lines.length * lh + pad * 1.4;
+  let bx = x - w / 2, by = y - h;
+  bx = Math.max(bounds.x0, Math.min(bounds.x1 - w, bx));
+  by = Math.max(bounds.y0, Math.min(bounds.y1 - h, by));
+  ctx.fillStyle = 'rgba(255,250,238,.96)';
+  ctx.strokeStyle = 'rgba(94,61,34,.55)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(bx, by, w, h, size * 0.7);
+  ctx.fill();
+  ctx.stroke();
+  // the tail toward the speaker
+  const cx = Math.max(bx + 14, Math.min(bx + w - 14, tx));
+  const below = ty > by + h;
+  ctx.beginPath();
+  ctx.moveTo(cx - 7, below ? by + h - 1 : by + 1);
+  ctx.lineTo(tx, ty);
+  ctx.lineTo(cx + 7, below ? by + h - 1 : by + 1);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,250,238,.96)';
+  ctx.fill();
+  ctx.fillStyle = C.ink;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  lines.forEach((l, i) => ctx.fillText(l, bx + pad, by + pad * 0.7 + i * lh));
+  ctx.restore();
+}

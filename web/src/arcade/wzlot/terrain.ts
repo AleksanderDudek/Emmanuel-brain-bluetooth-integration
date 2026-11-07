@@ -1,34 +1,45 @@
 /**
- * Wzlot's ground: an endless chain of wilderness hills, crest → trough → crest, each stretch a half
- * cosine, so height, slope and curvature are smooth everywhere and cheap to evaluate.  Hills come
- * in ridges of 16 that swell from gentle to bold and end at a crag ("Grań") over a wadi, a gorge
- * the eaglet flies across or is carried over.  A ridge is drawn from its own seed (mulberry32): the
- * same seed gives the same ridge on every device, so the day's first ridge is the same for everyone.
- * The ground is generated a ridge at a time ahead of the eaglet and dropped behind it.
+ * Wzlot's ground: Tiny Wings' islands as the wilderness's granie (ridges).  Each grań is a chain of
+ * smooth hills — crest → trough → crest, each stretch a half cosine, so height, slope and curvature
+ * are continuous and cheap — that swell from gentle to bold, then a long run-up dip and a kicker
+ * (the crag) over a gorge to the next grań.  Granie grow bolder one after another: more hills,
+ * longer waves, deeper valleys, wider gorges.  On every grań lie strings of promyki (sunbeams, the
+ * coins) along the downslopes and in arcs over crests, and one podmuch (a gust orb) over a valley.
+ *
+ * A grań is drawn from its own seed (mulberry32): the day's granie are the same on every device and
+ * in every run of the day, so the course can be learnt, as in the original.  The ground is made a
+ * grań at a time ahead of the eaglet and forgotten behind it.
  *
  * World units: x to the right, y up, in screen heights (rules.ts).
  */
 import { mulberry32 } from '../../core/random';
 import { RULES, span } from './rules';
 
-/** How a ridge is made: its seed, a gentle warm-up ridge, a wide valley at its end (the stretch), the day's ridge. */
-export interface RidgeSpec { seed: number; gentle: boolean; wide: boolean; daily: boolean }
+/** How a grań is made: its seed, and whether it is the first-ever session's gentle first one. */
+export interface GranSpec { seed: number; gentle: boolean }
 
-export interface Ridge {
+export interface Coin { x: number; y: number; taken: boolean }
+export interface Orb { x: number; y: number; taken: boolean }
+
+export interface Gran {
+  /** 0 = the first grań of the day */
   readonly index: number;
-  readonly spec: RidgeSpec;
-  /** its first crest (where the last wadi's far rim is) */
+  readonly spec: GranSpec;
+  /** its first crest (the last gorge's far rim; the nest's crest for the first) */
   readonly x0: number;
-  /** the crag: the ridge's last crest, high over the wadi */
+  readonly hills: number;
+  /** the crag: its last crest, over the gorge */
   readonly crag: number;
   readonly cragY: number;
-  /** the wadi: from the crag to the far rim, the rim's height and the line under which the parent catches */
-  readonly wadiX0: number;
-  readonly wadiX1: number;
+  /** the gorge: from the crag to the far rim, the rim's height and the line under which the mother catches */
+  readonly gapX0: number;
+  readonly gapX1: number;
   readonly rimY: number;
   readonly catchY: number;
   /** the troughs of its hills (thermals rise over them) */
   readonly troughs: readonly number[];
+  readonly coins: Coin[];
+  readonly orbs: Orb[];
 }
 
 const PI = Math.PI;
@@ -37,13 +48,12 @@ export class Terrain {
   /** keypoints (alternately crests and troughs); between two of them the ground is a half cosine */
   private readonly kx: number[] = [];
   private readonly ky: number[] = [];
-  readonly ridges: Ridge[] = [];
-  /** the segment the last lookup found: lookups mostly move forward a little */
+  readonly granie: Gran[] = [];
   private cur = 0;
   private made = 0;
 
-  /** `spec(i)` describes the i-th ridge (0 = the first); the nest's crest is at (0, 0). */
-  constructor(private readonly spec: (index: number) => RidgeSpec) {
+  /** `spec(i)` describes the i-th grań (0 = the first); the nest's crest is at (0, 0). */
+  constructor(private readonly spec: (index: number) => GranSpec) {
     this.kx.push(0);
     this.ky.push(0);
   }
@@ -51,12 +61,12 @@ export class Terrain {
   /** Where the generated ground ends (x). */
   get end(): number { return this.kx[this.kx.length - 1]; }
 
-  /** Make ridges until the ground reaches `x`. */
+  /** Make granie until the ground reaches `x`. */
   ensure(x: number): void {
-    while (this.end < x) this.addRidge();
+    while (this.end < x) this.addGran();
   }
 
-  /** Forget the ground before `x` (keeps the segment under it); ridges whose wadi lies behind go too. */
+  /** Forget the ground well before `x`; granie whose gorge lies far behind go too. */
   trim(x: number): void {
     let n = 0;
     while (n + 2 < this.kx.length && this.kx[n + 1] < x) n++;
@@ -65,17 +75,15 @@ export class Terrain {
       this.ky.splice(0, n);
       this.cur = Math.max(0, this.cur - n);
     }
-    while (this.ridges.length > 2 && this.ridges[0].wadiX1 < x) this.ridges.shift();
+    while (this.granie.length > 2 && this.granie[0].gapX1 < x - 1) this.granie.shift();
   }
 
-  /** The index of the segment holding x (clamped to the ground made so far). */
   private seg(x: number): number {
     const kx = this.kx, last = kx.length - 2;
     let i = Math.min(this.cur, last);
     if (kx[i] <= x) {
       while (i < last && kx[i + 1] <= x) i++;
     } else {
-      // a jump backwards (a roll back, the camera's left edge): binary search
       let lo = 0, hi = i;
       while (lo < hi) {
         const mid = (lo + hi + 1) >> 1;
@@ -117,29 +125,36 @@ export class Terrain {
     return { x: kx[kx.length - 1], y: ky[ky.length - 1] };
   }
 
-  /** The ridge whose wadi spans x (null: none). */
-  wadiAt(x: number): Ridge | null {
-    for (const r of this.ridges) if (x > r.wadiX0 && x < r.wadiX1) return r;
+  /** The grań whose gorge spans x (null: none). */
+  gapAt(x: number): Gran | null {
+    for (const g of this.granie) if (x > g.gapX0 && x < g.gapX1) return g;
     return null;
   }
 
-  /** The ridge x lies on (its hills or its wadi). */
-  ridgeAt(x: number): Ridge | null {
-    for (let i = this.ridges.length - 1; i >= 0; i--) if (x >= this.ridges[i].x0) return this.ridges[i];
-    return this.ridges[0] ?? null;
+  /** The grań x lies on (its hills or its gorge). */
+  granAt(x: number): Gran | null {
+    for (let i = this.granie.length - 1; i >= 0; i--) if (x >= this.granie[i].x0) return this.granie[i];
+    return this.granie[0] ?? null;
   }
 
-  /** The first hill trough at or after x (thermals rise over them); null past the ground made so far. */
+  /** The grań with this index, if it is still in memory. */
+  byIndex(i: number): Gran | null {
+    for (const g of this.granie) if (g.index === i) return g;
+    return null;
+  }
+
+  /** The first hill trough at or after x (thermals rise over them). */
   troughAfter(x: number): number | null {
-    for (const r of this.ridges) for (const t of r.troughs) if (t >= x) return t;
+    for (const g of this.granie) for (const t of g.troughs) if (t >= x) return t;
     return null;
   }
 
-  /** Keypoints between x0 and x1 (the renderer's crest markers, tests). */
-  keys(x0: number, x1: number, out: { x: number; y: number }[] = []): { x: number; y: number }[] {
-    out.length = 0;
-    for (let i = this.seg(x0); i < this.kx.length && this.kx[i] <= x1; i++) out.push({ x: this.kx[i], y: this.ky[i] });
-    return out;
+  /** The lowest ground between x0 and x1 (sampled; the camera keeps it in view). */
+  lowest(x0: number, x1: number): number {
+    let lo = Infinity;
+    const n = 16;
+    for (let i = 0; i <= n; i++) lo = Math.min(lo, this.height(x0 + ((x1 - x0) * i) / n));
+    return lo;
   }
 
   private push(x: number, y: number): void {
@@ -148,57 +163,91 @@ export class Terrain {
   }
 
   /**
-   * One ridge from its seed: 16 hills that swell along the ridge, each crest pulled back toward the
-   * nest's level so the land never drifts away; then a dip, the crag, and the wadi down to its floor
-   * and up to the far rim, where the next ridge begins.
+   * One grań from its seed: its hills swell along it, each crest pulled back toward level 0 so the
+   * land never drifts away; then the run-up, the crag, and the gorge down to its floor and up to the
+   * far rim, where the next grań begins.  Then its promyki and its podmuch.
    */
-  private addRidge(): void {
+  private addGran(): void {
     const index = this.made++;
     const spec = this.spec(index);
     const R = RULES, rnd = mulberry32(spec.seed);
     const x0 = this.end;
     let x = x0, y = this.ky[this.ky.length - 1];
     const troughs: number[] = [];
-    const n = R.hillsPerRidge;
+    const crests: number[] = [x0];
+    const n = Math.min(R.hillsMax, R.hills0 + index);
+    const bold = Math.min(R.boldMax, R.bold0 + R.boldStep * index) * (spec.gentle ? R.gentle : 1);
+    const long = 1 + R.waveGrow * Math.min(8, index);
     for (let i = 0; i < n; i++) {
-      const k = span(R.swell, i / (n - 1)) * (spec.gentle ? R.gentle : 1);
-      const wave = span(R.wave, rnd());
+      const k = span(R.swell, i / Math.max(1, n - 1)) * bold;
+      const wave = span(R.wave, rnd()) * long;
       const ld = wave * span(R.downShare, rnd()), lu = wave - ld;
       const drop = Math.min(span(R.drop, rnd()) * k, (R.slopeMax * 2 * ld) / PI);
       x += ld;
       y -= drop;
       this.push(x, y);
       troughs.push(x);
-      // the rise: about the drop, pulled back toward the nest's level; an upslope too short for it
-      // grows longer instead of steeper
       const rise = Math.max(0.05, Math.min(R.riseMax, drop - (y + drop) * R.levelPull + (rnd() - 0.5) * 0.05));
       x += Math.max(lu, (PI * rise) / (2 * R.slopeMax));
       y += rise;
       this.push(x, y);
+      crests.push(x);
     }
-    // the run-up and the crag: a long dip that gathers speed, then a short steep kicker over the
-    // wadi, about as high as the dip's start, so the speed it gathered carries over the gap
-    const dl = span(R.cragRun, rnd()), dd = span(R.cragDip, rnd()) * (spec.gentle ? 0.5 : 1);
+    // the run-up and the crag: a long dip that gathers speed, then a steep kicker over the gorge
+    const dl = span(R.cragRun, rnd()), dd = span(R.cragDip, rnd()) * (spec.gentle ? 0.6 : 1);
     x += dl;
     y -= dd;
     this.push(x, y);
     const cl = span(R.cragKick, rnd());
-    const cr = Math.min(dd + span(R.cragRise, rnd()) * (spec.gentle ? 0.5 : 1), (R.cragSlope * 2 * cl) / PI);
+    const cr = Math.min(dd + span(R.cragRise, rnd()), (R.cragSlope * 2 * cl) / PI);
     x += cl;
     y += cr;
     this.push(x, y);
     const crag = x, cragY = y;
-    // the wadi: a gorge (or, after the gentle warm-up ridge, a shallow dip)
-    const g = R.gentleWadi;
-    const width = spec.gentle ? g.width : span(spec.wide ? R.wideWidth : R.wadiWidth, rnd());
-    const depth = spec.gentle ? g.depth : spec.wide ? R.wideDepth : R.wadiDepth;
-    const rim = cragY - (spec.gentle ? g.rim : spec.wide ? R.wideRimDrop : R.rimDrop);
-    this.push(crag + width * 0.5, cragY - depth);
+    const width = span(R.gapWidth, rnd()) + R.gapGrow * Math.min(6, index) * (spec.gentle ? 0.5 : 1);
+    const rim = cragY - span(R.rimDrop, rnd());
+    this.push(crag + width * 0.5, cragY - R.gapDepth);
     this.push(crag + width, rim);
-    this.ridges.push({
-      index, spec, x0, crag, cragY, wadiX0: crag, wadiX1: crag + width, rimY: rim,
-      // the gentle dip's floor stays above the line: nobody is caught in the warm-up's valley
-      catchY: rim - R.wadiMargin, troughs,
-    });
+    const g: Gran = {
+      index, spec, x0, hills: n, crag, cragY, gapX0: crag, gapX1: crag + width, rimY: rim,
+      catchY: rim - R.gapMargin, troughs, coins: [], orbs: [],
+    };
+    this.granie.push(g);
+    this.dress(g, crests, rnd);
+  }
+
+  /** The grań's promyki (strings along downslopes, arcs over crests) and its podmuch over a valley. */
+  private dress(g: Gran, crests: number[], rnd: () => number): void {
+    const R = RULES;
+    const strings = Math.round(span(R.strings, rnd()));
+    const hills = crests.length - 1;
+    const used = new Set<number>();
+    for (let s = 0; s < strings && hills > 1; s++) {
+      let h = 1 + Math.floor(rnd() * (hills - 1));
+      for (let k = 0; k < hills && used.has(h); k++) h = 1 + ((h + k) % (hills - 1));
+      if (used.has(h)) break;
+      used.add(h);
+      const len = Math.round(span(R.stringLen, rnd()));
+      if (rnd() < 0.5) {
+        // along the downslope after crest h: the line a perfect slide takes
+        const start = crests[h] + 0.08;
+        for (let i = 0; i < len; i++) {
+          const cx = start + i * R.coinGap;
+          g.coins.push({ x: cx, y: this.height(cx) + R.coinLift, taken: false });
+        }
+      } else {
+        // an arc over crest h: the line a launch flies
+        const top = span(R.arcLift, rnd()), c = crests[h], w = (len - 1) * R.coinGap * 1.3;
+        for (let i = 0; i < len; i++) {
+          const u = len > 1 ? i / (len - 1) : 0.5;
+          const cx = c - w * 0.2 + w * u;
+          g.coins.push({ x: cx, y: this.height(c) + 0.08 + top * Math.sin(PI * u), taken: false });
+        }
+      }
+    }
+    if (g.troughs.length > 2) {
+      const t = g.troughs[1 + Math.floor(rnd() * (g.troughs.length - 2))];
+      g.orbs.push({ x: t, y: this.height(t) + span(R.orbLift, rnd()), taken: false });
+    }
   }
 }

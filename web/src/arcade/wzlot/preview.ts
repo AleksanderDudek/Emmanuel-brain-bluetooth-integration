@@ -1,14 +1,13 @@
 /**
- * Wzlot's picture for the lobby's hero and the game card: the eaglet gliding over the wilderness
- * hills in parallax with the parent eagle ahead of it and its golden wake.  In the lobby (with the
- * player's progress) the eaglet wears the player's plumage and the land is the one their next
- * session opens on; on the cards (no progress) a downy eaglet over the Negev at morning.  Drawn
- * every frame in the lobby, so it stays cheap: a few paths, no sprites.
+ * Wzlot's picture for the lobby's hero and the game card: the eaglet sliding down a sunny hill and
+ * launching off the crest in a golden Poryw, promyki in an arc, Leon the lark beside it and the
+ * mother eagle high above, the low sun on its arc.  In the lobby (with the player's progress) the
+ * eaglet wears the player's plumage; on the cards a downy eaglet over the Negev.  Cheap: a few paths.
  */
-import { LANDS, type Land } from './content';
-import { stageOf, type WzlotProgress } from './meta';
+import { migrate, plumageOf, type WzlotProgress } from './meta';
 import {
-  LAND_LOOK, LANDS_SEED, mixInto, paintEagle, paintEaglet, paintRange, paintSky, rgb, skyAt, type EagletPose, type RGB, type SkyLook,
+  LAND_LOOK, LANDS, LANDS_SEED, mixInto, paintCoin, paintEagle, paintEaglet, paintLark, paintRange, paintSky, rgb, skyAt,
+  type EagletPose, type Land, type RGB, type SkyLook,
 } from './paint';
 
 const sky: SkyLook = skyAt(0.2);
@@ -20,8 +19,9 @@ const hill = (x: number): number => 0.5 + 0.35 * Math.sin(x * 1.9) + 0.12 * Math
 
 export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, p?: WzlotProgress): void {
   const land: Land = p ? LANDS[p.sessions % LANDS.length] : 'negev';
+  if (p) migrate(p);
   const L = LAND_LOOK[land];
-  const phase = p ? 0.12 + 0.06 * Math.sin(t * 0.05) : 0.2;
+  const phase = 0.72 + 0.04 * Math.sin(t * 0.05);
   skyAt(phase, sky);
   paintSky(ctx, 0, 0, w, h, phase, sky, t);
   const unit = Math.max(120, Math.min(h, w * 0.7));
@@ -46,20 +46,25 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   ctx.beginPath();
   for (let px = -2; px <= w + 6; px += 6) ctx.lineTo(px, base - hill(run + px * k) * amp);
   ctx.stroke();
-  // the parent ahead, its golden wake, and the eaglet behind
-  const ex = w * 0.36, ey = h * (0.5 + 0.06 * Math.sin(t * 0.9)) - unit * 0.05;
-  const pxp = w * 0.64, pyp = h * (0.3 + 0.03 * Math.sin(t * 0.7 + 1));
-  ctx.strokeStyle = 'rgba(255,214,120,.55)';
+  // the eaglet's golden trail (a Poryw), promyki in an arc ahead, Leon beside, the mother high above
+  const ex = w * 0.42, ey = h * (0.46 + 0.05 * Math.sin(t * 0.9)) - unit * 0.05;
+  ctx.strokeStyle = 'rgba(255,200,90,.7)';
   ctx.lineCap = 'round';
-  ctx.lineWidth = Math.max(2, unit * 0.012);
+  ctx.lineWidth = Math.max(3, unit * 0.03);
   ctx.beginPath();
   for (let i = 0; i <= 20; i++) {
     const q = i / 20;
-    ctx.lineTo(pxp - q * (pxp - ex) * 0.85, pyp + q * (ey - pyp) * 0.7 + Math.sin(q * 5 + t) * 3);
+    ctx.lineTo(ex - q * w * 0.4, ey + Math.sin(q * 3.2 + 0.4) * unit * 0.16 * q + q * unit * 0.1);
   }
   ctx.stroke();
-  paintEagle(ctx, pxp, pyp, Math.max(26, unit * 0.2), 0.04 * Math.sin(t), t * 2.2, 1, 1);
-  pose.stage = p ? stageOf(p.feathers) : 1;
+  for (let i = 0; i < 5; i++) {
+    const q = i / 4;
+    paintCoin(ctx, ex + w * (0.1 + 0.1 * i), ey - Math.sin(Math.PI * q) * unit * 0.12 + unit * 0.02, Math.max(3, unit * 0.022), t + i);
+  }
+  paintEagle(ctx, w * 0.78, h * (0.18 + 0.03 * Math.sin(t * 0.7 + 1)), Math.max(22, unit * 0.15), 0.04 * Math.sin(t), t * 2.2, 1, 0.9);
+  paintLark(ctx, ex + unit * 0.2, ey - unit * 0.14 + Math.sin(t * 5) * 3, Math.max(10, unit * 0.06), t * 14);
+  pose.stage = p ? plumageOf(p) : 1;
+  pose.glow = 1;
   pose.flap = Math.sin(t * 0.8) > 0.92 ? t * 18 : 0;
   pose.spread = 0.7 + 0.1 * Math.sin(t * 0.6);
   paintEaglet(ctx, ex, ey, Math.max(18, unit * 0.12), -0.08 + 0.1 * Math.sin(t * 0.9 + 1.4), pose);

@@ -1,52 +1,49 @@
 import { describe, expect, it } from 'vitest';
-import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, RoundJudge, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
-import { inTurn, passage } from '../src/arcade/kit/scripture';
-import { MISSIONS, STAGES, TIPS, VISTAS } from '../src/arcade/wzlot/content';
-import { Eaglet, liftAt, sinkRate, type FlightEvent } from '../src/arcade/wzlot/flight';
-import { CATALOGS, km, metres, t } from '../src/arcade/wzlot/i18n';
-import {
-  bestFor, drawVista, freshProgress, newChance, nextMissing, pityDue, stageOf, toNextStage, turnPages, type WzlotProgress,
-} from '../src/arcade/wzlot/meta';
+import { LINE_COUNT, MOMENTS, SETS, lessonsOf, lines } from '../src/arcade/wzlot/content';
+import { CATALOGS, t } from '../src/arcade/wzlot/i18n';
+import { TEACH, bestOf, checkLessons, freshProgress, hatch, migrate, noFeats, openLessons, type WzlotProgress } from '../src/arcade/wzlot/meta';
 import { RULES } from '../src/arcade/wzlot/rules';
-import { WzlotSim, climbFor, followFor, median, planBlocks, wingsFor, type SimEvent } from '../src/arcade/wzlot/sim';
-import { Terrain, type RidgeSpec } from '../src/arcade/wzlot/terrain';
+import { WzlotSim, granSeed, nightPace, perfectPts, planBlocks, quickOf, type SimEvent } from '../src/arcade/wzlot/sim';
+import { Terrain } from '../src/arcade/wzlot/terrain';
+import { Talk } from '../src/arcade/wzlot/talk';
+import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 
-const DAY = '2026-10-25';
+const DAY = '2026-11-07';
 const STEP = 1 / 60;
-const DT = RULES.step;
-const DEG = Math.PI / 180;
-
-/** The session's tuning as the runner builds it: the kit's defaults, Wzlot's entry, and a beginner's on top. */
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
 const BEGINNER: FocusTuning = { ...TUNING, ...BEGINNER_TUNING };
 
 const frame = (p: Partial<FocusFrame> = {}): FocusFrame =>
   ({ reliable: true, activity: 0, threshold: 2, level: 0.3, focused: false, hold: 0, calm: 0.5, ...p });
+const HIGH = frame({ level: 0.95, activity: 6, focused: true, hold: 10, calm: 0.05 });
+const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
+const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
+const MID = frame({ level: 0.5, activity: 2, calm: 0.5 });
 
-type SimOpts = { progress?: Partial<WzlotProgress>; planned?: number; seed?: number; day?: string; eeg?: boolean; daySeed?: number; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<WzlotProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
 
 function makeSim(o: SimOpts = {}): WzlotSim {
   const sim = new WzlotSim({
-    progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: o.day ?? DAY,
-    daySeed: o.daySeed ?? 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY,
+    daySeed: 4242 + (o.seed ?? 1), plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
   });
   sim.start();
   return sim;
 }
 
-/** A returning player's session (no warm-up, no day's ridge): the rules one at a time. */
-const later = (o: SimOpts = {}) => makeSim({ ...o, progress: { sessions: 5, lastVistaSession: 5, dailyDay: DAY, giftDay: DAY, lekcje: 1, ...o.progress } });
+/** A returning player: no warm-up, no opening card, nothing left to teach. */
+const later = (o: SimOpts = {}) => makeSim({ ...o, progress: { sessions: 5, opened: true, taught: 255, ...o.progress } });
 
-/** Run the sim for `sec` at 60 fps; `f` may depend on the play time; `hands` presses the wings now and then. */
 function drive(sim: WzlotSim, sec: number, f: FocusFrame | ((t: number) => FocusFrame), clock = { t: 0 }, each?: (t: number) => void): SimEvent[] {
   const out: SimEvent[] = [];
   const n = Math.round(sec / STEP);
   for (let i = 0; i < n; i++) {
     clock.t += STEP;
-    sim.update(STEP, typeof f === 'function' ? f(clock.t) : f, clock.t);
     each?.(clock.t);
+    sim.update(STEP, typeof f === 'function' ? f(clock.t) : f, clock.t);
     out.push(...sim.take());
   }
   return out;
@@ -54,1013 +51,578 @@ function drive(sim: WzlotSim, sec: number, f: FocusFrame | ((t: number) => Focus
 
 const ofType = <K extends SimEvent['type']>(evs: readonly SimEvent[], type: K) => evs.filter((e): e is Extract<SimEvent, { type: K }> => e.type === type);
 
-/** Make the block running now last `sec` (the plan's lengths vary with the seed). */
-const lasting = (sim: WzlotSim, sec: number) => { sim.block.dur = sec; };
+/** Tiny Wings played well: heavy on the way down, light on the way up (and over the crag's run-up). */
+function pilot(sim: WzlotSim): () => void {
+  let down = false;
+  return () => {
+    const e = sim.eaglet, T = sim.terrain;
+    const m = T.slope(e.x + 0.05);
+    const h = e.y - T.height(e.x);
+    const want = sim.dayPhase === 'fly' && (e.mode === 'ground' ? m < -0.02 : (e.vy < 0 && m < 0 && h < 0.5) || (e.vy < -0.2 && T.slope(e.x + 0.25) < 0));
+    if (want !== down) {
+      down = want;
+      sim.pointer(want ? 'down' : 'up', 1);
+    }
+  };
+}
 
-/** Play to the start of block i (the block clock runs on, whatever the band does). */
-function toBlock(sim: WzlotSim, i: number, f: FocusFrame | ((t: number) => FocusFrame) = frame(), clock = { t: 0 }): SimEvent[] {
+/** Into block i (the day keeps flying). */
+function toBlock(sim: WzlotSim, i: number, f: FocusFrame | ((t: number) => FocusFrame) = MID, clock = { t: 0 }): SimEvent[] {
   const out: SimEvent[] = [];
   while (sim.blockIndex < i && sim.phase === 'play') out.push(...drive(sim, STEP, f, clock));
   return out;
 }
 
-// ── the ground ─────────────────────────────────────────────────
-const spec = (seed: number, o: Partial<RidgeSpec> = {}): RidgeSpec => ({ seed, gentle: false, wide: false, daily: false, ...o });
-const terrain = (seed = 1, o: Partial<RidgeSpec> = {}) => {
-  const rs = mulberry32(seed);
-  const T = new Terrain(i => spec((rs() * 2 ** 32) >>> 0, i === 0 ? o : {}));
-  T.ensure(40);
-  return T;
-};
-
-describe('the hills', () => {
-  it('makes the same ridge from the same seed, on any device', () => {
-    const a = new Terrain(() => spec(99)), b = new Terrain(() => spec(99)), c = new Terrain(() => spec(100));
-    a.ensure(20);
-    b.ensure(20);
-    c.ensure(20);
-    const ka = a.keys(0, 20).map(k => [k.x, k.y]), kb = b.keys(0, 20).map(k => [k.x, k.y]);
-    expect(ka).toEqual(kb);
-    expect(c.keys(0, 20).map(k => [k.x, k.y])).not.toEqual(ka);
-  });
-
-  it('is smooth: height and slope are continuous everywhere, the slope zero at every crest and trough', () => {
-    const T = terrain(3);
-    for (let x = 0.01; x < 30; x += 0.013) {
-      expect(Math.abs(T.height(x + 1e-5) - T.height(x))).toBeLessThan(1e-3);
-      expect(Math.abs(T.slope(x + 1e-5) - T.slope(x))).toBeLessThan(1e-2);
-    }
-    for (const k of T.keys(0.5, 30)) expect(Math.abs(T.slope(k.x))).toBeLessThan(1e-6);
-  });
-
-  it('builds ridges of 16 hills that end at a crag over a wadi; the next ridge starts at the far rim', () => {
-    const T = terrain(4);
-    const [r0, r1] = T.ridges;
-    expect(r0.troughs).toHaveLength(RULES.hillsPerRidge);
-    expect(r0.crag).toBe(r0.wadiX0);
-    expect(r1.x0).toBeCloseTo(r0.wadiX1, 9);
-    // the crag is a crest, the wadi's floor drops far below the line under which the parent catches
-    expect(T.slope(r0.crag - 0.05)).toBeGreaterThan(0);
-    expect(T.slope(r0.crag + 0.05)).toBeLessThan(0);
-    expect(T.height((r0.wadiX0 + r0.wadiX1) / 2)).toBeLessThan(r0.catchY);
-    expect(r0.rimY).toBeCloseTo(r0.cragY - RULES.rimDrop, 9);
-    const width = r0.wadiX1 - r0.wadiX0;
-    expect(width).toBeGreaterThanOrEqual(RULES.wadiWidth[0]);
-    expect(width).toBeLessThanOrEqual(RULES.wadiWidth[1]);
-  });
-
-  it('keeps hill slopes and sizes within the rules, and the land near the nest\'s level', () => {
-    const T = terrain(5);
-    const run = (x: number) => T.ridges.some(r => x > r.crag - 1 && x < r.wadiX1);   // the crag's run-up may be steeper
-    for (let x = 0.01; x < T.ridges[1].wadiX0; x += 0.01) {
-      if (run(x)) continue;
-      expect(Math.abs(T.slope(x))).toBeLessThanOrEqual(RULES.slopeMax + 1e-9);
-    }
-    for (const r of T.ridges) expect(Math.abs(r.cragY)).toBeLessThan(1);
-  });
-
-  it('makes the warm-up ridge gentle with a shallow dip nobody is caught in, and the stretch\'s valley wide', () => {
-    const gentle = new Terrain(() => spec(7, { gentle: true }));
-    gentle.ensure(20);
-    const g = gentle.ridges[0];
-    const floor = gentle.height((g.wadiX0 + g.wadiX1) / 2);
-    expect(floor).toBeGreaterThan(g.catchY);
-    const wide = new Terrain(() => spec(7, { wide: true }));
-    wide.ensure(20);
-    expect(wide.ridges[0].wadiX1 - wide.ridges[0].wadiX0).toBeGreaterThanOrEqual(RULES.wideWidth[0]);
-  });
-
-  it('is made ahead and forgotten behind', () => {
-    const T = terrain(6);
-    T.ensure(200);
-    expect(T.end).toBeGreaterThanOrEqual(200);
-    const h = T.height(150);
-    T.trim(140);
-    expect(T.height(150)).toBe(h);
-    expect(T.ridges[0].wadiX1).toBeGreaterThan(140 - 20);
-  });
-});
-
-// ── the flight ─────────────────────────────────────────────────
-/** An eaglet in the air at (x, height above the ground), flying at `speed` along `deg` (negative: down). */
-function flying(T: Terrain, x: number, h: number, speed: number, deg: number, ev: FlightEvent[] = []): Eaglet {
-  const e = new Eaglet(T, x => ev.push(x));
-  e.mode = 'air';
-  e.x = e.maxX = x;
-  e.y = T.height(x) + h;
-  e.vx = speed * Math.cos(deg * DEG);
-  e.vy = speed * Math.sin(deg * DEG);
-  e.airT = 1;
-  return e;
-}
-const open = { held: false, W: RULES.wNeutral, draft: 0, soaring: false };
-const tuck = { held: true, W: RULES.wNeutral, draft: 0, soaring: false };
-
-/** The middle of a downslope and of an upslope of the first ridge, with their angles. */
-function slopes(T: Terrain) {
-  const ks = T.keys(0, T.ridges[0].crag - 1);
-  let down = 0, up = 0;
-  for (let i = 1; i < ks.length - 1 && (!down || !up); i++) {
-    const mid = (ks[i].x + ks[i + 1].x) / 2;
-    if (!down && ks[i + 1].y < ks[i].y - 0.12) down = mid;
-    if (!up && ks[i + 1].y > ks[i].y + 0.12 && i > 2) up = mid;
-  }
-  return { down, up, downDeg: Math.atan(T.slope(down)) / DEG, upDeg: Math.atan(T.slope(up)) / DEG };
-}
-
-/** Fly with `inp` until the first landing (or a catch). */
-function landing(e: Eaglet, ev: FlightEvent[], inp = open): Extract<FlightEvent, { type: 'land' }> | null {
-  for (let i = 0; i < 2000; i++) {
-    e.step(DT, inp);
-    const l = ev.find(x => x.type === 'land' || x.type === 'catch');
-    if (l) return l.type === 'land' ? l : null;
-  }
-  return null;
-}
-
-describe('the flight', () => {
-  it('starts sliding down off the nest at 0.9 sh/s, so the distance grows from the first moment', () => {
-    const T = terrain(1);
-    const e = new Eaglet(T, () => undefined);
-    expect(e.mode).toBe('ground');
-    expect(e.s).toBe(RULES.startV);
-    expect(T.slope(e.x)).toBeLessThan(0);
-    for (let i = 0; i < 60; i++) e.step(DT, open);
-    expect(e.maxX).toBeGreaterThan(RULES.startX + 0.3);
-  });
-
-  it('folds the wings to dive at 2.2 g and opens them to glide at g (1 − 0.5 W) down to their sink rate', () => {
-    const T = terrain(1);
-    const high = (deg: number) => flying(T, 3, 3, 1.5, deg);
-    const a = high(0), b = high(0);
-    a.step(DT, tuck);
-    b.step(DT, open);
-    expect(a.vy).toBeCloseTo(-RULES.g * RULES.dive * DT, 3);
-    expect(b.vy).toBeCloseTo(-RULES.g * (1 - 0.5 * liftAt(RULES.wNeutral, b.vx)) * DT, 3);
-    // open wings never sink faster than their rate: lift and speed both make it gentler
-    const c = high(-60);
-    for (let i = 0; i < 240; i++) c.step(DT, open);
-    expect(c.vy).toBeCloseTo(-sinkRate(RULES.wNeutral, c.vx), 2);
-    expect(sinkRate(0.85, 2)).toBeLessThan(sinkRate(0.55, 2));
-    expect(sinkRate(0.55, 2.5)).toBeLessThan(sinkRate(0.55, 1));
-    // the band's lift works with the airspeed: crawling, the wings are nearly neutral
-    expect(liftAt(0.85, 0.5)).toBeLessThan(0.6);
-    expect(liftAt(0.85, 2)).toBeCloseTo(0.85, 9);
-  });
-
-  it('launches from a crest by its own momentum, and hugs it with the wings folded', () => {
-    const T = terrain(2);
-    const ks = T.keys(1, 10);
-    const crest = ks.find((k, i) => i > 0 && k.y > ks[i - 1].y && k.y > (ks[i + 1]?.y ?? Infinity))!;
-    const run = (held: boolean, v: number) => {
-      const ev: FlightEvent[] = [];
-      const e = new Eaglet(T, x => ev.push(x));
-      e.x = e.maxX = crest.x - 0.2;
-      e.y = T.height(e.x);
-      e.s = v;
-      for (let i = 0; i < 60 && e.x < crest.x + 0.1; i++) e.step(DT, { ...open, held });
-      return ev.some(x => x.type === 'launch');
-    };
-    expect(run(false, 2.4)).toBe(true);
-    expect(run(true, 1)).toBe(false);
-  });
-
-  it('lands smoothly within 10° of a downslope (+6 %), shows the honest margin up to 12°, and is rough beyond', () => {
-    const T = terrain(2);
-    const { down, downDeg } = slopes(T);
-    const at = (off: number) => {
-      const ev: FlightEvent[] = [];
-      const e = flying(T, down, 0.004, 1.8, downDeg + off, ev);
-      e.vy -= 0;   // already pointing at the slope
-      const l = landing(e, ev)!;
-      return { l, s: e.s };
-    };
-    const smooth = at(-4);
-    expect(smooth.l.cls).toBe('smooth');
-    expect(smooth.l.deg).toBeLessThanOrEqual(RULES.smooth);
-    expect(smooth.s).toBeGreaterThan(1.8 * Math.cos(smooth.l.deg * DEG));      // the bonus on top of the slide
-    const near = at(-11);
-    expect(near.l.cls).toBe('near');
-    expect(near.l.deg).toBeGreaterThan(RULES.smooth);
-    expect(near.l.deg).toBeLessThanOrEqual(RULES.near);
-    expect(at(-20).l.cls).toBe('rough');
-  });
-
-  it('stalls more than 35° into an upslope (speed × 0.55), and is only rough at a gentler angle', () => {
-    const T = terrain(2);
-    const { up, upDeg } = slopes(T);
-    const ev: FlightEvent[] = [];
-    const e = flying(T, up, 0.004, 1.6, upDeg - 45, ev);
-    const l = landing(e, ev)!;
-    expect(l.cls).toBe('stall');
-    expect(e.s).toBeCloseTo(l.speed, 9);
-    expect(l.speed).toBeCloseTo(1.6 * RULES.stallKeep, 1);
-    const ev2: FlightEvent[] = [];
-    expect(landing(flying(T, up, 0.004, 1.6, upDeg - 20, ev2), ev2)!.cls).toBe('rough');
-  });
-
-  it('lines a dive up with a downslope just under it (the tucked eaglet swoops onto the hill)', () => {
-    const T = terrain(2);
-    const { down, downDeg } = slopes(T);
-    // steeply down from a little above the slope: open wings land rough, a dive settles onto it
-    const ev: FlightEvent[] = [];
-    const glide = landing(flying(T, down - 0.15, 0.3, 1.8, downDeg - 35, ev), ev);
-    const ev2: FlightEvent[] = [];
-    const dive = landing(flying(T, down - 0.15, 0.3, 1.8, downDeg - 35, ev2), ev2, tuck);
-    expect(glide!.deg).toBeGreaterThan(RULES.smooth);
-    expect(dive!.cls).toBe('smooth');
-  });
-
-  it('never counts a hop over a crest as a landing', () => {
-    const T = terrain(2);
-    const { down, downDeg } = slopes(T);
-    const ev: FlightEvent[] = [];
-    const e = flying(T, down, 0.002, 1.5, downDeg - 30, ev);
-    e.airT = 0;
-    e.step(DT, open);
-    e.step(DT, open);
-    expect(e.mode).toBe('ground');
-    expect(ev.some(x => x.type === 'land')).toBe(false);
-  });
-
-  it('is deterministic: the same hands give the same flight', () => {
-    const fly = () => {
-      const T = terrain(9);
-      const e = new Eaglet(T, () => undefined);
-      const r = mulberry32(3);
-      let held = false;
-      for (let i = 0; i < 120 * 30; i++) {
-        if (i % 20 === 0) held = r() < 0.4;
-        T.ensure(e.x + 4);
-        e.step(DT, { ...open, held });
+describe('the block plan', () => {
+  it('fits any session: blocks of 12 s or more, push and rest alternating, ending before the last sunset', () => {
+    for (const planned of [10, 40, 60, 180, 300, 600]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(3));
+        const sum = plan.reduce((s, b) => s + b.dur, 0);
+        expect(sum, `${planned} ${first}`).toBeLessThanOrEqual(Math.max(planned - RULES.finale, 2 * RULES.minBlock + RULES.warm.test) + 1e-6);
+        for (const b of plan) if (b.kind !== 'warmup') expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-6);
+        expect(plan[plan.length - 1].kind).toBe('rest');
+        if (first) expect(plan[0].kind).toBe('warmup');
+        const kinds = plan.filter(b => b.kind !== 'warmup').map(b => b.kind);
+        kinds.forEach((k, i) => expect(k).toBe(i % 2 ? 'rest' : 'push'));
       }
-      return [e.x, e.y, e.maxX, e.mode];
-    };
-    expect(fly()).toEqual(fly());
+    }
+  });
+
+  it('jitters the blocks of a long session around 24 and 23 s', () => {
+    const plan = planBlocks(600, false, mulberry32(9));
+    const push = plan.filter(b => b.kind === 'push').map(b => b.dur);
+    expect(new Set(push.map(d => d.toFixed(2))).size).toBeGreaterThan(1);
+    for (const d of push) expect(d).toBeGreaterThan(17);
+  });
+
+  it('reports each block to the dock, with its seconds left and the next block in the telegraph', () => {
+    const sim = later({ planned: 120 });
+    expect(sim.signal()).toMatchObject({ want: 'focus', blind: false });
+    expect(sim.signal().task).toBeTruthy();
+    const b0 = sim.block.dur;
+    const clock = { t: 0 };
+    drive(sim, b0 - 2, MID, clock);
+    const s = sim.signal();
+    expect(s.left).toBeCloseTo(2, 0);
+    expect(s.next).toBe('rest');
+    drive(sim, 3, MID, clock);
+    expect(sim.signal()).toMatchObject({ want: 'rest', next: null });
+  });
+
+  it('opens a first-ever session with a free warm-up', () => {
+    const sim = makeSim({ planned: 300 });
+    expect(sim.block.kind).toBe('warmup');
+    expect(sim.signal().want).toBe('free');
   });
 });
 
-describe('the catch', () => {
-  it('rolling back 0.8 s calls the parent, who carries the eaglet over the next crest; no distance is lost', () => {
-    const T = terrain(2);
-    const { up } = slopes(T);
-    const ev: FlightEvent[] = [];
-    const e = new Eaglet(T, x => ev.push(x));
-    e.x = up;
-    e.maxX = up + 0.05;
-    e.y = T.height(up);
-    e.s = -0.3;
-    e.stun = 5;
-    let maxX = e.maxX, t = 0;
-    while (!ev.some(x => x.type === 'catch') && t < 3) {
-      e.step(DT, open);
-      t += DT;
-      expect(e.maxX).toBeGreaterThanOrEqual(maxX);
-      maxX = e.maxX;
-    }
-    expect(ev.find(x => x.type === 'catch')).toEqual({ type: 'catch', why: 'roll' });
-    expect(t).toBeGreaterThanOrEqual(RULES.rollBack - 0.02);
-    expect(t).toBeLessThan(RULES.rollBack + 0.1);
-    const crest = T.crestAfter(maxX);
-    while (!ev.some(x => x.type === 'carried')) {
-      e.step(DT, open);
-      expect(e.maxX).toBeGreaterThanOrEqual(maxX);
-      maxX = e.maxX;
-    }
-    expect(e.x).toBeGreaterThan(crest.x);
-    expect(e.mode).toBe('air');
-    // set down gently: the first touchdown after a carry is no landing
-    ev.length = 0;
-    while (e.mode === 'air') e.step(DT, open);
-    expect(ev.some(x => x.type === 'land')).toBe(false);
-    expect(e.s).toBeGreaterThanOrEqual(RULES.releaseV - 0.01);
+describe('the granie (terrain)', () => {
+  it('is the same for everyone on a day and in every run of the day', () => {
+    const a = new Terrain(i => ({ seed: granSeed(77, i), gentle: false }));
+    const b = new Terrain(i => ({ seed: granSeed(77, i), gentle: false }));
+    a.ensure(40);
+    b.ensure(40);
+    for (let x = 0; x < 40; x += 0.37) expect(a.height(x)).toBeCloseTo(b.height(x), 9);
   });
 
-  it('catches an eaglet that drops into a wadi and carries it over the far rim', () => {
-    const T = terrain(2);
-    const r = T.ridges[0];
-    const ev: FlightEvent[] = [];
-    const e = flying(T, r.wadiX0 + 0.05, 0, 0.6, -30, ev);
-    e.y = r.cragY - 0.1;
-    while (!ev.some(x => x.type === 'carried')) e.step(DT, open);
-    expect(ev.find(x => x.type === 'catch')).toEqual({ type: 'catch', why: 'wadi' });
-    expect(e.x).toBeGreaterThan(r.wadiX1);
+  it('grows bolder grań by grań: more hills, a wider gorge; promyki and a podmuch on each', () => {
+    const T = new Terrain(i => ({ seed: granSeed(5, i), gentle: false }));
+    T.ensure(80);
+    const g = T.granie;
+    expect(g.length).toBeGreaterThan(3);
+    expect(g[0].hills).toBe(RULES.hills0);
+    expect(g[3].hills).toBe(RULES.hills0 + 3);
+    for (const gr of g) {
+      expect(gr.coins.length).toBeGreaterThanOrEqual(5);
+      expect(gr.gapX1 - gr.gapX0).toBeGreaterThan(0.8);
+      expect(gr.rimY).toBeLessThan(gr.cragY);
+    }
+    expect(g.some(gr => gr.orbs.length > 0)).toBe(true);
   });
 
-  it('lets the eaglet ride the gorge on the ground no more than in the air', () => {
-    const T = terrain(2);
-    const r = T.ridges[0];
-    const ev: FlightEvent[] = [];
-    const e = new Eaglet(T, x => ev.push(x));
-    e.x = e.maxX = r.wadiX0 + 0.02;
-    e.y = T.height(e.x);
-    e.s = 0.3;
-    for (let i = 0; i < 240 && !ev.length; i++) e.step(DT, tuck);
-    expect(ev.some(x => x.type === 'catch' && x.why === 'wadi')).toBe(true);
+  it('is smooth: height and slope continuous', () => {
+    const T = new Terrain(i => ({ seed: granSeed(11, i), gentle: false }));
+    T.ensure(30);
+    for (let x = 0.01; x < 29; x += 0.013) {
+      expect(Math.abs(T.height(x + 1e-4) - T.height(x))).toBeLessThan(0.002);
+      expect(Math.abs(T.slope(x + 1e-4) - T.slope(x))).toBeLessThan(0.05);
+    }
   });
 });
 
-/** The harness's hands: hold on downslopes and let go on upslopes (the doc's scripted policy), or a random tapper. */
-type Hands = (e: Eaglet, t: number, T: Terrain) => boolean;
-const scripted: Hands = (e, _t, T) => T.slope(e.x) < 0;
-function randomTapper(seed: number): Hands {
-  const r = mulberry32(seed);
-  let until = 0, next = 0;
-  return (_e, t) => {
-    if (t >= next) {
-      until = t + 0.05 + r() * 0.5;
-      next = until + 0.2 + r() * 1.2;
-    }
-    return t < until;
-  };
-}
-function feel(hands: Hands, seed: number, sec: number, gentle: boolean, W: number = RULES.wNeutral) {
-  const rs = mulberry32(seed);
-  const T = new Terrain(() => spec((rs() * 2 ** 32) >>> 0, { gentle }));
-  T.ensure(5);
-  const ev: FlightEvent[] = [];
-  const e = new Eaglet(T, x => ev.push(x));
-  let land = 0, smooth = 0, catches = 0;
-  for (let t = 0; t < sec; t += DT) {
-    T.ensure(e.x + 4);
-    e.step(DT, { held: hands(e, t, T), W, draft: 0, soaring: false });
-    for (const x of ev) {
-      if (x.type === 'land') {
-        land++;
-        if (x.cls === 'smooth') smooth++;
-      } else if (x.type === 'catch') catches++;
-    }
-    ev.length = 0;
-  }
-  const ridges = Math.max(0.5, e.maxX / (T.ridges[0].wadiX1 - T.ridges[0].x0));
-  return { smoothShare: smooth / Math.max(1, land), land, catchesPerRidge: catches / ridges };
-}
-
-describe('the feel (the headless harness)', () => {
-  it('lands ≥ 60 % smooth on gentle ridges for a player who holds on downslopes and lets go on upslopes', () => {
-    let land = 0, smooth = 0;
-    for (const seed of [1, 2, 3, 4]) {
-      const r = feel(scripted, seed, 60, true);
-      land += r.land;
-      smooth += r.smoothShare * r.land;
-    }
-    expect(land).toBeGreaterThan(100);
-    expect(smooth / land).toBeGreaterThanOrEqual(0.6);
-  });
-
-  it('keeps a random tapper under one catch per ridge, and more lift never makes it worse', () => {
-    // a random tapper's catches are wadis it happens to dive into, whatever the wings: over 120
-    // seeds lift 0.85 changes them by −0.02 ± 0.02 a ridge (0.53 neutral), while one seed varies by
-    // ±0.24, so six seeds could order the two either way.  The rules promise that the band adds
-    // (airtime, height), never that it takes: the lifted rate stays within the noise of the neutral.
-    const seeds = Array.from({ length: 48 }, (_, i) => i + 1);
-    const avg = (W: number) => seeds.reduce((s, seed) => s + feel(randomTapper(seed), seed, 120, false, W).catchesPerRidge, 0) / seeds.length;
-    const neutral = avg(RULES.wNeutral), lifted = avg(0.85);
-    expect(neutral).toBeLessThan(1);
-    expect(lifted).toBeLessThan(1);
-    expect(lifted).toBeLessThanOrEqual(neutral + 0.1);
-  });
-});
-
-// ── the band ───────────────────────────────────────────────────
-describe('Lekcja lotu: the wings, the follow steps, the returns', () => {
-  it('opens the wings with L only after the lead-in (5 s Mendi, 2 s HALO), never below the neutral 0.55', () => {
-    expect(wingsFor(0)).toBe(RULES.wNeutral);
-    expect(wingsFor(0.42)).toBeCloseTo(RULES.wNeutral, 2);
-    expect(wingsFor(0.5)).toBeCloseTo(0.6, 9);
-    expect(wingsFor(0.88)).toBeCloseTo(0.828, 9);
-    expect(wingsFor(1)).toBeCloseTo(0.9, 9);
-    for (const [eeg, lead] of [[false, 5], [true, 2]] as const) {
-      const sim = later({ eeg });
-      expect(sim.block.kind).toBe('lekcja');
-      const clock = { t: 0 };
-      drive(sim, lead - 0.3, frame({ level: 1, focused: true }), clock);
-      expect(sim.W).toBe(RULES.wNeutral);
-      drive(sim, 4, frame({ level: 1, focused: true }), clock);
-      expect(sim.W).toBeGreaterThan(0.7);
-      expect(sim.wShown).toBeGreaterThan(0.65);
-    }
-  });
-
-  it('smooths the level again with τ 2.5 s on Mendi and 0.8 s on HALO', () => {
-    const climb = (eeg: boolean) => {
-      const sim = later({ eeg });
-      sim.L = 0;
-      drive(sim, 1, frame({ level: 1 }));
-      return sim.L;
-    };
-    expect(climb(false)).toBeCloseTo(1 - Math.exp(-1 / 2.5), 1);
-    expect(climb(true)).toBeCloseTo(1 - Math.exp(-1 / 0.8), 1);
-  });
-
-  it('adds a follow step every full 6 s of hold (+4 % up to +12 % at 18 s), easing off over 3 s', () => {
-    expect([0, 5.9, 6, 12, 18, 30].map(followFor)).toEqual([0, 0, 0.04, 0.08, 0.12, 0.12]);
+describe('the flight (touch)', () => {
+  it('waits in the nest at dawn; a touch takes off, or the sun rises by itself', () => {
     const sim = later();
-    lasting(sim, 40);
-    const clock = { t: 0 };
-    drive(sim, RULES.leadIn.fnirs, frame(), clock);
-    const start = clock.t;
-    const evs = drive(sim, 19, t => frame({ level: 0.9, focused: true, hold: t - start }), clock);
-    expect(ofType(evs, 'step').map(e => e.bonus)).toEqual([0.04, 0.08, 0.12]);
-    expect(sim.follow).toBeCloseTo(0.12, 9);
-    drive(sim, 1.5, frame({ level: 0.3 }), clock);
-    expect(sim.follow).toBeCloseTo(0.06, 2);
-    drive(sim, 2, frame({ level: 0.3 }), clock);
-    expect(sim.follow).toBe(0);
-  });
-
-  /** A Lekcja on a band where focus breaks at `off` for `lapse` s, then holds again. */
-  function lapseAndReturn(eeg: boolean, lapse: number, holdAfter = 6) {
-    const sim = later({ eeg });
-    lasting(sim, 40);
-    const clock = { t: 0 };
-    const lead = RULES.leadIn[eeg ? 'eeg' : 'fnirs'];
-    drive(sim, lead + 1, frame({ focused: true, hold: 3 }), clock);
-    const evs = drive(sim, lapse, frame({ focused: false }), clock);
-    const back = clock.t;
-    evs.push(...drive(sim, holdAfter, t => frame({ focused: true, hold: t - back }), clock));
-    return { sim, evs };
-  }
-
-  it('celebrates a return after a lapse of ≥ 6 s with a hold of ≥ 4 s on Mendi (≥ 4 s and ≥ 3 s on HALO), gold within 10 s', () => {
-    const r = lapseAndReturn(false, 7);
-    expect(ofType(r.evs, 'lapse')).toHaveLength(1);
-    const ret = ofType(r.evs, 'return');
-    expect(ret).toHaveLength(1);
-    expect(ret[0].lapse).toBeCloseTo(7, 1);
-    expect(ret[0].gold).toBe(true);
-    expect(r.sim.draft).toBeCloseTo(RULES.retBonus, 9);
-    expect(ofType(lapseAndReturn(false, 12).evs, 'return')[0].gold).toBe(false);
-    expect(ofType(lapseAndReturn(false, 5).evs, 'return')).toHaveLength(0);     // too short for Mendi
-    expect(ofType(lapseAndReturn(true, 4.5).evs, 'return')).toHaveLength(1);    // long enough for HALO
-    expect(ofType(lapseAndReturn(false, 7, 3.5).evs, 'return')).toHaveLength(0); // not held long enough yet
-  });
-
-  it('never rewards the lapse itself, and celebrates at most three returns a block', () => {
-    const sim = later({ planned: 600 });
-    lasting(sim, 70);
-    const clock = { t: 0 };
-    drive(sim, 6, frame({ focused: true, hold: 3 }), clock);
-    const lapse = drive(sim, 7, frame({ focused: false }), clock);
-    expect(lapse.filter(e => e.type === 'step' || e.type === 'return' || e.type === 'feather')).toHaveLength(0);
-    expect(sim.draft).toBe(0);
-    expect(sim.parent).toBe('circling');
-    let returns = 0;
-    for (let k = 0; k < 5 && sim.block.kind === 'lekcja'; k++) {
-      const back = clock.t;
-      returns += ofType(drive(sim, 4.5, t => frame({ focused: true, hold: t - back }), clock), 'return').length;
-      drive(sim, 6.5, frame({ focused: false }), clock);
-    }
-    expect(returns).toBeLessThanOrEqual(RULES.retMax);
-    expect(sim.returns.length).toBeLessThanOrEqual(RULES.retMax);
-  });
-
-  it('pauses the lapse clock while the signal is unreliable: a gap never counts as a lapse', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    drive(sim, 6, frame({ focused: true, hold: 3 }), clock);
-    const evs = drive(sim, 9, frame({ reliable: false, activity: null, focused: false, level: 0, calm: 0 }), clock);
-    expect(ofType(evs, 'lapse')).toHaveLength(0);
-    expect(sim.lapse).toBe('none');
-  });
-});
-
-describe('Wznoszenie: the thermals', () => {
-  it('builds T from calm after the lead-in: dT/dt = 0.07 × calm − 0.015', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    toBlock(sim, 1, frame(), clock);
-    expect(sim.block.kind).toBe('wzn');
-    drive(sim, RULES.tLeadIn.fnirs - 0.2, frame({ calm: 1 }), clock);
-    expect(sim.T).toBe(0);
-    drive(sim, 10.2, frame({ calm: 1 }), clock);
-    expect(sim.T).toBeCloseTo((0.07 - 0.015) * 10, 1);
-    const calm = sim.T;
-    drive(sim, 2, frame({ reliable: false, activity: null, calm: 0 }), clock);
-    expect(sim.T).toBe(calm);                                            // a gap holds it
-  });
-
-  it('lifts (0.6 + 1.4 T) sh/s for (1 + 2 T) s: about 1.2 screens at T 0.2 and 4.5 at T 0.8', () => {
-    const lift = (T: number) => climbFor(T).rate * climbFor(T).dur;
-    expect(lift(0.2)).toBeCloseTo(1.23, 2);
-    expect(lift(0.8)).toBeCloseTo(4.5, 1);
-  });
-
-  it('raises 2–3 thermals a block ahead of the eaglet; gliding into one with open wings climbs it', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    toBlock(sim, 1, frame(), clock);
-    const evs = drive(sim, sim.block.dur - 0.5, frame({ calm: 0.9 }), clock);
-    const rose = ofType(evs, 'thermalRise');
-    expect(rose.length).toBeGreaterThanOrEqual(2);
-    expect(rose.length).toBeLessThanOrEqual(RULES.thermalMax);
-    for (const r of rose) expect(r.thermal.x).toBeGreaterThan(0);
-    expect(ofType(evs, 'thermal').length).toBeGreaterThanOrEqual(1);    // the idle eaglet glides into them
-    expect(sim.thermalsRidden).toBeGreaterThanOrEqual(1);
-  });
-
-  it('lets a press fold the wings and drop out of a climb', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    toBlock(sim, 1, frame(), clock);
-    while (sim.eaglet.mode !== 'climb' && sim.block.kind === 'wzn') drive(sim, STEP, frame({ calm: 0.9 }), clock);
-    expect(sim.eaglet.mode).toBe('climb');
+    expect(sim.dayPhase).toBe('nest');
     sim.pointer('down', 1);
-    drive(sim, 0.1, frame(), clock);
-    expect(sim.eaglet.mode).not.toBe('climb');
     sim.pointer('up', 1);
+    const evs = drive(sim, 0.1, MID);
+    expect(sim.dayPhase).toBe('fly');
+    expect(ofType(evs, 'takeoff').length + 0).toBeGreaterThanOrEqual(0);
+    const sim2 = later();
+    drive(sim2, RULES.dawnWait + 0.2, MID);
+    expect(sim2.dayPhase).toBe('fly');
+  });
+
+  it('holding makes it heavy: faster down a slope than light', () => {
+    const run = (hold: boolean) => {
+      const sim = later();
+      const clock = { t: 0 };
+      drive(sim, RULES.dawnWait + 0.1, MID, clock);
+      if (hold) sim.pointer('down', 1);
+      drive(sim, 2, MID, clock);
+      return sim.eaglet.maxX;
+    };
+    expect(run(true)).toBeGreaterThan(run(false));
+  });
+
+  it('a pilot who dives down and lets go up makes perfect slides, lights the Poryw and scores', () => {
+    const sim = later({ planned: 600 });
+    const evs = drive(sim, 45, MID, { t: 0 }, pilot(sim));
+    const perfect = ofType(evs, 'perfect');
+    expect(perfect.length).toBeGreaterThan(3);
+    expect(perfect[0].pts).toBe(perfectPts(1) * sim.dayMult);
+    expect(ofType(evs, 'fever').length).toBeGreaterThan(0);
+    expect(ofType(evs, 'gran').length).toBeGreaterThan(0);
+    expect(ofType(evs, 'coin').length).toBeGreaterThan(0);
+    expect(sim.total).toBeGreaterThan(500);
+  });
+
+  it('the Poryw doubles the points and ends at a landing that is not smooth', () => {
+    const sim = later();
+    drive(sim, RULES.dawnWait + 0.5, MID);
+    const before = sim.mult;
+    (sim as unknown as { startFever(b: boolean): void }).startFever(false);
+    expect(sim.fever).toBe(true);
+    expect(sim.mult).toBe(before * 2);
+    (sim as unknown as { flightEvents: unknown[] }).flightEvents.push({ type: 'land', cls: 'stall', deg: 50, down: false, airT: 0.5, glide: 0.3, hills: 0, speed: 1 });
+    (sim as unknown as { flightOut(): void }).flightOut();
+    expect(sim.fever).toBe(false);
+    expect(ofType(sim.take(), 'bump')).toHaveLength(1);
+  });
+
+  it('crude taps (the smoke test) still carry the eaglet forward, points accruing live', () => {
+    const sim = makeSim({ planned: 40, tuning: BEGINNER });
+    let tap = 0;
+    const seen: number[] = [];
+    drive(sim, 22, MID, { t: 0 }, tt => {
+      if (tt - tap >= 0.65) {
+        tap = tt;
+        sim.pointer('down', 1);
+        sim.pointer('up', 1);
+      }
+      seen.push(sim.headline().value);
+    });
+    expect(sim.eaglet.maxX).toBeGreaterThan(8);
+    expect(sim.result().score).toBeGreaterThan(100);
+    expect(seen[seen.length - 1]).toBeGreaterThan(seen[Math.floor(seen.length / 2)]);
+  });
+
+  it('a grań reached gives the sun back, more for a quick one', () => {
+    expect(quickOf(5, 10)).toBe(1);
+    expect(quickOf(15, 10)).toBe(0);
+    const sim = later({ planned: 600 });
+    const evs = drive(sim, 40, MID, { t: 0 }, pilot(sim));
+    const g = ofType(evs, 'gran')[0];
+    expect(g.sun).toBeGreaterThanOrEqual(RULES.granSun);
+    expect(g.pts).toBeGreaterThanOrEqual(RULES.gran);
+  });
+
+  it('the mother catches the eaglet over a gorge it cannot make and carries it to the next grań', () => {
+    const sim = later({ planned: 600 });
+    const clock = { t: 0 };
+    drive(sim, RULES.dawnWait + 0.2, MID, clock);
+    const g = sim.terrain.granie[0];
+    // drop it into the gorge, slowly
+    Object.assign(sim.eaglet, { mode: 'air', x: g.gapX0 + 0.2, y: g.catchY + 0.05, vx: 0.3, vy: -1 });
+    const evs = drive(sim, 6, MID, clock);
+    expect(ofType(evs, 'catch')).toHaveLength(1);
+    expect(sim.eaglet.maxX).toBeGreaterThan(g.gapX1);
+    expect(ofType(evs, 'gran').length).toBeGreaterThan(0);
   });
 });
 
-describe('the verdicts', () => {
-  it('judges each block with the session\'s tuning: a passed block grows a feather; a fail shows the honest margin', () => {
-    const sim = later({ progress: { missions: ['follow', 'km8', 'high3'] } });
+describe('the day and the night', () => {
+  it('the sun sinks one second a second; the night catches the eaglet, a tally, then a new day: the score is kept', () => {
+    const sim = later({ planned: 600 });
     const clock = { t: 0 };
-    const feathers = sim.p.feathers;
-    let evs = toBlock(sim, 1, frame({ activity: 8, level: 0.9, focused: true, hold: 10 }), clock);
+    drive(sim, RULES.dawnWait + 0.1, MID, clock);
+    const left = sim.dayLeft;
+    drive(sim, 2, NONE, clock);
+    expect(left - sim.dayLeft).toBeCloseTo(2, 0);
+    sim.dayLeft = 0.5;
+    const evs = drive(sim, 1 + RULES.dusk, NONE, clock);
+    expect(ofType(evs, 'nightfall')).toHaveLength(1);
+    expect(sim.dayPhase).toBe('tally');
+    const tally = ofType(evs, 'tally')[0].tally;
+    expect(tally.points).toBeGreaterThan(0);
+    const banked = sim.total;
+    expect(banked).toBe(tally.points);
+    const evs2 = drive(sim, RULES.tallyMax + 0.1, NONE, clock);
+    expect(ofType(evs2, 'dawn')[0].day).toBe(2);
+    expect(sim.dayPhase).toBe('nest');
+    expect(sim.total).toBe(banked);
+    expect(sim.phase).toBe('play');
+  });
+
+  it('a tap skips the tally after a moment', () => {
+    const sim = later({ planned: 600 });
+    const clock = { t: 0 };
+    drive(sim, RULES.dawnWait + 0.1, MID, clock);
+    sim.dayLeft = 0.1;
+    drive(sim, RULES.dusk + 0.3, MID, clock);
+    expect(sim.dayPhase).toBe('tally');
+    drive(sim, RULES.tallyMin, MID, clock);
+    sim.pointer('down', 1);
+    expect(sim.dayPhase).toBe('nest');
+  });
+
+  it('focus holds the sun up in a push block, after the lead-in: never faster than its base pace', () => {
+    expect(nightPace(0.5)).toBe(1);
+    expect(nightPace(0.2)).toBe(1);
+    expect(nightPace(1)).toBeCloseTo(1 - RULES.holdMax);
+    const sim = later({ planned: 600 });
+    const clock = { t: 0 };
+    drive(sim, RULES.dawnWait + 0.1, HIGH, clock);
+    expect(sim.inPush).toBe(true);
+    drive(sim, RULES.leadIn.fnirs + 4, HIGH, clock);
+    const a = sim.dayLeft;
+    drive(sim, 4, HIGH, clock);
+    expect(a - sim.dayLeft).toBeLessThan(4 * 0.75);
+    expect(sim.meter()).toBeGreaterThan(0.8);
+  });
+
+  it('without signal the sun goes at its base pace and the gauge shows nothing', () => {
+    const sim = later({ planned: 600 });
+    const clock = { t: 0 };
+    drive(sim, RULES.dawnWait + 8, NONE, clock);
+    const a = sim.dayLeft;
+    const evs = drive(sim, 3, NONE, clock);
+    const back = ofType(evs, 'gran').reduce((s, e) => s + e.sun, 0);
+    expect(a + back - sim.dayLeft).toBeCloseTo(3, 1);
+    expect(sim.meter()).toBeNull();
+  });
+
+  it('a held focus fills the Poryw: a Poryw of the band', () => {
+    const sim = later({ planned: 600 });
+    const evs = drive(sim, RULES.dawnWait + RULES.leadIn.fnirs + RULES.feverHold.fnirs + 1, HIGH);
+    const f = ofType(evs, 'fever');
+    expect(f.some(e => e.band)).toBe(true);
+    expect(sim.bandFevers).toBe(1);
+  });
+
+  it('a passed push gives daylight back; a passed rest warms the next', () => {
+    const sim = later({ planned: 600 });
+    const clock = { t: 0 };
+    drive(sim, RULES.dawnWait + 0.1, HIGH, clock);
+    const evs = toBlock(sim, 1, HIGH, clock);
     const end = ofType(evs, 'blockEnd')[0];
     expect(end.verdict).toBe(true);
-    expect(end.need).toBeCloseTo(RoundJudge.from(TUNING).need('focus'), 9);
-    expect(sim.p.feathers).toBe(feathers + 1);
-    evs = toBlock(sim, 2, frame({ activity: 8, level: 0.9, calm: 0.1 }), clock);
-    const fail = ofType(evs, 'blockEnd')[0];
-    expect(fail.verdict).toBe(false);
-    expect(fail.share).toBeLessThan(fail.need);
-    expect(sim.p.feathers).toBe(feathers + 1);
-  });
-
-  it('makes the next Wznoszenie\'s first thermal strong (+0.2 T) after a passed one', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    toBlock(sim, 1, frame(), clock);
-    toBlock(sim, 3, frame({ activity: -3, level: 0.1, calm: 0.9 }), clock);
-    expect(sim.block.kind).toBe('wzn');
-    const rose = ofType(drive(sim, RULES.thermalFirst + 0.2, frame({ calm: 0 }), clock), 'thermalRise');
-    expect(rose[0].thermal.bonus).toBeCloseTo(RULES.tPassBonus, 9);
-    expect(sim.strengthOf(rose[0].thermal)).toBeGreaterThanOrEqual(RULES.tPassBonus - 1e-9);
-  });
-
-  it('has no verdict for a block with fewer than 8 reliable seconds, and floors its thermals at 0.4', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    toBlock(sim, 1, frame(), clock);
-    const gap = frame({ reliable: false, activity: null, calm: 0, level: 0 });
-    const evs = drive(sim, 7, gap, clock);
-    const th = ofType(evs, 'thermalRise')[0]?.thermal;
-    expect(th).toBeDefined();
-    expect(sim.strengthOf(th!)).toBeCloseTo(RULES.tFloor, 9);
-    const end = ofType(toBlock(sim, 2, gap, clock), 'blockEnd')[0];
-    expect(end.verdict).toBeNull();
-  });
-
-  it('leans further toward a beginner (their judge needs less)', () => {
-    expect(RoundJudge.from(BEGINNER).need('focus')).toBeLessThan(RoundJudge.from(TUNING).need('focus'));
+    expect(end.pts).toBeGreaterThan(0);
+    const evs2 = toBlock(sim, 2, CALM, clock);
+    expect(ofType(evs2, 'blockEnd')[0].verdict).toBe(true);
+    toBlock(sim, 3, CALM, clock);
+    expect(sim.inRest).toBe(true);
+    expect(sim.T).toBeGreaterThanOrEqual(RULES.tPass - 1e-9);
   });
 });
 
-describe('W chmurze: the blind Lekcja', () => {
-  /** A returning player whose next Lekcja is the 4th one counted (blind), from the 3rd session on. */
-  const blindSession = () => later({ progress: { sessions: 4, lekcje: 2 }, planned: 300 });
-
-  it('comes every 4th Lekcja across sessions from the 3rd session, never a session\'s first', () => {
-    const sim = blindSession();
+describe('the rest: thermals', () => {
+  it('calm builds the warm air; columns rise ahead and lift an eaglet with open wings', () => {
+    const sim = later({ planned: 600 });
     const clock = { t: 0 };
-    expect(sim.block.blind).toBe(false);                 // the session's first Lekcja (the 3rd counted)
-    toBlock(sim, 2, frame(), clock);
-    expect(sim.block.kind).toBe('lekcja');
-    expect(sim.block.blind).toBe(true);                  // the 4th
-    const early = later({ progress: { sessions: 1, lekcje: 2 }, planned: 300 });
-    toBlock(early, 2, frame(), { t: 0 });
-    expect(early.block.blind).toBe(false);               // the 2nd session: never blind
-  });
-
-  it('shows nothing and changes nothing: neutral wings, no steps, no returns, the pad held still', () => {
-    const sim = blindSession();
-    const clock = { t: 0 };
-    toBlock(sim, 2, frame(), clock);
-    const start = clock.t;
-    const evs = drive(sim, 14, t => frame({ activity: 8, level: 0.95, focused: t - start < 3 || t - start > 10, hold: Math.max(0, t - start - 10) }), clock);
-    expect(sim.W).toBe(RULES.wNeutral);
-    expect(evs.filter(e => e.type === 'step' || e.type === 'return' || e.type === 'lapse')).toHaveLength(0);
-    expect(sim.padLevel(frame({ level: 0.9 }))).toBeNull();
-    expect(sim.parent).toBe('cloud');
-  });
-
-  it('reveals its focus at the exit ("W chmurze: 11 s skupienia") and opens a bonus thermal of that strength', () => {
-    const sim = blindSession();
-    const clock = { t: 0 };
-    toBlock(sim, 2, frame(), clock);
-    const dur = sim.block.dur;
-    const start = clock.t;
-    const evs = toBlock(sim, 3, t => frame({ activity: 8, level: 0.9, focused: t - start > dur - 11 }), clock);
-    const reveal = ofType(evs, 'blindReveal')[0];
-    expect(reveal.sec).toBeGreaterThanOrEqual(10);
-    expect(reveal.sec).toBeLessThanOrEqual(12);
-    expect(t('blind.reveal', { n: reveal.sec })).toBe(`W chmurze: ${reveal.sec} s skupienia`);
-    const bonus = ofType(evs, 'thermalRise').find(e => e.thermal.fixed !== null)!;
-    expect(bonus.thermal.fixed).toBeCloseTo(reveal.T, 9);
-    expect(reveal.T).toBeCloseTo(reveal.sec / 15, 1);
+    drive(sim, RULES.dawnWait + 0.1, MID, clock);
+    toBlock(sim, 1, MID, clock);
+    expect(sim.inRest).toBe(true);
+    const evs = drive(sim, 16, CALM, clock);
+    expect(sim.T).toBeGreaterThan(0.4);
+    expect(sim.meter()).toBeCloseTo(sim.T, 6);
+    expect(ofType(evs, 'thermalRise').length).toBeGreaterThan(0);
+    const climbs = ofType(evs, 'thermal');
+    expect(climbs.length).toBeGreaterThan(0);
   });
 });
 
-describe('a bad signal: everything brain-driven holds at neutral', () => {
-  it('fills the valleys with mist, eases the wings to neutral through the kit\'s fade and keeps the block clock running', () => {
-    const sim = later();
+describe('blind blocks', () => {
+  it('every 4th push from the 3rd session; the gauge is veiled; the held seconds are revealed', () => {
+    const sim = later({ planned: 600, progress: { sessions: 4, pushes: 2 } });
+    expect(sim.block.blind).toBe(false);
     const clock = { t: 0 };
-    drive(sim, 9, frame({ level: 1, focused: true }), clock);
-    expect(sim.W).toBeGreaterThan(0.8);
-    const block = sim.blockT;
-    // the kit's level fades to zero during a long gap
-    drive(sim, 6, t => frame({ reliable: false, activity: null, level: Math.max(0, 1 - (t - 9) / 2), calm: 0 }), clock);
-    expect(sim.fog).toBeGreaterThan(0.9);
-    expect(sim.W).toBeCloseTo(RULES.wNeutral, 2);
-    expect(sim.blockT).toBeCloseTo(block + 6, 1);
-    expect(sim.padLevel(frame({ reliable: false }))).toBeNull();
+    toBlock(sim, 2, HIGH, clock);
+    expect(sim.block.kind).toBe('push');
+    expect(sim.block.blind).toBe(true);
+    expect(sim.signal().blind).toBe(true);
+    expect(sim.meter()).toBeNull();
+    expect(sim.padLevel(HIGH)).toBeNull();
+    const evs = toBlock(sim, 3, HIGH, clock);
+    const end = ofType(evs, 'blockEnd')[0];
+    expect(end.block.blind).toBe(true);
+    expect(end.sunHeld).toBeGreaterThan(1);
   });
 
-  it('lets nothing fall for a while after a long dropout, while the band climbs back', () => {
-    const sim = later();
+  it('never the second session', () => {
+    const sim = later({ planned: 600, progress: { sessions: 1, pushes: 3 } });
     const clock = { t: 0 };
-    toBlock(sim, 1, frame(), clock);
-    drive(sim, 10, frame({ calm: 1 }), clock);
-    const T = sim.T;
-    drive(sim, 3, frame({ reliable: false, activity: null, calm: 0 }), clock);
-    drive(sim, 3, frame({ calm: 0.05 }), clock);
-    expect(sim.T).toBeGreaterThanOrEqual(T);
+    toBlock(sim, 2, MID, clock);
+    expect(sim.block.blind).toBe(false);
   });
 });
 
-describe('the pad', () => {
-  it('follows the wings in a sighted Lekcja, glows mid in the warm-up and holds still in rest, blind blocks and the finisher', () => {
-    const first = makeSim({ planned: 300 });
-    expect(first.block.kind).toBe('warmup');
-    expect(first.padLevel(frame())).toBe(0.5);
-    const sim = later();
+describe('the meta: lessons, the nest, eggs', () => {
+  it('three lessons at a time; a full set grows the nest (×2), lays an egg, opens the next set', () => {
+    const p = freshProgress();
+    expect(openLessons(p)).toHaveLength(3);
+    const f = { ...noFeats(), perfectDay: 5, granDay: 2 };
+    p.coins = 100;
+    const out = checkLessons(p, f);
+    expect(out.done.sort()).toEqual([0, 1, 2]);
+    expect(out.nest).toBe(2);
+    expect(p.eggs).toBe(1);
+    expect(p.set).toBe(1);
+    expect(openLessons(p).every(o => !o.done)).toBe(true);
+    expect(hatch(p)).toBe(1);
+    expect(p.chicks).toBe(1);
+    expect(hatch(p)).toBe(0);
+  });
+
+  it('the sets go on past the written ones', () => {
+    expect(SETS.length).toBeGreaterThanOrEqual(8);
+    const far = lessonsOf(SETS.length + 2);
+    expect(far).toHaveLength(3);
+    expect(far[0].target).toBeGreaterThan(0);
+  });
+
+  it('a lesson done in flight is announced; the nest grows at the tally and multiplies the next day', () => {
+    const sim = later({ planned: 600, progress: { coins: 99, doneMask: 0b101 } });
     const clock = { t: 0 };
-    drive(sim, 9, frame({ level: 1, focused: true }), clock);
-    expect(sim.padLevel(frame())).toBeGreaterThan(0.4);
-    toBlock(sim, 1, frame(), clock);
-    expect(sim.padLevel(frame())).toBeNull();
-    sim.finish();
-    expect(sim.padLevel(frame())).toBeNull();
+    drive(sim, RULES.dawnWait + 0.1, MID, clock);
+    const evs = drive(sim, 30, MID, clock, pilot(sim));
+    expect(ofType(evs, 'lesson').length).toBeGreaterThan(0);
+    expect(sim.p.nest).toBe(2);
+    expect(sim.dayMult).toBe(1);
+    sim.dayLeft = 0.1;
+    const evs2 = drive(sim, RULES.dusk + RULES.tallyMax + 0.5, MID, clock);
+    expect(ofType(evs2, 'nest')[0].level).toBe(2);
+    expect(sim.dayMult).toBe(2);
+  });
+
+  it('migrates a version-1 save: keeps the sessions and the farthest flight, resets the rest', () => {
+    const old = {
+      v: 1, sessions: 7, metres: 23000, feathers: 40, down: 5, vistas: [0, 2, 5], lastVistaSession: 6, lekcje: 11,
+      missions: ['soar', 'km3', 'chain5'], missionsDone: 4, missionNext: 7, best: { 180: 2400, 300: 4100 }, lastLen: 300,
+      bestChain: 8, longestGlide: 300, highest: 180, dailyDay: '2026-11-01', dailyAir: 1200, giftDay: '2026-11-01',
+    };
+    // the runner merges the save over fresh defaults
+    const p = { ...freshProgress(), ...old } as unknown as WzlotProgress;
+    migrate(p);
+    expect(p.ver).toBe(2);
+    expect('v' in p).toBe(false);
+    expect('vistas' in p).toBe(false);
+    expect(p.sessions).toBe(7);
+    expect(p.farthest).toBe(4100);
+    expect(p.pushes).toBe(11);
+    expect(p.nest).toBe(1);
+    expect((p as unknown as Record<string, unknown>).best).toBeUndefined();
+    expect(bestOf(p)).toBeNull();
+    // a session runs on it
+    const sim = new WzlotSim({ progress: p, rng: mulberry32(2), day: DAY, daySeed: 1, plannedSec: 60, eeg: false, tuning: TUNING });
+    sim.start();
+    drive(sim, 10, MID);
+    expect(sim.result().score).toBeGreaterThan(0);
+    // and it is idempotent
+    const copy = JSON.stringify(p);
+    migrate(p);
+    expect(JSON.stringify(p)).toBe(copy);
+  });
+
+  it('repairs wrong field types in a version-2 save', () => {
+    const p = { ...freshProgress(), nest: 'x', coins: null, taught: 'a' } as unknown as WzlotProgress;
+    migrate(p);
+    expect(p.nest).toBe(1);
+    expect(p.coins).toBe(0);
+    expect(p.taught).toBe(0);
   });
 });
 
-// ── the session ────────────────────────────────────────────────
-describe('the block plan', () => {
-  const sum = (plan: { dur: number }[]) => plan.reduce((s, b) => s + b.dur, 0);
-  it.each([40, 180, 300, 600])('fills %i s, ends with a Wznoszenie and leaves 6 s for the finisher; no block under 12 s', sec => {
-    for (const first of [true, false]) {
-      for (let seed = 1; seed <= 5; seed++) {
-        const plan = planBlocks(sec, first, mulberry32(seed));
-        expect(sum(plan)).toBeCloseTo(sec - RULES.finale, 6);
-        expect(plan[plan.length - 1].kind).toBe('wzn');
-        expect(plan[0].kind).toBe(first ? 'warmup' : 'lekcja');
-        for (const b of plan) if (b.kind !== 'warmup') expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-        for (let i = 1; i < plan.length; i++) if (plan[i].kind !== 'warmup') expect(plan[i].kind).not.toBe(plan[i - 1].kind);
-        expect(plan.filter(b => b.stretch)).toHaveLength(sec >= 300 ? 1 : 0);
-      }
-    }
+describe('the coach marks', () => {
+  it('teach the controls in the first session, one at a time, and the band blocks when they come', () => {
+    const sim = makeSim({ planned: 300 });
+    const clock = { t: 0 };
+    const evs = drive(sim, 60, MID, clock, pilot(sim));
+    const keys = ofType(evs, 'hint').map(e => e.key);
+    expect(keys[0]).toBe('hold');
+    expect(keys).toContain('release');
+    expect(keys).toContain('perfect');
+    expect(sim.p.taught & TEACH.hold).toBeTruthy();
   });
 
-  it('plays 40 s as warm-up 6, Lekcja 14, Wznoszenie 14 (else Lekcja 20, Wznoszenie 14), and warms up 30 / 20 s', () => {
-    expect(planBlocks(40, true, mulberry32(1)).map(b => [b.kind, b.dur])).toEqual([['warmup', 6], ['lekcja', 14], ['wzn', 14]]);
-    expect(planBlocks(40, false, mulberry32(1)).map(b => [b.kind, b.dur])).toEqual([['lekcja', 20], ['wzn', 14]]);
-    expect(planBlocks(300, true, mulberry32(1))[0].dur).toBe(30);
-    expect(planBlocks(600, true, mulberry32(1))[0].dur).toBe(30);
-    expect(planBlocks(180, true, mulberry32(1))[0].dur).toBe(20);
-  });
-
-  it('opens the stretch\'s wide valley in its Lekcja ("Długi przelot")', () => {
+  it('later sessions only hear about new things', () => {
     const sim = later({ planned: 300 });
-    const i = sim.plan.findIndex(b => b.stretch);
-    const clock = { t: 0 };
-    toBlock(sim, i, frame(), clock);
-    expect(sim.tip).toBe(TIPS.stretch);
-    drive(sim, sim.block.dur - 0.5, frame(), clock);
-    const wide = sim.terrain.ridges.find(r => r.spec.wide);
-    expect(wide).toBeDefined();
-    expect(wide!.wadiX1 - wide!.wadiX0).toBeGreaterThanOrEqual(RULES.wideWidth[0]);
-  });
-
-  it('telegraphs the next block 4 s ahead (the parent appears before a Lekcja) and plays the finisher to the nest', () => {
-    const sim = later({ planned: 180 });
-    const clock = { t: 0 };
-    const evs = toBlock(sim, 2, frame(), clock);
-    const tele = ofType(evs, 'telegraph');
-    expect(tele.map(e => e.next.kind)).toEqual(['wzn', 'lekcja']);
-    expect(sim.parent).toBe('ahead');
-    const rest = drive(sim, 200, frame(), clock);
-    expect(ofType(rest, 'finale')).toHaveLength(1);
-    expect(ofType(rest, 'nest')).toHaveLength(1);
-    expect(sim.phase).toBe('done');
-    expect(sim.canStop()).toBe(true);
-  });
-
-  it('may not stop mid-finisher, and gives up waiting 4 s after time is up', () => {
-    const sim = later({ planned: 40 });
-    const clock = { t: 0 };
-    drive(sim, 36, frame(), clock);
-    expect(sim.phase).toBe('finale');
-    expect(sim.canStop()).toBe(false);
-    drive(sim, 5, frame(), clock);
-    expect(sim.canStop()).toBe(true);
-  });
-});
-
-describe('the plumage, the vistas, the flight log', () => {
-  it('grows plumage from showing up: stages at 12 and 30 feathers; three per saved session', () => {
-    expect([0, 11, 12, 29, 30, 99].map(stageOf)).toEqual([1, 1, 2, 2, 3, 3]);
-    expect(toNextStage(5)).toEqual({ have: 5, need: 12 });
-    expect(toNextStage(20)).toEqual({ have: 8, need: 18 });
-    expect(toNextStage(30)).toBeNull();
-    const sim = later({ planned: 40 });
-    const f = sim.p.feathers;
-    sim.finish();
-    expect(sim.p.feathers).toBe(f + RULES.featherSession);
-  });
-
-  it('gives first feathers +5 % base lift and flight feathers one wingbeat per ridge', () => {
-    const two = later({ progress: { feathers: 12 } });
-    drive(two, 1, frame());
-    expect(two.W).toBeCloseTo(RULES.wNeutral * 1.05, 9);
-    const one = later();
-    expect(one.wingbeat()).toBe(false);
-    const three = later({ progress: { feathers: 30 } });
-    const clock = { t: 0 };
-    drive(three, 1, frame(), clock);
-    expect(three.wingbeat()).toBe(true);
-    expect(three.eaglet.mode).toBe('air');
-    expect(three.wingbeat()).toBe(false);                // once per ridge
-    // a double tap (two downs within 0.32 s) is a wingbeat too, on the next ridge
-    while (three.terrain.ridgeAt(three.eaglet.x)!.index === 0) drive(three, STEP, frame(), clock);
-    three.pointer('down', 1);
-    three.pointer('up', 1);
-    drive(three, 0.1, frame(), clock);
-    three.pointer('down', 1);
-    expect(ofType(three.take(), 'wingbeat')).toHaveLength(1);
-    expect(three.held).toBe(false);                      // the beat took that press
-    three.pointer('up', 1);
-  });
-
-  it('draws a vista evenly among the four of the sky\'s light; duplicates give down, 10 down craft the next missing one', () => {
-    const p = freshProgress();
-    expect(newChance(p, 'dawn')).toBe(1);
-    const counts = [0, 0, 0, 0, 0, 0, 0, 0];
-    const rnd = mulberry32(5);
-    for (let i = 0; i < 4000; i++) {
-      const q = freshProgress();
-      counts[drawVista(q, 'dusk', rnd).index]++;
-    }
-    for (let i = 0; i < 4; i++) expect(counts[i]).toBe(0);
-    for (let i = 4; i < 8; i++) expect(counts[i] / 4000).toBeCloseTo(0.25, 1);
-    const q = { ...freshProgress(), vistas: [0, 1, 2, 3] };
-    expect(newChance(q, 'dawn')).toBe(0);
-    const dup = drawVista(q, 'dawn', mulberry32(1));
-    expect(dup.isNew).toBe(false);
-    expect(q.down).toBe(RULES.dupDown);
-    const again = drawVista(q, 'dawn', mulberry32(2));
-    expect(again.crafted).toEqual([4]);                    // the missing one, of the other light
-    expect(q.down).toBe(0);
-    expect(nextMissing({ ...freshProgress(), vistas: VISTAS.map(v => v.index) })).toBeNull();
-  });
-
-  it('pities two dry sessions: the next climb above 100 m opens a new vista', () => {
-    const p = { ...freshProgress(), vistas: [0], lastVistaSession: 2 };
-    expect(pityDue(p, 4)).toBe(false);
-    expect(pityDue(p, 5)).toBe(true);
-    const forced = drawVista({ ...p, vistas: [0, 1, 2] }, 'dawn', () => 0, true);
-    expect(forced.isNew).toBe(true);
-    expect(forced.index).toBe(3);
-    expect(RULES.vistaAltPity * RULES.mPerSh).toBeCloseTo(100, 6);
-    expect(RULES.vistaAlt * RULES.mPerSh).toBeCloseTo(150, 6);
-  });
-
-  it('pays a climb\'s vista at the block\'s end, never during it', () => {
-    const sim = later({ progress: { lastVistaSession: 6 }, seed: 3 });
-    const clock = { t: 0 };
-    toBlock(sim, 1, frame(), clock);
-    sim.T = 1;                                            // a deep calm already: the first thermal lifts high
-    const during = drive(sim, sim.block.dur - 0.3, frame({ calm: 1 }), clock);
-    expect(ofType(during, 'vistaSeen').length).toBeGreaterThanOrEqual(1);
-    expect(ofType(during, 'vista')).toHaveLength(0);
-    const after = drive(sim, 0.5, frame(), clock);
-    expect(ofType(after, 'vista').length).toBeGreaterThanOrEqual(1);
-    expect(after.findIndex(e => e.type === 'vista')).toBeLessThan(after.findIndex(e => e.type === 'blockEnd'));
-  });
-
-  it('keeps three missions open; a done one gives a feather and its page turns after the session', () => {
-    expect(freshProgress().missions).toEqual(MISSIONS.slice(0, 3).map(m => m.id));
-    const p = freshProgress();
-    turnPages(p, ['thermals2']);
-    expect(p.missions).toEqual(['soar', 'chain5', 'km3']);
-    expect(p.missionNext).toBe(4);
-    for (const m of MISSIONS) expect(['chain', 'thermals', 'metres', 'glideHills', 'altitude', 'ridges', 'smooth', 'soarSec', 'glideLen', 'follow']).toContain(m.kind);
-    const sim = later({ planned: 180, progress: { missions: ['km3', 'chain5', 'glide3'] } });
-    const f = sim.p.feathers;
-    const evs = drive(sim, 120, frame());
-    expect(ofType(evs, 'mission').map(e => e.id)).toContain('km3');
-    expect(sim.p.feathers).toBeGreaterThanOrEqual(f + 1);
-    sim.finish();
-    expect(sim.p.missions).not.toContain('km3');
-  });
-
-  it('seeds the day\'s first session\'s first ridge with the date, the same for everyone, and keeps its metres in the air', () => {
-    const a = makeSim({ progress: { sessions: 3 }, daySeed: 777, seed: 1 });
-    const b = makeSim({ progress: { sessions: 9 }, daySeed: 777, seed: 2 });
-    const ka = a.terrain.keys(0, a.terrain.ridges[0].wadiX1).map(k => k.y);
-    expect(b.terrain.keys(0, b.terrain.ridges[0].wadiX1).map(k => k.y)).toEqual(ka);
-    expect(a.daily).toBe(true);
-    const c = later({ daySeed: 777 });
-    expect(c.daily).toBe(false);
-    expect(c.terrain.keys(0, c.terrain.ridges[0].wadiX1).map(k => k.y)).not.toEqual(ka);
-    // a first-ever session warms up on the gentle ridge first: the day's ridge is its second
-    const first = makeSim({ daySeed: 777 });
-    expect(first.dailyRidge).toBe(1);
-    drive(a, 30, frame());
-    a.finish();
-    expect(a.p.dailyDay).toBe(DAY);
-    expect(a.p.dailyAir).toBeGreaterThan(0);
-  });
-
-  it('gives the day\'s gift to the day\'s first session whatever the score, once', () => {
-    const sim = makeSim({ progress: { sessions: 2, giftDay: '2026-10-24', lekcje: 2 }, planned: 40 });
-    const f = sim.p.feathers;
-    sim.finish();
-    expect(sim.p.feathers).toBe(f + RULES.featherSession + RULES.featherGift);
-    expect(sim.p.giftDay).toBe(DAY);
-    const again = makeSim({ progress: { ...sim.p }, planned: 40 });
-    const g = again.p.feathers;
-    again.finish();
-    expect(again.p.feathers).toBe(g + RULES.featherSession);
+    const evs = drive(sim, 60, MID, { t: 0 }, pilot(sim));
+    expect(ofType(evs, 'hint')).toHaveLength(0);
   });
 });
 
 describe('the summary', () => {
-  it('closes with a passage the session fits, in turn from session to session, never the root', () => {
-    const verse = (o: Partial<WzlotSim>) => {
-      const sim = later({ progress: { sessions: 0 } });   // the first session takes the best fit
-      Object.assign(sim, o);
-      return sim.closingVerse();
-    };
-    expect(verse({ catches: 1 })).toBe('psa91.4');
-    expect(verse({ maxClimb: 4 })).toBe('isa40.31');
-    expect(verse({ stageNow: 3 })).toBe('psa103.5');
-    expect(verse({})).toBe('exo19.4');
-    expect(inTurn(['psa91.4', 'exo19.4'], 2)).toBe('exo19.4');
-    for (const id of ['psa91.4', 'isa40.31', 'psa103.5', 'exo19.4'] as const) expect(passage(id).text.length).toBeGreaterThan(20);
-    const sim = later({ planned: 40 });
-    drive(sim, 10, frame());
-    expect(sim.result().verse).not.toBe('deu32.11');
-  });
-
-  it('result() is idempotent: records with Math.max, counters once, when the session is settled', () => {
-    const sim = later({ planned: 40 });
-    const clock = { t: 0 };
-    drive(sim, 20, frame(), clock);
-    const mid = sim.result();
-    expect(sim.p.sessions).toBe(5);                        // not counted before it is settled
-    drive(sim, 25, frame(), clock);
-    sim.finish();
+  it('result() is idempotent and the records use Math.max', () => {
+    const sim = later({ planned: 60, progress: { bestTotal: 10, bestDay: 5 } });
+    drive(sim, 30, MID, { t: 0 }, pilot(sim));
     const a = sim.result(), b = sim.result();
-    expect(b).toEqual(a);
-    expect(a.score).toBeGreaterThanOrEqual(mid.score);
+    expect(a).toEqual(b);
+    expect(sim.p.bestTotal).toBe(a.score);
+    expect(a.record).toBe(true);
+    sim.finish();
+    const c = sim.result();
     expect(sim.p.sessions).toBe(6);
-    const metres = sim.p.metres, feathers = sim.p.feathers;
     sim.finish();
-    sim.result();
-    expect(sim.p.metres).toBe(metres);
-    expect(sim.p.feathers).toBe(feathers);
-    expect(bestFor(sim.p, 40)).toBe(a.score);
-    expect(a.stats.length).toBeLessThanOrEqual(8);
-    expect(a.unit).toBe('m');
+    expect(sim.p.sessions).toBe(6);
+    expect(sim.result()).toEqual(c);
   });
 
-  it('adds the finale glide to the total flown: the total grows by exactly the session\'s score', () => {
+  it('ends with the last sunset: the session settles by itself', () => {
     const sim = later({ planned: 40 });
-    const before = sim.p.metres;
-    const clock = { t: 0 };
-    drive(sim, 40 + RULES.settle + 5, frame(), clock);
-    const o = sim.result();
-    expect(sim.p.metres - before).toBe(o.score);
-    sim.result();
-    expect(sim.p.metres - before).toBe(o.score);
+    const evs = drive(sim, 46, MID);
+    expect(ofType(evs, 'finale')).toHaveLength(1);
+    expect(sim.phase).toBe('done');
+    expect(sim.canStop()).toBe(true);
+    expect(sim.p.sessions).toBe(6);
   });
 
-  it('marks a record against the same session length only', () => {
-    const sim = later({ planned: 40, progress: { best: { 40: 10, 300: 99999 } } });
-    drive(sim, 30, frame());
-    sim.finish();
-    expect(sim.result().record).toBe(true);
-    expect(sim.p.best['300']).toBe(99999);
+  it('closes with a passage that exists', () => {
+    const sim = later({ planned: 60 });
+    drive(sim, 20, MID, { t: 0 }, pilot(sim));
+    const r = sim.result();
+    expect(passage(r.verse!)).toBeTruthy();
+    expect(r.stats.length).toBeGreaterThan(5);
+    expect(r.highlights.length).toBeGreaterThan(0);
+  });
+});
+
+describe('Leon talks', () => {
+  it('every moment has 3+ lines, each fits a bubble (90 characters), in all four languages', () => {
+    for (const m of MOMENTS) expect(LINE_COUNT[m]).toBeGreaterThanOrEqual(3);
+    for (const cat of Object.values(CATALOGS)) {
+      for (const [k, v] of Object.entries(cat)) {
+        if (k.startsWith('talk.')) expect((v as string).length, k).toBeLessThanOrEqual(RULES.talkChars);
+      }
+    }
+    const all = lines();
+    for (const m of MOMENTS) expect(all[m].every(s => s && !s.startsWith('talk.'))).toBe(true);
   });
 
-  it('counts a session only when it is settled: an abandoned first attempt leaves the next one the first', () => {
-    const p = freshProgress();
-    const a = new WzlotSim({ progress: p, rng: mulberry32(1), day: DAY, daySeed: 1, plannedSec: 300, eeg: false, tuning: TUNING });
-    a.start();
-    drive(a, 10, frame());
-    a.result();
-    expect(p.sessions).toBe(0);
-    const b = new WzlotSim({ progress: p, rng: mulberry32(2), day: DAY, daySeed: 1, plannedSec: 300, eeg: false, tuning: TUNING });
-    expect(b.session).toBe(1);
-    expect(b.plan[0].kind).toBe('warmup');
+  it('one line at a time, never while blocked, no repeats until a moment has used them all', () => {
+    const talk = new Talk(lines(), mulberry32(4));
+    talk.ask('bump');
+    talk.update(0.1, 0, true);
+    expect(talk.line).toBeNull();
+    const said = new Set<string>();
+    let now = 0;
+    for (let i = 0; i < LINE_COUNT.bump; i++) {
+      talk.ask('bump', 1, 99);
+      for (let k = 0; k < 600 && !talk.line; k++) talk.update(0.05, (now += 0.05), false);
+      said.add(talk.line!.text);
+      for (let k = 0; k < 200 && talk.line; k++) talk.update(0.05, (now += 0.05), false);
+    }
+    expect(said.size).toBe(LINE_COUNT.bump);
+  });
+
+  it('talks during a session and stays quiet under the banner', () => {
+    const sim = later({ planned: 120 });
+    let under = 0, lines = 0;
+    drive(sim, 60, MID, { t: 0 }, () => {
+      if (sim.talk.line) lines++;
+      if (sim.talk.line && sim.phase === 'play' && sim.blockT < RULES.banner - 0.1 && sim.blockT > 0.1) under++;
+    });
+    expect(lines).toBeGreaterThan(0);
+    expect(under).toBe(0);
   });
 });
 
 describe('the texts in four languages', () => {
-  it('gives every text in pl, en, de and sv, with the same placeholders and the plural forms each language needs', () => {
+  it('gives every text in pl, en, de and sv, with the same placeholders and the plural forms', () => {
     expect(catalogProblems(CATALOGS)).toEqual([]);
   });
 
-  it('names every vista, mission and stage, and writes distances with a no-break space', () => {
-    for (const v of VISTAS) expect(v.name).toMatch(/świcie|zmierzchu/);
-    for (const m of MISSIONS) expect(m.name.length).toBeGreaterThan(5);
-    expect(STAGES.map(s => s.name)).toEqual(['Puch', 'Pierwsze pióra', 'Lotki']);
-    expect(metres(1234)).toBe(`1 234 m`);
-    expect(km(1234)).toBe('1,2 km');
-  });
-
-  it('never calls the parent anything but an eagle, and never asks to concentrate harder', () => {
+  it('never asks to concentrate harder, never uses holiness words or "hack"', () => {
     for (const cat of Object.values(CATALOGS)) {
       const all = Object.values(cat).flatMap(m => (typeof m === 'string' ? [m] : Object.values(m))).join(' ').toLowerCase();
-      for (const word of [/skup się/, /concentrate/, /konzentrier/, /koncentrera/, /energ/, /transcend/, /\bflow\b/, /\bbóg\b/, /\bgod\b/, /\bgott\b/, /\bgud\b/]) expect(all).not.toMatch(word);
+      for (const word of [/skup się/, /mocniej/, /harder/, /stärker/, /concentrate/, /konzentrier/, /koncentrera/, /hack/, /unlock/, /odblok/, /błogosław/, /bless/, /segen/, /välsign/, /święt/, /holy/, /heilig/, /helig/, /pray/, /módl/, /\bbete/]) {
+        expect(all).not.toMatch(word);
+      }
     }
+  });
+
+  it('keeps numbers with their units (no-break spaces)', () => {
+    expect(t('sec', { n: 12 })).toBe('12 s');
+    expect(CATALOGS.de.pct).toBe('{n} %');
   });
 });
 
 describe('the smoke path', () => {
-  /** The smoke test's input: a tap at the centre every ~0.65 s, Space after every third one, the simulator's focus on. */
-  function smoke(progress: Partial<WzlotProgress>, seed: number, eeg: boolean, every = 0.65) {
-    const sim = makeSim({ progress, planned: 40, seed, daySeed: seed * 7 + 1, tuning: BEGINNER, eeg });
+  /** The smoke test's input: a click at the centre every 0.65 s, Space every ~2 s, the simulator's focus on. */
+  function smoke(progress: Partial<WzlotProgress>, seed: number, eeg: boolean, planned = 40) {
+    const sim = makeSim({ progress, planned, seed, tuning: BEGINNER, eeg });
     const focus = new FocusInput(BEGINNER);
-    let f = focus.push(0, true, 0.1), hub = 0, tap = 0, taps = 0, at1 = 0, at22 = 0;
+    let f = focus.push(0, true, 0.1), hub = 0, tap = 0, space = 0, at22 = 0;
+    const live: number[] = [];
     for (let t = 0; t < 22 + 1e-9; t += STEP) {
       hub += STEP;
       if (hub >= 0.1) {
         hub -= 0.1;
-        f = focus.push(20 * (1 - Math.exp(-t / 4)), true, 0.1);   // activity rises to about +20 % in ~10 s
+        f = focus.push(20 * (1 - Math.exp(-t / 4)), true, 0.1);
       }
       sim.update(STEP, f, t);
-      if ((tap += STEP) >= every) {
-        tap -= every;
+      if ((tap += STEP) >= 0.65) {
+        tap -= 0.65;
         sim.pointer('down', 1);
         sim.pointer('up', 1);
-        if (taps++ % 3 === 0) {
-          sim.key(' ', true);
-          sim.key(' ', false);
-        }
+      }
+      if ((space += STEP) >= 2) {
+        space -= 2;
+        sim.key(' ', true);
+        sim.key(' ', false);
       }
       sim.take();
-      if (t <= 1) at1 = sim.result().score;
+      live.push(sim.headline().value);
       at22 = sim.result().score;
     }
-    return { at1, at22 };
+    return { at22, live };
   }
 
-  it('scores within the first second and keeps scoring at 22 s, on either band, any tap rhythm', () => {
+  it('scores by 22 s on either band, first session or later, and the headline accrues live', () => {
     for (const eeg of [false, true]) {
-      for (const every of [0.65, 0.7]) {
-        for (let seed = 1; seed <= 12; seed++) {
-          const r = smoke({}, seed, eeg, every);
-          expect(r.at1, `eeg ${eeg}, seed ${seed}`).toBeGreaterThan(0);
-          expect(r.at22, `eeg ${eeg}, seed ${seed}`).toBeGreaterThan(400);
-        }
+      for (let seed = 1; seed <= 6; seed++) {
+        const { at22, live } = smoke({}, seed, eeg);
+        expect(at22, `eeg ${eeg}, seed ${seed}`).toBeGreaterThan(50);
+        expect(live[live.length - 1]).toBe(at22);
+        expect(live[Math.floor(live.length / 2)]).toBeGreaterThan(0);
       }
     }
-    expect(smoke({ sessions: 6, dailyDay: DAY }, 3, false).at22).toBeGreaterThan(400);
-  });
-
-  it('medians the return times only from three returns', () => {
-    expect(median([7, 3, 9])).toBe(7);
-    expect(median([4, 6])).toBe(5);
-    expect(median([])).toBeNull();
+    expect(smoke({ sessions: 6, opened: true, taught: 255 }, 3, false, 300).at22).toBeGreaterThan(50);
   });
 });
 
-describe('the lobby (index.ts, panel.ts)', () => {
-  it('shows the record of the length last played, else the best of any, and nothing before a first flight', async () => {
-    const { bestOf } = await import('../src/arcade/wzlot/panel');
+describe('the module (index.ts, panel.ts)', () => {
+  it('shows the best session in the lobby, nothing before a first session; how to play in words', async () => {
     const mod = (await import('../src/arcade/wzlot/index')).default;
     const p = freshProgress();
     expect(mod.best(p)).toBeNull();
     p.sessions = 2;
-    p.best = { 180: 900, 300: 1500 };
-    p.lastLen = 180;
-    expect(bestOf(p)).toBe(900);
-    p.lastLen = 600;
-    expect(bestOf(p)).toBe(1500);
-    expect(mod.best(p)).toBe(1500);
+    p.bestTotal = 3400;
+    expect(mod.best(p)).toBe(3400);
+    const how = mod.howto!();
+    expect(how.goal).toBeTruthy();
+    expect(how.hands.length).toBeGreaterThanOrEqual(1);
+    expect(how.hands.length).toBeLessThanOrEqual(3);
+    expect((how.tips ?? []).length).toBeLessThanOrEqual(2);
   });
 
-  it('builds the progress card from elements: the eight vistas, the plumage, the three pages of the flight log', async () => {
+  it('builds the progress card from elements: the nest, the lessons', async () => {
     const { progressPanel } = await import('../src/arcade/wzlot/panel');
-    const p = { ...freshProgress(), sessions: 3, feathers: 14, vistas: [0, 5], metres: 12_400 };
+    const p = { ...freshProgress(), sessions: 3, nest: 2, eggs: 1, chicks: 1, bestTotal: 2000, bestDay: 900, doneMask: 1 };
     const el = progressPanel(p);
-    expect(el.querySelectorAll('.arcade-album > div')).toHaveLength(VISTAS.length);
-    expect(el.querySelectorAll('.arcade-album > div.on')).toHaveLength(2);
-    expect(el.textContent).toContain('Pierwsze pióra');
-    expect(el.textContent).toContain(km(12_400));
-    for (const id of p.missions) expect(el.textContent).toContain(MISSIONS.find(m => m.id === id)!.name);
+    expect(el.querySelectorAll('.arcade-chips span, li').length).toBeGreaterThan(0);
+    expect(el.textContent).toContain(t('panel.nest'));
   });
 });

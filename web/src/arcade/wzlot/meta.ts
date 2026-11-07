@@ -1,148 +1,151 @@
 /**
- * What Wzlot remembers between sessions and the pure rules of its meta game: the eaglet's plumage
- * (feathers from showing up, a passed block, a mission, the day's gift), the vistas of the land with
- * published odds, down from duplicates and pity, the flight log's three missions, the records per
- * session length and the day's ridge.  No DOM; randomness only from the caller's generator.
+ * What Wzlot remembers between sessions and the pure rules of its meta game (Tiny Wings' nest): the
+ * nest's level (its multiplier), the flight lessons (three at a time; a full set grows the nest and
+ * lays an egg that hatches next session), the plumage the nest unlocks, the records (the best day,
+ * the best session, the farthest day, the farthest grań) and what the coach has already taught.
+ * No DOM; no randomness.
+ *
+ * Version 2 rebuilt the game.  A version-1 save (`v: 1`, metres per session length, plumage
+ * feathers, vistas, missions) is migrated in place on first use: the session count and the farthest
+ * flight stay, the rest starts over.  Any field of a wrong type is reset, never trusted.
  */
-import { LIGHTS, MISSIONS, VISTAS, type Light, type MissionId } from './content';
+import { lessonsOf, plumageFor, type Lesson, type LessonKind } from './content';
 import { RULES } from './rules';
 
 export interface WzlotProgress {
-  v: 1;
+  ver: 2;
   /** sessions saved */
   sessions: number;
-  /** metres flown, all time */
-  metres: number;
-  /** plumage: feathers grown, all time (the stage follows from them) */
-  feathers: number;
-  /** down from duplicate vistas: craftDown of it make the next missing vista */
-  down: number;
-  /** vistas found (indices into VISTAS) and the session that last brought a new one */
-  vistas: number[];
-  lastVistaSession: number;
-  /** Lekcja blocks begun, all time: every 4th is blind ("W chmurze") from the 3rd session */
-  lekcje: number;
-  /** the flight log: the three open missions, how many were done, the next page to open */
-  missions: MissionId[];
-  missionsDone: number;
-  missionNext: number;
-  /** records: metres per session length (planned seconds), and the length last played */
-  best: Record<string, number>;
+  /** days (runs) flown, all time */
+  days: number;
+  /** the nest's level = the points' multiplier (×1, ×2 …) */
+  nest: number;
+  /** the lesson set open now (0-based) and which of its three are done (bits 1, 2, 4) */
+  set: number;
+  doneMask: number;
+  /** promyki gathered, all time */
+  coins: number;
+  /** eggs laid (one per full set) and chicks hatched from them */
+  eggs: number;
+  chicks: number;
+  /** records: the best day's points, the best session's points, the farthest day (m), the farthest grań (1-based) */
+  bestDay: number;
+  bestTotal: number;
+  farthest: number;
+  bestGran: number;
+  /** push blocks begun, all time: every 4th is blind from the 3rd session */
+  pushes: number;
+  /** the opening story was seen; what the coach has taught (bits of TEACH) */
+  opened: boolean;
+  taught: number;
   lastLen: number;
-  bestChain: number;
-  /** the longest single glide and the highest point over the ground (m) */
-  longestGlide: number;
-  highest: number;
-  /** "Grań dnia": the day it was flown and its metres in the air; the day's gift ("Pióro dnia") */
-  dailyDay: string;
-  dailyAir: number;
-  giftDay: string;
 }
+
+/** What the coach marks teach, once ever each. */
+export const TEACH = { hold: 1, release: 2, perfect: 4, crag: 8, sun: 16, thermal: 32, night: 64, fever: 128 } as const;
+export type Teach = keyof typeof TEACH;
 
 export function freshProgress(): WzlotProgress {
   return {
-    v: 1, sessions: 0, metres: 0, feathers: 0, down: 0, vistas: [], lastVistaSession: 0, lekcje: 0,
-    missions: MISSIONS.slice(0, 3).map(m => m.id), missionsDone: 0, missionNext: 3,
-    best: {}, lastLen: 0, bestChain: 0, longestGlide: 0, highest: 0, dailyDay: '', dailyAir: 0, giftDay: '',
+    ver: 2, sessions: 0, days: 0, nest: 1, set: 0, doneMask: 0, coins: 0, eggs: 0, chicks: 0,
+    bestDay: 0, bestTotal: 0, farthest: 0, bestGran: 0, pushes: 0, opened: false, taught: 0, lastLen: 0,
   };
 }
 
-// ── plumage ──────────────────────────────────────────────────────
-/** The plumage stage for a feather count: 1 down, 2 first feathers, 3 flight feathers. */
-export function stageOf(feathers: number): 1 | 2 | 3 {
-  return feathers >= RULES.stages[2] ? 3 : feathers >= RULES.stages[1] ? 2 : 1;
-}
+const num = (v: unknown, lo = 0): number => (typeof v === 'number' && Number.isFinite(v) && v >= lo ? v : lo);
 
-/** Feathers toward the next stage (null: the last stage of this season). */
-export function toNextStage(feathers: number): { have: number; need: number } | null {
-  const at: readonly number[] = RULES.stages;
-  const s = stageOf(feathers);
-  if (s >= at.length) return null;
-  return { have: feathers - at[s - 1], need: at[s] - at[s - 1] };
-}
-
-// ── vistas ───────────────────────────────────────────────────────
-export const owned = (p: WzlotProgress, index: number): boolean => p.vistas.includes(index);
-
-/** The published odds: the chance that a climb in this light opens a vista not yet found. */
-export function newChance(p: WzlotProgress, light: Light): number {
-  const pool = VISTAS.filter(v => v.light === light);
-  return pool.filter(v => !owned(p, v.index)).length / pool.length;
-}
-
-/** What down and pity give: the first missing vista, the given light's first. Null: all found. */
-export function nextMissing(p: WzlotProgress, light: Light = 'dawn'): number | null {
-  for (const l of [light, ...LIGHTS.filter(x => x !== light)]) {
-    for (const v of VISTAS) if (v.light === l && !owned(p, v.index)) return v.index;
+/**
+ * Bring a loaded save to version 2, in place (idempotent).  A version-1 save keeps its sessions and
+ * its farthest flight (the best of its per-length metres); every field of a wrong type is reset.
+ */
+export function migrate(p: WzlotProgress): WzlotProgress {
+  const raw = p as unknown as Record<string, unknown>;
+  const fresh = freshProgress();
+  if (raw.v === 1 || raw.ver !== 2) {
+    const sessions = num(raw.sessions);
+    const best = raw.best && typeof raw.best === 'object' ? Object.values(raw.best as Record<string, unknown>) : [];
+    const farthest = Math.max(0, ...best.map(v => num(v)));
+    const pushes = num(raw.lekcje);
+    for (const k of Object.keys(raw)) delete raw[k];
+    Object.assign(raw, fresh, { sessions: Math.floor(sessions), farthest: Math.round(farthest), pushes: Math.floor(pushes), opened: sessions > 0 });
+    return p;
   }
-  return null;
+  // a version-2 save: only repair what is broken
+  for (const [k, def] of Object.entries(fresh)) {
+    if (typeof raw[k] !== typeof def || (typeof def === 'number' && !Number.isFinite(raw[k] as number))) raw[k] = def;
+  }
+  p.nest = Math.max(1, Math.floor(p.nest));
+  return p;
+}
+
+/** The record the lobby shows: the best session's points (null before any). */
+export function bestOf(p: WzlotProgress): number | null {
+  migrate(p);
+  return p.sessions > 0 && p.bestTotal > 0 ? p.bestTotal : null;
+}
+
+export const multOf = (p: WzlotProgress): number => Math.max(1, Math.floor(p.nest));
+export const plumageOf = (p: WzlotProgress): 1 | 2 | 3 => plumageFor(p.nest, RULES.plumage);
+
+/** The three lessons open now, with whether each is done. */
+export function openLessons(p: WzlotProgress): { lesson: Lesson; done: boolean }[] {
+  return lessonsOf(p.set).map((lesson, i) => ({ lesson, done: (p.doneMask & (1 << i)) !== 0 }));
+}
+
+/** What a day (or the session so far) has shown, for the lessons. */
+export interface Feats {
+  perfectDay: number; granDay: number; chainDay: number; cloudDay: number; airFlight: number; thermalDay: number;
+  pointsDay: number; feverDay: number; quickGran: number; daysSession: number; bandFever: number; orbDay: number;
+}
+
+export const noFeats = (): Feats => ({
+  perfectDay: 0, granDay: 0, chainDay: 0, cloudDay: 0, airFlight: 0, thermalDay: 0, pointsDay: 0, feverDay: 0,
+  quickGran: 0, daysSession: 0, bandFever: 0, orbDay: 0,
+});
+
+/** How far a lesson is (its count against its target) from today's best feats and the all-time coins. */
+export function lessonValue(kind: LessonKind, f: Feats, p: WzlotProgress): number {
+  return kind === 'coinsAll' ? p.coins : f[kind];
+}
+
+export interface LessonCheck {
+  /** the lessons just done (indices into the open set) */
+  done: number[];
+  /** the set was completed: the nest grew to this level (null: not yet) */
+  nest: number | null;
 }
 
 /**
- * Pity: two saved sessions passed without a new vista and one is missing — the next climb above
- * the lower pity height opens a new one.
+ * Mark what the feats complete.  A full set grows the nest (its multiplier), lays an egg and opens
+ * the next set; the next set's lessons are checked at once (an all-time count may already be met).
  */
-export const pityDue = (p: WzlotProgress, session: number): boolean =>
-  session - p.lastVistaSession > 2 && nextMissing(p) !== null;
-
-export interface VistaDraw { index: number; isNew: boolean; crafted: number[] }
-
-const pick = <T>(list: readonly T[], rnd: () => number): T => list[Math.min(list.length - 1, Math.floor(rnd() * list.length))];
-
-/**
- * A vista at the top of a high climb: the light is the sky's (dawn in the session's first half,
- * dusk in its second), the landscape drawn evenly among the four.  A duplicate turns to down;
- * `forceNew` (pity) takes a missing one of that light, or of the other.
- */
-export function drawVista(p: WzlotProgress, light: Light, rnd: () => number, forceNew = false): VistaDraw {
-  const pool = VISTAS.filter(v => v.light === light);
-  let index = pick(pool, rnd).index;
-  if (forceNew && owned(p, index)) {
-    const missing = pool.filter(v => !owned(p, v.index));
-    index = missing.length ? pick(missing, rnd).index : nextMissing(p, light) ?? index;
-  }
-  const isNew = !owned(p, index);
-  if (isNew) p.vistas.push(index);
-  else p.down += RULES.dupDown;
-  return { index, isNew, crafted: craft(p, light) };
-}
-
-function craft(p: WzlotProgress, light: Light): number[] {
-  const out: number[] = [];
-  while (p.down >= RULES.craftDown) {
-    const m = nextMissing(p, light);
-    if (m === null) break;
-    p.down -= RULES.craftDown;
-    p.vistas.push(m);
-    out.push(m);
+export function checkLessons(p: WzlotProgress, f: Feats): LessonCheck {
+  const out: LessonCheck = { done: [], nest: null };
+  for (let guard = 0; guard < 4; guard++) {
+    const open = openLessons(p);
+    open.forEach((o, i) => {
+      if (!o.done && lessonValue(o.lesson.kind, f, p) >= o.lesson.target) {
+        p.doneMask |= 1 << i;
+        out.done.push(i);
+      }
+    });
+    if (p.doneMask !== 7) break;
+    p.nest = Math.max(1, Math.floor(p.nest)) + 1;
+    p.eggs += 1;
+    p.set += 1;
+    p.doneMask = 0;
+    out.nest = p.nest;
+    // feats of the day stay; only the all-time and session counts may complete the next set at once
+    f = { ...noFeats(), daysSession: f.daysSession };
   }
   return out;
 }
 
-// ── the flight log ───────────────────────────────────────────────
-/** After a session: every done mission gives its place to the next page not yet open. */
-export function turnPages(p: WzlotProgress, done: readonly MissionId[]): MissionId[] {
-  const opened: MissionId[] = [];
-  p.missions = p.missions.map(id => {
-    if (!done.includes(id)) return id;
-    for (let k = 0; k < MISSIONS.length; k++) {
-      const next = MISSIONS[(p.missionNext + k) % MISSIONS.length];
-      if (!p.missions.includes(next.id) && !opened.includes(next.id) && !done.includes(next.id)) {
-        p.missionNext = (p.missionNext + k + 1) % MISSIONS.length;
-        opened.push(next.id);
-        return next.id;
-      }
-    }
-    return id;
-  });
-  return opened;
+/** At a session's start: eggs laid earlier hatch (returns how many hatched now). */
+export function hatch(p: WzlotProgress): number {
+  const n = Math.max(0, p.eggs - p.chicks);
+  p.chicks = p.eggs;
+  return n;
 }
 
-// ── records ──────────────────────────────────────────────────────
 export const lenKey = (plannedSec: number): string => String(Math.round(plannedSec));
-
-/** The record for a session length (null: none yet). */
-export function bestFor(p: WzlotProgress, plannedSec: number): number | null {
-  const v = p.best[lenKey(plannedSec)];
-  return typeof v === 'number' && v > 0 ? v : null;
-}

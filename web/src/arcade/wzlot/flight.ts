@@ -1,34 +1,30 @@
 /**
- * The eaglet's flight, without the DOM: Tiny Wings' verb on Wzlot's hills (terrain.ts).
+ * The eaglet's flight, without the DOM: Tiny Wings' verb on Wzlot's granie (terrain.ts).
  *
  * On the ground it slides along the slope (gravity's tangential part and light friction); in the
- * air it is ballistic.  Holding folds the wings — gravity × 2.2 — so it hugs downslopes, gains speed
- * and dives; letting go opens them: glide gravity g × (1 − 0.5 W), and a sink rate that open wings
- * never exceed, so height turns into long glides.  It launches from crests by its own momentum
- * (when the ground curves away faster than gravity can hold it).  A dive close above a downslope
- * lines up with it.  A landing compares the flight's angle with the slope: within 10° of a downslope
- * it is smooth, up to 12° the honest margin, more than 35° into an upslope a stall.  The eaglet's
- * own little push keeps it at 0.9 sh/s or more, except for a moment after a stall, when it may roll
- * back: then the parent swoops under it and carries it over the next crest — and over a wadi it
- * cannot make.  Nothing is ever lost: `maxX` only grows.
+ * air it is ballistic.  Holding makes it heavy — gravity × 2.2 — so it hugs downslopes, gains speed
+ * and dives; letting go makes it light: glide gravity, and a sink rate open wings never exceed, so
+ * height turns into long glides.  It launches from crests by its own momentum (when the ground
+ * curves away faster than gravity can hold it).  A dive close above a downslope lines up with it.
+ * A landing compares the flight's angle with the slope: within 11° of a downslope it is smooth (half
+ * of a perfect slide), up to 14° the honest margin, more than 32° into an upslope a bump.  The
+ * eaglet's own little push keeps it at 0.9 sh/s or more, except for a moment after a bump, when it
+ * may roll back: then the mother swoops under it and carries it over the next crest — and over a
+ * gorge it cannot make.  Nothing is ever lost: `maxX` only grows.
  *
- * The session (sim.ts) steps it at a fixed 1/120 s with what the hands and the band say this step.
+ * The session (sim.ts) steps it at a fixed 1/120 s with what the hands say this step.
  */
 import { RULES } from './rules';
-import type { Ridge, Terrain } from './terrain';
+import type { Gran, Terrain } from './terrain';
 
 export type Mode = 'ground' | 'air' | 'climb' | 'catch' | 'carry' | 'nest';
 export type Landing = 'smooth' | 'near' | 'rough' | 'stall';
 
 export interface FlightInput {
-  /** wings folded (a finger, Space, ↓, a mouse button) */
+  /** heavy: wings folded (a finger, Space, ↓, a mouse button) */
   held: boolean;
-  /** wing lift: 0.55 neutral … 0.9 */
-  W: number;
-  /** the parent's draft (follow steps, a return's wingbeat), 0…0.2: less drag, a higher floor and cap */
-  draft: number;
-  /** soaring: less drag, a higher cap */
-  soaring: boolean;
+  /** the Poryw (fever): less drag, a higher cap */
+  fever: boolean;
 }
 
 /** What one step of flight did (sim.ts turns these into the game's events). */
@@ -37,7 +33,7 @@ export type FlightEvent =
   /** `deg`: the angle between the flight and the slope at touchdown; `down`: it was a downslope */
   | { type: 'land'; cls: Landing; deg: number; down: boolean; airT: number; glide: number; hills: number; speed: number }
   | { type: 'crest'; x: number; airborne: boolean }
-  | { type: 'catch'; why: 'roll' | 'wadi' }
+  | { type: 'catch'; why: 'roll' | 'gap' }
   | { type: 'carried' }
   | { type: 'climbEnd'; height: number }
   | { type: 'climbOut' };
@@ -47,10 +43,12 @@ export interface Climb { rate: number; dur: number }
 
 const DEG = 180 / Math.PI;
 
+const NEUTRAL = 0.55;
+
 /** The lift the wings give at forward speed vx: W's gain over neutral grows with the airspeed, full from liftV. */
 export function liftAt(W: number, vx: number): number {
   const k = Math.min(1, (vx / RULES.liftV) ** 2);
-  return RULES.wNeutral + (W - RULES.wNeutral) * k;
+  return NEUTRAL + (W - NEUTRAL) * k;
 }
 
 /** The fastest open wings sink (sh/s) at wing lift W and forward speed vx. */
@@ -88,7 +86,7 @@ export class Eaglet {
   /** the slope's angle under the eaglet now (rad), for the picture */
   angle = 0;
   private lastSlope = 0;
-  /** the parent has just let go: the next touchdown is a soft set-down, not a landing */
+  /** the mother has just let go: the next touchdown is a soft set-down, not a landing */
   private setDown = false;
 
   constructor(private readonly t: Terrain, private readonly emit: (e: FlightEvent) => void) {
@@ -99,7 +97,7 @@ export class Eaglet {
   get airborne(): boolean { return this.mode === 'air' || this.mode === 'climb'; }
   /** height over the ground (sh) */
   get altitude(): number { return Math.max(0, this.y - this.t.height(this.x)); }
-  /** in the parent's care (the swoop and the carry) */
+  /** in the mother's care (the swoop and the carry) */
   get caught(): boolean { return this.mode === 'catch' || this.mode === 'carry'; }
 
   step(dt: number, inp: FlightInput): void {
@@ -119,12 +117,12 @@ export class Eaglet {
 
   /** The soft ceiling (sh/s). */
   private cap(inp: FlightInput): number {
-    return RULES.vMax * (1 + inp.draft) * (inp.soaring ? RULES.soarBonus : 1);
+    return RULES.vMax * (inp.fever ? RULES.feverCap : 1);
   }
 
-  /** Drag's factor: the parent's draft and soaring both thin it. */
+  /** Drag's factor: the Poryw thins it. */
   private drag(inp: FlightInput): number {
-    return (inp.soaring ? RULES.soarDrag : 1) / ((1 + inp.draft) * (1 + inp.draft));
+    return inp.fever ? RULES.feverDrag : 1;
   }
 
   private ground(dt: number, inp: FlightInput): void {
@@ -136,7 +134,7 @@ export class Eaglet {
     // friction grows with the weight on the ground (a tucked eaglet presses harder), drag with the speed
     const fr = R.friction * g * cos * Math.tanh(s / 0.05) + Math.sign(s) * R.groundDrag * s * s * this.drag(inp);
     let a = -g * sin - fr;
-    const cap = this.cap(inp), floor = R.vMin * (1 + inp.draft);
+    const cap = this.cap(inp), floor = R.vMin;
     if (s > cap) a -= (s - cap) * R.capRate;
     if (this.stun > 0) this.stun = Math.max(0, this.stun - dt);
     else if (s < floor) a += Math.min(R.floorPush, (floor - s) * R.floorRate);
@@ -145,9 +143,9 @@ export class Eaglet {
     this.x += s * cos * dt;
     this.y = T.height(this.x);
     this.angle = Math.atan(m);
-    const wadi = T.wadiAt(this.x);
-    if (wadi && this.y < wadi.catchY) {
-      this.startCatch('wadi');   // slid over the edge: the gorge is no place for an eaglet
+    const gap = T.gapAt(this.x);
+    if (gap && this.y < gap.catchY) {
+      this.startCatch('gap');   // slid over the edge: the gorge is no place for an eaglet
       return;
     }
     const m1 = T.slope(this.x);
@@ -173,7 +171,7 @@ export class Eaglet {
       }
     }
     // rolling back: the seconds spent sliding backwards since the eaglet last got farther (a stalled
-    // eaglet rocking in a valley adds them up too) call the parent
+    // eaglet rocking in a valley adds them up too) call the mother
     if (s < 0) {
       this.back += dt;
       if (this.back >= R.rollBack) this.startCatch('roll');
@@ -190,7 +188,7 @@ export class Eaglet {
       // a dive close above a downslope flares onto it: the flight turns toward the slope, aimed into
       // it the more the higher it still is, so the tucked eaglet swoops down and touches the hill along it
       const h = this.y - T.height(this.x), m = T.slope(this.x);
-      if (this.vy < 0 && m < R.magnetSlope && h < R.magnetH && !T.wadiAt(this.x)) {
+      if (this.vy < 0 && m < R.magnetSlope && h < R.magnetH && !T.gapAt(this.x)) {
         rail = 1;
         const want = Math.atan(m) - Math.min(R.magnetMaxInto, R.magnetFlare * Math.max(0, h - R.touchH));
         const sp = Math.hypot(this.vx, this.vy), ph = Math.atan2(this.vy, this.vx);
@@ -202,8 +200,8 @@ export class Eaglet {
     } else {
       // open wings: glide gravity down to the sink rate they never exceed (lower for more lift, and at
       // speed: a slow eaglet settles steeply, a fast one flattens out); a dive's speed bleeds into them
-      const sink = sinkRate(inp.W, this.vx);
-      if (this.vy > -sink) this.vy = Math.max(-sink, this.vy - R.g * (1 - 0.5 * liftAt(inp.W, this.vx)) * dt);
+      const sink = sinkRate(R.wing, this.vx);
+      if (this.vy > -sink) this.vy = Math.max(-sink, this.vy - R.g * (1 - 0.5 * liftAt(R.wing, this.vx)) * dt);
       else this.vy += (-sink - this.vy) * (1 - Math.exp(-dt / R.sinkTau));
     }
     let sp = Math.hypot(this.vx, this.vy);
@@ -230,9 +228,9 @@ export class Eaglet {
       this.hills++;
       this.emit({ type: 'crest', x: this.x, airborne: true });
     }
-    const wadi = T.wadiAt(this.x);
-    if (wadi && this.y < wadi.catchY) {
-      this.startCatch('wadi');
+    const gap = T.gapAt(this.x);
+    if (gap && this.y < gap.catchY) {
+      this.startCatch('gap');
       return;
     }
     // on the rail and a feather's breadth over the slope, lined up with it: the feet touch the ground
@@ -253,7 +251,7 @@ export class Eaglet {
     this.back = 0;
     if (this.airT < R.minAir || this.setDown) {
       this.setDown = false;
-      this.s = Math.max(R.releaseV, s);   // a hop over a crest, or the parent setting it down: no landing to speak of
+      this.s = Math.max(R.releaseV, s);   // a hop over a crest, or the mother setting it down: no landing to speak of
       return;
     }
     let cls: Landing;
@@ -263,7 +261,7 @@ export class Eaglet {
     } else if (down && diff <= R.near) cls = 'near';
     else if (m > R.upslope && diff > R.stall) {
       cls = 'stall';
-      s = sp * R.stallKeep;
+      s = sp * R.bumpKeep;
       this.stun = R.stun;
     } else cls = 'rough';
     this.s = s;
@@ -305,7 +303,7 @@ export class Eaglet {
     this.emit(dropped ? { type: 'climbOut' } : { type: 'climbEnd', height });
   }
 
-  /** Faster by the factor k at once, on the ground or in the air (the parent's draft, soaring). */
+  /** Faster by the factor k at once, on the ground or in the air (a podmuch, the Poryw). */
   boost(k: number): void {
     if (this.mode === 'ground') this.s *= k;
     else if (this.mode === 'air') {
@@ -314,26 +312,9 @@ export class Eaglet {
     }
   }
 
-  /** A stage-3 wingbeat: up and forward, off the ground too. */
-  wingbeat(): void {
-    if (this.mode === 'ground') {
-      const m = this.t.slope(this.x), cos = 1 / Math.sqrt(1 + m * m);
-      this.vx = Math.max(0.3, this.s * cos);
-      this.vy = Math.max(0, this.s * m * cos);
-      this.mode = 'air';
-      this.airT = 0;
-      this.flightX = this.x;
-      this.hills = 0;
-      this.apex = 0;
-      this.y += 0.005;
-    } else if (this.mode !== 'air') return;
-    this.vy = Math.max(this.vy, 0) + RULES.beatVy;
-    this.vx += RULES.beatVx;
-  }
-
-  // ── the parent's catch ─────────────────────────────────────────
-  /** The parent swoops under the eaglet (it hangs, slowing, for the swoop), then carries it over the next crest. */
-  startCatch(why: 'roll' | 'wadi'): void {
+  // ── the mother's catch ─────────────────────────────────────────
+  /** The mother swoops under the eaglet (it hangs, slowing, for the swoop), then carries it over the next crest. */
+  startCatch(why: 'roll' | 'gap'): void {
     if (this.caught) return;
     if (this.mode === 'ground') {
       const m = this.t.slope(this.x), cos = 1 / Math.sqrt(1 + m * m);
@@ -350,7 +331,7 @@ export class Eaglet {
 
   private swoop(dt: number): void {
     this.catchT += dt;
-    // the fall eases off as the parent comes under: drift on, slower every moment
+    // the fall eases off as the mother comes under: drift on, slower every moment
     const k = Math.exp(-dt * 3.2);
     this.vx *= k;
     this.vy = this.vy * k + 0.25 * dt;
@@ -361,9 +342,9 @@ export class Eaglet {
 
   private beginCarry(): void {
     const R = RULES, T = this.t;
-    // over the next crest: beyond the farthest point reached, and beyond the wadi if over one
-    const wadi: Ridge | null = T.wadiAt(this.x);
-    const from = Math.max(this.x, this.maxX, wadi ? wadi.wadiX1 - 0.05 : -Infinity);
+    // over the next crest: beyond the farthest point reached, and beyond the gorge if over one
+    const gap: Gran | null = T.gapAt(this.x);
+    const from = Math.max(this.x, this.maxX, gap ? gap.gapX1 - 0.05 : -Infinity);
     const crest = T.crestAfter(from);
     const x3 = crest.x + R.releaseAt[0], y3 = T.height(x3) + R.releaseAt[1];
     const p = this.carryP;
@@ -404,9 +385,19 @@ export class Eaglet {
     }
   }
 
-  /** The finisher takes over: the eaglet is lifted to the nest (sim.ts draws its path). */
+  /** Sitting in the nest before the dawn (no motion until `leave()`). */
   toNest(): void {
     this.mode = 'nest';
     this.climbing = null;
+    this.x = RULES.startX;
+    this.y = this.t.height(this.x);
+    this.s = 0;
+  }
+
+  /** Off the nest's rim, down the first slope. */
+  leave(): void {
+    if (this.mode !== 'nest') return;
+    this.mode = 'ground';
+    this.s = RULES.startV;
   }
 }
