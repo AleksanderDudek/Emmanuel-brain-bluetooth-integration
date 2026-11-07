@@ -1,41 +1,45 @@
 /**
- * Dolina (the valley): a runner with hack-and-slash through the valley of the shadow after Psalm
- * 23:4 — a pilgrim with an oil lamp runs toward the dawn through three eras of the dark (Babel, a
- * burned fortress, a city of screens), each ending at its guardian.  He runs by himself; a tap on the
- * right two thirds slashes, a swipe up jumps, a swipe down slides, a tap on the left third raises the
- * lamp.  The band is the lamp: in a Światło its reach is the level (a dotted ring marks the threshold,
- * the rim turns gold beyond it), the shadows in its light slow down and burn, the sword reaches
- * further, a guardian's moves slow, and a held focus lights the Świt; in the Pastwisko calm refills
- * the oil; the ridge keeps the last 40 s as a row of lanterns.  Ćma the moth talks.  Nothing ends a
- * run early: with no oil the pilgrim falls and rises at a lantern post.  Sparks buy upgrades between
- * runs; the eras reached open as starts.
+ * Dolina (the valley): the pilgrim climbs out of the valley of the shadow (Psalm 23:4) floor by
+ * floor, after Hell Escape — run, smash, build, climb, outrun the dark.  He runs by himself and his
+ * sword strikes by itself what stands in front of him; a tap jumps, a second tap in the air is the
+ * double jump (Ćma flaps him up), holding the press jumps higher, a swipe down stomps.  Broken stone
+ * blocks fill his pack and the stones become the stair at each ledge; gates of light merge the sword
+ * up (the high one only with both jumps); pens hold lost lambs; the tide of the dark follows.  The
+ * band is the lamp: in a push block its reach is the level (the threshold is a dotted ring on the
+ * light itself, the rim turns gold beyond it), and in that light shadows burn, the fog lifts and the
+ * tide is pushed back; a held focus lights the Świt; in the meadow calm gathers pebbles for the next
+ * stair and refills the oil.  Ćma talks.  Nothing ends a run early.
  *
  * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts with the numbers
  * in rules.ts, the data in content.ts, the meta in meta.ts and Ćma in companion.ts), the pictures
- * (render.ts with hud.ts and layout.ts, intro.ts for calibration, preview.ts for the lobby, all drawn
- * with paint.ts), the sound (audio.ts) and the lobby's card (panel.ts); the words in i18n.ts.
+ * (render.ts with hud.ts, sprites.ts and layout.ts, intro.ts for calibration, preview.ts for the
+ * lobby, all drawn with paint.ts), the sound (audio.ts) and the lobby's card (panel.ts); the words in
+ * i18n.ts.  The runner's standard HUD shows the band's panel (signal(), meter()), the score
+ * (headline()), the coach marks (env.hint, fed by the sim's `teach` events) and how to play (howto()).
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
 import { DolinaSound } from './audio';
-import { bestOf, freshProgress, type DolinaProgress } from './meta';
+import { t } from './i18n';
+import { bestOf, freshProgress, migrate, type DolinaProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { DolinaView } from './render';
 import { DolinaSim, type SimEvent } from './sim';
 
-/** A swipe: this far (CSS px) mostly up or down. */
-const SWIPE = 26;
+/** A swipe down: this far (CSS px), mostly down. */
+const SWIPE = 28;
 
 class DolinaGame implements ArcadeGame {
   private readonly sim: DolinaSim;
   private readonly view: DolinaView;
   private readonly sound: DolinaSound;
-  /** the pointers down: where they began, whether they already swiped, and on which side */
-  private readonly touches = new Map<number, { x: number; y: number; swiped: boolean; zone: 'lamp' | 'slash' }>();
+  /** the pointers down: where they began and whether they already swiped */
+  private readonly touches = new Map<number, { x: number; y: number; swiped: boolean }>();
 
   constructor(private readonly env: GameEnv<DolinaProgress>) {
+    migrate(env.progress);
     this.sim = new DolinaSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
@@ -43,7 +47,7 @@ class DolinaGame implements ArcadeGame {
     this.sound = new DolinaSound(env.audio);
   }
 
-  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr); }
+  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.hudTop()); }
 
   intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
 
@@ -64,40 +68,27 @@ class DolinaGame implements ArcadeGame {
 
   draw(): void { this.view.draw(this.sim); }
 
-  /**
-   * A press on the right two thirds slashes at once (on the press, not the release); a drag of a few
-   * pixels up or down jumps or slides; a tap on the left third raises the lamp when it lifts without
-   * a swipe (so a swipe that starts there does not waste the lamp).
-   */
+  /** A press anywhere jumps (on the press, not the release); letting go cuts a rising jump; a drag down stomps. */
   pointer(e: PointerInput): void {
     if (e.type === 'down') {
-      const zone = this.view.zoneAt(e.x);
-      this.touches.set(e.id, { x: e.x, y: e.y, swiped: false, zone });
-      if (zone === 'slash') this.sim.slash();
+      this.touches.set(e.id, { x: e.x, y: e.y, swiped: false });
+      this.sim.press();
     } else if (e.type === 'move') {
       const p = this.touches.get(e.id);
       if (!p || p.swiped) return;
       const dx = e.x - p.x, dy = e.y - p.y;
-      if (Math.abs(dy) >= SWIPE && Math.abs(dy) > Math.abs(dx) * 0.8) {
+      if (dy >= SWIPE && dy > Math.abs(dx)) {
         p.swiped = true;
-        if (dy < 0) this.sim.jump();
-        else this.sim.slide();
+        this.sim.stomp();
       }
     } else {
-      const p = this.touches.get(e.id);
       this.touches.delete(e.id);
-      if (p && !p.swiped && p.zone === 'lamp') {
-        const dy = e.y - p.y;
-        if (Math.abs(dy) >= SWIPE) {
-          if (dy < 0) this.sim.jump();
-          else this.sim.slide();
-        } else this.sim.burst();
-      }
+      if (!this.touches.size) this.sim.releasePress();
     }
     this.drain();
   }
 
-  /** Space, Enter, →, D slash; ↑, W jump; ↓, S slide; ←, A, E raise the lamp. */
+  /** Space, ↑, W, Enter jump (held: higher); ↓, S stomp. */
   key(key: string, down: boolean): boolean {
     const used = this.sim.key(key, down);
     if (used) this.drain();
@@ -115,6 +106,7 @@ class DolinaGame implements ArcadeGame {
     for (const e of this.sim.take()) {
       this.view.on(e, this.sim);
       this.sound.on(e);
+      if (e.type === 'teach') this.env.hint(t(`teach.${e.what}`), this.view.toScreen(e.x, e.y, this.sim), 3600);
       if (this.env.haptics) haptic(e);
     }
   }
@@ -123,11 +115,32 @@ class DolinaGame implements ArcadeGame {
 
   canStop(): boolean { return this.sim.canStop(); }
 
-  /** What the block asks of the brain, for the runner's signal dock. */
+  /** What the block asks of the brain, its seconds left and, during the telegraph, the block after it. */
   signal(): SignalPhase {
     const s = this.sim, b = s.block;
-    if (!s.started || s.phase !== 'play' || !b || b.kind === 'warmup') return { want: 'free', blind: false };
-    return { want: b.kind === 'push' ? 'focus' : 'rest', blind: s.blind, task: s.tip };
+    if (!s.started || s.phase !== 'play' || !b || b.kind === 'warmup') {
+      const nb = s.started && s.phase === 'play' && b?.kind === 'warmup' ? s.next : null;
+      const left = s.started && s.phase === 'play' && b ? b.dur - s.blockT : undefined;
+      return { want: 'free', blind: false, left, next: nb && left !== undefined && left <= 4 ? (nb.kind === 'push' ? 'focus' : 'rest') : null };
+    }
+    const left = Math.max(0, b.dur - s.blockT);
+    const nb = s.next;
+    const next = left <= 4 ? (nb ? (nb.kind === 'push' ? 'focus' : nb.kind === 'rest' ? 'rest' : 'free') : 'free') : null;
+    return { want: b.kind === 'push' ? 'focus' : 'rest', blind: s.blind, task: s.tip, left, next };
+  }
+
+  /** The panel's gauge: the lamp's reach (0.5 at its threshold ring) in a push, calm in the meadow. */
+  meter(): number | null { return this.sim.meter(); }
+
+  /** The score corner: metres of the valley; under it the level and floor, or how far the record is. */
+  headline(): Headline {
+    const s = this.sim;
+    const best = s.bestBefore;
+    let sub: string;
+    if (best !== null && s.score > best) sub = t('hud.record');
+    else if (best !== null && best - s.score <= 150) sub = t('hud.toRecord', { n: best - s.score });
+    else sub = t('hud.sub', { n: s.level, s: s.stage });
+    return { value: s.score, sub };
   }
 
   /** Ended early: the sim settles at once; its events are dropped (the view and the sound are about to go). */
@@ -143,14 +156,16 @@ class DolinaGame implements ArcadeGame {
 
 function haptic(e: SimEvent): void {
   switch (e.type) {
-    case 'kill': if (e.via === 'slash') buzz(12); break;
-    case 'clink': buzz([6, 20, 6]); break;
+    case 'break': buzz(e.tall ? 18 : 10); break;
+    case 'stomp': buzz(14); break;
+    case 'jump': if (e.air) buzz(8); break;
+    case 'gate': buzz([8, 20, 8]); break;
     case 'harm': buzz([20, 40, 20]); break;
-    case 'guardHit': buzz(16); break;
+    case 'caught': buzz([30, 30, 30]); break;
     case 'dawn': buzz([20, 30, 20, 30, 40]); break;
     case 'guard': if (e.what === 'beaten') buzz([30, 40, 30, 40, 60]); break;
+    case 'level': buzz([10, 30, 10, 30, 30]); break;
     case 'fall': buzz([10, 60, 10]); break;
-    case 'parry': buzz([8, 16, 8]); break;
     default: break;
   }
 }
@@ -158,8 +173,20 @@ function haptic(e: SimEvent): void {
 const mod: ArcadeModule<DolinaProgress> = {
   freshProgress,
   create: env => new DolinaGame(env),
-  best: p => (p.sessions > 0 ? bestOf(p) : null),
+  best: p => {
+    migrate(p);
+    return p.sessions > 0 ? bestOf(p) : null;
+  },
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
+  howto: (): HowTo => ({
+    goal: t('how.goal'),
+    hands: [
+      { gesture: 'tap', text: t('how.tap') },
+      { gesture: 'hold', text: t('how.hold') },
+      { gesture: 'swipe', text: t('how.down') },
+    ],
+    tips: [t('how.tip1'), t('how.tip2')],
+  }),
 };
 export default mod;

@@ -6,8 +6,8 @@
  * scene sits high.
  */
 import { approach, clamp, ease } from '../kit/juice';
-import { lookOf, startEraOf, type DolinaProgress } from './meta';
-import { ERAS } from './content';
+import { ERAS, eraOfLevel } from './content';
+import { lookOf, type DolinaProgress } from './meta';
 import { PAL, glow, paintFar, paintMid, paintMoth, paintPilgrim, paintPost, paintRoad, paintSky } from './paint';
 
 export class DolinaIntro {
@@ -21,7 +21,7 @@ export class DolinaIntro {
     const k = this.shown, t = this.clock;
     const S = Math.max(24, Math.min(w / 12, h / 7.5));
     const floorY = h * 0.56;
-    const era = ERAS[startEraOf(progress)];
+    const era = ERAS[eraOfLevel(progress.level || 1)];
     const pal = PAL[era];
     paintSky(ctx, w, h, floorY, pal, t, 0, 0);
     paintFar(ctx, era, w, floorY - S * 0.1, S * 0.8, t * 6, t, pal, 1);

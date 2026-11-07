@@ -1,10 +1,13 @@
 /**
- * Ćma, the moth who loves the lamp a little too much: Dolina's talking companion (DESIGN §9).  She
- * says short lines in a speech bubble — one at a time, 2–4 s each, never over a telegraph or the
- * runner's block banner — at the session's opening, a block's start, a good push (the lamp visibly
- * growing), a dim lamp (she sulks, warmly), a calm meadow, a near miss, a big hit, a guardian and its
- * fall, a new era, a fall, low oil, the dawn gate and the ending.  Each moment has several variants
- * and a session never repeats one: when a moment's variants are spent she keeps quiet.
+ * Ćma, the moth who loves the lamp a little too much: Dolina's talking companion (DESIGN §9.2).  She
+ * rides on the pilgrim's hood, and when he jumps a second time in the air she grabs the hood and flaps
+ * (the double jump).  She says short lines in a speech bubble — one at a time, 2–4 s each, never over
+ * a telegraph or the runner's block banner — at the session's opening, a block's start, a good push
+ * (the lamp visibly growing), a dim lamp (she sulks, warmly), a calm meadow, a near miss, a big
+ * moment, the first double jump, a stair built (or too short), a climb by hand, a pit, a lamb freed,
+ * a high gate, the tide close behind and its catch, a guardian, its anger and its fall, a new era, a
+ * fall, low oil, a level's way out and the ending.  Each moment has several variants and a session
+ * never repeats one: when a moment's variants are spent she keeps quiet.
  *
  * Pure (no DOM, no canvas): the sim owns her, the view draws `current`.
  */
@@ -12,14 +15,16 @@ import type { EraId, GuardId } from './content';
 import { t, type Key } from './i18n';
 
 export type Moment =
-  | 'first' | 'open' | 'push' | 'blind' | 'rest' | 'good' | 'small' | 'calm' | 'near' | 'big'
-  | `guard.${GuardId}` | 'angry' | 'beaten' | `era.${EraId}` | 'fall' | 'oil' | 'gate' | 'end';
+  | 'first' | 'open' | 'push' | 'blind' | 'rest' | 'good' | 'small' | 'calm' | 'near' | 'big' | 'close'
+  | 'double' | 'stairs' | 'short' | 'climb' | 'pit' | 'lamb' | 'gate' | 'tide' | 'caught' | 'level'
+  | `guard.${GuardId}` | 'angry' | 'beaten' | `era.${EraId}` | 'fall' | 'oil' | 'end';
 
 /** How many variants each moment has in the catalog (say.<moment>.1 … say.<moment>.n). */
 export const SAY: Readonly<Record<Moment, number>> = {
-  first: 3, open: 4, push: 4, blind: 3, rest: 4, good: 4, small: 3, calm: 3, near: 3, big: 4,
+  first: 3, open: 4, push: 4, blind: 3, rest: 4, good: 4, small: 3, calm: 3, near: 3, big: 4, close: 3,
+  double: 3, stairs: 3, short: 3, climb: 3, pit: 3, lamb: 4, gate: 3, tide: 3, caught: 3, level: 4,
   'guard.wieza': 3, 'guard.rycerz': 3, 'guard.ekran': 3, angry: 3, beaten: 4,
-  'era.babel': 3, 'era.twierdza': 3, 'era.miasto': 3, fall: 3, oil: 3, gate: 3, end: 4,
+  'era.babel': 3, 'era.twierdza': 3, 'era.miasto': 3, fall: 3, oil: 3, end: 4,
 };
 
 export interface Line { moment: Moment; text: string; t: number; dur: number }

@@ -1061,10 +1061,10 @@ export function paintGuard(ctx: CanvasRenderingContext2D, x: number, floorY: num
     ctx.fillStyle = C.ember;
     ctx.fillRect(-S * 0.24, -S * 2.92, S * 0.48, S * 0.07);
     // the sword raised for a blow, its glint the telegraph
-    const raise = p.tele === 'strike' ? p.teleK : p.tele === 'heavy' ? p.teleK * 0.6 : 0.15;
+    const raise = p.tele === 'high' ? p.teleK : p.tele === 'wall' || p.tele === 'pair' ? p.teleK * 0.6 : 0.15;
     ctx.save();
     ctx.translate(-S * 0.45, -S * 2.2);
-    ctx.rotate(-0.4 - raise * 2.1 + (p.tele === 'heavy' ? 0.6 : 0));
+    ctx.rotate(-0.4 - raise * 2.1 + (p.tele === 'wall' || p.tele === 'pair' ? 0.6 : 0));
     ctx.fillStyle = '#3a3444';
     ctx.fillRect(-S * 0.05, -S * 1.7, S * 0.1, S * 1.7);
     if (raise > 0.6) {
@@ -1110,7 +1110,7 @@ export function paintGuard(ctx: CanvasRenderingContext2D, x: number, floorY: num
       ctx.stroke();
     } else paintEyes(ctx, cx, sy + sh * 0.45, S * 0.08, p.t, 11, 0);
     weak = { x: cx, y: sy + sh / 2 };
-    if (p.tele === 'sweep') {
+    if (p.tele === 'high' || p.tele === 'wall') {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       glow(ctx, cx - sw / 2, floorY - S * 1.0, S * 0.8 * p.teleK, 'rgba(111,227,232,', 0.8);
@@ -1154,13 +1154,41 @@ export function paintUpIcon(ctx: CanvasRenderingContext2D, id: UpId, x: number, 
   ctx.save();
   ctx.translate(x, y);
   switch (id) {
-    case 'sword':
+    case 'stone':
+      // a mason's stack of three stones
+      ctx.fillStyle = '#9a7a5c';
+      ctx.fillRect(-r * 0.7, r * 0.05, r * 0.65, r * 0.45);
+      ctx.fillRect(r * 0.02, r * 0.05, r * 0.65, r * 0.45);
+      ctx.fillStyle = '#c49a6c';
+      ctx.fillRect(-r * 0.33, -r * 0.45, r * 0.65, r * 0.45);
+      ctx.strokeStyle = 'rgba(40,24,16,.7)';
+      ctx.lineWidth = Math.max(1, r * 0.06);
+      ctx.strokeRect(-r * 0.7, r * 0.05, r * 0.65, r * 0.45);
+      ctx.strokeRect(r * 0.02, r * 0.05, r * 0.65, r * 0.45);
+      ctx.strokeRect(-r * 0.33, -r * 0.45, r * 0.65, r * 0.45);
+      break;
+    case 'forge':
       ctx.rotate(-0.7);
       ctx.fillStyle = C.steel;
       ctx.fillRect(-r * 0.08, -r * 0.9, r * 0.16, r * 1.3);
       ctx.fillStyle = C.goldDeep;
       ctx.fillRect(-r * 0.35, r * 0.35, r * 0.7, r * 0.12);
       ctx.fillRect(-r * 0.07, r * 0.4, r * 0.14, r * 0.4);
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, 0, -r * 0.6, r * 0.6, 'rgba(255,170,90,', 0.6);
+      break;
+    case 'income':
+      ctx.fillStyle = '#8a5a3c';
+      ctx.beginPath();
+      ctx.ellipse(0, r * 0.2, r * 0.6, r * 0.5, 0, 0, TAU);
+      ctx.fill();
+      ctx.fillRect(-r * 0.22, -r * 0.5, r * 0.44, r * 0.35);
+      ctx.fillStyle = C.gold;
+      for (const [dx, dy] of [[-0.25, 0.1], [0.2, 0.25], [0, -0.05]]) {
+        ctx.beginPath();
+        ctx.arc(dx * r, dy * r, r * 0.13, 0, TAU);
+        ctx.fill();
+      }
       break;
     case 'lamp':
       ctx.globalCompositeOperation = 'lighter';
@@ -1178,38 +1206,6 @@ export function paintUpIcon(ctx: CanvasRenderingContext2D, id: UpId, x: number, 
       ctx.beginPath();
       ctx.arc(-r * 0.15, 0, r * 0.12, 0, TAU);
       ctx.fill();
-      break;
-    case 'boots':
-      ctx.fillStyle = '#8a5a3c';
-      ctx.beginPath();
-      ctx.moveTo(-r * 0.5, -r * 0.6);
-      ctx.lineTo(-r * 0.1, -r * 0.6);
-      ctx.lineTo(-r * 0.1, r * 0.2);
-      ctx.lineTo(r * 0.6, r * 0.25);
-      ctx.lineTo(r * 0.6, r * 0.5);
-      ctx.lineTo(-r * 0.5, r * 0.5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = '#e8c070';
-      ctx.lineWidth = Math.max(1, r * 0.1);
-      ctx.beginPath();
-      ctx.moveTo(-r * 0.5, -r * 0.2);
-      ctx.lineTo(-r * 0.1, -r * 0.3);
-      ctx.stroke();
-      break;
-    case 'dawn':
-      ctx.strokeStyle = '#ffd36b';
-      ctx.lineWidth = Math.max(1, r * 0.14);
-      ctx.beginPath();
-      ctx.arc(0, r * 0.3, r * 0.45, Math.PI, TAU);
-      ctx.stroke();
-      for (let i = 0; i < 5; i++) {
-        const ang = Math.PI + (i + 0.5) * (Math.PI / 5);
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(ang) * r * 0.62, r * 0.3 + Math.sin(ang) * r * 0.62);
-        ctx.lineTo(Math.cos(ang) * r * 0.9, r * 0.3 + Math.sin(ang) * r * 0.9);
-        ctx.stroke();
-      }
       break;
   }
   ctx.restore();
