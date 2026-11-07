@@ -193,6 +193,15 @@ export class MendiPanel {
       this.hint.style.top = `${ch * 0.42}px`;
     }
     this.hint.classList.remove('show');
+    // measured as laid out (the translate included, no pop-in scale yet): slide it back inside the play area
+    const box = this.hint.parentElement?.getBoundingClientRect();
+    const r = this.hint.getBoundingClientRect();
+    if (box && r.width > 0) {
+      const dx = r.left < box.left + 8 ? box.left + 8 - r.left : r.right > box.right - 8 ? box.right - 8 - r.right : 0;
+      const dy = r.top < box.top + 4 ? box.top + 4 - r.top : 0;
+      if (dx) this.hint.style.left = `${parseFloat(this.hint.style.left) + dx}px`;
+      if (dy) this.hint.style.top = `${parseFloat(this.hint.style.top) + dy}px`;
+    }
     void this.hint.offsetWidth;
     this.hint.classList.add('show');
     this.hintTimer = setTimeout(() => { this.hint.hidden = true; }, Math.max(1200, ms));
