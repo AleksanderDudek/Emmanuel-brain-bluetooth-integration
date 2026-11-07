@@ -183,7 +183,9 @@ export class MendiPanel {
       // the bubble sits above the point (below it when the point is near the top), its arrow on the point
       const below = at.y < ch * 0.3;
       this.hint.dataset.at = below ? 'below' : 'above';
-      this.hint.style.left = `${Math.max(12, Math.min(cw - 12, at.x))}px`;
+      // keep the whole bubble on the canvas: its centre at least half its width from either edge
+      const half = Math.min(cw / 2, this.hint.offsetWidth / 2 + 10);
+      this.hint.style.left = `${Math.max(half, Math.min(cw - half, at.x))}px`;
       this.hint.style.top = `${at.y}px`;
     } else {
       this.hint.dataset.at = 'centre';

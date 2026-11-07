@@ -497,7 +497,9 @@ export class ArcadeRunner {
     const f = ses.frame, ph = this.phase, c = ui.dock.coach;
     const rest = ph.want === 'rest';
     let meter: number | null = f.reliable && !ph.blind ? (rest ? f.calm : f.level) : null;
-    if (game.meter && meter !== null) this.safe(() => { const m = game.meter!(); meter = m === null ? null : m; });
+    // the game's own quantity; a null from it while the signal is fine and in sight (a lead-in, a card)
+    // keeps the plain level or calm, so the gauge never reads "—" in a working block
+    if (game.meter && meter !== null) this.safe(() => { const m = game.meter!(); if (m !== null && Number.isFinite(m)) meter = m; });
     const on = meter !== null && (rest ? !f.focused && meter >= 0.5 : meter >= 0.5);
     ui.panel.update({
       want: ph.want, blind: ph.blind, sec: c.blockSec, left: ph.left ?? null, next: ph.next ?? null,

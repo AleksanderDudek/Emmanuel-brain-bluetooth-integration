@@ -53,7 +53,13 @@ try {
   const page = await (await browser.createBrowserContext()).newPage();
   page.setDefaultTimeout(60_000);
   page.on('pageerror', e => errors.push(`page error: ${e.message}`));
-  page.on('console', m => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
+  // other games in the same tree may be mid-edit: hide vite's error overlay so it does not block clicks,
+  // and let their modules' 500s pass (this game's own errors still fail the run as page errors)
+  await page.evaluateOnNewDocument(() => {
+    const kill = () => document.querySelectorAll('vite-error-overlay').forEach(e => e.remove());
+    new MutationObserver(kill).observe(document, { childList: true, subtree: true });
+  });
+  page.on('console', m => { if (m.type() === 'error' && !/status of 500/.test(m.text())) errors.push(`console: ${m.text()}`); });
   page.on('dialog', d => void d.accept());
   const shot = name => page.screenshot({ path: join(out, `${game}-${name}.png`) });
   const state = () => page.evaluate(() => globalThis.brainlink?.arcade?.debug ?? null);

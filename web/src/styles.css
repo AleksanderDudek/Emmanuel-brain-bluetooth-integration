@@ -568,7 +568,8 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade>canvas{position:absolute;left:0;top:0;width:100%;height:calc(100% - var(--dock));display:block}
 .arcade-hud{position:absolute;inset:0 0 var(--dock) 0;pointer-events:none;z-index:2}
 .arcade-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:12px;z-index:3;pointer-events:none;
-  padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 0 max(16px,env(safe-area-inset-left))}
+  padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 14px max(16px,env(safe-area-inset-left));
+  background:linear-gradient(180deg,rgba(6,7,12,.5),rgba(6,7,12,.22) 60%,rgba(6,7,12,0))}
 .arcade-time{flex:1;height:4px;border-radius:2px;background:rgba(255,255,255,.16);overflow:hidden}
 .arcade-time i{display:block;height:100%;width:0;background:rgba(255,255,255,.85);border-radius:2px}
 .arcade-clock{min-width:64px;text-align:right;font-size:13px;color:rgba(255,255,255,.88);text-shadow:0 1px 6px rgba(0,0,0,.55)}
@@ -643,7 +644,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-headline small:empty{display:none}
 .arcade-headline.bump b{animation:bump .35s cubic-bezier(.2,1.6,.4,1)}
 @keyframes bump{from{transform:scale(1.25)}to{transform:scale(1)}}
-.arcade-marks{position:absolute;inset:0 0 var(--dock) 0;pointer-events:none;z-index:3;overflow:hidden}
+.arcade-marks{position:absolute;inset:0 0 var(--dock) 0;pointer-events:none;z-index:4;overflow:hidden}
 .arcade-hint{position:absolute;max-width:min(300px,calc(100% - 24px));width:max-content;padding:9px 14px;border-radius:14px;background:#fff7e3;color:#1d1724;
   font-size:14px;font-weight:650;line-height:1.3;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.35);transform:translate(-50%,calc(-100% - 14px))}
 .arcade-hint[hidden]{display:none}
@@ -674,6 +675,8 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .mp-name{max-width:40%;font-size:11px}
   .mp-next{font-size:10.5px}
   .arcade-headline{top:calc(max(8px,env(safe-area-inset-top)) + 48px);padding:7px 10px;min-width:0}
+  .arcade-banner{top:calc(max(8px,env(safe-area-inset-top)) + 170px);padding:9px 14px}
+  .arcade-banner .ban-task{font-size:13.5px}
   .arcade-headline b{font-size:24px}
   .arcade-headline span{font-size:11px}
 }
@@ -685,7 +688,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .arcade-headline b{font-size:22px}
 }
 /* a block's instruction over the game, for a few seconds (the runner's showBanner) */
-.arcade-banner{position:absolute;left:50%;bottom:calc(var(--dock) + 70px);transform:translateX(-50%);z-index:3;width:max-content;max-width:min(560px,calc(100% - 32px));
+.arcade-banner{position:absolute;left:50%;top:calc(max(10px,env(safe-area-inset-top)) + 186px);transform:translateX(-50%);z-index:3;width:max-content;max-width:min(560px,calc(100% - 32px));
   padding:12px 18px 13px;border-radius:18px;background:rgba(8,9,14,.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.14);
   color:#fff;text-align:center;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:5px}
 .arcade-banner[hidden]{display:none}
@@ -728,7 +731,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .dock-text{gap:2px}
   .dock-text .dock-state{font-size:13px}
   .dock-eyebrow,.dock-session{display:none}
-  .arcade-banner{bottom:calc(var(--dock) + 10px);padding:8px 14px}
+  .arcade-banner{top:calc(max(6px,env(safe-area-inset-top)) + 122px);padding:8px 14px}
   .ban-task{font-size:13px}
 }
 .arcade-chip{position:absolute;left:max(16px,env(safe-area-inset-left));top:calc(max(10px,env(safe-area-inset-top)) + 44px);z-index:3;display:flex;align-items:center;gap:8px;
