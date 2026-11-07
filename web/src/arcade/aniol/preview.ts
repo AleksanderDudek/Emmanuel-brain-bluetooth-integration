@@ -6,7 +6,7 @@
  */
 import { clamp, ease } from '../kit/juice';
 import { rankOf, roomItems, type AniolProgress } from './meta';
-import { C, glow, hash, paintAngel, paintBed, paintLamp, paintRoom, paintRoomItem, paintStar, paintWindow, paintZmora, type AngelPose, type ZPose } from './paint';
+import { C, glow, hash, paintAngel, paintBear, paintBed, paintLamp, paintRoom, paintRoomItem, paintStar, paintWindow, paintZmora, type AngelPose, type ZPose } from './paint';
 
 const angel: AngelPose = { face: 1, swing: 0, beat: 0, open: 1, comfort: 0, sing: 0 };
 const zp: ZPose = { kind: 'mara', r: 0.34, side: 1, emerge: 1, hit: 0, armoured: false, crack: 0, burn: 0, inAura: false, t: 0, id: 1, fade: 0 };
@@ -43,6 +43,7 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   if (items.includes('nightlight')) paintRoomItem(ctx, 'nightlight', cx - 2.9 * S, floorY - 1.15 * S, 0.22 * S, t);
   if (items.includes('mobile')) paintRoomItem(ctx, 'mobile', cx + 2.9 * S, floorY - 3.3 * S, 0.4 * S, t);
   paintBed(ctx, cx, floorY, S, t, 0, items.includes('blanket'));
+  paintBear(ctx, cx + 0.68 * S, floorY - 0.86 * S, 0.27 * S, { talk: 0, cap: items.includes('nightcap'), look: -1, hide: 0, t });
   // a Zmora on each side: it creeps in, the sweep reaches it, it bursts into light
   const cycle = 2.4;
   for (const side of [-1, 1]) {

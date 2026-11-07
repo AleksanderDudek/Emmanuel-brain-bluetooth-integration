@@ -1,35 +1,36 @@
 /**
- * Anioł Stróż's play view, all on the canvas: the child's room at night in cross-section (the
- * wardrobe's shadow on the left, the door ajar on the right, the lamp's warm pool, the window whose
- * sky holds the band's curve and whose sill holds its stars), the aura around the bed (its radius
- * is the level; a dotted ring marks the threshold, the rim turns gold beyond it), the bed with the
- * sleeping child and the dream bubble (Sen, the lullaby's stars, the calm gauge), the Zmory walking
- * in from both sides, the angel over the bed with the Płomień's ring, the strikes' sweeps of light,
- * hit-stop, sparks, motes and feathers, and the HUD (hud.ts) on top.  It only reads the sim
- * (sim.ts); the calibration scene is intro.ts.
+ * Anioł Stróż's play view, all on the canvas: the child's room at night in cross-section — or the
+ * dream it has become (the attic, the forest, the sea, the clouds) — the window whose sky holds the
+ * band's curve and whose sill holds its stars, the aura around the bed (its radius is the level; a
+ * dotted ring marks the threshold, the rim turns gold beyond it), the reach marks on the floor with
+ * the gold band of the perfect window, the bed with the sleeping child and the dream bubble (Sen,
+ * the lullaby's stars, the calm gauge), Pan Guzik the teddy bear at its foot, the Zmory and their
+ * ink drops, the dream's great nightmare with its tells and its light bar, the angel with the
+ * Płomień's ring and Skrzydła ognia, the strikes' sweeps of light, hit-stop, sparks, motes and
+ * feathers, and the words over it all (hud.ts).  It only reads the sim (sim.ts); the calibration
+ * scene is intro.ts.  The runner draws the standard HUD on top (the panel, the score, the coach).
  */
 import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
-import { roomItems } from './meta';
+import { bossName, giftById, type RoomItem } from './content';
 import { Hud } from './hud';
 import { feathers as feathersText, t } from './i18n';
 import { AniolIntro } from './intro';
 import { layout, type Layout } from './layout';
-import type { AniolProgress } from './meta';
+import { roomItems, type AniolProgress } from './meta';
 import {
-  C, SANS, font, glow, paintAngel, paintBed, paintFeather, paintLamp, paintRoom, paintRoomItem, paintStar, paintZmora,
-  type AngelPose, type ZPose,
+  C, SANS, font, glow, paintAngel, paintBear, paintBed, paintBoss, paintDream, paintDrop, paintFeather, paintLamp, paintRoom, paintRoomItem,
+  paintStar, paintZmora, type AngelPose, type BearPose, type BossPose, type ZPose,
 } from './paint';
-import { RULES, auraFor, type AniolSim, type SimEvent, type Side } from './sim';
-import { giftById, type RoomItem } from './content';
+import { RULES, auraFor, type AniolSim, type CoachAt, type SimEvent, type Side } from './sim';
 
 const TAU = Math.PI * 2;
 
 const TXT = {
   whiff: t('fx.whiff'), bounce: t('fx.bounce'), crack: t('fx.crack'), flame: t('fx.flame'), flameSub: t('fx.flameSub'),
   stir: t('fx.stir'), comfort: t('fx.comfort'), shield: t('fx.shield'), touch: t('fx.touch'), split: t('fx.split'),
-  burst: t('fx.burst'), mark: t('mark'), sen: t('hud.sen'), flameLabel: t('hud.flame'),
-  kzCome: t('kz.come'), kzComeSub: t('kz.comeSub'), kzTurn: t('kz.turn'), kzBanished: t('kz.banished'), kzFled: t('kz.fled'),
-  zhint: { skoczek: t('zhint.skoczek'), widmo: t('zhint.widmo'), pancerna: t('zhint.pancerna'), roj: t('zhint.roj') } as Record<string, string>,
+  burst: t('fx.burst'), mark: t('mark'), sen: t('hud.sen'), flameLabel: t('hud.flame'), perfect: t('fx.perfect'), close: t('fx.close'),
+  deflect: t('fx.deflect'), glory: t('fx.glory'), counter: t('fx.counter'), grab: t('fx.grab'), flip: t('fx.flip'), feint: t('fx.feint'),
+  turn: t('kz.turn'),
 };
 
 interface Sweep { side: Side; t: number; dur: number; hit: boolean; reach: number; spear: boolean }
@@ -47,7 +48,7 @@ export class AniolView {
   private readonly intro0 = new AniolIntro();
   private clock = 0;
   private started = false;
-  private readonly parts = new Particles(600);
+  private readonly parts = new Particles(700);
   private readonly sweeps: Sweep[] = [];
   private readonly rings: Ring[] = [];
   private readonly feathers: Feather[] = [];
@@ -55,6 +56,7 @@ export class AniolView {
   private readonly shake: Shake;
   private readonly rnd = Math.random;
   private items: RoomItem[] = [];
+  private chapter = 0;
   // the angel's animation
   private face = 1;
   private swing = 0;
@@ -68,7 +70,15 @@ export class AniolView {
   private dawn = 0;
   private night = 0;
   private fade = 0;
-  private readonly seen = new Set<string>();
+  private gloryA = 0;
+  private bossBar = 0;
+  private bossShown = 1;
+  private bearHide = 0;
+  private bearTalk = 0;
+  /** the Szept's body shows in light: how much, per Zmora */
+  private readonly reveal = new Map<number, number>();
+  private readonly sideLit = { [-1]: 0, [1]: 0 } as Record<Side, number>;
+  private head = { headX: 0, headY: 0 };
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
     this.ctx = canvas.getContext('2d')!;
@@ -77,11 +87,11 @@ export class AniolView {
     this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number): void {
+  resize(w: number, h: number, dpr: number, hudTop: number): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h);
+    this.L = layout(w, h, hudTop);
     this.hud.resize(this.L);
   }
 
@@ -89,6 +99,7 @@ export class AniolView {
     this.started = true;
     this.fade = 1;
     this.items = roomItems(sim.rank);
+    this.chapter = sim.chapterIndex;
   }
 
   intro(dt: number, p: number, progress: AniolProgress): void {
@@ -107,6 +118,10 @@ export class AniolView {
     const S = this.S;
     return { x: this.L.cx - 1.62 * S, y: this.L.floorY - 1.78 * S, r: 0.42 * S };
   }
+  private get bearAt(): { x: number; y: number; r: number } {
+    const S = this.S;
+    return { x: this.L.cx + 0.68 * S, y: this.L.floorY - 0.86 * S, r: 0.27 * S };
+  }
 
   /** The side of the screen a tap is on: the left third −1, the right third +1, the middle 0 (the nearer side). */
   sideAt(x: number): Side | 0 {
@@ -114,28 +129,46 @@ export class AniolView {
     return k < 1 / 3 ? -1 : k > 2 / 3 ? 1 : 0;
   }
 
+  /** Where a coach mark points (CSS px), kept on the screen; null centres it over the play. */
+  anchor(at: CoachAt, sim: AniolSim): { x: number; y: number } | null {
+    if (!at) return null;
+    const S = this.S, L = this.L;
+    let p: { x: number; y: number } | null = null;
+    if ('z' in at) {
+      const z = sim.zmory.find(x => x.id === at.z);
+      if (z) p = { x: this.xOf(z.side, z.d), y: this.yOf(z.z) - S * 0.9 };
+    } else if (at.ui === 'aura') p = { x: this.xOf(1, sim.auraR * 0.72), y: L.floorY - sim.auraR * 0.72 * 0.78 * S };
+    else if (at.ui === 'flame') p = { x: this.angelX + S * 0.9, y: this.angelY - S * 1.1 };
+    else if (at.ui === 'bubble') p = { x: this.bubble.x, y: this.bubble.y - this.bubble.r };
+    else if (at.ui === 'combo') p = { x: Math.min(L.cx + S * 1.6, this.w - 60), y: L.floorY - S * 3.1 };
+    else p = { x: this.xOf(at.ui === 'reachL' ? -1 : 1, sim.reach), y: L.floorY - S * 0.35 };
+    if (!p) return null;
+    const half = Math.min(150, (this.w - L.roomX0) / 2);
+    return { x: clamp(p.x, L.roomX0 + half, this.w - half), y: clamp(p.y, L.roomTop + 30, L.floorY - 10) };
+  }
+
   // ── reacting to the rules ───────────────────────────────────────
   on(e: SimEvent, sim: AniolSim): void {
     const u = this.L.u, rm = this.opts.reducedMotion, S = this.S;
     switch (e.type) {
-      case 'spawn':
-        if (e.kind in TXT.zhint && !this.seen.has(e.kind)) {
-          this.seen.add(e.kind);
-          this.hud.float(TXT.zhint[e.kind], this.xOf(e.side, Math.min(4.2, (this.w / 2 - 70 * u) / S)), this.yOf(1.9), '#ffd9b0', 13, 2.6, 18);
-        }
+      case 'story':
+        this.hud.showStory(e.kind, e.chapter, e.night);
         break;
       case 'strike':
         this.face = e.side;
         this.swing = 1;
-        this.sweeps.push({ side: e.side, t: 0, dur: e.hit ? 0.26 : 0.2, hit: e.hit, reach: sim.reach + (e.spear ? RULES.spearReach : 0), spear: e.spear });
+        this.sideLit[e.side] = 1;
+        this.sweeps.push({ side: e.side, t: 0, dur: e.hit ? 0.26 : 0.2, hit: e.hit, reach: sim.glory > 0 ? 4.4 : sim.reach + (e.spear ? RULES.spearReach : 0), spear: e.spear });
         if (this.sweeps.length > 6) this.sweeps.shift();
         break;
       case 'hit': {
         const x = this.xOf(e.side, e.d), y = this.yOf(e.z + 0.45);
-        this.parts.burst(x, y, rm ? 6 : 16, { color: '#fff4d6', size: 2.4 * u, speed: 260 * u, g: 300, drag: 3, life: 0.35, shape: 'spark', angle: e.side > 0 ? 0 : Math.PI, spread: 2.2, rnd: this.rnd });
+        this.parts.burst(x, y, rm ? 6 : e.perfect ? 26 : 16, { color: e.perfect ? '#ffe08a' : '#fff4d6', size: 2.4 * u, speed: (e.perfect ? 340 : 260) * u, g: 300, drag: 3, life: 0.35, shape: 'spark', angle: e.side > 0 ? 0 : Math.PI, spread: 2.2, rnd: this.rnd });
         this.parts.burst(x, y, rm ? 2 : 6, { color: C.gold, size: 2 * u, speed: 120 * u, g: 0, drag: 4, life: 0.4, rnd: this.rnd });
-        this.rings.push({ x, y, t: 0, dur: 0.22, r0: 6 * u, r1: 34 * u, color: 'rgba(255,244,214,', width: 3 });
+        this.rings.push({ x, y, t: 0, dur: 0.22, r0: 6 * u, r1: (e.perfect ? 50 : 34) * u, color: e.perfect ? 'rgba(255,214,120,' : 'rgba(255,244,214,', width: e.perfect ? 4 : 3 });
+        if (e.perfect) this.hud.float(TXT.perfect, x, y - 40 * u, '#ffd36b', 16, 0.8, 26);
         this.shake.add(e.kind === 'koszmar' ? 0.22 : 0.12);
+        this.hud.popCombo();
         break;
       }
       case 'bounce': {
@@ -156,20 +189,53 @@ export class AniolView {
         const x = this.xOf(e.side, e.d), y = this.yOf(e.z + 0.45);
         const big = e.kind === 'koszmar';
         // the ink bursts into motes of light that rise
-        this.parts.burst(x, y, rm ? 8 : big ? 70 : 26, { color: '#fff7dc', size: (big ? 3.5 : 2.6) * u, speed: (big ? 260 : 150) * u, g: -90, drag: 2.2, life: big ? 1.6 : 1, rnd: this.rnd });
-        this.parts.burst(x, y, rm ? 4 : big ? 40 : 12, { color: C.gold, size: 2.2 * u, speed: (big ? 320 : 200) * u, g: -40, drag: 2.5, life: 0.8, shape: 'spark', rnd: this.rnd });
+        this.parts.burst(x, y, rm ? 8 : big ? 80 : 26, { color: '#fff7dc', size: (big ? 3.5 : 2.6) * u, speed: (big ? 280 : 150) * u, g: -90, drag: 2.2, life: big ? 1.8 : 1, rnd: this.rnd });
+        this.parts.burst(x, y, rm ? 4 : big ? 46 : 12, { color: C.gold, size: 2.2 * u, speed: (big ? 340 : 200) * u, g: -40, drag: 2.5, life: 0.8, shape: 'spark', rnd: this.rnd });
         this.parts.burst(x, y, rm ? 2 : 6, { color: '#3a3260', size: 4 * u, speed: 60 * u, g: -30, drag: 3, life: 0.5, rnd: this.rnd });
-        this.rings.push({ x, y, t: 0, dur: big ? 0.9 : 0.4, r0: 10 * u, r1: (big ? 160 : 60) * u, color: 'rgba(255,240,190,', width: big ? 6 : 3 });
+        this.rings.push({ x, y, t: 0, dur: big ? 0.9 : 0.4, r0: 10 * u, r1: (big ? 180 : 60) * u, color: 'rgba(255,240,190,', width: big ? 6 : 3 });
         const nf = Math.min(5, Math.max(1, Math.round(e.feathers / 2)));
         for (let i = 0; i < (rm ? 1 : nf); i++) this.feather(x, y);
         if (e.via !== 'flame' && e.via !== 'dawn') this.hud.float(`+${e.feathers}`, x, y - 26 * u, C.goldLight, 13, 0.8, 30);
-        this.hud.popScore();
         this.shake.add(big ? 0.6 : 0.16);
         if (big) this.flashOn(0.9);
+        this.reveal.delete(e.id);
         break;
       }
       case 'split':
         this.hud.float(TXT.split, this.xOf(e.side, e.d), this.yOf(1.1), '#ffd9b0', 14, 0.9, 24);
+        break;
+      case 'flip':
+        this.hud.float(TXT.flip, this.xOf(e.side, 1.4), this.yOf(1.9), '#ffd9b0', 14, 0.7, 20);
+        break;
+      case 'grab': {
+        const x = this.xOf(e.side, RULES.bedHalf + 0.3);
+        this.hud.float(TXT.grab, x, this.yOf(1.4), '#e0c8ff', 14, 1.1, 22);
+        this.senPulse = 1;
+        break;
+      }
+      case 'spit': {
+        const x = this.xOf(e.side, e.d), y = this.yOf(0.6);
+        this.parts.burst(x, y, rm ? 2 : 6, { color: '#2a2f66', size: 3 * u, speed: 80 * u, g: 200, drag: 2, life: 0.4, rnd: this.rnd });
+        break;
+      }
+      case 'deflect': {
+        const x = this.xOf(e.side, e.d), y = this.yOf(0.6);
+        this.parts.burst(x, y, rm ? 6 : 18, { color: '#ffe08a', size: 2.4 * u, speed: 280 * u, g: 0, drag: 3, life: 0.35, shape: 'spark', angle: e.side > 0 ? 0 : Math.PI, spread: 1.2, rnd: this.rnd });
+        this.rings.push({ x, y, t: 0, dur: 0.3, r0: 4 * u, r1: 40 * u, color: 'rgba(255,214,120,', width: 3 });
+        this.hud.float(TXT.deflect, x, y - 30 * u, '#ffd36b', 15, 0.8, 24);
+        this.hud.popCombo();
+        this.shake.add(0.12);
+        break;
+      }
+      case 'splash': {
+        const b = this.bubble;
+        this.senPulse = 1;
+        this.parts.burst(this.xOf(e.side, RULES.bedHalf), this.yOf(0.5), rm ? 3 : 12, { color: '#101433', size: 3 * u, speed: 120 * u, g: 300, drag: 2, life: 0.6, rnd: this.rnd });
+        this.rings.push({ x: b.x, y: b.y, t: 0, dur: 0.5, r0: b.r, r1: b.r * 1.6, color: 'rgba(120,110,170,', width: 3 });
+        break;
+      }
+      case 'close':
+        this.hud.float(TXT.close, this.xOf(e.side, e.d), this.yOf(1.5), '#ffb48a', 15, 0.9, 26);
         break;
       case 'whiff':
         this.hud.float(TXT.whiff, this.xOf(e.side, sim.reach * 0.75), this.yOf(0.9), 'rgba(220,214,240,.9)', 12, 0.6, 16);
@@ -181,7 +247,7 @@ export class AniolView {
         break;
       }
       case 'combo':
-        this.hud.float(t('fx.combo', { n: e.mult }), this.angelX, this.angelY - S * 1.4, e.mult >= 3 ? '#ffb070' : C.goldLight, 22, 1.2, 34);
+        this.hud.float(t('fx.combo', { n: e.mult }), Math.min(this.L.cx + S * 1.9, this.w - 80 * u), this.L.floorY - S * 2.2, e.mult >= 4 ? '#ff9a6b' : e.mult >= 3 ? '#ffb070' : C.goldLight, 22, 1.2, 34);
         this.rings.push({ x: this.angelX, y: this.angelY, t: 0, dur: 0.5, r0: S * 0.5, r1: S * 1.8, color: 'rgba(255,214,120,', width: 4 });
         break;
       case 'touch': {
@@ -190,6 +256,7 @@ export class AniolView {
         this.rings.push({ x: b.x, y: b.y, t: 0, dur: 0.5, r0: b.r, r1: b.r * 1.8, color: 'rgba(120,110,170,', width: 3 });
         this.hud.float(TXT.touch, b.x, b.y - b.r - 10 * u, '#c9c3ea', 12, 1, 18);
         this.parts.burst(this.xOf(e.side, RULES.bedHalf + 0.2), this.yOf(0.4), rm ? 3 : 10, { color: '#3a3260', size: 3 * u, speed: 80 * u, g: -20, drag: 2, life: 0.7, rnd: this.rnd });
+        this.bearHide = 1;
         break;
       }
       case 'shield': {
@@ -210,6 +277,9 @@ export class AniolView {
         this.rings.push({ x: this.angelX, y: this.angelY, t: 0, dur: 0.9, r0: S * 0.6, r1: Math.hypot(this.w, this.h), color: 'rgba(255,214,120,', width: 10 });
         this.hud.toast(TXT.flame, TXT.flameSub, C.goldDeep);
         this.shake.add(0.55);
+        break;
+      case 'glory':
+        if (e.on) this.hud.float(TXT.glory, this.angelX, this.angelY - S * 1.6, '#ffb347', 20, 1.4, 30);
         break;
       case 'level':
         this.hud.popLevel();
@@ -241,16 +311,26 @@ export class AniolView {
           this.rings.push({ x: this.L.cx, y: this.yOf(0.6), t: 0, dur: 1.4, r0: S, r1: S * 7, color: 'rgba(160,190,255,', width: 5 });
         }
         break;
-      case 'blockEnd':
-        if (e.block.kind !== 'warmup') this.hud.blockCard(sim, e.block.kind, e.block.blind, e.verdict, e.share, e.need, e.t0, e.t1, e.stars);
+      case 'boss': {
+        const name = bossName(e.kind);
+        const b = sim.zmory.find(z => z.boss);
+        const bx = b ? this.xOf(b.side, b.d) : this.L.cx, by = this.yOf(1.6);
+        if (e.what === 'come') this.hud.toast(t('boss.come', { name }), t(`bossSub.${e.kind}`), '#8a4a3a');
+        else if (e.what === 'turn') this.hud.float(TXT.turn, this.xOf(e.side, 3), this.yOf(2), '#ffd9b0', 18, 1.2, 26);
+        else if (e.what === 'phase') {
+          this.hud.toast(t('boss.phase', { name }), '', '#8a4a3a');
+          this.flashColor = 'rgba(255,180,120,';
+          this.flashOn(0.35);
+          this.shake.add(0.35);
+        } else if (e.what === 'counter') {
+          this.hud.float(TXT.counter, bx, by, '#ffd36b', 22, 1, 30);
+          this.shake.add(0.4);
+        } else if (e.what === 'wind' && e.feint) this.hud.float(TXT.feint, bx, by - 20 * u, '#ffd9b0', 15, 0.8, 20);
+        else if (e.what === 'banished') this.hud.toast(t('boss.banished', { name }), '', C.goldDeep);
+        else if (e.what === 'fled') this.hud.toast(t('boss.fled', { name }), '', C.calmDeep);
+        if (e.what === 'come' || e.what === 'dash') this.shake.add(0.25);
         break;
-      case 'koszmar':
-        if (e.what === 'come') this.hud.toast(TXT.kzCome, TXT.kzComeSub, '#8a4a3a');
-        else if (e.what === 'turn') this.hud.float(TXT.kzTurn, this.xOf(e.side, 3), this.yOf(2), '#ffd9b0', 18, 1.2, 26);
-        else if (e.what === 'banished') this.hud.toast(TXT.kzBanished, '', C.goldDeep);
-        else this.hud.toast(TXT.kzFled, '', C.calmDeep);
-        if (e.what !== 'banished') this.shake.add(0.25);
-        break;
+      }
       case 'dayGift':
         this.hud.toast(t('card.dayGift', { feathers: feathersText(e.n) }), '', C.goldDeep);
         break;
@@ -300,6 +380,7 @@ export class AniolView {
     this.swing = approach(this.swing, 0, dt, 0.09);
     this.comfort = Math.max(0, this.comfort - dt);
     this.flash = Math.max(0, this.flash - dt * 2.2);
+    if (this.flash <= 0.01) this.flashColor = 'rgba(255,244,214,';
     this.senPulse = Math.max(0, this.senPulse - dt * 1.5);
     this.starPop = Math.max(0, this.starPop - dt * 2);
     this.fade = Math.max(0, this.fade - dt * 1.5);
@@ -307,9 +388,28 @@ export class AniolView {
     this.sing = approach(this.sing, sim.restBlock ? 1 : 0, dt, 0.5);
     this.dawn = approach(this.dawn, sim.phase === 'done' ? 1 : 0, dt, 1.2);
     this.night = approach(this.night, sim.restBlock ? 1 : sim.blind ? 0.6 : 0, dt, 0.8);
+    this.gloryA = approach(this.gloryA, sim.glory > 0 ? 1 : 0, dt, 0.15);
+    this.bossBar = approach(this.bossBar, sim.phase === 'finale' && sim.boss ? 1 : 0, dt, 0.25);
+    this.sideLit[-1] = Math.max(0, this.sideLit[-1] - dt * 2.5);
+    this.sideLit[1] = Math.max(0, this.sideLit[1] - dt * 2.5);
+    // the bear hides his eyes while something is right at the bed ("not scared")
+    const near = sim.zmory.some(z => z.state === 'walk' && !z.boss && z.d - z.r - RULES.bedHalf < 0.5) || sim.boss?.move === 'open';
+    this.bearHide = approach(this.bearHide, near ? 1 : 0, dt, near ? 0.08 : 0.4);
+    this.bearTalk = approach(this.bearTalk, sim.said?.who === 'bear' ? 1 : 0, dt, 0.1);
+    // the Szept shows in light: the aura, the lamp, a sweep on its side
+    for (const z of sim.zmory) {
+      if (z.kind !== 'szept') continue;
+      const lit = z.inAura || z.d - z.r <= sim.auraR || this.sideLit[z.side] > 0.2 || this.dawn > 0.2;
+      this.reveal.set(z.id, approach(this.reveal.get(z.id) ?? 0, lit ? 1 : 0, dt, 0.15));
+    }
     // the lullaby's notes rise from the angel
     if (sim.restBlock && this.rnd() < dt * 1.6) {
       this.notes.push({ x: this.angelX + (this.rnd() - 0.5) * this.S, y: this.angelY - this.S * 0.8, t: 0, dur: 2.2, dx: (this.rnd() - 0.5) * 30 * this.L.u });
+    }
+    // Skrzydła ognia: embers fall from the wings
+    if (sim.glory > 0 && !this.opts.reducedMotion && this.rnd() < dt * 30) {
+      const sd = this.rnd() < 0.5 ? -1 : 1;
+      this.parts.burst(this.angelX + sd * this.S * (0.5 + this.rnd() * 0.6), this.angelY - this.S * 0.3, 1, { color: '#ffb347', size: 2.2 * this.L.u, speed: 40 * this.L.u, g: 60, drag: 1, life: 0.9, shape: 'spark', rnd: this.rnd });
     }
     this.hud.update(dt, sim);
   }
@@ -321,9 +421,11 @@ export class AniolView {
     const off = this.shake.offset(1 / 60, 7);
     ctx.save();
     ctx.translate(off.x, off.y);
-    paintRoom(ctx, { w: this.w, h: this.h, cx: L.cx, floorY: L.floorY, s: S, win: L.win }, this.clock, this.dawn);
-    this.hud.drawWindow(sim, this.dawn, this.items.includes('curtain'));
-    this.drawItemsBack();
+    const box = { w: this.w, h: this.h, cx: L.cx, floorY: L.floorY, s: S, win: L.win };
+    if (this.chapter === 0) paintRoom(ctx, box, this.clock, this.dawn);
+    else paintDream(ctx, this.chapter, box, this.clock, this.dawn);
+    this.hud.drawWindow(sim, this.dawn, this.chapter === 0 && this.items.includes('curtain'));
+    if (this.chapter === 0) this.drawItemsBack();
     const lamp = paintLamp(ctx, L.cx + 1.55 * S, L.floorY, S, 1, this.items.includes('book'));
     // the lamp's warm pool (dimmer in the lullaby, the room bluer)
     ctx.save();
@@ -332,17 +434,21 @@ export class AniolView {
     ctx.restore();
     this.drawAura(sim);
     this.drawReach(sim);
-    const head = paintBed(ctx, L.cx, L.floorY, S, this.clock, clamp(this.comfort / 0.8) * (this.comfort > 0.8 ? 1 : this.comfort / 0.8), this.items.includes('blanket'));
-    if (this.items.includes('bear')) paintRoomItem(ctx, 'bear', L.cx - 1.45 * S, L.floorY - 0.24 * S, 0.3 * S);
-    this.drawBubble(sim, head);
+    // the Ośmiornica rises out of the sea behind the bed
+    const boss = sim.boss ? sim.zmory.find(z => z.id === sim.boss!.id) : undefined;
+    if (boss && sim.boss!.kind === 'osmiornica') this.drawBoss(sim, boss);
+    this.head = paintBed(ctx, L.cx, L.floorY, S, this.clock, clamp(this.comfort / 0.8) * (this.comfort > 0.8 ? 1 : this.comfort / 0.8), this.items.includes('blanket'));
+    this.drawBear(sim);
+    this.drawBubble(sim, this.head);
     this.drawZmory(sim);
+    this.drawDrops(sim);
     this.drawAngel(sim);
-    this.drawSweeps(sim);
+    this.drawSweeps();
     if (sim.hint) this.drawHint(sim);
     // the lullaby's blue and the blind block's fog over the room
     if (this.night > 0.01) {
       ctx.fillStyle = sim.blind ? `rgba(90,80,140,${0.22 * this.night})` : `rgba(30,50,110,${0.18 * this.night})`;
-      ctx.fillRect(0, L.hudBottom - 10, this.w, this.h);
+      ctx.fillRect(0, L.roomTop - 10, this.w, this.h);
     }
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -359,7 +465,7 @@ export class AniolView {
       ctx.stroke();
     }
     ctx.restore();
-    // the light of a Płomień, a dawn burst, Koszmar banished
+    // the light of a Płomień, a dawn burst, a boss banished
     if (this.flash > 0.01) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -374,7 +480,9 @@ export class AniolView {
       glow(ctx, L.win.x + L.win.w / 2, L.win.y + L.win.h, Math.max(this.w, this.h) * 0.8, 'rgba(255,200,140,', 0.3 * this.dawn);
       ctx.restore();
     }
+    this.drawBossBar(sim);
     this.hud.draw(sim);
+    this.drawSaid(sim);
     if (this.fade > 0) {
       ctx.fillStyle = `rgba(18,18,43,${this.fade})`;
       ctx.fillRect(0, 0, this.w, this.h);
@@ -384,14 +492,14 @@ export class AniolView {
   // ── the room's cosy things ──────────────────────────────────────
   private drawItemsBack(): void {
     const ctx = this.ctx, L = this.L, S = this.S, has = (i: RoomItem) => this.items.includes(i);
-    if (has('garland')) paintRoomItem(ctx, 'garland', L.cx, L.hudBottom + S * 0.35, Math.min(this.w * 0.42, S * 4), this.clock);
+    if (has('garland')) paintRoomItem(ctx, 'garland', L.cx, L.roomTop + S * 0.35, Math.min(this.w * 0.42, S * 4), this.clock);
     if (has('nightlight')) paintRoomItem(ctx, 'nightlight', L.cx - 2.9 * S, L.floorY - 1.15 * S, 0.22 * S, this.clock);
     if (has('mobile')) {
-      const mx = L.cx + 2.7 * S, my = Math.max(L.hudBottom + S * 0.6, L.floorY - 3.1 * S);
+      const mx = L.cx + 2.7 * S, my = Math.max(L.roomTop + S * 0.6, L.floorY - 3.1 * S);
       ctx.strokeStyle = 'rgba(217,199,166,.6)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(mx, L.hudBottom - 6);
+      ctx.moveTo(mx, L.roomTop - 6);
       ctx.lineTo(mx, my - 0.42 * S);
       ctx.stroke();
       paintRoomItem(ctx, 'mobile', mx, my, 0.42 * S, this.clock);
@@ -407,7 +515,7 @@ export class AniolView {
     ctx.fillRect(L.cx + 3.42 * S, L.floorY - 0.44 * S, 0.2 * S, 0.2 * S);
   }
 
-  // ── the aura: the live gauge ────────────────────────────────────
+  // ── the aura: the live gauge, drawn large with its threshold ────
   private drawAura(sim: AniolSim): void {
     const ctx = this.ctx, L = this.L, S = this.S, u = L.u;
     const look = sim.auraLook, R = sim.auraR * S;
@@ -422,7 +530,7 @@ export class AniolView {
     // the light inside
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const k = look === 'live' ? 0.22 + 0.25 * clamp(sim.level) : look === 'lamp' ? 0.2 : look === 'candle' ? 0.12 : 0.1;
+    const k = look === 'live' ? 0.24 + 0.3 * clamp(sim.level) : look === 'lamp' ? 0.2 : look === 'candle' ? 0.12 : 0.1;
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(4, R));
     const col = look === 'lamp' ? '255,200,120' : look === 'grey' ? '200,200,210' : '255,236,180';
     g.addColorStop(0, `rgba(${col},${k})`);
@@ -439,30 +547,32 @@ export class AniolView {
     ctx.restore();
     ctx.restore();
     if (look === 'candle') return;
-    // the threshold: a dotted dome where the level is 0.5 (in a Czuwanie)
+    // the threshold: a dotted dome where the level is 0.5 (in a Czuwanie), its label on the dome
     if (look !== 'lamp') {
       const mark = auraFor(0.5, sim.auraWide) * S;
-      ctx.setLineDash([2, 6]);
-      ctx.strokeStyle = 'rgba(255,250,232,.7)';
-      ctx.lineWidth = 1.6;
+      ctx.setLineDash([3, 6]);
+      ctx.strokeStyle = 'rgba(255,250,232,.8)';
+      ctx.lineWidth = 2;
       dome(mark);
       ctx.stroke();
       ctx.setLineDash([]);
-      // its label at the top right of the dotted dome
-      ctx.font = font(750, 10 * u, SANS);
+      ctx.font = font(800, 10.5 * u, SANS);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
       const lx = cx + Math.cos(-Math.PI / 4) * mark, ly = cy + Math.sin(-Math.PI / 4) * mark * ry;
-      ctx.fillStyle = 'rgba(255,250,232,.85)';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(20,16,44,.6)';
+      ctx.strokeText(TXT.mark, lx + 5 * u, ly - 2 * u);
+      ctx.fillStyle = 'rgba(255,250,232,.95)';
       ctx.fillText(TXT.mark, lx + 5 * u, ly - 2 * u);
     }
     // the rim: gold beyond the threshold, pale below it, grey without signal, dashed while waiting
     ctx.strokeStyle = above ? '#ffd36b' : look === 'grey' ? 'rgba(190,190,205,.6)' : look === 'lamp' ? 'rgba(255,200,120,.7)' : 'rgba(255,250,232,.85)';
-    ctx.lineWidth = above ? 3.5 : 2.2;
+    ctx.lineWidth = above ? 4.5 : 2.4;
     if (look === 'wait') ctx.setLineDash([8, 6]);
     if (above) {
       ctx.shadowColor = 'rgba(255,211,107,.9)';
-      ctx.shadowBlur = 14;
+      ctx.shadowBlur = 18;
     }
     dome(R);
     ctx.stroke();
@@ -472,31 +582,57 @@ export class AniolView {
     ctx.fillStyle = above ? '#ffd36b' : 'rgba(255,250,232,.8)';
     for (const sd of [-1, 1]) {
       ctx.beginPath();
-      ctx.ellipse(cx + sd * R, cy + 1, 5 * u, 2.2 * u, 0, 0, TAU);
+      ctx.ellipse(cx + sd * R, cy + 1, 6 * u, 2.6 * u, 0, 0, TAU);
       ctx.fill();
     }
   }
 
-  /** The strike's reach: soft marks on the floor at both sides. */
+  /** The strike's reach: arrows on the floor at both sides, and the perfect window's gold band just inside them. */
   private drawReach(sim: AniolSim): void {
     const ctx = this.ctx, L = this.L, S = this.S, u = L.u;
-    const reach = sim.reach;
-    ctx.strokeStyle = 'rgba(255,244,214,.45)';
-    ctx.lineWidth = 2;
-    for (const sd of [-1, 1]) {
-      const x = L.cx + sd * reach * S;
-      ctx.beginPath();
-      ctx.moveTo(x - sd * 6 * u, L.floorY + 6 * u);
-      ctx.lineTo(x, L.floorY + 1);
-      ctx.lineTo(x - sd * 6 * u, L.floorY - 4 * u);
-      ctx.stroke();
-    }
-    // the band between the bed and the reach, faintly lit: where a strike lands
+    const reach = sim.reach, band = sim.perfectBand;
     const g = ctx.createLinearGradient(0, L.floorY - 3 * u, 0, L.floorY + 8 * u);
     g.addColorStop(0, 'rgba(255,244,214,0)');
     g.addColorStop(1, 'rgba(255,244,214,.12)');
     ctx.fillStyle = g;
     ctx.fillRect(L.cx - reach * S, L.floorY - 3 * u, reach * S * 2, 11 * u);
+    for (const sd of [-1, 1]) {
+      // the perfect band
+      const x0 = L.cx + sd * (reach - band) * S, x1 = L.cx + sd * reach * S;
+      ctx.fillStyle = `rgba(255,211,107,${0.28 + 0.12 * Math.sin(this.clock * 4)})`;
+      ctx.fillRect(Math.min(x0, x1), L.floorY - 2 * u, Math.abs(x1 - x0), 6 * u);
+      ctx.strokeStyle = 'rgba(255,244,214,.75)';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(x1 - sd * 7 * u, L.floorY + 7 * u);
+      ctx.lineTo(x1, L.floorY + 1);
+      ctx.lineTo(x1 - sd * 7 * u, L.floorY - 5 * u);
+      ctx.stroke();
+    }
+  }
+
+  // ── Pan Guzik ───────────────────────────────────────────────────
+  private readonly bearPose: BearPose = { talk: 0, cap: false, look: -1, hide: 0, t: 0 };
+
+  private drawBear(sim: AniolSim): void {
+    const b = this.bearAt, p = this.bearPose;
+    p.talk = this.bearTalk;
+    p.cap = this.items.includes('nightcap');
+    p.look = sim.facing;
+    p.hide = this.bearHide;
+    p.t = this.clock;
+    paintBear(this.ctx, b.x, b.y, b.r, p);
+  }
+
+  /** The line on screen: the bear's bubble over him, the child's sleep-talk over its head. */
+  private drawSaid(sim: AniolSim): void {
+    const s = sim.said;
+    if (!s || sim.choice) return;
+    const k = s.t / s.dur;
+    if (s.who === 'bear') {
+      const b = this.bearAt;
+      this.hud.bubble(s.text, 'bear', b.x + b.r * 0.2, b.y - b.r * 1.1, k);
+    } else this.hud.bubble(s.text, 'child', this.head.headX, this.head.headY - this.S * 0.3, k);
   }
 
   // ── the dream bubble: Sen, the lullaby's stars, the calm gauge ──
@@ -504,7 +640,6 @@ export class AniolView {
     const ctx = this.ctx, b = this.bubble, u = this.L.u;
     const pulse = 1 + 0.08 * this.senPulse * Math.sin(this.clock * 30) + 0.12 * ease.outBack(this.starPop) * this.starPop;
     const r = b.r * pulse;
-    // little bubbles from the head
     ctx.fillStyle = 'rgba(200,214,255,.55)';
     for (let i = 0; i < 3; i++) {
       const k = (i + 1) / 4;
@@ -512,7 +647,6 @@ export class AniolView {
       ctx.arc(head.headX + (b.x - head.headX) * k - 4 * u, head.headY - 6 * u + (b.y + b.r - head.headY) * k, (2 + i * 1.6) * u, 0, TAU);
       ctx.fill();
     }
-    // the bubble and the dream's light rising in it (Sen)
     ctx.save();
     ctx.beginPath();
     ctx.arc(b.x, b.y, r, 0, TAU);
@@ -535,14 +669,12 @@ export class AniolView {
     ctx.lineTo(b.x - r, b.y + r);
     ctx.closePath();
     ctx.fill();
-    // a little cloud and moon: what the child dreams
     ctx.fillStyle = 'rgba(255,255,255,.75)';
     ctx.beginPath();
     ctx.arc(b.x - r * 0.15, b.y + r * 0.2, r * 0.22, 0, TAU);
     ctx.arc(b.x + r * 0.12, b.y + r * 0.15, r * 0.27, 0, TAU);
     ctx.arc(b.x + r * 0.36, b.y + r * 0.24, r * 0.18, 0, TAU);
     ctx.fill();
-    // the lullaby's stars
     const nStars = sim.restBlock ? sim.stars : 0;
     for (let i = 0; i < nStars; i++) {
       const a = i * 2.39996, rr = r * 0.62 * Math.sqrt((i + 0.5) / RULES.starMax);
@@ -556,9 +688,9 @@ export class AniolView {
     ctx.stroke();
     // the calm gauge (in a lullaby): an arc around the bubble, a tick at the threshold
     if (sim.restBlock) {
-      const rr = r + 6 * u;
+      const rr = r + 7 * u;
       ctx.strokeStyle = 'rgba(255,255,255,.15)';
-      ctx.lineWidth = 4 * u;
+      ctx.lineWidth = 5 * u;
       ctx.beginPath();
       ctx.arc(b.x, b.y, rr, -Math.PI / 2, Math.PI * 1.5);
       ctx.stroke();
@@ -570,29 +702,33 @@ export class AniolView {
       ctx.strokeStyle = 'rgba(255,250,232,.9)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(b.x, b.y + rr - 5 * u);
-      ctx.lineTo(b.x, b.y + rr + 5 * u);
+      ctx.moveTo(b.x, b.y + rr - 6 * u);
+      ctx.lineTo(b.x, b.y + rr + 6 * u);
       ctx.stroke();
     }
-    // the label and Sen's share
     ctx.font = font(800, 10 * u, SANS);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(20,16,44,.7)';
     const label = `${TXT.sen} ${Math.round(lvl * 100)}%`;
-    ctx.strokeText(label, b.x, b.y + r + (sim.restBlock ? 13 : 5) * u);
+    const ly = b.y + r + (sim.restBlock ? 14 : 5) * u;
+    ctx.strokeText(label, b.x, ly);
     ctx.fillStyle = lvl < 0.3 ? '#d7c8ff' : '#e6ecff';
-    ctx.fillText(label, b.x, b.y + r + (sim.restBlock ? 13 : 5) * u);
+    ctx.fillText(label, b.x, ly);
   }
 
-  // ── the Zmory ───────────────────────────────────────────────────
+  // ── the Zmory and their ink ─────────────────────────────────────
   private readonly pose: ZPose = { kind: 'mara', r: 0.3, side: 1, emerge: 1, hit: 0, armoured: false, crack: 0, burn: 0, inAura: false, t: 0, id: 0, fade: 0 };
 
   private drawZmory(sim: AniolSim): void {
-    const ctx = this.ctx, S = this.S, p = this.pose;
+    const ctx = this.ctx, S = this.S, p = this.pose, u = this.L.u;
     const list = sim.zmory.slice().sort((a, b) => b.d - a.d);
     for (const z of list) {
+      if (z.boss) {
+        if (sim.boss?.kind !== 'osmiornica') this.drawBoss(sim, z);
+        continue;
+      }
       const x = this.xOf(z.side, z.d), y = this.yOf(z.z);
       if (x < -S * 2 || x > this.w + S * 2) continue;
       p.kind = z.kind;
@@ -606,26 +742,155 @@ export class AniolView {
       p.inAura = z.inAura;
       p.t = this.clock;
       p.id = z.id;
-      p.fade = z.state === 'back' && z.kind !== 'koszmar' ? clamp((z.d - RULES.edge + 1.2) / 1.6) : 0;
-      // squash on a hit, a stretch in the air
+      p.fade = z.state === 'back' ? clamp((z.d - RULES.edge + 1.2) / 1.6) : 0;
+      p.puff = z.kind === 'kleks' && z.wind > 0 ? 1 - z.wind / RULES.spitWind : 0;
+      p.reveal = this.reveal.get(z.id) ?? 0;
       const sq = z.hitT > 0 ? 1 + z.hitT * 1.2 : 1;
       ctx.save();
       ctx.translate(x, y);
+      if (z.flip > 0) {
+        // a somersault over the bed
+        const k = 1 - z.flip / RULES.flipSec;
+        ctx.translate(0, -z.r * S);
+        ctx.rotate(-Math.sign(z.flipTo) * k * TAU);
+        ctx.translate(0, z.r * S);
+      }
       ctx.scale(1 / Math.sqrt(sq), sq > 1 ? 1 / sq ** 0.3 : 1 + Math.min(0.15, z.z * 0.12));
       paintZmora(ctx, 0, 0, S * 1.2, p);
       ctx.restore();
-      // a Koszmar's light left: small pips over it
-      if (z.kind === 'koszmar' && z.state === 'walk') {
-        const n = z.maxHp, left = Math.ceil(Math.max(0, z.hp));
-        const w = Math.min(S * 2, n * 9 * this.L.u), y0 = y - z.r * S * 2.2;
-        for (let i = 0; i < n; i++) {
-          ctx.fillStyle = i < left ? '#ff9a52' : 'rgba(255,255,255,.2)';
-          ctx.beginPath();
-          ctx.arc(x - w / 2 + (i + 0.5) * (w / n), y0, 2.6 * this.L.u, 0, TAU);
-          ctx.fill();
+      // the tells: a Fikołek's ← → pips, a Ciągutek's sticky strands to the bed, light pips for more than one hit
+      if (z.state === 'walk' && z.flip <= 0) {
+        if (z.kind === 'fikolek' && z.hp > 1) this.arrowPips(x, y - z.r * S * 2.6, z.side);
+        if (z.grab) {
+          ctx.strokeStyle = 'rgba(80,50,110,.85)';
+          ctx.lineWidth = 2.5 * u;
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(x - z.side * z.r * S * 0.6, y - S * (0.2 + i * 0.12));
+            ctx.quadraticCurveTo(x - z.side * z.r * S * 1.2, y - S * (0.05 + i * 0.15) + Math.sin(this.clock * 3 + i) * 3, this.xOf(z.side, RULES.bedHalf - 0.05), y - S * (0.3 + i * 0.1));
+            ctx.stroke();
+          }
+        }
+        if (z.maxHp > 1 && z.kind !== 'fikolek') {
+          const n = Math.round(z.maxHp), left = Math.ceil(Math.max(0, z.hp) - 1e-6);
+          for (let i = 0; i < n; i++) {
+            ctx.fillStyle = i < left ? '#ff9a52' : 'rgba(255,255,255,.25)';
+            ctx.beginPath();
+            ctx.arc(x + (i - (n - 1) / 2) * 8 * u, y - z.r * S * 2.5, 2.6 * u, 0, TAU);
+            ctx.fill();
+          }
         }
       }
     }
+  }
+
+  /** A Fikołek's tell: ← then → (it switches sides after the first hit). */
+  private arrowPips(x: number, y: number, side: Side): void {
+    const ctx = this.ctx, u = this.L.u;
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,16,44,.6)';
+    ctx.beginPath();
+    ctx.roundRect(x - 20 * u, y - 8 * u, 40 * u, 16 * u, 8 * u);
+    ctx.fill();
+    ctx.font = font(850, 11 * u, SANS);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ff9a52';
+    ctx.fillText(side < 0 ? '←' : '→', x - 8 * u, y);
+    ctx.fillStyle = '#7fc8ff';
+    ctx.fillText(side < 0 ? '→' : '←', x + 8 * u, y);
+    ctx.restore();
+  }
+
+  private drawDrops(sim: AniolSim): void {
+    const r = Math.max(3, this.S * 0.11);
+    for (const o of sim.drops) paintDrop(this.ctx, this.xOf(o.side, o.d), this.yOf(o.z), r, o.dir, o.side, this.clock);
+  }
+
+  // ── the dream's great nightmare ─────────────────────────────────
+  private readonly bossPose: BossPose = { side: 1, t: 0, hit: 0, wind: 0, phase: 0, burn: 0, id: 0, fade: 0, dash: 0 };
+
+  private drawBoss(sim: AniolSim, z: AniolSim['zmory'][number]): void {
+    const b = sim.boss!, ctx = this.ctx, S = this.S, u = this.L.u;
+    const fade = z.state === 'back' ? clamp((z.d - RULES.edge + 1.5) / 1.6) : 0;
+    if (b.kind === 'koszmar') {
+      const p = this.pose;
+      Object.assign(p, { kind: 'koszmar', r: z.r, side: z.side, emerge: clamp(z.age / RULES.emerge), hit: z.hitT, armoured: false, crack: 0, burn: 0, inAura: false, t: this.clock, id: z.id, fade, puff: 0, reveal: 1 });
+      const sq = z.hitT > 0 ? 1 + z.hitT * 1.2 : 1;
+      ctx.save();
+      ctx.translate(this.xOf(z.side, z.d), this.yOf(z.z));
+      ctx.scale(1 / Math.sqrt(sq), sq > 1 ? 1 / sq ** 0.3 : 1);
+      paintZmora(ctx, 0, 0, S * 1.2, p);
+      ctx.restore();
+      return;
+    }
+    const bp = this.bossPose;
+    bp.side = z.side;
+    bp.t = this.clock;
+    bp.hit = z.hitT;
+    bp.wind = b.move === 'wind' ? clamp(b.t / Math.max(0.1, b.dur)) : 0;
+    bp.phase = b.phase;
+    bp.id = z.id;
+    bp.fade = fade;
+    bp.dash = b.move === 'dash' ? 1 : b.move === 'open' ? 0.4 : 0;
+    const x = b.kind === 'osmiornica' ? this.L.cx : this.xOf(z.side, z.d), y = b.kind === 'osmiornica' ? this.L.floorY - S * 0.1 : this.yOf(z.z);
+    const s = S * (b.kind === 'osmiornica' ? 1.05 : 1.15);
+    paintBoss(ctx, b.kind, x, y, s, bp);
+    // the tell: a pulsing arrow on its side toward the bed while it winds up; a gold ring when it is open
+    if (b.move === 'wind' && b.act !== 'spit') {
+      const k = 0.5 + 0.5 * Math.sin(this.clock * 14);
+      const ax = this.xOf(z.side, Math.max(1.6, sim.reach - 0.2)), ay = this.L.floorY - S * 1.2;
+      ctx.save();
+      ctx.globalAlpha = 0.6 + 0.4 * k;
+      ctx.fillStyle = b.act === 'feint' ? '#ffd9b0' : '#ff9a52';
+      ctx.beginPath();
+      ctx.moveTo(ax - z.side * 18 * u, ay);
+      ctx.lineTo(ax + z.side * 8 * u, ay - 14 * u);
+      ctx.lineTo(ax + z.side * 8 * u, ay + 14 * u);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    if (b.move === 'open' && !this.opts.reducedMotion) {
+      ctx.strokeStyle = `rgba(255,211,107,${0.6 + 0.4 * Math.sin(this.clock * 20)})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y - S * 0.45, S * 0.8, 0, TAU);
+      ctx.stroke();
+    }
+  }
+
+  /** The boss's light: a bar under the HUD with its name and the second phase's notch. */
+  private drawBossBar(sim: AniolSim): void {
+    if (this.bossBar < 0.02 || !sim.boss) return;
+    const z = sim.zmory.find(x => x.id === sim.boss!.id);
+    if (!z) return;
+    const ctx = this.ctx, L = this.L, u = L.u;
+    const w = Math.min(320 * u, (this.w - L.roomX0) * 0.7), h = 8 * u;
+    const x = (L.roomX0 + this.w) / 2 - w / 2, y = L.roomTop + 18 * u;
+    this.bossShown = approach(this.bossShown, clamp(z.hp / z.maxHp), 1 / 60, 0.15);
+    ctx.save();
+    ctx.globalAlpha = this.bossBar;
+    ctx.font = font(800, 11 * u, SANS);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(20,16,44,.7)';
+    const name = bossName(sim.boss.kind);
+    ctx.strokeText(name, x + w / 2, y - 3 * u);
+    ctx.fillStyle = '#ffd9b0';
+    ctx.fillText(name, x + w / 2, y - 3 * u);
+    ctx.fillStyle = 'rgba(20,14,40,.7)';
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = sim.boss.phase > 0 ? '#ff8f6b' : '#ffb070';
+    ctx.beginPath();
+    ctx.roundRect(x, y, Math.max(h, w * this.bossShown), h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,250,232,.9)';
+    ctx.fillRect(x + w * RULES.phaseAt - 1, y - 2 * u, 2, h + 4 * u);
+    ctx.restore();
   }
 
   // ── the angel and the Płomień ───────────────────────────────────
@@ -636,17 +901,24 @@ export class AniolView {
     const ax = this.angelX + this.face * this.swing * S * 0.12, ay = this.angelY;
     p.face = this.face;
     p.swing = this.swing;
-    p.beat = this.clock * (2.4 + 6 * this.swing);
-    p.open = 0.75 + 0.25 * Math.sin(this.clock * 1.2) ** 2 + 0.2 * this.swing;
+    p.beat = this.clock * (2.4 + 6 * this.swing + 3 * this.gloryA);
+    p.open = 0.75 + 0.25 * Math.sin(this.clock * 1.2) ** 2 + 0.2 * this.swing + 0.2 * this.gloryA;
     p.comfort = this.comfort > 0 ? 1 : 0;
     p.sing = this.sing;
+    // Skrzydła ognia: a warm glow behind the wings
+    if (this.gloryA > 0.02) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, ax, ay - S * 0.2, S * 1.9, 'rgba(255,170,80,', 0.55 * this.gloryA * (0.8 + 0.2 * Math.sin(this.clock * 9)));
+      ctx.restore();
+    }
     paintAngel(ctx, ax, ay, S * 1.05, p);
     // the Płomień's ring around the angel: it fills with the hold
     const k = sim.flameCharge;
     if (k > 0.01 || sim.sighted) {
       const r = S * 1.18;
-      ctx.strokeStyle = 'rgba(255,255,255,.14)';
-      ctx.lineWidth = 3.5 * u;
+      ctx.strokeStyle = 'rgba(255,255,255,.16)';
+      ctx.lineWidth = 4 * u;
       ctx.beginPath();
       ctx.arc(ax, ay - S * 0.25, r, 0, TAU);
       ctx.stroke();
@@ -664,7 +936,6 @@ export class AniolView {
         glow(ctx, hx, hy, 12 * u, 'rgba(255,200,110,', 0.9);
         ctx.restore();
       }
-      // its name on the ring's right shoulder
       ctx.font = font(800, 9.5 * u, SANS);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
@@ -688,12 +959,13 @@ export class AniolView {
   }
 
   /** The strikes: a crescent of light from the angel's hand down to the floor, out to the reach. */
-  private drawSweeps(sim: AniolSim): void {
+  private drawSweeps(): void {
     const ctx = this.ctx, S = this.S, L = this.L, u = L.u;
     const ax = this.angelX, ay = this.angelY - S * 0.3;
     for (const s of this.sweeps) {
       const k = s.t / s.dur;
-      const tx = L.cx + s.side * s.reach * S, ty = L.floorY - 0.3 * S;
+      const reach = Math.min(s.reach, (this.w / 2 - 10) / S);
+      const tx = L.cx + s.side * reach * S, ty = L.floorY - 0.3 * S;
       const R = Math.hypot(tx - ax, ty - ay);
       const end = Math.atan2(ty - ay, tx - ax);
       const span = 1.35;
@@ -703,8 +975,8 @@ export class AniolView {
       const tail = startA + (end - startA) * clamp(sweepK - 0.55 - k * 0.5);
       const fade = 1 - clamp((k - 0.4) / 0.6);
       const thick = (s.hit ? 0.42 : 0.26) * S;
-      // the crescent: thick at its head, tapering to the tail
       const n = 18;
+      const warm = this.gloryA > 0.3;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.beginPath();
@@ -720,16 +992,14 @@ export class AniolView {
       ctx.closePath();
       const g = ctx.createRadialGradient(ax, ay, Math.max(1, R - thick), ax, ay, R);
       g.addColorStop(0, 'rgba(255,214,140,0)');
-      g.addColorStop(1, `rgba(255,244,214,${(s.hit ? 0.85 : 0.45) * fade})`);
+      g.addColorStop(1, warm ? `rgba(255,190,110,${0.9 * fade})` : `rgba(255,244,214,${(s.hit ? 0.85 : 0.45) * fade})`);
       ctx.fillStyle = g;
       ctx.fill();
-      // the bright edge
       ctx.strokeStyle = `rgba(255,252,240,${(s.hit ? 0.95 : 0.5) * fade})`;
       ctx.lineWidth = (s.hit ? 2.6 : 1.6) * u;
       ctx.beginPath();
       ctx.arc(ax, ay, R, Math.min(tail, head), Math.max(tail, head));
       ctx.stroke();
-      // the light running along the floor to the reach (through the whole line with the spear)
       if (sweepK > 0.75) {
         const x0 = L.cx + s.side * RULES.bedHalf * S;
         const g2 = ctx.createLinearGradient(x0, 0, tx, 0);
@@ -741,7 +1011,6 @@ export class AniolView {
       }
       ctx.restore();
     }
-    void sim;
   }
 
   /** The warm-up's ghost hand: a pulsing arrow on the side whose Zmora is nearer, at the reach. */

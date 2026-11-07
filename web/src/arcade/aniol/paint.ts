@@ -6,7 +6,7 @@
  * feathers, the gifts' little pictures and the room's cosy things.  All canvas paths, no images;
  * sizes in u (about a metre) times `s` (px per u).
  */
-import type { GiftId, RoomItem, ZKind } from './content';
+import type { BossKind, GiftId, RoomItem, ZKind } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
@@ -547,6 +547,9 @@ export interface ZPose {
   id: number;
   /** leaving (drawing back into the dark) 0..1 faded */
   fade: number;
+  /** the Kleks puffing before it spits (0..1); how much light shows the Szept's body (0..1) */
+  puff?: number;
+  reveal?: number;
 }
 
 /** A Zmora: a body of ink with a smoky edge, a wisp tail, ember eyes toward the bed. */
@@ -561,18 +564,25 @@ export function paintZmora(ctx: CanvasRenderingContext2D, x: number, y: number, 
     }
     return;
   }
-  const r = p.r * s;
+  if (p.kind === 'ramie') {
+    paintArm(ctx, x, y, s, p, a);
+    return;
+  }
+  const puff = p.kind === 'kleks' ? p.puff ?? 0 : 0;
+  const r = p.r * s * (1 + 0.35 * puff) * (p.kind === 'ciagutek' ? 1.1 : 1);
   const face = -Math.sign(p.side) || 1;
   const sway = Math.sin(p.t * 2.2 + p.id) * 0.08;
+  const reveal = p.kind === 'szept' ? 0.1 + 0.9 * (p.reveal ?? 0) : 1;
   ctx.save();
-  ctx.globalAlpha = a * (p.kind === 'widmo' ? 0.62 + 0.3 * Math.sin(p.t * 9 + p.id) ** 2 : 1);
+  ctx.globalAlpha = a * reveal * (p.kind === 'widmo' ? 0.62 + 0.3 * Math.sin(p.t * 9 + p.id) ** 2 : 1);
   ctx.translate(x, y);
   // a soft shadow on the floor
   ctx.fillStyle = 'rgba(0,0,0,.28)';
   ctx.beginPath();
   ctx.ellipse(0, 0, r * 1.1, r * 0.22, 0, 0, TAU);
   ctx.fill();
-  const tall = p.kind === 'widmo' ? 1.7 : p.kind === 'koszmar' ? 1.55 : p.kind === 'pancerna' ? 1.15 : 1.3;
+  const tall = p.kind === 'widmo' ? 1.7 : p.kind === 'koszmar' ? 1.55 : p.kind === 'pancerna' ? 1.15 : p.kind === 'fikolek' ? 1.05
+    : p.kind === 'kleks' ? 1.2 : p.kind === 'ciagutek' ? 0.9 : p.kind === 'szept' ? 1.6 : 1.3;
   const cy = -r * tall * 0.62;
   // the smoke tail streaming away from the bed
   ctx.fillStyle = C.smoke;
@@ -587,7 +597,7 @@ export function paintZmora(ctx: CanvasRenderingContext2D, x: number, y: number, 
   }
   ctx.globalAlpha = a;
   // the body: a hunched drop of ink with a wavering smoky edge
-  ctx.fillStyle = p.hit > 0 ? '#5c4f8a' : C.ink;
+  ctx.fillStyle = p.hit > 0 ? '#5c4f8a' : p.kind === 'ciagutek' ? '#2a1838' : p.kind === 'kleks' ? '#101433' : C.ink;
   ctx.beginPath();
   const n = 14;
   for (let i = 0; i <= n; i++) {
@@ -610,6 +620,51 @@ export function paintZmora(ctx: CanvasRenderingContext2D, x: number, y: number, 
     ctx.beginPath();
     ctx.moveTo(bx, cy - r * tall * 0.5);
     ctx.quadraticCurveTo(bx - face * r * 0.3, cy - r * tall * 0.8 + Math.sin(p.t * 4 + i) * r * 0.1, bx - face * r * 0.55, cy - r * tall * 0.7);
+    ctx.stroke();
+  }
+  if (p.kind === 'fikolek') {
+    // a curled tail like a spring: it will tumble
+    ctx.strokeStyle = C.smokeLight;
+    ctx.lineWidth = Math.max(1.2, r * 0.13);
+    ctx.beginPath();
+    for (let i = 0; i <= 18; i++) {
+      const k = i / 18, ang = k * TAU * 1.4 + p.t * 3;
+      const rr = r * (0.42 - k * 0.3);
+      const px = -face * r * 0.95 + Math.cos(ang) * rr, py = cy - r * 0.2 + Math.sin(ang) * rr;
+      if (i) ctx.lineTo(px, py);
+      else ctx.moveTo(px, py);
+    }
+    ctx.stroke();
+  }
+  if (p.kind === 'kleks') {
+    // its mouth: a round "o" that opens as it puffs
+    ctx.fillStyle = `rgba(255,138,61,${0.25 + 0.6 * puff})`;
+    ctx.beginPath();
+    ctx.ellipse(face * r * 0.55, cy + r * tall * 0.12, r * (0.08 + 0.12 * puff), r * (0.06 + 0.12 * puff), 0, 0, TAU);
+    ctx.fill();
+    // ink drips on its chin
+    ctx.fillStyle = '#101433';
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.ellipse((i - 1) * r * 0.35, -r * 0.08 + Math.sin(p.t * 2 + i) * r * 0.04, r * 0.08, r * 0.14, 0, 0, TAU);
+      ctx.fill();
+    }
+  }
+  if (p.kind === 'ciagutek') {
+    // taffy: sticky strands hanging from its belly, a sheen
+    ctx.strokeStyle = '#3a2350';
+    ctx.lineWidth = Math.max(1, r * 0.08);
+    for (let i = 0; i < 4; i++) {
+      const bx = (i - 1.5) * r * 0.4;
+      ctx.beginPath();
+      ctx.moveTo(bx, cy + r * 0.3);
+      ctx.quadraticCurveTo(bx + Math.sin(p.t * 2 + i) * r * 0.1, -r * 0.1, bx + r * 0.05, -r * 0.02);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(200,170,240,.35)';
+    ctx.lineWidth = Math.max(1, r * 0.06);
+    ctx.beginPath();
+    ctx.arc(face * r * 0.1, cy - r * 0.1, r * 0.55, -2.4, -1.4);
     ctx.stroke();
   }
   // armour of shadow: a slate shell over the head and back, its seams lit as the aura cracks it
@@ -658,7 +713,8 @@ export function paintZmora(ctx: CanvasRenderingContext2D, x: number, y: number, 
     glow(ctx, face * r * 0.2, cy, r * 1.2, 'rgba(255,226,150,', Math.min(0.6, p.burn * 0.6));
     ctx.restore();
   }
-  // ember eyes toward the bed
+  // ember eyes toward the bed (a Szept's show even in the dark)
+  if (reveal < 1) ctx.globalAlpha = a * (0.75 + 0.25 * Math.sin(p.t * 5 + p.id) ** 2);
   const ex = face * r * 0.35, ey = cy - r * tall * 0.12;
   const eyeR = Math.max(1.2, r * (p.kind === 'koszmar' ? 0.11 : 0.13));
   ctx.save();
@@ -839,26 +895,8 @@ export function paintRoomItem(ctx: CanvasRenderingContext2D, item: RoomItem, x: 
       ctx.fill();
       for (let i = 0; i < 5; i++) paintStar(ctx, -r * 0.55 + i * r * 0.28, -r * 0.2 + (i % 2) * r * 0.35, r * 0.12, 1, C.goldLight);
       break;
-    case 'bear':
-      ctx.fillStyle = '#b07a4f';
-      ctx.beginPath();
-      ctx.arc(0, r * 0.25, r * 0.48, 0, TAU);
-      ctx.arc(0, -r * 0.38, r * 0.34, 0, TAU);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(-r * 0.27, -r * 0.65, r * 0.12, 0, TAU);
-      ctx.arc(r * 0.27, -r * 0.65, r * 0.12, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = '#e3c39a';
-      ctx.beginPath();
-      ctx.arc(0, -r * 0.3, r * 0.14, 0, TAU);
-      ctx.arc(0, r * 0.3, r * 0.25, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = '#3a2418';
-      ctx.beginPath();
-      ctx.arc(-r * 0.12, -r * 0.45, r * 0.04, 0, TAU);
-      ctx.arc(r * 0.12, -r * 0.45, r * 0.04, 0, TAU);
-      ctx.fill();
+    case 'nightcap':
+      paintNightcap(ctx, 0, 0, r * 1.1);
       break;
     case 'curtain':
       ctx.fillStyle = 'rgba(190,200,240,.95)';
@@ -915,4 +953,495 @@ export function paintRoomTile(ctx: CanvasRenderingContext2D, w: number, h: numbe
     ctx.roundRect(0, 0, w, h, 6);
     ctx.fill();
   }
+}
+
+// ── v2: the bear's nightcap, an Ośmiornica's arm, an ink drop ─────
+/** A striped nightcap with a pompom (the bear wears it once the room has it). */
+export function paintNightcap(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = '#3d5aa0';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.6, r * 0.25);
+  ctx.quadraticCurveTo(-r * 0.2, -r * 0.9, r * 0.75, -r * 0.55);
+  ctx.quadraticCurveTo(r * 0.2, -r * 0.2, r * 0.6, r * 0.25);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,243,196,.7)';
+  ctx.lineWidth = Math.max(1, r * 0.1);
+  for (const k of [0.25, 0.55]) {
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.6 + k * r * 0.7, r * 0.2 - k * r * 0.9);
+    ctx.lineTo(r * 0.6 - k * r * 0.4, r * 0.2 - k * r * 0.5);
+    ctx.stroke();
+  }
+  ctx.fillStyle = C.paper;
+  ctx.beginPath();
+  ctx.roundRect(-r * 0.7, r * 0.12, r * 1.4, r * 0.28, r * 0.12);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(r * 0.8, -r * 0.55, r * 0.17, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** An arm of ink reaching out of the dream's sea toward the bed: tapering, curling, with pale suckers. */
+function paintArm(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, p: ZPose, a: number): void {
+  const face = -Math.sign(p.side) || 1;
+  const L = s * 1.25, w0 = p.r * s * 0.55;
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.translate(x, y);
+  // the water it rises from
+  ctx.fillStyle = 'rgba(150,180,255,.25)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, w0 * 2.2, w0 * 0.45, 0, 0, TAU);
+  ctx.fill();
+  // an S-curve leaning toward the bed, tapering to a curl
+  const n = 16, pts: [number, number, number][] = [];
+  for (let i = 0; i <= n; i++) {
+    const k = i / n;
+    const px = face * (Math.sin(k * 3.4 + p.t * 3 + p.id) * s * 0.14 * k + k * k * s * 0.5);
+    pts.push([px, -k * L, w0 * (1 - k * 0.8)]);
+  }
+  ctx.fillStyle = p.hit > 0 ? '#5c4f8a' : '#141030';
+  ctx.beginPath();
+  pts.forEach(([px, py, w], i) => (i ? ctx.lineTo(px - w, py) : ctx.moveTo(px - w, py)));
+  for (let i = pts.length - 1; i >= 0; i--) ctx.lineTo(pts[i][0] + pts[i][2], pts[i][1]);
+  ctx.closePath();
+  ctx.fill();
+  const tip = pts[pts.length - 1];
+  ctx.strokeStyle = p.hit > 0 ? '#5c4f8a' : '#141030';
+  ctx.lineWidth = Math.max(1.5, w0 * 0.35);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(tip[0] + face * w0 * 0.45, tip[1] + w0 * 0.1, w0 * 0.5, Math.PI, Math.PI + face * 3.6, face < 0);
+  ctx.stroke();
+  // pale suckers along the side that faces the bed
+  ctx.fillStyle = 'rgba(200,180,255,.5)';
+  for (let i = 2; i < n - 1; i += 2) {
+    const [px, py, w] = pts[i];
+    ctx.beginPath();
+    ctx.arc(px + face * w * 0.55, py, Math.max(1, w * 0.26), 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** A drop of ink in flight (dir −1, at the bed) or struck back (+1, gold-rimmed with a trail). */
+export function paintDrop(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, dir: number, side: number, t: number): void {
+  const back = dir > 0;
+  ctx.save();
+  if (back) {
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, x, y, r * 3.2, 'rgba(255,214,120,', 0.6);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  // the trail
+  ctx.fillStyle = back ? 'rgba(255,226,150,.35)' : 'rgba(16,20,51,.35)';
+  const tdx = (back ? -1 : 1) * side * r * 1.6;
+  ctx.beginPath();
+  ctx.ellipse(x + tdx, y, r * 1.4, r * 0.45, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = back ? '#fff1c2' : '#101433';
+  ctx.beginPath();
+  ctx.ellipse(x, y, r * (1 + 0.08 * Math.sin(t * 20)), r * 0.85, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = back ? '#ffffff' : 'rgba(150,160,255,.6)';
+  ctx.beginPath();
+  ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.25, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+// ── v2: Pan Guzik, the child's teddy bear ──────────────────────────
+export interface BearPose { talk: number; cap: boolean; look: number; hide: number; t: number }
+
+/** The teddy: one glass eye and one button eye (his name), a mouth that moves as he talks, paws over his eyes when he is "not scared". */
+export function paintBear(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, p: BearPose): void {
+  ctx.save();
+  ctx.translate(x, y);
+  const bob = Math.sin(p.t * 1.6) * r * 0.03 + p.talk * Math.sin(p.t * 18) * r * 0.03;
+  ctx.translate(0, bob);
+  // ears, body, head
+  ctx.fillStyle = '#b07a4f';
+  ctx.beginPath();
+  ctx.arc(0, r * 0.25, r * 0.5, 0, TAU);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(-r * 0.3, -r * 0.7, r * 0.14, 0, TAU);
+  ctx.arc(r * 0.3, -r * 0.7, r * 0.14, 0, TAU);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.38, r * 0.37, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#e3c39a';
+  ctx.beginPath();
+  ctx.arc(0, r * 0.3, r * 0.27, 0, TAU);
+  ctx.arc(-r * 0.3, -r * 0.7, r * 0.07, 0, TAU);
+  ctx.arc(r * 0.3, -r * 0.7, r * 0.07, 0, TAU);
+  ctx.fill();
+  // the snout and the mouth
+  ctx.beginPath();
+  ctx.ellipse(p.look * r * 0.05, -r * 0.27, r * 0.17, r * 0.13, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#3a2418';
+  ctx.beginPath();
+  ctx.ellipse(p.look * r * 0.05, -r * 0.33, r * 0.06, r * 0.04, 0, 0, TAU);
+  ctx.fill();
+  const open = p.talk * (0.5 + 0.5 * Math.sin(p.t * 22));
+  ctx.beginPath();
+  ctx.ellipse(p.look * r * 0.05, -r * 0.22, r * 0.05, r * (0.012 + 0.05 * open), 0, 0, TAU);
+  ctx.fill();
+  // the eyes: a glass bead and a big button
+  const ey = -r * 0.47, lx = -r * 0.14 + p.look * r * 0.05, rx = r * 0.15 + p.look * r * 0.05;
+  ctx.fillStyle = '#20140c';
+  ctx.beginPath();
+  ctx.arc(lx, ey, r * 0.055, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#5f8f8b';
+  ctx.beginPath();
+  ctx.arc(rx, ey, r * 0.085, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#20140c';
+  for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+    ctx.beginPath();
+    ctx.arc(rx + dx * r * 0.025, ey + dy * r * 0.025, r * 0.012, 0, TAU);
+    ctx.fill();
+  }
+  // a stitch on the tummy
+  ctx.strokeStyle = 'rgba(58,36,24,.5)';
+  ctx.lineWidth = Math.max(1, r * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.08, r * 0.2);
+  ctx.lineTo(r * 0.08, r * 0.36);
+  ctx.moveTo(r * 0.08, r * 0.2);
+  ctx.lineTo(-r * 0.08, r * 0.36);
+  ctx.stroke();
+  // paws: on his lap, or over his eyes ("I was not scared")
+  ctx.fillStyle = '#9c6a43';
+  const h = clamp01(p.hide);
+  for (const k of [-1, 1]) {
+    const px = k * (r * 0.42 - h * r * 0.24), py = r * 0.3 - h * (r * 0.78);
+    ctx.beginPath();
+    ctx.ellipse(px, py, r * 0.13, r * 0.11, 0, 0, TAU);
+    ctx.fill();
+  }
+  if (p.cap) paintNightcap(ctx, r * 0.05, -r * 0.72, r * 0.42);
+  ctx.restore();
+}
+
+const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+// ── v2: the dreams' great nightmares ──────────────────────────────
+export interface BossPose { side: number; t: number; hit: number; wind: number; phase: number; burn: number; id: number; fade: number; dash: number }
+
+/** The four great nightmares that are not Koszmar (Koszmar is a big Zmora): ink, smoke and ember eyes, never teeth or claws. */
+export function paintBoss(ctx: CanvasRenderingContext2D, kind: BossKind, x: number, y: number, s: number, p: BossPose): void {
+  const face = -Math.sign(p.side) || 1;
+  const ink = p.hit > 0 ? '#5c4f8a' : p.phase > 0 ? '#1a0f2a' : C.ink;
+  ctx.save();
+  ctx.globalAlpha = 1 - p.fade;
+  ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s * 0.9, s * 0.16, 0, 0, TAU);
+  ctx.fill();
+  const eyes = (ex: number, ey: number, er: number, sq = 0.75) => {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, ex, ey, er * 6, 'rgba(255,138,61,', 0.55 + 0.3 * p.wind);
+    ctx.restore();
+    for (const k of [-1, 1]) {
+      ctx.fillStyle = C.ember;
+      ctx.beginPath();
+      ctx.ellipse(ex + k * er * 1.8, ey, er, er * sq, 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = C.emberHot;
+      ctx.beginPath();
+      ctx.arc(ex + k * er * 1.8 + face * er * 0.3, ey - er * 0.2, er * 0.4, 0, TAU);
+      ctx.fill();
+    }
+  };
+  if (kind === 'kufer') {
+    // a trunk of shadow: the lid lifts as it winds up, ember eyes peek out of the gap
+    const w = s * 1.25, h = s * 0.85, lid = p.wind * s * 0.35 + Math.sin(p.t * 3) * s * 0.02;
+    ctx.fillStyle = ink;
+    ctx.beginPath();
+    ctx.roundRect(-w / 2, -h, w, h, s * 0.12);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,138,61,.35)';
+    ctx.fillRect(-w / 2 + s * 0.08, -h - lid * 0.6, w - s * 0.16, lid * 0.6 + 2);
+    eyes(face * s * 0.05, -h - lid * 0.3 + s * 0.02, Math.max(1.5, s * 0.06), 0.6);
+    ctx.fillStyle = ink;
+    ctx.save();
+    ctx.translate(-face * w / 2, -h);
+    ctx.rotate(face * -0.5 * p.wind);
+    ctx.beginPath();
+    ctx.roundRect(face < 0 ? -w : 0, -s * 0.3, w, s * 0.3, s * 0.12);
+    ctx.fill();
+    ctx.restore();
+    // slate bands and a keyhole of light
+    ctx.fillStyle = '#4b4a63';
+    ctx.fillRect(-w / 2, -h * 0.55, w, s * 0.08);
+    ctx.fillRect(-w * 0.3, -h, s * 0.08, h);
+    ctx.fillRect(w * 0.3 - s * 0.08, -h, s * 0.08, h);
+    ctx.fillStyle = '#ffcf7a';
+    ctx.beginPath();
+    ctx.arc(0, -h * 0.4, s * 0.05, 0, TAU);
+    ctx.fill();
+    // smoke wisps off its back
+    ctx.fillStyle = C.smoke;
+    for (let i = 0; i < 3; i++) {
+      ctx.globalAlpha = (1 - p.fade) * 0.5;
+      ctx.beginPath();
+      ctx.arc(-face * (w / 2 + s * 0.15 * i), -h * (0.4 + 0.2 * i) + Math.sin(p.t * 2 + i) * s * 0.06, s * (0.22 - i * 0.05), 0, TAU);
+      ctx.fill();
+    }
+  } else if (kind === 'wilk') {
+    // a wolf of mist: soft ears, a plume of a tail; it crouches as it winds up, stretches as it dashes
+    const crouch = p.wind * 0.3, stretch = p.dash * 0.4;
+    ctx.scale(1 + stretch, 1 - crouch);
+    ctx.fillStyle = ink;
+    ctx.beginPath();
+    ctx.ellipse(0, -s * 0.42, s * 0.62, s * 0.34, 0, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(face * s * 0.55, -s * 0.66, s * 0.28, s * 0.24, 0, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(face * s * 0.8, -s * 0.6, s * 0.16, s * 0.1, 0, 0, TAU);
+    ctx.fill();
+    for (const k of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(face * s * (0.45 + k * 0.1), -s * 0.82);
+      ctx.quadraticCurveTo(face * s * (0.5 + k * 0.12), -s * 1.12, face * s * (0.6 + k * 0.08), -s * 0.85);
+      ctx.fill();
+    }
+    // legs of smoke and the tail plume
+    for (const k of [-0.35, -0.1, 0.2, 0.42]) {
+      ctx.beginPath();
+      ctx.ellipse(face * s * k, -s * 0.1, s * 0.07, s * 0.14, 0, 0, TAU);
+      ctx.fill();
+    }
+    ctx.fillStyle = C.smoke;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.arc(-face * s * (0.6 + i * 0.18), -s * (0.55 + 0.1 * Math.sin(p.t * 4 + i)), s * (0.17 - i * 0.03), 0, TAU);
+      ctx.fill();
+    }
+    eyes(face * s * 0.6, -s * 0.7, Math.max(1.5, s * 0.045));
+  } else if (kind === 'osmiornica') {
+    // a great round head of ink rising behind the bed, eyes over the quilt
+    const rise = Math.sin(p.t * 1.2) * s * 0.06;
+    ctx.fillStyle = ink;
+    ctx.beginPath();
+    ctx.ellipse(0, -s * 1.1 + rise, s * 1.05, s * 0.95, 0, Math.PI, TAU);
+    ctx.lineTo(s * 1.05, -s * 0.2);
+    ctx.lineTo(-s * 1.05, -s * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(200,180,255,.25)';
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath();
+      ctx.arc(-s * 0.6 + i * s * 0.24, -s * 1.55 + rise + Math.sin(i * 1.7) * s * 0.12, s * 0.05, 0, TAU);
+      ctx.fill();
+    }
+    eyes(0, -s * 1.2 + rise, Math.max(2, s * 0.085));
+  } else {
+    // the storm: a heap of ink cloud; it flashes a little lightning of light when it winds up
+    ctx.fillStyle = ink;
+    const puffs: [number, number, number][] = [[-0.55, -0.5, 0.42], [0, -0.75, 0.55], [0.55, -0.5, 0.42], [-0.25, -0.3, 0.4], [0.3, -0.3, 0.4]];
+    for (const [dx, dy, rr] of puffs) {
+      ctx.beginPath();
+      ctx.arc(dx * s + Math.sin(p.t * 2 + dx * 5) * s * 0.03, dy * s, rr * s, 0, TAU);
+      ctx.fill();
+    }
+    if (p.wind > 0.05) {
+      ctx.strokeStyle = `rgba(255,236,170,${0.5 + 0.5 * p.wind})`;
+      ctx.lineWidth = Math.max(1.5, s * 0.05);
+      ctx.beginPath();
+      ctx.moveTo(face * s * 0.2, -s * 0.1);
+      ctx.lineTo(face * s * 0.35, s * 0.15);
+      ctx.lineTo(face * s * 0.22, s * 0.15);
+      ctx.lineTo(face * s * 0.4, s * 0.45);
+      ctx.stroke();
+    }
+    eyes(face * s * 0.15, -s * 0.65, Math.max(2, s * 0.07));
+  }
+  if (p.burn > 0.05) {
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, 0, -s * 0.5, s * 1.1, 'rgba(255,226,150,', Math.min(0.5, p.burn * 0.5));
+  }
+  ctx.restore();
+}
+
+// ── v2: the dreams (the room changes as the child dreams) ─────────
+/** The dream's backdrop for chapters 1–4 (the room is chapter 0, paintRoom): wall, floor, scenery, the dark at both sides. */
+export function paintDream(ctx: CanvasRenderingContext2D, chapter: number, R: RoomBox, t: number, dawn: number): void {
+  const { w, h, cx, floorY, s } = R;
+  const sky = ctx.createLinearGradient(0, 0, 0, floorY);
+  const floor = ctx.createLinearGradient(0, floorY, 0, h);
+  if (chapter === 1) {
+    // the attic: planks, a roof of beams, trunks and boxes, dust in the lamp light
+    sky.addColorStop(0, '#2a2036');
+    sky.addColorStop(1, '#4a3550');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, floorY);
+    ctx.strokeStyle = 'rgba(20,10,25,.35)';
+    ctx.lineWidth = 1;
+    for (let x = (cx % (s * 0.6)); x < w; x += s * 0.6) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, floorY);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#5e3b27';
+    ctx.lineWidth = Math.max(4, s * 0.16);
+    ctx.beginPath();
+    ctx.moveTo(cx - s * 7, floorY - s * 0.5);
+    ctx.lineTo(cx, floorY - s * 4.6);
+    ctx.lineTo(cx + s * 7, floorY - s * 0.5);
+    ctx.stroke();
+    ctx.lineWidth = Math.max(3, s * 0.1);
+    ctx.beginPath();
+    ctx.moveTo(cx - s * 3.6, floorY - s * 2.55);
+    ctx.lineTo(cx + s * 3.6, floorY - s * 2.55);
+    ctx.stroke();
+    // trunks and boxes at the sides
+    for (const [dx, bw, bh, col] of [[-4.3, 1.1, 0.7, '#5e3b27'], [-3.5, 0.6, 0.45, '#7a5038'], [3.6, 1.0, 0.8, '#5e3b27'], [4.5, 0.55, 1.1, '#6b4630']] as const) {
+      ctx.fillStyle = col;
+      ctx.fillRect(cx + dx * s - (bw * s) / 2, floorY - bh * s, bw * s, bh * s);
+      ctx.fillStyle = 'rgba(0,0,0,.2)';
+      ctx.fillRect(cx + dx * s - (bw * s) / 2, floorY - bh * s * 0.6, bw * s, s * 0.05);
+    }
+    floor.addColorStop(0, '#6b4e44');
+    floor.addColorStop(1, '#3a2620');
+    ctx.fillStyle = floor;
+    ctx.fillRect(0, floorY, w, h - floorY);
+    ctx.fillStyle = 'rgba(255,230,190,.35)';
+    for (let i = 0; i < 24; i++) {
+      const px = cx + (hash(i * 5) - 0.5) * s * 6 + Math.sin(t * 0.3 + i) * s * 0.3;
+      const py = floorY - ((hash(i * 9) * s * 3.5 + t * s * 0.08 * (0.5 + hash(i))) % (s * 3.6));
+      ctx.fillRect(px, py, 1.6, 1.6);
+    }
+  } else if (chapter === 2) {
+    // the forest at night: two rows of trunks, fireflies, moss
+    sky.addColorStop(0, '#0f2230');
+    sky.addColorStop(1, '#1f3d45');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, floorY);
+    for (const [row, col, step, wid] of [[0, '#16303a', 1.1, 0.25], [1, '#0d2028', 1.7, 0.42]] as const) {
+      ctx.fillStyle = col;
+      for (let i = -8; i <= 8; i++) {
+        const x = cx + (i + hash(i * 3 + row * 50) * 0.6) * step * s;
+        if (Math.abs(x - cx) < s * 1.3 && row === 1) continue;
+        ctx.fillRect(x - (wid * s) / 2, 0, wid * s, floorY);
+        // a soft crown of leaves at the top
+        ctx.beginPath();
+        ctx.arc(x, floorY - s * (3.6 + hash(i + row) * 0.8), s * (0.7 + row * 0.3), 0, TAU);
+        ctx.fill();
+      }
+    }
+    floor.addColorStop(0, '#2f4a35');
+    floor.addColorStop(1, '#16261b');
+    ctx.fillStyle = floor;
+    ctx.fillRect(0, floorY, w, h - floorY);
+    ctx.strokeStyle = 'rgba(120,170,110,.45)';
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 40; i++) {
+      const x = hash(i * 7) * w;
+      ctx.beginPath();
+      ctx.moveTo(x, floorY + 2);
+      ctx.lineTo(x - 3, floorY - s * 0.12);
+      ctx.moveTo(x, floorY + 2);
+      ctx.lineTo(x + 3, floorY - s * 0.1);
+      ctx.stroke();
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 18; i++) {
+      const fx = cx + (hash(i * 13) - 0.5) * s * 9 + Math.sin(t * 0.7 + i) * s * 0.4;
+      const fy = floorY - s * (0.5 + hash(i * 17) * 2.8) + Math.cos(t * 0.9 + i * 2) * s * 0.2;
+      glow(ctx, fx, fy, s * 0.18, 'rgba(220,255,140,', 0.35 + 0.35 * Math.sin(t * 3 + i * 1.7));
+    }
+    ctx.restore();
+  } else if (chapter === 3) {
+    // the sea: the moon on the water, waves behind, the bed on a raft of planks
+    sky.addColorStop(0, '#0c1538');
+    sky.addColorStop(1, '#22306a');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, floorY);
+    const horizon = floorY - s * 1.5;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, cx + s * 3.5, horizon - s * 2.2, s * 2, 'rgba(246,239,208,', 0.3 * (1 - dawn));
+    ctx.restore();
+    ctx.fillStyle = '#0f1d48';
+    ctx.fillRect(0, horizon, w, h - horizon);
+    for (let row = 0; row < 6; row++) {
+      const y = horizon + row * (floorY - horizon + s * 0.6) / 6;
+      ctx.strokeStyle = `rgba(150,180,255,${0.12 + row * 0.04})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 8) {
+        const yy = y + Math.sin(x / (s * 0.5) + t * (1 + row * 0.2) + row) * s * 0.04 * (1 + row * 0.4);
+        if (x) ctx.lineTo(x, yy);
+        else ctx.moveTo(x, yy);
+      }
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(246,239,208,.35)';
+    for (let i = 0; i < 10; i++) {
+      const y = horizon + s * 0.1 + i * s * 0.12;
+      const ww = s * (0.8 - i * 0.05) * (0.7 + 0.3 * Math.sin(t * 2 + i));
+      ctx.fillRect(cx + s * 3.5 - ww / 2, y, ww, 1.5);
+    }
+    // the raft under the bed
+    ctx.fillStyle = '#6b4630';
+    ctx.fillRect(cx - s * 2.4, floorY - s * 0.04, s * 4.8, s * 0.22);
+    ctx.fillStyle = 'rgba(0,0,0,.25)';
+    for (let i = 1; i < 8; i++) ctx.fillRect(cx - s * 2.4 + i * s * 0.6, floorY - s * 0.04, 1.5, s * 0.22);
+    floor.addColorStop(0, '#132257');
+    floor.addColorStop(1, '#0a1233');
+    ctx.fillStyle = floor;
+    ctx.fillRect(0, floorY + s * 0.18, w, h - floorY);
+  } else {
+    // the clouds: a violet sky full of stars, a floor of cloud
+    sky.addColorStop(0, '#1d1640');
+    sky.addColorStop(1, '#5a4a8a');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, floorY);
+    for (let i = 0; i < 70; i++) {
+      const x = hash(i * 3 + 1) * w, y = hash(i * 7 + 2) * floorY * 0.9;
+      ctx.fillStyle = `rgba(255,248,220,${(0.3 + 0.5 * (0.5 + 0.5 * Math.sin(t * 1.5 + i))) * (1 - dawn)})`;
+      ctx.fillRect(x, y, 1.6, 1.6);
+    }
+    const cloud = (x: number, y: number, r: number, a: number) => {
+      ctx.fillStyle = `rgba(214,208,255,${a})`;
+      for (const [dx, dy, k] of [[-1, 0, 0.7], [0, -0.3, 1], [1, 0, 0.75], [0.5, 0.2, 0.6], [-0.5, 0.2, 0.6]] as const) {
+        ctx.beginPath();
+        ctx.arc(x + dx * r, y + dy * r, r * k, 0, TAU);
+        ctx.fill();
+      }
+    };
+    for (let i = 0; i < 5; i++) cloud(cx + (i - 2) * s * 2.4 + Math.sin(t * 0.1 + i) * s * 0.4, floorY - s * (2.6 + hash(i) * 1.2), s * 0.5, 0.12);
+    floor.addColorStop(0, '#cfc6f0');
+    floor.addColorStop(1, '#8a7fc0');
+    ctx.fillStyle = floor;
+    ctx.fillRect(0, floorY + s * 0.1, w, h - floorY);
+    for (let i = -10; i <= 10; i++) cloud(cx + i * s * 0.9, floorY + s * 0.15, s * 0.32, 0.9);
+  }
+  // the dark the Zmory come from, at both sides
+  const fog = (wallX: number, dir: 1 | -1) => {
+    const x1 = wallX + dir * s * 2.4;
+    const g = ctx.createLinearGradient(wallX - dir * s * 0.6, 0, x1, 0);
+    g.addColorStop(0, `rgba(8,6,20,${0.82 * (1 - dawn * 0.6)})`);
+    g.addColorStop(1, 'rgba(8,6,20,0)');
+    ctx.fillStyle = g;
+    if (dir > 0) ctx.fillRect(0, 0, Math.max(0, x1), h);
+    else ctx.fillRect(x1, 0, Math.max(0, w - x1), h);
+  };
+  fog(cx - 6.3 * s, 1);
+  fog(cx + 6.3 * s, -1);
 }

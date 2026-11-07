@@ -33,10 +33,32 @@ export const RULES = {
   stopBanish: 0.075,
   stopFlame: 0.2,
   stopKoszmar: 0.28,
-  /** the combo's multipliers of feathers: ×2 from 10 hits, ×3 from 25 */
-  comboAt: [10, 25],
+  /** the combo ladder: feathers ×2 from 8 hits, ×3 from 20, ×4 from 40, ×5 from 70 */
+  comboAt: [8, 20, 40, 70],
+  /** the perfect window: a hit whose target's near edge is in the reach's outer band this wide (u) */
+  perfect: 0.45,
+  /** a perfect hit counts twice on the combo and pays this many feathers more */
+  perfectFeathers: 1,
+  /** a Zmora struck this close to the bed (u, past its edge) is a close call ("o włos") */
+  closeCall: 0.4,
+  /** strikes on armour crack it too: this many bounces break it (the aura only does it sooner) */
+  crackBounces: 3,
 
   // ── the Zmory ────────────────────────────────────────────────
+  /** the Fikołek: a hit throws it over the bed in this long (s), to this far on the other side (u), this high (u) */
+  flipSec: 0.62,
+  flipTo: 2.7,
+  flipHigh: 1.5,
+  /** the Kleks: stops this far (u), spits every (s) after a wind-up (s); its ink drop's speed in and back (u/s) and what it dims */
+  kleksStop: 3.45,
+  spitEvery: 2.9,
+  spitWind: 0.75,
+  dropSpeed: 1.9,
+  dropBack: 7,
+  dropDim: 0.06,
+  /** the Ciągutek: a hit barely moves it (knock u/s); at the bed it holds on and dims Sen this much a second */
+  stickyKnock: 0.9,
+  grabDim: 0.05,
   /** speeds grow over the night (× 1 + nightRamp × share of the night) and over the nights played */
   nightRamp: 0.18,
   nightsRamp: 0.03,
@@ -75,6 +97,8 @@ export const RULES = {
   /** a held focus this long (s) fills it; again after as long once more; at most `flameMax` a block */
   flameHold: { fnirs: 5, eeg: 3 },
   flameMax: 3,
+  /** after a Płomień, Skrzydła ognia: this long (s) every strike pierces its whole side and hits double */
+  glorySec: 5,
 
   // ── Sen and the lullaby (Kołysanka) ──────────────────────────
   /** a stir brings Sen back to this */
@@ -118,15 +142,32 @@ export const RULES = {
   lampR: 2.1,
   lampDps: 0.35,
 
-  // ── the finale: Koszmar ──────────────────────────────────────
+  // ── the finale: the dream's great nightmare ──────────────────
   /** the finale's length (s): sessions of 2 min and more / shorter */
-  finale: { long: 16, short: 8 },
-  /** Koszmar's light (hits) and hits per phase (then it turns to the other side) */
+  finale: { long: 22, short: 9 },
+  /** a boss's light (hits) and, for Koszmar, hits per phase (then it turns to the other side) */
   koszmarHp: { long: 12, short: 6 },
   koszmarPhase: { long: 4, short: 3 },
   /** it comes back from the other side after this long (s); touching the bed throws it back here (u) */
   koszmarTurn: 1.2,
   koszmarBack: 3.4,
+  /** the second phase begins at this share of the boss's light; it is this much quicker */
+  phaseAt: 0.5,
+  phaseFast: 1.35,
+  /** the Wilk's dash: it waits (s), crouches (the tell, s), dashes in (s) and stays open for a strike (s); a counter hits for 2 */
+  dashIdle: 0.7,
+  dashWind: 0.95,
+  dashGo: 0.28,
+  dashOpen: 0.6,
+  dashFrom: 4.3,
+  counter: 2,
+  /** a boss that waits out of reach (Kufer, Ośmiornica) stands here (u); a hop to the other side takes (s) */
+  bossStand: 3.7,
+  hopSec: 0.8,
+  /** the Ośmiornica's arms: one every (s), both sides at once in its second phase */
+  armEvery: 2.4,
+  /** a boss's touch dims Sen this much */
+  bossDim: 0.1,
 
   // ── the session ──────────────────────────────────────────────
   /** Czuwanie and Kołysanka: nominal length ± jitter (s); no block under minBlock */
@@ -152,7 +193,27 @@ export const RULES = {
   /** this many banished in a night count as many (the closing verse) */
   many: 40,
 
+  // ── the companion and the coach marks ────────────────────────
+  /** at least this long between two of Pan Guzik's lines (s), each on screen this long (s); a block's first seconds stay quiet */
+  sayGap: 7,
+  sayFor: 3.4,
+  quietStart: 5,
+  /** at least this long between two coach marks (s) */
+  coachGap: 3.6,
+  /** the night's stars: a combo this long (and Sen never out) is the third */
+  starCombo: 15,
+
   // ── the meta ─────────────────────────────────────────────────
+  /** the dreams: nights in each before the next one comes (the last one goes on) */
+  nightsPer: 3,
+  chapters: 5,
+  /** the upgrade tree: a level's price in feathers (level 1..4) */
+  upCost: [25, 55, 95, 150],
+  upMax: 4,
+  /** what one level of each upgrade gives */
+  up: { reach: 0.12, perfect: 0.1, aura: 0.07, flame: 0.08, sen: 0.1, lull: 0.12 },
+  /** a version-1 save starts the wallet with up to this many of its feathers */
+  welcome: 150,
   /** the angel's rank by all feathers ever */
   ranks: [0, 40, 120, 250, 450, 750, 1150, 1700],
   /** the day's gift (feathers, the same for everyone who comes) */

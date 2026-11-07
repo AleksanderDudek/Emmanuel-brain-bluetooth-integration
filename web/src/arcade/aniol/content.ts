@@ -6,7 +6,9 @@
  */
 import { t } from './i18n';
 
-export type ZKind = 'mara' | 'skoczek' | 'widmo' | 'pancerna' | 'roj' | 'cien' | 'koszmar';
+import type { PassageId } from '../kit/scripture';
+
+export type ZKind = 'mara' | 'skoczek' | 'widmo' | 'pancerna' | 'roj' | 'cien' | 'fikolek' | 'kleks' | 'ciagutek' | 'szept' | 'ramie' | 'koszmar';
 
 /** A kind's light (hits), walk (u/s), size (u), feathers when banished and how much it dims Sen at the bed. */
 export interface ZSpec { hp: number; speed: number; r: number; feathers: number; dim: number }
@@ -18,10 +20,55 @@ export const ZMORY: Readonly<Record<ZKind, ZSpec>> = {
   pancerna: { hp: 2, speed: 0.6, r: 0.42, feathers: 4, dim: 0.2 },
   roj: { hp: 1, speed: 0.75, r: 0.46, feathers: 1, dim: 0.15 },
   cien: { hp: 1, speed: 1.35, r: 0.2, feathers: 1, dim: 0.06 },
+  fikolek: { hp: 2, speed: 1.0, r: 0.3, feathers: 3, dim: 0.12 },
+  kleks: { hp: 1, speed: 0.8, r: 0.33, feathers: 3, dim: 0.1 },
+  ciagutek: { hp: 3, speed: 0.55, r: 0.4, feathers: 4, dim: 0.12 },
+  szept: { hp: 1, speed: 1.15, r: 0.28, feathers: 2, dim: 0.1 },
+  ramie: { hp: 2, speed: 1.15, r: 0.3, feathers: 2, dim: 0.12 },
   koszmar: { hp: 12, speed: 0.6, r: 0.85, feathers: 15, dim: 0.22 },
 };
 
 export const zName = (k: ZKind): string => t(`z.${k}`);
+
+/** The kinds a coach mark explains the first time they step out (their tell and their counter). */
+export const TOLD: readonly ZKind[] = ['skoczek', 'widmo', 'pancerna', 'roj', 'fikolek', 'kleks', 'ciagutek', 'szept'];
+
+// ── the dreams (the nights as chapters) ──────────────────────────
+export type ChapterId = 'pokoj' | 'strych' | 'las' | 'morze' | 'obloki';
+export type BossKind = 'koszmar' | 'kufer' | 'wilk' | 'osmiornica' | 'burza';
+
+/**
+ * A dream: where the child's sleep takes the room, its great nightmare at the night's end, the kinds
+ * it brings in (each chapter teaches one or two, kishōtenketsu) and the passage of its story card.
+ */
+export interface Chapter { id: ChapterId; boss: BossKind; fresh: readonly ZKind[]; verse: PassageId }
+
+export const CHAPTERS: readonly Chapter[] = [
+  { id: 'pokoj', boss: 'koszmar', fresh: ['mara', 'skoczek', 'widmo', 'pancerna'], verse: 'psa4.8' },
+  { id: 'strych', boss: 'kufer', fresh: ['kleks', 'roj'], verse: 'psa139.12' },
+  { id: 'las', boss: 'wilk', fresh: ['fikolek', 'szept'], verse: 'psa23.4' },
+  { id: 'morze', boss: 'osmiornica', fresh: ['ciagutek'], verse: 'isa43.2' },
+  { id: 'obloki', boss: 'burza', fresh: [], verse: 'psa19.1' },
+];
+
+export const chapterName = (c: ChapterId): string => t(`ch.${c}`);
+export const bossName = (b: BossKind): string => t(`boss.${b}`);
+
+// ── the upgrade tree (bought in the lobby with feathers) ─────────
+export type UpId = 'reach' | 'perfect' | 'aura' | 'flame' | 'sen' | 'lull';
+export type Branch = 'wing' | 'light' | 'dream';
+
+/** An upgrade: its branch and the one before it on the branch (it needs a level there first). */
+export interface Up { id: UpId; branch: Branch; needs: UpId | null }
+
+export const UPS: readonly Up[] = [
+  { id: 'reach', branch: 'wing', needs: null },
+  { id: 'perfect', branch: 'wing', needs: 'reach' },
+  { id: 'aura', branch: 'light', needs: null },
+  { id: 'flame', branch: 'light', needs: 'aura' },
+  { id: 'sen', branch: 'dream', needs: null },
+  { id: 'lull', branch: 'dream', needs: 'sen' },
+];
 
 // ── the gifts of a night ─────────────────────────────────────────
 export type GiftId = 'reach' | 'double' | 'shield' | 'aura' | 'spear' | 'flame' | 'lamp' | 'sen';
@@ -50,8 +97,8 @@ export const giftById = (id: GiftId): Gift => GIFTS.find(g => g.id === id)!;
 export const RANKS: readonly string[] = Array.from({ length: 8 }, (_, i) => t(`rank.${i}` as 'rank.0'));
 
 /** The cosy things of the room, one with each rank from the second (index = rank − 1). */
-export type RoomItem = 'mobile' | 'nightlight' | 'book' | 'blanket' | 'bear' | 'curtain' | 'garland';
-export const ROOM: readonly RoomItem[] = ['mobile', 'nightlight', 'book', 'blanket', 'bear', 'curtain', 'garland'];
+export type RoomItem = 'mobile' | 'nightlight' | 'book' | 'blanket' | 'nightcap' | 'curtain' | 'garland';
+export const ROOM: readonly RoomItem[] = ['mobile', 'nightlight', 'book', 'blanket', 'nightcap', 'curtain', 'garland'];
 export const roomName = (i: RoomItem): string => t(`room.${i}`);
 
 /** The line under the block's name: strategies to try, never "concentrate harder". */

@@ -40,7 +40,7 @@ export class AniolSound {
       }
     } else this.tuneT = 0.4;
     // Koszmar's low drone while it is in the room
-    if (sim.koszmar === 'come') {
+    if (sim.koszmar === 'come' && sim.phase === 'finale') {
       this.drone -= dt;
       if (this.drone <= 0) {
         this.drone = 2.2;
@@ -62,7 +62,9 @@ export class AniolSound {
       case 'hit':
         a.tone(e.kind === 'koszmar' ? 70 : 110, 0.14, { type: 'sine', gain: 0.11, slideTo: 55 });
         a.noiseBurst(0.06, { type: 'lowpass', freq: 700, gain: 0.06 });
-        a.bell(ladder(Math.min(19, e.combo % 20), ROOT), 0.045, 0.7);
+        // the combo's pitch climbs the ladder; a perfect hit rings an octave of sparkle on top
+        a.bell(ladder(Math.min(16, e.combo), ROOT / 2), 0.045, 0.7);
+        if (e.perfect) a.bell(ladder(Math.min(16, e.combo) + 5, ROOT / 2), 0.035, 0.9, 0.04);
         break;
       case 'banish':
         if (e.kind === 'koszmar') {
@@ -141,8 +143,46 @@ export class AniolSound {
         a.padChord(e.block.kind === 'rest' ? LULL : WATCH, 3);
         this.tuneI = 0;
         break;
-      case 'koszmar':
-        if (e.what === 'come' || e.what === 'turn') a.tone(65.41, 1.4, { type: 'triangle', gain: 0.04, attack: 0.3, slideTo: 49 });
+      case 'boss':
+        if (e.what === 'come' || e.what === 'turn' || e.what === 'hop') a.tone(65.41, 1.4, { type: 'triangle', gain: 0.04, attack: 0.3, slideTo: 49 });
+        else if (e.what === 'wind') {
+          // the tell: a low rising growl of wind, so the ear knows before the eye
+          a.noiseBurst(0.7, { type: 'bandpass', freq: 200, sweepTo: 700, q: 1.2, gain: 0.045 });
+          a.tone(98, 0.6, { type: 'triangle', gain: 0.03, slideTo: 147 });
+        } else if (e.what === 'dash') a.noiseBurst(0.25, { type: 'bandpass', freq: 600, sweepTo: 1800, gain: 0.05 });
+        else if (e.what === 'counter') {
+          a.tone(98, 0.3, { type: 'sine', gain: 0.12, slideTo: 49 });
+          [0, 4, 7].forEach((n, i) => a.bell(ladder(n + 7, ROOT), 0.05, 1, i * 0.04));
+        } else if (e.what === 'phase') a.tone(55, 1.2, { type: 'sawtooth', gain: 0.025, attack: 0.1, slideTo: 82 });
+        else if (e.what === 'hurt') a.bell(ladder(3, ROOT), 0.03, 0.6);
+        break;
+      case 'deflect':
+        a.tone(880, 0.12, { type: 'triangle', gain: 0.05, slideTo: 1760 });
+        a.bell(ladder(Math.min(19, e.id % 7 + 5), ROOT), 0.04, 0.7);
+        break;
+      case 'spit':
+        a.noiseBurst(0.12, { type: 'lowpass', freq: 500, gain: 0.05 });
+        a.tone(220, 0.12, { type: 'sine', gain: 0.04, slideTo: 140 });
+        break;
+      case 'splash':
+        a.noiseBurst(0.3, { type: 'lowpass', freq: 400, gain: 0.04 });
+        break;
+      case 'flip':
+        a.tone(330, 0.3, { type: 'triangle', gain: 0.03, slideTo: 660 });
+        break;
+      case 'grab':
+        a.tone(130, 0.5, { type: 'square', gain: 0.02, slideTo: 110 });
+        break;
+      case 'close':
+        a.bell(ladder(9, ROOT), 0.035, 0.8);
+        break;
+      case 'glory':
+        if (e.on) a.noiseBurst(0.8, { type: 'bandpass', freq: 800, sweepTo: 3000, gain: 0.03 });
+        break;
+      case 'say':
+        // a soft little "hm" for the bear, a sigh for the child
+        if (e.who === 'bear') a.tone(196, 0.18, { type: 'sine', gain: 0.025, slideTo: 247, attack: 0.02 });
+        else a.tone(392, 0.4, { type: 'sine', gain: 0.015, slideTo: 330, attack: 0.08 });
         break;
       case 'dawn':
         a.padChord([87.31, 130.81, 174.61, 261.63], 3);

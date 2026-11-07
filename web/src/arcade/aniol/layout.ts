@@ -1,16 +1,21 @@
 /**
  * Where Anioł Stróż's play view puts things (CSS px), for phones upright and on their side and for
- * desktops: the HUD's boxes (the status with the block's strategy and what the band drives, the
- * headline, the window whose sky holds the band's curve and whose sill holds its stars), the room's
- * scale (px per u), the floor line and the bed.  The runner's top strip (time, pause) and bottom
- * strip (the signal banner, the simulator button) stay clear of the HUD; the canvas is the room
- * above the runner's signal dock, so a phone on its side can leave very little height: there the
- * HUD becomes a column on the left and the room takes the rest.
+ * desktops.  The runner's standard HUD covers the top (the Mendi panel on the left, the score on the
+ * right, down to `hudTop`); its bottom strip holds the block banner and the simulator button.  So:
+ *
+ *   wide    a desktop or a tablet on its side: the window (the band's last 40 s in its sky, a star a
+ *           second on its sill) hangs at the top between the panel and the score; the room below hudTop
+ *   tall    a phone upright: the window under the HUD, full width; the room under it
+ *   short   a phone on its side (very little height): the room takes the right of the screen beside
+ *           the panel, the window sits under the panel on the left when there is room for it
+ *
+ * The room's scale S (px per u) fits the bed, the angel above it and the reach on both sides.
  */
 import { clamp } from '../kit/juice';
 
-export const TOP = 64;
-export const BOTTOM = 66;
+/** the runner's top bar and its bottom strip (the banner, the simulator's button) */
+export const TOP = 58;
+export const BOTTOM = 62;
 
 export interface Rect { x: number; y: number; w: number; h: number }
 
@@ -28,69 +33,52 @@ export interface Layout {
   /** the bed's centre and the floor line */
   cx: number;
   floorY: number;
-  /** the status (block, strategy, what the band drives) at its tallest; the headline's right edge and top */
-  status: Rect;
-  scoreX: number;
-  scoreY: number;
-  /** the headline sits inside the status card's corner (upright screens) */
-  scoreInStatus: boolean;
-  /** the status card's lines: the strategy's and the band's at most */
-  tipLines: number;
-  driveLines: number;
-  /** the window's sky (the band's curve) and its sill (the stars, one a second) */
+  /** the window's sky (the band's curve) and its sill (the stars, one a second); w 0 = no window */
   win: Rect;
   sill: Rect;
-  /** the lowest HUD edge over the room, and where cards and the choice of gifts centre */
-  hudBottom: number;
-  cardY: number;
-  /** the room's own top (below the HUD) and the x range it can use for cards */
+  /** the top of the room's play (below the standard HUD) and the left edge of the room */
+  roomTop: number;
   roomX0: number;
+  /** where cards (toasts, the story, the dawn) centre */
+  cardY: number;
 }
 
-export function layout(w: number, h: number): Layout {
+export function layout(w: number, h: number, hudTop = 190): Layout {
   const W = Math.max(240, w), H = Math.max(200, h);
   const u = clamp(Math.min(W, H) / 430, 0.84, 1.25);
-  const tall = W / H < 1;
-  const scoreW = 120 * u;
-  const short = !tall && H < 470;
-  const floorDepth = short ? 14 : Math.max(26, 30 * u);
+  const tall = W / H < 0.9;
+  const top = Math.max(TOP, hudTop);
+  const short = !tall && H - top - BOTTOM < 230;
+  const floorDepth = short ? 12 : Math.max(24, 28 * u);
   const floorY = H - BOTTOM - floorDepth;
   if (short) {
-    // a phone on its side: the HUD is a column on the left, the room the rest
-    const colW = Math.min(W * 0.4, 300 * u);
-    const winH = clamp((H - TOP - BOTTOM) * 0.22, 28, 50 * u);
-    const sillH = 13 * u;
-    const statusH = Math.max(60, H - TOP - BOTTOM - winH - sillH - 14);
-    const status = { x: 12, y: TOP - 4, w: colW, h: statusH };
-    const win = { x: 18, y: status.y + statusH + 6, w: colW - 12, h: winH };
-    const sill = { x: win.x, y: win.y + winH + 2, w: win.w, h: sillH };
-    const roomX0 = colW + 20;
-    const S = clamp(Math.min((W - roomX0) / (2 * 4.4), (floorY - TOP + 6) / 3.6), 18, 92);
-    const cx = roomX0 + (W - roomX0) / 2;
-    return {
-      w: W, h: H, u, mode: 'short', tall, S, cx, floorY, status, scoreX: W - 12, scoreY: TOP - 4, scoreInStatus: false,
-      tipLines: 1, driveLines: 2, win, sill, hudBottom: TOP + 70 * u, cardY: TOP + 80 * u, roomX0,
-    };
+    // a phone on its side: the room beside the panel, the window under the panel when it fits
+    const roomX0 = Math.min(W * 0.42, 350);
+    const winH = clamp(H - top - BOTTOM - 22, 0, 46);
+    const win = winH >= 22 ? { x: 16, y: top + 2, w: roomX0 - 28, h: winH } : { x: 0, y: 0, w: 0, h: 0 };
+    const sill = { x: win.x, y: win.y + win.h + 2, w: win.w, h: win.w ? 12 : 0 };
+    const roomTop = TOP + 4;
+    const S = clamp(Math.min((W - roomX0) / (2 * 4.6), (floorY - roomTop - 2) / 3.3), 16, 92);
+    return { w: W, h: H, u, mode: 'short', tall, S, cx: roomX0 + (W - roomX0) / 2, floorY, win, sill, roomTop, roomX0, cardY: roomTop + 26 * u };
   }
-  const statusWide = Math.min(W * 0.3, 330 * u);
-  const mid = W - 32 - statusWide - scoreW - 32;
-  const wide = !tall && mid >= 260 * u;
-  let status: Rect, win: Rect;
-  if (wide) {
-    status = { x: 16, y: TOP + 2, w: statusWide, h: 150 * u };
-    const ww = Math.min(mid, 560 * u);
-    win = { x: 16 + statusWide + 16 + (mid - ww) / 2, y: TOP + 8, w: ww, h: 74 * u };
-  } else {
-    // upright or narrow: one full-width card, the headline in its top-right corner
-    status = { x: 16, y: TOP + 2, w: W - 32, h: 158 * u };
-    win = { x: 22, y: status.y + status.h + 10 * u, w: W - 44, h: (tall ? 60 : 50) * u };
+  // a desktop: the window hangs between the panel and the score when there is room for it
+  const left = Math.min(W * 0.36, 360), right = 150;
+  const mid = W - left - right;
+  if (!tall && mid >= 360 && top - TOP >= 70) {
+    const ww = Math.min(mid - 24, 560 * u);
+    const sillH = 16 * u;
+    const winH = clamp(top - TOP - sillH - 14, 40, 80 * u);
+    const win = { x: left + (mid - ww) / 2, y: TOP + 4, w: ww, h: winH };
+    const sill = { x: win.x, y: win.y + win.h + 3, w: win.w, h: sillH };
+    const roomTop = Math.max(top, sill.y + sill.h + 6);
+    const S = clamp(Math.min(W / (2 * 5.2), (floorY - roomTop - 4) / 3.4), 22, 92);
+    return { w: W, h: H, u, mode: 'wide', tall, S, cx: W / 2, floorY, win, sill, roomTop, roomX0: 0, cardY: roomTop + Math.min(70 * u, (floorY - roomTop) * 0.22) };
   }
-  const sill = { x: win.x, y: win.y + win.h + 3, w: win.w, h: 18 * u };
-  const hudBottom = Math.max(wide ? win.y + win.h : status.y + status.h, sill.y + sill.h) + 8;
-  // the room: the bed, the angel above it and the reach on both sides must fit (upright: the Zmory step in from beyond the screen)
-  const S = clamp(Math.min(W / (2 * (tall ? 4.2 : 5.2)), (floorY - hudBottom - 6) / 3.5), 22, 92);
-  return {
-    w: W, h: H, u, mode: wide ? 'wide' : 'tall', tall, S, cx: W / 2, floorY, status, scoreX: W - 16 - (wide ? 0 : 6 * u), scoreY: TOP + 2,
-    scoreInStatus: !wide, tipLines: 2, driveLines: 3, win, sill, hudBottom, cardY: win.y + win.h / 2 + 8 * u, roomX0: 0,
-  };
+  // upright (or narrow): the window under the HUD, the room under it
+  const win = { x: 18, y: top + 2, w: W - 36, h: (tall ? 46 : 40) * u };
+  const sill = { x: win.x, y: win.y + win.h + 3, w: win.w, h: 15 * u };
+  const roomTop = sill.y + sill.h + 6;
+  // upright, the Zmory step in from beyond the screen's edges: the room is drawn larger
+  const S = clamp(Math.min(W / (2 * (tall ? 3.85 : 5.2)), (floorY - roomTop - 4) / 3.4), 22, 92);
+  return { w: W, h: H, u, mode: 'tall', tall, S, cx: W / 2, floorY, win, sill, roomTop, roomX0: 0, cardY: roomTop + Math.min(70 * u, (floorY - roomTop) * 0.22) };
 }

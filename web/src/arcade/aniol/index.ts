@@ -17,10 +17,10 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
 import { AniolSound } from './audio';
-import { unit } from './i18n';
-import { bestOf, freshProgress, type AniolProgress } from './meta';
+import { t, unit } from './i18n';
+import { bestOf, freshProgress, migrate, type AniolProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { AniolView } from './render';
@@ -32,18 +32,34 @@ class AniolGame implements ArcadeGame {
   private readonly sound: AniolSound;
 
   constructor(private readonly env: GameEnv<AniolProgress>) {
+    migrate(env.progress);
+    // the screenshot scripts can visit a dream: ?debug&aniolNight=N (never in normal play)
+    const visit = typeof location !== 'undefined' && /[?&]debug\b/.test(location.search) ? /[?&]aniolNight=(\d+)/.exec(location.search) : null;
+    if (visit) {
+      env.progress.night = Number(visit[1]);
+      env.progress.sessions = Math.max(1, env.progress.sessions);
+    }
     this.sim = new AniolSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
     this.view = new AniolView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg' });
     this.sound = new AniolSound(env.audio);
+    // the app's ?debug view lets the screenshot scripts reach the rules (never in normal play)
+    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __aniol?: AniolSim }).__aniol = this.sim;
   }
 
-  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr); }
+  private size = { w: 1, h: 1, dpr: 1 };
+
+  /** The HUD's band is read again at the start: the runner shows its panel only when play begins. */
+  resize(w: number, h: number, dpr: number): void {
+    this.size = { w, h, dpr };
+    this.view.resize(w, h, dpr, this.env.hudTop());
+  }
 
   intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
 
   start(): void {
+    this.view.resize(this.size.w, this.size.h, this.size.dpr, this.env.hudTop());
     this.sim.start();
     this.sound.start();
     this.view.start(this.sim);
@@ -90,6 +106,7 @@ class AniolGame implements ArcadeGame {
       this.view.on(e, this.sim);
       this.sound.on(e);
       if (this.env.haptics) haptic(e);
+      if (e.type === 'coach') this.env.hint(t(e.key), this.view.anchor(e.at, this.sim), 4200);
     }
   }
 
@@ -97,12 +114,12 @@ class AniolGame implements ArcadeGame {
 
   canStop(): boolean { return this.sim.canStop(); }
 
-  /** What the block asks of the brain, for the runner's signal dock. */
-  signal(): SignalPhase {
-    const s = this.sim, b = s.block;
-    if (!s.started || s.phase !== 'play' || !b || b.kind === 'warmup') return { want: 'free', blind: false };
-    return { want: b.kind === 'push' ? 'focus' : 'rest', blind: s.blind, task: s.tip };
-  }
+  /** What the block asks of the brain, for the runner's panel, banner and dock. */
+  signal(): SignalPhase { return this.sim.signal(); }
+
+  meter(): number | null { return this.sim.meter(); }
+
+  headline(): Headline { return this.sim.headline(); }
 
   /** Ended early: the sim settles at once; its events are dropped (the view and the sound are about to go). */
   finish(): void {
@@ -117,8 +134,11 @@ class AniolGame implements ArcadeGame {
 
 function haptic(e: SimEvent): void {
   switch (e.type) {
-    case 'hit': buzz(8); break;
+    case 'hit': buzz(e.perfect ? [6, 20, 10] : 8); break;
+    case 'deflect': buzz(10); break;
+    case 'grab': buzz([20, 30, 20]); break;
     case 'banish': buzz(e.kind === 'koszmar' ? [30, 40, 30, 40, 60] : 14); break;
+    case 'boss': if (e.what === 'counter' || e.what === 'phase') buzz([20, 30, 30]); break;
     case 'bounce': buzz([6, 20, 6]); break;
     case 'flame': buzz([20, 30, 20, 30, 40]); break;
     case 'stir': buzz([10, 60, 10]); break;
@@ -130,9 +150,18 @@ function haptic(e: SimEvent): void {
 const mod: ArcadeModule<AniolProgress> = {
   freshProgress,
   create: env => new AniolGame(env),
-  best: p => (p.sessions > 0 ? bestOf(p) : null),
+  best: p => (p.sessions > 0 ? bestOf(migrate(p)) : null),
   unit,
-  progressPanel: p => progressPanel(p),
-  preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
+  progressPanel: (p, save) => progressPanel(migrate(p), save),
+  preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
+  howto: (): HowTo => ({
+    goal: t('how.goal'),
+    hands: [
+      { gesture: 'tap', text: t('how.tap') },
+      { gesture: 'tap', text: t('how.middle') },
+      { gesture: 'keys', text: t('how.keys') },
+    ],
+    tips: [t('how.tip1'), t('how.tip2')],
+  }),
 };
 export default mod;

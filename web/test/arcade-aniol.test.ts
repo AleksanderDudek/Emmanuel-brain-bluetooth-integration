@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { RANKS, ROOM, ZMORY } from '../src/arcade/aniol/content';
 import { CATALOGS, t, unit } from '../src/arcade/aniol/i18n';
-import { bestOf, freshProgress, giftPool, nextRankAt, rankOf, roomItems, type AniolProgress } from '../src/arcade/aniol/meta';
+import {
+  bestOf, buyUp, canBuy, chapterOf, freshProgress, giftPool, migrate, nextRankAt, nightInChapter, rankOf, roomItems, upPrice, type AniolProgress,
+} from '../src/arcade/aniol/meta';
 import { RULES } from '../src/arcade/aniol/rules';
-import { AURA_MARK, AniolSim, auraDps, auraFor, comboMult, finaleFor, levelNeed, planBlocks, type SimEvent, type Zmora } from '../src/arcade/aniol/sim';
+import { AURA_MARK, AniolSim, auraDps, auraFor, comboMult, comboRung, finaleFor, kindMix, levelNeed, planBlocks, type SimEvent, type Zmora } from '../src/arcade/aniol/sim';
+import { LINES, line, type Moment } from '../src/arcade/aniol/talk';
+import { CHAPTERS } from '../src/arcade/aniol/content';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
@@ -173,15 +177,17 @@ describe('the strike (touch)', () => {
     expect(sim.zmory.filter(z => z.kind === 'cien' && z.state === 'walk')).toHaveLength(RULES.swarm);
   });
 
-  it('builds a combo ×2 from 10 hits and ×3 from 25 (feathers, not the count)', () => {
-    expect([0, 9, 10, 24, 25, 60].map(comboMult)).toEqual([1, 1, 2, 2, 3, 3]);
+  it('climbs a combo ladder ×2 from 8 hits, ×3 from 20, ×4 from 40, ×5 from 70 (feathers, not the count)', () => {
+    expect([0, 7, 8, 19, 20, 39, 40, 70, 200].map(comboMult)).toEqual([1, 1, 2, 2, 3, 3, 4, 5, 5]);
+    expect(comboRung(4)).toEqual({ next: 8, k: 0.5 });
+    expect(comboRung(80).next).toBeNull();
     const sim = later();
     quiet(sim);
-    sim.combo = 9;
+    sim.combo = 7;
     place(sim, 'mara', 1, 2.0);
     sim.strike(1);
     const evs = sim.take();
-    expect(ofType(evs, 'combo')[0]).toMatchObject({ n: 10, mult: 2 });
+    expect(ofType(evs, 'combo')[0]).toMatchObject({ n: 8, mult: 2 });
     expect(ofType(evs, 'banish')[0].feathers).toBe(2);
     expect(sim.score).toBe(1);
   });
@@ -377,12 +383,14 @@ describe('levels and gifts', () => {
     expect(levelNeed(0)).toBe(RULES.levelBase);
     const sim = later();
     quiet(sim);
-    for (let i = 0; i < RULES.levelBase; i++) {
+    const got: SimEvent[] = [];
+    for (let i = 0; i < RULES.levelBase && !sim.choice; i++) {
       place(sim, 'mara', 1, 2.0);
       sim.recover = 0;
       sim.strike(1);
+      got.push(...sim.take());
     }
-    const lv = ofType(sim.take(), 'level');
+    const lv = ofType(got, 'level');
     expect(lv).toHaveLength(1);
     expect(new Set(lv[0].options).size).toBe(3);
     const z = place(sim, 'mara', -1, 4);
@@ -489,7 +497,7 @@ describe('Koszmar and the dawn', () => {
         sim.strike(k.side);
       }
       const evs = drive(sim, STEP, frame(), clock);
-      if (ofType(evs, 'koszmar').some(e => e.what === 'turn')) turns.push(k.side);
+      if (ofType(evs, 'boss').some(e => e.what === 'turn')) turns.push(k.side);
     }
     expect(turns.length).toBeGreaterThanOrEqual(1);
     expect(turns[0]).toBe(-side0);
@@ -529,6 +537,9 @@ describe('the meta', () => {
     const p = sim.p;
     expect(p.sessions).toBe(1);
     expect(p.feathers).toBe(RULES.ranks[1] - 5 + sim.feathers + RULES.dayGift);
+    expect(p.wallet).toBe(sim.feathers + RULES.dayGift);
+    expect(p.night).toBe(1);
+    expect(p.stars[0]).toBeGreaterThanOrEqual(1);
     expect(p.giftDay).toBe(DAY);
     const before = JSON.stringify(p);
     sim.finish();
@@ -639,12 +650,410 @@ describe('the lobby (index.ts, panel.ts)', () => {
     expect(mod.unit!(5)).toBe('zmór');
   });
 
-  it('builds the progress card from elements: the rank, the room\'s seven things, the gifts', async () => {
+  it('builds the progress card from elements: the rank, the room\'s seven things, the dreams, the tree', async () => {
     const { progressPanel } = await import('../src/arcade/aniol/panel');
-    const p = { ...freshProgress(), sessions: 3, feathers: RULES.ranks[2] + 1, total: 120 };
-    const el = progressPanel(p);
+    const p = { ...freshProgress(), sessions: 3, feathers: RULES.ranks[2] + 1, total: 120, wallet: 60, night: 4, stars: [1, 2, 3, 1] };
+    let saved = 0;
+    const el = progressPanel(p, () => { saved++; });
     expect(el.querySelectorAll('.arcade-album > div')).toHaveLength(ROOM.length);
     expect(el.querySelectorAll('.arcade-album > div.on')).toHaveLength(2);
     expect(el.textContent).toContain(RANKS[2]);
+    expect(el.querySelectorAll('[data-up]')).toHaveLength(6);
+    const buy = el.querySelector<HTMLButtonElement>('[data-up="reach"] button')!;
+    expect(buy.disabled).toBe(false);
+    buy.click();
+    expect(p.up.reach).toBe(1);
+    expect(p.wallet).toBe(60 - RULES.upCost[0]);
+    expect(saved).toBe(1);
+    const locked = el.querySelector<HTMLButtonElement>('[data-up="flame"] button');
+    expect(locked?.disabled ?? true).toBe(true);
+  });
+
+  it('teaches how to play in four languages: a goal, three controls, two tips', async () => {
+    const mod = (await import('../src/arcade/aniol/index')).default;
+    const h = mod.howto!();
+    expect(h.goal.length).toBeGreaterThan(10);
+    expect(h.hands.map(x => x.gesture)).toEqual(['tap', 'tap', 'keys']);
+    expect(h.tips).toHaveLength(2);
+  });
+});
+
+describe('v2: the perfect window, close calls, armour without the band', () => {
+  it('a hit as the Zmora enters the reach is perfect: +2 on the combo and a feather more', () => {
+    const sim = later();
+    quiet(sim);
+    const z = place(sim, 'mara', 1, sim.reach + ZMORY.mara.r - 0.1);
+    sim.strike(1);
+    const hit = ofType(sim.take(), 'hit')[0];
+    expect(hit.perfect).toBe(true);
+    expect(z.state).toBe('gone');
+    expect(sim.combo).toBe(2);
+    expect(sim.perfects).toBe(1);
+    place(sim, 'mara', 1, 1.8);
+    sim.strike(1);
+    expect(ofType(sim.take(), 'hit')[0].perfect).toBe(false);
+    expect(sim.combo).toBe(3);
+  });
+
+  it('counts a Zmora struck right at the bed as a close call', () => {
+    const sim = later();
+    quiet(sim);
+    place(sim, 'mara', -1, RULES.bedHalf + ZMORY.mara.r + 0.2);
+    sim.strike(-1);
+    expect(ofType(sim.take(), 'close')).toHaveLength(1);
+    expect(sim.closeCalls).toBe(1);
+  });
+
+  it('cracks armour after three bounces even with no signal at all', () => {
+    const sim = later();
+    quiet(sim);
+    const p = place(sim, 'pancerna', 1, 2.0);
+    for (let i = 0; i < RULES.crackBounces; i++) {
+      p.d = 2.0;
+      sim.recover = 0;
+      sim.strike(1);
+    }
+    expect(p.armoured).toBe(false);
+    p.d = 2.0;
+    sim.strike(1);
+    sim.strike(1);
+    expect(p.state).toBe('gone');
+  });
+
+  it('a touch at the bed breaks the combo', () => {
+    const sim = later();
+    quiet(sim);
+    sim.combo = 12;
+    place(sim, 'mara', 1, RULES.bedHalf + ZMORY.mara.r + 0.02);
+    drive(sim, 0.1, frame());
+    expect(sim.combo).toBe(0);
+  });
+});
+
+describe('v2: the new nightmares', () => {
+  it('Fikołek: after the first hit it somersaults over the bed and is struck on the other side', () => {
+    const sim = later();
+    quiet(sim);
+    const f = place(sim, 'fikolek', -1, 2.0);
+    sim.strike(-1);
+    expect(ofType(sim.take(), 'flip')).toHaveLength(1);
+    expect(f.flip).toBeGreaterThan(0);
+    // over the bed it cannot be struck and does not touch the bed
+    drive(sim, RULES.flipSec / 2, frame());
+    expect(f.z).toBeGreaterThan(RULES.airHit);
+    const sen = sim.sen;
+    drive(sim, RULES.flipSec / 2 + 0.05, frame());
+    expect(sim.sen).toBe(sen);
+    expect(f.side).toBe(1);
+    expect(f.d).toBeGreaterThan(RULES.flipTo - 0.3);
+    f.d = 2.0;
+    sim.recover = 0;
+    sim.strike(1);
+    expect(f.state).toBe('gone');
+    expect(sim.score).toBe(1);
+  });
+
+  it('Kleks: stops out of reach, puffs and spits; the drop struck back banishes it, a drop at the bed dims Sen', () => {
+    const sim = later();
+    quiet(sim);
+    const k = place(sim, 'kleks', 1, RULES.kleksStop + 0.3);
+    let evs = drive(sim, 4, frame());
+    expect(k.d - k.r).toBeGreaterThan(sim.reach);
+    expect(ofType(evs, 'spit').length).toBeGreaterThanOrEqual(1);
+    // strike when the drop is in reach
+    let guard = 0;
+    while (!sim.drops.some(o => o.dir < 0 && o.d <= sim.reach) && guard++ < 600) evs = drive(sim, STEP, frame());
+    sim.recover = 0;
+    sim.strike(1);
+    expect(ofType(sim.take(), 'deflect')).toHaveLength(1);
+    evs = drive(sim, 1, frame());
+    expect(k.state).toBe('gone');
+    expect(ofType(evs, 'banish').some(e => e.via === 'deflect')).toBe(true);
+    // a drop left alone splashes the dream
+    const k2 = place(sim, 'kleks', -1, RULES.kleksStop);
+    k2.spitT = 0;
+    const before = sim.sen;
+    evs = drive(sim, 3, frame());
+    expect(ofType(evs, 'splash').length).toBeGreaterThanOrEqual(1);
+    expect(sim.sen).toBeLessThan(before);
+  });
+
+  it('Ciągutek: at the bed it holds on and dims Sen slowly until three quick hits free it', () => {
+    const sim = later();
+    quiet(sim);
+    const c = place(sim, 'ciagutek', 1, RULES.bedHalf + ZMORY.ciagutek.r + 0.02);
+    let evs = drive(sim, 0.1, frame());
+    expect(ofType(evs, 'grab')).toHaveLength(1);
+    expect(c.grab).toBe(true);
+    const s0 = sim.sen;
+    drive(sim, 2, frame());
+    expect(sim.sen).toBeLessThan(s0);
+    expect(sim.sen).toBeGreaterThan(s0 - 0.2);
+    for (let i = 0; i < 3; i++) {
+      sim.recover = 0;
+      sim.strike(1);
+      evs = drive(sim, 0.1, frame());
+    }
+    expect(c.state).toBe('gone');
+  });
+
+  it('every new kind comes in with its dream (one or two a dream)', () => {
+    const kinds = (night: number) => kindMix(night, 1, false).map(m => m[0]);
+    expect(kinds(0)).not.toContain('kleks');
+    expect(kinds(3)).toContain('kleks');
+    expect(kinds(6)).toContain('fikolek');
+    expect(kinds(7)).toContain('szept');
+    expect(kinds(9)).toContain('ciagutek');
+    expect(chapterOf(0)).toBe(0);
+    expect(chapterOf(3)).toBe(1);
+    expect(chapterOf(99)).toBe(CHAPTERS.length - 1);
+    expect(nightInChapter(4)).toBe(2);
+  });
+});
+
+describe('v2: Płomień gives Skrzydła ognia', () => {
+  it('for a few seconds every strike pierces its side and hits double', () => {
+    const sim = later();
+    quiet(sim);
+    (sim as unknown as { flame(): void }).flame();
+    expect(sim.glory).toBeCloseTo(RULES.glorySec);
+    sim.take();
+    for (const d of [2.0, 3.0, 4.2]) place(sim, 'widmo', 1, d);
+    sim.strike(1);
+    expect(ofType(sim.take(), 'banish')).toHaveLength(3);
+    const evs = drive(sim, RULES.glorySec + 0.5, frame());
+    expect(ofType(evs, 'glory').some(e => !e.on)).toBe(true);
+  });
+});
+
+describe('v2: the dreams\' great nightmares', () => {
+  /** Plays a finale with a striker that waits for the right moment (a drop in reach, a boss at the bed). */
+  function finale(night: number, planned = 300) {
+    const sim = later({ planned, progress: { night } });
+    const clock = { t: 0 };
+    let all: SimEvent[] = [];
+    while (sim.phase === 'play') all.push(...drive(sim, STEP, frame(), clock));
+    all = all.slice(all.findIndex(e => e.type === 'finale'));
+    // the plain angel (no gifts of the night): only the boss's openings reach it
+    for (const k of Object.keys(sim.taken)) delete sim.taken[k as keyof typeof sim.taken];
+    sim.choice = null;
+    let guard = 0;
+    while (sim.phase === 'finale' && guard++ < 60 * 30) {
+      for (const side of [-1, 1] as const) {
+        const drop = sim.drops.some(o => o.dir < 0 && o.side === side && o.d <= sim.reach);
+        const z = sim.zmory.some(x => x.side === side && x.state === 'walk' && x.d - x.r <= sim.reach && x.z <= RULES.airHit && x.flip <= 0 && !x.turning
+          && !(x.boss && sim.boss && (sim.boss.move === 'sea' || sim.boss.move === 'hop')));
+        if ((drop || z) && sim.recover <= 0) sim.strike(side);
+      }
+      all.push(...drive(sim, STEP, frame(), clock));
+    }
+    return { sim, all };
+  }
+
+  it('each dream has its own: Koszmar, Kufer, Wilk, Ośmiornica, Burza', () => {
+    expect(CHAPTERS.map(c => c.boss)).toEqual(['koszmar', 'kufer', 'wilk', 'osmiornica', 'burza']);
+    for (const c of CHAPTERS) expect(passage(c.verse).text.length).toBeGreaterThan(10);
+  });
+
+  it('a well-timed defence banishes every one of them, through its second phase', () => {
+    for (const night of [0, 3, 6, 9, 12]) {
+      const { sim, all } = finale(night);
+      const boss = ofType(all, 'boss');
+      expect(boss.some(e => e.what === 'phase'), `night ${night}`).toBe(true);
+      expect(sim.koszmar, `night ${night}`).toBe('banished');
+      expect(sim.phase).toBe('done');
+      expect(sim.nightStars).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it('telegraphs its moves: the Wilk crouches before it dashes; the Kufer winds up before it spits', () => {
+    const w = finale(6).all.filter(e => e.type === 'boss').map(e => (e as { what: string }).what);
+    const firstDash = w.indexOf('dash');
+    expect(firstDash).toBeGreaterThan(0);
+    expect(w.slice(0, firstDash)).toContain('wind');
+    const k = finale(3).all;
+    const i = k.findIndex(e => e.type === 'spit');
+    expect(k.slice(0, i).some(e => e.type === 'boss' && e.what === 'wind')).toBe(true);
+  });
+
+  it('the Ośmiornica reaches with arms from both sides; banished arms hurt it', () => {
+    const { all } = finale(9);
+    const sides = new Set(ofType(all, 'spawn').filter(e => e.kind === 'ramie').map(e => e.side));
+    expect(sides.size).toBe(2);
+    expect(ofType(all, 'boss').some(e => e.what === 'hurt')).toBe(true);
+  });
+
+  it('flees at dawn when not banished, never a loss', () => {
+    const sim = later({ planned: 300, progress: { night: 6 } });
+    drive(sim, 301, frame());
+    expect(sim.koszmar).toBe('fled');
+    expect(sim.phase).toBe('done');
+    expect(sim.nightStars).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('v2: the standard HUD (signal, meter, headline)', () => {
+  it('says the block, its seconds left and the next block during the telegraph', () => {
+    const sim = later({ planned: 300 });
+    const clock = { t: 0 };
+    drive(sim, 1, frame(), clock);
+    let s = sim.signal();
+    expect(s.want).toBe('focus');
+    expect(s.left).toBeCloseTo(sim.block.dur - 1, 0);
+    expect(s.next).toBeNull();
+    expect(s.task!.length).toBeGreaterThan(5);
+    while (sim.blockT < sim.block.dur - 2) drive(sim, STEP, frame(), clock);
+    s = sim.signal();
+    expect(s.next).toBe('rest');
+  });
+
+  it('the gauge is the aura\'s reach in a Czuwanie (0.5 at the dotted ring), calm in the lullaby, hidden when blind or without signal', () => {
+    const sim = later();
+    quiet(sim);
+    drive(sim, 1, HIGH);
+    expect(sim.meter()).toBeNull();   // the band's delay
+    drive(sim, 8, frame({ level: 0.5 }));
+    expect(sim.meter()!).toBeCloseTo(0.5, 1);
+    drive(sim, 4, HIGH);
+    expect(sim.meter()!).toBeGreaterThan(0.8);
+    drive(sim, 1, frame({ reliable: false, activity: null }));
+    expect(sim.meter()).toBeNull();
+    toBlock(sim, 1, CALM);
+    drive(sim, 3, CALM);
+    expect(sim.meter()!).toBeGreaterThan(0.6);
+  });
+
+  it('the headline is the live score (the same as result().score) with a combo or the night under it', () => {
+    const sim = later();
+    quiet(sim);
+    expect(sim.headline().sub).toContain(t('ch.pokoj'));
+    for (let i = 0; i < 3; i++) {
+      place(sim, 'mara', 1, 2.0);
+      sim.recover = 0;
+      sim.strike(1);
+    }
+    expect(sim.headline().value).toBe(3);
+    expect(sim.result().score).toBe(3);
+    expect(sim.headline().sub).toBe(t('sub.combo', { n: 3, m: 1 }));
+  });
+});
+
+describe('v2: coach marks, Pan Guzik and the story', () => {
+  it('teaches the first session one mark at a time, each once ever', () => {
+    const sim = makeSim({ planned: 300 });
+    const evs = drive(sim, 25, frame(), { t: 0 }, () => { if (sim.zmory.some(z => z.d - z.r <= sim.reach)) sim.strike(0); });
+    const marks = ofType(evs, 'coach');
+    expect(marks[0].key).toBe('coach.tap');
+    expect(marks[0].at).toHaveProperty('z');
+    expect(marks.map(m => m.key)).toContain('coach.middle');
+    expect(new Set(marks.map(m => m.key)).size).toBe(marks.length);
+    // the next night: none of those again
+    const next = makeSim({ planned: 300, progress: { ...sim.p, sessions: 1 } });
+    const again = ofType(drive(next, 25, frame(), { t: 0 }, () => next.strike(0)), 'coach').map(m => m.key);
+    for (const m of marks) expect(again).not.toContain(m.key);
+  });
+
+  it('opens with the story card (the first night, then the dream\'s), and the bear talks one line at a time, never over the banner', () => {
+    const sim = makeSim({ planned: 300 });
+    const story = ofType(sim.take(), 'story');
+    expect(story[0]).toMatchObject({ kind: 'open', chapter: 0 });
+    const clock = { t: 0 };
+    let says = 0;
+    drive(sim, 200, frame(), clock, () => {
+      for (const e of sim.take()) {
+        if (e.type !== 'say') continue;
+        says++;
+        const b = sim.block;
+        if (sim.phase === 'play' && b.kind !== 'warmup' && e.moment !== 'open') {
+          expect(sim.blockT, e.moment).toBeGreaterThanOrEqual(RULES.quietStart - 0.01);
+        }
+      }
+    });
+    expect(says).toBeGreaterThanOrEqual(4);
+    const later2 = makeSim({ planned: 300, progress: { sessions: 3, night: 3, seen: ['story.open'] } });
+    expect(ofType(later2.take(), 'story')[0]).toMatchObject({ kind: 'chapter', chapter: 1 });
+  });
+
+  it('has three or more lines a moment, each short enough for a bubble, in every language', () => {
+    for (const m of Object.keys(LINES) as Moment[]) {
+      expect(LINES[m]).toBeGreaterThanOrEqual(3);
+      for (const cat of Object.values(CATALOGS)) {
+        for (let i = 1; i <= LINES[m]; i++) {
+          const v = (cat as Record<string, unknown>)[`say.${m}.${i}`];
+          expect(typeof v, `${m}.${i}`).toBe('string');
+          expect((v as string).length, `${m}.${i}: ${v}`).toBeLessThanOrEqual(90);
+        }
+      }
+      expect(line(m, 1)).not.toBe(line(m, 2));
+    }
+  });
+});
+
+describe('v2: the meta (old saves, the tree, the dreams)', () => {
+  it('migrates a version-1 save from a device: records, sessions and feathers kept, the dreams start, a welcome in the wallet', () => {
+    // a real version-1 save, merged over the fresh defaults the way the app loads it (mergeSaved)
+    const v1 = {
+      v: 1, sessions: 7, total: 213, feathers: 640, pushes: 15, best: { 180: 31, 300: 44, junk: 'x' }, lastLen: 300,
+      bestCombo: 27, bestLevel: 5, koszmary: 3, flames: 4, calmNights: 2, giftDay: '2026-11-05',
+    };
+    const p = { ...freshProgress(), ...v1 } as unknown as AniolProgress;
+    migrate(p);
+    expect(p.ver).toBe(2);
+    expect('v' in p).toBe(false);
+    expect(p.sessions).toBe(7);
+    expect(p.best).toEqual({ 180: 31, 300: 44 });
+    expect(p.feathers).toBe(640);
+    expect(p.wallet).toBe(RULES.welcome);
+    expect(p.night).toBe(0);
+    expect(p.up).toEqual({ reach: 0, perfect: 0, aura: 0, flame: 0, sen: 0, lull: 0 });
+    expect(bestOf(p)).toBe(44);
+    // a migrated save plays a night
+    const sim = makeSim({ progress: p, planned: 40 });
+    drive(sim, 41, frame());
+    expect(sim.p.sessions).toBe(8);
+    // a second migrate keeps a version-2 save as it is
+    const copy = JSON.parse(JSON.stringify(sim.p));
+    migrate(sim.p);
+    expect(sim.p).toEqual(copy);
+  });
+
+  it('never crashes on fields of a wrong type', () => {
+    const bad = { ...freshProgress(), ver: 2, up: 'nope', stars: { 0: 3 }, seen: [1, 'coach.tap'], wallet: '12', night: -3, best: [5] } as unknown as AniolProgress;
+    migrate(bad);
+    expect(bad.up.reach).toBe(0);
+    expect(bad.stars).toEqual([]);
+    expect(bad.seen).toEqual(['coach.tap']);
+    expect(bad.wallet).toBe(0);
+    expect(bad.night).toBe(0);
+    expect(bad.best).toEqual({});
+  });
+
+  it('the tree: prices climb, a branch\'s second node needs the first, the numbers act in the night', () => {
+    const p = { ...freshProgress(), wallet: 1000 };
+    expect(upPrice(p, 'reach')).toBe(RULES.upCost[0]);
+    expect(canBuy(p, 'perfect')).toBe(false);
+    expect(buyUp(p, 'reach')).toBe(true);
+    expect(canBuy(p, 'perfect')).toBe(true);
+    expect(upPrice(p, 'reach')).toBe(RULES.upCost[1]);
+    for (let i = 0; i < 5; i++) buyUp(p, 'reach');
+    expect(p.up.reach).toBe(RULES.upMax);
+    expect(upPrice(p, 'reach')).toBeNull();
+    expect(p.wallet).toBe(1000 - RULES.upCost.reduce((s, c) => s + c, 0));
+    const poor = { ...freshProgress(), wallet: 5 };
+    expect(buyUp(poor, 'aura')).toBe(false);
+    const sim = later({ progress: { up: { reach: 2, perfect: 0, aura: 1, flame: 1, sen: 3, lull: 0 } } });
+    expect(sim.reach).toBeCloseTo(RULES.reach + 2 * RULES.up.reach);
+    expect(sim.auraWide).toBeCloseTo(1 + RULES.up.aura);
+    expect(sim.flameNeed).toBeCloseTo(5 * (1 - RULES.up.flame));
+  });
+
+  it('moves the campaign a night on with each session and keeps the best stars', () => {
+    const sim = later({ planned: 60, progress: { night: 2, stars: [3, 2, 3] } });
+    expect(sim.chapterIndex).toBe(0);
+    drive(sim, 61, frame());
+    expect(sim.p.night).toBe(3);
+    expect(sim.p.stars[2]).toBe(3);
+    const r = sim.result();
+    expect(r.highlights[r.highlights.length - 1]).toBe(t('hl.nextDream', { dream: t('ch.strych') }));
   });
 });

@@ -8,7 +8,8 @@
 import { approach, clamp, ease } from '../kit/juice';
 import type { AniolProgress } from './meta';
 import { roomItems } from './meta';
-import { C, glow, paintAngel, paintBed, paintFeather, paintLamp, paintRoom, paintRoomItem, paintSill, paintStar, paintWindow, type AngelPose } from './paint';
+import { C, glow, paintAngel, paintBear, paintBed, paintDream, paintFeather, paintLamp, paintRoom, paintRoomItem, paintSill, paintStar, paintWindow, type AngelPose } from './paint';
+import { chapterOf } from './meta';
 import { rankOf } from './meta';
 
 export class AniolIntro {
@@ -24,7 +25,10 @@ export class AniolIntro {
     const S = Math.max(26, Math.min(w / 10.4, h / 7.2));
     const cx = w / 2, floorY = h * 0.6;
     const win = { x: cx - Math.min(w * 0.4, S * 3.4), y: Math.max(16, floorY - S * 5.2), w: Math.min(w * 0.8, S * 6.8), h: S * 1.2 };
-    paintRoom(ctx, { w, h, cx, floorY, s: S, win }, t, 0);
+    // the room — or the dream the child is falling into tonight
+    const ch = chapterOf(progress.night ?? 0);
+    if (ch === 0) paintRoom(ctx, { w, h, cx, floorY, s: S, win }, t, 0);
+    else paintDream(ctx, ch, { w, h, cx, floorY, s: S, win }, t, 0);
     const items = roomItems(rankOf(progress.feathers));
     paintWindow(ctx, win.x, win.y, win.w, win.h, t, 0, items.includes('curtain'));
     paintSill(ctx, win.x, win.y + win.h + 3, win.w, S * 0.28);
@@ -42,7 +46,7 @@ export class AniolIntro {
     glow(ctx, lamp.x, lamp.y, S * 3.2, C.lampGlow, 0.34);
     ctx.restore();
     paintBed(ctx, cx, floorY, S, t, 0, items.includes('blanket'));
-    if (items.includes('bear')) paintRoomItem(ctx, 'bear', cx - 1.45 * S, floorY - 0.24 * S, 0.3 * S);
+    paintBear(ctx, cx + 0.68 * S, floorY - 0.86 * S, 0.27 * S, { talk: 0, cap: items.includes('nightcap'), look: -1, hide: 0, t });
     // the light from the window, becoming the angel over the bed
     const travel = ease.inOutSine(clamp(k / 0.7));
     const sx = win.x + win.w * 0.78, sy = win.y + win.h * 0.4;
