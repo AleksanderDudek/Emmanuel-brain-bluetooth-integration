@@ -1,195 +1,123 @@
 /**
- * Where Arka's play view puts things (CSS px), for phones upright and on their side and for
- * desktops.  Upright ("stack"): the new land along the top under the runner's strip, the landing
- * with its stalls under it, the deck below.  Wide ("side"): the HUD on the left, the deck left of
- * centre, the land and the landing to its right.  The warm-up's deck always sits so that the smoke
- * test's tap (50 %, 60 %) falls on the centre of its anchor cell, where the sheep stands.  The
- * runner's top strip, the simulator button (bottom left) and the signal banner (bottom centre)
- * stay clear of the game's controls and text.
+ * Where Arka's parts sit on the canvas (CSS px), for any screen: the runner's HUD band at the top
+ * (`top`, from env.hudTop()), under it the deck's bar (hearts, the level, the dove's button), the deck
+ * itself (the board's grid, centred, its cells as large as fit), and the new land's strip at the
+ * bottom where the first of each kind waits for its mate.  The raven perches on the deck's rail.
+ * Pure arithmetic, so the tests can check every screen size.
  */
-import { clamp } from '../kit/juice';
-import { ANCHOR } from './content';
-
-/** The runner's own UI: the top strip (time, pause) and the bottom strip (signal banner, simulator button). */
-export const TOP = 64;
-export const BOTTOM = 66;
-/** Stalls the landing can grow to. */
-export const SLOTS = 6;
-
 export interface Rect { x: number; y: number; w: number; h: number }
 export interface Pt { x: number; y: number }
 
 export interface Layout {
   w: number;
   h: number;
-  /** UI scale */
-  u: number;
-  mode: 'stack' | 'side';
+  top: number;
+  portrait: boolean;
+  /** a short landscape screen: the deck right of the panel, the bar and the new land in the column under it */
+  compact: boolean;
+  /** a wide landscape screen: the deck in the middle column between the panel and the score, up to the top bar */
+  wide: boolean;
+  /** the bar over the deck: hearts on the left, the level in the middle, the dove on the right */
+  bar: Rect;
+  dove: Pt & { r: number };
+  /** the deck's grid */
+  deck: Rect;
+  cell: number;
   cols: number;
   rows: number;
-  /** one deck cell (px) and the deck itself */
-  c: number;
-  deck: Rect;
-  /** the rail's width around the deck */
-  rail: number;
-  /** the new land's panorama */
-  land: Rect;
-  /** the landing: the door at its left end, then six stalls (three built from the start) */
-  landing: Rect;
-  stall: number;
-  door: Rect;
-  /** where the rail meets the landing */
-  gate: Pt;
-  /** the status (block, line, bar) and the score's right edge and top */
-  status: Rect;
-  score: Pt;
-  /** the leaf chip (tap it, then a waiting animal) */
-  leaf: Rect;
+  /** the new land's strip, and the gangway's foot on it (the deck's door) */
+  shore: Rect;
+  door: Pt;
+  /** the raven's perch (its feet) and its size */
+  raven: Pt & { s: number };
 }
 
-const G = 14;
+export const BAR_H = 40;
+export const MAX_CELL = 68;
 
-/** The play view's layout for a deck of `cols` × `rows`; `anchored`: the warm-up, its anchor cell under (50 %, 60 %). */
-export function layout(w: number, h: number, cols: number, rows: number, anchored: boolean): Layout {
-  const W = Math.max(240, w), H = Math.max(240, h);
-  const u = clamp(Math.min(W, H) / 430, 0.84, 1.25);
-  return W / H >= 1.2 ? side(W, H, u, cols, rows, anchored) : stack(W, H, u, cols, rows, anchored);
-}
-
-/** The largest cell for the deck in `zone`, and the deck placed in it (the anchored warm-up keeps its cell under the smoke tap). */
-function placeDeck(W: number, H: number, zone: Rect, cols: number, rows: number, anchored: boolean, cMax: number): { c: number; deck: Rect } {
-  let c = Math.min(cMax, zone.w / cols, zone.h / rows);
-  if (anchored) {
-    const ax = W * 0.5, ay = H * 0.6;
-    c = Math.min(c, (ax - zone.x) / (ANCHOR.x + 0.5), (zone.x + zone.w - ax) / (cols - ANCHOR.x - 0.5),
-      (ay - zone.y) / (ANCHOR.y + 0.5), (zone.y + zone.h - ay) / (rows - ANCHOR.y - 0.5));
-    c = Math.max(24, Math.floor(c));
-    return { c, deck: { x: ax - (ANCHOR.x + 0.5) * c, y: ay - (ANCHOR.y + 0.5) * c, w: cols * c, h: rows * c } };
+export function layout(w: number, h: number, top: number, cols: number, rows: number): Layout {
+  const portrait = h > w;
+  const m = 12;
+  const t = Math.max(0, Math.min(top, h * 0.45)) + 4;
+  const s0 = (cell: number) => Math.max(26, Math.min(46, cell * 0.8));
+  // a short landscape screen (a phone on its side): the deck goes right of the Mendi panel, under the
+  // score corner only, and the bar and the new land fill the column under the panel
+  if (!portrait && h - t < 330) {
+    const split = Math.round(w * 0.64) + 6;
+    const y0 = Math.round(Math.min(t, Math.max(56, t * 0.55)));
+    // the score corner (about 120 px wide) sits top right: the deck keeps left of it
+    const availW = Math.max(40, w - split - 138), availH = Math.max(40, h - y0 - 10);
+    const cell = Math.max(12, Math.floor(Math.min(availW / cols, availH / rows, MAX_CELL)));
+    const dw = cell * cols, dh = cell * rows;
+    const deck: Rect = { x: Math.round(split + (availW - dw) / 2), y: Math.round(y0 + (availH - dh) / 2), w: dw, h: dh };
+    const bar: Rect = { x: m, y: t, w: split - 2 * m, h: BAR_H };
+    const shore: Rect = { x: 0, y: bar.y + bar.h + 6, w: split - m, h: Math.max(40, h - (bar.y + bar.h + 6)) };
+    const r = 19;
+    const s = s0(cell) * 0.85;
+    return {
+      w, h, top: t, portrait, compact: true, wide: false, bar, dove: { x: bar.x + bar.w - r - 2, y: bar.y + bar.h / 2, r }, deck, cell, cols, rows, shore,
+      door: { x: deck.x + deck.w / 2, y: deck.y + deck.h }, raven: { x: split - s * 0.9, y: shore.y + s * 0.2, s },
+    };
   }
-  c = Math.max(22, Math.floor(c));
-  const dw = cols * c, dh = rows * c;
-  return { c, deck: { x: Math.round(zone.x + (zone.w - dw) / 2), y: Math.round(zone.y + (zone.h - dh) / 2), w: dw, h: dh } };
-}
-
-function stack(W: number, H: number, u: number, cols: number, rows: number, anchored: boolean): Layout {
-  const landH = clamp(H * 0.2, 120, 230);
-  const land = { x: 0, y: TOP, w: W, h: landH };
-  // the landing and the leaf chip beside it share one row
-  const leafS = Math.round(clamp(W * 0.11, 40, 52));
-  const stall = Math.floor(clamp((W - 2 * G - leafS - 8) / (SLOTS + 1.1), 36, 62));
-  const doorW = Math.round(stall * 1.1);
-  const lw = doorW + SLOTS * stall;
-  const landing = { x: Math.round((W - lw - 8 - leafS) / 2), y: Math.round(TOP + landH + 4), w: lw, h: stall + 14 };
-  const rail0 = 14 * u;
-  const zone = { x: G + rail0, y: landing.y + landing.h + 10 + rail0, w: W - 2 * (G + rail0), h: 0 };
-  zone.h = H - BOTTOM - rail0 - 4 - zone.y;
-  const cMax = W >= 900 && H >= 700 ? 76 : 62;
-  const { c, deck } = placeDeck(W, H, zone, cols, rows, anchored, cMax);
-  const rail = Math.round(clamp(c * 0.3, 10, 20));
-  const door = { x: landing.x, y: landing.y, w: doorW, h: landing.h };
-  const gate = { x: landing.x + doorW + stall * 1.5, y: landing.y + landing.h };
-  const status = { x: G + 4, y: TOP + 6, w: Math.min(W * 0.58, 330 * u), h: landH - 12 };
-  const leaf = { x: landing.x + lw + 8, y: landing.y + (landing.h - leafS) / 2, w: leafS, h: leafS };
-  return { w: W, h: H, u, mode: 'stack', cols, rows, c, deck, rail, land, landing, stall, door, gate, status, score: { x: W - G - 4, y: TOP + 6 }, leaf };
-}
-
-function side(W: number, H: number, u: number, cols: number, rows: number, anchored: boolean): Layout {
-  const hudW = clamp(W * 0.22, 170, 290);
-  const rail0 = 14 * u;
-  const colMin = clamp(W * 0.3, 230, 520);
-  // the deck between the HUD and the right column, above the banner
-  const zone = { x: hudW + rail0 + 10, y: TOP + rail0 + 2, w: 0, h: 0 };
-  zone.w = W - colMin - G - rail0 - 14 - zone.x;
-  zone.h = H - 60 - rail0 - zone.y;
-  const cMax = H >= 700 ? 76 : 62;
-  const { c, deck } = placeDeck(W, H, zone, cols, rows, anchored, cMax);
-  const rail = Math.round(clamp(c * 0.3, 10, 20));
-  const rx = Math.max(deck.x + deck.w + rail + 18, W - G - colMin);
-  const colW = W - G - rx;
-  const landH = Math.round(clamp((H - TOP) * 0.44, 110, 380));
-  const land = { x: rx, y: TOP, w: colW, h: landH };
-  const stall = Math.floor(clamp(colW / (SLOTS + 1.3), 30, 62));
-  const doorW = Math.round(stall * 1.1);
-  const lw = doorW + SLOTS * stall;
-  const landing = { x: Math.round(rx + (colW - lw) / 2), y: Math.round(TOP + landH + 6), w: lw, h: stall + 14 };
-  const door = { x: landing.x, y: landing.y, w: doorW, h: landing.h };
-  const gate = { x: landing.x, y: landing.y + landing.h / 2 };
-  const leafS = Math.round(clamp(stall * 1.05, 40, 52));
-  const leaf = { x: landing.x + lw - leafS, y: landing.y + landing.h + 10, w: leafS, h: leafS };
-  const status = { x: G + 4, y: TOP + 4, w: hudW - G - 8, h: H - TOP - 80 };
-  return { w: W, h: H, u, mode: 'side', cols, rows, c, deck, rail, land, landing, stall, door, gate, status, score: { x: hudW - 10, y: TOP + 4 }, leaf };
-}
-
-/** A stall's centre (i: 0..5). */
-export function stallAt(L: Layout, i: number, out: Pt): Pt {
-  out.x = L.landing.x + L.door.w + (i + 0.5) * L.stall;
-  out.y = L.landing.y + L.landing.h * 0.54;
-  return out;
-}
-
-/** A cell's centre. */
-export function cellAt(L: Layout, x: number, y: number, out: Pt): Pt {
-  out.x = L.deck.x + (x + 0.5) * L.c;
-  out.y = L.deck.y + (y + 0.5) * L.c;
-  return out;
-}
-
-/** The deck cell under a point (null: none). */
-export function cellUnder(L: Layout, x: number, y: number): { x: number; y: number } | null {
-  const cx = Math.floor((x - L.deck.x) / L.c), cy = Math.floor((y - L.deck.y) / L.c);
-  return cx >= 0 && cy >= 0 && cx < L.cols && cy < L.rows ? { x: cx, y: cy } : null;
-}
-
-/** The stall under a point (−1: none). */
-export function stallUnder(L: Layout, x: number, y: number): number {
-  if (y < L.landing.y - 6 || y > L.landing.y + L.landing.h + 6) return -1;
-  const i = Math.floor((x - L.landing.x - L.door.w) / L.stall);
-  return i >= 0 && i < SLOTS ? i : -1;
-}
-
-export const inRect = (r: Rect, x: number, y: number, pad = 0): boolean => x >= r.x - pad && x <= r.x + r.w + pad && y >= r.y - pad && y <= r.y + r.h + pad;
-
-/**
- * The rail around the deck as a ring at half the rail's width: a point on it from a perimeter
- * coordinate s (0 at the top-left corner, clockwise), and the coordinate of a point on it.
- */
-export function railRect(L: Layout): Rect {
-  const k = L.rail * 0.5;
-  return { x: L.deck.x - k, y: L.deck.y - k, w: L.deck.w + 2 * k, h: L.deck.h + 2 * k };
-}
-
-export function railPoint(r: Rect, s: number, out: Pt): Pt {
-  const P = 2 * (r.w + r.h);
-  let q = ((s % P) + P) % P;
-  if (q < r.w) { out.x = r.x + q; out.y = r.y; return out; }
-  q -= r.w;
-  if (q < r.h) { out.x = r.x + r.w; out.y = r.y + q; return out; }
-  q -= r.h;
-  if (q < r.w) { out.x = r.x + r.w - q; out.y = r.y + r.h; return out; }
-  q -= r.w;
-  out.x = r.x;
-  out.y = r.y + r.h - q;
-  return out;
-}
-
-export function railCoord(r: Rect, x: number, y: number): number {
-  // the nearest side
-  const dTop = Math.abs(y - r.y), dRight = Math.abs(x - (r.x + r.w)), dBottom = Math.abs(y - (r.y + r.h)), dLeft = Math.abs(x - r.x);
-  const m = Math.min(dTop, dRight, dBottom, dLeft);
-  if (m === dTop) return clamp(x - r.x, 0, r.w);
-  if (m === dRight) return r.w + clamp(y - r.y, 0, r.h);
-  if (m === dBottom) return r.w + r.h + clamp(r.x + r.w - x, 0, r.w);
-  return 2 * r.w + r.h + clamp(r.y + r.h - y, 0, r.h);
-}
-
-/** Where the rail meets the walkway to the landing (on the ring). */
-export function railGate(L: Layout, r: Rect, out: Pt): Pt {
-  if (L.mode === 'stack') {
-    out.x = clamp(L.gate.x, r.x, r.x + r.w);
-    out.y = r.y;
-  } else {
-    out.x = r.x + r.w;
-    out.y = clamp(L.gate.y, r.y, r.y + r.h);
+  const shoreH = Math.round(Math.max(44, Math.min(72, h * 0.085)));
+  // a wide landscape screen: the Mendi panel (top left, ~340 px) and the score (top right, ~130 px)
+  // leave the middle column free up to the top bar, so the deck rises into it and its cells grow
+  if (!portrait && w >= 760) {
+    const panelR = Math.min(352, w * 0.3) + 14, scoreL = w - 142;
+    const half = Math.max(120, Math.min(w / 2 - panelR, scoreL - w / 2));
+    const bar: Rect = { x: Math.round(w / 2 - half), y: 60, w: Math.round(half * 2), h: BAR_H };
+    const areaTop = bar.y + bar.h + 8, areaBot = h - shoreH - 8;
+    const availW = bar.w, availH = Math.max(40, areaBot - areaTop);
+    const cell = Math.max(12, Math.floor(Math.min(availW / cols, availH / rows, MAX_CELL)));
+    const dw = cell * cols, dh = cell * rows;
+    const deck: Rect = { x: Math.round((w - dw) / 2), y: Math.round(areaTop + Math.max(0, (availH - dh) / 2)), w: dw, h: dh };
+    const shore: Rect = { x: 0, y: h - shoreH, w, h: shoreH };
+    const r = 21;
+    const s = s0(cell);
+    // the raven stands right of the deck, under the score corner
+    const rx = Math.min(w - s * 1.2, deck.x + deck.w + Math.max(s * 1.1, Math.min(90, (w - deck.x - deck.w) * 0.3)));
+    return {
+      w, h, top: t, portrait, compact: false, wide: true, bar, dove: { x: bar.x + bar.w - r - 2, y: bar.y + bar.h / 2, r }, deck, cell, cols, rows, shore,
+      door: { x: deck.x + deck.w / 2, y: deck.y + deck.h }, raven: { x: rx, y: Math.max(t + s * 1.2, deck.y + s * 1.6), s },
+    };
   }
-  return out;
+  const barW = portrait ? w - 2 * m : Math.min(w - 2 * m, Math.max(420, w * 0.5));
+  const bar: Rect = { x: Math.round((w - barW) / 2), y: t, w: barW, h: BAR_H };
+  const areaTop = bar.y + bar.h + 6;
+  const areaBot = h - shoreH - 8;
+  // landscape screens keep room beside the deck for the raven; phones use the whole width
+  const side = portrait ? m + 2 : Math.max(m + 4, Math.min(150, w * 0.12));
+  const availW = Math.max(40, w - 2 * side);
+  const availH = Math.max(40, areaBot - areaTop);
+  const cell = Math.max(12, Math.floor(Math.min(availW / cols, availH / rows, MAX_CELL)));
+  const dw = cell * cols, dh = cell * rows;
+  const deck: Rect = { x: Math.round((w - dw) / 2), y: Math.round(areaTop + Math.max(0, (availH - dh) / 2)), w: dw, h: dh };
+  const shore: Rect = { x: 0, y: h - shoreH, w, h: shoreH };
+  const r = 21;
+  const dove = { x: bar.x + bar.w - r - 2, y: bar.y + bar.h / 2, r };
+  const s = s0(cell);
+  // the raven: beside the deck's top-right corner when there is room, else on the rail's corner
+  const roomRight = w - (deck.x + deck.w);
+  const raven = roomRight > s * 2.2
+    ? { x: deck.x + deck.w + Math.min(roomRight * 0.45, s * 1.4), y: deck.y + s * 1.4, s }
+    : { x: deck.x + deck.w - s * 0.55, y: deck.y - 4, s: s * 0.85 };
+  return { w, h, top: t, portrait, compact: false, wide: false, bar, dove, deck, cell, cols, rows, shore, door: { x: deck.x + deck.w / 2, y: deck.y + deck.h }, raven };
 }
+
+/** The centre of a board cell in canvas px. */
+export const cellCentre = (L: Layout, x: number, y: number): Pt => ({ x: L.deck.x + (x + 0.5) * L.cell, y: L.deck.y + (y + 0.5) * L.cell });
+
+/** The board cell under a canvas point (null: off the deck). */
+export function cellAt(L: Layout, px: number, py: number): { x: number; y: number } | null {
+  const x = Math.floor((px - L.deck.x) / L.cell), y = Math.floor((py - L.deck.y) / L.cell);
+  return x >= 0 && y >= 0 && x < L.cols && y < L.rows ? { x, y } : null;
+}
+
+/** The mist's clear circle: centred on the door, its radius a share of the farthest corner's distance. */
+export function sightRadius(L: Layout, share: number): number {
+  const far = Math.hypot(L.deck.w / 2, L.deck.h);
+  return far * share;
+}
+
+export const inRect = (r: Rect, x: number, y: number, pad = 0): boolean =>
+  x >= r.x - pad && y >= r.y - pad && x <= r.x + r.w + pad && y <= r.y + r.h + pad;

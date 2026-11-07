@@ -1,973 +1,1092 @@
 /**
- * Arka's play view, all on the canvas: the ark's open deck in cool morning light (walnut hull, oak
- * deck, the rail around it), the animals walking out the way they face, the landing by the door
- * with its stalls and the family laying the next plank, the new land beyond the door; the Evening,
- * when straw covers the sleeping deck and the camera pans up to the valley at dusk where the dove
- * flies; the finisher's rainbow; and the juice on every rule's event.  It only reads the sim
- * (sim.ts).  The HUD lives in hud.ts, the calibration intro in intro.ts, the lobby in preview.ts.
+ * Arka's play view (v2): the ark's deck after the flood as a warm woodcut — walnut hull, oak planks,
+ * the animals seen from above facing their ways (a cream chevron at the leader's nose says where it
+ * will walk), files of young on a straw rope behind their mothers, sleepers under a "z", turning
+ * goats with a little swirl, pens of wattle with a padlock and the key's carrier with a key on its
+ * back.  Below, the gangway runs down to the new land, where the first of each kind waits for its
+ * mate and the pairs walk off together.
  *
- * The deck's still parts are drawn once per layout into a sprite; a frame allocates nothing in its
- * loops (points go through scratch arrays).
+ * The band in the world:
+ *   Mgła     the flood's mist rolls over the deck; a clear circle around the door is the focus (its
+ *            radius is the level), the threshold drawn on the deck as a dashed gold ring.  Above it,
+ *            the free animals inside the circle show their way out in golden hoof-prints.
+ *   Tęcza    the rainbow rises over the deck as calm fills it; full, a heart flies to the bar and
+ *            the bow's end lights one safe move.
+ *
+ * The runner draws the Mendi panel and the score; this view draws only the deck's own bar (hearts,
+ * the level and its par, the dove's button), the raven and his bubble, and the cards (the opening,
+ * a chapter, a level, a cleared deck).
  */
-import { Particles, approach, clamp, ease } from '../kit/juice';
-import { KIND, STAGES } from './content';
-import { Hud } from './hud';
+import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
+import { drawPassage, layoutPassage, passage, wrapLines, type PassageLayout } from '../kit/scripture';
+import { rayCells } from './board';
+import { KIND, chapter as chapterText, type KindId } from './content';
 import { t } from './i18n';
 import { ArkIntro } from './intro';
-import { LandPainter, type LandLook } from './land';
-import { SLOTS, cellAt, cellUnder, inRect, layout, railCoord, railGate, railPoint, railRect, stallAt, stallUnder, type Layout, type Pt, type Rect } from './layout';
-import { homestead, type ArkaProgress } from './meta';
-import { C, SERIF, SANS, font, glow, hash, paintAnimal, paintDove, paintFigure, paintHand, paintPlanks, paintRainbow, strawSprite } from './paint';
-import { RULES, type ArkaSim, type Beast, type SimEvent } from './sim';
-import { DX, DY, toEdge } from './holds';
+import { cellAt, cellCentre, inRect, layout, sightRadius, type Layout, type Pt } from './layout';
+import type { ArkaProgress } from './meta';
+import {
+  C, KIND_COLOR, SANS, SERIF, font, glow, hash, paintAnimal, paintDove, paintHeart, paintKey, paintPen, paintPlanks, paintProfile,
+  paintRainbow, paintRaven, paintStar,
+} from './paint';
+import { DX, DY, RULES, sightShare, type Dir } from './rules';
+import type { ArkaSim, CoachAt, SimEvent } from './sim';
+
+interface Leaver { kind: KindId; path: Pt[]; lead: number; len: number; s: number; v: number; dir: Dir; dove: boolean }
+interface Walker { kind: KindId; x: number; t: number; heart: boolean }
+type CardKind = 'open' | 'chapter' | 'level' | 'clear' | 'restart';
+interface Card { kind: CardKind; t: number; dur: number; title: string; text: string; ev?: Extract<SimEvent, { type: 'clear' }> }
 
 const TAU = Math.PI * 2;
-const ENOUGH = t('finale.enough');
-
-/** Where an animal is drawn this frame. */
-interface Spot { x: number; y: number; ang: number; size: number; alpha: number; squash: number; sleep: boolean }
 
 export class ArkaView {
   private readonly ctx: CanvasRenderingContext2D;
-  private w = 390;
-  private h = 844;
+  private w = 1;
+  private h = 1;
   private dpr = 1;
-  L: Layout = layout(390, 844, 4, 4, true);
-  private layoutKey = '';
-  private started = false;
+  private top = 0;
+  L: Layout | null = null;
+  private dims = '';
   private clock = 0;
-  private readonly particles = new Particles(320);
-  private readonly strip = new LandPainter();
-  private readonly big = new LandPainter();
-  readonly hud: Hud;
-  private readonly intro0 = new ArkIntro();
-  private bg: HTMLCanvasElement | null = null;
-  private bgKey = '';
-  private straw: HTMLCanvasElement | null = null;
-  private strawKey = '';
-  // moments
-  private cam = 0;
-  private strawK = 0;
-  private dusk = 0;
-  private lanterns = 0;
-  private doorLight = 0;
-  private dawnDoor = 0;
+  private readonly intro = new ArkIntro();
+  private readonly parts = new Particles(520);
+  private readonly floats = new Floaters();
+  private readonly shake: Shake;
+  private bg: { key: string; c: HTMLCanvasElement } | null = null;
+  private deckC: { key: string; c: HTMLCanvasElement } | null = null;
+  private fogC: HTMLCanvasElement | null = null;
+  private fogTex: HTMLCanvasElement | null = null;
+  private leavers: Leaver[] = [];
+  private walkers: Walker[] = [];
+  private bumps = new Map<number, { t: number; dist: number; lost: boolean }>();
+  private jolts = new Map<number, number>();
+  private turns = new Map<number, number>();
+  private opens = new Map<number, number>();
+  private wakes = new Map<number, number>();
+  private card: Card | null = null;
+  private cardQ: Card[] = [];
+  private verse: { id: 'gen8.1'; l: PassageLayout | null; w: number } = { id: 'gen8.1', l: null, w: 0 };
   private hitStop = 0;
-  private slideK = 0;
-  private plankAnim = 0;
-  private hammerPhase = 0;
-  private hammerArm = 0;
-  /** the hammer struck this frame (the sound taps with it) */
-  hammerHit = false;
-  private shake = 0;
-  private fadeIn = 1;
-  private mist = 0;
-  private morning = 0;
-  private finaleT = -1;
-  private finaleLine = '';
-  private doveSeen = false;
-  private readonly spot: Spot = { x: 0, y: 0, ang: 0, size: 0, alpha: 1, squash: 0, sleep: false };
-  private readonly pt: Pt = { x: 0, y: 0 };
-  private readonly pt2: Pt = { x: 0, y: 0 };
-  /** a rail path's points (x, y pairs) and their running lengths */
-  private readonly path = new Float32Array(24);
-  private readonly lens = new Float32Array(12);
-  private readonly look: LandLook = { settled: {}, young: [], olives: 0, built: 0 };
+  private dove: { from: Pt; to: Pt; t: number } | null = null;
+  private heartFx: { from: Pt; to: Pt; t: number; lost: boolean }[] = [];
+  private ravenHop = 0;
+  private ravenFlinch = 0;
+  private shoreN = 0;
+  private shorePop: number[] = [];
+  private ringPulse = 0;
+  private levelIn = 0;
+  private openShown = false;
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean }) {
     this.ctx = canvas.getContext('2d')!;
-    this.hud = new Hud(this.ctx);
+    this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number): void {
+  resize(w: number, h: number, dpr: number, top: number): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.layoutKey = '';
+    this.top = top;
+    this.dims = '';
+    this.verse.l = null;
   }
 
-  start(): void {
-    this.started = true;
-    this.fadeIn = 1;
-  }
-
-  /** The layout for the hold showing (made again when the screen or the hold changes). */
-  private relayout(sim: ArkaSim): Layout {
-    const h = sim.hold;
-    const anchored = h.recipe === 'warm';
-    const key = `${this.w}|${this.h}|${h.cols}|${h.rows}|${anchored}`;
-    if (key !== this.layoutKey) {
-      this.layoutKey = key;
-      this.L = layout(this.w, this.h, h.cols, h.rows, anchored);
-      this.hud.resize(this.L, this.dpr);
+  private lay(sim: ArkaSim): Layout {
+    const key = `${this.w}|${this.h}|${this.top}|${sim.board.cols}|${sim.board.rows}`;
+    if (key !== this.dims || !this.L) {
+      this.dims = key;
+      this.L = layout(this.w, this.h, this.top, sim.board.cols, sim.board.rows);
     }
     return this.L;
   }
 
-  // ── hit-testing (index.ts maps touches through it) ───────────────
+  intro_(dt: number, p: number, progress: ArkaProgress): void {
+    const ctx = this.ctx;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.intro.draw(ctx, this.w, this.h, dt, p, progress, this.dpr);
+  }
+
+  /** The first-ever session opens on the story card (the root passage under it). */
+  start(sim: ArkaSim): void {
+    if (sim.session === 1 && !this.openShown) {
+      this.openShown = true;
+      this.cardQ.unshift({ kind: 'open', t: 0, dur: 7.5, title: t('card.open.title'), text: t('card.open.text') });
+    }
+  }
+
+  // ── input helpers for index.ts ─────────────────────────────────
+  /** The deck cell under a point (null: off the deck). */
   cellAt(sim: ArkaSim, x: number, y: number): { x: number; y: number } | null {
-    return cellUnder(this.relayout(sim), x, y);
+    const L = this.lay(sim);
+    const c = cellAt(L, x, y);
+    if (c) return c;
+    // a generous edge: a finger just outside the deck still means its border cell
+    const pad = L.cell * 0.3;
+    if (!inRect(L.deck, x, y, pad)) return null;
+    return { x: Math.max(0, Math.min(L.cols - 1, Math.floor((x - L.deck.x) / L.cell))), y: Math.max(0, Math.min(L.rows - 1, Math.floor((y - L.deck.y) / L.cell))) };
   }
 
-  /** The waiting animal in the stall under a point (null: none). */
-  stallBeast(sim: ArkaSim, x: number, y: number): Beast | null {
-    const i = stallUnder(this.relayout(sim), x, y);
-    if (i < 0) return null;
-    const b = sim.slots[i];
-    return b && b.state === 'stall' && !b.mate ? b : null;
+  onDove(sim: ArkaSim, x: number, y: number): boolean {
+    const L = this.lay(sim);
+    return Math.hypot(x - L.dove.x, y - L.dove.y) <= L.dove.r + 10;
   }
 
-  onLeaf(sim: ArkaSim, x: number, y: number): boolean { return inRect(this.relayout(sim).leaf, x, y, 6); }
+  /** A tap while a card is up: the opening and chapter cards close; true when the tap was the card's. */
+  cardTap(): boolean {
+    const c = this.card;
+    if (!c) return false;
+    if ((c.kind === 'open' || c.kind === 'chapter') && c.t >= 0.8) {
+      c.t = Math.max(c.t, c.dur - 0.35);
+      return true;
+    }
+    return c.kind === 'open' || c.kind === 'chapter';
+  }
 
-  // ── reacting to the rules ───────────────────────────────────────
+  /** Where a coach mark points (canvas px). */
+  coachPoint(sim: ArkaSim, at: CoachAt): Pt | null {
+    const L = this.lay(sim);
+    if (at === null) return null;
+    if (at === 'dove') return { x: L.dove.x, y: L.dove.y + L.dove.r };
+    if (at === 'hearts') return { x: L.bar.x + 40, y: L.bar.y + L.bar.h };
+    if (at === 'shore') return { x: L.shore.x + L.shore.w / 2, y: L.shore.y + 6 };
+    if (at === 'ring') {
+      const r = sightRadius(L, sightShare(0.5));
+      return { x: L.door.x, y: Math.max(L.deck.y + 8, L.door.y - r) };
+    }
+    const a = sim.animals[at.animal];
+    if (!a) return null;
+    const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
+    // the runner's bubble is centred on the point: keep it whole on a narrow screen
+    const edge = Math.min(130, this.w / 2);
+    return { x: Math.max(edge, Math.min(this.w - edge, c.x)), y: c.y - L.cell * 0.35 };
+  }
+
+  get blocking(): boolean { return !!this.card && (this.card.kind === 'open' || this.card.kind === 'chapter' || this.card.kind === 'clear'); }
+
+  // ── events ─────────────────────────────────────────────────────
   on(e: SimEvent, sim: ArkaSim): void {
-    const L = this.relayout(sim);
-    const u = L.u, rm = this.opts.reducedMotion;
+    const L = this.lay(sim);
+    const rm = this.opts.reducedMotion;
     switch (e.type) {
-      case 'pair': {
-        stallAt(L, Math.max(0, e.a.stall), this.pt);
-        this.particles.burst(this.pt.x, this.pt.y, 10, { color: C.straw2, speed: 70, spread: TAU, g: 120, drag: 2, life: 0.7, size: 2, shape: 'square' });
-        this.particles.burst(this.pt.x, this.pt.y - L.stall * 0.3, 6, { color: C.leaf, speed: 50, angle: -Math.PI / 2, spread: 1.6, g: 60, drag: 1.5, life: 0.9, size: 2.4, shape: 'dot' });
-        this.hud.popScore();
-        if (e.chain >= 2) this.hud.float(t('fx.chain', { n: e.chain }), this.pt.x, this.pt.y - L.stall * 0.7, '#8a4f22', 16, 1.3);
+      case 'level': {
+        this.leavers = [];
+        this.bumps.clear();
+        this.levelIn = 0;
+        this.shoreN = 0;
+        this.shorePop = [];
+        if (e.chapter !== null) {
+          const ch = chapterText(e.chapter);
+          this.cardQ.push({ kind: 'chapter', t: 0, dur: 4.2, title: ch.title, text: ch.text });
+        }
+        const sub = e.retry ? t('card.retry') : e.mood === 'big' ? t('card.big') : e.mood === 'easy' ? t('card.easy') : '';
+        this.cardQ.push({ kind: 'level', t: 0, dur: 1.5, title: t('card.level', { n: e.n }), text: sub });
+        break;
+      }
+      case 'send': {
+        const a = sim.animals[e.id];
+        const lead = a.cells.length - 1;
+        const path: Pt[] = [...a.cells].reverse().map(c => ({ x: c.x, y: c.y }));
+        for (const c of rayCells(sim.board.cols, sim.board.rows, a.cells[0], e.dir)) path.push(c);
+        const last = path[path.length - 1];
+        for (let i = 1; i <= a.cells.length + 3; i++) path.push({ x: last.x + DX[e.dir] * i, y: last.y + DY[e.dir] * i });
+        this.leavers.push({ kind: e.kind, path, lead, len: a.cells.length, s: 0, v: 7, dir: e.dir, dove: e.dove });
+        const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
+        this.parts.burst(c.x - DX[e.dir] * L.cell * 0.4, c.y - DY[e.dir] * L.cell * 0.4, 8, { color: '#e8d6b0', size: 2.4, speed: 70, g: 40, life: 0.5, angle: Math.atan2(-DY[e.dir], -DX[e.dir]), spread: 1.6 });
+        if (e.chain >= 3) this.floats.add(t('fx.chain', { n: e.chain }), c.x, c.y - L.cell * 0.4, { color: C.amber2, size: Math.min(30, 16 + e.chain) });
+        if (this.bumps.has(e.id)) this.bumps.delete(e.id);
         break;
       }
       case 'bump': {
-        const b = e.beast;
-        cellAt(L, b.x, b.y, this.pt);
-        const k = b.dist + 0.5;
-        this.particles.burst(this.pt.x + DX[b.dir] * k * L.c, this.pt.y + DY[b.dir] * k * L.c, 5, { color: 'rgba(240,225,190,.8)', speed: 40, spread: TAU, g: 30, drag: 3, life: 0.45, size: 2 });
+        this.bumps.set(e.id, { t: 0, dist: e.dist, lost: e.lost });
+        if (e.lost) {
+          this.hitStop = RULES.hitStop;
+          this.shake.add(rm ? 0 : 0.28);
+          const i = e.hearts;
+          this.heartFx.push({ from: this.heartPos(L, i), to: { x: this.heartPos(L, i).x, y: this.heartPos(L, i).y + 40 }, t: 0, lost: true });
+          this.ravenFlinch = 0.6;
+        } else if (sim.practice) {
+          const a = sim.animals[e.id];
+          const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
+          this.floats.add(t('fx.practice'), c.x, c.y - L.cell * 0.5, { color: C.cream, size: 15, dur: 1.5 });
+        }
+        if (e.blocker >= 0) this.jolts.set(e.blocker, 0);
         break;
       }
-      case 'full': {
-        const b = e.beast;
-        cellAt(L, b.x, b.y, this.pt);
-        const k = toEdge(L.cols, L.rows, b.x, b.y, b.dir) + 0.5;
-        this.hud.float(t('fx.full'), this.pt.x + DX[b.dir] * k * L.c, this.pt.y + DY[b.dir] * k * L.c - 18 * u, '#9c4f32', 15, 1.2);
+      case 'pair': {
+        const x = this.shoreSlotX(L, 0);
+        this.walkers.push({ kind: e.kind, x, t: 0, heart: true });
+        const p = { x, y: L.shore.y + L.shore.h * 0.55 };
+        this.parts.burst(p.x, p.y - 10, e.bonus ? 16 : 8, { color: e.bonus ? C.amber : '#e98b8b', size: 3, speed: 90, g: -30, life: 0.9, shape: 'dot' });
+        this.floats.add(e.bonus ? t('fx.bonus') : t('fx.pair'), Math.min(this.w - 60, p.x + 30), p.y - 22, { color: e.bonus ? C.amber2 : C.cream, size: e.bonus ? 26 : 20 });
+        if (e.newKind) this.floats.add(t('fx.newKind', { name: KIND[e.kind].name }), this.w / 2, L.shore.y - 14, { color: C.cream, size: 16, dur: 2 });
+        if (e.young) this.floats.add(t('fx.young', { young: KIND[e.kind].young }), this.w / 2, L.shore.y - 34, { color: C.amber2, size: 17, dur: 2.2 });
         break;
       }
-      case 'wait': {
-        stallAt(L, e.beast.stall, this.pt);
-        this.particles.burst(this.pt.x, this.pt.y + L.stall * 0.3, 6, { color: C.straw, speed: 30, spread: Math.PI, angle: -Math.PI / 2, g: 90, drag: 2, life: 0.5, size: 1.6, shape: 'square' });
+      case 'wake': {
+        this.wakes.set(e.id, 0);
+        const a = sim.animals[e.id];
+        const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
+        this.floats.add(t('fx.wake'), c.x, c.y - L.cell * 0.4, { color: C.cream, size: 17 });
         break;
       }
-      case 'hand':
-        stallAt(L, Math.max(0, e.beast.was), this.pt);
-        this.hud.float(t(e.leaf ? 'fx.leaf' : 'fx.hand'), this.pt.x, this.pt.y - L.stall * 0.6, e.leaf ? '#4f7a2e' : '#6b4a2f', 15, 1.4);
-        if (e.leaf) this.hud.popLeaf();
-        else this.hud.popStars();
+      case 'turn': this.turns.set(e.id, 0); break;
+      case 'locked': {
+        const a = sim.animals[e.id];
+        const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
+        this.jolts.set(e.id, 0);
+        this.floats.add(t('fx.locked'), c.x, c.y - L.cell * 0.4, { color: C.cream, size: 16 });
         break;
-      case 'plank': {
-        if (e.blind) break;
-        this.plankAnim = 1;
-        this.hitStop = 0.1;
-        stallAt(L, Math.min(SLOTS - 1, RULES.stalls + e.planks - 1), this.pt);
-        this.particles.burst(this.pt.x, this.pt.y, 16, { color: C.fresh2, speed: 90, spread: TAU, g: 160, drag: 1.6, life: 0.8, size: 2, shape: 'square' });
-        if (sim.ftue !== 'plank') this.hud.float(t('fx.plank'), this.pt.x, this.pt.y - L.stall * 0.65, '#8a5a24', 15, 1.4);
+      }
+      case 'unlock': {
+        this.opens.set(e.id, 0);
+        const a = sim.animals[e.id];
+        const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
+        this.parts.burst(c.x, c.y, 12, { color: C.amber, size: 2.5, speed: 110, g: 60, life: 0.6, shape: 'spark' });
+        this.floats.add(t('fx.open'), c.x, c.y - L.cell * 0.4, { color: C.amber2, size: 18 });
+        break;
+      }
+      case 'clear': {
+        this.cardQ.push({ kind: 'clear', t: 0, dur: RULES.clearSec, title: t('card.clear'), text: '', ev: e });
+        this.ravenHop = 1;
+        for (let i = 0; i < 26; i++) {
+          const x = L.deck.x + hash(i + this.clock) * L.deck.w;
+          this.parts.burst(x, L.deck.y + L.deck.h * 0.4, 1, { color: i % 3 ? C.leaf : C.olive, size: 4, speed: 140, g: 160, life: 1.4, shape: 'square' });
+        }
+        break;
+      }
+      case 'restart':
+        this.cardQ.push({ kind: 'restart', t: 0, dur: RULES.restartSec, title: t('fx.restart'), text: '' });
+        this.shake.add(rm ? 0 : 0.35);
+        break;
+      case 'dove': {
+        const a = sim.animals[e.id];
+        this.dove = { from: { x: L.dove.x, y: L.dove.y }, to: cellCentre(L, a.cells[0].x, a.cells[0].y), t: 0 };
+        break;
+      }
+      case 'doveBusy':
+        this.floats.add(t('fx.doveBusy'), Math.max(70, L.dove.x - 50), L.dove.y + L.dove.r + 22, { color: C.cream, size: 14, dur: 1.1 });
+        break;
+      case 'rainbow': {
+        if (e.heart) {
+          const to = this.heartPos(L, Math.max(0, sim.hearts - 1));
+          this.heartFx.push({ from: { x: L.door.x, y: L.deck.y + L.deck.h * 0.3 }, to, t: 0, lost: false });
+          this.floats.add(t('fx.heart'), to.x + 30, to.y + 24, { color: '#f2a7a0', size: 18 });
+        }
+        this.floats.add(t('fx.rainbow'), L.door.x, L.deck.y + L.deck.h * 0.3, { color: C.cream, size: 24, dur: 1.4 });
+        for (let i = 0; i < 30; i++) {
+          const a = Math.PI + (i / 29) * Math.PI;
+          const r = this.bowR(L);
+          this.parts.burst(L.door.x + Math.cos(a) * r, L.door.y + Math.sin(a) * r, 1, { color: ['#e9a7a1', '#efe2a2', '#b8d8a4', '#a7cde0'][i % 4], size: 2.5, speed: 40, g: 20, life: 1, shape: 'spark' });
+        }
+        break;
+      }
+      case 'sun': {
+        const r = sightRadius(L, sightShare(sim.sight));
+        this.ringPulse = 1;
+        this.floats.add(t('fx.sun'), L.door.x, Math.max(L.deck.y + 20, L.door.y - r * 0.7), { color: C.amber2, size: 22 });
+        for (let i = 0; i < 24; i++) {
+          const a = Math.PI + (i / 23) * Math.PI;
+          this.parts.burst(L.door.x + Math.cos(a) * r, L.door.y + Math.sin(a) * r, 1, { color: C.amber2, size: 2.2, speed: 50, g: -10, life: 0.9, shape: 'spark' });
+        }
         break;
       }
       case 'blindReveal':
-        this.hud.card(e.planks > 0 ? t('fx.blind', { planks: t('planks', { n: e.planks }) }) : t('fx.blindNone'), '', { icon: e.planks > 0 ? 'plank' : 'none', rank: 0, dur: 2.8 });
-        if (e.planks > 0) this.plankAnim = 1;
+        this.floats.add(t('fx.blind', { n: Math.round(e.share * 100) }), L.door.x, L.deck.y + L.deck.h * 0.35, { color: C.cream, size: 18, dur: 2.4 });
         break;
-      case 'clear': {
-        this.doorLight = 1;
-        this.hud.card(t('fx.clear'), e.planks > 0 ? t('fx.carried', { planks: t('planks', { n: e.planks }) }) : '', { icon: 'stars', stars: e.stars, rank: 1, dur: 2.4 });
-        const d = L.door;
-        if (!rm) {
-          this.particles.burst(d.x + d.w / 2, d.y + d.h * 0.3, 26, { color: '#fff1c4', speed: 120, angle: -Math.PI / 2, spread: 2.2, g: 40, drag: 1.4, life: 1.2, size: 2.4, shape: 'spark' });
-          this.particles.burst(d.x + d.w / 2, d.y, 14, { color: C.leaf, speed: 90, angle: -Math.PI / 2, spread: 1.8, g: 50, drag: 1.2, life: 1.4, size: 2.6, shape: 'dot' });
-          this.shake = 0.35;
-        }
-        break;
-      }
-      case 'hold':
-        this.slideK = 1;
-        if (e.hold.daily) this.hud.card(t('daily.title'), '', { rank: 1, dur: 1.8 });
-        else if (e.hold.recipe === 'great') this.hud.card(t('hud.great').charAt(0) + t('hud.great').slice(1).toLowerCase(), '', { rank: 1, dur: 1.8 });
-        break;
-      case 'post':
-        this.hud.card(t('fx.post'), t('fx.postSub'), { icon: 'post', rank: 0, dur: 2.8 });
-        break;
-      case 'almost':
-        this.hud.card(t(e.have >= e.need * 0.5 ? 'fx.almost' : 'fx.later', { have: e.have, need: e.need }), '', { rank: 0, dur: 2.6, color: '#6b4a2f' });
-        break;
-      case 'dove': {
-        const sub = e.olive ? t('fx.olive') : e.leaf && !e.stored ? t('fx.leavesFull') : '';
-        this.hud.card(e.leaf ? t('fx.dove') : t('fx.noLeaf'), sub, { icon: e.leaf ? (e.olive ? 'olive' : 'leaf') : 'none', rank: 0, dur: 3 });
-        if (e.leaf && e.stored) this.hud.popLeaf();
-        break;
-      }
-      case 'kind':
-        this.hud.card(t('fx.newKind', { name: e.kinds.map(k => KIND[k].name).join(', ') }), '', { rank: 2, dur: 2.6 });
-        break;
-      case 'young':
-        this.hud.card(t('fx.young', { name: KIND[e.kind].young }), '', { rank: 2, dur: 2.4 });
-        break;
-      case 'built':
-        this.hud.card(t('fx.built', { name: STAGES[e.stage].name }), '', { rank: 1, dur: 2.6 });
-        break;
-      case 'gift':
-        this.hud.card(t('fx.gift', { n: e.points }), '', { rank: 3, dur: 2.4, icon: 'plank' });
-        break;
-      case 'finale':
-        this.finaleT = 0;
-        this.finaleLine = t('finale.line', { pairs: t('pairs', { n: sim.score }) });
-        this.hud.clearCards();
+      case 'say':
+        this.ravenHop = Math.max(this.ravenHop, 0.5);
         break;
       default:
         break;
     }
   }
 
-  // ── a frame ──────────────────────────────────────────────────────
+  private heartPos(L: Layout, i: number): Pt {
+    const s = Math.min(26, L.bar.h * 0.62);
+    return { x: L.bar.x + 14 + i * (s + 6), y: L.bar.y + L.bar.h / 2 };
+  }
+
+  private shoreSlotX(L: Layout, i: number): number {
+    const step = Math.max(34, Math.min(64, L.cell * 1.1));
+    const x0 = L.compact ? L.shore.x + 30 : L.door.x + step * 0.9;
+    return x0 + i * step;
+  }
+
+  private bowR(L: Layout): number { return Math.max(L.deck.w * 0.55, Math.min(L.deck.h * 0.9, L.deck.w * 0.9)); }
+
+  // ── the clock ──────────────────────────────────────────────────
   update(dt: number, sim: ArkaSim): void {
+    if (!sim.started) return;
     this.clock += dt;
-    this.relayout(sim);
-    this.particles.update(dt);
-    this.hud.update(dt, sim);
-    const b = sim.block;
-    const evening = sim.phase !== 'play' || b.kind === 'evening';
-    const next = sim.next;
-    // the Day's telegraph in an Evening brings the deck back; the finisher stays on the land
-    const toDay = sim.phase === 'play' && b.kind === 'evening' && next && sim.toNext !== null && sim.toNext <= RULES.telegraph;
-    const veiled = evening && !toDay;
-    const into = sim.phase === 'play' ? sim.now - b.start : 9;
-    // the straw falls first, then the camera pans up; back again in the other order
-    this.strawK = approach(this.strawK, veiled ? 1 : 0, dt, 0.25);
-    const camWant = veiled && (into > 0.6 || sim.phase !== 'play') ? 1 : 0;
-    this.cam = approach(this.cam, camWant, dt, camWant ? 0.45 : 0.35);
-    const toEvening = sim.phase === 'play' && b.kind === 'day' && next && sim.toNext !== null && sim.toNext <= RULES.telegraph;
-    this.dusk = approach(this.dusk, evening || toEvening ? 1 : 0, dt, 0.8);
-    this.lanterns = approach(this.lanterns, evening || toEvening ? 1 : 0, dt, 0.5);
-    this.dawnDoor = approach(this.dawnDoor, toDay ? 1 : 0, dt, 0.5);
-    this.doorLight = Math.max(0, this.doorLight - dt * 0.8);
-    this.plankAnim = Math.max(0, this.plankAnim - dt * 1.6);
-    this.slideK = Math.max(0, this.slideK - dt / RULES.slide);
-    this.shake = Math.max(0, this.shake - dt * 2);
-    this.fadeIn = Math.max(0, this.fadeIn - dt * 1.5);
-    this.mist = approach(this.mist, sim.fog, dt, 0.4);
-    this.morning = approach(this.morning, sim.blindNow ? 1 : 0, dt, 0.6);
-    if (this.finaleT >= 0) this.finaleT += dt;
-    // the hammer: at the level's tempo in a sighted Day while a stall is being built
-    this.hammerHit = false;
-    if (this.hitStop > 0) this.hitStop = Math.max(0, this.hitStop - dt);
-    else if (sim.active && !sim.blindNow && sim.reliable && sim.hold.planks + sim.hold.pending < RULES.maxPlanks && sim.now - b.start >= 1) {
-      this.hammerPhase += dt * sim.hammer;
-      if (this.hammerPhase >= 1) {
-        this.hammerPhase -= 1;
-        this.hammerHit = true;
-        const L = this.L;
-        stallAt(L, Math.min(SLOTS - 1, sim.capacity), this.pt);
-        if (!this.opts.reducedMotion) this.particles.burst(this.pt.x, this.pt.y + L.stall * 0.25, 3, { color: C.fresh2, speed: 40, angle: -Math.PI / 2, spread: 1.5, g: 150, drag: 2, life: 0.4, size: 1.4, shape: 'square' });
-      }
+    this.lay(sim);
+    let adt = dt;
+    if (this.hitStop > 0) {
+      this.hitStop -= dt;
+      adt = dt * 0.15;
     }
-    this.hammerArm = this.hammerPhase < 0.25 ? 1 - this.hammerPhase / 0.25 : (this.hammerPhase - 0.25) / 0.75;
+    this.parts.update(adt);
+    this.floats.update(dt);
+    this.levelIn += dt;
+    for (const l of this.leavers) {
+      l.v = Math.min(RULES.slide * 1.3, l.v + RULES.slide * 3 * adt);
+      l.s += l.v * adt;
+    }
+    this.leavers = this.leavers.filter(l => l.s < l.path.length - l.lead + 1);
+    for (const [id, b] of this.bumps) {
+      b.t += adt;
+      if (b.t >= RULES.bumpSec) this.bumps.delete(id);
+    }
+    const tick = (m: Map<number, number>, max: number) => { for (const [k, v] of m) { if (v + adt >= max) m.delete(k); else m.set(k, v + adt); } };
+    tick(this.jolts, 0.3);
+    tick(this.turns, 0.28);
+    tick(this.opens, 0.6);
+    tick(this.wakes, 0.5);
+    for (const w of this.walkers) w.t += dt;
+    this.walkers = this.walkers.filter(w => w.t < 3);
+    for (const hf of this.heartFx) hf.t += dt;
+    this.heartFx = this.heartFx.filter(hf => hf.t < 0.8);
+    if (this.dove) {
+      this.dove.t += dt;
+      if (this.dove.t > 1.2) this.dove = null;
+    }
+    this.ravenHop = Math.max(0, this.ravenHop - dt * 1.6);
+    this.ravenFlinch = Math.max(0, this.ravenFlinch - dt * 1.5);
+    this.ringPulse = Math.max(0, this.ringPulse - dt * 1.2);
+    // the new land: a newly waiting animal pops into its slot
+    if (sim.shore.length !== this.shoreN) {
+      if (sim.shore.length > this.shoreN) this.shorePop[sim.shore.length - 1] = this.clock;
+      this.shoreN = sim.shore.length;
+    }
+    // cards: one at a time
+    if (this.card) {
+      this.card.t += dt;
+      if (this.card.t >= this.card.dur || (this.card.kind === 'clear' && sim.levelState !== 'clear')) this.card = null;
+    }
+    if (!this.card && this.cardQ.length) this.card = this.cardQ.shift()!;
+    sim.cardOn = this.blocking;
   }
 
-  draw(sim: ArkaSim, press: number | null): void {
-    const { ctx } = this;
-    if (this.w < 2 || this.h < 2 || !this.started) return;
-    this.relayout(sim);
+  // ── drawing ────────────────────────────────────────────────────
+  draw(sim: ArkaSim): void {
+    // before play the calibration intro paints the frame (intro_)
+    if (!sim.started) return;
+    const ctx = this.ctx;
+    const L = this.lay(sim);
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const p = sim.p;
-    this.look.settled = p.settled;
-    this.look.young = p.young;
-    this.look.olives = p.olives;
-    this.look.built = homestead(p.home).built;
-    const rm = this.opts.reducedMotion;
-    const cam = rm ? (this.cam > 0.5 ? 1 : 0) : ease.inOutSine(this.cam);
-    const crossfade = rm ? this.cam : 0;
+    ctx.drawImage(this.background(L), 0, 0, this.w, this.h);
+    const off = this.shake.offset(1 / 60, 8);
     ctx.save();
-    if (this.shake > 0) ctx.translate(Math.sin(this.clock * 61) * this.shake * 4, Math.sin(this.clock * 47 + 1) * this.shake * 3);
-    if (cam < 0.999) {
-      ctx.save();
-      if (!rm) ctx.translate(0, cam * this.h * 0.85);
-      this.drawDeckView(sim, press);
-      ctx.restore();
-    }
-    if (cam > 0.001 || crossfade > 0) {
-      ctx.save();
-      if (rm) ctx.globalAlpha = crossfade;
-      else ctx.translate(0, -(1 - cam) * this.h);
-      this.drawLandView(sim);
-      ctx.restore();
-    }
+    ctx.translate(off.x, off.y);
+    this.drawShore(ctx, L, sim);
+    this.drawDeck(ctx, L, sim);
+    this.drawRainbow(ctx, L, sim);
+    this.drawPrints(ctx, L, sim);
+    this.drawAnimals(ctx, L, sim);
+    this.drawLeavers(ctx, L);
+    this.drawMist(ctx, L, sim);
+    this.drawCursor(ctx, L, sim);
+    this.drawDoveFx(ctx);
+    this.parts.draw(ctx);
     ctx.restore();
-    this.particles.draw(ctx);
-    const light = this.cam > 0.5 ? 1 : 0;
-    this.hud.draw(sim, sim.now, light);
-    if (this.finaleT >= 0) this.drawFinaleText();
-    if (this.fadeIn > 0) {
-      ctx.globalAlpha = ease.inOutSine(this.fadeIn);
-      ctx.fillStyle = '#1c140e';
-      ctx.fillRect(0, 0, this.w, this.h);
-      ctx.globalAlpha = 1;
-    }
+    this.drawBar(ctx, L, sim);
+    this.drawRaven(ctx, L, sim);
+    this.floats.draw(ctx, SERIF);
+    this.drawCard(ctx, L);
   }
 
-  // ── the deck view ────────────────────────────────────────────────
-  private drawDeckView(sim: ArkaSim, press: number | null): void {
-    const { ctx, L } = this;
-    this.background();
-    ctx.drawImage(this.bg!, 0, 0, this.w, this.h);
-    // the new land beyond the door
-    this.strip.draw(ctx, L.land.x, L.land.y, L.land.w, L.land.h, this.clock, this.look, { dusk: this.dusk * 0.8, still: this.opts.reducedMotion }, this.dpr);
-    if (this.doveSeen || sim.dove.state === 'out' || sim.dove.state === 'home') this.drawStripDove(sim);
-    this.drawLanding(sim);
-    const slide = this.slideK > 0 ? ease.inOutSine(this.slideK) : 0;
-    ctx.save();
-    if (slide > 0) {
-      ctx.translate(slide * this.w * 0.5, 0);
-      ctx.globalAlpha = 1 - slide;
-    }
-    this.drawDeckCells(sim);
-    if (press !== null) this.drawPress(sim, press);
-    this.drawCursor(sim);
-    this.drawBeasts(sim, false);
-    ctx.restore();
-    this.drawBeasts(sim, true);
-    if (this.strawK > 0.01) this.drawStraw();
-    this.drawLight(sim);
-  }
-
-  /** The hull, the deck's planks with the grid carved in, the rail, the landing's boards and the door: once per layout. */
-  private background(): void {
-    const L = this.L;
-    const key = `${this.layoutKey}|${this.dpr}`;
-    if (this.bg && this.bgKey === key) return;
-    this.bgKey = key;
-    const c = this.bg ?? document.createElement('canvas');
+  private background(L: Layout): HTMLCanvasElement {
+    const key = `${this.w}|${this.h}|${this.dpr}|${L.deck.x}|${L.deck.y}|${L.deck.w}|${L.deck.h}|${L.shore.y}|${L.compact}`;
+    if (this.bg && this.bg.key === key) return this.bg.c;
+    const c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(this.w * this.dpr));
     c.height = Math.max(1, Math.round(this.h * this.dpr));
     const g = c.getContext('2d')!;
-    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    // the hull: dark walnut boards everywhere
-    paintPlanks(g, 0, 0, this.w, this.h, Math.max(18, L.c * 0.45), [C.walnut, '#3f2d20', C.walnut2, '#362619'], 3);
-    // a cool morning light from above, darker toward the bottom
-    const light = g.createLinearGradient(0, 0, 0, this.h);
-    light.addColorStop(0, 'rgba(210,228,240,.10)');
-    light.addColorStop(0.5, 'rgba(0,0,0,0)');
-    light.addColorStop(1, 'rgba(10,6,4,.35)');
-    g.fillStyle = light;
-    g.fillRect(0, 0, this.w, this.h);
-    const d = L.deck, r = railRect(L);
-    // the rail: a raised beam around the deck
-    g.fillStyle = 'rgba(12,8,5,.45)';
-    g.fillRect(r.x - L.rail / 2 + 3, r.y - L.rail / 2 + 5, r.w + L.rail, r.h + L.rail);
-    paintPlanks(g, r.x - L.rail / 2, r.y - L.rail / 2, r.w + L.rail, r.h + L.rail, L.rail * 0.5, ['#5a3d26', '#634329', '#523722'], 11);
-    // the deck: oak boards, one row of cells each, the grid carved
-    paintPlanks(g, d.x, d.y, d.w, d.h, L.c, [C.oak2, '#94693f', '#7f5a36', '#8f6744'], 7);
-    g.fillStyle = 'rgba(255,236,200,.06)';
-    g.fillRect(d.x, d.y, d.w, d.h);
-    g.strokeStyle = 'rgba(30,18,10,.55)';
-    g.lineWidth = 1.2;
+    g.scale(this.dpr, this.dpr);
+    const w = this.w, h = this.h;
+    // a washed morning sky over the receding water
+    const sky = g.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#cfe6ee');
+    sky.addColorStop(0.45, '#f1e6cf');
+    sky.addColorStop(1, '#e9d6ad');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, w, h);
+    // far mountains
+    g.fillStyle = 'rgba(110,120,140,.35)';
     g.beginPath();
-    for (let i = 1; i < L.cols; i++) {
-      g.moveTo(d.x + i * L.c, d.y + 2);
-      g.lineTo(d.x + i * L.c, d.y + d.h - 2);
-    }
-    g.stroke();
-    g.strokeStyle = 'rgba(255,240,210,.12)';
-    g.beginPath();
-    for (let i = 1; i < L.cols; i++) {
-      g.moveTo(d.x + i * L.c + 1.2, d.y + 2);
-      g.lineTo(d.x + i * L.c + 1.2, d.y + d.h - 2);
-    }
-    g.stroke();
-    g.strokeStyle = C.ink;
-    g.lineWidth = 2;
-    g.strokeRect(d.x, d.y, d.w, d.h);
-    // corner posts of the rail
-    for (const [px, py] of [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]]) {
-      g.fillStyle = '#3a281a';
-      g.fillRect(px - L.rail * 0.45, py - L.rail * 0.45, L.rail * 0.9, L.rail * 0.9);
-      g.fillStyle = 'rgba(255,230,190,.18)';
-      g.fillRect(px - L.rail * 0.45, py - L.rail * 0.45, L.rail * 0.9, 2);
-    }
-    // the walkway from the rail to the landing
-    railGate(L, r, this.pt);
-    const gx = this.pt.x, gy = this.pt.y;
-    g.strokeStyle = '#5a3d26';
-    g.lineWidth = L.rail * 0.9;
-    g.lineCap = 'butt';
-    g.beginPath();
-    g.moveTo(gx, gy);
-    g.lineTo(L.gate.x, L.gate.y);
-    g.stroke();
-    g.strokeStyle = 'rgba(30,18,10,.6)';
-    g.lineWidth = 1;
-    g.stroke();
-    // the landing: its boards (the first three stalls' worth, the rest open framework until planks come)
-    const ld = L.landing;
-    g.fillStyle = 'rgba(12,8,5,.45)';
-    g.fillRect(ld.x + 3, ld.y + 5, ld.w, ld.h);
-    paintPlanks(g, ld.x, ld.y, L.door.w + RULES.stalls * L.stall, ld.h, L.stall * 0.34, ['#8a6440', '#7f5a36', '#94693f'], 19, true);
-    // the open framework where new stalls will be laid
-    g.strokeStyle = 'rgba(160,120,80,.55)';
-    g.lineWidth = 2;
-    const fx = ld.x + L.door.w + RULES.stalls * L.stall;
-    g.beginPath();
-    g.moveTo(fx, ld.y + 3);
-    g.lineTo(ld.x + ld.w, ld.y + 3);
-    g.moveTo(fx, ld.y + ld.h - 3);
-    g.lineTo(ld.x + ld.w, ld.y + ld.h - 3);
-    for (let i = 0; i <= SLOTS - RULES.stalls; i++) {
-      g.moveTo(fx + i * L.stall, ld.y + 3);
-      g.lineTo(fx + i * L.stall, ld.y + ld.h - 3);
-    }
-    g.stroke();
-    // the door: a dark frame at the landing's end, the ramp beyond it up to the land
-    const dr = L.door;
-    g.fillStyle = '#1f150e';
-    g.fillRect(dr.x + dr.w * 0.18, dr.y + 4, dr.w * 0.64, dr.h - 8);
-    g.strokeStyle = '#6b4a2f';
-    g.lineWidth = Math.max(3, dr.w * 0.12);
-    g.strokeRect(dr.x + dr.w * 0.18, dr.y + 4, dr.w * 0.64, dr.h - 8);
-    g.strokeStyle = C.ink;
-    g.lineWidth = 1.5;
-    g.strokeRect(dr.x + dr.w * 0.1, dr.y + 1, dr.w * 0.8, dr.h - 2);
-    // the ramp
-    g.fillStyle = '#7f5a36';
-    g.beginPath();
-    g.moveTo(dr.x + dr.w * 0.2, dr.y + 2);
-    g.lineTo(dr.x + dr.w * 0.8, dr.y + 2);
-    g.lineTo(dr.x + dr.w * 0.72, L.land.y + L.land.h - 4);
-    g.lineTo(dr.x + dr.w * 0.28, L.land.y + L.land.h - 4);
-    g.closePath();
+    g.moveTo(0, h * 0.42);
+    for (let i = 0; i <= 12; i++) g.lineTo((i / 12) * w, h * (0.3 + 0.1 * hash(i + 3) + (i === 8 ? -0.12 : 0)));
+    g.lineTo(w, h);
+    g.lineTo(0, h);
     g.fill();
-    g.strokeStyle = 'rgba(30,18,10,.6)';
-    g.lineWidth = 1;
-    g.stroke();
-    this.bg = c;
+    // the water, its glints
+    const wy = h * 0.5;
+    const water = g.createLinearGradient(0, wy, 0, h);
+    water.addColorStop(0, '#9cc3cf');
+    water.addColorStop(1, '#6f9fb0');
+    g.fillStyle = water;
+    g.fillRect(0, wy, w, h - wy);
+    g.strokeStyle = 'rgba(255,255,255,.35)';
+    g.lineWidth = 1.2;
+    for (let i = 0; i < 40; i++) {
+      const x = hash(i + 11) * w, y = wy + hash(i + 12) * (h - wy);
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + 8 + hash(i) * 14, y);
+      g.stroke();
+    }
+    // the hull around the deck
+    const d = L.deck, rim = Math.max(8, L.cell * 0.28);
+    g.fillStyle = 'rgba(30,18,10,.35)';
+    g.fillRect(d.x - rim + 4, d.y - rim + 8, d.w + rim * 2, d.h + rim * 2);
+    paintPlanks(g, d.x - rim, d.y - rim, d.w + rim * 2, d.h + rim * 2, Math.max(10, rim * 0.9), [C.walnut, '#43301f', C.walnut2], 31);
+    g.strokeStyle = '#1e140c';
+    g.lineWidth = 2;
+    g.strokeRect(d.x - rim, d.y - rim, d.w + rim * 2, d.h + rim * 2);
+    // the gangway down to the new land
+    if (!L.compact) {
+      const gw = Math.max(18, L.cell * 0.7);
+      paintPlanks(g, L.door.x - gw / 2, d.y + d.h + rim - 2, gw, Math.max(4, L.shore.y - (d.y + d.h + rim) + 8), gw / 3, ['#8a6440', '#7f5a36', C.fresh], 13, true);
+    }
+    this.bg = { key, c };
+    return c;
   }
 
-  /** The stalls: rough-board partitions for every stall built, the next one being laid, the family at work. */
-  private drawLanding(sim: ArkaSim): void {
-    const { ctx, L } = this;
-    const ld = L.landing;
-    const cap = sim.capacity;
-    const x0 = ld.x + L.door.w;
-    // new stalls, built of fresh planks
-    for (let i = RULES.stalls; i < cap; i++) {
-      const sx = x0 + i * L.stall;
-      const fresh = i === cap - 1 ? this.plankAnim : 0;
-      ctx.save();
-      if (fresh > 0) ctx.translate(fresh * L.stall * 0.6, 0);
-      ctx.globalAlpha = 1 - fresh * 0.7;
-      paintPlanks(ctx, sx, ld.y, L.stall, ld.h, L.stall * 0.34, [C.fresh, '#cfae7e', C.fresh2], 40 + i, true);
-      ctx.restore();
-    }
-    // the stall being built: its boards appear as the plank grows
-    if (cap < SLOTS && sim.phase === 'play') {
-      const sx = x0 + cap * L.stall;
-      const boards = 3;
-      const prog = sim.blindNow ? 0 : sim.progress;
-      for (let k = 0; k < boards; k++) {
-        const q = clamp(prog * boards - k);
-        if (q <= 0) break;
-        const bw = L.stall / boards;
-        ctx.save();
-        ctx.globalAlpha = 0.35 + 0.65 * q;
-        ctx.translate((1 - q) * bw * 1.4, 0);
-        ctx.fillStyle = C.fresh;
-        ctx.fillRect(sx + k * bw + 1, ld.y + 3, bw - 2, ld.h - 6);
-        ctx.strokeStyle = 'rgba(42,33,27,.5)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(sx + k * bw + 1, ld.y + 3, bw - 2, ld.h - 6);
-        ctx.restore();
-      }
-      // the plank bar (sighted Days only): a thin line under the stall being built
-      if (!sim.blindNow && sim.block.kind === 'day') {
-        ctx.fillStyle = 'rgba(20,12,6,.55)';
-        ctx.fillRect(sx + 3, ld.y + ld.h + 4, L.stall - 6, 4);
-        ctx.fillStyle = C.fresh2;
-        ctx.fillRect(sx + 3, ld.y + ld.h + 4, (L.stall - 6) * clamp(prog), 4);
-      }
-      // the family laying planks, seen from behind (the arm swings with the hammer)
-      const fh = Math.min(L.stall * 0.95, 44 * L.u);
-      if (!sim.blindNow) {
-        const arm = sim.active && sim.reliable ? this.hammerArm : 0.2;
-        paintFigure(ctx, sx + L.stall * 0.55, ld.y + ld.h - 2, fh, arm, 1, true);
-        if (cap + 1 < SLOTS) paintFigure(ctx, sx + L.stall * 1.25, ld.y + ld.h - 4, fh * 0.92, 0.1 + 0.05 * Math.sin(this.clock * 1.3), 2, false);
-      }
-    }
-    // partitions between the stalls in use
-    ctx.strokeStyle = '#4a3220';
-    ctx.lineWidth = Math.max(2, L.stall * 0.07);
+  private drawShore(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
+    const s = L.shore;
+    // the new land: a green strip with a path
+    const g = ctx.createLinearGradient(0, s.y, 0, s.y + s.h);
+    g.addColorStop(0, '#9cc56a');
+    g.addColorStop(1, '#6e9c48');
+    ctx.fillStyle = g;
     ctx.beginPath();
-    for (let i = 0; i <= cap; i++) {
-      const px = x0 + i * L.stall;
-      ctx.moveTo(px, ld.y + 2);
-      ctx.lineTo(px, ld.y + ld.h - 2);
+    ctx.moveTo(s.x, s.y + 8);
+    for (let i = 0; i <= 10; i++) ctx.lineTo(s.x + (i / 10) * s.w, s.y + 4 * Math.sin(i * 1.7) + 4);
+    ctx.lineTo(s.x + s.w, s.y + s.h);
+    ctx.lineTo(s.x, s.y + s.h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    for (let i = 0; i < 30; i++) ctx.fillRect(s.x + hash(i + 70) * s.w, s.y + 8 + hash(i + 71) * (s.h - 10), 1.5, 3);
+    // the waiting firsts of their kinds, each looking back up the gangway for its mate
+    const ah = Math.min(s.h * 0.6, 40);
+    const gy = L.compact ? s.y + Math.min(s.h - 6, ah + 12) : s.y + s.h * 0.78;
+    sim.shore.forEach((k, i) => {
+      const x = this.shoreSlotX(L, i);
+      if (x > s.x + s.w - 10) return;
+      const pop = this.shorePop[i] !== undefined ? clamp((this.clock - this.shorePop[i]) / 0.3) : 1;
+      ctx.save();
+      ctx.translate(x, gy);
+      ctx.scale(ease.outBack(pop), ease.outBack(pop));
+      paintProfile(ctx, k, 0, 0, ah, -1, 0);
+      ctx.restore();
+      // a little "?" — still waiting
+      ctx.fillStyle = 'rgba(42,33,27,.6)';
+      ctx.font = font(800, 12, SANS);
+      ctx.textAlign = 'center';
+      ctx.fillText('?', x, gy - ah - 4 + Math.sin(this.clock * 3 + i) * 2);
+    });
+    // pairs walking off together
+    for (const w of this.walkers) {
+      const x = w.x + w.t * 70;
+      const a = clamp(3 - w.t);
+      ctx.save();
+      ctx.globalAlpha = a;
+      paintProfile(ctx, w.kind, x, gy, ah, 1, 0);
+      paintProfile(ctx, w.kind, x + ah * 0.9, gy, ah * 0.96, 1, 0);
+      if (w.heart) paintHeart(ctx, x + ah * 0.45, gy - ah - 10 - w.t * 10, 12, { alpha: clamp(1.5 - w.t) });
+      ctx.restore();
     }
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(30,18,10,.8)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(ld.x, ld.y, L.door.w + cap * L.stall, ld.h);
-    // Noah at the door, seen from behind
-    const nh = Math.min(L.stall * 0.9, 42 * L.u);
-    const reach = sim.hold.beasts.some(b => b.state === 'back') ? 0.8 : 0.15;
-    paintFigure(ctx, L.door.x + L.door.w * 0.5, L.door.y + L.door.h - 2, nh, reach, 0, false);
-    // the dove on its post above the door, by Day
-    if (sim.dove.state === 'rail') paintDove(ctx, L.door.x + L.door.w * 0.5, L.door.y - 4, Math.max(14, L.stall * 0.42), 0, false, 1);
-    // morning mist over the plank work in a blind Day
-    if (this.morning > 0.01) this.mistOver(ctx, x0 + cap * L.stall - L.stall * 0.3, ld.y - 10, (SLOTS - cap) * L.stall + L.stall * 0.6, ld.h + 26, this.morning * 0.92, 2);
-    // mist over the landing while the signal is unreliable
-    if (this.mist > 0.01) this.mistOver(ctx, ld.x - 10, ld.y - 14, ld.w + 20, ld.h + 30, this.mist * 0.8, 9);
   }
 
-  /** Soft white mist over a rectangle, drifting. */
-  private mistOver(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, a: number, seed: number): void {
-    const sp = glow('rgba(246,244,236,.9)');
+  private deckSprite(L: Layout): HTMLCanvasElement {
+    const key = `${L.deck.w}|${L.deck.h}|${L.cell}|${this.dpr}`;
+    if (this.deckC && this.deckC.key === key) return this.deckC.c;
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(L.deck.w * this.dpr));
+    c.height = Math.max(1, Math.round(L.deck.h * this.dpr));
+    const g = c.getContext('2d')!;
+    g.scale(this.dpr, this.dpr);
+    paintPlanks(g, 0, 0, L.deck.w, L.deck.h, L.cell / 2, [C.oak2, '#94693f', '#7f5a36', '#8a6440'], 7);
+    g.fillStyle = 'rgba(255,240,210,.08)';
+    g.fillRect(0, 0, L.deck.w, L.deck.h);
+    // the grid of cells: a faint checker and carved lines, so every animal's row and column read at a glance
+    for (let y = 0; y < L.rows; y++) for (let x = 0; x < L.cols; x++) {
+      if ((x + y) % 2) continue;
+      g.fillStyle = 'rgba(255,236,200,.07)';
+      g.fillRect(x * L.cell, y * L.cell, L.cell, L.cell);
+    }
+    g.strokeStyle = 'rgba(30,18,10,.42)';
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let x = 1; x < L.cols; x++) { g.moveTo(x * L.cell, 0); g.lineTo(x * L.cell, L.deck.h); }
+    for (let y = 1; y < L.rows; y++) { g.moveTo(0, y * L.cell); g.lineTo(L.deck.w, y * L.cell); }
+    g.stroke();
+    this.deckC = { key, c };
+    return c;
+  }
+
+  private drawDeck(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
+    const drop = sim.levelState === 'drop' ? ease.outCubic(clamp(this.levelIn / RULES.dropSec)) : 1;
     ctx.save();
-    ctx.globalAlpha = a;
-    const n = Math.max(4, Math.round(w / 40));
-    for (let i = 0; i < n; i++) {
-      const r = h * (0.7 + 0.4 * hash(seed + i));
-      const px = x + (i + 0.5) * (w / n) + Math.sin(this.clock * 0.3 + i) * 6;
-      const py = y + h * (0.4 + 0.25 * hash(seed + i + 4));
-      ctx.drawImage(sp, px - r, py - r, r * 2, r * 2);
+    ctx.globalAlpha = 0.3 + 0.7 * drop;
+    ctx.drawImage(this.deckSprite(L), L.deck.x, L.deck.y, L.deck.w, L.deck.h);
+    ctx.restore();
+  }
+
+  private drawRainbow(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
+    const rest = sim.started && sim.phase === 'play' && sim.block.kind === 'rest';
+    if (!rest && sim.rainbow <= 0) return;
+    const r = this.bowR(L);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(L.deck.x - 40, 0, L.deck.w + 80, L.deck.y + L.deck.h);
+    ctx.clip();
+    // the whole bow faintly, the filled part bright: calm paints it colour by colour
+    paintRainbow(ctx, L.door.x, L.door.y, r, 1, 0.22 + 0.25 * sim.glow);
+    paintRainbow(ctx, L.door.x, L.door.y, r, sim.rainbow, 0.7 + 0.3 * sim.glow);
+    // the bow's charging end sparkles
+    if (sim.rainbow > 0.02) {
+      const a = Math.PI + Math.PI * Math.min(1, sim.rainbow);
+      const gs = 40 + 30 * sim.glow;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.drawImage(glow('rgba(255,240,200,.9)'), L.door.x + Math.cos(a) * r * 0.88 - gs / 2, L.door.y + Math.sin(a) * r * 0.88 - gs / 2, gs, gs);
     }
     ctx.restore();
   }
 
-  /** The deck's empty cells stay plain; the cell an animal left keeps a faint mark of straw. */
-  private drawDeckCells(sim: ArkaSim): void {
-    const { ctx, L } = this;
-    ctx.fillStyle = 'rgba(217,164,65,.18)';
-    for (const b of sim.hold.beasts) {
-      if (b.state === 'deck' || b.state === 'bump' || b.state === 'full' || b.state === 'back') continue;
-      cellAt(L, b.x, b.y, this.pt);
-      ctx.beginPath();
-      ctx.ellipse(this.pt.x, this.pt.y, L.c * 0.3, L.c * 0.16, hash(b.id) * 3, 0, TAU);
-      ctx.fill();
-    }
-  }
-
-  /** A press shows the way out ahead of the head as a faint dotted line (to the edge, or to the animal in the way). */
-  private drawPress(sim: ArkaSim, id: number): void {
-    const b = sim.hold.beasts.find(x => x.id === id);
-    if (!b || b.state !== 'deck') return;
-    const { ctx, L } = this;
-    const k = sim.blockedOf(b);
-    const n = k > 0 ? k - 0.5 : toEdge(L.cols, L.rows, b.x, b.y, b.dir) + 0.5;
-    cellAt(L, b.x, b.y, this.pt);
+  /** Above the threshold in a sighted Mgła, the free animals inside the clear circle show their way out in gold. */
+  private drawPrints(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
+    const showSun = sim.sighted && sim.reliable && sim.sight > 0.5;
+    const r = sightRadius(L, sightShare(sim.sight));
+    const k = showSun ? clamp((sim.sight - 0.5) * 4) : 0;
+    const shine = sim.shine >= 0 ? sim.animals[sim.shine] : null;
+    if (k <= 0 && !shine) return;
     ctx.save();
-    ctx.fillStyle = k > 0 ? 'rgba(156,79,50,.8)' : 'rgba(255,246,220,.85)';
-    const step = L.c * 0.22;
-    for (let d = L.c * 0.5; d <= n * L.c + 0.01; d += step) {
-      ctx.beginPath();
-      ctx.arc(this.pt.x + DX[b.dir] * d, this.pt.y + DY[b.dir] * d, Math.max(1.6, L.c * 0.035), 0, TAU);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  private drawCursor(sim: ArkaSim): void {
-    if (!sim.cursor.shown || !sim.active) return;
-    const { ctx, L } = this;
-    const x = L.deck.x + sim.cursor.x * L.c, y = L.deck.y + sim.cursor.y * L.c;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255,240,200,.95)';
-    ctx.lineWidth = 2.5;
-    ctx.setLineDash([L.c * 0.18, L.c * 0.1]);
-    ctx.lineDashOffset = -this.clock * 12;
-    ctx.strokeRect(x + 3, y + 3, L.c - 6, L.c - 6);
-    ctx.restore();
-  }
-
-  /** Every animal where its state puts it: `landing` false draws the deck's, true the landing's and the walkers'. */
-  private drawBeasts(sim: ArkaSim, landing: boolean): void {
-    const { ctx } = this;
-    const sleep = this.strawK > 0.5;
-    for (const b of sim.hold.beasts) {
-      if (b.state === 'gone') continue;
-      const onDeck = b.state === 'deck' || b.state === 'bump' || b.state === 'full';
-      if (onDeck === landing) continue;
-      const s = this.where(sim, b, this.spot);
-      if (s.alpha <= 0.01) continue;
-      paintAnimal(ctx, b.kind, s.x, s.y, 1, s.size, this.dpr, { pose: sleep && onDeck ? 'sleep' : 'stand', alpha: s.alpha, squash: s.squash, tilt: s.ang });
-      if (b.state === 'back' && b.t < b.dur) {
-        // Noah's hand leads it back (a leaf's help shows as the same hand)
-        paintHand(ctx, s.x - Math.cos(s.ang) * s.size * 0.45, s.y - Math.sin(s.ang) * s.size * 0.45 - s.size * 0.25, s.size * 0.5, s.ang, clamp(Math.min(b.t / 0.15, (b.dur - b.t) / 0.2)));
-      }
-      if (b.state === 'stall' && sim.leafArmed && !b.mate) {
-        ctx.strokeStyle = `rgba(111,154,69,${0.6 + 0.4 * Math.sin(this.clock * 7)})`;
-        ctx.lineWidth = 2.5;
+    for (const id of sim.freeIds()) {
+      const a = sim.animals[id];
+      const isShine = shine && shine.id === id;
+      const lc = cellCentre(L, a.cells[0].x, a.cells[0].y);
+      const inside = Math.hypot(lc.x - L.door.x, lc.y - L.door.y) <= r;
+      const alpha = isShine ? 0.95 : inside ? k * 0.85 : 0;
+      if (alpha <= 0.02) continue;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = isShine ? '#fff3c4' : C.amber2;
+      const cells = rayCells(sim.board.cols, sim.board.rows, a.cells[0], a.dir);
+      cells.forEach((c, i) => {
+        const p = cellCentre(L, c.x, c.y);
+        const side = (i % 2 ? 1 : -1) * L.cell * 0.1;
+        const px = p.x + (DY[a.dir] ? side : 0), py = p.y + (DX[a.dir] ? side : 0);
+        const ph = Math.sin(this.clock * 6 - i * 0.8) * 0.25 + 0.75;
         ctx.beginPath();
-        ctx.arc(s.x, s.y, s.size * 0.55, 0, TAU);
+        ctx.ellipse(px, py, L.cell * 0.07 * ph + 1, L.cell * 0.1 * ph + 1, a.dir % 2 ? Math.PI / 2 : 0, 0, TAU);
+        ctx.fill();
+      });
+      // the animal itself glows
+      ctx.globalAlpha = alpha * 0.55;
+      const gs = L.cell * 1.5;
+      ctx.drawImage(glow(isShine ? 'rgba(255,240,200,.9)' : 'rgba(255,200,90,.8)'), lc.x - gs / 2, lc.y - gs / 2, gs, gs);
+    }
+    ctx.restore();
+  }
+
+  private animalOffset(L: Layout, id: number, dir: Dir): Pt {
+    const b = this.bumps.get(id);
+    let o = 0;
+    if (b) {
+      const k = b.t / RULES.bumpSec;
+      const reach = (b.dist + 0.32) * L.cell;
+      o = k < 0.45 ? reach * ease.outCubic(k / 0.45) : reach * (1 - ease.inOutSine((k - 0.45) / 0.55));
+    }
+    const j = this.jolts.get(id);
+    let jx = 0, jy = 0;
+    if (j !== undefined) {
+      const a = Math.sin(j * 50) * (1 - j / 0.3) * L.cell * 0.06;
+      jx = a; jy = a * 0.5;
+    }
+    return { x: DX[dir] * o + jx, y: DY[dir] * o + jy };
+  }
+
+  private drawAnimals(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
+    const drop = sim.levelState === 'drop' ? clamp(this.levelIn / RULES.dropSec) : 1;
+    const restart = sim.levelState === 'restart' ? clamp(sim.stateT / RULES.restartSec) : 0;
+    const size = L.cell * 1.28;
+    for (const a of sim.animals) {
+      if (a.out) continue;
+      const off = this.animalOffset(L, a.id, a.dir);
+      const fall = (1 - ease.outBack(clamp(drop * 1.4 - (a.id % 7) * 0.05))) * L.cell * 0.8;
+      ctx.save();
+      ctx.globalAlpha = (1 - restart * 0.6) * clamp(drop * 2);
+      ctx.translate(off.x, off.y - fall);
+      // a straw mat in the kind's colour under every cell of the animal: pieces and pairs read at a glance
+      const pad = Math.max(2, L.cell * 0.07);
+      for (const c of a.cells) {
+        const x = L.deck.x + c.x * L.cell + pad, y = L.deck.y + c.y * L.cell + pad;
+        ctx.fillStyle = KIND_COLOR(a.kind);
+        ctx.globalAlpha *= 0.32;
+        roundRect(ctx, x, y, L.cell - 2 * pad, L.cell - 2 * pad, L.cell * 0.18);
+        ctx.fill();
+        ctx.globalAlpha /= 0.32;
+      }
+      // the file: a straw rope from the tail to the mother, the young along it
+      if (a.cells.length > 1) {
+        ctx.strokeStyle = 'rgba(217,164,65,.75)';
+        ctx.lineWidth = Math.max(2, L.cell * 0.12);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        a.cells.forEach((c, i) => {
+          const p = cellCentre(L, c.x, c.y);
+          if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y);
+        });
         ctx.stroke();
-      }
-    }
-  }
-
-  /**
-   * Where an animal is now, as `ang` (its heading on screen, 0 = east), size and alpha.  On the deck
-   * it walks its own way; on the rail it follows the ring to the walkway and its stall; it waits in
-   * its stall facing the door; a pair bows and walks to the door and up the ramp; led back, it walks
-   * the same way home.
-   */
-  private where(sim: ArkaSim, b: Beast, out: Spot): Spot {
-    const L = this.L;
-    const c = L.c;
-    const rm = this.opts.reducedMotion;
-    out.alpha = 1;
-    out.squash = 0;
-    out.sleep = false;
-    out.ang = (b.dir - 1) * (Math.PI / 2);
-    out.size = c * 0.94;
-    cellAt(L, b.x, b.y, this.pt);
-    const dx = DX[b.dir], dy = DY[b.dir];
-    switch (b.state) {
-      case 'deck': {
-        out.x = this.pt.x;
-        out.y = this.pt.y;
-        if (!rm) out.squash = 0.012 * Math.sin(this.clock * 2.1 + b.id);
-        return out;
-      }
-      case 'bump': {
-        const q = b.t / b.dur;
-        const d = b.dist * (q < 0.5 ? ease.outCubic(q * 2) : 1 - ease.inOutSine((q - 0.5) * 2));
-        out.x = this.pt.x + dx * d * c;
-        out.y = this.pt.y + dy * d * c;
-        out.squash = q > 0.4 && q < 0.6 ? 0.08 : 0;
-        return out;
-      }
-      case 'full': {
-        const tw = (b.dur - RULES.look) / 2;
-        const d = b.t < tw ? b.dist * ease.inOutSine(b.t / tw) : b.t < tw + RULES.look ? b.dist : b.dist * (1 - ease.inOutSine((b.t - tw - RULES.look) / tw));
-        out.x = this.pt.x + dx * d * c;
-        out.y = this.pt.y + dy * d * c;
-        if (b.t >= tw && b.t < tw + RULES.look) out.ang += Math.sin((b.t - tw) * 20) * 0.12;   // it looks at the full landing
-        return out;
-      }
-      case 'out': {
-        const d = Math.min(b.dist, b.t * RULES.walk);
-        out.x = this.pt.x + dx * d * c;
-        out.y = this.pt.y + dy * d * c;
-        if (!rm) out.squash = 0.04 * Math.abs(Math.sin(b.t * 16));
-        return out;
-      }
-      case 'rail': {
-        const n = this.railPath(b, b.stall, sim);
-        this.along(n, ease.inOutSine(clamp(b.t / b.dur)), out);
-        out.size = c * 0.94 + (L.stall * 0.86 - c * 0.94) * clamp(b.t / b.dur);
-        if (!rm) out.squash = 0.04 * Math.abs(Math.sin(b.t * 18));
-        return out;
-      }
-      case 'stall': {
-        stallAt(L, b.stall, out);
-        out.ang = Math.PI;   // facing the door
-        out.size = L.stall * 0.86;
-        if (!b.owner) out.x += L.stall * 0.14;   // the second of a pair waits beside its mate's place
-        if (!rm && this.hitStop <= 0) out.squash = 0.015 * Math.sin(this.clock * 1.7 + b.id);
-        return out;
-      }
-      case 'pair': {
-        stallAt(L, b.stall < 0 ? 0 : b.stall, this.pt2);
-        const side = b.owner ? -1 : 1;
-        const sz = L.stall * 0.86;
-        out.size = sz;
-        if (b.t < RULES.bow) {
-          out.x = this.pt2.x + side * L.stall * 0.14;
-          out.y = this.pt2.y;
-          out.ang = Math.PI;
-          out.squash = 0.12 * Math.sin((b.t / RULES.bow) * Math.PI);   // a bow
-          return out;
+        for (let i = a.cells.length - 1; i >= 1; i--) {
+          const c = a.cells[i], n = a.cells[i - 1];
+          const p = cellCentre(L, c.x, c.y);
+          const d = n.x > c.x ? 1 : n.x < c.x ? 3 : n.y > c.y ? 2 : 0;
+          paintAnimal(ctx, a.kind, p.x, p.y, d, size * 0.64, this.dpr, { squash: Math.sin(this.clock * 3 + i + a.id) * 0.02 });
         }
-        const q = clamp((b.t - RULES.bow) / (RULES.pair - RULES.bow));
-        const dxr = L.door.x + L.door.w * 0.5, dyr = L.door.y + L.door.h * 0.5;
-        const tx = dxr, ty = L.land.y + L.land.h - 6;
-        // to the door, then up the ramp onto the land
-        if (q < 0.55) {
-          const k = ease.inOutSine(q / 0.55);
-          out.x = this.pt2.x + (dxr - this.pt2.x) * k;
-          out.y = this.pt2.y + (dyr - this.pt2.y) * k + side * L.stall * 0.12;
-          out.ang = Math.atan2(dyr - this.pt2.y, dxr - this.pt2.x);
-        } else {
-          const k = (q - 0.55) / 0.45;
-          out.x = dxr + (tx - dxr) * k + side * L.stall * 0.14;
-          out.y = dyr + (ty - dyr) * k;
-          out.ang = -Math.PI / 2;
-          out.size = sz * (1 - 0.45 * k);
-          out.alpha = 1 - k;
+      }
+      const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
+      const tt = this.turns.get(a.id);
+      const dir = tt !== undefined ? a.dir - 1 + ease.outBack(tt / 0.28) : a.dir;
+      const w = this.wakes.get(a.id);
+      const breathe = a.asleep ? Math.sin(this.clock * 1.6 + a.id) * 0.03 : Math.sin(this.clock * 2.2 + a.id * 1.7) * 0.012;
+      const squash = w !== undefined ? 0.2 * (1 - w / 0.5) : breathe;
+      paintAnimal(ctx, a.kind, c.x, c.y, dir, size, this.dpr, { pose: a.asleep ? 'sleep' : 'stand', squash });
+      if (!a.asleep) this.chevron(ctx, c, dir, L.cell, a.lockedBy >= 0 && !sim.animals[a.lockedBy].out);
+      if (a.asleep) {
+        ctx.fillStyle = C.cream;
+        ctx.strokeStyle = C.ink;
+        ctx.lineWidth = 2;
+        ctx.font = font(800, Math.max(10, L.cell * 0.26), SERIF, true);
+        ctx.textAlign = 'center';
+        for (let i = 0; i < 2; i++) {
+          const k = (this.clock * 0.6 + i * 0.5) % 1;
+          ctx.globalAlpha = (1 - k) * (1 - restart * 0.6);
+          const zx = c.x + L.cell * (0.2 + k * 0.2), zy = c.y - L.cell * (0.2 + k * 0.35);
+          ctx.strokeText('z', zx, zy);
+          ctx.fillText('z', zx, zy);
         }
-        return out;
+        ctx.globalAlpha = 1 - restart * 0.6;
       }
-      case 'back': {
-        const n = this.railPath(b, b.was, sim);
-        const q = clamp(b.t / b.dur);
-        if (q < 0.8) {
-          this.along(n, 1 - ease.inOutSine(q / 0.8), out);
-          out.ang += Math.PI;
-        } else {
-          // the last steps from the deck's edge into its cell
-          const k = ease.outCubic((q - 0.8) / 0.2);
-          const edge = toEdge(L.cols, L.rows, b.x, b.y, b.dir) + 0.5;
-          out.x = this.pt.x + dx * edge * c * (1 - k);
-          out.y = this.pt.y + dy * edge * c * (1 - k);
-          out.ang = (b.dir - 1) * (Math.PI / 2) + Math.PI * (1 - k);
-        }
-        out.size = c * 0.94;
-        return out;
+      if (a.turner) this.swirl(ctx, c, L.cell);
+      if (a.keyFor >= 0 && !sim.animals[a.keyFor].out) paintKey(ctx, c.x - L.cell * 0.18, c.y + L.cell * 0.22, L.cell * 0.36, -0.4);
+      if (a.lockedBy >= 0) {
+        const open = sim.animals[a.lockedBy].out ? (this.opens.has(a.id) ? this.opens.get(a.id)! / 0.6 : 1) : 0;
+        if (open < 1) paintPen(ctx, L.deck.x + a.cells[0].x * L.cell, L.deck.y + a.cells[0].y * L.cell, L.cell, open);
       }
-      default:
-        out.x = this.pt.x;
-        out.y = this.pt.y;
-        return out;
+      ctx.restore();
     }
   }
 
-  /**
-   * The way from the deck's edge to a stall: onto the rail, around it the shorter way to the
-   * walkway, along it to the landing, into the stall.  Written into `path`; returns the points.
-   */
-  private railPath(b: Beast, stall: number, sim: ArkaSim): number {
-    const L = this.L, P = this.path;
-    const r = railRect(L);
-    cellAt(L, b.x, b.y, this.pt);
-    const edge = toEdge(L.cols, L.rows, b.x, b.y, b.dir) + 0.5;
-    let n = 0;
-    const push = (x: number, y: number) => {
-      if (n < 12) {
-        P[n * 2] = x;
-        P[n * 2 + 1] = y;
-        n++;
-      }
-    };
-    const ex = this.pt.x + DX[b.dir] * edge * L.c, ey = this.pt.y + DY[b.dir] * edge * L.c;
-    push(ex, ey);
-    const rx = ex + DX[b.dir] * L.rail * 0.5, ry = ey + DY[b.dir] * L.rail * 0.5;
-    push(rx, ry);
-    railGate(L, r, this.pt2);
-    const gx = this.pt2.x, gy = this.pt2.y;
-    const per = 2 * (r.w + r.h);
-    const s0 = railCoord(r, rx, ry), s1 = railCoord(r, gx, gy);
-    const fwd = (((s1 - s0) % per) + per) % per;
-    const dir = fwd <= per / 2 ? 1 : -1;
-    const span = dir > 0 ? fwd : per - fwd;
-    // the ring's corners on the way
-    const corners = [0, r.w, r.w + r.h, 2 * r.w + r.h];
-    const passed: number[] = [];
-    for (const cs of corners) {
-      const d = dir > 0 ? (((cs - s0) % per) + per) % per : (((s0 - cs) % per) + per) % per;
-      if (d > 0.5 && d < span - 0.5) passed.push(d);
-    }
-    passed.sort((a, b2) => a - b2);
-    for (const d of passed) {
-      railPoint(r, s0 + dir * d, this.pt2);
-      push(this.pt2.x, this.pt2.y);
-    }
-    push(gx, gy);
-    push(L.gate.x, L.gate.y);
-    stallAt(L, Math.max(0, stall), this.pt2);
-    push(this.pt2.x, this.pt2.y);
-    void sim;
-    // running lengths
-    this.lens[0] = 0;
-    for (let i = 1; i < n; i++) this.lens[i] = this.lens[i - 1] + Math.hypot(P[i * 2] - P[i * 2 - 2], P[i * 2 + 1] - P[i * 2 - 1]);
-    return n;
-  }
-
-  /** The point at share `q` of the path's length, and the heading there. */
-  private along(n: number, q: number, out: Spot): void {
-    const P = this.path, total = this.lens[n - 1];
-    const at = q * total;
-    let i = 1;
-    while (i < n - 1 && this.lens[i] < at) i++;
-    const seg = Math.max(1e-6, this.lens[i] - this.lens[i - 1]);
-    const k = clamp((at - this.lens[i - 1]) / seg);
-    const x0 = P[i * 2 - 2], y0 = P[i * 2 - 1], x1 = P[i * 2], y1 = P[i * 2 + 1];
-    out.x = x0 + (x1 - x0) * k;
-    out.y = y0 + (y1 - y0) * k;
-    out.ang = Math.atan2(y1 - y0, x1 - x0);
-  }
-
-  /** The Evening's straw over the sleeping deck. */
-  private drawStraw(): void {
-    const { ctx, L } = this;
-    const r = railRect(L);
-    const key = `${this.layoutKey}|${this.dpr}`;
-    if (!this.straw || this.strawKey !== key) {
-      this.strawKey = key;
-      this.straw = strawSprite(r.w + L.rail, r.h + L.rail, this.dpr, 7);
-    }
+  /** The nose's chevron: where the animal will walk (dim behind a closed pen). */
+  private chevron(ctx: CanvasRenderingContext2D, c: Pt, dir: number, cell: number, dim: boolean): void {
+    const a = (dir - 1) * (Math.PI / 2);
     ctx.save();
-    ctx.globalAlpha = this.strawK;
-    ctx.fillStyle = 'rgba(70,44,22,.35)';
-    ctx.fillRect(r.x - L.rail / 2, r.y - L.rail / 2, r.w + L.rail, r.h + L.rail);
-    const fall = (1 - ease.outCubic(this.strawK)) * 30;
-    ctx.drawImage(this.straw, r.x - L.rail / 2, r.y - L.rail / 2 - fall, r.w + L.rail, r.h + L.rail);
-    ctx.restore();
-  }
-
-  /** The light over the deck: the Evening reddens it and kindles the lanterns, a cleared hold floods the door. */
-  private drawLight(sim: ArkaSim): void {
-    const { ctx, L } = this;
-    if (this.dusk > 0.01) {
-      ctx.save();
-      // everything but the land strip (its own dusk is painted in): below it when upright, around it when wide
-      ctx.beginPath();
-      if (L.mode === 'stack') ctx.rect(0, L.land.y + L.land.h, this.w, this.h);
-      else {
-        ctx.rect(0, 0, this.w, this.h);
-        ctx.rect(L.land.x, L.land.y, L.land.w, L.land.h);
-      }
-      ctx.globalAlpha = this.dusk * 0.5;
-      ctx.fillStyle = C.dusk;
-      ctx.fill('evenodd');
-      ctx.globalAlpha = this.dusk * 0.18;
-      ctx.fillStyle = '#ff9a4a';
-      ctx.fill('evenodd');
-      ctx.restore();
-    }
-    if (this.lanterns > 0.01) {
-      const sp = glow('rgba(255,181,71,.85)');
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const ld = L.landing;
-      const pts: [number, number][] = [[ld.x + L.door.w, ld.y], [ld.x + L.door.w + sim.capacity * L.stall, ld.y], [L.deck.x - L.rail / 2, L.deck.y - L.rail / 2], [L.deck.x + L.deck.w + L.rail / 2, L.deck.y - L.rail / 2]];
-      for (const [x, y] of pts) {
-        const r = L.stall * (0.9 + 0.08 * Math.sin(this.clock * 3 + x));
-        ctx.globalAlpha = this.lanterns * 0.8;
-        ctx.drawImage(sp, x - r, y - r, r * 2, r * 2);
-      }
-      ctx.restore();
-      for (const [x, y] of pts) {
-        ctx.fillStyle = '#3a281a';
-        ctx.fillRect(x - 3, y - 9, 6, 9);
-        ctx.fillStyle = `rgba(255,${200 + 30 * this.lanterns},120,${0.3 + 0.7 * this.lanterns})`;
-        ctx.fillRect(x - 2, y - 8, 4, 6);
-      }
-    }
-    if (this.doorLight > 0.01 || this.dawnDoor > 0.01) {
-      const d = L.door;
-      const k = Math.max(this.doorLight, this.dawnDoor * 0.6);
-      const r = d.h * (1.6 + this.doorLight);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = k;
-      ctx.drawImage(glow('rgba(255,240,190,.95)'), d.x + d.w / 2 - r, d.y + d.h / 2 - r, r * 2, r * 2);
-      ctx.restore();
-    }
-  }
-
-  /** The dove over the land strip: out at dusk (when the deck shows), home to its post. */
-  private drawStripDove(sim: ArkaSim): void {
-    const { ctx, L } = this;
-    const d = sim.dove;
-    const ls = L.land;
-    let x: number, y: number;
-    const postX = L.door.x + L.door.w * 0.5, postY = L.door.y - 4;
-    if (d.state === 'out') {
-      x = ls.x + ls.w * (0.12 + 0.75 * d.far);
-      y = ls.y + ls.h * (0.55 - 0.35 * d.high) + Math.sin(this.clock * 2) * 3;
-    } else if (d.state === 'home') {
-      const k = ease.inOutSine(clamp(d.t / 1.6));
-      const fx = ls.x + ls.w * (0.12 + 0.75 * d.far), fy = ls.y + ls.h * (0.55 - 0.35 * d.high);
-      x = fx + (postX - fx) * k;
-      y = fy + (postY - fy) * k - Math.sin(k * Math.PI) * ls.h * 0.2;
-    } else return;
-    paintDove(ctx, x, y, Math.max(14, L.stall * 0.42), Math.sin(this.clock * 9), d.state === 'home' && d.leaf, d.state === 'home' ? -1 : 1);
-  }
-
-  // ── the land view: the Evening and the finisher ──────────────────
-  private drawLandView(sim: ArkaSim): void {
-    const { ctx, w, h } = this;
-    const fin = this.finaleT >= 0 ? clamp(this.finaleT / 3) : 0;
-    // dusk in the Evening, a golden clearing in the finisher
-    this.big.draw(ctx, 0, 0, w, h, this.clock, this.look, { dusk: 0.9 - fin * 0.55, zoom: 0.42, still: this.opts.reducedMotion }, this.dpr);
-    if (fin > 0) {
-      ctx.save();
-      ctx.globalAlpha = fin * 0.35;
-      ctx.fillStyle = '#ffd9a0';
-      ctx.fillRect(0, 0, w, h);
-      ctx.restore();
-      paintRainbow(ctx, w * 0.58, h * 0.78, Math.min(w, h * 1.2) * 0.62, ease.outCubic(clamp((this.finaleT - 0.6) / 2.4)), 0.6);
-    }
-    // the ark's rail in the foreground: Noah watching, the lanterns lit
-    const railY = h * 0.86;
-    ctx.fillStyle = '#2c1f15';
-    ctx.fillRect(0, railY, w * 0.42, h - railY);
-    paintPlanks(ctx, 0, railY, w * 0.42, h - railY, Math.max(14, h * 0.03), ['#3b2a1e', '#43301f', '#33241a'], 21);
-    ctx.fillStyle = '#4a3220';
-    ctx.fillRect(0, railY - 8, w * 0.44, 10);
+    ctx.translate(c.x + Math.cos(a) * cell * 0.43, c.y + Math.sin(a) * cell * 0.43);
+    ctx.rotate(a);
+    const s = cell * 0.11;
+    ctx.globalAlpha *= dim ? 0.4 : 0.95;
+    ctx.fillStyle = C.cream;
     ctx.strokeStyle = C.ink;
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(0, railY - 8, w * 0.44, 10);
-    const postX = w * 0.3;
-    ctx.fillStyle = '#3a281a';
-    ctx.fillRect(postX - 4, railY - 44, 8, 40);
-    const sp = glow('rgba(255,181,71,.9)');
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.85;
-    const lr = 40 + 4 * Math.sin(this.clock * 3);
-    ctx.drawImage(sp, postX - lr, railY - 52 - lr, lr * 2, lr * 2);
+    ctx.lineWidth = Math.max(1, cell * 0.035);
+    ctx.beginPath();
+    ctx.moveTo(s, 0);
+    ctx.lineTo(-s * 0.7, -s);
+    ctx.lineTo(-s * 0.25, 0);
+    ctx.lineTo(-s * 0.7, s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
     ctx.restore();
-    ctx.fillStyle = C.amber2;
-    ctx.fillRect(postX - 4, railY - 58, 8, 10);
-    paintFigure(ctx, w * 0.17, railY - 6, Math.min(70, h * 0.1), sim.dove.state === 'out' ? 0.15 : 0.7, 0, false);
-    // the dove
-    const d = sim.dove;
-    const startX = w * 0.2, startY = railY - Math.min(70, h * 0.1) * 0.9;
-    let x = startX, y = startY, face = 1, show = true, leaf = false, size = Math.max(22, Math.min(w, h) * 0.06);
-    if (d.state === 'out') {
-      x = startX + d.far * w * 0.68;
-      y = h * (0.6 - 0.36 * d.high) + Math.sin(this.clock * 1.6) * 8;
-    } else if (d.state === 'home') {
-      const k = ease.inOutSine(clamp(d.t / 1.8));
-      const fx = startX + d.far * w * 0.68, fy = h * (0.6 - 0.36 * d.high);
-      x = fx + (startX - fx) * k;
-      y = fy + (startY - fy) * k - Math.sin(k * Math.PI) * h * 0.08;
-      face = -1;
-      leaf = d.leaf;
-    } else if (d.state === 'away') {
-      // the finisher: it flies out and does not return
-      const k = clamp(d.t / 4.5);
-      x = startX + ease.inOutSine(k) * w * 0.85;
-      y = startY - ease.outCubic(k) * h * 0.55;
-      size *= 1 - 0.7 * k;
-      show = k < 0.98;
-    }
-    if (show) paintDove(ctx, x, y, size, Math.sin(this.clock * (d.state === 'rail' ? 0 : 8)), leaf, face);
-    this.doveSeen = d.state === 'out';
   }
 
-  private drawFinaleText(): void {
-    const { ctx, w, h } = this;
-    const k = clamp((this.finaleT - 1.6) / 0.9);
-    if (k <= 0) return;
-    const u = this.L.u;
+  /** The turning goat's swirl, a quarter turn clockwise. */
+  private swirl(ctx: CanvasRenderingContext2D, c: Pt, cell: number): void {
+    const r = cell * 0.42;
     ctx.save();
-    ctx.globalAlpha = k;
+    ctx.strokeStyle = 'rgba(255,217,138,.85)';
+    ctx.lineWidth = Math.max(1.5, cell * 0.05);
+    ctx.setLineDash([cell * 0.08, cell * 0.06]);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r, -Math.PI * 0.9 + this.clock * 0.6, -Math.PI * 0.2 + this.clock * 0.6);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  private drawLeavers(ctx: CanvasRenderingContext2D, L: Layout): void {
+    const size = L.cell * 1.28;
+    for (const l of this.leavers) {
+      for (let i = 0; i < l.len; i++) {
+        const pos = l.lead - i + l.s;
+        const i0 = Math.max(0, Math.min(l.path.length - 1, Math.floor(pos)));
+        const i1 = Math.min(l.path.length - 1, i0 + 1);
+        const f = clamp(pos - i0);
+        const cx = l.path[i0].x + (l.path[i1].x - l.path[i0].x) * f, cy = l.path[i0].y + (l.path[i1].y - l.path[i0].y) * f;
+        const p = { x: L.deck.x + (cx + 0.5) * L.cell, y: L.deck.y + (cy + 0.5) * L.cell };
+        const outside = Math.max(0, -cx - 0.5, cx - (L.cols - 0.5), -cy - 0.5, cy - (L.rows - 0.5));
+        const alpha = clamp(1 - outside / 2.2);
+        if (alpha <= 0) continue;
+        const dx = l.path[i1].x - l.path[i0].x, dy = l.path[i1].y - l.path[i0].y;
+        const d = i === 0 ? l.dir : dx > 0 ? 1 : dx < 0 ? 3 : dy > 0 ? 2 : 0;
+        paintAnimal(ctx, l.kind, p.x, p.y, d, i === 0 ? size : size * 0.64, this.dpr, { alpha, squash: -0.08 });
+        if (i === 0 && l.s < 3) {
+          // speed lines behind the leader
+          ctx.save();
+          ctx.globalAlpha = alpha * 0.5 * (1 - l.s / 3);
+          ctx.strokeStyle = C.cream;
+          ctx.lineWidth = 1.5;
+          for (const k of [-0.2, 0, 0.2]) {
+            ctx.beginPath();
+            const bx = p.x - DX[l.dir] * L.cell * 0.55 + DY[l.dir] * L.cell * k, by = p.y - DY[l.dir] * L.cell * 0.55 + DX[l.dir] * L.cell * k;
+            ctx.moveTo(bx, by);
+            ctx.lineTo(bx - DX[l.dir] * L.cell * 0.5, by - DY[l.dir] * L.cell * 0.5);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+    }
+  }
+
+  private fogTexture(): HTMLCanvasElement {
+    if (this.fogTex) return this.fogTex;
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const g = c.getContext('2d')!;
+    g.fillStyle = '#e8e6df';
+    g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 90; i++) {
+      const x = hash(i * 3 + 1) * 256, y = hash(i * 3 + 2) * 256, r = 18 + hash(i * 3 + 3) * 50;
+      const gr = g.createRadialGradient(x, y, 0, x, y, r);
+      const tone = i % 3 ? 'rgba(255,255,255,.55)' : 'rgba(170,180,190,.35)';
+      gr.addColorStop(0, tone);
+      gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr;
+      for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) {
+        g.save();
+        g.translate(ox, oy);
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+        g.restore();
+      }
+    }
+    this.fogTex = c;
+    return c;
+  }
+
+  /** The flood's mist over the deck, a clear circle around the door: its radius the focus, the threshold a dashed gold ring. */
+  private drawMist(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
+    if (sim.mist <= 0.01) return;
+    const pad = L.cell * 0.4;
+    const W = Math.ceil(L.deck.w + pad * 2), H = Math.ceil(L.deck.h + pad * 2);
+    if (!this.fogC || this.fogC.width !== Math.round(W * this.dpr) || this.fogC.height !== Math.round(H * this.dpr)) {
+      this.fogC = document.createElement('canvas');
+      this.fogC.width = Math.round(W * this.dpr);
+      this.fogC.height = Math.round(H * this.dpr);
+    }
+    const g = this.fogC.getContext('2d')!;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, W, H);
+    const tex = this.fogTexture();
+    const pat = g.createPattern(tex, 'repeat');
+    if (pat) {
+      const drift = this.opts.reducedMotion ? 0 : this.clock * 9;
+      g.save();
+      g.translate(-(drift % 256), -((drift * 0.4) % 256));
+      g.fillStyle = pat;
+      g.fillRect(0, 0, W + 512, H + 512);
+      g.restore();
+    }
+    // cut the clear circle (soft edge)
+    const r = sightRadius(L, sightShare(sim.sight));
+    const cx = L.door.x - L.deck.x + pad, cy = L.door.y - L.deck.y + pad;
+    g.globalCompositeOperation = 'destination-out';
+    const gr = g.createRadialGradient(cx, cy, Math.max(1, r * 0.82), cx, cy, r * 1.04);
+    gr.addColorStop(0, 'rgba(0,0,0,1)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+    g.beginPath();
+    g.arc(cx, cy, r * 1.05, 0, TAU);
+    g.fill();
+    g.globalCompositeOperation = 'source-over';
+    ctx.save();
+    ctx.globalAlpha = 0.97 * sim.mist;
+    ctx.drawImage(this.fogC, L.deck.x - pad, L.deck.y - pad, W, H);
+    ctx.restore();
+    // the rings: the threshold (dashed gold) and the circle's live edge
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(L.deck.x - pad, L.deck.y - pad, W, H);
+    ctx.clip();
+    const r5 = sightRadius(L, sightShare(0.5));
+    ctx.globalAlpha = sim.mist;
+    ctx.setLineDash([8, 6]);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = sim.blind ? 'rgba(90,90,100,.6)' : 'rgba(232,182,74,.95)';
+    ctx.beginPath();
+    ctx.arc(L.door.x, L.door.y, r5, Math.PI, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (!sim.blind) {
+      const above = sim.sight >= 0.5;
+      ctx.lineWidth = 3 + 4 * this.ringPulse;
+      ctx.strokeStyle = above ? `rgba(255,217,138,${0.65 + 0.35 * this.ringPulse})` : 'rgba(247,240,225,.7)';
+      ctx.beginPath();
+      ctx.arc(L.door.x, L.door.y, r, Math.PI, TAU);
+      ctx.stroke();
+    }
+    // the threshold's label on the ring
+    const ly = L.door.y - r5;
+    if (ly > L.deck.y + 6) {
+      ctx.font = font(800, 11, SANS);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      const lx = L.door.x + 8;
+      ctx.fillStyle = 'rgba(42,33,27,.7)';
+      const tw = ctx.measureText(t('hud.ring')).width;
+      ctx.fillRect(lx - 4, ly - 8, tw + 8, 16);
+      ctx.fillStyle = C.amber2;
+      ctx.fillText(t('hud.ring'), lx, ly);
+    }
+    ctx.restore();
+  }
+
+  private drawCursor(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
+    if (!sim.keyboard || sim.levelState !== 'play') return;
+    const x = L.deck.x + sim.cursor.x * L.cell, y = L.deck.y + sim.cursor.y * L.cell;
+    ctx.save();
+    ctx.strokeStyle = C.cream;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([6, 4]);
+    ctx.lineDashOffset = -this.clock * 20;
+    ctx.strokeRect(x + 2, y + 2, L.cell - 4, L.cell - 4);
+    ctx.restore();
+  }
+
+  private drawDoveFx(ctx: CanvasRenderingContext2D): void {
+    const d = this.dove;
+    if (!d) return;
+    const k = ease.inOutSine(clamp(d.t / 0.45));
+    const x = d.from.x + (d.to.x - d.from.x) * k, y = d.from.y + (d.to.y - d.from.y) * k - Math.sin(k * Math.PI) * 40;
+    ctx.save();
+    ctx.globalAlpha = clamp(1.2 - d.t);
+    paintDove(ctx, x, y, 26, Math.sin(this.clock * 30), false, d.to.x < d.from.x ? -1 : 1);
+    ctx.restore();
+  }
+
+  // ── the bar, the raven, the cards ──────────────────────────────
+  private drawBar(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
+    const b = L.bar;
+    ctx.save();
+    // a soft plank under the bar
+    ctx.fillStyle = 'rgba(42,33,27,.55)';
+    roundRect(ctx, b.x, b.y, b.w, b.h, 12);
+    ctx.fill();
+    // hearts (a fourth from the rainbow, drawn in its colours)
+    const hs = Math.min(26, b.h * 0.62);
+    const n = Math.max(RULES.hearts, sim.hearts);
+    for (let i = 0; i < n; i++) {
+      const p = this.heartPos(L, i);
+      const full = i < sim.hearts;
+      const beat = full && sim.hearts === 1 ? 1 + 0.08 * Math.sin(this.clock * 8) : 1;
+      paintHeart(ctx, p.x + hs / 2 - 4, p.y + 2, hs * beat, full ? { rainbow: i >= RULES.hearts } : { empty: true });
+    }
+    for (const hf of this.heartFx) {
+      const k = clamp(hf.t / 0.8);
+      if (hf.lost) {
+        paintHeart(ctx, hf.from.x + hs / 2 - 4 - k * 10, hf.from.y + k * 40, hs * (1 - k * 0.3), { alpha: 1 - k, fill: '#8a2f28' });
+      } else {
+        const x = hf.from.x + (hf.to.x - hf.from.x) * ease.inOutSine(k), y = hf.from.y + (hf.to.y - hf.from.y) * ease.inOutSine(k) - Math.sin(k * Math.PI) * 60;
+        paintHeart(ctx, x, y, hs, { rainbow: true, alpha: 1 - k * 0.3 });
+      }
+    }
+    // the level and its par
+    const label = `${t('hud.level', { n: sim.levelN })}`;
+    const par = sim.par, over = sim.levelT > par;
+    const heartsW = n * (hs + 6) + 20;
+    const midX = Math.max(b.x + heartsW + 40, b.x + b.w / 2);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    let size = 34 * u;
-    ctx.font = font(500, size, SERIF, true);
-    const tw = ctx.measureText(ENOUGH).width;
-    if (tw > w - 40) {
-      size = Math.max(16, (size * (w - 40)) / tw);
-      ctx.font = font(500, size, SERIF, true);
+    ctx.fillStyle = C.cream;
+    ctx.font = font(700, Math.min(17, b.h * 0.42), SERIF);
+    const room = L.dove.x - L.dove.r - (b.x + heartsW) - 10;
+    if (room > 70) {
+      ctx.fillText(label, midX, b.y + b.h * 0.36);
+      ctx.font = font(700, 11, SANS);
+      ctx.fillStyle = over || sim.doves || sim.bumps ? 'rgba(247,240,225,.45)' : C.amber2;
+      const stars = sim.bumps === 0 && sim.doves === 0 && !over ? '★★★' : sim.bumps <= 1 ? '★★' : '★';
+      ctx.fillText(`${stars} · ${t('hud.par', { n: Math.max(0, Math.ceil(par - sim.levelT)) })}`, midX, b.y + b.h * 0.74);
     }
-    ctx.lineWidth = 4;
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(46,36,64,.35)';
-    ctx.strokeText(ENOUGH, w / 2, h * 0.24);
-    ctx.fillStyle = '#fff8ea';
-    ctx.fillText(ENOUGH, w / 2, h * 0.24);
-    ctx.font = font(650, 14 * u, SANS);
-    ctx.fillStyle = 'rgba(255,248,234,.92)';
-    ctx.fillText(this.finaleLine, w / 2, h * 0.24 + size * 0.95);
+    // the dove's button: a cooldown sweep while it rests
+    const d = L.dove;
+    ctx.fillStyle = 'rgba(247,240,225,.92)';
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, d.r, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    paintDove(ctx, d.x + 2, d.y + 3, d.r * 1.1, Math.sin(this.clock * (sim.doveT > 0 ? 2 : 6)) * 0.5, false, -1);
+    if (sim.doveT > 0) {
+      ctx.fillStyle = 'rgba(42,33,27,.45)';
+      ctx.beginPath();
+      ctx.moveTo(d.x, d.y);
+      ctx.arc(d.x, d.y, d.r, -Math.PI / 2, -Math.PI / 2 + TAU * (sim.doveT / RULES.doveRest));
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.font = font(800, 10, SANS);
+    ctx.fillStyle = C.cream;
+    ctx.textAlign = 'right';
+    if (b.w > 300) ctx.fillText(t('hud.dove'), d.x - d.r - 6, d.y);
     ctx.restore();
   }
 
-  /** The calibration intro: the dim hold, its covering lifting as the reference fills (intro.ts). */
-  intro(dt: number, p: number, progress: ArkaProgress): void {
-    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.intro0.draw(this.ctx, this.w, this.h, dt, p, progress, this.dpr);
+  private drawRaven(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
+    const R = L.raven;
+    const line = sim.line;
+    const talking = !!line;
+    const talk = talking ? 0.5 + 0.5 * Math.sin(this.clock * 18) : 0;
+    const idleHop = (this.clock % 5) < 0.4 ? (this.clock % 5) / 0.4 : 0;
+    const hop = Math.max(this.ravenHop, idleHop);
+    paintRaven(ctx, R.x, R.y, R.s, { bob: hop, talk, face: R.x > this.w / 2 ? -1 : 1, tilt: -this.ravenFlinch * 0.4 * Math.sin(this.clock * 20) });
+    if (!line) return;
+    const age = sim.now - line.t0;
+    const a = clamp(Math.min(age / 0.18, (line.dur - age) / 0.3));
+    if (a <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = a;
+    const fs = this.w < 500 ? 13 : 14;
+    ctx.font = font(650, fs, SANS);
+    const maxW = Math.min(260, this.w * 0.56);
+    const lines = wrapLines(ctx, line.text, maxW - 20);
+    const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 22);
+    const bh = lines.length * (fs + 4) + 14;
+    // beside the raven, on the side away from the deck when there is room there
+    const roomR = this.w - (R.x + R.s * 0.4) - 8 >= bw && R.x > L.deck.x + L.deck.w;
+    const left = !roomR && R.x > this.w / 2;
+    let bx = left ? R.x - R.s * 0.3 - bw : R.x + R.s * 0.3;
+    let by = R.y - R.s * 0.75 - bh;
+    bx = Math.max(8, Math.min(this.w - bw - 8, bx));
+    if (by < L.top) by = R.y + 6;
+    if (by + bh > this.h - 4) by = this.h - bh - 4;
+    ctx.fillStyle = 'rgba(247,240,225,.97)';
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, bx, by, bw, bh, 10);
+    ctx.fill();
+    ctx.stroke();
+    // the tail toward the raven's beak
+    const tx = Math.max(bx + 12, Math.min(bx + bw - 12, R.x + (left ? -R.s * 0.2 : R.s * 0.2)));
+    const below = by > R.y;
+    ctx.beginPath();
+    ctx.moveTo(tx - 7, below ? by : by + bh);
+    ctx.lineTo(R.x + (left ? -R.s * 0.1 : R.s * 0.3), R.y - R.s * 0.6);
+    ctx.lineTo(tx + 7, below ? by : by + bh);
+    ctx.fillStyle = 'rgba(247,240,225,.97)';
+    ctx.fill();
+    ctx.fillStyle = C.ink;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    lines.forEach((l, i) => ctx.fillText(l, bx + 11, by + 8 + i * (fs + 4)));
+    ctx.restore();
+  }
+
+  private drawCard(ctx: CanvasRenderingContext2D, L: Layout): void {
+    const c = this.card;
+    if (!c) return;
+    const k = clamp(Math.min(c.t / 0.25, (c.dur - c.t) / 0.3));
+    if (k <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = k;
+    if (c.kind === 'level' || c.kind === 'restart') {
+      const y = L.deck.y + L.deck.h * 0.42;
+      ctx.font = font(800, Math.min(30, L.deck.w / 9), SERIF);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const s = 0.8 + 0.2 * ease.outBack(clamp(c.t / 0.3));
+      ctx.translate(L.door.x, y);
+      ctx.scale(s, s);
+      const tw = Math.max(ctx.measureText(c.title).width, 120) + 40;
+      ctx.fillStyle = 'rgba(42,33,27,.78)';
+      roundRect(ctx, -tw / 2, -30, tw, c.text ? 66 : 50, 14);
+      ctx.fill();
+      ctx.fillStyle = c.kind === 'restart' ? C.cream : C.amber2;
+      ctx.fillText(c.title, 0, c.text ? -10 : -5);
+      if (c.text) {
+        ctx.font = font(700, 13, SANS);
+        ctx.fillStyle = C.cream;
+        ctx.fillText(c.text, 0, 18);
+      }
+      ctx.restore();
+      return;
+    }
+    // the big cards: a parchment panel over a dimmed deck
+    ctx.fillStyle = 'rgba(20,14,8,.45)';
+    ctx.fillRect(0, 0, this.w, this.h);
+    const pw = Math.min(this.w - 32, 460);
+    // the panel fits its content: the title, the wrapped text and (on the opening card) the root passage
+    ctx.font = font(500, 15, SANS);
+    const textLines = c.kind === 'clear' ? [] : wrapLines(ctx, c.text, pw - 40);
+    let ph = c.kind === 'clear' ? 200 : 66 + textLines.length * 21 + 14;
+    if (c.kind === 'open') {
+      if (!this.verse.l || this.verse.w !== pw) {
+        this.verse.l = layoutPassage(ctx, passage(this.verse.id), pw - 48, Math.max(40, this.h - L.top - 40 - ph - 20), { max: 17, min: 11 });
+        this.verse.w = pw;
+      }
+      ph += this.verse.l.height + 14;
+    }
+    ph = Math.min(ph, this.h - L.top - 14);
+    const px = (this.w - pw) / 2;
+    const py = Math.max(L.top + 4, Math.min(this.h - ph - 10, (this.h - ph) / 2 + 20));
+    ctx.fillStyle = C.paper;
+    ctx.strokeStyle = C.walnut;
+    ctx.lineWidth = 3;
+    roundRect(ctx, px, py, pw, ph, 16);
+    ctx.fill();
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = C.ink;
+    ctx.font = font(800, 24, SERIF);
+    ctx.fillText(c.title, this.w / 2, py + 16);
+    if (c.kind === 'clear' && c.ev) {
+      const e = c.ev;
+      for (let i = 0; i < 3; i++) {
+        const sk = clamp((c.t - 0.25 - i * 0.22) / 0.3);
+        const filled = i < e.stars && sk > 0;
+        paintStar(ctx, this.w / 2 + (i - 1) * 54, py + 82 - (i === 1 ? 8 : 0), 22 * (filled ? ease.outBack(sk) : 1), filled, filled ? (1 - sk) * 0.8 : 0);
+      }
+      ctx.font = font(700, 14, SANS);
+      ctx.fillStyle = C.ink2;
+      const what = [t('card.time', { sec: Math.round(e.sec), par: e.par }), e.bumps ? t('card.bumps', { n: e.bumps }) : t('card.noBump')];
+      if (e.doves) what.push(t('card.dove'));
+      ctx.fillText(what.join(' · '), this.w / 2, py + 118);
+      ctx.font = font(600, 12, SANS);
+      ctx.fillStyle = 'rgba(42,33,27,.6)';
+      ctx.fillText(t('card.tap'), this.w / 2, py + ph - 28);
+    } else {
+      ctx.font = font(500, 15, SANS);
+      ctx.fillStyle = C.ink2;
+      textLines.forEach((l, i) => ctx.fillText(l, this.w / 2, py + 56 + i * 21));
+      if (c.kind === 'open' && this.verse.l) {
+        const p = passage(this.verse.id);
+        const top = py + 66 + textLines.length * 21;
+        drawPassage(ctx, p, this.verse.l, this.w / 2, top, { text: C.walnut2, ref: 'rgba(42,33,27,.6)' });
+      }
+    }
+    ctx.restore();
   }
 }
 
-export type { Rect };
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+  const rr = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}

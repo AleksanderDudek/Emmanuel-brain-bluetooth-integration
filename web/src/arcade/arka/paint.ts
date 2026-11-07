@@ -1230,3 +1230,207 @@ export function glow(color: string): HTMLCanvasElement {
   glows.set(color, c);
   return c;
 }
+
+// ── v2: the raven, hearts, stars, the pen and its key ────────────
+/**
+ * The raven (Gen 8:7), the game's talking companion: glossy blue-black, a big confident beak, one
+ * bright eye; `bob` 0..1 a hop, `talk` opens the beak, `face` −1 looks left.  Feet at (x, y).
+ */
+export function paintRaven(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, o: { bob?: number; talk?: number; face?: number; tilt?: number } = {}): void {
+  const bob = o.bob ?? 0, talk = o.talk ?? 0;
+  ctx.save();
+  ctx.translate(x, y - Math.abs(Math.sin(bob * Math.PI)) * s * 0.18);
+  ctx.scale((o.face ?? -1) < 0 ? -1 : 1, 1);
+  ctx.rotate(o.tilt ?? 0);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  // legs
+  ctx.strokeStyle = '#1a1512';
+  ctx.lineWidth = Math.max(1, s * 0.05);
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.06, -s * 0.18); ctx.lineTo(-s * 0.1, 0); ctx.lineTo(-s * 0.2, 0);
+  ctx.moveTo(s * 0.06, -s * 0.18); ctx.lineTo(s * 0.06, 0); ctx.lineTo(s * 0.18, 0);
+  ctx.stroke();
+  // tail
+  ctx.fillStyle = '#16131a';
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.25, -s * 0.36);
+  ctx.lineTo(-s * 0.62, -s * 0.2);
+  ctx.lineTo(-s * 0.55, -s * 0.12);
+  ctx.lineTo(-s * 0.2, -s * 0.24);
+  ctx.closePath();
+  ctx.fill();
+  // body
+  const g = ctx.createLinearGradient(0, -s * 0.7, 0, -s * 0.15);
+  g.addColorStop(0, '#2c2a3a');
+  g.addColorStop(1, '#141218');
+  ctx.fillStyle = g;
+  ell(ctx, 0, -s * 0.38, s * 0.32, s * 0.22, -0.25);
+  ctx.fill();
+  // wing with a blue sheen
+  ctx.fillStyle = '#23263a';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.12, -s * 0.48);
+  ctx.quadraticCurveTo(-s * 0.18, -s * 0.5, -s * 0.42, -s * 0.28);
+  ctx.quadraticCurveTo(-s * 0.1, -s * 0.24, s * 0.16, -s * 0.34);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(120,150,220,.35)';
+  ctx.lineWidth = Math.max(0.8, s * 0.025);
+  ctx.beginPath();
+  ctx.moveTo(s * 0.05, -s * 0.44); ctx.quadraticCurveTo(-s * 0.15, -s * 0.44, -s * 0.33, -s * 0.31);
+  ctx.stroke();
+  // head
+  ctx.fillStyle = '#1b1922';
+  ctx.beginPath();
+  ctx.arc(s * 0.26, -s * 0.62, s * 0.17, 0, TAU);
+  ctx.fill();
+  // beak (opens when talking)
+  const open = talk * s * 0.07;
+  ctx.fillStyle = '#3a3640';
+  ctx.beginPath();
+  ctx.moveTo(s * 0.36, -s * 0.68);
+  ctx.quadraticCurveTo(s * 0.58, -s * 0.66 - open * 0.3, s * 0.68, -s * 0.6 - open);
+  ctx.lineTo(s * 0.38, -s * 0.6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(s * 0.38, -s * 0.59);
+  ctx.lineTo(s * 0.62, -s * 0.56 + open);
+  ctx.lineTo(s * 0.37, -s * 0.54);
+  ctx.closePath();
+  ctx.fill();
+  // eye: a bright, slightly too confident one
+  ctx.fillStyle = '#f7f0e1';
+  ctx.beginPath();
+  ctx.arc(s * 0.3, -s * 0.66, s * 0.055, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#16131a';
+  ctx.beginPath();
+  ctx.arc(s * 0.315, -s * 0.66, s * 0.028, 0, TAU);
+  ctx.fill();
+  // a ruffled crest
+  ctx.strokeStyle = '#1b1922';
+  ctx.lineWidth = Math.max(1, s * 0.04);
+  ctx.beginPath();
+  ctx.moveTo(s * 0.18, -s * 0.76); ctx.lineTo(s * 0.12, -s * 0.86);
+  ctx.moveTo(s * 0.24, -s * 0.78); ctx.lineTo(s * 0.22, -s * 0.9);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** A heart (centre x, y; `s` its width); `broken` splits it, `rainbow` paints it in the bow's bands. */
+export function paintHeart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, o: { fill?: string; empty?: boolean; rainbow?: boolean; alpha?: number } = {}): void {
+  ctx.save();
+  ctx.translate(x, y);
+  if (o.alpha !== undefined) ctx.globalAlpha *= o.alpha;
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(0, s * 0.32);
+    ctx.bezierCurveTo(-s * 0.62, -s * 0.08, -s * 0.36, -s * 0.56, 0, -s * 0.22);
+    ctx.bezierCurveTo(s * 0.36, -s * 0.56, s * 0.62, -s * 0.08, 0, s * 0.32);
+    ctx.closePath();
+  };
+  path();
+  if (o.empty) {
+    ctx.fillStyle = 'rgba(42,33,27,.25)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(247,240,225,.45)';
+    ctx.lineWidth = Math.max(1, s * 0.07);
+    ctx.stroke();
+  } else {
+    if (o.rainbow) {
+      const g = ctx.createLinearGradient(-s / 2, -s / 2, s / 2, s / 2);
+      ['#e9a7a1', '#efc59a', '#efe2a2', '#b8d8a4', '#a7cde0', '#b6b0dc'].forEach((c, i) => g.addColorStop(i / 5, c));
+      ctx.fillStyle = g;
+    } else ctx.fillStyle = o.fill ?? '#c6453a';
+    ctx.fill();
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = Math.max(1, s * 0.07);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.45)';
+    ell(ctx, -s * 0.16, -s * 0.12, s * 0.09, s * 0.06, -0.6);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** A five-pointed star (centre, outer radius), filled gold or left as an outline. */
+export function paintStar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, filled: boolean, rot = 0): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    if (i) ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fillStyle = filled ? C.amber : 'rgba(42,33,27,.35)';
+  ctx.fill();
+  ctx.strokeStyle = filled ? '#8a5a12' : 'rgba(247,240,225,.5)';
+  ctx.lineWidth = Math.max(1, r * 0.12);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** A small iron key (centre, length), its bow a ring. */
+export function paintKey(ctx: CanvasRenderingContext2D, x: number, y: number, len: number, rot = 0): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.strokeStyle = '#3a2a12';
+  ctx.fillStyle = '#e8b64a';
+  ctx.lineWidth = Math.max(1, len * 0.09);
+  ctx.beginPath();
+  ctx.arc(-len * 0.3, 0, len * 0.2, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.rect(-len * 0.12, -len * 0.06, len * 0.6, len * 0.12);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.rect(len * 0.3, len * 0.05, len * 0.08, len * 0.16);
+  ctx.rect(len * 0.42, len * 0.05, len * 0.06, len * 0.12);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A wattle pen around a cell (x, y = its top-left, `c` the cell), with a padlock unless `open` (0..1 swings it). */
+export function paintPen(ctx: CanvasRenderingContext2D, x: number, y: number, c: number, open: number): void {
+  ctx.save();
+  const p = c * 0.07;
+  ctx.strokeStyle = '#4a3220';
+  ctx.lineWidth = Math.max(1.5, c * 0.06);
+  ctx.lineCap = 'round';
+  // posts and two rails on the three closed sides; the front gate swings open
+  ctx.beginPath();
+  ctx.moveTo(x + p, y + p); ctx.lineTo(x + c - p, y + p);
+  ctx.moveTo(x + p, y + c * 0.36); ctx.lineTo(x + c - p, y + c * 0.36);
+  ctx.moveTo(x + p, y + p); ctx.lineTo(x + p, y + c - p);
+  ctx.moveTo(x + c - p, y + p); ctx.lineTo(x + c - p, y + c - p);
+  ctx.stroke();
+  const sw = (1 - Math.min(1, open)) ;
+  ctx.strokeStyle = '#6b4a2f';
+  ctx.beginPath();
+  ctx.moveTo(x + p, y + c - p);
+  ctx.lineTo(x + p + (c - 2 * p) * sw, y + c - p - (c * 0.3) * (1 - sw));
+  ctx.moveTo(x + p, y + c * 0.7);
+  ctx.lineTo(x + p + (c - 2 * p) * sw, y + c * 0.7 - (c * 0.3) * (1 - sw));
+  ctx.stroke();
+  if (open < 0.05) {
+    // the padlock
+    const lx = x + c * 0.5, ly = y + c - p;
+    ctx.fillStyle = '#e8b64a';
+    ctx.strokeStyle = '#3a2a12';
+    ctx.lineWidth = Math.max(1, c * 0.035);
+    ctx.beginPath();
+    ctx.arc(lx, ly - c * 0.08, c * 0.07, Math.PI, 0);
+    ctx.stroke();
+    ctx.fillRect(lx - c * 0.1, ly - c * 0.08, c * 0.2, c * 0.15);
+    ctx.strokeRect(lx - c * 0.1, ly - c * 0.08, c * 0.2, c * 0.15);
+  }
+  ctx.restore();
+}

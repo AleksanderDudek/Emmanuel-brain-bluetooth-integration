@@ -71,7 +71,7 @@ export class ArkIntro {
     }
     ctx.globalAlpha = 1;
     // the sleepers in the straw: the player's kinds
-    const kinds: KindId[] = KINDS.slice(0, kindsAt(Math.max(1, progress.sessions + 1)));
+    const kinds: KindId[] = KINDS.slice(0, kindsAt(Math.max(1, progress.level)));
     const n = Math.min(kinds.length * 2, Math.max(6, Math.floor(w / 70)));
     const ah = Math.min(h * 0.07, 54);
     for (let i = 0; i < n; i++) {

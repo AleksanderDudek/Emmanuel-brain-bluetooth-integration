@@ -1,22 +1,20 @@
 /**
- * Arka's sound, on the kit's synthesiser (kit/audio.ts): a warm open pad in morning G whose filter
- * follows what the screen shows (the runner drives it from ArkaSim.padLevel: L in a sighted Day,
- * held still elsewhere), the deck's creaks, hoof clops pitched by kind while animals walk (soft for
- * sheep, deep for cattle, a patter for birds), the pair's chime — two plucked, lyre-like notes a
- * fifth apart, a semitone higher for each link of a chain, capped at an octave — the family's hammer
- * at the level's tempo by Day, a finished plank's thunk and three rising notes; in the Evening the
- * last drips fading, the dove's wingbeats and a low lantern hum; the finisher's open-fifth chord.
+ * Arka's sound (v2), on the kit's synthesiser (kit/audio.ts): a warm open pad in morning G whose
+ * filter follows the focus only in a sighted Mgła (ArkaSim.padLevel), the deck's creaks, and a voice
+ * for everything the hands do — the whoosh of an animal sliding out with a clop pitched by its kind,
+ * a rising bell for every clean send in a row (the streak), the dull thud of a bump and a heart's
+ * low drop, the pair's two plucked notes a fifth apart (brighter for "Parami!"), the wake-up yawn,
+ * the pen's latch, the goat's quick bleat, the dove's coo, the stars' chimes, the rainbow's arpeggio,
+ * the sun breaking through the mist, and the raven's short "kra" when he speaks.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
 import type { KindId } from './content';
-import { moving, type ArkaSim, type SimEvent } from './sim';
+import type { ArkaSim, SimEvent } from './sim';
 
-/** Morning: G with an open ninth; the Evening moves to a softer, lower E minor seventh. */
 const MORNING = [98, 146.83, 196, 220];
-const EVENING = [82.41, 123.47, 164.81, 196];
+const DUSK = [82.41, 123.47, 164.81, 196];
 const ROOT = 392;
 
-/** A clop's pitch per kind (Hz of the filtered knock). */
 const CLOP: Readonly<Record<KindId, number>> = {
   sheep: 1500, goat: 1700, donkey: 1150, cow: 700, horse: 950, camel: 620,
   ibex: 1600, hyrax: 2100, deer: 1350, stork: 2600, partridge: 2900, lion: 820,
@@ -24,10 +22,8 @@ const CLOP: Readonly<Record<KindId, number>> = {
 
 export class ArkaSound {
   private creak = 4;
-  private clop = 0;
-  private drip = 1.2;
-  private wing = 0;
-  private hum = 2;
+  private wind = 0;
+  private rest = false;
 
   constructor(private readonly a: ArcadeAudio) {}
 
@@ -35,53 +31,25 @@ export class ArkaSound {
     this.a.pad({ notes: MORNING, dark: 260, bright: 1500, gain: 0.055 });
   }
 
-  update(dt: number, sim: ArkaSim, hammerHit: boolean): void {
+  update(dt: number, sim: ArkaSim): void {
     const a = this.a;
     if (!a.on) return;
-    if (hammerHit) {
-      // the family's hammer on a fresh plank
-      a.noiseBurst(0.05, { type: 'bandpass', freq: 1900, q: 3, gain: 0.035 });
-      a.tone(196, 0.06, { type: 'triangle', gain: 0.03 });
+    const rest = sim.phase === 'play' && sim.block.kind === 'rest';
+    if (rest !== this.rest) {
+      this.rest = rest;
+      a.padChord(rest ? DUSK : MORNING, 3);
     }
-    // hooves on wood while animals walk
-    this.clop -= dt;
-    if (this.clop <= 0) {
-      this.clop = 0.17;
-      for (const b of sim.hold.beasts) {
-        if (!moving(b)) continue;
-        const bird = b.kind === 'stork' || b.kind === 'partridge';
-        a.noiseBurst(bird ? 0.025 : 0.045, { type: 'bandpass', freq: CLOP[b.kind] * (0.94 + Math.random() * 0.12), q: bird ? 6 : 4, gain: bird ? 0.022 : 0.03 });
-        break;
-      }
-    }
-    const evening = sim.phase === 'play' && sim.block.kind === 'evening';
-    // the deck creaks now and then
     this.creak -= dt;
     if (this.creak <= 0) {
-      this.creak = 5 + Math.random() * 5;
-      a.noiseBurst(0.6, { type: 'bandpass', freq: 240, sweepTo: 180, q: 6, gain: 0.025 });
+      this.creak = 5 + Math.random() * 6;
+      a.tone(70 + Math.random() * 30, 0.5, { type: 'triangle', gain: 0.018, slideTo: 55 });
     }
-    if (evening) {
-      const into = sim.now - sim.block.start;
-      // the last drips, fewer and fainter as the Evening goes on
-      this.drip -= dt;
-      if (this.drip <= 0 && into < 14) {
-        this.drip = 1 + into * 0.25 + Math.random() * 1.2;
-        const f = 1500 + Math.random() * 700;
-        a.tone(f, 0.08, { type: 'sine', gain: 0.022 * Math.max(0.2, 1 - into / 14), slideTo: f * 0.55 });
-      }
-      // the dove's wingbeats while it flies, a low lantern hum
-      if (sim.dove.state === 'out') {
-        this.wing -= dt;
-        if (this.wing <= 0) {
-          this.wing = 2.6 + Math.random() * 2;
-          for (let i = 0; i < 3; i++) a.noiseBurst(0.07, { type: 'bandpass', freq: 700, q: 1.2, gain: 0.018, at: i * 0.11 });
-        }
-      }
-      this.hum -= dt;
-      if (this.hum <= 0) {
-        this.hum = 3.5;
-        a.tone(110, 3.4, { type: 'sine', gain: 0.012, attack: 1.2 });
+    // the mist's wind while it lies on the deck
+    if (sim.mist > 0.3) {
+      this.wind -= dt;
+      if (this.wind <= 0) {
+        this.wind = 2.5 + Math.random() * 2;
+        a.noiseBurst(2.2, { type: 'lowpass', freq: 500, sweepTo: 260, gain: 0.025 * sim.mist });
       }
     }
   }
@@ -90,100 +58,76 @@ export class ArkaSound {
     const a = this.a;
     if (!a.on) return;
     switch (e.type) {
-      case 'send':
-        a.noiseBurst(0.05, { type: 'bandpass', freq: CLOP[e.beast.kind], q: 4, gain: 0.04 });
-        break;
-      case 'bump': {
-        // a soft bleat
-        const f = 300 + Math.random() * 60;
-        a.tone(f, 0.22, { type: 'triangle', gain: 0.045, slideTo: f * 0.9 });
-        a.tone(f * 1.02, 0.18, { type: 'sine', gain: 0.025, at: 0.05, slideTo: f * 0.88 });
+      case 'send': {
+        a.noiseBurst(0.32, { type: 'bandpass', freq: 600, sweepTo: 2600, q: 0.9, gain: 0.07 });
+        a.noiseBurst(0.05, { type: 'bandpass', freq: CLOP[e.kind], q: 4, gain: 0.04, at: 0.03 });
+        a.noiseBurst(0.05, { type: 'bandpass', freq: CLOP[e.kind] * 0.94, q: 4, gain: 0.03, at: 0.12 });
+        a.combo(Math.min(e.chain, 14), ROOT, 0.055);
         break;
       }
-      case 'full':
-        a.tone(196, 0.22, { type: 'triangle', gain: 0.04 });
-        a.tone(174.61, 0.3, { type: 'triangle', gain: 0.035, at: 0.16 });
-        break;
-      case 'wait':
-        a.noiseBurst(0.18, { type: 'highpass', freq: 3200, gain: 0.02 });
+      case 'bump':
+        a.tone(110, 0.18, { type: 'sine', gain: 0.14, slideTo: 70 });
+        a.noiseBurst(0.08, { type: 'lowpass', freq: 400, gain: 0.08 });
+        if (e.lost) a.tone(330, 0.35, { type: 'triangle', gain: 0.05, slideTo: 196, at: 0.08 });
         break;
       case 'pair': {
-        // two plucked notes a fifth apart, a semitone higher with each link of the chain (an octave at most)
-        const f = ROOT * 2 ** (Math.min(12, e.chain) / 12);
-        this.pluck(f, 0);
-        this.pluck(f * 1.5, 0.11);
+        const base = e.bonus ? 523.25 : 392;
+        a.tone(base, 0.5, { type: 'triangle', gain: 0.07 });
+        a.tone(base * 1.5, 0.6, { type: 'triangle', gain: 0.06, at: 0.09 });
+        if (e.bonus) a.bell(base * 2, 0.06, 1.2, 0.18);
+        if (e.young) a.bell(ROOT * 2.5, 0.05, 1.4, 0.3);
         break;
       }
-      case 'plank':
-        if (e.blind) break;
-        a.noiseBurst(0.16, { type: 'lowpass', freq: 380, gain: 0.08 });
-        a.tone(92, 0.18, { type: 'sine', gain: 0.08, slideTo: 60 });
-        [0, 1, 2].forEach((n, i) => this.pluck(ladder(n, ROOT), 0.12 + i * 0.1, 0.06));
+      case 'wake':
+        a.tone(220, 0.45, { type: 'sine', gain: 0.05, slideTo: 330 });
         break;
-      case 'blindReveal':
-        if (e.planks > 0) [0, 1, 2, 4].forEach((n, i) => this.pluck(ladder(n, ROOT), i * 0.1, 0.05));
+      case 'turn':
+        a.tone(700, 0.12, { type: 'square', gain: 0.018, slideTo: 620 });
         break;
-      case 'hand':
-        a.tone(196, 0.7, { type: 'sine', gain: 0.05, attack: 0.05 });
-        a.tone(293.66, 0.6, { type: 'sine', gain: 0.03, attack: 0.08, at: 0.06 });
-        if (e.leaf) a.noiseBurst(0.3, { type: 'highpass', freq: 4200, gain: 0.02 });
+      case 'locked':
+        a.noiseBurst(0.06, { type: 'bandpass', freq: 3000, q: 6, gain: 0.04 });
+        a.noiseBurst(0.06, { type: 'bandpass', freq: 2600, q: 6, gain: 0.035, at: 0.08 });
         break;
-      case 'clear':
-        [0, 2, 4, 5, 7].forEach((n, i) => a.bell(ladder(n, ROOT), 0.06, 1.8, i * 0.09));
+      case 'unlock':
+        a.noiseBurst(0.05, { type: 'bandpass', freq: 3200, q: 5, gain: 0.05 });
+        a.bell(784, 0.07, 1);
         break;
-      case 'telegraph':
-        if (e.next === 'day') {
-          // dawn on the door: two hammer taps, a rising two-note figure
-          for (let i = 0; i < 2; i++) a.noiseBurst(0.05, { type: 'bandpass', freq: 1900, q: 3, gain: 0.04, at: i * 0.35 });
-          this.pluck(ROOT, 0.8, 0.06);
-          this.pluck(ROOT * 1.5, 1.05, 0.06);
-        } else {
-          // the dove coos on the rail, a falling figure
-          a.tone(330, 0.32, { type: 'sine', gain: 0.04, slideTo: 300 });
-          a.tone(311, 0.42, { type: 'sine', gain: 0.035, at: 0.36, slideTo: 262 });
-          this.pluck(ROOT * 1.5, 0.9, 0.05);
-          this.pluck(ROOT, 1.15, 0.05);
-        }
+      case 'clear': {
+        const n = e.stars;
+        for (let i = 0; i < 3; i++) a.bell(ladder(4 + i * 2, ROOT), i < n ? 0.09 : 0.03, 1.4, 0.3 + i * 0.22);
         break;
-      case 'blockStart':
-        a.padChord(e.block.kind === 'evening' ? EVENING : MORNING, 3);
-        break;
-      case 'post':
-        // the family's short work song
-        [0, 2, 1, 4].forEach((n, i) => this.pluck(ladder(n, ROOT / 2), i * 0.16, 0.06));
-        break;
-      case 'almost':
-        this.pluck(ladder(1, ROOT / 2), 0, 0.035);
+      }
+      case 'restart':
+        a.tone(196, 0.8, { type: 'triangle', gain: 0.05, slideTo: 147 });
         break;
       case 'dove':
-        for (let i = 0; i < 4; i++) a.noiseBurst(0.08, { type: 'bandpass', freq: 650, q: 1.1, gain: 0.03, at: i * 0.12 });
-        if (e.leaf) {
-          a.bell(ladder(7, ROOT), 0.06, 1.8, 0.5);
-          a.bell(ladder(9, ROOT), 0.05, 2, 0.62);
-        }
+        a.tone(440, 0.22, { type: 'sine', gain: 0.05, slideTo: 392 });
+        a.tone(392, 0.3, { type: 'sine', gain: 0.045, at: 0.24, slideTo: 349 });
         break;
-      case 'young':
-        a.bell(ladder(5, ROOT), 0.05, 1.4);
-        a.bell(ladder(7, ROOT), 0.045, 1.6, 0.14);
+      case 'doveBusy':
+        a.tone(300, 0.08, { type: 'sine', gain: 0.025 });
         break;
-      case 'built':
-        [0, 4, 7, 9].forEach((n, i) => a.bell(ladder(n, ROOT / 2), 0.05, 2, i * 0.12));
+      case 'rainbow':
+        [0, 2, 4, 5, 7].forEach((s, i) => a.bell(ladder(s, ROOT), 0.06, 1.6, i * 0.1));
+        break;
+      case 'sun':
+        a.bell(ROOT * 2, 0.06, 1.8);
+        a.bell(ROOT * 3, 0.04, 1.8, 0.12);
+        break;
+      case 'say':
+        // the raven clears his throat
+        a.noiseBurst(0.09, { type: 'bandpass', freq: 900, sweepTo: 600, q: 2, gain: 0.03 });
+        a.tone(520, 0.1, { type: 'sawtooth', gain: 0.015, slideTo: 380 });
+        break;
+      case 'level':
+        a.noiseBurst(0.3, { type: 'lowpass', freq: 300, gain: 0.04 });
         break;
       case 'finale':
-        // an open fifth under the rainbow
-        a.padChord([98, 146.83, 196, 293.66], 2);
-        a.tone(98, 4.2, { type: 'sine', gain: 0.05, attack: 0.8 });
-        a.tone(146.83, 4, { type: 'sine', gain: 0.04, attack: 1 });
-        [0, 2, 4, 7, 9].forEach((n, i) => a.bell(ladder(n, ROOT), 0.045, 2.6, 0.6 + i * 0.3));
+        a.padChord(MORNING, 2);
+        [0, 4, 7].forEach((s, i) => a.bell(ladder(s, ROOT / 2), 0.05, 2.4, i * 0.15));
         break;
       default:
         break;
     }
-  }
-
-  /** A plucked, lyre-like string: a quick triangle with a quiet octave. */
-  private pluck(f: number, at: number, gain = 0.07): void {
-    this.a.tone(f, 0.9, { type: 'triangle', gain, at, attack: 0.004 });
-    this.a.tone(f * 2, 0.5, { type: 'sine', gain: gain * 0.25, at, attack: 0.004 });
   }
 }

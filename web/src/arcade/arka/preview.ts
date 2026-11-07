@@ -1,16 +1,16 @@
 /**
  * Arka's picture for the lobby's hero and the game card.  In the lobby (with the player's progress)
- * the new land as the player has filled it: the pairs grazing in their valleys, the young, the
- * olive trees and the homestead, with the ark resting on the mountain far off.  On the cards (no
- * progress) a corner of the deck in morning light: a few animals facing their ways and the landing
- * with a pair waiting by the door.  Drawn every frame in the lobby, so it stays cheap: the land and
+ * the new land as the player has filled it: the pairs grazing in their valleys, the young, an olive
+ * tree for every chapter of the saga and the homestead raised by its stars, with the ark resting on
+ * the mountain far off.  On the cards (no progress) a corner of the deck in morning light: animals
+ * facing their ways, one sliding out, and the raven on the rail.  Drawn every frame in the lobby, so it stays cheap: the land and
  * the deck's boards are sprites made once per size.
  */
 import { ease } from '../kit/juice';
 import type { KindId } from './content';
 import { LandPainter, type LandLook } from './land';
-import { homestead, type ArkaProgress } from './meta';
-import { C, paintAnimal, paintDove, paintFigure, paintPlanks, paintProfile } from './paint';
+import { homestead, olivesOf, totalStars, type ArkaProgress } from './meta';
+import { C, paintAnimal, paintDove, paintFigure, paintPlanks, paintProfile, paintRaven } from './paint';
 
 const land = new LandPainter();
 const look: LandLook = { settled: {}, young: [], olives: 0, built: 0 };
@@ -22,8 +22,8 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   if (p) {
     look.settled = p.settled;
     look.young = p.young;
-    look.olives = p.olives;
-    look.built = homestead(p.home).built;
+    look.olives = olivesOf(p);
+    look.built = homestead(totalStars(p)).built;
     land.draw(ctx, 0, 0, w, h, t, look, { dusk: 0, zoom: Math.min(1.25, 340 / Math.max(200, h)) }, dpr);
     ark(ctx, w, h, t);
     // a new land is empty: the first pairs are on their way down from the ark
@@ -127,15 +127,15 @@ function cardDeck(ctx: CanvasRenderingContext2D, w: number, h: number, t: number
   ctx.drawImage(deck.c, 0, 0, w, h);
   const dx = (w - 4 * c) / 2, dy = h * 0.08 + c * 1.25;
   // the deck's animals, each facing its way
-  const herd: [KindId, number, number, number][] = [['sheep', 0, 0, 0], ['goat', 2, 0, 1], ['cow', 3, 1, 2], ['donkey', 1, 1, 3], ['sheep', 0, 2, 1], ['camel', 2, 2, 0]];
+  const herd: [KindId, number, number, number][] = [['sheep', 0, 0, 0], ['goat', 2, 0, 1], ['cow', 3, 1, 2], ['sheep', 0, 2, 1], ['camel', 2, 2, 0]];
   herd.forEach(([k, x, y, d], i) => {
     const bob = Math.sin(t * 2 + i) * 0.01;
     paintAnimal(ctx, k, dx + (x + 0.5) * c, dy + (y + 0.5) * c, d, c * 0.94, dpr, { squash: bob });
   });
-  // a goat walking out, and its mate waiting on the landing
-  const k = ease.inOutSine((t * 0.25) % 1);
+  // a goat sliding out to the left, its way clear; its mate already waits on the new land
+  const k = ease.inOutSine((t * 0.3) % 1);
+  paintAnimal(ctx, 'goat', dx + (1.5 - k * 2.6) * c, dy + 1.5 * c, 3, c * 0.94, dpr, { alpha: Math.min(1, (1 - k) * 3) });
   paintAnimal(ctx, 'goat', c * 1.05 * 1.5, h * 0.08 + c * 0.5, 3, c * 0.86, dpr);
-  paintAnimal(ctx, 'stork', c * 1.05 * 2.5, h * 0.08 + c * 0.5, 3, c * 0.86, dpr, { squash: 0.02 * Math.sin(t * 3) });
-  void k;
   paintFigure(ctx, c * 1.05 * 0.5, h * 0.08 + c * 0.92, c * 0.82, 0.15, 0, false);
+  paintRaven(ctx, dx + 4 * c + 4, dy - 2, c * 0.7, { bob: (t % 4) < 0.3 ? (t % 4) / 0.3 : 0, face: -1 });
 }
