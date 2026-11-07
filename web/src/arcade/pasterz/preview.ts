@@ -1,12 +1,13 @@
 /**
  * Pasterz's picture for the lobby's hero and the game card: the hillside from above, the shepherd
- * walking a slow loop with his call ring breathing gold around him and the flock trailing him in a
- * soft line, a few sheep still grazing by a rock and a thorn bush.  In the lobby (with progress)
- * the flock is the player's: more sheep follow as it grows toward the hundred.  Drawn every frame,
- * so it stays cheap: a few paths, no state.
+ * walking a slow loop with his call ring breathing gold around him and his dyed flock trailing him,
+ * loose sheep grazing by a rock, and a smaller rival flock in red with its count — Crowd City at a
+ * glance.  In the lobby (with progress) the flock grows with the home flock and wears the player's
+ * cloak.  Drawn every frame, so it stays cheap: a few paths, no state.
  */
+import { CLOAKS, PLAYER_DYE, RIVALS } from './content';
 import type { PasterzProgress } from './meta';
-import { C, hash, paintBush, paintRock, paintSheep, paintShepherd, type SheepPose } from './paint';
+import { C, PLAIN, hash, paintBush, paintCount, paintRock, paintSheep, paintShepherd, type SheepPose } from './paint';
 
 const pose: SheepPose = { small: false, bob: 0, walking: 1, lie: 0, look: 0, graze: 0 };
 
@@ -64,8 +65,16 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   ctx.beginPath();
   ctx.arc(head.x, head.y, r, 0, Math.PI * 2);
   ctx.stroke();
+  // a smaller rival flock in its red, with its count
+  const rv = RIVALS[0];
+  const rx = w * 0.2 + Math.sin(t * 0.4) * w * 0.04, ry = h * 0.3;
+  pose.graze = 0;
+  pose.walking = 0.5;
+  for (let i = 0; i < 4; i++) paintSheep(ctx, rx + (i % 2 - 0.5) * S * 0.9, ry + (Math.floor(i / 2) + 0.6) * S * 0.8, S, 0.4, { ...pose, dye: rv.dye });
+  paintShepherd(ctx, rx, ry - S * 0.3, S * 1.2, 0.4, t * 2, 0.5, false, { ...PLAIN, mantle: rv.dye, cord: rv.dye });
+  paintCount(ctx, rx, ry - S * 1.4, '4', rv.dye, Math.max(10, S * 0.42));
   // the flock behind him (more of it as the player's flock grows)
-  const n = p ? Math.min(12, 5 + Math.floor((p.flock + p.season * 100) / 12)) : 7;
+  const n = p ? Math.min(12, 6 + Math.floor((p.flock + p.season * 100) / 12)) : 8;
   pose.graze = 0;
   pose.walking = 1;
   // walk back along the loop: one sheep every ~0.8 m of path, a little to either side
@@ -86,7 +95,9 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     const side = (hash(i + 1) - 0.5) * S * 1.1;
     pose.small = i % 5 === 4;
     pose.bob = t * 3 + i;
-    paintSheep(ctx, s.x - Math.sin(s.d) * side, s.y + Math.cos(s.d) * side, S, s.d, pose);
+    paintSheep(ctx, s.x - Math.sin(s.d) * side, s.y + Math.cos(s.d) * side, S, s.d, { ...pose, dye: PLAYER_DYE });
   }
-  paintShepherd(ctx, head.x, head.y, S * 1.5, dir, t * 2.2, 1, false);
+  const cloak = CLOAKS[p?.wear?.cloak ?? 0] ?? CLOAKS[0];
+  paintShepherd(ctx, head.x, head.y, S * 1.5, dir, t * 2.2, 1, false, { ...PLAIN, mantle: cloak.colors[0], stripe: cloak.colors[1] });
+  paintCount(ctx, head.x, head.y - S * 1.3, String(spots.length), PLAYER_DYE, Math.max(11, S * 0.48));
 }

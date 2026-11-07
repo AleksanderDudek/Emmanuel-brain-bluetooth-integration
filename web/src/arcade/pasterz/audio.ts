@@ -1,26 +1,27 @@
 /**
  * Pasterz's sound, on the kit's synthesiser (kit/audio.ts): an open pastoral pad in G whose filter
- * follows the ring in a sighted Wołanie (the runner drives it from PasterzSim.padLevel) and holds
- * still elsewhere, turning to a quiet E minor at night; soft steps in the grass; a sheep's "baa"
- * (three falling triangle-and-reed notes, higher for a lamb) when one joins, with a pluck that
- * climbs as the joins come close together; the shepherd's two-note call on Space; the voice's
- * horn and bells; the count's rising plucks and a chord for every tenth sheep; the fanfare of a
- * full fold; a bell for each star; the fire's crackle at night.  A missed verdict makes no sound.
+ * follows the call ring in a sighted Wołanie (the runner drives it from PasterzSim.padLevel) and
+ * turns to a quiet E minor at night; a sheep's "baa" (three falling triangle-and-reed notes) when
+ * sheep join, with a pluck that climbs as the joins come close together (the combo ladder); a
+ * bright pop for every sheep won from a rival and a low one for every sheep lost; Łatek's whistle
+ * and bark; the Głos's horn and bells; a comic falling "wah" when a rival sulks; a crown's
+ * fanfare; a bell for each star; the tally's count.  A missed verdict makes no sound.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
-import { RULES, type PasterzSim, type SimEvent } from './sim';
+import type { PasterzSim, SimEvent } from './sim';
 
 const DAY = [98, 146.83, 196, 246.94];
 const NIGHT = [82.41, 123.47, 164.81, 196];
 const ROOT = 392;
 
 export class PasterzSound {
-  private lastStep = 0;
   private lastBaa = -1;
   private chain = 0;
   private chainT = 0;
+  private lastPop = -1;
   private crackle = 0;
   private clock = 0;
+  private lastStep = 0;
 
   constructor(private readonly a: ArcadeAudio) {}
 
@@ -34,20 +35,17 @@ export class PasterzSound {
     this.clock += dt;
     this.chainT = Math.max(0, this.chainT - dt);
     if (this.chainT <= 0) this.chain = 0;
-    // steps in the grass (a splash in the stream)
-    const sh = sim.shepherd;
-    if (sh.stepT - this.lastStep >= RULES.stride * 1.2) {
-      this.lastStep = sh.stepT;
-      if (sh.wading) a.noiseBurst(0.14, { type: 'bandpass', freq: 900, q: 0.8, gain: 0.02 });
-      else a.noiseBurst(0.07, { type: 'highpass', freq: 2400, gain: 0.008 });
+    const pl = sim.player;
+    if (pl.stepT - this.lastStep >= 0.75) {
+      this.lastStep = pl.stepT;
+      a.noiseBurst(0.06, { type: 'highpass', freq: 2400, gain: 0.007 });
     }
-    if (sh.stepT < this.lastStep) this.lastStep = sh.stepT;
-    // the fire's crackle at night
-    if (sim.fire && sim.night > 0.4) {
+    if (pl.stepT < this.lastStep) this.lastStep = pl.stepT;
+    if (sim.night > 0.4) {
       this.crackle -= dt;
       if (this.crackle <= 0) {
         this.crackle = 0.12 + Math.random() * 0.5;
-        a.noiseBurst(0.04, { type: 'highpass', freq: 3000 + Math.random() * 2000, gain: 0.012 * sim.night });
+        a.noiseBurst(0.04, { type: 'highpass', freq: 3000 + Math.random() * 2000, gain: 0.01 * sim.night });
       }
     }
   }
@@ -57,58 +55,71 @@ export class PasterzSound {
     if (!a.on) return;
     switch (e.type) {
       case 'join':
-        this.chain = Math.min(14, this.chain + 1);
-        this.chainT = 1.2;
-        this.pluck(ladder(this.chain, ROOT), 0, 0.035);
-        if (this.clock - this.lastBaa > 0.16) {
+        if (e.who !== 0) break;
+        this.chain = Math.min(19, this.chain + 1);
+        this.chainT = 0.9;
+        if (this.clock - this.lastPop > 0.045) {
+          this.lastPop = this.clock;
+          this.pluck(ladder(this.chain, ROOT), 0, 0.03);
+        }
+        if (this.clock - this.lastBaa > 0.22) {
           this.lastBaa = this.clock;
-          this.baa(e.via === 'morning' ? 640 : 380 + Math.random() * 90, 0.03);
+          this.baa(e.via === 'morning' ? 640 : 360 + Math.random() * 120, 0.026);
         }
         break;
-      case 'call':
-        a.tone(330, 0.22, { type: 'sine', gain: 0.05, slideTo: 440 });
-        a.tone(392, 0.45, { type: 'sine', gain: 0.045, at: 0.2, slideTo: 370 });
+      case 'steal':
+        if (this.clock - this.lastPop < 0.045) break;
+        this.lastPop = this.clock;
+        if (e.to === 0) {
+          this.chain = Math.min(19, this.chain + 1);
+          this.chainT = 0.9;
+          a.tone(ladder(this.chain + 3, ROOT), 0.12, { type: 'square', gain: 0.018, slideTo: ladder(this.chain + 5, ROOT) });
+        } else if (e.from === 0) a.tone(220, 0.14, { type: 'triangle', gain: 0.03, slideTo: 160 });
+        break;
+      case 'out':
+        // a comic falling "wah-wah"
+        a.tone(330, 0.28, { type: 'sawtooth', gain: 0.025, slideTo: 290 });
+        a.tone(290, 0.5, { type: 'sawtooth', gain: 0.025, slideTo: 200, at: 0.28 });
+        break;
+      case 'tumble':
+        a.noiseBurst(0.5, { type: 'bandpass', freq: 1800, sweepTo: 300, q: 0.8, gain: 0.04 });
+        this.bark(0.15);
+        break;
+      case 'whistle':
+        if (e.herd) {
+          a.tone(1567.98, 0.12, { type: 'sine', gain: 0.04, slideTo: 2093 });
+          a.tone(2093, 0.18, { type: 'sine', gain: 0.035, at: 0.13, slideTo: 1760 });
+        } else a.tone(1200, 0.1, { type: 'sine', gain: 0.02 });
+        break;
+      case 'herd':
+        this.bark(0);
         break;
       case 'voice':
         a.tone(196, 1.4, { type: 'triangle', gain: 0.05, attack: 0.15 });
         a.tone(293.66, 1.3, { type: 'triangle', gain: 0.04, attack: 0.2, at: 0.1 });
         [0, 2, 4, 7, 9].forEach((n, i) => a.bell(ladder(n, ROOT), 0.04, 1.6, 0.25 + i * 0.09));
         a.noiseBurst(1.2, { type: 'bandpass', freq: 500, sweepTo: 1500, q: 0.7, gain: 0.02 });
-        // the lost lamb answers from far away
         if (e.lamb) this.baa(720, 0.014, 1.1);
         break;
-      case 'snag':
-        this.baa(560, 0.035);
-        a.noiseBurst(0.12, { type: 'highpass', freq: 3500, gain: 0.02 });
-        break;
-      case 'free':
-        this.pluck(ladder(5, ROOT), 0, 0.04);
-        this.pluck(ladder(7, ROOT), 0.08, 0.04);
+      case 'bleat':
+        this.baa(760, 0.012);
         break;
       case 'lambFound':
         this.baa(680, 0.04);
         [0, 4, 7, 12].forEach((n, i) => a.bell(ladder(n, ROOT), 0.045, 1.8, 0.2 + i * 0.1));
         break;
-      case 'pastureEnd':
-        a.bell(ladder(4, ROOT / 2), 0.045, 1.6);
-        a.bell(ladder(7, ROOT / 2), 0.04, 1.8, 0.15);
-        break;
-      case 'folded':
-        this.pluck(ladder(Math.min(19, (e.n - 1) % 20), ROOT), 0, 0.03);
-        break;
-      case 'step':
-        [0, 4, 7].forEach((n, i) => a.bell(ladder(n + 5, ROOT / 2), 0.04, 1.3, i * 0.05));
-        break;
       case 'lambNamed':
         a.bell(1318.5, 0.04, 2.2);
-        a.bell(1318.5, 0.03, 2, 0.35);
-        a.bell(1567.98, 0.03, 2.2, 0.7);
+        a.bell(1567.98, 0.03, 2.2, 0.35);
         break;
-      case 'pastureDone':
-        [0, 2, 4, 7, 9, 12].forEach((n, i) => a.bell(ladder(n, ROOT), 0.05, 1.8, i * 0.09));
-        if (e.all) a.bell(ladder(14, ROOT), 0.045, 2.2, 0.6);
+      case 'crown':
+        if (e.who === 0) [0, 4, 7, 12].forEach((n, i) => a.tone(ladder(n, ROOT), 0.22, { type: 'square', gain: 0.022, at: i * 0.08 }));
         break;
-      case 'newPasture':
+      case 'roundEnd':
+        [0, 2, 4, 7, 9, 12].forEach((n, i) => a.bell(ladder(n, ROOT), 0.045, 1.6, i * 0.09));
+        if (e.tally.place === 1 && e.tally.flock > 0) a.bell(ladder(14, ROOT), 0.045, 2.2, 0.6);
+        break;
+      case 'newRound':
         a.noiseBurst(0.8, { type: 'bandpass', freq: 400, sweepTo: 1200, q: 0.6, gain: 0.015 });
         break;
       case 'telegraph':
@@ -122,21 +133,18 @@ export class PasterzSound {
         a.bell(ladder(5 + e.n, ROOT), 0.03, 2);
         break;
       case 'morning':
-        for (let i = 0; i < e.n; i++) this.baa(620 + i * 30, 0.03, 0.2 + i * 0.25);
-        [0, 4, 7].forEach((n, i) => a.bell(ladder(n, ROOT), 0.04, 1.6, i * 0.1));
+        for (let i = 0; i < e.n; i++) this.baa(620 + i * 30, 0.025, 0.2 + i * 0.25);
         break;
       case 'flare':
         a.tone(196, 1.2, { type: 'sine', gain: 0.04, attack: 0.2, slideTo: 392 });
         if (e.share > 0.3) [0, 2, 4].forEach((n, i) => a.bell(ladder(n, ROOT), 0.04, 1.4, 0.3 + i * 0.1));
         break;
-      case 'mission':
-      case 'gift':
+      case 'unlock':
       case 'hundred':
         [0, 4, 7].forEach((n, i) => a.bell(ladder(n, ROOT), 0.045, 1.6, i * 0.1));
         break;
       case 'finale':
         a.padChord([98, 146.83, 196, 293.66], 3);
-        a.tone(98, 4.5, { type: 'sine', gain: 0.04, attack: 1 });
         break;
       default:
         break;
@@ -152,9 +160,16 @@ export class PasterzSound {
     });
   }
 
-  /** A plucked string: a quick triangle with a quiet octave. */
+  /** Łatek's bark: two short barks, noise through a resonant band. */
+  private bark(at: number): void {
+    for (const k of [0, 0.16]) {
+      this.a.noiseBurst(0.09, { type: 'bandpass', freq: 900, q: 3, gain: 0.05, at: at + k });
+      this.a.tone(420, 0.08, { type: 'sawtooth', gain: 0.02, at: at + k, slideTo: 300 });
+    }
+  }
+
   private pluck(f: number, at: number, gain = 0.05): void {
-    this.a.tone(f, 0.7, { type: 'triangle', gain, at, attack: 0.004 });
-    this.a.tone(f * 2, 0.4, { type: 'sine', gain: gain * 0.25, at, attack: 0.004 });
+    this.a.tone(f, 0.6, { type: 'triangle', gain, at, attack: 0.004 });
+    this.a.tone(f * 2, 0.35, { type: 'sine', gain: gain * 0.25, at, attack: 0.004 });
   }
 }

@@ -1,810 +1,656 @@
 /**
- * Pasterz's play view, all on the canvas: the hill seen from above (the grass painted once per
- * pasture into a ground layer; tufts, anemones, the stream's shimmer, rocks, thorn bushes and
- * terrace walls drawn live), the footprints behind the shepherd coloured by the band (gold above
- * the threshold, blue in a night, dotted grey without signal, veiled at dusk and revealed after),
- * the call ring around him (its radius is the level, a dotted circle marks the threshold, gold
- * beyond it), the sheep sorted by depth, the fold and its count, the night with its fire and its
- * stars, the compass marks at the screen's edge, and the HUD (hud.ts) on top.  It only reads the
- * sim (sim.ts); the calibration scene is intro.ts.
+ * Pasterz's picture: the hill seen from above with the camera on the shepherd, zooming out as his
+ * flock grows (Crowd City's camera).  Bottom to top: the ground (ground.ts), the footprints (the
+ * band's last 40 s on the ground: gold above the threshold, blue in a night, grey without signal,
+ * veiled in a blind block), the call ring with its dotted threshold circle (the live gauge: the
+ * radius is the reach, the rim turns gold above the threshold), the pens, rocks and bushes, the
+ * sheep in their flocks' dyes, the shepherds with their counts and the crown, Łatek, the olive
+ * trees' canopies, the night with its fires, and the screen's own things (hud.ts).
  *
- * The camera follows the shepherd with a little look-ahead, never past the hill's edge.
+ * Effects live in world metres so they stay where they happened while the camera moves.  The
+ * runner draws the band's panel and the score; this view draws neither.
  */
-import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
-import { LAMBS } from './content';
-import type { Sheep } from './flock';
-import { Hud } from './hud';
-import { sheep as sheepText, t } from './i18n';
+import { approach, clamp, ease, Particles, Shake } from '../kit/juice';
+import type { PasterzProgress } from './meta';
+import { CLOAKS, CROOKS, DOGS, PLAYER_DYE } from './content';
+import { GROUND_K, paintGround } from './ground';
+import { PasterzHud } from './hud';
+import { t } from './i18n';
 import { PasterzIntro } from './intro';
 import { layout, type Layout } from './layout';
-import type { PasterzProgress } from './meta';
-import { C, SANS, font, hash, paintBush, paintFire, paintFold, paintRock, paintSheep, paintShepherd, paintStar, paintWall, type SheepPose } from './paint';
-import { RING_MARK, RULES, type PasterzSim, type SimEvent } from './sim';
+import {
+  C, PLAIN, SANS, SheepSprites, font, hash, paintBush, paintCount, paintCrown, paintDog, paintFire, paintPen, paintRock, paintSheep,
+  paintShepherd, paintTree, type ShepherdLook,
+} from './paint';
+import { RULES } from './rules';
+import { RING_MARK, type PasterzSim, type Shepherd, type SimEvent } from './sim';
+import type { TraceSample } from '../kit/trace';
 
 const TAU = Math.PI * 2;
-/** the ground layer's resolution (px per metre) and the margin painted around the hill (m) */
-const G = 12;
-const MARGIN = 6;
 
-const TXT = {
-  join: t('fx.join'), voice: t('fx.voice'), voiceSub: t('fx.voiceSub'), snag: t('fx.snag'), free: t('fx.free'), lamb: t('fx.lamb'),
-  carry: t('fx.carry'), dawn: t('fx.dawn'), foldTitle: t('fold.title'), fold: t('bar.fold'), all: t('fold.all'), next: t('fold.next'),
-  foldMark: t('hint.fold'),
-};
-
-interface Ripple { x: number; y: number; t: number; dur: number; r0: number; r1: number; color: string; width: number }
-type Drawable = { y: number; k: 0 | 1 | 3; i: number };
+interface Pulse { x: number; y: number; t: number; dur: number; r0: number; r1: number; color: string; width: number }
+interface WFloat { text: string; x: number; y: number; t: number; dur: number; color: string; size: number }
+interface Shoot { sx: number; sy: number; x: number; y: number; t: number }
 
 export class PasterzView {
   private readonly ctx: CanvasRenderingContext2D;
-  private w = 1280;
-  private h = 800;
-  private dpr = 1;
-  L: Layout = layout(1280, 800);
-  readonly hud: Hud;
-  private readonly intro0 = new PasterzIntro();
-  private clock = 0;
-  private camX = 0;
-  private camY = 0;
-  private camReady = false;
+  w = 1;
+  h = 1;
+  dpr = 1;
+  L: Layout = layout(1, 1, 0);
+  camX = 32;
+  camY = 32;
+  S = 30;
   private ground: HTMLCanvasElement | null = null;
-  private groundSeed = -1;
-  private readonly parts = new Particles(500);
-  private readonly ripples: Ripple[] = [];
-  private readonly pops = new Map<number, number>();
-  private readonly snags = new Set<number>();
-  private lastBaa = -1;
-  private fade = 0;
-  private foldA = 0;
-  private starPop = 0;
-  private lambBell: string | null = null;
+  private groundOf = -1;
+  private readonly sprites = new SheepSprites();
+  /** world-space particles (metres) */
+  private readonly parts = new Particles(520);
+  private readonly floats: WFloat[] = [];
+  private readonly pulses: Pulse[] = [];
+  private readonly shoots: Shoot[] = [];
   private readonly shake: Shake;
-  private readonly draws: Drawable[] = [];
-  private readonly rnd = Math.random;
-  private walkA = 0;
-  private started = false;
+  readonly hud: PasterzHud;
+  private readonly introScene = new PasterzIntro();
+  clock = 0;
+  /** the finger's joystick (screen px): where it went down and where it is */
+  stick: { ox: number; oy: number; x: number; y: number } | null = null;
+  /** a short freeze on big moments (s) */
+  stop = 0;
+  /** the joins in a short window, shown as one "+n" over the shepherd */
+  private joinAcc = 0;
+  private joinT = 0;
+  private lossAcc = 0;
+  private lossT = 0;
+  private fires: { x: number; y: number }[] = [];
+  private lastShh = -9;
+  private look: ShepherdLook = PLAIN;
+  private dogCoat: [string, string] = [DOGS[0].colors[0], DOGS[0].colors[1]];
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
     this.ctx = canvas.getContext('2d')!;
-    this.hud = new Hud(this.ctx, opts.eeg);
-    this.hud.resize(this.L);
     this.shake = new Shake(opts.reducedMotion);
+    this.hud = new PasterzHud();
   }
 
-  resize(w: number, h: number, dpr: number): void {
+  resize(w: number, h: number, dpr: number, hudTop: number): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h);
-    this.hud.resize(this.L);
-  }
-
-  start(): void {
-    this.started = true;
-    this.fade = 1;
+    this.L = layout(w, h, hudTop);
   }
 
   intro(dt: number, p: number, progress: PasterzProgress): void {
-    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.intro0.draw(this.ctx, this.w, this.h, dt, p, progress);
+    const ctx = this.ctx;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.introScene.draw(ctx, this.w, this.h, dt, p, progress);
   }
 
-  // ── world ↔ screen ──────────────────────────────────────────────
-  private get S(): number { return this.L.S; }
+  start(sim: PasterzSim): void {
+    const p = sim.p;
+    const cloak = CLOAKS[p.wear.cloak] ?? CLOAKS[0], crook = CROOKS[p.wear.crook] ?? CROOKS[0], dog = DOGS[p.wear.dog] ?? DOGS[0];
+    this.look = { ...PLAIN, mantle: cloak.colors[0], stripe: cloak.colors[1], staff: crook.colors[0], tip: crook.colors[1] };
+    this.dogCoat = [dog.colors[0], dog.colors[1]];
+    this.camX = sim.player.x;
+    this.camY = sim.player.y;
+    this.S = this.L.S0;
+  }
+
+  // ── coordinates ────────────────────────────────────────────────
   sx(x: number): number { return this.L.cx + (x - this.camX) * this.S; }
   sy(y: number): number { return this.L.cy + (y - this.camY) * this.S; }
-  /** A point of the screen (CSS px) on the hill (m). */
-  toWorld(x: number, y: number): { x: number; y: number } {
-    return { x: this.camX + (x - this.L.cx) / this.S, y: this.camY + (y - this.L.cy) / this.S };
+  toWorld(x: number, y: number): { x: number; y: number } { return { x: this.camX + (x - this.L.cx) / this.S, y: this.camY + (y - this.L.cy) / this.S }; }
+  toScreen(x: number, y: number): { x: number; y: number } { return { x: this.sx(x), y: this.sy(y) }; }
+  private visible(x: number, y: number, pad: number): boolean {
+    const X = this.sx(x), Y = this.sy(y);
+    return X > -pad && X < this.w + pad && Y > -pad && Y < this.h + pad;
   }
 
-  // ── reacting to the rules ───────────────────────────────────────
-  on(e: SimEvent, sim: PasterzSim): void {
-    const u = this.L.u, rm = this.opts.reducedMotion, sh = sim.shepherd;
-    switch (e.type) {
-      case 'join': {
-        this.pops.set(e.id, 0);
-        this.parts.burst(e.x, e.y, rm ? 3 : 8, { color: C.wool, size: 0.09, speed: 1.6, g: 0, drag: 3, life: 0.6, rnd: this.rnd });
-        if (this.clock - this.lastBaa > 0.18) {
-          this.lastBaa = this.clock;
-          this.hud.float(e.via === 'morning' ? t('lambs', { n: 1 }) : TXT.join, this.sx(e.x), this.sy(e.y) - 18 * u, e.via === 'voice' ? C.goldDeep : C.ink, 13, 0.9, 26);
-        }
-        this.hud.popScore();
-        break;
-      }
-      case 'call':
-        this.ripples.push({ x: sh.x, y: sh.y, t: 0, dur: RULES.callSec, r0: sim.ring, r1: sim.ring * 1.45, color: 'rgba(255,250,232,', width: 3 });
-        break;
-      case 'voice':
-        for (let i = 0; i < 3; i++) this.ripples.push({ x: sh.x, y: sh.y, t: -i * 0.18, dur: 1.5, r0: sim.ring, r1: Math.hypot(this.w, this.h) / this.S, color: 'rgba(255,214,110,', width: 5 - i });
-        this.hud.toast(TXT.voice, TXT.voiceSub, C.goldDeep);
-        this.shake.add(0.25);
-        break;
-      case 'snag':
-        this.snags.add(e.id);
-        this.hud.float(TXT.snag, this.sx(e.x), this.sy(e.y) - 20 * u, C.thorn, 13, 1);
-        this.parts.burst(e.x, e.y, rm ? 2 : 6, { color: C.bushLight, size: 0.06, speed: 1.2, g: 0, drag: 3, life: 0.5, shape: 'square', rnd: this.rnd });
-        break;
-      case 'free':
-        this.snags.delete(e.id);
-        this.pops.set(e.id, 0);
-        this.hud.float(TXT.free, this.sx(e.x), this.sy(e.y) - 20 * u, '#4f7a2a', 13, 1);
-        this.parts.burst(e.x, e.y, rm ? 3 : 10, { color: C.gold, size: 0.05, speed: 2, g: 0, drag: 3, life: 0.6, shape: 'spark', rnd: this.rnd });
-        break;
-      case 'lambFound':
-        this.hud.float(TXT.lamb, this.sx(e.x), this.sy(e.y) - 30 * u, C.goldDeep, 20, 1.6, 40);
-        this.hud.toast(TXT.lamb, TXT.carry, C.goldDeep);
-        this.parts.burst(e.x, e.y, rm ? 5 : 22, { color: C.gold, size: 0.07, speed: 2.6, g: 0, drag: 2.5, life: 0.9, shape: 'spark', rnd: this.rnd });
-        this.shake.add(0.2);
-        break;
-      case 'pastureEnd':
-        this.foldA = 0;
-        this.hud.toast(TXT.foldTitle, TXT.fold, C.goldDeep);
-        break;
-      case 'folded':
-        this.hud.popCount();
-        this.parts.burst(e.x, e.y, rm ? 2 : 5, { color: C.wool, size: 0.08, speed: 1.4, g: 0, drag: 3, life: 0.5, rnd: this.rnd });
-        break;
-      case 'step':
-        this.hud.flashStep();
-        this.shake.add(0.12);
-        break;
-      case 'lambNamed': {
-        const l = LAMBS[e.index];
-        this.lambBell = l.bell;
-        this.hud.toast(e.isNew ? t('lamb.named', { name: l.name }) : t('lamb.home', { name: l.name }), TXT.carry, C.ink, l.bell);
-        break;
-      }
-      case 'pastureDone': {
-        const f = sim.fold;
-        if (f) {
-          this.hud.float(e.all ? TXT.all : sheepText(e.folded), this.sx(f.x), this.sy(f.y) - 70 * u, C.goldDeep, 22, 1.8, 30);
-          if (!rm) for (const col of [C.gold, C.cream, '#c8553d']) this.parts.burst(f.x, f.y, 14, { color: col, size: 0.08, speed: 4, g: 0, drag: 2, life: 1.2, shape: 'square', rnd: this.rnd });
-        }
-        this.shake.add(0.2);
-        break;
-      }
-      case 'newPasture':
-        this.fade = 1;
-        this.camReady = false;
-        this.snags.clear();
-        this.pops.clear();
-        this.ripples.length = 0;
-        this.parts.clear();
-        this.lambBell = null;
-        this.hud.toast(TXT.next, t('bar.pasture', { n: e.index + 1 }), C.ink);
-        break;
-      case 'blockEnd':
-        if (e.block.kind !== 'warmup') this.hud.blockCard(sim, e.block.kind, e.block.blind, e.verdict, e.share, e.need, e.t0, e.t1, e.stars);
-        break;
-      case 'star':
-        this.starPop = 1;
-        break;
-      case 'morning':
-        this.hud.toast(t('card.morning', { lambs: t('lambs', { n: e.n }) }), t('card.watch.pass'), '#3f6aa8');
-        break;
-      case 'flare':
-        this.ripples.push({ x: sh.x, y: sh.y, t: 0, dur: RULES.flareSec, r0: RULES.r0, r1: e.r, color: 'rgba(255,214,110,', width: 6 });
-        this.hud.float(TXT.dawn, this.sx(sh.x), this.sy(sh.y) - 46 * u, '#6a4fa0', 17, 1.6, 34);
-        break;
-      case 'mission':
-        this.hud.toast(t('card.mission', { name: MISSION_NAME(e.id) }), '', C.goldDeep);
-        break;
-      case 'gift':
-        this.hud.toast(t('card.gift', { sheep: sheepText(e.n) }), '', C.goldDeep);
-        break;
-      case 'hundred':
-        this.hud.toast(t('card.hundred', { n: e.season + 1 }), '', C.goldDeep);
-        break;
-      default:
-        break;
-    }
-  }
-
-  /** A tap on the hill: a small ring where the shepherd is going. */
-  tapAt(x: number, y: number): void {
-    this.ripples.push({ x, y, t: 0, dur: 0.45, r0: 0.15, r1: 0.7, color: 'rgba(255,250,232,', width: 2.5 });
-  }
-
-  // ── a frame ─────────────────────────────────────────────────────
+  // ── a frame ────────────────────────────────────────────────────
   update(dt: number, sim: PasterzSim): void {
     this.clock += dt;
-    const sh = sim.shepherd, H = sim.hill, S = this.S;
-    sim.viewW = this.w / 2 / S;
-    sim.viewH = this.h / 2 / S;
-    // the camera: the shepherd with a little look-ahead, never past the hill's edge
-    let tx = sh.x + sh.vx * 0.35, ty = sh.y + sh.vy * 0.35;
-    const hw = this.w / 2 / S, hh = this.h / 2 / S;
-    tx = H.w > 2 * hw ? clamp(tx, hw - 1, H.w - hw + 1) : H.w / 2;
-    ty = H.h > 2 * hh ? clamp(ty, hh - 3, H.h - hh + 1) : H.h / 2;
-    const x0 = this.camX, y0 = this.camY;
-    if (!this.camReady) {
-      this.camX = tx;
-      this.camY = ty;
-      this.camReady = true;
-    } else {
-      this.camX = approach(this.camX, tx, dt, 0.28);
-      this.camY = approach(this.camY, ty, dt, 0.28);
+    this.stop = Math.max(0, this.stop - dt);
+    const pl = sim.player, L = this.L;
+    const n = pl.n + (sim.tally && sim.phase !== 'play' ? sim.tally.flock : 0);
+    const wantS = L.S0 / (1 + 0.05 * Math.sqrt(n));
+    this.S = approach(this.S, wantS, dt, 0.9);
+    const lead = 0.35;
+    this.camX = approach(this.camX, pl.x + pl.vx * lead, dt, 0.18);
+    this.camY = approach(this.camY, pl.y + pl.vy * lead, dt, 0.18);
+    if (Math.hypot(this.camX - pl.x, this.camY - pl.y) > 14) {
+      this.camX = pl.x;
+      this.camY = pl.y;
     }
-    this.hud.shiftFloats(-(this.camX - x0) * S, -(this.camY - y0) * S);
+    sim.viewW = this.w / 2 / this.S;
+    sim.viewH = (L.bottom - L.top) / 2 / this.S;
     this.parts.update(dt);
-    let n = 0;
-    for (const r of this.ripples) if ((r.t += dt) < r.dur) this.ripples[n++] = r;
-    this.ripples.length = n;
-    for (const [id, a] of this.pops) {
-      if (a + dt > 0.5) this.pops.delete(id);
-      else this.pops.set(id, a + dt);
+    for (const f of this.floats) f.t += dt;
+    while (this.floats.length && this.floats[0].t >= this.floats[0].dur) this.floats.shift();
+    for (const p of this.pulses) p.t += dt;
+    for (let i = this.pulses.length - 1; i >= 0; i--) if (this.pulses[i].t >= this.pulses[i].dur) this.pulses.splice(i, 1);
+    for (const s of this.shoots) s.t += dt;
+    for (let i = this.shoots.length - 1; i >= 0; i--) if (this.shoots[i].t >= 1.1) this.shoots.splice(i, 1);
+    // the joins of a moment add up into one number over the shepherd
+    this.joinT -= dt;
+    if (this.joinAcc > 0 && this.joinT <= 0) {
+      this.float(`+${this.joinAcc}`, pl.x, pl.y - 1.4, '#fff6dc', 18 + Math.min(14, this.joinAcc * 1.5), 0.9);
+      this.joinAcc = 0;
     }
-    this.fade = Math.max(0, this.fade - dt * 1.4);
-    this.starPop = Math.max(0, this.starPop - dt * 1.5);
-    this.foldA = sim.fold ? Math.min(1, this.foldA + dt * 2.5) : 0;
-    this.walkA = approach(this.walkA, clamp(sh.speed / 2), dt, 0.1);
-    this.hud.update(dt, sim);
+    this.lossT -= dt;
+    if (this.lossAcc > 0 && this.lossT <= 0) {
+      this.float(`−${this.lossAcc}`, pl.x + 0.8, pl.y - 1.2, '#ffd2c4', 18, 0.9);
+      this.lossAcc = 0;
+    }
+    // motes drifting in along the ring's rim while it pulls
+    if (sim.ringLook === 'live' && !sim.frozen && sim.ringR > RULES.r0 + 0.4 && !this.opts.reducedMotion) {
+      if (Math.random() < dt * 22) {
+        const a = Math.random() * TAU, r = sim.ringR;
+        this.parts.burst(pl.x + Math.cos(a) * r, pl.y + Math.sin(a) * r, 1, {
+          color: sim.ringR >= RING_MARK ? '#ffe08a' : '#fff6dc', size: 0.06, speed: 0.6, angle: a + Math.PI, spread: 0.4, g: 0, drag: 0.5, life: 1,
+        });
+      }
+    }
+    this.hud.update(dt, sim, this);
+  }
+
+  /** Big moments freeze the picture for a few frames (index.ts skips the sim meanwhile). */
+  hitStop(dt: number): boolean {
+    if (this.stop <= 0) return false;
+    this.stop = Math.max(0, this.stop - dt);
+    return true;
   }
 
   draw(sim: PasterzSim): void {
-    if (!this.started) return;   // the calibration's intro owns the canvas until play begins
     const ctx = this.ctx, S = this.S;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const off = this.shake.offset(1 / 60, 6);
+    const off = this.shake.offset(1 / 60, 9);
+    ctx.fillStyle = '#5d6b37';
+    ctx.fillRect(0, 0, this.w, this.h);
     ctx.save();
     ctx.translate(off.x, off.y);
-    this.drawGround(sim);
-    this.drawDetails(sim);
-    this.drawPrints(sim);
-    for (const w of sim.hill.walls) paintWall(ctx, w, S, x => this.sx(x), y => this.sy(y));
-    if (sim.fold) paintFold(ctx, this.sx(sim.fold.x), this.sy(sim.fold.y), S, Math.atan2(sim.fold.gy, sim.fold.gx), ease.outBack(this.foldA));
-    this.drawRing(sim);
-    const goal = sim.shepherd.goal;
-    if (goal && sim.handsFree) {
-      ctx.strokeStyle = 'rgba(255,250,232,.55)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(this.sx(goal.x), this.sy(goal.y), S * 0.18, 0, TAU);
-      ctx.stroke();
+    const W = sim.world;
+    if (this.groundOf !== W.seed || !this.ground) {
+      this.ground = paintGround(W);
+      this.groundOf = W.seed;
     }
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(this.ground, this.sx(0), this.sy(0), (this.ground.width / GROUND_K) * S, (this.ground.height / GROUND_K) * S);
+    this.drawPrints(sim);
+    this.drawRing(sim);
+    for (const p of W.pens) if (this.visible(p.x, p.y, (p.r + 1) * S)) paintPen(ctx, this.sx(p.x), this.sy(p.y), p.r, p.gate, S, RULES.penGate);
+    for (const r of W.rocks) if (this.visible(r.x, r.y, 2 * S)) paintRock(ctx, this.sx(r.x), this.sy(r.y), r.r, r.seed, S);
+    for (const b of W.bushes) if (this.visible(b.x, b.y, 2 * S)) paintBush(ctx, this.sx(b.x), this.sy(b.y), b.r, b.seed, S, this.clock);
+    for (const tr of W.trees) {
+      if (!this.visible(tr.x, tr.y, 2 * S)) continue;
+      ctx.fillStyle = '#5a4128';
+      ctx.beginPath();
+      ctx.arc(this.sx(tr.x), this.sy(tr.y), tr.r * S, 0, TAU);
+      ctx.fill();
+    }
+    if (sim.night > 0.05) this.drawFires(sim);
     this.drawLamb(sim);
-    this.drawSorted(sim);
-    this.drawMarks(sim);
-    // particles in world units
+    this.drawSheep(sim);
+    this.drawShepherds(sim);
+    this.drawDog(sim);
+    // effects under the canopies
     ctx.save();
     ctx.translate(this.sx(0), this.sy(0));
     ctx.scale(S, S);
     this.parts.draw(ctx);
     ctx.restore();
-    this.drawRipples(sim);
+    this.drawPulses();
+    const pl = sim.player;
+    for (const tr of W.trees) {
+      if (!this.visible(tr.x, tr.y, 3 * S)) continue;
+      const cr = 1.6 + hash(tr.seed) * 0.6;
+      const under = Math.hypot(pl.x - tr.x, pl.y - tr.y) < cr + 0.4;
+      paintTree(ctx, this.sx(tr.x), this.sy(tr.y), cr, tr.seed, S, this.clock, under ? 0.45 : 0.96);
+    }
     this.drawNight(sim);
+    this.drawLabels(sim);
+    this.drawFloats();
     ctx.restore();
-    this.drawCompass(sim);
-    if (sim.fold) this.hud.drawCount(sim, this.sx(sim.fold.x), this.sy(sim.fold.y) - (RULES.foldR + 1.2) * S);
-    this.hud.draw(sim);
-    if (this.fade > 0) {
-      ctx.fillStyle = `rgba(246,239,220,${ease.inOutSine(this.fade) * 0.85})`;
-      ctx.fillRect(0, 0, this.w, this.h);
-    }
+    this.drawShoots(sim);
+    this.hud.draw(ctx, sim, this);
   }
 
-  // ── the ground ──────────────────────────────────────────────────
-  private drawGround(sim: PasterzSim): void {
-    const ctx = this.ctx, H = sim.hill;
-    if (this.groundSeed !== H.seed || !this.ground) this.paintGround(sim);
-    ctx.fillStyle = '#7f8f4a';
-    ctx.fillRect(0, 0, this.w, this.h);
-    if (this.ground) {
-      ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(this.ground, this.sx(-MARGIN), this.sy(-MARGIN), (H.w + 2 * MARGIN) * this.S, (H.h + 2 * MARGIN) * this.S);
-    }
-  }
-
-  /** The grass, its patches of dry earth and lush green, the terraces' shadows, the stream: once per pasture. */
-  private paintGround(sim: PasterzSim): void {
-    const H = sim.hill;
-    this.groundSeed = H.seed;
-    const W = (H.w + 2 * MARGIN) * G, Hh = (H.h + 2 * MARGIN) * G;
-    const c = this.ground ?? document.createElement('canvas');
-    c.width = W;
-    c.height = Hh;
-    this.ground = c;
-    const g = c.getContext('2d');
-    if (!g) return;
-    const X = (x: number) => (x + MARGIN) * G;
-    g.fillStyle = C.grass;
-    g.fillRect(0, 0, W, Hh);
-    // a gentle light across the slope: lighter uphill (north), deeper downhill
-    const slope = g.createLinearGradient(0, 0, W * 0.3, Hh);
-    slope.addColorStop(0, 'rgba(255,248,210,.16)');
-    slope.addColorStop(1, 'rgba(40,60,20,.14)');
-    g.fillStyle = slope;
-    g.fillRect(0, 0, W, Hh);
-    for (const p of H.patches) {
-      const col = p.tone < 0.45 ? '215,196,140' : p.tone < 0.8 ? '147,171,88' : '194,199,127';
-      const rg = g.createRadialGradient(X(p.x), X(p.y), 0, X(p.x), X(p.y), p.r * G);
-      rg.addColorStop(0, `rgba(${col},.55)`);
-      rg.addColorStop(1, `rgba(${col},0)`);
-      g.fillStyle = rg;
-      g.fillRect(X(p.x - p.r), X(p.y - p.r), p.r * 2 * G, p.r * 2 * G);
-    }
-    // the terraces: a step of deeper green below each wall, a lit lip above it
-    for (const w of H.walls) {
-      g.save();
-      g.lineCap = 'round';
-      g.strokeStyle = 'rgba(70,90,40,.2)';
-      g.lineWidth = 1.6 * G;
-      g.beginPath();
-      g.moveTo(X(w.x0), X(w.y0) + 0.9 * G);
-      g.lineTo(X(w.x1), X(w.y1) + 0.9 * G);
-      g.stroke();
-      g.strokeStyle = 'rgba(255,250,215,.14)';
-      g.lineWidth = 0.7 * G;
-      g.beginPath();
-      g.moveTo(X(w.x0), X(w.y0) - 0.55 * G);
-      g.lineTo(X(w.x1), X(w.y1) - 0.55 * G);
-      g.stroke();
-      g.restore();
-    }
-    // speckles: the grass's grain
-    let seed = H.seed;
-    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i < 5000; i++) {
-      g.fillStyle = rnd() < 0.5 ? 'rgba(70,86,34,.18)' : 'rgba(240,236,190,.16)';
-      g.fillRect(rnd() * W, rnd() * Hh, 1 + rnd() * 2, 1 + rnd() * 2);
-    }
-    // the stream: banks, water, a light edge
-    const line = (dy: number) => {
-      g.beginPath();
-      for (let x = -MARGIN; x <= H.w + MARGIN; x += 0.5) {
-        const y = H.streamY(x) + dy;
-        if (x === -MARGIN) g.moveTo(X(x), X(y));
-        else g.lineTo(X(x), X(y));
-      }
-    };
-    g.lineCap = 'round';
-    g.lineJoin = 'round';
-    g.strokeStyle = C.bank;
-    g.lineWidth = (RULES.streamHalf * 2 + 1) * G;
-    line(0.1);
-    g.stroke();
-    g.strokeStyle = '#5d8c9c';
-    g.lineWidth = RULES.streamHalf * 2 * G;
-    line(0);
-    g.stroke();
-    g.strokeStyle = C.water;
-    g.lineWidth = RULES.streamHalf * 1.4 * G;
-    line(-0.08);
-    g.stroke();
-    g.strokeStyle = 'rgba(200,232,236,.45)';
-    g.lineWidth = 0.12 * G;
-    line(-RULES.streamHalf * 0.55);
-    g.stroke();
-    // the hill's edge fades into deeper scrub
-    g.strokeStyle = 'rgba(80,96,44,.55)';
-    g.lineWidth = MARGIN * G * 1.2;
-    g.strokeRect(0, 0, W, Hh);
-  }
-
-  /** Grass tufts, anemones and pebbles in the cells in view; the stream's shimmer and the fords' stones. */
-  private drawDetails(sim: PasterzSim): void {
-    const ctx = this.ctx, S = this.S, H = sim.hill;
-    const x0 = Math.floor(this.camX - this.w / 2 / S) - 1, x1 = Math.ceil(this.camX + this.w / 2 / S) + 1;
-    const y0 = Math.floor(this.camY - this.h / 2 / S) - 1, y1 = Math.ceil(this.camY + this.h / 2 / S) + 1;
-    const cell = 1.4;
-    ctx.lineCap = 'round';
-    ctx.lineWidth = Math.max(1, S * 0.035);
-    for (let cy = Math.floor(y0 / cell); cy <= y1 / cell; cy++) {
-      for (let cx = Math.floor(x0 / cell); cx <= x1 / cell; cx++) {
-        const k = (cx * 73856093) ^ (cy * 19349663) ^ H.seed;
-        const r = hash(k);
-        const wx = (cx + hash(k + 1)) * cell, wy = (cy + hash(k + 2)) * cell;
-        if (wx < 0 || wy < 0 || wx > H.w || wy > H.h) continue;
-        if (Math.abs(wy - H.streamY(wx)) < RULES.streamHalf + 0.5) continue;
-        const px = this.sx(wx), py = this.sy(wy);
-        if (r < 0.5) {
-          ctx.strokeStyle = r < 0.25 ? 'rgba(96,112,52,.75)' : 'rgba(205,210,140,.7)';
-          ctx.beginPath();
-          for (let i = -1; i <= 1; i++) {
-            ctx.moveTo(px + i * S * 0.06, py);
-            ctx.lineTo(px + i * S * 0.12 + Math.sin(this.clock * 1.5 + k) * S * 0.02, py - S * (0.16 + 0.05 * (1 - Math.abs(i))));
-          }
-          ctx.stroke();
-        } else if (r < 0.56) {
-          // a red anemone of the spring hills
-          ctx.fillStyle = '#c63a2c';
-          for (let i = 0; i < 5; i++) {
-            const a = (i / 5) * TAU;
-            ctx.beginPath();
-            ctx.arc(px + Math.cos(a) * S * 0.05, py + Math.sin(a) * S * 0.05, S * 0.045, 0, TAU);
-            ctx.fill();
-          }
-          ctx.fillStyle = '#2b1c22';
-          ctx.beginPath();
-          ctx.arc(px, py, S * 0.025, 0, TAU);
-          ctx.fill();
-        } else if (r < 0.6) {
-          ctx.fillStyle = r < 0.58 ? '#fff4d6' : '#f2cf4a';
-          ctx.beginPath();
-          ctx.arc(px, py, S * 0.035, 0, TAU);
-          ctx.fill();
-        } else if (r < 0.66) {
-          ctx.fillStyle = 'rgba(214,204,176,.85)';
-          ctx.beginPath();
-          ctx.ellipse(px, py, S * 0.07, S * 0.05, r * 9, 0, TAU);
-          ctx.fill();
-        }
-      }
-    }
-    // the stream's shimmer
-    ctx.strokeStyle = 'rgba(225,245,248,.55)';
-    ctx.lineWidth = Math.max(1, S * 0.03);
-    for (let x = Math.max(0, x0); x <= Math.min(H.w, x1); x += 1.1) {
-      const ph = (this.clock * 0.7 + x * 0.37) % 1;
-      const wx = x + ph * 0.8, wy = H.streamY(wx) + Math.sin(x * 3.1) * RULES.streamHalf * 0.45;
-      ctx.globalAlpha = Math.sin(ph * Math.PI);
-      ctx.beginPath();
-      ctx.moveTo(this.sx(wx), this.sy(wy));
-      ctx.lineTo(this.sx(wx + 0.35), this.sy(wy));
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-    for (const f of H.fords) {
-      for (const st of f.stones) {
-        const px = this.sx(st.x), py = this.sy(st.y), r = st.r * S;
-        ctx.fillStyle = 'rgba(40,70,80,.35)';
-        ctx.beginPath();
-        ctx.ellipse(px + r * 0.15, py + r * 0.25, r, r * 0.8, 0, 0, TAU);
-        ctx.fill();
-        ctx.fillStyle = C.stone;
-        ctx.beginPath();
-        ctx.ellipse(px, py, r, r * 0.82, 0, 0, TAU);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,240,.5)';
-        ctx.beginPath();
-        ctx.ellipse(px - r * 0.25, py - r * 0.25, r * 0.4, r * 0.25, 0, 0, TAU);
-        ctx.fill();
-      }
-    }
-  }
-
-  // ── the history on the ground: footprints ───────────────────────
+  // ── the layers ─────────────────────────────────────────────────
+  /** The footprints: the band's history on the ground, coloured by the trace at the moment of the step. */
   private drawPrints(sim: PasterzSim): void {
     const ctx = this.ctx, S = this.S, samples = sim.trace.samples, now = sim.t;
     if (!sim.prints.length) return;
     let j = 0;
     for (const p of sim.prints) {
       const age = now - p.t;
-      if (age > sim.trace.windowSec) continue;
-      const a = age < 30 ? 1 : Math.max(0, 1 - (age - 30) / 10);
+      if (age > 40 || !this.visible(p.x, p.y, S)) continue;
       while (j < samples.length - 1 && samples[j + 1].t <= p.t) j++;
-      const s = samples[j];
-      const px = this.sx(p.x), py = this.sy(p.y);
-      if (px < -20 || py < -20 || px > this.w + 20 || py > this.h + 20) continue;
-      let col = 'rgba(64,78,34,', glow = false, dots = false, alpha = 0.5;
-      if (!s || s.t > p.t + 0.3) { /* before the first sample: plain */ }
-      else if (s.veiled) { col = 'rgba(84,72,110,'; alpha = 0.55; }
-      else if (!s.reliable) dots = true;
-      else if (s.phase === 'rest') { col = 'rgba(96,142,214,'; alpha = 0.8; }
-      else if (s.activity !== null && s.activity >= s.threshold) { col = 'rgba(236,170,30,'; alpha = 0.95; glow = true; }
-      let reveal = 1;
-      if (s && s.revealedAt !== null) reveal = clamp((now - s.revealedAt) / 1.2);
-      if (dots) {
-        ctx.fillStyle = `rgba(120,116,104,${0.6 * a})`;
-        for (const k of [-1, 1]) {
-          ctx.beginPath();
-          ctx.arc(px + Math.cos(p.dir) * k * S * 0.06, py + Math.sin(p.dir) * k * S * 0.06, Math.max(0.8, S * 0.025), 0, TAU);
-          ctx.fill();
-        }
-        continue;
+      const s: TraceSample | undefined = samples[j];
+      const a = clamp(1 - age / 40) * 0.85;
+      let col = 'rgba(92,72,48,';
+      if (s) {
+        const shown = !s.veiled || (s.revealedAt !== null);
+        if (!s.reliable) col = 'rgba(160,160,150,';
+        else if (!shown) col = 'rgba(92,72,48,';
+        else if (s.phase === 'rest') col = 'rgba(110,160,230,';
+        else if (s.activity !== null && s.activity >= s.threshold) col = 'rgba(255,196,64,';
+        else col = 'rgba(92,72,48,';
       }
-      if (glow && reveal > 0) {
-        ctx.fillStyle = `rgba(255,214,110,${0.16 * a * reveal})`;
-        ctx.beginPath();
-        ctx.arc(px, py, S * 0.13, 0, TAU);
-        ctx.fill();
-      }
-      if (reveal < 1) {
-        // the veil lifting: dusk-purple fading into the print's own colour
-        ctx.fillStyle = `rgba(84,72,110,${0.55 * a * (1 - reveal)})`;
-        this.sole(px, py, p.dir, S);
-      }
-      ctx.fillStyle = `${col}${alpha * a * reveal})`;
-      this.sole(px, py, p.dir, S);
+      ctx.save();
+      ctx.translate(this.sx(p.x), this.sy(p.y));
+      ctx.rotate(p.dir);
+      ctx.fillStyle = `${col}${a.toFixed(3)})`;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 0.12 * S, 0.055 * S, 0, 0, TAU);
+      ctx.fill();
+      ctx.restore();
     }
   }
 
-  /** A sandal's print: the sole and the heel. */
-  private sole(x: number, y: number, dir: number, S: number): void {
-    const ctx = this.ctx;
-    ctx.beginPath();
-    ctx.ellipse(x + Math.cos(dir) * S * 0.03, y + Math.sin(dir) * S * 0.03, S * 0.062, S * 0.032, dir, 0, TAU);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(x - Math.cos(dir) * S * 0.065, y - Math.sin(dir) * S * 0.065, S * 0.032, S * 0.027, dir, 0, TAU);
-    ctx.fill();
-  }
-
-  // ── the call ring: the live gauge ───────────────────────────────
+  /** The call ring: the band's live gauge drawn on the hill (radius = reach, dotted threshold, gold rim above it). */
   private drawRing(sim: PasterzSim): void {
-    const ctx = this.ctx, S = this.S, sh = sim.shepherd;
-    const x = this.sx(sh.x), y = this.sy(sh.y);
-    const r = sim.ringR * S, mark = RING_MARK * S;
+    if (sim.night > 0.7 || sim.frozen) return;
+    const ctx = this.ctx, S = this.S, pl = sim.player;
+    const x = this.sx(pl.x), y = this.sy(pl.y);
     const look = sim.ringLook;
-    const gold = look === 'live' && sim.ringR >= RING_MARK;
+    const r = sim.ring * S;
+    const above = sim.ringR >= RING_MARK - 0.02;
+    const fade = 1 - sim.night;
     ctx.save();
-    // the ground inside the ring, faintly lit
-    const fill = look === 'live' ? (gold ? 'rgba(255,214,110,.13)' : 'rgba(255,248,225,.1)') : look === 'rest' ? 'rgba(170,200,245,.08)' : 'rgba(255,248,225,.05)';
-    ctx.fillStyle = fill;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, TAU);
-    ctx.fill();
-    // the threshold: a dotted circle (only where the ring can answer the band)
-    if (look === 'live' || look === 'grey') {
-      ctx.setLineDash([2, 7]);
-      ctx.lineCap = 'round';
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = look === 'live' ? 'rgba(255,250,232,.8)' : 'rgba(220,216,206,.45)';
+    ctx.globalAlpha = fade;
+    if (look === 'live' || sim.flareT > 0) {
+      const g = ctx.createRadialGradient(x, y, r * 0.2, x, y, r);
+      g.addColorStop(0, 'rgba(255,240,190,0)');
+      g.addColorStop(1, above ? 'rgba(255,214,90,.26)' : 'rgba(255,246,220,.18)');
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(x, y, mark, 0, TAU);
+      ctx.arc(x, y, r, 0, TAU);
+      ctx.fill();
+      // the threshold, marked on the ring itself
+      ctx.setLineDash([4, 6]);
+      ctx.strokeStyle = 'rgba(255,255,255,.75)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(x, y, RING_MARK * S, 0, TAU);
       ctx.stroke();
       ctx.setLineDash([]);
-    }
-    // the ring itself, slowly turning
-    const col = gold ? C.gold : look === 'live' ? 'rgba(255,250,232,.95)' : look === 'grey' ? 'rgba(206,200,190,.6)'
-      : look === 'rest' ? 'rgba(170,200,245,.6)' : look === 'blind' ? 'rgba(130,112,165,.5)' : 'rgba(255,250,232,.75)';
-    if (gold) {
-      ctx.shadowColor = 'rgba(255,200,80,.85)';
-      ctx.shadowBlur = 12;
-    }
-    ctx.strokeStyle = col;
-    ctx.lineWidth = gold ? 4 : 3;
-    const seg = Math.max(8, (TAU * r) / 32);
-    ctx.setLineDash([seg * 0.86, seg * 0.14]);
-    ctx.lineDashOffset = this.opts.reducedMotion ? 0 : -this.clock * 14;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, TAU);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.shadowBlur = 0;
-    // the flare after a blind block
-    if (sim.flareT > 0) {
-      const k = sim.flareT / RULES.flareSec;
-      ctx.strokeStyle = `rgba(255,214,110,${0.9 * k})`;
-      ctx.lineWidth = 4;
-      ctx.shadowColor = 'rgba(255,200,80,.9)';
-      ctx.shadowBlur = 16 * k;
+      ctx.strokeStyle = above ? '#ffcf4a' : 'rgba(255,248,226,.9)';
+      ctx.lineWidth = above ? 4 : 2.5;
+      ctx.shadowColor = above ? 'rgba(255,200,60,.8)' : 'transparent';
+      ctx.shadowBlur = above ? 10 : 0;
       ctx.beginPath();
-      ctx.arc(x, y, sim.ring * S, 0, TAU);
+      ctx.arc(x, y, r, 0, TAU);
       ctx.stroke();
       ctx.shadowBlur = 0;
+    } else {
+      ctx.strokeStyle = look === 'grey' ? 'rgba(200,200,190,.6)' : look === 'blind' ? 'rgba(120,110,170,.55)' : 'rgba(255,248,226,.55)';
+      ctx.lineWidth = 2;
+      if (look === 'grey') ctx.setLineDash([3, 5]);
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
     }
     ctx.restore();
   }
 
-  // ── the lost lamb, hidden among its rocks ───────────────────────
+  private drawFires(sim: PasterzSim): void {
+    const ctx = this.ctx, S = this.S;
+    if (this.fires.length !== sim.shepherds.length) this.placeFires(sim);
+    for (const f of this.fires) if (this.visible(f.x, f.y, 2 * S)) paintFire(ctx, this.sx(f.x), this.sy(f.y), S, this.clock, sim.night);
+  }
+
+  private placeFires(sim: PasterzSim): void {
+    this.fires = sim.shepherds.map(s => sim.world.dry(s.x + Math.cos(s.dir) * 1.3, s.y + Math.sin(s.dir) * 1.3, 0.4));
+  }
+
   private drawLamb(sim: PasterzSim): void {
     const l = sim.lamb;
-    if (l.state === 'carried') return;
-    const x = this.sx(l.x), y = this.sy(l.y);
-    if (x < -40 || y < -40 || x > this.w + 40 || y > this.h + 40) return;
-    const bleat = l.bleat > 0 ? 1 : 0;
-    paintSheep(this.ctx, x, y, this.S, -0.6, {
-      small: true, bob: this.clock * 2, walking: bleat * 0.4, lie: l.state === 'home' ? 0 : 1, look: bleat, graze: 0,
-      bell: l.state === 'home' ? this.lambBell ?? undefined : undefined,
-    });
+    if (l.state !== 'hidden' || !this.visible(l.x, l.y, 2 * this.S)) return;
+    const ctx = this.ctx, S = this.S, x = this.sx(l.x), y = this.sy(l.y);
+    const hop = l.bleat > 0 ? Math.abs(Math.sin(this.clock * 14)) * 0.12 * S : 0;
+    // a soft glow so it can be found
+    const g = ctx.createRadialGradient(x, y, 0, x, y, S * 1.6);
+    g.addColorStop(0, 'rgba(255,240,180,.45)');
+    g.addColorStop(1, 'rgba(255,240,180,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, S * 1.6, 0, TAU);
+    ctx.fill();
+    paintSheep(ctx, x, y - hop, S, Math.sin(this.clock * 0.7) * 0.6 + 2.2, { small: true, bob: 0, walking: 0, lie: 0, look: 1, graze: 0, bell: '#d9a441' });
   }
 
-  // ── the bodies, sorted by depth ─────────────────────────────────
-  private drawSorted(sim: PasterzSim): void {
-    const S = this.S, H = sim.hill, d = this.draws, m = 2 * S;
-    d.length = 0;
-    const vis = (x: number, y: number) => {
-      const px = this.sx(x), py = this.sy(y);
-      return px > -m && py > -m && px < this.w + m && py < this.h + m;
-    };
-    H.circles.forEach((c, i) => { if (vis(c.x, c.y)) d.push({ y: c.y + c.r * 0.3, k: 0, i }); });
-    sim.sheep.forEach((s, i) => { if (vis(s.x, s.y)) d.push({ y: s.y, k: 1, i }); });
-    if (sim.fire) d.push({ y: sim.fire.y - 0.2, k: 3, i: 0 });
-    d.sort((a, b) => a.y - b.y);
-    const ctx = this.ctx;
-    for (const o of d) {
-      if (o.k === 0) {
-        const c = H.circles[o.i];
-        if (c.kind === 'rock') paintRock(ctx, this.sx(c.x), this.sy(c.y), c.r, c.seed, S);
-        else paintBush(ctx, this.sx(c.x), this.sy(c.y), c.r, c.seed, S, this.clock);
-      } else if (o.k === 1) this.drawSheep(sim.sheep[o.i]);
-      else if (sim.fire) paintFire(ctx, this.sx(sim.fire.x), this.sy(sim.fire.y), S, this.clock, clamp(sim.night * 1.5));
-    }
-    // the shepherd over his flock, always in sight (Crowd City's leader)
-    const sh = sim.shepherd;
-    paintShepherd(ctx, this.sx(sh.x), this.sy(sh.y), S * 1.5, sh.dir, sh.stepT, this.walkA, sh.carrying);
-  }
-
-  private readonly pose: SheepPose = { small: false, bob: 0, walking: 0, lie: 0, look: 0, graze: 0 };
-
-  private drawSheep(s: Sheep): void {
-    const ctx = this.ctx, S = this.S, p = this.pose;
-    const sp = Math.hypot(s.vx, s.vy);
-    p.small = s.small;
-    p.bob = s.stepT;
-    p.walking = clamp(sp / 1.2);
-    p.lie = s.lie;
-    p.look = clamp(s.look * 2);
-    p.graze = s.state === 'graze' && sp < 0.15 ? 1 : 0;
-    p.bell = undefined;
-    const x = this.sx(s.x), y = this.sy(s.y);
-    const pop = this.pops.get(s.id);
-    if (pop !== undefined) {
-      const k = pop / 0.5;
-      const sc = 1 + 0.35 * Math.sin(Math.PI * k) * (1 - k * 0.5);
-      ctx.save();
-      ctx.translate(x, y - Math.sin(Math.PI * k) * S * 0.3);
-      ctx.scale(sc, sc);
-      paintSheep(ctx, 0, 0, S, s.dir, p);
-      ctx.restore();
-    } else paintSheep(ctx, x, y, S, s.dir, p);
-  }
-
-  /** Over the bodies: the thorn badge of a snagged sheep, the look-up marks. */
-  private drawMarks(sim: PasterzSim): void {
-    const ctx = this.ctx, S = this.S, u = this.L.u;
-    for (const s of sim.sheep) {
-      if (s.state !== 'snag') continue;
-      const x = this.sx(s.x), y = this.sy(s.y) - S * 0.75 - Math.abs(Math.sin(this.clock * 5)) * 3 * u;
-      ctx.fillStyle = 'rgba(255,248,230,.95)';
-      ctx.strokeStyle = C.thorn;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(x, y, 9 * u, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.strokeStyle = '#3a4220';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      ctx.moveTo(x - 5 * u, y + 3 * u);
-      ctx.lineTo(x + 5 * u, y - 3 * u);
-      for (const k of [-0.5, 0, 0.5]) {
-        ctx.moveTo(x + k * 8 * u, y - k * 5 * u);
-        ctx.lineTo(x + k * 8 * u - 2 * u, y - k * 5 * u - 4 * u);
-      }
-      ctx.stroke();
-    }
-  }
-
-  private drawRipples(sim: PasterzSim): void {
+  private drawSheep(sim: PasterzSim): void {
     const ctx = this.ctx, S = this.S;
-    for (const r of this.ripples) {
-      if (r.t < 0) continue;
-      const k = r.t / r.dur;
-      const rad = (r.r0 + (r.r1 - r.r0) * ease.outCubic(k)) * S;
-      ctx.strokeStyle = `${r.color}${(1 - k) * 0.85})`;
-      ctx.lineWidth = r.width * (1 - k * 0.5);
+    this.sprites.setScale(S, this.dpr);
+    const dyes = sim.shepherds.map(s => s.dye);
+    const pad = S;
+    for (const s of sim.sheep) {
+      const X = this.sx(s.x), Y = this.sy(s.y);
+      if (X < -pad || X > this.w + pad || Y < -pad || Y > this.h + pad) continue;
+      const dye = s.owner >= 0 ? dyes[s.owner] : s.owner === -2 ? PLAYER_DYE : null;
+      const lie = s.lie > 0.5;
+      const sp = this.sprites.get(dye, s.small, lie, s.look > 0.3 || s.fetch >= 0);
+      const bob = Math.sin(s.bob * Math.PI) * Math.min(1, Math.hypot(s.vx, s.vy) / 2);
+      const k = 1 + bob * 0.05 + s.flash * 0.25;
+      ctx.save();
+      ctx.translate(X, Y - Math.abs(bob) * S * 0.04);
+      ctx.rotate(s.dir);
+      ctx.scale(k, 1 / Math.max(0.9, k * 0.98));
+      ctx.drawImage(sp.img, -sp.half, -sp.half, sp.half * 2, sp.half * 2);
+      ctx.restore();
+      if (s.flash > 0.05) {
+        ctx.strokeStyle = `rgba(255,255,255,${(s.flash * 0.8).toFixed(3)})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(X, Y, S * (0.45 + (1 - s.flash) * 0.35), 0, TAU);
+        ctx.stroke();
+      }
+    }
+  }
+
+  private shepherdLook(s: Shepherd): ShepherdLook {
+    if (s.i === 0) return this.look;
+    return { mantle: s.dye, stripe: '#3b2f2a', staff: '#6e4a28', tip: '#6e4a28', cloth: '#efe6cf', cord: s.dye };
+  }
+
+  private drawShepherds(sim: PasterzSim): void {
+    const ctx = this.ctx, S = this.S;
+    for (const s of sim.shepherds) {
+      if (!this.visible(s.x, s.y, 2 * S)) continue;
+      const x = this.sx(s.x), y = this.sy(s.y);
+      const size = s.i === 0 ? S * 1.12 : S * 0.98;
+      if (s.i === 0 && s.grace > 0 && Math.floor(this.clock * 10) % 2 === 0) ctx.globalAlpha = 0.55;
+      if (s.out) {
+        // sulking: sits facing away, a little rain cloud over his head
+        paintShepherd(ctx, x, y, size * 0.9, s.dir + Math.PI, 0, 0, false, this.shepherdLook(s));
+        this.cloud(x, y - S * 1.1);
+      } else {
+        paintShepherd(ctx, x, y, size, s.dir, s.stepT, s.walking, s.i === 0 && sim.lamb.state === 'carried', this.shepherdLook(s));
+      }
+      ctx.globalAlpha = 1;
+      if (s.i === 0) {
+        // the player's marker: a soft ring at his feet in his dye
+        ctx.strokeStyle = 'rgba(238,123,48,.9)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(x, y + S * 0.05, S * 0.55, S * 0.42, 0, 0, TAU);
+        ctx.stroke();
+      }
+    }
+  }
+
+  private cloud(x: number, y: number): void {
+    const ctx = this.ctx, S = this.S;
+    const k = S * 0.32;
+    ctx.fillStyle = 'rgba(120,128,150,.92)';
+    for (const [dx, dy, r] of [[-0.9, 0, 0.7], [0, -0.35, 0.9], [0.9, 0, 0.7], [0, 0.2, 0.8]] as const) {
       ctx.beginPath();
-      ctx.arc(this.sx(r.x), this.sy(r.y), rad, 0, TAU);
+      ctx.arc(x + dx * k, y + dy * k, r * k, 0, TAU);
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(110,160,230,.85)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) {
+      const dx = (i - 1) * k * 0.7, ph = (this.clock * 2 + i * 0.33) % 1;
+      ctx.beginPath();
+      ctx.moveTo(x + dx, y + k * (0.8 + ph * 1.2));
+      ctx.lineTo(x + dx - 2, y + k * (1.2 + ph * 1.2));
       ctx.stroke();
+    }
+  }
+
+  private drawDog(sim: PasterzSim): void {
+    const d = sim.dog;
+    if (!this.visible(d.x, d.y, 2 * this.S)) return;
+    const run = clamp(Math.hypot(d.vx, d.vy) / 5);
+    paintDog(this.ctx, this.sx(d.x), this.sy(d.y), this.S * 0.95, d.dir, run, this.clock, this.dogCoat[0], this.dogCoat[1]);
+    if (d.bark > 0) {
+      const ctx = this.ctx, x = this.sx(d.x + Math.cos(d.dir) * 0.6), y = this.sy(d.y + Math.sin(d.dir) * 0.6);
+      ctx.strokeStyle = `rgba(255,255,255,${(d.bark * 1.4).toFixed(3)})`;
+      ctx.lineWidth = 2;
+      for (let i = 1; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.arc(x, y, this.S * 0.3 * i * (1.6 - d.bark), d.dir - 0.6, d.dir + 0.6);
+        ctx.stroke();
+      }
+    }
+  }
+
+  private drawPulses(): void {
+    const ctx = this.ctx, S = this.S;
+    for (const p of this.pulses) {
+      const k = ease.outCubic(p.t / p.dur);
+      const r = (p.r0 + (p.r1 - p.r0) * k) * S;
+      ctx.strokeStyle = p.color;
+      ctx.globalAlpha = 1 - k;
+      ctx.lineWidth = p.width;
+      ctx.beginPath();
+      ctx.arc(this.sx(p.x), this.sy(p.y), r, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  private drawNight(sim: PasterzSim): void {
+    const k = sim.night;
+    if (k <= 0.02) return;
+    const ctx = this.ctx, S = this.S;
+    ctx.save();
+    ctx.fillStyle = `rgba(16,22,52,${(0.62 * k).toFixed(3)})`;
+    ctx.fillRect(-20, -20, this.w + 40, this.h + 40);
+    ctx.globalCompositeOperation = 'lighter';
+    for (const f of this.fires) {
+      if (!this.visible(f.x, f.y, 5 * S)) continue;
+      const x = this.sx(f.x), y = this.sy(f.y), r = S * (3.2 + Math.sin(this.clock * 9 + f.x) * 0.15);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, `rgba(255,170,70,${(0.42 * k).toFixed(3)})`);
+      g.addColorStop(1, 'rgba(255,170,70,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, TAU);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** The counts over the shepherds (Crowd City's numbers), the rivals' names, the crown, and the rivals' bubbles. */
+  private drawLabels(sim: PasterzSim): void {
+    const ctx = this.ctx, S = this.S, u = this.L.u;
+    const said: { x: number; y: number }[] = [];
+    for (const s of sim.shepherds) {
+      if (!this.visible(s.x, s.y, 3 * S)) continue;
+      const x = this.sx(s.x), y = this.sy(s.y) - S * 0.95;
+      // under the runner's HUD the off-screen arrows speak for them
+      if (y < this.L.top + 8 && s.i !== 0) continue;
+      if (s.out) {
+        ctx.font = font(700, 11 * u, SANS);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,255,255,.85)';
+        ctx.fillText(`${s.name} · ${t('ui.out')}`, x, y - S * 0.9);
+        continue;
+      }
+      const n = s.i === 0 ? s.n : s.n;
+      paintCount(ctx, x, y, String(n), s.i === 0 ? PLAYER_DYE : s.dye, (s.i === 0 ? 14 : 12.5) * u);
+      if (s.i !== 0) {
+        ctx.font = font(700, 10.5 * u, SANS);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = 'rgba(40,30,20,.55)';
+        ctx.fillText(s.name, x + 1, y - 12 * u + 1);
+        ctx.fillStyle = '#fffaf0';
+        ctx.fillText(s.name, x, y - 12 * u);
+      }
+      if (sim.crown === s.i) paintCrown(ctx, x, y - (s.i === 0 ? 13 : 23) * u, 18 * u, Math.sin(this.clock * 4) * 1.5);
+      // one rival bubble per spot: the next one close by waits its turn
+      if (s.say && s.i !== 0 && !said.some(q => Math.abs(q.x - x) < 150 * u && Math.abs(q.y - y) < 44 * u)) {
+        said.push({ x, y });
+        this.hud.bubble(ctx, s.say.text, x, y - 30 * u, 11 * u, 0.85, s.say.t, this);
+      }
+    }
+  }
+
+  private drawFloats(): void {
+    const ctx = this.ctx;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const f of this.floats) {
+      const k = f.t / f.dur;
+      const pop = k < 0.18 ? ease.outBack(k / 0.18) : 1;
+      const x = this.sx(f.x), y = this.sy(f.y) - 40 * ease.outCubic(k);
+      ctx.globalAlpha = k > 0.65 ? Math.max(0, 1 - (k - 0.65) / 0.35) : 1;
+      ctx.font = font(800, f.size * pop, SANS);
+      ctx.fillStyle = 'rgba(40,24,10,.45)';
+      ctx.fillText(f.text, x + 1, y + 2);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, x, y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** A star's light falls from the night's row to the straggler it found. */
+  private drawShoots(sim: PasterzSim): void {
+    const ctx = this.ctx;
+    for (const s of this.shoots) {
+      const k = clamp(s.t / 0.7);
+      const tx = this.sx(s.x), ty = this.sy(s.y);
+      const x = s.sx + (tx - s.sx) * ease.outCubic(k), y = s.sy + (ty - s.sy) * ease.outCubic(k);
+      ctx.strokeStyle = `rgba(255,240,190,${(0.9 * (1 - clamp((s.t - 0.7) / 0.4))).toFixed(3)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(s.sx + (tx - s.sx) * Math.max(0, ease.outCubic(k) - 0.25), s.sy + (ty - s.sy) * Math.max(0, ease.outCubic(k) - 0.25));
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.fillStyle = C.star;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, TAU);
+      ctx.fill();
     }
     void sim;
   }
 
-  // ── the night ───────────────────────────────────────────────────
-  private drawNight(sim: PasterzSim): void {
-    const n = sim.night;
-    if (n < 0.01) return;
-    const ctx = this.ctx, S = this.S, L = this.L;
-    // dusk is violet, the night deep blue
-    const k = clamp((n - 0.3) / 0.5);
-    const r = 70 + (16 - 70) * k, g = 46 + (24 - 46) * k, b = 96 + (58 - 96) * k;
-    ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${0.62 * n})`;
-    ctx.fillRect(-10, -10, this.w + 20, this.h + 20);
-    if (sim.fire) {
-      const fx = this.sx(sim.fire.x), fy = this.sy(sim.fire.y);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const flick = 1 + Math.sin(this.clock * 11) * 0.04 + Math.sin(this.clock * 7.3) * 0.03;
-      const rg = ctx.createRadialGradient(fx, fy, 0, fx, fy, 5 * S * flick);
-      rg.addColorStop(0, `rgba(255,170,80,${0.42 * n})`);
-      rg.addColorStop(0.4, `rgba(220,120,50,${0.16 * n})`);
-      rg.addColorStop(1, 'rgba(200,100,40,0)');
-      ctx.fillStyle = rg;
-      ctx.fillRect(fx - 6 * S, fy - 6 * S, 12 * S, 12 * S);
-      ctx.restore();
-      paintFire(ctx, fx, fy, S, this.clock, clamp(n * 1.5));
-    }
-    // the sleeping lambs' Zzz
-    if (n > 0.5) {
-      ctx.font = font(800, 11 * L.u, SANS);
-      ctx.textAlign = 'center';
-      ctx.fillStyle = `rgba(220,230,255,${(n - 0.5) * 1.6})`;
-      for (const s of sim.sheep) {
-        if (!s.asleep) continue;
-        const ph = (this.clock * 0.6 + hash(s.id) ) % 1;
-        ctx.globalAlpha = Math.sin(ph * Math.PI) * (n - 0.5) * 2;
-        ctx.fillText(ph < 0.5 ? 'z' : 'Z', this.sx(s.x) + ph * 10 * L.u, this.sy(s.y) - S * 0.5 - ph * 16 * L.u);
-      }
-      ctx.globalAlpha = 1;
-    }
-    // the stars, one by one with calm (only in the night itself)
-    if (sim.nightBlock || sim.stars > 0) {
-      const top = L.hudBottom + 16 * L.u, bot = Math.max(top + 60, this.h * 0.42);
-      for (let i = 0; i < RULES.starMax; i++) {
-        const x = 24 + hash(i * 3 + 11) * (this.w - 48), y = top + hash(i * 5 + 7) * (bot - top);
-        const lit = i < sim.stars;
-        const tw = 0.85 + 0.15 * Math.sin(this.clock * 2 + i);
-        const pop = lit && i === sim.stars - 1 ? this.starPop : 0;
-        paintStar(ctx, x, y, (lit ? 5 : 2.5) * L.u * (1 + pop * 0.8), (lit ? tw : 0.25) * k);
-      }
-    }
+  // ── effects ────────────────────────────────────────────────────
+  private float(text: string, x: number, y: number, color: string, size = 22, dur = 1.2): void {
+    // a word over a fresh one stacks above it
+    for (const f of this.floats) if (f.t < 0.8 && Math.abs(f.x - x) < 2.5 && Math.abs(f.y - y) < 1.2) y = f.y - 1.3;
+    this.floats.push({ text, x, y, t: 0, dur, color, size: size * this.L.u });
+    if (this.floats.length > 14) this.floats.shift();
   }
 
-  // ── the compass marks at the screen's edge ──────────────────────
-  private drawCompass(sim: PasterzSim): void {
-    const f = sim.fold;
-    if (f && sim.stage === 'fold') this.mark(f.gateX, f.gateY, C.gold, TXT.foldMark, 'fold');
-    if (sim.compassT > 0 && sim.lamb.state === 'hidden') this.mark(sim.lamb.x, sim.lamb.y, C.cream, '', 'lamb', Math.min(1, sim.compassT));
+  private pulse(x: number, y: number, r0: number, r1: number, color: string, dur = 0.8, width = 3): void {
+    this.pulses.push({ x, y, t: 0, dur, r0, r1, color, width });
   }
 
-  /** A mark over a place of the hill, or at the screen's edge pointing to it. */
-  private mark(wx: number, wy: number, color: string, label: string, kind: 'fold' | 'lamb', a = 1): void {
-    const ctx = this.ctx, L = this.L, u = L.u;
-    const x = this.sx(wx), y = this.sy(wy);
-    const top = L.hudBottom + 22 * u, bot = this.h - 66 - 22 * u, left = 26 * u, right = this.w - 26 * u;
-    const inside = x > left && x < right && y > top && y < bot;
-    ctx.save();
-    ctx.globalAlpha = a;
-    const bob = Math.sin(this.clock * 5) * 4 * u;
-    if (inside) {
-      // a chevron bouncing over it
-      ctx.fillStyle = color;
-      ctx.strokeStyle = 'rgba(58,40,20,.6)';
-      ctx.lineWidth = 1.5;
-      const yy = y - 30 * u + bob;
-      ctx.beginPath();
-      ctx.moveTo(x - 9 * u, yy - 8 * u);
-      ctx.lineTo(x + 9 * u, yy - 8 * u);
-      ctx.lineTo(x, yy + 4 * u);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-    } else {
-      const cx = this.w / 2, cy = (top + bot) / 2;
-      const dx = x - cx, dy = y - cy;
-      const k = Math.min((right - cx) / Math.max(1e-6, Math.abs(dx)), (bot - cy) / Math.max(1e-6, Math.abs(dy)));
-      const ex = cx + dx * k, ey = cy + dy * k, ang = Math.atan2(dy, dx);
-      ctx.translate(ex, ey);
-      ctx.fillStyle = 'rgba(246,239,220,.94)';
-      ctx.strokeStyle = color === C.cream ? C.goldDeep : color;
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(0, 0, 17 * u, 0, TAU);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = color === C.cream ? C.goldDeep : color;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(ang) * 26 * u, Math.sin(ang) * 26 * u);
-      ctx.lineTo(Math.cos(ang + 0.45) * 18 * u, Math.sin(ang + 0.45) * 18 * u);
-      ctx.lineTo(Math.cos(ang - 0.45) * 18 * u, Math.sin(ang - 0.45) * 18 * u);
-      ctx.closePath();
-      ctx.fill();
-      if (kind === 'lamb') paintSheep(ctx, 0, 1 * u, 26 * u, -Math.PI / 2, { small: true, bob: 0, walking: 0, lie: 0, look: 1, graze: 0 });
-      else {
-        ctx.strokeStyle = C.rockDark;
-        ctx.lineWidth = 3 * u;
-        ctx.beginPath();
-        ctx.arc(0, 0, 8 * u, -Math.PI / 2 + 0.6, -Math.PI / 2 - 0.6 + TAU);
-        ctx.stroke();
+  on(e: SimEvent, sim: PasterzSim): void {
+    const pl = sim.player, rm = this.opts.reducedMotion;
+    switch (e.type) {
+      case 'join':
+        this.parts.burst(e.x, e.y, 4, { color: '#fffaf0', size: 0.09, speed: 1.6, g: 0, drag: 3, life: 0.5 });
+        if (e.who === 0) {
+          this.joinAcc++;
+          if (this.joinT <= 0) this.joinT = 0.35;
+        }
+        break;
+      case 'steal': {
+        const col = sim.shepherds[e.to]?.dye ?? '#fff';
+        this.parts.burst(e.x, e.y, 5, { color: col, size: 0.08, speed: 2.2, g: 0, drag: 3, life: 0.5, shape: 'spark' });
+        if (e.to === 0) {
+          this.joinAcc++;
+          if (this.joinT <= 0) this.joinT = 0.35;
+        } else if (e.from === 0) {
+          this.lossAcc++;
+          if (this.lossT <= 0) this.lossT = 0.4;
+        }
+        break;
       }
-      if (label) {
-        ctx.font = font(750, 10.5 * u, SANS);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(255,250,235,.9)';
-        const ly = ey > cy ? -36 * u : 22 * u;
-        ctx.strokeText(label, 0, ly);
-        ctx.fillStyle = C.ink;
-        ctx.fillText(label, 0, ly);
+      case 'out':
+        this.parts.burst(e.x, e.y, 18, { color: '#e8e2d0', size: 0.14, speed: 2.4, g: 0, drag: 2, life: 0.8 });
+        this.float(t('fx.out'), e.x, e.y - 1.6, '#fff', 20);
+        if (e.by === 0) {
+          this.shake.add(0.3);
+          this.stop = 0.07;
+        }
+        break;
+      case 'tumble':
+        this.parts.burst(e.x, e.y, 20, { color: '#d8c8a0', size: 0.16, speed: 2.6, g: 0, drag: 2, life: 0.9 });
+        this.parts.burst(e.toX, e.toY, 12, { color: '#fff6dc', size: 0.1, speed: 1.8, g: 0, drag: 2.5, life: 0.7, shape: 'ring' });
+        this.float(t('fx.tumble'), e.toX, e.toY - 1.4, '#fff6dc', 24);
+        this.camX = e.toX;
+        this.camY = e.toY;
+        this.shake.add(0.25);
+        break;
+      case 'whistle':
+        this.pulse(pl.x, pl.y, 0.4, 2, 'rgba(255,255,255,.8)', 0.5, 2);
+        if (!e.herd && sim.asleep && this.clock - this.lastShh > 4) {
+          this.lastShh = this.clock;
+          this.float(t('fx.shh'), pl.x, pl.y - 1.5, '#cfe0ff', 18);
+        }
+        break;
+      case 'herd':
+        this.float(`+${e.n}`, e.x, e.y - 1, '#fff6dc', 20);
+        this.pulse(e.x, e.y, 0.3, RULES.herdR, 'rgba(255,246,220,.85)', 0.5, 2);
+        break;
+      case 'voice':
+        this.pulse(pl.x, pl.y, sim.ringR, RULES.voiceR, 'rgba(255,214,90,.9)', 1.4, 5);
+        this.pulse(pl.x, pl.y, sim.ringR * 0.6, RULES.voiceR * 0.8, 'rgba(255,246,220,.7)', 1.7, 3);
+        this.float(t('fx.voice'), pl.x, pl.y - 2, '#ffd65a', 30, 1.6);
+        if (!rm) this.shake.add(0.35);
+        this.stop = 0.08;
+        break;
+      case 'bleat':
+        if (this.visible(e.x, e.y, 0)) this.float(t('fx.bee'), e.x, e.y - 1, '#fff6dc', 16, 1);
+        break;
+      case 'lambFound':
+        this.parts.burst(e.x, e.y, 26, { color: '#ffe08a', size: 0.1, speed: 3, g: 0, drag: 2, life: 1.1, shape: 'spark' });
+        this.float(t('fx.lamb'), e.x, e.y - 1.8, '#ffe08a', 26, 1.8);
+        this.stop = 0.08;
+        this.shake.add(0.2);
+        break;
+      case 'crown':
+        if (e.who === 0) {
+          this.float(t('fx.crown'), pl.x, pl.y - 2.2, '#ffd65a', 26, 1.4);
+          this.parts.burst(pl.x, pl.y - 1, 16, { color: '#ffd65a', size: 0.09, speed: 2.4, g: 0, drag: 2, life: 0.9, shape: 'spark' });
+        }
+        break;
+      case 'newRound':
+        this.camX = pl.x;
+        this.camY = pl.y;
+        this.fires = [];
+        this.parts.clear();
+        this.floats.length = 0;
+        this.pulses.length = 0;
+        break;
+      case 'blockStart':
+        if (e.block.kind === 'watch') {
+          this.placeFires(sim);
+          this.float(t('fx.night'), pl.x, pl.y - 2, '#cfe0ff', 22, 1.6);
+        }
+        break;
+      case 'blockEnd':
+        if (e.block.kind === 'watch') this.float(t('fx.dawn'), pl.x, pl.y - 2, '#ffe6b0', 22, 1.4);
+        break;
+      case 'star': {
+        const slot = this.hud.starSlot(e.n - 1, this);
+        this.shoots.push({ sx: slot.x, sy: slot.y, x: e.x, y: e.y, t: 0 });
+        break;
       }
+      case 'morning':
+        this.float(t('fx.morning', { lambs: t('lambs', { n: e.n }) }), pl.x, pl.y - 2.4, '#fff6dc', 20, 1.8);
+        break;
+      case 'flare':
+        this.pulse(pl.x, pl.y, RULES.r0, e.r, 'rgba(255,214,90,.95)', 1.2, 5);
+        this.float(t('fx.flare', { n: Math.round(e.share * 100) }), pl.x, pl.y - 2.2, '#ffd65a', 22, 1.6);
+        break;
+      case 'unlock':
+        this.float(t('fx.unlock', { name: t(`skin.${e.kind}.${e.index}` as 'skin.cloak.0') }), pl.x, pl.y - 3, '#fff6dc', 18, 2.2);
+        break;
+      case 'hundred':
+        this.float(t('fx.hundred', { n: e.season + 1 }), pl.x, pl.y - 3.4, '#ffe08a', 22, 2.2);
+        break;
+      case 'roundEnd':
+        this.parts.burst(pl.x, pl.y, 30, { color: '#ffe08a', size: 0.1, speed: 3.5, g: 0, drag: 2, life: 1.2, shape: 'spark' });
+        break;
+      default:
+        break;
     }
-    ctx.restore();
   }
 }
-
-/** A mission's name for its toast. */
-const MISSION_NAME = (id: string): string => t(`mission.${id}` as 'mission.lamb');
