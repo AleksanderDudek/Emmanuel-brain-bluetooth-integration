@@ -1,6 +1,7 @@
 /**
  * Every number of Zastępy's rules in one place (sim.ts and battle.ts re-export it): the road, the
- * gates, the light, the host and the demons, the waves, the trumpet, the blocks and the meta game.
+ * gates, the light, the host and the demons with their counters, the waves and the boss gates, the
+ * trumpet, the pillar of cloud, the ages of the fortress, the blocks and the meta game.
  * Tuning moves a number here and nowhere else; the tests (with their headless battles) read the
  * same object.
  *
@@ -22,10 +23,10 @@ export const RULES = {
   beamRatePerLevel: 0.04,
   beamRange: 6.5,
   beamRangePerLevel: 0.35,
-  /** the gate of ash: base walls, + per battle of the circle; × per circle */
+  /** the gate of ash: base walls, + per battle of the chapter; × per chapter */
   ash: 2200,
-  ashPerBattle: 230,
-  ashCircle: 0.55,
+  ashPerBattle: 260,
+  ashChapter: 0.3,
   /** as the gate of ash cracks, it pours out a defence: a wave every this share of its walls */
   ashSurge: 0.2,
   /** the gate of ash throws embers at angels near it: damage (+ per battle), seconds between, reach (m) */
@@ -84,12 +85,53 @@ export const RULES = {
   answer: 3,
   /** demons step out of the gate this far apart (s) */
   spawnGap: 0.6,
-  /** demons' hp and damage: × (1 + perBattle × b) × (1 + perCircle × c) */
+  /** demons' hp and damage: × (1 + perBattle × b) × (1 + perChapter × c) */
   demonPerBattle: 0.05,
-  demonPerCircle: 0.5,
-  /** the Smok steps out after this long (s) in the tenth battle; its waves are those of this battle */
-  smokAt: 10,
-  smokWaves: 3,
+  demonPerChapter: 0.26,
+  /** the boss steps out after this long (s) in a chapter's last battle; its waves are those of this battle */
+  bossAt: 10,
+  bossWaves: 1,
+  /** while the boss is out, its waves come this much slower */
+  bossGap: 1.35,
+  /** a boss's special: every this long (s) after it is out, telegraphed this long (s) before it lands */
+  specialEvery: 10,
+  specialWarn: 1.8,
+  /** Kolos's stomp: the zone in front of it (m), damage, knock-back (m) */
+  stompReach: 4.5,
+  stompDmg: 55,
+  stompPush: 2.5,
+  /** Szarańcza's swarm: this many fliers step out of it */
+  swarmN: 3,
+  /** the Smok's breath: the cone in front of it (m), damage */
+  breathReach: 6.5,
+  breathDmg: 65,
+
+  // ── the counters ─────────────────────────────────────────────
+  /** a unit striking what it is the bane of; a bane on a boss; a shield-bearer struck from afar */
+  bane: 2,
+  baneBoss: 1.5,
+  shieldRanged: 0.4,
+  /** the demons' banes on the host (the hound on archers, the brute on the foot) */
+  demonBane: 1.6,
+
+  // ── the ages of the fortress ─────────────────────────────────
+  /** the host's power per age (hp and damage); the last age */
+  agePower: 0.2,
+  ageMax: 4,
+
+  // ── the pillar of cloud (the hero power) ─────────────────────
+  /** seconds it stands, + per level; the cooldown (s), − per level; its burn (dmg/s), + per level; its half-width (m) */
+  pillarSec: 4,
+  pillarSecPerLevel: 0.5,
+  pillarCool: 20,
+  pillarCoolPerLevel: 1.5,
+  pillarBurn: 22,
+  pillarBurnPerLevel: 7,
+  pillarHalf: 0.9,
+  /** the first pillar of a battle is ready after this long (s) */
+  pillarFirst: 4,
+  heroMax: 5,
+  heroPrice: 30,
 
   // ── combat ───────────────────────────────────────────────────
   /** a ground fighter keeps this far behind a friend of the same side (m): a loose file, not a heap */
@@ -102,9 +144,13 @@ export const RULES = {
 
   // ── gold and the gate's levels ───────────────────────────────
   gateMax: 10,
-  /** gold for a battle won: base + per battle of the circle; the Smok's own gold is its bounty */
+  /** gold for a battle won: base + per battle of the chapter; a boss's own gold is its bounty; + per new star */
   winGold: 30,
   winGoldPerBattle: 8,
+  starGold: 6,
+  /** the stars of a battle won: walls left at the end ≥ these shares (one star for winning) */
+  star2: 0.5,
+  star3: 0.8,
   /** the price of the next gate level: gatePrice × level^gateExp; of a unit's next level: unitPrice[tier] × level^unitExp */
   gatePrice: 35,
   gateExp: 1.55,
@@ -134,12 +180,16 @@ export const RULES = {
   blindFrom: 3,
   /** a block needs this many reliable seconds for a verdict */
   minReliable: 8,
-  /** the warm-up's hint shows after this long without a card sent (s) */
-  idleHint: 3.5,
+  /** the coach: a mark at most every this long (s), each shown at most this many times */
+  hintEvery: 6,
+  hintTimes: 3,
+  /** the companion: a line at most every this long (s); a line shows this long (s) */
+  talkEvery: 9,
+  talkSec: 3.4,
 
   // ── the meta ─────────────────────────────────────────────────
-  /** battles in a circle; the last is the Smok */
-  circle: 10,
+  /** battles in a chapter; the last is the boss gate */
+  chapter: 5,
   /** the day's gift (gold, the same for everyone who comes) */
   giftGold: 40,
 } as const;
@@ -147,11 +197,30 @@ export const RULES = {
 /** a + (b − a) × t for a [lo, hi] pair. */
 export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
 
-/** The host's units, in the cards' order (keys 1–6). */
-export const HOST_IDS = ['straznik', 'lucznik', 'tarczownik', 'jezdziec', 'serafin', 'archaniol'] as const;
+/** The host's units, in the cards' order (keys 1–7). */
+export const HOST_IDS = ['straznik', 'lucznik', 'tarczownik', 'wlocznik', 'jezdziec', 'serafin', 'archaniol'] as const;
 export type HostId = typeof HOST_IDS[number];
-export const DEMON_IDS = ['chochlik', 'cien', 'ogar', 'skrzydlak', 'bestia', 'smok'] as const;
-export type DemonId = typeof DEMON_IDS[number];
+/** The demons that march in waves, then the bosses (one per chapter's last battle, in turn). */
+export const WAVE_IDS = ['chochlik', 'cien', 'ogar', 'skrzydlak', 'miotacz', 'bestia'] as const;
+export const BOSS_IDS = ['kolos', 'szarancza', 'smok'] as const;
+export const DEMON_IDS = [...WAVE_IDS, ...BOSS_IDS] as const;
+export type WaveId = typeof WAVE_IDS[number];
+export type BossId = typeof BOSS_IDS[number];
+export type DemonId = WaveId | BossId;
+export const isBoss = (id: string): id is BossId => (BOSS_IDS as readonly string[]).includes(id);
+
+/** What each angel is the bane of (×RULES.bane): the readable rock-paper-scissors of the road. */
+export const BANE: Readonly<Record<HostId, WaveId | null>> = {
+  straznik: 'cien', lucznik: 'skrzydlak', tarczownik: null, wlocznik: 'ogar', jezdziec: 'miotacz', serafin: 'chochlik', archaniol: 'bestia',
+};
+/** The angel that answers a demon (the card that glows when it comes). */
+export const ANSWER: Readonly<Record<WaveId, HostId>> = {
+  chochlik: 'serafin', cien: 'straznik', ogar: 'wlocznik', skrzydlak: 'lucznik', miotacz: 'jezdziec', bestia: 'archaniol',
+};
+/** The demons' banes on the host (×RULES.demonBane). */
+export const DEMON_BANE: Readonly<Partial<Record<WaveId, readonly HostId[]>>> = {
+  ogar: ['lucznik'], bestia: ['straznik', 'wlocznik'],
+};
 
 /**
  * A fighter's numbers at level 1: hp, damage per strike, seconds between strikes, reach (m), walk
@@ -169,7 +238,7 @@ export interface HostStats extends Stats {
 }
 
 export interface DemonStats extends Stats {
-  /** gold for beating it; the battle of a circle (0-based) from which it marches */
+  /** gold for beating it; the battle (0-based, all chapters) from which it marches */
   gold: number; from: number;
 }
 
@@ -180,7 +249,8 @@ export const HOST: Readonly<Record<HostId, HostStats>> = {
   straznik: { ...s({ hp: 85, dmg: 12, rate: 0.75, range: 0.9, speed: 1.8 }), cost: 20, cool: 1.2, gate: 1, price: 20 },
   lucznik: { ...s({ hp: 38, dmg: 8, rate: 0.9, range: 5.5, speed: 1.5, ranged: true }), cost: 30, cool: 2.5, gate: 1, price: 24 },
   tarczownik: { ...s({ hp: 210, dmg: 5, rate: 1, range: 0.9, speed: 1.1, armor: 0.3 }), cost: 45, cool: 4, gate: 1, price: 28 },
-  jezdziec: { ...s({ hp: 120, dmg: 18, rate: 0.8, range: 1.1, speed: 3.4 }), cost: 60, cool: 6, gate: 2, price: 34 },
+  wlocznik: { ...s({ hp: 95, dmg: 11, rate: 0.85, range: 1.5, speed: 1.6 }), cost: 35, cool: 2.5, gate: 2, price: 28 },
+  jezdziec: { ...s({ hp: 120, dmg: 18, rate: 0.8, range: 1.1, speed: 3.4 }), cost: 60, cool: 6, gate: 3, price: 34 },
   serafin: { ...s({ hp: 80, dmg: 12, rate: 1.3, range: 3.5, speed: 1.6, fly: true, aoe: 1.4, ranged: true }), cost: 90, cool: 9, gate: 4, price: 42 },
   archaniol: { ...s({ hp: 420, dmg: 34, rate: 0.9, range: 1.4, speed: 1.7, aoe: 1.2, armor: 0.2 }), cost: 150, cool: 30, gate: 6, price: 60 },
 };
@@ -190,6 +260,9 @@ export const DEMONS: Readonly<Record<DemonId, DemonStats>> = {
   cien: { ...s({ hp: 60, dmg: 8, rate: 0.9, range: 0.9, speed: 1.2 }), gold: 3, from: 0 },
   ogar: { ...s({ hp: 36, dmg: 7, rate: 0.6, range: 0.8, speed: 2.9 }), gold: 3, from: 1 },
   skrzydlak: { ...s({ hp: 36, dmg: 7, rate: 1, range: 2.2, speed: 1.6, fly: true, ranged: true }), gold: 4, from: 2 },
-  bestia: { ...s({ hp: 240, dmg: 20, rate: 1.3, range: 1, speed: 0.8, armor: 0.15 }), gold: 9, from: 5 },
-  smok: { ...s({ hp: 2300, dmg: 22, rate: 1.6, range: 3, speed: 0.45, aoe: 2.5, armor: 0.1, ranged: true }), gold: 120, from: 9 },
+  miotacz: { ...s({ hp: 40, dmg: 7, rate: 1.4, range: 4.5, speed: 1.1, ranged: true }), gold: 4, from: 3 },
+  bestia: { ...s({ hp: 240, dmg: 20, rate: 1.3, range: 1, speed: 0.8, armor: 0.15 }), gold: 9, from: 6 },
+  kolos: { ...s({ hp: 1700, dmg: 26, rate: 1.7, range: 1.6, speed: 0.4, aoe: 1.6, armor: 0.2 }), gold: 110, from: 4 },
+  szarancza: { ...s({ hp: 1400, dmg: 14, rate: 1.1, range: 2.6, speed: 0.55, aoe: 1.2, ranged: true }), gold: 120, from: 9 },
+  smok: { ...s({ hp: 1800, dmg: 22, rate: 1.6, range: 3, speed: 0.45, aoe: 2.5, armor: 0.1, ranged: true }), gold: 130, from: 14 },
 };

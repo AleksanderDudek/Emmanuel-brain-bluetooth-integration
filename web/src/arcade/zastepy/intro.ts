@@ -1,12 +1,12 @@
 /**
  * Zastępy's calibration intro: the dawn before the battle.  The gate of light stands on the left of
- * the causeway, the gate of ash smoulders far on the right; while the reference fills (`p` 0..1) the
- * sun rises behind the gate, its lantern brightens and the host steps out of the arch one by one to
- * stand in a file on the road.  The runner's calibration card covers the lower part of the screen, so
+ * the causeway (dressed in the player's age of the fortress), the gate of ash smoulders far on the
+ * right; while the reference fills (`p` 0..1) the sun rises behind the gate, its lantern brightens
+ * and the host steps out of the arch one by one to stand in a file on the road.  The runner's calibration card covers the lower part of the screen, so
  * the road runs high.
  */
 import { approach, clamp, ease } from '../kit/juice';
-import type { ZastepyProgress } from './meta';
+import { ageOf, migrate, type ZastepyProgress } from './meta';
 import { POSE, hash, paintAshGate, paintHost, paintLightGate, type Pose } from './paint';
 import { HOST_IDS, type HostId } from './rules';
 
@@ -62,7 +62,9 @@ export class ZastepyIntro {
     ctx.fillStyle = '#b9a07a';
     ctx.fillRect(0, roadY + S * 0.2, w, S * 0.5);
     paintAshGate(ctx, w * 0.9, roadY + 0.15 * S, S * 0.8, { ash: 1, t, fall: 0, sealed: false });
-    paintLightGate(ctx, gx, roadY + 0.15 * S, S, { glow: 0.2 + 0.8 * k, walls: 1, t, mend: 0 });
+    const age = ageOf(migrate(progress).battle);
+    paintLightGate(ctx, gx, roadY + 0.15 * S, S, { glow: 0.2 + 0.8 * k, walls: 1, t, mend: 0, age });
+    this.pose.age = age;
     // the host steps out, one by one, into a file (more for a stronger gate)
     const n = Math.min(HOST_IDS.length, 3 + Math.floor((progress.gate - 1) / 2));
     for (let i = 0; i < n; i++) {

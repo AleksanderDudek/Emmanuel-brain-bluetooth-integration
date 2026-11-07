@@ -4,12 +4,13 @@
  * elsewhere, turning to a hushed B minor in the Cisza; a chime as a unit steps out of the gate (its
  * note by the card); bright tinks of blades of light, the whisper of arrows, the whoosh of the
  * seraph's fire; dull thuds of shadows; a soft puff and a climbing bell as demons come apart; the
- * gate's beam; the trumpet's brass and its wave; a fanfare of bells when the gate of ash falls; a low
- * rumble for the Smok.  A withdrawal is a gentle falling line, never a buzzer; a missed verdict makes
+ * gate's beam; the trumpet's brass and its wave; a bright double tink for a bane's ×2; the hush and
+ * shimmer of the pillar of cloud; a fanfare of bells when the gate of ash falls, a bell per star; a
+ * low rumble for a boss and a rising growl as its special winds up.  A withdrawal is a gentle falling line, never a buzzer; a missed verdict makes
  * no sound.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
-import { HOST_IDS } from './rules';
+import { HOST_IDS, isBoss } from './rules';
 import type { SimEvent } from './sim';
 
 const DAY = [146.83, 220, 293.66, 369.99];
@@ -63,7 +64,11 @@ export class ZastepySound {
             a.tone(1760 + Math.random() * 300, 0.09, { type: 'triangle', gain: 0.018 });
             a.noiseBurst(0.06, { type: 'highpass', freq: 4000, gain: 0.015 });
           }
-        } else if (e.kind === 'smok') {
+          if (e.bane && this.ok('bane', 0.18)) {
+            a.tone(2637, 0.07, { type: 'triangle', gain: 0.02 });
+            a.tone(3520, 0.09, { type: 'triangle', gain: 0.016, at: 0.05 });
+          }
+        } else if (isBoss(e.kind)) {
           a.noiseBurst(0.6, { type: 'lowpass', freq: 900, sweepTo: 300, gain: 0.06 });
           a.tone(70, 0.6, { type: 'sawtooth', gain: 0.02, slideTo: 50 });
         } else if (this.ok('thud', 0.1)) a.tone(110 + Math.random() * 30, 0.14, { type: 'sine', gain: 0.03, slideTo: 70 });
@@ -75,7 +80,7 @@ export class ZastepySound {
           a.noiseBurst(0.25, { type: 'lowpass', freq: 1200, sweepTo: 300, gain: 0.03 });
           a.bell(ladder(this.chain, ROOT), 0.03, 0.9, 0.04);
         }
-        if (e.kind === 'smok') [0, 4, 7, 12, 16].forEach((n, i) => a.bell(ladder(n, ROOT / 2), 0.06, 2.4, i * 0.12));
+        if (isBoss(e.kind)) [0, 4, 7, 12, 16].forEach((n, i) => a.bell(ladder(n, ROOT / 2), 0.06, 2.4, i * 0.12));
         break;
       case 'fallen':
         if (this.ok('fallen', 0.2)) a.tone(880, 0.6, { type: 'sine', gain: 0.02, slideTo: 1320, attack: 0.05 });
@@ -95,9 +100,24 @@ export class ZastepySound {
       case 'surge':
         a.noiseBurst(1.2, { type: 'lowpass', freq: 300, sweepTo: 120, gain: 0.05 });
         break;
-      case 'smok':
+      case 'boss':
         a.noiseBurst(2.4, { type: 'lowpass', freq: 400, sweepTo: 90, gain: 0.08 });
         a.tone(55, 2.4, { type: 'sawtooth', gain: 0.03, attack: 0.4, slideTo: 41 });
+        break;
+      case 'warn':
+        a.tone(70, e.special.warn, { type: 'sawtooth', gain: 0.025, attack: 0.3, slideTo: 140 });
+        a.noiseBurst(e.special.warn, { type: 'lowpass', freq: 200, sweepTo: 900, gain: 0.03 });
+        break;
+      case 'special':
+        if (e.blocked) [0, 7, 12].forEach((n, i) => a.bell(ladder(n, ROOT), 0.04, 1.2, i * 0.06));
+        a.noiseBurst(0.8, { type: 'lowpass', freq: e.special.kind === 'breath' ? 1400 : 500, sweepTo: 120, gain: 0.07 });
+        break;
+      case 'cancel':
+        [12, 7, 0].forEach((n, i) => a.bell(ladder(n, ROOT), 0.035, 1, i * 0.05));
+        break;
+      case 'pillar':
+        a.noiseBurst(1.4, { type: 'bandpass', freq: 300, sweepTo: 1600, q: 0.5, gain: 0.05 });
+        [0, 7, 12, 19].forEach((n, i) => a.bell(ladder(n, ROOT / 2), 0.03, 2, 0.1 + i * 0.07));
         break;
       case 'trumpet':
         // the trumpet's brass: three voices rising into a fifth, then the wave
@@ -137,8 +157,11 @@ export class ZastepySound {
         break;
       case 'restPass':
       case 'gift':
-      case 'winGold':
         [0, 4, 7].forEach((n, i) => a.bell(ladder(n, ROOT), 0.035, 1.4, i * 0.1));
+        break;
+      case 'winGold':
+        // a bell per star, climbing, as they pop in
+        for (let i = 0; i < e.stars; i++) a.bell(ladder(7 + i * 3, ROOT), 0.05, 1.6, 0.3 + i * 0.22);
         break;
       case 'blindPay':
         if (e.light > 0) [0, 2, 4, 7].forEach((n, i) => a.bell(ladder(n, ROOT), 0.04, 1.4, 0.2 + i * 0.08));

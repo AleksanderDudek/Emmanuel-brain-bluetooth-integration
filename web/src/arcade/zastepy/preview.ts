@@ -4,7 +4,7 @@
  * they meet, banners along the far edge breathing gold.  In the lobby (with progress) the host is the
  * player's: a stronger gate sends more of it.  Drawn every frame, so it stays cheap.
  */
-import type { ZastepyProgress } from './meta';
+import { ageOf, migrate, type ZastepyProgress } from './meta';
 import { C, POSE, paintAshGate, paintDemon, paintHost, paintLightGate, type Pose } from './paint';
 import { HOST_IDS, type DemonId, type HostId } from './rules';
 
@@ -49,14 +49,17 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     ctx.lineTo(x, roadY - S * 0.8 - hh + S * 0.28);
     ctx.fill();
   }
-  paintLightGate(ctx, w * 0.12, roadY + S * 0.15, S, { glow: 0.5 + 0.3 * Math.sin(t), walls: 1, t, mend: 0 });
+  const age = p ? ageOf(migrate(p).battle) : 2;
+  pose.age = age;
+  paintLightGate(ctx, w * 0.12, roadY + S * 0.15, S, { glow: 0.5 + 0.3 * Math.sin(t), walls: 1, t, mend: 0, age });
   paintAshGate(ctx, w * 0.88, roadY + S * 0.15, S, { ash: 0.8, t, fall: 0, sealed: false });
   // the host and the shadows meeting in the middle
   const n = p ? Math.min(4, 2 + Math.floor((p.gate - 1) / 3)) : 3;
   const meet = w * 0.52;
   pose.t = t;
   for (let i = 0; i < n; i++) {
-    const id: HostId = HOST_IDS[[0, 2, 1, 3][i] ?? 0];
+    pose.age = age;
+    const id: HostId = HOST_IDS[[0, 2, 3, 1][i] ?? 0];
     pose.seed = i;
     pose.walk = 1;
     pose.step = (t * 2 + i * 0.7) % 2;
@@ -66,6 +69,7 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   }
   for (let i = 0; i < 3; i++) {
     pose.seed = 10 + i;
+    pose.age = 0;
     pose.step = (t * 2 + i) % 2;
     pose.atk = i === 0 ? Math.max(0, Math.sin(t * 4 + 1.6)) : 0;
     const x = meet + S * (0.7 + i * 1.1) - Math.sin(t * 1.1 + i) * S * 0.08;

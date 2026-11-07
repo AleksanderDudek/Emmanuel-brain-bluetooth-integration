@@ -49,9 +49,17 @@ export interface Pose {
   gone: number;
   /** a per-fighter seed */
   seed: number;
+  /** the age of the fortress (0 stone … 4 pearl): the host's dress */
+  age: number;
+  /** 0..1 a boss winding up its special */
+  wind: number;
 }
 
-export const POSE: Pose = { t: 0, step: 0, walk: 0, atk: 0, hurt: 0, shield: 0, gone: 0, seed: 1 };
+export const POSE: Pose = { t: 0, step: 0, walk: 0, atk: 0, hurt: 0, shield: 0, gone: 0, seed: 1, age: 0, wind: 0 };
+
+/** Each age's trim (stone: gold thread; cedar: honey; bronze; gold; pearl) and its armour plate. */
+export const AGE_TRIM = ['#e8b04a', '#c98a3a', '#b8743a', '#f0bf3c', '#9fb3e0'] as const;
+const AGE_PLATE = ['', '', '#c4874a', '#f3cf62', '#eef1fb'] as const;
 
 /** A soft shadow on the road under a fighter. */
 export function groundShadow(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, a = 0.22): void {
@@ -110,8 +118,9 @@ function robed(ctx: CanvasRenderingContext2D, p: Pose, o: { k: number; wide?: nu
   ctx.lineTo((-0.28 * wide + sway) * k, -0.04 * k);
   ctx.quadraticCurveTo(-0.22 * k * wide, -0.5 * k, -0.15 * k * wide, -0.98 * k);
   ctx.fill();
-  // the gold hem and belt
-  ctx.strokeStyle = C.gold;
+  // the hem and belt in the age's trim
+  const age = Math.max(0, Math.min(4, p.age | 0));
+  ctx.strokeStyle = AGE_TRIM[age];
   ctx.lineWidth = 0.05 * k;
   ctx.beginPath();
   ctx.moveTo((-0.28 * wide + sway) * k, -0.06 * k);
@@ -119,6 +128,7 @@ function robed(ctx: CanvasRenderingContext2D, p: Pose, o: { k: number; wide?: nu
   ctx.moveTo(-0.19 * k * wide, -0.58 * k);
   ctx.lineTo(0.2 * k * wide, -0.58 * k);
   ctx.stroke();
+  ageDress(ctx, age, k, wide);
   // feet in the step
   if (o.legs !== false) {
     ctx.fillStyle = C.skin;
@@ -155,6 +165,51 @@ function robed(ctx: CanvasRenderingContext2D, p: Pose, o: { k: number; wide?: nu
   const arm = o.arm ?? 0;
   const sx = 0.08 * k, sy = -0.88 * k;
   return { sx, sy, hx: sx + Math.cos(arm) * 0.32 * k, hy: sy + Math.sin(arm) * 0.32 * k };
+}
+
+/**
+ * What an age adds to the robe: a sash (cedar), a breastplate (bronze), a gold one with shoulder
+ * guards and a circlet (gold), a pearl plate with a cool sheen (pearl).  Craft, not glamour.
+ */
+function ageDress(ctx: CanvasRenderingContext2D, age: number, k: number, wide: number): void {
+  if (age < 1) return;
+  if (age === 1) {
+    ctx.strokeStyle = AGE_TRIM[1];
+    ctx.lineWidth = 0.06 * k;
+    ctx.beginPath();
+    ctx.moveTo(-0.13 * k * wide, -0.95 * k);
+    ctx.lineTo(0.17 * k * wide, -0.6 * k);
+    ctx.stroke();
+    return;
+  }
+  const plate = AGE_PLATE[age];
+  const g = ctx.createLinearGradient(-0.2 * k, -0.95 * k, 0.2 * k, -0.6 * k);
+  g.addColorStop(0, plate);
+  g.addColorStop(0.5, age === 4 ? '#ffffff' : '#fff3d0');
+  g.addColorStop(1, age === 4 ? '#c9d4f2' : plate);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(-0.16 * k * wide, -0.97 * k);
+  ctx.lineTo(0.17 * k * wide, -0.97 * k);
+  ctx.quadraticCurveTo(0.22 * k * wide, -0.75 * k, 0.17 * k * wide, -0.6 * k);
+  ctx.lineTo(-0.15 * k * wide, -0.6 * k);
+  ctx.quadraticCurveTo(-0.21 * k * wide, -0.75 * k, -0.16 * k * wide, -0.97 * k);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(120,80,30,.35)';
+  ctx.lineWidth = 0.02 * k;
+  ctx.stroke();
+  if (age >= 3) {
+    // shoulder guards and a circlet over the hair
+    ctx.fillStyle = plate;
+    ctx.beginPath();
+    ctx.ellipse(0.09 * k, -0.95 * k, 0.11 * k, 0.06 * k, -0.2, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = AGE_TRIM[age];
+    ctx.lineWidth = 0.035 * k;
+    ctx.beginPath();
+    ctx.arc(0.03 * k, -1.17 * k, 0.15 * k, Math.PI * 1.08, Math.PI * 1.92);
+    ctx.stroke();
+  }
 }
 
 /** An arm of the robe from the shoulder to the hand. */
@@ -280,6 +335,25 @@ export function paintHost(ctx: CanvasRenderingContext2D, id: HostId, x: number, 
       shieldDisc(ctx, 0.3 + a * 0.08, -0.62, 0.36);
       break;
     }
+    case 'wlocznik': {
+      // a long spear of light held level, ready to meet a charge
+      const r = robed(ctx, p, { k: 1, arm: 0.05 + a * 0.1 });
+      arm(ctx, r, 1);
+      const ang = -0.12 + a * 0.06, push = a * 0.25;
+      ctx.save();
+      ctx.translate(r.hx + push, r.hy);
+      ctx.rotate(ang);
+      ctx.strokeStyle = '#a2742c';
+      ctx.lineWidth = 0.045;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-0.55, 0);
+      ctx.lineTo(0.75, 0);
+      ctx.stroke();
+      ctx.restore();
+      blade(ctx, r.hx + push + Math.cos(ang) * 0.72, r.hy + Math.sin(ang) * 0.72, ang, 0.32, 0.05, 1 + a);
+      break;
+    }
     case 'jezdziec': {
       // the white horse (Revelation 19:14), then its rider
       const gal = p.step * Math.PI * 1.4;
@@ -343,7 +417,7 @@ export function paintHost(ctx: CanvasRenderingContext2D, id: HostId, x: number, 
       const f = Math.sin(p.t * 9 + p.seed) * 0.25;
       const core = ctx.createRadialGradient(0, -0.75, 0, 0, -0.75, 0.75);
       core.addColorStop(0, 'rgba(255,253,246,1)');
-      core.addColorStop(0.4, 'rgba(255,224,138,.8)');
+      core.addColorStop(0.4, p.age >= 4 ? 'rgba(200,214,255,.8)' : p.age >= 2 ? 'rgba(255,206,110,.85)' : 'rgba(255,224,138,.8)');
       core.addColorStop(1, 'rgba(255,200,90,0)');
       ctx.fillStyle = core;
       ctx.beginPath();
@@ -626,15 +700,173 @@ export function paintDemon(ctx: CanvasRenderingContext2D, id: DemonId, x: number
       eyes(ctx, 0.24, -1.2, 0.045, 0.1, t + p.seed);
       break;
     }
+    case 'miotacz': {
+      // a hunched shade with a sling of smoke, an ember in its pouch
+      wisps(ctx, -0.1, -1.1, 3, 0.14, t, p.seed);
+      ctx.fillStyle = inkFill(ctx, 0, -0.6, 0.8);
+      const sw = Math.sin(p.step * Math.PI) * 0.08 * p.walk;
+      ctx.beginPath();
+      ctx.moveTo(-0.3, -0.02);
+      ctx.lineTo(-0.16 + sw, -0.02);
+      ctx.lineTo(-0.08, -0.3);
+      ctx.lineTo(0.06, -0.3);
+      ctx.lineTo(0.14 - sw, -0.02);
+      ctx.lineTo(0.28, -0.02);
+      ctx.quadraticCurveTo(0.32, -0.6, 0.18, -0.95);
+      ctx.quadraticCurveTo(0.02, -1.18, -0.2, -1.02);
+      ctx.quadraticCurveTo(-0.42, -0.6, -0.3, -0.02);
+      ctx.fill();
+      // the sling's whirl above the head
+      const whirl = t * 9 + p.seed;
+      const hx = 0.1, hy = -1.05, rr = 0.32 + a * 0.12;
+      ctx.strokeStyle = 'rgba(29,22,34,.85)';
+      ctx.lineWidth = 0.035;
+      ctx.beginPath();
+      ctx.moveTo(0.15, -0.85);
+      ctx.lineTo(hx + Math.cos(whirl) * rr, hy + Math.sin(whirl) * rr * 0.4);
+      ctx.stroke();
+      ctx.fillStyle = C.emberCore;
+      ctx.beginPath();
+      ctx.arc(hx + Math.cos(whirl) * rr, hy + Math.sin(whirl) * rr * 0.4, 0.06, 0, TAU);
+      ctx.fill();
+      eyes(ctx, 0.1, -0.86, 0.035, 0.09, t + p.seed);
+      break;
+    }
+    case 'kolos': {
+      paintKolos(ctx, t, a, p.wind, p.step, p.walk, p.seed);
+      break;
+    }
+    case 'szarancza': {
+      paintLocust(ctx, t, a, p.wind, p.seed);
+      break;
+    }
     case 'smok': {
-      paintSmokBody(ctx, t, a, p.seed);
+      paintSmokBody(ctx, t, Math.max(a, p.wind), p.seed);
       break;
     }
   }
   if (p.hurt > 0) {
-    if (id === 'smok') hurtFlash(ctx, 0.8, -1.5, 1.6, '255,214,170', 0.5 * p.hurt);
+    if (id === 'smok' || id === 'kolos' || id === 'szarancza') hurtFlash(ctx, 0.4, -1.6, 1.7, '255,214,170', 0.5 * p.hurt);
     else hurtFlash(ctx, 0.05, id === 'skrzydlak' ? -0.4 : id === 'chochlik' || id === 'ogar' ? -0.45 : -0.8, id === 'bestia' ? 0.7 : 0.45, '255,236,200', 0.35 * p.hurt);
   }
+  ctx.restore();
+}
+
+/** The Colossus: a great figure of basalt and ash, ember seams, fists that come down in a stomp (facing right). */
+function paintKolos(ctx: CanvasRenderingContext2D, t: number, a: number, wind: number, step: number, walk: number, seed: number): void {
+  wisps(ctx, -0.2, -3.1, 6, 0.4, t, seed);
+  const sw = Math.sin(step * Math.PI) * 0.12 * walk;
+  const lift = wind * 0.9, slam = a;
+  ctx.fillStyle = inkFill(ctx, 0, -1.7, 2.2);
+  // legs
+  ctx.beginPath();
+  ctx.moveTo(-0.7, 0);
+  ctx.lineTo(-0.55 + sw, -1.1);
+  ctx.lineTo(-0.1, -1.1);
+  ctx.lineTo(-0.25 - sw, 0);
+  ctx.moveTo(0.05, 0);
+  ctx.lineTo(0.15 - sw, -1.1);
+  ctx.lineTo(0.6, -1.1);
+  ctx.lineTo(0.5 + sw, 0);
+  ctx.fill();
+  // the trunk, broad shoulders, a small head sunk between them
+  ctx.beginPath();
+  ctx.moveTo(-0.75, -1.0);
+  ctx.quadraticCurveTo(-1.05, -2.3, -0.6, -2.85);
+  ctx.lineTo(0.75, -2.9);
+  ctx.quadraticCurveTo(1.05, -2.2, 0.7, -1.0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(0.12, -3.05, 0.32, 0.28, 0, 0, TAU);
+  ctx.fill();
+  // the arms: raised for the stomp, down for a blow
+  ctx.strokeStyle = C.shadow;
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 0.36;
+  for (const side of [-1, 1]) {
+    const sx = side * 0.75, sy = -2.6;
+    const hx = sx + side * 0.25 + 0.4 * slam, hy = -1.2 - lift * 2.4 + slam * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(sx + side * 0.45, (sy + hy) / 2, hx, hy);
+    ctx.stroke();
+    ctx.fillStyle = '#241b29';
+    ctx.beginPath();
+    ctx.arc(hx, hy, 0.3, 0, TAU);
+    ctx.fill();
+  }
+  // ember seams, brighter as it winds up
+  ctx.strokeStyle = `rgba(255,138,61,${0.5 + 0.4 * wind + 0.15 * Math.sin(t * 3 + seed)})`;
+  ctx.lineWidth = 0.05;
+  ctx.beginPath();
+  ctx.moveTo(-0.4, -2.6);
+  ctx.lineTo(-0.15, -2.1);
+  ctx.lineTo(-0.3, -1.6);
+  ctx.moveTo(0.35, -2.5);
+  ctx.lineTo(0.2, -1.9);
+  ctx.lineTo(0.45, -1.4);
+  ctx.stroke();
+  eyes(ctx, 0.22, -3.08, 0.07, 0.16, t + seed);
+}
+
+/** The Locust: a great shadow insect hovering low, wings a blur, long hind legs (facing right). */
+function paintLocust(ctx: CanvasRenderingContext2D, t: number, a: number, wind: number, seed: number): void {
+  const hover = -0.9 + Math.sin(t * 2.4 + seed) * 0.08;
+  ctx.save();
+  ctx.translate(0, hover);
+  wisps(ctx, -1.2, -1.2, 5, 0.3, t, seed);
+  // the blur of wings
+  const buzz = Math.sin(t * 40) * 0.15;
+  ctx.fillStyle = `rgba(42,31,46,${0.35 + 0.2 * wind})`;
+  for (const k of [0, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(-0.6 - k * 0.2, -1.1 - k * 0.1, 1.5, 0.42 + buzz, -0.25 - k * 0.15, 0, TAU);
+    ctx.fill();
+  }
+  // the body: a long segmented abdomen, a thorax, a blunt head
+  ctx.fillStyle = inkFill(ctx, 0, -0.7, 1.8);
+  ctx.beginPath();
+  ctx.ellipse(-1.0, -0.62, 1.15, 0.32, 0.08, 0, TAU);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(0.35, -0.82, 0.5, 0.42, -0.1, 0, TAU);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(0.95 + a * 0.2, -0.95, 0.34, 0.36, 0.2, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,138,61,.35)';
+  ctx.lineWidth = 0.03;
+  ctx.beginPath();
+  for (let i = 0; i < 5; i++) {
+    ctx.moveTo(-1.8 + i * 0.32, -0.88);
+    ctx.lineTo(-1.75 + i * 0.32, -0.38);
+  }
+  ctx.stroke();
+  // the hind leg, folded like a hinge, and the front legs
+  ctx.strokeStyle = C.shadow;
+  ctx.lineWidth = 0.1;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0.0, -0.7);
+  ctx.lineTo(-0.7, -1.55 - wind * 0.3);
+  ctx.lineTo(-0.5, 0.75 - hover);
+  ctx.moveTo(0.5, -0.5);
+  ctx.lineTo(0.7, 0.1);
+  ctx.lineTo(0.85, 0.85 - hover);
+  ctx.moveTo(0.3, -0.5);
+  ctx.lineTo(0.2, 0.2);
+  ctx.lineTo(0.35, 0.85 - hover);
+  ctx.stroke();
+  // antennae
+  ctx.lineWidth = 0.035;
+  ctx.beginPath();
+  ctx.moveTo(1.05, -1.25);
+  ctx.quadraticCurveTo(1.4, -1.9, 1.9, -1.85 + Math.sin(t * 3) * 0.1);
+  ctx.moveTo(0.95, -1.25);
+  ctx.quadraticCurveTo(1.2, -2.0, 1.6, -2.15 + Math.sin(t * 3 + 1) * 0.1);
+  ctx.stroke();
+  eyes(ctx, 1.08, -1.0, 0.07, 0.0001, t + seed);
   ctx.restore();
 }
 
@@ -716,13 +948,23 @@ function wingOfShadow(ctx: CanvasRenderingContext2D, x: number, y: number, len: 
 }
 
 // ── the gates ─────────────────────────────────────────────────────
+/** The gate of light's material in each age: shade, face, light. */
+const GATE_STONE: readonly (readonly [string, string, string])[] = [
+  [C.stoneShade, C.stone, '#f6ecd6'],
+  ['#b99470', '#e3cba4', '#f4e4c6'],
+  ['#c7a074', '#ead2a8', '#f8e9cc'],
+  ['#d8b26a', '#f3dea6', '#fff3d2'],
+  ['#c9cfe2', '#eef0f8', '#ffffff'],
+];
 /**
  * The gate of light: a tower of pale stone with a glowing arch facing the road and a lantern on top
  * (where the beam comes from).  `x` is the gate's face (world x = 0), `glow` 0..1 the flow of
  * light, `walls` 0..1 what is left of them (cracks show below 60 %).
  */
-export function paintLightGate(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, o: { glow: number; walls: number; t: number; mend: number }): { lx: number; ly: number } {
-  const w = 2.3 * s, h = 4.4 * s, x0 = x - w;
+export function paintLightGate(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, o: { glow: number; walls: number; t: number; mend: number; age?: number }): { lx: number; ly: number } {
+  const age = Math.max(0, Math.min(4, (o.age ?? 0) | 0));
+  const w = 2.3 * s, h = 4.4 * s * (1 + 0.07 * age), x0 = x - w;
+  const M = GATE_STONE[age];
   // the light falling into it from the sky
   const beam = ctx.createLinearGradient(0, y - h * 2.2, 0, y - h * 0.6);
   beam.addColorStop(0, 'rgba(255,243,196,0)');
@@ -732,9 +974,9 @@ export function paintLightGate(ctx: CanvasRenderingContext2D, x: number, y: numb
   ctx.fillRect(x0 + w / 2 - bw / 2, y - h * 2.2, bw, h * 1.6);
   // the tower
   const g = ctx.createLinearGradient(x0, 0, x, 0);
-  g.addColorStop(0, C.stoneShade);
-  g.addColorStop(0.6, C.stone);
-  g.addColorStop(1, '#f6ecd6');
+  g.addColorStop(0, M[0]);
+  g.addColorStop(0.6, M[1]);
+  g.addColorStop(1, M[2]);
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.moveTo(x0, y);
@@ -759,13 +1001,50 @@ export function paintLightGate(ctx: CanvasRenderingContext2D, x: number, y: numb
     ctx.lineTo(x - 0.05 * s, yy);
     ctx.stroke();
   }
-  // the gold trim
-  ctx.strokeStyle = C.gold;
-  ctx.lineWidth = s * 0.08;
+  // the trim; the age's work on the tower: cedar beams, bronze bands and rivets, gold, pearl
+  ctx.strokeStyle = AGE_TRIM[age];
+  ctx.lineWidth = s * (0.08 + 0.02 * age);
   ctx.beginPath();
   ctx.moveTo(x0 + 0.1 * s, y - h + 0.05 * s);
   ctx.lineTo(x - 0.1 * s, y - h + 0.05 * s);
   ctx.stroke();
+  if (age >= 1) {
+    ctx.fillStyle = age === 1 ? 'rgba(150,96,44,.55)' : age === 4 ? 'rgba(170,190,240,.35)' : `rgba(${age === 2 ? '184,116,58' : '240,191,60'},.6)`;
+    for (const k of [0.32, 0.62]) ctx.fillRect(x0 + 0.06 * s, y - h * k - 0.09 * s, w - 0.12 * s, 0.18 * s);
+    if (age >= 2) {
+      ctx.fillStyle = age === 4 ? '#ffffff' : '#fff1c9';
+      for (const k of [0.32, 0.62]) for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.arc(x0 + (0.18 + i * 0.16) * w, y - h * k, 0.045 * s, 0, TAU);
+        ctx.fill();
+      }
+    }
+    // a banner on the top, longer with each age
+    const bx = x0 + 0.25 * w, by = y - h - 0.3 * s, bl = (0.8 + 0.2 * age) * s;
+    ctx.strokeStyle = '#8a6a3a';
+    ctx.lineWidth = Math.max(1, 0.05 * s);
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.lineTo(bx, by - 1.1 * s);
+    ctx.stroke();
+    ctx.fillStyle = AGE_TRIM[age];
+    const wv = Math.sin(o.t * 3) * 0.08 * s;
+    ctx.beginPath();
+    ctx.moveTo(bx, by - 1.1 * s);
+    ctx.quadraticCurveTo(bx - bl * 0.5, by - 1.0 * s + wv, bx - bl, by - 0.95 * s);
+    ctx.lineTo(bx, by - 0.75 * s);
+    ctx.fill();
+  }
+  if (age === 4) {
+    // the pearl's sheen sliding up the tower
+    const sh = (o.t * 0.25) % 1;
+    const pg = ctx.createLinearGradient(0, y - h * sh - s, 0, y - h * sh + s);
+    pg.addColorStop(0, 'rgba(255,255,255,0)');
+    pg.addColorStop(0.5, 'rgba(225,232,255,.45)');
+    pg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = pg;
+    ctx.fillRect(x0 + 0.1 * s, y - h, w - 0.2 * s, h);
+  }
   // the arch, glowing with the flow
   const ax = x - 0.95 * s, aw = 0.62 * s, ah = 2.1 * s;
   const ag = ctx.createRadialGradient(ax, y - ah * 0.5, 0, ax, y - ah * 0.5, ah);
@@ -954,4 +1233,143 @@ export function paintTrumpet(ctx: CanvasRenderingContext2D, x: number, y: number
   ctx.arc(-len * 0.5, 0, len * 0.07, 0, TAU);
   ctx.fill();
   ctx.restore();
+}
+
+/**
+ * The pillar of cloud (Exodus 14:19-20, it stood between the camps): a tall column of white cloud
+ * with fire in its heart, standing on the road at `x`; `k` 0..1 what is left of its time, `rise`
+ * 0..1 its coming down from the sky.  In px, `s` px per metre, (x, y) at its foot.
+ */
+export function paintPillar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, top: number, k: number, rise: number, t: number): void {
+  const h = (y - top) * rise, w = 0.9 * s;
+  const fade = Math.min(1, k * 4);
+  ctx.save();
+  ctx.globalAlpha *= fade;
+  // the fire in its heart
+  const fg = ctx.createLinearGradient(0, y - h, 0, y);
+  fg.addColorStop(0, 'rgba(255,224,138,0)');
+  fg.addColorStop(0.5, 'rgba(255,190,90,.55)');
+  fg.addColorStop(1, 'rgba(255,236,170,.8)');
+  ctx.fillStyle = fg;
+  ctx.fillRect(x - w * 0.35, y - h, w * 0.7, h);
+  // the cloud: puffs climbing the column
+  for (let i = 0; i < 16; i++) {
+    const ph = (i / 16 + t * 0.18) % 1;
+    const py = y - ph * h;
+    const r = w * (0.55 + 0.25 * Math.sin(i * 1.7 + t)) * (1 - ph * 0.25);
+    const px = x + Math.sin(t * 1.3 + i * 2.1) * w * 0.18;
+    ctx.fillStyle = `rgba(255,252,244,${0.55 * Math.sin(ph * Math.PI) + 0.25})`;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, TAU);
+    ctx.fill();
+  }
+  // its foot swirls on the road
+  ctx.strokeStyle = 'rgba(255,240,200,.85)';
+  ctx.lineWidth = Math.max(1.5, 0.06 * s);
+  ctx.beginPath();
+  ctx.ellipse(x, y, w * (1.1 + 0.1 * Math.sin(t * 5)), w * 0.25, 0, 0, TAU);
+  ctx.stroke();
+  // the ring of time left, around its foot
+  ctx.strokeStyle = 'rgba(185,127,31,.9)';
+  ctx.lineWidth = Math.max(2, 0.08 * s);
+  ctx.beginPath();
+  ctx.ellipse(x, y, w * 1.35, w * 0.32, 0, -Math.PI / 2, -Math.PI / 2 + TAU * k);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Tymek, the cadet who keeps the host's chronicle: a round portrait (head and shoulders, brown curls,
+ * a quill behind the ear, wing tips) for his speech bubbles.  No features beyond a cheerful tilt.
+ */
+export function paintTymek(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number, talk: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  const bob = Math.sin(t * 2.2) * r * 0.03 + talk * Math.abs(Math.sin(t * 12)) * r * 0.04;
+  // the disc
+  const g = ctx.createRadialGradient(0, -r * 0.2, 0, 0, 0, r);
+  g.addColorStop(0, '#fffaf0');
+  g.addColorStop(1, '#f6e2b4');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = C.gold;
+  ctx.lineWidth = Math.max(1.5, r * 0.08);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.94, 0, TAU);
+  ctx.clip();
+  ctx.translate(0, bob);
+  // wing tips behind the shoulders
+  ctx.fillStyle = C.white;
+  for (const sd of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(sd * r * 0.55, r * 0.35, r * 0.32, r * 0.18, sd * -0.7, 0, TAU);
+    ctx.fill();
+  }
+  // shoulders in a white robe with a honey sash
+  ctx.fillStyle = C.robe;
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.95, r * 0.62, r * 0.48, 0, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = '#c98a3a';
+  ctx.lineWidth = r * 0.1;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.4, r * 0.6);
+  ctx.lineTo(r * 0.3, r * 1.0);
+  ctx.stroke();
+  // the head with a soft light, brown curls
+  ctx.fillStyle = C.skin;
+  ctx.beginPath();
+  ctx.arc(0, r * 0.05, r * 0.36, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = '#8a5a2e';
+  for (let i = 0; i < 7; i++) {
+    const a = Math.PI * (1.05 + i * 0.13);
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * r * 0.33, r * 0.05 + Math.sin(a) * r * 0.33, r * 0.12, 0, TAU);
+    ctx.fill();
+  }
+  // a cheerful closed-eye smile and rosy cheeks
+  ctx.strokeStyle = 'rgba(70,40,30,.7)';
+  ctx.lineWidth = Math.max(1, r * 0.04);
+  ctx.beginPath();
+  ctx.arc(-r * 0.12, r * 0.04, r * 0.05, Math.PI * 1.1, Math.PI * 1.9);
+  ctx.arc(r * 0.14, r * 0.04, r * 0.05, Math.PI * 1.1, Math.PI * 1.9);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0.01 * r, r * 0.15, r * (0.08 + talk * 0.03 * Math.abs(Math.sin(t * 12))), 0.15 * Math.PI, 0.85 * Math.PI);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(240,140,120,.35)';
+  for (const sd of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(sd * r * 0.22, r * 0.16, r * 0.06, 0, TAU);
+    ctx.fill();
+  }
+  // the quill behind the ear
+  ctx.strokeStyle = '#fffdf6';
+  ctx.lineWidth = r * 0.07;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.28, -r * 0.05);
+  ctx.quadraticCurveTo(r * 0.45, -r * 0.35, r * 0.55, -r * 0.62);
+  ctx.stroke();
+  ctx.strokeStyle = C.goldDeep;
+  ctx.lineWidth = r * 0.025;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.28, -r * 0.05);
+  ctx.lineTo(r * 0.52, -r * 0.6);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** A five-pointed star (the battles' stars). */
+export function star(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.45 : r;
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
 }
