@@ -7,11 +7,11 @@
 import { h } from '../../ui/dom';
 import { dayKey, daySeed } from '../kit/progress';
 import {
-  ABERRATION_NAME, ABERRATION_PITY, HABITATS, PIGMENTS, PLANTS, SPECIES, TIERS, capital, speciesById, type Aberration, type Species,
+  ABERRATION_NAME, ABERRATION_PITY, GARDENS, HABITATS, PIGMENTS, PLANTS, SPECIES, TIERS, capital, gardenAt, speciesById, type Aberration, type Species,
 } from './content';
 import { t } from './i18n';
 import {
-  ABERRATION_FLAG, atlasStats, dailySpecies, eggsLine, laterEggs, openHabitats, pollenTarget, type AtlasEntry, type ButterflyRec, type MothProgress,
+  ABERRATION_FLAG, atlasStats, dailySpecies, eggsLine, laterEggs, openHabitats, pollenTarget, starCount, type AtlasEntry, type ButterflyRec, type MothProgress,
 } from './meta';
 import { atlasOrder, drawTile } from './preview';
 
@@ -109,11 +109,19 @@ export function progressPanel(p: MothProgress): HTMLElement {
   const open = openHabitats(p);
   const parts: (HTMLElement | null)[] = [
     h('div', { class: 'arcade-stats' },
+      stat(t('panel.best'), p.bestSession ? String(p.bestSession) : '—', p.bestSession ? t('unit') : ''),
+      stat(t('panel.bestLen'), p.bestLen ? String(p.bestLen) : '—', p.bestLen ? 'cm' : ''),
       stat(t('panel.species'), String(st.found), `/${SPECIES.length}`),
-      stat(t('panel.butterflies'), String(st.total)),
-      stat(t('panel.biggest'), st.biggest ? String(st.biggest) : '—', st.biggest ? 'mm' : ''),
-      stat(t('panel.radiant'), String(st.radiant))),
+      stat(t('panel.butterflies'), String(st.total))),
   ];
+  // the garden map: the first lap's eight gardens with their best stars, then the next one
+  parts.push(h('p', { class: 'arcade-sub' }, t('panel.map', { stars: starCount(p) })));
+  parts.push(h('p', { class: 'muted' }, GARDENS.map((g, i) => {
+    const s = p.stars[i] ?? 0;
+    return `${i + 1}. ${g.name} ${'★'.repeat(s)}${'☆'.repeat(3 - s)}`;
+  }).join(' · ')));
+  const next = gardenAt(p.garden);
+  parts.push(meter(t('panel.next', { name: next.name, goal: t('goal.len', { n: next.len }) }), `${Math.min(p.garden, GARDENS.length)}/${GARDENS.length}`, Math.min(1, p.garden / GARDENS.length)));
   const locked: HTMLElement[] = [];
   for (const hab of HABITATS) {
     const species = atlasOrder(hab.id);

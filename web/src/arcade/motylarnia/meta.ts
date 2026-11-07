@@ -58,7 +58,8 @@ export interface ButterflyRec {
 export interface EggRec { sp: string; ready: string; from: 'laid' | 'welcome' }
 
 export interface MothProgress {
-  v: 1;
+  /** v2: the Slither-like garden game (v1 was the leaf and the egg cards) */
+  ver: 2;
   sessions: number;
   lastDay: string | null;
   total: number;
@@ -71,8 +72,18 @@ export interface MothProgress {
   /** butterflies since the last egg of each tier or better, and since the last aberration */
   pity: { rare: number; epic: number; legend: number; aberr: number };
   pollen: number;
+  /** the best session's score (points) */
   bestSession: number;
   daily: { day: string; done: boolean; sp: string; mm: number };
+  /** the garden map: the next garden to play (an index into gardenAt) and the best stars per garden */
+  garden: number;
+  stars: number[];
+  /** the longest caterpillar ever (cm) */
+  bestLen: number;
+  /** the controls were taught (the first v2 session's warm-up) */
+  tut: boolean;
+  /** first-time explanations already given (the rare flower, a bird, a rival) */
+  seen: string[];
 }
 
 export const KEEP_RECORDS = 120;
@@ -80,11 +91,70 @@ const MAX_EGGS = 30;
 
 export function freshProgress(): MothProgress {
   return {
-    v: 1, sessions: 0, lastDay: null, total: 0, hatched: 0, nextId: 1, butterflies: [], atlas: {}, eggs: [],
+    ver: 2, sessions: 0, lastDay: null, total: 0, hatched: 0, nextId: 1, butterflies: [], atlas: {}, eggs: [],
     pity: { rare: 0, epic: 0, legend: 0, aberr: 0 }, pollen: 0, bestSession: 0,
     daily: { day: '', done: false, sp: '', mm: 0 },
+    garden: 0, stars: [], bestLen: 0, tut: false, seen: [],
   };
 }
+
+const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * Bring a save of any age up to v2, in place (it was loaded as `mergeSaved(fresh, saved)`).  A v1 save
+ * (the leaf game) keeps its best score, its session count and the collection — the atlas, the stored
+ * butterflies, the eggs, the pity and pyłek — and starts the garden map from the first garden with the
+ * controls taught again.  Fields of a wrong type fall back to fresh values; nothing throws.
+ */
+export function migrate(p: MothProgress): MothProgress {
+  const raw = p as unknown as Record<string, unknown>;
+  const fresh = freshProgress();
+  const v2 = raw.ver === 2;
+  p.sessions = Math.max(0, Math.floor(num(raw.sessions)));
+  p.bestSession = Math.max(0, num(raw.bestSession));
+  p.total = Math.max(0, Math.floor(num(raw.total)));
+  p.hatched = Math.max(0, Math.floor(num(raw.hatched)));
+  p.nextId = Math.max(1, Math.floor(num(raw.nextId, 1)));
+  p.pollen = Math.max(0, Math.floor(num(raw.pollen)));
+  p.lastDay = typeof raw.lastDay === 'string' ? raw.lastDay : null;
+  if (!Array.isArray(raw.butterflies)) p.butterflies = [];
+  else p.butterflies = (raw.butterflies as unknown[]).filter((b): b is ButterflyRec => isObj(b) && typeof b.sp === 'string' && typeof b.path === 'string' && typeof b.mm === 'number');
+  if (!isObj(raw.atlas)) p.atlas = {};
+  if (!Array.isArray(raw.eggs)) p.eggs = [];
+  else p.eggs = (raw.eggs as unknown[]).filter((e): e is EggRec => isObj(e) && typeof e.sp === 'string' && typeof e.ready === 'string');
+  const pity = isObj(raw.pity) ? raw.pity : {};
+  p.pity = { rare: num(pity.rare), epic: num(pity.epic), legend: num(pity.legend), aberr: num(pity.aberr) };
+  const daily = isObj(raw.daily) ? raw.daily : {};
+  p.daily = { day: typeof daily.day === 'string' ? daily.day : '', done: daily.done === true, sp: typeof daily.sp === 'string' ? daily.sp : '', mm: num(daily.mm) };
+  if (!v2) {
+    // the v1 leaf game: a new game, the same collection
+    p.garden = fresh.garden;
+    p.stars = [];
+    p.bestLen = 0;
+    p.tut = false;
+    p.seen = [];
+  } else {
+    p.garden = Math.max(0, Math.floor(num(raw.garden)));
+    p.stars = Array.isArray(raw.stars) ? (raw.stars as unknown[]).map(v => Math.max(0, Math.min(3, Math.floor(num(v))))) : [];
+    p.bestLen = Math.max(0, num(raw.bestLen));
+    p.tut = raw.tut === true;
+    p.seen = Array.isArray(raw.seen) ? (raw.seen as unknown[]).filter((x): x is string => typeof x === 'string') : [];
+  }
+  delete raw.v;
+  p.ver = 2;
+  return p;
+}
+
+/** A garden finished with `stars` (1–3): the map moves on, its best stars are kept (Math.max). */
+export function finishGarden(p: MothProgress, index: number, stars: number): void {
+  while (p.stars.length <= index) p.stars.push(0);
+  p.stars[index] = Math.max(p.stars[index], Math.max(0, Math.min(3, stars)));
+  p.garden = Math.max(p.garden, index + 1);
+}
+
+/** All the stars on the map. */
+export const starCount = (p: MothProgress): number => p.stars.reduce((s, v) => s + v, 0);
 
 // ── days ──────────────────────────────────────────────────────────
 const parseDay = (d: string): Date => {

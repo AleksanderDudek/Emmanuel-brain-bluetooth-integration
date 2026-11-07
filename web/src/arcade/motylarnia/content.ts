@@ -7,7 +7,7 @@
  * and the pupa.  Pure data: geometry lives in leaf.ts and wing.ts, drawing in paint.ts.  The names
  * come from the catalog (i18n.ts) in the page's language; what is saved refers to species by `id`.
  */
-import { t } from './i18n';
+import { t, type Key } from './i18n';
 
 export type PigmentPattern = 'dot' | 'stripe' | 'ring' | 'cross' | 'petal';
 
@@ -487,17 +487,70 @@ export const speciesById = (id: string): Species => SPECIES.find(s => s.id === i
 /** A capital at the start of a line ("Rusałka pawik", "Påfågelöga"); English and German names have one already. */
 export const capital = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
-/**
- * The size classes: the eaten share of the leaf at which each starts.  Calibrated with a steering bot
- * in the tests: base appetite eats ~10 % of a leaf (S), chance-level focus ~17–23 % (M), held focus
- * ~29 % (L), full focus steered through fresh leaf ~35 % (XL).
- */
+/** The size classes of a butterfly (from its garden's stars and the chrysalis' depth). */
 export const SIZE_CLASSES = ['S', 'M', 'L', 'XL'] as const;
 export type SizeClass = (typeof SIZE_CLASSES)[number];
-export const CLASS_FROM = [0, 0.14, 0.24, 0.32] as const;
-/** a dropped chrysalis (too little reliable signal) gives middling colours at least */
-export const NEUTRAL_DEPTH = 0.5;
-/** each dmuchawiec adds this much to the eaten share (size, not area) */
-export const DANDELION_BONUS = 0.04;
-/** pyłek from a malina */
-export const RASPBERRY_POLLEN = 4;
+
+// ── the gardens (levels): goals, threats, look ───────────────────
+/** The third star's goal: eat the rare flower, make rivals curl on your side, drink dew, eat flowers. */
+export type SideGoal = 'rare' | 'curl' | 'dew' | 'flowers';
+
+export interface Garden {
+  id: string;
+  name: string;
+  /** the length goal (segments = cm) */
+  len: number;
+  side: SideGoal;
+  /** how many for the side goal (1 for the rare flower) */
+  n: number;
+  rivals: number;
+  birds: number;
+  /** ground: the lawn's two greens and the beds' soil */
+  lawn: [string, string];
+  soil: string;
+}
+
+const garden = (id: string, len: number, side: SideGoal, n: number, rivals: number, birds: number, lawn: [string, string], soil: string): Garden =>
+  ({ id, name: t(`garden.${id}` as Key), len, side, n, rivals, birds, lawn, soil });
+
+export const GARDENS: readonly Garden[] = [
+  garden('grzadka', 16, 'flowers', 5, 1, 0, ['#9CC56A', '#8DBA5C'], '#8A6440'),
+  garden('rabata', 21, 'rare', 1, 2, 1, ['#A5C96E', '#94BD60'], '#93694A'),
+  garden('warzywnik', 25, 'curl', 1, 2, 1, ['#9BC066', '#8AB458'], '#7E5A3A'),
+  garden('sad', 29, 'dew', 8, 3, 1, ['#A9CC74', '#97C064'], '#8B6A44'),
+  garden('ziola', 32, 'rare', 1, 3, 2, ['#A2C27A', '#91B56B'], '#8F6E4E'),
+  garden('staw', 36, 'curl', 2, 3, 2, ['#93BE6E', '#83B262'], '#6F5A44'),
+  garden('winnica', 40, 'flowers', 12, 4, 2, ['#B0C770', '#A0BB62'], '#946A42'),
+  garden('rozany', 44, 'rare', 1, 4, 3, ['#A7C873', '#96BC66'], '#8A5E46'),
+];
+
+/** The `index`-th garden of the map: after the eighth the map loops, each lap a little longer. */
+export function gardenAt(index: number): Garden & { lap: number } {
+  const i = Math.max(0, Math.floor(index)), lap = Math.floor(i / GARDENS.length), g = GARDENS[i % GARDENS.length];
+  return { ...g, len: g.len + lap * 6, rivals: Math.min(5, g.rivals + lap), birds: Math.min(4, g.birds + lap), lap };
+}
+
+// ── the strategies under a block's name (never "concentrate harder") ──
+export const TIPS = {
+  warmup: [t('tip.warmup.1'), t('tip.warmup.2'), t('tip.warmup.3')],
+  push: [t('tip.push.1'), t('tip.push.2'), t('tip.push.3'), t('tip.push.4'), t('tip.push.5'), t('tip.push.6')],
+  blind: [t('tip.blind.1'), t('tip.blind.2')],
+  rest: [t('tip.rest.1'), t('tip.rest.2'), t('tip.rest.3'), t('tip.rest.4')],
+  firstPush: t('tip.firstPush'),
+  firstRest: t('tip.firstRest'),
+} as const;
+
+// ── Hieronim the old garden snail ─────────────────────────────────
+export type Moment =
+  | 'open' | 'warm' | 'push' | 'blind' | 'rest' | 'good' | 'near' | 'stumble' | 'self' | 'curl' | 'goal' | 'hatch'
+  | 'rare' | 'bird' | 'moult' | 'sprint' | 'garden' | 'end';
+
+/** How many variants each moment has in the catalog (`say.<moment>.<i>`, i from 1). */
+export const LINE_COUNT: Readonly<Record<Moment, number>> = {
+  open: 3, warm: 3, push: 4, blind: 3, rest: 4, good: 4, near: 3, stumble: 3, self: 3, curl: 3, goal: 3, hatch: 3,
+  rare: 3, bird: 3, moult: 3, sprint: 3, garden: 3, end: 3,
+};
+
+export const LINES: Readonly<Record<Moment, readonly string[]>> = Object.fromEntries(
+  (Object.keys(LINE_COUNT) as Moment[]).map(m => [m, Array.from({ length: LINE_COUNT[m] }, (_, i) => t(`say.${m}.${i + 1}` as Key))]),
+) as unknown as Record<Moment, readonly string[]>;

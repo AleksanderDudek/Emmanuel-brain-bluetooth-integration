@@ -1,122 +1,161 @@
 /**
- * Motylarnia's rules and state, without the DOM: one session of rounds, each a butterfly —
+ * Motylarnia's rules, without the canvas (DESIGN.md §3 and §10.5): a Slither-like garden.  The
+ * caterpillar crawls by itself and turns toward the finger (or ←/→); it grows with every leaf,
+ * flower and dewdrop it eats; its own body, the rivals' bodies and the birds' pecks are the
+ * obstacles — a bump is a stumble (it curls up, the tail's last segments fall as crumbs, it goes on),
+ * never a lost session.  A rival whose head runs into your body curls and drops its length as food.
+ * Holding (or Space) sprints; above the band's threshold in a push block the sprint is free.
  *
- *   NOWY LIŚĆ   3 s: two egg cards; a tap or Space picks, else the left card is taken
- *   ŻER         the push block (22–28 s, shorter in short sessions): the caterpillar crawls toward
- *               the finger and eats a trail; appetite (the brain, after a 6 s lag) sets its speed and
- *               bite, and fills "Śmiałe linie" S; an 8 s hold in the zone turns the trail to silk
- *   PRZĘDZENIE  3 s, the start of the rest block: it climbs and spins
- *   POCZWARKA   the rest of the rest block (20–26 s in all), hands-free: calm clears the shell and
- *               fills "Barwy" B; from round 3 one chrysalis in four is a blind silk cocoon
- *   WYLOT       5 s: the butterfly — its wing is the eaten path, bold where S filled, deep where B did
+ * The band: in a push block (Apetyt) the reach — the circle around the head that pulls food into
+ * the mouth — is the focus level (a dotted ring at the threshold); in a rest block (Sjesta) the birds
+ * roost, dew falls, and calm deepens the colours of the chrysalises waiting on the twig, which hatch
+ * at the block's end.  Every garden has a length goal (★), few stumbles (★★) and a side goal (★★★);
+ * reaching the length spins a chrysalis, a new caterpillar hatches, the next garden begins.
  *
- * The brain follows the design's per-block references: a leaf is judged against the previous
- * chrysalis (+ m_up), a chrysalis against the previous leaf (− m_down), means taken after each
- * block's lag window and fixed for the block; a between-block staircase moves the margins toward
- * ~75 % success.  A block succeeds when its on-side value averaged at least ½ over its reliable
- * scored seconds (its meter, S or B, then ends full).
- *
- * Bad signal is neutral — it neither pays nor costs: S and B freeze, the block clock stands still up
- * to 8 s while the caterpillar crawls on without eating, and after that it eats at the neutral
- * appetite (v at the reference); a gap longer than the grace breaks the zone hold and its silk.  A
- * block with too few reliable scored seconds drops out of the staircase, the next reference and the
- * contrast; its size is simply what was eaten.  Inside a blind cocoon nothing tells the result before
- * it opens, not even the pad's sound.  The session's headline is the total wingspan in mm, with the
- * current caterpillar's provisional size counted live; a session that ends early lets that caterpillar
- * out as a butterfly of the size it reached.
+ * Pure: no DOM; randomness from the injected rng; what happened is queued for the view and the
+ * sound (`take()`).  Numbers in rules.ts, data in content.ts, the meta in meta.ts.
  */
-import { BlockContrast, type FocusFrame } from '../kit/focus';
-import { mulberry32 } from '../../core/random';
 import { fmtSigned } from '../../i18n';
-import type { Tool } from '../../tools';
+import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { inTurn, type PassageId } from '../kit/scripture';
-import type { ArcadeOutcome } from '../kit/types';
+import { SignalTrace } from '../kit/trace';
+import type { ArcadeOutcome, Headline } from '../kit/types';
 import {
-  ABERRATION_FORM, CLASS_FROM, DANDELION_BONUS, HABITATS, NEUTRAL_DEPTH, PIGMENTS, RASPBERRY_POLLEN, SIZE_CLASSES, SPECIES,
-  capital, speciesById, type Aberration, type HabitatId, type SizeClass, type Species,
+  ABERRATION_FORM, LINES, SIZE_CLASSES, SPECIES, TIPS, capital, gardenAt, speciesById,
+  type Aberration, type Garden, type Moment, type SideGoal, type Species,
 } from './content';
 import { t } from './i18n';
-import { CELL, GRID_W, buildLeaf, leafDist, leafNormal, placeDots, type Bite, type Dot, type LeafModel, type Treat, type TreatKind } from './leaf';
+import { buildLeaf } from './leaf';
+import type { LeafBox } from './layout';
 import {
-  F, beginSession, drawEggs, emerge, eggsLine, hatch, laterEggs, type ButterflyRec, type EggOffer, type MothProgress,
+  F, beginSession, drawEggs, emerge, finishGarden, hatch, migrate, type EggOffer, type MothProgress,
 } from './meta';
-import { decodePath, encodePath, type PathPoint } from './wing';
+import { RULES, girthOf, reachFor, span } from './rules';
+import { Talk } from './talk';
+import { encodePath, type PathPoint } from './wing';
 
-export type Phase = 'leaf' | 'feed' | 'spin' | 'chrysalis' | 'emerge' | 'finale';
+export { RULES };
 
-export const T_LEAF = 3;
-/** without a choice the left egg hatches this long before the telegraph ends (the leaf fades in) */
-export const PICK_GRACE = 0.5;
-export const T_SPIN = 3;
-export const T_EMERGE = 5;
-/** the shortest push or rest block (s); the sim also keeps every block at least its lag window plus KEEP_MIN */
-export const MIN_BLOCK = 12;
-export const LEAF_RANGE: [number, number] = [22, 28];
-export const REST_RANGE: [number, number] = [20, 26];
-const NOMINAL_ROUND = 56;
-/** the block clock stands still at most this long per block while the signal is bad (s) */
-export const PAUSE_MAX = 8;
-/** a block needs this many reliable scored seconds to count (70 % of a shorter block's scored time) */
-export const KEEP_MIN = 8;
-/** time a last short round needs so its leaf ends before time up even if it pauses (s) */
-const LAST_LEAF_ROOM = T_LEAF + MIN_BLOCK + PAUSE_MAX;
-/** v at the reference: the appetite bad-signal time plays at (no reward, no loss) */
-export const NEUTRAL_V = 0.5;
-const WIDTH = 2.5;
-/** a dip out of the zone, or a gap in the signal, shorter than this keeps the hold (s) */
-export const GRACE = 1.5;
-/** the chrysalis' translucency with no calm at all, and while nothing is judged (its lag, bad signal) */
-const GLASS_MIN = 0.15;
-const GLASS_IDLE = 0.3;
-export const SILK_HOLD = 8;
-export const MARGIN_START = 1.0;
-export const MARGIN_EASY = 0.3;
-const MARGIN_MAX = 4;
+const TAU = Math.PI * 2;
+const clamp = (v: number, lo = 0, hi = 1) => (v < lo ? lo : v > hi ? hi : v);
+const wrapA = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+const dist2 = (ax: number, ay: number, bx: number, by: number) => (ax - bx) ** 2 + (ay - by) ** 2;
 
-export const TURN = (200 * Math.PI) / 180;
-export const SPEED: [number, number] = [40, 90];
-export const BITE: [number, number] = [10, 26];
-/** the head stays this far inside the leaf's edge */
-export const DMIN = 9;
-const EDGE = 34;
-const TRAIL = 200;
-const TRAIL_STEP = 2;
+// ── types ────────────────────────────────────────────────────────
+export type BlockKind = 'warmup' | 'push' | 'rest';
+export interface Block { kind: BlockKind; dur: number; blind: boolean }
 
-const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
-const approach = (a: number, b: number, dt: number, tau: number) => (tau <= 0 ? b : b + (a - b) * Math.exp(-dt / tau));
-const logistic = (x: number) => 1 / (1 + Math.exp(-x));
-const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+export type FoodKind = 'leaf' | 'flower' | 'dew' | 'crumb' | 'rare';
+export interface Food { id: number; kind: FoodKind; x: number; y: number; r: number; pig: number; age: number; pulled: boolean }
 
-export interface RoundPlan { leaf: number; rest: number; rounds: number }
+export interface Seg { x: number; y: number }
 
-/**
- * The next round's block lengths from the time left: as many ~56 s rounds as fit, blocks jittered
- * within 22–28 / 20–26 s, never under `minBlock` (the sim passes its lag window plus KEEP_MIN, so a
- * block with a clean signal always counts), and the round's total fixed so the plan ends on time.
- * Null: not even a short round fits.
- */
-export function planRound(remaining: number, rng: () => number, minBlock = MIN_BLOCK): RoundPlan | null {
-  const fixed = T_LEAF + T_EMERGE;
-  if (remaining < fixed + 2 * minBlock) return null;
-  let n = Math.max(1, Math.round(remaining / NOMINAL_ROUND));
-  while (remaining / n - fixed > LEAF_RANGE[1] + REST_RANGE[1]) n++;
-  while (n > 1 && remaining / n - fixed < 2 * minBlock) n--;
-  const blocks = remaining / n - fixed, mid = (blocks * 25) / 48;
-  // a full round keeps both blocks in their ranges; a short one scales them (never under minBlock);
-  // one longer than both ranges (only a 60–70 s session) splits in proportion
-  let lo = Math.max(minBlock, blocks - REST_RANGE[1]), hi = Math.min(LEAF_RANGE[1], blocks - minBlock);
-  if (blocks >= LEAF_RANGE[0] + REST_RANGE[0]) {
-    lo = Math.max(lo, LEAF_RANGE[0]);
-    hi = Math.min(hi, blocks - REST_RANGE[0]);
-  }
-  if (lo > hi) lo = hi = clamp(mid, minBlock, blocks - minBlock);
-  const jitter = Math.min(3, Math.max(0, (hi - lo) / 2));
-  const leaf = clamp(mid + (rng() * 2 - 1) * jitter, lo, hi);
-  return { leaf, rest: blocks - leaf, rounds: n };
+export interface Worm {
+  id: number;
+  segs: Seg[];
+  dir: number;
+  want: number;
+  /** pending growth (segments) */
+  grow: number;
+  /** seconds left curled up (a stumble), seconds left untouchable */
+  curl: number;
+  safe: number;
+  sprinting: boolean;
+  /** the species whose larva it is (its look) */
+  sp: string;
+  /** rivals: away (curled and gone) for this long; their wander target */
+  away: number;
+  tx: number;
+  ty: number;
+  think: number;
 }
 
-/** From round 3, one chrysalis in four is a blind silk cocoon (never the last round's). */
-export const isBlind = (index: number, roundsLeft: number): boolean => index >= 3 && roundsLeft > 1 && (index - 3) % 4 === 0;
+export type BirdState = 'walk' | 'warn' | 'peck' | 'roost';
+export interface Bird { id: number; x: number; y: number; dir: number; state: BirdState; tx: number; ty: number; hop: number; timer: number; next: number; px: number; py: number }
+
+export interface Chrysalis { id: number; sp: string; depth: number; stars: number; pig: number[]; path: string; len: number; egg: EggOffer | null; age: number; garden: number }
+
+export interface Hatched {
+  sp: Species; mm: number; cls: number; depth: number; radiant: boolean; isNew: boolean; aberration: Aberration | null; classic: boolean;
+  rec: { id: number }; record: boolean;
+}
+
+export type Teach = 'steer' | 'eat' | 'sprint' | 'rival' | 'bird' | 'reach' | 'rest' | 'rare' | 'goal';
+export type Card = { kind: 'open' | 'garden'; t: number; dur: number; garden: number };
+
+export type SimEvent =
+  | { type: 'eat'; kind: FoodKind; x: number; y: number; pts: number; mult: number; chain: number; pig: number }
+  | { type: 'grow'; len: number }
+  | { type: 'moult'; len: number }
+  | { type: 'sprint'; on: boolean; free: boolean }
+  | { type: 'stumble'; x: number; y: number; cause: 'self' | 'rival' | 'bird'; lost: number }
+  | { type: 'curl'; x: number; y: number; pts: number }
+  | { type: 'near'; x: number; y: number }
+  | { type: 'swoop'; x: number; y: number }
+  | { type: 'peck'; x: number; y: number; hit: boolean }
+  | { type: 'side'; goal: SideGoal }
+  | { type: 'goal'; stars: number; x: number; y: number }
+  | { type: 'spun'; c: Chrysalis }
+  | { type: 'garden'; index: number; g: Garden }
+  | { type: 'hatch'; b: Hatched; slot: number }
+  | { type: 'feast'; x: number; y: number; n: number }
+  | { type: 'teach'; what: Teach; x: number; y: number }
+  | { type: 'telegraph'; next: Block | null }
+  | { type: 'blockStart'; block: Block; index: number }
+  | { type: 'blockEnd'; block: Block; verdict: boolean | null }
+  | { type: 'finale' }
+  | { type: 'done' };
+
+// ── pure rules ───────────────────────────────────────────────────
+function liftShort(durs: number[], min: number): void {
+  const short = durs.reduce((s, d) => s + Math.max(0, min - d), 0);
+  if (short <= 0) return;
+  const spare = durs.reduce((s, d) => s + Math.max(0, d - min), 0);
+  const k = spare > 0 ? Math.min(1, short / spare) : 0;
+  for (let i = 0; i < durs.length; i++) durs[i] = durs[i] < min ? min : durs[i] - (durs[i] - min) * k;
+}
+
+/**
+ * The session's blocks: a warm-up the first time (30 s in 5–10 min, 20 s in 3 min, 8 s in a short
+ * test), then Apetyt / Sjesta pairs (25 ± 3 s and 22 ± 3 s, scaled to end on time, jittered when
+ * there is room), the last seconds left to the finale.  No block under 10 s.
+ */
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
+  const R = RULES;
+  const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
+  let left = Math.max(2 * R.minBlock, plannedSec - R.finale);
+  const plan: Block[] = [];
+  if (plannedSec <= 60) {
+    if (firstEver) {
+      const warm = R.warm.test;
+      plan.push(b('warmup', warm));
+      left = Math.max(2 * R.minBlock, left - warm);
+    }
+    plan.push(b('push', left / 2), b('rest', left / 2));
+    return plan;
+  }
+  if (firstEver) {
+    const warm = plannedSec >= 300 ? R.warm.long : R.warm.short;
+    plan.push(b('warmup', warm));
+    left -= warm;
+  }
+  const pair = R.push[0] + R.rest[0];
+  const pairs = Math.max(1, Math.round(left / pair));
+  const jitter = pairs >= 2 ? 1 : 0;
+  const durs: number[] = [];
+  for (let i = 0; i < pairs; i++) durs.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1], R.rest[0] + jitter * (rnd() * 2 - 1) * R.rest[1]);
+  const scale = left / durs.reduce((s, d) => s + d, 0);
+  for (let i = 0; i < durs.length; i++) durs[i] *= scale;
+  liftShort(durs, R.minBlock);
+  durs.forEach((dur, i) => plan.push(b(i % 2 ? 'rest' : 'push', dur)));
+  return plan;
+}
+
+/** The chain multiplier after `chain` items eaten in a row (×1 … ×5). */
+export const multOf = (chain: number): number => Math.min(RULES.chainMax, 1 + Math.floor(Math.max(0, chain - 1) / RULES.chainStep));
+
+/** Stars for a finished garden: the length (★), at most one stumble (★★), the side goal (★★★). */
+export const starsOf = (stumbles: number, side: boolean): number => 1 + (stumbles <= RULES.starStumbles ? 1 : 0) + (side ? 1 : 0);
 
 /** The wing palette after eating `pigment`: three slots, newest last, the oldest drops out. */
 export function addPigment(palette: readonly number[], pigment: number): number[] {
@@ -125,890 +164,1033 @@ export function addPigment(palette: readonly number[], pigment: number): number[
   return out.length > 3 ? out.slice(out.length - 3) : out;
 }
 
-/** The size class of an eaten share. */
-export function sizeClass(eaten: number): number {
-  let c = 0;
-  for (let i = 1; i < CLASS_FROM.length; i++) if (eaten >= CLASS_FROM[i]) c = i;
-  return c;
+/** A butterfly's size class: the garden's stars, one more for a deep chrysalis. */
+export const sizeClass = (stars: number, depth: number): number => Math.max(0, Math.min(3, stars - 1 + (depth >= RULES.radiantDepth ? 1 : 0)));
+
+/** Wingspan (mm) of a species for a size class (S under the typical range, XL a little above it). */
+export function wingspan(sp: Species, cls: number, wobble = 0.5): number {
+  const [lo, hi] = sp.span;
+  const at = [lo * 0.86, lo + (hi - lo) * 0.25, lo + (hi - lo) * 0.65, hi * 1.06][Math.max(0, Math.min(3, cls))];
+  return Math.round(at + (wobble - 0.5) * (hi - lo) * 0.12);
 }
 
-/** Wingspan (mm) of a species from the eaten share: S below the typical range, XL a little above it. */
-export function wingspan(sp: Species, eaten: number): number {
-  const [lo, hi] = sp.span, mid = (lo + hi) / 2;
-  const knots: [number, number][] = [[0, lo * 0.78], [CLASS_FROM[1], lo], [CLASS_FROM[2], mid], [CLASS_FROM[3], hi], [0.5, hi * 1.12]];
-  const e = clamp(eaten, 0, 0.5);
-  for (let i = 1; i < knots.length; i++) {
-    if (e <= knots[i][0]) {
-      const [x0, y0] = knots[i - 1], [x1, y1] = knots[i];
-      return Math.round(y0 + ((y1 - y0) * (e - x0)) / (x1 - x0));
-    }
-  }
-  return Math.round(hi * 1.12);
-}
+const SIDE_NEED = (g: Garden): number => (g.side === 'rare' ? 1 : g.n);
 
-/** One push (leaf) or rest (chrysalis) block. */
-export interface Block {
-  kind: 'focus' | 'rest';
-  len: number;
-  /** seconds on the block clock */
-  clock: number;
-  /** seconds the clock stood still for bad signal, and whether it stands still now */
-  paused: number;
-  frozen: boolean;
-  ref: number;
-  /** S or B as shown: fill-only, full exactly when the block succeeds */
-  meter: number;
-  /** reliable seconds after the lag window, and the on-side value and the activity summed over them */
-  reliableScored: number;
-  vSum: number;
-  sum: number;
-  /** the latest on-side value (v on the leaf, calm' = 1 − v in the chrysalis) */
-  v: number;
-  /** a held stretch in the zone, and time out of it (grace) */
-  zone: number;
-  out: number;
-  reliable: boolean;
-}
-
-export interface Caterpillar {
-  x: number;
-  y: number;
-  heading: number;
-  /** shown appetite 0..1 (speed, bite, munch) */
-  a: number;
-  speed: number;
-  bite: number;
-  /** girth grows with what it ate */
-  girth: number;
-  /** seconds since the last bite that ate fresh leaf */
-  fresh: number;
-  /** recent head positions (ring buffer, every TRAIL_STEP units) for the body */
-  trail: Float32Array;
-  trailHead: number;
-  trailCount: number;
-  sinceTrail: number;
-  sinceBite: number;
-  sincePoint: number;
-  side: number;
-  hatchT: number;
-  /** which way it curls along the edge (±1; 0 = not decided) */
-  curl: number;
-  /** where it was a moment ago (net progress), and how long it is unsticking itself */
-  fromX: number;
-  fromY: number;
-  recentT: number;
-  unstick: number;
-}
-
-export interface Outcome {
-  rec: ButterflyRec;
-  species: Species;
-  path: PathPoint[];
-  isNew: boolean;
-  record: boolean;
-  aberration: Aberration | null;
-  radiant: boolean;
-  classic: boolean;
-  bold: boolean;
-  deep: boolean;
-  blind: boolean;
-  silk: boolean;
-  cls: SizeClass;
-  pollen: number;
-  opened: HabitatId | null;
-  daily: boolean;
-}
-
-export interface Round {
-  index: number;
-  /** the golden-hour finisher: beginner margins */
-  last: boolean;
-  /** its emergence ends the session, as far as the clock can tell when it starts to spin */
-  final: boolean;
-  blind: boolean;
-  plan: RoundPlan;
-  offers: EggOffer[];
-  pick: number;
-  highlight: number;
-  species: Species | null;
-  daily: boolean;
-  leaf: LeafModel | null;
-  dots: Dot[];
-  treats: Treat[];
-  eaten: Uint8Array;
-  eatenCells: number;
-  bites: Bite[];
-  path: PathPoint[];
-  palette: number[];
-  dandelions: number;
-  cat: Caterpillar;
-  leafBlock: Block | null;
-  restBlock: Block | null;
-  leafKept: boolean | null;
-  restKept: boolean | null;
-  /** chrysalis translucency shown (0 opaque … 1 clear) */
-  glass: number;
-  /** a silk run is being drawn; where it began in the path */
-  silkOn: boolean;
-  silkFrom: number;
-  silk: boolean;
-  outcome: Outcome | null;
-}
-
-export type SimEvent =
-  | { type: 'round'; index: number; last: boolean }
-  | { type: 'pick'; index: number }
-  | { type: 'hatch' }
-  | { type: 'dot'; pigment: number; x: number; y: number; n: number }
-  | { type: 'treat'; kind: TreatKind; x: number; y: number }
-  | { type: 'class'; cls: number }
-  | { type: 'bold' }
-  | { type: 'silk' }
-  | { type: 'full' }
-  | { type: 'spin'; blind: boolean }
-  | { type: 'deep' }
-  | { type: 'emerge'; outcome: Outcome }
-  | { type: 'finale' };
-
-export interface SimOptions {
+// ── the session ──────────────────────────────────────────────────
+export interface SimInit {
   progress: MothProgress;
   rng: () => number;
   day: string;
   daySeed: number;
   plannedSec: number;
-  tool: Tool;
+  eeg: boolean;
+  tuning: FocusTuning;
 }
-
-const newCat = (): Caterpillar => ({
-  x: 0, y: 0, heading: -Math.PI / 2, a: 0, speed: SPEED[0], bite: BITE[0], girth: 9, fresh: 9,
-  trail: new Float32Array(TRAIL * 2), trailHead: 0, trailCount: 0, sinceTrail: 0, sinceBite: 0, sincePoint: 0, side: 1, hatchT: 0,
-  curl: 0, fromX: 0, fromY: 0, recentT: 0, unstick: 0,
-});
 
 export class MothSim {
   readonly p: MothProgress;
-  readonly lag: number;
-  readonly tau: number;
-  /** the shortest block: never under 12 s, and long enough that a block with a clean signal counts */
-  readonly minBlock: number;
-  phase: Phase = 'leaf';
-  phaseT = 0;
-  /** seconds of play (the runner's clock) */
-  t = 0;
-  round: Round | null = null;
-  readonly done: Outcome[] = [];
-  readonly contrast: BlockContrast;
-  margins = { up: MARGIN_START, down: MARGIN_START, upMiss: 0, downMiss: 0 };
-  readonly lastMean: { focus: number | null; rest: number | null } = { focus: null, rest: null };
-  readonly counts = { pushJudged: 0, pushOk: 0, restJudged: 0, restOk: 0, blindN: 0, blindOk: 0, pollen: 0 };
-  readonly bestBefore: number | null;
+  readonly R = RULES;
+  private readonly rng: () => number;
+  private readonly events: SimEvent[] = [];
+  private readonly talkLines = new Talk(LINES, () => this.rng());
+  readonly plannedSec: number;
+  readonly eeg: boolean;
   started = false;
-  private events: SimEvent[] = [];
-  private readonly n = { x: 0, y: 0 };
-  private target: { x: number; y: number } | null = null;
-  private held = false;
-  private downAt = 0;
-  private moved = 0;
-  private waypointUntil = 0;
-  private turnKeys = { left: false, right: false };
-  private lastClass = 0;
-  private roundIndex = 0;
+  phase: 'play' | 'spin' | 'finale' | 'done' = 'play';
+  t = 0;
+  /** world time that moves only in play (cards, spins and hit-stops hold it) */
+  wt = 0;
+  stop = 0;
 
-  constructor(readonly o: SimOptions) {
-    this.p = o.progress;
-    const eeg = o.tool === 'eeg';
-    this.lag = eeg ? 2 : 6;
-    this.tau = eeg ? 1.5 : 3;
-    this.minBlock = Math.max(MIN_BLOCK, this.lag + KEEP_MIN);
-    this.contrast = new BlockContrast(this.lag);
-    this.bestBefore = this.p.total > 0 || this.p.bestSession > 0 ? this.p.bestSession : null;
+  // the garden
+  gardenIndex = 0;
+  garden: Garden & { lap: number };
+  food: Food[] = [];
+  rivals: Worm[] = [];
+  birds: Bird[] = [];
+  player!: Worm;
+  /** the current caterpillar: its egg, its colours (depth), palette, path, stumbles, the side goal's count */
+  egg: EggOffer | null = null;
+  depth: number = RULES.depthBase;
+  palette: number[] = [];
+  private path: PathPoint[] = [];
+  /** the species' leaf box in the wing's space: the garden maps onto it, so the path becomes the wing's pattern */
+  private box: LeafBox = { x0: 0, y0: 0, x1: 1, y1: 1 };
+  private pathT = 0;
+  stumbles = 0;
+  sideCount = 0;
+  sideDone = false;
+  peakLen = 0;
+  twig: Chrysalis[] = [];
+  card: Card | null = null;
+  spinT = 0;
+  private nextId = 1;
+  private moultAt = 0;
+
+  // the controls
+  private aimDir: number | null = null;
+  private keyTurn = 0;
+  private holdSprint = false;
+  private keySprint = false;
+  sprintCost = 0;
+
+  // the band
+  reach: number = RULES.reachBase;
+  /** the gauge (0..1, 0.5 at the threshold) or null when hidden */
+  gauge: number | null = null;
+  level = 0;
+  freeSprint = false;
+  private goodT = 0;
+
+  /** the band's last 40 s, for the flowerbed along the bottom */
+  readonly trace = new SignalTrace(40, 0.1);
+
+  // the score
+  score = 0;
+  chain = 0;
+  private lastEat = -9;
+  grownTotal = 0;
+  bestLenSession = 0;
+  gardensDone = 0;
+  starsWon = 0;
+  curls = 0;
+  nearMisses = 0;
+  hatchedList: Hatched[] = [];
+
+  // the blocks
+  plan: Block[];
+  blockIndex = 0;
+  blockT = 0;
+  private telegraphed = false;
+  private readonly judge: RoundJudge;
+  private readonly contrast = new BlockContrast(4);
+  private relSec = 0;
+  readonly counts = { pushOk: 0, pushJudged: 0, restOk: 0, restJudged: 0, blindOk: 0, blindN: 0, feasts: 0 };
+  tip = '';
+  private readonly firstEver: boolean;
+  private readonly pushesBase: number;
+  private pushesBegun = 0;
+  private readonly bestBefore: number | null;
+  private finaleT = 0;
+  private settled = false;
+  private taught = new Set<string>();
+
+  constructor(readonly o: SimInit) {
+    this.p = migrate(o.progress);
+    this.rng = o.rng;
+    this.plannedSec = o.plannedSec;
+    this.eeg = o.eeg;
+    this.judge = RoundJudge.from(o.tuning);
+    this.bestBefore = this.p.sessions > 0 ? this.p.bestSession : null;
+    this.firstEver = !this.p.tut;
+    this.pushesBase = this.p.sessions * 4;
+    this.plan = planBlocks(o.plannedSec, this.firstEver, o.rng);
+    for (const s of this.p.seen) this.taught.add(s);
+    this.gardenIndex = this.p.garden;
+    this.garden = gardenAt(this.gardenIndex);
   }
 
-  /**
-   * Play begins: the session counts, the welcome-back egg.  The first round is planned on the first
-   * update, when the session clock is known (it already runs during the countdown).
-   */
+  get block(): Block { return this.plan[Math.min(this.blockIndex, this.plan.length - 1)]; }
+  get blind(): boolean { return this.block.kind === 'push' && this.block.blind; }
+  get talk() { return this.talkLines.line; }
+  get said(): readonly string[] { return this.talkLines.said; }
+  get len(): number { return this.player.segs.length; }
+  get girth(): number { return girthOf(this.len); }
+  get mult(): number { return this.t - this.lastEat <= RULES.chainSec ? multOf(this.chain) : 1; }
+  get sprinting(): boolean { return this.player.sprinting; }
+  get leadIn(): number { return this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs; }
+  get sideNeed(): number { return SIDE_NEED(this.garden); }
+  get rare(): Food | null { return this.food.find(f => f.kind === 'rare') ?? null; }
+  get species(): Species { return speciesById(this.player.sp); }
+  get firstSession(): boolean { return this.firstEver; }
+
+  take(): SimEvent[] {
+    if (!this.events.length) return [];
+    return this.events.splice(0, this.events.length);
+  }
+
+  private emit(e: SimEvent): void { this.events.push(e); }
+
+  private say(m: Moment, pri = 1, ttl = 5): void { this.talkLines.ask(m, pri, ttl); }
+
+  // ── start ──────────────────────────────────────────────────────
   start(): void {
     if (this.started) return;
     this.started = true;
-    const beginner = this.p.sessions < 3;
-    beginSession(this.p, this.o.day, this.o.rng);
-    if (beginner) this.margins.up = this.margins.down = MARGIN_EASY;
-  }
-
-  drain(): SimEvent[] {
-    const e = this.events;
-    this.events = [];
-    return e;
-  }
-
-  private emit(e: SimEvent): void {
-    if (this.events.length < 64) this.events.push(e);
-  }
-
-  // ── rounds ──────────────────────────────────────────────────────
-  private nextRound(): void {
-    const left = this.o.plannedSec - this.t;
-    // after bad-signal pauses a round of 12 s blocks may still fit where one of minBlock no longer
-    // does (such short blocks count with 70 % of their scored time), or a last one whose leaf ends
-    // before time up and whose chrysalis and emergence run into the overtime
-    const plan = planRound(left, this.o.rng, this.minBlock) ?? planRound(left, this.o.rng)
-      ?? (left >= LAST_LEAF_ROOM ? { leaf: MIN_BLOCK, rest: MIN_BLOCK, rounds: 1 } : null);
-    if (!plan) {
-      this.setPhase('finale');
-      this.emit({ type: 'finale' });
-      return;
+    beginSession(this.p, this.o.day, this.rng);
+    this.newGarden(this.gardenIndex, true);
+    if (this.firstEver) {
+      this.card = { kind: 'open', t: 0, dur: RULES.openSec, garden: this.gardenIndex };
     }
-    const index = ++this.roundIndex;
-    const last = plan.rounds === 1 && index >= 2;
-    const blind = isBlind(index, plan.rounds);
-    this.round = {
-      index, last, final: false, blind, plan, offers: drawEggs(this.p, this.o.day, this.o.daySeed, this.o.rng), pick: -1, highlight: 0,
-      species: null, daily: false, leaf: null, dots: [], treats: [], eaten: new Uint8Array(0), eatenCells: 0, bites: [], path: [],
-      palette: [], dandelions: 0, cat: newCat(), leafBlock: null, restBlock: null, leafKept: null, restKept: null,
-      glass: GLASS_IDLE, silkOn: false, silkFrom: -1, silk: false, outcome: null,
-    };
-    this.lastClass = 0;
-    this.setPhase('leaf');
-    this.emit({ type: 'round', index, last });
+    this.startBlock(0);
+    this.say('open', 3, 10);
   }
 
-  private setPhase(p: Phase): void {
-    this.phase = p;
-    this.phaseT = 0;
-  }
-
-  /** Choose egg card `i` (during NOWY LIŚĆ); nothing is spent until its butterfly emerges. */
-  pick(i: number): boolean {
-    const r = this.round;
-    if (!r || this.phase !== 'leaf' || r.pick >= 0 || !r.offers[i]) return false;
-    const offer = r.offers[i];
-    r.pick = i;
-    r.highlight = i;
-    const sp = speciesById(offer.sp);
-    r.species = sp;
-    r.daily = offer.source === 'daily';
-    // the day's leaf is the same for everyone: its dots come from the day's seed
-    const rng = r.daily ? mulberry32(this.o.daySeed) : this.o.rng;
-    const leaf = buildLeaf(sp.plant);
-    r.leaf = leaf;
-    // the recipe's three colours and one more: the classic form takes a plan, not luck
-    const colours = [...sp.classic];
-    const others = PIGMENTS.map((_, k) => k).filter(k => !colours.includes(k));
-    colours.push(others[Math.floor(rng() * others.length)]);
-    const first = this.p.total === 0 && r.index === 1 && !r.daily;
-    const { dots, treats } = placeDots(leaf, rng, colours, first ? 9 : 12 + Math.floor(rng() * 5), first);
-    r.dots = dots;
-    r.treats = treats;
-    r.eaten = new Uint8Array(leaf.inside.length);
-    const c = r.cat;
-    c.x = leaf.start.x;
-    c.y = leaf.start.y;
-    c.heading = leaf.start.heading;
-    for (let k = 0; k < TRAIL; k++) {
-      c.trail[k * 2] = c.x - Math.cos(c.heading) * k * TRAIL_STEP * leaf.k * 0.15;
-      c.trail[k * 2 + 1] = c.y - Math.sin(c.heading) * k * TRAIL_STEP * leaf.k * 0.15;
+  private newGarden(index: number, first: boolean): void {
+    this.gardenIndex = index;
+    this.garden = gardenAt(index);
+    const W = RULES.worldW, H = RULES.worldH;
+    // the caterpillar hatches in the middle, heading up
+    const offers = drawEggs(this.p, this.o.day, this.o.daySeed, this.rng);
+    this.egg = offers[0] ?? null;
+    const sp = this.egg ? this.egg.sp : 'pawik';
+    hatch(this.p, sp, this.o.day);
+    this.box = buildLeaf(speciesById(sp).plant).box;
+    this.player = this.worm(W / 2, H / 2 + 60, -Math.PI / 2, RULES.startLen, sp);
+    this.player.safe = 1.2;
+    this.food = [];
+    for (let i = 0; i < RULES.leaves; i++) this.spawn('leaf');
+    for (let i = 0; i < RULES.flowers; i++) this.spawn('flower');
+    if (this.garden.side === 'rare') this.spawnRare();
+    if (this.block?.kind === 'rest') for (let i = 0; i < RULES.dews; i++) this.spawn('dew');
+    this.aimDir = null;
+    this.depth = RULES.depthBase;
+    this.palette = [];
+    this.path = [];
+    this.stumbles = 0;
+    this.sideCount = 0;
+    this.sideDone = false;
+    this.peakLen = RULES.startLen;
+    this.moultAt = 0;
+    this.rivals = [];
+    for (let i = 0; i < this.garden.rivals; i++) this.rivals.push(this.spawnRival());
+    this.birds = [];
+    for (let i = 0; i < this.garden.birds; i++) this.birds.push(this.spawnBird());
+    if (!first) {
+      this.card = { kind: 'garden', t: 0, dur: RULES.cardSec, garden: index };
+      this.emit({ type: 'garden', index, g: this.garden });
+      this.say('garden', 2, 8);
     }
-    c.trailCount = TRAIL;
-    c.trailHead = 0;
-    this.emit({ type: 'pick', index: i });
-    return true;
+    if (this.garden.side === 'rare' && this.rare) this.teach('rare', this.rare.x, this.rare.y);
   }
 
-  // ── input ───────────────────────────────────────────────────────
-  /** Pointer in leaf space (the game converts from the screen). */
-  pointer(type: 'down' | 'move' | 'up', x: number, y: number): void {
-    if (type === 'down') {
-      this.target = { x, y };
-      this.held = true;
-      this.downAt = this.t;
-      this.moved = 0;
-    } else if (type === 'move' && this.held && this.target) {
-      this.moved += Math.hypot(x - this.target.x, y - this.target.y);
-      this.target.x = x;
-      this.target.y = y;
-    } else if (type === 'up' && this.held) {
-      this.held = false;
-      // a tap leaves a waypoint; letting go after a drag lets it crawl on by itself
-      if (this.t - this.downAt < 0.35 && this.moved < 24) this.waypointUntil = this.t + 1.6;
-      else this.target = null;
+  private worm(x: number, y: number, dir: number, n: number, sp: string): Worm {
+    const segs: Seg[] = [];
+    for (let i = 0; i < n; i++) segs.push({ x: x - Math.cos(dir) * i * RULES.spacing, y: y - Math.sin(dir) * i * RULES.spacing });
+    return { id: this.nextId++, segs, dir, want: dir, grow: 0, curl: 0, safe: 0, sprinting: false, sp, away: 0, tx: x, ty: y, think: 0 };
+  }
+
+  private rivalSpecies(): string {
+    const pool = SPECIES.filter(s => s.id !== this.player?.sp);
+    return pool[Math.floor(this.rng() * pool.length)].id;
+  }
+
+  /** A rival crawls in from the hedge, away from the player. */
+  private spawnRival(): Worm {
+    const W = RULES.worldW, H = RULES.worldH, m = RULES.hedge + 30;
+    let best = { x: m, y: m }, bestD = -1;
+    for (let k = 0; k < 6; k++) {
+      const side = Math.floor(this.rng() * 4);
+      const x = side === 0 ? m : side === 1 ? W - m : m + this.rng() * (W - 2 * m);
+      const y = side === 2 ? m : side === 3 ? H - m : m + this.rng() * (H - 2 * m);
+      const d = this.player ? dist2(x, y, this.player.segs[0].x, this.player.segs[0].y) : 1;
+      if (d > bestD) { bestD = d; best = { x, y }; }
     }
+    const dir = Math.atan2(H / 2 - best.y, W / 2 - best.x);
+    const n = Math.round(8 + this.rng() * 6 + this.garden.lap * 3 + this.gardenIndex % 8);
+    const w = this.worm(best.x, best.y, dir, n, this.rivalSpecies());
+    w.safe = 1;
+    return w;
   }
 
-  /** Keys: Left/Right (A/D) turn on the leaf or move the card highlight; 1/2, Space, Enter pick. */
+  private spawnBird(): Bird {
+    const x = 200 + this.rng() * (RULES.worldW - 400), y = 150 + this.rng() * (RULES.worldH - 300);
+    return { id: this.nextId++, x, y, dir: 0, state: this.block?.kind === 'rest' ? 'roost' : 'walk', tx: x, ty: y, hop: 0, timer: 0, next: span(RULES.swoopEvery, this.rng()), px: x, py: y };
+  }
+
+  private spawn(kind: FoodKind, at?: { x: number; y: number }): Food {
+    const m = RULES.hedge + 20, W = RULES.worldW, H = RULES.worldH;
+    let x = at?.x ?? m + this.rng() * (W - 2 * m), y = at?.y ?? m + this.rng() * (H - 2 * m);
+    // fresh food never appears under the player's nose
+    if (!at && this.player) {
+      const h = this.player.segs[0];
+      if (dist2(x, y, h.x, h.y) < 160 ** 2) { x = W - x; y = H - y; }
+    }
+    const f: Food = { id: this.nextId++, kind, x, y, r: RULES.food[kind].r, pig: kind === 'flower' ? Math.floor(this.rng() * 5) : -1, age: 0, pulled: false };
+    this.food.push(f);
+    return f;
+  }
+
+  private spawnRare(): void {
+    const h = this.player?.segs[0] ?? { x: RULES.worldW / 2, y: RULES.worldH / 2 };
+    // the far corner from the hatching spot
+    const x = h.x < RULES.worldW / 2 ? RULES.worldW - 220 - this.rng() * 200 : 220 + this.rng() * 200;
+    const y = h.y < RULES.worldH / 2 ? RULES.worldH - 200 - this.rng() * 150 : 200 + this.rng() * 150;
+    const f = this.spawn('rare', { x, y });
+    f.pig = Math.floor(this.rng() * 5);
+  }
+
+  private teach(what: Teach, x: number, y: number): void {
+    if (this.taught.has(what)) return;
+    this.taught.add(what);
+    if (!this.p.seen.includes(what)) this.p.seen.push(what);
+    this.emit({ type: 'teach', what, x, y });
+  }
+
+  // ── the controls ───────────────────────────────────────────────
+  /** Steer toward a direction (radians, screen = world orientation). */
+  aim(dir: number): void {
+    if (!Number.isFinite(dir)) return;
+    this.aimDir = dir;
+    if (this.card && this.card.t > 0.6) this.card.t = Math.max(this.card.t, this.card.dur - 0.25);
+  }
+
+  /** Close a card early (a tap). */
+  tapCard(): void {
+    if (this.card && this.card.t > 0.4) this.card.t = this.card.dur;
+  }
+
+  sprint(on: boolean): void { this.holdSprint = on; }
+
   key(key: string, down: boolean): boolean {
-    const r = this.round;
     const k = key.length === 1 ? key.toLowerCase() : key;
-    const left = k === 'ArrowLeft' || k === 'a', right = k === 'ArrowRight' || k === 'd';
-    if (this.phase === 'leaf' && r && r.pick < 0) {
-      if (!down) return left || right || k === ' ' || k === 'Enter' || k === '1' || k === '2';
-      if (left) { r.highlight = 0; return true; }
-      if (right) { r.highlight = Math.min(r.offers.length - 1, 1); return true; }
-      if (k === '1' || k === '2') return this.pick(Number(k) - 1);
-      if (k === ' ' || k === 'Enter') return this.pick(r.highlight);
-      return false;
-    }
-    if (left || right) {
-      if (left) this.turnKeys.left = down;
-      if (right) this.turnKeys.right = down;
-      return this.phase === 'feed';
+    if (k === 'ArrowLeft' || k === 'a') { this.keyTurn = down ? -1 : this.keyTurn === -1 ? 0 : this.keyTurn; if (down) this.aimDir = null; return true; }
+    if (k === 'ArrowRight' || k === 'd') { this.keyTurn = down ? 1 : this.keyTurn === 1 ? 0 : this.keyTurn; if (down) this.aimDir = null; return true; }
+    if (k === ' ' || k === 'Spacebar' || k === 'Shift' || k === 'ArrowUp' || k === 'w') {
+      this.keySprint = down;
+      if (down) this.tapCard();
+      return true;
     }
     return false;
   }
 
-  // ── the frame ───────────────────────────────────────────────────
+  release(): void {
+    this.keyTurn = 0;
+    this.holdSprint = false;
+    this.keySprint = false;
+  }
+
+  // ── a frame ────────────────────────────────────────────────────
   update(dt: number, f: FocusFrame, t: number): void {
-    if (!this.started) this.start();
+    if (!this.started || this.phase === 'done' || !(dt > 0)) return;
+    dt = Math.min(dt, 0.1);
     this.t = t;
-    if (!this.round && this.phase === 'leaf') this.nextRound();
-    if (dt <= 0) return;
-    this.phaseT += dt;
-    const r = this.round;
-    switch (this.phase) {
-      case 'leaf':
-        if (!r) break;
-        if (r.pick < 0 && this.phaseT >= T_LEAF - PICK_GRACE) this.pick(0);
-        if (this.phaseT >= T_LEAF) this.beginFeed(f);
-        break;
-      case 'feed':
-        if (!r?.leafBlock) break;
-        this.tickBlock(r.leafBlock, f, dt, true);
-        this.feed(r, r.leafBlock, dt);
-        if (r.leafBlock.clock >= r.leafBlock.len) this.endFeed(r, f);
-        break;
-      case 'spin':
-        if (!r?.restBlock) break;
-        this.tickBlock(r.restBlock, f, dt, false);
-        this.chrysalis(r, r.restBlock, dt);
-        if (this.phaseT >= T_SPIN) this.setPhase('chrysalis');
-        break;
-      case 'chrysalis':
-        if (!r?.restBlock) break;
-        this.tickBlock(r.restBlock, f, dt, true);
-        this.chrysalis(r, r.restBlock, dt);
-        if (r.restBlock.clock >= r.restBlock.len) this.endRest(r);
-        break;
-      case 'emerge':
-        if (this.phaseT >= T_EMERGE) this.nextRound();
-        break;
-      case 'finale':
-        break;
+    if (this.phase !== 'finale') this.schedule(dt, f, t);
+    const b = this.block;
+    this.trace.push(t, f, this.phase === 'finale' || b.kind === 'warmup' ? 'free' : b.kind === 'push' ? 'focus' : 'rest', this.blind);
+    this.brain(dt, f);
+    const banner = this.blockT < RULES.bannerSec && this.block.kind !== 'warmup';
+    this.talkLines.update(dt, t, banner || (!!this.card && this.card.kind === 'open'));
+    if (this.phase === 'finale') { this.runFinale(dt); return; }
+    if (this.card) {
+      this.card.t += dt;
+      if (this.card.t >= this.card.dur) this.card = null;
+      else if (this.card.kind === 'open' || this.card.t < 1.2) return;
     }
-  }
-
-  private newBlock(kind: 'focus' | 'rest', len: number, ref: number): Block {
-    return {
-      kind, len, clock: 0, paused: 0, frozen: false, ref, meter: 0, reliableScored: 0, vSum: 0, sum: 0,
-      v: NEUTRAL_V, zone: 0, out: 0, reliable: false,
-    };
-  }
-
-  /** Reliable scored seconds a block needs to count: KEEP_MIN, or 70 % of a short block's scored time. */
-  keepMin(b: Block): number {
-    return Math.min(KEEP_MIN, 0.7 * Math.max(0, b.len - this.lag));
-  }
-
-  private margin(kind: 'up' | 'down'): number {
-    if (this.round?.last) return MARGIN_EASY;
-    return kind === 'up' ? this.margins.up : this.margins.down;
-  }
-
-  /** The block's reference: the other kind's last kept mean ± margin, else the adaptive threshold. */
-  private reference(kind: 'focus' | 'rest', f: FocusFrame): number {
-    if (kind === 'focus') return this.lastMean.rest !== null ? this.lastMean.rest + this.margin('up') : f.threshold;
-    return this.lastMean.focus !== null ? this.lastMean.focus - this.margin('down') : f.threshold;
-  }
-
-  private beginFeed(f: FocusFrame): void {
-    const r = this.round!;
-    r.leafBlock = this.newBlock('focus', r.plan.leaf, this.reference('focus', f));
-    r.cat.hatchT = 0;
-    hatch(this.p, r.species!.id, this.o.day);
-    this.target = null;
-    this.held = false;
-    this.setPhase('feed');
-    this.emit({ type: 'hatch' });
-  }
-
-  /**
-   * The block clock (standing still up to PAUSE_MAX while the signal is bad), the on-side value, the
-   * meter and the zone hold.  The meter fills against the reliable seconds the block can still
-   * deliver, so seconds lost to bad signal cost no fill; it can only grow (and freezes while the
-   * signal is bad), and once full the block has succeeded whatever comes next.  The hold counts
-   * reliable seconds only, and a gap in the signal counts as time out of the zone (as
-   * FocusInput.breakHold does): one longer than the grace ends the hold.
-   */
-  private tickBlock(b: Block, f: FocusFrame, dt: number, canPause: boolean): void {
-    const ok = f.reliable && f.activity !== null && Number.isFinite(f.activity);
-    b.reliable = ok;
-    b.frozen = !ok && canPause && b.paused < PAUSE_MAX;
-    if (b.frozen) b.paused += dt;
-    else b.clock += dt;
-    if (!ok) {
-      // S and B freeze; the hold waits through a short gap and breaks after a longer one
-      b.out += dt;
-      if (b.out > GRACE) b.zone = 0;
+    if (this.phase === 'spin') {
+      this.spinT += dt;
+      if (this.spinT >= RULES.spinSec) this.endSpin();
       return;
     }
-    const v = logistic((f.activity! - b.ref) / WIDTH);
-    b.v = b.kind === 'focus' ? v : 1 - v;
-    if (b.clock < this.lag) return;
-    b.reliableScored += dt;
-    b.vSum += b.v * dt;
-    b.sum += f.activity! * dt;
-    const can = b.reliableScored + Math.max(0, b.len - b.clock);
-    // full needs the block to count already (a short one with dropouts may not yet)
-    const top = b.reliableScored >= this.keepMin(b) ? 1 : 0.99;
-    const before = b.meter;
-    b.meter = Math.min(top, b.meter + (2 * b.v * dt) / Math.max(4, can));
-    if (before < 1 && b.meter >= 1) this.filled(b);
-    if (b.v >= 0.5) {
-      b.zone += dt;
-      b.out = 0;
+    if (this.stop > 0) { this.stop = Math.max(0, this.stop - dt); return; }
+    this.wt += dt;
+    this.movePlayer(dt);
+    for (const r of this.rivals) this.moveRival(r, dt);
+    this.moveBirds(dt);
+    this.eat(dt);
+    this.collide();
+    this.recordPath(dt);
+    this.tutorial();
+  }
+
+  // ── the band ───────────────────────────────────────────────────
+  private brain(dt: number, f: FocusFrame): void {
+    const b = this.block, inPlay = this.phase === 'play' || this.phase === 'spin';
+    const sighted = b.kind === 'push' && !b.blind && inPlay && this.blockT >= this.leadIn && f.reliable;
+    const target = sighted ? reachFor(f.level) : RULES.reachBase;
+    this.reach = target + (this.reach - target) * Math.exp(-dt / RULES.reachTau);
+    this.level = f.level;
+    this.freeSprint = sighted && f.level >= RULES.freeSprint;
+    if (b.kind === 'push') {
+      this.gauge = b.blind || !f.reliable ? null : this.blockT < this.leadIn ? 0 : clamp((this.reach - RULES.reachBase) / RULES.reachExtra);
+      if (sighted && f.level >= 0.5) {
+        this.goodT += dt;
+        if (this.goodT >= RULES.goodSec && this.goodT - dt < RULES.goodSec) this.say('good', 2, 4);
+      } else this.goodT = 0;
+    } else if (b.kind === 'rest') {
+      this.gauge = f.reliable ? clamp(f.calm) : null;
+      if (f.reliable && inPlay) {
+        // calm deepens the colours: the waiting chrysalises, and the caterpillar's own (it carries them into its chrysalis)
+        const drive = clamp((f.calm - 0.3) / 0.7);
+        const add = RULES.depthRate * drive * dt;
+        for (const c of this.twig) c.depth = Math.min(1, c.depth + add);
+        this.depth = Math.min(1, this.depth + add * (this.twig.length ? 0.4 : 1));
+      }
+    } else this.gauge = f.reliable ? clamp(f.level) : null;
+  }
+
+  /** The panel's gauge: the reach in a push block, the calm in a siesta (null: hidden or no signal). */
+  meterValue(): number | null { return this.gauge; }
+
+  /** The pad: the level in a sighted push block, still otherwise. */
+  padLevel(f: FocusFrame): number | null {
+    const b = this.block;
+    return b.kind === 'push' && !b.blind && f.reliable ? f.level : null;
+  }
+
+  // ── movement ───────────────────────────────────────────────────
+  private turnRate(len: number): number {
+    return RULES.turn * (1 - (1 - RULES.turnLong) * clamp((len - 10) / 60));
+  }
+
+  private movePlayer(dt: number): void {
+    const w = this.player;
+    w.safe = Math.max(0, w.safe - dt);
+    if (w.curl > 0) {
+      w.curl = Math.max(0, w.curl - dt);
+      return;
+    }
+    if (this.keyTurn) {
+      w.want = w.dir + this.keyTurn * 1.2;
+      w.dir = wrapA(w.dir + this.keyTurn * RULES.keyTurn * this.turnRate(this.len) * dt);
     } else {
-      b.out += dt;
-      if (b.out > GRACE) b.zone = 0;
+      if (this.aimDir !== null) w.want = this.aimDir;
+      const d = wrapA(w.want - w.dir), max = this.turnRate(this.len) * dt;
+      w.dir = wrapA(w.dir + clamp(d, -max, max));
     }
-  }
-
-  /** A meter just filled: its word and sound (a blind cocoon keeps its secret until it opens). */
-  private filled(b: Block): void {
-    if (b.kind === 'focus') this.emit({ type: 'bold' });
-    else if (!this.round?.blind) this.emit({ type: 'deep' });
-  }
-
-  private feed(r: Round, b: Block, dt: number): void {
-    const leaf = r.leaf!, c = r.cat;
-    c.hatchT += dt;
-    // appetite: base while it wakes up (the lag window), then v shown with τ; while the signal is bad
-    // the neutral v of the reference stands in, eased the same way (a quicker ease would itself pay)
-    const ok = b.reliable;
-    const want = b.clock < this.lag ? 0 : ok ? b.v : NEUTRAL_V;
-    c.a = approach(c.a, want, dt, this.tau);
-    c.speed = (SPEED[0] + (SPEED[1] - SPEED[0]) * c.a) * leaf.k;
-    c.bite = (BITE[0] + (BITE[1] - BITE[0]) * c.a) * leaf.k;
-    c.fresh += dt;
-    // the jedwabna nić: a hold of 8 s in the zone makes the trail silk from the hold's start; a dip or a
-    // gap in the signal past the grace breaks the hold and ends the silk (only reliable points are silk)
-    if (b.zone === 0) {
-      r.silkFrom = -1;
-      r.silkOn = false;
-    } else if (ok) {
-      if (r.silkFrom < 0) r.silkFrom = r.path.length;
-      if (!r.silkOn && b.zone >= SILK_HOLD) {
-        r.silkOn = true;
-        r.silk = true;
-        for (let i = r.silkFrom; i < r.path.length; i++) if (!r.path[i].bad) r.path[i].silk = true;
-        this.emit({ type: 'silk' });
+    const want = this.holdSprint || this.keySprint;
+    if (want !== w.sprinting) {
+      w.sprinting = want;
+      this.emit({ type: 'sprint', on: want, free: this.freeSprint });
+      if (want) {
+        this.teach('sprint', w.segs[0].x, w.segs[0].y);
+        if (this.rng() < 0.25) this.say('sprint', 0, 3);
       }
     }
-    this.steer(leaf, c, dt);
-    this.record(r, c, b);
-    // while the block clock stands still it crawls on without eating: the paused seconds add no leaf,
-    // so a dropout neither pays nor costs
-    if (!b.frozen) this.eat(r, leaf, c);
-    c.girth = (8 + 7 * Math.min(1, this.eatenShare(r) / 0.32)) * leaf.k;
-    const cls = sizeClass(this.eatenShare(r));
-    if (cls > this.lastClass) {
-      this.lastClass = cls;
-      this.emit({ type: 'class', cls });
-    }
-  }
-
-  /** A unit vector into the leaf at a point; at a sharp tip, where the field has no slope, toward the leaf's middle. */
-  private inward(leaf: LeafModel, x: number, y: number): { x: number; y: number } {
-    const n = leafNormal(leaf, x, y, this.n);
-    const e = CELL * 1.5, slope = Math.abs(leafDist(leaf, x + n.x * e, y + n.y * e) - leafDist(leaf, x - n.x * e, y - n.y * e));
-    if (slope < e * 0.5) {
-      const mx = (leaf.box.x0 + leaf.box.x1) / 2 - x, my = (leaf.box.y0 + leaf.box.y1) / 2 - y, l = Math.hypot(mx, my) || 1;
-      n.x = mx / l;
-      n.y = my / l;
-    }
-    return n;
-  }
-
-  /** Turn toward the finger (capped), follow the edge when nothing steers, never leave the leaf. */
-  private steer(leaf: LeafModel, c: Caterpillar, dt: number): void {
-    const k = leaf.k, edge = EDGE * k, dmin = DMIN * k;
-    const hx = Math.cos(c.heading), hy = Math.sin(c.heading);
-    let desired: number | null = null;
-    let keyTurn = 0;
-    if (this.turnKeys.left !== this.turnKeys.right) keyTurn = this.turnKeys.left ? -1 : 1;
-    else if (this.target) {
-      const dx = this.target.x - c.x, dy = this.target.y - c.y, d = Math.hypot(dx, dy);
-      const waypointLive = this.held || this.t < this.waypointUntil;
-      if (!waypointLive) this.target = null;
-      else if (d > 14 * k) {
-        // a target inside the turning circle cannot be reached by turning: go on, then come round
-        const R = c.speed / TURN, side = hx * dy - hy * dx >= 0 ? 1 : -1;
-        const cx = c.x - hy * R * side, cy = c.y + hx * R * side;
-        desired = Math.hypot(this.target.x - cx, this.target.y - cy) < R * 0.98 ? c.heading : Math.atan2(dy, dx);
-      } else if (!this.held) this.target = null;
-    }
-    // stuck (a corner, a tip): turn toward the leaf's middle for a moment
-    if (c.unstick > 0) {
-      c.unstick -= dt;
-      const mx = (leaf.box.x0 + leaf.box.x1) / 2 - c.x, my = (leaf.box.y0 + leaf.box.y1) / 2 - c.y;
-      desired = Math.atan2(my, mx);
-      keyTurn = 0;
-    }
-    const look = 20 * k + c.speed * 0.3;
-    const lx = c.x + hx * look, ly = c.y + hy * look;
-    const dl = leafDist(leaf, lx, ly);
-    if (dl < edge && c.unstick <= 0) {
-      const n = this.inward(leaf, dl < -edge ? c.x : lx, dl < -edge ? c.y : ly);
-      // keep curling the same way; meeting the edge head-on, turn toward the side with more room
-      const along = -n.y * hx + n.x * hy, into = hx * n.x + hy * n.y;
-      if (Math.abs(along) > 0.5 && into > -0.6) c.curl = along > 0 ? 1 : -1;
-      else if (c.curl === 0) {
-        const a = c.heading + 1.2, b = c.heading - 1.2;
-        c.curl = leafDist(leaf, c.x + Math.cos(a) * look, c.y + Math.sin(a) * look) >= leafDist(leaf, c.x + Math.cos(b) * look, c.y + Math.sin(b) * look) ? 1 : -1;
-        // the tangent (−n.y, n.x) turns one way; flip so the curl goes toward the roomier side
-        const tx0 = -n.y, ty0 = n.x, ra = Math.cos(a) * tx0 + Math.sin(a) * ty0;
-        c.curl = ra >= 0 ? c.curl : -c.curl;
-      }
-      const tx = -n.y * c.curl, ty = n.x * c.curl;
-      const pull = clamp((edge - dl) / edge, 0, 1.5);
-      const edgeDir = Math.atan2(ty + n.y * pull * 1.1, tx + n.x * pull * 1.1);
-      if (desired === null && keyTurn === 0) desired = edgeDir;
-      else if (desired !== null && Math.cos(desired) * n.x + Math.sin(desired) * n.y < 0 && dl < edge * 0.7) desired = edgeDir;
-      else if (keyTurn !== 0 && dl < edge * 0.4 && hx * n.x + hy * n.y < 0) { desired = edgeDir; keyTurn = 0; }
-    } else if (dl > edge * 1.6) c.curl = 0;
-    const maxTurn = TURN * dt;
-    const delta = desired !== null ? clamp(wrap(desired - c.heading), -maxTurn, maxTurn) : keyTurn * maxTurn;
-    c.heading = wrap(c.heading + delta);
-    const step = c.speed * dt * Math.min(1, 0.35 + c.hatchT);
-    let nx = c.x + Math.cos(c.heading) * step, ny = c.y + Math.sin(c.heading) * step;
-    if (leafDist(leaf, nx, ny) < dmin) {
-      // slide along the edge instead of crossing it, the way it curls
-      const n = this.inward(leaf, c.x, c.y);
-      let tx = -n.y, ty = n.x;
-      if (c.curl !== 0) { tx *= c.curl; ty *= c.curl; } else if (tx * Math.cos(c.heading) + ty * Math.sin(c.heading) < 0) { tx = -tx; ty = -ty; }
-      nx = c.x + tx * step;
-      ny = c.y + ty * step;
-      const d = leafDist(leaf, nx, ny);
-      if (d < dmin) {
-        nx += n.x * (dmin - d + 0.5);
-        ny += n.y * (dmin - d + 0.5);
+    if (w.sprinting && !this.freeSprint && this.len > RULES.sprintFreeLen) {
+      this.sprintCost += dt;
+      if (this.sprintCost >= RULES.sprintCost) {
+        this.sprintCost = 0;
+        const tail = w.segs.pop()!;
+        this.spawn('crumb', { x: tail.x, y: tail.y });
       }
     }
-    const moved = Math.hypot(nx - c.x, ny - c.y);
-    c.x = nx;
-    c.y = ny;
-    c.sinceBite += moved;
-    c.sincePoint += moved;
-    c.sinceTrail += moved;
-    c.recentT += dt;
-    if (c.recentT >= 0.6) {
-      if (Math.hypot(c.x - c.fromX, c.y - c.fromY) < c.speed * c.recentT * 0.3 && c.hatchT > 1 && !this.held) c.unstick = 0.7;
-      c.fromX = c.x;
-      c.fromY = c.y;
-      c.recentT = 0;
+    const speed = w.sprinting ? RULES.sprint : RULES.speed;
+    this.advance(w, speed * dt);
+    this.bounce(w);
+    // a new segment for every whole one eaten
+    while (w.grow >= 1) {
+      w.grow -= 1;
+      const tail = w.segs[w.segs.length - 1];
+      w.segs.push({ x: tail.x, y: tail.y });
+      this.grownTotal++;
+      this.emit({ type: 'grow', len: this.len });
     }
-    while (c.sinceTrail >= TRAIL_STEP * k) {
-      c.sinceTrail -= TRAIL_STEP * k;
-      c.trailHead = (c.trailHead + 1) % TRAIL;
-      c.trail[c.trailHead * 2] = c.x;
-      c.trail[c.trailHead * 2 + 1] = c.y;
-      c.trailCount = Math.min(TRAIL, c.trailCount + 1);
+    if (this.len > this.peakLen) this.peakLen = this.len;
+    this.bestLenSession = Math.max(this.bestLenSession, this.len);
+    const next = RULES.moults[this.moultAt];
+    if (next !== undefined && this.len >= next) {
+      this.moultAt++;
+      this.emit({ type: 'moult', len: this.len });
+      this.say('moult', 1, 4);
+    }
+    if (this.len >= this.garden.len && this.phase === 'play') this.beginSpin();
+  }
+
+  /** Move the head `step` u along its heading; every segment follows the one before at `spacing`. */
+  private advance(w: Worm, step: number): void {
+    const s = w.segs, h = s[0], sp = RULES.spacing;
+    h.x += Math.cos(w.dir) * step;
+    h.y += Math.sin(w.dir) * step;
+    for (let i = 1; i < s.length; i++) {
+      const a = s[i - 1], b = s[i], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+      if (d > sp) {
+        const k = sp / d;
+        b.x = a.x + dx * k;
+        b.y = a.y + dy * k;
+      }
     }
   }
 
-  /**
-   * A point of the eaten path every few units, for the wing.  A paused stretch (nothing eaten) is a
-   * thin thread; points taken while the signal is bad are never silk.
-   */
-  private record(r: Round, c: Caterpillar, b: Block): void {
-    if (c.sincePoint < 6 * r.leaf!.k) return;
-    c.sincePoint = 0;
-    r.path.push(b.reliable ? { x: c.x, y: c.y, a: c.a, silk: r.silkOn } : { x: c.x, y: c.y, a: b.frozen ? 0 : c.a, silk: false, bad: true });
+  /** The hedge turns a head back into the garden (never a stumble). */
+  private bounce(w: Worm): void {
+    const h = w.segs[0], m = RULES.hedge, W = RULES.worldW, H = RULES.worldH;
+    let c = Math.cos(w.dir), s = Math.sin(w.dir), hit = false;
+    if (h.x < m && c < 0) { c = -c; hit = true; }
+    if (h.x > W - m && c > 0) { c = -c; hit = true; }
+    if (h.y < m && s < 0) { s = -s; hit = true; }
+    if (h.y > H - m && s > 0) { s = -s; hit = true; }
+    h.x = clamp(h.x, m * 0.5, W - m * 0.5);
+    h.y = clamp(h.y, m * 0.5, H - m * 0.5);
+    if (hit) {
+      w.dir = Math.atan2(s, c);
+      w.want = w.dir;
+      if (w === this.player) this.aimDir = null;
+    }
   }
 
-  private eat(r: Round, leaf: LeafModel, c: Caterpillar): void {
-    const rad = c.bite / 2;
-    if (c.sinceBite < Math.max(2.5 * leaf.k, rad * 0.45)) return;
-    c.sinceBite = 0;
-    c.side = -c.side;
-    const mouth = c.girth * 0.75, cs = Math.cos(c.heading), sn = Math.sin(c.heading);
-    const mx = c.x + cs * mouth - sn * c.side * rad * 0.18, my = c.y + sn * mouth + cs * c.side * rad * 0.18;
-    r.bites.push({ x: mx, y: my, r: rad });
-    // the coarse grid: cells whose centres fall in the bite
-    const i0 = Math.max(0, Math.floor((mx - rad) / CELL)), i1 = Math.min(GRID_W - 1, Math.floor((mx + rad) / CELL));
-    const j0 = Math.max(0, Math.floor((my - rad) / CELL)), j1 = Math.min(leaf.inside.length / GRID_W - 1, Math.floor((my + rad) / CELL));
-    let fresh = 0;
-    for (let j = j0; j <= j1; j++) {
-      for (let i = i0; i <= i1; i++) {
-        const k = j * GRID_W + i;
-        if (!leaf.inside[k] || r.eaten[k]) continue;
-        const dx = (i + 0.5) * CELL - mx, dy = (j + 0.5) * CELL - my;
-        if (dx * dx + dy * dy <= rad * rad) {
-          r.eaten[k] = 1;
-          fresh++;
+  private moveRival(r: Worm, dt: number): void {
+    if (r.away > 0) {
+      r.away -= dt;
+      if (r.away <= 0) Object.assign(r, this.spawnRival(), { id: r.id });
+      return;
+    }
+    r.safe = Math.max(0, r.safe - dt);
+    if (r.curl > 0) { r.curl -= dt; return; }
+    r.think -= dt;
+    const h = r.segs[0];
+    if (r.think <= 0) {
+      r.think = 0.35 + this.rng() * 0.3;
+      // greedy: the nearest food it sees, or a wander point; now and then it cuts across the player
+      let best: Food | null = null, bd = 260 ** 2;
+      for (const f of this.food) {
+        const d = dist2(f.x, f.y, h.x, h.y) / (f.kind === 'flower' || f.kind === 'crumb' ? 2 : 1);
+        if (d < bd) { bd = d; best = f; }
+      }
+      const ph = this.player.segs[0];
+      if (this.rng() < 0.18 && dist2(ph.x, ph.y, h.x, h.y) < 380 ** 2) {
+        r.tx = ph.x + Math.cos(this.player.dir) * 90;
+        r.ty = ph.y + Math.sin(this.player.dir) * 90;
+      } else if (best) {
+        r.tx = best.x;
+        r.ty = best.y;
+      } else if (dist2(r.tx, r.ty, h.x, h.y) < 60 ** 2) {
+        r.tx = 150 + this.rng() * (RULES.worldW - 300);
+        r.ty = 150 + this.rng() * (RULES.worldH - 300);
+      }
+      r.want = Math.atan2(r.ty - h.y, r.tx - h.x);
+      // it sees the player's body ahead only some of the time (so it can blunder into it)
+      if (this.rng() < 0.55) {
+        const ax = h.x + Math.cos(r.dir) * 55, ay = h.y + Math.sin(r.dir) * 55;
+        for (let i = 0; i < this.player.segs.length; i += 2) {
+          const s = this.player.segs[i];
+          if (dist2(s.x, s.y, ax, ay) < 40 ** 2) {
+            r.want = r.dir + (wrapA(Math.atan2(s.y - h.y, s.x - h.x) - r.dir) > 0 ? -1.4 : 1.4);
+            break;
+          }
         }
       }
     }
-    if (fresh) {
-      r.eatenCells += fresh;
-      c.fresh = 0;
-    }
-    for (const d of r.dots) {
-      if (d.eaten || Math.hypot(d.x - mx, d.y - my) > rad + d.r * 0.6) continue;
-      d.eaten = true;
-      r.palette = addPigment(r.palette, d.pigment);
-      this.emit({ type: 'dot', pigment: d.pigment, x: d.x, y: d.y, n: r.dots.filter(o => o.eaten).length });
-    }
-    for (const t of r.treats) {
-      if (t.eaten || Math.hypot(t.x - mx, t.y - my) > rad + t.r * 0.6) continue;
-      t.eaten = true;
-      if (t.kind === 'malina') {
-        this.p.pollen += RASPBERRY_POLLEN;
-        this.counts.pollen += RASPBERRY_POLLEN;
-      } else r.dandelions++;
-      this.emit({ type: 'treat', kind: t.kind, x: t.x, y: t.y });
+    const max = RULES.rivalTurn * dt, d = wrapA(r.want - r.dir);
+    r.dir = wrapA(r.dir + clamp(d, -max, max));
+    const slow = this.block.kind === 'rest' ? RULES.restSlow : 1;
+    this.advance(r, RULES.rivalSpeed * slow * dt);
+    this.bounce(r);
+    while (r.grow >= 1 && r.segs.length < 46) {
+      r.grow -= 1;
+      const tail = r.segs[r.segs.length - 1];
+      r.segs.push({ x: tail.x, y: tail.y });
     }
   }
 
-  /** Eaten share of the leaf plus the dandelions' size bonus. */
-  eatenShare(r: Round): number {
-    return r.leaf ? r.eatenCells / r.leaf.insideCount + r.dandelions * DANDELION_BONUS : 0;
-  }
-
-  private staircase(kind: 'up' | 'down', success: boolean): void {
-    const m = this.margins, key = kind === 'up' ? 'upMiss' : 'downMiss';
-    let v = m[kind];
-    if (success) {
-      v += 0.2;
-      m[key] = 0;
-    } else {
-      v -= 0.6;
-      m[key]++;
-      if (m[key] >= 2) v = MARGIN_EASY;
+  private moveBirds(dt: number): void {
+    const rest = this.block.kind === 'rest';
+    const ph = this.player.segs[0];
+    for (const b of this.birds) {
+      if (rest) {
+        if (b.state !== 'roost') { b.state = 'roost'; b.timer = 0; }
+        b.timer += dt;
+        continue;
+      }
+      if (b.state === 'roost') {
+        b.state = 'walk';
+        b.timer = 0;
+        b.next = span(RULES.swoopEvery, this.rng()) * 0.6;
+      }
+      b.timer += dt;
+      if (b.state === 'walk') {
+        b.next -= dt;
+        b.hop -= dt;
+        if (b.hop <= 0) {
+          // a hop toward somewhere near the caterpillar: hungry birds follow the long ones
+          b.hop = 0.45 + this.rng() * 0.5;
+          if (this.rng() < 0.35 + Math.min(0.4, this.len / 120)) {
+            b.tx = ph.x + (this.rng() - 0.5) * 360;
+            b.ty = ph.y + (this.rng() - 0.5) * 360;
+          } else {
+            b.tx = clamp(b.x + (this.rng() - 0.5) * 300, 100, RULES.worldW - 100);
+            b.ty = clamp(b.y + (this.rng() - 0.5) * 300, 100, RULES.worldH - 100);
+          }
+          b.dir = Math.atan2(b.ty - b.y, b.tx - b.x);
+        }
+        const d = Math.hypot(b.tx - b.x, b.ty - b.y), step = Math.min(d, RULES.birdHop * dt * (b.hop > 0.25 ? 1.6 : 0.2));
+        if (d > 1) { b.x += ((b.tx - b.x) / d) * step; b.y += ((b.ty - b.y) / d) * step; }
+        if (b.next <= 0) {
+          // the swoop: a shadow where the head is going
+          b.state = 'warn';
+          b.timer = 0;
+          const lead = (this.player.sprinting ? RULES.sprint : RULES.speed) * RULES.swoopWarn * 0.6;
+          b.px = clamp(ph.x + Math.cos(this.player.dir) * lead, 80, RULES.worldW - 80);
+          b.py = clamp(ph.y + Math.sin(this.player.dir) * lead, 80, RULES.worldH - 80);
+          this.emit({ type: 'swoop', x: b.px, y: b.py });
+          this.teach('bird', b.px, b.py);
+          this.say('bird', 1, 3);
+        }
+      } else if (b.state === 'warn') {
+        if (b.timer >= RULES.swoopWarn) {
+          b.state = 'peck';
+          b.timer = 0;
+          b.x = b.px;
+          b.y = b.py;
+          this.peck(b);
+        }
+      } else if (b.state === 'peck' && b.timer >= 0.7) {
+        b.state = 'walk';
+        b.next = span(RULES.swoopEvery, this.rng());
+        b.tx = b.x;
+        b.ty = b.y;
+      }
     }
-    m[kind] = clamp(v, MARGIN_EASY, MARGIN_MAX);
   }
 
-  /**
-   * Close a block.  It counts with enough reliable scored seconds, and then succeeds when its on-side
-   * value averaged at least ½ over them — the meter ends full (topped up here when the last seconds
-   * left it just short); counted blocks feed the staircase, the next reference and the contrast.
-   */
-  private judge(b: Block): boolean {
-    const kept = b.reliableScored > 0 && b.reliableScored >= this.keepMin(b);
-    if (!kept) return false;
-    const success = b.meter >= 1 || b.vSum >= 0.5 * b.reliableScored;
-    if (success && b.meter < 1) {
-      b.meter = 1;
-      this.filled(b);
+  private peck(b: Bird): void {
+    const w = this.player, r = RULES.peckR + this.girth * 0.5;
+    let hit = false;
+    if (w.safe <= 0 && w.curl <= 0) {
+      for (const s of w.segs) if (dist2(s.x, s.y, b.px, b.py) < r * r) { hit = true; break; }
     }
-    const mean = b.sum / b.reliableScored;
-    this.staircase(b.kind === 'focus' ? 'up' : 'down', success);
-    this.lastMean[b.kind] = mean;
-    this.contrast.push(b.kind, mean, true, this.lag, b.reliableScored);
-    if (b.kind === 'focus') {
-      this.counts.pushJudged++;
-      if (success) this.counts.pushOk++;
-    } else {
-      this.counts.restJudged++;
-      if (success) this.counts.restOk++;
+    this.emit({ type: 'peck', x: b.px, y: b.py, hit });
+    if (hit) this.stumble('bird', b.px, b.py);
+    else {
+      const h = w.segs[0];
+      if (dist2(h.x, h.y, b.px, b.py) < RULES.nearR ** 2 + r * r) {
+        this.nearMisses++;
+        this.emit({ type: 'near', x: h.x, y: h.y });
+        this.say('near', 2, 3);
+      }
     }
-    return true;
   }
 
-  private endFeed(r: Round, f: FocusFrame): void {
-    r.leafKept = this.judge(r.leafBlock!);
-    this.target = null;
-    this.held = false;
-    this.turnKeys.left = this.turnKeys.right = false;
-    r.restBlock = this.newBlock('rest', this.restLength(r), this.reference('rest', f));
-    // after this emergence not even a last short round would fit (see nextRound)
-    r.final = this.o.plannedSec - this.t - r.restBlock.len - T_EMERGE < LAST_LEAF_ROOM;
-    r.glass = GLASS_IDLE;
-    this.setPhase('spin');
-    this.emit({ type: 'full' });
-    this.emit({ type: 'spin', blind: r.blind });
-  }
-
-  /**
-   * The chrysalis' length.  The last round's takes up any slip of the leaf so the emergence ends near
-   * time up.  An earlier round's leaves room for the next round even if bad-signal pauses hold this
-   * chrysalis up too: it shortens (never under minBlock) when a slip has eaten into that room, and when
-   * not even a last short round would fit after it, this round ends the session.
-   */
-  private restLength(r: Round): number {
-    const left = this.o.plannedSec - this.t - T_EMERGE;   // this chrysalis and any rounds after it
-    const most = Math.max(REST_RANGE[1], r.plan.rest);
-    if (r.plan.rounds === 1) return clamp(left, this.minBlock, most);
-    const round = T_LEAF + T_EMERGE + 2 * this.minBlock;
-    if (left - r.plan.rest >= round + PAUSE_MAX) return r.plan.rest;
-    const rest = clamp(left - round - PAUSE_MAX, this.minBlock, r.plan.rest);
-    if (left - rest - PAUSE_MAX >= LAST_LEAF_ROOM) return rest;
-    return clamp(left, this.minBlock, most + PAUSE_MAX);
-  }
-
-  private chrysalis(r: Round, b: Block, dt: number): void {
-    const want = b.clock < this.lag || !b.reliable ? GLASS_IDLE : GLASS_MIN + (1 - GLASS_MIN) * b.v;
-    r.glass = approach(r.glass, want, dt, b.reliable ? this.tau : 0.6);
-  }
-
-  private endRest(r: Round): void {
-    r.restKept = this.judge(r.restBlock!);
-    const outcome = this.emergeRound(r);
-    if (r.blind) {
-      this.counts.blindN++;
-      if (outcome.deep) this.counts.blindOk++;
+  // ── eating ─────────────────────────────────────────────────────
+  private eat(dt: number): void {
+    const w = this.player, h = w.segs[0], g = this.girth, reach = this.reach + g;
+    const canEat = w.curl <= 0;
+    for (let i = this.food.length - 1; i >= 0; i--) {
+      const f = this.food[i];
+      f.age += dt;
+      const dx = h.x - f.x, dy = h.y - f.y, d = Math.hypot(dx, dy);
+      f.pulled = false;
+      if (canEat && d < reach && d > 0.01) {
+        // the reach pulls food into the mouth (stronger toward the middle)
+        const k = Math.min(d, RULES.pull * (0.35 + 0.65 * (1 - d / reach)) * dt);
+        f.x += (dx / d) * k;
+        f.y += (dy / d) * k;
+        f.pulled = this.reach > RULES.reachBase + 4;
+      }
+      if (canEat && d < g + RULES.mouth + f.r) {
+        this.food.splice(i, 1);
+        this.ate(f);
+        continue;
+      }
+      // rivals graze too
+      for (const r of this.rivals) {
+        if (r.away > 0 || r.curl > 0) continue;
+        const rh = r.segs[0];
+        if (dist2(rh.x, rh.y, f.x, f.y) < (girthOf(r.segs.length) + RULES.mouth + f.r) ** 2) {
+          this.food.splice(i, 1);
+          r.grow += RULES.food[f.kind].grow;
+          if (f.kind === 'leaf' || f.kind === 'flower') this.spawn(f.kind);
+          if (f.kind === 'rare') this.spawnRare();
+          break;
+        }
+      }
     }
-    this.setPhase('emerge');
-    this.emit({ type: 'emerge', outcome });
   }
 
-  /**
-   * The round's butterfly flies out and its egg is spent.  Its size is what it ate, dropped leaf or
-   * not: bad-signal time already ate at the neutral appetite and paused time ate nothing, so no floor
-   * is needed (a fixed one paid better than playing).  A chrysalis that was dropped, or never finished
-   * because the session ended, shows middling colours at least; a meter that filled (bold, deep) stands
-   * whatever came after it.
-   */
-  private emergeRound(r: Round): Outcome {
-    const sp = r.species!, lb = r.leafBlock!, rb = r.restBlock;
-    const eaten = this.eatenShare(r);
-    const depth = rb && r.restKept ? rb.meter : Math.max(rb?.meter ?? 0, NEUTRAL_DEPTH);
-    const bold = lb.meter >= 1, deep = depth >= 1, radiant = bold && deep;
-    const classic = r.palette.length === 3 && sp.classic.every(c => r.palette.includes(c));
-    const blind = r.blind && rb !== null;
-    const cls = sizeClass(eaten), mm = wingspan(sp, eaten);
-    const flags = (radiant ? F.RADIANT : 0) | (classic ? F.CLASSIC : 0) | (blind ? F.BLIND : 0) | (r.silk ? F.SILK : 0) | (bold ? F.BOLD : 0) | (deep ? F.DEEP : 0);
-    const path = encodePath(r.path);
-    const res = emerge(this.p, { sp: sp.id, mm, cls, flags, pig: r.palette, depth, path, daily: r.daily, egg: r.offers[r.pick] ?? null }, this.o.day, this.o.rng);
-    const outcome: Outcome = {
-      rec: res.rec, species: sp, path: decodePath(path), isNew: res.isNew, record: res.record, aberration: res.aberration,
-      radiant, classic, bold, deep, blind, silk: r.silk, cls: SIZE_CLASSES[cls], pollen: res.pollen, opened: res.opened, daily: r.daily,
+  private ate(f: Food): void {
+    const spec = RULES.food[f.kind];
+    this.chain = this.t - this.lastEat <= RULES.chainSec ? this.chain + 1 : 1;
+    this.lastEat = this.t;
+    const mult = multOf(this.chain), pts = spec.pts * mult;
+    this.score += pts;
+    this.player.grow += spec.grow;
+    if (f.pig >= 0 && (f.kind === 'flower' || f.kind === 'rare')) this.palette = addPigment(this.palette, f.pig);
+    this.emit({ type: 'eat', kind: f.kind, x: f.x, y: f.y, pts, mult, chain: this.chain, pig: f.pig });
+    if (f.kind === 'leaf' || f.kind === 'flower') this.spawn(f.kind);
+    const g = this.garden;
+    if (!this.sideDone && ((g.side === 'rare' && f.kind === 'rare') || (g.side === 'dew' && f.kind === 'dew') || (g.side === 'flowers' && f.kind === 'flower'))) this.sideStep();
+    if (f.kind === 'rare') this.say('rare', 3, 4);
+  }
+
+  private sideStep(): void {
+    this.sideCount++;
+    if (this.sideCount >= this.sideNeed && !this.sideDone) {
+      this.sideDone = true;
+      this.emit({ type: 'side', goal: this.garden.side });
+    }
+  }
+
+  // ── collisions ─────────────────────────────────────────────────
+  private collide(): void {
+    const w = this.player, h = w.segs[0], g = this.girth;
+    const open = w.safe <= 0 && w.curl <= 0;
+    // own body (Snake): only far segments
+    if (open) {
+      const r2 = (g * 1.15) ** 2;
+      for (let i = RULES.selfSkip; i < w.segs.length; i++) {
+        const s = w.segs[i];
+        if (dist2(s.x, s.y, h.x, h.y) < r2) { this.stumble('self', s.x, s.y); return; }
+      }
+    }
+    for (const r of this.rivals) {
+      if (r.away > 0) continue;
+      const rg = girthOf(r.segs.length), rh = r.segs[0];
+      // heads meet: the shorter one curls
+      if (open && r.curl <= 0 && r.safe <= 0 && dist2(rh.x, rh.y, h.x, h.y) < (g + rg) ** 2 * 0.8) {
+        if (r.segs.length < this.len) this.curlRival(r);
+        else { this.stumble('rival', rh.x, rh.y); return; }
+        continue;
+      }
+      // the player's head into the rival's body
+      if (open) {
+        const r2 = (g * 0.8 + rg) ** 2;
+        for (let i = 2; i < r.segs.length; i++) {
+          const s = r.segs[i];
+          if (dist2(s.x, s.y, h.x, h.y) < r2) { this.stumble('rival', s.x, s.y); return; }
+        }
+      }
+      // the rival's head into the player's body: it curls
+      if (r.curl <= 0 && r.safe <= 0) {
+        const r2 = (rg * 0.8 + g) ** 2;
+        for (let i = 1; i < w.segs.length; i++) {
+          const s = w.segs[i];
+          if (dist2(s.x, s.y, rh.x, rh.y) < r2) { this.curlRival(r); break; }
+        }
+      }
+    }
+    // a walking bird underfoot
+    if (open) {
+      for (const b of this.birds) {
+        if (b.state !== 'walk' && b.state !== 'peck') continue;
+        if (dist2(b.x, b.y, h.x, h.y) < (RULES.birdR + g) ** 2) { this.stumble('bird', b.x, b.y); return; }
+      }
+    }
+    // the first rival near: teach
+    for (const r of this.rivals) {
+      if (r.away > 0) continue;
+      const rh = r.segs[0];
+      if (dist2(rh.x, rh.y, h.x, h.y) < 280 ** 2) { this.teach('rival', rh.x, rh.y); break; }
+    }
+  }
+
+  /** The player bumped into something: it curls up, the tail's last segments fall as crumbs, it goes on. */
+  private stumble(cause: 'self' | 'rival' | 'bird', x: number, y: number): void {
+    const w = this.player;
+    const lose = Math.min(Math.max(0, this.len - RULES.minLen), Math.max(RULES.stumbleMin, Math.round(this.len * RULES.stumbleShare)));
+    for (let i = 0; i < lose; i++) {
+      const s = w.segs.pop()!;
+      this.spawn('crumb', { x: s.x + (this.rng() - 0.5) * 10, y: s.y + (this.rng() - 0.5) * 10 });
+    }
+    w.curl = RULES.curlSec;
+    w.safe = RULES.safeSec + RULES.curlSec;
+    w.dir = wrapA(Math.atan2(w.segs[0].y - y, w.segs[0].x - x) + (this.rng() - 0.5) * 0.6);
+    w.want = w.dir;
+    this.aimDir = null;
+    this.stumbles++;
+    this.chain = 0;
+    this.stop = RULES.stopStumble;
+    this.emit({ type: 'stumble', x, y, cause, lost: lose });
+    this.say(cause === 'self' ? 'self' : 'stumble', 2, 3);
+  }
+
+  private curlRival(r: Worm): void {
+    const n = Math.round(r.segs.length * RULES.rivalDrop);
+    for (let i = 0; i < r.segs.length && i < n * 2; i += 2) {
+      const s = r.segs[i];
+      this.spawn('crumb', { x: s.x + (this.rng() - 0.5) * 8, y: s.y + (this.rng() - 0.5) * 8 });
+    }
+    const h = r.segs[0];
+    r.curl = 0.8;
+    r.away = RULES.rivalBack + 0.8;
+    this.curls++;
+    this.chain++;
+    this.lastEat = this.t;
+    const pts = RULES.rivalCurlPts * multOf(this.chain);
+    this.score += pts;
+    this.stop = RULES.stopCurl;
+    this.emit({ type: 'curl', x: h.x, y: h.y, pts });
+    this.say('curl', 2, 3);
+    if (!this.sideDone && this.garden.side === 'curl') this.sideStep();
+  }
+
+  // ── the chrysalis ──────────────────────────────────────────────
+  private beginSpin(): void {
+    this.phase = 'spin';
+    this.spinT = 0;
+    this.player.sprinting = false;
+    const stars = starsOf(this.stumbles, this.sideDone);
+    this.stop = RULES.stopGoal;
+    this.emit({ type: 'goal', stars, x: this.player.segs[0].x, y: this.player.segs[0].y });
+    this.say('goal', 3, 5);
+  }
+
+  /** The caterpillar has spun: the chrysalis goes to the twig, the garden is scored, the next one begins. */
+  private endSpin(): void {
+    const stars = starsOf(this.stumbles, this.sideDone);
+    const c = this.makeChrysalis(stars);
+    this.twig.push(c);
+    while (this.twig.length > RULES.twigMax) this.hatchOne(this.twig.shift()!, false, 0);
+    finishGarden(this.p, this.gardenIndex, stars);
+    this.gardensDone++;
+    this.starsWon += stars;
+    this.score += RULES.gardenPts * stars;
+    this.emit({ type: 'spun', c });
+    this.phase = 'play';
+    this.newGarden(this.gardenIndex + 1, false);
+  }
+
+  private makeChrysalis(stars: number): Chrysalis {
+    const sp = speciesById(this.player.sp);
+    const pig = this.palette.slice();
+    for (const k of sp.classic) if (pig.length < 3 && !pig.includes(k)) pig.unshift(k);
+    return {
+      id: this.nextId++, sp: sp.id, depth: Math.min(1, this.depth + stars * RULES.depthStar), stars, pig: pig.slice(-3),
+      path: encodePath(this.path), len: this.len, egg: this.egg, age: 0, garden: this.gardenIndex,
     };
-    this.counts.pollen += res.pollen;
-    r.outcome = outcome;
-    this.done.push(outcome);
-    return outcome;
   }
 
-  /**
-   * The session ends before its own ending ("Zakończ i zapisz", the overtime limit): a caterpillar that
-   * is eating or pupating flies out now as a butterfly of the size it reached (unjudged blocks leave the
-   * stats alone); an egg that has not hatched yet is not spent and waits for the next session.
-   */
-  finish(): void {
-    const r = this.round;
-    if (r?.species && r.leafBlock && !r.outcome) this.emergeRound(r);
-    this.setPhase('finale');
+  private recordPath(dt: number): void {
+    this.pathT += dt;
+    if (this.pathT < 0.3) return;
+    this.pathT = 0;
+    const h = this.player.segs[0];
+    this.path.push({
+      x: this.box.x0 + (h.x / RULES.worldW) * (this.box.x1 - this.box.x0), y: this.box.y0 + (h.y / RULES.worldH) * (this.box.y1 - this.box.y0),
+      a: clamp((this.reach - RULES.reachBase) / RULES.reachExtra), silk: this.player.sprinting && this.freeSprint,
+    });
+    if (this.path.length > 600) this.path.splice(0, this.path.length - 600);
   }
 
-  /**
-   * What the ambient pad's brightness follows (0..1), or null to hold it still: the appetite while it
-   * eats (the brain you can hear), the clearing shell in a seen chrysalis (calm opens the sound as it
-   * clears the shell); held on the egg cards, at the emergence and inside a blind cocoon, so the sound
-   * never tells what the picture keeps to itself.
-   */
-  padLevel(): number | null {
-    const r = this.round;
-    if (!r) return null;
-    if (this.phase === 'feed') return r.cat.a;
-    if ((this.phase === 'spin' || this.phase === 'chrysalis') && !r.blind) return clamp((r.glass - GLASS_MIN) / (1 - GLASS_MIN), 0, 1);
-    return null;
+  /** A chrysalis hatches: the butterfly goes to the atlas (its egg spent, its record, pyłek). */
+  private hatchOne(c: Chrysalis, passed: boolean, slot: number): Hatched {
+    const sp = speciesById(c.sp), depth = Math.max(RULES.depthFloor, c.depth);
+    const radiant = passed && depth >= RULES.radiantDepth;
+    const cls = sizeClass(c.stars, depth);
+    const mm = wingspan(sp, cls, this.rng());
+    const classic = sp.classic.every(k => c.pig.includes(k));
+    const flags = (radiant ? F.RADIANT : 0) | (classic ? F.CLASSIC : 0) | (depth >= 0.7 ? F.DEEP : 0) | (c.stars >= 3 ? F.BOLD : 0);
+    const daily = !!c.egg && c.egg.source === 'daily';
+    const res = emerge(this.p, { sp: sp.id, mm, cls, flags, pig: c.pig, depth, path: c.path, daily, egg: c.egg }, this.o.day, this.rng);
+    const b: Hatched = { sp, mm, cls, depth, radiant, isNew: res.isNew, aberration: res.aberration, classic, rec: res.rec, record: res.record };
+    this.hatchedList.push(b);
+    this.emit({ type: 'hatch', b, slot });
+    this.say('hatch', 2, 5);
+    return b;
   }
 
-  // ── what the session shows ──────────────────────────────────────
-  /** The current caterpillar's wingspan if it emerged now (null when there is none). */
-  get provisional(): number | null {
-    const r = this.round;
-    if (!r?.species || r.outcome || (this.phase !== 'feed' && this.phase !== 'spin' && this.phase !== 'chrysalis')) return null;
-    return wingspan(r.species, this.eatenShare(r));
+  // ── the blocks ─────────────────────────────────────────────────
+  private schedule(dt: number, f: FocusFrame, t: number): void {
+    const b = this.block;
+    this.blockT += dt;
+    if (b.kind !== 'warmup') {
+      const want = b.kind === 'push' ? 'focus' : 'rest';
+      this.judge.push(want, f, dt);
+      this.contrast.push(want, f.activity, f.reliable, this.blockT, dt);
+      if (f.reliable) this.relSec += dt;
+    }
+    const last = this.blockIndex >= this.plan.length - 1;
+    if (!this.telegraphed && this.blockT >= b.dur - RULES.telegraph) {
+      this.telegraphed = true;
+      this.emit({ type: 'telegraph', next: last ? null : this.plan[this.blockIndex + 1] });
+    }
+    if ((last && this.blockT >= b.dur) || t >= this.plannedSec - RULES.finale) {
+      this.endBlock();
+      this.beginFinale();
+    } else if (!last && this.blockT >= b.dur) {
+      this.endBlock();
+      this.startBlock(this.blockIndex + 1);
+    }
   }
 
-  get score(): number {
-    return this.done.reduce((s, o) => s + o.rec.mm, 0) + (this.provisional ?? 0);
+  private startBlock(i: number): void {
+    this.blockIndex = i;
+    this.blockT = 0;
+    this.telegraphed = false;
+    this.relSec = 0;
+    this.judge.reset();
+    const b = this.plan[i];
+    const first = !this.plan.slice(0, i).some(x => x.kind === b.kind);
+    if (b.kind === 'push') {
+      this.pushesBegun++;
+      b.blind = this.p.sessions >= RULES.blindFrom && !first && (this.pushesBase + this.pushesBegun) % RULES.blindEvery === 0;
+      this.goodT = 0;
+      this.say(b.blind ? 'blind' : 'push', 2, 12);
+    } else if (b.kind === 'rest') {
+      for (let k = 0; k < RULES.dews; k++) this.spawn('dew');
+      this.goodT = 0;
+      this.say('rest', 2, 12);
+    } else this.say('warm', 1, 8);
+    // dew evaporates after its siesta
+    if (b.kind !== 'rest') this.food = this.food.filter(f => f.kind !== 'dew');
+    this.tip = this.tipFor(b, i, first);
+    this.emit({ type: 'blockStart', block: b, index: i });
   }
 
-  /** Time up may end the session except during a chrysalis or an emergence. */
+  private tipFor(b: Block, i: number, first: boolean): string {
+    const s = Math.max(1, this.p.sessions);
+    if (b.kind === 'warmup') return TIPS.warmup[0];
+    if (b.kind === 'push') {
+      if (b.blind) return TIPS.blind[(s + i) % TIPS.blind.length];
+      if (first && this.pushesBase === 0) return TIPS.firstPush;
+      return TIPS.push[(s - 1 + i) % TIPS.push.length];
+    }
+    if (first && s === 1) return TIPS.firstRest;
+    return TIPS.rest[(s - 1 + i) % TIPS.rest.length];
+  }
+
+  private endBlock(): void {
+    const b = this.block;
+    let verdict: boolean | null = null;
+    if (b.kind !== 'warmup') {
+      verdict = this.relSec >= RULES.minReliable ? this.judge.verdict() : null;
+      if (b.kind === 'push') {
+        if (verdict !== null) { this.counts.pushJudged++; if (verdict) this.counts.pushOk++; }
+        if (b.blind) {
+          this.trace.unveil(this.t);
+          this.counts.blindN++;
+          if (verdict) {
+            this.counts.blindOk++;
+            this.feast();
+          }
+        }
+      } else {
+        if (verdict !== null) { this.counts.restJudged++; if (verdict) this.counts.restOk++; }
+        // the twig's chrysalises hatch at the siesta's end
+        const ready = this.twig.splice(0, this.twig.length);
+        ready.forEach((c, i) => this.hatchOne(c, verdict === true, i));
+      }
+    }
+    this.emit({ type: 'blockEnd', block: b, verdict });
+  }
+
+  /** A blind push block that passed: what the hidden appetite gathered falls around the head at once. */
+  private feast(): void {
+    const h = this.player.segs[0], n = 14;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * TAU, r = 70 + (i % 2) * 30;
+      const f = this.spawn(i % 3 === 0 ? 'flower' : 'leaf', {
+        x: clamp(h.x + Math.cos(a) * r, 60, RULES.worldW - 60), y: clamp(h.y + Math.sin(a) * r, 60, RULES.worldH - 60),
+      });
+      if (f.kind === 'flower') f.pig = Math.floor(this.rng() * 5);
+    }
+    this.counts.feasts++;
+    this.emit({ type: 'feast', x: h.x, y: h.y, n });
+  }
+
+  // ── the end ────────────────────────────────────────────────────
+  private beginFinale(): void {
+    if (this.phase === 'finale' || this.phase === 'done') return;
+    if (this.phase === 'spin') this.endSpin();
+    this.phase = 'finale';
+    this.finaleT = 0;
+    this.card = null;
+    this.release();
+    this.player.sprinting = false;
+    // a caterpillar most of the way to its goal spins too
+    if (this.len >= this.garden.len * RULES.lateShare && this.len > RULES.startLen) {
+      const stars = Math.max(1, starsOf(this.stumbles, this.sideDone) - 1);
+      this.twig.push(this.makeChrysalis(stars));
+    }
+    this.emit({ type: 'finale' });
+    this.say('end', 3, 6);
+    const ready = this.twig.splice(0, this.twig.length);
+    ready.forEach((c, i) => this.hatchOne(c, this.counts.restOk > 0, i));
+  }
+
+  private runFinale(dt: number): void {
+    this.finaleT += dt;
+    if (this.finaleT >= RULES.finale && this.phase === 'finale') {
+      this.phase = 'done';
+      this.emit({ type: 'done' });
+    }
+  }
+
   canStop(): boolean {
-    return this.phase !== 'spin' && this.phase !== 'chrysalis' && this.phase !== 'emerge';
+    return this.phase === 'done' || (this.phase === 'finale' && this.finaleT >= Math.min(RULES.finale, RULES.settle)) || this.t >= this.plannedSec + RULES.settle;
   }
 
-  /**
-   * The session's numbers; idempotent (only the best session goes into the progress, with max, and it
-   * counts butterflies that flew out, never the caterpillar still eating).
-   */
+  /** The session ends early: settle now (the twig hatches; a long enough caterpillar spins). */
+  finish(): void {
+    if (this.settled) return;
+    if (this.started && this.phase !== 'finale' && this.phase !== 'done') this.beginFinale();
+    this.phase = 'done';
+    this.settled = true;
+  }
+
+  // ── the HUD's numbers ──────────────────────────────────────────
+  headline(): Headline {
+    const m = this.mult;
+    const sub = t('hud.sub', { len: this.started ? this.len : RULES.startLen, goal: this.garden.len }) + (m > 1 ? ` · ×${m}` : '');
+    return { value: this.score, sub };
+  }
+
+  // ── the tutorial ───────────────────────────────────────────────
+  private tutorial(): void {
+    const h = this.player.segs[0];
+    if (this.firstEver) {
+      if (this.wt > 0.6) this.teach('steer', h.x, h.y);
+      if (this.wt > 3.5) {
+        let near: Food | null = null, nd = 240 ** 2;
+        for (const f of this.food) {
+          if (f.kind !== 'flower') continue;
+          const d = dist2(f.x, f.y, h.x, h.y);
+          if (d < nd) { nd = d; near = f; }
+        }
+        if (near) this.teach('eat', near.x, near.y);
+      }
+      if (this.wt > 9) this.teach('sprint', h.x, h.y);
+    }
+    const b = this.block;
+    if (b.kind === 'push' && !b.blind && this.blockT > RULES.bannerSec + 0.5) this.teach('reach', h.x, h.y);
+    if (b.kind === 'rest' && this.blockT > RULES.bannerSec + 0.5) this.teach('rest', -1, -1);
+  }
+
+  // ── the result ─────────────────────────────────────────────────
   result(): ArcadeOutcome {
-    const score = this.score, c = this.counts, done = this.done;
-    this.p.bestSession = Math.max(this.p.bestSession, done.reduce((s, o) => s + o.rec.mm, 0));
-    const biggest = done.reduce<Outcome | null>((b, o) => (!b || o.rec.mm > b.rec.mm ? o : b), null);
+    const score = Math.round(this.score), c = this.counts;
+    this.p.bestSession = Math.max(this.p.bestSession, score);
+    this.p.bestLen = Math.max(this.p.bestLen, this.bestLenSession);
+    if (this.firstEver && (this.blockIndex > 0 || this.phase === 'done')) this.p.tut = true;
     const contrast = this.contrast.contrast;
     const stats: [string, string][] = [
-      [t('stat.butterflies'), String(done.length)],
-      [t('stat.biggest'), biggest ? `${biggest.rec.mm} mm` : '—'],
-      [t('stat.bold'), `${c.pushOk}/${c.pushJudged}`],
-      [t('stat.deep'), `${c.restOk}/${c.restJudged}`],
-      [t('stat.radiant'), String(done.filter(o => o.radiant).length)],
+      [t('stat.gardens'), String(this.gardensDone)],
+      [t('stat.stars'), `${this.starsWon} ★`],
+      [t('stat.longest'), `${this.bestLenSession} cm`],
+      [t('stat.butterflies'), String(this.hatchedList.length)],
+      [t('stat.reach'), `${c.pushOk}/${c.pushJudged}`],
+      [t('stat.colours'), `${c.restOk}/${c.restJudged}`],
       [t('stat.contrast'), contrast === null ? '—' : t('pct', { v: fmtSigned(contrast, 1) })],
     ];
     if (c.blindN) stats.push([t('stat.blind'), `${c.blindOk}/${c.blindN}`]);
-    if (c.pollen) stats.push([t('stat.pollen'), `+${c.pollen}`]);
     return {
-      score, unit: 'mm', record: this.bestBefore !== null && score > this.bestBefore, stats, highlights: this.highlights(),
+      score, unit: t('unit'), record: this.bestBefore !== null && score > this.bestBefore, stats, highlights: this.highlights(score),
       verse: this.closingVerse(),
     };
   }
 
   /**
-   * The summary's closing passage (kit/scripture.ts), one of those the session fits, in turn from
-   * session to session: the full Atlas is all things made new, a new species the earth full of His
-   * creatures, a deep chrysalis a season for everything; the lilies and the birds fit every day.
-   * The lobby already opens with 2 Corinthians 5:17.
+   * The closing passage: the full atlas is all things made new; a new species, the earth full of His
+   * creatures; a deep chrysalis, a season for everything; the lilies and the birds fit any day.
    */
   private closingVerse(): PassageId {
-    const fresh = this.done.some(o => o.isNew);
+    const fresh = this.hatchedList.some(b => b.isNew);
     if (fresh && SPECIES.every(s => (this.p.atlas[s.id]?.n ?? 0) > 0)) return 'rev21.5';
     const fit: PassageId[] = [];
     if (fresh) fit.push('psa104.24');
-    if (this.counts.restOk > 0) fit.push('ecc3.1');
+    if (this.counts.restOk > 0 && this.hatchedList.some(b => b.depth >= 0.7)) fit.push('ecc3.1');
     fit.push('mat6.28-29', 'mat6.26');
     return inTurn(fit, this.p.sessions);
   }
 
-  /**
-   * At most four lines for the summary, so the headline and the stats stay in view: what is new in the
-   * Atlas, a new habitat, the brain's forms (radiant, silk), the day (its leaf, tomorrow's eggs), the
-   * craft (classic forms, records) — each merged from the session's butterflies, in that order of
-   * weight — and in the very first session one strategy tip to end on.
-   */
-  private highlights(): string[] {
-    const done = this.done;
-    /** the species of the butterflies `f` picks, each once */
-    const species = (f: (o: Outcome) => boolean): string[] => [...new Set(done.filter(f).map(o => o.species.name))];
-    const line = (...parts: (string | false)[]): string => capital(parts.filter(Boolean).join(' · '));
+  /** At most four lines: new species and forms, radiant wings, the gardens and stars, the near-miss tally, Hieronim's last word. */
+  private highlights(score: number): string[] {
     const lines: string[] = [];
-    // new species, an aberration in brackets after its species, or on its own
-    const odd = new Map<string, string>();
-    for (const o of done) if (o.aberration && !odd.has(o.species.name)) odd.set(o.species.name, ABERRATION_FORM[o.aberration]);
-    const fresh = species(o => o.isNew);
-    const freshText = fresh.map(n => (odd.has(n) ? t('hl.withForm', { name: n, form: odd.get(n)! }) : n)).join(', ');
-    const oddText = [...odd].filter(([n]) => !fresh.includes(n)).map(([n, form]) => t('hl.form', { form, name: n }));
-    if (fresh.length || oddText.length) lines.push(line(fresh.length > 0 && t(fresh.length > 1 ? 'hl.newN' : 'hl.new1', { list: freshText }), ...oddText));
-    const opened = done.find(o => o.opened)?.opened;
-    const habitat = HABITATS.find(hb => hb.id === opened);
-    if (habitat) lines.push(t('hl.habitat', { habitat: habitat.name, n: SPECIES.filter(s => s.habitat === habitat.id).length }));
-    const radiant = species(o => o.radiant), silk = done.some(o => o.silk);
-    if (radiant.length) lines.push(line(t(radiant.length > 1 ? 'hl.radiantN' : 'hl.radiant1', { list: radiant.join(', ') }), silk && t('hl.silkOnWing')));
-    else if (silk) lines.push(t('hl.silk', { s: SILK_HOLD }));
-    const later = laterEggs(this.p, this.o.day), daily = done.some(o => o.daily);
-    if (later.length) lines.push(line(daily && t('hl.dailyDone'), t('hl.tomorrow', { list: eggsLine(later) })));
-    else if (daily) lines.push(t('hl.daily'));
-    const classic = species(o => o.classic).join(', ');
-    const best = new Map<string, Outcome>();
-    for (const o of done) if (o.record && (best.get(o.species.id)?.rec.mm ?? 0) < o.rec.mm) best.set(o.species.id, o);
-    const records = [...best.values()].map(o => t('hl.recordItem', { name: o.species.name, mm: o.rec.mm })).join(', ');
-    if (classic || records) lines.push(line(!!classic && t('hl.classic', { list: classic }), !!records && t('hl.records', { list: records })));
-    const tip = this.p.sessions <= 1 && done.length > 0;
-    const out = lines.slice(0, tip ? 3 : 4);
-    if (tip) out.push(t('hl.tip'));
+    const done = this.hatchedList;
+    const fresh = [...new Set(done.filter(b => b.isNew).map(b => b.aberration ? t('hl.withForm', { name: b.sp.name, form: ABERRATION_FORM[b.aberration] }) : b.sp.name))];
+    if (fresh.length) lines.push(capital(t(fresh.length > 1 ? 'hl.newN' : 'hl.new1', { list: fresh.join(', ') })));
+    const radiant = [...new Set(done.filter(b => b.radiant).map(b => b.sp.name))];
+    if (radiant.length) lines.push(capital(t('hl.radiant', { list: radiant.join(', ') })));
+    if (this.gardensDone) lines.push(t('hl.gardens', { n: this.gardensDone, stars: this.starsWon, next: gardenAt(this.p.garden).name }));
+    if (this.bestBefore !== null && score <= this.bestBefore && this.bestBefore - score <= Math.max(40, this.bestBefore * 0.3)) {
+      lines.push(t('hl.near', { n: this.bestBefore - score + 1 }));
+    } else if (this.bestLenSession >= this.p.bestLen && this.bestLenSession > RULES.startLen + 4) {
+      lines.push(t('hl.longest', { n: this.bestLenSession }));
+    }
+    const out = lines.slice(0, 3);
+    out.push(this.p.sessions <= 1 ? t('hl.tip') : t(`hl.close.${1 + (this.p.sessions % 3)}` as 'hl.close.1'));
     return out;
   }
-}
 
+  /** For the size of a butterfly in words. */
+  static sizeName(cls: number): string { return SIZE_CLASSES[Math.max(0, Math.min(3, cls))]; }
+}

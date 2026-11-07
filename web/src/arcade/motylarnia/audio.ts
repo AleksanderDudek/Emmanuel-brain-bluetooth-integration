@@ -1,31 +1,35 @@
 /**
- * Motylarnia's sound, through the kit's synthesiser: a soft pad (its filter opens with what the game's
- * padLevel() reports: the appetite while it eats, the clearing shell in a seen chrysalis, held still in
- * a blind cocoon), a meadow breeze and bird chirps, and the caterpillar's munch — tiny noise crunches
- * whose rate IS the appetite, rising a semitone for every 5 s held in the zone.  Each pigment is a
- * note on the pentatonic ladder, so eating dots plays a melody; the chrysalis gets a music-box chord
- * and wind chimes, the emergence a rising arpeggio and a paper rustle.
+ * Motylarnia's sound, through the kit's synthesiser: a soft garden pad (its filter follows padLevel(),
+ * the focus in a sighted Apetyt block, still otherwise), a breeze and far bird chirps, and every bite
+ * a crunch whose pitch climbs with the chain (Peggle's ladder): flowers ring their pigment's note,
+ * dew drips, the rare flower opens a chord.  A stumble thuds, a rival curling boings down, a bird's
+ * swoop whistles before the peck, a moult arpeggiates, the chrysalis is spun with a music-box run and
+ * a butterfly hatches on bells.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
-import { PIGMENTS } from './content';
 import type { MothSim, SimEvent } from './sim';
 
-const LEAF_CHORD = [174.61, 261.63, 329.63, 392];
-const CHRYSALIS_CHORD = [146.83, 220, 293.66, 369.99];
+const DAY_CHORD = [174.61, 261.63, 329.63, 392];
+const SIESTA_CHORD = [146.83, 220, 293.66, 369.99];
 const GOLD_CHORD = [130.81, 196, 261.63, 329.63];
+const PIG_NOTE = [0, 2, 4, 1, 3];
 
 export class MothSound {
-  private munchIn = 0;
-  private breezeIn = 1.5;
-  private birdIn = 3;
-  private chimeIn = 2;
-  private chord = LEAF_CHORD;
+  private breezeIn = 2;
+  private birdIn = 4;
+  private chord = DAY_CHORD;
+  private sprintIn = 0;
+  private rnd = 1;
 
-  constructor(private readonly a: ArcadeAudio, private readonly rng: () => number) {}
+  constructor(private readonly a: ArcadeAudio) {}
+
+  private r(): number {
+    this.rnd = (this.rnd * 16807) % 2147483647;
+    return this.rnd / 2147483647;
+  }
 
   start(): void {
-    // the low-pass at a level of 0 and of 1
-    this.a.pad({ notes: LEAF_CHORD, type: 'sine', dark: 420, bright: 2400, gain: 0.05 });
+    this.a.pad({ notes: DAY_CHORD, type: 'sine', dark: 420, bright: 2600, gain: 0.05 });
   }
 
   private setChord(notes: number[]): void {
@@ -34,98 +38,71 @@ export class MothSound {
     this.a.padChord(notes, 2.5);
   }
 
-  /** Ambience and the munch, every frame of play. */
-  tick(dt: number, sim: MothSim): void {
+  update(dt: number, sim: MothSim): void {
     if (!this.a.on) return;
-    const r = sim.round, phase = sim.phase;
-    if (phase === 'feed' && r) {
-      const c = r.cat;
-      this.munchIn -= dt;
-      if (c.fresh < 0.25 && this.munchIn <= 0) {
-        const rate = 2 + 6 * c.a, semis = Math.floor((r.leafBlock?.zone ?? 0) / 5);
-        this.a.noiseBurst(0.045, { type: 'bandpass', freq: 2300 * 2 ** (semis / 12) * (0.92 + 0.16 * this.rng()), q: 2.4, gain: 0.07 });
-        this.a.tone(180 + 60 * this.rng(), 0.04, { type: 'triangle', gain: 0.025 });
-        this.munchIn = (1 / rate) * (0.85 + 0.3 * this.rng());
-      }
-    }
+    this.setChord(sim.phase === 'finale' || sim.phase === 'done' ? GOLD_CHORD : sim.block.kind === 'rest' ? SIESTA_CHORD : DAY_CHORD);
     this.breezeIn -= dt;
     if (this.breezeIn <= 0) {
-      this.a.noiseBurst(3.6, { type: 'lowpass', freq: 420, sweepTo: 950, q: 0.6, gain: 0.03 });
-      this.breezeIn = 5 + 4 * this.rng();
+      this.a.noiseBurst(3.4, { type: 'lowpass', freq: 380, sweepTo: 900, q: 0.6, gain: 0.025 });
+      this.breezeIn = 5 + 4 * this.r();
     }
-    if (phase !== 'chrysalis' && phase !== 'spin') {
+    if (sim.block.kind !== 'rest') {
       this.birdIn -= dt;
       if (this.birdIn <= 0) {
-        const n = 2 + Math.floor(this.rng() * 3), f = 2500 + this.rng() * 900;
-        for (let k = 0; k < n; k++) this.a.tone(f * (1 + 0.05 * k), 0.07, { type: 'sine', gain: 0.02, slideTo: f * 1.35, at: k * 0.12 });
-        this.birdIn = 7 + 8 * this.rng();
-      }
-    } else {
-      this.chimeIn -= dt;
-      if (this.chimeIn <= 0) {
-        this.a.bell(ladder(5 + Math.floor(this.rng() * 6), 523.25), 0.022, 2.6);
-        this.chimeIn = 2.4 + 2.8 * this.rng();
+        const n = 2 + Math.floor(this.r() * 3), f = 2400 + this.r() * 900;
+        for (let k = 0; k < n; k++) this.a.tone(f * (1 + 0.05 * k), 0.07, { type: 'sine', gain: 0.016, slideTo: f * 1.3, at: k * 0.12 });
+        this.birdIn = 6 + 6 * this.r();
       }
     }
+    if (sim.sprinting) {
+      this.sprintIn -= dt;
+      if (this.sprintIn <= 0) {
+        this.a.noiseBurst(0.3, { type: 'bandpass', freq: sim.freeSprint ? 1800 : 900, sweepTo: sim.freeSprint ? 2600 : 1300, q: 1.2, gain: 0.03 });
+        this.sprintIn = 0.25;
+      }
+    } else this.sprintIn = 0;
   }
 
-  event(e: SimEvent): void {
+  on(e: SimEvent): void {
     const a = this.a;
     if (!a.on) return;
     switch (e.type) {
-      case 'round':
-        this.setChord(e.last ? GOLD_CHORD : LEAF_CHORD);
-        break;
-      case 'pick':
-        a.tone(660, 0.12, { type: 'triangle', gain: 0.06 });
-        break;
-      case 'hatch':
-        a.noiseBurst(0.18, { type: 'highpass', freq: 3000, gain: 0.04 });
-        a.bell(ladder(2), 0.05, 1);
-        break;
-      case 'dot':
-        a.bell(ladder(PIGMENTS[e.pigment].note + 5 * Math.min(2, Math.floor((e.n - 1) / 5))), 0.09, 1.3);
-        break;
-      case 'treat':
-        if (e.kind === 'malina') {
-          a.tone(520, 0.16, { type: 'triangle', slideTo: 880, gain: 0.07 });
-          a.bell(1318.5, 0.04, 0.8, 0.08);
+      case 'eat': {
+        const step = Math.min(14, e.chain - 1);
+        if (e.kind === 'leaf' || e.kind === 'crumb') {
+          a.noiseBurst(0.05, { type: 'bandpass', freq: 2100 * 2 ** (step / 24), q: 2.2, gain: 0.06 });
+          a.tone(ladder(step, 392), 0.07, { type: 'triangle', gain: 0.035 });
+        } else if (e.kind === 'flower') {
+          a.bell(ladder(PIG_NOTE[Math.max(0, e.pig) % 5] + Math.floor(step / 3), 523.25), 0.08, 0.9);
+        } else if (e.kind === 'dew') {
+          a.tone(1200 + step * 40, 0.12, { type: 'sine', gain: 0.06, slideTo: 1900 + step * 40 });
         } else {
-          a.noiseBurst(0.9, { type: 'highpass', freq: 3200, sweepTo: 5200, gain: 0.035 });
-          a.bell(1567.98, 0.045, 1.2);
+          [0, 4, 7, 12].forEach((s, i) => a.bell(523.25 * 2 ** (s / 12), 0.09, 1.6, i * 0.07));
         }
         break;
-      case 'class':
-        a.combo(e.cls + 5, 523.25, 0.07);
+      }
+      case 'moult': [0, 2, 4, 7].forEach((n, i) => a.tone(ladder(n + 5, 392), 0.16, { type: 'triangle', gain: 0.06, at: i * 0.06 })); break;
+      case 'sprint': if (e.on) a.noiseBurst(0.35, { type: 'bandpass', freq: 700, sweepTo: 2200, q: 1, gain: 0.05 }); break;
+      case 'stumble':
+        a.tone(160, 0.25, { type: 'sine', gain: 0.14, slideTo: 70 });
+        a.noiseBurst(0.22, { type: 'lowpass', freq: 600, gain: 0.08 });
         break;
-      case 'bold':
-        a.bell(ladder(7), 0.08, 1.4);
-        a.bell(ladder(9), 0.06, 1.6, 0.12);
+      case 'curl':
+        a.tone(620, 0.35, { type: 'triangle', gain: 0.09, slideTo: 180 });
+        a.combo(6, 523.25, 0.07);
         break;
-      case 'silk':
-        for (let k = 0; k < 5; k++) a.bell(ladder(9 + k), 0.04, 1.2, k * 0.06);
-        break;
-      case 'full':
-        a.tone(392, 0.3, { type: 'triangle', gain: 0.07 });
-        a.tone(523.25, 0.45, { type: 'triangle', gain: 0.06, at: 0.14 });
-        break;
-      case 'spin':
-        this.setChord(CHRYSALIS_CHORD);
-        a.noiseBurst(1.1, { type: 'bandpass', freq: 900, sweepTo: 380, gain: 0.03 });
-        break;
-      case 'deep':
-        a.bell(ladder(4, 261.63), 0.06, 2.2);
-        break;
-      case 'emerge':
-        for (let k = 0; k < 8; k++) a.bell(ladder(k + 2), 0.065, 1.6, 0.5 + k * 0.09);
-        a.noiseBurst(1.3, { type: 'highpass', freq: 2400, sweepTo: 6400, gain: 0.04, at: 0.7 });
-        // a blind cocoon's deep colours: their bell, now that it has opened
-        if (e.outcome.blind && e.outcome.deep) a.bell(ladder(4, 261.63), 0.06, 2.2, 1.4);
-        if (e.outcome.radiant || e.outcome.aberration) for (let k = 0; k < 4; k++) a.bell(ladder(12 + k), 0.04, 1.4, 1.5 + k * 0.08);
-        break;
-      case 'finale':
-        this.setChord(GOLD_CHORD);
-        break;
+      case 'swoop': a.tone(2600, 0.9, { type: 'sine', gain: 0.03, slideTo: 900, attack: 0.3 }); break;
+      case 'peck': a.noiseBurst(0.06, { type: 'highpass', freq: 2500, gain: e.hit ? 0.12 : 0.06 }); break;
+      case 'near': a.tone(880, 0.12, { type: 'sine', gain: 0.05, slideTo: 1320 }); break;
+      case 'side': [0, 4, 7, 12, 16].forEach((s, i) => a.bell(659.25 * 2 ** (s / 12), 0.07, 1.2, i * 0.08)); break;
+      case 'goal': [0, 2, 4, 5, 7, 9, 11, 12].forEach((s, i) => a.tone(523.25 * 2 ** (s / 12), 0.2, { type: 'triangle', gain: 0.05, at: i * 0.07 })); break;
+      case 'spun': a.bell(392, 0.1, 2); break;
+      case 'garden': a.bell(523.25, 0.08, 1.4); a.bell(659.25, 0.06, 1.4, 0.12); break;
+      case 'hatch': [0, 7, 12, 16, 19].forEach((s, i) => a.bell(392 * 2 ** (s / 12), e.b.radiant ? 0.1 : 0.07, 1.8, i * 0.11)); break;
+      case 'feast': [0, 4, 7].forEach((s, i) => a.bell(587.33 * 2 ** (s / 12), 0.08, 1.2, i * 0.05)); break;
+      case 'teach': a.tone(988, 0.1, { type: 'sine', gain: 0.03 }); break;
+      case 'finale': GOLD_CHORD.forEach((f, i) => a.bell(f * 2, 0.06, 2.4, i * 0.15)); break;
+      default: break;
     }
   }
 }
