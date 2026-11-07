@@ -564,7 +564,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 
 .arcade{position:absolute;inset:0;overflow:hidden;touch-action:none;outline:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .arcade{--dock:0px}
-.arcade.docked{--dock:150px}
+.arcade.docked{--dock:128px}
 .arcade>canvas{position:absolute;left:0;top:0;width:100%;height:calc(100% - var(--dock));display:block}
 .arcade-hud{position:absolute;inset:0 0 var(--dock) 0;pointer-events:none;z-index:2}
 .arcade-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:12px;z-index:3;pointer-events:none;
@@ -599,6 +599,91 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .dock-bar em{position:absolute;left:50%;top:-1px;bottom:-1px;width:2px;margin-left:-1px;background:#fff;opacity:.8}
 .dock-meter b{font-weight:650;color:#fff;min-width:34px}
 .dock-meter small{color:rgba(255,255,255,.5);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+/* the standard HUD of every arcade game (src/arcade/mendi.ts, DESIGN §10.2): the Mendi panel, the score, the coach mark */
+.arcade-mendi{position:absolute;left:max(12px,env(safe-area-inset-left));top:calc(max(10px,env(safe-area-inset-top)) + 50px);z-index:3;
+  width:min(330px,calc(62% - 12px));height:126px;box-sizing:border-box;padding:9px 12px 9px;border-radius:16px;background:rgba(8,9,14,.74);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);border-left:4px solid rgba(255,255,255,.3);
+  color:#fff;pointer-events:none;display:flex;flex-direction:column;gap:5px;overflow:hidden;transition:border-color .4s}
+.arcade-mendi[data-want="focus"]{border-left-color:#ffb36b}
+.arcade-mendi[data-want="rest"]{border-left-color:#7fb4ff}
+.arcade-mendi[data-want="blind"]{border-left-color:#b9a4ff}
+.mp-row{display:flex;align-items:center;gap:8px;min-width:0}
+.mp-chip{flex:none;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:750;letter-spacing:.09em;text-transform:uppercase;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85)}
+.arcade-mendi[data-want="focus"] .mp-chip{background:rgba(255,160,80,.24);color:#ffc58a}
+.arcade-mendi[data-want="rest"] .mp-chip{background:rgba(110,170,255,.22);color:#a9cdff}
+.arcade-mendi[data-want="blind"] .mp-chip{background:rgba(170,140,255,.22);color:#d4c6ff}
+.mp-clock{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.mp-next{margin-left:auto;font-size:11.5px;font-weight:650;color:#ffe08a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.mp-next:empty{display:none}
+.mp-meter{display:flex;align-items:center;gap:8px;font-size:12px;min-width:0}
+.mp-name{flex:none;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650;color:rgba(255,255,255,.9)}
+.mp-bar{position:relative;flex:1;min-width:40px;height:11px;border-radius:6px;background:rgba(255,255,255,.14);overflow:hidden}
+.mp-bar i{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:6px;background:linear-gradient(90deg,#8a7cff,#ffb36b);transition:width .25s}
+.arcade-mendi[data-want="rest"] .mp-bar i{background:linear-gradient(90deg,#4f7bd8,#8fd0ff)}
+.mp-bar[data-on="true"] i{background:linear-gradient(90deg,#ffb36b,#ffe08a);box-shadow:0 0 10px rgba(255,210,122,.7)}
+.arcade-mendi[data-want="rest"] .mp-bar[data-on="true"] i{background:linear-gradient(90deg,#6fb0ff,#c4ecff);box-shadow:0 0 10px rgba(150,200,255,.6)}
+.mp-bar em{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;margin-left:-1px;background:#fff;opacity:.9}
+.mp-val{flex:none;min-width:34px;text-align:right;font-size:12.5px;font-weight:700}
+.mp-task{margin:0;font-size:12.5px;font-weight:600;line-height:1.28;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mp-task:empty{display:none}
+.mp-state{margin:0;display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;line-height:1.25;color:rgba(255,255,255,.75);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-state::before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+.mp-state:empty{display:none}
+.mp-state[data-tone="good"]{color:#8fe3a8}
+.mp-state[data-tone="warn"]{color:#ffb36b}
+.mp-state[data-tone="blind"]{color:#c9b8ff}
+.arcade-headline{position:absolute;right:max(12px,env(safe-area-inset-right));top:calc(max(10px,env(safe-area-inset-top)) + 50px);z-index:3;
+  min-width:92px;max-width:calc(36% - 12px);box-sizing:border-box;padding:8px 14px 9px;border-radius:16px;background:rgba(8,9,14,.74);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);color:#fff;pointer-events:none;text-align:right}
+.arcade-headline[hidden]{display:none}
+.arcade-headline p{margin:0;display:flex;align-items:baseline;justify-content:flex-end;gap:6px;white-space:nowrap}
+.arcade-headline b{font-family:var(--font-head);font-size:30px;font-weight:500;line-height:1}
+.arcade-headline span{font-size:12.5px;color:rgba(255,255,255,.75);overflow:hidden;text-overflow:ellipsis}
+.arcade-headline small{display:block;margin-top:3px;font-size:11.5px;font-weight:650;color:#ffe08a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arcade-headline small:empty{display:none}
+.arcade-headline.bump b{animation:bump .35s cubic-bezier(.2,1.6,.4,1)}
+@keyframes bump{from{transform:scale(1.25)}to{transform:scale(1)}}
+.arcade-marks{position:absolute;inset:0 0 var(--dock) 0;pointer-events:none;z-index:3;overflow:hidden}
+.arcade-hint{position:absolute;max-width:min(300px,calc(100% - 24px));width:max-content;padding:9px 14px;border-radius:14px;background:#fff7e3;color:#1d1724;
+  font-size:14px;font-weight:650;line-height:1.3;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.35);transform:translate(-50%,calc(-100% - 14px))}
+.arcade-hint[hidden]{display:none}
+.arcade-hint::after{content:"";position:absolute;left:50%;bottom:-7px;width:14px;height:14px;margin-left:-7px;background:#fff7e3;transform:rotate(45deg);border-radius:2px}
+.arcade-hint[data-at="below"]{transform:translate(-50%,14px)}
+.arcade-hint[data-at="below"]::after{bottom:auto;top:-7px}
+.arcade-hint[data-at="centre"]{transform:translate(-50%,-50%)}
+.arcade-hint[data-at="centre"]::after{display:none}
+.arcade-hint.show{animation:hintpop .35s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes hintpop{from{opacity:0;scale:.85}to{opacity:1;scale:1}}
+.arcade-help{pointer-events:auto;width:44px;height:44px;font-size:19px;font-weight:800;opacity:.85}
+.arcade[data-stage="calibration"] .arcade-mendi,.arcade[data-stage="calibration"] .arcade-headline,
+.arcade[data-stage="countdown"] .arcade-mendi,.arcade[data-stage="countdown"] .arcade-headline,
+.arcade[data-stage="calibration"] .arcade-help{visibility:hidden}
+.how-goal{margin:0;font-size:15px;font-weight:650;line-height:1.35;color:var(--tx)}
+.arcade-howbrain .ban-chip{display:inline-flex;align-items:center;gap:5px}
+.arcade-howbrain .ban-chip svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.how-tips{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+.how-tips li{font-size:12.5px;color:var(--tx2);padding-left:14px;position:relative}
+.how-tips li::before{content:"★";position:absolute;left:0;color:#ffd27a;font-size:10px;top:2px}
+.arcade-help-card{max-width:560px}
+/* the dock keeps the history (chart, last block, session); "now" lives in the Mendi panel */
+.dock-text .dock-task,.dock-text .dock-meter{display:none}
+@media (max-width:640px){
+  .arcade-mendi{width:calc(64% - 14px);height:114px;padding:7px 10px;gap:4px;top:calc(max(8px,env(safe-area-inset-top)) + 48px)}
+  .mp-task{font-size:11.5px}
+  .mp-state{font-size:11px}
+  .mp-name{max-width:40%;font-size:11px}
+  .mp-next{font-size:10.5px}
+  .arcade-headline{top:calc(max(8px,env(safe-area-inset-top)) + 48px);padding:7px 10px;min-width:0}
+  .arcade-headline b{font-size:24px}
+  .arcade-headline span{font-size:11px}
+}
+@media (max-height:500px) and (min-width:641px){
+  .arcade-mendi{height:70px;gap:3px;padding:6px 10px;top:calc(max(6px,env(safe-area-inset-top)) + 46px)}
+  .arcade-mendi .mp-state{display:none}
+  .mp-task{-webkit-line-clamp:1;font-size:11.5px}
+  .arcade-headline{top:calc(max(6px,env(safe-area-inset-top)) + 46px);padding:5px 10px}
+  .arcade-headline b{font-size:22px}
+}
 /* a block's instruction over the game, for a few seconds (the runner's showBanner) */
 .arcade-banner{position:absolute;left:50%;bottom:calc(var(--dock) + 70px);transform:translateX(-50%);z-index:3;width:max-content;max-width:min(560px,calc(100% - 32px));
   padding:12px 18px 13px;border-radius:18px;background:rgba(8,9,14,.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.14);
@@ -631,14 +716,14 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade.docked .sim-focus{bottom:calc(var(--dock) + 12px)}
 .arcade.docked[data-stage="calibration"] .arcade-overlay{padding-bottom:calc(var(--dock) + 12px)}
 @media (max-width:640px){
-  .arcade.docked{--dock:228px}
-  .arcade-dock{grid-template-columns:minmax(0,1fr);grid-template-rows:76px minmax(0,1fr);gap:6px;padding-top:8px}
+  .arcade.docked{--dock:150px}
+  .arcade-dock{grid-template-columns:minmax(0,1fr);grid-template-rows:72px minmax(0,1fr);gap:4px;padding-top:6px}
   .dock-text{justify-content:flex-start}
   .dock-text .dock-state{font-size:14px}
   .dock-text .dock-block,.dock-session{font-size:11.5px}
 }
 @media (max-height:500px) and (min-width:641px){
-  .arcade.docked{--dock:112px}
+  .arcade.docked{--dock:96px}
   .arcade-dock{grid-template-columns:minmax(0,1fr) minmax(240px,360px);padding-top:6px}
   .dock-text{gap:2px}
   .dock-text .dock-state{font-size:13px}

@@ -728,3 +728,199 @@ refuses to be helpless, a knight with a shield.
 | Rest block | the meadow refills oil | the crowd sits, the baskets of crumbs | the dragon naps, heart back, a tip |
 | Grace | fall and rise at the lantern post | the disciples finish feeding | the princess's apple, half heart |
 | Companion | Ćma (moth) | Mirka (gull) | Linda (princess) |
+
+## 10. Version 2: one interface, closer to the originals, the band at the core
+
+On 2026-11-07 the founder played all seventeen games and asked for four things:
+
+1. **One interface for the band, the same in every game, and clear instructions in every game.**
+2. **A double jump in Dolina.**
+3. **Every game funny, addictive and told as a story, with the Mendi reading as the core mechanic.**
+4. **Mechanics closer to the originals each game was modelled on, and better and more engaging play.**
+
+The founder's verdict on each game:
+
+* **Good:** Latarnik, Zastępy and Anioł Stróż. These keep their core and get expanded so they hold
+  a player longer.
+* **Rebuild:** the other fourteen are boring, or their screen does not say what to do. They get a
+  complete redo that takes as much as possible from the original's mechanics. As before, the world,
+  the names, the art, the levels and the look stay our own (§5, §8.1).
+* **Study the best:** the founder asked to study the mechanics of the world's best games and use
+  them. §10.3 is that study, distilled into rules the rebuilds follow.
+
+### 10.1 What "closer to the original" means here
+
+A game's rules, verbs and loop are not anyone's property; its name, characters, art, music, level
+layouts and look are. So each rebuild copies the original's mechanics as closely as they serve play:
+
+* the controls and how they feel;
+* the obstacle and enemy vocabulary;
+* the power-ups, the scoring and combo rules;
+* the level and progression structure, the boss pattern, the meta loop.
+
+Each rebuild also does three things:
+
+* it keeps its own world, which is rooted in Scripture (§5);
+* it adds the band as the core;
+* it drops the original's monetisation pains (lives, energy, paid revives), which become seconds of
+  focus or plain grace (§1).
+
+Every builder researches its original first (store page, wiki, reviews, gameplay descriptions) and
+writes down the list of mechanics to carry over in its status file before writing code.
+
+### 10.2 The standard HUD: the band reads the same in every game
+
+The runner now draws the band's part of the screen itself (`src/arcade/mendi.ts`), so it looks and
+sits the same in all seventeen games. A game only says what goes in it (`kit/types.ts`). The parts,
+in order:
+
+1. **The Mendi panel** sits top left, under the time bar. It shows:
+   * the block chip (SKUPIENIE / ODPOCZYNEK / NA WYCZUCIE / SWOBODNIE) with the seconds left in the
+     block (`signal().left`);
+   * "Za chwilę: …" during the telegraph (`signal().next`);
+   * the gauge of what the band drives in this game, named by `brain.meter` (`brain.meterRest` in
+     rest), with the threshold marked at its middle and gold above it;
+   * "W głowie: …", the block's strategy (`signal().task`);
+   * the verdict in plain words (good / wait / below; "no signal", never "low").
+
+   The value is the game's own quantity (`meter()`), so the panel shows exactly what moves the play.
+2. **The score** sits top right. It shows the headline number and its unit (`headline()`), plus one
+   short line under it (a combo, a level, "to the record: 120 m"). It pops when the number grows.
+3. **The coach mark** is `env.hint(text, at)`: a bubble that points at a spot on the canvas, one at a
+   time, never in the way of a tap. Every game teaches its controls with it in the first session,
+   one mechanic at a time and at the moment it first matters.
+4. **How to play** (`module.howto()`) covers four things:
+   * the goal in one sentence;
+   * one to three controls, each with a gesture icon (tap, hold, drag, swipe, steer, keys);
+   * what focus and rest drive (from the registry);
+   * how the gauge reads.
+
+   It is shown on the calibration card and behind a new **?** button in the top bar, which pauses
+   the game.
+5. **The block banner** says what to do in the head and what it drives, for about 4 s when a block
+   begins.
+6. **The dock** under the game keeps the history: the chart, the last block against the one before,
+   the session's contrast. The "now" moved into the panel, so the dock is smaller (128 px on
+   desktop, 150 px on a phone).
+
+A game keeps its important play below `env.hudTop()`. It must no longer draw its own block card,
+its own score corner, or a "W głowie" text. In-world drawings of the signal stay and matter: the
+lamp's circle, the shield's ring, the threshold mark on the thing itself. They are the game being
+about the band, and the panel names the same quantity in plain words.
+
+### 10.3 What the world's best games do (the toolkit the rebuilds use)
+
+Drawn from the games that define their genres (Super Mario Bros./Run, Celeste, Hollow Knight,
+Subway Surfers, Candy Crush and Royal Match, Vampire Survivors and Archero, Hades, Balatro, Tiny
+Wings, Clash Royale, Angry Birds, Peggle, Untitled Goose Game, Animal Crossing, Duolingo) and from
+the craft writing about them (Swink's *Game Feel*, Vlambeer's "juice", Nintendo's four-step level
+design, Csikszentmihalyi's flow, Schell's lenses):
+
+1. **Feel first.**
+   * A press answers within a frame: a sound, a squash, a puff.
+   * Hits pause the world for 40–90 ms (hit-stop).
+   * Big moments shake the screen, scaled down for `reducedMotion`.
+   * Numbers fly off what earned them.
+   * Pitch climbs with a combo (Candy Crush, Peggle).
+   * Silhouettes read at a glance, and every object has a sound.
+2. **Forgiving controls.** Platform games add:
+   * coyote time (about 0.1 s after leaving a ledge);
+   * a jump buffer (a tap up to about 0.12 s before landing counts);
+   * variable jump height (hold for higher);
+   * a double jump (Celeste, Hollow Knight, Mario);
+   * generous hitboxes for pickups and strict ones for hazards.
+3. **Three nested loops.**
+   * A 10–30 s moment loop: dodge, place, merge.
+   * A 1–5 min level or run loop with a clear goal and stars.
+   * A days-long meta loop: a map, upgrades, a collection, missions.
+
+   Each loop pays out at its end: a level ends on a tally, and a run ends on "only 120 m to your
+   best".
+4. **Clear goals per level.**
+   * One readable objective ("feed 40", "free 12 pairs").
+   * Three-star thresholds (Angry Birds, Candy Crush).
+   * Goals that vary from level to level (collect, clear, survive, reach).
+5. **A difficulty roller-coaster.** Peaks, then a breather, then a twist (Candy Crush's hard levels
+   followed by easy ones, Vampire Survivors' waves). Never a flat ramp.
+6. **Meaningful choice.**
+   * Pick one of three upgrades, with synergies that change the build (Vampire Survivors, Hades,
+     Archero, Balatro).
+   * Choices are shown with their effect in numbers.
+7. **Power fantasy.** Every run reaches a moment where the player feels huge: a jetpack, a fever, a
+   screen-wide special, a champion unit. **In our games the band earns it: the push block's focus is
+   what fills the power.**
+8. **Combos and multipliers in sight.** A ladder that climbs and resets visibly (Tony Hawk, Balatro's
+   chips × mult): the player can see the number they are building.
+9. **Onboarding by doing.** No walls of text.
+   * Teach one mechanic, let the player use it, twist it, combine it (Nintendo's
+     *kishōtenketsu*).
+   * Coach marks point at the thing.
+   * The first session is the tutorial.
+10. **Characters and a story.** A companion with a personality and running jokes reacts to what
+    happened, never generically (Hades' dialogue, Goose Game slapstick). Short chapter cards and a
+    goal the player cares about (deliver the letters, feed the crowd, save the princess).
+11. **Visible progression.**
+    * A saga map or a world map.
+    * Upgrades between runs (Jetpack Joyride, Hill Climb).
+    * Collections with a completion percentage.
+    * "New" moments every session.
+12. **Bosses with telegraphs.** A wind-up, the attack, then an opening to punish (Cuphead, Hollow
+    Knight). Phases that change the pattern.
+13. **Ethics stay (§1).**
+    * No FOMO timers, no paid randomness, no streak shaming.
+    * Losing a run never ends the session: a new run starts, and the score so far is kept.
+
+### 10.4 The band as the core: the pattern library
+
+The brain drives slow quantities (§2). Each game builds its push mechanic from one or two of these
+patterns:
+
+| Pattern | Push block (focus above the threshold) | Examples |
+|---|---|---|
+| **Power charge → super** | held focus fills a power bar; full = the run's best moment (flight, fever, champion, screen-wide special) | Posłaniec's flight, Wzlot's fever, Chleby's champion, Firmament's tools |
+| **Reach / radius / sight** | the circle the player acts in grows; outside it things are dark, foggy, out of range | Latarnik's beam, Dolina's lamp, Pasterz's call, Arka's fog |
+| **Multiplier** | points per action ×1 … ×5 while focused | Geoda's shine, Chleby's golden gate |
+| **Protection** | a shield or aura that grows, quenches, absorbs | Jerzy's shield, Anioł's light |
+| **Time** | slows the threat (water, sunset, rising flood), giving room to plan | Źródła's water, Wzlot's sun |
+| **Path / building** | focus materialises the route (bridges, high roads, steps) | Zacheusz's rooftop road |
+
+Rest blocks run on their own patterns:
+
+| Pattern | Rest block (calm) |
+|---|---|
+| **Repair and heal** | hearts, walls, oil |
+| **Harvest** | the calm stretch fills baskets and ripens fruit, so it is worth playing gently |
+| **Prepare** | upgrades, the choice of a skill, a shop window |
+
+Rules for all of them:
+
+* The push block must produce the **most fun moment of the game**.
+* It must be visible within one lag (≈5 s Mendi, ≈1 s HALO) of crossing the threshold.
+* It is drawn on the thing itself with the threshold mark, and named in the panel by
+  `brain.meter`.
+* Without the signal the game plays at its base: never a penalty (§2.4).
+
+### 10.5 Each game's direction
+
+| Game | Original | Carry over (mechanics) | Push → | Rest → |
+|---|---|---|---|---|
+| Posłaniec | Subway Surfers | three lanes; swipe ←/→, ↑ jump, ↓ roll; static and oncoming carts, high and low barriers, ramps onto roofs; coin lines; power-ups (magnet, high-jump sandals, ×2, a shield board); a chaser that catches up after a stumble; missions that raise a permanent multiplier; a daily word hunt | **wings**: held focus fills the flight; full = a flight over the roofs along a coin trail | quiet road; calm lights the watchtowers, which give a shield |
+| Zacheusz | Super Mario Run | auto-run; tap to jump, hold for higher; vault over small things, bounce off creatures; wall-jump; pause and arrow blocks; five special coins per level in three tiers; a finish pole for points; a bubble retry; stylish moves score; worlds of hand-made levels | **path**: focus builds the rooftop high road (planks of light appear ahead) and shows the special coins | figs ripen into bonus coins and bubbles |
+| Pasterz | Crowd City | steer the leader; neutral sheep join on touch; rival flocks of other shepherds roam; a bigger flock wins a smaller one's sheep on contact; rounds of ~2 min with a live ranking; a crown for first | **reach**: the call ring's radius | the night watch: the flock beds down, stars count the sheep |
+| Geoda | Block Blast | 8×8 board; three pieces; drag to place; rows and columns clear; a combo streak; a board-clear bonus; no fit = the geode turns (score kept) | **multiplier**: shine ×1…×5 on clears, crystals grow on cleared cells | Szlif: calm polishes the best gem |
+| Urodzaj | Suika Game | drop from a mover; physics merge of equal fruits up a ladder of tiers; next preview; chain merges; overflow line = the basket is gathered, a new one starts | **charge**: focus fills the harvest wind, a shake that settles the basket and merges neighbours | gleaners: calm gathers the fallen into the table |
+| Wzlot | Tiny Wings | hold to dive, release to rise; a perfect slide is a dive down and a release on the upslope; three perfect slides = fever; islands; the sunset chases | **time**: focus holds the sun up (the night comes slower); held focus = fever | thermals: calm lifts the eaglet |
+| Arka | Arrows – Puzzle Escape | tap a piece and it slides off in its arrow's direction if the way is clear; three bumps per level; boards grow; a level saga with stars | **sight**: the flood's mist covers far pieces; focus clears the mist so you see their arrows | the rainbow: calm restores a bump and shows one safe move |
+| Motylarnia | Snake / Slither.io | steer a caterpillar that grows with every leaf; its own body is the obstacle; birds roam; boost; moult at lengths | **reach**: focus is appetite (a pull radius on food, a free boost) | the chrysalis: calm deepens the butterfly's colours |
+| Glina | Let's Create! Pottery | shape by drag on the spinning wheel; orders with a silhouette and a % match; kiln firing on timing; glazes and patterns; a shop with customers who react | **steadiness**: focus calms the wobble and draws the master's guide line | the kiln: calm keeps the heat even |
+| Źródła | Pipe Mania / water connect | the water starts after a countdown; lay and rotate pipes ahead of it; a longer path scores more; reservoirs and crossings; level goals | **time**: focus lowers the water's pressure (it flows slower) | the valley greens: calm grows the gardens the water reached |
+| Firmament | Candy Crush | saga map; goals (score, dark clouds to clear, moons to bring down, ice); limited moves; three stars; striped, wrapped and colour-bomb specials and their combos; the end-of-level cascade | **charge**: focus fills the telescope's tools | a calm sky: falling stars refill |
+| Dolina | Hell Escape | run, slash and dodge through eras with guardians; evolve between runs; **double jump** (new) | **sight**: the lamp's reach | the meadow refills the oil |
+| Chleby | Mob Control | hold to pour from a cannon, drag to aim; moving ×/+/− gates; crowds run up to the targets; enemy waves come down; a champion when the bar fills; cannon and unit upgrades; levels with boss bases | **multiplier and charge**: the golden gate, the big basket (the champion) | the crowd sits down, the baskets of crumbs fill |
+| Jerzy | Knight Survivor | joystick move; auto attacks; gems for experience; pick one of three skills at a level-up; weapon evolutions; waves; dragon bosses with telegraphs | **protection**: the shield's aura grows, quenches fire and pushes back | the dragon naps: hearts back, a skill choice |
+| Latarnik | (keeps) one-tap timing | expand: nights with goals and stars, new boat kinds (fog, storm, convoy, whale), lighthouse upgrades, a talking companion, storm "bosses" | reach (keeps) | sea glow, amber (keeps) |
+| Zastępy | (keeps) We Are Warriors | expand: more units and upgrades, ages of the fortress, a hero power, boss gates, a campaign map | (keeps) | (keeps) |
+| Anioł Stróż | (keeps) Endless Puncher | expand: more nightmare kinds, combos, an upgrade tree, nights as chapters, boss nightmares | (keeps) | (keeps) |
+
+Each rebuild writes its own detailed design into its section of this file (§7–§9). It updates the
+existing section in place and does not add a new one.

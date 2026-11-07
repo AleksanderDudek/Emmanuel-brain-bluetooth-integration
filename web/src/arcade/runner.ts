@@ -15,13 +15,14 @@ import { TOOL_INFO, type Tool } from '../tools';
 import { dayScore, newMilestones, type TrainingResult } from '../training/score';
 import { $, fmtDur, h, run, toast } from '../ui/dom';
 import { drawOverview } from '../ui/focus';
-import { SignalDock, type BlockStart } from './dock';
+import { SignalDock, stateText, type BlockStart } from './dock';
 import { ArcadeAudio } from './kit/audio';
 import { BEGINNER_SESSIONS, BEGINNER_TUNING, DEFAULT_TUNING, type FocusTuning } from './kit/focus';
 import { reducedMotion } from './kit/juice';
 import { dayKey, daySeed, saveProgress } from './kit/progress';
 import { ArcadeSession, type CarriedCalibration } from './kit/session';
-import { FREE_PHASE, type ArcadeGame, type ArcadeModule, type ArcadeOutcome } from './kit/types';
+import { FREE_PHASE, type ArcadeGame, type ArcadeModule, type ArcadeOutcome, type SignalPhase } from './kit/types';
+import { MendiPanel, howToPlay } from './mendi';
 import type { ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
 
@@ -36,7 +37,7 @@ const icon = (id: string) => {
 };
 
 /** How long a block's instruction stays over the game (ms). */
-const BANNER_MS = 5200;
+const BANNER_MS = 4200;
 
 /** Longest a game may keep a finished session going to resolve its current move (s). */
 const OVERTIME_SEC = 30;
@@ -88,7 +89,7 @@ export class ArcadeRunner {
     wrap: HTMLElement; canvas: HTMLCanvasElement; hud: HTMLElement; overlay: HTMLElement;
     time: HTMLElement; clock: HTMLElement; hold: HTMLElement; pause: HTMLButtonElement;
     chip: HTMLElement | null; chipBar: HTMLElement | null; chipHold: HTMLElement | null; sim: HTMLButtonElement | null;
-    dock: SignalDock; dockBtn: HTMLButtonElement; banner: HTMLElement;
+    dock: SignalDock; dockBtn: HTMLButtonElement; banner: HTMLElement; panel: MendiPanel; marks: HTMLElement;
     cal?: { bar: HTMLElement; text: HTMLElement; reason: HTMLElement; tip: HTMLElement };
   } | null = null;
   private tipTimer: ReturnType<typeof setInterval> | null = null;
@@ -100,6 +101,8 @@ export class ArcadeRunner {
   private readonly keysDown = new Set<string>();
   private readonly pointersDown = new Map<number, { x: number; y: number }>();
   private lastPct = -1;
+  /** the game's block as of the last sample (the Mendi panel reads it every frame) */
+  private phase: SignalPhase = FREE_PHASE;
 
   constructor(private readonly d: ArcadeDeps) {
     d.hub.addEventListener('sample', e => this.onSample((e as CustomEvent<HubSample>).detail));
@@ -174,6 +177,11 @@ export class ArcadeRunner {
       canvas: this.ui!.canvas, hud: this.ui!.hud, audio: this.audio!, progress, rng: mulberry32((Date.now() ^ 0x5bd1e995) >>> 0),
       day, daySeed: daySeed(entry.id, day), plannedSec: planned, tool, simulated: this.d.hub.status.source === 'simulator',
       reducedMotion: reducedMotion(), haptics: prefs.haptics, tuning,
+      hint: (text: string, at?: { x: number; y: number } | null, ms = 3500) => {
+        const ui = this.ui;
+        if (ui && this.stage === 'play') ui.panel.showHint(text, at, ms, ui.canvas);
+      },
+      hudTop: () => this.hudTop(),
     };
     this.game = mod.create(env);
     this.resize();
@@ -212,9 +220,20 @@ export class ArcadeRunner {
       this.setDocked(!this.d.settings.arcade.signal);
       wrap.focus({ preventScroll: true });
     });
+    // how to play, any time: pauses and shows the same card as the calibration screen
+    const help = h('button', { class: 'icon-btn arcade-help', type: 'button', 'aria-label': t('how.open'), title: t('how.open') }, '?');
+    help.addEventListener('click', e => {
+      e.stopPropagation();
+      this.openHelp();
+    });
     const top = h('div', { class: 'arcade-top' },
       h('div', { class: 'arcade-time', role: 'progressbar', 'aria-label': t('run.time'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, timeBar),
-      clock, dockBtn, pause);
+      clock, help, dockBtn, pause);
+    // the standard HUD (src/arcade/mendi.ts): the band's panel, the score, the coach mark
+    const mod = this.mod!;
+    const panel = new MendiPanel(entry, n => mod.unit?.(n) ?? entry.unit);
+    panel.idle();
+    const marks = h('div', { class: 'arcade-marks' }, panel.hint);
     const hold = h('div', { class: 'hold', hidden: true, role: 'status' });
     let chip: HTMLElement | null = null, chipBar: HTMLElement | null = null, chipHold: HTMLElement | null = null;
     if (entry.focusChip) {
@@ -233,7 +252,7 @@ export class ArcadeRunner {
       });
     }
     const wrap = h('div', { class: docked ? 'arcade docked' : 'arcade', role: 'application', tabindex: '-1', 'aria-label': t('run.keys', { title: entry.title }) },
-      canvas, hud, dock.el, top, chip, hold, banner, sim, overlay);
+      canvas, hud, marks, panel.el, panel.score, dock.el, top, chip, hold, banner, sim, overlay);
     const pos = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top, id: e.pointerId };
@@ -255,7 +274,7 @@ export class ArcadeRunner {
     canvas.addEventListener('pointerup', send('up'));
     canvas.addEventListener('pointercancel', send('up'));
     this.root.replaceChildren(wrap);
-    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn, banner };
+    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn, banner, panel, marks };
     wrap.focus({ preventScroll: true });
   }
 
@@ -270,6 +289,30 @@ export class ArcadeRunner {
     if (this.ui.wrap.classList.contains('docked')) this.ui.dock.resize();
     // a resized canvas is blank: while paused the loop does not draw, so draw the frame once here
     if (this.session?.paused) this.safe(() => this.game!.draw());
+  }
+
+  /** The canvas band the standard HUD covers at the top (CSS px from the canvas top). */
+  private hudTop(): number {
+    const ui = this.ui;
+    if (!ui) return 0;
+    const c = ui.canvas.getBoundingClientRect().top;
+    const b = Math.max(ui.panel.el.getBoundingClientRect().bottom, ui.panel.score.getBoundingClientRect().bottom);
+    return Math.max(0, Math.round(b - c + 6));
+  }
+
+  /** The "?" button: pause, and show how to play (the same card as on the calibration screen). */
+  private openHelp(): void {
+    const ui = this.ui, entry = this.entry, ses = this.session;
+    if (!ui || !entry || !ses) return;
+    if (this.stage !== 'play') return;
+    if (!ses.paused) this.setPaused(true);
+    const back = h('button', { class: 'btn primary big', type: 'button', on: { click: () => this.setPaused(false) } }, t('pause.resume'));
+    ui.overlay.replaceChildren(h('div', { class: 'arcade-card arcade-help-card' },
+      h('p', { class: 'eyebrow' }, t('how.eyebrow')),
+      h('h2', null, entry.title),
+      howToPlay(entry, this.mod?.howto?.() ?? null, ses.tool),
+      back));
+    back.focus();
   }
 
   private toggleSim(): void {
@@ -331,7 +374,7 @@ export class ArcadeRunner {
       h('h2', null, t(this.session!.tool === 'fnirs' ? 'cal.fnirs' : 'cal.eeg')),
       h('div', { class: 'progress calib-bar' }, bar), text,
       h('p', { class: 'muted' }, t('cal.still')),
-      tip, reason, this.howBrain(entry),
+      tip, reason, howToPlay(entry, this.mod?.howto?.() ?? null, this.session!.tool),
       h('button', { class: 'btn ghost', type: 'button', on: { click: () => this.cancel() } }, t('cal.back'))));
     let i = 0;
     const showTip = () => { tip.textContent = entry.tips[i++ % entry.tips.length]; };
@@ -339,19 +382,6 @@ export class ArcadeRunner {
     if (this.tipTimer) clearInterval(this.tipTimer);
     this.tipTimer = setInterval(showTip, 5000);
     this.renderCalibration();
-  }
-
-  /** The calibration card's "how you play with the band": what focus and calm drive here, and the hands. */
-  private howBrain(entry: ArcadeEntry): HTMLElement {
-    const row = (kind: string, chip: string, text: string) =>
-      h('li', { 'data-kind': kind }, h('b', { class: 'ban-chip' }, chip), h('span', null, kind === 'hands' ? text : `→ ${text}`));
-    return h('div', { class: 'arcade-howbrain' },
-      h('p', { class: 'eyebrow' }, t('cal.howTitle')),
-      h('ul', null,
-        row('focus', t('ban.focus'), entry.brain.focus),
-        row('rest', t('ban.rest'), entry.brain.rest),
-        row('hands', t('cal.handsTitle'), entry.how[2] ?? '')),
-      h('p', { class: 'muted' }, t('cal.meterNote', { meter: entry.brain.meter })));
   }
 
   private renderCalibration(): void {
@@ -449,6 +479,7 @@ export class ArcadeRunner {
     const left = Math.max(0, ses.plannedSec - ses.t);
     const txt = this.stage !== 'play' ? '' : ses.timeUp ? t('run.overtime') : fmtDur(left);
     if (ui.clock.textContent !== txt) ui.clock.textContent = txt;
+    if (this.stage === 'play') this.renderPanel();
     if (ui.chipBar) {
       const f = ses.frame;
       ui.chipBar.style.width = `${Math.round(f.level * 100)}%`;
@@ -457,6 +488,24 @@ export class ArcadeRunner {
       const hold = f.reliable && f.focused && f.hold >= 3 ? `${Math.floor(f.hold)} s` : '';
       if (ui.chipHold!.textContent !== hold) ui.chipHold!.textContent = hold;
     }
+  }
+
+  /** The Mendi panel and the score corner, every frame of play (they write only what changed). */
+  private renderPanel(): void {
+    const ui = this.ui, ses = this.session, game = this.game;
+    if (!ui || !ses || !game) return;
+    const f = ses.frame, ph = this.phase, c = ui.dock.coach;
+    const rest = ph.want === 'rest';
+    let meter: number | null = f.reliable && !ph.blind ? (rest ? f.calm : f.level) : null;
+    if (game.meter && meter !== null) this.safe(() => { const m = game.meter!(); meter = m === null ? null : m; });
+    const on = meter !== null && (rest ? !f.focused && meter >= 0.5 : meter >= 0.5);
+    ui.panel.update({
+      want: ph.want, blind: ph.blind, sec: c.blockSec, left: ph.left ?? null, next: ph.next ?? null,
+      meter, on, task: ui.dock.strategy, state: c.state,
+      stateText: stateText(c.state, c.activity !== null ? c.activity - c.threshold : 0, c.lagSec),
+    });
+    if (game.headline) this.safe(() => ui.panel.setScore(game.headline!()));
+    else ui.panel.setScore(null);
   }
 
   private renderHold(): void {
@@ -484,6 +533,7 @@ export class ArcadeRunner {
     if (this.ui) {
       let phase = FREE_PHASE;
       if (this.game?.signal) this.safe(() => { phase = this.game!.signal!(); });
+      this.phase = phase;
       this.ui.dock.push(ses.t, tick.frame, phase, s.dt);
     }
     let pad: number | null = tick.frame.reliable ? tick.frame.level : 0;
@@ -582,6 +632,7 @@ export class ArcadeRunner {
     this.countTimer = null;
     if (this.bannerTimer) clearTimeout(this.bannerTimer);
     this.bannerTimer = null;
+    this.ui?.panel.destroy();
     this.keysDown.clear();
     this.pointersDown.clear();
     try { this.game?.destroy(); } catch (e) { console.error(e); }

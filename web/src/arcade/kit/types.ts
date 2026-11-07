@@ -11,9 +11,36 @@ import type { TracePhase } from './trace';
 
 /**
  * What the current block asks of the brain (ArcadeGame.signal).  `task`: the game's own strategy for
- * the block, when its HUD shows one — the runner's dock and banner then show the same words.
+ * the block — the runner's Mendi panel, dock and banner then show the same words.  `left`: seconds
+ * left in this block (the panel counts down; without it the panel counts the block's seconds up).
+ * `next`: the block that follows, during its 3–4 s telegraph (the panel says "Za chwilę: …").
  */
-export interface SignalPhase { want: TracePhase; blind: boolean; task?: string }
+export interface SignalPhase { want: TracePhase; blind: boolean; task?: string; left?: number; next?: TracePhase | null }
+
+/** How a control is done, for the standard "how to play" card (the runner draws the icon). */
+export type Gesture = 'tap' | 'hold' | 'drag' | 'swipe' | 'steer' | 'keys';
+
+/**
+ * The game's "how to play" (ArcadeModule.howto), shown the same way in every game: on the
+ * calibration card, and from the "?" button during play (which pauses).  The brain's part — what
+ * focus and rest drive — comes from the registry's `brain` texts, so it is never repeated here.
+ */
+export interface HowTo {
+  /** one sentence: what the player is trying to do ("Doprowadź pielgrzyma jak najdalej doliną") */
+  goal: string;
+  /** one to three controls, each a gesture and a short line ("Stuknij — skok; w powietrzu drugi raz") */
+  hands: { gesture: Gesture; text: string }[];
+  /** at most two short pro tips */
+  tips?: string[];
+}
+
+/** The game's headline in the runner's standard score corner (top right). */
+export interface Headline {
+  /** the number (the unit comes from the module's `unit(n)` or the registry entry) */
+  value: number;
+  /** a short second line under it ("×3 combo", "Poziom 4", "rekord 1 240") */
+  sub?: string;
+}
 
 export const FREE_PHASE: SignalPhase = { want: 'free', blind: false };
 
@@ -41,6 +68,19 @@ export interface GameEnv<P extends object> {
    * bias on top): build block judges with `RoundJudge.from(env.tuning)` so their verdicts stay fair.
    */
   tuning: FocusTuning;
+  /**
+   * The standard coach mark (one at a time, pointer-events none): a short line in the runner's own
+   * bubble, pointing at a spot on the canvas (CSS px) or, without one, centred over the play area.
+   * For tutorials and first-time explanations ("Stuknij, gdy promień dotknie łodzi"); a game's
+   * companion talks in its own drawn bubbles instead.  `ms` defaults to 3500; an empty text hides it.
+   */
+  hint(text: string, at?: { x: number; y: number } | null, ms?: number): void;
+  /**
+   * The canvas band the runner's standard HUD covers at the top (the Mendi panel on the left, the
+   * score on the right), in CSS px from the canvas top — keep the play's important parts below it.
+   * Read it in `resize()`; it changes only with the window.
+   */
+  hudTop(): number;
 }
 
 export interface PointerInput { type: 'down' | 'move' | 'up'; x: number; y: number; id: number }
@@ -90,6 +130,15 @@ export interface ArcadeGame {
    */
   signal?(): SignalPhase;
   /**
+   * The game's own quantity the focus drives right now, 0..1 with 0.5 at the threshold ("lamp reach"),
+   * for the runner's Mendi panel gauge (named by the registry's `brain.meter`, or `brain.meterRest` in
+   * a rest block); null hides the value (a blind block, no signal).  Without it the gauge shows
+   * the focus `level` (and `calm` in a rest block).
+   */
+  meter?(): number | null;
+  /** The headline for the runner's standard score corner, every frame (cheap; no side effects). */
+  headline?(): Headline;
+  /**
    * The session ends before the game's own ending ("Zakończ i zapisz", the overtime limit): settle
    * now (credit the session, roll what the ending would have rolled).  Called once, right before
    * the final result(); never by the debug view.
@@ -117,4 +166,6 @@ export interface ArcadeModule<P extends object = object> {
    * in the lobby (show their world), absent on the cards (a generic picture).
    */
   preview(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, p?: P): void;
+  /** How to play, in this page load's language (see HowTo); without it the card uses the registry's `how` lines. */
+  howto?(): HowTo;
 }

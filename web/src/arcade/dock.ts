@@ -91,6 +91,8 @@ export class SignalDock {
   private begun = { focus: 0, rest: 0 };
   private taskNow = '';
   private seen = false;
+  /** what to do in the head in the current block (the runner's Mendi panel shows it) */
+  get strategy(): string { return this.taskNow; }
   /** a push or rest block began (the runner shows its instruction over the game) */
   onBlock: ((b: BlockStart) => void) | null = null;
 

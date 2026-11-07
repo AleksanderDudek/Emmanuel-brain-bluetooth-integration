@@ -1124,7 +1124,7 @@ describe('Geoda game', () => {
   const envFor = (progress: GeodaProgress, plannedSec: number, seed = 1): GameEnv<GeodaProgress> => ({
     canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
     progress, rng: mulberry32(seed), day: '2026-10-24', daySeed: 99, plannedSec, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
-    tuning: TUNING,
+    tuning: TUNING, hint: () => {}, hudTop: () => 0,
   });
 
   /**
