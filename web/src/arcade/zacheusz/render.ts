@@ -1,90 +1,84 @@
 /**
- * Zacheusz's play view, all on the canvas: Jericho at noon in side view — the sky, the wilderness
- * hills, the procession's dust far ahead (its nearness is the hold), the skyline of palms (the
- * signal's last 40 s, one palm a second: its height the level, a gold crown above the threshold,
- * teal behind rest, a stump where the band had no signal, hidden by the crowd in a blind block and
- * growing back when it parts, the newest seconds bracketed as the band's delay), the town's roofs
- * in haze, and the street itself: mudbrick houses with ladders, stalls under striped awnings,
- * walls, crates, ditches and wells, the high way in its states, the denarii, the hens, dogs and
- * baskets he hops, the fig trees of the shade, the sycamore at a course's end and his own house at
- * the end of the day.  Zacchaeus' sightline toward the dust is the live gauge: its length is the
- * level, a notch marks the threshold.  It only reads the sim (sim.ts); the HUD is in hud.ts.
+ * Zacheusz's play view: Jericho at noon in side view, the camera running with him.  Back to front:
+ * the sky, the hills, the skyline of palms along the horizon (the band's last 40 s, one palm a
+ * second — the in-world history: a gold crown above the threshold, blue-green in a rest block, a
+ * stump where the signal failed, the crowd's backs veiling a blind block), the town's silhouettes
+ * with the townsfolk who cheer a stylish move, then the street itself — pits, stalls, walls,
+ * houses, crates, the crowd, awnings and planks, the inlaid stones, the fig orchard's shade and
+ * trees, the finish palm or the sycamore — the band's road of light with its growing tip and the
+ * dotted mark of where it reaches at the threshold, the springs, the coins and the special denarii,
+ * the geese and goats, Zacchaeus (in his bubble, on the rope, on the trunk), Mela trotting behind
+ * with her speech bubble, particles and flying words, and the overlays of hud.ts.
+ *
+ * The runner draws the Mendi panel and the score; nothing here duplicates them.
  */
-import { approach, clamp, ease } from '../kit/juice';
-import { LAG_SEC, traceBars, type TraceBar } from '../kit/trace';
-import { DOOR_X, TIERS, missionById, type Tier } from './content';
-import { Hud, lagLabel } from './hud';
+import type { TraceBar } from '../kit/trace';
+import { traceBars } from '../kit/trace';
+import { Floaters, Particles, Shake, approach, clamp } from '../kit/juice';
+import { HOMES, levelName } from './content';
 import { t } from './i18n';
 import { ZacheuszIntro } from './intro';
 import { layout, type Layout } from './layout';
 import type { ZacheuszProgress } from './meta';
 import {
-  C, SANS, SERIF, eyeOf, font, hash, mixHex, paintAwning, paintBasket, paintChicken, paintCoin, paintCrate, paintDitch, paintDog,
-  paintFigTree, paintGround, paintHigh, paintHills, paintHouse, paintPalm, paintPlain, paintPlank, paintProcession, paintSky, paintStall,
-  paintStump, paintSycamore, paintWall, paintWell, paintZacchaeus, restPose, type Crown, type HeroPose,
+  C, SANS, hash, paintAwning, paintBubble, paintCoin, paintCrate, paintCrowd, paintDitch, paintFigTree, paintFinishPalm, paintGoat,
+  paintGoose, paintGround, paintHills, paintHouse, paintLightPlank, paintPalm, paintPlank, paintProcession, paintSky, paintSpring,
+  paintStall, paintStone, paintStump, paintSycamore, paintWall, paintWell, paintZacchaeus, restPose, type HeroPose,
 } from './paint';
-import { RULES, type SimEvent, type ZacheuszSim } from './sim';
-import type { Plat } from './world';
+import { RULES } from './rules';
+import { REACH_MARK, nextLevelName, type SimEvent, type ZacheuszSim } from './sim';
+import { StoryCard, drawBanner, drawButton, drawLevelCard, drawSpeech, drawStrip, drawTally, tierKind } from './hud';
 
 const TAU = Math.PI * 2;
 const STRIPES = [C.madder, C.indigo, C.saffron];
-
-/** A bit of dust, a feather, a leaf or a spark, in world units. */
-interface Bit { x: number; y: number; vx: number; vy: number; life: number; max: number; size: number; color: string; g: number; spark: boolean }
 
 export class ZacheuszView {
   private readonly ctx: CanvasRenderingContext2D;
   private w = 1280;
   private h = 800;
   private dpr = 1;
-  L: Layout = layout(1280, 800);
-  readonly hud: Hud;
+  L: Layout = layout(1280, 800, 0);
   private readonly intro0 = new ZacheuszIntro();
-  private started = false;
+  private readonly story = new StoryCard();
+  private readonly parts = new Particles(500);
+  private readonly words = new Floaters();
+  private readonly shake: Shake;
   private clock = 0;
-  private fadeIn = 1;
+  private fade = 1;
   private camX = 0;
   private camY = 0;
   private camReady = false;
-  private shadeK = 0;
-  private mist = 0;
-  private dustShown = 0;
-  private gauge = 0;
-  // the hero's picture
   private readonly pose: HeroPose = restPose();
   private runPh = 0;
   private squash = 0;
-  private trailT = 0;
-  // moments
-  private readonly bits: Bit[] = [];
-  private readonly awn = new Map<number, number>();
-  private readonly pops = new Map<number, number>();
-  private revealSec: number | null = null;
-  private doorT = -1;
-  private finishT = -1;
-  private finishBranch = 0;
   private bars: TraceBar[] = [];
-  private readonly lag: string;
+  // moments
+  private levelT = 99;
+  private levelReplay = false;
+  private grabY = 0;
+  private cheer = 0;
+  private toss = 0;
+  private slotPop = 0;
+  private btnPress = 0;
+  private banner: { text: string; t: number; color: string } | null = null;
+  private melaX = 0;
+  private melaHop = 0;
+  private readonly honks = new Map<number, number>();
+  private roadFlash = 0;
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
     this.ctx = canvas.getContext('2d')!;
-    this.hud = new Hud(this.ctx);
-    this.hud.resize(this.L);
-    this.lag = lagLabel(opts.eeg);
+    this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number): void {
+  resize(w: number, h: number, dpr: number, hudTop: number): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h);
-    this.hud.resize(this.L);
+    this.L = layout(w, h, hudTop);
   }
 
-  start(): void {
-    this.started = true;
-    this.fadeIn = 1;
-  }
+  start(): void { this.fade = 1; }
 
   intro(dt: number, p: number, progress: ZacheuszProgress): void {
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
@@ -93,673 +87,533 @@ export class ZacheuszView {
 
   // ── world ↔ screen ──────────────────────────────────────────────
   private get S(): number { return this.L.S; }
-  private sx(x: number): number { return this.L.hx + (x - this.camX) * this.S; }
-  private sy(y: number): number { return this.L.gy - (y - this.camY) * this.S; }
+  sx(x: number): number { return this.L.hx + (x - this.camX) * this.S; }
+  sy(y: number): number { return this.L.gy - (y - this.camY) * this.S; }
+  toScreen(x: number, y: number): { x: number; y: number } {
+    return { x: clamp(this.sx(x), 30, this.L.w - 30), y: clamp(this.sy(y), this.L.hudTop + 30, this.L.h - 30) };
+  }
+
+  /** The bubble button (bottom right). */
+  hitButton(x: number, y: number): boolean {
+    const b = this.L.btn;
+    const d = Math.hypot(x - b.x, y - b.y) <= b.r + 10;
+    if (d) this.btnPress = 1;
+    return d;
+  }
 
   // ── reacting to the rules ───────────────────────────────────────
   on(e: SimEvent, sim: ZacheuszSim): void {
-    const hero = sim.hero, u = this.L.u, rm = this.opts.reducedMotion;
-    const hx = this.sx(hero.x), hy = this.sy(hero.y);
+    const rm = this.opts.reducedMotion, u = this.L.u, S = this.S;
+    const h = sim.hero;
     switch (e.type) {
       case 'coin':
-        this.spark(e.coin.x, e.coin.y, rm ? 2 : 5, C.coin);
-        if (e.chain > 0 && e.chain % 10 === 0) this.hud.float(`×${e.chain}`, this.sx(e.coin.x), this.sy(e.coin.y) - 14 * u, C.gold2, 15);
+        this.parts.burst(this.sx(e.x), this.sy(e.y), rm ? 2 : 5, { color: e.light ? '#fff2b0' : C.coin, size: 2.5, speed: 90, g: 120, life: 0.4 });
+        if (e.chain > 0 && e.chain % 10 === 0) this.words.add(`×${e.chain}`, this.sx(e.x), this.sy(e.y) - 10, { color: C.gold2, size: 16 * u });
         break;
-      case 'special': {
-        this.spark(e.coin.x, e.coin.y, rm ? 6 : 18, e.tier === 'silver' ? C.silver : e.tier === 'gold' ? C.gold : C.purple);
-        this.hud.float(t('fx.special', { n: e.got }), this.sx(e.coin.x), this.sy(e.coin.y) - 20 * u, e.tier === 'purple' ? C.purple2 : C.gold2, 19, 1.3, 40);
-        this.hud.popSlot(e.coin.special);
-        this.hud.popScore();
+      case 'special':
+        this.parts.burst(this.sx(e.x), this.sy(e.y), rm ? 8 : 24, { color: tierKind(e.tier) === 'purple' ? C.purple : tierKind(e.tier) === 'gold' ? C.gold : C.silver, size: 3.5, speed: 220, shape: 'spark' });
+        this.words.add(`${e.got}/5`, this.sx(e.x), this.sy(e.y) - 16, { color: tierKind(e.tier) === 'purple' ? C.purple2 : C.gold2, size: 24 * u, dur: 1.3 });
+        this.slotPop = 1;
+        this.shake.add(0.15);
         break;
-      }
+      case 'set':
+        this.banner = { text: t('fx.set', { n: e.pay }), t: 0, color: C.gold };
+        this.shake.add(0.3);
+        break;
       case 'jump':
-        this.dust(hero.x, hero.y, rm ? 1 : 3);
-        break;
-      case 'wallJump':
-        this.spark(hero.x + RULES.halfW, hero.y + 0.5, rm ? 2 : 6, C.cream);
-        this.hud.float(t('fx.wall'), hx, hy - 70 * u, C.indigo, 13, 0.8, 24);
-        break;
-      case 'bounce':
-        this.awn.set(e.plat.id, this.clock);
-        this.dust(hero.x, hero.y, 2);
-        break;
-      case 'vault':
-        if (e.kind === 'chicken') for (let i = 0; i < (rm ? 3 : 8); i++) this.bit({ x: e.x, y: 0.35, vx: (Math.random() - 0.3) * 3, vy: 1 + Math.random() * 2.5, life: 0.9, max: 0.9, size: 0.06, color: '#f4ede0', g: 2.5, spark: false });
+        this.parts.burst(this.sx(h.x), this.sy(h.y), rm ? 1 : 4, { color: '#d9b48a', size: 3, speed: 60, g: 80, angle: -Math.PI / 2, spread: 2.4, life: 0.4 });
         break;
       case 'land':
-        if (e.fall > 0.6) {
+        if (e.fall > 0.8) {
           this.squash = clamp(e.fall / 3);
-          this.dust(hero.x, hero.y, rm ? 2 : Math.round(3 + e.fall * 2));
+          this.parts.burst(this.sx(h.x), this.sy(h.y), rm ? 2 : 6, { color: '#d9b48a', size: 3, speed: 80, g: 60, angle: -Math.PI / 2, spread: 3, life: 0.45 });
         }
+        break;
+      case 'wallJump':
+        this.parts.burst(this.sx(e.x), this.sy(e.y + 0.5), rm ? 2 : 7, { color: C.cream, size: 2.5, speed: 140, shape: 'spark', life: 0.35 });
+        break;
+      case 'spin':
+        this.parts.burst(this.sx(e.x), this.sy(e.y + 0.5), rm ? 2 : 10, { color: '#fff4d0', size: 2, speed: 120, shape: 'ring', life: 0.4, g: 0 });
+        break;
+      case 'bounce':
+        if (e.on === 'crowd') this.toss = 1;
+        this.parts.burst(this.sx(e.x), this.sy(e.y), rm ? 2 : 6, { color: e.on === 'crowd' ? C.frond2 : C.cream, size: 3, speed: 120, life: 0.5 });
+        break;
+      case 'spring':
+        this.parts.burst(this.sx(e.x), this.sy(e.y + 0.4), rm ? 4 : 16, { color: C.gold, size: 3, speed: 200, shape: 'spark', angle: -Math.PI / 2, spread: 1.2 });
+        break;
+      case 'vault':
+        if (e.kind === 'goose') this.honk(sim, e.x, e.y + 0.9);
+        break;
+      case 'bonk':
+        this.parts.burst(this.sx(e.x), this.sy(e.y + 0.7), rm ? 4 : 14, { color: '#fff', size: 3, speed: 160, shape: 'square', life: 0.5 });
+        this.words.add(`${t('style.bonk')} +${e.pay}`, this.sx(e.x), this.sy(e.y + 1.4), { color: C.madder, size: (18 + 3 * e.chain) * u });
+        this.words.add(e.kind === 'goose' ? t('fx.honk') : t('fx.meh'), this.sx(e.x) + 30 * u, this.sy(e.y + 0.6), { color: C.ink, size: 13 * u, dur: 0.9 });
+        this.shake.add(0.12 + 0.05 * e.chain);
         break;
       case 'legUp':
-        this.hud.float(t('fx.legUp'), hx, hy - 60 * u, C.wood2, 14, 1.1);
+        this.words.add(t('fx.legUp'), this.sx(h.x), this.sy(h.y + 1.6), { color: C.wood2, size: 14 * u });
         break;
-      case 'rope':
-        this.hud.float(t('fx.rope'), hx, hy - 50 * u, C.wood2, 15, 1.4);
+      case 'tile':
+        if (e.kind === 'pause') this.words.add(t('fx.pause'), this.sx(e.x), this.sy(e.y + 1.8), { color: C.indigo, size: 16 * u, dur: 1.4 });
+        this.parts.burst(this.sx(e.x), this.sy(e.y), rm ? 2 : 8, { color: e.kind === 'pause' ? C.indigo2 : e.kind === 'back' ? C.madder : C.saffron, size: 3, speed: 120 });
         break;
-      case 'plank':
-        this.hud.float(t('fx.plank'), this.sx((e.pit.x0 + e.pit.x1) / 2), this.sy(0) - 40 * u, C.wood2, 14, 1.8);
+      case 'longJump':
+        this.parts.burst(this.sx(h.x), this.sy(h.y), rm ? 3 : 12, { color: C.saffron, size: 3, speed: 180, shape: 'spark', angle: Math.PI, spread: 1 });
         break;
-      case 'lock':
-        if (e.plat.state === 'solid') {
-          this.pops.set(e.plat.id, this.clock);
-          this.spark((e.plat.x0 + e.plat.x1) / 2, e.plat.y + 0.1, rm ? 2 : 6, C.gold);
-        }
+      case 'style':
+        this.cheer = Math.min(1, this.cheer + 0.4 + 0.1 * e.n);
+        this.words.add(`${t(`style.${e.trick}`)}${e.n > 1 ? ` ×${e.n}` : ''}`, this.sx(e.x), this.sy(e.y + 0.6), { color: e.n > 1 ? C.purple2 : C.indigo, size: (15 + 2 * Math.min(4, e.n)) * u, dur: 1 });
+        break;
+      case 'fall':
+        if (!e.bubble) this.words.add(t('fx.rope'), this.sx(h.x), this.sy(1.4), { color: C.wood2, size: 15 * u, dur: 1.4 });
+        break;
+      case 'pop':
+        this.parts.burst(this.sx(e.x), this.sy(e.y + 0.6), rm ? 6 : 18, { color: 'rgba(170,215,240,.9)', size: 3, speed: 150, shape: 'ring', g: 0, life: 0.5 });
+        break;
+      case 'trunk': {
+        this.grabY = e.y;
+        const top = e.band >= 4;
+        this.parts.burst(this.sx(e.x), this.sy(e.y + 0.6), rm ? 8 : 34, { color: top ? C.gold : C.frond2, size: 3.5, speed: 240, shape: 'square', life: 1 });
+        this.words.add(`${t('fx.band', { n: e.band + 1 })} +${e.pay}`, this.sx(e.x), this.sy(e.y + 1.8), { color: top ? C.gold2 : C.wood2, size: 20 * u, dur: 1.6 });
+        if (top) this.banner = { text: t('fx.top'), t: 0, color: C.gold };
+        this.shake.add(top ? 0.4 : 0.2);
+        break;
+      }
+      case 'levelStart':
+        this.levelT = 0;
+        this.levelReplay = e.replay;
+        this.camReady = false;
+        this.fade = 0.6;
+        break;
+      case 'road':
+        if (e.on) this.roadFlash = 1;
         break;
       case 'view':
-        this.hud.card(t('fx.view'), t('card.view'), { icon: 'view', rank: 1, color: C.gold2, dur: 2.2 });
-        this.hud.float(t('fx.view'), hx + 60 * u, hy - 90 * u, C.gold2, 22, 1.4, 40);
+        this.banner = { text: t('fx.view'), t: 0, color: C.gold };
         break;
-      case 'pass':
-        this.hud.float(t('fx.pass', { n: e.coins }), hx + 80 * u, hy - 80 * u, C.gold2, 15, 1.6);
-        break;
-      case 'basket':
-        this.hud.float(t('fx.basket', { n: e.pay }), hx, hy - 80 * u, C.figRipe, 16, 1.6);
-        this.hud.popScore();
-        break;
-      case 'blindReveal':
-        this.revealSec = e.sec;
-        if (e.solid > 0) this.hud.card(t('card.blind'), t('card.reveal', { n: e.solid }), { icon: 'view', rank: 1, color: '#6a5f74' });
-        break;
-      case 'blockEnd':
-        if (e.block.kind !== 'warmup') this.hud.blockCard(e.block, e.t0, e.t1, e.verdict, e.share, e.need, e.block.kind === 'push' && e.block.blind ? this.revealSec : null);
-        this.revealSec = null;
+      case 'orchard':
         break;
       case 'figs':
-        for (let i = 0; i < (rm ? 2 : 6); i++) this.bit({ x: e.tree.x, y: 2.4, vx: (Math.random() - 0.5) * 2, vy: Math.random() * 1.5, life: 1.2, max: 1.2, size: 0.07, color: i % 2 ? C.leaf2 : C.figRipe, g: 3, spark: false });
-        if (e.n > 0) this.hud.float(t('fx.figs', { n: e.n }), this.sx(e.tree.x), this.sy(2.2), C.figRipe, 16, 1.3);
+        this.parts.burst(this.sx(e.x), this.sy(2.4), rm ? 3 : 10, { color: C.figRipe, size: 3, speed: 90, g: 200 });
+        this.words.add(t('fx.figs', { n: e.n }) + (e.bubble ? ` · ${t('fx.bubble')}` : ''), this.sx(e.x), this.sy(2.8), { color: C.figRipe, size: 16 * u, dur: 1.4 });
         break;
-      case 'courseStart': {
-        const c = e.course;
-        this.hud.card(c.name, c.index < 0 ? t('card.dailySub') : t('card.course', { n: c.index + 1, total: RULES.courses }), { icon: 'course', rank: 2, dur: 2.4 });
+      case 'reveal':
+        if (e.len > 0) this.words.add(t('fx.reveal'), this.L.w / 2, this.L.cardY, { color: C.gold2, size: 20 * u, dur: 2 });
         break;
-      }
-      case 'finish': {
-        this.finishT = this.clock;
-        this.finishBranch = e.branch;
-        for (let i = 0; i < (rm ? 6 : 28); i++) {
-          const a = Math.random() * TAU;
-          this.bit({ x: hero.x, y: hero.y + 0.6, vx: Math.cos(a) * 3, vy: 2 + Math.sin(a) * 3, life: 1.4, max: 1.4, size: 0.06, color: [C.gold, C.frond2, C.madder, C.cream][i % 4], g: 4, spark: false });
-        }
-        this.hud.float(t('fx.branch', { n: e.branch }), hx, hy - 40 * u, C.gold2, 20, 1.5, 44);
-        this.hud.popScore();
-        this.hud.card(t('card.finish', { n: e.branch, pay: e.pay }), t('card.voice'), { icon: 'tree', rank: 0, dur: 3, color: C.leaf });
-        if (e.completed) {
-          const next = TIERS[TIERS.indexOf(e.completed) + 1] as Tier | undefined;
-          this.hud.card(t('card.tier', { tier: t(`tier.${e.completed}`) }), next ? t('card.tierNext', { tier: t(`tier.${next}`) }) : '', { icon: 'coin', tier: e.completed, rank: 1 });
-        }
-        if (e.first && e.course.index >= 0 && e.course.index < RULES.courses - 1) this.hud.card(t('card.unlock'), '', { icon: 'course', rank: 2, dur: 2 });
+      case 'restPass':
+        this.words.add(t('fx.restPass', { n: e.pay }), this.sx(h.x), this.sy(h.y + 2.2), { color: C.figRipe, size: 17 * u, dur: 1.6 });
         break;
-      }
+      case 'pushPass':
+        this.words.add(t('fx.pushPass', { n: e.pay }), this.sx(h.x), this.sy(h.y + 2.2), { color: C.gold2, size: 17 * u, dur: 1.6 });
+        break;
       case 'home':
-        this.hud.card(t('card.home'), `${e.home.name} — ${e.home.fix}`, { icon: 'home', rank: 0, dur: 3, color: C.brickDark });
-        break;
-      case 'mission':
-        this.hud.card(t('card.mission', { name: missionById(e.id)?.name ?? e.id }), t('card.missionPay', { n: RULES.missionPay }), { icon: 'mission', rank: 1 });
+        this.words.add(t('fx.home', { name: HOMES[e.index].name }), this.L.w / 2, this.L.cardY - 30 * u, { color: C.brickDark, size: 18 * u, dur: 2.4 });
         break;
       case 'gift':
-        this.hud.card(t('card.gift', { n: e.pay }), '', { icon: 'home', rank: 2 });
+        this.words.add(t('fx.gift', { n: e.n }), this.L.w / 2, this.L.cardY + 20 * u, { color: C.gold2, size: 17 * u, dur: 2.2 });
         break;
-      case 'treeEnd':
-        this.hud.float(t('fx.onward'), hx + 40 * u, hy - 70 * u, C.brickDark, 14, 1.8, 30);
-        break;
-      case 'door':
-        this.doorT = this.clock;
-        break;
-      default:
-        break;
+      default: break;
     }
+    void S;
   }
 
-  private dust(x: number, y: number, n: number): void {
-    for (let i = 0; i < n; i++) this.bit({ x: x + (Math.random() - 0.5) * 0.4, y: y + 0.05, vx: (Math.random() - 0.7) * 1.6, vy: Math.random() * 0.8, life: 0.5, max: 0.5, size: 0.08 + Math.random() * 0.06, color: 'rgba(222,190,140,.8)', g: -0.5, spark: false });
+  private honk(sim: ZacheuszSim, x: number, y: number): void {
+    const c = sim.world.critters.find(k => Math.abs(k.x - x) < 0.1);
+    if (c) this.honks.set(c.id, this.clock);
+    this.words.add(t('fx.honk'), this.sx(x), this.sy(y), { color: C.ink, size: 12 * this.L.u, dur: 0.8 });
   }
 
-  private spark(x: number, y: number, n: number, color: string): void {
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * TAU, s = 1.5 + Math.random() * 2.5;
-      this.bit({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.45, max: 0.45, size: 0.05, color, g: 0, spark: true });
-    }
-  }
-
-  private bit(b: Bit): void {
-    if (this.bits.length > 260) this.bits.shift();
-    this.bits.push(b);
-  }
-
-  // ── a frame ─────────────────────────────────────────────────────
   update(dt: number, sim: ZacheuszSim): void {
     this.clock += dt;
-    this.fadeIn = Math.max(0, this.fadeIn - dt * 2);
-    const h = sim.hero, L = this.L;
-    const tx = h.x - L.hx / this.S;
-    const ty = Math.max(0, h.y - (L.tall ? 2.2 : 1.2));
-    if (!this.camReady) {
-      this.camX = tx;
-      this.camY = ty;
-      this.camReady = true;
-    }
-    this.camX = approach(this.camX, tx, dt, sim.rope ? 0.12 : 0.03);
-    this.camY = approach(this.camY, ty, dt, 0.45);
-    const z = sim.zone;
-    this.shadeK = approach(this.shadeK, z?.kind === 'shade' ? 1 : 0, dt, 0.9);
-    this.mist = approach(this.mist, sim.reliable ? 0 : 1, dt, 0.6);
-    this.dustShown = approach(this.dustShown, sim.dust, dt, 0.4);
-    const showGauge = sim.phase === 'play' && sim.block.kind === 'push' && !sim.block.blind;
-    this.gauge = approach(this.gauge, showGauge ? clamp(sim.L) : 0, dt, 0.25);
-    // the run cycle and the squash
-    const p = this.pose;
-    const speed = Math.abs(h.vx);
-    this.runPh += dt * speed * 3.1;
-    p.run = this.runPh;
-    p.stride = approach(p.stride, h.ground && h.mode === 'run' ? clamp(speed / RULES.run) : 0, dt, 0.08);
-    p.air = h.mode === 'run' && !h.ground ? (h.vy > 0 ? 1 : -1) : 0;
-    p.slide = h.sliding;
-    p.climb = h.mode === 'climb';
-    p.hang = h.mode === 'rope';
-    p.sit = h.mode === 'tree';
-    p.look = sim.sighted ? -0.6 : -0.3;
+    this.fade = Math.max(0, this.fade - dt * 2.5);
+    this.levelT += dt;
+    this.cheer = Math.max(0, this.cheer - dt * 0.7);
+    this.toss = Math.max(0, this.toss - dt * 2.5);
+    this.slotPop = Math.max(0, this.slotPop - dt * 2);
+    this.btnPress = Math.max(0, this.btnPress - dt * 4);
+    this.roadFlash = Math.max(0, this.roadFlash - dt * 1.5);
     this.squash = Math.max(0, this.squash - dt * 5);
-    p.squash = this.opts.reducedMotion ? 0 : this.squash;
-    // dust from his heels as he runs
-    this.trailT += dt;
-    if (h.standing && speed > 3 && this.trailT > 0.12 && !this.opts.reducedMotion) {
-      this.trailT = 0;
-      this.dust(h.x - 0.15, h.y, 1);
+    if (this.banner && (this.banner.t += dt) > 1.6) this.banner = null;
+    this.parts.update(dt);
+    this.words.update(dt);
+    const h = sim.hero, p = this.heroAt(sim);
+    // the camera: him at a fixed x, up when he climbs above what fits
+    const S = this.S, L = this.L;
+    const wantY = Math.max(0, p.y + 1.6 - (L.gy - L.hudTop - 10) / S);
+    if (!this.camReady) {
+      this.camX = p.x;
+      this.camY = wantY;
+      this.camReady = true;
+    } else {
+      this.camX = approach(this.camX, p.x, dt, sim.stage === 'bubble' ? 0.25 : 0.06);
+      this.camY = approach(this.camY, wantY, dt, 0.3);
     }
-    let n = 0;
-    for (const b of this.bits) {
-      b.life -= dt;
-      if (b.life <= 0) continue;
-      b.vy -= b.g * dt;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
-      this.bits[n++] = b;
-    }
-    this.bits.length = n;
-    this.bars = traceBars(sim.trace, Math.floor(sim.t), 40, 40);
-    this.hud.update(dt, sim);
+    // the pose
+    const speed = Math.abs(h.vx);
+    this.runPh += dt * speed * 2.6 * (h.vx < 0 ? -1 : 1);
+    this.pose.run = this.runPh;
+    this.pose.stride = h.ground && sim.stage === 'run' && h.pauseT < 0 ? clamp(speed / RULES.run) : 0;
+    this.pose.air = h.ground ? 0 : h.vy > 0 ? 1 : -1;
+    this.pose.squash = this.squash;
+    this.pose.slide = h.sliding;
+    this.pose.climb = sim.stage === 'finish';
+    this.pose.hang = sim.stage === 'rope';
+    this.pose.sit = false;
+    this.pose.look = h.pauseT >= 0 ? -0.2 : h.dir < 0 ? Math.PI : -0.35;
+    // Mela trots behind him on the street
+    const want = p.x - 1.8;
+    this.melaX = this.melaX === 0 || Math.abs(want - this.melaX) > 12 ? want : approach(this.melaX, want, dt, 0.25);
+    this.melaHop = sim.world.inPit(this.melaX) ? 1 : Math.max(0, this.melaHop - dt * 3);
+    this.bars = traceBars(sim.trace, sim.t, 40);
   }
 
+  /** Where he is drawn: in the bubble, on the rope, sliding down the trunk. */
+  private heroAt(sim: ZacheuszSim): { x: number; y: number } {
+    const h = sim.hero;
+    if (sim.stage === 'bubble' && sim.bubble) {
+      const b = sim.bubble, k = clamp(sim.stageT / RULES.floatSec);
+      const e = k * k * (3 - 2 * k);
+      return { x: b.x0 + (b.x1 - b.x0) * e, y: b.y0 + (b.y1 + 1.2 - b.y0) * e + Math.sin(sim.stageT * 3) * 0.1 * k };
+    }
+    if (sim.stage === 'rope' && sim.rope) {
+      const r = sim.rope, k = clamp(sim.stageT / RULES.ropeSec);
+      return { x: r.x0 + (r.x1 - r.x0) * k, y: r.y0 + (r.y1 - r.y0) * Math.sin(k * Math.PI / 2) + Math.sin(k * Math.PI) * 1.2 };
+    }
+    if (sim.stage === 'finish') return { x: h.x, y: Math.max(0, this.grabY * (1 - clamp(sim.stageT / RULES.slideSec) ** 2)) };
+    return { x: h.x, y: h.y };
+  }
+
+  // ── drawing ─────────────────────────────────────────────────────
   draw(sim: ZacheuszSim): void {
-    const { ctx, w, h } = this;
-    if (w < 2 || h < 2 || !this.started) return;
+    const ctx = this.ctx, L = this.L, S = this.S;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.drawBack(sim);
-    this.drawSkyline(sim);
-    this.drawTown();
-    this.drawShade(sim);
-    this.drawStreet(sim);
-    this.drawSightline(sim);
-    this.drawHero(sim);
-    this.drawBits();
-    if (this.mist > 0.02) {
-      ctx.fillStyle = `rgba(236,232,222,${0.18 * this.mist})`;
-      ctx.fillRect(0, 0, w, h);
-    }
-    this.hud.draw(sim);
-    this.drawFinaleText();
-    if (this.fadeIn > 0) {
-      ctx.fillStyle = `rgba(42,30,23,${this.fadeIn * 0.8})`;
-      ctx.fillRect(0, 0, w, h);
+    const off = this.shake.offset(1 / 60, 8);
+    const orchard = sim.world.orchards.find(o => o.x0 - 4 < this.camX + L.w / S && o.x1 + 4 > this.camX - 4);
+    const shade = orchard ? clamp(1 - Math.max(0, Math.max(orchard.x0 - this.camX, this.camX - orchard.x1)) / 6) : 0;
+    ctx.fillStyle = C.hillFar;
+    ctx.fillRect(0, 0, L.w, L.h);
+    paintSky(ctx, L.w, L.h, L.horizon, shade * 0.6);
+    ctx.save();
+    ctx.translate(off.x, off.y);
+    paintHills(ctx, L.w, L.horizon + S * 0.3, S * 0.8, this.camX * S * 0.05, C.hillFar, 1.3, L.h);
+    this.drawSkyline(ctx, sim);
+    if (sim.level.finish === 'sycamore') paintProcession(ctx, L.w * 0.86, L.horizon + S * 0.2, S * 0.9, this.clock, clamp(sim.hero.x / sim.world.finish.x));
+    this.drawTown(ctx, sim);
+    this.drawStreet(ctx, sim);
+    this.drawRoad(ctx, sim);
+    this.drawThings(ctx, sim);
+    this.drawMela(ctx, sim);
+    this.drawHero(ctx, sim);
+    this.parts.draw(ctx);
+    ctx.restore();
+    this.words.draw(ctx, `800 ${SANS}`);
+    this.drawOverlays(ctx, sim);
+    if (this.fade > 0) {
+      ctx.fillStyle = `rgba(251,241,220,${this.fade.toFixed(3)})`;
+      ctx.fillRect(0, 0, L.w, L.h);
     }
   }
 
-  // ── the far world ───────────────────────────────────────────────
-  private drawBack(sim: ZacheuszSim): void {
-    const { ctx, L, w, h } = this;
-    const S = this.S, lift = this.camY * S;
-    const hor = L.horizon + lift * 0.15;
-    paintSky(ctx, w, h, hor + L.palmMax * 0.1, this.shadeK);
-    ctx.fillStyle = mixHex(C.skyLow, '#dcd2a8', this.shadeK * 0.5);
-    ctx.fillRect(0, hor, w, h - hor);
-    paintHills(ctx, w, hor + 2, L.palmMax * 0.55, this.camX * S * 0.03, mixHex(C.hillFar, '#a9b7ad', this.shadeK * 0.4), 1.3, h);
-    // the procession's dust far ahead: nearer as he holds his view
-    const d = this.dustShown;
-    const px = w * (0.93 - 0.3 * d), r = Math.max(10, S * (0.5 + 0.8 * d)) * (L.tall ? 0.8 : 1);
-    paintProcession(ctx, px, hor + 2, r, this.clock, d);
-    paintPlain(ctx, w, hor + L.palmMax * 0.1, h, this.camX * S * 0.12, this.shadeK);
+  /** The skyline of palms: the band's last 40 s along the horizon, one palm a second. */
+  private drawSkyline(ctx: CanvasRenderingContext2D, sim: ZacheuszSim): void {
+    const L = this.L, S = this.S, n = this.bars.length;
+    if (!n) return;
+    const x0 = L.w * 0.04, x1 = L.w * 0.96, step = (x1 - x0) / n;
+    const base = L.horizon + S * 0.35;
+    const size = Math.min(step * 1.3, S * 0.6);
+    for (let i = 0; i < n; i++) {
+      const b = this.bars[i];
+      if (b.empty) continue;
+      const x = x0 + (i + 0.5) * step;
+      if (!b.reliable) { paintStump(ctx, x, base, size); continue; }
+      const hgt = S * 1.15 * (0.25 + 0.75 * clamp(b.level));
+      const crown = b.phase === 'rest' ? 'teal' : b.above ? 'gold' : 'green';
+      paintPalm(ctx, x, base, hgt * Math.max(0.15, b.shown), size, b.shown < 1 ? 'pale' : crown, Math.sin(this.clock * 1.2 + i) * 0.25, 0.85);
+      if (b.shown < 1) paintCrowd(ctx, x - step / 2, x + step / 2, base, S * 0.6, S * 0.5, i, this.clock, 0);
+    }
+    // the band's delay at "now": a bracket over the last seconds
+    const lag = this.opts.eeg ? 1 : 5;
+    const bx0 = x1 - step * lag, by = base - S * 1.5;
+    ctx.strokeStyle = 'rgba(42,30,23,.4)';
+    ctx.setLineDash([3, 3]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(bx0, by + 5);
+    ctx.lineTo(bx0, by);
+    ctx.lineTo(x1, by);
+    ctx.lineTo(x1, by + 5);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(42,30,23,.55)';
+    ctx.font = `700 ${Math.round(10 * L.u)}px ${SANS}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`≈${lag} s`, (bx0 + x1) / 2, by - 1);
     void sim;
   }
 
-  /** Where the sightline aims: the dust on the horizon. */
-  private dustPoint(): { x: number; y: number } {
-    const L = this.L, d = this.dustShown;
-    const r = Math.max(10, this.S * (0.5 + 0.8 * d)) * (L.tall ? 0.8 : 1);
-    return { x: this.w * (0.93 - 0.3 * d), y: L.horizon + this.camY * this.S * 0.15 + 2 - r * 0.45 };
-  }
-
-  /**
-   * The skyline of palms: the last 40 s of the signal, one palm a second (kit/trace.ts traceBars),
-   * scrolling left with time.  Height = the second's level; crown gold above the threshold, teal in
-   * rest, green below; a stump with a dotted ring where the band had no signal; the crowd over a
-   * blind block, the palms growing back when it parts; the band's delay bracketed at the new end.
-   */
-  private drawSkyline(sim: ZacheuszSim): void {
-    const { ctx, L } = this;
-    const bars = this.bars;
-    if (!bars.length) return;
-    const lift = this.camY * this.S * 0.15;
-    const base = L.horizon + lift + L.palmMax * 0.14;
-    const x0 = L.skyX0, x1 = L.skyX1;
-    const pps = (x1 - x0) / 40;
-    const now = sim.t, sec0 = Math.floor(now) - 40;
-    const xOf = (i: number) => x1 - (now - (sec0 + i + 0.5)) * pps;
-    const hOf = (lv: number) => L.palmMax * (0.22 + 0.78 * clamp(lv));
-    const size = Math.max(7, Math.min(pps * 1.35, L.palmMax * 0.42));
-    const lagN = LAG_SEC[sim.eeg ? 'eeg' : 'fnirs'];
-    ctx.save();
-    // the cool band behind rest seconds, the threshold's height as a faint dashed line
-    for (let i = 0; i < bars.length; i++) {
-      const b = bars[i];
-      if (b.empty || b.phase !== 'rest' || b.shown <= 0) continue;
-      ctx.fillStyle = 'rgba(79,163,154,.2)';
-      ctx.fillRect(xOf(i) - pps / 2, base - L.palmMax * 1.08, pps + 0.5, L.palmMax * 1.08);
-    }
-    ctx.strokeStyle = 'rgba(122,82,30,.45)';
-    ctx.setLineDash([3, 4]);
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x0, base - hOf(0.5));
-    ctx.lineTo(x1, base - hOf(0.5));
-    ctx.stroke();
-    ctx.setLineDash([]);
-    const sway = this.opts.reducedMotion ? 0 : Math.sin(this.clock * 1.3) * 0.4;
-    let crowd0 = -1;
-    for (let i = 0; i <= bars.length; i++) {
-      const b = bars[i];
-      const x = i < bars.length ? xOf(i) : 0;
-      const veiled = !!b && !b.empty && b.shown <= 0;
-      if (veiled && crowd0 < 0) crowd0 = x - pps / 2;
-      if (!veiled && crowd0 >= 0) {
-        this.crowd(crowd0, (i < bars.length ? x : x1 + pps) - pps / 2, base, size);
-        crowd0 = -1;
-      }
-      if (!b || b.empty || veiled || x < x0 - pps || x > x1 + pps) continue;
-      const young = i >= bars.length - lagN;
-      if (!b.reliable) {
-        paintStump(ctx, x, base, size);
-        ctx.strokeStyle = 'rgba(90,70,50,.55)';
-        ctx.setLineDash([1, 3]);
+  /** The town behind the street, with the townsfolk who cheer a stylish move. */
+  private drawTown(ctx: CanvasRenderingContext2D, sim: ZacheuszSim): void {
+    const L = this.L, S = this.S;
+    const par = 0.3, span = S * 2.6;
+    const base = L.gy - S * 0.9 + this.camY * S * 0.4;
+    const first = Math.floor((this.camX * S * par - L.w) / span) - 1;
+    for (let i = first; i < first + Math.ceil(L.w * 2 / span) + 3; i++) {
+      const x = i * span - this.camX * S * par + L.w * 0.5;
+      if (x > L.w + span || x < -span) continue;
+      const r = hash(i * 3 + 1), hh = S * (1.1 + r * 1.1), bw = span * (0.7 + 0.2 * r);
+      ctx.fillStyle = mixLight('#b98fa0', 0.55);
+      ctx.fillRect(x, base - hh, bw, hh + S);
+      ctx.fillStyle = mixLight('#9c7a8c', 0.5);
+      ctx.fillRect(x - 2, base - hh - S * 0.06, bw + 4, S * 0.08);
+      ctx.fillStyle = 'rgba(90,60,80,.18)';
+      for (let k = 0; k < 2; k++) ctx.fillRect(x + bw * (0.25 + 0.4 * k), base - hh * 0.6, S * 0.16, S * 0.22);
+      // the townsfolk on the roof (two or three heads), arms up when they cheer
+      const n = 1 + Math.floor(r * 3);
+      for (let k = 0; k < n; k++) {
+        const px = x + span * 0.18 + k * S * 0.45, jump = this.cheer * Math.abs(Math.sin(this.clock * 9 + i + k)) * S * 0.18;
+        const py = base - hh - S * 0.12 - jump;
+        ctx.fillStyle = ['#8d6b8f', '#b0623e', '#6f86b5'][(i + k) % 3];
+        ctx.fillRect(px - S * 0.12, py - S * 0.25, S * 0.24, S * 0.3);
+        ctx.fillStyle = '#e1c39a';
         ctx.beginPath();
-        ctx.arc(x, base - size * 0.62, size * 0.2, 0, TAU);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        continue;
-      }
-      const crown: Crown = b.phase === 'rest' ? 'teal' : b.above ? 'gold' : 'green';
-      const grow = b.shown < 1 ? ease.outBack(b.shown) : 1;
-      paintPalm(ctx, x, base, hOf(b.level) * grow, size * (young ? 0.75 : 1), crown, sway + Math.sin(i * 1.7) * 0.2, young ? 0.55 : 1);
-    }
-    // the band's delay at the new end: "≈ 5 s" — where the effort of now will show
-    const lx0 = x1 - lagN * pps - (now - Math.floor(now)) * pps, lx1 = x1;
-    const by = base - L.palmMax * 1.12;
-    ctx.strokeStyle = 'rgba(42,30,23,.7)';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(lx0, by + 5);
-    ctx.lineTo(lx0, by);
-    ctx.lineTo(lx1, by);
-    ctx.lineTo(lx1, by + 5);
-    ctx.stroke();
-    ctx.font = font(700, 10 * L.u, SANS);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillStyle = 'rgba(42,30,23,.8)';
-    ctx.fillText(this.lag, (lx0 + lx1) / 2, by - 2);
-    ctx.restore();
-  }
-
-  /** The crowd over a blind block's palms: people shoulder to shoulder, a few raised branches (they hide the view). */
-  private crowd(xa: number, xb: number, base: number, size: number): void {
-    const { ctx, L } = this;
-    const bw = Math.max(6, size * 0.5);
-    const cols = ['#7a5a8a', '#b0623e', '#cdb48f', '#4d64a3', '#8a6a4a', '#5d3a72'];
-    for (let x = xa + bw * 0.5, i = 0; x < xb; x += bw * 0.82, i++) {
-      const hh = L.palmMax * (0.5 + 0.18 * hash(i + Math.floor(xa)));
-      const bob = Math.sin(this.clock * 3 + i * 1.3) * 1.2;
-      ctx.fillStyle = cols[i % cols.length];
-      ctx.beginPath();
-      ctx.roundRect(x - bw / 2, base - hh + bob, bw, hh, bw * 0.4);
-      ctx.fill();
-      ctx.fillStyle = i % 3 ? '#e9dcc0' : '#d9b48a';
-      ctx.beginPath();
-      ctx.arc(x, base - hh - bw * 0.32 + bob, bw * 0.4, 0, TAU);
-      ctx.fill();
-      if (i % 4 === 1) {
-        ctx.strokeStyle = C.frond;
-        ctx.lineWidth = Math.max(1.5, bw * 0.15);
-        ctx.beginPath();
-        ctx.moveTo(x + bw * 0.3, base - hh + bob);
-        ctx.quadraticCurveTo(x + bw * 0.6, base - hh - L.palmMax * 0.3, x + bw * (0.5 + 0.3 * Math.sin(this.clock * 2 + i)), base - hh - L.palmMax * 0.5);
-        ctx.stroke();
-      }
-    }
-  }
-
-  /** The town in haze behind the street: flat roofs with parapets and dark windows, a tower, a dome, scrolling slower than the street. */
-  private drawTown(): void {
-    const { ctx, w } = this;
-    const S = this.S * 0.55;
-    const off = this.camX * this.S * 0.32;
-    const base = this.sy(0) - this.camY * this.S * 0.55;
-    const step = S * 2.1;
-    const i0 = Math.floor(off / step) - 1;
-    const far = mixHex('#e6c49a', '#bfcab6', this.shadeK * 0.5);
-    const near = mixHex('#d9ae7f', '#a9b9a6', this.shadeK * 0.5);
-    for (let pass = 0; pass < 2; pass++) {
-      const k = pass ? 1 : 0.55;
-      for (let i = i0; i < i0 + Math.ceil(w / step) + 3; i++) {
-        const r = hash(i * 3.7 + 11 + pass * 50);
-        const x = i * step - off * k - pass * S * 0.9;
-        const bw = S * (1.4 + r * 1.1), bh = S * (pass ? 0.9 + hash(i + 5) * 1.2 : 1.6 + hash(i + 7) * 1.4);
-        ctx.fillStyle = pass ? near : far;
-        ctx.fillRect(x, base - bh, bw, bh + this.h);
-        ctx.fillRect(x - S * 0.05, base - bh - S * 0.08, bw + S * 0.1, S * 0.1);
-        if (r > 0.8 && !pass) ctx.fillRect(x + bw * 0.3, base - bh - S * 1.1, bw * 0.4, S * 1.2);
-        if (r < 0.14) {
+        ctx.arc(px, py - S * 0.34, S * 0.11, 0, TAU);
+        ctx.fill();
+        if (this.cheer > 0.15) {
+          ctx.strokeStyle = '#e1c39a';
+          ctx.lineWidth = Math.max(1.5, S * 0.05);
           ctx.beginPath();
-          ctx.arc(x + bw / 2, base - bh, bw * 0.32, Math.PI, Math.PI * 2);
-          ctx.fill();
+          ctx.moveTo(px - S * 0.1, py - S * 0.2);
+          ctx.lineTo(px - S * 0.2, py - S * 0.5);
+          ctx.moveTo(px + S * 0.1, py - S * 0.2);
+          ctx.lineTo(px + S * 0.2, py - S * 0.5);
+          ctx.stroke();
         }
-        ctx.fillStyle = pass ? 'rgba(90,55,35,.35)' : 'rgba(110,70,45,.2)';
-        for (let wx = x + S * 0.3; wx < x + bw - S * 0.3; wx += S * 0.7) ctx.fillRect(wx, base - bh + S * 0.35, S * 0.18, S * 0.24);
       }
     }
+    void sim;
   }
 
-  // ── the street ──────────────────────────────────────────────────
   private visible(x0: number, x1: number): boolean {
-    const a = this.camX - this.L.hx / this.S - 1, b = this.camX + (this.w - this.L.hx) / this.S + 1;
-    return x1 >= a && x0 <= b;
+    const a = this.sx(x0), b = this.sx(x1);
+    return b > -this.S * 2 && a < this.L.w + this.S * 2;
   }
 
-  private drawStreet(sim: ZacheuszSim): void {
-    const { ctx, h } = this;
-    const S = this.S, w = sim.world, now = this.clock;
-    const bottom = h + 4;
-    // the finale's house and the decor palms first (behind the street's pieces)
-    for (const z of w.zones) {
-      if (z.kind === 'finale' && this.visible(z.x0, z.x1)) this.homeAtDusk(z.x0 + DOOR_X, sim);
+  private drawStreet(ctx: CanvasRenderingContext2D, sim: ZacheuszSim): void {
+    const w = sim.world, S = this.S, L = this.L;
+    const bottom = L.h + 4;
+    // the orchard's shade: a canopy band and its gate posts
+    for (const o of w.orchards) {
+      if (!this.visible(o.x0, o.x1)) continue;
+      ctx.fillStyle = 'rgba(31,79,87,.16)';
+      ctx.fillRect(this.sx(o.x0), this.sy(4.5), (o.x1 - o.x0) * S, this.sy(0) - this.sy(4.5));
+      for (const gx of [o.x0, o.x1]) {
+        ctx.strokeStyle = C.leaf;
+        ctx.lineWidth = Math.max(3, S * 0.12);
+        ctx.beginPath();
+        ctx.moveTo(this.sx(gx - 0.8), this.sy(0));
+        ctx.quadraticCurveTo(this.sx(gx), this.sy(3.6), this.sx(gx + 0.8), this.sy(0));
+        ctx.stroke();
+      }
+      ctx.fillStyle = C.leaf;
+      ctx.font = `800 ${Math.round(12 * L.u)}px ${SANS}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(t('fx.orchard'), this.sx(o.x0), this.sy(3.4));
     }
-    for (const p of w.palms) if (this.visible(p.x - 2, p.x + 2)) paintPalm(ctx, this.sx(p.x), this.sy(0), (p.h + 0.9) * S, S * 1.6, 'green', Math.sin(now * 0.8 + p.x) * 0.3);
-    for (const f of w.figs) if (this.visible(f.x - 2, f.x + 2)) paintFigTree(ctx, this.sx(f.x), this.sy(0), S, f.picked >= 0 ? 1 : sim.ripe, f.picked, Math.sin(now + f.x));
-    // pits under the street
+    for (const tr of w.trees) {
+      if (!this.visible(tr.x - 2, tr.x + 2)) continue;
+      paintFigTree(ctx, this.sx(tr.x), this.sy(0), S, sim.ripe, tr.picked, Math.sin(this.clock + tr.x));
+    }
+    // the finish: the palm, or the sycamore at a world's end
+    const f = w.finish;
+    if (this.visible(f.x - 4, f.x + 4)) {
+      const lit = sim.band >= 0 ? sim.band + 1 : 0;
+      if (f.kind === 'sycamore') paintSycamore(ctx, this.sx(f.x), this.sx(f.x + 1.1), this.sy(0), S, lit, this.clock);
+      else paintFinishPalm(ctx, this.sx(f.x), this.sx(f.x + 1.1), this.sy(0), S, lit, this.clock);
+    }
+    for (const s of w.solids) {
+      if (s.kind === 'trunk' || !this.visible(s.x0, s.x1)) continue;
+      const x0 = this.sx(s.x0), x1 = this.sx(s.x1), top = this.sy(s.top), base = this.sy(0);
+      switch (s.kind) {
+        case 'ground': paintGround(ctx, Math.max(-10, x0), Math.min(L.w + 10, x1), top, bottom, S, s.seed, 0); break;
+        case 'house': paintHouse(ctx, x0, x1, top, base, S, s.seed, false); break;
+        case 'stall': paintStall(ctx, x0, x1, top, base, S, s.seed); break;
+        case 'wall': paintWall(ctx, x0, x1, top, base, S); break;
+        case 'crate': paintCrate(ctx, x0, x1, top, base, S); break;
+        case 'crowd': paintCrowd(ctx, x0, x1, base, base - top, S, s.seed, this.clock, this.toss); break;
+        default: break;
+      }
+    }
     for (const p of w.pits) {
       if (!this.visible(p.x0, p.x1)) continue;
       if (p.kind === 'well') paintWell(ctx, this.sx(p.x0), this.sx(p.x1), this.sy(0), bottom, S);
-      else paintDitch(ctx, this.sx(p.x0), this.sx(p.x1), this.sy(0), bottom, S, now);
-    }
-    for (const s of w.solids) {
-      if (!this.visible(s.x0, s.x1)) continue;
-      const x0 = this.sx(s.x0), x1 = this.sx(s.x1), top = this.sy(s.top), base = this.sy(Math.max(0, s.bottom));
-      switch (s.kind) {
-        case 'ground': paintGround(ctx, x0, x1, top, bottom, S, s.id, this.shadeK); break;
-        case 'house': paintHouse(ctx, x0, x1, top, base, S, s.id, s.ladder); break;
-        case 'stall': paintStall(ctx, x0, x1, top, base, S, s.id); break;
-        case 'wall': paintWall(ctx, x0, x1, top, base, S); break;
-        case 'crate': paintCrate(ctx, x0, x1, top, base, S); break;
-        case 'trunk': paintSycamore(ctx, x0, x1, base, S, this.finishT >= 0 && now - this.finishT < RULES.treeSec ? this.finishBranch : 0, now); break;
-      }
+      else paintDitch(ctx, this.sx(p.x0), this.sx(p.x1), this.sy(0), bottom, S, this.clock);
     }
     for (const p of w.plats) {
-      if (!this.visible(p.x0, p.x1)) continue;
-      this.plat(p, sim);
+      if (p.kind === 'road' || !this.visible(p.x0, p.x1)) continue;
+      if (p.kind === 'awning') {
+        const under = w.solids.find(s => s.kind === 'stall' && s.x0 < p.x1 && s.x1 > p.x0);
+        paintAwning(ctx, this.sx(p.x0), this.sx(p.x1), this.sy(p.y), S, STRIPES[Math.floor(hash(p.x0) * 3) % 3], p.squash, under ? this.sy(under.top) : this.sy(0));
+      } else if (p.kind === 'plank') paintPlank(ctx, this.sx(p.x0), this.sx(p.x1), this.sy(p.y), S);
     }
-    // the things he hops over
-    for (const v of w.vaults) {
-      if (!this.visible(v.x - 1, v.x + 1)) continue;
-      const x = this.sx(v.x), y = this.sy(0), since = v.at >= 0 ? sim.t - v.at : -1;
-      if (v.kind === 'basket') paintBasket(ctx, x, y, S);
-      else if (v.kind === 'chicken') paintChicken(ctx, x, y, S, now + v.x, since < 0 ? 0 : clamp(since / 0.8));
-      else paintDog(ctx, x, y, S, since < 0 ? 0 : clamp(since / 0.4));
-    }
-    // denarii
-    const tier = sim.tier;
-    for (const c of w.coins) {
-      if (!this.visible(c.x - 0.5, c.x + 0.5)) continue;
-      const sp = c.special >= 0;
-      const kind = sp ? tier : 'denar';
-      const r = S * (sp ? 0.27 : 0.16);
-      if (c.got) {
-        const k = (sim.t - c.gotAt) / 0.35;
-        if (k >= 1) continue;
-        ctx.globalAlpha = 1 - k;
-        paintCoin(ctx, this.sx(c.x), this.sy(c.y + k * 0.8), r * (1 - 0.4 * k), kind, now * 12);
-        ctx.globalAlpha = 1;
-        continue;
-      }
-      const born = c.born >= 0 ? clamp((sim.t - c.born) / 0.35) : 1;
-      if (born <= 0) continue;
-      const bob = Math.sin(now * 3 + c.x) * S * 0.04;
-      if (sp) {
-        ctx.fillStyle = tier === 'purple' ? 'rgba(155,89,208,.25)' : 'rgba(255,240,190,.35)';
-        ctx.beginPath();
-        ctx.arc(this.sx(c.x), this.sy(c.y) + bob, r * (1.5 + 0.15 * Math.sin(now * 4)), 0, TAU);
-        ctx.fill();
-      }
-      paintCoin(ctx, this.sx(c.x), this.sy(c.y) + bob, r * ease.outBack(born), kind, now * 2.4 + c.x);
+    for (const tl of w.tiles) {
+      if (!this.visible(tl.x0, tl.x1)) continue;
+      paintStone(ctx, this.sx(tl.x0), this.sx(tl.x1), this.sy(tl.y), S, tl.kind, Math.max(tl.glow, tl.used ? 0 : 0.3 + 0.2 * Math.sin(this.clock * 4)), tl.y > 0, this.clock);
     }
   }
 
-  private plat(p: Plat, sim: ZacheuszSim): void {
-    const { ctx } = this;
-    const S = this.S, x0 = this.sx(p.x0), x1 = this.sx(p.x1), y = this.sy(p.y);
-    if (p.kind === 'awning') {
-      const since = this.awn.has(p.id) ? this.clock - this.awn.get(p.id)! : 9;
-      const sq = since < 0.5 ? Math.sin((since / 0.5) * Math.PI) * (1 - since / 0.5) : 0;
-      const poles = this.sy(Math.max(0, sim.world.topAt(p.x0, p.x0 + 0.2, p.y - 0.01)));
-      paintAwning(ctx, x0, x1, y, S, STRIPES[p.id % 3], this.opts.reducedMotion ? 0 : sq, poles);
-    } else if (p.kind === 'plank') paintPlank(ctx, x0, x1, y, S);
-    else if (p.high) {
-      const since = this.pops.has(p.id) ? this.clock - this.pops.get(p.id)! : 9;
-      paintHigh(ctx, p.kind as 'bridge' | 'frond' | 'roofawn', x0, x1, y, S, p.state, sim.sighted ? clamp(sim.L) : 0, this.clock, since < 0.35 && !this.opts.reducedMotion ? since / 0.35 : 0);
+  /** The band's road of light: its planks, its growing tip, and where it reaches at the threshold. */
+  private drawRoad(ctx: CanvasRenderingContext2D, sim: ZacheuszSim): void {
+    const w = sim.world, S = this.S, lane = RULES.lane;
+    for (const p of w.plats) {
+      if (p.kind !== 'road' || !this.visible(p.x0, p.x1)) continue;
+      const fresh = clamp(1 - (sim.t - p.born) / 0.6);
+      const a = p.passed >= 0 ? clamp(1 - (sim.t - p.passed) / RULES.plankFade) : 1;
+      const grow = clamp((sim.t - p.born) / 0.18);
+      paintLightPlank(ctx, this.sx(p.x0), this.sx(p.x0 + (p.x1 - p.x0) * grow), this.sy(lane), S, fresh, a);
     }
-  }
-
-  /** His own house at the day's end: a lamp in the doorway, a table set for a guest. */
-  private homeAtDusk(x: number, sim: ZacheuszSim): void {
-    const { ctx } = this;
-    const S = this.S;
-    const x0 = this.sx(x - 2.6), x1 = this.sx(x + 2.6), top = this.sy(2.8), base = this.sy(0);
-    paintHouse(ctx, x0, x1, top, base, S, 77, false);
-    const dx = this.sx(x), dw = S * 0.8, dh = S * 1.5;
-    const glow = this.doorT >= 0 ? clamp((this.clock - this.doorT) / 1) : 0.4;
-    const g = ctx.createRadialGradient(dx, base - dh * 0.5, 0, dx, base - dh * 0.5, S * 2.5);
-    g.addColorStop(0, `rgba(255,214,120,${0.55 * glow})`);
-    g.addColorStop(1, 'rgba(255,214,120,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(dx - S * 2.5, base - S * 3, S * 5, S * 3);
-    ctx.fillStyle = '#ffd88a';
-    ctx.fillRect(dx - dw / 2, base - dh, dw, dh);
-    ctx.strokeStyle = C.ink;
-    ctx.lineWidth = Math.max(1, S * 0.03);
-    ctx.strokeRect(dx - dw / 2, base - dh, dw, dh);
-    // the table and its bread and a cup
-    ctx.fillStyle = C.wood2;
-    ctx.fillRect(dx - dw * 0.35, base - S * 0.45, dw * 0.7, S * 0.08);
-    ctx.fillRect(dx - dw * 0.3, base - S * 0.45, S * 0.06, S * 0.45);
-    ctx.fillRect(dx + dw * 0.3 - S * 0.06, base - S * 0.45, S * 0.06, S * 0.45);
-    ctx.fillStyle = '#d9a35b';
-    ctx.beginPath();
-    ctx.ellipse(dx - dw * 0.12, base - S * 0.5, S * 0.12, S * 0.06, 0, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = C.madder;
-    ctx.fillRect(dx + dw * 0.08, base - S * 0.6, S * 0.08, S * 0.14);
-    // the lamp
-    ctx.fillStyle = C.gold;
-    ctx.beginPath();
-    ctx.arc(dx + dw * 0.75, base - dh * 0.9, S * (0.08 + 0.01 * Math.sin(this.clock * 9)), 0, TAU);
-    ctx.fill();
-    void sim;
-  }
-
-  /** The sycamore's shade over the street: a cool tint, soft at both ends, and dappled light. */
-  private drawShade(sim: ZacheuszSim): void {
-    const { ctx } = this;
-    const S = this.S;
-    for (const z of sim.world.zones) {
-      if (z.kind !== 'shade' || !this.visible(z.x0, z.x1)) continue;
-      const x0 = this.sx(z.x0), x1 = this.sx(z.x1);
-      {
-        const top = this.sy(5.5), bot = this.sy(0), fade = S * 2;
-        const g = ctx.createLinearGradient(x0, 0, x1, 0);
-        const k = Math.min(0.45, fade / Math.max(1, x1 - x0));
-        g.addColorStop(0, 'rgba(31,79,87,0)');
-        g.addColorStop(k, 'rgba(31,79,87,.18)');
-        g.addColorStop(1 - k, 'rgba(31,79,87,.18)');
-        g.addColorStop(1, 'rgba(31,79,87,0)');
-        ctx.fillStyle = g;
-        ctx.fillRect(x0, top, x1 - x0, bot - top);
-        // dappled light on the street
-        ctx.fillStyle = 'rgba(255,240,190,.22)';
-        for (let i = 0; i < (z.x1 - z.x0) / 1.4; i++) {
-          const x = z.x0 + 0.5 + i * 1.4 + hash(z.id + i) * 0.6;
-          ctx.beginPath();
-          ctx.ellipse(this.sx(x), this.sy(0) + S * 0.12, S * (0.25 + 0.2 * hash(i + 3)), S * 0.06, 0, 0, TAU);
-          ctx.fill();
-        }
-      }
-    }
-  }
-
-  // ── Zacchaeus and his sightline ─────────────────────────────────
-  /**
-   * The live gauge: a dashed line from his eyes toward the procession's dust, as long as the level
-   * (all the way to the dust at full), a notch at the threshold, gold beyond it.  Pale and dotted
-   * while the band has no signal (held where it was); hidden by the crowd and in rest.
-   */
-  private drawSightline(sim: ZacheuszSim): void {
-    const k = this.gauge;
-    if (k < 0.01 && !(sim.phase === 'play' && sim.block.kind === 'push' && !sim.block.blind)) return;
-    const { ctx } = this;
-    const h = sim.hero, S = this.S;
-    const e = eyeOf(S);
-    const ex = this.sx(h.x) + e.x, ey = this.sy(h.y) + e.y;
-    const d = this.dustPoint();
-    const dx = d.x - ex, dy = d.y - ey, len = Math.hypot(dx, dy);
-    if (len < 10) return;
-    const ux = dx / len, uy = dy / len;
-    const live = sim.sighted;
-    const a = live ? 1 : 0.45;
-    const reach = len * k, notch = len * 0.5;
+    for (const s of w.springs) if (this.visible(s.x - 1, s.x + 1)) paintSpring(ctx, this.sx(s.x), this.sy(s.y), S, s.squash, this.clock);
+    const look = sim.roadLook, h = sim.hero;
+    if (look === 'off' || sim.stage !== 'run') return;
+    // the gauge on the thing: dotted planks ahead to where the road reaches at the threshold, and
+    // a glowing post where it reaches now
+    const from = Math.max(h.x + 1, sim.roadTip), mark = h.x + REACH_MARK;
+    const yy = this.sy(lane);
     ctx.save();
-    ctx.lineCap = 'round';
-    // the full way to the dust, faint
-    ctx.strokeStyle = `rgba(255,248,230,${0.22 * a})`;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([2, 6]);
-    ctx.beginPath();
-    ctx.moveTo(ex, ey);
-    ctx.lineTo(d.x, d.y);
-    ctx.stroke();
-    // the sightline itself
-    const mist = !sim.reliable;
-    ctx.setLineDash(mist ? [1.5, 5] : [7, 5]);
-    ctx.lineDashOffset = -this.clock * 18;
-    ctx.lineWidth = Math.max(2, S * 0.05);
-    const cut = Math.min(reach, notch);
-    ctx.strokeStyle = mist ? 'rgba(240,240,236,.6)' : `rgba(255,248,230,${0.85 * a})`;
-    ctx.beginPath();
-    ctx.moveTo(ex, ey);
-    ctx.lineTo(ex + ux * cut, ey + uy * cut);
-    ctx.stroke();
-    if (reach > notch) {
-      ctx.strokeStyle = mist ? 'rgba(240,240,236,.6)' : `rgba(242,193,78,${a})`;
+    ctx.setLineDash([4, 5]);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = look === 'live' ? 'rgba(217,150,28,.75)' : 'rgba(120,110,100,.5)';
+    if (from < mark) {
       ctx.beginPath();
-      ctx.moveTo(ex + ux * notch, ey + uy * notch);
-      ctx.lineTo(ex + ux * reach, ey + uy * reach);
+      ctx.moveTo(this.sx(from), yy + S * 0.08);
+      ctx.lineTo(this.sx(mark), yy + S * 0.08);
       ctx.stroke();
     }
     ctx.setLineDash([]);
-    // the notch at the threshold
-    const nx = ex + ux * notch, ny = ey + uy * notch;
-    ctx.strokeStyle = `rgba(42,30,23,${0.75 * a})`;
-    ctx.lineWidth = 2;
+    // the threshold's flag on the lane
+    const fx = this.sx(mark);
+    ctx.strokeStyle = 'rgba(42,30,23,.65)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(nx - uy * 7, ny + ux * 7);
-    ctx.lineTo(nx + uy * 7, ny - ux * 7);
+    ctx.moveTo(fx, yy + S * 0.3);
+    ctx.lineTo(fx, yy - S * 0.75);
     ctx.stroke();
-    // the tip: a glint where his look reaches
-    const tx = ex + ux * reach, ty = ey + uy * reach;
-    ctx.fillStyle = reach > notch && !mist ? C.gold : C.cream;
-    ctx.globalAlpha = a;
+    ctx.fillStyle = look === 'live' ? C.gold : '#c9bfae';
     ctx.beginPath();
-    ctx.arc(tx, ty, Math.max(2.5, S * 0.06) * (1 + 0.15 * Math.sin(this.clock * 6)), 0, TAU);
+    ctx.moveTo(fx, yy - S * 0.75);
+    ctx.lineTo(fx + S * 0.38, yy - S * 0.62);
+    ctx.lineTo(fx, yy - S * 0.49);
+    ctx.closePath();
     ctx.fill();
+    ctx.stroke();
+    if (look === 'live') {
+      const rx = this.sx(h.x + sim.reach), on = sim.building;
+      ctx.shadowColor = C.gold;
+      ctx.shadowBlur = on ? S * 0.8 : 0;
+      ctx.fillStyle = on ? '#fff3c0' : 'rgba(255,243,192,.45)';
+      ctx.beginPath();
+      ctx.arc(rx, yy, S * (0.16 + (on ? 0.05 * Math.sin(this.clock * 10) : 0) + 0.15 * this.roadFlash), 0, TAU);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else if (look === 'blind') {
+      paintCrowd(ctx, this.sx(h.x + 2), this.sx(h.x + 2 + REACH_MARK), yy + S * 0.4, S * 0.9, S * 0.55, 77, this.clock, 0);
+    }
     ctx.restore();
   }
 
-  private drawHero(sim: ZacheuszSim): void {
-    const { ctx } = this;
-    const h = sim.hero, S = this.S;
-    const x = this.sx(h.x), y = this.sy(h.y);
-    // his shadow on what is under him
-    const top = sim.world.topAt(h.x - 0.2, h.x + 0.2, h.y + 0.01);
-    if (Number.isFinite(top) && h.mode !== 'rope') {
-      const gap = clamp((h.y - top) / 3);
-      ctx.fillStyle = `rgba(42,30,23,${0.25 * (1 - gap)})`;
-      ctx.beginPath();
-      ctx.ellipse(x, this.sy(top), S * 0.26 * (1 - gap * 0.5), S * 0.06, 0, 0, TAU);
-      ctx.fill();
+  private drawThings(ctx: CanvasRenderingContext2D, sim: ZacheuszSim): void {
+    const w = sim.world, S = this.S;
+    for (const c of w.coins) {
+      if (c.taken || !this.visible(c.x, c.x)) continue;
+      const x = this.sx(c.x), y = this.sy(c.y);
+      if (c.kind === 'light') {
+        ctx.save();
+        ctx.shadowColor = C.gold;
+        ctx.shadowBlur = S * 0.3;
+        paintCoin(ctx, x, y, S * 0.16, 'denar', this.clock * 3 + c.x);
+        ctx.restore();
+      } else paintCoin(ctx, x, y, S * 0.15, 'denar', this.clock * 3 + c.x);
     }
-    if (sim.rope) {
-      // the neighbour's rope from above
+    for (const s of w.specials) {
+      if (!this.visible(s.x, s.x)) continue;
+      const x = this.sx(s.x), y = this.sy(s.y) + Math.sin(this.clock * 2 + s.x) * S * 0.06;
+      if (s.taken) continue;
+      ctx.save();
+      ctx.shadowColor = '#fff';
+      ctx.shadowBlur = S * 0.3;
+      paintCoin(ctx, x, y, S * 0.3, tierKind(sim.tier), Math.sin(this.clock * 1.6 + s.x) * 1.2);
+      ctx.restore();
+    }
+    for (const c of w.critters) {
+      if (!this.visible(c.x - 1, c.x + 1)) continue;
+      const dizzy = c.state === 'bonked' ? 1 : 0;
+      const a = c.state === 'bonked' && c.t > 2 ? clamp((2.6 - c.t) / 0.6) : 1;
+      ctx.save();
+      ctx.globalAlpha = a;
+      const honk = this.clock - (this.honks.get(c.id) ?? -9) < 0.4 ? 1 : 0;
+      if (c.kind === 'goose') paintGoose(ctx, this.sx(c.x), this.sy(c.y), S, this.clock + c.id, c.state === 'bonked' ? c.dir : c.dir, dizzy, honk);
+      else paintGoat(ctx, this.sx(c.x), this.sy(c.y), S, this.clock + c.id, c.state === 'bonked' ? c.dir : -1, { dizzy, chew: 1, run: c.state === 'bonked' && c.t > 0.7 ? 1 : 0 });
+      ctx.restore();
+    }
+  }
+
+  private drawMela(ctx: CanvasRenderingContext2D, sim: ZacheuszSim): void {
+    const S = this.S, w = sim.world;
+    const x = this.melaX;
+    const surf = Math.max(0, Math.min(w.surfaceAt(x) ?? 0, 0));
+    const hop = this.melaHop > 0 ? Math.abs(Math.sin(this.clock * 8)) * 0.6 : 0;
+    const running = sim.stage === 'run' && sim.hero.pauseT < 0;
+    paintGoat(ctx, this.sx(x), this.sy(surf + hop), S * 0.95, this.clock, 1, { bell: true, run: running ? 1 : 0, chew: running ? 0 : 1 });
+  }
+
+  private drawHero(ctx: CanvasRenderingContext2D, sim: ZacheuszSim): void {
+    const S = this.S, p = this.heroAt(sim);
+    const x = this.sx(p.x), y = this.sy(p.y);
+    if (sim.stage === 'rope' && sim.rope) {
       ctx.strokeStyle = C.rope;
-      ctx.lineWidth = Math.max(2, S * 0.05);
+      ctx.lineWidth = Math.max(1.5, S * 0.05);
       ctx.beginPath();
-      ctx.moveTo(x + Math.sin(this.clock * 5) * 4, -10);
-      ctx.lineTo(x, y - S * 1.1);
+      ctx.moveTo(x, y - S * 0.9);
+      ctx.lineTo(this.sx(sim.rope.x1 + 0.6), this.sy(4));
       ctx.stroke();
     }
-    paintZacchaeus(ctx, x, y, S, this.pose);
-  }
-
-  private drawBits(): void {
-    const { ctx } = this;
-    const S = this.S;
-    for (const b of this.bits) {
-      const a = Math.max(0, b.life / b.max);
-      ctx.globalAlpha = a;
-      if (b.spark) {
-        ctx.strokeStyle = b.color;
-        ctx.lineWidth = Math.max(1.2, S * 0.03);
-        ctx.beginPath();
-        ctx.moveTo(this.sx(b.x), this.sy(b.y));
-        ctx.lineTo(this.sx(b.x - b.vx * 0.05), this.sy(b.y - b.vy * 0.05));
-        ctx.stroke();
-      } else {
-        ctx.fillStyle = b.color;
-        ctx.beginPath();
-        ctx.arc(this.sx(b.x), this.sy(b.y), Math.max(1, b.size * S * (0.5 + 0.5 * a)), 0, TAU);
-        ctx.fill();
-      }
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  private drawFinaleText(): void {
-    if (this.doorT < 0) return;
-    const { ctx, L } = this;
-    const k = clamp((this.clock - this.doorT) / 0.8);
-    if (k <= 0) return;
-    const u = L.u;
     ctx.save();
-    ctx.globalAlpha = ease.outCubic(k);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const y = L.cardY;
-    ctx.font = font(500, 34 * u, SERIF, true);
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = 'rgba(251,241,220,.85)';
-    ctx.strokeText(t('finale.title'), L.w / 2, y);
-    ctx.fillStyle = C.ink;
-    ctx.fillText(t('finale.title'), L.w / 2, y);
-    ctx.font = font(650, 14 * u, SANS);
-    ctx.strokeText(t('finale.sub'), L.w / 2, y + 30 * u);
-    ctx.fillStyle = C.brickDark;
-    ctx.fillText(t('finale.sub'), L.w / 2, y + 30 * u);
+    if (sim.hero.dir < 0 && sim.stage === 'run') {
+      ctx.translate(x, 0);
+      ctx.scale(-1, 1);
+      ctx.translate(-x, 0);
+    }
+    paintZacchaeus(ctx, x, y, S, this.pose);
     ctx.restore();
+    if (sim.stage === 'bubble') paintBubble(ctx, x, y - S * 0.5, S * 0.85, this.clock);
   }
+
+  private drawOverlays(ctx: CanvasRenderingContext2D, sim: ZacheuszSim): void {
+    const L = this.L;
+    const got = sim.world.specials.map(s => s.taken);
+    while (got.length < RULES.specials) got.push(false);
+    drawStrip(ctx, L, sim.levelIndex, sim.tier, got, this.slotPop, this.clock);
+    if (this.levelT < 2.6 && sim.stage === 'run') drawLevelCard(ctx, L, sim.levelIndex, sim.tier, this.levelReplay, this.levelT / 2.6);
+    drawButton(ctx, L, sim.bubbles, this.clock, this.btnPress);
+    if (this.banner) drawBanner(ctx, L, this.banner.text, this.banner.t / 1.6, this.banner.color);
+    const line = sim.talk.current;
+    if (line && sim.stage !== 'story') {
+      const mx = this.sx(this.melaX), my = this.sy(1.3);
+      const hp = this.heroAt(sim);
+      drawSpeech(ctx, L, line.text, mx, my, line.t / line.dur, { x: this.sx(hp.x), y: this.sy(hp.y) });
+    }
+    if (sim.stage === 'tally' && sim.lastResult) drawTally(ctx, L, sim.lastResult, sim.stageT / RULES.tallySec, nextLevelName(sim));
+    if (sim.stage === 'story' && sim.story) this.story.draw(ctx, L, sim.story.kind, sim.story.world, sim.stageT / RULES.storySec);
+    void levelName;
+  }
+}
+
+/** A colour lightened toward the haze (the town behind the street). */
+function mixLight(c: string, k: number): string {
+  const n = parseInt(c.slice(1), 16);
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const hz = [241, 221, 176];
+  return `rgb(${Math.round(r + (hz[0] - r) * k)},${Math.round(g + (hz[1] - g) * k)},${Math.round(b + (hz[2] - b) * k)})`;
 }

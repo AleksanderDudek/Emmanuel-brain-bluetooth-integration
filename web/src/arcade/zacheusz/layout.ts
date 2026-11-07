@@ -1,16 +1,12 @@
 /**
  * Where Zacheusz's play view puts things (CSS px), for phones upright and on their side and for
- * desktops: the scale of the street (px per u), where Zacchaeus runs across the screen, the
- * street's line, the skyline of palms (the signal's history) on the horizon, and the HUD's boxes.
- * The runner's top strip (time, pause) and bottom strip (the signal banner, the simulator button)
- * stay clear of the HUD.
+ * desktops.  The runner's standard HUD (the Mendi panel top left, the score top right) covers the
+ * band down to `hudTop`; the street and everything that matters for a jump sits below it: the
+ * scene's scale is chosen so that the street, the roofs and the band's light road (the lane, about
+ * 4 u up, plus his height) all fit between `hudTop` and the street line.  The sky above `hudTop` keeps
+ * only background art (the palms of the signal's skyline run along the horizon below the panel).
  */
 import { clamp } from '../kit/juice';
-
-export const TOP = 64;
-export const BOTTOM = 66;
-
-export interface Rect { x: number; y: number; w: number; h: number }
 
 export interface Layout {
   w: number;
@@ -18,48 +14,41 @@ export interface Layout {
   /** UI scale */
   u: number;
   tall: boolean;
-  /** px per world unit */
+  short: boolean;
+  /** px per u */
   S: number;
-  /** where he runs across the screen, and the street's line when the camera rests (px) */
-  hx: number;
+  /** the street's top line on screen, and where he runs (x) */
   gy: number;
-  /** the skyline's foot and the tallest palm (px); its left and right ends */
+  hx: number;
+  /** the runner's HUD bottom edge, and the band of sky for the skyline of palms */
+  hudTop: number;
   horizon: number;
-  palmMax: number;
-  skyX0: number;
-  skyX1: number;
-  status: Rect;
-  scoreX: number;
-  scoreY: number;
-  /** the block card's box and the event cards' centre */
-  block: Rect;
+  /** the bubble button (bottom right: the simulator's switch sits bottom left) */
+  btn: { x: number; y: number; r: number };
+  /** where cards centre */
   cardY: number;
 }
 
-export function layout(w: number, h: number): Layout {
-  const W = Math.max(240, w), H = Math.max(240, h);
-  const u = clamp(Math.min(W, H) / 430, 0.84, 1.25);
-  const tall = W / H < 1;
-  const S = tall ? W / 9.5 : Math.min(H / 9.6, W / 14.5);
-  const gy = H * (tall ? 0.83 : 0.78);
-  const palmMax = tall ? H * 0.11 : H * 0.13;
-  const statusW = Math.min(W - 32 - 128 * u, tall ? W : W * 0.5, 440 * u);
-  const status: Rect = { x: 16, y: TOP + 2, w: statusW, h: 96 * u };
-  // the skyline stands clear of the HUD above it and of the roofs' run below it
-  const horizon = tall ? H * 0.52 : Math.max(H * 0.36, TOP + 100 * u + palmMax * 1.15 + 24);
-  // the block card: under the status on an upright phone, else in the gap between the status and the score
-  const bh = 100 * u;
-  let block: Rect;
-  if (tall) block = { x: 16, y: TOP + 2 + 112 * u, w: Math.min(250 * u, W - 32), h: bh };
-  else {
-    const gx0 = status.x + statusW + 12, gx1 = W - 16 - 150 * u;
-    const bw = Math.max(150, Math.min(250 * u, gx1 - gx0));
-    block = { x: Math.max(gx0, (gx0 + gx1) / 2 - bw / 2), y: TOP + 2, w: bw, h: bh };
-  }
+/** The world's height that must fit under the HUD: the lane, his height, a coin over him. */
+const NEED_U = 5.7;
+
+export function layout(w: number, h: number, hudTop: number): Layout {
+  const W = Math.max(240, w), H = Math.max(200, h);
+  const u = clamp(Math.min(W, H) / 430, 0.8, 1.25);
+  const tall = W / H < 0.9;
+  const short = !tall && H < 470;
+  const top = clamp(hudTop || 0, 0, H * 0.45);
+  const floor = Math.max(short ? 34 : 54, H * (tall ? 0.15 : 0.12));
+  const gy = H - floor;
+  const fitH = (gy - top - 8) / NEED_U;
+  const fitW = W / (tall ? 9.5 : 17);
+  const S = Math.max(short ? 20 : 26, Math.min(fitH, fitW, 80));
+  const hx = W * (tall ? 0.3 : 0.28);
+  const horizon = Math.min(gy - S * 1.2, Math.max(top + S * 0.8, gy - S * 4.4));
+  const r = clamp(26 * u, 22, 32);
   return {
-    w: W, h: H, u, tall, S, hx: W * (tall ? 0.26 : 0.27), gy, horizon, palmMax,
-    skyX0: W * 0.02, skyX1: W * 0.98,
-    status, scoreX: W - 16, scoreY: TOP + 2, block,
-    cardY: tall ? H * 0.36 : H * 0.36,
+    w: W, h: H, u, tall, short, S, gy, hx, hudTop: top, horizon,
+    btn: { x: W - 16 - r, y: H - 14 - r, r },
+    cardY: top + (gy - top) * 0.45,
   };
 }

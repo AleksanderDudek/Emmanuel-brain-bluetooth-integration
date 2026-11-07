@@ -1,18 +1,22 @@
 /**
- * Every number of Zacheusz's rules in one place (sim.ts re-exports it): the run, the jump, the
- * street's pieces, the high way, the rest street, the blocks and the meta game.  Tuning moves a
- * number here and nowhere else; the tests read the same object.
+ * Every number of Zacheusz's rules in one place (sim.ts re-exports it): the run and its hands
+ * (Super Mario Run's verbs), the creatures, the blocks, the bubbles, the finish palm, the style, the
+ * band's light road, the fig orchard, the session's blocks and the meta.  Tuning moves a number here
+ * and nowhere else; the tests read the same object.
  *
- * World units (u): x to the right, y up, the street's top at y = 0; Zacchaeus is a short man,
- * about 1 u tall.  A landscape screen shows about 16 u across, an upright phone about 11 u.
+ * World units (u): x to the right, y up, the street's top at y = 0; Zacchaeus is a short man, about
+ * 1 u tall.  A landscape screen shows about 16 u across, an upright phone about 9 u.
  */
 export const RULES = {
   // ── the run ──────────────────────────────────────────────────
   /** the physics' fixed step (s): the same inputs give the same run on every device */
   step: 1 / 120,
-  /** forward speed (u/s): running, walking in the sycamore's shade, the slow finale */
+  /** forward speed (u/s): running, on the light road, in the orchard, the ▶ dash */
   run: 5.2,
-  walk: 2.6,
+  roadRun: 6.2,
+  walk: 2.9,
+  dash: 8.6,
+  dashSec: 0.9,
   /** how fast the speed reaches its target (u/s²) */
   accel: 18,
   /** Zacchaeus' box: half its width and its height (u) */
@@ -21,132 +25,163 @@ export const RULES = {
   /** a ledge this low is stepped up without a jump (u) */
   stepUp: 0.3,
 
-  // ── the jump (Super Mario Run's verb) ────────────────────────
-  /** the jump's take-off speed (u/s); gravity while it is held (up to holdMax s) and otherwise (u/s²) */
+  // ── the jump ─────────────────────────────────────────────────
+  /** take-off speed (u/s); gravity while held (up to holdMax s) and otherwise (u/s²): tap ≈ 1.3 u, hold ≈ 2.8 u */
   jumpV: 10,
   gHold: 12,
   holdMax: 0.26,
   g: 38,
-  /** falling never faster than this (u/s) */
   maxFall: 16,
   /** a tap this early before landing still jumps, and this long after leaving a ledge (s) */
   buffer: 0.12,
-  coyote: 0.08,
-  /** against a wall in the air: the slide's speed (u/s); a tap kicks off it upward and back */
+  coyote: 0.09,
+  /** the mid-air spin (a tap in the air, once a flight): a lift (u/s) and its style */
+  spinV: 4.2,
+  /** against a wall in the air: the slide's speed (u/s); a tap kicks off up and back */
   wallSlide: 2.4,
   wallV: 9.6,
   wallKick: 2.6,
   /** the hands reach a ledge this far above the feet: he pulls himself up (u); a pit's far rim only this close */
   mantle: 0.5,
-  rimMantle: 0.2,
-  /** baskets, chickens and sleeping dogs are vaulted on their own: the hop's speed (u/s), started this far ahead (u) */
-  vaultV: 7.2,
-  vaultAhead: 0.55,
-  /** an awning bounces him up at this speed (u/s), more while the jump is held */
+  rimMantle: 0.25,
+  /** pressed against a wall on the street this long (s): a neighbour gives him a leg-up */
+  legUp: 1.4,
+  legUpV: 14,
+  /** an awning bounces him at this speed (u/s), more while held; a spring of light */
   bounceV: 11.2,
   bounceHeld: 13,
-  /** pressed against a wall on the ground this long (s): a neighbour gives him a leg-up */
-  legUp: 1.6,
-  legUpV: 12.5,
-  /** a ladder is climbed at this speed (u/s) */
-  climbV: 4.5,
+  springV: 17.5,
+  /** the ▶ block's long jump: up and across (u/s) */
+  longV: 9,
+  longVx: 10.5,
+  /** the ◀ block: he runs back this long (s) */
+  backSec: 1.5,
+  /** the pause stone: he waits for a tap, at most this long (s) */
+  pauseMax: 8,
 
-  // ── the rope (Mario's bubble) ────────────────────────────────
-  /** below this (u) he has fallen: the neighbour's rope brings him back to where he was this long ago (s) */
-  fallY: -2.2,
-  rewind: 3,
-  /** the rope's animation (s) */
-  ropeSec: 1.3,
-  /** the history kept for the rope (s) and its sampling (s) */
-  history: 4.5,
-  historyEvery: 0.05,
-  /** this many falls into the same pit and the neighbour lays a plank over it */
-  plankAfter: 2,
+  // ── the creatures (geese and goats: bonked, never harmful) ───
+  /** height and half width (u) */
+  goose: { h: 0.62, hw: 0.3, vault: 7.4 },
+  goat: { h: 0.92, hw: 0.4, vault: 9 },
+  /** he vaults on his own when one is this close ahead on the ground (u) */
+  vaultAhead: 0.5,
+  /** a bonk from above: the bounce (u/s), more while held */
+  bonkV: 10.6,
+  bonkHeld: 13.2,
+  /** a bonk's hit-stop (s) */
+  bonkStop: 0.05,
+  /** denarii for bonks in a row without touching the ground: 1, 2, 4, 4 … */
+  bonkPay: [1, 2, 4],
+  /** geese waddle this fast (u/s) back and forth over this much (u) */
+  waddle: 0.6,
+  waddleSpan: 1.2,
 
-  // ── the street ───────────────────────────────────────────────
-  /** the world is made this long ahead of him at his pace (s), at least this far (u), and forgotten this far behind (u) */
-  aheadSec: 4,
-  aheadMin: 15,
-  behind: 24,
+  // ── coins ────────────────────────────────────────────────────
   /** a denarius is picked within this distance of his middle (u) */
   pick: 0.62,
-  /** coins this close in time (s) make a chain (the combo's rising notes) */
+  /** coins this close in time (s) make a chain (rising notes) */
   chainGap: 0.9,
-  /** a special denarius counts this much; five a course */
-  specialValue: 5,
+  /** a special denarius counts this much; five a level; a whole set in one run pays a bonus */
+  specialValue: 3,
   specials: 5,
+  setBonus: 10,
 
-  // ── the sycamore-fig (the flagpole) ──────────────────────────
-  /** where he touches the trunk (feet, u): branch 1 from the ground up, 5 at the top */
-  branchAt: [0, 1.1, 2.2, 3.3, 4.4],
-  /** denarii for each branch */
-  branchPay: [5, 10, 20, 35, 50],
-  /** how long he sits in the branches while the procession passes (s) */
-  treeSec: 3.2,
+  // ── the bubble (Mario's) and the rope ────────────────────────
+  /** below this (u) he has fallen */
+  fallY: -2.2,
+  /** bubbles at a level's start, and at most */
+  bubbles: 2,
+  bubbleMax: 5,
+  /** a bubble rewinds this far back in time (s); its float back (s); it pops by itself after (s) */
+  rewind: 3,
+  floatSec: 1.1,
+  autoPop: 2.6,
+  /** history kept for the rewind (s) and its sampling (s) */
+  history: 6,
+  historyEvery: 0.05,
+  /** without a bubble the neighbour's rope pulls him out on the far rim (s) */
+  ropeSec: 1.1,
 
-  // ── the brain ───────────────────────────────────────────────
-  /** Wypatrywanie: the lead-in before the high way answers (s), and the level's extra smoothing (s), Mendi / HALO */
+  // ── the finish (the palm, or the sycamore at a world's end) ──
+  /** where he grabs the trunk (feet, u) for bands 1..5 */
+  bandAt: [0, 1, 2, 3, 4.2],
+  bandPay: [1, 3, 5, 8, 12],
+  /** the slide down and the walk-off (s), then the tally card (s), then the next level */
+  slideSec: 1.2,
+  tallySec: 3.4,
+  /** a world's story card holds (s) — a tap skips it */
+  storySec: 5,
+
+  // ── style (Toad Rally's cheers) ──────────────────────────────
+  /** points per trick; points in one flight multiply by the chain; denarii at the tally per point */
+  style: { spin: 10, vaultSpin: 25, wall: 20, bonk: 15, chain: 10, long: 15, spring: 10, top: 40 },
+  styleToCoins: 0.04,
+
+  // ── the band: the light road (push) ──────────────────────────
+  /** its height over the street (u) */
+  lane: 3.6,
+  /** the lead-in before the road answers (s), Mendi / HALO */
   leadIn: { fnirs: 5, eeg: 2 },
-  tauL: { fnirs: 1.5, eeg: 0.6 },
-  /** a high piece locks its state this long before he reaches it (s × his speed) */
-  lockSec: 1.5,
-  /** the level at which a piece unfolds solid (the threshold's place on the level) */
-  solidAt: 0.5,
-  /** "Widok": a held view this long (s), Mendi / HALO, then every `viewAgain` s more of it, at most viewMax a block */
+  /** the road's reach ahead of him (u) for a level: minReach + level × reachSpan; it builds only above the threshold */
+  minReach: 2,
+  reachSpan: 12,
+  /** one plank's length (u); a light coin every this far (u); a spring every this far under the road (u) */
+  plank: 1.25,
+  coinEvery: 1.6,
+  springEvery: 8,
+  /** the first spring stands this far ahead (u) */
+  springAhead: 5,
+  /** a plank's last moments: it fades this long after he passes it (s) */
+  plankFade: 2.5,
+  /** a held focus this long (s), Mendi / HALO, is a "Widok": a burst of light coins on the road */
   view: { fnirs: 6, eeg: 4 },
   viewAgain: 8,
   viewMax: 3,
-  /** a Widok's burst of denarii on the roofs ahead: how many, from how far ahead (u) over how long a stretch (u) */
-  viewCoins: 12,
-  viewFrom: 6,
-  viewSpan: 9,
-  /** the procession's dust: its nearness follows the hold (s to full), eases back this slowly (s) */
-  dustFull: 10,
-  dustTau: 4,
-  /** Cień sykomory: ripeness R, dR/dt = gain × calm − leak after the lead-in (s), Mendi / HALO */
-  rGain: 0.075,
+  viewCoins: 10,
+
+  // ── the fig orchard (rest) ───────────────────────────────────
+  /** ripeness R: dR/dt = gain × calm − leak, after the lead-in (s), Mendi / HALO */
+  rGain: 0.08,
   rLeak: 0.012,
   rLeadIn: { fnirs: 4, eeg: 2 },
-  /** a fig tree carries five figs; the k-th is ripe once R reaches figAt[k] */
-  figAt: [0.12, 0.28, 0.45, 0.62, 0.8],
   /** the neutral floor of R for a block with too few reliable seconds */
   rFloor: 0.4,
-  minReliable: 8,
-  /** a passed Cień sykomory: a basket of figs, worth this many denarii */
+  /** a tree every this far (u); five figs; the k-th ripe once R ≥ figAt[k]; a full tree gives a bubble */
+  treeEvery: 7,
+  figAt: [0.12, 0.28, 0.45, 0.62, 0.8],
+  /** the orchard's gate stands at least this far ahead of him (u); the search for a safe cut reaches this far (u) */
+  cutAhead: 7,
+  cutSearch: 40,
+  /** a passed rest: a basket of figs; a passed push: a shower of light coins */
   basketPay: 8,
-  /** a passed Wypatrywanie: this many denarii shine on the next roofs */
   passPay: 6,
-  /** the blind block (Tłum): its last 15 s of focus become this many solid rooftops at most */
-  revealMax: 6,
+  /** a block needs this many reliable seconds for a verdict */
+  minReliable: 8,
+  /** the blind block (Tłum): its last 15 s of focus become this much road at most (u) */
+  revealMax: 18,
 
   // ── the session ──────────────────────────────────────────────
-  /** Wypatrywanie and Cień: nominal length ± jitter (s); no block under minBlock */
   push: [24, 4],
-  rest: [23, 3],
+  rest: [22, 3],
   minBlock: 12,
   telegraph: 4,
-  finale: 6,
-  /** the first-ever session's warm-up (s): 30 in 5 and 10 min, 20 in 3, 6 in a 40 s test */
-  warm: { long: 30, short: 20, test: 6 },
-  /** canStop() waits at most this long (s) for a rope or the tree to finish */
+  /** the first-ever session's warm-up (s): 30 in 5 and 10 min, 22 in 3, 8 in a 40 s test */
+  warm: { long: 30, short: 22, test: 8 },
+  /** canStop() waits at most this long (s) for a bubble or a finish to land */
   settle: 4,
-  /** the ghost hand shows after this long without a touch in the warm-up (s) */
-  idleHint: 3,
-  /** push blocks counted across sessions: every blindEvery-th is blind from the blindFrom-th session */
   blindEvery: 4,
   blindFrom: 3,
-  /** the block card shows this long (s) */
-  cardSec: 3.4,
+  /** hold this long (s) counts as a long view (the closing verse) */
+  longHold: 12,
 
   // ── the meta ─────────────────────────────────────────────────
   /** twelve households: the all-time denarii at which each is restored */
   homes: [40, 110, 200, 320, 460, 620, 800, 1000, 1220, 1460, 1720, 2000],
-  /** denarii for the households: a mission, the day's gift */
   missionPay: 15,
   giftPay: 20,
-  /** twelve courses; their length in chunks grows with the index */
-  courses: 12,
-  courseChunks: [11, 15],
+  /** three worlds of four levels */
+  worlds: 3,
+  perWorld: 4,
 } as const;
 
 /** a + (b − a) × t for a [lo, hi] pair. */

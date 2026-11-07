@@ -963,3 +963,384 @@ export function paintHome(ctx: CanvasRenderingContext2D, i: number, x: number, y
   ctx.arc(x + w * 0.3, top + h * 0.12, Math.max(1.5, w * 0.04), 0, TAU);
   ctx.fill();
 }
+
+// ── v2: the creatures, the stones, the band's road, the bubble, the finish palm ──
+/** A goose: white, orange bill and feet, waddling; bonked (`dizzy` > 0) it wobbles with stars. */
+export function paintGoose(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, t: number, dir: number, dizzy: number, honk = 0): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir < 0 ? 1 : -1, 1);
+  const wob = dizzy > 0 ? Math.sin(t * 14) * 0.25 : Math.sin(t * 9) * 0.06;
+  ctx.rotate(wob);
+  const lw = Math.max(1, S * 0.03);
+  ctx.lineWidth = lw;
+  ctx.strokeStyle = C.ink;
+  // feet
+  ctx.fillStyle = C.saffron;
+  const step = Math.sin(t * 9) * S * 0.06;
+  ctx.fillRect(-S * 0.1 + step, -S * 0.06, S * 0.12, S * 0.06);
+  ctx.fillRect(S * 0.04 - step, -S * 0.06, S * 0.12, S * 0.06);
+  // body
+  ctx.fillStyle = '#fbf8f0';
+  ctx.beginPath();
+  ctx.ellipse(S * 0.04, -S * 0.26, S * 0.3, S * 0.2, 0.15, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  // tail
+  ctx.beginPath();
+  ctx.moveTo(S * 0.3, -S * 0.32);
+  ctx.lineTo(S * 0.42, -S * 0.44);
+  ctx.lineTo(S * 0.33, -S * 0.22);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // neck and head
+  ctx.lineWidth = S * 0.1;
+  ctx.strokeStyle = '#fbf8f0';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-S * 0.18, -S * 0.32);
+  ctx.quadraticCurveTo(-S * 0.3, -S * 0.5, -S * 0.22, -S * 0.6);
+  ctx.stroke();
+  ctx.fillStyle = '#fbf8f0';
+  ctx.strokeStyle = C.ink;
+  ctx.lineWidth = lw;
+  ctx.beginPath();
+  ctx.arc(-S * 0.22, -S * 0.6, S * 0.09, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = C.saffron;
+  const open = honk > 0 ? S * 0.05 : 0;
+  ctx.beginPath();
+  ctx.moveTo(-S * 0.3, -S * 0.62);
+  ctx.lineTo(-S * 0.44, -S * 0.6 - open);
+  ctx.lineTo(-S * 0.3, -S * 0.56);
+  ctx.closePath();
+  ctx.fill();
+  if (open) {
+    ctx.beginPath();
+    ctx.moveTo(-S * 0.3, -S * 0.58);
+    ctx.lineTo(-S * 0.43, -S * 0.54 + open);
+    ctx.lineTo(-S * 0.3, -S * 0.55);
+    ctx.fill();
+  }
+  ctx.fillStyle = C.ink;
+  if (dizzy > 0) {
+    ctx.font = font(800, S * 0.12, SANS);
+    ctx.textAlign = 'center';
+    ctx.fillText('×', -S * 0.22, -S * 0.58);
+  } else {
+    ctx.beginPath();
+    ctx.arc(-S * 0.24, -S * 0.62, S * 0.02, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+  if (dizzy > 0) paintStars(ctx, x, y - S * 0.85, S, t);
+}
+
+/** Three little stars circling a bonked head. */
+export function paintStars(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, t: number): void {
+  for (let i = 0; i < 3; i++) {
+    const a = t * 6 + (i * TAU) / 3;
+    const sx = x + Math.cos(a) * S * 0.28, sy = y + Math.sin(a) * S * 0.08;
+    ctx.fillStyle = i % 2 ? C.gold : C.cream;
+    ctx.beginPath();
+    for (let k = 0; k < 10; k++) {
+      const r = k % 2 ? S * 0.035 : S * 0.08, b = (k * Math.PI) / 5 - Math.PI / 2;
+      ctx.lineTo(sx + Math.cos(b) * r, sy + Math.sin(b) * r);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/** A goat: shaggy cream coat, curved horns, a beard; `bell` for Mela, the neighbour's goat. */
+export function paintGoat(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, t: number, dir: number, o: { dizzy?: number; run?: number; bell?: boolean; chew?: number } = {}): void {
+  const dizzy = o.dizzy ?? 0, run = o.run ?? 0;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(dir < 0 ? 1 : -1, 1);
+  if (dizzy > 0) ctx.rotate(Math.sin(t * 12) * 0.2);
+  const lw = Math.max(1, S * 0.03);
+  ctx.lineWidth = lw;
+  ctx.strokeStyle = C.ink;
+  const coat = o.bell ? '#efe2c4' : '#d8c3a0';
+  const dark = o.bell ? '#c9b48e' : '#a88a63';
+  // legs
+  ctx.fillStyle = dark;
+  const ph = t * 14 * run;
+  for (let i = 0; i < 4; i++) {
+    const lx = -S * 0.26 + i * S * 0.17, sw = run ? Math.sin(ph + i * 1.7) * S * 0.07 : 0;
+    ctx.fillRect(lx + sw, -S * 0.32, S * 0.07, S * 0.32);
+  }
+  // body
+  ctx.fillStyle = coat;
+  ctx.beginPath();
+  ctx.ellipse(0, -S * 0.46, S * 0.38, S * 0.2, 0, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  // tail
+  ctx.beginPath();
+  ctx.ellipse(S * 0.38, -S * 0.56, S * 0.05, S * 0.09, 0.6, 0, TAU);
+  ctx.fill();
+  // head
+  const chew = o.chew ? Math.sin(t * 10) * S * 0.015 : 0;
+  ctx.beginPath();
+  ctx.ellipse(-S * 0.42, -S * 0.68, S * 0.13, S * 0.11, -0.5, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.ellipse(-S * 0.52, -S * 0.6 + chew, S * 0.07, S * 0.06, -0.3, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  // beard
+  ctx.fillStyle = dark;
+  ctx.beginPath();
+  ctx.moveTo(-S * 0.5, -S * 0.56 + chew);
+  ctx.lineTo(-S * 0.46, -S * 0.42 + chew);
+  ctx.lineTo(-S * 0.42, -S * 0.56);
+  ctx.fill();
+  // horns
+  ctx.strokeStyle = '#7d6a55';
+  ctx.lineWidth = S * 0.05;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-S * 0.36, -S * 0.78);
+  ctx.quadraticCurveTo(-S * 0.26, -S * 0.98, -S * 0.12, -S * 0.9);
+  ctx.stroke();
+  // ear and eye
+  ctx.fillStyle = dark;
+  ctx.beginPath();
+  ctx.ellipse(-S * 0.3, -S * 0.72, S * 0.08, S * 0.035, 0.5, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = C.ink;
+  if (dizzy > 0) {
+    ctx.font = font(800, S * 0.12, SANS);
+    ctx.textAlign = 'center';
+    ctx.fillText('@', -S * 0.45, -S * 0.67);
+  } else {
+    ctx.beginPath();
+    ctx.ellipse(-S * 0.45, -S * 0.71, S * 0.025, S * 0.015, 0, 0, TAU);
+    ctx.fill();
+  }
+  if (o.bell) {
+    ctx.strokeStyle = C.madder;
+    ctx.lineWidth = S * 0.04;
+    ctx.beginPath();
+    ctx.moveTo(-S * 0.36, -S * 0.6);
+    ctx.lineTo(-S * 0.26, -S * 0.52);
+    ctx.stroke();
+    ctx.fillStyle = C.gold;
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.arc(-S * 0.28, -S * 0.46, S * 0.05, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+  if (dizzy > 0) paintStars(ctx, x, y - S * 1.05, S, t);
+}
+
+/** The crowd: backs and heads shoulder to shoulder, some arms raised; drawn in a row from x0 to x1, `h` px tall. */
+export function paintCrowd(ctx: CanvasRenderingContext2D, x0: number, x1: number, base: number, h: number, S: number, seed: number, t: number, toss: number): void {
+  const n = Math.max(2, Math.round((x1 - x0) / (S * 0.55)));
+  const w = (x1 - x0) / n;
+  const robes = ['#7a5a8a', '#b0623e', '#cdb48f', '#4d64a3', '#8a9a5b', '#c08552'];
+  ctx.lineWidth = Math.max(1, S * 0.03);
+  ctx.strokeStyle = C.ink;
+  for (let i = 0; i < n; i++) {
+    const r = hash(seed * 7 + i);
+    const cx = x0 + (i + 0.5) * w;
+    const bob = Math.sin(t * 3 + i * 1.3) * S * 0.03 - toss * S * 0.25 * Math.max(0, 1 - Math.abs(i - n / 2) / n);
+    const hh = h * (0.82 + 0.18 * r);
+    ctx.fillStyle = robes[Math.floor(r * robes.length) % robes.length];
+    ctx.beginPath();
+    ctx.roundRect(cx - w * 0.55, base - hh + bob, w * 1.1, hh - bob, [S * 0.2, S * 0.2, 0, 0]);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = r > 0.5 ? C.cloth : '#d9b48a';
+    ctx.beginPath();
+    ctx.arc(cx, base - hh - S * 0.16 + bob, S * 0.2, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+    if (r > 0.62) {
+      ctx.strokeStyle = C.frond;
+      ctx.lineWidth = Math.max(1.5, S * 0.05);
+      ctx.beginPath();
+      ctx.moveTo(cx + S * 0.15, base - hh + S * 0.2 + bob);
+      ctx.lineTo(cx + S * 0.3, base - hh - S * 0.55 + bob);
+      ctx.stroke();
+      ctx.fillStyle = C.frond2;
+      ctx.beginPath();
+      ctx.ellipse(cx + S * 0.32, base - hh - S * 0.66 + bob, S * 0.08, S * 0.22, 0.3 + Math.sin(t * 2 + i) * 0.2, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = C.ink;
+      ctx.lineWidth = Math.max(1, S * 0.03);
+    }
+  }
+}
+
+export type StoneKind = 'pause' | 'back' | 'dash';
+/** An inlaid stone: a blue pause stone (two bars), a madder ◀, a saffron ▶; it glows when used. */
+export function paintStone(ctx: CanvasRenderingContext2D, x0: number, x1: number, y: number, S: number, kind: StoneKind, glow: number, raised: boolean, t: number): void {
+  const w = x1 - x0, h = raised ? S * 0.42 : S * 0.2;
+  const col = kind === 'pause' ? C.indigo2 : kind === 'back' ? C.madder : C.saffron;
+  ctx.save();
+  if (glow > 0) {
+    ctx.shadowColor = col;
+    ctx.shadowBlur = S * 0.5 * glow;
+  }
+  ctx.fillStyle = col;
+  ctx.strokeStyle = C.ink;
+  ctx.lineWidth = Math.max(1, S * 0.03);
+  ctx.beginPath();
+  ctx.roundRect(x0, y - (raised ? 0 : h * 0.5), w, h, S * 0.06);
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  // the glyph floats above the stone so it reads from afar
+  const gx = (x0 + x1) / 2, gy = y - S * (0.55 + 0.05 * Math.sin(t * 3));
+  ctx.fillStyle = 'rgba(251,241,220,.92)';
+  ctx.beginPath();
+  ctx.arc(gx, gy, S * 0.22, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = col;
+  if (kind === 'pause') {
+    // an hourglass: stop here a moment
+    ctx.beginPath();
+    ctx.moveTo(gx - S * 0.1, gy - S * 0.12);
+    ctx.lineTo(gx + S * 0.1, gy - S * 0.12);
+    ctx.lineTo(gx, gy);
+    ctx.lineTo(gx + S * 0.1, gy + S * 0.12);
+    ctx.lineTo(gx - S * 0.1, gy + S * 0.12);
+    ctx.lineTo(gx, gy);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    const d = kind === 'back' ? -1 : 1;
+    ctx.beginPath();
+    ctx.moveTo(gx + d * S * 0.12, gy);
+    ctx.lineTo(gx - d * S * 0.08, gy - S * 0.12);
+    ctx.lineTo(gx - d * S * 0.08, gy + S * 0.12);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** A spring of light: a coiled golden spring on a little plate; `squash` 0..1 after a throw. */
+export function paintSpring(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, squash: number, t: number): void {
+  const h = S * (0.45 - 0.25 * squash);
+  ctx.save();
+  ctx.shadowColor = C.gold;
+  ctx.shadowBlur = S * 0.4;
+  ctx.strokeStyle = C.gold2;
+  ctx.lineWidth = Math.max(1.5, S * 0.06);
+  ctx.beginPath();
+  for (let i = 0; i <= 16; i++) {
+    const k = i / 16;
+    ctx.lineTo(x + Math.sin(k * Math.PI * 6) * S * 0.18, y - k * h);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#fff4c8';
+  ctx.strokeStyle = C.gold2;
+  ctx.lineWidth = Math.max(1, S * 0.03);
+  ctx.beginPath();
+  ctx.roundRect(x - S * 0.3, y - h - S * 0.08, S * 0.6, S * 0.1, S * 0.04);
+  ctx.fill();
+  ctx.stroke();
+  // rising sparks: "this way up"
+  ctx.fillStyle = 'rgba(255,230,140,.8)';
+  for (let i = 0; i < 3; i++) {
+    const k = (t * 0.8 + i / 3) % 1;
+    ctx.beginPath();
+    ctx.arc(x + Math.sin(i * 2 + t) * S * 0.12, y - h - k * S * 2.4, S * 0.04 * (1 - k), 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** A plank of the band's road: warm light with a bright edge; `k` 0..1 how fresh, `alpha` its fade. */
+export function paintLightPlank(ctx: CanvasRenderingContext2D, x0: number, x1: number, y: number, S: number, k: number, alpha: number): void {
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  const g = ctx.createLinearGradient(0, y - S * 0.1, 0, y + S * 0.22);
+  g.addColorStop(0, '#fff6cf');
+  g.addColorStop(1, mixHex(C.gold, C.gold2, 0.4));
+  ctx.shadowColor = C.gold;
+  ctx.shadowBlur = S * (0.25 + 0.5 * k);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.roundRect(x0 + S * 0.03, y - S * 0.02, x1 - x0 - S * 0.06, S * 0.2, S * 0.05);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(160,100,20,.55)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** The bubble around him: a soap sphere with a highlight, wobbling. */
+export function paintBubble(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number): void {
+  ctx.save();
+  const w = 1 + Math.sin(t * 6) * 0.04;
+  ctx.translate(x, y);
+  ctx.scale(w, 2 - w);
+  const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+  g.addColorStop(0, 'rgba(255,255,255,.35)');
+  g.addColorStop(0.7, 'rgba(160,220,235,.18)');
+  g.addColorStop(1, 'rgba(120,180,230,.45)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(90,140,200,.7)';
+  ctx.lineWidth = Math.max(1.5, r * 0.04);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.42, -r * 0.45, r * 0.16, r * 0.08, -0.7, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** The finish palm (Mario's flagpole): a tall ringed trunk with five height marks and a crown at the top. */
+export function paintFinishPalm(ctx: CanvasRenderingContext2D, x0: number, x1: number, base: number, S: number, lit: number, t: number): void {
+  const cx = (x0 + x1) / 2, top = base - S * 5.6;
+  ctx.fillStyle = C.trunk;
+  ctx.strokeStyle = C.ink;
+  ctx.lineWidth = Math.max(1, S * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(x0 + S * 0.1, base);
+  ctx.lineTo(x0 + S * 0.3, top);
+  ctx.lineTo(x1 - S * 0.3, top);
+  ctx.lineTo(x1 - S * 0.1, base);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = C.trunk2;
+  for (let y = base - S * 0.3; y > top; y -= S * 0.32) {
+    ctx.beginPath();
+    ctx.moveTo(x0 + S * 0.2, y);
+    ctx.lineTo(x1 - S * 0.2, y - S * 0.06);
+    ctx.stroke();
+  }
+  // the five marks, bright once reached
+  [0, 1, 2, 3, 4.2].forEach((at, i) => {
+    const y = base - S * (at + 0.5);
+    ctx.fillStyle = i < lit ? C.gold : 'rgba(251,241,220,.85)';
+    ctx.strokeStyle = C.ink;
+    ctx.beginPath();
+    ctx.roundRect(x0 - S * 0.12, y - S * 0.12, S * 0.32, S * 0.24, S * 0.06);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = C.ink;
+    ctx.font = font(800, S * 0.17, SANS);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), x0 + S * 0.04, y + 1);
+  });
+  paintPalm(ctx, cx, top + S * 0.2, S * 0.3, S * 3, lit >= 5 ? 'gold' : 'green', Math.sin(t * 1.3) * 0.4);
+}

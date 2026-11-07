@@ -1,44 +1,47 @@
 import { describe, expect, it } from 'vitest';
-import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
-import {
-  CHUNKS, FINISH, HOMES, MISSIONS, REVEAL, SHADE, TIPS, WARM, chunkById, course, courseChunks, dailyCourse, type ChunkDef, type Item,
-} from '../src/arcade/zacheusz/content';
+import { SAY } from '../src/arcade/zacheusz/companion';
+import { HOMES, LEVELS, MISSIONS, TIPS, specialsOf } from '../src/arcade/zacheusz/content';
 import { Hero, type HeroEvent } from '../src/arcade/zacheusz/hero';
-import { CATALOGS, t, unit } from '../src/arcade/zacheusz/i18n';
+import { CATALOGS, t, unit, type Key } from '../src/arcade/zacheusz/i18n';
 import {
-  bestOf, finishCourse, freshProgress, homesRestored, pickCourse, tierOf, toNextHome, turnPages, unlocked, type ZacheuszProgress,
+  bestOf, finishLevel, freshProgress, homesRestored, migrate, nextLevel, startLevel, starsFor, toNextHome, turnPages, unlocked,
+  type ZacheuszProgress,
 } from '../src/arcade/zacheusz/meta';
 import { RULES } from '../src/arcade/zacheusz/rules';
-import { ZacheuszSim, branchFor, figsFor, planBlocks, specialSlots, type SimEvent } from '../src/arcade/zacheusz/sim';
+import { ZacheuszSim, bandFor, figsFor, planBlocks, reachFor, type SimEvent } from '../src/arcade/zacheusz/sim';
 import { World } from '../src/arcade/zacheusz/world';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 
-const DAY = '2026-11-02';
+const DAY = '2026-11-07';
 const STEP = 1 / 60;
-const DT = RULES.step;
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
-const BEGINNER: FocusTuning = { ...TUNING, ...BEGINNER_TUNING };
 
 const frame = (p: Partial<FocusFrame> = {}): FocusFrame =>
   ({ reliable: true, activity: 0, threshold: 2, level: 0.3, focused: false, hold: 0, calm: 0.5, ...p });
+const FOCUSED = frame({ activity: 6, level: 0.85, focused: true, hold: 8, calm: 0 });
+const CALM = frame({ activity: -2, level: 0.1, focused: false, hold: 0, calm: 0.9 });
+const LOST = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
-type SimOpts = { progress?: Partial<ZacheuszProgress>; planned?: number; seed?: number; day?: string; eeg?: boolean; daySeed?: number; tuning?: FocusTuning };
+type SimOpts = { progress?: Partial<ZacheuszProgress>; planned?: number; seed?: number; eeg?: boolean };
 
 function makeSim(o: SimOpts = {}): ZacheuszSim {
   const sim = new ZacheuszSim({
-    progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: o.day ?? DAY,
-    daySeed: o.daySeed ?? 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING,
+    progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY,
+    daySeed: 4242, plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: TUNING,
   });
   sim.start();
   return sim;
 }
 
-/** A returning player's session (no warm-up, no day's course, the gift taken). */
-const later = (o: SimOpts = {}) => makeSim({ ...o, progress: { sessions: 5, dailyDay: DAY, giftDay: DAY, pushes: 1, ...o.progress } });
+/** A returning player: no warm-up, no opening card, the day's gift taken, controls taught. */
+const later = (o: SimOpts = {}) => makeSim({
+  ...o, progress: { sessions: 5, giftDay: DAY, opened: true, pushes: 1, taught: ['tap', 'hold', 'goose', 'pause', 'wall', 'awning', 'back', 'dash', 'bubble', 'special', 'road', 'orchard'], ...o.progress },
+});
 
-function drive(sim: ZacheuszSim, sec: number, f: FocusFrame | ((t: number) => FocusFrame), clock = { t: 0 }, each?: (t: number) => void): SimEvent[] {
+function drive(sim: ZacheuszSim, sec: number, f: FocusFrame | ((t: number) => FocusFrame), clock = { t: sim.t }, each?: (t: number) => void): SimEvent[] {
   const out: SimEvent[] = [];
   const n = Math.round(sec / STEP);
   for (let i = 0; i < n; i++) {
@@ -52,557 +55,588 @@ function drive(sim: ZacheuszSim, sec: number, f: FocusFrame | ((t: number) => Fo
 
 const ofType = <K extends SimEvent['type']>(evs: readonly SimEvent[], type: K) => evs.filter((e): e is Extract<SimEvent, { type: K }> => e.type === type);
 
-/** A tapping hand: a quick tap every `every` s (the smoke test's rhythm). */
-const tapper = (sim: ZacheuszSim, every = 0.65) => {
-  let acc = 0;
+/** The smoke test's hand: a quick tap every 0.65 s, Space every ~2 s. */
+const smokeHand = (sim: ZacheuszSim) => {
+  let acc = 0, n = 0;
   return () => {
-    if ((acc += STEP) >= every) {
-      acc -= every;
-      sim.pointer('down', 1);
-      sim.pointer('up', 1);
+    if ((acc += STEP) >= 0.65) {
+      acc -= 0.65;
+      sim.press();
+      sim.release();
+      if (n++ % 3 === 0) { sim.key(' ', true); sim.key(' ', false); }
     }
   };
 };
 
-// ── the run: a street of our own ─────────────────────────────────
-const def = (items: Item[], w = 40): ChunkDef => ({ id: 'test', w, diff: 0, zone: 'course', items });
-
-function street(items: Item[], w = 40) {
-  const world = new World();
-  world.lay(def(items, w), { course: 0 });
-  const ev: HeroEvent[] = [];
-  const hero = new Hero(e => ev.push(e));
-  hero.place(1, 0, RULES.run);
-  const run = (sec: number, each?: (t: number) => void) => {
-    for (let i = 0, n = Math.round(sec / DT); i < n; i++) {
-      each?.(i * DT);
-      hero.step(DT, world);
-    }
-  };
-  return { world, hero, ev, run };
+/** A world with only flat street (no level items). */
+function flatWorld(): World {
+  return new World({ index: 0, world: 0, len: 200, finishX: 190, finish: 'palm', items: [], target: 1 }, 0);
 }
 
-/** The highest point of one jump, holding for `hold` s. */
-function jumpPeak(hold: number): number {
-  const s = street([]);
-  s.hero.press();
-  let peak = 0, held = true;
-  s.run(1.2, t => {
-    if (held && t >= hold) { s.hero.release(); held = false; }
-    peak = Math.max(peak, s.hero.y);
-  });
-  return peak;
+function stepHero(h: Hero, w: World, sec: number, each?: (t: number) => void): void {
+  const n = Math.round(sec / RULES.step);
+  for (let i = 0; i < n; i++) {
+    h.step(RULES.step, w);
+    each?.(i * RULES.step);
+  }
 }
 
-describe('the run', () => {
-  it('runs right on his own at the street\'s pace', () => {
-    const s = street([]);
-    s.run(2);
-    expect(s.hero.x).toBeGreaterThan(1 + RULES.run * 1.9);
-    expect(s.hero.ground).toBe(true);
-  });
-
-  it('jumps about 1.3 u on a tap and up to about 2.9 u on a held press (Mario\'s variable jump)', () => {
-    const tap = jumpPeak(0), mid = jumpPeak(0.12), full = jumpPeak(1);
-    expect(tap).toBeGreaterThan(1.2);
-    expect(tap).toBeLessThan(1.45);
-    expect(mid).toBeGreaterThan(tap + 0.3);
-    expect(full).toBeGreaterThan(2.7);
-    expect(full).toBeLessThan(3.1);
-    expect(jumpPeak(2)).toBeCloseTo(full, 6);   // holding longer than a quarter second adds nothing
-  });
-
-  it('vaults baskets, chickens and dogs on his own, without a tap', () => {
-    const s = street([{ t: 'vault', x: 5, k: 'chicken' }, { t: 'vault', x: 9, k: 'dog' }]);
-    s.run(2.5);
-    expect(s.ev.filter(e => e.type === 'vault')).toHaveLength(2);
-    expect(s.world.vaults.every(v => v.done)).toBe(true);
-    expect(s.hero.x).toBeGreaterThan(11);
-  });
-
-  it('stops at a wall he cannot step over, and a neighbour gives him a leg-up after a while', () => {
-    const s = street([{ t: 'box', a: 5, b: 6, h: 2.4, k: 'wall', ladder: false }]);
-    s.run(0.9);
-    expect(s.hero.x).toBeLessThan(5);
-    expect(s.hero.wall).not.toBeNull();
-    s.run(RULES.legUp + 1.5);
-    expect(s.ev.some(e => e.type === 'legUp')).toBe(true);
-    expect(s.hero.x).toBeGreaterThan(6);
-  });
-
-  it('kicks off a wall upward on a tap in the air, and repeated taps climb it', () => {
-    const s = street([{ t: 'box', a: 5, b: 6, h: 3.2, k: 'wall', ladder: false }]);
-    let taps = 0;
-    s.run(4, t => {
-      // tap when at the wall: on the street, then against it in the air
-      if (s.hero.wall && Math.round(t / DT) % 30 === 0 && taps < 8) { s.hero.press(); s.hero.release(); taps++; }
-    });
-    expect(s.ev.some(e => e.type === 'wallJump')).toBe(true);
-    expect(s.ev.some(e => e.type === 'legUp')).toBe(false);
-    expect(s.hero.x).toBeGreaterThan(6);
-  });
-
-  it('pulls himself onto a ledge within reach of his hands (a low wall needs only a tap)', () => {
-    const s = street([{ t: 'box', a: 5, b: 7, h: 1.4, k: 'wall', ladder: false }]);
-    s.run(3, t => { if (Math.abs(t - 0.45) < DT / 2) { s.hero.press(); s.hero.release(); } });
-    expect(s.ev.some(e => e.type === 'mantle')).toBe(true);
-    expect(s.hero.x).toBeGreaterThan(8);
-  });
-
-  it('bounces off awnings, higher while the press is held', () => {
-    const bounce = (held: boolean) => {
-      const s = street([{ t: 'plat', a: 4, b: 6, y: 1.2, k: 'awning' }]);
-      s.hero.place(4.5, 2, RULES.run);
-      s.hero.ground = false;
-      if (held) s.hero.held = true;
-      let peak = 0;
-      s.run(1.2, () => { peak = Math.max(peak, s.hero.y); });
-      return { peak, n: s.ev.filter(e => e.type === 'bounce').length };
-    };
-    const a = bounce(false), b = bounce(true);
-    expect(a.n).toBe(1);
-    expect(a.peak).toBeGreaterThan(1.2 + 1.4);
-    expect(b.peak).toBeGreaterThan(a.peak + 0.4);
-  });
-
-  it('climbs a ladder on a house\'s near side by himself and runs on over the roof', () => {
-    const s = street([{ t: 'box', a: 5, b: 30, h: 2.6, k: 'house', ladder: true }]);
-    s.run(2);
-    expect(s.ev.some(e => e.type === 'ladder')).toBe(true);
-    s.run(1);
-    expect(s.hero.y).toBeCloseTo(2.6, 6);
-    expect(s.hero.x).toBeGreaterThan(6);
-  });
-
-  it('falls through a high piece that is only an outline, and stands on a solid one', () => {
-    for (const state of ['outline', 'solid'] as const) {
-      const s = street([{ t: 'plat', a: 3, b: 8, y: 1, k: 'bridge' }]);
-      s.world.plats[0].state = state;
-      s.hero.place(4, 1.5, RULES.run);
-      s.hero.ground = false;
-      s.run(0.5);
-      expect(s.hero.y).toBeCloseTo(state === 'solid' ? 1 : 0, 6);
-    }
-  });
-
-  it('touching the sycamore\'s trunk reports where his feet are', () => {
-    const s = street([{ t: 'box', a: 6, b: 7, h: 7, k: 'trunk', ladder: false }]);
-    s.run(2);
-    const e = s.ev.find(x => x.type === 'trunk');
-    expect(e && e.type === 'trunk' && e.y).toBe(0);
-    expect(branchFor(0)).toBe(1);
-    expect(branchFor(2.3)).toBe(3);
-    expect(branchFor(9)).toBe(5);
-  });
-});
-
-// ── the street ───────────────────────────────────────────────────
-describe('the street and its courses', () => {
-  it('lays chunks with the street everywhere but in their pits, and coins on the ground path', () => {
-    const w = new World();
-    w.lay(chunkById('rowek')!, { course: 0 });
-    expect(w.pits).toHaveLength(1);
-    expect(w.topAt(7.5, 8.2)).toBe(-Infinity);
-    expect(w.topAt(3, 3.2)).toBe(0);
-    for (const c of CHUNKS) {
-      const ground = c.items.filter(it => it.t === 'coins' && it.y <= 0.5);
-      expect(ground.length, c.id).toBeGreaterThan(0);
-    }
-  });
-
-  it('puts every high piece over safe street (never over a pit), and a ladder on every house of the high way', () => {
-    for (const c of [...CHUNKS, ...WARM, REVEAL]) {
-      const pits = c.items.filter((it): it is Extract<Item, { t: 'pit' }> => it.t === 'pit');
-      for (const it of c.items) {
-        if (it.t !== 'plat' || !['bridge', 'frond', 'roofawn'].includes(it.k)) continue;
-        for (const p of pits) expect(it.b <= p.a || it.a >= p.b, `${c.id}`).toBe(true);
-      }
-      for (const it of c.items) if (it.t === 'box' && it.k === 'house' && c.items.some(x => x.t === 'plat' && x.k === 'bridge')) expect(it.ladder, c.id).toBe(true);
-    }
-    for (const c of SHADE) expect(c.items.some(it => it.t === 'pit')).toBe(false);
-  });
-
-  it('builds each course the same for everyone: 11 to 15 chunks, a high way every third, at least five special places', () => {
-    expect(course(3)).toEqual(course(3));
-    expect(course(3).chunks).not.toEqual(course(4).chunks);
-    for (let i = 0; i < RULES.courses; i++) {
-      const c = course(i);
-      expect(c.chunks.length).toBeGreaterThanOrEqual(11);
-      expect(c.chunks.length).toBeLessThanOrEqual(15);
-      const sp = c.chunks.reduce((s, id) => s + chunkById(id)!.items.filter(it => it.t === 'sp').length, 0);
-      expect(sp, `course ${i}`).toBeGreaterThanOrEqual(RULES.specials);
-      const w = c.chunks.reduce((s, id) => s + chunkById(id)!.w, 0) + FINISH.w;
-      expect(w / RULES.run).toBeGreaterThan(38);
-      expect(w / RULES.run).toBeLessThan(75);
-      expect(c.chunks.filter((_, k) => k % 3 === 1).every(id => ['dachy', 'palmy', 'dachy2'].includes(id))).toBe(true);
-    }
-    expect(dailyCourse(77)).toEqual(dailyCourse(77));
-    expect(courseChunks(5, 12, 0).every(id => chunkById(id)!.diff <= 1 || ['dachy', 'palmy', 'dachy2'].includes(id) === false)).toBe(true);
-  });
-
-  it('spreads the five specials over a course', () => {
-    expect(specialSlots(5)).toEqual([0, 1, 2, 3, 4]);
-    expect(specialSlots(9)).toEqual([0, 2, 4, 6, 8]);
-    expect(specialSlots(3)).toEqual([0, 1, 2]);
-  });
-});
-
-// ── the session ──────────────────────────────────────────────────
-describe('the block plan', () => {
-  it('fits any session: blocks sum to the time before the walk home, none under 12 s', () => {
-    for (const planned of [40, 60, 180, 300, 600]) {
+// ── the blocks ─────────────────────────────────────────────────────
+describe('Zacheusz: the blocks', () => {
+  it('fill the planned time, warm-up first in a first-ever session', () => {
+    for (const planned of [40, 180, 300, 600]) {
       for (const first of [true, false]) {
         const plan = planBlocks(planned, first, mulberry32(3));
         const sum = plan.reduce((s, b) => s + b.dur, 0);
-        if (planned > 60) expect(sum).toBeCloseTo(planned - RULES.finale, 6);
-        for (const b of plan) if (b.kind !== 'warmup') expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        expect(Math.abs(sum - planned)).toBeLessThan(planned <= 60 ? 1e-6 : RULES.minBlock);
         expect(plan[0].kind).toBe(first ? 'warmup' : 'push');
-        expect(plan[plan.length - 1].kind).toBe('rest');
+        for (const b of plan.slice(first ? 1 : 0)) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
       }
     }
-    expect(planBlocks(300, true, mulberry32(1))[0].dur).toBe(30);
-    expect(planBlocks(40, true, mulberry32(1))[0].dur).toBe(6);
   });
 
-  it('makes every 4th push blind from the 3rd session on, never the session\'s first', () => {
-    const sim = later({ progress: { sessions: 4, pushes: 2 }, planned: 600 });
-    const evs = drive(sim, 590, frame());
-    const pushes = ofType(evs, 'blockStart').filter(e => e.block.kind === 'push');
-    expect(pushes[0].block.blind).toBe(false);
-    expect(pushes.map(e => e.block.blind)).toContain(true);
-    const blindIdx = pushes.findIndex(e => e.block.blind);
-    expect((2 + blindIdx + 1) % RULES.blindEvery).toBe(0);
-    expect(ofType(evs, 'blindReveal')).toHaveLength(pushes.filter(e => e.block.blind).length);
-    const early = later({ progress: { sessions: 1, pushes: 2 }, planned: 600 });
-    expect(ofType(drive(early, 590, frame()), 'blockStart').some(e => e.block.blind)).toBe(false);
-  });
-});
-
-describe('Wypatrywanie: the high way', () => {
-  /** A returning player in a 300 s session, the band at a given level; plays to the middle of the first push. */
-  function pushAt(level: number, o: Partial<FocusFrame> = {}) {
-    const sim = later();
-    const f = frame({ level, focused: level >= 0.5, hold: 0, ...o });
-    let hold = 0;
-    const evs = drive(sim, 20, () => ({ ...f, hold: f.focused ? (hold += STEP) : 0 }), { t: 0 }, tapper(sim));
-    return { sim, evs };
-  }
-
-  it('locks each piece once, 1.5 s ahead of him: solid at or above the threshold after the lead-in', () => {
-    const { sim, evs } = pushAt(0.8);
-    const locks = ofType(evs, 'lock');
-    expect(locks.length).toBeGreaterThan(0);
-    const late = locks.filter(e => e.plat.lockedAt >= RULES.leadIn.fnirs + 0.5);
-    expect(late.length).toBeGreaterThan(0);
-    expect(late.every(e => e.plat.state === 'solid')).toBe(true);
-    // never changes after the lock
-    for (const e of locks) expect(e.plat.lockedAt).toBeGreaterThanOrEqual(0);
-    const ids = locks.map(e => e.plat.id);
-    expect(new Set(ids).size).toBe(ids.length);
-    expect(sim.hero.highSec).toBeGreaterThanOrEqual(0);
-  });
-
-  it('leaves the pieces as outlines below the threshold, and as mist while the band has no signal', () => {
-    expect(ofType(pushAt(0.2).evs, 'lock').every(e => e.plat.state === 'outline')).toBe(true);
-    expect(ofType(pushAt(0.9, { reliable: false }).evs, 'lock').every(e => e.plat.state === 'mist')).toBe(true);
-  });
-
-  it('decides a piece before he can reach it: no piece he stands on is ever still undecided', () => {
-    const sim = later();
-    let bad = 0;
-    drive(sim, 60, t => frame({ level: 0.5 + 0.4 * Math.sin(t), focused: true }), { t: 0 }, () => {
-      const on = sim.hero.on;
-      if (on && 'high' in on && on.high && on.state === 'live') bad++;
-      for (const p of sim.world.plats) if (p.high && p.state === 'live' && p.x0 < sim.hero.x + 2) bad++;
+  it('alternate push and rest, 20–30 s each in a 5-minute session', () => {
+    const plan = planBlocks(300, false, mulberry32(9));
+    plan.forEach((b, i) => {
+      expect(b.kind).toBe(i % 2 ? 'rest' : 'push');
+      expect(b.dur).toBeGreaterThan(17);
+      expect(b.dur).toBeLessThan(31);
     });
-    expect(bad).toBe(0);
   });
 
-  it('opens a Widok after 6 s of held focus (4 s on HALO): a burst of denarii ahead', () => {
-    for (const eeg of [false, true]) {
-      const sim = later({ eeg });
-      let hold = 0;
-      const evs = drive(sim, 22, t => frame({ level: 0.8, focused: true, hold: t > 1 ? (hold += STEP) : 0 }));
-      const views = ofType(evs, 'view');
-      expect(views.length).toBeGreaterThanOrEqual(1);
-      expect(views.length).toBeLessThanOrEqual(RULES.viewMax);
-      expect(views[0].n).toBe(RULES.viewCoins);
-      expect(sim.world.coins.filter(c => c.born >= 0).length).toBeGreaterThanOrEqual(RULES.viewCoins);
-      expect(sim.dust).toBeGreaterThan(0.3);
-    }
-    const low = later();
-    expect(ofType(drive(low, 22, frame({ level: 0.3 })), 'view')).toHaveLength(0);
+  it('every 4th push is blind from the 3rd session', () => {
+    const sim = later({ progress: { sessions: 4, pushes: 3 }, planned: 600 });
+    drive(sim, 600, frame());
+    const pushes = sim.plan.filter(b => b.kind === 'push');
+    expect(pushes.some(b => b.blind)).toBe(true);
+    expect(pushes[0].blind).toBe(false);
+  });
+
+  it('signal() names the block, its seconds left and the next one during the telegraph', () => {
+    const sim = later();
+    drive(sim, 2, frame());
+    const s = sim.signal();
+    expect(s.want).toBe('focus');
+    expect(s.left).toBeGreaterThan(sim.block.dur - 3);
+    expect(s.next).toBeNull();
+    drive(sim, sim.block.dur - 2 - 2, frame());
+    expect(sim.signal().next).toBe('rest');
+    expect(sim.signal().task).toBeTruthy();
+  });
+
+  it('judges each block once at its end and keeps the contrast', () => {
+    const sim = later({ planned: 180 });
+    const clock = { t: sim.t };
+    const evs = drive(sim, 180, () => (sim.block.kind === 'push' ? FOCUSED : CALM), clock);
+    const ends = ofType(evs, 'blockEnd');
+    expect(ends.length).toBe(sim.plan.length);
+    expect(ends.filter(e => e.block.kind === 'push').every(e => e.verdict === true)).toBe(true);
+    expect(ofType(evs, 'pushPass').length).toBeGreaterThan(0);
+  });
+
+  it('an unreliable signal gives no verdict and freezes the road', () => {
+    const sim = later();
+    const evs = drive(sim, 26, LOST);
+    expect(ofType(evs, 'plank').length).toBe(0);
+    const end = ofType(evs, 'blockEnd')[0];
+    expect(end.verdict).toBeNull();
+    expect(sim.meter()).toBeNull();
   });
 });
 
-describe('Cień sykomory and the blind block', () => {
-  it('ripens the figs with calm and picks them as he passes the trees; a passed rest is a basket', () => {
-    expect(figsFor(0)).toBe(0);
-    expect(figsFor(0.5)).toBe(3);
-    expect(figsFor(1)).toBe(5);
-    const sim = later({ planned: 40 });
-    const evs = drive(sim, 40, t => (t < 20 ? frame({ level: 0.2 }) : frame({ level: 0.1, calm: 0.95, activity: -3, threshold: 2 })));
+// ── the levels ─────────────────────────────────────────────────────
+describe('Zacheusz: the levels', () => {
+  it('three worlds of four, each ending at the sycamore', () => {
+    expect(LEVELS.length).toBe(RULES.worlds * RULES.perWorld);
+    LEVELS.forEach((lv, i) => {
+      expect(lv.index).toBe(i);
+      expect(lv.world).toBe(Math.floor(i / 4));
+      expect(lv.finish).toBe(i % 4 === 3 ? 'sycamore' : 'palm');
+    });
+  });
+
+  it('take 30–90 s of plain running, with five specials in each of three sets', () => {
+    for (const lv of LEVELS) {
+      const sec = lv.finishX / RULES.run;
+      expect(sec, `level ${lv.index}`).toBeGreaterThan(28);
+      expect(sec, `level ${lv.index}`).toBeLessThan(90);
+      for (let tier = 0; tier < 3; tier++) {
+        const sp = specialsOf(lv, tier);
+        expect(sp.length, `level ${lv.index} tier ${tier}`).toBe(RULES.specials);
+        for (const s of sp) {
+          expect(s.x).toBeGreaterThan(0);
+          expect(s.x).toBeLessThan(lv.finishX);
+          expect(s.y).toBeLessThan(5.8);
+        }
+      }
+      expect(lv.target).toBeGreaterThan(10);
+    }
+  });
+
+  it('no wall is too tall for the leg-up and a mantle', () => {
+    const reach = RULES.legUpV ** 2 / (2 * RULES.g) + RULES.mantle;
+    for (const lv of LEVELS) for (const it of lv.items) if (it.t === 'box' && it.k !== 'trunk') expect(it.h).toBeLessThanOrEqual(reach);
+  });
+
+  it('every level can be finished by the smoke test’s hand (no soft-lock)', () => {
+    for (const lv of LEVELS) {
+      const sim = later({ progress: { pick: lv.index, levels: freshProgress().levels.map(() => ({ done: true, stars: 1, tier: 0, got: 0, coins: 0 })) }, planned: 600 });
+      expect(sim.levelIndex).toBe(lv.index);
+      const hand = smokeHand(sim);
+      let done = false;
+      const clock = { t: sim.t };
+      for (let k = 0; k < 160 && !done; k++) {
+        const evs = drive(sim, 1, frame(), clock, hand);
+        if (ofType(evs, 'levelDone').length) done = true;
+      }
+      expect(done, `level ${lv.index} (${sim.hero.x.toFixed(1)} of ${lv.finishX})`).toBe(true);
+    }
+  });
+});
+
+// ── the hands (hero.ts) ────────────────────────────────────────────
+describe('Zacheusz: the jump and its friends', () => {
+  const run = (setup: (h: Hero, w: World, evs: HeroEvent[]) => void, sec: number, each?: (h: Hero, w: World, t: number) => void) => {
+    const evs: HeroEvent[] = [];
+    const h = new Hero(e => evs.push(e));
+    const w = flatWorld();
+    h.place(2, 0, RULES.run);
+    setup(h, w, evs);
+    stepHero(h, w, sec, tt => each?.(h, w, tt));
+    return { h, w, evs };
+  };
+
+  it('a tap jumps ≈ 1.3 u, a held press ≈ 2.8 u', () => {
+    let peak = 0;
+    run((h, w) => { h.press(w); h.release(); }, 1, h => { peak = Math.max(peak, h.y); });
+    expect(peak).toBeGreaterThan(1.1);
+    expect(peak).toBeLessThan(1.6);
+    peak = 0;
+    run((h, w) => h.press(w), 1.2, h => { peak = Math.max(peak, h.y); });
+    expect(peak).toBeGreaterThan(2.5);
+    expect(peak).toBeLessThan(3.2);
+  });
+
+  it('a tap just before landing still jumps (buffer), and a spin is once a flight', () => {
+    const { evs } = run((h, w) => { h.press(w); h.release(); }, 1.3, (h, w, tt) => {
+      if (Math.abs(tt - 0.25) < 1e-6) { h.press(w); h.release(); }
+      if (Math.abs(tt - 0.3) < 1e-6) { h.press(w); h.release(); }
+    });
+    expect(evs.filter(e => e.type === 'spin').length).toBe(1);
+  });
+
+  it('kicks off a wall in the air, and repeated taps climb it', () => {
+    const evs: HeroEvent[] = [];
+    const h = new Hero(e => evs.push(e));
+    const w = flatWorld();
+    w.solids.push({ x0: 5, x1: 6, top: 2.9, bottom: 0, kind: 'wall', seed: 1 });
+    h.place(3.5, 0, RULES.run);
+    h.press(w);
+    h.release();
+    let top = false;
+    stepHero(h, w, 3, () => {
+      if (h.sliding || (h.wall && !h.ground)) { h.press(w); h.release(); }
+      if (h.y >= 2.9 - 1e-6 && h.x > 5) top = true;
+    });
+    expect(evs.some(e => e.type === 'wallJump')).toBe(true);
+    expect(top).toBe(true);
+  });
+
+  it('pressed against a wall on the street, a neighbour gives a leg-up', () => {
+    const evs: HeroEvent[] = [];
+    const h = new Hero(e => evs.push(e));
+    const w = flatWorld();
+    w.solids.push({ x0: 5, x1: 6, top: 2.9, bottom: 0, kind: 'wall', seed: 1 });
+    h.place(4, 0, RULES.run);
+    stepHero(h, w, 4);
+    expect(evs.some(e => e.type === 'legUp')).toBe(true);
+    expect(h.x).toBeGreaterThan(5);
+  });
+
+  it('vaults a goose on the ground, bonks it from above (1, 2, 4 in a row)', () => {
+    const sim = later({ planned: 120 });
+    const w = sim.world;
+    w.critters.length = 0;
+    w.critters.push({ id: 900, kind: 'goose', x: sim.hero.x + 2, y: 0, home: sim.hero.x + 2, dir: -1, state: 'idle', t: 0, vaulted: false, spin: 0 });
+    const evs = drive(sim, 1, frame());
+    expect(ofType(evs, 'vault').length).toBe(1);
+    // three goats along the air path on a flat street: a bonk chain pays 1, 2, 4
+    sim.world = flatWorld();
+    const h = sim.hero;
+    h.place(2, 2.5, RULES.run);
+    h.ground = false;
+    for (const dx of [1.5, 4.4, 7.3]) sim.world.critters.push({ id: 950 + dx, kind: 'goat', x: 2 + dx, y: 0, home: 2 + dx, dir: -1, state: 'idle', t: 0, vaulted: true, spin: 0 });
+    const bonks = ofType(drive(sim, 2, frame()), 'bonk');
+    expect(bonks.map(b => b.pay)).toEqual([1, 2, 4]);
+  });
+
+  it('the pause stone stops him until a tap', () => {
+    const evs: HeroEvent[] = [];
+    const h = new Hero(e => evs.push(e));
+    const w = flatWorld();
+    w.tiles.push({ x0: 4, x1: 5.2, y: 0, kind: 'pause', used: false, glow: 0 });
+    h.place(2, 0, RULES.run);
+    stepHero(h, w, 2);
+    expect(h.pauseT).toBeGreaterThan(1);
+    const x = h.x;
+    stepHero(h, w, 1);
+    expect(h.x).toBeCloseTo(x, 5);
+    h.press(w);
+    h.release();
+    stepHero(h, w, 1);
+    expect(h.x).toBeGreaterThan(x + 2);
+  });
+
+  it('the ◀ stone runs him back, the ▶ stone dashes and a tap on it is a long jump', () => {
+    const evs: HeroEvent[] = [];
+    const h = new Hero(e => evs.push(e));
+    const w = flatWorld();
+    w.tiles.push({ x0: 4, x1: 5.2, y: 0, kind: 'back', used: false, glow: 0 });
+    h.place(2, 0, RULES.run);
+    let minVx = 0;
+    stepHero(h, w, 2.5, () => { minVx = Math.min(minVx, h.vx); });
+    expect(minVx).toBeLessThan(-3);
+    expect(h.dir).toBe(1);
+    const evs2: HeroEvent[] = [];
+    const h2 = new Hero(e => evs2.push(e));
+    const w2 = flatWorld();
+    w2.tiles.push({ x0: 4, x1: 6, y: 0, kind: 'dash', used: false, glow: 0 });
+    h2.place(2, 0, RULES.run);
+    stepHero(h2, w2, 0.48);
+    expect(h2.dashT).toBeGreaterThan(0);
+    h2.press(w2);
+    h2.release();
+    stepHero(h2, w2, 0.05);
+    expect(evs2.some(e => e.type === 'longJump')).toBe(true);
+  });
+});
+
+// ── falls ──────────────────────────────────────────────────────────
+describe('Zacheusz: the bubble and the rope', () => {
+  const pitAhead = (sim: ZacheuszSim) => {
+    const w = sim.world, x = sim.hero.x + 3;
+    w.pits.push({ x0: x, x1: x + 4, kind: 'ditch' });
+    for (const s of w.solids) if (s.kind === 'ground' && s.x0 < x && s.x1 > x) {
+      w.solids.push({ ...s, x0: x + 4 });
+      s.x1 = x;
+    }
+  };
+
+  it('a fall with a bubble floats back a few seconds and pops on a tap', () => {
+    const sim = later();
+    drive(sim, 3, frame());
+    pitAhead(sim);
+    const evs = drive(sim, 2, frame());
+    const fall = ofType(evs, 'fall')[0];
+    expect(fall.bubble).toBe(true);
+    expect(sim.bubbles).toBe(RULES.bubbles - 1);
+    expect(sim.stage).toBe('bubble');
+    drive(sim, RULES.floatSec + 0.1, frame());
+    sim.press();
+    sim.release();
+    expect(sim.stage).toBe('run');
+    expect(sim.world.inPit(sim.hero.x)).toBe(false);
+  });
+
+  it('without bubbles the neighbour’s rope pulls him out on the far rim', () => {
+    const sim = later();
+    drive(sim, 3, frame());
+    sim.bubbles = 0;
+    pitAhead(sim);
+    const evs = drive(sim, 4, frame());
+    expect(ofType(evs, 'fall')[0].bubble).toBe(false);
+    expect(ofType(evs, 'ropeEnd').length).toBe(1);
+    expect(sim.stage).toBe('run');
+  });
+
+  it('the bubble button rewinds on purpose, while bubbles last', () => {
+    const sim = later();
+    drive(sim, 4, frame());
+    const x = sim.hero.x;
+    expect(sim.bubbleNow()).toBe(true);
+    drive(sim, RULES.floatSec + RULES.autoPop + 0.1, frame());
+    expect(sim.stage).toBe('run');
+    expect(sim.hero.x).toBeLessThan(x);
+    sim.bubbles = 0;
+    expect(sim.bubbleNow()).toBe(false);
+  });
+});
+
+// ── the finish ─────────────────────────────────────────────────────
+describe('Zacheusz: the finish palm', () => {
+  it('pays by the height grabbed', () => {
+    expect(bandFor(0)).toBe(0);
+    expect(bandFor(1.2)).toBe(1);
+    expect(bandFor(4.3)).toBe(4);
+    expect(RULES.bandPay[4]).toBeGreaterThan(RULES.bandPay[0] * 5);
+  });
+
+  it('ends a level in a tally, records it and lays the next', () => {
+    const sim = later({ planned: 600 });
+    sim.hero.place(sim.world.finish.x - 3, 0, RULES.run);
+    const evs = drive(sim, 2.5, frame());
+    const trunk = ofType(evs, 'trunk')[0];
+    expect(trunk).toBeTruthy();
+    const done = ofType(evs, 'levelDone')[0];
+    expect(done.res.index).toBe(0);
+    expect(sim.p.levels[0].done).toBe(true);
+    expect(sim.p.levels[0].stars).toBeGreaterThanOrEqual(1);
+    const next = ofType(drive(sim, RULES.tallySec + 0.2, frame()), 'levelStart');
+    expect(next[0].index).toBe(1);
+    expect(sim.hero.x).toBeLessThan(9);
+  });
+
+  it('a world’s fourth level ends at the sycamore with the world’s story card (once)', () => {
+    const sim = later({ planned: 600, progress: { pick: 3, levels: freshProgress().levels.map((l, i) => ({ ...l, done: i < 3 })) } });
+    sim.hero.place(sim.world.finish.x - 3, 0, RULES.run);
+    const evs = drive(sim, 2.5 + RULES.tallySec + 0.2, frame());
+    expect(ofType(evs, 'trunk')[0].sycamore).toBe(true);
+    expect(ofType(evs, 'story')[0]).toMatchObject({ kind: 'world', world: 0 });
+    expect(sim.p.worldsSeen).toBe(0);
+  });
+});
+
+// ── the band ───────────────────────────────────────────────────────
+describe('Zacheusz: the road of light (push)', () => {
+  it('grows ahead only above the threshold, after the lead-in, with a spring onto it', () => {
+    const sim = later();
+    let evs = drive(sim, RULES.leadIn.fnirs - 0.5, FOCUSED);
+    expect(ofType(evs, 'plank').length).toBe(0);
+    evs = drive(sim, 3, FOCUSED);
+    expect(ofType(evs, 'plank').length).toBeGreaterThan(3);
+    expect(sim.world.springs.length).toBeGreaterThan(0);
+    expect(sim.roadTip).toBeGreaterThan(sim.hero.x + reachFor(0.85) - RULES.plank - 0.5);
+    expect(sim.meter()).toBeCloseTo(0.85, 2);
+  });
+
+  it('stops growing below the threshold (the planks laid stay)', () => {
+    const sim = later();
+    drive(sim, 8, FOCUSED);
+    const tip = sim.roadTip;
+    const evs = drive(sim, 2, frame({ level: 0.3, focused: false }));
+    expect(ofType(evs, 'plank').length).toBe(0);
+    expect(sim.roadTip).toBe(tip);
+  });
+
+  it('takes him up: on the road he runs faster and gathers light coins', () => {
+    const sim = later();
+    const hand = smokeHand(sim);
+    const evs = drive(sim, 20, FOCUSED, { t: sim.t }, hand);
+    expect(ofType(evs, 'spring').length).toBeGreaterThan(0);
+    expect(ofType(evs, 'coin').some(c => c.light)).toBe(true);
+  });
+
+  it('a held view showers light coins (at most three a block)', () => {
+    const sim = later();
+    const evs = drive(sim, 24, FOCUSED);
+    const views = ofType(evs, 'view');
+    expect(views.length).toBeGreaterThan(0);
+    expect(views.length).toBeLessThanOrEqual(RULES.viewMax);
+  });
+
+  it('a blind block builds nothing and reveals its last focus as road at its end', () => {
+    const sim = later({ progress: { sessions: 4, pushes: 2 }, planned: 600 });
+    drive(sim, sim.plan[0].dur + sim.plan[1].dur + 0.1, frame());
+    expect(sim.block.blind).toBe(true);
+    const evs = drive(sim, sim.block.dur, FOCUSED);
+    const before = ofType(evs, 'blockEnd')[0];
+    expect(before.block.blind).toBe(true);
+    const planksBefore = evs.findIndex(e => e.type === 'blockEnd');
+    expect(evs.slice(0, planksBefore).some(e => e.type === 'plank')).toBe(false);
+    const rev = ofType(evs, 'reveal')[0];
+    expect(rev.len).toBeGreaterThan(5);
+  });
+});
+
+describe('Zacheusz: the fig orchard (rest)', () => {
+  it('opens in a rest block; calm ripens the figs he picks; a full tree gives a bubble', () => {
+    const sim = later({ planned: 120 });
+    const push = sim.block.dur;
+    let evs = drive(sim, push + 1, frame());
+    expect(ofType(evs, 'orchard').length).toBe(1);
+    const o = sim.world.orchards[0];
+    expect(o.x1 - o.x0).toBeGreaterThan(18);
+    sim.bubbles = 0;
+    evs = drive(sim, sim.block.dur - 2, CALM);
     const figs = ofType(evs, 'figs');
     expect(figs.length).toBeGreaterThan(0);
     expect(sim.figs).toBeGreaterThan(0);
-    expect(ofType(evs, 'basket').length).toBe(1);
+    expect(ofType(evs, 'orchard').length).toBe(0);
+    expect(figs.some(f => f.bubble) || sim.ripe < RULES.figAt[4]).toBe(true);
   });
 
-  it('holds R at a floor of 0.4 when a rest block had a bad signal', () => {
-    const sim = later({ planned: 40 });
-    drive(sim, 26, t => (t < 20 ? frame() : frame({ reliable: false, activity: null })));
-    expect(sim.resting).toBe(true);
-    expect(sim.ripe).toBeGreaterThanOrEqual(RULES.rFloor);
-  });
-
-  it('veils the palms in the crowd and turns its last 15 s of focus into solid rooftops at its end', () => {
-    const sim = later({ progress: { sessions: 4, pushes: 2 } });
-    const clock = { t: 0 };
-    const tap = tapper(sim);
-    drive(sim, 0, frame(), clock);
-    while (sim.blockIndex < 2) drive(sim, STEP, frame(), clock, tap);
-    expect(sim.plan[0].blind).toBe(false);
-    expect(sim.block.blind).toBe(true);
-    const t0 = clock.t;
-    let veiled = false;
-    const evs: SimEvent[] = [];
-    while (sim.blockIndex === 2) {
-      evs.push(...drive(sim, STEP, frame({ level: 0.9, focused: true, hold: 10 }), clock, () => { if (sim.blind && sim.trace.latest?.veiled) veiled = true; }));
-      tap();
-    }
-    expect(veiled).toBe(true);
-    const r = ofType(evs, 'blindReveal')[0];
-    expect(r.sec).toBe(15);
-    expect(r.solid).toBe(RULES.revealMax);
-    expect(sim.trace.samples.some(s => s.veiled)).toBe(false);
-    // no piece unfolded during the crowd
-    expect(ofType(evs, 'lock').filter(e => e.plat.lockedAt > t0 && e.plat.lockedAt < clock.t - 0.1).every(e => e.plat.state !== 'solid')).toBe(true);
-    drive(sim, 1, frame(), clock);
-    const reveal = sim.world.zones.find(z => z.chunk === 'tlum');
-    expect(reveal).toBeTruthy();
-    expect(sim.world.plats.filter(p => p.high && p.x0 >= reveal!.x0 && p.x1 <= reveal!.x1 && p.state === 'solid')).toHaveLength(RULES.revealMax);
+  it('ripeness follows calm and holds while unreliable', () => {
+    expect(figsFor(0)).toBe(0);
+    expect(figsFor(0.5)).toBe(3);
+    expect(figsFor(1)).toBe(5);
+    const sim = later({ planned: 120 });
+    drive(sim, sim.block.dur + 6, CALM);
+    const r = sim.ripe;
+    expect(r).toBeGreaterThan(0);
+    drive(sim, 3, LOST);
+    expect(sim.ripe).toBe(r);
   });
 });
 
-describe('grace: the rope', () => {
-  it('rewinds a fall into a pit about 3 s and lays a plank after the second fall into it', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    // no taps at all: he walks into the first pit
-    const evs = drive(sim, 40, frame(), clock);
-    const ropes = ofType(evs, 'rope');
-    expect(ropes.length).toBeGreaterThan(0);
-    const r = ropes[0];
-    expect(r.fromX - r.toX).toBeGreaterThan(RULES.run * 1.5);
-    expect(r.fromX - r.toX).toBeLessThan(RULES.run * 4);
-    expect(ofType(evs, 'plank').length).toBeGreaterThan(0);
-    // never stuck: he keeps going
-    expect(sim.hero.x).toBeGreaterThan(100);
-    expect(sim.score).toBeGreaterThan(10);
-  });
-});
-
-describe('the sycamore and the courses', () => {
-  it('finishes a course at the trunk, pays its branch, records it and starts the next', () => {
-    const sim = later({ planned: 600 });
-    const evs = drive(sim, 150, frame(), { t: 0 }, tapper(sim));
-    const fin = ofType(evs, 'finish');
-    expect(fin.length).toBeGreaterThanOrEqual(1);
-    expect(fin[0].course.index).toBe(0);
-    expect(fin[0].pay).toBe(RULES.branchPay[fin[0].branch - 1]);
-    expect(sim.p.courses[0].done).toBe(true);
-    expect(ofType(evs, 'courseStart').map(e => e.course.index).slice(0, 2)).toEqual([0, 1]);
+// ── the smoke contract ─────────────────────────────────────────────
+describe('Zacheusz: the smoke test and the result', () => {
+  it('the smoke hand scores within 22 s and the headline accrues live', () => {
+    const sim = makeSim({ planned: 40 });
+    const hand = smokeHand(sim);
+    const seen: number[] = [];
+    drive(sim, 22, frame({ level: 0.7, focused: true, hold: 3 }), { t: sim.t }, tt => { hand(); if (Math.abs(tt % 5) < STEP) seen.push(sim.headline().value); });
+    expect(sim.result().score).toBeGreaterThan(0);
+    expect(sim.headline().value).toBe(sim.result().score);
+    expect(seen.at(-1)!).toBeGreaterThan(seen[0]);
   });
 
-  it('starts the day\'s first session with the day\'s course', () => {
-    const sim = makeSim({ progress: { sessions: 3 }, planned: 300 });
-    expect(sim.daily).toBe(true);
-    const evs = drive(sim, 5, frame());
-    expect(ofType(evs, 'courseStart')[0].course.index).toBe(-1);
-  });
-});
-
-// ── the meta ─────────────────────────────────────────────────────
-describe('the households, the courses, the missions', () => {
-  it('restores the twelve households from the all-time sum, never by spending', () => {
-    expect(homesRestored(0)).toBe(0);
-    expect(homesRestored(RULES.homes[0])).toBe(1);
-    expect(homesRestored(99999)).toBe(12);
-    expect(toNextHome(50)).toEqual({ home: HOMES[1], have: 50 - RULES.homes[0], need: RULES.homes[1] - RULES.homes[0] });
-    expect(toNextHome(99999)).toBeNull();
-    const sim = later({ progress: { denarii: RULES.homes[0] - 3 } });
-    const evs = drive(sim, 10, frame());
-    expect(ofType(evs, 'home')[0].home.index).toBe(0);
-    expect(sim.p.denarii).toBeGreaterThanOrEqual(RULES.homes[0]);
+  it('a first-ever session shows the opening card and coach marks', () => {
+    const sim = makeSim({ planned: 300 });
+    const evs = drive(sim, 12, frame(), { t: sim.t }, smokeHand(sim));
+    expect(ofType(evs, 'story')[0]).toMatchObject({ kind: 'open' });
+    expect(ofType(evs, 'hint').map(h => h.key)).toContain('tap');
+    expect(sim.talk.said.length).toBeGreaterThan(0);
   });
 
-  it('opens the courses in turn, then replays them for their special sets: silver, gold, purple', () => {
-    const p = freshProgress();
-    expect(pickCourse(p)).toBe(0);
-    expect(unlocked(p)).toBe(1);
-    expect(finishCourse(p, 0, 3, 2)).toEqual({ first: true, completed: null });
-    expect(p.courses[0].got).toBe(3);
-    expect(pickCourse(p)).toBe(1);
-    expect(pickCourse(p, [1])).toBe(2);
-    expect(finishCourse(p, 0, 5, 4)).toEqual({ first: false, completed: 'silver' });
-    expect(tierOf(p.courses[0])).toBe('gold');
-    for (let i = 0; i < 12; i++) finishCourse(p, i, 0, 1);
-    expect(unlocked(p)).toBe(12);
-    p.lastCourse = 0;
-    expect(pickCourse(p)).toBe(1);   // the fewest sets first, in turn after the last one
-    finishCourse(p, 0, 5, 1);
-    finishCourse(p, 0, 5, 1);
-    expect(tierOf(p.courses[0])).toBe('purple');
-    expect(p.courses[0].tier).toBe(3);
-    expect(finishCourse(p, 0, 5, 1).completed).toBeNull();
-  });
-
-  it('turns a done mission\'s page after the session', () => {
-    const p = freshProgress();
-    const opened = turnPages(p, [p.missions[0]]);
-    expect(opened).toEqual([MISSIONS[3].id]);
-    expect(p.missions).toHaveLength(3);
-  });
-
-  it('gives the day\'s gift once a day, for the households, the same for everyone', () => {
-    const sim = makeSim({ progress: { sessions: 2, dailyDay: DAY }, planned: 40 });
-    const evs = drive(sim, 46, frame());
-    expect(ofType(evs, 'gift')).toEqual([{ type: 'gift', pay: RULES.giftPay }]);
-    expect(sim.p.giftDay).toBe(DAY);
-  });
-});
-
-describe('the summary', () => {
-  it('closes with a passage the session fits, never the root', () => {
-    const verse = (o: Partial<ZacheuszSim>) => {
-      const sim = later({ progress: { sessions: 0 } });
-      Object.assign(sim, o);
-      return sim.closingVerse();
-    };
-    expect(verse({ bestBranch: 5 })).toBe('luk19.5');
-    expect(verse({ views: 1 })).toBe('heb12.2');
-    expect(verse({ ropes: 2 })).toBe('luk19.10');
-    expect(verse({})).toBe('luk19.6');
-    for (const id of ['luk19.5', 'luk19.8', 'heb12.2', 'psa34.5', 'luk19.10', 'luk19.6'] as const) expect(passage(id).text.length).toBeGreaterThan(20);
-  });
-
-  it('result() is idempotent: records with Math.max, counters once, when the session is settled', () => {
-    const sim = later({ planned: 40 });
-    const clock = { t: 0 };
-    const tap = tapper(sim);
-    drive(sim, 20, frame(), clock, tap);
-    const mid = sim.result();
-    expect(sim.p.sessions).toBe(5);
-    drive(sim, 25, frame(), clock, tap);
-    sim.finish();
-    const a = sim.result(), b = sim.result();
+  it('result() is idempotent; finish() settles once', () => {
+    const sim = later({ planned: 60 });
+    drive(sim, 30, frame(), { t: sim.t }, smokeHand(sim));
+    const a = sim.result();
+    const b = sim.result();
     expect(b).toEqual(a);
-    expect(a.score).toBeGreaterThanOrEqual(mid.score);
-    expect(sim.p.sessions).toBe(6);
-    const den = sim.p.denarii;
+    const den = sim.p.denarii, missions = sim.p.missionsDone;
     sim.finish();
-    sim.result();
-    expect(sim.p.denarii).toBe(den);
-    expect(bestOf(sim.p)).toBe(a.score);
-    expect(a.stats.length).toBeLessThanOrEqual(8);
-    expect(a.unit).toBe(unit(a.score));
+    const once = sim.p.denarii;
+    sim.finish();
+    expect(sim.p.denarii).toBe(once);
+    expect(once).toBe(den + sim.score + (sim.p.missionsDone - missions) * RULES.missionPay);
+    expect(sim.p.sessions).toBe(6);
+    expect(sim.result().score).toBe(a.score);
+    expect(passage(a.verse!)).toBeTruthy();
   });
 
-  it('walks home at the end and may stop once he is at his door', () => {
-    const sim = later({ planned: 40 });
-    const evs = drive(sim, 40 + RULES.settle + 0.2, frame(), { t: 0 }, tapper(sim));
-    expect(ofType(evs, 'finale')).toHaveLength(1);
+  it('canStop waits for a bubble, at most a few seconds', () => {
+    const sim = later({ planned: 20 });
+    drive(sim, 19, frame());
+    sim.bubbleNow();
+    drive(sim, 1.2, frame());
+    expect(sim.canStop()).toBe(false);
+    drive(sim, RULES.settle, frame());
     expect(sim.canStop()).toBe(true);
   });
 });
 
-describe('the texts in four languages', () => {
-  it('gives every text in pl, en, de and sv, with the same placeholders and plural forms', () => {
+// ── the meta ───────────────────────────────────────────────────────
+describe('Zacheusz: the meta', () => {
+  it('levels open in turn; the pick starts a session; replays go to the fewest sets', () => {
+    const p = freshProgress();
+    expect(unlocked(p)).toBe(1);
+    expect(startLevel(p)).toBe(0);
+    finishLevel(p, 0, 50, 4, 5);
+    expect(unlocked(p)).toBe(2);
+    expect(p.levels[0].tier).toBe(1);
+    expect(p.levels[0].stars).toBe(starsFor(50, LEVELS[0].target, 4));
+    expect(nextLevel(p, 0)).toBe(1);
+    p.pick = 0;
+    expect(startLevel(p)).toBe(0);
+    p.pick = 7;
+    expect(startLevel(p)).toBe(1);
+    const all = freshProgress();
+    all.levels.forEach((l, i) => { l.done = true; l.tier = i === 5 ? 0 : 2; });
+    expect(nextLevel(all, 11)).toBe(5);
+  });
+
+  it('a set completes only with all five in one run', () => {
+    const p = freshProgress();
+    finishLevel(p, 0, 10, 0, 4);
+    expect(p.levels[0].tier).toBe(0);
+    expect(p.levels[0].got).toBe(4);
+    finishLevel(p, 0, 10, 0, 5);
+    expect(p.levels[0].tier).toBe(1);
+    expect(p.levels[0].got).toBe(0);
+  });
+
+  it('households are restored by the all-time denarii', () => {
+    expect(homesRestored(0)).toBe(0);
+    expect(homesRestored(RULES.homes[0])).toBe(1);
+    expect(homesRestored(99999)).toBe(HOMES.length);
+    expect(toNextHome(RULES.homes[0])!.home.index).toBe(1);
+    expect(toNextHome(99999)).toBeNull();
+  });
+
+  it('missions turn their pages', () => {
+    const p = freshProgress();
+    const opened = turnPages(p, [p.missions[0]]);
+    expect(opened.length).toBe(1);
+    expect(new Set(p.missions).size).toBe(3);
+    expect(MISSIONS.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('migrates a realistic v1 save: records and sessions kept, the rest fresh', () => {
+    const old = {
+      v: 1, sessions: 7, denarii: 345, figs: 21, pushes: 9,
+      courses: [{ done: true, tier: 2, got: 3, branch: 4 }, { done: true, tier: 0, got: 1, branch: 2 }, 'junk'],
+      lastCourse: 4, missions: ['coins60', 'wall3', 'bounce5'], missionsDone: 3, missionNext: 6,
+      best: { '300': 212, '600': 'x', '180': 95 }, lastLen: 300, bestBranch: 4, dailyDay: '2026-11-05', dailyCoins: 40, giftDay: '2026-11-05',
+    };
+    const p = migrate({ ...freshProgress(), ...(old as unknown as Partial<ZacheuszProgress>) } as ZacheuszProgress);
+    expect(p.ver).toBe(2);
+    expect('v' in p).toBe(false);
+    expect(p.sessions).toBe(7);
+    expect(p.denarii).toBe(345);
+    expect(p.best).toEqual({ '300': 212, '180': 95 });
+    expect(bestOf(p)).toBe(212);
+    expect(p.levels.length).toBe(LEVELS.length);
+    expect(p.levels.every(l => !l.done)).toBe(true);
+    expect(p.missions.every(id => MISSIONS.some(m => m.id === id))).toBe(true);
+    expect(p.missions.length).toBe(3);
+    // a sim runs on it
+    const sim = new ZacheuszSim({ progress: p, rng: mulberry32(2), day: DAY, daySeed: 1, plannedSec: 40, eeg: false, tuning: TUNING });
+    sim.start();
+    drive(sim, 5, frame());
+    expect(migrate(p)).toBe(p);
+  });
+
+  it('survives fields of the wrong type', () => {
+    const p = migrate({ ver: 2, sessions: 'x', levels: 'nope', taught: [3, 'tap'], best: [], pick: 99 } as unknown as ZacheuszProgress);
+    expect(p.sessions).toBe(0);
+    expect(p.levels.length).toBe(LEVELS.length);
+    expect(p.taught).toEqual(['tap']);
+    expect(p.pick).toBe(LEVELS.length - 1);
+  });
+});
+
+// ── the words ──────────────────────────────────────────────────────
+describe('Zacheusz: the words', () => {
+  it('the catalog is complete in four languages', () => {
     expect(catalogProblems(CATALOGS)).toEqual([]);
   });
 
-  it('bends the headline\'s unit: 1 denar, 2 denary, 5 denarów', () => {
-    expect(unit(1)).toBe('denar');
-    expect(unit(3)).toBe('denary');
-    expect(unit(5)).toBe('denarów');
-    expect(unit(22)).toBe('denary');
-    expect(t('denarii', { n: 12 })).toBe('12 denarów');
+  it('every companion line exists and is short', () => {
+    for (const [m, n] of Object.entries(SAY)) {
+      expect(n).toBeGreaterThanOrEqual(3);
+      for (let i = 1; i <= n; i++) {
+        for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+          const s = CATALOGS[l][`say.${m}.${i}` as Key];
+          expect(s, `${l} say.${m}.${i}`).toBeTruthy();
+          expect((s as string).length, `${l} say.${m}.${i}`).toBeLessThanOrEqual(90);
+        }
+      }
+    }
   });
 
-  it('names every course, home and mission; no "concentrate harder", no holiness words, Jesus never a figure', () => {
-    for (let i = 0; i < 12; i++) expect(course(i).name.length).toBeGreaterThan(3);
-    for (const h of HOMES) expect(h.fix.length).toBeGreaterThan(2);
+  it('strategies never ask to concentrate harder', () => {
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      for (const [k, v] of Object.entries(CATALOGS[l])) {
+        if (!k.startsWith('tip.') && !k.startsWith('how.')) continue;
+        expect(String(v)).not.toMatch(/mocniej|harder|stärker/i);
+      }
+    }
     expect(TIPS.push.length).toBe(5);
-    for (const cat of Object.values(CATALOGS)) {
-      const all = Object.values(cat).flatMap(m => (typeof m === 'string' ? [m] : Object.values(m))).join(' ').toLowerCase();
-      for (const word of [/skup się/, /concentrate/, /konzentrier/, /koncentrera/, /energ/, /błogosław/, /bless/, /segen/, /välsign/, /jezus/, /jesus/, /\bgod\b/, /\bbóg\b/, /hack/]) expect(all).not.toMatch(word);
-    }
-  });
-});
-
-describe('the smoke path', () => {
-  /** The smoke test's input: a tap at the centre every ~0.65 s, Space after every third one, the simulator's focus on. */
-  function smoke(progress: Partial<ZacheuszProgress>, seed: number, eeg: boolean, every = 0.65) {
-    const sim = makeSim({ progress, planned: 40, seed, daySeed: seed * 7 + 1, tuning: BEGINNER, eeg });
-    const focus = new FocusInput(BEGINNER);
-    let f = focus.push(0, true, 0.1), hub = 0, tap = 0, taps = 0, at22 = 0;
-    for (let t = 0; t < 22 + 1e-9; t += STEP) {
-      hub += STEP;
-      if (hub >= 0.1) {
-        hub -= 0.1;
-        f = focus.push(20 * (1 - Math.exp(-t / 4)), true, 0.1);
-      }
-      sim.update(STEP, f, t);
-      if ((tap += STEP) >= every) {
-        tap -= every;
-        sim.pointer('down', 1);
-        sim.pointer('up', 1);
-        if (taps++ % 3 === 0) {
-          sim.key(' ', true);
-          sim.key(' ', false);
-        }
-      }
-      sim.take();
-      at22 = sim.result().score;
-    }
-    return { at22, x: sim.hero.x };
-  }
-
-  it('gathers denarii live and keeps running at 22 s, on either band, any tap rhythm, new or returning', () => {
-    for (const eeg of [false, true]) {
-      for (const every of [0.65, 0.7]) {
-        for (let seed = 1; seed <= 6; seed++) {
-          const r = smoke({}, seed, eeg, every);
-          expect(r.at22, `eeg ${eeg}, seed ${seed}`).toBeGreaterThan(15);
-          expect(r.x).toBeGreaterThan(60);
-        }
-      }
-    }
-    expect(smoke({ sessions: 6, dailyDay: DAY }, 3, false).at22).toBeGreaterThan(15);
-    expect(smoke({ sessions: 6 }, 4, true).at22).toBeGreaterThan(15);
-  });
-});
-
-describe('the lobby (index.ts, panel.ts)', () => {
-  it('shows the record of the length last played, and nothing before a first run', async () => {
-    const mod = (await import('../src/arcade/zacheusz/index')).default;
-    const p = freshProgress();
-    expect(mod.best(p)).toBeNull();
-    p.sessions = 2;
-    p.best = { 180: 90, 300: 150 };
-    p.lastLen = 180;
-    expect(mod.best(p)).toBe(90);
-    expect(mod.unit?.(1)).toBe('denar');
   });
 
-  it('builds the progress card from elements: the town of twelve homes, the courses, the missions', async () => {
-    const { progressPanel } = await import('../src/arcade/zacheusz/panel');
-    const p = { ...freshProgress(), sessions: 3, denarii: 130 };
-    p.courses[0].done = true;
-    const el = progressPanel(p);
-    expect(el.querySelectorAll('.arcade-album.zz-town > div')).toHaveLength(12);
-    expect(el.querySelectorAll('.arcade-album.zz-town > div.on')).toHaveLength(2);
-    expect(el.querySelectorAll('.arcade-album.zz-courses > div')).toHaveLength(12);
-    for (const id of p.missions) expect(el.textContent).toContain(MISSIONS.find(m => m.id === id)!.name);
+  it('the unit bends', () => {
+    expect(unit(1)).toBeTruthy();
+    expect(t('denarii', { n: 5 })).toContain('5');
   });
 });

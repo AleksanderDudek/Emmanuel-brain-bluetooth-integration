@@ -1,14 +1,14 @@
 /**
  * Zacheusz's picture for the lobby's hero and the game card: Zacchaeus running along Jericho's
- * flat roofs over a solid rope bridge, a striped awning below, denarii in an arc ahead, the
- * skyline of palms behind him (a few gold crowns) and the procession's dust far off.  In the lobby
- * (with progress) the special coin set is the one his next course shows.  Drawn every frame in the
- * lobby, so it stays cheap.
+ * flat roofs and over the band's road of light, a striped awning and a goose below, Mela trotting
+ * in the street, denarii in an arc ahead, the skyline of palms behind him (a few gold crowns) and
+ * the procession's dust far off.  In the lobby (with progress) the special coin is the set his next
+ * level shows.  Drawn every frame in the lobby, so it stays cheap.
  */
-import { pickCourse, courseRec, tierOf, type ZacheuszProgress } from './meta';
+import { startLevel, tierOf, type ZacheuszProgress } from './meta';
 import {
-  C, hash, paintAwning, paintCoin, paintGround, paintHigh, paintHills, paintHouse, paintPalm, paintPlain, paintProcession, paintSky, paintZacchaeus,
-  restPose, type CoinKind,
+  C, hash, paintAwning, paintCoin, paintGoat, paintGoose, paintGround, paintHills, paintHouse, paintLightPlank, paintPalm, paintPlain,
+  paintProcession, paintSky, paintZacchaeus, restPose, type CoinKind,
 } from './paint';
 
 const pose = restPose();
@@ -35,12 +35,14 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   for (let k = -1; k < Math.ceil(w / (S * 8)) + 1; k++) {
     const bx = k * S * 8 - run;
     paintHouse(ctx, bx, bx + S * 4.5, roof, gy, S, k + 40, true);
-    paintHigh(ctx, 'bridge', bx + S * 4.5, bx + S * 8, roof, S, 'solid', 1, t, 0);
+    for (let q = 0; q < 3; q++) paintLightPlank(ctx, bx + S * (4.5 + q * 1.17), bx + S * (4.5 + (q + 1) * 1.17), roof, S, 0.5, 1);
     paintAwning(ctx, bx + S * 5, bx + S * 7.2, gy - S * 1.4, S, k % 2 ? C.madder : C.indigo, 0, gy);
+    paintGoose(ctx, bx + S * 6.1, gy, S * 0.9, t + k, -1, 0);
   }
   paintGround(ctx, 0, w, gy, h + 2, S, 7, 0);
+  paintGoat(ctx, w * 0.2, gy, S * 0.85, t, 1, { bell: true, run: 1 });
   // denarii ahead in an arc, and the special set of his next course
-  const kind: CoinKind = p ? tierOf(courseRec(p, pickCourse(p))) : 'silver';
+  const kind: CoinKind = p ? tierOf(p.levels[startLevel(p)]) : 'silver';
   for (let i = 0; i < 5; i++) {
     const q = i / 4;
     paintCoin(ctx, w * 0.5 + q * S * 3, roof - S * (0.9 + 1.2 * Math.sin(q * Math.PI)), S * 0.16, 'denar', t * 3 + i);
