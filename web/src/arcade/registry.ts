@@ -53,7 +53,7 @@ export interface ArcadeEntry {
   load: () => Promise<ArcadeModule<any>>;
 }
 
-type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament';
+type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -184,6 +184,33 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'psa147.4',
     brain: brain('firmament'),
     load: () => import('./firmament/index').then(m => m.default),
+  },
+  {
+    id: 'dolina', kind: 'run', title: t('dolina.title'), tagline: t('dolina.tagline'), text: t('dolina.text'),
+    how: [t('dolina.how1'), t('dolina.how2'), t('dolina.how3')],
+    tips: [t('dolina.tip1'), t('dolina.tip2'), t('dolina.tip3'), t('dolina.tip4'), t('dolina.tip5')],
+    unit: t('dolina.unit'), art: 'art-dolina', fill: ['#ffe6a8', '#e09a3e', '#4a3f63', '#16131f'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa23.4',
+    brain: brain('dolina'),
+    load: () => import('./dolina/index').then(m => m.default),
+  },
+  {
+    id: 'chleby', kind: 'arcade', title: t('chleby.title'), tagline: t('chleby.tagline'), text: t('chleby.text'),
+    how: [t('chleby.how1'), t('chleby.how2'), t('chleby.how3')],
+    tips: [t('chleby.tip1'), t('chleby.tip2'), t('chleby.tip3'), t('chleby.tip4'), t('chleby.tip5')],
+    unit: t('chleby.unit'), art: 'art-chleby', fill: ['#fff3d6', '#e6b25c', '#6f9a52', '#2f5d78'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'jhn6.9',
+    brain: brain('chleby'),
+    load: () => import('./chleby/index').then(m => m.default),
+  },
+  {
+    id: 'jerzy', kind: 'arcade', title: t('jerzy.title'), tagline: t('jerzy.tagline'), text: t('jerzy.text'),
+    how: [t('jerzy.how1'), t('jerzy.how2'), t('jerzy.how3')],
+    tips: [t('jerzy.tip1'), t('jerzy.tip2'), t('jerzy.tip3'), t('jerzy.tip4'), t('jerzy.tip5')],
+    unit: t('jerzy.unit'), art: 'art-jerzy', fill: ['#fde7b0', '#d9a441', '#5b8a4a', '#2b2a3a'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'eph6.16',
+    brain: brain('jerzy'),
+    load: () => import('./jerzy/index').then(m => m.default),
   },
 ];
 

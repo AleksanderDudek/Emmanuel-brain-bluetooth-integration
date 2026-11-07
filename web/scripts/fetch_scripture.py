@@ -76,6 +76,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "LEV": ("Leviticus", "Kpł", "3. Mose", "3_mose", "Tredje Moseboken", "3 Mos"),
     "NUM": ("Numbers", "Lb", "4. Mose", "4_mose", "Fjärde Moseboken", "4 Mos"),
     "DEU": ("Deuteronomy", "Pwt", "5. Mose", "5_mose", "Femte Moseboken", "5 Mos"),
+    "JOS": ("Joshua", "Joz", "Josua", "josua", "Josua", "Jos"),
     "RUT": ("Ruth", "Rt", "Ruth", "rut", "Rut", "Rut"),
     "1SA": ("1 Samuel", "1 Sm", "1. Samuel", "1_samuel", "Första Samuelsboken", "1 Sam"),
     "1KI": ("1 Kings", "1 Krl", "1. Könige", "1_koenige", "Första Konungaboken", "1 Kung"),
@@ -105,6 +106,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "PHP": ("Philippians", "Flp", "Philipper", "philipper", "Filipperbrevet", "Fil"),
     "COL": ("Colossians", "Kol", "Kolosser", "kolosser", "Kolosserbrevet", "Kol"),
     "2TH": ("2 Thessalonians", "2 Tes", "2. Thessalonicher", "2_thessalonicher", "Andra Thessalonikerbrevet", "2 Tess"),
+    "2TI": ("2 Timothy", "2 Tm", "2. Timotheus", "2_timotheus", "Andra Timoteusbrevet", "2 Tim"),
     "HEB": ("Hebrews", "Hbr", "Hebräer", "hebraeer", "Hebreerbrevet", "Hebr"),
     "JAS": ("James", "Jk", "Jakobus", "jakobus", "Jakobsbrevet", "Jak"),
     "1PE": ("1 Peter", "1 P", "1. Petrus", "1_petrus", "Första Petrusbrevet", "1 Petr"),
@@ -181,6 +183,15 @@ PASSAGES: list[tuple[str, str]] = [
     # Firmament (stars in threes, the telescope of attention)
     ("dan12.3", "Daniel 12:3"), ("php2.15", "Philippians 2:15"), ("job38.7", "Job 38:7"), ("1co15.41", "1 Corinthians 15:41"),
     ("jer31.35", "Jeremiah 31:35"), ("gen1.16", "Genesis 1:16"),
+    # Dolina (the valley of the shadow: a run through the dark with the lamp)
+    ("psa23.4", "Psalm 23:4"), ("jhn8.12", "John 8:12"), ("1pe2.9", "1 Peter 2:9"), ("psa139.12", "Psalm 139:12"),
+    ("mic7.8", "Micah 7:8"),
+    # Chleby (five loaves and two fish, multiplied for the crowd on the grass)
+    ("jhn6.9", "John 6:9"), ("mrk6.39-40", "Mark 6:39-40"), ("jhn6.11", "John 6:11"), ("mrk6.42-43", "Mark 6:42-43"),
+    ("jhn6.35", "John 6:35"),
+    # Jerzy i smok (the knight, the dragon and the shield of faith)
+    ("eph6.16", "Ephesians 6:16"), ("psa91.13", "Psalm 91:13"), ("eph6.17", "Ephesians 6:17"), ("2ti4.7", "2 Timothy 4:7"),
+    ("jos1.9", "Joshua 1:9"), ("1co16.13", "1 Corinthians 16:13"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
@@ -202,6 +213,7 @@ DROP_END: dict[str, dict[str, str]] = {
 # The run fails if the wrong text is gone, so a corrected upstream is noticed.
 FIX: dict[str, dict[str, tuple[str, str]]] = {
     "psa133.3": {"de": ("verheizt", "verheißt")},   # eBible's Luther 1912 lost the ß; bibel-online.net has „verheißt“
+    "jhn8.12": {"de": ("sondern wir das Licht", "sondern wird das Licht")},   # a dropped "d": the 1912 text reads „wird“
 }
 
 # The Gdańsk Bible starts every verse with a capital, even inside a sentence ("ślepych, A będziesz"): a verse that

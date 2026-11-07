@@ -168,6 +168,22 @@ export type PassageId =
   | '1co15.41'
   | 'jer31.35'
   | 'gen1.16'
+  | 'psa23.4'
+  | 'jhn8.12'
+  | '1pe2.9'
+  | 'psa139.12'
+  | 'mic7.8'
+  | 'jhn6.9'
+  | 'mrk6.39-40'
+  | 'jhn6.11'
+  | 'mrk6.42-43'
+  | 'jhn6.35'
+  | 'eph6.16'
+  | 'psa91.13'
+  | 'eph6.17'
+  | '2ti4.7'
+  | 'jos1.9'
+  | '1co16.13'
   ;
 
 export interface Passage {
@@ -1117,6 +1133,102 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['God made two great lights: the greater light to rule the day and the lesser light to rule the night. And He made the stars as well.', 'Genesis 1:16'],
     de: ['Und Gott machte zwei große Lichter: ein großes Licht, das den Tag regiere, und ein kleines Licht, das die Nacht regiere, dazu auch Sterne.', '1. Mose 1,16'],
     sv: ['Gud gjorde de två stora ljusen, det större ljuset till att råda över dagen, och det mindre ljuset till att råda över natten, så ock stjärnorna.', '1 Mos 1:16'],
+  },
+  'psa23.4': {
+    pl: ['Choćbym też chodził w dolinie cienia śmierci, nie będę się bał złego, albowiemeś ty ze mną; laska twoja, i kij twój, te mię cieszą.', 'Ps 23,4'],
+    en: ['Even though I walk through the valley of the shadow of death, I will fear no evil, for You are with me; Your rod and Your staff, they comfort me.', 'Psalm 23:4'],
+    de: ['Und ob ich schon wanderte im finstern Tal, fürchte ich kein Unglück; denn du bist bei mir, dein Stecken und dein Stab trösten mich.', 'Psalm 23,4'],
+    sv: ['Om jag ock vandrar i dödsskuggans dal, fruktar jag intet ont, ty du är med mig; din käpp och stav, de trösta mig.', 'Ps 23:4'],
+  },
+  'jhn8.12': {
+    pl: ['Zasię im rzekł Jezus, mówiąc: Jam jest światłość świata; kto mię naśladuje, nie będzie chodził w ciemności, ale będzie miał światłość żywota.', 'J 8,12'],
+    en: ['Once again, Jesus spoke to the people and said, “I am the light of the world. Whoever follows Me will never walk in the darkness, but will have the light of life.”', 'John 8:12'],
+    de: ['Da redete Jesus abermals zu ihnen und sprach: Ich bin das Licht der Welt; wer mir nachfolgt, der wird nicht wandeln in der Finsternis, sondern wird das Licht des Lebens haben.', 'Johannes 8,12'],
+    sv: ['Åter talade Jesus till dem och sade: »Jag är världens ljus; den som följer mig, han skall förvisso icke vandra i mörkret, utan skall hava livets ljus.»', 'Joh 8:12'],
+  },
+  '1pe2.9': {
+    pl: ['Ale wy jesteście rodzajem wybranym, królewskim kapłaństwem, narodem świętym, ludem nabytym, abyście opowiadali cnoty tego, który was powołał z ciemności ku dziwnej swojej światłości.', '1 P 2,9'],
+    en: ['But you are a chosen people, a royal priesthood, a holy nation, a people for God’s own possession, to proclaim the virtues of Him who called you out of darkness into His marvelous light.', '1 Peter 2:9'],
+    de: ['Ihr aber seid das auserwählte Geschlecht, das königliche Priestertum, das heilige Volk, das Volk des Eigentums, daß ihr verkündigen sollt die Tugenden des, der euch berufen hat von der Finsternis zu seinem wunderbaren Licht…', '1. Petrus 2,9'],
+    sv: ['I åter ären »ett utvalt släkte, ett konungsligt prästerskap, ett heligt folk, ett egendomsfolk», för att I skolen förkunna hans härliga gärningar, hans som har kallat eder från mörkret till sitt underbara ljus.', '1 Petr 2:9'],
+  },
+  'psa139.12': {
+    pl: ['Gdyż i ciemności nic nie zakryją przed tobą; owszem tobie noc jako dzień świeci; ciemnościć są jako światłość.', 'Ps 139,12'],
+    en: ['…even the darkness is not dark to You, but the night shines like the day, for darkness is as light to You.', 'Psalm 139:12'],
+    de: ['Denn auch Finsternis ist nicht finster bei dir, und die Nacht leuchtet wie der Tag, Finsternis ist wie das Licht.', 'Psalm 139,12'],
+    sv: ['…så skulle själva mörkret icke vara mörkt för dig, natten skulle lysa såsom dagen: ja, mörkret skulle vara såsom ljuset.', 'Ps 139:12'],
+  },
+  'mic7.8': {
+    pl: ['Nie wesel się ze mnie, nieprzyjaciółko moja! jeźlim upadła, powstanę; jeźli siedzę w ciemnościach, Pan jest światłością moją.', 'Mi 7,8'],
+    en: ['Do not gloat over me, my enemy! Though I have fallen, I will arise; though I sit in darkness, the LORD will be my light.', 'Micah 7:8'],
+    de: ['Freue dich nicht, meine Feindin, daß ich darniederliege! Ich werde wieder aufkommen; und so ich im Finstern sitze, so ist doch der HERR mein Licht.', 'Micha 7,8'],
+    sv: ['Glädjens icke över mig, I mina fiender. Om jag än har fallit, skall jag dock stå upp igen; om jag än sitter i mörkret, är dock HERREN mitt ljus.', 'Mika 7:8'],
+  },
+  'jhn6.9': {
+    pl: ['Jest tu jedno pacholę, co ma pięcioro chleba jęczmiennego i dwie rybki; ale cóż to jest na tak wielu?', 'J 6,9'],
+    en: ['“Here is a boy with five barley loaves and two small fish. But what difference will these make among so many?”', 'John 6:9'],
+    de: ['Es ist ein Knabe hier, der hat fünf Gerstenbrote und zwei Fische; aber was ist das unter so viele?', 'Johannes 6,9'],
+    sv: ['»Här är en gosse som har fem kornbröd och två fiskar; men vad förslår det för så många?»', 'Joh 6:9'],
+  },
+  'mrk6.39-40': {
+    pl: ['Tedy im kazał wszystkie gromadami posadzić na zielonej trawie. I usiedli rząd podle rządu, tu po stu, tu zaś po pięćdziesiąt.', 'Mk 6,39–40'],
+    en: ['Then Jesus directed them to have the people sit in groups on the green grass. So they sat down in groups of hundreds and fifties.', 'Mark 6:39–40'],
+    de: ['Und er gebot ihnen, daß sie sich alle lagerten, tischweise, auf das grüne Gras. Und sie setzten sich nach Schichten, je hundert und hundert, fünfzig und fünfzig.', 'Markus 6,39–40'],
+    sv: ['Då befallde han dem att låta alla i skilda matlag lägga sig ned i gröna gräset. Och de lägrade sig där i skilda hopar, hundra eller femtio i var.', 'Mark 6:39–40'],
+  },
+  'jhn6.11': {
+    pl: ['Wziął tedy Jezus one chleby, a podziękowawszy rozdał uczniom, a uczniowie siedzącym; także i z onych rybek, ile jedno chcieli.', 'J 6,11'],
+    en: ['Then Jesus took the loaves and the fish, gave thanks, and distributed to those who were seated as much as they wanted.', 'John 6:11'],
+    de: ['Jesus aber nahm die Brote, dankte und gab sie den Jüngern, die Jünger aber denen, die sich gelagert hatten; desgleichen auch von den Fischen, wieviel sie wollten.', 'Johannes 6,11'],
+    sv: ['Därefter tog Jesus bröden och tackade Gud och delade ut åt dem som hade lagt sig ned där, likaledes ock av fiskarna, så mycket de ville hava.', 'Joh 6:11'],
+  },
+  'mrk6.42-43': {
+    pl: ['I jedli wszyscy, i nasyceni byli. I zebrali ułomków, dwanaście koszów pełnych, i z onych ryb.', 'Mk 6,42–43'],
+    en: ['They all ate and were satisfied, and the disciples picked up twelve basketfuls of broken pieces of bread and fish.', 'Mark 6:42–43'],
+    de: ['Und sie aßen alle und wurden satt. Und sie hoben auf die Brocken, zwölf Körbe voll, und von den Fischen.', 'Markus 6,42–43'],
+    sv: ['Och de åto alla och blevo mätta. Sedan samlade man upp överblivna brödstycken, tolv korgar fulla, därtill ock kvarlevor av fiskarna.', 'Mark 6:42–43'],
+  },
+  'jhn6.35': {
+    pl: ['I rzekł im Jezus: Jamci jest on chleb żywota; kto do mnie przychodzi, łaknąć nie będzie, a kto wierzy w mię, nigdy pragnąć nie będzie.', 'J 6,35'],
+    en: ['Jesus answered, I am the bread of life. Whoever comes to Me will never hunger, and whoever believes in Me will never thirst.', 'John 6:35'],
+    de: ['Jesus aber sprach zu ihnen: Ich bin das Brot des Lebens. Wer zu mir kommt, den wird nicht hungern; und wer an mich glaubt, den wird nimmermehr dürsten.', 'Johannes 6,35'],
+    sv: ['Jesus svarade: Jag är livets bröd. Den som kommer till mig, han skall aldrig hungra, och den som tror på mig, han skall aldrig törsta.', 'Joh 6:35'],
+  },
+  'eph6.16': {
+    pl: ['A nade wszystko wziąwszy tarczę wiary, którą byście mogli wszystkie strzały ogniste onego złośnika zagasić.', 'Ef 6,16'],
+    en: ['In addition to all this, take up the shield of faith, with which you can extinguish all the flaming arrows of the evil one.', 'Ephesians 6:16'],
+    de: ['Vor allen Dingen aber ergreifet den Schild des Glaubens, mit welchem ihr auslöschen könnt alle feurigen Pfeile des Bösewichtes…', 'Epheser 6,16'],
+    sv: ['Och tagen alltid trons sköld, varmed I skolen kunna utsläcka den ondes alla brinnande pilar.', 'Ef 6:16'],
+  },
+  'psa91.13': {
+    pl: ['Po lwie, i po bazyliszku deptać będziesz, lwię i smoka podepczesz.', 'Ps 91,13'],
+    en: ['You will tread on the lion and cobra; you will trample the young lion and serpent.', 'Psalm 91:13'],
+    de: ['Auf Löwen und Ottern wirst du gehen, und treten auf junge Löwen und Drachen.', 'Psalm 91,13'],
+    sv: ['Över lejon och huggormar skall du gå fram, du skall trampa ned unga lejon och drakar.', 'Ps 91:13'],
+  },
+  'eph6.17': {
+    pl: ['Przyłbicę też zbawienia weźmijcie i miecz Ducha, który jest słowo Boże!', 'Ef 6,17'],
+    en: ['And take the helmet of salvation and the sword of the Spirit, which is the word of God.', 'Ephesians 6:17'],
+    de: ['…und nehmet den Helm des Heils und das Schwert des Geistes, welches ist das Wort Gottes.', 'Epheser 6,17'],
+    sv: ['Och låten giva eder »frälsningens hjälm» och Andens svärd, som är Guds ord.', 'Ef 6:17'],
+  },
+  '2ti4.7': {
+    pl: ['Dobrym bój bojował, biegem wykonał, wiaręm zachował…', '2 Tm 4,7'],
+    en: ['I have fought the good fight, I have finished the race, I have kept the faith.', '2 Timothy 4:7'],
+    de: ['Ich habe einen guten Kampf gekämpft, ich habe den Lauf vollendet, ich habe Glauben gehalten…', '2. Timotheus 4,7'],
+    sv: ['Jag har kämpat den goda kampen, jag har fullbordat mitt lopp, jag har bevarat tron.', '2 Tim 4:7'],
+  },
+  'jos1.9': {
+    pl: ['Azażemci nie rozkazał: Zmocnij się, i mężnie sobie poczynaj, nie lękaj się, a nie trwóż sobą, albowiem z tobą jest Pan, Bóg twój, we wszystkiem, do czegokolwiek się obrócisz?', 'Joz 1,9'],
+    en: ['Have I not commanded you to be strong and courageous? Do not be afraid; do not be discouraged, for the LORD your God is with you wherever you go.', 'Joshua 1:9'],
+    de: ['Siehe, ich habe dir geboten, daß du getrost und freudig seist. Laß dir nicht grauen und entsetze dich nicht; denn der HERR, dein Gott, ist mit dir in allem, was du tun wirst.', 'Josua 1,9'],
+    sv: ['Se, jag har bjudit dig att vara frimodig och oförfärad; så var nu icke förskräckt eller försagd. Ty HERREN, din Gud, är med dig i allt vad du företager dig.', 'Jos 1:9'],
+  },
+  '1co16.13': {
+    pl: ['Czujcież, stójcie w wierze, mężnie sobie poczynajcie, zmacniajcie się.', '1 Kor 16,13'],
+    en: ['Be on the alert. Stand firm in the faith. Be men of courage. Be strong.', '1 Corinthians 16:13'],
+    de: ['Wachet, stehet im Glauben, seid männlich und seid stark!', '1. Korinther 16,13'],
+    sv: ['Vaken, stån fasta i tron, skicken eder såsom män, varen starka.', '1 Kor 16:13'],
   },
 };
 

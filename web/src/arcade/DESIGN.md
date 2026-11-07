@@ -535,3 +535,196 @@ constellations, each a path of levels.
 | Push block | the aura wounds and cracks armour; Płomień | faster light, the trumpet | the telescope earns instruments |
 | Rest block | the lullaby refills the dream | the walls mend, shields | falling stars, the hint |
 | Grace | the child is comforted, Sen back to half | the host withdraws, keeps the gold | five more moves for six seconds of focus or calm |
+
+## 9. Three more the founder asked for: Dolina, Chleby, Jerzy i smok
+
+The founder asked for three more games, funny, addictive and told as stories, with the Mendi
+reading as the **core** mechanic, not a bonus on top: a runner with hack-and-slash through the eras
+of a dark world (the model: Hell Escape — run, fight, evolve, escape; guardians of each era), a crowd
+game where a cannon fires a crowd through multiplying gates at an enemy base (Mob Control), and a
+roguelite boss fight against dragons to save a princess, with a choice of one of three skills at
+every level-up (Knight Survivor). As in §8 each takes the **genre's** core and makes it ours; no
+source game's names, numbers, layouts or art.
+
+**The signal is the core.** In each of the three the thing the push block drives is the thing the
+game is about: the lamp that lets you see and fight in the valley, the gate that multiplies the
+bread, the shield that puts out the dragon's fire. Without the signal each still plays (a small
+lamp, a gate of ×1, a small shield — never a penalty), but every good stretch of focus visibly
+changes the run, the volley, the fight. Each push block's HUD says what to do in the head and draws
+the gauge on the thing it drives (§7.8).
+
+**Funny and told as a story.** Each game has a companion who talks (short lines in a speech
+bubble, 2–4 s, never more than one at a time, never during a telegraph), an opening card, a card
+between stages and a closing line; the humour is warm and never mocks faith. Lines come from the
+game's i18n catalog in all four languages, with several variants per moment so they do not repeat
+in a session.
+
+### 9.1 Reverence for these three
+
+* **Dolina.** The valley is the "valley of the shadow" of Psalm 23:4 — never called hell. Its
+  creatures are shadows (§8.1): ink, smoke, ember eyes, dissolving into light; the guardians of the
+  eras are shadows too, shaped by their age (a tower of bricks, a knight of soot, a screen of
+  flickering light). The lamp is the word that lights the path (Psalm 119:105); the light is never
+  the player's own power and is never called holy.
+* **Chleby.** The feeding of the five thousand is told with joy. Jesus is never shown: He is named
+  in the opening card ("Jezus wziął chleby, podziękował i rozdał" — John 6:11); the player plays the
+  boy whose basket it was (John 6:9) helping the disciples hand out the bread. No miracle meter: the
+  multiplying gates are the game's toy, the story card says whose the miracle was.
+* **Jerzy i smok.** The legend of Saint George, told as a story; George is never prayed to or made
+  a source of power. The dragon is a beast, not a demon: it is beaten and driven off (it flies away
+  over the hills), never killed on screen, no blood. The princess is clever and helps.
+* **Exclusive symbols.** The lamp, the valley and the moth to Dolina; the basket, the gates and the
+  gulls to Chleby; the shield, the dragon and the princess to Jerzy i smok.
+
+### 9.2 Dolina — the valley of the shadow (runner + hack-and-slash)
+
+*Psalm 23:4 — "Even though I walk through the valley of the shadow of death, I will fear no evil."*
+A pilgrim with an oil lamp runs through the valley toward the dawn; each run crosses three eras of
+the dark, each ending at its guardian.
+
+* **View and verb.** A side view, auto-run to the right, parallax layers; the pilgrim runs on his
+  own. A tap on the right two thirds (or Space, or →) **slashes** ahead with the sword (a short arc,
+  0.25 s); a swipe up (↑, W) **jumps**; a swipe down (↓, S) **slides** under a beam; a tap on the left
+  third raises the lamp (a short burst of light that stuns the nearest shadow, 3 s cooldown).
+  Snappy: coyote time, a jump buffer, hit-stop on a kill, a combo counter.
+* **The eras.** *Babel* (clay, bricks, a ziggurat in the dust: shadows of clay, *Glinianek* walks,
+  *Cegłomiot* throws bricks), *Twierdza* (a burned castle: *Giermek z sadzy* with a shield that
+  breaks on the second hit, *Kruki* that dive), *Miasto* (a city of screens: *Pling* — a
+  notification bubble that pops up in front of you, *Przewijacz* that pulls you back unless slashed).
+  Pits and beams between them. Each era ends at its **guardian** with telegraphed patterns and a weak
+  point: *Wieża* (bricks rain in columns; the glowing seam is open after each volley), *Rycerz
+  z sadzy* (a three-hit combo then a heavy blow you jump over; open after the blow), *Ekran* (a giant
+  screen that spawns Plings and sweeps a beam you slide under; open while it "loads").
+* **The lamp (push — Światło):** `level` is the lamp's **reach**: the light circle ahead of the
+  pilgrim (the dark beyond it is drawn as fog; pits and shadows are always faintly outlined, never a
+  trap). Inside the light shadows slow down and burn (damage per second in proportion to how far
+  above the threshold), and the sword's arc grows. `hold` charges **Świt** (5 s Mendi / 3 s HALO):
+  at full the lamp blazes and every shadow on screen dissolves; on a guardian it opens the weak point
+  for 3 s. Outside push blocks the lamp is a steady small flame.
+* **Rest — Pastwisko** (*Psalm 23:2*): the run slows to a walk across a green meadow by still water;
+  no shadows come. `calm` refills the lamp's **oil** (the run's health) and pays sparks; a passed
+  rest gives a full flask.
+* **Grace.** Hits drain oil; at none the pilgrim falls and gets up (Micah 7:8 on the card) at the
+  last lantern post with half oil; the guardian keeps its damage. Nothing ends the run early.
+* **Evolve.** Sparks from shadows, guardians and passed blocks buy upgrades between runs (sword,
+  lamp reach, oil, boots, the Świt) and new looks for the pilgrim (cloak → traveller → lamplighter →
+  keeper of the dawn) — the "evolve" of the genre. A run reaching an era's guardian unlocks starting
+  there next time.
+* **Companion.** *Ćma* (a moth who loves the lamp a little too much): comments on the eras ("Babel?
+  Wszyscy mówią naraz, nikt nie słucha"), warns of a guardian, cheers a Świt, sulks when the lamp is
+  small.
+* **Blind — Mgła:** the lamp's reach is not drawn and does not act; at the block's end its last 15 s
+  of focus become one Świt of the same strength.
+* **The signal in sight.** The light circle (live), the Świt ring on the lamp (hold), a line of lit
+  and unlit lantern posts along the road behind (the history).
+* **Headline.** Metres of the valley (`m`). **Closing:** the first run: Psalm 23:4; a guardian
+  beaten: Micah 7:8; a Świt: John 8:12; the dawn gate reached (all three eras): 1 Peter 2:9; a long
+  push with a wide lamp: Psalm 119:105; a passed rest: Psalm 23:1-3; else Psalm 139:12.
+
+### 9.3 Chleby — five loaves and two fish (crowd cannon)
+
+*John 6:9 — "Here is a boy with five barley loaves and two small fish. But what difference will
+these make among so many?"* The hillside by the lake; the crowd sits in groups on the green grass.
+
+* **View and verb.** A view up a green hillside (portrait: the basket at the bottom, the crowd at
+  the top; landscape: the same lane, wider). The boy's basket slides along the bottom: drag to aim,
+  hold to pour a stream of loaves and fish up the hill (a tap fires a short volley; Space fires one
+  too). The bread rolls and bounces uphill through **gates** that slide across the lane: `+5`, `×2`,
+  `×3`, `−4` (green adds, gold multiplies, grey takes away) — the genre's joy of watching a handful
+  become a flood. Each piece that reaches a **group** of the hungry (in fifties and hundreds, Mark
+  6:39-40, each with a hunger number over its head) feeds one person; a fed group stands, cheers,
+  and sits down satisfied.
+* **The gulls.** Gulls from the lake swoop across the lane and snatch bread (one gull, one piece;
+  a flock in a V; *Mewa Mirka*, their leader, takes five and laughs). Bread that meets a gull knocks
+  it off into the water. Levels end with *Pelikan* — a greedy pelican who sits on the path and gulps
+  whole streams until his pouch is full (feed him enough and he waddles off, sated and sheepish).
+* **Specials.** The **Wielki kosz** (a huge basket on legs that walks uphill, splitting into twenty
+  loaves at the top or when it passes a gate) and the fish (fast, they skip over one gate). Upgrades
+  between levels: the stream's rate, the start gate, the fish, the big basket's size.
+* **The golden gate (push — Rozdawanie):** one gate in
+  every lane is gold, and its multiplier is the `level`: ×1 below the threshold (never less — no
+  penalty), ×2 at it, up to ×5 at the top, written large on the gate with the threshold drawn on its
+  frame. Every volley through it shows the signal working. `hold` fills the **Wielki kosz** (6 s
+  Mendi / 3 s HALO of held focus): at full the next shot is a big basket.
+* **Rest — Na trawie** (*Mark 6:39-40*): the crowd sits down in neat groups; the gulls settle on the
+  water and doze; `calm` gathers the leftover crumbs into baskets (up to twelve per level — Mark
+  6:43), each basket worth a bonus; a passed rest: a full basket.
+* **Grace.** Nothing is ever lost for good: bread the gulls take returns as crumbs for the baskets,
+  a level that runs out of time is finished by the disciples (the remaining groups fed at half
+  score) so the story always ends with everyone fed.
+* **Levels and story.** A path of hillsides (the lakeshore, the olive grove, the village square…),
+  each a level of 3–6 groups with gates and gulls; three stars by bread to spare and baskets; the
+  last level of each chapter is a Pelikan. Story cards between chapters (the boy, his mother who
+  packed the lunch, the disciples counting).
+* **Companion.** *Mirka* the gull is the comedy (taunts, steals, gets knocked into the lake: "To nie
+  kradzież, to degustacja!"); the boy answers. Mirka finally gets a loaf of her own at the end.
+* **Blind — Mgła nad jeziorem:** the golden gate shows "?" and acts as ×1 while the block runs; at its
+  end a volley of the block's last 15 s of focus pours out at once.
+* **The signal in sight.** The golden gate's multiplier (live), the big basket filling (hold), a row
+  of baskets along the bottom edge lit gold where the signal was above the threshold (the history).
+* **Headline.** People fed (`nakarmionych`). **Closing:** the first level: John 6:9; all fed:
+  Mark 6:42-43; a big basket: John 6:11; twelve baskets: John 6:12; the Pelikan sated: Matthew 6:26;
+  a passed rest: Mark 6:39-40; else John 6:35.
+
+### 9.4 Jerzy i smok — the knight and the dragon (roguelite boss fight)
+
+*Ephesians 6:16 — "Take up the shield of faith, with which you can extinguish all the flaming
+arrows of the evil one."* The legend of Saint George: a town held by a dragon, a princess who
+refuses to be helpless, a knight with a shield.
+
+* **View and verb.** A top-down arena (a meadow by the dragon's cave; later a marsh, a mountain
+  pass, the castle walls). Tap or drag where the knight should go (the smoke's centre click walks
+  him toward the dragon); he **strikes by himself** when the dragon is in reach. A swipe (or Space)
+  **rolls** — a quick dodge with a short invulnerability. Every strike knocks off a scale.
+* **The dragons.** Each has patterns, telegraphed in the arena with red shapes 0.8–1.2 s ahead, and a
+  flaw: *Smok Zielony* (fire breath in a cone, a tail sweep; after a breath he coughs smoke for 2 s
+  and cannot turn), *Smok Bagienny* (spits arcs of fireballs, dives into the marsh; when he surfaces
+  he is dizzy), *Smok Skrzydlaty* (circles and dives at the knight; he lands heavily and is stunned),
+  *Smok Trzygłowy* (three heads with their own patterns; beaten head by head). Each fight has 2–3
+  phases (the dragon gets angrier, the patterns faster).
+* **Skills (the roguelite).** Scales are XP; each level pauses the fight for a choice of one of three
+  skills, random from a pool: *Wir* (a spin strike), *Kopia* (a lance thrown every few seconds),
+  *Biały koń* (a charge across the arena), *Giermek* (a squire who throws water buckets on fires),
+  *Szybki miecz*, *Większa tarcza*, *Odbicie* (quenched fire flies back), *Lżejsza zbroja* (faster
+  roll)… Skills stack and level; a run's build ends with the fight. Across fights a few skills
+  become permanent (the armoury).
+* **The shield (push — Tarcza):** `level` is the shield (Ephesians 6:16's shield of faith, called
+  simply *Tarcza* in the game so it never reads as a faith meter): a disc of light in front of the
+  knight that turns with him; its size grows with the level above the threshold (a buckler at the
+  base — never none). Fire that hits the shield is **put out** (a puff of steam: Ephesians 6:16) and
+  every quenched flame charges the **Miecz światła** (the sword of light; Ephesians 6:17 closes a
+  fight won with it); a held focus (`hold`, 5 s Mendi /
+  3 s HALO) also fills it. At full, the next strike is a great sword of light that breaks a phase's
+  armour. Fire that gets past the shield costs heart.
+* **Rest — Postój:** the dragon flies to his cave for a nap (snores, smoke rings), the princess
+  binds the knight's arm and teases him; `calm` restores heart and fills the princess's **tip**: at
+  the end of a passed rest she tells the dragon's next flaw (a hint marked in the arena when it
+  opens).
+* **Grace.** At no heart the knight is knocked down; the princess throws him an apple, he gets up
+  with half heart (the dragon also catches his breath). Nothing ends the fight early; a fight not won
+  by the end of the session is continued next time (the dragon keeps its damage).
+* **Story.** A map of the kingdom: a town per dragon, each with a short story card and a funny
+  princess line; the beaten dragon flies off over the hills (it is driven away, not killed) and the
+  town celebrates.
+* **Companion.** *Księżniczka Kleodolinda* (the legend's name, which she hates; "mów mi Linda"):
+  clever, sarcastic, warm; she warns of patterns she has noticed ("Zawsze zaczyna od lewej łapy!"),
+  cheers a quench, mocks the dragon.
+* **Blind — Dym:** the shield is drawn as smoke and does not grow while the block runs (the base
+  buckler still blocks); at its end the block's last 15 s of focus fill the Miecz światła at once.
+* **The signal in sight.** The shield's size (live), the sword's glow (hold), a row of pennants on
+  the arena fence lit gold where the signal was above the threshold (the history).
+* **Headline.** Scales knocked off (`łusek`). **Closing:** the first fight: Joshua 1:9; a dragon
+  driven off: Psalm 91:13; a Miecz światła: Ephesians 6:17; many quenched flames: Ephesians 6:16; a
+  long fight: 2 Timothy 4:7; a passed rest: 1 Corinthians 16:13; else Ephesians 6:16.
+
+### 9.5 How they fit the set
+
+| | Dolina | Chleby | Jerzy i smok |
+|---|---|---|---|
+| Kind (the Games tab) | run | arcade | arcade |
+| Genre core | runner + hack-and-slash, eras, guardians | crowd cannon through multiplying gates | roguelite boss fight, 1 of 3 skills |
+| Hands | slash, jump, slide, lamp | aim and pour, the big basket | move, roll |
+| Push block | the lamp's reach: see, burn, Świt | the golden gate's multiplier, the big basket | the shield puts out fire, Miecz światła |
+| Rest block | the meadow refills oil | the crowd sits, the baskets of crumbs | the dragon naps, heart back, a tip |
+| Grace | fall and rise at the lantern post | the disciples finish feeding | the princess's apple, half heart |
+| Companion | Ćma (moth) | Mirka (gull) | Linda (princess) |
