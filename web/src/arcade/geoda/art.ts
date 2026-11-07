@@ -6,8 +6,7 @@
  * layer clear of its corners), druses for the cave and the tray's seeds, and the nine cabinet
  * specimens.  Paths and gradients only; the cell tiles are cached as small sprites per size.
  */
-import { GEMS, MINERALS, type Pt } from './content';
-import type { Clarity } from './wall';
+import { GEMS, MINERALS, type Clarity, type Pt } from './content';
 
 export const TAU = Math.PI * 2;
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';

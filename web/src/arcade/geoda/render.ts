@@ -1,1160 +1,719 @@
 /**
- * Geoda's picture, canvas 2D without assets: the cave and the geode's rim (pre-rendered on
- * resize), the shaft of light from the crack — warm in a Wzrost, cool in a Szlif, turning during
- * the telegraphs and brightening with the drip — the wall's cells as cached sprites, full lines
- * glowing until the Zbiór shatters them (the cleared lines lie as rubble through the rest and
- * regrow in the telegraph, so the next puzzle is not planned while resting), the tray with its
- * stalactites, drops and sprouting seeds, the Szlif's deep mist and polishing bowl, and the
- * calibration's "Kropla"; the HUD (hud.ts) and the finisher (finale.ts) on top.  It reads the sim
- * and the player's hand; the game forwards the sim's events for the juice.
+ * Geoda's picture: the cave and the geode (cached per size), the 8×8 board of crystal tiles, rock,
+ * jewels and the druses the band grows, the band's last 40 s as a row of crystal points on the
+ * geode's foot, the tray of three pieces, the dragged piece lifted above the finger with its snap
+ * ghost and the lines it would clear lit, the shine dial, the chamber's goal, the Szlif's bowl,
+ * Bazyl with his bubble, and the story cards.  Juice: placed cells pop, cleared lines sweep and
+ * burst into shards with a hit-stop, numbers and praise fly, the combo climbs, big clears shake.
+ *
+ * The runner draws the standard HUD (the Mendi panel, the score corner) above the canvas; nothing
+ * important is drawn above `hudTop`.
  */
-import { fmtNum } from '../../i18n';
-import { approach, clamp, ease, Floaters, lerp, Particles, Shake } from '../kit/juice';
-import {
-  drawGeode, druse, fitFont, fitLines, GEODE_REACH, GEODE_SEED, geodePath, hash, MONO, mix, rgba, ROCK_VARIANTS, rrect, rrectPath, SANS, SERIF, sparkle, TAU, TileCache,
-  WALL_BED,
-} from './art';
-import { CLARITY, GEMS, REST_TIPS, type Pt } from './content';
-import { drawFinale, type FinaleView } from './finale';
-import { drawHint, drawHud, PHASE_COLOR, POLISH_ON } from './hud';
-import { t } from './i18n';
-import { trayBand, trayCellFor, type Layout, type Rect } from './layout';
-import { clarityOf, complete, crystalCells, prefixOffset, type BowlGem, type GeodaEvent, type GeodaSim } from './sim';
-import { GEM, grabCell, N, ROCK } from './wall';
+import { passage } from '../kit/scripture';
+import { drawPassage, layoutPassage, type PassageLayout } from '../kit/scripture';
+import { traceBars } from '../kit/trace';
+import { clamp, ease, Floaters, Particles, Shake } from '../kit/juice';
+import { drawGeode, drawSpecimen, fitFont, GEODE_REACH, rrect, sparkle, TileCache } from './art';
+import { EMPTY, idx, N, ROCK, type TrayItem } from './board';
+import { chamberName, chamberStory, GEMS, JEWELS, MINERALS, TIERS, type Piece } from './content';
+import { fmt, pct, t } from './i18n';
+import { boardAt, computeLayout, trayCellFor, type Box, type Layout } from './layout';
+import { C, paintBowl, paintBubble, paintCave, paintDial, paintDruse, paintJewel, paintMole, paintSkyline, SANS, SERIF, type MolePose } from './paint';
+import type { GeodaEvent, GeodaSim } from './sim';
 
-/** What the player's hands are doing (the game owns it). */
+/** The finger's part: a piece being dragged (where the finger is), or a tray slot pressed. */
 export interface Hand {
-  /** a crystal in the hand: the finger, the snapped anchor on the wall, whether it fits there */
-  drag: { slot: number; x: number; y: number; anchor: Pt | null; valid: boolean } | null;
-  /** a press on a tray crystal; at k = 1 it crumbles */
-  press: { slot: number; k: number } | null;
-  /** the keyboard's cursor (a wall cell) */
-  cursor: Pt | null;
-  /** a crystal sliding back to the tray after a drop that did not fit (k 0..1) */
-  back: { slot: number; x: number; y: number; k: number } | null;
-  /** a line of guidance (strategies, the first session's steps) */
-  hint: string | null;
-  /** wall cells to aim for (the first session's gap) */
-  target: number[];
+  drag: { slot: number; x: number; y: number; t: number } | null;
+  /** how long the player has been idle (s): the auto-place ghost shows after a while */
+  idle: number;
 }
 
-interface Drop { x: number; y: number; vy: number; to: number; slot: number; live: boolean }
-/** A caption over the wall: a title (may be empty) and a smaller line; `zbior` = the harvest's own. */
-interface Caption { text: string; sub: string; t: number; color: string; zbior: boolean }
+interface Clearing { i: number; tile: number; jewel: number; t: number; delay: number }
+interface Fly { kind: number; x: number; y: number; t: number }
+interface Back { slot: number; item: TrayItem; x: number; y: number; t: number }
 
-/** A stable stone for each wall cell. */
-const rockVariant = (i: number): number => (i * 7 + (i >> 3) * 3) % ROCK_VARIANTS;
-/** How much of a stone the rubble of a cleared line shows (it hides where the new gaps are). */
-const RUBBLE = 0.3;
-/** The Szlif's mist over the wall and the tray, at its fullest. */
-const MIST = 0.88;
-/** The block's verdict under the Zbiór's caption (none without enough reliable data). */
-const verdictLine = (ok: boolean | null): string => (ok === true ? t('verdict.steady') : ok === false ? t('verdict.uneven') : '');
+const POP = 0.28;
 
-export class GeodaRenderer {
+export class GeodaView {
+  layout: Layout;
+  private readonly ctx: CanvasRenderingContext2D;
+  private readonly tiles = new TileCache();
+  private readonly fx = new Particles(500);
+  private readonly words = new Floaters();
+  private readonly shake: Shake;
+  private bg: HTMLCanvasElement | null = null;
   private w = 1;
   private h = 1;
   private dpr = 1;
-  private l: Layout | null = null;
-  private bg: HTMLCanvasElement | null = null;
-  readonly tiles = new TileCache();
-  readonly particles = new Particles(520);
-  readonly floaters = new Floaters();
-  private readonly shake: Shake;
-  private t = 0;
-  private readonly pops = new Map<number, number>();
-  private readonly flashes = new Map<number, number>();
-  /** the cleared lines: rubble while `held` (the Zbiór and the rest), then the regrowth (t 0..1) */
-  private regrow = { t: 1, age: 0, held: false, cells: new Set<number>(), full: false };
-  private readonly trayPop = [0, 0, 0];
-  private readonly wiggle = [0, 0, 0];
-  /** the last "kiełkuje" floater (s ago): taps on a sprouting tray say it once in a while */
-  private waitT = 9;
-  /** the empty slots' seed sprites, per size */
-  private readonly seeds = new Map<number, HTMLCanvasElement>();
-  private readonly drops: Drop[] = Array.from({ length: 12 }, () => ({ x: 0, y: 0, vy: 0, to: 0, slot: 0, live: false }));
-  private dripIn = 0;
-  /** the tray's cell size (px), fitted to the longest crystal there */
-  private cs = 16;
-  private warm = 1;
-  private light = 0.1;
-  private mist = 0;
-  private bowlK = 0;
-  private bowl: BowlGem[] = [];
-  private polishT = -1;
-  private shown = 0;
-  private caption: Caption | null = null;
-  private reveal: { slot: number; text: string; t: number } | null = null;
-  private introDrop = { y: 0, vy: 0, splash: -1 };
-  /** a drop landed (the game plays it) */
-  onSplash: ((pitch: number) => void) | null = null;
+  private top = 0;
+  private clock = 0;
+  private stop = 0;
+  private readonly pop = new Float32Array(N * N).fill(9);
+  private clearing: Clearing[] = [];
+  private flies: Fly[] = [];
+  private backs: Back[] = [];
+  private readonly trayIn = [9, 9, 9];
+  private stuck = -1;
+  private stuckT = 9;
+  private multPop = 0;
+  private dialShown = 0;
+  private gemShow: { text: string; m: number; tier: number; t: number } | null = null;
+  private verse: { lay: PassageLayout; w: number } | null = null;
+  private readonly mole: MolePose = { t: 0, cheer: 0, oops: 0, talk: false, lamp: 0.4, face: 1 };
+  private cheerT = 0;
+  private oopsT = 0;
+  private mood = 0;
+  private flash = 0;
 
-  constructor(private readonly ctx: CanvasRenderingContext2D, private readonly still: boolean) {
-    this.shake = new Shake(still);
+  constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean }) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Geoda needs a 2D canvas');
+    this.ctx = ctx;
+    this.shake = new Shake(opts.reducedMotion);
+    this.layout = computeLayout(1, 1, 0);
   }
 
-  resize(w: number, h: number, dpr: number, l: Layout): void {
+  resize(w: number, h: number, dpr: number, top: number): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.l = l;
+    this.top = top;
+    this.layout = computeLayout(w, h, top);
     this.tiles.setDpr(dpr);
-    this.seeds.clear();
-    this.bg = this.buildBackground();
-    for (const d of this.drops) d.live = false;
+    this.bg = null;
+    this.verse = null;
   }
 
-  // ── events ────────────────────────────────────────────────────
-  onEvent(e: GeodaEvent, sim: GeodaSim): void {
-    const l = this.l;
-    if (!l) return;
-    const cellXY = (i: number) => [l.wall.x + (i % N) * l.cell + l.cell / 2, l.wall.y + Math.floor(i / N) * l.cell + l.cell / 2] as const;
-    switch (e.type) {
-      case 'wzrost':
-        this.caption = { text: t('block.wzrost'), sub: e.blind ? t('caption.blind') : '', t: 0, color: PHASE_COLOR.wzrost, zbior: false };
-        for (const s of e.refill) this.trayPop[s] = 1;
-        break;
-      case 'grow':
-      case 'sprout':
-        if (!e.hidden) this.trayPop[e.slot] = 1;
-        break;
-      case 'place': {
-        let sx = 0, sy = 0;
-        for (const i of e.cells) {
-          this.pops.set(i, 0);
-          const [x, y] = cellXY(i);
-          sx += x;
-          sy += y;
-          if (!this.still) this.particles.burst(x, y, 4, { color: rgba(GEMS[sim.wall.cells[i].gem].light, 0.9), size: 2, speed: 90, g: 0, drag: 4, life: 0.5, shape: 'spark' });
-        }
-        this.floaters.add(`+${e.carats} ct`, sx / e.cells.length, sy / e.cells.length - l.cell * 0.3, { color: '#fff3d6', size: Math.round(clamp(l.cell * 0.42, 15, 26)), dur: 1 });
-        break;
-      }
-      case 'nofit': {
-        this.wiggle[e.slot] = 1;
-        if (e.cell >= 0) {
-          const [x, y] = cellXY(e.cell);
-          this.floaters.add(t('float.nofit'), x, y, { color: 'rgba(239,232,220,0.75)', size: Math.round(clamp(l.cell * 0.3, 12, 17)), dur: 0.9 });
-        }
-        break;
-      }
-      case 'wait': {
-        // nothing in the tray to set yet: the seed in the fed slot pulses, now and then a word
-        this.trayPop[e.slot] = 1;
-        if (e.cell >= 0 && this.waitT > 1.6) {
-          this.waitT = 0;
-          const [x, y] = cellXY(e.cell);
-          this.floaters.add(t('float.sprouting'), x, y, { color: 'rgba(214,190,255,0.85)', size: Math.round(clamp(l.cell * 0.3, 12, 17)), dur: 1 });
-        }
-        break;
-      }
-      case 'crumble': {
-        const r = l.slots[e.slot];
-        this.particles.burst(r.x + r.w / 2, r.y + r.h / 2, 18, { color: '#8a7a6a', size: 2.4, speed: 120, g: 500, life: 0.7, shape: 'square' });
-        this.trayPop[e.slot] = 1;
-        break;
-      }
-      case 'reveal': {
-        this.reveal = { slot: e.slot, text: t('tray.reveal', { grown: e.grown, total: e.total, clarity: CLARITY[e.clarity] }), t: 0 };
-        this.trayPop[e.slot] = 1;
-        break;
-      }
-      case 'zbior':
-        this.caption = e.lines.length ? { text: e.full ? t('full.title') : t('block.zbior'), sub: '', t: 0, color: PHASE_COLOR.zbior, zbior: true } : null;
-        break;
-      case 'verdict': {
-        // the Wzrost's judgement under the Zbiór's caption, or alone when no line breaks
-        const line = e.kind === 'focus' ? verdictLine(e.ok) : '';
-        if (!line) break;
-        if (this.caption?.zbior) this.caption.sub = line;
-        else this.caption = { text: '', sub: line, t: 0, color: PHASE_COLOR.zbior, zbior: true };
-        break;
-      }
-      case 'shatter': {
-        this.flashes.set(e.line, 0);
-        for (const c of e.cells) {
-          const [x, y] = cellXY(c.i);
-          if (c.k === GEM) {
-            const g = GEMS[c.gem];
-            this.particles.burst(x, y, this.still ? 4 : 9, { color: g.light, size: 2.6, speed: 230, g: 640, drag: 1.4, life: 0.85, shape: 'spark' });
-            this.particles.burst(x, y, this.still ? 2 : 5, { color: g.base, size: 3.2, speed: 160, g: 760, life: 0.9, shape: 'square' });
-          } else {
-            this.particles.burst(x, y, this.still ? 2 : 4, { color: hash(c.i) > 0.5 ? '#7a6a5c' : '#5a4d43', size: 2.8, speed: 140, g: 900, life: 0.8, shape: 'square' });
-          }
-        }
-        this.shake.add(0.16);
-        break;
-      }
-      case 'bonus': {
-        // under the Zbiór's caption: the number rises 46 px and must not run into the verdict (a short wall on a phone's side)
-        const size = Math.round(clamp(l.cell * 0.62, 20, 40)), verdict = l.wall.y + l.wall.h * 0.22 + clamp(l.cell * 0.48, 20, 30);
-        const x = l.wall.x + l.wall.w / 2, y = Math.max(l.wall.y + l.wall.h * 0.42, verdict + 52 + size / 2);
-        // a single line has no bonus (its crystals paid when set): no "+0 ct", only the burst
-        const mult = 1 + e.mult;
-        if (e.carats > 0) this.floaters.add(`×${fmtNum(mult, Number.isInteger(mult) ? 0 : 1)}  +${e.carats} ct`, x, y, { color: '#ffd48a', size, dur: 1.6 });
-        if (!this.still) {
-          for (let i = 0; i < Math.min(4, e.lines); i++) {
-            const g = GEMS[i % GEMS.length];
-            this.particles.burst(x, y, 16, { color: g.base, size: 3, speed: 330, angle: -Math.PI / 2, spread: Math.PI * 1.2, g: 520, life: 1.3, shape: 'square' });
-          }
-          this.shake.add(0.25);
-        }
-        break;
-      }
-      case 'regrow':
-        // the new rock and its gaps stay rubble until the telegraph of the next Wzrost
-        this.regrow = { t: 0, age: 0, held: true, cells: new Set(e.full ? sim.wall.cells.map((_, i) => i) : e.cleared), full: e.full };
-        break;
-      case 'szlif':
-        this.bowl = e.gems.map(g => ({ ...g }));
-        this.caption = null;
-        break;
-      case 'polish': {
-        this.polishT = 0;
-        const b = this.bowl.find(g => g.piece === e.piece);
-        if (b) b.polish = e.polish;
-        break;
-      }
-      default:
-        break;
-    }
-  }
-
-  // ── the frame ─────────────────────────────────────────────────
-  draw(sim: GeodaSim, hand: Hand, finale: FinaleView | null, dt: number): void {
-    const { ctx } = this;
-    const l = this.l;
-    if (!l || !this.bg) return;
-    this.t += dt;
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.drawImage(this.bg, 0, 0, this.w, this.h);
-    this.tick(sim, dt);
-    const off = this.shake.offset(dt, 9);
-    ctx.save();
-    ctx.translate(off.x, off.y);
-    this.drawShaft();
-    this.drawWall(sim);
-    this.drawLines(sim);
-    this.drawPreview(sim, hand);
-    this.drawTray(sim, hand);
-    this.drawDrops();
-    this.drawSzlif(sim);
-    ctx.restore();
-    drawHint(ctx, l, hand.hint, drawHud(ctx, l, sim, this.shown));
-    this.drawCaption(dt);
-    this.drawHand(sim, hand);
-    this.particles.update(dt);
-    this.particles.draw(ctx);
-    this.floaters.update(dt);
-    this.floaters.draw(ctx, SERIF);
-    if (sim.phase === 'finale' || sim.phase === 'done') drawFinale(ctx, sim, finale, this.w, this.h, this.dpr, this.still);
-  }
-
-  private tick(sim: GeodaSim, dt: number): void {
-    let extW = 2, extH = 2;
-    for (const c of sim.tray) if (c) for (const [x, y] of c.ghost) { extW = Math.max(extW, x + 1); extH = Math.max(extH, y + 1); }
-    this.cs = trayCellFor(this.l!, extW, extH);
-    for (const [i, t] of this.pops) {
-      if (t + dt > 0.5) this.pops.delete(i);
-      else this.pops.set(i, t + dt);
-    }
-    for (const [i, t] of this.flashes) {
-      if (t + dt > 0.6) this.flashes.delete(i);
-      else this.flashes.set(i, t + dt);
-    }
-    // the rubble regrows when the next Wzrost is announced, not before: the rest stays a rest
-    const rg = this.regrow;
-    rg.age += dt;
-    if (rg.held && (sim.phase === 'wzrost' || sim.telegraph?.to === 'wzrost')) rg.held = false;
-    if (!rg.held) rg.t = Math.min(1, rg.t + dt / 0.9);
-    this.waitT += dt;
-    for (let s = 0; s < 3; s++) {
-      this.trayPop[s] = Math.max(0, this.trayPop[s] - dt / 0.35);
-      this.wiggle[s] = Math.max(0, this.wiggle[s] - dt / 0.45);
-    }
-    if (this.polishT >= 0) this.polishT += dt;
-    if (this.reveal) {
-      this.reveal.t += dt;
-      if (this.reveal.t > 3) this.reveal = null;
-    }
-    this.shown = sim.carats < this.shown ? sim.carats : approach(this.shown, sim.carats, dt, 0.18);
-    // the light: warm for a Wzrost, cool for a Szlif, turning through the telegraph
-    const tg = sim.telegraph;
-    let warm = sim.phase === 'szlif' ? 0 : 1;
-    if (tg) warm = lerp(warm, tg.to === 'wzrost' ? 1 : 0, tg.k);
-    if (sim.phase === 'finale' || sim.phase === 'done') warm = 0.5;
-    this.warm = approach(this.warm, warm, dt, 0.5);
-    const want = sim.phase === 'wzrost' ? (sim.blindSlot >= 0 ? 0.07 : 0.07 + 0.11 * clamp(sim.drip / 3.5)) : sim.phase === 'zbior' ? 0.2 : 0.07;
-    this.light = approach(this.light, want, dt, 0.6);
-    const mistWant = sim.phase === 'szlif' ? (tg ? 1 - tg.k : 1) : 0;
-    this.mist = approach(this.mist, mistWant, dt, 0.5);
-    this.bowlK = approach(this.bowlK, sim.phase === 'szlif' && (!tg || tg.k < 0.5) ? 1 : 0, dt, 0.35);
-    // drops fall from the stalactite over the crystal the water runs to
-    const target = sim.phase === 'wzrost' && sim.blindSlot < 0 ? sim.growTarget() : -1;
-    if (target >= 0 && sim.drip > 0.05) {
-      this.dripIn -= dt * sim.drip;
-      if (this.dripIn <= 0) {
-        this.dripIn += 1;
-        this.spawnDrop(sim, target);
-      }
-    }
-    const g = this.still ? 520 : 900;
-    for (const d of this.drops) {
-      if (!d.live) continue;
-      d.vy += g * dt;
-      d.y += d.vy * dt;
-      if (d.y >= d.to) {
-        d.live = false;
-        if (!this.still) this.particles.burst(d.x, d.to, 3, { color: 'rgba(200,225,255,0.8)', size: 1.4, speed: 60, angle: -Math.PI / 2, spread: 2.2, g: 400, life: 0.35 });
-        this.onSplash?.(hash(this.t * 13.7));
-      }
-    }
-  }
-
-  private spawnDrop(sim: GeodaSim, slot: number): void {
-    const l = this.l!, r = l.slots[slot];
-    const d = this.drops.find(x => !x.live);
-    if (!d) return;
-    const c = sim.tray[slot], band = trayBand(l, r);
-    // onto the crystal's top cell, or the seed sprouting in the middle of an empty slot
-    let top = (band.top + band.bottom) / 2 - this.seedRadius(r) * 0.6;
-    if (c) {
-      const [, oy] = this.crystalOrigin(r, c.ghost);
-      top = oy + Math.min(...c.ghost.slice(0, c.grown).map(p => p[1])) * this.cs + 2;
-    }
-    d.live = true;
-    d.slot = slot;
-    d.x = r.x + r.w / 2;
-    d.y = r.y + 16;
-    d.vy = 0;
-    d.to = Math.max(d.y + 6, top);
-  }
-
-  // ── background ────────────────────────────────────────────────
-  private buildBackground(): HTMLCanvasElement {
-    const l = this.l!;
+  /** The cave and the geode around the board, drawn once per size. */
+  private background(): HTMLCanvasElement | null {
+    if (this.bg) return this.bg;
+    if (typeof document === 'undefined') return null;
     const c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(this.w * this.dpr));
     c.height = Math.max(1, Math.round(this.h * this.dpr));
-    const x = c.getContext('2d')!;
-    x.scale(this.dpr, this.dpr);
-    const cx = l.wall.x + l.wall.w / 2, cy = l.wall.y + l.wall.h / 2;
-    const g = x.createRadialGradient(cx, cy, l.wall.w * 0.25, cx, cy, Math.max(this.w, this.h) * 0.9);
-    g.addColorStop(0, '#251b36');
-    g.addColorStop(0.45, '#171124');
-    g.addColorStop(1, '#0a0710');
-    x.fillStyle = g;
-    x.fillRect(0, 0, this.w, this.h);
-    // the cave's walls: soft dark and pale blotches
-    for (let i = 0; i < 18; i++) {
-      const bx = hash(i * 2.3) * this.w, by = hash(i * 5.1) * this.h, br = (0.12 + hash(i * 7.7) * 0.25) * Math.max(this.w, this.h);
-      const b = x.createRadialGradient(bx, by, 0, bx, by, br);
-      b.addColorStop(0, i % 3 ? 'rgba(0,0,0,0.22)' : 'rgba(160,130,200,0.035)');
-      b.addColorStop(1, 'rgba(0,0,0,0)');
-      x.fillStyle = b;
-      x.fillRect(0, 0, this.w, this.h);
-    }
-    drawGeode(x, l.wall, l.rim);
-    // the tray's ledge, in front of the geode
-    this.drawLedge(x, l);
-    // the crack at the top of the rim, where the light and the water come in
-    x.strokeStyle = '#0b0710';
-    x.lineWidth = Math.max(2, l.rim * 0.32);
-    x.lineJoin = 'round';
-    x.beginPath();
-    const top = l.wall.y - l.rim * GEODE_REACH, steps = 5;
-    for (let i = 0; i <= steps; i++) {
-      const yy = lerp(top, l.wall.y - 4, i / steps), xx = cx + (i % 2 ? 1 : -1) * l.rim * 0.28 * (i && i < steps ? 1 : 0);
-      if (i) x.lineTo(xx, yy); else x.moveTo(xx, yy);
-    }
-    x.stroke();
+    const g = c.getContext('2d');
+    if (!g) return null;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    paintCave(g, this.w, this.h, 0, 0);
+    drawGeode(g, this.layout.board, this.layout.rim);
+    this.bg = c;
     return c;
   }
 
-  private drawLedge(x: CanvasRenderingContext2D, l: Layout): void {
-    const s0 = l.slots[0], s2 = l.slots[2];
-    const pad = 9;
-    const lx = s0.x - pad, ly = s0.y - pad, lw = s2.x + s2.w - s0.x + 2 * pad, lh = s2.y + s2.h - s0.y + 2 * pad;
-    x.save();
-    x.shadowColor = 'rgba(0,0,0,0.55)';
-    x.shadowBlur = 18;
-    x.shadowOffsetY = 6;
-    rrect(x, lx, ly, lw, lh, 20);
-    const g = x.createLinearGradient(lx, ly, lx, ly + lh);
-    g.addColorStop(0, '#3a312b');
-    g.addColorStop(1, '#231d19');
-    x.fillStyle = g;
-    x.fill();
-    x.restore();
-    x.save();
-    rrect(x, lx, ly, lw, lh, 20);
-    x.clip();
-    for (let i = 0; i < 90; i++) {
-      x.fillStyle = hash(i * 3.3) > 0.5 ? 'rgba(255,236,214,0.05)' : 'rgba(0,0,0,0.25)';
-      x.beginPath();
-      x.arc(lx + hash(i * 1.9) * lw, ly + hash(i * 6.1) * lh, 0.8 + hash(i) * 2.2, 0, TAU);
-      x.fill();
-    }
-    x.restore();
-    for (const r of l.slots) {
-      x.save();
-      rrect(x, r.x, r.y, r.w, r.h, 14);
-      x.fillStyle = '#100c15';
-      x.fill();
-      x.clip();
-      const sh = x.createLinearGradient(0, r.y, 0, r.y + r.h * 0.4);
-      sh.addColorStop(0, 'rgba(0,0,0,0.65)');
-      sh.addColorStop(1, 'rgba(0,0,0,0)');
-      x.fillStyle = sh;
-      x.fillRect(r.x, r.y, r.w, r.h);
-      const glow = x.createRadialGradient(r.x + r.w / 2, r.y + r.h, 0, r.x + r.w / 2, r.y + r.h, r.w * 0.7);
-      glow.addColorStop(0, 'rgba(155,93,229,0.08)');
-      glow.addColorStop(1, 'rgba(155,93,229,0)');
-      x.fillStyle = glow;
-      x.fillRect(r.x, r.y, r.w, r.h);
-      x.restore();
-      rrect(x, r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, 14);
-      x.strokeStyle = 'rgba(255,240,222,0.07)';
-      x.lineWidth = 1;
-      x.stroke();
-      // the stalactite over the socket
-      const sx = r.x + r.w / 2;
-      x.fillStyle = '#4a4038';
-      x.beginPath();
-      x.moveTo(sx - 6, r.y);
-      x.quadraticCurveTo(sx - 2, r.y + 6, sx, r.y + 14);
-      x.quadraticCurveTo(sx + 2, r.y + 6, sx + 6, r.y);
-      x.closePath();
-      x.fill();
-    }
-  }
-
-  // ── the wall ──────────────────────────────────────────────────
-  private cellRect(i: number): Rect {
-    const l = this.l!;
-    return { x: l.wall.x + (i % N) * l.cell, y: l.wall.y + Math.floor(i / N) * l.cell, w: l.cell, h: l.cell };
-  }
-
-  /** The shaft of light from the crack: its colour telegraphs the blocks, its strength follows the drip. */
-  private drawShaft(): void {
-    const { ctx } = this;
-    const l = this.l!;
-    const cx = l.wall.x + l.wall.w / 2, top = l.wall.y - l.rim * GEODE_REACH, bot = l.wall.y + l.wall.h * 0.98;
-    const a = this.light;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createLinearGradient(0, top, 0, bot);
-    g.addColorStop(0, mix('#9cc8ff', '#ffd48a', this.warm, Math.min(0.6, a * 2.4)));
-    g.addColorStop(0.35, mix('#9cc8ff', '#ffd48a', this.warm, a));
-    g.addColorStop(1, mix('#9cc8ff', '#ffd48a', this.warm, 0));
-    ctx.fillStyle = g;
-    const tw = l.wall.w * 0.05, bw = l.wall.w * 0.34, lean = l.wall.w * 0.06;
-    ctx.beginPath();
-    ctx.moveTo(cx - tw, top);
-    ctx.lineTo(cx + tw, top);
-    ctx.lineTo(cx + bw + lean, bot);
-    ctx.lineTo(cx - bw + lean, bot);
-    ctx.closePath();
-    ctx.fill();
-    // motes drifting in the light
-    for (let i = 0; i < 14; i++) {
-      const k = (hash(i * 3.1) + this.t * (0.012 + hash(i) * 0.02)) % 1;
-      const y = lerp(top, bot, k), half = lerp(tw, bw, k);
-      const x = cx + lean * k + (hash(i * 7.3) * 2 - 1) * half * 0.8 + Math.sin(this.t * 0.7 + i) * 3;
-      ctx.fillStyle = mix('#9cc8ff', '#ffd48a', this.warm, Math.min(0.5, a * 3) * (1 - k));
-      ctx.beginPath();
-      ctx.arc(x, y, 0.8 + hash(i * 2.2) * 1.2, 0, TAU);
-      ctx.fill();
-    }
-    const cg = ctx.createRadialGradient(cx, top + l.rim, 0, cx, top + l.rim, l.rim * 4);
-    cg.addColorStop(0, mix('#9cc8ff', '#ffd48a', this.warm, Math.min(0.8, a * 4)));
-    cg.addColorStop(1, mix('#9cc8ff', '#ffd48a', this.warm, 0));
-    ctx.fillStyle = cg;
-    ctx.fillRect(cx - l.rim * 4, top - l.rim * 3, l.rim * 8, l.rim * 8);
-    ctx.restore();
-  }
-
-  private drawWall(sim: GeodaSim): void {
-    const { ctx } = this;
-    const l = this.l!, s = l.cell;
-    const cells = sim.wall.cells;
-    const rg = this.regrow, regrowing = rg.held || rg.t < 1;
-    for (let i = 0; i < N * N; i++) {
-      const c = cells[i], r = this.cellRect(i);
-      this.tiles.draw(ctx, 'slate', i % 3, 0, r.x, r.y, s);
-      if (regrowing && c.k !== GEM && (rg.full || rg.cells.has(i))) {
-        // a cleared line: the same dim rubble on rock and gap alike, then the rock regrows and the gaps clear
-        const k = rg.held ? 0 : ease.outCubic(clamp((rg.t - hash(i) * 0.35) / 0.65));
-        const rubble = RUBBLE * clamp(rg.age / 0.4);
-        ctx.globalAlpha = c.k === ROCK ? rubble + (1 - rubble) * k : rubble * (1 - k);
-        this.tiles.drawScaled(ctx, 'rock', rockVariant(i), 0, r.x, r.y, s, c.k === ROCK ? 0.78 + 0.22 * k : 0.78);
-        ctx.globalAlpha = 1;
-      } else if (c.k === ROCK) {
-        this.tiles.draw(ctx, 'rock', rockVariant(i), 0, r.x, r.y, s);
-      } else if (c.k === GEM) {
-        const p = this.pops.get(i);
-        const k = p === undefined ? 1 : ease.outBack(clamp(p / 0.32));
-        this.tiles.drawScaled(ctx, 'gem', c.gem, c.clarity, r.x, r.y, s, 0.55 + 0.45 * k);
-      }
-    }
-    // a slow glint across the lśniące, a star on the polished
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < N * N; i++) {
-      const c = cells[i];
-      if (c.k !== GEM) continue;
-      const r = this.cellRect(i);
-      if (c.clarity === 3) {
-        const ph = (this.t * 0.35 + hash(i * 1.3) * 5) % 4;
-        if (ph < 0.7) {
-          const k = ph / 0.7, x = r.x + s * (k * 1.4 - 0.2);
-          const gl = ctx.createLinearGradient(x - s * 0.2, r.y, x + s * 0.2, r.y + s);
-          gl.addColorStop(0, 'rgba(255,255,255,0)');
-          gl.addColorStop(0.5, 'rgba(255,255,255,0.35)');
-          gl.addColorStop(1, 'rgba(255,255,255,0)');
-          ctx.fillStyle = gl;
-          rrect(ctx, r.x + s * 0.06, r.y + s * 0.06, s * 0.88, s * 0.88, s * 0.15);
-          ctx.fill();
+  // ── events ──────────────────────────────────────────────────────
+  on(e: GeodaEvent, sim: GeodaSim): void {
+    const L = this.layout, cs = L.cell;
+    const cx = (i: number) => L.board.x + (i % N + 0.5) * cs, cy = (i: number) => L.board.y + (Math.floor(i / N) + 0.5) * cs;
+    switch (e.type) {
+      case 'deal':
+        for (let k = 0; k < 3; k++) this.trayIn[k] = -k * 0.06;
+        this.stuck = -1;
+        break;
+      case 'place': {
+        for (const i of e.placed.cells) this.pop[i] = 0;
+        const mx = e.placed.cells.reduce((s, i) => s + cx(i), 0) / e.placed.cells.length;
+        const my = e.placed.cells.reduce((s, i) => s + cy(i), 0) / e.placed.cells.length;
+        const tile = GEMS[(e.item.tile - 1) % GEMS.length];
+        this.fx.burst(mx, my, 6, { color: tile.light, size: 2, speed: 90, life: 0.4, g: 200 });
+        if (e.lines) {
+          for (const c of e.placed.cleared) {
+            const d = Math.hypot(cx(c.i) - mx, cy(c.i) - my) / cs;
+            this.clearing.push({ i: c.i, tile: c.tile, jewel: c.jewel, t: 0, delay: d * 0.022 });
+          }
+          this.stop = [0.04, 0.06, 0.09][Math.min(2, e.lines - 1)];
+          this.shake.add(e.lines >= 3 ? 0.45 : e.lines === 2 ? 0.22 : 0.08);
+          this.flash = Math.min(1, 0.25 + 0.15 * e.lines);
+          const pts = e.points - e.item.piece.cells.length;
+          const big = Math.min(46, 22 + e.lines * 4 + e.combo);
+          if (!e.blind && pts > 0) this.words.add(`+${fmt(pts)}`, mx, my - cs * 0.3, { color: e.mult >= 3 ? C.gold : C.ink, size: big * 0.8, dur: 1.1 });
+          if (e.blind) this.words.add('+?', mx, my - cs * 0.3, { color: '#a99bd0', size: big * 0.7 });
+          if (e.mult >= 2 && !e.blind) this.words.add(`×${e.mult}`, mx + cs * 1.2, my - cs * 0.9, { color: C.gold, size: big * 0.6, dur: 0.9 });
+          const praise = e.lines >= 2 ? t(`v.praise${Math.min(4, e.lines - 1)}` as 'v.praise1') : e.combo >= 3 ? t('v.praise1') : '';
+          const bx = L.board.x + L.board.w / 2, by = L.board.y + L.board.h * 0.38;
+          if (e.clean) this.words.add(t('v.clean'), bx, by, { color: C.gold, size: Math.min(48, cs * 0.9), dur: 1.8 });
+          else if (praise) this.words.add(praise, bx, by, { color: '#fff1c2', size: Math.min(44, cs * 0.8), dur: 1.3 });
+          if (e.combo >= 2) this.words.add(t('v.combo', { n: e.combo }), bx, by + cs * 0.9, { color: mixCombo(e.combo), size: Math.min(36, cs * 0.55 + e.combo), dur: 1.2 });
+          if (e.lines >= 2 || e.combo >= 4) this.cheer();
         }
+        if (e.druse > 0) {
+          for (const i of e.placed.druseCells) this.fx.burst(cx(i), cy(i), 8, { color: C.gold, size: 2.4, speed: 140, life: 0.6, shape: 'spark', g: 120 });
+          this.words.add(t('v.druse', { n: fmt(e.druse * (e.blind ? 1 : e.mult)) }), mx, my + cs * 0.6, { color: C.gold, size: 18, dur: 1.1 });
+        }
+        break;
       }
-      const piece = sim.pieces.get(c.piece);
-      if (piece && piece.polish > 0 && piece.cells[0] === i) {
-        const tw = 0.6 + 0.4 * Math.sin(this.t * 2.6 + i);
-        sparkle(ctx, r.x + s * 0.78, r.y + s * 0.22, s * (0.12 + 0.05 * tw), `rgba(255,248,226,${(0.6 + 0.4 * tw).toFixed(2)})`);
+      case 'miss':
+        this.oops();
+        break;
+      case 'stuck':
+        this.stuck = e.slot;
+        this.stuckT = 0;
+        break;
+      case 'jewel':
+        this.flies.push({ kind: e.kind, x: cx(e.i), y: cy(e.i), t: 0 });
+        break;
+      case 'mult':
+        if (e.up) this.multPop = 1;
+        break;
+      case 'turn':
+        this.oops();
+        this.shake.add(0.3);
+        break;
+      case 'level':
+        this.cheer();
+        for (let k = 0; k < 4; k++) this.fx.burst(L.card.x + L.card.w * (0.2 + 0.2 * k), L.card.y + L.card.h * 0.3, 18, { color: k % 2 ? C.gold : '#c8f3ff', size: 3, speed: 220, life: 1.2, shape: 'square' });
+        break;
+      case 'gem': {
+        const m = MINERALS[e.mineral];
+        const text = e.outcome === 'new' ? t('v.gemNew', { mineral: m.title }) : e.outcome === 'up' ? t('v.gemUp', { mineral: m.title, tier: TIERS[e.tier] }) : t('v.gemSame', { mineral: m.title, tier: TIERS[e.tier] });
+        this.gemShow = { text, m: e.mineral, tier: e.tier, t: 0 };
+        const b = L.bowl;
+        this.fx.burst(b.x + b.w / 2, b.y + b.h * 0.4, 24, { color: e.polished ? C.gold : '#e8e0ff', size: 2.5, speed: 160, life: 1, shape: 'spark', g: 60 });
+        if (e.points > 0) this.words.add(`+${fmt(e.points)}`, b.x + b.w / 2, b.y + b.h * 0.2, { color: C.gold, size: 24 });
+        if (e.polished) this.cheer();
+        break;
+      }
+      case 'reveal':
+        if (e.points > 0) this.words.add(`${t('v.reveal', { n: e.mult })}  +${fmt(e.points)}`, L.board.x + L.board.w / 2, L.board.y + L.board.h * 0.45, { color: C.gold, size: Math.min(34, L.cell * 0.6), dur: 2 });
+        break;
+      default:
+        break;
+    }
+    void sim;
+  }
+
+  private cheer(): void { this.cheerT = 0.9; }
+  private oops(): void { this.oopsT = 0.8; }
+
+  // ── the frame ───────────────────────────────────────────────────
+  update(dt: number, sim: GeodaSim): void {
+    this.clock += dt;
+    const live = this.stop > 0 ? 0 : dt;
+    this.stop = Math.max(0, this.stop - dt);
+    for (let i = 0; i < N * N; i++) if (this.pop[i] < 9) this.pop[i] += live;
+    for (const c of this.clearing) c.t += live;
+    const L = this.layout;
+    for (const c of this.clearing) {
+      if (c.t >= c.delay && c.t - live < c.delay) {
+        const x = L.board.x + (c.i % N + 0.5) * L.cell, y = L.board.y + (Math.floor(c.i / N) + 0.5) * L.cell;
+        const g = c.tile === ROCK ? { light: '#8a7d73', base: '#5b4f47' } : GEMS[(c.tile - 1) % GEMS.length];
+        this.fx.burst(x, y, 7, { color: g.light, size: L.cell * 0.09, speed: L.cell * 4, life: 0.7, shape: 'square', g: 700 });
+        this.fx.burst(x, y, 3, { color: g.base, size: L.cell * 0.06, speed: L.cell * 3, life: 0.5, shape: 'spark', g: 300 });
       }
     }
-    ctx.restore();
+    this.clearing = this.clearing.filter(c => c.t < c.delay + 0.5);
+    this.flies.forEach(f => (f.t += dt));
+    this.flies = this.flies.filter(f => f.t < 0.9);
+    this.backs.forEach(b => (b.t += dt));
+    this.backs = this.backs.filter(b => b.t < 0.25);
+    for (let k = 0; k < 3; k++) this.trayIn[k] += dt;
+    this.stuckT += dt;
+    this.fx.update(live);
+    this.words.update(dt);
+    this.multPop = Math.max(0, this.multPop - dt * 2.5);
+    this.flash = Math.max(0, this.flash - dt * 2.2);
+    this.dialShown += (sim.dial - this.dialShown) * Math.min(1, dt * 8);
+    if (this.gemShow) {
+      this.gemShow.t += dt;
+      if (this.gemShow.t > 4) this.gemShow = null;
+    }
+    this.cheerT = Math.max(0, this.cheerT - dt);
+    this.oopsT = Math.max(0, this.oopsT - dt);
+    this.mole.t = this.clock;
+    this.mole.cheer = clamp(this.cheerT / 0.4);
+    this.mole.oops = clamp(this.oopsT / 0.4);
+    this.mole.talk = !!sim.talk.line;
+    this.mole.lamp = sim.blind ? 0 : sim.sighted ? 0.3 + 0.7 * sim.dial : 0.3;
+    const want = sim.sighted ? 0.4 + sim.dial * 0.8 : sim.restBlock ? -0.8 : 0;
+    this.mood += (want - this.mood) * Math.min(1, dt * 2);
   }
 
-  private lineRect(line: number): Rect {
-    const l = this.l!;
-    return line < N
-      ? { x: l.wall.x, y: l.wall.y + line * l.cell, w: l.wall.w, h: l.cell }
-      : { x: l.wall.x + (line - N) * l.cell, y: l.wall.y, w: l.cell, h: l.wall.h };
+  /** A dragged piece that did not land flies back to its slot. */
+  sendBack(slot: number, item: TrayItem, x: number, y: number): void {
+    this.backs.push({ slot, item, x, y, t: 0 });
   }
 
-  private drawLines(sim: GeodaSim): void {
-    const { ctx } = this;
-    const l = this.l!;
-    const harvesting = sim.phase === 'zbior' && sim.harvest ? sim.harvest.lines.slice(sim.harvest.done) : [];
-    const full = sim.phase === 'wzrost' || sim.phase === 'zbior' ? sim.wall.fullLines() : [];
-    const glowing = new Set([...full, ...harvesting]);
+  /** Where a dragged piece sits (its top-left, CSS px) for a finger at (x, y): lifted above it. */
+  dragOrigin(p: Piece, x: number, y: number): { x: number; y: number } {
+    const cs = this.layout.cell;
+    const lift = p.h * cs * 0.5 + cs * 1.15;
+    return { x: x - (p.w * cs) / 2, y: y - lift - (p.h * cs) / 2 };
+  }
+
+  /** The board spot a dragged piece snaps to (it must fit; the nearest fitting spot within a cell), or null. */
+  snap(sim: GeodaSim, p: Piece, x: number, y: number): { gx: number; gy: number } | null {
+    const L = this.layout, o = this.dragOrigin(p, x, y);
+    const fx = (o.x - L.board.x) / L.cell, fy = (o.y - L.board.y) / L.cell;
+    let best: { gx: number; gy: number } | null = null, bd = Infinity;
+    for (let gy = Math.floor(fy) - 1; gy <= Math.ceil(fy) + 1; gy++) {
+      for (let gx = Math.floor(fx) - 1; gx <= Math.ceil(fx) + 1; gx++) {
+        if (!sim.board.fits(p, gx, gy)) continue;
+        const d = Math.hypot(gx - fx, gy - fy);
+        if (d < bd && d <= 0.95) { bd = d; best = { gx, gy }; }
+      }
+    }
+    return best;
+  }
+
+  /** A cell under a point (for taps), with a margin around the board. */
+  cellAt(x: number, y: number): [number, number] | null { return boardAt(this.layout, x, y); }
+
+  // ── drawing ─────────────────────────────────────────────────────
+  draw(sim: GeodaSim, hand: Hand): void {
+    const ctx = this.ctx, L = this.layout;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const bg = this.background();
+    if (bg) ctx.drawImage(bg, 0, 0, this.w, this.h);
+    else paintCave(ctx, this.w, this.h, 0, this.clock);
+    this.moodLight();
+    const sh = this.shake.offset(1 / 60, Math.min(10, L.cell * 0.18));
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (const line of glowing) {
-      const r = this.lineRect(line);
-      const strong = harvesting.includes(line) ? 1 : 0;
-      const pulse = 0.5 + 0.5 * Math.sin(this.t * 2.4 + line);
-      ctx.fillStyle = `rgba(236,206,255,${(0.07 + 0.05 * pulse + 0.12 * strong).toFixed(3)})`;
-      rrect(ctx, r.x + 2, r.y + 2, r.w - 4, r.h - 4, l.cell * 0.2);
-      ctx.fill();
-      ctx.strokeStyle = `rgba(255,240,255,${(0.28 + 0.2 * pulse + 0.3 * strong).toFixed(3)})`;
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      // a bead of light running along the line
-      const along = ((this.t * 0.45 + line * 0.13) % 1);
-      const hx = line < N ? r.x + along * r.w : r.x + r.w / 2, hy = line < N ? r.y + r.h / 2 : r.y + along * r.h;
-      const bead = ctx.createRadialGradient(hx, hy, 0, hx, hy, l.cell * 0.9);
-      bead.addColorStop(0, 'rgba(255,245,255,0.28)');
-      bead.addColorStop(1, 'rgba(255,245,255,0)');
-      ctx.fillStyle = bead;
-      ctx.fillRect(hx - l.cell, hy - l.cell, l.cell * 2, l.cell * 2);
-    }
-    for (const [line, t] of this.flashes) {
-      const r = this.lineRect(line), k = 1 - t / 0.6;
-      ctx.fillStyle = `rgba(255,250,255,${(0.75 * k * k).toFixed(3)})`;
-      rrect(ctx, r.x, r.y, r.w, r.h, l.cell * 0.2);
-      ctx.fill();
-    }
-    if (sim.phase === 'wzrost' && sim.toFull === 0) {
-      // a Pełna geoda in the making: the whole wall glows until the Zbiór breaks it
-      const pulse = this.still ? 0.5 : 0.5 + 0.5 * Math.sin(this.t * 2.2);
-      ctx.fillStyle = `rgba(236,206,255,${(0.04 + 0.04 * pulse).toFixed(3)})`;
-      rrect(ctx, l.wall.x, l.wall.y, l.wall.w, l.wall.h, l.cell * 0.2);
-      ctx.fill();
-      ctx.strokeStyle = `rgba(231,185,255,${(0.4 + 0.3 * pulse).toFixed(3)})`;
-      ctx.lineWidth = 3;
-      rrect(ctx, l.wall.x - 3, l.wall.y - 3, l.wall.w + 6, l.wall.h + 6, l.cell * 0.25);
-      ctx.stroke();
-    }
+    ctx.translate(sh.x, sh.y);
+    this.drawBoard(sim);
+    this.drawSkyline(sim);
+    this.drawPreview(sim, hand);
+    this.drawClearing();
     ctx.restore();
+    this.drawTray(sim, hand);
+    this.drawDial(sim);
+    if (L.portrait && (sim.restBlock || this.gemShow) && !sim.talk.line) this.drawBowl(sim);
+    else if (!L.portrait) this.drawBowl(sim);
+    if (!L.portrait || (!sim.restBlock && !this.gemShow && !sim.talk.line)) this.drawGoal(sim);
+    this.drawMole(sim);
+    this.drawFlies(sim);
+    this.drawDragged(sim, hand);
+    this.fx.draw(ctx);
+    this.words.draw(ctx, SANS);
+    if (sim.story) this.drawStory(sim);
   }
 
-  /** Where a crystal's ghost sits in a tray slot (top-left of its box). */
-  private crystalOrigin(r: Rect, ghost: readonly Pt[]): [number, number] {
-    const cs = this.cs, band = trayBand(this.l!, r);
-    let gw = 0, gh = 0;
-    for (const [x, y] of ghost) { gw = Math.max(gw, x + 1); gh = Math.max(gh, y + 1); }
-    return [r.x + (r.w - gw * cs) / 2, band.top + (band.bottom - band.top - gh * cs) / 2];
+  private moodLight(): void {
+    const ctx = this.ctx, L = this.layout;
+    const m = this.mood;
+    if (Math.abs(m) < 0.02 && this.flash <= 0) return;
+    const cx = L.board.x + L.board.w / 2, cy = L.board.y + L.board.h / 2;
+    const r = ctx.createRadialGradient(cx, cy, L.board.w * 0.3, cx, cy, Math.max(this.w, this.h) * 0.75);
+    const k = Math.min(1, Math.abs(m));
+    r.addColorStop(0, m > 0 ? `rgba(255,190,90,${(0.2 * k + 0.25 * this.flash).toFixed(3)})` : `rgba(120,190,255,${(0.16 * k + 0.2 * this.flash).toFixed(3)})`);
+    r.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = r;
+    ctx.fillRect(0, 0, this.w, this.h);
   }
 
-  /** The snapped ghost of the crystal in the hand (or at the key cursor), and the gap to aim for. */
-  private drawPreview(sim: GeodaSim, hand: Hand): void {
-    const { ctx } = this;
-    const l = this.l!, s = l.cell;
-    if (hand.target.length) {
-      const a = 0.45 + 0.35 * Math.sin(this.t * 3.2);
+  private drawBoard(sim: GeodaSim): void {
+    const ctx = this.ctx, L = this.layout, cs = L.cell, b = sim.board;
+    const clarity = sim.sighted && sim.mult >= 4 ? 3 : sim.blind ? 1 : 2;
+    const clearingSet = new Set(this.clearing.filter(c => c.t < c.delay).map(c => c.i));
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        const i = idx(x, y), px = L.board.x + x * cs, py = L.board.y + y * cs;
+        const v = b.cells[i];
+        if (v === EMPTY && !clearingSet.has(i)) {
+          this.tiles.draw(ctx, 'slate', (i * 7) % 8, 0, px, py, cs);
+          if (b.seeded[i] && b.druse[i] > 0.01) paintDruse(ctx, px, py, cs, b.druse[i], i * 3.7, this.clock);
+          continue;
+        }
+        if (v === EMPTY) continue;
+        const k = this.pop[i] < POP ? 1 + 0.18 * Math.sin((this.pop[i] / POP) * Math.PI) : 1;
+        if (v === ROCK) this.tiles.drawScaled(ctx, 'rock', (i * 5) % 8, 0, px, py, cs, k);
+        else this.tiles.drawScaled(ctx, 'gem', v - 1, clarity, px, py, cs, k);
+        if (b.jewel[i]) paintJewel(ctx, px + cs / 2, py + cs / 2, cs * 0.3, b.jewel[i], this.clock);
+      }
+    }
+    // the shine across the crystals when it is gold
+    if (sim.sighted && sim.mult >= 3) {
+      const s = (this.clock * 0.35) % 1.6 - 0.3;
+      const gx = L.board.x + L.board.w * s;
       ctx.save();
-      ctx.shadowColor = 'rgba(255,212,138,0.8)';
-      ctx.shadowBlur = 12;
-      ctx.strokeStyle = `rgba(255,212,138,${a.toFixed(3)})`;
-      ctx.lineWidth = 2;
-      for (const i of hand.target) {
-        const r = this.cellRect(i);
-        rrect(ctx, r.x + 3, r.y + 3, s - 6, s - 6, s * 0.18);
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-    let slot = -1, anchor: Pt | null = null, valid = false;
-    if (hand.drag && hand.drag.anchor) ({ slot, anchor, valid } = hand.drag);
-    else if (hand.cursor && sim.phase === 'wzrost' && sim.placing >= 0) {
-      // the crystal Space would set: the selected one, or the next while its slot sprouts
-      slot = sim.placing;
-      const cells = crystalCells(sim.tray[slot]!), g = grabCell(cells);
-      anchor = [hand.cursor[0] - g[0], hand.cursor[1] - g[1]];
-      valid = sim.wall.fits(cells, anchor[0], anchor[1]);
-      const cr = this.cellRect(hand.cursor[1] * N + hand.cursor[0]);
-      ctx.strokeStyle = 'rgba(255,212,138,0.9)';
-      ctx.lineWidth = 2;
-      rrect(ctx, cr.x + 1, cr.y + 1, s - 2, s - 2, s * 0.18);
-      ctx.stroke();
-    }
-    const c = slot >= 0 ? sim.tray[slot] : null;
-    if (!c || !anchor) return;
-    const cells = crystalCells(c);
-    for (let k = 0; k < cells.length; k++) {
-      const x = l.wall.x + (anchor[0] + cells[k][0]) * s, y = l.wall.y + (anchor[1] + cells[k][1]) * s;
-      if (valid) {
-        ctx.globalAlpha = 0.42 + 0.12 * Math.sin(this.t * 6);
-        this.tiles.draw(ctx, 'gem', c.gem, c.clarity[k], x, y, s);
-        ctx.globalAlpha = 1;
-      } else {
-        // an invalid spot reads as a dashed outline, not only a colour
-        ctx.setLineDash([5, 4]);
-        ctx.strokeStyle = 'rgba(255,236,236,0.7)';
-        ctx.lineWidth = 1.6;
-        rrect(ctx, x + 3, y + 3, s - 6, s - 6, s * 0.16);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-    }
-  }
-
-  // ── Szlif ─────────────────────────────────────────────────────
-  private drawSzlif(sim: GeodaSim): void {
-    const { ctx } = this;
-    const l = this.l!;
-    if (this.mist < 0.01 && this.bowlK < 0.01) return;
-    const d = l.rim * 1.12, rough = l.rim * 0.22;
-    const wx = l.wall.x - d - rough, wy = l.wall.y - d - rough, ww = l.wall.w + 2 * (d + rough), wh = l.wall.h + 2 * (d + rough);
-    const mist = `rgba(16,12,26,${(MIST * this.mist).toFixed(3)})`;
-    ctx.save();
-    // the mist fills the crust's outline and the wall's bed (one path, both outlines: their union),
-    // so no corner cell is half in it
-    geodePath(ctx, l.wall, d, rough, GEODE_SEED + 1);
-    rrectPath(ctx, l.wall.x - WALL_BED, l.wall.y - WALL_BED, l.wall.w + 2 * WALL_BED, l.wall.h + 2 * WALL_BED, 8);
-    ctx.clip();
-    ctx.fillStyle = mist;
-    ctx.fillRect(wx, wy, ww, wh);
-    for (let i = 0; i < 5; i++) {
-      const fx = wx + ((hash(i * 4.1) + this.t * (0.01 + i * 0.004)) % 1.3 - 0.15) * ww, fy = wy + (0.2 + hash(i * 2.7) * 0.7) * wh, fr = ww * (0.25 + hash(i) * 0.2);
-      const f = ctx.createRadialGradient(fx, fy, 0, fx, fy, fr);
-      f.addColorStop(0, `rgba(190,205,255,${(0.07 * this.mist).toFixed(3)})`);
-      f.addColorStop(1, 'rgba(190,205,255,0)');
-      ctx.fillStyle = f;
-      ctx.fillRect(wx, wy, ww, wh);
-    }
-    ctx.restore();
-    // and over the tray: its crystals wait unseen, nothing to plan in the rest
-    const s0 = l.slots[0], s2 = l.slots[2];
-    rrect(ctx, s0.x - 9, s0.y - 9, s2.x + s2.w - s0.x + 18, s2.y + s2.h - s0.y + 18, 20);
-    ctx.fillStyle = mist;
-    ctx.fill();
-    if (this.bowlK < 0.01) return;
-    // the polishing bowl: dark stone; the round's gems tumble in it and shine with calm
-    const k = ease.outCubic(this.bowlK);
-    const s = l.cell, shine = sim.shine;
-    const cx = l.wall.x + l.wall.w / 2, rx = l.wall.w * 0.28, ry = rx * 0.34, depth = ry * 2.1;
-    const cy = l.wall.y + l.wall.h * 0.6 + (1 - k) * 24;
-    ctx.save();
-    ctx.globalAlpha = k;
-    const pool = ctx.createRadialGradient(cx, cy + depth * 0.5, 0, cx, cy + depth * 0.5, rx * 1.7);
-    pool.addColorStop(0, `rgba(169,212,255,${(0.05 + 0.2 * shine).toFixed(3)})`);
-    pool.addColorStop(1, 'rgba(169,212,255,0)');
-    ctx.fillStyle = pool;
-    ctx.fillRect(cx - rx * 1.7, cy - rx, rx * 3.4, rx * 3.4);
-    ctx.shadowColor = 'rgba(0,0,0,0.7)';
-    ctx.shadowBlur = 22;
-    ctx.shadowOffsetY = 10;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, depth, 0, 0, Math.PI);
-    ctx.closePath();
-    const body = ctx.createLinearGradient(cx - rx, cy, cx + rx * 0.6, cy + depth);
-    body.addColorStop(0, '#4b4252');
-    body.addColorStop(0.55, '#2b2530');
-    body.addColorStop(1, '#131016');
-    ctx.fillStyle = body;
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx * 0.88, depth * 0.86, 0, Math.PI * 0.6, Math.PI * 0.88);
-    ctx.stroke();
-    // the well, lit from inside by the calm
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
-    ctx.fillStyle = '#0e0b12';
-    ctx.fill();
-    const inner = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-    inner.addColorStop(0, `rgba(190,222,255,${(0.06 + 0.4 * shine).toFixed(3)})`);
-    inner.addColorStop(1, 'rgba(190,222,255,0)');
-    ctx.fillStyle = inner;
-    ctx.fill();
-    ctx.lineWidth = Math.max(2, s * 0.07);
-    ctx.strokeStyle = '#6a5f72';
-    ctx.stroke();
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy - 1, rx, ry, 0, Math.PI * 1.08, Math.PI * 1.92);
-    ctx.stroke();
-    // the round's gems, the best one in the middle
-    const order = this.bowl.map((_, i) => i).filter(i => i !== sim.bowlBest);
-    if (sim.bowlBest >= 0 && this.bowl[sim.bowlBest]) order.push(sim.bowlBest);
-    for (const i of order) {
-      const g = this.bowl[i], best = i === sim.bowlBest;
-      const size = s * (best ? 0.9 : 0.44 + 0.08 * Math.sqrt(g.cells));
-      const a = this.t * (this.still ? 0.12 : 0.32) * (0.6 + shine) + i * 2.39;
-      const px = best ? cx : cx + Math.cos(a) * rx * (0.5 + 0.18 * hash(i + 1));
-      const py = best ? cy - ry * 0.35 + Math.sin(this.t * 1.3) * (this.still ? 0 : 2) : cy + Math.sin(a) * ry * 0.4 - size * 0.2;
-      ctx.save();
-      ctx.translate(px, py);
-      ctx.rotate(best ? Math.sin(this.t * 0.8) * 0.12 : a * 0.5);
-      this.tiles.draw(ctx, 'gem', g.gem, g.clarity, -size / 2, -size / 2, size);
-      if (shine > 0.12) {
-        ctx.globalCompositeOperation = 'lighter';
-        const sweep = ((this.t * 0.6 + i * 0.37) % 1.6) - 0.3;
-        const gl = ctx.createLinearGradient(-size / 2 + sweep * size, -size / 2, -size / 2 + sweep * size + size * 0.4, size / 2);
-        gl.addColorStop(0, 'rgba(255,255,255,0)');
-        gl.addColorStop(0.5, `rgba(255,255,255,${(0.5 * shine).toFixed(3)})`);
-        gl.addColorStop(1, 'rgba(255,255,255,0)');
-        ctx.fillStyle = gl;
-        rrect(ctx, -size * 0.44, -size * 0.44, size * 0.88, size * 0.88, size * 0.15);
-        ctx.fill();
-        ctx.globalCompositeOperation = 'source-over';
-      }
-      if (g.polish > 0) sparkle(ctx, size * 0.3, -size * 0.3, size * 0.22, 'rgba(255,248,226,0.95)');
-      ctx.restore();
-    }
-    // the shine meter: a halo over the bowl that fills with calm, warm once past the polishing mark
-    const hx = rx + s * 0.32, hy = ry + s * 0.32, need = sim.polishNeed, on = shine >= need && this.bowl.length > 0;
-    ctx.lineCap = 'round';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(169,212,255,0.16)';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, hx, hy, 0, Math.PI, TAU);
-    ctx.stroke();
-    if (shine > 0.01) {
-      ctx.strokeStyle = on ? rgba(POLISH_ON, 0.75 + 0.25 * shine) : `rgba(200,230,255,${(0.6 + 0.4 * shine).toFixed(2)})`;
       ctx.beginPath();
-      ctx.ellipse(cx, cy, hx, hy, 0, Math.PI, Math.PI + Math.PI * clamp(shine));
-      ctx.stroke();
-    }
-    const ma = Math.PI * (1 + need);
-    ctx.fillStyle = on ? POLISH_ON : 'rgba(255,240,184,0.7)';
-    ctx.beginPath();
-    ctx.arc(cx + Math.cos(ma) * hx, cy + Math.sin(ma) * hy, Math.max(2.5, s * 0.075), 0, TAU);
-    ctx.fill();
-    if (this.polishT >= 0 && this.polishT < 1.4) {
-      const pk = this.polishT / 1.4;
+      ctx.rect(L.board.x, L.board.y, L.board.w, L.board.h);
+      ctx.clip();
       ctx.globalCompositeOperation = 'lighter';
-      for (let j = 0; j < 8; j++) {
-        const a = (j / 8) * TAU + pk * 0.6;
-        sparkle(ctx, cx + Math.cos(a) * s * (0.5 + pk), cy - ry * 0.35 + Math.sin(a) * s * (0.5 + pk), s * 0.14 * (1 - pk), 'rgba(255,248,226,0.9)');
-      }
-      ctx.globalCompositeOperation = 'source-over';
-    }
-    // words over the bowl
-    const tip = REST_TIPS[sim.round % REST_TIPS.length];
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    const ty = l.wall.y + l.wall.h * 0.28;
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 12;
-    const title = t('block.szlif'), line = t('rest.line', { tip });
-    fitFont(ctx, title, Math.round(clamp(s * 0.66, 24, 44)), l.wall.w * 0.8, SERIF, 500);
-    ctx.fillStyle = '#d7e9ff';
-    ctx.fillText(title, cx, ty);
-    // one line, or two on a narrow wall (a phone on its side), above the bowl's halo
-    const words = fitLines(ctx, line, Math.round(clamp(s * 0.3, 13, 18)), l.wall.w * 0.94, SANS, 500, 12);
-    ctx.fillStyle = 'rgba(222,234,255,0.82)';
-    words.lines.forEach((ln, i) => ctx.fillText(ln, cx, ty + clamp(s * 0.5, 22, 32) + i * Math.round(words.size * 1.25)));
-    if (this.polishT >= 0 && this.polishT < 2.2) {
-      ctx.globalAlpha = k * clamp(1 - (this.polishT - 1.6) / 0.6);
-      const polished = t('rest.polished');
-      fitFont(ctx, polished, Math.round(clamp(s * 0.36, 14, 22)), l.wall.w * 0.8, SANS, 700);
-      ctx.fillStyle = '#fff3d6';
-      ctx.fillText(polished, cx, cy + depth + clamp(s * 0.55, 20, 34));
-    }
-    ctx.restore();
-  }
-
-  // ── the tray ──────────────────────────────────────────────────
-  private drawTray(sim: GeodaSim, hand: Hand): void {
-    const { ctx } = this;
-    const l = this.l!, cs = this.cs;
-    const target = sim.phase === 'wzrost' && sim.blindSlot < 0 ? sim.growTarget() : -1;
-    const resting = sim.phase === 'szlif' || sim.phase === 'finale' || sim.phase === 'done';
-    const placing = sim.phase === 'wzrost' ? sim.placing : -1;
-    for (let s = 0; s < 3; s++) {
-      const r = l.slots[s];
-      const c = sim.tray[s];
-      const sx = r.x + r.w / 2;
-      ctx.save();
-      if (s >= sim.slots) {
-        // the first session opens one slot per round: until then a dormant seed
-        this.drawSeed(r, 0, 0, false);
-        this.slotLabel(r, t('tray.later', { n: s + 1 }), 'rgba(239,232,220,0.42)', false);
-        ctx.restore();
-        continue;
-      }
-      if (!resting && (s === sim.fed || s === placing)) {
-        // the fed crystal: a warm rim of light; a fainter one on the crystal a tap sets while the fed slot sprouts
-        const fed = s === sim.fed;
-        ctx.shadowColor = 'rgba(255,200,120,0.55)';
-        ctx.shadowBlur = fed ? 14 : 0;
-        rrect(ctx, r.x + 1, r.y + 1, r.w - 2, r.h - 2, 14);
-        ctx.strokeStyle = fed ? 'rgba(255,212,138,0.8)' : 'rgba(255,212,138,0.38)';
-        ctx.lineWidth = fed ? 2 : 1.5;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      }
-      if (this.still && this.wiggle[s] > 0) {
-        // "nie pasuje" without motion: a brief warm glow along the slot's edge instead of a shake
-        ctx.shadowColor = `rgba(255,120,80,${(0.9 * this.wiggle[s]).toFixed(3)})`;
-        ctx.shadowBlur = 16;
-        rrect(ctx, r.x + 1.5, r.y + 1.5, r.w - 3, r.h - 3, 14);
-        ctx.strokeStyle = `rgba(255,150,105,${(0.95 * this.wiggle[s]).toFixed(3)})`;
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      }
-      // the stalactite glistens over the crystal the water runs to
-      if (s === target) {
-        ctx.fillStyle = 'rgba(200,226,255,0.55)';
-        ctx.beginPath();
-        ctx.ellipse(sx - 1.5, r.y + 6, 1.2, 4, 0, 0, TAU);
-        ctx.fill();
-        const form = (1 - Math.max(0, this.dripIn)) * clamp(sim.drip);
-        ctx.fillStyle = 'rgba(200,226,255,0.85)';
-        ctx.beginPath();
-        ctx.arc(sx, r.y + 14 + form * 2, 1 + form * 2.2, 0, TAU);
-        ctx.fill();
-      }
-      ctx.font = `500 10px ${MONO}`;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = 'rgba(239,232,220,0.32)';
-      ctx.fillText(String(s + 1), r.x + 9, r.y + 8);
-      if (!c) {
-        // an empty slot: a seed that sprouts from the next grown cell (the water's slot), or waits for it
-        const k = sim.sprout[s], growing = s === target;
-        this.drawSeed(r, k, this.trayPop[s], growing);
-        this.slotLabel(r, growing || k > 0 ? t('tray.sprouting') : t('tray.waiting'), growing ? 'rgba(226,212,255,0.62)' : 'rgba(239,232,220,0.4)', false);
-        ctx.restore();
-        continue;
-      }
-      let [ox, oy] = this.crystalOrigin(r, c.ghost);
-      if (!this.still) ox += Math.sin(this.t * 52) * 5 * this.wiggle[s];
-      const lifted = hand.drag?.slot === s || hand.back?.slot === s;
-      const veiled = s === sim.blindSlot;
-      if (lifted) ctx.globalAlpha *= 0.22;
-      // the ghost of the full shape
-      for (let i = c.grown; i < c.ghost.length; i++) {
-        const [gx, gy] = c.ghost[i];
-        rrect(ctx, ox + gx * cs + 2, oy + gy * cs + 2, cs - 4, cs - 4, cs * 0.2);
-        ctx.fillStyle = 'rgba(255,255,255,0.035)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-      if (veiled) {
-        // Ciemna komora: the crystal grows unseen
-        for (const [gx, gy] of c.ghost) {
-          rrect(ctx, ox + gx * cs + 1, oy + gy * cs + 1, cs - 2, cs - 2, cs * 0.2);
-          ctx.fillStyle = '#0a0710';
-          ctx.fill();
-          ctx.strokeStyle = 'rgba(169,150,220,0.25)';
-          ctx.stroke();
-        }
-        this.slotLabel(r, t('tray.dark'), 'rgba(200,190,240,0.7)', true, 600);
-        ctx.restore();
-        continue;
-      }
-      const pop = this.trayPop[s];
-      for (let i = 0; i < c.grown; i++) {
-        const [gx, gy] = c.ghost[i];
-        const k = i === c.grown - 1 && pop > 0 ? 1 + 0.25 * Math.sin(pop * Math.PI) : 1;
-        this.tiles.drawScaled(ctx, 'gem', c.gem, c.clarity[i], ox + gx * cs, oy + gy * cs, cs, k);
-      }
-      if (s === target && !complete(c)) {
-        // the next cell, growing
-        const [gx, gy] = c.ghost[c.grown];
-        const f = c.frac;
-        ctx.globalAlpha *= 0.35 + 0.45 * f;
-        this.tiles.drawScaled(ctx, 'gem', c.gem, clarityOf(sim.brain.cont), ox + gx * cs, oy + gy * cs, cs, 0.25 + 0.6 * ease.outCubic(f));
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = `rgba(255,236,190,${(0.35 + 0.3 * Math.sin(this.t * 5)).toFixed(3)})`;
-        ctx.lineWidth = 1.4;
-        rrect(ctx, ox + gx * cs + 1.5, oy + gy * cs + 1.5, cs - 3, cs - 3, cs * 0.2);
-        ctx.stroke();
-      }
-      // the size, and "pełny" when grown out (a Ciemna komora's crystal shows what grew in the dark)
-      ctx.globalAlpha = lifted ? 0.3 : 1;
-      ctx.textBaseline = 'alphabetic';
-      if (this.reveal?.slot === s) {
-        const k = this.reveal.t;
-        ctx.globalAlpha = clamp(k / 0.3) * clamp((3 - k) / 0.5);
-        this.slotLabel(r, this.reveal.text, '#e8ddff', true, 700, 13);
-      } else {
-        ctx.font = `500 11px ${MONO}`;
-        ctx.textAlign = 'right';
-        ctx.fillStyle = complete(c) ? '#ffd48a' : 'rgba(239,232,220,0.55)';
-        ctx.fillText(complete(c) ? t('tray.full') : `${c.grown}/${c.ghost.length}`, r.x + r.w - 9, r.y + r.h - 8);
-      }
-      if (hand.press?.slot === s && hand.press.k > 0.12) {
-        // the hold that crumbles: the slot's edge fills, clockwise from its top left
-        const rr = 13, per = 2 * (r.w + r.h - 12 - 4 * rr) + 2 * Math.PI * rr;
-        rrect(ctx, r.x + 3, r.y + 3, r.w - 6, r.h - 6, rr);
-        ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        ctx.setLineDash([per * clamp((hand.press.k - 0.12) / 0.88), per]);
-        ctx.strokeStyle = 'rgba(255,252,246,0.96)';
-        ctx.lineWidth = 3.5;
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
+      const g = ctx.createLinearGradient(gx - cs * 1.5, L.board.y, gx + cs * 1.5, L.board.y + L.board.h * 0.3);
+      g.addColorStop(0, 'rgba(255,230,160,0)');
+      g.addColorStop(0.5, `rgba(255,230,160,${(0.1 + 0.05 * (sim.mult - 3)).toFixed(3)})`);
+      g.addColorStop(1, 'rgba(255,230,160,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(L.board.x, L.board.y, L.board.w, L.board.h);
       ctx.restore();
     }
   }
 
-  /** The size of an empty slot's seed (px). */
-  private seedRadius(r: Rect): number {
-    const band = trayBand(this.l!, r);
-    return clamp(Math.min(r.w, band.bottom - band.top) * 0.15, 7, 18);
+  private drawSkyline(sim: GeodaSim): void {
+    const L = this.layout;
+    const reach = L.rim * GEODE_REACH;
+    const n = Math.max(16, Math.min(60, Math.round(L.board.w / 9)));
+    const bars = traceBars(sim.trace, sim.t, n);
+    paintSkyline(this.ctx, bars, L.board.x + L.cell * 0.3, L.board.y + L.board.h + reach - 3, L.board.w - L.cell * 0.6, reach * 0.62);
   }
 
-  /** A seed's bud, a tiny amethyst druse `size` px tall, cached per size (its base at 86 % of the sprite's height). */
-  private seedSprite(size: number): HTMLCanvasElement {
-    const key = Math.round(size * 2);
-    let img = this.seeds.get(key);
-    if (!img) {
-      const box = Math.ceil(size * 1.7);
-      img = document.createElement('canvas');
-      img.width = img.height = Math.ceil(box * this.dpr);
-      const x = img.getContext('2d')!;
-      x.scale(this.dpr, this.dpr);
-      druse(x, box / 2, box * 0.86, size, 0, 0, 5);
-      this.seeds.set(key, img);
-    }
-    return img;
-  }
-
-  /**
-   * An empty slot's seed: a tiny druse in a lilac glow, faint while it waits, brighter and larger as
-   * it sprouts (`k` 0..1); the water's slot breathes, a tap while it sprouts makes it `pop`.
-   */
-  private drawSeed(r: Rect, k: number, pop: number, growing: boolean): void {
-    const { ctx } = this;
-    const band = trayBand(this.l!, r);
-    const cx = r.x + r.w / 2, cy = (band.top + band.bottom) / 2, rad = this.seedRadius(r);
-    const breath = growing && !this.still ? 0.5 + 0.5 * Math.sin(this.t * 2.6) : 0.5;
-    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad * (2.6 + 1.2 * k));
-    glow.addColorStop(0, `rgba(214,184,255,${(0.07 + (growing ? 0.07 + 0.05 * breath : 0) + 0.22 * k).toFixed(3)})`);
-    glow.addColorStop(1, 'rgba(214,184,255,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(cx - rad * 4, cy - rad * 4, rad * 8, rad * 8);
-    const size = rad * 2, img = this.seedSprite(size), box = img.width / this.dpr;
-    const sc = (0.72 + 0.28 * k) * (1 + 0.22 * Math.sin(pop * Math.PI));
-    const alpha = ctx.globalAlpha;
-    ctx.globalAlpha = alpha * ((growing ? 0.6 : 0.34) + 0.4 * k);
-    ctx.drawImage(img, cx - (box / 2) * sc, cy - (box * 0.86 - size / 2) * sc, box * sc, box * sc);
-    ctx.globalAlpha = alpha;
-  }
-
-  /**
-   * A word in a slot, fitted to it: centred at its foot, or (`side`, for the words about a crystal)
-   * in landscape at its top right, beside the stalactite — the short slot's crystal takes its
-   * middle and may reach its foot.
-   */
-  private slotLabel(r: Rect, text: string, color: string, side: boolean, weight = 500, size = 11): void {
-    const { ctx } = this;
-    const corner = side && this.l!.landscape;
-    fitFont(ctx, text, size, corner ? r.w / 2 - 24 : r.w - 18, SANS, weight, 9);
-    ctx.fillStyle = color;
-    ctx.textBaseline = 'alphabetic';
-    ctx.textAlign = corner ? 'right' : 'center';
-    ctx.fillText(text, corner ? r.x + r.w - 9 : r.x + r.w / 2, corner ? r.y + 15 : r.y + r.h - 8);
-  }
-
-  private drawDrops(): void {
-    const { ctx } = this;
-    ctx.fillStyle = 'rgba(205,228,255,0.9)';
-    for (const d of this.drops) {
-      if (!d.live) continue;
-      ctx.beginPath();
-      ctx.ellipse(d.x, d.y, 1.8, 2.8 + Math.min(3, d.vy / 120), 0, 0, TAU);
-      ctx.fill();
-    }
-  }
-
-  // ── the crystal in the hand ───────────────────────────────────
-  private drawHand(sim: GeodaSim, hand: Hand): void {
-    const { ctx } = this;
-    const l = this.l!;
-    const d = hand.drag ?? null, b = hand.back;
-    const slot = d ? d.slot : b ? b.slot : -1;
-    const c = slot >= 0 ? sim.tray[slot] : null;
-    if (!c) return;
-    const cells = crystalCells(c), g = grabCell(cells);
-    let s = l.cell, x0 = 0, y0 = 0;
-    if (d) {
-      // lifted one cell above the finger, so the finger never hides it
-      x0 = d.x - (g[0] + 0.5) * s;
-      y0 = d.y - (g[1] + 0.5) * s - s * 1.1;
-    } else if (b) {
-      const r = l.slots[slot], [ox, oy] = this.crystalOrigin(r, c.ghost), off = prefixOffset(c);
-      const k = ease.outCubic(b.k);
-      s = lerp(l.cell, this.cs, k);
-      x0 = lerp(b.x - (g[0] + 0.5) * l.cell, ox + off[0] * this.cs, k);
-      y0 = lerp(b.y - (g[1] + 0.5) * l.cell - l.cell * 1.1, oy + off[1] * this.cs, k);
+  private drawPreview(sim: GeodaSim, hand: Hand): void {
+    const ctx = this.ctx, L = this.layout, cs = L.cell;
+    let slot = -1, gx = 0, gy = 0, ghost = 0.45;
+    if (hand.drag) {
+      const item = sim.tray[hand.drag.slot];
+      if (!item) return;
+      const s = this.snap(sim, item.piece, hand.drag.x, hand.drag.y);
+      if (!s) return;
+      slot = hand.drag.slot;
+      gx = s.gx;
+      gy = s.gy;
+    } else if (hand.idle > 2.5 && !sim.story) {
+      const a = sim.autoSpot();
+      if (!a) return;
+      slot = a.slot;
+      gx = a.gx;
+      gy = a.gy;
+      ghost = 0.18 + 0.1 * Math.sin(this.clock * 4);
+    } else return;
+    const item = sim.tray[slot]!;
+    const p = item.piece;
+    const clear = sim.board.wouldClear(p, gx, gy);
+    const tile = item.tile - 1;
+    // the lines it would clear: their crystals take the piece's colour and glow
+    if (hand.drag && (clear.rows.length || clear.cols.length)) {
+      const g = GEMS[tile % GEMS.length];
+      ctx.save();
+      for (const r of clear.rows) for (let x = 0; x < N; x++) this.tiles.draw(ctx, 'gem', tile, 3, L.board.x + x * cs, L.board.y + r * cs, cs);
+      for (const c of clear.cols) for (let y = 0; y < N; y++) this.tiles.draw(ctx, 'gem', tile, 3, L.board.x + c * cs, L.board.y + y * cs, cs);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = `rgba(255,240,200,${(0.12 + 0.08 * Math.sin(this.clock * 10)).toFixed(3)})`;
+      for (const r of clear.rows) ctx.fillRect(L.board.x, L.board.y + r * cs, L.board.w, cs);
+      for (const c of clear.cols) ctx.fillRect(L.board.x + c * cs, L.board.y, cs, L.board.h);
+      ctx.restore();
+      void g;
     }
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.globalAlpha = ghost;
+    for (const [x, y] of p.cells) this.tiles.draw(ctx, 'gem', tile, 2, L.board.x + (gx + x) * cs, L.board.y + (gy + y) * cs, cs);
+    ctx.restore();
+    if (!hand.drag) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,236,190,.55)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1.5;
+      for (const [x, y] of p.cells) ctx.strokeRect(L.board.x + (gx + x) * cs + 3, L.board.y + (gy + y) * cs + 3, cs - 6, cs - 6);
+      ctx.restore();
+    }
+  }
+
+  private drawClearing(): void {
+    const ctx = this.ctx, L = this.layout, cs = L.cell;
+    for (const c of this.clearing) {
+      const px = L.board.x + (c.i % N) * cs, py = L.board.y + Math.floor(c.i / N) * cs;
+      if (c.t < c.delay) {
+        // waiting for the sweep: lit up
+        if (c.tile === ROCK) this.tiles.draw(ctx, 'rock', (c.i * 5) % 8, 0, px, py, cs);
+        else this.tiles.draw(ctx, 'gem', c.tile - 1, 3, px, py, cs);
+        ctx.fillStyle = 'rgba(255,250,230,.35)';
+        rrect(ctx, px + 2, py + 2, cs - 4, cs - 4, cs * 0.15);
+        ctx.fill();
+        if (c.jewel) paintJewel(ctx, px + cs / 2, py + cs / 2, cs * 0.3, c.jewel, this.clock);
+      } else {
+        const k = clamp((c.t - c.delay) / 0.22);
+        if (k >= 1) continue;
+        ctx.save();
+        ctx.globalAlpha = 1 - k;
+        ctx.fillStyle = '#fffbe8';
+        const s = cs * (1 - 0.6 * k);
+        rrect(ctx, px + (cs - s) / 2, py + (cs - s) / 2, s, s, s * 0.2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  /** A piece's cells at (x, y) with cell size s. */
+  private piece(item: TrayItem, x: number, y: number, s: number, alpha = 1, clarity = 2): void {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    item.piece.cells.forEach(([cx, cy], k) => {
+      this.tiles.draw(ctx, 'gem', item.tile - 1, clarity, x + cx * s, y + cy * s, s);
+      if (k === item.jewelAt && item.jewel) paintJewel(ctx, x + (cx + 0.5) * s, y + (cy + 0.5) * s, s * 0.3, item.jewel, this.clock);
+    });
+    ctx.restore();
+  }
+
+  private drawTray(sim: GeodaSim, hand: Hand): void {
+    const ctx = this.ctx, L = this.layout;
+    for (let k = 0; k < 3; k++) {
+      const s = L.slots[k];
+      const item = sim.tray[k];
+      const sel = k === sim.current && !hand.drag && !!item;
+      // the slot's hollow
+      ctx.save();
+      ctx.fillStyle = sel ? 'rgba(255,211,107,.10)' : 'rgba(255,255,255,.035)';
+      ctx.strokeStyle = sel ? 'rgba(255,211,107,.55)' : 'rgba(255,255,255,.08)';
+      ctx.lineWidth = sel ? 2 : 1;
+      rrect(ctx, s.x + 4, s.y + 4, s.w - 8, s.h - 8, 14);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      if (!item || (hand.drag && hand.drag.slot === k)) continue;
+      if (this.backs.some(b => b.slot === k)) continue;
+      const p = item.piece;
+      const tc = trayCellFor(L, s, p.w, p.h);
+      const inK = clamp(this.trayIn[k] / 0.3);
+      const slide = (1 - ease.outBack(inK)) * (L.portrait ? s.h * 0.8 : s.w * 0.8);
+      const fits = sim.board.fitsAnywhere(p);
+      const ox = s.x + (s.w - p.w * tc) / 2 + (L.portrait ? 0 : slide), oy = s.y + (s.h - p.h * tc) / 2 + (L.portrait ? slide : 0);
+      const wob = this.stuck === k && this.stuckT < 0.5 ? Math.sin(this.stuckT * 40) * 3 * (1 - this.stuckT * 2) : 0;
+      this.piece(item, ox + wob, oy, tc, inK * (fits ? 1 : 0.35));
+      if (!fits) {
+        ctx.save();
+        ctx.font = `700 ${Math.max(10, Math.round(Math.min(14, s.h * 0.12)))}px ${SANS}`;
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(255,190,170,.85)';
+        ctx.fillText(t('v.stuck'), s.x + s.w / 2, s.y + s.h - 10, s.w - 12);
+        ctx.restore();
+      }
+    }
+    for (const b of this.backs) {
+      const s = L.slots[b.slot];
+      const k = ease.outCubic(clamp(b.t / 0.25));
+      const tc = trayCellFor(L, s, b.item.piece.w, b.item.piece.h);
+      const tx = s.x + (s.w - b.item.piece.w * tc) / 2, ty = s.y + (s.h - b.item.piece.h * tc) / 2;
+      const o = this.dragOrigin(b.item.piece, b.x, b.y);
+      const sz = L.cell + (tc - L.cell) * k;
+      this.piece(b.item, o.x + (tx - o.x) * k, o.y + (ty - o.y) * k, sz, 0.9);
+    }
+  }
+
+  private drawDragged(sim: GeodaSim, hand: Hand): void {
+    if (!hand.drag) return;
+    const item = sim.tray[hand.drag.slot];
+    if (!item) return;
+    const L = this.layout, ctx = this.ctx;
+    const grow = ease.outCubic(clamp(hand.drag.t / 0.12));
+    const s = L.slots[hand.drag.slot];
+    const tc = trayCellFor(L, s, item.piece.w, item.piece.h);
+    const sz = tc + (L.cell - tc) * grow;
+    const o = this.dragOrigin(item.piece, hand.drag.x, hand.drag.y);
+    const cx = o.x + (item.piece.w * L.cell) / 2, cy = o.y + (item.piece.h * L.cell) / 2;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.5)';
     ctx.shadowBlur = 18;
     ctx.shadowOffsetY = 10;
-    for (let k = 0; k < cells.length; k++) {
-      const cx = x0 + (cells[k][0] + 0.5) * s, cy = y0 + (cells[k][1] + 0.5) * s;
-      this.tiles.drawScaled(ctx, 'gem', c.gem, c.clarity[k], cx - l.cell / 2, cy - l.cell / 2, l.cell, s / l.cell);
-    }
+    this.piece(item, cx - (item.piece.w * sz) / 2, cy - (item.piece.h * sz) / 2, sz, 1, 3);
     ctx.restore();
   }
 
-  private drawCaption(dt: number): void {
-    const c = this.caption;
-    if (!c) return;
-    c.t += dt;
-    if (c.t > 2.2) {
-      this.caption = null;
-      return;
-    }
-    const { ctx } = this;
-    const l = this.l!;
-    const a = clamp(c.t / 0.25) * clamp((2.2 - c.t) / 0.6);
-    const cx = l.wall.x + l.wall.w / 2, cy = l.wall.y + l.wall.h * 0.22 - 8 * ease.outCubic(clamp(c.t / 0.5));
+  private drawDial(sim: GeodaSim): void {
+    const L = this.layout;
+    const state = sim.blind ? 'dark' : !sim.pushBlock ? 'off' : sim.blockT < sim.lead ? 'wait' : sim.reliable ? 'live' : 'grey';
+    const note = state === 'wait' ? t('v.wait') : state === 'grey' ? t('v.noSignal') : state === 'dark' ? t('v.dark') : '';
+    paintDial(this.ctx, L.dial.x, L.dial.y, L.dial.r, {
+      value: this.dialShown, mult: state === 'off' ? 1 : sim.mult, state, pop: this.multPop, label: t('v.shine'), note, t: this.clock, compact: L.portrait,
+    });
+  }
+
+  private drawGoal(sim: GeodaSim): void {
+    const ctx = this.ctx, L = this.layout, g = L.goal;
     ctx.save();
-    ctx.globalAlpha = a;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    ctx.shadowColor = 'rgba(0,0,0,0.7)';
-    ctx.shadowBlur = 16;
-    if (c.text) {
-      fitFont(ctx, c.text, Math.round(clamp(l.cell * 0.7, 24, 46)), l.wall.w * 0.9, SERIF, 500);
-      ctx.fillStyle = c.color;
-      ctx.fillText(c.text, cx, cy);
-    }
-    if (c.sub) {
-      // under the title, or on its own (a verdict without a harvest), a little larger; two lines on a narrow wall
-      const sub = fitLines(ctx, c.sub, Math.round(clamp(l.cell * (c.text ? 0.3 : 0.36), 13, c.text ? 17 : 20)), l.wall.w * 0.94, SANS, 600, 12);
-      ctx.fillStyle = c.text ? 'rgba(239,232,220,0.92)' : c.color;
-      const y0 = c.text ? cy + clamp(l.cell * 0.48, 20, 30) : cy;
-      sub.lines.forEach((ln, i) => ctx.fillText(ln, cx, y0 + i * Math.round(sub.size * 1.25)));
+    ctx.fillStyle = 'rgba(20,14,28,.6)';
+    rrect(ctx, g.x, g.y, g.w, g.h, 12);
+    ctx.fill();
+    const pad = 8;
+    const title = sim.mode === 'adventure' ? t('v.chamber', { n: sim.spec.level + 1 }) : t('v.classic');
+    const size = Math.max(10, Math.min(15, g.h * 0.3));
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = C.inkSoft;
+    fitFont(ctx, title, size, g.w * 0.42, SANS, 700, 9);
+    ctx.fillText(title, g.x + pad, g.y + g.h / 2);
+    const tw = Math.min(g.w * 0.42, ctx.measureText(title).width) + pad * 2;
+    if (sim.mode === 'adventure') {
+      const n = sim.spec.goal.length;
+      const cw = (g.w - tw - pad) / n;
+      sim.spec.goal.forEach(([kind, need], k) => {
+        const x = g.x + tw + k * cw;
+        const got = Math.min(need, sim.got[k] ?? 0);
+        const r = Math.min(g.h * 0.28, cw * 0.18);
+        paintJewel(ctx, x + r + 2, g.y + g.h / 2, r, kind, this.clock);
+        ctx.font = `800 ${Math.round(size * 1.05)}px ${SANS}`;
+        ctx.fillStyle = got >= need ? C.gold : C.ink;
+        ctx.fillText(got >= need ? '✓' : `${got}/${need}`, x + r * 2 + 8, g.y + g.h / 2, cw - r * 2 - 10);
+      });
+    } else {
+      ctx.font = `800 ${Math.round(size * 1.05)}px ${SANS}`;
+      ctx.fillStyle = C.ink;
+      ctx.fillText(sim.headlineSub(), g.x + tw, g.y + g.h / 2, g.w - tw - pad);
     }
     ctx.restore();
   }
 
-  // ── the calibration: Kropla ───────────────────────────────────
-  /** While the reference fills: one drop forms at the crack (p 0..1) and falls when it is set. */
-  intro(p: number, dt: number): void {
-    const { ctx } = this;
-    const l = this.l;
-    if (!l || !this.bg) return;
-    this.t += dt;
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.drawImage(this.bg, 0, 0, this.w, this.h);
-    this.warm = approach(this.warm, 0.25, dt, 1);
-    for (let i = 0; i < N * N; i++) {
-      const r = this.cellRect(i);
-      this.tiles.draw(ctx, 'slate', i % 3, 0, r.x, r.y, l.cell);
-    }
-    // the wall in shadow: exactly its bed, so the crust and bands around it stay lit
-    rrect(ctx, l.wall.x - WALL_BED, l.wall.y - WALL_BED, l.wall.w + 2 * WALL_BED, l.wall.h + 2 * WALL_BED, 8);
-    ctx.fillStyle = 'rgba(8,6,12,0.45)';
-    ctx.fill();
-    this.light = approach(this.light, 0.05 + 0.06 * p, dt, 0.8);
-    this.drawShaft();
-    const cx = l.wall.x + l.wall.w / 2, tip = l.wall.y - l.rim * GEODE_REACH + l.rim * 1.2;
-    const d = this.introDrop, full = 2 + Math.min(12, l.rim * 0.6);
-    if (p < 1) {
-      d.y = 0;
-      d.vy = 0;
-      d.splash = -1;
-      const r = 2 + (full - 2) * ease.inOutSine(clamp(p));
-      const wob = this.still ? 0 : Math.sin(this.t * 3.1) * 0.5;
-      const halo = ctx.createRadialGradient(cx, tip + r, 0, cx, tip + r, r * 5);
-      halo.addColorStop(0, `rgba(190,220,255,${(0.15 + 0.25 * p).toFixed(3)})`);
-      halo.addColorStop(1, 'rgba(190,220,255,0)');
-      ctx.fillStyle = halo;
-      ctx.fillRect(cx - r * 5, tip - r * 4, r * 10, r * 10);
-      ctx.fillStyle = 'rgba(205,228,255,0.92)';
-      ctx.beginPath();
-      ctx.ellipse(cx, tip + r * 1.1, r + wob, r * 1.25 - wob, 0, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.beginPath();
-      ctx.arc(cx - r * 0.35, tip + r * 0.8, r * 0.28, 0, TAU);
-      ctx.fill();
-    } else {
-      const floor = l.wall.y + l.wall.h * 0.5;
-      if (d.splash < 0) {
-        d.vy += (this.still ? 500 : 1200) * dt;
-        d.y += d.vy * dt;
-        const y = tip + full * 1.1 + d.y;
-        if (y >= floor) {
-          d.splash = 0;
-          this.particles.burst(cx, floor, this.still ? 4 : 14, { color: 'rgba(205,228,255,0.9)', size: 1.8, speed: 140, angle: -Math.PI / 2, spread: 2.4, g: 500, life: 0.6 });
-          this.onSplash?.(0.6);
-        } else {
-          ctx.fillStyle = 'rgba(205,228,255,0.92)';
-          ctx.beginPath();
-          ctx.ellipse(cx, y, full * 0.85, full * 1.35, 0, 0, TAU);
-          ctx.fill();
-        }
-      } else {
-        d.splash += dt;
-        const k = clamp(d.splash / 1.2);
-        ctx.strokeStyle = `rgba(205,228,255,${(0.7 * (1 - k)).toFixed(3)})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.ellipse(cx, floor, 10 + 120 * k, (10 + 120 * k) * 0.3, 0, 0, TAU);
-        ctx.stroke();
-        // "Źródło znalezione" in the HUD's place, clear of the countdown and the runner's strip
-        ctx.globalAlpha = clamp(d.splash / 0.4);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-        const hud = l.hud;
-        const found = t('calib.found');
-        fitFont(ctx, found, 22, hud.w, SERIF, 500);
-        ctx.fillStyle = '#d7e9ff';
-        ctx.fillText(found, hud.x + hud.w / 2, hud.y + (l.landscape ? hud.h * 0.3 : hud.h * 0.55));
-        ctx.globalAlpha = 1;
+  private drawBowl(sim: GeodaSim): void {
+    const ctx = this.ctx, L = this.layout, b = L.bowl;
+    const bw = sim.bowl;
+    const active = sim.restBlock && !!bw;
+    const s = Math.min(b.w * 0.62, b.h * (L.portrait ? 1.6 : 0.62), 170);
+    const cx = L.portrait ? b.x + s * 0.6 : b.x + b.w / 2;
+    const by = L.portrait ? b.y + b.h - 2 : b.y + s * 0.95;
+    ctx.save();
+    if (!active && !this.gemShow) ctx.globalAlpha = 0.45;
+    paintBowl(ctx, cx, by, s, bw?.polish ?? 0, active, this.clock);
+    const m = bw ? bw.mineral : this.gemShow?.m ?? -1;
+    if (m >= 0) {
+      const tier = bw ? bw.tier : this.gemShow!.tier;
+      drawSpecimen(ctx, cx, by - s * 0.45, s * 0.42, m, tier, this.clock);
+      if (bw) {
+        const p = bw.polish;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.25 + 0.6 * p;
+        sparkle(ctx, cx + s * 0.12, by - s * 0.6, s * (0.04 + 0.08 * p) * (1 + 0.3 * Math.sin(this.clock * 6)), '#fff');
+        ctx.restore();
       }
     }
-    this.particles.update(dt);
-    this.particles.draw(ctx);
+    // the words under (or beside) it
+    ctx.textAlign = L.portrait ? 'left' : 'center';
+    ctx.textBaseline = 'top';
+    const tx = L.portrait ? cx + s * 0.6 : cx, ty = L.portrait ? b.y + 2 : by + 6, maxW = L.portrait ? b.x + b.w - tx : b.w;
+    const size = Math.max(11, Math.min(15, s * 0.13));
+    ctx.font = `800 ${size}px ${SANS}`;
+    ctx.fillStyle = active ? C.rest : C.inkSoft;
+    ctx.fillText(t('v.bowl').toUpperCase(), tx, ty, maxW);
+    ctx.font = `600 ${Math.round(size * 0.92)}px ${SANS}`;
+    ctx.fillStyle = C.ink;
+    const line = this.gemShow ? this.gemShow.text : bw ? `${MINERALS[bw.mineral].title} · ${t('v.polish', { pct: pct(Math.round(bw.polish * 100)) })}` : t('v.bowlNext');
+    ctx.fillText(line, tx, ty + size * 1.3, maxW);
+    ctx.restore();
   }
+
+  private drawMole(sim: GeodaSim): void {
+    const L = this.layout, m = L.mole;
+    this.mole.face = L.portrait ? -1 : 1;
+    paintMole(this.ctx, m.x, m.y, m.s, this.mole);
+    const line = sim.talk.line;
+    if (!line) return;
+    const a = Math.min(1, line.t / 0.15, (line.dur - line.t) / 0.25);
+    const size = Math.max(12, Math.min(16, m.s * 0.13));
+    if (L.portrait) {
+      const g = L.goal;
+      paintBubble(this.ctx, line.text, g.x - L.dial.r - 4, g.y + g.h + 2, Math.min(this.w - 24, g.w + L.dial.r * 2 + 8), m.x - m.s * 0.25, m.y - m.s * 0.7, a, size);
+    } else {
+      const maxW = Math.max(160, Math.min(320, L.bowl.w + 30));
+      paintBubble(this.ctx, line.text, Math.max(8, m.x - maxW * 0.35), m.y - m.s * 1.08, maxW, m.x + m.s * 0.1, m.y - m.s * 0.92, a, size);
+    }
+  }
+
+  private drawFlies(sim: GeodaSim): void {
+    const L = this.layout, g = L.goal;
+    for (const f of this.flies) {
+      const k = ease.inOutSine(clamp(f.t / 0.8));
+      const gi = sim.spec.goal.findIndex(([kind]) => kind === f.kind);
+      const tx = g.x + g.w * (0.45 + 0.5 * ((gi + 0.5) / Math.max(1, sim.spec.goal.length))), ty = g.y + g.h / 2;
+      const x = f.x + (tx - f.x) * k, y = f.y + (ty - f.y) * k - Math.sin(k * Math.PI) * L.cell * 1.5;
+      paintJewel(this.ctx, x, y, L.cell * (0.3 + 0.15 * Math.sin(k * Math.PI)), f.kind, this.clock);
+      if (f.t > 0.78 && f.t - 1 / 60 <= 0.78) this.fx.burst(tx, ty, 10, { color: JEWELS[f.kind - 1].light, size: 2.2, speed: 120, life: 0.5 });
+    }
+  }
+
+  // ── story cards ─────────────────────────────────────────────────
+  private drawStory(sim: GeodaSim): void {
+    const s = sim.story!;
+    const ctx = this.ctx, L = this.layout, c = L.card;
+    const inK = ease.outCubic(clamp(s.t / 0.3)), out = clamp((s.dur - s.t) / 0.3);
+    const a = Math.min(inK, out);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(14,9,22,.86)';
+    const pad = Math.max(10, c.w * 0.05);
+    rrect(ctx, c.x + pad * 0.3, c.y + pad * 0.3 + (1 - inK) * 20, c.w - pad * 0.6, c.h - pad * 0.6, 18);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,211,107,.4)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const cx = c.x + c.w / 2, w = c.w - pad * 2.4;
+    let y = c.y + pad * 1.4;
+    const title = (text: string, size: number, color = C.gold) => {
+      fitFont(ctx, text, size, w, SERIF, 700, 12);
+      ctx.fillStyle = color;
+      ctx.fillText(text, cx, y);
+      y += size * 1.35;
+    };
+    const body = (text: string, size: number) => {
+      ctx.font = `500 ${size}px ${SANS}`;
+      ctx.fillStyle = C.ink;
+      for (const line of wrapText(ctx, text, w)) {
+        ctx.fillText(line, cx, y);
+        y += size * 1.35;
+      }
+    };
+    const big = Math.max(18, Math.min(34, c.w * 0.075));
+    const small = Math.max(12, Math.min(17, c.w * 0.04));
+    if (s.kind === 'open') {
+      title(t('open.title'), big);
+      body(t('open.text'), small);
+      y += small * 0.4;
+      const box = { x: c.x + pad, y, w: c.w - pad * 2, h: c.y + c.h - pad * 2.6 - y };
+      if (box.h > 40) {
+        const p = passage('isa54.11-12');
+        if (!this.verse || this.verse.w !== box.w) this.verse = { lay: layoutPassage(ctx, p, box.w, box.h, { max: Math.min(18, small + 1), min: 10 }), w: box.w };
+        drawPassage(ctx, p, this.verse.lay, cx, box.y, { text: '#f3e6ff', ref: C.gold });
+      }
+    } else if (s.kind === 'level') {
+      title(t('v.levelTitle', { n: s.level + 1 }), big);
+      // the stars
+      const sr = Math.min(28, c.w * 0.07);
+      for (let k = 0; k < 3; k++) {
+        const on = k < s.stars;
+        const pop = ease.outBack(clamp((s.t - 0.3 - k * 0.25) / 0.3));
+        star(ctx, cx + (k - 1) * sr * 2.4, y + sr, sr * (on ? pop : 1), on ? C.gold : 'rgba(255,255,255,.15)');
+      }
+      y += sr * 2.6;
+      body(t('v.levelPts', { n: fmt(s.points) }), small);
+      y += small * 0.5;
+      title(t('v.levelNext', { name: chamberName(s.next) }), small * 1.15, C.ink);
+      body(chamberStory(s.next), small * 0.95);
+    } else {
+      title(t('v.turnTitle'), big);
+      body(t('v.turnBoard', { n: fmt(s.points) }), small * 1.1);
+      if (s.record) title(t('v.turnRecord'), small * 1.3);
+      else if (s.toRecord !== null && s.toRecord > 0) body(t('v.turnTo', { n: fmt(s.toRecord) }), small);
+    }
+    ctx.font = `600 ${small * 0.9}px ${SANS}`;
+    ctx.fillStyle = 'rgba(253,246,234,.6)';
+    ctx.fillText(s.kind === 'open' ? t('open.tap') : t('v.tapOn'), cx, c.y + c.h - pad * 1.8);
+    ctx.restore();
+  }
+
+  /** The calibration scene is drawn by intro.ts on the same canvas. */
+  get context(): CanvasRenderingContext2D { return this.ctx; }
+  get size(): { w: number; h: number; dpr: number; top: number } { return { w: this.w, h: this.h, dpr: this.dpr, top: this.top }; }
 }
+
+function mixCombo(n: number): string {
+  const k = Math.min(1, (n - 2) / 8);
+  return `hsl(${Math.round(45 - 45 * k)}, 100%, ${Math.round(72 - 10 * k)}%)`;
+}
+
+function star(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string): void {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    if (i) ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); else ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const out: string[] = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(next).width > maxW) {
+      out.push(line);
+      line = word;
+    } else line = next;
+  }
+  if (line) out.push(line);
+  return out;
+}
+
+export type { Box };

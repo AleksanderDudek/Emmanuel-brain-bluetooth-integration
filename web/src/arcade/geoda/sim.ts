@@ -1,881 +1,751 @@
 /**
- * Geoda's rules, without the DOM or the canvas (randomness only from the injected `rng`), so the
- * whole session can run in a unit test.
+ * One Geoda session without the DOM or the canvas (randomness only from the injected `rng`), so a
+ * whole session runs in a unit test.
  *
- * The wall is 8×8: rock, empty sockets and set crystals.  The tray holds three crystals; only the
- * fed one grows, cell by cell along its ghost shape, at a rate the band drives
- * (`growthRate`: base 0.05 cells/s, up to 0.45 after a long steady hold) and with a clarity that
- * records how steady the focus was when the cell grew (`clarityOf`).  The hands place crystals,
- * Block Blast style: no rotation, the piece must fit entirely, carats are paid at once
- * (cells × clarity).  The session alternates three blocks — Wzrost (focus: growth and placing),
- * Zbiór (every full row and column shatters, top to bottom, with a bonus for several at once,
- * and regrows as rock with new gaps sized to what the player has been placing; a wall filled up
- * to all but a few cells breaks whole, a Pełna geoda, and a fresh geode starts) and Szlif (rest:
- * a rest block the kit's judge passes polishes the round's best gem) — each focus and rest block
- * judged once at its end.  Bad signal freezes the brain's part at neutral: no growth, no drip, the
- * block clock waits up to 10 s, the continuity that sets clarity pauses instead of breaking;
- * placing always works.  A session ended early settles at once (`settle`), as its end would have.
+ * The hands play Block Blast: three pieces in the tray, placed whole on the 8×8 board, a new three
+ * when all three are down; full rows and columns clear at once; a combo grows while every third
+ * placement at the latest clears something; an empty board pays a bonus.  When none of the tray's
+ * pieces fits anywhere the geode turns: the board's tally, its points kept, a fresh board — the
+ * session never ends early.  Two modes: the Wyprawa (chambers with rock and jewels to collect,
+ * stars by points) and the Klasyka (an endless board, its record).
+ *
+ * The band, in blocks the session plans to fill its time:
+ *   Blask (push)    the shine dial follows the focus level after the band's delay: ×1 … ×5 on every
+ *                   clear (×3 from the threshold up); above the threshold druses grow on cleared,
+ *                   still-empty cells, and a piece set over them harvests them.  A blind push
+ *                   ("Ciemna komora") hides the dial: its clears go into a sack, paid at the end ×
+ *                   the share of the judged window above the threshold.
+ *   Szlif (rest)    the push block's best clear becomes the round's gem in the bowl; calm polishes it;
+ *                   a passed rest or a full polish lifts its tier; it goes to the cabinet.
+ * Each block is judged once at its end (RoundJudge, the session's tuning).  While the signal is
+ * unreliable the dial and the polish hold still (never a loss); placing always works.
  */
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
-import { GEMS, SHAPES, type Pt } from './content';
-import {
-  bestSpot, EMPTY, emptyCell, ftueWall, GEM, generateWall, grabCell, lineCells, N, regrowLines, tapSpot, Wall, type CellKind, type Clarity,
-} from './wall';
+import type { PassageId } from '../kit/scripture';
+import { inTurn } from '../kit/scripture';
+import { SignalTrace } from '../kit/trace';
+import { Board, bestSpot, chamberBoard, deal, tapSpot, type Placed, type TrayItem } from './board';
+import { chamberName, LINES, MINERALS, TIERS, TIPS, type Moment } from './content';
+import { fmt, t } from './i18n';
+import { chamber, complete, found, migrate, nextMineral, shelve, starsFor, type ChamberSpec, type GeodaProgress, type Mode } from './meta';
+import { comboFactor, linePoints, multOf, RULES } from './rules';
+import { Talk } from './talk';
 
-export const WZROST_SEC = 24;
-export const ZBIOR_SEC = 3;
-export const SZLIF_SEC = 17;
-export const ROUND_SEC = WZROST_SEC + ZBIOR_SEC + SZLIF_SEC;
-const JITTER = 3;
-const MIN_BLOCK = 12;
-/** the telegraph before each block change (s) */
-export const TELEGRAPH_SEC = 4;
-/** the longest the block clock waits for the signal, per block (s) */
-const MAX_PAUSE = 10;
-export const FINALE_SEC = 5;
-/** the Zbiór's timing: the first line breaks after SHATTER_AT, the next ones SHATTER_STEP apart */
-export const SHATTER_AT = 0.35;
-export const SHATTER_STEP = 0.12;
-const REGROW_AT = 2;
-/** the Zbiór's bonus for 1 / 2 / 3 / 4+ lines broken at once, as a share of the carats in them */
-export const LINE_BONUS = [0, 0.5, 1, 2];
-/**
- * A Zbiór that finds at most this many empty cells breaks the whole geode, a Pełna geoda (all of its
- * 16 lines, so the top bonus on every crystal in it), and a fresh one starts (not in the first
- * session: see `toFull`).  Tuned so a player with steady focus fills one about every 3–5 sessions;
- * without control the wall never gets there.
- */
-export const FULL_EMPTY = 13;
+export type BlockKind = 'warmup' | 'push' | 'rest';
+export interface Block { kind: BlockKind; dur: number; blind: boolean }
 
-const rand = (rng: () => number, n: number) => Math.min(n - 1, Math.floor(rng() * n));
-
-// ── shapes ──────────────────────────────────────────────────────
-
-/** Shift cells so the smallest x and y are 0 (the order stays). */
-export function normalize(cells: readonly Pt[]): Pt[] {
-  let mx = Infinity, my = Infinity;
-  for (const [x, y] of cells) { mx = Math.min(mx, x); my = Math.min(my, y); }
-  return cells.map(([x, y]) => [x - mx, y - my] as const);
+export interface Bowl {
+  mineral: number;
+  /** the tier it starts at (a long combo in the round lifts it) */
+  tier: number;
+  base: number;
+  polish: number;
 }
 
-/** The distinct orientations of a shape (rotations and mirror images), each in growth order. */
-export function orientations(cells: readonly Pt[]): Pt[][] {
-  const out: Pt[][] = [], seen = new Set<string>();
-  for (let t = 0; t < 8; t++) {
-    const turned = normalize(cells.map(([x0, y0]) => {
-      let x = t >= 4 ? -x0 : x0, y = y0;
-      for (let r = 0; r < t % 4; r++) [x, y] = [-y, x];
-      return [x, y] as const;
-    }));
-    const key = turned.map(([x, y]) => `${x},${y}`).sort().join(' ');
-    if (!seen.has(key)) {
-      seen.add(key);
-      out.push(turned);
-    }
-  }
-  return out;
-}
-
-export const ORIENTS: Pt[][][] = SHAPES.map(s => orientations(s.cells));
-
-export function connected(cells: readonly Pt[]): boolean {
-  if (!cells.length) return false;
-  const key = (p: Pt) => `${p[0]},${p[1]}`;
-  const all = new Set(cells.map(key)), seen = new Set([key(cells[0])]), todo = [cells[0]];
-  while (todo.length) {
-    const [x, y] = todo.pop()!;
-    for (const n of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
-      const k = key(n);
-      if (all.has(k) && !seen.has(k)) { seen.add(k); todo.push(n); }
-    }
-  }
-  return seen.size === all.size;
-}
-
-// ── crystals ────────────────────────────────────────────────────
-
-export interface Crystal {
-  shape: number;
-  /** the full ghost shape in growth order, normalised */
-  ghost: Pt[];
-  gem: number;
-  /** cells grown so far (at least the seed's first one) */
-  grown: number;
-  /** how far the next cell has grown (0..1) */
-  frac: number;
-  /** the clarity of each grown cell, in growth order */
-  clarity: Clarity[];
-}
-
-/** The grown part of a crystal, normalised: what a placement puts on the wall. */
-export const crystalCells = (c: Crystal): Pt[] => normalize(c.ghost.slice(0, c.grown));
-
-/** Where the grown part sits inside the ghost (to draw it in the tray). */
-export function prefixOffset(c: Crystal): Pt {
-  let mx = Infinity, my = Infinity;
-  for (let i = 0; i < c.grown; i++) { mx = Math.min(mx, c.ghost[i][0]); my = Math.min(my, c.ghost[i][1]); }
-  return [mx, my];
-}
-
-export const complete = (c: Crystal): boolean => c.grown >= c.ghost.length;
-export const crystalValue = (c: Crystal): number => c.clarity.reduce((s, v) => s + v, 0);
-
-/** A new seed from the bag: a weighted shape in a random orientation, a colour the tray does not show yet. */
-export function dealSeed(rng: () => number, avoid: readonly number[], first: Clarity = 1): Crystal {
-  const total = SHAPES.reduce((s, x) => s + x.weight, 0);
-  let r = rng() * total, shape = 0;
-  while (shape < SHAPES.length - 1 && r >= SHAPES[shape].weight) r -= SHAPES[shape].weight, shape++;
-  const os = ORIENTS[shape];
-  const ghost = os[rand(rng, os.length)];
-  const free = GEMS.map((_, i) => i).filter(i => !avoid.includes(i));
-  const gem = free.length ? free[rand(rng, free.length)] : rand(rng, GEMS.length);
-  return { shape, ghost, gem, grown: 1, frac: 0, clarity: [first] };
-}
-
-// ── the brain mapping ───────────────────────────────────────────
-
-/**
- * Cells per second for the fed crystal: g = (0.05 + 0.25·u) × (1 + min(cont, 20)/40), with
- * u = clamp((level − lo)/0.5): a cell every 20 s at rest, up to one every 2.2 s after a 20 s hold.
- * `lo` is 0.35 (0.30 in the first three sessions: an easier threshold, never fake growth).
- */
-export function growthRate(level: number, cont: number, lo = 0.35): number {
-  const u = clamp((level - lo) / 0.5);
-  return (0.05 + 0.25 * u) * (1 + Math.min(Math.max(0, cont), 20) / 40);
-}
-
-/** Clarity records steadiness: under 4 s of continuity mleczny, 4–12 s czysty, 12 s and more lśniący. */
-export const clarityOf = (cont: number): Clarity => (cont >= 12 ? 3 : cont >= 4 ? 2 : 1);
-
-/** The drip's rate on display (drops/s), from the smoothed level. */
-export const dripRate = (level: number): number => 0.5 + 3 * clamp(level);
-
-/**
- * Continuity: the kit's `hold` within one Wzrost, except that an unreliable stretch pauses it
- * instead of breaking it (motion or poor contact is not the player's lapse).  Each Wzrost starts
- * it over, so a hold kept up through the rest never counts as the next block's steadiness.  Also
- * counts the cells grown within one hold (the bell's semitone ladder, one octave at most).
- */
-export class Continuity {
-  cont = 0;
-  ladder = 0;
-  longest = 0;
-  private prev = 0;
-  private gap = false;
-
-  /** A new Wzrost: from zero, in step with the kit's hold from the next reliable frame. */
-  restart(): void {
-    this.cont = 0;
-    this.ladder = 0;
-    this.gap = true;
-  }
-
-  push(f: FocusFrame): void {
-    if (!f.reliable) {
-      this.gap = true;
-      return;
-    }
-    if (this.gap) {
-      this.gap = false;
-      this.prev = f.hold;   // resume where it paused
-    }
-    if (!f.focused) {
-      this.cont = 0;
-      this.ladder = 0;
-      this.prev = f.hold;
-      return;
-    }
-    const d = f.hold - this.prev;
-    if (d >= 0) this.cont += d;
-    else {
-      this.cont = f.hold;
-      this.ladder = 0;
-    }
-    this.prev = f.hold;
-    this.longest = Math.max(this.longest, this.cont);
-  }
-
-  /** A cell grew: one step up the ladder (it resets silently with the hold). */
-  step(): number {
-    this.ladder = Math.min(12, this.ladder + 1);
-    return this.ladder;
-  }
-}
-
-// ── the block plan ──────────────────────────────────────────────
-
-export type BlockKind = 'wzrost' | 'zbior' | 'szlif';
-export interface Block { kind: BlockKind; dur: number; round: number; blind: boolean }
-
-/**
- * The session's blocks: rounds of Wzrost 24 s ± 3 → Zbiór 3 s → Szlif 17 s, scaled so the plan
- * ends at the planned time (`playSec`, the play actually left), never a focus or rest block under
- * 12 s.  A 40 s session gets a 16 s Wzrost, a Zbiór, then Szlif to the end.  With `blind`, every
- * fourth Wzrost (the 3rd, 7th, …) is a Ciemna komora.
- */
-export function planBlocks(plannedSec: number, rng: () => number, o: { blind?: boolean; playSec?: number } = {}): Block[] {
-  const play = o.playSec ?? plannedSec;
-  const make = (kind: BlockKind, dur: number, round: number): Block => ({ kind, dur, round, blind: !!o.blind && kind === 'wzrost' && round % 4 === 2 });
-  if (plannedSec < 60) {
-    const w = clamp(Math.round(plannedSec * 0.4), MIN_BLOCK, WZROST_SEC);
-    return [make('wzrost', w, 0), make('zbior', ZBIOR_SEC, 0), make('szlif', Math.max(MIN_BLOCK, play - w - ZBIOR_SEC), 0)];
-  }
-  const n = Math.max(1, Math.round(plannedSec / ROUND_SEC));
-  const f = (play - n * ZBIOR_SEC) / (n * (WZROST_SEC + SZLIF_SEC));
-  const ws: number[] = [], ss: number[] = [];
-  for (let i = 0; i < n; i++) {
-    ws.push(clamp(WZROST_SEC * f + (rng() * 2 - 1) * JITTER, 16, 30));
-    ss.push(clamp(SZLIF_SEC * f + (rng() * 2 - 1) * 2, MIN_BLOCK, 26));
-  }
-  // jitter moves the starts, not the end: spread the drift over the rests, the last one takes the remainder
-  const sum = (a: number[]) => a.reduce((s, v) => s + v, 0);
-  const drift = play - n * ZBIOR_SEC - sum(ws) - sum(ss);
-  for (let i = 0; i < n; i++) ss[i] = clamp(ss[i] + drift / n, MIN_BLOCK, 30);
-  ss[n - 1] = clamp(play - n * ZBIOR_SEC - sum(ws) - sum(ss.slice(0, -1)), MIN_BLOCK, 40);
-  const out: Block[] = [];
-  for (let i = 0; i < n; i++) out.push(make('wzrost', ws[i], i), make('zbior', ZBIOR_SEC, i), make('szlif', ss[i], i));
-  return out;
-}
-
-// ── the session ─────────────────────────────────────────────────
-
-export type Phase = 'ready' | 'wzrost' | 'zbior' | 'szlif' | 'finale' | 'done';
-
-export interface Piece { id: number; gem: number; cells: number[]; clarity: Clarity[]; value: number; round: number; polish: number }
-
-/** A gem in the Szlif's bowl: harvested from the wall (or, without a harvest, the round's crystals). */
-export interface BowlGem { piece: number; gem: number; cells: number; value: number; clarity: Clarity; polish: number }
-
-export interface ShatterCell { i: number; k: CellKind; gem: number; clarity: Clarity }
+export type Story =
+  | { kind: 'open'; t: number; dur: number }
+  | { kind: 'level'; t: number; dur: number; level: number; stars: number; points: number; next: number }
+  | { kind: 'turn'; t: number; dur: number; points: number; record: boolean; toRecord: number | null };
 
 export type GeodaEvent =
-  | { type: 'wzrost'; round: number; blind: boolean; refill: number[] }
-  | { type: 'grow'; slot: number; cell: number; clarity: Clarity; ladder: number; hidden: boolean }
-  | { type: 'sprout'; slot: number; clarity: Clarity; hidden: boolean }
+  | { type: 'deal'; items: TrayItem[] }
   | { type: 'select'; slot: number }
-  | { type: 'place'; slot: number; piece: number; cells: number[]; carats: number; lines: number[] }
-  | { type: 'nofit'; slot: number; cell: number }
-  /** a tap or a key with nothing in the tray to set: the seeds are still sprouting */
-  | { type: 'wait'; slot: number; cell: number }
-  | { type: 'crumble'; slot: number }
-  | { type: 'telegraph'; to: 'szlif' | 'wzrost' }
-  | { type: 'reveal'; slot: number; grown: number; total: number; clarity: Clarity }
-  | { type: 'verdict'; kind: 'focus' | 'rest'; ok: boolean | null }
-  | { type: 'zbior'; lines: number[]; full: boolean }
-  | { type: 'shatter'; line: number; index: number; cells: ShatterCell[] }
-  | { type: 'bonus'; lines: number; mult: number; carats: number }
-  | { type: 'regrow'; cells: number[]; cleared: number[]; full: boolean }
-  | { type: 'szlif'; gems: BowlGem[] }
-  | { type: 'polish'; piece: number; polish: number }
-  | { type: 'finale' };
+  | {
+    type: 'place'; slot: number; gx: number; gy: number; item: TrayItem; placed: Placed; points: number; clearPts: number;
+    lines: number; combo: number; mult: number; druse: number; clean: boolean; blind: boolean;
+  }
+  | { type: 'miss'; slot: number }
+  | { type: 'comboBreak'; combo: number }
+  | { type: 'fuse'; left: number }
+  | { type: 'mult'; mult: number; up: boolean }
+  | { type: 'jewel'; kind: number; i: number; got: number; need: number }
+  | { type: 'turn'; points: number; record: boolean; toRecord: number | null }
+  | { type: 'level'; level: number; stars: number; points: number }
+  | { type: 'bowl'; bowl: Bowl }
+  | { type: 'gem'; mineral: number; tier: number; polished: boolean; outcome: 'new' | 'up' | 'same'; points: number }
+  | { type: 'reveal'; share: number; mult: number; points: number }
+  | { type: 'stuck'; slot: number }
+  | { type: 'telegraph'; next: Block | null }
+  | { type: 'blockStart'; block: Block; index: number }
+  | { type: 'blockEnd'; block: Block; verdict: boolean | null; share: number; need: number }
+  | { type: 'story'; story: Story }
+  | { type: 'done' };
 
-export interface GeodaStats {
-  placed: number;
-  cells: number;
-  /** cells placed per clarity (index 1..3) */
-  clarityCells: [number, number, number, number];
-  lines: number;
-  harvests: number;
-  /** Zbiór blocks that broke at least one line */
-  harvestsWithLine: number;
-  bonus: number;
-  fullGeodes: number;
-  polished: number;
-  /** Szlifs with a gem in the bowl (the ones that could polish) */
-  szlifs: number;
-  focusPass: number;
-  focusJudged: number;
-  restPass: number;
-  restJudged: number;
-  /** reliable seconds on the asked side of the threshold (XP) */
-  zoneSec: number;
-  crumbles: number;
-  /** the very first crystal of a first session was set */
-  firstCrystal: boolean;
-  /** the session's finest crystal */
-  best: { cells: number; total: number; clarity: Clarity; value: number; gem: number } | null;
-  blind: { grown: number; total: number; clarity: Clarity }[];
+/** No block under `min` s: lift the short ones and take the time from the others, keeping the total. */
+function liftShort(durs: number[], min: number): void {
+  const short = durs.reduce((s, d) => s + Math.max(0, min - d), 0);
+  if (short <= 0) return;
+  const spare = durs.reduce((s, d) => s + Math.max(0, d - min), 0);
+  const k = spare > 0 ? Math.min(1, short / spare) : 0;
+  for (let i = 0; i < durs.length; i++) durs[i] = durs[i] < min ? min : durs[i] - (durs[i] - min) * k;
 }
 
-export interface SimOptions {
-  plannedSec: number;
-  /** the session's randomness (new gaps, the seed bag) */
+/**
+ * The session's blocks, filling `plannedSec`: a first-ever session opens with a warm-up (30 s in 5
+ * min and more, 20 s otherwise, 6 s in a 40 s test), then Blask / Szlif pairs (24 ± 4 s and 22 ± 3
+ * s, scaled to end on time, jittered when there is room) ending with a Szlif.  No block under 12 s
+ * (a test session under a minute: whatever fits).
+ */
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
+  const R = RULES;
+  const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
+  const total = Math.max(10, plannedSec);
+  if (total <= 60) {
+    const warm = firstEver ? Math.min(R.warm.test, total * 0.2) : 0;
+    const left = total - warm;
+    const rest = Math.min(14, left / 2);
+    const plan = [b('push', left - rest), b('rest', rest)];
+    return warm > 0 ? [b('warmup', warm), ...plan] : plan;
+  }
+  const plan: Block[] = [];
+  let left = total;
+  if (firstEver) {
+    const warm = total >= 300 ? R.warm.long : R.warm.short;
+    plan.push(b('warmup', warm));
+    left -= warm;
+  }
+  const pair = R.push[0] + R.rest[0];
+  const pairs = Math.max(1, Math.round(left / pair));
+  const jitter = pairs >= 2 && left / (pairs * pair) >= 0.85 ? 1 : 0;
+  const durs: number[] = [];
+  for (let i = 0; i < pairs; i++) durs.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1], R.rest[0] + jitter * (rnd() * 2 - 1) * R.rest[1]);
+  const scale = left / durs.reduce((s, d) => s + d, 0);
+  for (let i = 0; i < durs.length; i++) durs[i] *= scale;
+  liftShort(durs, R.minBlock);
+  durs.forEach((dur, i) => plan.push(b(i % 2 ? 'rest' : 'push', dur)));
+  return plan;
+}
+
+export interface SimInit {
+  progress: GeodaProgress;
   rng: () => number;
-  /** the first wall and the seed bag, when they must be the same for everybody (the daily geode) */
-  bagRng?: () => number;
-  /** the first session ever: a wall to learn on, one seed that grows its 2nd cell in about 6 s, slots opening one per round */
-  ftue?: boolean;
-  /** the first three sessions: growth starts rising at level 0.30 */
-  beginner?: boolean;
-  /** from the 4th session: one Wzrost in four is a Ciemna komora */
-  blind?: boolean;
-  /**
-   * The session's focus tuning (the runner's: the kit's, Geoda's entry, a beginner's on top): the
-   * blocks' judge takes its share of time above the threshold and its lean toward the player from
-   * it, so focus and rest blocks pass equally often by chance.
-   */
+  plannedSec: number;
+  eeg: boolean;
   tuning: FocusTuning;
 }
 
-const dominant = (cl: readonly Clarity[]): Clarity => {
-  const n = [0, 0, 0, 0];
-  for (const c of cl) n[c]++;
-  return (n[3] >= n[2] && n[3] >= n[1] ? 3 : n[2] >= n[1] ? 2 : 1) as Clarity;
-};
-
 export class GeodaSim {
-  plan: Block[] = [];
-  wall: Wall;
-  readonly tray: (Crystal | null)[] = [null, null, null];
-  /** the selected crystal: the one taps and keys place, and the one fed (in a Ciemna komora the chamber's grows instead) */
-  fed = 0;
-  phase: Phase = 'ready';
-  blockIndex = 0;
-  /** seconds into the current block (the block clock) */
-  bt = 0;
-  readonly brain = new Continuity();
-  /** the drip on display (drops/s), smoothed */
-  drip = 0;
-  /**
-   * The Szlif's shine on display (0..1): the share of the judged window spent below the threshold,
-   * filling in over its first 5 s.  At the block's end it polishes from `polishNeed` up.
-   */
-  shine = 0;
-  carats = 0;
-  readonly events: GeodaEvent[] = [];
-  readonly stats: GeodaStats = {
-    placed: 0, cells: 0, clarityCells: [0, 0, 0, 0], lines: 0, harvests: 0, harvestsWithLine: 0, bonus: 0, fullGeodes: 0,
-    polished: 0, szlifs: 0, focusPass: 0, focusJudged: 0, restPass: 0, restJudged: 0, zoneSec: 0, crumbles: 0,
-    firstCrystal: false, best: null, blind: [],
-  };
-  readonly pieces = new Map<number, Piece>();
-  readonly contrast = new BlockContrast(4);
-  /** the Zbiór in progress */
-  harvest: { lines: number[]; t: number; done: number; bonus: number; paid: boolean; regrown: boolean; full: boolean; count: number } | null = null;
-  bowl: BowlGem[] = [];
-  /** the bowl's best gem (index), polished at the end of a calm Szlif */
-  bowlBest = -1;
-  finaleT = 0;
-  /** time is up: the session ends after the current Zbiór or drag */
-  ending = false;
-  /** the Ciemna komora's crystal (its growth is hidden until the Zbiór) */
-  blindSlot = -1;
-  /** progress of a seed sprouting in each empty slot */
-  readonly sprout = [0, 0, 0];
-  readonly ftue: boolean;
-  private readonly lo: number;
-  private readonly bag: () => number;
-  private overflow = 0;
-  private pauseUsed = 0;
-  private nextId = 1;
-  private telegraphed = false;
+  readonly p: GeodaProgress;
+  readonly plannedSec: number;
+  private readonly rng: () => number;
   private readonly judge: RoundJudge;
-  private harvested = new Map<number, { gem: number; cells: number; value: number; clarity: Clarity[] }>();
-  /** sizes of the crystals placed in each round (adaptive gaps) */
-  private readonly sizes: number[][] = [];
+  readonly contrast = new BlockContrast(4);
+  /** the band's last 40 s: the crystal skyline along the geode's foot */
+  readonly trace = new SignalTrace(40, 0.25);
+  readonly talk: Talk;
+  private readonly events: GeodaEvent[] = [];
+  readonly eeg: boolean;
+  readonly lead: number;
+  readonly restLead: number;
+  readonly firstEver: boolean;
+  readonly session: number;
+  readonly mode: Mode;
+  readonly plan: Block[];
 
-  constructor(readonly o: SimOptions) {
-    this.ftue = !!o.ftue;
-    this.lo = o.beginner ? 0.3 : 0.35;
-    this.bag = o.bagRng ?? o.rng;
-    this.wall = this.ftue ? ftueWall() : generateWall(this.bag);
-    this.judge = RoundJudge.from(o.tuning);
+  started = false;
+  ended = false;
+  blockIndex = 0;
+  blockT = 0;
+  private telegraphed = false;
+  t = 0;
+  tip = '';
+  story: Story | null = null;
+  lastInput = 0;
+
+  // the board
+  board = new Board();
+  tray: (TrayItem | null)[] = [null, null, null];
+  selected = 0;
+  /** the Wyprawa's chamber and its jewels collected (per goal entry) */
+  spec: ChamberSpec;
+  got: number[] = [];
+
+  // scoring
+  score = 0;
+  boardPts = 0;
+  levelPts = 0;
+  combo = 0;
+  fuse = 0;
+  bestCombo = 0;
+  lines = 0;
+  cleans = 0;
+  turns = 0;
+  levelsDone = 0;
+  starsWon = 0;
+  placements = 0;
+  maxMult = 1;
+  /** the best clear of the round (since the last Szlif) and its longest combo: the round's gem */
+  private roundBest = 0;
+  private roundCombo = 0;
+
+  // the band
+  reliable = false;
+  level = 0;
+  calm = 0;
+  dial = 0;
+  mult = 1;
+  calmShown = 0;
+  private goodT = 0;
+  private goodSaid = false;
+  private relSec = 0;
+  /** a blind push's sack of base points */
+  sack = 0;
+  bowl: Bowl | null = null;
+  readonly gems: { mineral: number; tier: number; outcome: 'new' | 'up' | 'same' }[] = [];
+  polishedGems = 0;
+  blindShare = -1;
+  private readonly bestBefore: number;
+  private readonly bestBoardBefore: number;
+  private readonly foundBefore: number;
+  private readonly pushesBase: number;
+  private pushesBegun = 0;
+
+  constructor(init: SimInit) {
+    const p = (this.p = migrate(init.progress));
+    this.rng = init.rng;
+    this.plannedSec = init.plannedSec;
+    this.eeg = init.eeg;
+    this.judge = RoundJudge.from(init.tuning);
+    this.lead = RULES.leadIn[init.eeg ? 'eeg' : 'fnirs'];
+    this.restLead = RULES.restLead[init.eeg ? 'eeg' : 'fnirs'];
+    this.firstEver = p.sessions === 0;
+    this.session = p.sessions + 1;
+    this.mode = this.firstEver ? 'adventure' : p.mode;
+    this.bestBefore = p.best;
+    this.bestBoardBefore = p.bestBoard;
+    this.foundBefore = found(p);
+    this.pushesBase = p.pushes;
+    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng);
+    this.talk = new Talk(LINES, init.rng);
+    this.spec = chamber(p.level);
   }
 
-  get block(): Block | null { return this.plan[this.blockIndex] ?? null; }
-  get round(): number { return this.block?.round ?? 0; }
-
-  /** Tray slots in use: the first session opens them one per round (feeding comes in round 2). */
-  get slots(): number { return this.ftue ? Math.min(3, this.round + 1) : 3; }
-
-  /** Play begins; `playSec` = the play actually left on the session clock. */
-  start(playSec = this.o.plannedSec): void {
-    if (this.phase !== 'ready') return;
-    this.plan = planBlocks(this.o.plannedSec, this.o.rng, { blind: this.o.blind, playSec });
-    this.blockIndex = 0;
-    this.enter();
+  // ── the blocks ──────────────────────────────────────────────────
+  get block(): Block { return this.plan[Math.min(this.blockIndex, this.plan.length - 1)]; }
+  get next(): Block | null { return this.plan[this.blockIndex + 1] ?? null; }
+  get pushBlock(): boolean { return !this.ended && this.block.kind === 'push'; }
+  get restBlock(): boolean { return !this.ended && this.block.kind === 'rest'; }
+  get warmBlock(): boolean { return !this.ended && this.block.kind === 'warmup'; }
+  get blind(): boolean { return this.pushBlock && this.block.blind; }
+  /** a sighted push past the band's delay: the dial answers the band */
+  get sighted(): boolean { return this.pushBlock && !this.block.blind && this.blockT >= this.lead; }
+  get polishing(): boolean { return this.restBlock && this.blockT >= this.restLead && this.bowl !== null; }
+  get telegraphing(): boolean { return !this.ended && this.blockT >= this.block.dur - RULES.telegraph && this.blockIndex < this.plan.length - 1; }
+  get left(): number { return Math.max(0, this.block.dur - this.blockT); }
+  /** Bazyl keeps quiet under a story card, the runner's banner and a telegraph */
+  get talkBlocked(): boolean {
+    if (this.story) return true;
+    if (this.ended) return false;
+    if (this.block.kind !== 'warmup' && this.blockT < RULES.bannerSec) return true;
+    return this.telegraphing;
   }
 
-  // ── the clock ─────────────────────────────────────────────────
-  /** `busy` = a drag is in the player's hand (the session's end waits for it to land). */
-  update(dt: number, f: FocusFrame, timeUp: boolean, busy = false): void {
-    if (this.phase === 'ready' || this.phase === 'done') return;
-    if (timeUp && !this.ending) this.timeUp();
-    if (this.phase === 'finale') {
-      this.finaleT += dt;
-      if (this.finaleT >= FINALE_SEC) this.phase = 'done';
-      return;
-    }
-    if (this.phase === 'zbior') {
-      this.zbior(dt, busy);
-      return;
-    }
-    if (this.phase === 'wzrost') this.wzrost(dt, f);
-    else this.szlif(dt, f);
-    // the block clock: an unreliable stretch holds it, up to MAX_PAUSE per block
-    if (!f.reliable && this.pauseUsed < MAX_PAUSE) this.pauseUsed += dt;
-    else this.bt += dt;
-    const b = this.block!;
-    if (this.bt >= b.dur - TELEGRAPH_SEC && !this.telegraphed && this.blockIndex < this.plan.length - 1 && !this.ending) {
-      this.telegraphed = true;
-      this.events.push({ type: 'telegraph', to: this.phase === 'wzrost' ? 'szlif' : 'wzrost' });
-    }
-    if (this.bt >= b.dur) this.next();
+  start(): void {
+    if (this.started) return;
+    this.started = true;
+    this.p.sessions++;
+    this.newBoard(false);
+    if (this.firstEver) this.setStory({ kind: 'open', t: 0, dur: RULES.openSec });
+    else this.talk.ask('open', 2, 8);
+    this.startBlock(0);
   }
 
-  /** The 4 s before a block change: where it goes and how far (0..1). */
-  get telegraph(): { to: 'szlif' | 'wzrost'; k: number } | null {
-    const b = this.block;
-    if (!b || this.ending || (this.phase !== 'wzrost' && this.phase !== 'szlif') || this.blockIndex >= this.plan.length - 1) return null;
-    const left = b.dur - this.bt;
-    return left > TELEGRAPH_SEC ? null : { to: this.phase === 'wzrost' ? 'szlif' : 'wzrost', k: clamp(1 - left / TELEGRAPH_SEC) };
-  }
-
-  /** The current block's progress (0..1). */
-  get blockProgress(): number {
-    const b = this.block;
-    if (this.phase === 'zbior') return clamp((this.harvest?.t ?? 0) / ZBIOR_SEC);
-    return b ? clamp(this.bt / b.dur) : 0;
-  }
-
-  private timeUp(): void {
-    this.ending = true;
-    if (this.phase === 'wzrost') this.next();
-    else if (this.phase === 'szlif') {
-      this.endSzlif();
-      this.finale();
-    }
-  }
-
-  /**
-   * The session ends before its own ending ("Zakończ i zapisz"): what time-up would have done, at
-   * once — an open Wzrost is judged and its full lines break and pay (a Ciemna komora shows what
-   * grew), an open Zbiór finishes, an open Szlif is judged and polishes — up to the finale.
-   */
-  settle(): void {
-    if (this.phase !== 'wzrost' && this.phase !== 'zbior' && this.phase !== 'szlif') return;
-    if (!this.ending) this.timeUp();
-    if (this.phase === 'zbior') this.zbior(ZBIOR_SEC, false);
-  }
-
-  private next(): void {
-    const b = this.block;
-    if (!b) return;
-    if (b.kind === 'zbior' && this.ending) {
-      this.finale();
-      return;
-    }
-    if (b.kind === 'szlif') {
-      // the plan done before the clock: the Szlif simply goes on until time is up
-      if (this.blockIndex >= this.plan.length - 1) return;
-      this.endSzlif();
-    }
-    this.blockIndex++;
-    this.enter();
-  }
-
-  private enter(): void {
-    const b = this.block!;
-    this.bt = 0;
-    this.pauseUsed = 0;
-    this.telegraphed = false;
-    this.phase = b.kind;
-    if (b.kind === 'wzrost') this.enterWzrost(b);
-    else if (b.kind === 'szlif') this.enterSzlif();
-    else this.enterZbior();
-  }
-
-  private finale(): void {
-    this.phase = 'finale';
-    this.finaleT = 0;
-    this.harvest = null;
-    this.events.push({ type: 'finale' });
-  }
-
-  // ── Wzrost ────────────────────────────────────────────────────
-  private enterWzrost(b: Block): void {
-    this.sizes[b.round] = this.sizes[b.round] ?? [];
-    const refill: number[] = [];
-    for (let s = 0; s < this.slots; s++) {
-      if (this.tray[s]) continue;
-      this.tray[s] = this.ftue && b.round === 0 && s === 0
-        ? { ...dealSeed(this.bag, []), shape: 0, ghost: ORIENTS[0][0], gem: 0, frac: 0.7 }   // I3 across: its first two cells fit the gap
-        : dealSeed(this.bag, this.trayGems());
-      this.sprout[s] = 0;
-      refill.push(s);
-    }
-    if (this.fed >= this.slots) this.fed = 0;
-    this.blindSlot = b.blind ? this.fed : -1;
-    if (b.blind) {
-      // the chamber's crystal grows unseen; taps and keys work with the others meanwhile
-      const other = [1, 2].map(k => (this.fed + k) % this.slots).find(s => s !== this.blindSlot && this.tray[s]);
-      if (other !== undefined) this.fed = other;
-    }
-    this.overflow = 0;
-    this.brain.restart();
-    this.events.push({ type: 'wzrost', round: b.round, blind: b.blind, refill });
-  }
-
-  private wzrost(dt: number, f: FocusFrame): void {
-    this.brain.push(f);
-    this.judge.push('focus', f, dt);
-    this.contrast.push('focus', f.activity, f.reliable, this.bt, dt);
-    if (f.reliable && f.activity !== null && f.activity >= f.threshold) this.stats.zoneSec += dt;
-    this.drip = approach(this.drip, f.reliable ? dripRate(f.level) : 0, dt, 1.5);
-    if (f.reliable) this.grow(growthRate(f.level, this.brain.cont, this.lo) * dt);
-  }
-
-  private trayGems(): number[] { return this.tray.filter((c): c is Crystal => !!c).map(c => c.gem); }
-
-  /**
-   * Where the water runs: the fed crystal; when it is full, an empty slot (a new seed sprouts from
-   * the next grown cell, so no drop is wasted), else the next crystal still growing.  −1: nowhere.
-   */
-  growTarget(): number {
-    if (this.blindSlot >= 0) return this.blindSlot;
-    const n = this.slots, f = this.fed;
-    const c = this.tray[f];
-    if (f < n && (!c || !complete(c))) return f;
-    for (let k = 1; k < n; k++) if (!this.tray[(f + k) % n]) return (f + k) % n;
-    for (let k = 1; k < n; k++) {
-      const s = (f + k) % n;
-      if (!complete(this.tray[s]!)) return s;
-    }
-    return -1;
-  }
-
-  /** Grow by `amount` cells (fractions carry over). */
-  grow(amount: number): void {
-    let left = amount;
-    for (let guard = 0; left > 1e-12 && guard < 20; guard++) {
-      const s = this.growTarget();
-      if (s < 0) return;
-      const c = this.tray[s];
-      const hidden = this.blindSlot >= 0;
-      if (hidden && c && complete(c)) {
-        this.overflow += left;   // the chamber's crystal is full: the rest waits for the reveal
-        return;
-      }
-      if (!c) {
-        const need = 1 - this.sprout[s];
-        if (left < need) { this.sprout[s] += left; return; }
-        left -= need;
-        this.sprout[s] = 0;
-        const cl = clarityOf(this.brain.cont);
-        this.tray[s] = dealSeed(this.bag, this.trayGems(), cl);
-        this.brain.step();
-        this.events.push({ type: 'sprout', slot: s, clarity: cl, hidden: false });
-        continue;
-      }
-      const need = 1 - c.frac;
-      if (left < need) { c.frac += left; return; }
-      left -= need;
-      c.frac = 0;
-      const cl = clarityOf(this.brain.cont);
-      c.clarity.push(cl);
-      c.grown++;
-      this.events.push({ type: 'grow', slot: s, cell: c.grown - 1, clarity: cl, ladder: this.brain.step(), hidden });
+  // ── the hands ───────────────────────────────────────────────────
+  /** Select a tray piece (keys 1–3, a tap on it). */
+  select(slot: number): void {
+    if (!this.tray[slot]) return;
+    this.lastInput = this.t;
+    if (this.selected !== slot) {
+      this.selected = slot;
+      this.emit({ type: 'select', slot });
     }
   }
 
-  // ── the hands ─────────────────────────────────────────────────
-  /** May this crystal be set now?  (Wzrost; a drag still in the hand may land during the Zbiór.) */
-  canPlace(slot: number, drop = false): boolean {
-    const okPhase = this.phase === 'wzrost' || (drop && this.phase === 'zbior');
-    return okPhase && slot >= 0 && slot < this.slots && !!this.tray[slot] && slot !== this.blindSlot;
+  /** The piece to place when none is named: the selected one, else the first that is there. */
+  get current(): number {
+    if (this.tray[this.selected]) return this.selected;
+    const i = this.tray.findIndex(x => x !== null);
+    return i < 0 ? 0 : i;
   }
 
-  select(slot: number): boolean {
-    if (slot < 0 || slot >= this.slots || slot === this.blindSlot || (this.phase !== 'wzrost' && this.phase !== 'zbior')) return false;
-    if (this.fed !== slot) {
-      this.fed = slot;
-      this.events.push({ type: 'select', slot });
-    }
+  /** Close a story card (a tap or Space on it): true when there was one. */
+  dismiss(): boolean {
+    if (!this.story) return false;
+    this.lastInput = this.t;
+    this.story = null;
     return true;
   }
 
-  /**
-   * The crystals a tap or a key sets, in order: the selected one; when its slot is empty (a seed
-   * sprouting there), the next crystals in the tray instead — the selection stays, so the water
-   * keeps sprouting the empty slot.
-   */
-  handOrder(): number[] {
-    if (this.canPlace(this.fed)) return [this.fed];
-    const out: number[] = [];
-    for (let k = 1; k < this.slots; k++) {
-      const s = (this.fed + k) % this.slots;
-      if (this.canPlace(s)) out.push(s);
+  /** Place a tray piece with its top-left at (gx, gy); false if it does not fit there. */
+  place(slot: number, gx: number, gy: number): boolean {
+    if (!this.started) return false;
+    const item = this.tray[slot];
+    if (!item) return false;
+    this.lastInput = this.t;
+    if (this.story) this.story = null;
+    if (!this.board.fits(item.piece, gx, gy)) {
+      this.emit({ type: 'miss', slot });
+      return false;
     }
-    return out;
-  }
-
-  /** The crystal a tap or a key sets now (−1: none, the tray is sprouting). */
-  get placing(): number { return this.handOrder()[0] ?? -1; }
-
-  /** Set the crystal in `slot` with its grown part's top-left at (ax, ay); false when it does not fit. */
-  place(slot: number, ax: number, ay: number, drop = false): boolean {
-    if (!this.canPlace(slot, drop)) return false;
-    const c = this.tray[slot]!;
-    const cells = crystalCells(c);
-    if (!this.wall.fits(cells, ax, ay)) return false;
-    const before = new Set(this.wall.fullLines());
-    const id = this.nextId++;
-    const idx = cells.map(([x, y], k) => {
-      const i = (ay + y) * N + ax + x;
-      this.wall.cells[i] = { k: GEM, gem: c.gem, clarity: c.clarity[k], piece: id };
-      return i;
-    });
-    const value = crystalValue(c);
-    this.carats += value;
-    this.pieces.set(id, { id, gem: c.gem, cells: idx, clarity: [...c.clarity], value, round: this.round, polish: 0 });
     this.tray[slot] = null;
-    this.sprout[slot] = 0;
-    const st = this.stats;
-    st.placed++;
-    st.cells += c.grown;
-    for (const cl of c.clarity) st.clarityCells[cl]++;
-    if (this.ftue && st.placed === 1) st.firstCrystal = true;
-    const cl = dominant(c.clarity);
-    if (!st.best || value > st.best.value) st.best = { cells: c.grown, total: c.ghost.length, clarity: cl, value, gem: c.gem };
-    (this.sizes[this.round] = this.sizes[this.round] ?? []).push(c.grown);
-    const lines = this.wall.fullLines().filter(l => !before.has(l));
-    this.events.push({ type: 'place', slot, piece: id, cells: idx, carats: value, lines });
+    this.placements++;
+    const placed = this.board.place(item.piece, gx, gy, item.tile, item.jewel, item.jewelAt);
+    this.score1(slot, gx, gy, item, placed);
+    if (this.tray.every(x => x === null)) this.refill();
+    else this.selected = this.current;
+    this.checkStuck();
     return true;
   }
 
-  /**
-   * A tap on wall cell (cx, cy): set the selected crystal (or, while its slot sprouts, the next one
-   * that fits there) so it covers that cell, or the nearest spot within one cell; null and a "nie
-   * pasuje" when there is none, a "wait" when the tray has nothing to set yet.
-   */
-  tapWall(cx: number, cy: number): Pt | null {
-    if (this.phase !== 'wzrost') return null;
-    const order = this.handOrder(), cell = cy * N + cx;
-    for (const slot of order) {
-      const spot = tapSpot(this.wall, crystalCells(this.tray[slot]!), cx, cy);
-      if (spot && this.place(slot, spot[0], spot[1])) return spot;
-    }
-    this.events.push(order.length ? { type: 'nofit', slot: order[0], cell } : { type: 'wait', slot: this.fed, cell });
-    return null;
+  /** A tap on the board at cell (cx, cy) with no drag: the current piece goes there, or as near as it fits. */
+  tapAt(cx: number, cy: number): boolean {
+    if (this.dismiss()) return true;
+    const slot = this.current, item = this.tray[slot];
+    if (!item) return false;
+    const s = tapSpot(this.board, item.piece, cx, cy);
+    return s ? this.place(slot, s[0], s[1]) : false;
   }
 
-  /**
-   * Space: the selected crystal (or, while its slot sprouts, the next one that fits) at the key
-   * cursor when it fits there, else at the best spot (the most cells of nearly full lines).
-   */
-  placeKey(cursor: Pt | null): Pt | null {
-    if (this.phase !== 'wzrost') return null;
-    const order = this.handOrder(), cell = cursor ? cursor[1] * N + cursor[0] : -1;
-    for (const slot of order) {
-      const cells = crystalCells(this.tray[slot]!);
-      let spot: Pt | null = null;
-      if (cursor) {
-        const g = grabCell(cells);
-        const a: Pt = [cursor[0] - g[0], cursor[1] - g[1]];
-        if (this.wall.fits(cells, a[0], a[1])) spot = a;
+  /** The auto-place helper (Space): the current piece at its best spot. */
+  auto(): boolean {
+    if (this.dismiss()) return true;
+    for (let k = 0; k < 3; k++) {
+      const slot = (this.current + k) % 3, item = this.tray[slot];
+      if (!item) continue;
+      const s = bestSpot(this.board, item.piece);
+      if (s) return this.place(slot, s[0], s[1]);
+    }
+    return false;
+  }
+
+  /** Where the auto-place would put the current piece (the view shows it faintly). */
+  autoSpot(): { slot: number; gx: number; gy: number } | null {
+    const slot = this.current, item = this.tray[slot];
+    if (!item) return null;
+    const s = bestSpot(this.board, item.piece);
+    return s ? { slot, gx: s[0], gy: s[1] } : null;
+  }
+
+  key(key: string, down: boolean): boolean {
+    if (!down) return key === ' ' || key === 'Enter' || ['1', '2', '3'].includes(key);
+    if (key === ' ' || key === 'Enter') {
+      this.auto();
+      return true;
+    }
+    if (['1', '2', '3'].includes(key)) {
+      this.select(Number(key) - 1);
+      return true;
+    }
+    return false;
+  }
+
+  // ── scoring ─────────────────────────────────────────────────────
+  private score1(slot: number, gx: number, gy: number, item: TrayItem, placed: Placed): void {
+    const L = placed.rows.length + placed.cols.length;
+    const blind = this.blind;
+    const mult = blind ? 1 : this.mult;
+    let points = item.piece.cells.length * RULES.perCell;
+    let clearPts = 0;
+    if (L > 0) {
+      this.combo++;
+      this.fuse = RULES.comboFuse;
+      this.bestCombo = Math.max(this.bestCombo, this.combo);
+      this.roundCombo = Math.max(this.roundCombo, this.combo);
+      clearPts = Math.round(linePoints(L) * comboFactor(this.combo));
+      this.lines += L;
+      this.p.lines += L;
+    } else if (this.combo > 0) {
+      this.fuse--;
+      if (this.fuse <= 0) {
+        this.emit({ type: 'comboBreak', combo: this.combo });
+        this.combo = 0;
+      } else this.emit({ type: 'fuse', left: this.fuse });
+    }
+    const drusePts = Math.round(RULES.druseCt * placed.druse);
+    const cleanPts = placed.clean && L > 0 ? RULES.cleanBonus : 0;
+    if (cleanPts) this.cleans++;
+    const bonus = clearPts + drusePts + cleanPts;
+    if (blind) this.sack += bonus;
+    else points += bonus * mult;
+    this.roundBest = Math.max(this.roundBest, (clearPts + cleanPts) * mult);
+    this.bank(points);
+    // jewels: the Wyprawa counts the ones its chamber wants
+    for (const c of placed.cleared) {
+      if (!c.jewel || this.mode !== 'adventure') continue;
+      const g = this.spec.goal.findIndex(([k]) => k === c.jewel);
+      if (g < 0) continue;
+      if (this.got[g] < this.spec.goal[g][1]) this.got[g]++;
+      this.emit({ type: 'jewel', kind: c.jewel, i: c.i, got: this.got[g], need: this.spec.goal[g][1] });
+      this.talk.ask('jewel', 1, 3);
+    }
+    this.emit({
+      type: 'place', slot, gx, gy, item, placed, points, clearPts, lines: L, combo: L > 0 ? this.combo : 0, mult, druse: drusePts, clean: cleanPts > 0, blind,
+    });
+    // Bazyl
+    if (placed.clean && L > 0) this.talk.ask('clean', 4, 5);
+    else if (L >= 3 || (L > 0 && this.combo >= 6)) this.talk.ask('big', 3, 4);
+    else if (L > 0 && this.combo >= 3 && this.combo % 3 === 0) this.talk.ask('combo', 2, 4);
+    else if (drusePts >= 20) this.talk.ask('harvest', 2, 4);
+    if (this.mode === 'adventure' && this.goalDone) this.levelDone();
+  }
+
+  private bank(points: number): void {
+    if (!(points > 0)) return;
+    this.score += points;
+    this.boardPts += points;
+    this.levelPts += points;
+    this.p.total += points;
+  }
+
+  get goalDone(): boolean { return this.spec.goal.every(([, need], g) => (this.got[g] ?? 0) >= need); }
+
+  /** jewels still to collect in the chamber, by kind (for the dealer) */
+  private wanted(): number[] {
+    if (this.mode !== 'adventure') return [];
+    return this.spec.goal.filter(([, need], g) => (this.got[g] ?? 0) < need).map(([k]) => k);
+  }
+
+  private refill(): void {
+    const gentle = this.restBlock || this.warmBlock;
+    const want = this.wanted();
+    // jewels already in the board count toward what is still wanted
+    const onBoard = this.board.jewels();
+    const stillShort = want.filter(k => {
+      const g = this.spec.goal.findIndex(([kk]) => kk === k);
+      return (this.got[g] ?? 0) + onBoard[k] < this.spec.goal[g][1] + 2;
+    });
+    const items = deal(this.board, this.rng, { gentle, jewels: stillShort, jewelChance: RULES.jewelChance });
+    this.tray = items;
+    this.selected = 0;
+    this.emit({ type: 'deal', items });
+  }
+
+  /** None of the tray's pieces fits: the geode turns.  One fits nowhere while others do: Bazyl warns. */
+  private checkStuck(): void {
+    const items = this.tray.map((x, i) => ({ x, i })).filter(o => o.x !== null);
+    if (!items.length) return;
+    const fits = items.filter(o => this.board.fitsAnywhere(o.x!.piece));
+    if (!fits.length) this.turn();
+    else if (fits.length < items.length) {
+      const stuck = items.find(o => !fits.includes(o))!;
+      this.emit({ type: 'stuck', slot: stuck.i });
+      this.talk.ask('near', 2, 4);
+      if (!this.tray[this.selected] || !this.board.fitsAnywhere(this.tray[this.selected]!.piece)) this.selected = fits[0].i;
+    }
+  }
+
+  /** The geode turns: the board's tally, a fresh board (the same chamber in the Wyprawa). */
+  private turn(): void {
+    const points = this.boardPts;
+    this.turns++;
+    let record = false, toRecord: number | null = null;
+    if (this.mode === 'classic') {
+      const before = Math.max(this.bestBoardBefore, this.p.bestBoard);
+      record = points > before && points > 0;
+      toRecord = !record && before > 0 ? before - points : null;
+      this.p.bestBoard = Math.max(this.p.bestBoard, points);
+    }
+    this.combo = 0;
+    this.emit({ type: 'turn', points, record, toRecord });
+    this.setStory({ kind: 'turn', t: 0, dur: RULES.turnSec, points, record, toRecord });
+    this.talk.ask('turn', 3, 6);
+    this.newBoard(true);
+  }
+
+  private levelDone(): void {
+    const spec = this.spec;
+    const stars = starsFor(spec, this.levelPts);
+    const p = this.p;
+    while (p.stars.length <= spec.level) p.stars.push(0);
+    p.stars[spec.level] = Math.max(p.stars[spec.level] ?? 0, stars);
+    p.level = Math.max(p.level, spec.level + 1);
+    this.levelsDone++;
+    this.starsWon += stars;
+    this.emit({ type: 'level', level: spec.level, stars, points: this.levelPts });
+    this.setStory({ kind: 'level', t: 0, dur: RULES.levelSec, level: spec.level, stars, points: this.levelPts, next: spec.level + 1 });
+    this.talk.ask('level', 4, 7);
+    this.spec = chamber(spec.level + 1);
+    this.newBoard(false);
+  }
+
+  /** A fresh board: the chamber's (a turned one keeps part of its rock), or an empty one in the Klasyka. */
+  private newBoard(turned: boolean): void {
+    this.boardPts = 0;
+    if (this.mode === 'adventure') {
+      if (!turned) {
+        this.got = this.spec.goal.map(() => 0);
+        this.levelPts = 0;
       }
-      spot = spot ?? bestSpot(this.wall, cells);
-      if (spot && this.place(slot, spot[0], spot[1])) return spot;
+      const left = this.spec.goal.reduce((s, [, need], g) => s + Math.max(0, need - (this.got[g] ?? 0)), 0);
+      const rng = turned ? this.rng : seeded(this.spec.seed);
+      const rock = turned ? Math.round(this.spec.rock * RULES.turnRock) : this.spec.rock;
+      const kinds = this.wanted();
+      this.board = chamberBoard(rng, rock, kinds, Math.min(Math.ceil(left * 0.45), Math.round(rock * 0.4)));
+    } else this.board = new Board();
+    this.combo = 0;
+    this.fuse = 0;
+    this.refill();
+  }
+
+  private setStory(s: Story): void {
+    this.story = s;
+    this.talk.clear();
+    this.emit({ type: 'story', story: s });
+  }
+
+  // ── the frame ───────────────────────────────────────────────────
+  update(dt: number, f: FocusFrame, t: number): void {
+    if (!this.started) return;
+    this.t = t;
+    this.reliable = f.reliable;
+    this.level = f.level;
+    this.calm = f.calm;
+    if (this.story) {
+      this.story.t += dt;
+      if (this.story.t >= this.story.dur) this.story = null;
     }
-    this.events.push(order.length ? { type: 'nofit', slot: order[0], cell } : { type: 'wait', slot: this.fed, cell });
-    return null;
-  }
-
-  /** A long press: the crystal crumbles back to its seed (it keeps its first cell). */
-  crumble(slot: number): boolean {
-    const c = this.tray[slot];
-    if (this.phase !== 'wzrost' || !c || c.grown <= 1 || slot === this.blindSlot) return false;
-    c.grown = 1;
-    c.frac = 0;
-    c.clarity = c.clarity.slice(0, 1);
-    this.stats.crumbles++;
-    this.events.push({ type: 'crumble', slot });
-    return true;
-  }
-
-  /** Does the crystal in `slot` fit anywhere on the wall now? */
-  fitsSomewhere(slot: number): boolean {
-    const c = this.tray[slot];
-    return !!c && bestSpot(this.wall, crystalCells(c)) !== null;
-  }
-
-  /** Does any crystal in the tray fit anywhere?  (The hint to crumble one.) */
-  anyFits(): boolean {
-    return this.tray.some((c, s) => !!c && s !== this.blindSlot && this.fitsSomewhere(s));
-  }
-
-  // ── Zbiór ─────────────────────────────────────────────────────
-  private enterZbior(): void {
-    this.bt = 0;
-    this.drip = 0;
-    if (this.blindSlot >= 0) this.reveal();
-    const v = this.judge.verdict();
-    if (v !== null) {
-      this.stats.focusJudged++;
-      if (v) this.stats.focusPass++;
+    if (!this.ended) {
+      this.band(dt, f);
+      this.schedule(dt, f);
+      if (t >= this.plannedSec) this.end();
     }
-    const w = this.wall;
-    const full = this.toFull === 0;
-    // a filled wall is a Pełna geoda: it all breaks, row by row (counted as its 16 lines), and a new geode starts
-    const lines = full ? Array.from({ length: N }, (_, i) => i) : w.fullLines();
-    const cells = new Set(lines.flatMap(lineCells));
-    for (const i of cells) w.locked.add(i);
-    let value = 0;
-    for (const i of cells) if (w.cells[i].k === GEM) value += w.cells[i].clarity;
-    const count = full ? 2 * N : lines.length;
-    const mult = count ? LINE_BONUS[Math.min(4, count) - 1] : 0;
-    this.harvest = { lines, t: 0, done: 0, bonus: Math.round(value * mult), paid: false, regrown: false, full, count };
-    this.harvested.clear();
-    this.stats.harvests++;
-    if (count) this.stats.harvestsWithLine++;
-    // the harvest first, then the Wzrost's verdict: the Zbiór's caption carries it
-    this.events.push({ type: 'zbior', lines, full }, { type: 'verdict', kind: 'focus', ok: v });
+    this.talk.update(dt, t, this.talkBlocked);
   }
 
-  private reveal(): void {
-    const s = this.blindSlot, c = this.tray[s];
-    this.blindSlot = -1;
-    if (c) {
-      const r = { grown: c.grown, total: c.ghost.length, clarity: dominant(c.clarity) };
-      this.stats.blind.push(r);
-      this.events.push({ type: 'reveal', slot: s, ...r });
-    }
-    // what grew past the full crystal sprouts as seeds in the empty slots
-    for (let k = 0; k < this.slots && this.overflow >= 1; k++) {
-      if (this.tray[k]) continue;
-      this.overflow -= 1;
-      const cl = clarityOf(this.brain.cont);
-      this.tray[k] = dealSeed(this.bag, this.trayGems(), cl);
-      this.events.push({ type: 'sprout', slot: k, clarity: cl, hidden: false });
-    }
-    this.overflow = 0;
-  }
-
-  private zbior(dt: number, busy: boolean): void {
-    const h = this.harvest!;
-    h.t += dt;
-    while (h.done < h.lines.length && h.t >= SHATTER_AT + h.done * SHATTER_STEP) this.shatter(h.lines[h.done], h.done++);
-    if (!h.paid && h.done >= h.lines.length && h.t >= SHATTER_AT + h.lines.length * SHATTER_STEP) {
-      h.paid = true;
-      this.stats.lines += h.count;
-      if (h.count) {
-        this.carats += h.bonus;
-        this.stats.bonus += h.bonus;
-        this.events.push({ type: 'bonus', lines: h.count, mult: LINE_BONUS[Math.min(4, h.count) - 1], carats: h.bonus });
-      }
-    }
-    if (!h.regrown && h.t >= REGROW_AT) {
-      h.regrown = true;
-      this.regrow(h);
-    }
-    // the last Zbiór stays open while a crystal is still in the hand (it may land now)
-    if (h.t >= ZBIOR_SEC && !(this.ending && busy)) this.next();
-  }
-
-  private shatter(line: number, index: number): void {
-    const w = this.wall, cells: ShatterCell[] = [];
-    for (const i of lineCells(line)) {
-      const c = w.cells[i];
-      if (c.k === EMPTY) continue;   // broke with a crossing line already
-      cells.push({ i, k: c.k, gem: c.gem, clarity: c.clarity });
-      if (c.k === GEM) {
-        const got = this.harvested.get(c.piece) ?? { gem: c.gem, cells: 0, value: 0, clarity: [] };
-        got.cells++;
-        got.value += c.clarity;
-        got.clarity.push(c.clarity);
-        this.harvested.set(c.piece, got);
-        const p = this.pieces.get(c.piece);
-        if (p) {
-          p.cells = p.cells.filter(k => k !== i);
-          if (!p.cells.length) this.pieces.delete(p.id);
+  /** The dial, the druses and the polish from the band. */
+  private band(dt: number, f: FocusFrame): void {
+    const R = RULES;
+    const phase = this.pushBlock ? 'focus' : this.restBlock ? 'rest' : 'free';
+    this.trace.push(this.t, f, phase, this.blind);
+    if (f.reliable && !this.warmBlock) this.relSec += dt;
+    const before = this.mult;
+    if (this.sighted) {
+      if (f.reliable) this.dial = approach(this.dial, clamp(f.level), dt, R.shineTau);
+      this.mult = multOf(this.dial);
+      if (f.reliable && this.dial >= 0.5) {
+        this.board.grow(dt * (R.druseRate + (R.druseMax - R.druseRate) * clamp((this.dial - 0.5) / 0.5)));
+        this.goodT += dt;
+        if (this.goodT >= R.goodSec && !this.goodSaid) {
+          this.goodSaid = true;
+          this.talk.ask('good', 3, 5);
         }
+      } else this.goodT = 0;
+    } else {
+      this.dial = approach(this.dial, 0, dt, 0.8);
+      this.mult = 1;
+    }
+    this.maxMult = Math.max(this.maxMult, this.mult);
+    if (this.mult !== before) this.emit({ type: 'mult', mult: this.mult, up: this.mult > before });
+    if (this.polishing && f.reliable) {
+      this.calmShown = approach(this.calmShown, clamp(f.calm), dt, 0.9);
+      this.bowl!.polish = Math.min(1, this.bowl!.polish + dt * R.polishRate * clamp(f.calm));
+    }
+  }
+
+  private schedule(dt: number, f: FocusFrame): void {
+    const b = this.block;
+    this.blockT += dt;
+    if (b.kind !== 'warmup') {
+      const want = b.kind === 'push' ? 'focus' : 'rest';
+      this.judge.push(want, f, dt);
+      this.contrast.push(want, f.activity, f.reliable, this.blockT, dt);
+    }
+    const last = this.blockIndex >= this.plan.length - 1;
+    if (!this.telegraphed && !last && this.blockT >= b.dur - RULES.telegraph) {
+      this.telegraphed = true;
+      this.emit({ type: 'telegraph', next: this.plan[this.blockIndex + 1] });
+    }
+    if (!last && this.blockT >= b.dur) {
+      this.endBlock();
+      this.startBlock(this.blockIndex + 1);
+    }
+  }
+
+  private startBlock(i: number): void {
+    this.blockIndex = i;
+    this.blockT = 0;
+    this.telegraphed = false;
+    this.relSec = 0;
+    this.judge.reset();
+    const b = this.plan[i];
+    const first = !this.plan.slice(0, i).some(x => x.kind === b.kind);
+    if (b.kind === 'push') {
+      this.pushesBegun++;
+      this.p.pushes = this.pushesBase + this.pushesBegun;
+      b.blind = this.session >= RULES.blindFrom && !first && this.p.pushes % RULES.blindEvery === 0;
+      this.goodT = 0;
+      this.goodSaid = false;
+      this.sack = 0;
+      this.talk.ask(b.blind ? 'blind' : 'push', 2, 12);
+    } else if (b.kind === 'rest') {
+      this.calmShown = 0;
+      const base = Math.max(RULES.gemMin, Math.round(this.roundBest));
+      this.bowl = { mineral: nextMineral(this.p, this.rng), tier: this.roundCombo >= 5 ? 1 : 0, base, polish: 0 };
+      this.roundBest = 0;
+      this.roundCombo = 0;
+      this.emit({ type: 'bowl', bowl: this.bowl });
+      this.talk.ask('rest', 2, 12);
+    } else this.talk.ask('warm', 1, 10);
+    this.tip = this.tipFor(b, i, first);
+    this.emit({ type: 'blockStart', block: b, index: i });
+  }
+
+  private tipFor(b: Block, i: number, first: boolean): string {
+    if (b.kind === 'warmup') return TIPS.warmup;
+    if (b.kind === 'push') {
+      if (b.blind) return TIPS.blind[(this.session + i) % TIPS.blind.length];
+      if (first && this.pushesBase === 0) return TIPS.firstPush;
+      return TIPS.push[(this.session - 1 + i) % TIPS.push.length];
+    }
+    if (first && this.firstEver) return TIPS.firstRest;
+    return TIPS.rest[(this.session - 1 + i) % TIPS.rest.length];
+  }
+
+  /** The block's end: its verdict and what it pays (after its judged window, never during it). */
+  private endBlock(): void {
+    const b = this.block;
+    let verdict: boolean | null = null, share = 0, need = 0;
+    if (b.kind !== 'warmup') {
+      const want = b.kind === 'push' ? 'focus' : 'rest';
+      share = this.judge.share;
+      need = this.judge.need(want);
+      verdict = this.relSec >= RULES.minReliable ? this.judge.verdict() : null;
+      if (b.kind === 'push' && b.blind) {
+        this.trace.unveil(this.t);
+        const s = this.judge.measured > 0 ? share : 0;
+        this.blindShare = Math.max(this.blindShare, Math.round(s * 100));
+        const mult = 1 + Math.round(4 * clamp(s));
+        const points = Math.round(this.sack * mult);
+        this.bank(points);
+        this.roundBest = Math.max(this.roundBest, points);
+        this.emit({ type: 'reveal', share: s, mult, points });
+        this.sack = 0;
       }
-      w.cells[i] = emptyCell();
+      if (b.kind === 'rest' && this.bowl) this.settleBowl(verdict === true);
     }
-    this.events.push({ type: 'shatter', line, index, cells });
+    this.judge.reset();
+    this.emit({ type: 'blockEnd', block: b, verdict, share, need });
   }
 
-  private regrow(h: NonNullable<GeodaSim['harvest']>): void {
-    const w = this.wall;
-    w.locked.clear();
-    if (h.full) {
-      this.stats.fullGeodes++;
-      this.wall = generateWall(this.o.rng);
-      this.pieces.clear();
-      this.events.push({ type: 'regrow', cells: [], cleared: [], full: true });
-      return;
+  /** The round's gem leaves the bowl for the cabinet: a tier up when the rest passed or the polish is full. */
+  private settleBowl(passed: boolean): void {
+    const bw = this.bowl;
+    if (!bw) return;
+    this.bowl = null;
+    const polished = passed || bw.polish >= 1 - 1e-9;
+    const tier = Math.min(TIERS.length - 1, bw.tier + (polished ? 1 : 0));
+    const outcome = shelve(this.p, bw.mineral, tier);
+    const points = Math.round(bw.base * (1 + bw.polish));
+    this.bank(points);
+    if (polished) {
+      this.polishedGems++;
+      this.p.polished++;
     }
-    if (!h.lines.length) return;
-    // gaps sized to what the player has been placing (the median of the last 3 rounds, ± 1), smaller before the last round
-    const recent = this.sizes.slice(-3).flat().sort((a, b) => a - b);
-    const median = recent.length ? recent[Math.floor((recent.length - 1) / 2)] : 2;
-    const last = this.plan.length > 0 && this.round >= this.plan[this.plan.length - 1].round - 1;
-    const size = () => clamp(median + rand(this.o.rng, 3) - (last ? 1 : 0), 2, 5);
-    const cells = regrowLines(w, h.lines, size, this.o.rng);
-    this.events.push({ type: 'regrow', cells, cleared: [...new Set(h.lines.flatMap(lineCells))], full: false });
+    this.gems.push({ mineral: bw.mineral, tier, outcome });
+    this.emit({ type: 'gem', mineral: bw.mineral, tier, polished, outcome, points });
+    this.talk.ask('polish', 3, 6);
   }
 
-  /**
-   * Empty cells still to fill before the next Zbiór breaks the whole geode (0: it will); null in the
-   * first session, whose small learning wall would fill too soon and which has enough to teach.
-   */
-  get toFull(): number | null { return this.ftue ? null : Math.max(0, this.wall.emptyCount() - FULL_EMPTY); }
-
-  // ── Szlif ─────────────────────────────────────────────────────
-  private enterSzlif(): void {
-    this.shine = 0;
-    const gems: BowlGem[] = [];
-    for (const [piece, got] of this.harvested) {
-      gems.push({ piece, gem: got.gem, cells: got.cells, value: got.value, clarity: dominant(got.clarity), polish: 0 });
-    }
-    // no harvest this round: the bowl polishes the round's crystals on the wall instead
-    if (!gems.length) {
-      for (const p of this.pieces.values()) {
-        if (p.round === this.round) gems.push({ piece: p.id, gem: p.gem, cells: p.cells.length, value: p.value, clarity: dominant(p.clarity), polish: p.polish });
-      }
-    }
-    gems.sort((a, b) => b.value - a.value);
-    this.bowl = gems.slice(0, 9);
-    this.bowlBest = this.bowl.length ? 0 : -1;
-    if (this.bowl.length) this.stats.szlifs++;
-    this.events.push({ type: 'szlif', gems: this.bowl });
+  /** Time is up, or the session ends early: the last block is judged once, the bowl and the sack settle. */
+  private end(): void {
+    if (this.ended) return;
+    this.endBlock();
+    this.ended = true;
+    if (this.mode === 'classic') this.p.bestBoard = Math.max(this.p.bestBoard, this.boardPts);
+    this.p.bestCombo = Math.max(this.p.bestCombo, this.bestCombo);
+    this.talk.ask('end', 5, 8);
+    this.emit({ type: 'done' });
   }
 
-  private szlif(dt: number, f: FocusFrame): void {
-    const j = this.judge;
-    j.push('rest', f, dt);
-    this.contrast.push('rest', f.activity, f.reliable, this.bt, dt);
-    if (f.reliable && f.activity !== null && f.activity < f.threshold) this.stats.zoneSec += dt;
-    if (f.reliable) this.shine = approach(this.shine, j.share * clamp(j.measured / 5), dt, 0.8);
+  finish(): void {
+    if (this.started) this.end();
   }
 
-  /** The shine a Szlif needs at its end to polish (the judge's share for a rest block). */
-  get polishNeed(): number { return this.judge.need('rest'); }
+  canStop(): boolean { return true; }
 
-  /** The Szlif's verdict polishes the bowl's best gem (a restless one loses nothing). */
-  private endSzlif(): void {
-    if (this.phase !== 'szlif') return;
-    const v = this.judge.verdict();
-    if (v !== null) {
-      this.stats.restJudged++;
-      if (v) this.stats.restPass++;
+  take(): GeodaEvent[] {
+    if (!this.events.length) return [];
+    return this.events.splice(0);
+  }
+
+  private emit(e: GeodaEvent): void {
+    this.events.push(e);
+    if (this.events.length > 400) this.events.shift();
+  }
+
+  // ── what the runner reads ───────────────────────────────────────
+  /** The panel's gauge: the shine dial in a sighted Blask, the polish's calm in a Szlif, else nothing. */
+  meter(): number | null {
+    if (!this.started || this.ended || !this.reliable) return null;
+    if (this.sighted) return this.dial;
+    if (this.polishing) return this.calmShown;
+    return null;
+  }
+
+  padLevel(f: FocusFrame): number | null {
+    return this.sighted && f.reliable ? f.level : null;
+  }
+
+  /** The score corner's second line: the combo, the chamber's jewels, or the way to the board's record. */
+  headlineSub(): string {
+    if (this.combo >= 2) return t('sub.combo', { n: this.combo });
+    if (this.mode === 'adventure') {
+      const need = this.spec.goal.reduce((s, [, n]) => s + n, 0);
+      const got = this.spec.goal.reduce((s, [, n], g) => s + Math.min(n, this.got[g] ?? 0), 0);
+      return t('sub.chamber', { n: this.spec.level + 1, got, need });
     }
-    this.events.push({ type: 'verdict', kind: 'rest', ok: v });
-    const best = this.bowl[this.bowlBest];
-    if (best && v === true && best.polish < 3) {
-      best.polish++;
-      const p = this.pieces.get(best.piece);
-      if (p) p.polish = Math.max(p.polish, best.polish);
-      this.stats.polished++;
-      this.events.push({ type: 'polish', piece: best.piece, polish: best.polish });
-    }
+    const rec = Math.max(this.bestBoardBefore, this.p.bestBoard);
+    return rec > this.boardPts ? t('sub.toRecord', { n: fmt(rec - this.boardPts) }) : t('sub.board', { n: fmt(this.boardPts) });
   }
 
-  /** Share of the placed cells that grew czyste or lśniące (0..1; null before any). */
-  get clearShare(): number | null {
-    const c = this.stats.clarityCells, all = c[1] + c[2] + c[3];
-    return all ? (c[2] + c[3]) / all : null;
+  result(): { score: number; record: boolean; stats: [string, string][]; highlights: string[]; verse: PassageId } {
+    const p = this.p;
+    p.best = Math.max(p.best, this.score);
+    p.bestCombo = Math.max(p.bestCombo, this.bestCombo);
+    if (this.mode === 'classic') p.bestBoard = Math.max(p.bestBoard, this.boardPts);
+    const stats: [string, string][] = [
+      [t('stat.lines'), fmt(this.lines)],
+      [t('stat.combo'), this.bestCombo ? `×${this.bestCombo}` : '—'],
+      this.mode === 'adventure'
+        ? [t('stat.chambers'), this.levelsDone ? `${fmt(this.levelsDone)} · ${'★'.repeat(Math.min(3, Math.round(this.starsWon / this.levelsDone)))}` : '—']
+        : [t('stat.board'), fmt(Math.max(this.boardPts, p.bestBoard))],
+      [t('stat.gems'), fmt(this.gems.length)],
+      [t('stat.polished'), fmt(this.polishedGems)],
+      [t('stat.shine'), `×${this.maxMult}`],
+    ];
+    const hl: string[] = [];
+    if (this.levelsDone) hl.push(t('hl.chambers', { n: this.levelsDone, stars: this.starsWon }));
+    for (const g of this.gems) {
+      if (g.outcome === 'same') continue;
+      hl.push(t(g.outcome === 'new' ? 'hl.newMineral' : 'hl.upMineral', { mineral: MINERALS[g.mineral].title, tier: TIERS[g.tier] }));
+    }
+    if (this.bestCombo >= 5) hl.push(t('hl.combo', { n: this.bestCombo }));
+    if (this.cleans) hl.push(t('hl.clean', { n: this.cleans }));
+    if (this.mode === 'classic' && this.bestBoardBefore > 0 && p.bestBoard > this.bestBoardBefore) hl.push(t('hl.boardRecord', { n: fmt(p.bestBoard) }));
+    else if (this.score > 0 && this.bestBefore > this.score) hl.push(t('hl.toBest', { n: fmt(this.bestBefore - this.score) }));
+    if (this.blindShare >= 0) hl.push(t('hl.blind', { pct: this.blindShare }));
+    hl.push(t(this.levelsDone ? 'hl.closeChamber' : this.polishedGems ? 'hl.closePolish' : 'hl.close', { name: chamberName(this.spec.level) }));
+    let verse: PassageId;
+    if (complete(p) && this.foundBefore < MINERALS.length) verse = 'rev21.19-20';
+    else if (this.gems.some(g => g.tier >= 2 && g.outcome !== 'same')) verse = 'mat13.45-46';
+    else if (this.polishedGems) verse = 'mal3.3';
+    else if (this.levelsDone) verse = '1pe2.5';
+    else verse = inTurn(['psa127.1', 'mat7.24-25', '1pe2.5'], this.session);
+    return { score: this.score, record: this.bestBefore > 0 && this.score > this.bestBefore, stats, highlights: hl, verse };
   }
+
+  /** for the talk and the view: which Bazyl moment is current */
+  get talking(): Moment | null { return this.talk.line?.moment ?? null; }
 }
 
+/** A small seeded generator (mulberry32) for a chamber's starting board. */
+export function seeded(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let x = Math.imul(a ^ (a >>> 15), 1 | a);
+    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
