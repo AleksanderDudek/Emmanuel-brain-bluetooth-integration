@@ -1,115 +1,109 @@
 /**
- * Where Firmament's play view puts things (CSS px) in the canvas the runner gives it — which is the
- * screen minus the signal dock — for phones upright (the HUD above and below the board) and on
- * their side and for desktops (the HUD in columns beside it).  The runner's top strip (the clock,
- * pause, the dock button) stays clear; on an upright phone the cells keep at least ~38 px.
+ * Where everything sits, for any canvas: the board as large as it can be, the goal card (level,
+ * moves, what to clear, the score bar with its stars), the telescope (the lens with its threshold
+ * ring, the charge ring and the light trail around it), the tray of tools and Bubo with his bubble.
+ *
+ *   wide (desktop, phone landscape)   the goal card and Bubo on the left, the telescope and the tray
+ *                                     on the right, the board in the middle
+ *   tall (phone portrait)             the goal strip over the board, Bubo, the telescope and the tray
+ *                                     under it
+ *
+ * The runner's standard HUD covers the top band (the Mendi panel left, the score right, `top` px
+ * deep): the side columns start under it; the board may rise above it only where it stays clear of both.
  */
-import { clamp } from '../kit/juice';
-
-/** the runner's top strip, and a little room at the bottom edge */
-export const TOP = 56;
-export const BOTTOM = 8;
-
 export interface Rect { x: number; y: number; w: number; h: number }
-
 export interface Layout {
   w: number;
   h: number;
-  /** UI scale */
+  mode: 'wide' | 'tall';
+  /** a unit for type and strokes (1 at a 700 px short side) */
   u: number;
-  tall: boolean;
-  /** a short screen on its side: the goals in one row, the Milky Way in the left column */
-  low: boolean;
-  /** the board: its top left corner and a cell's size */
-  bx: number;
-  by: number;
+  board: Rect;
   cell: number;
-  /** the block's status (name, strategy, what the band drives), the score's right edge and top */
-  status: Rect;
-  scoreX: number;
-  scoreY: number;
-  /** the moves and the goals */
-  goals: Rect;
-  /** the Milky Way (the band's last 40 s) */
-  milky: Rect;
-  /** the telescope's lens: its centre and radius, and its caption's box */
-  lens: { x: number; y: number; r: number };
-  lensText: Rect;
-  /** the tray's slot `i` when the tray holds `n` */
-  slot(i: number, n: number): Rect;
-  /** where the cards (a block's verdict, a level's end) sit */
-  cardY: number;
+  rows: number;
+  cols: number;
+  goal: Rect;
+  scope: { x: number; y: number; r: number };
+  /** where the telescope's words go (centre x, top y, max width) */
+  scopeText: { x: number; y: number; w: number };
+  tray: Rect[];
+  owl: { x: number; y: number; r: number };
+  bubble: { x: number; y: number; w: number };
 }
 
-export function layout(w: number, h: number): Layout {
-  const W = Math.max(260, w), H = Math.max(240, h);
-  const tall = W / H < 1.05;
-  return tall ? upright(W, H) : wide(W, H);
-}
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+const BAR = 58;
 
-/** Upright: status and score, the Milky Way, the goals, the board, then the lens and the tray. */
-function upright(W: number, H: number): Layout {
-  const u = clamp(W / 400, 0.84, 1.3);
-  const gap = 6 * u;
-  const statusH = 74 * u, milkyH = 22 * u, goalsH = 40 * u, lensH = Math.max(70, 76 * u);
-  const fixed = TOP + statusH + milkyH + goalsH + lensH + 4 * gap + BOTTOM;
-  const cell = Math.floor(clamp(Math.min((W - 16) / 8, (H - fixed) / 8), 26, 74));
-  const bw = cell * 8;
-  const bx = Math.round((W - bw) / 2);
-  const side = Math.max(10, Math.min(bx, 16));
-  // the free height is shared out: a little more room around the board on tall screens
-  const spare = Math.max(0, H - fixed - bw);
-  const top = TOP + Math.min(spare * 0.35, 30 * u);
-  const status = { x: side, y: top, w: W - 2 * side, h: statusH };
-  const milky = { x: side, y: status.y + statusH + gap, w: W - 2 * side, h: milkyH };
-  const goals = { x: side, y: milky.y + milkyH + gap, w: W - 2 * side, h: goalsH };
-  const by = Math.round(goals.y + goalsH + gap + Math.min(spare * 0.2, 16 * u));
-  const lensTop = by + bw + gap + Math.min(spare * 0.15, 12 * u);
-  const r = Math.min(lensH / 2 - 7 * u, 32 * u);
-  const lens = { x: W - side - r - 2, y: lensTop + lensH / 2, r };
-  const slotS = Math.min(52 * u, lensH - 14);
-  const trayRight = lens.x - r - 12 * u;
-  const slot = (i: number, n: number): Rect => ({ x: trayRight - (n - i) * (slotS + 6 * u), y: lensTop + (lensH - slotS) / 2, w: slotS, h: slotS });
-  const lensText = { x: side, y: lensTop, w: Math.max(40, slot(0, 3).x - side - 6 * u), h: lensH };
+export function layout(w: number, h: number, top: number, rows = 8, cols = 8, slots = 4): Layout {
+  const u = clamp(Math.min(w, h) / 700, 0.62, 1.25);
+  const hudTop = Math.max(BAR, top);
+  if (w >= h * 1.05 && w >= 560) {
+    // ── wide ──
+    const side = clamp(w * 0.26, 170, 340);
+    const panelRight = 12 + Math.min(330, w * 0.62 - 12);
+    const scoreLeft = w - 12 - Math.min(160, w * 0.36);
+    let midX0 = side + 10, midX1 = w - side - 10;
+    let y0 = BAR + 4;
+    let size = Math.min(midX1 - midX0, h - y0 - 10);
+    let bx = (midX0 + midX1) / 2 - size / 2;
+    if (bx < panelRight + 4 || bx + size > scoreLeft - 4) {
+      // the board would meet the HUD: start it under the HUD's band, or squeeze it between
+      const between = scoreLeft - panelRight - 16;
+      if (between >= (h - hudTop - 10) * 0.9 && between > 200) {
+        midX0 = panelRight + 8;
+        midX1 = scoreLeft - 8;
+        size = Math.min(midX1 - midX0, h - y0 - 10);
+      } else {
+        y0 = hudTop + 2;
+        size = Math.min(midX1 - midX0, h - y0 - 8);
+      }
+      bx = (midX0 + midX1) / 2 - size / 2;
+    }
+    const cell = Math.floor(Math.min(size / cols, size / rows));
+    const bw = cell * cols, bh = cell * rows;
+    const board = { x: Math.round((midX0 + midX1) / 2 - bw / 2), y: Math.round(y0 + (size - bh) / 2), w: bw, h: bh };
+    const colH = h - hudTop - 10;
+    const lx = 12, lw = Math.max(120, Math.min(side - 18, board.x - 22));
+    const goalH = clamp(colH * 0.5, 96 * u, 176 * u);
+    const goal = { x: lx, y: hudTop + 4, w: lw, h: goalH };
+    const owlR = clamp(Math.min(colH - goalH, lw) * 0.2, 16, 40 * u);
+    // Bubo sits under the goal card, his bubble to his right
+    const owl = { x: lx + owlR * 1.3, y: Math.min(h - owlR * 1.3 - 8, goal.y + goalH + owlR * 1.9), r: owlR };
+    const rx0 = board.x + bw + 12, rw = w - 12 - rx0;
+    const trayS = clamp(Math.min(rw / slots - 8, colH * 0.22), 34, 70 * u);
+    const scopeR = clamp(Math.min(rw * 0.3, (colH - trayS - 50 * u) * 0.32), 22, 92 * u);
+    const scope = { x: rx0 + rw / 2, y: hudTop + 10 + scopeR * 1.32, r: scopeR };
+    const scopeText = { x: scope.x, y: scope.y + scopeR * 1.12 + 6, w: rw - 8 };
+    const ty = Math.min(h - trayS - 10, scopeText.y + 40 * u);
+    const tw = slots * trayS + (slots - 1) * 8;
+    const tray: Rect[] = Array.from({ length: slots }, (_, k) => ({ x: scope.x - tw / 2 + k * (trayS + 8), y: ty, w: trayS, h: trayS }));
+    return {
+      w, h, mode: 'wide', u, board, cell, rows, cols, goal, scope, scopeText, tray, owl,
+      bubble: { x: owl.x + owlR * 1.05, y: owl.y + owlR * 0.2, w: Math.max(140, lx + lw - (owl.x + owlR * 1.05)) },
+    };
+  }
+  // ── tall ──
+  const goalH = clamp(58 * u, 46, 64);
+  const goal = { x: 8, y: hudTop + 2, w: w - 16, h: goalH };
+  const bottomH = clamp(h * 0.14, 70, 120);
+  const y0 = goal.y + goalH + 6;
+  const size = Math.max(120, Math.min(w - 12, h - y0 - bottomH - 6));
+  const cell = Math.floor(Math.min((w - 12) / cols, size / rows));
+  const bw = cell * cols, bh = cell * rows;
+  const board = { x: Math.round(w / 2 - bw / 2), y: Math.round(y0 + Math.max(0, (size - bh) / 2)), w: bw, h: bh };
+  const by = board.y + bh + 6;
+  const bandH = h - by - 4;
+  const owlR = clamp(bandH * 0.3, 14, 30);
+  const owl = { x: 10 + owlR * 1.1, y: by + bandH * 0.5 + owlR * 0.15, r: owlR };
+  const scopeR = clamp(bandH * 0.36, 18, 46);
+  const scope = { x: owl.x + owlR * 1.4 + scopeR * 1.45, y: by + bandH * 0.5, r: scopeR };
+  const tx0 = scope.x + scopeR * 1.45 + 6;
+  const trayS = clamp(Math.min((w - 8 - tx0) / slots - 6, bandH * 0.62), 30, 58);
+  const tray: Rect[] = Array.from({ length: slots }, (_, k) => ({ x: tx0 + k * (trayS + 6), y: by + bandH * 0.5 - trayS / 2 - 6, w: trayS, h: trayS }));
   return {
-    w: W, h: H, u, tall: true, low: false, bx, by, cell, status, scoreX: W - side, scoreY: status.y, goals, milky, lens, lensText, slot,
-    cardY: by + bw * 0.42,
+    w, h, mode: 'tall', u, board, cell, rows, cols, goal, scope, scopeText: { x: tx0 + (w - 8 - tx0) / 2, y: by + bandH * 0.5 + trayS / 2 - 2, w: w - 8 - tx0 },
+    tray, owl, bubble: { x: 8, y: by - 8, w: Math.min(300, w - 16) },
   };
 }
 
-/** On the side and on desktops: the board in the middle, the status and goals left, the lens and the tray right. */
-function wide(W: number, H: number): Layout {
-  const u = clamp(Math.min(W / 1100, H / 640), 0.72, 1.2);
-  const low = H < 470;
-  const milkyH = low ? 0 : 30 * u;
-  const top = low ? 46 : TOP;
-  const cell = Math.floor(clamp(Math.min((H - top - milkyH - (milkyH ? 10 : 0) - BOTTOM - 4) / 8, (W * 0.5) / 8), 22, 66));
-  const bw = cell * 8;
-  const bx = Math.round((W - bw) / 2);
-  const by = Math.round(top + milkyH + (milkyH ? 10 : 0) + Math.max(0, (H - top - milkyH - BOTTOM - bw) / 2 - (milkyH ? 10 : 0)));
-  const colW = Math.max(120, bx - 32 * u);
-  const lx = Math.max(12, bx - 16 * u - colW), rx = bx + bw + 16 * u;
-  const gap = 8 * u;
-  const statusH = (low ? 74 : 104) * u;
-  const status = { x: lx, y: by, w: colW, h: statusH };
-  const goalsH = (low ? 56 : 86) * u;
-  const goals = { x: lx, y: status.y + statusH + gap, w: colW, h: goalsH };
-  const milky = low
-    ? { x: lx, y: goals.y + goalsH + gap, w: colW, h: Math.max(22, Math.min(40 * u, by + bw - (goals.y + goalsH + gap))) }
-    : { x: 16, y: top + 2, w: W - 32, h: milkyH };
-  const scoreY = by;
-  const r = clamp(Math.min(colW * 0.3, (low ? 52 : 74) * u), 30, 92);
-  const lens = low ? { x: rx + r + 10 * u, y: by + 30 * u + r, r } : { x: rx + Math.min(colW, 300 * u) / 2, y: by + 84 * u + r, r };
-  const slotS = clamp(Math.min((colW - 18 * u) / 4, 62 * u), 34, 66);
-  const trayY = lens.y + r + (low ? 12 : 34) * u;
-  const slot = (i: number, n: number): Rect => {
-    const tw = n * slotS + (n - 1) * 6 * u;
-    const x0 = low ? rx : lens.x - tw / 2;
-    return { x: x0 + i * (slotS + 6 * u), y: trayY, w: slotS, h: slotS };
-  };
-  const lensText = { x: rx, y: trayY + slotS + 6 * u, w: colW, h: Math.max(0, by + bw - (trayY + slotS + 6 * u)) };
-  return {
-    w: W, h: H, u, tall: false, low, bx, by, cell, status, scoreX: rx + Math.min(colW, 300 * u), scoreY, goals, milky, lens, lensText, slot,
-    cardY: by + bw * 0.42,
-  };
-}
+export const inRect = (r: Rect, x: number, y: number, pad = 0): boolean => x >= r.x - pad && x <= r.x + r.w + pad && y >= r.y - pad && y <= r.y + r.h + pad;

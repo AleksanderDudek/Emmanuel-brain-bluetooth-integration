@@ -1,1029 +1,692 @@
 /**
- * Firmament's HUD on the play canvas, around the board: the status (the block's name, what the band
- * drives right now, a strategy to try, the block's progress and the telegraph), the headline —
- * points this session — counting up live, the moves and the level's goals, the Milky Way (the
- * band's last 40 s as a band of stars: gold above the threshold, cool behind rest blocks, a dotted
- * gap without signal, clouds over a blind block, the lag bracket at "now"), the telescope's lens
- * (the live gauge: its light pool is the level, a dashed circle marks the threshold; the arc around
- * it is the light gathered toward the next instrument; the outer rim is the hold toward a pulsar),
- * the tray of instruments, the rescue, the cards (a block's verdict with its own curve, a level's
- * start and end with the constellation's map), the toasts, the words over the board and the dawn.
- * Every string is fitted to its room so it reads on a 390 px phone in German and Swedish.
+ * Firmament's own screen parts, drawn on the canvas over the board (the runner draws the Mendi panel
+ * and the score; this never repeats them):
+ *
+ *   the goal card     the level, the moves left in a big ring, what is still to clear (clouds, moons,
+ *                     asteroids, bodies of a kind, or the target score) and the score bar with its stars
+ *   the telescope     the band in the world: the lens fills with light (`level`, 0.5 = the dashed
+ *                     threshold ring on the lens itself), the charge ring round the rim fills toward the
+ *                     next tool, a violet arc counts a long hold toward a pulsar; clouds cover it in a
+ *                     blind block; in the calm sky it glows blue and three pips count the falling stars.
+ *                     Round its top runs the light trail: the last 40 s, a star a second, gold above the
+ *                     threshold, blue in rest, hollow without signal, hidden under a blind block's veil
+ *   the tray          the tools, an armed one glowing, how to use it underneath
+ *   Bubo              the owl and his speech bubble
+ *   the cards         the story card (the constellation, the story, its passage), the goal card before a
+ *                     level, the tally after it (stars, score, the constellation with the new star lit),
+ *                     and out of moves (what was missing, +5 from the telescope, try again)
  */
-import { approach, clamp, ease } from '../kit/juice';
-import { LAG_SEC, traceBars, type TraceBand } from '../kit/trace';
-import type { ToolKind } from './board';
-import { TIPS, TOOL_USE } from './content';
-import { pts, t, unit } from './i18n';
-import { figureOf, type Goal, type Level } from './levels';
-import type { Layout, Rect } from './layout';
-import { C, SANS, SERIF, font, paintBody, paintRock, paintSat, paintStar, paintToolIcon } from './paint';
-import { RULES, type BlockKind, type FirmamentSim, type SimEvent } from './sim';
+import { fmtNum } from '../../i18n';
+import { clamp, ease } from '../kit/juice';
+import { drawPassage, layoutPassage, passage, wrapLines, type PassageLayout, type PassageId } from '../kit/scripture';
+import { traceBars } from '../kit/trace';
+import { MOON } from './board';
+import { AIMED, CONSTELLATIONS, constName, figure, storyText, toolName } from './content';
+import { pts, t } from './i18n';
+import { inRect, type Layout, type Rect } from './layout';
+import { C, KIND_COLOR, SANS, SERIF, font, paintBody, paintCloudIcon, paintMoon, paintOwl, paintRock, paintStar, paintToolIcon } from './paint';
+import { RULES, type FirmamentSim } from './sim';
+
+export type Hit = { cell: number } | { slot: number } | { button: 'use' | 'retry' | 'card' };
 
 const TAU = Math.PI * 2;
 
-interface Float { text: string; x: number; y: number; t: number; dur: number; color: string; font: string; rise: number }
-
-interface Card {
-  kind: 'block' | 'toast' | 'level' | 'won' | 'lost';
-  title: string; sub: string; color: string; t: number; dur: number;
-  curve?: { x: number; y: number; ty: number; above: boolean; reliable: boolean }[];
-  bands?: TraceBand[]; blind?: boolean; block?: BlockKind;
-  tool?: ToolKind; level?: Level; stars?: number; goals?: Goal[];
-}
-
-const TXT = {
-  warmup: t('block.warmup'), obs: t('block.obs'), blind: t('block.blind'), night: t('block.night'), finale: t('block.finale'),
-  nextObs: t('next.obs'), nextBlind: t('next.blind'), nextNight: t('next.night'), nextFinale: t('next.finale'),
-  moves: t('hud.moves'), goal: t('hud.goal'), lens: t('hud.lens'), star: t('hud.star'), trayFull: t('hud.trayFull'), pulsarReady: t('hud.pulsarReady'),
-  mark: t('hud.mark'), milky: t('hud.milky'), finaleTitle: t('finale.title'), finaleSub: t('finale.sub'),
-  driveWarm: t('drive.warmup'), driveObs: t('drive.obs'), driveBlind: t('drive.blind'), driveNight: t('drive.night'), driveGrey: t('drive.grey'), driveFree: t('drive.free'),
-  rescue: t('rescue.title'), restart: t('rescue.restart'), tipFocus: t('rescue.tipFocus'), tipCalm: t('rescue.tipCalm'),
-  lostTitle: t('lost.title'), lostSub: t('lost.sub'), bonus: t('won.bonus'),
-};
-
-const PX = /(\d+(?:\.\d+)?)px/;
-
-export class Hud {
-  private L!: Layout;
-  private readonly ctx: CanvasRenderingContext2D;
-  private readonly floats: Float[] = [];
-  private readonly cards: Card[] = [];
-  private F = Hud.fontsFor(1);
-  private shown = 0;
-  private pop = 0;
+export class HudDraw {
+  private cardKind = '';
+  private cardT = 0;
+  private bubble: { text: string; t: number } | null = null;
+  private toolFlash: { slot: number; t: number } | null = null;
+  private pips = { n: 0, t: -9 };
+  private buttons: { kind: 'use' | 'retry'; r: Rect }[] = [];
+  private verse: { key: string; l: PassageLayout } | null = null;
   private clock = 0;
-  private finaleA = 0;
-  private rescueA = 0;
-  private restartBox: Rect | null = null;
-  private cascadeT = 0;
-  private cascadeN = 0;
-  private cascadeWord = '';
-  private movesPop = 0;
-  private lastMoves = -1;
-  private readonly lag: number;
-  private readonly lagLabel: string;
-  private wrapCache = new Map<string, string[]>();
 
-  constructor(ctx: CanvasRenderingContext2D, eeg: boolean) {
-    this.ctx = ctx;
-    this.lag = LAG_SEC[eeg ? 'eeg' : 'fnirs'];
-    this.lagLabel = t('lag', { n: this.lag });
-  }
+  constructor(private readonly opts: { reducedMotion: boolean; eeg: boolean }) {}
 
-  private static fontsFor(u: number) {
-    return {
-      name: font(500, 18 * u, SERIF), tip: font(500, 11.5 * u, SANS), drive: font(700, 11 * u, SANS), small: font(650, 10.5 * u, SANS),
-      score: font(500, 30 * u, SERIF), unit: font(650, 11 * u, SANS), moves: font(600, 24 * u, SERIF), label: font(700, 9.5 * u, SANS),
-      goal: font(750, 12.5 * u, SANS), cardTitle: font(500, 17 * u, SERIF, true), cardSub: font(650, 12 * u, SANS),
-      big: font(500, 26 * u, SERIF, true), cascade: font(600, 30 * u, SERIF, true), lag: font(650, 8.5 * u, SANS), lensPct: font(700, 12 * u, SANS),
-    };
-  }
+  card(kind: string, clock: number): void { this.cardKind = kind; this.cardT = clock; }
+  get shown(): string { return this.cardKind; }
+  say(text: string, clock: number): void { this.bubble = { text, t: clock }; }
+  flashTool(slot: number, clock: number): void { this.toolFlash = { slot, t: clock }; }
+  starPip(n: number, clock: number): void { this.pips = { n, t: clock }; }
+  update(dt: number): void { this.clock += dt; }
 
-  resize(L: Layout): void {
-    this.L = L;
-    this.F = Hud.fontsFor(L.u);
-    this.wrapCache.clear();
-  }
-
-  // ── what the view tells the HUD ─────────────────────────────────
-  float(text: string, x: number, y: number, color: string, size = 15, dur = 1.1, rise = 34): void {
-    const u = this.L.u;
-    x = clamp(x, 40 * u, this.L.w - 40 * u);
-    this.floats.push({ text, x, y, t: 0, dur, color, font: font(800, size * u, SANS), rise: rise * u });
-    if (this.floats.length > 16) this.floats.shift();
-  }
-
-  cascade(n: number, word: string): void {
-    this.cascadeN = n;
-    this.cascadeWord = word;
-    this.cascadeT = 1.1;
-  }
-
-  on(e: SimEvent): void {
-    if (e.type === 'resolve') this.pop = 1;
-  }
-
-  blockCard(sim: FirmamentSim, kind: BlockKind, blind: boolean, verdict: boolean | null, share: number, need: number, t0: number, t1: number, tools: ToolKind[]): void {
-    const lay = sim.trace.layout({ x: 0, y: 0, w: 1, h: 1 }, t1, { span: clamp(t1 - t0, 4, 40) });
-    const curve = lay.points.map(p => ({ x: p.x, y: p.y, ty: p.ty, above: p.above, reliable: p.reliable }));
-    const pct = (v: number) => Math.round(v * 100);
-    const title = kind === 'obs' ? (blind ? TXT.blind : TXT.obs) : TXT.night;
-    let sub: string, color: string = C.cream;
-    if (blind) {
-      sub = t('blind.reveal', { n: pct(share) }) + (tools.length ? ` · +${tools.length}` : '');
-      color = C.violet;
-    } else if (verdict === null) sub = t('card.none');
-    else if (verdict) {
-      sub = kind === 'obs' ? t('card.obs.pass') : t('card.night.pass');
-      color = kind === 'obs' ? C.gold : C.cool;
-    } else sub = t('card.near', { share: pct(share), need: pct(need) });
-    this.push({ kind: 'block', title, sub, color, t: 0, dur: 3.4, curve, bands: lay.bands.map(b => ({ ...b })), blind, block: kind });
-  }
-
-  toast(title: string, sub: string, color: string = C.cream, tool?: ToolKind): void {
-    this.push({ kind: 'toast', title, sub, color, t: 0, dur: 2.2, tool });
-  }
-
-  levelCard(level: Level, name: string, attempt: number, newTools: string[]): void {
-    const title = t('level.start', { n: level.index + 1, name });
-    const sub = newTools.length ? t('level.new', { list: newTools.join(', ') }) : '';
-    this.dropToasts();
-    this.push({ kind: 'level', title, sub, color: C.gold, t: 0, dur: attempt ? 1.8 : 2.4, level, goals: level.goals });
-  }
-
-  wonCard(level: Level, stars: number, constDone: string | null, bonus: boolean): void {
-    this.dropToasts();
-    this.push({
-      kind: 'won', title: constDone ? t('const.done', { name: constDone }) : t('won.title', { n: level.index + 1 }), sub: bonus ? TXT.bonus : '',
-      color: C.gold, t: 0, dur: RULES.wonHold + 0.6, level, stars,
-    });
-  }
-
-  lostCard(): void {
-    this.dropToasts();
-    this.push({ kind: 'lost', title: TXT.lostTitle, sub: TXT.lostSub, color: C.cool, t: 0, dur: RULES.lostHold + 0.2 });
-  }
-
-  /** Toasts waiting behind the head card make way for a level's card (block verdicts stay). */
-  private dropToasts(): void {
-    for (let i = this.cards.length - 1; i >= 1; i--) if (this.cards[i].kind === 'toast') this.cards.splice(i, 1);
-  }
-
-  private push(c: Card): void {
-    this.cards.push(c);
-    if (this.cards.length > 5) this.cards.splice(1, 1);
-    const head = this.cards[0];
-    if (this.cards.length > 1 && head.kind !== 'won' && head.kind !== 'lost') head.dur = Math.min(head.dur, Math.max(1.4, head.t) + 0.3);
-  }
-
-  restartHit(x: number, y: number): boolean {
-    const b = this.restartBox;
-    return !!b && this.rescueA > 0.5 && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
-  }
-
-  update(dt: number, sim: FirmamentSim): void {
-    this.clock += dt;
-    let n = 0;
-    for (const f of this.floats) if ((f.t += dt) < f.dur) this.floats[n++] = f;
-    this.floats.length = n;
-    const head = this.cards[0];
-    if (head && (head.t += dt) >= head.dur) {
-      this.cards.shift();
-      const next = this.cards[0];
-      if (next && this.cards.length > 1 && next.kind === 'toast') next.dur = Math.min(next.dur, 1.8);
+  hit(x: number, y: number, L: Layout, sim: FirmamentSim): Hit | null {
+    if (sim.stage === 'out') {
+      for (const b of this.buttons) if (inRect(b.r, x, y, 6)) return { button: b.kind };
+      return null;
     }
-    this.pop = Math.max(0, this.pop - dt * 2.4);
-    this.cascadeT = Math.max(0, this.cascadeT - dt);
-    this.shown = sim.score < this.shown ? sim.score : approach(this.shown, sim.score, dt, 0.18);
-    if (sim.score - this.shown < 0.5) this.shown = sim.score;
-    if (this.lastMoves !== sim.movesLeft) {
-      if (this.lastMoves >= 0 && sim.movesLeft > this.lastMoves) this.movesPop = 1;
-      this.lastMoves = sim.movesLeft;
+    if (sim.stage === 'story' || sim.stage === 'intro' || sim.stage === 'won') return { button: 'card' };
+    for (let k = 0; k < sim.traySize; k++) if (inRect(L.tray[k], x, y, 4)) return { slot: k };
+    return null;
+  }
+
+  draw(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number, w: number, h: number): void {
+    this.drawGoal(ctx, L, sim, T);
+    this.drawScope(ctx, L, sim, T);
+    this.drawTray(ctx, L, sim, T);
+    this.drawOwl(ctx, L, sim, T);
+    this.buttons = [];
+    if (sim.phase === 'play' || sim.stage === 'won') {
+      if (sim.stage === 'story') this.drawStory(ctx, L, sim, T);
+      else if (sim.stage === 'intro') this.drawIntro(ctx, L, sim, T);
+      else if (sim.stage === 'won') this.drawWon(ctx, L, sim, T);
+      else if (sim.stage === 'out') this.drawOut(ctx, L, sim, T);
     }
-    this.movesPop = Math.max(0, this.movesPop - dt * 2);
-    this.finaleA = approach(this.finaleA, sim.phase !== 'play' ? 1 : 0, dt, 0.4);
-    this.rescueA = approach(this.rescueA, sim.stage === 'rescue' && sim.phase === 'play' ? 1 : 0, dt, 0.15);
+    void w; void h;
   }
 
-  draw(sim: FirmamentSim): void {
-    this.status(sim);
-    this.goals(sim);
-    this.score();
-    this.lens(sim);
-    this.tray(sim);
-    this.drawCascade();
-    this.drawFloats();
-    this.rescue(sim);
-    this.drawCard();
-    this.finale();
-  }
-
-  // ── helpers ─────────────────────────────────────────────────────
-  private panel(x: number, y: number, w: number, h: number, a = 0.78): void {
-    const ctx = this.ctx;
-    ctx.fillStyle = `rgba(14,18,52,${a})`;
-    ctx.strokeStyle = C.panelEdge;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, 12 * this.L.u);
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  /** The font `f`, shrunk (to `min` of its size at most) so `text` fits `maxW`. */
-  private fit(text: string, maxW: number, f: string, min = 0.7): string {
-    const ctx = this.ctx;
-    ctx.font = f;
-    const w = ctx.measureText(text).width;
-    if (w <= maxW) return f;
-    const m = f.match(PX);
-    if (!m) return f;
-    const size = Math.max(Number(m[1]) * min, (Number(m[1]) * maxW) / w);
-    return f.replace(m[0], `${Math.round(size * 10) / 10}px`);
-  }
-
-  private wrapped(text: string, maxW: number, f: string, lines: number): string[] {
-    const key = `${f}|${maxW}|${lines}|${text}`;
-    let out = this.wrapCache.get(key);
-    if (!out) {
-      this.ctx.font = f;
-      out = wrap(this.ctx, text, maxW);
-      if (out.length > lines) {
-        out = out.slice(0, lines);
-        out[lines - 1] = `${out[lines - 1].replace(/[\s,;:.]+$/, '')}…`;
-      }
-      if (this.wrapCache.size > 60) this.wrapCache.clear();
-      this.wrapCache.set(key, out);
-    }
-    return out;
-  }
-
-  // ── the status ──────────────────────────────────────────────────
-  /** The block's name, its colour, what the band drives now, and the strategy line. */
-  private statusText(sim: FirmamentSim): { name: string; color: string; drive: string; driveColor: string; tip: string } {
-    const b = sim.block;
-    if (sim.phase !== 'play') return { name: TXT.finale, color: C.gold, drive: '', driveColor: C.gold, tip: '' };
-    const tool = sim.armedTool;
-    let tip = sim.tip;
-    if (b.kind === 'warmup') tip = TIPS.warmup[Math.min(2, Math.floor((sim.blockT / Math.max(1, b.dur)) * 3))];
-    const name = b.kind === 'warmup' ? TXT.warmup : b.kind === 'night' ? TXT.night : b.blind ? TXT.blind : TXT.obs;
-    const color = b.kind === 'night' ? C.cool : b.blind ? C.violet : C.gold;
-    let drive: string, driveColor: string = C.gold;
-    if (tool) {
-      drive = TOOL_USE[tool];
-      driveColor = C.mint;
-    } else if (b.kind === 'warmup') drive = TXT.driveWarm;
-    else if (b.kind === 'night') {
-      drive = sim.reliable ? TXT.driveNight : TXT.driveGrey;
-      driveColor = C.cool;
-    } else if (b.blind) {
-      drive = TXT.driveBlind;
-      driveColor = C.violet;
-    } else if (!sim.reliable) {
-      drive = TXT.driveGrey;
-      driveColor = C.dim;
-    } else if (sim.blockT < sim.leadIn) drive = t('drive.lead', { n: Math.max(1, Math.ceil(sim.leadIn - sim.blockT)) });
-    else drive = TXT.driveObs;
-    return { name, color, drive, driveColor, tip };
-  }
-
-  private status(sim: FirmamentSim): void {
-    const ctx = this.ctx, L = this.L, u = L.u, r = L.status, F = this.F;
-    const s = this.statusText(sim);
-    this.panel(r.x, r.y, r.w, r.h);
-    const pad = 11 * u;
-    const w = r.w - 2 * pad;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = s.color;
-    ctx.font = this.fit(s.name, w, F.name);
-    ctx.fillText(s.name, r.x + pad, r.y + 7 * u);
-    ctx.fillStyle = s.driveColor;
-    ctx.font = this.fit(s.drive, w, F.drive, 0.62);
-    ctx.fillText(s.drive, r.x + pad, r.y + 29 * u);
-    // the strategy: one line on a phone, up to three in a column
-    const lines = Math.max(1, Math.floor((r.h - 46 * u) / (13 * u)));
-    if (s.tip) {
-      ctx.fillStyle = C.dim;
-      this.wrapped(s.tip, w, F.tip, lines).forEach((line, i) => {
-        ctx.font = F.tip;
-        ctx.fillText(line, r.x + pad, r.y + 43 * u + i * 13 * u);
-      });
-    }
-    // the block's progress, or the telegraph
-    const b = sim.block, by = r.y + r.h - 5 * u;
-    const left = sim.phase === 'play' ? b.dur - sim.blockT : 0;
-    if (sim.phase === 'play' && left <= RULES.telegraph) {
-      const nb = sim.next;
-      const txt = !nb ? TXT.nextFinale : nb.kind === 'night' ? TXT.nextNight : TXT.nextObs;
-      ctx.font = this.fit(txt, w * 0.6, F.small);
-      const tw = ctx.measureText(txt).width;
-      ctx.fillStyle = `rgba(255,214,140,${0.75 + 0.25 * Math.sin(this.clock * 6)})`;
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'top';
-      ctx.fillText(txt, r.x + r.w - pad, r.y + 8 * u);
-      ctx.textAlign = 'left';
-      void tw;
-    }
-    ctx.fillStyle = 'rgba(246,239,220,.14)';
-    ctx.fillRect(r.x + pad, by, w, 2.5 * u);
-    ctx.fillStyle = s.color;
-    ctx.fillRect(r.x + pad, by, w * clamp(sim.phase === 'play' ? sim.blockT / b.dur : 1), 2.5 * u);
-  }
-
-  // ── the moves and the goals ─────────────────────────────────────
-  private goals(sim: FirmamentSim): void {
-    const ctx = this.ctx, L = this.L, u = L.u, r = L.goals, F = this.F;
-    this.panel(r.x, r.y, r.w, r.h);
-    const pad = 10 * u;
-    // the moves: a number in a ring
-    const compact = L.tall || L.low;
-    const mr = Math.min(r.h * 0.4, 22 * u);
-    const mx = r.x + pad + mr, my = compact ? r.y + r.h / 2 : r.y + pad + mr + 12 * u;
-    const low = sim.movesLeft <= 3 && sim.stage === 'play';
-    ctx.strokeStyle = low ? `rgba(255,160,120,${0.7 + 0.3 * Math.sin(this.clock * 8)})` : 'rgba(255,214,140,.6)';
-    ctx.lineWidth = 2 * u;
-    ctx.beginPath();
-    ctx.arc(mx, my, mr, 0, TAU);
-    ctx.stroke();
-    const k = 1 + 0.3 * this.movesPop;
+  // ── the goal card ───────────────────────────────────────────────
+  private drawGoal(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
+    const g = L.goal, u = L.u, lv = sim.level;
     ctx.save();
-    ctx.translate(mx, my + 1);
-    ctx.scale(k, k);
-    ctx.fillStyle = low ? '#ffb090' : C.cream;
-    ctx.font = this.fit(String(sim.movesLeft), mr * 1.6, compact ? F.goal.replace(PX, `${Math.round(17 * u)}px`) : F.moves);
-    ctx.textAlign = 'center';
+    panel(ctx, g, 14 * u);
+    const tall = L.mode === 'tall';
+    const ringR = tall ? g.h * 0.42 : Math.min(g.h * 0.24, g.w * 0.17);
+    const rx = g.x + 10 + ringR, ry = tall ? g.y + g.h / 2 : g.y + 14 * u + 8 + ringR + 14 * u;
+    // the level's name
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(sim.movesLeft), 0, 0);
-    ctx.restore();
-    if (!compact) {
-      ctx.fillStyle = C.faint;
-      ctx.font = F.label;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(TXT.moves.toUpperCase(), mx, r.y + 6 * u);
-    }
-    // the goals: an icon and what is left (a tick when done)
-    const gx0 = mx + mr + 12 * u;
-    const right = L.tall ? r.x + r.w - pad - this.scoreW() - 8 * u : r.x + r.w - pad;
-    const goals = sim.level.goals;
-    const slotW = Math.max(40 * u, (right - gx0) / Math.max(1, goals.length));
-    const ir = Math.min(r.h * 0.3, 13 * u);
-    goals.forEach((g, i) => {
-      const x = gx0 + i * slotW, y = my;
-      const left = sim.goalLeft(g);
-      this.goalIcon(g, x + ir, y, ir);
+    if (!tall) {
+      ctx.fillStyle = C.cream;
+      ctx.font = font(700, 15 * u, SERIF);
       ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      if (left === 0) {
-        ctx.strokeStyle = C.mint;
-        ctx.lineWidth = 2.5 * u;
+      ctx.fillText(t('strip.level', { n: lv.index + 1 }), g.x + 12, g.y + 16 * u);
+      ctx.font = font(600, 11 * u, SANS);
+      ctx.fillStyle = C.dim;
+      ctx.textAlign = 'right';
+      ctx.fillText(lv.hard ? t('strip.hard') : constName(lv.constellation), g.x + g.w - 10, g.y + 16 * u);
+      if (lv.hard) { ctx.fillStyle = '#ff8fb0'; ctx.fillText(t('strip.hard'), g.x + g.w - 10, g.y + 16 * u); }
+    }
+    // the moves in a ring (red and pulsing when few)
+    const few = sim.movesLeft <= 3 && sim.stage === 'play';
+    const pulse = few ? 1 + Math.sin(T * 8) * 0.05 : 1;
+    ctx.beginPath();
+    ctx.arc(rx, ry, ringR * pulse, 0, TAU);
+    ctx.fillStyle = few ? 'rgba(120,30,60,.85)' : 'rgba(10,14,44,.9)';
+    ctx.fill();
+    ctx.lineWidth = Math.max(2, ringR * 0.1);
+    ctx.strokeStyle = few ? '#ff8fb0' : C.gold;
+    ctx.stroke();
+    ctx.fillStyle = C.cream;
+    ctx.textAlign = 'center';
+    ctx.font = font(700, ringR * 0.95, SERIF);
+    ctx.fillText(String(Math.max(0, sim.movesLeft)), rx, ry + ringR * 0.04);
+    if (!tall) {
+      ctx.font = font(700, Math.max(8.5, ringR * 0.26), SANS);
+      ctx.fillStyle = C.dim;
+      ctx.fillText(t('strip.moves').toUpperCase(), rx, ry + ringR + 9 * u);
+    }
+    // what is left to do
+    const gx = rx + ringR + 12, gw = g.x + g.w - 10 - gx;
+    const iconR = tall ? g.h * 0.22 : Math.min(18 * u, gw * 0.14);
+    const items = this.goalItems(sim);
+    const step = Math.min(gw / Math.max(1, items.length), iconR * 4.2);
+    const gy = tall ? g.y + g.h * 0.4 : ry - 4 * u;
+    items.forEach((it, k) => {
+      const ix = gx + iconR + k * step;
+      it.icon(ctx, ix, gy, iconR, T);
+      ctx.textAlign = 'left';
+      ctx.font = font(800, iconR * 0.95, SANS);
+      ctx.fillStyle = it.left <= 0 ? C.mint : C.cream;
+      ctx.fillText(it.left <= 0 ? '✓' : it.text, ix + iconR * 1.2, gy);
+    });
+    // the score bar with its stars
+    const by = tall ? g.y + g.h * 0.78 : g.y + g.h - 16 * u;
+    const bx0 = tall ? gx : g.x + 12, bx1 = g.x + g.w - 12;
+    const top = lv.stars[1] * 1.08;
+    const k = clamp(sim.levelScore / top);
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    ctx.beginPath();
+    ctx.roundRect(bx0, by - 3.5 * u, bx1 - bx0, 7 * u, 4 * u);
+    ctx.fill();
+    const grad = ctx.createLinearGradient(bx0, 0, bx1, 0);
+    grad.addColorStop(0, '#9d8cff');
+    grad.addColorStop(1, C.gold);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(bx0, by - 3.5 * u, Math.max(4, (bx1 - bx0) * k), 7 * u, 4 * u);
+    ctx.fill();
+    const marks = lv.goal === 'score' ? [lv.n, lv.stars[0], lv.stars[1]] : [lv.stars[0], lv.stars[1]];
+    marks.forEach(m => {
+      const mx = bx0 + (bx1 - bx0) * clamp(m / top);
+      paintStar(ctx, mx, by, 6.5 * u + 1, sim.levelScore >= m ? 1 : 0, C.gold);
+    });
+    ctx.restore();
+  }
+
+  private goalItems(sim: FirmamentSim): { icon: (ctx: CanvasRenderingContext2D, x: number, y: number, r: number, T: number) => void; left: number; text: string }[] {
+    const lv = sim.level, B = sim.board;
+    switch (lv.goal) {
+      case 'score': {
+        const left = Math.max(0, lv.n - sim.levelScore);
+        return [{ icon: (c, x, y, r) => paintStar(c, x, y, r * 0.9, 1, C.gold), left, text: `${fmtNum(Math.round(sim.levelScore))} / ${fmtNum(lv.n)}` }];
+      }
+      case 'clouds': return [{ icon: (c, x, y, r) => paintCloudIcon(c, x, y, r), left: B.cloudLeft, text: String(B.cloudLeft) }];
+      case 'moons': return [{ icon: (c, x, y, r, T) => paintMoon(c, x, y, r * 0.85, T), left: B.moonsLeft, text: String(B.moonsLeft) }];
+      case 'rocks': return [{ icon: (c, x, y, r) => paintRock(c, x, y, r * 0.9, 2, 5), left: B.rocksLeft, text: String(B.rocksLeft) }];
+      case 'collect': return lv.want.map(w => ({ icon: (c: CanvasRenderingContext2D, x: number, y: number, r: number) => paintBody(c, w.of, x, y, r * 0.85), left: sim.wantLeft(w.of), text: String(sim.wantLeft(w.of)) }));
+    }
+  }
+
+  // ── the telescope ───────────────────────────────────────────────
+  private drawScope(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
+    const { x, y, r } = L.scope, u = L.u, look = sim.look;
+    ctx.save();
+    // the light trail round the top: the last 40 s, a star a second
+    const bars = traceBars(sim.trace, sim.t, 40);
+    const a0 = Math.PI * 1.08, a1 = Math.PI * 1.92, tr = r * 1.32;
+    bars.forEach((b, i) => {
+      if (b.empty || b.shown <= 0) return;
+      const a = a0 + ((a1 - a0) * i) / (bars.length - 1);
+      const sx = x + Math.cos(a) * tr, sy = y + Math.sin(a) * tr;
+      const lev = b.phase === 'rest' ? b.calm : b.level;
+      const size = (1.2 + lev * 2.6) * Math.max(0.8, u);
+      ctx.globalAlpha = b.shown;
+      if (!b.reliable) {
+        ctx.strokeStyle = 'rgba(246,239,220,.3)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(x + ir * 2 + 6 * u, y);
-        ctx.lineTo(x + ir * 2 + 10 * u, y + 4 * u);
-        ctx.lineTo(x + ir * 2 + 17 * u, y - 5 * u);
+        ctx.arc(sx, sy, 1.6, 0, TAU);
         ctx.stroke();
       } else {
-        const txt = g.kind === 'score' ? pts(left) : String(left);
-        ctx.fillStyle = C.cream;
-        ctx.font = this.fit(txt, slotW - ir * 2 - 10 * u, F.goal, 0.6);
-        ctx.fillText(txt, x + ir * 2 + 6 * u, y + 1);
-      }
-    });
-    if (!compact) {
-      // the level's name and its stars to win under the goals
-      ctx.fillStyle = C.faint;
-      ctx.font = F.label;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText(TXT.goal.toUpperCase(), gx0, r.y + 6 * u);
-      const lv = t('hud.level', { n: sim.level.index + 1 });
-      ctx.fillStyle = C.dim;
-      ctx.font = this.fit(lv, r.w - 2 * pad, F.small);
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(lv, r.x + pad, r.y + r.h - 7 * u);
-      // the stars this attempt has reached so far
-      const l = sim.level;
-      const got = sim.levelScore >= l.stars[1] ? 3 : sim.levelScore >= l.stars[0] ? 2 : sim.goalsDone ? 1 : 0;
-      for (let s = 0; s < 3; s++) paintStar(ctx, r.x + r.w - pad - (2 - s) * 16 * u - 6 * u, r.y + r.h - 13 * u, 6 * u, s < got ? 1 : 0);
-    }
-  }
-
-  private goalIcon(g: Goal, x: number, y: number, r: number): void {
-    const ctx = this.ctx;
-    switch (g.kind) {
-      case 'score': paintStar(ctx, x, y, r, 1, C.gold); break;
-      case 'collect': paintBody(ctx, g.of ?? 0, x, y, r); break;
-      case 'dust':
-        ctx.fillStyle = 'rgba(150,110,240,.6)';
-        ctx.strokeStyle = 'rgba(214,190,255,.8)';
-        ctx.lineWidth = 1.2;
+        ctx.fillStyle = b.phase === 'rest' ? `rgba(150,200,255,${0.35 + lev * 0.6})` : b.above ? C.gold : `rgba(246,239,220,${0.25 + lev * 0.4})`;
         ctx.beginPath();
-        ctx.roundRect(x - r, y - r, 2 * r, 2 * r, r * 0.35);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = '#f2e8ff';
-        for (const [dx, dy] of [[-0.4, -0.3], [0.35, -0.1], [-0.1, 0.4], [0.45, 0.45]] as const) {
-          ctx.beginPath();
-          ctx.arc(x + dx * r, y + dy * r, r * 0.12, 0, TAU);
-          ctx.fill();
-        }
-        break;
-      case 'rocks': paintRock(ctx, x, y, r, 1, 3); break;
-      case 'sats': paintSat(ctx, x, y, r * 0.95, this.clock); break;
-    }
-  }
-
-  // ── the headline ────────────────────────────────────────────────
-  private scoreW(): number {
-    const ctx = this.ctx;
-    const n = Math.round(this.shown);
-    ctx.font = this.L.tall ? this.F.goal.replace(PX, `${Math.round(19 * this.L.u)}px`) : this.F.score;
-    return Math.max(ctx.measureText(String(n)).width, 34 * this.L.u);
-  }
-
-  private score(): void {
-    const ctx = this.ctx, L = this.L, F = this.F, u = L.u;
-    const n = Math.round(this.shown);
-    const k = 1 + 0.16 * ease.outBack(this.pop) * this.pop;
-    const tall = L.tall;
-    const x = tall ? L.goals.x + L.goals.w - 10 * u : L.scoreX;
-    const y = tall ? L.goals.y + L.goals.h / 2 - 6 * u : L.scoreY + 2 * u;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(k, k);
-    ctx.textAlign = 'right';
-    ctx.textBaseline = tall ? 'middle' : 'top';
-    ctx.font = tall ? F.goal.replace(PX, `${Math.round(19 * u)}px`) : F.score;
-    ctx.fillStyle = C.gold;
-    ctx.fillText(String(n), 0, 0);
-    ctx.restore();
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.font = F.unit;
-    ctx.fillStyle = C.dim;
-    ctx.fillText(unit(n), x, tall ? y + 9 * u : y + 34 * u);
-  }
-
-  // ── the Milky Way: the band's last 40 s ─────────────────────────
-  drawMilky(sim: FirmamentSim): void {
-    const ctx = this.ctx, L = this.L, u = L.u, r = L.milky;
-    if (r.h < 8) return;
-    ctx.save();
-    ctx.fillStyle = 'rgba(6,8,26,.5)';
-    ctx.beginPath();
-    ctx.roundRect(r.x, r.y, r.w, r.h, r.h / 2.4);
-    ctx.fill();
-    ctx.clip();
-    const box = { x: r.x + 8 * u, y: r.y + 3 * u, w: r.w - 16 * u, h: r.h - 6 * u };
-    const lay = sim.trace.layout(box, sim.t);
-    // the blocks behind the stars: cool behind rest
-    for (const b of lay.bands) {
-      if (b.phase === 'rest') {
-        ctx.fillStyle = 'rgba(90,140,230,.18)';
-        ctx.fillRect(b.x0, r.y, Math.max(1, b.x1 - b.x0), r.h);
-      } else if (b.phase === 'focus') {
-        ctx.fillStyle = 'rgba(255,200,110,.05)';
-        ctx.fillRect(b.x0, r.y, Math.max(1, b.x1 - b.x0), r.h);
-      }
-    }
-    // the stars of the band: one column a bar, its glow the level, gold above the threshold
-    const n = Math.max(20, Math.round(box.w / (5 * u)));
-    const bars = traceBars(sim.trace, sim.t, n);
-    const bw = box.w / n;
-    const mid = box.y + box.h * 0.5;
-    ctx.globalCompositeOperation = 'lighter';
-    bars.forEach((b, i) => {
-      const x = box.x + (i + 0.5) * bw;
-      if (b.empty || b.shown <= 0) return;
-      if (!b.reliable) {
-        ctx.fillStyle = 'rgba(200,210,230,.35)';
-        ctx.fillRect(x - 0.6, box.y + box.h - 2, 1.2, 1.2);
-        return;
-      }
-      const lev = clamp(b.level);
-      const hh = box.h * (0.12 + 0.88 * lev);
-      const col = b.above ? '255,206,110' : b.phase === 'rest' ? '150,190,255' : '205,215,240';
-      ctx.fillStyle = `rgba(${col},${0.16 * b.shown})`;
-      ctx.fillRect(x - bw * 0.36, box.y + box.h - hh, bw * 0.72, hh);
-      ctx.fillStyle = `rgba(${col},${0.5 * b.shown})`;
-      ctx.fillRect(x - bw * 0.36, box.y + box.h - hh, bw * 0.72, Math.min(hh, box.h * 0.3));
-      ctx.fillStyle = `rgba(255,255,255,${0.8 * b.shown})`;
-      ctx.beginPath();
-      ctx.arc(x, box.y + box.h - hh, Math.max(0.8, bw * (b.above ? 0.32 : 0.2)), 0, TAU);
-      ctx.fill();
-    });
-    ctx.globalCompositeOperation = 'source-over';
-    // the threshold: level 0.5, dashed
-    ctx.setLineDash([3 * u, 3 * u]);
-    ctx.strokeStyle = 'rgba(255,240,210,.45)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(box.x, box.y + box.h - box.h * (0.12 + 0.88 * 0.5));
-    ctx.lineTo(box.x + box.w, box.y + box.h - box.h * (0.12 + 0.88 * 0.5));
-    ctx.stroke();
-    ctx.setLineDash([]);
-    // clouds over a blind block
-    for (const b of lay.bands) {
-      if (!b.veiled) continue;
-      const g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
-      g.addColorStop(0, 'rgba(70,64,110,.92)');
-      g.addColorStop(1, 'rgba(46,42,80,.92)');
-      ctx.fillStyle = g;
-      ctx.fillRect(b.x0, r.y, Math.max(1, b.x1 - b.x0), r.h);
-      for (let x = b.x0; x < b.x1; x += 14 * u) {
-        ctx.fillStyle = 'rgba(120,112,170,.5)';
-        ctx.beginPath();
-        ctx.arc(x + 7 * u, r.y + r.h * 0.45 + Math.sin(x * 0.07 + this.clock) * 2, r.h * 0.32, 0, TAU);
+        ctx.arc(sx, sy, size, 0, TAU);
         ctx.fill();
       }
-    }
-    // the band's delay at "now": a bracket, and its label
-    const x1 = box.x + box.w, x0 = box.x + box.w * (1 - this.lag / sim.trace.windowSec);
-    ctx.strokeStyle = 'rgba(246,239,220,.7)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(x0, mid - box.h * 0.5 + 6);
-    ctx.lineTo(x0, mid - box.h * 0.5 + 2);
-    ctx.lineTo(x1, mid - box.h * 0.5 + 2);
-    ctx.lineTo(x1, mid - box.h * 0.5 + 6);
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(246,239,220,.85)';
-    ctx.font = this.F.lag;
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.fillText(this.lagLabel, x0 - 3 * u, mid - box.h * 0.5 + 1);
-    if (r.w > 480 * u && r.h >= 20 * u) {
-      ctx.textAlign = 'left';
-      ctx.fillStyle = 'rgba(246,239,220,.45)';
-      ctx.fillText(TXT.milky, box.x + 2 * u, box.y + 1);
-    }
-    ctx.restore();
-  }
-
-  // ── the telescope's lens ────────────────────────────────────────
-  private lens(sim: FirmamentSim): void {
-    const ctx = this.ctx, L = this.L, u = L.u, F = this.F;
-    const { x, y, r } = L.lens;
-    const look = sim.lensLook;
-    const ri = r * 0.74;
-    // the telescope's tube behind the eyepiece
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(-0.75);
-    const tg = ctx.createLinearGradient(0, -r * 0.5, 0, r * 0.5);
-    tg.addColorStop(0, '#6d5427');
-    tg.addColorStop(0.5, '#c79a4c');
-    tg.addColorStop(1, '#5a4320');
-    ctx.fillStyle = tg;
-    ctx.beginPath();
-    ctx.moveTo(r * 0.5, -r * 0.55);
-    ctx.lineTo(r * 1.45, -r * 0.4);
-    ctx.lineTo(r * 1.45, r * 0.4);
-    ctx.lineTo(r * 0.5, r * 0.55);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    });
+    ctx.globalAlpha = 1;
     // the brass rim
-    const rg = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
-    rg.addColorStop(0, '#f1d08a');
-    rg.addColorStop(0.5, '#a57a33');
-    rg.addColorStop(1, '#6a4c1c');
-    ctx.fillStyle = rg;
+    const rim = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+    rim.addColorStop(0, '#f6d58a');
+    rim.addColorStop(0.5, '#b07a2c');
+    rim.addColorStop(1, '#f0c56a');
+    ctx.fillStyle = rim;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 1.12, 0, TAU);
+    ctx.fill();
+    // the lens
+    const lens = ctx.createRadialGradient(x, y - r * 0.3, r * 0.1, x, y, r);
+    lens.addColorStop(0, '#1a2160');
+    lens.addColorStop(1, '#050719');
+    ctx.fillStyle = lens;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, TAU);
     ctx.fill();
-    // the glass
-    const gg = ctx.createRadialGradient(x - ri * 0.3, y - ri * 0.3, ri * 0.1, x, y, ri);
-    gg.addColorStop(0, '#1d2766');
-    gg.addColorStop(1, '#070a24');
-    ctx.fillStyle = gg;
-    ctx.beginPath();
-    ctx.arc(x, y, ri, 0, TAU);
-    ctx.fill();
     ctx.save();
     ctx.beginPath();
-    ctx.arc(x, y, ri, 0, TAU);
+    ctx.arc(x, y, r, 0, TAU);
     ctx.clip();
-    // the light pool: the live level (or the night's calm)
-    const live = look === 'live' || look === 'lead' || look === 'warm';
-    const level = look === 'rest' ? clamp(sim.reliable ? sim.sky : 0) : clamp(sim.level01);
-    if (look !== 'blind' && look !== 'grey') {
-      const pr = ri * (0.08 + 0.92 * level);
-      const above = level > 0.5;
-      const col = look === 'rest' ? '140,190,255' : above ? '255,206,110' : '170,195,240';
-      const a = look === 'lead' || look === 'warm' ? 0.45 : 0.9;
-      const pg = ctx.createRadialGradient(x, y, 0, x, y, pr);
-      pg.addColorStop(0, `rgba(255,255,245,${a})`);
-      pg.addColorStop(0.45, `rgba(${col},${a * 0.85})`);
-      pg.addColorStop(1, `rgba(${col},0)`);
-      ctx.fillStyle = pg;
+    const lev = sim.level01;
+    if (look === 'live' || look === 'lead' || look === 'warm') {
+      const above = lev >= 0.5 && look === 'live';
+      const R = r * 0.94 * clamp(lev);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, Math.max(1, R));
+      g.addColorStop(0, above ? 'rgba(255,248,214,1)' : 'rgba(220,226,255,.9)');
+      g.addColorStop(0.6, above ? 'rgba(255,205,110,.85)' : 'rgba(150,160,230,.5)');
+      g.addColorStop(1, above ? 'rgba(255,170,60,0)' : 'rgba(120,130,220,0)');
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(x, y, pr, 0, TAU);
+      ctx.arc(x, y, R * 1.15, 0, TAU);
       ctx.fill();
-    }
-    if (look === 'blind') {
-      for (let i = 0; i < 6; i++) {
-        const a = i * 1.1 + this.clock * 0.3;
-        ctx.fillStyle = 'rgba(120,112,170,.75)';
+      if (above) {
+        // light pouring in
+        ctx.globalCompositeOperation = 'lighter';
+        for (let k = 0; k < 5; k++) {
+          const ph = (T * 0.8 + k / 5) % 1;
+          ctx.strokeStyle = `rgba(255,220,140,${0.5 * (1 - ph)})`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(x, y, r * (1 - ph * 0.6), 0, TAU);
+          ctx.stroke();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    } else if (look === 'rest') {
+      const R = r * (0.3 + 0.7 * sim.sky);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, R);
+      g.addColorStop(0, 'rgba(200,230,255,.9)');
+      g.addColorStop(1, 'rgba(90,150,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, R, 0, TAU);
+      ctx.fill();
+      // a falling star crossing the lens now and then
+      const ph = (T * 0.35) % 1;
+      ctx.strokeStyle = `rgba(255,255,255,${0.8 * (1 - ph)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x - r + ph * r * 1.6, y - r * 0.6 + ph * r);
+      ctx.lineTo(x - r + ph * r * 1.6 - r * 0.3, y - r * 0.6 + ph * r - r * 0.18);
+      ctx.stroke();
+    } else if (look === 'blind') {
+      for (let k = 0; k < 6; k++) {
+        const cx = x + Math.sin(T * 0.4 + k * 1.3) * r * 0.5, cy = y + Math.cos(T * 0.3 + k) * r * 0.4;
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 0.6);
+        g.addColorStop(0, 'rgba(150,140,190,.75)');
+        g.addColorStop(1, 'rgba(120,110,160,0)');
+        ctx.fillStyle = g;
         ctx.beginPath();
-        ctx.arc(x + Math.cos(a) * ri * 0.45, y + Math.sin(a * 1.3) * ri * 0.35, ri * 0.45, 0, TAU);
+        ctx.arc(cx, cy, r * 0.6, 0, TAU);
         ctx.fill();
       }
     }
-    if (look === 'grey') {
-      ctx.fillStyle = 'rgba(160,165,180,.25)';
-      ctx.fillRect(x - ri, y - ri, 2 * ri, 2 * ri);
+    ctx.restore();
+    // the threshold ring on the lens itself (0.5 of its radius) — the line between dim and gold
+    if (look !== 'blind' && look !== 'rest') {
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = look === 'grey' ? 'rgba(246,239,220,.3)' : 'rgba(255,240,200,.85)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 0.94 * 0.5, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+    // the charge ring round the rim (toward the next tool), or the calm sky's star pips
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(3, r * 0.1);
+    ctx.strokeStyle = 'rgba(0,0,0,.35)';
+    ctx.beginPath();
+    ctx.arc(x, y, r * 1.06, 0, TAU);
+    ctx.stroke();
+    if (look === 'rest') {
+      ctx.strokeStyle = '#9fd0ff';
+      ctx.beginPath();
+      ctx.arc(x, y, r * 1.06, -Math.PI / 2, -Math.PI / 2 + TAU * sim.starProgress);
+      ctx.stroke();
+      for (let k = 0; k < RULES.starMax; k++) {
+        const a = -Math.PI / 2 + (k - 1) * 0.42;
+        const px = x + Math.cos(a) * r * 0.62, py = y + Math.sin(a) * r * 0.62 + r * 0.2;
+        const lit = k < sim.starsBlock;
+        const pop = lit && this.pips.n === k + 1 ? 1 + Math.max(0, 1 - (this.clock - this.pips.t) * 2) * 0.6 : 1;
+        paintStar(ctx, px, py, r * 0.13 * pop, lit ? 1 : 0, '#e6f2ff');
+      }
+    } else if (look !== 'blind') {
+      const k = clamp(sim.charge);
+      ctx.strokeStyle = C.gold;
+      ctx.shadowColor = C.gold;
+      ctx.shadowBlur = k > 0.02 ? 8 : 0;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 1.06, -Math.PI / 2, -Math.PI / 2 + TAU * k);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      if (sim.hold > 2 && !sim.nextPulsar) {
+        ctx.strokeStyle = '#c9a8ff';
+        ctx.lineWidth = Math.max(2, r * 0.05);
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.84, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(sim.hold / RULES.pulsarHold));
+        ctx.stroke();
+      }
+      if (sim.nextPulsar) paintToolIcon(ctx, 'pulsar', x + r * 0.8, y - r * 0.8, r * 0.28, T);
+    }
+    // the words under it
+    const st = this.scopeLine(sim);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    if (L.mode === 'wide') {
+      ctx.fillStyle = C.cream;
+      ctx.font = font(700, 13 * u, SERIF);
+      ctx.fillText(t('scope.title'), L.scopeText.x, L.scopeText.y);
+      ctx.fillStyle = look === 'live' && sim.level01 >= 0.5 ? C.gold : C.dim;
+      ctx.font = font(600, 11 * u, SANS);
+      const lines = wrapLines(ctx, st, L.scopeText.w);
+      lines.slice(0, 2).forEach((s, i) => ctx.fillText(s, L.scopeText.x, L.scopeText.y + 17 * u + i * 14 * u));
+    } else if (!sim.armedTool) {
+      // a phone: one short line under the tray
+      ctx.fillStyle = look === 'live' && sim.level01 >= 0.5 ? C.gold : C.dim;
+      let size = 10.5;
+      ctx.font = font(650, size, SANS);
+      while (size > 7.5 && ctx.measureText(st).width > L.scopeText.w) { size -= 0.5; ctx.font = font(650, size, SANS); }
+      const line = wrapLines(ctx, st, L.scopeText.w)[0] ?? '';
+      ctx.fillText(line, L.scopeText.x, L.scopeText.y + 2);
     }
     ctx.restore();
-    // the threshold: a dashed circle at level 0.5
-    if (look !== 'blind') {
-      ctx.setLineDash([3 * u, 3 * u]);
-      ctx.strokeStyle = 'rgba(255,245,220,.75)';
-      ctx.lineWidth = 1.2 * u;
-      ctx.beginPath();
-      ctx.arc(x, y, ri * (0.08 + 0.92 * 0.5), 0, TAU);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      if (r >= 34) {
-        ctx.fillStyle = 'rgba(255,245,220,.8)';
-        ctx.font = this.F.lag;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(TXT.mark, x, y - ri * 0.54 - 1);
-      }
-    }
-    // the light gathered: an arc in the rim toward the next instrument (in the night: toward the next falling star)
-    const night = look === 'rest';
-    const fill = night ? sim.starProgress : look === 'blind' ? 0 : sim.lens;
-    const rr = (r + ri) / 2;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = 'rgba(0,0,0,.35)';
-    ctx.lineWidth = (r - ri) * 0.62;
-    ctx.beginPath();
-    ctx.arc(x, y, rr, 0, TAU);
-    ctx.stroke();
-    if (fill > 0.005) {
-      ctx.strokeStyle = night ? '#a9cbff' : fill >= 1 ? `rgba(255,236,170,${0.8 + 0.2 * Math.sin(this.clock * 8)})` : C.gold;
-      ctx.beginPath();
-      ctx.arc(x, y, rr, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(fill));
-      ctx.stroke();
-    }
-    // the hold toward a pulsar: the outer rim
-    const hold = sim.nextPulsar ? 1 : clamp(sim.hold / RULES.pulsarHold);
-    if (live && (hold > 0.01 || sim.nextPulsar)) {
-      ctx.strokeStyle = sim.nextPulsar ? `rgba(190,235,255,${0.75 + 0.25 * Math.sin(this.clock * 6)})` : 'rgba(200,225,255,.85)';
-      ctx.lineWidth = 2.5 * u;
-      ctx.beginPath();
-      ctx.arc(x, y, r + 4 * u, -Math.PI / 2, -Math.PI / 2 + TAU * hold);
-      ctx.stroke();
-    }
-    ctx.lineCap = 'butt';
-    // the lens's words: the share gathered, and what comes next
-    const tx = L.lensText;
-    const pct = Math.round(clamp(fill) * 100);
-    ctx.textBaseline = 'top';
-    if (L.tall) {
-      ctx.textAlign = 'left';
-      ctx.fillStyle = night ? C.cool : C.gold;
-      const name = (night ? TXT.star : TXT.lens).toUpperCase();
-      ctx.font = this.fit(name, tx.w, F.label, 0.6);
-      ctx.fillText(name, tx.x, tx.y + tx.h * 0.18);
-      ctx.font = this.fit(`${pct}%`, tx.w, F.lensPct);
-      ctx.fillText(look === 'blind' ? '…' : `${pct}%`, tx.x, tx.y + tx.h * 0.18 + 13 * u);
-      const note = this.lensNote(sim);
-      if (note) {
-        ctx.fillStyle = C.dim;
-        this.wrapped(note, tx.w, F.label, 2).forEach((line, i) => {
-          ctx.font = F.label;
-          ctx.fillText(line, tx.x, tx.y + tx.h * 0.18 + 31 * u + i * 11 * u);
-        });
-      }
-    } else {
-      ctx.textAlign = 'center';
-      ctx.fillStyle = night ? C.cool : C.gold;
-      ctx.font = F.label;
-      const head = `${(night ? TXT.star : TXT.lens).toUpperCase()} · ${look === 'blind' ? '…' : `${pct}%`}`;
-      ctx.font = this.fit(head, L.w - x, F.lensPct);
-      ctx.fillText(head, x, y - r - 26 * u);
-      const note = this.lensNote(sim);
-      if (note) {
-        ctx.fillStyle = C.dim;
-        ctx.font = F.small;
-        this.wrapped(note, tx.w - 8 * u, F.small, 3).forEach((line, i) => ctx.fillText(line, x, tx.y + 4 * u + i * 13 * u));
-      }
-    }
   }
 
-  private lensNote(sim: FirmamentSim): string {
-    if (sim.tray.length >= sim.traySize && sim.lens >= 1) return TXT.trayFull;
-    if (sim.nextPulsar) return TXT.pulsarReady;
-    if (sim.lensLook === 'live' || sim.lensLook === 'lead') return t('hud.hold', { n: RULES.pulsarHold });
-    return '';
+  private scopeLine(sim: FirmamentSim): string {
+    switch (sim.look) {
+      case 'live': return sim.nextPulsar ? t('scope.pulsar') : sim.tray.length >= sim.traySize ? t('scope.full') : t('scope.charge', { n: Math.round(sim.charge * 100) });
+      case 'lead': return t('scope.lead', { n: sim.leadIn });
+      case 'blind': return t('scope.blind');
+      case 'grey': return t('scope.grey');
+      case 'rest': return t('scope.rest', { n: sim.starsBlock, all: RULES.starMax });
+      default: return t('scope.warm');
+    }
   }
 
   // ── the tray ────────────────────────────────────────────────────
-  private tray(sim: FirmamentSim): void {
-    const ctx = this.ctx, L = this.L, u = L.u;
-    const n = sim.traySize;
-    for (let i = 0; i < n; i++) {
-      const s = L.slot(i, n);
-      const tool = sim.tray[i];
-      const armed = sim.armed === i;
-      const lift = armed ? 4 * u : 0;
-      ctx.fillStyle = tool ? 'rgba(20,26,70,.85)' : 'rgba(10,12,36,.45)';
-      ctx.strokeStyle = armed ? `rgba(255,224,150,${0.8 + 0.2 * Math.sin(this.clock * 8)})` : tool ? 'rgba(255,214,140,.45)' : 'rgba(246,239,220,.18)';
-      ctx.lineWidth = armed ? 2.5 * u : 1.2;
-      if (!tool) ctx.setLineDash([4 * u, 4 * u]);
+  private drawTray(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
+    const u = L.u;
+    ctx.save();
+    for (let k = 0; k < sim.traySize && k < L.tray.length; k++) {
+      const r = L.tray[k];
+      const tool = sim.tray[k];
+      const armed = sim.armed === k;
+      const fl = this.toolFlash && this.toolFlash.slot === k ? Math.max(0, 1 - (this.clock - this.toolFlash.t)) : 0;
+      ctx.fillStyle = armed ? 'rgba(255,210,122,.28)' : 'rgba(10,14,44,.78)';
       ctx.beginPath();
-      ctx.roundRect(s.x, s.y - lift, s.w, s.h, 10 * u);
+      ctx.roundRect(r.x, r.y, r.w, r.h, r.w * 0.22);
       ctx.fill();
+      ctx.lineWidth = armed ? 2.5 : 1.2;
+      ctx.strokeStyle = armed ? C.gold : tool ? 'rgba(255,220,150,.45)' : 'rgba(246,239,220,.18)';
+      if (!tool) ctx.setLineDash([4, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
-      if (tool) {
-        paintToolIcon(ctx, tool, s.x + s.w / 2, s.y + s.h / 2 - lift, s.w * 0.34, this.clock);
-        if (!L.tall) {
-          ctx.fillStyle = C.faint;
-          ctx.font = this.F.label;
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'top';
-          ctx.fillText(String(i + 1), s.x + 5 * u, s.y + 4 * u - lift);
-        }
-      }
-    }
-  }
-
-  // ── the rescue ──────────────────────────────────────────────────
-  private rescue(sim: FirmamentSim): void {
-    if (this.rescueA < 0.02) {
-      this.restartBox = null;
-      return;
-    }
-    const ctx = this.ctx, L = this.L, u = L.u, F = this.F;
-    const bw = L.cell * 8;
-    ctx.globalAlpha = this.rescueA;
-    ctx.fillStyle = 'rgba(4,6,20,.6)';
-    ctx.fillRect(L.bx - 6 * u, L.by - 6 * u, bw + 12 * u, bw + 12 * u);
-    const w = Math.min(bw - 16 * u, 320 * u), h = Math.min(bw - 16 * u, 200 * u);
-    const x = L.bx + (bw - w) / 2, y = L.by + (bw - h) / 2;
-    this.panel(x, y, w, h, 0.94);
-    const cx = x + w / 2;
-    const focus = sim.rescueWant === 'focus';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = focus ? C.gold : C.cool;
-    ctx.font = this.fit(TXT.rescue, w - 24 * u, F.cardTitle);
-    ctx.fillText(TXT.rescue, cx, y + 10 * u);
-    const line = t(focus ? 'rescue.focus' : 'rescue.calm', { n: RULES.rescueMoves });
-    ctx.fillStyle = C.cream;
-    const lines = this.wrapped(line, w - 24 * u, F.cardSub, 2);
-    lines.forEach((l, i) => {
-      ctx.font = F.cardSub;
-      ctx.fillText(l, cx, y + 34 * u + i * 15 * u);
-    });
-    // the six seconds: a ring that fills
-    const rr = Math.min(26 * u, h * 0.15), ry = y + h * 0.5;
-    ctx.lineWidth = 6 * u;
-    ctx.strokeStyle = 'rgba(246,239,220,.15)';
-    ctx.beginPath();
-    ctx.arc(cx, ry, rr, 0, TAU);
-    ctx.stroke();
-    ctx.strokeStyle = focus ? C.gold : C.cool;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.arc(cx, ry, rr, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(sim.rescueP / RULES.rescueSec));
-    ctx.stroke();
-    ctx.lineCap = 'butt';
-    ctx.fillStyle = C.cream;
-    ctx.font = F.goal;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(t('sec', { n: Math.max(0, Math.ceil(RULES.rescueSec - sim.rescueP)) }), cx, ry);
-    ctx.fillStyle = C.dim;
-    ctx.font = this.fit(focus ? TXT.tipFocus : TXT.tipCalm, w - 24 * u, F.small);
-    ctx.textBaseline = 'top';
-    ctx.fillText(focus ? TXT.tipFocus : TXT.tipCalm, cx, ry + rr + 8 * u);
-    // the window running out, and the way to start again
-    ctx.fillStyle = 'rgba(246,239,220,.15)';
-    ctx.fillRect(x + 14 * u, y + h - 40 * u, w - 28 * u, 2 * u);
-    ctx.fillStyle = 'rgba(246,239,220,.5)';
-    ctx.fillRect(x + 14 * u, y + h - 40 * u, (w - 28 * u) * clamp(1 - sim.rescueT / RULES.rescueWindow), 2 * u);
-    ctx.font = F.cardSub;
-    const bwid = Math.min(w - 28 * u, ctx.measureText(TXT.restart).width + 28 * u), bh = 26 * u;
-    const bx = cx - bwid / 2, byy = y + h - 32 * u;
-    this.restartBox = { x: bx, y: byy, w: bwid, h: bh };
-    ctx.strokeStyle = 'rgba(246,239,220,.5)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(bx, byy, bwid, bh, bh / 2);
-    ctx.stroke();
-    ctx.fillStyle = C.cream;
-    ctx.textBaseline = 'middle';
-    ctx.font = this.fit(TXT.restart, bwid - 16 * u, F.cardSub);
-    ctx.fillText(TXT.restart, cx, byy + bh / 2);
-    ctx.globalAlpha = 1;
-  }
-
-  // ── words over the board ────────────────────────────────────────
-  private drawCascade(): void {
-    if (this.cascadeT <= 0) return;
-    const ctx = this.ctx, L = this.L, u = L.u;
-    const k = 1 - this.cascadeT / 1.1;
-    const pop = k < 0.2 ? ease.outBack(k / 0.2) : 1;
-    ctx.save();
-    ctx.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
-    ctx.translate(L.bx + L.cell * 4, L.by + L.cell * 2.2 - k * 16 * u);
-    ctx.scale(pop, pop);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = this.F.cascade;
-    ctx.lineWidth = 5 * u;
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = 'rgba(10,8,40,.75)';
-    const text = t('fx.cascade', { n: this.cascadeN });
-    ctx.strokeText(text, 0, 0);
-    ctx.fillStyle = C.gold;
-    ctx.fillText(text, 0, 0);
-    if (this.cascadeWord) {
-      ctx.font = this.F.cardTitle;
-      ctx.strokeText(this.cascadeWord, 0, 30 * u);
-      ctx.fillStyle = C.cream;
-      ctx.fillText(this.cascadeWord, 0, 30 * u);
-    }
-    ctx.restore();
-  }
-
-  private drawFloats(): void {
-    const ctx = this.ctx;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (const f of this.floats) {
-      const k = f.t / f.dur;
-      const pop = k < 0.15 ? ease.outBack(k / 0.15) : 1;
-      ctx.globalAlpha = k > 0.7 ? Math.max(0, 1 - (k - 0.7) / 0.3) : 1;
-      ctx.font = f.font;
-      ctx.save();
-      ctx.translate(f.x, f.y - f.rise * ease.outCubic(k));
-      ctx.scale(pop, pop);
-      ctx.lineWidth = 3.5;
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = 'rgba(8,8,32,.8)';
-      ctx.strokeText(f.text, 0, 0);
-      ctx.fillStyle = f.color;
-      ctx.fillText(f.text, 0, 0);
-      ctx.restore();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // ── the cards ───────────────────────────────────────────────────
-  private drawCard(): void {
-    const c = this.cards[0];
-    if (!c) return;
-    const ctx = this.ctx, L = this.L, u = L.u, F = this.F;
-    const inK = ease.outBack(clamp(c.t / 0.3)), outK = clamp((c.dur - c.t) / 0.35);
-    const w = Math.min(320 * u, L.w - 32, Math.max(L.cell * 8 - 8, 240));
-    const h = (c.kind === 'block' ? 100 : c.kind === 'won' ? 150 : c.kind === 'level' ? 82 : 58) * u;
-    const x = (L.w - w) / 2, y = L.cardY - h / 2 + (1 - inK) * -14 * u;
-    ctx.save();
-    ctx.globalAlpha = Math.min(1, outK);
-    ctx.translate(L.w / 2, y + h / 2);
-    ctx.scale(0.9 + 0.1 * inK, 0.9 + 0.1 * inK);
-    ctx.translate(-L.w / 2, -(y + h / 2));
-    ctx.shadowColor = 'rgba(0,0,0,.45)';
-    ctx.shadowBlur = 18;
-    this.panel(x, y, w, h, 0.95);
-    ctx.shadowBlur = 0;
-    const pad = 12 * u;
-    let tx = x + pad;
-    if (c.tool) {
-      paintToolIcon(ctx, c.tool, x + pad + 13 * u, y + 24 * u, 13 * u, this.clock);
-      tx += 32 * u;
-    }
-    const centred = c.kind === 'won' || c.kind === 'lost' || c.kind === 'level';
-    ctx.textAlign = centred ? 'center' : 'left';
-    ctx.textBaseline = 'top';
-    const ax = centred ? L.w / 2 : tx;
-    ctx.fillStyle = C.cream;
-    ctx.font = this.fit(c.title, w - (tx - x) - pad, F.cardTitle);
-    ctx.fillText(c.title, ax, y + 9 * u);
-    if (c.sub) {
-      ctx.fillStyle = c.color;
-      ctx.font = this.fit(c.sub, w - (tx - x) - pad, F.cardSub, 0.6);
-      ctx.fillText(c.sub, ax, y + (c.kind === 'won' ? h - 24 * u : 33 * u));
-    }
-    if (c.kind === 'block' && c.curve && c.curve.length > 1) this.miniCurve(c, x + pad, y + 52 * u, w - 2 * pad, h - 60 * u);
-    if (c.kind === 'won' && c.level) this.wonBody(c, x, y, w, h);
-    if (c.kind === 'level' && c.goals) {
-      const ir = 10 * u, gw = 64 * u, total = c.goals.length * gw;
-      c.goals.forEach((g, i) => {
-        const gx = L.w / 2 - total / 2 + i * gw + 14 * u, gy = y + h - 22 * u;
-        this.goalIcon(g, gx, gy, ir);
-        if (g.kind === 'dust' || g.kind === 'rocks') return;
-        ctx.fillStyle = C.cream;
-        ctx.font = F.goal;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(String(g.n), gx + ir + 5 * u, gy + 1);
-      });
-    }
-    ctx.restore();
-  }
-
-  /** A won level: its stars, and the constellation's figure with every level's star. */
-  private wonBody(c: Card, x: number, y: number, w: number, h: number): void {
-    const ctx = this.ctx, u = this.L.u;
-    const l = c.level!, stars = c.stars ?? 1;
-    const k = clamp((c.t - 0.2) / 0.9);
-    for (let s = 0; s < 3; s++) {
-      const on = s < stars && k * 3 > s;
-      const pop = on ? ease.outBack(clamp(k * 3 - s)) : 1;
-      paintStar(this.ctx, x + w / 2 + (s - 1) * 30 * u, y + 46 * u - (s === 1 ? 4 * u : 0), 11 * u * pop, on ? 1 : 0);
-    }
-    // the map: the constellation's figure, its levels as stars
-    const fig = figureOf(l.constellation);
-    const box = { x: x + 24 * u, y: y + 64 * u, w: w - 48 * u, h: h - 96 * u };
-    ctx.strokeStyle = 'rgba(158,197,255,.35)';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    for (const [a, b] of fig.lines) {
-      const pa = fig.pts[a], pb = fig.pts[b];
-      ctx.moveTo(box.x + pa[0] * box.w, box.y + pa[1] * box.h);
-      ctx.lineTo(box.x + pb[0] * box.w, box.y + pb[1] * box.h);
-    }
-    ctx.stroke();
-    fig.pts.forEach(([px, py], i) => {
-      const done = i <= l.star;
-      const now = i === l.star;
-      const r = (now ? 5.5 + Math.sin(this.clock * 6) * 1.2 : 4) * u;
-      ctx.fillStyle = done ? C.gold : 'rgba(246,239,220,.35)';
-      ctx.beginPath();
-      ctx.arc(box.x + px * box.w, box.y + py * box.h, r, 0, TAU);
-      ctx.fill();
-      if (now) {
-        ctx.strokeStyle = 'rgba(255,236,170,.8)';
-        ctx.beginPath();
-        ctx.arc(box.x + px * box.w, box.y + py * box.h, r + 4 * u, 0, TAU);
+      if (fl > 0) {
+        ctx.shadowColor = C.gold;
+        ctx.shadowBlur = 20 * fl;
+        ctx.strokeStyle = `rgba(255,220,140,${fl})`;
+        ctx.lineWidth = 3;
         ctx.stroke();
+        ctx.shadowBlur = 0;
       }
-    });
+      if (tool) {
+        const bob = armed && !this.opts.reducedMotion ? Math.sin(T * 6) * 2 : 0;
+        paintToolIcon(ctx, tool, r.x + r.w / 2, r.y + r.h / 2 + bob, r.w * 0.36 * (1 + fl * 0.3), T);
+      }
+      ctx.fillStyle = 'rgba(246,239,220,.4)';
+      ctx.font = font(700, 9 * u + 1, SANS);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(String(k + 1), r.x + 4, r.y + 3);
+    }
+    // how to use the armed tool, or the tray's name
+    const armed = sim.armedTool;
+    const r0 = L.tray[0], rl = L.tray[Math.min(sim.traySize, L.tray.length) - 1];
+    const cx = (r0.x + rl.x + rl.w) / 2;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.font = font(650, 11 * u + 0.5, SANS);
+    if (armed && AIMED.includes(armed)) {
+      ctx.fillStyle = C.gold;
+      ctx.fillText(t(`use.${armed}` as 'use.ray'), cx, r0.y + r0.h + 5);
+    } else if (L.mode === 'wide' && sim.tray.length) {
+      ctx.fillStyle = C.dim;
+      ctx.fillText(sim.tray.map(x => toolName(x)).join(' · '), cx, r0.y + r0.h + 5);
+    }
+    ctx.restore();
   }
 
-  /** The block's own curve in miniature; a blind block's veil lifts across it, left to right. */
-  private miniCurve(c: Card, x: number, y: number, w: number, h: number): void {
-    const ctx = this.ctx;
-    for (const b of c.bands ?? []) {
-      if (b.phase === 'free') continue;
-      ctx.fillStyle = b.phase === 'rest' ? 'rgba(90,140,230,.2)' : 'rgba(255,200,110,.1)';
-      ctx.fillRect(x + b.x0 * w, y, Math.max(1, (b.x1 - b.x0) * w), h);
-    }
-    const pts0 = c.curve!;
-    ctx.setLineDash([3, 3]);
-    ctx.strokeStyle = 'rgba(246,239,220,.45)';
-    ctx.lineWidth = 1;
+  // ── Bubo ────────────────────────────────────────────────────────
+  private drawOwl(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
+    const o = L.owl;
+    const b = this.bubble;
+    const since = b ? this.clock - b.t : 99;
+    const talking = since < 3.4;
+    const cheer = sim.stage === 'won' ? 0.6 + Math.sin(T * 8) * 0.3 : 0;
+    const hop = (sim.stage === 'won' || (this.toolFlash && this.clock - this.toolFlash.t < 0.6)) && !this.opts.reducedMotion ? Math.abs(Math.sin(T * 7)) : 0;
+    paintOwl(ctx, o.x, o.y, o.r, { t: T, look: Math.sin(T * 0.5) * 0.6, hop, cheer, sleepy: sim.look === 'rest' ? 0.6 : 0 });
+    if (!b || !talking) return;
+    const a = since < 0.2 ? since / 0.2 : since > 3 ? (3.4 - since) / 0.4 : 1;
+    const u = L.u;
+    ctx.save();
+    ctx.globalAlpha = clamp(a);
+    ctx.font = font(650, 13 * u + 1, SANS);
+    const pad = 10;
+    const lines = wrapLines(ctx, b.text, L.bubble.w - pad * 2).slice(0, 4);
+    const lh = 16 * u + 2;
+    const bw = Math.min(L.bubble.w, Math.max(...lines.map(s => ctx.measureText(s).width)) + pad * 2);
+    const bh = lines.length * lh + pad * 1.4;
+    const bx = Math.max(6, Math.min(L.w - bw - 6, L.bubble.x)), by = L.bubble.y - bh;
+    const pop = since < 0.2 ? ease.outBack(since / 0.2) : 1;
+    ctx.translate(o.x, L.bubble.y);
+    ctx.scale(pop, pop);
+    ctx.translate(-o.x, -L.bubble.y);
+    ctx.fillStyle = '#fff7e3';
     ctx.beginPath();
-    pts0.forEach((p, i) => (i ? ctx.lineTo(x + p.x * w, y + p.ty * h) : ctx.moveTo(x + p.x * w, y + p.ty * h)));
+    ctx.roundRect(bx, by, bw, bh, 12);
+    ctx.fill();
+    ctx.beginPath();
+    const tx = Math.max(bx + 14, Math.min(bx + bw - 14, o.x));
+    ctx.moveTo(tx - 7, by + bh - 1);
+    ctx.lineTo(tx + 7, by + bh - 1);
+    ctx.lineTo(o.x + o.r * 0.2, Math.min(o.y - o.r * 1.2, by + bh + 12));
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#1d1724';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    lines.forEach((s, i) => ctx.fillText(s, bx + pad, by + pad * 0.7 + i * lh));
+    ctx.restore();
+  }
+
+  // ── cards ───────────────────────────────────────────────────────
+  private cardBox(L: Layout, hFrac: number): Rect {
+    const b = L.board;
+    const w = Math.min(b.w * 0.96, 560 * L.u + 40), h = Math.min(b.h * hFrac, b.h - 8);
+    return { x: b.x + (b.w - w) / 2, y: b.y + (b.h - h) / 2, w, h };
+  }
+
+  private appear(): number { return ease.outBack(clamp((this.clock - this.cardT) / 0.35)); }
+
+  private drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
+    const r = this.cardBox(L, 0.96), u = L.u;
+    const c = sim.storyConst;
+    ctx.save();
+    zoom(ctx, r, this.appear());
+    panel(ctx, r, 18, true);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = C.gold;
+    ctx.font = font(700, 11 * u + 1, SANS);
+    ctx.fillText(sim.storyOpen ? 'FIRMAMENT' : t('story.const', { n: c + 1 }).toUpperCase(), r.x + r.w / 2, r.y + 14);
+    ctx.fillStyle = C.cream;
+    ctx.font = font(700, 22 * u + 2, SERIF);
+    ctx.fillText(sim.storyOpen ? t('bubo.name') : constName(c), r.x + r.w / 2, r.y + 30 * u + 4);
+    // the constellation's figure (or Bubo at the start)
+    const figH = r.h * 0.26;
+    const fy = r.y + 64 * u;
+    if (sim.storyOpen) paintOwl(ctx, r.x + r.w / 2, fy + figH * 0.55, figH * 0.36, { t: T, look: Math.sin(T) * 0.5 });
+    else drawFigure(ctx, c, { x: r.x + r.w * 0.2, y: fy, w: r.w * 0.6, h: figH }, 0, T, -1);
+    ctx.fillStyle = C.cream;
+    ctx.font = font(500, 14 * u + 1, SANS);
+    const lines = wrapLines(ctx, sim.storyOpen ? t('story.open') : storyText(c), r.w - 40);
+    let y = fy + figH + 10;
+    lines.forEach(s => { ctx.fillText(s, r.x + r.w / 2, y); y += 18 * u + 2; });
+    const id: PassageId = sim.storyOpen ? 'psa147.4' : CONSTELLATIONS[c % CONSTELLATIONS.length].verse;
+    const room = r.y + r.h - 34 - y;
+    const key = `${id}:${Math.round(r.w)}:${Math.round(room)}`;
+    if (!this.verse || this.verse.key !== key) this.verse = { key, l: layoutPassage(ctx, passage(id), r.w - 48, Math.max(30, room - 8), { max: Math.round(20 * u + 2), min: 10 }) };
+    drawPassage(ctx, passage(id), this.verse.l, r.x + r.w / 2, y + 8, { text: '#f3e6c4', ref: C.gold });
+    ctx.fillStyle = C.faint;
+    ctx.font = font(600, 11 * u + 1, SANS);
+    ctx.fillText(t('story.tap'), r.x + r.w / 2, r.y + r.h - 22);
+    ctx.restore();
+  }
+
+  private drawIntro(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
+    const r = this.cardBox(L, 0.62), u = L.u, lv = sim.level;
+    ctx.save();
+    zoom(ctx, r, this.appear());
+    panel(ctx, r, 18, true);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const cx = r.x + r.w / 2;
+    ctx.fillStyle = lv.hard ? '#ff8fb0' : C.gold;
+    ctx.font = font(800, 12 * u + 1, SANS);
+    ctx.fillText((lv.hard ? t('card.hard') : constName(lv.constellation)).toUpperCase(), cx, r.y + r.h * 0.12);
+    ctx.fillStyle = C.cream;
+    ctx.font = font(700, 30 * u + 2, SERIF);
+    ctx.fillText(t('card.level', { n: lv.index + 1 }), cx, r.y + r.h * 0.26);
+    // the goal, big
+    const items = this.goalItems(sim);
+    const ir = Math.min(26 * u, r.h * 0.1);
+    const gw = items.length * ir * 4;
+    items.forEach((it, k) => {
+      const ix = cx - gw / 2 + ir * 2 + k * ir * 4;
+      it.icon(ctx, ix - ir * 0.7, r.y + r.h * 0.48, ir, T);
+      ctx.font = font(800, ir * 0.9, SANS);
+      ctx.fillStyle = C.cream;
+      ctx.textAlign = 'left';
+      ctx.fillText(lv.goal === 'score' ? '' : String(lv.goal === 'collect' ? lv.want[k].n : lv.n), ix + ir * 0.5, r.y + r.h * 0.48);
+    });
+    ctx.textAlign = 'center';
+    ctx.font = font(650, 16 * u + 1, SANS);
+    ctx.fillStyle = C.cream;
+    const goalText = lv.goal === 'score' ? t('goal.score', { pts: pts(lv.n) }) : t(`goal.${lv.goal}` as 'goal.clouds');
+    ctx.fillText(goalText, cx, r.y + r.h * 0.66);
+    ctx.fillStyle = C.dim;
+    ctx.font = font(600, 13 * u + 1, SANS);
+    ctx.fillText(t('card.in', { n: lv.moves }), cx, r.y + r.h * 0.77);
+    ctx.fillStyle = C.faint;
+    ctx.font = font(600, 11 * u + 1, SANS);
+    ctx.fillText(t('card.tap'), cx, r.y + r.h * 0.9);
+    ctx.restore();
+  }
+
+  private drawWon(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
+    if (sim.busyT > 0 && sim.stageT < 0.3) return;
+    const r = this.cardBox(L, 0.86), u = L.u, lv = sim.level;
+    const since = this.clock - this.cardT;
+    ctx.save();
+    zoom(ctx, r, this.appear());
+    panel(ctx, r, 18, true);
+    const cx = r.x + r.w / 2;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = C.gold;
+    ctx.font = font(700, 26 * u + 2, SERIF, true);
+    ctx.fillText(t('won.title'), cx, r.y + r.h * 0.1);
+    // three stars, one after another
+    for (let k = 0; k < 3; k++) {
+      const at = 0.35 + k * 0.35;
+      const lit = k < sim.lastStars && since >= at;
+      const pop = lit ? ease.outBack(clamp((since - at) / 0.3)) : 1;
+      const sx = cx + (k - 1) * 46 * u, sy = r.y + r.h * 0.24 - (k === 1 ? 8 * u : 0);
+      paintStar(ctx, sx, sy, (k === 1 ? 22 : 18) * u * pop, lit ? 1 : 0, C.gold);
+    }
+    ctx.fillStyle = C.cream;
+    ctx.font = font(700, 20 * u + 2, SANS);
+    ctx.fillText(pts(sim.levelScore), cx, r.y + r.h * 0.37);
+    // the map: the constellation, the stars won lit, the new one igniting
+    const box = { x: r.x + r.w * 0.12, y: r.y + r.h * 0.44, w: r.w * 0.76, h: r.h * 0.38 };
+    drawFigure(ctx, lv.constellation, box, lv.star + 1, T, lv.star, clamp((since - 0.8) / 0.6));
+    ctx.fillStyle = C.dim;
+    ctx.font = font(600, 12 * u + 1, SANS);
+    const constDone = lv.star === RULES.perConst - 1;
+    ctx.fillText(constDone ? t('won.const', { name: constName(lv.constellation) }) : t('won.next', { n: lv.index + 2 }), cx, r.y + r.h * 0.9);
+    ctx.restore();
+  }
+
+  private drawOut(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
+    const r = this.cardBox(L, 0.66), u = L.u;
+    ctx.save();
+    zoom(ctx, r, this.appear());
+    panel(ctx, r, 18, true);
+    const cx = r.x + r.w / 2;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = C.cream;
+    ctx.font = font(700, 24 * u + 2, SERIF);
+    ctx.fillText(t('out.title'), cx, r.y + r.h * 0.14);
+    ctx.fillStyle = sim.outNear ? C.gold : C.dim;
+    ctx.font = font(650, 15 * u + 1, SANS);
+    ctx.fillText(t('out.left', { what: sim.outWhat }), cx, r.y + r.h * 0.29);
+    const bw = Math.min(r.w - 40, 300 * u + 40), bh = 40 * u + 4;
+    let y = r.y + r.h * 0.42;
+    const can = sim.tray.includes('moves');
+    if (can) {
+      const b = { x: cx - bw / 2, y, w: bw, h: bh };
+      button(ctx, b, t('out.use', { n: RULES.toolMoves }), true, u);
+      paintToolIcon(ctx, 'moves', b.x + bh * 0.55, b.y + bh / 2, bh * 0.36, T);
+      this.buttons.push({ kind: 'use', r: b });
+      y += bh + 10;
+    }
+    const rb = { x: cx - bw / 2, y, w: bw, h: bh };
+    button(ctx, rb, t('out.retry'), !can, u);
+    this.buttons.push({ kind: 'retry', r: rb });
+    // the gentle clock to the retry
+    const k = clamp(sim.stageT / RULES.outSec);
+    ctx.fillStyle = C.faint;
+    ctx.font = font(600, 11 * u + 1, SANS);
+    ctx.fillText(t('out.soon'), cx, r.y + r.h * 0.88);
+    ctx.fillStyle = 'rgba(255,210,122,.6)';
+    ctx.fillRect(r.x + 20, r.y + r.h - 8, (r.w - 40) * k, 3);
+    ctx.restore();
+  }
+}
+
+// ── small brushes ─────────────────────────────────────────────────
+function panel(ctx: CanvasRenderingContext2D, r: Rect, rad: number, strong = false): void {
+  ctx.save();
+  ctx.fillStyle = strong ? 'rgba(12,15,48,.94)' : 'rgba(12,15,48,.78)';
+  ctx.strokeStyle = strong ? 'rgba(255,220,150,.45)' : 'rgba(255,220,150,.22)';
+  ctx.lineWidth = strong ? 1.5 : 1;
+  ctx.beginPath();
+  ctx.roundRect(r.x, r.y, r.w, r.h, rad);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function zoom(ctx: CanvasRenderingContext2D, r: Rect, k: number): void {
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  ctx.translate(cx, cy);
+  ctx.scale(0.85 + 0.15 * k, 0.85 + 0.15 * k);
+  ctx.translate(-cx, -cy);
+  ctx.globalAlpha = clamp(k * 1.5);
+}
+
+function button(ctx: CanvasRenderingContext2D, r: Rect, text: string, primary: boolean, u: number): void {
+  ctx.save();
+  ctx.fillStyle = primary ? C.gold : 'rgba(255,255,255,.1)';
+  ctx.beginPath();
+  ctx.roundRect(r.x, r.y, r.w, r.h, r.h / 2);
+  ctx.fill();
+  ctx.strokeStyle = primary ? '#fff2c8' : 'rgba(255,255,255,.3)';
+  ctx.stroke();
+  ctx.fillStyle = primary ? '#1d1440' : C.cream;
+  ctx.font = font(750, 14 * u + 1, SANS);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, r.x + r.w / 2, r.y + r.h / 2 + 1);
+  ctx.restore();
+}
+
+/**
+ * A constellation on the saga map: its lines, its eight stars (lit up to `lit`), the newest one
+ * igniting (`fresh` ≥ 0, `k` 0..1) and the next one waiting with a soft ring.
+ */
+export function drawFigure(ctx: CanvasRenderingContext2D, c: number, box: Rect, lit: number, T: number, fresh: number, k = 1): void {
+  const f = figure(c);
+  const P = f.stars.map(([x, y]) => ({ x: box.x + x * box.w, y: box.y + y * box.h }));
+  const sz = Math.max(4, Math.min(box.w, box.h) * 0.06);
+  ctx.save();
+  ctx.lineWidth = 1.5;
+  for (const [a, b] of f.lines) {
+    const on = a < lit && b < lit;
+    ctx.strokeStyle = on ? 'rgba(255,215,130,.75)' : 'rgba(246,239,220,.18)';
+    ctx.setLineDash(on ? [] : [3, 4]);
+    ctx.beginPath();
+    ctx.moveTo(P[a].x, P[a].y);
+    ctx.lineTo(P[b].x, P[b].y);
     ctx.stroke();
-    ctx.setLineDash([]);
-    const reveal = c.blind ? clamp((c.t - 0.3) / 1.4) : 1;
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    for (let i = 1; i < pts0.length; i++) {
-      const a = pts0[i - 1], b = pts0[i];
-      if (!a.reliable || !b.reliable || b.x > reveal + 1e-6) continue;
-      if (a.above && b.above) {
-        ctx.fillStyle = 'rgba(255,206,110,.28)';
-        ctx.beginPath();
-        ctx.moveTo(x + a.x * w, y + a.ty * h);
-        ctx.lineTo(x + a.x * w, y + a.y * h);
-        ctx.lineTo(x + b.x * w, y + b.y * h);
-        ctx.lineTo(x + b.x * w, y + b.ty * h);
-        ctx.fill();
-      }
-      ctx.strokeStyle = a.above && b.above ? C.gold : 'rgba(200,215,245,.85)';
+  }
+  ctx.setLineDash([]);
+  P.forEach((p, i) => {
+    const isFresh = i === fresh;
+    const on = i < lit && (!isFresh || k > 0);
+    const s = isFresh ? sz * (1 + (1 - k) * 1.2) : sz;
+    if (on) {
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, s * 3);
+      g.addColorStop(0, `rgba(255,220,140,${isFresh ? 0.5 + 0.4 * k : 0.35})`);
+      g.addColorStop(1, 'rgba(255,220,140,0)');
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.moveTo(x + a.x * w, y + a.y * h);
-      ctx.lineTo(x + b.x * w, y + b.y * h);
+      ctx.arc(p.x, p.y, s * 3, 0, TAU);
+      ctx.fill();
+    }
+    paintStar(ctx, p.x, p.y, s, on ? (isFresh ? k : 1) : 0, C.gold);
+    if (i === lit && i < f.stars.length) {
+      ctx.strokeStyle = `rgba(255,240,200,${0.4 + 0.3 * Math.sin(T * 4)})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, s * 2, 0, TAU);
       ctx.stroke();
     }
-    ctx.lineCap = 'butt';
-    if (reveal < 1) {
-      ctx.fillStyle = 'rgba(70,64,110,.9)';
-      ctx.fillRect(x + reveal * w, y, (1 - reveal) * w, h);
-    }
-  }
-
-  private finale(): void {
-    if (this.finaleA < 0.02) return;
-    const ctx = this.ctx, L = this.L, u = L.u;
-    ctx.globalAlpha = this.finaleA;
-    const w = Math.min(L.w - 32, 340 * u), h = 74 * u, x = (L.w - w) / 2, y = L.cardY - h / 2;
-    this.panel(x, y, w, h, 0.95);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = C.gold;
-    ctx.font = this.fit(TXT.finaleTitle, w - 24 * u, this.F.big);
-    ctx.fillText(TXT.finaleTitle, L.w / 2, y + 10 * u);
-    ctx.font = this.fit(TXT.finaleSub, w - 24 * u, this.F.cardSub);
-    ctx.fillStyle = C.dim;
-    ctx.fillText(TXT.finaleSub, L.w / 2, y + 48 * u);
-    ctx.globalAlpha = 1;
-  }
+  });
+  ctx.restore();
 }
 
-/** Greedy word wrap with the context's current font. */
-export function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
-  const out: string[] = [];
-  let line = '';
-  for (const word of text.split(/\s+/)) {
-    if (!word) continue;
-    const next = line ? `${line} ${word}` : word;
-    if (line && ctx.measureText(next).width > maxW) {
-      out.push(line);
-      line = word;
-    } else line = next;
-  }
-  if (line) out.push(line);
-  return out;
-}
-
+/** For the lobby: the kinds' colours by index (the progress card's chips). */
+export const kindColor = (k: number): string => (k === MOON ? '#fff4c8' : KIND_COLOR[k]?.main ?? '#fff');

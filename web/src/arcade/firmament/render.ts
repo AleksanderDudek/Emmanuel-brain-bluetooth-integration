@@ -1,773 +1,783 @@
 /**
- * Firmament's play view, all on the canvas: the night sky (painted once per size, its stars
- * twinkling and brightening with calm in the night), the board on its glass (stardust, asteroids,
- * the bodies and their specials), the moves played back step by step on the rules' own clock (the
- * swap, the pops and the blasts, the fall and the refill, the cascades), the hint, the selection and
- * the keyboard's cursor, the falling stars, and the HUD (hud.ts) on top.  It only reads the sim
- * (sim.ts) and its events; the calibration scene is intro.ts.
- *
- * The rules resolve a move at once; the view keeps its own copy of the board (which piece sits
- * where) and moves it along the resolution's steps, then settles onto the sim's board when the last
- * step has played, so a missed frame can never leave a wrong picture behind.
+ * Firmament's play view: the night sky, the board and its bodies, and every move played back on the
+ * rules' clock (rules.ts) — the swap's slide, a bounce, the clears with their sparks and flying
+ * points, the comets' beams, the supernovae's rings, the pulsar's lines, the meteors' flights, the
+ * clouds thinning, the asteroids cracking, the ink dissolving into light, the fall and the refill,
+ * the cascade's words (Ładnie! Jasno! Promiennie! Gwiezdnie!), hit-stop on the big ones and a shake
+ * (none with reduced motion).  The telescope, the goal card, the tray, Bubo and the cards are drawn
+ * by hud.ts on top.
  */
-import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
-import type { Blast, Resolution, Sp, Step, ToolKind } from './board';
-import { TOOL_NAME, constName } from './content';
-import { Hud } from './hud';
+import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
+import { type Blast, type Resolution, type Sp, type Step, MOON } from './board';
 import { t } from './i18n';
-import { FirmamentIntro } from './intro';
-import { layout, type Layout } from './layout';
-import type { FirmamentProgress } from './meta';
-import { C, KIND_COLOR, Sprites, hash, paintCometMark, paintDust, paintNovaMark, paintPulsar, paintRock, paintSat, paintSkyLayer } from './paint';
+import { HudDraw, type Hit } from './hud';
+import { layout, inRect, type Layout } from './layout';
+import { C, KIND_COLOR, SANS, SERIF, Sprites, font, hash, paintCloud, paintCometMark, paintExit, paintInk, paintLock, paintMeteorMark, paintMoon, paintNovaMark, paintPulsar, paintRock, paintSkyLayer, paintStar } from './paint';
 import { RULES, type FirmamentSim, type SimEvent } from './sim';
 
-const TAU = Math.PI * 2;
-
-/** A piece as drawn: where it is (in cells, column and row), what it is, how it moves. */
-interface D {
-  id: number; kind: number; sp: Sp; armed: boolean;
-  x: number; y: number;
-  /** a fall: from (row) → to (row), its clock and length */
-  fy0: number; fy1: number; ft: number; fd: number;
-  /** a slide (swap, shuffle): from → to (cells), its clock and length */
-  sx0: number; sy0: number; sx1: number; sy1: number; st: number; sd: number;
-  /** born (0 → 1), landed (a squash that fades), dying (s since its clear; −1 alive), leaving (a satellite home) */
-  born: number; land: number; dying: number; leaving: boolean;
+interface Vis {
+  id: number;
+  kind: number;
+  sp: Sp;
+  /** position in cells (column, row), and a tween */
+  x: number;
+  y: number;
+  fx: number; fy: number; tx: number; ty: number; t0: number; t1: number; easeOut: boolean;
+  /** shrinking away (s left), popping in (s left) */
+  die: number;
+  pop: number;
+  flash: number;
 }
-
-interface Seg { dur: number; t: number; begun: boolean; begin: () => void }
-
-interface Fx { kind: 'line' | 'ring' | 'beam' | 'flash' | 'streak'; x0: number; y0: number; x1: number; y1: number; t: number; dur: number; color: string; width: number }
+interface Beam { kind: Blast['kind']; x: number; y: number; x2: number; y2: number; t: number; dur: number; cells: number[] }
+interface Play { res: Resolution; i: number; t: number; swapLeft: number; started: boolean; fast: boolean; via: string }
+interface StarFx { x0: number; y0: number; at: number; id: number; sp: Sp; t: number; dur: number; gold: boolean }
 
 export class FirmamentView {
   private readonly ctx: CanvasRenderingContext2D;
-  private w = 1280;
-  private h = 800;
+  private w = 1;
+  private h = 1;
   private dpr = 1;
-  L: Layout = layout(1280, 800);
-  readonly hud: Hud;
-  private readonly intro0 = new FirmamentIntro();
-  private readonly sprites = new Sprites();
+  private top = 0;
+  L!: Layout;
   private sky: HTMLCanvasElement | null = null;
-  private clock = 0;
-  private readonly parts = new Particles(700);
-  private readonly fx: Fx[] = [];
+  private readonly sprites = new Sprites();
+  private readonly parts = new Particles(500);
+  private readonly floats = new Floaters();
   private readonly shake: Shake;
-  // the board as drawn
-  private readonly ds = new Map<number, D>();
-  private grid: (number | null)[] = [];
-  private rock: number[] = [];
-  private dust: number[] = [];
-  private mask: boolean[] = [];
-  private queue: Seg[] = [];
-  private synced = false;
-  private boardKey = '';
+  private readonly hud: HudDraw;
+  private vis = new Map<number, Vis>();
+  private queue: Play[] = [];
+  private beams: Beam[] = [];
+  private stars: StarFx[] = [];
+  private pendingSp = new Map<number, Sp>();
   private bounce: { a: number; b: number; t: number } | null = null;
-  private boardA = 0;
-  private skyGlow = 0;
-  private toolPulse = 0;
-  private readonly gifts: { id: number; sp: Sp; t: number }[] = [];
-  /** the sound hears each step as it plays */
-  onStep: ((st: Step, bonus: boolean) => void) | null = null;
+  private shuffleT = 0;
+  private pendingShuffle: { id: number; to: number }[] | null = null;
+  private stop = 0;
+  private word: { text: string; t: number; big: boolean } | null = null;
+  /** the board's layers as the picture shows them (they change when a step plays) */
+  private cloud: number[] = [];
+  private rock: number[] = [];
+  private ink: number[] = [];
+  private lock: number[] = [];
+  private inkFade = new Map<number, number>();
+  private levelKey = '';
+  clock = 0;
+  onStep: ((st: Step, shower: boolean) => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
     this.ctx = canvas.getContext('2d')!;
-    this.hud = new Hud(this.ctx, opts.eeg);
-    this.hud.resize(this.L);
     this.shake = new Shake(opts.reducedMotion);
+    this.hud = new HudDraw(opts);
   }
 
-  resize(w: number, h: number, dpr: number): void {
+  resize(w: number, h: number, dpr: number, top: number): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h);
-    this.hud.resize(this.L);
-    this.sprites.ensure(this.L.cell * 0.92, dpr);
+    this.top = top;
     this.sky = null;
+    if (this.L) this.L = layout(w, h, top, this.L.rows, this.L.cols);
   }
 
-  private started = false;
+  get cellSize(): number { return this.L?.cell ?? 40; }
 
-  start(): void {
-    this.started = true;
-    this.boardA = 0;
-  }
-
-  intro(dt: number, p: number, progress: FirmamentProgress): void {
-    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.intro0.draw(this.ctx, this.w, this.h, dt, p, progress);
-  }
-
-  // ── cells ↔ screen ──────────────────────────────────────────────
-  private cx(col: number): number { return this.L.bx + (col + 0.5) * this.L.cell; }
-  private cy(row: number): number { return this.L.by + (row + 0.5) * this.L.cell; }
-  private cellXY(sim: FirmamentSim, i: number): { x: number; y: number } { return { x: this.cx(sim.board.c(i)), y: this.cy(sim.board.r(i)) }; }
-
-  /** What a point of the canvas touches: a cell, a slot of the tray, the rescue's restart, or nothing. */
-  hit(sim: FirmamentSim, x: number, y: number): { cell: number } | { slot: number } | { restart: true } | null {
-    if (this.hud.restartHit(x, y)) return { restart: true };
+  /** A cell's centre in canvas px. */
+  cellXY(i: number, cols = this.L.cols): { x: number; y: number } {
     const L = this.L;
-    for (let i = 0; i < sim.tray.length; i++) {
-      const s = L.slot(i, sim.traySize);
-      if (x >= s.x - 4 && x <= s.x + s.w + 4 && y >= s.y - 4 && y <= s.y + s.h + 4) return { slot: i };
-    }
-    const c = Math.floor((x - L.bx) / L.cell), r = Math.floor((y - L.by) / L.cell);
-    if (c >= 0 && r >= 0 && c < sim.board.cols && r < sim.board.rows) return { cell: sim.board.at(r, c) };
-    return null;
+    return { x: L.board.x + ((i % cols) + 0.5) * L.cell, y: L.board.y + (Math.floor(i / cols) + 0.5) * L.cell };
   }
 
-  get cellSize(): number { return this.L.cell; }
+  private px(cx: number, cy: number): { x: number; y: number } {
+    return { x: this.L.board.x + (cx + 0.5) * this.L.cell, y: this.L.board.y + (cy + 0.5) * this.L.cell };
+  }
 
-  // ── reacting to the rules ───────────────────────────────────────
+  /** Where a coach mark about a part of the screen points. */
+  uiPoint(ui: 'goal' | 'scope' | 'tray' | 'moves'): { x: number; y: number } {
+    const L = this.L;
+    if (ui === 'scope') return { x: L.scope.x, y: L.scope.y - L.scope.r };
+    if (ui === 'tray') return { x: L.tray[0].x + L.tray[0].w / 2, y: L.tray[0].y };
+    if (ui === 'moves') return { x: L.goal.x + Math.min(L.goal.w, L.goal.h) * 0.45, y: L.goal.y + L.goal.h * 0.5 };
+    return { x: L.goal.x + L.goal.w / 2, y: L.goal.y + L.goal.h };
+  }
+
+  // ── the level ───────────────────────────────────────────────────
+  /** Take the board as it is (a new level, a retry, after a resolution): every body where the rules have it. */
+  private sync(sim: FirmamentSim, hard: boolean): void {
+    const B = sim.board;
+    if (hard || !this.L || this.L.rows !== B.rows || this.L.cols !== B.cols) {
+      this.L = layout(this.w, this.h, this.top, B.rows, B.cols);
+      this.sprites.ensure(this.L.cell, this.dpr);
+    }
+    if (hard) {
+      this.vis.clear();
+      this.cloud = B.cloud.slice();
+      this.rock = B.rock.slice();
+      this.ink = B.ink.slice();
+      this.lock = B.lock.slice();
+    }
+    const live = new Set<number>();
+    B.cells.forEach((p, i) => {
+      if (!p) return;
+      live.add(p.id);
+      const cx = i % B.cols, cy = Math.floor(i / B.cols);
+      let v = this.vis.get(p.id);
+      if (!v) {
+        v = { id: p.id, kind: p.kind, sp: p.sp, x: cx, y: cy, fx: cx, fy: cy, tx: cx, ty: cy, t0: 0, t1: 0, easeOut: false, die: 0, pop: hard ? 0 : 0.2, flash: 0 };
+        this.vis.set(p.id, v);
+      }
+      if (!this.pendingSp.has(p.id)) { v.sp = p.sp; v.kind = p.kind; }
+      if (this.clock >= v.t1) { v.x = cx; v.y = cy; v.tx = cx; v.ty = cy; }
+      v.die = 0;
+    });
+    for (const [id, v] of this.vis) if (!live.has(id) && v.die <= 0) this.vis.delete(id);
+    if (!hard) {
+      this.cloud = B.cloud.slice();
+      this.rock = B.rock.slice();
+      this.ink = B.ink.slice();
+      this.lock = B.lock.slice();
+    }
+  }
+
+  start(sim: FirmamentSim): void {
+    this.sync(sim, true);
+    this.levelKey = `${sim.level.index}:${sim.attempt}`;
+  }
+
+  get busy(): boolean { return this.queue.length > 0; }
+
+  // ── events ──────────────────────────────────────────────────────
   on(e: SimEvent, sim: FirmamentSim): void {
-    const u = this.L.u, rm = this.opts.reducedMotion;
     switch (e.type) {
-      case 'level':
-        this.queue = [];
-        this.synced = false;
-        this.boardA = 0;
-        this.hud.levelCard(e.level, constName(e.level.constellation), e.attempt, e.newTools.map(x => TOOL_NAME[x]));
+      case 'intro': case 'story':
+        if (`${sim.level.index}:${sim.attempt}` !== this.levelKey) {
+          this.queue = [];
+          this.beams = [];
+          this.stars = [];
+          this.pendingSp.clear();
+          this.start(sim);
+        }
+        this.hud.card(e.type, this.clock);
         break;
       case 'resolve':
-        this.playResolution(sim, e.res, e.via, e.tool, e.at);
+        this.queue.push({ res: e.res, i: 0, t: 0, swapLeft: e.res.swap ? RULES.swapSec : 0, started: false, fast: e.via === 'shower', via: e.via });
+        if (e.via === 'shower') this.say(t('shower'), true);
         break;
       case 'bounce':
         this.bounce = { a: e.a, b: e.b, t: 0 };
         break;
-      case 'instrument': {
-        const s = this.L.slot(e.slot, sim.traySize);
-        {
-          this.parts.burst(s.x + s.w / 2, s.y + s.h / 2, rm ? 6 : 26, { color: C.gold, size: 2.4 * u, speed: 150 * u, g: 0, drag: 2.5, life: 0.8, shape: 'spark', rnd: Math.random });
-          this.fx.push({ kind: 'beam', x0: this.L.lens.x, y0: this.L.lens.y, x1: s.x + s.w / 2, y1: s.y + s.h / 2, t: 0, dur: 0.6, color: 'rgba(255,214,120,', width: 4 * u });
+      case 'shuffle':
+        if (this.queue.length) { this.pendingShuffle = e.moves; break; }
+        for (const m of e.moves) {
+          const v = this.vis.get(m.id);
+          if (!v) continue;
+          const B = sim.board;
+          this.tween(v, m.to % B.cols, Math.floor(m.to / B.cols), 0.45, false);
         }
-        this.hud.toast(t('fx.tool'), TOOL_NAME[e.tool], e.tool === 'pulsar' ? C.cool : C.gold, e.tool);
+        this.shuffleT = 0.5;
+        if (!this.queue.length) this.floats.add(t('ev.shuffle'), this.L.board.x + this.L.board.w / 2, this.L.board.y + this.L.board.h * 0.45, { color: C.mint, size: 20 * this.L.u, dur: 1.4 });
+        break;
+      case 'changed': {
+        // a falling star (or the telescope's light) brings the special
+        const v = this.vis.get(e.id);
+        this.pendingSp.set(e.id, e.sp);
+        const fromLeft = hash(e.at + this.clock * 7) < 0.5;
+        this.stars.push({ x0: fromLeft ? -20 : this.w + 20, y0: -20, at: e.at, id: e.id, sp: e.sp, t: 0, dur: e.why === 'tool' ? 0.25 : 0.7, gold: e.why !== 'star' });
+        if (v) v.flash = 0;
         break;
       }
-      case 'falling': {
-        const to = this.cellXY(sim, e.at);
-        const x0 = to.x - this.L.cell * 3 - 60 * u, y0 = Math.max(0, this.L.by - 80 * u);
-        this.fx.push({ kind: 'streak', x0, y0, x1: to.x, y1: to.y, t: 0, dur: 0.7, color: 'rgba(220,235,255,', width: 3 * u });
-        this.gifts.push({ id: e.id, sp: e.sp, t: 0.7 });
-        this.hud.float(t('fx.falling'), to.x, to.y - this.L.cell * 0.7, C.cool, 14, 1.4);
+      case 'moves': {
+        const p = this.uiPoint('moves');
+        this.floats.add(t('ev.moves', { n: e.n }), p.x + 30 * this.L.u, p.y, { color: '#9fe8ff', size: 24 * this.L.u, dur: 1.5 });
+        this.parts.burst(p.x, p.y, 18, { color: '#bfefff', speed: 160, g: 0, life: 0.7, shape: 'spark' });
         break;
       }
-      case 'blockEnd':
-        if (e.block.kind !== 'warmup') this.hud.blockCard(sim, e.block.kind, e.block.blind, e.verdict, e.share, e.need, e.t0, e.t1, e.tools);
+      case 'tool': {
+        const slot = this.L.tray[Math.min(e.slot, this.L.tray.length - 1)];
+        this.parts.burst(slot.x + slot.w / 2, slot.y + slot.h / 2, 26, { color: C.gold, speed: 200, g: 0, life: 0.8, shape: 'spark' });
+        this.hud.flashTool(e.slot, this.clock);
         break;
+      }
       case 'won':
-        this.hud.wonCard(e.level, e.stars, e.constDone ? constName(e.level.constellation) : null, e.bonus > 0);
-        if (!rm) for (const col of [C.gold, C.cream, C.cool, C.violet]) this.parts.burst(this.L.bx + this.L.cell * 4, this.L.by + this.L.cell * 3, 24, { color: col, size: 2.6 * u, speed: 260 * u, g: 60, drag: 1.6, life: 1.6, shape: 'spark', rnd: Math.random });
-        this.shake.add(0.25);
+        this.hud.card('won', this.clock);
+        this.parts.burst(this.L.board.x + this.L.board.w / 2, this.L.board.y + this.L.board.h * 0.4, 60, { color: C.gold, speed: 320, g: 120, life: 1.4, shape: 'spark' });
         break;
-      case 'lost':
-        this.hud.lostCard();
+      case 'out':
+        this.hud.card('out', this.clock);
         break;
-      case 'rescue':
-        this.hud.float(t('rescue.done', { n: e.moves }), this.L.goals.x + this.L.goals.w * 0.2, this.L.goals.y + this.L.goals.h / 2, C.mint, 18, 1.6);
+      case 'say':
+        this.hud.say(e.text, this.clock);
         break;
-      case 'gift':
-        this.hud.toast(t('card.gift', { name: TOOL_NAME[e.tool] }), '', C.gold, e.tool);
-        break;
-      case 'arm':
-        this.toolPulse = 1;
+      case 'star':
+        this.hud.starPip(e.n, this.clock);
         break;
       case 'toolMiss': {
-        const p = this.cellXY(sim, e.at);
-        this.fx.push({ kind: 'ring', x0: p.x, y0: p.y, x1: this.L.cell * 0.2, y1: this.L.cell * 0.5, t: 0, dur: 0.3, color: 'rgba(255,140,120,', width: 2 });
+        const p = this.cellXY(e.at, sim.board.cols);
+        this.parts.burst(p.x, p.y, 6, { color: '#ffffff', speed: 60, g: 0, life: 0.3 });
         break;
       }
       default:
         break;
     }
-    this.hud.on(e);
   }
 
-  /** A move's resolution as segments: the swap, then each step's clear and fall, then the reshuffle. */
-  private playResolution(sim: FirmamentSim, res: Resolution, via: string, tool?: ToolKind, at?: number): void {
-    const R = RULES;
-    if (res.swap && (via === 'swap' || via === 'free')) {
-      const [a, b] = res.swap;
-      this.push(R.swapSec, () => {
-        const ia = this.grid[a], ib = this.grid[b];
-        this.slide(ia, b, R.swapSec);
-        this.slide(ib, a, R.swapSec);
-        this.grid[a] = ib ?? null;
-        this.grid[b] = ia ?? null;
-      });
-    }
-    if (via === 'tool' && at !== undefined) {
-      this.push(R.toolSec * 0.5, () => {
-        const p = this.cellXY(sim, at);
-        this.fx.push({ kind: 'beam', x0: this.L.lens.x, y0: this.L.lens.y, x1: p.x, y1: p.y, t: 0, dur: R.toolSec, color: tool === 'pulsar' ? 'rgba(180,230,255,' : 'rgba(255,214,120,', width: 5 * this.L.u });
-      });
-    }
-    res.steps.forEach(st => this.playStep(sim, st, via === 'bonus'));
-    if (res.shuffle) {
-      const moves = res.shuffle;
-      this.push(0.5, () => {
-        const next: (number | null)[] = this.grid.map(() => null);
-        for (let i = 0; i < this.grid.length; i++) {
-          const id = this.grid[i];
-          if (id !== null && !moves.some(m => m.id === id)) next[i] = id;
-        }
-        for (const m of moves) {
-          next[m.to] = m.id;
-          this.slide(m.id, m.to, 0.5);
-        }
-        this.grid = next;
-        this.hud.float(t('fx.shuffle'), this.L.bx + this.L.cell * 4, this.L.by + this.L.cell * 4, C.cool, 18, 1.4);
-      });
-    }
+  private say(text: string, big: boolean): void {
+    this.word = { text, t: 0, big };
   }
 
-  private push(dur: number, begin: () => void): void { this.queue.push({ dur, t: 0, begun: false, begin }); }
-
-  private slide(id: number | null | undefined, to: number, dur: number): void {
-    if (id === null || id === undefined) return;
-    const d = this.ds.get(id);
-    if (!d) return;
-    const cols = RULES.cols;
-    d.sx0 = d.x;
-    d.sy0 = d.y;
-    d.sx1 = to % cols;
-    d.sy1 = Math.floor(to / cols);
-    d.st = 0;
-    d.sd = dur;
-  }
-
-  private playStep(sim: FirmamentSim, st: Step, bonus: boolean): void {
-    const R = RULES, cols = RULES.cols;
-    const clearDur = R.clearSec + (st.blasts.length ? R.blastSec : 0);
-    this.push(clearDur, () => {
-      const u = this.L.u, rm = this.opts.reducedMotion, cell = this.L.cell;
-      for (const b of st.blasts) this.blastFx(sim, b);
-      for (const c of st.changed) {
-        const d = this.ds.get(c.id);
-        if (d) {
-          d.sp = c.sp;
-          d.armed = c.armed;
-          d.born = 0.4;
-        }
-      }
-      let sx = 0, sy = 0;
-      for (const c of st.cleared) {
-        const d = this.ds.get(c.id);
-        if (d) d.dying = 0;
-        if (this.grid[c.at] === c.id) this.grid[c.at] = null;
-        const x = this.cx(c.at % cols), y = this.cy(Math.floor(c.at / cols));
-        sx += x;
-        sy += y;
-        const col = c.kind >= 0 ? KIND_COLOR[c.kind].main : '#e8f6ff';
-        this.parts.burst(x, y, rm ? 2 : 7, { color: col, size: 2.2 * u, speed: 110 * u, g: 90, drag: 2.2, life: 0.55, shape: 'spark', rnd: Math.random });
-        if (!rm) this.parts.burst(x, y, 2, { color: '#ffffff', size: 1.6 * u, speed: 40 * u, g: 0, drag: 3, life: 0.4, rnd: Math.random });
-      }
-      for (const b of st.born) {
-        const d = this.make(b.id, b.kind, b.sp, b.at % cols, Math.floor(b.at / cols));
-        d.born = 0;
-        this.grid[b.at] = b.id;
-        const x = this.cx(b.at % cols), y = this.cy(Math.floor(b.at / cols));
-        this.fx.push({ kind: 'ring', x0: x, y0: y, x1: cell * 0.2, y1: cell * 0.9, t: 0, dur: 0.45, color: 'rgba(255,240,200,', width: 3 * u });
-        const word = b.sp === 'pulsar' ? t('fx.pulsar') : b.sp === 'nova' ? t('fx.nova') : t('fx.comet');
-        this.hud.float(word, x, y - cell * 0.6, b.sp === 'pulsar' ? C.cool : C.gold, 16, 1.2);
-      }
-      for (const r of st.rocks) {
-        this.rock[r.at] = r.hp;
-        const x = this.cx(r.at % cols), y = this.cy(Math.floor(r.at / cols));
-        this.parts.burst(x, y, rm ? 3 : r.hp ? 6 : 16, { color: '#b8a48f', size: 2.6 * u, speed: (r.hp ? 90 : 170) * u, g: 260, drag: 1.4, life: 0.7, shape: 'square', rnd: Math.random });
-        if (!r.hp) this.hud.float(t('fx.rock'), x, y - cell * 0.5, C.gold, 13, 1);
-      }
-      for (const dd of st.dust) {
-        this.dust[dd.at] = dd.layers;
-        const x = this.cx(dd.at % cols), y = this.cy(Math.floor(dd.at / cols));
-        this.parts.burst(x, y, rm ? 2 : 8, { color: C.dust, size: 1.8 * u, speed: 70 * u, g: -20, drag: 2, life: 0.8, rnd: Math.random });
-      }
-      if (st.cleared.length && st.points > 0) {
-        const n = st.cleared.length;
-        this.hud.float(`+${st.points}`, sx / n, sy / n, st.cascade >= 3 ? C.gold : C.cream, 15 + Math.min(8, st.cascade * 1.5), 1);
-      }
-      if (st.cascade >= 2 && !bonus) {
-        const words = [t('fx.nice.1'), t('fx.nice.2'), t('fx.nice.3')];
-        this.hud.cascade(st.cascade, st.cascade >= 3 ? words[Math.min(2, st.cascade - 3)] : '');
-        this.shake.add(Math.min(0.3, 0.06 * st.cascade));
-      }
-      if (st.blasts.length) this.shake.add(Math.min(0.45, 0.12 + 0.05 * st.blasts.length));
-      this.onStep?.(st, bonus);
-    });
-    const fallDur = Math.max(0, st.dur - clearDur);
-    this.push(fallDur, () => {
-      // satellites slide to the floor and leave
-      for (const s of st.sats) {
-        const d = this.ds.get(s.id);
-        if (!d) continue;
-        d.leaving = true;
-        d.fy0 = d.y;
-        d.fy1 = Math.floor(s.at / cols) + 0.9;
-        d.ft = 0;
-        d.fd = Math.max(0.15, fallDur);
-        for (let i = 0; i < this.grid.length; i++) if (this.grid[i] === s.id) this.grid[i] = null;
-        const x = this.cx(s.at % cols), y = this.cy(Math.floor(s.at / cols));
-        this.hud.float(t('fx.sat'), x, y - this.L.cell * 0.5, C.mint, 15, 1.4);
-        this.fx.push({ kind: 'ring', x0: x, y0: y + this.L.cell * 0.4, x1: this.L.cell * 0.3, y1: this.L.cell * 1.3, t: 0, dur: 0.6, color: 'rgba(143,227,184,', width: 3 * this.L.u });
-      }
-      const next = this.grid.slice();
-      for (const m of st.moves) if (next[m.from] === m.id) next[m.from] = null;
-      for (const m of st.moves) {
-        next[m.to] = m.id;
-        const d = this.ds.get(m.id);
-        if (!d) continue;
-        d.fy0 = d.y;
-        d.fy1 = Math.floor(m.to / cols);
-        d.x = m.to % cols;
-        d.ft = 0;
-        d.fd = Math.max(R.fallMin, (d.fy1 - d.fy0) * R.fallCell + 0.06);
-      }
-      for (const s of st.spawns) {
-        const d = this.make(s.id, s.kind, s.sp, s.to % cols, s.fromRow);
-        d.fy0 = s.fromRow;
-        d.fy1 = Math.floor(s.to / cols);
-        d.ft = 0;
-        d.fd = Math.max(R.fallMin, (d.fy1 - d.fy0) * R.fallCell + 0.06);
-        next[s.to] = s.id;
-      }
-      this.grid = next;
-    });
-  }
-
-  private blastFx(sim: FirmamentSim, b: Blast): void {
-    const L = this.L, cell = L.cell, u = L.u;
-    const p = this.cellXY(sim, b.at);
-    const left = L.bx, right = L.bx + cell * 8, top = L.by, bottom = L.by + cell * 8;
-    const line = (x0: number, y0: number, x1: number, y1: number, w = 7) =>
-      this.fx.push({ kind: 'line', x0, y0, x1, y1, t: 0, dur: 0.38, color: 'rgba(235,245,255,', width: w * u });
-    const rows = (d: number) => line(left, p.y + d * cell, right, p.y + d * cell);
-    const colsF = (d: number) => line(p.x + d * cell, top, p.x + d * cell, bottom);
-    switch (b.kind) {
-      case 'row': rows(0); break;
-      case 'col': colsF(0); break;
-      case 'cross': rows(0); colsF(0); break;
-      case 'big': for (const d of [-1, 0, 1]) { rows(d); colsF(d); } break;
-      case 'nova': case 'nova5': {
-        const r = b.kind === 'nova' ? 1.6 : 2.6;
-        this.fx.push({ kind: 'ring', x0: p.x, y0: p.y, x1: cell * 0.3, y1: cell * r, t: 0, dur: 0.42, color: 'rgba(255,214,140,', width: 8 * u });
-        this.fx.push({ kind: 'flash', x0: p.x, y0: p.y, x1: cell * r, y1: 0, t: 0, dur: 0.3, color: 'rgba(255,240,200,', width: 0 });
-        break;
-      }
-      case 'kind': case 'all':
-        for (const c of b.cells.slice(0, 40)) {
-          const q = this.cellXY(sim, c);
-          this.fx.push({ kind: 'beam', x0: p.x, y0: p.y, x1: q.x, y1: q.y, t: 0, dur: 0.4, color: 'rgba(190,235,255,', width: 2.5 * u });
-        }
-        this.fx.push({ kind: 'flash', x0: p.x, y0: p.y, x1: cell * (b.kind === 'all' ? 8 : 2.5), y1: 0, t: 0, dur: 0.4, color: 'rgba(200,240,255,', width: 0 });
-        break;
-      case 'ray':
-        this.fx.push({ kind: 'beam', x0: p.x, y0: top - cell, x1: p.x, y1: p.y, t: 0, dur: 0.3, color: 'rgba(255,224,140,', width: 6 * u });
-        break;
-    }
-  }
-
-  private make(id: number, kind: number, sp: Sp, x: number, y: number): D {
-    const d: D = { id, kind, sp, armed: false, x, y, fy0: y, fy1: y, ft: 1, fd: 0, sx0: x, sy0: y, sx1: x, sy1: y, st: 1, sd: 0, born: 1, land: 0, dying: -1, leaving: false };
-    this.ds.set(id, d);
-    return d;
-  }
-
-  /** Settle onto the sim's board: every piece where the rules say, nothing extra. */
-  private sync(sim: FirmamentSim): void {
-    const B = sim.board;
-    const key = `${sim.level.index}:${sim.attempt}`;
-    if (key !== this.boardKey) {
-      this.ds.clear();
-      this.boardKey = key;
-    }
-    const seen = new Set<number>();
-    this.grid = B.cells.map(() => null);
-    B.cells.forEach((p, i) => {
-      if (!p) return;
-      seen.add(p.id);
-      let d = this.ds.get(p.id);
-      if (!d) d = this.make(p.id, p.kind, p.sp, B.c(i), B.r(i));
-      d.kind = p.kind;
-      d.sp = p.sp;
-      d.armed = p.armed;
-      d.x = B.c(i);
-      d.y = B.r(i);
-      d.ft = d.fd = 1;
-      d.st = d.sd = 1;
-      d.dying = -1;
-      d.leaving = false;
-      this.grid[i] = p.id;
-    });
-    for (const id of [...this.ds.keys()]) if (!seen.has(id)) this.ds.delete(id);
-    this.rock = B.rock.slice();
-    this.dust = B.dust.slice();
-    this.mask = B.mask.slice();
-    this.synced = true;
+  private tween(v: Vis, tx: number, ty: number, dur: number, easeOut: boolean): void {
+    v.fx = v.x;
+    v.fy = v.y;
+    v.tx = tx;
+    v.ty = ty;
+    v.t0 = this.clock;
+    v.t1 = this.clock + Math.max(0.01, dur);
+    v.easeOut = easeOut;
   }
 
   // ── a frame ─────────────────────────────────────────────────────
   update(dt: number, sim: FirmamentSim): void {
     this.clock += dt;
-    if (!this.synced && !this.queue.length) this.sync(sim);
-    // the queue of segments: one at a time
-    let left = dt;
-    while (this.queue.length && left > 0) {
-      const s = this.queue[0];
-      if (!s.begun) {
-        s.begun = true;
-        s.begin();
-      }
-      const use = Math.min(left, s.dur - s.t);
-      s.t += use;
-      left -= use;
-      this.tickPieces(use);
-      if (s.t >= s.dur - 1e-9) {
-        this.queue.shift();
-        if (!this.queue.length) this.synced = false;
-      }
-    }
-    if (left > 0) this.tickPieces(left);
-    if (!this.queue.length && !this.synced) this.sync(sim);
-    if (this.bounce) {
-      this.bounce.t += dt;
-      if (this.bounce.t >= RULES.bounceSec) this.bounce = null;
-    }
-    for (let i = this.gifts.length - 1; i >= 0; i--) {
-      const g = this.gifts[i];
-      g.t -= dt;
-      if (g.t <= 0) {
-        const d = this.ds.get(g.id);
-        if (d) {
-          d.sp = g.sp;
-          d.born = 0.3;
-          const x = this.cx(d.x), y = this.cy(d.y);
-          this.parts.burst(x, y, this.opts.reducedMotion ? 4 : 18, { color: '#e8f2ff', size: 2.2 * this.L.u, speed: 140 * this.L.u, g: 0, drag: 2.5, life: 0.7, shape: 'spark', rnd: Math.random });
-        }
-        this.gifts.splice(i, 1);
-      }
-    }
     this.parts.update(dt);
-    let n = 0;
-    for (const f of this.fx) if ((f.t += dt) < f.dur) this.fx[n++] = f;
-    this.fx.length = n;
-    this.boardA = approach(this.boardA, 1, dt, 0.25);
-    this.skyGlow = approach(this.skyGlow, sim.sky, dt, 0.5);
-    this.toolPulse = Math.max(0, this.toolPulse - dt * 2);
-    this.hud.update(dt, sim);
+    this.floats.update(dt);
+    this.hud.update(dt);
+    if (this.word) { this.word.t += dt; if (this.word.t > 1.3) this.word = null; }
+    for (const b of this.beams) b.t += dt;
+    this.beams = this.beams.filter(b => b.t < b.dur);
+    for (const [at, k] of this.inkFade) { if (k - dt <= 0) this.inkFade.delete(at); else this.inkFade.set(at, k - dt); }
+    if (this.bounce) { this.bounce.t += dt; if (this.bounce.t >= RULES.bounceSec) this.bounce = null; }
+    this.shuffleT = Math.max(0, this.shuffleT - dt);
+    // falling stars land
+    for (const s of this.stars) {
+      s.t += dt;
+      if (s.t >= s.dur && s.dur > 0) {
+        s.dur = -1;
+        const v = this.vis.get(s.id);
+        const sp = this.pendingSp.get(s.id);
+        this.pendingSp.delete(s.id);
+        if (v && sp) { v.sp = sp; if (sp === 'pulsar') v.kind = -1; v.flash = 0.5; }
+        const p = this.cellXY(s.at, sim.board.cols);
+        this.parts.burst(p.x, p.y, 22, { color: s.gold ? C.gold : '#cfe6ff', speed: 180, g: 0, life: 0.6, shape: 'spark' });
+        this.floats.add(t('ev.star'), p.x, p.y - this.L.cell * 0.6, { color: '#cfe6ff', size: 16 * this.L.u, dur: 1 });
+      }
+    }
+    this.stars = this.stars.filter(s => s.dur > 0 || s.t < 0.4);
+    for (const v of this.vis.values()) {
+      if (v.die > 0) v.die = Math.max(0, v.die - dt);
+      if (v.pop > 0) v.pop = Math.max(0, v.pop - dt);
+      if (v.flash > 0) v.flash = Math.max(0, v.flash - dt);
+      if (this.clock < v.t1) {
+        const k = clamp((this.clock - v.t0) / (v.t1 - v.t0));
+        const e = v.easeOut ? ease.outCubic(k) : k * k * (3 - 2 * k) * 0.3 + k * k * 0.7;
+        v.x = v.fx + (v.tx - v.fx) * e;
+        v.y = v.fy + (v.ty - v.fy) * e;
+      } else { v.x = v.tx; v.y = v.ty; }
+    }
+    for (const [id, v] of this.vis) if (v.die <= 0 && v.t1 < 0) this.vis.delete(id);
+    this.playQueue(dt, sim);
   }
 
-  private tickPieces(dt: number): void {
-    for (const [id, d] of this.ds) {
-      if (d.dying >= 0) {
-        d.dying += dt;
-        if (d.dying > RULES.clearSec + 0.05) this.ds.delete(id);
+  private playQueue(dt: number, sim: FirmamentSim): void {
+    if (this.stop > 0) { this.stop -= dt; return; }
+    let budget = dt;
+    while (budget > 0 && this.queue.length) {
+      const q = this.queue[0];
+      if (q.swapLeft > 0) {
+        if (!q.started) {
+          q.started = true;
+          const [a, b] = q.res.swap!;
+          this.swapTween(a, b, sim);
+        }
+        const used = Math.min(budget, q.swapLeft);
+        q.swapLeft -= used;
+        budget -= used;
         continue;
       }
-      if (d.born < 1) d.born = Math.min(1, d.born + dt / 0.25);
-      if (d.st < d.sd) {
-        d.st = Math.min(d.sd, d.st + dt);
-        const k = ease.outCubic(d.st / d.sd);
-        d.x = d.sx0 + (d.sx1 - d.sx0) * k;
-        d.y = d.sy0 + (d.sy1 - d.sy0) * k;
-      } else if (d.ft < d.fd) {
-        d.ft = Math.min(d.fd, d.ft + dt);
-        const k = d.ft / d.fd;
-        d.y = d.fy0 + (d.fy1 - d.fy0) * k * k;
-        if (d.ft >= d.fd) {
-          d.y = d.fy1;
-          if (d.leaving) this.ds.delete(id);
-          else d.land = 1;
+      const st = q.res.steps[q.i];
+      if (!st) {
+        this.queue.shift();
+        if (!this.queue.length) {
+          const sh = this.pendingShuffle;
+          this.pendingShuffle = null;
+          if (sh) {
+            for (const m of sh) {
+              const v = this.vis.get(m.id);
+              if (v) this.tween(v, m.to % sim.board.cols, Math.floor(m.to / sim.board.cols), 0.45, false);
+            }
+            this.floats.add(t('ev.shuffle'), this.L.board.x + this.L.board.w / 2, this.L.board.y + this.L.board.h * 0.45, { color: C.mint, size: 20 * this.L.u, dur: 1.4 });
+          }
+          this.sync(sim, false);
         }
+        continue;
       }
-      if (d.land > 0) d.land = Math.max(0, d.land - dt * 5);
+      if (q.t === 0) this.startStep(st, q, sim);
+      const before = q.t;
+      const used = Math.min(budget, st.dur - q.t);
+      q.t += used;
+      budget -= used;
+      if (before < st.fall && q.t >= st.fall) this.fallStep(st, sim);
+      if (q.t >= st.dur - 1e-6) {
+        q.i++;
+        q.t = 0;
+      }
+      if (this.stop > 0) break;
     }
+  }
+
+  private swapTween(a: number, b: number, sim: FirmamentSim): void {
+    const B = sim.board, cols = B.cols;
+    // the bodies now at a and b came from b and a (or were taken by a combo); slide them across
+    const ids = [...this.vis.values()];
+    const at = (i: number) => ids.find(v => Math.round(v.x) === i % cols && Math.round(v.y) === Math.floor(i / cols) && v.die <= 0);
+    const va = at(a), vb = at(b);
+    if (va) this.tween(va, b % cols, Math.floor(b / cols), RULES.swapSec, true);
+    if (vb) this.tween(vb, a % cols, Math.floor(a / cols), RULES.swapSec, true);
+  }
+
+  private startStep(st: Step, q: Play, sim: FirmamentSim): void {
+    const B = sim.board, cols = B.cols, L = this.L, u = L.u;
+    this.onStep?.(st, q.fast);
+    // the words of the move
+    if (q.i === 0 && !q.fast) {
+      const combo = q.res.tally.combo;
+      const born = st.born[0]?.sp;
+      if (combo && combo !== 'pulsar') {
+        const w = combo === 'comet+comet' ? 'combo.cross' : combo === 'comet+nova' ? 'combo.big' : combo === 'nova+nova' ? 'combo.nova' : combo === 'pulsar+pulsar' ? 'combo.all' : combo.startsWith('meteor') ? 'combo.meteor' : 'combo.pulsar';
+        this.say(t(w as 'combo.cross'), true);
+        this.stop = 0.09;
+      } else if (born && born !== 'none') this.say(t(`sp.${born}` as 'sp.nova'), false);
+    } else if (!q.fast && st.cascade >= 2) {
+      this.say(t(`word.${Math.min(4, st.cascade - 1)}` as 'word.1'), st.cascade >= 4);
+    }
+    // matched bodies: points fly
+    for (const m of st.matches) {
+      const p = this.cellXY(m.at, cols);
+      this.floats.add(`+${m.points}`, p.x, p.y, { color: KIND_COLOR[m.kind]?.light ?? '#fff', size: (15 + Math.min(10, st.cascade * 2)) * u, dur: 0.9 });
+    }
+    for (const c of st.cleared) {
+      const v = this.vis.get(c.id);
+      if (v) { v.die = RULES.clearSec * (q.fast ? 0.6 : 1); v.t1 = -1; }
+      const p = this.cellXY(c.at, cols);
+      const col = c.kind >= 0 ? KIND_COLOR[c.kind].main : '#e6f6ff';
+      this.parts.burst(p.x, p.y, q.fast ? 4 : 8, { color: col, speed: 150 * u + 40, g: 160, life: 0.55, size: 2.6 * u + 0.6, shape: 'spark' });
+    }
+    for (const b of st.blasts) this.blastFx(b, cols, q.fast);
+    if (st.blasts.length) this.shake.add(Math.min(0.45, 0.12 * st.blasts.length));
+    for (const c of st.clouds) {
+      this.cloud[c.at] = c.layers;
+      const p = this.cellXY(c.at, cols);
+      this.parts.burst(p.x, p.y, 10, { color: '#b9a8ff', speed: 90, g: -30, life: 0.8, size: 4 * u, drag: 2 });
+    }
+    for (const r of st.rocks) {
+      this.rock[r.at] = r.hp;
+      const p = this.cellXY(r.at, cols);
+      this.parts.burst(p.x, p.y, r.hp === 0 ? 18 : 8, { color: '#b8a48f', speed: 180, g: 380, life: 0.7, size: 3 * u, shape: 'square' });
+    }
+    for (const k of st.inks) {
+      this.ink[k.at] = k.on ? 1 : 0;
+      if (!k.on) {
+        this.inkFade.set(k.at, 0.6);
+        const p = this.cellXY(k.at, cols);
+        this.parts.burst(p.x, p.y, 16, { color: '#fff2c8', speed: 120, g: -40, life: 0.8, shape: 'spark' });
+      }
+    }
+    for (const at of st.locks) {
+      this.lock[at] = 0;
+      const p = this.cellXY(at, cols);
+      this.parts.burst(p.x, p.y, 10, { color: '#e8eefc', speed: 160, g: 200, life: 0.5, shape: 'ring' });
+    }
+    for (const ch of st.changed) {
+      const v = this.vis.get(ch.id);
+      if (v) { v.sp = ch.sp; v.flash = 0.35; if (ch.sp === 'pulsar') v.kind = -1; }
+    }
+    for (const b of st.born) {
+      const cx = b.at % cols, cy = Math.floor(b.at / cols);
+      this.vis.set(b.id, { id: b.id, kind: b.sp === 'pulsar' ? -1 : b.kind, sp: b.sp, x: cx, y: cy, fx: cx, fy: cy, tx: cx, ty: cy, t0: 0, t1: 0, easeOut: false, die: 0, pop: 0.32, flash: 0.5 });
+      const p = this.cellXY(b.at, cols);
+      this.parts.burst(p.x, p.y, 20, { color: C.gold, speed: 140, g: 0, life: 0.6, shape: 'ring' });
+    }
+  }
+
+  private fallStep(st: Step, sim: FirmamentSim): void {
+    const cols = sim.board.cols;
+    const fall = Math.max(0.08, st.dur - st.fall);
+    for (const m of st.moves) {
+      const v = this.vis.get(m.id);
+      if (!v) continue;
+      v.x = m.from % cols;
+      v.y = Math.floor(m.from / cols);
+      this.tween(v, m.to % cols, Math.floor(m.to / cols), fall, false);
+    }
+    for (const s of st.spawns) {
+      const cx = s.to % cols;
+      const v: Vis = { id: s.id, kind: s.sp === 'pulsar' ? -1 : s.kind, sp: s.sp, x: cx, y: s.fromRow, fx: cx, fy: s.fromRow, tx: cx, ty: Math.floor(s.to / cols), t0: 0, t1: 0, easeOut: false, die: 0, pop: 0, flash: 0 };
+      this.vis.set(s.id, v);
+      this.tween(v, cx, Math.floor(s.to / cols), fall, false);
+    }
+    for (const m of st.moons) {
+      const v = this.vis.get(m.id);
+      if (v) { v.die = 0.5; v.t1 = -1; }
+      const p = this.cellXY(m.at, cols);
+      this.floats.add(t('ev.moon'), p.x, p.y, { color: '#fff4c8', size: 18 * this.L.u, dur: 1.4 });
+      this.parts.burst(p.x, p.y + this.L.cell * 0.4, 30, { color: '#fff4c8', speed: 200, g: 60, life: 1, shape: 'spark' });
+    }
+  }
+
+  private blastFx(b: Blast, cols: number, fast: boolean): void {
+    const p = this.cellXY(b.at, cols), L = this.L;
+    const dur = fast ? 0.32 : 0.5;
+    const beam = (kind: Blast['kind']) => this.beams.push({ kind, x: p.x, y: p.y, x2: p.x, y2: p.y, t: 0, dur, cells: b.cells });
+    switch (b.kind) {
+      case 'row': case 'col': case 'cross': case 'cross3': beam(b.kind); break;
+      case 'nova': case 'nova5': beam(b.kind); this.parts.burst(p.x, p.y, 24, { color: '#ffd9a0', speed: 260, g: 0, life: 0.5, shape: 'spark' }); break;
+      case 'kind': case 'all': beam(b.kind); this.stop = Math.max(this.stop, 0.06); break;
+      case 'meteor': {
+        const from = this.cellXY(b.from ?? b.at, cols);
+        this.beams.push({ kind: 'meteor', x: from.x, y: from.y, x2: p.x, y2: p.y, t: 0, dur: RULES.flySec + 0.2, cells: b.cells });
+        break;
+      }
+      case 'hammer': case 'star':
+        this.beams.push({ kind: 'hammer', x: p.x, y: p.y, x2: p.x, y2: p.y, t: 0, dur: 0.4, cells: b.cells });
+        this.parts.burst(p.x, p.y, 20, { color: C.gold, speed: 220, g: 200, life: 0.5, shape: 'spark' });
+        break;
+    }
+    void L;
+  }
+
+  // ── hands ───────────────────────────────────────────────────────
+  hit(sim: FirmamentSim, x: number, y: number): Hit | null {
+    const h = this.hud.hit(x, y, this.L, sim);
+    if (h) return h;
+    const L = this.L, B = sim.board;
+    if (!inRect(L.board, x, y)) return null;
+    const c = Math.floor((x - L.board.x) / L.cell), r = Math.floor((y - L.board.y) / L.cell);
+    if (c < 0 || r < 0 || c >= B.cols || r >= B.rows) return null;
+    return { cell: r * B.cols + c };
   }
 
   // ── drawing ─────────────────────────────────────────────────────
   draw(sim: FirmamentSim): void {
-    if (!this.started) return;   // the calibration's intro owns the canvas until play begins
-    const ctx = this.ctx;
+    const ctx = this.ctx, w = this.w, h = this.h;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.drawSky();
-    this.hud.drawMilky(sim);
-    const off = this.shake.offset(1 / 60, 7);
+    this.drawSky(sim);
+    if (!this.L) return;
+    const off = this.shake.offset(1 / 60, 10);
     ctx.save();
     ctx.translate(off.x, off.y);
     this.drawBoard(sim);
-    ctx.restore();
+    this.drawBeams();
+    this.drawStars();
     this.parts.draw(ctx);
-    this.drawFx();
-    this.hud.draw(sim);
+    this.floats.draw(ctx, font(800, 18, SANS));
+    this.drawWord();
+    ctx.restore();
+    this.hud.draw(ctx, this.L, sim, this.clock, w, h);
   }
 
-  private drawSky(): void {
+  private drawSky(sim: FirmamentSim): void {
     const ctx = this.ctx, w = this.w, h = this.h;
-    if (!this.sky || this.sky.width !== Math.round(w * this.dpr) || this.sky.height !== Math.round(h * this.dpr)) {
-      const c = document.createElement('canvas');
-      c.width = Math.round(w * this.dpr);
-      c.height = Math.round(h * this.dpr);
-      const sctx = c.getContext('2d');
-      if (sctx) {
-        sctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-        paintSkyLayer(sctx, w, h, 3);
-      }
-      this.sky = c;
-    }
-    ctx.drawImage(this.sky, 0, 0, w, h);
-    // twinkling bright stars, brighter in a calm night
-    const glow = this.skyGlow;
-    for (let i = 0; i < 46; i++) {
-      const x = hash(i * 11 + 5) * w, y = hash(i * 23 + 9) * h;
-      const tw = 0.5 + 0.5 * Math.sin(this.clock * (0.8 + hash(i) * 2) + i * 2.1);
-      const a = (0.25 + 0.5 * tw) * (0.6 + 0.6 * glow);
-      const r = (0.8 + hash(i * 3) * 1.4) * (1 + glow * 0.6);
-      ctx.fillStyle = `rgba(255,250,235,${Math.min(1, a)})`;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, TAU);
-      ctx.fill();
-      if (hash(i * 7) > 0.8) {
-        ctx.strokeStyle = `rgba(255,250,235,${Math.min(1, a) * 0.5})`;
-        ctx.lineWidth = 0.8;
-        ctx.beginPath();
-        ctx.moveTo(x - r * 3, y);
-        ctx.lineTo(x + r * 3, y);
-        ctx.moveTo(x, y - r * 3);
-        ctx.lineTo(x, y + r * 3);
-        ctx.stroke();
+    if (!this.sky || this.sky.width !== Math.round(w * this.dpr)) {
+      if (typeof document !== 'undefined') {
+        const c = document.createElement('canvas');
+        c.width = Math.round(w * this.dpr);
+        c.height = Math.round(h * this.dpr);
+        const g = c.getContext('2d');
+        if (g) { g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); paintSkyLayer(g, w, h, 3); }
+        this.sky = c;
       }
     }
-    // the night's calm: a deep blue glow rising from the horizon
-    if (glow > 0.02) {
+    if (this.sky) ctx.drawImage(this.sky, 0, 0, w, h);
+    // calm brightens the sky: a soft blue dawn from below; focus warms the telescope's side
+    if (sim.sky > 0.02) {
       const g = ctx.createLinearGradient(0, h, 0, h * 0.2);
-      g.addColorStop(0, `rgba(80,130,230,${0.28 * glow})`);
-      g.addColorStop(1, 'rgba(80,130,230,0)');
+      g.addColorStop(0, `rgba(90,150,255,${0.28 * sim.sky})`);
+      g.addColorStop(1, 'rgba(90,150,255,0)');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, w, h);
+    }
+    // a few twinkling stars of our own
+    for (let i = 0; i < 26; i++) {
+      const x = hash(i * 13 + 1) * w, y = hash(i * 7 + 5) * h;
+      const tw = 0.5 + 0.5 * Math.sin(this.clock * (1 + hash(i) * 2) + i);
+      ctx.fillStyle = `rgba(255,248,220,${0.15 + 0.5 * tw * (0.5 + sim.sky)})`;
+      ctx.beginPath();
+      ctx.arc(x, y, 0.8 + tw * 1.2, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
   private drawBoard(sim: FirmamentSim): void {
-    const ctx = this.ctx, L = this.L, cell = L.cell, u = L.u;
-    const B = sim.board;
-    if (!this.mask.length) this.sync(sim);
-    const k = ease.outCubic(this.boardA);
+    const ctx = this.ctx, L = this.L, B = sim.board, s = L.cell, T = this.clock;
+    // the board's glass, cell by cell
     ctx.save();
-    ctx.globalAlpha = k;
-    ctx.translate(0, (1 - k) * 18 * u);
-    // the glass behind the cells
-    const pad = 6 * u;
-    ctx.fillStyle = 'rgba(8,10,34,.55)';
-    ctx.strokeStyle = sim.armedTool ? `rgba(255,214,120,${0.55 + 0.35 * Math.sin(this.clock * 6)})` : 'rgba(180,200,255,.22)';
-    ctx.lineWidth = sim.armedTool ? 2.5 : 1.2;
-    ctx.beginPath();
-    ctx.roundRect(L.bx - pad, L.by - pad, cell * 8 + 2 * pad, cell * 8 + 2 * pad, 14 * u);
-    ctx.fill();
-    ctx.stroke();
     for (let i = 0; i < B.n; i++) {
-      if (!this.mask[i]) continue;
-      const r = B.r(i), c = B.c(i), x = L.bx + c * cell, y = L.by + r * cell;
-      ctx.fillStyle = (r + c) % 2 ? 'rgba(120,140,220,.10)' : 'rgba(120,140,220,.05)';
+      if (!B.mask[i]) continue;
+      const { x, y } = this.cellXY(i, B.cols);
+      const odd = (Math.floor(i / B.cols) + (i % B.cols)) % 2;
+      ctx.fillStyle = odd ? 'rgba(30,36,92,.72)' : 'rgba(22,27,74,.72)';
       ctx.beginPath();
-      ctx.roundRect(x + 1.5, y + 1.5, cell - 3, cell - 3, cell * 0.16);
+      ctx.roundRect(x - s / 2 + 1, y - s / 2 + 1, s - 2, s - 2, s * 0.18);
       ctx.fill();
-      if (this.dust[i] > 0) paintDust(ctx, x + cell / 2, y + cell / 2, cell, this.dust[i], this.clock, i + 1);
+      if (this.cloud[i] > 0) paintCloud(ctx, x, y, s, this.cloud[i], T, i + 1);
     }
-    // the satellites' landing row: a soft green line along the floor of each column
-    if (sim.level.sats > 0) {
-      ctx.strokeStyle = 'rgba(143,227,184,.45)';
-      ctx.lineWidth = 2 * u;
-      ctx.setLineDash([4 * u, 4 * u]);
-      for (let c = 0; c < B.cols; c++) {
-        const f = B.floorOf(c);
-        if (f < 0) continue;
-        const y = L.by + (B.r(f) + 1) * cell - 2 * u;
+    // the rim around the sky's shape
+    ctx.strokeStyle = 'rgba(255,220,150,.16)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(L.board.x - 3, L.board.y - 3, L.board.w + 6, L.board.h + 6);
+    ctx.restore();
+    // exits for the moons
+    if (sim.level.goal === 'moons') {
+      for (let i = 0; i < B.n; i++) if (B.exit[i] && B.mask[i] && Math.floor(i / B.cols) === B.rows - 1) {
+        const { x, y } = this.cellXY(i, B.cols);
+        paintExit(ctx, x, y + s * 0.5 + 2, s, T);
+      }
+    }
+    // the hint and the selection under the bodies
+    const glowCell = (i: number, color: string, k: number) => {
+      const { x, y } = this.cellXY(i, B.cols);
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 14 * k;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(x - s / 2 + 3, y - s / 2 + 3, s - 6, s - 6, s * 0.18);
+      ctx.stroke();
+      ctx.restore();
+    };
+    const idle = sim.stage === 'play' && !this.busy && sim.busyT <= 0;
+    if (idle && sim.hintShown && sim.hint) {
+      const k = 0.5 + 0.5 * Math.sin(T * 5);
+      glowCell(sim.hint.a, `rgba(255,236,170,${0.35 + 0.5 * k})`, k);
+      glowCell(sim.hint.b, `rgba(255,236,170,${0.35 + 0.5 * k})`, k);
+    }
+    if (sim.selected >= 0) glowCell(sim.selected, '#ffffff', 1);
+    // bodies
+    const bounce = this.bounce;
+    for (const v of this.vis.values()) {
+      let cx = v.x, cy = v.y;
+      if (bounce) {
+        const k = Math.sin(clamp(bounce.t / RULES.bounceSec) * Math.PI) * 0.45;
+        const ai = Math.round(v.y) * B.cols + Math.round(v.x);
+        const other = ai === bounce.a ? bounce.b : ai === bounce.b ? bounce.a : -1;
+        if (other >= 0) {
+          cx += ((other % B.cols) - v.x) * k;
+          cy += (Math.floor(other / B.cols) - v.y) * k;
+        }
+      }
+      if (cy < -0.6) continue;
+      const p = this.px(cx, cy);
+      let k = 1;
+      if (v.die > 0) k = v.die / RULES.clearSec;
+      else if (v.pop > 0) k = 1 + Math.sin((1 - v.pop / 0.32) * Math.PI) * 0.35;
+      if (k <= 0.02) continue;
+      const clipTop = L.board.y - s * 0.1;
+      if (p.y < clipTop) continue;
+      this.drawPiece(v, p.x, p.y, s, k);
+    }
+    // what sits on top of a cell: locks, asteroids, ink
+    for (let i = 0; i < B.n; i++) {
+      if (!B.mask[i]) continue;
+      const { x, y } = this.cellXY(i, B.cols);
+      if (this.lock[i]) paintLock(ctx, x, y, s * 0.4, T + i);
+      if (this.rock[i] > 0) paintRock(ctx, x, y, s * 0.44, this.rock[i], i + 3);
+      if (this.ink[i]) paintInk(ctx, x, y, s, T, i);
+      const fade = this.inkFade.get(i);
+      if (fade !== undefined) {
+        ctx.save();
+        ctx.globalAlpha = fade / 0.6;
+        ctx.fillStyle = '#fff3cf';
         ctx.beginPath();
-        ctx.moveTo(L.bx + c * cell + 4, y);
-        ctx.lineTo(L.bx + (c + 1) * cell - 4, y);
-        ctx.stroke();
-      }
-      ctx.setLineDash([]);
-    }
-    for (let i = 0; i < B.n; i++) if (this.rock[i] > 0) paintRock(ctx, this.cx(B.c(i)), this.cy(B.r(i)), cell * 0.44, this.rock[i], i + 7);
-    this.drawHint(sim);
-    // the pieces, clipped to the board so the refill comes in from above it
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(L.bx - pad, L.by - 1, cell * 8 + 2 * pad, cell * 8 + pad + 1);
-    ctx.clip();
-    for (const d of this.ds.values()) this.drawPiece(d);
-    ctx.restore();
-    this.drawSelection(sim);
-    ctx.restore();
-  }
-
-  private drawPiece(d: D): void {
-    const ctx = this.ctx, cell = this.L.cell;
-    let x = this.cx(d.x), y = this.cy(d.y);
-    // the bounce of a swap that made nothing
-    if (this.bounce) {
-      const b = this.bounce, cols = RULES.cols;
-      const ida = this.grid[b.a], idb = this.grid[b.b];
-      if (d.id === ida || d.id === idb) {
-        const from = d.id === ida ? b.a : b.b, to = d.id === ida ? b.b : b.a;
-        const k = Math.sin(clamp(b.t / RULES.bounceSec) * Math.PI) * 0.45;
-        x += ((to % cols) - (from % cols)) * cell * k;
-        y += (Math.floor(to / cols) - Math.floor(from / cols)) * cell * k;
+        ctx.arc(x, y, s * 0.5 * (1.6 - fade), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       }
     }
-    let s = 1, sx = 1, sy = 1, a = 1;
-    if (d.born < 1) s = ease.outBack(d.born);
-    if (d.dying >= 0) {
-      const k = clamp(d.dying / RULES.clearSec);
-      s = 1 + 0.35 * k;
-      a = 1 - k;
+    // the keyboard's cursor, the armed tool's aim
+    if (sim.cursor >= 0 && sim.stage === 'play') {
+      const { x, y } = this.cellXY(sim.cursor, B.cols);
+      ctx.save();
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = 'rgba(255,255,255,.75)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4);
+      ctx.restore();
     }
-    if (d.land > 0) {
-      sx = 1 + 0.12 * d.land;
-      sy = 1 - 0.12 * d.land;
-      y += cell * 0.06 * d.land;
+    if (sim.armedTool) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,210,122,${0.5 + 0.4 * Math.sin(T * 6)})`;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([10, 6]);
+      ctx.strokeRect(L.board.x - 5, L.board.y - 5, L.board.w + 10, L.board.h + 10);
+      ctx.restore();
     }
-    if (d.leaving) a = clamp(1 - (d.ft / Math.max(0.01, d.fd)) * 0.8);
-    if (a <= 0.01) return;
-    ctx.save();
-    ctx.globalAlpha *= a;
-    ctx.translate(x, y);
-    ctx.scale(s * sx, s * sy);
-    const r = cell * 0.4;
-    const t = this.clock + d.id * 0.37;
-    if (d.sp === 'sat') paintSat(ctx, 0, 0, r * 0.95, t);
-    else if (d.sp === 'pulsar') paintPulsar(ctx, 0, 0, r, t);
-    else {
-      if (d.sp === 'nova') paintNovaMark(ctx, 0, 0, r, t, d.armed);
-      this.sprites.body(ctx, d.kind, 0, 0, 1);
-      if (d.sp === 'row' || d.sp === 'col') paintCometMark(ctx, 0, 0, r, d.sp, t);
+    // the cards dim the sky
+    if (sim.stage === 'story' || sim.stage === 'intro' || sim.stage === 'won' || sim.stage === 'out') {
+      ctx.fillStyle = 'rgba(5,7,26,.45)';
+      ctx.fillRect(L.board.x - 4, L.board.y - 4, L.board.w + 8, L.board.h + 8);
     }
-    ctx.restore();
   }
 
-  private drawHint(sim: FirmamentSim): void {
-    if (!sim.hintShown || !sim.hint || this.queue.length || sim.stage !== 'play' || sim.phase !== 'play') return;
-    const ctx = this.ctx, cell = this.L.cell, u = this.L.u;
-    const a = this.cellXY(sim, sim.hint.a), b = this.cellXY(sim, sim.hint.b);
-    const p = 0.5 + 0.5 * Math.sin(this.clock * 5);
-    const night = sim.nightBlock;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (const q of [a, b]) {
-      const g = ctx.createRadialGradient(q.x, q.y, cell * 0.1, q.x, q.y, cell * 0.75);
-      g.addColorStop(0, night ? `rgba(140,190,255,${0.3 + 0.25 * p})` : `rgba(255,220,140,${0.28 + 0.25 * p})`);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(q.x - cell, q.y - cell, cell * 2, cell * 2);
-    }
-    ctx.restore();
-    // a small arrow from the one to the other
-    ctx.save();
-    ctx.strokeStyle = night ? 'rgba(170,205,255,.9)' : 'rgba(255,226,160,.9)';
-    ctx.lineWidth = 2.5 * u;
-    ctx.lineCap = 'round';
-    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = (b.x - a.x) / cell, dy = (b.y - a.y) / cell;
-    const len = cell * 0.18 * (1 + 0.2 * p);
-    ctx.beginPath();
-    ctx.moveTo(mx - dx * len, my - dy * len);
-    ctx.lineTo(mx + dx * len, my + dy * len);
-    ctx.lineTo(mx + dx * len * 0.3 - dy * len * 0.6, my + dy * len * 0.3 + dx * len * 0.6);
-    ctx.moveTo(mx + dx * len, my + dy * len);
-    ctx.lineTo(mx + dx * len * 0.3 + dy * len * 0.6, my + dy * len * 0.3 - dx * len * 0.6);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  private drawSelection(sim: FirmamentSim): void {
-    const ctx = this.ctx, cell = this.L.cell, u = this.L.u;
-    if (sim.selected >= 0) {
-      const p = this.cellXY(sim, sim.selected);
-      const k = 0.5 + 0.5 * Math.sin(this.clock * 7);
-      ctx.strokeStyle = `rgba(255,236,180,${0.7 + 0.3 * k})`;
-      ctx.lineWidth = 3 * u;
+  private drawPiece(v: Vis, x: number, y: number, s: number, k: number): void {
+    const ctx = this.ctx, T = this.clock;
+    const r = s * 0.4 * k;
+    if (v.kind === MOON) { paintMoon(ctx, x, y, r * 0.95, T + v.id); return; }
+    if (v.sp === 'pulsar' || v.kind < 0) { paintPulsar(ctx, x, y, r * 1.05, T); return; }
+    // a breath of life: bodies bob very slightly
+    const bob = this.opts.reducedMotion ? 0 : Math.sin(T * 2 + v.id) * s * 0.012;
+    this.sprites.body(ctx, v.kind, x, y + bob, k);
+    if (v.sp === 'row' || v.sp === 'col') paintCometMark(ctx, x, y + bob, r, v.sp, T);
+    else if (v.sp === 'nova') paintNovaMark(ctx, x, y + bob, r, T, false);
+    else if (v.sp === 'meteor') paintMeteorMark(ctx, x, y + bob, r, T);
+    if (v.flash > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(1, v.flash * 2);
+      ctx.fillStyle = '#fff6d8';
       ctx.beginPath();
-      ctx.roundRect(p.x - cell / 2 + 2, p.y - cell / 2 + 2, cell - 4, cell - 4, cell * 0.2);
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(255,236,180,.12)';
+      ctx.arc(x, y, r * 1.1, 0, Math.PI * 2);
       ctx.fill();
-    }
-    if (sim.cursor >= 0 && sim.cursor !== sim.selected) {
-      const p = this.cellXY(sim, sim.cursor);
-      ctx.strokeStyle = 'rgba(158,197,255,.85)';
-      ctx.lineWidth = 2 * u;
-      ctx.setLineDash([5 * u, 4 * u]);
-      ctx.beginPath();
-      ctx.roundRect(p.x - cell / 2 + 3, p.y - cell / 2 + 3, cell - 6, cell - 6, cell * 0.18);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.restore();
     }
   }
 
-  private drawFx(): void {
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round';
-    for (const f of this.fx) {
-      const k = clamp(f.t / f.dur), a = 1 - k;
-      switch (f.kind) {
-        case 'line': {
-          ctx.strokeStyle = `${f.color}${0.9 * a})`;
-          ctx.lineWidth = f.width * (1 + k);
-          ctx.beginPath();
-          ctx.moveTo(f.x0, f.y0);
-          ctx.lineTo(f.x1, f.y1);
-          ctx.stroke();
-          ctx.strokeStyle = `rgba(255,255,255,${a})`;
-          ctx.lineWidth = f.width * 0.35;
-          ctx.stroke();
-          break;
-        }
-        case 'ring':
-          ctx.strokeStyle = `${f.color}${a})`;
-          ctx.lineWidth = f.width * a + 0.5;
-          ctx.beginPath();
-          ctx.arc(f.x0, f.y0, f.x1 + (f.y1 - f.x1) * ease.outCubic(k), 0, TAU);
-          ctx.stroke();
-          break;
-        case 'flash': {
-          const g = ctx.createRadialGradient(f.x0, f.y0, 0, f.x0, f.y0, f.x1);
-          g.addColorStop(0, `${f.color}${0.6 * a})`);
-          g.addColorStop(1, `${f.color}0)`);
+  private drawBeams(): void {
+    const ctx = this.ctx, L = this.L, s = L.cell;
+    for (const b of this.beams) {
+      const k = b.t / b.dur, a = 1 - k;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const line = (x0: number, y0: number, x1: number, y1: number, wd: number) => {
+        ctx.strokeStyle = `rgba(255,240,200,${0.85 * a})`;
+        ctx.lineWidth = wd * (1 - k * 0.5);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(255,255,255,${a})`;
+        ctx.lineWidth = wd * 0.3;
+        ctx.stroke();
+      };
+      const reach = ease.outCubic(clamp(k * 2.2));
+      const bx0 = L.board.x, bx1 = L.board.x + L.board.w, by0 = L.board.y, by1 = L.board.y + L.board.h;
+      const row = (y: number) => line(b.x - (b.x - bx0) * reach, y, b.x + (bx1 - b.x) * reach, y, s * 0.42);
+      const col = (x: number) => line(x, b.y - (b.y - by0) * reach, x, b.y + (by1 - b.y) * reach, s * 0.42);
+      switch (b.kind) {
+        case 'row': row(b.y); break;
+        case 'col': col(b.x); break;
+        case 'cross': row(b.y); col(b.x); break;
+        case 'cross3': for (const d of [-1, 0, 1]) { row(b.y + d * s); col(b.x + d * s); } break;
+        case 'nova': case 'nova5': {
+          const R = s * (b.kind === 'nova' ? 1.6 : 2.6) * ease.outCubic(clamp(k * 1.6));
+          const g = ctx.createRadialGradient(b.x, b.y, R * 0.2, b.x, b.y, R);
+          g.addColorStop(0, `rgba(255,236,190,${0.8 * a})`);
+          g.addColorStop(1, 'rgba(255,150,80,0)');
           ctx.fillStyle = g;
-          ctx.fillRect(f.x0 - f.x1, f.y0 - f.x1, f.x1 * 2, f.x1 * 2);
-          break;
-        }
-        case 'beam': {
-          const head = ease.outCubic(Math.min(1, k * 2));
-          ctx.strokeStyle = `${f.color}${a})`;
-          ctx.lineWidth = f.width;
           ctx.beginPath();
-          ctx.moveTo(f.x0, f.y0);
-          ctx.lineTo(f.x0 + (f.x1 - f.x0) * head, f.y0 + (f.y1 - f.y0) * head);
-          ctx.stroke();
-          break;
-        }
-        case 'streak': {
-          const head = ease.inOutSine(k), tail = Math.max(0, head - 0.35);
-          const hx = f.x0 + (f.x1 - f.x0) * head, hy = f.y0 + (f.y1 - f.y0) * head;
-          const g = ctx.createLinearGradient(f.x0 + (f.x1 - f.x0) * tail, f.y0 + (f.y1 - f.y0) * tail, hx, hy);
-          g.addColorStop(0, `${f.color}0)`);
-          g.addColorStop(1, `${f.color}0.95)`);
-          ctx.strokeStyle = g;
-          ctx.lineWidth = f.width;
-          ctx.beginPath();
-          ctx.moveTo(f.x0 + (f.x1 - f.x0) * tail, f.y0 + (f.y1 - f.y0) * tail);
-          ctx.lineTo(hx, hy);
-          ctx.stroke();
-          ctx.fillStyle = 'rgba(255,255,255,.95)';
-          ctx.beginPath();
-          ctx.arc(hx, hy, f.width * 1.2, 0, TAU);
+          ctx.arc(b.x, b.y, R, 0, Math.PI * 2);
           ctx.fill();
+          ctx.strokeStyle = `rgba(255,220,160,${a})`;
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          break;
+        }
+        case 'kind': case 'all':
+          for (const c of b.cells.slice(0, 64)) {
+            const p = this.cellXY(c);
+            line(b.x, b.y, b.x + (p.x - b.x) * reach, b.y + (p.y - b.y) * reach, s * 0.12);
+          }
+          if (b.kind === 'all') { ctx.fillStyle = `rgba(255,255,255,${0.5 * a})`; ctx.fillRect(bx0, by0, L.board.w, L.board.h); }
+          break;
+        case 'meteor': {
+          const kk = ease.inOutSine(clamp(b.t / RULES.flySec));
+          const arc = Math.sin(kk * Math.PI) * s * 1.6;
+          const x = b.x + (b.x2 - b.x) * kk, y = b.y + (b.y2 - b.y) * kk - arc;
+          const g = ctx.createRadialGradient(x, y, 0, x, y, s * 0.6);
+          g.addColorStop(0, 'rgba(255,230,160,1)');
+          g.addColorStop(1, 'rgba(255,110,40,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, s * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+          if (b.t > RULES.flySec) {
+            const R = s * 1.2 * clamp((b.t - RULES.flySec) / 0.2);
+            ctx.strokeStyle = `rgba(255,200,120,${a * 2})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(b.x2, b.y2, R, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'hammer': case 'star': {
+          paintStar(ctx, b.x, b.y - s * 0.8 * (1 - ease.outCubic(clamp(k * 3))), s * 0.45, a, C.gold);
+          ctx.strokeStyle = `rgba(255,220,140,${a})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, s * 0.9 * k, 0, Math.PI * 2);
+          ctx.stroke();
           break;
         }
       }
+      ctx.restore();
     }
+  }
+
+  private drawStars(): void {
+    const ctx = this.ctx;
+    for (const s of this.stars) {
+      if (s.dur <= 0) continue;
+      const k = ease.inOutSine(clamp(s.t / s.dur));
+      const p = this.cellXY(s.at);
+      const x = s.x0 + (p.x - s.x0) * k, y = s.y0 + (p.y - s.y0) * k;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createLinearGradient(s.x0 + (p.x - s.x0) * Math.max(0, k - 0.25), s.y0 + (p.y - s.y0) * Math.max(0, k - 0.25), x, y);
+      g.addColorStop(0, 'rgba(200,225,255,0)');
+      g.addColorStop(1, s.gold ? 'rgba(255,225,150,1)' : 'rgba(220,235,255,1)');
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(s.x0 + (p.x - s.x0) * Math.max(0, k - 0.25), s.y0 + (p.y - s.y0) * Math.max(0, k - 0.25));
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.restore();
+      paintStar(ctx, x, y, 9, 1, s.gold ? C.gold : '#e6f0ff');
+    }
+  }
+
+  private drawWord(): void {
+    const wd = this.word;
+    if (!wd) return;
+    const ctx = this.ctx, L = this.L;
+    const k = wd.t / 1.3;
+    const pop = k < 0.15 ? ease.outBack(k / 0.15) : 1;
+    const a = k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1;
+    const size = (wd.big ? 44 : 34) * L.u * pop;
+    ctx.save();
+    ctx.globalAlpha = clamp(a);
+    ctx.font = font(700, size, SERIF, true);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const x = L.board.x + L.board.w / 2, y = L.board.y + L.board.h * 0.42 - k * 20;
+    ctx.lineWidth = Math.max(3, size * 0.14);
+    ctx.strokeStyle = 'rgba(40,20,80,.85)';
+    ctx.strokeText(wd.text, x, y);
+    const g = ctx.createLinearGradient(0, y - size / 2, 0, y + size / 2);
+    g.addColorStop(0, '#fff7d6');
+    g.addColorStop(1, '#ffb44a');
+    ctx.fillStyle = g;
+    ctx.fillText(wd.text, x, y);
     ctx.restore();
   }
+
+  /** The telescope's tray pick needs the slot under a point (the hud knows). */
+  toolAt(x: number, y: number): number {
+    return this.L.tray.findIndex(r => inRect(r, x, y, 4));
+  }
+
+  /** For index.ts: the canvas size the view lays out for. */
+  get size(): { w: number; h: number } { return { w: this.w, h: this.h }; }
 }

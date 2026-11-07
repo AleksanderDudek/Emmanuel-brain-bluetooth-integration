@@ -1,216 +1,221 @@
 /**
- * Firmament's levels: the first constellation made by hand (ten levels that teach one thing each),
- * and every later one from a seeded generator with a difficulty curve that rises in waves (a calm
- * level every fifth, a harder one closing each constellation) — the same levels for everyone, since
- * a level's seed is its number.  Each constellation has a figure for the map (its stars are the
- * levels) and a name; the names live in the catalog (i18n.ts).
+ * Firmament's saga: constellations of eight stars, each star a level (Candy Crush's episodes).  Every
+ * level has ONE goal that varies from level to level — reach a score, clear the dark clouds, bring
+ * the moons down, collect bodies of a kind, break the asteroids — limited moves and three stars by
+ * score.  The last star of each constellation is the hard one (a peak, then a breather).
  *
- * A hand-made map has eight rows of eight letters:
- *   .  an open cell        #  a hole in the sky        1 2 3  an asteroid (hits to break)
- *   d  stardust (1 layer)  D  stardust (2 layers)
+ * The first three constellations are hand-made (they teach one thing at a time: clouds, then moons,
+ * asteroids, locks, ink); later ones come from a seeded generator built on the same shapes, the same
+ * level for everyone.  A layout is rows of letters: ' ' a hole in the sky, '.' a plain cell, 'c'/'C'
+ * a cloud of one/two layers, '1'–'3' an asteroid with that many hits, 'l' an orbit lock, 'k' a lock
+ * over a cloud, 'i' ink.
  */
 import { mulberry32 } from '../../core/random';
-import type { BoardSpec, ToolKind } from './board';
+import type { BoardSpec } from './board';
 import { RULES } from './rules';
 
-export type GoalKind = 'score' | 'collect' | 'dust' | 'rocks' | 'sats';
-/** score: reach n points; collect: n bodies of kind `of`; dust / rocks: clear all; sats: bring n down */
-export interface Goal { kind: GoalKind; n: number; of?: number }
+export type GoalKind = 'score' | 'clouds' | 'moons' | 'collect' | 'rocks';
+/** Something the level brings in for the first time (a coach mark explains it). */
+export type NewThing = 'clouds' | 'moons' | 'collect' | 'rocks' | 'locks' | 'ink' | 'hard';
 
 export interface Level {
-  /** 0-based, across all constellations */
   index: number;
   constellation: number;
-  /** the star of the constellation (0..perConst−1) */
+  /** the star within its constellation, 0..perConst−1 */
   star: number;
+  hard: boolean;
+  goal: GoalKind;
+  /** score: the points; clouds: cloud layers; moons: moons; rocks: asteroids; collect: the sum of `want` */
+  n: number;
+  /** collect: the kinds and how many of each */
+  want: { of: number; n: number }[];
   moves: number;
   kinds: number;
-  goals: Goal[];
-  /** points for two and three stars (one star: the goals done) */
+  layout: string[];
+  moons: number;
+  /** the score for two and for three stars (one star: the goal done) */
   stars: [number, number];
-  map: string[] | null;
-  sats: number;
   seed: number;
-  /** a calm level (a breather) and the constellation's closing one */
-  calm: boolean;
-  boss: boolean;
+  fresh: NewThing[];
 }
 
-/** A level's seed: the same number for everyone. */
-export const levelSeed = (index: number): number => (Math.imul(index + 1, 0x9e3779b1) ^ 0x51ed27) >>> 0;
+interface Def {
+  goal: GoalKind;
+  moves: number;
+  kinds: number;
+  layout: string[];
+  /** score: the target; collect: per kind */
+  n?: number;
+  want?: [number, number][];
+  moons?: number;
+  fresh?: NewThing[];
+}
 
-// ── the first constellation, by hand ─────────────────────────────
-interface Hand { moves: number; kinds: number; goals: Goal[]; map?: string[]; sats?: number }
+const FULL = ['........', '........', '........', '........', '........', '........', '........', '........'];
 
-const OPEN = ['........', '........', '........', '........', '........', '........', '........', '........'];
-
-const HAND: Hand[] = [
-  // 1: just match — reach the points
-  { moves: 20, kinds: 5, goals: [{ kind: 'score', n: 1200 }] },
-  // 2: gather the gold stars
-  { moves: 22, kinds: 5, goals: [{ kind: 'collect', n: 24, of: 0 }] },
-  // 3: stardust across the middle
-  { moves: 22, kinds: 5, goals: [{ kind: 'dust', n: 0 }], map: ['........', '........', '........', 'dddddddd', 'dddddddd', '........', '........', '........'] },
-  // 4: a shaped sky, six kinds
-  { moves: 22, kinds: 6, goals: [{ kind: 'score', n: 2200 }], map: ['##....##', '#......#', '........', '........', '........', '........', '#......#', '##....##'] },
-  // 5: asteroids in a belt
-  { moves: 24, kinds: 5, goals: [{ kind: 'rocks', n: 0 }], map: ['........', '........', '........', '.1.11.1.', '........', '1.1..1.1', '........', '........'] },
-  // 6: satellites come down
-  { moves: 24, kinds: 5, goals: [{ kind: 'sats', n: 2 }], sats: 2 },
-  // 7: two kinds at once
-  { moves: 25, kinds: 6, goals: [{ kind: 'collect', n: 18, of: 1 }, { kind: 'collect', n: 18, of: 2 }] },
-  // 8: a diamond of deep dust
-  { moves: 25, kinds: 5, goals: [{ kind: 'dust', n: 0 }], map: ['........', '...dd...', '..dDDd..', '.dDDDDd.', '.dDDDDd.', '..dDDd..', '...dd...', '........'] },
-  // 9: harder asteroids over dust
-  { moves: 26, kinds: 6, goals: [{ kind: 'rocks', n: 0 }, { kind: 'dust', n: 0 }], map: ['........', '..2..2..', '........', 'dd.dd.dd', 'dd.dd.dd', '........', '..2..2..', '........'] },
-  // 10: the constellation closes: satellites past an asteroid ring
-  { moves: 28, kinds: 6, goals: [{ kind: 'sats', n: 3 }, { kind: 'rocks', n: 0 }], map: ['#......#', '........', '........', '1.1..1.1', '........', '........', '........', '#......#'], sats: 3 },
+/** The hand-made constellations (8 levels each). */
+const HAND: Def[][] = [
+  // 0 · Pierwsze światła — the first lights: swap, clouds, a square, collect, moons
+  [
+    { goal: 'score', n: 6000, moves: 12, kinds: 4, layout: [' ...... ', '........', '........', '........', '........', '........', '........', ' ...... '] },
+    { goal: 'clouds', moves: 20, kinds: 4, fresh: ['clouds'], layout: ['........', '........', '........', '..cccc..', '..cccc..', '........', '........', '........'] },
+    { goal: 'collect', want: [[0, 18]], moves: 20, kinds: 4, fresh: ['collect'], layout: FULL },
+    { goal: 'clouds', moves: 22, kinds: 5, layout: ['   ..   ', '  ....  ', ' ...... ', '..cccc..', '..cccc..', ' cccccc ', '  cccc  ', '   cc   '] },
+    { goal: 'moons', moons: 2, moves: 22, kinds: 5, fresh: ['moons'], layout: ['........', '........', '........', '........', '........', '........', '........', '........'] },
+    { goal: 'score', n: 5000, moves: 20, kinds: 5, layout: ['...  ...', '...  ...', '........', '........', '........', '........', '...  ...', '...  ...'] },
+    { goal: 'clouds', moves: 24, kinds: 5, layout: ['cc....cc', 'cc....cc', '........', '...CC...', '...CC...', '........', 'cc....cc', 'cc....cc'] },
+    { goal: 'collect', want: [[2, 22], [4, 22]], moves: 24, kinds: 5, fresh: ['hard'], layout: [' ...... ', '........', '..c..c..', '........', '........', '..c..c..', '........', ' ...... '] },
+  ],
+  // 1 · Gwiazdy Abrahama — count the stars: asteroids, more moons
+  [
+    { goal: 'rocks', moves: 22, kinds: 5, fresh: ['rocks'], layout: ['........', '........', '........', '........', '11....11', '........', '..1111..', '........'] },
+    { goal: 'moons', moons: 3, moves: 24, kinds: 5, layout: [' ...... ', '........', '........', '........', '........', '........', '........', ' ...... '] },
+    { goal: 'clouds', moves: 24, kinds: 5, layout: ['........', '.cccccc.', '.c....c.', '.c.11.c.', '.c.11.c.', '.c....c.', '.cccccc.', '........'] },
+    { goal: 'score', n: 8000, moves: 20, kinds: 5, layout: ['..    ..', '........', '........', '........', '........', '........', '........', '..    ..'] },
+    { goal: 'rocks', moves: 24, kinds: 5, layout: ['........', '........', '........', '22....22', '........', '...22...', '........', '1......1'] },
+    { goal: 'collect', want: [[1, 24], [3, 24]], moves: 22, kinds: 5, layout: ['........', '........', '...11...', '..1..1..', '..1..1..', '...11...', '........', '........'] },
+    { goal: 'moons', moons: 3, moves: 22, kinds: 5, layout: ['........', '........', '........', '1......1', '........', '..1..1..', '........', '........'] },
+    { goal: 'clouds', moves: 26, kinds: 6, fresh: ['hard'], layout: ['CCC..CCC', 'C......C', 'C.2..2.C', '........', '........', 'C.2..2.C', 'C......C', 'CCC..CCC'] },
+  ],
+  // 2 · Gwiazdy poranne — the morning stars sang: orbit locks, ink
+  [
+    { goal: 'clouds', moves: 22, kinds: 5, fresh: ['locks'], layout: ['........', '........', '..kkkk..', '........', '........', '..kkkk..', '........', '........'] },
+    { goal: 'score', n: 9000, moves: 22, kinds: 5, layout: ['........', '.l....l.', '........', '...ll...', '...ll...', '........', '.l....l.', '........'] },
+    { goal: 'moons', moons: 3, moves: 24, kinds: 5, layout: ['  ....  ', ' ...... ', '........', '........', '........', '........', ' ...... ', '  ....  '] },
+    { goal: 'clouds', moves: 24, kinds: 5, fresh: ['ink'], layout: ['........', '........', '..c..c..', '...ii...', '...ii...', '..c..c..', '.cc..cc.', '........'] },
+    { goal: 'collect', want: [[5, 26], [0, 26]], moves: 24, kinds: 6, layout: ['........', '........', 'll....ll', '........', '........', 'll....ll', '........', '........'] },
+    { goal: 'clouds', moves: 26, kinds: 5, layout: ['ccc  ccc', 'ccc  ccc', 'ccc..ccc', '........', '........', 'ccc..ccc', 'ccc  ccc', 'ccc  ccc'] },
+    { goal: 'rocks', moves: 24, kinds: 5, layout: ['........', '........', '........', '........', '........', '22222222', '........', '........'] },
+    { goal: 'moons', moons: 3, moves: 28, kinds: 5, fresh: ['hard'], layout: ['........', '........', '.i....i.', '........', '..2..2..', '........', '........', '........'] },
+  ],
 ];
 
-/** Points for two and three stars: a score goal's target × 1.5 and × 2.2, else by the moves. */
-function starsFor(goals: Goal[], moves: number): [number, number] {
-  const score = goals.find(g => g.kind === 'score');
-  if (score) return [Math.round(score.n * 1.45 / 50) * 50, Math.round(score.n * 2 / 50) * 50];
-  const extra = goals.reduce((s, g) => s + (g.kind === 'sats' ? g.n * RULES.sat : g.kind === 'rocks' ? 160 : g.kind === 'dust' ? 300 : 0), 0);
-  return [Math.round((moves * 95 + extra) / 50) * 50, Math.round((moves * 150 + extra) / 50) * 50];
-}
-
-// ── the generator ────────────────────────────────────────────────
+/** Shapes the generator builds on (8×8, ' ' = a hole). */
 const SHAPES: string[][] = [
-  ['##....##', '#......#', '........', '........', '........', '........', '#......#', '##....##'],
-  ['........', '........', '........', '...##...', '...##...', '........', '........', '........'],
-  ['#......#', '........', '........', '........', '........', '........', '........', '#......#'],
-  ['...##...', '........', '........', '#......#', '#......#', '........', '........', '...##...'],
+  FULL,
+  [' ...... ', '........', '........', '........', '........', '........', '........', ' ...... '],
+  ['   ..   ', '  ....  ', ' ...... ', '........', '........', ' ...... ', '  ....  ', '   ..   '],
+  ['...  ...', '...  ...', '........', '........', '........', '........', '...  ...', '...  ...'],
+  ['........', '........', '..    ..', '..    ..', '........', '........', '........', '........'],
+  ['  ....  ', '  ....  ', '........', '........', '........', '........', '  ....  ', '  ....  '],
+  ['........', '.      .', '........', '........', '........', '........', '........', '........'],
+  ['.. .. ..', '........', '........', '........', '........', '........', '........', '........'],
 ];
 
-/** Difficulty 0..1 for a level past the first constellation: rising, in waves. */
+/** How hard a level is meant to be (0 easy … 1 hard): a slow rise, a peak at each constellation's end, a breather after. */
 export function difficulty(index: number): number {
-  const k = Math.max(0, index - RULES.perConst);
-  const base = Math.min(1, k / 70);
-  const wave = 0.12 * Math.sin((k / RULES.perConst) * Math.PI * 2);
-  return Math.max(0, Math.min(1, base + wave));
+  const c = Math.floor(index / RULES.perConst), s = index % RULES.perConst;
+  const wave = [0.15, 0.3, 0.45, 0.35, 0.55, 0.45, 0.65, 0.95][s];
+  return Math.min(1, wave * 0.75 + Math.min(0.25, c * 0.035));
 }
 
-function generated(index: number): Level {
-  const rnd = mulberry32(levelSeed(index) ^ 0x2545f491);
-  const star = index % RULES.perConst;
-  const calm = star === 4;
-  const boss = star === RULES.perConst - 1;
-  const d = Math.min(1, difficulty(index) + (boss ? 0.15 : 0) - (calm ? 0.25 : 0));
-  const kinds = calm || (star === 0 && d < 0.4) ? 5 : 6;
-  let moves = Math.round(28 - 9 * d + (rnd() * 4 - 2)) + (calm ? 3 : 0) + (boss ? 4 : 0);
-  moves = Math.max(16, Math.min(32, moves));
-  const map = (rnd() < 0.35 ? SHAPES[Math.floor(rnd() * SHAPES.length)] : OPEN).map(row => [...row]);
-  const open = (r: number, c: number) => map[r][c] === '.';
+const GEN_GOALS: GoalKind[] = ['clouds', 'collect', 'moons', 'score', 'rocks', 'clouds', 'moons', 'clouds'];
+
+function generated(index: number): Def {
+  const rnd = mulberry32(0x5eed + index * 7919);
+  const pick = <T>(a: readonly T[]): T => a[Math.floor(rnd() * a.length)];
+  const d = difficulty(index);
+  const s = index % RULES.perConst;
+  const goal = GEN_GOALS[(s + Math.floor(index / RULES.perConst)) % GEN_GOALS.length];
+  const grid = pick(SHAPES).map(r => [...r]);
   const cells: [number, number][] = [];
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (open(r, c)) cells.push([r, c]);
-  const pickCells = (n: number, rows: [number, number]) => {
-    const pool = cells.filter(([r, c]) => r >= rows[0] && r <= rows[1] && open(r, c));
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    return pool.slice(0, n);
-  };
-  const order: GoalKind[] = ['score', 'collect', 'dust', 'rocks', 'sats'];
-  const main = order[(index + Math.floor(index / RULES.perConst)) % order.length];
-  const goals: Goal[] = [];
-  let sats = 0;
-  const addGoal = (kind: GoalKind) => {
-    switch (kind) {
-      case 'score': goals.push({ kind, n: Math.round((moves * (95 + 55 * d)) / 100) * 100 }); break;
-      case 'collect': {
-        const of = Math.floor(rnd() * kinds);
-        if (goals.some(g => g.kind === 'collect' && g.of === of)) break;
-        goals.push({ kind, n: Math.round(18 + 16 * d), of });
-        break;
-      }
-      case 'dust': {
-        const deep = d > 0.35 && rnd() < 0.5 + d / 2;
-        for (const [r, c] of pickCells(Math.round(10 + 14 * d), [2, 7])) map[r][c] = deep && rnd() < d ? 'D' : 'd';
-        goals.push({ kind, n: 0 });
-        break;
-      }
-      case 'rocks': {
-        const hp = 1 + Math.min(2, Math.floor(d * 2.2 + rnd() * 0.6));
-        for (const [r, c] of pickCells(Math.round(6 + 7 * d), [1, 6])) map[r][c] = String(1 + Math.floor(rnd() * hp));
-        goals.push({ kind, n: 0 });
-        break;
-      }
-      case 'sats':
-        sats = 2 + Math.floor(d * 2.5);
-        goals.push({ kind, n: sats });
-        moves = Math.min(34, moves + 4);
-        break;
+  grid.forEach((row, r) => row.forEach((ch, c) => { if (ch !== ' ') cells.push([r, c]); }));
+  const put = (ch: string, n: number, where: (r: number, c: number) => boolean) => {
+    const pool = cells.filter(([r, c]) => grid[r][c] === '.' && where(r, c));
+    for (let k = 0; k < n && pool.length; k++) {
+      const [r, c] = pool.splice(Math.floor(rnd() * pool.length), 1)[0];
+      grid[r][c] = ch;
+      // a mirror image keeps it pleasant
+      if (grid[r][7 - c] === '.') grid[r][7 - c] = ch;
     }
   };
-  addGoal(main);
-  if (!calm && d > 0.3 && rnd() < 0.3 + d * 0.4) addGoal(main === 'collect' ? 'dust' : 'collect');
-  if (boss && goals.length < 2) addGoal(main === 'rocks' ? 'sats' : 'rocks');
-  return {
-    index, constellation: Math.floor(index / RULES.perConst), star, moves, kinds, goals, stars: starsFor(goals, moves),
-    map: map.map(r => r.join('')), sats, seed: levelSeed(index), calm, boss,
-  };
+  const kinds = d > 0.6 ? 6 : 5;
+  let moves = Math.round(26 - d * 6);
+  const def: Def = { goal, moves, kinds, layout: [] };
+  switch (goal) {
+    case 'clouds': put(d > 0.5 ? 'C' : 'c', 6 + Math.round(d * 8), (r) => r >= 2); if (d > 0.5) put('2', 2, r => r >= 3 && r <= 5); break;
+    case 'rocks': put(d > 0.92 ? '3' : d > 0.4 ? '2' : '1', 4 + Math.round(d * 3), r => r >= 3); moves += 2; break;
+    case 'moons': def.moons = 2 + Math.round(d * 1.5); put('1', Math.round(d * 2), r => r >= 2 && r <= 5); moves += 5; break;
+    case 'collect': def.want = [[Math.floor(rnd() * kinds), 20 + Math.round(d * 10)], [Math.floor(rnd() * kinds), 20 + Math.round(d * 10)]]; if (def.want[0][0] === def.want[1][0]) def.want.pop(); put('l', Math.round(d * 4), () => true); break;
+    case 'score': def.n = Math.round((moves * (290 - d * 70)) / 500) * 500; put('l', 2, () => true); break;
+  }
+  if (d > 0.7 && goal !== 'rocks') put('i', 1, r => r >= 3 && r <= 4);
+  // the hard star gets a little more room (the band's tools are meant to finish it)
+  if (s === RULES.perConst - 1) moves += 2;
+  def.moves = moves;
+  def.layout = grid.map(r => r.join(''));
+  return def;
 }
 
-/** Level `index` (0-based): hand-made in the first constellation, generated after it. */
+const defAt = (index: number): Def => {
+  const c = Math.floor(index / RULES.perConst), s = index % RULES.perConst;
+  return HAND[c]?.[s] ?? generated(index);
+};
+
+/** Count what a layout holds: cloud layers, asteroids. */
+export function layoutCounts(layout: string[]): { clouds: number; rocks: number; ink: number; locks: number; cells: number } {
+  let clouds = 0, rocks = 0, ink = 0, locks = 0, cells = 0;
+  for (const row of layout) for (const ch of row) {
+    if (ch === ' ') continue;
+    cells++;
+    if (ch === 'c' || ch === 'k') clouds += 1;
+    if (ch === 'C') clouds += 2;
+    if (ch >= '1' && ch <= '3') rocks++;
+    if (ch === 'i') ink++;
+    if (ch === 'l' || ch === 'k') locks++;
+  }
+  return { clouds, rocks, ink, locks, cells };
+}
+
+/** Level `index` (0-based) of the saga. */
 export function levelAt(index: number): Level {
   const i = Math.max(0, Math.floor(index));
-  if (i < HAND.length) {
-    const h = HAND[i];
-    return {
-      index: i, constellation: 0, star: i, moves: h.moves, kinds: h.kinds, goals: h.goals.map(g => ({ ...g })), stars: starsFor(h.goals, h.moves),
-      map: h.map ?? null, sats: h.sats ?? 0, seed: levelSeed(i), calm: false, boss: i === HAND.length - 1,
-    };
-  }
-  return generated(i);
+  const def = defAt(i);
+  const counts = layoutCounts(def.layout);
+  const want = (def.want ?? []).map(([of, n]) => ({ of, n }));
+  const n = def.goal === 'score' ? def.n ?? 3000
+    : def.goal === 'clouds' ? counts.clouds
+      : def.goal === 'rocks' ? counts.rocks
+        : def.goal === 'moons' ? def.moons ?? 2
+          : want.reduce((s, w) => s + w.n, 0);
+  // the stars: a good game scores about this much a move, and the comets after the goal add more
+  // (a score level plays all its moves; the others end early and the comet shower pays for the moves left)
+  const per = 650 + (def.kinds <= 4 ? 150 : 0);
+  const base = def.goal === 'score' ? n : Math.round((def.moves * per * 0.85) / 100) * 100;
+  const s2 = def.goal === 'score' ? Math.round((n * 1.5) / 100) * 100 : base;
+  const s3 = def.goal === 'score' ? Math.round((n * 2.1) / 100) * 100 : Math.round((base * 1.45) / 100) * 100;
+  return {
+    index: i, constellation: Math.floor(i / RULES.perConst), star: i % RULES.perConst, hard: i % RULES.perConst === RULES.perConst - 1,
+    goal: def.goal, n, want, moves: def.moves, kinds: def.kinds, layout: def.layout, moons: def.moons ?? 0,
+    stars: [s2, s3], seed: 0x51a + i * 104729, fresh: def.fresh ?? [],
+  };
 }
 
-/** The board a level starts with: its holes, asteroids and dust, its seed (the same for everyone). */
+/** The board a level starts with (a retry gets a new sky: attempt changes the seed). */
 export function boardSpec(l: Level, attempt = 0): BoardSpec {
-  const n = RULES.rows * RULES.cols;
-  const mask = new Array<boolean>(n).fill(true), rocks = new Array<number>(n).fill(0), dust = new Array<number>(n).fill(0);
-  if (l.map) {
-    l.map.forEach((row, r) => [...row].forEach((ch, c) => {
-      const i = r * RULES.cols + c;
-      if (ch === '#') mask[i] = false;
-      else if (ch >= '1' && ch <= '3') rocks[i] = Number(ch);
-      else if (ch === 'd') dust[i] = 1;
-      else if (ch === 'D') dust[i] = 2;
-    }));
-  }
-  return { kinds: l.kinds, mask, rocks, dust, sats: l.sats, seed: (l.seed + Math.imul(attempt, 0x85ebca6b)) >>> 0 };
+  const rows = l.layout.length, cols = Math.max(...l.layout.map(r => r.length));
+  const n = rows * cols;
+  const mask: boolean[] = new Array<boolean>(n).fill(false);
+  const cloud = new Array<number>(n).fill(0), rock = new Array<number>(n).fill(0), ink = new Array<number>(n).fill(0), lock = new Array<number>(n).fill(0);
+  l.layout.forEach((row, r) => [...row.padEnd(cols, ' ')].forEach((ch, c) => {
+    const i = r * cols + c;
+    if (ch === ' ') return;
+    mask[i] = true;
+    if (ch === 'c') cloud[i] = 1;
+    else if (ch === 'C') cloud[i] = 2;
+    else if (ch >= '1' && ch <= '3') rock[i] = Number(ch);
+    else if (ch === 'i') ink[i] = 1;
+    else if (ch === 'l') lock[i] = 1;
+    else if (ch === 'k') { lock[i] = 1; cloud[i] = 1; }
+  }));
+  return {
+    rows, cols, kinds: l.kinds, mask, cloud, rock, ink, lock, moons: l.moons, moonsAtOnce: l.moons > 2 ? 2 : 1,
+    want: l.want.map(w => w.of), seed: (l.seed + attempt * 7777) >>> 0,
+  };
 }
 
-/** The instruments a constellation has opened (the tray grows to four in the fourth). */
-export function toolsFor(constellation: number): ToolKind[] {
-  const tools: ToolKind[] = ['comet', 'ray'];
-  if (constellation >= 1) tools.push('swap');
-  if (constellation >= 2) tools.push('nova');
-  return tools;
-}
-export const traySize = (constellation: number): number => (constellation >= 3 ? RULES.trayMax : RULES.tray);
+/** One, two or three stars for a won level: the goal gives one, the score the others. */
+export const starsFor = (l: Level, score: number): number => 1 + (score >= l.stars[0] ? 1 : 0) + (score >= l.stars[1] ? 1 : 0);
 
-// ── the map's figures ────────────────────────────────────────────
-/** A constellation's figure: ten stars (0..1 of the map's box) and the lines between them. */
-export interface Figure { pts: [number, number][]; lines: [number, number][] }
-
-const chain = (n: number): [number, number][] => Array.from({ length: n - 1 }, (_, i) => [i, i + 1] as [number, number]);
-
-export const FIGURES: readonly Figure[] = [
-  // the Pleiades: a little dipper of a cluster
-  { pts: [[0.16, 0.66], [0.28, 0.5], [0.4, 0.58], [0.48, 0.38], [0.6, 0.47], [0.7, 0.3], [0.84, 0.4], [0.74, 0.6], [0.58, 0.72], [0.42, 0.8]], lines: [...chain(10), [9, 2]] },
-  // Orion: the feet, the belt, the shoulders, the head
-  { pts: [[0.3, 0.88], [0.4, 0.6], [0.46, 0.52], [0.52, 0.49], [0.58, 0.46], [0.66, 0.58], [0.74, 0.88], [0.7, 0.22], [0.5, 0.1], [0.32, 0.2]], lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [4, 7], [7, 8], [8, 9], [9, 2]] },
-  // the Bear (Job 9:9)
-  { pts: [[0.08, 0.42], [0.2, 0.36], [0.32, 0.4], [0.42, 0.47], [0.45, 0.66], [0.63, 0.7], [0.67, 0.5], [0.76, 0.32], [0.86, 0.26], [0.92, 0.46]], lines: [...chain(10), [3, 6]] },
-  // the Swan: a cross in the Milky Way
-  { pts: [[0.5, 0.08], [0.5, 0.24], [0.5, 0.4], [0.5, 0.56], [0.5, 0.74], [0.5, 0.92], [0.33, 0.33], [0.16, 0.26], [0.67, 0.47], [0.84, 0.56]], lines: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [2, 6], [6, 7], [2, 8], [8, 9]] },
-  // the Lyre
-  { pts: [[0.5, 0.1], [0.36, 0.22], [0.64, 0.24], [0.42, 0.4], [0.6, 0.42], [0.38, 0.62], [0.62, 0.64], [0.4, 0.84], [0.6, 0.86], [0.5, 0.5]], lines: [[0, 1], [0, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5, 7], [6, 8], [7, 8], [3, 4]] },
-  // Cassiopeia's W, and a tail
-  { pts: [[0.08, 0.3], [0.22, 0.62], [0.36, 0.4], [0.5, 0.66], [0.64, 0.38], [0.78, 0.6], [0.92, 0.32], [0.82, 0.16], [0.66, 0.12], [0.5, 0.18]], lines: chain(10) },
-];
-
-/** The figure of a constellation (they repeat after the sixth). */
-export const figureOf = (constellation: number): Figure => FIGURES[((constellation % FIGURES.length) + FIGURES.length) % FIGURES.length];
+/** The tray's size in a constellation: one more from the third. */
+export const traySize = (constellation: number): number => (constellation >= RULES.trayGrowAt ? RULES.trayMax : RULES.tray);

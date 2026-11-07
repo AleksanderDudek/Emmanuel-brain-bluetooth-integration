@@ -1,17 +1,20 @@
 /**
- * Firmament's picture for the lobby's hero and the game card: the night sky, the constellation
- * (in the lobby, the player's own, its won levels in gold), a little cluster of sky bodies twinkling
- * — a line of three lighting up now and then — a comet crossing, and the telescope's lens breathing
- * gold around its dashed threshold.  Drawn every frame, so it stays cheap: no state, no sprites.
+ * Firmament's picture for the lobby's hero and the game card: the saga map in the night sky — the
+ * player's constellation (in the lobby: its won stars gold, the current one ringed, Bubo perched on
+ * it) with the next one waiting faintly above, drifting slowly as if the map scrolls — a little cluster
+ * of sky bodies where a line of three lights up in turn, a comet crossing, and the telescope's lens
+ * breathing gold around its dashed threshold.  Drawn every frame, so it stays cheap.
  */
-import { figureOf } from './levels';
-import type { FirmamentProgress } from './meta';
-import { C, hash, paintBody, paintStar } from './paint';
+import { drawFigure } from './hud';
+import { migrate, type FirmamentProgress } from './meta';
+import { C, hash, paintBody, paintOwl } from './paint';
+import { figure } from './content';
 import { RULES } from './rules';
 
 const TAU = Math.PI * 2;
 
-export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, p?: FirmamentProgress): void {
+export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, raw?: FirmamentProgress): void {
+  const p = raw ? migrate(raw) : undefined;
   const g = ctx.createLinearGradient(0, 0, w * 0.4, h);
   g.addColorStop(0, C.night0);
   g.addColorStop(0.6, C.night1);
@@ -26,32 +29,27 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     ctx.arc(x, y, 0.6 + tw * 0.9, 0, TAU);
     ctx.fill();
   }
-  // the constellation
+  // the saga map: this constellation, the next one above, a slow drift
   const c = p ? Math.floor(p.level / RULES.perConst) : 0;
-  const fig = figureOf(c);
-  const fx = w * 0.06, fy = h * 0.08, fw = w * 0.5, fh = h * 0.55;
-  ctx.strokeStyle = 'rgba(158,197,255,.4)';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  for (const [a, b] of fig.lines) {
-    ctx.moveTo(fx + fig.pts[a][0] * fw, fy + fig.pts[a][1] * fh);
-    ctx.lineTo(fx + fig.pts[b][0] * fw, fy + fig.pts[b][1] * fh);
-  }
-  ctx.stroke();
-  const S = Math.max(3, Math.min(w, h) / 40);
-  fig.pts.forEach(([px, py], i) => {
-    const won = p ? (p.stars[c * RULES.perConst + i] ?? 0) > 0 : i < 4;
-    paintStar(ctx, fx + px * fw, fy + py * fh, S * (won ? 1.2 : 0.9), won ? 1 : 0.5, won ? C.gold : '#dfe6f8');
-  });
+  const lit = p ? p.level - c * RULES.perConst : 4;
+  const drift = Math.sin(t * 0.25) * h * 0.02;
+  const box = { x: w * 0.05, y: h * 0.2 + drift, w: w * 0.5, h: h * 0.6 };
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  drawFigure(ctx, c + 1, { x: w * 0.1, y: -h * 0.42 + drift, w: w * 0.42, h: h * 0.5 }, 0, t, -1);
+  ctx.restore();
+  drawFigure(ctx, c, box, lit, t, -1);
+  const cur = figure(c).stars[Math.min(RULES.perConst - 1, lit)];
+  const ow = Math.max(8, Math.min(w, h) * 0.07);
+  paintOwl(ctx, box.x + cur[0] * box.w, box.y + cur[1] * box.h - ow * 1.3, ow, { t, look: 0.4, hop: Math.abs(Math.sin(t * 1.6)) * 0.3 });
   // a cluster of bodies, a line of three lighting up in turn
   const cell = Math.max(14, Math.min(w, h) / 6.2);
-  const ox = w * 0.62, oy = h * 0.42;
+  const ox = w * 0.64, oy = h * 0.44;
   const kinds = [[0, 2, 0], [3, 4, 1], [5, 0, 2]];
   const line = Math.floor(t / 1.6) % 3;
   for (let r = 0; r < 3; r++) for (let q = 0; q < 3; q++) {
     const x = ox + q * cell, y = oy + r * cell + Math.sin(t * 1.5 + r + q) * cell * 0.03;
-    const hot = kinds[r][q] === 0 && line === (r + q) % 3;
-    if (hot) {
+    if (kinds[r][q] === 0 && line === (r + q) % 3) {
       const hg = ctx.createRadialGradient(x, y, 0, x, y, cell * 0.7);
       hg.addColorStop(0, 'rgba(255,220,140,.45)');
       hg.addColorStop(1, 'rgba(255,220,140,0)');
@@ -63,12 +61,12 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   // a comet crossing
   const k = (t * 0.25) % 1.4;
   if (k < 1) {
-    const cx = -w * 0.1 + k * w * 1.2, cy = h * 0.2 + k * h * 0.25;
+    const cx = -w * 0.1 + k * w * 1.2, cy = h * 0.12 + k * h * 0.2;
     const cg = ctx.createLinearGradient(cx - w * 0.15, cy - h * 0.04, cx, cy);
     cg.addColorStop(0, 'rgba(220,235,255,0)');
     cg.addColorStop(1, 'rgba(220,235,255,.9)');
     ctx.strokeStyle = cg;
-    ctx.lineWidth = Math.max(1.5, S * 0.6);
+    ctx.lineWidth = Math.max(1.5, Math.min(w, h) / 80);
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(cx - w * 0.15, cy - h * 0.04);
@@ -77,7 +75,7 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     ctx.lineCap = 'butt';
   }
   // the lens, breathing gold around its threshold
-  const lr = Math.min(w, h) * 0.12, lx = w * 0.88, ly = h * 0.17;
+  const lr = Math.min(w, h) * 0.12, lx = w * 0.88, ly = h * 0.18;
   const level = 0.5 + 0.35 * Math.sin(t * 0.7);
   ctx.fillStyle = '#a57a33';
   ctx.beginPath();
@@ -100,7 +98,7 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   ctx.strokeStyle = 'rgba(255,245,220,.75)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(lx, ly, lr * 0.76 * 0.55, 0, TAU);
+  ctx.arc(lx, ly, lr * 0.76 * 0.5, 0, TAU);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.strokeStyle = C.gold;

@@ -1,72 +1,89 @@
 /**
- * Firmament's match-3 engine, pure (no DOM, no clock): an 8×8 sky of bodies in six kinds, matches
- * in lines and in L/T shapes, the specials they make (Kometa, Supernowa, Pulsar) and every combo of
- * two specials swapped together, the stardust on cells, the asteroids that block them, the
- * satellites that come down to the bottom row, gravity and refill, cascades, a generator that never
- * starts with a match and always leaves a move, and a reshuffle when no move is left.
+ * Firmament's match-3 engine, pure (no DOM, no clock), built after Candy Crush Saga with Royal
+ * Match's square: a sky of up to 8×8 cells shaped by holes, six kinds of sky bodies, and
  *
- * Everything random comes from the board's own seeded stream, so a level's seed and the same moves
- * give the same sky for everyone.  A move resolves at once into a list of steps (what was cleared,
- * what blasted, what was born, what fell where); the picture plays the steps back on the same clock
- * (rules.ts), so the rules never wait for the picture.
+ *   matches     three or more in a line, and a square of four (Royal Match)
+ *   specials    four in a line → Kometa (a beam along a row or a column); an L or a T → Supernowa
+ *               (a 3×3 blast, then again after the fall); five in a line → Pulsar (every body of one
+ *               kind); a square → Meteor (flies to what the level wants cleared)
+ *   combos      two comets: a cross; a comet and a supernova: three rows and three columns; two
+ *               supernovae: 5×5 twice; a pulsar and a special: every body of that kind becomes it and
+ *               fires; two pulsars: the whole sky; a meteor carries the other special to its target
+ *   the level   dark clouds on cells (1–2 layers, cleared by clearing the body on them), asteroids
+ *               (1–3 hits from a match beside them or a blast), orbit locks (the body stays put until a
+ *               match or a blast frees it), ink (takes a cell; spreads when a move clears none) and moons
+ *               that fall to the bottom row and leave the sky there
+ *   the rest    gravity (straight down, sliding diagonally past what blocks a column), refill from the
+ *               top, cascades, a generator that never starts with a match and always leaves a move, a
+ *               reshuffle when no move is left, and the end of a won level: specials left fire and every
+ *               move left becomes a comet (Deszcz komet, Candy Crush's Sugar Crush)
  *
- * Cells are numbered row by row from the top left: i = r × cols + c.
+ * A move resolves at once into steps (what was cleared, what blasted, what was born, what fell where);
+ * the picture plays them back on the same clock (rules.ts), so the rules never wait for the picture.
+ * Everything random comes from the board's own seeded stream.  Cells: i = r × cols + c from the top left.
  */
 import { mulberry32 } from '../../core/random';
 import { RULES } from './rules';
 
-export type Sp = 'none' | 'row' | 'col' | 'nova' | 'pulsar' | 'sat';
-export type ToolKind = 'comet' | 'ray' | 'swap' | 'nova' | 'pulsar';
-
-/** A body (kind 0..5), a special made of one, a pulsar (kind −1) or a satellite (kind −2). */
-export interface Piece { id: number; kind: number; sp: Sp; armed: boolean }
-
+export type Sp = 'none' | 'row' | 'col' | 'nova' | 'meteor' | 'pulsar';
+export type MadeSp = Exclude<Sp, 'none'>;
+/** A pulsar has no kind; a moon is not a body you can match. */
 export const PULSAR = -1;
-export const SAT = -2;
+export const MOON = -2;
 
-export type BlastKind = 'row' | 'col' | 'nova' | 'cross' | 'big' | 'nova5' | 'kind' | 'all' | 'ray';
-export interface Blast { kind: BlastKind; at: number; cells: number[]; of?: number }
+export interface Piece { id: number; kind: number; sp: Sp }
 
+export type BlastKind = 'row' | 'col' | 'nova' | 'nova5' | 'cross' | 'cross3' | 'kind' | 'all' | 'hammer' | 'meteor' | 'star';
+export interface Blast { kind: BlastKind; at: number; cells: number[]; of?: number; from?: number }
 export interface Cleared { id: number; at: number; kind: number; sp: Sp }
+export interface MatchInfo { cells: number[]; kind: number; points: number; made: Sp; at: number }
+
 export interface Step {
-  /** 1-based: the first step of a move is 1, its cascades count up */
+  /** 1-based: a move's first step is 1, its cascades count up */
   cascade: number;
+  matches: MatchInfo[];
   cleared: Cleared[];
   blasts: Blast[];
-  /** specials born where a match made one, pieces changed in place (a nova armed, a body made special) */
+  /** specials born from a match; bodies turned special in place (a pulsar's combo, a gift, the finale) */
   born: { id: number; at: number; kind: number; sp: Sp }[];
-  changed: { id: number; at: number; sp: Sp; armed: boolean }[];
+  changed: { id: number; at: number; sp: Sp }[];
+  clouds: { at: number; layers: number }[];
   rocks: { at: number; hp: number }[];
-  dust: { at: number; layers: number }[];
-  sats: { id: number; at: number }[];
+  inks: { at: number; on: boolean }[];
+  locks: number[];
+  moons: { id: number; at: number }[];
   moves: { id: number; from: number; to: number }[];
   spawns: { id: number; kind: number; sp: Sp; to: number; fromRow: number }[];
   points: number;
-  /** how long the picture takes to play this step (s) */
+  /** when the fall begins in this step, and how long the picture takes to play all of it (s) */
+  fall: number;
   dur: number;
 }
 
-/** What a move did, in sum (the level's goals and the session's numbers read it). */
+/** What a move did, in sum (the goals and the session's numbers read it). */
 export interface Tally {
   points: number;
   /** bodies cleared per kind */
   kinds: number[];
-  dust: number;
+  clouds: number;
   rocks: number;
-  sats: number;
-  made: { row: number; col: number; nova: number; pulsar: number };
+  inks: number;
+  locks: number;
+  moons: number;
+  made: Record<MadeSp, number>;
   cascades: number;
+  /** a combo of two specials ('comet+comet', 'pulsar+pulsar' …) */
   combo: string | null;
+  cleared: number;
 }
 
 export interface Resolution {
   ok: boolean;
   steps: Step[];
   tally: Tally;
-  /** the swap (bounced back when not ok), and the reshuffle after the move when no move was left */
+  /** the swap (bounced back when not ok), and a reshuffle after the move when no move was left */
   swap: [number, number] | null;
   shuffle: { id: number; to: number }[] | null;
-  /** total time the picture needs (s) */
   dur: number;
 }
 
@@ -76,41 +93,32 @@ export interface BoardSpec {
   rows?: number;
   cols?: number;
   kinds: number;
-  /** playable cells (false: a hole in the sky) */
   mask?: boolean[];
-  /** asteroid hits per cell (0: none) */
-  rocks?: number[];
-  /** stardust layers per cell */
-  dust?: number[];
-  /** satellites to bring down, and how many at most on the board at once */
-  sats?: number;
-  satsAtOnce?: number;
+  cloud?: number[];
+  rock?: number[];
+  ink?: number[];
+  lock?: number[];
+  /** moons to bring down, how many at most on the board at once, and how many start in the top row */
+  moons?: number;
+  moonsAtOnce?: number;
+  /** the kinds the level wants collected (a meteor's target) */
+  want?: number[];
   seed: number;
 }
 
-const freshTally = (kinds: number): Tally => ({
-  points: 0, kinds: new Array<number>(kinds).fill(0), dust: 0, rocks: 0, sats: 0, made: { row: 0, col: 0, nova: 0, pulsar: 0 }, cascades: 0, combo: null,
+const emptyMade = (): Record<MadeSp, number> => ({ row: 0, col: 0, nova: 0, meteor: 0, pulsar: 0 });
+export const freshTally = (kinds: number): Tally => ({
+  points: 0, kinds: new Array<number>(kinds).fill(0), clouds: 0, rocks: 0, inks: 0, locks: 0, moons: 0, made: emptyMade(), cascades: 0, combo: null, cleared: 0,
+});
+const freshStep = (cascade: number): Step => ({
+  cascade, matches: [], cleared: [], blasts: [], born: [], changed: [], clouds: [], rocks: [], inks: [], locks: [], moons: [], moves: [], spawns: [], points: 0, fall: 0, dur: 0,
 });
 
-const isSpecial = (p: Piece | null): boolean => !!p && (p.sp === 'row' || p.sp === 'col' || p.sp === 'nova' || p.sp === 'pulsar');
-const matchable = (p: Piece | null): p is Piece => !!p && p.kind >= 0;
+export const isSpecial = (p: Piece | null | undefined): boolean => !!p && p.sp !== 'none';
+const comet = (sp: Sp): boolean => sp === 'row' || sp === 'col';
 
-interface Pending {
-  /** cells taken without activating (the two specials of a combo) */
-  consume: number[];
-  /** bodies turned into a special before the blasts (a pulsar's combo, an instrument's comet or nova) */
-  convert: { at: number; sp: Sp }[];
-  /** cells to clear (and activate) */
-  clear: number[];
-  /** blasts fired at once */
-  blasts: { kind: BlastKind; at: number; of?: number }[];
-  /** asteroids broken outright (the ray) */
-  breakRocks: number[];
-  /** a swap's two cells: a match made by it puts its special where the moved body landed */
-  swap: [number, number] | null;
-  /** look for matches in this step too */
-  match: boolean;
-}
+interface Group { cells: number[]; kind: number; h: number; v: number; square: boolean; hRun: number[]; vRun: number[]; sqCells: number[] }
+interface Queued { kind: BlastKind; at: number; of?: number; carry?: Sp; from?: number }
 
 export class Board {
   readonly rows: number;
@@ -119,631 +127,876 @@ export class Board {
   readonly kinds: number;
   readonly mask: boolean[];
   readonly cells: (Piece | null)[];
+  readonly cloud: number[];
   readonly rock: number[];
-  readonly dust: number[];
-  satTotal: number;
-  satSpawned = 0;
-  satDown = 0;
-  readonly satsAtOnce: number;
+  readonly ink: number[];
+  readonly lock: number[];
+  /** the bottom cell of each column's run of sky (under it: the edge or a hole), where moons leave */
+  readonly exit: boolean[];
+  /** the top cell of each run of sky (over it: the edge or a hole), where new bodies come in */
+  readonly spawn: boolean[];
+  moonTotal: number;
+  moonSpawned = 0;
+  moonDown = 0;
+  readonly moonsAtOnce: number;
+  want: number[];
   private nextId = 1;
   private readonly rng: () => number;
+  /** second blasts of supernovae, fired in the next step */
+  private pending: Queued[] = [];
 
   constructor(spec: BoardSpec) {
     this.rows = spec.rows ?? RULES.rows;
     this.cols = spec.cols ?? RULES.cols;
     this.n = this.rows * this.cols;
     this.kinds = Math.max(3, Math.min(RULES.kinds, spec.kinds));
-    this.mask = spec.mask ? spec.mask.slice() : new Array<boolean>(this.n).fill(true);
-    this.rock = spec.rocks ? spec.rocks.map((v, i) => (this.mask[i] ? v : 0)) : new Array<number>(this.n).fill(0);
-    this.dust = spec.dust ? spec.dust.map((v, i) => (this.mask[i] && !this.rock[i] ? v : 0)) : new Array<number>(this.n).fill(0);
+    this.rng = mulberry32(spec.seed);
+    const fill = (src: number[] | undefined) => Array.from({ length: this.n }, (_, i) => (src && Number.isFinite(src[i]) ? Math.max(0, Math.floor(src[i])) : 0));
+    this.mask = Array.from({ length: this.n }, (_, i) => (spec.mask ? !!spec.mask[i] : true));
+    this.rock = fill(spec.rock).map((v, i) => (this.mask[i] ? Math.min(3, v) : 0));
+    this.ink = fill(spec.ink).map((v, i) => (this.mask[i] && !this.rock[i] ? Math.min(1, v) : 0));
+    this.cloud = fill(spec.cloud).map((v, i) => (this.mask[i] && !this.rock[i] && !this.ink[i] ? Math.min(2, v) : 0));
+    this.lock = fill(spec.lock).map((v, i) => (this.mask[i] && !this.rock[i] && !this.ink[i] ? Math.min(1, v) : 0));
     this.cells = new Array<Piece | null>(this.n).fill(null);
-    this.satTotal = spec.sats ?? 0;
-    this.satsAtOnce = spec.satsAtOnce ?? 2;
-    this.rng = mulberry32(spec.seed >>> 0);
+    this.exit = Array.from({ length: this.n }, (_, i) => this.mask[i] && (this.r(i) === this.rows - 1 || !this.mask[i + this.cols]));
+    this.spawn = Array.from({ length: this.n }, (_, i) => this.mask[i] && (this.r(i) === 0 || !this.mask[i - this.cols]));
+    this.moonTotal = Math.max(0, spec.moons ?? 0);
+    this.moonsAtOnce = Math.max(1, spec.moonsAtOnce ?? 2);
+    this.want = spec.want?.slice() ?? [];
     this.generate();
+    // the first moons wait in the top row
+    let start = Math.min(this.moonTotal, this.moonsAtOnce);
+    const tops: number[] = [];
+    for (let i = 0; i < this.n; i++) if (this.spawn[i] && this.open(i) && !this.lock[i] && !this.exit[i]) tops.push(i);
+    while (start > 0 && tops.length) {
+      const i = tops.splice(Math.floor(this.rng() * tops.length), 1)[0];
+      this.cells[i] = { id: this.nextId++, kind: MOON, sp: 'none' };
+      this.moonSpawned++;
+      start--;
+    }
+    if (!this.hasMove()) this.reshuffle();
   }
 
-  // ── geometry ────────────────────────────────────────────────────
+  // ── geometry ──────────────────────────────────────────────────
+  at(r: number, c: number): number { return r * this.cols + c; }
   r(i: number): number { return Math.floor(i / this.cols); }
   c(i: number): number { return i % this.cols; }
-  at(r: number, c: number): number { return r * this.cols + c; }
   inside(r: number, c: number): boolean { return r >= 0 && c >= 0 && r < this.rows && c < this.cols; }
-  /** a cell that holds a piece: playable and no asteroid on it */
-  free(i: number): boolean { return this.mask[i] && this.rock[i] <= 0; }
+  /** a cell that can hold a body: in the sky, not an asteroid or ink */
+  open(i: number): boolean { return i >= 0 && i < this.n && this.mask[i] && !this.rock[i] && !this.ink[i]; }
   adjacent(a: number, b: number): boolean {
-    return (this.r(a) === this.r(b) && Math.abs(this.c(a) - this.c(b)) === 1) || (this.c(a) === this.c(b) && Math.abs(this.r(a) - this.r(b)) === 1);
+    return Math.abs(this.r(a) - this.r(b)) + Math.abs(this.c(a) - this.c(b)) === 1;
   }
-  private neighbours(i: number): number[] {
+  neighbours(i: number): number[] {
     const r = this.r(i), c = this.c(i), out: number[] = [];
     for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as const) if (this.inside(r + dr, c + dc)) out.push(this.at(r + dr, c + dc));
     return out;
   }
-  /** the lowest cell of a column that holds a piece: where a satellite lands */
-  floorOf(c: number): number {
-    for (let r = this.rows - 1; r >= 0; r--) if (this.free(this.at(r, c))) return this.at(r, c);
-    return -1;
+  /** may this cell's body be swapped */
+  free(i: number): boolean { return this.open(i) && !!this.cells[i] && !this.lock[i]; }
+
+  get cloudLeft(): number { return this.cloud.reduce((s, v) => s + v, 0); }
+  get cloudCells(): number { return this.cloud.reduce((s, v) => s + (v > 0 ? 1 : 0), 0); }
+  get rocksLeft(): number { return this.rock.reduce((s, v) => s + (v > 0 ? 1 : 0), 0); }
+  get inkLeft(): number { return this.ink.reduce((s, v) => s + v, 0); }
+  get locksLeft(): number { return this.lock.reduce((s, v) => s + v, 0); }
+  get moonsLeft(): number { return Math.max(0, this.moonTotal - this.moonDown); }
+  get moonsOnBoard(): number { return this.cells.filter(p => p?.kind === MOON).length; }
+
+  private matchable(i: number): boolean {
+    const p = this.cells[i];
+    return !!p && p.kind >= 0 && this.open(i);
   }
 
-  get rocksLeft(): number { return this.rock.reduce((s, v) => s + (v > 0 ? 1 : 0), 0); }
-  get dustLeft(): number { return this.dust.reduce((s, v) => s + v, 0); }
-  get satsOnBoard(): number { return this.cells.reduce((s, p) => s + (p?.sp === 'sat' ? 1 : 0), 0); }
+  private randKind(): number { return Math.floor(this.rng() * this.kinds); }
 
-  private piece(kind: number, sp: Sp = 'none'): Piece { return { id: this.nextId++, kind, sp, armed: false }; }
-  private randKind(): number { return Math.floor(this.rng() * this.kinds) % this.kinds; }
+  private newPiece(kind: number, sp: Sp = 'none'): Piece { return { id: this.nextId++, kind, sp }; }
 
-  // ── the generator ───────────────────────────────────────────────
-  /** Would a body of `kind` at `i` complete a line of three with what is already left of it or above it? */
-  private makesLine(i: number, kind: number): boolean {
+  // ── generation ────────────────────────────────────────────────
+  /** Would `kind` at i make a line of three (left or up) or a square with what is already placed? */
+  private makesMatch(i: number, kind: number): boolean {
     const r = this.r(i), c = this.c(i);
-    const k = (rr: number, cc: number) => (this.inside(rr, cc) ? this.cells[this.at(rr, cc)] : null);
-    const same = (p: Piece | null) => matchable(p) && p.kind === kind && p.sp !== 'sat';
-    if (same(k(r, c - 1)) && same(k(r, c - 2))) return true;
-    if (same(k(r - 1, c)) && same(k(r - 2, c))) return true;
+    const k = (rr: number, cc: number) => (this.inside(rr, cc) ? this.cells[this.at(rr, cc)]?.kind ?? -9 : -9);
+    if (k(r, c - 1) === kind && k(r, c - 2) === kind) return true;
+    if (k(r - 1, c) === kind && k(r - 2, c) === kind) return true;
+    if (k(r, c + 1) === kind && k(r, c + 2) === kind) return true;
+    if (k(r + 1, c) === kind && k(r + 2, c) === kind) return true;
+    if (k(r, c - 1) === kind && k(r, c + 1) === kind) return true;
+    if (k(r - 1, c) === kind && k(r + 1, c) === kind) return true;
+    for (const [dr, dc] of [[-1, -1], [-1, 1], [1, -1], [1, 1]] as const) {
+      if (k(r + dr, c) === kind && k(r, c + dc) === kind && k(r + dr, c + dc) === kind) return true;
+    }
     return false;
   }
 
-  /** A fresh sky: no match anywhere, at least one move; the first satellites in the top row. */
   private generate(): void {
     for (let tries = 0; tries < RULES.genTries; tries++) {
+      for (let i = 0; i < this.n; i++) if (this.open(i)) this.cells[i] = null;
       for (let i = 0; i < this.n; i++) {
-        this.cells[i] = null;
-        if (!this.free(i)) continue;
+        if (!this.open(i)) continue;
         let kind = this.randKind();
-        for (let k = 0; k < this.kinds && this.makesLine(i, kind); k++) kind = (kind + 1) % this.kinds;
-        this.cells[i] = this.piece(kind);
+        for (let k = 0; k < this.kinds && this.makesMatch(i, kind); k++) kind = (kind + 1) % this.kinds;
+        this.cells[i] = this.newPiece(kind);
       }
-      if (this.findGroups(null).length === 0 && this.hasMove()) break;
-    }
-    // the first satellites start a quarter of the way down spread-out columns
-    const first = Math.min(this.satTotal, this.satsAtOnce);
-    const cols = this.shuffled(Array.from({ length: this.cols }, (_, c) => c));
-    for (let k = 0, placed = 0; k < cols.length && placed < first; k++) {
-      let top = -1;
-      for (let r = Math.floor(this.rows / 4); r < this.rows; r++) if (this.free(this.at(r, cols[k]))) { top = this.at(r, cols[k]); break; }
-      if (top < 0 || top === this.floorOf(cols[k])) continue;
-      this.cells[top] = this.piece(SAT, 'sat');
-      this.satSpawned++;
-      placed++;
+      if (this.findGroups().length === 0 && this.hasMove()) return;
     }
   }
 
-  private shuffled<T>(a: T[]): T[] {
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(this.rng() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  // ── matches ─────────────────────────────────────────────────────
-  /**
-   * Every match on the board: runs of three or more of a kind in a row or a column, runs that share
-   * a cell joined into one group (an L, a T or a cross).  Each group says what it makes: five in a
-   * line a pulsar, a row and a column together a supernova, four in a line a comet along the line.
-   */
-  findGroups(swap: [number, number] | null): { cells: number[]; kind: number; make: Sp; at: number }[] {
-    interface Run { cells: number[]; dir: 'h' | 'v' }
-    const runs: Run[] = [];
-    const scan = (dir: 'h' | 'v') => {
-      const outer = dir === 'h' ? this.rows : this.cols, inner = dir === 'h' ? this.cols : this.rows;
-      for (let o = 0; o < outer; o++) {
-        let run: number[] = [], kind = -99;
-        const flush = () => { if (run.length >= 3) runs.push({ cells: run, dir }); };
-        for (let k = 0; k < inner; k++) {
-          const i = dir === 'h' ? this.at(o, k) : this.at(k, o);
-          const p = this.cells[i];
-          const pk = matchable(p) ? p.kind : -99;
-          if (pk >= 0 && pk === kind) run.push(i);
-          else {
-            flush();
-            run = pk >= 0 ? [i] : [];
-            kind = pk;
+  // ── matches ───────────────────────────────────────────────────
+  findGroups(): Group[] {
+    const parent = new Map<number, number>();
+    const find = (x: number): number => {
+      let p = parent.get(x) ?? x;
+      while (p !== (parent.get(p) ?? p)) p = parent.get(p) ?? p;
+      parent.set(x, p);
+      return p;
+    };
+    const union = (a: number, b: number) => {
+      const ra = find(a), rb = find(b);
+      if (ra !== rb) parent.set(ra, rb);
+    };
+    const hLen = new Map<number, number>(), vLen = new Map<number, number>(), sq = new Set<number>();
+    const kindAt = (i: number) => (this.matchable(i) ? this.cells[i]!.kind : -9);
+    for (let r = 0; r < this.rows; r++) {
+      let c = 0;
+      while (c < this.cols) {
+        const k = kindAt(this.at(r, c));
+        let e = c + 1;
+        while (k >= 0 && e < this.cols && kindAt(this.at(r, e)) === k) e++;
+        if (k >= 0 && e - c >= 3) {
+          for (let x = c; x < e; x++) {
+            hLen.set(this.at(r, x), e - c);
+            parent.set(this.at(r, x), parent.get(this.at(r, x)) ?? this.at(r, x));
+            if (x > c) union(this.at(r, x), this.at(r, c));
           }
         }
-        flush();
+        c = e;
       }
-    };
-    scan('h');
-    scan('v');
-    if (!runs.length) return [];
-    // join runs that share a cell
-    const parent = runs.map((_, i) => i);
-    const find = (x: number): number => (parent[x] === x ? x : (parent[x] = find(parent[x])));
-    const owner = new Map<number, number>();
-    runs.forEach((run, ri) => {
-      for (const cell of run.cells) {
-        const o = owner.get(cell);
-        if (o === undefined) owner.set(cell, ri);
-        else parent[find(ri)] = find(o);
-      }
-    });
-    const byRoot = new Map<number, Run[]>();
-    runs.forEach((run, ri) => {
-      const root = find(ri);
-      const list = byRoot.get(root) ?? [];
-      list.push(run);
-      byRoot.set(root, list);
-    });
-    const out: { cells: number[]; kind: number; make: Sp; at: number }[] = [];
-    for (const list of byRoot.values()) {
-      const cells = [...new Set(list.flatMap(r => r.cells))].sort((a, b) => a - b);
-      const kind = this.cells[cells[0]]!.kind;
-      const longest = list.reduce((m, r) => (r.cells.length > m.cells.length ? r : m), list[0]);
-      const hv = list.some(r => r.dir === 'h') && list.some(r => r.dir === 'v');
-      let make: Sp = 'none';
-      if (longest.cells.length >= 5) make = 'pulsar';
-      else if (hv) make = 'nova';
-      else if (longest.cells.length === 4) make = longest.dir === 'h' ? 'row' : 'col';
-      // where the special appears: where the moved body landed, else the corner of an L, else the line's middle
-      let at = -1;
-      if (swap) at = cells.includes(swap[1]) ? swap[1] : cells.includes(swap[0]) ? swap[0] : -1;
-      if (at < 0 && hv) {
-        const h = list.filter(r => r.dir === 'h').flatMap(r => r.cells), v = new Set(list.filter(r => r.dir === 'v').flatMap(r => r.cells));
-        at = h.find(c => v.has(c)) ?? -1;
-      }
-      if (at < 0) at = longest.cells[Math.floor((longest.cells.length - 1) / 2)];
-      out.push({ cells, kind, make, at });
     }
-    return out;
+    for (let c = 0; c < this.cols; c++) {
+      let r = 0;
+      while (r < this.rows) {
+        const k = kindAt(this.at(r, c));
+        let e = r + 1;
+        while (k >= 0 && e < this.rows && kindAt(this.at(e, c)) === k) e++;
+        if (k >= 0 && e - r >= 3) {
+          for (let y = r; y < e; y++) {
+            vLen.set(this.at(y, c), e - r);
+            parent.set(this.at(y, c), parent.get(this.at(y, c)) ?? this.at(y, c));
+            if (y > r) union(this.at(y, c), this.at(r, c));
+          }
+        }
+        r = e;
+      }
+    }
+    for (let r = 0; r + 1 < this.rows; r++) {
+      for (let c = 0; c + 1 < this.cols; c++) {
+        const a = this.at(r, c), k = kindAt(a);
+        if (k < 0) continue;
+        const four = [a, this.at(r, c + 1), this.at(r + 1, c), this.at(r + 1, c + 1)];
+        if (four.every(i => kindAt(i) === k)) {
+          for (const i of four) {
+            sq.add(i);
+            parent.set(i, parent.get(i) ?? i);
+            union(i, a);
+          }
+        }
+      }
+    }
+    const groups = new Map<number, Group>();
+    for (const i of parent.keys()) {
+      const root = find(i);
+      let g = groups.get(root);
+      if (!g) {
+        g = { cells: [], kind: this.cells[i]!.kind, h: 0, v: 0, square: false, hRun: [], vRun: [], sqCells: [] };
+        groups.set(root, g);
+      }
+      g.cells.push(i);
+      const h = hLen.get(i) ?? 0, v = vLen.get(i) ?? 0;
+      if (h > g.h) g.h = h;
+      if (v > g.v) g.v = v;
+      if (h >= 3) g.hRun.push(i);
+      if (v >= 3) g.vRun.push(i);
+      if (sq.has(i)) { g.square = true; g.sqCells.push(i); }
+    }
+    return [...groups.values()].map(g => ({ ...g, cells: g.cells.sort((a, b) => a - b) }));
   }
 
-  /** The length of the longest line through `i` if it held a body of `kind` (for moves and hints). */
-  private lineThrough(i: number, kind: number, skip: number): { h: number[]; v: number[] } {
-    const r = this.r(i), c = this.c(i);
-    const same = (rr: number, cc: number) => {
-      if (!this.inside(rr, cc)) return false;
-      const j = this.at(rr, cc);
-      if (j === skip) return false;
-      const p = this.cells[j];
-      return matchable(p) && p.kind === kind;
-    };
-    const h = [i], v = [i];
-    for (let k = c - 1; same(r, k); k--) h.push(this.at(r, k));
-    for (let k = c + 1; same(r, k); k++) h.push(this.at(r, k));
-    for (let k = r - 1; same(k, c); k--) v.push(this.at(k, c));
-    for (let k = r + 1; same(k, c); k++) v.push(this.at(k, c));
-    return { h, v };
+  /** What a group makes: five → pulsar, L/T → supernova, four → comet across the line, a square → meteor. */
+  static special(g: Pick<Group, 'h' | 'v' | 'square'>): Sp {
+    if (g.h >= 5 || g.v >= 5) return 'pulsar';
+    if (g.h >= 3 && g.v >= 3) return 'nova';
+    if (g.h === 4) return 'col';
+    if (g.v === 4) return 'row';
+    if (g.square) return 'meteor';
+    return 'none';
   }
 
-  /** May these two be swapped at all (neighbours holding pieces)? */
-  swappable(a: number, b: number): boolean {
-    return a >= 0 && b >= 0 && a < this.n && b < this.n && this.adjacent(a, b) && this.free(a) && this.free(b) && !!this.cells[a] && !!this.cells[b];
+  /** Where the special of a group is born: on the swapped cell when it took part, else in the group's heart. */
+  private birthCell(g: Group, sp: Sp, swap: [number, number] | null): number {
+    if (swap) for (const s of [swap[1], swap[0]]) if (g.cells.includes(s)) return s;
+    if (sp === 'nova') {
+      const both = g.hRun.find(i => g.vRun.includes(i));
+      if (both !== undefined) return both;
+    }
+    if (sp === 'meteor' && g.sqCells.length) return g.sqCells[0];
+    const run = g.h >= g.v ? g.hRun : g.vRun;
+    return run.length ? run[Math.floor(run.length / 2)] : g.cells[Math.floor(g.cells.length / 2)];
   }
 
-  /** What swapping a and b would do: 0 = nothing (it bounces back), else a value for the hint. */
+  // ── moves ─────────────────────────────────────────────────────
+  /** Run lengths through i (with the cells as they are) and whether it sits in a square of its kind. */
+  private lineAt(i: number): { h: number; v: number; sq: boolean; cells: number[] } {
+    const p = this.cells[i];
+    if (!p || p.kind < 0 || !this.open(i)) return { h: 0, v: 0, sq: false, cells: [] };
+    const k = p.kind, r = this.r(i), c = this.c(i);
+    const same = (rr: number, cc: number) => this.inside(rr, cc) && this.matchable(this.at(rr, cc)) && this.cells[this.at(rr, cc)]!.kind === k;
+    let l = c, rr = c, u = r, d = r;
+    while (same(r, l - 1)) l--;
+    while (same(r, rr + 1)) rr++;
+    while (same(u - 1, c)) u--;
+    while (same(d + 1, c)) d++;
+    const h = rr - l + 1, v = d - u + 1;
+    const cells: number[] = [];
+    if (h >= 3) for (let x = l; x <= rr; x++) cells.push(this.at(r, x));
+    if (v >= 3) for (let y = u; y <= d; y++) if (y !== r || h < 3) cells.push(this.at(y, c));
+    let sq = false;
+    for (const [dr, dc] of [[-1, -1], [-1, 1], [1, -1], [1, 1]] as const) {
+      if (same(r + dr, c) && same(r, c + dc) && same(r + dr, c + dc)) {
+        sq = true;
+        for (const x of [this.at(r + dr, c), this.at(r, c + dc), this.at(r + dr, c + dc)]) if (!cells.includes(x)) cells.push(x);
+        if (!cells.includes(i)) cells.push(i);
+        break;
+      }
+    }
+    return { h, v, sq, cells };
+  }
+
+  /** How good a swap is (0: it makes nothing).  Specials made and the level's goals weigh in. */
   swapValue(a: number, b: number): number {
-    if (!this.swappable(a, b)) return 0;
+    if (!this.free(a) || !this.free(b) || !this.adjacent(a, b)) return 0;
     const pa = this.cells[a]!, pb = this.cells[b]!;
     if (pa.sp === 'pulsar' || pb.sp === 'pulsar') {
-      const other = pa.sp === 'pulsar' ? pb : pa;
-      if (other.sp === 'sat') return 0;
-      return other.sp === 'pulsar' ? 100 : isSpecial(other) ? 60 : 30;
+      if (pa.kind === MOON || pb.kind === MOON) return 0;
+      return isSpecial(pa) && isSpecial(pb) ? 90 : 60;
     }
-    if (isSpecial(pa) && isSpecial(pb)) return 40;
-    let value = 0;
-    for (const [from, to] of [[a, b], [b, a]] as const) {
-      const p = this.cells[from]!;
-      if (!matchable(p)) continue;
-      const { h, v } = this.lineThrough(to, p.kind, from);
-      const line = [...(h.length >= 3 ? h : []), ...(v.length >= 3 ? v.slice(1) : [])];
-      if (!line.length) continue;
-      value += line.length + (h.length >= 5 || v.length >= 5 ? 12 : h.length >= 3 && v.length >= 3 ? 8 : h.length === 4 || v.length === 4 ? 5 : 0);
-      // the level's goals: dust under the line, asteroids beside it, satellites above it come down
-      const rocks = new Set<number>();
-      for (const i of line) {
-        value += this.dust[i] * 3;
-        for (const j of this.neighbours(i)) if (this.rock[j] > 0) rocks.add(j);
-        for (let r = 0; r < this.r(i); r++) if (this.cells[this.at(r, this.c(i))]?.sp === 'sat') value += r === this.r(i) - 1 ? 12 : 3;
+    if (isSpecial(pa) && isSpecial(pb)) return 70;
+    let v = pa.sp === 'meteor' || pb.sp === 'meteor' ? 25 : 0;
+    this.cells[a] = pb;
+    this.cells[b] = pa;
+    for (const i of [a, b]) {
+      const m = this.lineAt(i);
+      if (m.h < 3 && m.v < 3 && !m.sq) continue;
+      v += m.cells.length * 2;
+      const sp = Board.special({ h: m.h, v: m.v, square: m.sq });
+      v += sp === 'pulsar' ? 40 : sp === 'nova' ? 30 : comet(sp) ? 20 : sp === 'meteor' ? 12 : 0;
+      for (const x of m.cells) {
+        v += this.cloud[x] * 6 + (isSpecial(this.cells[x]) ? 10 : 0) + (this.want.includes(this.cells[x]!.kind) ? 3 : 0);
+        for (const nb of this.neighbours(x)) if (this.rock[nb] || this.ink[nb]) v += 4;
+        // a moon above a cleared cell comes down
+        const up = this.r(x) > 0 ? this.cells[x - this.cols] : null;
+        if (up?.kind === MOON) v += 8;
       }
-      value += rocks.size * 3;
+      v += this.r(i) * 0.3;   // lower moves stir more cascades
     }
-    return value;
+    this.cells[a] = pa;
+    this.cells[b] = pb;
+    return v;
   }
 
-  /** Every move that does something, best first (the hint takes the first; ties go to the lower, earlier cell). */
+  /** Every swap that does something, best first. */
   findMoves(): Move[] {
     const out: Move[] = [];
     for (let i = 0; i < this.n; i++) {
-      const r = this.r(i), c = this.c(i);
-      for (const j of [c + 1 < this.cols ? this.at(r, c + 1) : -1, r + 1 < this.rows ? this.at(r + 1, c) : -1]) {
-        if (j < 0) continue;
+      if (!this.free(i)) continue;
+      for (const j of [this.c(i) + 1 < this.cols ? i + 1 : -1, i + this.cols < this.n ? i + this.cols : -1]) {
+        if (j < 0 || !this.free(j)) continue;
         const value = this.swapValue(i, j);
         if (value > 0) out.push({ a: i, b: j, value });
       }
     }
-    return out.sort((x, y) => y.value - x.value || y.a - x.a);
+    return out.sort((x, y) => y.value - x.value || x.a - y.a);
   }
 
   hasMove(): boolean {
     for (let i = 0; i < this.n; i++) {
-      const r = this.r(i), c = this.c(i);
-      if (c + 1 < this.cols && this.swapValue(i, this.at(r, c + 1)) > 0) return true;
-      if (r + 1 < this.rows && this.swapValue(i, this.at(r + 1, c)) > 0) return true;
+      if (!this.free(i)) continue;
+      if (this.c(i) + 1 < this.cols && this.free(i + 1) && this.swapValue(i, i + 1) > 0) return true;
+      if (i + this.cols < this.n && this.free(i + this.cols) && this.swapValue(i, i + this.cols) > 0) return true;
     }
     return false;
   }
 
-  // ── moves ───────────────────────────────────────────────────────
-  /**
-   * The player swaps a with b.  Two specials, or a pulsar with anything but a satellite, combine; a
-   * swap that lines up three or more resolves; anything else bounces back for free (unless `free`:
-   * the gravity instrument lets one swap stand without a match).
-   */
-  swap(a: number, b: number, free = false): Resolution {
-    const none = (): Resolution => ({ ok: false, steps: [], tally: freshTally(this.kinds), swap: [a, b], shuffle: null, dur: RULES.bounceSec });
-    if (!this.swappable(a, b)) return none();
+  // ── resolving ─────────────────────────────────────────────────
+  /** Swap two neighbours: a move when it makes something, a free bounce when not. */
+  swap(a: number, b: number): Resolution {
+    const tally = freshTally(this.kinds);
+    const bounce = (): Resolution => ({ ok: false, steps: [], tally, swap: [a, b], shuffle: null, dur: RULES.bounceSec });
+    if (!this.adjacent(a, b) || !this.free(a) || !this.free(b)) return bounce();
     const pa = this.cells[a]!, pb = this.cells[b]!;
-    const pending = (p: Partial<Pending>): Pending => ({ consume: [], convert: [], clear: [], blasts: [], breakRocks: [], swap: [a, b], match: false, ...p });
-    // combos: the moved piece lands on b
-    if ((pa.sp === 'pulsar' || pb.sp === 'pulsar') && pa.sp !== 'sat' && pb.sp !== 'sat') {
-      this.cells[a] = pb;
-      this.cells[b] = pa;
-      const other = pa.sp === 'pulsar' ? pb : pa;
-      if (other.sp === 'pulsar') return this.resolve(pending({ consume: [a, b], blasts: [{ kind: 'all', at: b }] }), 'pulsar+pulsar');
-      const kind = other.kind;
-      const pulsarAt = pa.sp === 'pulsar' ? b : a;
-      if (isSpecial(other)) {
-        const sp = other.sp;
-        const convert: { at: number; sp: Sp }[] = [];
+    const queue: Queued[] = [];
+    const consume: number[] = [];
+    const convert: { at: number; sp: Sp }[] = [];
+    if (pa.sp === 'pulsar' || pb.sp === 'pulsar') {
+      if (pa.kind === MOON || pb.kind === MOON) return bounce();
+      // the pulsar ends where it was swapped to: b's cell holds what was at a
+      const [pul, other, oAt] = pa.sp === 'pulsar' ? [a, pb, b] : [b, pa, a];
+      consume.push(pul);
+      if (other.sp === 'pulsar') {
+        consume.push(oAt);
+        queue.push({ kind: 'all', at: b });
+        tally.combo = 'pulsar+pulsar';
+      } else if (other.sp !== 'none') {
+        consume.push(oAt);
         for (let i = 0; i < this.n; i++) {
           const p = this.cells[i];
-          if (i !== pulsarAt && matchable(p) && p.kind === kind) convert.push({ at: i, sp: sp === 'row' || sp === 'col' ? (this.rng() < 0.5 ? 'row' : 'col') : sp });
+          if (i !== oAt && i !== pul && p && p.kind === other.kind && p.sp === 'none' && this.open(i)) {
+            const sp: Sp = comet(other.sp) ? (this.rng() < 0.5 ? 'row' : 'col') : other.sp;
+            convert.push({ at: i, sp });
+            queue.push({ kind: this.blastOf(sp), at: i });
+          }
         }
-        return this.resolve(pending({ consume: [pulsarAt], convert, clear: convert.map(c => c.at), blasts: [{ kind: 'kind', at: pulsarAt, of: kind }] }), `pulsar+${sp === 'nova' ? 'nova' : 'comet'}`);
+        queue.push({ kind: this.blastOf(other.sp), at: oAt });
+        tally.combo = `pulsar+${comet(other.sp) ? 'comet' : other.sp}`;
+      } else {
+        queue.push({ kind: 'kind', at: pul, of: other.kind });
+        tally.combo = 'pulsar';
       }
-      return this.resolve(pending({ consume: [pulsarAt], blasts: [{ kind: 'kind', at: pulsarAt, of: kind }] }), 'pulsar');
+      return this.resolve({ consume, convert, queue, swap: [a, b], match: false }, tally, true);
     }
     if (isSpecial(pa) && isSpecial(pb)) {
-      this.cells[a] = pb;
-      this.cells[b] = pa;
-      const comets = [pa, pb].filter(p => p.sp === 'row' || p.sp === 'col').length;
-      const kind: BlastKind = comets === 2 ? 'cross' : comets === 1 ? 'big' : 'nova5';
-      return this.resolve(pending({ consume: [a, b], blasts: [{ kind, at: b }] }), comets === 2 ? 'comet+comet' : comets === 1 ? 'comet+nova' : 'nova+nova');
+      const sps: Sp[] = [pa.sp, pb.sp];
+      consume.push(a, b);
+      const has = (s: Sp) => sps.includes(s);
+      if (has('meteor')) {
+        const carry = pa.sp === 'meteor' ? pb.sp : pa.sp;
+        if (carry === 'meteor') {
+          for (let k = 0; k < 3; k++) queue.push({ kind: 'meteor', at: b });
+          tally.combo = 'meteor+meteor';
+        } else {
+          queue.push({ kind: 'meteor', at: b, carry });
+          tally.combo = `meteor+${comet(carry) ? 'comet' : carry}`;
+        }
+      } else if (comet(pa.sp) && comet(pb.sp)) {
+        queue.push({ kind: 'cross', at: b });
+        tally.combo = 'comet+comet';
+      } else if (has('nova') && (comet(pa.sp) || comet(pb.sp))) {
+        queue.push({ kind: 'cross3', at: b });
+        tally.combo = 'comet+nova';
+      } else {
+        queue.push({ kind: 'nova5', at: b });
+        this.pending.push({ kind: 'nova5', at: b });
+        tally.combo = 'nova+nova';
+      }
+      return this.resolve({ consume, convert, queue, swap: [a, b], match: false }, tally, true);
     }
+    // an ordinary swap: it must make a match (a meteor flies anyway, as in Royal Match)
     this.cells[a] = pb;
     this.cells[b] = pa;
-    if (this.findGroups(null).length === 0) {
-      if (free) {
-        const res = this.resolve(pending({ match: true }), null);
-        res.ok = true;
-        return res;
-      }
+    const groups = this.findGroups();
+    const meteor = pa.sp === 'meteor' ? b : pb.sp === 'meteor' ? a : -1;
+    if (!groups.length && meteor < 0) {
       this.cells[a] = pa;
       this.cells[b] = pb;
-      return none();
+      return bounce();
     }
-    return this.resolve(pending({ match: true }), null);
-  }
-
-  /** An instrument used on a cell; null when it cannot be used there (the tray keeps it). */
-  useTool(tool: Exclude<ToolKind, 'swap'>, at: number): Resolution | null {
-    if (at < 0 || at >= this.n || !this.mask[at]) return null;
-    const p = this.cells[at];
-    const pending = (x: Partial<Pending>): Pending => ({ consume: [], convert: [], clear: [], blasts: [], breakRocks: [], swap: null, match: false, ...x });
-    if (tool === 'ray') {
-      if (this.rock[at] > 0) return this.resolve(pending({ breakRocks: [at], blasts: [{ kind: 'ray', at }] }), 'tool');
-      if (!p || p.sp === 'sat') return null;
-      return this.resolve(pending({ clear: [at], blasts: [{ kind: 'ray', at }] }), 'tool');
+    if (meteor >= 0 && !groups.some(g => g.cells.includes(meteor))) {
+      consume.push(meteor);
+      queue.push({ kind: 'meteor', at: meteor });
     }
-    if (!p || p.sp === 'sat' || this.rock[at] > 0) return null;
-    if (tool === 'pulsar') {
-      const kind = matchable(p) ? p.kind : this.commonKind();
-      return this.resolve(pending({ clear: p.sp === 'pulsar' ? [at] : [], blasts: [{ kind: 'kind', at, of: kind }] }), 'tool');
-    }
-    if (tool === 'nova') {
-      if (p.sp === 'pulsar') return this.resolve(pending({ clear: [at] }), 'tool');
-      return this.resolve(pending({ convert: [{ at, sp: 'nova' }], clear: [at] }), 'tool');
-    }
-    // the comet flies the way that clears more (asteroids and dust count double); a tie: the row
-    const score = (cells: number[]) => cells.reduce((s, i) => s + (this.rock[i] > 0 ? 2 : 0) + this.dust[i] + (this.cells[i] ? 1 : 0), 0);
-    const r = this.r(at), c = this.c(at);
-    const row = Array.from({ length: this.cols }, (_, k) => this.at(r, k)), col = Array.from({ length: this.rows }, (_, k) => this.at(k, c));
-    const sp: Sp = score(col) > score(row) ? 'col' : 'row';
-    if (p.sp === 'pulsar') return this.resolve(pending({ clear: [at] }), 'tool');
-    return this.resolve(pending({ convert: [{ at, sp }], clear: [at] }), 'tool');
+    return this.resolve({ consume, convert, queue, swap: [a, b], match: true }, tally, true);
   }
 
-  /** A won level's moves left: that many bodies become comets and fire, one resolution. */
-  celebrate(count: number): Resolution {
-    const plain: number[] = [];
-    for (let i = 0; i < this.n; i++) if (this.cells[i]?.sp === 'none' && matchable(this.cells[i])) plain.push(i);
-    const pick = this.shuffled(plain).slice(0, Math.max(0, count));
-    const convert = pick.map(at => ({ at, sp: (this.rng() < 0.5 ? 'row' : 'col') as Sp }));
-    return this.resolve({ consume: [], convert, clear: pick, blasts: [], breakRocks: [], swap: null, match: false }, 'bonus');
+  /** The blast a special at i sets off. */
+  private fireOf(p: Piece, i: number): Queued {
+    return { kind: this.blastOf(p.sp), at: i, of: p.sp === 'pulsar' ? undefined : p.kind };
   }
 
-  /** A falling star in the night: a plain body becomes a comet (a gift).  Returns the cell, or −1. */
-  gift(): { at: number; sp: Sp; id: number } | null {
-    const plain: number[] = [];
-    for (let i = 0; i < this.n; i++) if (this.cells[i]?.sp === 'none' && matchable(this.cells[i])) plain.push(i);
-    if (!plain.length) return null;
-    const at = plain[Math.floor(this.rng() * plain.length)];
-    const p = this.cells[at]!;
-    p.sp = this.rng() < 0.5 ? 'row' : 'col';
-    return { at, sp: p.sp, id: p.id };
+  private blastOf(sp: Sp): BlastKind {
+    return sp === 'row' ? 'row' : sp === 'col' ? 'col' : sp === 'nova' ? 'nova' : sp === 'meteor' ? 'meteor' : sp === 'pulsar' ? 'kind' : 'hammer';
   }
 
-  /** The kind of body most common on the board (a pulsar set off by a blast takes it). */
-  private commonKind(): number {
-    const count = new Array<number>(this.kinds).fill(0);
-    for (const p of this.cells) if (matchable(p)) count[p.kind]++;
-    let best = 0;
-    for (let k = 1; k < this.kinds; k++) if (count[k] > count[best]) best = k;
-    return best;
-  }
-
-  // ── resolving ───────────────────────────────────────────────────
-  private resolve(first: Pending, combo: string | null): Resolution {
-    const tally = freshTally(this.kinds);
-    tally.combo = combo;
+  /**
+   * The engine: steps until the sky is still.  A step clears its matches and fires its blasts (a
+   * special hit by a blast fires too), damages what stands beside a match, places the specials
+   * born, lets everything fall and refills; then the next step looks for new matches.
+   */
+  private resolve(first: { consume: number[]; convert: { at: number; sp: Sp }[]; queue: Queued[]; swap: [number, number] | null; match: boolean },
+    tally: Tally, ok: boolean): Resolution {
     const steps: Step[] = [];
-    let pending: Pending | null = first;
-    for (let cascade = 1; cascade <= 80; cascade++) {
-      const groups = !pending || pending.match ? this.findGroups(pending?.swap ?? null) : [];
-      const armed: number[] = [];
-      for (let i = 0; i < this.n; i++) if (this.cells[i]?.armed) armed.push(i);
-      const busy = pending && (pending.consume.length || pending.clear.length || pending.blasts.length || pending.breakRocks.length);
-      if (!busy && !groups.length && !armed.length) break;
-      steps.push(this.step(cascade, groups, pending, armed, tally));
-      pending = null;
-    }
-    tally.cascades = steps.length;
-    let shuffle: { id: number; to: number }[] | null = null;
-    if (!this.hasMove()) shuffle = this.reshuffle();
-    const dur = steps.reduce((s, st) => s + st.dur, 0) + (first.swap ? RULES.swapSec : 0) + (shuffle ? 0.5 : 0);
-    return { ok: true, steps, tally, swap: first.swap, shuffle, dur };
-  }
-
-  private blastCells(kind: BlastKind, at: number, of?: number): number[] {
-    const r = this.r(at), c = this.c(at), out: number[] = [];
-    const box = (rad: number) => {
-      for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) if (this.inside(r + dr, c + dc)) out.push(this.at(r + dr, c + dc));
-    };
-    const row = (rr: number) => { if (rr >= 0 && rr < this.rows) for (let k = 0; k < this.cols; k++) out.push(this.at(rr, k)); };
-    const col = (cc: number) => { if (cc >= 0 && cc < this.cols) for (let k = 0; k < this.rows; k++) out.push(this.at(k, cc)); };
-    switch (kind) {
-      case 'row': row(r); break;
-      case 'col': col(c); break;
-      case 'nova': box(1); break;
-      case 'nova5': box(2); break;
-      case 'cross': row(r); col(c); break;
-      case 'big': for (let d = -1; d <= 1; d++) { row(r + d); col(c + d); } break;
-      case 'kind': for (let i = 0; i < this.n; i++) { const p = this.cells[i]; if (matchable(p) && p.kind === of) out.push(i); } break;
-      case 'all': for (let i = 0; i < this.n; i++) out.push(i); break;
-      case 'ray': out.push(at); break;
-    }
-    return [...new Set(out)].filter(i => this.mask[i]);
-  }
-
-  private step(cascade: number, groups: ReturnType<Board['findGroups']>, pending: Pending | null, armed: number[], tally: Tally): Step {
-    const R = RULES;
-    const st: Step = { cascade, cleared: [], blasts: [], born: [], changed: [], rocks: [], dust: [], sats: [], moves: [], spawns: [], points: 0, dur: 0 };
-    const clear = new Set<number>();
-    const consumed = new Set<number>();
-    const rockHit = new Set<number>();
-    const rockBreak = new Set<number>();
-    const births = new Map<number, { kind: number; sp: Sp }>();
-    const activated = new Set<number>();
-    const queue: number[] = [];
-    const add = (i: number) => {
-      if (!this.mask[i]) return;
-      if (this.rock[i] > 0) { rockHit.add(i); return; }
-      if (!clear.has(i) && this.cells[i]) { clear.add(i); queue.push(i); }
-    };
-    // the matches: their cells, the specials they make, the asteroids beside them
-    for (const g of groups) {
-      for (const i of g.cells) add(i);
-      for (const i of g.cells) for (const j of this.neighbours(i)) if (this.rock[j] > 0) rockHit.add(j);
-      if (g.make !== 'none') births.set(g.at, { kind: g.make === 'pulsar' ? PULSAR : g.kind, sp: g.make });
-    }
-    if (pending) {
-      for (const i of pending.consume) { consumed.add(i); clear.add(i); }
-      for (const cv of pending.convert) {
+    let cascade = 1;
+    let work: { consume: number[]; convert: { at: number; sp: Sp }[]; queue: Queued[]; swap: [number, number] | null; match: boolean } | null = first;
+    while (work) {
+      const st = freshStep(cascade);
+      // turned special before anything fires (their blasts are queued already)
+      const fired = new Set<number>();
+      for (const cv of work.convert) {
         const p = this.cells[cv.at];
         if (!p) continue;
         p.sp = cv.sp;
-        st.changed.push({ id: p.id, at: cv.at, sp: cv.sp, armed: false });
+        if (work.queue.some(q => q.at === cv.at)) fired.add(p.id);
+        st.changed.push({ id: p.id, at: cv.at, sp: cv.sp });
       }
-      for (const i of pending.breakRocks) rockBreak.add(i);
-      for (const i of pending.clear) add(i);
-      for (const b of pending.blasts) {
-        const cells = this.blastCells(b.kind, b.at, b.of);
-        st.blasts.push({ kind: b.kind, at: b.at, cells, of: b.of });
-        for (const i of cells) if (!consumed.has(i)) add(i);
+      const hitBlock = new Set<number>();
+      const queue = work.queue.slice();
+      // the two specials of a combo leave without firing on their own
+      for (const i of work.consume) {
+        const p = this.cells[i];
+        if (!p) continue;
+        fired.add(p.id);
+        this.removeAt(i, st, tally, false);
       }
+      const births: { at: number; kind: number; sp: Sp }[] = [];
+      if (work.match) {
+        for (const g of this.findGroups()) {
+          const sp = Board.special(g);
+          const at = sp === 'none' ? g.cells[0] : this.birthCell(g, sp, work.swap);
+          const pts = RULES.body * g.cells.length * cascade + (sp !== 'none' ? RULES.make[sp] : 0);
+          st.matches.push({ cells: g.cells.slice(), kind: g.kind, points: pts, made: sp, at });
+          st.points += pts;
+          for (const i of g.cells) {
+            // beside a match: asteroids crack, ink dissolves (each once a step)
+            for (const nb of this.neighbours(i)) if ((this.rock[nb] || this.ink[nb]) && !hitBlock.has(nb)) { hitBlock.add(nb); this.hitBlocker(nb, st, tally); }
+            this.hitCell(i, st, tally, queue, fired, true);
+          }
+          if (sp !== 'none') {
+            births.push({ at, kind: g.kind, sp });
+            tally.made[sp as MadeSp]++;
+          }
+        }
+      }
+      // blasts (and the specials they set off)
+      let guard = 0;
+      while (queue.length && guard++ < 400) {
+        const q = queue.shift()!;
+        const cells = this.blastCells(q);
+        const blast: Blast = { kind: q.kind, at: q.at, cells, of: q.of };
+        if (q.kind === 'meteor') {
+          const target = this.meteorTarget(new Set(st.blasts.filter(b => b.kind === 'meteor').map(b => b.at)));
+          blast.from = q.at;
+          blast.at = target;
+          blast.cells = [...new Set([...cells, target])];
+          if (q.carry && q.carry !== 'none') queue.push({ kind: this.blastOf(q.carry), at: target });
+        }
+        if (q.kind === 'kind' && q.of === undefined) blast.of = this.commonKind();
+        if (q.kind === 'kind') blast.cells = this.cellsOfKind(blast.of ?? 0);
+        st.blasts.push(blast);
+        for (const i of blast.cells) {
+          if (this.rock[i] || this.ink[i]) {
+            if (!hitBlock.has(i)) { hitBlock.add(i); this.hitBlocker(i, st, tally); }
+            continue;
+          }
+          this.hitCell(i, st, tally, queue, fired, false);
+        }
+      }
+      // the specials born take their cells (a cell still held by a locked body or a moon passes to a free one)
+      for (const b of births) {
+        let at = b.at;
+        if (this.cells[at] || !this.open(at)) {
+          const g = st.matches.find(m => m.at === b.at);
+          at = g?.cells.find(i => !this.cells[i] && this.open(i)) ?? -1;
+        }
+        if (at < 0) continue;
+        const p = this.newPiece(b.kind, b.sp);
+        this.cells[at] = p;
+        st.born.push({ id: p.id, at, kind: b.kind, sp: b.sp });
+      }
+      this.gravity(st, tally);
+      st.fall = RULES.clearSec + (st.blasts.length ? RULES.blastSec : 0) + (st.blasts.some(b => b.kind === 'meteor') ? RULES.flySec : 0);
+      st.dur = st.fall + this.fallDur(st);
+      tally.points += st.points;
+      steps.push(st);
+      tally.cascades = Math.max(tally.cascades, cascade);
+      // next: a supernova's second blast, new matches
+      const pend = this.pending;
+      this.pending = [];
+      const again = this.findGroups().length > 0;
+      if (!again && !pend.length) break;
+      cascade++;
+      work = { consume: [], convert: [], queue: pend, swap: null, match: again };
+      if (cascade > 60) break;
     }
-    for (const i of armed) add(i);
-    // set off every special caught in the clear, and what their blasts catch in turn
-    while (queue.length) {
-      const i = queue.shift()!;
-      const p = this.cells[i];
-      if (!p || consumed.has(i) || activated.has(p.id) || !isSpecial(p)) continue;
-      activated.add(p.id);
-      let kind: BlastKind, of: number | undefined;
-      if (p.sp === 'pulsar') {
-        kind = 'kind';
-        of = this.commonKind();
-      } else kind = p.sp === 'nova' ? 'nova' : p.sp === 'row' ? 'row' : 'col';
-      const cells = this.blastCells(kind, i, of);
-      st.blasts.push({ kind, at: i, cells, of });
-      for (const j of cells) add(j);
+    const shuffle = this.hasMove() ? null : this.reshuffle();
+    const dur = steps.reduce((s, x) => s + x.dur, 0) + RULES.swapSec;
+    return { ok, steps, tally, swap: first.swap, shuffle, dur };
+  }
+
+  private fallDur(st: Step): number {
+    let rows = 0;
+    for (const m of st.moves) rows = Math.max(rows, Math.abs(this.r(m.to) - this.r(m.from)) + Math.abs(this.c(m.to) - this.c(m.from)) * 0.5);
+    for (const s of st.spawns) rows = Math.max(rows, this.r(s.to) - s.fromRow);
+    return rows > 0 ? Math.max(RULES.fallMin, rows * RULES.fallCell) : 0;
+  }
+
+  /** A cell taken by a match or a blast: a lock breaks, a cloud thins, the body leaves (a special fires). */
+  private hitCell(i: number, st: Step, tally: Tally, queue: Queued[], fired: Set<number>, byMatch: boolean): void {
+    if (!this.mask[i]) return;
+    const p = this.cells[i];
+    if (!p) {
+      if (!byMatch && this.cloud[i] > 0) this.thinCloud(i, st, tally);
+      return;
     }
-    // clear: a nova set off the first time stays, armed, to blast again after the fall
-    for (const i of clear) {
-      const p = this.cells[i];
-      if (!p || p.sp === 'sat') continue;
-      if (p.sp === 'nova' && activated.has(p.id) && !p.armed && !consumed.has(i)) {
-        p.armed = true;
-        st.changed.push({ id: p.id, at: i, sp: 'nova', armed: true });
-        continue;
-      }
-      this.cells[i] = null;
-      st.cleared.push({ id: p.id, at: i, kind: p.kind, sp: p.sp });
-      if (p.kind >= 0) {
-        tally.kinds[p.kind]++;
-        st.points += R.body * cascade;
-      }
-      if (this.dust[i] > 0) {
-        this.dust[i]--;
-        tally.dust++;
-        st.points += R.dust;
-        st.dust.push({ at: i, layers: this.dust[i] });
-      }
+    if (p.kind === MOON) return;
+    if (this.lock[i]) {
+      this.lock[i] = 0;
+      st.locks.push(i);
+      tally.locks++;
+      st.points += RULES.lock;
+      if (this.cloud[i] > 0) this.thinCloud(i, st, tally);
+      return;
     }
-    // asteroids: a hit from a match beside them or a blast over them; the ray breaks one outright
-    for (const i of new Set([...rockHit, ...rockBreak])) {
-      if (this.rock[i] <= 0) continue;
-      this.rock[i] = rockBreak.has(i) ? 0 : this.rock[i] - 1;
-      st.points += R.rockHit;
-      if (this.rock[i] === 0) {
-        tally.rocks++;
-        st.points += R.rockBreak;
-      }
+    if (p.sp !== 'none' && !fired.has(p.id)) {
+      fired.add(p.id);
+      queue.push(this.fireOf(p, i));
+      if (p.sp === 'nova') this.pending.push({ kind: 'nova', at: i });
+    }
+    if (!byMatch) st.points += RULES.blasted;
+    this.removeAt(i, st, tally, true);
+  }
+
+  private removeAt(i: number, st: Step, tally: Tally, layer: boolean): void {
+    const p = this.cells[i];
+    if (!p) return;
+    this.cells[i] = null;
+    st.cleared.push({ id: p.id, at: i, kind: p.kind, sp: p.sp });
+    tally.cleared++;
+    if (p.kind >= 0) tally.kinds[p.kind]++;
+    if (layer && this.cloud[i] > 0) this.thinCloud(i, st, tally);
+  }
+
+  private thinCloud(i: number, st: Step, tally: Tally): void {
+    this.cloud[i]--;
+    st.clouds.push({ at: i, layers: this.cloud[i] });
+    tally.clouds++;
+    st.points += RULES.cloud;
+  }
+
+  private hitBlocker(i: number, st: Step, tally: Tally): void {
+    if (this.rock[i] > 0) {
+      this.rock[i]--;
       st.rocks.push({ at: i, hp: this.rock[i] });
-    }
-    // the specials the matches made
-    for (const [i, b] of births) {
-      if (this.cells[i] || !this.free(i)) continue;
-      const p = this.piece(b.kind, b.sp);
-      this.cells[i] = p;
-      st.born.push({ id: p.id, at: i, kind: b.kind, sp: b.sp });
-      tally.made[b.sp as 'row' | 'col' | 'nova' | 'pulsar']++;
-      st.points += R.make[b.sp as 'row' | 'col' | 'nova' | 'pulsar'];
-    }
-    // the fall, the refill, the satellites that reach the bottom
-    const from = new Map<number, number>();
-    const spawned = new Map<number, { kind: number; sp: Sp; fromRow: number }>();
-    for (let guard = 0; guard < 10; guard++) {
-      this.fall(from, spawned);
-      let landed = false;
-      for (let c = 0; c < this.cols; c++) {
-        const f = this.floorOf(c);
-        const p = f >= 0 ? this.cells[f] : null;
-        if (p?.sp === 'sat') {
-          this.cells[f] = null;
-          this.satDown++;
-          tally.sats++;
-          st.points += R.sat;
-          st.sats.push({ id: p.id, at: f });
-          landed = true;
-        }
-      }
-      if (!landed) break;
-    }
-    let longest = 0;
-    for (let i = 0; i < this.n; i++) {
-      const p = this.cells[i];
-      if (!p) continue;
-      const s = spawned.get(p.id);
-      if (s) {
-        st.spawns.push({ id: p.id, kind: p.kind, sp: p.sp, to: i, fromRow: s.fromRow });
-        longest = Math.max(longest, this.r(i) - s.fromRow);
-      } else {
-        const f0 = from.get(p.id);
-        if (f0 !== undefined && f0 !== i) {
-          st.moves.push({ id: p.id, from: f0, to: i });
-          longest = Math.max(longest, this.r(i) - this.r(f0));
-        }
-      }
-    }
-    tally.points += st.points;
-    const fall = longest > 0 ? Math.max(R.fallMin, longest * R.fallCell + 0.06) : 0;
-    st.dur = R.clearSec + (st.blasts.length ? R.blastSec : 0) + fall;
-    return st;
-  }
-
-  /** Every column settles: pieces drop into the free cells below them, new ones come in from above. */
-  private fall(from: Map<number, number>, spawned: Map<number, { kind: number; sp: Sp; fromRow: number }>): void {
-    const fresh: number[] = [];
-    for (let c = 0; c < this.cols; c++) {
-      const slots: number[] = [];
-      for (let r = this.rows - 1; r >= 0; r--) if (this.free(this.at(r, c))) slots.push(this.at(r, c));
-      const pieces: Piece[] = [];
-      for (const s of slots) {
-        const p = this.cells[s];
-        if (p) {
-          if (!from.has(p.id) && !spawned.has(p.id)) from.set(p.id, s);
-          pieces.push(p);
-        }
-        this.cells[s] = null;
-      }
-      pieces.forEach((p, k) => { this.cells[slots[k]] = p; });
-      const need = slots.length - pieces.length;
-      for (let k = 0; k < need; k++) {
-        const s = slots[pieces.length + k];
-        const p = this.piece(this.randKind());
-        this.cells[s] = p;
-        spawned.set(p.id, { kind: p.kind, sp: p.sp, fromRow: this.r(s) - need });
-        fresh.push(s);
-      }
-    }
-    // a satellite still to come enters at the top of one of the refilled columns
-    if (fresh.length && this.satSpawned < this.satTotal && this.satsOnBoard < this.satsAtOnce) {
-      const tops = fresh.filter(s => !fresh.includes(s - this.cols) && this.floorOf(this.c(s)) !== s);
-      if (tops.length) {
-        const s = tops[Math.floor(this.rng() * tops.length)];
-        const old = this.cells[s]!;
-        const p: Piece = { id: old.id, kind: SAT, sp: 'sat', armed: false };
-        this.cells[s] = p;
-        const sp = spawned.get(old.id);
-        if (sp) spawned.set(old.id, { ...sp, kind: SAT, sp: 'sat' });
-        this.satSpawned++;
-      }
+      st.points += RULES.rockHit;
+      if (this.rock[i] === 0) tally.rocks++;
+    } else if (this.ink[i] > 0) {
+      this.ink[i] = 0;
+      st.inks.push({ at: i, on: false });
+      st.points += RULES.ink;
+      tally.inks++;
     }
   }
 
-  /**
-   * No move is left: the plain bodies trade places (specials, satellites and asteroids stay) until
-   * the sky has no match and at least one move; as a last resort their kinds are drawn anew.
-   */
-  reshuffle(): { id: number; to: number }[] {
-    const spots: number[] = [];
-    for (let i = 0; i < this.n; i++) if (this.cells[i] && this.cells[i]!.sp === 'none' && this.cells[i]!.kind >= 0) spots.push(i);
-    const pieces = spots.map(i => this.cells[i]!);
-    let ok = false;
-    for (let tries = 0; tries < RULES.genTries && !ok; tries++) {
-      const order = this.shuffled(pieces.slice());
-      spots.forEach((s, k) => { this.cells[s] = order[k]; });
-      if (tries > RULES.genTries / 2) for (const s of spots) this.cells[s]!.kind = this.randKind();
-      ok = this.findGroups(null).length === 0 && this.hasMove();
-    }
-    if (!ok) {
-      // draw every plain body again, cell by cell, never making a line
-      for (const s of spots) {
-        let kind = this.randKind();
-        this.cells[s]!.kind = -9;
-        for (let k = 0; k < this.kinds && this.makesLine(s, kind); k++) kind = (kind + 1) % this.kinds;
-        this.cells[s]!.kind = kind;
+  private blastCells(q: Queued): number[] {
+    const r = this.r(q.at), c = this.c(q.at), out: number[] = [];
+    const add = (rr: number, cc: number) => { if (this.inside(rr, cc) && this.mask[this.at(rr, cc)]) out.push(this.at(rr, cc)); };
+    const box = (k: number) => { for (let dr = -k; dr <= k; dr++) for (let dc = -k; dc <= k; dc++) add(r + dr, c + dc); };
+    switch (q.kind) {
+      case 'row': for (let x = 0; x < this.cols; x++) add(r, x); break;
+      case 'col': for (let y = 0; y < this.rows; y++) add(y, c); break;
+      case 'cross': for (let x = 0; x < this.cols; x++) add(r, x); for (let y = 0; y < this.rows; y++) if (y !== r) add(y, c); break;
+      case 'cross3': {
+        const s = new Set<number>();
+        for (let d = -1; d <= 1; d++) {
+          for (let x = 0; x < this.cols; x++) if (this.inside(r + d, x) && this.mask[this.at(r + d, x)]) s.add(this.at(r + d, x));
+          for (let y = 0; y < this.rows; y++) if (this.inside(y, c + d) && this.mask[this.at(y, c + d)]) s.add(this.at(y, c + d));
+        }
+        return [...s];
       }
+      case 'nova': box(1); break;
+      case 'nova5': box(2); break;
+      case 'all': for (let i = 0; i < this.n; i++) if (this.mask[i]) out.push(i); break;
+      case 'meteor': add(r, c); add(r - 1, c); add(r + 1, c); add(r, c - 1); add(r, c + 1); break;
+      case 'hammer': case 'star': add(r, c); break;
+      case 'kind': break;
     }
-    const out: { id: number; to: number }[] = [];
-    for (const s of spots) out.push({ id: this.cells[s]!.id, to: s });
     return out;
   }
 
-  /** A copy of the kinds on the board (tests and the picture's resync). */
-  snapshot(): { id: number; kind: number; sp: Sp; armed: boolean }[] {
-    return this.cells.map(p => (p ? { ...p } : { id: 0, kind: -9, sp: 'none' as Sp, armed: false }));
+  private cellsOfKind(kind: number): number[] {
+    const out: number[] = [];
+    for (let i = 0; i < this.n; i++) if (this.cells[i]?.kind === kind && this.open(i)) out.push(i);
+    return out;
+  }
+
+  /** The kind most bodies on the board have (a pulsar set off by a blast takes it). */
+  commonKind(): number {
+    const n = new Array<number>(this.kinds).fill(0);
+    for (const p of this.cells) if (p && p.kind >= 0) n[p.kind]++;
+    let best = 0;
+    for (let k = 1; k < n.length; k++) if (n[k] > n[best]) best = k;
+    return best;
+  }
+
+  /** Where a meteor flies: what the level wants cleared first (clouds, asteroids, ink, under a moon, a wanted kind). */
+  meteorTarget(skip: Set<number> = new Set()): number {
+    let best = -1, bestV = -1;
+    for (let i = 0; i < this.n; i++) {
+      if (!this.mask[i] || skip.has(i)) continue;
+      let v = 0;
+      const p = this.cells[i];
+      if (this.rock[i] || this.ink[i]) v = 9 + this.rock[i];
+      else if (!p || p.kind === MOON) continue;
+      else {
+        if (this.cloud[i]) v = 10 + this.cloud[i];
+        else if (this.lock[i]) v = 7;
+        else if (this.r(i) > 0 && this.cells[i - this.cols]?.kind === MOON) v = 8;
+        else if (this.want.includes(p.kind)) v = 5;
+        else v = 1;
+      }
+      v += this.rng() * 0.9;
+      if (v > bestV) { bestV = v; best = i; }
+    }
+    return best >= 0 ? best : Math.floor(this.n / 2);
+  }
+
+  // ── gravity ───────────────────────────────────────────────────
+  /** Does something come down this column into i (a body above, or the column's top that refills)? */
+  private fedFromAbove(i: number): boolean {
+    let j = i;
+    while (j >= 0) {
+      if (!this.open(j)) return false;
+      const p = this.cells[j];
+      if (p && j !== i) return !this.lock[j];
+      if (this.spawn[j]) return true;
+      j -= this.cols;
+    }
+    return false;
+  }
+
+  private gravity(st: Step, tally: Tally): void {
+    const moved = new Map<number, { id: number; from: number; to: number }>();
+    const spawned = new Map<number, { id: number; kind: number; sp: Sp; to: number; fromRow: number }>();
+    const spawnCount = new Map<number, number>();
+    const move = (from: number, to: number) => {
+      const p = this.cells[from]!;
+      this.cells[to] = p;
+      this.cells[from] = null;
+      const s = spawned.get(p.id);
+      if (s) { s.to = to; return; }
+      const m = moved.get(p.id);
+      if (m) m.to = to;
+      else moved.set(p.id, { id: p.id, from, to });
+    };
+    for (let pass = 0; pass < this.n * 2; pass++) {
+      let changed = false;
+      for (let r = this.rows - 1; r >= 0; r--) {
+        for (let c = 0; c < this.cols; c++) {
+          const i = this.at(r, c);
+          if (!this.open(i) || this.cells[i]) continue;
+          const up = r > 0 ? i - this.cols : -1;
+          if (up >= 0 && this.open(up) && this.cells[up] && !this.lock[up]) { move(up, i); changed = true; continue; }
+          if (this.spawn[i]) {
+            const p = this.spawnPiece();
+            this.cells[i] = p;
+            const k = (spawnCount.get(i) ?? 0) + 1;
+            spawnCount.set(i, k);
+            spawned.set(p.id, { id: p.id, kind: p.kind, sp: p.sp, to: i, fromRow: r - k });
+            changed = true;
+            continue;
+          }
+          if (up >= 0 && this.open(up) && !this.cells[up] && this.fedFromAbove(up)) continue;
+          for (const dc of this.rng() < 0.5 ? [-1, 1] : [1, -1]) {
+            if (!this.inside(r - 1, c + dc)) continue;
+            const k = this.at(r - 1, c + dc), below = this.at(r, c + dc);
+            if (!this.open(k) || !this.cells[k] || this.lock[k]) continue;
+            if (this.open(below) && !this.cells[below]) continue;   // it will fall straight
+            move(k, i);
+            changed = true;
+            break;
+          }
+        }
+      }
+      if (!changed) {
+        // moons that reached the bottom leave the sky, and the column falls again
+        let left = false;
+        for (let i = 0; i < this.n; i++) {
+          const p = this.cells[i];
+          if (p?.kind === MOON && this.exit[i]) {
+            this.cells[i] = null;
+            this.moonDown++;
+            tally.moons++;
+            st.points += RULES.moon;
+            st.moons.push({ id: p.id, at: i });
+            left = true;
+          }
+        }
+        if (!left) break;
+      }
+    }
+    st.moves.push(...[...moved.values()].filter(m => m.from !== m.to));
+    st.spawns.push(...spawned.values());
+  }
+
+  private spawnPiece(): Piece {
+    if (this.moonSpawned < this.moonTotal && this.moonsOnBoard < this.moonsAtOnce && (this.moonsOnBoard === 0 || this.rng() < 0.12)) {
+      this.moonSpawned++;
+      return this.newPiece(MOON);
+    }
+    return this.newPiece(this.randKind());
+  }
+
+  // ── reshuffle ─────────────────────────────────────────────────
+  /** No move left: the free bodies trade places until the sky has a move and no ready match. */
+  reshuffle(): { id: number; to: number }[] {
+    const spots: number[] = [];
+    for (let i = 0; i < this.n; i++) if (this.free(i) && this.cells[i]!.kind !== MOON) spots.push(i);
+    const pieces = spots.map(i => this.cells[i]!);
+    for (let tries = 0; tries < 80; tries++) {
+      for (let k = pieces.length - 1; k > 0; k--) {
+        const j = Math.floor(this.rng() * (k + 1));
+        [pieces[k], pieces[j]] = [pieces[j], pieces[k]];
+      }
+      spots.forEach((i, k) => { this.cells[i] = pieces[k]; });
+      if (tries > 40) {
+        // stubborn: recolour the plain bodies too
+        for (const i of spots) {
+          const p = this.cells[i]!;
+          if (p.sp === 'none') { p.kind = this.randKind(); for (let q = 0; q < this.kinds && this.makesMatchAny(i, p.kind); q++) p.kind = (p.kind + 1) % this.kinds; }
+        }
+      }
+      if (!this.findGroups().length && this.hasMove()) break;
+    }
+    return spots.map(i => ({ id: this.cells[i]!.id, to: i }));
+  }
+
+  private makesMatchAny(i: number, kind: number): boolean {
+    const p = this.cells[i];
+    this.cells[i] = null;
+    const r = this.makesMatch(i, kind);
+    this.cells[i] = p;
+    return r;
+  }
+
+  // ── tools and gifts (no move spent) ───────────────────────────
+  /** The star hammer: one cell — a body leaves (a special fires), a lock breaks, an asteroid cracks, ink dissolves. */
+  hammer(at: number): Resolution | null {
+    if (at < 0 || at >= this.n || !this.mask[at]) return null;
+    const p = this.cells[at];
+    if (!this.rock[at] && !this.ink[at] && (!p || p.kind === MOON)) return null;
+    return this.resolve({ consume: [], convert: [], queue: [{ kind: 'hammer', at }], swap: null, match: false }, freshTally(this.kinds), true);
+  }
+
+  /** The ray: a beam along the row. */
+  ray(at: number): Resolution | null {
+    if (at < 0 || at >= this.n || !this.mask[at]) return null;
+    return this.resolve({ consume: [], convert: [], queue: [{ kind: 'row', at }], swap: null, match: false }, freshTally(this.kinds), true);
+  }
+
+  /** Turn the body at `at` into a special (a pulsar from the telescope); false when it cannot. */
+  makeSpecial(at: number, sp: Sp): { id: number; at: number; sp: Sp } | null {
+    const p = this.cells[at];
+    if (!p || p.kind < 0 || p.sp !== 'none' || !this.free(at)) return null;
+    p.sp = sp;
+    if (sp === 'pulsar') p.kind = PULSAR;
+    return { id: p.id, at, sp };
+  }
+
+  /** A falling star: a plain body (a lower one, far from the edge, preferred) turns into a special. */
+  gift(sp: Sp): { id: number; at: number; sp: Sp } | null {
+    const cand: number[] = [];
+    for (let i = 0; i < this.n; i++) if (this.free(i) && this.cells[i]!.sp === 'none' && this.cells[i]!.kind >= 0) cand.push(i);
+    if (!cand.length) return null;
+    cand.sort((x, y) => this.giftScore(y) - this.giftScore(x));
+    const pick = cand[Math.floor(this.rng() * Math.min(6, cand.length))];
+    return this.makeSpecial(pick, sp);
+  }
+
+  private giftScore(i: number): number {
+    const r = this.r(i), c = this.c(i);
+    return r * 0.6 - Math.abs(c - (this.cols - 1) / 2) * 0.4 + this.cloud[i] * 2;
+  }
+
+  /** The tool "shuffle": the free bodies trade places. */
+  shuffleNow(): { id: number; to: number }[] { return this.reshuffle(); }
+
+  /** Ink spreads (a move cleared none): onto one plain body beside it.  Null when it cannot. */
+  spreadInk(): Step | null {
+    const src: number[] = [];
+    for (let i = 0; i < this.n; i++) if (this.ink[i]) src.push(i);
+    const opts: number[] = [];
+    for (const i of src) for (const nb of this.neighbours(i)) {
+      const p = this.cells[nb];
+      if (this.open(nb) && p && p.kind >= 0 && p.sp === 'none' && !this.lock[nb] && !this.cloud[nb]) opts.push(nb);
+    }
+    if (!opts.length) return null;
+    const at = opts[Math.floor(this.rng() * opts.length)];
+    const st = freshStep(1);
+    const p = this.cells[at]!;
+    this.cells[at] = null;
+    this.ink[at] = 1;
+    st.cleared.push({ id: p.id, at, kind: p.kind, sp: p.sp });
+    st.inks.push({ at, on: true });
+    st.dur = RULES.clearSec + 0.15;
+    st.fall = st.dur;
+    return st;
+  }
+
+  /**
+   * Deszcz komet (Candy Crush's Sugar Crush): the specials left on the board fire, then every move
+   * left turns a body into a comet that fires; points for each.
+   */
+  celebrate(moves: number): Resolution {
+    const tally = freshTally(this.kinds);
+    const steps: Step[] = [];
+    let dur = 0;
+    const run = (res: Resolution) => {
+      for (const s of res.steps) steps.push(s);
+      dur += res.dur;
+      tally.points += res.tally.points;
+      tally.cascades = Math.max(tally.cascades, res.tally.cascades);
+      tally.cleared += res.tally.cleared;
+      tally.clouds += res.tally.clouds;
+      tally.rocks += res.tally.rocks;
+      tally.moons += res.tally.moons;
+      res.tally.kinds.forEach((v, k) => { tally.kinds[k] += v; });
+    };
+    const left = (): number[] => {
+      const out: number[] = [];
+      for (let i = 0; i < this.n; i++) if (this.open(i) && isSpecial(this.cells[i])) out.push(i);
+      return out;
+    };
+    let specials = left();
+    if (specials.length) {
+      const queue: Queued[] = specials.map(i => this.fireOf(this.cells[i]!, i));
+      run(this.resolve({ consume: specials, convert: [], queue, swap: null, match: false }, freshTally(this.kinds), true));
+    }
+    for (let k = 0; k < moves; k++) {
+      const cand: number[] = [];
+      for (let i = 0; i < this.n; i++) if (this.free(i) && this.cells[i]!.kind >= 0 && this.cells[i]!.sp === 'none') cand.push(i);
+      if (!cand.length) break;
+      const at = cand[Math.floor(this.rng() * cand.length)];
+      const sp: Sp = k % 2 ? 'row' : 'col';
+      const res = this.resolve({ consume: [], convert: [{ at, sp }], queue: [], swap: null, match: false }, freshTally(this.kinds), true);
+      // the comet made then fires at once
+      const p = this.cells[at];
+      if (p && p.sp === sp) {
+        const fire = this.resolve({ consume: [at], convert: [], queue: [{ kind: sp, at }], swap: null, match: false }, freshTally(this.kinds), true);
+        fire.steps[0].changed.unshift(...res.steps[0].changed);
+        fire.steps[0].points += RULES.leftover;
+        fire.tally.points += RULES.leftover;
+        run(fire);
+      } else run(res);
+    }
+    specials = left();
+    if (specials.length) {
+      const queue: Queued[] = specials.map(i => this.fireOf(this.cells[i]!, i));
+      run(this.resolve({ consume: specials, convert: [], queue, swap: null, match: false }, freshTally(this.kinds), true));
+    }
+    // the shower plays fast, comet after comet (Candy Crush's Sugar Crush is a quick payoff)
+    const raw = steps.reduce((s, x) => s + x.dur, 0);
+    const pace = raw > 0 ? Math.min(RULES.showerPace, RULES.showerMax / raw) : 1;
+    steps.forEach((s, i) => { s.cascade = i + 1; s.dur *= pace; s.fall *= pace; });
+    dur = steps.reduce((s, x) => s + x.dur, 0);
+    return { ok: true, steps, tally, swap: null, shuffle: this.hasMove() ? null : this.reshuffle(), dur };
   }
 }
 
-/** Build a board's cells from rows of text (tests and hand-made levels): see levels.ts for the letters. */
-export function setCells(b: Board, rows: string[]): void {
-  const KIND: Record<string, number> = { a: 0, b: 1, c: 2, d: 3, e: 4, f: 5 };
-  let id = 10_000;
-  rows.forEach((line, r) => {
-    [...line].forEach((ch, c) => {
-      const i = b.at(r, c);
-      const lower = ch.toLowerCase();
-      if (ch === '#') { b.mask[i] = false; b.cells[i] = null; return; }
-      if (ch >= '1' && ch <= '3') { b.rock[i] = Number(ch); b.cells[i] = null; return; }
-      if (ch === 's') { b.cells[i] = { id: id++, kind: SAT, sp: 'sat', armed: false }; return; }
-      if (ch === '*') { b.cells[i] = { id: id++, kind: PULSAR, sp: 'pulsar', armed: false }; return; }
-      const kind = KIND[lower];
-      if (kind === undefined) return;
-      b.mask[i] = true;
-      b.rock[i] = 0;
-      b.cells[i] = { id: id++, kind, sp: 'none', armed: false };
-    });
-  });
+/** For tests and hand-made boards: set the cells from rows of letters (a..f = kinds 0..5, M = a moon, . = empty). */
+export function setCells(b: Board, rows: string[], sp: Record<number, Sp> = {}): void {
+  rows.forEach((row, r) => [...row].forEach((ch, c) => {
+    const i = b.at(r, c);
+    if (ch === '.' || ch === ' ') { b.cells[i] = null; return; }
+    if (ch === 'M') { b.cells[i] = { id: 10_000 + i, kind: MOON, sp: 'none' }; return; }
+    if (ch === 'P') { b.cells[i] = { id: 10_000 + i, kind: PULSAR, sp: 'pulsar' }; return; }
+    b.cells[i] = { id: 10_000 + i, kind: ch.charCodeAt(0) - 97, sp: sp[i] ?? 'none' };
+  }));
 }

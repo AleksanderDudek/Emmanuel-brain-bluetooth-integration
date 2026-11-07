@@ -3,8 +3,9 @@
  * panel: the deep night palette, the six sky bodies (each its own silhouette as well as its colour,
  * so they read without colour: a five-point star, a crescent, a ringed planet, a spiked sun, a
  * spiral nebula, a faceted meteorite), the specials drawn over a body (the comet's streak, the
- * supernova's halo, the pulsar's beams), the satellite, the asteroid, the stardust, the instruments'
- * icons and the night sky behind it all.  Bodies are painted once per size into sprites.
+ * supernova's halo, the pulsar's beams, the meteor's flame), the level's things (dark clouds,
+ * asteroids, orbit locks, ink, the moons and their exits), Bubo the owl, the telescope's tools and the
+ * night sky behind it all.  Bodies are painted once per size into sprites.
  */
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
@@ -195,52 +196,6 @@ export function paintBody(ctx: CanvasRenderingContext2D, kind: number, x: number
   ctx.restore();
 }
 
-/** The satellite: a body with solar panels, and a small arrow that says "down". */
-export function paintSat(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t = 0): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(Math.sin(t * 1.3) * 0.08);
-  for (const s of [-1, 1]) {
-    ctx.fillStyle = '#2f5fb8';
-    ctx.strokeStyle = '#a8c8ff';
-    ctx.lineWidth = Math.max(1, r * 0.05);
-    ctx.beginPath();
-    ctx.rect(s > 0 ? r * 0.38 : -r * 1.02, -r * 0.3, r * 0.64, r * 0.6);
-    ctx.fill();
-    ctx.stroke();
-    ctx.beginPath();
-    for (let k = 1; k < 3; k++) {
-      const gx = (s > 0 ? r * 0.38 : -r * 1.02) + (r * 0.64 * k) / 3;
-      ctx.moveTo(gx, -r * 0.3);
-      ctx.lineTo(gx, r * 0.3);
-    }
-    ctx.stroke();
-  }
-  ctx.fillStyle = radial(ctx, 0, 0, r * 0.42, [[0, '#ffffff'], [0.6, '#d7dce6'], [1, '#7c8597']]);
-  ctx.beginPath();
-  ctx.roundRect(-r * 0.36, -r * 0.42, r * 0.72, r * 0.84, r * 0.12);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(40,50,70,.7)';
-  ctx.stroke();
-  // the dish
-  ctx.strokeStyle = '#e8edf6';
-  ctx.lineWidth = Math.max(1, r * 0.07);
-  ctx.beginPath();
-  ctx.arc(0, -r * 0.62, r * 0.2, Math.PI * 0.1, Math.PI * 0.9);
-  ctx.moveTo(0, -r * 0.42);
-  ctx.lineTo(0, -r * 0.6);
-  ctx.stroke();
-  // the arrow down
-  ctx.fillStyle = 'rgba(143,227,184,.95)';
-  ctx.beginPath();
-  ctx.moveTo(-r * 0.2, r * 0.58);
-  ctx.lineTo(r * 0.2, r * 0.58);
-  ctx.lineTo(0, r * 0.9);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
 /** An asteroid on a cell: a lumpy rock, cracked by every hit taken; `hp` 1..3 shows as pips. */
 export function paintRock(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, hp: number, seed: number): void {
   ctx.save();
@@ -282,32 +237,6 @@ export function paintRock(ctx: CanvasRenderingContext2D, x: number, y: number, r
     ctx.fillStyle = '#ffd27a';
     ctx.beginPath();
     ctx.arc(x + (k - (hp - 1) / 2) * r * 0.32, y + r * 0.62, r * 0.09, 0, TAU);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-/** Stardust on a cell: a glittering violet haze, denser for a second layer. */
-export function paintDust(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, layers: number, t: number, seed: number): void {
-  if (layers <= 0) return;
-  ctx.save();
-  const a = layers >= 2 ? 0.5 : 0.3;
-  ctx.fillStyle = `rgba(150,110,240,${a})`;
-  ctx.beginPath();
-  ctx.roundRect(x - s / 2 + 1.5, y - s / 2 + 1.5, s - 3, s - 3, s * 0.16);
-  ctx.fill();
-  if (layers >= 2) {
-    ctx.strokeStyle = 'rgba(214,190,255,.75)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-  }
-  const n = layers >= 2 ? 6 : 3;
-  for (let i = 0; i < n; i++) {
-    const px = x + (hash(seed * 13 + i) - 0.5) * s * 0.8, py = y + (hash(seed * 29 + i) - 0.5) * s * 0.8;
-    const tw = 0.5 + 0.5 * Math.sin(t * 3 + i * 1.7 + seed);
-    ctx.fillStyle = `rgba(240,225,255,${0.35 + 0.5 * tw})`;
-    ctx.beginPath();
-    ctx.arc(px, py, 0.8 + tw * 1.1, 0, TAU);
     ctx.fill();
   }
   ctx.restore();
@@ -452,57 +381,386 @@ export class Sprites {
   }
 }
 
-// ── the instruments' icons ───────────────────────────────────────
+// ── the level's things on the board ──────────────────────────────
+/** A dark cloud on a cell (under the body): a smoky indigo puff; two layers are darker and rimmed. */
+export function paintCloud(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, layers: number, t: number, seed: number): void {
+  if (layers <= 0) return;
+  ctx.save();
+  const a = layers >= 2 ? 0.92 : 0.66;
+  ctx.beginPath();
+  ctx.roundRect(x - s / 2 + 1, y - s / 2 + 1, s - 2, s - 2, s * 0.2);
+  ctx.clip();
+  const g = ctx.createRadialGradient(x, y + s * 0.1, s * 0.1, x, y, s * 0.75);
+  g.addColorStop(0, `rgba(58,46,96,${a})`);
+  g.addColorStop(1, `rgba(22,16,44,${a})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(x - s / 2, y - s / 2, s, s);
+  // drifting puffs
+  for (let i = 0; i < 4; i++) {
+    const px = x + (hash(seed * 11 + i) - 0.5) * s * 0.8 + Math.sin(t * 0.6 + i + seed) * s * 0.05;
+    const py = y + (hash(seed * 23 + i) - 0.5) * s * 0.7;
+    const pr = s * (0.2 + hash(seed + i * 5) * 0.14);
+    const pg = ctx.createRadialGradient(px, py, 0, px, py, pr);
+    pg.addColorStop(0, `rgba(120,104,170,${layers >= 2 ? 0.5 : 0.36})`);
+    pg.addColorStop(1, 'rgba(120,104,170,0)');
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.arc(px, py, pr, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+  if (layers >= 2) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(190,170,255,.55)';
+    ctx.lineWidth = Math.max(1.2, s * 0.035);
+    ctx.setLineDash([s * 0.08, s * 0.06]);
+    ctx.beginPath();
+    ctx.roundRect(x - s / 2 + 3, y - s / 2 + 3, s - 6, s - 6, s * 0.18);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+/** A dark cloud as an icon (the goal card): three puffs, indigo with a soft light rim. */
+export function paintCloudIcon(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x - r * 0.45, y + r * 0.1, r * 0.48, 0, TAU);
+  ctx.arc(x + r * 0.05, y - r * 0.25, r * 0.6, 0, TAU);
+  ctx.arc(x + r * 0.55, y + r * 0.12, r * 0.45, 0, TAU);
+  ctx.rect(x - r * 0.45, y + r * 0.1, r * 1.0, r * 0.48);
+  ctx.fillStyle = radial(ctx, x, y, r * 1.1, [[0, '#7a68c0'], [1, '#2a2150']]);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(200,185,255,.8)';
+  ctx.lineWidth = Math.max(1, r * 0.08);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Ink (the dark that spreads): a blot of smoke with wisps, never eyes or a face; it dissolves into light. */
+export function paintInk(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t: number, seed: number): void {
+  ctx.save();
+  const r = s * 0.46;
+  ctx.beginPath();
+  const n = 12;
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * TAU;
+    const q = r * (0.82 + 0.14 * Math.sin(a * 3 + t * 1.6 + seed) + hash(seed * 3 + i) * 0.08);
+    ctx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q);
+  }
+  ctx.closePath();
+  const g = ctx.createRadialGradient(x - r * 0.2, y - r * 0.3, r * 0.1, x, y, r);
+  g.addColorStop(0, '#2a2140');
+  g.addColorStop(1, '#07060d');
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(140,120,200,.35)';
+  ctx.lineWidth = Math.max(1, s * 0.03);
+  ctx.stroke();
+  // wisps rising
+  ctx.strokeStyle = 'rgba(70,60,110,.55)';
+  ctx.lineCap = 'round';
+  for (let k = 0; k < 2; k++) {
+    const ph = (t * 0.5 + k * 0.5 + seed * 0.13) % 1;
+    ctx.globalAlpha = 1 - ph;
+    ctx.lineWidth = Math.max(1, s * 0.05 * (1 - ph));
+    ctx.beginPath();
+    const bx = x + (k ? 0.18 : -0.2) * s;
+    ctx.moveTo(bx, y - r * 0.6 - ph * s * 0.3);
+    ctx.quadraticCurveTo(bx + s * 0.1, y - r - ph * s * 0.35, bx - s * 0.04, y - r * 1.2 - ph * s * 0.4);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** An orbit lock: a silver ring tilted round the body, a small moonlet riding it. */
+export function paintLock(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(-0.35);
+  ctx.strokeStyle = 'rgba(220,230,255,.9)';
+  ctx.lineWidth = Math.max(1.5, r * 0.12);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 1.12, r * 0.42, 0, 0, TAU);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(120,140,190,.8)';
+  ctx.lineWidth = Math.max(1, r * 0.05);
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 1.12, r * 0.42, 0, Math.PI * 0.05, Math.PI * 0.95);
+  ctx.stroke();
+  const a = t * 1.4;
+  ctx.fillStyle = '#e8eefc';
+  ctx.beginPath();
+  ctx.arc(Math.cos(a) * r * 1.12, Math.sin(a) * r * 0.42, r * 0.16, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A moon to bring down: a pale full moon with craters and a small sleepy smile. */
+export function paintMoon(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t = 0): void {
+  ctx.save();
+  const glow = ctx.createRadialGradient(x, y, r * 0.6, x, y, r * 1.35);
+  glow.addColorStop(0, 'rgba(255,246,210,.35)');
+  glow.addColorStop(1, 'rgba(255,246,210,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 1.35, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = radial(ctx, x, y, r, [[0, '#fffbea'], [0.65, '#ece3c4'], [1, '#b8ab86']]);
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(160,145,110,.45)';
+  for (const [cx, cy, cr] of [[-0.42, -0.3, 0.18], [0.38, -0.42, 0.12], [0.45, 0.3, 0.15], [-0.15, 0.5, 0.09]] as const) {
+    ctx.beginPath();
+    ctx.arc(x + cx * r, y + cy * r, cr * r, 0, TAU);
+    ctx.fill();
+  }
+  // a sleepy face: closed eyes, a small smile
+  ctx.strokeStyle = 'rgba(90,72,40,.75)';
+  ctx.lineWidth = Math.max(1, r * 0.08);
+  ctx.lineCap = 'round';
+  const blink = Math.sin(t * 0.7) > 0.96 ? 0.02 : 0.1;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(x + s * r * 0.28, y - r * 0.02, r * 0.13, Math.PI * (0.15 - blink), Math.PI * (0.85 + blink));
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.arc(x, y + r * 0.25, r * 0.16, Math.PI * 0.2, Math.PI * 0.8);
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,150,130,.35)';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(x + s * r * 0.5, y + r * 0.18, r * 0.12, r * 0.07, 0, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/** A meteor (from a square): a small rock with a burning tail, tilted down-left, over the body. */
+export function paintMeteorMark(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, t: number): void {
+  ctx.save();
+  ctx.translate(x + r * 0.42, y - r * 0.42);
+  ctx.rotate(Math.PI * 0.75 + Math.sin(t * 5) * 0.06);
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createLinearGradient(0, 0, r * 1.1, 0);
+  g.addColorStop(0, 'rgba(255,190,90,.95)');
+  g.addColorStop(1, 'rgba(255,90,40,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.2);
+  ctx.quadraticCurveTo(r * 0.7, -r * 0.24 - Math.sin(t * 12) * r * 0.04, r * 1.15, 0);
+  ctx.quadraticCurveTo(r * 0.7, r * 0.24, 0, r * 0.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#6d5a4b';
+  ctx.strokeStyle = '#ffd27a';
+  ctx.lineWidth = Math.max(1, r * 0.07);
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.26, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Where moons leave the sky: a small gold chevron under the bottom cell. */
+export function paintExit(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t: number): void {
+  ctx.save();
+  const b = 0.5 + 0.5 * Math.sin(t * 3);
+  ctx.fillStyle = `rgba(255,210,122,${0.5 + 0.4 * b})`;
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.16, y);
+  ctx.lineTo(x + s * 0.16, y);
+  ctx.lineTo(x, y + s * 0.14 + b * s * 0.03);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+// ── Bubo, the young eagle-owl astronomer ─────────────────────────
+/**
+ * Bubo: a round young eagle-owl with ear tufts, big round glasses and a scarf; `blink` 0..1, `look`
+ * tilts the head (−1 left … 1 right), `hop` lifts him, `cheer` raises the wings.
+ */
+export function paintOwl(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, o: { t: number; look?: number; hop?: number; cheer?: number; sleepy?: number } = { t: 0 }): void {
+  const t = o.t, look = o.look ?? 0, cheer = o.cheer ?? 0, sleepy = o.sleepy ?? 0;
+  ctx.save();
+  ctx.translate(x, y - (o.hop ?? 0) * r * 0.4);
+  // body
+  ctx.fillStyle = radial(ctx, 0, r * 0.2, r * 1.1, [[0, '#d9a26a'], [0.7, '#a96a3c'], [1, '#6e4122']]);
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.25, r * 0.78, r * 0.92, 0, 0, TAU);
+  ctx.fill();
+  // belly with chevrons
+  ctx.fillStyle = '#f4dcb0';
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.42, r * 0.5, r * 0.62, 0, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(140,90,50,.55)';
+  ctx.lineWidth = Math.max(1, r * 0.05);
+  for (let k = 0; k < 3; k++) {
+    const yy = r * (0.25 + k * 0.2);
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.16, yy);
+    ctx.lineTo(0, yy + r * 0.07);
+    ctx.lineTo(r * 0.16, yy);
+    ctx.stroke();
+  }
+  // wings
+  for (const s of [-1, 1]) {
+    ctx.save();
+    ctx.translate(s * r * 0.7, r * 0.2);
+    ctx.rotate(s * (0.25 + cheer * 1.1 + Math.sin(t * 2 + s) * 0.03));
+    ctx.fillStyle = '#8a5530';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.28, r * 0.22, r * 0.5, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+  // scarf
+  ctx.fillStyle = '#e0453a';
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.18, r * 0.62, r * 0.14, 0, 0, TAU);
+  ctx.fill();
+  ctx.fillRect(r * 0.2, -r * 0.18, r * 0.16, r * 0.42);
+  // head
+  ctx.save();
+  ctx.rotate(look * 0.15);
+  ctx.fillStyle = radial(ctx, 0, -r * 0.62, r * 0.8, [[0, '#dcaa75'], [1, '#8c5833']]);
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.62, r * 0.72, r * 0.56, 0, 0, TAU);
+  ctx.fill();
+  // ear tufts
+  ctx.fillStyle = '#7a4a2a';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(s * r * 0.36, -r * 1.02);
+    ctx.lineTo(s * r * 0.62, -r * 1.42 + Math.sin(t * 3 + s) * r * 0.03);
+    ctx.lineTo(s * r * 0.62, -r * 0.92);
+    ctx.closePath();
+    ctx.fill();
+  }
+  // facial disc
+  ctx.fillStyle = '#f2d7a8';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(s * r * 0.27, -r * 0.62, r * 0.3, 0, TAU);
+    ctx.fill();
+  }
+  // eyes behind the glasses
+  const blink = Math.max(sleepy, (t % 4.2) > 4.05 ? 1 : 0);
+  for (const s of [-1, 1]) {
+    const ex = s * r * 0.27 + look * r * 0.05, ey = -r * 0.62;
+    if (blink > 0.5) {
+      ctx.strokeStyle = '#3a2412';
+      ctx.lineWidth = Math.max(1.2, r * 0.07);
+      ctx.beginPath();
+      ctx.arc(ex, ey - r * 0.02, r * 0.11, Math.PI * 0.1, Math.PI * 0.9);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = '#ffb000';
+      ctx.beginPath();
+      ctx.arc(ex, ey, r * 0.16, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#1b1008';
+      ctx.beginPath();
+      ctx.arc(ex + look * r * 0.04, ey, r * 0.09, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(ex - r * 0.03, ey - r * 0.04, r * 0.035, 0, TAU);
+      ctx.fill();
+    }
+  }
+  // the too-big glasses
+  ctx.strokeStyle = '#2b2b3a';
+  ctx.lineWidth = Math.max(1.4, r * 0.07);
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(s * r * 0.29, -r * 0.62, r * 0.27, 0, TAU);
+    ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(200,230,255,.18)';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(s * r * 0.29, -r * 0.62, r * 0.25, 0, TAU);
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.04, -r * 0.66);
+  ctx.quadraticCurveTo(0, -r * 0.72, r * 0.04, -r * 0.66);
+  ctx.stroke();
+  // beak
+  ctx.fillStyle = '#e8b43a';
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.08, -r * 0.48);
+  ctx.lineTo(r * 0.08, -r * 0.48);
+  ctx.lineTo(0, -r * 0.32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  // feet
+  ctx.fillStyle = '#e8b43a';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(s * r * 0.26, r * 1.12, r * 0.15, r * 0.07, 0, 0, TAU);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── the telescope's tools ────────────────────────────────────────
+/** A tool's icon: the star hammer, the ray, the shuffle, +5 moves, the pulsar. */
 export function paintToolIcon(ctx: CanvasRenderingContext2D, tool: string, x: number, y: number, r: number, t: number): void {
   ctx.save();
   switch (tool) {
-    case 'comet': {
-      ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createLinearGradient(x - r, y + r * 0.6, x + r * 0.4, y - r * 0.3);
-      g.addColorStop(0, 'rgba(158,197,255,0)');
-      g.addColorStop(1, 'rgba(220,235,255,.95)');
-      ctx.strokeStyle = g;
-      ctx.lineCap = 'round';
-      for (const [w, o] of [[r * 0.36, 0], [r * 0.16, r * 0.28], [r * 0.16, -r * 0.28]] as const) {
-        ctx.lineWidth = w;
-        ctx.beginPath();
-        ctx.moveTo(x - r * 0.95 + o * 0.4, y + r * 0.6 + o);
-        ctx.lineTo(x + r * 0.25, y - r * 0.2);
-        ctx.stroke();
-      }
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = '#ffffff';
+    case 'hammer': {
+      ctx.translate(x, y);
+      ctx.rotate(-0.6);
+      ctx.fillStyle = '#c8873e';
+      ctx.fillRect(-r * 0.09, -r * 0.1, r * 0.18, r * 1.0);
+      ctx.translate(0, -r * 0.35);
+      // the head is a gold star
       ctx.beginPath();
-      ctx.arc(x + r * 0.32, y - r * 0.25, r * 0.3, 0, TAU);
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? r * 0.26 : r * 0.58;
+        ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      ctx.closePath();
+      ctx.fillStyle = radial(ctx, 0, 0, r * 0.6, [[0, '#fff4b8'], [0.6, '#ffc93c'], [1, '#d98300']]);
       ctx.fill();
+      ctx.strokeStyle = 'rgba(120,60,0,.6)';
+      ctx.lineWidth = Math.max(1, r * 0.06);
+      ctx.stroke();
       break;
     }
     case 'ray': {
       ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createLinearGradient(x, y - r, x, y + r);
-      g.addColorStop(0, 'rgba(255,240,180,.2)');
-      g.addColorStop(1, 'rgba(255,220,120,1)');
+      const g = ctx.createLinearGradient(x - r, y, x + r, y);
+      g.addColorStop(0, 'rgba(255,220,120,0)');
+      g.addColorStop(0.5, 'rgba(255,240,190,1)');
+      g.addColorStop(1, 'rgba(255,220,120,0)');
       ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.moveTo(x - r * 0.18, y - r);
-      ctx.lineTo(x + r * 0.18, y - r);
-      ctx.lineTo(x + r * 0.07, y + r * 0.5);
-      ctx.lineTo(x - r * 0.07, y + r * 0.5);
-      ctx.closePath();
-      ctx.fill();
+      ctx.fillRect(x - r, y - r * 0.16, r * 2, r * 0.32);
       ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#fff6d6';
+      ctx.beginPath();
+      ctx.arc(x, y, r * 0.26, 0, TAU);
+      ctx.fill();
       ctx.strokeStyle = '#ffe9a8';
-      ctx.lineWidth = Math.max(1.5, r * 0.1);
-      for (let k = 0; k < 6; k++) {
-        const a = (k / 6) * TAU + 0.3;
+      ctx.lineWidth = Math.max(1.5, r * 0.08);
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * TAU + t;
         ctx.beginPath();
-        ctx.moveTo(x + Math.cos(a) * r * 0.25, y + r * 0.55 + Math.sin(a) * r * 0.25);
-        ctx.lineTo(x + Math.cos(a) * r * 0.55, y + r * 0.55 + Math.sin(a) * r * 0.45);
+        ctx.moveTo(x + Math.cos(a) * r * 0.36, y + Math.sin(a) * r * 0.36);
+        ctx.lineTo(x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5);
         ctx.stroke();
       }
       break;
     }
-    case 'swap': {
+    case 'shuffle': {
       ctx.strokeStyle = C.mint;
       ctx.fillStyle = C.mint;
       ctx.lineWidth = Math.max(2, r * 0.14);
@@ -520,18 +778,25 @@ export function paintToolIcon(ctx: CanvasRenderingContext2D, tool: string, x: nu
         ctx.closePath();
         ctx.fill();
       }
-      ctx.beginPath();
-      ctx.arc(x, y, r * 0.16, 0, TAU);
-      ctx.fill();
+      paintBody(ctx, 0, x - r * 0.12, y + r * 0.04, r * 0.2);
+      paintBody(ctx, 2, x + r * 0.16, y - r * 0.06, r * 0.18);
       break;
     }
-    case 'nova':
-      paintNovaMark(ctx, x, y, r * 0.75, t, false);
-      ctx.fillStyle = '#fff6dc';
+    case 'moves': {
+      ctx.fillStyle = radial(ctx, x, y, r * 0.8, [[0, '#d6f5ff'], [1, '#3b7bd8']]);
       ctx.beginPath();
-      ctx.arc(x, y, r * 0.3, 0, TAU);
+      ctx.arc(x, y, r * 0.72, 0, TAU);
       ctx.fill();
+      ctx.strokeStyle = '#eaf6ff';
+      ctx.lineWidth = Math.max(1.5, r * 0.08);
+      ctx.stroke();
+      ctx.fillStyle = '#0b1636';
+      ctx.font = font(800, r * 0.66, SANS);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('+5', x, y + r * 0.04);
       break;
+    }
     case 'pulsar':
       paintPulsar(ctx, x, y, r * 0.85, t);
       break;
