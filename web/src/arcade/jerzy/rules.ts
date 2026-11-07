@@ -1,162 +1,205 @@
 /**
- * Every number of Jerzy i smok's rules in one place (sim.ts re-exports it): the arena, the knight,
- * his strike and roll, the shield, the Miecz światła, the dragons' fire and patterns, the heart and
- * the princess's apple, the Postój, the levels and skills of a fight, the blocks and the meta.
- * Tuning moves a number here and nowhere else; the tests read the same object.
+ * Every number of Jerzy i smok's rules in one place (sim.ts re-exports it): the field, the knight,
+ * the shield's aura (the band's gauge), the Miecz światła, the dragon's brood and the waves, the
+ * scales and the levels, the weapons and the gear a level-up offers, the land's dragon (the boss),
+ * hearts and grace, the Postój, the blocks and the meta.  Tuning moves a number here and nowhere
+ * else; the tests read the same object.
  *
- * The world is a top-down arena `arenaW` × `arenaH` u (about a metre each), x to the right, y down;
- * the dragon's cave is at the top left, the fence with its pennants runs along the top.
+ * The world is an endless top-down field in u (about a metre each), x to the right, y down; the
+ * camera follows the knight, the brood comes in from beyond the screen.
  */
 export const RULES = {
-  // ── the arena ────────────────────────────────────────────────
-  arenaW: 10,
-  arenaH: 8,
-  /** where the knight starts, where the dragon lands when it arrives, and the cave's mouth (u) */
-  knightStart: [5, 6.2],
-  dragonLand: [5, 2.7],
-  cave: [1.3, -0.6],
-  /** the dragon flies in (s), to and from its cave (s) */
-  arriveSec: 1.8,
-  flySec: 1.4,
-
-  // ── the knight (touch: anything under 2 s) ───────────────────
+  // ── the field and the knight (touch: anything under 2 s) ─────
+  /** the half-size of the field the view shows (u), until the view says otherwise */
+  viewHalf: [7, 5],
   knightR: 0.36,
-  walk: 3.4,
-  /** a tap this close to the dragon's body (u, beyond its radius) means "go and fight it": he follows */
-  engageR: 1.4,
-  /** he strikes by himself when the dragon's body is this close to his own (u, edge to edge) */
-  reach: 1.0,
-  /** seconds between strikes */
-  swing: 0.7,
-  /** hit-stop (s): a strike, the Miecz światła, a phase, the dragon driven off */
-  stopHit: 0.04,
-  stopSword: 0.2,
-  stopPhase: 0.25,
+  /** walking speed (u/s) at a full joystick */
+  walk: 3.6,
+  /** the joystick: full speed this far from where the finger went down (px), nothing under the dead zone (px) */
+  stickPx: 56,
+  stickDead: 8,
+  /** a tap: up within this long (s) and this close (px) to the press */
+  tapSec: 0.3,
+  tapPx: 14,
+  /** hit-stop (s): a level-up, an elite driven off, the Miecz światła, the dragon driven off */
+  stopElite: 0.06,
+  stopSword: 0.18,
   stopDriven: 0.35,
-  /** the roll: how far (u), how long (s), invulnerable (s), ready again after (s) */
-  rollDist: 2.4,
-  rollSec: 0.32,
-  rollSafe: 0.42,
-  rollCool: 0.8,
-  /** a swipe: this far (px) within this long (s) of the touch */
-  swipePx: 34,
-  swipeSec: 0.3,
 
-  // ── the shield (the live gauge: Tarcza) ──────────────────────
-  /** radius = shieldMin + level × shieldExtra (u) in a sighted Tarcza past its lead-in; the buckler otherwise */
-  shieldMin: 0.25,
-  shieldExtra: 1.6,
-  /** the shield's centre sits this far in front of the knight (u) */
-  shieldAhead: 0.38,
-  /** how fast the drawn and acting shield follows its target (s) */
-  shieldTau: 0.35,
-  /** the lead-in before the band moves the shield (s), Mendi / HALO */
+  // ── the shield's aura (the live gauge: Tarcza) ───────────────
+  /** radius = shieldBase (+ gear) + level × shieldExtra (u) in a sighted Tarcza past its lead-in; the base otherwise */
+  /** the base hugs the knight: a fireball reaches him before it (0.42 < knight + ball); gear and the forge widen it */
+  shieldBase: 0.42,
+  shieldExtra: 2.8,
+  /** how fast the drawn and acting aura follows its target (s) */
+  shieldTau: 0.4,
+  /** the aura's beat: every this long (s) it throws the brood inside it out (u/s), with this damage */
+  pulseSec: 1.35,
+  pulsePush: 7,
+  pulseDmg: 1,
+  /** the lead-in before the band moves the aura (s), Mendi / HALO */
   leadIn: { fnirs: 5, eeg: 2 },
 
-  // ── the Miecz światła (quenched fire and hold) ───────────────
-  /** charge per quenched flame of a breath, per quenched fireball or drop */
-  quenchBlob: 0.03,
-  quenchBall: 0.12,
+  // ── the Miecz światła (quenched fire and a held focus) ───────
+  /** charge per quenched fireball, per quenched flame of a breath */
+  quenchBall: 0.05,
+  quenchFlame: 0.012,
   /** a held focus this long (s) also fills it, this much per second */
   holdNeed: { fnirs: 5, eeg: 3 },
-  holdRate: 0.07,
-  /** the great strike knocks off this many scales (no more than the phase has left) */
-  swordScales: 10,
+  holdRate: 0.04,
+  /** released by a tap or Space; by itself after this long ready (s) */
+  swordAuto: 6,
+  /** the light's damage to every creature on screen, and the share of a dragon's scales it takes (at most this many) */
+  swordDmg: 60,
+  swordBoss: 0.05,
+  swordBossMax: 90,
 
-  // ── the dragons' fire and patterns ───────────────────────────
-  /** the breath: a cone this wide (half angle, rad) and long (u); flames per second, their speed (u/s) and size (u) */
-  coneHalf: 0.36,
-  coneLen: 5.2,
-  blobRate: 24,
-  blobSpeed: 6.5,
-  blobR: 0.16,
-  breathSec: 1.25,
-  /** fireballs and drops: their splash (u), how far they scatter around the knight (u), their flight (s) */
-  splashR: 0.75,
-  scatter: 1.3,
-  ballFlight: 1.0,
-  /** the tail's sweep: a ring around the dragon from inner to outer (u) */
-  sweepIn: 0.6,
-  sweepOut: 2.9,
-  /** the bite: a lunge this long (u) and wide (u) */
-  biteLen: 2.2,
-  biteW: 1.3,
-  /** the marsh dive: under for this long (s), the splash when it surfaces (u) */
-  diveSec: 1.5,
-  diveR: 1.5,
-  /** the swoop: a lane this wide (u), flown at this speed (u/s) */
-  swoopW: 1.5,
-  swoopSpeed: 11,
-  /** telegraphs (s) before an attack lands, and how they quicken by phase (× per phase) */
-  tele: { breath: 1.0, sweep: 0.9, bite: 0.8, balls: 1.0, dive: 0.9, swoop: 1.1, rain: 1.0 },
+  // ── the brood (the dragon's creatures: they dissolve into smoke and run, never die in gore) ──
+  /** they come in this far beyond the edge of sight (u) and are brought round when this far away (× the view's half-diagonal) */
+  spawnOut: 1.2,
+  farK: 1.6,
+  /** a run opens with this many chicks; for its first hatchSec (s) the brood hatches at hatchK × the ring, within sight */
+  seed: 5,
+  hatchSec: 20,
+  hatchK: 0.55,
+  /** spawn rate (per s) = base + perSec × run time, at most max; alive at most cap */
+  spawnBase: 1.0,
+  spawnPerSec: 0.022,
+  spawnMax: 5.5,
+  cap: 110,
+  /** creature hp grows with run time: × (1 + run s / hpGrow) */
+  hpGrow: 100,
+  /** a wave (a ring closing in) every waveSec (s) from waveFrom: count = waveBase + run s / wavePer */
+  waveSec: 30,
+  waveFrom: 28,
+  waveBase: 10,
+  wavePer: 7,
+  /** an elite (golden, drops a chest) every eliteSec (s), the first at eliteFrom */
+  eliteSec: 50,
+  eliteFrom: 38,
+  eliteHp: 7,
+  eliteR: 1.5,
+  /** block moods: the push block brings more spitters (fire for the shield), the rest makes them drowsy */
+  pushSpawn: 1.2,
+  /** spitters that hatch when a Tarcza's aura wakes */
+  pushSpitters: 3,
+  restSpawn: 0.3,
+  restSlow: 0.45,
+  bossSpawn: 0.45,
+  warmSpawn: 0.55,
+  /** contact: a creature touching the knight hurts every touchSec (s) */
+  touchSec: 0.6,
+  /** a hit's knockback (u/s) and how fast it fades (1/s) */
+  knock: 3.2,
+  knockDrag: 6,
+  /** fireballs of the spitters: speed (u/s), radius (u), life (s) */
+  ballSpeed: 4.2,
+  ballR: 0.2,
+  ballLife: 3.5,
+
+  // ── scales, levels and drops ─────────────────────────────────
+  /** pickup radius (u) and the pull's speed (u/s) */
+  pickR: 2.6,
+  pull: 9,
+  /** scales to the next level from level L (1-based): base + step × (L − 1) + sq × (L − 1)² */
+  xpBase: 5,
+  xpStep: 4,
+  xpSq: 0.45,
+  /** the world freezes during a choice; the first card is taken after this long (s) */
+  choiceSec: 12,
+  /** slots for weapons and gear */
+  slotsWeapon: 4,
+  slotsGear: 4,
+  /** item levels */
+  weaponMax: 5,
+  gearMax: 3,
+  /** drop chances: an apple, a gust (all scales fly in) */
+  appleChance: 0.025,
+  gustChance: 0.006,
+  /** an apple heals this many hearts */
+  appleHeal: 1.5,
+  /** a scale lying this long (s) creeps toward the knight at this speed (u/s) */
+  creepAfter: 5,
+  creep: 1.4,
+  /** scales lie at most this long (s), at most this many */
+  scaleLife: 60,
+  scaleCap: 260,
+
+  // ── hearts and grace ─────────────────────────────────────────
+  hearts: 5,
+  /** invulnerable after a hit (s) */
+  safe: 0.8,
+  /** Linda's apple: once a run he gets up with this share of hearts; the brood near him is thrown back (u) */
+  appleBack: 0.5,
+  appleClear: 3.5,
+  /** knocked down this long (s) before the apple or the tally */
+  downSec: 1.6,
+  /** the run's tally card (s), a tap closes it after tallyMin */
+  tallySec: 4.2,
+  tallyMin: 1.2,
+
+  // ── the land's dragon (the boss) ─────────────────────────────
+  /** he comes on every bossEvery-th Tarcza block of the session (the 2nd, the 4th…), not before this second of play */
+  bossFrom: 30,
+  bossEvery: 2,
+  bossR: 1.15,
+  /** he keeps this far from the knight (u) and moves at this speed (u/s) */
+  bossKeep: [2.8, 4.2],
+  bossSpeed: 2.4,
+  /** touching him hurts this many hearts */
+  bossTouch: 1,
+  /** telegraphs (s) before an attack lands; quicker in his later thirds */
+  tele: { breath: 1.05, lanes: 1.15, rain: 1.0, swoop: 1.1 },
   teleFast: 0.88,
-  /** the warm-up's slower telegraphs */
-  teleWarm: 1.35,
-  /** between attacks the dragon repositions this long (s) at this speed (u/s), keeping this distance from the knight (u, centres) */
-  moveSec: [0.8, 1.5],
-  moveSpeed: 2.2,
-  keep: [1.5, 3.1],
-  /** the flaw: after an attack the dragon is open this long (s) */
-  flawSec: 2.0,
-  /** a roar at a new phase: invulnerable (s), and how far it pushes the knight (u) */
-  roarSec: 1.2,
-  roarPush: 1.6,
-  /** the circles: after the last dragon the kingdom's dragons come back this much stronger per circle */
-  circleUp: 0.3,
-
-  // ── the heart and grace ──────────────────────────────────────
-  /** losses of heart (1 = full): a flame of the breath, a fireball or drop, the tail, the bite, the dive, the swoop */
-  hurt: { blob: 0.045, ball: 0.14, sweep: 0.2, bite: 0.16, dive: 0.22, swoop: 0.22 },
-  /** invulnerable after a flame (s) and after a blow (s) */
-  safeBlob: 0.25,
-  safeBlow: 0.8,
-  /** knocked down: on the ground this long (s), up with this much heart, the dragon catches its breath (s) */
-  downSec: 2.3,
-  heartBack: 0.5,
-  breather: 2.6,
+  /** between attacks (s) */
+  bossRest: [1.0, 1.8],
+  /** the breath: a cone this wide (half angle, rad) and long (u), flames per second, their speed (u/s), how long (s) */
+  coneHalf: 0.42,
+  coneLen: 5.5,
+  flameRate: 26,
+  flameSpeed: 6.5,
+  flameR: 0.18,
+  breathSec: 1.2,
+  /** fire lanes: this many, this wide (u), this long (u) */
+  lanes: 3,
+  laneW: 1.1,
+  laneLen: 9,
+  /** fire rain: this many drops around the knight, their splash (u), scatter (u), fall (s) */
+  rainN: 6,
+  rainR: 0.9,
+  rainScatter: 2.4,
+  rainFall: 0.9,
+  /** the swoop: a lane this wide (u) flown at this speed (u/s) */
+  swoopW: 1.6,
+  swoopSpeed: 12,
+  /** hearts lost: a flame, a fire lane, a drop, the swoop */
+  hurt: { touch: 0.25, ball: 0.75, flame: 0.25, lane: 1, rain: 1, swoop: 1 },
+  /** the flaw: after an attack he is dizzy this long (s) and takes this much more */
+  flawSec: 2.2,
+  flawK: 2,
+  /** his scales (hp) at circle 0 and the growth per circle */
+  circleUp: 0.35,
+  /** a third of his scales knocked off: a roar (s, invulnerable), a push (u), a chest */
+  roarSec: 1.1,
+  roarPush: 2.2,
 
   // ── the Postój (rest) ────────────────────────────────────────
-  /** calm restores heart (per s at calm 1) and fills Linda's tip (per s at calm 1) after this lead-in (s) */
-  heal: 0.035,
-  tipGain: 0.075,
+  /** calm restores hearts (per s at calm 1) after this lead-in (s) */
+  heal: 0.11,
   restLead: { fnirs: 4, eeg: 2 },
-
-  // ── levels and skills (one fight) ────────────────────────────
-  /** scales to the next level: levelBase + levelStep × level */
-  levelBase: 10,
-  levelStep: 9,
-  /** the choice: the fight goes on at this speed, the first is taken after this long (s) */
-  choiceSlow: 0.15,
-  choiceSec: 6,
-  /** the skills' numbers */
-  spinEvery: [3, 2],
-  lanceEvery: [6, 4.5, 3.5],
-  lanceScales: 2,
-  lanceRange: 7.5,
-  horseEvery: [14, 10],
-  horseScales: 4,
-  horseSec: 1.1,
-  squireEvery: [4, 3],
-  squireRange: 3.2,
-  swiftK: 0.82,
-  shieldUp: 0.14,
-  reflectChance: 0.3,
-  armourCool: 0.7,
-  armourWalk: 0.12,
-  reachUp: 0.35,
 
   // ── the session ──────────────────────────────────────────────
   /** Tarcza and Postój: nominal length ± jitter (s); no block under minBlock */
-  push: [24, 4],
+  push: [26, 4],
   rest: [22, 3],
   minBlock: 12,
   telegraph: 4,
   /** the runner's banner covers the first seconds of a block: Linda waits it out */
-  bannerSec: 5.4,
+  bannerSec: 5,
   /** the first-ever session's warm-up (s): 30 in 5 and 10 min, 20 in 3, 6 in a 40 s test */
   warm: { long: 30, short: 20, test: 6 },
-  /** the last clash (s): sessions of 2 min and more / shorter */
-  finale: { long: 16, short: 8 },
+  /** the last stretch without a block (s): sessions of 2 min and more / shorter */
+  finale: { long: 12, short: 6 },
   /** canStop() waits at most this long after time is up (s) */
   settle: 4,
   /** Tarcza blocks counted across sessions: every blindEvery-th is blind from the blindFrom-th session */
@@ -164,22 +207,24 @@ export const RULES = {
   blindFrom: 3,
   /** a block needs this many reliable seconds for a verdict */
   minReliable: 8,
-  /** the warm-up's ghost hand shows after this long without a touch (s) */
-  idleHint: 3,
   /** the opening card (the first session): at most this long (s), a tap closes it */
-  openSec: 7,
-  /** the story card between two dragons (s) */
-  storySec: 3.4,
-  /** a hold this long (s) counts as a long stand; this many quenched flames count as many (closing verses) */
+  openSec: 8,
+  /** the story card when a land is freed (s) */
+  storySec: 4,
+  /** footprints: one every this far (u) or this long standing (s), kept this long (s) */
+  stepU: 0.7,
+  stepSec: 0.8,
+  stepKeep: 40,
+  /** closing verses: a hold this long (s), this many quenched fires */
   longHold: 12,
-  manyQuench: 30,
+  manyQuench: 25,
 
   // ── Linda's lines ────────────────────────────────────────────
   /** a line stays 2–4 s (by its length), at least this long between two (s) */
   talkMin: 2,
   talkMax: 4,
-  talkGap: 2.6,
-  /** the level stays above the threshold this long (s) before she cheers it */
+  talkGap: 2.4,
+  /** the aura stays above the threshold this long (s) before she cheers it */
   goodSec: 4,
 } as const;
 

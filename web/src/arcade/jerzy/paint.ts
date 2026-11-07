@@ -4,10 +4,12 @@
  * the cave, a marsh, a stony pass, the castle's flagstones), the fence with its pennants, the cave,
  * and the figures standing on them — the knight (a gold sun on his tabard, never a cross), the
  * dragons (big, round-eyed beasts, a little comic, nothing a child could not look at), Princess
- * Linda, the white horse, fire, steam, apples and the skills' little pictures.  All canvas paths, no
- * images; sizes in u (about a metre) times `s` (px per u).
+ * Linda, the white horse, fire, steam, apples, the dragon's brood (round-eyed chicks, lizards,
+ * spitters, armoured plodders, ember beetles that dissolve into smoke when beaten), scales, chests,
+ * the items' little pictures, and the endless field of each land.  All canvas paths, no images;
+ * sizes in u (about a metre) times `s` (px per u).
  */
-import type { ArenaKind, DragonKind, SkillId } from './content';
+import type { ArenaKind, BroodKind, DragonKind, ItemId } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
@@ -785,44 +787,53 @@ export function paintHorse(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.restore();
 }
 
-// ── the skills' little pictures ───────────────────────────────────
-export function paintSkillIcon(ctx: CanvasRenderingContext2D, id: SkillId, x: number, y: number, r: number): void {
+// ── the items' little pictures (cards, the build's chips) ─────────
+export function paintItemIcon(ctx: CanvasRenderingContext2D, id: ItemId | 'apple' | 'scales', x: number, y: number, r: number, evo = false): void {
   ctx.save();
   ctx.translate(x, y);
-  ellipse(ctx, 0, 0, r * 1.15, r * 1.15, 'rgba(226,178,60,.18)');
+  ellipse(ctx, 0, 0, r * 1.15, r * 1.15, evo ? 'rgba(255,214,107,.45)' : 'rgba(226,178,60,.18)');
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   const line = (w: number, c: string) => { ctx.lineWidth = Math.max(1, r * w); ctx.strokeStyle = c; };
   switch (id) {
-    case 'spin':
-      line(0.16, C.steelDark);
+    case 'miecz':
+      line(0.18, evo ? C.goldLight : C.steel);
       ctx.beginPath();
-      ctx.arc(0, 0, r * 0.7, 0.3, Math.PI * 1.7);
+      ctx.moveTo(-r * 0.6, r * 0.6);
+      ctx.lineTo(r * 0.75, -r * 0.75);
       ctx.stroke();
-      ctx.fillStyle = C.steelDark;
+      line(0.16, C.goldDeep);
       ctx.beginPath();
-      ctx.moveTo(r * 0.75, -r * 0.2);
-      ctx.lineTo(r * 0.95, r * 0.25);
-      ctx.lineTo(r * 0.45, r * 0.15);
-      ctx.fill();
-      break;
-    case 'lance':
-      line(0.14, '#7a5434');
-      ctx.beginPath();
-      ctx.moveTo(-r * 0.8, r * 0.8);
-      ctx.lineTo(r * 0.5, -r * 0.5);
+      ctx.moveTo(-r * 0.6, r * 0.15);
+      ctx.lineTo(-r * 0.15, r * 0.6);
       ctx.stroke();
-      ctx.fillStyle = C.steel;
-      ctx.beginPath();
-      ctx.moveTo(r * 0.9, -r * 0.9);
-      ctx.lineTo(r * 0.35, -r * 0.6);
-      ctx.lineTo(r * 0.6, -r * 0.35);
-      ctx.fill();
+      if (evo) {
+        line(0.06, C.gold);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.95, 0, TAU);
+        ctx.stroke();
+      }
       break;
-    case 'horse':
-      paintHorse(ctx, 0, r * 0.7, r * 0.75, 1, 0.2);
+    case 'kopia':
+      for (let i = evo ? -1 : 0; i <= (evo ? 1 : 0); i++) {
+        line(0.12, '#7a5434');
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.8 + i * r * 0.3, r * 0.8);
+        ctx.lineTo(r * 0.5 + i * r * 0.3, -r * 0.5);
+        ctx.stroke();
+        ctx.fillStyle = C.steel;
+        ctx.beginPath();
+        ctx.moveTo(r * 0.9 + i * r * 0.3, -r * 0.9);
+        ctx.lineTo(r * 0.35 + i * r * 0.3, -r * 0.6);
+        ctx.lineTo(r * 0.6 + i * r * 0.3, -r * 0.35);
+        ctx.fill();
+      }
       break;
-    case 'squire':
+    case 'sokol':
+      paintFalcon(ctx, 0, 0, r * 1.3, 0.4, evo);
+      if (evo) paintFalcon(ctx, r * 0.5, -r * 0.5, r * 0.8, 1.4, true);
+      break;
+    case 'wiadra':
       ctx.fillStyle = '#8a6a4a';
       ctx.beginPath();
       ctx.moveTo(-r * 0.5, -r * 0.3);
@@ -830,72 +841,496 @@ export function paintSkillIcon(ctx: CanvasRenderingContext2D, id: SkillId, x: nu
       ctx.lineTo(r * 0.35, r * 0.6);
       ctx.lineTo(-r * 0.35, r * 0.6);
       ctx.fill();
-      ctx.fillStyle = '#7fb6e0';
       ellipse(ctx, 0, -r * 0.3, r * 0.5, r * 0.15, '#7fb6e0');
       for (let i = 0; i < 3; i++) ellipse(ctx, -r * 0.3 + i * r * 0.3, -r * 0.6 - (i % 2) * r * 0.2, r * 0.08, r * 0.12, '#7fb6e0');
+      if (evo) ellipse(ctx, 0, r * 0.75, r * 0.8, r * 0.2, 'rgba(127,182,224,.7)');
       break;
-    case 'swift':
-      line(0.12, C.steelDark);
-      for (let i = 0; i < 3; i++) {
+    case 'rog':
+      ctx.fillStyle = evo ? C.gold : '#e8d5a8';
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.8, r * 0.1);
+      ctx.quadraticCurveTo(-r * 0.2, r * 0.5, r * 0.6, -r * 0.5);
+      ctx.lineTo(r * 0.85, -r * 0.2);
+      ctx.quadraticCurveTo(0, r * 0.7, -r * 0.8, r * 0.35);
+      ctx.fill();
+      line(0.07, C.goldDeep);
+      for (let i = 1; i <= 2; i++) {
         ctx.beginPath();
-        ctx.moveTo(-r * 0.8, -r * 0.4 + i * r * 0.4);
-        ctx.lineTo(r * 0.2 - i * r * 0.2, -r * 0.4 + i * r * 0.4);
+        ctx.arc(r * 0.7, -r * 0.35, r * 0.25 * i, -1.2, 0.4);
         ctx.stroke();
       }
-      line(0.16, C.steel);
-      ctx.beginPath();
-      ctx.moveTo(r * 0.1, r * 0.6);
-      ctx.lineTo(r * 0.85, -r * 0.6);
-      ctx.stroke();
       break;
-    case 'bigShield':
-      ellipse(ctx, 0, 0, r * 0.85, r * 0.85, 'rgba(255,236,170,.5)');
-      ctx.setLineDash([2, 3]);
-      line(0.08, C.goldDeep);
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.55, 0, TAU);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      sun(ctx, 0, 0, r * 0.3);
+    case 'kon':
+      paintHorse(ctx, -r * 0.1, r * 0.75, r * 0.72, 1, 0.2);
       break;
-    case 'reflect':
-      ellipse(ctx, -r * 0.3, r * 0.2, r * 0.3, r * 0.3, C.fire);
-      line(0.12, C.goldDeep);
+    case 'sztandar':
+      line(0.1, '#7a5434');
       ctx.beginPath();
-      ctx.moveTo(-r * 0.1, -r * 0.1);
-      ctx.quadraticCurveTo(r * 0.3, -r * 0.9, r * 0.8, -r * 0.5);
+      ctx.moveTo(-r * 0.5, r * 0.9);
+      ctx.lineTo(-r * 0.5, -r * 0.9);
       ctx.stroke();
+      ctx.fillStyle = C.vermilion;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.5, -r * 0.85);
+      ctx.lineTo(r * 0.8, -r * 0.6);
+      ctx.lineTo(r * 0.45, -r * 0.35);
+      ctx.lineTo(r * 0.8, -r * 0.1);
+      ctx.lineTo(-r * 0.5, -r * 0.05);
+      ctx.fill();
+      sun(ctx, 0, -r * 0.45, r * 0.18);
       break;
-    case 'armour':
+    case 'rekawice':
       ctx.fillStyle = C.steel;
       ctx.beginPath();
-      ctx.roundRect(-r * 0.55, -r * 0.6, r * 1.1, r * 1.1, r * 0.25);
+      ctx.roundRect(-r * 0.45, -r * 0.5, r * 0.9, r * 0.9, r * 0.3);
       ctx.fill();
-      ctx.fillStyle = C.ultramarine;
-      ctx.fillRect(-r * 0.4, -r * 0.45, r * 0.8, r * 0.8);
-      line(0.1, '#fff');
+      ctx.fillStyle = C.steelDark;
+      for (let i = 0; i < 4; i++) ctx.fillRect(-r * 0.4 + i * r * 0.22, -r * 0.75, r * 0.16, r * 0.35);
+      ctx.fillStyle = '#7a5434';
+      ctx.fillRect(-r * 0.5, r * 0.35, r, r * 0.3);
+      break;
+    case 'buty':
+      ctx.fillStyle = '#7a5434';
       ctx.beginPath();
-      ctx.moveTo(r * 0.6, -r * 0.9);
-      ctx.lineTo(r * 0.95, -r * 0.6);
+      ctx.moveTo(-r * 0.4, -r * 0.8);
+      ctx.lineTo(r * 0.1, -r * 0.8);
+      ctx.lineTo(r * 0.15, r * 0.3);
+      ctx.lineTo(r * 0.8, r * 0.4);
+      ctx.lineTo(r * 0.8, r * 0.75);
+      ctx.lineTo(-r * 0.45, r * 0.75);
+      ctx.fill();
+      line(0.07, '#fff');
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.9, -r * 0.2);
+      ctx.lineTo(-r * 0.6, -r * 0.2);
+      ctx.moveTo(-r * 0.95, r * 0.15);
+      ctx.lineTo(-r * 0.65, r * 0.15);
       ctx.stroke();
       break;
-    case 'reach':
-      line(0.14, C.steel);
+    case 'tarcza':
+      ctx.fillStyle = C.ultramarine;
       ctx.beginPath();
-      ctx.moveTo(-r * 0.9, r * 0.9);
-      ctx.lineTo(r * 0.9, -r * 0.9);
-      ctx.stroke();
-      line(0.18, C.goldDeep);
+      ctx.moveTo(-r * 0.65, -r * 0.7);
+      ctx.lineTo(r * 0.65, -r * 0.7);
+      ctx.quadraticCurveTo(r * 0.7, r * 0.4, 0, r * 0.85);
+      ctx.quadraticCurveTo(-r * 0.7, r * 0.4, -r * 0.65, -r * 0.7);
+      ctx.fill();
+      sun(ctx, 0, -r * 0.05, r * 0.32);
+      break;
+    case 'zbroja':
+      ctx.fillStyle = C.steel;
       ctx.beginPath();
-      ctx.moveTo(-r * 0.75, r * 0.4);
-      ctx.lineTo(-r * 0.4, r * 0.75);
-      ctx.stroke();
+      ctx.roundRect(-r * 0.6, -r * 0.65, r * 1.2, r * 1.3, r * 0.3);
+      ctx.fill();
+      ctx.fillStyle = C.steelDark;
+      ctx.fillRect(-r * 0.05, -r * 0.6, r * 0.1, r * 1.2);
+      ctx.fillStyle = C.goldDeep;
+      ctx.fillRect(-r * 0.6, r * 0.15, r * 1.2, r * 0.1);
+      break;
+    case 'sakwa':
+      ctx.fillStyle = '#9a6b3f';
+      ctx.beginPath();
+      ctx.roundRect(-r * 0.6, -r * 0.35, r * 1.2, r * 1.0, r * 0.25);
+      ctx.fill();
+      ctx.fillStyle = '#7a5434';
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.6, -r * 0.35);
+      ctx.lineTo(r * 0.6, -r * 0.35);
+      ctx.lineTo(0, r * 0.15);
+      ctx.fill();
+      paintScale(ctx, r * 0.5, -r * 0.55, r * 0.3, 1, 0);
       break;
     case 'apple':
       paintApple(ctx, 0, r * 0.1, r * 0.6);
       break;
+    case 'scales':
+      paintScale(ctx, -r * 0.3, r * 0.1, r * 0.45, 3, 0);
+      paintScale(ctx, r * 0.3, -r * 0.1, r * 0.45, 10, 0);
+      break;
   }
   ctx.restore();
+}
+
+/** A falcon from above, wings spread (flap 0..TAU). */
+export function paintFalcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, flap: number, gold = false): void {
+  const w = 0.55 + 0.35 * Math.sin(flap);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = gold ? '#e8c060' : '#b98654';
+  ctx.strokeStyle = gold ? '#a97a1c' : '#5e4128';
+  ctx.lineWidth = Math.max(1, s * 0.03);
+  ctx.beginPath();
+  ctx.moveTo(0, -s * 0.18);
+  ctx.quadraticCurveTo(-s * 0.4, -s * 0.2 * w - s * 0.1, -s * 0.55, s * 0.05 * w);
+  ctx.quadraticCurveTo(-s * 0.25, -s * 0.02, 0, s * 0.08);
+  ctx.quadraticCurveTo(s * 0.25, -s * 0.02, s * 0.55, s * 0.05 * w);
+  ctx.quadraticCurveTo(s * 0.4, -s * 0.2 * w - s * 0.1, 0, -s * 0.18);
+  ctx.fill();
+  ctx.stroke();
+  ellipse(ctx, 0, -s * 0.02, s * 0.08, s * 0.2, gold ? '#f4d98a' : '#f1e6d2');
+  ellipse(ctx, 0, -s * 0.2, s * 0.07, s * 0.07, gold ? '#f4d98a' : '#6b4e33');
+  ctx.fillStyle = '#e2b23c';
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.025, -s * 0.26);
+  ctx.lineTo(0, -s * 0.31);
+  ctx.lineTo(s * 0.025, -s * 0.26);
+  ctx.fill();
+  ctx.restore();
+}
+
+/** A scale on the ground: bronze (1), silver (3), gold (10); a little shine turning with `t`. */
+export function paintScale(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, v: number, t: number): void {
+  const [a, b] = v >= 10 ? ['#ffe08a', '#c8901c'] : v >= 3 ? ['#eef3f8', '#8d9bb0'] : ['#f0b77a', '#a8622c'];
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.sin(t * 2 + x) * 0.25);
+  ctx.fillStyle = b;
+  ctx.beginPath();
+  ctx.moveTo(0, -r);
+  ctx.quadraticCurveTo(r, -r * 0.4, r * 0.75, r * 0.35);
+  ctx.quadraticCurveTo(0, r * 1.05, -r * 0.75, r * 0.35);
+  ctx.quadraticCurveTo(-r, -r * 0.4, 0, -r);
+  ctx.fill();
+  ctx.fillStyle = a;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.75);
+  ctx.quadraticCurveTo(r * 0.7, -r * 0.3, r * 0.5, r * 0.25);
+  ctx.quadraticCurveTo(0, r * 0.7, -r * 0.5, r * 0.25);
+  ctx.quadraticCurveTo(-r * 0.7, -r * 0.3, 0, -r * 0.75);
+  ctx.fill();
+  ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 4 + y);
+  ellipse(ctx, -r * 0.2, -r * 0.3, r * 0.15, r * 0.25, '#ffffff');
+  ctx.restore();
+}
+
+/** A chest (gold-bound for the dragon's), lid ajar with a glow. */
+export function paintChest(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, big: boolean, t: number): void {
+  const w = s * (big ? 0.9 : 0.7), h = w * 0.62;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  glow(ctx, x, y - h * 0.6, w * (1.6 + 0.2 * Math.sin(t * 3)), 'rgba(255,214,120,', 0.45);
+  ctx.restore();
+  ellipse(ctx, x, y + h * 0.05, w * 0.6, h * 0.22, 'rgba(20,20,10,.3)');
+  ctx.fillStyle = '#8a5a2e';
+  ctx.beginPath();
+  ctx.roundRect(x - w / 2, y - h, w, h, h * 0.12);
+  ctx.fill();
+  ctx.fillStyle = '#a8703a';
+  ctx.beginPath();
+  ctx.roundRect(x - w / 2, y - h * 1.32, w, h * 0.42, [h * 0.3, h * 0.3, h * 0.05, h * 0.05]);
+  ctx.fill();
+  ctx.fillStyle = big ? C.gold : '#c9b48a';
+  ctx.fillRect(x - w / 2, y - h * 0.95, w, h * 0.1);
+  ctx.fillRect(x - w * 0.08, y - h * 1.3, w * 0.16, h * 1.25);
+  ellipse(ctx, x, y - h * 0.62, w * 0.07, w * 0.07, big ? C.goldLight : '#f1e2bc');
+}
+
+/**
+ * One of the dragon's brood seen a little from above, standing at (x, y) facing `flip`, in its
+ * land's hide: a round chick, a long lizard, a puffed spitter, an armoured one, an ember beetle.
+ * Never fierce: big eyes, small teeth.  `hit` flashes white; `elite` is gold-trimmed and larger.
+ */
+export interface BroodPose { kind: BroodKind; land: DragonKind; r: number; flip: number; t: number; hit: number; elite: boolean; drowsy: number; spit: number; seed: number }
+
+export function paintBrood(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, p: BroodPose): void {
+  const hide = HIDES[p.land], R = p.r * s;
+  const bob = Math.sin(p.t * (p.kind === 'jaszczurka' || p.kind === 'ognik' ? 16 : 9) + p.seed) * R * 0.08 * (1 - p.drowsy);
+  ellipse(ctx, x, y + R * 0.05, R * 0.95, R * 0.32, 'rgba(20,20,10,.3)');
+  if (p.elite) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, x, y - R * 0.6, R * 2.2, 'rgba(255,210,110,', 0.35 + 0.1 * Math.sin(p.t * 5));
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.translate(x, y - R * 0.55 + bob);
+  ctx.scale(p.flip, 1);
+  const body = p.hit > 0 ? '#fff6e6' : p.elite ? '#e8b84a' : hide.body;
+  const dark = p.elite ? '#a97a1c' : hide.dark;
+  const belly = p.elite ? '#fff0b8' : hide.belly;
+  const eye = (ex: number, ey: number, er: number) => {
+    if (p.drowsy > 0.5) {
+      ctx.strokeStyle = dark;
+      ctx.lineWidth = Math.max(1, er * 0.4);
+      ctx.beginPath();
+      ctx.arc(ex, ey, er * 0.8, 0.2, Math.PI - 0.2);
+      ctx.stroke();
+      return;
+    }
+    ellipse(ctx, ex, ey, er, er * 1.1, '#fffbe8');
+    ellipse(ctx, ex + er * 0.25, ey + er * 0.1, er * 0.5, er * 0.62, '#1d1410');
+    ellipse(ctx, ex + er * 0.05, ey - er * 0.35, er * 0.22, er * 0.22, '#ffffff');
+  };
+  switch (p.kind) {
+    case 'piskle': {
+      // a round chick with stubby wings and a bit of eggshell on its head
+      const flap = Math.sin(p.t * 14 + p.seed) * 0.4;
+      ctx.fillStyle = hide.wing;
+      ctx.beginPath();
+      ctx.ellipse(-R * 0.55, -R * 0.15, R * 0.4, R * 0.22, -0.6 + flap, 0, TAU);
+      ctx.fill();
+      ellipse(ctx, 0, 0, R * 0.78, R * 0.7, body);
+      ellipse(ctx, R * 0.1, R * 0.2, R * 0.45, R * 0.35, belly);
+      eye(R * 0.3, -R * 0.2, R * 0.2);
+      ctx.fillStyle = '#f6efe0';
+      ctx.beginPath();
+      ctx.moveTo(-R * 0.45, -R * 0.5);
+      ctx.lineTo(-R * 0.3, -R * 0.82);
+      ctx.lineTo(-R * 0.1, -R * 0.58);
+      ctx.lineTo(R * 0.08, -R * 0.86);
+      ctx.lineTo(R * 0.25, -R * 0.6);
+      ctx.quadraticCurveTo(-R * 0.1, -R * 0.42, -R * 0.45, -R * 0.5);
+      ctx.fill();
+      ctx.fillStyle = hide.spike;
+      ctx.beginPath();
+      ctx.moveTo(R * 0.7, -R * 0.05);
+      ctx.lineTo(R * 0.95, R * 0.05);
+      ctx.lineTo(R * 0.7, R * 0.15);
+      ctx.fill();
+      break;
+    }
+    case 'jaszczurka': {
+      // a long low lizard, its tail swinging
+      const sw = Math.sin(p.t * 16 + p.seed) * 0.35;
+      ctx.strokeStyle = body;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = R * 0.35;
+      ctx.beginPath();
+      ctx.moveTo(-R * 0.4, R * 0.15);
+      ctx.quadraticCurveTo(-R * 0.9, R * 0.15 + sw * R, -R * 1.35, R * 0.05 - sw * R * 0.5);
+      ctx.stroke();
+      ellipse(ctx, 0, R * 0.1, R * 0.75, R * 0.38, body);
+      ellipse(ctx, R * 0.7, -R * 0.05, R * 0.38, R * 0.3, body);
+      ctx.fillStyle = dark;
+      for (let i = 0; i < 4; i++) ellipse(ctx, -R * 0.5 + i * R * 0.35, -R * 0.2, R * 0.08, R * 0.06, dark);
+      eye(R * 0.8, -R * 0.15, R * 0.14);
+      break;
+    }
+    case 'plujka': {
+      // a puffed toad-dragon: its cheeks glow before it spits
+      ellipse(ctx, 0, R * 0.05, R * 0.85, R * 0.7, body);
+      ellipse(ctx, 0, R * 0.3, R * 0.6, R * 0.35, belly);
+      const glowK = clamp01(p.spit);
+      ellipse(ctx, R * 0.55, R * 0.05, R * (0.3 + 0.15 * glowK), R * (0.25 + 0.12 * glowK), glowK > 0.3 ? `rgba(255,${Math.round(150 - 60 * glowK)},60,1)` : belly);
+      eye(R * 0.15, -R * 0.45, R * 0.2);
+      eye(R * 0.5, -R * 0.4, R * 0.17);
+      ctx.fillStyle = hide.spike;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(-R * 0.6 + i * R * 0.3, -R * 0.55 + i * R * 0.05);
+        ctx.lineTo(-R * 0.5 + i * R * 0.3, -R * 0.8 + i * R * 0.05);
+        ctx.lineTo(-R * 0.4 + i * R * 0.3, -R * 0.5 + i * R * 0.05);
+        ctx.fill();
+      }
+      break;
+    }
+    case 'pancernik': {
+      // an armoured plodder under a shell of plates
+      ellipse(ctx, R * 0.75, R * 0.1, R * 0.3, R * 0.26, body);
+      ctx.fillStyle = dark;
+      ctx.beginPath();
+      ctx.ellipse(-R * 0.05, -R * 0.05, R * 0.85, R * 0.65, 0, Math.PI, TAU);
+      ctx.lineTo(R * 0.8, R * 0.2);
+      ctx.lineTo(-R * 0.9, R * 0.2);
+      ctx.fill();
+      ctx.strokeStyle = belly;
+      ctx.lineWidth = Math.max(1, R * 0.06);
+      for (let i = 1; i <= 3; i++) {
+        ctx.beginPath();
+        ctx.ellipse(-R * 0.05, R * 0.2, R * 0.85 * (i / 3.4), R * 0.85 * (i / 3.4), 0, Math.PI, TAU);
+        ctx.stroke();
+      }
+      ctx.fillStyle = body;
+      for (let i = 0; i < 4; i++) ctx.fillRect(-R * 0.75 + i * R * 0.45, R * 0.18, R * 0.18, R * 0.25);
+      eye(R * 0.85, R * 0.02, R * 0.12);
+      break;
+    }
+    case 'ognik': {
+      // an ember beetle: a glowing shell, six busy legs
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, 0, 0, R * 2.4, 'rgba(255,150,60,', 0.4);
+      ctx.restore();
+      ctx.strokeStyle = dark;
+      ctx.lineWidth = Math.max(1, R * 0.12);
+      for (let i = 0; i < 3; i++) {
+        const lg = Math.sin(p.t * 24 + i * 2) * R * 0.2;
+        ctx.beginPath();
+        ctx.moveTo(-R * 0.4 + i * R * 0.4, R * 0.2);
+        ctx.lineTo(-R * 0.5 + i * R * 0.4 + lg, R * 0.6);
+        ctx.stroke();
+      }
+      ellipse(ctx, 0, 0, R * 0.75, R * 0.55, p.hit > 0 ? '#fff' : '#c8361e');
+      ellipse(ctx, 0, -R * 0.08, R * 0.55, R * 0.38, p.elite ? '#ffe08a' : '#ff9a3d');
+      ctx.strokeStyle = '#7a1f12';
+      ctx.beginPath();
+      ctx.moveTo(0, -R * 0.5);
+      ctx.lineTo(0, R * 0.45);
+      ctx.stroke();
+      eye(R * 0.6, -R * 0.1, R * 0.16);
+      break;
+    }
+  }
+  if (p.elite) {
+    // a little crown of gold spikes
+    ctx.fillStyle = C.gold;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-R * 0.25 + i * R * 0.22, -R * 0.75);
+      ctx.lineTo(-R * 0.15 + i * R * 0.22, -R * 1.05);
+      ctx.lineTo(-R * 0.05 + i * R * 0.22, -R * 0.75);
+      ctx.fill();
+    }
+  }
+  if (p.drowsy > 0.5) {
+    ctx.scale(p.flip, 1);
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.font = `700 ${Math.max(8, R * 0.6)}px ${SANS}`;
+    ctx.fillText('z', R * 0.5, -R * (0.9 + 0.2 * Math.sin(p.t * 2 + p.seed)));
+  }
+  ctx.restore();
+}
+
+const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+/** A creature dissolving into ink-grey smoke and sparks of light, its little shadow scampering off (0..1). */
+export function paintSmoke(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, r: number, k: number, dir: number, seed: number): void {
+  const R = r * s;
+  ctx.save();
+  for (let i = 0; i < 5; i++) {
+    const a = seed * 1.7 + i * 1.3, d = R * (0.3 + k * 1.2) * (0.6 + 0.4 * hash(seed + i));
+    ctx.globalAlpha = (1 - k) * 0.55;
+    ellipse(ctx, x + Math.cos(a) * d, y - R * 0.5 + Math.sin(a) * d * 0.6 - k * R, R * (0.35 + k * 0.5), R * (0.3 + k * 0.45), '#6f6a78');
+  }
+  ctx.globalAlpha = (1 - k);
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 4; i++) {
+    const a = seed + i * 1.57, d = R * (0.2 + k * 1.6);
+    ellipse(ctx, x + Math.cos(a) * d, y - R * 0.6 + Math.sin(a) * d - k * R * 0.8, R * 0.08, R * 0.08, '#ffe9a8');
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  // the little silhouette running off, smaller and fainter
+  if (k < 0.85) {
+    const run = k * R * 4;
+    ctx.globalAlpha = (1 - k) * 0.5;
+    ellipse(ctx, x + Math.cos(dir) * run, y + Math.sin(dir) * run - R * 0.3, R * 0.35 * (1 - k * 0.6), R * 0.28 * (1 - k * 0.6), '#4a4652');
+  }
+  ctx.restore();
+}
+
+// ── the field: the dragon's lands seen from above, endless ────────
+/**
+ * The ground of a land around the camera: the base colour, soft patches, tufts and flowers on a
+ * grid of cells (each cell's decoration fixed by its coordinates), a few large features on a coarser
+ * grid (bushes and stones, reed pools, snow, broken flagstones).  `cx, cy` the world point at the
+ * screen's (ox, oy) px; `s` px per u.
+ */
+export function paintField(ctx: CanvasRenderingContext2D, kind: ArenaKind, cx: number, cy: number, ox: number, oy: number, s: number, w: number, h: number, t: number): void {
+  const g = GROUND[kind];
+  ctx.fillStyle = g.a;
+  ctx.fillRect(0, 0, w, h);
+  const toX = (wx: number) => ox + (wx - cx) * s, toY = (wy: number) => oy + (wy - cy) * s;
+  const x0 = cx - ox / s - 3, x1 = cx + (w - ox) / s + 3, y0 = cy - oy / s - 3, y1 = cy + (h - oy) / s + 3;
+  const cellHash = (i: number, j: number, k: number) => hash(i * 73856093 ^ j * 19349663 ^ k * 83492791);
+  // soft patches (3 u cells)
+  for (let i = Math.floor(x0 / 3); i <= Math.floor(x1 / 3); i++) {
+    for (let j = Math.floor(y0 / 3); j <= Math.floor(y1 / 3); j++) {
+      const hx = cellHash(i, j, 1), hy = cellHash(i, j, 2), hr = cellHash(i, j, 3);
+      const px = toX((i + hx) * 3), py = toY((j + hy) * 3);
+      ctx.globalAlpha = 0.55;
+      ellipse(ctx, px, py, s * (1.2 + hr * 1.4), s * (0.8 + hr), g.b);
+      ctx.globalAlpha = 1;
+      if (kind === 'castle' && hr > 0.55) {
+        // a few flagstones
+        ctx.fillStyle = 'rgba(255,250,235,.16)';
+        ctx.strokeStyle = 'rgba(80,70,55,.3)';
+        ctx.lineWidth = 1;
+        for (let k = 0; k < 3; k++) {
+          const fx = px + (k - 1) * s * 0.75, fy = py + (k % 2) * s * 0.4;
+          ctx.fillRect(fx, fy, s * 0.7, s * 0.4);
+          ctx.strokeRect(fx, fy, s * 0.7, s * 0.4);
+        }
+      }
+    }
+  }
+  // tufts, flowers, pebbles (1 u cells)
+  for (let i = Math.floor(x0); i <= Math.floor(x1); i++) {
+    for (let j = Math.floor(y0); j <= Math.floor(y1); j++) {
+      const hh = cellHash(i, j, 4);
+      if (hh > 0.42) continue;
+      const px = toX(i + cellHash(i, j, 5)), py = toY(j + cellHash(i, j, 6));
+      if (hh < 0.2 && kind !== 'castle') {
+        ctx.strokeStyle = kind === 'pass' ? 'rgba(90,80,60,.35)' : 'rgba(40,70,30,.38)';
+        ctx.lineWidth = Math.max(1, s * 0.03);
+        const sway = Math.sin(t * 1.5 + i + j) * s * 0.02;
+        ctx.beginPath();
+        ctx.moveTo(px - s * 0.06, py);
+        ctx.lineTo(px - s * 0.1 + sway, py - s * 0.14);
+        ctx.moveTo(px, py);
+        ctx.lineTo(px + sway, py - s * 0.18);
+        ctx.moveTo(px + s * 0.06, py);
+        ctx.lineTo(px + s * 0.11 + sway, py - s * 0.13);
+        ctx.stroke();
+      } else if (hh < 0.3 && kind === 'meadow') {
+        const colors = ['#fff6d8', '#f2c94c', '#e98aa0', '#ffffff', '#b9a6e8'];
+        ellipse(ctx, px, py, s * 0.055, s * 0.055, colors[Math.floor(cellHash(i, j, 7) * colors.length)]);
+      } else {
+        ellipse(ctx, px, py, s * 0.07, s * 0.05, g.dot);
+      }
+    }
+  }
+  // large features (7 u cells)
+  for (let i = Math.floor(x0 / 7); i <= Math.floor(x1 / 7); i++) {
+    for (let j = Math.floor(y0 / 7); j <= Math.floor(y1 / 7); j++) {
+      const hh = cellHash(i, j, 8);
+      if (hh > 0.6) continue;
+      const px = toX((i + 0.15 + cellHash(i, j, 9) * 0.7) * 7), py = toY((j + 0.15 + cellHash(i, j, 10) * 0.7) * 7);
+      const r = s * (0.5 + cellHash(i, j, 11) * 0.6);
+      if (kind === 'marsh') {
+        ellipse(ctx, px, py, r * 2, r * 1.1, 'rgba(70,110,110,.55)');
+        ellipse(ctx, px - r * 0.4, py - r * 0.25, r, r * 0.35, 'rgba(200,230,230,.25)');
+        ctx.strokeStyle = '#4d6b3a';
+        ctx.lineWidth = Math.max(1, s * 0.04);
+        for (let k = 0; k < 5; k++) {
+          const rx = px + r * (1.6 + 0.2 * k) * (k % 2 ? 1 : -1), sway = Math.sin(t * 1.3 + i + k) * s * 0.05;
+          ctx.beginPath();
+          ctx.moveTo(rx, py);
+          ctx.quadraticCurveTo(rx + sway, py - s * 0.3, rx + sway * 2, py - s * (0.45 + 0.1 * k));
+          ctx.stroke();
+        }
+      } else if (kind === 'pass') {
+        ellipse(ctx, px, py, r * 2.2, r, 'rgba(250,252,255,.6)');
+        ellipse(ctx, px + r * 1.5, py + r * 0.6, r * 0.6, r * 0.45, '#9b8c76');
+        ellipse(ctx, px + r * 1.4, py + r * 0.45, r * 0.3, r * 0.2, '#c2b59e');
+      } else if (kind === 'castle') {
+        // a broken column lying in the grass
+        ctx.fillStyle = 'rgba(60,50,40,.25)';
+        ctx.fillRect(px - r * 1.2, py + r * 0.25, r * 2.4, r * 0.3);
+        ctx.fillStyle = '#ddd3bf';
+        ctx.fillRect(px - r * 1.2, py - r * 0.3, r * 2.4, r * 0.55);
+        ctx.strokeStyle = 'rgba(80,70,55,.35)';
+        ctx.lineWidth = 1;
+        for (let k = 1; k < 4; k++) {
+          ctx.beginPath();
+          ctx.moveTo(px - r * 1.2 + k * r * 0.6, py - r * 0.3);
+          ctx.lineTo(px - r * 1.2 + k * r * 0.6, py + r * 0.25);
+          ctx.stroke();
+        }
+      } else {
+        // a bush with berries
+        ellipse(ctx, px + r * 0.2, py + r * 0.35, r * 1.1, r * 0.45, 'rgba(20,30,10,.25)');
+        ellipse(ctx, px, py, r, r * 0.85, '#4f7d3e');
+        ellipse(ctx, px - r * 0.3, py - r * 0.25, r * 0.55, r * 0.45, '#6a9a50');
+        for (let k = 0; k < 4; k++) ellipse(ctx, px + Math.cos(k * 1.7) * r * 0.55, py + Math.sin(k * 1.7) * r * 0.45, s * 0.05, s * 0.05, '#d2462f');
+      }
+    }
+  }
+  // the edge of sight: a warm vignette
+  const v = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, 'rgba(30,25,15,.28)');
+  ctx.fillStyle = v;
+  ctx.fillRect(0, 0, w, h);
 }
 
 // ── the lobby's map tiles ─────────────────────────────────────────

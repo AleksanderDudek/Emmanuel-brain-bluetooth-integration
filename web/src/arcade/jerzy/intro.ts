@@ -1,13 +1,13 @@
 /**
- * Jerzy i smok's calibration intro: dawn over the meadow by the dragon's cave.  The knight and
- * Princess Linda wait at the arena's edge, the dragon sleeps curled at the cave's mouth, and while
- * the reference fills (`p` 0..1) the pennants on the fence are hung one by one and the knight's
- * shield of light grows to its buckler.  The runner's calibration card covers the lower part of the
+ * Jerzy i smok's calibration intro: dawn over the land by the dragon's cave.  The knight and
+ * Princess Linda wait at the field's edge, the dragon sleeps curled at the cave's mouth with his
+ * chicks dozing in the grass, and while the reference fills (`p` 0..1) the knight's ring of light
+ * grows and turns gold, and the last chick opens an eye.  The runner's calibration card covers the lower part of the
  * screen, so the scene sits high.
  */
 import { approach, clamp } from '../kit/juice';
 import { dragonAt, type JerzyProgress } from './meta';
-import { C, glow, paintArena, paintCave, paintDragon, paintFence, paintKnight, paintLinda, paintPennant, paintSurround, type DragonPose, type KnightPose, type LindaPose } from './paint';
+import { glow, paintArena, paintBrood, paintCave, paintDragon, paintKnight, paintLinda, paintSurround, type DragonPose, type KnightPose, type LindaPose } from './paint';
 
 export class JerzyIntro {
   private clock = 0;
@@ -27,15 +27,10 @@ export class JerzyIntro {
     const S = Math.max(18, Math.min((w - 24) / aw, (h * 0.58) / (ah + 1)));
     const ox = (w - aw * S) / 2, oy = Math.max(12 + S, h * 0.08 + S);
     paintArena(ctx, spec.arena, ox, oy, aw, ah, S, t);
-    // the fence and its pennants, hung one by one
-    const x0 = ox + 2.6 * S, x1 = ox + (aw - 0.2) * S, rail = oy - S * 0.85;
-    paintFence(ctx, x0, x1, rail, S);
-    const n = 24;
-    for (let i = 0; i < n; i++) {
-      const on = clamp((k * n - i) * 1.5);
-      if (on <= 0) continue;
-      const x = x0 + (i + 0.5) * ((x1 - x0) / n);
-      paintPennant(ctx, x, rail + S * 0.7, S * 0.7, 0.4 + 0.6 * ((i * 37) % 10) / 10, i % 3 === 0 ? C.gold : '#efe2c4', t, on);
+    // the dragon's chicks dozing in the grass, one waking up as the reference fills
+    for (let i = 0; i < 4; i++) {
+      const cx = ox + (3.2 + i * 1.6) * S, cy = oy + (1.2 + (i % 2) * 0.9) * S;
+      paintBrood(ctx, cx, cy, S, { kind: 'piskle', land: spec.kind, r: 0.32, flip: i % 2 ? 1 : -1, t, hit: 0, elite: false, drowsy: i === 3 && k > 0.8 ? 0 : 1, spit: 0, seed: i });
     }
     paintCave(ctx, ox + 1.3 * S, oy - 0.3 * S, S, spec.arena);
     this.d.kind = spec.kind;

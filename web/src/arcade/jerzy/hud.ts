@@ -1,834 +1,484 @@
 /**
- * Jerzy i smok's HUD on the play canvas: the status card (the block's name and progress or the
- * telegraph; "in your head" — a strategy to try; "the headband" — what the band drives in this
- * block; and a live chip saying what the signal does to the shield or the rest right now), the
- * headline — scales knocked off, counting up live — the dragon's bar (its name, phases and scales),
- * the fight's level and skills, the block card after each block (its own mini-curve and verdict),
- * the story cards (the opening with the root passage, a new town, a dragon driven off), toasts, the
- * words floating over the arena, Princess Linda's speech bubble, the choice of skills at a level-up,
- * and the end of the fight.  Every string is fitted to its room so it reads on a 390 px phone in
- * German and Swedish.
+ * Jerzy i smok's own bits over the field, drawn on the canvas — never the band's panel nor the score
+ * (the runner draws those): the hearts, the level's bar, the run's build, the Miecz światła's dial,
+ * the dragon's bar and the short banners; the level-up's three cards with their numbers (and where
+ * they are, for a tap); the run's tally; the story cards; Linda's speech bubble.
  */
-import { approach, clamp, ease } from '../kit/juice';
-import { layoutPassage, drawPassage, passage, type PassageLayout } from '../kit/scripture';
-import type { TraceBand } from '../kit/trace';
-import { TIPS, dragonName, skillById, townName, townStory } from './content';
-import { t, unit } from './i18n';
+import { fmtNum } from '../../i18n';
+import { ease } from '../kit/juice';
+import { drawPassage, layoutPassage, passage, type PassageLayout } from '../kit/scripture';
+import { WEAPONS, dragonName, gearStats, isWeapon, itemName, townName, townStory, weaponStats, type GearId, type WeaponId } from './content';
+import { t, scales as scalesText } from './i18n';
 import type { Layout, Rect } from './layout';
-import { C, SANS, SERIF, font, paintSkillIcon } from './paint';
-import { RULES, levelNeed, type BlockKind, type JerzySim } from './sim';
+import { C, SANS, SERIF, font, glow, paintApple, paintItemIcon, paintScale } from './paint';
+import { RULES } from './rules';
+import type { Card, JerzySim } from './sim';
+import { xpNeed } from './sim';
 
-interface Float { text: string; x: number; y: number; t: number; dur: number; color: string; font: string; rise: number }
-
-/** A card after a block: its name, its verdict and the block's own curve (normalised 0..1). */
-interface Card {
-  title: string; sub: string; color: string; t: number; dur: number;
-  curve: { x: number; y: number; ty: number; above: boolean; reliable: boolean }[] | null;
-  bands: TraceBand[]; blind: boolean; kind: BlockKind | 'toast';
-}
-
-const TXT = {
-  warmup: t('block.warmup'), push: t('block.push'), blind: t('block.blind'), rest: t('block.rest'), finale: t('block.finale'), done: t('block.done'),
-  nextPush: t('next.push'), nextBlind: t('next.blind'), nextRest: t('next.rest'), nextFinale: t('next.finale'),
-  head: t('label.head'), band: t('label.band'),
-  driveWarm: t('drive.warmup'), drivePush: t('drive.push'), driveBlind: t('drive.blind'), driveRest: t('drive.rest'), driveFinale: t('drive.finale'),
-  above: t('live.above'), below: t('live.below'), none: t('live.none'), calm: t('live.calm'), high: t('live.high'),
-  restWait: t('live.restWait'), blindChip: t('live.blind'),
-  hint: t('hint.tap'), finaleTitle: t('finale.title'), finaleSub: t('finale.sub'),
-  openTitle: t('story.open.title'), openText: t('story.open.text'), tap: t('story.tap'),
-};
-
-const PX = /(\d+(?:\.\d+)?)px/;
-
-export class Hud {
-  private L!: Layout;
-  private readonly ctx: CanvasRenderingContext2D;
-  private readonly floats: Float[] = [];
-  private readonly cards: Card[] = [];
-  private F = Hud.fontsFor(1);
-  private shown = 0;
-  private pop = 0;
-  private hintA = 0;
-  private finaleA = 0;
-  private choiceA = 0;
-  private storyA = 0;
-  private levelPop = 0;
-  private bossHit = 0;
-  /** the status card's bottom this frame (its height follows its words) */
-  statusBottom = 0;
-  private readonly wraps = new Map<string, string[]>();
-  private verse: { key: string; l: PassageLayout } | null = null;
-  /** the skill cards on screen while a choice is open (for taps) */
-  readonly skillRects: Rect[] = [];
-
-  constructor(ctx: CanvasRenderingContext2D) {
-    this.ctx = ctx;
-  }
-
-  private static fontsFor(u: number) {
-    return {
-      name: font(500, 19 * u, SERIF), nameShort: font(500, 15.5 * u, SERIF), tip: font(560, 12 * u, SANS), tipShort: font(560, 10.5 * u, SANS), label: font(800, 9 * u, SANS), chip: font(750, 11.5 * u, SANS),
-      small: font(650, 11 * u, SANS), score: font(500, 36 * u, SERIF), scoreSmall: font(500, 28 * u, SERIF), unit: font(650, 12 * u, SANS), cardTitle: font(500, 17 * u, SERIF, true),
-      cardSub: font(650, 12 * u, SANS), big: font(500, 24 * u, SERIF, true), level: font(800, 11 * u, SANS), boss: font(700, 11.5 * u, SANS),
-      skillName: font(650, 14 * u, SERIF), skillText: font(600, 11.5 * u, SANS), choiceTitle: font(500, 20 * u, SERIF, true),
-      bubble: font(650, 12.5 * u, SANS), storyText: font(560, 13 * u, SANS), storyTitle: font(500, 24 * u, SERIF, true),
-    };
-  }
-
-  /** the middle and the width of the part of the screen cards centre in */
-  private get mx(): number { return (this.L.areaX0 + this.L.w) / 2; }
-  private get aw(): number { return this.L.w - this.L.areaX0; }
-  private get column(): boolean { return this.L.mode !== 'tall'; }
-
-  resize(L: Layout): void {
-    this.L = L;
-    this.F = Hud.fontsFor(L.u);
-    this.wraps.clear();
-    this.verse = null;
-  }
-
-  float(text: string, x: number, y: number, color: string, size = 15, dur = 1.1, rise = 30): void {
-    const u = this.L.u;
-    x = clamp(x, 40 * u, this.L.w - 40 * u);
-    this.floats.push({ text, x, y, t: 0, dur, color, font: font(800, size * u, SANS), rise: rise * u });
-    if (this.floats.length > 18) this.floats.shift();
-  }
-
-  popScore(): void { this.pop = 1; this.bossHit = 1; }
-  popLevel(): void { this.levelPop = 1; }
-
-  /** The card after a block: the block's curve from the sim's trace, its name and its verdict. */
-  blockCard(sim: JerzySim, kind: BlockKind, blind: boolean, verdict: boolean | null, share: number, need: number, t0: number, t1: number, tipGiven: boolean): void {
-    const lay = sim.trace.layout({ x: 0, y: 0, w: 1, h: 1 }, t1, { span: clamp(t1 - t0, 4, 40) });
-    const curve = lay.points.map(p => ({ x: p.x, y: p.y, ty: p.ty, above: p.above, reliable: p.reliable }));
-    const pct = (v: number) => Math.round(v * 100);
-    const title = kind === 'push' ? (blind ? TXT.blind : TXT.push) : TXT.rest;
-    let sub: string, color: string = C.ink;
-    if (blind) {
-      sub = t('blind.reveal', { n: pct(share) });
-      color = '#6a4fa0';
-    } else if (verdict === null) sub = kind === 'rest' && tipGiven ? t('card.tip') : t('card.none');
-    else if (verdict) {
-      sub = kind === 'push' ? t('card.push.pass') : `${t('card.rest.pass')} · ${t('card.tip')}`;
-      color = kind === 'push' ? C.goldDeep : C.calmDeep;
-    } else sub = kind === 'rest' && tipGiven ? `${t('card.near', { share: pct(share), need: pct(need) })} · ${t('card.tip')}` : t('card.near', { share: pct(share), need: pct(need) });
-    this.pushCard({ title, sub, color, t: 0, dur: 3.6, curve, bands: lay.bands.map(b => ({ ...b })), blind, kind });
-  }
-
-  toast(title: string, sub: string, color: string = C.ink): void {
-    this.pushCard({ title, sub, color, t: 0, dur: 2.6, curve: null, bands: [], blind: false, kind: 'toast' });
-  }
-
-  private pushCard(c: Card): void {
-    this.cards.push(c);
-    if (this.cards.length > 5) this.cards.splice(1, 1);
-    const head = this.cards[0];
-    if (this.cards.length > 1) head.dur = Math.min(head.dur, Math.max(1.6, head.t) + 0.3);
-  }
-
-  update(dt: number, sim: JerzySim): void {
-    let n = 0;
-    for (const f of this.floats) if ((f.t += dt) < f.dur) this.floats[n++] = f;
-    this.floats.length = n;
-    const head = this.cards[0];
-    if (head && (head.t += dt) >= head.dur) {
-      this.cards.shift();
-      const next = this.cards[0];
-      if (next && this.cards.length > 1) next.dur = Math.min(next.dur, 2.4);
-    }
-    this.pop = Math.max(0, this.pop - dt * 2.6);
-    this.bossHit = Math.max(0, this.bossHit - dt * 4);
-    this.levelPop = Math.max(0, this.levelPop - dt * 1.5);
-    this.shown = sim.score < this.shown ? sim.score : approach(this.shown, sim.score, dt, 0.08);
-    this.hintA = approach(this.hintA, sim.hint ? 1 : 0, dt, 0.2);
-    this.finaleA = approach(this.finaleA, sim.phase === 'done' && !this.cards.length && !sim.story ? 1 : 0, dt, 0.5);
-    this.choiceA = approach(this.choiceA, sim.choice ? 1 : 0, dt, 0.08);
-    this.storyA = approach(this.storyA, sim.story ? 1 : 0, dt, 0.15);
-  }
-
-  draw(sim: JerzySim): void {
-    this.status(sim);
-    this.score();
-    this.boss(sim);
-    this.levelPill(sim);
-    this.drawFloats();
-    if (!sim.story || sim.story.kind !== 'open') this.drawCard();
-    this.hintPill(sim);
-    this.story(sim);
-    this.finale();
-    this.choice(sim);
-  }
-
-  // ── helpers ─────────────────────────────────────────────────────
-  private paper(x: number, y: number, w: number, h: number, a = 0.92): void {
-    const ctx = this.ctx;
-    ctx.fillStyle = `rgba(247,238,214,${a})`;
-    ctx.strokeStyle = 'rgba(150,115,60,.55)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, 10 * this.L.u);
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  /** The font `f`, shrunk (to `min` of its size at most) so `text` fits `maxW`. */
-  private fit(text: string, maxW: number, f: string, min = 0.7): string {
-    const ctx = this.ctx;
-    ctx.font = f;
-    const w = ctx.measureText(text).width;
-    if (w <= maxW) return f;
-    const m = f.match(PX);
-    if (!m) return f;
-    const size = Math.max(Number(m[1]) * min, (Number(m[1]) * maxW) / w);
-    return f.replace(m[0], `${Math.round(size * 10) / 10}px`);
-  }
-
-  /** `text` wrapped to `maxW` in font `f`, at most `max` lines (the last one ends in "…" when cut); cached. */
-  private lines(text: string, maxW: number, f: string, max: number): string[] {
-    const key = `${f}|${Math.round(maxW)}|${max}|${text}`;
-    let out = this.wraps.get(key);
-    if (!out) {
-      this.ctx.font = f;
-      out = wrap(this.ctx, text, maxW);
-      if (out.length > max) {
-        out = out.slice(0, max);
-        let last = out[max - 1];
-        while (last.length > 1 && this.ctx.measureText(`${last}…`).width > maxW) last = last.slice(0, -1);
-        out[max - 1] = `${last.replace(/[\s,;:.]+$/, '')}…`;
-      }
-      if (this.wraps.size > 80) this.wraps.clear();
-      this.wraps.set(key, out);
-    }
-    return out;
-  }
-
-  // ── the status ──────────────────────────────────────────────────
-  private status(sim: JerzySim): void {
-    const ctx = this.ctx, L = this.L, u = L.u, r = L.status, F = this.F;
-    const b = sim.block, play = sim.phase === 'play';
-    const name = !play ? (sim.phase === 'done' ? TXT.done : TXT.finale) : b.kind === 'warmup' ? TXT.warmup : b.kind === 'rest' ? TXT.rest : b.blind ? TXT.blind : TXT.push;
-    let tip = play ? sim.tip : '';
-    if (play && b.kind === 'warmup') tip = TIPS.warmup[Math.min(2, Math.floor((sim.blockT / Math.max(1, b.dur)) * 3))];
-    const drive = !play ? (sim.phase === 'done' ? '' : TXT.driveFinale) : b.kind === 'warmup' ? TXT.driveWarm : b.kind === 'rest' ? TXT.driveRest : b.blind ? TXT.driveBlind : TXT.drivePush;
-    const short = L.mode === 'short';
-    const pad = (short ? 9 : 12) * u;
-    const textW = r.w - 2 * pad;
-    const lh = (short ? 12.5 : 14.5) * u;
-    const tf = short ? F.tipShort : F.tip;
-    const tipLs = tip ? this.lines(`${TXT.head} ${tip}`, textW, tf, L.tipLines) : [];
-    const driveLs = drive ? this.lines(`${TXT.band} ${drive}`, textW, tf, L.driveLines) : [];
-    const chip = this.chip(sim);
-    const ch = (short ? 16 : 18) * u;
-    const head = (short ? 34 : L.scoreInStatus ? 48 : 44) * u;
-    const hh = Math.min(r.h, head + (tipLs.length + driveLs.length) * lh + (tipLs.length ? 3 * u : 0) + (driveLs.length ? 3 * u : 0) + (chip ? ch + 4 * u : 0) + 8 * u);
-    const cardH = L.scoreInStatus ? Math.max(hh, 70 * u) : hh;
-    this.paper(r.x, r.y, r.w, cardH);
-    this.statusBottom = r.y + cardH;
-    const nameW = r.w - 2 * pad - (L.scoreInStatus ? 104 * u : 0);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = play && b.kind === 'rest' ? '#34507e' : sim.blind ? '#5a4386' : C.ink;
-    ctx.font = this.fit(name, nameW, short ? F.nameShort : F.name);
-    ctx.fillText(name, r.x + pad, r.y + (short ? 6 : 8) * u);
-    // the block's progress, or the telegraph, under the name
-    const by = r.y + (short ? 26 : 33) * u;
-    const left = play ? b.dur - sim.blockT : 0;
-    if (play && left <= RULES.telegraph) {
-      const nb = sim.next;
-      const txt = !nb ? TXT.nextFinale : nb.kind === 'rest' ? TXT.nextRest : TXT.nextPush;
-      ctx.font = this.fit(txt, nameW, F.small);
-      ctx.fillStyle = '#9a4a10';
-      ctx.globalAlpha = 0.7 + 0.3 * Math.sin(sim.t * 6);
-      ctx.fillText(txt, r.x + pad, by - 3 * u);
-      ctx.globalAlpha = 1;
-    } else {
-      ctx.fillStyle = 'rgba(90,70,40,.18)';
-      ctx.fillRect(r.x + pad, by, nameW, 3 * u);
-      ctx.fillStyle = play && b.kind === 'rest' ? C.calm : C.gold;
-      ctx.fillRect(r.x + pad, by, nameW * clamp(play ? sim.blockT / b.dur : 1), 3 * u);
-    }
-    let y = r.y + head;
-    const row = (label: string, ls: string[], color: string) => {
-      if (!ls.length) return;
-      ctx.font = tf;
-      ls.forEach((line, i) => {
-        if (i === 0 && line.startsWith(label)) {
-          ctx.fillStyle = color;
-          ctx.fillText(label, r.x + pad, y);
-          const lw = ctx.measureText(`${label} `).width;
-          ctx.fillStyle = C.inkSoft;
-          ctx.fillText(line.slice(label.length + 1), r.x + pad + lw, y);
-        } else {
-          ctx.fillStyle = C.inkSoft;
-          ctx.fillText(line, r.x + pad, y + i * lh);
-        }
-      });
-      y += ls.length * lh + 3 * u;
-    };
-    row(TXT.head, tipLs, C.ultramarine);
-    row(TXT.band, driveLs, C.vermilionDeep);
-    if (chip) {
-      const cf = this.fit(chip.text, r.w - 2 * pad - 22 * u, F.chip, 0.7);
-      ctx.font = cf;
-      const cw = Math.min(r.w - 2 * pad, ctx.measureText(chip.text).width + 24 * u);
-      const cy = Math.min(y + 1 * u, r.y + cardH - ch - 5 * u);
-      ctx.fillStyle = chip.bg;
-      ctx.beginPath();
-      ctx.roundRect(r.x + pad, cy, cw, ch, ch / 2);
-      ctx.fill();
-      ctx.fillStyle = chip.fg;
-      ctx.beginPath();
-      ctx.arc(r.x + pad + 9 * u, cy + ch / 2, 3.5 * u * (chip.pulse ? 0.8 + 0.3 * Math.sin(sim.t * 7) : 1), 0, Math.PI * 2);
-      ctx.fill();
-      ctx.textBaseline = 'middle';
-      ctx.fillText(chip.text, r.x + pad + 17 * u, cy + ch / 2 + 0.5);
-      ctx.textBaseline = 'top';
-    }
-  }
-
-  /** What the band does right now, in words and a colour. */
-  private chip(sim: JerzySim): { text: string; bg: string; fg: string; pulse: boolean } | null {
-    if (sim.phase !== 'play') return null;
-    const b = sim.block;
-    if (b.kind === 'warmup') return null;
-    if (b.kind === 'push') {
-      if (b.blind) return { text: TXT.blindChip, bg: 'rgba(106,79,160,.16)', fg: '#5a4386', pulse: false };
-      if (sim.blockT < sim.leadIn) return { text: t('live.wait', { lag: t('lag', { n: Math.max(1, Math.ceil(sim.leadIn - sim.blockT)) }) }), bg: 'rgba(80,70,50,.12)', fg: '#6a5a3a', pulse: true };
-      if (!sim.reliable) return { text: TXT.none, bg: 'rgba(120,120,130,.16)', fg: '#6f6f80', pulse: false };
-      return sim.level >= 0.5
-        ? { text: TXT.above, bg: 'rgba(226,178,60,.34)', fg: '#8a5f0c', pulse: true }
-        : { text: TXT.below, bg: 'rgba(80,70,50,.12)', fg: '#6a5a3a', pulse: false };
-    }
-    if (sim.blockT < sim.restLeadIn) return { text: TXT.restWait, bg: 'rgba(127,167,224,.18)', fg: C.calmDeep, pulse: true };
-    if (!sim.reliable) return { text: TXT.none, bg: 'rgba(120,120,130,.16)', fg: '#6f6f80', pulse: false };
-    return sim.calm >= 0.5
-      ? { text: TXT.calm, bg: 'rgba(127,167,224,.28)', fg: C.calmDeep, pulse: true }
-      : { text: TXT.high, bg: 'rgba(80,70,50,.12)', fg: '#6a5a3a', pulse: false };
-  }
-
-  // ── the headline ────────────────────────────────────────────────
-  /** the y under the status card in the column modes */
-  private get colY(): number { return this.statusBottom + 8 * this.L.u; }
-
-  private score(): void {
-    const ctx = this.ctx, L = this.L, F = this.F, u = L.u;
-    const n = Math.round(this.shown);
-    const k = 1 + 0.2 * ease.outBack(this.pop) * this.pop;
-    const inCard = L.scoreInStatus;
-    const short = L.mode === 'short';
-    const nf = short ? F.nameShort.replace('500', '600') : inCard ? F.scoreSmall : F.score;
-    const top = inCard ? L.scoreY : this.colY;
-    let rx = L.scoreX;
-    if (!inCard) {
-      this.paper(L.status.x, top, L.status.w, 54 * u, 0.88);
-      rx = L.status.x + L.status.w - 12 * u;
-    }
-    ctx.save();
-    ctx.translate(rx - (inCard ? 11 * u : 0), top + (short ? 6 : inCard ? 4 : 6) * u);
-    ctx.scale(k, k);
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.font = nf;
-    ctx.fillStyle = C.ink;
-    ctx.fillText(String(n), 0, 0);
-    ctx.restore();
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.font = F.unit;
-    ctx.fillStyle = C.inkSoft;
-    if (short) {
-      // a phone on its side: the unit left of the number, on the name's line
-      ctx.font = nf;
-      const nw = ctx.measureText(String(n)).width;
-      ctx.font = F.unit;
-      ctx.fillText(unit(n), rx - 11 * u - nw - 5 * u, top + 9 * u);
-    } else if (inCard) ctx.fillText(unit(n), rx - 11 * u, top + 32 * u);
-    else {
-      // the unit to the left of the number in the column's card
-      ctx.font = nf;
-      const nw = ctx.measureText(String(n)).width;
-      ctx.font = F.unit;
-      ctx.fillText(unit(n), rx - nw - 10 * u, top + 26 * u);
-      // the scale: a little gold plate at the card's left
-      ctx.fillStyle = C.gold;
-      ctx.beginPath();
-      const sx = L.status.x + 22 * u, sy = top + 27 * u;
-      ctx.moveTo(sx, sy - 12 * u);
-      ctx.quadraticCurveTo(sx + 12 * u, sy - 4 * u, sx, sy + 12 * u);
-      ctx.quadraticCurveTo(sx - 12 * u, sy - 4 * u, sx, sy - 12 * u);
-      ctx.fill();
-      ctx.fillStyle = C.goldDeep;
-      ctx.fillRect(sx - 1, sy - 8 * u, 2, 16 * u);
-    }
-  }
-
-  // ── the dragon's bar ────────────────────────────────────────────
-  private boss(sim: JerzySim): void {
-    const ctx = this.ctx, L = this.L, u = L.u, F = this.F, d = sim.dragon;
-    const r = L.mode === 'wide' ? { x: L.status.x, y: this.colY + 62 * u, w: L.status.w, h: 30 * u } : L.mode === 'short' ? { ...L.boss, y: this.statusBottom + 6 } : L.boss;
-    this.bossRect = r;
-    ctx.fillStyle = 'rgba(42,34,51,.78)';
-    ctx.beginPath();
-    ctx.roundRect(r.x, r.y, r.w, r.h, r.h / 2);
-    ctx.fill();
-    const label = dragonName(d.spec.kind);
-    const name = label.charAt(0).toUpperCase() + label.slice(1);
-    const pad = 12 * u;
-    ctx.font = this.fit(name, r.w * 0.42, F.boss);
-    const nw = ctx.measureText(name).width;
-    ctx.fillStyle = C.goldLight;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(name, r.x + pad, r.y + r.h / 2 + 0.5);
-    // the bar: a segment per phase, the current one draining
-    const bx = r.x + pad + nw + 10 * u, bw = Math.max(30 * u, r.x + r.w - pad - bx), bh = 8 * u, by = r.y + r.h / 2 - bh / 2;
-    const all = d.phases.reduce((s, x) => s + x, 0);
-    let x = bx;
-    d.phases.forEach((ph, i) => {
-      const w = (bw * ph) / all - 2;
-      const fill = i < d.phase ? 0 : i > d.phase ? 1 : d.left / ph;
-      ctx.fillStyle = 'rgba(255,255,255,.15)';
-      ctx.beginPath();
-      ctx.roundRect(x, by, w, bh, 3 * u);
-      ctx.fill();
-      if (fill > 0) {
-        ctx.fillStyle = i === d.phase && this.bossHit > 0.5 ? '#ffffff' : i === d.phase ? '#e8603c' : '#b5503a';
-        ctx.beginPath();
-        ctx.roundRect(x, by, Math.max(2, w * fill), bh, 3 * u);
-        ctx.fill();
-      }
-      x += w + 2;
-    });
-    // gone over the hills: a gold tick
-    if (d.state === 'leave' || d.state === 'away') {
-      ctx.fillStyle = 'rgba(42,34,51,.6)';
-      ctx.fillRect(bx - 2, by - 3, bw + 4, bh + 6);
-    }
-  }
-
-  private bossRect: Rect = { x: 0, y: 0, w: 0, h: 0 };
-  private pillBottom = 0;
-
-  /** The fight's level, its scales to the next, and the skills taken, as small icons. */
-  private levelPill(sim: JerzySim): void {
-    const ctx = this.ctx, L = this.L, u = L.u, F = this.F;
-    const h = 22 * u;
-    let x = this.column ? L.status.x : L.pillX;
-    const y = this.column ? this.bossRect.y + this.bossRect.h + (L.mode === 'short' ? 5 : 8 * u) : L.pillY;
-    this.pillBottom = y + h;
-    // a phone on its side: no room above the simulator's button
-    if (L.mode === 'short' && y + h > L.h - 50) return;
-    const label = t('hud.level', { n: sim.fightLevel + 1 });
-    ctx.font = F.level;
-    const lw = ctx.measureText(label).width;
-    const barW = 54 * u;
-    const ids = Object.keys(sim.taken).filter(id => id !== 'apple') as (keyof typeof sim.taken)[];
-    const iconW = Math.min(ids.length, 6) * 18 * u;
-    const w = 12 * u + lw + 8 * u + barW + 10 * u + iconW;
-    const k = 1 + 0.15 * this.levelPop;
-    // upright: the pill sits in the arena's bottom-right corner (Linda's corner is the left)
-    if (L.mode === 'tall') x = L.w - 14 - w;
-    ctx.save();
-    ctx.translate(x, y + h / 2);
-    ctx.scale(k, k);
-    ctx.translate(-x, -(y + h / 2));
-    ctx.fillStyle = 'rgba(42,34,51,.72)';
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, h / 2);
-    ctx.fill();
-    ctx.fillStyle = C.goldLight;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, x + 10 * u, y + h / 2 + 0.5);
-    const bx = x + 10 * u + lw + 8 * u, byy = y + h / 2 - 3 * u;
-    ctx.fillStyle = 'rgba(255,255,255,.18)';
-    ctx.beginPath();
-    ctx.roundRect(bx, byy, barW, 6 * u, 3 * u);
-    ctx.fill();
-    ctx.fillStyle = C.gold;
-    ctx.beginPath();
-    ctx.roundRect(bx, byy, Math.max(6 * u, barW * clamp(sim.xp / levelNeed(sim.fightLevel))), 6 * u, 3 * u);
-    ctx.fill();
-    ids.slice(0, 6).forEach((id, i) => paintSkillIcon(ctx, id, bx + barW + 18 * u + i * 18 * u, y + h / 2, 6.5 * u));
-    ctx.restore();
-  }
-
-  // ── Linda's bubble ──────────────────────────────────────────────
-  /** A speech bubble pointing at (px, py) (Linda's head), kept on screen and off the status card. */
-  bubble(text: string, px: number, py: number, k: number): void {
-    const ctx = this.ctx, L = this.L, u = L.u, F = this.F;
-    const maxW = Math.min(240 * u, this.aw - 24 * u);
-    const ls = this.lines(text, maxW - 20 * u, F.bubble, 3);
-    ctx.font = F.bubble;
-    const tw = Math.max(...ls.map(l => ctx.measureText(l).width));
-    const w = tw + 20 * u, h = ls.length * 15 * u + 12 * u;
-    const minY = this.column ? TOPMIN * u : this.bossRect.y + this.bossRect.h + 30 * u;
-    const x = clamp(px - w * 0.3, L.areaX0 + 8 * u, L.w - w - 8 * u);
-    const y = clamp(py - h - 14 * u, minY, L.h - h - 8);
-    const pop = ease.outBack(clamp(k * 4));
-    ctx.save();
-    ctx.globalAlpha = clamp(k * 6);
-    ctx.translate(px, py);
-    ctx.scale(pop, pop);
-    ctx.translate(-px, -py);
-    ctx.shadowColor = 'rgba(20,15,10,.3)';
-    ctx.shadowBlur = 10;
-    ctx.fillStyle = '#fffaf0';
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, 10 * u);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    // the tail toward her head
-    const tx = clamp(px, x + 12 * u, x + w - 12 * u), ty = y + h;
-    ctx.beginPath();
-    ctx.moveTo(tx - 7 * u, ty - 1);
-    ctx.lineTo(px, Math.max(ty + 6 * u, py - 4 * u));
-    ctx.lineTo(tx + 7 * u, ty - 1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(79,138,85,.8)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, 10 * u);
-    ctx.stroke();
-    ctx.fillStyle = C.ink;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ls.forEach((l, i) => ctx.fillText(l, x + 10 * u, y + 7 * u + i * 15 * u));
-    ctx.restore();
-  }
-
-  // ── the floats ──────────────────────────────────────────────────
-  private drawFloats(): void {
-    const ctx = this.ctx;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    for (const f of this.floats) {
-      const k = f.t / f.dur;
-      const pop = k < 0.15 ? ease.outBack(k / 0.15) : 1;
-      ctx.globalAlpha = k > 0.7 ? Math.max(0, 1 - (k - 0.7) / 0.3) : 1;
-      ctx.font = f.font;
-      const y = f.y - f.rise * ease.outCubic(k);
-      const half = ctx.measureText(f.text).width / 2 + 6;
-      const x = Math.min(this.L.w - half, Math.max(half, f.x));
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.scale(pop, pop);
-      ctx.lineWidth = 4;
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = 'rgba(30,22,16,.75)';
-      ctx.strokeText(f.text, 0, 0);
-      ctx.fillStyle = f.color;
-      ctx.fillText(f.text, 0, 0);
-      ctx.restore();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  // ── the cards ───────────────────────────────────────────────────
-  private drawCard(): void {
-    const c = this.cards[0];
-    if (!c) return;
-    const ctx = this.ctx, L = this.L, u = L.u, F = this.F;
-    const inK = ease.outBack(clamp(c.t / 0.3)), outK = clamp((c.dur - c.t) / 0.35);
-    let h = (c.curve ? 100 : c.sub ? 56 : 40) * u;
-    // on a desktop the cards sit in the column under the level, off the fight; elsewhere over the arena's top
-    const inCol = L.mode === 'wide' && this.pillBottom + 10 * u + h <= L.h - 70;
-    const w = inCol ? L.status.w : Math.min(310 * u, this.aw - 32);
-    if (!inCol && L.mode === 'short') h = Math.min(h, 80 * u);
-    const cx = inCol ? L.status.x + w / 2 : this.mx;
-    const x = cx - w / 2, y = (inCol ? this.pillBottom + 10 * u : L.cardY - h / 2) + (1 - inK) * -14 * u;
-    ctx.save();
-    ctx.globalAlpha = Math.min(1, outK);
-    ctx.translate(cx, y + h / 2);
-    ctx.scale(0.9 + 0.1 * inK, 0.9 + 0.1 * inK);
-    ctx.translate(-cx, -(y + h / 2));
-    ctx.shadowColor = 'rgba(20,15,10,.35)';
-    ctx.shadowBlur = 16;
-    this.paper(x, y, w, h, 0.97);
-    ctx.shadowBlur = 0;
-    const pad = 12 * u;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = C.ink;
-    ctx.font = this.fit(c.title, w - 2 * pad, F.cardTitle);
-    ctx.fillText(c.title, x + pad, y + 8 * u);
-    ctx.fillStyle = c.color;
-    ctx.font = this.fit(c.sub, w - 2 * pad, F.cardSub, 0.62);
-    ctx.fillText(c.sub, x + pad, y + 32 * u);
-    if (c.curve && c.curve.length > 1) this.miniCurve(c, x + pad, y + 52 * u, w - 2 * pad, h - 60 * u);
-    ctx.restore();
-  }
-
-  /** The block's own curve in miniature; a blind block's smoke lifts across it, left to right. */
-  private miniCurve(c: Card, x: number, y: number, w: number, h: number): void {
-    const ctx = this.ctx;
-    ctx.fillStyle = 'rgba(42,34,51,.9)';
-    ctx.beginPath();
-    ctx.roundRect(x - 2, y - 2, w + 4, h + 4, 4);
-    ctx.fill();
-    for (const b of c.bands) {
-      if (b.phase === 'free') continue;
-      ctx.fillStyle = b.phase === 'rest' ? 'rgba(127,167,224,.25)' : 'rgba(226,178,60,.08)';
-      ctx.fillRect(x + b.x0 * w, y, Math.max(1, (b.x1 - b.x0) * w), h);
-    }
-    const pts = c.curve!;
-    ctx.setLineDash([3, 3]);
-    ctx.strokeStyle = 'rgba(244,232,200,.5)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    pts.forEach((p, i) => (i ? ctx.lineTo(x + p.x * w, y + p.ty * h) : ctx.moveTo(x + p.x * w, y + p.ty * h)));
-    ctx.stroke();
-    ctx.setLineDash([]);
-    const reveal = c.blind ? clamp((c.t - 0.3) / 1.4) : 1;
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    for (let i = 1; i < pts.length; i++) {
-      const a = pts[i - 1], b = pts[i];
-      if (!a.reliable || !b.reliable || b.x > reveal + 1e-6) continue;
-      if (a.above && b.above) {
-        ctx.fillStyle = 'rgba(226,178,60,.32)';
-        ctx.beginPath();
-        ctx.moveTo(x + a.x * w, y + a.ty * h);
-        ctx.lineTo(x + a.x * w, y + a.y * h);
-        ctx.lineTo(x + b.x * w, y + b.y * h);
-        ctx.lineTo(x + b.x * w, y + b.ty * h);
-        ctx.fill();
-      }
-      ctx.strokeStyle = a.above && b.above ? '#ffd36b' : 'rgba(244,232,200,.85)';
-      ctx.beginPath();
-      ctx.moveTo(x + a.x * w, y + a.y * h);
-      ctx.lineTo(x + b.x * w, y + b.y * h);
-      ctx.stroke();
-    }
-    if (reveal < 1) {
-      ctx.fillStyle = 'rgba(110,104,112,.92)';
-      ctx.fillRect(x + reveal * w, y, (1 - reveal) * w, h);
-    }
-  }
-
-  // ── the story cards ─────────────────────────────────────────────
-  private story(sim: JerzySim): void {
-    const s = sim.story;
-    if (!s || this.storyA < 0.02) return;
-    const ctx = this.ctx, L = this.L, u = L.u, F = this.F;
-    const a = this.storyA * clamp((s.dur - s.t) / 0.4);
-    ctx.save();
-    ctx.globalAlpha = a;
-    if (s.kind === 'open') {
-      ctx.fillStyle = 'rgba(20,16,10,.45)';
-      ctx.fillRect(0, 0, L.w, L.h);
-      const w = Math.min(420 * u, this.aw - 28), pad = 16 * u;
-      const textLs = this.lines(TXT.openText, w - 2 * pad, F.storyText, 6);
-      const vw = w - 2 * pad;
-      const key = `${Math.round(vw)}|${Math.round(u * 100)}`;
-      if (!this.verse || this.verse.key !== key) this.verse = { key, l: layoutPassage(ctx, passage('eph6.16'), vw, 110 * u, { max: Math.round(15 * u), min: 10 }) };
-      const vl = this.verse.l;
-      const h = pad + 30 * u + textLs.length * 17 * u + 10 * u + vl.height + 14 * u + 18 * u + pad;
-      const x = this.mx - w / 2, y = clamp(L.cardY - h / 2, L.hudBottom + 6 * u, L.h - h - 8);
-      ctx.shadowColor = 'rgba(20,15,10,.4)';
-      ctx.shadowBlur = 20;
-      this.paper(x, y, w, h, 0.98);
-      ctx.shadowBlur = 0;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = C.vermilionDeep;
-      ctx.font = this.fit(TXT.openTitle, w - 2 * pad, F.storyTitle);
-      ctx.fillText(TXT.openTitle, this.mx, y + pad);
-      ctx.fillStyle = C.ink;
-      ctx.font = F.storyText;
-      let ty = y + pad + 34 * u;
-      for (const l of textLs) {
-        ctx.fillText(l, this.mx, ty);
-        ty += 17 * u;
-      }
-      ty += 8 * u;
-      drawPassage(ctx, passage('eph6.16'), vl, this.mx, ty, { text: '#5a3a1a', ref: C.goldDeep });
-      ty += vl.height + 12 * u;
-      ctx.font = F.small;
-      ctx.fillStyle = C.inkSoft;
-      ctx.globalAlpha = a * (0.6 + 0.4 * Math.sin(sim.t * 4));
-      ctx.fillText(TXT.tap, this.mx, ty);
-    } else {
-      // a town's card: the new dragon's town and its habits, or the town freed
-      const w = Math.min(330 * u, this.aw - 28), h = (s.kind === 'driven' && s.armoury ? 84 : 64) * u;
-      const inK = ease.outBack(clamp(s.t / 0.35));
-      const x = this.mx - w / 2, y = L.oy + 10 * u + (1 - inK) * -12 * u;
-      ctx.shadowColor = 'rgba(20,15,10,.3)';
-      ctx.shadowBlur = 14;
-      this.paper(x, y, w, h, 0.96);
-      ctx.shadowBlur = 0;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      if (s.kind === 'next') {
-        const title = `${townName(s.dragon)} · ${cap(dragonName(s.dragon))}`;
-        ctx.fillStyle = C.vermilionDeep;
-        ctx.font = this.fit(title, w - 20 * u, F.cardTitle);
-        ctx.fillText(title, this.mx, y + 9 * u);
-        const d = sim.dragon, all = d.phases.reduce((q, v) => q + v, 0);
-        const sub = d.damage > 0 && d.spec.kind === s.dragon ? t('story.progress', { left: all - d.damage, all }) : townStory(s.dragon);
-        ctx.fillStyle = C.ink;
-        ctx.font = this.fit(sub, w - 20 * u, F.cardSub, 0.6);
-        ctx.fillText(sub, this.mx, y + 36 * u);
-      } else {
-        const title = t('story.driven.title', { name: cap(dragonName(s.dragon)) });
-        ctx.fillStyle = C.goldDeep;
-        ctx.font = this.fit(title, w - 20 * u, F.cardTitle);
-        ctx.fillText(title, this.mx, y + 9 * u);
-        const sub = t('story.driven.sub', { town: townName(s.dragon), next: s.next ? townName(s.next) : '' });
-        ctx.fillStyle = C.ink;
-        ctx.font = this.fit(sub, w - 20 * u, F.cardSub, 0.6);
-        ctx.fillText(sub, this.mx, y + 36 * u);
-        if (s.armoury) {
-          const arm = t('story.armoury', { name: skillById(s.armoury).name });
-          ctx.fillStyle = C.ultramarine;
-          ctx.font = this.fit(arm, w - 20 * u, F.cardSub, 0.6);
-          ctx.fillText(arm, this.mx, y + 58 * u);
-        }
-      }
-    }
-    ctx.restore();
-  }
-
-  // ── the hint, the end ───────────────────────────────────────────
-  private hintPill(sim: JerzySim): void {
-    if (this.hintA < 0.02) return;
-    const ctx = this.ctx, L = this.L, u = L.u;
-    ctx.font = this.F.cardSub;
-    const w = Math.min(this.aw - 32, ctx.measureText(TXT.hint).width + 28 * u), h = 30 * u;
-    const x = this.mx - w / 2, y = L.oy + RULES.arenaH * L.S - h - 12 * u;
-    ctx.globalAlpha = this.hintA;
-    this.paper(x, y, w, h, 0.94);
-    ctx.fillStyle = C.ink;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font = this.fit(TXT.hint, w - 16 * u, this.F.cardSub);
-    ctx.fillText(TXT.hint, this.mx, y + h / 2);
-    ctx.globalAlpha = 1;
-    void sim;
-  }
-
-  private finale(): void {
-    if (this.finaleA < 0.02) return;
-    const ctx = this.ctx, L = this.L, u = L.u;
-    ctx.globalAlpha = this.finaleA;
-    const w = Math.min(this.aw - 32, 340 * u), h = 74 * u, x = this.mx - w / 2, y = L.cardY - h / 2;
-    this.paper(x, y, w, h, 0.95);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = C.ink;
-    ctx.font = this.fit(TXT.finaleTitle, w - 24 * u, this.F.big);
-    ctx.fillText(TXT.finaleTitle, this.mx, y + 10 * u);
-    ctx.font = this.fit(TXT.finaleSub, w - 24 * u, this.F.cardSub);
-    ctx.fillStyle = C.inkSoft;
-    ctx.fillText(TXT.finaleSub, this.mx, y + 46 * u);
-    ctx.globalAlpha = 1;
-  }
-
-  // ── the choice of skills ────────────────────────────────────────
-  private choice(sim: JerzySim): void {
-    this.skillRects.length = 0;
-    const c = sim.choice;
-    if (!c && this.choiceA < 0.02) return;
-    const ctx = this.ctx, L = this.L, u = L.u, F = this.F;
-    const a = this.choiceA;
-    ctx.fillStyle = `rgba(20,14,8,${0.45 * a})`;
-    ctx.fillRect(0, 0, L.w, L.h);
-    if (!c) return;
-    const gap = 10 * u;
-    const cw = Math.min(180 * u, (this.aw - 32 - 2 * gap) / 3);
-    const arenaTop = L.oy - L.fenceH, arenaBottom = L.oy + RULES.arenaH * L.S;
-    const titleY = Math.max(L.hudBottom + 8 * u, arenaTop);
-    const ch = clamp(arenaBottom - titleY - 60 * u, 84 * u, 160 * u);
-    const total = 3 * cw + 2 * gap;
-    const x0 = this.mx - total / 2;
-    const y0 = titleY + 30 * u;
-    ctx.globalAlpha = a;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    const title = t('level.title', { n: sim.fightLevel + 1 });
-    ctx.font = this.fit(title, this.aw - 32, F.choiceTitle);
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(20,14,8,.7)';
-    ctx.strokeText(title, this.mx, titleY);
-    ctx.fillStyle = C.goldLight;
-    ctx.fillText(title, this.mx, titleY);
-    const left = Math.max(0, RULES.choiceSec - c.t);
-    c.options.forEach((id, i) => {
-      const sk = skillById(id);
-      const x = x0 + i * (cw + gap);
-      const inK = ease.outBack(clamp((c.t - i * 0.06) / 0.28));
-      const y = y0 + (1 - inK) * 20 * u;
-      this.skillRects.push({ x, y: y0, w: cw, h: ch });
-      ctx.save();
-      ctx.globalAlpha = a * clamp(inK);
-      ctx.shadowColor = 'rgba(226,178,60,.5)';
-      ctx.shadowBlur = i === 0 ? 18 * (0.6 + 0.4 * Math.sin(sim.t * 4)) : 10;
-      this.paper(x, y, cw, ch, 0.98);
-      ctx.shadowBlur = 0;
-      ctx.strokeStyle = i === 0 ? C.gold : 'rgba(150,115,60,.5)';
-      ctx.lineWidth = i === 0 ? 2 : 1;
-      ctx.beginPath();
-      ctx.roundRect(x, y, cw, ch, 10 * u);
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(80,60,30,.75)';
-      ctx.font = F.level;
-      ctx.textAlign = 'left';
-      ctx.fillText(String(i + 1), x + 8 * u, y + 7 * u);
-      const lv = sim.taken[id] ?? 0;
-      if (id !== 'apple' && lv > 0) {
-        ctx.textAlign = 'right';
-        ctx.fillStyle = C.goldDeep;
-        ctx.fillText(t('level.lv', { n: lv + 1 }), x + cw - 8 * u, y + 7 * u);
-      }
-      paintSkillIcon(ctx, id, x + cw / 2, y + 30 * u, 15 * u);
-      ctx.textAlign = 'center';
-      ctx.fillStyle = C.ink;
-      ctx.font = this.fit(sk.name, cw - 12 * u, F.skillName, 0.6);
-      ctx.fillText(sk.name, x + cw / 2, y + 54 * u);
-      ctx.fillStyle = C.inkSoft;
-      if (ch >= 96 * u) this.lines(sk.text, cw - 14 * u, F.skillText, Math.max(1, Math.floor((ch - 80 * u) / (14 * u)))).forEach((line, k) => {
-        ctx.font = F.skillText;
-        ctx.fillText(line, x + cw / 2, y + 76 * u + k * 14 * u);
-      });
-      ctx.restore();
-    });
-    const hint = t('level.hint', { n: Math.ceil(left) });
-    const hy = y0 + ch + 8 * u;
-    ctx.globalAlpha = a;
-    ctx.font = this.fit(hint, this.aw - 32, F.small);
-    ctx.fillStyle = 'rgba(255,248,230,.92)';
-    ctx.textAlign = 'center';
-    ctx.fillText(hint, this.mx, hy);
-    const r0 = this.skillRects[0];
-    ctx.fillStyle = C.gold;
-    ctx.fillRect(r0.x + 8 * u, r0.y + ch - 5 * u, (cw - 16 * u) * clamp(left / RULES.choiceSec), 2.5 * u);
-    ctx.globalAlpha = 1;
-  }
-
-  /** Which skill card is at a point (−1: none). */
-  skillAt(x: number, y: number): number {
-    return this.skillRects.findIndex(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
-  }
-}
-
-/** the top a bubble may reach in the column modes (u) */
-const TOPMIN = 60;
-
+const TAU = Math.PI * 2;
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Greedy word wrap with the context's current font. */
 export function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
-  const out: string[] = [];
+  const words = text.split(/\s+/), out: string[] = [];
   let line = '';
-  for (const word of text.split(/\s+/)) {
-    if (!word) continue;
-    const next = line ? `${line} ${word}` : word;
-    if (line && ctx.measureText(next).width > maxW) {
+  for (const w of words) {
+    const tryL = line ? `${line} ${w}` : w;
+    if (ctx.measureText(tryL).width > maxW && line) {
       out.push(line);
-      line = word;
-    } else line = next;
+      line = w;
+    } else line = tryL;
   }
   if (line) out.push(line);
   return out;
+}
+
+function panel(ctx: CanvasRenderingContext2D, r: Rect, fill: string, stroke: string | null, rad: number): void {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.roundRect(r.x, r.y, r.w, r.h, rad);
+  ctx.fill();
+  if (stroke) {
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+function heart(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, fill: number): void {
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(x, y + r * 0.85);
+    ctx.bezierCurveTo(x - r * 1.3, y - r * 0.1, x - r * 0.6, y - r * 1.05, x, y - r * 0.35);
+    ctx.bezierCurveTo(x + r * 0.6, y - r * 1.05, x + r * 1.3, y - r * 0.1, x, y + r * 0.85);
+  };
+  path();
+  ctx.fillStyle = 'rgba(40,20,20,.45)';
+  ctx.fill();
+  if (fill > 0) {
+    ctx.save();
+    path();
+    ctx.clip();
+    ctx.fillStyle = C.vermilion;
+    ctx.fillRect(x - r * 1.4, y - r * 1.1, r * 2.8 * Math.min(1, fill), r * 2.2);
+    ctx.restore();
+  }
+  path();
+  ctx.strokeStyle = 'rgba(255,245,225,.9)';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+}
+
+export class Hud {
+  /** the cards' rects this frame (for a tap) */
+  cards: Rect[] = [];
+  private passage: { id: string; l: PassageLayout; w: number } | null = null;
+
+  /** Which card a tap at (x, y) lands on (−1: none). */
+  cardAt(x: number, y: number): number {
+    return this.cards.findIndex(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+  }
+
+  /** The hearts, the level's bar, the build, the sword's dial. */
+  drawBars(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number, pop: number): void {
+    const u = L.u, k = sim.knight;
+    // the level's bar
+    const xp = L.xp;
+    panel(ctx, { x: xp.x - 2, y: xp.y - 2, w: xp.w + 4, h: xp.h + 4 }, 'rgba(30,26,40,.6)', null, (xp.h + 4) / 2);
+    const fill = sim.levelProgress;
+    const g = ctx.createLinearGradient(xp.x, 0, xp.x + xp.w, 0);
+    g.addColorStop(0, '#c8901c');
+    g.addColorStop(1, '#ffe08a');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.roundRect(xp.x, xp.y, Math.max(xp.h, xp.w * fill), xp.h, xp.h / 2);
+    ctx.fill();
+    ctx.font = font(800, 12 * u, SANS);
+    ctx.textBaseline = 'bottom';
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#fff8e6';
+    ctx.fillText(`${fmtNum(Math.floor(sim.run.xp))} / ${fmtNum(xpNeed(sim.run.level))}`, xp.x + xp.w, xp.y - 3);
+    ctx.textAlign = 'left';
+    ctx.font = font(800, (13 + 4 * pop) * u, SANS);
+    ctx.fillText(t('hud.level', { n: sim.run.level }), xp.x, xp.y - 3);
+    // hearts (half hearts show)
+    const hr = 8.5 * u, gap = hr * 2.5;
+    const lw = ctx.measureText(t('hud.level', { n: sim.run.level })).width;
+    let hx = xp.x + lw + 16 * u + hr;
+    const hy = xp.y - 10 * u;
+    for (let i = 0; i < k.max; i++) {
+      heart(ctx, hx, hy, hr * (k.hit > 0 && i === Math.floor(k.hearts) ? 1.2 : 1), Math.max(0, Math.min(1, k.hearts - i)));
+      hx += gap;
+    }
+    for (let i = 0; i < sim.run.apples; i++) {
+      paintApple(ctx, hx + 2 * u, hy, hr * 0.85);
+      hx += gap * 0.9;
+    }
+    // the build: weapons, then gear (not on a very short screen)
+    let bx = xp.x, by = L.buildY;
+    const showBuild = L.h >= 340;
+    const br = 11 * u;
+    for (const it of showBuild ? sim.build : []) {
+      panel(ctx, { x: bx, y: by - br, w: br * 2, h: br * 2 }, isWeapon(it.id) ? 'rgba(30,26,40,.62)' : 'rgba(47,79,158,.55)', it.level >= 6 ? C.gold : null, 6 * u);
+      paintItemIcon(ctx, it.id, bx + br, by, br * 0.62, it.level >= 6);
+      ctx.font = font(800, 9 * u, SANS);
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = it.level >= 6 ? C.goldLight : '#fff';
+      ctx.fillText(it.level >= 6 ? '★' : String(it.level), bx + br * 2 - 2, by + br - 2);
+      bx += br * 2 + 4 * u;
+    }
+    // the sword's dial
+    const sw = L.sword;
+    ctx.save();
+    if (sim.swordReady) {
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, sw.x, sw.y, sw.r * (2 + 0.3 * Math.sin(now * 6)), 'rgba(255,220,130,', 0.6);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.fillStyle = 'rgba(30,26,40,.7)';
+    ctx.beginPath();
+    ctx.arc(sw.x, sw.y, sw.r, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = sim.swordReady ? C.goldLight : C.gold;
+    ctx.lineWidth = 4 * u;
+    ctx.beginPath();
+    ctx.arc(sw.x, sw.y, sw.r - 3 * u, -Math.PI / 2, -Math.PI / 2 + TAU * sim.charge);
+    ctx.stroke();
+    // the blade
+    ctx.strokeStyle = sim.swordReady ? '#fffbe8' : C.steel;
+    ctx.lineWidth = 3 * u;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(sw.x - sw.r * 0.35, sw.y + sw.r * 0.35);
+    ctx.lineTo(sw.x + sw.r * 0.4, sw.y - sw.r * 0.4);
+    ctx.stroke();
+    ctx.strokeStyle = C.goldDeep;
+    ctx.beginPath();
+    ctx.moveTo(sw.x - sw.r * 0.4, sw.y + sw.r * 0.05);
+    ctx.lineTo(sw.x - sw.r * 0.05, sw.y + sw.r * 0.4);
+    ctx.stroke();
+    ctx.restore();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.font = font(800, (sim.swordReady ? 13 : 10.5) * u, SANS);
+    ctx.fillStyle = sim.swordReady ? C.goldLight : 'rgba(255,248,230,.85)';
+    const label = sim.swordReady ? t('hud.swordTap') : t('hud.sword');
+    ctx.fillText(label, Math.min(sw.x, L.w - ctx.measureText(label).width / 2 - 6), sw.y - sw.r - 4 * u);
+  }
+
+  /** The dragon's bar while he is around (or flying off for his nap). */
+  drawBoss(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim): void {
+    const b = sim.boss;
+    if (b.state === 'away') return;
+    const r = L.boss, u = L.u;
+    panel(ctx, r, 'rgba(30,26,40,.7)', null, 8 * u);
+    const pad = 8 * u;
+    ctx.font = font(700, 12 * u, SERIF);
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff3d6';
+    const name = cap(dragonName(b.spec.kind));
+    ctx.fillText(name, r.x + pad, r.y + r.h / 2);
+    const nx = r.x + pad + ctx.measureText(name).width + 10 * u;
+    const bw = r.x + r.w - pad - nx, bh = 8 * u, by = r.y + (r.h - bh) / 2;
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    ctx.fillRect(nx, by, bw, bh);
+    const left = 1 - b.damage / b.all;
+    ctx.fillStyle = b.state === 'flaw' ? C.goldLight : C.vermilion;
+    ctx.fillRect(nx, by, bw * left, bh);
+    ctx.fillStyle = 'rgba(30,26,40,.9)';
+    for (let i = 1; i < 3; i++) ctx.fillRect(nx + (bw * i) / 3 - 1, by, 2, bh);
+  }
+
+  /** A short banner in the middle of the band (wave, the dragon, a chest). */
+  drawBanner(ctx: CanvasRenderingContext2D, L: Layout, text: string, k: number, color: string): void {
+    if (!text || k <= 0) return;
+    const u = L.u;
+    const a = k < 0.15 ? k / 0.15 : k > 0.8 ? (1 - k) / 0.2 : 1;
+    const sc = k < 0.15 ? ease.outBack(k / 0.15) : 1;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, a);
+    ctx.translate(L.w / 2, L.bannerY);
+    ctx.scale(sc, sc);
+    ctx.font = font(800, 24 * u, SERIF, true);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 5 * u;
+    ctx.strokeStyle = 'rgba(30,20,20,.55)';
+    ctx.strokeText(text, 0, 0);
+    ctx.fillStyle = color;
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+  }
+
+  /** The level-up: three cards with their numbers. */
+  drawChoice(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number): void {
+    const ch = sim.choice;
+    this.cards = [];
+    if (!ch) return;
+    const u = L.u, k = Math.min(1, ch.t / 0.25);
+    ctx.fillStyle = `rgba(20,16,28,${0.55 * k})`;
+    ctx.fillRect(0, 0, L.w, L.h);
+    const title = ch.source === 'rest' ? t('choice.rest') : t('choice.level', { n: sim.run.level });
+    const n = ch.cards.length;
+    const areaTop = L.top + 8 * u, areaBot = L.bottom - 8 * u;
+    // a phone on its side: little height, so the cards lie in a row, each drawn like a narrow one
+    const short = !L.narrow && areaBot - areaTop < 300 * u;
+    let cw: number, chh: number, positions: { x: number; y: number }[];
+    if (short) {
+      const bot = L.h - 50;
+      cw = Math.min(250 * u, (L.w - 40) / n - 10);
+      chh = Math.max(64, Math.min(120 * u, bot - areaTop - 40 * u));
+      const total = n * cw + (n - 1) * 10;
+      positions = ch.cards.map((_, i) => ({ x: (L.w - total) / 2 + i * (cw + 10), y: areaTop + 30 * u }));
+    } else if (L.narrow) {
+      cw = Math.min(L.w - 28, 360);
+      chh = Math.min(118 * u, (areaBot - areaTop - 70 * u) / n - 10 * u);
+      const total = n * chh + (n - 1) * 10 * u;
+      const y0 = areaTop + 48 * u + Math.max(0, (areaBot - areaTop - 70 * u - total) / 2);
+      positions = ch.cards.map((_, i) => ({ x: (L.w - cw) / 2, y: y0 + i * (chh + 10 * u) }));
+    } else {
+      cw = Math.min(230 * u, (L.w - 60) / n - 16);
+      chh = Math.min(215 * u, areaBot - areaTop - 90 * u);
+      const total = n * cw + (n - 1) * 16 * u;
+      const y0 = areaTop + 50 * u + Math.max(0, (areaBot - areaTop - 90 * u - chh) / 2);
+      positions = ch.cards.map((_, i) => ({ x: (L.w - total) / 2 + i * (cw + 16 * u), y: y0 }));
+    }
+    const titleY = positions[0].y - (short ? 16 : 30) * u;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = font(800, (short ? 18 : 24) * u, SERIF, true);
+    ctx.fillStyle = C.goldLight;
+    ctx.fillText(title, L.w / 2, titleY);
+    if (ch.gold && !short) {
+      ctx.font = font(700, 12 * u, SANS);
+      ctx.fillStyle = '#fff3d6';
+      ctx.fillText(t('choice.gold'), L.w / 2, titleY + 18 * u);
+    }
+    ch.cards.forEach((card, i) => {
+      const p = positions[i];
+      const pop = ease.outBack(Math.min(1, Math.max(0, (ch.t - i * 0.06) / 0.3)));
+      const r = { x: p.x, y: p.y, w: cw, h: chh };
+      this.cards.push(r);
+      ctx.save();
+      ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
+      ctx.scale(pop, pop);
+      ctx.translate(-r.w / 2, -r.h / 2);
+      this.drawCard(ctx, { x: 0, y: 0, w: r.w, h: r.h }, card, sim, ch.gold, i, u, L.narrow || short, now);
+      ctx.restore();
+    });
+    // the auto-pick countdown on the first card, and the hint
+    const left = Math.max(0, RULES.choiceSec - ch.t);
+    const r0 = this.cards[0];
+    ctx.fillStyle = C.gold;
+    ctx.fillRect(r0.x + 10 * u, r0.y + r0.h - 6 * u, (r0.w - 20 * u) * (left / RULES.choiceSec), 3 * u);
+    const last = this.cards[this.cards.length - 1];
+    ctx.font = font(600, 12 * u, SANS);
+    ctx.fillStyle = 'rgba(255,248,230,.85)';
+    ctx.textAlign = 'center';
+    if (!short) ctx.fillText(t('choice.hint'), L.w / 2, Math.min(L.bottom - 4, last.y + last.h + 16 * u));
+  }
+
+  private drawCard(ctx: CanvasRenderingContext2D, r: Rect, card: Card, sim: JerzySim, gold: boolean, i: number, u: number, narrow: boolean, now: number): void {
+    const evo = card.kind === 'evo';
+    panel(ctx, r, evo ? '#fff4cf' : '#f6ecd2', evo || gold ? C.gold : 'rgba(120,90,40,.35)', 12 * u);
+    if (evo) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, r.x + r.w / 2, r.y + r.h * 0.3, r.w * 0.6, 'rgba(255,200,90,', 0.2 + 0.1 * Math.sin(now * 4));
+      ctx.restore();
+    }
+    const pad = 12 * u;
+    ctx.fillStyle = 'rgba(42,34,51,.5)';
+    ctx.font = font(800, 11 * u, SANS);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(String(i + 1), r.x + pad * 0.7, r.y + pad * 0.6);
+    const iconId = card.kind === 'apple' ? 'apple' : card.kind === 'scales' ? 'scales' : card.id!;
+    const title = sim.cardTitle(card);
+    const tag = evo ? t('card.evo') : card.kind === 'new' ? t('card.new') : card.kind === 'up' ? t('card.lv', { a: card.from, b: card.to }) : '';
+    const desc = card.kind === 'apple' ? t('card.apple.text') : card.kind === 'scales' ? t('card.scales.text')
+      : isWeapon(card.id!) ? weaponStats(card.id as WeaponId, card.to) : gearStats(card.id as GearId, card.to);
+    const pair = card.id && isWeapon(card.id) && !evo ? t('card.pair', { name: itemName(WEAPONS[card.id as WeaponId].pair) }) : '';
+    if (narrow) {
+      const ir = Math.min(r.h * 0.3, 26 * u, r.w * 0.12);
+      paintItemIcon(ctx, iconId, r.x + pad + ir, r.y + r.h / 2, ir, evo);
+      const tx = r.x + pad * 2 + ir * 2, tw = r.w - (tx - r.x) - pad;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = C.ink;
+      ctx.font = font(700, 16 * u, SERIF);
+      ctx.fillText(title, tx, r.y + pad * 0.7);
+      ctx.font = font(800, 10.5 * u, SANS);
+      ctx.fillStyle = evo ? C.goldDeep : C.vermilionDeep;
+      ctx.fillText(tag, tx, r.y + pad * 0.7 + 20 * u);
+      ctx.font = font(500, 11.5 * u, SANS);
+      ctx.fillStyle = C.inkSoft;
+      wrap(ctx, desc, tw).slice(0, 2).forEach((l, j) => ctx.fillText(l, tx, r.y + pad * 0.7 + 36 * u + j * 14 * u));
+      if (pair) {
+        ctx.font = font(600, 10 * u, SANS);
+        ctx.fillStyle = 'rgba(42,34,51,.55)';
+        ctx.fillText(pair, tx, r.y + r.h - pad - 8 * u);
+      }
+      return;
+    }
+    const ir = Math.min(r.w * 0.17, 30 * u);
+    paintItemIcon(ctx, iconId, r.x + r.w / 2, r.y + pad + ir + 6 * u, ir, evo);
+    ctx.textAlign = 'center';
+    let y = r.y + pad + ir * 2 + 18 * u;
+    ctx.fillStyle = C.ink;
+    ctx.font = font(700, 18 * u, SERIF);
+    wrap(ctx, title, r.w - pad * 2).slice(0, 2).forEach(l => { ctx.fillText(l, r.x + r.w / 2, y); y += 21 * u; });
+    if (tag) {
+      ctx.font = font(800, 11 * u, SANS);
+      ctx.fillStyle = evo ? C.goldDeep : C.vermilionDeep;
+      ctx.fillText(tag, r.x + r.w / 2, y + 2 * u);
+      y += 20 * u;
+    }
+    ctx.font = font(500, 12.5 * u, SANS);
+    ctx.fillStyle = C.inkSoft;
+    wrap(ctx, desc, r.w - pad * 2).slice(0, 4).forEach(l => { ctx.fillText(l, r.x + r.w / 2, y); y += 16 * u; });
+    if (pair) {
+      ctx.font = font(600, 10.5 * u, SANS);
+      ctx.fillStyle = 'rgba(42,34,51,.55)';
+      ctx.fillText(pair, r.x + r.w / 2, r.y + r.h - pad - 16 * u);
+    }
+  }
+
+  /** The run's tally: what it gathered, how near the record, and on to the next. */
+  drawTally(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number): void {
+    const ta = sim.tally;
+    if (!ta) return;
+    const u = L.u, k = Math.min(1, ta.t / 0.3);
+    ctx.fillStyle = `rgba(20,16,28,${0.6 * k})`;
+    ctx.fillRect(0, 0, L.w, L.h);
+    const w = Math.min(L.w - 28, 400 * u), h = 230 * u;
+    const r = { x: (L.w - w) / 2, y: L.top + Math.max(4, Math.min((L.bottom - L.top - h) / 2, L.h - L.top - h - 4)), w, h };
+    ctx.save();
+    ctx.translate(r.x + w / 2, r.y + h / 2);
+    const sc = ease.outBack(k);
+    ctx.scale(sc, sc);
+    ctx.translate(-w / 2, -h / 2);
+    panel(ctx, { x: 0, y: 0, w, h }, '#f6ecd2', C.gold, 14 * u);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = C.ink;
+    ctx.font = font(800, 22 * u, SERIF, true);
+    ctx.fillText(t('tally.title', { n: ta.run }), w / 2, 30 * u);
+    const cols: [string, string][] = [
+      [t('tally.scales'), fmtNum(ta.scales)],
+      [t('tally.time'), `${Math.floor(ta.time / 60)}:${String(Math.floor(ta.time % 60)).padStart(2, '0')}`],
+      [t('tally.level'), String(ta.level)],
+    ];
+    cols.forEach(([kk, v], i) => {
+      const cx = w * (0.2 + 0.3 * i);
+      ctx.font = font(800, 26 * u, SANS);
+      ctx.fillStyle = i === 0 ? C.goldDeep : C.ink;
+      ctx.fillText(v, cx, 78 * u);
+      ctx.font = font(600, 11 * u, SANS);
+      ctx.fillStyle = C.inkSoft;
+      ctx.fillText(kk, cx, 102 * u);
+    });
+    if (ta.scales > 0) paintScale(ctx, w * 0.2 - 34 * u, 78 * u, 9 * u, 10, now);
+    ctx.font = font(700, 14 * u, SANS);
+    ctx.fillStyle = ta.best ? C.goldDeep : C.vermilionDeep;
+    const line = ta.best ? t('tally.best') : ta.toBest > 0 ? t('tally.toBest', { scales: scalesText(ta.toBest) }) : '';
+    if (line) ctx.fillText(line, w / 2, 134 * u);
+    ctx.font = font(500, 12 * u, SANS);
+    ctx.fillStyle = C.inkSoft;
+    wrap(ctx, t('tally.kept'), w - 30 * u).slice(0, 2).forEach((l, i) => ctx.fillText(l, w / 2, 160 * u + i * 15 * u));
+    if (ta.t >= RULES.tallyMin) {
+      ctx.font = font(800, 13 * u, SANS);
+      ctx.fillStyle = C.goldDeep;
+      ctx.fillText(t('tally.next'), w / 2, h - 22 * u);
+    }
+    ctx.restore();
+  }
+
+  /** The opening card (the first session) and the card of a freed land. */
+  drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim): void {
+    const st = sim.story;
+    if (!st || st.t < 0) return;
+    const u = L.u, k = Math.min(1, st.t / 0.35), out = st.dur - st.t < 0.3 ? (st.dur - st.t) / 0.3 : 1;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(k, out));
+    ctx.fillStyle = 'rgba(20,16,28,.6)';
+    ctx.fillRect(0, 0, L.w, L.h);
+    const w = Math.min(L.w - 24, 470 * u);
+    const open = st.kind === 'open';
+    const pad = 18 * u;
+    // measure first: the card fits its words (and the passage) and no more
+    ctx.font = font(500, 14 * u, SANS);
+    const openLines = open ? wrap(ctx, t('story.open.text'), w - pad * 2).slice(0, 5) : [];
+    ctx.font = font(800, 21 * u, SERIF, true);
+    const next = st.to ?? st.from;
+    const titleLines = open ? [] : wrap(ctx, t('story.land.title', { name: cap(dragonName(st.from)) }), w - pad * 2).slice(0, 2);
+    ctx.font = font(500, 13.5 * u, SANS);
+    const sub = t('story.land.sub', { town: townName(st.from), next: townName(next), story: `${cap(dragonName(next))} ${townStory(next)}` });
+    const subLines = open ? [] : wrap(ctx, sub, w - pad * 2).slice(0, 4);
+    const room = L.h - L.top - 16;
+    const ps = passage('eph6.16');
+    if (open && (!this.passage || this.passage.w !== w)) this.passage = { id: 'eph6.16', l: layoutPassage(ctx, ps, w - pad * 2, Math.max(40, room - (36 * u + openLines.length * 19 * u + pad * 2 + 40 * u)), { max: 16, min: 10 }), w };
+    const h = open ? Math.min(room, pad * 2 + 36 * u + openLines.length * 19 * u + 10 * u + (this.passage?.l.height ?? 60) + 34 * u)
+      : pad * 2 + titleLines.length * 26 * u + subLines.length * 18 * u + 8 * u;
+    const r = { x: (L.w - w) / 2, y: L.top + Math.max(8, Math.min(40 * u, (L.h - L.top - h) / 3)), w, h };
+    panel(ctx, r, '#f6ecd2', C.gold, 14 * u);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = C.ink;
+    if (open) {
+      ctx.font = font(800, 24 * u, SERIF, true);
+      ctx.fillText(t('story.open.title'), L.w / 2, r.y + pad);
+      ctx.font = font(500, 14 * u, SANS);
+      ctx.fillStyle = C.inkSoft;
+      let y = r.y + pad + 36 * u;
+      for (const l of openLines) { ctx.fillText(l, L.w / 2, y); y += 19 * u; }
+      if (this.passage) drawPassage(ctx, ps, this.passage.l, L.w / 2, y + 10 * u, { text: C.ink, ref: C.goldDeep });
+      ctx.font = font(800, 12 * u, SANS);
+      ctx.fillStyle = C.goldDeep;
+      ctx.fillText(t('story.tap'), L.w / 2, r.y + h - pad - 6 * u);
+    } else {
+      ctx.font = font(800, 21 * u, SERIF, true);
+      let y = r.y + pad;
+      for (const l of titleLines) { ctx.fillText(l, L.w / 2, y); y += 26 * u; }
+      ctx.font = font(500, 13.5 * u, SANS);
+      ctx.fillStyle = C.inkSoft;
+      for (const l of subLines) { ctx.fillText(l, L.w / 2, y + 6 * u); y += 18 * u; }
+    }
+    ctx.restore();
+  }
+
+  /** Linda's bubble over her head (kept on screen and under the runner's HUD). */
+  drawBubble(ctx: CanvasRenderingContext2D, L: Layout, text: string, x: number, y: number, k: number): void {
+    const u = L.u;
+    ctx.save();
+    ctx.font = font(600, 13 * u, SANS);
+    const maxW = Math.min(250 * u, L.w - 24);
+    const lines = wrap(ctx, text, maxW - 20 * u);
+    const lh = 16 * u;
+    const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 20 * u), bh = lines.length * lh + 14 * u;
+    const bx = Math.max(8, Math.min(L.w - bw - 8, x - bw * 0.3));
+    const by = Math.max(L.top + 4, Math.min(L.bottom - bh - 60 * u, y - bh - 12 * u));
+    ctx.globalAlpha = Math.min(1, k * 4);
+    ctx.fillStyle = '#fffaf0';
+    ctx.strokeStyle = 'rgba(42,34,51,.35)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(bx, by, bw, bh, 10 * u);
+    ctx.fill();
+    ctx.stroke();
+    // the tail toward Linda
+    const tx = Math.max(bx + 12, Math.min(bx + bw - 12, x));
+    if (by + bh < y) {
+      ctx.beginPath();
+      ctx.moveTo(tx - 6 * u, by + bh - 1);
+      ctx.lineTo(x, Math.min(y - 4, by + bh + 10 * u));
+      ctx.lineTo(tx + 6 * u, by + bh - 1);
+      ctx.fill();
+    }
+    ctx.fillStyle = C.ink;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    lines.forEach((l, i) => ctx.fillText(l, bx + 10 * u, by + 7 * u + i * lh));
+    ctx.restore();
+  }
 }
