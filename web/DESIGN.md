@@ -451,8 +451,9 @@ app, Teleo, does (owner request, 2026-11-08), in `src/ui/support.ts` with its te
   bar to the ribbon) and is never dismissed. It is on every screen of the app; focus training,
   the exercise cards and every game run in full-screen layers above it, and the hemisphere
   balance (which runs inside its page) hides it (`body[data-view="balance"]`), so it never
-  shows while someone trains or plays. It is 40 px high (`--ribbon-h`), enough for a thumb
-  without crowding a phone that also has the app bar and the tab bar. Below 460 px it says only the
+  shows while someone trains or plays. It takes 15 % of the screen's height (`--ribbon-h: 15svh`,
+  the small viewport, so it does not jump when a phone's address bar hides; owner request
+  2026-11-08), with text and icons scaled to it (15–24 px). Below 460 px it says only the
   ask ("Buy the author a coffee"), so it never ends in an ellipsis.
 * **The window at the end of every tab** (Start, Training, Games, Signal, Sessions, Settings),
   after where to buy a band: a thought for today first, so the block is worth reading on its own

@@ -22,7 +22,7 @@
   --font-head:'Fraunces Variable','Fraunces',Georgia,serif;
   --mono:'JetBrains Mono',ui-monospace,monospace;
   --rail:92px;
-  --gold:#e0b664;--gold-2:#f3d58f;--gold-ink:#2a1d05;--ribbon-h:40px;
+  --gold:#e0b664;--gold-2:#f3d58f;--gold-ink:#2a1d05;--ribbon-h:15svh;
   color-scheme:dark;
 }
 body[data-tool="fnirs"]{--tool:var(--fnirs);--tool-2:var(--fnirs-2);--tool-dim:rgba(255,122,89,.13);--tool-glow:rgba(255,122,89,.16)}
@@ -60,14 +60,14 @@ h1,h2,h3{font-family:var(--font-head);font-weight:500;letter-spacing:-.01em;font
 .app{position:relative;z-index:1;display:grid;grid-template-columns:var(--rail) minmax(0,1fr);grid-template-rows:auto auto 1fr;min-height:100vh;min-height:100dvh}
 /* the ribbon and the app bar stick together at the top (src/ui/support.ts) */
 .topbar{grid-column:1/-1;position:sticky;top:0;z-index:20}
-.support-ribbon{display:flex;align-items:center;justify-content:center;gap:10px;min-height:calc(var(--ribbon-h) + env(safe-area-inset-top));padding:0 16px;
-  padding-top:env(safe-area-inset-top);color:var(--gold-2);font-size:13.5px;font-weight:650;letter-spacing:.01em;text-decoration:none;
+.support-ribbon{display:flex;align-items:center;justify-content:center;gap:clamp(10px,1.6svh,18px);min-height:calc(var(--ribbon-h) + env(safe-area-inset-top));padding:0 16px;
+  padding-top:env(safe-area-inset-top);color:var(--gold-2);font-size:clamp(15px,2.6svh,24px);font-weight:650;letter-spacing:.01em;text-decoration:none;
   background:linear-gradient(90deg,transparent,rgba(224,182,100,.16) 50%,transparent),rgba(32,25,12,.92);
   border-bottom:1px solid rgba(224,182,100,.28);transition:color .2s,background-color .2s}
 .support-ribbon span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.support-ribbon svg{width:20px;height:20px;flex:none}
+.support-ribbon svg{width:1.45em;height:1.45em;flex:none}
 .support-ribbon .ribbon-short{display:none}
-.support-ribbon svg.caret{width:15px;height:15px;opacity:.7}
+.support-ribbon svg.caret{width:1em;height:1em;opacity:.7}
 .support-ribbon:hover{color:#fff4d6}
 .support-ribbon:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
 /* the hemisphere balance runs inside the page, not in a layer: no ribbon over a live exercise */
