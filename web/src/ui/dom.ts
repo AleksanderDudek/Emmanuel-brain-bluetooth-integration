@@ -28,6 +28,18 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return n;
 }
 
+/** An icon of the page's sprite (`#i-<id>` in index.html): an SVG element needs its namespace, `h()` makes HTML ones. */
+export function icon(id: string, cls?: string): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('aria-hidden', 'true');
+  if (cls) svg.setAttribute('class', cls);
+  const use = document.createElementNS(ns, 'use');
+  use.setAttribute('href', `#i-${id}`);
+  svg.append(use);
+  return svg;
+}
+
 export const fmt = (v: number | null | undefined, d = 2): string =>
   v === null || v === undefined || Number.isNaN(v) ? '—' : Number(v).toFixed(d);
 

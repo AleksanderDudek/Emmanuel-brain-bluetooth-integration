@@ -52,6 +52,10 @@ try {
   for (lang of langs) {
     await page.goto(url(lang, 'start'), { waitUntil: 'networkidle0' });
     await page.waitForFunction(() => globalThis.brainlink?.hub.status.signal.reliable, { timeout: 40_000 });
+    // the coffee jar follows the language (src/ui/support.ts): buycoffee.to in Polish, buymeacoffee.com otherwise
+    const jars = await page.evaluate(() => [...document.querySelectorAll('#supportRibbon, .support-coffee')].map(a => new URL(a.href).hostname));
+    const jar = lang === 'pl' ? 'buycoffee.to' : 'buymeacoffee.com';
+    if (jars.length !== 7 || jars.some(j => j !== jar)) problems.push(`[${lang}] coffee links ${jars.join(', ')}; expected 7 × ${jar}`);
     for (const [size, vp] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
       await page.setViewport(vp);
       for (const v of views) {

@@ -439,3 +439,36 @@ audience, objections and voice are kept in `.agents/product-marketing.md` at the
 database `brainlink`, the `brainlink-hub` protocol, the `globalThis.brainlink` debug object, the
 `brainlink.lang` storage key, CSS classes, file names, and the Python package `brainlink/`.
 Saved sessions, installed apps and scripts keep working.
+
+## 12. Supporting the author, and reaching the author
+
+Emmanuel is free, with no ads and no tracking. It asks for support the way the author's other
+app, Teleo, does (owner request, 2026-11-08), in `src/ui/support.ts` with its texts in
+`src/i18n/support.ts`:
+
+* **The ribbon**: one gilded line, "Emmanuel is free · buy the author a coffee", above the app
+  bar. It sticks with the app bar (both sit in `.topbar`; the safe-area inset moved from the app
+  bar to the ribbon) and is never dismissed. It is on every screen of the app; focus training,
+  the exercise cards and every game run in full-screen layers above it, and the hemisphere
+  balance (which runs inside its page) hides it (`body[data-view="balance"]`), so it never
+  shows while someone trains or plays. It is 40 px high (`--ribbon-h`), enough for a thumb
+  without crowding a phone that also has the app bar and the tab bar. Below 460 px it says only the
+  ask ("Buy the author a coffee"), so it never ends in an ellipsis.
+* **The window at the end of every tab** (Start, Training, Games, Signal, Sessions, Settings),
+  after where to buy a band: a thought for today first, so the block is worth reading on its own
+  (ten short practice thoughts, the same all day, the next one tomorrow; they keep the brand's
+  rule and never promise faith or experiences), then "Help keep Emmanuel going" with one gold
+  coffee button, then **Write to the author**: Instagram, LinkedIn and Facebook as three
+  labelled 44 px links. Desktop puts the thought and the ask side by side; a phone stacks them.
+* **The jar follows the interface language**: Polish → `buycoffee.to/uriel` (a Polish service),
+  English, German and Swedish → `buymeacoffee.com/atd_uriel`. The note under the button and the
+  link's label name the site the reader is about to open.
+* Every link opens in a new tab with `noopener noreferrer`. Nothing is loaded from those sites
+  until a link is tapped (no widgets, no embedded buttons), so "nothing is sent out" in About
+  stays true and the Content-Security-Policy is unchanged.
+* Not in the HolyHolyHoly games (separate pages, Polish only) and not inside a game's lobby
+  frame. The support link is never shown as a reward, a gate or a pop-up.
+
+Checks: `test/support.test.ts` (texts in four languages, the jar per language, the windows'
+places in `index.html`, the rendered links), the app smoke (ribbon at the top, the window on
+Start) and `scripts/i18n-shot.mjs` (every coffee link points at the language's jar).

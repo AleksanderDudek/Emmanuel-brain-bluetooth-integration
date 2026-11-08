@@ -6,7 +6,7 @@
  */
 import { lang, LANG_NAMES, LANGS, saveLang, type Lang } from '../i18n';
 import { t } from '../i18n/shell';
-import { h } from './dom';
+import { h, icon } from './dom';
 
 /** What a reload would interrupt right now. */
 export interface LanguageState { band: boolean; recording: boolean; session: boolean }
@@ -40,7 +40,7 @@ export class LanguagePicker {
   constructor(private readonly deps: LanguageDeps) {
     for (const root of document.querySelectorAll<HTMLElement>('[data-lang-pick]')) {
       const row = root.dataset.langPick === 'row';   // the compact row on Start; otherwise the buttons of the card
-      root.replaceChildren(...(row ? [globe()] : []), ...LANGS.map(l => h('button', {
+      root.replaceChildren(...(row ? [icon('globe')] : []), ...LANGS.map(l => h('button', {
         type: 'button', class: row ? 'lang-btn' : 'btn', lang: l, 'aria-current': l === lang ? 'true' : null,
         on: { click: () => void this.choose(l) },
       }, LANG_NAMES[l])));
@@ -60,13 +60,3 @@ export class LanguagePicker {
   }
 }
 
-/** The globe icon of the sprite (an SVG element needs its namespace: `h()` makes HTML ones). */
-function globe(): SVGSVGElement {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('aria-hidden', 'true');
-  const use = document.createElementNS(ns, 'use');
-  use.setAttribute('href', '#i-globe');
-  svg.append(use);
-  return svg;
-}

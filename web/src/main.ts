@@ -21,6 +21,7 @@ import { ActivitiesView, EXERCISES, GAME_ACTIVITIES, TODAYS_GAME } from './ui/ac
 import { AppBar } from './ui/appbar';
 import { BalanceView } from './ui/balance';
 import { BuyBox } from './ui/buy';
+import { Support } from './ui/support';
 import { DeviceSheet, simScenarioLabel, simStateLabel } from './ui/device-sheet';
 import { $, h, run, toast } from './ui/dom';
 import { EegMonitor } from './ui/eeg-monitor';
@@ -77,6 +78,7 @@ async function main(): Promise<void> {
   let played = new Set<string>();
   const gameViews = () => [today.view, ...kindCards, holyCards];
   const buy = new BuyBox();
+  const support = new Support();
   const awake = new ScreenAwake();
 
   let trainings: TrainingResult[] = await db.listTrainings().catch(() => []);
@@ -147,6 +149,8 @@ async function main(): Promise<void> {
 
   // ── views ─────────────────────────────────────────────────────────
   const onRoute = (r: Route) => {
+    support.render();   // the thought for today moves on at midnight
+    document.body.dataset.view = r.view;   // CSS: no support ribbon over the balance exercise
     balance.setActive(r.view === 'balance');
     if (r.view === 'start') start.shown(); else start.hidden();
     if (r.view === 'focus') focusSetup.shown();

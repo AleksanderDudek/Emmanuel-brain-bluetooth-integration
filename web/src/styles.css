@@ -22,6 +22,7 @@
   --font-head:'Fraunces Variable','Fraunces',Georgia,serif;
   --mono:'JetBrains Mono',ui-monospace,monospace;
   --rail:92px;
+  --gold:#e0b664;--gold-2:#f3d58f;--gold-ink:#2a1d05;--ribbon-h:40px;
   color-scheme:dark;
 }
 body[data-tool="fnirs"]{--tool:var(--fnirs);--tool-2:var(--fnirs-2);--tool-dim:rgba(255,122,89,.13);--tool-glow:rgba(255,122,89,.16)}
@@ -57,8 +58,24 @@ h1,h2,h3{font-family:var(--font-head);font-weight:500;letter-spacing:-.01em;font
 
 /* ── shell ───────────────────────────────────────────────────── */
 .app{position:relative;z-index:1;display:grid;grid-template-columns:var(--rail) minmax(0,1fr);grid-template-rows:auto auto 1fr;min-height:100vh;min-height:100dvh}
-.appbar{grid-column:1/-1;position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:16px;padding:12px 22px;
-  padding-top:max(12px,env(safe-area-inset-top));background:rgba(8,9,14,.72);backdrop-filter:blur(14px) saturate(1.2);
+/* the ribbon and the app bar stick together at the top (src/ui/support.ts) */
+.topbar{grid-column:1/-1;position:sticky;top:0;z-index:20}
+.support-ribbon{display:flex;align-items:center;justify-content:center;gap:10px;min-height:calc(var(--ribbon-h) + env(safe-area-inset-top));padding:0 16px;
+  padding-top:env(safe-area-inset-top);color:var(--gold-2);font-size:13.5px;font-weight:650;letter-spacing:.01em;text-decoration:none;
+  background:linear-gradient(90deg,transparent,rgba(224,182,100,.16) 50%,transparent),rgba(32,25,12,.92);
+  border-bottom:1px solid rgba(224,182,100,.28);transition:color .2s,background-color .2s}
+.support-ribbon span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.support-ribbon svg{width:20px;height:20px;flex:none}
+.support-ribbon .ribbon-short{display:none}
+.support-ribbon svg.caret{width:15px;height:15px;opacity:.7}
+.support-ribbon:hover{color:#fff4d6}
+.support-ribbon:focus-visible{outline:2px solid var(--gold);outline-offset:-3px}
+/* the hemisphere balance runs inside the page, not in a layer: no ribbon over a live exercise */
+body[data-view="balance"]{--ribbon-h:0px}
+body[data-view="balance"] .support-ribbon{display:none}
+body[data-view="balance"] .appbar{padding-top:max(12px,env(safe-area-inset-top))}
+.appbar{display:flex;align-items:center;gap:16px;padding:12px 22px;
+  background:rgba(8,9,14,.72);backdrop-filter:blur(14px) saturate(1.2);
   -webkit-backdrop-filter:blur(14px) saturate(1.2);border-bottom:1px solid var(--line)}
 .brand{font-family:var(--font-head);font-size:21px;font-weight:600;text-decoration:none;letter-spacing:-.02em;font-variation-settings:"opsz" 48}
 .brand span{color:var(--tool);transition:color .4s}
@@ -93,7 +110,7 @@ h1,h2,h3{font-family:var(--font-head);font-weight:500;letter-spacing:-.01em;font
   background:rgba(255,176,32,.07);border-bottom:1px solid rgba(255,176,32,.22);color:var(--warn);font-size:13px}
 .banner[hidden]{display:none}
 
-.rail{grid-row:3;grid-column:1;position:sticky;top:72px;align-self:start;display:flex;flex-direction:column;gap:4px;padding:18px 10px}
+.rail{grid-row:3;grid-column:1;position:sticky;top:calc(72px + var(--ribbon-h) + env(safe-area-inset-top));align-self:start;display:flex;flex-direction:column;gap:4px;padding:18px 10px}
 .rail a{display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 4px;border-radius:16px;text-decoration:none;color:var(--tx3);
   font-size:11.5px;font-weight:600;letter-spacing:.01em;transition:color .2s,background .2s}
 .rail a svg{width:24px;height:24px;padding:4px 14px;box-sizing:content-box;border-radius:999px;transition:background .2s}
@@ -788,6 +805,37 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .lang-btn[aria-current="true"],.lang-pick .btn[aria-current="true"]{background:var(--tool-dim);color:var(--tool);border-color:var(--tool)}
 .lang-btn:focus-visible{outline:2px solid var(--tool);outline-offset:2px}
 
+/* ── support and contact (src/ui/support.ts) ─────────────────── */
+.support[hidden]{display:none}
+.support{margin-top:18px;padding:24px 26px 20px;border-radius:var(--r-xl);color:var(--tx);
+  background:radial-gradient(70% 90% at 0% 0%,rgba(224,182,100,.16),transparent 60%),
+    linear-gradient(180deg,#141018,#0d0b10);
+  border:1px solid rgba(224,182,100,.24);box-shadow:inset 0 0 0 4px rgba(6,7,11,.55),inset 0 0 0 5px rgba(224,182,100,.14)}
+.support-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:22px 34px;align-items:start}
+.support-rubric{font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.support-tip{margin-top:8px;font-family:var(--font-head);font-style:italic;font-size:21px;line-height:1.4;color:#f4ead6;font-variation-settings:"opsz" 48}
+.support-ask h2{font-size:22px;line-height:1.25}
+.support-ask>p:not(.support-note){margin-top:6px;color:var(--tx2)}
+.support-coffee{display:flex;align-items:center;justify-content:center;gap:10px;min-height:50px;margin-top:16px;padding:0 22px;border-radius:999px;
+  background:linear-gradient(180deg,var(--gold-2),var(--gold));color:var(--gold-ink);font-size:16px;font-weight:750;text-decoration:none;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.35),0 12px 24px -14px rgba(0,0,0,.9);transition:filter .15s,transform .15s}
+.support-coffee svg{width:22px;height:22px}
+.support-coffee:hover{filter:brightness(1.06)}
+.support-coffee:active{transform:scale(.98)}
+.support-coffee:focus-visible,.contact-links a:focus-visible{outline:2px solid var(--gold-2);outline-offset:3px}
+.support-note{margin-top:8px;text-align:center;font-size:11.5px;color:var(--tx3)}
+.contact{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px;margin-top:20px;padding-top:18px;
+  border-top:1px solid rgba(224,182,100,.18)}
+.contact h3{font-size:18px}
+.contact-text{min-width:0;flex:1 1 260px}
+.contact-text p{margin-top:2px;color:var(--tx2);font-size:13px}
+.contact-links{display:flex;flex-wrap:wrap;gap:8px;list-style:none;margin:0;padding:0}
+.contact-links a{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px 0 12px;border-radius:999px;
+  border:1px solid var(--line-2);background:rgba(255,255,255,.03);color:var(--tx);font-weight:650;font-size:13px;text-decoration:none;
+  transition:border-color .15s,background-color .15s,color .15s}
+.contact-links a svg{width:20px;height:20px;color:var(--gold)}
+.contact-links a:hover{border-color:rgba(224,182,100,.55);background:rgba(224,182,100,.08)}
+
 /* ── where to buy (src/ui/buy.ts) ────────────────────────────── */
 .buy[hidden]{display:none}
 .buy.card{margin-top:6px}
@@ -859,6 +907,11 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .wave-grid{grid-template-columns:minmax(0,1fr)}
   .sources{grid-template-columns:minmax(0,1fr)}
   .buy-bands{grid-template-columns:minmax(0,1fr)}
+  .support{padding:20px 18px 18px;border-radius:var(--r-lg)}
+  .support-grid{grid-template-columns:minmax(0,1fr);gap:18px}
+  .support-tip{font-size:19px}
+  .contact-links{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .contact-links a{width:100%;flex-direction:column;justify-content:center;gap:4px;min-height:62px;padding:8px 4px;border-radius:var(--r-lg);font-size:12px}
   .buy.line .buy-sep{display:none}
   .buy.line .buy-indep{flex-basis:100%}   /* the note on its own line: no separator left dangling at a wrap */
   .tile.feature,.tile.tile-game{grid-column:1/-1}
@@ -869,6 +922,8 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .session canvas{display:none}
 }
 @media (max-width:460px){
+  .support-ribbon .ribbon-long{display:none}
+  .support-ribbon .ribbon-short{display:inline}
   .brand{font-size:18px}
   .devchip{padding:6px 10px}
   .devchip-text b{font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

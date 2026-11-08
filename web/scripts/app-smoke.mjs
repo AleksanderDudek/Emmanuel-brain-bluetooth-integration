@@ -122,6 +122,18 @@ try {
   await page.waitForSelector('#toolPick:not([hidden])');
   await shot('01-start-first-run');
   await overflow('start');
+  // the support ribbon above the app bar and the window at the end of Start (src/ui/support.ts)
+  {
+    const sup = await page.evaluate(() => ({
+      ribbon: document.getElementById('supportRibbon')?.getAttribute('href'),
+      ribbonTop: document.getElementById('supportRibbon')?.getBoundingClientRect().top,
+      tip: document.querySelector('#view-start [data-support]:not([hidden]) .support-tip')?.textContent ?? '',
+      contacts: document.querySelectorAll('#view-start [data-support] [data-contact]').length,
+    }));
+    if (sup.ribbon !== 'https://buycoffee.to/uriel' || sup.ribbonTop !== 0 || !sup.tip || sup.contacts !== 3) {
+      throw new Error(`support: ${JSON.stringify(sup)}`);
+    }
+  }
 
   step('choose fNIRS, use the simulator');
   await page.click('[data-pick="fnirs"]');
