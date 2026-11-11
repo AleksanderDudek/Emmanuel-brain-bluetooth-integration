@@ -1,20 +1,23 @@
 /**
- * Chleby i ryby (five loaves and two fish), v2: a crowd cannon after Mob Control, told after John
+ * Chleby i ryby (five loaves and two fish), v3: a crowd cannon after Mob Control, told after John
  * 6:9 — the boy whose basket it was helps the disciples feed the people sitting on the hillside.
- * Hold to pour a stream of bread-bearers (loaves on little legs) from the basket, drag to aim: they
- * run up the terrace through gates that multiply them (honey ×2/×3, green bursts, grey takers, the
- * golden gate) to the tables of the hungry at the top, each with its hunger bar; gull waves waddle
- * down to snatch them one for one (Gerwazy the fat gull, Mirka herself now and then), and each
- * chapter ends at the Pelikan, who gulps until he is full.  The band is the core: in a Rozdawanie
- * focus sets the golden gate's multiplier (×1 below the threshold, ×2 at it, up to ×5) and a held
- * focus fills the Big Basket, the champion; on the grass calm sits the crowd down, the gulls doze
- * and the crumbs fill the baskets that buy the upgrades.  Levels of one to three terraces with
- * three stars, story cards, a path of hillsides; nothing is ever lost (the disciples help).
+ * Hold to pour a stream of breads on little legs from the basket, drag to aim: they run up the
+ * terrace through gates that multiply them (honey ×2/×3/×4, green bursts, grey takers, the jar,
+ * the golden gate), over pebble arrows and through the brook, to the tables of the hungry at the
+ * top; gull waves waddle down to snatch them one for one, and each chapter ends in the arena of a
+ * glutton — the Pelikan, Zenek the goat, Klara the heron, the cormorant brothers — fed until sated.
+ * The band is the core: in a Rozdawanie focus sets the golden gate's multiplier (×1 below the
+ * threshold, ×2 at it, up to ×5) and a held focus fills the ring that sends the chosen champion
+ * (the Big Basket, the donkey, the bread cart, the giant loaf, the camel); on the grass calm sits
+ * the crowd down, the gulls doze and the crumbs fill the baskets that build the village.  Between
+ * levels: bundles of cards (baskets, breads, champions, helps — won by play, never bought), the
+ * league of stars, missions, the village of Betsaida.  Nothing is ever lost (the disciples help).
  *
  * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts with the
- * terrace in field.ts, the numbers in rules.ts and the meta in meta.ts), the pictures (render.ts
- * with hud.ts and layout.ts, intro.ts for calibration, preview.ts for the lobby, all drawn with
- * paint.ts), the sound (audio.ts) and the lobby's card (panel.ts); the words in i18n.ts and content.ts.
+ * terrace in field.ts and the gluttons in boss.ts, the numbers in rules.ts, the collection in
+ * cards.ts and the meta in meta.ts), the pictures (render.ts with hud.ts, sprites.ts and layout.ts,
+ * intro.ts for calibration, preview.ts for the lobby, all drawn with paint.ts), the sound (audio.ts)
+ * and the lobby's card (panel.ts); the words in i18n.ts and content.ts.
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
@@ -62,7 +65,10 @@ class ChlebyGame implements ArcadeGame {
 
   draw(): void { this.view.draw(this.sim); }
 
-  /** A press aims and fires a burst, a hold pours, a drag aims; on the card between levels a tap buys or goes on. */
+  /**
+   * A press aims and fires a burst, a hold pours, a drag aims; a tap on the help button sends the
+   * help, a tap on the giant loaf bursts it; on the cards between levels a tap builds or goes on.
+   */
   pointer(e: PointerInput): void {
     const hit = this.view.pointer(e.type, e.x, e.y, e.id, this.sim);
     if (!hit) return;
@@ -72,12 +78,14 @@ class ChlebyGame implements ArcadeGame {
       case 'release': this.sim.release(); break;
       case 'offer': this.sim.buy(hit.i); break;
       case 'go': this.sim.skip(); break;
+      case 'help': this.sim.useHelp(); break;
+      case 'pop': this.sim.popGiant(); break;
       default: break;
     }
     this.drain();
   }
 
-  /** ←/→ (A/D) move the basket, Space fires a burst, Enter goes on, 1–3 buy on the card between levels. */
+  /** ←/→ (A/D) move the basket, Space bursts (a giant loaf first), E or Enter send the help, 1–3 build. */
   key(key: string, down: boolean): boolean {
     const used = this.sim.key(key, down);
     if (used) this.drain();
@@ -126,12 +134,18 @@ class ChlebyGame implements ArcadeGame {
 
 function haptic(e: SimEvent): void {
   switch (e.type) {
-    case 'fire': if (e.kind === 'big') buzz([20, 30, 20]); break;
+    case 'fire': if (e.champ) buzz([20, 30, 20]); break;
     case 'tableFed': buzz([12, 20, 12]); break;
     case 'peck': buzz(15); break;
     case 'bigReady': buzz([10, 30, 10]); break;
+    case 'helpReady': buzz([8, 20, 8]); break;
+    case 'help': buzz([15, 25, 15]); break;
+    case 'burst': buzz([25, 20, 35]); break;
+    case 'butt': buzz(18); break;
+    case 'dive': buzz(14); break;
     case 'sated': buzz([15, 30, 30]); break;
     case 'won': buzz([15, 30, 15, 30, 40]); break;
+    case 'tier': buzz([20, 30, 20, 30, 50]); break;
     case 'break': buzz(10); break;
     default: break;
   }
@@ -149,7 +163,7 @@ const mod: ArcadeModule<ChlebyProgress> = {
     hands: [
       { gesture: 'hold', text: t('howto.hold') },
       { gesture: 'drag', text: t('howto.drag') },
-      { gesture: 'keys', text: t('howto.keys') },
+      { gesture: 'tap', text: t('howto.tap') },
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],
   }),

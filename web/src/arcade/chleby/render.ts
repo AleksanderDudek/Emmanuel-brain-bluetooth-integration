@@ -1,34 +1,43 @@
 /**
- * Chleby i ryby's play view (v2): a terrace of the hillside above the Sea of Galilee seen from
- * behind the boy's basket — the lane of worn earth up the slope, the tables of the hungry at the top
- * with their hunger bars, the gates across the lane (green, honey, grey, and the golden gate whose
- * arch is the band's gauge with the threshold notched at its top), the crowd of bread-bearers
- * running up, the gull waves waddling down, the Pelikan, the Big Basket, the boy with his basket and
- * the champion's ring around it, Mirka on her post, and the row of baskets of crumbs along the
- * bottom.  Juice: recoil, flying numbers, crumbs and feathers, confetti, a small shake (none with
- * reduced motion) and a hit-stop on the big moments.  Words and cards are drawn by hud.ts; the
- * runner draws the band's panel, the score and the coach marks.
+ * Chleby i ryby's play view (v3): a terrace of the hillside above the Sea of Galilee seen from
+ * behind the boy's basket — the lane of worn earth up the slope with its elements (pebble arrows,
+ * the brook and its stepping stones, boulders), the tables of the hungry at the top with their
+ * hunger bars, the gates across the lane (green, honey, grey, the jar, the disciples' gate, and the
+ * golden gate whose arch is the band's gauge with the threshold notched at its top), the crowd of
+ * breads running up, the champions, the gull waves waddling down and the gulls carrying bread
+ * through the air, the glutton of a boss arena with its telegraphs, the boy with the basket of his
+ * loadout and the champion's ring around it, the help button, Mirka on her post, and the row of
+ * baskets of crumbs along the bottom.  Juice: recoil, flying numbers, crumbs and feathers, confetti,
+ * a net sweeping, wind streaks, a small shake (none with reduced motion) and a hit-stop on the big
+ * moments.  Words and cards are drawn by hud.ts; the runner draws the band's panel, the score and
+ * the coach marks.
  */
 import { fmtNum } from '../../i18n';
 import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
-import { HINTS } from './content';
+import { HINTS, bossName, buildName, cardName, dayName, dayText, tierName } from './content';
 import { placeOf, type Gate, type Gull, type Runner } from './field';
 import { Hud } from './hud';
 import { t } from './i18n';
 import { ChlebyIntro } from './intro';
-import { layout, laneX, toScreen, type Layout } from './layout';
+import { layout, laneX, scaleAt, toScreen, type Layout } from './layout';
 import type { ChlebyProgress, Teach } from './meta';
 import {
   C, PALETTES, SANS, font, glow, paintBasket, paintBigBasket, paintBoy, paintGate, paintGoldGate, paintGrass, paintGull, paintGullWalk,
-  paintLake, paintMist, paintPath, paintPelikan, paintRunner, paintSky, paintTable,
+  paintLake, paintMist, paintPath, paintPelikan, paintSky, paintTable,
 } from './paint';
 import { RULES, fmtX, type ChlebySim, type SimEvent } from './sim';
+import {
+  label, paintBreadRunner, paintCamel, paintCart, paintCormorant, paintDiveShadow, paintDonkey, paintDustLine, paintGiant, paintGoat,
+  paintHelpButton, paintHeron, paintJarGate, paintKoszIcon, paintPebbleChevron, paintRipples, paintRock, paintStone,
+} from './sprites';
 
 const TAU = Math.PI * 2;
 const TXT = {
-  thr: t('hud.thr'), big: t('hud.big'), bank: t('hud.bank'), climb: t('hud.climb'), fed: t('fx.fed'), won: t('fx.won'), peck: t('fx.peck'),
-  shoo: t('fx.shoo'), wave: t('fx.wave'), fat: t('fx.fat'), pelikan: t('fx.pelikan'), sated: t('fx.sated'), help: t('fx.help'),
-  bigGo: t('fx.big'), bigReady: t('fx.bigReady'), basket: t('fx.basket'), restPass: t('fx.restPass'), brk: t('fx.break'),
+  thr: t('hud.thr'), bank: t('hud.bank'), climb: t('hud.climb'), fed: t('fx.fed'), peck: t('fx.peck'), help: t('hud.help'),
+  shoo: t('fx.shoo'), wave: t('fx.wave'), fat: t('fx.fat'), sated: t('fx.sated'), disciples: t('fx.help'), embers: t('hud.embers'),
+  basket: t('fx.basket'), restPass: t('fx.restPass'), brk: t('fx.break'), butt: t('fx.butt'), dive: t('fx.dive'), stab: t('fx.stab'),
+  jar: t('fx.jar'), burst: t('fx.burst'), befriend: t('fx.befriend'), ram: t('fx.ram'), mission: t('fx.mission'), helpReady: t('fx.helpReady'),
+  stun: t('fx.stun'),
 };
 const CONFETTI = ['#e5584a', '#f2c94c', '#fbf6e8', '#7fae5a', '#d65a8c'];
 
@@ -38,7 +47,9 @@ export type Hit =
   | { kind: 'release' }
   | { kind: 'offer'; i: number }
   | { kind: 'go' }
-  | { kind: 'story' };
+  | { kind: 'story' }
+  | { kind: 'help' }
+  | { kind: 'pop' };
 
 export class ChlebyView {
   readonly hud: Hud;
@@ -52,7 +63,7 @@ export class ChlebyView {
   private pointerId: number | null = null;
   /** seconds of hit-stop left (the index slows the field while > 0) */
   hitStop = 0;
-  /** the terrace slide: climbing out (0..1) and coming in (0..1) */
+  /** the terrace slide: coming in (0..1) */
   private enter = 1;
   private readonly cheer = new Map<number, number>();
   private readonly gateFloat = new Map<number, { n: number; t: number }>();
@@ -65,6 +76,10 @@ export class ChlebyView {
   private bankPop = 0;
   private mist = 0;
   private restK = 0;
+  /** the net sweeping over the slope (1 → 0), the wind's streaks, the heron's stab */
+  private net = 0;
+  private stabT = 9;
+  private helpPop = 0;
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; hudTop: () => number }) {
     const ctx = canvas.getContext('2d');
@@ -108,6 +123,15 @@ export class ChlebyView {
     return { x: q.x, y: q.y - this.L.lane.boy * 0.15 };
   }
 
+  /** The help button: low on the right of the lane, clear of the simulator's switch (bottom left). */
+  helpAt(): { x: number; y: number; r: number } {
+    const L = this.L, lane = L.lane, u = L.u;
+    const r = clamp(lane.boy * 0.72, 17, 28 * u);
+    const x = Math.min(L.w - r - 12 * u, lane.cx + lane.hwB - r * 0.4);
+    const y = Math.min(L.bank.y - r - 22 * u, lane.yB - r * 0.6);
+    return { x, y, r };
+  }
+
   /** Where a coach mark points (CSS px), or null when the thing is not on screen. */
   anchor(w: Teach, sim: ChlebySim): { x: number; y: number } | null {
     const f = sim.field, L = this.L;
@@ -126,11 +150,31 @@ export class ChlebyView {
       }
       case 'sub': return gateAt(f.gates.find(g => g.kind === 'sub'));
       case 'add': return gateAt(f.gates.find(g => g.kind === 'add'));
+      case 'jar': return gateAt(f.gates.find(g => g.kind === 'jar'));
+      case 'four': return gateAt(f.gates.find(g => g.kind === 'mul' && g.n >= 4));
       case 'gull': {
         const g = f.gulls.find(x => x.state === 'walk');
         return g ? this.P(g.x, g.y) : null;
       }
-      case 'pelikan': return f.pelikan ? this.P(f.pelikan.x, f.pelikan.y) : null;
+      case 'pelikan':
+      case 'koziol':
+      case 'czapla':
+      case 'kormorany': return f.boss ? this.P(f.boss.x, Math.min(RULES.laneH, f.boss.y)) : null;
+      case 'brook': return f.brook ? this.P(5, (f.brook.y0 + f.brook.y1) / 2) : null;
+      case 'sprint': return f.pads[0] ? this.P(f.pads[0].x, (f.pads[0].y0 + f.pads[0].y1) / 2) : null;
+      case 'rock': return f.rocks[0] ? this.P(f.rocks[0].x, f.rocks[0].y) : null;
+      case 'burst':
+      case 'osiol':
+      case 'woz':
+      case 'wielblad': {
+        const r = f.runners.find(x => x.champ !== null);
+        return r ? this.P(r.x, r.y) : null;
+      }
+      case 'help': {
+        const h = this.helpAt();
+        return { x: h.x, y: h.y - h.r * 1.2 };
+      }
+      case 'pack': return { x: L.cardX, y: L.cardY - 40 * L.u };
       case 'rest': return { x: L.bank.x + L.bank.w / 2, y: L.bank.y - 4 };
     }
   }
@@ -143,12 +187,24 @@ export class ChlebyView {
       this.hud.hideStory();
       return { kind: 'story' };
     }
+    if (type === 'down' && sim.stage === 'pack') return { kind: 'go' };
     if (type === 'down' && sim.stage === 'card') {
       const i = this.hud.offerRects.findIndex(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
       if (i >= 0) return { kind: 'offer', i };
       const g = this.hud.goRect;
       if (g && x >= g.x - 6 && x <= g.x + g.w + 6 && y >= g.y - 6 && y <= g.y + g.h + 6) return { kind: 'go' };
       return null;
+    }
+    if (type === 'down' && sim.stage === 'level') {
+      const h = this.helpAt();
+      if (Math.hypot(x - h.x, y - h.y) <= h.r * 1.25) return { kind: 'help' };
+      // a tap on the giant loaf bursts it
+      for (const r of sim.field.runners) {
+        if (r.champ !== 'olbrzym' || r.w <= 0) continue;
+        const q = this.P(r.x, r.y);
+        const S = this.L.lane.su * q.s;
+        if (Math.hypot(x - q.x, y - (q.y - S)) <= S * 1.6 + 16) return { kind: 'pop' };
+      }
     }
     const lx = clamp(laneX(this.L.lane, x), 0, RULES.laneW);
     if (type === 'down') {
@@ -169,8 +225,9 @@ export class ChlebyView {
     switch (e.type) {
       case 'fire': {
         const b = this.basketAt(sim);
-        if (e.kind === 'big') {
-          hud.float(TXT.bigGo, b.x, b.y - L.lane.boy * 1.6, C.goldLight, 22, 1.4, 50);
+        if (e.champ) {
+          // higher than the "ready" word, which may still be rising when the stream fires it at once
+          hud.float(t('fx.go', { name: cardName(e.champ) }), b.x, b.y - L.lane.boy * 2.5, C.goldLight, 22, 1.4, 50);
           this.parts.burst(b.x, b.y - L.lane.boy * 0.6, 26, { color: C.gold, speed: 220, size: 3, life: 0.8, shape: 'spark' });
           this.shake.add(0.35);
           this.hitStop = Math.max(this.hitStop, 0.08);
@@ -178,15 +235,13 @@ export class ChlebyView {
         break;
       }
       case 'gate': {
-        const g = this.gateFloat.get(e.kind === 'gold' ? 99 : Math.round(e.y * 10)) ?? { n: 0, t: 0 };
+        const key = e.kind === 'gold' ? 99 : Math.round(e.y * 10) * 100 + Math.round(e.x);
+        const g = this.gateFloat.get(key) ?? { n: 0, t: 0 };
         g.n += e.made;
-        this.gateFloat.set(e.kind === 'gold' ? 99 : Math.round(e.y * 10), g);
-        if (e.kind === 'gold' && e.n > 1) {
-          const q = this.P(e.x, e.y);
-          this.parts.burst(q.x, q.y - L.lane.su * q.s, 4, { color: C.goldLight, speed: 110, size: 2.2, life: 0.6, shape: 'spark', g: 60 });
-        }
+        this.gateFloat.set(key, g);
+        const q = this.P(e.x, e.y);
+        if (e.kind === 'gold' && e.n > 1) this.parts.burst(q.x, q.y - L.lane.su * q.s, 4, { color: C.goldLight, speed: 110, size: 2.2, life: 0.6, shape: 'spark', g: 60 });
         if (e.kind === 'add') {
-          const q = this.P(e.x, e.y);
           hud.float(`+${e.n}`, q.x, q.y - L.lane.su * q.s * 1.6, '#c9f2a8', 17, 0.9, 26);
           this.parts.burst(q.x, q.y - L.lane.su * q.s, 10, { color: C.greenLight, speed: 140, size: 2.4, life: 0.5 });
         }
@@ -205,13 +260,12 @@ export class ChlebyView {
         break;
       }
       case 'tableFed': {
-        const tb = sim.field.tables[e.table];
         const q = this.P(e.x, RULES.laneH);
         this.cheer.set(e.table, 0);
         hud.float(TXT.fed, q.x, q.y - 40 * u, '#fff6e0', 22, 1.3, 30);
         this.parts.burst(q.x, q.y - 20 * u, 40, { color: CONFETTI[0], speed: 240, size: 3, life: 1.2, shape: 'square', g: 300 });
         this.parts.burst(q.x, q.y - 20 * u, 30, { color: CONFETTI[1], speed: 220, size: 3, life: 1.2, shape: 'square', g: 300 });
-        if (tb) this.shake.add(0.2);
+        this.shake.add(0.2);
         this.hitStop = Math.max(this.hitStop, 0.07);
         break;
       }
@@ -244,19 +298,46 @@ export class ChlebyView {
       }
       case 'gulp': {
         this.gulpAcc += e.n;
-        const P = sim.field.pelikan;
-        if (P && this.gulpAcc >= 5) {
-          const q = this.P(P.x, P.y);
+        const B = sim.field.boss;
+        if (B && this.gulpAcc >= 5) {
+          const q = this.P(e.x, Math.min(RULES.laneH, e.y));
           hud.float(`+${this.gulpAcc}`, q.x + 20 * u, q.y - L.lane.su * q.s * 2.4, '#ffd08a', 14, 0.8, 20);
           this.gulpAcc = 0;
         }
         break;
       }
-      case 'pelikan':
-        hud.showBanner(TXT.pelikan, t('hint.pelikan'), true, 2.6);
+      case 'boss':
+        hud.showBanner(bossName(e.kind), HINTS[e.kind], true, 2.6);
         break;
-      case 'sated': {
+      case 'aim':
+        if (e.kind === 'koziol') {
+          const q = this.P(e.x, e.y);
+          this.parts.burst(q.x, q.y, 8, { color: '#c8a77a', speed: 70, size: 2.4, life: 0.6, g: 40 });
+        }
+        break;
+      case 'butt': {
         const q = this.P(e.x, e.y);
+        hud.float(TXT.butt, q.x, q.y - 30 * u, '#ffe2b0', 20, 0.9, 28);
+        this.parts.burst(q.x, q.y - 10 * u, 14, { color: '#c8a77a', speed: 160, size: 2.6, life: 0.6 });
+        this.shake.add(0.3);
+        this.hitStop = Math.max(this.hitStop, 0.06);
+        break;
+      }
+      case 'stab': {
+        const q = this.P(e.x, e.y);
+        this.stabT = 0;
+        if (Math.random() < 0.35) hud.float(TXT.stab, q.x, q.y - 20 * u, '#e6f3f8', 14, 0.7, 20);
+        break;
+      }
+      case 'dive': {
+        const q = this.P(e.x, e.y);
+        hud.float(TXT.dive, q.x, q.y - 26 * u, '#d9f1f8', 20, 0.9, 26);
+        this.parts.burst(q.x, q.y - 6 * u, 24, { color: '#cfe9f2', speed: 200, size: 2.6, life: 0.7, g: 260 });
+        this.shake.add(0.2);
+        break;
+      }
+      case 'sated': {
+        const q = this.P(e.x, Math.min(RULES.laneH, e.y));
         hud.float(TXT.sated, q.x, q.y - 50 * u, '#ffd08a', 24, 1.5, 40);
         this.parts.burst(q.x, q.y - 30 * u, 50, { color: CONFETTI[1], speed: 260, size: 3, life: 1.3, shape: 'square', g: 300 });
         this.shake.add(0.35);
@@ -271,7 +352,7 @@ export class ChlebyView {
       }
       case 'swallow': {
         const q = this.P(e.x, e.y);
-        this.parts.burst(q.x, q.y - 6 * u, 3, { color: C.greyLight, speed: 60, size: 2, life: 0.5 });
+        this.parts.burst(q.x, q.y - 6 * u, 3, { color: e.jar ? C.crumb : C.greyLight, speed: 60, size: 2, life: 0.5 });
         break;
       }
       case 'break': {
@@ -281,15 +362,57 @@ export class ChlebyView {
         this.shake.add(0.15);
         break;
       }
-      case 'help':
-        hud.float(TXT.help, L.cardX, L.lane.yT + 40 * u, '#fff6e0', 15, 2, 20);
+      case 'jarOpen': {
+        const q = this.P(e.x, e.y);
+        hud.float(TXT.jar, q.x, q.y - 50 * u, C.goldLight, 20, 1.3, 30);
+        this.parts.burst(q.x, q.y - 30 * u, 26, { color: C.gold, speed: 200, size: 2.6, life: 0.8, shape: 'spark' });
+        this.hitStop = Math.max(this.hitStop, 0.06);
+        break;
+      }
+      case 'befriend': {
+        const q = this.P(e.x, e.y);
+        hud.float(TXT.befriend, q.x, q.y - 40 * u, '#ffffff', 15, 1.2, 30);
+        this.parts.burst(q.x, q.y - 20 * u, 8, { color: '#ffffff', speed: 120, size: 2, life: 0.7, g: -40 });
+        break;
+      }
+      case 'burst': {
+        const q = this.P(e.x, e.y);
+        hud.float(`${TXT.burst} +${e.n}`, q.x, q.y - 40 * u, C.goldLight, 22, 1.2, 36);
+        this.parts.burst(q.x, q.y - 16 * u, 40, { color: C.crumb, speed: 260, size: 3, life: 0.9 });
+        this.parts.burst(q.x, q.y - 16 * u, 16, { color: C.gold, speed: 180, size: 2.5, life: 0.8, shape: 'spark' });
+        this.shake.add(0.45);
+        this.hitStop = Math.max(this.hitStop, 0.09);
+        break;
+      }
+      case 'ram': {
+        const q = this.P(e.x, e.y);
+        if (e.n === 0) hud.float(TXT.stun, q.x, q.y - 50 * u, '#ffffff', 18, 1, 24);
+        else if (Math.random() < 0.5) hud.float(TXT.ram, q.x, q.y - 30 * u, '#fff6e0', 14, 0.8, 22);
+        this.parts.burst(q.x, q.y - 8 * u, 6, { color: '#ffffff', speed: 140, size: 2, life: 0.5 });
+        break;
+      }
+      case 'helped': {
+        this.helpPop = 1;
+        if (e.id === 'siec') this.net = 1;
+        if (e.id === 'wiatr') this.shake.add(0.15);
+        hud.float(t('fx.go', { name: cardName(e.id) }), L.cardX, L.lane.yT + (L.lane.yB - L.lane.yT) * 0.35, C.goldLight, 22, 1.4, 36);
+        break;
+      }
+      case 'helpReady': {
+        const h = this.helpAt();
+        hud.float(TXT.helpReady, h.x, h.y - h.r * 1.6, C.goldLight, 14, 1.4, 24);
+        this.parts.burst(h.x, h.y, 14, { color: C.gold, speed: 140, size: 2.2, life: 0.7, shape: 'spark' });
+        break;
+      }
+      case 'disciples':
+        hud.float(TXT.disciples, L.cardX, L.lane.yT + 40 * u, '#fff6e0', 15, 2, 20);
         break;
       case 'cleared':
         if (sim.stage === 'climb') hud.showBanner(TXT.climb, '', false, 1.5);
         break;
       case 'terrace':
         this.enter = e.index > 0 ? 0 : 1;
-        if (e.index > 0) hud.showBanner(t('fx.terrace', { i: e.index + 1, of: e.of }), '', false, 1.6);
+        if (e.index > 0 && !e.arena) hud.showBanner(t('fx.terrace', { i: e.index + 1, of: e.of }), '', false, 1.6);
         this.cheer.clear();
         break;
       case 'levelStart': {
@@ -299,15 +422,14 @@ export class ChlebyView {
         hud.showBanner(t('fx.level', { n: e.level + 1 }), sub, e.boss, 2.2);
         break;
       }
-      case 'won': {
+      case 'won':
         this.parts.burst(L.cardX, L.lane.yT + 20 * u, 60, { color: CONFETTI[3], speed: 300, size: 3, life: 1.5, shape: 'square', g: 300 });
         this.parts.burst(L.cardX, L.lane.yT + 20 * u, 60, { color: CONFETTI[4], speed: 300, size: 3, life: 1.5, shape: 'square', g: 300 });
         this.hitStop = Math.max(this.hitStop, 0.09);
         break;
-      }
       case 'bigReady': {
         const b = this.basketAt(sim);
-        hud.float(TXT.bigReady, b.x, b.y - L.lane.boy * 1.7, C.goldLight, 15, 1.6, 26);
+        hud.float(t('fx.ready', { name: cardName(e.champ) }), b.x, b.y - L.lane.boy * 1.7, C.goldLight, 15, 1.6, 26);
         this.ring = 1;
         break;
       }
@@ -318,11 +440,32 @@ export class ChlebyView {
       case 'blindPay':
         hud.float(t('fx.blindPay', { n: e.runners }), L.cardX, L.lane.yT + (L.lane.yB - L.lane.yT) * 0.45, C.goldLight, 20, 1.6, 30);
         break;
+      case 'reinforce': {
+        // beside the basket, clear of the banner and the champion's word
+        const b = this.basketAt(sim);
+        hud.float(t('fx.reinforce', { n: e.n }), b.x - 70 * u, b.y - L.lane.boy * 0.6, '#fff6e0', 13, 1.2, 22);
+        break;
+      }
+      case 'tier':
+        hud.showBanner(t('fx.tier', { name: tierName(e.tier) }), '', false, 2.4);
+        this.parts.burst(L.cardX, L.lane.yT + 40 * u, 50, { color: C.gold, speed: 280, size: 3, life: 1.4, shape: 'spark', g: 160 });
+        break;
+      case 'mission':
+        // under the score corner, clear of the gates
+        hud.float(TXT.mission, L.w - 110 * u, L.hudTop + 34 * u, '#c9f2a8', 17, 1.8, 26);
+        break;
+      case 'build':
+        hud.float(t('fx.build', { name: buildName(e.b), n: e.level }), L.cardX, L.cardY - 90 * u, C.goldLight, 16, 1.5, 30);
+        this.parts.burst(L.cardX, L.cardY - 60 * u, 30, { color: C.gold, speed: 220, size: 2.6, life: 1, shape: 'spark', g: 120 });
+        break;
+      case 'day':
+        hud.showBanner(t('fx.day', { name: dayName(e.day) }), dayText(e.day), false, 3.2);
+        break;
       case 'say':
         hud.say(e.who, e.text, e.dur);
         break;
       case 'story':
-        hud.showStory(e.kind, e.chapter);
+        hud.showStory(e.kind, e.chapter, e.boss);
         break;
       default:
         break;
@@ -339,20 +482,23 @@ export class ChlebyView {
     for (const [k, v] of this.cheer) this.cheer.set(k, v + dt);
     this.ring = Math.max(0, this.ring - dt * 0.8);
     this.bankPop = Math.max(0, this.bankPop - dt * 2.5);
+    this.net = Math.max(0, this.net - dt / 1.2);
+    this.helpPop = Math.max(0, this.helpPop - dt * 2);
+    this.stabT += dt;
     this.mist = approach(this.mist, sim.blind ? 1 : 0, dt, 0.5);
     this.restK = approach(this.restK, sim.restBlock ? 1 : 0, dt, 0.6);
     // the numbers flying off the gates, gathered so a flood reads as one number
     for (const [k, g] of this.gateFloat) {
       g.t += dt;
       if (g.t >= 0.35 && g.n > 0) {
-        const gate = k === 99 ? sim.field.gold : sim.field.gates.find(x => Math.round(x.y * 10) === k);
+        const gate = k === 99 ? sim.field.gold : sim.field.gates.find(x => Math.round(x.y * 10) * 100 + Math.round(x.x) === k);
         if (gate && gate.kind !== 'add') {
           const q = this.P(gate.x, gate.y);
           const gold = gate.kind === 'gold';
           this.hud.float(`+${fmtNum(g.n)}`, q.x, q.y - this.L.lane.su * q.s * (gold ? 2.6 : 1.8), gold ? C.goldLight : '#ffe2b0', gold ? 18 : 14, 0.8, 24);
         }
         this.gateFloat.delete(k);
-      }
+      } else if (g.t >= 0.35) this.gateFloat.delete(k);
     }
     // the tables' munching: one number per moment
     this.feedT += dt;
@@ -394,13 +540,81 @@ export class ChlebyView {
       ctx.lineTo(b.x, b.y);
       ctx.stroke();
     }
+    this.drawGround(sim);
     this.drawField(sim);
     this.drawBoy(sim);
     this.drawMirka(sim);
     this.drawBank(sim);
+    this.drawWind(sim);
+    this.drawHelp(sim);
     this.parts.draw(ctx);
     ctx.restore();
     this.hud.draw(sim, { mirka: this.mirkaAt(), boy: { x: this.basketAt(sim).x, y: this.basketAt(sim).y - lane.boy * 0.9 } });
+  }
+
+  // ── the ground: pebble arrows, the brook and its stones, the telegraphs ──
+  private drawGround(sim: ChlebySim): void {
+    const ctx = this.ctx, lane = this.L.lane, f = sim.field, t = this.t;
+    ctx.save();
+    ctx.globalAlpha = clamp(this.enter * 1.5);
+    const b = f.brook;
+    if (b) {
+      const a = this.P(-0.3, b.y0), c = this.P(RULES.laneW + 0.3, b.y0), d = this.P(RULES.laneW + 0.3, b.y1), e = this.P(-0.3, b.y1);
+      const g = ctx.createLinearGradient(0, d.y, 0, a.y);
+      g.addColorStop(0, '#5a9fb8');
+      g.addColorStop(1, '#3f86a6');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(a.x - 4, a.y + 3);
+      ctx.lineTo(c.x + 4, c.y + 3);
+      ctx.lineTo(d.x + 4, d.y - 2);
+      ctx.lineTo(e.x - 4, e.y - 2);
+      ctx.closePath();
+      ctx.fill();
+      // the current: streaks moving its way
+      ctx.strokeStyle = 'rgba(255,255,255,.45)';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 9; i++) {
+        const fy = b.y0 + ((i * 0.37) % 1) * (b.y1 - b.y0);
+        const fx = ((((i * 1.7 + t * b.speed * b.dir * 0.8) % RULES.laneW) + RULES.laneW) % RULES.laneW);
+        const p = this.P(fx, fy), q = this.P(fx + 0.9 * b.dir, fy);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(q.x, q.y);
+        ctx.stroke();
+      }
+    }
+    for (const pad of f.pads) {
+      const inBrook = b && pad.y0 < b.y1 && pad.y1 > b.y0;
+      for (let y = pad.y0 + 0.3; y <= pad.y1 - 0.2; y += inBrook ? 0.55 : 0.8) {
+        const q = this.P(pad.x, y);
+        const w = pad.half * 2 * lane.unit * q.s * 0.75, S = lane.su * q.s;
+        if (inBrook) {
+          for (const k of [-0.3, 0.3]) paintStone(ctx, q.x + k * w * 0.6, q.y + (y * 7 % 2 - 1) * S * 0.05, S * 0.32, S * 0.16);
+        } else paintPebbleChevron(ctx, q.x, q.y, w, S, 0.5 + 0.5 * Math.sin(t * 6 - y));
+      }
+    }
+    // the gluttons' telegraphs, on the ground
+    const B = f.boss;
+    if (B && B.state === 'act' && !B.doze) {
+      if (B.kind === 'koziol' && B.phase === 'aim') {
+        const a = this.P(B.tx, B.y - 0.8), c = this.P(B.tx, RULES.koziolLow);
+        paintDustLine(ctx, a.x, a.y, c.x, c.y, lane.su * a.s * 0.55, clamp(B.pt / RULES.koziolAim), t);
+      }
+      if (B.kind === 'czapla' && B.phase === 'ripple') {
+        const q = this.P(B.tx, B.y);
+        paintRipples(ctx, q.x, q.y, lane.su * q.s, clamp(B.pt / RULES.czaplaRipple), t);
+      }
+      if (B.kind === 'kormorany') {
+        for (const w of B.birds) {
+          if (w.state !== 'aim' && w.state !== 'dive') continue;
+          const q = this.P(w.tx, w.ty);
+          const S = lane.unit * q.s;
+          paintDiveShadow(ctx, q.x, q.y, RULES.diveR * S, RULES.diveR * S * 0.42, w.state === 'dive' ? 1 : clamp(w.t / RULES.kormoranAim), t);
+        }
+      }
+    }
+    ctx.restore();
   }
 
   // ── the field ────────────────────────────────────────────────────
@@ -423,31 +637,91 @@ export class ChlebyView {
     type Item = { y: number; draw: () => void };
     const items: Item[] = [];
     for (const g of f.gates) items.push({ y: g.y + 0.01, draw: () => this.drawGate(g, sim) });
-    for (const g of f.gulls) items.push({ y: g.y, draw: () => this.drawGull(g) });
-    for (const r of f.runners) items.push({ y: r.y, draw: () => this.drawRunner(r, sim) });
-    const P = f.pelikan;
-    if (P) {
+    for (const k of f.rocks) {
       items.push({
-        y: P.y, draw: () => {
-          const q = this.P(P.x, P.y);
-          const S = lane.su * q.s * 1.25;
-          paintPelikan(ctx, q.x, q.y, S, { pouch: 1 - P.pouch / Math.max(1, P.full), gulp: clamp(1 - P.gulp * 4), t, leaving: P.state === 'sated' });
-          if (P.state !== 'sated' && P.pouch > 0) {
-            ctx.font = font(900, Math.max(11, S * 0.5), SANS);
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.lineWidth = 3.5;
-            ctx.strokeStyle = 'rgba(90,40,0,.75)';
-            ctx.strokeText(fmtNum(P.pouch), q.x, q.y - S * 2.4);
-            ctx.fillStyle = '#ffd08a';
-            ctx.fillText(fmtNum(P.pouch), q.x, q.y - S * 2.4);
-          }
+        y: k.y, draw: () => {
+          const q = this.P(k.x, k.y);
+          const rx = k.r * lane.unit * q.s;
+          paintRock(ctx, q.x, q.y, rx, rx * 0.62);
         },
       });
     }
+    for (const g of f.gulls) items.push({ y: g.y, draw: () => this.drawGull(g) });
+    for (const r of f.runners) if (r.w > 0) items.push({ y: r.y, draw: () => this.drawRunner(r, sim) });
+    const B = f.boss;
+    if (B) items.push({ y: Math.min(RULES.laneH, B.y), draw: () => this.drawBoss(sim) });
     items.sort((a, b) => b.y - a.y);
     for (const it of items) it.draw();
+    // the gulls carrying bread fly over it all
+    for (const c of f.carriers) {
+      const q = this.P(c.x, Math.min(c.y, RULES.laneH + 6));
+      const S = lane.su * scaleAt(lane, Math.min(c.y, RULES.laneH));
+      paintGull(ctx, q.x, q.y - S * 1.2, S * 0.85, { flap: t * 14 + c.id, dir: c.x0 < (f.tables[c.table]?.x ?? 5) ? 1 : -1, mirka: c.from === 'mewy' && c.id % 5 === 0, carry: true });
+    }
+    // the net sweeping over the slope
+    if (this.net > 0) {
+      const k = 1 - this.net;
+      const q0 = this.P(-1 + k * 12, 4), q1 = this.P(-1 + k * 12, RULES.laneH - 1);
+      ctx.strokeStyle = 'rgba(216,196,154,.85)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i <= 6; i++) {
+        const y = q0.y + (q1.y - q0.y) * (i / 6);
+        ctx.moveTo(q0.x - 30 * L.u, y);
+        ctx.lineTo(q0.x + 30 * L.u, y + 6);
+      }
+      for (let i = -2; i <= 2; i++) {
+        ctx.moveTo(q0.x + i * 14 * L.u, q0.y);
+        ctx.lineTo(q1.x + i * 10 * L.u, q1.y);
+      }
+      ctx.stroke();
+    }
     ctx.restore();
+  }
+
+  private drawBoss(sim: ChlebySim): void {
+    const ctx = this.ctx, lane = this.L.lane, t = this.t, B = sim.field.boss;
+    if (!B) return;
+    const pouchLabel = (x: number, y: number, S: number) => {
+      if (B.state === 'sated' || B.pouch <= 0) return;
+      label(ctx, fmtNum(B.pouch), x, y, Math.max(11, S * 0.5), '#ffd08a', 'rgba(90,40,0,.8)');
+    };
+    switch (B.kind) {
+      case 'pelikan': {
+        const q = this.P(B.x, B.y);
+        const S = lane.su * q.s * 1.25;
+        paintPelikan(ctx, q.x, q.y, S, { pouch: 1 - B.pouch / Math.max(1, B.full), gulp: clamp(1 - B.gulp * 4), t, leaving: B.state === 'sated' });
+        pouchLabel(q.x, q.y - S * 2.4, S);
+        break;
+      }
+      case 'koziol': {
+        const q = this.P(B.x, Math.min(RULES.laneH, B.y));
+        const S = lane.su * q.s * 1.2;
+        paintGoat(ctx, q.x, q.y, S, {
+          t, aim: B.phase === 'aim' ? clamp(B.pt / RULES.koziolAim) : 0, charge: B.phase === 'charge', doze: B.doze, sated: B.state === 'sated', gulp: B.gulp, stun: B.stun,
+        });
+        pouchLabel(q.x, q.y - S * 2.1, S);
+        break;
+      }
+      case 'czapla': {
+        const q = this.P(B.x, Math.min(RULES.laneH + 4, B.y));
+        const S = lane.su * q.s * 1.2;
+        paintHeron(ctx, q.x, q.y, S, { t, dir: B.dir, stab: this.stabT < 0.25 ? Math.sin((this.stabT / 0.25) * Math.PI) : 0, doze: B.doze, sated: B.state === 'sated', stun: B.stun });
+        pouchLabel(q.x, q.y - S * 2.2, S);
+        break;
+      }
+      case 'kormorany': {
+        for (const w of B.birds) {
+          const air = w.state === 'air' || w.state === 'aim' || w.state === 'rise';
+          const q = this.P(w.x, Math.min(w.y, RULES.laneH + 3));
+          const S = lane.su * scaleAt(lane, Math.min(w.y, RULES.laneH)) * (air ? 0.8 : 1.15);
+          paintCormorant(ctx, q.x, q.y - (air ? S * 2 : 0), S, { state: B.state === 'sated' ? 'air' : w.state, t, side: w.side });
+        }
+        const top = this.P(5, RULES.laneH);
+        pouchLabel(top.x, top.y - lane.su * top.s * 3.3, lane.su * top.s * 1.2);
+        break;
+      }
+    }
   }
 
   private drawGate(g: Gate, sim: ChlebySim): void {
@@ -463,11 +737,22 @@ export class ChlebyView {
       if (this.mist > 0.02) paintMist(ctx, q.x - w * 0.8, q.y - S2 * 3, w * 1.6, S2 * 3.2, this.t, this.mist);
       return;
     }
-    const look = g.kind === 'start' ? 'start' : g.kind;
-    const label = g.kind === 'sub' ? `−${g.left}` : g.kind === 'add' ? `+${g.n}` : `×${g.n}`;
+    if (g.kind === 'jar') {
+      paintJarGate(ctx, q.x, q.y, w, S, { fill: g.open > 0 ? 1 : 1 - g.left / Math.max(1, g.need), open: g.open, label: g.open > 0 ? `×${RULES.jarMult}` : `−${g.left}`, flash: g.flash, t: this.t });
+      return;
+    }
+    const look = g.kind === 'start' || g.kind === 'help' ? 'start' : g.kind;
+    const text = g.kind === 'sub' ? `−${g.left}` : g.kind === 'add' ? `+${g.n}` : `×${g.n}`;
     ctx.save();
     if (g.kind === 'add' && g.charge < 1) ctx.globalAlpha *= 0.45 + 0.4 * g.charge;
-    paintGate(ctx, q.x, q.y, w, S, look, label, g.flash, g.kind === 'sub' ? g.down : 0);
+    if (g.kind === 'help') {
+      ctx.globalAlpha *= clamp(g.life / 1.5);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, q.x, q.y - S, w * 0.8, C.goldGlow, 0.3 + 0.1 * Math.sin(this.t * 7));
+      ctx.restore();
+    }
+    paintGate(ctx, q.x, q.y, w, S, look, text, g.flash, g.kind === 'sub' ? g.down : 0);
     ctx.restore();
   }
 
@@ -487,15 +772,50 @@ export class ChlebyView {
   }
 
   private drawRunner(r: Runner, sim: ChlebySim): void {
-    const lane = this.L.lane;
+    const ctx = this.ctx, lane = this.L.lane;
     const q = this.P(r.x, r.y);
     const S = lane.su * q.s;
-    if (r.kind === 'big') {
-      paintBigBasket(this.ctx, q.x, q.y, S, { step: r.age * 10, w: r.w, t: this.t });
-      return;
+    switch (r.champ) {
+      case 'kosz': paintBigBasket(ctx, q.x, q.y, S, { step: r.age * 10, w: r.w, t: this.t }); return;
+      case 'osiol': paintDonkey(ctx, q.x, q.y, S, { step: r.age * 9, t: this.t, worth: r.w }); return;
+      case 'woz': paintCart(ctx, q.x, q.y, S, { step: r.age * 14, t: this.t, worth: r.w }); return;
+      case 'olbrzym': paintGiant(ctx, q.x, q.y, S, { step: r.age * 9, t: this.t, fuse: r.fuse / RULES.champ.olbrzym.fuse, burst: r.burst }); return;
+      case 'wielblad': paintCamel(ctx, q.x, q.y, S, { step: r.age * 6, t: this.t, worth: r.w }); return;
+      default: break;
     }
     const gold = sim.sighted && (r.mask & (1 << sim.field.gold.id)) !== 0 && sim.gold > 1;
-    paintRunner(this.ctx, q.x, q.y, S, { kind: r.kind, step: r.age * 16 + r.id, w: r.w, gold });
+    paintBreadRunner(ctx, q.x, q.y, S, { look: r.look, step: r.age * (r.speed * 3.5) + r.id, w: r.w, gold, warm: r.warm, tumble: r.tumble, t: this.t });
+  }
+
+  // ── the wind off the lake ────────────────────────────────────────
+  private drawWind(sim: ChlebySim): void {
+    const f = sim.field;
+    if (f.wind <= 0) return;
+    const ctx = this.ctx, L = this.L, t = this.t;
+    const k = clamp(f.wind / 1.2);
+    ctx.save();
+    ctx.globalAlpha = 0.5 * k;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 14; i++) {
+      const x = ((i * 97 + t * 40) % (L.w + 80)) - 40;
+      const y = L.lane.yT + (((i * 53) % 100) / 100) * (L.lane.yB - L.lane.yT);
+      const dy = ((t * 220 + i * 37) % 160) - 80;
+      ctx.beginPath();
+      ctx.moveTo(x, y + dy);
+      ctx.quadraticCurveTo(x + 6, y + dy - 20, x, y + dy - 40);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ── the help button ──────────────────────────────────────────────
+  private drawHelp(sim: ChlebySim): void {
+    if (sim.phase === 'done') return;
+    const h = this.helpAt();
+    const pop = 1 + 0.25 * ease.outCubic(this.helpPop);
+    paintHelpButton(this.ctx, h.x, h.y, h.r * pop, { id: sim.pomoc, charge: sim.helpCharge, ready: sim.helpReady, t: this.t, label: TXT.help, u: this.L.u });
   }
 
   // ── the boy and his basket-cannon ────────────────────────────────
@@ -540,18 +860,38 @@ export class ChlebyView {
       ctx.arc(b.x, by, R, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(sim.charge));
       ctx.stroke();
     }
-    paintBasket(ctx, b.x + jam, by, boy * 0.62, { fill: ready ? 1 : 0.75, gold: ready });
-    // its name under the ring, small
+    // the basket of the loadout
+    if (sim.kosz === 'mama') paintBasket(ctx, b.x + jam, by, boy * 0.62, { fill: ready ? 1 : 0.75, gold: ready });
+    else paintKoszIcon(ctx, sim.kosz, b.x + jam, by + boy * 0.05, boy * 0.78, this.t);
+    // the oven's embers: a small arc under it
+    if (sim.kosz === 'piec' && sim.ovenMax > 0) {
+      ctx.lineWidth = Math.max(2, 3 * u);
+      ctx.strokeStyle = 'rgba(60,30,10,.35)';
+      ctx.beginPath();
+      ctx.arc(b.x, by, R * 0.72, Math.PI * 0.2, Math.PI * 0.8);
+      ctx.stroke();
+      ctx.strokeStyle = '#ff9a3c';
+      ctx.beginPath();
+      ctx.arc(b.x, by, R * 0.72, Math.PI * 0.8 - Math.PI * 0.6 * clamp(sim.embers / sim.ovenMax), Math.PI * 0.8);
+      ctx.stroke();
+    }
+    // the champion's name under the ring, small
     if (L.mode !== 'short') {
       ctx.font = font(800, 10 * u, SANS);
-      ctx.textAlign = 'center';
+      ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       ctx.fillStyle = ready ? '#fff3c0' : 'rgba(255,246,224,.85)';
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(50,30,10,.55)';
-      const label = `${TXT.big} ${Math.round(clamp(sim.charge) * 100)}%`;
-      ctx.strokeText(label, b.x + R + 34 * u, by - 6 * u);
-      ctx.fillText(label, b.x + R + 34 * u, by - 6 * u);
+      const text = t('hud.ring', { name: cardName(sim.mistrz), n: Math.round(clamp(sim.charge) * 100) });
+      const lx = Math.min(L.w - ctx.measureText(text).width - 6, b.x + R + 8 * u);
+      ctx.strokeText(text, lx, by - 6 * u);
+      ctx.fillText(text, lx, by - 6 * u);
+      if (sim.kosz === 'piec') {
+        const e2 = `${TXT.embers} ${Math.ceil(sim.embers)}\u00a0s`;
+        ctx.strokeText(e2, lx, by + 6 * u);
+        ctx.fillText(e2, lx, by + 6 * u);
+      }
     }
   }
 
@@ -570,7 +910,9 @@ export class ChlebyView {
     ctx.fillRect(p.x - 3, p.y - postH, 3, postH);
     // she is out leading a wave: the post is empty
     if (sim.field.gulls.some(g => g.kind === 'mirka' && g.state !== 'fly' && g.state !== 'gone')) return;
-    paintGullWalk(ctx, p.x, p.y - postH, boy * 0.95, { kind: 'mirka', step: Math.sin(this.t * 2) * 0.5, doze: this.restK > 0.6, t: this.t });
+    // the lake's wind: she holds on
+    const blow = sim.field.wind > 0 ? Math.sin(this.t * 20) * 0.3 : 0;
+    paintGullWalk(ctx, p.x + blow * 3, p.y - postH, boy * 0.95, { kind: 'mirka', step: Math.sin(this.t * 2) * 0.5 + blow, doze: this.restK > 0.6, t: this.t });
   }
 
   // ── the bank: twelve baskets of crumbs ───────────────────────────
@@ -598,14 +940,15 @@ export class ChlebyView {
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(50,30,10,.55)';
-    const label = `${TXT.bank}: ${fmtNum(sim.p.bank)}`;
+    const text = `${TXT.bank}: ${fmtNum(sim.p.bank)}`;
     // beside the row on wide screens, over its right end on an upright phone
-    const lx = L.mode === 'tall' ? B.x + B.w : Math.max(ctx.measureText(label).width + 6, B.x - 6 * u);
+    const lx = L.mode === 'tall' ? B.x + B.w : Math.max(ctx.measureText(text).width + 6, B.x - 6 * u);
     const ly = L.mode === 'tall' ? B.y - 9 * u : B.y + B.h * 0.4;
-    ctx.strokeText(label, lx, ly);
+    ctx.strokeText(text, lx, ly);
     ctx.fillStyle = '#fff6e0';
-    ctx.fillText(label, lx, ly);
+    ctx.fillText(text, lx, ly);
   }
 }
 
 const CHAPTER = (c: number): string => t(`chapter.${(c % 6) + 1}` as 'chapter.1');
+

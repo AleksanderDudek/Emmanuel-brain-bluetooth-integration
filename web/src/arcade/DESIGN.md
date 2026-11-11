@@ -1497,13 +1497,16 @@ by play here; nothing is bought, timed or ad-gated.
   the tower at floor 1, no companions yet — their cages stand on the next levels — no gear, three
   missions); a version-1 save keeps its records and session count; damaged fields are repaired.
 
-### 9.3 Chleby — five loaves and two fish (crowd cannon after Mob Control, v2)
+### 9.3 Chleby — five loaves and two fish (crowd cannon after Mob Control, v3)
 
 *John 6:9 — "Here is a boy with five barley loaves and two small fish. But what difference will
 these make among so many?"* The hillside by the lake; the crowd sits at tables on the green grass.
 
 The v1 (bread rolling up through gates to groups) read as a toy without a fight: nothing came back
-down the hill and the screen did not say what to do. v2 copies Mob Control's loop mechanically.
+down the hill and the screen did not say what to do. v2 copied Mob Control's loop mechanically (the
+bullets below). v3 (2026-11-11) adds the depth Mob Control has in 2026 — the collection, the
+champions, the helps, the boss arenas, the village, the league, missions, new lane elements — while
+the band keeps the same two jobs (the part "Version 3" at the end of this section).
 
 * **The original, studied** (store pages, Mistplay's guide, setup guides): hold to fire a stream of
   little mobs from a cannon at the bottom, drag to slide it; gates ×2/×3/+N, many of them moving;
@@ -1515,7 +1518,8 @@ down the hill and the screen did not say what to do. v2 copies Mob Control's loo
   gulls; the giant is Gerwazy the fat gull and the boss is the Pelikan, who is *fed* until he waddles
   off; the champion is the Big Basket; cards become baskets of crumbs. **Dropped:** the lost level
   when enemies reach the cannon (a gull that gets there pecks the basket: the stream jams for 0.7 s),
-  coins with an ad multiplier, energy, speed pads (they blur the read of the golden gate).
+  coins with an ad multiplier, energy, speed pads (in v2; v3 brings them back as pebble arrows, kept
+  off the golden gate's row).
 * **View and verb.** Behind the boy's basket, up a lane of worn earth in gentle perspective (the
   same on a phone upright, wider on a desktop, between the panel and the score on a phone on its
   side). **Hold** to pour a stream of bread-bearers — loaves on little legs, seen from behind,
@@ -1543,10 +1547,11 @@ down the hill and the screen did not say what to do. v2 copies Mob Control's loo
   the gauge: the band's level fills it from the left post, the threshold is notched at its top, and
   its number is the multiplier — ×1 below the threshold (never less), ×2 at it, up to ×5 high above
   it, in halves (fractions carry from runner to runner). Runners through it glow. `hold` (a held
-  focus, 6 s Mendi / 3 s HALO) fills the **Big Basket**, the champion: the ring around the boy's
-  basket (pouring alone fills it slowly too, about once in a long stretch). Full, the next shot is a
-  giant basket on legs worth 30 (+10 an upgrade level) that walks through gull waves and spills five
-  loaves for each point of a gate's multiplier. The panel's gauge (`meter()`) is the gate's dial.
+  focus, 6 s Mendi / 3 s HALO) fills the **ring** around the boy's basket (pouring alone fills it
+  slowly too, about once in a long stretch). Full, the next shot is the **champion** of the loadout —
+  in v2 always the Big Basket, a giant basket on legs worth 30 that walks through gull waves and
+  spills five loaves for each point of a gate's multiplier; in v3 any of five (below). The panel's
+  gauge (`meter()`) is the gate's dial.
 * **Rest — Na trawie** (*Mark 6:39-40*): the crowd sits down, no new waves come and the gulls on the
   lane doze where they stand (a runner only shoos one — "Sio!"); the golden gate dozes; `calm` fills
   **baskets of crumbs** — the row of twelve along the bottom fills one by one, and they go to the
@@ -1561,8 +1566,9 @@ down the hill and the screen did not say what to do. v2 copies Mob Control's loo
   slope, the olive grove, the fishing village, the pasture, the hill at sunset), then round again
   hungrier; the card of a level fed shows the stars and the path's four stones; story cards open each
   chapter (the boy, his mother, the disciples counting, Philip and Andrew).
-* **Upgrades** (baskets, between levels at most every 40 s, and in the lobby): Strumień (rate),
-  Ryby (fish runners), Wielki kosz (worth and fill), Bramka startowa (a ×2 by the basket).
+* **Upgrades** (v2; in v3 they are the village's first four buildings): Strumień (rate) → Piekarnia,
+  Ryby (fish runners) → Przystań, Wielki kosz (worth and fill) → Wikliniarnia, Bramka startowa (a ×2
+  by the basket) → Brama.
 * **Teaching.** The first session teaches with coach marks, one at a time, when each first matters:
   tap → hold → drag, then the first wave, the golden gate at the first push, the Big Basket, the first
   rest; later sessions only what is new (the Pelikan, a grey or green gate).
@@ -1570,8 +1576,10 @@ down the hill and the screen did not say what to do. v2 copies Mob Control's loo
   wave of her family ("Szwagier, kuzynki, ciocia Halina…"), a snatch ("To nie kradzież, to
   degustacja!"), Gerwazy, a peck, the Big Basket, the Pelikan, a table fed, the help, a level, the
   evening; she finally gets a loaf of her own in the summary's last line.
-* **Old saves** (v1) migrate in place: records, sessions and people fed are kept, the path starts
-  again from the lakeshore.
+* **Old saves** migrate in place (progress `ver: 3`): a v2 save keeps its path, stars, bank, records,
+  story cards and coach marks, its upgrades become buildings, its collection starts with the four
+  starter cards and a welcome chest, and its league starts at the tier its stars already reach (no
+  back-pay); a v1 save keeps its records, sessions and people fed and starts the path again.
 
 * **Blind — Mgła nad jeziorem:** the golden gate shows "?" in drifting mist and acts as ×1 while the
   block runs (the panel's gauge is hidden); at its end the block's last 15 s of focus pour out as a
@@ -1581,8 +1589,116 @@ down the hill and the screen did not say what to do. v2 copies Mob Control's loo
   history, so the game draws no second chart.
 * **Headline.** People fed (`nakarmionych`); the corner's second line is the level and terrace, or
   "do rekordu: N" when the record is in reach. **Closing:** the first session: John 6:9; a level fed:
-  Mark 6:42-43; a big basket: John 6:11; twelve baskets: John 6:12; the Pelikan sated: Matthew 6:26;
-  a passed rest: Mark 6:39-40; else John 6:35.
+  Mark 6:42-43; a champion sent: John 6:11; twelve baskets: John 6:12; a glutton sated: Matthew 6:26;
+  a passed rest: Mark 6:39-40; two passed rests: Mark 6:31; a building raised: Micah 4:4; a jar
+  opened: 1 Kings 17:14; a new card or a mission done: Matthew 10:42; else John 6:35.
+
+**Version 3 (2026-11-11): Mob Control's depth, earned by play.**
+
+* **The original in 2026, studied again** (the Play page updated 2026-11-09; the App Store history
+  3.20–3.25.1 with Story Mode, Arena, base jobs, House of Champions, Kraken and Mobzilla boss levels,
+  seasons; the fan wiki; setup and upgrade guides; two deconstructions; reviews). Its depth is a
+  **loadout of four cards** — a cannon (Regular, Rapid Fire, Double, Shotgun, Lucky Shot, Big Bertha,
+  Triple, Sniper, Flamethrower), a mob (fast and weak … slow and strong), a champion (Big Blob turns
+  enemies into allies, Explodon bursts at a tap, Bumblebee is the fastest ram, Nexus and Giant Normie
+  tank) and an ultimate (Mob Copter, Mass Abduct, Rocket Barrage, Rainbow Rage, Summon Gate) — each
+  card levelled by copies with **glow-ups at levels 25, 50 and 75**; booster packs of rarities won in
+  battles; a **base built by pouring bricks** whose level brings new units; **boss levels with their
+  own layouts**; level elements (speed boosts, moving gates, traps); **championship stars** climbing a
+  league to Immortal tiers; a season pass of quests; and raids, shields, revenge, clan races and dice
+  events. Players love the crowd that snowballs and the champions; they hate the ads, the freezes that
+  lose rewards and the pay-to-win. **Carried over:** the loadout, levels by copies with evolutions,
+  packs won by play, the base, the boss arenas, the elements, the stars and the league, quests.
+  **Adapted:** all of it into the feeding of the five thousand (below). **Dropped:** raids, shields and
+  revenge (nothing is ever taken from the player), clans, dice and jackpots, the season pass, ads,
+  energy, every purchase. The full list is in the builder's status file.
+* **The loadout and the collection.** Four kinds of cards, chosen in the lobby (tap a card): the
+  **basket** the boy pours from — *Koszyk mamy* (one by one), *Dwojak* (pairs), *Przetak* (a fan of five,
+  more with evolutions), *Kosz z niespodzianką* (a golden loaf now and then, worth four), *Trojak*
+  (left, centre, right in turn — the fastest), *Kosz rybacki* (slow; each runner a stack of three),
+  *Piec* (while you hold and its embers last, warm loaves worth twice as much; the embers glow back
+  slowly); the **bread** — *Bochenek* (balanced), *Bułka* (fast), *Placek jęczmienny* (slow, worth two,
+  John 6:9's barley), *Podpłomyk* (flat: it slips under grey gates and the jar, the brook can't carry
+  it), *Bochen* (slowest, worth three); the **champion** and the **help** (below). 21 cards in four
+  rarities; a card's level (1–9) comes from its copies, each level adds 5 % to its main number, and
+  **evolutions at levels 3, 6 and 9** grow its special (the fan, the luck, the embers, the spill, the
+  donkey's reach, the giant loaf's burst …) and count a star in the league.
+* **The champions** (the ring that a held focus fills sends the one in the loadout): *Wielki kosz*
+  (tanks through and spills loaves at every gate), *Osiołek* (Big Blob: every gull he meets gets a
+  crumb from his panniers and flies bread up to the tables instead of snatching it — Mirka: "Zdrajcy!"),
+  *Wóz z chlebem* (Bumblebee: the fastest, shoos the gulls without losing a loaf, spills at gates, and
+  stops a glutton for a moment), *Bochen olbrzym* (Explodon: tap it — or Space — and it bursts into a
+  shower of loaves that run on through the gates above; each gate it passes first adds to the shower;
+  it bursts by itself after 5 s), *Wielbłąd* (the camel: worth seventy, gulls bounce off him, a gate
+  adds to his packs). The Wikliniarnia adds 15 % a level to every champion.
+* **The helps** (Mob Control's ultimates): a round button low on the right of the lane (E or Enter)
+  that fills with the people fed (≈ 90, less with the Studnia) and **at once with a passed rest** —
+  *Mewy Mirki* (her family airlifts bread straight to the hungriest tables), *Sieć rybaków* (every gull
+  flies off, the glutton stops), *Bramka uczniów* (a wide ×3 by the basket for ten seconds), *Wiatr od
+  jeziora* (runners fly up the hill, walking gulls are blown back, no new wave). The player chooses
+  when.
+* **The gluttons' arenas** (boss levels): each chapter's last level ends on a terrace with its own
+  layout and a guest who wants the bread — *the Pelikan* (sways down the middle and gulps; a jar on
+  later circles), *Kozioł Zenek* (boulders split the lane into three columns with pebble arrows on the
+  sides; he picks the column with the most bread, lowers his head behind a dust line, and charges —
+  every loaf he meets rolls back down the hill, never lost), *Czapla Klara* (stands in a brook that
+  carries the bread sideways and stabs what passes within reach; ripples show where she steps next;
+  stepping stones are the quick way across), *Kormorany* (two brothers circle over the lake, a shadow
+  on the grass darkens where one will dive and grab, then he sits drying his wings — the opening).
+  All are fed until sated (a chest of cards, two baskets) and leave; in a rest they doze but still
+  munch what runs into them; the disciples feed them too after 40 s, so every glutton leaves in the
+  end. Chapters cycle Pelikan, Kozioł, Czapla, Kormorany; each circle round the path is hungrier.
+* **The lane's elements**, one more every few levels, each taught once by a coach mark: pebble arrows
+  (level 2: a sprint straight up), the **Dzban** (level 5: a jar gate that drinks loaves until it is
+  full — they become crumbs — then opens as ×3 for eight seconds), boulders (level 7: the crowd parts
+  around them), the brook (level 9: it carries runners sideways except on its stones), honey ×4 gates
+  (level 10: narrow and fast).
+* **Bundles** (booster packs, never bought): a level fed pays a *węzełek* (2 cards), three stars a
+  *tobołek* (3, the last rare or better), a glutton sated or a new league tier a *skrzynka* (5, the
+  last epic or better), a mission a *tobołek*. Odds are published in the lobby (common 64 %, rare
+  26 %, epic 8 %, legendary 2 %, tipped by the Spichlerz); a bundle's first card is a card never found
+  with even odds; an epic comes at least every twelve cards; a copy past the top becomes crumbs. A
+  bundle opens into the collection the moment it is earned (saved even if the session ends) and is
+  revealed at the next break, everything earned since the last one together (the best first, at most
+  eight tiles, the last saying how many more): the cards turn over with their rarity, "Nowa!", their
+  level, "Ewolucja!"; a tap shows them all at once (never in the first moment, so a tap meant for the
+  basket never skips it), and a story card over the reveal holds it.
+* **The village — Betsaida** (Mob Control's base), built between levels (the village card, at most
+  every 60 s) and in the lobby with the baskets of crumbs (a basket fills with 12 s of calm; the six
+  buildings' 20 levels cost 516 baskets — a strong player finishes the village in about ten
+  five-minute sessions, by the balance probe): *Piekarnia* (the stream), *Przystań* (a fish
+  every few runners, worth one more), *Wikliniarnia* (the champions), *Brama* (a ×2 gate by the
+  basket), *Studnia* (the help fills quicker), *Spichlerz* (a bigger day's gift, more Posiłki, luckier
+  bundles). The village's level (all buildings, 0–20) brings new cards into the bundles' pool, as Mob
+  Control's base level brings new units; the lobby draws the lakeshore with what is built.
+* **The league of stars** (Mob Control's Champions League): stars from the levels (the best of each,
+  up to three), one per building level and one per card evolution; the tiers are named after the
+  feeding — *Garść*, *Pięćdziesiątka*, *Setka*, *Tysiąc*, *Pięć tysięcy*, *Dwanaście koszy* (Mark
+  6:40, John 6:13) at 0, 15, 40, 80, 140 and 220 stars, then *Dwanaście koszy II, III …* every 70
+  stars; each new tier pays a chest.
+* **Missions** (quests without a pass): three at a time, of different kinds (feed N, loaves through
+  the golden gate in a Rozdawanie at any multiplier, champions sent, gulls stopped, stars, helps used,
+  rests on the grass, a glutton sated, a building raised), growing with the missions done; each pays a
+  *tobołek*. None needs the band to be completed; the band makes some quicker.
+* **The day** (date-seeded, the same for everyone): an ordinary day, a breezy day (runners faster), a
+  market day (a card more in every bundle), Mirka's family reunion (more gulls, double crumbs), a good
+  catch (every fourth runner a fish), a quiet morning (gulls later and rarer); a banner at the start.
+* **Posiłki** (Mob Control's reinforcements): a handful of loaves pours out by itself as each terrace
+  begins (more with the Spichlerz; not in the very first lesson).
+* **The band is unchanged:** the golden gate's multiplier in a Rozdawanie (the panel's gauge), the
+  ring's held focus that sends the chosen champion, calm on the grass filling the baskets of crumbs
+  (now the village's bricks) and a passed rest readying the help; the blind Mgła as before. The cards,
+  the village and the league never make a band-driven quantity depend on purchases or on the signal
+  alone: every card, building and tier is reached by playing, with the band adding size and speed.
+* **Teaching (v3):** once each, when first met: the help ("stuknij przycisk w rogu"), the first
+  bundle, the jar, the brook, the pebble arrows, the boulders, the ×4 gate, each glutton, the giant
+  loaf's tap, the donkey, the cart and the camel. Story cards: a glutton's first arena, the village
+  (Betsaida) at the first building, the bundles at the first reveal.
+* **Companion (v3):** Mirka gains 25 moments (3 lines each in four languages): each glutton's arrival
+  and leaving, the goat's charge, the heron's stab, the cormorants' dive, each champion, the donkey's
+  gulls ("Kuzynka Zdzisia niesie chleb na stół. Nie poznaję jej." — and the boy: "Mirka, oni po prostu
+  lubią pomagać."), the giant loaf's burst, the help ready and each help, a bundle, a new card, an
+  evolution, a league tier, a mission, a building, the jar.
 
 ### 9.4 Jerzy i smok — the knight on the dragon's lands (survivors-like, v2 → v3)
 

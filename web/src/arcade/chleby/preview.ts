@@ -2,16 +2,29 @@
  * Chleby i ryby's picture for the lobby's hero and the game card: a terrace of the hillside, the
  * boy's basket pouring a stream of bread-bearers up the lane, a honey ×2 doubling them and the
  * golden gate (its arch glowing, ×3) tripling them, a small gull wave waddling down to meet them,
- * the table of the hungry at the top with its hunger bar emptying, and Mirka swooping in from the
- * lake.  In the lobby (with progress) the hillside is the player's chapter.  Drawn every frame, so
- * it stays cheap: no state.
+ * the champion walking up through it all, the table of the hungry at the top with its hunger bar
+ * emptying, and Mirka swooping in from the lake.  In the lobby (with progress) the hillside is the
+ * player's chapter and the champion is the one in their loadout.  Drawn every frame, so it stays
+ * cheap: no state.
  */
+import type { MistrzId } from './cards';
 import { placeOf } from './field';
 import type { ChlebyProgress } from './meta';
 import {
-  PALETTES, paintBasket, paintBoy, paintGate, paintGoldGate, paintGrass, paintGull, paintGullWalk, paintLake, paintPath, paintRunner,
-  paintSky, paintTable,
+  PALETTES, paintBasket, paintBigBasket, paintBoy, paintGate, paintGoldGate, paintGrass, paintGull, paintGullWalk, paintLake, paintPath,
+  paintRunner, paintSky, paintTable,
 } from './paint';
+import { paintCamel, paintCart, paintDonkey, paintGiant } from './sprites';
+
+function champ(ctx: CanvasRenderingContext2D, id: MistrzId, x: number, y: number, s: number, t: number): void {
+  switch (id) {
+    case 'osiol': paintDonkey(ctx, x, y, s, { step: t * 9, t, worth: 16 }); break;
+    case 'woz': paintCart(ctx, x, y, s, { step: t * 14, t, worth: 22 }); break;
+    case 'olbrzym': paintGiant(ctx, x, y, s, { step: t * 9, t, fuse: 0.6, burst: 34 }); break;
+    case 'wielblad': paintCamel(ctx, x, y, s, { step: t * 6, t, worth: 70 }); break;
+    default: paintBigBasket(ctx, x, y, s, { step: t * 10, w: 30, t });
+  }
+}
 
 export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, p?: ChlebyProgress): void {
   const pal = PALETTES[p ? placeOf(p.level ?? 0).chapter % PALETTES.length : 0];
@@ -54,6 +67,10 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     items.push({ y: f, draw: () => paintGullWalk(ctx, q.x, q.y, S * 1.4 * q.s, { kind: 'gull', step: t * 9 + i, doze: false, t }) });
   }
   items.push({ y: 0.24, draw: () => paintGate(ctx, g1.x, g1.y, hwB * 0.46 * g1.s, S * g1.s, 'mul', '×2', 0, 0) });
+  // the champion, slowly up the lane
+  const cf = 0.08 + ((t * 0.06) % 0.8);
+  const cq = at(0.32, cf);
+  items.push({ y: cf, draw: () => champ(ctx, p?.loadout?.mistrz ?? 'kosz', cq.x, cq.y, S * 1.15 * cq.s, t) });
   items.push({ y: 0.58, draw: () => paintGoldGate(ctx, g2.x, g2.y, hwB * 0.6 * g2.s, S * g2.s, { mult: '×3', level: 0.72, mode: 'live', flash: 0.5 + 0.5 * Math.sin(t * 6), t, thr: '', reliable: true }) });
   items.sort((a, b) => b.y - a.y);
   for (const it of items) it.draw();
