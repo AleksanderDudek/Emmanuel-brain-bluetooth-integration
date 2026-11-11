@@ -2209,8 +2209,136 @@ depth that v2 left out:
 
 ### 11.6 Dawid — the shepherd who becomes a king (open-world action RPG after XP Hero)
 
-*To be written by the game's builder: the full design (controls, the map and its gates, beasts and
-bosses, the party, the sling and the harp, the camp, the meta, the companion and the story).*
+*1 Samuel 17:37 — "The LORD, who delivered me from the claws of the lion and the bear, will deliver me
+from the hand of this Philistine."* The youngest son of Jesse keeps his father's sheep around Bethlehem;
+the lamb he once pulled out of a lion's mouth follows him everywhere and talks a lot. The lion is back.
+
+* **The original, studied** (Google Play and App Store pages with their version history to 27.0.0 of
+  2026-10-23, xphero.fans's data from the game files, GameWith's chapter charts and system guides,
+  reviews). XP Hero is an open-world action RPG on one thumb: a floating joystick walks the hero over a
+  top-down map, he strikes by himself at what is near, kit skills fire by themselves; monsters live at
+  spawn points on respawn timers; gold, wood and stone go into a **bag with a cargo cap** — full, it
+  takes no more, and the hero walks back to the **base** (the bonfire) to empty it and heal; the base
+  grows building by building (bonfire, smithy, chest house, training ground, portal, raid camp, ladders
+  and stairs built from wood and stone); gold buys **steep ability ladders** (power, HP, cargo, move and
+  attack speed, critical chance, HP recovery, double and triple attack); a smithy crafts weapons in six
+  categories with evolution (a gacha) and merges three into the next rank; 26 heroes in rarities, a
+  team of six, stars 1–6 from pieces, one kit skill each; 20 stages in 3 regions, each with field
+  bosses whose **red circles can be dodged** and one stage boss whose fall opens the next stage
+  ("progress = bosses; everything else is fuel"); NPC quest chains with "!" and a quest arrow; level-up
+  rewards every 5 levels; gift chests every 10 minutes; a **Treasure Goblin** that runs off through a
+  portal if not caught; a 250-floor Challenge Tower of 30-second floors; idle auto-hunting; the newest
+  update added a Hero Collection (bonuses from owning combinations). Players love the hit sounds, the
+  coin showers and the constant level-ups; they hate forced ads after bosses, pay-to-win packs, the grind
+  after chapter 1, bosses that reset when you fail, and stats-only combat.
+* **Carried over:** the joystick and the auto-strike, spawn camps with respawn timers, the cargo bag and
+  the walk back to camp, buildings, the ability ladders (9), weapons by category with evolutions (4
+  weapons × 5 tiers), a party with kit skills (6 companions, 3 slots), lands closed by gate bosses with
+  dodgeable telegraphs, NPC quest chains with a quest arrow, level-up chests every 5 levels, gift
+  bundles, the treasure thief, the tower (the cave of Adullam), idle hunting (a tap). **Adapted:** the
+  tap-to-hunt is XP Hero's idle auto-hunt made a control (one-handed play, and the smoke's taps);
+  monsters never die (beasts lose heart and run off into the hills; Goliath falls flat on his face);
+  the death that drops the cargo is a stumble that wakes David at the camp's fire, bag and all; bosses
+  keep their wounds; the smithy's gacha is a fixed price in silver, wood and stone; heroes' pieces are
+  friendship from shared XP; the Hero Collection is two **bonds** (the sons of Zeruiah, the mighty men:
+  +damage when together); the 20 stages are 6 lands (then round again, ×45). **Dropped:** ads, gems,
+  packs, passes, energy, PvP invasion, raids with tickets, runes, traits, soul imprints, blessings.
+* **Hands.** A **drag anywhere** is a floating joystick (WASD and the arrows too). A **tap** near David
+  (or Space) sends him **hunting** — he walks to the nearest beasts (the quest's kind first, as XP
+  Hero's quest button leads) and stands at the sling's reach; a tap farther away walks him there,
+  then he hunts. The **sling throws by itself** (every 0.8 s at the nearest beast, then a fighting
+  guardian, then the thief); the staff sweeps, the bow pierces, the javelin pierces three; double and
+  triple throws come from the ladder. A tap on the **bag** walks him home; a tap on the **great stone's
+  dial** (or Space) throws it. In camp a card opens: four tabs (abilities, buildings, forge, party) and
+  tiles with their effect in numbers and their price; a tap buys, Space buys the first it can.
+* **The lands** (64 × 42 u maps, each with a camp, 7–9 dens, heaps of brushwood and stone, a brook, a
+  chest, the people of the story, a lair and a gate): *the pastures of Bethlehem* (jackals, hornets,
+  wolves — the lion), *the hills of Judah* (boars, vipers, hyenas — the she-bear), *the Valley of Elah*
+  (scorpions, vultures, hyenas; Israel's tents above, the Philistines' below — Goliath), *the fields of
+  Gibeah* (aurochs calves, boars, hornets — the great aurochs), *the wilderness of En-Gedi* (vipers,
+  caracals, scorpions — the leopard), *the land of Gath* (wolves, hyenas, vultures — a giant of Gath:
+  Ishbi-Benob, then Saph, Lahmi and the six-fingered one on later circles, 2 Sam 21:16-20). Beasts
+  have habits: chase, lunge (wolf), charge with a telegraphed lane (boar, aurochs), ambush (the viper
+  hidden in the grass), hit-and-run (hyena), swoop (vulture), swarm (hornets), leap (caracal).
+* **The guardians** sleep in their lairs until their quest comes, then wake when David is near:
+  telegraphs drawn true to their hit areas (a lunge lane, a swipe cone, a roar ring, a pounce circle;
+  Goliath's spear lane, stomp and taunt — a comic insult in a red bubble that slows David), then a
+  **daze** (×2 damage). **Goliath's shield-bearer** walks in front of him and stops stones from the
+  front ("Brzdęk!") — walk round to his side; the great stone flies over the shield. Driven off (the
+  beasts run off into the hills; Goliath falls flat and the Philistine tents empty, 1 Sam 17:49-52), the
+  gate opens, a chest and a story card (1 Sam 17:37, or 17:45 for a giant). Wounds stay across visits
+  and sessions; nothing resets.
+* **Push — Proca, the sling's whirl.** A dial ring at David's feet, drawn large, its arc running along
+  the ring's front: it fills with the band's level (smoothed), the threshold a notch right in front of
+  his feet ("próg"), the arc gold past it; the stone whirls round the ring faster with the level and
+  its whoosh rises in pitch. Below the threshold the stones fly white ×1 (never less); at it ×2, high
+  above it ×4 (in halves), on damage **and** XP, the "×3" drawn beside the ring and in the headline's
+  line. A held focus (6 s Mendi / 3 s HALO; golden hits add a little) polishes **the great stone from
+  the brook** (1 Sam 17:40): ready, it glows in the sling; a tap or Space (or by itself after 5 s)
+  throws it at the strongest target — a guardian loses up to 14 % and reels, a pack scatters — at most
+  twice a block. The panel's gauge is the whirl.
+* **Rest — Harfa, the harp by the fire** (1 Sam 16:23). David sits down, lights a shepherd's fire and
+  plays (notes rise, a plucked pentatonic tune); the party sits round; **every beast dozes**; the
+  hands rest too (no walking). Calm heals the party and fills **rested XP** — a blue band ahead of the
+  level's bar: the next XP counts double until it is used (WoW's rested XP), so a calm rest pays the
+  next push; the night refills the dens. A passed rest ends with the fire's gift (more rested XP).
+* **Blind — a moonless night** (every 4th push from the 3rd session): the hills go dark round a small
+  light, the ring is an ember, stones fly white; at dawn the block's share above the threshold is paid
+  as XP (2 × share × the night's XP) and as a charge of the great stone.
+* **The bag and the camp.** Silver (and brushwood and stone from the heaps) flies into the bag; full,
+  coins wait on the grass and the lamb nags; the camp empties it into the treasury and heals. The camp
+  travels with David: **the bonfire** (the ability ladder; its level caps it at 25 / 60 / all),
+  **the forge** (weapons to 10 / 18 / 25), **the storehouse** (the bag ×1.25…×2, chests richer),
+  **the well of Bethlehem** (2 Sam 23:15; healing ×1.25…×2), **the sheepfold** (wool: silver a minute
+  while playing — the flock as scenery, never the crowd), **the cave of Adullam** (the tower).
+* **Abilities** (silver, steep): Siła (damage +8 % a level), Zdrowie (+7 %), Torba (the bag ×1.18),
+  Tempo procy, Krok, Celność (critical ×2), Podwójny rzut, Potrójny rzut (after ten doubles), Oddech
+  (regeneration). **Weapons:** the sling (Proca pasterska → z koziej sierści → z doliny Ela →
+  Beniaminitów, Judg 20:16 → króla), the staff, Jonathan's bow (1 Sam 18:4, a gift), the javelin (up
+  to Saul's spear, 1 Sam 26:12, and Benaiah's); levels 1–25, an evolution every five (wood and stone).
+* **The party** joins through the quest chains: *Asahel*, swift as a gazelle (2 Sam 2:18: dashes
+  through a pack and sweeps the silver into the bag), *Abishai* (a shield: the party takes no harm for
+  2.5 s), *Jonathan* (three arrows at the strongest, 1 Sam 20:20), *Abigail* (bread and fig cakes heal,
+  1 Sam 25:18), *Benaiah* (the man who went down into a pit with a lion on a snowy day, and came out
+  alone: a stunning blow), *Shammah* (who would not give up a field of lentils, 2 Sam 23:11-12: he
+  draws the beasts to himself). Slots: 1, 2 from the Valley of Elah, 3 from En-Gedi; stars 1–5 from
+  friendship (10 % of the XP they share); each star makes the kit stronger and quicker.
+* **Quests.** Each land has a chain from the people of the story (12, 10, 9, 7, 7, 7 quests): hunt N of
+  a kind, build, buy, forge, bring brushwood, visit someone, reach a level, the guardian, the gate. The
+  visits carry the story and its humour: Jesse sends bread and cheeses to the brothers and Eliab
+  grumbles (1 Sam 17:17-18, 28), Saul's armour is far too big — David clanks along at a quarter speed for
+  four seconds (17:38-39), five smooth stones from the brook (17:40), Jonathan's gifts, Abigail on her
+  donkey, Ittai of Gath — a Philistine friend (ordinary Philistines are never enemies). A pill shows
+  the quest and its count; an arrow at the screen's edge (a bobbing marker when in sight) and the
+  minimap point to it; a price the treasury lacks points to the heap or the beasts that pay it. Later
+  circles: two hunts, the guardian, the gate.
+* **Surprises.** A level every few beasts (huge golden numbers and the gains), a chest every fifth
+  level; Jesse's bundle every 2.5 min; the land's chest every 90 s; **the golden jackal** who stole the
+  cheese runs off zig-zagging and dives into its burrow after 14 s unless the sling catches him (a pile
+  of silver and XP).
+* **The cave of Adullam** (the tower, after building it; 1 Sam 22:1): floors of 30 s in a torch-lit
+  arena with beasts of the lands reached, ×1.13 a floor; a cleared floor pays silver the first time and
+  a chest every tenth; the time running out walks David home; the deepest floor is kept. No daily cap.
+* **Grace.** Nothing ends a session early and nothing is lost: a stumble wakes David by the camp's
+  fire with his bag; the session's end carries the bag home; coins wait; guardians keep their wounds;
+  the auto-hunt steps out of red shapes; the hunt and the quest arrow always say where to go.
+* **Teaching.** The first session opens with the story card (root verse) and a warm-up; coach marks
+  point at the thing when it first matters: drag, tap to hunt (both repeated until done), silver, the
+  quest arrow, a level, the bag, the camp's card, the sling's ring and its notch, the great stone, the
+  harp, a guardian, the shield-bearer, the thief, the gate, the cave. Later sessions only what is new.
+* **Companion.** *Kłębek* (Tuft, Flocke, Ulla): the lamb nearly eaten by the lion — a grudge against
+  the lion, terrified of Goliath but trash-talking from behind David, always hungry for the brothers'
+  cheese, counts XP like an accountant, bleats mid-sentence when scared ("Beee… to znaczy: uważaj!").
+  42 moments × 3–4 lines; Goliath has his own taunts.
+* **Pacing** (simulated: `DAWID_PACING=12 npx vitest run test/arcade-dawid.test.ts -t pacing`): a
+  typical player reaches level ~12 in the first 5-minute session, drives off the lion in the second,
+  Goliath around the sixth to tenth, and the first circle in about twelve; XP to a level 70 × 1.10^L;
+  beasts, XP and silver × 1, 2.2, 4.6, 9.5, 19, 38 by land.
+* **Headline:** XP (EP in German), the session's own; the line under it: the level and the land, "proca
+  ×3" in a golden push, or "N do rekordu". **Closing:** the first session 1 Sam 16:7; a guardian driven
+  off 17:37; a giant fallen 17:45; great stones 17:40; a calm harp 16:23; else Psalm 23:1-3.
+  `1sa17.34-35` is not used (it ends with the lion killed). Progress is `ver: 1`; the placeholder's
+  `{ sessions }` save is read as a fresh one keeping its count.
 
 ### 11.7 Dziewiątka — nine heroes against the Din (team battler after Hero Wars: Alliance)
 
