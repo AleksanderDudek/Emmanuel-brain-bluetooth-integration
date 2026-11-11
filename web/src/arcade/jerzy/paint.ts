@@ -60,10 +60,13 @@ const GROUND: Record<ArenaKind, { a: string; b: string; edge: string; dot: strin
   marsh: { a: '#8ea777', b: '#6c8a62', edge: '#4c6b52', dot: '#b9c98f' },
   pass: { a: '#c9b68d', b: '#a8946f', edge: '#7e6d55', dot: '#e8dcc0' },
   castle: { a: '#c4b8a2', b: '#a69a84', edge: '#7a6f5e', dot: '#ddd3bf' },
+  ash: { a: '#b49c86', b: '#94806d', edge: '#6a5848', dot: '#dcc6ab' },
+  hoard: { a: '#d5ccae', b: '#bcae88', edge: '#857852', dot: '#ede4c6' },
 };
 
 const CANOPY: Record<ArenaKind, [string, string]> = {
   meadow: ['#3f6b35', '#5a8a45'], marsh: ['#3c5a45', '#557a58'], pass: ['#6b6252', '#8a7f6a'], castle: ['#6d6455', '#8c8270'],
+  ash: ['#4f4139', '#6c5949'], hoard: ['#7b6a3f', '#9c8a56'],
 };
 
 /**
@@ -83,7 +86,7 @@ export function paintSurround(ctx: CanvasRenderingContext2D, w: number, h: numbe
     const x = hash(i * 11 + 3) * w, y = hash(i * 7 + 5) * h, r = r0 * (0.6 + hash(i) * 0.8);
     if (arena && x > arena.x - r * 0.6 && x < arena.x + arena.w + r * 0.6 && y > arena.y - r * 0.6 && y < arena.y + arena.h + r * 0.6) continue;
     ellipse(ctx, x + r * 0.25, y + r * 0.3, r, r * 0.9, 'rgba(10,15,8,.28)');
-    if (kind === 'pass' || kind === 'castle') {
+    if (kind === 'pass' || kind === 'castle' || kind === 'ash' || kind === 'hoard') {
       ellipse(ctx, x, y, r * 0.9, r * 0.7, dark);
       ellipse(ctx, x - r * 0.2, y - r * 0.2, r * 0.5, r * 0.35, light);
     } else {
@@ -158,8 +161,15 @@ export function paintArena(ctx: CanvasRenderingContext2D, kind: ArenaKind, x0: n
       ellipse(ctx, px - rr * 0.25, py - rr * 0.25, rr * 0.45, rr * 0.3, '#c2b59e');
     }
   }
-  // tufts, flowers and pebbles everywhere but on the flagstones
-  if (kind !== 'castle') {
+  if (kind === 'ash' || kind === 'hoard') {
+    for (let i = 0; i < 26; i++) {
+      const px = x0 + hash(i * 61 + 5) * W, py = y0 + hash(i * 67 + 9) * H;
+      if (kind === 'ash') ellipse(ctx, px, py, s * 0.06, s * 0.045, `rgba(255,${130 + (i % 3) * 30},60,.75)`);
+      else ellipse(ctx, px, py, s * 0.08, s * 0.05, '#e8b83c');
+    }
+  }
+  // tufts, flowers and pebbles everywhere but on the flagstones, the ash and the gold
+  if (kind !== 'castle' && kind !== 'ash' && kind !== 'hoard') {
     for (let i = 0; i < 70; i++) {
       const px = x0 + hash(i * 3 + 7) * W, py = y0 + hash(i * 5 + 11) * H;
       ctx.strokeStyle = 'rgba(40,70,30,.35)';
@@ -391,6 +401,8 @@ const HIDES: Record<DragonKind, Hide> = {
   bagienny: { body: '#5d7f73', dark: '#3c5a52', belly: '#c9c49a', wing: '#7f9a7c', spike: '#a7b45a', eye: '#ffb84a' },
   skrzydlaty: { body: '#5a6496', dark: '#3a416c', belly: '#d7cfe6', wing: '#8a7fc0', spike: '#f0c8a0', eye: '#ffd24a' },
   trzyglowy: { body: '#9a4a52', dark: '#6c2f38', belly: '#efcf9a', wing: '#c06a62', spike: '#e2b23c', eye: '#ffe08a' },
+  zarowy: { body: '#b8502e', dark: '#7c2c1a', belly: '#ffcf7a', wing: '#de7442', spike: '#ffd24a', eye: '#fff3a0' },
+  zloty: { body: '#e39a2a', dark: '#9a5c12', belly: '#fff0c4', wing: '#f2b444', spike: '#fff6d2', eye: '#47b8a6' },
 };
 
 export interface DragonPose {
@@ -404,6 +416,8 @@ export interface DragonPose {
   /** the three-headed one: heads still awake (1..3) */
   heads: number;
   t: number;
+  /** v3: glowing hot after his ring of fire (0..1) */
+  hot?: number;
 }
 
 function paintHead(ctx: CanvasRenderingContext2D, hx: number, hy: number, s: number, hide: Hide, p: DragonPose, sleepy: boolean, tilt: number): void {
@@ -541,6 +555,39 @@ export function paintDragon(ctx: CanvasRenderingContext2D, x: number, y: number,
     ctx.stroke();
   }
   ctx.restore();
+  // the Ember Dragon's glowing cracks, the Golden Dragon's glints
+  if (p.kind === 'zarowy') {
+    const hk = 0.5 + 0.5 * Math.sin(p.t * 3) + (p.hot ?? 0) * 0.8;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = `rgba(255,${Math.round(140 + 60 * Math.min(1, hk))},60,${Math.min(1, 0.45 + 0.4 * hk)})`;
+    ctx.lineWidth = Math.max(1, S * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(-S * 0.6, -S * 0.7 + breathe);
+    ctx.lineTo(-S * 0.25, -S * 0.55 + breathe);
+    ctx.lineTo(S * 0.05, -S * 0.75 + breathe);
+    ctx.lineTo(S * 0.45, -S * 0.6 + breathe);
+    ctx.moveTo(-S * 0.3, -S * 0.9 + breathe);
+    ctx.lineTo(-S * 0.1, -S * 0.68 + breathe);
+    ctx.stroke();
+    if ((p.hot ?? 0) > 0) glow(ctx, 0, -S * 0.65, S * 1.8, 'rgba(255,190,90,', 0.45 * (p.hot ?? 0));
+    ctx.restore();
+  } else if (p.kind === 'zloty') {
+    for (let i = 0; i < 5; i++) {
+      const a = p.t * 1.5 + i * 1.3;
+      const tw = Math.max(0, Math.sin(a));
+      if (tw < 0.6) continue;
+      const gx = -S * 0.6 + i * S * 0.3, gy = -S * (0.5 + 0.18 * (i % 2)) + breathe;
+      ctx.fillStyle = `rgba(255,252,220,${(tw - 0.6) * 2.4})`;
+      ctx.beginPath();
+      ctx.moveTo(gx, gy - S * 0.1);
+      ctx.lineTo(gx + S * 0.025, gy);
+      ctx.lineTo(gx, gy + S * 0.1);
+      ctx.lineTo(gx - S * 0.025, gy);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
   // the scale plates along the back: fewer as they are knocked off
   const plates = 7, on = Math.ceil(plates * Math.max(0, Math.min(1, p.scales)));
   for (let i = 0; i < plates; i++) {
@@ -918,14 +965,17 @@ export function paintItemIcon(ctx: CanvasRenderingContext2D, id: ItemId | 'apple
       sun(ctx, 0, -r * 0.05, r * 0.32);
       break;
     case 'zbroja':
+      // a breastplate: a curved chest line and a belt (no lines crossing: never a cross)
       ctx.fillStyle = C.steel;
       ctx.beginPath();
       ctx.roundRect(-r * 0.6, -r * 0.65, r * 1.2, r * 1.3, r * 0.3);
       ctx.fill();
-      ctx.fillStyle = C.steelDark;
-      ctx.fillRect(-r * 0.05, -r * 0.6, r * 0.1, r * 1.2);
+      line(0.08, C.steelDark);
+      ctx.beginPath();
+      ctx.arc(0, -r * 0.75, r * 0.7, Math.PI * 0.2, Math.PI * 0.8);
+      ctx.stroke();
       ctx.fillStyle = C.goldDeep;
-      ctx.fillRect(-r * 0.6, r * 0.15, r * 1.2, r * 0.1);
+      ctx.fillRect(-r * 0.6, r * 0.42, r * 1.2, r * 0.12);
       break;
     case 'sakwa':
       ctx.fillStyle = '#9a6b3f';
@@ -939,6 +989,97 @@ export function paintItemIcon(ctx: CanvasRenderingContext2D, id: ItemId | 'apple
       ctx.lineTo(0, r * 0.15);
       ctx.fill();
       paintScale(ctx, r * 0.5, -r * 0.55, r * 0.3, 1, 0);
+      break;
+    case 'mlot':
+      ctx.save();
+      ctx.rotate(-0.6);
+      line(0.16, '#7a5434');
+      ctx.beginPath();
+      ctx.moveTo(0, r * 0.85);
+      ctx.lineTo(0, -r * 0.3);
+      ctx.stroke();
+      ctx.fillStyle = evo ? C.gold : C.steelDark;
+      ctx.fillRect(-r * 0.5, -r * 0.75, r, r * 0.45);
+      ctx.fillStyle = evo ? C.goldLight : C.steel;
+      ctx.fillRect(-r * 0.5, -r * 0.75, r, r * 0.13);
+      ctx.restore();
+      break;
+    case 'kusza':
+      line(0.14, '#7a5434');
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.75, r * 0.5);
+      ctx.lineTo(r * 0.55, -r * 0.45);
+      ctx.stroke();
+      line(0.12, evo ? C.gold : C.steelDark);
+      ctx.beginPath();
+      ctx.arc(r * 0.3, -r * 0.2, r * 0.6, -2.3, 0.8);
+      ctx.stroke();
+      line(0.04, '#efe7d6');
+      ctx.beginPath();
+      ctx.moveTo(r * 0.3 + Math.cos(-2.3) * r * 0.6, -r * 0.2 + Math.sin(-2.3) * r * 0.6);
+      ctx.lineTo(r * 0.3 + Math.cos(0.8) * r * 0.6, -r * 0.2 + Math.sin(0.8) * r * 0.6);
+      ctx.stroke();
+      break;
+    case 'kolce':
+      // a caltrop: three spikes on the ground (never four at right angles)
+      ctx.fillStyle = evo ? C.gold : '#4a4a55';
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * TAU - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(a - 0.25) * r * 0.25, Math.sin(a - 0.25) * r * 0.25);
+        ctx.lineTo(Math.cos(a) * r * 0.85, Math.sin(a) * r * 0.85);
+        ctx.lineTo(Math.cos(a + 0.25) * r * 0.25, Math.sin(a + 0.25) * r * 0.25);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ellipse(ctx, 0, 0, r * 0.18, r * 0.18, evo ? C.goldLight : '#8a8a98');
+      break;
+    case 'kolczan':
+      ctx.fillStyle = '#8a5a36';
+      ctx.beginPath();
+      ctx.roundRect(-r * 0.3, -r * 0.4, r * 0.6, r * 1.2, r * 0.15);
+      ctx.fill();
+      for (let i = -1; i <= 1; i++) {
+        line(0.07, '#7a5434');
+        ctx.beginPath();
+        ctx.moveTo(i * r * 0.15, -r * 0.4);
+        ctx.lineTo(i * r * 0.2, -r * 0.85);
+        ctx.stroke();
+        ctx.fillStyle = C.vermilion;
+        ctx.beginPath();
+        ctx.moveTo(i * r * 0.2, -r * 0.95);
+        ctx.lineTo(i * r * 0.2 - r * 0.08, -r * 0.75);
+        ctx.lineTo(i * r * 0.2 + r * 0.08, -r * 0.75);
+        ctx.fill();
+      }
+      break;
+    case 'plaszcz':
+      ctx.fillStyle = C.vermilion;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.3, -r * 0.7);
+      ctx.lineTo(r * 0.3, -r * 0.7);
+      ctx.quadraticCurveTo(r * 0.8, r * 0.2, r * 0.6, r * 0.85);
+      ctx.lineTo(-r * 0.6, r * 0.85);
+      ctx.quadraticCurveTo(-r * 0.8, r * 0.2, -r * 0.3, -r * 0.7);
+      ctx.fill();
+      ctx.fillStyle = C.gold;
+      ctx.fillRect(-r * 0.32, -r * 0.72, r * 0.64, r * 0.12);
+      break;
+    case 'pierscien':
+      ctx.strokeStyle = C.gold;
+      ctx.lineWidth = Math.max(2, r * 0.22);
+      ctx.beginPath();
+      ctx.ellipse(0, r * 0.15, r * 0.5, r * 0.45, 0, 0, TAU);
+      ctx.stroke();
+      ctx.fillStyle = '#d2462f';
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 0.65);
+      ctx.lineTo(r * 0.22, -r * 0.38);
+      ctx.lineTo(0, -r * 0.18);
+      ctx.lineTo(-r * 0.22, -r * 0.38);
+      ctx.closePath();
+      ctx.fill();
       break;
     case 'apple':
       paintApple(ctx, 0, r * 0.1, r * 0.6);
@@ -1259,7 +1400,15 @@ export function paintField(ctx: CanvasRenderingContext2D, kind: ArenaKind, cx: n
       const hh = cellHash(i, j, 4);
       if (hh > 0.42) continue;
       const px = toX(i + cellHash(i, j, 5)), py = toY(j + cellHash(i, j, 6));
-      if (hh < 0.2 && kind !== 'castle') {
+      if (kind === 'ash' && hh < 0.22) {
+        // an ember glowing in the ash
+        const glowK = 0.5 + 0.5 * Math.sin(t * 2 + i * 1.3 + j);
+        ellipse(ctx, px, py, s * 0.05, s * 0.04, `rgba(255,${Math.round(120 + 60 * glowK)},60,${0.55 + 0.35 * glowK})`);
+      } else if (kind === 'hoard' && hh < 0.22) {
+        // a coin in the sand
+        ellipse(ctx, px, py, s * 0.07, s * 0.045, '#e8b83c');
+        ellipse(ctx, px - s * 0.015, py - s * 0.01, s * 0.03, s * 0.018, '#fff1b0');
+      } else if (hh < 0.2 && kind !== 'castle') {
         ctx.strokeStyle = kind === 'pass' ? 'rgba(90,80,60,.35)' : 'rgba(40,70,30,.38)';
         ctx.lineWidth = Math.max(1, s * 0.03);
         const sway = Math.sin(t * 1.5 + i + j) * s * 0.02;
@@ -1302,6 +1451,37 @@ export function paintField(ctx: CanvasRenderingContext2D, kind: ArenaKind, cx: n
         ellipse(ctx, px, py, r * 2.2, r, 'rgba(250,252,255,.6)');
         ellipse(ctx, px + r * 1.5, py + r * 0.6, r * 0.6, r * 0.45, '#9b8c76');
         ellipse(ctx, px + r * 1.4, py + r * 0.45, r * 0.3, r * 0.2, '#c2b59e');
+      } else if (kind === 'ash') {
+        // a black rock with glowing cracks, a wisp of smoke over it
+        ellipse(ctx, px + r * 0.2, py + r * 0.3, r * 1.2, r * 0.45, 'rgba(20,10,5,.3)');
+        ellipse(ctx, px, py, r * 1.1, r * 0.7, '#3f342e');
+        ellipse(ctx, px - r * 0.3, py - r * 0.25, r * 0.5, r * 0.28, '#5a4a40');
+        const k = 0.5 + 0.5 * Math.sin(t * 1.6 + i + j);
+        ctx.strokeStyle = `rgba(255,${Math.round(110 + 70 * k)},50,${0.6 + 0.3 * k})`;
+        ctx.lineWidth = Math.max(1, s * 0.035);
+        ctx.beginPath();
+        ctx.moveTo(px - r * 0.6, py + r * 0.05);
+        ctx.lineTo(px - r * 0.1, py - r * 0.12);
+        ctx.lineTo(px + r * 0.25, py + r * 0.1);
+        ctx.lineTo(px + r * 0.7, py - r * 0.05);
+        ctx.stroke();
+        ctx.globalAlpha = 0.18;
+        ellipse(ctx, px + Math.sin(t * 0.7 + i) * r * 0.3, py - r * (1.1 + 0.2 * Math.sin(t + j)), r * 0.45, r * 0.3, '#d8d0c8');
+        ctx.globalAlpha = 1;
+      } else if (kind === 'hoard') {
+        // a heap of gold with a gem, half buried
+        ellipse(ctx, px + r * 0.2, py + r * 0.3, r * 1.3, r * 0.45, 'rgba(60,40,10,.25)');
+        ellipse(ctx, px, py, r * 1.2, r * 0.55, '#c9962e');
+        ellipse(ctx, px - r * 0.2, py - r * 0.18, r * 0.8, r * 0.35, '#e8bd48');
+        ellipse(ctx, px - r * 0.35, py - r * 0.28, r * 0.3, r * 0.12, '#fff1b0');
+        ctx.fillStyle = (i + j) % 2 ? '#4fb8a8' : '#d2462f';
+        ctx.beginPath();
+        ctx.moveTo(px + r * 0.35, py - r * 0.45);
+        ctx.lineTo(px + r * 0.5, py - r * 0.25);
+        ctx.lineTo(px + r * 0.35, py - r * 0.05);
+        ctx.lineTo(px + r * 0.2, py - r * 0.25);
+        ctx.closePath();
+        ctx.fill();
       } else if (kind === 'castle') {
         // a broken column lying in the grass
         ctx.fillStyle = 'rgba(60,50,40,.25)';

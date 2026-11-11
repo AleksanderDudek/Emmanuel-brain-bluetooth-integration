@@ -41,6 +41,15 @@ export class Talk {
   /** Forget what was asked (a story card covers everything). */
   clear(): void { this.queue.length = 0; }
 
+  /** Forget the asks of some moments, and cut the line on screen when it is one of them (a hint that just came true). */
+  drop(which: (m: Moment) => boolean): void {
+    for (let i = this.queue.length - 1; i >= 0; i--) if (which(this.queue[i].moment)) this.queue.splice(i, 1);
+    if (this.line && which(this.line.moment)) {
+      this.line = null;
+      this.gap = 0;
+    }
+  }
+
   /** A frame: the line ages, a telegraph or a banner cuts it, and the best fresh ask is said when the way is clear. */
   update(dt: number, now: number, blocked: boolean): void {
     this.now = now;

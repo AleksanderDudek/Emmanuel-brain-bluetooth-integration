@@ -5,8 +5,11 @@
  * dissolves, a bell that climbs as scales are gathered (combo pitch, reset when the gathering
  * pauses), the hiss of quenched fire, the aura's low beat, the Miecz światła's swell, a fanfare at a
  * level, a chest, an evolution; the dragon's growl before an attack, his roar, the horse's hooves,
- * the squire's splash; the Postój's slow tune; a fanfare when a dragon flies off.  A missed verdict
- * makes no sound.  Many small sounds are throttled so a crowd never becomes noise.
+ * the squire's splash; the Postój's slow tune; a fanfare when a dragon flies off.  v3: a sting when a
+ * dragon's weak spot opens, a great hiss when the shield puts out a ring of fire, a sparkle for a
+ * treasure, a chime for a duet, Linda's card shuffle, Burek's woof, Iskierka's munch, Bartek's
+ * knocking, sparks of light, the dive's rumble under the turf and the Golden Dragon's jingle.  A
+ * missed verdict makes no sound.  Many small sounds are throttled so a crowd never becomes noise.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
 import type { JerzySim, SimEvent } from './sim';
@@ -26,6 +29,8 @@ export class JerzySound {
   private pop = 0;
   private swing = 0;
   private hurt = 0;
+  private zap = 0;
+  private woof = 0;
 
   constructor(private readonly a: ArcadeAudio) {}
 
@@ -40,6 +45,8 @@ export class JerzySound {
     this.pop = Math.max(0, this.pop - dt);
     this.swing = Math.max(0, this.swing - dt);
     this.hurt = Math.max(0, this.hurt - dt);
+    this.zap = Math.max(0, this.zap - dt);
+    this.woof = Math.max(0, this.woof - dt);
     this.scaleQuiet += dt;
     if (this.scaleQuiet > 1.2) this.scaleN = 0;
     if (sim.restBlock) {
@@ -135,12 +142,57 @@ export class JerzySound {
         a.noiseBurst(1, { type: 'lowpass', freq: 600, sweepTo: 200, gain: 0.05 });
         break;
       case 'bossTele':
-        // the growl before an attack
-        a.tone(e.pattern === 'breath' ? 82 : 98, 0.6, { type: 'sawtooth', gain: 0.02, attack: 0.15, slideTo: e.pattern === 'breath' ? 110 : 82 });
+        // the growl before an attack (a rumble under the turf before a dive)
+        if (e.pattern === 'dive') a.noiseBurst(1.2, { type: 'lowpass', freq: 220, sweepTo: 420, gain: 0.05 });
+        else a.tone(e.pattern === 'breath' ? 82 : 98, 0.6, { type: 'sawtooth', gain: 0.02, attack: 0.15, slideTo: e.pattern === 'breath' ? 110 : 82 });
         break;
       case 'bossAct':
         if (e.pattern === 'breath') a.noiseBurst(1.2, { type: 'bandpass', freq: 500, sweepTo: 1400, q: 0.6, gain: 0.05 });
-        else a.noiseBurst(0.3, { type: 'lowpass', freq: 400, gain: 0.07 });
+        else if (e.pattern === 'ring') a.noiseBurst(1.6, { type: 'bandpass', freq: 380, sweepTo: 1700, q: 0.7, gain: 0.05 });
+        else if (e.pattern === 'coins') for (let i = 0; i < 6; i++) a.bell(ladder(10 + Math.floor(Math.random() * 6), ROOT), 0.018, 0.4, i * 0.05);
+        else if (e.pattern === 'embers') a.noiseBurst(0.5, { type: 'highpass', freq: 2500, sweepTo: 5000, gain: 0.03 });
+        else if (e.pattern === 'dive') {
+          a.noiseBurst(0.5, { type: 'lowpass', freq: 500, gain: 0.08 });
+          a.tone(55, 0.5, { type: 'sine', gain: 0.06, slideTo: 41 });
+        } else a.noiseBurst(0.3, { type: 'lowpass', freq: 400, gain: 0.07 });
+        break;
+      case 'fatal':
+        a.tone(73.42, 0.4, { type: 'sine', gain: 0.06, slideTo: 55 });
+        [0, 4, 7, 12, 16].forEach((n, i) => a.bell(ladder(n, ROOT), e.first ? 0.05 : 0.04, 1.2, i * 0.06));
+        break;
+      case 'ringOut':
+        a.noiseBurst(1.1, { type: 'highpass', freq: 2500, sweepTo: 7500, gain: 0.06 });
+        [0, 4, 7, 11].forEach((n, i) => a.bell(ladder(n, ROOT / 2), 0.04, 1.6, 0.1 + i * 0.07));
+        break;
+      case 'treasure':
+        [0, 4, 7, 11, 14, 19].forEach((n, i) => a.bell(ladder(n, ROOT), e.first ? 0.05 : 0.04, 1.5, i * 0.06));
+        break;
+      case 'duet':
+        a.bell(ladder(7, ROOT), 0.045, 1.2);
+        a.bell(ladder(12, ROOT), 0.045, 1.2, 0.12);
+        a.bell(ladder(16, ROOT), 0.04, 1.4, 0.24);
+        break;
+      case 'reroll':
+        for (let i = 0; i < 4; i++) a.noiseBurst(0.05, { type: 'bandpass', freq: 2600, q: 1.5, gain: 0.03, at: i * 0.06 });
+        break;
+      case 'pal':
+        if (e.id === 'pies' && this.woof <= 0) {
+          this.woof = 0.6;
+          a.tone(e.what === 'fetch' ? 760 : 320, 0.08, { type: 'triangle', gain: 0.045, slideTo: e.what === 'fetch' ? 980 : 190 });
+          if (e.what === 'bite') a.tone(300, 0.07, { type: 'triangle', gain: 0.035, slideTo: 180, at: 0.12 });
+        } else if (e.id === 'iskierka') {
+          a.noiseBurst(0.06, { type: 'lowpass', freq: 900, gain: 0.04 });
+          a.noiseBurst(0.06, { type: 'lowpass', freq: 900, gain: 0.04, at: 0.1 });
+          a.bell(ladder(12, ROOT), 0.025, 0.5, 0.18);
+        } else if (e.id === 'bobr') for (let i = 0; i < 3; i++) a.tone(190, 0.06, { type: 'square', gain: 0.02, at: i * 0.09, slideTo: 150 });
+        break;
+      case 'spark':
+        if (this.zap > 0) break;
+        this.zap = 0.08;
+        a.tone(e.from === 'mirror' ? 1200 : 820, 0.07, { type: 'sine', gain: 0.025, slideTo: e.from === 'mirror' ? 2100 : 1500 });
+        break;
+      case 'block':
+        a.tone(130, 0.12, { type: 'triangle', gain: 0.04, slideTo: 80 });
         break;
       case 'flaw':
         [0, 4, 7].forEach((n, i) => a.bell(ladder(n + 5, ROOT), 0.035, 0.8, i * 0.06));

@@ -3,20 +3,22 @@
  * field, the brood closing in from every side, his shield's aura swelling with a focus that comes
  * and goes (the dotted threshold ring, the rim turning gold) and throwing them back, a sword's arc,
  * a falcon circling, scales on the grass, a fireball going out in the light; Linda behind him.  In
- * the lobby (with progress) the land is the player's current one.  Drawn every frame, so it stays
- * cheap: no state.
+ * the lobby (with progress) the land is the player's current one and the companion who comes along
+ * trots beside Linda.  Drawn every frame, so it stays cheap: no state.
  */
 import { clamp } from '../kit/juice';
-import { BROOD_KINDS } from './content';
-import { dragonAt, type JerzyProgress } from './meta';
+import { BROOD_KINDS, type CompanionId } from './content';
+import { paintPal, type PalPose } from './figures';
+import { fightOf, type JerzyProgress } from './meta';
 import { glow, hash, paintBrood, paintFalcon, paintField, paintFireball, paintKnight, paintLinda, paintScale, type KnightPose, type LindaPose } from './paint';
 
 const kp: KnightPose = { flip: 1, step: 0, walking: 0, swing: 0, roll: 0, down: 0, hit: 0, charge: 0, ready: false, t: 0 };
 const lp: LindaPose = { flip: 1, step: 0, walking: 0, arm: 0, sit: 0, talk: false, t: 0 };
+const pp: PalPose = { flip: 1, step: 0, walking: 0, t: 0, act: 0, roll: 0, nap: 0 };
 const TAU = Math.PI * 2;
 
 export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, p?: JerzyProgress): void {
-  const spec = dragonAt(p ? p.dragon : 0).spec;
+  const spec = p ? fightOf(p).spec : fightOf({ land: 0, tier: 0 } as JerzyProgress).spec;
   const s = Math.max(14, Math.min(w / 11, h / 6.2));
   const cx = w / 2, cy = h * 0.6;
   paintField(ctx, spec.arena, t * 0.15, 0, cx, cy, s, w, h, t);
@@ -74,6 +76,16 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   lp.flip = 1;
   lp.arm = 0.5 + 0.4 * Math.sin(t * 3);
   paintLinda(ctx, cx - s * 1.0, cy - s * 0.15, s * 0.85, lp);
+  // the companion who comes along
+  const pal = p?.party?.[0] as CompanionId | undefined;
+  if (pal) {
+    pp.t = t;
+    pp.step = t * 9;
+    pp.walking = 0.6;
+    pp.roll = t * 5;
+    pp.act = pal === 'iskierka' ? 0.5 + 0.5 * Math.sin(t * 3) : 0;
+    paintPal(ctx, pal, cx - s * 1.75, cy + s * 0.25, s * 0.9, pp);
+  }
   kp.t = t;
   kp.charge = clamp((t % 6) / 6);
   kp.ready = kp.charge > 0.95;

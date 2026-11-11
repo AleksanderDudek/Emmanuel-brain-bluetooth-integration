@@ -37,6 +37,12 @@ export const RULES = {
   pulseSec: 1.35,
   pulsePush: 7,
   pulseDmg: 1,
+  /** the beat grows with the aura: × (1 + pulseGrow × the band's share of the radius); on the dragon × pulseBoss */
+  pulseGrow: 2,
+  pulseBoss: 3,
+  /** a dragon's knocked-off scales: one silver scale (3) for every this much damage; this many gold ones when he flies off */
+  owedPer: 35,
+  drivenGold: 8,
   /** the lead-in before the band moves the aura (s), Mendi / HALO */
   leadIn: { fnirs: 5, eeg: 2 },
 
@@ -51,8 +57,8 @@ export const RULES = {
   swordAuto: 6,
   /** the light's damage to every creature on screen, and the share of a dragon's scales it takes (at most this many) */
   swordDmg: 60,
-  swordBoss: 0.05,
-  swordBossMax: 90,
+  swordBoss: 0.08,
+  swordBossMax: 240,
 
   // ── the brood (the dragon's creatures: they dissolve into smoke and run, never die in gore) ──
   /** they come in this far beyond the edge of sight (u) and are brought round when this far away (× the view's half-diagonal) */
@@ -64,11 +70,11 @@ export const RULES = {
   hatchK: 0.55,
   /** spawn rate (per s) = base + perSec × run time, at most max; alive at most cap */
   spawnBase: 1.0,
-  spawnPerSec: 0.022,
-  spawnMax: 5.5,
+  spawnPerSec: 0.014,
+  spawnMax: 3.2,
   cap: 110,
   /** creature hp grows with run time: × (1 + run s / hpGrow) */
-  hpGrow: 100,
+  hpGrow: 70,
   /** a wave (a ring closing in) every waveSec (s) from waveFrom: count = waveBase + run s / wavePer */
   waveSec: 30,
   waveFrom: 28,
@@ -103,8 +109,8 @@ export const RULES = {
   pull: 9,
   /** scales to the next level from level L (1-based): base + step × (L − 1) + sq × (L − 1)² */
   xpBase: 5,
-  xpStep: 4,
-  xpSq: 0.45,
+  xpStep: 6,
+  xpSq: 1.8,
   /** the world freezes during a choice; the first card is taken after this long (s) */
   choiceSec: 12,
   /** slots for weapons and gear */
@@ -149,8 +155,10 @@ export const RULES = {
   /** touching him hurts this many hearts */
   bossTouch: 1,
   /** telegraphs (s) before an attack lands; quicker in his later thirds */
-  tele: { breath: 1.05, lanes: 1.15, rain: 1.0, swoop: 1.1 },
+  tele: { breath: 1.05, lanes: 1.15, rain: 1.0, swoop: 1.1, dive: 1.5, ring: 1.2, embers: 0.9, coins: 0.95, sweep: 1.1 },
   teleFast: 0.88,
+  /** between the attacks of a round (the Three-Headed, a hard road's combo) (s) */
+  comboGap: 0.45,
   /** between attacks (s) */
   bossRest: [1.0, 1.8],
   /** the breath: a cone this wide (half angle, rad) and long (u), flames per second, their speed (u/s), how long (s) */
@@ -172,21 +180,123 @@ export const RULES = {
   /** the swoop: a lane this wide (u) flown at this speed (u/s) */
   swoopW: 1.6,
   swoopSpeed: 12,
-  /** hearts lost: a flame, a fire lane, a drop, the swoop */
-  hurt: { touch: 0.25, ball: 0.75, flame: 0.25, lane: 1, rain: 1, swoop: 1 },
+  /** hearts lost: a flame, a fire lane, a drop, the swoop, the dive's burst, the ring of fire, a hot coin, the tail */
+  hurt: { touch: 0.25, ball: 0.75, flame: 0.25, lane: 1, rain: 1, swoop: 1, dive: 1, ring: 1, coin: 0.5, sweep: 1 },
   /** the flaw: after an attack he is dizzy this long (s) and takes this much more */
   flawSec: 2.2,
   flawK: 2,
-  /** his scales (hp) at circle 0 and the growth per circle */
-  circleUp: 0.35,
+  /**
+   * The fatal flaw (each dragon's own weakness, found by play): a longer window that hurts more.
+   * steam — the Green Dragon chokes when this many flames of one breath are put out;
+   * greed — the Golden Dragon stops to gobble when this many scales lie this near him (each takes this long);
+   * heat — the Ember Dragon cools this long after his ring of fire (the aura or water touching him then).
+   */
+  fatalSec: 3.6,
+  fatalK: 3,
+  steamNeed: 6,
+  greedN: 4,
+  greedNear: 3.8,
+  greedEach: 0.45,
+  greedMax: 3.4,
+  greedK: 2.5,
+  heatSec: 2.6,
+  /** the Three-Headed: three heads attack in a row (a round), then the necks tangle */
+  tangleRound: 3,
+  /** his scales (hp) on the squire's road and the growth per road beyond the fourth */
+  circleUp: 0.8,
   /** a third of his scales knocked off: a roar (s, invulnerable), a push (u), a chest */
   roarSec: 1.1,
   roarPush: 2.2,
+  /** the dive (the Marsh Dragon): under the ground toward the mark this long (s), then a burst this wide (u) */
+  diveR: 1.55,
+  /** the ring of fire (the Ember Dragon): from this radius to this one (u) in this long (s), a band this wide, a gap this wide (rad) */
+  ringFrom: 4.6,
+  ringTo: 0.5,
+  ringSec: 1.8,
+  ringBand: 0.55,
+  ringGap: 1.15,
+  /** his embers: this many packs of ember beetles hatch around the knight */
+  emberPacks: 2,
+  /** hot coins (the Golden Dragon): this many in a fan this wide (rad), at this speed (u/s); those that miss cool into scales */
+  coins: 9,
+  coinFan: 1.0,
+  coinSpeed: 3.6,
+  coinLife: 2.1,
+  /** the tail sweep: a ring this wide (u) around him */
+  sweepR: 3.1,
 
   // ── the Postój (rest) ────────────────────────────────────────
   /** calm restores hearts (per s at calm 1) after this lead-in (s) */
   heal: 0.11,
   restLead: { fnirs: 4, eeg: 2 },
+
+  // ── v3: the roads (difficulties a land is fought on again) ──
+  /**
+   * The squire's, the knight's, the hero's and the legend's road: the dragon's scales (hp ×), the
+   * brood's hp (×), the telegraphs (× their length), attacks in a row before he is dizzy, the bonus
+   * of the session's scales paid into the treasury.  Past the fourth the legend's road grows by
+   * `circleUp` hp and 0.25 brood a road.
+   */
+  roads: [
+    { hp: 1, brood: 1, tele: 1, combo: 0, bank: 0 },
+    { hp: 1.6, brood: 1.3, tele: 0.9, combo: 0, bank: 0.25 },
+    { hp: 2.3, brood: 1.65, tele: 0.82, combo: 1, bank: 0.5 },
+    { hp: 3.1, brood: 2.0, tele: 0.76, combo: 1, bank: 0.75 },
+  ],
+
+  // ── v3: crits, rerolls, damage tallies ───────────────────────
+  /** a blow is critical this often (and ×critK) before the ring and the vambraces */
+  crit: 0.04,
+  critK: 2,
+  /** reshuffles of a choice per run (Linda shuffles the cards) */
+  rerolls: 1,
+
+  // ── v3: the new weapons ──────────────────────────────────────
+  /** the hammer flies out at this speed and comes back at that one (u/s) */
+  hammerOut: 9,
+  hammerBack: 12,
+  /** bolts fly at this speed (u/s) this long (s) */
+  boltSpeed: 15,
+  boltLife: 0.75,
+  /** caltrops lie this long (s) and bite every tick (s), slowing what stands on them (×) */
+  caltropLife: 5,
+  caltropTick: 0.5,
+  caltropSlow: 0.5,
+
+  // ── v3: the treasures (the dragons' hoard) ───────────────────
+  /** a treasure instead of a level: an elite's chest, a roar's chest; a run holds at most this many */
+  treasureElite: 0.3,
+  treasureRoar: 0.5,
+  treasureMax: 6,
+  /** the mirror: a quenched fireball (a flame) throws a spark of light at the nearest creature this near (u) */
+  mirrorDmg: 5,
+  mirrorFlame: 2,
+  mirrorReach: 5.5,
+
+  // ── v3: the companions (they come along, levelled in the run by cards) ──
+  palMax: 4,
+  /** Burek: runs (u/s), fetches what lies this far (u) beyond the pickup, bites what is this near (u) every bite s */
+  dogSpeed: 5.6,
+  dogFetch: 6.5,
+  dogBiteR: 1.5,
+  dogBite: 0.7,
+  /** Burek barks at a telegraph: it lasts this much longer (s) */
+  dogBark: 0.25,
+  /** Iskierka: orbits at (u), eats fire this near (u) every eat s, spits a spark this far (u) every spark s */
+  sparkOrbit: 1.15,
+  sparkEatR: 2.4,
+  sparkEat: 2.2,
+  sparkReach: 4.6,
+  sparkSpit: 1.6,
+  /** Kolczak: rolls round the knight at this radius (u), a lap in this long (s); hits a creature at most every 0.5 s */
+  hogR: 2.3,
+  hogLap: 2.6,
+  /** Bartek: a palisade every wall s when this many creatures are this near (u); this long (u), it stands this long (s) */
+  wallEvery: 9,
+  wallNeed: 3,
+  wallNear: 6,
+  wallLen: 2.6,
+  wallLife: 6,
 
   // ── the session ──────────────────────────────────────────────
   /** Tarcza and Postój: nominal length ± jitter (s); no block under minBlock */

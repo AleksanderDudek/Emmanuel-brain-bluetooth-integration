@@ -6,7 +6,7 @@
  * screen, so the scene sits high.
  */
 import { approach, clamp } from '../kit/juice';
-import { dragonAt, type JerzyProgress } from './meta';
+import { fightOf, type JerzyProgress } from './meta';
 import { glow, paintArena, paintBrood, paintCave, paintDragon, paintKnight, paintLinda, paintSurround, type DragonPose, type KnightPose, type LindaPose } from './paint';
 
 export class JerzyIntro {
@@ -21,7 +21,7 @@ export class JerzyIntro {
     this.clock += dt;
     this.shown = approach(this.shown, clamp(p), dt, 0.4);
     const k = this.shown, t = this.clock;
-    const spec = dragonAt(progress.dragon).spec;
+    const spec = fightOf(progress).spec;
     paintSurround(ctx, w, h, spec.arena);
     const aw = 10, ah = 5;
     const S = Math.max(18, Math.min((w - 24) / aw, (h * 0.58) / (ah + 1)));

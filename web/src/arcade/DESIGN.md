@@ -1584,54 +1584,87 @@ down the hill and the screen did not say what to do. v2 copies Mob Control's loo
   Mark 6:42-43; a big basket: John 6:11; twelve baskets: John 6:12; the Pelikan sated: Matthew 6:26;
   a passed rest: Mark 6:39-40; else John 6:35.
 
-### 9.4 Jerzy i smok — the knight on the dragon's lands (survivors-like, v2)
+### 9.4 Jerzy i smok — the knight on the dragon's lands (survivors-like, v2 → v3)
 
 *Ephesians 6:16 — "Take up the shield of faith, with which you can extinguish all the flaming
 arrows of the evil one."* The legend of Saint George: the dragon's brood crawls over the kingdom's
 fields, a princess refuses to wait in her tower, a knight walks out with a shield. Rebuilt in v2
-(§10.5) after *Knight Survivor* and its genre (Vampire Survivors, Survivor.io, Archero): the
-mechanics are the genre's, the world, names, art and numbers are ours.
+(§10.5) after *Knight Survivor* and its genre (Vampire Survivors, Survivor.io, Archero), grown in v3
+(§11.3, 2026-11-11) towards the newest Knight Survivor: the mechanics are the genre's, the world,
+names, art and numbers are ours.
 
 * **View and verb.** An endless top-down field of the current land (meadow, marsh, stony pass,
-  castle grounds), the camera on the knight. **A drag anywhere is a floating joystick** (WASD and the
-  arrows too). His weapons strike **by themselves** at the nearest creature. A tap without a drag
-  does nothing — except release a ready Miecz światła, pick a card, or close a card — so the smoke's
-  centre clicks are harmless and the auto-sword still gathers scales.
+  castle grounds, and in v3 the ash hills and the golden hoard), the camera on the knight. **A drag
+  anywhere is a floating joystick** (WASD and the arrows too). His weapons strike **by themselves**.
+  A tap without a drag does nothing — except release a ready Miecz światła, pick a card, reshuffle the
+  cards or close a card — so the smoke's centre clicks are harmless and the auto-sword still gathers
+  scales.
 * **The brood** (the dragon's creatures, round-eyed and a little comic): *pisklę* (a chick, the
   chaser), *jaszczurka* (fast lizards in packs), *plujka* (a toad-dragon that keeps its distance and
   spits fireballs), *pancernik* (an armoured plodder), *ognik* (ember beetles in swarms), and golden
   *elites* that leave a chest. They come from beyond the edge of sight in a stream that thickens with
   the run, a ring closing in every 30 s, an elite every 50 s; the first seconds of a run they hatch
   from burrows within sight. Beaten, they **dissolve into ink-grey smoke and sparks and scamper
-  off** (§8.1), leaving a **scale** (bronze 1, silver 3, gold 10). Apples heal; a rare gust pulls in
+  off** (§8.1), leaving a **scale** (bronze 1, silver 2, gold 10). Apples heal; a rare gust pulls in
   every scale.
 * **Levels and cards.** Scales are experience; every level freezes the world for **one of three
-  cards**: a new weapon (*Miecz* — the sweep he starts with, *Kopia* — piercing lances, *Sokół* —
-  falcons circling him, *Wiadra giermka* — splashes that also put out fire, *Róg* — a ring that
-  throws the brood back, *Biały koń* — charges across the field) or gear (*Sztandar* damage,
-  *Rękawice* cooldown, *Buty* speed, *Tarcza* the aura's base, *Zbroja* hearts lost, *Sakwa* pickup),
-  or a level more — **each card shows its numbers** ("Cięcie 5 · co 0,92 s · zasięg 2 m"). Four
-  weapon and four gear slots; weapons to 5, gear to 3. **Evolutions:** a weapon at 5 with its pair at
-  3 evolves from the next chest or as the first card (*Miecz Jerzego*, *Grad kopii*, *Sokoły króla*,
-  *Źródło*, *Róg grzmotu*, *Biała szarża*).
-* **The land's dragon (the boss).** On a Tarcza block once the run is 40 s old, and every other one
-  after, the land's dragon flies in. **Telegraphs** on the ground in red (a cone of breath, three
-  fire lanes, circles of fire rain, a swoop's lane), then the fire, then a **dizzy window** (stars,
-  ×2 damage). Each third of his scales: a roar, a push and a chest. At the block's end he **flies off
-  for a nap** and keeps his wounds — across runs and sessions. Driven off (never killed), he flies
-  over the hills: a big chest, gold scales, a story card, and the next land.
+  cards**, and **each card shows its numbers** ("Cięcie 5 · co 0,92 s · zasięg 2 m"). Nine weapons:
+  *Miecz* (the sweep he starts with), *Kopia* (piercing lances), *Sokół* (falcons circling him),
+  *Wiadra giermka* (splashes that also put out fire), *Róg* (a ring that throws the brood back),
+  *Biały koń* (charges across the field), and in v3 *Młot* (thrown out and back, striking both
+  ways), *Kusza* (quick bolts at the strongest: an elite, the dragon) and *Kolce* (caltrops dropped as
+  he goes, which bite and slow). Nine pieces of gear: *Sztandar* damage, *Rękawice* cooldown, *Buty*
+  speed, *Tarcza* the aura's base, *Zbroja* hearts lost, *Sakwa* pickup, and in v3 *Kołczan* (+1/+2
+  projectiles), *Płaszcz* (reach and size) and *Pierścień* (critical blows ×2, gold numbers). Four
+  weapon and four gear slots; weapons to 5, gear to 3; a companion's level is a card too. **Evolutions:**
+  a weapon at 5 with its pair at 3 evolves from the next chest or as the first card (*Miecz Jerzego*,
+  *Grad kopii*, *Sokoły króla*, *Źródło*, *Róg grzmotu*, *Biała szarża*, *Młot kowala*, *Kusza
+  królewska*, *Żelazna łąka*). **Duets** (v3): two weapons that belong together change each other —
+  *Turniej* (lance + horse: charges +60 %), *Pobudka* (sword + horn: after a blast the sweep goes all
+  round), *Ulewa* (buckets + horn: the horn's ring puts out fire), *Łowy* (falcon + crossbow), *Zasadzka*
+  (caltrops + horse: caltrops along the lane), *Kuźnia* (hammer + sword); a card names the duet it
+  would form. **Linda reshuffles** the cards once a run (twice more from the forge): the button under
+  them, or R.
+* **The land's dragon (the boss).** On the second Tarcza block of a session (once it is 30 s old), and
+  every other one after, the land's dragon flies in. **Telegraphs** on the ground in red, then the attack, then a
+  **dizzy window** (stars, ×2). Each third of his scales: a roar, a push and a chest. At the block's
+  end he **flies off for a nap** and keeps his wounds — across runs and sessions. Driven off (never
+  killed), he flies over the hills: a big chest with his hoard's treasure, gold scales, a story card,
+  and the next fight. **Each dragon has a fatal flaw** (v3, Knight Survivor's "a chess match against
+  dragons with unique weaknesses"): a longer window (3.6 s) at ×3 that the player learns to bring
+  about. Linda hints at it until it is found; found, it goes into the **Księga smoków**:
+
+  | Land (town) | Dragon (scales on the squire's road) | Attacks (+ from the knight's road) | Fatal flaw | Hoard |
+  |---|---|---|---|---|
+  | meadow (Silena) | Zielony (2 400) | breath cone, fire lanes, fire rain (+ tail sweep) | **Kaszel**: ≥ 6 flames of one breath put out (by the shield, water, Iskierka) — he chokes on the steam | Lusterko Lindy |
+  | marsh (Trzcinowo) | Bagienny (3 000) | **dive** under the turf to a marked ring, rain, breath (+ lanes) | **Grzęzawisko**: his dive misses — stuck in the mud | Dzban ze źródła |
+  | pass (Skalna Przełęcz) | Skrzydlaty (3 600) | swoop, rain, breath (+ lanes) | **Twarde lądowanie**: his swoop misses — he hits the rocks | Sokole pióro |
+  | castle (Królewski Gród) | Trzygłowy (4 300) | rounds of three different attacks, one per head (+ ring) | **Splątane szyje**: after every round of three | Klepsydra |
+  | ash hills (Kuźnica) | Żarowy (5 000) | **ring of fire** closing in with a gap, **embers** (beetle packs), breath (+ rain) | **Przegrzanie**: while he cools after the ring, the aura or water touches him | Krzesiwo |
+  | the hoard (Złotniki) | Złoty (5 800) | **hot coins** in a fan (those that miss cool into scales), **tail sweep** (knocks scales out of his hoard), swoop (+ rain) | **Łakomstwo** (×2.5): ≥ 4 scales lie near him — he stops to gobble them | Mapa skarbów |
+
+* **The roads** (v3, Knight Survivor's "adventure replayed on higher difficulties"): every land is
+  fought on the squire's, the knight's, the hero's and the legend's road (and beyond): the dragon's
+  scales ×1 / 1.6 / 2.3 / 3.1 (+0.8 a road after), the brood ×1 / 1.3 / 1.65 / 2, quicker telegraphs,
+  from the hero's road two attacks in a row, and a **treasury bonus** of 25 / 50 / 75 % of the
+  session's scales. The map shows a crown for every road cleared; the next fight is the frontier (the
+  lowest road with a land left), or, picked in the lobby, any freed land's next road; a dragon left
+  wounded keeps his wounds per land and road.
 * **The shield's aura (push — Tarcza):** the band is a ring of light around Jerzy. In a sighted Tarcza
   past its lead-in (5 s Mendi, 2 s HALO) its radius = base + `level` × 2.8 u; the **threshold is a
-  dotted ring** drawn on it (named "próg"), the rim turns gold beyond it. It **beats** every 1.35 s
-  and throws the brood inside it back; **fire inside it goes out** (steam) — fireballs, the breath's
-  flames, rain, and above the threshold the dragon's fire lanes under him. Quenched fire and a held
-  focus charge the **Miecz światła**; a tap (or Space; by itself after 6 s) releases it: light over
-  the whole screen, the brood dissolves, the dragon loses a bite of scales. The push block is also the
-  wave's peak (more spitters: more fire to quench). The base hugs the knight (gear and the forge
-  widen it) — without the signal the game plays at its base, never a penalty.
+  dotted ring** drawn on it (named "próg"), the rim turns gold beyond it. It **beats** every 1.35 s,
+  throws the brood inside it back, and in v3 the beat grows with the aura (×1…×3) and strikes the
+  dragon when he is inside it; **fire inside it goes out** (steam) — fireballs, hot coins, the
+  breath's flames, rain, above the threshold the fire lanes under him, and a **whole ring of fire**
+  the aura reaches. Quenched fire and a held focus charge the **Miecz światła**; a tap (or Space; by
+  itself after 6 s) releases it: light over the whole screen, the brood dissolves, the dragon loses 8 %
+  of his scales (at most 240). The push block is also the wave's peak (more spitters: more fire to
+  quench). Two weak spots are the shield's own: the Green Dragon chokes on a breath the shield puts
+  out, the Ember Dragon collapses when the aura touches him as he cools. The base hugs the knight
+  (gear and the forge widen it) — without the signal the game plays at its base, never a penalty.
 * **Rest — Postój:** the dragon and his brood **nap** (spawns ×0.3, the creatures drowsy, "z" over
-  their heads, a blue dusk); `calm` brings hearts back; the block's end gives a **free card**, golden
-  (two levels) after a calm one.
+  their heads, a blue dusk; Burek and Bartek nap too); `calm` brings hearts back; the block's end gives
+  a **free card**, golden (two levels, and sometimes a treasure) after a calm one.
 * **Blind — Dym:** the aura is drawn as smoke and stays at its base; the footprints are grey; at the
   block's end its share of time above the threshold fills the Miecz światła at once.
 * **The signal in sight.** The aura's ring (live) with its threshold ring, the sword's dial and the
@@ -1640,27 +1673,70 @@ mechanics are the genre's, the world, names, art and numbers are ours.
   (*Siły* in a rest).
 * **Grace and runs.** Five hearts; contact nibbles, fire bites. At none, Linda's apple gets him up
   once a run (half hearts, the brood thrown back). After that the **run ends**: a tally (scales,
-  time, level, "12 łusek do rekordu biegu"), and a new run starts at once; the session's scales stay.
-* **Meta.** The **treasury** keeps every session's scales; the **forge** (in the lobby) turns them
-  into permanent upgrades (Siła, Serce, Krok, Zręczne ręce, Osłona, Nauka); the **armoury** gives the
-  knight's gear for milestones (the Silena pennant for the first dragon driven off — runs start with
-  the Banner; a plumed helmet; silver spurs; a purse belt; Linda's basket — a second apple; the sun
-  shield); the **map of the dragon's lands**: four lands, circle after circle, each dragon stronger.
-* **Story.** The opening card (the first session, with Ephesians 6:16), a card for every land freed,
-  Linda's closing line in the summary.
-* **Companion.** *Księżniczka Kleodolinda* (the legend's name, which she hates; "mów mi Linda"):
-  clever, sarcastic, warm; she trots behind him and talks in short bubbles (24 moments × 3–4 lines):
-  the opening, a block start, a good push, a quench, a near miss, a level, an evolution, a chest, an
-  elite, a wave, the dragon, his flaw and nap, the apple, a run's end and a new run, the ending.
+  time, level, "12 łusek do rekordu biegu", and in v3 **what each weapon did** — the stat screen
+  Knight Survivor's players ask for), and a new run starts at once; the session's scales stay.
+* **Companions** (v3, Knight Survivor 1.2's companion system; unlocked by play, never bought; one
+  comes along, two after three dragons): *Burek*, the town dog (after the first session: fetches scales
+  and chests beyond reach, bites, barks before a telegraph so it lasts 0.25 s longer); *Iskierka*, the
+  Green Dragon's youngest, who changed sides (the first dragon driven off: eats fire near her —
+  it charges the Miecz — and spits sparks); *Kolczak*, a hedgehog (8 chests: rolls round the knight in
+  a ball of spikes and brings the scales it picks up); *Bartek*, a beaver (the Marsh Dragon driven
+  off: gnaws palisades that hold the brood and stop fireballs). Each has levels in the run (cards).
+* **Treasures of the hoard** (v3, the original's relics "+30 % dmg to x", shown on the weapon they
+  touch): twelve run modifiers — the hoard of each dragon's first drive-off, and from elites' and
+  roars' chests (30 % / 50 %): *Lusterko Lindy* (quenched fire throws light at the brood), *Dzban ze
+  źródła*, *Sokole pióro*, *Klepsydra* (windows ×1.5), *Krzesiwo* (the Miecz charges 30 % faster),
+  *Mapa skarbów*, *Złota podkowa*, *Osełka*, *Kowadełko* (evolve with the pair at 2), *Szczepka jabłoni*,
+  *Kompas*, *Ogniwo kolczugi*; the treasury in the lobby keeps the ones found.
+* **Meta.** The **treasury** keeps every session's scales (plus the road's bonus); the **forge** (in the
+  lobby, prices 1, 3, 6, 10, 15 × the first) turns them into permanent upgrades (Siła, Serce, Krok,
+  Zręczne ręce, Osłona, Nauka, and in v3 Talia Lindy — reshuffles — and Druh — companions start a level
+  higher); the **armoury** gives the knight's gear for milestones (the Silena pennant, a plumed helmet,
+  silver spurs, a purse belt, Linda's basket, the sun shield, and in v3 the victor's wreath — a land
+  won on the knight's road — and vambraces — six treasures); the **map**: six lands × roads with
+  crowns; the **Księga smoków**; the companions; the duets found.
+* **Story.** The opening card (the first session, with Ephesians 6:16), a card for every land freed
+  with the road won and the next fight (the first one: Iskierka stays with Linda), Linda's closing line
+  in the summary.
+* **Companion who talks.** *Księżniczka Kleodolinda* (the legend's name, which she hates; "mów mi
+  Linda"): clever, sarcastic, warm; she trots behind him and talks in short bubbles — 41 moments × 3–4
+  lines: the opening, a block start, a good push, a quench, a near miss, a level, an evolution, a
+  chest, an elite, a wave, the dragon, his dizzy window and nap, the apple, a run's end and a new run,
+  the ending, and in v3 a weak spot found ("Szach! A teraz mat, rycerzu."), a treasure, a duet, a
+  reshuffle, a harder road, three hints for each dragon's weak spot, and lines about each companion.
+  She keeps quiet while the runner's coach mark is on the field, and a hint that came true is cut.
 * **First session.** A warm-up (no blocks: the joystick and the sword) and coach marks one at a time
   when they first matter: drag to walk, scales, the first card, the aura and its threshold, a
-  fireball to quench, the sword ready, the Postój, the dragon's red shapes, a chest, an evolution.
-  Later sessions get a mark only for what is new to the player.
+  fireball to quench, the sword ready, the Postój, the dragon's red shapes, a chest, an evolution; in
+  v3 also the reshuffle, the companion, a treasure, a duet, a weak spot, the ring of fire. Later
+  sessions get a mark only for what is new to the player.
+* **A phone on its side** (v2's cramped layout): the hearts, the level's bar and the dragon's bar move
+  into the free strip between the runner's panel and score, the field is drawn smaller so the widest
+  aura fits, and cards, the tally and the story cards sit under the runner's panel.
+* **Pacing, checked by simulation** (`test/arcade-jerzy.test.ts`, "pacing table", `JERZY_BALANCE=1`):
+  a bot plays careers of sessions on one save (sharp: every telegraph dodged; casual: slower, misses a
+  third of them) with no signal, an average and a good focus. v2's numbers let a sharp bot reach level
+  29 in 5 min without losing a run, buy the whole forge after one session and drive a dragon off in
+  ~10 s of his visit. v3 retuned the stream (slower growth, smaller packs), the level curve (5 + 6k +
+  1.8k²), the brood's growth, the dragon's scales (×4.6), the forge's prices, and gave focus more
+  weight. Now a casual player with an average focus: 3 min — ~860 scales, level ~11, a dragon every
+  second session; 5 min — ~2 000, level ~15, about one dragon a session (the first in session 1–2),
+  ~3 weak spots opened; 10 min — ~6 000, level ~23. Focus adds +40–100 % to a visit's damage on the
+  dragon and keeps the knight standing (no signal: ~1.5 runs a 5-min session; average focus: ~1).
+  The squire's road takes ~25 minutes of play; the roads beyond, weeks of daily sessions.
+* **The save.** Progress `ver: 3`. A v2 save is migrated in place: the bank, the forge, the armoury,
+  the records, the counters and the coach marks stay; the old four-land map index becomes roads
+  cleared on the six-land map (with the wounds of the dragon it was fighting); a knight who had gone
+  round once meets the two new lands first; the companions earned are given at once. A v1 save keeps
+  its records and session count.
+* **Dropped from the original:** energy, ads (revives, rerolls, resources all ad-gated there), paid
+  packs, the battle pass and the wheel, loot boxes, weapon rarities (players hate the gap between red
+  and the rest), RNG walls (nothing is lost: a dragon keeps his wounds).
 * **Headline.** Scales gathered in the session (`łusek`); the line under it: the level and the run, or
   "N do rekordu biegu". **Closing:** the first session: Joshua 1:9; a dragon driven off: Psalm 91:13;
-  a Miecz światła: Ephesians 6:17; many fires quenched: Ephesians 6:16; new armour or an evolution:
-  Ephesians 6:10-11; a long stand: 2 Timothy 4:7; a calm Postój: 1 Corinthians 16:13; else
-  Ephesians 6:16.
+  a weak spot found for the first time: James 1:5; a Miecz światła: Ephesians 6:17; many fires
+  quenched: Ephesians 6:16; new armour or an evolution: Ephesians 6:10-11; a long stand: 2 Timothy
+  4:7; a calm Postój: 1 Corinthians 16:13; else Ephesians 6:16.
 
 ### 9.5 How they fit the set
 

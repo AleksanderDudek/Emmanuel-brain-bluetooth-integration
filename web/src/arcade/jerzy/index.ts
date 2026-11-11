@@ -37,6 +37,8 @@ class JerzyGame implements ArcadeGame {
   /** first-time explanations waiting for a clear screen (one at a time, a few seconds apart) */
   private readonly hints: { what: Coach; x: number; y: number }[] = [];
   private hintCool = 0;
+  /** the coach mark showing now points at the field (not at the cards) */
+  private fieldHint = false;
 
   constructor(private readonly env: GameEnv<JerzyProgress>) {
     migrate(env.progress);
@@ -92,8 +94,11 @@ class JerzyGame implements ArcadeGame {
         return;
       }
       if (sim.choice) {
-        const i = this.view.hud.cardAt(e.x, e.y);
-        if (i >= 0) sim.tap(i);
+        if (this.view.hud.rerollAt(e.x, e.y)) sim.reroll();
+        else {
+          const i = this.view.hud.cardAt(e.x, e.y);
+          if (i >= 0) sim.tap(i);
+        }
         this.drain();
         return;
       }
@@ -127,7 +132,7 @@ class JerzyGame implements ArcadeGame {
     } else sim.steer(0, 0);
   }
 
-  /** Arrows and WASD walk, Space and Enter release the sword or pick the first card, 1–3 pick a card. */
+  /** Arrows and WASD walk, Space and Enter release the sword or pick the first card, 1–3 pick a card, R reshuffles. */
   key(key: string, down: boolean): boolean {
     const used = this.sim.key(key, down);
     if (used) this.drain();
@@ -147,6 +152,11 @@ class JerzyGame implements ArcadeGame {
       this.view.on(e, this.sim);
       this.sound.on(e);
       if (e.type === 'coach') this.hints.push({ what: e.what, x: e.x, y: e.y });
+      // the cards come up: a coach mark about the field must not sit over them
+      if (e.type === 'choice' && this.fieldHint) {
+        this.env.hint('');
+        this.fieldHint = false;
+      }
       if (this.env.haptics) haptic(e);
     }
   }
@@ -165,6 +175,21 @@ class JerzyGame implements ArcadeGame {
       if (!sim.choice) { this.hints.shift(); return; }
       if (!card) return;
       at = { x: card.x + card.w / 2, y: card.y + 4 };
+    } else if (h.what === 'reroll') {
+      const b = this.view.hud.reroll;
+      if (!sim.choice) { this.hints.shift(); return; }
+      if (!b) return;
+      at = { x: b.x + b.w / 2, y: b.y };
+    } else if (h.what === 'fatal' || h.what === 'ring') {
+      if (sim.story || sim.tally || sim.choice) return;
+      const p = h.what === 'fatal' ? this.view.toScreen(sim.boss.x, sim.boss.y - 1.6) : this.view.toScreen(sim.knight.x, sim.knight.y - 1);
+      at = { x: Math.max(20, Math.min(L.w - 20, p.x)), y: Math.max(L.top + 10, Math.min(L.bottom - 10, p.y)) };
+    } else if (h.what === 'pal') {
+      if (sim.story || sim.tally || sim.choice) return;
+      const pl = sim.pals[0];
+      if (!pl) { this.hints.shift(); return; }
+      const p = this.view.toScreen(pl.x, pl.y - 0.6);
+      at = { x: Math.max(20, Math.min(L.w - 20, p.x)), y: Math.max(L.top + 10, Math.min(L.bottom - 10, p.y)) };
     } else {
       if (h.what === 'sword' && !sim.swordReady) { this.hints.shift(); return; }
       if (sim.story || sim.tally || sim.choice) return;
@@ -172,8 +197,10 @@ class JerzyGame implements ArcadeGame {
       at = { x: Math.max(20, Math.min(L.w - 20, at.x)), y: Math.max(L.top + 10, Math.min(L.bottom - 10, at.y)) };
     }
     this.hints.shift();
-    const ms = h.what === 'move' || h.what === 'aura' || h.what === 'rest' ? 5000 : 3800;
+    this.fieldHint = !['choose', 'evolve', 'reroll'].includes(h.what);
+    const ms = h.what === 'move' || h.what === 'aura' || h.what === 'rest' || h.what === 'fatal' || h.what === 'ring' ? 5000 : 3800;
     this.hintCool = ms / 1000 + 0.6;
+    if (this.fieldHint) sim.quiet = ms / 1000;
     this.env.hint(t(`coach.${h.what}`), at, ms);
   }
 
@@ -226,6 +253,10 @@ function haptic(e: SimEvent): void {
     case 'driven': buzz([30, 40, 30, 40, 80]); break;
     case 'down': buzz([10, 60, 10]); break;
     case 'roar': buzz(60); break;
+    case 'fatal': buzz([20, 30, 20, 30, 20]); break;
+    case 'treasure': buzz([15, 25, 15, 25, 40]); break;
+    case 'duet': buzz([15, 30, 30]); break;
+    case 'ringOut': buzz([40, 30, 60]); break;
     default: break;
   }
 }

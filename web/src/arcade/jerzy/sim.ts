@@ -2,18 +2,26 @@
  * Jerzy i smok's rules without a screen: a survivors-like on the dragon's lands.  The knight walks
  * an endless field (a joystick: drag anywhere, or WASD); his weapons strike by themselves; the
  * dragon's brood closes in, in growing waves, and dissolves into smoke when beaten, leaving scales;
- * scales fill the level, every level is a choice of one of three cards (a new weapon or gear, or a
- * level more — the numbers on the card); a weapon at its top with its pair at its top evolves from
- * the next chest or card; elites leave chests, apples heal.  On Tarcza blocks the land's dragon
- * comes (every other one, once the run is old enough): telegraphed fire marked on the ground, then
- * a dizzy window to strike; at the block's end he flies off for a nap, keeping his wounds.
+ * scales fill the level, every level is a choice of one of three cards (a new weapon or gear, a
+ * level more, a companion's level — the numbers on the card; Linda may reshuffle them); a weapon at
+ * its top with its pair at its top evolves from the next chest or card, two weapons that belong
+ * together form a duet; elites leave chests (a level, an evolution or a treasure of the hoard),
+ * apples heal.  On Tarcza blocks the land's dragon comes (every other one, once the run is old
+ * enough): telegraphed attacks marked on the ground, then a dizzy window to strike — and each dragon
+ * has its own **fatal flaw**, a longer, harder-hitting window the player learns to bring about (the
+ * Green Dragon chokes on the steam of a breath the shield puts out, the Marsh Dragon sticks in the
+ * mud when his dive misses, the Winged Dragon crashes when his swoop misses, the Three-Headed's necks
+ * tangle after a round of three, the Ember Dragon collapses when the aura touches him while he
+ * cools, the Golden Dragon stops to gobble scales left near him).  At the block's end he flies off
+ * for a nap, keeping his wounds.  A land is fought on four roads, each harder.
  *
  * The band is the shield's aura (Ephesians 6:16): in a sighted Tarcza past its lead-in its radius
  * follows the level (the threshold is a dotted ring on it); it beats and throws the brood back, and
  * fire inside it goes out — quenched fire and a held focus charge the Miecz światła, a tap's
- * screen-wide light.  In a Postój the dragon and the brood nap, calm brings hearts back, and the
- * block's end gives a free card (golden, two levels, after a calm one).  A run ends when the hearts
- * are gone and Linda's apple is spent: a tally, and a new run starts; the session's scales stay.
+ * screen-wide light; a big aura puts out a whole ring of fire.  In a Postój the dragon and the brood
+ * nap, calm brings hearts back, and the block's end gives a free card (golden, two levels, after a
+ * calm one).  A run ends when the hearts are gone and Linda's apple is spent: a tally (with what each
+ * weapon did), and a new run starts; the session's scales stay.
  *
  * No DOM: the view and the sound read the state and the event queue (`take()`).
  */
@@ -23,13 +31,17 @@ import { approach, clamp } from '../kit/juice';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
-  BROOD, BROOD_KINDS, GEAR, GEAR_IDS, LINES, TIPS, WEAPONS, WEAPON_IDS, armourName, dragonName, evoName, itemName, townName,
-  type BroodKind, type BroodSpec, type DragonKind, type DragonSpec, type GearId, type ItemId, type Pattern, type WeaponId, isWeapon,
-  type ArmourId,
+  BROOD, BROOD_KINDS, DRAGONS, DUETS, GEAR, GEAR_IDS, LINES, TIPS, TREASURES, TREASURE_ON, WEAPONS, WEAPON_IDS,
+  armourName, dragonName, duetName, evoName, flawName, isWeapon, itemName, palName, quiverOf, roadName, townName, treasureName,
+  type ArmourId, type BroodKind, type BroodSpec, type CompanionId, type DragonKind, type DragonSpec, type DuetId, type FlawKind,
+  type GearId, type ItemId, type Pattern, type TreasureId, type WeaponId,
 } from './content';
 import { t, unit, scales as scalesText } from './i18n';
 import { RULES, span } from './rules';
-import { affordable, bestFor, dragonAt, earnArmour, forgeLevel, hasArmour, hpOf, lenKey, type JerzyProgress } from './meta';
+import {
+  affordable, bestFor, clearFight, earnArmour, earnCompanions, fightOf, findTreasure, forgeLevel, hasArmour, hpOf, lenKey, road,
+  slots, woundKey, woundsOf, type JerzyProgress,
+} from './meta';
 import { Talk } from './talk';
 
 export { RULES } from './rules';
@@ -39,7 +51,9 @@ export interface Block { kind: BlockKind; dur: number; blind: boolean }
 export type Phase = 'play' | 'finale' | 'done';
 export type AuraLook = 'base' | 'live' | 'wait' | 'grey' | 'smoke';
 export type BossState = 'away' | 'arrive' | 'move' | 'tele' | 'act' | 'flaw' | 'roar' | 'leave';
-export type Coach = 'move' | 'scales' | 'choose' | 'aura' | 'quench' | 'sword' | 'rest' | 'boss' | 'evolve' | 'chest';
+export type Coach =
+  | 'move' | 'scales' | 'choose' | 'aura' | 'quench' | 'sword' | 'rest' | 'boss' | 'evolve' | 'chest'
+  | 'reroll' | 'pal' | 'treasure' | 'duet' | 'fatal' | 'ring';
 
 export interface Knight {
   x: number; y: number;
@@ -58,27 +72,46 @@ export interface Creature {
   elite: boolean; hit: number; touchT: number; spitT: number;
   /** seconds since it came; `hatch`: it crawled out of a burrow in sight (the view shows the dust) */
   age: number; hatch: boolean;
-  /** the falcon's last bite on it (per bird), the pool's last tick */
-  birdT: number;
+  /** the last bite of a falcon, of the hedgehog, of the palisade (the session clock) */
+  birdT: number; hogT: number; wallT: number;
+  /** standing on caltrops this frame */
+  slow: boolean;
 }
 
 export interface Smoke { id: number; x: number; y: number; r: number; t: number; kind: BroodKind; elite: boolean; dir: number }
 export interface Scale { id: number; x: number; y: number; v: number; life: number; pulled: boolean }
 export type DropKind = 'apple' | 'gust' | 'chest' | 'bigChest';
-export interface Drop { id: number; kind: DropKind; x: number; y: number; t: number; pulled: boolean }
-export interface Ball { id: number; x: number; y: number; vx: number; vy: number; r: number; life: number }
+export interface Drop { id: number; kind: DropKind; x: number; y: number; t: number; pulled: boolean; src?: 'elite' | 'roar' }
+/** a spitter's fireball, or (coin) one of the Golden Dragon's hot coins */
+export interface Ball { id: number; x: number; y: number; vx: number; vy: number; r: number; life: number; coin?: boolean }
 export interface Flame { id: number; x: number; y: number; vx: number; vy: number; r: number; life: number }
 export interface RainDrop { id: number; x: number; y: number; t: number; dur: number }
-export interface Zone { id: number; kind: 'cone' | 'lane' | 'circle'; x: number; y: number; a: number; len: number; w: number; t: number; dur: number; live: boolean }
-export interface Lance { id: number; x: number; y: number; vx: number; vy: number; pierce: number; life: number; hit: number[] }
+/** a telegraph on the ground; a ring of fire also has its radius now, its gap's angle and width */
+export interface Zone { id: number; kind: 'cone' | 'lane' | 'circle' | 'ring'; x: number; y: number; a: number; len: number; w: number; t: number; dur: number; live: boolean; r?: number; gap?: number; gapW?: number }
+export interface Lance { id: number; x: number; y: number; vx: number; vy: number; pierce: number; life: number; hit: number[]; bolt?: boolean }
 export interface Splash { id: number; x: number; y: number; r: number; t: number; pool: number }
-export interface Horse { id: number; x: number; y: number; dir: 1 | -1; t: number; hit: number[] }
+export interface Horse { id: number; x: number; y: number; dir: 1 | -1; t: number; hit: number[]; dropU: number }
 export interface Sweep { a: number; arc: number; r: number; t: number; evo: boolean }
-export interface Ring { r: number; t: number; kind: 'horn' | 'pulse' | 'sword' | 'roar' | 'apple' }
+export interface Ring { r: number; t: number; kind: 'horn' | 'pulse' | 'sword' | 'roar' | 'apple' | 'burst' | 'steam' }
 export interface Print { x: number; y: number; t: number; above: boolean; phase: 'focus' | 'rest' | 'free'; veiled: boolean; left: boolean }
+/** a thrown hammer: out to `max` u and back to the knight */
+export interface Hammer { id: number; x: number; y: number; vx: number; vy: number; out: boolean; went: number; max: number; hit: number[]; spin: number; evo: boolean }
+export interface Caltrop { id: number; x: number; y: number; r: number; t: number; life: number; tick: number; dmg: number }
+/** Bartek's palisade: a log wall from (x − cos a·len/2) to (x + cos a·len/2) */
+export interface Wall { id: number; x: number; y: number; a: number; len: number; t: number; life: number; dmg: number }
+
+/** a companion on the field */
+export interface Pal {
+  id: CompanionId; x: number; y: number; face: number;
+  /** its own timers and its angle round the knight */
+  t1: number; t2: number; a: number;
+  /** what it is doing: following, fetching, gnawing a palisade */
+  busy: 'follow' | 'fetch' | 'gnaw';
+  tx: number; ty: number;
+}
 
 export interface Boss {
-  idx: number; spec: DragonSpec; circle: number;
+  land: number; tier: number; spec: DragonSpec;
   state: BossState; st: number; dur: number;
   x: number; y: number; tx: number; ty: number; face: number; air: number;
   all: number; damage: number;
@@ -88,10 +121,18 @@ export interface Boss {
   /** thirds already roared at; scales owed to the flying bits */
   roared: number; owed: number;
   visits: number;
+  /** v3: the dizzy window's multiplier and whether it is his fatal flaw; under the ground (the dive) */
+  k: number; fatal: boolean; under: boolean;
+  /** attacks still to come in this round; the patterns of this round so far */
+  round: number; used: Pattern[];
+  /** flames of this breath put out; the dive's or the swoop's miss; seconds he still glows after the ring */
+  breathQ: number; missed: boolean; hot: number;
+  /** gobbling scales (the Golden Dragon's greed); fed: he has eaten and must attack before he eats again */
+  eating: boolean; fed: boolean;
 }
 
-export type CardKind = 'new' | 'up' | 'evo' | 'apple' | 'scales';
-export interface Card { kind: CardKind; id: ItemId | null; from: number; to: number }
+export type CardKind = 'new' | 'up' | 'evo' | 'apple' | 'scales' | 'pal' | 'treasure';
+export interface Card { kind: CardKind; id: ItemId | null; from: number; to: number; pal?: CompanionId; tr?: TreasureId }
 export type ChoiceSource = 'level' | 'rest';
 export interface Choice { cards: Card[]; t: number; gold: boolean; source: ChoiceSource }
 
@@ -101,10 +142,21 @@ export interface Run {
   items: Partial<Record<ItemId, number>>;
   order: ItemId[];
   driven: number;
+  /** v3: the companions along and their levels, the treasures held, reshuffles left, the duets formed */
+  pals: Partial<Record<CompanionId, number>>;
+  treasures: TreasureId[];
+  rerolls: number;
+  duets: DuetId[];
+  /** damage dealt by each source (a weapon, a companion, the aura's beat, the Miecz, the mirror) */
+  dmg: Record<string, number>;
 }
 
-export interface Tally { t: number; dur: number; run: number; scales: number; time: number; level: number; best: boolean; toBest: number }
-export interface Story { kind: 'open' | 'land'; t: number; dur: number; from: DragonKind; to: DragonKind | null }
+export interface Tally {
+  t: number; dur: number; run: number; scales: number; time: number; level: number; best: boolean; toBest: number;
+  /** the run's three strongest sources, their share of all damage (0..1) */
+  top: { src: string; share: number }[];
+}
+export interface Story { kind: 'open' | 'land'; t: number; dur: number; from: DragonKind; to: DragonKind | null; tier: number; toTier: number; first: boolean }
 
 export type SimEvent =
   | { type: 'blockStart'; block: Block; index: number }
@@ -114,15 +166,19 @@ export type SimEvent =
   | { type: 'finale' }
   | { type: 'done' }
   | { type: 'swing'; weapon: WeaponId; x: number; y: number; a: number }
-  | { type: 'hit'; x: number; y: number; dmg: number; boss: boolean; flaw: boolean }
+  | { type: 'hit'; x: number; y: number; dmg: number; boss: boolean; flaw: boolean; crit: boolean }
   | { type: 'gone'; x: number; y: number; kind: BroodKind; elite: boolean }
   | { type: 'scale'; v: number; x: number; y: number }
   | { type: 'level'; level: number }
   | { type: 'choice'; source: ChoiceSource; gold: boolean }
   | { type: 'pick'; card: Card; gold: boolean }
+  | { type: 'reroll'; left: number }
   | { type: 'chest'; x: number; y: number; ups: Card[]; big: boolean }
   | { type: 'evolve'; id: WeaponId }
+  | { type: 'duet'; id: DuetId; first: boolean }
+  | { type: 'treasure'; id: TreasureId; first: boolean; x: number; y: number }
   | { type: 'quench'; x: number; y: number; big: boolean }
+  | { type: 'spark'; x0: number; y0: number; x1: number; y1: number; from: 'mirror' | 'iskierka' }
   | { type: 'pulse'; r: number; n: number }
   | { type: 'swordReady' }
   | { type: 'sword'; n: number }
@@ -134,22 +190,29 @@ export type SimEvent =
   | { type: 'newRun'; n: number }
   | { type: 'wave'; n: number }
   | { type: 'elite'; x: number; y: number }
-  | { type: 'boss'; kind: DragonKind }
+  | { type: 'boss'; kind: DragonKind; tier: number }
   | { type: 'bossTele'; pattern: Pattern }
   | { type: 'bossAct'; pattern: Pattern }
   | { type: 'flaw' }
+  | { type: 'fatal'; kind: DragonKind; flaw: FlawKind; first: boolean }
+  | { type: 'ringOut'; x: number; y: number; r: number }
+  | { type: 'block'; x: number; y: number }
   | { type: 'roar' }
   | { type: 'nap' }
-  | { type: 'driven'; kind: DragonKind; next: DragonKind }
+  | { type: 'driven'; kind: DragonKind; next: DragonKind; tier: number }
+  | { type: 'pal'; id: CompanionId; what: 'eat' | 'fetch' | 'wall' | 'bite' | 'roll'; x: number; y: number }
   | { type: 'heal'; v: number }
   | { type: 'coach'; what: Coach; x: number; y: number }
-  | { type: 'armour'; id: ArmourId };
+  | { type: 'armour'; id: ArmourId }
+  | { type: 'companion'; id: CompanionId };
 
 const NO_EVENTS: readonly SimEvent[] = [];
 const TAU = Math.PI * 2;
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 const dist = (ax: number, ay: number, bx: number, by: number): number => Math.hypot(ax - bx, ay - by);
 const turn = (a: number, b: number): number => ((((b - a) % TAU) + TAU * 1.5) % TAU) - Math.PI;
+/** the patterns that end a round with their own check (a fatal flaw may come of them) */
+const CLOSERS: Readonly<Partial<Record<DragonKind, Pattern>>> = { zielony: 'breath', bagienny: 'dive', skrzydlaty: 'swoop', zarowy: 'ring' };
 
 // ── pure rules ───────────────────────────────────────────────────
 /** No block under `min` s: lift the short ones and take the time from the others, keeping the total. */
@@ -211,8 +274,15 @@ export const xpNeed = (level: number): number => {
   return Math.round(RULES.xpBase + RULES.xpStep * k + RULES.xpSq * k * k);
 };
 
-/** A run's damage multiplier etc. from its gear and the forge. */
-export interface Stats { dmg: number; cd: number; speed: number; pick: number; base: number; pulseDmg: number; armour: number; xp: number; hearts: number }
+/** The duets two builds form (both weapons held). */
+export const duetsOf = (items: Partial<Record<ItemId, number>>): DuetId[] => DUETS.filter(d => (items[d.a] ?? 0) > 0 && (items[d.b] ?? 0) > 0).map(d => d.id);
+
+/** A run's numbers from its gear, its treasures, its duets, the forge and the armoury. */
+export interface Stats {
+  dmg: number; cd: number; speed: number; pick: number; base: number; pulseDmg: number; armour: number; xp: number; hearts: number;
+  /** v3: the weapons' reach and size (×), extra projectiles, the chance of a critical blow */
+  area: number; amount: number; crit: number;
+}
 
 // ── the session ──────────────────────────────────────────────────
 export interface SimInit {
@@ -273,6 +343,10 @@ export class JerzySim {
   readonly sweeps: Sweep[] = [];
   readonly rings: Ring[] = [];
   readonly prints: Print[] = [];
+  readonly hammers: Hammer[] = [];
+  readonly caltrops: Caltrop[] = [];
+  readonly walls: Wall[] = [];
+  readonly pals: Pal[] = [];
   boss: Boss;
   private nextId = 1;
   /** hit-stop (s left) */
@@ -313,6 +387,9 @@ export class JerzySim {
   private cool: Partial<Record<WeaponId, number>> = {};
   /** the falcons' angle (rad) */
   birdA = 0;
+  /** the next sweep goes all round (a horn blast with the Pobudka duet) */
+  private fullSweep = false;
+  private mirrorT = -1;
 
   // the session's numbers
   score = 0;
@@ -322,9 +399,22 @@ export class JerzySim {
   swords = 0;
   quenched = 0;
   passedRests = 0;
+  chestsNow = 0;
   evolved: WeaponId[] = [];
   drivenNow: DragonKind[] = [];
   armourNow: ArmourId[] = [];
+  companionsNow: CompanionId[] = [];
+  /** v3: fatal flaws found for the first time, treasures found for the first time, duets formed for the first time, roads cleared */
+  flawsNow: DragonKind[] = [];
+  treasuresNow: TreasureId[] = [];
+  duetsNow: DuetId[] = [];
+  roadsNow: { kind: DragonKind; tier: number }[] = [];
+  fatalsNow = 0;
+  /** the highest road fought this session (its treasury bonus) */
+  topTier = 0;
+  /** damage by source over the whole session, and on the dragons alone */
+  readonly sessionDmg: Record<string, number> = {};
+  readonly bossDmg: Record<string, number> = {};
   blindShare = -1;
   private settled = false;
   private readonly pushesBase: number;
@@ -353,7 +443,9 @@ export class JerzySim {
     this.talk = new Talk(LINES, init.rng);
     this.knight = { x: 0, y: 0, mx: 0, my: 0, face: -Math.PI / 2, hearts: RULES.hearts, max: RULES.hearts, safe: 0, down: 0, hit: 0, walked: 0 };
     this.linda = { x: -1, y: 0.25, face: 1, walking: 0 };
-    this.boss = this.makeBoss(p.dragon, p.damage);
+    const f = fightOf(p);
+    this.boss = this.makeBoss(f.land, f.tier, woundsOf(p, f.land, f.tier));
+    this.topTier = f.tier;
     this.run = this.freshRun(1);
   }
 
@@ -371,33 +463,57 @@ export class JerzySim {
   get frozen(): boolean { return !!(this.story || this.choice || this.tally); }
   get bossOn(): boolean { return this.boss.state !== 'away'; }
   get bossPresent(): boolean { return ['move', 'tele', 'act', 'flaw', 'roar'].includes(this.boss.state); }
-  get dragon(): { kind: DragonKind; land: DragonSpec; circle: number } { return { kind: this.boss.spec.kind, land: this.boss.spec, circle: this.boss.circle }; }
+  get dragon(): { kind: DragonKind; land: DragonSpec; tier: number } { return { kind: this.boss.spec.kind, land: this.boss.spec, tier: this.boss.tier }; }
+  /** a treasure held in this run */
+  has(id: TreasureId): boolean { return this.run.treasures.includes(id); }
+  /** a duet formed in this run */
+  duet(id: DuetId): boolean { return this.run.duets.includes(id); }
+  /** a companion along in this run (its level, 0: not along) */
+  palLevel(id: CompanionId): number { return this.run.pals[id] ?? 0; }
+  /** the run's numbers, cached until the build changes */
   get stats(): Stats {
+    const r = this.run;
+    if (!this.statCache || this.statKey.items !== r.items || this.statKey.tr !== r.treasures.length || this.statKey.duets !== r.duets.length) {
+      this.statCache = this.computeStats();
+      this.statKey = { items: r.items, tr: r.treasures.length, duets: r.duets.length };
+    }
+    return this.statCache;
+  }
+
+  private statCache: Stats | null = null;
+  private statKey: { items: unknown; tr: number; duets: number } = { items: null, tr: -1, duets: -1 };
+
+  private computeStats(): Stats {
     const it = this.run.items, p = this.p;
     const g = (id: GearId) => it[id] ?? 0;
     const arm = (id: ArmourId) => (hasArmour(p, id) ? 1 : 0);
     return {
-      dmg: (1 + GEAR.sztandar.per * g('sztandar')) * (1 + 0.08 * forgeLevel(p, 'sila')),
+      dmg: (1 + GEAR.sztandar.per * g('sztandar')) * (1 + 0.08 * forgeLevel(p, 'sila')) * (1 + 0.1 * arm('wieniec')),
       cd: 1 - GEAR.rekawice.per * g('rekawice'),
       speed: (1 + GEAR.buty.per * g('buty')) * (1 + 0.05 * forgeLevel(p, 'krok') + 0.08 * arm('ostrogi')),
-      pick: (1 + GEAR.sakwa.per * g('sakwa')) * (1 + 0.15 * forgeLevel(p, 'magnes') + 0.2 * arm('pas')),
+      pick: (1 + GEAR.sakwa.per * g('sakwa')) * (1 + 0.15 * forgeLevel(p, 'magnes') + 0.2 * arm('pas')) * (this.has('kompas') ? 1.4 : 1),
       base: RULES.shieldBase + GEAR.tarcza.per * g('tarcza') + 0.12 * forgeLevel(p, 'oslona') + 0.2 * arm('slonce'),
       pulseDmg: RULES.pulseDmg + g('tarcza'),
       armour: 1 - GEAR.zbroja.per * g('zbroja'),
       xp: 1 + 0.1 * forgeLevel(p, 'nauka'),
       hearts: RULES.hearts + forgeLevel(p, 'serce') + arm('helm'),
+      area: 1 + GEAR.plaszcz.per * g('plaszcz'),
+      amount: quiverOf(g('kolczan')),
+      crit: RULES.crit + GEAR.pierscien.per * g('pierscien') + 0.05 * arm('karwasz'),
     };
   }
   /** the aura's radius at the threshold (the dotted ring) */
   get auraMark(): number { return auraFor(0.5, this.stats.base); }
   get levelProgress(): number { return clamp(this.run.xp / xpNeed(this.run.level)); }
 
-  private makeBoss(idx: number, damage: number): Boss {
-    const { spec, circle } = dragonAt(idx);
-    const all = hpOf(spec, circle);
+  private makeBoss(land: number, tier: number, damage: number): Boss {
+    const spec = DRAGONS[Math.max(0, Math.min(DRAGONS.length - 1, land))];
+    const all = hpOf(spec, tier);
+    const dmg = clamp(damage, 0, all - 1);
     return {
-      idx, spec, circle, state: 'away', st: 0, dur: 0, x: 0, y: -20, tx: 0, ty: 0, face: 0, air: 1, all, damage: clamp(damage, 0, all - 1),
-      pattern: null, aim: 0, hit: 0, sx0: 0, sy0: 0, sx1: 0, sy1: 0, roared: Math.floor((3 * clamp(damage, 0, all - 1)) / all), owed: 0, visits: 0,
+      land, tier, spec, state: 'away', st: 0, dur: 0, x: 0, y: -20, tx: 0, ty: 0, face: 0, air: 1, all, damage: dmg,
+      pattern: null, aim: 0, hit: 0, sx0: 0, sy0: 0, sx1: 0, sy1: 0, roared: Math.floor((3 * dmg) / all), owed: 0, visits: 0,
+      k: 1, fatal: false, under: false, round: 0, used: [], breathQ: 0, missed: false, hot: 0, eating: false, fed: false,
     };
   }
 
@@ -405,7 +521,18 @@ export class JerzySim {
     const items: Partial<Record<ItemId, number>> = { miecz: 1 };
     const order: ItemId[] = ['miecz'];
     if (hasArmour(this.p, 'proporzec')) { items.sztandar = 1; order.push('sztandar'); }
-    return { n, t: 0, scales: 0, level: 1, xp: 0, apples: hasArmour(this.p, 'kosz') ? 2 : 1, items, order, driven: 0 };
+    const pals: Partial<Record<CompanionId, number>> = {};
+    const start = Math.min(RULES.palMax, 1 + forgeLevel(this.p, 'druh'));
+    for (const id of this.p.party) pals[id as CompanionId] = start;
+    this.pals.length = 0;
+    for (const id of Object.keys(pals) as CompanionId[]) {
+      this.pals.push({ id, x: this.knight.x + 0.8 * (this.pals.length ? -1 : 1), y: this.knight.y + 0.6, face: 1, t1: 0.5, t2: 0.5, a: this.rng() * TAU, busy: 'follow', tx: 0, ty: 0 });
+    }
+    this.statCache = null;
+    return {
+      n, t: 0, scales: 0, level: 1, xp: 0, apples: hasArmour(this.p, 'kosz') ? 2 : 1, items, order, driven: 0,
+      pals, treasures: [], rerolls: RULES.rerolls + forgeLevel(this.p, 'los'), duets: [], dmg: {},
+    };
   }
 
   // ── input ───────────────────────────────────────────────────────
@@ -413,10 +540,14 @@ export class JerzySim {
     if (this.started) return;
     this.started = true;
     this.knight.max = this.knight.hearts = this.stats.hearts;
-    if (this.session === 1) this.story = { kind: 'open', t: 0, dur: RULES.openSec, from: this.boss.spec.kind, to: null };
+    if (this.session === 1) this.story = { kind: 'open', t: 0, dur: RULES.openSec, from: this.boss.spec.kind, to: null, tier: 0, toTier: 0, first: false };
     this.startBlock(0);
     this.seedBrood();
     this.talk.ask('open', 3, 10);
+    if (this.pals.length) {
+      this.coach('pal', this.pals[0].x, this.pals[0].y);
+      this.talk.ask(`pal_${this.pals[0].id}`, 2, 14);
+    }
   }
 
   /** A run opens with a few chicks hatching around the knight. */
@@ -468,7 +599,7 @@ export class JerzySim {
     return false;
   }
 
-  /** Arrows and WASD walk, Space and Enter tap, 1–3 pick a card. */
+  /** Arrows and WASD walk, Space and Enter tap, 1–3 pick a card, R reshuffles. */
   key(key: string, down: boolean): boolean {
     const k = key.length === 1 ? key.toLowerCase() : key;
     const dirs = ['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'a', 'd', 'w', 's'];
@@ -486,6 +617,7 @@ export class JerzySim {
       this.tap(Number(k) - 1);
       return true;
     }
+    if (this.choice && k === 'r') return this.reroll();
     return false;
   }
 
@@ -526,11 +658,13 @@ export class JerzySim {
       this.director(w);
       this.moveBrood(w);
       this.weapons(w);
+      this.companions(w);
       this.bossAI(w);
       this.fire(w);
       this.pickups(w);
     }
     this.fx(dt);
+    this.quiet = Math.max(0, this.quiet - dt);
     this.talk.update(dt, t, this.talkBlocked);
   }
 
@@ -538,8 +672,11 @@ export class JerzySim {
     const b = this.block;
     const tele = this.phase === 'play' && b && this.blockT >= b.dur - RULES.telegraph;
     const banner = this.phase === 'play' && this.blockT < RULES.bannerSec && this.blockIndex > 0;
-    return !!(tele || banner || this.story || this.tally || (this.boss.state === 'tele'));
+    return !!(tele || banner || this.story || this.tally || this.quiet > 0 || (this.boss.state === 'tele'));
   }
+
+  /** seconds Linda keeps quiet: the runner's coach mark is on the field (the index sets it) */
+  quiet = 0;
 
   /** The band's slow quantities: the aura, the Miecz from the hold, hearts from calm; the footprints. */
   private brain(dt: number, w: number, f: FocusFrame): void {
@@ -556,7 +693,7 @@ export class JerzySim {
     this.auraR = approach(this.auraR, want, dt, R.shieldTau);
     this.auraLook = !play || b.kind !== 'push' ? 'base' : b.blind ? 'smoke' : this.blockT < this.lead ? 'wait' : f.reliable ? 'live' : 'grey';
     if (live) this.maxHold = Math.max(this.maxHold, f.hold);
-    if (live && f.hold >= this.holdNeed) this.addCharge(R.holdRate * dt);
+    if (live && f.hold >= this.holdNeed) this.addCharge(R.holdRate * (this.has('krzesiwo') ? 1.3 : 1) * dt);
     if (live && f.level >= 0.5) this.goodT += dt;
     else this.goodT = 0;
     if (this.goodT >= R.goodSec && !this.goodSaid) {
@@ -618,7 +755,7 @@ export class JerzySim {
     let n = 0;
     for (const c of [...this.brood]) {
       if (dist(c.x, c.y, k.x, k.y) > reach) continue;
-      this.damage(c, RULES.swordDmg * s.dmg, k.x, k.y, 4);
+      this.damage(c, RULES.swordDmg * s.dmg, k.x, k.y, 4, 'sword');
       n++;
     }
     for (const b of this.balls) this.emit({ type: 'quench', x: b.x, y: b.y, big: false });
@@ -626,7 +763,7 @@ export class JerzySim {
     this.flames.length = 0;
     if (this.bossPresent && this.boss.state !== 'roar') {
       const bite = Math.min(RULES.swordBossMax, Math.round(this.boss.all * RULES.swordBoss));
-      this.hurtBoss(bite, false);
+      this.hurtBoss(bite, 'sword', false);
     }
     this.rings.push({ r: reach, t: 0, kind: 'sword' });
     this.stop = Math.max(this.stop, RULES.stopSword);
@@ -818,6 +955,13 @@ export class JerzySim {
     this.endRun();
   }
 
+  /** The run's three strongest sources and their shares. */
+  topSources(dmg: Record<string, number> = this.run.dmg, n = 3): { src: string; share: number }[] {
+    const all = Object.values(dmg).reduce((s, v) => s + v, 0);
+    if (!(all > 0)) return [];
+    return Object.entries(dmg).sort((a, b) => b[1] - a[1]).slice(0, n).map(([src, v]) => ({ src, share: v / all }));
+  }
+
   /** The run's tally (the world holds); a tap or its time starts a new run. */
   private endRun(): void {
     const r = this.run;
@@ -829,7 +973,7 @@ export class JerzySim {
     this.p.bestTime = Math.max(this.p.bestTime, Math.round(r.t));
     this.tally = {
       t: 0, dur: RULES.tallySec, run: r.n, scales: r.scales, time: r.t, level: r.level,
-      best: r.scales > before && before > 0, toBest: Math.max(0, before - r.scales),
+      best: r.scales > before && before > 0, toBest: Math.max(0, before - r.scales), top: this.topSources(),
     };
     this.emit({ type: 'runEnd', tally: this.tally });
   }
@@ -854,11 +998,15 @@ export class JerzySim {
     this.lances.length = 0;
     this.splashes.length = 0;
     this.horses.length = 0;
+    this.hammers.length = 0;
+    this.caltrops.length = 0;
+    this.walls.length = 0;
     this.cool = {};
     this.spawnAcc = 0;
     this.waveT = 0;
     this.eliteT = 0;
     this.wave = 0;
+    this.fullSweep = false;
     this.queued.length = 0;
     this.choice = null;
     if (this.bossOn) this.boss.state = 'away';
@@ -931,18 +1079,19 @@ export class JerzySim {
     if (this.wave % 2 === 1) this.talk.ask('wave', 1, 4);
   }
 
-  private spawn(kind: BroodKind, a: number, elite = false, ringK = 1): Creature | null {
+  /** A creature at angle `a` round the knight, beyond the edge of sight (or nearer, `ringK` < 1, or at a point). */
+  private spawn(kind: BroodKind, a: number, elite = false, ringK = 1, at?: { x: number; y: number }): Creature | null {
     const spec = BROOD[kind], k = this.knight, R = RULES;
-    const grow = (1 + this.run.t / R.hpGrow) * (1 + 0.25 * this.boss.circle + 0.08 * (this.boss.idx % 4));
+    const grow = (1 + this.run.t / R.hpGrow) * road(this.boss.tier).brood * (1 + 0.06 * this.boss.land);
     const hp = Math.round(spec.hp * grow * (elite ? R.eliteHp : 1) * 10) / 10;
     // on the edge of sight (a box around the view, one step beyond it), or nearer when they hatch
     const ca = Math.cos(a), sa = Math.sin(a);
     const edge = Math.min((this.viewHW + R.spawnOut) / Math.max(1e-6, Math.abs(ca)), (this.viewHH + R.spawnOut) / Math.max(1e-6, Math.abs(sa)));
     const rr = ringK < 1 ? Math.min(edge, this.ringR) * ringK : edge;
     const c: Creature = {
-      id: this.nextId++, kind, spec, x: k.x + ca * rr, y: k.y + sa * rr, kx: 0, ky: 0,
+      id: this.nextId++, kind, spec, x: at ? at.x + ca * 0.5 : k.x + ca * rr, y: at ? at.y + sa * 0.5 : k.y + sa * rr, kx: 0, ky: 0,
       hp, max: hp, r: spec.r * (elite ? R.eliteR : 1), speed: spec.speed * (0.9 + 0.2 * this.rng()) * (elite ? 0.85 : 1),
-      elite, hit: 0, touchT: 0, spitT: (spec.spit ?? 3) * (0.5 + this.rng()), birdT: 0, age: 0, hatch: ringK < 1,
+      elite, hit: 0, touchT: 0, spitT: (spec.spit ?? 3) * (0.5 + this.rng()), birdT: -9, hogT: -9, wallT: -9, slow: false, age: 0, hatch: ringK < 1 || !!at,
     };
     this.brood.push(c);
     return c;
@@ -966,7 +1115,7 @@ export class JerzySim {
         c.y = k.y + Math.sin(a) * edge;
         continue;
       }
-      let sp = c.speed * drowsy;
+      let sp = c.speed * drowsy * (c.slow ? R.caltropSlow : 1);
       if (c.spec.keep && d < c.spec.keep) sp = d < c.spec.keep - 0.8 ? -sp * 0.6 : 0;
       if (k.down > 0 || this.tally) sp *= 0.3;
       c.x += (dx / d) * sp * w + c.kx * w;
@@ -986,7 +1135,7 @@ export class JerzySim {
       // touching the knight
       if (d < R.knightR + c.r && c.touchT <= 0 && k.down <= 0) {
         c.touchT = R.touchSec;
-        this.hurt(R.hurt.touch * (c.elite ? 2 : 1), c.x, c.y);
+        this.hurt(R.hurt.touch * (c.elite ? 2 : 1) * (this.has('ogniwo') ? 0.6 : 1), c.x, c.y);
       }
       const key = (Math.floor(c.x) & 0xffff) * 65536 + (Math.floor(c.y) & 0xffff);
       const cell = cells.get(key);
@@ -1010,12 +1159,31 @@ export class JerzySim {
         }
       }
     }
+    // Bartek's palisades hold them back
+    for (const wl of this.walls) {
+      const ca = Math.cos(wl.a), sa = Math.sin(wl.a);
+      for (const c of [...this.brood]) {
+        const rx = c.x - wl.x, ry = c.y - wl.y;
+        const along = rx * ca + ry * sa, across = -rx * sa + ry * ca;
+        if (Math.abs(along) > wl.len / 2 + c.r || Math.abs(across) > c.r + 0.18) continue;
+        const side = across >= 0 ? 1 : -1, need = c.r + 0.18 - Math.abs(across);
+        c.x += -sa * side * need;
+        c.y += ca * side * need;
+        c.kx *= 0.5;
+        c.ky *= 0.5;
+        if (this.t - c.wallT >= 0.5) {
+          c.wallT = this.t;
+          this.damage(c, wl.dmg * this.stats.dmg, wl.x, wl.y, 0, 'bobr');
+        }
+      }
+    }
     // the aura beats: the brood inside it is thrown out
     this.pulseT += w;
     if (this.pulseT >= R.pulseSec) {
       this.pulseT = 0;
       const s = this.stats;
       let n = 0;
+      const beat = s.pulseDmg * s.dmg * (1 + R.pulseGrow * clamp((this.auraR - s.base) / R.shieldExtra));
       for (const c of [...this.brood]) {
         const d = dist(c.x, c.y, k.x, k.y);
         if (d > this.auraR + c.r) continue;
@@ -1024,17 +1192,29 @@ export class JerzySim {
         c.kx += Math.cos(a) * kb;
         c.ky += Math.sin(a) * kb;
         n++;
-        this.damage(c, s.pulseDmg * s.dmg, k.x, k.y, 0);
+        this.damage(c, beat, k.x, k.y, 0, 'pulse');
       }
+      if (this.bossHittable && dist(this.boss.x, this.boss.y, k.x, k.y) < this.auraR + R.bossR) this.hurtBoss(beat * R.pulseBoss, 'pulse', false);
       this.rings.push({ r: this.auraR, t: 0, kind: 'pulse' });
       this.emit({ type: 'pulse', r: this.auraR, n });
     }
   }
 
+  /** Whether a blow is critical (the ring, the vambraces, the Kuźnia duet for the sword). */
+  private critRoll(src: string): boolean {
+    const extra = src === 'miecz' && this.duet('kuznia') ? 0.15 : 0;
+    return this.rng() < this.stats.crit + extra;
+  }
+
   /** A blow on a creature (knockback away from (fx, fy)); at no hp it dissolves into smoke and leaves a scale. */
-  private damage(c: Creature, dmg: number, fx: number, fy: number, kb = 1): void {
+  private damage(c: Creature, dmg: number, fx: number, fy: number, kb = 1, src = 'miecz'): void {
     if (!(dmg > 0) || c.hp <= 0) return;
-    c.hp -= dmg;
+    const crit = src !== 'sword' && src !== 'pulse' && this.critRoll(src);
+    const v = dmg * (crit ? RULES.critK : 1);
+    const dealt = Math.min(v, c.hp);
+    this.run.dmg[src] = (this.run.dmg[src] ?? 0) + dealt;
+    this.sessionDmg[src] = (this.sessionDmg[src] ?? 0) + dealt;
+    c.hp -= v;
     c.hit = 0.12;
     if (kb > 0) {
       const a = Math.atan2(c.y - fy, c.x - fx);
@@ -1042,7 +1222,7 @@ export class JerzySim {
       c.kx += Math.cos(a) * k;
       c.ky += Math.sin(a) * k;
     }
-    this.emit({ type: 'hit', x: c.x, y: c.y, dmg, boss: false, flaw: false });
+    this.emit({ type: 'hit', x: c.x, y: c.y, dmg: v, boss: false, flaw: false, crit });
     if (c.hp <= 0) this.dissolve(c);
   }
 
@@ -1054,17 +1234,18 @@ export class JerzySim {
     this.smokes.push({ id: c.id, x: c.x, y: c.y, r: c.r, t: 0, kind: c.kind, elite: c.elite, dir: Math.atan2(c.y - k.y, c.x - k.x) });
     if (this.smokes.length > 60) this.smokes.shift();
     this.emit({ type: 'gone', x: c.x, y: c.y, kind: c.kind, elite: c.elite });
-    if (this.scales.length < RULES.scaleCap) this.scales.push({ id: this.nextId++, x: c.x, y: c.y, v: c.spec.xp, life: RULES.scaleLife, pulled: false });
-    else this.collect(c.spec.xp, c.x, c.y);
+    const v = this.has('mapa') && !c.elite && this.rng() < 0.04 ? 10 : c.spec.xp;
+    if (this.scales.length < RULES.scaleCap) this.scales.push({ id: this.nextId++, x: c.x, y: c.y, v, life: RULES.scaleLife, pulled: false });
+    else this.collect(v, c.x, c.y);
     if (!this.p.seen.includes('scales')) this.coach('scales', c.x, c.y);
     if (c.elite) {
-      this.drops.push({ id: this.nextId++, kind: 'chest', x: c.x, y: c.y, t: 0, pulled: false });
+      this.drops.push({ id: this.nextId++, kind: 'chest', x: c.x, y: c.y, t: 0, pulled: false, src: 'elite' });
       this.stop = Math.max(this.stop, RULES.stopElite);
       this.coach('chest', c.x, c.y);
     } else {
-      const r = this.rng();
-      if (r < RULES.appleChance) this.drops.push({ id: this.nextId++, kind: 'apple', x: c.x, y: c.y, t: 0, pulled: false });
-      else if (r < RULES.appleChance + RULES.gustChance) this.drops.push({ id: this.nextId++, kind: 'gust', x: c.x, y: c.y, t: 0, pulled: false });
+      const r = this.rng(), apple = RULES.appleChance * (this.has('jablon') ? 2 : 1);
+      if (r < apple) this.drops.push({ id: this.nextId++, kind: 'apple', x: c.x, y: c.y, t: 0, pulled: false });
+      else if (r < apple + RULES.gustChance) this.drops.push({ id: this.nextId++, kind: 'gust', x: c.x, y: c.y, t: 0, pulled: false });
     }
   }
 
@@ -1083,9 +1264,28 @@ export class JerzySim {
     return best ? { x: best.x, y: best.y, c: best, d: bd } : null;
   }
 
-  get bossHittable(): boolean { return ['move', 'tele', 'act', 'flaw'].includes(this.boss.state) && this.boss.air < 0.5; }
+  /** The strongest target within `range` (u): the dragon first, then the creature with the most hp (an elite). */
+  private strongest(x: number, y: number, range: number): { x: number; y: number; c: Creature | null } | null {
+    if (this.bossHittable && dist(this.boss.x, this.boss.y, x, y) - RULES.bossR < range) return { x: this.boss.x, y: this.boss.y, c: null };
+    let best: Creature | null = null;
+    for (const c of this.brood) if (dist(c.x, c.y, x, y) - c.r < range && (!best || c.hp > best.hp)) best = c;
+    return best ? { x: best.x, y: best.y, c: best } : null;
+  }
+
+  get bossHittable(): boolean { return ['move', 'tele', 'act', 'flaw'].includes(this.boss.state) && this.boss.air < 0.5 && !this.boss.under; }
 
   private lv(id: ItemId): number { return this.run.items[id] ?? 0; }
+
+  /** A weapon's damage now: its level's, the banner and the forge, its treasure and its duets. */
+  private weaponDmg(id: WeaponId, base: number): number {
+    let d = base * this.stats.dmg;
+    if (id === 'miecz' && this.has('oselka')) d += 2;
+    if (id === 'sokol' && this.has('pioro')) d += 2;
+    if (id === 'kon' && this.duet('turniej')) d *= 1.6;
+    if (id === 'kusza' && this.duet('lowy')) d *= 1.25;
+    if ((id === 'miecz' || id === 'mlot') && this.duet('kuznia')) d *= 1.1;
+    return d;
+  }
 
   private weapons(w: number): void {
     const k = this.knight, s = this.stats;
@@ -1097,22 +1297,23 @@ export class JerzySim {
       if (id === 'sokol') continue;
       this.cool[id] = (this.cool[id] ?? 0) - w;
       if ((this.cool[id] ?? 0) > 0) continue;
-      const dmg = spec.dmg[i] * s.dmg;
+      const dmg = this.weaponDmg(id, spec.dmg[i]);
       let used = false;
       switch (id) {
         case 'miecz': {
-          const reach = spec.area[i];
+          const reach = spec.area[i] * s.area * (this.has('oselka') ? 1.25 : 1);
           const tg = this.nearest(k.x, k.y, reach + 0.3);
           if (!tg) break;
-          const a = Math.atan2(tg.y - k.y, tg.x - k.x), half = (spec.n[i] / 10) * Math.PI;
+          const a = Math.atan2(tg.y - k.y, tg.x - k.x), half = this.fullSweep ? Math.PI : (spec.n[i] / 10) * Math.PI;
+          this.fullSweep = false;
           for (const c of [...this.brood]) {
             const d = dist(c.x, c.y, k.x, k.y);
             if (d - c.r > reach) continue;
             if (Math.abs(turn(a, Math.atan2(c.y - k.y, c.x - k.x))) > half + 0.15) continue;
-            this.damage(c, dmg, k.x, k.y);
+            this.damage(c, dmg, k.x, k.y, 1, 'miecz');
           }
           if (this.bossHittable && dist(this.boss.x, this.boss.y, k.x, k.y) - RULES.bossR <= reach
-            && Math.abs(turn(a, Math.atan2(this.boss.y - k.y, this.boss.x - k.x))) <= half + 0.3) this.hurtBoss(dmg, true);
+            && Math.abs(turn(a, Math.atan2(this.boss.y - k.y, this.boss.x - k.x))) <= half + 0.3) this.hurtBoss(dmg, 'miecz');
           this.sweeps.push({ a, arc: half, r: reach, t: 0, evo: L >= 6 });
           if (!tg.c || Math.abs(Math.cos(a)) > 0.2) k.face = a;
           this.emit({ type: 'swing', weapon: id, x: k.x, y: k.y, a });
@@ -1122,7 +1323,7 @@ export class JerzySim {
         case 'kopia': {
           const tg = this.nearest(k.x, k.y, 9);
           if (!tg) break;
-          const a0 = Math.atan2(tg.y - k.y, tg.x - k.x), n = spec.n[i];
+          const a0 = Math.atan2(tg.y - k.y, tg.x - k.x), n = spec.n[i] + s.amount;
           for (let j = 0; j < n; j++) {
             const a = a0 + (j - (n - 1) / 2) * (L >= 6 ? 0.32 : 0.16);
             this.lances.push({ id: this.nextId++, x: k.x, y: k.y, vx: Math.cos(a) * 10, vy: Math.sin(a) * 10, pierce: spec.area[i], life: 1.0, hit: [] });
@@ -1131,23 +1332,60 @@ export class JerzySim {
           used = true;
           break;
         }
+        case 'kusza': {
+          const tg = this.strongest(k.x, k.y, 8);
+          if (!tg) break;
+          const a0 = Math.atan2(tg.y - k.y, tg.x - k.x), n = spec.n[i] + s.amount;
+          for (let j = 0; j < n; j++) {
+            const a = a0 + (j - (n - 1) / 2) * 0.09;
+            this.lances.push({ id: this.nextId++, x: k.x, y: k.y, vx: Math.cos(a) * RULES.boltSpeed, vy: Math.sin(a) * RULES.boltSpeed, pierce: spec.area[i], life: RULES.boltLife, hit: [], bolt: true });
+          }
+          this.emit({ type: 'swing', weapon: id, x: k.x, y: k.y, a: a0 });
+          used = true;
+          break;
+        }
+        case 'mlot': {
+          const range = spec.area[i] * s.area;
+          const tg = this.nearest(k.x, k.y, range);
+          if (!tg) break;
+          const a0 = Math.atan2(tg.y - k.y, tg.x - k.x), n = spec.n[i] + s.amount;
+          for (let j = 0; j < n; j++) {
+            const a = a0 + (j - (n - 1) / 2) * 0.55;
+            this.hammers.push({ id: this.nextId++, x: k.x, y: k.y, vx: Math.cos(a) * RULES.hammerOut, vy: Math.sin(a) * RULES.hammerOut, out: true, went: 0, max: range, hit: [], spin: 0, evo: L >= 6 });
+          }
+          this.emit({ type: 'swing', weapon: id, x: k.x, y: k.y, a: a0 });
+          used = true;
+          break;
+        }
+        case 'kolce': {
+          const n = spec.n[i] + s.amount;
+          for (let j = 0; j < n; j++) {
+            const a = this.rng() * TAU, r = j === 0 ? 0.15 : 0.35 + this.rng() * 0.55;
+            this.dropCaltrop(k.x + Math.cos(a) * r, k.y + Math.sin(a) * r, spec.area[i] * s.area, dmg, L >= 6 ? 2 : 1);
+          }
+          used = true;
+          break;
+        }
         case 'wiadra': {
           const near = this.brood.filter(c => dist(c.x, c.y, k.x, k.y) < 6.5);
           if (!near.length && !this.bossHittable) break;
+          const r = spec.area[i] * s.area * (this.has('dzban') ? 1.3 : 1);
           for (let j = 0; j < spec.n[i]; j++) {
             const c = near.length ? near[Math.floor(this.rng() * near.length)] : null;
             const x = c ? c.x : this.boss.x, y = c ? c.y : this.boss.y;
-            this.splashAt(x, y, spec.area[i], dmg, L >= 6 ? 3 : 0);
+            this.splashAt(x, y, r, dmg, L >= 6 ? 3 : this.has('dzban') ? 2 : 0);
           }
           this.emit({ type: 'swing', weapon: id, x: k.x, y: k.y, a: 0 });
           used = true;
           break;
         }
         case 'rog': {
-          const r = spec.area[i];
+          const r = spec.area[i] * s.area;
           if (!this.brood.some(c => dist(c.x, c.y, k.x, k.y) < r) && !this.bossHittable) break;
-          for (const c of [...this.brood]) if (dist(c.x, c.y, k.x, k.y) - c.r < r) this.damage(c, dmg, k.x, k.y, L >= 6 ? 2.2 : 1.6);
-          if (this.bossHittable && dist(this.boss.x, this.boss.y, k.x, k.y) - RULES.bossR < r) this.hurtBoss(dmg, true);
+          for (const c of [...this.brood]) if (dist(c.x, c.y, k.x, k.y) - c.r < r) this.damage(c, dmg, k.x, k.y, L >= 6 ? 2.2 : 1.6, 'rog');
+          if (this.bossHittable && dist(this.boss.x, this.boss.y, k.x, k.y) - RULES.bossR < r) this.hurtBoss(dmg, 'rog');
+          if (this.duet('pobudka')) this.fullSweep = true;
+          if (this.duet('ulewa')) this.quenchIn(k.x, k.y, r, 'rog');
           this.rings.push({ r, t: 0, kind: 'horn' });
           this.emit({ type: 'swing', weapon: id, x: k.x, y: k.y, a: 0 });
           used = true;
@@ -1155,72 +1393,115 @@ export class JerzySim {
         }
         case 'kon': {
           if (!this.brood.length && !this.bossHittable) break;
-          for (let j = 0; j < spec.n[i]; j++) {
+          const n = spec.n[i] + (this.has('podkowa') ? 1 : 0);
+          for (let j = 0; j < n; j++) {
             const dir: 1 | -1 = this.rng() < 0.5 ? 1 : -1;
-            const y = k.y + (j - (spec.n[i] - 1) / 2) * 1.6 + (this.rng() - 0.5) * 1.2;
-            this.horses.push({ id: this.nextId++, x: k.x - dir * (this.viewHW + 2), y, dir, t: 0, hit: [] });
+            const y = k.y + (j - (n - 1) / 2) * 1.6 + (this.rng() - 0.5) * 1.2;
+            this.horses.push({ id: this.nextId++, x: k.x - dir * (this.viewHW + 2), y, dir, t: 0, hit: [], dropU: 0 });
           }
           this.emit({ type: 'swing', weapon: id, x: k.x, y: k.y, a: 0 });
           used = true;
           break;
         }
       }
-      this.cool[id] = used ? spec.cd[i] * s.cd : 0.15;
+      const cd = spec.cd[i] * s.cd * (id === 'kon' && this.has('podkowa') ? 0.8 : 1);
+      this.cool[id] = used ? cd : 0.15;
     }
     // the falcons circle and bite
     const Ls = this.lv('sokol');
     if (Ls) {
       const spec = WEAPONS.sokol, i = Math.min(5, Ls - 1);
-      this.birdA += (TAU / (spec.cd[i] * s.cd)) * w;
-      const n = spec.n[i], r = spec.area[i];
+      this.birdA += (TAU / (spec.cd[i] * s.cd)) * (this.has('pioro') ? 1.3 : 1) * w;
+      const n = this.birdCount, r = spec.area[i];
+      const dmg = this.weaponDmg('sokol', spec.dmg[i]);
       for (let j = 0; j < n; j++) {
         const a = this.birdA + (j / n) * TAU, bx = k.x + Math.cos(a) * r, by = k.y + Math.sin(a) * r;
         for (const c of [...this.brood]) {
           if (dist(c.x, c.y, bx, by) > c.r + 0.35 || this.t - c.birdT < 0.45) continue;
           c.birdT = this.t;
-          this.damage(c, spec.dmg[i] * s.dmg, bx, by, 0.6);
+          this.damage(c, dmg, bx, by, 0.6, 'sokol');
         }
         if (this.bossHittable && dist(this.boss.x, this.boss.y, bx, by) < RULES.bossR + 0.35 && this.t - this.bossBirdT > 0.45) {
           this.bossBirdT = this.t;
-          this.hurtBoss(spec.dmg[i] * s.dmg, true);
+          this.hurtBoss(dmg, 'sokol');
         }
       }
     }
-    // lances fly
+    // lances and bolts fly
     for (let j = this.lances.length - 1; j >= 0; j--) {
       const l = this.lances[j];
       l.x += l.vx * w;
       l.y += l.vy * w;
       l.life -= w;
+      const src: WeaponId = l.bolt ? 'kusza' : 'kopia';
+      const dmg = this.weaponDmg(src, WEAPONS[src].dmg[Math.min(5, Math.max(1, this.lv(src)) - 1)]);
       for (const c of [...this.brood]) {
         if (l.pierce <= 0 || l.hit.includes(c.id) || dist(c.x, c.y, l.x, l.y) > c.r + 0.25) continue;
         l.hit.push(c.id);
         l.pierce--;
-        this.damage(c, WEAPONS.kopia.dmg[Math.min(5, this.lv('kopia') - 1)] * s.dmg, l.x - l.vx, l.y - l.vy);
+        this.damage(c, dmg, l.x - l.vx, l.y - l.vy, l.bolt ? 0.4 : 1, src);
       }
       if (l.pierce > 0 && this.bossHittable && !l.hit.includes(-1) && dist(this.boss.x, this.boss.y, l.x, l.y) < RULES.bossR + 0.2) {
         l.hit.push(-1);
         l.pierce--;
-        this.hurtBoss(WEAPONS.kopia.dmg[Math.min(5, this.lv('kopia') - 1)] * s.dmg, true);
+        this.hurtBoss(dmg, src);
       }
       if (l.life <= 0 || l.pierce <= 0) this.lances.splice(j, 1);
+    }
+    // hammers fly out and back
+    for (let j = this.hammers.length - 1; j >= 0; j--) {
+      const hm = this.hammers[j];
+      hm.spin += w * 16;
+      if (hm.out) {
+        hm.x += hm.vx * w;
+        hm.y += hm.vy * w;
+        hm.went += RULES.hammerOut * w;
+        if (hm.went >= hm.max) {
+          hm.out = false;
+          hm.hit.length = 0;
+        }
+      } else {
+        const d = dist(hm.x, hm.y, k.x, k.y);
+        if (d < 0.5) { this.hammers.splice(j, 1); continue; }
+        const step = Math.min(d, RULES.hammerBack * w);
+        hm.x += ((k.x - hm.x) / d) * step;
+        hm.y += ((k.y - hm.y) / d) * step;
+      }
+      const dmg = this.weaponDmg('mlot', WEAPONS.mlot.dmg[Math.min(5, Math.max(1, this.lv('mlot')) - 1)]);
+      for (const c of [...this.brood]) {
+        if (hm.hit.includes(c.id) || dist(c.x, c.y, hm.x, hm.y) > c.r + (hm.evo ? 0.6 : 0.42)) continue;
+        hm.hit.push(c.id);
+        this.damage(c, dmg, hm.x, hm.y, 1.2, 'mlot');
+      }
+      if (this.bossHittable && !hm.hit.includes(-1) && dist(this.boss.x, this.boss.y, hm.x, hm.y) < RULES.bossR + 0.4) {
+        hm.hit.push(-1);
+        this.hurtBoss(dmg, 'mlot');
+      }
     }
     // the white horse gallops through
     for (let j = this.horses.length - 1; j >= 0; j--) {
       const h = this.horses[j], i = Math.min(5, Math.max(1, this.lv('kon')) - 1);
       h.t += w;
       h.x += h.dir * 13 * w;
-      const half = WEAPONS.kon.area[i] / 2 + 0.2;
+      h.dropU += 13 * w;
+      const half = (WEAPONS.kon.area[i] * s.area) / 2 + 0.2;
+      const dmg = this.weaponDmg('kon', WEAPONS.kon.dmg[i]);
       for (const c of [...this.brood]) {
         if (h.hit.includes(c.id) || Math.abs(c.y - h.y) > half + c.r || Math.abs(c.x - h.x) > 0.8) continue;
         h.hit.push(c.id);
-        this.damage(c, WEAPONS.kon.dmg[i] * s.dmg, h.x - h.dir, c.y, 1.6);
+        this.damage(c, dmg, h.x - h.dir, c.y, 1.6, 'kon');
       }
       if (this.bossHittable && !h.hit.includes(-1) && Math.abs(this.boss.y - h.y) < half + RULES.bossR && Math.abs(this.boss.x - h.x) < 1) {
         h.hit.push(-1);
-        this.hurtBoss(WEAPONS.kon.dmg[i] * s.dmg, true);
+        this.hurtBoss(dmg, 'kon');
       }
       if (this.lv('kon') >= 6) for (const sc of this.scales) if (Math.abs(sc.y - h.y) < 1.5 && Math.abs(sc.x - h.x) < 1) sc.pulled = true;
+      // the Zasadzka duet: caltrops along the lane, within sight
+      if (this.duet('zasadzka') && h.dropU >= 1.3 && Math.abs(h.x - k.x) < this.viewHW) {
+        h.dropU = 0;
+        const Lc = Math.min(5, Math.max(1, this.lv('kolce')) - 1);
+        this.dropCaltrop(h.x, h.y, WEAPONS.kolce.area[Lc] * s.area, this.weaponDmg('kolce', WEAPONS.kolce.dmg[Lc]), 1);
+      }
       if (h.t > (2 * this.viewHW + 4) / 13) this.horses.splice(j, 1);
     }
     // the evolved spring's pools
@@ -1229,50 +1510,97 @@ export class JerzySim {
       sp.t += w;
       if (sp.pool > 0 && sp.t < sp.pool && Math.floor(sp.t / 0.5) !== Math.floor((sp.t - w) / 0.5)) {
         const i = Math.min(5, this.lv('wiadra') - 1);
-        for (const c of [...this.brood]) if (dist(c.x, c.y, sp.x, sp.y) < sp.r + c.r) this.damage(c, WEAPONS.wiadra.dmg[Math.max(0, i)] * 0.4 * s.dmg, sp.x, sp.y, 0);
-        this.quenchIn(sp.x, sp.y, sp.r);
+        for (const c of [...this.brood]) if (dist(c.x, c.y, sp.x, sp.y) < sp.r + c.r) this.damage(c, WEAPONS.wiadra.dmg[Math.max(0, i)] * 0.4 * s.dmg, sp.x, sp.y, 0, 'wiadra');
+        this.quenchIn(sp.x, sp.y, sp.r, 'wiadra');
       }
       if (sp.t > Math.max(0.6, sp.pool)) this.splashes.splice(j, 1);
     }
+    // the caltrops bite and slow
+    for (const c of this.brood) c.slow = false;
+    for (let j = this.caltrops.length - 1; j >= 0; j--) {
+      const ct = this.caltrops[j];
+      ct.t += w;
+      ct.tick -= w;
+      const bite = ct.tick <= 0;
+      if (bite) ct.tick = RULES.caltropTick;
+      for (const c of [...this.brood]) {
+        if (dist(c.x, c.y, ct.x, ct.y) > ct.r + c.r) continue;
+        c.slow = true;
+        if (bite) this.damage(c, ct.dmg, ct.x, ct.y, 0, 'kolce');
+      }
+      if (bite && this.bossHittable && dist(this.boss.x, this.boss.y, ct.x, ct.y) < ct.r + RULES.bossR) this.hurtBoss(ct.dmg, 'kolce');
+      if (ct.t >= ct.life) this.caltrops.splice(j, 1);
+    }
+  }
+
+  /** the falcons in the air now: their level's, the quiver's, the Łowy duet's */
+  get birdCount(): number {
+    const Ls = this.lv('sokol');
+    if (!Ls) return 0;
+    return WEAPONS.sokol.n[Math.min(5, Ls - 1)] + this.stats.amount + (this.duet('lowy') ? 1 : 0);
+  }
+
+  private dropCaltrop(x: number, y: number, r: number, dmg: number, lifeK: number): void {
+    if (this.caltrops.length > 60) this.caltrops.shift();
+    this.caltrops.push({ id: this.nextId++, x, y, r, t: 0, life: RULES.caltropLife * lifeK, tick: 0.1, dmg });
   }
 
   private bossBirdT = 0;
 
   private splashAt(x: number, y: number, r: number, dmg: number, pool: number): void {
-    for (const c of [...this.brood]) if (dist(c.x, c.y, x, y) < r + c.r) this.damage(c, dmg, x, y, 0.8);
-    if (this.bossHittable && dist(this.boss.x, this.boss.y, x, y) < r + RULES.bossR) this.hurtBoss(dmg, true);
-    this.quenchIn(x, y, r);
+    for (const c of [...this.brood]) if (dist(c.x, c.y, x, y) < r + c.r) this.damage(c, dmg, x, y, 0.8, 'wiadra');
+    if (this.bossHittable && dist(this.boss.x, this.boss.y, x, y) < r + RULES.bossR) {
+      this.hurtBoss(dmg, 'wiadra');
+      // water on the Ember Dragon while he glows: he steams and collapses
+      if (this.boss.hot > 0) this.fatal();
+    }
+    this.quenchIn(x, y, r, 'wiadra');
     this.splashes.push({ id: this.nextId++, x, y, r, t: 0, pool });
   }
 
-  /** Water puts out fire too: the squire's buckets charge the Miecz światła like the shield. */
-  private quenchIn(x: number, y: number, r: number): void {
+  /** Water puts out fire too: the squire's buckets (and the Ulewa duet's horn) charge the Miecz światła like the shield. */
+  private quenchIn(x: number, y: number, r: number, src: string): void {
     for (let i = this.balls.length - 1; i >= 0; i--) {
       const b = this.balls[i];
-      if (dist(b.x, b.y, x, y) > r + b.r) continue;
+      if (!b || dist(b.x, b.y, x, y) > r + b.r) continue;
       this.balls.splice(i, 1);
-      this.quenchOne(b.x, b.y, true);
+      this.quenchOne(b.x, b.y, true, src);
     }
     for (let i = this.flames.length - 1; i >= 0; i--) {
       const f = this.flames[i];
-      if (dist(f.x, f.y, x, y) > r + f.r) continue;
+      if (!f || dist(f.x, f.y, x, y) > r + f.r) continue;
       this.flames.splice(i, 1);
-      this.quenchOne(f.x, f.y, false);
+      this.quenchOne(f.x, f.y, false, src);
     }
   }
 
-  private quenchOne(x: number, y: number, big: boolean): void {
+  /** Fire put out (a fireball `big`, else a flame): the Miecz charges; the breath counts its steam; the mirror throws light. */
+  private quenchOne(x: number, y: number, big: boolean, src = 'aura'): void {
     this.quenched++;
-    this.addCharge(big ? RULES.quenchBall : RULES.quenchFlame);
+    this.addCharge((big ? RULES.quenchBall * (this.has('krzesiwo') ? 1.3 : 1) : RULES.quenchFlame));
     this.emit({ type: 'quench', x, y, big });
+    const b = this.boss;
+    if (!big && b.state === 'act' && b.pattern === 'breath') b.breathQ++;
     if (big && this.rng() < 0.25) this.talk.ask('quench', 1, 3);
+    if (this.has('lustro') && this.t - this.mirrorT >= 0.08) {
+      const tg = this.nearest(x, y, RULES.mirrorReach);
+      if (tg) {
+        this.mirrorT = this.t;
+        const d = (big ? RULES.mirrorDmg : RULES.mirrorFlame) * this.stats.dmg;
+        if (tg.c) this.damage(tg.c, d, x, y, 0.3, 'mirror');
+        else this.hurtBoss(d, 'mirror');
+        this.emit({ type: 'spark', x0: x, y0: y, x1: tg.x, y1: tg.y, from: 'mirror' });
+      }
+    }
+    void src;
   }
 
-  // ── fire: the spitters' balls, the breath's flames, the rain, the lanes ──
+  // ── fire: the spitters' balls, the hot coins, the breath's flames, the rain, the lanes ──
   private fire(w: number): void {
     const k = this.knight, R = RULES, aura = this.auraR;
     for (let i = this.balls.length - 1; i >= 0; i--) {
       const b = this.balls[i];
+      if (!b) continue;
       b.x += b.vx * w;
       b.y += b.vy * w;
       b.life -= w;
@@ -1282,11 +1610,19 @@ export class JerzySim {
         this.quenchOne(b.x, b.y, true);
       } else if (d < R.knightR + b.r) {
         this.balls.splice(i, 1);
-        this.hurt(R.hurt.ball, b.x, b.y);
-      } else if (b.life <= 0) this.balls.splice(i, 1);
+        this.hurt(b.coin ? R.hurt.coin : R.hurt.ball, b.x, b.y);
+      } else if (this.wallStops(b.x, b.y, b.r)) {
+        this.balls.splice(i, 1);
+        this.emit({ type: 'block', x: b.x, y: b.y });
+      } else if (b.life <= 0) {
+        this.balls.splice(i, 1);
+        // a hot coin that missed cools into a scale where it lies
+        if (b.coin && this.scales.length < RULES.scaleCap) this.scales.push({ id: this.nextId++, x: b.x, y: b.y, v: 1, life: RULES.scaleLife, pulled: false });
+      }
     }
     for (let i = this.flames.length - 1; i >= 0; i--) {
       const f = this.flames[i];
+      if (!f) continue;
       f.x += f.vx * w;
       f.y += f.vy * w;
       f.life -= w;
@@ -1301,6 +1637,7 @@ export class JerzySim {
     }
     for (let i = this.rain.length - 1; i >= 0; i--) {
       const r = this.rain[i];
+      if (!r) continue;
       r.t += w;
       if (r.t < r.dur) continue;
       this.rain.splice(i, 1);
@@ -1311,9 +1648,20 @@ export class JerzySim {
     }
     for (let i = this.zones.length - 1; i >= 0; i--) {
       const z = this.zones[i];
+      if (!z) continue;
       z.t += w;
       if (z.t >= z.dur) this.zones.splice(i, 1);
     }
+    for (let i = this.walls.length - 1; i >= 0; i--) if ((this.walls[i].t += w) >= this.walls[i].life) this.walls.splice(i, 1);
+  }
+
+  /** A palisade stops what flies into it. */
+  private wallStops(x: number, y: number, r: number): boolean {
+    for (const wl of this.walls) {
+      const rx = x - wl.x, ry = y - wl.y, ca = Math.cos(wl.a), sa = Math.sin(wl.a);
+      if (Math.abs(rx * ca + ry * sa) <= wl.len / 2 && Math.abs(-rx * sa + ry * ca) <= r + 0.15) return true;
+    }
+    return false;
   }
 
   // ── pickups ─────────────────────────────────────────────────────
@@ -1349,8 +1697,9 @@ export class JerzySim {
       const dr = this.drops[i];
       dr.t += w;
       const d = dist(dr.x, dr.y, k.x, k.y);
-      // a chest left lying slides to the knight after a while (grace)
-      if (d < pr * 1.1 || ((dr.kind === 'chest' || dr.kind === 'bigChest') && dr.t > 14)) dr.pulled = true;
+      // a chest left lying slides to the knight after a while (grace; at once with the compass)
+      const chest = dr.kind === 'chest' || dr.kind === 'bigChest';
+      if (d < pr * 1.1 || (chest && (dr.t > 14 || (this.has('kompas') && dr.t > 0.6)))) dr.pulled = true;
       if (dr.pulled && k.down <= 0) {
         const step = Math.min(d, (R.pull * 0.7 + d) * w);
         if (d > 1e-6) {
@@ -1361,7 +1710,7 @@ export class JerzySim {
           this.drops.splice(i, 1);
           this.open(dr);
         }
-      } else if (dr.kind !== 'chest' && dr.kind !== 'bigChest' && dr.t > 40) this.drops.splice(i, 1);
+      } else if (!chest && dr.t > 40) this.drops.splice(i, 1);
     }
   }
 
@@ -1387,7 +1736,7 @@ export class JerzySim {
   private open(dr: Drop): void {
     const k = this.knight;
     if (dr.kind === 'apple') {
-      k.hearts = Math.min(k.max, k.hearts + RULES.appleHeal);
+      k.hearts = Math.min(k.max, k.hearts + RULES.appleHeal + (this.has('jablon') ? 0.5 : 0));
       this.emit({ type: 'apple', x: dr.x, y: dr.y, revive: false });
       return;
     }
@@ -1396,10 +1745,26 @@ export class JerzySim {
       this.emit({ type: 'gust' });
       return;
     }
-    // a chest: the evolution when a pair is ready, else levels for what he carries
+    // a chest: a treasure of the hoard, or the evolution when a pair is ready, else levels for what he carries
+    this.chestsNow++;
     const big = dr.kind === 'bigChest';
     const ups: Card[] = [];
-    for (let i = 0; i < (big ? 3 : 1); i++) {
+    if (big) {
+      const own = this.lastDriven;
+      const tr = own && !this.has(own) ? own : this.drawTreasure();
+      if (tr) this.addTreasure(tr, dr.x, dr.y);
+    } else {
+      const chance = dr.src === 'roar' ? RULES.treasureRoar : RULES.treasureElite;
+      const tr = this.run.treasures.length < RULES.treasureMax && this.rng() < chance ? this.drawTreasure() : null;
+      if (tr) {
+        this.addTreasure(tr, dr.x, dr.y);
+        this.emit({ type: 'chest', x: dr.x, y: dr.y, ups: [{ kind: 'treasure', id: null, from: 0, to: 0, tr }], big: false });
+        this.talk.ask('treasure', 3, 4);
+        return;
+      }
+    }
+    const n = (big ? 2 : 1) + (this.has('mapa') ? 1 : 0);
+    for (let i = 0; i < n; i++) {
       const evo = this.evoReady();
       let card: Card | null = evo ? { kind: 'evo', id: evo, from: 5, to: 6 } : null;
       if (!card) {
@@ -1416,18 +1781,42 @@ export class JerzySim {
     this.talk.ask(ups.some(c => c.kind === 'evo') ? 'evolve' : 'chest', 3, 4);
   }
 
+  /** the hoard treasure of the dragon last driven off, for its big chest */
+  private lastDriven: TreasureId | null = null;
+
+  /** A treasure this run does not hold yet (the ones never found weigh double, so the collection grows); null when all are held. */
+  private drawTreasure(): TreasureId | null {
+    const pool = TREASURES.filter(id => !this.has(id));
+    if (!pool.length) return null;
+    const ws = pool.map(id => (this.p.treasures.includes(id) ? 1 : 2));
+    let r = this.rng() * ws.reduce((s, v) => s + v, 0);
+    for (let i = 0; i < pool.length; i++) if ((r -= ws[i]) <= 0) return pool[i];
+    return pool[pool.length - 1];
+  }
+
+  private addTreasure(id: TreasureId, x: number, y: number): void {
+    if (this.has(id)) return;
+    this.run.treasures.push(id);
+    this.statCache = null;
+    const first = findTreasure(this.p, id);
+    if (first) this.treasuresNow.push(id);
+    this.emit({ type: 'treasure', id, first, x, y });
+    this.coach('treasure', x, y);
+  }
+
   // ── level-ups: one of three cards ───────────────────────────────
-  /** A weapon at its top whose pair is at its top, not yet evolved (the first in the build's order). */
+  /** A weapon at its top whose pair is at its top (at 2 with the anvil), not yet evolved (the first in the build's order). */
   evoReady(): WeaponId | null {
+    const need = this.has('kowadlo') ? 2 : RULES.gearMax;
     for (const id of this.run.order) {
       if (!isWeapon(id)) continue;
-      if (this.lv(id) === RULES.weaponMax && this.lv(WEAPONS[id].pair) >= RULES.gearMax) return id;
+      if (this.lv(id) === RULES.weaponMax && this.lv(WEAPONS[id].pair) >= need) return id;
     }
     return null;
   }
 
-  /** Three different cards: the evolution first when one is ready, then levels and new things; apples and scales fill in. */
-  cardsFor(gold: boolean): Card[] {
+  /** Three different cards: the evolution first when one is ready, then levels, new things and the companions' levels; apples and scales fill in. */
+  cardsFor(gold: boolean, source: ChoiceSource = 'level'): Card[] {
     const R = RULES, add = gold ? 2 : 1;
     const out: Card[] = [];
     const evo = this.evoReady();
@@ -1443,6 +1832,15 @@ export class JerzySim {
       const L = this.lv(id);
       if (L === 0 && gear < R.slotsGear) pool.push({ card: { kind: 'new', id, from: 0, to: Math.min(R.gearMax, add) }, w: 0.8 });
       else if (L > 0 && L < R.gearMax) pool.push({ card: { kind: 'up', id, from: L, to: Math.min(R.gearMax, L + add) }, w: 1.1 });
+    }
+    for (const id of Object.keys(this.run.pals) as CompanionId[]) {
+      const L = this.palLevel(id);
+      if (L > 0 && L < R.palMax) pool.push({ card: { kind: 'pal', id: null, pal: id, from: L, to: Math.min(R.palMax, L + add) }, w: 0.9 });
+    }
+    // a calm Postój's golden choice may hold a treasure of the hoard
+    if (source === 'rest' && gold && this.run.treasures.length < R.treasureMax && this.rng() < 0.4) {
+      const tr = this.drawTreasure();
+      if (tr) out.push({ kind: 'treasure', id: null, from: 0, to: 0, tr });
     }
     while (out.length < 3 && pool.length) {
       let r = this.rng() * pool.reduce((s, p) => s + p.w, 0), j = 0;
@@ -1460,10 +1858,26 @@ export class JerzySim {
       if (!this.tally) this.queued.push({ source, gold });
       return;
     }
-    this.choice = { cards: this.cardsFor(gold), t: 0, gold, source };
+    this.choice = { cards: this.cardsFor(gold, source), t: 0, gold, source };
     this.emit({ type: 'choice', source, gold });
     this.talk.ask(this.choice.cards[0].kind === 'evo' ? 'evolve' : 'level', 1, 3);
     this.coach(this.choice.cards[0].kind === 'evo' ? 'evolve' : 'choose', this.knight.x, this.knight.y);
+    if (this.p.seen.includes('choose') && this.run.rerolls > 0) this.coach('reroll', this.knight.x, this.knight.y);
+  }
+
+  /** Linda reshuffles the cards (R, or the button under them): new cards, one reshuffle fewer. */
+  reroll(): boolean {
+    const ch = this.choice;
+    if (!ch || this.run.rerolls <= 0 || ch.t < 0.25) return false;
+    const before = ch.cards.map(c => `${c.kind}:${c.id ?? c.pal ?? c.tr ?? ''}`).join('|');
+    let cards = this.cardsFor(ch.gold, ch.source);
+    for (let i = 0; i < 4 && cards.map(c => `${c.kind}:${c.id ?? c.pal ?? c.tr ?? ''}`).join('|') === before; i++) cards = this.cardsFor(ch.gold, ch.source);
+    ch.cards = cards;
+    ch.t = 0.25;
+    this.run.rerolls--;
+    this.emit({ type: 'reroll', left: this.run.rerolls });
+    this.talk.ask('reroll', 2, 3);
+    return true;
   }
 
   /** Take card `i` of the choice. */
@@ -1481,12 +1895,22 @@ export class JerzySim {
 
   private apply(card: Card, gold: boolean): void {
     const k = this.knight;
+    this.statCache = null;
     if (card.kind === 'apple') {
       k.hearts = Math.min(k.max, k.hearts + (gold ? 3 : 2));
       return;
     }
     if (card.kind === 'scales') {
       this.collect(gold ? 20 : 10, k.x, k.y);
+      return;
+    }
+    if (card.kind === 'pal' && card.pal) {
+      this.run.pals[card.pal] = card.to;
+      return;
+    }
+    if (card.kind === 'treasure' && card.tr) {
+      this.addTreasure(card.tr, k.x, k.y);
+      this.talk.ask('treasure', 3, 4);
       return;
     }
     const id = card.id!;
@@ -1497,6 +1921,205 @@ export class JerzySim {
       this.p.evolutions++;
       this.emit({ type: 'evolve', id });
     }
+    // a duet: two weapons that belong together
+    for (const d of duetsOf(this.run.items)) {
+      if (this.run.duets.includes(d)) continue;
+      this.run.duets.push(d);
+      const first = !this.p.duets.includes(d);
+      if (first) {
+        this.p.duets.push(d);
+        this.duetsNow.push(d);
+      }
+      this.emit({ type: 'duet', id: d, first });
+      this.talk.ask('duet', 3, 4);
+      this.coach('duet', k.x, k.y);
+    }
+  }
+
+  /** What a card would add (the view): the duet it forms, the treasure that works on its weapon. */
+  cardNotes(c: Card): { duet: DuetId | null; treasure: TreasureId | null } {
+    if (!c.id || !isWeapon(c.id) || c.kind !== 'new') {
+      const tr = c.id && isWeapon(c.id) ? (Object.keys(TREASURE_ON) as TreasureId[]).find(t => TREASURE_ON[t] === c.id && this.has(t)) ?? null : null;
+      return { duet: null, treasure: tr };
+    }
+    const items = { ...this.run.items, [c.id]: 1 };
+    const duet = duetsOf(items).find(d => !this.run.duets.includes(d)) ?? null;
+    const tr = (Object.keys(TREASURE_ON) as TreasureId[]).find(t => TREASURE_ON[t] === c.id && this.has(t)) ?? null;
+    return { duet, treasure: tr };
+  }
+
+  // ── the companions ──────────────────────────────────────────────
+  private companions(w: number): void {
+    const k = this.knight;
+    if (!this.pals.length) return;
+    for (const pl of this.pals) {
+      const L = this.palLevel(pl.id);
+      if (!L) continue;
+      pl.t1 -= w;
+      pl.t2 -= w;
+      switch (pl.id) {
+        case 'pies': this.dog(pl, L, w); break;
+        case 'iskierka': this.hatchling(pl, L, w); break;
+        case 'jez': this.hedgehog(pl, L, w); break;
+        case 'bobr': this.beaver(pl, L, w); break;
+      }
+      // never lost: far behind, he comes back at a run
+      if (dist(pl.x, pl.y, k.x, k.y) > 9) {
+        pl.x = k.x - 0.8;
+        pl.y = k.y + 0.6;
+      }
+    }
+  }
+
+  private moveTo(pl: Pal, x: number, y: number, speed: number, w: number): number {
+    const d = dist(pl.x, pl.y, x, y);
+    if (d > 1e-3) {
+      const s = Math.min(d, speed * w);
+      pl.x += ((x - pl.x) / d) * s;
+      pl.y += ((y - pl.y) / d) * s;
+      if (Math.abs(x - pl.x) > 0.05) pl.face = x > pl.x ? 1 : -1;
+    }
+    return d;
+  }
+
+  /** Burek fetches what lies beyond the knight's reach and bites what comes near him. */
+  private dog(pl: Pal, L: number, w: number): void {
+    const k = this.knight, R = RULES, pr = R.pickR * this.stats.pick;
+    const reach = R.dogFetch + (L - 1);
+    let tx = 0, ty = 0, best = Infinity, target: Scale | Drop | null = null;
+    for (const sc of this.scales) {
+      if (sc.pulled) continue;
+      const dk = dist(sc.x, sc.y, k.x, k.y);
+      if (dk < pr || dk > reach) continue;
+      const d = dist(sc.x, sc.y, pl.x, pl.y);
+      if (d < best) { best = d; target = sc; tx = sc.x; ty = sc.y; }
+    }
+    for (const dr of this.drops) {
+      if (dr.pulled || dist(dr.x, dr.y, k.x, k.y) > reach + 2) continue;
+      const d = dist(dr.x, dr.y, pl.x, pl.y) * 0.6;
+      if (d < best) { best = d; target = dr; tx = dr.x; ty = dr.y; }
+    }
+    const speed = R.dogSpeed + 0.4 * (L - 1);
+    if (target) {
+      pl.busy = 'fetch';
+      if (this.moveTo(pl, tx, ty, speed, w) < 0.45) {
+        target.pulled = true;
+        if ('kind' in target) {
+          this.emit({ type: 'pal', id: 'pies', what: 'fetch', x: tx, y: ty });
+          if (target.kind === 'chest' || target.kind === 'bigChest') this.talk.ask('pal_pies', 1, 3);
+        }
+      }
+    } else {
+      pl.busy = 'follow';
+      const a = this.walkDir + Math.PI * 0.75;
+      const fx = k.x + Math.cos(a) * 1.2, fy = k.y + Math.sin(a) * 1.0;
+      if (dist(pl.x, pl.y, fx, fy) > 0.4) this.moveTo(pl, fx, fy, speed * 0.8, w);
+    }
+    if (pl.t1 <= 0) {
+      const dmg = (3 + 1.5 * (L - 1)) * this.stats.dmg;
+      let bit = false;
+      for (const c of this.brood) {
+        if (dist(c.x, c.y, pl.x, pl.y) > R.dogBiteR + c.r) continue;
+        this.damage(c, dmg, pl.x, pl.y, 0.8, 'pies');
+        bit = true;
+        break;
+      }
+      if (!bit && this.bossHittable && dist(this.boss.x, this.boss.y, pl.x, pl.y) < R.dogBiteR + RULES.bossR) {
+        this.hurtBoss(dmg, 'pies');
+        bit = true;
+      }
+      pl.t1 = bit ? R.dogBite : 0.15;
+      if (bit) this.emit({ type: 'pal', id: 'pies', what: 'bite', x: pl.x, y: pl.y });
+    }
+  }
+
+  /** Iskierka hovers round the knight, eats fire near her (it charges the Miecz) and spits sparks at the brood. */
+  private hatchling(pl: Pal, L: number, w: number): void {
+    const k = this.knight, R = RULES;
+    pl.a += w * 2.2;
+    const hx = k.x + Math.cos(pl.a) * R.sparkOrbit, hy = k.y + Math.sin(pl.a) * R.sparkOrbit * 0.8;
+    this.moveTo(pl, hx, hy, 9, w);
+    pl.face = Math.cos(pl.a + Math.PI / 2) >= 0 ? 1 : -1;
+    if (pl.t1 <= 0) {
+      const reach = R.sparkEatR + 0.4 * (L - 1);
+      let bi = -1, fi = -1, bd = reach;
+      this.balls.forEach((b, i) => { const d = dist(b.x, b.y, pl.x, pl.y); if (d < bd) { bd = d; bi = i; fi = -1; } });
+      this.flames.forEach((f, i) => { const d = dist(f.x, f.y, pl.x, pl.y); if (d < bd) { bd = d; fi = i; bi = -1; } });
+      if (bi >= 0 || fi >= 0) {
+        const o = bi >= 0 ? this.balls.splice(bi, 1)[0] : this.flames.splice(fi, 1)[0];
+        this.quenchOne(o.x, o.y, bi >= 0, 'iskierka');
+        this.emit({ type: 'pal', id: 'iskierka', what: 'eat', x: o.x, y: o.y });
+        if (this.rng() < 0.2) this.talk.ask('pal_iskierka', 1, 3);
+        pl.t1 = Math.max(0.6, R.sparkEat - 0.3 * (L - 1));
+      } else pl.t1 = 0.12;
+    }
+    if (pl.t2 <= 0) {
+      const tg = this.nearest(pl.x, pl.y, R.sparkReach);
+      if (tg) {
+        const dmg = (4 + 2 * (L - 1)) * this.stats.dmg;
+        if (tg.c) this.damage(tg.c, dmg, pl.x, pl.y, 0.5, 'iskierka');
+        else this.hurtBoss(dmg, 'iskierka');
+        this.emit({ type: 'spark', x0: pl.x, y0: pl.y, x1: tg.x, y1: tg.y, from: 'iskierka' });
+        pl.t2 = R.sparkSpit;
+      } else pl.t2 = 0.2;
+    }
+  }
+
+  /** Kolczak rolls round the knight in a ball of spikes: it bites what it rolls through and brings the scales it picks up. */
+  private hedgehog(pl: Pal, L: number, w: number): void {
+    const k = this.knight, R = RULES;
+    const lap = Math.max(1.4, R.hogLap - 0.2 * (L - 1)), r = R.hogR + 0.2 * (L - 1);
+    pl.a += (TAU / lap) * w;
+    pl.x = k.x + Math.cos(pl.a) * r;
+    pl.y = k.y + Math.sin(pl.a) * r * 0.9;
+    pl.face = Math.cos(pl.a + Math.PI / 2) >= 0 ? 1 : -1;
+    const dmg = (3 + 1.5 * (L - 1)) * this.stats.dmg;
+    for (const c of [...this.brood]) {
+      if (dist(c.x, c.y, pl.x, pl.y) > c.r + 0.45 || this.t - c.hogT < 0.5) continue;
+      c.hogT = this.t;
+      this.damage(c, dmg, pl.x, pl.y, 0.8, 'jez');
+    }
+    if (this.bossHittable && dist(this.boss.x, this.boss.y, pl.x, pl.y) < RULES.bossR + 0.4 && this.t - this.hogBossT > 0.6) {
+      this.hogBossT = this.t;
+      this.hurtBoss(dmg, 'jez');
+    }
+    for (const sc of this.scales) if (!sc.pulled && dist(sc.x, sc.y, pl.x, pl.y) < 0.6) sc.pulled = true;
+  }
+
+  private hogBossT = 0;
+
+  /** Bartek gnaws a palisade between the knight and the thickest of the brood. */
+  private beaver(pl: Pal, L: number, w: number): void {
+    const k = this.knight, R = RULES;
+    if (pl.busy === 'gnaw') {
+      if (this.moveTo(pl, pl.tx, pl.ty, 7, w) < 0.3 && pl.t2 <= 0) pl.busy = 'follow';
+      return;
+    }
+    const a = this.walkDir - Math.PI * 0.75;
+    const fx = k.x + Math.cos(a) * 1.1, fy = k.y + Math.sin(a) * 1.0;
+    if (dist(pl.x, pl.y, fx, fy) > 0.4) this.moveTo(pl, fx, fy, 5.2, w);
+    if (pl.t1 > 0) return;
+    let n = 0, sx = 0, sy = 0;
+    for (const c of this.brood) {
+      if (dist(c.x, c.y, k.x, k.y) > R.wallNear) continue;
+      n++;
+      sx += c.x;
+      sy += c.y;
+    }
+    if (n < R.wallNeed) {
+      pl.t1 = 0.5;
+      return;
+    }
+    const dir = Math.atan2(sy / n - k.y, sx / n - k.x);
+    const x = k.x + Math.cos(dir) * 1.9, y = k.y + Math.sin(dir) * 1.9;
+    this.walls.push({ id: this.nextId++, x, y, a: dir + Math.PI / 2, len: R.wallLen + 0.5 * (L - 1), t: 0, life: R.wallLife, dmg: 2 + (L - 1) });
+    pl.busy = 'gnaw';
+    pl.tx = x;
+    pl.ty = y;
+    pl.t2 = 0.6;
+    pl.t1 = Math.max(4, R.wallEvery - (L - 1));
+    this.emit({ type: 'pal', id: 'bobr', what: 'wall', x, y });
+    if (this.rng() < 0.3) this.talk.ask('pal_bobr', 1, 3);
   }
 
   // ── the land's dragon ───────────────────────────────────────────
@@ -1516,9 +2139,16 @@ export class JerzySim {
     b.tx = k.x + Math.cos(a) * 3.4;
     b.ty = this.bossY(k.y + Math.sin(a) * 3.4);
     b.air = 1;
+    b.under = false;
+    b.hot = 0;
+    b.round = 0;
+    b.used = [];
     this.setBoss('arrive', 1.6);
-    this.emit({ type: 'boss', kind: b.spec.kind });
-    this.talk.ask('boss', 4, 6);
+    this.emit({ type: 'boss', kind: b.spec.kind, tier: b.tier });
+    // Linda hints at his weakness until it is found
+    if (!this.p.flaws.includes(b.spec.kind)) this.talk.ask(`hint_${b.spec.kind}`, 4, 8);
+    else this.talk.ask('boss', 4, 6);
+    if (b.tier > 0 && b.visits === 1) this.talk.ask('road', 2, 8);
     this.coach('boss', b.tx, b.ty);
   }
 
@@ -1529,6 +2159,10 @@ export class JerzySim {
     this.zones.length = 0;
     this.rain.length = 0;
     b.pattern = null;
+    b.under = false;
+    b.hot = 0;
+    b.eating = false;
+    b.fed = false;
     b.tx = b.x + (this.rng() - 0.5) * 6;
     b.ty = b.y - (this.viewHH + 5);
     this.setBoss('leave', 1.6);
@@ -1536,22 +2170,26 @@ export class JerzySim {
     this.talk.ask('nap', 3, 6);
   }
 
-  private hurtBoss(dmg: number, weapon: boolean): void {
+  private hurtBoss(dmg: number, src: string, weapon = true): void {
     const b = this.boss;
-    if (!(dmg > 0) || b.state === 'roar' || b.state === 'leave' || b.state === 'away' || b.state === 'arrive') return;
+    if (!(dmg > 0) || b.state === 'roar' || b.state === 'leave' || b.state === 'away' || b.state === 'arrive' || b.under) return;
     const flaw = b.state === 'flaw';
-    const v = dmg * (flaw ? RULES.flawK : 1);
+    const crit = weapon && src !== 'sword' && this.critRoll(src);
+    const v = dmg * (flaw ? b.k : 1) * (crit ? RULES.critK : 1);
+    const dealt = Math.min(v, b.all - b.damage);
+    this.bossDmg[src] = (this.bossDmg[src] ?? 0) + dealt;
+    this.run.dmg[src] = (this.run.dmg[src] ?? 0) + dealt;
+    this.sessionDmg[src] = (this.sessionDmg[src] ?? 0) + dealt;
     b.damage = Math.min(b.all, b.damage + v);
     b.hit = 0.12;
     b.owed += v;
-    this.emit({ type: 'hit', x: b.x, y: b.y - 0.6, dmg: v, boss: true, flaw });
+    this.emit({ type: 'hit', x: b.x, y: b.y - 0.6, dmg: v, boss: true, flaw, crit });
     // knocked-off scales fly to the knight
-    while (b.owed >= 15) {
-      b.owed -= 15;
+    while (b.owed >= RULES.owedPer) {
+      b.owed -= RULES.owedPer;
       const a = this.rng() * TAU;
       this.scales.push({ id: this.nextId++, x: b.x + Math.cos(a) * 0.8, y: b.y + Math.sin(a) * 0.6, v: 3, life: RULES.scaleLife, pulled: true });
     }
-    void weapon;
     if (b.damage >= b.all) {
       this.driveOff();
       return;
@@ -1561,12 +2199,14 @@ export class JerzySim {
       b.roared = third;
       this.zones.length = 0;
       this.flames.length = 0;
+      b.hot = 0;
+      b.eating = false;
       this.setBoss('roar', RULES.roarSec);
       const k = this.knight, a = Math.atan2(k.y - b.y, k.x - b.x);
       k.x += Math.cos(a) * RULES.roarPush * 0.5;
       k.y += Math.sin(a) * RULES.roarPush * 0.5;
       this.rings.push({ r: 3, t: 0, kind: 'roar' });
-      this.drops.push({ id: this.nextId++, kind: 'chest', x: b.x, y: b.y + 0.8, t: 0, pulled: false });
+      this.drops.push({ id: this.nextId++, kind: 'chest', x: b.x, y: b.y + 0.8, t: 0, pulled: false, src: 'roar' });
       this.emit({ type: 'roar' });
     }
   }
@@ -1574,17 +2214,24 @@ export class JerzySim {
   private driveOff(): void {
     const b = this.boss, kind = b.spec.kind;
     this.drivenNow.push(kind);
+    this.roadsNow.push({ kind, tier: b.tier });
     this.run.driven++;
     this.zones.length = 0;
     this.flames.length = 0;
     this.rain.length = 0;
+    this.lastDriven = b.spec.hoard;
     this.drops.push({ id: this.nextId++, kind: 'bigChest', x: b.x, y: b.y + 0.6, t: 0, pulled: false });
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * TAU;
+    const gold = Math.round(RULES.drivenGold * (1 + road(b.tier).bank));
+    for (let i = 0; i < gold; i++) {
+      const a = (i / gold) * TAU;
       this.scales.push({ id: this.nextId++, x: b.x + Math.cos(a) * 1.2, y: b.y + Math.sin(a) * 1.2, v: 10, life: RULES.scaleLife, pulled: true });
     }
-    // the next land's dragon waits on the map
-    const nb = this.makeBoss(b.idx + 1, 0);
+    // the road is cleared on the map; the next fight is the frontier
+    const firstLand = b.land === 0 && b.tier === 0;
+    clearFight(this.p, b.land, b.tier);
+    const f = fightOf(this.p);
+    const nb = this.makeBoss(f.land, f.tier, woundsOf(this.p, f.land, f.tier));
+    this.topTier = Math.max(this.topTier, f.tier);
     nb.x = b.x;
     nb.y = b.y;
     b.tx = b.x + 4;
@@ -1593,20 +2240,35 @@ export class JerzySim {
     this.leaving = { x: b.x, y: b.y, tx: b.tx, ty: b.ty, t: 0, kind, spec: b.spec };
     this.boss = nb;
     this.stop = Math.max(this.stop, RULES.stopDriven);
-    this.story = { kind: 'land', t: -1.2, dur: RULES.storySec + 1.2, from: kind, to: nb.spec.kind };
-    this.emit({ type: 'driven', kind, next: nb.spec.kind });
+    this.story = { kind: 'land', t: -1.2, dur: RULES.storySec + 1.2, from: kind, to: nb.spec.kind, tier: b.tier, toTier: nb.tier, first: firstLand };
+    this.emit({ type: 'driven', kind, next: nb.spec.kind, tier: b.tier });
     this.talk.ask('driven', 5, 8);
   }
 
   /** the dragon just driven off, flying over the hills (for the view) */
   leaving: { x: number; y: number; tx: number; ty: number; t: number; kind: DragonKind; spec: DragonSpec } | null = null;
 
+  /** His patterns now (the road adds one); the Three-Headed never repeats one in a round. */
   private choosePattern(): Pattern {
-    const ps = this.boss.spec.patterns;
+    const b = this.boss;
+    let ps: (readonly [Pattern, number])[] = [...b.spec.patterns];
+    if (b.tier >= 1) ps.push(b.spec.extra);
+    if (b.spec.kind === 'trzyglowy') {
+      const fresh = ps.filter(([p]) => !b.used.includes(p));
+      if (fresh.length) ps = fresh;
+    } else if (this.patHist.length >= 2 && this.patHist[0] === this.patHist[1]) {
+      // never the same attack three times running
+      const same = this.patHist[0];
+      const other = ps.filter(([p]) => p !== same);
+      if (other.length) ps = other;
+    }
     let r = this.rng() * ps.reduce((s, p) => s + p[1], 0);
     for (const [p, wt] of ps) if ((r -= wt) <= 0) return p;
     return ps[0][0];
   }
+
+  /** his last two attacks (across rounds) */
+  private readonly patHist: Pattern[] = [];
 
   private zone(z: Omit<Zone, 'id' | 't' | 'live'>): void {
     this.zones.push({ ...z, id: this.nextId++, t: 0, live: false });
@@ -1622,7 +2284,7 @@ export class JerzySim {
     }
     if (b.state === 'away') return;
     b.st += w;
-    const fast = b.roared > 0 ? R.teleFast ** b.roared : 1;
+    const fast = (b.roared > 0 ? R.teleFast ** b.roared : 1) * road(b.tier).tele;
     const pace = b.spec.pace;
     const toward = (tx: number, ty: number, sp: number) => {
       const d = dist(b.x, b.y, tx, ty);
@@ -1653,23 +2315,65 @@ export class JerzySim {
         toward(b.tx, b.ty, R.bossSpeed * pace);
         const d = dist(b.x, b.y, k.x, k.y);
         if (d < R.bossR + R.knightR && k.down <= 0) this.hurt(R.hurt.touch * 2, b.x, b.y);
+        if (this.greedy()) break;
         if (b.st >= b.dur) this.telegraph(this.choosePattern(), fast);
         break;
       }
       case 'tele':
         if (b.pattern === 'breath') b.face = Math.cos(b.aim) >= 0 ? 1 : -1;
+        if (b.pattern === 'dive') {
+          // under the ground toward the mark
+          const T = clamp(b.st / Math.max(0.01, b.dur));
+          b.x = b.sx0 + (b.sx1 - b.sx0) * T;
+          b.y = b.sy0 + (b.sy1 - b.sy0) * T;
+        }
         if (b.st >= b.dur) this.attack();
         break;
       case 'act':
         this.act(w);
         break;
       case 'flaw':
-        if (b.st >= b.dur) this.startMove();
+        if (b.eating) {
+          // gobbling: the scales near him go into his mouth one by one
+          for (let i = this.scales.length - 1; i >= 0; i--) {
+            const sc = this.scales[i];
+            if (sc.pulled || dist(sc.x, sc.y, b.x, b.y) > R.greedNear) continue;
+            const d = dist(sc.x, sc.y, b.x, b.y);
+            const step = Math.min(d, 6 * w);
+            if (d > 0.4) {
+              sc.x += ((b.x - sc.x) / d) * step;
+              sc.y += ((b.y - sc.y) / d) * step;
+            } else this.scales.splice(i, 1);
+          }
+        }
+        if (b.hot > 0) {
+          b.hot -= w;
+          // the aura touching him while he glows: he steams and collapses (the Ember Dragon's flaw)
+          if (dist(k.x, k.y, b.x, b.y) < this.auraR + R.bossR + 0.05) this.fatal();
+        }
+        if (b.st >= b.dur) {
+          b.hot = 0;
+          b.eating = false;
+          this.startMove();
+        }
         break;
       case 'roar':
         if (b.st >= b.dur) this.startMove();
         break;
     }
+  }
+
+  /** The Golden Dragon cannot pass scales lying near him: he stops to gobble them (his fatal flaw). */
+  private greedy(): boolean {
+    const b = this.boss, R = RULES;
+    if (b.spec.flaw !== 'greed' || b.fed) return false;
+    let n = 0;
+    for (const sc of this.scales) if (!sc.pulled && dist(sc.x, sc.y, b.x, b.y) < R.greedNear) n++;
+    if (n < R.greedN) return false;
+    b.eating = true;
+    b.fed = true;
+    this.fatal(Math.min(R.greedMax, n * R.greedEach), R.greedK);
+    return true;
   }
 
   private startMove(): void {
@@ -1679,13 +2383,22 @@ export class JerzySim {
     b.tx = k.x + Math.cos(a) * keep;
     b.ty = this.bossY(k.y + Math.sin(a) * keep);
     b.pattern = null;
+    b.under = false;
+    b.k = 1;
+    b.fatal = false;
+    // a new round: the Three-Headed's three heads, or a hard road's combo
+    b.round = b.spec.kind === 'trzyglowy' ? RULES.tangleRound - 1 : road(b.tier).combo;
+    b.used = [];
     this.setBoss('move', span(R.bossRest, this.rng()) / b.spec.pace);
   }
 
   private telegraph(p: Pattern, fast: number): void {
     const b = this.boss, k = this.knight, R = RULES;
     b.pattern = p;
-    const dur = R.tele[p] * fast * (this.session === 1 && b.visits <= 1 ? 1.25 : 1);
+    b.breathQ = 0;
+    b.missed = false;
+    const bark = this.palLevel('pies') > 0 ? R.dogBark : 0;
+    const dur = R.tele[p] * fast * (this.session === 1 && b.visits <= 1 ? 1.25 : 1) + bark;
     if (p === 'breath') {
       b.aim = Math.atan2(k.y - b.y, k.x - b.x);
       this.zone({ kind: 'cone', x: b.x, y: b.y, a: b.aim, len: R.coneLen, w: R.coneHalf, dur: dur + R.breathSec });
@@ -1703,7 +2416,7 @@ export class JerzySim {
         this.zone({ kind: 'circle', x, y, a: 0, len: 0, w: R.rainR, dur: dur + 0.1 });
         this.rain.push({ id: this.nextId++, x, y, t: -(dur - R.rainFall), dur: R.rainFall });
       }
-    } else {
+    } else if (p === 'swoop') {
       const a = Math.atan2(k.y - b.y, k.x - b.x);
       b.sx0 = b.x;
       b.sy0 = b.y;
@@ -1711,15 +2424,89 @@ export class JerzySim {
       b.sy1 = k.y + Math.sin(a) * 3.5;
       b.aim = a;
       this.zone({ kind: 'lane', x: b.sx0, y: b.sy0, a, len: dist(b.sx0, b.sy0, b.sx1, b.sy1), w: R.swoopW, dur: dur + 0.8 });
+    } else if (p === 'dive') {
+      // he plunges under the ground and comes up under the mark
+      b.under = true;
+      b.sx0 = b.x;
+      b.sy0 = b.y;
+      b.sx1 = k.x;
+      b.sy1 = k.y;
+      this.zone({ kind: 'circle', x: k.x, y: k.y, a: 0, len: 0, w: R.diveR, dur: dur + 0.35 });
+    } else if (p === 'ring') {
+      const gap = this.rng() * TAU;
+      this.zone({ kind: 'ring', x: k.x, y: k.y, a: 0, len: 0, w: R.ringBand, dur: dur + R.ringSec, r: R.ringFrom, gap, gapW: R.ringGap });
+      this.coach('ring', k.x, k.y);
+    } else if (p === 'embers') {
+      for (let i = 0; i < R.emberPacks; i++) {
+        const a = this.rng() * TAU, r = 2.6 + this.rng() * 1.2;
+        this.zone({ kind: 'circle', x: k.x + Math.cos(a) * r, y: k.y + Math.sin(a) * r, a: 0, len: 0, w: 0.9, dur: dur + 0.2 });
+      }
+    } else if (p === 'coins') {
+      b.aim = Math.atan2(k.y - b.y, k.x - b.x);
+      this.zone({ kind: 'cone', x: b.x, y: b.y, a: b.aim, len: 6, w: R.coinFan / 2, dur: dur + 0.25 });
+    } else {
+      // the tail sweep: a ring around him
+      this.zone({ kind: 'circle', x: b.x, y: b.y, a: 0, len: 0, w: R.sweepR, dur: dur + 0.3 });
     }
     this.setBoss('tele', dur);
     this.emit({ type: 'bossTele', pattern: p });
   }
 
   private attack(): void {
-    const b = this.boss, R = RULES, p = b.pattern!;
+    const b = this.boss, R = RULES, p = b.pattern!, k = this.knight;
+    b.fed = false;
     for (const z of this.zones) z.live = true;
-    const dur = p === 'breath' ? R.breathSec : p === 'lanes' ? 0.6 : p === 'rain' ? 0.15 : dist(b.sx0, b.sy0, b.sx1, b.sy1) / R.swoopSpeed;
+    let dur: number;
+    switch (p) {
+      case 'breath': dur = R.breathSec; break;
+      case 'lanes': dur = 0.6; break;
+      case 'rain': dur = 0.15; break;
+      case 'swoop': dur = dist(b.sx0, b.sy0, b.sx1, b.sy1) / R.swoopSpeed; break;
+      case 'dive': {
+        // the burst
+        b.under = false;
+        b.x = b.sx1;
+        b.y = b.sy1;
+        const hitK = dist(k.x, k.y, b.x, b.y) < R.diveR + R.knightR * 0.5;
+        if (hitK) this.hurt(R.hurt.dive, b.x, b.y);
+        b.missed = !hitK;
+        for (const c of this.brood) if (dist(c.x, c.y, b.x, b.y) < R.diveR + 0.6) { c.kx += (c.x - b.x) * 4; c.ky += (c.y - b.y) * 4; }
+        this.rings.push({ r: R.diveR, t: 0, kind: 'burst' });
+        dur = 0.35;
+        break;
+      }
+      case 'ring': dur = R.ringSec; break;
+      case 'embers': {
+        for (const z of this.zones) {
+          if (z.kind !== 'circle') continue;
+          for (let i = 0; i < 5; i++) this.spawn('ognik', (i / 5) * TAU, false, 1, { x: z.x, y: z.y });
+        }
+        dur = 0.3;
+        break;
+      }
+      case 'coins': {
+        for (let i = 0; i < R.coins; i++) {
+          const a = b.aim + (i / (R.coins - 1) - 0.5) * R.coinFan, sp = R.coinSpeed * (0.85 + 0.3 * this.rng());
+          this.balls.push({ id: this.nextId++, x: b.x + Math.cos(a) * 0.8, y: b.y - 0.2 + Math.sin(a) * 0.8, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: 0.17, life: R.coinLife * (0.8 + 0.4 * this.rng()), coin: true });
+        }
+        dur = 0.25;
+        break;
+      }
+      default: {
+        // the tail sweep
+        if (dist(k.x, k.y, b.x, b.y) < R.sweepR + R.knightR * 0.5) this.hurt(R.hurt.sweep, b.x, b.y);
+        for (const c of this.brood) if (dist(c.x, c.y, b.x, b.y) < R.sweepR + c.r) { c.kx += (c.x - b.x) * 3; c.ky += (c.y - b.y) * 3; }
+        // the Golden Dragon's tail knocks scales out of his hoard around him
+        if (b.spec.kind === 'zloty') {
+          for (let i = 0; i < 6; i++) {
+            const a = this.rng() * TAU, r = 1.6 + this.rng() * 1.6;
+            if (this.scales.length < RULES.scaleCap) this.scales.push({ id: this.nextId++, x: b.x + Math.cos(a) * r, y: b.y + Math.sin(a) * r, v: 1, life: RULES.scaleLife, pulled: false });
+          }
+        }
+        this.rings.push({ r: R.sweepR, t: 0, kind: 'burst' });
+        dur = 0.3;
+      }
+    }
     this.setBoss('act', dur);
     this.flameAcc = 0;
     this.laneHit = false;
@@ -1761,14 +2548,95 @@ export class JerzySim {
         this.hurt(R.hurt.swoop, b.x, b.y);
       }
       for (const c of [...this.brood]) if (dist(c.x, c.y, b.x, b.y) < R.bossR + c.r) { c.kx += (c.x - b.x) * 3; c.ky += (c.y - b.y) * 3; }
+      b.missed = !this.laneHit;
+    } else if (p === 'ring') {
+      const z = this.zones.find(zz => zz.kind === 'ring');
+      if (z) {
+        const T = clamp(b.st / Math.max(0.01, b.dur));
+        z.r = R.ringFrom + (R.ringTo - R.ringFrom) * T;
+        const d = dist(k.x, k.y, z.x, z.y);
+        const inGap = Math.abs(turn(z.gap ?? 0, Math.atan2(k.y - z.y, k.x - z.x))) < (z.gapW ?? 0) / 2;
+        // a shield above the threshold, reaching the ring of fire, puts it all out
+        if (Math.abs(d - z.r) < this.auraR + R.ringBand / 2 && this.auraR >= this.auraMark - 0.05 && this.auraLook === 'live') {
+          this.emit({ type: 'ringOut', x: z.x, y: z.y, r: z.r });
+          this.rings.push({ r: z.r, t: 0, kind: 'steam' });
+          for (let i = 0; i < 8; i++) this.quenchOne(z.x + Math.cos((i / 8) * TAU) * z.r, z.y + Math.sin((i / 8) * TAU) * z.r, false);
+          this.addCharge(0.12);
+          this.zones.length = 0;
+          b.st = b.dur;
+        } else if (!this.laneHit && !inGap && Math.abs(d - z.r) < R.ringBand / 2 + R.knightR * 0.5) {
+          this.laneHit = true;
+          this.hurt(R.hurt.ring, k.x, k.y);
+        }
+      }
     }
-    if (b.st >= b.dur) {
-      b.air = 0;
-      this.zones.length = 0;
-      this.setBoss('flaw', R.flawSec);
-      this.emit({ type: 'flaw' });
-      this.talk.ask('flaw', 2, 2.5);
+    if (b.st >= b.dur) this.endAttack();
+  }
+
+  /** An attack is over: the round goes on, or he is dizzy — or his fatal flaw opens. */
+  private endAttack(): void {
+    const b = this.boss, R = RULES, p = b.pattern!;
+    b.air = 0;
+    b.under = false;
+    this.zones.length = 0;
+    b.used.push(p);
+    this.patHist.push(p);
+    if (this.patHist.length > 2) this.patHist.shift();
+    const kind = b.spec.kind;
+    // the fatal flaws a pattern brings about
+    if (kind === 'zielony' && p === 'breath' && b.breathQ >= R.steamNeed) return this.fatal();
+    if (kind === 'bagienny' && p === 'dive' && b.missed) return this.fatal();
+    if (kind === 'skrzydlaty' && p === 'swoop' && b.missed) return this.fatal();
+    if (kind === 'trzyglowy' && b.round <= 0 && new Set(b.used).size >= R.tangleRound) return this.fatal();
+    if (kind === 'zarowy' && p === 'ring') {
+      // he glows and must cool: a dizzy window in which the aura or water brings him down
+      b.round = 0;
+      this.flawWindow();
+      b.hot = R.heatSec;
+      return;
     }
+    if (b.round > 0 && CLOSERS[kind] !== p) {
+      // straight on to the next attack of the round
+      b.round--;
+      b.pattern = null;
+      this.setBoss('move', R.comboGap);
+      return;
+    }
+    this.flawWindow();
+  }
+
+  /** The dizzy window after an attack: ×2. */
+  private flawWindow(): void {
+    const b = this.boss, R = RULES;
+    b.k = R.flawK;
+    b.fatal = false;
+    this.setBoss('flaw', R.flawSec * (this.has('klepsydra') ? 1.5 : 1));
+    this.emit({ type: 'flaw' });
+    this.talk.ask('flaw', 2, 2.5);
+  }
+
+  /** His fatal flaw opens: a longer window, ×3 (×2.5 while the Golden One gobbles); the first time, it goes into the chronicle. */
+  private fatal(dur: number = RULES.fatalSec, k: number = RULES.fatalK): void {
+    const b = this.boss, kind = b.spec.kind;
+    if (b.fatal && b.state === 'flaw') return;
+    b.hot = 0;
+    b.k = k;
+    b.fatal = true;
+    b.round = 0;
+    this.zones.length = 0;
+    this.setBoss('flaw', dur * (this.has('klepsydra') ? 1.5 : 1));
+    this.fatalsNow++;
+    const first = !this.p.flaws.includes(kind);
+    if (first) {
+      this.p.flaws.push(kind);
+      this.flawsNow.push(kind);
+      // the hint came true: Linda stops hinting and cheers instead
+      this.talk.drop(m => m.startsWith('hint_'));
+    }
+    this.rings.push({ r: 2.2, t: 0, kind: 'steam' });
+    this.emit({ type: 'fatal', kind, flaw: b.spec.flaw, first });
+    this.talk.ask('fatal', first ? 5 : 3, 3);
+    this.coach('fatal', b.x, b.y);
   }
 
   inLane(z: Zone, x: number, y: number): boolean {
@@ -1819,12 +2687,13 @@ export class JerzySim {
     p.sessions = Math.max(p.sessions, this.session);
     p.pushes = Math.max(p.pushes, this.pushesBase + this.pushesBegun);
     p.total += this.score;
-    p.bank += this.score;
-    p.dragon = b.idx;
-    p.damage = Math.min(b.damage, b.all - 1);
+    p.bank += this.score + this.bankBonus;
+    if (b.damage > 0) p.wounds[woundKey(b.land, b.tier)] = Math.floor(Math.min(b.damage, b.all - 1));
+    const slotsBefore = slots(p);
     p.driven += this.drivenNow.length;
     p.swords += this.swords;
     p.quenched += this.quenched;
+    p.chests += this.chestsNow;
     // the run still going counts as a run
     if (!this.tally) {
       p.runs += this.runs + 1;
@@ -1835,7 +2704,16 @@ export class JerzySim {
     p.lastLen = this.plannedSec;
     this.armourNow = earnArmour(p);
     for (const id of this.armourNow) this.emit({ type: 'armour', id });
+    this.companionsNow = earnCompanions(p);
+    // a second place opened: the next companion earned comes along by itself (a choice made in the lobby stays)
+    if (slots(p) > slotsBefore) {
+      for (const id of p.companions) if (p.party.length < slots(p) && !p.party.includes(id)) p.party.push(id);
+    }
+    for (const id of this.companionsNow) this.emit({ type: 'companion', id });
   }
+
+  /** The treasury's bonus for the road fought (a share of the session's scales, paid into the bank). */
+  get bankBonus(): number { return Math.round(this.score * road(this.topTier).bank); }
 
   /** The session ends before its own end: settle as the end would. */
   finish(): void {
@@ -1886,6 +2764,15 @@ export class JerzySim {
   /** The best run this session so far (the one going on counts). */
   get bestRunSoFar(): number { return Math.max(this.bestRunNow, this.run.scales); }
 
+  /** A damage source's name (a weapon, a companion, the shield, the sword of light, the mirror). */
+  sourceName(src: string): string {
+    if (src === 'pulse') return t('src.pulse');
+    if (src === 'sword') return t('src.sword');
+    if (src === 'mirror') return treasureName('lustro');
+    if (src === 'pies' || src === 'iskierka' || src === 'jez' || src === 'bobr') return palName(src);
+    return itemName(src as ItemId);
+  }
+
   /** The session's numbers, idempotent: records with Math.max; the counters reach the progress once, when settled. */
   result(): ArcadeOutcome {
     const p = this.p;
@@ -1897,15 +2784,17 @@ export class JerzySim {
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
     const dl = this.dragonLeft;
+    const top = this.topSources(this.sessionDmg, 1)[0];
     const stats: [string, string][] = [
       [t('stat.runs'), String(this.runs + (this.tally ? 0 : 1))],
       [t('stat.bestRun'), scalesText(this.bestRunSoFar)],
       [t('stat.level'), String(Math.max(this.topLevel, this.run.level))],
       [t('stat.quenched'), fmtNum(this.quenched)],
       [t('stat.swords'), String(this.swords)],
-      [cap(dragonName(this.boss.spec.kind)), t('stat.dragonLeft', { left: fmtNum(dl.left), all: fmtNum(dl.all) })],
+      [t('stat.dragonLeft', { name: cap(dragonName(this.boss.spec.kind)), road: roadName(this.boss.tier) }), t('pct', { n: Math.round(((dl.all - dl.left) / Math.max(1, dl.all)) * 100) })],
       [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
     ];
+    if (top) stats.splice(5, 0, [t('stat.top'), this.sourceName(top.src)]);
     return {
       score: this.score, unit: unit(this.score), record: this.bestBefore !== null && this.score > this.bestBefore,
       stats, highlights: this.highlights(), verse: this.closingVerse(),
@@ -1914,13 +2803,14 @@ export class JerzySim {
 
   /**
    * The summary's closing passage, one the session fits, in turn from session to session: the first
-   * session, a dragon driven off, a Miecz światła, many fires quenched, a new piece of armour, a long
-   * stand, a calm Postój; else Ephesians 6:16.
+   * session, a dragon driven off, a weakness found, a Miecz światła, many fires quenched, a new piece
+   * of armour, a long stand, a calm Postój; else Ephesians 6:16.
    */
   closingVerse(): PassageId {
     const fit: PassageId[] = [];
     if (this.session === 1) fit.push('jos1.9');
     if (this.drivenNow.length) fit.push('psa91.13');
+    if (this.flawsNow.length) fit.push('jas1.5');
     if (this.swords > 0) fit.push('eph6.17');
     if (this.quenched >= RULES.manyQuench) fit.push('eph6.16');
     if (this.armourNow.length || this.evolved.length) fit.push('eph6.10-11');
@@ -1937,18 +2827,27 @@ export class JerzySim {
     if (this.drivenNow.length) add(0, t('hl.close.driven', { town: townName(this.drivenNow[this.drivenNow.length - 1]) }));
     else if (this.started && b.damage <= 0) add(0, t('hl.close.none', { scales: scalesText(this.score) }));
     else if (this.started) add(0, t('hl.close.fight', { dragon: cap(dragonName(b.spec.kind)), pct: Math.round((b.damage / Math.max(1, b.all)) * 100) }));
-    for (const k of this.drivenNow) add(1, t('hl.driven', { name: cap(dragonName(k)) }));
+    for (const r of this.roadsNow) add(1, t('hl.road', { name: cap(dragonName(r.kind)), road: roadName(r.tier) }));
+    for (const k of this.flawsNow) add(1, t('hl.fatal', { name: cap(dragonName(k)), flaw: flawName(this.flawOf(k)) }));
+    for (const id of this.companionsNow) add(2, t('hl.pal', { name: palName(id) }));
+    for (const id of this.treasuresNow) add(2, t('hl.treasure', { name: treasureName(id) }));
     for (const id of this.armourNow) add(2, t('hl.armour', { name: armourName(id) }));
     if (this.bestBefore !== null && this.score > this.bestBefore) add(3, t('hl.record', { scales: scalesText(this.score) }));
     const bestRun = this.bestRunSoFar;
     if (this.bestRunBefore > 0 && bestRun > this.bestRunBefore) add(4, t('hl.bestRun', { scales: scalesText(bestRun) }));
     else if (this.bestRunBefore > 0 && bestRun > 0) add(4, t('hl.toBest', { scales: scalesText(this.bestRunBefore - bestRun) }));
+    for (const id of this.duetsNow) add(5, t('hl.duet', { name: duetName(id) }));
     for (const id of [...new Set(this.evolved)]) add(5, t('hl.evolved', { name: evoName(id) }));
     if (this.swords) add(6, t('hl.swords', { n: this.swords }));
     if (this.quenched >= 10) add(7, t('hl.quenched', { n: this.quenched }));
     if (this.blindShare >= 0) add(8, t('hl.blind', { n: this.blindShare }));
+    if (this.settled && this.bankBonus > 0) add(8, t('hl.bonus', { scales: scalesText(this.bankBonus), road: roadName(this.topTier) }));
     if (this.settled && affordable(this.p) && this.p.bank > this.bankBefore) add(9, t('hl.forge'));
     return notes.sort((a, b) => a.rank - b.rank).slice(0, 5).map(n => n.text);
+  }
+
+  private flawOf(k: DragonKind): FlawKind {
+    return (DRAGONS.find(d => d.kind === k) ?? DRAGONS[0]).flaw;
   }
 
   /** For the view: an item's level in this run. */
@@ -1960,7 +2859,8 @@ export class JerzySim {
     if (c.kind === 'evo') return evoName(c.id as WeaponId);
     if (c.kind === 'apple') return t('card.apple');
     if (c.kind === 'scales') return t('card.scales');
+    if (c.kind === 'pal' && c.pal) return palName(c.pal);
+    if (c.kind === 'treasure' && c.tr) return treasureName(c.tr);
     return itemName(c.id!);
   }
 }
-
