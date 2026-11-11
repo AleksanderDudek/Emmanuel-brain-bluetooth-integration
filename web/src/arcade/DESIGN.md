@@ -2572,4 +2572,139 @@ night you keep the watch, gate by gate through Nehemiah 3.
 
 ### 11.9 Kocia straż — the abbey cats (idle merge shooter after Idle Cat Gunner)
 
-*To be written by the game's builder.*
+*Song of Songs 2:15 — "Catch for us the foxes—the little foxes that ruin the vineyards—for our
+vineyards are in bloom."* An old abbey on a hill; Brother Anselm, its gardener and master of soup, has
+a problem: little foxes spoil the vines, mice nibble the grain, sparrows go for the grapes. Luckily the
+abbey has cats. They sit on cushions along the old wall and keep watch with their toys.
+
+* **The original, studied** (2026-11: the Google Play and App Store pages with the whole version
+  history, the Korean store and press — *총잡이 고양이*, made by Yusu Games with a small team, published by
+  Neptune, ₩20 bn in four months, day-1 retention 50 % —, the catgunner.games guides, the store
+  screenshots, reviews). A small squad of cats auto-fires, a crosshair on the target, at targets with HP
+  numbers and bars (mostly trees and obstacles on a top-down field) that burst into cash; idle numbers
+  grow into 6.89T and 542AL. Bottom buttons Attack, Attack speed and Coin earnings with climbing costs.
+  Guns are equipped by drag (a drop on a different grade swaps) and **two of a grade merge into a random
+  gun of the next grade** (D … SSS, then Z, ZZ, ZZZ since August 2026); 35+ guns in classes (pistol,
+  rifle, shotgun, minigun, rockets) whose type matters; 25+ cats with abilities, skins with stats, pets
+  with skills; maps (forest, desert, snowfield, volcano, candy land) with bosses; **rebirth** at
+  milestone stages (players rebirth every ~150) for points spent on permanent cat upgrades, merged guns
+  kept; offline progress; Boss, Challenge, Hunt, Mine, Trip and Raid modes, a ranking, a season pass.
+  Players love the "satisfying destruction", number-go-up, the merge moment and the rebirth's fast
+  scaling; they hate forced ads, auto-merge and quick clear sold as 7-day subscriptions, enhancements
+  that fail and eat their stones, and idle progress that stalls.
+* **Carried over:** auto-fire with a target the player can set; targets with a number and a bar; the
+  burst of currency flying to the counter; the three upgrades with exponential costs and a shop for
+  more guns; drag to equip, swap and merge, two of a grade into a random toy of the next grade; families
+  that fire differently and suit different targets; cats with abilities; places with bosses; rebirth
+  with lasting perks, toys kept; offline rewards; big idle numbers. **Adapted:** the targets are pests
+  that come for the abbey's goods and **bolt when their courage runs out — startled, never hurt**; the
+  guns are toys; a boss that is too strong loses patience and comes back later (nothing is lost);
+  auto-merge is free (the helping paw); offline gifts are modest and capped; the Trip becomes a kitchen
+  cat's trip that ends at the next session, never on a timer. **Dropped:** gem summons, skins, pets, slot
+  enhancement (nothing ever fails), ads, passes, VIP, ranking, and the Boss, Hunt, Mine and Raid modes
+  (a 3–10 minute session keeps one field; the chiefs are its bosses).
+* **The view.** The field of the current place under the runner's HUD (the abbey and its hills behind
+  it), the abbey wall along its foot with the cats on embroidered cushions facing us, eyes on the field,
+  and in the middle of the wall the gatehouse's **cat's-eye**. Below (a phone upright) or in a column on
+  the right (desktop) the fish in the bowl, the **toy chest** (5 × 2) and the buttons; on a phone on its
+  side the chest sits under the Mendi panel, the buttons under the score.
+* **Hands.** The squad fires by itself at the pest nearest the wall (a shot already on its way counts,
+  so they do not pile onto one pest). **Drag** a toy onto another of the same grade: they merge into a
+  random toy of the next grade (a pop, a chime as high as the grade); onto a cat: it gets the toy (its
+  old one goes back); a different grade swaps. **Tap** a toy: it merges with its mate or goes to the
+  weakest cat; a cat: it purrs and fires ×1.5 for 2.5 s; a pest or the chief: the squad's target
+  (a crosshair) and a "psst!" that startles it a little; an upgrade: buy (held: again and again). The
+  **helping paw** (its button, **Space**) arms a cat without a toy, else merges the next pair (never
+  leaving a cat empty-pawed), else hands the best toy to the weakest cat, else buys the cheapest.
+  1–4 buy on a keyboard.
+* **Toys** (8 families × 12 grades: wood, paint, copper, brass, silver, gold, pearl, crystal, amber,
+  opal, ruby, sun; ×2.5 a grade): *Proca* (peas, one by one), *Dmuchawka* (peas in bursts), *Konewka*
+  (a fan of drops), *Sikawka* (a jet through the whole line), *Kłębkomiot* (a yarn ball that bounces on),
+  *Bańki* (a bubble that pops on everyone around), *Lusterko* (a sunspot that dazzles without a break),
+  *Katapulta* (an apple that thumps down on a crowd). Each is ×1.5 against one kind of pest (runners,
+  fliers, crowds, shells). New toys: the trunk (Zabawka, its price climbs), the nap's gift, a chief, a
+  golden pest, a new cat's first toy, the watch kept while away; a full chest keeps gifts waiting.
+* **Pests and places.** Six places of the abbey, five stages each, the fifth a chief: *Winnica* (fox
+  cubs, sparrows; Stary Lis — a leap aside), *Spichlerz* (mice, rats; Król Szczurów in a straw crown —
+  calls his mice), *Sad* (starlings, crows; Hrabina Wrona in pearls — flies up out of reach), *Warzywnik*
+  (snails, hares; Wielki Kret with spectacles — digs in and comes up elsewhere), *Staw* (cormorants,
+  otters; Czapla Siwa — a gust of wings blows the shots aside), *Skryptorium* (silverfish, moths, book
+  beetles; Mól Książkowy — a cloud of book dust). Pests come in groups, walk, hop, swoop or scurry to a
+  spot on the goods and nibble; a hit makes them flinch, a golden one carries a toy. A chief comes after
+  the boss stage's short wave with a **patience** bar; too slow, he backs off and a few of his pests come
+  before he is back, wounds kept (from session to session too). A chief chased off gives his place
+  **stars** — one, two at his first visit, three with half his patience to spare — and the map keeps the
+  best (the level loop's goal). Courage grows ×1.24 a stage, fish ×1.18; after the scriptorium the year
+  comes round and the places return, bolder.
+* **Push — Czujność (alertness).** In a sighted push past the lead-in (5 s Mendi, 2 s HALO) the squad's
+  pace is **×(1 + 2·level)**: ×1 below, ×2 at the threshold, ×3 well above it; every cat's eyes turn gold
+  above the threshold (Bursztyn's alertness counts double there). Drawn large on the gatehouse: the
+  cat's-eye's ring is the gauge (its notch at the top is the threshold, gold beyond it, a dotted ghost
+  of the raw level during the lead-in), the pupil narrows to a slit, "×2,4" under it; the panel's gauge
+  is the same quantity (*Czujność*). Push blocks bring pests a little faster. **A held focus** (5 s / 3 s)
+  fills **the Great Hunt** inside the eye (a chased pest in a sighted push adds a little, any chased pest
+  a very little): ready, the eye beats gold — tap it or Space (by itself after 5 s): for 4 s every cat
+  leaves its cushion and pounces, pest after pest, and a chief loses 18 % at once.
+* **Rest — Drzemka (a nap in the sun).** No pests come; the pests on the field doze ("z"), the cats curl
+  up, the eye's lid drops and its ring fills blue with calm (the panel's *Drzemka*); a chief's patience
+  waits. Calm ripens the grapes into fish (a little even without a signal), and the nap ends with **a
+  toy in the chest**, one grade higher after a calm nap. Hands are free to merge and buy: the rest is the
+  game's "prepare" time.
+* **Blind — Zmierzch (dusk):** every 4th push from the 3rd session; the field darkens, the eye asks
+  "?", the squad fights at ×1; at the end the block's share above the threshold fills the hunt at once
+  and is told ("Czujne: 70 %").
+* **The economy.** Fish from every pest chased (× the bowl and the perks); *Celność* (+10 % a level,
+  ×2 every 25), *Zwinne łapy* (+3 % a level, to 50), *Pełna miska* (+10 % fish a level), *Zabawka* (a toy
+  of the trunk's grade). Cushions open at the furthest stage 3, 6, 11 and 16 (six cats on the wall).
+* **The vintage (Winobranie).** From stage 31 (the year come round) the player may hold the vintage:
+  golden fish for the furthest stage, and the year starts over (stage, fish, upgrades); toys, cats,
+  perks and records stay. Golden fish buy lasting perks in the lobby: *Bystre oczy* (+50 % power a
+  level), *Pełna spiżarnia* (+50 % fish), *Kufer brata* (the trunk a grade higher), *Ciepły parapet*
+  (riper naps, a better gift), *Mistrzowie łowów* (the hunt), *Skrót przez sad* (a year starts further
+  on), *Nocna warta* (the watch kept while away), *Gawęda brata* (+5 s of a chief's patience).
+* **Offline.** Back after two minutes or more: "while you were away the cats kept watch" — the fish of
+  1.2 % of the fighting income for the time away, at most 8 hours (about one session's worth), and a toy
+  after an hour.
+* **The cats** (twelve, by play): Mruczek (purrs: the cats beside him +15 %) and Rudy (courage +25 %)
+  from the start; Kluska (fish +40 %, naps +20 %) at stage 3; Psotka (pace +30 %) after Stary Lis; Sadza
+  (shots go through) after the Rat King; Śnieżka (an icy stare stops a pest) after the Countess; Tygrys
+  (+60 % on chiefs) after the Mole; Szperacz (finds toys) after the Heron; **Pangur Bán** (every 4th
+  shot ×3 — the white cat of the old Irish poem, who hunts mice while his monk hunts words) after the
+  Bookworm; Mama Mila (the hunt charges 25 % faster) at the first vintage; Bursztyn (golden eyes) after
+  5 Great Hunts; Baron (splash) after 7 sessions. A new cat brings a toy; the lobby moves cats between
+  the wall and the kitchen. **Trips** (after the original's newest content, "Trip", without its timers):
+  a kitchen cat can go on a trip to the neighbouring farms and comes back at the next session with fish
+  (90 s of fighting's worth) and a toy a grade above the trunk's — the "ready tomorrow" of the meta.
+* **Companion.** Brother Anselm, old and kind, in a round portrait at the wall's end (on a phone upright,
+  in the field's top corner, where the cats leave him room): 24 moments × 3–4 lines
+  (the opening, every block, a good stretch of alertness, the hunt, merges, a nap's gift, a new cat, a
+  chief and his trick, a chief chased or backing off, nearly, a new place, the vintage, petting, the
+  return, the full chest, the end). Running jokes: his soup, his knees, the prior's funny looks at naps,
+  Rudy's vanity. Never over a telegraph, the banner or a card.
+* **Story.** The opening card (the first session) with Song 2:15; a card for every place made safe
+  (the next place told in two lines); the vintage's card; the watch-while-away card; the brother's
+  closing line in the summary.
+* **Teaching.** The first session opens with the warm-up and two old toys in the chest; coach marks,
+  one at a time when each first matters: the squad fires by itself → merge (again after 22 s if not
+  done) → hand it to a cat → buy an upgrade → the helping paw → the eye and its threshold → the hunt →
+  the nap → the chief → a golden pest (target it) → petting. Later sessions only what is new (dusk,
+  a full chest, the vintage).
+* **Headline.** Pests chased off this session (a chief counts five), the same number as the result;
+  under it "Etap 7 · Winnica", the chief's name while he is here, or "Etap 7 · 12 do rekordu".
+  **Closing:** the first session Song 2:15; a chief chased Proverbs 27:18; a vintage or the watch kept
+  while away Proverbs 6:6-8; a calm nap (pests and cats dozing together) Isaiah 11:6; petting or a new
+  cat Proverbs 12:10; many birds chased off Matthew 6:26; a Great Hunt or a new pest in the notebook
+  Job 12:7; else Song 2:15.
+* **Pace.** A simulated week of 5-minute sessions with the helping paw every 2 s: the first session
+  reaches the first chief and two or three places, the year comes round (the vintage) around the third
+  session, and progress slows after it until the vintage's perks carry the watch further — the idle
+  curve, without a wall that ends the fun (a chief who backs off always comes back).
+* **Reverence (§11.5).** Pests are startled and run off; nothing is hurt. The brothers are warm and
+  funny, never mocked for their faith. No wine jokes: the grapes are harvested and that is all (the
+  vintage's feast is fish baked from dough). The abbey cats, the vineyard and the little foxes are this
+  game's symbols.
+
+Files: `rules.ts` (every number), `content.ts` (places, pests, chiefs, toys, cats, perks, lines),
+`meta.ts` (progress `ver: 1`, the placeholder's save migrated, cushions, upgrades, the vintage), `sim.ts`
+(the session), `talk.ts`, `layout.ts`, `paint.ts`, `render.ts`, `intro.ts`, `preview.ts`, `panel.ts`,
+`audio.ts`, `i18n.ts`, `index.ts`; tests in `test/arcade-koty.test.ts`.
