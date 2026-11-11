@@ -2342,7 +2342,127 @@ the lamb he once pulled out of a lion's mouth follows him everywhere and talks a
 
 ### 11.7 Dziewiątka — nine heroes against the Din (team battler after Hero Wars: Alliance)
 
-*To be written by the game's builder.*
+**The original, studied (2026-11).** Hero Wars: Alliance turned ten this month (Dominion Day, a birthday
+cake grown by guilds, a Seer's Game without bad-luck cards, Primordial skins). Under the events it is one
+loop: five heroes, placed by attack range, fight by themselves on a side-view field; **every basic attack
+or skill gives +10 % energy, every 1 % of health lost +1 %, a finishing blow +30 %**; a full bar (1000)
+makes the portrait glow, and **a tap fires the ultimate** while the battle freezes for the cast (auto mode
+fires it alone). The skill is timing: break a cast with a stun before it starts, hold a heal for the dip,
+chain a buff into a carry (a hero's artifact weapon buffs the whole team for 9 s when it fires). Around it:
+a campaign of chapters and missions with **three stars by losses**, heroes grown by levels, **colour ranks
+from six pieces of gear** (each rank opens the next skill), **stars from soul stones**, artifacts, glyphs,
+skins, pets, talismans and relics; the **Tower** (floors, health and energy carried over, three random
+buffs bought with skulls at altars, chests every third floor); arenas, guild wars, Legends Draft, the 2025
+Eternal Frontier (endless waves after the campaign) and the 2026 Realm. Players love the collection, the
+small daily increments, the team-building puzzle ("chemistry, not star power") and the ultimates' drama;
+they hate pay-to-win, VIP gates, energy limits, FOMO and the ads' pin puzzles that the game barely has.
+
+**What carries over.** The side-view auto battle and Hero Wars' own energy numbers; the tap on a glowing
+portrait, the cast's freeze and interrupts; roles and lines (tank, guardian, fencer, support, control,
+bard, archer, healer); factions as three families with two/three-of-a-kind bonuses; counters; missions of
+three waves with three stars; levels, **six-piece colour ranks** (white → red, the green and blue skills
+open on the way) and **stars from notes**; the Tower's loop (its altar becomes our well, its floors the
+Bell Tower after the campaign, a chest every third floor). **Adapted:** auto becomes a *semi-auto* — a ready
+ultimate goes by itself after its role's wait (damage 2.5 s, healers when someone is low, control when a
+shadow winds up, all within 7 s), so a tap is always sooner and timed, and a passive player still plays.
+**Dropped:** arenas, guilds, titans, pets, artifacts, glyphs, skins, talismans, relics, battle timers,
+stamina, VIP, gems and summons; the pin puzzle (a planning puzzle would fight the calm of a rest block).
+
+**The town and the story.** Zacisze (Stillwater / Stillwinkel / Stillvik) is flooded by Zgiełk, the Din:
+its bell fell silent and noise-shadows fill the streets. Klara, the bell-ringer's granddaughter, calls nine
+friends with unusual names. Six districts are the campaign's chapters (the Market, the Mill, the School, the
+Bridge, the Gardens, the Square), five missions each, a boss of the Din in every fifth; after the Square the
+Bell Tower opens: endless floors, a boss every fifth, a chest every third, the best floor kept.
+
+| Hero (Gal 5:22-23) | Family | Role, line | Ultimate | Green / blue skill |
+|---|---|---|---|---|
+| Miłość (Love) | Heart | support, mid | **The Bond**: a red ribbon over the five for 6 s — blows are shared by all, +25 % damage, a heal | heals the weakest on each hit / a shield |
+| Radość (Joy) | Heart | bard, mid | **The Song**: +300 energy to the other four, +30 % attack speed | +8 % speed aura / wakes the yawned |
+| Pokój (Peace) | Heart | healer, back | **Calm after the storm**: 30 % health to all, silences, slows and stuns washed away, the Green-eyes' copies gone | every third hit heals / a heal |
+| Cierpliwość (Patience) | Hands | tank, front | **The Patient Wall**: every shadow must strike her, −60 % for 5 s, then she answers with 40 % of what she took | less damage when low / heals herself |
+| Uprzejmość (Kindness) | Hands | control, mid | **A cup of tea**: the two (three) biggest shadows sit down for 4 s; wind-ups broken, Hotheads deflated | calms a swell / a biscuit heal |
+| Dobroć (Goodness) | Hands | archer, back | **Overcome with good**: a beam along the whole street, through any mirror | +40 % on mirrors / a volley |
+| Wierność (Faithfulness) | Roots | guardian, front | **Coming back for you**: the last to fall gets up with half health; else a shield and a guard | takes one killing blow per wave / blinds |
+| Łagodność (Gentleness) | Roots | control, back | **Lullaby**: dandelion seeds put every shadow to sleep for 3 s; every wind-up broken | weakens what she hits / soothes a swell |
+| Opanowanie (Self-control) | Roots | fencer, front | **One stroke**: a dash to the shadow winding up (or the boss): × 7 (× 14 on a wind-up), the mirror broken | a calm crit / a parry |
+
+A new player starts with Patience, Love, Joy, Peace and Goodness; Kindness joins just before the Market's boss
+(so the first wind-up can be broken), Gentleness after the Market, Faithfulness after the Mill, Self-control after
+the School (each with a story card, taking a flexible place of the five until the player chooses the five in the
+lobby). Families: two of a family in the
+five give a bonus, three a bigger one (Heart: their ultimates give the five +80/+160 energy; Hands: +10/20 %
+damage; Roots: −10/20 % damage taken).
+
+**The Din** (ink and static with comic faces; hushed, they close their eyes, smile and dissolve into quiet —
+never hurt): Rozproszki (Scatterflies) fly to the fullest bar and nibble energy; Kłótniaki (Squabblers) split
+into two little ones when hit hard; Gniewosze (Hotheads) swell with every hit and burst at five (a wind-up);
+Pyszałki (Show-offs) hide behind a mirror; Leniwce (Sluggards) soak and yawn the team slower; Zazdrośniki
+(Green-eyes) copy the five's buffs; Pośpiechy (Rushers) run for the back line; Plotki (Gossips) whisper a hero
+silent. The bosses: the Crier (a shout that pushes back, calls Scatterflies), the Rattle (a roll along the
+street), the Hubbub (a silence over all, calls Squabblers), the Honker (stuns the front, calls Rushers), the
+Great Show-off (a fan of mirrors, "look at me!") and the Din itself (three thirds: shout, roll, hubbub). Every
+wind-up shows a red bar: Kindness, Gentleness or Self-control breaks it ("Przerwane!", the shadow dazed ×1.5).
+
+**The band is the energy (the core).**
+
+* **Push (focus):** in a sighted push block past its lead-in (5 s Mendi, 2 s HALO) every energy gain is ×
+  (1 + 2·level): ×1 without signal, **×2 at the threshold, ×3 well above**. The bars turn gold above the
+  threshold, and a big dial by the portraits shows the multiplier with the threshold notched at ×2 (the panel's
+  gauge is the same quantity, `meter()` = (×−1)/2). Focused play fires about twice as many ultimates. The push
+  block is the peak: as the lead-in ends the Din surges (two more shadows), and while the dial is gold one more
+  forms every 2.2 s, between waves too (at most nine a block) — more to hush with more ultimates.
+* **Harmony** (the power fantasy): a held focus (hold ≥ 5 s Mendi / 3 s HALO) fills the bell (full in about
+  12 s). Rung (a tap on the bell, the street or Space; by itself after 6 s), the world holds, the fallen get
+  up, **all five ultimates go at once** with their notes rising into a chord, the town's bell swings and a wave
+  of quiet sweeps the street. In practice once per good push block.
+* **Rest (calm) = the well:** the Din draws back and dozes, the five sit around the town well; after a lead-in
+  calm heals (2 %/s always, up to 6.5 %/s calm) and the fallen stand; the well's water is the gauge — ripples
+  that shrink with calm, the threshold a dotted ring, a silver shimmer above it. The hands sew gear on (a tap on
+  a portrait, or the street for the one closest to a rank). The block's end offers **one of three boons**
+  (golden after a calm rest): a song (+400 energy), warm soup (+20 % health), a woollen scarf (−12 % damage),
+  a snare drum (+12 % speed), gingerbread (+12 % damage), the tower key (+30 % Harmony), Auntie's first-aid kit
+  (the next to fall gets up), full pockets (+2 pieces). The last boon of a session waits for the next one.
+* **Blind push = a fog of noise:** ×1 in sight, the dial fogged, the newest houses veiled; the block's share
+  above the threshold pays into Harmony at its end.
+* **History in the world:** the row of houses behind the street — one house per bar of the last 44 s, its
+  windows lit by the level, gold above the threshold, cool blue in a calm rest, a dotted sill without signal.
+
+**Missions, stars and grace.** Three waves per mission (a boss with two of its kind in the fifth); shadows form
+out of the noise on the street; three stars if nobody fell, two with one, one with more. A wave cleared gives
+XP to the five (levels: +7 % per level) and now and then a piece of gear and a note; a mission gives pieces
+(+1 for three stars, +2 for a boss) and notes of its featured hero (stars: +12 % each). Six pieces make the
+next colour (+15 %). **Grace:** a fallen hero sits out of breath until a revive, the chord or the well; a wipe
+is a stumble (a card, Klara's handbell, everyone up at half health, the wave loses heart, the stars drop to
+one, the score stays); the Din is shy against a team behind its pace (down to 62 %); a wave fought longer than
+35 s tires and fades; nothing waits on the band. Balance (simulated over 14 sessions): flat play wins 2–5
+missions per 5 min with nobody lost on ordinary waves, and loses a star now and then at a boss; focused play
+hushes 35–160 % more, fires about twice the ultimates and keeps its three stars; the campaign takes about
+10–14 five-minute sessions.
+
+**Companion, story, instructions.** Klara talks in short bubbles (25 moments × 3–4 lines, 4 languages): her
+deaf grandpa who thinks the Din is an orchestra, the notebook where she writes every hushed shadow "in her
+neatest hand", Patience who starts sitting down mid-battle, Joy who sings out of tune, Kindness who serves tea
+to everybody but her, and her wish to ring the big bell herself. Story cards: the opening (with Galatians
+5:22-23), each district quiet, each newcomer, the Bell Tower; the summary's first line closes the session (the
+bell rang a full chord / a district quiet / Klara's notebook count). How to play: tap a glowing portrait; the
+bell; the well. The first session teaches with coach marks, one at a time when it first matters: the first
+glowing portrait, the street tap, the dial, the bell, the well, the boons, the first wind-up, and each kind of
+shadow (later sessions: only new things). Headline: hushed (uciszony/uciszone/uciszonych; hushed; besänftigt;
+tystad/tystade); the sub-line names the mission or the record within reach.
+
+**Closing passages** (in turn): the first session Gal 5:22-23; a chord Col 3:14 (love, the bond of perfect
+unity); a boss or a district hushed Rom 12:21; wind-ups broken Prov 16:32; the fallen carried back 1 Cor 13:7;
+calm rests Jas 1:19 and Eccl 3:7.
+
+**Reverence (§11.5).** The nine are characters carrying the names of the fruit of the Spirit, an allegory of
+virtues against vices; nothing is "power of the Spirit"; Faithfulness is *wierność* (Treue, trofasthet), never
+"faith". The Din's shadows are noise that dissolves into quiet; nothing dies, no blood. Boons are boons, never
+"blessings". The bell of Zacisze, the Din and the nine are this game's symbols.
+
+**Files.** `rules.ts` (numbers), `content.ts` (heroes, shadows, districts, missions, boons, lines),
+`battle.ts` (the combat), `sim.ts` (the session), `meta.ts` (progress v1, growth), `talk.ts`, `render.ts`,
+`hud.ts`, `paint.ts`, `layout.ts`, `intro.ts`, `preview.ts`, `panel.ts` (the lobby card: map, the five,
+families), `audio.ts`, `i18n.ts`, `index.ts`; tests in `test/arcade-dziewiatka.test.ts`.
 
 ### 11.8 Nehemiasz — the wall in 52 days (fortress defence after Lordrush)
 
