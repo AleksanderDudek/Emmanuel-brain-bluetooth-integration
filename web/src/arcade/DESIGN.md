@@ -1779,3 +1779,165 @@ Rules for all of them:
 
 Each rebuild writes its own detailed design into its section of this file (§7–§9). It updates the
 existing section in place and does not add a new one.
+
+## 11. Version 3: seven games after seven originals, studied in depth
+
+On 2026-11-11 the founder named seven mobile games and asked for each to be studied deeply, with the
+newest information, and for the mechanics of each to be copied thoroughly, with the Mendi reading
+either an extra layer of the mechanics or, better, the core of the game; and for all of them to be
+fun and entertaining, with storytelling and the other things that make games successful:
+
+| Original (store, 2026) | Ours | Scope |
+|---|---|---|
+| Hell Escape (Rollic) | Dolina | expand v2 → v3 (§9.2) |
+| Mob Control (Voodoo) | Chleby i ryby | expand v2 → v3 (§9.3) |
+| Knight Survivor (Mobibrain) | Jerzy i smok | expand v2 → v3 (§9.4) |
+| XP Hero (Supercent) | **Dawid** | new (§11.6) |
+| Hero Wars: Alliance (Nexters) | **Dziewiątka** | new (§11.7) |
+| Lordrush (Century Games) | **Nehemiasz** | new (§11.8) |
+| Idle Cat Gunner (Neptune / Treeplla) | **Kocia straż** | new (§11.9) |
+
+The rules of §10 hold for all seven: the standard HUD (§10.2), the toolkit (§10.3), the band as the
+core (§10.4), the originals' mechanics copied as closely as they serve play while names, characters,
+art, music, levels and look stay our own (§10.1), and the faith and reverence rules (§5, §8.1, §9.1,
+§11.5). Every builder researches its original again in this round, from the store page, the newest
+updates, guides, wikis and reviews, and writes the list of mechanics (carry over / adapt / drop) into
+its status file before it writes code; the design sections below are the direction, and each builder
+rewrites its own section with the full design.
+
+### 11.1 What the originals are, in 2026
+
+* **Hell Escape** (updated 2026-11-04): a runner with hack-and-slash through three eras of a dark
+  world; blocks with hit points break into stair pieces that build the climb to the next floor;
+  weapon gates; a horde behind; guardians of time with patterns; evolve between runs. New since v2:
+  **companion slots (up to three companions fight alongside)** and a **tower** to climb floor by floor
+  (the guild tower rework), buffs for a number of runs, gear. Players praise the progress of "one more
+  floor"; they hate energy, forced ads and paid slots.
+* **Mob Control** (monthly content): hold to pour a crowd from a cannon, drag to aim, multiplying
+  gates, enemy waves and bases, champions when the bar fills. Its depth is a **card collection of
+  cannons, mobs and champions, each with levels and evolutions**, booster packs won in battles, a
+  **base the player builds** (and others raid for bricks; revenge attacks), **boss levels with
+  unique layouts**, championship stars and a league, a season pass.
+* **Knight Survivor** ("Princess' Knight"): survivors-like dragon fights, "a chess match" against
+  dragons with unique patterns and fatal flaws, one of three skills at a level, weapons that evolve,
+  an **adventure mode replayed on higher difficulties**, companions (since 1.2), gear and relics.
+* **XP Hero** (Supercent, 10M+, updated 2026-10-20): an action RPG on an open world map. The hero
+  (and up to five more heroes in the team) walks the map and strikes automatically; monsters respawn
+  at their spawn points; **20 stages in 3 regions, each locked behind one boss gate** (the boss of the
+  previous stage); an 850-quest main chain handed out by named NPCs; gold buys abilities in a steep
+  ladder (power, health, critical chance, attack speed, double/triple attack, life steal); a smithy
+  crafts weapons in 6 categories (swords, daggers, morningstars, crossbows, wands, guns) with
+  evolution trees; 26 heroes in rarities with a 1–6★ star ladder from hero pieces, each with one kit
+  skill that fires every few seconds; runes; a base of buildings (bonfire, smithy, chest house,
+  portal…); a 250-floor Challenge Tower; gift chests, a treasure goblin, level-up rewards every five
+  levels, idle hunting. "Progress = bosses; everything else is fuel." Players love the satisfying
+  sounds and the level-ups, and complain about forced ads after bosses.
+* **Hero Wars: Alliance** (Nexters, 100M+, ten years old in 2026-11): collect heroes (80+, six
+  factions), set a team of five, and they fight by themselves on a side-view field; each hero fills
+  an **energy bar** by attacking and being hit, and **the player taps a hero's portrait to fire its
+  ultimate** when the bar is full (or lets auto do it); front line, back line, support, control,
+  damage, defence; a **campaign of chapters and missions with three stars**; heroes grow by levels,
+  skills, **colour ranks earned by six pieces of gear**, **stars from soul stones**, artifacts,
+  glyphs, skins and pets; the **Tower** (floors, chests, a shop of buffs, heroes' health carried from
+  floor to floor); titans, adventures, arena, guild wars, Legends Draft. Its ads famously show a
+  puzzle game it is not; the complaints are pay-to-win.
+* **Lordrush** (Century Games, 2026): medieval tower defence and fortress building. The ads (and the
+  first days) are a defence game in the spirit of Thronefall: a lord walks the ruins, stands on build
+  spots to raise walls and towers with wood, stone and iron, recruits heroes, and holds the night's
+  assault along the enemies' routes; the full game adds a settlement (survivors assigned as workers,
+  hunters, cooks; food, health and order; decrees) and a 4X map with alliances. Players praise the
+  look and the gentle learning curve, and resent that the tower defence the ads promise thins out.
+* **Idle Cat Gunner** (Neptune, updated 2026-11-06): an idle shooter. A squad of cats auto-fires at
+  waves coming down a stage; the player only upgrades (attack, attack speed, coin income), equips
+  guns by drag, and **merges two guns of the same grade into a random gun of the next grade** ("the
+  most addictive mechanic"); 25+ cats with personalities and abilities, 35+ guns, maps from forest to
+  snowfield with bosses, **rebirth** for permanent power at milestone stages, offline rewards, raids,
+  enhancement stones for slots.
+
+### 11.2 The four new games, in one table
+
+| | Dawid | Dziewiątka | Nehemiasz | Kocia straż |
+|---|---|---|---|---|
+| Kind (Games tab) | arcade | strategy | strategy | strategy |
+| Story | the shepherd boy of Bethlehem grows into a king: the lion, the bear, the giant of Gath, the harp for Saul, the cave of Adullam | the town of Zacisze is drowned by Zgiełk (the Din); nine heroes named for the fruit of the Spirit (Gal 5:22-23) hush it | the wall of Jerusalem rebuilt in 52 days (Neh 6:15): building by day, the watch by night, Sanballat and Tobiah sneering | the abbey's cats keep the vineyard from "the little foxes" (Song 2:15), the granary from mice, the grapes from sparrows |
+| Mechanics carried over | open map of zones with respawning beast camps; auto-strike; XP and huge level-ups; boss gates between lands; NPC quest chain; gold → ability ladder; weapons by category with crafting and evolution; a party of companions with kit skills; a camp of buildings; a cave tower of floors | five heroes auto-battle on a side-view field; energy from hitting and being hit; tap a portrait for the ultimate; front/back roles; campaign chapters with 3 stars; levels, colour ranks from six pieces of gear, stars from shards; a tower with a buff shop and health carried over | walk the lord; stand on markers to build and upgrade walls, gates, towers and houses with stone, wood and iron; recruit and deploy heroes; waves at night along routes; assign people to jobs; food and health; decrees; days as the campaign | a squad of cats auto-fires at waves coming down; upgrades (attack, speed, income); equip by drag; merge two of a grade into the next; cats to collect; maps with bosses; rebirth; offline rewards |
+| Push (focus) | **the sling's whirl**: the ring around David spins; above the threshold the stones fly golden with a multiplier on damage and XP (×1…×4); a held stretch sends the great stone from the brook (one of five smooth stones, 1 Sam 17:40) | **energy**: the team's energy bars fill ×1…×3; a held stretch fills **Harmony**, all five ultimates in one chord | **the watch fires** (reach/sight): the light along the wall widens; towers and guards hit what stands in it; a held stretch blows **the ram's horn** (the shofar): everyone rallies to one spot (Neh 4:20, told in a card) | **alertness** (multiplier): the cats fire ×1…×3, their eyes turn gold; a held stretch starts **the Great Hunt** (every cat pounces) |
+| Rest (calm) | **the harp by the fire** (1 Sam 16:23): the party heals, beasts nearby doze, wool and gold come in | **a rest by the fountain**: wounds heal; the end offers one of three boons | **a working day**: the builders' rhythm raises and mends the wall and fills the granary and the stone yard (night = push block, day = rest block) | **a nap in the sun**: the grapes ripen into income, a new toy turns up in the chest |
+| Blind push | a moonless night on the hills | a fog of noise | a moonless night | dusk |
+| Headline | XP (pl/en/sv), EP (de) | uciszonych / hushed / besänftigt / tystade | łokci / cubits / Ellen / alnar (of wall raised) | szkodników / pests / Schädlinge / skadedjur |
+| Companion who talks | a lamb David pulled from the lion's mouth | a bell-ringer child of the town, or the heroes' banter | one of Shallum's daughters, a builder with a trowel (Neh 3:12) | an old brother of the abbey who loves his cats |
+| Root | 1 Sam 17:37 | Gal 5:22-23 | Neh 2:18 | Song 2:15 |
+| Closing passages | 1 Sam 16:7, 16:23, 17:40, 17:45; Ps 23:1-3 | Prov 16:32, Jas 1:19, Col 3:14, 1 Cor 13:7, Eccl 3:7, Rom 12:21 | Neh 2:20, 3:12, 6:3, 6:15, 8:10; Isa 58:12 | Prov 27:18, 12:10; Isa 11:6; Job 12:7; Prov 6:6-8; Mat 6:26 |
+
+The headline must accrue live and is the same number as `result().score`.
+
+### 11.3 How the three v2 games grow (v3)
+
+Each keeps its core and its save (progress `ver: 3`, migrated in place) and takes the original's
+depth that v2 left out:
+
+* **Dolina** (§9.2): companions who run and fight alongside (up to three slots, unlocked by play, not
+  bought), a tower of floors to climb as a second mode, deeper evolution and gear, and whatever the
+  newest Hell Escape does that serves play.
+* **Chleby** (§9.3): a collection of cannons, crowds and champions with levels and evolutions (cards
+  won by play, never bought), boss levels with their own layouts, the village the player builds, a
+  league of stars, more champions with distinct abilities.
+* **Jerzy i smok** (§9.4): adventure difficulties to replay, companions, relics, more dragons with
+  their own fatal flaws, the pacing and dragon health checked by simulation over many sessions.
+
+### 11.4 Shared rules this round
+
+* The four new games are built from the newest architecture (rules / sim / content / meta / view /
+  intro / preview / panel / audio / i18n / index, §10, as in `aniol/`, `jerzy/`, `dolina/`).
+* **No paid anything, no energy, no ads, no gacha.** Random merges and chests are fine (the play's
+  own luck), never bought. Offline rewards (Kocia straż) are modest and capped.
+* Every game teaches itself in the first session with coach marks (§10.2), and every session can be
+  3, 5 or 10 minutes: the moment loop, the level loop and the meta loop must all pay out inside 3
+  minutes as well.
+* Strategy games (Dziewiątka, Nehemiasz, Kocia straż) still answer the smoke contract: a centre tap
+  or Space every so often must do something useful (fire the next ready special, build at the
+  nearest marker, merge the first pair), and the headline must rise within 22 s with focus on.
+
+### 11.5 Reverence for the four
+
+* **Dawid.** David is a boy and a shepherd, then a king; he is never prayed to, and his strength is
+  never "power from God" on a meter. Beasts are beasts: struck, they run off into the hills; nothing
+  dies on screen, no blood. The giants of Gath are bosses: Goliath falls flat and the Philistines run
+  (1 Sam 17:51-52), the stone and the fall are shown, nothing after. Ordinary Philistine soldiers are
+  not enemies to fight. The harp is the rest, never a weapon. `1sa17.34-35` (the lion and the bear)
+  ends with David killing them: use it only as a story card's quotation, never under a scene that
+  shows it.
+* **Dziewiątka.** The heroes carry the names of the fruit of the Spirit (Galatians 5:22-23) as an
+  allegory in the old tradition of the virtues against the vices; they are characters, not the Holy
+  Spirit, and nothing in the game is "power of the Spirit". The vices are shadows of noise (§8.1):
+  ink, static and smoke that dissolve into quiet; they are comic, never cruel. No "faith" hero:
+  Faithfulness (*wierność*) is the virtue's name.
+* **Nehemiasz.** The raiders are men: struck, they lose heart and run (Neh 4:15); no one dies on
+  screen, no blood. Sanballat and Tobiah are comic villains who sneer and scheme, never monsters. The
+  horn is a ram's horn (the shofar), not the angels' trumpet (Zastępy's symbol); Jerusalem's ten gates
+  of Neh 3 are this game's, Zastępy keeps its two gates of the hosts. God is never shown; the story
+  cards quote Nehemiah's prayers only as story.
+* **Kocia straż.** Cute and gentle: the cats shoot peas, water, yarn and seeds; pests are startled and
+  run off, never hurt. The abbey's brothers are warm and funny, never mocked for their faith. No
+  wine-drinking jokes; the vineyard's grapes are harvested and that is all.
+* **Exclusive symbols.** The sling, the harp, the five smooth stones and the giant to Dawid; the nine
+  heroes, the Din and the bell of Zacisze to Dziewiątka; the wall of Jerusalem, its ten gates, the
+  watch fires and the ram's horn to Nehemiasz; the abbey cats, the vineyard and the little foxes to
+  Kocia straż. Sheep stay Pasterz's (David's flock is in the background, never the play's crowd).
+
+### 11.6 Dawid — the shepherd who becomes a king (open-world action RPG after XP Hero)
+
+*To be written by the game's builder: the full design (controls, the map and its gates, beasts and
+bosses, the party, the sling and the harp, the camp, the meta, the companion and the story).*
+
+### 11.7 Dziewiątka — nine heroes against the Din (team battler after Hero Wars: Alliance)
+
+*To be written by the game's builder.*
+
+### 11.8 Nehemiasz — the wall in 52 days (fortress defence after Lordrush)
+
+*To be written by the game's builder.*
+
+### 11.9 Kocia straż — the abbey cats (idle merge shooter after Idle Cat Gunner)
+
+*To be written by the game's builder.*

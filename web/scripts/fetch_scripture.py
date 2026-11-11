@@ -85,6 +85,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "PSA": ("Psalm", "Ps", "Psalm", "psalm", "Psaltaren", "Ps"),
     "PRO": ("Proverbs", "Prz", "Sprüche", "sprueche", "Ordspråksboken", "Ords"),
     "ECC": ("Ecclesiastes", "Koh", "Prediger", "prediger", "Predikaren", "Pred"),
+    "SNG": ("Song of Solomon", "Pnp", "Hohelied", "hohelied", "Höga visan", "Höga v"),
     "ISA": ("Isaiah", "Iz", "Jesaja", "jesaja", "Jesaja", "Jes"),
     "JER": ("Jeremiah", "Jr", "Jeremia", "jeremia", "Jeremia", "Jer"),
     "LAM": ("Lamentations", "Lm", "Klagelieder", "klagelieder", "Klagovisorna", "Klag"),
@@ -192,6 +193,18 @@ PASSAGES: list[tuple[str, str]] = [
     # Jerzy i smok (the knight, the dragon and the shield of faith)
     ("eph6.16", "Ephesians 6:16"), ("psa91.13", "Psalm 91:13"), ("eph6.17", "Ephesians 6:17"), ("2ti4.7", "2 Timothy 4:7"),
     ("jos1.9", "Joshua 1:9"), ("1co16.13", "1 Corinthians 16:13"),
+    # Dawid (the shepherd boy who grows into a king: the lion, the bear, the giant, the harp)
+    ("1sa17.37", "1 Samuel 17:37"), ("1sa17.34-35", "1 Samuel 17:34-35"), ("1sa17.40", "1 Samuel 17:40"),
+    ("1sa16.7", "1 Samuel 16:7"), ("1sa17.45", "1 Samuel 17:45"),
+    # Dziewiątka (nine heroes named for the fruit of the Spirit, against the Din)
+    ("pro16.32", "Proverbs 16:32"), ("jas1.19", "James 1:19"), ("col3.14", "Colossians 3:14"),
+    ("1co13.7", "1 Corinthians 13:7"), ("ecc3.7", "Ecclesiastes 3:7"),
+    # Nehemiasz (the wall of Jerusalem rebuilt in fifty-two days, the watch by night)
+    ("neh2.18", "Nehemiah 2:18"), ("neh2.20", "Nehemiah 2:20"), ("neh3.12", "Nehemiah 3:12"), ("neh6.3", "Nehemiah 6:3"),
+    ("neh8.10", "Nehemiah 8:10"), ("isa58.12", "Isaiah 58:12"),
+    # Kocia straż (the abbey's cats keep the vineyard from the little foxes)
+    ("sng2.15", "Song of Solomon 2:15"), ("pro27.18", "Proverbs 27:18"), ("isa11.6", "Isaiah 11:6"), ("job12.7", "Job 12:7"),
+    ("pro12.10", "Proverbs 12:10"),
 ]
 
 DROP: dict[str, dict[str, str]] = {

@@ -184,6 +184,27 @@ export type PassageId =
   | '2ti4.7'
   | 'jos1.9'
   | '1co16.13'
+  | '1sa17.37'
+  | '1sa17.34-35'
+  | '1sa17.40'
+  | '1sa16.7'
+  | '1sa17.45'
+  | 'pro16.32'
+  | 'jas1.19'
+  | 'col3.14'
+  | '1co13.7'
+  | 'ecc3.7'
+  | 'neh2.18'
+  | 'neh2.20'
+  | 'neh3.12'
+  | 'neh6.3'
+  | 'neh8.10'
+  | 'isa58.12'
+  | 'sng2.15'
+  | 'pro27.18'
+  | 'isa11.6'
+  | 'job12.7'
+  | 'pro12.10'
   ;
 
 export interface Passage {
@@ -1229,6 +1250,132 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['Be on the alert. Stand firm in the faith. Be men of courage. Be strong.', '1 Corinthians 16:13'],
     de: ['Wachet, stehet im Glauben, seid männlich und seid stark!', '1. Korinther 16,13'],
     sv: ['Vaken, stån fasta i tron, skicken eder såsom män, varen starka.', '1 Kor 16:13'],
+  },
+  '1sa17.37': {
+    pl: ['Nadto rzekł Dawid: Pan, który mię wyrwał z mocy lwa, i z mocy niedźwiedzia, tenże mię wyrwie z rąk Filistyna tego. Tedy rzekł Saul do Dawida: Idź, a Pan niech będzie z tobą.', '1 Sm 17,37'],
+    en: ['David added, “The LORD, who delivered me from the claws of the lion and the bear, will deliver me from the hand of this Philistine.” “Go,” said Saul, “and may the LORD be with you.”', '1 Samuel 17:37'],
+    de: ['Und David sprach: Der HERR, der mich von dem Löwen und Bären errettet hat, der wird mich auch erretten von diesem Philister.', '1. Samuel 17,37'],
+    sv: ['Och David sade ytterligare: »HERREN, som räddade mig undan lejon och björn, han skall ock rädda mig undan denne filisté.» Då sade Saul till David: »Gå då åstad; HERREN skall vara med dig.»', '1 Sam 17:37'],
+  },
+  '1sa17.34-35': {
+    pl: ['I odpowiedział Dawid Saulowi: Pasał sługa twój trzodę ojca swego, a gdy przychodził lew, i niedźwiedź, a porywał barana z stada, Tedym go gonił, i biłem go, i wydzierałem z paszczęki jego; a gdy się rzucał na mię, ułapiwszy go za gardło jego, tłukłem go, i zabijałem go.', '1 Sm 17,34–35'],
+    en: ['David replied, Your servant has been tending his father’s sheep, and whenever a lion or a bear came and carried off a lamb from the flock, I went after it, struck it down, and delivered the lamb from its mouth. If it reared up against me, I would grab it by its fur, strike it down, and kill it.', '1 Samuel 17:34–35'],
+    de: ['David aber sprach zu Saul: Dein Knecht hütete die Schafe seines Vaters, und es kam ein Löwe und ein Bär und trug ein Schaf weg von der Herde; und ich lief ihm nach und schlug ihn und errettete es aus seinem Maul. Und da er sich über mich machte, ergriff ich ihn bei seinem Bart und schlug ihn und tötete ihn.', '1. Samuel 17,34–35'],
+    sv: ['Men David svarade Saul: Din tjänare har gått i vall med sin faders får; om då ett lejon eller en björn kom och tog bort ett får av hjorden, så följde jag efter vilddjuret och slog ned det och ryckte rovet ur munnen på det; och om det då reste sig upp mot mig, så fattade jag det i skägget och slog ned det och dödade det.', '1 Sam 17:34–35'],
+  },
+  '1sa17.40': {
+    pl: ['Ale wziął kij swój w rękę swoję, i obrał sobie pięć gładkich kamieni z potoku, i włożył je do naczynia pasterskiego, które miał, to jest do torby, a procę swoję niósł w rękach swoich, i przybliżył się ku Filistynowi.', '1 Sm 17,40'],
+    en: ['And David took his staff in his hand, selected five smooth stones from the brook, and put them in the pouch of his shepherd’s bag. And with his sling in hand, he approached the Philistine.', '1 Samuel 17:40'],
+    de: ['…und nahm seinen Stab in seine Hand und erwählte fünf glatte Steine aus dem Bach und tat sie in seine Hirtentasche, die er hatte, und in den Sack und nahm die Schleuder in seine Hand und machte sich zu dem Philister.', '1. Samuel 17,40'],
+    sv: ['Och han tog sin stav i handen och valde ut åt sig fem släta stenar ur bäcken och lade dem i sin herdeväska och i barmen, och tog sin slunga i handen; därefter gick han fram mot filistéen.', '1 Sam 17:40'],
+  },
+  '1sa16.7': {
+    pl: ['Lecz rzekł Pan do Samuela: Nie patrz na urodę jego, ani na wysokość wzrostu jego, gdyżem go odrzucił. Albowiem Ja nie patrzę na to, na co patrzy człowiek; bo człowiek patrzy na to, co jest przed oczyma, ale Pan patrzy na serce.', '1 Sm 16,7'],
+    en: ['But the LORD said to Samuel, “Do not consider his appearance or height, for I have rejected him; the LORD does not see as man does. For man sees the outward appearance, but the LORD sees the heart.”', '1 Samuel 16:7'],
+    de: ['Aber der HERR sprach zu Samuel: Sieh nicht an seine Gestalt noch seine große Person; ich habe ihn verworfen. Denn es geht nicht, wie ein Mensch sieht: ein Mensch sieht, was vor Augen ist; der HERR aber sieht das Herz an.', '1. Samuel 16,7'],
+    sv: ['Men HERREN sade till Samuel »Skåda icke på hans utseende och på hans högväxta gestalt, ty jag har förkastat honom. Ty det är icke såsom en människa ser; en människa ser på det som är för ögonen men HERREN ser till hjärtat.»', '1 Sam 16:7'],
+  },
+  '1sa17.45': {
+    pl: ['Tedy rzekł Dawid do Filistyna: Ty idziesz do mnie z mieczem i z oszczepem, i z tarczą, a ja idę do ciebie w imieniu Pana zastępów, Boga wojsk Izraelskich, któremuś urągał.', '1 Sm 17,45'],
+    en: ['But David said to the Philistine, You come against me with sword and spear and javelin, but I come against you in the name of the LORD of Hosts, the God of the armies of Israel, whom you have defied.', '1 Samuel 17:45'],
+    de: ['David aber sprach zu dem Philister: Du kommst zu mir mit Schwert, Spieß und Schild; ich aber komme zu dir im Namen des HERRN Zebaoth, des Gottes des Heeres Israels, das du gehöhnt hast.', '1. Samuel 17,45'],
+    sv: ['David svarade filistéen: Du kommer mot mig med svärd och spjut och lans, men jag kommer mot dig i HERREN Sebaots namn, hans som är Israels härs Gud, den härs som du har smädat.', '1 Sam 17:45'],
+  },
+  'pro16.32': {
+    pl: ['Lepszy jest nierychły do gniewu, niżeli mocarz; a kto panuje sercu swemu, lepszy jest, niżeli ten, co dobył miasta.', 'Prz 16,32'],
+    en: ['He who is slow to anger is better than a warrior, and he who controls his temper is greater than one who captures a city.', 'Proverbs 16:32'],
+    de: ['Ein Geduldiger ist besser denn ein Starker, und der seines Mutes Herr ist, denn der Städte gewinnt.', 'Sprüche 16,32'],
+    sv: ['Bättre är en tålmodig man än en stark, och bättre den som styr sitt sinne än den som intager en stad.', 'Ords 16:32'],
+  },
+  'jas1.19': {
+    pl: ['A tak, bracia moi mili! niech będzie każdy człowiek prędki ku słuchaniu, ale nierychły ku mówieniu i nierychły ku gniewowi.', 'Jk 1,19'],
+    en: ['My beloved brothers, understand this: Everyone should be quick to listen, slow to speak, and slow to anger…', 'James 1:19'],
+    de: ['Darum, liebe Brüder, ein jeglicher Mensch sei schnell, zu hören, langsam aber, zu reden, und langsam zum Zorn.', 'Jakobus 1,19'],
+    sv: ['Det veten I, mina älskade bröder. Men var människa vare snar till att höra och sen till att tala och sen till vrede.', 'Jak 1:19'],
+  },
+  'col3.14': {
+    pl: ['A nad to wszystko (przyobleczcie) miłość, która jest związką doskonałości.', 'Kol 3,14'],
+    en: ['And over all these virtues put on love, which is the bond of perfect unity.', 'Colossians 3:14'],
+    de: ['Über alles aber ziehet an die Liebe, die da ist das Band der Vollkommenheit.', 'Kolosser 3,14'],
+    sv: ['Men över allt detta skolen I ikläda eder kärleken, ty den är fullkomlighetens sammanhållande band.', 'Kol 3:14'],
+  },
+  '1co13.7': {
+    pl: ['Wszystko okrywa, wszystkiemu wierzy, wszystkiego się spodziewa, wszystko cierpi.', '1 Kor 13,7'],
+    en: ['It bears all things, believes all things, hopes all things, endures all things.', '1 Corinthians 13:7'],
+    de: ['…sie verträgt alles, sie glaubet alles, sie hoffet alles, sie duldet alles.', '1. Korinther 13,7'],
+    sv: ['Den fördrager allting, den tror allting, den hoppas allting, den uthärdar allting.', '1 Kor 13:7'],
+  },
+  'ecc3.7': {
+    pl: ['Czas rozdzierania, i czas zszywania; czas milczenia, i czas mówienia…', 'Koh 3,7'],
+    en: ['…a time to tear and a time to mend, a time to be silent and a time to speak…', 'Ecclesiastes 3:7'],
+    de: ['…zerreißen und zunähen, schweigen und reden…', 'Prediger 3,7'],
+    sv: ['Riva sönder har sin tid, och sy ihop har sin tid. Tiga har sin tid, och tala har sin tid.', 'Pred 3:7'],
+  },
+  'neh2.18': {
+    pl: ['A gdym im oznajmił, że ręka Boga mego była łaskawa nademną, także i słowa królewskie, które do mnie mówił, rzekli: Wstańmyż a budujmy. I zmocnili ręce swe ku dobremu.', 'Ne 2,18'],
+    en: ['I also told them about the gracious hand of my God upon me, and what the king had said to me. “Let us start rebuilding,” they replied, and they set their hands to this good work.', 'Nehemiah 2:18'],
+    de: ['Und sagte ihnen an die Hand meines Gottes, die gut über mir war, dazu die Worte des Königs, die er zu mir geredet hatte. Und sie sprachen: So laßt uns auf sein und bauen! Und ihre Hände wurden gestärkt zum Guten.', 'Nehemia 2,18'],
+    sv: ['Och jag omtalade för dem huru min Guds hand hade varit mig nådig, så ock vad konungen hade lovat mig. Då sade de: »Vi vilja stå upp och bygga.» Och de togo mod till sig för det goda verket.', 'Neh 2:18'],
+  },
+  'neh2.20': {
+    pl: ['I odpowiedziałem im, a rzekłem do nich: Bóg niebieski, ten nam poszczęści, a my słudzy jego, wstańmy a budujmy; ale wy nie macie działu, ani prawa, ani pamiątki w Jeruzalemie.', 'Ne 2,20'],
+    en: ['So I answered them and said, “The God of heaven is the One who will grant us success. We, His servants, will start rebuilding, but you have no portion, right, or claim in Jerusalem.”', 'Nehemiah 2:20'],
+    de: ['Da antwortete ich ihnen und sprach: Der Gott des Himmels wird es uns gelingen lassen; denn wir, seine Knechte, haben uns aufgemacht und bauen. Ihr aber habt kein Teil noch Recht noch Gedächtnis in Jerusalem.', 'Nehemia 2,20'],
+    sv: ['Då gav jag dem detta svar: »Himmelens Gud skall låta det gå oss väl, och vi, hans tjänare, vilja stå upp och bygga; men I haven ingen del eller rätt eller åminnelse i Jerusalem.»', 'Neh 2:20'],
+  },
+  'neh3.12': {
+    pl: ['A podle niego poprawiał Sallum, syn Hallochesowy, przełożony nad połową powiatu Jeruzalemskiego, sam i córki jego.', 'Ne 3,12'],
+    en: ['And next to them, Shallum son of Hallohesh, ruler of the other half-district of Jerusalem, made repairs, with the help of his daughters.', 'Nehemiah 3:12'],
+    de: ['Daneben baute Sallum, der Sohn des Halohes, der Oberste des andern halben Kreises von Jerusalem, er und seine Töchter.', 'Nehemia 3,12'],
+    sv: ['Därbredvid arbetade Sallum, Hallohes\' son, hövdingen över andra hälften av Jerusalems område, han själv med sina döttrar.', 'Neh 3:12'],
+  },
+  'neh6.3': {
+    pl: ['Przetoż posłałem do nich posłów, wskazując: Zacząłem robotę wielką, przetoż nie mogę zjechać; bo przeczżeby miała ustać ta robota, gdybym jej zaniechawszy jechał do was?', 'Ne 6,3'],
+    en: ['So I sent messengers to them, saying, “I am doing a great work and cannot come down. Why should the work stop while I leave it to go down to you?”', 'Nehemiah 6:3'],
+    de: ['Ich aber sandte Boten zu ihnen und ließ ihnen sagen: Ich habe ein großes Geschäft auszurichten, ich kann nicht hinabkommen; es möchte das Werk nachbleiben, wo ich die Hände abtäte und zu euch hinabzöge.', 'Nehemia 6,3'],
+    sv: ['Men jag skickade bud till dem och lät säga: »Jag har ett stort arbete för händer och kan icke komma ned. Arbetet kan ju icke vila, såsom dock måste ske, om jag lämnade det och komme ned till eder.»', 'Neh 6:3'],
+  },
+  'neh8.10': {
+    pl: ['I rzekł im: Idźcież, jedzcie rzeczy tłuste a pijcie napój słodki, a posyłajcie cząstki tym, którzy sobie nic nie nagotowali; albowiem święty jest dzień Panu naszemu. Przetoż się nie frasujcie; albowiem wesele Pańskie jest siłą waszą…', 'Ne 8,10'],
+    en: ['Then Nehemiah told them, “Go and eat what is rich, drink what is sweet, and send out portions to those who have nothing prepared, since today is holy to our Lord. Do not grieve, for the joy of the LORD is your strength.”', 'Nehemiah 8:10'],
+    de: ['Darum sprach er zu ihnen: Geht hin und eßt das Fette und trinkt das Süße und sendet denen auch Teile, die nichts für sich bereitet haben; denn dieser Tag ist heilig unserm HERRN. Und bekümmert euch nicht; denn die Freude am HERRN ist eure Stärke.', 'Nehemia 8,10'],
+    sv: ['Och han sade ytterligare till dem: »Gån bort och äten eder bästa mat och dricken edert sötaste vin, och sänden omkring gåvor därav till dem som icke hava något tillrett åt sig, ty denna dag är helgad åt vår Herre. Och varen icke bedrövade, ty fröjd i HERREN är eder starkhet.»', 'Neh 8:10'],
+  },
+  'isa58.12': {
+    pl: ['I pobudują spłodzeni od ciebie pustynie starodawne, grunty od narodu do narodu wywiedziesz; i nazwą cię naprawcą obalin, i przeprawcą ścieżek ku mieszkaniu.', 'Iz 58,12'],
+    en: ['Your people will rebuild the ancient ruins; you will restore the age-old foundations; you will be called Repairer of the Breach, Restorer of the Streets of Dwelling.', 'Isaiah 58:12'],
+    de: ['…und soll durch dich gebaut werden, was lange wüst gelegen ist; und wirst Grund legen, der für und für bleibe; und sollst heißen: Der die Lücken verzäunt und die Wege bessert, daß man da wohnen möge.', 'Jesaja 58,12'],
+    sv: ['Och dina avkomlingar skola bygga upp de gamla ruinerna, du skall åter upprätta grundvalar ifrån forna släkten; och du skall kallas »han som murar igen revor», »han som återställer stigar, så att man kan bo i landet.»', 'Jes 58:12'],
+  },
+  'sng2.15': {
+    pl: ['Połapcie nam liszki, liszki małe, które psują winnice; ponieważ winnice nasze kwitną.', 'Pnp 2,15'],
+    en: ['Catch for us the foxes—the little foxes that ruin the vineyards—for our vineyards are in bloom.', 'Song of Solomon 2:15'],
+    de: ['Fanget uns die Füchse, die kleinen Füchse, die die Weinberge verderben; denn unsere Weinberge haben Blüten gewonnen.', 'Hohelied 2,15'],
+    sv: ['Fången rävarna åt oss, de små rävarna, vingårdarnas fördärvare, nu då våra vingårdar stå i blom.', 'Höga v 2:15'],
+  },
+  'pro27.18': {
+    pl: ['Kto strzeże drzewa figowego, pożywa owocu jego; także kto strzeże pana swego, uczczony będzie.', 'Prz 27,18'],
+    en: ['Whoever tends a fig tree will eat its fruit, and he who looks after his master will be honored.', 'Proverbs 27:18'],
+    de: ['Wer seinen Feigenbaum bewahrt, der ißt Früchte davon; und wer seinen Herrn bewahrt, wird geehrt.', 'Sprüche 27,18'],
+    sv: ['Den som vårdar sitt fikonträd, han får äta dess frukt; och den som vårdar sig om sin herre, han kommer till ära.', 'Ords 27:18'],
+  },
+  'isa11.6': {
+    pl: ['I będzie mieszkał wilk z barankiem, a lampart z koźlęciem będzie leżał; także cielę i szczenię lwie, i karmne bydła pospołu będą, a małe dziecię rządzić ich będzie.', 'Iz 11,6'],
+    en: ['The wolf will live with the lamb, and the leopard will lie down with the goat; the calf and young lion and fatling will be together, and a little child will lead them.', 'Isaiah 11:6'],
+    de: ['Die Wölfe werden bei den Lämmern wohnen und die Parder bei den Böcken liegen. Ein kleiner Knabe wird Kälber und junge Löwen und Mastvieh miteinander treiben.', 'Jesaja 11,6'],
+    sv: ['Då skola vargar bo tillsammans med lamm och pantrar ligga tillsammans med killingar; och kalvar och unga lejon och gödboskap skola sämjas tillhopa, och en liten gosse skall valla dem.', 'Jes 11:6'],
+  },
+  'job12.7': {
+    pl: ['A nawet pytaj się proszę bydląt, a one cię nauczą; i ptastwa niebieskiego, a oznajmi tobie.', 'Hi 12,7'],
+    en: ['But ask the animals, and they will instruct you; ask the birds of the air, and they will tell you.', 'Job 12:7'],
+    de: ['Frage doch das Vieh, das wird dich\'s lehren und die Vögel unter dem Himmel, die werden dir\'s sagen…', 'Hiob 12,7'],
+    sv: ['Men fråga du boskapen, den må undervisa dig, och fåglarna under himmelen, de må upplysa dig…', 'Job 12:7'],
+  },
+  'pro12.10': {
+    pl: ['Sprawiedliwy ma na pieczy żywot bydlątka swego; ale serce niepobożnych okrutne jest.', 'Prz 12,10'],
+    en: ['A righteous man regards the life of his animal, but the tender mercies of the wicked are only cruelty.', 'Proverbs 12:10'],
+    de: ['Der Gerechte erbarmt sich seines Viehs; aber das Herz der Gottlosen ist unbarmherzig.', 'Sprüche 12,10'],
+    sv: ['Den rättfärdige vet huru hans boskap känner det, men de ogudaktigas hjärtelag är grymt.', 'Ords 12:10'],
   },
 };
 

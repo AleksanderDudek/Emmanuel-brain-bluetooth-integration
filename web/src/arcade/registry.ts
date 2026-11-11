@@ -14,8 +14,8 @@ import type { PassageId } from './kit/scripture';
 import type { ArcadeModule } from './kit/types';
 
 /** What kind of play a game is: the Games tab shows the games in these sections, in this order. */
-export type ArcadeKind = 'puzzle' | 'run' | 'arcade' | 'craft';
-export const KINDS: readonly ArcadeKind[] = ['puzzle', 'run', 'arcade', 'craft'];
+export type ArcadeKind = 'puzzle' | 'run' | 'arcade' | 'strategy' | 'craft';
+export const KINDS: readonly ArcadeKind[] = ['puzzle', 'run', 'arcade', 'strategy', 'craft'];
 
 export interface ArcadeEntry {
   id: string;
@@ -53,7 +53,7 @@ export interface ArcadeEntry {
   load: () => Promise<ArcadeModule<any>>;
 }
 
-type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy';
+type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -168,7 +168,7 @@ export const ARCADE: ArcadeEntry[] = [
     load: () => import('./aniol/index').then(m => m.default),
   },
   {
-    id: 'zastepy', kind: 'arcade', title: t('zastepy.title'), tagline: t('zastepy.tagline'), text: t('zastepy.text'),
+    id: 'zastepy', kind: 'strategy', title: t('zastepy.title'), tagline: t('zastepy.tagline'), text: t('zastepy.text'),
     how: [t('zastepy.how1'), t('zastepy.how2'), t('zastepy.how3')],
     tips: [t('zastepy.tip1'), t('zastepy.tip2'), t('zastepy.tip3'), t('zastepy.tip4'), t('zastepy.tip5')],
     unit: t('zastepy.unit'), art: 'art-zastepy', fill: ['#fff1c9', '#e8b04a', '#8a4a3a', '#2a1f2e'], tools: ['fnirs', 'eeg'], focusChip: false,
@@ -211,6 +211,42 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'eph6.16',
     brain: brain('jerzy'),
     load: () => import('./jerzy/index').then(m => m.default),
+  },
+  {
+    id: 'dawid', kind: 'arcade', title: t('dawid.title'), tagline: t('dawid.tagline'), text: t('dawid.text'),
+    how: [t('dawid.how1'), t('dawid.how2'), t('dawid.how3')],
+    tips: [t('dawid.tip1'), t('dawid.tip2'), t('dawid.tip3'), t('dawid.tip4'), t('dawid.tip5')],
+    unit: t('dawid.unit'), art: 'art-dawid', fill: ['#ffe8b0', '#e8b85a', '#a8743a', '#3a2a1c'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: '1sa17.37',
+    brain: brain('dawid'),
+    load: () => import('./dawid/index').then(m => m.default),
+  },
+  {
+    id: 'dziewiatka', kind: 'strategy', title: t('dziewiatka.title'), tagline: t('dziewiatka.tagline'), text: t('dziewiatka.text'),
+    how: [t('dziewiatka.how1'), t('dziewiatka.how2'), t('dziewiatka.how3')],
+    tips: [t('dziewiatka.tip1'), t('dziewiatka.tip2'), t('dziewiatka.tip3'), t('dziewiatka.tip4'), t('dziewiatka.tip5')],
+    unit: t('dziewiatka.unit'), art: 'art-dziewiatka', fill: ['#fff0c8', '#9ad0c2', '#5a7fb8', '#232846'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'gal5.22-23',
+    brain: brain('dziewiatka'),
+    load: () => import('./dziewiatka/index').then(m => m.default),
+  },
+  {
+    id: 'nehemiasz', kind: 'strategy', title: t('nehemiasz.title'), tagline: t('nehemiasz.tagline'), text: t('nehemiasz.text'),
+    how: [t('nehemiasz.how1'), t('nehemiasz.how2'), t('nehemiasz.how3')],
+    tips: [t('nehemiasz.tip1'), t('nehemiasz.tip2'), t('nehemiasz.tip3'), t('nehemiasz.tip4'), t('nehemiasz.tip5')],
+    unit: t('nehemiasz.unit'), art: 'art-nehemiasz', fill: ['#ffe0a0', '#e0a25a', '#8a5a3a', '#241a1a'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'neh2.18',
+    brain: brain('nehemiasz'),
+    load: () => import('./nehemiasz/index').then(m => m.default),
+  },
+  {
+    id: 'koty', kind: 'strategy', title: t('koty.title'), tagline: t('koty.tagline'), text: t('koty.text'),
+    how: [t('koty.how1'), t('koty.how2'), t('koty.how3')],
+    tips: [t('koty.tip1'), t('koty.tip2'), t('koty.tip3'), t('koty.tip4'), t('koty.tip5')],
+    unit: t('koty.unit'), art: 'art-koty', fill: ['#f7e6c4', '#b9d18a', '#7a9a4a', '#2e3a1e'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'sng2.15',
+    brain: brain('koty'),
+    load: () => import('./koty/index').then(m => m.default),
   },
 ];
 

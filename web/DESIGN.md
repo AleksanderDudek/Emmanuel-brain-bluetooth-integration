@@ -299,21 +299,27 @@ review videos from 2023 to 2026, and neurofounders.co (2026).
 ## 9. Training games
 
 (*Gry treningowe*: Geoda, Latarnik, Motylarnia, Arka, Urodzaj, Wzlot, Glina, Źródła, Posłaniec,
-Zacheusz, Pasterz, Anioł Stróż, Zastępy, Firmament, Dolina, Chleby i ryby, Jerzy i smok; English *Geode, Lighthouse Keeper, Butterfly
+Zacheusz, Pasterz, Anioł Stróż, Zastępy, Firmament, Dolina, Chleby i ryby, Jerzy i smok, Dawid, Dziewiątka,
+Nehemiasz, Kocia straż; English *Geode, Lighthouse Keeper, Butterfly
 House, The Ark, Harvest, Updraft, Clay, Wellsprings, The Messenger, Zacchaeus, The Shepherd, Guardian
-Angel, The Hosts, Firmament, The Valley, Loaves and Fish, George and the Dragon*; German *Geode, Leuchtturmwärter, Schmetterlingshaus, Die Arche, Ernte,
-Aufwind, Töpferton, Quellen, Der Bote, Zachäus, Der Hirte, Schutzengel, Heerscharen, Firmament, Das Tal, Brote und Fische, Georg und der Drache*;
+Angel, The Hosts, Firmament, The Valley, Loaves and Fish, George and the Dragon, David, The Nine, Nehemiah,
+Cat Watch*; German *Geode, Leuchtturmwärter, Schmetterlingshaus, Die Arche, Ernte,
+Aufwind, Töpferton, Quellen, Der Bote, Zachäus, Der Hirte, Schutzengel, Heerscharen, Firmament, Das Tal, Brote und Fische, Georg und der Drache,
+David, Die Neun, Nehemia, Katzenwache*;
 Swedish *Geod, Fyrvaktaren, Fjärilshuset, Arken, Skörd, Uppvind, Lera, Källorna, Budbäraren,
-Sackeus, Herden, Skyddsängeln, Härskarorna, Himlavalvet, Dalen, Bröd och fiskar, Göran och draken*.)
+Sackeus, Herden, Skyddsängeln, Härskarorna, Himlavalvet, Dalen, Bröd och fiskar, Göran och draken, David, De nio, Nehemja, Kattvakten*.)
 
-Seventeen games whose every session is a neurofeedback session, each rooted in the Christian faith with
+Twenty-one games whose every session is a neurofeedback session, each rooted in the Christian faith with
 gaming first. The research behind them, how they were chosen, how the faith shapes them and the
 rules they share are in [`src/arcade/DESIGN.md`](src/arcade/DESIGN.md); each game's rules are in its
 own module. Since version 2 (2026-11-07, §10 there) the runner draws one standard HUD in all of them,
 so the band reads the same everywhere: the Mendi panel (the block, the gauge of what the band drives
 with its threshold, what to do in the head, the verdict), the score corner, coach marks, and "how to
 play" on the calibration card and behind the ? button (`src/arcade/mendi.ts`). Fourteen games were
-rebuilt on their models' mechanics and three expanded.
+rebuilt on their models' mechanics and three expanded. Version 3 (2026-11-11, §11 there) added four
+games after XP Hero, Hero Wars: Alliance, Lordrush and Idle Cat Gunner, grew Dolina, Chleby and Jerzy
+i smok towards the newest versions of their models, and gave the Games tab a fifth section, Strategy
+(Zastępy and three of the new games).
 
 * **Where:** cards in Games (first section) and on Home's Play shelf. A card opens the game's
   **lobby** (`#gra/<id>`): an animated picture of the player's own world (their village, cabinet
