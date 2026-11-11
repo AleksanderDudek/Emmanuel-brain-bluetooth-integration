@@ -2466,7 +2466,109 @@ families), `audio.ts`, `i18n.ts`, `index.ts`; tests in `test/arcade-dziewiatka.t
 
 ### 11.8 Nehemiasz — the wall in 52 days (fortress defence after Lordrush)
 
-*To be written by the game's builder.*
+*Nehemiah 2:18 — "“Let us start rebuilding,” they replied, and they set their hands to this good
+work."* The walls of Jerusalem lie in rubble; Nehemiah, the king's cupbearer, walks the city with the
+plans. A build-and-defend game after Lordrush and the genre its ads come from: by day you build, by
+night you keep the watch, gate by gate through Nehemiah 3.
+
+* **The original, studied** (status file of the build): Lordrush (Century Games, July 2026) is a
+  reskin of Kingshot. Its ads and first days are a defence game in the spirit of Thronefall — a lord
+  moves through ruins, stands on build spots, resources fly in and a wall or tower pops up; at night
+  columns march along visible roads, walls slow them so the towers have time to strike, heroes are
+  sent where it matters. The full game is Kingshot's town: a Town Center that caps every building,
+  survivors as workers, hunters and cooks, houses, health from food and sleep, happiness and unrest,
+  Court decrees with trade-offs, research, a world map. Players love the look and the gentle learning
+  curve and hate that the promised tower defence thins out, the pay-to-win and the timers. Thronefall
+  adds the rules worth copying: days without a clock, buildings that pay in the morning only if they
+  stood, the next night's enemies shown at their spawn points, branching tower upgrades, the king
+  fighting in person. **Carried over:** walk, stand on a marker, build; walls that slow and towers that
+  strike; waves along roads with a preview; tower choices; posts of guards; officers who join; jobs and
+  houses; food and strength; decrees; a Town-Center cap; days as the campaign. **Dropped:** timers,
+  speed-ups, gems, gacha heroes, alliances, PvP, the world map, idle income, losing the castle.
+* **View and verb.** The stretch of wall across the screen, the hills and three roads above it, the
+  city below, seen from the city at a slant (the wall shows its inner face; raiders at its outer foot
+  stand just above its top). Drag anywhere = a floating joystick (WASD/arrows); standing still on a
+  marker builds it in 0.75 s while stones and beams fly in from the yard (walking off cancels and pays
+  back). A tap on a marker sends Nehemiah to build it; **a tap anywhere else or Space builds what the
+  guide chip suggests** ("Następne: …", Kingshot's recommended task) — the most useful build the stores
+  can pay: keep the builders busy on the lowest stretch, bread before hunger, the gate's doors, a tower
+  and a fire by tonight's busiest road. A tap never cancels a build in progress. At night a tap or
+  Space blows a ready horn, otherwise sends Nehemiah where it is hottest (after raiders inside the city,
+  else onto the wall walk above the most pressed stretch).
+* **The stretch** (reset for each gate): six sections and the gate in tiers — *pół muru* (Neh 4:6),
+  *pełny mur*, *mur z blankami*; the gate's *wrota i belki*, *zasuwy i rygle* (Neh 3:3), *wieża bramna*.
+  Building a tier orders it; the builders lay it course by course (40/60/80 cubits). A half wall is
+  climbed over, a full wall must be pried open or scaled with ladders, battlements throw ladders off
+  where guards stand. Four watchtowers (by the side roads and on either side of the gate; at level 2 a
+  choice: *daleki zasięg* or *szybkie proce*), five watch fires (the gate's lit from the start), three
+  guard posts (the gatekeepers' by the gate from the start, Neh 7:1). **The city** (kept from gate to
+  gate): houses (room), the bakery (the Tower of the Ovens), the granary, the well (strength and mortar),
+  the stone yard and the governor's house, which caps every other building one level above it.
+* **People and stores.** Stone (the wall), beams from the king's forest (Neh 2:8; the scarce one: gates,
+  towers, fires) and bread. Jobs come with buildings — quarrymen, bakers, a water carrier, guards and
+  slingers — and **everyone else builds the wall** (at least a third always do). At dawn timber arrives
+  and volunteers come from a town of Judah (Neh 3: Jericho, Tekoa, Gibeon, Mizpah…) when there is room
+  and bread; at dusk everyone eats; hunger, fear of plunder and hard nights lower *siły* (strength,
+  Neh 4:10), bread, the well, held nights and the Sabbath restore it; work goes with strength. Builders
+  with nothing ordered dress stones, laid at once when the next tier is ordered — calm is never wasted.
+* **Decrees** (Kingshot's Court, from the book itself), a choice of two at the dawn of every third day,
+  each with its numbers: cancel the debts (Neh 5), gates shut till the sun is hot (7:3), half build and
+  half hold spears (4:16), everyone sleeps inside the city (4:22), the governor's table (5:17), the
+  Sabbath (13:19), a letter to Asaph (2:8), clear the rubble (4:10).
+* **Rest — the working day:** a day is a rest block. Past its lead-in `calm` sets the builders' rhythm
+  ×1 … ×2.2 (the trowels' tapping speeds up): courses laid, breaches mended (mending comes first and is
+  not counted), stone and bread made. A day judged calm pays +4 stone and bread. Never below the base.
+* **Push — the night watch:** raiders of Sanballat (the road from Samaria), Geshem (over the hill) and
+  Tobiah (from Ammon) come in three waves: *zbój* (pries stones), *procarz* (stays in the dark and
+  slings at the fires, dimming them), *drabiniarze* (a ladder for a full wall), *taran* (a ram for the
+  gate), and on a gate's last night *herszt* on a donkey (the great assault: near him the others take
+  fewer blows; when he runs, they all run). **The watch fires are the band, drawn large:** in a sighted
+  night past its lead-in each fire's light reaches base + `level` × extra (1.1 → 4.3 u); its threshold
+  is a dotted ring on the ground, its edge turns gold above it. Towers and guards strike **only what
+  stands in the light** (or at the wall's foot, or by Tirza's lamp); in the dark only the whites of the
+  raiders' eyes glint, and they slip to the wall. In strong light raiders hesitate. Nehemiah's presence
+  disheartens raiders near him and speeds the defenders (Neh 4:14); Hanani and Hananiah join from the
+  3rd and 5th gate. Struck, raiders lose heart and run (Neh 4:15), dropping what they carried; nobody
+  dies. **A held focus charges the ram's horn** (the shofar); a tap blows it where Nehemiah stands —
+  every raider near him runs, every tower looses a volley, the guards rally to him (Neh 4:18-20, told
+  in a story card). Mid-night Sanballat's messenger brings **the invitation to Ono** (Neh 6:2-4): a
+  focus held for 5 s answers "a great work — I cannot come down" (+25 % horn; Neh 6:3 on the card).
+* **Blind — a moonless night:** the fires stay at their base, the ridge is misted; at dawn the moon
+  rises with the night's share above the threshold, which carries into the next night's horn.
+* **The signal in sight.** The fires' rings (live), and the history as **the ridge of the far hills**:
+  the last 40 s as the skyline, the threshold a dashed snow line, gold where above, a cool tint behind
+  the days, mist over a moonless night, the band's delay bracketed at "now". The runner's panel names
+  the gauge *Ogniska straży* (night) and *Rytm pracy* (day).
+* **The calendar and the meta.** Every day block is a day; 52 days through the ten gates of Neh 3
+  (5–6 days each), Sheep Gate to Inspection Gate, the Dung Gate with its jokes. A gate's stars: the gate
+  and half a wall everywhere · a full wall everywhere · no breach at any dawn and nothing carried off.
+  Stars buy **the king's letters** (permanent: more timber, faster builders, a quicker horn, more bread,
+  more guards, an escort's towers). **The chronicle of builders** collects the towns and each gate's
+  builders (18). After day 52 the wall is finished (Neh 6:15) and dedicated (two choirs, Neh 12),
+  and year 2 begins, harder. The session opens at dawn (the warm-up is the first morning) and ends on a
+  night; the next dawn is the finale.
+* **Grace.** Nothing ends early; a breach is mended by day; at most a quarter of a store can be carried
+  off in a night, and what is struck down is gathered back; without the signal everything plays at its
+  base.
+* **Tirza and the story.** *Tirza*, one of Shallum's daughters (Neh 3:12), a builder with a trowel and
+  a sharp tongue, follows Nehemiah (a lamp at night) and talks in short bubbles (22 moments × 3–4
+  lines): her trowel, her faster sister, Dad who rules half a district, the nobles of Tekoa who "would
+  not stoop" (Neh 3:5), the Dung Gate. Sanballat and Tobiah sneer from the hill as comic villains;
+  Tobiah's fox walks the wall once it stands full height (Neh 4:3) and the wall does not budge. Story
+  cards: the opening (Neh 2:18), each gate's card from Neh 3, the horn, Ono (Neh 6:3), the finished wall
+  (Neh 6:15), the dedication (Neh 8:10), year 2 (Isa 58:12); Tirza's closing line in the summary.
+* **First session.** A warm-up morning with coach marks one at a time, each only in its own time of
+  day: drag to walk, tap to build, the builders, the night and its light, the threshold ring, the horn,
+  the working day, a decree, a breach, bread; the first night is gentle (3 raiders).
+* **Headline.** Cubits of wall raised (`łokci / cubits / Ellen / alnar`), new courses only, live; the
+  line under it: "Dzień 7 z 52 · Brama Rybna" or the record within reach. **Closing:** the wall finished
+  (Neh 6:15, 8:10), a gate built (Neh 2:20), Ono turned down or a long held focus (Neh 6:3), breaches
+  mended (Isa 58:12), a calm working day (Neh 3:12, Tirza's family); else Neh 2:20.
+* **Smoke contract.** The centre tap and Space build the guide's suggestion by day (the builders lay
+  from second 1 on the two sections ordered at a stretch's start) and blow the horn or chase raiders by
+  night; cubits rise within 22 s on either band, first session or later.
+* **Saves.** Progress `ver: 1`; the placeholder's `{ sessions }` keeps its count and starts the
+  campaign; a v1 save with wrong types is repaired and clamped.
 
 ### 11.9 Kocia straż — the abbey cats (idle merge shooter after Idle Cat Gunner)
 
