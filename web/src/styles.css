@@ -700,9 +700,14 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .arcade-banner .ban-task{font-size:13.5px}
   .arcade-headline b{font-size:24px}
   .arcade-headline span{font-size:11px}
+  /* a long unit ("nakarmionych", "szkodników") drops under the number and the line under it may take two
+     lines, instead of both being cut on a 390 px phone */
+  .arcade-headline p{flex-wrap:wrap;row-gap:1px}
+  .arcade-headline small{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.25}
 }
 @media (max-height:500px) and (min-width:641px){
-  .arcade-mendi{height:70px;gap:3px;padding:6px 10px;top:calc(max(6px,env(safe-area-inset-top)) + 46px)}
+  /* 78 px: the block row, the gauge and one line of "W głowie" (70 px squeezed that line to 8 px) */
+  .arcade-mendi{height:78px;gap:3px;padding:6px 10px;top:calc(max(6px,env(safe-area-inset-top)) + 46px)}
   .arcade-mendi .mp-state{display:none}
   .mp-task{-webkit-line-clamp:1;font-size:11.5px}
   .arcade-headline{top:calc(max(6px,env(safe-area-inset-top)) + 46px);padding:5px 10px}
@@ -752,7 +757,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .dock-text{gap:2px}
   .dock-text .dock-state{font-size:13px}
   .dock-eyebrow,.dock-session{display:none}
-  .arcade-banner{top:calc(max(6px,env(safe-area-inset-top)) + 122px);padding:8px 14px}
+  .arcade-banner{top:calc(max(6px,env(safe-area-inset-top)) + 132px);padding:8px 14px}
   .ban-task{font-size:13px}
 }
 .arcade-chip{position:absolute;left:max(16px,env(safe-area-inset-left));top:calc(max(10px,env(safe-area-inset-top)) + 44px);z-index:3;display:flex;align-items:center;gap:8px;

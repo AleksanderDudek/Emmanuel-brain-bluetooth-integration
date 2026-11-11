@@ -178,7 +178,7 @@ try {
   step('the cards: home');
   await go('karty');
   // the thumbnails load lazily, so bring the gallery near the screen first: how far below the fold it
-  // starts depends on the layout above it (the support ribbon is 15 % of the screen) and the runner's fonts
+  // starts depends on the layout above it (the support ribbon is 10 % of the screen) and the runner's fonts
   await page.evaluate(() => document.querySelector('.k-gallery')?.scrollIntoView({ block: 'start' }));
   await page.waitForFunction(() => [...document.querySelectorAll('.k-gallery img')].filter(i => i.complete && i.naturalWidth > 0).length >= 8, { timeout: 30_000 });
   await page.evaluate(() => window.scrollTo(0, 0));
