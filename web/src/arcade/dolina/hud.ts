@@ -8,14 +8,19 @@
  */
 import { ease } from '../kit/juice';
 import { drawPassage, layoutPassage, passage, type PassageId } from '../kit/scripture';
-import { weaponName } from './content';
+import { paintChest, paintMate } from './cast';
+import { weaponName, type CompId } from './content';
 import { t } from './i18n';
 import type { Layout } from './layout';
 import { C, SANS, SERIF, TAU, font, paintLamp } from './paint';
 
 interface Float { text: string; x: number; y: number; t: number; dur: number; color: string; size: number; rise: number }
 type CardKind = 'story' | 'level' | 'toast' | 'finale';
-interface Card { kind: CardKind; title: string; sub: string; t: number; dur: number; verse?: PassageId; stars?: number; lines?: [string, boolean][] }
+interface Card {
+  kind: CardKind; title: string; sub: string; t: number; dur: number; verse?: PassageId; stars?: number; lines?: [string, boolean][];
+  /** v3: a companion's portrait on the card (and their name under the title); a toast's little picture */
+  portrait?: CompId; sub2?: string; icon?: 'chest' | 'check';
+}
 
 export class Hud {
   private L!: Layout;
@@ -45,7 +50,7 @@ export class Hud {
   hurt(): void { this.oilPulse = 1; }
 
   /** A card: the opening story (with a passage), a level's end with its stars, the finale, a toast. */
-  card(kind: CardKind, title: string, sub: string, dur: number, extra: Partial<Pick<Card, 'verse' | 'stars' | 'lines'>> = {}): void {
+  card(kind: CardKind, title: string, sub: string, dur: number, extra: Partial<Pick<Card, 'verse' | 'stars' | 'lines' | 'portrait' | 'sub2' | 'icon'>> = {}): void {
     const c: Card = { kind, title, sub, t: 0, dur, ...extra };
     if (kind === 'toast') {
       // toasts queue behind a story card and replace an older toast
@@ -214,39 +219,54 @@ export class Hud {
     ctx.globalAlpha = a;
     const drop = (1 - ease.outCubic(inK)) * -14 * u;
     if (c.kind === 'toast') {
+      const iw = c.icon ? 30 * u : 0;
       ctx.font = font(800, 14 * u, SANS);
       const tw = ctx.measureText(c.title).width;
       ctx.font = font(600, 12 * u, SANS);
       const sw = c.sub ? ctx.measureText(c.sub).width : 0;
-      const w = Math.min(L.w - 24, Math.max(tw, sw) + 32 * u), h = (c.sub ? 46 : 32) * u;
+      const w = Math.min(L.w - 24, Math.max(tw, sw) + 32 * u + iw), h = (c.sub ? 46 : 32) * u;
       const x = (L.w - w) / 2, y = L.top + 6 * u + drop;
       ctx.fillStyle = 'rgba(20,15,26,.86)';
       ctx.beginPath();
       ctx.roundRect(x, y, w, h, 14 * u);
       ctx.fill();
+      if (c.icon === 'chest') paintChest(ctx, x + 20 * u, y + h / 2 + 2 * u, 12 * u, Math.min(1, c.t / 0.5));
+      else if (c.icon === 'check') {
+        ctx.strokeStyle = '#9fe08a';
+        ctx.lineWidth = 3 * u;
+        ctx.beginPath();
+        ctx.moveTo(x + 12 * u, y + h / 2);
+        ctx.lineTo(x + 18 * u, y + h / 2 + 6 * u);
+        ctx.lineTo(x + 28 * u, y + h / 2 - 7 * u);
+        ctx.stroke();
+      }
+      const cx = L.w / 2 + iw / 2;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#ffd36b';
       ctx.font = font(800, 14 * u, SANS);
-      ctx.fillText(c.title, L.w / 2, y + (c.sub ? 16 : 16) * u);
+      ctx.fillText(this.fit(c.title, w - 24 * u - iw), cx, y + 16 * u);
       if (c.sub) {
         ctx.fillStyle = 'rgba(255,241,196,.85)';
         ctx.font = font(600, 12 * u, SANS);
-        ctx.fillText(c.sub, L.w / 2, y + 33 * u);
+        ctx.fillText(this.fit(c.sub, w - 24 * u - iw), cx, y + 33 * u);
       }
       ctx.restore();
       return;
     }
     const w = L.cardW, pad = 18 * u;
     const x = (L.w - w) / 2, y = L.cardTop + drop;
+    // a companion's portrait takes the card's left (the words move over)
+    const pw = c.portrait ? Math.min(90 * u, w * 0.24) : 0;
     ctx.font = font(560, 13.5 * u, SANS);
-    const subLines = c.sub ? this.lines(c.sub, w - 2 * pad, ctx.font) : [];
+    const subLines = c.sub ? this.lines(c.sub, w - 2 * pad - pw, ctx.font) : [];
     const p = c.verse ? passage(c.verse) : null;
     const room = Math.max(60 * u, L.floorLine - L.S * 1.6 - y - (50 + subLines.length * 19) * u - 2 * pad);
     const pl = p ? layoutPassage(ctx, p, w - 2 * pad, Math.min(room, 110 * u), { max: 15 * u, min: 10 }) : null;
     const starsH = c.stars !== undefined ? 34 * u : 0;
     const linesH = c.lines ? c.lines.length * 19 * u + 4 * u : 0;
-    const h = pad * 2 + 30 * u + subLines.length * 19 * u + (pl ? pl.height + 12 * u : 0) + starsH + linesH;
+    const sub2H = c.sub2 ? 22 * u : 0;
+    const h = Math.max(pad * 2 + 30 * u + sub2H + subLines.length * 19 * u + (pl ? pl.height + 12 * u : 0) + starsH + linesH, c.portrait ? pw + pad * 1.4 : 0);
     ctx.fillStyle = 'rgba(246,238,220,.97)';
     ctx.shadowColor = 'rgba(0,0,0,.35)';
     ctx.shadowBlur = 18;
@@ -254,14 +274,41 @@ export class Hud {
     ctx.roundRect(x, y, w, h, 16 * u);
     ctx.fill();
     ctx.shadowBlur = 0;
+    if (c.portrait) {
+      // the companion, in a warm round frame, a little hop as the card comes in
+      const fx = x + pad + pw / 2, fy = y + pad + pw / 2;
+      ctx.fillStyle = '#2a2440';
+      ctx.beginPath();
+      ctx.arc(fx, fy, pw / 2, 0, TAU);
+      ctx.fill();
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(fx, fy, pw / 2 - 2, 0, TAU);
+      ctx.clip();
+      const hop = Math.abs(Math.sin(c.t * 5)) * pw * 0.04;
+      paintMate(ctx, c.portrait, fx, fy + pw * 0.38 - hop, pw * 0.42, { run: c.t * 6, t: c.t, act: 0, gold: true, air: false, sleep: false });
+      ctx.restore();
+      ctx.strokeStyle = C.gold;
+      ctx.lineWidth = 3 * u;
+      ctx.beginPath();
+      ctx.arc(fx, fy, pw / 2, 0, TAU);
+      ctx.stroke();
+    }
+    const tx = x + pad + (pw ? pw + 12 * u : 0);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillStyle = C.text;
     ctx.font = font(560, 24 * u, SERIF, true);
-    ctx.fillText(c.title, x + pad, y + pad - 2 * u);
+    ctx.fillText(this.fit(c.title, w - (tx - x) - pad), tx, y + pad - 2 * u);
     ctx.fillStyle = C.gold;
-    ctx.fillRect(x + pad, y + pad + 30 * u, 44 * u, 3 * u);
+    ctx.fillRect(tx, y + pad + 30 * u, 44 * u, 3 * u);
     let cy = y + pad + 40 * u;
+    if (c.sub2) {
+      ctx.fillStyle = C.goldDeep;
+      ctx.font = font(800, 16 * u, SANS);
+      ctx.fillText(c.sub2, tx, cy);
+      cy += sub2H;
+    }
     if (c.stars !== undefined) {
       for (let i = 0; i < 3; i++) {
         const k = Math.min(1, Math.max(0, (c.t - 0.35 - i * 0.22) / 0.25));
@@ -280,10 +327,19 @@ export class Hud {
     }
     ctx.fillStyle = C.textSoft;
     ctx.font = font(560, 13.5 * u, SANS);
-    subLines.forEach((s, i) => ctx.fillText(s, x + pad, cy + i * 19 * u));
+    subLines.forEach((s, i) => ctx.fillText(s, tx, cy + i * 19 * u));
     cy += subLines.length * 19 * u + 10 * u;
     if (p && pl) drawPassage(ctx, p, pl, L.w / 2, cy, { text: C.text, ref: 'rgba(42,33,51,.6)' });
     ctx.restore();
+  }
+
+  /** A line cut to fit a width (with an ellipsis), in the current font. */
+  private fit(text: string, maxW: number): string {
+    const ctx = this.ctx;
+    if (ctx.measureText(text).width <= maxW) return text;
+    let s = text;
+    while (s.length > 1 && ctx.measureText(`${s}…`).width > maxW) s = s.slice(0, -1);
+    return `${s.trimEnd()}…`;
   }
 
   private lines(text: string, maxW: number, f: string): string[] {

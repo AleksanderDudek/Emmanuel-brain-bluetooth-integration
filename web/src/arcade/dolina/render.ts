@@ -12,22 +12,32 @@
  */
 import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
 import { passage } from '../kit/scripture';
-import { eraName, guardName, weaponName, type EraId } from './content';
+import {
+  MATE_H, paintCage, paintChargeRing, paintCurtain, paintFallingPlank, paintKukulka, paintMate, paintPendulum, paintPlank, paintTowerBack, paintUmbrella,
+} from './cast';
+import { compName, compText, eraName, floorName, floorRule, guardName, missionText, powerName, weaponName, type CompId, type EraId } from './content';
 import { Hud } from './hud';
 import { sparks as sparksText, stepsText, stonesText, t } from './i18n';
 import { DolinaIntro } from './intro';
 import { layout, type Layout } from './layout';
 import type { DolinaProgress } from './meta';
 import {
-  C, PAL, SANS, TAU, font, glow, mixPal, paintEyes, paintFar, paintGuard, paintMid, paintMoth, paintPilgrim, paintPost, paintShadow, paintSky,
+  C, PAL, SANS, TAU, TOWER_PAL, font, glow, mixPal, paintEyes, paintFar, paintGuard, paintMid, paintMoth, paintPilgrim, paintPost, paintShadow, paintSky,
   type Palette, type Scene,
 } from './paint';
-import { LAMP_MARK, RULES, above, type DolinaSim, type SimEvent } from './sim';
+import { LAMP_MARK, RULES, above, chestLine, pendAt, type DolinaSim, type SimEvent } from './sim';
 import { paintBlock, paintExit, paintGate, paintGround, paintLamb, paintPen, paintRim, paintRollBrick, paintStep, paintThrow, paintTide } from './sprites';
 
 interface Ring { x: number; y: number; t: number; dur: number; r0: number; r1: number; color: string; width: number }
 interface Ghost { kind: SimEventKill['kind']; x: number; y: number; t: number; id: number }
 type SimEventKill = Extract<SimEvent, { type: 'kill' }>;
+/** A companion on screen: where they run (world u), an action's timer (s left) and its length, a dash's reach. */
+interface MateView { x: number; y: number; act: number; actDur: number; dash: number }
+/** A plank falling from a bridge (world u), turning. */
+interface Fall { x: number; y: number; vy: number; rot: number; t: number }
+
+/** A companion's power: how long its action plays on screen (s). */
+const ACT_SEC = 0.55;
 
 const STONE_CHIP: Readonly<Record<EraId, string>> = { babel: '#d39a62', twierdza: '#8a8090', miasto: '#7f9ca6' };
 
@@ -62,7 +72,13 @@ export class DolinaView {
   private mothFace = 1;
   private bubbleA = 0;
   private bubbleText = '';
+  private bubbleAt = { x: 0, y: 0 };
   private wow = 0;
+  // v3
+  private readonly mates = new Map<CompId, MateView>();
+  private readonly falls: Fall[] = [];
+  private slowK = 0;
+  private umbrellaK = 0;
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
     this.ctx = canvas.getContext('2d')!;
@@ -84,8 +100,16 @@ export class DolinaView {
     this.camY = sim.floorY;
     const l = this.lampAt(sim);
     this.moth = { x: l.x + this.S, y: l.y - this.S, vx: 0, vy: 0 };
+    sim.party.forEach((m, i) => this.mates.set(m.id, { x: sim.px - 1 - i * 0.8, y: sim.py, act: 0, actDur: ACT_SEC, dash: 0 }));
     if (sim.first) this.hud.card('story', t('story.title'), t('story.text'), RULES.storySec, { verse: 'psa23.4' });
+    else if (sim.towerFirst) this.hud.card('story', t('tower.title'), t('tower.text'), RULES.storySec, { verse: 'php3.14' });
+    else if (sim.tower) this.floorCard(sim);
     else this.hud.card('toast', t('level.title', { n: sim.level }), eraName(sim.era), 2.6);
+  }
+
+  /** A tower floor's card: its number and the clock, its trial and its rule. */
+  private floorCard(sim: DolinaSim): void {
+    this.hud.card('toast', `${t('fx.floor', { n: sim.floor })} · ${sim.clock} · ${floorName(sim.floorKind)}`, floorRule(sim.floorKind), 3.2);
   }
 
   intro(dt: number, p: number, progress: DolinaProgress): void {
@@ -138,6 +162,27 @@ export class DolinaView {
       }
       case 'break': {
         const x = this.sx(e.x, sim), y = this.sy(e.y);
+        if (e.what === 'cage') {
+          this.parts.burst(x, y, 36, { color: C.ink, size: 4 * u, speed: 160 * u, g: -30, life: 1, rnd });
+          this.parts.burst(x, y, 30, { color: '#fff1c4', size: 2.6 * u, speed: 220 * u, g: 40, life: 1.1, shape: 'spark', rnd });
+          this.ring(x, y, S * 0.4, S * 4, 'rgba(255,236,190,', 0.8, 6 * u);
+          this.flashOn(0.5);
+          this.shake.add(0.35);
+          this.wow = 1.4;
+          break;
+        }
+        if (e.what === 'barrier') {
+          this.parts.burst(x, y, 30, { color: '#2e2540', size: 5 * u, speed: 120 * u, g: -60, drag: 1.5, life: 1.1, rnd });
+          this.parts.burst(x, y, 16, { color: '#ffb070', size: 2 * u, speed: 160 * u, life: 0.8, shape: 'spark', rnd });
+          this.hud.float(t('fx.barrier'), x, y, '#ffcf8a', 17, 1.3);
+          this.shake.add(0.2);
+        }
+        if (e.what === 'giant') {
+          this.hud.float(t('fx.giant'), x, y + S * 0.3, '#ffd36b', 22, 1.5, 44);
+          this.ring(x, y, S * 0.5, S * 5, 'rgba(255,214,140,', 0.8, 6 * u);
+          this.shake.add(0.45);
+          this.flashOn(0.35);
+        }
         if (e.pen) {
           this.parts.burst(x, y, 22, { color: '#f4ead2', size: 3 * u, speed: 140 * u, life: 0.8, rnd });
           this.parts.burst(x, y, 14, { color: C.ink, size: 3 * u, speed: 100 * u, g: -40, life: 0.7, rnd });
@@ -295,9 +340,129 @@ export class DolinaView {
       case 'finale':
         this.hud.card('finale', t('finale.title'), t('finale.sub', { metres: t('metres', { n: sim.score }) }), 6);
         break;
+      // ── v3 ──
+      case 'mate': {
+        if (e.what === 'join') {
+          if (!this.mates.has(e.id)) this.mates.set(e.id, { x: e.x, y: e.y, act: 0.8, actDur: 0.8, dash: 0 });
+          this.hud.card('level', t('card.found'), t('card.foundPower', { power: powerName(e.id), text: compText(e.id) }), 3.4, { portrait: e.id, sub2: compName(e.id) });
+        } else this.hud.card('toast', t('fx.wait', { name: compName(e.id) }), '', 2.4);
+        break;
+      }
+      case 'slot':
+        this.hud.card('toast', t('fx.slot'), t('panel.party', { n: sim.party.length, slots: e.n }), 2.4);
+        break;
+      case 'mateLevel':
+        this.hud.float(t('fx.mateLevel', { name: compName(e.id), n: e.lv }), this.mateScreen(e.id, sim).x, this.mateScreen(e.id, sim).y - S * 1.2, '#ffd36b', 15, 1.6, 36);
+        break;
+      case 'power': this.onPower(e, sim); break;
+      case 'assist': {
+        const v = this.mates.get(e.id);
+        if (v && v.act <= 0) { v.act = 0.22; v.actDur = 0.22; }
+        this.parts.burst(this.sx(e.x, sim), this.sy(e.y), 3, { color: e.gold ? '#ffd36b' : STONE_CHIP[sim.era], size: 2 * u, speed: 100 * u, angle: -Math.PI * 0.7, spread: Math.PI * 0.6, g: 500, life: 0.35, shape: 'square', rnd });
+        break;
+      }
+      case 'shield': {
+        const x = this.sx(e.x, sim), y = this.sy(e.y);
+        this.ring(this.L.runX, this.sy(sim.py + 1.5), S * 0.5, S * 1.8, 'rgba(255,236,190,', 0.45, 4 * u);
+        this.parts.burst(x, y, 12, { color: '#fff1c4', size: 2.2 * u, speed: 140 * u, life: 0.5, shape: 'spark', rnd });
+        this.hud.float(t('fx.shield'), this.L.runX, this.sy(sim.py + 2.6), '#fff1c4', 16, 1);
+        this.shake.add(0.12);
+        break;
+      }
+      case 'floor':
+        if (e.floor !== sim.floorStart || this.clock > 1) this.floorCard(sim);
+        break;
+      case 'floorDone':
+        this.hud.float(t('fx.floorDone', { sparks: sparksText(e.sparks) }), this.w / 2, this.sy(sim.py + 3), '#ffd36b', 17, 1.6, 30);
+        this.ring(this.L.runX, this.sy(sim.py + 1), S * 0.5, S * 4, 'rgba(255,214,140,', 0.8, 5 * u);
+        break;
+      case 'towerOpen':
+        this.hud.card('toast', t('fx.towerOpen'), t('fx.towerOpenSub'), 3.6);
+        break;
+      case 'towerDawn':
+        this.hud.card('level', t('fx.towerDawn'), t('fx.towerDawnSub', { n: e.night }), 3.4);
+        this.flashOn(0.9);
+        this.wow = 2;
+        break;
+      case 'plank':
+        this.falls.push({ x: e.x, y: e.y, vy: 0, rot: 0, t: 0 });
+        this.parts.burst(this.sx(e.x, sim), this.sy(e.y), 4, { color: '#8a6038', size: 2 * u, speed: 50 * u, g: 500, life: 0.5, shape: 'square', rnd });
+        break;
+      case 'chest':
+        this.hud.card('toast', t('fx.chest'), chestLine(e.drop, e.gear), 3, { icon: 'chest' });
+        this.ring(this.L.runX, this.sy(sim.py + 1.2), S * 0.4, S * 3, 'rgba(255,214,140,', 0.7, 5 * u);
+        break;
+      case 'mission':
+        this.hud.card('toast', t('fx.mission', { text: missionText(e.m.kind, e.m.goal) }), `+${sparksText(e.sparks)}`, 2.6, { icon: 'check' });
+        break;
+      case 'shock': {
+        const x = this.sx(e.x, sim), y = this.sy(e.y);
+        this.ring(x, y, S * 0.3, S * RULES.form.shockR * 1.3, 'rgba(255,214,140,', 0.4, 5 * u);
+        this.parts.burst(x, y, 14, { color: STONE_CHIP[sim.era], size: 2.6 * u, speed: 160 * u, angle: -Math.PI / 2, spread: Math.PI, g: 600, life: 0.5, shape: 'square', rnd });
+        this.hud.float(t('fx.shock'), x, y - S * 1.4, '#ffd36b', 15, 1);
+        this.shake.add(0.25);
+        break;
+      }
+      case 'flameRing': {
+        const x = this.sx(e.x, sim), y = this.sy(e.y);
+        this.ring(x, y, S * 0.3, S * RULES.form.flame, 'rgba(255,240,200,', 0.5, 6 * u);
+        this.hud.float(t('fx.flame'), x, y - S * 1.2, '#fff1c4', 15, 1);
+        break;
+      }
       default:
         break;
     }
+  }
+
+  /** A companion's power on screen: their action, the effect on the world, the name shouted over it. */
+  private onPower(e: Extract<SimEvent, { type: 'power' }>, sim: DolinaSim): void {
+    const S = this.S, u = this.L.u, rnd = this.rnd;
+    const v = this.mates.get(e.id);
+    if (v) { v.act = ACT_SEC; v.actDur = ACT_SEC; }
+    const x = this.sx(e.x, sim), y = this.sy(e.y);
+    const at = this.mateScreen(e.id, sim);
+    switch (e.power) {
+      case 'huk':
+        this.ring(x, y, S * 0.3, S * 2.6, 'rgba(255,214,140,', 0.5, 7 * u);
+        this.parts.burst(x, y, 24, { color: STONE_CHIP[sim.era], size: 3.6 * u, speed: 260 * u, angle: -Math.PI / 2, spread: Math.PI * 1.3, g: 700, life: 0.8, shape: 'square', rnd });
+        this.hud.float(`${powerName(e.id)}! −${e.n}`, x, y - S * 1.7, '#ffd36b', 22, 1.2, 40);
+        this.shake.add(0.4);
+        this.flashOn(0.2);
+        if (v) v.dash = Math.max(0, e.x - v.x);
+        break;
+      case 'parasol':
+        this.umbrellaK = 1;
+        this.hud.float(`${powerName(e.id)}!`, this.L.runX, this.sy(sim.py + 2.7), '#fff1c4', 17, 1.1);
+        break;
+      case 'rusztowanie':
+        this.parts.burst(x, y, 16, { color: '#c49a6c', size: 3 * u, speed: 150 * u, angle: -Math.PI / 2, spread: Math.PI, g: 500, life: 0.7, shape: 'square', rnd });
+        this.hud.float(t('fx.wood', { n: e.n }), x, y - S * 1.2, '#e8c890', 16, 1.4);
+        break;
+      case 'pauza':
+        this.slowK = 1;
+        this.ring(this.L.runX, this.sy(sim.py + 0.8), S * 0.4, Math.max(this.w, this.h) * 0.7, 'rgba(170,215,255,', 1, 4 * u);
+        this.hud.float(`${powerName(e.id)}!`, at.x, at.y - S * 0.9, '#cfe6ff', 17, 1.2);
+        break;
+      case 'szarza':
+        if (v) v.dash = RULES.comp.charge[0];
+        this.parts.burst(at.x, this.L.floorLine, 18, { color: 'rgba(200,180,150,.8)', size: 3 * u, speed: 120 * u, angle: -Math.PI * 0.9, spread: 0.6, g: 200, life: 0.6, rnd });
+        this.hud.float(`${powerName(e.id)}!`, x, this.sy(sim.py + 2.2), '#ffd36b', 18, 1.1);
+        this.shake.add(0.25);
+        break;
+      case 'zapasy':
+        for (let i = 0; i < Math.min(8, e.n); i++) {
+          this.parts.burst(at.x, at.y, 1, { color: '#c49a6c', size: 3 * u, speed: 160 * u, angle: -Math.PI * 0.6, spread: 0.8, g: 400, life: 0.7, shape: 'square', rnd });
+        }
+        this.hud.float(`+${e.n}`, at.x, at.y - S * 0.8, '#f5c35a', 18, 1.2);
+        this.hud.popStones();
+        break;
+    }
+  }
+
+  /** Where a companion stands on screen (feet), or behind the pilgrim if not drawn yet. */
+  private mateScreen(id: CompId, sim: DolinaSim): { x: number; y: number } {
+    const v = this.mates.get(id);
+    return v ? { x: this.sx(v.x, sim), y: this.sy(v.y) } : { x: this.L.runX - this.S, y: this.sy(sim.py) };
   }
 
   private ring(x: number, y: number, r0: number, r1: number, color: string, dur: number, width: number): void {
@@ -356,9 +521,27 @@ export class DolinaView {
     this.moth.x += this.moth.vx * dt;
     this.moth.y += this.moth.vy * dt;
     if (Math.abs(this.moth.vx) > 20) this.mothFace = this.moth.vx > 0 ? 1 : -1;
-    // her line
+    this.updateMates(dt, sim);
+    // falling planks, slow time, the umbrella
+    for (const f of this.falls) {
+      f.t += dt;
+      f.vy -= 24 * dt;
+      f.y += f.vy * dt;
+      f.rot += dt * 3;
+    }
+    for (let i = this.falls.length - 1; i >= 0; i--) if (this.falls[i].t > 1.4) this.falls.splice(i, 1);
+    this.slowK = approach(this.slowK, sim.slowT > 0 ? 1 : 0, dt, 0.15);
+    this.umbrellaK = approach(this.umbrellaK, sim.shieldHits > 0 ? 1 : 0, dt, 0.08);
+    // the line on screen, over its speaker (Ćma or a companion)
     const line = sim.talk.current;
-    if (line && !this.hud.busy) this.bubbleText = line.text;
+    if (line && !this.hud.busy) {
+      this.bubbleText = line.text;
+      if (line.who === 'cma') this.bubbleAt = { x: this.moth.x, y: this.moth.y - S * 0.15 };
+      else {
+        const at = this.mateScreen(line.who, sim);
+        this.bubbleAt = { x: at.x, y: at.y - S * (MATE_H[line.who] + 0.25) };
+      }
+    }
     this.bubbleA = approach(this.bubbleA, line && !this.hud.busy && line.t < line.dur - 0.15 ? 1 : 0, dt, 0.07);
     // meadow fireflies, dawn motes
     if (this.meadow > 0.5 && this.rnd() < dt * 3) {
@@ -367,18 +550,55 @@ export class DolinaView {
     this.hud.update(dt, sim.stones, sim.oil);
   }
 
+  /**
+   * The companions run behind him in a line (closer on an upright phone), on the ground under them,
+   * leaping a pit as he did; while he is stopped at a block they crowd in to strike it with him; a
+   * power's action plays (the goat charges ahead and comes back, the giant steps in with his mallet).
+   */
+  private updateMates(dt: number, sim: DolinaSim): void {
+    const tall = this.L.tall;
+    const gap = tall ? 0.62 : 0.85, first = tall ? 0.75 : 1.0;
+    const crowd = sim.blocked === 'stone';
+    sim.party.forEach((m, i) => {
+      let v = this.mates.get(m.id);
+      if (!v) {
+        v = { x: sim.px - first - i * gap, y: sim.py, act: 0, actDur: ACT_SEC, dash: 0 };
+        this.mates.set(m.id, v);
+      }
+      v.act = Math.max(0, v.act - dt);
+      const dash = v.act > 0 && v.dash > 0 ? Math.sin((1 - v.act / v.actDur) * Math.PI) * v.dash : 0;
+      if (v.act <= 0) v.dash = 0;
+      const want = sim.px - (crowd ? 0.3 + i * 0.32 : first + i * gap) + dash;
+      v.x = approach(v.x, want, dt, crowd ? 0.12 : 0.1);
+      const g = sim.groundUnder(v.x - 0.15, v.x + 0.15, sim.py + 3);
+      const target = g ?? sim.py + 0.3;
+      v.y = approach(v.y, target, dt, g === null ? 0.06 : 0.05);
+    });
+    for (const id of [...this.mates.keys()]) if (!sim.party.some(m => m.id === id)) this.mates.delete(id);
+  }
+
   draw(sim: DolinaSim): void {
     if (!this.started) return;   // the calibration's intro owns the canvas until play begins
     const ctx = this.ctx, L = this.L, S = this.S, u = L.u;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    const pal = mixPal(mixPal(this.currentPal(), PAL.meadow, this.meadow), PAL.dawn, this.dawnK);
+    const base = sim.tower ? TOWER_PAL : this.currentPal();
+    const pal = mixPal(mixPal(base, PAL.meadow, this.meadow), PAL.dawn, this.dawnK);
     const farScene: Scene = this.dawnK > 0.6 ? 'dawn' : this.meadow > 0.5 ? 'meadow' : this.scene;
     // the sky and the far valley stay still under the shake; the climb shakes
     const horizon = L.floorLine + Math.min(S * 2, this.camY * S * 0.15);
-    paintSky(ctx, this.w, this.h, horizon, pal, this.clock, this.meadow * (1 - this.dawnK), this.dawnK);
     const px = sim.px * S;
-    paintFar(ctx, farScene, this.w, horizon - S * 0.1, S * 0.8, px * 0.15, this.clock, pal, 1);
-    paintMid(ctx, farScene, this.w, horizon + S * 0.2, S, px * 0.5, this.clock, pal, 0.75);
+    const inside = sim.tower ? clamp(1 - Math.max(this.meadow, this.dawnK) * 1.4) : 0;
+    if (inside < 1) {
+      paintSky(ctx, this.w, this.h, horizon, pal, this.clock, this.meadow * (1 - this.dawnK), this.dawnK);
+      paintFar(ctx, farScene, this.w, horizon - S * 0.1, S * 0.8, px * 0.15, this.clock, pal, 1);
+      paintMid(ctx, farScene, this.w, horizon + S * 0.2, S, px * 0.5, this.clock, pal, 0.75);
+    }
+    if (inside > 0) {
+      // the clock tower's inside, its great clock at the floor's time (the meadow and the dawn are out on its terrace)
+      ctx.globalAlpha = inside;
+      paintTowerBack(ctx, this.w, this.h, L.floorLine, S, px, this.clock, ((Math.max(1, sim.floor) - 1) % RULES.tower.dawnFloor) * RULES.tower.minutes);
+      ctx.globalAlpha = 1;
+    }
     ctx.save();
     const off = this.shake.offset(1 / 60, 8);
     ctx.translate(off.x, off.y);
@@ -390,7 +610,9 @@ export class DolinaView {
     }
     this.drawGates(sim, false);
     this.drawBlocks(sim);
+    this.drawPendulums(sim);
     this.drawLambs(sim);
+    this.drawMates(sim);
     this.drawShadows(sim);
     this.drawShots(sim);
     this.drawGuard(sim);
@@ -401,6 +623,7 @@ export class DolinaView {
     this.drawTide(sim);
     this.drawGauge(sim);
     this.drawGuardSigns(sim);
+    this.drawRings(sim);
     // the pilgrim and Ćma
     const strikeK = sim.strikeAge < 0.16 ? sim.strikeAge / 0.16 : -1;
     const lifted = sim.state === 'pit' ? clamp(sim.stateT / RULES.pitSec) : 0;
@@ -410,6 +633,11 @@ export class DolinaView {
       fall: this.fallK, slash: strikeK, lampUp: sim.live && sim.level01 > 0.5 ? 0.6 : sim.state === 'climb' ? 0.8 : 0,
       flicker: sim.oil < 0.3 ? 1 - sim.oil / 0.3 : 0,
     });
+    if (this.umbrellaK > 0.02) {
+      ctx.globalAlpha = this.umbrellaK;
+      paintUmbrella(ctx, L.runX, drawY, S, this.clock, sim.shieldHits);
+      ctx.globalAlpha = 1;
+    }
     this.drawDawnRing(sim, lamp);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -435,11 +663,58 @@ export class DolinaView {
       ctx.fillRect(0, 0, this.w, this.h);
       ctx.restore();
     }
+    // the watchmaker's Pauza: the valley holds its breath in a cool tint
+    if (this.slowK > 0.02) {
+      ctx.fillStyle = `rgba(120,160,210,${0.12 * this.slowK})`;
+      ctx.fillRect(0, 0, this.w, this.h);
+    }
     this.hud.drawPack(sim.tier, sim.oil, sim.combo, sim.mult);
     this.hud.drawFloats();
-    this.hud.drawBubble(this.bubbleText, this.bubbleA, this.moth.x, this.moth.y - S * 0.15);
+    this.hud.drawBubble(this.bubbleText, this.bubbleA, this.bubbleAt.x, this.bubbleAt.y);
     this.hud.drawCards();
     void u;
+  }
+
+  /** The companions behind him, their power's action playing; Babcia's umbrella stays a cane until it opens over him. */
+  private drawMates(sim: DolinaSim): void {
+    const S = this.S;
+    const gold = sim.live && sim.level01 > 0.5;
+    const sleep = this.meadow > 0.7 && sim.calm > 0.6;
+    for (let i = sim.party.length - 1; i >= 0; i--) {
+      const m = sim.party[i], v = this.mates.get(m.id);
+      if (!v) continue;
+      const x = this.sx(v.x, sim);
+      if (x < -S * 2 || x > this.w + S * 2) continue;
+      const act = v.act > 0 ? 1 - v.act / v.actDur : 0;
+      paintMate(this.ctx, m.id, x, this.sy(v.y), S, {
+        run: this.runPh + i * 1.3, t: this.clock + i, act, gold, air: Math.abs(v.y - (sim.groundUnder(v.x - 0.15, v.x + 0.15, v.y + 0.1) ?? -99)) > 0.15, sleep,
+      });
+    }
+  }
+
+  /** The rings of the companions' charge, over their heads (over the fog, so they always read). */
+  private drawRings(sim: DolinaSim): void {
+    const S = this.S;
+    const gold = sim.live && sim.level01 > 0.5;
+    for (const m of sim.party) {
+      const v = this.mates.get(m.id);
+      if (!v) continue;
+      const x = this.sx(v.x, sim), y = this.sy(v.y + MATE_H[m.id] + 0.3);
+      if (x < -S || x > this.w + S) continue;
+      paintChargeRing(this.ctx, x, Math.max(this.L.top + 8, y), Math.max(5, S * 0.14), m.charge, gold, this.clock);
+    }
+  }
+
+  /** The clock weights swinging from their beams. */
+  private drawPendulums(sim: DolinaSim): void {
+    const S = this.S;
+    for (const p of sim.pends) {
+      const c = pendAt(p);
+      const bx = this.sx(p.x, sim);
+      if (bx < -S * 4 || bx > this.w + S * 4) continue;
+      const by = this.sy(p.y + RULES.pend.low + RULES.pend.arm);
+      paintPendulum(this.ctx, bx, by, this.sx(c.x, sim), this.sy(c.y), S, RULES.pend.r * S, p.hitT);
+    }
   }
 
   // ── the ground and what stands on it ───────────────────────────
@@ -451,6 +726,11 @@ export class DolinaView {
       const x0 = this.sx(s.x0, sim), x1 = this.sx(s.x1, sim);
       if (x1 < -20 || x0 > this.w + 20) continue;
       const top = this.sy(s.y);
+      if (s.kind === 'bridge') {
+        // a plank over the chasm, trembling once trodden (fallen ones are gone)
+        if (!s.gone) paintPlank(ctx, x0, x1, top, S, s.crumble !== undefined && s.crumble >= 0 ? s.crumble / RULES.bridge.fall : -1, this.clock);
+        continue;
+      }
       paintGround(ctx, Math.max(-20, x0), Math.min(this.w + 20, x1), top, this.h + 20, S, pal, s.kind, this.sx(0, sim));
       // pits are always outlined: a rim where a floor stops with nothing beside it
       const next = segs[i + 1];
@@ -460,12 +740,34 @@ export class DolinaView {
       }
       if (s.kind === 'meadow' && this.meadow > 0.05) this.drawWater(Math.max(0, x0), Math.min(this.w, x1), top);
     }
-    // the stair's steps
+    // the stair's steps (the top ones Bóbr's wood)
     for (const st of sim.steps) {
       const x0 = this.sx(st.x0, sim), x1 = this.sx(st.x1, sim);
       if (x1 < -10 || x0 > this.w + 10) continue;
       paintStep(ctx, x0, x1, this.sy(st.top), this.sy(st.y0), S, this.scene, st.age);
+      const wall = sim.walls.find(w => w.id === st.wall);
+      const i = Math.round((st.top - st.y0) / RULES.stepH) - 1;
+      if (wall?.wood && i >= wall.plan - wall.wood) {
+        const top = this.sy(st.top), k = Math.min(1, st.age / 0.18), lift = (1 - k) * S * 0.8;
+        ctx.fillStyle = '#c99a5e';
+        ctx.fillRect(x0, top - lift, x1 - x0, S * RULES.stepH);
+        ctx.fillStyle = '#f0cc8e';
+        ctx.fillRect(x0, top - lift, x1 - x0, Math.max(2, S * 0.07));
+        ctx.strokeStyle = 'rgba(90,56,26,.6)';
+        ctx.lineWidth = Math.max(1, S * 0.02);
+        for (const k of [0.4, 0.7]) {
+          ctx.beginPath();
+          ctx.moveTo(x0 + S * 0.05, top - lift + S * RULES.stepH * k);
+          ctx.lineTo(x1 - S * 0.05, top - lift + S * RULES.stepH * k);
+          ctx.stroke();
+        }
+        ctx.lineWidth = Math.max(1, S * 0.025);
+        ctx.strokeRect(x0 + 0.5, top - lift + 0.5, x1 - x0 - 1, S * RULES.stepH - 1);
+        ctx.fillStyle = '#6a4a2a';
+        ctx.fillRect(x0 + S * 0.08, top - lift + S * 0.1, S * 0.05, S * 0.05);
+      }
     }
+    for (const f of this.falls) paintFallingPlank(ctx, this.sx(f.x, sim), this.sy(f.y), S, f.rot, Math.max(0, 1 - f.t / 1.4));
   }
 
   /** Still water below the meadow's path, with the sky in it. */
@@ -516,8 +818,11 @@ export class DolinaView {
       if (!st.alive) continue;
       const x = this.sx(st.x, sim);
       if (x > this.w + 40 || x + st.w * S < -40) continue;
-      if (st.pen) paintPen(this.ctx, x, this.sy(st.y), st.w * S, st.h * S, S, { hp: st.hp, lit: st.lit, hit: st.hitT / 0.12, t: this.clock, id: st.id });
-      else paintBlock(this.ctx, x, this.sy(st.y), st.w * S, st.h * S, S, { era: this.scene, hp: st.hp, max: st.max, tall: st.tall, lit: st.lit, hit: st.hitT / 0.12, t: this.clock, id: st.id });
+      const hit = st.hitT / 0.12;
+      if (st.cage) paintCage(this.ctx, x, this.sy(st.y), st.w * S, st.h * S, S, { id: st.cage, hp: st.hp, lit: st.lit, hit, t: this.clock, key: st.id });
+      else if (st.barrier) paintCurtain(this.ctx, x, this.sy(st.y), st.w * S, st.h * S, S, { hp: st.hp, max: st.max, lit: st.lit, hit, t: this.clock, key: st.id });
+      else if (st.pen) paintPen(this.ctx, x, this.sy(st.y), st.w * S, st.h * S, S, { hp: st.hp, lit: st.lit, hit, t: this.clock, id: st.id });
+      else paintBlock(this.ctx, x, this.sy(st.y), st.w * S, st.h * S, S, { era: this.scene, hp: st.hp, max: st.max, tall: st.tall, lit: st.lit, hit, t: this.clock, id: st.id, giant: st.giant });
     }
   }
 
@@ -569,10 +874,12 @@ export class DolinaView {
     const mv = sim.move;
     const spec = mv ? RULES.moves[mv] : null;
     const teleK = mv && spec && spec.tele > 0 && !g.acted ? clamp(g.moveT / spec.tele) : 0;
-    paintGuard(this.ctx, x, this.sy(a.y), S, {
+    const pose = {
       id: g.id, t: this.clock, open: sim.guardOpen, tele: g.acted ? null : mv, teleK, hit: g.hitT > 0.08 ? g.hitT : 0, angry: g.angry,
       fade: g.state === 'beaten' ? clamp(g.st / 1.2) : g.state === 'leave' ? clamp(g.st / 1.2) : 0,
-    });
+    };
+    if (g.id === 'kukulka') paintKukulka(this.ctx, x, this.sy(a.y), S, pose);
+    else paintGuard(this.ctx, x, this.sy(a.y), S, pose);
   }
 
   /** Over the fog: the guardian's light bar, its weak point when open, the sign for the hands. */
@@ -630,7 +937,9 @@ export class DolinaView {
   /** The dark beyond the lamp: a fog with a hole of light around the lamp (lighter in the meadow, gone at dawn). */
   private drawFog(sim: DolinaSim, pal: Palette): void {
     const ctx = this.ctx, S = this.S;
-    const dark = 0.72 * (1 - 0.65 * this.meadow) * (1 - this.dawnK);
+    // the tower's dark floor: only the lamp shows the way
+    const thick = sim.tower && sim.floorKind === 'dark' && sim.phase === 'play' ? 0.9 : 0.72;
+    const dark = thick * (1 - 0.65 * this.meadow) * (1 - this.dawnK);
     if (dark < 0.02) return;
     const l = this.lampAt(sim);
     const r = Math.max(S * 0.8, this.lampShown * S);

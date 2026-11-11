@@ -2,7 +2,9 @@
  * Every number of Dolina's rules in one place (sim.ts re-exports it): the run, the jump and the
  * double jump, the staff that strikes by itself, the stones and the stairs, the gates, the lambs'
  * pens, the shadows, the tide of the dark behind, the guardians, the lamp (the live gauge), the Świt
- * (hold), the oil and the meadow (rest), the blocks and the meta.  Tuning moves a number here and
+ * (hold), the oil and the meadow (rest), the blocks and the meta — and, from version 3, the
+ * companions and their powers, the clock tower, the bridges, the swinging weights and the smoke
+ * curtains, gear, chests, provisions, missions and the forms.  Tuning moves a number here and
  * nowhere else; the tests read the same object.
  *
  * World units (u, about a metre): x to the right along the valley, y up.  The pilgrim is about 1 u
@@ -166,7 +168,7 @@ export const RULES = {
 
   // ── the oil (health) and grace ───────────────────────────────
   /** oil lost to a touch of each kind; per Oliwa upgrade the losses shrink by this share */
-  harm: { shadow: 0.12, roll: 0.1, crow: 0.1, pling: 0.08, guard: 0.14, pit: 0.08 },
+  harm: { shadow: 0.12, roll: 0.1, crow: 0.1, pling: 0.08, guard: 0.14, pit: 0.08, pend: 0.1 },
   oilStep: 0.1,
   /** after a hit nothing hurts for this long (s); a stumble slows the run this long (s) */
   safeSec: 1,
@@ -262,9 +264,133 @@ export const RULES = {
   /** the level's card stays this long (s) */
   cardSec: 2.6,
 
+  // ── v3: the companions (they run and fight alongside) ────────
+  comp: {
+    /** each power's cooldown (s) at bond level 1; every level after the first takes this share off */
+    cd: { glaz: 9, babcia: 12, bobr: 14, zegar: 13, kozica: 10, wiewiorka: 11 },
+    cdLevel: 0.07,
+    /** the bond that reaches levels 1..5 (all time); level 3 changes the power */
+    bond: [0, 40, 120, 260, 480],
+    /** bond gained in a run: a break, a kill, a power fired, a lamb freed, a level or a tower floor */
+    gain: { break: 1, kill: 2, power: 4, lamb: 6, level: 10 },
+    /** while he is stopped at a block each companion strikes it every assistGap s at assistK of his power (+ per level) */
+    assistGap: 0.5,
+    assistK: 0.3,
+    assistLevel: 0.15,
+    /** in a live push above the threshold their blows are gold: × gold */
+    gold: 1.5,
+    /** in the meadow calm fills the charge (powers per s at calm 1, after the lead-in) */
+    restCharge: 0.06,
+    /** Huk (Głaz): his power × huk (+ per level); from level 3 the next target ahead takes half */
+    huk: 8,
+    hukLevel: 1.5,
+    hukReach: 5,
+    /** Parasol (Babcia): hits the umbrella takes (level 3: two) */
+    parasol: [1, 2],
+    /** Rusztowanie (Bóbr): wooden steps added to the next stair (level 3: more); his stairs build this much faster */
+    scaffold: [3, 5],
+    scaffoldFast: 0.5,
+    /** Pauza (Zegarmistrz): seconds of slow time (level 3: longer) and how slow the rest of the valley goes */
+    pause: [3, 4.5],
+    slow: 0.35,
+    /** Szarża (Kozica): how far ahead she charges (level 3: further), a small block's hit × power, the tide pushed back, his burst */
+    charge: [6, 8],
+    chargeHit: 4,
+    chargeTide: 5,
+    dash: 1.2,
+    dashK: 1.4,
+    /** Zapasy (Wiewiórka): stones she digs up (level 3: more) and sparks */
+    stash: [3, 5],
+    stashSparks: 3,
+    /** the levels (valley) and tower floors from which the k-th companion's cage can stand (catch-up: the first one at or past it) */
+    findLevel: [1, 3, 4, 7, 10, 13],
+    findFloor: [2, 3, 6, 9, 12, 16],
+    /** a cage's light in strikes of the expected weapon */
+    cageStrikes: 7,
+  },
+
+  // ── v3: the clock tower (the second mode) ────────────────────
+  tower: {
+    /** a floor's road before its ledge (u): base + per floor (capped) */
+    len: [26, 0.25, 12],
+    /** a keeper every this many floors; the weapon starts over after each */
+    keeperEvery: 5,
+    /** the clock's hands move this many minutes a floor; the dawn at this floor (06:00), then a new night */
+    minutes: 6,
+    dawnFloor: 60,
+    /** sparks for a floor: base + per five floors */
+    floorSparks: [6, 1],
+    /** a tower floor is this share of a valley level in difficulty */
+    perFloor: 1 / 3,
+    /** the tide floor: the dark starts this close and runs this much faster */
+    tideStart: 7,
+    tideFast: 1.25,
+    /** a keeper's light in strikes of the sword he brings; + per night */
+    keeperStrikes: 26,
+    keeperNight: 0.3,
+    keeperSparks: 30,
+  },
+
+  // ── v3: the new things on the road (Firebound's reactive obstacles) ─
+  /** a crumbling plank bridge: a plank's width, how long it holds once trodden (s), missing planks to jump, the bridge's length (u) */
+  bridge: { plank: 0.55, fall: 0.32, missing: [1, 2], len: [4.4, 7.2] },
+  /** a swinging clock weight: its arm and swing (u, rad), period (s), the weight's radius and its lowest centre above the road (u) */
+  pend: { arm: 3, swing: 0.55, period: 2.2, r: 0.38, low: 0.75 },
+  /** the smoke curtain: its light in strikes; the sword bites at this share; the light above the threshold burns it; what it pays */
+  barrier: { strikes: 4, sword: 0.5, burn: 0.35, stones: 2, sparks: 6, h: 2.4, w: 0.7 },
+  /** the giant block at the end of a gate floor: strikes at the floor's expected weapon, stones, width (u) */
+  giant: { strikes: 20, stones: 10, w: 1.5 },
+
+  // ── v3: gear, chests, provisions ────────────────────────────
+  gear: {
+    /** tiers 1..top per slot; shards for the next tier = shards × the tier now */
+    top: 6,
+    shards: 3,
+    /** per tier: the blade strikes faster, the cloak takes less harm and spills fewer stones, the sandals run faster, the lamp lights the Świt sooner and the brook gives more */
+    blade: 0.07,
+    cloak: 0.06,
+    cloakSpill: 0.1,
+    sandals: 0.02,
+    lamp: 0.05,
+  },
+  chest: {
+    /** what a chest holds: gear, a companion's bond, provisions (shares) */
+    gear: 0.7,
+    bond: 0.2,
+    bondN: 60,
+    buffRuns: 3,
+    /** a chest's gear tier odds (tiers 1..5) by where it came from */
+    tiers: {
+      guard: [40, 35, 20, 5, 0],
+      keeper: [0, 40, 35, 20, 5],
+      mission: [50, 35, 15, 0, 0],
+      dawn: [0, 0, 40, 40, 20],
+    },
+  },
+  /** provisions for three runs: honey (the companions charge faster), raisins (more sparks), dates (less harm) */
+  buff: { honey: 1.25, raisins: 1.2, dates: 0.7 },
+
+  // ── v3: missions ─────────────────────────────────────────────
+  /** sparks for a mission: base + per rung of its ladder; a chest every chestEvery missions */
+  mission: { reward: [25, 10], chestEvery: 3 },
+
+  // ── v3: the forms (the pilgrim evolves: each brings a perk) ──
+  form: {
+    /** 1 Wędrowiec: a stomp's landing shakes what stands near (u), blocks take × power */
+    shockR: 1.4,
+    shockK: 2,
+    /** 2 Lampiarz: in a live push above the threshold the sword strikes this much faster (gap ×) */
+    rhythm: 0.77,
+    /** 4 Przewodnik: the companions charge × this; a longer flock */
+    lead: 1.2,
+    flock: 10,
+    /** 5 Mistrz lampy: the double jump's flap beats shadows and breaks throws this close (u) */
+    flame: 2,
+  },
+
   // ── the meta ─────────────────────────────────────────────────
-  /** the pilgrim's looks by all sparks ever: cloak, traveller, lamplighter, keeper of the dawn */
-  looks: [0, 150, 500, 1200],
+  /** the pilgrim's looks (forms) by all sparks ever: cloak, traveller, lamplighter, keeper of the dawn, guide, master of the lamp */
+  looks: [0, 150, 500, 1200, 2600, 5000],
   /** upgrades: price of level L+1 = base × growth^L; their top levels */
   priceBase: 40,
   priceGrowth: 1.55,

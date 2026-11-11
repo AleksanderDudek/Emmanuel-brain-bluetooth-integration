@@ -2,12 +2,13 @@
  * Dolina's calibration intro: the edge of the valley at night.  The pilgrim stands at the top of the
  * road with his lamp unlit; while the reference fills (`p` 0..1) the lamp kindles and its light
  * widens, the lantern posts down the valley light one by one, and Ćma comes fluttering out of the
- * dark to the flame.  The runner's calibration card covers the lower part of the screen, so the
- * scene sits high.
+ * dark to the flame; his companions (v3) wait behind him and step into the light.  The runner's
+ * calibration card covers the lower part of the screen, so the scene sits high.
  */
 import { approach, clamp, ease } from '../kit/juice';
+import { paintMate } from './cast';
 import { ERAS, eraOfLevel } from './content';
-import { lookOf, type DolinaProgress } from './meta';
+import { lookOf, partyFor, type DolinaProgress } from './meta';
 import { PAL, glow, paintFar, paintMid, paintMoth, paintPilgrim, paintPost, paintRoad, paintSky } from './paint';
 
 export class DolinaIntro {
@@ -48,6 +49,14 @@ export class DolinaIntro {
     ctx.globalCompositeOperation = 'lighter';
     glow(ctx, lx, ly, r, 'rgba(255,190,110,', 0.12 + 0.2 * k);
     ctx.restore();
+    // the party waits with him at the valley's edge, stepping into the light as it widens
+    partyFor(progress).forEach((id, i) => {
+      const mx = px - S * (1.0 + i * 0.85);
+      if (mx < S * 0.3) return;
+      ctx.globalAlpha = 0.35 + 0.65 * ease.outCubic(clamp(k * 1.4 - i * 0.15));
+      paintMate(ctx, id, mx, floorY, S * 0.95, { run: 0, t: t + i, act: 0, gold: k > 0.9, air: false, sleep: k < 0.2 });
+      ctx.globalAlpha = 1;
+    });
     const lamp = paintPilgrim(ctx, px, floorY, S, {
       look: lookOf(progress.sparksAll), run: 0, pace: 0, air: false, slide: 0, fall: 0, slash: -1, lampUp: 0.3 + 0.2 * Math.sin(t * 1.3), flicker: 1 - k,
     });

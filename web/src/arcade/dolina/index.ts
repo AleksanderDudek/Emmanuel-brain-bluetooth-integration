@@ -10,6 +10,11 @@
  * tide is pushed back; a held focus lights the Świt; in the meadow calm gathers pebbles for the next
  * stair and refills the oil.  Ćma talks.  Nothing ends a run early.
  *
+ * Version 3: up to three companions found on the road run with him and fire their powers by
+ * themselves (faster in the lamp's light above the threshold; calm in the meadow fills them), the
+ * clock tower is a second mode of trial floors and keepers, and gear, chests, provisions, missions
+ * and forms make the meta (the lobby's card picks the mode and the party).
+ *
  * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts with the numbers
  * in rules.ts, the data in content.ts, the meta in meta.ts and Ćma in companion.ts), the pictures
  * (render.ts with hud.ts, sprites.ts and layout.ts, intro.ts for calibration, preview.ts for the
@@ -132,14 +137,14 @@ class DolinaGame implements ArcadeGame {
   /** The panel's gauge: the lamp's reach (0.5 at its threshold ring) in a push, calm in the meadow. */
   meter(): number | null { return this.sim.meter(); }
 
-  /** The score corner: metres of the valley; under it the level and floor, or how far the record is. */
+  /** The score corner: metres of the valley; under it the level and floor (in the tower: the floor and the clock), or how far the record is. */
   headline(): Headline {
     const s = this.sim;
     const best = s.bestBefore;
     let sub: string;
     if (best !== null && s.score > best) sub = t('hud.record');
     else if (best !== null && best - s.score <= 150) sub = t('hud.toRecord', { n: best - s.score });
-    else sub = t('hud.sub', { n: s.level, s: s.stage });
+    else sub = s.tower ? t('hud.floor', { n: s.floor, time: s.clock }) : t('hud.sub', { n: s.level, s: s.stage });
     return { value: s.score, sub };
   }
 
@@ -166,6 +171,12 @@ function haptic(e: SimEvent): void {
     case 'guard': if (e.what === 'beaten') buzz([30, 40, 30, 40, 60]); break;
     case 'level': buzz([10, 30, 10, 30, 30]); break;
     case 'fall': buzz([10, 60, 10]); break;
+    case 'mate': if (e.what === 'join') buzz([20, 30, 20, 30, 50]); break;
+    case 'power': buzz(e.power === 'huk' ? [24, 20, 24] : 14); break;
+    case 'shield': buzz([10, 20, 10]); break;
+    case 'chest': buzz([15, 25, 15, 25, 40]); break;
+    case 'floorDone': buzz([10, 30, 10]); break;
+    case 'shock': buzz(18); break;
     default: break;
   }
 }

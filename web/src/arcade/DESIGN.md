@@ -1328,7 +1328,7 @@ in a session.
 * **Exclusive symbols.** The lamp, the valley and the moth to Dolina; the basket, the gates and the
   gulls to Chleby; the shield, the dragon and the princess to Jerzy i smok.
 
-### 9.2 Dolina — the valley of the shadow (climb-out runner after Hell Escape, v2)
+### 9.2 Dolina — the valley of the shadow (climb-out runner after Hell Escape, v2 → v3)
 
 *Psalm 23:4 — "Even though I walk through the valley of the shadow of death, I will fear no evil."*
 A pilgrim with an oil lamp climbs out of the valley floor by floor. Version 2 (2026-11-07) rebuilt
@@ -1406,6 +1406,96 @@ smash, climb, outrun the horde — and on the founder's request for a **double j
   run Psalm 23:4; a lamb Luke 15:4-6; a guardian Romans 12:21; a fall Micah 7:8; a Świt John 1:5;
   five double jumps and a level Habakkuk 3:19; a long push Psalm 119:105; a passed rest Psalm
   23:1-3; else Psalm 139:12.
+
+**Version 3 (2026-11-11): companions, the clock tower, gear — after the newest Hell Escape.** The
+founder's verdict on the earlier Dolina was "boring / unclear"; v3 keeps the whole core above (run,
+smash, stairs, double jump, the lamp, the meadow, Ćma, the eras, the guardians, the tide, stars) and
+grows towards what Hell Escape became in 2026 (store page updated 2026-11-04, App Store "Firebound"
+version history 1.8 → 1.13, ~35 reviews): companion slots ("three companions", sold for $16 there),
+god skills Dash / Shield / Smite / Time Slow that "break barriers", collapsing bridges and spinning
+blades, "boss and trial floors", gear tiers with a battle-power number, chests, "buff for 5 runs",
+side challenges, and the Guild Tower climbed floor by floor. Everything the original sells is earned
+by play here; nothing is bought, timed or ad-gated.
+
+* **Companions (Towarzysze).** Six, each lost in the dark and freed from a **cage of smoke** that
+  stands across the road (3.2 u: it must be broken) on the second floor of levels 1, 3, 4, 7, 10 and
+  13, or on tower floors 2, 3, 6, 9, 12 and 16 (the first one past its mark, so an old save finds
+  them one level at a time). **Slots:** one, plus one for each of the first two guardians beaten
+  (keepers count). The lobby picks the party (a tap takes one along or leaves them at the camp).
+  They run behind him, crowd in to **strike the block he is stopped at** (0.3 of his power every
+  0.5 s, more by bond level), and each carries one power that **fires by itself** when its ring is
+  full and it has something to do — the original's god skills, without gods:
+  *Głaz* (a gentle giant afraid of the dark and of moths; he apologises to stones) — **Huk**, a
+  mallet blow of 8 sword strikes on the block, shadow or open guardian ahead (level 3: the next block
+  too); *Babcia* (a grandmother with a black umbrella; shadows are "hooligans") — **Parasol**, takes
+  the next hit, even the tide's catch (level 3: two); *Bóbr* (a perfectionist engineer in a hard hat)
+  — **Rusztowanie**, three wooden steps added to a stair as it starts (level 3: five; his stairs build
+  twice as fast); *Zegarmistrz* (all his watches run five seconds late, "like your headband" — the
+  band's delay told as a joke) — **Pauza**, 3 s in which shadows, throws, weights, the tide and a
+  guardian move at 35 %; *Kozica* (a chamois who eats maps) — **Szarża**, charges 6 u ahead through
+  shadows and small blocks and pushes the tide back; *Wiewiórka* (a squirrel who hides everything) —
+  **Zapasy**, digs up three stones and gives back what the tide spilled. **Bond** grows with what
+  they do together (a break 1, a kill 2, a power 4, a lamb 6, a level or tower floor 10) and is
+  settled once per run; levels at 40 / 120 / 260 / 480 shorten the cooldown, and level 3 changes the
+  power. They talk (one voice at a time with Ćma): a join line, three power lines, three quips, two
+  level lines, and Ćma reacts to each when freed.
+* **The band and the companions.** The lamp stays the gauge and the core. In a live push a power
+  charges at ×(1 + above(level)) — up to twice as fast at the top: *they fight in your light*, gold
+  rims and gold blows (×1.5) above the threshold. Never slower than ×1 without signal. In the meadow
+  they rest: calm fills their rings (0.06/s at calm 1) and a passed meadow fills them all; a Świt
+  fills them too. The registry's brain texts say so.
+* **The clock tower (the second mode).** Opens with the first guardian; the lobby switches *Dolina /
+  Wieża zegarowa*. The tower's clock stopped at midnight; every floor won moves the hands six
+  minutes, floor 60 is 06:00 — the dawn (a great chest, then a darker night). Floors are short
+  (26–38 u) and each is a **trial** (Firebound's trial floors): *Kamieniołom* (blocks for a tall
+  stair), *Kładka* (planks that fall 0.32 s after they are trodden, one or two already gone), *Wahadła*
+  (three clock weights swinging over the road: jump them low), *Galeria bram* (gates, then a giant
+  block of 20 strikes — the merge pays off), *Owczarnia* (three pens), *Ciemnica* (thick fog: only
+  the lamp shows the way — the band's floor), *Przypływ mroku* (the tide starts 7 u behind and 25 %
+  faster). Floors 1–4 teach in order; later bands of four take four different trials in their own
+  order; **every fifth floor a keeper**: Wieża, Rycerz z sadzy, Ekran and the tower's own
+  **Kukułka** (a cuckoo clock: the minute hand sweeps at head height — stay down; the hour hand along
+  the floor — jump; the weights — both jumps; its little door opens and the cuckoo is the weak point).
+  The weapon starts over after each keeper. The next tower run starts on the floor not yet passed.
+  The tower's inside is drawn as stone in candlelight with arched windows and the great clock showing
+  the floor's time; its meadow is the terrace outside.
+* **New things on the road.** Smoke curtains (from level 2): the sword and the companions' plain
+  blows bite at half, powers and the Świt in full, and the lamp's light above the threshold burns
+  them (a share of their light per second) — they pay 6 sparks and 2 stones. Plank bridges (from
+  level 4). Swinging weights and giant blocks in the tower.
+* **Gear (Rynsztunek).** Four slots — *Ostrze* (strikes 7 % faster a tier), *Płaszcz* (6 % less harm,
+  10 % fewer stones spilled), *Sandały* (2 % faster), *Lampa* (the Świt's hold 5 % shorter, the brook
+  5 % richer) — in six tiers named in craft words (Miedź, Brąz, Srebro, Złoto, Perła, Blask). Gear comes
+  from **chests** opened at once (no timers): every guardian's and keeper's, every third mission's,
+  the tower's dawn. A better piece is put on; an equal or lower one becomes shards, and shards merge
+  into the next tier (3 × the tier), so a duplicate is never wasted. One **Siła** number in the lobby
+  (the original's battle power) sums gear, upgrades, companions and the form. No "blessings" (§8.1).
+* **Provisions (Prowiant)** for three runs, from chests: *Miód* (powers charge ×1.25), *Rodzynki*
+  (sparks ×1.2), *Daktyle* (harm ×0.7) — the original's ad-gated "buff for 5 runs", earned instead.
+* **Missions (Zadania).** Three on offer, each kind climbing its own ladder (break 25 → 90 stones,
+  free 5 → 16 lambs, 8 → 35 double jumps, 3 → 12 high gates, stomps, a stair of 5 → 11 steps at once,
+  tower floors, guardians, metres, companion powers, meadows rested in); never a band goal (half of
+  people never gain reliable control). Done ones pay 25 + 10 a rung at once, and every third brings a
+  chest.
+* **Forms (the pilgrim evolves).** Six looks by sparks ever (0, 150, 500, 1200, 2600, 5000), each with
+  a perk that changes the fight: *Wędrowiec* — a stomp shakes the ground (blocks and shadows within
+  1.4 u take 2 strikes); *Lampiarz* — in a live push above the threshold the sword strikes 23 % faster;
+  *Stróż świtu* — a Świt raises the next stair whole; *Przewodnik* — companions charge ×1.2, ten lambs
+  follow; *Mistrz lampy* — the double jump's flap rings out and dissolves shadows and throws within 2 u.
+* **New moments every session.** A cage on the road, a companion joining (a portrait card and their
+  first line), a power's first firing, a slot opening, a bond level, a chest, a mission done, the
+  tower opening, each trial floor's card, a keeper, the clock's hands moving — and the old ones.
+* **Teaching.** Each new thing is explained once ever with a coach mark when it first comes into
+  sight: a cage, a companion, a power, the tower, a bridge, a weight, a curtain, a chest.
+* **Closing passages added:** a companion found — Hebrews 12:1 (the cloud of witnesses, running with
+  endurance); three tower floors — Philippians 3:14 (the upward call); the clock's dawn — 1 Peter 2:9
+  (out of darkness into His marvellous light); a lamp that nearly went out and did not — Isaiah 42:3
+  (the smouldering wick); two passed pushes without a fall — John 8:12. The tower's story card quotes
+  Philippians 3:14.
+* **Save.** Progress `ver: 3`. A version-2 save keeps everything (records, sparks, upgrades, the map
+  and its stars, lambs, guardians, what was explained) and gets the new fields fresh (the valley mode,
+  the tower at floor 1, no companions yet — their cages stand on the next levels — no gear, three
+  missions); a version-1 save keeps its records and session count; damaged fields are repaired.
 
 ### 9.3 Chleby — five loaves and two fish (crowd cannon after Mob Control, v2)
 

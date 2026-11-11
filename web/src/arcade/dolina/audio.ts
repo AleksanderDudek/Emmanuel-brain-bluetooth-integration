@@ -7,7 +7,10 @@
  * streak's ladder, the stones clattering into the pack, a stair's steps clicking into place one
  * pitch higher each; the gate's chord, a lamb's little bleat (a bell pair), a stomp; a thud for a hit
  * taken, the tide's low swell; the Świt; the guardian's drone, its tells and its fall; the brook's
- * pebbles.  A missed verdict makes no sound.
+ * pebbles.  A missed verdict makes no sound.  Version 3: a companion's fanfare when found, each
+ * power's own sound (the mallet's thud, the umbrella's whoosh, the hammer's taps, the watch's long
+ * tone, the charge's rush, the squirrel's pebbles), the tower's clock ticking a floor on and striking
+ * six at its dawn, planks creaking as they fall, a chest's sparkle, Kukułka's call.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
 import type { DolinaSim, SimEvent } from './sim';
@@ -198,6 +201,7 @@ export class DolinaSound {
         if (e.via === 'stomp') a.bell(ladder(14, ROOT), 0.05, 0.9);
         break;
       case 'move':
+        if (!e.act && e.id === 'kukulka') this.cuckoo();
         if (!e.act) {
           if (e.kind === 'high') a.tone(880, 0.3, { type: 'sine', gain: 0.02, slideTo: 1320 });
           else if (e.kind === 'wall' || e.kind === 'pair') a.tone(130.81, 0.5, { type: 'triangle', gain: 0.03, slideTo: 196 });
@@ -213,8 +217,93 @@ export class DolinaSound {
         a.padChord([73.42, 110, 146.83, 220], 3);
         [0, 4, 7, 12].forEach((n, i) => a.bell(ladder(n, ROOT / 2), 0.04, 2.2, 0.4 + i * 0.25));
         break;
+      // ── v3 ──
+      case 'mate':
+        if (e.what === 'join') {
+          // a companion found: a little fanfare climbing up
+          [0, 4, 7, 12, 16].forEach((n, i) => a.bell(ladder(n, ROOT / 2), 0.05, 1.6, i * 0.09));
+          a.noiseBurst(0.8, { type: 'bandpass', freq: 500, sweepTo: 3000, gain: 0.03 });
+        }
+        break;
+      case 'slot':
+        [0, 7, 12].forEach((n, i) => a.bell(ladder(n, ROOT), 0.045, 1.4, i * 0.12));
+        break;
+      case 'mateLevel':
+        [0, 2, 4, 7].forEach((n, i) => a.bell(ladder(n + 5, ROOT), 0.04, 1.2, i * 0.07));
+        break;
+      case 'power':
+        switch (e.power) {
+          case 'huk':
+            a.tone(82.41, 0.35, { type: 'sine', gain: 0.12, slideTo: 41.2 });
+            a.noiseBurst(0.4, { type: 'lowpass', freq: 900, sweepTo: 200, gain: 0.09 });
+            break;
+          case 'parasol':
+            a.noiseBurst(0.25, { type: 'bandpass', freq: 1800, sweepTo: 600, q: 1.5, gain: 0.04 });
+            a.bell(ladder(7, ROOT), 0.035, 0.9, 0.1);
+            break;
+          case 'rusztowanie':
+            for (let i = 0; i < 3; i++) a.tone(520 + i * 40, 0.05, { type: 'square', gain: 0.02, at: i * 0.11 });
+            break;
+          case 'pauza':
+            a.tone(1046.5, 0.9, { type: 'sine', gain: 0.03, slideTo: 523.25 });
+            [0, 0.5].forEach(at => a.tone(1760, 0.04, { type: 'triangle', gain: 0.02, at }));
+            break;
+          case 'szarza':
+            a.noiseBurst(0.5, { type: 'lowpass', freq: 400, sweepTo: 1600, gain: 0.06 });
+            a.tone(196, 0.2, { type: 'triangle', gain: 0.04, slideTo: 392 });
+            break;
+          case 'zapasy':
+            for (let i = 0; i < 4; i++) a.tone(1400 + i * 160, 0.04, { type: 'triangle', gain: 0.02, at: i * 0.06 });
+            break;
+        }
+        break;
+      case 'assist':
+        a.tone(e.gold ? 1975.5 : 1318.5, 0.04, { type: 'triangle', gain: 0.012 });
+        break;
+      case 'shield':
+        a.tone(220, 0.15, { type: 'sine', gain: 0.06, slideTo: 330 });
+        a.bell(ladder(12, ROOT), 0.04, 0.8);
+        break;
+      case 'floor':
+        // the tower's clock ticks on
+        a.tone(1568, 0.03, { type: 'square', gain: 0.015 });
+        a.tone(1175, 0.03, { type: 'square', gain: 0.015, at: 0.25 });
+        break;
+      case 'floorDone':
+        [0, 4, 7].forEach((n, i) => a.bell(ladder(n, ROOT / 2), 0.045, 1.5, i * 0.08));
+        break;
+      case 'towerDawn':
+        // six strokes of the clock, then the dawn chord
+        for (let i = 0; i < 6; i++) a.bell(ladder(0, ROOT / 4), 0.06, 2.2, i * 0.45);
+        a.padChord([73.42, 110, 146.83, 220], 4);
+        break;
+      case 'plank':
+        a.noiseBurst(0.18, { type: 'bandpass', freq: 700, sweepTo: 250, q: 2, gain: 0.025 });
+        break;
+      case 'chest':
+        a.noiseBurst(0.3, { type: 'lowpass', freq: 700, gain: 0.04 });
+        [0, 4, 7, 11, 14].forEach((n, i) => a.bell(ladder(n, ROOT), 0.045, 1.4, 0.15 + i * 0.07));
+        break;
+      case 'mission':
+        [7, 12].forEach((n, i) => a.bell(ladder(n, ROOT), 0.045, 1.2, i * 0.1));
+        break;
+      case 'shock':
+        a.tone(110, 0.25, { type: 'sine', gain: 0.08, slideTo: 55 });
+        a.noiseBurst(0.2, { type: 'lowpass', freq: 500, gain: 0.05 });
+        break;
+      case 'flameRing':
+        a.noiseBurst(0.4, { type: 'bandpass', freq: 3000, sweepTo: 6000, q: 0.8, gain: 0.03 });
+        a.bell(ladder(14, ROOT), 0.04, 1);
+        break;
       default:
         break;
     }
+  }
+
+  /** Kukułka's call over its tells: two notes, a falling third. */
+  cuckoo(): void {
+    if (!this.a.on) return;
+    this.a.tone(784, 0.18, { type: 'sine', gain: 0.04 });
+    this.a.tone(659.25, 0.26, { type: 'sine', gain: 0.04, at: 0.22 });
   }
 }

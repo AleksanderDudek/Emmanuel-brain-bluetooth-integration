@@ -3,12 +3,14 @@
  * the shadow and double-jumping a wide pit — Ćma grabbing his hood and flapping, a puff of golden
  * dust — toward a numbered stone block and a stair rising to the next floor, the lamp's circle around
  * him with its threshold ring breathing gold, and the tide of the dark curling at the left edge.  In
- * the lobby (with progress) the run is in the era of the level the next run starts at, and the
- * pilgrim wears his look.  Drawn every frame, so it stays cheap: no state.
+ * the lobby (with progress) the run is in the era of the level the next run starts at, the pilgrim
+ * wears his form and his party runs behind him with their power rings (on the card: Głaz).  Drawn
+ * every frame, so it stays cheap: no state.
  */
 import { clamp } from '../kit/juice';
-import { ERAS, eraOfLevel } from './content';
-import { lookOf, type DolinaProgress } from './meta';
+import { MATE_H, paintChargeRing, paintMate } from './cast';
+import { ERAS, eraOfLevel, type CompId } from './content';
+import { lookOf, partyFor, type DolinaProgress } from './meta';
 import { PAL, TAU, glow, paintFar, paintMid, paintMoth, paintPilgrim, paintSky } from './paint';
 import { RULES } from './rules';
 import { paintBlock, paintGround, paintRim, paintStep, paintTide } from './sprites';
@@ -66,6 +68,15 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   ctx.stroke();
   ctx.setLineDash([]);
   paintTide(ctx, S * (0.25 + 0.15 * Math.sin(t * 0.9)), h * 0.35, h, S * 0.5, t, 0.4);
+  // the party running behind him (the card shows Głaz, the first one found)
+  const party: CompId[] = p ? partyFor(p) : ['glaz'];
+  party.forEach((id, i) => {
+    const mx = px - S * (1.05 + i * 0.85);
+    if (mx < -S) return;
+    const hop = Math.abs(Math.sin(t * 9 + i)) * S * 0.05;
+    paintMate(ctx, id, mx, floorY - hop, S * 0.95, { run: t * 11 + i * 1.3, t: t + i, act: 0, gold: level > 0.5, air: false, sleep: false });
+    paintChargeRing(ctx, mx, floorY - S * (MATE_H[id] * 0.95 + 0.3), Math.max(3, S * 0.12), (t * 0.25 + i * 0.37) % 1, level > 0.5, t);
+  });
   const lamp = paintPilgrim(ctx, px, pyy, S, { look: p ? lookOf(p.sparksAll) : 0, run: t * 11, pace: air ? 0.3 : 1, air, slide: 0, fall: 0, slash: -1, lampUp: 0.4, flicker: 0 });
   const flap = air && k > 0.3 && k < 0.6;
   if (flap) {

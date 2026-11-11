@@ -65,6 +65,9 @@ export const PAL: Readonly<Record<Scene, Palette>> = {
   dawn: P('#3a2c52', '#a0607e', '#f6b07c', '#6a4a66', '#4a3448', '#5a4140', '#9a6a52', '#3a2440', '#ffd9a0'),
 };
 
+/** The clock tower's inside (v3): stone in candlelight, brass, a cold night at the windows. */
+export const TOWER_PAL: Palette = P('#1b1522', '#2c2230', '#3a2a2a', '#2a2030', '#1e1820', '#3a2e2c', '#6a5446', '#120c14', '#f0c868');
+
 export function mixPal(a: Palette, b: Palette, k: number): Palette {
   if (k <= 0) return a;
   if (k >= 1) return b;
@@ -440,6 +443,9 @@ const LOOK_COLORS: readonly { cloak: string; shade: string; trim: string; hat: '
   { cloak: '#5f6f52', shade: '#46543c', trim: '#c9b27a', hat: 'brim' },
   { cloak: '#3d5a8a', shade: '#2c4268', trim: '#e0b85a', hat: 'cap' },
   { cloak: '#efe2c4', shade: '#cdbb94', trim: '#e8a93a', hat: 'hood' },
+  // v3: the guide (deep teal, a wide brim), the master of the lamp (amber, a hood with a gold rim)
+  { cloak: '#2f6a6a', shade: '#1f4c4c', trim: '#f0c868', hat: 'brim' },
+  { cloak: '#c9772e', shade: '#9a561c', trim: '#fff1c4', hat: 'hood' },
 ];
 
 /**
@@ -447,7 +453,7 @@ const LOOK_COLORS: readonly { cloak: string; shade: string; trim: string; hat: '
  * sword behind.  Returns where the lamp hangs (its light's centre).
  */
 export function paintPilgrim(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, p: PilgrimPose): { x: number; y: number } {
-  const L = LOOK_COLORS[Math.max(0, Math.min(3, p.look))];
+  const L = LOOK_COLORS[Math.max(0, Math.min(LOOK_COLORS.length - 1, p.look))];
   ctx.save();
   ctx.translate(x, y);
   if (p.fall > 0.02) {
@@ -536,12 +542,29 @@ export function paintPilgrim(ctx: CanvasRenderingContext2D, x: number, y: number
     ctx.lineTo(-S * 0.14, -S * 0.1);
     ctx.stroke();
   }
-  if (p.look === 3) {
-    // the keeper's sun clasp
+  if (p.look === 3 || p.look === 5) {
+    // the keeper's sun clasp (the master's is bigger, with rays)
     ctx.fillStyle = '#ffcf6a';
     ctx.beginPath();
-    ctx.arc(S * 0.12, -S * 0.6, S * 0.05, 0, TAU);
+    ctx.arc(S * 0.12, -S * 0.6, S * (p.look === 5 ? 0.07 : 0.05), 0, TAU);
     ctx.fill();
+    if (p.look === 5) {
+      ctx.strokeStyle = '#ffcf6a';
+      ctx.lineWidth = Math.max(1, S * 0.02);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU;
+        ctx.beginPath();
+        ctx.moveTo(S * 0.12 + Math.cos(a) * S * 0.09, -S * 0.6 + Math.sin(a) * S * 0.09);
+        ctx.lineTo(S * 0.12 + Math.cos(a) * S * 0.13, -S * 0.6 + Math.sin(a) * S * 0.13);
+        ctx.stroke();
+      }
+    }
+  }
+  if (p.look === 4) {
+    // the guide's scarf
+    ctx.fillStyle = '#e8b04a';
+    ctx.fillRect(-S * 0.16, -S * 0.7, S * 0.36, S * 0.07);
+    ctx.fillRect(-S * 0.2, -S * 0.66, S * 0.07, S * 0.2);
   }
   leg(0);
   // the head: a hood or hat behind, the face in front (it looks ahead, toward the light)

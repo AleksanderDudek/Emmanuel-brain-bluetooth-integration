@@ -12,7 +12,7 @@ import { C, SANS, TAU, font, glow, hash, mix, rgb, type Palette } from './paint'
 /** A floor's ground from x0 to x1 (px), its top at `top`, down to `bottom`; the meadow is grass, the dawn warm. */
 export function paintGround(
   ctx: CanvasRenderingContext2D, x0: number, x1: number, top: number, bottom: number, S: number, pal: Palette,
-  kind: 'road' | 'ledge' | 'meadow' | 'arena' | 'dawn', worldX0: number,
+  kind: 'road' | 'ledge' | 'meadow' | 'arena' | 'dawn' | 'bridge', worldX0: number,
 ): void {
   if (x1 <= x0 || top >= bottom) return;
   const meadow = kind === 'meadow';
@@ -92,6 +92,8 @@ export interface BlockPose {
   hit: number;
   t: number;
   id: number;
+  /** v3: the gate gallery's giant block (a big plaque, a gold rim) */
+  giant?: boolean;
 }
 
 /** A stone block, its left edge at x and its base at y (px), w × h px: cut stone with its number on a plaque. */
@@ -136,8 +138,13 @@ export function paintBlock(ctx: CanvasRenderingContext2D, x: number, y: number, 
     ctx.fillStyle = `rgba(255,246,220,${0.55 * p.hit})`;
     ctx.fillRect(x, y - h, w, h);
   }
+  if (p.giant) {
+    ctx.strokeStyle = `rgba(245,195,90,${0.6 + 0.3 * Math.sin(p.t * 4)})`;
+    ctx.lineWidth = Math.max(2, S * 0.07);
+    ctx.strokeRect(x, y - h, w, h);
+  }
   // the plaque with its number (in the fog only a question mark)
-  const ph = Math.min(S * 0.42, h * 0.38), pw = Math.max(S * 0.7, w * 0.78);
+  const ph = p.giant ? S * 0.62 : Math.min(S * 0.42, h * 0.38), pw = Math.max(p.giant ? S * 1.25 : S * 0.7, w * 0.78);
   const px = x + (w - pw) / 2, py = y - h * (p.tall ? 0.62 : 0.55) - ph / 2;
   ctx.fillStyle = 'rgba(24,18,26,.78)';
   ctx.beginPath();

@@ -31,6 +31,21 @@
  *                  veiled; at the block's end its last 15 s become one flash of that strength.
  * Each block is judged once at its end (RoundJudge, the session's tuning).  While the signal is
  * unreliable the lamp rests at its base; never a loss.  The headline is the metres run, live.
+ *
+ * Version 3 (after the newest Hell Escape) adds, around that core:
+ *   companions     up to three run behind him (slots open with the guardians beaten; each one is found
+ *                  in a cage of smoke on the road), strike a block he is stopped at with him, and each
+ *                  carries a power that fires by itself when charged — Huk, Parasol, Rusztowanie,
+ *                  Pauza, Szarża, Zapasy.  In a live push their charge runs faster the higher the
+ *                  lamp stands above the threshold (they fight in his light); in the meadow calm fills
+ *                  it, and a passed meadow fills it all.
+ *   the tower      the second mode: the clock tower's floors, each a trial (a quarry, a bridge of
+ *                  falling planks, swinging weights, gates and a giant block, pens, a dark floor, the
+ *                  dark rising fast), a keeper every fifth; the clock's hands move toward the dawn.
+ *   the road       crumbling bridges, swinging weights, smoke curtains that the light, the powers and
+ *                  the Świt break best, a giant block, the companions' cages.
+ *   the meta       gear from chests (the guardians', the keepers', every third mission's), provisions
+ *                  for three runs, missions, and forms that each bring a perk.
  */
 import { fmtNum } from '../../i18n';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
@@ -40,14 +55,22 @@ import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome } from '../kit/types';
 import { Companion, type Moment } from './companion';
 import {
-  ANSWER, ERAS, ERA_SHADOWS, GUARDS, SEQ, SHADOWS, TIPS, eraName, eraOfLevel, guardLevel, guardName, lapOfLevel, lookName, powerOf,
-  type Answer, type EraId, type GuardId, type HarmKind, type MoveKind, type ShadowKind,
+  ANSWER, COMPS, ERAS, ERA_SHADOWS, GUARDS, GUARD_ERA, KEEPERS, POWER, SEQ, SHADOWS, TIPS, compName, eraName, eraOfLevel, floorName, gearName, guardLevel,
+  guardName, lapOfLevel, lookName, powerOf, tierName,
+  type Answer, type BuffId, type CompId, type EraId, type FloorKind, type GearSlot, type GuardId, type HarmKind, type MissionKind, type MoveKind,
+  type PowerId, type ShadowKind,
 } from './content';
 import { sparks as sparksText, t, type Key } from './i18n';
-import { bestFor, lenKey, lookOf, setStars, starsOf, upLevel, type DolinaProgress } from './meta';
+import {
+  activeBuffs, applyChest, bestFor, bondLevel, clockTime, compBond, completeMission, gearTier, lenKey, lookOf, missionReward, nightOf, partyFor,
+  rollChest, setStars, slotsFor, starsOf, upLevel,
+  type ChestDrop, type ChestSource, type DolinaProgress, type GearResult, type Mission, type Mode,
+} from './meta';
+import { WARM_PLAN, eraOfFloor, floorKind, floorLevel, keeperFloor, stagePlan, towerPlan, type Beat } from './plan';
 import { RULES, span } from './rules';
 
 export { RULES } from './rules';
+export { WARM_PLAN, stagePlan, type Beat } from './plan';
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
@@ -57,15 +80,29 @@ export type LampLook = 'flame' | 'live' | 'wait' | 'grey' | 'blind';
 /** How a shadow left the road. */
 export type Via = 'strike' | 'stomp' | 'light' | 'dawn' | 'flash' | 'fade';
 
-/** A stretch of ground: its top (u). The kind is only for the painter. */
-export interface Seg { x0: number; x1: number; y: number; kind: 'road' | 'ledge' | 'meadow' | 'arena' | 'dawn' }
-/** A stone block (or a pen with a lamb in it): its left edge, base and size, its light (hit points) and what it gives. */
+/**
+ * A stretch of ground: its top (u). The kind is mostly for the painter; a bridge's plank (v3) holds a
+ * moment after it is trodden (`crumble` counts from the first step, −1 untouched) and then falls.
+ */
+export interface Seg {
+  x0: number; x1: number; y: number; kind: 'road' | 'ledge' | 'meadow' | 'arena' | 'dawn' | 'bridge';
+  crumble?: number; gone?: boolean;
+}
+/**
+ * A stone block (or a pen with a lamb in it): its left edge, base and size, its light (hit points) and
+ * what it gives.  Version 3: a companion's cage, a smoke curtain, a giant block.
+ */
 export interface Stone {
   id: number; x: number; y: number; w: number; h: number; hp: number; max: number;
   stones: number; tall: boolean; pen: boolean; alive: boolean; level: number;
   /** a hit's flash (s left), inside the light now */
   hitT: number; lit: boolean;
+  cage?: CompId; barrier?: boolean; giant?: boolean;
 }
+/** A clock weight swinging over the road from above: its pivot's x, the road under it, its phase (rad), a hit's flash. */
+export interface Pend { id: number; x: number; y: number; ph: number; hitT: number }
+/** A companion on the run: their bond level, the power's charge (0..1), seconds since it fired, the bond this run, the next assist. */
+export interface Mate { id: CompId; lv: number; charge: number; fired: number; bondRun: number; assistCd: number }
 /** A step of a built stair. */
 export interface Step { x0: number; x1: number; y0: number; top: number; age: number; wall: number }
 /** A ledge: the wall at its front, the floor below and above, the stair built at its foot. */
@@ -73,6 +110,8 @@ export interface Wall {
   id: number; x: number; y0: number; top: number; level: number; stage: number;
   /** steps wanted to walk up, steps built (and planned), the jump left at the top */
   need: number; built: number; plan: number; buildT: number; started: boolean; passed: boolean;
+  /** v3: the Świt (keeper of the dawn's form) raises it whole; Bóbr's wooden steps in it */
+  full?: boolean; wood?: number;
 }
 /** A gate of light hung over the road: passing through merges the weapon up. */
 export interface Gate { id: number; x: number; y: number; high: boolean; plus: number; taken: boolean }
@@ -95,19 +134,24 @@ export interface Guard {
   /** the weak point opened by a Świt (s left), a hit's flash */
   dawnOpen: number; hitT: number; angry: boolean;
 }
-export interface Arena { x: number; y: number; level: number; guard: Guard | null; done: boolean }
+/** A guardian's arena: in the valley at a level's end (the era's guardian), in the tower every fifth floor (`keeper`). */
+export interface Arena { x: number; y: number; level: number; guard: Guard | null; done: boolean; keeper?: GuardId }
 
 /** What the coach mark teaches (the first session) or explains the first time (later sessions). */
 export type Teach =
   | 'jump' | 'double' | 'strike' | 'tall' | 'gate' | 'stomp' | 'lamb' | 'stairsJump' | 'stairsDouble' | 'stairsClimb'
-  | 'tide' | 'meadow' | 'guard' | 'open' | 'fog' | 'dawn';
+  | 'tide' | 'meadow' | 'guard' | 'open' | 'fog' | 'dawn'
+  // v3: a cage, a companion joined, a power fired, the tower, a bridge, a weight, a curtain, a chest
+  | 'cage' | 'mate' | 'power' | 'tower' | 'bridge' | 'pend' | 'barrier' | 'chest';
+/** First-time explanations (once ever, in any session). */
+export type Explain = 'tide' | 'meadow' | 'guard' | 'open' | 'fog' | 'dawn' | 'cage' | 'mate' | 'power' | 'tower' | 'bridge' | 'pend' | 'barrier' | 'chest';
 
 export type SimEvent =
   | { type: 'jump'; air: boolean; x: number; y: number }
   | { type: 'land'; x: number; y: number; v: number }
   | { type: 'stomp'; x: number; y: number; what: 'shadow' | 'stone' | 'guard' }
   | { type: 'strike'; x: number; y: number; what: 'stone' | 'shadow' | 'guard'; dmg: number }
-  | { type: 'break'; id: number; x: number; y: number; stones: number; tall: boolean; pen: boolean; combo: number; via: 'strike' | 'stomp' | 'dawn' }
+  | { type: 'break'; id: number; x: number; y: number; stones: number; tall: boolean; pen: boolean; combo: number; via: StoneVia; what: StoneWhat }
   | { type: 'kill'; id: number; kind: ShadowKind; x: number; y: number; via: Via; sparks: number; combo: number }
   | { type: 'gate'; id: number; plus: number; tier: number; high: boolean; x: number; y: number }
   | { type: 'lamb'; n: number; x: number; y: number }
@@ -145,7 +189,34 @@ export type SimEvent =
   | { type: 'finale' }
   | { type: 'done' }
   | { type: 'dayGift'; n: number }
-  | { type: 'look'; look: number };
+  | { type: 'look'; look: number }
+  // v3
+  /** a companion freed from a cage (and joining the party, or waiting at the camp for a slot) */
+  | { type: 'mate'; what: 'join' | 'wait'; id: CompId; x: number; y: number }
+  /** a companion's power fired: what it did in numbers (a blow's damage, steps, seconds, stones) */
+  | { type: 'power'; id: CompId; power: PowerId; x: number; y: number; n: number }
+  /** a companion strikes the block he is stopped at */
+  | { type: 'assist'; id: CompId; x: number; y: number; dmg: number; gold: boolean }
+  /** the umbrella took a hit */
+  | { type: 'shield'; x: number; y: number; left: number }
+  | { type: 'mateLevel'; id: CompId; lv: number }
+  | { type: 'slot'; n: number }
+  /** a tower floor begins (its trial and the clock), is passed, the clock reaches the dawn */
+  | { type: 'floor'; floor: number; kind: FloorKind; time: string }
+  | { type: 'floorDone'; floor: number; sparks: number; time: string }
+  | { type: 'towerDawn'; night: number }
+  | { type: 'plank'; x: number; y: number }
+  | { type: 'chest'; source: ChestSource; drop: ChestDrop; gear: GearResult | null }
+  | { type: 'mission'; m: Mission; sparks: number; chest: boolean }
+  /** the first guardian ever beaten: the clock tower opens (the lobby's second mode) */
+  | { type: 'towerOpen' }
+  /** the first form's stomp shakes the ground; the last form's flap rings out */
+  | { type: 'shock'; x: number; y: number; n: number }
+  | { type: 'flameRing'; x: number; y: number; n: number };
+
+/** How a block was broken, and what it was. */
+export type StoneVia = 'strike' | 'stomp' | 'dawn' | 'mate' | 'light';
+export type StoneWhat = 'block' | 'pen' | 'cage' | 'barrier' | 'giant';
 
 const NO_EVENTS: readonly SimEvent[] = [];
 
@@ -240,38 +311,25 @@ export const guardHpFor = (level: number, plannedSec: number, tier: number): num
 /** The stars of a level: the top reached, every lamb freed (or none to free), never caught. */
 export const starsFor = (lambs: number, pens: number, caught: boolean): number => 1 + (lambs >= pens ? 1 : 0) + (caught ? 0 : 1);
 
-/** What a stretch of a floor holds, in order: the generator lays them with gaps between. */
-export type Beat = 'pitN' | 'pitW' | 'block' | 'tall' | 'pair' | 'walker' | 'special' | 'gate' | 'gate2' | 'pen';
-
-/**
- * A floor's beats for a level and stage (pure, from the rng): gates in its first and second half
- * (the second one high from level 2 or the second stage), a pen on the second floor and two on the
- * third (the original's cages), then blocks, pits (wide ones more often each level), shadows and the
- * era's special (from level 2), shuffled between them.
- */
-export function stagePlan(level: number, stage: number, rnd: () => number): Beat[] {
-  const L = Math.max(1, level);
-  const len = RULES.stageLen[0] + Math.min(RULES.stageLen[2], RULES.stageLen[1] * (L - 1));
-  const n = Math.max(5, Math.round(len / 7.5));
-  const wide = Math.min(0.6, 0.25 + 0.05 * L);
-  const pool: Beat[] = [];
-  for (let i = 0; i < n; i++) {
-    const r = rnd();
-    if (r < 0.34) pool.push(rnd() < 0.3 + 0.03 * L ? (rnd() < 0.5 ? 'tall' : 'pair') : 'block');
-    else if (r < 0.58) pool.push(rnd() < wide ? 'pitW' : 'pitN');
-    else if (r < 0.8 || L < 2) pool.push('walker');
-    else pool.push('special');
-  }
-  const pens = stage === 3 ? 2 : stage === 2 ? 1 : 0;
-  for (let i = 0; i < pens; i++) pool.splice(Math.floor(rnd() * (pool.length + 1)), 0, 'pen');
-  // the gates: one early, one past the middle (high from level 2 or the second floor)
-  pool.splice(Math.min(pool.length, 1 + Math.floor(rnd() * 2)), 0, 'gate');
-  pool.splice(Math.max(0, pool.length - 1 - Math.floor(rnd() * 2)), 0, L >= 2 || stage >= 2 ? 'gate2' : 'gate');
-  return pool;
+// ── v3: pure rules of the companions, the gear and the forms ─────
+/** A companion's power cooldown (s) at a bond level. */
+export const cooldownFor = (id: CompId, lv: number): number => RULES.comp.cd[id] * (1 - RULES.comp.cdLevel * (Math.max(1, lv) - 1));
+/** The rate a power charges at: × (1 + above(level)) in a live push (they fight in his light), never less than 1. */
+export const chargeRate = (live: boolean, level: number): number => 1 + (live ? above(level) : 0);
+/** Huk's blow at a level, in strikes of his power. */
+export const hukFor = (lv: number): number => RULES.comp.huk + RULES.comp.hukLevel * (Math.max(1, lv) - 1);
+/** The strike gap (s) with the blade's tier, and the Lampiarz's golden rhythm in a live push above the threshold. */
+export const strikeGapFor = (bladeTier: number, rhythm: boolean): number =>
+  RULES.strikeGap / (1 + RULES.gear.blade * Math.max(0, bladeTier)) * (rhythm ? RULES.form.rhythm : 1);
+/** The harm a hit does with the Dzban upgrades, the cloak's tier and the dates (provisions). */
+export const harmWith = (kind: HarmKind, oilUps: number, cloakTier: number, dates: boolean): number =>
+  harmFor(kind, oilUps) * (1 - RULES.gear.cloak * Math.max(0, cloakTier)) * (dates ? RULES.buff.dates : 1);
+/** Where a swinging weight is (centre, u from its pivot's x and the road) at a phase. */
+export function pendAt(p: { x: number; y: number; ph: number }): { x: number; y: number } {
+  const P = RULES.pend;
+  const th = P.swing * Math.sin(p.ph);
+  return { x: p.x + P.arm * Math.sin(th), y: p.y + P.low + P.arm * (1 - Math.cos(th)) };
 }
-
-/** The first-ever floor: one thing at a time, each taught when it comes. */
-export const WARM_PLAN: readonly Beat[] = ['pitN', 'block', 'pitW', 'gate2', 'walker', 'tall', 'pen', 'pitN', 'block'];
 
 // ── the session ──────────────────────────────────────────────────
 export interface SimInit {
@@ -450,6 +508,43 @@ export class DolinaSim {
   readonly bestBefore: number | null;
   readonly levelStart: number;
 
+  // ── v3 ──
+  /** the valley's levels or the clock tower's floors; the tower's first run (its story card) */
+  readonly mode: Mode;
+  readonly towerFirst: boolean;
+  /** the tower: the floor he is on, the one the run began on, its trial, floors passed this run, the clock's dawns */
+  floor: number;
+  readonly floorStart: number;
+  floorKind: FloorKind = 'quarry';
+  floorsDone = 0;
+  towerDawns = 0;
+  /** the companions running with him, the slots open, those freed this run (and waiting at the camp) */
+  readonly party: Mate[] = [];
+  slots: number;
+  readonly freedNow: CompId[] = [];
+  private cageFor: CompId | null = null;
+  /** the umbrella's hits left, slow time left (s), the goat's burst left (s) */
+  shieldHits = 0;
+  slowT = 0;
+  dashT = 0;
+  /** powers fired this run, chests opened, missions done, the swinging weights on the road */
+  powers = 0;
+  readonly chestsNow: { source: ChestSource; drop: ChestDrop; gear: GearResult | null }[] = [];
+  readonly missionsNow: Mission[] = [];
+  readonly pends: Pend[] = [];
+  /** the form's perks (the look), the gear's tiers (a chest may raise one mid-run), the provisions eaten this run */
+  readonly form: number;
+  readonly gear: Record<GearSlot, number>;
+  readonly buffs: ReadonlySet<BuffId>;
+  /** the oil's lowest this run (the smoldering wick's closing line) */
+  minOil = 1;
+  private lastScore = 0;
+  bestStair = 0;
+  /** stones the tide spilled (Wiewiórka finds them again) */
+  private spilled = 0;
+  /** the clock tower opened in this run */
+  towerOpened = false;
+
   constructor(private readonly init: SimInit) {
     const p = (this.p = init.progress);
     this.rng = init.rng;
@@ -459,25 +554,50 @@ export class DolinaSim {
     const band = init.eeg ? 'eeg' : 'fnirs';
     this.lead = RULES.leadIn[band];
     this.restLead = RULES.restLead[band];
-    this.dawnNeed = RULES.dawnHold[band];
     this.finaleSec = finaleFor(init.plannedSec);
     this.bestBefore = bestFor(p, init.plannedSec);
     this.session = p.sessions + 1;
     this.first = this.session === 1;
-    this.look = lookOf(p.sparksAll);
+    this.look = this.form = lookOf(p.sparksAll);
     this.ups = { stone: upLevel(p, 'stone'), forge: upLevel(p, 'forge'), income: upLevel(p, 'income'), lamp: upLevel(p, 'lamp'), oil: upLevel(p, 'oil') };
+    this.gear = { blade: gearTier(p, 'blade'), cloak: gearTier(p, 'cloak'), sandals: gearTier(p, 'sandals'), lamp: gearTier(p, 'lamp') };
+    this.buffs = new Set(activeBuffs(p));
+    // the lamp's gear lights the Świt sooner
+    this.dawnNeed = RULES.dawnHold[band] * (1 - RULES.gear.lamp * this.gear.lamp);
     this.level = this.levelStart = Math.max(1, Math.round(p.level || 1));
+    this.mode = p.mode === 'tower' && p.guards >= 1 && !this.first ? 'tower' : 'valley';
+    this.towerFirst = this.mode === 'tower' && !p.seen.includes('tower');
+    this.floor = this.floorStart = Math.max(1, Math.round(p.tower?.floor || 1));
     this.tier = startTier(this.ups.forge);
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.first, init.rng);
     this.talk = new Companion(init.rng);
-    this.gen = { level: this.level, stage: 1, i: 0, y: 0, beats: this.first ? WARM_PLAN.slice() : stagePlan(this.level, 1, this.rng) };
+    this.slots = slotsFor(p.guards);
+    for (const id of partyFor(p, this.slots)) this.party.push(this.mate(id));
+    if (this.mode === 'tower') {
+      this.floorKind = floorKind(this.floor);
+      this.gen = { level: this.floor, stage: 1, i: 0, y: 0, beats: this.withCage(towerPlan(this.floor, this.floorKind, this.rng), this.floor, 1) };
+    } else {
+      this.gen = { level: this.level, stage: 1, i: 0, y: 0, beats: this.first ? WARM_PLAN.slice() : stagePlan(this.level, 1, this.rng) };
+    }
   }
+
+  private mate(id: CompId): Mate {
+    return { id, lv: bondLevel(compBond(this.p, id)), charge: 0.35, fired: 9, bondRun: 0, assistCd: 0 };
+  }
+
+  /** In the tower: a floor counts as this valley level for the numbers (blocks, ledges, speed). */
+  private diff(n: number): number { return this.mode === 'tower' ? floorLevel(n) : n; }
+  /** The level the pilgrim's run is scaled by now (the valley's level, or the tower floor's). */
+  get difficulty(): number { return this.diff(this.mode === 'tower' ? this.floor : this.level); }
 
   get block(): Block { return this.plan[this.blockIndex]; }
   get next(): Block | null { return this.plan[this.blockIndex + 1] ?? null; }
-  get era(): EraId { return ERAS[eraOfLevel(this.level)]; }
-  get lap(): number { return lapOfLevel(this.level); }
+  get era(): EraId { return this.mode === 'tower' ? eraOfFloor(this.floor) : ERAS[eraOfLevel(this.level)]; }
+  get lap(): number { return this.mode === 'tower' ? nightOf(this.floor) - 1 : lapOfLevel(this.level); }
+  get tower(): boolean { return this.mode === 'tower'; }
+  /** the clock on the tower's wall ("01:12") */
+  get clock(): string { return clockTime(this.floor); }
   get blind(): boolean { return this.block?.kind === 'push' && this.block.blind && this.phase === 'play'; }
   get pushBlock(): boolean { return this.block?.kind === 'push' && this.phase === 'play'; }
   get restBlock(): boolean { return this.block?.kind === 'rest' && this.phase === 'play'; }
@@ -512,20 +632,27 @@ export class DolinaSim {
   start(): void {
     if (this.started) return;
     this.started = true;
-    this.story = this.first ? RULES.storySec : 0;
+    // the opening story card (the first session, the tower's first run) holds the road quiet
+    this.story = this.first || this.towerFirst ? RULES.storySec : 0;
     this.roadX = 0;
-    this.segs.push({ x0: -RULES.behind - 20, x1: this.first ? RULES.warmRun * RULES.storySec + 4 : 9, y: 0, kind: 'road' });
+    this.segs.push({ x0: -RULES.behind - 20, x1: this.story > 0 ? RULES.warmRun * RULES.storySec + 4 : 9, y: 0, kind: 'road' });
     this.roadX = this.segs[0].x1;
     this.startBlock(0);
     this.talk.clear();
     if (this.first) this.talk.say('first', 2, RULES.storySec + 6);
-    else {
+    else if (this.tower) {
+      this.talk.say('tower', 2, 12);
+      this.explain('tower');
+    } else {
       this.talk.say('open', 2, 12);
       this.talk.say(`era.${this.era}`, 1, 16);
     }
+    // a companion of the party greets the road now and then
+    if (this.party.length && !this.first) this.talk.say(`m.${this.party[Math.floor(this.rng() * this.party.length) % this.party.length].id}.quip`, 0, 30);
     this.layAhead();
     this.resumeTide();
     this.emit({ type: 'stage', level: this.level, stage: this.stage });
+    if (this.tower) this.emit({ type: 'floor', floor: this.floor, kind: this.floorKind, time: this.clock });
   }
 
   // ── the hands ───────────────────────────────────────────────────
@@ -568,11 +695,20 @@ export class DolinaSim {
     this.stomping = false;
     this.flapAge = 0;
     this.doubles++;
+    this.mission('doubles');
     if (!this.did.has('double')) {
       this.did.add('double');
       if (this.first) this.talk.say('double', 2, 3);
     }
     this.emit({ type: 'jump', air: true, x: this.px, y: this.py });
+    // the master of the lamp: the flap rings out — shadows and throws this close dissolve
+    if (this.form >= 5) {
+      const r = RULES.form.flame;
+      let n = 0;
+      for (const s of this.shadows) if (s.state === 'walk' && Math.hypot(s.x - this.px, s.y + s.h / 2 - this.py - 0.5) <= r + s.r) n += this.kill(s, 'strike');
+      for (const s of this.shots) if (s.alive && Math.abs(s.x + s.w / 2 - this.px) <= r) { this.breakShot(s, 'dawn'); n++; }
+      if (n) this.emit({ type: 'flameRing', x: this.px, y: this.py + 0.5, n });
+    }
   }
 
   /** ↓ in the air: straight down (a stomp). */
@@ -617,25 +753,36 @@ export class DolinaSim {
     this.timeScale = this.stop > 0 ? 0 : 1;
     this.stop = Math.max(0, this.stop - dt);
     const w = dt * this.timeScale;
+    // Zegarmistrz's Pauza: the valley's shadows, throws, weights, tide and guardian move slow (he does not)
+    const ew = w * (this.slowT > 0 ? RULES.comp.slow : 1);
     this.story = Math.max(0, this.story - dt);
     this.brain(dt, w, f);
     if (this.phase === 'play') this.schedule(dt, f, t);
     else if (this.phase === 'finale' && t >= this.plannedSec) this.end();
     this.timers(dt, w);
     this.runner(w);
+    this.bridges(w);
     this.layAhead();
-    this.walkShadows(w);
-    this.moveShots(w);
+    this.walkShadows(ew);
+    this.moveShots(ew);
+    this.pendulums(ew);
     this.staff(w);
-    this.guardian(w);
-    this.tide(w);
+    this.mates(dt, w, f);
+    this.guardian(ew);
+    this.tide(ew);
     this.lambsFollow(w);
     this.stairsBuild(w);
     this.progressMarks();
     this.forget();
     this.watch(dt);
     this.coach();
+    this.lookAhead();
     this.talk.update(dt, this.quiet);
+    if (this.score > this.lastScore) {
+      this.mission('metres', this.score - this.lastScore);
+      this.lastScore = this.score;
+    }
+    if (this.state !== 'fallen') this.minOil = Math.min(this.minOil, this.oil);
   }
 
   /** the view has a card up: Ćma waits for it (set by the game every frame) */
@@ -682,7 +829,15 @@ export class DolinaSim {
       s.burn += burn;
       if (s.hp <= 1e-6) this.kill(s, 'light');
     }
-    for (const st of this.stonesOnRoad) st.lit = st.alive && st.x - this.px <= this.lampR + R.fogMargin;
+    const margin = this.tower && this.floorKind === 'dark' ? 0 : R.fogMargin;
+    for (const st of this.stonesOnRoad) {
+      st.lit = st.alive && st.x - this.px <= this.lampR + margin;
+      // a smoke curtain in the light above the threshold burns away
+      if (st.barrier && st.alive && live && st.x - this.px <= this.lampR && above(f.level) > 0) {
+        st.hp -= R.barrier.burn * above(f.level) * st.max * w;
+        if (st.hp <= 1e-6) this.breakStone(st, 'light');
+      }
+    }
     // the Świt: a held focus lights it (only the hold built inside this block counts)
     if (live && !this.dawnArmed) {
       this.dawnArmed = true;
@@ -698,10 +853,11 @@ export class DolinaSim {
       this.nextDawn = f.hold + need;
       this.dawn();
     }
-    // the meadow: calm refills the oil and gathers smooth stones from the brook
+    // the meadow: calm refills the oil and gathers smooth stones from the brook (and the companions rest: calm fills their powers)
     if (play && b.kind === 'rest' && this.blockT >= this.restLead && f.reliable) {
       this.oil = Math.min(1, this.oil + R.oilGain * f.calm * dt);
-      this.brookP = Math.min(R.brookMax, this.brookP + R.brookGain * f.calm * dt);
+      this.brookP = Math.min(R.brookMax, this.brookP + R.brookGain * (1 + R.gear.lamp * this.gear.lamp) * f.calm * dt);
+      for (const m of this.party) m.charge = Math.min(1, m.charge + R.comp.restCharge * f.calm * dt);
       while (Math.floor(this.brookP) > this.brook) {
         this.brook++;
         this.stones++;
@@ -711,7 +867,11 @@ export class DolinaSim {
     }
   }
 
-  /** The Świt: every shadow in sight dissolves, every block bursts into stones, the tide is thrown back; a guardian opens. */
+  /**
+   * The Świt: every shadow in sight dissolves, every block bursts into stones, the tide is thrown back;
+   * a guardian opens.  Version 3: the companions' powers fill; the keeper of the dawn's form also raises
+   * the next stair whole.
+   */
   private dawn(): void {
     let n = 0, got = 0;
     for (const s of this.shadows) {
@@ -721,6 +881,11 @@ export class DolinaSim {
     for (const st of this.stonesOnRoad) {
       if (!st.alive || st.x < this.px - 3 || st.x > this.px + RULES.ahead * 0.7) continue;
       got += this.breakStone(st, 'dawn');
+    }
+    for (const m of this.party) m.charge = 1;
+    if (this.form >= 3) {
+      const wall = this.walls.find(w => !w.passed && w.x > this.px && !w.started);
+      if (wall) wall.full = true;
     }
     for (const s of this.shots) if (s.alive) this.breakShot(s, 'dawn');
     if (this.tideOn) this.tideX = this.px - RULES.tideMax;
@@ -817,11 +982,14 @@ export class DolinaSim {
       share = this.judge.share;
       need = this.judge.need(want);
       verdict = this.relSec >= R.minReliable ? this.judge.verdict() : null;
+      if (b.kind === 'rest') this.mission('rests');
       if (b.kind === 'rest' && verdict) {
         this.passedRests++;
         this.oil = 1;
         this.stones += R.restStones;
         this.gain(R.restBonus);
+        // rested companions come back with their powers full
+        for (const m of this.party) m.charge = 1;
         pass = { type: 'restPass', sparks: R.restBonus, stones: R.restStones };
       }
       if (b.kind === 'push' && verdict) {
@@ -882,8 +1050,13 @@ export class DolinaSim {
   /** The gap before the next beat: roomy early in a session and a level, tighter later. */
   private gapNow(): number {
     const g = this.gen;
-    const k = clamp(0.35 * this.share + 0.08 * Math.min(6, g.level - 1) + 0.12 * (g.stage - 1));
+    const k = clamp(0.35 * this.share + 0.08 * Math.min(6, this.diff(g.level) - 1) + 0.12 * (this.stageOf(g) - 1));
     return span(RULES.gap, k) + this.rng() * 1.4;
+  }
+
+  /** The stage a generator floor counts as for the weapon it expects: the valley's floor, or a tower floor's place in its band of five. */
+  private stageOf(g: GenSnap): number {
+    return this.tower ? 1 + 0.8 * ((Math.max(1, g.level) - 1) % RULES.tower.keeperEvery) : g.stage;
   }
 
   private layNext(): void {
@@ -899,7 +1072,13 @@ export class DolinaSim {
     this.flat(x);
     this.post(x);
     const id = () => this.nextId++;
-    const era = ERAS[eraOfLevel(g.level)];
+    const era = this.tower ? eraOfFloor(g.level) : ERAS[eraOfLevel(g.level)];
+    const L = this.diff(g.level), st = this.stageOf(g);
+    const block = (o: Partial<Stone> & Pick<Stone, 'x' | 'w' | 'h' | 'hp' | 'stones'>): Stone => {
+      const s: Stone = { id: id(), y: this.genY, max: o.hp, tall: false, pen: false, alive: true, hitT: 0, lit: false, level: g.level, ...o };
+      this.stonesOnRoad.push(s);
+      return s;
+    };
     switch (beat) {
       case 'pitN':
       case 'pitW': {
@@ -913,11 +1092,8 @@ export class DolinaSim {
       case 'pen': {
         const tall = beat === 'tall', pen = beat === 'pen';
         this.flat(x + RULES.blockW + 1);
-        const hp = pen ? stoneHp(g.level, g.stage, false, RULES.penStrikes / RULES.strikes[0]) : stoneHp(g.level, g.stage, tall, 0.85 + this.rng() * 0.3);
-        this.stonesOnRoad.push({
-          id: id(), x, y: this.genY, w: RULES.blockW * (pen ? 1.25 : 1), h: pen ? 1.25 : RULES.blockH[tall ? 1 : 0], hp, max: hp,
-          stones: pen ? 0 : stonesFor(tall, this.ups.stone), tall, pen, alive: true, hitT: 0, lit: false, level: g.level,
-        });
+        const hp = pen ? stoneHp(L, st, false, RULES.penStrikes / RULES.strikes[0]) : stoneHp(L, st, tall, 0.85 + this.rng() * 0.3);
+        block({ x, w: RULES.blockW * (pen ? 1.25 : 1), h: pen ? 1.25 : RULES.blockH[tall ? 1 : 0], hp, stones: pen ? 0 : stonesFor(tall, this.ups.stone), tall, pen });
         if (pen) this.levelPensLaid(g.level);
         break;
       }
@@ -925,11 +1101,8 @@ export class DolinaSim {
         // a small block, then a tall one on its heels: a step up to jump from
         this.flat(x + RULES.blockW * 2 + 1);
         for (const [dx, tall] of [[0, false], [RULES.blockW, true]] as const) {
-          const hp = stoneHp(g.level, g.stage, tall, 0.85 + this.rng() * 0.3);
-          this.stonesOnRoad.push({
-            id: id(), x: x + dx, y: this.genY, w: RULES.blockW, h: RULES.blockH[tall ? 1 : 0], hp, max: hp,
-            stones: stonesFor(tall, this.ups.stone), tall, pen: false, alive: true, hitT: 0, lit: false, level: g.level,
-          });
+          const hp = stoneHp(L, st, tall, 0.85 + this.rng() * 0.3);
+          block({ x: x + dx, w: RULES.blockW, h: RULES.blockH[tall ? 1 : 0], hp, stones: stonesFor(tall, this.ups.stone), tall });
         }
         break;
       }
@@ -937,7 +1110,7 @@ export class DolinaSim {
       case 'special': {
         const kind = ERA_SHADOWS[era][beat === 'walker' ? 'walker' : 'special'];
         this.flat(x + 1.2);
-        this.spawnShadow(kind, x + 0.6, this.genY, g.level, g.stage);
+        this.spawnShadow(kind, x + 0.6, this.genY, L, st);
         break;
       }
       case 'gate':
@@ -948,18 +1121,83 @@ export class DolinaSim {
         if (high) this.gates.push({ id: id(), x: x + 0.7, y: this.genY, high: true, plus: RULES.gatePlus[1], taken: false });
         break;
       }
+      case 'bridge': {
+        // planks over a chasm that fall a moment after they are trodden; one or two are already gone (a jump)
+        const B = RULES.bridge;
+        const n = Math.max(6, Math.round(span(B.len, this.rng()) / B.plank));
+        const gap = B.missing[this.rng() < 0.55 ? 0 : 1];
+        const at = 2 + Math.floor(this.rng() * Math.max(1, n - gap - 4));
+        for (let i = 0; i < n; i++) {
+          if (i >= at && i < at + gap) continue;
+          this.segs.push({ x0: x + i * B.plank, x1: x + (i + 1) * B.plank - 0.04, y: this.genY, kind: 'bridge', crumble: -1 });
+        }
+        this.roadX = x + n * B.plank;
+        this.flat(this.roadX + 1.4);
+        break;
+      }
+      case 'pend': {
+        // a clock weight swinging over the road from the beam above: jump it when it is low
+        this.flat(x + 2.4);
+        this.pends.push({ id: id(), x: x + 1.2, y: this.genY, ph: this.rng() * Math.PI * 2, hitT: 0 });
+        break;
+      }
+      case 'giant': {
+        // the gallery's reward: a giant block with a big number for the weapon the gates merged
+        const G = RULES.giant;
+        this.flat(x + G.w + 1.4);
+        const hp = Math.max(1, Math.round(G.strikes * powerOf(expectedTier(st)) * RULES.levelHp ** (L - 1)));
+        block({ x, w: G.w, h: RULES.blockH[1], hp, stones: G.stones + this.ups.stone, tall: true, giant: true });
+        break;
+      }
+      case 'barrier': {
+        // a curtain of smoke across the road: the sword barely bites; powers, the Świt and the light break it, and it pays
+        const B = RULES.barrier;
+        this.flat(x + B.w + 1.2);
+        const hp = Math.max(1, Math.round(B.strikes * powerOf(expectedTier(st)) * RULES.levelHp ** (L - 1)));
+        block({ x, w: B.w, h: B.h, hp, stones: B.stones, barrier: true });
+        break;
+      }
+      case 'cage': {
+        // a cage of smoke with a companion in it: it stands in the way until it is broken
+        const who = COMPS[this.p.found.length];
+        if (!who || this.cageFor || this.p.found.includes(who)) break;
+        this.flat(x + 1.3 + 1.6);
+        const hp = Math.max(1, Math.round(RULES.comp.cageStrikes * powerOf(expectedTier(st)) * RULES.levelHp ** (L - 1)));
+        block({ x, w: 1.3, h: 3.2, hp, stones: 0, cage: who });
+        this.cageFor = who;
+        break;
+      }
     }
+  }
+
+  /** A floor's plan with the next companion's cage in it when one is due (valley: the second floor of a level; tower: any trial floor). */
+  private withCage(beats: Beat[], n: number, stage: number): Beat[] {
+    const k = this.p.found.length;
+    if (k >= COMPS.length || this.cageFor || beats.includes('cage')) return beats;
+    const C = RULES.comp;
+    const due = this.tower ? !keeperFloor(n) && n >= C.findFloor[k] : stage === 2 && n >= C.findLevel[k];
+    if (due) beats.splice(Math.max(1, beats.length - 1), 0, 'cage');
+    return beats;
   }
 
   private readonly pensLaid = new Map<number, number>();
   private levelPensLaid(level: number, n = 1): void { this.pensLaid.set(level, Math.max(0, (this.pensLaid.get(level) ?? 0) + n)); }
 
-  /** The floor's end: a ledge (with the way out on the third floor), or a guardian's arena. */
+  /** The floor's end: a ledge (with the way out on the third floor), or a guardian's arena — in the tower, a keeper's every fifth floor. */
   private layEnd(): void {
     const g = this.gen, R = RULES;
     const x = this.roadX + this.gapNow();
     this.laid.push({ x, snap: this.snap() });
-    if (g.stage === 3 && guardLevel(g.level) && !(this.first && g.level === 1)) {
+    if (this.tower && keeperFloor(g.level)) {
+      this.flat(x);
+      this.flat(x + R.arenaLen + 40, 'arena');
+      this.arena = { x: x + 2, y: this.genY, level: g.level, guard: null, done: false, keeper: KEEPERS[(g.level / RULES.tower.keeperEvery - 1) % KEEPERS.length] };
+      this.genOn = false;
+      this.roadX = x + R.arenaLen;
+      this.advanceGen();
+      return;
+    }
+    if (!this.tower && g.stage === 3 && guardLevel(g.level) && !(this.first && g.level === 1)) {
       this.flat(x);
       this.flat(x + R.arenaLen + 40, 'arena');
       this.arena = { x: x + 2, y: this.genY, level: g.level, guard: null, done: false };
@@ -970,7 +1208,7 @@ export class DolinaSim {
     }
     const wx = x + R.buildAt + 0.5;
     this.flat(wx);
-    const h = ledgeFor(g.level, this.rng());
+    const h = ledgeFor(this.diff(g.level), this.rng());
     const wall: Wall = {
       id: this.nextId++, x: wx, y0: this.genY, top: this.genY + h, level: g.level, stage: g.stage,
       need: stepsFor(h), built: 0, plan: 0, buildT: 0, started: false, passed: false,
@@ -978,7 +1216,7 @@ export class DolinaSim {
     this.walls.push(wall);
     this.genY += h;
     this.flat(wx + 4, 'ledge');
-    if (g.stage === 3) {
+    if (g.stage === 3 && !this.tower) {
       this.exitX = wx + 2.2;
       this.exitY = this.genY;
     }
@@ -987,13 +1225,19 @@ export class DolinaSim {
 
   private advanceGen(): void {
     const g = this.gen;
+    g.i = 0;
+    g.y = this.genY;
+    if (this.tower) {
+      g.level++;
+      g.stage = 1;
+      g.beats = this.withCage(towerPlan(g.level, floorKind(g.level), this.rng), g.level, 1);
+      return;
+    }
     if (g.stage >= 3) {
       g.level++;
       g.stage = 1;
     } else g.stage++;
-    g.i = 0;
-    g.y = this.genY;
-    g.beats = stagePlan(g.level, g.stage, this.rng);
+    g.beats = this.withCage(stagePlan(g.level, g.stage, this.rng), g.level, g.stage);
   }
 
   /** A lantern post beside the road every so often (lit by the band as he passes). */
@@ -1031,10 +1275,13 @@ export class DolinaSim {
     }
     const drop = <T>(arr: T[], keep: (v: T) => boolean) => { for (let i = arr.length - 1; i >= 0; i--) if (!keep(arr[i])) arr.splice(i, 1); };
     for (const st of this.stonesOnRoad) if (st.x >= c && st.pen && st.alive) this.levelPensLaid(st.level, -1);
+    // a cage beyond the cut steps back with the rest (its companion waits there, laid again later)
+    if (this.stonesOnRoad.some(st => st.x >= c && st.cage && st.alive)) this.cageFor = null;
     drop(this.stonesOnRoad, s => s.x < c);
     drop(this.gates, gt => gt.x < c);
     drop(this.posts, p => p.x < c);
     drop(this.shots, s => s.x < c);
+    drop(this.pends, p => p.x < c - 2);
     for (const s of this.shadows) if (s.state === 'walk' && s.x >= c - 0.5) s.state = 'gone';
     for (let i = this.walls.length - 1; i >= 0; i--) {
       const w = this.walls[i];
@@ -1129,6 +1376,28 @@ export class DolinaSim {
     this.did.add('stomp');
     this.emit({ type: 'stomp', x: s.x, y: s.y + s.h, what: 'shadow' });
     this.kill(s, 'stomp');
+    this.shock(s.x, s.y, null);
+  }
+
+  /** The traveller's form: a stomp's landing shakes the ground — blocks and shadows this close take a blow. */
+  private shock(x: number, y: number, skip: Stone | null): void {
+    if (this.form < 1) return;
+    const R = RULES.form;
+    let n = 0;
+    const dmg = this.power * R.shockK;
+    for (const st of this.stonesOnRoad) {
+      if (!st.alive || st === skip || st.cage || Math.abs(st.x + st.w / 2 - x) > R.shockR + st.w / 2 || Math.abs(st.y - y) > 1) continue;
+      this.hitStone(st, dmg, 'stomp');
+      n++;
+    }
+    for (const s of this.shadows) {
+      if (s.state !== 'walk' || Math.abs(s.x - x) > R.shockR + s.r || Math.abs(s.y - SHADOWS[s.kind].air - y) > 1.2) continue;
+      s.stun = Math.max(s.stun, 0.8);
+      s.hp -= dmg;
+      if (s.hp <= 1e-6) this.kill(s, 'stomp');
+      n++;
+    }
+    if (n) this.emit({ type: 'shock', x, y, n });
   }
 
   /** A shadow leaves the road as motes of light; 1 when it counted. */
@@ -1143,7 +1412,9 @@ export class DolinaSim {
       sparks *= this.mult;
       this.stop = Math.max(this.stop, R.stopBreak);
     }
+    if (via === 'stomp') this.mission('stomps');
     this.kills++;
+    this.bondAll('kill');
     this.gain(sparks);
     this.emit({ type: 'kill', id: s.id, kind: s.kind, x: s.x, y: s.y + s.h / 2, via, sparks, combo: this.combo });
     return 1;
@@ -1199,6 +1470,8 @@ export class DolinaSim {
   private timers(dt: number, w: number): void {
     this.safe = Math.max(0, this.safe - w);
     this.stumble = Math.max(0, this.stumble - w);
+    this.slowT = Math.max(0, this.slowT - w);
+    this.dashT = Math.max(0, this.dashT - w);
     this.coyoteT = Math.max(0, this.coyoteT - w);
     this.bufT = Math.max(0, this.bufT - w);
     this.strikeAge += dt;
@@ -1214,7 +1487,7 @@ export class DolinaSim {
   private boxes(): Box[] {
     const out: Box[] = [];
     const lo = this.px - 20, hi = this.px + RULES.ahead + 4;
-    for (const s of this.segs) if (s.x1 >= lo && s.x0 <= hi) out.push({ x0: s.x0, x1: s.x1, y0: -1e9, top: s.y, stone: null });
+    for (const s of this.segs) if (!s.gone && s.x1 >= lo && s.x0 <= hi) out.push({ x0: s.x0, x1: s.x1, y0: -1e9, top: s.y, stone: null });
     for (const s of this.steps) out.push({ x0: s.x0, x1: s.x1, y0: s.y0, top: s.top, stone: null });
     for (const s of this.stonesOnRoad) if (s.alive) out.push({ x0: s.x, x1: s.x + s.w, y0: s.y, top: s.y + s.h, stone: s });
     return out;
@@ -1279,7 +1552,9 @@ export class DolinaSim {
     else if (this.phase === 'done') target = R.walk;
     else if (this.block.kind === 'rest') target = R.walk;
     else if (this.block.kind === 'warmup') target = R.warmRun;
-    else target = R.run + Math.min(R.levelRunMax, R.levelRun * (this.level - 1));
+    else target = (R.run + Math.min(R.levelRunMax, R.levelRun * (this.difficulty - 1))) * (1 + R.gear.sandals * this.gear.sandals);
+    // Kozica's charge carries him along a moment
+    if (this.dashT > 0 && target > R.walk) target *= R.comp.dashK;
     if (this.stumble > 0 && target > 0) target *= 0.5;
     this.speed = approach(this.speed, target, w, R.speedTau);
     const boxes = this.boxes();
@@ -1344,7 +1619,8 @@ export class DolinaSim {
     const R = RULES;
     // a stomp onto a block hits it three times as hard; if it breaks he falls on through
     if (this.stomping) {
-      const st = boxes.find(b => b.stone && b.top === g && b.x1 > x0 && b.x0 < x1)?.stone;
+      const st = boxes.find(b => b.stone && b.top === g && b.x1 > x0 && b.x0 < x1)?.stone ?? null;
+      this.shock(this.px, st ? st.y : g, st);
       if (st) {
         this.stomps++;
         this.emit({ type: 'stomp', x: st.x + st.w / 2, y: st.y + st.h, what: 'stone' });
@@ -1372,10 +1648,11 @@ export class DolinaSim {
     return seg ? seg.y : g;
   }
 
-  /** Into a pit: Ćma lifts him to the far rim (a little oil). */
+  /** Into a pit: Ćma lifts him to the far rim (a little oil) — past a bridge's planks, onto solid ground. */
   private pitFall(): void {
-    const next = this.segs.filter(s => s.x0 > this.px - 0.5).sort((a, b) => a.x0 - b.x0)[0];
-    const prev = this.segs.filter(s => s.x1 <= this.px + 0.5).sort((a, b) => b.x1 - a.x1)[0];
+    const solid = (s: Seg) => !s.gone && s.kind !== 'bridge';
+    const next = this.segs.filter(s => solid(s) && s.x0 > this.px - 0.5).sort((a, b) => a.x0 - b.x0)[0];
+    const prev = this.segs.filter(s => solid(s) && s.x1 <= this.px + 0.5).sort((a, b) => b.x1 - a.x1)[0];
     const to = next ?? prev;
     this.state = 'pit';
     this.stateT = 0;
@@ -1388,10 +1665,21 @@ export class DolinaSim {
     this.floorY = this.liftTo.y;
   }
 
+  /** Babcia's umbrella takes a hit if it is open: true when it did. */
+  private umbrella(x: number, y: number): boolean {
+    if (this.shieldHits <= 0) return false;
+    this.shieldHits--;
+    this.safe = Math.max(this.safe, 0.5);
+    this.emit({ type: 'shield', x, y, left: this.shieldHits });
+    if (this.rng() < 0.5) this.talk.say('m.babcia.block', 0, 2);
+    return true;
+  }
+
   /** Oil lost (never below none); with none he falls. */
   private harm(kind: HarmKind, x: number, y: number, force = false): void {
     if ((this.safe > 0 && !force) || this.state === 'fallen') return;
-    const loss = harmFor(kind, this.ups.oil);
+    if (kind !== 'pit' && this.umbrella(x, y)) return;
+    const loss = harmWith(kind, this.ups.oil, this.gear.cloak, this.buffs.has('dates'));
     this.oil = Math.max(0, this.oil - loss);
     this.combo = 0;
     this.safe = RULES.safeSec;
@@ -1459,35 +1747,64 @@ export class DolinaSim {
       if (!best || d < best.d) best = { d, hit: () => this.strikeGuard(g, this.power, 'strike') };
     }
     if (!best) return;
-    this.strikeCd = R.strikeGap;
+    this.strikeCd = strikeGapFor(this.gear.blade, this.form >= 2 && this.live && this.level01 > 0.5);
     this.strikeAge = 0;
     best.hit();
   }
 
-  private hitStone(st: Stone, dmg: number, via: 'strike' | 'stomp'): void {
+  /** The block standing right in front of him (the one he is stopped at), if any. */
+  private frontStone(): Stone | null {
+    const front = this.px + RULES.halfW, body0 = this.py, body1 = this.py + RULES.height;
+    let best: Stone | null = null;
+    for (const st of this.stonesOnRoad) {
+      if (!st.alive) continue;
+      const d = st.x - front;
+      if (d < -0.05 || d > RULES.reach * 0.6 || st.y >= body1 || st.y + st.h <= body0 + 0.05) continue;
+      if (!best || st.x < best.x) best = st;
+    }
+    return best;
+  }
+
+  /** A blow on a block.  A smoke curtain takes only a share of the sword's and the companions' plain blows; powers bite in full. */
+  private hitStone(st: Stone, dmg: number, via: 'strike' | 'stomp' | 'mate' | 'power'): void {
+    if (!st.alive) return;
+    if (st.barrier && via !== 'power') dmg *= RULES.barrier.sword;
     st.hp -= dmg;
     st.hitT = 0.12;
     this.stop = Math.max(this.stop, RULES.stopHit);
-    this.emit({ type: 'strike', x: st.x, y: st.y + st.h * 0.5, what: 'stone', dmg });
-    if (st.hp <= 1e-6) this.breakStone(st, via);
+    if (via !== 'mate') this.emit({ type: 'strike', x: st.x, y: st.y + st.h * 0.5, what: 'stone', dmg: Math.round(dmg) });
+    if (st.hp <= 1e-6) this.breakStone(st, via === 'power' ? 'mate' : via);
   }
 
-  /** A block bursts: its stones fly into the pack; a pen frees its lamb.  Returns the stones won. */
-  private breakStone(st: Stone, via: 'strike' | 'stomp' | 'dawn'): number {
+  /**
+   * A block bursts: its stones fly into the pack; a pen frees its lamb; a cage its companion; a smoke
+   * curtain pays; a giant block pours its stones.  Returns the stones won.
+   */
+  private breakStone(st: Stone, via: StoneVia): number {
     if (!st.alive) return 0;
     st.alive = false;
     st.hp = 0;
     this.breaks++;
-    if (via !== 'dawn') this.bump();
-    this.stop = Math.max(this.stop, RULES.stopBreak);
+    if (via !== 'dawn' && via !== 'light') this.bump();
+    this.stop = Math.max(this.stop, st.giant || st.cage ? RULES.stopBeaten * 0.5 : RULES.stopBreak);
     let sparks = 1;
+    const what: StoneWhat = st.pen ? 'pen' : st.cage ? 'cage' : st.barrier ? 'barrier' : st.giant ? 'giant' : 'block';
     if (st.pen) {
       this.freeLamb(st);
       sparks = RULES.lambSparks;
-    } else this.stones += st.stones;
+    } else if (st.cage) {
+      this.freeMate(st);
+      sparks = RULES.lambSparks * 2;
+    } else {
+      this.stones += st.stones;
+      if (st.barrier) sparks = RULES.barrier.sparks;
+      else if (st.giant) sparks = 10;
+      this.mission('blocks');
+    }
+    this.bondAll('break');
     this.gain(sparks * this.mult);
     if (!st.pen && st.stones > 0) this.did.add('strike');
-    this.emit({ type: 'break', id: st.id, x: st.x + st.w / 2, y: st.y + st.h / 2, stones: st.stones, tall: st.tall, pen: st.pen, combo: this.combo, via });
+    this.emit({ type: 'break', id: st.id, x: st.x + st.w / 2, y: st.y + st.h / 2, stones: st.stones, tall: st.tall, pen: st.pen, combo: this.combo, via, what });
     return st.stones;
   }
 
@@ -1495,10 +1812,278 @@ export class DolinaSim {
     this.freed++;
     this.levelLambs++;
     this.did.add('lamb');
+    this.mission('lambs');
+    this.bondAll('lamb');
     this.lambs.push({ id: st.id, x: st.x + st.w / 2, y: st.y, vy: 3, hop: this.rng() * 6 });
-    if (this.lambs.length > RULES.flock) this.lambs.shift();
+    if (this.lambs.length > (this.form >= 4 ? RULES.form.flock : RULES.flock)) this.lambs.shift();
     this.emit({ type: 'lamb', n: this.freed, x: st.x + st.w / 2, y: st.y + 0.5 });
     this.talk.say('lamb', 1, 3);
+  }
+
+  // ── v3: the companions ──────────────────────────────────────────
+  /** A cage breaks: its companion is found for good — into the party when a slot is free, else to the camp (the lobby's pick). */
+  private freeMate(st: Stone): void {
+    const id = st.cage!;
+    this.cageFor = null;
+    if (this.p.found.includes(id)) return;
+    this.p.found = [...this.p.found, id];
+    this.freedNow.push(id);
+    const x = st.x + st.w / 2, y = st.y;
+    const join = this.party.length < this.slots;
+    if (join) this.party.push(this.mate(id));
+    this.emit({ type: 'mate', what: join ? 'join' : 'wait', id, x, y });
+    this.talk.say(`c.${id}`, 2, 4);
+    if (join) this.talk.say(`m.${id}.join`, 2, 8);
+    this.explain('mate');
+  }
+
+  /** A slot opens (a guardian beaten): companions waiting at the camp join at once. */
+  private openSlots(): void {
+    const n = slotsFor(this.p.guards + this.guardsBeaten.length);
+    if (n <= this.slots) return;
+    this.slots = n;
+    this.emit({ type: 'slot', n });
+    for (const id of this.p.found) {
+      if (this.party.length >= this.slots || this.party.some(m => m.id === id)) continue;
+      this.party.push(this.mate(id));
+      this.emit({ type: 'mate', what: 'join', id, x: this.px - 1, y: this.py });
+      this.talk.say(`m.${id}.join`, 1, 8);
+    }
+  }
+
+  /** Bond for everyone in the party (a break, a kill, a lamb, a level). */
+  private bondAll(what: keyof typeof RULES.comp.gain): void {
+    if (this.settled) return;
+    const n = RULES.comp.gain[what];
+    for (const m of this.party) {
+      m.bondRun += n;
+      this.levelCheck(m);
+    }
+  }
+
+  /** A companion's bond crossed a level: a stronger power (level 3 changes it). */
+  private levelCheck(m: Mate): void {
+    const lv = bondLevel(compBond(this.p, m.id) + m.bondRun);
+    if (lv <= m.lv) return;
+    m.lv = lv;
+    this.emit({ type: 'mateLevel', id: m.id, lv });
+    this.talk.say(`m.${m.id}.level`, 1, 6);
+  }
+
+  /**
+   * The companions this frame: their powers charge (× (1 + the lamp above the threshold) in a live
+   * push: they fight in his light; not in the meadow, where calm fills them instead), they strike the
+   * block he is stopped at with him (gold blows above the threshold), and a charged power fires when
+   * it has something to do.
+   */
+  private mates(dt: number, w: number, f: FocusFrame): void {
+    if (!this.party.length || !this.started) return;
+    const R = RULES.comp;
+    const resting = this.phase === 'play' && this.block.kind === 'rest';
+    const still = this.story > 0 || this.state === 'fallen' || resting || this.phase === 'done';
+    const rate = still ? 0 : chargeRate(this.live, f.level) * (this.form >= 4 ? RULES.form.lead : 1) * (this.buffs.has('honey') ? RULES.buff.honey : 1);
+    const gold = this.live && this.level01 > 0.5;
+    const front = this.blocked === 'stone' && w > 0 ? this.frontStone() : null;
+    for (const m of this.party) {
+      m.fired += dt;
+      m.charge = Math.min(1, m.charge + (w * rate) / cooldownFor(m.id, m.lv));
+      m.assistCd = Math.max(0, m.assistCd - w);
+      if (front && front.alive && m.assistCd <= 0) {
+        m.assistCd = R.assistGap * (0.85 + 0.3 * this.rng());
+        const dmg = Math.max(1, Math.round(this.power * R.assistK * (1 + R.assistLevel * (m.lv - 1)) * (gold ? R.gold : 1)));
+        this.emit({ type: 'assist', id: m.id, x: front.x, y: front.y + Math.min(front.h, 1.2) * 0.6, dmg, gold });
+        this.hitStone(front, dmg, 'mate');
+      }
+      // they rest in the meadow: a charged power waits for the road
+      if (m.charge >= 1 && !resting && this.state === 'run' && this.phase !== 'done' && this.story <= 0) this.tryPower(m);
+    }
+  }
+
+  /** Something ahead the watchmaker would slow: a guardian's fight, a throw, a weight, two shadows, the tide close. */
+  private threatAhead(): boolean {
+    if (this.fighting) return true;
+    if (this.shots.some(s => s.alive && s.x > this.px && s.x - this.px < 7)) return true;
+    if (this.pends.some(p => p.x > this.px - 0.5 && p.x - this.px < 5)) return true;
+    if (this.shadows.filter(s => s.state === 'walk' && s.x > this.px && s.x - this.px < 7).length >= 2) return true;
+    return this.tideOn && Number.isFinite(this.tideX) && this.px - this.tideX < 4;
+  }
+
+  /** A charged power fires when it has something to do (else it waits, charged). */
+  private tryPower(m: Mate): void {
+    const R = RULES.comp, lv3 = m.lv >= 3;
+    let n = 0, x = this.px + 1, y = this.py + 0.8;
+    switch (POWER[m.id]) {
+      case 'huk': {
+        // a giant's blow on what stands ahead: an open guardian, else the nearest block, else a shadow
+        const dmg = this.power * hukFor(m.lv);
+        const g = this.guard;
+        const ahead = this.stonesOnRoad.filter(st => st.alive && st.x + st.w > this.px && st.x - this.px < R.hukReach).sort((a, b) => a.x - b.x);
+        const shadow = this.shadows.filter(s => s.state === 'walk' && s.x > this.px && s.x - this.px < R.hukReach).sort((a, b) => a.x - b.x)[0];
+        if (g && g.state === 'fight' && this.guardOpen) {
+          x = this.px + g.rel + 0.6;
+          y = this.arena!.y + RULES.weakY;
+          this.strikeGuard(g, dmg, 'stomp');
+        } else if (ahead.length) {
+          x = ahead[0].x + ahead[0].w / 2;
+          y = ahead[0].y + Math.min(ahead[0].h, 1.5);
+          this.hitStone(ahead[0], dmg, 'power');
+          if (lv3 && ahead[1]) this.hitStone(ahead[1], dmg / 2, 'power');
+        } else if (shadow) {
+          x = shadow.x;
+          y = shadow.y + shadow.h / 2;
+          shadow.hp -= dmg;
+          if (shadow.hp <= 1e-6) this.kill(shadow, 'strike');
+        } else return;
+        n = Math.round(dmg);
+        break;
+      }
+      case 'parasol': {
+        if (this.shieldHits > 0) return;
+        this.shieldHits = R.parasol[lv3 ? 1 : 0];
+        n = this.shieldHits;
+        x = this.px;
+        y = this.py + 1.4;
+        break;
+      }
+      case 'rusztowanie':
+        // fires at a stair's start (stairsBuild)
+        return;
+      case 'pauza': {
+        if (!this.threatAhead()) return;
+        this.slowT = R.pause[lv3 ? 1 : 0];
+        n = this.slowT;
+        x = this.px;
+        y = this.py + 1.2;
+        break;
+      }
+      case 'szarza': {
+        const reach = R.charge[lv3 ? 1 : 0];
+        const shadows = this.shadows.filter(s => s.state === 'walk' && s.x > this.px - 0.3 && s.x - this.px < reach);
+        const tideNear = this.tideOn && Number.isFinite(this.tideX) && this.px - this.tideX < 4;
+        if (!shadows.some(s => s.x - this.px < 5) && !tideNear) return;
+        for (const s of shadows) n += this.kill(s, 'strike');
+        for (const st of this.stonesOnRoad) {
+          if (!st.alive || st.pen || st.cage || st.giant || (st.tall && !lv3) || st.x < this.px || st.x - this.px > reach) continue;
+          this.hitStone(st, this.power * R.chargeHit, 'power');
+        }
+        if (this.tideOn && Number.isFinite(this.tideX)) this.tideX = Math.max(this.px - RULES.tideMax, this.tideX - R.chargeTide);
+        this.dashT = R.dash;
+        x = this.px + reach / 2;
+        y = this.py + 0.5;
+        break;
+      }
+      case 'zapasy': {
+        const add = R.stash[lv3 ? 1 : 0] + this.spilled;
+        this.spilled = 0;
+        this.stones += add;
+        this.gain(R.stashSparks * this.mult);
+        n = add;
+        x = this.px - 1;
+        y = this.py + 0.4;
+        break;
+      }
+    }
+    this.fired(m, x, y, n);
+  }
+
+  /** A power went off: the charge empties, bond and missions count it, Ćma or the companion may say something. */
+  private fired(m: Mate, x: number, y: number, n: number): void {
+    m.charge = 0;
+    m.fired = 0;
+    this.powers++;
+    m.bondRun += RULES.comp.gain.power;
+    this.levelCheck(m);
+    this.mission('powers');
+    this.emit({ type: 'power', id: m.id, power: POWER[m.id], x, y, n });
+    if (this.rng() < 0.5) this.talk.say(`m.${m.id}.power`, 0, 2);
+    this.explain('power');
+  }
+
+  /** Bóbr's Rusztowanie at a stair's start: wooden steps added to what the stones give. */
+  private scaffold(wall: Wall): void {
+    const m = this.party.find(x => x.id === 'bobr' && x.charge >= 1);
+    if (!m || wall.plan >= wall.need) return;
+    const add = Math.min(wall.need - wall.plan, RULES.comp.scaffold[m.lv >= 3 ? 1 : 0]);
+    wall.plan += add;
+    wall.wood = (wall.wood ?? 0) + add;
+    this.fired(m, wall.x - 0.6, wall.y0 + wall.plan * RULES.stepH * 0.5, add);
+  }
+
+  // ── v3: missions and chests ─────────────────────────────────────
+  /** A mission's count (a sum, or the best of a kind for the stairs); done ones pay at once and the next is drawn. */
+  private mission(kind: MissionKind, n = 1, best = false): void {
+    if (this.settled || !this.started) return;
+    const m = this.p.missions.find(x => x.kind === kind);
+    if (!m) return;
+    m.have = Math.min(m.goal, best ? Math.max(m.have, n) : m.have + n);
+    if (m.have < m.goal) return;
+    const sparks = missionReward(m);
+    this.gain(sparks);
+    this.missionsNow.push({ ...m });
+    const chest = completeMission(this.p, m);
+    this.emit({ type: 'mission', m: { ...m }, sparks, chest });
+    this.talk.say('mission', 1, 5);
+    if (chest) this.chest('mission');
+  }
+
+  /** A chest opens at once: gear (on or merged), a companion's bond, or provisions for three runs. */
+  private chest(source: ChestSource): void {
+    if (this.settled) return;
+    const drop = rollChest(this.p, source, this.rng);
+    const gear = applyChest(this.p, drop);
+    if (gear && gear.tier > this.gear[gear.slot]) this.gear[gear.slot] = gear.tier;
+    if (drop.kind === 'bond') {
+      const m = this.party.find(x => x.id === drop.comp);
+      if (m) this.levelCheck(m);
+    }
+    this.chestsNow.push({ source, drop, gear });
+    this.emit({ type: 'chest', source, drop, gear });
+    this.talk.say('chest', 1, 6);
+    this.explain('chest');
+  }
+
+  // ── v3: bridges and weights ─────────────────────────────────────
+  /** A trodden plank holds a moment, then falls; the one under his feet starts to give. */
+  private bridges(w: number): void {
+    const B = RULES.bridge;
+    for (const s of this.segs) {
+      if (s.kind !== 'bridge' || s.gone || s.crumble === undefined || s.crumble < 0) continue;
+      s.crumble += w;
+      if (s.crumble >= B.fall) {
+        s.gone = true;
+        this.emit({ type: 'plank', x: (s.x0 + s.x1) / 2, y: s.y });
+      }
+    }
+    if (!this.grounded || this.state !== 'run') return;
+    const x0 = this.px - RULES.halfW * 0.7, x1 = this.px + RULES.halfW * 0.7;
+    for (const s of this.segs) {
+      if (s.kind !== 'bridge' || s.gone || s.x1 <= x0 || s.x0 >= x1 || Math.abs(s.y - this.py) > 0.05) continue;
+      if ((s.crumble ?? -1) < 0) s.crumble = 0;
+    }
+  }
+
+  /** The swinging weights: their phase runs (slow in a Pauza); one that meets him hurts; passing under a near one is a near miss. */
+  private pendulums(w: number): void {
+    const P = RULES.pend, R = RULES;
+    for (const p of this.pends) {
+      p.ph += (w * Math.PI * 2) / P.period;
+      p.hitT = Math.max(0, p.hitT - w);
+      if (this.state !== 'run') continue;
+      const c = pendAt(p);
+      const bx0 = this.px - R.halfW * 0.8, bx1 = this.px + R.halfW * 0.8, by0 = this.py, by1 = this.py + R.height * 0.95;
+      const nx = clamp(c.x, bx0, bx1), ny = clamp(c.y, by0, by1);
+      const d = Math.hypot(c.x - nx, c.y - ny);
+      if (d < P.r) {
+        if (this.safe <= 0 && p.hitT <= 0) {
+          p.hitT = 0.5;
+          this.harm('pend', c.x, c.y);
+        }
+      } else if (d < P.r + 0.3 && p.hitT <= 0 && Math.abs(c.x - this.px) < 0.6) {
+        p.hitT = 0.6;
+        this.emit({ type: 'dodge', near: true, x: this.px, y: this.py });
+        this.talk.say('close', 0, 2);
+      }
+    }
   }
 
   private hitShadow(s: Shadow): void {
@@ -1536,9 +2121,15 @@ export class DolinaSim {
       if (wall.passed) continue;
       if (!wall.started && wall.x - this.px <= R.buildAt && this.px < wall.x) {
         wall.started = true;
-        wall.plan = Math.min(this.stones, wall.need);
-        this.stones -= wall.plan;
+        if (wall.full) wall.plan = wall.need;
+        else {
+          wall.plan = Math.min(this.stones, wall.need);
+          this.stones -= wall.plan;
+          this.scaffold(wall);
+        }
         this.stairs++;
+        this.bestStair = Math.max(this.bestStair, wall.plan);
+        this.mission('stairs', wall.plan, true);
         const answer = answerFor(wall.top - wall.y0, wall.plan);
         this.emit({ type: 'stairs', wall: wall.id, n: wall.plan, need: wall.need, answer });
         if (answer === 'climb' || wall.plan < wall.need / 3) this.talk.say('short', 1, 3);
@@ -1548,8 +2139,10 @@ export class DolinaSim {
       }
       if (wall.started && wall.built < wall.plan) {
         wall.buildT += w;
-        while (wall.built < wall.plan && wall.buildT >= R.stepEvery) {
-          wall.buildT -= R.stepEvery;
+        // the beaver in the party: the stair goes up faster
+        const every = R.stepEvery * (this.party.some(m => m.id === 'bobr') ? R.comp.scaffoldFast : 1);
+        while (wall.built < wall.plan && wall.buildT >= every) {
+          wall.buildT -= every;
           const i = wall.built++;
           const x0 = wall.x - (wall.plan - i) * R.stepD;
           // the stair: step i spans from the floor to its own top (higher toward the wall)
@@ -1564,7 +2157,8 @@ export class DolinaSim {
         this.floorY = wall.top;
         this.did.add('stairs');
         if (!this.p.seen.includes('stairs') && !this.first) this.p.seen.push('stairs');
-        if (wall.stage < 3) {
+        if (this.tower) this.completeFloor(wall.level);
+        else if (wall.stage < 3) {
           this.stage = wall.stage + 1;
           this.emit({ type: 'stage', level: this.level, stage: this.stage });
           this.resumeTide();
@@ -1590,7 +2184,10 @@ export class DolinaSim {
       this.gain(2);
       this.did.add('gate');
       this.emit({ type: 'gate', id: g.id, plus: g.plus, tier: this.tier, high: g.high, x: g.x, y: g.y + (g.high ? 3 : 1.2) });
-      if (g.high) this.talk.say('gate', 1, 3);
+      if (g.high) {
+        this.mission('gates');
+        this.talk.say('gate', 1, 3);
+      }
     }
     if (this.px >= this.exitX && this.state === 'run') this.completeLevel();
     for (const p of this.posts) {
@@ -1613,6 +2210,7 @@ export class DolinaSim {
     setStars(this.p, this.level, stars);
     this.emit({ type: 'level', level: this.level, stars, lambs: this.levelLambs, pens, caught: this.levelCaught, sparks: sparks + this.levelSparks });
     this.talk.say('level', 1, 4);
+    this.bondAll('level');
     const eraBefore = eraOfLevel(this.level);
     this.level++;
     this.stage = 1;
@@ -1632,12 +2230,45 @@ export class DolinaSim {
     this.resumeTide();
   }
 
+  // ── v3: the tower's floors ──────────────────────────────────────
+  /**
+   * A tower floor passed (its ledge climbed, or its keeper beaten): sparks, the clock's hands move on,
+   * the next floor's trial begins; after a keeper the weapon starts over and the stones left become
+   * sparks; at floor 60 the clock reaches the dawn (a great chest) and a new night begins.
+   */
+  private completeFloor(n: number): void {
+    if (n < this.floor) return;
+    const T = RULES.tower;
+    const sparks = T.floorSparks[0] + T.floorSparks[1] * Math.floor(n / T.keeperEvery);
+    this.gain(sparks);
+    this.floorsDone++;
+    this.mission('floors');
+    this.bondAll('level');
+    this.floor = n + 1;
+    this.floorKind = floorKind(this.floor);
+    this.emit({ type: 'floorDone', floor: n, sparks, time: this.clock });
+    if (n % T.dawnFloor === 0) {
+      this.towerDawns++;
+      this.emit({ type: 'towerDawn', night: nightOf(this.floor) });
+      this.talk.say('towerDawn', 2, 6);
+      this.chest('dawn');
+    } else this.talk.say('floor', 0, 5);
+    if (keeperFloor(n)) {
+      this.tier = startTier(this.ups.forge);
+      const left = Math.floor(this.stones * RULES.stoneSparks);
+      if (left) this.gain(left);
+      this.stones = 0;
+    }
+    this.emit({ type: 'floor', floor: this.floor, kind: this.floorKind, time: this.clock });
+    this.resumeTide();
+  }
+
   // ── the tide of the dark ────────────────────────────────────────
-  /** The tide comes back behind him (a new floor, a push block after a meadow). */
+  /** The tide comes back behind him (a new floor, a push block after a meadow) — close behind on the tower's tide floor. */
   private resumeTide(): void {
     if (this.phase !== 'play' || this.block.kind === 'rest' || this.first && this.warmBlock) return;
     this.tideOn = true;
-    this.tideX = this.px - RULES.tideStart;
+    this.tideX = this.px - (this.tower && this.floorKind === 'tide' ? RULES.tower.tideStart : RULES.tideStart);
     this.tideWarned = false;
   }
 
@@ -1646,7 +2277,7 @@ export class DolinaSim {
     const on = this.tideOn && this.phase === 'play' && this.block.kind !== 'rest' && !this.inArena && this.story <= 0 && !(this.first && this.warmBlock);
     if (!on) return;
     if (!Number.isFinite(this.tideX)) this.tideX = this.px - R.tideStart;
-    let v = R.tideV + R.tideLevel * (this.level - 1);
+    let v = (R.tideV + R.tideLevel * (this.difficulty - 1)) * (this.tower && this.floorKind === 'tide' ? R.tower.tideFast : 1);
     const d = this.px - this.tideX;
     if (this.live && d < this.lampR) v = this.level01 > 0.5 ? -R.tidePush * above(this.level01) : v * R.tideSlow;
     this.tideX += v * w;
@@ -1662,8 +2293,14 @@ export class DolinaSim {
   /** Caught by the tide: Ćma flares the lamp — some oil, some stones spilled, the dark thrown back; the run goes on. */
   private caughtByTide(): void {
     const R = RULES;
-    const spilled = Math.ceil(this.stones * R.caughtSpill);
+    // Babcia's umbrella keeps the dark off: thrown back, nothing spilled, not caught
+    if (this.umbrella(this.px - 0.5, this.py + 0.5)) {
+      this.tideX = this.px - R.caughtBack;
+      return;
+    }
+    const spilled = Math.ceil(this.stones * R.caughtSpill * (1 - R.gear.cloakSpill * this.gear.cloak));
     this.stones -= spilled;
+    this.spilled += spilled;
     this.caught++;
     this.levelCaught = true;
     this.tideX = this.px - R.caughtBack;
@@ -1742,9 +2379,12 @@ export class DolinaSim {
   }
 
   private summon(a: Arena): void {
-    const era = ERAS[eraOfLevel(a.level)];
-    const id = GUARDS[era];
-    const hp = guardHpFor(a.level, this.plannedSec, this.tier);
+    const id = a.keeper ?? GUARDS[ERAS[eraOfLevel(a.level)]];
+    const era = GUARD_ERA[id];
+    const T = RULES.tower;
+    const hp = a.keeper
+      ? Math.max(10, Math.round(T.keeperStrikes * powerOf(this.tier) * (this.plannedSec < 70 ? RULES.guardShort : 1) * (1 + T.keeperNight * (nightOf(a.level) - 1))))
+      : guardHpFor(a.level, this.plannedSec, this.tier);
     a.guard = {
       id, era, hp, max: hp, state: 'enter', st: 0, rel: 14, seq: SEQ[id].calm, i: 0, moveT: 0, acted: false, acted2: false, begun: false,
       dawnOpen: 0, hitT: 0, angry: false,
@@ -1811,17 +2451,28 @@ export class DolinaSim {
     for (const s of this.shots) if (s.alive && s.guard) this.breakShot(s, 'dawn');
     this.stop = Math.max(this.stop, R.stopBeaten);
     this.guardsBeaten.push(g.id);
-    this.gain(R.guardSparks * (1 + this.lap));
+    this.gain(a.keeper ? R.tower.keeperSparks * nightOf(a.level) : R.guardSparks * (1 + this.lap));
     this.emit({ type: 'guard', what: 'beaten', id: g.id, era: g.era });
     this.talk.say('beaten', 2, 4);
+    this.mission('guards');
     a.done = true;
-    this.exitX = a.x + 3;
-    this.exitY = a.y;
     // the road goes on beyond the arena
     this.genOn = true;
     this.roadX = Math.max(this.roadX, a.x + R.arenaLen);
     const last = this.segs[this.segs.length - 1];
     if (last && last.kind === 'arena') last.x1 = this.roadX;
+    if (a.keeper) this.completeFloor(a.level);
+    else {
+      this.exitX = a.x + 3;
+      this.exitY = a.y;
+    }
+    // every guardian's chest; a slot may open; the first one ever opens the clock tower
+    this.chest(a.keeper ? 'keeper' : 'guard');
+    this.openSlots();
+    if (!this.tower && this.p.guards + this.guardsBeaten.length === 1) {
+      this.towerOpened = true;
+      this.emit({ type: 'towerOpen' });
+    }
   }
 
   /** The block ended with the guardian standing: it withdraws into the dark, keeping its damage. */
@@ -1849,6 +2500,7 @@ export class DolinaSim {
     for (let i = this.shots.length - 1; i >= 0; i--) if (!this.shots[i].alive) this.shots.splice(i, 1);
     for (let i = this.gates.length - 1; i >= 0; i--) if (this.gates[i].x < cut) this.gates.splice(i, 1);
     for (let i = this.posts.length - 1; i >= 0; i--) if (this.posts[i].x < cut - 6) this.posts.splice(i, 1);
+    for (let i = this.pends.length - 1; i >= 0; i--) if (this.pends[i].x < cut) this.pends.splice(i, 1);
     for (let i = this.walls.length - 1; i >= 0; i--) {
       const w = this.walls[i];
       if (w.passed && w.x < cut) {
@@ -1868,15 +2520,31 @@ export class DolinaSim {
     this.emit({ type: 'teach', what, x, y });
   }
 
-  /** A first-time explanation in a later session (the guardian, the meadow, the tide, the fog, the Świt): once ever. */
-  private explain(what: 'tide' | 'meadow' | 'guard' | 'open' | 'fog' | 'dawn'): void {
+  /** A first-time explanation (the guardian, the meadow, the tide, the fog, the Świt; v3: a cage, a companion, a power, the tower, a bridge, a weight, a curtain, a chest): once ever. */
+  private explain(what: Explain, at?: { x: number; y: number }): void {
     if (this.p.seen.includes(what)) return;
+    // one coach mark at a time: a later frame asks again
+    if (this.t - this.teachAt < 2.5) return;
     this.p.seen.push(what);
-    // point at the thing: the guardian, the tide behind, else the road ahead
+    // point at the thing: the guardian, the tide behind, the companions behind, else the road ahead
     const g = this.guard;
-    const at = (what === 'guard' || what === 'open') && g ? { x: this.px + Math.min(g.rel, RULES.guardAt) + 1, y: this.floorY + 3.6 }
-      : what === 'tide' ? { x: this.px - 3, y: this.floorY + 2.4 } : { x: this.px + 3, y: this.floorY + 2.6 };
-    this.teach(what, at.x, at.y, `x-${what}`);
+    const where = at ?? ((what === 'guard' || what === 'open') && g ? { x: this.px + Math.min(g.rel, RULES.guardAt) + 1, y: this.floorY + 3.6 }
+      : what === 'tide' ? { x: this.px - 3, y: this.floorY + 2.4 }
+        : what === 'mate' || what === 'power' ? { x: this.px - 1.2, y: this.py + 2.2 } : { x: this.px + 3, y: this.floorY + 2.6 });
+    this.teach(what, where.x, where.y, `x-${what}`);
+  }
+
+  /** Something new on the road ahead, explained the first time it comes (any session). */
+  private lookAhead(): void {
+    if (this.story > 0 || this.phase !== 'play') return;
+    const near = (x: number) => x > this.px + 0.5 && x - this.px < 8;
+    for (const st of this.stonesOnRoad) {
+      if (!st.alive || !near(st.x)) continue;
+      if (st.cage) this.explain('cage', { x: st.x + st.w / 2, y: st.y + st.h + 0.4 });
+      else if (st.barrier) this.explain('barrier', { x: st.x + st.w / 2, y: st.y + st.h + 0.4 });
+    }
+    for (const p of this.pends) if (near(p.x)) this.explain('pend', { x: p.x, y: p.y + 2.6 });
+    for (const s of this.segs) if (s.kind === 'bridge' && !s.gone && near(s.x0)) { this.explain('bridge', { x: s.x0 + 1, y: s.y + 1.4 }); break; }
   }
 
   /** The first session teaches the hands, one thing at a time, as each first matters. */
@@ -1931,6 +2599,11 @@ export class DolinaSim {
       }
     }
     if (this.oil > 0.6) this.oilWarned = false;
+    // a companion's quip after a long quiet stretch (the party's banter)
+    if (this.party.length && this.talk.quietFor > 22 && !this.fighting) {
+      const m = this.party[Math.floor(this.rng() * this.party.length) % this.party.length];
+      this.talk.say(`m.${m.id}.quip`, 0, 6);
+    }
   }
 
   /** What a guardian's move asks of the hands (the view's sign over it). */
@@ -1968,15 +2641,16 @@ export class DolinaSim {
 
   private gain(sparks: number): void {
     if (sparks <= 0 || this.settled) return;
-    const n = Math.round(sparks * (1 + RULES.incomeStep * this.ups.income));
+    const n = Math.round(sparks * (1 + RULES.incomeStep * this.ups.income) * (this.buffs.has('raisins') ? RULES.buff.raisins : 1));
     this.sparks += n;
     this.levelSparks += n;
   }
 
   /**
    * The run is settled once — at the dawn, or when it ends early: the day's gift comes, the sparks
-   * reach the purse and the looks, the level reached is where the next run starts, the counters
-   * reach the progress.
+   * reach the purse and the forms, the level reached is where the next run starts, the counters
+   * reach the progress; v3: the tower's floor and record, the companions' bond, one run of each
+   * provision eaten.
    */
   private settle(): void {
     if (this.settled || !this.started) return;
@@ -1999,6 +2673,14 @@ export class DolinaSim {
     p.level = Math.max(p.level, this.level);
     p.top = Math.max(p.top, this.level - 1);
     p.lastLen = this.plannedSec;
+    if (this.tower) {
+      p.tower = {
+        floor: Math.max(p.tower.floor, this.floor), best: Math.max(p.tower.best, this.floor - 1),
+        night: Math.max(p.tower.night, nightOf(this.floor) - 1),
+      };
+    }
+    for (const m of this.party) if (m.bondRun > 0) p.bond = { ...p.bond, [m.id]: compBond(p, m.id) + m.bondRun };
+    for (const b of this.buffs) p.buffs = { ...p.buffs, [b]: Math.max(0, (p.buffs?.[b] ?? 0) - 1) };
     const after = lookOf(p.sparksAll);
     if (after > before) {
       this.lookUp = after;
@@ -2056,10 +2738,14 @@ export class DolinaSim {
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
     const stats: [string, string][] = [
-      [t('stat.level'), t('stat.levelVal', { from: this.levelStart, to: this.level })],
-      [t('stat.stars'), String(this.stars)],
+      this.tower
+        ? [t('stat.floors'), t('stat.floorsVal', { from: this.floorStart, to: this.floor })]
+        : [t('stat.level'), t('stat.levelVal', { from: this.levelStart, to: this.level })],
+      ...(this.tower ? [] : [[t('stat.stars'), String(this.stars)] as [string, string]]),
       [t('stat.lambs'), String(this.freed)],
       [t('stat.guards'), this.guardsBeaten.length ? this.guardsBeaten.map(guardName).join(', ') : '—'],
+      [t('stat.party'), this.party.length ? String(this.party.length) : '—'],
+      [t('stat.powers'), String(this.powers)],
       [t('stat.sparks'), fmtNum(this.sparks)],
       [t('stat.doubles'), String(this.doubles)],
       [t('stat.dawns'), String(this.dawns)],
@@ -2075,17 +2761,25 @@ export class DolinaSim {
   /**
    * The summary's closing passage, one the run fits, in turn from session to session: the first run,
    * a lamb brought back, a guardian beaten or a fall risen from, a Świt, high places reached with both
-   * jumps, a long push with a wide lamp, a passed meadow; else Psalm 139:12.
+   * jumps, a long push with a wide lamp, a passed meadow; v3: a companion found (the cloud of
+   * witnesses who run with us), tower floors climbed (pressing on toward the upward call), the clock's
+   * dawn (out of darkness into His light), a lamp that nearly went out and did not (the smoldering
+   * wick); else Psalm 139:12.
    */
   closingVerse(): PassageId {
     const fit: PassageId[] = [];
     if (this.first) fit.push('psa23.4');
+    if (this.freedNow.length) fit.push('heb12.1');
+    if (this.towerDawns > 0) fit.push('1pe2.9');
+    if (this.floorsDone >= 3) fit.push('php3.14');
     if (this.freed > 0) fit.push('luk15.4-6');
     if (this.guardsBeaten.length) fit.push('rom12.21');
     if (this.falls > 0) fit.push('mic7.8');
+    else if (this.minOil < 0.2) fit.push('isa42.3');
     if (this.dawns > 0) fit.push('jhn1.5');
-    if (this.doubles >= 5 && this.levels > 0) fit.push('hab3.19');
+    if (this.doubles >= 5 && (this.levels > 0 || this.floorsDone > 0)) fit.push('hab3.19');
     if (this.maxHold >= RULES.longHold) fit.push('psa119.105');
+    if (this.passedPushes >= 2 && this.falls === 0) fit.push('jhn8.12');
     if (this.passedRests > 0) fit.push('psa23.1-3');
     fit.push('psa139.12');
     return inTurn(fit, this.session || 1);
@@ -2094,26 +2788,44 @@ export class DolinaSim {
   private highlights(): string[] {
     const notes: { rank: number; text: string }[] = [];
     const add = (rank: number, text: string) => notes.push({ rank, text });
-    if (this.guardsBeaten.length) add(0, t('hl.guards', { list: this.guardsBeaten.map(guardName).join(', ') }));
-    if (this.levels) add(1, t('hl.levels', { n: this.levels, stars: this.stars }));
-    if (this.lookUp >= 0) add(2, t('hl.look', { name: lookName(this.lookUp) }));
-    if (this.bestBefore !== null && this.score > this.bestBefore) add(3, t('hl.record', { n: fmtNum(this.score) }));
-    else if (this.bestBefore !== null && this.bestBefore - this.score <= 120 && this.score > 0) add(3, t('hl.near', { n: fmtNum(this.bestBefore - this.score) }));
-    if (this.freed) add(4, t('hl.lambs', { n: this.freed }));
-    if (this.dawns) add(5, t('hl.dawns', { n: this.dawns }));
-    if (this.blindShare >= 0) add(6, t('hl.blind', { n: this.blindShare }));
-    if (this.dayGiftNow) add(7, t('hl.dayGift', { sparks: sparksText(this.dayGiftNow) }));
+    for (const id of this.freedNow) add(0, t('hl.found', { name: compName(id) }));
+    if (this.guardsBeaten.length) add(1, t('hl.guards', { list: this.guardsBeaten.map(guardName).join(', ') }));
+    if (this.tower && this.floorsDone) add(2, t('hl.floors', { n: this.floorsDone, time: this.clock }));
+    if (this.levels) add(2, t('hl.levels', { n: this.levels, stars: this.stars }));
+    for (const c of this.chestsNow) add(3, chestLine(c.drop, c.gear));
+    if (this.lookUp >= 0) add(3, t('hl.look', { name: lookName(this.lookUp) }));
+    if (this.bestBefore !== null && this.score > this.bestBefore) add(4, t('hl.record', { n: fmtNum(this.score) }));
+    else if (this.bestBefore !== null && this.bestBefore - this.score <= 120 && this.score > 0) add(4, t('hl.near', { n: fmtNum(this.bestBefore - this.score) }));
+    if (this.towerOpened) add(2, t('hl.towerOpen'));
+    if (this.missionsNow.length) add(5, t('hl.missions', { n: this.missionsNow.length }));
+    if (this.freed) add(6, t('hl.lambs', { n: this.freed }));
+    if (this.dawns) add(6, t('hl.dawns', { n: this.dawns }));
+    if (this.blindShare >= 0) add(7, t('hl.blind', { n: this.blindShare }));
+    if (this.dayGiftNow) add(8, t('hl.dayGift', { sparks: sparksText(this.dayGiftNow) }));
     const out = notes.sort((a, b) => a.rank - b.rank).slice(0, 4).map(n => n.text);
     // the story's closing line, in Ćma's words
-    out.push(t(this.guardsBeaten.length ? 'close.guard' : this.levels ? 'close.level' : this.started && this.t > 20 ? 'close.walk' : 'close.short'));
+    out.push(t(this.freedNow.length ? 'close.found' : this.tower && this.floorsDone ? 'close.tower'
+      : this.guardsBeaten.length ? 'close.guard' : this.levels ? 'close.level' : this.started && this.t > 20 ? 'close.walk' : 'close.short'));
     return out;
   }
 
   /** Stars already won on the level he is on (the score corner shows the best). */
   get levelBestStars(): number { return starsOf(this.p, this.level); }
 
-  /** For the view: the floor's era name. */
-  get eraLabel(): string { return eraName(this.era); }
+  /** For the view: the floor's era name (in the tower, the floor's trial). */
+  get eraLabel(): string { return this.tower ? floorName(this.floorKind) : eraName(this.era); }
+}
+
+/** A chest's content in a line ("Skrzynia: Płaszcz · mistrzowski"). */
+export function chestLine(d: ChestDrop, g: GearResult | null): string {
+  if (d.kind === 'gear') {
+    const tier = g ? g.tier : d.tier;
+    return g && g.merged ? t('chest.merged', { gear: gearName(d.slot), tier: tierName(tier) })
+      : g && g.before >= d.tier ? t('chest.shards', { gear: gearName(d.slot), n: d.tier })
+        : t('chest.gear', { gear: gearName(d.slot), tier: tierName(tier) });
+  }
+  if (d.kind === 'bond') return t('chest.bond', { name: compName(d.comp), n: d.n });
+  return t('chest.buff', { name: t(`buff.${d.buff}`), n: d.runs });
 }
 
 /** A moment of the companion (re-exported for the tests). */

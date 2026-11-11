@@ -6,28 +6,63 @@
  * (the lamp visibly growing), a dim lamp (she sulks, warmly), a calm meadow, a near miss, a big
  * moment, the first double jump, a stair built (or too short), a climb by hand, a pit, a lamb freed,
  * a high gate, the tide close behind and its catch, a guardian, its anger and its fall, a new era, a
- * fall, low oil, a level's way out and the ending.  Each moment has several variants and a session
- * never repeats one: when a moment's variants are spent she keeps quiet.
+ * fall, low oil, a level's way out and the ending.
  *
- * Pure (no DOM, no canvas): the sim owns her, the view draws `current`.
+ * Version 3: the companions talk too — one voice at a time, in the same queue.  Each has a line when
+ * freed (Ćma reacts first: `c.<id>`), when joining, when their power fires, now and then on the road
+ * (a quip), when their bond reaches a level, and Babcia when her umbrella takes a hit; Ćma has new
+ * lines for the clock tower, its floors and its dawn, a mission done and a chest.  Each moment has
+ * several variants and a session never repeats one: when a moment's variants are spent, it keeps quiet.
+ *
+ * Pure (no DOM, no canvas): the sim owns it, the view draws `current` over its speaker.
  */
-import type { EraId, GuardId } from './content';
+import type { CompId, EraId, GuardId } from './content';
 import { t, type Key } from './i18n';
+
+type MateMoment = 'join' | 'power' | 'quip' | 'level';
 
 export type Moment =
   | 'first' | 'open' | 'push' | 'blind' | 'rest' | 'good' | 'small' | 'calm' | 'near' | 'big' | 'close'
   | 'double' | 'stairs' | 'short' | 'climb' | 'pit' | 'lamb' | 'gate' | 'tide' | 'caught' | 'level'
-  | `guard.${GuardId}` | 'angry' | 'beaten' | `era.${EraId}` | 'fall' | 'oil' | 'end';
+  | `guard.${GuardId}` | 'angry' | 'beaten' | `era.${EraId}` | 'fall' | 'oil' | 'end'
+  // v3
+  | 'tower' | 'floor' | 'towerDawn' | 'mission' | 'chest' | `c.${CompId}` | `m.${CompId}.${MateMoment}` | 'm.babcia.block';
+
+/** Who says a line: Ćma, or one of the companions. */
+export type Speaker = 'cma' | CompId;
+
+const MATES: readonly CompId[] = ['glaz', 'babcia', 'bobr', 'zegar', 'kozica', 'wiewiorka'];
+const mateMoments = (): Record<`m.${CompId}.${MateMoment}`, number> => {
+  const out = {} as Record<`m.${CompId}.${MateMoment}`, number>;
+  for (const id of MATES) {
+    out[`m.${id}.join`] = 2;
+    out[`m.${id}.power`] = 3;
+    out[`m.${id}.quip`] = 3;
+    out[`m.${id}.level`] = 2;
+  }
+  return out;
+};
 
 /** How many variants each moment has in the catalog (say.<moment>.1 … say.<moment>.n). */
 export const SAY: Readonly<Record<Moment, number>> = {
   first: 3, open: 4, push: 4, blind: 3, rest: 4, good: 4, small: 3, calm: 3, near: 3, big: 4, close: 3,
   double: 3, stairs: 3, short: 3, climb: 3, pit: 3, lamb: 4, gate: 3, tide: 3, caught: 3, level: 4,
-  'guard.wieza': 3, 'guard.rycerz': 3, 'guard.ekran': 3, angry: 3, beaten: 4,
+  'guard.wieza': 3, 'guard.rycerz': 3, 'guard.ekran': 3, 'guard.kukulka': 3, angry: 3, beaten: 4,
   'era.babel': 3, 'era.twierdza': 3, 'era.miasto': 3, fall: 3, oil: 3, end: 4,
+  tower: 3, floor: 4, towerDawn: 2, mission: 3, chest: 3,
+  'c.glaz': 2, 'c.babcia': 2, 'c.bobr': 2, 'c.zegar': 2, 'c.kozica': 2, 'c.wiewiorka': 2,
+  'm.babcia.block': 2,
+  ...mateMoments(),
 };
 
-export interface Line { moment: Moment; text: string; t: number; dur: number }
+/** The speaker of a moment: a companion's own lines start with `m.<id>.`. */
+export function speakerOf(m: Moment): Speaker {
+  if (!m.startsWith('m.')) return 'cma';
+  const id = m.split('.')[1] as CompId;
+  return MATES.includes(id) ? id : 'cma';
+}
+
+export interface Line { moment: Moment; who: Speaker; text: string; t: number; dur: number }
 
 /** A line's time on screen: 2–4 s by its length. */
 export const lineSec = (text: string): number => Math.max(2, Math.min(4, 1.4 + text.length * 0.032));
@@ -44,11 +79,15 @@ export class Companion {
 
   constructor(private readonly rng: () => number) {}
 
+  /** Seconds since the last line ended (0 while one is on screen). */
+  get quietFor(): number { return this.current ? 0 : this.since; }
+
   /**
-   * Ask her to say a moment's line: it waits up to `wait` s for a quiet moment (no telegraph, no
-   * banner, the last line done); a waiting line of higher priority is not replaced.
+   * Ask for a moment's line: it waits up to `wait` s for a quiet moment (no telegraph, no banner,
+   * the last line done); a waiting line of higher priority is not replaced.
    */
   say(moment: Moment, prio = 1, wait = 4): void {
+    if (!(moment in SAY)) return;
     if (this.queue.some(q => q.moment === moment)) return;
     this.queue.push({ moment, prio, until: this.clock + wait });
     // the most important first; at most four wait
@@ -80,7 +119,7 @@ export class Companion {
       this.queue.shift();
       const text = this.pick(p.moment);
       if (text) {
-        const line = { moment: p.moment, text, t: 0, dur: lineSec(text) };
+        const line: Line = { moment: p.moment, who: speakerOf(p.moment), text, t: 0, dur: lineSec(text) };
         this.current = line;
         this.said.push(line);
       }

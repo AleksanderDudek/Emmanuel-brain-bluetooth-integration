@@ -33,15 +33,20 @@ export function layout(w: number, h: number, hudTop: number): Layout {
   const u = clamp(Math.min(W, H) / 430, 0.84, 1.25);
   const tall = W / H < 0.9;
   const top = clamp(hudTop || 0, 0, H * 0.45);
+  // a phone on its side: the runner's panel takes the top left of a short canvas, so the scene scales
+  // to the height under the top bar and the pilgrim stands right of the panel (what lies ahead is clear)
+  const short = !tall && H < 360 && W / H > 1.8;
+  const playTop = short ? Math.min(top, 62) : top;
   // the ground band below the floor holds the pack's strip
   const band = tall ? clamp(H * 0.24, 70, 180) : clamp(H * 0.14, 58, 110);
   const floorLine = H - band;
   // room above the floor for a ledge, a double jump and the gate in the air: about 5.8 u
-  const Sv = (floorLine - top - 8) / 5.8;
+  const Sv = (floorLine - playTop - 8) / 5.8;
   const Sh = W / (tall ? 9.2 : 17);
   const S = clamp(Math.min(Sv, Sh), 16, 82);
+  const runX = short ? clamp(350, W * 0.3, W * 0.46) : W * (tall ? 0.26 : 0.3);
   return {
-    w: W, h: H, u, tall, S, floorLine, runX: W * (tall ? 0.26 : 0.3), top,
+    w: W, h: H, u, tall, S, floorLine, runX, top,
     packY: floorLine + Math.min(band * 0.5, 34 * u), packRight: W - 14,
     cardW: Math.min(W - 32, 460 * u), cardTop: top + 8,
   };

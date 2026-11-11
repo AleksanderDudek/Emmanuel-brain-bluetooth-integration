@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { SAY, lineSec } from '../src/arcade/dolina/companion';
-import { ERAS, SEQ, UPGRADES, eraOfLevel, guardLevel, powerOf, weaponName } from '../src/arcade/dolina/content';
+import { SAY, lineSec, speakerOf } from '../src/arcade/dolina/companion';
+import { COMPS, ERAS, GEAR, KEEPERS, MISSIONS, SEQ, TRIALS, UPGRADES, eraOfLevel, guardLevel, powerOf, weaponName } from '../src/arcade/dolina/content';
 import { CATALOGS, t } from '../src/arcade/dolina/i18n';
 import {
-  bestOf, buyUp, freshProgress, lookOf, migrate, setStars, starTotal, starsOf, upLevel, upPrice, type DolinaProgress,
+  addGear, applyChest, bestOf, bondLevel, buyUp, clockTime, completeMission, freshProgress, lookOf, migrate, nightOf, partyFor, rollChest, setStars,
+  slotsFor, starTotal, starsOf, strengthOf, toggleParty, upLevel, upPrice, type DolinaProgress,
 } from '../src/arcade/dolina/meta';
+import { floorKind, keeperFloor, towerPlan } from '../src/arcade/dolina/plan';
 import { RULES } from '../src/arcade/dolina/rules';
 import {
-  DolinaSim, LAMP_MARK, WARM_PLAN, answerFor, comboMult, finaleFor, harmFor, lampFor, ledgeFor, planBlocks, stagePlan, starsFor, stepsFor, stoneHp,
+  DolinaSim, LAMP_MARK, WARM_PLAN, answerFor, chargeRate, comboMult, cooldownFor, finaleFor, harmFor, harmWith, hukFor, lampFor, ledgeFor, pendAt,
+  planBlocks, stagePlan, starsFor, stepsFor, stoneHp, strikeGapFor,
   type SimEvent, type Stone,
 } from '../src/arcade/dolina/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
@@ -626,7 +629,9 @@ describe('Dolina: the session', () => {
     const sim = makeSim({ planned: 300, progress: { sessions: 3, giftDay: DAY } });
     const evs = drive(sim, 60, () => (sim.block.kind === 'push' ? LOW : CALM));
     const what = ofType(evs, 'teach').map(e => e.what);
-    expect(what.every(w => ['tide', 'meadow', 'guard', 'open', 'fog', 'dawn', 'stairsJump', 'stairsDouble', 'stairsClimb'].includes(w))).toBe(true);
+    const news = ['tide', 'meadow', 'guard', 'open', 'fog', 'dawn', 'stairsJump', 'stairsDouble', 'stairsClimb', 'cage', 'mate', 'power', 'tower', 'bridge', 'pend', 'barrier', 'chest'];
+    expect(what.every(w => news.includes(w))).toBe(true);
+    for (const w of new Set(what)) expect(what.filter(x => x === w).length).toBe(1);
     expect(sim.p.seen).toContain('meadow');
   });
 
@@ -722,7 +727,7 @@ describe('Dolina: the meta', () => {
     // the runner loads saves as mergeSaved(fresh, saved)
     const p = { ...freshProgress(), ...old, ups: { ...freshProgress().ups, ...old.ups } } as unknown as DolinaProgress;
     migrate(p);
-    expect(p.ver).toBe(2);
+    expect(p.ver).toBe(3);
     expect(p.sessions).toBe(7);
     expect(p.best).toEqual({ '300': 812, '600': 1500 });
     expect(bestOf(p)).toBe(812);
@@ -753,5 +758,530 @@ describe('Dolina: the meta', () => {
 
   it('has every text in all four languages', () => {
     expect(catalogProblems(CATALOGS)).toEqual([]);
+  });
+
+  it('keeps Polish letters and Polish words out of the other languages', () => {
+    for (const lang of ['en', 'de', 'sv'] as const) {
+      for (const [k, v] of Object.entries(CATALOGS[lang])) {
+        const texts = typeof v === 'string' ? [v] : Object.values(v as Record<string, string>);
+        for (const s of texts) {
+          expect(/[ąćęłńśźżĄĆĘŁŃŚŹŻ]/.test(s), `${lang} ${k}: ${s}`).toBe(false);
+          expect(/\b(opaska|się|albo|Gra|Graj)\b/.test(s), `${lang} ${k}: ${s}`).toBe(false);
+        }
+      }
+    }
+  });
+});
+
+// ── version 3 ─────────────────────────────────────────────────────
+/** A sim with a party already found (and its slots), on a flat empty road. */
+function withParty(ids: DolinaProgress['found'], o: SimOpts = {}): DolinaSim {
+  const sim = later({ ...o, progress: { found: ids, party: ids, guards: Math.max(0, ids.length - 1), ...o.progress } });
+  flatRoad(sim);
+  return sim;
+}
+
+describe('Dolina v3: the companions', () => {
+  it('opens a slot for each of the first two guardians and keeps the pick to the slots', () => {
+    expect(slotsFor(0)).toBe(1);
+    expect(slotsFor(1)).toBe(2);
+    expect(slotsFor(2)).toBe(3);
+    expect(slotsFor(9)).toBe(3);
+    const p = freshProgress();
+    p.found = ['glaz', 'babcia', 'bobr'];
+    p.guards = 1;
+    expect(partyFor(p)).toEqual(['glaz', 'babcia']);
+    p.party = ['bobr'];
+    expect(partyFor(p)).toEqual(['bobr', 'glaz']);
+    toggleParty(p, 'babcia');
+    expect(partyFor(p)).toEqual(['glaz', 'babcia']);
+    toggleParty(p, 'glaz');
+    expect(p.party).toEqual(['babcia']);
+    toggleParty(p, 'kozica');   // not found: nothing changes
+    expect(p.party).toEqual(['babcia']);
+  });
+
+  it('frees a companion from a cage of smoke: found for good, into the party', () => {
+    const sim = later({ planned: 300 });
+    flatRoad(sim);
+    expect(sim.party).toHaveLength(0);
+    const cage = stone(sim, sim.px + 2, { cage: 'glaz', h: 3.2, w: 1.3, hp: 4 * sim.power, max: 4 * sim.power, stones: 0 });
+    const evs = drive(sim, 3, LOW);
+    expect(cage.alive).toBe(false);
+    expect(ofType(evs, 'mate')[0]).toMatchObject({ what: 'join', id: 'glaz' });
+    expect(sim.p.found).toEqual(['glaz']);
+    expect(sim.party.map(m => m.id)).toEqual(['glaz']);
+    expect(sim.freedNow).toEqual(['glaz']);
+    expect(sim.result().verse).toBeTruthy();
+  });
+
+  it('lays the next companion’s cage on a level’s second floor (and catches up for old saves)', () => {
+    const sim = later({ planned: 600, progress: { level: 7 } });
+    let seen = false;
+    drive(sim, 150, () => (sim.block.kind === 'push' ? HIGH : CALM), { t: 0 }, () => {
+      if (sim.stonesOnRoad.some(s => s.cage === 'glaz')) seen = true;
+      if (sim.grounded && (sim.blocked === 'wall' || sim.stonesOnRoad.some(s => s.alive && s.tall && !s.cage && s.x - sim.px < 1.6 && s.x > sim.px))) sim.press();
+      else if (!sim.grounded && sim.airUsed === 0 && sim.vy < 0.5 && sim.vy > -1 && sim.blocked === 'wall') sim.press();
+    });
+    expect(seen).toBe(true);
+    expect(sim.p.found[0]).toBe('glaz');
+  });
+
+  it('charges powers faster in the lamp’s light above the threshold (never slower without it)', () => {
+    expect(chargeRate(true, 1)).toBe(2);
+    expect(chargeRate(true, 0.3)).toBe(1);
+    expect(chargeRate(false, 1)).toBe(1);
+    expect(cooldownFor('glaz', 5)).toBeLessThan(cooldownFor('glaz', 1));
+    const lit = withParty(['babcia']);
+    intoPush(lit, { t: 0 }, HIGH);
+    lit.party[0].charge = 0;
+    lit.shieldHits = 9;   // keep the umbrella from firing
+    drive(lit, 3, HIGH, { t: 10 });
+    const dim = withParty(['babcia']);
+    intoPush(dim, { t: 0 }, LOW);
+    dim.party[0].charge = 0;
+    dim.shieldHits = 9;
+    drive(dim, 3, LOW, { t: 10 });
+    expect(lit.party[0].charge).toBeGreaterThan(dim.party[0].charge * 1.5);
+    expect(dim.party[0].charge).toBeGreaterThan(0.15);
+  });
+
+  it('Huk: Głaz’s hammer hits the block ahead for eight blows', () => {
+    const sim = withParty(['glaz']);
+    const big = stone(sim, sim.px + 3, { hp: 999, max: 999 });
+    sim.party[0].charge = 1;
+    const evs = drive(sim, 0.2, LOW);
+    const pw = ofType(evs, 'power')[0];
+    expect(pw).toMatchObject({ id: 'glaz', power: 'huk' });
+    expect(pw.n).toBe(Math.round(sim.power * hukFor(1)));
+    expect(big.hp).toBeLessThan(999 - sim.power * 7);
+    expect(sim.party[0].charge).toBeLessThan(0.1);
+  });
+
+  it('Parasol: Babcia’s umbrella takes a hit, even the tide’s', () => {
+    const sim = withParty(['babcia']);
+    sim.party[0].charge = 1;
+    drive(sim, 0.1, LOW);
+    expect(sim.shieldHits).toBe(1);
+    sim.shadows.push({ id: 7, kind: 'glinianek', x: sim.px + 0.3, y: 0, r: 0.32, h: 0.95, hp: 99, max: 99, state: 'walk', age: 0, hitT: 0, stun: 0, inLight: false, burn: 0, throwT: 9, bob: 0 });
+    const evs = drive(sim, 0.3, LOW);
+    expect(ofType(evs, 'shield')).toHaveLength(1);
+    expect(sim.oil).toBe(1);
+    // the tide's catch: thrown back, nothing spilled, the star kept
+    const t2 = withParty(['babcia']);
+    t2.party[0].charge = 1;
+    drive(t2, 0.1, LOW);
+    t2.stones = 10;
+    inner(t2).tideOn = true;
+    inner(t2).tideX = t2.px - 0.1;
+    const c = drive(t2, 0.1, LOW);
+    expect(ofType(c, 'caught')).toHaveLength(0);
+    expect(t2.stones).toBe(10);
+    expect(t2.caught).toBe(0);
+  });
+
+  it('Rusztowanie: Bóbr adds wooden steps to a stair as it starts', () => {
+    const sim = withParty(['bobr']);
+    sim.segs[0].x1 = sim.px + 12;
+    sim.segs.push({ x0: sim.px + 12, x1: sim.px + 300, y: 4.4, kind: 'ledge' });
+    sim.walls.push({ id: 9, x: sim.px + 12, y0: 0, top: 4.4, level: sim.level, stage: 1, need: stepsFor(4.4), built: 0, plan: 0, buildT: 0, started: false, passed: false });
+    sim.stones = 2;
+    sim.party[0].charge = 1;
+    const evs = drive(sim, 2, LOW);
+    const st = ofType(evs, 'stairs')[0];
+    expect(st.n).toBe(2 + RULES.comp.scaffold[0]);
+    expect(sim.walls[0].wood).toBe(RULES.comp.scaffold[0]);
+    expect(ofType(evs, 'power')[0]).toMatchObject({ id: 'bobr', n: RULES.comp.scaffold[0] });
+  });
+
+  it('Pauza: the watchmaker slows a throw coming at him', () => {
+    const sim = withParty(['zegar']);
+    sim.shots.push({ id: 3, kind: 'roll', x: sim.px + 6, y0: 0, y1: 0.55, w: 0.5, vx: -RULES.rollV, alive: true, passed: false, guard: false, t: 0 });
+    sim.party[0].charge = 1;
+    const px0 = sim.px;
+    const stay = () => { sim.px = px0; sim.speed = 0; };
+    stay();
+    drive(sim, 0.05, LOW, { t: 0 }, stay);
+    expect(sim.slowT).toBeGreaterThan(2.5);
+    const x0 = sim.shots[0].x;
+    drive(sim, 0.5, LOW, { t: 1 }, stay);
+    const moved = x0 - sim.shots[0].x;
+    expect(moved).toBeGreaterThan(0);
+    expect(moved).toBeLessThan(RULES.rollV * 0.5 * 0.5);
+  });
+
+  it('Szarża: the goat charges through the shadows ahead and pushes the tide back', () => {
+    const sim = withParty(['kozica']);
+    for (const dx of [2, 3.5]) sim.shadows.push({ id: 50 + dx, kind: 'glinianek', x: sim.px + dx, y: 0, r: 0.32, h: 0.95, hp: 99, max: 99, state: 'walk', age: 0, hitT: 0, stun: 99, inLight: false, burn: 0, throwT: 9, bob: 0 });
+    sim.party[0].charge = 1;
+    const evs = drive(sim, 0.05, LOW);
+    expect(ofType(evs, 'kill').length).toBe(2);
+    expect(sim.dashT).toBeGreaterThan(1);
+  });
+
+  it('Zapasy: the squirrel digs up stones and gives back what the tide spilled', () => {
+    const sim = withParty(['wiewiorka']);
+    sim.party[0].charge = 0;
+    sim.stones = 10;
+    inner(sim).tideOn = true;
+    inner(sim).tideX = sim.px - 0.1;
+    drive(sim, 0.05, LOW);
+    expect(sim.stones).toBe(7);
+    sim.party[0].charge = 1;
+    drive(sim, 0.05, LOW);
+    expect(sim.stones).toBe(7 + RULES.comp.stash[0] + 3);
+  });
+
+  it('companions strike the block he is stopped at with him', () => {
+    const alone = later();
+    flatRoad(alone);
+    const a = stone(alone, alone.px + 2, { hp: 40 * alone.power, max: 40 * alone.power });
+    drive(alone, 4, LOW);
+    const two = withParty(['glaz', 'babcia'], { progress: { guards: 1 } });
+    two.party.forEach(m => { m.charge = 0; });
+    two.shieldHits = 9;
+    const b = stone(two, two.px + 2, { hp: 40 * two.power, max: 40 * two.power });
+    const evs = drive(two, 4, LOW, { t: 0 }, () => { two.party[0].charge = 0; });
+    expect(ofType(evs, 'assist').length).toBeGreaterThan(4);
+    expect(b.hp).toBeLessThan(a.hp);
+  });
+
+  it('the meadow’s calm fills their powers; their bond is settled once and levels them up', () => {
+    const sim = later({ planned: 300, progress: { found: ['glaz'], party: ['glaz'] } });
+    const clock = { t: 0 };
+    drive(sim, sim.block.dur + sim.restLeadIn + 0.5, LOW, clock);
+    expect(sim.block.kind).toBe('rest');
+    sim.party[0].charge = 0;
+    drive(sim, 6, CALM, clock);
+    expect(sim.party[0].charge).toBeGreaterThan(0.2);
+    // a level: bond for breaks (three short of the second level)
+    sim.p.bond = { glaz: RULES.comp.bond[1] - 3 };
+    sim.party[0].bondRun = 0;
+    sim.party[0].lv = 1;
+    flatRoad(sim);
+    for (let i = 0; i < 4; i++) stone(sim, sim.px + 2 + i * 2.4, { hp: 1, max: 1 });
+    const evs = drive(sim, 6, LOW, clock);
+    expect(ofType(evs, 'mateLevel').length).toBeGreaterThanOrEqual(1);
+    const run = sim.party[0].bondRun;
+    sim.finish();
+    sim.result();
+    sim.result();
+    expect(sim.p.bond.glaz).toBe(RULES.comp.bond[1] - 3 + run);
+    expect(bondLevel(sim.p.bond.glaz)).toBeGreaterThanOrEqual(2);
+  });
+
+  it('gives every companion moment its own lines, and says who speaks', () => {
+    for (const id of COMPS) {
+      expect(SAY[`m.${id}.join`]).toBeGreaterThanOrEqual(2);
+      expect(SAY[`m.${id}.power`]).toBeGreaterThanOrEqual(3);
+      expect(speakerOf(`m.${id}.quip`)).toBe(id);
+      expect(speakerOf(`c.${id}`)).toBe('cma');
+    }
+    expect(speakerOf('tower')).toBe('cma');
+  });
+});
+
+describe('Dolina v3: the clock tower', () => {
+  it('keeps a keeper every fifth floor and four different trials between them', () => {
+    expect(keeperFloor(5)).toBe(true);
+    expect(keeperFloor(6)).toBe(false);
+    expect([1, 2, 3, 4].map(floorKind)).toEqual(['quarry', 'bridge', 'gates', 'pendulum']);
+    for (let band = 1; band < 6; band++) {
+      const kinds = [1, 2, 3, 4].map(i => floorKind(band * 5 + i));
+      expect(new Set(kinds).size).toBe(4);
+      for (const k of kinds) expect(TRIALS).toContain(k);
+      expect(floorKind(band * 5 + 5)).toBe('keeper');
+    }
+    for (const k of TRIALS) expect(towerPlan(7, k, mulberry32(3)).length).toBeGreaterThan(2);
+    expect(towerPlan(3, 'gates', mulberry32(1)).at(-1)).toBe('giant');
+    expect(towerPlan(2, 'bridge', mulberry32(1))).toContain('bridge');
+    expect(towerPlan(4, 'pendulum', mulberry32(1)).filter(b => b === 'pend')).toHaveLength(3);
+    expect(towerPlan(5, 'keeper', mulberry32(1))).toEqual([]);
+  });
+
+  it('moves the clock six minutes a floor, from midnight to the dawn, then a new night', () => {
+    expect(clockTime(1)).toBe('00:00');
+    expect(clockTime(11)).toBe('01:00');
+    expect(clockTime(60)).toBe('05:54');
+    expect(clockTime(61)).toBe('00:00');
+    expect(nightOf(60)).toBe(1);
+    expect(nightOf(61)).toBe(2);
+  });
+
+  it('opens only after the first guardian; a tower run climbs floors and saves the floor', () => {
+    expect(later({ progress: { mode: 'tower' } }).mode).toBe('valley');
+    const sim = later({ planned: 600, progress: { mode: 'tower', guards: 1, tower: { floor: 1, best: 0, night: 0 } } });
+    expect(sim.mode).toBe('tower');
+    const evs = drive(sim, 200, () => (sim.block.kind === 'push' ? HIGH : CALM), { t: 0 }, () => {
+      if (sim.grounded && (sim.blocked === 'wall' || sim.stonesOnRoad.some(s => s.alive && s.tall && !s.cage && s.x - sim.px < 1.6 && s.x > sim.px))) sim.press();
+      else if (!sim.grounded && sim.airUsed === 0 && sim.vy < 0.5 && sim.vy > -1 && sim.blocked === 'wall') sim.press();
+    });
+    expect(ofType(evs, 'floor')[0]).toMatchObject({ floor: 1, kind: 'quarry', time: '00:00' });
+    const done = ofType(evs, 'floorDone');
+    expect(done.length).toBeGreaterThanOrEqual(2);
+    sim.finish();
+    sim.result();
+    expect(sim.p.tower.floor).toBe(sim.floor);
+    expect(sim.p.tower.best).toBe(sim.floor - 1);
+    expect(sim.result().stats[0][1]).toContain('→');
+  });
+
+  it('a keeper guards every fifth floor: Kukułka on the twentieth; beaten, it pays a chest and the floor', () => {
+    expect(KEEPERS[3]).toBe('kukulka');
+    expect(SEQ.kukulka.calm).toContain('open');
+    const sim = later({ planned: 600, progress: { mode: 'tower', guards: 3, tower: { floor: 20, best: 19, night: 0 } } });
+    flatRoad(sim);
+    sim.arena = { x: sim.px + 1, y: 0, level: 20, guard: null, done: false, keeper: 'kukulka' };
+    const evs = drive(sim, 200, () => (sim.block.kind === 'push' ? LOW : CALM));
+    expect(ofType(evs, 'guard').find(e => e.what === 'come')?.id).toBe('kukulka');
+    expect(ofType(evs, 'guard').some(e => e.what === 'beaten')).toBe(true);
+    expect(ofType(evs, 'chest').some(e => e.source === 'keeper')).toBe(true);
+    expect(ofType(evs, 'floorDone')[0].floor).toBe(20);
+  });
+
+  it('scores live in the tower with only the smoke test’s taps', () => {
+    const sim = later({ planned: 40, seed: 7, progress: { mode: 'tower', guards: 1 } });
+    let tap = 0, space = 0;
+    drive(sim, 26, LOW, { t: 0 }, t => {
+      if (t - tap >= 0.65) { tap = t; sim.press(); sim.releasePress(); }
+      if (t - space >= 2) { space = t; sim.key(' ', true); sim.key(' ', false); }
+    });
+    expect(sim.score).toBeGreaterThan(40);
+    const a = sim.result(), b = sim.result();
+    expect(b.score).toBe(a.score);
+  });
+});
+
+describe('Dolina v3: bridges, weights, curtains', () => {
+  it('a trodden plank falls behind him; running across is safe, stopping on one is a fall Ćma lifts him from', () => {
+    const sim = later();
+    flatRoad(sim);
+    const x = sim.px + 2;
+    sim.segs[0].x1 = x;
+    for (let i = 0; i < 10; i++) sim.segs.push({ x0: x + i * 0.55, x1: x + (i + 1) * 0.55 - 0.04, y: 0, kind: 'bridge', crumble: -1 });
+    sim.segs.push({ x0: x + 5.5, x1: x + 300, y: 0, kind: 'road' });
+    const evs = drive(sim, 3, LOW);
+    expect(ofType(evs, 'plank').length).toBeGreaterThan(5);
+    expect(ofType(evs, 'pit')).toHaveLength(0);
+    expect(sim.px).toBeGreaterThan(x + 5.5);
+    // stopped on a bridge: the plank gives way
+    const st = later();
+    flatRoad(st);
+    st.segs.length = 0;
+    st.segs.push({ x0: st.px - 30, x1: st.px - 0.3, y: 0, kind: 'road' });
+    for (let i = 0; i < 4; i++) st.segs.push({ x0: st.px - 0.3 + i * 0.55, x1: st.px - 0.3 + (i + 1) * 0.55 - 0.04, y: 0, kind: 'bridge', crumble: -1 });
+    st.segs.push({ x0: st.px + 8, x1: st.px + 300, y: 0, kind: 'road' });
+    stone(st, st.px + 0.4, { hp: 1e6, max: 1e6, h: 3.2 });
+    const e2 = drive(st, 3, LOW);
+    expect(ofType(e2, 'pit').length).toBe(1);
+    expect(ofType(e2, 'lift').length).toBe(1);
+  });
+
+  it('a swinging weight hurts him when it meets him low; a jump over it at its lowest clears it', () => {
+    const c = pendAt({ x: 10, y: 0, ph: 0 });
+    expect(c.x).toBeCloseTo(10, 5);
+    expect(c.y).toBeCloseTo(RULES.pend.low, 5);
+    expect(pendAt({ x: 10, y: 0, ph: Math.PI / 2 }).y).toBeGreaterThan(c.y);
+    const sim = later();
+    flatRoad(sim);
+    sim.speed = 0;
+    sim.pends.push({ id: 1, x: sim.px, y: 0, ph: 0, hitT: 0 });
+    const evs = drive(sim, 0.1, LOW, { t: 0 }, () => { sim.speed = 0; });
+    expect(ofType(evs, 'harm')[0]?.kind).toBe('pend');
+    expect(harmWith('pend', 0, 0, false)).toBe(RULES.harm.pend);
+  });
+
+  it('a smoke curtain takes half the sword, all of a power, and burns in the light above the threshold', () => {
+    const sim = later();
+    flatRoad(sim);
+    const cur = stone(sim, sim.px + 2, { barrier: true, h: RULES.barrier.h, w: RULES.barrier.w, hp: 100 * sim.power, max: 100 * sim.power, stones: 2 });
+    drive(sim, 1.5, LOW);
+    const strikes = Math.round((100 * sim.power - cur.hp) / (sim.power * RULES.barrier.sword));
+    expect(strikes).toBeGreaterThan(2);
+    // a power bites in full: Głaz's hammer
+    const g = withParty(['glaz']);
+    const c1 = stone(g, g.px + 3, { barrier: true, h: RULES.barrier.h, w: RULES.barrier.w, hp: 999, max: 999, stones: 2 });
+    g.party[0].charge = 1;
+    drive(g, 0.1, LOW);
+    expect(999 - c1.hp).toBeCloseTo(g.power * hukFor(1), 0);
+    // the light burns it
+    const lit = later();
+    flatRoad(lit);
+    intoPush(lit, { t: 0 }, HIGH);
+    drive(lit, 1, HIGH, { t: 8 });
+    const c2 = stone(lit, lit.px + 2.2, { barrier: true, h: RULES.barrier.h, w: RULES.barrier.w, hp: 6, max: 6, stones: 2 });
+    lit.speed = 0;
+    const evs = drive(lit, 4, HIGH, { t: 9 }, () => { lit.speed = 0; lit.px = c2.x - 2.2; });
+    expect(c2.alive).toBe(false);
+    expect(ofType(evs, 'break')[0]).toMatchObject({ what: 'barrier', via: 'light' });
+  });
+});
+
+describe('Dolina v3: gear, chests, provisions, missions, forms', () => {
+  it('puts a better piece on, turns an equal one into shards that merge into the next tier', () => {
+    const p = freshProgress();
+    expect(addGear(p, 'cloak', 2)).toMatchObject({ tier: 2, before: 0, merged: false });
+    expect(addGear(p, 'cloak', 1)).toMatchObject({ tier: 2, shards: 1 });
+    addGear(p, 'cloak', 2);
+    const r = addGear(p, 'cloak', 2);   // 1 + 2 + 2 = 5 ≥ 6? no — then 2 more
+    expect(r.tier).toBe(2);
+    const m = addGear(p, 'cloak', 2);
+    expect(m.merged).toBe(true);
+    expect(m.tier).toBe(3);
+    p.gear.lamp = { tier: RULES.gear.top, shards: 0 };
+    expect(addGear(p, 'lamp', 6).tier).toBe(RULES.gear.top);
+    expect(strengthOf(p)).toBeGreaterThan(0);
+  });
+
+  it('gear works in the run: the blade strikes faster, the cloak takes less harm, the sandals run faster', () => {
+    expect(strikeGapFor(6, false)).toBeLessThan(strikeGapFor(0, false));
+    expect(strikeGapFor(0, true)).toBeLessThan(strikeGapFor(0, false));
+    expect(harmWith('shadow', 0, 6, false)).toBeLessThan(harmWith('shadow', 0, 0, false));
+    expect(harmWith('shadow', 0, 0, true)).toBeLessThan(harmWith('shadow', 0, 0, false));
+    const slow = later();
+    flatRoad(slow);
+    drive(slow, 5, LOW);
+    const fast = later({ progress: { gear: { ...freshProgress().gear, sandals: { tier: 6, shards: 0 } } } });
+    flatRoad(fast);
+    drive(fast, 5, LOW);
+    expect(fast.px).toBeGreaterThan(slow.px + 1);
+  });
+
+  it('rolls a chest from the play’s own luck, the same for the same seed, and opens it into the progress', () => {
+    const p = freshProgress();
+    const a = rollChest(p, 'guard', mulberry32(4)), b = rollChest(p, 'guard', mulberry32(4));
+    expect(a).toEqual(b);
+    const kinds = new Set<string>();
+    const rnd = mulberry32(11);
+    p.found = ['glaz'];
+    for (let i = 0; i < 200; i++) {
+      const d = rollChest(p, 'keeper', rnd);
+      kinds.add(d.kind);
+      if (d.kind === 'gear') expect(d.tier).toBeGreaterThanOrEqual(2);
+      applyChest(p, d);
+    }
+    expect(kinds).toEqual(new Set(['gear', 'bond', 'buff']));
+    expect(p.chests).toBe(200);
+    expect(GEAR.some(s => p.gear[s].tier > 0)).toBe(true);
+  });
+
+  it('a guardian beaten opens a chest and a slot', () => {
+    const sim = later({ planned: 600, progress: { level: 3, found: ['glaz', 'babcia'], party: ['glaz'] } });
+    flatRoad(sim);
+    expect(sim.slots).toBe(1);
+    sim.arena = { x: sim.px + 1, y: 0, level: 3, guard: null, done: false };
+    const evs = drive(sim, 150, () => (sim.block.kind === 'push' ? LOW : CALM));
+    expect(ofType(evs, 'chest').some(e => e.source === 'guard')).toBe(true);
+    expect(ofType(evs, 'slot')[0].n).toBe(2);
+    expect(sim.party.map(m => m.id)).toContain('babcia');
+    // the first guardian ever: the clock tower opens, and the summary says where to find it
+    expect(ofType(evs, 'towerOpen')).toHaveLength(1);
+    expect(sim.result().highlights).toContain(t('hl.towerOpen'));
+  });
+
+  it('eats one run of each provision once, however often the result is read', () => {
+    const sim = later({ planned: 60, progress: { buffs: { honey: 3, raisins: 0, dates: 1 } } });
+    expect([...sim.buffs].sort()).toEqual(['dates', 'honey']);
+    drive(sim, 70, LOW);
+    sim.result();
+    sim.result();
+    expect(sim.p.buffs).toEqual({ honey: 2, raisins: 0, dates: 0 });
+  });
+
+  it('offers three different missions it can ask now; done ones pay, climb a rung, and every third brings a chest', () => {
+    const p = freshProgress();
+    expect(p.missions).toHaveLength(3);
+    expect(new Set(p.missions.map(m => m.kind)).size).toBe(3);
+    expect(p.missions.some(m => m.kind === 'floors' || m.kind === 'powers')).toBe(false);
+    const m = p.missions[0];
+    const chest = completeMission(p, m);
+    expect(chest).toBe(false);
+    expect(p.missions).toHaveLength(3);
+    expect(p.rungs[m.kind]).toBe(1);
+    // in the run: a blocks mission done by breaking blocks
+    const sim = later({ progress: { missions: [{ kind: 'blocks', goal: 2, have: 0, rung: 0 }, { kind: 'lambs', goal: 5, have: 0, rung: 0 }, { kind: 'doubles', goal: 8, have: 0, rung: 0 }], missionsDone: 2 } });
+    flatRoad(sim);
+    stone(sim, sim.px + 2, { hp: 1, max: 1 });
+    stone(sim, sim.px + 4.5, { hp: 1, max: 1 });
+    const evs = drive(sim, 2.5, LOW);
+    const done = ofType(evs, 'mission');
+    expect(done).toHaveLength(1);
+    expect(done[0].chest).toBe(true);
+    expect(ofType(evs, 'chest').some(e => e.source === 'mission')).toBe(true);
+    expect(sim.p.missions.some(x => x.kind === 'blocks' && x.have > 0)).toBe(false);
+    expect(MISSIONS.length).toBeGreaterThan(8);
+  });
+
+  it('forms bring perks: the stomp shakes, the light quickens the sword, the flap rings out', () => {
+    expect(lookOf(RULES.looks[5])).toBe(5);
+    // the traveller's stomp shakes a block beside the shadow
+    const sim = later({ progress: { sparksAll: RULES.looks[1] } });
+    flatRoad(sim);
+    drive(sim, 1, LOW);
+    sim.shadows.push({ id: 71, kind: 'glinianek', x: sim.px + 3.1, y: 0, r: 0.32, h: 0.95, hp: 5, max: 5, state: 'walk', age: 0, hitT: 0, stun: 99, inLight: false, burn: 0, throwT: 9, bob: 0 });
+    const near = stone(sim, sim.px + 3.9, { hp: 999, max: 999 });
+    sim.press();
+    const evs = drive(sim, 1, LOW);
+    expect(ofType(evs, 'shock').length).toBe(1);
+    expect(near.hp).toBeLessThan(999);
+    // the master of the lamp: the double jump's ring
+    const m = later({ progress: { sparksAll: RULES.looks[5] } });
+    flatRoad(m);
+    m.shadows.push({ id: 72, kind: 'kruk', x: m.px + 2, y: 1.2, r: 0.3, h: 0.45, hp: 99, max: 99, state: 'walk', age: 0, hitT: 0, stun: 99, inLight: false, burn: 0, throwT: 9, bob: 0 });
+    m.press();
+    drive(m, 0.2, LOW);
+    m.press();
+    const e2 = m.take();
+    expect(ofType(e2, 'flameRing').length).toBe(1);
+  });
+
+  it('migrates a version-2 save in place: everything it saved stays, the new fields come fresh, and it plays', () => {
+    const v2 = {
+      ver: 2, sessions: 14, total: 9120, sparks: 412, sparksAll: 1680, ups: { stone: 3, forge: 2, income: 1, lamp: 2, oil: 1 }, level: 8, top: 7,
+      stars: { '1': 3, '2': 2, '3': 3, '4': 1, '5': 2, '6': 3, '7': 1 }, lambs: 31, guards: 2, dawns: 6, pushes: 40,
+      best: { '300': 1450, '180': 980 }, lastLen: 300, bestCombo: 27, seen: ['tide', 'meadow', 'guard', 'open', 'stairs'], giftDay: '2026-11-08',
+    };
+    // the runner loads a save as mergeSaved(fresh, saved): fresh v3 fields, the save's own over them
+    const p = { ...freshProgress(), ...v2, ups: { ...freshProgress().ups, ...v2.ups } } as unknown as DolinaProgress;
+    migrate(p);
+    expect(p.ver).toBe(3);
+    for (const k of ['sessions', 'total', 'sparks', 'sparksAll', 'level', 'top', 'lambs', 'guards', 'dawns', 'pushes', 'lastLen', 'bestCombo', 'giftDay'] as const) {
+      expect(p[k]).toBe(v2[k]);
+    }
+    expect(p.ups).toEqual(v2.ups);
+    expect(p.stars).toEqual(v2.stars);
+    expect(p.best).toEqual(v2.best);
+    expect(p.seen).toEqual(v2.seen);
+    expect(p.mode).toBe('valley');
+    expect(p.tower).toEqual({ floor: 1, best: 0, night: 0 });
+    expect(p.found).toEqual([]);
+    expect(p.missions).toHaveLength(3);
+    expect(lookOf(p.sparksAll)).toBe(3);
+    expect(slotsFor(p.guards)).toBe(3);
+    expect(migrate(p)).toBe(p);
+    expect(p.ver).toBe(3);
+    // it plays at its level, and the first companion's cage stands on the way (catch-up)
+    const sim = new DolinaSim({ progress: p, rng: mulberry32(2), day: DAY, daySeed: 1, plannedSec: 600, eeg: false, tuning: TUNING });
+    sim.start();
+    expect(sim.level).toBe(8);
+    expect(sim.form).toBe(3);
+    let cage = false;
+    drive(sim, 120, () => (sim.block.kind === 'push' ? HIGH : CALM), { t: 0 }, () => {
+      if (sim.stonesOnRoad.some(s => s.cage)) cage = true;
+      if (sim.grounded && (sim.blocked === 'wall' || sim.stonesOnRoad.some(s => s.alive && s.tall && !s.cage && s.x - sim.px < 1.6 && s.x > sim.px))) sim.press();
+      else if (!sim.grounded && sim.airUsed === 0 && sim.vy < 0.5 && sim.vy > -1 && sim.blocked === 'wall') sim.press();
+    });
+    expect(cage).toBe(true);
+    // a damaged version-3 save never crashes
+    const broken = { ...freshProgress(), found: ['glaz', 'nobody', 'glaz', 7], party: ['kozica', 'glaz'], gear: { blade: { tier: 99 }, cloak: 'x' }, tower: null, mode: 'moon', missions: [{ kind: 'nope' }, { kind: 'lambs', goal: 'x' }], buffs: 3 } as unknown as DolinaProgress;
+    migrate(broken);
+    expect(broken.found).toEqual(['glaz']);
+    expect(broken.party).toEqual(['glaz']);
+    expect(broken.gear.blade.tier).toBe(RULES.gear.top);
+    expect(broken.gear.cloak).toEqual({ tier: 0, shards: 0 });
+    expect(broken.tower).toEqual({ floor: 1, best: 0, night: 0 });
+    expect(broken.mode).toBe('valley');
+    expect(broken.missions).toHaveLength(3);
+    expect(broken.buffs).toEqual({ honey: 0, raisins: 0, dates: 0 });
   });
 });
