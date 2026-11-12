@@ -267,6 +267,19 @@ export type PassageId =
   | 'job33.25'
   | 'psa51.10'
   | 'jhn12.24'
+  | 'jhn7.38-39'
+  | 'act2.17'
+  | 'isa11.2'
+  | 'php4.7'
+  | 'eph1.18'
+  | 'psa141.3'
+  | 'rom5.5'
+  | 'jhn20.22'
+  | 'eph3.16'
+  | 'psa40.2'
+  | 'psa18.32'
+  | 'psa141.2'
+  | 'luk11.13'
   ;
 
 export interface Passage {
@@ -1170,7 +1183,7 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     sv: ['Så varen nu Gud underdåniga, men stån emot djävulen, så skall han fly bort ifrån eder.', 'Jak 4:7'],
   },
   '2co10.4': {
-    pl: ['(Albowiem broń żołnierstwa naszego nie jest cielesna, ale z Boga jest, mocna ku zburzeniu miejsc obronnych.)…', '2 Kor 10,4'],
+    pl: ['(Albowiem broń żołnierstwa naszego nie jest cielesna, ale z Boga jest, mocna ku zburzeniu miejsc obronnych.)', '2 Kor 10,4'],
     en: ['The weapons of our warfare are not the weapons of the flesh. Instead, they have divine power to demolish strongholds.', '2 Corinthians 10:4'],
     de: ['Denn die Waffen unsrer Ritterschaft sind nicht fleischlich, sondern mächtig vor Gott, zu zerstören Befestigungen…', '2. Korinther 10,4'],
     sv: ['Våra stridsvapen äro nämligen icke av köttslig art; de äro tvärtom så mäktiga inför Gud, att de kunna bryta ned fästen.', '2 Kor 10:4'],
@@ -1810,6 +1823,84 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['Truly, truly, I tell you, unless a kernel of wheat falls to the ground and dies, it remains only a seed. But if it dies, it bears much fruit.', 'John 12:24'],
     de: ['Wahrlich, wahrlich ich sage euch: Es sei denn, daß das Weizenkorn in die Erde falle und ersterbe, so bleibt\'s allein; wo es aber erstirbt, so bringt es viele Früchte.', 'Johannes 12,24'],
     sv: ['Sannerligen, sannerligen säger jag eder: Om icke vetekornet faller i jorden och dör, så förbliver det ett ensamt korn; men om det dör, så bär det mycken frukt.', 'Joh 12:24'],
+  },
+  'jhn7.38-39': {
+    pl: ['Kto wierzy w mię, jako mówi Pismo, rzeki wody żywej popłyną z żywota jego. (A to mówił o Duchu, którego wziąć mieli wierzący weń; albowiem jeszcze nie był dany Duch Święty, przeto że jeszcze Jezus nie był uwielbiony.)', 'J 7,38–39'],
+    en: ['Whoever believes in Me, as the Scripture has said: ‘Streams of living water will flow from within him.’ He was speaking about the Spirit, whom those who believed in Him were later to receive. For the Spirit had not yet been given, because Jesus had not yet been glorified.', 'John 7:38–39'],
+    de: ['Wer an mich glaubt, wie die Schrift sagt, von des Leibe werden Ströme des lebendigen Wassers fließen. Das sagte er aber von dem Geist, welchen empfangen sollten, die an ihn glaubten; denn der Heilige Geist war noch nicht da, denn Jesus war noch nicht verklärt.', 'Johannes 7,38–39'],
+    sv: ['Den som tror på mig, av hans innersta skola strömmar av levande vatten flyta fram, såsom skriften säger. Detta sade han om Anden, vilken de som trodde på honom skulle undfå; ty ande var då ännu icke given, eftersom Jesus ännu icke hade blivit förhärligad.', 'Joh 7:38–39'],
+  },
+  'act2.17': {
+    pl: ['I będzie w ostateczne dni, (mówi Bóg): Wyleję z Ducha mego na wszelkie ciało, a prorokować będą synowie wasi i córki wasze, a młodzieńcy wasi widzenia widzieć będą, a starcom waszym sny się śnić będą.', 'Dz 2,17'],
+    en: ['In the last days, God says, I will pour out My Spirit on all people. Your sons and daughters will prophesy, your young men will see visions, your old men will dream dreams.', 'Acts 2:17'],
+    de: ['Und es soll geschehen in den letzten Tagen, spricht Gott, ich will ausgießen von meinem Geist auf alles Fleisch; und eure Söhne und eure Töchter sollen weissagen, und eure Jünglinge sollen Gesichte sehen, und eure Ältesten sollen Träume haben…', 'Apostelgeschichte 2,17'],
+    sv: ['Och det skall ske i de yttersta dagarna, säger Gud, att jag skall utgjuta av min Ande över allt kött, och edra söner och edra döttrar skola profetera, och edra ynglingar skola se syner, och edra gamla män skola hava drömmar…', 'Apg 2:17'],
+  },
+  'isa11.2': {
+    pl: ['I odpocznie na nim Duch Pański, Duch mądrości i rozumu, Duch rady i mocy, Duch umiejętności i bojaźni Pańskiej.', 'Iz 11,2'],
+    en: ['The Spirit of the LORD will rest on Him—the Spirit of wisdom and understanding, the Spirit of counsel and strength, the Spirit of knowledge and fear of the LORD.', 'Isaiah 11:2'],
+    de: ['…auf welchem wird ruhen der Geist des HERRN, der Geist der Weisheit und des Verstandes, der Geist des Rates und der Stärke, der Geist der Erkenntnis und der Furcht des HERRN.', 'Jesaja 11,2'],
+    sv: ['Och på honom skall HERRENS Ande vila, vishets och förstånds Ande, råds och starkhets Ande, HERRENS kunskaps och fruktans Ande.', 'Jes 11:2'],
+  },
+  'php4.7': {
+    pl: ['A pokój Boży, który przewyższa wszelki rozum, będzie strzegł serc waszych i myśli waszych w Chrystusie Jezusie.', 'Flp 4,7'],
+    en: ['And the peace of God, which surpasses all understanding, will guard your hearts and your minds in Christ Jesus.', 'Philippians 4:7'],
+    de: ['Und der Friede Gottes, welcher höher ist denn alle Vernunft, bewahre eure Herzen und Sinne in Christo Jesu!', 'Philipper 4,7'],
+    sv: ['Så skall Guds frid, som övergår allt förstånd, bevara edra hjärtan och edra tankar, i Kristus Jesus.', 'Fil 4:7'],
+  },
+  'eph1.18': {
+    pl: ['Ażeby oświecił oczy myśli waszej, abyście wiedzieli, która jest nadzieja powołania jego i które jest bogactwo chwały dziedzictwa jego w świętych…', 'Ef 1,18'],
+    en: ['I ask that the eyes of your heart may be enlightened, so that you may know the hope of His calling, the riches of His glorious inheritance in the saints…', 'Ephesians 1:18'],
+    de: ['…und erleuchtete Augen eures Verständnisses, daß ihr erkennen möget, welche da sei die Hoffnung eurer Berufung, und welcher sei der Reichtum seines herrlichen Erbes bei seinen Heiligen…', 'Epheser 1,18'],
+    sv: ['…och att han må upplysa edra hjärtans ögon, så att I förstån hurudant det hopp är, vartill han har kallat eder, huru rikt på härlighet hans arv är bland de heliga…', 'Ef 1:18'],
+  },
+  'psa141.3': {
+    pl: ['Panie! połóż straż ustom moim; strzeż drzwi warg moich.', 'Ps 141,3'],
+    en: ['Set a guard, O LORD, over my mouth; keep watch at the door of my lips.', 'Psalm 141:3'],
+    de: ['HERR, behüte meinen Mund und bewahre meine Lippen.', 'Psalm 141,3'],
+    sv: ['Sätt, o HERRE, en vakt för min mun, bevaka mina läppars dörr.', 'Ps 141:3'],
+  },
+  'rom5.5': {
+    pl: ['A nadzieja nie pohańbia, przeto iż miłość Boża rozlana jest w sercach naszych przez Ducha Świętego, który nam jest dany.', 'Rz 5,5'],
+    en: ['And hope does not disappoint us, because God has poured out His love into our hearts through the Holy Spirit, whom He has given us.', 'Romans 5:5'],
+    de: ['Hoffnung aber läßt nicht zu Schanden werden. Denn die Liebe Gottes ist ausgegossen in unser Herz durch den heiligen Geist, welcher uns gegeben ist.', 'Römer 5,5'],
+    sv: ['…och hoppet låter oss icke komma på skam; ty Guds kärlek är utgjuten i våra hjärtan genom den helige Ande, vilken har blivit oss given.', 'Rom 5:5'],
+  },
+  'jhn20.22': {
+    pl: ['A to rzekłszy tchnął na nie i rzekł im: Weźmijcie Ducha Świętego.', 'J 20,22'],
+    en: ['When He had said this, He breathed on them and said, Receive the Holy Spirit.', 'John 20:22'],
+    de: ['Und da er das gesagt hatte, blies er sie an und spricht zu ihnen: Nehmet hin den Heiligen Geist!', 'Johannes 20,22'],
+    sv: ['Och när han hade sagt detta, andades han på dem och sade till dem: Tagen emot helig ande!', 'Joh 20:22'],
+  },
+  'eph3.16': {
+    pl: ['Aby wam dał według bogactwa chwały swej, żebyście byli mocą utwierdzeni przez Ducha jego w wewnętrznym człowieku…', 'Ef 3,16'],
+    en: ['I ask that out of the riches of His glory He may strengthen you with power through His Spirit in your inner being…', 'Ephesians 3:16'],
+    de: ['…daß er euch Kraft gebe nach dem Reichtum seiner Herrlichkeit, stark zu werden durch seinen Geist an dem inwendigen Menschen…', 'Epheser 3,16'],
+    sv: ['…och beder att han ville efter sin härlighets rikedom förläna eder, att I genom hans Ande växen till i kraft till eder invärtes människa…', 'Ef 3:16'],
+  },
+  'psa40.2': {
+    pl: ['I wyciągnął mię z dołu szumiącego i z błota lgnącego, a postawił na skale nogi moje, i utwierdził kroki moje…', 'Ps 40,3'],
+    en: ['He lifted me up from the pit of despair, out of the miry clay; He set my feet upon a rock, and made my footsteps firm.', 'Psalm 40:2'],
+    de: ['…und zog mich aus der grausamen Grube und aus dem Schlamm und stellte meine Füße auf einen Fels, daß ich gewiß treten kann…', 'Psalm 40,3'],
+    sv: ['Han drog mig upp ur fördärvets grop, ur den djupa dyn; han ställde mina fötter på en klippa, han gjorde mina steg fasta…', 'Ps 40:3'],
+  },
+  'psa18.32': {
+    pl: ['On jest Bogiem, który mię opasuje mocą, a czyni prostą drogę moję.', 'Ps 18,33'],
+    en: ['It is God who arms me with strength and makes my way clear.', 'Psalm 18:32'],
+    de: ['Gott rüstet mich mit Kraft und macht meine Wege ohne Tadel.', 'Psalm 18,33'],
+    sv: ['Gud, du som omgjordade mig med kraft och lät min väg vara lyckosam…', 'Ps 18:33'],
+  },
+  'psa141.2': {
+    pl: ['Niech będzie przyjemna modlitwa moja, jako kadzidło przed obliczem twoim, a podnoszenie rąk moich jako ofiara wieczorna.', 'Ps 141,2'],
+    en: ['May my prayer be set before You like incense; my uplifted hands, like the evening offering.', 'Psalm 141:2'],
+    de: ['Mein Gebet müsse vor dir taugen wie ein Räuchopfer, mein Händeaufheben wie ein Abendopfer.', 'Psalm 141,2'],
+    sv: ['Min bön gälle inför dig såsom ett rökoffer, mina händers upplyftande såsom ett aftonoffer.', 'Ps 141:2'],
+  },
+  'luk11.13': {
+    pl: ['Ponieważ tedy wy, będąc złymi, umiecie dobre dary dawać dzieciom waszym: jakoż daleko więcej Ojciec wasz niebieski da Ducha Świętego tym, którzy go oń proszą?', 'Łk 11,13'],
+    en: ['So if you who are evil know how to give good gifts to your children, how much more will your Father in heaven give the Holy Spirit to those who ask Him!', 'Luke 11:13'],
+    de: ['So denn ihr, die ihr arg seid, könnet euren Kindern gute Gaben geben, wie viel mehr wird der Vater im Himmel den heiligen Geist geben denen, die ihn bitten!', 'Lukas 11,13'],
+    sv: ['Om nu I, som ären onda, förstån att giva edra barn goda gåvor, huru mycket mer skall icke då den himmelske Fadern giva helig ande åt dem som bedja honom!', 'Luk 11:13'],
   },
 };
 

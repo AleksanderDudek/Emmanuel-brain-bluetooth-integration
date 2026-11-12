@@ -4880,3 +4880,54 @@ check-in after five images, and the founder was away: so this round's pictures a
 every other game, and the songs are synthesised. Ready for a go: a set of painted pairs for Rozświetl
 and pictures for the declarations of Ja jestem (drawn to the same compositions), and sung versions
 of the four body songs with their original words in four languages.
+
+### 13.14 Rzeki żywej wody — the meditation of light (the founder's second request of the day)
+
+Later on 2026-11-12 the founder sent eleven pictures of chakra charts (seven-, twelve- and thirteen-point
+systems, kundalini and nadi diagrams, a "God chakra" with the symbols of many religions) and wrote: *"I
+want a visually beautiful meditation of concentration on energy points, from top to bottom and from
+bottom to top; it should help to concentrate on the right spaces of the body and light them up by
+concentrating; then we go on to the next centre. It must be beautiful."* — with the prayer *"przez
+Jezusa Chrystusa Duchu Święty wypełnij to centrum energetyczne i niech popłynie czysta energia"*.
+
+**The decision (free hand, §5).** The pictures' beauty is kept — a luminous figure, a column of lights
+along the body, streams of light flowing and spiralling between them, an aura, a deep starry space —
+and their doctrine is left out: no chakra names, no Sanskrit, no Om, yin-yang or star symbols, no
+kundalini serpent, no "third eye", no claims about energy. The Catholic Church's letter on Christian
+meditation (CDF, *Orationis formas*, 1989) welcomes what helps prayer from other methods — posture,
+breathing, attention to the body — and warns against mixing in their doctrine or taking pleasant states
+for God's presence; the 2003 reflection on the New Age is titled after the same image the game takes
+its name from: *Jesus Christ, the Bearer of the Water of Life*. So the founder's prayer is kept in its
+own form — **"Przez Jezusa Chrystusa, Duchu Święty, wypełnij … i niech popłynie …"** — and each place
+gets the gift Scripture names for it instead of "energy" (the Spirit is a Person, not a force). A
+player who wants other words (the founder's own among them) can type them in the progress card; they
+stay on the device.
+
+**The seven places** (the direction; the builder refines the words), each a focus anchor in the body,
+a prayer and a verse — down from an open heaven (Acts 2:17, "I will pour out My Spirit on all flesh"):
+
+| # | Place | Where the attention rests | "…wypełnij … i niech popłynie …" | Verse |
+|---|---|---|---|---|
+| 1 | Głowa (umysł) | the crown of the head | mój umysł … pokój | Phil 4:7 |
+| 2 | Oczy | the forehead, between the eyes | moje oczy … światło | Eph 1:18 |
+| 3 | Usta | the throat and lips | moje usta … dobre słowa | Ps 141:3 |
+| 4 | Serce | the middle of the chest | moje serce … miłość | Rom 5:5 |
+| 5 | Oddech | under the breastbone, the breath | mój oddech … moc | John 20:22, Eph 3:16 |
+| 6 | Wnętrze | below the navel | moje wnętrze … żywa woda | John 7:38-39 (the root) |
+| 7 | Stopy | the base, the feet on the ground | moje kroki … siła | Ps 40:2, Ps 18:32 |
+
+Isaiah 11:2 (the Spirit of wisdom, understanding, counsel, might, knowledge and the fear of the LORD)
+opens the meditation; Luke 11:13 ("how much more will your Father in heaven give the Holy Spirit to
+those who ask") closes a descent; Ps 141:2 (prayer rising like incense) closes an ascent.
+
+**The way.** Down (receiving: the prayer at each place) and up (thanksgiving: "Dziękuję…" at each
+place, the light rising like incense); the card chooses down, up, or both (default: down, then up).
+Focus is **light**: the place glows from within, grows, and opens into a rose window of light (church
+glass, not a mandala); full, it flows on — a stream of living water and light pouring to the next
+place, two threads (gold and silver) spiralling along the body. Calm is **abiding**: the lit places
+shine steadily, the figure breathes 4 in / 6 out, the streams keep flowing, and the aura (an egg of
+light around the body) grows with each place lit. The hands barely act — a tap stays with a place and
+shows its prayer and adds a little light (so the smoke's centre tap counts). Headline: drops of living
+water (kropli / drops / Tropfen / droppar). Sound: a soft pad and a bell per place on a scale that
+descends going down and rises going up. Reverence (§13.4): the Spirit only as light, water, wind and
+fire, no dove; Jesus named in the prayer only; no promise of healing or "energy".

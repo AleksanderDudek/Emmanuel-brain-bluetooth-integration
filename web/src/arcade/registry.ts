@@ -55,7 +55,7 @@ export interface ArcadeEntry {
 }
 
 type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty'
-  | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa';
+  | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -313,6 +313,15 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: '2co4.16',
     brain: brain('odnowa'),
     load: () => import('./odnowa/index').then(m => m.default),
+  },
+  {
+    id: 'rzeki', kind: 'vision', title: t('rzeki.title'), tagline: t('rzeki.tagline'), text: t('rzeki.text'),
+    how: [t('rzeki.how1'), t('rzeki.how2'), t('rzeki.how3')],
+    tips: [t('rzeki.tip1'), t('rzeki.tip2'), t('rzeki.tip3'), t('rzeki.tip4'), t('rzeki.tip5')],
+    unit: t('rzeki.unit'), art: 'art-rzeki', fill: ['#f4f8ff', '#9fd8ff', '#6b6fd6', '#120f2e'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'jhn7.38-39',
+    brain: brain('rzeki'),
+    load: () => import('./rzeki/index').then(m => m.default),
   },
 ];
 

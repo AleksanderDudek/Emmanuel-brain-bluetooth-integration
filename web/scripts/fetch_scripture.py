@@ -233,6 +233,11 @@ PASSAGES: list[tuple[str, str]] = [
     # Odnowa (renewal: the cell's own repairs, day by day)
     ("2co4.16", "2 Corinthians 4:16"), ("psa139.16", "Psalm 139:16"), ("ezk37.5-6", "Ezekiel 37:5-6"), ("job33.25", "Job 33:25"),
     ("psa51.10", "Psalm 51:10"), ("jhn12.24", "John 12:24"),
+    # Rzeki żywej wody (a meditation of light through seven places of the body, the Spirit's gifts poured out)
+    ("jhn7.38-39", "John 7:38-39"), ("act2.17", "Acts 2:17"), ("isa11.2", "Isaiah 11:2"), ("php4.7", "Philippians 4:7"),
+    ("eph1.18", "Ephesians 1:18"), ("psa141.3", "Psalm 141:3"), ("rom5.5", "Romans 5:5"), ("jhn20.22", "John 20:22"),
+    ("eph3.16", "Ephesians 3:16"), ("psa40.2", "Psalm 40:2"), ("psa18.32", "Psalm 18:32"), ("psa141.2", "Psalm 141:2"),
+    ("luk11.13", "Luke 11:13"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
@@ -257,6 +262,9 @@ FIX: dict[str, dict[str, tuple[str, str]]] = {
     "jhn8.12": {"de": ("sondern wir das Licht", "sondern wird das Licht")},   # a dropped "d": the 1912 text reads „wird“
     "isa43.19": {"pl": ("poznacie Nadto", "poznacie? Nadto")},   # getbible lost the question mark the 1881 print has
     "2ti1.7": {"sv": ("försagdbetens", "försagdhetens")},   # a scanning slip on Wikisource; getbible's 1917 reads „försagdhetens“
+    "psa40.2": {"pl": ("wyciągnął miecz z dołu", "wyciągnął mię z dołu")},   # getbible's slip: the 1840 scan reads „mię“
+    "psa141.2": {"de": ("vor dir Taugen", "vor dir taugen")},   # a capital mid-sentence in eBible's Luther 1912
+    "act2.17": {"sv": ("'Och det skall", "Och det skall")},   # a stray opening quote: the quoted prophecy's close is outside the verse
 }
 
 # The Gdańsk Bible starts every verse with a capital, even inside a sentence ("ślepych, A będziesz"): a verse that
@@ -512,7 +520,7 @@ def edges(s: str) -> str:
         s = "…" + s
     if s and s[-1] in ",;:—–-":
         s = s[:-1].rstrip() + "…"
-    elif s and (s[-1].isalpha() or s[-1] == ")"):
+    elif s and (s[-1].isalpha() or (s[-1] == ")" and s[-2:-1] not in ".!?")):   # "(…uwielbiony.)" ends a sentence
         s += "…"
     return s
 
