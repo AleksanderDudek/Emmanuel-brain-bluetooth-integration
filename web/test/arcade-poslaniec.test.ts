@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
+import { passage as passageIn } from '../src/content/scripture';
 import { CITIES, UP_IDS, dayWord, missionSet, missionText, taskFor, upPrice } from '../src/arcade/poslaniec/content';
 import { CATALOGS, metres, t } from '../src/arcade/poslaniec/i18n';
-import { Gestures, keyMove, swipe, tapAt } from '../src/arcade/poslaniec/input';
+import { FLICK_SEC, Gestures, SWIPE_PX, TAP_SLOP, hintText, keyMove, swipe, tapAt } from '../src/arcade/poslaniec/input';
+import { layout, pillWidth, storyLayout, tapTargets } from '../src/arcade/poslaniec/layout';
+import { SANS, font, fontPx, legible } from '../src/arcade/poslaniec/paint';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import {
   LAP, buyUp, citiesBetween, countMission, dayBefore, flightSecFor, freshProgress, migrate, multOf, postcards, powerSecFor, routeAt, wordComplete, wordToday,
   type PoslaniecProgress,
@@ -667,9 +671,15 @@ describe('the coach marks', () => {
   it('explain a power-up the first time it is picked, never again', () => {
     const sim = later();
     emptyRoad(sim);
+    // Klekot is talking: a coach mark cuts him short and keeps him quiet while it shows (one bubble at a time)
+    sim.talk.current = { moment: 'open', text: 'x', t: 0, dur: 4 };
     sim.track.powers.push({ id: 9, kind: 'double', lane: 0, z: sim.z + 3, y: 1, taken: false });
     let evs = drive(sim, 0.4, frame());
     expect(ofType(evs, 'teach').map(e => e.what)).toEqual(['power.double']);
+    expect(sim.talk.current).toBeNull();
+    sim.say('near', 3);
+    drive(sim, 2, frame());
+    expect(sim.talk.current).toBeNull();
     sim.track.powers.push({ id: 10, kind: 'double', lane: 0, z: sim.z + 3, y: 1, taken: false });
     evs = drive(sim, 0.4, frame());
     expect(ofType(evs, 'teach')).toHaveLength(0);
@@ -868,5 +878,209 @@ describe('a beginner', () => {
     const sim = makeSim({ tuning: { ...TUNING, ...BEGINNER_TUNING }, planned: 40 });
     drive(sim, 10, frame());
     expect(sim.score).toBeGreaterThan(0);
+  });
+});
+
+// ── mobile first ─────────────────────────────────────────────────
+const pxOf = (f: string): number => Number(f.match(/(\d+(?:\.\d+)?)px/)![1]);
+/** A canvas stand-in that measures text a little wide (0.55 em a letter), so a fit here fits on a phone. */
+function measuring(): CanvasRenderingContext2D {
+  const ctx = {
+    font: '10px sans-serif', save() { /* nothing */ }, restore() { /* nothing */ },
+    measureText(text: string) { return { width: text.length * pxOf(this.font) * 0.55 } as TextMetrics; },
+  };
+  return ctx as unknown as CanvasRenderingContext2D;
+}
+const LANGS = ['pl', 'en', 'de', 'sv'] as const;
+const word = (l: (typeof LANGS)[number], k: string): string => (CATALOGS[l] as Record<string, unknown>)[k] as string;
+
+describe('mobile first (DESIGN §7.3, §12)', () => {
+  it('lays a phone upright out tall, on its side short, a desktop wide; u is 1 on a phone and never past 1.3', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.shape, c.name).toBe(c.w / c.h < 0.9 ? 'tall' : c.h < 460 ? 'short' : 'wide');
+      if (Math.min(c.w, c.h) <= 390) expect(L.u, c.name).toBe(1);
+      if (Math.min(c.w, c.h) <= 430) expect(L.u, c.name).toBeLessThan(1.1);
+      expect(L.u).toBeGreaterThanOrEqual(1);
+      expect(L.u).toBeLessThanOrEqual(1.3);
+    }
+  });
+
+  it('keeps the gauge, the quest pill, the bubble and the cards under the HUD, inside the gutters and clear of each other', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      const S = L.stork;
+      // Klekot's gauge: under the HUD, top right, inside the safe width
+      expect(S.y - S.plate, c.name).toBeGreaterThanOrEqual(c.insets.top);
+      expect(S.x + S.plate, c.name).toBeLessThanOrEqual(c.w - c.insets.right - (c.w < 600 && c.h > c.w ? 16 : 0) + 0.01);
+      expect(S.y + S.plate, c.name).toBeLessThan(c.insets.top + (c.h - c.insets.top) * 0.45);
+      // the quest pill top left, at least 16 px from an upright phone's edge, its widest word clear of the gauge
+      expect(L.pill.y).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.pill.x).toBeGreaterThanOrEqual(c.insets.left + (c.h > c.w && c.w < 600 ? 16 : 8));
+      for (const l of LANGS) {
+        const longest = Math.max(...Array.from({ length: 10 }, (_, i) => word(l, `word.${i + 1}`).length));
+        const pw = pillWidth(L, longest, word(l, 'w.word').length * 13 * L.u * 0.62);
+        expect(L.pill.x + pw, `${c.name} ${l}`).toBeLessThan(S.x - S.plate);
+      }
+      // the power-ups' row under the pill: four timers fit beside the gauge
+      expect(L.powers.yUnder - L.powers.r).toBeGreaterThan(L.pill.y + L.pill.h);
+      expect(L.powers.x - L.powers.r).toBeGreaterThanOrEqual(L.x0 - 0.01);
+      expect(L.powers.x + 3 * L.powers.step + L.powers.r, c.name).toBeLessThan(S.x - S.plate);
+      // Klekot's bubble between the left gutter and his gauge, wide enough for three lines of 14 px
+      expect(L.bubble.y).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.bubble.right).toBeLessThan(S.x - S.plate);
+      expect(L.bubble.right - L.bubble.maxW).toBeGreaterThanOrEqual(L.x0 - 0.01);
+      expect(L.bubble.maxW, c.name).toBeGreaterThanOrEqual(200);
+      expect(L.bubble.size).toBeGreaterThanOrEqual(14);
+      // the cards and the sheets inside the safe area
+      expect(L.cards.y).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.sheet.y).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.sheet.y + L.sheet.h).toBeLessThanOrEqual(c.h - c.insets.bottom);
+      expect(L.sheet.x).toBeGreaterThanOrEqual(c.insets.left);
+      expect(L.sheet.x + L.sheet.w).toBeLessThanOrEqual(c.w - c.insets.right);
+    }
+  });
+
+  it('gives the road the room: the horizon just under the HUD, the messenger low with a thumb\'s room under him', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      const band = c.h - c.insets.top - c.insets.bottom;
+      expect(L.horizon).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.horizon - c.insets.top, c.name).toBeLessThanOrEqual(Math.max(30, band * 0.25));
+      // the messenger in the thumb's half, with room under him to swipe, above the home indicator
+      expect(L.runnerY, c.name).toBeGreaterThan(c.h - band * THUMB);
+      expect(c.h - c.insets.bottom - L.runnerY, c.name).toBeGreaterThanOrEqual(40);
+      expect(L.runnerY - L.horizon, c.name).toBeGreaterThan(band * 0.55);
+      // on a narrow phone the lanes are wider and the cast a little larger than life
+      if (c.h > c.w && c.w < 600) {
+        expect(L.lane).toBeGreaterThan(0.27);
+        expect(L.big).toBeGreaterThan(1);
+      }
+      // the ribbon only where the sky between the panel and the score is open (a wide screen)
+      if (L.ribbon) expect(L.shape).toBe('wide');
+    }
+  });
+
+  it('fits the opening story at every size in four languages: 13 px and up (15 and up on a phone), its reference too', () => {
+    const ctx = measuring();
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      for (const l of LANGS) {
+        for (const tap of [word(l, 'story.tap'), word(l, 'story.tap.keys')]) {
+          const S = storyLayout(ctx, L, { body: word(l, 'story.body'), tap }, passageIn('isa52.7', l));
+          const at = `${c.name} ${l}`;
+          expect(S.verse.fits, at).toBe(true);
+          expect(S.box.y, at).toBeGreaterThanOrEqual(L.sheet.y);
+          expect(S.box.y + S.box.h, at).toBeLessThanOrEqual(L.sheet.y + L.sheet.h + 0.01);
+          expect(S.yTap + Math.round(S.tapSize * 1.35) + S.pad, at).toBeLessThanOrEqual(S.box.h + 0.01);
+          for (const px of [S.bodySize, S.verse.size, S.refSize, S.tapSize]) expect(px, at).toBeGreaterThanOrEqual(MIN_READ);
+          expect(S.titleSize).toBeGreaterThanOrEqual(18);
+          if (Math.min(c.w, c.h) <= 430 && c.h > c.w) expect(S.bodySize, at).toBeGreaterThanOrEqual(14);
+          // the card is the one target while it holds the run: finger-sized, inside the insets
+          expect(auditTargets(tapTargets(L, { story: S.box }), c.w, c.h, c.insets), at).toEqual([]);
+          expect(tapTargets(L, { story: S.box })[0].h).toBeGreaterThanOrEqual(MIN_TAP);
+        }
+      }
+      // in play there is nothing to press: a swipe anywhere is the control
+      expect(tapTargets(L, { story: null })).toEqual([]);
+    }
+  });
+
+  it('never draws text under 11 px: the font helper has a floor; words on things far down the road wait until readable', () => {
+    for (const px of [0, 3, 6.2, 8.7, 10.4, 10.99, 11, 12.3, 13, 30]) {
+      expect(fontPx(px)).toBeGreaterThanOrEqual(MIN_TEXT);
+      expect(pxOf(font(800, px, SANS))).toBeGreaterThanOrEqual(MIN_TEXT);
+      expect(pxOf(font(600, px, SANS, true))).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(pxOf(font(800, 14.24, SANS))).toBe(14.2);
+    expect(legible(10.9)).toBe(false);
+    expect(legible(MIN_TEXT)).toBe(true);
+    // the power-ups' timers are large enough for the seal's "×2" (0.72 of the icon, the icon 0.8 of the plate)
+    for (const c of CHECK_SIZES) expect(legible(layout(c.w, c.h, c.insets).powers.r * 0.8 * 0.72), c.name).toBe(true);
+  });
+
+  it('reads a thumb: a stroke past the swipe length acts at once, a quick short flick on release, a wobble is a tap', () => {
+    expect(SWIPE_PX).toBeLessThanOrEqual(24);
+    expect(TAP_SLOP).toBeGreaterThanOrEqual(10);
+    const g = new Gestures();
+    g.resize(360);
+    // a swipe acts mid-stroke, once per touch
+    g.pointer('down', 1, 180, 400, 0);
+    expect(g.pointer('move', 1, 180 - SWIPE_PX - 1, 404, 0.06)).toBe('left');
+    expect(g.pointer('move', 1, 100, 300, 0.1)).toBeNull();
+    expect(g.pointer('up', 1, 100, 300, 0.12)).toBeNull();
+    // a quick flick shorter than a swipe still counts on release, in its main direction (a thumb's arc)
+    g.pointer('down', 2, 180, 400, 1);
+    expect(g.pointer('move', 2, 176, 386, 1.05)).toBeNull();
+    expect(g.pointer('up', 2, 172, 384, 1 + FLICK_SEC * 0.6)).toBe('jump');
+    // the same half-stroke done slowly does nothing (a finger resting, not a tap)
+    g.pointer('down', 3, 180, 400, 2);
+    expect(g.pointer('up', 3, 180, 384, 2 + FLICK_SEC + 0.2)).toBeNull();
+    // a wobble within the slop is a tap, by thirds of the screen
+    g.pointer('down', 4, 300, 400, 3);
+    expect(g.pointer('up', 4, 300 + TAP_SLOP - 2, 402, 3.1)).toBe('right');
+    g.pointer('down', 5, 180, 498, 4);
+    expect(g.pointer('up', 5, 181, 499, 4.1)).toBe('jump');
+    // two thumbs (a phone on its side): each finger on its own
+    g.pointer('down', 6, 60, 300, 5);
+    g.pointer('down', 7, 540, 300, 5);
+    expect(g.pointer('move', 7, 540, 300 - SWIPE_PX - 2, 5.05)).toBe('jump');
+    expect(g.pointer('up', 6, 61, 300, 5.1)).toBe('left');
+    // the thirds divide the safe width: a notch on the left is not the road
+    const n = new Gestures();
+    n.resize(844, 47, 844 - 47);
+    n.pointer('down', 1, 47 + 240, 200, 0);
+    expect(n.pointer('up', 1, 47 + 240, 200, 0.1)).toBe('left');
+    n.pointer('down', 2, 422, 200, 1);
+    expect(n.pointer('up', 2, 422, 200, 1.1)).toBe('jump');
+  });
+
+  it('holds the run at the milestone while the first story shows; a tap sets off, and so does the time limit', () => {
+    const sim = makeSim({ planned: 300 });
+    expect(sim.firstEver).toBe(true);
+    sim.hold(RULES.storyHold);
+    expect(sim.held).toBeGreaterThan(0);
+    const clock = { t: 0 };
+    drive(sim, 3, frame(), clock);
+    sim.act('jump');
+    drive(sim, 0.5, frame(), clock);
+    expect(sim.z).toBe(0);
+    expect(sim.r.grounded).toBe(true);
+    expect(sim.talk.current).toBeNull();
+    sim.release();
+    expect(sim.held).toBe(0);
+    const evs = drive(sim, 4, frame(), clock);
+    expect(sim.z).toBeGreaterThan(20);
+    // the lesson road teaches first (the coach marks), Klekot keeps his first words for after it
+    expect(ofType(evs, 'teach').length).toBeGreaterThan(0);
+    expect(sim.talk.said).toEqual([]);
+    sim.p.taught.push('jump', 'roll', 'lane', 'ramp');
+    drive(sim, 8, frame(), clock);
+    expect(sim.track.mode).not.toBe('lesson');
+    expect(sim.talk.said.some(x => x.moment === 'first')).toBe(true);
+    // left alone, the story lets the messenger go by itself
+    const idle = makeSim({ planned: 300 });
+    idle.hold(RULES.storyHold);
+    drive(idle, RULES.storyHold + 1, frame());
+    expect(idle.held).toBe(0);
+    expect(idle.z).toBeGreaterThan(0);
+    // only at the very start of a warm-up: a returning player is never held
+    const back = later({ planned: 300 });
+    drive(back, 1, frame());
+    back.hold(RULES.storyHold);
+    expect(back.held).toBe(0);
+  });
+
+  it('speaks to the hand the player has: a finger never hears of keys, a keyboard keeps them first', () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|mysz[ąy]|mouse|maus|[←→↑↓]/i;
+    for (const l of LANGS) {
+      for (const k of ['how.goal', 'how.swipe', 'how.tap', 'hint.jump', 'hint.roll', 'hint.lane', 'hint.ramp', 'hint.wings', 'story.tap']) {
+        expect(word(l, k), `${l}.${k}`).toBeTypeOf('string');
+        expect(word(l, k), `${l}.${k}`).not.toMatch(KEYS);
+      }
+      for (const k of ['how.keys', 'hint.jump.keys', 'hint.roll.keys', 'hint.lane.keys', 'story.tap.keys']) expect(word(l, k), `${l}.${k}`).toMatch(KEYS);
+    }
+    for (const what of ['jump', 'roll', 'lane', 'ramp', 'wings', 'goat'] as const) expect(hintText(what, true)).not.toMatch(KEYS);
+    for (const what of ['jump', 'roll', 'lane'] as const) expect(hintText(what, false)).toMatch(KEYS);
   });
 });

@@ -7,19 +7,22 @@
  * at the top of the arc, the ring round him the flight's charge.
  *
  * The runner's standard HUD (the Mendi panel, the score) covers the top; this view keeps the play
- * below `hudTop()` and draws only what is the game's own: the stork's gauge, the companion's bubble,
- * the power-ups' timers, the day's word, the run's tally and the story cards.  The band's history
- * runs across the sky as the ribbon of dawn (ribbon.ts) when there is room for it.
+ * below it (layout.ts, mobile first) and draws only what is the game's own: the stork's gauge, the
+ * companion's bubble, the quest pill (the day's word, the power-ups' timers), the run's tally and the
+ * story cards — every word at 11 px and up, everything to read at 13 and up.  The band's history runs
+ * across the sky as the ribbon of dawn (ribbon.ts) when there is room for it.
  */
 import { LAG_SEC } from '../kit/trace';
 import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
-import { drawPassage, layoutPassage, passage, wrapLines, type PassageLayout } from '../kit/scripture';
+import { MIN_READ, fitText } from '../kit/mobile';
+import { passage, wrapLines } from '../kit/scripture';
 import type { Tool } from '../../tools';
 import { CITIES } from './content';
 import { grouped, metres, t } from './i18n';
+import { layout, pillWidth, storyLayout, type Layout, type Rect, type StoryLay } from './layout';
 import { powerSecFor, routeAt, type PoslaniecProgress } from './meta';
 import {
-  C, SANS, SERIF, font, hash, hex, mix, paintCity, paintCoin, paintFire, paintGoat, paintHills, paintLetterTile, paintPostcard, paintRunner, paintSandals,
+  C, SANS, SERIF, font, fontPx, hash, hex, legible, mix, paintCity, paintCoin, paintFire, paintGoat, paintHills, paintLetterTile, paintPostcard, paintRunner, paintSandals,
   paintSatchel, paintSeal, paintShield, paintSky, paintStork, rgb, skyAt, type RGB, type RunnerPose, type SkyLook,
 } from './paint';
 import { paintRibbon } from './ribbon';
@@ -37,12 +40,16 @@ const CANVAS: readonly string[] = ['#efe3c8', '#c8553d', '#2f4f8f', '#7d8b4a'];
 const PAVE: [RGB, RGB] = [hex('#cdb38c'), hex('#bda27a')];
 const PAVE_DUSK: [RGB, RGB] = [hex('#8e7c6a'), hex('#7f6d5d')];
 
-export interface ViewOpts { reducedMotion: boolean; tool: Tool; hudTop: () => number }
+export interface ViewOpts { reducedMotion: boolean; tool: Tool; touch: boolean }
 
-interface Card { kind: 'story' | 'city' | 'mission' | 'mult' | 'verdict'; t: number; dur: number; text: string; sub?: string; city?: number }
+interface Card { kind: 'city' | 'mission' | 'mult' | 'verdict'; t: number; dur: number; text: string; sub?: string; city?: number }
+
+/** A ring where a finger went down: the touch's visible answer before the move it makes. */
+interface Ring { x: number; y: number; t: number }
 
 export class PoslaniecView {
   private readonly ctx: CanvasRenderingContext2D;
+  private L: Layout = layout(1280, 800);
   private w = 1;
   private h = 1;
   private dpr = 1;
@@ -57,6 +64,8 @@ export class PoslaniecView {
   private camX = 0;
   private camY = 3.4;
   private camZ = 0;
+  /** the top of the messenger's head on screen (the verdict shows over it) */
+  private headY = 0;
   private clock = 0;
   private stride = 0;
   private dusk = 0;
@@ -66,16 +75,21 @@ export class PoslaniecView {
   private stumbleFx = 0;
   private flap = 0;
   private shieldFx = 0;
+  /** the gauge glows while the coach mark about the wings shows (s) */
+  private glow = 0;
   private storkX = 0;
   private storkY = 0;
   private readonly particles = new Particles(360);
   private readonly floaters = new Floaters();
   private readonly shake: Shake;
   private readonly cards: Card[] = [];
-  private story = 0;
+  private readonly rings: Ring[] = [];
+  /** the opening story: shown (0..1, fading), laid out for this screen */
+  private storyOn = false;
+  private storyK = 0;
+  private storyLay: StoryLay | null = null;
   private readonly look: SkyLook = skyAt(0);
   private readonly pose: RunnerPose = { stride: 0, air: 0, slide: 0, lean: 0, squash: 0, stumble: 0, wool: '#b8412e', trim: '#e8b04a', t: 0, alpha: 1 };
-  private storyLayout: PassageLayout | null = null;
   private progress: PoslaniecProgress | null = null;
   private readonly lagLabel: string;
 
@@ -85,55 +99,83 @@ export class PoslaniecView {
     this.lagLabel = `≈${LAG_SEC[opts.tool]} s`;
   }
 
-  resize(w: number, h: number, dpr: number): void {
+  resize(w: number, h: number, dpr: number, L: Layout): void {
+    this.L = L;
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.u = clamp(Math.min(w, h) / 640, 0.62, 1.25);
-    this.big = h > w * 1.2 ? 1.25 : 1;
-    this.top = Math.max(0, this.opts.hudTop());
-    this.cx = w / 2;
-    const runnerY = h * 0.86;
-    this.horizon = Math.max(this.top + 10 * this.u, h * 0.28);
-    const fH = ((runnerY - this.horizon) * CAM_BACK) / 4.2;
-    const fW = (w * 0.27 * CAM_BACK) / LW;
+    this.u = L.u;
+    this.big = L.big;
+    this.top = L.top;
+    this.cx = L.cx;
+    this.horizon = L.horizon;
+    const fH = ((L.runnerY - this.horizon) * CAM_BACK) / 4.2;
+    const fW = (w * L.lane * CAM_BACK) / LW;
     this.f = Math.min(fH, fW);
-    this.camH = ((runnerY - this.horizon) * CAM_BACK) / this.f;
+    this.camH = ((L.runnerY - this.horizon) * CAM_BACK) / this.f;
     this.camY = this.camH;
-    this.storyLayout = null;
+    this.headY = L.runnerY - 1.9 * (this.f / CAM_BACK) * this.big;
+    this.storyLay = null;
   }
 
   start(p: PoslaniecProgress, firstEver: boolean): void {
     this.progress = p;
-    if (firstEver) this.story = 7.5;
+    if (firstEver) this.storyOn = true;
   }
 
-  /** Where a thing on the road shows on the canvas (CSS px), for the coach marks. */
+  /** The opening story's card while it waits for a tap (the game's one target then), as last laid out. */
+  get storyBox(): Rect | null {
+    if (!this.storyOn) return null;
+    return (this.storyLay ??= this.layStory()).box;
+  }
+
+  /** A finger (or the mouse) went down at (x, y): a ring answers at once. */
+  touch(x: number, y: number): void {
+    if (this.rings.length >= 4) this.rings.shift();
+    this.rings.push({ x, y, t: 0 });
+  }
+
+  /** Where a thing on the road shows on the canvas (CSS px), for the coach marks (low enough for a two-line bubble above it under the HUD). */
   pointAt(z: number, lane: number, y = 1): { x: number; y: number } {
     const d = Math.max(1.5, z - this.camZ);
     const s = this.f / d;
-    return { x: this.cx + (lane * LW - this.camX) * s, y: Math.max(this.top + 30, this.horizon + (this.camY - y) * s) };
+    return { x: this.cx + (lane * LW - this.camX) * s, y: Math.max(this.top + 76 * this.u, this.horizon + (this.camY - y) * s) };
   }
 
-  /** The stork's gauge (for the coach mark about the wings). */
-  storkAt(): { x: number; y: number } {
-    // left of the gauge, so the runner's bubble (centred on the point) stays on the screen
+  /**
+   * The stork's gauge, for the coach mark about the wings: on a wide screen a point left of it (the runner's
+   * bubble, centred on the point, stays on the screen); on a phone the bubble could only sit under the HUD,
+   * so it is centred over the play and the gauge glows while it shows.
+   */
+  storkAt(): { x: number; y: number } | null {
+    this.glow = 4;
+    if (this.L.shape !== 'wide') return null;
     return { x: Math.min(this.storkX - 50 * this.u, this.w - 200 * this.u), y: this.storkY + 10 * this.u };
   }
 
   update(dt: number, sim: PoslaniecSim): void {
     this.clock += dt;
     const r = sim.r;
-    this.stride += (sim.v * dt) / 2.1;
+    // at the milestone (the story holds the run) the messenger stands
+    this.stride += sim.held > 0 ? 0 : (sim.v * dt) / 2.1;
+    if (this.storyOn) {
+      this.storyK = sim.held > 0 ? Math.min(1, this.storyK + dt / 0.4) : this.storyK - dt / 0.35;
+      if (this.storyK <= 0 && sim.held <= 0) {
+        this.storyOn = false;
+        this.storyK = 0;
+      }
+    }
+    for (const g of this.rings) g.t += dt;
+    while (this.rings.length && this.rings[0].t > 0.45) this.rings.shift();
     this.particles.update(dt);
     this.floaters.update(dt);
     this.roll += ((r.rollT > 0 ? 1 : 0) - this.roll) * Math.min(1, dt * 22);
     this.squash = Math.max(0, this.squash - dt * 4);
     this.stumbleFx = Math.max(0, this.stumbleFx - dt);
     this.shieldFx = Math.max(0, this.shieldFx - dt);
+    this.glow = Math.max(0, this.glow - dt);
     this.lean += ((r.lane * LW - r.x) * -0.12 - this.lean) * Math.min(1, dt * 14);
     this.flap += dt * (sim.flying ? 9 : 4 + sim.lift * 7);
-    this.story = Math.max(0, this.story - dt);
     const want = sim.block.kind === 'rest' ? 0.78 : sim.block.kind === 'finale' ? 0.35 : 0;
     this.dusk += (want - this.dusk) * Math.min(1, dt * 0.6);
     skyAt(this.dusk, this.look);
@@ -267,7 +309,7 @@ export class PoslaniecView {
 
   // ── drawing ───────────────────────────────────────────────────
   draw(sim: PoslaniecSim): void {
-    const ctx = this.ctx, w = this.w, h = this.h;
+    const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const sh = this.shake.offset(1 / 60, 10 * this.u);
     ctx.save();
@@ -278,26 +320,40 @@ export class PoslaniecView {
     ctx.restore();
     this.particles.draw(ctx);
     this.floaters.draw(ctx, SANS);
+    // the game's own HUD: passive things in the band under the runner's HUD, the cards over them
     this.drawGauge(sim);
-    this.drawBubble(sim);
-    this.drawPowers(sim);
-    this.drawWord(sim);
-    this.drawCards(sim);
+    const pill = this.drawWord(sim);
+    this.drawPowers(sim, pill);
+    if (!this.storyOn) this.drawBubble(sim);
+    this.drawCards();
     if (sim.tally) this.drawTally(sim);
-    if (this.story > 0) this.drawStory();
-    void w;
-    void h;
+    if (this.storyOn) this.drawStory();
+    this.drawRings();
+  }
+
+  /** Where fingers went down: a soft ring widening round each (the touch's answer at once). */
+  private drawRings(): void {
+    if (!this.rings.length) return;
+    const ctx = this.ctx, u = this.u;
+    ctx.save();
+    ctx.lineWidth = 2.5 * u;
+    for (const g of this.rings) {
+      const k = clamp(g.t / 0.45);
+      ctx.strokeStyle = `rgba(255,246,228,${0.55 * (1 - k)})`;
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, (24 + 22 * ease.outCubic(k)) * u, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   private drawSky(sim: PoslaniecSim): void {
     const ctx = this.ctx, w = this.w, L = this.look, hz = this.horizon;
     paintSky(ctx, w, hz, L, w * 0.62 - this.camX * 6, 0.55 - this.dusk * 0.5, this.clock, sim.z * 0.6);
     // the ribbon of dawn: the band's last 40 s across the open sky between the panel and the score
-    // (on a narrow screen the panel fills the top, and the dock's chart is the history)
-    const x0 = 360, x1 = w - 150, y0 = 62, y1 = hz - 16 * this.u;
-    if (x1 - x0 >= 300 && y1 - y0 >= 46) {
-      const bw = Math.min(x1 - x0, 620), bh = Math.min(84, y1 - y0);
-      const box = { x: x0 + (x1 - x0 - bw) / 2, y: y1 - bh, w: bw, h: bh };
+    // (on a phone the runner's HUD fills the top, and the dock's chart under the game is the history)
+    const box = this.L.ribbon;
+    if (box) {
       paintRibbon(ctx, sim.trace.layout(box, sim.t, { span: 40, minSpan: 4 }), { lagSec: LAG_SEC[this.opts.tool], lagLabel: this.lagLabel, t: this.clock, u: this.u, alpha: 0.95 });
     }
     // the next city on the horizon, nearer as the leg runs out
@@ -486,8 +542,9 @@ export class PoslaniecView {
     ctx.lineTo(rx + 0.9 * s, ly - 6.2 * s);
     ctx.closePath();
     ctx.fill();
-    const fs = Math.max(6, 0.55 * s);
-    if (fs > 7) {
+    // the sign's word once it is readable (far down the road the gate is a gate)
+    const fs = 0.55 * s;
+    if (legible(fs)) {
       ctx.fillStyle = '#fff4d6';
       ctx.font = font(800, fs, SANS);
       ctx.textAlign = 'center';
@@ -775,10 +832,11 @@ export class PoslaniecView {
   /** Klekot's gauge: the lift's arc with the threshold at its top, the flight's ring; the horn in a rest. */
   private drawGauge(sim: PoslaniecSim): void {
     if (sim.flying) return;
-    const ctx = this.ctx, u = this.u;
-    const R = 42 * u;
-    const gx = this.w - R - 26 * u + Math.sin(this.clock * 0.9) * 4 * u;
-    const gy = this.top + R + 22 * u + Math.sin(this.clock * 1.3) * 3 * u;
+    const ctx = this.ctx, u = this.u, S = this.L.stork;
+    const R = S.r;
+    // he circles a little over his spot (never past the side gutter)
+    const gx = S.x + Math.sin(this.clock * 0.9) * 3 * u;
+    const gy = S.y + Math.sin(this.clock * 1.3) * 2.5 * u;
     this.storkX = gx;
     this.storkY = gy;
     const rest = sim.block.kind === 'rest';
@@ -789,8 +847,16 @@ export class PoslaniecView {
     ctx.save();
     ctx.fillStyle = 'rgba(24,20,40,.42)';
     ctx.beginPath();
-    ctx.arc(gx, gy, R + 12 * u, 0, TAU);
+    ctx.arc(gx, gy, S.plate, 0, TAU);
     ctx.fill();
+    if (this.glow > 0) {
+      // "here": a gold ring breathing round the gauge while the coach mark about the wings shows
+      ctx.strokeStyle = `rgba(255,214,120,${Math.min(1, this.glow) * (0.55 + 0.35 * Math.sin(this.clock * 7))})`;
+      ctx.lineWidth = 3 * u;
+      ctx.beginPath();
+      ctx.arc(gx, gy, S.plate + (4 + 3 * Math.sin(this.clock * 7)) * u, 0, TAU);
+      ctx.stroke();
+    }
     // the arc: left (0) over the top to the right (1); the threshold at the top
     const a0 = Math.PI, a1 = TAU;
     ctx.lineCap = 'round';
@@ -810,20 +876,21 @@ export class PoslaniecView {
     ctx.strokeStyle = C.gold2;
     ctx.lineWidth = 2.5 * u;
     ctx.beginPath();
-    ctx.moveTo(gx, gy - R - 7 * u);
-    ctx.lineTo(gx, gy - R + 7 * u);
+    ctx.moveTo(gx, gy - R - 6 * u);
+    ctx.lineTo(gx, gy - R + 6 * u);
     ctx.stroke();
-    // the flight's ring (push) or the horn's notches (rest)
+    // the flight's ring (push), inside the plate's rim
+    const ringR = R + 8 * u;
     if (!rest) {
       ctx.lineWidth = 3 * u;
       ctx.strokeStyle = 'rgba(255,255,255,.14)';
       ctx.beginPath();
-      ctx.arc(gx, gy, R + 9 * u, 0, TAU);
+      ctx.arc(gx, gy, ringR, 0, TAU);
       ctx.stroke();
       if (!blind && sim.charge > 0) {
         ctx.strokeStyle = C.gold;
         ctx.beginPath();
-        ctx.arc(gx, gy, R + 9 * u, -Math.PI / 2, -Math.PI / 2 + TAU * sim.charge);
+        ctx.arc(gx, gy, ringR, -Math.PI / 2, -Math.PI / 2 + TAU * sim.charge);
         ctx.stroke();
       }
     }
@@ -832,7 +899,7 @@ export class PoslaniecView {
     if (blind) {
       ctx.fillStyle = 'rgba(232,234,244,.82)';
       ctx.beginPath();
-      ctx.arc(gx, gy, R + 12 * u, 0, TAU);
+      ctx.arc(gx, gy, S.plate, 0, TAU);
       ctx.fill();
       for (let k = 0; k < 5; k++) {
         ctx.fillStyle = 'rgba(255,255,255,.5)';
@@ -841,112 +908,124 @@ export class PoslaniecView {
         ctx.fill();
       }
     }
-    // the label under it
+    // its words under it, on a plate, two short rows at most: the gauge's name over the ring's charge (in a
+    // rest over the horn's three fires); while the band warms up at a push's start, that note instead
+    const lead = sim.block.kind === 'push' && sim.blockT < sim.lead && !blind;
+    const size = 13 * u, lh = Math.round(16 * u);
+    const maxW = 2 * S.plate + 24 * u;
+    type Row = { text: string; font: string; color: string };
+    const rows: Row[] = [];
+    const bold = font(800, size, SANS), italic = font(600, size, SANS, true);
+    if (lead) {
+      ctx.font = italic;
+      for (const l of wrapLines(ctx, t('w.lead'), maxW).slice(0, 2)) rows.push({ text: l, font: italic, color: 'rgba(255,246,228,.9)' });
+    } else {
+      rows.push({ text: blind ? t('w.mist') : rest ? t('w.horn') : t('w.wings'), font: bold, color: '#fff6e4' });
+      if (!rest && !blind) rows.push({ text: t('w.ringPct', { n: Math.round(sim.charge * 100) }), font: bold, color: sim.charge > 0 ? C.gold2 : 'rgba(255,246,228,.85)' });
+    }
+    let tw = rest ? 2 * 15 * u + 10 * u : 0;
+    for (const r of rows) {
+      ctx.font = r.font;
+      tw = Math.max(tw, ctx.measureText(r.text).width);
+    }
+    const n = rows.length + (rest ? 1 : 0);
+    const pw = tw + 14 * u, ph = n * lh + 8 * u;
+    // the words stay inside the gutters, under the gauge
+    const lx = Math.min(this.L.x1 - pw / 2, Math.max(this.L.x0 + pw / 2, gx));
+    const ly = this.L.labelY;
+    ctx.fillStyle = 'rgba(24,20,40,.5)';
+    ctx.beginPath();
+    ctx.roundRect(lx - pw / 2, ly, pw, ph, 8 * u);
+    ctx.fill();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(0,0,0,.35)';
-    const ly = gy + R + 16 * u;
-    const label = blind ? t('w.mist') : rest ? t('w.horn') : t('w.wings');
-    ctx.font = font(800, 10.5 * u, SANS);
-    ctx.fillText(label, gx + 1, ly + 1);
-    ctx.fillStyle = '#fff6e4';
-    ctx.fillText(label, gx, ly);
-    let sub = '';
+    rows.forEach((r, i) => {
+      ctx.font = r.font;
+      ctx.fillStyle = r.color;
+      ctx.fillText(r.text, lx, ly + 4 * u + i * lh);
+    });
     if (rest) {
       for (let i = 0; i < RULES.hornNotches; i++) {
-        ctx.fillStyle = i < sim.notches ? '#ffb35c' : 'rgba(255,255,255,.25)';
+        ctx.fillStyle = i < sim.notches ? '#ffb35c' : 'rgba(255,255,255,.3)';
         ctx.beginPath();
-        ctx.arc(gx + (i - 1) * 13 * u, ly + 20 * u, 4.5 * u, 0, TAU);
+        ctx.arc(lx + (i - 1) * 15 * u, ly + 4 * u + lh + lh / 2 - 1, 5 * u, 0, TAU);
         ctx.fill();
       }
-    } else if (!blind) sub = `${t('w.ring')} ${Math.round(sim.charge * 100)}%`;
-    if (sub) {
-      ctx.font = font(700, 10 * u, SANS);
-      ctx.fillStyle = sim.charge > 0 ? C.gold2 : 'rgba(255,246,228,.75)';
-      ctx.fillText(sub, gx, ly + 13 * u);
-    }
-    if (sim.block.kind === 'push' && sim.blockT < sim.lead && !blind) {
-      ctx.font = font(600, 9.5 * u, SANS, true);
-      ctx.fillStyle = 'rgba(255,246,228,.8)';
-      ctx.fillText(t('w.lead'), gx - 20 * u, ly + 27 * u);
     }
     ctx.restore();
   }
 
-  /** Klekot's speech bubble, beside his gauge. */
+  /** Klekot's speech bubble: left of his gauge at the top (over the quest pill while he talks), at most four lines. */
   private drawBubble(sim: PoslaniecSim): void {
     const line = sim.talk.current;
     if (!line || sim.tally) return;
-    const ctx = this.ctx, u = this.u;
+    const ctx = this.ctx, u = this.u, B = this.L.bubble;
     const k = Math.min(1, line.t / 0.18, (line.dur - line.t) / 0.25);
     if (k <= 0) return;
     ctx.save();
-    ctx.font = font(600, 14 * u, SANS);
-    const right = this.storkX - 50 * u;
-    const maxW = Math.min(300 * u, right - 16 * u);
-    if (maxW < 120 * u) { ctx.restore(); this.drawBubbleBelow(line.text, k); return; }
-    const lines = wrapLines(ctx, line.text, maxW - 20 * u);
-    const lh = 18 * u, bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 22 * u), bh = lines.length * lh + 14 * u;
-    const x = right - bw, y = this.storkY - bh / 2;
+    const padX = Math.round(11 * u), padY = Math.round(8 * u);
+    // the bubble's words at 14 px, a little smaller (never under 13) before a fifth line
+    let size = B.size, lines: string[] = [];
+    for (; ; size -= 0.5) {
+      ctx.font = font(600, size, SANS);
+      lines = wrapLines(ctx, line.text, B.maxW - 2 * padX);
+      if (lines.length <= B.lines || size - 0.5 < MIN_READ) break;
+    }
+    if (lines.length > B.lines) {
+      lines = lines.slice(0, B.lines);
+      lines[B.lines - 1] = fitText(ctx, `${lines[B.lines - 1]}…`, B.maxW - 2 * padX, size, 600, SANS, MIN_READ);
+      ctx.font = font(600, size, SANS);
+    }
+    const lh = Math.round(size * 1.3);
+    const bw = Math.min(B.maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 2 * padX);
+    const bh = lines.length * lh + 2 * padY;
+    const right = B.right, x = right - bw, y = B.y;
+    // the tail points at the stork: right at his gauge beside the bubble, or down at him carrying the messenger
+    const down = sim.flying;
+    const tx = down ? clamp(this.storkX, x + 18 * u, right - 18 * u) : right;
+    const ty = down ? y + bh : clamp(this.storkY, y + 12 * u, y + bh - 12 * u);
+    const pop = 0.85 + 0.15 * ease.outBack(Math.min(1, line.t / 0.25));
     ctx.globalAlpha = k;
-    ctx.translate(right, this.storkY);
-    ctx.scale(0.85 + 0.15 * ease.outBack(Math.min(1, line.t / 0.25)), 0.85 + 0.15 * ease.outBack(Math.min(1, line.t / 0.25)));
-    ctx.translate(-right, -this.storkY);
-    ctx.fillStyle = 'rgba(255,248,232,.96)';
+    ctx.translate(tx, ty);
+    ctx.scale(pop, pop);
+    ctx.translate(-tx, -ty);
+    ctx.fillStyle = 'rgba(255,248,232,.97)';
     ctx.beginPath();
-    ctx.roundRect(x, y, bw, bh, 10 * u);
-    ctx.moveTo(right - 2, this.storkY - 6 * u);
-    ctx.lineTo(right + 12 * u, this.storkY);
-    ctx.lineTo(right - 2, this.storkY + 6 * u);
+    ctx.roundRect(x, y, bw, bh, 12 * u);
+    if (down) {
+      ctx.moveTo(tx - 7 * u, ty - 2);
+      ctx.lineTo(tx, ty + 9 * u);
+      ctx.lineTo(tx + 7 * u, ty - 2);
+    } else {
+      ctx.moveTo(right - 2, ty - 7 * u);
+      ctx.lineTo(right + 9 * u, ty);
+      ctx.lineTo(right - 2, ty + 7 * u);
+    }
     ctx.fill();
     ctx.fillStyle = C.ink;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    lines.forEach((l, i) => ctx.fillText(l, x + 11 * u, y + 7 * u + i * lh));
+    lines.forEach((l, i) => ctx.fillText(l, x + padX, y + padY + i * lh + (lh - size) * 0.35));
     ctx.restore();
   }
 
-  /** On a narrow screen the bubble hangs under the stork. */
-  private drawBubbleBelow(text: string, k: number): void {
-    const ctx = this.ctx, u = this.u;
-    ctx.save();
-    ctx.font = font(600, 13 * u, SANS);
-    const maxW = Math.min(this.w - 24 * u, 320 * u);
-    const lines = wrapLines(ctx, text, maxW - 20 * u);
-    const lh = 16 * u, bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 20 * u), bh = lines.length * lh + 12 * u;
-    const x = Math.max(12 * u, Math.min(this.w - bw - 12 * u, this.storkX - bw + 40 * u)), y = this.storkY + 70 * u;
-    ctx.globalAlpha = k;
-    ctx.fillStyle = 'rgba(255,248,232,.96)';
-    ctx.beginPath();
-    ctx.roundRect(x, y, bw, bh, 9 * u);
-    ctx.moveTo(this.storkX - 6 * u, y + 1);
-    ctx.lineTo(this.storkX, y - 10 * u);
-    ctx.lineTo(this.storkX + 6 * u, y + 1);
-    ctx.fill();
-    ctx.fillStyle = C.ink;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    lines.forEach((l, i) => ctx.fillText(l, x + 10 * u, y + 6 * u + i * lh));
-    ctx.restore();
-  }
-
-  /** The power-ups at work: their icons with the time left as a ring, bottom left. */
-  private drawPowers(sim: PoslaniecSim): void {
-    const ctx = this.ctx, u = this.u;
-    let x = 26 * u;
-    const y = this.h - 26 * u;
+  /** The power-ups at work: round timers in a row, under the quest pill (at the top left when there is none). */
+  private drawPowers(sim: PoslaniecSim, pill: boolean): void {
+    const ctx = this.ctx, u = this.u, P = this.L.powers;
+    let x = P.x;
+    const y = pill ? P.yUnder : P.yTop;
     const draw = (k: number, paint: (r: number) => void) => {
       ctx.fillStyle = 'rgba(24,20,40,.5)';
       ctx.beginPath();
-      ctx.arc(x, y, 18 * u, 0, TAU);
+      ctx.arc(x, y, P.r, 0, TAU);
       ctx.fill();
-      paint(11 * u);
+      paint(P.r * 0.8);
       ctx.strokeStyle = C.gold;
       ctx.lineWidth = 3 * u;
       ctx.beginPath();
-      ctx.arc(x, y, 18 * u, -Math.PI / 2, -Math.PI / 2 + TAU * k);
+      ctx.arc(x, y, P.r - 1.5 * u, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(k));
       ctx.stroke();
-      x += 44 * u;
+      x += P.step;
     };
     const ups = sim.p.ups;
     if (sim.powers.magnet > 0) draw(sim.powers.magnet / powerSecFor(ups.magnet), r => paintSatchel(ctx, x, y, r));
@@ -955,45 +1034,51 @@ export class PoslaniecView {
     if (sim.shield) draw(1, r => paintShield(ctx, x, y, r));
   }
 
-  /** The day's word: its letters, the ones found filled, bottom right. */
-  private drawWord(sim: PoslaniecSim): void {
+  /** The quest pill: the day's word, its label over its letters (the found ones filled), top left.  Whether it shows. */
+  private drawWord(sim: PoslaniecSim): boolean {
     const word = sim.word;
-    if (!word || (sim.p.wordDone && !sim.wordDoneNow)) return;
-    const ctx = this.ctx, u = this.u;
-    const n = word.length, s = 20 * u, gap = 4 * u;
-    const total = n * s + (n - 1) * gap;
-    const x0 = this.w - total - 16 * u, y = this.h - 16 * u - s;
+    if (!word || (sim.p.wordDone && !sim.wordDoneNow)) return false;
+    const ctx = this.ctx, u = this.u, P = this.L.pill;
+    const n = word.length;
     ctx.save();
-    ctx.font = font(800, 9 * u, SANS);
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'bottom';
-    ctx.fillStyle = 'rgba(255,246,228,.85)';
-    ctx.fillText(t('w.word'), this.w - 16 * u, y - 3 * u);
+    ctx.font = font(800, 13 * u, SANS);
+    const label = t('w.word');
+    const pw = pillWidth(this.L, n, ctx.measureText(label).width);
+    ctx.fillStyle = 'rgba(24,20,40,.45)';
+    ctx.beginPath();
+    ctx.roundRect(P.x, P.y, pw, P.h, 10 * u);
+    ctx.fill();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(255,246,228,.92)';
+    ctx.fillText(label, P.x + P.pad, P.y + P.pad - 1);
+    const ty = P.y + P.pad + P.label + Math.round(4 * u);
     for (let i = 0; i < n; i++) {
-      const x = x0 + i * (s + gap);
+      const x = P.x + P.pad + i * (P.tile + P.gap);
       const got = i < sim.p.wordGot;
-      ctx.fillStyle = got ? C.parchment : 'rgba(24,20,40,.45)';
-      ctx.strokeStyle = got ? C.edge : 'rgba(255,255,255,.3)';
+      ctx.fillStyle = got ? C.parchment : 'rgba(24,20,40,.5)';
+      ctx.strokeStyle = got ? C.edge : 'rgba(255,255,255,.35)';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.roundRect(x, y, s, s, 4 * u);
+      ctx.roundRect(x, ty, P.tile, P.tile, 4 * u);
       ctx.fill();
       ctx.stroke();
       if (got) {
         ctx.fillStyle = C.ink;
-        ctx.font = font(800, 13 * u, SERIF);
+        ctx.font = font(800, P.tile * 0.64, SERIF);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(word[i], x + s / 2, y + s / 2 + 1);
+        ctx.fillText(word[i], x + P.tile / 2, ty + P.tile / 2 + 1);
       }
     }
     ctx.restore();
+    return true;
   }
 
-  /** The cards: a city reached, a mission done, the multiplier, a block's verdict. */
-  private drawCards(sim: PoslaniecSim): void {
-    const ctx = this.ctx, u = this.u, w = this.w;
-    let y = this.top + 8 * u;
+  /** The cards: a city reached and a mission done stack under the HUD, the multiplier mid-screen, a block's verdict over the messenger. */
+  private drawCards(): void {
+    const ctx = this.ctx, u = this.u, L = this.L;
+    let y = L.cards.y;
     for (const c of this.cards) {
       const k = Math.min(1, c.t / 0.25, (c.dur - c.t) / 0.35);
       if (k <= 0) continue;
@@ -1001,7 +1086,7 @@ export class PoslaniecView {
       ctx.globalAlpha = k;
       if (c.kind === 'mult') {
         const sc = ease.outBack(Math.min(1, c.t / 0.4));
-        ctx.translate(this.cx, this.h * 0.4);
+        ctx.translate(L.cx, this.h * 0.4);
         ctx.scale(sc, sc);
         ctx.font = font(800, 40 * u, SERIF);
         ctx.textAlign = 'center';
@@ -1015,8 +1100,8 @@ export class PoslaniecView {
         continue;
       }
       if (c.kind === 'city' && c.city !== undefined) {
-        const cw = Math.min(w - 32 * u, 380 * u), ch = 74 * u;
-        const x = (w - cw) / 2 - (1 - k) * 0;
+        const cw = L.cards.maxW, ch = Math.round(80 * u);
+        const x = L.cx - cw / 2;
         ctx.fillStyle = 'rgba(247,234,210,.97)';
         ctx.strokeStyle = C.edge;
         ctx.lineWidth = 2;
@@ -1024,54 +1109,62 @@ export class PoslaniecView {
         ctx.roundRect(x, y, cw, ch, 10 * u);
         ctx.fill();
         ctx.stroke();
-        paintPostcard(ctx, CITIES[c.city].id, c.city, x + 8 * u, y + 8 * u, 86 * u, ch - 16 * u, true);
+        const pw = Math.round(78 * u);
+        paintPostcard(ctx, CITIES[c.city].id, c.city, x + 8 * u, y + 8 * u, pw, ch - 16 * u, true);
+        const tx = x + pw + 18 * u, tw = cw - pw - 26 * u;
         ctx.fillStyle = C.ink;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.font = font(800, 16 * u, SERIF);
-        ctx.fillText(c.text, x + 104 * u, y + 12 * u, cw - 112 * u);
-        ctx.font = font(600, 12 * u, SANS);
+        ctx.fillText(fitText(ctx, c.text, tw, 17 * u, 800, SERIF, MIN_READ), tx, y + 10 * u);
         ctx.fillStyle = '#6b5236';
-        ctx.fillText(c.sub ?? '', x + 104 * u, y + 36 * u, cw - 112 * u);
+        ctx.fillText(fitText(ctx, c.sub ?? '', tw, 13.5 * u, 600, SANS, MIN_READ), tx, y + 35 * u);
         const nx = CITIES[(c.city + 1) % CITIES.length];
-        ctx.fillText(t('story.next', { city: nx.name }), x + 104 * u, y + 52 * u, cw - 112 * u);
+        ctx.fillText(fitText(ctx, t('story.next', { city: nx.name }), tw, 13.5 * u, 600, SANS, MIN_READ), tx, y + 54 * u);
         y += ch + 8 * u;
         ctx.restore();
         continue;
       }
-      ctx.font = font(700, 14 * u, SANS);
+      // a mission done (a pill under the HUD) or a block's verdict (over the messenger's head)
+      const size = 15 * u, lh = Math.round(size * 1.3), padX = Math.round(14 * u);
       const text = c.kind === 'mission' ? `✓ ${c.text}` : c.text;
-      const tw = Math.min(w - 32 * u, ctx.measureText(text).width + 28 * u + (c.sub ? 80 * u : 0));
-      const x = (w - tw) / 2, hh = 30 * u;
-      const by = c.kind === 'verdict' ? this.h * 0.3 : y;
-      ctx.fillStyle = c.kind === 'mission' ? 'rgba(47,79,143,.92)' : 'rgba(24,20,40,.72)';
+      ctx.font = font(700, size, SANS);
+      const subW = c.sub ? ctx.measureText(c.sub).width + 12 * u : 0;
+      const lines = wrapLines(ctx, text, L.cards.maxW - 2 * padX - subW).slice(0, 2);
+      const tw = Math.min(L.cards.maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + subW + 2 * padX);
+      const hh = lines.length * lh + Math.round(12 * u);
+      const x = L.cx - tw / 2;
+      // the verdict over the messenger's head, or under the cards above when they reach down that far
+      const over = this.headY - 16 * u - hh;
+      const by = c.kind === 'verdict' ? (over >= y + 6 * u ? over : y) : y;
+      ctx.fillStyle = c.kind === 'mission' ? 'rgba(47,79,143,.94)' : 'rgba(24,20,40,.78)';
       ctx.beginPath();
-      ctx.roundRect(x, by, tw, hh, hh / 2);
+      ctx.roundRect(x, by, tw, hh, Math.min(hh / 2, 18 * u));
       ctx.fill();
       ctx.fillStyle = '#fff6e4';
       ctx.textAlign = c.sub ? 'left' : 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(text, c.sub ? x + 14 * u : w / 2, by + hh / 2, tw - 20 * u);
+      lines.forEach((l, i) => ctx.fillText(l, c.sub ? x + padX : L.cx, by + Math.round(6 * u) + lh * (i + 0.5)));
       if (c.sub) {
         ctx.fillStyle = C.gold2;
         ctx.textAlign = 'right';
-        ctx.fillText(c.sub, x + tw - 14 * u, by + hh / 2);
+        ctx.fillText(c.sub, x + tw - padX, by + hh / 2);
       }
-      if (c.kind !== 'verdict') y += hh + 6 * u;
+      if (c.kind !== 'verdict' || by === y) y += hh + 6 * u;
       ctx.restore();
     }
-    void sim;
   }
 
   /** The run's tally after Bela got the letter: the score, the metres, the record line, the next run coming. */
   private drawTally(sim: PoslaniecSim): void {
     const tl = sim.tally!;
-    const ctx = this.ctx, u = this.u, w = this.w;
-    const cw = Math.min(w - 32 * u, 360 * u), ch = 170 * u;
-    const x = (w - cw) / 2, y = Math.max(this.top + 10 * u, this.h * 0.32 - ch / 2);
+    const ctx = this.ctx, u = this.u, L = this.L;
+    const cw = Math.min(L.sheetW, 360 * u), ch = Math.round(196 * u);
+    const x = L.cx - cw / 2;
+    const y = clamp(L.sheet.y + (L.sheet.h - ch) * 0.42, L.sheet.y, L.sheet.y + Math.max(0, L.sheet.h - ch));
+    const iw = cw - 24 * u;
     ctx.save();
     ctx.fillStyle = 'rgba(20,16,30,.35)';
-    ctx.fillRect(0, 0, w, this.h);
+    ctx.fillRect(0, 0, this.w, this.h);
     ctx.fillStyle = 'rgba(247,234,210,.98)';
     ctx.strokeStyle = C.edge;
     ctx.lineWidth = 2;
@@ -1082,58 +1175,66 @@ export class PoslaniecView {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = '#b9412e';
-    ctx.font = font(800, 20 * u, SERIF);
-    ctx.fillText(t('tally.title'), w / 2, y + 12 * u, cw - 20 * u);
+    ctx.fillText(fitText(ctx, t('tally.title'), iw, 22 * u, 800, SERIF, MIN_READ), L.cx, y + 14 * u);
     ctx.fillStyle = '#6b5236';
-    ctx.font = font(600, 12 * u, SANS);
-    ctx.fillText(t('tally.run', { n: tl.n }), w / 2, y + 40 * u);
+    ctx.font = font(600, 14 * u, SANS);
+    ctx.fillText(t('tally.run', { n: tl.n }), L.cx, y + 46 * u);
     ctx.fillStyle = C.ink;
-    ctx.font = font(800, 34 * u, SERIF);
-    ctx.fillText(t('pts', { n: grouped(tl.score) }), w / 2, y + 58 * u);
-    ctx.font = font(600, 13 * u, SANS);
-    ctx.fillText(`${metres(tl.metres)} · ${t('fx.pay', { n: tl.coins })}`, w / 2, y + 100 * u);
+    ctx.fillText(fitText(ctx, t('pts', { n: grouped(tl.score) }), iw, 34 * u, 800, SERIF, MIN_READ), L.cx, y + 66 * u);
+    ctx.fillText(fitText(ctx, `${metres(tl.metres)} · ${t('fx.pay', { n: tl.coins })}`, iw, 15 * u, 600, SANS, MIN_READ), L.cx, y + 110 * u);
     ctx.fillStyle = tl.best ? '#b07a12' : '#6b5236';
-    ctx.font = font(700, 13 * u, SANS);
-    ctx.fillText(tl.best ? t('tally.best') : t('tally.toBest', { n: grouped(tl.toBest) }), w / 2, y + 122 * u, cw - 20 * u);
-    // the next run coming: a bar
+    ctx.fillText(fitText(ctx, tl.best ? t('tally.best') : t('tally.toBest', { n: grouped(tl.toBest) }), iw, 15 * u, 700, SANS, MIN_READ), L.cx, y + 134 * u);
+    // the next run coming: its words over a bar
+    ctx.fillStyle = '#8a6a44';
+    ctx.fillText(fitText(ctx, t('tally.next'), iw, 13 * u, 600, SANS, MIN_READ), L.cx, y + 160 * u);
     const caughtT = clamp(sim.caughtLeft / RULES.caughtSec);
     ctx.fillStyle = 'rgba(107,82,54,.2)';
-    ctx.fillRect(x + 24 * u, y + ch - 18 * u, cw - 48 * u, 4 * u);
+    ctx.fillRect(x + 24 * u, y + ch - 14 * u, cw - 48 * u, 5 * u);
     ctx.fillStyle = C.gold;
-    ctx.fillRect(x + 24 * u, y + ch - 18 * u, (cw - 48 * u) * (1 - caughtT), 4 * u);
+    ctx.fillRect(x + 24 * u, y + ch - 14 * u, (cw - 48 * u) * (1 - caughtT), 5 * u);
     ctx.restore();
   }
 
-  /** The opening card, the first time: the story in three sentences and the root passage. */
+  /** The opening story, laid out for this screen (layout.ts). */
+  private layStory(): StoryLay {
+    const tap = this.opts.touch ? t('story.tap') : t('story.tap.keys');
+    return storyLayout(this.ctx, this.L, { body: t('story.body'), tap }, passage('isa52.7'));
+  }
+
+  /** The opening card, the first time: the story, the root passage and how to set off; the run waits for a tap. */
   private drawStory(): void {
-    const ctx = this.ctx, u = this.u, w = this.w;
-    const k = Math.min(1, (7.5 - this.story) / 0.4, this.story / 0.6);
-    const cw = Math.min(w - 28 * u, 460 * u);
-    const x = (w - cw) / 2;
+    const S = (this.storyLay ??= this.layStory());
+    const ctx = this.ctx, u = this.u, b = S.box, cx = b.x + b.w / 2;
+    const k = clamp(this.storyK);
     ctx.save();
     ctx.globalAlpha = k;
-    ctx.font = font(500, 14 * u, SANS);
-    const lines = wrapLines(ctx, t('story.body'), cw - 36 * u);
-    const p = passage('isa52.7');
-    if (!this.storyLayout) this.storyLayout = layoutPassage(ctx, p, cw - 40 * u, 90 * u, { max: 15 * u, min: 10 });
-    const L = this.storyLayout;
-    const ch = 46 * u + lines.length * 19 * u + 12 * u + L.height + 18 * u;
-    const y = Math.max(this.top + 8 * u, this.h * 0.36 - ch / 2);
+    ctx.translate(0, (1 - ease.outCubic(k)) * 14 * u);
     ctx.fillStyle = 'rgba(247,234,210,.97)';
     ctx.strokeStyle = C.edge;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.roundRect(x, y, cw, ch, 14 * u);
+    ctx.roundRect(b.x, b.y, b.w, b.h, 14 * u);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = C.ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.font = font(800, 20 * u, SERIF);
-    ctx.fillText(t('story.title'), w / 2, y + 14 * u);
-    ctx.font = font(500, 14 * u, SANS);
-    lines.forEach((l, i) => ctx.fillText(l, w / 2, y + 46 * u + i * 19 * u));
-    drawPassage(ctx, p, L, w / 2, y + 46 * u + lines.length * 19 * u + 12 * u, { text: '#5a4630', ref: '#8a6a44' });
+    ctx.font = font(800, S.titleSize, SERIF);
+    ctx.fillText(t('story.title'), cx, b.y + S.pad);
+    ctx.font = font(500, S.bodySize, SANS);
+    S.body.forEach((l, i) => ctx.fillText(l, cx, b.y + S.yBody + i * S.bodyLH));
+    ctx.fillStyle = '#5a4630';
+    ctx.font = `italic 400 ${fontPx(S.verse.size)}px ${SERIF}`;
+    S.verse.lines.forEach((l, i) => ctx.fillText(l, cx, b.y + S.yVerse + i * S.verse.lineH));
+    const p = passage('isa52.7');
+    ctx.fillStyle = '#8a6a44';
+    ctx.font = font(600, S.refSize, SANS);
+    ctx.fillText(`${p.ref} · ${p.bible}`, cx, b.y + S.yRef);
+    // how to set off, breathing gently
+    ctx.globalAlpha = k * (0.75 + 0.25 * Math.sin(this.clock * 3.2));
+    ctx.fillStyle = '#9a5a1e';
+    ctx.font = font(800, S.tapSize, SANS);
+    ctx.fillText(fitText(ctx, `${S.tap}  ›`, b.w - 2 * S.pad, S.tapSize, 800, SANS, MIN_READ), cx, b.y + S.yTap);
     ctx.restore();
   }
 }

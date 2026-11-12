@@ -127,7 +127,7 @@ export function paintRibbon(ctx: CanvasRenderingContext2D, l: TraceLayout, o: { 
       ctx.lineTo(last.x, y + 5);
       ctx.stroke();
       ctx.fillStyle = 'rgba(255,240,220,.9)';
-      ctx.font = font(700, 9.5 * o.u, SANS);
+      ctx.font = font(700, Math.max(13, 10 * o.u), SANS);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       ctx.fillText(o.lagLabel, (x0 + last.x) / 2, y + 3);

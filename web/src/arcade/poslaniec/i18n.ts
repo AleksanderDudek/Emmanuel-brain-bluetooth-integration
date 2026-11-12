@@ -53,6 +53,10 @@ const pl = {
   'hint.roll': 'Przesuń w dół: przeturlaj się pod belką',
   'hint.lane': 'Przesuń w bok: zmień pas przed wozem',
   'hint.ramp': 'Wbiegnij po rampie na dach wozu!',
+  // the same coach marks at a keyboard (the keys first, the swipe as the other way)
+  'hint.jump.keys': '↑ albo Spacja (lub przesuń w górę): skok przez płotek',
+  'hint.roll.keys': '↓ albo S (lub przesuń w dół): przeturlaj się pod belką',
+  'hint.lane.keys': '← / → albo A / D (lub przesuń w bok): zmień pas przed wozem',
   'hint.wings': 'Skrzydła: skupienie nad progiem napełnia krąg. Pełny = lot!',
   'hint.tower': 'Spokój zapala wieżę, gdy ją mijasz. Trzy ognie = tarcza',
   'hint.goat': 'Koza Bela! Drugie potknięcie przy niej kończy bieg',
@@ -91,6 +95,7 @@ const pl = {
   // words drawn in the world
   'w.wings': 'SKRZYDŁA',
   'w.ring': 'LOT',
+  'w.ringPct': 'LOT {n}%',
   'w.horn': 'RÓG',
   'w.word': 'SŁOWO DNIA',
   'w.mist': 'MGŁA',
@@ -109,6 +114,8 @@ const pl = {
   'story.body': 'Apostoł spisał listy do siedmiu Kościołów Azji. Ktoś musi je donieść, szybko, rzymskim traktem. Biegniesz Ty, nad Tobą krąży bocian Klekot, a za Tobą… koza Bela, która uwielbia papier.',
   'story.city': '{city}: list doręczony',
   'story.next': 'Dalej: {city}',
+  'story.tap': 'Stuknij, by ruszyć w drogę',
+  'story.tap.keys': 'Kliknij albo naciśnij Spację, by ruszyć w drogę',
 
   // the score corner
   'head.sub': '×{mult} · {m}',
@@ -301,6 +308,9 @@ const en: Catalog<Key> = {
   'hint.roll': 'Swipe down to roll under the beam',
   'hint.lane': 'Swipe sideways to change lanes before the wagon',
   'hint.ramp': 'Run up the ramp onto the wagon’s roof!',
+  'hint.jump.keys': '↑ or Space (or swipe up) to jump the fence',
+  'hint.roll.keys': '↓ or S (or swipe down) to roll under the beam',
+  'hint.lane.keys': '← / → or A / D (or swipe sideways) to change lanes before the wagon',
   'hint.wings': 'Wings: focus above the threshold fills the ring. Full = flight!',
   'hint.tower': 'Calm lights a tower as you pass it. Three fires = a shield',
   'hint.goat': 'Bela the goat! A second stumble near her ends the run',
@@ -337,6 +347,7 @@ const en: Catalog<Key> = {
 
   'w.wings': 'WINGS',
   'w.ring': 'FLIGHT',
+  'w.ringPct': 'FLIGHT {n}%',
   'w.horn': 'HORN',
   'w.word': 'WORD OF THE DAY',
   'w.mist': 'MIST',
@@ -353,6 +364,8 @@ const en: Catalog<Key> = {
   'story.body': 'The apostle has written letters to the seven churches of Asia. Someone has to carry them, fast, along the Roman road. That someone is you; Klekot the stork circles overhead, and behind you… Bela the goat, who loves paper.',
   'story.city': '{city}: letter delivered',
   'story.next': 'Next: {city}',
+  'story.tap': 'Tap to set off',
+  'story.tap.keys': 'Click or press Space to set off',
 
   'head.sub': '×{mult} · {m}',
   'head.caught': 'Bela has the letter!',
@@ -536,6 +549,9 @@ const de: Catalog<Key> = {
   'hint.roll': 'Wisch nach unten: unter dem Balken durchrollen',
   'hint.lane': 'Wisch zur Seite: vor dem Wagen die Spur wechseln',
   'hint.ramp': 'Lauf die Rampe hinauf aufs Wagendach!',
+  'hint.jump.keys': '↑ oder Leertaste (oder nach oben wischen): über den Zaun',
+  'hint.roll.keys': '↓ oder S (oder nach unten wischen): unter dem Balken durchrollen',
+  'hint.lane.keys': '← / → oder A / D (oder zur Seite wischen): vor dem Wagen die Spur wechseln',
   'hint.wings': 'Flügel: Fokus über der Schwelle füllt den Ring. Voll = Flug!',
   'hint.tower': 'Ruhe entzündet einen Turm, wenn du vorbeiläufst. Drei Feuer = ein Schild',
   'hint.goat': 'Die Ziege Bela! Ein zweites Stolpern bei ihr beendet den Lauf',
@@ -572,6 +588,7 @@ const de: Catalog<Key> = {
 
   'w.wings': 'FLÜGEL',
   'w.ring': 'FLUG',
+  'w.ringPct': `FLUG {n}${N}%`,
   'w.horn': 'HORN',
   'w.word': 'WORT DES TAGES',
   'w.mist': 'NEBEL',
@@ -588,6 +605,8 @@ const de: Catalog<Key> = {
   'story.body': 'Der Apostel hat Briefe an die sieben Gemeinden in Asien geschrieben. Jemand muss sie bringen, schnell, über die Römerstraße. Das bist du; über dir kreist der Storch Klekot, und hinter dir… die Ziege Bela, die Papier liebt.',
   'story.city': '{city}: Brief zugestellt',
   'story.next': 'Weiter: {city}',
+  'story.tap': 'Tippe, um loszulaufen',
+  'story.tap.keys': 'Klicke oder drücke die Leertaste, um loszulaufen',
 
   'head.sub': '×{mult} · {m}',
   'head.caught': 'Bela hat den Brief!',
@@ -771,6 +790,9 @@ const sv: Catalog<Key> = {
   'hint.roll': 'Svep nedåt: rulla under bjälken',
   'hint.lane': 'Svep åt sidan: byt fil före vagnen',
   'hint.ramp': 'Spring uppför rampen upp på vagnstaket!',
+  'hint.jump.keys': '↑ eller mellanslag (eller svep uppåt): hoppa över staketet',
+  'hint.roll.keys': '↓ eller S (eller svep nedåt): rulla under bjälken',
+  'hint.lane.keys': '← / → eller A / D (eller svep åt sidan): byt fil före vagnen',
   'hint.wings': 'Vingar: fokus över tröskeln fyller ringen. Full = flygtur!',
   'hint.tower': 'Lugn tänder ett torn när du passerar. Tre eldar = en sköld',
   'hint.goat': 'Geten Bela! En andra snubbling nära henne avslutar loppet',
@@ -807,6 +829,7 @@ const sv: Catalog<Key> = {
 
   'w.wings': 'VINGAR',
   'w.ring': 'FLYG',
+  'w.ringPct': `FLYG {n}${N}%`,
   'w.horn': 'HORN',
   'w.word': 'DAGENS ORD',
   'w.mist': 'DIMMA',
@@ -823,6 +846,8 @@ const sv: Catalog<Key> = {
   'story.body': 'Aposteln har skrivit brev till de sju församlingarna i Asien. Någon måste bära dem, snabbt, längs den romerska vägen. Det är du; storken Klekot kretsar ovanför, och bakom dig… geten Bela, som älskar papper.',
   'story.city': '{city}: brevet levererat',
   'story.next': 'Härnäst: {city}',
+  'story.tap': 'Tryck för att ge dig av',
+  'story.tap.keys': 'Klicka eller tryck på mellanslag för att ge dig av',
 
   'head.sub': '×{mult} · {m}',
   'head.caught': 'Bela har brevet!',

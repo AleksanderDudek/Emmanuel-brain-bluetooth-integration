@@ -15,15 +15,17 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { PoslaniecSound } from './audio';
-import { t, type Key } from './i18n';
-import { Gestures, keyMove } from './input';
+import { t } from './i18n';
+import { Gestures, hintText, keyMove } from './input';
 import { PoslaniecIntro } from './intro';
+import { layout, tapTargets, type Layout } from './layout';
 import { freshProgress, migrate, type PoslaniecProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { PoslaniecView } from './render';
+import { RULES } from './rules';
 import { PoslaniecSim, type SimEvent } from './sim';
 
 class PoslaniecGame implements ArcadeGame {
@@ -36,6 +38,7 @@ class PoslaniecGame implements ArcadeGame {
   private w = 1;
   private h = 1;
   private dpr = 1;
+  private L: Layout = layout(1280, 800);
   /** a short freeze on a hit (hit-stop) */
   private freeze = 0;
 
@@ -43,7 +46,7 @@ class PoslaniecGame implements ArcadeGame {
     this.sim = new PoslaniecSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
-    this.view = new PoslaniecView(env.canvas, { reducedMotion: env.reducedMotion, tool: env.tool, hudTop: () => env.hudTop() });
+    this.view = new PoslaniecView(env.canvas, { reducedMotion: env.reducedMotion, tool: env.tool, touch: env.touch });
     this.sound = new PoslaniecSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
   }
@@ -52,8 +55,10 @@ class PoslaniecGame implements ArcadeGame {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.view.resize(w, h, dpr);
-    this.hands.resize(w);
+    this.L = layout(w, h, this.env.insets());
+    this.view.resize(w, h, dpr, this.L);
+    // the thirds of a tap divide the safe width (a notch on its side is not the road)
+    this.hands.resize(w, this.L.ins.left, w - this.L.ins.right);
   }
 
   intro(dt: number, p: number): void {
@@ -64,8 +69,10 @@ class PoslaniecGame implements ArcadeGame {
   }
 
   start(): void {
-    this.view.resize(this.w, this.h, this.dpr);   // the HUD's band is known now
+    this.resize(this.w, this.h, this.dpr);   // the HUD's band is known now
     this.sim.start();
+    // the first time, the opening story holds the run at the milestone until a tap
+    if (this.sim.firstEver) this.sim.hold(RULES.storyHold);
     this.sound.start();
     this.view.start(this.sim.p, this.sim.firstEver);
     this.drain();
@@ -85,8 +92,16 @@ class PoslaniecGame implements ArcadeGame {
 
   draw(): void { if (this.sim.started) this.view.draw(this.sim); }
 
-  /** Swipes act the moment they are long enough; a short tap acts by the third it lands in. */
+  /**
+   * Swipes act the moment they are long enough; a short tap acts by the third it lands in.  A ring answers
+   * every finger the moment it goes down.  While the opening story holds the run, any tap sets off.
+   */
   pointer(e: PointerInput): void {
+    if (e.type === 'down') this.view.touch(e.x, e.y);
+    if (this.sim.held > 0) {
+      if (e.type === 'up') this.setOff();
+      return;
+    }
     const m = this.hands.pointer(e.type, e.id, e.x, e.y, this.sim.t);
     if (m) {
       this.sim.act(m);
@@ -94,15 +109,32 @@ class PoslaniecGame implements ArcadeGame {
     }
   }
 
-  /** ←/→/A/D lanes, ↑/W/Space jump, ↓/S roll. */
+  /** ←/→/A/D lanes, ↑/W/Space jump, ↓/S roll (and any of them, or Enter, sets off from the story). */
   key(key: string, down: boolean): boolean {
     const m = keyMove(key);
+    if (this.sim.held > 0 && (m || key === 'Enter')) {
+      if (down) this.setOff();
+      return true;
+    }
     if (!m) return false;
     if (down) {
       this.sim.act(m);
       this.drain();
     }
     return true;
+  }
+
+  /** The story is read: the messenger sets off. */
+  private setOff(): void {
+    this.hands.clear();
+    this.sim.release();
+    if (this.env.haptics) buzz(10);
+    this.drain();
+  }
+
+  /** The opening story's card while it holds the run; in play nothing (a swipe anywhere is the control). */
+  targets(): TapTarget[] {
+    return tapTargets(this.L, { story: this.sim.held > 0 ? this.view.storyBox : null });
   }
 
   pause(paused: boolean): void {
@@ -118,7 +150,7 @@ class PoslaniecGame implements ArcadeGame {
       if (e.type === 'teach') {
         const at = e.what === 'wings' ? this.view.storkAt() : e.what === 'goat' ? this.view.pointAt(this.sim.z + 2, this.sim.r.lane, 1.5)
           : this.view.pointAt(e.z, e.lane, e.what === 'roll' ? 2 : 1);
-        this.env.hint(t(`hint.${e.what}` as Key), at, e.what.startsWith('power') ? 3200 : 3800);
+        this.env.hint(hintText(e.what, this.env.touch), at, e.what.startsWith('power') ? 3200 : 3800);
       }
     }
   }
@@ -141,6 +173,9 @@ class PoslaniecGame implements ArcadeGame {
 
 function haptic(e: SimEvent): void {
   switch (e.type) {
+    case 'power': buzz(10); break;
+    case 'letter': buzz(8); break;
+    case 'bump': buzz(8); break;
     case 'stumble': buzz(e.caught ? [30, 40, 30] : 25); break;
     case 'shieldBreak': buzz([15, 25, 15]); break;
     case 'land': if (e.hard) buzz(10); break;

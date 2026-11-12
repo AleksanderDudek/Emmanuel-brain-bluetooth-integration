@@ -11,12 +11,21 @@
  * The palette is a painted dawn: indigo, plum and apricot sky, mauve and olive hills, warm limestone
  * paving.  Gold is kept for the signal (above the threshold) and the flight; drachmas are silver.
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { CityId } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
+/** A font size never under the kit's floor (MIN_TEXT, 11 px: smaller text is a smudge on a phone). */
+export const fontPx = (size: number): number => Math.round(Math.max(MIN_TEXT, size) * 10) / 10;
+/** A canvas font, never under MIN_TEXT. */
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${fontPx(size)}px ${family}`;
+/**
+ * Text drawn on a thing in the world (a letter tile on the road, a seal, a station's sign) shrinks with
+ * the distance: it is drawn only once it is readable (MIN_TEXT and up), never blown up past its thing.
+ */
+export const legible = (size: number): boolean => size >= MIN_TEXT;
 
 export const C = {
   ink: '#2b2219', paper: '#f7ead2', parchment: '#f1e0bd', edge: '#c9a46a',
@@ -663,6 +672,8 @@ export function paintSeal(ctx: CanvasRenderingContext2D, x: number, y: number, r
   ctx.beginPath();
   ctx.arc(x, y, r * 0.62, 0, Math.PI * 2);
   ctx.fill();
+  // "×2" once it is readable (a seal far down the road is a red seal)
+  if (!legible(r * 0.72)) return;
   ctx.fillStyle = '#ffe7c8';
   ctx.font = font(800, r * 0.72, SANS);
   ctx.textAlign = 'center';
@@ -710,6 +721,8 @@ export function paintLetterTile(ctx: CanvasRenderingContext2D, x: number, y: num
   ctx.roundRect(x - r, y - r, r * 2, r * 2, r * 0.3);
   ctx.fill();
   ctx.stroke();
+  // its letter once it is readable (a tile far down the road is a glowing tile)
+  if (!legible(r * 1.3)) return;
   ctx.fillStyle = C.ink;
   ctx.font = font(800, r * 1.3, SERIF);
   ctx.textAlign = 'center';

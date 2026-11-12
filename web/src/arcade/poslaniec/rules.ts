@@ -144,6 +144,8 @@ export const RULES = {
   warm: { long: 30, short: 22, test: 8, later: 6 },
   /** canStop() waits at most this long (s) for a flight or a jump to land */
   settle: 3,
+  /** the first-ever opening story holds the run at the milestone until a tap, at most this long (s) */
+  storyHold: 20,
   /** push blocks counted across sessions: every blindEvery-th is blind from the blindFrom-th session */
   blindEvery: 4,
   blindFrom: 3,

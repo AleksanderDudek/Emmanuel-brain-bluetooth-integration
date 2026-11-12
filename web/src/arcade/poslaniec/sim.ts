@@ -178,6 +178,8 @@ export class PoslaniecSim {
   track: Track;
   started = false;
   phase: 'play' | 'caught' = 'play';
+  /** the run waits at the milestone this many seconds more (the opening story's card; 0 = running) */
+  held = 0;
   /** seconds of play (the runner's clock), and this frame's focus */
   t = 0;
   f: FocusFrame = { reliable: false, activity: null, threshold: 2, level: 0, focused: false, hold: 0, calm: 0 };
@@ -292,15 +294,31 @@ export class PoslaniecSim {
     if (this.firstEver) {
       this.track.mode = 'lesson';
       this.track.lessons = ['jump', 'roll', 'lane', 'ramp'];
-      this.talk.say('first', 3, 6);
+      this.talk.say('first', 3, 40);
     } else this.talk.say('open', 2, 6);
     this.beginBlock(this.block);
     this.track.fill(this.z + RULES.ahead, 0);
   }
 
+  /**
+   * Hold the run at the milestone for at most `sec` (the first-ever opening story, read before the lesson
+   * road): the messenger stands, the clock, the band and the blocks go on.  Only at the very start of a
+   * warm-up; a block that is not one sets off by itself.
+   */
+  hold(sec: number): void {
+    if (this.started && this.z === 0 && this.block.kind === 'warmup') this.held = Math.max(this.held, sec);
+  }
+
+  /** Set off (a tap on the story, or its time is up): Klekot's first words wait for the lesson road's end. */
+  release(): void {
+    if (this.held <= 0) return;
+    this.held = 0;
+    if (this.firstEver) this.talk.say('first', 3, 40);
+  }
+
   // ── the hands ──────────────────────────────────────────────────
   act(m: Move): void {
-    if (!this.started || this.phase !== 'play') return;
+    if (!this.started || this.phase !== 'play' || this.held > 0) return;
     const r = this.r;
     if (m === 'left' || m === 'right') {
       const dir = m === 'left' ? -1 : 1;
@@ -375,6 +393,17 @@ export class PoslaniecSim {
     this.t = t;
     this.blocks();
     this.brain(dt);
+    if (this.held > 0) {
+      // at the milestone: nothing moves, Klekot keeps quiet over the story
+      const left = this.block.kind === 'warmup' ? this.held - dt : 0;
+      if (left > 0) {
+        this.held = left;
+        this.bannerT += dt;
+        this.talk.update(dt, true);
+        return;
+      }
+      this.release();
+    }
     this.acc += Math.min(0.1, dt);
     let n = 0;
     while (this.acc >= RULES.step && n++ < 14) {
@@ -384,7 +413,10 @@ export class PoslaniecSim {
     if (n >= 14) this.acc = 0;
     this.bannerT += dt;
     const b = this.block, end = b.start + b.dur;
-    const quiet = this.bannerT < 4.5 || (this.blockIndex < this.plan.length - 1 && t >= end - RULES.telegraph);
+    // quiet over the runner's banner, a telegraph and a coach mark (its bubble shares the band under the
+    // HUD), and on the first-ever lesson road, where the coach marks teach one control after another
+    const quiet = this.bannerT < 4.5 || (this.blockIndex < this.plan.length - 1 && t >= end - RULES.telegraph)
+      || this.t - this.lastTeach < 4 || this.track.mode === 'lesson';
     this.talk.update(dt, quiet);
   }
 
@@ -782,7 +814,7 @@ export class PoslaniecSim {
       this.count('powers', 1);
       this.emit({ type: 'power', kind: p.kind });
       const key: Teach = `power.${p.kind}`;
-      if (!this.p.taught.includes(key)) { this.learn(key); this.emit({ type: 'teach', what: key, z: p.z, lane: p.lane }); }
+      if (!this.p.taught.includes(key)) { this.learn(key); this.coach(key, p.z, p.lane); }
       else this.talk.say('power', 1, 2);
     }
     for (const l of this.track.letters) {
@@ -855,7 +887,7 @@ export class PoslaniecSim {
     while (this.towers.length && this.towers[0].z < this.z - 30) this.towers.shift();
     if (this.block.kind === 'rest' && this.blockT >= this.lead && !this.p.taught.includes('tower')) {
       const next = this.towers.find(tw => !tw.judged && tw.z - this.z < 40 && tw.z - this.z > 15);
-      if (next) { this.learn('tower'); this.emit({ type: 'teach', what: 'tower', z: next.z, lane: 1 }); }
+      if (next) { this.learn('tower'); this.coach('tower', next.z, 1); }
     }
   }
 
@@ -876,8 +908,14 @@ export class PoslaniecSim {
 
   private teach(what: Teach, z: number, lane: number): void {
     if (this.t - this.lastTeach < 2.5) return;
-    this.lastTeach = this.t;
     if (what === 'wings' || what === 'goat') this.learn(what);
+    this.coach(what, z, lane);
+  }
+
+  /** A coach mark now: Klekot breaks off and keeps quiet while it shows (both share the band under the HUD). */
+  private coach(what: Teach, z: number, lane: number): void {
+    this.lastTeach = this.t;
+    this.talk.hush();
     this.emit({ type: 'teach', what, z, lane });
   }
 
