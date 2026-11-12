@@ -8,11 +8,14 @@
  *
  * Jesus is never drawn: the procession is a cloud of dust, raised palm branches and a crowd far off.
  */
+import { MIN_READ, MIN_TEXT } from '../kit/mobile';
+
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
 
+/** A CSS font for the canvas, never under the arcade's 11 px floor (kit/mobile MIN_TEXT). */
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
 
 export const C = {
   ink: '#2a1e17', paper: '#fbf1dc', paper2: '#f3e3c3',
@@ -48,6 +51,46 @@ export const rgb = (c: RGB, a = 1): string =>
 export function mixHex(a: string, b: string, t: number, alpha = 1): string {
   const x = hex(a), y = hex(b);
   return rgb([x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t], alpha);
+}
+
+// ── soft glows, baked once: no shadowBlur in a frame (a phone pays for it in fill rate) ──
+const glowCache = new Map<string, HTMLCanvasElement | null>();
+
+function glowSprite(color: string): HTMLCanvasElement | null {
+  const have = glowCache.get(color);
+  if (have !== undefined) return have;
+  let out: HTMLCanvasElement | null = null;
+  try {
+    const c = typeof document !== 'undefined' ? document.createElement('canvas') : null;
+    const g = c?.getContext('2d') ?? null;
+    if (c && g) {
+      c.width = 64;
+      c.height = 64;
+      const col = hex(color);
+      const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, rgb(col, 0.85));
+      gr.addColorStop(0.4, rgb(col, 0.4));
+      gr.addColorStop(1, rgb(col, 0));
+      g.fillStyle = gr;
+      g.fillRect(0, 0, 64, 64);
+      out = c;
+    }
+  } catch {
+    out = null;
+  }
+  glowCache.set(color, out);
+  return out;
+}
+
+/** A soft glow of `color` (hex) around (x, y), `rx` × `ry` px: a baked sprite stretched, never a shadowBlur. */
+export function paintGlow(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, color: string, alpha = 1): void {
+  if (rx <= 0.5 || ry <= 0.5 || alpha <= 0.01) return;
+  const s = glowSprite(color);
+  if (!s) return;
+  const a = ctx.globalAlpha;
+  ctx.globalAlpha = a * Math.min(1, alpha);
+  ctx.drawImage(s, x - rx, y - ry, rx * 2, ry * 2);
+  ctx.globalAlpha = a;
 }
 
 // ── the sky and the far land ─────────────────────────────────────
@@ -1026,9 +1069,16 @@ export function paintGoose(ctx: CanvasRenderingContext2D, x: number, y: number, 
   }
   ctx.fillStyle = C.ink;
   if (dizzy > 0) {
-    ctx.font = font(800, S * 0.12, SANS);
-    ctx.textAlign = 'center';
-    ctx.fillText('×', -S * 0.22, -S * 0.58);
+    // a dizzy eye: a little cross (a path, so it stays crisp at any size)
+    const ex = -S * 0.22, ey = -S * 0.62, d = S * 0.035;
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = Math.max(1, S * 0.022);
+    ctx.beginPath();
+    ctx.moveTo(ex - d, ey - d);
+    ctx.lineTo(ex + d, ey + d);
+    ctx.moveTo(ex + d, ey - d);
+    ctx.lineTo(ex - d, ey + d);
+    ctx.stroke();
   } else {
     ctx.beginPath();
     ctx.arc(-S * 0.24, -S * 0.62, S * 0.02, 0, TAU);
@@ -1115,9 +1165,16 @@ export function paintGoat(ctx: CanvasRenderingContext2D, x: number, y: number, S
   ctx.fill();
   ctx.fillStyle = C.ink;
   if (dizzy > 0) {
-    ctx.font = font(800, S * 0.12, SANS);
-    ctx.textAlign = 'center';
-    ctx.fillText('@', -S * 0.45, -S * 0.67);
+    // a dizzy eye: a little spiral
+    const ex = -S * 0.45, ey = -S * 0.71;
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = Math.max(1, S * 0.018);
+    ctx.beginPath();
+    for (let i = 0; i <= 14; i++) {
+      const a = i * 0.75, rr = S * 0.005 + i * S * 0.003;
+      ctx.lineTo(ex + Math.cos(a) * rr, ey + Math.sin(a) * rr);
+    }
+    ctx.stroke();
   } else {
     ctx.beginPath();
     ctx.ellipse(-S * 0.45, -S * 0.71, S * 0.025, S * 0.015, 0, 0, TAU);
@@ -1187,10 +1244,7 @@ export function paintStone(ctx: CanvasRenderingContext2D, x0: number, x1: number
   const w = x1 - x0, h = raised ? S * 0.42 : S * 0.2;
   const col = kind === 'pause' ? C.indigo2 : kind === 'back' ? C.madder : C.saffron;
   ctx.save();
-  if (glow > 0) {
-    ctx.shadowColor = col;
-    ctx.shadowBlur = S * 0.5 * glow;
-  }
+  if (glow > 0) paintGlow(ctx, x0 + w / 2, raised ? y + h / 2 : y, w / 2 + S * 0.45, h / 2 + S * 0.4, col, glow);
   ctx.fillStyle = col;
   ctx.strokeStyle = C.ink;
   ctx.lineWidth = Math.max(1, S * 0.03);
@@ -1198,7 +1252,6 @@ export function paintStone(ctx: CanvasRenderingContext2D, x0: number, x1: number
   ctx.roundRect(x0, y - (raised ? 0 : h * 0.5), w, h, S * 0.06);
   ctx.fill();
   ctx.stroke();
-  ctx.shadowBlur = 0;
   // the glyph floats above the stone so it reads from afar
   const gx = (x0 + x1) / 2, gy = y - S * (0.55 + 0.05 * Math.sin(t * 3));
   ctx.fillStyle = 'rgba(251,241,220,.92)';
@@ -1234,8 +1287,7 @@ export function paintStone(ctx: CanvasRenderingContext2D, x0: number, x1: number
 export function paintSpring(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, squash: number, t: number): void {
   const h = S * (0.45 - 0.25 * squash);
   ctx.save();
-  ctx.shadowColor = C.gold;
-  ctx.shadowBlur = S * 0.4;
+  paintGlow(ctx, x, y - h / 2, S * 0.5, S * 0.55, C.gold, 0.8);
   ctx.strokeStyle = C.gold2;
   ctx.lineWidth = Math.max(1.5, S * 0.06);
   ctx.beginPath();
@@ -1269,13 +1321,11 @@ export function paintLightPlank(ctx: CanvasRenderingContext2D, x0: number, x1: n
   const g = ctx.createLinearGradient(0, y - S * 0.1, 0, y + S * 0.22);
   g.addColorStop(0, '#fff6cf');
   g.addColorStop(1, mixHex(C.gold, C.gold2, 0.4));
-  ctx.shadowColor = C.gold;
-  ctx.shadowBlur = S * (0.25 + 0.5 * k);
+  paintGlow(ctx, (x0 + x1) / 2, y + S * 0.08, (x1 - x0) / 2 + S * (0.2 + 0.3 * k), S * (0.32 + 0.3 * k), C.gold, 0.55 + 0.4 * k);
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.roundRect(x0 + S * 0.03, y - S * 0.02, x1 - x0 - S * 0.06, S * 0.2, S * 0.05);
   ctx.fill();
-  ctx.shadowBlur = 0;
   ctx.strokeStyle = 'rgba(160,100,20,.55)';
   ctx.lineWidth = 1;
   ctx.stroke();
@@ -1327,17 +1377,20 @@ export function paintFinishPalm(ctx: CanvasRenderingContext2D, x0: number, x1: n
     ctx.lineTo(x1 - S * 0.2, y - S * 0.06);
     ctx.stroke();
   }
-  // the five marks, bright once reached
+  // the five marks, bright once reached: plates a phone can read (the number never under 13 px)
+  const fs = Math.max(MIN_READ, S * 0.26);
+  const pw = Math.max(S * 0.34, fs * 1.25), ph = Math.max(S * 0.26, fs * 1.15);
   [0, 1, 2, 3, 4.2].forEach((at, i) => {
     const y = base - S * (at + 0.5);
-    ctx.fillStyle = i < lit ? C.gold : 'rgba(251,241,220,.85)';
+    const px = x0 + S * 0.04 - pw / 2;
+    ctx.fillStyle = i < lit ? C.gold : 'rgba(251,241,220,.9)';
     ctx.strokeStyle = C.ink;
     ctx.beginPath();
-    ctx.roundRect(x0 - S * 0.12, y - S * 0.12, S * 0.32, S * 0.24, S * 0.06);
+    ctx.roundRect(px, y - ph / 2, pw, ph, ph * 0.3);
     ctx.fill();
     ctx.stroke();
     ctx.fillStyle = C.ink;
-    ctx.font = font(800, S * 0.17, SANS);
+    ctx.font = font(800, fs, SANS);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(i + 1), x0 + S * 0.04, y + 1);

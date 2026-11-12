@@ -11,23 +11,39 @@
  * with her speech bubble, particles and flying words, and the overlays of hud.ts.
  *
  * The runner draws the Mendi panel and the score; nothing here duplicates them.
+ *
+ * Phone first (src/arcade/DESIGN.md §12): the layout comes from the canvas and the runner's insets
+ * (layout.ts); a press anywhere jumps and leaves a ring under the finger; the bubble button and the
+ * tally and story cards are the only targets; glows are baked sprites and the sky a cached layer, so
+ * a frame draws no shadowBlur.
  */
 import type { TraceBar } from '../kit/trace';
 import { traceBars } from '../kit/trace';
-import { Floaters, Particles, Shake, approach, clamp } from '../kit/juice';
+import { Floaters, Particles, Shake, approach, clamp, ease } from '../kit/juice';
+import { MIN_READ, target } from '../kit/mobile';
+import type { Insets, TapTarget } from '../kit/types';
 import { HOMES, levelName } from './content';
 import { t } from './i18n';
 import { ZacheuszIntro } from './intro';
-import { layout, type Layout } from './layout';
+import { buttonRect, layout, melaBehind, type Box, type Layout } from './layout';
 import type { ZacheuszProgress } from './meta';
 import {
-  C, SANS, hash, paintAwning, paintBubble, paintCoin, paintCrate, paintCrowd, paintDitch, paintFigTree, paintFinishPalm, paintGoat,
-  paintGoose, paintGround, paintHills, paintHouse, paintLightPlank, paintPalm, paintPlank, paintProcession, paintSky, paintSpring,
+  C, SANS, font, hash, paintAwning, paintBubble, paintCoin, paintCrate, paintCrowd, paintDitch, paintFigTree, paintFinishPalm, paintGlow,
+  paintGoat, paintGoose, paintGround, paintHills, paintHouse, paintLightPlank, paintPalm, paintPlank, paintProcession, paintSky, paintSpring,
   paintStall, paintStone, paintStump, paintSycamore, paintWall, paintWell, paintZacchaeus, restPose, type HeroPose,
 } from './paint';
 import { RULES } from './rules';
 import { REACH_MARK, nextLevelName, type SimEvent, type ZacheuszSim } from './sim';
-import { StoryCard, drawBanner, drawButton, drawLevelCard, drawSpeech, drawStrip, drawTally, tierKind } from './hud';
+import { StoryCard, drawBanner, drawButton, drawLevelCard, drawStrip, drawTalk, drawTally, labelRoom, tallyBox, tierKind } from './hud';
+
+/** A card takes a tap this long after it shows (sim.press() ignores earlier ones). */
+const CARD_TAP_SEC = 1.2;
+/** A press's ring under the finger lives this long (s). */
+const RING_SEC = 0.36;
+/** The level strip's band under the HUD (px at u = 1): the camera keeps his head below it. */
+const STRIP_ROOM = 40;
+/** How softly Mela follows him (s). */
+const MELA_TAU = 0.25;
 
 const TAU = Math.PI * 2;
 const STRIPES = [C.madder, C.indigo, C.saffron];
@@ -37,7 +53,7 @@ export class ZacheuszView {
   private w = 1280;
   private h = 800;
   private dpr = 1;
-  L: Layout = layout(1280, 800, 0);
+  L: Layout = layout(1280, 800);
   private readonly intro0 = new ZacheuszIntro();
   private readonly story = new StoryCard();
   private readonly parts = new Particles(500);
@@ -65,17 +81,25 @@ export class ZacheuszView {
   private melaHop = 0;
   private readonly honks = new Map<number, number>();
   private roadFlash = 0;
+  /** the finger's marks: a ring where each press came down */
+  private readonly rings: { x: number; y: number; t: number }[] = [];
+  /** the card on screen as last drawn (a tap there goes on), and whether it is the tally or the story */
+  private cardBox: Box | null = null;
+  /** the sky as a cached layer (redrawn when the size or the orchard's shade changes) */
+  private sky: HTMLCanvasElement | null = null;
+  private skyKey = '';
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number, hudTop: number): void {
+  resize(w: number, h: number, dpr: number, insets?: Insets): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, hudTop);
+    this.L = layout(w, h, insets);
+    this.skyKey = '';
   }
 
   start(): void { this.fade = 1; }
@@ -93,12 +117,38 @@ export class ZacheuszView {
     return { x: clamp(this.sx(x), 30, this.L.w - 30), y: clamp(this.sy(y), this.L.hudTop + 30, this.L.h - 30) };
   }
 
-  /** The bubble button (bottom right). */
-  hitButton(x: number, y: number): boolean {
+  /** Whether (x, y) is on the bubble button (its hit square, as targets() reports it). */
+  onButton(x: number, y: number): boolean {
+    const r = buttonRect(this.L);
+    return x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  }
+
+  /** Where a coach mark about the bubble button points: just over its label. */
+  buttonTip(): { x: number; y: number } {
     const b = this.L.btn;
-    const d = Math.hypot(x - b.x, y - b.y) <= b.r + 10;
-    if (d) this.btnPress = 1;
-    return d;
+    return { x: b.x, y: b.y - b.r - (this.L.tall ? 26 : 6) * this.L.u };
+  }
+
+  /** The bubble button took a press: it squashes and lights its rim. */
+  pressButton(): void { this.btnPress = 1; }
+
+  /** A press came down at (x, y): a ring under the finger (the hand's answer on touch-down). */
+  touch(x: number, y: number): void {
+    this.rings.push({ x, y, t: 0 });
+    if (this.rings.length > 5) this.rings.shift();
+  }
+
+  /**
+   * What the player can tap right now: the bubble button while he runs; the tally or the story card once
+   * it takes a tap (a tap anywhere goes on too, the card is where the eye is).  The street is the free
+   * play area (a press anywhere jumps), not a target.
+   */
+  targets(sim: ZacheuszSim): TapTarget[] {
+    if (!sim.started || sim.phase !== 'play') return [];
+    if (sim.stage === 'tally' && sim.lastResult) return sim.stageT > CARD_TAP_SEC ? [target('tally card', tallyBox(this.L))] : [];
+    if (sim.stage === 'story') return this.cardBox && sim.stageT > CARD_TAP_SEC ? [target('story card', this.cardBox)] : [];
+    if (sim.stage === 'run') return [target('bubble button', buttonRect(this.L))];
+    return [];
   }
 
   // ── reacting to the rules ───────────────────────────────────────
@@ -148,7 +198,7 @@ export class ZacheuszView {
       case 'bonk':
         this.parts.burst(this.sx(e.x), this.sy(e.y + 0.7), rm ? 4 : 14, { color: '#fff', size: 3, speed: 160, shape: 'square', life: 0.5 });
         this.words.add(`${t('style.bonk')} +${e.pay}`, this.sx(e.x), this.sy(e.y + 1.4), { color: C.madder, size: (18 + 3 * e.chain) * u });
-        this.words.add(e.kind === 'goose' ? t('fx.honk') : t('fx.meh'), this.sx(e.x) + 30 * u, this.sy(e.y + 0.6), { color: C.ink, size: 13 * u, dur: 0.9 });
+        this.words.add(e.kind === 'goose' ? t('fx.honk') : t('fx.meh'), this.sx(e.x) + 30 * u, this.sy(e.y + 0.6), { color: C.ink, size: 14 * u, dur: 0.9 });
         this.shake.add(0.12 + 0.05 * e.chain);
         break;
       case 'legUp':
@@ -199,7 +249,7 @@ export class ZacheuszView {
         this.words.add(t('fx.figs', { n: e.n }) + (e.bubble ? ` · ${t('fx.bubble')}` : ''), this.sx(e.x), this.sy(2.8), { color: C.figRipe, size: 16 * u, dur: 1.4 });
         break;
       case 'reveal':
-        if (e.len > 0) this.words.add(t('fx.reveal'), this.L.w / 2, this.L.cardY, { color: C.gold2, size: 20 * u, dur: 2 });
+        if (e.len > 0) this.words.add(t('fx.reveal'), this.L.w / 2, this.wordY(0), { color: C.gold2, size: 20 * u, dur: 2 });
         break;
       case 'restPass':
         this.words.add(t('fx.restPass', { n: e.pay }), this.sx(h.x), this.sy(h.y + 2.2), { color: C.figRipe, size: 17 * u, dur: 1.6 });
@@ -208,20 +258,26 @@ export class ZacheuszView {
         this.words.add(t('fx.pushPass', { n: e.pay }), this.sx(h.x), this.sy(h.y + 2.2), { color: C.gold2, size: 17 * u, dur: 1.6 });
         break;
       case 'home':
-        this.words.add(t('fx.home', { name: HOMES[e.index].name }), this.L.w / 2, this.L.cardY - 30 * u, { color: C.brickDark, size: 18 * u, dur: 2.4 });
+        this.words.add(t('fx.home', { name: HOMES[e.index].name }), this.L.w / 2, this.wordY(-30 * u), { color: C.brickDark, size: 18 * u, dur: 2.4 });
         break;
       case 'gift':
-        this.words.add(t('fx.gift', { n: e.n }), this.L.w / 2, this.L.cardY + 20 * u, { color: C.gold2, size: 17 * u, dur: 2.2 });
+        this.words.add(t('fx.gift', { n: e.n }), this.L.w / 2, this.wordY(20 * u), { color: C.gold2, size: 17 * u, dur: 2.2 });
         break;
       default: break;
     }
     void S;
   }
 
+  /** Where a centred word starts (by the cards' line, `dy` off it): low enough that its rise stays under the level strip. */
+  private wordY(dy: number): number {
+    const L = this.L;
+    return Math.max(L.cardY + dy, L.hudTop + STRIP_ROOM * L.u + 56 + Math.max(0, dy + 30 * L.u));
+  }
+
   private honk(sim: ZacheuszSim, x: number, y: number): void {
     const c = sim.world.critters.find(k => Math.abs(k.x - x) < 0.1);
     if (c) this.honks.set(c.id, this.clock);
-    this.words.add(t('fx.honk'), this.sx(x), this.sy(y), { color: C.ink, size: 12 * this.L.u, dur: 0.8 });
+    this.words.add(t('fx.honk'), this.sx(x), this.sy(y), { color: C.ink, size: 14 * this.L.u, dur: 0.8 });
   }
 
   update(dt: number, sim: ZacheuszSim): void {
@@ -237,10 +293,13 @@ export class ZacheuszView {
     if (this.banner && (this.banner.t += dt) > 1.6) this.banner = null;
     this.parts.update(dt);
     this.words.update(dt);
+    let n = 0;
+    for (const r of this.rings) if ((r.t += dt) < RING_SEC) this.rings[n++] = r;
+    this.rings.length = n;
     const h = sim.hero, p = this.heroAt(sim);
-    // the camera: him at a fixed x, up when he climbs above what fits
+    // the camera: him at a fixed x, up when he climbs above what fits under the level strip
     const S = this.S, L = this.L;
-    const wantY = Math.max(0, p.y + 1.6 - (L.gy - L.hudTop - 10) / S);
+    const wantY = Math.max(0, p.y + 1.6 - (L.gy - L.hudTop - STRIP_ROOM * L.u) / S);
     if (!this.camReady) {
       this.camX = p.x;
       this.camY = wantY;
@@ -249,6 +308,8 @@ export class ZacheuszView {
       this.camX = approach(this.camX, p.x, dt, sim.stage === 'bubble' ? 0.25 : 0.06);
       this.camY = approach(this.camY, wantY, dt, 0.3);
     }
+    // a soft camera never loses him: on a narrow phone the bubble's float back would carry him off the left edge
+    this.camX = clamp(this.camX, p.x - (L.w - L.hx - S * 1.2) / S, p.x + (L.hx - L.left - S * 0.9) / S);
     // the pose
     const speed = Math.abs(h.vx);
     this.runPh += dt * speed * 2.6 * (h.vx < 0 ? -1 : 1);
@@ -261,9 +322,10 @@ export class ZacheuszView {
     this.pose.hang = sim.stage === 'rope';
     this.pose.sit = false;
     this.pose.look = h.pauseT >= 0 ? -0.2 : h.dir < 0 ? Math.PI : -0.35;
-    // Mela trots behind him on the street
-    const want = p.x - 1.8;
-    this.melaX = this.melaX === 0 || Math.abs(want - this.melaX) > 12 ? want : approach(this.melaX, want, dt, 0.25);
+    // Mela trots behind him on the street — on a narrow phone closer, so she stays on screen (her lag at his
+    // pace is led away: she keeps the same gap while he runs)
+    const want = p.x - melaBehind(L) + (sim.stage === 'run' ? h.vx * MELA_TAU : 0);
+    this.melaX = this.melaX === 0 || Math.abs(want - this.melaX) > 12 ? want : approach(this.melaX, want, dt, MELA_TAU);
     this.melaHop = sim.world.inPit(this.melaX) ? 1 : Math.max(0, this.melaHop - dt * 3);
     this.bars = traceBars(sim.trace, sim.t, 40);
   }
@@ -293,7 +355,7 @@ export class ZacheuszView {
     const shade = orchard ? clamp(1 - Math.max(0, Math.max(orchard.x0 - this.camX, this.camX - orchard.x1)) / 6) : 0;
     ctx.fillStyle = C.hillFar;
     ctx.fillRect(0, 0, L.w, L.h);
-    paintSky(ctx, L.w, L.h, L.horizon, shade * 0.6);
+    this.drawSky(ctx, shade * 0.6);
     ctx.save();
     ctx.translate(off.x, off.y);
     paintHills(ctx, L.w, L.horizon + S * 0.3, S * 0.8, this.camX * S * 0.05, C.hillFar, 1.3, L.h);
@@ -307,12 +369,72 @@ export class ZacheuszView {
     this.drawHero(ctx, sim);
     this.parts.draw(ctx);
     ctx.restore();
-    this.words.draw(ctx, `800 ${SANS}`);
+    this.drawWords(ctx);
     this.drawOverlays(ctx, sim);
+    this.drawRings(ctx);
     if (this.fade > 0) {
       ctx.fillStyle = `rgba(251,241,220,${this.fade.toFixed(3)})`;
       ctx.fillRect(0, 0, L.w, L.h);
     }
+  }
+
+  /** The sky from a cached layer: a gradient and the sun's warmth, redrawn only when the size or the shade moves. */
+  private drawSky(ctx: CanvasRenderingContext2D, shade: number): void {
+    const L = this.L;
+    const q = Math.round(shade * 24) / 24;
+    const key = `${L.w}x${L.h}|${Math.round(L.horizon)}|${this.dpr}|${q}`;
+    if (key !== this.skyKey) {
+      this.skyKey = key;
+      const c = this.sky ?? (typeof document !== 'undefined' ? document.createElement('canvas') : null);
+      const g = c?.getContext('2d') ?? null;
+      if (c && g) {
+        c.width = Math.max(1, Math.round(L.w * this.dpr));
+        c.height = Math.max(1, Math.round((L.horizon + 2) * this.dpr));
+        g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+        paintSky(g, L.w, L.h, L.horizon, q);
+        this.sky = c;
+      } else this.sky = null;
+    }
+    if (this.sky) ctx.drawImage(this.sky, 0, 0, L.w, L.horizon + 2);
+    else paintSky(ctx, L.w, L.h, L.horizon, shade);
+  }
+
+  /** The words over the street (a trick's name, a count): 800 weight, an ink outline for busy art, never under 13 px. */
+  private drawWords(ctx: CanvasRenderingContext2D): void {
+    if (!this.words.items.length) return;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    for (const f of this.words.items) {
+      const k = f.t / f.dur;
+      const pop = k < 0.18 ? ease.outBack(k / 0.18) : 1;
+      ctx.globalAlpha = k > 0.65 ? Math.max(0, 1 - (k - 0.65) / 0.35) : 1;
+      ctx.font = font(800, Math.max(MIN_READ, f.size) * (0.7 + 0.3 * pop), SANS);
+      const y = f.y - 46 * ease.outCubic(k);
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = 'rgba(251,241,220,.85)';
+      ctx.strokeText(f.text, f.x, y);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, y);
+    }
+    ctx.restore();
+  }
+
+  /** A ring where each press came down: the hand's answer at once, wherever the thumb is. */
+  private drawRings(ctx: CanvasRenderingContext2D): void {
+    if (!this.rings.length) return;
+    ctx.save();
+    for (const r of this.rings) {
+      const k = r.t / RING_SEC;
+      ctx.globalAlpha = (1 - k) * 0.85;
+      ctx.strokeStyle = '#fff6d6';
+      ctx.lineWidth = 3 * (1 - k) + 1;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, 10 + 24 * ease.outCubic(k), 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /** The skyline of palms: the band's last 40 s along the horizon, one palm a second. */
@@ -345,11 +467,18 @@ export class ZacheuszView {
     ctx.lineTo(x1, by + 5);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(42,30,23,.55)';
-    ctx.font = `700 ${Math.round(10 * L.u)}px ${SANS}`;
+    // the tag on a light plate, so a phone reads it over the hills (a secondary label: 12 px)
+    const tag = `≈${lag}${' '}s`;
+    ctx.font = font(700, 12 * L.u, SANS);
+    const tw = ctx.measureText(tag).width + 10, th = 16 * L.u;
+    ctx.fillStyle = 'rgba(251,241,220,.7)';
+    ctx.beginPath();
+    ctx.roundRect((bx0 + x1) / 2 - tw / 2, by - 2 - th, tw, th, th / 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(42,30,23,.75)';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText(`≈${lag} s`, (bx0 + x1) / 2, by - 1);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(tag, (bx0 + x1) / 2, by - 2 - th / 2 + 1);
     void sim;
   }
 
@@ -416,10 +545,14 @@ export class ZacheuszView {
         ctx.quadraticCurveTo(this.sx(gx), this.sy(3.6), this.sx(gx + 0.8), this.sy(0));
         ctx.stroke();
       }
-      ctx.fillStyle = C.leaf;
-      ctx.font = `800 ${Math.round(12 * L.u)}px ${SANS}`;
+      ctx.font = font(800, 14 * L.u, SANS);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(251,241,220,.8)';
+      ctx.strokeText(t('fx.orchard'), this.sx(o.x0), this.sy(3.4));
+      ctx.fillStyle = C.leaf;
       ctx.fillText(t('fx.orchard'), this.sx(o.x0), this.sy(3.4));
     }
     for (const tr of w.trees) {
@@ -510,13 +643,11 @@ export class ZacheuszView {
     ctx.stroke();
     if (look === 'live') {
       const rx = this.sx(h.x + sim.reach), on = sim.building;
-      ctx.shadowColor = C.gold;
-      ctx.shadowBlur = on ? S * 0.8 : 0;
+      if (on) paintGlow(ctx, rx, yy, S * 0.8, S * 0.8, C.gold, 0.9);
       ctx.fillStyle = on ? '#fff3c0' : 'rgba(255,243,192,.45)';
       ctx.beginPath();
       ctx.arc(rx, yy, S * (0.16 + (on ? 0.05 * Math.sin(this.clock * 10) : 0) + 0.15 * this.roadFlash), 0, TAU);
       ctx.fill();
-      ctx.shadowBlur = 0;
     } else if (look === 'blind') {
       paintCrowd(ctx, this.sx(h.x + 2), this.sx(h.x + 2 + REACH_MARK), yy + S * 0.4, S * 0.9, S * 0.55, 77, this.clock, 0);
     }
@@ -529,22 +660,16 @@ export class ZacheuszView {
       if (c.taken || !this.visible(c.x, c.x)) continue;
       const x = this.sx(c.x), y = this.sy(c.y);
       if (c.kind === 'light') {
-        ctx.save();
-        ctx.shadowColor = C.gold;
-        ctx.shadowBlur = S * 0.3;
+        paintGlow(ctx, x, y, S * 0.38, S * 0.38, C.gold, 0.8);
         paintCoin(ctx, x, y, S * 0.16, 'denar', this.clock * 3 + c.x);
-        ctx.restore();
       } else paintCoin(ctx, x, y, S * 0.15, 'denar', this.clock * 3 + c.x);
     }
     for (const s of w.specials) {
       if (!this.visible(s.x, s.x)) continue;
       const x = this.sx(s.x), y = this.sy(s.y) + Math.sin(this.clock * 2 + s.x) * S * 0.06;
       if (s.taken) continue;
-      ctx.save();
-      ctx.shadowColor = '#fff';
-      ctx.shadowBlur = S * 0.3;
+      paintGlow(ctx, x, y, S * 0.62, S * 0.62, '#ffffff', 0.9);
       paintCoin(ctx, x, y, S * 0.3, tierKind(sim.tier), Math.sin(this.clock * 1.6 + s.x) * 1.2);
-      ctx.restore();
     }
     for (const c of w.critters) {
       if (!this.visible(c.x - 1, c.x + 1)) continue;
@@ -596,16 +721,19 @@ export class ZacheuszView {
     while (got.length < RULES.specials) got.push(false);
     drawStrip(ctx, L, sim.levelIndex, sim.tier, got, this.slotPop, this.clock);
     if (this.levelT < 2.6 && sim.stage === 'run') drawLevelCard(ctx, L, sim.levelIndex, sim.tier, this.levelReplay, this.levelT / 2.6);
-    drawButton(ctx, L, sim.bubbles, this.clock, this.btnPress);
+    // the bubble button: lit while it can rewind, dim otherwise, hidden under a card
+    const card = sim.stage === 'tally' || sim.stage === 'story';
+    if (!card) drawButton(ctx, L, sim.bubbles, this.clock, this.btnPress, sim.stage === 'run' && sim.bubbles > 0);
     if (this.banner) drawBanner(ctx, L, this.banner.text, this.banner.t / 1.6, this.banner.color);
+    // Mela's line: in the ground band under the street, her feet where the tail points
     const line = sim.talk.current;
-    if (line && sim.stage !== 'story') {
-      const mx = this.sx(this.melaX), my = this.sy(1.3);
-      const hp = this.heroAt(sim);
-      drawSpeech(ctx, L, line.text, mx, my, line.t / line.dur, { x: this.sx(hp.x), y: this.sy(hp.y) });
+    if (line && !card) {
+      const drop = this.sy(0) - L.gy;
+      drawTalk(ctx, L, line.text, this.sx(this.melaX), this.sy(0), line.t / line.dur, labelRoom(ctx, L), drop);
     }
-    if (sim.stage === 'tally' && sim.lastResult) drawTally(ctx, L, sim.lastResult, sim.stageT / RULES.tallySec, nextLevelName(sim));
-    if (sim.stage === 'story' && sim.story) this.story.draw(ctx, L, sim.story.kind, sim.story.world, sim.stageT / RULES.storySec);
+    this.cardBox = null;
+    if (sim.stage === 'tally' && sim.lastResult) this.cardBox = drawTally(ctx, L, sim.lastResult, sim.stageT / RULES.tallySec, nextLevelName(sim));
+    if (sim.stage === 'story' && sim.story) this.cardBox = this.story.draw(ctx, L, sim.story.kind, sim.story.world, sim.stageT / RULES.storySec);
     void levelName;
   }
 }

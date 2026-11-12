@@ -52,7 +52,7 @@ export type StoryKind = 'open' | 'world';
 /** A trick the townsfolk cheer for. */
 export type Trick = 'spin' | 'vaultSpin' | 'wall' | 'bonk' | 'long' | 'spring' | 'top';
 /** The tutorial's coach marks (taught once ever, shown again until done). */
-export type Teach = 'tap' | 'hold' | 'goose' | 'pause' | 'wall' | 'awning' | 'back' | 'dash' | 'bubble' | 'special' | 'road' | 'orchard';
+export type Teach = 'tap' | 'hold' | 'goose' | 'pause' | 'wall' | 'awning' | 'back' | 'dash' | 'bubble' | 'special' | 'road' | 'orchard' | 'button';
 
 export interface LevelResult {
   index: number; coins: number; specials: number; tier: number; stars: number; gained: number; band: number;
@@ -794,6 +794,7 @@ export class ZacheuszSim {
   bubbleNow(): boolean {
     if (this.stage !== 'run' || this.bubbles <= 0 || !this.started || this.phase !== 'play' || this.hero.mode !== 'run') return false;
     this.startBubble(false);
+    this.taughtDone('button');
     return true;
   }
 
@@ -994,6 +995,11 @@ export class ZacheuszSim {
     for (const tl of w.tiles) if (!tl.used && ahead(tl.x0)) want(tl.kind === 'pause' ? 'pause' : tl.kind, tl.x0 + 0.6, tl.y + 0.6);
     for (const p of w.plats) if (p.kind === 'awning' && ahead(p.x0)) want('awning', (p.x0 + p.x1) / 2, p.y + 0.4);
     for (const s of w.specials) if (!s.taken && s.x > h.x + 2 && s.x < h.x + 8) want('special', s.x, s.y);
+    // a special left behind with a bubble in hand: the bubble button takes him back for it (once a session,
+    // until he has used the button) — on a phone the button is the one control besides the street
+    if (this.bubbles > 0 && !this.hinted.has('button')) {
+      for (const s of w.specials) if (!s.taken && h.x > s.x + 1.2 && h.x < s.x + 5) want('button', s.x, s.y);
+    }
     if (h.sliding) want('wall', h.x, h.y + 1.2);
     if (this.sighted && this.building) {
       const sp = w.springs.find(s => s.x > h.x + 0.5);

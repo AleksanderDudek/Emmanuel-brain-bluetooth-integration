@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type { ArcadeAudio } from '../src/arcade/kit/audio';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { passage } from '../src/arcade/kit/scripture';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
+import zacheusz from '../src/arcade/zacheusz/index';
+import { DOCK_ROW, EDGE, NEED_U, buttonRect, layout, melaBehind } from '../src/arcade/zacheusz/layout';
+import { font } from '../src/arcade/zacheusz/paint';
 import { SAY } from '../src/arcade/zacheusz/companion';
 import { HOMES, LEVELS, MISSIONS, TIPS, specialsOf } from '../src/arcade/zacheusz/content';
 import { Hero, type HeroEvent } from '../src/arcade/zacheusz/hero';
@@ -360,6 +366,20 @@ describe('Zacheusz: the bubble and the rope', () => {
     sim.bubbles = 0;
     expect(sim.bubbleNow()).toBe(false);
   });
+
+  it('a special left behind with a bubble in hand points at the button, once a session, until it is used', () => {
+    const sim = later();
+    sim.world = flatWorld();
+    sim.world.specials.push({ x: 8, y: 2.6, i: 0, taken: false, t: 0 }, { x: 30, y: 2.6, i: 1, taken: false, t: 0 });
+    sim.hero.place(5, 0, RULES.run);
+    const evs = drive(sim, 6, frame());
+    const marks = ofType(evs, 'hint').filter(h => h.key === 'button');
+    expect(marks).toHaveLength(1);
+    expect(marks[0].x).toBe(8);
+    // used once, never again
+    expect(sim.bubbleNow()).toBe(true);
+    expect(sim.p.taught.includes('button') || (sim as unknown as { taught: Set<string> }).taught.has('button')).toBe(true);
+  });
 });
 
 // ── the finish ─────────────────────────────────────────────────────
@@ -638,5 +658,236 @@ describe('Zacheusz: the words', () => {
   it('the unit bends', () => {
     expect(unit(1)).toBeTruthy();
     expect(t('denarii', { n: 5 })).toContain('5');
+  });
+});
+
+// ── mobile first (DESIGN.md §12) ───────────────────────────────────
+const PX = /(\d+(?:\.\d+)?)px/;
+const pxOf = (f: unknown): number => Number(String(f).match(PX)?.[1] ?? 10);
+
+/**
+ * A 2D context that draws nothing: it measures text at 0.56 em a character and notes every string it is
+ * asked to write at its largest size (as the mobile audit does), so the view runs in a test.
+ */
+function fakeCtx(texts = new Map<string, number>()): CanvasRenderingContext2D {
+  const state: Record<string | symbol, unknown> = { font: '10px sans-serif', globalAlpha: 1, lineWidth: 1 };
+  const grad = { addColorStop: () => undefined };
+  const note = (s: unknown) => {
+    const k = String(s), px = pxOf(state.font);
+    if (k.trim() && (state.globalAlpha as number) > 0.05) texts.set(k, Math.max(texts.get(k) ?? 0, px));
+  };
+  const fns: Record<string, (...a: unknown[]) => unknown> = {
+    measureText: (s: unknown) => ({ width: String(s).length * pxOf(state.font) * 0.56 }),
+    fillText: note, strokeText: note,
+    createLinearGradient: () => grad, createRadialGradient: () => grad, createPattern: () => null,
+    getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+  };
+  return new Proxy(state, {
+    get: (o, k) => (typeof k === 'string' && k in fns ? fns[k] : k in o ? o[k] : () => undefined),
+    set: (o, k, v) => { o[k] = v; return true; },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+const silent = new Proxy({ on: false }, { get: (o, k) => (k in o ? (o as Record<string | symbol, unknown>)[k] : () => undefined) }) as unknown as ArcadeAudio;
+
+/** The game as the runner makes it, on a canvas that draws nothing (a finger, the insets of a CHECK_SIZES entry). */
+function phoneGame(progress: Partial<ZacheuszProgress>, ins: Insets, o: { texts?: Map<string, number>; touch?: boolean; planned?: number } = {}) {
+  const ctx = fakeCtx(o.texts);
+  const hints: string[] = [];
+  const env = {
+    canvas: { getContext: () => ctx } as unknown as HTMLCanvasElement, hud: document.createElement('div'), audio: silent,
+    progress: { ...freshProgress(), ...progress }, rng: mulberry32(5), day: DAY, daySeed: 4242, plannedSec: o.planned ?? 300, tool: 'fnirs' as const,
+    simulated: true, reducedMotion: false, haptics: false, tuning: TUNING,
+    hint: (text: string) => { hints.push(text); }, hudTop: () => ins.top, insets: () => ins, touch: o.touch ?? true,
+  } satisfies GameEnv<ZacheuszProgress>;
+  const game = zacheusz.create(env);
+  return { game, sim: (game as unknown as { sim: ZacheuszSim }).sim, hints };
+}
+
+const RETURNING: Partial<ZacheuszProgress> = {
+  sessions: 5, giftDay: DAY, opened: true, pushes: 1,
+  taught: ['tap', 'hold', 'goose', 'pause', 'wall', 'awning', 'back', 'dash', 'bubble', 'special', 'road', 'orchard'],
+};
+
+/** Play the game for `sec` seconds at 60 frames a second, drawing every frame. */
+function play(game: ArcadeGame, clock: { t: number }, sec: number, f: FocusFrame | ((t: number) => FocusFrame) = frame(), each?: (i: number) => void): void {
+  const n = Math.round(sec / STEP);
+  for (let i = 0; i < n; i++) {
+    clock.t += STEP;
+    game.update(STEP, typeof f === 'function' ? f(clock.t) : f, clock.t);
+    each?.(i);
+    game.draw();
+  }
+}
+
+describe('Zacheusz: mobile first', () => {
+  it('never asks for canvas text under 11 px', () => {
+    for (const size of [0, 4, 8, 10.9, 11, 13, 22]) expect(pxOf(font(800, size, 'x'))).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(pxOf(font(600, 15, 'x', true))).toBe(15);
+  });
+
+  it('lays out every checked screen phone first: room to jump, the street ahead, the thumb’s band, the button in reach', () => {
+    for (const s of CHECK_SIZES) {
+      const L = layout(s.w, s.h, s.insets);
+      const phone = Math.min(s.w, s.h) <= 430;
+      expect(L.u, s.name).toBeGreaterThanOrEqual(1);
+      expect(L.u, s.name).toBeLessThanOrEqual(1.3);
+      if (phone) expect(L.u, s.name).toBeLessThan(1.1);
+      expect(L.tall, s.name).toBe(s.w < s.h);
+      // the light road's lane, his height and a coin over him fit between the HUD and the street
+      expect(L.gy - s.insets.top - 8, s.name).toBeGreaterThanOrEqual(NEED_U * L.S - 0.5);
+      // about a second of street ahead at his pace; Zacchaeus at least ~40 px tall on a phone
+      expect((s.w - s.insets.right - L.hx) / L.S / RULES.run, s.name).toBeGreaterThan(1.0);
+      if (phone) expect(L.S, s.name).toBeGreaterThanOrEqual(38);
+      // Mela, trotting behind him, stays on screen
+      expect(L.hx - (melaBehind(L) + 0.65) * L.S, s.name).toBeGreaterThanOrEqual(s.insets.left - 1);
+      // the bubble button: a finger wide, inside the safe area and the 16 px edges, clear of the dock's row
+      const b = buttonRect(L);
+      expect(auditTargets([{ label: 'bubble', ...b }], s.w, s.h, s.insets), s.name).toEqual([]);
+      expect(Math.min(b.w, b.h), s.name).toBeGreaterThanOrEqual(56);
+      expect(b.x, s.name).toBeGreaterThanOrEqual(s.insets.left + EDGE - 0.5);
+      expect(b.x + b.w, s.name).toBeLessThanOrEqual(s.w - s.insets.right - EDGE + 0.5);
+      expect(b.y + b.h, s.name).toBeLessThanOrEqual(s.h - DOCK_ROW);
+      // upright: under the street, in the thumb zone
+      if (L.tall) {
+        expect(L.btn.y - L.btn.r, s.name).toBeGreaterThan(L.gy);
+        expect(b.y, s.name).toBeGreaterThanOrEqual(s.h * (1 - THUMB));
+        expect(s.h - s.insets.bottom - L.gy, s.name).toBeGreaterThanOrEqual(120);
+      }
+      // Mela's box: under the street, left of the button, room for two lines at least
+      expect(L.talk.y, s.name).toBeGreaterThan(L.gy);
+      expect(L.talk.y + L.talk.h, s.name).toBeLessThanOrEqual(s.h - s.insets.bottom);
+      expect(L.talk.x, s.name).toBeGreaterThanOrEqual(s.insets.left + EDGE);
+      expect(L.talk.x + L.talk.w, s.name).toBeLessThanOrEqual(b.x);
+      expect(L.talk.h, s.name).toBeGreaterThanOrEqual(2 * 18 + 8);
+    }
+  });
+
+  it('reports the bubble button while he runs and a card once it takes a tap, finger-sized and in the safe area, at every checked size', () => {
+    for (const s of CHECK_SIZES) {
+      // running: the button only
+      const run = phoneGame(RETURNING, s.insets);
+      run.game.resize(s.w, s.h, 2);
+      run.game.start();
+      const clock = { t: 0 };
+      play(run.game, clock, 0.5);
+      let tg = run.game.targets!();
+      expect(tg.map(x => x.label), s.name).toEqual(['bubble button']);
+      expect(auditTargets(tg, s.w, s.h, s.insets), s.name).toEqual([]);
+      // the tally at the finish palm: the card, the button gone under it
+      run.sim.hero.place(run.sim.world.finish.x - 3, 0, RULES.run);
+      play(run.game, clock, 2.6);
+      expect(run.sim.stage, s.name).toBe('tally');
+      play(run.game, clock, 1.3);
+      tg = run.game.targets!();
+      expect(tg.map(x => x.label), s.name).toEqual(['tally card']);
+      expect(auditTargets(tg, s.w, s.h, s.insets), `${s.name}: tally`).toEqual([]);
+      expect(Math.min(tg[0].w, tg[0].h), s.name).toBeGreaterThanOrEqual(MIN_TAP);
+      // the opening story card of a first session
+      const first = phoneGame({ giftDay: DAY }, s.insets);
+      first.game.resize(s.w, s.h, 2);
+      first.game.start();
+      play(first.game, { t: 0 }, 0.6);
+      expect(first.sim.stage, s.name).toBe('story');
+      expect(first.game.targets!(), s.name).toEqual([]);
+      play(first.game, { t: 0.6 }, 0.8);
+      tg = first.game.targets!();
+      expect(tg.map(x => x.label), s.name).toEqual(['story card']);
+      expect(auditTargets(tg, s.w, s.h, s.insets), `${s.name}: story`).toEqual([]);
+      // a tap on it goes on, and the button is back
+      first.game.pointer!({ type: 'down', x: tg[0].x + tg[0].w / 2, y: tg[0].y + tg[0].h / 2, id: 1 });
+      first.game.pointer!({ type: 'up', x: tg[0].x + tg[0].w / 2, y: tg[0].y + tg[0].h / 2, id: 1 });
+      expect(first.sim.stage, s.name).toBe('run');
+      expect(first.game.targets!().map(x => x.label), s.name).toEqual(['bubble button']);
+    }
+  });
+
+  it('a press on the bubble button rewinds while bubbles last, and is a jump when it cannot rewind (never swallowed)', () => {
+    const s = CHECK_SIZES[0];
+    const { game, sim } = phoneGame(RETURNING, s.insets);
+    game.resize(s.w, s.h, 3);
+    game.start();
+    sim.world = flatWorld();
+    sim.hero.place(5, 0, RULES.run);
+    const clock = { t: 0 };
+    play(game, clock, 1.5);
+    const b = buttonRect(layout(s.w, s.h, s.insets));
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    const had = sim.bubbles;
+    expect(had).toBeGreaterThan(0);
+    game.pointer!({ type: 'down', x: cx, y: cy, id: 1 });
+    game.pointer!({ type: 'up', x: cx, y: cy, id: 1 });
+    expect(sim.stage).toBe('bubble');
+    expect(sim.bubbles).toBe(had - 1);
+    // in the bubble the button is not a target; a tap anywhere pops it
+    expect(game.targets!()).toEqual([]);
+    play(game, clock, RULES.floatSec + RULES.autoPop + 0.2);
+    expect(sim.stage).toBe('run');
+    // no bubbles left: the same press jumps
+    sim.bubbles = 0;
+    play(game, clock, 0.6);
+    expect(sim.hero.ground).toBe(true);
+    game.pointer!({ type: 'down', x: cx, y: cy, id: 2 });
+    play(game, clock, 0.05);
+    expect(sim.hero.ground).toBe(false);
+    expect(sim.stage).toBe('run');
+    game.pointer!({ type: 'up', x: cx, y: cy, id: 2 });
+    // a touch on the signal dock plays at the canvas's last row: a jump, never the button
+    play(game, clock, 1);
+    sim.bubbles = 2;
+    game.pointer!({ type: 'down', x: cx, y: s.h - 1, id: 3 });
+    expect(sim.stage).toBe('run');
+    expect(sim.bubbles).toBe(2);
+    game.pointer!({ type: 'up', x: cx, y: s.h - 1, id: 3 });
+  });
+
+  it('draws no play text under 13 px on the smallest phone (cards, Mela, the strip, the button, words over the street)', () => {
+    const texts = new Map<string, number>();
+    const s = CHECK_SIZES[0];
+    // a first session: the opening card, Mela's first lines, the coach marks, a level's tally
+    const { game, sim } = phoneGame({ giftDay: DAY }, s.insets, { texts, planned: 120 });
+    game.resize(s.w, s.h, 3);
+    game.start();
+    const clock = { t: 0 };
+    let tapped = 0;
+    play(game, clock, 70, tt => (sim.signal().want === 'focus' ? FOCUSED : tt > 40 ? CALM : frame({ level: 0.6 })), i => {
+      if (i % 30 === 0) game.pointer!({ type: 'down', x: 200, y: 300, id: 1 });
+      if (i % 30 === 9) game.pointer!({ type: 'up', x: 200, y: 300, id: 1 });
+      if (i === 60 * 20 && !tapped++) sim.hero.place(sim.world.finish.x - 3, 0, RULES.run);
+    });
+    // the band's delay tag over the skyline is a secondary label (12 px); everything else reads at 13+
+    const small = [...texts].filter(([k, px]) => px < MIN_READ && !k.startsWith('≈'));
+    expect(small).toEqual([]);
+    expect([...texts].filter(([, px]) => px < MIN_TEXT)).toEqual([]);
+    expect(texts.size).toBeGreaterThan(15);
+    // Mela spoke, the opening card and a tally showed
+    expect(sim.talk.said.length).toBeGreaterThan(0);
+    expect(texts.has(t('story.tap'))).toBe(true);
+    expect(texts.has(t('tally.tap'))).toBe(true);
+    expect(texts.has(`${t('mela')}:`)).toBe(true);
+  });
+
+  it('speaks to a finger: the how-to and the coach marks name keys only on a desktop', () => {
+    const how = zacheusz.howto!();
+    expect(how.hands.map(h => h.gesture)).toEqual(['tap', 'hold', 'tap', 'keys']);
+    const KEYS = /Spac|Space|Leertaste|mellanslag|↑|←|WASD|klaw|Taste|tangent|\bkey|klik|click|mysz|mouse|Maus|\bmus\b/i;
+    for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[lang] as Record<string, unknown>;
+      for (const k of Object.keys(cat)) {
+        if (k.endsWith('.keys') || !/^(how|hint|say|story|tally|panel)\./.test(k)) continue;
+        expect(String(cat[k]), `${lang} ${k}`).not.toMatch(KEYS);
+      }
+      expect(String(cat['how.keys']), lang).toMatch(/↑/);
+      expect(String(cat['hint.tap.keys']), lang).toMatch(/Spac|Space|Leertaste|mellanslag/i);
+    }
+    // the coach marks: a finger's words on a phone, the keys named on a desktop
+    for (const touch of [true, false]) {
+      const { game, hints } = phoneGame({ giftDay: DAY, opened: true }, CHECK_SIZES[touch ? 0 : 7].insets, { touch });
+      game.resize(touch ? 360 : 1280, touch ? 500 : 672, 2);
+      game.start();
+      play(game, { t: 0 }, 3);
+      expect(hints, String(touch)).toContain(t(touch ? 'hint.tap' : 'hint.tap.keys'));
+      if (touch) for (const h of hints) expect(h).not.toMatch(/Spac|↑|←/);
+    }
   });
 });

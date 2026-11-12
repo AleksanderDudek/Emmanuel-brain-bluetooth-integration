@@ -17,20 +17,26 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ZacheuszSound } from './audio';
-import { t, unit } from './i18n';
+import { t, unit, type Key } from './i18n';
 import { bestOf, freshProgress, migrate, type ZacheuszProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { ZacheuszView } from './render';
-import { ZacheuszSim, type SimEvent } from './sim';
+import { ZacheuszSim, type SimEvent, type Teach } from './sim';
+
+/** The coach marks that name the keys on a desktop (a finger's words on a phone). */
+const KEYED: ReadonlySet<Teach> = new Set<Teach>(['tap', 'hold', 'button']);
 
 class ZacheuszGame implements ArcadeGame {
   private readonly sim: ZacheuszSim;
   private readonly view: ZacheuszView;
   private readonly sound: ZacheuszSound;
   private readonly downs = new Set<number>();
+  private w = 1280;
+  private h = 800;
+  private dpr = 1;
 
   constructor(private readonly env: GameEnv<ZacheuszProgress>) {
     this.sim = new ZacheuszSim({
@@ -40,14 +46,18 @@ class ZacheuszGame implements ArcadeGame {
     this.sound = new ZacheuszSound(env.audio);
   }
 
-  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.hudTop()); }
+  resize(w: number, h: number, dpr: number): void {
+    this.w = w;
+    this.h = h;
+    this.dpr = dpr;
+    this.view.resize(w, h, dpr, this.env.insets());
+  }
 
   intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
 
   start(): void {
-    // the HUD has its final size now
-    const c = this.env.canvas.getBoundingClientRect();
-    this.view.resize(c.width, c.height, Math.min(2, window.devicePixelRatio || 1), this.env.hudTop());
+    // the HUD has its final size now: lay out again with its insets (the runner's resolution kept)
+    this.view.resize(this.w, this.h, this.dpr, this.env.insets());
     this.sim.start();
     this.sound.start();
     this.view.start();
@@ -64,19 +74,27 @@ class ZacheuszGame implements ArcadeGame {
   /** Before play the intro scene is on the canvas (the runner calls draw() every frame). */
   draw(): void { if (this.sim.started) this.view.draw(this.sim); }
 
-  /** Any press jumps (on the press, not the release); the bubble button rewinds. */
+  /**
+   * One thumb, anywhere: a press jumps on the press itself (not the release) and a ring answers under the
+   * finger; holding goes higher, letting go cuts the rise.  The bubble button rewinds — and a press on it
+   * that cannot rewind (no bubbles, a card up) is an ordinary press, so a tap is never swallowed.
+   */
   pointer(e: PointerInput): void {
     if (e.type === 'down') {
-      if (this.view.hitButton(e.x, e.y)) this.sim.bubbleNow();
+      if (this.view.onButton(e.x, e.y) && this.sim.bubbleNow()) this.view.pressButton();
       else {
         this.downs.add(e.id);
         this.sim.press();
+        this.view.touch(e.x, e.y);
       }
     } else if (e.type === 'up') {
       if (this.downs.delete(e.id) && this.downs.size === 0) this.sim.release();
     }
     this.drain();
   }
+
+  /** The bubble button while he runs; the tally or the story card once it takes a tap (the street is free play). */
+  targets(): TapTarget[] { return this.view.targets(this.sim); }
 
   /** Space, ↑, W, Enter jump (held: higher); B or ← use a bubble. */
   key(key: string, down: boolean): boolean {
@@ -96,9 +114,14 @@ class ZacheuszGame implements ArcadeGame {
     for (const e of this.sim.take()) {
       this.view.on(e, this.sim);
       this.sound.on(e);
-      if (e.type === 'hint') this.env.hint(t(`hint.${e.key}`), this.view.toScreen(e.x, e.y), 3800);
+      if (e.type === 'hint') this.env.hint(this.hintText(e.key), e.key === 'button' ? this.view.buttonTip() : this.view.toScreen(e.x, e.y), 3800);
       if (this.env.haptics) haptic(e);
     }
+  }
+
+  /** A coach mark's words: a finger's on a phone; on a desktop the jump's marks name their keys too. */
+  private hintText(key: Teach): string {
+    return t((!this.env.touch && KEYED.has(key) ? `hint.${key}.keys` : `hint.${key}`) as Key);
   }
 
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
@@ -131,17 +154,20 @@ function haptic(e: SimEvent): void {
     case 'set': buzz([20, 40, 20, 40, 30]); break;
     case 'home': buzz([20, 40, 20]); break;
     case 'pop': buzz(8); break;
+    case 'fall': if (e.bubble) buzz(12); break;
     default: break;
   }
 }
 
+/** The hands in a finger's words; the keys in their own row (a phone's card leaves it out, a desktop shows it). */
 function howto(): HowTo {
   return {
     goal: t('how.goal'),
     hands: [
       { gesture: 'tap', text: t('how.tap') },
       { gesture: 'hold', text: t('how.hold') },
-      { gesture: 'keys', text: t('how.bubble') },
+      { gesture: 'tap', text: t('how.bubble') },
+      { gesture: 'keys', text: t('how.keys') },
     ],
     tips: [t('how.tip1'), t('how.tip2')],
   };
