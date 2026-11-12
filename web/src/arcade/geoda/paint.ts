@@ -5,6 +5,7 @@
  * marked where ×3 begins), the Szlif's stone bowl, the cave behind it all, and the crystal skyline
  * of the band's last 40 s along the geode's foot.
  */
+import { fitText } from '../kit/mobile';
 import type { TraceBar } from '../kit/trace';
 import { hash, mix, rgba, rrect, sparkle, TAU } from './art';
 import { JEWELS } from './content';
@@ -66,8 +67,11 @@ export function paintCave(ctx: CanvasRenderingContext2D, w: number, h: number, m
 export function paintJewel(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, kind: number, t: number): void {
   const j = JEWELS[(kind - 1 + JEWELS.length) % JEWELS.length];
   ctx.save();
-  ctx.shadowColor = rgba(j.color, 0.8);
-  ctx.shadowBlur = r * 0.9;
+  // its glow: a soft halo (a blur per jewel per frame costs a phone too much)
+  ctx.fillStyle = rgba(j.color, 0.28);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 1.32, 0, TAU);
+  ctx.fill();
   ctx.fillStyle = j.dark;
   ctx.beginPath();
   for (let i = 0; i < 8; i++) {
@@ -176,18 +180,21 @@ export function paintDial(ctx: CanvasRenderingContext2D, cx: number, cy: number,
     const a0 = dialAngle(steps[i]) + 0.02, a1 = dialAngle(steps[i + 1]) - 0.02;
     const lit = on && d.mult > i;
     const gold = i >= 2;
-    ctx.strokeStyle = lit ? (gold ? mix('#ffd36b', '#fff1c2', (i - 2) / 2) : '#b98cff') : d.state === 'dark' ? 'rgba(80,70,100,.5)' : 'rgba(255,255,255,.12)';
-    ctx.lineWidth = lw;
     ctx.lineCap = 'butt';
     if (lit && gold) {
-      ctx.shadowColor = 'rgba(255,200,90,.8)';
-      ctx.shadowBlur = r * 0.25;
-    } else ctx.shadowBlur = 0;
+      // the glow: a wide translucent stroke under the segment (no blur per frame)
+      ctx.strokeStyle = 'rgba(255,200,90,.28)';
+      ctx.lineWidth = lw * 1.9;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, a0, a1);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = lit ? (gold ? mix('#ffd36b', '#fff1c2', (i - 2) / 2) : '#b98cff') : d.state === 'dark' ? 'rgba(80,70,100,.5)' : 'rgba(255,255,255,.12)';
+    ctx.lineWidth = lw;
     ctx.beginPath();
     ctx.arc(cx, cy, r, a0, a1);
     ctx.stroke();
   }
-  ctx.shadowBlur = 0;
   // the threshold notch (×3 begins here: the gauge's middle)
   const ta = dialAngle(0.5);
   ctx.strokeStyle = C.gold;
@@ -204,9 +211,10 @@ export function paintDial(ctx: CanvasRenderingContext2D, cx: number, cy: number,
   ctx.lineTo(tx + lw * 0.45, ty - lw * 0.75);
   ctx.closePath();
   ctx.fill();
-  // the segment numbers
-  if (!d.compact) {
-    ctx.font = `700 ${Math.max(9, Math.round(r * 0.15))}px ${SANS}`;
+  // the segment numbers at 13 px or more, on a dial big enough for them (the colours and the ×N say it on a
+  // small one)
+  if (!d.compact && r >= 44) {
+    ctx.font = `700 ${Math.max(13, Math.round(r * 0.15))}px ${SANS}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (let i = 0; i < 5; i++) {
@@ -229,25 +237,85 @@ export function paintDial(ctx: CanvasRenderingContext2D, cx: number, cy: number,
   // the multiplier in the middle
   const k = 1 + 0.35 * d.pop;
   const txt = d.state === 'dark' ? '?' : `×${d.mult}`;
-  ctx.font = `800 ${Math.round(r * (d.compact ? 0.62 : 0.5) * k)}px ${SANS}`;
+  ctx.font = `800 ${Math.round(Math.max(15, r * (d.compact ? 0.62 : 0.5)) * k)}px ${SANS}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = d.state === 'live' && d.mult >= 3 ? C.gold : d.state === 'dark' ? '#8d7fb0' : C.ink;
-  if (d.state === 'live' && d.mult >= 3) {
-    ctx.shadowColor = 'rgba(255,200,90,.9)';
-    ctx.shadowBlur = r * 0.3 * (0.6 + 0.4 * Math.sin(d.t * 6));
+  const gold = d.state === 'live' && d.mult >= 3;
+  if (gold) {
+    // its glow: a pulsing warm disc behind it (no blur per frame)
+    ctx.fillStyle = `rgba(255,200,90,${(0.12 + 0.08 * Math.sin(d.t * 6)).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.arc(cx, cy + (d.compact ? r * 0.08 : 0), r * 0.62, 0, TAU);
+    ctx.fill();
   }
+  ctx.fillStyle = gold ? C.gold : d.state === 'dark' ? '#8d7fb0' : C.ink;
   ctx.fillText(txt, cx, cy + (d.compact ? r * 0.08 : 0));
-  ctx.shadowBlur = 0;
   if (!d.compact) {
-    ctx.font = `700 ${Math.max(10, Math.round(r * 0.17))}px ${SANS}`;
+    ctx.font = `700 ${Math.max(13, Math.round(r * 0.17))}px ${SANS}`;
     ctx.fillStyle = C.inkSoft;
-    ctx.fillText(d.label.toUpperCase(), cx, cy + r * 0.48);
+    ctx.fillText(d.label.toUpperCase(), cx, cy + r * 0.5);
     if (d.note) {
-      ctx.font = `500 ${Math.max(10, Math.round(r * 0.15))}px ${SANS}`;
-      ctx.fillStyle = 'rgba(253,246,234,.6)';
-      ctx.fillText(d.note, cx, cy + r * 1.42, r * 2.6);
+      // the note where it fits on one line at 13 px (the runner's panel says the signal's state too)
+      ctx.fillStyle = 'rgba(253,246,234,.72)';
+      const note = fitText(ctx, d.note, r * 2.8, Math.max(13, Math.round(r * 0.15)), 500, SANS, 13);
+      if (!note.endsWith('…') || d.note.endsWith('…')) ctx.fillText(note, cx, cy + r * 1.42);
     }
+  }
+  ctx.restore();
+}
+
+/**
+ * The shine as a column of five steps for a small phone's margin: ×1 at the foot, ×5 at the top, gold from ×3 with
+ * the threshold's notch under it, the level as a bright bar across, the multiplier in big type over it.
+ */
+export function paintShineColumn(ctx: CanvasRenderingContext2D, b: { x: number; y: number; w: number; h: number }, d: DialLook): void {
+  const steps = [0, ...RULES.shineSteps, 1];
+  const on = d.state === 'live';
+  ctx.save();
+  if (d.state === 'off') ctx.globalAlpha = 0.55;
+  ctx.fillStyle = 'rgba(20,14,28,.62)';
+  rrect(ctx, b.x, b.y, b.w, b.h, 12);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,236,200,.16)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // the multiplier on top
+  const head = Math.min(40, b.h * 0.2);
+  const k = 1 + 0.3 * d.pop;
+  const gold = on && d.mult >= 3;
+  ctx.font = `800 ${Math.round(Math.max(15, Math.min(19, b.w * 0.44)) * k)}px ${SANS}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = gold ? C.gold : d.state === 'dark' ? '#8d7fb0' : C.ink;
+  ctx.fillText(d.state === 'dark' ? '?' : `×${d.mult}`, b.x + b.w / 2, b.y + head / 2 + 2);
+  // the five steps, ×1 at the foot
+  const top = b.y + head + 4, bottom = b.y + b.h - 8, gap = 4;
+  const sh = (bottom - top - 4 * gap) / 5, sw = b.w * 0.52, sx = b.x + (b.w - sw) / 2;
+  const yOf = (i: number) => bottom - (i + 1) * sh - i * gap;
+  for (let i = 0; i < 5; i++) {
+    const lit = on && d.mult > i, g = i >= 2;
+    if (lit && g) {
+      ctx.fillStyle = 'rgba(255,200,90,.22)';
+      rrect(ctx, sx - 3, yOf(i) - 3, sw + 6, sh + 6, 5);
+      ctx.fill();
+    }
+    ctx.fillStyle = lit ? (g ? mix('#ffd36b', '#fff1c2', (i - 2) / 2) : '#b98cff') : d.state === 'dark' ? 'rgba(80,70,100,.5)' : 'rgba(255,255,255,.12)';
+    rrect(ctx, sx, yOf(i), sw, sh, 3);
+    ctx.fill();
+  }
+  // the threshold: where ×3 begins
+  ctx.fillStyle = C.gold;
+  ctx.fillRect(b.x + 5, yOf(1) - gap / 2 - 1, b.w - 10, 2);
+  // the level: a bright bar at its height along the steps
+  if (d.state !== 'dark' && d.state !== 'off') {
+    const v = Math.max(0, Math.min(1, d.value));
+    let i = 0;
+    while (i < 4 && v >= steps[i + 1]) i++;
+    const f = (v - steps[i]) / Math.max(1e-6, steps[i + 1] - steps[i]);
+    const y = bottom - i * (sh + gap) - f * sh;
+    ctx.fillStyle = on ? '#fff8e6' : 'rgba(255,255,255,.4)';
+    rrect(ctx, b.x + 4, y - 1.5, b.w - 8, 3, 1.5);
+    ctx.fill();
   }
   ctx.restore();
 }
@@ -264,13 +332,17 @@ export function paintBowl(ctx: CanvasRenderingContext2D, cx: number, by: number,
     ctx.beginPath();
     ctx.arc(cx, by - s * 0.42, s * 0.5, 0, TAU);
     ctx.stroke();
-    ctx.strokeStyle = polish >= 1 ? C.gold : C.rest;
-    ctx.shadowColor = 'rgba(143,212,255,.8)';
-    ctx.shadowBlur = s * 0.08;
+    const end = -Math.PI / 2 + TAU * Math.max(0.001, polish);
+    ctx.strokeStyle = 'rgba(143,212,255,.3)';
+    ctx.lineWidth = Math.max(6, s * 0.09);
     ctx.beginPath();
-    ctx.arc(cx, by - s * 0.42, s * 0.5, -Math.PI / 2, -Math.PI / 2 + TAU * Math.max(0.001, polish));
+    ctx.arc(cx, by - s * 0.42, s * 0.5, -Math.PI / 2, end);
     ctx.stroke();
-    ctx.shadowBlur = 0;
+    ctx.strokeStyle = polish >= 1 ? C.gold : C.rest;
+    ctx.lineWidth = Math.max(3, s * 0.04);
+    ctx.beginPath();
+    ctx.arc(cx, by - s * 0.42, s * 0.5, -Math.PI / 2, end);
+    ctx.stroke();
   }
   const g = ctx.createLinearGradient(cx, by - s * 0.3, cx, by);
   g.addColorStop(0, '#6f6258');
@@ -481,8 +553,11 @@ export function paintMole(ctx: CanvasRenderingContext2D, x: number, y: number, s
   ctx.restore();
 }
 
-/** A speech bubble with a tail toward (tx, ty); the text wrapped into `maxW`. */
-export function paintBubble(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, tx: number, ty: number, alpha: number, size: number): { w: number; h: number } {
+/**
+ * A speech bubble with a tail toward (tx, ty); the text wrapped into `maxW`.  `y` is the bubble's lower edge (it
+ * stands above its speaker), or with `below` its upper edge (it hangs under a speaker in the strip above).
+ */
+export function paintBubble(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, tx: number, ty: number, alpha: number, size: number, below = false, right = false): { w: number; h: number } {
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.font = `600 ${size}px ${SANS}`;
@@ -500,19 +575,22 @@ export function paintBubble(ctx: CanvasRenderingContext2D, text: string, x: numb
   const lh = Math.round(size * 1.28);
   const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 22);
   const bh = lines.length * lh + 14;
-  const bx = x, by = y - bh;
+  // (`right`: the box ends at the right edge of its room, under or over a speaker who stands at that end)
+  const bx = right ? x + maxW - bw : x, by = below ? y : y - bh;
+  // a soft shadow: the same shape, offset and dark (no blur per frame)
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  rrect(ctx, bx + 1, by + 4, bw, bh, 12);
+  ctx.fill();
   ctx.fillStyle = 'rgba(255,248,236,.97)';
-  ctx.shadowColor = 'rgba(0,0,0,.35)';
-  ctx.shadowBlur = 10;
   rrect(ctx, bx, by, bw, bh, 12);
   ctx.fill();
-  ctx.shadowBlur = 0;
   // the tail
   const cx = Math.max(bx + 14, Math.min(bx + bw - 14, tx));
+  const edge = below ? by + 1 : by + bh - 1;
   ctx.beginPath();
-  ctx.moveTo(cx - 7, by + bh - 1);
+  ctx.moveTo(cx - 7, edge);
   ctx.lineTo(tx, ty);
-  ctx.lineTo(cx + 7, by + bh - 1);
+  ctx.lineTo(cx + 7, edge);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = '#2a1d33';

@@ -1,16 +1,20 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame } from '../src/arcade/kit/focus';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import type { GameEnv } from '../src/arcade/kit/types';
-import geoda from '../src/arcade/geoda/index';
+import geoda, { howto } from '../src/arcade/geoda/index';
+import { GEODE_REACH } from '../src/arcade/geoda/art';
+import { GeodaView } from '../src/arcade/geoda/render';
 import { Board, bestSpot, chamberBoard, deal, EMPTY, idx, N, placeable, ROCK, tapSpot } from '../src/arcade/geoda/board';
 import { LINES, MINERALS, MOMENTS, orientations, PIECES, pieceById, TIPS } from '../src/arcade/geoda/content';
 import { CATALOGS, t } from '../src/arcade/geoda/i18n';
-import { boardAt, computeLayout, slotAt } from '../src/arcade/geoda/layout';
+import { boardAt, computeLayout, slotAt, tapTargets } from '../src/arcade/geoda/layout';
 import { bestOf, chamber, freshProgress, migrate, nextMineral, shelve, starsFor, type GeodaProgress } from '../src/arcade/geoda/meta';
 import { comboFactor, linePoints, multOf, RULES } from '../src/arcade/geoda/rules';
 import { GeodaSim, planBlocks, type GeodaEvent } from '../src/arcade/geoda/sim';
+import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems, LANGS } from '../src/i18n';
 
@@ -627,5 +631,233 @@ describe('Geoda game', () => {
     expect(how.hands.length).toBeGreaterThanOrEqual(1);
     expect(how.hands.length).toBeLessThanOrEqual(3);
     expect((how.tips ?? []).length).toBeLessThanOrEqual(2);
+  });
+});
+
+// ── mobile first ─────────────────────────────────────────────────
+
+/** A fake 2D context that measures text by its size (0.55 em a character) and records every word drawn with its px. */
+function recordingContext(canvas: HTMLCanvasElement, said: { text: string; px: number }[]): CanvasRenderingContext2D {
+  const gradient = { addColorStop: () => undefined };
+  const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif' };
+  const px = () => Number(String(state.font).match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 10);
+  return new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (prop === 'measureText') return (s: string) => ({ width: s.length * px() * 0.55 });
+      if (prop === 'fillText' || prop === 'strokeText') return (s: string) => { if (String(s).trim()) said.push({ text: String(s), px: px() }); };
+      if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
+      if (prop === 'createPattern') return () => null;
+      if (prop === 'getTransform') return () => ({ a: 1 });
+      if (prop === 'getImageData') return () => ({ data: new Uint8ClampedArray(4) });
+      return () => undefined;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+describe('Geoda mobile first (DESIGN §3.1, §12)', () => {
+  const said: { text: string; px: number }[] = [];
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return recordingContext(this, said); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  const envAt = (progress: GeodaProgress, c: (typeof CHECK_SIZES)[number], touch: boolean): GameEnv<GeodaProgress> => ({
+    canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+    progress, rng: mulberry32(7), day: '2026-11-12', daySeed: 99, plannedSec: 60, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
+    tuning: TUNING, hint: () => undefined, hudTop: () => c.insets.top, insets: () => c.insets, touch,
+  });
+  // each word at its largest, as the mobile audit counts it (a word that pops in grows to its size)
+  const largest = (xs: typeof said) => {
+    const m = new Map<string, number>();
+    for (const x of xs) m.set(x.text, Math.max(m.get(x.text) ?? 0, x.px));
+    return [...m].map(([text, px]) => ({ text, px }));
+  };
+
+  it('gives the tray\'s pieces finger-sized targets inside the insets and apart at every checked size; under a story, the card', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = computeLayout(c.w, c.h, c.insets, touch);
+        const what = `${c.name}${touch ? ' (touch)' : ''}`;
+        const full = tapTargets(L, { tray: [1, 1, 1], story: false });
+        expect(full.map(x => x.label), what).toEqual(['piece 1', 'piece 2', 'piece 3']);
+        expect(auditTargets(full, c.w, c.h, c.insets), what).toEqual([]);
+        expect(tapTargets(L, { tray: [null, 1, null], story: false }).map(x => x.label)).toEqual(['piece 2']);
+        expect(auditTargets(tapTargets(L, { tray: [1, 1, 1], story: true }), c.w, c.h, c.insets), `${what}: a story`).toEqual([]);
+        // the board never under the HUD; the canvas's last pixel row stays free (a touch on the dock arrives there)
+        expect(L.board.y, what).toBeGreaterThanOrEqual(c.insets.top);
+        for (const s of L.slots) expect(s.y + s.h, what).toBeLessThan(c.h - c.insets.bottom - 1);
+        // the smoke's tap at 50 % × 60 % lands on the board
+        if (c.w > 1000) expect(boardAt(L, c.w / 2, c.h * 0.6), what).not.toBeNull();
+      }
+    }
+  });
+
+  it('puts the tray under the thumb of a phone upright, the board right above it, as big as the band allows', () => {
+    for (const c of CHECK_SIZES.filter(x => x.w < 600 && x.h > x.w)) {
+      const L = computeLayout(c.w, c.h, c.insets, true);
+      expect(L.portrait, c.name).toBe(true);
+      expect(L.u).toBeLessThan(1.1);
+      for (const s of L.slots) {
+        expect(s.y, c.name).toBeGreaterThanOrEqual(c.h * (1 - THUMB));
+        expect(s.h, c.name).toBeGreaterThanOrEqual(80);
+        expect(s.x, c.name).toBeGreaterThanOrEqual(c.insets.left + 16 - 0.01);
+        expect(s.x + s.w, c.name).toBeLessThanOrEqual(c.w - c.insets.right - 16 + 0.01);
+        expect(c.h - c.insets.bottom - (s.y + s.h), c.name).toBeLessThanOrEqual(10);
+      }
+      // the board sits on the tray (a short drag), its rim clear of the HUD
+      expect(L.slots[0].y - (L.board.y + L.board.h), c.name).toBeLessThanOrEqual(L.rim * 2.5 + 12);
+      expect(L.board.y - L.rim, c.name).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.cell, c.name).toBeGreaterThanOrEqual(28);
+    }
+    // a small phone puts the shine and the goal in the board's margins; a large one keeps a strip
+    const small = CHECK_SIZES[0];
+    const S = computeLayout(small.w, small.h, small.insets, true);
+    expect(S.mode).toBe('columns');
+    expect(S.cell).toBeGreaterThan(26);
+    const reach = S.rim * GEODE_REACH;
+    expect(S.column.x).toBeGreaterThanOrEqual(4);
+    expect(S.column.x + S.column.w).toBeLessThanOrEqual(S.board.x - reach * 0.5 + 1);
+    expect(S.goal.x).toBeGreaterThanOrEqual(S.board.x + S.board.w + reach * 0.5 - 1);
+    expect(S.goal.x + S.goal.w).toBeLessThanOrEqual(small.w - 4 + 0.01);
+    const big = CHECK_SIZES.find(x => x.name.startsWith('large phone'))!;
+    expect(computeLayout(big.w, big.h, big.insets, true).mode).toBe('strip');
+  });
+
+  it('lays a phone on its side out in three columns, the whole geode on screen, the tray under the right thumb', () => {
+    for (const c of CHECK_SIZES.filter(x => x.name.startsWith('phone on its side'))) {
+      const L = computeLayout(c.w, c.h, c.insets, true);
+      expect(L.mode, c.name).toBe('wide');
+      expect(L.board.y + L.board.h + L.rim * 2.5, c.name).toBeLessThanOrEqual(c.h - c.insets.bottom + 0.5);
+      for (const s of L.slots) {
+        expect(s.x, c.name).toBeGreaterThan(L.board.x + L.board.w);
+        expect(Math.min(s.w, s.h), c.name).toBeGreaterThanOrEqual(MIN_TAP);
+      }
+      expect(L.dial.x + L.dial.r, c.name).toBeLessThan(L.board.x);
+    }
+  });
+
+  it('floats a dragged piece clear of the thumb on a phone, a cell above the mouse, and snaps it to the nearest spot where it fits', () => {
+    const c = CHECK_SIZES[1];
+    for (const touch of [true, false]) {
+      const view = new GeodaView(document.createElement('canvas'), { reducedMotion: false, touch });
+      view.resize(c.w, c.h, 2, c.insets);
+      const L = view.layout;
+      const p = pieceById('o2');
+      const o = view.dragOrigin(p, 200, 400);
+      const gapUnder = 400 - (o.y + p.h * L.cell);
+      if (touch) expect(gapUnder).toBeGreaterThanOrEqual(56);
+      else expect(gapUnder).toBeCloseTo(L.cell * 1.15, 5);
+      expect(o.x + (p.w * L.cell) / 2).toBeCloseTo(200, 5);
+    }
+    // the snap: a finger that puts the piece half a cell off the free spot still lands it there
+    const view = new GeodaView(document.createElement('canvas'), { reducedMotion: false, touch: true });
+    view.resize(c.w, c.h, 2, c.insets);
+    const L = view.layout;
+    const sim = newSim({ progress: returning({ mode: 'classic' }) });
+    sim.start();
+    sim.board.clear();
+    for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) if (x > 3 || y > 3) sim.board.cells[idx(x, y)] = 1;
+    const p = pieceById('o2');
+    // aim the piece's top-left at (1.6, 1.4) cells: the nearest fitting spot is (2, 1)… (1, 1) and (2, 2) fit too
+    const fingerAt = (gx: number, gy: number) => ({ x: L.board.x + (gx + p.w / 2) * L.cell, y: L.board.y + gy * L.cell + L.lift + p.h * L.cell });
+    const f = fingerAt(1.6, 1.4);
+    expect(view.snap(sim, p, f.x, f.y)).toEqual({ gx: 2, gy: 1 });
+    // over the filled part, the nearest free spot within reach
+    const g = fingerAt(3.2, 2.2);
+    const s = view.snap(sim, p, g.x, g.y);
+    expect(s).not.toBeNull();
+    expect(sim.board.fits(p, s!.gx, s!.gy)).toBe(true);
+    // far from any free spot: nothing
+    const h = fingerAt(6, 6);
+    expect(view.snap(sim, p, h.x, h.y)).toBeNull();
+  });
+
+  it('never draws a word under 11 px at any checked size, the story and its verse at 13 px or more', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        said.length = 0;
+        // a first session (the opening story with the verse), then a rest (the bowl), with the smoke's input
+        const game = geoda.create(envAt(freshProgress(), c, touch)) as unknown as { sim: GeodaSim } & ReturnType<typeof geoda.create>;
+        game.resize(c.w, c.h, 2);
+        game.start();
+        let tm = 0;
+        for (; tm < 3; tm += 1 / 30) { game.update(1 / 30, frame(), tm); game.draw(); }
+        const storyWords = said.slice();
+        for (let k = 0; tm < 40; tm += 1 / 30, k++) {
+          game.update(1 / 30, tm < 20 ? focusing() : resting(), tm);
+          game.draw();
+          if (k % 20 === 0) {
+            game.pointer!({ type: 'down', x: c.w / 2, y: c.h * 0.6, id: 1 });
+            game.pointer!({ type: 'up', x: c.w / 2, y: c.h * 0.6, id: 1 });
+          }
+          if (k % 60 === 30) { game.key!(' ', true); game.key!(' ', false); }
+        }
+        const what = `${c.name}${touch ? ' (touch)' : ''}`;
+        const tiny = largest(said).filter(x => x.px < MIN_TEXT - 1e-6);
+        expect(tiny.slice(0, 5), what).toEqual([]);
+        // the story card's own words: its title, its text, the verse and its reference, "tap to begin"
+        const verse = passage('isa54.11-12');
+        const source = [t('open.title'), t('open.text'), verse.text, `${verse.ref} · ${verse.bible}`, t('open.tap')].join(' ').replace(/\s+/g, ' ');
+        const story = storyWords.filter(x => x.text.length > 3 && source.includes(x.text.replace(/\s+/g, ' ').replace(/…$/, '')));
+        expect(story.length, what).toBeGreaterThan(3);
+        const smallStory = largest(story).filter(x => x.px < MIN_READ - 1e-6);
+        expect(smallStory.slice(0, 5), `${what}: the story`).toEqual([]);
+      }
+    }
+  });
+
+  it('every language, every phone: every word the game draws through a focus block and a Szlif is 13 px or more', async () => {
+    try {
+      for (const l of LANGS) {
+        localStorage.setItem('brainlink.lang', l);
+        vi.resetModules();
+        const { default: game0 } = await import('../src/arcade/geoda/index');
+        for (const c of CHECK_SIZES.filter(x => /phone/i.test(x.name))) {
+          said.length = 0;
+          const game = game0.create(envAt(freshProgress(), c, true)) as unknown as { sim: GeodaSim } & ReturnType<typeof geoda.create>;
+          game.resize(c.w, c.h, 2);
+          game.start();
+          let rested = false;
+          // a first session of 60 s: the warm-up, the focus block, then the Szlif from ~46 s
+          for (let tm = 0, k = 0; tm < 56; tm += 1 / 30, k++) {
+            game.update(1 / 30, tm < 3 ? frame() : tm < 40 ? focusing() : resting(), tm);
+            game.draw();
+            rested ||= game.sim.restBlock && !!game.sim.bowl;
+            if (k % 20 === 0) {
+              game.pointer!({ type: 'down', x: c.w / 2, y: c.h * 0.6, id: 1 });
+              game.pointer!({ type: 'up', x: c.w / 2, y: c.h * 0.6, id: 1 });
+            }
+          }
+          const what = `${l}: ${c.name}`;
+          expect(rested, `${what}: a Szlif came`).toBe(true);
+          expect(largest(said).filter(x => x.px < MIN_READ - 1e-6).slice(0, 5), what).toEqual([]);
+        }
+      }
+    } finally {
+      localStorage.setItem('brainlink.lang', 'pl');
+      vi.resetModules();
+    }
+  });
+
+  it('speaks to the hand the player has: a finger hears of dragging and tapping, a keyboard keeps Space and 1–3', () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|mysz[ąy]|mouse|maus|1–3/i;
+    for (const l of LANGS) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['how.goal', 'how.drag', 'how.tap', 'hint.drag', 'hint.tap', 'hint.line', 'open.tap', 'v.tapOn']) {
+        expect(cat[k], `${l}.${k}`).toBeTypeOf('string');
+        expect(cat[k], `${l}.${k}`).not.toMatch(KEYS);
+      }
+      expect(cat['how.tap.keys'], `${l}.how.tap.keys`).toMatch(KEYS);
+      expect(cat['how.keys'], `${l}.how.keys`).toMatch(KEYS);
+    }
+    const touch = howto(true), desk = howto(false);
+    expect(touch.hands.map(x => x.gesture)).toEqual(['drag', 'tap']);
+    for (const h of touch.hands) expect(h.text).not.toMatch(KEYS);
+    expect(desk.hands.map(x => x.gesture)).toEqual(['drag', 'tap', 'keys']);
   });
 });

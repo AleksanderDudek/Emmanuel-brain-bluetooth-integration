@@ -11,6 +11,10 @@
  * the threshold up — and druses grow on cleared cells for a piece to harvest; a blind push pays its
  * sack at the end.  In a Szlif (rest) calm polishes the round's gem for the cabinet.
  *
+ * Mobile first (DESIGN §3.1, §12): on a phone the dragged piece floats clear of the thumb and snaps to the
+ * nearest spot it fits; the tray's pieces are finger-sized targets under the thumb (`targets()`), pressed on
+ * touch-down; the words speak of tapping and dragging, the keys are a desktop's shortcuts.
+ *
  * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts with board.ts,
  * the numbers in rules.ts, the data in content.ts, the meta in meta.ts, Bazyl's bubble in talk.ts),
  * the pictures (render.ts with paint.ts, art.ts and layout.ts, intro.ts for calibration, preview.ts
@@ -18,13 +22,14 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
+import { coarsePointer } from '../kit/mobile';
 import type { TracePhase } from '../kit/trace';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { GeodaSound } from './audio';
 import { N } from './board';
 import { t, type GeodaKey } from './i18n';
 import { GeodaIntro } from './intro';
-import { slotAt } from './layout';
+import { slotAt, tapTargets } from './layout';
 import { bestOf, freshProgress, migrate, type GeodaProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -32,7 +37,8 @@ import { GeodaView, type Hand } from './render';
 import { RULES } from './rules';
 import { GeodaSim, type BlockKind, type GeodaEvent } from './sim';
 
-const DRAG_PX = 8;
+/** a press that moves this far is a drag, not a tap (a fingertip wobbles) */
+const DRAG_PX = 10;
 const phaseOf = (k: BlockKind): TracePhase => (k === 'push' ? 'focus' : k === 'rest' ? 'rest' : 'free');
 
 type HintKey = 'drag' | 'tap' | 'line' | 'goal' | 'jewel' | 'dial' | 'druse' | 'rest' | 'blind' | 'combo' | 'stuck';
@@ -51,16 +57,19 @@ export class GeodaGame implements ArcadeGame {
   private hintAt = -99;
   private readonly later: { key: HintKey; at: number }[] = [];
   private placedOnce = false;
+  /** the dragged piece has a spot on the board now (for the tick when it first finds one) */
+  private snapped = false;
 
   constructor(private readonly env: GameEnv<GeodaProgress>) {
     migrate(env.progress);
     this.sim = new GeodaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning });
-    this.view = new GeodaView(env.canvas, { reducedMotion: env.reducedMotion });
+    this.view = new GeodaView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new GeodaSound(env.audio);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __geoda?: unknown }).__geoda = this.sim;
   }
 
-  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.hudTop()); }
+  /** The HUD's band and the phone's edges are read again at the start: the runner shows its panel only when play begins. */
+  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.insets()); }
 
   intro(dt: number, p: number): void {
     const v = this.view, s = v.size;
@@ -69,6 +78,8 @@ export class GeodaGame implements ArcadeGame {
   }
 
   start(): void {
+    const v = this.view.size;
+    if (v.w > 1) this.view.resize(v.w, v.h, v.dpr, this.env.insets());
     this.sim.start();
     this.sound.start();
     this.drain();
@@ -100,10 +111,13 @@ export class GeodaGame implements ArcadeGame {
       const slot = slotAt(this.view.layout, e.x, e.y);
       this.press = { id: e.id, x: e.x, y: e.y, slot: sim.story ? -1 : slot, moved: false };
       if (slot >= 0 && sim.tray[slot] && !sim.story) {
+        this.view.pressed = slot;
         sim.select(slot);
         this.sound.pick();
+        if (this.env.haptics) buzz(6);
         this.drain();
       }
+      this.snapped = false;
       return;
     }
     const pr = this.press;
@@ -113,14 +127,21 @@ export class GeodaGame implements ArcadeGame {
         pr.moved = true;
         if (pr.slot >= 0 && sim.tray[pr.slot]) this.hand.drag = { slot: pr.slot, x: e.x, y: e.y, t: 0 };
       }
-      if (this.hand.drag) {
-        this.hand.drag.x = e.x;
-        this.hand.drag.y = e.y;
+      const d = this.hand.drag;
+      if (d) {
+        d.x = e.x;
+        d.y = e.y;
+        // a light tick when the piece first finds a spot on the board (the ghost appears)
+        const item = sim.tray[d.slot];
+        const on = !!item && this.view.snap(sim, item.piece, e.x, e.y) !== null;
+        if (on && !this.snapped && this.env.haptics) buzz(5);
+        this.snapped = on;
       }
       return;
     }
     // up
     this.press = null;
+    this.view.pressed = -1;
     const drag = this.hand.drag;
     this.hand.drag = null;
     if (drag) {
@@ -149,6 +170,7 @@ export class GeodaGame implements ArcadeGame {
     if (paused) {
       this.press = null;
       this.hand.drag = null;
+      this.view.pressed = -1;
     }
   }
 
@@ -262,6 +284,12 @@ export class GeodaGame implements ArcadeGame {
 
   headline(): Headline { return { value: this.sim.score, sub: this.sim.headlineSub() }; }
 
+  /** The tray's pieces (a story card instead while one is up), as the pointer tests them (kit/mobile's audit checks them). */
+  targets(): TapTarget[] {
+    if (!this.sim.started) return [];
+    return tapTargets(this.view.layout, { tray: this.sim.tray, story: !!this.sim.story });
+  }
+
   finish(): void {
     this.sim.finish();
     this.sim.take();
@@ -288,15 +316,23 @@ function haptic(e: GeodaEvent): void {
   }
 }
 
-const howto = (): HowTo => ({
-  goal: t('how.goal'),
-  hands: [
-    { gesture: 'drag', text: t('how.drag') },
-    { gesture: 'tap', text: t('how.tap') },
-    { gesture: 'keys', text: t('how.keys') },
-  ],
-  tips: [t('how.tip1'), t('how.tip2')],
-});
+/** How to play for the hand the player has: a finger drags and taps; a desktop also has Space and 1–3. */
+export function howto(touch = coarsePointer()): HowTo {
+  return {
+    goal: t('how.goal'),
+    hands: touch
+      ? [
+        { gesture: 'drag', text: t('how.drag') },
+        { gesture: 'tap', text: t('how.tap') },
+      ]
+      : [
+        { gesture: 'drag', text: t('how.drag') },
+        { gesture: 'tap', text: t('how.tap.keys') },
+        { gesture: 'keys', text: t('how.keys') },
+      ],
+    tips: [t('how.tip1'), t('how.tip2')],
+  };
+}
 
 const mod: ArcadeModule<GeodaProgress> = {
   freshProgress,
@@ -304,7 +340,7 @@ const mod: ArcadeModule<GeodaProgress> = {
   best: p => bestOf(p),
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
-  howto,
+  howto: () => howto(),
 };
 
 export default mod;

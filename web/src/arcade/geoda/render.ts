@@ -7,18 +7,22 @@
  * burst into shards with a hit-stop, numbers and praise fly, the combo climbs, big clears shake.
  *
  * The runner draws the standard HUD (the Mendi panel, the score corner) above the canvas; nothing
- * important is drawn above `hudTop`.
+ * important is drawn under it (`insets().top`).  Mobile first (DESIGN §3.1, §12): on a phone the dragged piece
+ * floats clear of the thumb and snaps to the nearest spot it fits, the shine and the goal use the board's
+ * margins on a small phone, every word is 13 px or more, and nothing blurs per frame (offset shapes instead).
  */
+import { MIN_READ, NO_INSETS, fitText } from '../kit/mobile';
 import { passage } from '../kit/scripture';
-import { drawPassage, layoutPassage, type PassageLayout } from '../kit/scripture';
+import { layoutPassage, REF_FONT, VERSE_FONT, type Passage, type PassageLayout } from '../kit/scripture';
 import { traceBars } from '../kit/trace';
+import type { Insets } from '../kit/types';
 import { clamp, ease, Floaters, Particles, Shake } from '../kit/juice';
-import { drawGeode, drawSpecimen, fitFont, GEODE_REACH, rrect, sparkle, TileCache } from './art';
+import { drawGeode, drawSpecimen, fitFont, fitLines, GEODE_REACH, rrect, sparkle, TileCache } from './art';
 import { EMPTY, idx, N, ROCK, type TrayItem } from './board';
 import { chamberName, chamberStory, GEMS, JEWELS, MINERALS, TIERS, type Piece } from './content';
 import { fmt, pct, t } from './i18n';
 import { boardAt, computeLayout, trayCellFor, type Box, type Layout } from './layout';
-import { C, paintBowl, paintBubble, paintCave, paintDial, paintDruse, paintJewel, paintMole, paintSkyline, SANS, SERIF, type MolePose } from './paint';
+import { C, paintBowl, paintBubble, paintCave, paintDial, paintDruse, paintJewel, paintMole, paintShineColumn, paintSkyline, SANS, SERIF, type MolePose } from './paint';
 import type { GeodaEvent, GeodaSim } from './sim';
 
 /** The finger's part: a piece being dragged (where the finger is), or a tray slot pressed. */
@@ -64,21 +68,25 @@ export class GeodaView {
   private oopsT = 0;
   private mood = 0;
   private flash = 0;
+  private readonly touch: boolean;
+  /** the tray slot a finger (or the mouse) is pressing: drawn pressed until it lifts */
+  pressed = -1;
 
-  constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean }) {
+  constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean; touch?: boolean }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Geoda needs a 2D canvas');
     this.ctx = ctx;
+    this.touch = !!opts.touch;
     this.shake = new Shake(opts.reducedMotion);
-    this.layout = computeLayout(1, 1, 0);
+    this.layout = computeLayout(1, 1, NO_INSETS, this.touch);
   }
 
-  resize(w: number, h: number, dpr: number, top: number): void {
+  resize(w: number, h: number, dpr: number, insets: Insets): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.top = top;
-    this.layout = computeLayout(w, h, top);
+    this.top = insets.top;
+    this.layout = computeLayout(w, h, insets, this.touch);
     this.tiles.setDpr(dpr);
     this.bg = null;
     this.verse = null;
@@ -166,6 +174,7 @@ export class GeodaView {
         const m = MINERALS[e.mineral];
         const text = e.outcome === 'new' ? t('v.gemNew', { mineral: m.title }) : e.outcome === 'up' ? t('v.gemUp', { mineral: m.title, tier: TIERS[e.tier] }) : t('v.gemSame', { mineral: m.title, tier: TIERS[e.tier] });
         this.gemShow = { text, m: e.mineral, tier: e.tier, t: 0 };
+        if (L.mode === 'columns') this.words.add(text, L.board.x + L.board.w / 2, L.board.y + L.board.h * 0.3, { color: C.gold, size: 16, dur: 2.4 });
         const b = L.bowl;
         this.fx.burst(b.x + b.w / 2, b.y + b.h * 0.4, 24, { color: e.polished ? C.gold : '#e8e0ff', size: 2.5, speed: 160, life: 1, shape: 'spark', g: 60 });
         if (e.points > 0) this.words.add(`+${fmt(e.points)}`, b.x + b.w / 2, b.y + b.h * 0.2, { color: C.gold, size: 24 });
@@ -232,23 +241,29 @@ export class GeodaView {
     this.backs.push({ slot, item, x, y, t: 0 });
   }
 
-  /** Where a dragged piece sits (its top-left, CSS px) for a finger at (x, y): lifted above it. */
+  /**
+   * Where a dragged piece sits (its top-left, CSS px) for a finger at (x, y): centred over it, its lower edge
+   * `layout.lift` above it — a cell under a mouse, clear of the thumb (56 px and more) under a finger.
+   */
   dragOrigin(p: Piece, x: number, y: number): { x: number; y: number } {
-    const cs = this.layout.cell;
-    const lift = p.h * cs * 0.5 + cs * 1.15;
-    return { x: x - (p.w * cs) / 2, y: y - lift - (p.h * cs) / 2 };
+    const L = this.layout, cs = L.cell;
+    return { x: x - (p.w * cs) / 2, y: y - L.lift - p.h * cs };
   }
 
-  /** The board spot a dragged piece snaps to (it must fit; the nearest fitting spot within a cell), or null. */
+  /**
+   * The board spot a dragged piece snaps to: the nearest spot where it fits, within 0.95 of a cell under a mouse
+   * and 1.35 under a finger (a fingertip is not a cursor), or null.
+   */
   snap(sim: GeodaSim, p: Piece, x: number, y: number): { gx: number; gy: number } | null {
     const L = this.layout, o = this.dragOrigin(p, x, y);
     const fx = (o.x - L.board.x) / L.cell, fy = (o.y - L.board.y) / L.cell;
+    const reach = this.touch ? 1.35 : 0.95;
     let best: { gx: number; gy: number } | null = null, bd = Infinity;
-    for (let gy = Math.floor(fy) - 1; gy <= Math.ceil(fy) + 1; gy++) {
-      for (let gx = Math.floor(fx) - 1; gx <= Math.ceil(fx) + 1; gx++) {
+    for (let gy = Math.round(fy) - 2; gy <= Math.round(fy) + 2; gy++) {
+      for (let gx = Math.round(fx) - 2; gx <= Math.round(fx) + 2; gx++) {
         if (!sim.board.fits(p, gx, gy)) continue;
         const d = Math.hypot(gx - fx, gy - fy);
-        if (d < bd && d <= 0.95) { bd = d; best = { gx, gy }; }
+        if (d < bd && d <= reach) { bd = d; best = { gx, gy }; }
       }
     }
     return best;
@@ -274,11 +289,20 @@ export class GeodaView {
     this.drawClearing();
     ctx.restore();
     this.drawTray(sim, hand);
-    this.drawDial(sim);
-    if (L.portrait && (sim.restBlock || this.gemShow) && !sim.talk.line) this.drawBowl(sim);
-    else if (!L.portrait) this.drawBowl(sim);
-    if (!L.portrait || (!sim.restBlock && !this.gemShow && !sim.talk.line)) this.drawGoal(sim);
-    this.drawMole(sim);
+    // the shine (a dial, or a column in a small phone's margin), the goal, the Szlif's bowl in a rest
+    const rest = sim.restBlock || !!this.gemShow;
+    if (L.mode === 'wide') {
+      this.drawDial(sim);
+      this.drawBowl(sim);
+      this.drawGoal(sim);
+    } else if (L.mode === 'strip') {
+      this.drawDial(sim);
+      if (rest) this.drawBowl(sim); else this.drawGoal(sim);
+    } else {
+      if (rest) this.drawBowlColumn(sim); else this.drawDial(sim);
+      this.drawGoal(sim);
+    }
+    this.drawMole(sim, hand);
     this.drawFlies(sim);
     this.drawDragged(sim, hand);
     this.fx.draw(ctx);
@@ -440,11 +464,12 @@ export class GeodaView {
       const s = L.slots[k];
       const item = sim.tray[k];
       const sel = k === sim.current && !hand.drag && !!item;
-      // the slot's hollow
+      const down = k === this.pressed && !!item && !hand.drag;
+      // the slot's hollow (lit on touch-down)
       ctx.save();
-      ctx.fillStyle = sel ? 'rgba(255,211,107,.10)' : 'rgba(255,255,255,.035)';
-      ctx.strokeStyle = sel ? 'rgba(255,211,107,.55)' : 'rgba(255,255,255,.08)';
-      ctx.lineWidth = sel ? 2 : 1;
+      ctx.fillStyle = down ? 'rgba(255,211,107,.2)' : sel ? 'rgba(255,211,107,.10)' : 'rgba(255,255,255,.035)';
+      ctx.strokeStyle = sel || down ? 'rgba(255,211,107,.6)' : 'rgba(255,255,255,.08)';
+      ctx.lineWidth = sel || down ? 2 : 1;
       rrect(ctx, s.x + 4, s.y + 4, s.w - 8, s.h - 8, 14);
       ctx.fill();
       ctx.stroke();
@@ -458,13 +483,34 @@ export class GeodaView {
       const fits = sim.board.fitsAnywhere(p);
       const ox = s.x + (s.w - p.w * tc) / 2 + (L.portrait ? 0 : slide), oy = s.y + (s.h - p.h * tc) / 2 + (L.portrait ? slide : 0);
       const wob = this.stuck === k && this.stuckT < 0.5 ? Math.sin(this.stuckT * 40) * 3 * (1 - this.stuckT * 2) : 0;
-      this.piece(item, ox + wob, oy, tc, inK * (fits ? 1 : 0.35));
+      if (down) {
+        // a pressed piece rises a little toward the finger's drag
+        const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(1.08, 1.08);
+        ctx.translate(-cx, -cy);
+        this.piece(item, ox + wob, oy, tc, inK * (fits ? 1 : 0.35));
+        ctx.restore();
+      } else this.piece(item, ox + wob, oy, tc, inK * (fits ? 1 : 0.35));
       if (!fits) {
         ctx.save();
-        ctx.font = `700 ${Math.max(10, Math.round(Math.min(14, s.h * 0.12)))}px ${SANS}`;
         ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(255,190,170,.85)';
-        ctx.fillText(t('v.stuck'), s.x + s.w / 2, s.y + s.h - 10, s.w - 12);
+        ctx.textBaseline = 'alphabetic';
+        // one line down to 13 px, else two ("får inte / plats" in a small phone's slot)
+        const room = s.w - 14;
+        const two = fitLines(ctx, t('v.stuck'), Math.max(MIN_READ, Math.min(15, s.h * 0.16)), room, SANS, 700, MIN_READ, MIN_READ);
+        const lines = two.lines.slice(0, 2);
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(20,14,28,.8)';
+        ctx.fillStyle = 'rgba(255,190,170,.95)';
+        lines.forEach((l, i) => {
+          const word = fitText(ctx, l, room, two.size, 700, SANS, MIN_READ);
+          const y = s.y + s.h - 10 - (lines.length - 1 - i) * two.size * 1.15;
+          ctx.strokeText(word, s.x + s.w / 2, y);
+          ctx.fillText(word, s.x + s.w / 2, y);
+        });
         ctx.restore();
       }
     }
@@ -474,8 +520,13 @@ export class GeodaView {
       const tc = trayCellFor(L, s, b.item.piece.w, b.item.piece.h);
       const tx = s.x + (s.w - b.item.piece.w * tc) / 2, ty = s.y + (s.h - b.item.piece.h * tc) / 2;
       const o = this.dragOrigin(b.item.piece, b.x, b.y);
-      const sz = L.cell + (tc - L.cell) * k;
-      this.piece(b.item, o.x + (tx - o.x) * k, o.y + (ty - o.y) * k, sz, 0.9);
+      // drawn at the board's size and scaled (a sprite per in-between size would fill the tile cache)
+      const sc = (L.cell + (tc - L.cell) * k) / L.cell;
+      ctx.save();
+      ctx.translate(o.x + (tx - o.x) * k, o.y + (ty - o.y) * k);
+      ctx.scale(sc, sc);
+      this.piece(b.item, 0, 0, L.cell, 0.9);
+      ctx.restore();
     }
   }
 
@@ -483,18 +534,25 @@ export class GeodaView {
     if (!hand.drag) return;
     const item = sim.tray[hand.drag.slot];
     if (!item) return;
-    const L = this.layout, ctx = this.ctx;
+    const L = this.layout, ctx = this.ctx, p = item.piece, cs = L.cell;
     const grow = ease.outCubic(clamp(hand.drag.t / 0.12));
     const s = L.slots[hand.drag.slot];
-    const tc = trayCellFor(L, s, item.piece.w, item.piece.h);
-    const sz = tc + (L.cell - tc) * grow;
-    const o = this.dragOrigin(item.piece, hand.drag.x, hand.drag.y);
-    const cx = o.x + (item.piece.w * L.cell) / 2, cy = o.y + (item.piece.h * L.cell) / 2;
+    const tc = trayCellFor(L, s, p.w, p.h);
+    // it grows from the tray's size to the board's, scaled from the board-size sprites
+    const k = (tc + (cs - tc) * grow) / cs;
+    const o = this.dragOrigin(p, hand.drag.x, hand.drag.y);
+    const cx = o.x + (p.w * cs) / 2, cy = o.y + (p.h * cs) / 2;
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.5)';
-    ctx.shadowBlur = 18;
-    ctx.shadowOffsetY = 10;
-    this.piece(item, cx - (item.piece.w * sz) / 2, cy - (item.piece.h * sz) / 2, sz, 1, 3);
+    ctx.translate(cx, cy);
+    ctx.scale(k, k);
+    ctx.translate(-cx, -cy);
+    // its shadow: the cells' shapes, offset and dark (no blur per frame)
+    ctx.fillStyle = 'rgba(0,0,0,.34)';
+    for (const [x, y] of p.cells) {
+      rrect(ctx, o.x + x * cs + cs * 0.1, o.y + y * cs + cs * 0.24, cs * 0.92, cs * 0.92, cs * 0.18);
+      ctx.fill();
+    }
+    this.piece(item, o.x, o.y, cs, 1, 3);
     ctx.restore();
   }
 
@@ -502,12 +560,16 @@ export class GeodaView {
     const L = this.layout;
     const state = sim.blind ? 'dark' : !sim.pushBlock ? 'off' : sim.blockT < sim.lead ? 'wait' : sim.reliable ? 'live' : 'grey';
     const note = state === 'wait' ? t('v.wait') : state === 'grey' ? t('v.noSignal') : state === 'dark' ? t('v.dark') : '';
-    paintDial(this.ctx, L.dial.x, L.dial.y, L.dial.r, {
-      value: this.dialShown, mult: state === 'off' ? 1 : sim.mult, state, pop: this.multPop, label: t('v.shine'), note, t: this.clock, compact: L.portrait,
-    });
+    const look = { value: this.dialShown, mult: state === 'off' ? 1 : sim.mult, state, pop: this.multPop, label: t('v.shine'), note, t: this.clock, compact: L.portrait } as const;
+    if (L.mode === 'columns') paintShineColumn(this.ctx, L.column, look);
+    else paintDial(this.ctx, L.dial.x, L.dial.y, L.dial.r, look);
   }
 
   private drawGoal(sim: GeodaSim): void {
+    if (this.layout.mode === 'columns') {
+      this.drawGoalColumn(sim);
+      return;
+    }
     const ctx = this.ctx, L = this.layout, g = L.goal;
     ctx.save();
     ctx.fillStyle = 'rgba(20,14,28,.6)';
@@ -515,13 +577,17 @@ export class GeodaView {
     ctx.fill();
     const pad = 8;
     const title = sim.mode === 'adventure' ? t('v.chamber', { n: sim.spec.level + 1 }) : t('v.classic');
-    const size = Math.max(10, Math.min(15, g.h * 0.3));
+    const size = Math.max(MIN_READ, Math.min(16, g.h * 0.32));
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     ctx.fillStyle = C.inkSoft;
-    fitFont(ctx, title, size, g.w * 0.42, SANS, 700, 9);
-    ctx.fillText(title, g.x + pad, g.y + g.h / 2);
-    const tw = Math.min(g.w * 0.42, ctx.measureText(title).width) + pad * 2;
+    // a narrow box leaves the chamber's name to the HUD's score corner ("Komnata 1 · 0/9") and keeps the jewels
+    let tw = pad;
+    if (g.w >= 200) {
+      const head = fitText(ctx, title, g.w * 0.42, size, 700, SANS);
+      ctx.fillText(head, g.x + pad, g.y + g.h / 2);
+      tw = ctx.measureText(head).width + pad * 2;
+    }
     if (sim.mode === 'adventure') {
       const n = sim.spec.goal.length;
       const cw = (g.w - tw - pad) / n;
@@ -530,15 +596,39 @@ export class GeodaView {
         const got = Math.min(need, sim.got[k] ?? 0);
         const r = Math.min(g.h * 0.28, cw * 0.18);
         paintJewel(ctx, x + r + 2, g.y + g.h / 2, r, kind, this.clock);
-        ctx.font = `800 ${Math.round(size * 1.05)}px ${SANS}`;
         ctx.fillStyle = got >= need ? C.gold : C.ink;
-        ctx.fillText(got >= need ? '✓' : `${got}/${need}`, x + r * 2 + 8, g.y + g.h / 2, cw - r * 2 - 10);
+        ctx.fillText(fitText(ctx, got >= need ? '✓' : `${got}/${need}`, cw - r * 2 - 10, size * 1.05, 800, SANS), x + r * 2 + 8, g.y + g.h / 2);
       });
     } else {
-      ctx.font = `800 ${Math.round(size * 1.05)}px ${SANS}`;
       ctx.fillStyle = C.ink;
-      ctx.fillText(sim.headlineSub(), g.x + tw, g.y + g.h / 2, g.w - tw - pad);
+      ctx.fillText(fitText(ctx, sim.headlineSub(), g.w - tw - pad, size * 1.05, 800, SANS), g.x + tw, g.y + g.h / 2);
     }
+    ctx.restore();
+  }
+
+  /** A small phone's right margin: the chamber's jewels one under another, each with its count (the classic board: none). */
+  private drawGoalColumn(sim: GeodaSim): void {
+    if (sim.mode !== 'adventure') return;
+    const ctx = this.ctx, g = this.layout.goal;
+    const n = sim.spec.goal.length, row = 46;
+    const h = Math.min(g.h, n * row + 10);
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,14,28,.62)';
+    rrect(ctx, g.x, g.y, g.w, h, 12);
+    ctx.fill();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    sim.spec.goal.forEach(([kind, need], k) => {
+      const cy = g.y + 8 + k * row;
+      if (cy + row - 6 > g.y + h) return;
+      const got = Math.min(need, sim.got[k] ?? 0);
+      paintJewel(ctx, g.x + g.w / 2, cy + 12, 10, kind, this.clock);
+      ctx.fillStyle = got >= need ? C.gold : C.ink;
+      // the count across the plate's width at 13 px or more ("10/11" fits a 40 px plate), never cut
+      const label = got >= need ? '✓' : `${got}/${need}`;
+      const fit = fitText(ctx, label, g.w - 2, 14, 800, SANS, MIN_READ);
+      ctx.fillText(fit === label ? fit : fitText(ctx, label, g.w - 2, 14, 800, SANS), g.x + g.w / 2, cy + 33);
+    });
     ctx.restore();
   }
 
@@ -565,36 +655,63 @@ export class GeodaView {
         ctx.restore();
       }
     }
-    // the words under (or beside) it
+    // the words under (or beside) it, fitted (never squeezed under 13 px)
     ctx.textAlign = L.portrait ? 'left' : 'center';
     ctx.textBaseline = 'top';
     const tx = L.portrait ? cx + s * 0.6 : cx, ty = L.portrait ? b.y + 2 : by + 6, maxW = L.portrait ? b.x + b.w - tx : b.w;
-    const size = Math.max(11, Math.min(15, s * 0.13));
-    ctx.font = `800 ${size}px ${SANS}`;
+    const size = Math.max(14, Math.min(16, s * 0.13));
     ctx.fillStyle = active ? C.rest : C.inkSoft;
-    ctx.fillText(t('v.bowl').toUpperCase(), tx, ty, maxW);
-    ctx.font = `600 ${Math.round(size * 0.92)}px ${SANS}`;
+    ctx.fillText(fitText(ctx, t('v.bowl').toUpperCase(), maxW, size, 800, SANS, MIN_READ), tx, ty);
     ctx.fillStyle = C.ink;
     const line = this.gemShow ? this.gemShow.text : bw ? `${MINERALS[bw.mineral].title} · ${t('v.polish', { pct: pct(Math.round(bw.polish * 100)) })}` : t('v.bowlNext');
-    ctx.fillText(line, tx, ty + size * 1.3, maxW);
+    // one line while it fits at 13 px and more, else two
+    const two = fitLines(ctx, line, Math.round(size * 0.95), maxW, SANS, 600, MIN_READ, MIN_READ);
+    two.lines.slice(0, 2).forEach((l, i) => ctx.fillText(fitText(ctx, l, maxW, two.size, 600, SANS, MIN_READ), tx, ty + size * 1.3 + i * two.size * 1.25));
     ctx.restore();
   }
 
-  private drawMole(sim: GeodaSim): void {
-    const L = this.layout, m = L.mole;
+  /** A small phone's left margin in a rest: the bowl with the round's gem, the word and the polish under it. */
+  private drawBowlColumn(sim: GeodaSim): void {
+    const ctx = this.ctx, c = this.layout.column, bw = sim.bowl;
+    const active = sim.restBlock && !!bw;
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,14,28,.62)';
+    rrect(ctx, c.x, c.y, c.w, Math.min(c.h, 132), 12);
+    ctx.fill();
+    const s = c.w * 0.95, cx = c.x + c.w / 2, by = c.y + 14 + s * 0.85;
+    if (!active && !this.gemShow) ctx.globalAlpha = 0.5;
+    paintBowl(ctx, cx, by, s, bw?.polish ?? 0, active, this.clock);
+    const m = bw ? bw.mineral : this.gemShow?.m ?? -1;
+    if (m >= 0) drawSpecimen(ctx, cx, by - s * 0.45, s * 0.42, m, bw ? bw.tier : this.gemShow!.tier, this.clock);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = active ? C.rest : C.inkSoft;
+    // the word and the polish where they fit the margin at 13 px (a long word leaves the bowl and its ring
+    // to speak)
+    const word = fitText(ctx, t('v.bowl'), c.w - 4, MIN_READ, 800, SANS, MIN_READ);
+    if (!word.endsWith('…')) ctx.fillText(word, cx, by + 8);
+    if (bw) {
+      ctx.fillStyle = C.ink;
+      const polish = pct(Math.round(bw.polish * 100));
+      const fit = fitText(ctx, polish, c.w - 4, 15, 800, SANS, MIN_READ);
+      if (fit === polish) ctx.fillText(fit, cx, by + 26);
+    }
+    ctx.restore();
+  }
+
+  private drawMole(sim: GeodaSim, hand: Hand): void {
+    const L = this.layout, m = L.mole, b = L.bubble;
     this.mole.face = L.portrait ? -1 : 1;
     paintMole(this.ctx, m.x, m.y, m.s, this.mole);
     const line = sim.talk.line;
     if (!line) return;
-    const a = Math.min(1, line.t / 0.15, (line.dur - line.t) / 0.25);
-    const size = Math.max(12, Math.min(16, m.s * 0.13));
-    if (L.portrait) {
-      const g = L.goal;
-      paintBubble(this.ctx, line.text, g.x - L.dial.r - 4, g.y + g.h + 2, Math.min(this.w - 24, g.w + L.dial.r * 2 + 8), m.x - m.s * 0.25, m.y - m.s * 0.7, a, size);
-    } else {
-      const maxW = Math.max(160, Math.min(320, L.bowl.w + 30));
-      paintBubble(this.ctx, line.text, Math.max(8, m.x - maxW * 0.35), m.y - m.s * 1.08, maxW, m.x + m.s * 0.1, m.y - m.s * 0.92, a, size);
-    }
+    // a piece in the air matters more than a joke: the bubble steps back while the finger drags
+    const a = Math.min(1, line.t / 0.15, (line.dur - line.t) / 0.25) * (hand.drag ? 0.22 : 1);
+    const size = Math.max(14, Math.min(16, m.s * 0.14));
+    if (b.below) paintBubble(this.ctx, line.text, b.x, b.y, b.w, m.x - m.s * 0.2, m.y - m.s * 0.55, a, size, true, true);
+    else if (L.mode === 'columns') paintBubble(this.ctx, line.text, b.x, b.y, b.w, m.x - m.s * 0.3, m.y - m.s * 0.78, a, size, false, true);
+    else paintBubble(this.ctx, line.text, b.x, b.y, b.w, m.x + m.s * 0.1, m.y - m.s * 0.92, a, size);
   }
 
   private drawFlies(sim: GeodaSim): void {
@@ -629,7 +746,7 @@ export class GeodaView {
     const cx = c.x + c.w / 2, w = c.w - pad * 2.4;
     let y = c.y + pad * 1.4;
     const title = (text: string, size: number, color = C.gold) => {
-      fitFont(ctx, text, size, w, SERIF, 700, 12);
+      fitFont(ctx, text, size, w, SERIF, 700, 16);
       ctx.fillStyle = color;
       ctx.fillText(text, cx, y);
       y += size * 1.35;
@@ -642,8 +759,8 @@ export class GeodaView {
         y += size * 1.35;
       }
     };
-    const big = Math.max(18, Math.min(34, c.w * 0.075));
-    const small = Math.max(12, Math.min(17, c.w * 0.04));
+    const big = Math.max(20, Math.min(32, c.w * 0.07));
+    const small = Math.max(15, Math.min(17, c.w * 0.042));
     if (s.kind === 'open') {
       title(t('open.title'), big);
       body(t('open.text'), small);
@@ -651,8 +768,8 @@ export class GeodaView {
       const box = { x: c.x + pad, y, w: c.w - pad * 2, h: c.y + c.h - pad * 2.6 - y };
       if (box.h > 40) {
         const p = passage('isa54.11-12');
-        if (!this.verse || this.verse.w !== box.w) this.verse = { lay: layoutPassage(ctx, p, box.w, box.h, { max: Math.min(18, small + 1), min: 10 }), w: box.w };
-        drawPassage(ctx, p, this.verse.lay, cx, box.y, { text: '#f3e6ff', ref: C.gold });
+        if (!this.verse || this.verse.w !== box.w) this.verse = { lay: layoutPassage(ctx, p, box.w, box.h, { max: Math.min(18, small + 1), min: MIN_READ }), w: box.w };
+        drawVerse(ctx, p, this.verse.lay, cx, box.y);
       }
     } else if (s.kind === 'level') {
       title(t('v.levelTitle', { n: s.level + 1 }), big);
@@ -674,8 +791,8 @@ export class GeodaView {
       if (s.record) title(t('v.turnRecord'), small * 1.3);
       else if (s.toRecord !== null && s.toRecord > 0) body(t('v.turnTo', { n: fmt(s.toRecord) }), small);
     }
-    ctx.font = `600 ${small * 0.9}px ${SANS}`;
-    ctx.fillStyle = 'rgba(253,246,234,.6)';
+    ctx.font = `700 ${Math.max(14, small * 0.9)}px ${SANS}`;
+    ctx.fillStyle = 'rgba(253,246,234,.78)';
     ctx.fillText(s.kind === 'open' ? t('open.tap') : t('v.tapOn'), cx, c.y + c.h - pad * 1.8);
     ctx.restore();
   }
@@ -683,6 +800,20 @@ export class GeodaView {
   /** The calibration scene is drawn by intro.ts on the same canvas. */
   get context(): CanvasRenderingContext2D { return this.ctx; }
   get size(): { w: number; h: number; dpr: number; top: number } { return { w: this.w, h: this.h, dpr: this.dpr, top: this.top }; }
+}
+
+/** The story's passage: its lines at the layout's size (13 px and more), its reference at 13 px (the kit's would be 11). */
+function drawVerse(ctx: CanvasRenderingContext2D, p: Passage, l: PassageLayout, cx: number, top: number): void {
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#f3e6ff';
+  ctx.font = `italic 400 ${l.size}px ${VERSE_FONT}`;
+  l.lines.forEach((line, i) => ctx.fillText(line, cx, top + i * l.lineH));
+  ctx.fillStyle = C.gold;
+  ctx.font = `600 ${Math.max(MIN_READ, l.refSize)}px ${REF_FONT}`;
+  ctx.fillText(`${p.ref} · ${p.bible}`, cx, top + l.lines.length * l.lineH + Math.round(l.size * 0.55));
+  ctx.restore();
 }
 
 function mixCombo(n: number): string {
