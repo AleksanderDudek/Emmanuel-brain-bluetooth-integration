@@ -4739,13 +4739,139 @@ myelination and the wash happen in seconds instead of nights and weeks; tens of 
 
 ### 13.12 Odnowa — the cell renews itself
 
-*Direction (the builder rewrites this section).* Inside one cell: **mitochondria** (the electron
-transport chain pumps protons across the inner membrane; ATP synthase, a real rotary motor, turns
-and makes three ATP per turn — the headline), **DNA repair** (lesions glow on the scrolling double
-helix; tap one and an enzyme cuts the damaged piece out and fills the gap), **autophagy** (rest: worn
-organelles are wrapped in an autophagosome and recycled in a lysosome — the Nobel Prize of 2016),
-**stem cells** (a stem cell divides into one stem cell and one that becomes skin, gut or blood;
-the body's real turnover times). Every number sourced in this section.
+A machine to run and repair (2026-11-12). Files: `src/arcade/odnowa/` (rules, content, meta, talk, sim,
+layout, paint, render, intro, preview, panel, audio, song, i18n, index), tests in `test/arcade-odnowa.test.ts`.
+
+**The picture.** Inside one stem cell at night: a teal cytoplasm lit from within, the nucleus behind, the
+endoplasmic reticulum with its ribosomes, vesicles drifting. In the middle the **engine lens** shows Mito's
+inner membrane face-on: the ATP synthase, big — the c-ring's eight teal vanes turning round the α₃β₃ head
+(three lavender α, three golden β) on the bent γ shaft — and the three pumps of the respiratory chain
+(complexes I, III, IV) on the rim sending protons round to the turbine's entry. Every third of a turn a β
+glows and a golden ATP flies out to where energy is needed: the division's energy chip, or a repair crew on
+the lane (the ligase seals with ATP; TFIIH and DNA-PKcs spend it too). Across the bottom the **DNA lane**:
+the double helix, with its major and minor grooves, scrolls past as the scan moves on. The voice is **Mito**,
+a cheerful, slightly nerdy mitochondrion ("Yes, *that* powerhouse"); a faint magnifier cone joins him to the
+lens — the turbine is his.
+
+**One stage, one division.** A real cell divides only with energy, building material and a checked genome;
+so does ours. Three chips under the HUD hold the recipe — **Energia** (ATP made this stage), **Budulec**
+(material back from recycling), **DNA** (the share of the genome scanned). All three full and no damage open
+on the helix (the **checkpoint**: no division with damaged DNA) → **mitosis**, drawn in the lens: prophase
+(chromosomes condense), metaphase (in line on the spindle), anaphase (pulled apart), telophase and
+cytokinesis (the cell pinches in two); the daughters part — one stays a stem cell (mint), the other takes its
+fate's colour and joins the player's tissue; a toast names it. The recipe grows each stage (ATP 95 × 1.17ⁿ⁻¹,
+material 5 + (n − 1), scan 38 + 5(n − 1) units, capped).
+
+**Focus (push): energy.** The gauge (`meter`, "Energia") is the **proton gradient**: in a sighted push past
+its lead-in (5 s Mendi, 2 s HALO) it follows the band's level, and it never sinks below its neutral floor,
+so a low reading is never a loss. The turbine turns at 0.1 + 2.3 × gradient turns a second (× 1.8 at the
+threshold, × 2.6 at full); the protons crowd thicker, the pumps beat faster, electrons hop I → III → IV, the
+crews' steps quicken; above the threshold the rim and the gauge turn gold. A held focus (3 s Mendi, 1.5 s
+HALO) charges **Pełna moc** (full power): a tap on the turbine or Space releases it — 6 s at × 2.5, a golden
+storm of ATP, every open lesion mended in a cascade. Repair streaks of ×3 and more add a little charge; a
+ready full power not taken goes by itself after 8 s, but never in a rest nor so late in a push that the rest
+would cut it short (a rest ends a running one: the cell rests).
+
+**Calm (rest): clean-up.** The engine idles in cooler light; worn parts appear in the side columns (a worn
+mitochondrion, a protein clump, an old peroxisome), are **tagged** (ubiquitin; PINK1 and Parkin on a
+mitochondrion), **wrapped** by the phagophore — calm wraps faster (`meterRest`, "Sprzątanie"; without a
+signal at the neutral pace, never slower) — sealed into an **autophagosome**, carried to a **lysosome**,
+**fused** and **digested**: coloured building beads fly back to the material chip. A tap on an autophagosome
+sends it at once; a drag (drawn above the finger) carries it to the lysosome it is dropped on. A breathing
+ring (in 4, out 6) swells round the lysosomes, "wdech/wydech" in the lens. A rest judged calm leaves 2 extra
+material; a push judged above the threshold charges full power a little.
+
+**The hands: the lane.** Damage glows on the helix. A tap on the lane sends the real crew to the nearest
+lesion — generous, never a precision tap on a moving thing — and a tap elsewhere in the cell (or Space, or
+the smoke test's centre click) to the most urgent one. The crews run the pathways in their real order, each
+step named over the lane: **base excision** (glycosylase → APE1 → polymerase β → ligase; an abasic site
+starts at APE1); **nucleotide excision** for UV dimers (the skin) and bulky adducts (the gut), in two taps
+(XPC and TFIIH find and unwind it; then XPF + XPG cut a 24–32-letter piece out, a polymerase fills the gap, a
+ligase seals); a **double-strand break** (rare, from the second stage) by end joining, in two taps (Ku holds
+the ends, then ligase IV joins them). Taps chain into a **streak** (×N, a rising chime). The scan runs fast on
+a clean helix and slows while damage is open; an unrepaired lesion that reaches the **gate** on the left stops
+the helix there and the cell's own crew mends it after 3 s — slower, never lost. Damage often comes in pairs
+(an oxidative burst). A tap on the turbine nudges it one proton's step (an eighth of a turn; Mito protests
+that he is not a spinning top), a tap on Mito tells a fact.
+
+**Niches.** A session plays one niche, in turn or chosen in the lobby: the **gut crypt** (from the start;
+oxidation, lost bases, bulky adducts from food), the **skin's basal layer** (after 2 divisions; UV dimers),
+the **bone marrow** (after 5). Each tints the city and gives the daughter its fate: a gut lining cell, a skin
+cell, a blood cell progenitor.
+
+**The meta.** The **tissue**: cells per niche in patches of twelve, drawn round the lens in the lobby. Traits
+earned by the lifetime, visible in the cell: **mitochondria** (biogenesis: +1 at 1 400 / 4 500 / 11 000 ATP,
+each a small turbine beside the lens adding a quarter of its output), **enzymes** (faster steps at 25 / 80 /
+180 repairs), **lysosomes** (faster wrapping and digestion at 8 / 24 / 50 parts, a third lysosome at the
+top). **Wiedza**: 21 cards met in play, each one real number, one sentence and its source (the lobby lists
+them). Records: the best ATP per session length, the longest streak, the most divisions in a session.
+
+**Blocks and words.** Pushes 26 ± 4 s, rests 22 ± 3 s, a 3.5 s telegraph; a first-ever session opens with a
+warm-up that teaches the lane, the turbine and the recipe one coach mark at a time (then, when each first
+matters: the gauge, the second tap, the clean-up, the drag, full power, the checkpoint, the blind block).
+Blind pushes every 4th from the 3rd session: the lens frosts over, the gauge, the pad and the song hold, and
+the block's share above the threshold charges full power at its end. Each block is judged once at its end
+from its last 15 s (`RoundJudge`); `BlockContrast` for the summary. The tasks are imagery of the scene
+("Wyobraź sobie turbinę ATP: każdy obrót wyrzuca trzy złote iskry", the protons crowding at the turbine, one
+electron through I, III, IV to a drop of water, thousands of turbines in one heart cell), one counting (the
+ATP in threes) and one recall (today's breakfast turning into ATP); in a rest the 4/6 breath, the lysosome at
+work, a soft forehead, "with every out-breath something old goes and makes room for the new". The story
+card of the first session: 330 billion cells renewed a day, this one is a stem cell, and the game's time is
+changed (the turbine a hundred times slower, repair and clean-up thousands of times faster) — with the root,
+2 Corinthians 4:16. Closing passages by what happened: the first session Psalm 139:16; a skin cell
+Ezekiel 37:5–6; a division Job 33:25; a calm rest Psalm 51:10; two parts recycled John 12:24 (gently: renewal
+through letting go of the old); else 2 Corinthians 4:16. Never a claim of healing: the how-to's last tip and
+the lobby card say it is visualisation and attention training, not a treatment; nothing is "killed".
+
+**The song** (`song.ts`): warm and steady, 92 bpm in G major — verse A, the series refrain, verse B, the
+refrain (128 beats, ~83 s), an original melody and original words in four languages ("Kręci się turbina w
+nas, / złote iskry raz po raz; / enzym łata każdy ślad — / dzień po dniu odnawia świat." and "Co zużyte,
+wraca w krąg, / lizosom ma pełno rąk; / jedna dzieli się na dwie — / dzień po dniu odnawiam się."). The
+layers mirror the machine: eight plucks a bar (eight protons a turn), three bells a bar (three ATP). The
+level follows the gauge in a sighted push, stays at 0.3 in a rest and 0.42 elsewhere, holds in a blind push;
+the current line is drawn under the HUD with a karaoke fill. The lobby card switches the song and its line
+off (saved); with the song off a quiet pad plays.
+
+**Mobile first.** Upright: the lyric and the three chips under the HUD (passive), the city with the lens
+anchored just over the lane, the lane across the bottom in the thumb zone (86–136 px tall), Mito top left
+with his bubble to the right. Targets: the turbine (the square inside the lens, a finger's worth of it in the
+thumb zone) and Mito; the story card alone while it is up. On its side: the lens left, the chips stacked on
+the right, the lane along the foot. Wide: the lens as large as the height allows, the chips a column on the
+right, Mito with his bubble on the left. Words to read ≥ 13 px (a chip's name only where it fits at 13),
+nothing under 11. Fill rate: glow sprites with 'lighter'; the city, the lens's backdrop and one period of the
+helix cached on resize; no shadowBlur, no filter.
+
+**Sources** (every number on screen):
+* ATP synthase: the mammalian c₈ ring, 8 protons and 3 ATP a turn, rotation ~100 times a second — Watt IN et
+  al. 2010, *PNAS* 107:16823 (doi 10.1073/pnas.1011099107); human c₈ — Lai Y et al. 2023, *Mol Cell* (PDB 8H9F);
+  isolated F₁ ~130 rev/s — Yasuda R et al. 2001, *Nature* 410:898. 10 H⁺ per NADH (complex I 4, III 4, IV 2) —
+  Watt 2010; Jones AJY et al. 2017, *J Biol Chem*; Wikström M et al. 2018, *Chem Rev*. Proton-motive force
+  180–220 mV — Perry SW et al. 2011, *BioTechniques* 50:98.
+* Body weight of ATP a day — Törnroth-Horsefield S & Neutze R 2008, *PNAS* 105:19565 (doi
+  10.1073/pnas.0810654106). ~30 ATP per glucose — Flamholz A, Phillips R & Milo R 2014, *Mol Biol Cell* 25:3497.
+  "Powerhouse of the cell" — Siekevitz P 1957, *Scientific American* 197(1):131 (doi
+  10.1038/scientificamerican0757-131).
+* 10–20 thousand DNA changes per cell a day — Lindahl T, Nobel lecture 2015 (up to 10⁵: Hoeijmakers JHJ 2009,
+  *NEJM* 361:1475); up to 10⁵ UV photoproducts per skin cell in a day in the sun — Hoeijmakers 2009. Base
+  excision replaces 1 nucleotide — Dianov GL & Hübscher U 2013, *Nucleic Acids Res* 41:3483; nucleotide
+  excision cuts out 24–32 nt — Wakasugi M & Sancar A 1998, *PNAS* 95:6669; end joining in ~30 min — Mao Z et
+  al. 2008, *DNA Repair* 7:1765; copying errs ~10⁻¹⁰ per base pair per division — Preston BD et al. 2010,
+  *Semin Cancer Biol* 20:281. Nobel Prize in Chemistry 2015 (Lindahl, Modrich, Sancar) — nobelprize.org.
+* Autophagy — Ohsumi, Nobel Prize in Physiology or Medicine 2016 (nobelprize.org); in starved yeast —
+  Takeshige K et al. 1992, *J Cell Biol*. Lysosome pH ~4.6, several hundred per cell — Xu H & Ren D 2015, *Annu
+  Rev Physiol* 77:57. PINK1 and Parkin on worn mitochondria — Narendra D et al. 2008, *J Cell Biol* 183:795.
+* ~330 billion cells renewed a day, ~4 million a second — Sender R & Milo R 2021, *Nat Med* 27:45 (doi
+  10.1038/s41591-020-01182-9). Gut lining 3–5 days (3.48 ± 1.55) — Darwich AS et al. 2014, *Drug Metab Dispos*
+  42:2016 (doi 10.1124/dmd.114.058404); its Lgr5 crypt stem cells — Barker N et al. 2007, *Nature*. Epidermis
+  39 days — Weinstein GD et al. 1984, *J Invest Dermatol* 82:623 (doi 10.1111/1523-1747.ep12261462). Over 2
+  million red cells a second, ~120 days — OpenStax *Anatomy & Physiology* 2e §18.3; Sender & Milo 2021. "Usually
+  one daughter stays a stem cell": on average — gut crypts divide symmetrically with neutral drift (Snippert HJ
+  et al. 2010, *Cell*; Lopez-Garcia C et al. 2010, *Science*).
+* Training: mitochondrial volume +40 % in 6 weeks — Hoppeler H et al. 1985, *J Appl Physiol* 59:320; PGC-1 —
+  Wu Z et al. 1999, *Cell* 98:115.
+* Mito's facts: his own DNA, 16 569 letters, from the mother — Anderson S et al. 1981, *Nature* 290:457;
+  bacterial ancestors — Sagan (Margulis) L 1967, *J Theor Biol* 14:255; over 1 600 in a rat liver cell — Weibel
+  ER et al. 1969, *J Cell Biol* 42:68.
 
 ### 13.13 What waits for the founder's go
 
