@@ -19,10 +19,10 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DziewiatkaSound } from './audio';
-import { t, unit } from './i18n';
-import { inRect, toScreen } from './layout';
+import { t, unit, type Key } from './i18n';
+import { CHOICE_GUARD, inRect, slotAt, targetsFor, toScreen } from './layout';
 import { bestOf, freshProgress, migrate, type DziewiatkaProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -37,6 +37,8 @@ class DziewiatkaGame implements ArcadeGame {
   /** first-time explanations waiting for a clear screen (one at a time, a few seconds apart) */
   private readonly hints: { what: Coach; at: CoachAt }[] = [];
   private hintCool = 0;
+  /** a finger on a boon card: the card is taken when it lifts on the same card (a tap, not a brush) */
+  private cardDown = -1;
 
   constructor(private readonly env: GameEnv<DziewiatkaProgress>) {
     migrate(env.progress);
@@ -44,6 +46,7 @@ class DziewiatkaGame implements ArcadeGame {
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
     this.view = new DziewiatkaView(env.canvas, { reducedMotion: env.reducedMotion });
+    this.view.touch = env.touch;
     this.sound = new DziewiatkaSound(env.audio);
     // ?debug: the session in the console (and for screenshot scripts)
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __dziewiatka?: unknown }).__dziewiatka = this.sim;
@@ -51,13 +54,13 @@ class DziewiatkaGame implements ArcadeGame {
 
   resize(w: number, h: number, dpr: number): void {
     this.view.resize(w, h, dpr);
-    this.view.setTop(this.env.hudTop());
+    this.view.setInsets(this.env.insets());
   }
 
   intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
 
   start(): void {
-    this.view.setTop(this.env.hudTop());
+    this.view.setInsets(this.env.insets());
     this.sim.start();
     this.sound.start();
     this.drain();
@@ -76,29 +79,61 @@ class DziewiatkaGame implements ArcadeGame {
   draw(): void { if (this.sim.started) this.view.draw(this.sim); }
 
   /**
-   * A press on a story card closes it; on a boon card picks it; on a portrait fires that hero (at the
-   * well: sews a piece on); on the bell rings Harmony; anywhere else on the street fires the ultimate
-   * that has waited longest (at the well: sews a piece onto whoever is closest to a new rank).
+   * Under a finger, from the moment it lands (the card squashes at once): a press on a story card closes it;
+   * on a portrait fires that hero (at the well: sews a piece on), a press in the gap between two portraits
+   * means the nearer one; on the bell rings Harmony (not full: the bell shakes its head); anywhere else on
+   * the street fires the ultimate that has waited longest (at the well: sews a piece onto whoever is closest
+   * to a new rank) and leaves a ring where it landed.  A boon card is taken when the finger lifts on it.
    */
   pointer(e: PointerInput): void {
-    if (e.type !== 'down') return;
-    const sim = this.sim, hud = this.view.hud, L = this.view.L;
+    const sim = this.sim, view = this.view, hud = view.hud, L = view.L;
+    if (e.type === 'move') return;
+    if (e.type === 'up') {
+      const i = this.cardDown;
+      this.cardDown = -1;
+      hud.release();
+      if (i >= 0 && sim.choice && hud.cardAt(L, e.x, e.y) === i && sim.pick(i)) {
+        if (this.env.haptics) buzz(12);
+        this.drain();
+      }
+      return;
+    }
     if (sim.story || sim.tally) {
       sim.tap();
       this.drain();
       return;
     }
     if (sim.choice) {
+      // a finger already on the glass when the sheet rose (sewing at the well) is not a choice: a fresh tap is
       const i = hud.cardAt(L, e.x, e.y);
-      if (i >= 0) sim.pick(i);
-      this.drain();
+      if (i >= 0 && sim.choice.t >= CHOICE_GUARD) {
+        this.cardDown = i;
+        hud.pressCard(i);
+      }
       return;
     }
-    const slot = hud.slotAt(L, e.x, e.y);
-    if (slot >= 0) sim.tapSlot(slot);
-    else if (hud.bellAt(L, e.x, e.y)) sim.tapBell();
-    else if (!inRect(L.dial, e.x, e.y)) sim.tap();
+    const slot = slotAt(L, e.x, e.y);
+    if (slot >= 0) {
+      hud.pressSlot(slot);
+      sim.tapSlot(slot);
+    } else if (hud.bellAt(L, e.x, e.y)) {
+      hud.pressBell();
+      if (!sim.tapBell()) hud.bellNope();
+    } else if (!inRect(L.dial, e.x, e.y)) {
+      view.ripple(e.x, e.y);
+      sim.tap();
+    }
     this.drain();
+  }
+
+  /** What a finger can press right now (kit/mobile.ts): the story card, the boons, or the five and the bell. */
+  targets(): TapTarget[] {
+    const sim = this.sim;
+    if (!sim.started || sim.phase === 'done') return [];
+    if (sim.story) return targetsFor(this.view.L, 'story');
+    if (sim.tally) return [];
+    if (sim.choice) return targetsFor(this.view.L, 'choice', sim.choice.ids.length);
+    return targetsFor(this.view.L, 'play');
   }
 
   /** Space and Enter fire (or take the first boon), 1–5 a portrait (or 1–3 a boon), B the bell. */
@@ -115,6 +150,12 @@ class DziewiatkaGame implements ArcadeGame {
       if (e.type === 'coach') this.hints.push({ what: e.what, at: e.at });
       if (this.env.haptics) haptic(e);
     }
+  }
+
+  /** A coach mark's words for the hand the player has: a finger never hears of keys. */
+  private coachText(what: Coach): string {
+    const touchKey = `coach.${what}.touch`;
+    return t((this.env.touch && touchKey in TOUCH_COACH ? touchKey : `coach.${what}`) as Key);
   }
 
   /** The runner's coach mark, pointing at the thing it explains — never over a story card or the wipe's card. */
@@ -143,14 +184,21 @@ class DziewiatkaGame implements ArcadeGame {
     const long = h.what === 'mult' || h.what === 'well' || h.what === 'ult';
     const ms = long ? 5000 : 3800;
     this.hintCool = ms / 1000 + 0.6;
-    this.env.hint(t(`coach.${h.what}`), at, ms);
+    this.env.hint(this.coachText(h.what), at, ms);
+    // Klara waits while the mark is up (her line on screen gives way to it)
+    this.sim.coachT = ms / 1000;
   }
 
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
 
   canStop(): boolean { return this.sim.canStop(); }
 
-  pause(paused: boolean): void { void paused; }
+  /** A pause drops a finger's press (its lift may come while paused, and the runner sends no events then). */
+  pause(paused: boolean): void {
+    if (!paused) return;
+    this.cardDown = -1;
+    this.view.hud.release();
+  }
 
   /** What the block asks of the brain, its seconds left and what comes next, for the runner's panel and dock. */
   signal(): SignalPhase {
@@ -181,6 +229,9 @@ class DziewiatkaGame implements ArcadeGame {
   destroy(): void { this.hints.length = 0; }
 }
 
+/** The coach marks that speak of keys on a desktop and have their own words for a finger. */
+const TOUCH_COACH: Readonly<Record<string, true>> = { 'coach.tap.touch': true };
+
 function haptic(e: SimEvent): void {
   switch (e.type) {
     case 'ult': if (!e.auto && !e.chord) buzz(18); break;
@@ -189,11 +240,12 @@ function haptic(e: SimEvent): void {
     case 'fall': buzz(25); break;
     case 'won': buzz([15, 40, 15]); break;
     case 'wipe': buzz([40, 60, 40]); break;
-    case 'equip': if (e.rankUp) buzz([20, 30, 20, 30, 50]); break;
+    case 'equip': buzz(e.rankUp ? [20, 30, 20, 30, 50] : 8); break;
     default: break;
   }
 }
 
+/** How to play: taps only (a phone's card leaves the keys' row out). */
 function howto(): HowTo {
   return {
     goal: t('howto.goal'),
@@ -201,6 +253,7 @@ function howto(): HowTo {
       { gesture: 'tap', text: t('howto.ult') },
       { gesture: 'tap', text: t('howto.bell') },
       { gesture: 'tap', text: t('howto.well') },
+      { gesture: 'keys', text: t('howto.keys') },
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],
   };

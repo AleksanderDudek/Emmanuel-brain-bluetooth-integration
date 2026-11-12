@@ -9,18 +9,21 @@
  * flying numbers, shakes (none with reduced motion), a flash on every cast.
  */
 import { fmtNum } from '../../i18n';
-import { Floaters, Particles, Shake, approach, clamp } from '../kit/juice';
+import { Floaters, Particles, Shake, approach, clamp, ease as easing } from '../kit/juice';
+import { NO_INSETS } from '../kit/mobile';
 import { SignalTrace, traceBars, type TracePhase } from '../kit/trace';
 import type { FocusFrame } from '../kit/focus';
+import type { Insets } from '../kit/types';
 import type { Din, Hero } from './battle';
 import { HEROES, RANK_COLOR, heroCry, heroName, rankName, windCry, dinName, pieceName, type HeroId } from './content';
-import { Hud } from './hud';
+import { Hud, fitLabel } from './hud';
 import { t } from './i18n';
 import { DziewiatkaIntro } from './intro';
 import { layout, toScreen, type Layout } from './layout';
 import { growth, type DziewiatkaProgress } from './meta';
 import {
-  C, INK, SANS, font, freshDinPose, freshHeroPose, glow, paintDin, paintHero, paintKlara, paintStreet, paintWell, type DinPose, type HeroPose, type StreetLook,
+  C, INK, SANS, font, freshDinPose, freshHeroPose, freshStreetCache, glow, paintDin, paintHero, paintKlara, paintStreet, paintWell,
+  type DinPose, type HeroPose, type StreetLook,
 } from './paint';
 import { RULES } from './rules';
 import type { DziewiatkaSim, SimEvent } from './sim';
@@ -28,7 +31,7 @@ import type { DziewiatkaSim, SimEvent } from './sim';
 const TAU = Math.PI * 2;
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
-interface Fx { kind: HeroId | 'harmony' | 'special' | 'form' | 'hush'; t: number; dur: number; x: number; y: number; x2: number; y2: number; color: string; n: number }
+interface Fx { kind: HeroId | 'harmony' | 'special' | 'form' | 'hush' | 'touch'; t: number; dur: number; x: number; y: number; x2: number; y2: number; color: string; n: number }
 interface Banner { text: string; color: string; t: number; dur: number; big: boolean }
 
 export class DziewiatkaView {
@@ -36,9 +39,12 @@ export class DziewiatkaView {
   private w = 0;
   private h = 0;
   private dpr = 1;
-  private hudTop = 64;
-  L: Layout = layout(800, 600, 64);
-  readonly hud = new Hud();
+  private ins: Insets = { ...NO_INSETS, top: 64 };
+  L: Layout = layout(800, 600, this.ins);
+  readonly hud: Hud;
+  /** the player's primary input is a finger (the words on the boons' sheet) */
+  touch = false;
+  private readonly street = freshStreetCache();
   private readonly fx = new Particles(560);
   private readonly floaters = new Floaters();
   private readonly shake: Shake;
@@ -64,20 +70,27 @@ export class DziewiatkaView {
   constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
+    this.hud = new Hud(opts.reducedMotion);
   }
 
   resize(w: number, h: number, dpr: number): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, this.hudTop);
+    this.L = layout(w, h, this.ins);
   }
 
-  /** The runner's HUD bottom (read in resize). */
-  setTop(top: number): void {
-    if (Math.abs(top - this.hudTop) < 0.5) return;
-    this.hudTop = top;
-    this.L = layout(this.w, this.h, top);
+  /** What covers the canvas's edges (the runner's insets(), read in resize): the HUD band, the home indicator, a notch. */
+  setInsets(ins: Insets): void {
+    const o = this.ins;
+    if (Math.abs(o.top - ins.top) < 0.5 && Math.abs(o.bottom - ins.bottom) < 0.5 && Math.abs(o.left - ins.left) < 0.5 && Math.abs(o.right - ins.right) < 0.5) return;
+    this.ins = { ...ins };
+    this.L = layout(this.w, this.h, this.ins);
+  }
+
+  /** A finger on the street: a ring where it landed (a tap always answers, even when nothing was ready). */
+  ripple(x: number, y: number): void {
+    this.effects.push({ kind: 'touch', t: 0, dur: 0.4, x, y, x2: 0, y2: 0, color: '#fff6e3', n: 0 });
   }
 
   /** A street point (u) to the canvas (px). */
@@ -106,7 +119,7 @@ export class DziewiatkaView {
       case 'heal': {
         if (e.v < 6) break;
         const p = this.at(e.x, 0.6, 1.4);
-        this.floaters.add(`+${fmtNum(e.v)}`, p.x, p.y, { color: '#a7f0a7', size: 13 * L.u, dur: 0.8 });
+        this.floaters.add(`+${fmtNum(e.v)}`, p.x, p.y, { color: '#a7f0a7', size: 14 * L.u, dur: 0.8 });
         break;
       }
       case 'hush': {
@@ -210,7 +223,7 @@ export class DziewiatkaView {
       }
       case 'parry': case 'miss': {
         const p = this.at(e.x, 0.5, 1.2);
-        this.floaters.add(t(e.type === 'parry' ? 'hud.parry' : 'hud.miss'), p.x, p.y, { color: '#e7e2f2', size: 12 * L.u, dur: 0.7 });
+        this.floaters.add(t(e.type === 'parry' ? 'hud.parry' : 'hud.miss'), p.x, p.y, { color: '#e7e2f2', size: 13 * L.u, dur: 0.7 });
         break;
       }
       case 'chord':
@@ -240,7 +253,7 @@ export class DziewiatkaView {
         const r = e.slot >= 0 ? this.L.slots[e.slot] : null;
         if (r) {
           fx.burst(r.x + r.w / 2, r.y + r.h * 0.3, e.rankUp ? 40 : 10, { color: e.rankUp ? (RANK_COLOR[e.rank] ?? C.gold) : C.goldLight, size: e.rankUp ? 3.5 : 2.5, speed: e.rankUp ? 240 : 110, life: 0.8, g: 120, shape: e.rankUp ? 'square' : 'spark' });
-          if (e.kind >= 0) this.floaters.add(`+${pieceName(e.kind)}`, r.x + r.w / 2, r.y - 4, { color: C.cream, size: 13 * L.u, dur: 0.9 });
+          if (e.kind >= 0) this.floaters.add(`+${pieceName(e.kind)}`, r.x + r.w / 2, r.y + r.h * 0.3, { color: C.cream, size: 15 * L.u, dur: 0.9 });
         }
         if (e.rankUp) {
           const h = sim.battle.heroBySlot(e.slot);
@@ -255,7 +268,7 @@ export class DziewiatkaView {
       }
       case 'level': {
         const r = this.L.slots[e.slot];
-        if (r) this.floaters.add(`${t('panel.lv', { n: e.lv })}!`, r.x + r.w / 2, r.y - 2, { color: '#a7f0a7', size: 13 * L.u, dur: 1.0 });
+        if (r) this.floaters.add(`${t('panel.lv', { n: e.lv })}!`, r.x + r.w / 2, r.y + r.h * 0.3, { color: '#a7f0a7', size: 15 * L.u, dur: 1.0 });
         break;
       }
       case 'star':
@@ -407,7 +420,7 @@ export class DziewiatkaView {
       fog: sim.blind ? 1 : 0,
     };
     const S = L.s * L.k;
-    paintStreet(ctx, L.w, L.h, L.groundY, L.fieldBottom, S, this.clock, look, L.x0);
+    paintStreet(ctx, L.w, L.h, L.streetY, L.fieldBottom, S, this.clock, look, L.x0, this.street, this.dpr);
     // the well in a rest
     const wp = this.at(RULES.wellX, 0.2);
     paintWell(ctx, wp.x, wp.y, S, sim.calmShown, this.wellShown, this.clock);
@@ -440,7 +453,7 @@ export class DziewiatkaView {
     // hero bars over their heads (health, a thin energy line)
     for (const h of sim.battle.heroes) if (!h.down && !sim.atWell) this.heroBar(ctx, h);
     this.fx.draw(ctx);
-    this.floaters.draw(ctx, `800 ${SANS}`);
+    this.drawFloaters(ctx);
     ctx.restore();
     // flashes
     if (this.flash > 0) {
@@ -471,10 +484,12 @@ export class DziewiatkaView {
     if (line) {
       const a = clamp(line.t / 0.2) * clamp((line.dur - line.t) / 0.3);
       const head = this.at(kx, 0.05, 1.3);
-      this.hud.drawBubble(ctx, L, line.text, head.x + L.s * L.k * 0.1, head.y, a);
+      const boss = sim.battle.boss;
+      const minY = L.pill.y + L.pill.h + 6 + (boss && boss.enter <= 0 ? L.bossBar.h + 9 : 0);
+      this.hud.drawBubble(ctx, L, line.text, head.x + L.s * L.k * 0.1, head.y, a, minY);
     }
     this.hud.drawWipe(ctx, L, sim);
-    this.hud.drawChoice(ctx, L, sim, this.clock);
+    this.hud.drawChoice(ctx, L, sim, this.clock, this.touch);
     this.hud.drawStory(ctx, L, sim, this.clock);
   }
 
@@ -687,6 +702,15 @@ export class DziewiatkaView {
           ctx.fillText('♪', x, y);
           break;
         }
+        case 'touch': {
+          // where a finger landed on the street: a ring that opens and fades
+          ctx.strokeStyle = `rgba(255,246,227,${0.85 * a})`;
+          ctx.lineWidth = 3 * a + 1;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, 10 + 26 * easing.outCubic(k), 0, TAU);
+          ctx.stroke();
+          break;
+        }
         case 'special': {
           ctx.strokeStyle = `rgba(197,90,122,${a})`;
           ctx.lineWidth = 3;
@@ -703,6 +727,31 @@ export class DziewiatkaView {
     }
   }
 
+  /**
+   * The flying numbers and words (kit Floaters' items): a valid bold font (the kit's draw takes a family only),
+   * an ink outline for busy art, popping in and rising like the kit's.
+   */
+  private drawFloaters(ctx: CanvasRenderingContext2D): void {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(43,34,56,.8)';
+    for (const f of this.floaters.items) {
+      const k = f.t / f.dur;
+      const pop = k < 0.18 ? Math.max(0.6, easing.outBack(k / 0.18)) : 1;
+      ctx.globalAlpha = k > 0.65 ? Math.max(0, 1 - (k - 0.65) / 0.35) : 1;
+      const px = Math.max(13, f.size) * pop;
+      ctx.font = font(px, 800);
+      const y = f.y - 46 * easing.outCubic(k);
+      ctx.lineWidth = Math.max(2.5, px * 0.16);
+      ctx.strokeText(f.text, f.x, y);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, y);
+    }
+    ctx.restore();
+  }
+
   private drawBanner(): void {
     const b = this.banner;
     if (!b) return;
@@ -710,19 +759,19 @@ export class DziewiatkaView {
     const k = b.t / b.dur;
     const a = k < 0.12 ? k / 0.12 : k > 0.75 ? Math.max(0, 1 - (k - 0.75) / 0.25) : 1;
     const pop = k < 0.12 ? 0.8 + 0.2 * (k / 0.12) : 1;
-    const px = (b.big ? 28 : 19) * L.u * pop;
-    const y = Math.max(L.pill.y + L.pill.h + px * 0.8 + 6, L.top + (L.fieldBottom - L.top) * (b.big ? 0.36 : 0.28));
+    const px = (b.big ? 28 : 20) * L.u * pop;
+    const y = Math.max(L.pill.y + L.pill.h + px * 0.8 + 8, L.top + (L.fieldBottom - L.top) * (b.big ? 0.36 : 0.28));
     ctx.save();
     ctx.globalAlpha = a;
-    ctx.font = font(px, 900);
+    const text = fitLabel(ctx, b.text, L.w - 2 * L.padL, px, 900, SANS, 16);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineWidth = Math.max(3, px * 0.18);
     ctx.strokeStyle = 'rgba(43,34,56,.75)';
     ctx.lineJoin = 'round';
-    ctx.strokeText(b.text, L.w / 2, y);
+    ctx.strokeText(text, L.w / 2, y);
     ctx.fillStyle = b.color;
-    ctx.fillText(b.text, L.w / 2, y);
+    ctx.fillText(text, L.w / 2, y);
     ctx.restore();
   }
 }

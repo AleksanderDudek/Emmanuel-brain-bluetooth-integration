@@ -9,13 +9,18 @@
  * Klara with her handbell and notebook, the well, and the bell of Zacisze.  Every function draws at a
  * point with a scale `s` (px per u) and keeps no state.
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { TraceBar } from '../kit/trace';
 import { HEROES, type ChapterSpec, type DinKind, type HeroId } from './content';
 
 export const INK = '#2b2238';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
-export const font = (px: number, weight = 700, family = SANS): string => `${weight} ${Math.max(8, Math.round(px))}px ${family}`;
+/** A canvas font, never under MIN_TEXT (11 px): anything smaller is a smudge on a phone at arm's length. */
+export const font = (px: number, weight = 700, family = SANS): string => {
+  const v = Math.round(px);
+  return `${weight} ${v >= MIN_TEXT ? v : MIN_TEXT}px ${family}`;
+};
 
 export const C = {
   gold: '#ffc94a',
@@ -41,9 +46,40 @@ export function hash(n: number): number {
   return x - Math.floor(x);
 }
 
-/** A soft round glow (additive looks best: set the composite outside). */
+/** Each glow colour baked once into a small sprite (a radial gradient from opaque to clear): no gradient per frame. */
+const glowSprites = new Map<string, HTMLCanvasElement | null>();
+function glowSprite(rgb: string): HTMLCanvasElement | null {
+  const had = glowSprites.get(rgb);
+  if (had !== undefined) return had;
+  let out: HTMLCanvasElement | null = null;
+  if (typeof document !== 'undefined') {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g = c.getContext('2d');
+    if (g) {
+      const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+      gr.addColorStop(0, `${rgb}1)`);
+      gr.addColorStop(1, `${rgb}0)`);
+      g.fillStyle = gr;
+      g.fillRect(0, 0, 128, 128);
+      out = c;
+    }
+  }
+  glowSprites.set(rgb, out);
+  return out;
+}
+
+/** A soft round glow (additive looks best: set the composite outside); `rgb` as "rgba(r,g,b,". */
 export function glow(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, rgb: string, a: number): void {
   if (!(r > 0) || a <= 0) return;
+  const sprite = glowSprite(rgb);
+  if (sprite) {
+    const was = ctx.globalAlpha;
+    ctx.globalAlpha = was * Math.min(1, a);
+    ctx.drawImage(sprite, x - r, y - r, r * 2, r * 2);
+    ctx.globalAlpha = was;
+    return;
+  }
   const g = ctx.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, `${rgb}${a})`);
   g.addColorStop(1, `${rgb}0)`);
@@ -51,6 +87,31 @@ export function glow(ctx: CanvasRenderingContext2D, x: number, y: number, r: num
   ctx.beginPath();
   ctx.arc(x, y, r, 0, TAU);
   ctx.fill();
+}
+
+/** `n` five-pointed stars in a row centred on (cx, cy), each of outer radius `r`, gold with an ink edge (shapes, not glyphs: crisp at any size). */
+export function paintStars(ctx: CanvasRenderingContext2D, cx: number, cy: number, n: number, r: number, fill = '#f2b524'): void {
+  if (n <= 0 || !(r > 0)) return;
+  const step = r * 2.15;
+  const x0 = cx - ((n - 1) * step) / 2;
+  ctx.save();
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = 'rgba(43,34,56,.75)';
+  ctx.lineWidth = Math.max(1, r * 0.22);
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let k = 0; k < n; k++) {
+    const x = x0 + k * step;
+    for (let p = 0; p < 10; p++) {
+      const a = -Math.PI / 2 + (p * Math.PI) / 5, rr = p % 2 ? r * 0.45 : r;
+      if (p === 0) ctx.moveTo(x + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+      else ctx.lineTo(x + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+  }
+  ctx.stroke();
+  ctx.fill();
+  ctx.restore();
 }
 
 export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -87,11 +148,84 @@ export interface StreetLook {
 }
 
 /**
+ * The street's still layers, painted once per size and district and then copied each frame (render.ts keeps
+ * one): the sky with the sun and the far roofs (in the tower, its stone walls), and the cobbled street.  On a
+ * phone the fill rate is what costs: two copies instead of the gradients, the glow and ~300 cobbles.
+ */
+export interface StreetCache {
+  key: string;
+  sky: HTMLCanvasElement | null;
+  ground: HTMLCanvasElement | null;
+  /** the sky layer's height and the ground layer's top (CSS px) */
+  skyH: number;
+  groundTop: number;
+}
+
+export const freshStreetCache = (): StreetCache => ({ key: '', sky: null, ground: null, skyH: 0, groundTop: 0 });
+
+function buildStreetCache(c: StreetCache, key: string, w: number, h: number, groundY: number, fieldBottom: number, s: number, look: StreetLook, dpr: number): void {
+  c.key = key;
+  c.sky = c.ground = null;
+  const baseY = groundY - s * 0.55;
+  const skyH = Math.max(1, Math.min(h, Math.ceil(baseY) + 2));
+  const groundTop = Math.max(0, Math.min(h - 1, Math.floor(baseY) - 1));
+  const layer = (lh: number, paint: (g: CanvasRenderingContext2D) => void): HTMLCanvasElement | null => {
+    const el = document.createElement('canvas');
+    el.width = Math.max(1, Math.round(w * dpr));
+    el.height = Math.max(1, Math.round(lh * dpr));
+    const g = el.getContext('2d');
+    if (!g) return null;
+    paint(g);
+    return el;
+  };
+  c.sky = layer(skyH, g => {
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    paintSky(g, w, skyH, groundY, s, look);
+  });
+  c.ground = layer(h - groundTop, g => {
+    g.setTransform(dpr, 0, 0, dpr, 0, -groundTop * dpr);
+    paintGround(g, w, h, groundY, fieldBottom, s, look);
+  });
+  c.skyH = skyH;
+  c.groundTop = groundTop;
+}
+
+/**
  * The sky, the far roofs and the bell tower, the row of houses (their windows are the band's history:
  * gold above the threshold, cool blue in a calm rest, dark with a dotted sill without signal, fogged
- * while a blind block runs), the district's props and the cobbled street.
+ * while a blind block runs), the district's props and the cobbled street.  With a cache (and a document)
+ * the still layers are copied from it; without one (the intro, the lobby's art) everything is painted.
  */
-export function paintStreet(ctx: CanvasRenderingContext2D, w: number, h: number, groundY: number, fieldBottom: number, s: number, t: number, look: StreetLook, x0: number): void {
+export function paintStreet(ctx: CanvasRenderingContext2D, w: number, h: number, groundY: number, fieldBottom: number, s: number, t: number, look: StreetLook, x0: number,
+  cache?: StreetCache, dpr = 1): void {
+  const ch = look.chapter;
+  let cached = false;
+  if (cache && typeof document !== 'undefined') {
+    const key = `${Math.round(w)}x${Math.round(h)}@${dpr}|${groundY.toFixed(1)}|${fieldBottom.toFixed(1)}|${s.toFixed(2)}|${ch.id}|${look.tower ? 1 : 0}`;
+    if (cache.key !== key) buildStreetCache(cache, key, w, h, groundY, fieldBottom, s, look, dpr);
+    cached = !!(cache.sky && cache.ground);
+  }
+  if (cached && cache?.sky) ctx.drawImage(cache.sky, 0, 0, w, cache.skyH);
+  else paintSky(ctx, w, h, groundY, s, look);
+  if (look.tower) paintRopes(ctx, w, groundY, s, t);
+  else {
+    paintBirds(ctx, w, groundY, s, t);
+    paintBellTower(ctx, w * (ch.id === 'plac' ? 0.8 : 0.9), groundY - s * 0.6, s * (ch.id === 'plac' ? 1.25 : 0.8), look.bellSwing, look.bellGold, t);
+  }
+  paintHouses(ctx, w, groundY, s, look, t);
+  paintProps(ctx, w, groundY, s, ch, look.tower, t, x0);
+  if (cached && cache?.ground) ctx.drawImage(cache.ground, 0, cache.groundTop, w, h - cache.groundTop);
+  else paintGround(ctx, w, h, groundY, fieldBottom, s, look);
+  // the rest's calm tint and the Din's noise drifting over the right of the street
+  if (look.rest > 0.01) {
+    ctx.fillStyle = `rgba(120,170,230,${0.16 * look.rest})`;
+    ctx.fillRect(0, 0, w, h);
+  }
+  if (look.noise > 0.01) paintNoise(ctx, w * 0.45, 0, w * 0.55, groundY + s * 0.2, look.noise, t);
+}
+
+/** The still sky: its gradient over `h`, a warm sun low on the left and the far roofs (in the tower: its stone walls). */
+function paintSky(ctx: CanvasRenderingContext2D, w: number, h: number, groundY: number, s: number, look: StreetLook): void {
   const ch = look.chapter;
   const sky = ctx.createLinearGradient(0, 0, 0, groundY);
   if (look.tower) {
@@ -103,25 +237,25 @@ export function paintStreet(ctx: CanvasRenderingContext2D, w: number, h: number,
   }
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
-  if (look.tower) paintTowerInside(ctx, w, groundY, s, t);
-  else {
-    // a warm sun low on the left and the far roofs
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    glow(ctx, w * 0.14, groundY * 0.42, Math.max(w, h) * 0.32, 'rgba(255,236,190,', 0.35);
-    ctx.restore();
-    paintFarRoofs(ctx, w, groundY, s, ch.wall, t);
-    paintBellTower(ctx, w * (ch.id === 'plac' ? 0.8 : 0.9), groundY - s * 0.6, s * (ch.id === 'plac' ? 1.25 : 0.8), look.bellSwing, look.bellGold, t);
+  if (look.tower) {
+    paintTowerInside(ctx, w, groundY, s);
+    return;
   }
-  paintHouses(ctx, w, groundY, s, look, t);
-  paintProps(ctx, w, groundY, s, ch, look.tower, t, x0);
-  // the street
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  glow(ctx, w * 0.14, groundY * 0.42, Math.max(w, groundY) * 0.32, 'rgba(255,236,190,', 0.35);
+  ctx.restore();
+  paintFarRoofs(ctx, w, groundY, s, ch.wall);
+}
+
+/** The still street: its gradient from the curb down, the curb and the cobbles. */
+function paintGround(ctx: CanvasRenderingContext2D, w: number, h: number, groundY: number, fieldBottom: number, s: number, look: StreetLook): void {
+  const ch = look.chapter;
   const st = ctx.createLinearGradient(0, groundY - s * 0.55, 0, fieldBottom + 10);
   st.addColorStop(0, shade(look.tower ? '#8a7a72' : ch.ground, 0.12));
   st.addColorStop(1, shade(look.tower ? '#6d5f58' : ch.ground, -0.18));
   ctx.fillStyle = st;
   ctx.fillRect(0, groundY - s * 0.55, w, h - (groundY - s * 0.55));
-  // the curb and the cobbles (they scroll with nothing: a still street)
   ctx.fillStyle = 'rgba(43,34,56,.18)';
   ctx.fillRect(0, groundY - s * 0.58, w, Math.max(2, s * 0.05));
   ctx.strokeStyle = 'rgba(43,34,56,.12)';
@@ -135,15 +269,24 @@ export function paintStreet(ctx: CanvasRenderingContext2D, w: number, h: number,
       ctx.stroke();
     }
   }
-  // the rest's calm tint and the Din's noise drifting over the right of the street
-  if (look.rest > 0.01) {
-    ctx.fillStyle = `rgba(120,170,230,${0.16 * look.rest})`;
-    ctx.fillRect(0, 0, w, h);
-  }
-  if (look.noise > 0.01) paintNoise(ctx, w * 0.45, 0, w * 0.55, groundY + s * 0.2, look.noise, t);
 }
 
-function paintFarRoofs(ctx: CanvasRenderingContext2D, w: number, groundY: number, s: number, wall: string, t: number): void {
+/** A few birds crossing the sky. */
+function paintBirds(ctx: CanvasRenderingContext2D, w: number, groundY: number, s: number, t: number): void {
+  const base = groundY - s * 2.6;
+  ctx.strokeStyle = 'rgba(43,34,56,.35)';
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 3; i++) {
+    const bx = ((t * 12 + i * 170) % (w + 60)) - 30, by = base - s * (2.2 + i * 0.35) + Math.sin(t * 2 + i) * 4;
+    ctx.beginPath();
+    ctx.moveTo(bx - 5, by);
+    ctx.quadraticCurveTo(bx - 2, by - 3, bx, by);
+    ctx.quadraticCurveTo(bx + 2, by - 3, bx + 5, by);
+    ctx.stroke();
+  }
+}
+
+function paintFarRoofs(ctx: CanvasRenderingContext2D, w: number, groundY: number, s: number, wall: string): void {
   ctx.fillStyle = shade(wall, 0.45);
   ctx.globalAlpha = 0.55;
   const base = groundY - s * 2.6;
@@ -161,17 +304,6 @@ function paintFarRoofs(ctx: CanvasRenderingContext2D, w: number, groundY: number
   ctx.closePath();
   ctx.fill();
   ctx.globalAlpha = 1;
-  // a few birds
-  ctx.strokeStyle = 'rgba(43,34,56,.35)';
-  ctx.lineWidth = 1.2;
-  for (let i = 0; i < 3; i++) {
-    const bx = ((t * 12 + i * 170) % (w + 60)) - 30, by = base - s * (2.2 + i * 0.35) + Math.sin(t * 2 + i) * 4;
-    ctx.beginPath();
-    ctx.moveTo(bx - 5, by);
-    ctx.quadraticCurveTo(bx - 2, by - 3, bx, by);
-    ctx.quadraticCurveTo(bx + 2, by - 3, bx + 5, by);
-    ctx.stroke();
-  }
 }
 
 /** The bell tower, far off: an arched belfry with the bell, swinging when it rings, golden when Harmony waits. */
@@ -470,8 +602,20 @@ function paintProps(ctx: CanvasRenderingContext2D, w: number, groundY: number, s
   }
 }
 
-function paintTowerInside(ctx: CanvasRenderingContext2D, w: number, groundY: number, s: number, t: number): void {
-  // stone walls, stairs going up on the left, ropes from the bell above
+/** The bell's ropes swaying down the tower (the moving part of its inside). */
+function paintRopes(ctx: CanvasRenderingContext2D, w: number, groundY: number, s: number, t: number): void {
+  ctx.strokeStyle = '#c9a36a';
+  ctx.lineWidth = Math.max(1.5, s * 0.04);
+  for (const rx of [w * 0.55, w * 0.7]) {
+    ctx.beginPath();
+    ctx.moveTo(rx, 0);
+    ctx.quadraticCurveTo(rx + Math.sin(t * 0.8 + rx) * s * 0.15, groundY * 0.5, rx, groundY - s * 1.3);
+    ctx.stroke();
+  }
+}
+
+function paintTowerInside(ctx: CanvasRenderingContext2D, w: number, groundY: number, s: number): void {
+  // stone walls, stairs going up on the left (the ropes from the bell above: paintRopes)
   ctx.fillStyle = 'rgba(255,230,200,.06)';
   for (let y = groundY - s * 0.6, r = 0; y > -s; y -= s * 0.45, r++) {
     for (let x = (r % 2) * s * 0.5; x < w; x += s) {
@@ -482,14 +626,6 @@ function paintTowerInside(ctx: CanvasRenderingContext2D, w: number, groundY: num
   }
   ctx.fillStyle = 'rgba(30,22,30,.35)';
   for (let k = 0; k < 7; k++) ctx.fillRect(k * s * 0.5, groundY - s * 0.6 - (k + 1) * s * 0.32, s * 0.5, (k + 1) * s * 0.32);
-  ctx.strokeStyle = '#c9a36a';
-  ctx.lineWidth = Math.max(1.5, s * 0.04);
-  for (const rx of [w * 0.55, w * 0.7]) {
-    ctx.beginPath();
-    ctx.moveTo(rx, 0);
-    ctx.quadraticCurveTo(rx + Math.sin(t * 0.8 + rx) * s * 0.15, groundY * 0.5, rx, groundY - s * 1.3);
-    ctx.stroke();
-  }
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   glow(ctx, w * 0.62, 0, s * 4, 'rgba(255,190,110,', 0.25);

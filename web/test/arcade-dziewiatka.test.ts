@@ -8,9 +8,12 @@ import {
   addNotes, addXp, bestOf, equip, equipAll, familyBonus, freshProgress, growth, migrate, powerOf, swapIn, xpNeed,
   type DziewiatkaProgress,
 } from '../src/arcade/dziewiatka/meta';
+import { CHOICE_GUARD, layout, slotAt, targetsFor } from '../src/arcade/dziewiatka/layout';
+import { font } from '../src/arcade/dziewiatka/paint';
 import { RULES } from '../src/arcade/dziewiatka/rules';
 import { DziewiatkaSim, autoTeam, finaleFor, multFor, planBlocks, starsFor, type SimEvent } from '../src/arcade/dziewiatka/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { CHECK_SIZES, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
@@ -686,8 +689,12 @@ describe('the lobby (index.ts, panel.ts)', () => {
     expect(mod.unit!(1)).toBe('uciszony');
     expect(mod.unit!(5)).toBe('uciszonych');
     const how = mod.howto!();
-    expect(how.hands.length).toBeGreaterThanOrEqual(1);
-    expect(how.hands.length).toBeLessThanOrEqual(3);
+    // a finger's card (the runner drops the keys' row on touch) has one to three controls and no keys in its words
+    const finger = how.hands.filter(c => c.gesture !== 'keys');
+    expect(finger.length).toBeGreaterThanOrEqual(1);
+    expect(finger.length).toBeLessThanOrEqual(3);
+    for (const c of finger) expect(c.text).not.toMatch(/spacj|klawisz|space|\bkey|leertaste|taste|mellanslag|tangent|klik|click|mysz|mouse/i);
+    expect(how.hands.filter(c => c.gesture === 'keys')).toHaveLength(1);
     expect((how.tips ?? []).length).toBeLessThanOrEqual(2);
     // the placeholder's save survives the module's own entry points
     const old = { sessions: 4 } as unknown as DziewiatkaProgress;
@@ -713,5 +720,128 @@ describe('the lobby (index.ts, panel.ts)', () => {
     expect(p.team).toContain('uprzejmosc');
     expect(p.team).not.toContain('milosc');
     expect(p.seen).toContain('teamSet');
+  });
+});
+
+describe('mobile first (DESIGN.md §11.7, kit/mobile.ts): the layout on every checked size', () => {
+  const states = ['play', 'choice', 'story'] as const;
+
+  for (const c of CHECK_SIZES) {
+    it(`${c.name} (${c.w}×${c.h}): the five, the bell, the boons and the story card are finger-sized, inside the insets and apart`, () => {
+      const L = layout(c.w, c.h, c.insets);
+      for (const st of states) expect(auditTargets(targetsFor(L, st), c.w, c.h, c.insets), `${c.name} · ${st}`).toEqual([]);
+      // the portraits are the main control: big cards (an upright phone ≥ 84 px tall, on its side ≥ 64), a gap apart
+      for (const r of L.slots) {
+        expect(r.h).toBeGreaterThanOrEqual(L.shape === 'portrait' ? 84 : 64);
+        expect(r.w).toBeGreaterThanOrEqual(MIN_TAP);
+      }
+      for (let i = 1; i < 5; i++) expect(L.slots[i].x - (L.slots[i - 1].x + L.slots[i - 1].w)).toBeGreaterThanOrEqual(TAP_GAP - 0.01);
+      // no empty band under the strip (the old simulator reserve): the five sit on the bottom inset
+      const low = Math.max(...L.slots.map(r => r.y + r.h));
+      expect(c.h - c.insets.bottom - low).toBeLessThanOrEqual(16);
+      // the street takes what is left above the controls, from the HUD down
+      expect(L.fieldBottom - L.top).toBeGreaterThanOrEqual((c.h - c.insets.top - c.insets.bottom) * 0.5);
+      // passive information right under the HUD; the story card inside the band
+      expect(L.pill.y).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.pill.y).toBeLessThan(c.insets.top + 12);
+      expect(L.story.y).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.story.y + L.story.h).toBeLessThanOrEqual(c.h - c.insets.bottom);
+    });
+  }
+
+  it('an upright phone keeps every recurring control in the thumb zone, 16 px clear of the side edges', () => {
+    for (const c of CHECK_SIZES.filter(s => s.h > s.w)) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.shape, c.name).toBe('portrait');
+      for (const tg of targetsFor(L, 'play')) {
+        expect(tg.y, `${c.name} · ${tg.label}`).toBeGreaterThanOrEqual(c.h * (1 - THUMB));
+        expect(tg.x).toBeGreaterThanOrEqual(16);
+        expect(tg.x + tg.w).toBeLessThanOrEqual(c.w - 16);
+      }
+      // the dial and the bell share a row over the five; the bell is a primary control (≥ 48 px)
+      expect(L.dial.y + L.dial.h).toBeLessThanOrEqual(L.slots[0].y);
+      expect(Math.min(L.bell.w, L.bell.h)).toBeGreaterThanOrEqual(48);
+      // the boons: three stacked full-width cards in a bottom sheet, each a big tap target
+      expect(L.sheet).not.toBeNull();
+      for (const r of L.cards) {
+        expect(r.w).toBeGreaterThanOrEqual(Math.min(c.w - L.padL - L.padR, 520 * L.u) - 0.5);
+        expect(L.padL).toBeLessThanOrEqual(24);
+        expect(r.h).toBeGreaterThanOrEqual(72);
+        expect(r.y).toBeGreaterThanOrEqual(c.h * 0.3);
+      }
+      for (let i = 1; i < 3; i++) expect(L.cards[i].y).toBeGreaterThan(L.cards[i - 1].y + L.cards[i - 1].h);
+    }
+  });
+
+  it('a phone on its side puts the dial, the five and the bell in one strip along the bottom; a desktop the same, grown', () => {
+    for (const c of CHECK_SIZES.filter(s => s.w > s.h)) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.shape, c.name).toBe(c.h - c.insets.top < 330 ? 'side' : 'wide');
+      const y = L.slots[0].y;
+      expect(L.dial.y).toBeCloseTo(y);
+      expect(L.bell.y).toBeCloseTo(y);
+      expect(L.dial.x + L.dial.w).toBeLessThan(L.slots[0].x);
+      expect(L.bell.x).toBeGreaterThan(L.slots[4].x + L.slots[4].w);
+      // the boons in a row, under the HUD
+      expect(L.sheet).toBeNull();
+      expect(L.cards[1].y).toBeCloseTo(L.cards[0].y);
+      expect(L.cardsTitle - 24).toBeGreaterThanOrEqual(c.insets.top);
+    }
+    const phone = layout(601, 360, { top: 68, right: 0, bottom: 0, left: 0 });
+    const desk = layout(1280, 672, { top: 192, right: 0, bottom: 0, left: 0 });
+    expect(phone.u).toBe(1);
+    expect(desk.u).toBeGreaterThan(1.2);
+    expect(desk.slots[0].h).toBeGreaterThan(phone.slots[0].h);
+  });
+
+  it('a finger in the gap between two portraits means the nearer one; the street and the dial are not portraits', () => {
+    const L = layout(360, 500, { top: 134, right: 0, bottom: 0, left: 0 });
+    const [a, b] = [L.slots[1], L.slots[2]];
+    const gapX = a.x + a.w + L.gap / 2;
+    expect(slotAt(L, a.x + a.w / 2, a.y + a.h / 2)).toBe(1);
+    expect(slotAt(L, gapX - 1, a.y + 20)).toBe(1);
+    expect(slotAt(L, gapX + 1, a.y + 20)).toBe(2);
+    expect(slotAt(L, b.x + 2, b.y + b.h - 2)).toBe(2);
+    expect(slotAt(L, 180, (L.top + L.fieldBottom) / 2)).toBe(-1);
+    expect(slotAt(L, L.dial.x + 10, L.dial.y + 10)).toBe(-1);
+    // a boon card takes a finger only after the sheet has been up a moment
+    expect(CHOICE_GUARD).toBeGreaterThanOrEqual(0.3);
+  });
+
+  it('Klara waits while a coach mark is up, so her bubble never stacks on the runner\'s', () => {
+    const run = (coach: boolean) => {
+      const sim = later();
+      for (let i = 0; i < 12 * 60; i++) {
+        if (coach && i % 60 === 0) sim.coachT = 1.2;
+        sim.update(STEP, frame(), i * STEP);
+        if (coach) expect(sim.talk.line).toBeNull();
+      }
+      return sim.talk.said.length;
+    };
+    expect(run(false)).toBeGreaterThan(0);
+    expect(run(true)).toBe(0);
+  });
+
+  it('never draws a text under 11 px: the font helper floors every size', () => {
+    for (const px of [0, 1, 5.4, 8, 10.4, 10.6, -3, Number.NaN]) {
+      const m = font(px).match(/ (\d+)px /);
+      expect(Number(m?.[1]), String(px)).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(font(16, 800)).toContain('800 16px');
+  });
+
+  it('fits a text into lines, shrinking to its floor and then cutting with "…", never under 11 px', async () => {
+    const { fitLines } = await import('../src/arcade/dziewiatka/hud');
+    // a stand-in context: every glyph half the font's size wide
+    const fake = { font: '', measureText: (s: string) => ({ width: s.length * Number((fake.font.match(/(\d+)px/) ?? ['', '10'])[1]) * 0.5 }) };
+    const ctx = fake as unknown as CanvasRenderingContext2D;
+    const short = fitLines(ctx, 'Ciepła zupa', 200, 2, 16, 13);
+    expect(short).toEqual({ lines: ['Ciepła zupa'], px: 16 });
+    const long = fitLines(ctx, 'kto upadnie, wstanie z 80% zdrowia (raz) i pójdzie dalej przez cały rynek', 120, 2, 16, 13);
+    expect(long.px).toBeGreaterThanOrEqual(13);
+    expect(long.lines.length).toBeLessThanOrEqual(2);
+    expect(long.lines[1].endsWith('…')).toBe(true);
+    const tiny = fitLines(ctx, 'Selbstbeherrschung', 40, 1, 14, 3);
+    expect(tiny.px).toBe(MIN_TEXT);
   });
 });

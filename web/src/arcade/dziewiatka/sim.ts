@@ -202,6 +202,8 @@ export class DziewiatkaSim {
   story: Story | null = null;
   private readonly stories: Story[] = [];
   tally: Tally | null = null;
+  /** a coach mark stays on screen this long yet (s; index.ts sets it as it shows one): Klara waits for it, so two bubbles never stack */
+  coachT = 0;
   choice: Choice | null = null;
   mission: MissionState;
   /** the gold surge: seconds to the next shadow, and how many this block */
@@ -687,6 +689,7 @@ export class DziewiatkaSim {
     if (!this.started || !(dt > 0)) return;
     dt = Math.min(dt, 0.1);
     this.t = t;
+    this.coachT = Math.max(0, this.coachT - dt);
     const B = this.battle;
     B.stop = Math.max(0, B.stop - dt);
     const held = this.frozen || B.stop > 0 || this.phase === 'done';
@@ -732,7 +735,7 @@ export class DziewiatkaSim {
     const b = this.block;
     const tele = this.phase === 'play' && b && this.blockT >= b.dur - RULES.telegraph;
     const banner = this.phase === 'play' && this.blockT < RULES.bannerSec && this.blockIndex > 0;
-    return !!(tele || banner || this.story || this.tally || this.choice);
+    return !!(tele || banner || this.story || this.tally || this.choice || this.coachT > 0);
   }
 
   /** The band's slow quantities: the energy multiplier, Harmony from a held focus; the well's calm. */
@@ -1166,12 +1169,14 @@ export class DziewiatkaSim {
     else if (this.bestBefore !== null && this.score > 0 && this.bestBefore > this.score) add(3, t('hl.toBest', { n: this.bestBefore - this.score }));
     for (const r of this.rankUps.slice(-2)) add(4, t('hl.rank', { name: heroName(r.id), rank: rankName(r.rank) }));
     for (const s of this.starUps.slice(-2)) add(5, t('hl.star', { name: heroName(s.id), n: s.stars }));
-    if (this.harmoniesNow > 0) add(5, t('hl.harmony', { n: this.harmoniesNow }));
+    // one chord is the closing line's already; the count is news from the second
+    if (this.harmoniesNow > 1) add(5, t('hl.harmony', { n: this.harmoniesNow }));
     if (this.threeStars > 0) add(6, t('hl.stars3', { n: this.threeStars }));
     if (this.topFloor > 0) add(6, t('hl.floor', { n: this.topFloor }));
     if (this.interruptsNow > 0) add(7, t('hl.interrupts', { n: this.interruptsNow }));
     if (this.blindShare >= 0) add(8, t('hl.blind', { n: this.blindShare }));
     if (this.lastPick) add(9, t('hl.boonKept', { name: boonName(this.lastPick.id) }));
-    return notes.sort((a, b) => a.rank - b.rank).slice(0, 6).map(n => n.text);
+    // five at most: on a phone the summary's verse and its buttons stay near
+    return notes.sort((a, b) => a.rank - b.rank).slice(0, 5).map(n => n.text);
   }
 }

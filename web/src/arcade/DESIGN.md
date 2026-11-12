@@ -2658,6 +2658,53 @@ virtues against vices; nothing is "power of the Spirit"; Faithfulness is *wierno
 `hud.ts`, `paint.ts`, `layout.ts`, `intro.ts`, `preview.ts`, `panel.ts` (the lobby card: map, the five,
 families), `audio.ts`, `i18n.ts`, `index.ts`; tests in `test/arcade-dziewiatka.test.ts`.
 
+**Mobile first (§12, 2026-11-12).** Hero Wars is held on its side; Dziewiątka is laid out for a phone held
+upright in one hand first, on its side second, and grows from there (`layout.ts`: three shapes of one view,
+sized for a 360 px phone at `u` = 1, `uiScale` up to 1.3 on a tablet or a desktop).
+
+* **Upright: the thumb zone.** Everything pressed again and again sits in the bottom 45 %: the five portraits
+  across the width as big cards (61 × 86 px on a 360 px phone, 67 × 95 on an iPhone, 6 px apart, 16 px clear of
+  the screen's side edges), and over them one row with the energy dial (left) and the bell (right, a 140 px wide
+  plate), 50–61 px tall. The 54 px the simulator's switch kept empty at the bottom is gone. The street takes the
+  whole height above the row, from the HUD down (208 px on the smallest phone, 470 on an installed iPhone): the
+  figures are drawn larger than their spacing (the band's height decides, up to ×1.8) and the rows twice as deep,
+  so the five stand staggered instead of in a clump; the mission's pill and the boss's bar sit right under the HUD.
+* **On its side** (601 × 360 beside the chart's column): one strip along the bottom — the dial (the arc, ×1,0 and
+  "Energia"), the five (71 × 73) and the bell — and the street across the width above it, as close as before. A
+  tablet upright is the phone grown (cards 149 × 135 with names, figures twice the old size instead of a tiny
+  street under an empty sky); a desktop is the strip grown and centred.
+* **The portraits.** The face in its rank's ring, the stars drawn on its rim (shapes, not 8 px glyphs), health and
+  energy bars 6.5–9 px. A full bar lifts the card and bounces it, with a baked gold glow, a 3.5 px gold border, a
+  "Stuknij!" tag across the chin and the semi-auto's ring closing around the face (reduced motion: the glow
+  without the bounce). Names only on cards ≥ 84 px wide; on a phone the face, its colour and the stars say who.
+* **Under a finger.** A portrait, the bell or a boon card squashes the moment a finger lands; a portrait fires on
+  touch-down (an interrupt is a matter of timing). A tap in the gap between two portraits means the nearer one,
+  never the street; a tap on the street fires the next ready ultimate and leaves a ring where it landed; a bell
+  that is not full shakes its head. The boons rise as a bottom sheet of three stacked full-width cards (76–118 px,
+  names 16 px, texts 14 px) and a card is taken when the finger lifts on it, only once the sheet has been up
+  0.45 s — a thumb still sewing gear at the well is not a choice. On its side and on a desktop the three stand in a
+  row. Haptics: 18 ms a fired ultimate, 8 ms a piece sewn, 12 ms a boon, patterns for the chord and a rank-up.
+* **Words for the hand.** On a touch screen the how-to, the coach marks and the sheet's hint speak of taps only
+  ("Stuknięcie w pole odpala najbliższy gotowy cios", "Stuknij kartę, którą wybierasz"); Space, 1–5 and B are a
+  `keys` row of their own, which the runner leaves out there. Klara holds her line while a coach mark is up, so
+  two bubbles never stack over the street.
+* **Text.** `font()` never returns under 11 px. Story cards 16 px (the verse 15–17 px in the game's own layout,
+  its reference 13), Klara's bubble 14, the boons 14–16, the pill 13, labels on the dial and the bell 13, the
+  multiplier 23–35; the dial's "próg" tag is the one 12 px string. The flying numbers and cries had been drawn
+  with an invalid font ("17px 800 Manrope…", which a canvas ignores, so they fell to the last font set: 10 px);
+  they are drawn bold with an ink outline now, 13 px at least. A summary keeps five highlights (one chord is the
+  closing line's already), so a phone shows the verse and the buttons without a long scroll.
+* **Performance.** Glows are baked once per colour into 128 px sprites (the lit windows alone asked for up to 64
+  radial gradients a frame); the sky with its sun and far roofs and the cobbled street (~300 cobbles) are painted
+  once per size and district into two layers and copied each frame.
+* **Measured** (`scripts/arcade-mobile.mjs`, six devices, before → after): strings under 11 px 36 / 25 / 24 / 23 /
+  18 / 21 → 0 on every device (the small phone, the iPhone, the large phone, on its side, the tablet, the desktop);
+  under 13 px 9 / 17 / 10 / 30 / 15 / 5 → 1 (the tag); targets 0 → 7 (the five, the bell, the story card; the
+  boons when they rise), all ≥ 44 px, inside the insets, apart; the game's own frame time 3.86 → 3.55 ms at a 4×
+  slower CPU on the small phone, 2.16 → 1.70 at 2× on its side, 1.37 → 0.83 on the desktop; the empty band under the
+  strip 54 → 10 px; on the smallest phone the street 184 → 208 px of its 366 px band, the figures 30 → 35 px per u
+  and the rows 12 → 28 px deep.
+
 ### 11.8 Nehemiasz — the wall in 52 days (fortress defence after Lordrush)
 
 *Nehemiah 2:18 — "“Let us start rebuilding,” they replied, and they set their hands to this good
