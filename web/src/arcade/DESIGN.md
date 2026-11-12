@@ -3958,24 +3958,144 @@ records of the highest rung and the fastest change.
 
 ### 13.7 Rozświetl — the dark mosaic and the light behind it
 
-*Direction (the builder rewrites this section).* Eight built-in pairs, each **one place in two
-states** drawn procedurally (the same composition, so the light shows the same scene transformed):
-Samotność → Wspólnota (Eccl 4:9-10), Smutek → Radość (Ps 30:5), Długi → Dostatek (2 Kgs 4:7,
-Phil 4:19), Lęk → Odwaga (Isa 41:10), Choroba → Zdrowie (Isa 58:8), Burza → Pokój (Mark 4:39),
-Kajdany → Wolność (Gal 5:1), Zmęczenie → Siła (Isa 40:29); later pairs may use Mat 5:4, Rev 21:4,
-Ps 34:5, Isa 61:3. The dark picture lies on Voronoi tiles (kit/mosaic.ts) over the bright one: a few
-tiles in the first session, a dozen soon, dozens later ("kilku-, kilkunasto-, kilkudziesięcioczęściowa").
-Focus is **light pressure**: light seeps through the grout lines from behind, the cracks brighten and
-run along the network of edges, new cracks spider across the aimed tile, and at full pressure the
-tile **bursts** — shards fly and dissolve into motes, a flash, and the bright picture under it shows.
-A burst passes some light to its neighbours (chains). The player taps or drags to aim; untouched, the
-light goes to the most cracked tile. Rest is **gazing**: the uncovered parts warm and deepen, their
-seams fill with gold (kintsugi: what was broken is mended with gold), and the task asks the player to
-see themself in the picture. A picture done: the last tiles go in a chain, the bright scene blooms,
-its title card and verse; the next pair begins. **Own pictures**: an "after" photo and, optionally, a
-"before"; without a "before" the game veils the "after" in ash and rain (kit/mosaic.ts `veil`); kept
-only on this device (kit/images.ts). The lobby's help line: §13.3. Meta: an album of transformed
-pictures, the tile count growing with sessions, the day's picture.
+The founder's words: *"zamieniaj negatywne obrazki w pozytywne… negatywny obrazek jest jak taka
+kilku-kilkunastu-kilkudziesięcioczęściowa mozaika, która przykrywa coś dobrego… prawdziwie negatywne
+obrazki związane z negatywnymi stanami ludzi sukcesywnie niszczone… wzdłuż pęknięć mozaiki rozświetla się
+światło i te negatywne elementy mozaiki wybuchają w pewnym momencie."* One rule readable in five seconds:
+**your attention is light behind a dark mosaic; where it presses long enough, the dark breaks and the same
+place shows in the light.** Root: Isaiah 60:1 ("Arise, shine, for your light has come").
+
+**The pictures (scenes.ts on scenekit.ts).** Eight pairs, each **one place painted twice** with the same
+composition, so the light uncovers the same place transformed. All sixteen share one storybook gouache
+style from one kit: a stage in units of min(w, h)/100 that composes at any aspect from 3:4 to 2:1 (the key
+things within ±45 u of the centre, sky and ground fill the rest), people in seventeen poses (standing,
+arms open, standing tall, walking, running, sitting hunched or at ease, curled up, clinging, slumped at a
+desk, knees drawn up…) with the same body in both states (the dark look is the bright one's colours gone
+grey, a cold rim light; the bright one warm, a sun rim), light (glows, rays, a street lamp's cone, windows),
+weather (rain, fog, a dark cloud, lightning) and props (benches, beds, tables, red-stamped letters, a jar
+of savings, a boat, chains, a clock face that reads 2:00 or 6:00 — no words in the pictures, any language
+reads them), finished with paper grain and a vignette. Palettes: the night's ink and ash with a sickly
+sodium lamp; the bright scenes' dawn sky, honey light, fresh greens, coral and teal clothes.
+
+| Pair | Dark (the mosaic) | Bright (under it) | Verse |
+|---|---|---|---|
+| Samotność → Wspólnota | a hunched figure alone on a bench under a street lamp in the rain, dark windows | the same bench in a sunny park, a friend beside, a picnic, a child's kite, lit windows | Eccl 4:9-10 |
+| Smutek → Radość | a figure curled on a bed in a grey room, a dark cloud raining indoors, curtains shut | the window open, sunlight pouring in, the figure standing with arms open, flowers | Ps 30:5 (then Mat 5:4, Rev 21:4) |
+| Długi → Dostatek | one person head down at a table piled with red-stamped letters under a dim bulb, empty shelves | the family at a shared meal, a jar of savings, a folder stamped ✓, full shelves | 2 Kgs 4:7 (then Phil 4:19) |
+| Lęk → Odwaga | a figure pressed to the rock on a narrow cliff ledge in fog | the same path in a clear morning, the figure standing tall at the top, a green valley | Isa 41:10 |
+| Choroba → Zdrowie | a pale sleeper in bed, curtains drawn, a glass of water and a small lamp | the bed made, the curtains open, the figure walking out of the door into a garden | Isa 58:8 |
+| Burza → Pokój | a small boat on a black wave under lightning, a crouched figure | the same boat on a calm sea at sunrise, the figure at ease | Mark 4:39 |
+| Kajdany → Wolność | a figure chained in a stone cell, a sliver of moonlight | the door open, the chains broken on the floor, the figure walking into a field | Gal 5:1 |
+| Zmęczenie → Siła | a figure slumped at a desk at two in the morning, a dead plant, a cold laptop | dawn: the plant in bloom, the clock at six, the figure running by the river outside | Isa 40:29 |
+
+Dignity (§13.3, §13.4): moods, never wounds, self-harm or horror; faces without features (a lowered head
+says enough); sadness is *smutek*; the light that breaks the mosaic is just light, no figure in it.
+
+**The mosaic (kit/mosaic.ts).** The dark picture lies on Voronoi tiles over the bright one: **7 tiles in
+the first session, then 12, 14, 16, 20, 24 … 48** (by the sessions saved; a session's 2nd and 3rd picture
+take 2 and 4 more), seeds denser where the bright picture has detail (the kit's `detailWeight` over its
+edge map, softened), so faces and hands break into smaller pieces. A tile's need grows with its size
+(area/mean)^0.6. The frame keeps the picture's own proportions and takes the whole band under the HUD; a
+phone that turns cuts the picture again for the new frame, every new tile taking the state of the old one
+under it (uncovered, pressure, warmth, gold — nothing is lost).
+
+**The light (push block, the gauge "Światło").** The light presses on the aimed tile from behind:
+* **always a little** (grace from showing up): a picture at the base alone takes 95 + 1.1·N seconds of light
+  (a first-ever warm-up teaches with ×1.6),
+  and a tap **knocks** (0.6 s of the base light at once, weaker when knocks come quicker than 1.2 s);
+* **with focus** in a sighted push past its lead-in (5 s Mendi, 2 s HALO) the light is
+  ×(1 + 2 · clamp((level − 0.3)/0.7)): ×1.57 at the threshold, ×3 at full, and its **halo** widens
+  (radius 1 + 2·level mean tile radii) and spills 35 % of the light (falling off) onto the tiles inside it.
+* In the world the gauge is drawn around the aimed tile: the **gold rim's radius is the light**, the
+  **dotted ring is the threshold** (it turns gold above it); the whole grout network glimmers with warm
+  white light in proportion (light seeping through the cracks from behind), brightest along the aimed
+  tile's edges; each pressed tile glows from behind and its **cracks grow** with the pressure (the kit's
+  crack lines from where the light or the knock hit, a growing share of each, two strokes: a warm wide one
+  and a white-hot core).
+* A full tile **bursts**: its shards (the kit's `shards`, sprites of the dark picture with a lit rim) fly,
+  spin and turn into motes; a flash in the picture's own light colour; a deep thud and a glass shimmer
+  that climbs with every link; haptics; "+9". It passes light to each dark neighbour: 0.1 (+0.08 × the
+  light while the band acts) of its need × its gold, less with each link (×0.7) — **under one tile's
+  worth in all**, so a chain needs tiles the halo or the gold has already cracked: **focus and gazing make
+  the chains** (counted once when they end, "Łańcuch ×4").
+* **The flare (Rozbłysk)**: 12 s of held focus (Mendi's Control: a hold under 1.5 s fills at half) fill the
+  ring around the firefly; a tap anywhere on the mosaic (Space on a keyboard) — or by itself after 6 s —
+  releases a wave that presses every dark tile within 3.2 mean radii (0.8 × the fall-off × gold): several
+  burst outward in turn, and bursts in the next 1.6 s count double. The push block's best moment.
+* Without a reliable signal the light freezes at neutral: ×1, no gauge, no loss.
+* **Blind push** ("Na wyczucie", every 4th push from the 3rd session): the halo and the gauge hide, only the
+  base light works; at the block's end the hidden light lands as a wave as strong as the block's share
+  above the threshold ("To światło zbierało się w ukryciu").
+
+**Gazing (rest block, the gauge "Ciepło").** The dark tiles rest (no pressure). Past a 4 s lead-in (2 s
+HALO) calm **warms** the uncovered pieces (a new piece is a little pale; 0.04 + 0.12·calm per second to its
+full colour) and **lays gold** in the seams of the uncovered pieces (kintsugi: what broke is mended with
+gold and becomes more beautiful), 0.035 + 0.13·calm per second, flowing tile to tile from the first piece
+uncovered (and from any the player taps, which takes a quarter of a seam's gold at once). Gold reaches up to
+the dark tiles' edges, and **a dark tile touching gold cracks faster** in the next push (× (1 + its share of
+gilded edges)) — gazing prepares the light. A rest with nothing uncovered yet banks up to 0.18 of every
+tile's need, landing at the next push. The firefly's light breathes **in for 4, out for 6** with a word
+under it (wdech / wydech).
+
+**The strategies (signal().task).** The picture is the strategy (§13.1): each pair has two imagery lines
+for the light ("Zobacz stół zastawiony do wspólnego posiłku: kto przy nim siedzi?") and one for gazing
+("Zobacz siebie na tej ławce: kto siedzi obok, co mówi?"), taking turns with shared ones — one counting
+(subtract 7 from 100), one with letters, one recalling a day someone helped — never the same twice in a
+row; own pictures get their own lines; blind blocks get a describing and a counting line.
+
+**A picture done.** When ≤ 10 % of the tiles are left they go together, one every 0.16 s from the last burst
+outward ("the last tiles go in a chain"); the bright scene **blooms** in its own light colour with rising
+motes; the firefly says the place's own line ("Ławka nie jest już pusta. Ktoś usiadł obok."); after a
+moment (never over the runner's banner) the **card**: "Obraz przemieniony", the pair's name in the serif
+("Samotność → Wspólnota"), the gold laid ("W złocie: 64%"), its verse (a pair's verses take turns on later
+visits; a picture ≥ 90 % in gold gets Isaiah 61:3, "beauty for ashes"); a tap after 1.2 s or 6 s; the next
+mosaic assembles from the middle out over the dark.
+
+**The hands (phone first).** The tiles are the controls: **tap** a tile — the light aims at it and knocks
+(a response on touch-down: a flash, a tick, a crack); **drag** — the light follows a lens drawn 58 px above
+the finger (a mouse: the pointer itself), no knocks; a tap with a ready flare releases it there; while
+gazing, a tap on an uncovered piece pours gold into its seams. Untouched, the light moves on to the most
+cracked dark tile (neighbours first) when its tile bursts. A centre tap aims the centre tile and Space knocks
+or releases the flare (the smoke contract). No buttons: `targets()` lists only a card waiting for its tap.
+
+**The voice: Świetlik (a firefly).** A small lamp-light presence by the frame's lower left (in the wall
+beside it on a desktop), its light breathing, the flare's ring around it. Gentle, never a joke about the
+dark pictures: 20 moments × 3 lines in four languages (≤ 90 characters, 2.2–4 s, one at a time, never over
+a telegraph, a banner or a card), plus each place's own line when it is transformed. The first-ever session
+opens with a card ("Każdy ciemny obraz to mozaika z kawałków…") and Isaiah 60:1; the summary closes with
+the firefly's line.
+
+**Own pictures (kit/images.ts).** In the progress card: an "after" photo (required) and, if the player likes,
+a "before"; without one the game veils the "after" (kit `veil`, then ash and rain over it); a name; delete.
+They take turns with the eight ("Wbudowane / Moje / Oba"); the card says they stay **only on this device**.
+The help line of §13.3 closes the card, small but whole, in four languages.
+
+**The meta.** The album of the eight (a dark name until transformed, then the bright one, how often, the
+best gold; a tap makes it the next picture) and the own pairs; the **day's picture** (the same for everyone,
+first each day: "Obraz dnia"); the tile count growing; records (shards, the best session, the longest chain,
+flares, golden seams). Headline: **shards (odłamki)**, 3–9 a burst by its size, +1 per chain link, ×2 after
+a flare. Closing verse: the last picture's (or, without one, Isaiah 60:1, 43:19, Psalm 34:5 in turn).
+
+**Mobile first (§12).** The frame is 16 px off a phone's sides and takes the whole band (360 × 366 → a
+328 × 348 picture on the small phone; 561 × 274 on its side); u = uiScale on a tablet or a desktop; the
+firefly's bubble 14 px, cards' text 13–17 px (titles 18–28 in the serif), the breath words 13 px, numbers
+21+; nothing under 11 px. Per frame: one cached layer for the mosaic (redrawn tile by tile when one opens or
+warms), the grout and the gold as a few batched paths, glows as baked sprites ("lighter"), shards as pooled
+sprites (≤ 150); no shadowBlur, no ctx.filter. Measured with the audit (§12.4), 2026-11-12:
+
+| Device | Strings < 11 px | < 13 px | Targets | Frame rate (CPU slowed) | Game's frame |
+|---|---|---|---|---|---|
+| small Android phone (360 × 600) | 0 | 2 (a verse's reference, the kit's 11 px floor) | the card | 60 fps @4× | 1.5 ms |
+| iPhone in Safari (390 × 664) | 0 | 2 (idem) | the card | 60 fps @2× | 0.5 ms |
+| large Android phone (412 × 780) | 0 | 2 (idem) | the card | 60 fps @3× | 1.0 ms |
+| phone on its side (812 × 360) | 0 | 2 (idem) | the card | 60 fps @2× | 0.6 ms |
+| tablet (820 × 1180) | 0 | 0 | the card | 60 fps @2× | 0.7 ms |
+| desktop (1280 × 800) | 0 | 0 | the card | 60 fps | 0.5 ms |
+
+**Sources.** sim.ts (the session, pure), rules.ts (every number), content.ts (pairs, strategies, moments),
+meta.ts (progress v1, the rotation, the album), talk.ts (the firefly), scenes.ts + scenekit.ts (the sixteen
+pictures), render.ts + paint.ts + layout.ts (the view), preview.ts (lobby, card art, calibration), panel.ts,
+audio.ts, i18n.ts; tests in test/arcade-rozswietl.test.ts.
 
 ### 13.8 Ja jestem… — the vision drawn, coloured and lit
 
