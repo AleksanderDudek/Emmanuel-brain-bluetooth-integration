@@ -594,6 +594,37 @@ export class DawidSim {
     return true;
   }
 
+  /** "Na łowy" on the camp's sheet: David goes hunting by himself (never the great stone, unlike a tap). */
+  hunt(): boolean {
+    if (!this.started || this.phase === 'done' || this.story || this.david.down > 0 || this.sitting) return false;
+    this.mode = 'hunt';
+    if (!this.p.seen.includes('hunted')) this.p.seen.push('hunted');
+    return true;
+  }
+
+  /**
+   * The quest pill (XP Hero's quest button): David walks to the quest's place by himself — to the camp when
+   * the quest is bought or built there, up to the sling's reach of the beasts or the guardian it wants (then
+   * he hunts), right to the person, the heap or the gate.  The arrow and the hunt still lead without it.
+   */
+  followQuest(): boolean {
+    if (!this.started || this.phase === 'done' || this.story || this.david.down > 0 || this.sitting || this.cave) return false;
+    const q = this.quest, at = this.questTarget(), d = this.david;
+    if (!q || !at) return this.hunt();
+    if (dist(at.x, at.y, this.land.camp[0], this.land.camp[1]) < 1) return this.inCamp ? true : this.goHome();
+    let gx = at.x, gy = at.y;
+    if (q.kind === 'guard' || this.dens.some(dn => dist(dn.x, dn.y, at.x, at.y) < 0.5)) {
+      // beasts there (a den, the guardian): stop short, the hunt takes it from the sling's reach
+      const l = dist(at.x, at.y, d.x, d.y), stand = WEAPONS.proca.range * RULES.huntStand;
+      if (l <= stand + 0.5) return this.hunt();
+      gx = d.x + ((at.x - d.x) * (l - stand)) / l;
+      gy = d.y + ((at.y - d.y) * (l - stand)) / l;
+    }
+    this.mode = 'go';
+    this.goal = { x: clamp(gx, this.bounds.x0, this.bounds.x1), y: clamp(gy, this.bounds.y0, this.bounds.y1) };
+    return true;
+  }
+
   /** Arrows and WASD walk; Space and Enter: a ready stone, else in camp the first tile you can, else the hunt. */
   key(key: string, down: boolean): boolean {
     const k = key.length === 1 ? key.toLowerCase() : key;
@@ -2663,7 +2694,7 @@ export function abilityFx(id: AbilityId, lv: number, p: DawidProgress): string {
   }
 }
 
-/** "umiejętności do poz. 25" — a building's effect at a level. */
+/** "zdolności do poz. 25" — a building's effect at a level. */
 export function buildingFx(id: BuildingId, lv: number, k: number): string {
   switch (id) {
     case 'ognisko': return t('bdfx.ognisko', { n: lv >= 3 ? '∞' : lv === 2 ? 60 : 25 });

@@ -2442,6 +2442,52 @@ the lamb he once pulled out of a lion's mouth follows him everywhere and talks a
   off 17:37; a giant fallen 17:45; great stones 17:40; a calm harp 16:23; else Psalm 23:1-3.
   `1sa17.34-35` is not used (it ends with the lion killed). Progress is `ver: 1`; the placeholder's
   `{ sessions }` save is read as a fresh one keeping its count.
+* **Mobile first** (2026-11-12, §12). XP Hero is played upright with one thumb; Dawid now starts from that
+  phone (360 × 500 with a 134 px HUD: a 366 px band) and grows to a phone on its side, a tablet, a desktop.
+  * *The thumb zone.* The great stone and the bag are two 60 px round buttons at the bottom right (their hit
+    64 × 84 px with the word under them, 16 px from the edges, 12 px apart). The stone's ring fills with its
+    charge ("43%"); polished, it says "Rzuć!" and glows only while something in sight can be hit ("Gotowy"
+    otherwise, e.g. by the harp); a tap that cannot throw shakes it and says why ("Kamień: 43%", "Brak celu w
+    zasięgu") instead of falling through to the field. The bag's ring is its load ("23/60"); full, it glows and
+    says "Do obozu"; by the harp it shakes. The party, health ("125 / 128" inside its bar), the level's badge
+    and bar ("Poz. 3", "69 / 85" inside, the rested band and "×2" ahead of it) and the treasury sit at the
+    bottom left — stacked on a narrow phone, one row on a wide screen — at 13 px with an outline. The old
+    62 px reserve for the simulator's switch is gone: `insets()` says what covers the edges.
+  * *The top band* is passive: the quest pill (13.5 px, two lines when the words need them) and an 84 px
+    minimap (112 px on wider screens). A tap on the pill sends David to the quest by himself — XP Hero's quest
+    button: to the sling's reach of the den or the guardian it wants (then he hunts), to the person, the heap,
+    the gate, home for a purchase. A shortcut, never needed: the arrow and the hunt still lead.
+  * *Under a finger.* A finger on the field shows the floating joystick at once: a dark base with a light rim
+    and four marks where it went down, the knob under it, a gold wedge on the rim toward the walk; it fades
+    when the finger lifts. A tap leaves a ring where David goes (round him when he hunts) and his goal stays
+    marked on the ground. The buttons, the tabs and the tiles show pressed on touch-down and act on lift; a
+    thumb that slides off a button (10 px) steers instead, so a drag that starts on the bag is still a drag.
+    Haptics on a button, a purchase (a double pulse when refused), the great stone, a companion, a quest.
+  * *The camp's sheet.* Upright and on a tablet: a sheet from the bottom over the bottom band, with the
+    treasury (silver, brushwood, stone) and "Na łowy ›" (back to the hunt in one tap) on its top edge, four
+    48 px tabs ("Zdolności", "Budowle", "Kuźnia", "Drużyna": short enough for 13.5 px at 360 px; "Talente" in
+    German), two columns of 60 px tiles on a phone (three on a tablet) at 13–14 px: the name (and level), what
+    the next step gives, the price in icons or why not. The tiles scroll under a drag (a fling, a thin bar, a
+    fade at the edge); a tap on a tile cut by the window's edge scrolls it into view rather than buying; a
+    tile that cannot be bought shakes. It leaves at least 82 px of field above it, where David stands. On its
+    side and on a desktop the sheet comes from the right (two columns, three on a desktop, at most 60 % of the
+    width) and David stands in the middle of the field left of it.
+  * *Sizes.* `u = uiScale(w, h)`: 1 on any phone, up to 1.3. `font()` never returns under 11 px; whatever is
+    read to play is at least 13 px: story cards 15.5 px (14.5 on a short screen, the card wider) with the
+    verse first (13.5–18 px, its reference 13), bubbles 14.5 px, floaters 14–22 px, the ring's "próg" 13 px.
+    The map shows about 11.5 u across a phone (the sling's 5.6 u reach on either side) and zooms in on a
+    tablet (up to 66 px a u) rather than showing the world small. Bubbles stay in the field, above the buttons
+    and the sheet.
+  * *Words for the hand.* With a finger the coach marks, the story cards and the how-to say "stuknij",
+    "przeciągnij"; with a mouse their `.keys` variants say "kliknij", "WASD i strzałki", "Spacja", and the
+    how-to card has a `keys` row of its own, which a phone's card leaves out (mendi.ts).
+  * *Performance.* `glow()` draws a sprite baked once per colour instead of a radial gradient per glow per
+    frame; no shadow blur, no filters. The game's own frame stays about 1 ms on a desktop.
+  * *Measured* (scripts/arcade-mobile.mjs, six devices, before → after): strings under 11 px 137–201 → 0,
+    under 13 px 4–21 → 0 (German and HALO too); targets 0 → the two buttons, the quest pill, the sheet's
+    hunt, tabs and tiles, the story card, all ≥ 44 px, inside the insets, apart; the game's frame 1.12 →
+    1.04 ms on a desktop, 4.27 → 3.94 ms on the small phone at 4× slowdown; the camp's sheet on a phone on
+    its side now leaves the field its left 45 %.
 
 ### 11.7 Dziewiątka — nine heroes against the Din (team battler after Hero Wars: Alliance)
 

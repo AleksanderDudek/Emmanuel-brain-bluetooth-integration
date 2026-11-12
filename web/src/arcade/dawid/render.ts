@@ -7,10 +7,15 @@
  * it faster with focus, the multiplier beside it.  Then the figures (trees, beasts, David, the lamb, the
  * party, the people, the guardian), stones in flight, dust, rings, the harp's notes; the night of a blind
  * push and the dusk of the harp; and the game's own bits (hud.ts).  Juice: hit-stop (from the sim),
- * particles, flying numbers, shakes (none with reduced motion), flashes.
+ * particles, flying numbers, shakes (none with reduced motion), flashes.  Under a finger: the floating
+ * joystick (its base where the finger went down, its knob under it), a ring where a tap sent David, and his
+ * goal marked on the ground while he walks there.  With the camp's sheet open David stands in the middle of
+ * the field it leaves.
  */
 import { fmtNum } from '../../i18n';
-import { Floaters, Particles, Shake, approach, clamp } from '../kit/juice';
+import { Floaters, Particles, Shake, approach, clamp, ease, lerp } from '../kit/juice';
+import { NO_INSETS } from '../kit/mobile';
+import type { Insets, TapTarget } from '../kit/types';
 import { companionName, guardName, kitName, weaponName, type BuildingId, type CompanionId, type Spot } from './content';
 import { Hud } from './hud';
 import { t, xpText } from './i18n';
@@ -38,14 +43,22 @@ const PEOPLE: Partial<Record<Spot, keyof typeof LOOKS>> = {
   abigail: 'abigail', benajasz: 'benajasz', itaj: 'itaj', szamma: 'szamma',
 };
 
+/** A ring on the ground where a tap sent David ('go'), around him when he went hunting ('hunt'). */
+interface Mark { x: number; y: number; t: number; kind: 'go' | 'hunt' }
+
+/** The floating joystick (CSS px): where the finger went down, where it is, whether it steers yet. */
+export interface Stick { ox: number; oy: number; x: number; y: number; on: boolean }
+
 export class DawidView {
   private readonly ctx: CanvasRenderingContext2D;
   private w = 0;
   private h = 0;
   private dpr = 1;
-  private hudTop = 64;
-  L: Layout = layout(800, 600, 64);
+  private ins: Insets = NO_INSETS;
+  L: Layout = layout(800, 600, { top: 64, right: 0, bottom: 0, left: 0 });
   readonly hud = new Hud();
+  /** the primary input is a finger: the cards say "tap", not "click" */
+  touch = false;
   private readonly fx = new Particles(640);
   private readonly floaters = new Floaters();
   private readonly shake: Shake;
@@ -69,35 +82,90 @@ export class DawidView {
   private started = false;
   private decos: Deco[] = [];
   private decoLand = '';
-  /** the joystick's ring (CSS px), while a finger steers */
-  stick: { ox: number; oy: number; x: number; y: number } | null = null;
+  /** where David stands on the screen now (the field's middle; the room above or beside the camp's sheet) */
+  private ax = 400;
+  private ay = 300;
+  /** the joystick while a finger is down on the field; it fades out after the finger lifts */
+  stick: Stick | null = null;
+  private stickLast: Stick | null = null;
+  private stickK = 0;
+  private marks: Mark[] = [];
+  /** the tile a tap just bought (its gold bursts from there) */
+  boughtTile = -1;
 
   constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number): void {
+  resize(w: number, h: number, dpr: number, ins: Insets): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, this.hudTop);
+    this.ins = ins;
+    this.L = layout(w, h, ins);
+    this.anchor();
   }
 
-  setTop(top: number): void {
-    if (Math.abs(top - this.hudTop) < 0.5) return;
-    this.hudTop = top;
-    this.L = layout(this.w, this.h, top);
+  /** The runner's insets changed (the HUD band settled): lay out again. */
+  setInsets(ins: Insets): void {
+    const o = this.ins;
+    if (Math.abs(o.top - ins.top) < 0.5 && Math.abs(o.bottom - ins.bottom) < 0.5 && Math.abs(o.left - ins.left) < 0.5 && Math.abs(o.right - ins.right) < 0.5) return;
+    this.ins = ins;
+    this.L = layout(this.w, this.h, ins);
+    this.anchor();
+  }
+
+  /** The camp's sheet slid in this far (0..1); 0 while David sits by the fire or a story card shows. */
+  get campOpen(): number { return this.campEff; }
+  private campEff = 0;
+
+  private anchor(): void {
+    const e = ease.inOutSine(clamp(this.campK));
+    this.ax = lerp(this.L.kx, this.L.campKx, e);
+    this.ay = lerp(this.L.ky, this.L.campKy, e);
   }
 
   /** World (u) → canvas (CSS px). */
   toScreen(x: number, y: number): { x: number; y: number } {
-    return { x: this.L.kx + (x - this.camX) * this.L.s, y: this.L.ky + (y - this.camY) * this.L.s };
+    return { x: this.ax + (x - this.camX) * this.L.s, y: this.ay + (y - this.camY) * this.L.s };
   }
 
   /** Canvas (CSS px) → world (u). */
   toWorld(x: number, y: number): { x: number; y: number } {
-    return { x: this.camX + (x - this.L.kx) / this.L.s, y: this.camY + (y - this.L.ky) / this.L.s };
+    return { x: this.camX + (x - this.ax) / this.L.s, y: this.camY + (y - this.ay) / this.L.s };
+  }
+
+  /** A ring where a tap sent David: at the spot he walks to, or round him when he goes hunting (world u). */
+  mark(kind: Mark['kind'], x: number, y: number): void {
+    this.marks.push({ x, y, t: 0, kind });
+    if (this.marks.length > 6) this.marks.shift();
+  }
+
+  /** A short word over the great stone's button ("Kamień: 43%", nothing in sight). */
+  note(text: string): void {
+    const st = this.L.stone, u = this.L.u;
+    this.floaters.add(text, clamp(st.x, this.L.left + 90 * u, this.L.right - 90 * u), st.y - st.r - 20 * u, { color: '#fff3d6', size: 14 * u, dur: 0.9 });
+  }
+
+  /** The finger lifted: the joystick fades out where it was. */
+  dropStick(): void {
+    if (this.stick) this.stickLast = this.stick;
+    this.stick = null;
+  }
+
+  /**
+   * The controls the player can tap now (hud.ts), for the mobile audit and the tests: the sheet's once it is
+   * all the way up, the two buttons while it is down, none while it slides.
+   */
+  targets(sim: DawidSim): TapTarget[] {
+    const k = this.campEff;
+    return this.hud.targets(this.L, sim, k >= 0.98 ? 'sheet' : k < 0.5 ? 'buttons' : 'none');
+  }
+
+  /** The camp's sheet is up (its controls take taps; the bag and the stone are under it). */
+  sheetOpen(sim: DawidSim): boolean {
+    return sim.inCamp && !sim.story && !sim.sitting && this.campEff > 0.5;
   }
 
   intro(dt: number, p: number, progress: DawidProgress): void {
@@ -110,6 +178,7 @@ export class DawidView {
     this.started = true;
     this.camX = sim.david.x;
     this.camY = sim.david.y;
+    this.anchor();
   }
 
   private say(text: string, color = '#fff3d6', dur = 1.8, big = false): void {
@@ -136,27 +205,27 @@ export class DawidView {
         const p = P(e.x, e.y);
         const big = e.crit || e.guard;
         this.floaters.add(fmtNum(Math.round(e.dmg)), p.x + (Math.random() - 0.5) * 18, p.y - s * (e.guard ? 1.8 : 0.9), {
-          color: e.crit ? '#ffb070' : e.gold ? C.goldLight : '#ffffff', size: (big ? 17 : 12.5) * u * (e.crit ? 1.25 : 1), dur: 0.65,
+          color: e.crit ? '#ffb070' : e.gold ? C.goldLight : '#ffffff', size: (big ? 18 : 14) * u * (e.crit ? 1.2 : 1), dur: 0.65,
         });
         fx.burst(p.x, p.y - s * 0.4, e.gold ? 5 : 3, { color: e.gold ? C.goldLight : '#fff6e0', size: 2, speed: 120, life: 0.25, g: 0, shape: 'spark' });
         break;
       }
       case 'blocked': {
         const p = P(e.x, e.y);
-        this.floaters.add(t('hud.blocked'), p.x, p.y - s * 1.2, { color: '#ffe0b0', size: 14 * u, dur: 0.6 });
+        this.floaters.add(t('hud.blocked'), p.x, p.y - s * 1.2, { color: '#ffe0b0', size: 16 * u, dur: 0.6 });
         fx.burst(p.x, p.y - s * 0.7, 6, { color: '#ffe0b0', size: 2, speed: 160, life: 0.3, g: 200, shape: 'spark' });
         break;
       }
       case 'driven': {
         const p = P(e.x, e.y);
         fx.burst(p.x, p.y - s * 0.2, 9, { color: '#e8d9b8', size: 4, speed: 70, life: 0.7, g: -30, drag: 2.5, shape: 'dot' });
-        this.floaters.add(Hud.xpWords(e.xp, e.mult), p.x, p.y - s * 1.1, { color: e.mult > 1 ? C.goldLight : '#f6f0ff', size: (e.mult > 1 ? 17 : 14) * u, dur: 1 });
+        this.floaters.add(Hud.xpWords(e.xp, e.mult), p.x, p.y - s * 1.1, { color: e.mult > 1 ? C.goldLight : '#f6f0ff', size: (e.mult > 1 ? 18 : 15) * u, dur: 1 });
         if (e.mult >= 3) this.shake.add(0.06);
         break;
       }
       case 'xp': {
         const p = P(e.x, e.y);
-        this.floaters.add(`+${xpText(e.v)}`, p.x, p.y, { color: '#e8f0ff', size: 15 * u, dur: 1.1 });
+        this.floaters.add(`+${xpText(e.v)}`, p.x, p.y, { color: '#e8f0ff', size: 16 * u, dur: 1.1 });
         break;
       }
       case 'coin':
@@ -175,12 +244,15 @@ export class DawidView {
         this.levelPop = 1;
         this.levelUp = { level: e.level, gain: t('hud.levelGain', { d: fmtNum(e.dmg), h: fmtNum(e.hp) }), t: 0 };
         this.flash = Math.max(this.flash, 0.25);
-        fx.burst(this.L.kx, this.L.ky - s * 0.8, 36, { color: C.goldLight, size: 3.5, speed: 280, life: 1, g: 90, shape: 'square' });
+        fx.burst(this.ax, this.ay - s * 0.8, 36, { color: C.goldLight, size: 3.5, speed: 280, life: 1, g: 90, shape: 'square' });
         break;
       }
-      case 'stoneReady':
-        this.floaters.add(t('hud.stone'), this.L.stone.x - 30 * u, this.L.stone.y - this.L.stone.r - 22 * u, { color: C.goldLight, size: 14 * u });
+      case 'stoneReady': {
+        // over the great stone's button, kept on the screen
+        const st = this.L.stone, x = clamp(st.x, this.L.left + 80 * u, this.L.right - 80 * u);
+        this.floaters.add(t('hud.stone'), x, st.y - st.r - 26 * u, { color: C.goldLight, size: 15 * u });
         break;
+      }
       case 'stoneHit': {
         const p = P(e.x, e.y);
         this.flash = Math.max(this.flash, 0.55);
@@ -194,7 +266,7 @@ export class DawidView {
         break;
       case 'kit': {
         const p = P(e.x, e.y);
-        this.floaters.add(kitName(e.id), p.x, p.y - s * 1.8, { color: '#fff1c8', size: 13 * u, dur: 1.1 });
+        this.floaters.add(kitName(e.id), p.x, p.y - s * 1.8, { color: '#fff1c8', size: 15 * u, dur: 1.1 });
         fx.burst(p.x, p.y - s * 0.8, 10, { color: '#ffe9b0', size: 2.5, speed: 150, life: 0.5, g: 0, shape: 'spark' });
         break;
       }
@@ -220,7 +292,7 @@ export class DawidView {
         break;
       case 'daze': {
         const g = sim.guard, p = P(g.x, g.y);
-        this.floaters.add(t('hud.daze'), p.x, p.y - s * 2.6, { color: C.goldLight, size: 17 * u });
+        this.floaters.add(t('hud.daze'), p.x, p.y - s * 2.6, { color: C.goldLight, size: 18 * u });
         break;
       }
       case 'guardDriven': {
@@ -236,17 +308,23 @@ export class DawidView {
       case 'gate':
         this.say(t('hud.gate'), C.goldLight, 2);
         break;
-      case 'questDone':
+      case 'questDone': {
         this.questPop = 1;
         this.say(t('hud.questDone'), '#fff3d6', 1.5);
-        this.floaters.add(`+${fmtNum(e.silver)}`, this.L.bag.x, this.L.bag.y - this.L.bag.r - 26 * u, { color: C.silver, size: 15 * u });
+        // the reward flies up from the treasury
+        const tr = this.L.treasury;
+        this.floaters.add(`+${fmtNum(e.silver)}`, clamp(tr.x - 30 * u, this.L.left + 40, this.L.right - 40), tr.y - 18 * u, { color: C.silver, size: 16 * u });
         break;
+      }
       case 'quest':
         this.questPop = 1;
         break;
       case 'buy': case 'build': case 'forge': {
-        const c = this.hud.cardShown;
-        const x = c ? c.x + c.w / 2 : this.L.kx, y = c ? c.y + 20 : this.L.ky;
+        // gold from the tile that was bought (else the sheet's top)
+        const g = this.hud.sheetShown, tile = g && this.boughtTile >= 0 ? g.tiles[this.boughtTile] : null;
+        const x = tile ? tile.x + tile.w / 2 : g ? g.frame.x + g.frame.w / 2 : this.ax;
+        const y = tile ? clamp(tile.y + tile.h / 2, g!.view.y, g!.view.y + g!.view.h) : g ? g.frame.y + 20 : this.ay;
+        this.boughtTile = -1;
         fx.burst(x, y, 22, { color: C.goldLight, size: 3, speed: 200, life: 0.7, g: 160, shape: 'square' });
         if (e.type === 'forge' && e.evolved) {
           this.flash = Math.max(this.flash, 0.4);
@@ -279,7 +357,7 @@ export class DawidView {
       }
       case 'thiefGone': {
         const p = P(e.x, e.y);
-        this.floaters.add(t('hud.thiefGone'), p.x, p.y - s, { color: '#e8d9b8', size: 13 * u });
+        this.floaters.add(t('hud.thiefGone'), p.x, p.y - s, { color: '#e8d9b8', size: 15 * u });
         fx.burst(p.x, p.y, 14, { color: '#d9c9a4', size: 5, speed: 90, life: 0.8, g: -20, drag: 2, shape: 'dot' });
         break;
       }
@@ -309,11 +387,15 @@ export class DawidView {
   update(dt: number, sim: DawidSim): void {
     this.clock += dt;
     const d = sim.david;
-    const lookY = d.y + (this.campK > 0.05 ? ((this.L.card.h * 0.6) / this.L.s) * this.campK : 0);
-    const jump = Math.hypot(this.camX - d.x, this.camY - lookY) > 12;
+    const jump = Math.hypot(this.camX - d.x, this.camY - d.y) > 12;
     this.camX = jump ? d.x : approach(this.camX, d.x, dt, 0.12);
-    this.camY = jump ? lookY : approach(this.camY, lookY, dt, 0.2);
+    this.camY = jump ? d.y : approach(this.camY, d.y, dt, 0.2);
     const w = dt * sim.timeScale;
+    this.hud.update(dt);
+    this.stickK = approach(this.stickK, this.stick ? 1 : 0, dt, this.stick ? 0.03 : 0.06);
+    if (!this.stick && this.stickK < 0.02) this.stickLast = null;
+    for (const m of this.marks) m.t += dt;
+    while (this.marks.length && this.marks[0].t > 0.7) this.marks.shift();
     this.fx.update(w > 0 ? dt : dt * 0.2);
     this.floaters.update(dt);
     this.flash = Math.max(0, this.flash - dt * 2.2);
@@ -321,7 +403,10 @@ export class DawidView {
     this.levelPop = Math.max(0, this.levelPop - dt * 1.6);
     this.bagPop = Math.max(0, this.bagPop - dt * 4);
     this.questPop = Math.max(0, this.questPop - dt * 2.5);
-    this.campK = approach(this.campK, sim.inCamp && !sim.sitting && !sim.story ? 1 : 0, dt, 0.08);
+    const shown = sim.inCamp && !sim.sitting && !sim.story;
+    this.campK = approach(this.campK, shown ? 1 : 0, dt, 0.08);
+    this.campEff = shown ? this.campK : 0;
+    this.anchor();
     if (this.fallT >= 0) this.fallT += dt;
     if (this.banner) {
       this.banner.t += dt;
@@ -363,6 +448,7 @@ export class DawidView {
       this.drawLandGround(ctx, sim, now, P, inView);
     }
     this.drawPrints(ctx, sim);
+    this.drawMarks(ctx, sim, now);
     // things lying on the ground
     for (const n of sim.nodes) {
       if (sim.inCave || !inView(n.x, n.y)) continue;
@@ -463,7 +549,7 @@ export class DawidView {
       ctx.save();
       ctx.globalAlpha = Math.max(0, 1 - k);
       ctx.fillStyle = n.n % 2 ? C.goldLight : '#fff3d6';
-      ctx.font = font(800, s * 0.42, SANS);
+      ctx.font = font(800, Math.max(15, s * 0.46), SANS);
       ctx.textAlign = 'center';
       ctx.fillText(n.n % 3 ? '♪' : '♫', p.x + Math.sin(k * 6 + n.n) * s * 0.4, p.y - k * s * 1.6);
       ctx.restore();
@@ -507,23 +593,59 @@ export class DawidView {
       ctx.fillStyle = gr;
       ctx.fillRect(0, 0, this.w, this.h);
     }
-    // the game's own bits
+    // the game's own bits: the top band, the bottom band (under the camp's sheet when it is up), the sheet
+    const campK = this.campEff;
+    const sheet = L.sheet, side = sheet.dock === 'right';
     const qt = sim.questTarget();
     const lift = sim.quest?.kind === 'guard' ? (sim.guard.spec.giant ? 3.9 : 2.4) : sim.quest?.kind === 'visit' ? 1.8 : 0;
-    this.hud.drawQuest(ctx, L, sim, qt ? this.toScreen(qt.x, qt.y - lift) : null, now, this.questPop);
-    this.hud.drawMini(ctx, L, sim, now);
-    this.hud.drawBars(ctx, L, sim, now, this.levelPop, this.bagPop);
-    this.hud.drawCamp(ctx, L, sim, now, this.campK);
-    if (this.levelUp && !sim.story) this.hud.drawLevelUp(ctx, L, this.levelUp.level, this.levelUp.gain, this.levelUp.t / 1.8);
+    const pillR = side && campK > 0.05 ? Math.min(L.right, sheet.x + (1 - ease.outCubic(campK)) * (sheet.w + 24) - 8) : L.right;
+    this.hud.drawQuest(ctx, L, sim, qt ? this.toScreen(qt.x, qt.y - lift) : null, now, this.questPop, pillR);
+    if (!(side && campK > 0.3)) this.hud.drawMini(ctx, L, sim, now);
+    if (side || campK < 0.98) this.hud.drawBars(ctx, L, sim, now, this.levelPop);
+    if (campK < 0.5) this.hud.drawButtons(ctx, L, sim, now, this.bagPop);
+    this.hud.drawCamp(ctx, L, sim, now, campK);
+    if (this.levelUp && !sim.story) this.hud.drawLevelUp(ctx, L, this.levelUp.level, this.levelUp.gain, this.levelUp.t / 1.8, this.ay);
     if (this.banner && !sim.story && !this.levelUp) this.hud.drawBanner(ctx, L, this.banner.text, this.banner.t / this.banner.dur, this.banner.color, this.banner.big);
+    // bubbles keep above the bottom band and the sheet (never over a control)
+    const floor = campK > 0.05 && !side ? Math.min(L.field.bottom, sheet.head.y + (1 - ease.outCubic(campK)) * (sheet.h + sheet.head.h) - 6)
+      : Math.min(L.field.bottom, L.stone.hit.y - 6);
     if (g.tauntT > 0 && g.taunt && !sim.story && !sim.inCave) {
       const gp = P(g.x, g.y);
-      this.hud.drawBubble(ctx, L, g.taunt, gp.x, gp.y - s * 2.8, 1 - g.tauntT / 2.6 + 0.3, true);
+      this.hud.drawBubble(ctx, L, g.taunt, gp.x, gp.y - s * 2.8, 1 - g.tauntT / 2.6 + 0.3, true, floor);
     }
     const line = sim.talk.line;
-    if (line && !sim.story && !this.levelUp) this.hud.drawBubble(ctx, L, line.text, lp.x, lp.y - s * 0.9, line.t);
-    if (this.stick && !sim.story) this.drawStick(ctx);
-    this.hud.drawStory(ctx, L, sim);
+    if (line && !sim.story && !this.levelUp) this.hud.drawBubble(ctx, L, line.text, lp.x, lp.y - s * 0.9, line.t, false, floor);
+    const st = this.stick ?? this.stickLast;
+    if (st && this.stickK > 0.02 && !sim.story) this.drawStick(ctx, st, this.stickK);
+    this.hud.drawStory(ctx, L, sim, this.touch);
+  }
+
+  /** Rings on the ground where a tap sent David, and his goal while he walks to it. */
+  private drawMarks(ctx: CanvasRenderingContext2D, sim: DawidSim, now: number): void {
+    const s = this.L.s;
+    ctx.save();
+    if (sim.mode === 'go' && !sim.inCave) {
+      const p = this.toScreen(sim.goal.x, sim.goal.y), k = 0.5 + 0.5 * Math.sin(now * 5);
+      ctx.strokeStyle = `rgba(255,231,163,${0.55 + 0.35 * k})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, s * (0.42 + 0.08 * k), s * (0.24 + 0.05 * k), 0, 0, TAU);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,231,163,.85)';
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, s * 0.08, s * 0.05, 0, 0, TAU);
+      ctx.fill();
+    }
+    for (const m of this.marks) {
+      const k = m.t / 0.7, p = this.toScreen(m.x, m.y);
+      const r = s * (m.kind === 'hunt' ? 0.9 + 1.3 * ease.outCubic(k) : 0.25 + 0.65 * ease.outCubic(k));
+      ctx.strokeStyle = m.kind === 'hunt' ? `rgba(255,250,232,${0.85 * (1 - k)})` : `rgba(255,231,163,${0.95 * (1 - k)})`;
+      ctx.lineWidth = 3 * (1 - k) + 1;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, r, r * 0.56, 0, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /** The camp, the dens, the lair, the gate, the armies of Elah, the people waiting at their places. */
@@ -680,11 +802,12 @@ export class DawidView {
         ctx.moveTo(nx, ny - s * 0.18);
         ctx.lineTo(nx, ny + s * 0.2);
         ctx.stroke();
-        ctx.font = font(800, 10.5 * this.L.u, SANS);
+        ctx.font = font(800, 13 * this.L.u, SANS);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = 'rgba(40,28,14,.55)';
+        ctx.lineWidth = 3.5;
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(40,28,14,.7)';
         ctx.strokeText(t('hud.mark'), nx, ny + s * 0.24);
         ctx.fillStyle = 'rgba(255,250,232,.95)';
         ctx.fillText(t('hud.mark'), nx, ny + s * 0.24);
@@ -776,15 +899,19 @@ export class DawidView {
       ctx.fill();
       ctx.fillStyle = '#e0563a';
       ctx.fillRect(x, y, w * clamp(g.hp / g.max), s * 0.2);
-      ctx.font = font(800, 10.5 * this.L.u, SANS);
+      ctx.font = font(800, 13 * this.L.u, SANS);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
+      ctx.lineWidth = 3.5;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(40,24,12,.7)';
+      ctx.strokeText(g.name, p.x, y - 3);
       ctx.fillStyle = '#fff8e6';
       ctx.fillText(g.name, p.x, y - 3);
     }
     if (asleep && g.hp >= g.max && !sim.guardActive) {
       ctx.fillStyle = 'rgba(240,245,255,.8)';
-      ctx.font = font(800, s * 0.4, SANS);
+      ctx.font = font(800, Math.max(13, s * 0.45), SANS);
       ctx.textAlign = 'center';
       const zz = (now * 0.5) % 1;
       ctx.globalAlpha = 1 - zz;
@@ -945,22 +1072,61 @@ export class DawidView {
     }
   }
 
-  private drawStick(ctx: CanvasRenderingContext2D): void {
-    const st = this.stick!;
+  /**
+   * The floating joystick, shown from the touch-down: a dark base with a light rim where the finger went
+   * down (the full speed at its rim), four marks, and the knob under the finger (held inside the rim), with
+   * a wedge on the rim toward where David walks.
+   */
+  private drawStick(ctx: CanvasRenderingContext2D, st: Stick, k: number): void {
     const R = RULES.stickPx;
+    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), c = d > R ? R / d : 1;
+    const kx = st.ox + dx * c, ky = st.oy + dy * c;
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,250,232,.45)';
-    ctx.fillStyle = 'rgba(255,250,232,.12)';
-    ctx.lineWidth = 2;
+    ctx.globalAlpha = k;
+    ctx.fillStyle = 'rgba(30,22,14,.34)';
+    ctx.strokeStyle = 'rgba(255,250,232,.8)';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(st.ox, st.oy, R, 0, TAU);
     ctx.fill();
     ctx.stroke();
-    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > R ? R / d : 1;
-    ctx.fillStyle = 'rgba(255,250,232,.55)';
+    ctx.strokeStyle = 'rgba(255,250,232,.28)';
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(st.ox + dx * k, st.oy + dy * k, R * 0.42, 0, TAU);
+    ctx.arc(st.ox, st.oy, R * 0.5, 0, TAU);
+    ctx.stroke();
+    // the four marks
+    ctx.fillStyle = 'rgba(255,250,232,.55)';
+    for (let i = 0; i < 4; i++) {
+      const a = (i * Math.PI) / 2, cx = st.ox + Math.cos(a) * R * 0.8, cy = st.oy + Math.sin(a) * R * 0.8;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * 6, cy + Math.sin(a) * 6);
+      ctx.lineTo(cx + Math.cos(a + 2.2) * 5, cy + Math.sin(a + 2.2) * 5);
+      ctx.lineTo(cx + Math.cos(a - 2.2) * 5, cy + Math.sin(a - 2.2) * 5);
+      ctx.fill();
+    }
+    // the wedge toward the walk
+    if (st.on && d > 4) {
+      const a = Math.atan2(dy, dx);
+      ctx.strokeStyle = C.goldLight;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(st.ox, st.oy, R, a - 0.42, a + 0.42);
+      ctx.stroke();
+    }
+    // the knob
+    ctx.fillStyle = 'rgba(30,22,14,.3)';
+    ctx.beginPath();
+    ctx.arc(kx, ky + 3, R * 0.44, 0, TAU);
     ctx.fill();
+    ctx.fillStyle = st.on ? 'rgba(255,250,232,.95)' : 'rgba(255,250,232,.8)';
+    ctx.strokeStyle = 'rgba(43,33,24,.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(kx, ky, R * 0.42, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
     ctx.restore();
   }
 }

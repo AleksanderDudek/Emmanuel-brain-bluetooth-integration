@@ -1,7 +1,14 @@
 import { writeFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BEASTS, COMPANIONS, GUARDS, LANDS, LINES, LINE_COUNT, MOMENTS, QUESTS, TAUNTS } from '../src/arcade/dawid/content';
+import { Hud } from '../src/arcade/dawid/hud';
 import { CATALOGS, t, unit } from '../src/arcade/dawid/i18n';
+import dawid from '../src/arcade/dawid/index';
+import { EDGE, layout } from '../src/arcade/dawid/layout';
+import { SANS, SERIF, font } from '../src/arcade/dawid/paint';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
+import { CHECK_SIZES, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import {
   abilityCost, abilityWhy, bagCap, bestOf, build, buyAbility, forge, freshProgress, guardHp, join, landAt, landK, migrate, partyNow, partySlots,
   stars, toggleParty, weaponCost, weaponLevel, xpNeed, type DawidProgress,
@@ -716,5 +723,300 @@ describe.runIf(process.env.DAWID_PACING)('pacing (manual)', () => {
       (globalThis as { __pace?: string[] }).__pace = [...((globalThis as { __pace?: string[] }).__pace ?? []), `session ${s + 1}: XP ${r.score} · level ${p.level} · land ${p.land} q${p.quest} · silver ${p.silver} wood ${p.wood} stone ${p.stone} · guards ${p.guards} · driven ${sim.driven} · hp ${Math.round(sim.david.max)} dmg ${Math.round(sim.stats.dmg)} · ab ${JSON.stringify(p.ab)} bd ${JSON.stringify(p.bd)} wp ${JSON.stringify(p.wp)} · party ${p.party.join(',')} · wounds ${p.wounds}/${Math.round(sim.guard.max)} · floor ${p.floor}`];
     }
     if (process.env.DAWID_OUT) writeFileSync(process.env.DAWID_OUT, ((globalThis as { __pace?: string[] }).__pace ?? []).join('\n'));
+  });
+});
+
+// ── phone first (src/arcade/DESIGN.md §12) ──────────────────────────
+
+const PX = /(\d+(?:\.\d+)?)px/;
+
+/** A canvas context that draws nothing, keeps what is set and measures text at 0.56 em a character. */
+function fakeContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+  const gradient = { addColorStop: () => undefined };
+  const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+  return new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (prop === 'measureText') return (s: string) => ({ width: String(s).length * Number(String(target.font).match(PX)?.[1] ?? 10) * 0.56 });
+      if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
+      if (prop === 'getTransform') return () => ({ a: 1, b: 0 });
+      return () => undefined;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+interface Played { game: ArcadeGame; sim: DawidSim; view: { L: ReturnType<typeof layout>; hud: Hud; campOpen: number } }
+type Size = { name: string; w: number; h: number; insets: Insets };
+
+describe('phone first (DESIGN.md §12)', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  const RETURNING: Partial<DawidProgress> = { sessions: 5, pushes: 1, seen: SEEN };
+
+  /** The real game on a canvas of w × h with the runner's insets, a few frames in. */
+  function play(size: Size, progress: Partial<DawidProgress> = RETURNING, touch = true): Played {
+    const env: GameEnv<DawidProgress> = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), ...progress }, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 300, tool: 'fnirs',
+      simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+      hudTop: () => size.insets.top, insets: () => size.insets, touch,
+    };
+    const game = dawid.create(env);
+    game.resize(size.w, size.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: DawidSim; view: Played['view'] };
+    const p: Played = { game, sim: inner.sim, view: inner.view };
+    frames(p, 20);
+    return p;
+  }
+
+  function frames(p: Played, n: number, f: FocusFrame = frame()): void {
+    for (let i = 0; i < n; i++) {
+      p.game.update(STEP, f, p.sim.t + STEP);
+      p.game.draw();
+    }
+  }
+
+  /** David in his camp with the beasts gone: the sheet comes up. */
+  function toCamp(p: Played): void {
+    quiet(p.sim);
+    p.sim.david.x = p.sim.land.camp[0];
+    p.sim.david.y = p.sim.land.camp[1];
+    frames(p, 60);
+  }
+
+  const mid = (r: { x: number; y: number; w: number; h: number }) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  const tap = (p: Played, at: { x: number; y: number }, id = 1) => {
+    p.game.pointer!({ type: 'down', ...at, id });
+    p.game.pointer!({ type: 'up', ...at, id });
+    p.game.draw();
+  };
+  const audit = (p: Played, s: Size, what: string) => {
+    const ts = p.game.targets!();
+    expect(ts.length, `${s.name}: ${what}`).toBeGreaterThan(0);
+    expect(auditTargets(ts, s.w, s.h, s.insets), `${s.name}: ${what}`).toEqual([]);
+    return ts;
+  };
+
+  it('never sets a canvas font under 11 px', () => {
+    for (const size of [0, 1, 6.8, 9.5, 10.99, 11, 13.37, 40]) {
+      for (const fam of [SANS, SERIF]) expect(Number(font(800, size, fam).match(PX)![1])).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(font(700, 13.37, SANS)).toBe(`700 13.4px ${SANS}`);
+    expect(font(800, 22, SERIF, true)).toBe(`italic 800 22px ${SERIF}`);
+  });
+
+  it('lays out for the phone first: u = 1 on a phone, the great stone and the bag in the thumb zone, David in the field', () => {
+    for (const s of CHECK_SIZES) {
+      const L = layout(s.w, s.h, s.insets);
+      // 1 on a phone up to 390 px across (a bigger phone a hair more), never under 1, at most 1.3
+      if (Math.min(s.w, s.h) <= 390) expect(L.u, s.name).toBe(1);
+      expect(L.u, s.name).toBeGreaterThanOrEqual(1);
+      expect(L.u, s.name).toBeLessThanOrEqual(1.3);
+      for (const b of [L.bag, L.stone]) {
+        expect(b.r * 2, s.name).toBeGreaterThanOrEqual(56);
+        expect(b.hit.x, s.name).toBeGreaterThanOrEqual(EDGE - 0.5);
+        expect(b.hit.x + b.hit.w, s.name).toBeLessThanOrEqual(s.w - EDGE + 0.5);
+        expect(b.hit.y + b.hit.h, s.name).toBeLessThanOrEqual(s.h - s.insets.bottom + 0.5);
+        // upright: in the bottom 45 % of the screen, where the thumb reaches
+        if (s.h > s.w) expect(b.hit.y, s.name).toBeGreaterThanOrEqual(s.h * (1 - THUMB));
+      }
+      // the field between the top band and the bottom band: David stands in it, the sling's reach in sight across
+      expect(L.field.bottom - L.field.top, s.name).toBeGreaterThanOrEqual(170);
+      expect(L.ky, s.name).toBeGreaterThan(L.field.top);
+      expect(L.ky, s.name).toBeLessThan(L.field.bottom);
+      expect(L.halfW, s.name).toBeGreaterThanOrEqual(RULES.slingRange);
+      // the camp's sheet: two columns at least, finger-sized tabs and tiles, room left for David
+      const S = L.sheet;
+      expect(S.cols, s.name).toBeGreaterThanOrEqual(2);
+      expect(S.tileH, s.name).toBeGreaterThanOrEqual(48);
+      for (const tb of S.tabs) expect(tb.h, s.name).toBeGreaterThanOrEqual(48);
+      expect(S.view.h, s.name).toBeGreaterThanOrEqual(S.tileH);
+      if (S.dock === 'bottom') {
+        expect(S.head.y - L.field.top, s.name).toBeGreaterThanOrEqual(80);
+        expect(L.campKy, s.name).toBeLessThan(S.head.y);
+      } else {
+        // on its side the sheet takes the right and leaves the field its left
+        expect(S.x / s.w, s.name).toBeGreaterThanOrEqual(0.4);
+        expect(L.campKx, s.name).toBeLessThan(S.x);
+      }
+    }
+    // upright phones dock the sheet at the bottom, phones on their side and desktops on the right
+    expect(layout(360, 500, CHECK_SIZES[0].insets).sheet.dock).toBe('bottom');
+    expect(layout(601, 360, CHECK_SIZES[4].insets).sheet.dock).toBe('right');
+  });
+
+  it('every control is finger-sized, inside the insets and clear of the others at every size: playing, in camp (each tab, scrolled), a story card', () => {
+    for (const s of CHECK_SIZES) {
+      const p = play(s);
+      expect(audit(p, s, 'play').map(x => x.label)).toEqual(expect.arrayContaining(['stone', 'bag', 'quest']));
+      // into the camp: while the sheet slides in, nothing of it (nor the buttons under it) is offered for a tap
+      quiet(p.sim);
+      p.sim.david.x = p.sim.land.camp[0];
+      p.sim.david.y = p.sim.land.camp[1];
+      for (let i = 0; i < 12; i++) {
+        frames(p, 1);
+        const ts = p.game.targets!();
+        expect(auditTargets(ts, s.w, s.h, s.insets), `${s.name}: sliding in, frame ${i}`).toEqual([]);
+        if (p.view.campOpen >= 0.5 && p.view.campOpen < 0.98) expect(ts.map(x => x.label), `${s.name}: sliding`).toEqual(['quest']);
+      }
+      toCamp(p);
+      expect(p.view.campOpen, s.name).toBeGreaterThan(0.98);
+      for (const tab of ['ab', 'bd', 'wp', 'party'] as const) {
+        p.sim.setTab(tab);
+        frames(p, 2);
+        const ts = audit(p, s, `camp ${tab}`);
+        expect(ts.some(x => x.label.startsWith('tile')), `${s.name} ${tab}`).toBe(true);
+        expect(ts.some(x => x.label === 'hunt'), `${s.name} ${tab}`).toBe(true);
+        // the bag and the great stone are under the sheet
+        expect(ts.some(x => x.label === 'bag' || x.label === 'stone'), `${s.name} ${tab}`).toBe(false);
+        p.view.hud.scroll = 1e4;
+        frames(p, 2);
+        audit(p, s, `camp ${tab}, scrolled to its end`);
+        p.view.hud.scroll = 0;
+      }
+      // the first session opens with a story card: a tap anywhere moves on
+      const first = play(s, {});
+      expect(audit(first, s, 'story').map(x => x.label)).toEqual(['story']);
+    }
+  });
+
+  it('a button shows pressed on touch-down and acts on lift; a thumb that slides off it steers instead', () => {
+    const s = CHECK_SIZES[0];
+    const p = play(s);
+    quiet(p.sim);
+    const b = mid(p.view.L.bag.hit);
+    p.game.pointer!({ type: 'down', ...b, id: 1 });
+    expect(p.view.hud.pressed?.kind).toBe('bag');
+    expect(p.sim.mode).not.toBe('home');
+    p.game.pointer!({ type: 'up', ...b, id: 1 });
+    expect(p.view.hud.pressed).toBeNull();
+    expect(p.sim.mode).toBe('home');
+    // a drag that starts on the bag walks David the drag's way, and never home
+    p.sim.mode = 'none';
+    p.game.pointer!({ type: 'down', ...b, id: 2 });
+    p.game.pointer!({ type: 'move', x: b.x - 60, y: b.y - 8, id: 2 });
+    frames(p, 4);
+    expect(p.sim.david.mx).toBeLessThan(-0.5);
+    p.game.pointer!({ type: 'up', x: b.x - 60, y: b.y - 8, id: 2 });
+    expect(p.sim.mode).toBe('none');
+  });
+
+  it('a finger on the field shows the joystick at once; a tap near David sends him hunting, farther walks him there', () => {
+    const p = play(CHECK_SIZES[1]);
+    quiet(p.sim);
+    const L = p.view.L;
+    p.game.pointer!({ type: 'down', x: L.kx, y: L.ky, id: 1 });
+    const view = p.view as unknown as { stick: { on: boolean } | null };
+    expect(view.stick).not.toBeNull();
+    expect(view.stick!.on).toBe(false);
+    p.game.pointer!({ type: 'up', x: L.kx, y: L.ky, id: 1 });
+    expect(p.sim.mode).toBe('hunt');
+    expect(view.stick).toBeNull();
+    tap(p, { x: L.kx + L.s * 4, y: L.ky - L.s * 1 });
+    expect(p.sim.mode).toBe('go');
+  });
+
+  it('the great stone not ready says so (no hunt from that tap); ready, a tap throws it', () => {
+    const p = play(CHECK_SIZES[0]);
+    quiet(p.sim);
+    p.sim.mode = 'none';
+    const st = mid(p.view.L.stone.hit), stones = p.sim.stones;
+    tap(p, st);
+    expect(p.sim.mode).toBe('none');
+    expect(p.sim.stones).toBe(stones);
+    place(p.sim, 'szakal', 2.5, 0);
+    p.sim.stoneReady = true;
+    p.sim.charge = 1;
+    tap(p, st);
+    expect(p.sim.stones).toBe(stones + 1);
+  });
+
+  it('in camp a tap buys a tile, a drag scrolls the tiles and buys nothing, a tab switches, "Na łowy" sends David out', () => {
+    for (const s of [CHECK_SIZES[0], CHECK_SIZES[4]]) {
+      const p = play(s, { ...RETURNING, silver: 1e6, bd: { ognisko: 3 } });
+      toCamp(p);
+      p.sim.setTab('ab');
+      frames(p, 2);
+      const g = p.view.hud.sheetShown!;
+      expect(g, s.name).not.toBeNull();
+      const before = p.sim.p.ab.sila ?? 0;
+      tap(p, mid(g.tiles[0]));
+      expect(p.sim.p.ab.sila ?? 0, s.name).toBe(before + 1);
+      // a drag up the tiles scrolls them and buys nothing
+      const spent = p.sim.p.silver, at = mid(g.tiles[1]);
+      p.game.pointer!({ type: 'down', ...at, id: 3 });
+      p.game.pointer!({ type: 'move', x: at.x, y: at.y - 40, id: 3 });
+      p.game.pointer!({ type: 'up', x: at.x, y: at.y - 40, id: 3 });
+      expect(p.sim.p.silver, s.name).toBe(spent);
+      expect(p.view.hud.scroll, s.name).toBeGreaterThan(0);
+      // a tab
+      tap(p, mid(p.view.hud.sheetShown!.tabs[1]));
+      expect(p.sim.campTab, s.name).toBe('bd');
+      frames(p, 2);
+      expect(p.view.hud.scroll, s.name).toBe(0);
+      // "Na łowy"
+      p.sim.mode = 'none';
+      tap(p, mid(p.view.hud.sheetShown!.hunt));
+      expect(p.sim.mode, s.name).toBe('hunt');
+    }
+  });
+
+  it('the quest pill follows the quest: to the beasts it wants, or home for a purchase', () => {
+    const p = play(CHECK_SIZES[1]);
+    const box = p.view.hud.questBox!;
+    expect(box).not.toBeNull();
+    p.sim.p.quest = 0;   // hunt four jackals
+    p.sim.mode = 'none';
+    tap(p, mid(box));
+    expect(['go', 'hunt']).toContain(p.sim.mode);
+  });
+
+  it('the quest pill walks David short of the beasts (the hunt takes over), right up to a person, home for a purchase', () => {
+    const qs = questsOf(0);
+    // a hunt: to the sling's reach of the den, then the hunt
+    const a = later({ progress: { quest: qs.findIndex(q => q.kind === 'hunt') } });
+    const den = a.questTarget()!;
+    a.david.x = den.x + 20 > a.land.w - 1 ? den.x - 20 : den.x + 20;
+    a.david.y = den.y;
+    expect(a.followQuest()).toBe(true);
+    expect(a.mode).toBe('go');
+    expect(Math.hypot(a.goal.x - den.x, a.goal.y - den.y)).toBeGreaterThan(3);
+    // a visit: right to the person
+    const vi = qs.findIndex(q => q.kind === 'visit');
+    const b = later({ progress: { quest: vi } });
+    const at = b.questTarget()!;
+    expect(b.followQuest()).toBe(true);
+    expect(b.mode).toBe('go');
+    expect(Math.hypot(b.goal.x - at.x, b.goal.y - at.y)).toBeLessThan(0.01);
+    // a building the treasury can pay: home
+    const bi = qs.findIndex(q => q.kind === 'build');
+    const c = later({ progress: { quest: bi, silver: 1e6, wood: 999, stone: 999 } });
+    expect(c.followQuest()).toBe(true);
+    expect(c.mode).toBe('home');
+    // by the harp, or in a story: nothing
+    const d = later();
+    d.story = { kind: 'land', t: 1, dur: 5, title: '', text: '' };
+    expect(d.followQuest()).toBe(false);
+  });
+
+  it('speaks of tapping to a finger and of clicks and keys to a mouse, in every language', () => {
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['howto.move', 'howto.tap', 'howto.camp', 'coach.move', 'coach.hunt', 'coach.bag', 'coach.camp', 'coach.quest', 'coach.stone', 'story.tap', 'story.next']) {
+        // (the quest's arrow on the field is no key: "strzałka", "the arrow", "der Pfeil", "pilen")
+        expect(String(cat[k]), `${l} ${k}`).not.toMatch(/WASD|Spacj|Space|Leertaste|mellanslag|klik|click|Klick|klicka|mysz|mouse|Maus|musen|strzałki|strzałkami|\barrows\b|Pfeiltaste|piltangent/i);
+      }
+      for (const k of ['coach.move.keys', 'coach.hunt.keys', 'coach.bag.keys', 'coach.camp.keys', 'coach.quest.keys', 'coach.stone.keys', 'story.tap.keys', 'story.next.keys', 'howto.keys']) {
+        expect(typeof cat[k], `${l} ${k}`).toBe('string');
+      }
+    }
   });
 });

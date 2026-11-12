@@ -9,12 +9,14 @@
  * beasts (round-eyed and a little comic; struck, they run off — nothing dies), the guardians, coins,
  * heaps, chests.  All canvas paths, no images; sizes in u (about a metre) times `s` (px per u).
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { BeastKind, BuildingId, CompanionId, Ground, GuardKind, LandSpec } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
+/** A CSS font for the canvas; never under MIN_TEXT (11 px), the smallest text a phone at arm's length shows (DESIGN §12.2). */
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
 
 export const C = {
   ink: '#2b2118', inkSoft: 'rgba(43,33,24,.78)', parchment: '#f6ebd3', parchmentDeep: '#e6d2a8',
@@ -34,9 +36,44 @@ export function hash(i: number): number {
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
 }
 
-/** A soft radial glow (use with 'lighter' for light). */
+/** Glows baked once per colour into a small sprite (a phone's fill rate: no gradient per glow per frame). */
+const GLOW_PX = 96;
+const glows = new Map<string, HTMLCanvasElement | null>();
+
+function glowSprite(color: string): HTMLCanvasElement | null {
+  let c = glows.get(color);
+  if (c !== undefined) return c;
+  c = null;
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = GLOW_PX;
+    const g = cv.getContext('2d');
+    if (g) {
+      const h = GLOW_PX / 2;
+      const gr = g.createRadialGradient(h, h, 0, h, h, h);
+      gr.addColorStop(0, `${color}1)`);
+      gr.addColorStop(0.45, `${color}0.45)`);
+      gr.addColorStop(1, `${color}0)`);
+      g.fillStyle = gr;
+      g.fillRect(0, 0, GLOW_PX, GLOW_PX);
+      c = cv;
+    }
+  } catch { /* no canvas here (tests): the gradient below */ }
+  glows.set(color, c);
+  return c;
+}
+
+/** A soft radial glow (use with 'lighter' for light): a baked sprite drawn at `a`, or a gradient where there is none. */
 export function glow(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, a: number): void {
   if (a <= 0.003 || r <= 0) return;
+  const sprite = glowSprite(color);
+  if (sprite) {
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = prev * Math.min(1, a);
+    ctx.drawImage(sprite, x - r, y - r, r * 2, r * 2);
+    ctx.globalAlpha = prev;
+    return;
+  }
   const g = ctx.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, `${color}${a})`);
   g.addColorStop(0.45, `${color}${a * 0.45})`);
@@ -911,7 +948,7 @@ export function paintBeast(ctx: CanvasRenderingContext2D, kind: BeastKind | Guar
   ctx.restore();
   if (p.doze > 0.5 && p.flee <= 0) {
     ctx.fillStyle = 'rgba(240,245,255,.85)';
-    ctx.font = font(800, s * 0.32, SANS);
+    ctx.font = font(800, Math.max(13, s * 0.4), SANS);
     ctx.textAlign = 'center';
     const zz = (p.t * 0.6 + p.seed * 0.17) % 1;
     ctx.globalAlpha = 1 - zz;
@@ -920,7 +957,7 @@ export function paintBeast(ctx: CanvasRenderingContext2D, kind: BeastKind | Guar
   }
   if (p.stun && p.stun > 0) {
     ctx.fillStyle = C.goldLight;
-    ctx.font = font(800, s * 0.26, SANS);
+    ctx.font = font(800, Math.max(13, s * 0.32), SANS);
     ctx.textAlign = 'center';
     for (let i = 0; i < 3; i++) {
       const a = p.t * 5 + (i * TAU) / 3;
@@ -1216,7 +1253,7 @@ export function paintGiant(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.restore();
   if (p.daze > 0 && p.fall <= 0) {
     ctx.fillStyle = C.goldLight;
-    ctx.font = font(800, s * 0.4, SANS);
+    ctx.font = font(800, Math.max(13, s * 0.4), SANS);
     ctx.textAlign = 'center';
     for (let i = 0; i < 3; i++) {
       const a = p.t * 4 + (i * TAU) / 3;
