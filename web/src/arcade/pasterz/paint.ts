@@ -7,10 +7,13 @@
  * sizes in metres times `s` (px per metre).
  */
 
+import { MIN_TEXT } from '../kit/mobile';
+
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
+/** A CSS font for the canvas; never under MIN_TEXT (11 px), the smallest text a phone at arm's length shows (DESIGN §12.2). */
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
 
 export const C = {
   grass: '#a9b56a', grassDark: '#8f9d55', grassLight: '#c2c77f', dry: '#d7c48c', lush: '#93ab58',

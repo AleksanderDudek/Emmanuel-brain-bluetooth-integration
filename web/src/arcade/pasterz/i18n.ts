@@ -21,9 +21,9 @@ const pl = {
   'place': '{n}. miejsce',
 
   // the strategies under each block (never "concentrate harder")
-  'tip.warmup.1': 'Przeciągnij palcem w stronę, w którą ma iść pasterz.',
+  'tip.warmup.1': 'Przeciągnij w stronę, w którą ma iść pasterz.',
   'tip.warmup.2': 'Owce, których dotknie Twoje stado, dołączają do niego.',
-  'tip.warmup.3': 'Stuknij albo naciśnij Spację — Łatek przygoni pobliskie owce.',
+  'tip.warmup.3': 'Stuknij — Łatek przygoni pobliskie owce.',
   'tip.call.1': 'Wołaj w myślach owce po imieniu, jedną po drugiej.',
   'tip.call.2': 'Policz w myślach owce w stadzie, od pierwszej do ostatniej.',
   'tip.call.3': 'Zaplanuj w myślach drogę do najdalszej grupy.',
@@ -38,13 +38,16 @@ const pl = {
 
   // how to play and the coach marks
   'how.goal': 'Zbierz największe stado na wzgórzu i przynieś zagubioną owcę.',
-  'how.drag': 'Przeciągnij palcem — pasterz idzie w tę stronę (strzałki też)',
-  'how.tap': 'Stuknij lub Spacja — Łatek przygania pobliskie owce',
+  'how.drag': 'Przeciągnij w dowolnym miejscu — pasterz idzie w tę stronę',
+  'how.tap': 'Stuknij przycisk Łatka (albo gdziekolwiek) — Łatek przygania pobliskie owce',
+  'how.keys': 'Strzałki lub WASD — ruch · Spacja lub Enter — gwizd na Łatka',
   'how.tip1': 'Większe stado przejmuje owce mniejszego: omijaj większe stada, wbiegaj w mniejsze.',
   'how.tip2': 'Gdy nie sterujesz, Łatek sam prowadzi pasterza do najbliższych owiec.',
-  'hint.steer': 'Przeciągnij palcem — pasterz idzie w tę stronę',
-  'hint.join': 'Dotknij luźnych owiec — dołączą do stada i pójdą za Tobą',
-  'hint.whistle': 'Stuknij (albo Spacja) — Łatek przygoni pobliskie owce',
+  'hint.steer': 'Przeciągnij palcem w dowolnym miejscu — pasterz pójdzie w tę stronę',
+  'hint.steer.keys': 'Przeciągnij myszą w dowolnym miejscu (albo strzałki / WASD) — pasterz pójdzie w tę stronę',
+  'hint.join': 'Wejdź w luźne owce — dołączą do stada i pójdą za Tobą',
+  'hint.whistle': 'Stuknij Łatka — przygoni pobliskie owce',
+  'hint.whistle.keys': 'Kliknij (albo Spacja) — Łatek przygoni pobliskie owce',
   'hint.rival': 'Rywal! Większe stado zabiera owce mniejszemu — omijaj większych',
   'hint.bigger': 'To stado jest mniejsze od Twojego — wejdź w nie i przejmij owce',
   'hint.ring': 'Krąg wołania rośnie ze skupieniem. Owce w kręgu same przychodzą',
@@ -55,6 +58,7 @@ const pl = {
   'ui.round': 'Pastwisko {n}/{of}',
   'ui.you': 'Ty',
   'ui.out': 'obrażony',
+  'ui.whistle': 'Gwizdnij',
   'sub.place': '{n}. miejsce z {of}',
   'sub.night': 'Noc · gwiazdy: {n}',
   'sub.tally': 'Liczenie owiec',
@@ -223,9 +227,9 @@ const en: Cat = {
   'pct': '{n}%',
   'place': '#{n}',
 
-  'tip.warmup.1': 'Drag your finger the way the shepherd should walk.',
+  'tip.warmup.1': 'Drag the way the shepherd should walk.',
   'tip.warmup.2': 'Sheep your flock touches join it.',
-  'tip.warmup.3': 'Tap or press Space — Patch rounds up the sheep nearby.',
+  'tip.warmup.3': 'Tap — Patch rounds up the sheep nearby.',
   'tip.call.1': 'Call the sheep by name in your mind, one after another.',
   'tip.call.2': 'Count the flock in your mind, from the first sheep to the last.',
   'tip.call.3': 'Plan your way to the farthest group in your mind.',
@@ -239,13 +243,16 @@ const en: Cat = {
   'tip.watch.4': 'Count four slow breaths, then start again.',
 
   'how.goal': 'Gather the biggest flock on the hill and carry the lost sheep home.',
-  'how.drag': 'Drag — the shepherd walks that way (arrow keys too)',
-  'how.tap': 'Tap or Space — Patch rounds up the sheep nearby',
+  'how.drag': 'Drag anywhere — the shepherd walks that way',
+  'how.tap': 'Tap Patch\'s button (or anywhere) — Patch rounds up the sheep nearby',
+  'how.keys': 'Arrows or WASD: walk · Space or Enter: whistle for Patch',
   'how.tip1': 'A bigger flock takes a smaller one\'s sheep: steer clear of bigger ones, run into smaller ones.',
   'how.tip2': 'When you don\'t steer, Patch leads the shepherd to the nearest sheep.',
-  'hint.steer': 'Drag your finger — the shepherd walks that way',
-  'hint.join': 'Touch the loose sheep — they join your flock and follow you',
-  'hint.whistle': 'Tap (or Space) — Patch rounds up the sheep nearby',
+  'hint.steer': 'Drag your finger anywhere — the shepherd walks that way',
+  'hint.steer.keys': 'Drag with the mouse anywhere (or arrows / WASD) — the shepherd walks that way',
+  'hint.join': 'Walk into the loose sheep — they join your flock and follow you',
+  'hint.whistle': 'Tap Patch — he rounds up the sheep nearby',
+  'hint.whistle.keys': 'Click (or press Space) — Patch rounds up the sheep nearby',
   'hint.rival': 'A rival! A bigger flock takes a smaller one\'s sheep — avoid bigger ones',
   'hint.bigger': 'This flock is smaller than yours — run into it and take its sheep',
   'hint.ring': 'The ring of your call grows with focus. Sheep inside it come by themselves',
@@ -255,6 +262,7 @@ const en: Cat = {
   'ui.round': 'Pasture {n}/{of}',
   'ui.you': 'You',
   'ui.out': 'sulking',
+  'ui.whistle': 'Whistle',
   'sub.place': 'place {n} of {of}',
   'sub.night': 'Night · stars: {n}',
   'sub.tally': 'Counting the sheep',
@@ -411,9 +419,9 @@ const de: Cat = {
   'pct': '{n} %',
   'place': '{n}. Platz',
 
-  'tip.warmup.1': 'Zieh mit dem Finger in die Richtung, in die der Hirte gehen soll.',
+  'tip.warmup.1': 'Zieh in die Richtung, in die der Hirte gehen soll.',
   'tip.warmup.2': 'Schafe, die deine Herde berührt, schließen sich ihr an.',
-  'tip.warmup.3': 'Tipp oder drück die Leertaste – Flecki treibt Schafe in der Nähe herbei.',
+  'tip.warmup.3': 'Tipp – Flecki treibt Schafe in der Nähe herbei.',
   'tip.call.1': 'Ruf die Schafe in Gedanken beim Namen, eins nach dem anderen.',
   'tip.call.2': 'Zähl die Herde in Gedanken, vom ersten Schaf bis zum letzten.',
   'tip.call.3': 'Plan in Gedanken den Weg zur entferntesten Gruppe.',
@@ -427,13 +435,16 @@ const de: Cat = {
   'tip.watch.4': 'Zähl vier ruhige Atemzüge, dann fang von vorn an.',
 
   'how.goal': 'Sammle die größte Herde auf dem Hügel und trag das verlorene Schaf heim.',
-  'how.drag': 'Ziehen – der Hirte geht in diese Richtung (auch Pfeiltasten)',
-  'how.tap': 'Tippen oder Leertaste – Flecki treibt Schafe in der Nähe herbei',
+  'how.drag': 'Zieh irgendwo – der Hirte geht in diese Richtung',
+  'how.tap': 'Tipp auf Fleckis Knopf (oder irgendwo) – Flecki treibt Schafe in der Nähe herbei',
+  'how.keys': 'Pfeile oder WASD: gehen · Leertaste oder Enter: nach Flecki pfeifen',
   'how.tip1': 'Die größere Herde übernimmt die Schafe der kleineren: Meide größere, lauf in kleinere hinein.',
   'how.tip2': 'Wenn du nicht steuerst, führt Flecki den Hirten zu den nächsten Schafen.',
-  'hint.steer': 'Zieh mit dem Finger – der Hirte geht in diese Richtung',
-  'hint.join': 'Berühr die freien Schafe – sie schließen sich deiner Herde an',
-  'hint.whistle': 'Tippen (oder Leertaste) – Flecki treibt Schafe herbei',
+  'hint.steer': 'Zieh mit dem Finger irgendwo – der Hirte geht in diese Richtung',
+  'hint.steer.keys': 'Zieh mit der Maus irgendwo (oder Pfeile / WASD) – der Hirte geht in diese Richtung',
+  'hint.join': 'Lauf in die freien Schafe – sie schließen sich deiner Herde an',
+  'hint.whistle': 'Tipp auf Flecki – er treibt Schafe in der Nähe herbei',
+  'hint.whistle.keys': 'Klick (oder Leertaste) – Flecki treibt Schafe herbei',
   'hint.rival': 'Ein Rivale! Die größere Herde nimmt der kleineren die Schafe – meide größere',
   'hint.bigger': 'Diese Herde ist kleiner als deine – lauf hinein und übernimm die Schafe',
   'hint.ring': 'Der Kreis deines Rufs wächst mit dem Fokus. Schafe darin kommen von selbst',
@@ -443,6 +454,7 @@ const de: Cat = {
   'ui.round': 'Weide {n}/{of}',
   'ui.you': 'Du',
   'ui.out': 'beleidigt',
+  'ui.whistle': 'Pfeifen',
   'sub.place': '{n}. Platz von {of}',
   'sub.night': 'Nacht · Sterne: {n}',
   'sub.tally': 'Die Schafe werden gezählt',
@@ -599,9 +611,9 @@ const sv: Cat = {
   'pct': '{n} %',
   'place': 'plats {n}',
 
-  'tip.warmup.1': 'Dra med fingret åt det håll herden ska gå.',
+  'tip.warmup.1': 'Dra åt det håll herden ska gå.',
   'tip.warmup.2': 'Får som din hjord nuddar ansluter sig till den.',
-  'tip.warmup.3': 'Tryck eller tryck på mellanslag – Fläcken driver ihop får i närheten.',
+  'tip.warmup.3': 'Tryck – Fläcken driver ihop får i närheten.',
   'tip.call.1': 'Ropa fåren vid namn i tankarna, ett i taget.',
   'tip.call.2': 'Räkna hjorden i tankarna, från det första fåret till det sista.',
   'tip.call.3': 'Planera i tankarna vägen till den avlägsnaste gruppen.',
@@ -615,13 +627,16 @@ const sv: Cat = {
   'tip.watch.4': 'Räkna fyra lugna andetag och börja sedan om.',
 
   'how.goal': 'Samla den största hjorden på kullen och bär hem det förlorade fåret.',
-  'how.drag': 'Dra – herden går åt det hållet (piltangenterna också)',
-  'how.tap': 'Tryck eller mellanslag – Fläcken driver ihop får i närheten',
+  'how.drag': 'Dra var som helst – herden går åt det hållet',
+  'how.tap': 'Tryck på Fläckens knapp (eller var som helst) – Fläcken driver ihop får i närheten',
+  'how.keys': 'Pilar eller WASD: gå · mellanslag eller Enter: vissla på Fläcken',
   'how.tip1': 'En större hjord tar en mindre hjords får: undvik större, spring in i mindre.',
   'how.tip2': 'När du inte styr leder Fläcken herden till de närmaste fåren.',
-  'hint.steer': 'Dra med fingret – herden går åt det hållet',
-  'hint.join': 'Nudda de lösa fåren – de ansluter sig till hjorden och följer dig',
-  'hint.whistle': 'Tryck (eller mellanslag) – Fläcken driver ihop får i närheten',
+  'hint.steer': 'Dra med fingret var som helst – herden går åt det hållet',
+  'hint.steer.keys': 'Dra med musen var som helst (eller pilar / WASD) – herden går åt det hållet',
+  'hint.join': 'Gå in i de lösa fåren – de ansluter sig till hjorden och följer dig',
+  'hint.whistle': 'Tryck på Fläcken – han driver ihop får i närheten',
+  'hint.whistle.keys': 'Klicka (eller tryck på mellanslag) – Fläcken driver ihop får i närheten',
   'hint.rival': 'En rival! En större hjord tar en mindres får – undvik större',
   'hint.bigger': 'Den här hjorden är mindre än din – spring in i den och ta fåren',
   'hint.ring': 'Ropets ring växer med fokus. Får inuti den kommer av sig själva',
@@ -631,6 +646,7 @@ const sv: Cat = {
   'ui.round': 'Betesmark {n}/{of}',
   'ui.you': 'Du',
   'ui.out': 'sur',
+  'ui.whistle': 'Vissla',
   'sub.place': 'plats {n} av {of}',
   'sub.night': 'Natt · stjärnor: {n}',
   'sub.tally': 'Fåren räknas',
@@ -783,6 +799,13 @@ const sv: Cat = {
 export const CATALOGS = { pl, en, de, sv };
 export const t = translator<Key>(CATALOGS);
 export type { Key };
+
+/** A text that has a mouse-and-keys variant (`<key>.keys`): the touch words on a touch screen, the keys elsewhere. */
+export type HandKey = Key;
+export function hand(key: HandKey, touch: boolean, params?: Readonly<Record<string, string | number>>): string {
+  const k = `${key}.keys`;
+  return t(!touch && k in pl ? (k as Key) : key, params);
+}
 
 /** A plural text without its number, for words set beside a number drawn on its own. */
 export function bare(key: Key, n: number): string {

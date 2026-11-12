@@ -1,13 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { HILLS, LAMBS, LINES, LINE_COUNT, MOMENTS, RIVALS, RIVAL_LINES, SKINS, UNLOCKS } from '../src/arcade/pasterz/content';
-import { CATALOGS, t, unit } from '../src/arcade/pasterz/i18n';
+import { CATALOGS, hand, t, unit } from '../src/arcade/pasterz/i18n';
+import { howto } from '../src/arcade/pasterz/index';
+import { BANNER_ROOM, layout } from '../src/arcade/pasterz/layout';
 import { addHome, bestOf, freshProgress, homeFor, migrate, nameLamb, nextUnlock, openWardrobe, owns, wear, type PasterzProgress } from '../src/arcade/pasterz/meta';
+import { SANS, SERIF, font } from '../src/arcade/pasterz/paint';
+import type { PasterzView } from '../src/arcade/pasterz/render';
 import { RULES } from '../src/arcade/pasterz/rules';
 import { PasterzSim, RING_MARK, contest, crownFor, morningFor, planBlocks, ringFor, type SimEvent } from '../src/arcade/pasterz/sim';
 import { Talk } from '../src/arcade/pasterz/talk';
 import { World } from '../src/arcade/pasterz/world';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
 import { passage } from '../src/arcade/kit/scripture';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 
@@ -671,5 +678,303 @@ describe('the speech bubble', () => {
     expect(talk.line).toBeNull();
     talk.update(0.1, 0.2, false);
     expect(talk.line?.moment).toBe('open');
+  });
+});
+
+// ── on a phone first (src/arcade/DESIGN.md §12) ──
+const pxOf = (f: string): number => Number(f.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+/** every string drawn on a canvas made by the patched getContext, with its font size */
+const drawn: { text: string; px: number }[] = [];
+
+/** A context that draws nothing, measures text at 0.55 em a character and notes each string drawn with its size. */
+function noteContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+  const gradient = { addColorStop: () => undefined };
+  const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+  const note = (s: unknown) => {
+    const text = String(s);
+    if (text.trim() && (state.globalAlpha as number) > 0.05) drawn.push({ text, px: pxOf(String(state.font)) });
+  };
+  return new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (prop === 'measureText') return (s: string) => ({ width: String(s).length * pxOf(String(target.font)) * 0.55 });
+      if (prop === 'fillText' || prop === 'strokeText') return (s: unknown) => note(s);
+      if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
+      if (prop === 'createPattern') return () => null;
+      if (prop === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+      return () => undefined;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+type Size = (typeof CHECK_SIZES)[number];
+const upright = (z: Size) => z.w < 600;
+
+describe('on a phone first: the layout', () => {
+  it('the font helper never goes under 11 px', () => {
+    for (const px of [0, 4, 8.8, 9.2, 10.5, 10.99, 11, 13, 24, 40]) {
+      for (const fam of [SANS, SERIF]) expect(pxOf(font(700, px, fam, px > 20))).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(pxOf(font(800, 24, SERIF))).toBe(24);
+    expect(font(600, 13.37, SANS)).toBe(`600 13.4px ${SANS}`);
+  });
+
+  it('every checked screen: a scale from the phone, the shepherd in the field, the ranking under the HUD, no tiny world', () => {
+    for (const z of CHECK_SIZES) {
+      const L = layout(z.w, z.h, z.insets);
+      const name = z.name;
+      expect(L.u, name).toBeGreaterThanOrEqual(1);
+      expect(L.u, name).toBeLessThanOrEqual(1.3);
+      // a phone upright is sized at 1 (a 412 px phone grows a hair)
+      if (upright(z)) expect(L.u, name).toBeLessThanOrEqual(1.06);
+      // no reserve at the bottom: the room runs to the home indicator
+      expect(L.top, name).toBe(z.insets.top);
+      expect(L.bottom, name).toBe(z.h - z.insets.bottom);
+      expect(L.cy, name).toBeGreaterThan(L.field.top);
+      expect(L.cy, name).toBeLessThan(L.field.bottom);
+      expect(L.rank.y, name).toBeGreaterThanOrEqual(L.top);
+      expect(L.rank.x, name).toBeGreaterThanOrEqual(L.left);
+      expect(L.rank.x + L.rank.w, name).toBeLessThanOrEqual(L.right);
+      expect(L.stars.x, name).toBeGreaterThanOrEqual(L.left);
+      expect(L.stars.x + L.stars.w, name).toBeLessThanOrEqual(L.right);
+      // the tally card: a sheet from the bottom, under the runner's (brief) block banner — one column upright
+      expect(L.card.y, name).toBeGreaterThanOrEqual(L.top + BANNER_ROOM * L.u - 0.5);
+      expect(L.card.y + L.card.h, name).toBeLessThanOrEqual(L.bottom);
+      expect(L.card.h, name).toBeGreaterThanOrEqual(upright(z) ? 240 : 170);
+      expect(L.card.w, name).toBeGreaterThanOrEqual(Math.min(330, z.w - 30));
+      expect(L.cardWide, name).toBe(!L.tall);
+      // a phone upright sees about 14 m across (a sheep ~25 px long, its ring readable), a wide screen 15.5 m
+      if (upright(z)) expect((L.right - L.left) / L.S0, name).toBeLessThanOrEqual(14.5);
+      expect(L.S0, name).toBeGreaterThanOrEqual(21);
+    }
+  });
+
+  it("Łatek's button: a 60–70 px disc, a clear target in the bottom-right thumb zone inside the safe area; the smoke's centre tap lands on the field", () => {
+    for (const z of CHECK_SIZES) {
+      const L = layout(z.w, z.h, z.insets);
+      const b = L.whistle, name = z.name;
+      expect(b.r * 2, name).toBeGreaterThanOrEqual(60);
+      expect(b.r * 2, name).toBeLessThanOrEqual(70);
+      expect(auditTargets([target('whistle', b.hit)], z.w, z.h, z.insets), name).toEqual([]);
+      expect(b.hit.x + b.hit.w, name).toBeLessThanOrEqual(z.w - 16);
+      // the dock's relayed touches come in at y = h − 1: they steer, never press the button
+      expect(b.hit.y + b.hit.h, name).toBeLessThan(z.h - 1);
+      expect(b.x, name).toBeGreaterThan((L.left + L.right) / 2);
+      if (upright(z)) expect(b.y, name).toBeGreaterThanOrEqual(z.h * (1 - THUMB));
+      const sx = z.w / 2, sy = z.h * 0.6;
+      expect(sx >= b.hit.x && sx <= b.hit.x + b.hit.w && sy >= b.hit.y && sy <= b.hit.y + b.hit.h, name).toBe(false);
+      // bubbles and coach marks keep above its row
+      expect(L.field.bottom, name).toBeLessThanOrEqual(b.hit.y);
+    }
+  });
+});
+
+describe('on a phone first: the game at every checked size', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return noteContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  const returning = (): PasterzProgress => ({ ...freshProgress(), sessions: 5, calls: 1, taught: [...TAUGHT] });
+  type Hint = { text: string; at: { x: number; y: number } | null };
+
+  function envFor(z: { w: number; h: number; insets: Insets }, progress: PasterzProgress, touch: boolean, hints: Hint[]): GameEnv<PasterzProgress> {
+    return {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress, rng: mulberry32(3), day: DAY, daySeed: 7, plannedSec: 300, tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false,
+      tuning: TUNING, hint: (text: string, at?: { x: number; y: number } | null) => { if (text) hints.push({ text, at: at ?? null }); },
+      hudTop: () => z.insets.top, insets: () => z.insets, touch,
+    };
+  }
+
+  async function gameAt(z: { w: number; h: number; insets: Insets }, touch = true, progress = returning(), hints: Hint[] = []) {
+    const mod = (await import('../src/arcade/pasterz/index')).default;
+    const game = mod.create(envFor(z, progress, touch, hints));
+    game.resize(z.w, z.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: PasterzSim; view: PasterzView };
+    return { game, sim: inner.sim, view: inner.view, clock: { t: 0 } };
+  }
+
+  const run = (game: ArcadeGame, clock: { t: number }, sec: number, f = frame()) => {
+    for (let i = 0; i < Math.round(sec * 30); i++) {
+      clock.t += 1 / 30;
+      game.update(1 / 30, f, clock.t);
+      game.draw();
+    }
+  };
+
+  /** On to the block where `done` holds: each block's clock is run out in one frame (the hill holds its state). */
+  const skipTo = (game: ArcadeGame, sim: PasterzSim, clock: { t: number }, done: () => boolean) => {
+    for (let guard = 0; guard < 20 && !done(); guard++) {
+      sim.blockT = sim.block.dur;
+      clock.t += sim.block.dur;
+      game.update(1 / 30, frame(), clock.t);
+    }
+    expect(done()).toBe(true);
+  };
+
+  /** Text allowed under MIN_READ (never under MIN_TEXT): a name cut to the ranking's room, the ranking's header, a count. */
+  const secondary = (s: string): boolean =>
+    /^[\d:+−-]+$/.test(s) || s.endsWith('…') || s.startsWith(t('ui.round', { n: 1, of: 1 }).split(' ')[0]) || RIVALS.some(r => r.name === s) || s === t('ui.you');
+
+  /** Draw one frame and check it: the targets (size, the safe area, no overlaps) and every string (≥ 11 px; under 13 only a secondary label). */
+  function check(game: ArcadeGame, z: { name: string; w: number; h: number; insets: Insets }, what: string): string[] {
+    drawn.length = 0;
+    game.draw();
+    const name = `${z.name}: ${what}`;
+    const ts = game.targets!();
+    expect(auditTargets(ts, z.w, z.h, z.insets), name).toEqual([]);
+    expect(drawn.filter(d => d.px < MIN_TEXT - 1e-6), name).toEqual([]);
+    expect(drawn.filter(d => d.px < MIN_READ - 1e-6 && !secondary(d.text)), name).toEqual([]);
+    return ts.map(x => x.label);
+  }
+
+  it('by day, with bubbles, in a night, on the tally and the last card: targets and text pass the phone checks', async () => {
+    for (const z of CHECK_SIZES) {
+      const touch = !z.name.startsWith('desktop');
+      const { game, sim, clock } = await gameAt(z, touch);
+      run(game, clock, 0.6, HIGH);
+      expect(check(game, z, 'by day'), z.name).toEqual([t('ui.whistle')]);
+      expect(drawn.some(d => d.text === t('ui.round', { n: 1, of: sim.roundsPlanned })), z.name).toBe(true);
+      // Łatek at length, a rival close by with a bubble of his own
+      const pl = sim.player, rv = sim.shepherds[1];
+      Object.assign(rv, { x: pl.x + 2.5, y: pl.y + 1.5, out: false });
+      sim.talk.line = { moment: 'open', text: 'Pięcioro pasterzy już biega. Spokojnie, mają gorszego psa, a ja mam jeszcze siły!', t: 0.6, dur: 4 };
+      rv.say = { text: 'Chrrr… pięć minut…', t: 0.5 };
+      check(game, z, 'bubbles');
+      // a night: the button steps aside, the stars take the top band
+      skipTo(game, sim, clock, () => sim.nightBlock);
+      run(game, clock, 1.6, CALM);
+      expect(check(game, z, 'a night'), z.name).toEqual([]);
+      // the round's tally at dawn
+      skipTo(game, sim, clock, () => sim.tallyT > 0);
+      run(game, clock, 1.2);
+      expect(sim.frozen, z.name).toBe(true);
+      expect(check(game, z, 'the tally'), z.name).toEqual([]);
+      expect(drawn.some(d => d.text === t('tally.score')), z.name).toBe(true);
+      // the session's last card
+      sim.finish();
+      expect(check(game, z, 'the last card'), z.name).toEqual([]);
+      game.destroy();
+    }
+  });
+
+  it('the joystick shows from the touch-down and steers past the slop; a short tap whistles; the button is pressed at the touch and whistles on the lift; a thumb that slides off steers', async () => {
+    const z = CHECK_SIZES[0];
+    const { game, sim, view, clock } = await gameAt(z);
+    clearHill(sim);
+    run(game, clock, 0.4);
+    // the field: the base and the knob at once, the walk only past the slop
+    game.pointer!({ type: 'down', x: 120, y: 300, id: 1 });
+    expect(view.stick).toMatchObject({ ox: 120, oy: 300, on: false });
+    game.pointer!({ type: 'move', x: 126, y: 300, id: 1 });
+    expect(view.stick).toMatchObject({ on: false });
+    game.pointer!({ type: 'move', x: 175, y: 300, id: 1 });
+    expect(view.stick).toMatchObject({ on: true });
+    const x0 = sim.player.x;
+    run(game, clock, 0.6);
+    expect(sim.player.x).toBeGreaterThan(x0 + 1);
+    // a finger that runs far past the rim drags the base along
+    game.pointer!({ type: 'move', x: 320, y: 300, id: 1 });
+    expect(view.stick!.ox).toBeGreaterThan(120 + RULES.stickPx);
+    game.pointer!({ type: 'up', x: 320, y: 300, id: 1 });
+    expect(view.stick).toBeNull();
+    expect(sim.whistleCool).toBe(0);
+    // a short tap on the field whistles
+    game.pointer!({ type: 'down', x: 120, y: 300, id: 2 });
+    game.pointer!({ type: 'up', x: 123, y: 302, id: 2 });
+    expect(sim.whistleCool).toBeGreaterThan(0);
+    run(game, clock, RULES.whistleCool + 0.3);
+    expect(sim.whistleCool).toBe(0);
+    // the button: pressed at the touch (no joystick), the whistle on the lift
+    const b = view.L.whistle;
+    game.pointer!({ type: 'down', x: b.x, y: b.y, id: 3 });
+    expect(view.hud.pressed).toBe(true);
+    expect(view.stick).toBeNull();
+    expect(sim.whistleCool).toBe(0);
+    game.pointer!({ type: 'up', x: b.x + 2, y: b.y, id: 3 });
+    expect(view.hud.pressed).toBe(false);
+    expect(sim.whistleCool).toBeGreaterThan(0);
+    // too soon: no whistle (the button shakes)
+    const cool = sim.whistleCool;
+    game.pointer!({ type: 'down', x: b.x, y: b.y, id: 4 });
+    game.pointer!({ type: 'up', x: b.x, y: b.y, id: 4 });
+    expect(sim.whistleCool).toBe(cool);
+    run(game, clock, RULES.whistleCool + 0.3);
+    // a thumb that slides off the button steers from there, and whistles nothing
+    game.pointer!({ type: 'down', x: b.x, y: b.y, id: 5 });
+    game.pointer!({ type: 'move', x: b.x - 60, y: b.y, id: 5 });
+    expect(view.hud.pressed).toBe(false);
+    expect(view.stick).toMatchObject({ on: true });
+    const x1 = sim.player.x;
+    run(game, clock, 0.5);
+    expect(sim.player.x).toBeLessThan(x1 - 1);
+    game.pointer!({ type: 'up', x: b.x - 60, y: b.y, id: 5 });
+    expect(sim.whistleCool).toBe(0);
+    expect(view.stick).toBeNull();
+  });
+
+  it('coach marks: the whistle points at the button on a touch screen; a point high on the hill keeps its bubble below the HUD', async () => {
+    const z = CHECK_SIZES[0];
+    const hints: Hint[] = [];
+    const { game, sim, view, clock } = await gameAt(z, true, returning(), hints);
+    run(game, clock, 0.4);
+    const say = (game as unknown as { hint(e: Extract<SimEvent, { type: 'hint' }>): void }).hint.bind(game);
+    say({ type: 'hint', key: 'whistle', x: sim.player.x, y: sim.player.y });
+    expect(hints.at(-1)).toEqual({ text: t('hint.whistle'), at: { x: view.L.whistle.x, y: view.L.whistle.hit.y } });
+    say({ type: 'hint', key: 'rival', x: sim.player.x, y: sim.player.y - 40 });
+    expect(hints.at(-1)!.at!.y).toBeGreaterThanOrEqual(view.L.top + 96);
+    // Łatek's bubble steps aside while a coach mark speaks
+    expect(sim.hushUntil).toBeGreaterThan(sim.t + 4);
+    sim.talk.ask('open', 9, 9);
+    run(game, clock, 1);
+    expect(sim.talk.line).toBeNull();
+    const desk = await gameAt(CHECK_SIZES[7], false, returning(), hints);
+    run(desk.game, desk.clock, 0.4);
+    (desk.game as unknown as { hint(e: Extract<SimEvent, { type: 'hint' }>): void }).hint({ type: 'hint', key: 'whistle', x: desk.sim.player.x, y: desk.sim.player.y });
+    expect(hints.at(-1)!.text).toBe(t('hint.whistle.keys'));
+  });
+
+  it('the camera keeps to the hill: near its edge the room shows at most a metre beyond it, and the shepherd walks off the middle', async () => {
+    for (const z of [CHECK_SIZES[0], CHECK_SIZES[4], CHECK_SIZES[8]]) {
+      const { game, sim, view, clock } = await gameAt(z);
+      const L = view.L;
+      for (const [x, y] of [[0.8, 0.8], [sim.world.w - 0.8, sim.world.h - 0.8]] as const) {
+        Object.assign(sim.player, { x, y, vx: 0, vy: 0 });
+        run(game, clock, 2);
+        const a = view.toWorld(L.left, L.top), b = view.toWorld(L.right, L.bottom);
+        expect(a.x, z.name).toBeGreaterThanOrEqual(-1.05);
+        expect(a.y, z.name).toBeGreaterThanOrEqual(-1.05);
+        expect(b.x, z.name).toBeLessThanOrEqual(sim.world.w + 1.05);
+        expect(b.y, z.name).toBeLessThanOrEqual(sim.world.h + 1.05);
+        expect(Math.hypot(view.sx(sim.player.x) - L.cx, view.sy(sim.player.y) - L.cy), z.name).toBeGreaterThan(20);
+      }
+      game.destroy();
+    }
+  });
+
+  it('speaks of the hand the player has: no keys on a touch screen, keys as shortcuts on a desktop', () => {
+    const named = (s: string) => /WASD|Spac|Leertaste|mellanslag|Enter|strzałk|arrow|Pfeil|pilar|klik|click|Klick|mysz|mouse|Maus|musen/i.test(s);
+    for (const k of ['how.drag', 'how.tap', 'hint.steer', 'hint.whistle', 'hint.join', 'tip.warmup.1', 'tip.warmup.2', 'tip.warmup.3'] as const) {
+      for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+        const touchText = String(CATALOGS[lang][k]);
+        expect(named(touchText), `${lang} ${k}: ${touchText}`).toBe(false);
+        const desk = (CATALOGS[lang] as Record<string, unknown>)[`${k}.keys`];
+        if (desk !== undefined) expect(named(String(desk)), `${lang} ${k}.keys: ${String(desk)}`).toBe(true);
+      }
+    }
+    for (const lang of ['pl', 'en', 'de', 'sv'] as const) expect(named(String(CATALOGS[lang]['how.keys'])), lang).toBe(true);
+    expect(hand('hint.whistle', true)).toBe(t('hint.whistle'));
+    expect(hand('hint.whistle', false)).toBe(t('hint.whistle.keys'));
+    expect(hand('hint.ring', false)).toBe(t('hint.ring'));
+    // the how-to card: the keys on a row of their own (the runner drops it on a touch screen)
+    const how = howto();
+    expect(how.hands.map(h => h.gesture)).toEqual(['drag', 'tap', 'keys']);
+    for (const h of how.hands.filter(x => x.gesture !== 'keys')) expect(named(h.text), h.text).toBe(false);
   });
 });

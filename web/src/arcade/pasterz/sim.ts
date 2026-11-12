@@ -294,6 +294,8 @@ export class PasterzSim {
   tally: Tally | null = null;
   /** who wears the crown (−1: nobody) */
   crown = -1;
+  /** Łatek keeps quiet until this session time (s): a coach mark is on screen */
+  hushUntil = 0;
   /** the half size of the view (m), set by the picture: "in sight" for the voice and the hints */
   viewW = 12;
   viewH = 9;
@@ -686,7 +688,8 @@ export class PasterzSim {
       this.phase = 'done';
       this.settle();
     }
-    const blocked = this.telegraphing || (this.phase === 'play' && this.blockT < RULES.bannerSec && this.blockIndex > 0) || this.frozen;
+    // Łatek keeps quiet under a telegraph, the block's banner, the tally and a coach mark (the view sets `hushUntil`)
+    const blocked = this.telegraphing || (this.phase === 'play' && this.blockT < RULES.bannerSec && this.blockIndex > 0) || this.frozen || t < this.hushUntil;
     this.talk.update(dt, t, blocked);
     for (const s of this.shepherds) if (s.say && (s.say.t += dt) > 2.6) s.say = null;
   }

@@ -11,6 +11,8 @@
  * runner draws the band's panel and the score; this view draws neither.
  */
 import { approach, clamp, ease, Particles, Shake } from '../kit/juice';
+import { target } from '../kit/mobile';
+import type { Insets, TapTarget } from '../kit/types';
 import type { PasterzProgress } from './meta';
 import { CLOAKS, CROOKS, DOGS, PLAYER_DYE } from './content';
 import { GROUND_K, paintGround } from './ground';
@@ -31,13 +33,15 @@ const TAU = Math.PI * 2;
 interface Pulse { x: number; y: number; t: number; dur: number; r0: number; r1: number; color: string; width: number }
 interface WFloat { text: string; x: number; y: number; t: number; dur: number; color: string; size: number }
 interface Shoot { sx: number; sy: number; x: number; y: number; t: number }
+/** The floating joystick (CSS px): where the finger went down (the base trails a finger past its rim), where it is, whether it steers yet. */
+export interface Stick { ox: number; oy: number; x: number; y: number; on: boolean }
 
 export class PasterzView {
   private readonly ctx: CanvasRenderingContext2D;
   w = 1;
   h = 1;
   dpr = 1;
-  L: Layout = layout(1, 1, 0);
+  L: Layout = layout(1, 1);
   camX = 32;
   camY = 32;
   S = 30;
@@ -53,8 +57,8 @@ export class PasterzView {
   readonly hud: PasterzHud;
   private readonly introScene = new PasterzIntro();
   clock = 0;
-  /** the finger's joystick (screen px): where it went down and where it is */
-  stick: { ox: number; oy: number; x: number; y: number } | null = null;
+  /** the finger's joystick while a finger is down on the field (the HUD fades it out after the lift) */
+  stick: Stick | null = null;
   /** a short freeze on big moments (s) */
   stop = 0;
   /** the joins in a short window, shown as one "+n" over the shepherd */
@@ -65,7 +69,12 @@ export class PasterzView {
   private fires: { x: number; y: number }[] = [];
   private lastShh = -9;
   private look: ShepherdLook = PLAIN;
-  private dogCoat: [string, string] = [DOGS[0].colors[0], DOGS[0].colors[1]];
+  private mapW = 64;
+  private mapH = 64;
+  /** Łatek's coat and patches (the wardrobe's), for the dog and his button */
+  dogCoat: [string, string] = [DOGS[0].colors[0], DOGS[0].colors[1]];
+  /** soft glows baked once per colour (the fires', the lost lamb's): no gradient or blur per frame */
+  private readonly glows = new Map<string, HTMLCanvasElement | null>();
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
     this.ctx = canvas.getContext('2d')!;
@@ -73,11 +82,19 @@ export class PasterzView {
     this.hud = new PasterzHud();
   }
 
-  resize(w: number, h: number, dpr: number, hudTop: number): void {
+  resize(w: number, h: number, dpr: number, ins: Insets): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, hudTop);
+    this.L = layout(w, h, ins);
+  }
+
+  /** The runner's insets settled (the HUD band is measured once play begins): lay out again. */
+  setInsets(ins: Insets): void { this.L = layout(this.w, this.h, ins); }
+
+  /** What the player can tap now: Łatek's button (the field itself is the joystick, not a target). */
+  targets(sim: PasterzSim): TapTarget[] {
+    return this.hud.whistleLive(sim) ? [target(t('ui.whistle'), this.L.whistle.hit)] : [];
   }
 
   intro(dt: number, p: number, progress: PasterzProgress): void {
@@ -91,9 +108,27 @@ export class PasterzView {
     const cloak = CLOAKS[p.wear.cloak] ?? CLOAKS[0], crook = CROOKS[p.wear.crook] ?? CROOKS[0], dog = DOGS[p.wear.dog] ?? DOGS[0];
     this.look = { ...PLAIN, mantle: cloak.colors[0], stripe: cloak.colors[1], staff: crook.colors[0], tip: crook.colors[1] };
     this.dogCoat = [dog.colors[0], dog.colors[1]];
-    this.camX = sim.player.x;
-    this.camY = sim.player.y;
     this.S = this.L.S0;
+    this.mapW = sim.world.w;
+    this.mapH = sim.world.h;
+    this.camX = this.clampX(sim.player.x);
+    this.camY = this.clampY(sim.player.y);
+  }
+
+  /**
+   * The camera keeps to the hill: the play room shows at most a metre beyond its edge (a phone has no room
+   * for a dead band), so near the edge the shepherd walks off the screen's middle.
+   */
+  private clampX(x: number): number {
+    const L = this.L, m = 1;
+    const lo = -m + (L.cx - L.left) / this.S, hi = this.mapW + m - (L.right - L.cx) / this.S;
+    return lo > hi ? (lo + hi) / 2 : clamp(x, lo, hi);
+  }
+
+  private clampY(y: number): number {
+    const L = this.L, m = 1;
+    const lo = -m + (L.cy - L.top) / this.S, hi = this.mapH + m - (L.bottom - L.cy) / this.S;
+    return lo > hi ? (lo + hi) / 2 : clamp(y, lo, hi);
   }
 
   // ── coordinates ────────────────────────────────────────────────
@@ -115,11 +150,12 @@ export class PasterzView {
     const wantS = L.S0 / (1 + 0.05 * Math.sqrt(n));
     this.S = approach(this.S, wantS, dt, 0.9);
     const lead = 0.35;
-    this.camX = approach(this.camX, pl.x + pl.vx * lead, dt, 0.18);
-    this.camY = approach(this.camY, pl.y + pl.vy * lead, dt, 0.18);
-    if (Math.hypot(this.camX - pl.x, this.camY - pl.y) > 14) {
-      this.camX = pl.x;
-      this.camY = pl.y;
+    const tx = this.clampX(pl.x + pl.vx * lead), ty = this.clampY(pl.y + pl.vy * lead);
+    this.camX = approach(this.camX, tx, dt, 0.18);
+    this.camY = approach(this.camY, ty, dt, 0.18);
+    if (Math.hypot(this.camX - tx, this.camY - ty) > 14) {
+      this.camX = tx;
+      this.camY = ty;
     }
     sim.viewW = this.w / 2 / this.S;
     sim.viewH = (L.bottom - L.top) / 2 / this.S;
@@ -266,21 +302,26 @@ export class PasterzView {
       ctx.arc(x, y, r, 0, TAU);
       ctx.fill();
       // the threshold, marked on the ring itself
-      ctx.setLineDash([4, 6]);
-      ctx.strokeStyle = 'rgba(255,255,255,.75)';
-      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 6]);
+      ctx.strokeStyle = 'rgba(255,255,255,.8)';
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(x, y, RING_MARK * S, 0, TAU);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.strokeStyle = above ? '#ffcf4a' : 'rgba(255,248,226,.9)';
-      ctx.lineWidth = above ? 4 : 2.5;
-      ctx.shadowColor = above ? 'rgba(255,200,60,.8)' : 'transparent';
-      ctx.shadowBlur = above ? 10 : 0;
+      if (above) {
+        // the gold rim's glow: a wide soft stroke under it (no shadowBlur: it costs a phone the frame)
+        ctx.strokeStyle = 'rgba(255,200,60,.28)';
+        ctx.lineWidth = 11;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, TAU);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = above ? '#ffcf4a' : 'rgba(255,248,226,.92)';
+      ctx.lineWidth = above ? 4.5 : 3;
       ctx.beginPath();
       ctx.arc(x, y, r, 0, TAU);
       ctx.stroke();
-      ctx.shadowBlur = 0;
     } else {
       ctx.strokeStyle = look === 'grey' ? 'rgba(200,200,190,.6)' : look === 'blind' ? 'rgba(120,110,170,.55)' : 'rgba(255,248,226,.55)';
       ctx.lineWidth = 2;
@@ -309,13 +350,7 @@ export class PasterzView {
     const ctx = this.ctx, S = this.S, x = this.sx(l.x), y = this.sy(l.y);
     const hop = l.bleat > 0 ? Math.abs(Math.sin(this.clock * 14)) * 0.12 * S : 0;
     // a soft glow so it can be found
-    const g = ctx.createRadialGradient(x, y, 0, x, y, S * 1.6);
-    g.addColorStop(0, 'rgba(255,240,180,.45)');
-    g.addColorStop(1, 'rgba(255,240,180,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, S * 1.6, 0, TAU);
-    ctx.fill();
+    this.glow(x, y, S * 1.6, '255,240,180', 0.45);
     paintSheep(ctx, x, y - hop, S, Math.sin(this.clock * 0.7) * 0.6 + 2.2, { small: true, bob: 0, walking: 0, lie: 0, look: 1, graze: 0, bell: '#d9a441' });
   }
 
@@ -441,16 +476,33 @@ export class PasterzView {
     ctx.globalCompositeOperation = 'lighter';
     for (const f of this.fires) {
       if (!this.visible(f.x, f.y, 5 * S)) continue;
-      const x = this.sx(f.x), y = this.sy(f.y), r = S * (3.2 + Math.sin(this.clock * 9 + f.x) * 0.15);
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, `rgba(255,170,70,${(0.42 * k).toFixed(3)})`);
-      g.addColorStop(1, 'rgba(255,170,70,0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, TAU);
-      ctx.fill();
+      this.glow(this.sx(f.x), this.sy(f.y), S * (3.2 + Math.sin(this.clock * 9 + f.x) * 0.15), '255,170,70', 0.42 * k);
     }
     ctx.restore();
+  }
+
+  /** A soft round glow of radius r (px) in `rgb` ("r,g,b"), its centre at alpha `a`: a sprite baked once per colour. */
+  private glow(x: number, y: number, r: number, rgb: string, a: number): void {
+    let img = this.glows.get(rgb);
+    if (img === undefined) {
+      img = document.createElement('canvas');
+      img.width = img.height = 128;
+      const c = img.getContext('2d');
+      if (c) {
+        const g = c.createRadialGradient(64, 64, 0, 64, 64, 64);
+        g.addColorStop(0, `rgba(${rgb},1)`);
+        g.addColorStop(0.45, `rgba(${rgb},.45)`);
+        g.addColorStop(1, `rgba(${rgb},0)`);
+        c.fillStyle = g;
+        c.fillRect(0, 0, 128, 128);
+      } else img = null;
+      this.glows.set(rgb, img);
+    }
+    if (!img || a <= 0.005) return;
+    const ctx = this.ctx, was = ctx.globalAlpha;
+    ctx.globalAlpha = was * Math.min(1, a);
+    ctx.drawImage(img, x - r, y - r, r * 2, r * 2);
+    ctx.globalAlpha = was;
   }
 
   /** The counts over the shepherds (Crowd City's numbers), the rivals' names, the crown, and the rivals' bubbles. */
@@ -463,30 +515,52 @@ export class PasterzView {
       // under the runner's HUD the off-screen arrows speak for them
       if (y < this.L.top + 8 && s.i !== 0) continue;
       if (s.out) {
-        ctx.font = font(700, 11 * u, SANS);
-        ctx.textAlign = 'center';
-        ctx.fillStyle = 'rgba(255,255,255,.85)';
-        ctx.fillText(`${s.name} · ${t('ui.out')}`, x, y - S * 0.9);
-        continue;
-      }
-      const n = s.i === 0 ? s.n : s.n;
-      paintCount(ctx, x, y, String(n), s.i === 0 ? PLAYER_DYE : s.dye, (s.i === 0 ? 14 : 12.5) * u);
-      if (s.i !== 0) {
-        ctx.font = font(700, 10.5 * u, SANS);
+        const text = `${s.name} · ${t('ui.out')}`;
+        ctx.font = font(700, 13 * u, SANS);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
+        const tw = ctx.measureText(text).width, lx = this.inside(x, tw);
+        ctx.globalAlpha = this.underButton(lx - tw / 2, y - S * 0.9 - 14 * u, lx + tw / 2, y - S * 0.9) ? 0.25 : 1;
         ctx.fillStyle = 'rgba(40,30,20,.55)';
-        ctx.fillText(s.name, x + 1, y - 12 * u + 1);
-        ctx.fillStyle = '#fffaf0';
-        ctx.fillText(s.name, x, y - 12 * u);
+        ctx.fillText(text, lx + 1, y - S * 0.9 + 1);
+        ctx.fillStyle = 'rgba(255,255,255,.92)';
+        ctx.fillText(text, lx, y - S * 0.9);
+        ctx.globalAlpha = 1;
+        continue;
       }
-      if (sim.crown === s.i) paintCrown(ctx, x, y - (s.i === 0 ? 13 : 23) * u, 18 * u, Math.sin(this.clock * 4) * 1.5);
+      paintCount(ctx, x, y, String(s.n), s.i === 0 ? PLAYER_DYE : s.dye, (s.i === 0 ? 15 : 13) * u);
+      if (s.i !== 0) {
+        ctx.font = font(750, 13 * u, SANS);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        const tw = ctx.measureText(s.name).width, lx = this.inside(x, tw);
+        // a rival walking under Łatek's button: his name gives way to the button's word
+        ctx.globalAlpha = this.underButton(lx - tw / 2, y - 27 * u, lx + tw / 2, y + 10 * u) ? 0.25 : 1;
+        ctx.fillStyle = 'rgba(40,30,20,.6)';
+        ctx.fillText(s.name, lx + 1, y - 13 * u + 1);
+        ctx.fillStyle = '#fffaf0';
+        ctx.fillText(s.name, lx, y - 13 * u);
+        ctx.globalAlpha = 1;
+      }
+      if (sim.crown === s.i) paintCrown(ctx, x, y - (s.i === 0 ? 14 : 26) * u, 19 * u, Math.sin(this.clock * 4) * 1.5);
       // one rival bubble per spot: the next one close by waits its turn
-      if (s.say && s.i !== 0 && !said.some(q => Math.abs(q.x - x) < 150 * u && Math.abs(q.y - y) < 44 * u)) {
+      if (s.say && s.i !== 0 && !this.underButton(x - 60 * u, y - 80 * u, x + 60 * u, y) && !said.some(q => Math.abs(q.x - x) < 150 * u && Math.abs(q.y - y) < 44 * u)) {
         said.push({ x, y });
-        this.hud.bubble(ctx, s.say.text, x, y - 30 * u, 11 * u, 0.85, s.say.t, this);
+        this.hud.bubble(ctx, s.say.text, x, y - 32 * u, 13 * u, 0.88, s.say.t, this, 200);
       }
     }
+  }
+
+  /** Whether a box (screen px) crosses Łatek's button while it shows. */
+  private underButton(x0: number, y0: number, x1: number, y1: number): boolean {
+    const b = this.L.whistle.hit;
+    return this.hud.buttonK > 0.3 && x1 > b.x - 4 && x0 < b.x + b.w + 4 && y1 > b.y - 4 && y0 < b.y + b.h + 4;
+  }
+
+  /** A centred label's x, slid so its `w` px stay on the screen (a shepherd at the edge keeps his name readable). */
+  private inside(x: number, w: number): number {
+    const L = this.L;
+    return clamp(x, L.left + 4 + w / 2, Math.max(L.left + 4 + w / 2, L.right - 4 - w / 2));
   }
 
   private drawFloats(): void {
@@ -495,14 +569,19 @@ export class PasterzView {
     ctx.textBaseline = 'middle';
     for (const f of this.floats) {
       const k = f.t / f.dur;
-      const pop = k < 0.18 ? ease.outBack(k / 0.18) : 1;
+      // the pop-in scales the word (its font stays at its size: a phone reads it as soon as it is whole)
+      const pop = k < 0.18 ? Math.max(0.05, ease.outBack(k / 0.18)) : 1;
       const x = this.sx(f.x), y = this.sy(f.y) - 40 * ease.outCubic(k);
       ctx.globalAlpha = k > 0.65 ? Math.max(0, 1 - (k - 0.65) / 0.35) : 1;
-      ctx.font = font(800, f.size * pop, SANS);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(pop, pop);
+      ctx.font = font(800, f.size, SANS);
       ctx.fillStyle = 'rgba(40,24,10,.45)';
-      ctx.fillText(f.text, x + 1, y + 2);
+      ctx.fillText(f.text, 1, 2);
       ctx.fillStyle = f.color;
-      ctx.fillText(f.text, x, y);
+      ctx.fillText(f.text, 0, 0);
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
   }
@@ -574,15 +653,16 @@ export class PasterzView {
         this.parts.burst(e.x, e.y, 20, { color: '#d8c8a0', size: 0.16, speed: 2.6, g: 0, drag: 2, life: 0.9 });
         this.parts.burst(e.toX, e.toY, 12, { color: '#fff6dc', size: 0.1, speed: 1.8, g: 0, drag: 2.5, life: 0.7, shape: 'ring' });
         this.float(t('fx.tumble'), e.toX, e.toY - 1.4, '#fff6dc', 24);
-        this.camX = e.toX;
-        this.camY = e.toY;
+        this.camX = this.clampX(e.toX);
+        this.camY = this.clampY(e.toY);
         this.shake.add(0.25);
         break;
       case 'whistle':
         this.pulse(pl.x, pl.y, 0.4, 2, 'rgba(255,255,255,.8)', 0.5, 2);
+        if (!sim.asleep) this.hud.whistled();
         if (!e.herd && sim.asleep && this.clock - this.lastShh > 4) {
           this.lastShh = this.clock;
-          this.float(t('fx.shh'), pl.x, pl.y - 1.5, '#cfe0ff', 18);
+          this.float(t('fx.shh'), pl.x, pl.y - 2.6, '#cfe0ff', 18);
         }
         break;
       case 'herd':
@@ -612,8 +692,10 @@ export class PasterzView {
         }
         break;
       case 'newRound':
-        this.camX = pl.x;
-        this.camY = pl.y;
+        this.mapW = sim.world.w;
+        this.mapH = sim.world.h;
+        this.camX = this.clampX(pl.x);
+        this.camY = this.clampY(pl.y);
         this.fires = [];
         this.parts.clear();
         this.floats.length = 0;

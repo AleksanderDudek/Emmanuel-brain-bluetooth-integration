@@ -112,18 +112,21 @@ export class PasterzIntro {
       drawPassage(ctx, passage('luk15.4-6'), this.verse.l, mid, top + 44 + story.length * 19 + 6, { text: '#5b4630', ref: '#8a6a44' });
     } else {
       const hill = hillAt(progress.hill ?? 0);
+      // the hill's line of story whole (two lines on a phone), at a size a phone reads
+      ctx.font = font(500, 14, SERIF, true);
+      const lines = wrapLines(ctx, hill.story, bw - 24).slice(0, 3);
       ctx.fillStyle = 'rgba(251,243,223,.9)';
       ctx.beginPath();
-      ctx.roundRect(bx, top, bw, 58, 14);
+      ctx.roundRect(bx, top, bw, 44 + lines.length * 18, 14);
       ctx.fill();
       ctx.fillStyle = C.ink;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = font(600, 18, SERIF);
       ctx.fillText(t('intro.hill', { hill: hill.name }), mid, top + 20);
-      ctx.font = font(500, 12.5, SERIF, true);
+      ctx.font = font(500, 14, SERIF, true);
       ctx.fillStyle = '#5b4630';
-      ctx.fillText(wrapLines(ctx, hill.story, bw - 20)[0] ?? '', mid, top + 41);
+      lines.forEach((l, i) => ctx.fillText(l, mid, top + 42 + i * 18));
     }
     ctx.restore();
   }

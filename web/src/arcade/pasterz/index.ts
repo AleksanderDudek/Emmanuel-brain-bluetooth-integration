@@ -1,9 +1,10 @@
 /**
  * Pasterz (the shepherd): Crowd City on the Judean hills, after Luke 15:4-6.  After a spring storm
  * the village's sheep are scattered over the hills; the shepherd and five rival shepherd kids race
- * to gather the most.  Drag anywhere to walk (a floating joystick; arrows and WASD too); left alone,
- * Łatek the sheepdog leads the shepherd to the nearest loose sheep; a tap or Space whistles and
- * Łatek herds the sheep he reaches.  Loose sheep join whatever flock touches them, and where two
+ * to gather the most.  Drag anywhere to walk (a floating joystick, shown under the thumb from the
+ * touch-down; arrows and WASD too); left alone, Łatek the sheepdog leads the shepherd to the nearest
+ * loose sheep; Łatek's button in the thumb zone, a tap anywhere, Space or Enter whistles and Łatek
+ * herds the sheep he reaches.  Loose sheep join whatever flock touches them, and where two
  * flocks meet the bigger wins the smaller one's sheep at the contact; a rival left alone sulks till
  * the round ends.  Rounds of two days and two nights on one hill, a live ranking, a crown for the
  * first, a lost lamb far away worth ten.  The band: in a Wołanie the call ring's radius is the
@@ -19,10 +20,11 @@
  * (panel.ts); the words in i18n.ts.
  */
 import type { FocusFrame } from '../kit/focus';
-import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import { buzz, clamp } from '../kit/juice';
+import { hits } from '../kit/mobile';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { PasterzSound } from './audio';
-import { t, unit } from './i18n';
+import { hand, t, unit, type HandKey } from './i18n';
 import { bestOf, freshProgress, type PasterzProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -32,11 +34,19 @@ import { PasterzSim, type BlockKind, type SimEvent } from './sim';
 
 const want = (k: BlockKind | undefined): 'focus' | 'rest' | 'free' => (k === 'call' ? 'focus' : k === 'watch' ? 'rest' : 'free');
 
+/**
+ * A finger on the screen: on Łatek's button (pressed at once, a whistle on the lift; a thumb that slides off
+ * steers instead) or on the field (the floating joystick from the touch-down; a short tap whistles).
+ * `ox`/`oy` is the joystick's base (it trails a finger that runs past its rim), `far` the farthest the finger
+ * went from where it came down.
+ */
+interface Press { id: number; kind: 'button' | 'field'; x0: number; y0: number; ox: number; oy: number; at: number; far: number }
+
 class PasterzGame implements ArcadeGame {
   private readonly sim: PasterzSim;
   private readonly view: PasterzView;
   private readonly sound: PasterzSound;
-  private touch: { id: number; x: number; y: number; at: number; moved: boolean } | null = null;
+  private press: Press | null = null;
   private now = 0;
 
   constructor(private readonly env: GameEnv<PasterzProgress>) {
@@ -48,11 +58,12 @@ class PasterzGame implements ArcadeGame {
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __pasterz?: unknown }).__pasterz = this.sim;
   }
 
-  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.hudTop()); }
+  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.insets()); }
 
   intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
 
   start(): void {
+    this.view.setInsets(this.env.insets());
     this.sim.start();
     this.sound.start();
     this.view.start(this.sim);
@@ -72,30 +83,86 @@ class PasterzGame implements ArcadeGame {
   /** (The runner also draws during calibration, after intro(): the intro scene stays until play begins.) */
   draw(): void { if (this.sim.started) this.view.draw(this.sim); }
 
-  /** A drag anywhere is a floating joystick; a quick tap whistles for Łatek. */
+  /** Łatek's button while it is on screen (the field itself is the joystick). */
+  targets(): TapTarget[] { return this.view.targets(this.sim); }
+
+  /**
+   * A press.  On Łatek's button: pressed at once, a whistle on the lift (a thumb that slides off steers from
+   * there).  Anywhere else: the floating joystick, shown under the finger from the touch-down — a drag
+   * steers, a short tap whistles.  One finger plays; a second waits.
+   */
   pointer(e: PointerInput): void {
+    const view = this.view, hud = view.hud;
     if (e.type === 'down') {
-      this.touch = { id: e.id, x: e.x, y: e.y, at: this.now, moved: false };
+      if (this.press) return;
+      const onButton = hud.whistleLive(this.sim) && hits(view.L.whistle.hit, e.x, e.y);
+      this.press = { id: e.id, kind: onButton ? 'button' : 'field', x0: e.x, y0: e.y, ox: e.x, oy: e.y, at: this.now, far: 0 };
+      if (onButton) {
+        hud.pressed = true;
+        if (this.env.haptics) buzz(6);
+        return;
+      }
       this.sim.drag(0, 0);
+      view.stick = { ox: e.x, oy: e.y, x: e.x, y: e.y, on: false };
       return;
     }
-    const tc = this.touch;
-    if (!tc || tc.id !== e.id) return;
-    const dx = e.x - tc.x, dy = e.y - tc.y;
-    if (e.type === 'move') {
-      if (Math.hypot(dx, dy) >= RULES.deadPx) tc.moved = true;
-      this.sim.drag(dx, dy);
-      this.view.stick = tc.moved ? { ox: tc.x, oy: tc.y, x: e.x, y: e.y } : null;
+    const pr = this.press;
+    if (!pr || pr.id !== e.id) return;
+    pr.far = Math.max(pr.far, Math.hypot(e.x - pr.x0, e.y - pr.y0));
+    const tap = pr.far < RULES.deadPx && this.now - pr.at <= RULES.tapSec + 0.25;
+    if (pr.kind === 'button') {
+      if (e.type === 'up') {
+        this.press = null;
+        hud.pressed = false;
+        if (pr.far < RULES.deadPx) this.whistle();
+        return;
+      }
+      if (pr.far >= RULES.deadPx) {
+        // the thumb slid off the button: from here it steers, as if it had come down on the field
+        hud.pressed = false;
+        pr.kind = 'field';
+        pr.at = -99;
+        this.steer(pr, e);
+      }
       return;
     }
-    // up
-    if (!tc.moved && this.now - tc.at <= RULES.tapSec + 0.25) {
-      this.sim.whistle();
-      this.drain();
+    if (e.type === 'up') {
+      this.press = null;
+      view.stick = null;
+      this.sim.drag(null);
+      if (tap) this.whistle();
+      return;
     }
-    this.sim.drag(null);
-    this.view.stick = null;
-    this.touch = null;
+    this.steer(pr, e);
+  }
+
+  /** The joystick follows the finger: past 1.4 × its rim the base is dragged along (it never falls behind). */
+  private steer(pr: Press, e: PointerInput): void {
+    const R = RULES.stickPx;
+    let dx = e.x - pr.ox, dy = e.y - pr.oy;
+    const d = Math.hypot(dx, dy);
+    if (d > R * 1.4) {
+      const k = (d - R * 1.4) / d;
+      pr.ox += dx * k;
+      pr.oy += dy * k;
+      dx = e.x - pr.ox;
+      dy = e.y - pr.oy;
+    }
+    const on = pr.far >= RULES.deadPx;
+    this.sim.drag(on ? dx : 0, on ? dy : 0);
+    this.view.stick = { ox: pr.ox, oy: pr.oy, x: e.x, y: e.y, on };
+  }
+
+  /** A whistle for Łatek (the button, a tap on the field): too soon, and the button shakes. */
+  private whistle(): void {
+    const sim = this.sim;
+    if (sim.whistleCool > 0 && !sim.asleep && !sim.frozen) {
+      this.view.hud.notReady();
+      if (this.env.haptics) buzz(4);
+      return;
+    }
+    sim.whistle();
+    this.drain();
   }
 
   /** Arrows and WASD walk, Space and Enter whistle. */
@@ -108,8 +175,9 @@ class PasterzGame implements ArcadeGame {
   pause(paused: boolean): void {
     if (paused) {
       this.sim.release();
-      this.touch = null;
+      this.press = null;
       this.view.stick = null;
+      this.view.hud.pressed = false;
     }
   }
 
@@ -122,11 +190,24 @@ class PasterzGame implements ArcadeGame {
     }
   }
 
-  /** A coach mark pointing at the thing (kept inside the play room). */
+  /**
+   * A coach mark pointing at the thing, in the words of the hand the player has (a finger: no keys).  The
+   * point stays low enough in the field for the bubble above it to clear the runner's HUD; the whistle's
+   * points at Łatek's button on a touch screen.
+   */
   private hint(e: Extract<SimEvent, { type: 'hint' }>): void {
-    const p = this.view.toScreen(e.x, e.y), L = this.view.L;
-    const at = { x: Math.max(24, Math.min(L.w - 24, p.x)), y: Math.max(L.top + 40, Math.min(L.bottom - 30, p.y)) };
-    this.env.hint(t(`hint.${e.key}` as 'hint.steer'), at, 4300);
+    const view = this.view, L = view.L, u = L.u;
+    let at: { x: number; y: number };
+    if (e.key === 'whistle' && this.env.touch && view.hud.whistleOn(this.sim)) at = { x: L.whistle.x, y: L.whistle.hit.y };
+    else {
+      const p = view.toScreen(e.x, e.y);
+      at = { x: clamp(p.x, L.left + 24, L.right - 24), y: clamp(p.y, L.field.top + 96 * u, L.field.bottom - 10) };
+    }
+    this.env.hint(hand(`hint.${e.key}` as HandKey, this.env.touch), at, 4300);
+    // Łatek's bubble steps aside for the coach mark (both would speak over the same spot), and so does the
+    // ranking when the mark's bubble comes up over the top band
+    this.sim.hushUntil = this.sim.t + 4.3;
+    if (at.y < L.rank.y + L.rank.h + 110 * u) view.hud.quietRankUntil = this.sim.t + 4.3;
   }
 
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
@@ -177,12 +258,14 @@ function haptic(e: SimEvent): void {
   }
 }
 
-function howto(): HowTo {
+/** How to play: the drag and the tap in words for a finger; the keys on a row of their own (dropped on a touch screen). */
+export function howto(): HowTo {
   return {
     goal: t('how.goal'),
     hands: [
       { gesture: 'drag', text: t('how.drag') },
       { gesture: 'tap', text: t('how.tap') },
+      { gesture: 'keys', text: t('how.keys') },
     ],
     tips: [t('how.tip1'), t('how.tip2')],
   };

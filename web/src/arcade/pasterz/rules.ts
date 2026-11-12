@@ -50,9 +50,9 @@ export const RULES = {
   /** without a finger or a key for this long (s), Łatek leads the shepherd to the nearest loose sheep at this share of the speed */
   autoAfter: 1.2,
   autoSpeed: 0.72,
-  /** the joystick: a drag this long (px) is full speed; shorter than `deadPx` is a tap */
+  /** the joystick: a drag this long (px) is full speed (the drawn base's radius); a finger that moved less than `deadPx` is a tap */
   stickPx: 46,
-  deadPx: 9,
+  deadPx: 10,
   tapSec: 0.32,
   /** the rival shepherds: how many, their speed (× the player's), how often they think (s) */
   rivals: 5,
