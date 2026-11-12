@@ -83,6 +83,10 @@ describe('kit/scripture: verses on screen', () => {
     expect(tiny.fits).toBe(false);
     expect(tiny.lines.at(-1)!.endsWith('…')).toBe(true);
     expect(tiny.height).toBeLessThanOrEqual(60 + tiny.lineH);
+    // a small phone's scaled maximum under the floor still lays the passage out, at the floor
+    const floored = layoutPassage(ctx, p, 300, 90, { max: 9, min: 10 });
+    expect(floored.size).toBe(10);
+    expect(floored.lines.length).toBeGreaterThan(0);
   });
 
   it('draws the verse and a reference line naming the edition', () => {

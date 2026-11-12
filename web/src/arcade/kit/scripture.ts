@@ -52,7 +52,9 @@ export interface PassageLayout {
  */
 export function layoutPassage(ctx: CanvasRenderingContext2D, p: Passage, w: number, h: number,
   opts: { max?: number; min?: number } = {}): PassageLayout {
-  const max = opts.max ?? 22, min = opts.min ?? 11;
+  // a caller scaling `max` down on a small phone may ask for less than `min`: the floor wins (it used to
+  // leave no layout at all, and the story card threw)
+  const min = opts.min ?? 11, max = Math.max(min, opts.max ?? 22);
   ctx.save();
   let out: PassageLayout | null = null;
   for (let size = max; size >= min; size -= 1) {
