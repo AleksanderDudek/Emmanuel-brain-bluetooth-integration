@@ -6,6 +6,7 @@
  * that green and bloom, tiny pilgrims, trees, and Kumka the tree frog in her straw hat.  Everything
  * is drawn in CSS pixels.
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { Kind } from './grid';
 import type { TraceBar } from '../kit/trace';
 
@@ -59,8 +60,9 @@ export function rgba(hex: string, a: number): string {
   return `rgba(${p(0)},${p(1)},${p(2)},${Math.max(0, Math.min(1, a)).toFixed(3)})`;
 }
 
+/** A CSS font for the canvas; never under MIN_TEXT (11 px), the smallest text a phone at arm's length shows (DESIGN §12.2). */
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
 
 /** An offscreen canvas of `w` × `h` device pixels (null where there is no DOM). */
 export function canvas(w: number, h: number): HTMLCanvasElement | null {
@@ -766,24 +768,43 @@ export function paintFrog(ctx: CanvasRenderingContext2D, x: number, y: number, s
 }
 
 /** Kumka's speech bubble: wrapped text, a tail toward (tx, ty); returns nothing, fits inside [0, w]. */
-export function paintBubble(ctx: CanvasRenderingContext2D, text: string, tx: number, ty: number, maxW: number, w: number, alpha: number, above = true): void {
-  const size = Math.max(11, Math.min(15, maxW / 16));
+/**
+ * Kumka's speech bubble, kept inside `room`: above the point (tx, ty) — her head — or, with `beside`, to its
+ * right; the text 14 px (13 where it must), at most three lines (the last cut with "…").  Returns the box it
+ * took (for the view to fade it off the water).
+ */
+export function paintBubble(ctx: CanvasRenderingContext2D, text: string, tx: number, ty: number, room: { x: number; y: number; w: number; h: number },
+  alpha: number, beside = false, size = 14): { x: number; y: number; w: number; h: number } | null {
+  if (room.w < 60 || room.h < 30) return null;
+  const pad = 10, lh = size * 1.25;
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.font = font(600, size, SANS);
-  const words = text.split(' ');
+  const maxW = Math.min(room.w, 320);
   const lines: string[] = [];
   let line = '';
-  for (const wd of words) {
+  for (const wd of text.split(' ')) {
     const nx = line ? `${line} ${wd}` : wd;
-    if (line && ctx.measureText(nx).width > maxW - 20) { lines.push(line); line = wd; } else line = nx;
+    if (line && ctx.measureText(nx).width > maxW - 2 * pad) { lines.push(line); line = wd; } else line = nx;
   }
   if (line) lines.push(line);
-  const lh = size * 1.25;
-  const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 20);
+  const most = Math.max(1, Math.min(3, Math.floor((room.h - 14) / lh)));
+  if (lines.length > most) {
+    lines.length = most;
+    let l = lines[most - 1];
+    while (l.length > 1 && ctx.measureText(`${l}…`).width > maxW - 2 * pad) l = l.slice(0, -1);
+    lines[most - 1] = `${l.trimEnd()}…`;
+  }
+  const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 2 * pad);
   const bh = lines.length * lh + 14;
-  const bx = Math.max(6, Math.min(w - bw - 6, tx - bw * 0.3));
-  const by = above ? ty - bh - 12 : ty + 12;
+  let bx: number, by: number;
+  if (beside) {
+    bx = room.x;
+    by = Math.max(room.y, Math.min(room.y + room.h - bh, ty - bh / 2));
+  } else {
+    bx = Math.max(room.x, Math.min(room.x + room.w - bw, tx - bw * 0.5));
+    by = Math.max(room.y, Math.min(room.y + room.h - bh, ty - bh - 12));
+  }
   ctx.fillStyle = 'rgba(40,30,20,.18)';
   ctx.beginPath();
   roundRect(ctx, bx + 2, by + 3, bw, bh, 12);
@@ -792,9 +813,15 @@ export function paintBubble(ctx: CanvasRenderingContext2D, text: string, tx: num
   ctx.beginPath();
   roundRect(ctx, bx, by, bw, bh, 12);
   ctx.fill();
+  // the tail toward her, when she is close by
   ctx.beginPath();
-  const tx2 = Math.max(bx + 14, Math.min(bx + bw - 14, tx));
-  if (above) { ctx.moveTo(tx2 - 7, by + bh - 1); ctx.lineTo(tx, ty - 2); ctx.lineTo(tx2 + 7, by + bh - 1); } else { ctx.moveTo(tx2 - 7, by + 1); ctx.lineTo(tx, ty + 2); ctx.lineTo(tx2 + 7, by + 1); }
+  if (beside && tx < bx && Math.abs(ty - (by + bh / 2)) < bh) {
+    const cy = Math.max(by + 12, Math.min(by + bh - 12, ty));
+    ctx.moveTo(bx + 1, cy - 7); ctx.lineTo(tx + 2, ty); ctx.lineTo(bx + 1, cy + 7);
+  } else if (!beside && ty > by + bh && ty - (by + bh) < 40) {
+    const t2 = Math.max(bx + 14, Math.min(bx + bw - 14, tx));
+    ctx.moveTo(t2 - 7, by + bh - 1); ctx.lineTo(Math.max(bx + 4, Math.min(bx + bw - 4, tx)), ty - 2); ctx.lineTo(t2 + 7, by + bh - 1);
+  }
   ctx.fill();
   ctx.strokeStyle = 'rgba(79,122,67,.5)';
   ctx.lineWidth = 1.5;
@@ -804,8 +831,9 @@ export function paintBubble(ctx: CanvasRenderingContext2D, text: string, tx: num
   ctx.fillStyle = C.ink;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  lines.forEach((l, i) => ctx.fillText(l, bx + 10, by + 7 + i * lh));
+  lines.forEach((l, i) => ctx.fillText(l, bx + pad, by + 7 + i * lh));
   ctx.restore();
+  return { x: bx, y: by, w: bw, h: bh };
 }
 
 // ── the gauge ────────────────────────────────────────────────────
@@ -897,20 +925,26 @@ export function paintGauge(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.lineTo(x + Math.cos(at) * r * 0.92, y + Math.sin(at) * r * 0.92);
   ctx.stroke();
   ctx.fillStyle = C.ink;
-  ctx.font = font(700, Math.max(9, r * 0.15), SANS);
+  ctx.font = font(800, Math.max(13, r * 0.2), SANS);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(g.thr, x, y - r * 1.1);
+  ctx.fillText(g.thr, x, y - r * 1.08);
   if (g.hidden) {
     // underground: earth over the dial
     ctx.fillStyle = '#8a6a4a';
     ctx.beginPath();
     ctx.arc(x, y, r * 0.9, 0, TAU);
     ctx.fill();
-    ctx.fillStyle = 'rgba(255,240,210,.85)';
-    ctx.font = font(700, Math.max(10, r * 0.2), SANS);
+    ctx.fillStyle = 'rgba(255,240,210,.9)';
+    ctx.font = font(700, Math.max(13, r * 0.22), SANS);
     ctx.textBaseline = 'middle';
-    ctx.fillText(g.sub, x, y);
+    // two short lines where one does not fit the dial ("pod" / "ziemią")
+    const words = g.sub.split(' ');
+    if (words.length > 1 && ctx.measureText(g.sub).width > r * 1.7) {
+      const half = Math.ceil(words.length / 2);
+      ctx.fillText(words.slice(0, half).join(' '), x, y - r * 0.2);
+      ctx.fillText(words.slice(half).join(' '), x, y + r * 0.26);
+    } else ctx.fillText(g.sub, x, y);
   } else if (g.value !== null) {
     // the needle
     const a = ang(g.value);
@@ -931,23 +965,28 @@ export function paintGauge(ctx: CanvasRenderingContext2D, x: number, y: number, 
     ctx.textBaseline = 'middle';
     if (g.count !== null) {
       ctx.fillStyle = C.pool;
-      ctx.font = font(800, r * 0.42, SANS);
-      ctx.fillText(String(Math.max(0, Math.ceil(g.count))), x, y + r * 0.42);
-    } else if (g.still > 0) {
-      ctx.fillStyle = C.pool;
-      ctx.font = font(800, r * 0.22, SANS);
-      ctx.fillText(g.sub, x, y + r * 0.45);
+      ctx.font = font(800, Math.max(16, r * 0.5), SANS);
+      ctx.fillText(String(Math.max(0, Math.ceil(g.count))), x, y + r * 0.44);
     } else {
-      ctx.fillStyle = C.inkSoft;
-      ctx.font = font(700, r * 0.18, SANS);
-      ctx.fillText(g.sub, x, y + r * 0.45);
+      // the pace ("×1,0") or "Cisza": on a plate, so it reads over the needle at a phone's size
+      const size = Math.max(13, r * 0.26);
+      ctx.font = font(800, size, SANS);
+      const tw = ctx.measureText(g.sub).width;
+      ctx.fillStyle = 'rgba(251,245,230,.92)';
+      ctx.beginPath();
+      roundRect(ctx, x - tw / 2 - 4, y + r * 0.47 - size * 0.62, tw + 8, size * 1.24, size * 0.5);
+      ctx.fill();
+      ctx.fillStyle = g.still > 0 ? C.pool : C.ink;
+      ctx.fillText(g.sub, x, y + r * 0.47);
     }
   }
-  // the label under the dial
-  ctx.fillStyle = C.ink;
-  ctx.font = font(800, Math.max(11, r * 0.2), SANS);
-  ctx.textBaseline = 'top';
-  ctx.fillText(g.label, x, y + r * 1.14);
+  // the label under the dial (where there is room: a desktop; a phone's panel names the gauge)
+  if (g.label) {
+    ctx.fillStyle = C.ink;
+    ctx.font = font(800, Math.max(13, r * 0.22), SANS);
+    ctx.textBaseline = 'top';
+    ctx.fillText(g.label, x, y + r * 1.14);
+  }
   ctx.restore();
 }
 

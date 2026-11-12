@@ -8,17 +8,23 @@
  * Juice: splashes on every filled cell, rings on loops, petals on blooms, a big splash and a shake
  * on a spill, a flying score, Kumka hops and cheers.
  *
- * The runner draws the standard HUD (the Mendi panel, the score corner) above the canvas; nothing
- * important is drawn above `hudTop`.
+ * The runner draws the standard HUD (the Mendi panel, the score corner) above the canvas; nothing the
+ * player taps or reads is drawn under it (layout.ts lays everything out phone first).  Where the valley is
+ * bigger than its window (an eight-wide valley on a 360 px phone) the camera pans it: it keeps the way's open
+ * end and the water's head in sight, holds still under a finger, and a finger aiming at the window's edge
+ * nudges it on.  A finger on a cell shows the next stone there (and, on a touch screen, lifted over the
+ * finger) before the lift lays it.
  */
 import { fmtNum } from '../../i18n';
-import { clamp, ease, Floaters, Particles, Shake } from '../kit/juice';
+import { approach, clamp, ease, Floaters, Particles, Shake } from '../kit/juice';
+import { MIN_READ, MIN_TAP, NO_INSETS, fitText, target } from '../kit/mobile';
+import type { Insets, TapTarget } from '../kit/types';
 import { drawPassage, layoutPassage, passage, type PassageId, type PassageLayout } from '../kit/scripture';
 import { traceBars } from '../kit/trace';
 import { STATION_VERSE, psalmOf, stationName } from './content';
 import { GARDEN, isPool, PIPE, ROCK, SPRING, type Kind } from './grid';
 import { fmt, t } from './i18n';
-import { cellCentre, computeLayout, type Box, type Layout } from './layout';
+import { cellBox, cellCentre, computeLayout, type Box, type Layout } from './layout';
 import {
   C, font, hash, paintBubble, paintContours, paintFrog, paintGardenEnd, paintGauge, paintGreen, paintPilgrim, paintPoolFill, paintReeds, paintRock,
   paintSpring, paintStone, paintWater, roundRect, rgba, SANS, SERIF, wayPoint, type FrogPose,
@@ -38,9 +44,23 @@ export class ZrodlaView {
   private w = 1;
   private h = 1;
   private dpr = 1;
-  private top = 0;
+  private ins: Insets = NO_INSETS;
   private cols = 7;
   private rows = 5;
+  /** the camera: how far the valley is panned in its window (px) */
+  private camX = 0;
+  private camY = 0;
+  /** the cell a finger aims at (−1: none), and whether a finger is down on the valley (the camera holds) */
+  aim = -1;
+  holding = false;
+  /** the finger's point while it aims (for the nudge at the window's edge) */
+  aimAt: { x: number; y: number } | null = null;
+  /** the next stone or the dial held down (pressed), and their shake when a tap could do nothing */
+  pressed: 'next' | 'dial' | null = null;
+  /** the primary input is a finger: the aimed stone is drawn over the finger too */
+  touch = false;
+  /** where Kumka's bubble went this frame */
+  private bubbleBox: Box | null = null;
   private clock = 0;
   private qShift = 0;
   private flash = 0;
@@ -59,24 +79,109 @@ export class ZrodlaView {
     if (!ctx) throw new Error('Źródła needs a 2D canvas');
     this.ctx = ctx;
     this.shake = new Shake(opts.reducedMotion);
-    this.layout = computeLayout(1, 1, 0, 7, 5);
+    this.layout = computeLayout(1, 1, NO_INSETS, 7, 5);
   }
 
   get context(): CanvasRenderingContext2D { return this.ctx; }
-  get size(): { w: number; h: number; dpr: number; top: number } { return { w: this.w, h: this.h, dpr: this.dpr, top: this.top }; }
+  get size(): { w: number; h: number; dpr: number; top: number } { return { w: this.w, h: this.h, dpr: this.dpr, top: this.ins.top }; }
 
-  resize(w: number, h: number, dpr: number, top: number): void {
+  resize(w: number, h: number, dpr: number, ins: Insets): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.top = top;
+    this.ins = ins;
+    this.relayout();
+    this.bg = null;
+  }
+
+  /** The runner's insets settled (the HUD band is measured once play begins): lay out again. */
+  setInsets(ins: Insets): void {
+    this.ins = ins;
     this.relayout();
     this.bg = null;
   }
 
   private relayout(): void {
-    this.layout = computeLayout(this.w, this.h, this.top, this.cols, this.rows);
+    this.layout = computeLayout(this.w, this.h, this.ins, this.cols, this.rows);
     this.verse = null;
+    this.camX = clamp(this.camX, 0, this.layout.panX);
+    this.camY = clamp(this.camY, 0, this.layout.panY);
+    this.place();
+  }
+
+  /** The whole valley under its window at the camera's pan. */
+  private place(): void {
+    const L = this.layout;
+    L.board.x = L.view.x - this.camX;
+    L.board.y = L.view.y - this.camY;
+  }
+
+  /**
+   * The camera: where the valley is bigger than its window (by less than a cell each way), it rests at either
+   * end of each pan, so the window always shows whole cells, and goes to the end that shows the way's open end
+   * (the next stone's place; else the water's head, the keyboard's cursor, the spring).  Under a finger it
+   * holds still, except that a finger aiming at the window's edge nudges it on; let go, it settles at an end.
+   */
+  private follow(dt: number, sim: ZrodlaSim): void {
+    const L = this.layout, cs = L.cell, v = L.view;
+    if (L.panX <= 0 && L.panY <= 0) {
+      this.camX = this.camY = 0;
+      this.place();
+      return;
+    }
+    if (this.holding) {
+      const a = this.aimAt;
+      if (a) {
+        const edge = cs * 0.5, step = 160 * dt;
+        if (a.x < v.x + edge) this.camX -= step;
+        else if (a.x > v.x + v.w - edge) this.camX += step;
+        if (a.y < v.y + edge) this.camY -= step;
+        else if (a.y > v.y + v.h - edge) this.camY += step;
+      }
+    } else {
+      const val = sim.valley, keep: number[] = [];
+      const w = sim.water;
+      if (w) keep.push(w.cell);
+      if (sim.cursor >= 0) keep.push(sim.cursor);
+      if (sim.wayEnd.cell >= 0) keep.push(sim.wayEnd.cell);
+      else if (!w) keep.push(val.spring);
+      // the nearer end, unless a cell to keep is cut at it (the last one asked wins)
+      let tx = this.camX < L.panX / 2 ? 0 : L.panX, ty = this.camY < L.panY / 2 ? 0 : L.panY;
+      for (const i of keep) {
+        const x0 = val.col(i) * cs, y0 = val.row(i) * cs;
+        if (x0 < tx) tx = 0;
+        else if (x0 + cs > tx + v.w) tx = L.panX;
+        if (y0 < ty) ty = 0;
+        else if (y0 + cs > ty + v.h) ty = L.panY;
+      }
+      this.camX = approach(this.camX, tx, dt, 0.1);
+      this.camY = approach(this.camY, ty, dt, 0.1);
+      if (Math.abs(this.camX - tx) < 0.5) this.camX = tx;
+      if (Math.abs(this.camY - ty) < 0.5) this.camY = ty;
+    }
+    this.camX = clamp(this.camX, 0, L.panX);
+    this.camY = clamp(this.camY, 0, L.panY);
+    this.place();
+  }
+
+  /**
+   * What the player can tap now: on a story card the card; else every cell a stone can go on that the window
+   * shows whole enough (a finger-sized part of it), the next stone (Kumka's help) and the spring's dial.
+   */
+  targets(sim: ZrodlaSim): TapTarget[] {
+    const L = this.layout;
+    if (sim.story) return [{ label: 'story', ...this.storyBox(sim) }];
+    const out: TapTarget[] = [];
+    if (sim.phase !== 'over' && !sim.ended) {
+      const val = sim.valley;
+      for (let i = 0; i < val.n; i++) {
+        if (!val.canLay(i)) continue;
+        const b = cellBox(L, i).shown;
+        if (b && b.w >= MIN_TAP - 0.5 && b.h >= MIN_TAP - 0.5) out.push({ label: `cell ${val.col(i)},${val.row(i)}`, ...b });
+      }
+    }
+    out.push(target(t('g.next'), L.next), target(sim.restBlock ? t('g.green') : t('g.sluice'), L.dial));
+    return out;
   }
 
   /** The limestone valley with its contour lines, drawn once per size. */
@@ -97,8 +202,8 @@ export class ZrodlaView {
     paintContours(g, this.w, this.h, 7, { scale: 140, levels: 9, color: '#9c8458', alpha: 0.28 });
     // a few olive trees and pilgrims along the edges
     for (let i = 0; i < 9; i++) {
-      const x = hash(i * 3 + 1) * this.w, y = this.top + hash(i * 7 + 2) * (this.h - this.top);
-      const b = this.layout.board;
+      const x = hash(i * 3 + 1) * this.w, y = this.ins.top + hash(i * 7 + 2) * (this.h - this.ins.top);
+      const b = this.layout.view;
       if (x > b.x - 30 && x < b.x + b.w + 30 && y > b.y - 30 && y < b.y + b.h + 40) continue;
       g.globalAlpha = 0.55;
       paintPilgrim(g, x, y, 5, i, i % 3 === 0);
@@ -120,7 +225,15 @@ export class ZrodlaView {
           this.relayout();
           this.bg = null;
         }
+        {
+          // the camera starts at the ends nearer the spring
+          const L = this.layout, sp = sim.valley.spring;
+          this.camX = sim.valley.col(sp) * 2 + 1 > sim.valley.cols ? L.panX : 0;
+          this.camY = sim.valley.row(sp) * 2 + 1 > sim.valley.rows ? L.panY : 0;
+          this.place();
+        }
         this.spillAt = null;
+        this.aim = -1;
         break;
       case 'lay': {
         const p = at(e.cell);
@@ -165,8 +278,8 @@ export class ZrodlaView {
         break;
       }
       case 'goal': {
-        const b = L.board;
-        this.words.add(t('fx.goal'), b.x + b.w / 2, b.y + b.h * 0.12, { color: C.olive, size: 24 });
+        const b = L.view;
+        this.words.add(t('fx.goal'), b.x + b.w / 2, b.y + b.h * 0.12 + 14, { color: C.olive, size: 24 });
         this.hop();
         break;
       }
@@ -199,7 +312,7 @@ export class ZrodlaView {
       }
       case 'still': {
         if (e.on) {
-          const b = L.board;
+          const b = L.view;
           this.words.add(t('fx.still'), b.x + b.w / 2, b.y + b.h * 0.4, { color: C.pool, size: 30, dur: 1.6 });
           this.fx.burst(L.gauge.x, L.gauge.y, 20, { color: C.still, shape: 'spark', size: 2.5, speed: 160, life: 0.8, g: 0 });
           this.flash = 0.5;
@@ -227,6 +340,7 @@ export class ZrodlaView {
 
   update(dt: number, sim: ZrodlaSim): void {
     this.clock += dt;
+    this.follow(dt, sim);
     this.fx.update(dt);
     this.words.update(dt);
     this.qShift = Math.max(0, this.qShift - dt / 0.18);
@@ -283,22 +397,26 @@ export class ZrodlaView {
     this.words.draw(ctx, SANS);
     if (this.flash > 0) {
       ctx.fillStyle = `rgba(255,255,255,${(this.flash * 0.35).toFixed(3)})`;
-      ctx.fillRect(L.board.x, L.board.y, L.board.w, L.board.h);
+      ctx.fillRect(L.view.x, L.view.y, L.view.w, L.view.h);
     }
     if (sim.story) this.drawStory(sim);
   }
 
   private drawBoard(sim: ZrodlaSim, idle: number): void {
-    const ctx = this.ctx, L = this.layout, cs = L.cell, b = L.board, val = sim.valley;
-    // the valley's frame and its dry earth
+    const ctx = this.ctx, L = this.layout, cs = L.cell, b = L.board, v = L.view, val = sim.valley;
+    // the valley's frame (around its window) and its dry earth; the valley is clipped to the window
     ctx.fillStyle = 'rgba(90,64,40,.22)';
     ctx.beginPath();
-    roundRect(ctx, b.x - 6, b.y - 4, b.w + 12, b.h + 12, 14);
+    roundRect(ctx, v.x - 6, v.y - 4, v.w + 12, v.h + 12, 14);
     ctx.fill();
     ctx.fillStyle = '#e2cfa6';
     ctx.beginPath();
-    roundRect(ctx, b.x - 5, b.y - 5, b.w + 10, b.h + 10, 12);
+    roundRect(ctx, v.x - 5, v.y - 5, v.w + 10, v.h + 10, 12);
     ctx.fill();
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(v.x, v.y, v.w, v.h);
+    ctx.clip();
     for (let i = 0; i < val.n; i++) {
       const x = b.x + val.col(i) * cs, y = b.y + val.row(i) * cs;
       ctx.fillStyle = (val.col(i) + val.row(i)) % 2 ? '#d8c296' : '#dcc79c';
@@ -423,54 +541,121 @@ export class ZrodlaView {
       ctx.ellipse(this.spillAt.x, this.spillAt.y, cs * 0.45 * ease.outCubic(k), cs * 0.3 * ease.outCubic(k), 0, 0, TAU);
       ctx.fill();
     }
+    // the aim: the next stone shown in the cell under a finger, before the lift lays it
+    const aiming = this.aim >= 0 && !sim.story && sim.phase !== 'over';
+    if (aiming) {
+      const box = cellBox(L, this.aim).full, ok = val.canLay(this.aim);
+      ctx.save();
+      ctx.globalAlpha = ok ? 0.62 : 0.28;
+      paintStone(ctx, box.x, box.y, cs, sim.queue[0], 'ghost', 1);
+      ctx.restore();
+      ctx.strokeStyle = ok ? C.gold : C.rose;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      roundRect(ctx, box.x + 2, box.y + 2, cs - 4, cs - 4, 8);
+      ctx.stroke();
+    }
+    ctx.restore();
+    // where the valley goes on past its window: a small arrow on the frame
+    if (L.panX > 0 || L.panY > 0) {
+      ctx.fillStyle = 'rgba(90,64,40,.55)';
+      const arrow = (x: number, y: number, a: number) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(a);
+        ctx.beginPath();
+        ctx.moveTo(4, 0);
+        ctx.lineTo(-3, -6);
+        ctx.lineTo(-3, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      };
+      if (this.camX > 1) arrow(v.x - 2.5, v.y + v.h / 2, Math.PI);
+      if (this.camX < L.panX - 1) arrow(v.x + v.w + 2.5, v.y + v.h / 2, 0);
+      if (this.camY > 1) arrow(v.x + v.w / 2, v.y - 2, -Math.PI / 2);
+      if (this.camY < L.panY - 1) arrow(v.x + v.w / 2, v.y + v.h + 3, Math.PI / 2);
+    }
+    // on a touch screen the aimed stone also floats over the finger (the finger hides the cell)
+    if (aiming && this.touch) {
+      const box = cellBox(L, this.aim).full, sz = Math.round(cs * 0.86);
+      const x = clamp(box.x + cs / 2 - sz / 2, 4, this.w - sz - 4);
+      let y = box.y - sz - cs * 0.42;
+      if (y < L.top + 4) y = box.y + cs * 0.5 - sz / 2;
+      const side = y === box.y + cs * 0.5 - sz / 2;
+      const xx = side ? (box.x + cs + sz + 10 < this.w ? box.x + cs + 10 : box.x - sz - 10) : x;
+      ctx.save();
+      ctx.fillStyle = 'rgba(40,30,20,.22)';
+      ctx.beginPath();
+      roundRect(ctx, xx + 3, y + 5, sz, sz, sz * 0.18);
+      ctx.fill();
+      paintStone(ctx, xx, y, sz, sim.queue[0], 'queue', 1);
+      ctx.strokeStyle = val.canLay(this.aim) ? C.gold : C.rose;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      roundRect(ctx, xx - 2, y - 2, sz + 4, sz + 4, sz * 0.2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
+  /**
+   * The dispenser: its plate, the next stone in a gold frame (pressed while a finger holds it: a tap on it is
+   * Kumka's help) and the four after it; they slide one place on when a stone is laid.  Its word over it.
+   */
   private drawQueue(sim: ZrodlaSim): void {
-    const ctx = this.ctx, L = this.layout;
-    const q = L.queue;
+    const ctx = this.ctx, L = this.layout, q = L.queue, u = L.u;
     ctx.save();
-    ctx.fillStyle = 'rgba(255,250,236,.72)';
+    ctx.fillStyle = 'rgba(255,250,236,.78)';
     ctx.beginPath();
     roundRect(ctx, q.x, q.y, q.w, q.h, 14);
     ctx.fill();
     ctx.strokeStyle = 'rgba(140,116,80,.35)';
     ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.clip();
-    const s0 = L.slots[0];
-    const step = L.portrait ? (L.slots[1].x - s0.x) : (L.slots[1].y - s0.y);
+    const n = L.slots.length;
     sim.queue.forEach((k, i) => {
       const s = L.slots[i];
       if (!s) return;
-      const off = this.qShift * (i === 0 ? step * 0.6 : (L.portrait ? L.slots[1].w + 6 : L.slots[1].h + 6));
-      const x = L.portrait ? s.x + off : s.x, y = L.portrait ? s.y : s.y + off;
+      // where this stone came from: the slot after it (the last one from past the end)
+      const from = L.slots[i + 1] ?? { x: s.x + (s.x - L.slots[n - 2].x), y: s.y + (s.y - L.slots[n - 2].y) };
+      const x = s.x + (from.x - s.x) * this.qShift, y = s.y + (from.y - s.y) * this.qShift;
       if (i === 0) {
-        ctx.fillStyle = 'rgba(244,199,107,.35)';
+        const pr = this.pressed === 'next';
+        ctx.fillStyle = pr ? 'rgba(244,199,107,.6)' : 'rgba(244,199,107,.35)';
         ctx.beginPath();
-        roundRect(ctx, x - 4, y - 4, s.w + 8, s.h + 8, 12);
+        roundRect(ctx, s.x - 4, s.y - 4, s.w + 8, s.h + 8, 12);
         ctx.fill();
         ctx.strokeStyle = C.gold;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = pr ? 3.5 : 2.5;
         ctx.stroke();
+        if (pr) {
+          ctx.save();
+          ctx.translate(x + s.w / 2, y + s.h / 2);
+          ctx.scale(0.92, 0.92);
+          ctx.translate(-(x + s.w / 2), -(y + s.h / 2));
+          paintStone(ctx, x, y, s.w, k, 'queue', 1);
+          ctx.restore();
+          return;
+        }
       }
       ctx.globalAlpha = i === 0 ? 1 : 0.92 - i * 0.08;
       paintStone(ctx, x, y, s.w, k, 'queue', i + 1);
       ctx.globalAlpha = 1;
     });
     ctx.fillStyle = C.ink;
-    ctx.font = font(800, 12, SANS);
-    ctx.textBaseline = 'bottom';
-    ctx.textAlign = L.portrait ? 'left' : 'center';
-    if (L.portrait) ctx.fillText(t('g.next'), s0.x, s0.y - 6);
-    else ctx.fillText(t('g.next'), s0.x + s0.w / 2, s0.y - 7);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const word = fitText(ctx, t('g.next'), Math.max(L.slots[0].w + 24 * u, 70 * u), 13.5 * Math.min(u, 1.15), 800, SANS, MIN_READ);
+    ctx.fillText(word, L.nextLabel.x, L.nextLabel.y);
     ctx.restore();
   }
 
   private drawGauge(sim: ZrodlaSim): void {
-    const ctx = this.ctx, L = this.layout, g = L.gauge;
+    const ctx = this.ctx, L = this.layout, g = L.gauge, u = L.u;
     const rest = sim.restBlock;
     const pace = sim.pace;
-    const r = g.r * (1 + 0.08 * ease.outCubic(this.gaugePop));
+    const r = g.r * (1 + 0.08 * ease.outCubic(this.gaugePop)) * (this.pressed === 'dial' ? 0.93 : 1);
     paintGauge(ctx, g.x, g.y, r, {
       value: sim.sighted && sim.reliable ? sim.sluice : null,
       charge: sim.blind ? 0 : sim.charge,
@@ -478,35 +663,28 @@ export class ZrodlaView {
       count: sim.phase === 'count' && !sim.story ? sim.countLeft : null,
       green: rest ? sim.calmShown : null,
       hidden: sim.blind,
-      label: rest ? t('g.green') : t('g.sluice'),
+      label: L.dialLabel ? (rest ? t('g.green') : t('g.sluice')) : '',
       thr: t('g.threshold'),
       sub: sim.blind ? t('g.hidden') : sim.still > 0 ? t('g.still') : `×${fmtNum(pace, 1)}`,
       t: this.clock,
     });
-    // the goal under the gauge (landscape) or beside the dispenser (portrait), and what Space does
+    // the goal ("Cel 3/6") with its bar: water so far, the way laid ahead
     ctx.save();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    const goal = sim.spec.goal, have = sim.cells + (sim.phase === 'over' ? 0 : 0);
-    const label = `${t('g.goal')} ${Math.min(have, 999)}/${goal}`;
-    const space = sim.wayDone ? t('g.fast') : t('g.help');
-    if (!L.portrait) {
-      const y = g.y + g.r * 1.42 + 6;
-      ctx.fillStyle = sim.cells >= goal ? C.olive : C.ink;
-      ctx.font = font(800, 15, SANS);
-      ctx.fillText(label, g.x, y);
-      this.drops(g.x, y + 22, Math.min(1, sim.cells / goal), Math.min(1, (sim.cells + sim.ahead.length) / goal), Math.min(160, g.r * 2.2));
+    const goal = sim.spec.goal, G = L.goal;
+    const label = `${t('g.goal')} ${Math.min(sim.cells, 999)}/${goal}`;
+    const size = (L.portrait ? 14 : 15) * Math.min(u, 1.15);
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = G.align;
+    ctx.fillStyle = sim.cells >= goal ? C.olive : C.ink;
+    ctx.fillText(fitText(ctx, label, G.w, size, 800, SANS, MIN_READ), G.x, G.y);
+    const wet = Math.min(1, sim.cells / goal), laid = Math.min(1, (sim.cells + sim.ahead.length) / goal);
+    this.drops(G.align === 'right' ? G.x - G.w / 2 : G.x, G.y + size * 0.6 + 4 * u, wet, laid, G.w);
+    // what a tap on the stone (or Space) does now: on a desktop, under the goal
+    if (L.helpLine) {
+      ctx.textAlign = 'center';
       ctx.fillStyle = C.inkSoft;
-      ctx.font = font(600, 12, SANS);
-      ctx.fillText(space, g.x, y + 36);
-    } else {
-      const q = L.queue;
-      ctx.textAlign = 'left';
-      ctx.fillStyle = sim.cells >= goal ? C.olive : C.ink;
-      ctx.font = font(800, 13, SANS);
-      const s0 = L.slots[0];
-      ctx.fillText(label, L.slots[1].x, s0.y - 18);
-      this.drops(L.slots[1].x + (q.w - (L.slots[1].x - q.x)) / 2 - 10, s0.y + s0.h + 4, Math.min(1, sim.cells / goal), Math.min(1, (sim.cells + sim.ahead.length) / goal), Math.max(60, q.w - (L.slots[1].x - q.x) - 20));
+      const help = t(sim.wayDone ? (this.touch ? 'g.fast.touch' : 'g.fast') : (this.touch ? 'g.help.touch' : 'g.help'));
+      ctx.fillText(fitText(ctx, help, G.w, 13.5 * Math.min(u, 1.15), 650, SANS, MIN_READ), L.helpLine.x, L.helpLine.y);
     }
     ctx.restore();
   }
@@ -533,29 +711,46 @@ export class ZrodlaView {
     const shown = f.s >= 26;
     if (shown) paintFrog(ctx, f.x, f.y, f.s, this.frog);
     if (this.bubbleA > 0.01 && this.bubbleText) {
-      const right = this.w - (L.board.x + L.board.w) - 16;
-      const maxW = L.portrait ? Math.min(this.w - 20, 300) : Math.max(170, Math.min(300, right));
-      const ty = shown ? f.y - f.s * 0.95 : L.gauge.y + L.gauge.r * 1.3;
-      paintBubble(ctx, this.bubbleText, f.x, ty, maxW, this.w, this.bubbleA, shown);
-    }
-    void sim;
+      const tx = shown ? f.x + (L.talkAbove ? 0 : f.s * 0.45) : L.gauge.x, ty = shown ? f.y - f.s * (L.talkAbove ? 0.95 : 0.55) : L.gauge.y - L.gauge.r;
+      // over the valley it steps back while the water's head, the way's end or a finger's aim is under it
+      let alpha = this.bubbleA;
+      const p = this.bubbleBox, val = sim.valley;
+      if (p) {
+        const near = [sim.water?.cell ?? -1, sim.wayEnd.cell, this.aim].some(i => {
+          if (i < 0) return false;
+          const c = cellBox(this.layout, i).full;
+          return c.x < p.x + p.w && c.x + c.w > p.x && c.y < p.y + p.h && c.y + c.h > p.y;
+        });
+        if (near) alpha *= 0.25;
+      }
+      void val;
+      this.bubbleBox = paintBubble(ctx, this.bubbleText, tx, ty, L.talk, alpha, !L.talkAbove, 14 * Math.min(L.u, 1.15));
+    } else this.bubbleBox = null;
   }
 
   // ── the cards ───────────────────────────────────────────────────
+  /** Where a story card sits (the open, a valley's tally, a spill, a station): over the valley's window. */
+  storyBox(sim: ZrodlaSim): Box {
+    const s = sim.story, L = this.layout, top = this.ins.top;
+    const cw = Math.min(L.card.w, this.w - 24);
+    const room = L.bottom - top - 20;
+    const ch = Math.min(room, s?.kind === 'open' ? 390 : s?.kind === 'station' ? 340 : 230);
+    const cx = clamp(L.view.x + L.view.w / 2 - cw / 2, L.left + 8, Math.max(L.left + 8, L.right - cw - 8));
+    const cy = Math.max(top + 10, Math.min(L.bottom - 10 - ch, L.view.y + L.view.h / 2 - ch / 2));
+    return { x: cx, y: cy, w: cw, h: ch };
+  }
+
   private drawStory(sim: ZrodlaSim): void {
     const s = sim.story!;
-    const ctx = this.ctx, L = this.layout;
+    const ctx = this.ctx;
     const k = ease.outCubic(clamp(s.t / 0.3));
     const out = s.dur - s.t < 0.25 ? clamp((s.dur - s.t) / 0.25) : 1;
     ctx.save();
     ctx.globalAlpha = k * out;
     ctx.fillStyle = 'rgba(40,30,20,.35)';
-    ctx.fillRect(0, this.top, this.w, this.h - this.top);
-    const cw = Math.min(L.portrait ? this.w - 24 : 460, this.w - 24);
-    const ch = s.kind === 'open' ? Math.min(380, this.h - this.top - 24) : s.kind === 'station' ? Math.min(330, this.h - this.top - 24) : 220;
-    const cx = this.w / 2 - cw / 2;
-    const cy = Math.max(this.top + 10, L.board.y + L.board.h / 2 - ch / 2) + (1 - k) * 20;
-    const box: Box = { x: cx, y: cy, w: cw, h: ch };
+    ctx.fillRect(0, this.ins.top, this.w, this.h - this.ins.top);
+    const b0 = this.storyBox(sim);
+    const box: Box = { ...b0, y: b0.y + (1 - k) * 20 };
     ctx.fillStyle = '#fbf4e2';
     ctx.beginPath();
     roundRect(ctx, box.x, box.y, box.w, box.h, 18);
@@ -624,7 +819,7 @@ export class ZrodlaView {
     }
     if (s.t >= RULES.cardMin) {
       ctx.fillStyle = C.inkSoft;
-      ctx.font = font(600, 12, SANS);
+      ctx.font = font(650, 13.5, SANS);
       ctx.textBaseline = 'bottom';
       ctx.fillText(t('card.tap'), mid, box.y + box.h - 10);
     }

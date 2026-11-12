@@ -1,16 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { DEFAULT_TUNING, type FocusFrame } from '../src/arcade/kit/focus';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { LINES, MOMENTS, STATIONS, TIPS } from '../src/arcade/zrodla/content';
 import {
   EMPTY, GARDEN, KINDS, MASK, PIPE, ROCK, SPRING, Valley, autoSpot, bit, channelOf, deal, exitOf, makeValley, opp, seeded, specOf, type Kind,
 } from '../src/arcade/zrodla/grid';
-import { CATALOGS, t, unit } from '../src/arcade/zrodla/i18n';
+import { CATALOGS, hand, t, unit } from '../src/arcade/zrodla/i18n';
+import { cellAt, cellBox, computeLayout } from '../src/arcade/zrodla/layout';
+import { SANS, SERIF, font } from '../src/arcade/zrodla/paint';
+import type { ZrodlaView } from '../src/arcade/zrodla/render';
 import { bestOf, freshProgress, migrate, recordValley, type ZrodlaProgress } from '../src/arcade/zrodla/meta';
 import { RULES, cellSecOf, countdownOf, goalOf, gridOf, isGarden, paceOf, starsFor } from '../src/arcade/zrodla/rules';
 import { ZrodlaSim, planBlocks, type ZrodlaEvent } from '../src/arcade/zrodla/sim';
 import { catalogProblems, LANGS } from '../src/i18n';
-import mod from '../src/arcade/zrodla/index';
+import mod, { howto } from '../src/arcade/zrodla/index';
 
 // ── helpers ─────────────────────────────────────────────────────
 
@@ -563,5 +569,303 @@ describe('Źródła words', () => {
     expect(h.hands.length).toBeLessThanOrEqual(3);
     expect(h.tips!.length).toBeLessThanOrEqual(2);
     expect(opp(0)).toBe(2);
+  });
+});
+
+// ── on a phone first (src/arcade/DESIGN.md §12) ──
+const pxOf = (f: string): number => Number(f.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+/** every string drawn on a canvas made by the patched getContext, with its font size */
+const drawn: { text: string; px: number }[] = [];
+
+/** A context that draws nothing, measures text at 0.55 em a character and notes each string drawn with its size. */
+function noteContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+  const gradient = { addColorStop: () => undefined };
+  const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+  const note = (s: unknown) => {
+    const text = String(s);
+    if (text.trim() && (state.globalAlpha as number) > 0.05) drawn.push({ text, px: pxOf(String(state.font)) });
+  };
+  return new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (prop === 'measureText') return (s: string) => ({ width: String(s).length * pxOf(String(target.font)) * 0.55 });
+      if (prop === 'fillText' || prop === 'strokeText') return (s: unknown) => note(s);
+      if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
+      if (prop === 'createPattern') return () => null;
+      if (prop === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+      return () => undefined;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+type Size = (typeof CHECK_SIZES)[number];
+const upright = (z: Size) => z.w < 600;
+const GRIDS = [[7, 5], [8, 5], [8, 6], [8, 7]] as const;
+
+describe('Źródła on a phone first: the layout', () => {
+  it('the font helper never goes under 11 px', () => {
+    for (const px of [0, 4, 6.4, 9, 10.99, 11, 13, 24]) {
+      for (const fam of [SANS, SERIF]) expect(pxOf(font(700, px, fam, px > 20))).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(pxOf(font(800, 24, SERIF))).toBe(24);
+  });
+
+  it('every checked screen and grid: cells of 44 px or more inside the band, the valley whole where it fits, a short pan where it does not', () => {
+    for (const z of CHECK_SIZES) {
+      for (const [c, r] of GRIDS) {
+        const L = computeLayout(z.w, z.h, z.insets, c, r);
+        const name = `${z.name} ${c}×${r}`, v = L.view;
+        expect(L.shape, name).toBe(upright(z) || z.w < z.h ? 'tall' : z.h < 470 ? 'side' : 'wide');
+        expect(L.u, name).toBeGreaterThanOrEqual(1);
+        expect(L.u, name).toBeLessThanOrEqual(1.3);
+        expect(L.cell, name).toBeGreaterThanOrEqual(MIN_TAP);
+        expect(L.board.w, name).toBe(c * L.cell);
+        expect(L.board.h, name).toBe(r * L.cell);
+        expect(v.y, name).toBeGreaterThanOrEqual(z.insets.top);
+        expect(v.y + v.h, name).toBeLessThanOrEqual(z.h - z.insets.bottom);
+        expect(v.x, name).toBeGreaterThanOrEqual(Math.max(16, z.insets.left));
+        expect(v.x + v.w, name).toBeLessThanOrEqual(z.w - Math.max(16, z.insets.right));
+        expect(L.panX, name).toBe(L.board.w - v.w);
+        expect(L.panY, name).toBe(L.board.h - v.h);
+        // the window shows nearly all the valley: never more than a cell hidden each way
+        expect(L.panX, name).toBeLessThanOrEqual(L.cell);
+        expect(L.panY, name).toBeLessThanOrEqual(L.cell * 1.05);
+        // the smoke's tap (50 % × 60 % of the canvas) lands on the valley
+        expect(cellAt(L, z.w / 2, z.h * 0.6), name).toBeGreaterThanOrEqual(0);
+      }
+    }
+    // a 360 px phone pans an eight-wide valley a little; an iPhone in Safari shows it whole
+    expect(computeLayout(360, 500, CHECK_SIZES[0].insets, 8, 5).panX).toBeGreaterThan(0);
+    expect(computeLayout(360, 500, CHECK_SIZES[0].insets, 7, 5).panX).toBe(0);
+    const ip = computeLayout(390, 564, CHECK_SIZES[1].insets, 8, 7);
+    expect(ip.panX + ip.panY).toBe(0);
+  });
+
+  it('the next stone and the dial are clear targets beside every whole cell at both ends of the pan, in the thumb zone upright', () => {
+    for (const z of CHECK_SIZES) {
+      for (const [c, r] of GRIDS) {
+        const L = computeLayout(z.w, z.h, z.insets, c, r);
+        const name = `${z.name} ${c}×${r}`;
+        for (const [px, py] of [[0, 0], [L.panX, L.panY]]) {
+          L.board.x = L.view.x - px;
+          L.board.y = L.view.y - py;
+          const ts = [target('next', L.next), target('dial', L.dial)];
+          let whole = 0;
+          for (let i = 0; i < c * r; i++) {
+            const b = cellBox(L, i).shown;
+            if (b && b.w >= MIN_TAP - 0.5 && b.h >= MIN_TAP - 0.5) {
+              ts.push({ label: `cell ${i}`, ...b });
+              whole++;
+            }
+          }
+          expect(auditTargets(ts, z.w, z.h, z.insets), `${name} pan ${px},${py}`).toEqual([]);
+          expect(whole, name).toBeGreaterThanOrEqual((c - (L.panX > 0 ? 1 : 0)) * (r - (L.panY > 0 ? 1 : 0)));
+        }
+        for (const b of [L.next, L.dial]) expect(b.y + b.h, name).toBeLessThan(z.h - 1);
+        if (upright(z)) {
+          expect(L.next.y, name).toBeGreaterThanOrEqual(z.h * (1 - THUMB));
+          expect(L.dial.y, name).toBeGreaterThanOrEqual(z.h * (1 - THUMB));
+          expect(L.next.x, name).toBeGreaterThanOrEqual(16 - 4);
+          expect(L.dial.x + L.dial.w, name).toBeLessThanOrEqual(z.w - 16 + 6);
+          expect(L.gauge.r * 2, name).toBeGreaterThanOrEqual(52);
+        }
+        // the dispenser's stones and the dial stay off the valley's window
+        for (const b of [L.next, L.dial, ...L.slots]) {
+          const v = L.view;
+          const ox = Math.min(b.x + b.w, v.x + v.w) - Math.max(b.x, v.x), oy = Math.min(b.y + b.h, v.y + v.h) - Math.max(b.y, v.y);
+          expect(ox > 1 && oy > 1, name).toBe(false);
+        }
+      }
+    }
+  });
+});
+
+describe('Źródła on a phone first: the game at every checked size', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return noteContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+  type Hint = { text: string; at: { x: number; y: number } | null };
+
+  function envFor(z: { w: number; h: number; insets: Insets }, progress: ZrodlaProgress, touch: boolean, hints: Hint[]): GameEnv<ZrodlaProgress> {
+    return {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress, rng: rng(5), day: '2026-11-12', daySeed: 7, plannedSec: 300, tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false,
+      tuning: TUNING, hint: (text: string, at?: { x: number; y: number } | null) => { if (text) hints.push({ text, at: at ?? null }); },
+      hudTop: () => z.insets.top, insets: () => z.insets, touch,
+    };
+  }
+
+  function gameAt(z: { w: number; h: number; insets: Insets }, touch = true, progress = returning(), hints: Hint[] = []) {
+    const game = mod.create(envFor(z, progress, touch, hints));
+    game.resize(z.w, z.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: ZrodlaSim; view: ZrodlaView };
+    return { game, sim: inner.sim, view: inner.view, clock: { t: 0 } };
+  }
+
+  const play = (game: ArcadeGame, clock: { t: number }, sec: number, f: FocusFrame = neutral()) => {
+    for (let i = 0; i < Math.round(sec * 30); i++) {
+      clock.t += 1 / 30;
+      game.update(1 / 30, f, clock.t);
+      game.draw();
+    }
+  };
+
+  /** Text allowed under MIN_READ (never under MIN_TEXT): the dial's tags (the threshold, the pace), a count, a verse's reference. */
+  const secondary = (s: string): boolean => s === t('g.threshold') || /^×/.test(s) || /^[\d\s+−-]+$/.test(s) || s.includes(' · ');
+
+  function check(game: ArcadeGame, z: { name: string; w: number; h: number; insets: Insets }, what: string): string[] {
+    drawn.length = 0;
+    game.draw();
+    const name = `${z.name}: ${what}`;
+    const ts = game.targets!();
+    expect(auditTargets(ts, z.w, z.h, z.insets), name).toEqual([]);
+    expect(drawn.filter(d => d.px < MIN_TEXT - 1e-6), name).toEqual([]);
+    expect(drawn.filter(d => d.px < MIN_READ - 1e-6 && !secondary(d.text)), name).toEqual([]);
+    return ts.map(x => x.label);
+  }
+
+  it('the countdown, the water, a rest, a blind push and the story cards: targets and text pass the phone checks', () => {
+    for (const z of CHECK_SIZES) {
+      const touch = !z.name.startsWith('desktop');
+      for (const valley of [0, 6]) {
+        const { game, sim, view, clock } = gameAt(z, touch, returning({ valley }));
+        const what = (s: string) => `valley ${valley}: ${s}`;
+        play(game, clock, 0.5);
+        const labels = check(game, z, what('the countdown'));
+        expect(labels, z.name).toContain(t('g.next'));
+        expect(labels, z.name).toContain(t('g.sluice'));
+        const L = view.layout, n = sim.valley.n;
+        expect(labels.filter(l => l.startsWith('cell')).length, z.name).toBeGreaterThan(n * 0.6);
+        // Kumka at length
+        sim.talk.line = { moment: 'idle', text: 'Kamienie czekają! Stuknij pole albo następny kamień, to pomogę. I jeszcze dłużej, żeby zawinęło.', t: 0.5, dur: 4 };
+        play(game, clock, 0.4);
+        check(game, z, what('Kumka talks'));
+        // the water runs (Space: the stones go where they help, then the fast flow)
+        for (let i = 0; i < 6; i++) sim.space();
+        play(game, clock, 1.5);
+        check(game, z, what('the water'));
+        // a rest (the green dial), then a blind push
+        sim.blockT = sim.block.dur;
+        play(game, clock, 0.2, resting());
+        expect(sim.restBlock, z.name).toBe(true);
+        check(game, z, what('a rest'));
+        sim.blockT = sim.block.dur;
+        play(game, clock, 0.2);
+        sim.plan[sim.blockIndex].blind = true;
+        expect(sim.blind, z.name).toBe(true);
+        check(game, z, what('a blind push'));
+        // the story cards: the targets are the card alone
+        sim.story = { kind: 'tally', t: 2, dur: 6, v: 3, cells: 9, goal: 8, stars: 2, points: 140, loops: 1, blooms: 2, garden: false };
+        expect(check(game, z, what('a tally card')), z.name).toEqual(['story']);
+        sim.story = { kind: 'spill', t: 2, dur: 6, v: 3, cells: 4, goal: 8, short: 4, garden: false };
+        check(game, z, what('a spill card'));
+        sim.story = { kind: 'station', t: 2, dur: 6, station: 1 };
+        check(game, z, what('a station card'));
+        sim.story = { kind: 'open', t: 2, dur: 8 };
+        check(game, z, what('the opening card'));
+        sim.story = null;
+        expect(L.cell, z.name).toBeGreaterThanOrEqual(MIN_TAP);
+      }
+    }
+  });
+
+  it('a finger on a cell shows the next stone there and lays it on the lift; slid to another cell it lays there; lifted off the valley, nothing', () => {
+    const z = CHECK_SIZES[0];
+    const { game, sim, view, clock } = gameAt(z);
+    play(game, clock, 0.3);
+    const L = view.layout, val = sim.valley;
+    const free = [...Array(val.n).keys()].filter(i => val.canLay(i) && cellBox(L, i).shown?.w === L.cell);
+    const a = cellBox(L, free[0]).full, b = cellBox(L, free[1]).full;
+    const kind = sim.queue[0];
+    game.pointer!({ type: 'down', x: a.x + a.w / 2, y: a.y + a.h / 2, id: 1 });
+    expect(view.aim).toBe(free[0]);
+    expect(val.cells[free[0]].type).toBe(EMPTY);
+    game.pointer!({ type: 'move', x: b.x + b.w / 2, y: b.y + b.h / 2, id: 1 });
+    expect(view.aim).toBe(free[1]);
+    game.pointer!({ type: 'up', x: b.x + b.w / 2, y: b.y + b.h / 2, id: 1 });
+    expect(view.aim).toBe(-1);
+    expect(val.cells[free[1]].kind).toBe(kind);
+    expect(val.cells[free[0]].type).toBe(EMPTY);
+    // lifted off the valley: nothing laid
+    const before = sim.queue.slice();
+    const c = cellBox(L, free[2]).full;
+    game.pointer!({ type: 'down', x: c.x + c.w / 2, y: c.y + c.h / 2, id: 2 });
+    game.pointer!({ type: 'move', x: L.view.x + L.view.w / 2, y: L.next.y + L.next.h / 2, id: 2 });
+    game.pointer!({ type: 'up', x: L.view.x + L.view.w / 2, y: L.next.y + L.next.h / 2, id: 2 });
+    expect(sim.queue).toEqual(before);
+    expect(val.cells[free[2]].type).toBe(EMPTY);
+  });
+
+  it("the next stone and the dial: pressed at the touch, Kumka's help on the lift; a thumb that slides off takes nothing", () => {
+    const z = CHECK_SIZES[1];
+    const { game, sim, view, clock } = gameAt(z);
+    play(game, clock, 0.3);
+    const L = view.layout, nx = L.next.x + L.next.w / 2, ny = L.next.y + L.next.h / 2;
+    const laid = () => sim.valley.cells.filter(c => c.type === PIPE && !c.fixed).length;
+    const n0 = laid();
+    game.pointer!({ type: 'down', x: nx, y: ny, id: 1 });
+    expect(view.pressed).toBe('next');
+    expect(laid()).toBe(n0);
+    game.pointer!({ type: 'up', x: nx, y: ny, id: 1 });
+    expect(view.pressed).toBeNull();
+    expect(laid()).toBe(n0 + 1);
+    // slid off: nothing
+    game.pointer!({ type: 'down', x: nx, y: ny, id: 2 });
+    game.pointer!({ type: 'move', x: nx, y: ny - 80, id: 2 });
+    expect(view.pressed).toBeNull();
+    game.pointer!({ type: 'up', x: nx, y: ny - 80, id: 2 });
+    expect(laid()).toBe(n0 + 1);
+    // the dial does the same
+    play(game, clock, 1);
+    const g = L.dial;
+    game.pointer!({ type: 'down', x: g.x + g.w / 2, y: g.y + g.h / 2, id: 3 });
+    expect(view.pressed).toBe('dial');
+    game.pointer!({ type: 'up', x: g.x + g.w / 2, y: g.y + g.h / 2, id: 3 });
+    expect(laid()).toBe(n0 + 2);
+  });
+
+  it("the camera keeps the way's open end in the window where the valley pans (a 360 px phone, an eight-wide valley)", () => {
+    const z = CHECK_SIZES[0];
+    const { game, sim, view, clock } = gameAt(z, true, returning({ valley: 6 }));
+    const L = view.layout;
+    expect(L.panX).toBeGreaterThan(0);
+    expect(L.panY).toBeGreaterThan(0);
+    for (const [c, r] of [[0, 0], [sim.valley.cols - 1, sim.valley.rows - 1], [sim.valley.cols - 1, 0]] as const) {
+      sim.wayEnd = { cell: sim.valley.idx(c, r), side: 0, kind: 'empty' };
+      for (let i = 0; i < 60; i++) {
+        clock.t += 1 / 30;
+        view.update(1 / 30, sim);
+      }
+      const b = cellBox(L, sim.wayEnd.cell).shown;
+      expect(b, `${c},${r}`).not.toBeNull();
+      expect(b!.w, `${c},${r}`).toBeGreaterThanOrEqual(L.cell - 0.5);
+      expect(b!.h, `${c},${r}`).toBeGreaterThanOrEqual(L.cell - 0.5);
+    }
+    void game;
+  });
+
+  it('speaks of the hand the player has: no keys on a touch screen, keys as shortcuts on a desktop', () => {
+    const named = (s: string) => /Spac|Space|Leertaste|mellanslag|Enter|strzałk|Arrow|Pfeil|Pilar|klik|click|Klick/i.test(s);
+    for (const k of ['how.tap', 'how.help', 'hint.tap', 'hint.space', 'hint.fast', 'hint.queue', 'hint.bomb', 'g.help.touch', 'g.fast.touch', 'say.idle.1', 'say.idle.2', 'say.idle.3'] as const) {
+      for (const lang of LANGS) {
+        const text = String(CATALOGS[lang][k]);
+        expect(named(text), `${lang} ${k}: ${text}`).toBe(false);
+        const desk = (CATALOGS[lang] as Record<string, unknown>)[`${k}.keys`];
+        if (desk !== undefined) expect(named(String(desk)), `${lang} ${k}.keys: ${String(desk)}`).toBe(true);
+      }
+    }
+    for (const lang of LANGS) expect(named(String(CATALOGS[lang]['how.space'])), lang).toBe(true);
+    expect(hand('hint.space', true)).toBe(t('hint.space'));
+    expect(hand('hint.space', false)).toBe(t('hint.space.keys'));
+    expect(hand('hint.flow', false)).toBe(t('hint.flow'));
+    const how = howto();
+    expect(how.hands.map(h => h.gesture)).toEqual(['tap', 'tap', 'keys']);
+    for (const h of how.hands.filter(x => x.gesture !== 'keys')) expect(named(h.text), h.text).toBe(false);
   });
 });

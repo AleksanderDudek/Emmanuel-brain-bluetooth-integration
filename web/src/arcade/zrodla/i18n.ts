@@ -69,6 +69,8 @@ const pl = {
   'g.goal': 'Cel',
   'g.fast': 'Spacja: szybki nurt',
   'g.help': 'Spacja: Kumka pomoże',
+  'g.fast.touch': 'Stuknij kamień: szybki nurt',
+  'g.help.touch': 'Stuknij kamień: Kumka pomoże',
 
   // floaters
   'fx.loop': 'Pętla!',
@@ -108,12 +110,14 @@ const pl = {
 
   // the coach marks
   'hint.tap': 'Stuknij pole przy źródle: wskoczy tam następny kamień',
-  'hint.queue': 'Kolejka: następny kamień jest na górze, kamienie się nie obracają',
+  'hint.queue': 'Kolejka: następny kamień jest w złotej ramce, kamienie się nie obracają',
   'hint.count': 'Gdy licznik dojdzie do zera, woda ruszy',
   'hint.flow': 'Woda płynie! Kładź kamienie przed nią',
   'hint.bomb': 'Stuknięty suchy kamień wymieniasz na następny',
-  'hint.space': 'Spacja: kamień sam znajdzie dobre miejsce',
-  'hint.fast': 'Droga gotowa! Spacja puszcza szybki nurt: dzbany ×2',
+  'hint.space': 'Stuknij następny kamień: Kumka położy go tam, gdzie pomoże',
+  'hint.space.keys': 'Spacja: kamień sam znajdzie dobre miejsce',
+  'hint.fast': 'Droga gotowa! Stuknij następny kamień: szybki nurt, dzbany ×2',
+  'hint.fast.keys': 'Droga gotowa! Spacja puszcza szybki nurt: dzbany ×2',
   'hint.gauge': 'Zastawka: nad progiem woda płynie wolniej',
   'hint.blind': 'Pod ziemią: zastawka działa, wynik na końcu',
   'hint.garden': 'Spokój zieleni pola, przez które płynęła woda',
@@ -128,6 +132,7 @@ const pl = {
   // how to play
   'how.goal': 'Układaj kanał przed płynącą wodą, aż przepłynie przez cel doliny.',
   'how.tap': 'Stuknij pole: kładziesz tam następny kamień (suchy wymienisz)',
+  'how.help': 'Stuknij następny kamień albo zastawkę: Kumka położy go, gdzie pomoże; gdy droga gotowa — szybki nurt ×2',
   'how.space': 'Spacja: kamień sam znajdzie miejsce; gdy droga gotowa, szybki nurt ×2',
   'how.keys': 'Strzałki i Enter: kamień przy kursorze',
   'how.tip1': 'Kamień, który nie pasuje, odłóż z dala od wody: przyda się później.',
@@ -227,9 +232,9 @@ const pl = {
   'say.end.1': 'Na dziś starczy. Dolina pije, my odpoczywamy.',
   'say.end.2': 'Koniec dnia. Wysuszę kapelusz i jutro idziemy dalej.',
   'say.end.3': 'Dobra robota! Zostawiam wodę w dobrych rękach. Twoich.',
-  'say.idle.1': 'Kamienie czekają! Stuknij pole albo Spację, to pomogę.',
+  'say.idle.1': 'Kamienie czekają! Stuknij pole albo następny kamień, to pomogę.',
   'say.idle.2': 'Halo? Woda niedługo ruszy. Kładź kanał od źródła.',
-  'say.idle.3': 'Mogę położyć kamień za Ciebie. Wciśnij Spację. Albo stuknij pole.',
+  'say.idle.3': 'Mogę położyć kamień za Ciebie: stuknij następny kamień. Albo pole.',
 };
 
 export type Key = keyof typeof pl;
@@ -284,6 +289,8 @@ const en: Catalog<Key> = {
   'g.goal': 'Goal',
   'g.fast': 'Space: fast flow',
   'g.help': 'Space: Kumka helps',
+  'g.fast.touch': 'Tap the stone: fast flow',
+  'g.help.touch': 'Tap the stone: Kumka helps',
 
   'fx.loop': 'Loop!',
   'fx.fiveLoops': 'Five loops!',
@@ -320,12 +327,14 @@ const en: Catalog<Key> = {
   'card.nextGarden': 'The next valley ends in a garden',
 
   'hint.tap': 'Tap a cell by the spring: the next stone drops in there',
-  'hint.queue': 'The queue: the next stone is on top, and stones never turn',
+  'hint.queue': 'The queue: the next stone is in the gold frame, and stones never turn',
   'hint.count': 'When the counter reaches zero, the water starts',
   'hint.flow': 'The water is running! Lay stones ahead of it',
   'hint.bomb': 'Tap a dry stone to swap it for the next one',
-  'hint.space': 'Space: the stone finds a good place by itself',
-  'hint.fast': 'The way is ready! Space lets the water run fast: jars ×2',
+  'hint.space': 'Tap the next stone: Kumka lays it where it helps',
+  'hint.space.keys': 'Space: the stone finds a good place by itself',
+  'hint.fast': 'The way is ready! Tap the next stone: fast flow, jars ×2',
+  'hint.fast.keys': 'The way is ready! Space lets the water run fast: jars ×2',
   'hint.gauge': 'The sluice: above the threshold the water runs slower',
   'hint.blind': 'Underground: the sluice still works, the result comes at the end',
   'hint.garden': 'Calm turns green the cells the water ran through',
@@ -339,6 +348,7 @@ const en: Catalog<Key> = {
 
   'how.goal': 'Lay the channel ahead of the running water until it runs through the valley’s goal.',
   'how.tap': 'Tap a cell: the next stone goes there (a dry one is swapped)',
+  'how.help': 'Tap the next stone or the sluice: Kumka lays it where it helps; once the way is ready, fast flow ×2',
   'how.space': 'Space: the stone finds its place; once the way is ready, fast flow ×2',
   'how.keys': 'Arrows and Enter: a stone at the cursor',
   'how.tip1': 'Park a stone that doesn’t fit away from the water: it will come in handy.',
@@ -435,9 +445,9 @@ const en: Catalog<Key> = {
   'say.end.1': 'Enough for today. The valley drinks, we rest.',
   'say.end.2': 'End of the day. I’ll dry my hat, and tomorrow we walk on.',
   'say.end.3': 'Good work! I leave the water in good hands. Yours.',
-  'say.idle.1': 'The stones are waiting! Tap a cell or press Space, and I’ll help.',
+  'say.idle.1': 'The stones are waiting! Tap a cell, or the next stone, and I’ll help.',
   'say.idle.2': 'Hello? The water starts soon. Lay the channel from the spring.',
-  'say.idle.3': 'I can lay a stone for you. Press Space. Or tap a cell.',
+  'say.idle.3': 'I can lay a stone for you: tap the next stone. Or a cell.',
 };
 
 const de: Catalog<Key> = {
@@ -490,6 +500,8 @@ const de: Catalog<Key> = {
   'g.goal': 'Ziel',
   'g.fast': 'Leertaste: schneller Strom',
   'g.help': 'Leertaste: Kumka hilft',
+  'g.fast.touch': 'Stein antippen: schneller Strom',
+  'g.help.touch': 'Stein antippen: Kumka hilft',
 
   'fx.loop': 'Schleife!',
   'fx.fiveLoops': 'Fünf Schleifen!',
@@ -526,12 +538,14 @@ const de: Catalog<Key> = {
   'card.nextGarden': 'Das nächste Tal endet in einem Garten',
 
   'hint.tap': 'Tipp ein Feld an der Quelle an: Dort landet der nächste Stein',
-  'hint.queue': 'Die Reihe: Der nächste Stein liegt oben, Steine drehen sich nie',
+  'hint.queue': 'Die Reihe: Der nächste Stein liegt im goldenen Rahmen, Steine drehen sich nie',
   'hint.count': 'Wenn der Zähler null erreicht, fließt das Wasser los',
   'hint.flow': 'Das Wasser fließt! Leg Steine vor ihm',
   'hint.bomb': 'Tipp einen trockenen Stein an, um ihn gegen den nächsten zu tauschen',
-  'hint.space': 'Leertaste: Der Stein findet selbst einen guten Platz',
-  'hint.fast': 'Der Weg steht! Leertaste lässt das Wasser schnell laufen: Krüge ×2',
+  'hint.space': 'Tipp den nächsten Stein an: Kumka legt ihn dorthin, wo er hilft',
+  'hint.space.keys': 'Leertaste: Der Stein findet selbst einen guten Platz',
+  'hint.fast': 'Der Weg steht! Tipp den nächsten Stein an: schneller Strom, Krüge ×2',
+  'hint.fast.keys': 'Der Weg steht! Leertaste lässt das Wasser schnell laufen: Krüge ×2',
   'hint.gauge': 'Die Schleuse: Über der Schwelle fließt das Wasser langsamer',
   'hint.blind': 'Unter der Erde: Die Schleuse wirkt weiter, das Ergebnis kommt am Ende',
   'hint.garden': 'Ruhe lässt die Felder ergrünen, durch die das Wasser floss',
@@ -545,6 +559,7 @@ const de: Catalog<Key> = {
 
   'how.goal': 'Leg die Rinne vor das fließende Wasser, bis es durch das Ziel des Tals geflossen ist.',
   'how.tap': 'Tipp ein Feld an: Dort liegt der nächste Stein (einen trockenen tauschst du)',
+  'how.help': 'Tipp den nächsten Stein oder die Schleuse an: Kumka legt ihn, wo er hilft; steht der Weg, schneller Strom ×2',
   'how.space': 'Leertaste: Der Stein findet seinen Platz; steht der Weg, schneller Strom ×2',
   'how.keys': 'Pfeile und Enter: ein Stein am Cursor',
   'how.tip1': 'Leg einen Stein, der nicht passt, weit weg vom Wasser ab: Er hilft später.',
@@ -641,9 +656,9 @@ const de: Catalog<Key> = {
   'say.end.1': 'Genug für heute. Das Tal trinkt, wir ruhen.',
   'say.end.2': 'Feierabend. Ich trockne meinen Hut, und morgen geht es weiter.',
   'say.end.3': 'Gute Arbeit! Ich lasse das Wasser in guten Händen. Deinen.',
-  'say.idle.1': 'Die Steine warten! Tipp ein Feld an oder drück die Leertaste, ich helfe.',
+  'say.idle.1': 'Die Steine warten! Tipp ein Feld an oder den nächsten Stein, ich helfe.',
   'say.idle.2': 'Hallo? Das Wasser läuft gleich los. Leg die Rinne von der Quelle aus.',
-  'say.idle.3': 'Ich kann einen Stein für dich legen. Leertaste drücken. Oder ein Feld antippen.',
+  'say.idle.3': 'Ich kann einen Stein für dich legen: Tipp den nächsten Stein an. Oder ein Feld.',
 };
 
 const sv: Catalog<Key> = {
@@ -696,6 +711,8 @@ const sv: Catalog<Key> = {
   'g.goal': 'Mål',
   'g.fast': 'Mellanslag: snabbt flöde',
   'g.help': 'Mellanslag: Kumka hjälper',
+  'g.fast.touch': 'Tryck på stenen: snabbt flöde',
+  'g.help.touch': 'Tryck på stenen: Kumka hjälper',
 
   'fx.loop': 'Ögla!',
   'fx.fiveLoops': 'Fem öglor!',
@@ -732,12 +749,14 @@ const sv: Catalog<Key> = {
   'card.nextGarden': 'Nästa dal slutar i en trädgård',
 
   'hint.tap': 'Tryck på en ruta vid källan: nästa sten hoppar in där',
-  'hint.queue': 'Kön: nästa sten ligger överst, och stenar vrids aldrig',
+  'hint.queue': 'Kön: nästa sten ligger i den gyllene ramen, och stenar vrids aldrig',
   'hint.count': 'När räknaren når noll börjar vattnet rinna',
   'hint.flow': 'Vattnet rinner! Lägg stenar framför det',
   'hint.bomb': 'Tryck på en torr sten för att byta den mot nästa',
-  'hint.space': 'Mellanslag: stenen hittar själv en bra plats',
-  'hint.fast': 'Vägen är klar! Mellanslag släpper snabbt flöde: krukor ×2',
+  'hint.space': 'Tryck på nästa sten: Kumka lägger den där den hjälper',
+  'hint.space.keys': 'Mellanslag: stenen hittar själv en bra plats',
+  'hint.fast': 'Vägen är klar! Tryck på nästa sten: snabbt flöde, krukor ×2',
+  'hint.fast.keys': 'Vägen är klar! Mellanslag släpper snabbt flöde: krukor ×2',
   'hint.gauge': 'Slussen: över tröskeln rinner vattnet långsammare',
   'hint.blind': 'Under jorden: slussen verkar ändå, resultatet kommer i slutet',
   'hint.garden': 'Lugnet gör rutorna gröna där vattnet runnit',
@@ -751,6 +770,7 @@ const sv: Catalog<Key> = {
 
   'how.goal': 'Lägg rännan framför det rinnande vattnet tills det runnit genom dalens mål.',
   'how.tap': 'Tryck på en ruta: nästa sten hamnar där (en torr byter du)',
+  'how.help': 'Tryck på nästa sten eller slussen: Kumka lägger den där den hjälper; när vägen är klar, snabbt flöde ×2',
   'how.space': 'Mellanslag: stenen hittar sin plats; när vägen är klar, snabbt flöde ×2',
   'how.keys': 'Pilar och Enter: en sten vid markören',
   'how.tip1': 'Lägg en sten som inte passar långt från vattnet: den kommer till nytta sen.',
@@ -847,13 +867,19 @@ const sv: Catalog<Key> = {
   'say.end.1': 'Nog för i dag. Dalen dricker, vi vilar.',
   'say.end.2': 'Dagen är slut. Jag torkar hatten, och i morgon går vi vidare.',
   'say.end.3': 'Bra jobbat! Jag lämnar vattnet i goda händer. Dina.',
-  'say.idle.1': 'Stenarna väntar! Tryck på en ruta eller mellanslag, så hjälper jag.',
+  'say.idle.1': 'Stenarna väntar! Tryck på en ruta, eller på nästa sten, så hjälper jag.',
   'say.idle.2': 'Hallå? Vattnet börjar snart. Lägg rännan från källan.',
-  'say.idle.3': 'Jag kan lägga en sten åt dig. Tryck mellanslag. Eller på en ruta.',
+  'say.idle.3': 'Jag kan lägga en sten åt dig: tryck på nästa sten. Eller på en ruta.',
 };
 
 export const CATALOGS = { pl, en, de, sv };
 export const t = translator<Key>(CATALOGS);
+
+/** A text that has a mouse-and-keys variant (`<key>.keys`): the touch words on a touch screen, the keys elsewhere. */
+export function hand(key: Key, touch: boolean, params?: Readonly<Record<string, string | number>>): string {
+  const k = `${key}.keys`;
+  return t(!touch && k in pl ? (k as Key) : key, params);
+}
 
 /** A whole number in this language's style ("1 240"). */
 export const fmt = (n: number): string => fmtNum(Math.round(n), 0);
