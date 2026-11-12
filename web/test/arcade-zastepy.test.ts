@@ -1,8 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { CHECK_SIZES, MIN_READ, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { passage } from '../src/arcade/kit/scripture';
 import { Battle, type BattleEvent, type Control } from '../src/arcade/zastepy/battle';
 import { LINES } from '../src/arcade/zastepy/content';
+import { hintFor, howto } from '../src/arcade/zastepy/index';
+import { CARD_MIN, cardAt, cardIds, discRect, layout, tapTargets } from '../src/arcade/zastepy/layout';
+import { SANS, SERIF, font } from '../src/arcade/zastepy/paint';
 import { CATALOGS, t, unit } from '../src/arcade/zastepy/i18n';
 import {
   ageOf, bestOf, bossOf, buyGate, buyHero, buyUnit, cardsAt, chapterOf, freshProgress, gatePrice, heroPrice, isBossBattle, migrate,
@@ -992,5 +998,394 @@ describe('the lobby (index.ts, panel.ts)', () => {
     const v1 = { v: 1, sessions: 3, total: 50, won: 2, smoks: 0, trumpets: 1, battle: 3, gold: 60, goldAll: 200, gate: 2, units: { straznik: 2 }, calls: 5, best: { 300: 20 }, lastLen: 300, giftDay: '' };
     expect(mod.best(v1 as unknown as ZastepyProgress)).toBe(20);
     expect(() => progressPanel(v1 as unknown as ZastepyProgress, () => {})).not.toThrow();
+  });
+});
+
+// ── on a phone first (src/arcade/DESIGN.md §12, §8.3 "Mobile first") ──
+const pxOf = (f: string): number => Number(f.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+type Size = (typeof CHECK_SIZES)[number];
+const upright = (z: Size) => z.w < 600 && z.h > z.w;
+const sideways = (z: Size) => z.name.startsWith('phone on its side');
+type Box = { x: number; y: number; w: number; h: number };
+/** how far apart two boxes are (negative: they overlap) */
+const apart = (a: Box, b: Box) => Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), b.y - (a.y + a.h), a.y - (b.y + b.h));
+
+describe('on a phone first: the layout', () => {
+  it('the font helper never goes under 11 px', () => {
+    for (const px of [0, 4, 7.6, 8.6, 10.9, 11, 13, 26]) {
+      for (const fam of [SANS, SERIF]) expect(pxOf(font(700, px, fam, px > 20))).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(pxOf(font(800, 24, SERIF))).toBe(24);
+    expect(pxOf(font(600, 13.5, SANS))).toBe(13.5);
+  });
+
+  it('every checked size, gate level and hand: each control a finger-sized target inside the insets, 6 px from the next', () => {
+    for (const z of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        for (let gate = 1; gate <= RULES.gateMax; gate++) {
+          const L = layout(z.w, z.h, z.insets, touch, gate);
+          const name = `${z.name} · gate ${gate} · touch ${touch}`;
+          const play = tapTargets(L);
+          expect(auditTargets(play, z.w, z.h, z.insets), name).toEqual([]);
+          for (let i = 0; i < play.length; i++) for (let j = i + 1; j < play.length; j++) expect(apart(play[i], play[j]), `${name}: ${play[i].label} – ${play[j].label}`).toBeGreaterThanOrEqual(TAP_GAP - 0.01);
+          // every open card has its place, in order (keys 1–7); the next one's preview while there is room
+          expect(L.cards.filter(c => c.open).map(c => c.id), name).toEqual(cardIds(gate).open);
+          expect(L.cards.filter(c => !c.open).length, name).toBeLessThanOrEqual(1);
+          // the card between battles (one to three offers) and a story card
+          for (const n of [1, 2, 3]) {
+            const ts = tapTargets(L, { offers: n });
+            expect(ts.map(x => x.label), name).toEqual([...Array.from({ length: n }, (_, i) => `offer ${i + 1}`), 'go on']);
+            expect(auditTargets(ts, z.w, z.h, z.insets), `${name} · ${n} offers`).toEqual([]);
+            for (let i = 0; i < ts.length; i++) for (let j = i + 1; j < ts.length; j++) expect(apart(ts[i], ts[j]), name).toBeGreaterThanOrEqual(TAP_GAP - 0.01);
+          }
+          expect(auditTargets(tapTargets(L, { story: L.story }), z.w, z.h, z.insets), `${name} · a story`).toEqual([]);
+        }
+      }
+    }
+  });
+
+  it('an upright phone: the cards and the two buttons big in the thumb zone, off the edges, on the bottom; the gates\' bar under the HUD; ten-odd metres of road', () => {
+    for (const z of CHECK_SIZES.filter(upright)) {
+      for (let gate = 1; gate <= RULES.gateMax; gate++) {
+        const L = layout(z.w, z.h, z.insets, true, gate);
+        const name = `${z.name} · gate ${gate}`;
+        expect(L.shape, name).toBe('tall');
+        expect(L.u, name).toBeGreaterThanOrEqual(1);
+        expect(L.u, name).toBeLessThan(1.1);
+        const zone = z.h * (1 - THUMB);
+        for (const r of [...L.cards.map(c => c.r), discRect(L.pillar), discRect(L.trumpet)]) {
+          expect(r.y, name).toBeGreaterThanOrEqual(zone);
+          expect(r.x, name).toBeGreaterThanOrEqual(z.insets.left + 16 - 0.01);
+          expect(r.x + r.w, name).toBeLessThanOrEqual(z.w - z.insets.right - 16 + 0.01);
+          // over the home indicator, and clear of the canvas's last pixel (a touch on the dock lands there)
+          expect(r.y + r.h, name).toBeLessThanOrEqual(z.h - Math.max(8, z.insets.bottom + 4));
+        }
+        // the primary buttons 48 px and more; a card keeps 52 px across (two rows rather than narrower cards)
+        for (const d of [L.pillar, L.trumpet]) expect(2 * d.r, name).toBeGreaterThanOrEqual(48);
+        for (const c of L.cards) expect(c.r.w, name).toBeGreaterThanOrEqual(CARD_MIN - 0.01);
+        for (const c of L.cards) expect(c.r.h, name).toBeGreaterThanOrEqual(54);
+        expect(L.rows, name).toBeLessThanOrEqual(2);
+        // no empty band at the bottom (the old simulator's reserve is gone)
+        expect(z.h - z.insets.bottom - Math.max(...L.cards.map(c => c.r.y + c.r.h)), name).toBeLessThanOrEqual(12);
+        // the gates' bar right under the HUD, Tymek under it, the road between them and the controls
+        expect(L.bar.y, name).toBeGreaterThanOrEqual(z.insets.top);
+        expect(L.bar.y, name).toBeLessThanOrEqual(z.insets.top + 8);
+        expect(L.bar.h, name).toBeGreaterThanOrEqual(26);
+        expect(L.tymek.y - L.tymek.r, name).toBeGreaterThanOrEqual(L.bar.y + L.bar.h);
+        expect(L.roadBack, name).toBeGreaterThan(L.tymek.y + L.tymek.r);
+        expect(L.roadY, name).toBeLessThan(L.row.y + 4);
+        // close enough to read: 14 m across at most (the camera follows the front)
+        expect(L.viewM, name).toBeLessThanOrEqual(14);
+        // the card between battles: a bottom sheet in the thumb zone, full-width offers, "go on" at the foot
+        const sh = L.sheet;
+        expect(sh.stacked, name).toBe(true);
+        for (const r of [...sh.offers, sh.go]) {
+          expect(r.h, name).toBeGreaterThanOrEqual(48);
+          expect(r.w, name).toBeGreaterThanOrEqual(z.w - 32 - 1);
+          expect(r.y + r.h, name).toBeLessThanOrEqual(z.h - z.insets.bottom - 4);
+        }
+        expect(sh.go.y, name).toBeGreaterThanOrEqual(zone);
+        expect(sh.box.y, name).toBeGreaterThanOrEqual(z.insets.top);
+      }
+    }
+  });
+
+  it('a phone on its side: one strip along the bottom held in two hands — the cards, the pillar and the trumpet — the lantern and the light bar over it, the road across the width', () => {
+    for (const z of CHECK_SIZES.filter(sideways)) {
+      for (let gate = 1; gate <= RULES.gateMax; gate++) {
+        const L = layout(z.w, z.h, z.insets, true, gate);
+        const name = `${z.name} · gate ${gate}`;
+        expect(L.shape, name).toBe('side');
+        expect(L.rows, name).toBe(1);
+        expect(new Set(L.cards.map(c => Math.round(c.r.y))).size, name).toBe(1);
+        const first = L.cards[0].r, last = L.cards[L.cards.length - 1].r;
+        expect(last.x + last.w, name).toBeLessThan(L.pillar.x - L.pillar.r);
+        expect(L.trumpet.x, name).toBeGreaterThan(L.pillar.x);
+        // the passive lantern is not where a resting left thumb covers it: over the strip, with the light bar
+        expect(L.lantern.y + L.lantern.r, name).toBeLessThanOrEqual(first.y);
+        expect(L.light.y + L.light.h, name).toBeLessThanOrEqual(first.y);
+        expect(L.light.x, name).toBeGreaterThan(L.lantern.x + L.lantern.r);
+        for (const c of L.cards) expect(c.r.h, name).toBeGreaterThanOrEqual(56);
+        expect(L.bar.y, name).toBeGreaterThanOrEqual(z.insets.top);
+        // the road fills the band above the strip
+        expect(L.S, name).toBeGreaterThanOrEqual(24);
+        expect(L.roadBack - (L.bar.y + L.bar.h), name).toBeGreaterThan(2.5 * L.S);
+        // the card between battles in two columns: "go on" under the left thumb, the offers under the right
+        expect(L.sheet.go.x + L.sheet.go.w, name).toBeLessThan(L.sheet.offers[0].x);
+        expect(L.sheet.box.y + L.sheet.box.h, name).toBeLessThanOrEqual(z.h - z.insets.bottom);
+      }
+    }
+  });
+
+  it('grows on a tablet and a desktop, never past 1.3; a desktop shows the whole road', () => {
+    for (const z of CHECK_SIZES.filter(x => Math.min(x.w, x.h) > 600)) {
+      const L = layout(z.w, z.h, z.insets, !z.name.startsWith('desktop'), 3);
+      expect(L.u, z.name).toBeGreaterThan(1);
+      expect(L.u, z.name).toBeLessThanOrEqual(1.3);
+      if (z.name.startsWith('desktop')) {
+        expect(L.shape).toBe('wide');
+        expect(L.viewM).toBeGreaterThanOrEqual(RULES.road + 3);
+      }
+    }
+  });
+
+  it('a thumb in the gap between two cards takes the nearer one; above the controls is no card', () => {
+    const z = CHECK_SIZES[0];
+    const L = layout(z.w, z.h, z.insets, true, 2);
+    const [a, b] = L.cards;
+    const mid = (a.r.x + a.r.w + b.r.x) / 2, y = a.r.y + a.r.h / 2;
+    expect(cardAt(L, mid - 1, y)?.id).toBe(a.id);
+    expect(cardAt(L, mid + 1, y)?.id).toBe(b.id);
+    expect(cardAt(L, a.r.x + 5, a.r.y - 30)).toBeNull();
+  });
+});
+
+/** every string drawn on a canvas made by the patched getContext, with its font size */
+const drawn: { text: string; px: number }[] = [];
+
+/** A context that draws nothing, measures text at 0.55 em a character and notes each string drawn with its size. */
+function noteContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+  const gradient = { addColorStop: () => undefined };
+  const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+  const note = (s: unknown) => {
+    const text = String(s);
+    if (text.trim() && (state.globalAlpha as number) > 0.05) drawn.push({ text, px: pxOf(String(state.font)) });
+  };
+  return new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (prop === 'measureText') return (s: string) => ({ width: String(s).length * pxOf(String(target.font)) * 0.55 });
+      if (prop === 'fillText' || prop === 'strokeText') return (s: unknown) => note(s);
+      if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
+      if (prop === 'createPattern') return () => null;
+      if (prop === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+      return () => undefined;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+describe('on a phone first: the game at every checked size', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return noteContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  const returning = (): ZastepyProgress => ({ ...freshProgress(), sessions: 5, giftDay: DAY, calls: 1, seen: 31, taught: 127, gold: 400 });
+
+  function envFor(z: { w: number; h: number; insets: Insets }, progress: ZastepyProgress, touch: boolean, hints: string[] = []): GameEnv<ZastepyProgress> {
+    return {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress, rng: mulberry32(3), day: DAY, daySeed: 7, plannedSec: 300, tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false,
+      tuning: TUNING, hint: (text: string) => { if (text) hints.push(text); }, hudTop: () => z.insets.top, insets: () => z.insets, touch,
+    };
+  }
+
+  type View = { hud: { showStory(k: 'open' | 'age', a: number): void; say(text: string, dur: number): void; hideStory(): boolean; storyOn: boolean } };
+
+  async function gameAt(z: { w: number; h: number; insets: Insets }, touch = true, progress = returning(), hints: string[] = []) {
+    const mod = (await import('../src/arcade/zastepy/index')).default;
+    const game = mod.create(envFor(z, progress, touch, hints));
+    game.resize(z.w, z.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: ZastepySim; view: View };
+    const clock = { t: 0 };
+    const run = (sec: number, f = frame()) => {
+      for (let i = 0; i < Math.round(sec * 30); i++) {
+        clock.t += 1 / 30;
+        game.update(1 / 30, f, clock.t);
+        game.draw();
+      }
+    };
+    return { game, sim: inner.sim, view: inner.view, run };
+  }
+
+  /**
+   * Text allowed at 11–13 px: secondary labels — the lag's tag, "Nadchodzą", a locked card's gate, a key's badge, a
+   * number cut to fit, the verse's reference line (the kit draws it at 62 % of the verse, never under 11).
+   */
+  const secondary = (s: string): boolean =>
+    /^≈/.test(s) || s === t('hud.soon') || s.startsWith(t('hud.locked', { n: 9 }).replace('9', '')) || /^[1-7HT]$/.test(s) ||
+    /^[\d\s ]+$/.test(s) || s.startsWith(passage('rev12.7-8').ref);
+
+  /** Draw one frame and check it: the targets (size, the safe area, no overlaps) and every string (≥ 11 px; under 13 only a secondary label). */
+  function check(game: ArcadeGame, z: Size, what: string): string[] {
+    drawn.length = 0;
+    game.draw();
+    const name = `${z.name}: ${what}`;
+    const ts = game.targets!();
+    expect(auditTargets(ts, z.w, z.h, z.insets), name).toEqual([]);
+    expect(drawn.filter(d => d.px < MIN_TEXT - 1e-6), name).toEqual([]);
+    expect(drawn.filter(d => d.px < MIN_READ - 1e-6 && !secondary(d.text)), name).toEqual([]);
+    return ts.map(x => x.label);
+  }
+
+  it('play, Tymek at length, seven cards, the card between battles, the story cards, a boss gate: targets and text pass the phone checks', async () => {
+    for (const z of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        if (!touch && upright(z)) continue;
+        const { game, sim, view, run } = await gameAt(z, touch);
+        run(3);
+        const play = check(game, z, 'play');
+        expect(play.filter(l => l.startsWith('card')), z.name).toHaveLength(layout(z.w, z.h, z.insets, touch, 1).cards.length);
+        expect(play.slice(-2), z.name).toEqual(['pillar', 'trumpet']);
+        // Tymek talking at length while a wave is announced
+        view.hud.say('To jest bardzo długa kwestia Tymka, żeby sprawdzić, czy dymek mieści się na wąskim ekranie telefonu.', 4);
+        run(0.4);
+        check(game, z, 'Tymek talks');
+        // a strong gate: seven cards, light to spare, the trumpet charged
+        sim.p.gate = 6;
+        sim.battle.light = 140;
+        sim.charge = 1;
+        run(0.4);
+        expect(check(game, z, 'seven cards').filter(l => l.startsWith('card')), z.name).toHaveLength(7);
+        // the card between battles
+        sim.stage = 'upgrade';
+        sim.stageT = -30;
+        sim.offers = sim.makeOffers();
+        run(1);
+        expect(check(game, z, 'the card between battles'), z.name).toEqual([...sim.offers.map((_, i) => `offer ${i + 1}`), 'go on']);
+        // on to a boss gate (the Kolos steps out after 10 s)
+        sim.p.battle = 4;
+        sim.stageT = 99;
+        run(11);
+        expect(sim.battle.bossBattle, z.name).toBe(true);
+        check(game, z, 'a boss gate');
+        // the story cards: the opening (its verse) and a new age
+        view.hud.showStory('open', 0);
+        run(0.6);
+        expect(check(game, z, 'the opening card'), z.name).toEqual(['story']);
+        run(2);
+        view.hud.hideStory();
+        run(0.6);
+        view.hud.showStory('age', 3);
+        run(0.6);
+        expect(check(game, z, 'a new age'), z.name).toEqual(['story']);
+        game.destroy();
+      }
+    }
+  }, 30_000);
+
+  it('a finger on the controls: a card sends at the touch, a locked card shakes, the buttons raise the pillar and sound the trumpet, a drag pans without a pillar, the offers buy', async () => {
+    const z = CHECK_SIZES[0];
+    const { game, sim, run } = await gameAt(z);
+    run(5);
+    const L = layout(z.w, z.h, z.insets, true, 1);
+    const tap = (x: number, y: number, id = 1) => {
+      game.pointer!({ type: 'down', x, y, id });
+      game.pointer!({ type: 'up', x, y, id });
+    };
+    const mid = (r: Box) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+    // a card: the guardian goes out for its light
+    sim.battle.light = 100;
+    const out = sim.sentNow;
+    const c0 = mid(L.cards[0].r);
+    tap(c0.x, c0.y);
+    expect(sim.sentNow).toBe(out + 1);
+    // the locked card does nothing but shake
+    const locked = L.cards.find(c => !c.open)!;
+    const lm = mid(locked.r);
+    tap(lm.x, lm.y);
+    expect(sim.sentNow).toBe(out + 1);
+    // the pillar's button raises it at the front once it is ready
+    run(5);
+    expect(sim.battle.pillarReady).toBe(true);
+    const pm = mid(discRect(L.pillar));
+    tap(pm.x, pm.y);
+    expect(sim.battle.pillar).not.toBeNull();
+    // the trumpet, charged
+    sim.charge = 1;
+    const tm = mid(discRect(L.trumpet));
+    tap(tm.x, tm.y);
+    expect(sim.charge).toBe(0);
+    expect(sim.trumpetsNow).toBe(1);
+    // a drag across the road pans; it raises nothing
+    run(25);
+    expect(sim.battle.pillarReady).toBe(true);
+    const ry = L.roadY - L.S * 0.5;
+    game.pointer!({ type: 'down', x: 200, y: ry, id: 5 });
+    game.pointer!({ type: 'move', x: 150, y: ry, id: 5 });
+    game.pointer!({ type: 'move', x: 100, y: ry, id: 5 });
+    game.pointer!({ type: 'up', x: 100, y: ry, id: 5 });
+    expect(sim.battle.pillarReady).toBe(true);
+    // a tap on the road raises it there
+    tap(180, ry, 6);
+    expect(sim.battle.pillarReady).toBe(false);
+    // the card between battles: the first offer buys, "go on" goes on
+    sim.p.gold = 999;
+    sim.stage = 'upgrade';
+    sim.stageT = -30;
+    sim.offers = sim.makeOffers();
+    run(1);
+    const gate = sim.p.gate;
+    const o = mid(L.sheet.offers[0]);
+    tap(o.x, o.y);
+    expect(sim.p.gate).toBe(gate + 1);
+    const g = mid(layout(z.w, z.h, z.insets, true, sim.p.gate).sheet.go);
+    tap(g.x, g.y);
+    run(0.2);
+    expect(sim.stage).toBe('battle');
+  });
+
+  it('the smoke\'s input scores within 22 s on a desktop and on the smallest phone (a centre tap every 0.65 s, Space every 2 s)', async () => {
+    for (const [z, touch] of [[CHECK_SIZES[7], false], [CHECK_SIZES[0], true]] as const) {
+      const { game } = await gameAt(z, touch, freshProgress());
+      const focus = new FocusInput(BEGINNER);
+      let f = focus.push(0, true, 0.1), tap = 0, space = 0, hub = 0, scoreAt: number | null = null;
+      const dt = 1 / 30;
+      for (let tt = 0; tt < 22; tt += dt) {
+        if ((hub += dt) >= 0.1) {
+          hub -= 0.1;
+          f = focus.push(20 * (1 - Math.exp(-tt / 4)), true, 0.1);
+        }
+        game.update(dt, f, tt);
+        game.draw();
+        if ((tap += dt) >= 0.65) {
+          tap = 0;
+          game.pointer!({ type: 'down', x: z.w / 2, y: z.h * 0.6, id: 1 });
+          game.pointer!({ type: 'up', x: z.w / 2, y: z.h * 0.6, id: 1 });
+        }
+        if ((space += dt) >= 2) {
+          space = 0;
+          game.key!(' ', true);
+          game.key!(' ', false);
+        }
+        if (scoreAt === null && game.result().score > 0) scoreAt = tt;
+      }
+      expect(scoreAt, z.name).not.toBeNull();
+    }
+  });
+
+  it('speaks to the hand the player has: a finger never hears of keys or clicks, a keyboard keeps its shortcuts', () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|klick|mysz[ąy]|mouse|maus|1–7|(^|[\s(])[HT]([\s).,!]|$)/i;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['hint.card', 'hint.pillar', 'hint.trumpet', 'hint.upgrade', 'hint.rest', 'howto.goal', 'howto.cards', 'howto.road', 'howto.trumpet', 'story.tap']) {
+        expect(c[k], `${l}.${k}`).toBeTypeOf('string');
+        expect(c[k], `${l}.${k}`).not.toMatch(KEYS);
+      }
+      for (const k of ['hint.card.keys', 'hint.pillar.keys', 'hint.trumpet.keys', 'howto.keys', 'story.tap.keys']) expect(c[k], `${l}.${k}`).toMatch(KEYS);
+    }
+    const touch = howto(true), desk = howto(false);
+    expect(touch.hands.some(x => x.gesture === 'keys')).toBe(false);
+    expect(touch.hands).toHaveLength(3);
+    expect(desk.hands.some(x => x.gesture === 'keys')).toBe(true);
+    for (const w of ['card', 'pillar', 'trumpet']) {
+      expect(hintFor(w, true)).not.toMatch(KEYS);
+      expect(hintFor(w, false)).toMatch(KEYS);
+    }
+    expect(hintFor('upgrade', true)).toBe('');
+  });
+
+  it('teaches with the hand\'s words: a phone\'s first session hears no key', async () => {
+    const hints: string[] = [];
+    const { run, sim } = await gameAt(CHECK_SIZES[1], true, freshProgress(), hints);
+    sim.charge = 1;
+    run(40);
+    expect(hints.length).toBeGreaterThan(0);
+    for (const h of hints) expect(h).not.toMatch(/Spacj|1–7|(^|[\s(])[HT]([\s).,!]|$)/);
   });
 });

@@ -22,10 +22,11 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import { coarsePointer } from '../kit/mobile';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ZastepySound } from './audio';
 import { DEMON_NAME, HINTS, HOST_NAME } from './content';
-import { t, unit } from './i18n';
+import { t, unit, type Key } from './i18n';
 import { bestOf, bossOf, freshProgress, migrate, type ZastepyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -41,8 +42,13 @@ class ZastepyGame implements ArcadeGame {
     this.sim = new ZastepySim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
-    this.view = new ZastepyView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', hudTop: () => env.hudTop() });
+    this.view = new ZastepyView(env.canvas, {
+      reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch,
+      insets: () => (typeof env.insets === 'function' ? env.insets() : { top: env.hudTop(), right: 0, bottom: 0, left: 0 }),
+    });
     this.sound = new ZastepySound(env.audio);
+    // the console's and the screenshot scripts' handle (?debug only)
+    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __zastepy?: unknown }).__zastepy = { sim: this.sim, view: this.view };
   }
 
   resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr); }
@@ -67,9 +73,10 @@ class ZastepyGame implements ArcadeGame {
   draw(): void { this.view.draw(this.sim); }
 
   /**
-   * A tap on a card sends, on the trumpet sounds, on the pillar's button raises it at the front, on the
-   * card between battles buys or goes on, on the road raises the pillar there; a drag on the road pans.
-   * While a story card is up, a tap closes it.
+   * A tap on a card sends (at the touch: a lane battler answers at once), on the trumpet sounds, on the
+   * pillar's button raises it at the front, on the card between battles buys or goes on, on the road
+   * raises the pillar there; a drag on the road pans.  A button that is not ready shakes and says so; a
+   * locked card shakes.  While a story card is up, a tap closes it.
    */
   pointer(e: PointerInput): void {
     const hit = this.view.pointer(e.type, e.x, e.y, e.id, this.sim);
@@ -77,8 +84,12 @@ class ZastepyGame implements ArcadeGame {
     switch (hit.kind) {
       case 'story': this.view.hud.hideStory(); break;
       case 'card': this.sim.send(hit.id); break;
-      case 'trumpet': this.sim.sound(); break;
-      case 'pillar': this.sim.raise(); break;
+      case 'locked':
+        this.view.hud.shakeCard(hit.id);
+        if (this.env.haptics) buzz(4);
+        break;
+      case 'trumpet': this.view.pressed('trumpet', this.sim.sound(), this.sim); break;
+      case 'pillar': this.view.pressed('pillar', this.sim.raise(), this.sim); break;
       case 'road': this.sim.raise(hit.x); break;
       case 'offer': this.sim.buy(hit.i); break;
       case 'go': this.sim.skip(); break;
@@ -86,6 +97,9 @@ class ZastepyGame implements ArcadeGame {
     }
     this.drain();
   }
+
+  /** Every control a finger can press now: the cards, the pillar, the trumpet; the offers; the story card. */
+  targets(): TapTarget[] { return this.view.targets(this.sim); }
 
   /** 1–7 the cards (between battles 1–3 the offers), Space the cheapest, T the trumpet, H the pillar, Enter goes on. */
   key(key: string, down: boolean): boolean {
@@ -126,7 +140,7 @@ class ZastepyGame implements ArcadeGame {
       const k = bossOf(this.sim.battle.battle);
       return t(k === 'kolos' ? 'hint.boss.stomp' : k === 'szarancza' ? 'hint.boss.swarm' : 'hint.boss.breath');
     }
-    return HINTS[what as keyof typeof HINTS] ?? '';
+    return hintFor(what, this.env.touch) || (HINTS[what as keyof typeof HINTS] ?? '');
   }
 
   /** What the block asks of the brain, for the runner's Mendi panel and dock. */
@@ -145,6 +159,28 @@ class ZastepyGame implements ArcadeGame {
   result(): ArcadeOutcome { return this.sim.result(); }
 
   destroy(): void { this.view.release(); }
+}
+
+/**
+ * A coach mark in the words of the hand the player has: a finger hears of taps only; a keyboard also of its
+ * shortcut (the card's digit, H, T).  Empty for a mark without such a pair.
+ */
+export function hintFor(what: string, touch: boolean): string {
+  if (what !== 'card' && what !== 'pillar' && what !== 'trumpet') return '';
+  return t((touch ? `hint.${what}` : `hint.${what}.keys`) as Key);
+}
+
+/** How to play for the hand the player has: on a touch screen the trumpet's tap takes the keys' line. */
+export function howto(touch = coarsePointer()): HowTo {
+  return {
+    goal: t('howto.goal'),
+    hands: [
+      { gesture: 'tap', text: t('howto.cards') },
+      { gesture: 'tap', text: t('howto.road') },
+      touch ? { gesture: 'tap', text: t('howto.trumpet') } : { gesture: 'keys', text: t('howto.keys') },
+    ],
+    tips: [t('howto.tip1'), t('howto.tip2')],
+  };
 }
 
 function haptic(e: SimEvent): void {
@@ -168,14 +204,6 @@ const mod: ArcadeModule<ZastepyProgress> = {
   unit,
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, tt, p) => drawPreview(ctx, w, h, tt, p),
-  howto: (): HowTo => ({
-    goal: t('howto.goal'),
-    hands: [
-      { gesture: 'tap', text: t('howto.cards') },
-      { gesture: 'tap', text: t('howto.road') },
-      { gesture: 'keys', text: t('howto.keys') },
-    ],
-    tips: [t('howto.tip1'), t('howto.tip2')],
-  }),
+  howto: () => howto(),
 };
 export default mod;

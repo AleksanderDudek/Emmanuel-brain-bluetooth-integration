@@ -39,9 +39,12 @@ const pl = {
 
   // the coach marks
   'hint.card': 'Stuknij kartę — anioł wyjdzie z bramy światła',
+  'hint.card.keys': 'Kliknij kartę albo naciśnij 1–7 — anioł wyjdzie z bramy światła',
   'hint.pillar': 'Stuknij drogę: Słup obłoku zatrzyma demony',
+  'hint.pillar.keys': 'Kliknij drogę albo naciśnij H: Słup obłoku zatrzyma demony',
   'hint.counter': '{demon}? Karta „{card}” zadaje im ×2',
-  'hint.trumpet': 'Trąba gotowa — stuknij ją albo T',
+  'hint.trumpet': 'Trąba gotowa — stuknij ją',
+  'hint.trumpet.keys': 'Trąba gotowa — kliknij ją albo naciśnij T',
   'hint.upgrade': 'Stuknij ulepszenie — liczby mówią, co zyskasz',
   'hint.rest': 'Cisza: spokój zrasta mury bramy',
   'hint.boss.stomp': 'Czerwone pole! Postaw przed nim Słup albo zadmij w trąbę',
@@ -53,6 +56,7 @@ const pl = {
   'howto.cards': 'Stuknij kartę — anioł wychodzi za światło z paska',
   'howto.road': 'Stuknij drogę — Słup obłoku, gdy gotowy',
   'howto.keys': '1–7 karty, Spacja najtańsza, H słup, T trąba',
+  'howto.trumpet': 'Stuknij trąbę, gdy pełna — fala światła odrzuca demony',
   'howto.tip1': 'Każdy cień ma kartę, która bije go ×2 — świeci, gdy nadchodzi fala.',
   'howto.tip2': 'Wysyłaj oddziały razem: tarcza z przodu, łuki z tyłu.',
 
@@ -128,6 +132,7 @@ const pl = {
   'story.age.3': 'Smok spadł w popiół. Brama świeci złotem, a miecze światła jaśniej niż kiedykolwiek. Tymek kupił nowy atrament.',
   'story.age.4': 'Brama z jednej perły, jak w wizji miasta. Ostatnia era fortecy: dalej cienie tylko rosną, a kronika pisze się dalej.',
   'story.tap': 'Stuknij, by grać dalej',
+  'story.tap.keys': 'Kliknij albo naciśnij Spację, by grać dalej',
 
   // Tymek, the cadet chronicler
   'say.open.1': 'Kadet Tymek, kronikarz zastępów. Zapisuję wszystko. Nawet to, co wolałbyś nie.',
@@ -287,9 +292,12 @@ const en: Cat = {
   'tip.firstRest': 'Relax your forehead, drop your shoulders, breathe slowly.',
 
   'hint.card': 'Tap a card: an angel steps out of the gate of light',
+  'hint.card.keys': 'Click a card or press 1–7: an angel steps out of the gate of light',
   'hint.pillar': 'Tap the road: the pillar of cloud stops the demons',
+  'hint.pillar.keys': 'Click the road or press H: the pillar of cloud stops the demons',
   'hint.counter': '{demon}? The “{card}” card hits them ×2',
-  'hint.trumpet': 'The trumpet is ready: tap it or press T',
+  'hint.trumpet': 'The trumpet is ready: tap it',
+  'hint.trumpet.keys': 'The trumpet is ready: click it or press T',
   'hint.upgrade': 'Tap an upgrade: the numbers say what you gain',
   'hint.rest': 'Stillness: calm mends the gate’s walls',
   'hint.boss.stomp': 'Red ground! Raise the pillar before it, or sound the trumpet',
@@ -300,6 +308,7 @@ const en: Cat = {
   'howto.cards': 'Tap a card: an angel goes out for the light in the bar',
   'howto.road': 'Tap the road: the pillar of cloud, when it is ready',
   'howto.keys': '1–7 cards, Space the cheapest, H pillar, T trumpet',
+  'howto.trumpet': 'Tap the trumpet when it is full: a wave of light throws the demons back',
   'howto.tip1': 'Every shade has a card that hits it ×2: it glows when a wave is coming.',
   'howto.tip2': 'Send troops together: shields in front, bows behind.',
 
@@ -370,6 +379,7 @@ const en: Cat = {
   'story.age.3': 'The Dragon fell into the ash. The gate gleams with gold, and the swords of light shine brighter than ever. Tymek bought new ink.',
   'story.age.4': 'A gate of a single pearl, as in the vision of the city. The fortress’s last age: from here the shades only grow, and the chronicle goes on.',
   'story.tap': 'Tap to play on',
+  'story.tap.keys': 'Click or press Space to play on',
 
   'say.open.1': 'Cadet Tymek, chronicler of the hosts. I write it all down. Even the bits you’d rather not.',
   'say.open.2': 'I polished the trumpet. Again. You can see your face in it.',
@@ -522,9 +532,12 @@ const de: Cat = {
   'tip.firstRest': 'Entspann die Stirn, lass die Schultern sinken, atme langsam.',
 
   'hint.card': 'Tippe auf eine Karte: Ein Engel tritt aus dem Tor des Lichts',
+  'hint.card.keys': 'Klicke auf eine Karte oder drücke 1–7: Ein Engel tritt aus dem Tor des Lichts',
   'hint.pillar': 'Tippe auf den Weg: Die Wolkensäule hält die Dämonen auf',
+  'hint.pillar.keys': 'Klicke auf den Weg oder drücke H: Die Wolkensäule hält die Dämonen auf',
   'hint.counter': '{demon}? Die Karte „{card}“ trifft sie ×2',
-  'hint.trumpet': 'Die Posaune ist bereit: tippe sie an oder drücke T',
+  'hint.trumpet': 'Die Posaune ist bereit: tippe sie an',
+  'hint.trumpet.keys': 'Die Posaune ist bereit: klicke sie an oder drücke T',
   'hint.upgrade': 'Tippe auf eine Verbesserung: Die Zahlen sagen, was du gewinnst',
   'hint.rest': 'Stille: Ruhe lässt die Mauern des Tors zusammenwachsen',
   'hint.boss.stomp': 'Roter Boden! Stell die Säule davor oder blas die Posaune',
@@ -535,6 +548,7 @@ const de: Cat = {
   'howto.cards': 'Tippe auf eine Karte: Ein Engel zieht los, bezahlt mit Licht',
   'howto.road': 'Tippe auf den Weg: die Wolkensäule, wenn sie bereit ist',
   'howto.keys': '1–7 Karten, Leertaste die günstigste, H Säule, T Posaune',
+  'howto.trumpet': 'Tippe die volle Posaune an: Eine Welle aus Licht wirft die Dämonen zurück',
   'howto.tip1': 'Jeder Schatten hat eine Karte, die ihn ×2 trifft: Sie leuchtet, wenn eine Welle kommt.',
   'howto.tip2': 'Schick Truppen gemeinsam: Schilde vorn, Bögen dahinter.',
 
@@ -605,6 +619,7 @@ const de: Cat = {
   'story.age.3': 'Der Drache ist in die Asche gestürzt. Das Tor glänzt golden, und die Schwerter des Lichts strahlen heller denn je. Tymek hat neue Tinte gekauft.',
   'story.age.4': 'Ein Tor aus einer einzigen Perle, wie in der Vision der Stadt. Die letzte Zeit der Festung: Von nun an wachsen nur die Schatten, und die Chronik geht weiter.',
   'story.tap': 'Tippen, um weiterzuspielen',
+  'story.tap.keys': 'Klicken oder Leertaste, um weiterzuspielen',
 
   'say.open.1': 'Kadett Tymek, Chronist der Scharen. Ich schreibe alles auf. Auch das Peinliche.',
   'say.open.2': 'Ich habe die Posaune poliert. Schon wieder. Man sieht dein Gesicht darin.',
@@ -757,9 +772,12 @@ const sv: Cat = {
   'tip.firstRest': 'Slappna av i pannan, sänk axlarna, andas långsamt.',
 
   'hint.card': 'Tryck på ett kort: en ängel kliver ut ur ljusets port',
+  'hint.card.keys': 'Klicka på ett kort eller tryck 1–7: en ängel kliver ut ur ljusets port',
   'hint.pillar': 'Tryck på vägen: molnstoden stoppar demonerna',
+  'hint.pillar.keys': 'Klicka på vägen eller tryck H: molnstoden stoppar demonerna',
   'hint.counter': '{demon}? Kortet ”{card}” slår dem ×2',
-  'hint.trumpet': 'Basunen är redo: tryck på den eller på T',
+  'hint.trumpet': 'Basunen är redo: tryck på den',
+  'hint.trumpet.keys': 'Basunen är redo: klicka på den eller tryck T',
   'hint.upgrade': 'Tryck på en förbättring: siffrorna visar vad du vinner',
   'hint.rest': 'Stillhet: lugnet får portens murar att växa ihop',
   'hint.boss.stomp': 'Röd mark! Res stoden framför den eller blås i basunen',
@@ -770,6 +788,7 @@ const sv: Cat = {
   'howto.cards': 'Tryck på ett kort: en ängel går ut för ljuset i mätaren',
   'howto.road': 'Tryck på vägen: molnstoden, när den är redo',
   'howto.keys': '1–7 kort, mellanslag det billigaste, H stod, T basun',
+  'howto.trumpet': 'Tryck på basunen när den är full: en våg av ljus kastar demonerna bakåt',
   'howto.tip1': 'Varje skugga har ett kort som slår den ×2: det lyser när en våg kommer.',
   'howto.tip2': 'Sänd trupper tillsammans: sköldar fram, bågar bakom.',
 
@@ -840,6 +859,7 @@ const sv: Cat = {
   'story.age.3': 'Draken föll i askan. Porten lyser av guld, och ljusets svärd strålar klarare än någonsin. Tymek har köpt nytt bläck.',
   'story.age.4': 'En port av en enda pärla, som i synen av staden. Fästningens sista tid: härifrån växer bara skuggorna, och krönikan skrivs vidare.',
   'story.tap': 'Tryck för att spela vidare',
+  'story.tap.keys': 'Klicka eller tryck mellanslag för att spela vidare',
 
   'say.open.1': 'Kadett Tymek, härarnas krönikör. Jag skriver ner allt. Även det du helst slapp.',
   'say.open.2': 'Jag har putsat basunen. Igen. Du kan se ditt ansikte i den.',

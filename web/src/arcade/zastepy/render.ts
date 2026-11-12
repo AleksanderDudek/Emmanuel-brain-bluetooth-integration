@@ -12,12 +12,13 @@
  * (where the host meets the demons) and a drag pans it for a few seconds.
  */
 import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
+import type { Insets, TapTarget } from '../kit/types';
 import type { Fighter } from './battle';
 import { DEMON_NAME } from './content';
 import { gold as goldText, t } from './i18n';
 import { ZastepyIntro } from './intro';
 import { layout, type Layout } from './layout';
-import { ageOf, chapterOf, type ZastepyProgress } from './meta';
+import { ageOf, chapterOf, gateLevel, type ZastepyProgress } from './meta';
 import { C, POSE, groundShadow, hash, paintAshGate, paintDemon, paintHost, paintLightGate, paintPillar, type Pose } from './paint';
 import { AGES } from './content';
 import { isBoss, type DemonId, type HostId } from './rules';
@@ -46,6 +47,8 @@ export class ZastepyView {
   private dpr = 1;
   L: Layout = layout(1280, 800);
   readonly hud: Hud;
+  /** the gate's level the layout was made for (it decides the cards) */
+  private gate = 1;
   private readonly intro0 = new ZastepyIntro();
   private clock = 0;
   private camX = RULES.road / 2;
@@ -75,7 +78,7 @@ export class ZastepyView {
   private specialFlash = 0;
   hitStop = 0;
 
-  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; hudTop: () => number }) {
+  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; insets: () => Insets; touch: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.hud = new Hud(this.ctx, opts.eeg);
     this.hud.resize(this.L);
@@ -86,9 +89,25 @@ export class ZastepyView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, this.opts.hudTop());
-    this.hud.resize(this.L);
-    this.skyKey = '';
+    this.relayout();
+  }
+
+  /** Lay the play out for this canvas, its insets (the HUD band, a notch, the home indicator) and the gate's level. */
+  private relayout(): void {
+    this.L = layout(this.w, this.h, this.opts.insets(), this.opts.touch, this.gate);
+    this.hud.resize(this.L, this.dpr);
+    this.camX = this.clampCam(this.camX);
+  }
+
+  /** Every control a finger can press now (ArcadeGame.targets). */
+  targets(sim: ZastepySim): TapTarget[] { return this.hud.targets(sim); }
+
+  /** A finger on the pillar's or the trumpet's button: it squashes; not ready, it shakes and says so. */
+  pressed(which: 'pillar' | 'trumpet', ok: boolean, sim: ZastepySim): void {
+    this.hud.pressButton(which, ok);
+    if (ok || sim.stage !== 'battle') return;
+    const d = which === 'pillar' ? this.L.pillar : this.L.trumpet;
+    this.hud.float(TXT.cool, d.x, d.y - d.r - 12 * this.L.u, '#8a4a3a', 13, 0.9, 14);
   }
 
   start(): void {
@@ -126,7 +145,8 @@ export class ZastepyView {
     const d = this.drag;
     if (!d || d.id !== id) return null;
     if (type === 'move') {
-      if (Math.abs(x - d.x) > 8) d.moved = true;
+      // a drag only past 10 px: a thumb's tap wobbles
+      if (Math.abs(x - d.x) > 10) d.moved = true;
       if (d.moved && !this.fits) {
         this.camX = this.clampCam(d.cam - (x - d.x) / this.S);
         this.manualT = 4;
@@ -150,7 +170,7 @@ export class ZastepyView {
         return { x: this.sx(b.pillarSpot()), y: L.roadY - 1.2 * this.S };
       }
       case 'upgrade': return this.hud.offerAt();
-      case 'rest': return { x: L.walls.x + L.walls.w * 0.3, y: L.walls.y };
+      case 'rest': return { x: L.bar.x + L.bar.w * 0.25, y: L.bar.y + L.bar.h };
       case 'boss': {
         const sp = sim.battle.special;
         return sp ? { x: this.sx((sp.x0 + sp.x1) / 2), y: L.roadY - 0.4 * this.S } : null;
@@ -235,6 +255,7 @@ export class ZastepyView {
         this.bolts.push({ x0: b.road + 1.2, y0: -4.4, x1: e.x, y1: e.fly ? this.wy(L.roadY - 1.9 * S) - 0.3 : -0.7, t: 0, dur: 0.3, kind: 'ember' });
         break;
       case 'gateHit':
+        this.hud.gateHit(e.side === 1 ? 1 : -1);
         if (e.side === 1) {
           this.shake.add(0.03);
           this.parts.burst(0.1, -1 - this.rnd() * 2, rm ? 1 : 3, { color: C.stoneShade, size: 0.06, speed: 1.4, g: 4, drag: 1.5, life: 0.6, shape: 'square', rnd: this.rnd });
@@ -327,12 +348,13 @@ export class ZastepyView {
         this.hud.showStory(e.kind, e.age);
         break;
       case 'restPass':
-        this.hud.float(t('fx.restPass', { gold: goldText(e.gold) }), L.walls.x + L.walls.w / 2, L.walls.y - 8 * u, C.blueDeep, 14, 1.8, 24);
+        this.hud.float(t('fx.restPass', { gold: goldText(e.gold) }), L.bar.x + L.bar.w * 0.3, L.bar.y + L.bar.h + 22 * u, C.blueDeep, 14, 1.8, -12);
         break;
       case 'nope': {
         this.hud.shakeCard(e.id);
         const cool = sim.battle.cool[e.id] > 0;
-        this.hud.float(cool ? TXT.cool : TXT.nope, L.w / 2, L.cards.y - 12 * u, '#8a4a3a', 13, 0.9, 16);
+        const at = this.hud.cardAt(e.id);
+        this.hud.float(cool ? TXT.cool : TXT.nope, at ? at.x : L.cardX, (at ? at.y : L.cardBand.y) - 14 * u, '#8a4a3a', 13, 0.9, 16);
         break;
       }
       case 'buy':
@@ -357,6 +379,12 @@ export class ZastepyView {
   update(dt: number, sim: ZastepySim): void {
     this.clock += dt;
     const b = sim.battle;
+    // a new gate level can open a card: the cards' row is laid out again
+    const g = gateLevel(sim.p);
+    if (g !== this.gate) {
+      this.gate = g;
+      this.relayout();
+    }
     // the camera: the whole road, or the front where the host meets the demons
     const x0 = this.camX;
     this.manualT = Math.max(0, this.manualT - dt);
@@ -399,15 +427,15 @@ export class ZastepyView {
     ctx.translate(off.x, off.y);
     this.drawSky(sim);
     this.drawRoad();
-    if (this.fits) this.hud.banners(sim, Math.max(L.banners.x0, this.sx(0) + 0.6 * S), Math.min(L.banners.x1, this.sx(RULES.road) - 0.6 * S));
-    else this.hud.banners(sim);
+    // the banners stand between the gates (a gate in view never hides "now")
+    this.hud.banners(sim, Math.max(L.banners.x0, this.sx(0) + 0.6 * S), Math.min(L.banners.x1, this.sx(RULES.road) - 0.6 * S));
     // the gates
     const glow = clamp(0.25 + (sim.mult - 1) / (RULES.flowTop - 1) * 0.75 + this.gateFlash * 0.3);
     paintLightGate(ctx, this.sx(0), L.roadY + 0.15 * S, S, { glow, walls: b.walls / b.wallsMax, t: this.clock, mend: sim.calmNow, age: b.age });
     paintAshGate(ctx, this.sx(b.road), L.roadY + 0.15 * S, S, { ash: b.bossBattle ? 1 : b.ash / b.ashMax, t: this.clock, fall: ease.inOutSine(this.fall), sealed: b.bossBattle && b.outcome === null });
     this.drawSpecial(sim);
     this.drawFighters(sim);
-    if (b.pillar) paintPillar(ctx, this.sx(b.pillar.x), L.roadY - 0.25 * S, S, L.battle.y + L.battle.h, clamp(b.pillar.t / b.pillar.sec), ease.outCubic(this.pillarIn), this.clock);
+    if (b.pillar) paintPillar(ctx, this.sx(b.pillar.x), L.roadY - 0.25 * S, S, L.bar.y + L.bar.h, clamp(b.pillar.t / b.pillar.sec), ease.outCubic(this.pillarIn), this.clock);
     this.drawBolts();
     this.drawSlashes();
     this.drawWave();
@@ -426,9 +454,8 @@ export class ZastepyView {
       ctx.fillRect(-10, -10, this.w + 20, this.h + 20);
     }
     ctx.restore();
-    // the next wave's kinds over the gate of ash (in view)
-    const ax = Math.min(this.sx(b.road) + 1.2 * S, L.w - 8);
-    this.hud.wavePreview(sim, ax, L.battle.y + L.battle.h + 8 * L.u + (L.tall ? 0 : 0));
+    // the next wave's kinds hang over the gate of ash (at the screen's edge while it is out of view)
+    this.hud.soonX = Math.min(this.sx(b.road) + 1.2 * S, L.right);
     this.hud.draw(sim);
     if (this.fade > 0) {
       ctx.fillStyle = `rgba(255,241,201,${ease.inOutSine(this.fade) * 0.85})`;
@@ -439,7 +466,7 @@ export class ZastepyView {
   // ── the sky and the road ────────────────────────────────────────
   private drawSky(sim: ZastepySim): void {
     const ctx = this.ctx, L = this.L;
-    const key = `${this.w}x${this.h}x${this.dpr}`;
+    const key = `${this.w}x${this.h}x${this.dpr}|${Math.round(L.roadY)}|${Math.round(L.roadBack)}|${Math.round(L.S)}`;
     if (this.skyKey !== key || !this.sky) this.paintSky(key);
     if (this.sky) ctx.drawImage(this.sky, 0, 0, this.w, this.h);
     // drifting clouds below the road, a slow parallax of the camera
@@ -549,19 +576,58 @@ export class ZastepyView {
     ctx.fill();
   }
 
-  /** The causeway: its top of pale stone (joints every metre), its face, the pillars down into the clouds. */
+  /**
+   * The causeway: its top of pale stone (joints every metre), its face, the pillars down into the clouds — painted
+   * once per size into a strip from 3 m before the gate of light to 3 m past the gate of ash (a static layer:
+   * gradients and joints once, not every frame) and laid under the camera with one drawImage.
+   */
   private drawRoad(): void {
-    const ctx = this.ctx, L = this.L, S = this.S;
-    const xa = this.sx(-3), xb = this.sx(RULES.road + 3);
-    const top = L.roadBack, front = L.roadY + 0.2 * S, base = front + 0.55 * S;
+    const L = this.L, S = this.S;
+    const key = `${Math.round(S * 100)}|${Math.round(L.roadY * 10)}|${Math.round(L.roadBack * 10)}|${this.dpr}`;
+    if (key !== this.roadKey) this.paintRoad(key);
+    if (this.roadC) this.ctx.drawImage(this.roadC, this.sx(-3), L.roadBack - 3, (RULES.road + 6) * S, this.roadH);
+    else this.paintRoadOn(this.ctx, this.sx(-3), L.roadBack - 3);
+  }
+
+  private roadC: HTMLCanvasElement | null = null;
+  private roadKey = '';
+  private roadH = 0;
+
+  private paintRoad(key: string): void {
+    this.roadKey = key;
+    const L = this.L, S = this.S;
+    const w = (RULES.road + 6) * S;
+    this.roadH = L.roadY + 0.75 * S + S * 3 - (L.roadBack - 3);
+    // a phone's strip stays within 4096 device px across (Safari's canvas limits)
+    const k = Math.max(0.5, Math.min(this.dpr, 4096 / Math.max(1, w)));
+    const c = this.roadC ?? (typeof document !== 'undefined' ? document.createElement('canvas') : null);
+    const g = c?.getContext('2d') ?? null;
+    if (!c || !g) {
+      this.roadC = null;
+      return;
+    }
+    c.width = Math.max(1, Math.ceil(w * k));
+    c.height = Math.max(1, Math.ceil(this.roadH * k));
+    g.setTransform(k, 0, 0, k, 0, 0);
+    g.clearRect(0, 0, w, this.roadH);
+    this.paintRoadOn(g, 0, 0);
+    this.roadC = c;
+  }
+
+  /** The causeway drawn with its left end (3 m before the gate of light) at x0 and its far rim's top margin at y0. */
+  private paintRoadOn(ctx: CanvasRenderingContext2D, x0: number, y0: number): void {
+    const L = this.L, S = this.S;
+    const X = (m: number) => x0 + (m + 3) * S;
+    const dy = y0 - (L.roadBack - 3);
+    const xa = X(-3), xb = X(RULES.road + 3);
+    const top = L.roadBack + dy, front = L.roadY + 0.2 * S + dy, base = front + 0.55 * S;
     // the pillars
+    const pg = ctx.createLinearGradient(0, base, 0, base + S * 3);
+    pg.addColorStop(0, C.stoneShade);
+    pg.addColorStop(1, 'rgba(201,180,143,0)');
+    ctx.fillStyle = pg;
     for (let m = -1; m <= RULES.road + 1; m += 5) {
-      const x = this.sx(m);
-      if (x < -S * 2 || x > this.w + S * 2) continue;
-      const g = ctx.createLinearGradient(0, base, 0, base + S * 3);
-      g.addColorStop(0, C.stoneShade);
-      g.addColorStop(1, 'rgba(201,180,143,0)');
-      ctx.fillStyle = g;
+      const x = X(m);
       ctx.beginPath();
       ctx.moveTo(x - 0.45 * S, base);
       ctx.lineTo(x - 0.3 * S, base + S * 3);
@@ -582,7 +648,7 @@ export class ZastepyView {
     ctx.fillStyle = tg;
     ctx.fillRect(xa, top, xb - xa, front - top);
     // light from the gate of light warms the near end, the ash's dusk the far end
-    const warm = ctx.createLinearGradient(this.sx(0), 0, this.sx(RULES.road), 0);
+    const warm = ctx.createLinearGradient(X(0), 0, X(RULES.road), 0);
     warm.addColorStop(0, 'rgba(255,236,170,.25)');
     warm.addColorStop(0.6, 'rgba(255,236,170,0)');
     warm.addColorStop(1, 'rgba(70,40,60,.28)');
@@ -592,12 +658,11 @@ export class ZastepyView {
     ctx.strokeStyle = 'rgba(156,133,102,.35)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let m = Math.floor(this.camX - this.L.viewM / 2) - 1; m <= this.camX + this.L.viewM / 2 + 1; m++) {
-      if (m < -3 || m > RULES.road + 3) continue;
-      const x = this.sx(m);
+    for (let m = -3; m <= RULES.road + 3; m++) {
+      const x = X(m);
       ctx.moveTo(x, top);
       ctx.lineTo(x - 0.25 * S, front);
-      const xf = this.sx(m + 0.5);
+      const xf = X(m + 0.5);
       ctx.moveTo(xf, front);
       ctx.lineTo(xf, base);
     }
@@ -705,11 +770,8 @@ export class ZastepyView {
       const X = (x: number) => this.sx(x), Y = (y: number) => L.roadY + y * S;
       if (o.kind === 'beam' || o.kind === 'ember') {
         const a = 1 - k;
+        const lw = (o.kind === 'beam' ? 0.12 : 0.08) * S * (1 - k * 0.5);
         ctx.save();
-        ctx.strokeStyle = o.kind === 'beam' ? `rgba(255,248,214,${a})` : `rgba(255,138,61,${a})`;
-        ctx.shadowColor = o.kind === 'beam' ? 'rgba(255,224,138,.95)' : 'rgba(255,100,40,.9)';
-        ctx.shadowBlur = 12;
-        ctx.lineWidth = (o.kind === 'beam' ? 0.12 : 0.08) * S * (1 - k * 0.5);
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(X(o.x0), Y(o.y0));
@@ -718,6 +780,12 @@ export class ZastepyView {
           const e = ease.outCubic(Math.min(1, k * 2));
           ctx.quadraticCurveTo(X(mx), Y(my), X(o.x0 + (o.x1 - o.x0) * e), Y(o.y0 + (o.y1 - o.y0) * e));
         } else ctx.lineTo(X(o.x1), Y(o.y1));
+        // the glow: a wide faint stroke under the bright one (no shadowBlur)
+        ctx.strokeStyle = o.kind === 'beam' ? `rgba(255,224,138,${0.35 * a})` : `rgba(255,100,40,${0.3 * a})`;
+        ctx.lineWidth = lw * 3.2;
+        ctx.stroke();
+        ctx.strokeStyle = o.kind === 'beam' ? `rgba(255,248,214,${a})` : `rgba(255,138,61,${a})`;
+        ctx.lineWidth = lw;
         ctx.stroke();
         ctx.restore();
         continue;
@@ -742,15 +810,16 @@ export class ZastepyView {
       const px = X(x), py = Y(y);
       if (o.kind === 'arrow') {
         const dir = Math.sign(o.x1 - o.x0) || 1;
-        ctx.strokeStyle = C.white;
-        ctx.shadowColor = 'rgba(255,224,138,.95)';
-        ctx.shadowBlur = 8;
-        ctx.lineWidth = Math.max(1.5, 0.05 * S);
+        ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(px - dir * 0.45 * S, py + 0.05 * S);
         ctx.lineTo(px, py);
+        ctx.strokeStyle = 'rgba(255,224,138,.4)';
+        ctx.lineWidth = Math.max(4, 0.15 * S);
         ctx.stroke();
-        ctx.shadowBlur = 0;
+        ctx.strokeStyle = C.white;
+        ctx.lineWidth = Math.max(1.5, 0.05 * S);
+        ctx.stroke();
       } else {
         const fire = o.kind === 'fire';
         const r = (fire ? 0.22 : 0.14) * S;

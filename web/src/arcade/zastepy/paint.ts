@@ -7,12 +7,14 @@
  * apart into ash and motes of light.  All in canvas paths, no images; sizes in metres times `s`
  * (px per metre), (x, y) at the feet.
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { DemonId, HostId } from './rules';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
+/** A canvas font, never under MIN_TEXT (11 px, kit/mobile): smaller text is a smudge on a phone at arm's length. */
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
 
 export const C = {
   ink: '#2a1f2e', inkSoft: 'rgba(42,31,46,.82)', paper: '#fff8e8', gold: '#e8b04a', goldDeep: '#b97f1f', goldLight: '#ffe08a',
@@ -232,8 +234,18 @@ function blade(ctx: CanvasRenderingContext2D, x: number, y: number, ang: number,
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(ang);
-  ctx.shadowColor = 'rgba(255,224,138,.95)';
-  ctx.shadowBlur = 10 * glow;
+  if (glow > 0.05) {
+    // the glow: a wider, fainter blade under it (no per-frame shadowBlur)
+    ctx.fillStyle = `rgba(255,224,138,${0.32 * Math.min(1, glow)})`;
+    ctx.beginPath();
+    ctx.moveTo(0, -wid * 2.1);
+    ctx.lineTo(len * 0.9, -wid * 1.7);
+    ctx.lineTo(len + wid * 1.4, 0);
+    ctx.lineTo(len * 0.9, wid * 1.7);
+    ctx.lineTo(0, wid * 2.1);
+    ctx.closePath();
+    ctx.fill();
+  }
   const g = ctx.createLinearGradient(0, 0, len, 0);
   g.addColorStop(0, C.goldLight);
   g.addColorStop(1, C.white);
@@ -246,7 +258,6 @@ function blade(ctx: CanvasRenderingContext2D, x: number, y: number, ang: number,
   ctx.lineTo(0, wid);
   ctx.closePath();
   ctx.fill();
-  ctx.shadowBlur = 0;
   // the guard
   ctx.fillStyle = C.goldDeep;
   ctx.fillRect(-wid * 0.6, -wid * 2.4, wid * 1.2, wid * 4.8);
@@ -505,15 +516,19 @@ function hurtFlash(ctx: CanvasRenderingContext2D, x: number, y: number, r: numbe
 function eyes(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, gap: number, t: number): void {
   const flick = 0.85 + 0.15 * Math.sin(t * 7);
   ctx.save();
-  ctx.shadowColor = 'rgba(255,138,61,.95)';
-  ctx.shadowBlur = 8;
+  // the glow: a wider, fainter ember under each eye (no shadowBlur: it costs a phone a frame's worth of fill)
+  ctx.fillStyle = 'rgba(255,138,61,.3)';
+  for (const dx of [0, gap]) {
+    ctx.beginPath();
+    ctx.ellipse(x + dx, y, r * 2.1, r * 1.35 * flick, -0.2, 0, TAU);
+    ctx.fill();
+  }
   ctx.fillStyle = C.ember;
   for (const dx of [0, gap]) {
     ctx.beginPath();
     ctx.ellipse(x + dx, y, r * 1.2, r * 0.7 * flick, -0.2, 0, TAU);
     ctx.fill();
   }
-  ctx.shadowBlur = 0;
   ctx.fillStyle = C.emberCore;
   for (const dx of [0, gap]) {
     ctx.beginPath();
@@ -1153,10 +1168,6 @@ export function paintAshGate(ctx: CanvasRenderingContext2D, x: number, y: number
   // cracks of light as it gives way
   const k = 1 - o.ash;
   if (k > 0.05) {
-    ctx.strokeStyle = `rgba(255,236,170,${0.4 + 0.5 * k})`;
-    ctx.lineWidth = Math.max(1, s * 0.05);
-    ctx.shadowColor = 'rgba(255,224,138,.9)';
-    ctx.shadowBlur = 8 * k;
     ctx.beginPath();
     const n = 1 + Math.floor(k * 6);
     for (let i = 0; i < n; i++) {
@@ -1168,8 +1179,13 @@ export function paintAshGate(ctx: CanvasRenderingContext2D, x: number, y: number
         ctx.lineTo(cx, cy);
       }
     }
+    // the light through them: a wide faint stroke, then the bright line (no shadowBlur)
+    ctx.strokeStyle = `rgba(255,224,138,${0.25 * k})`;
+    ctx.lineWidth = Math.max(3, s * 0.16);
     ctx.stroke();
-    ctx.shadowBlur = 0;
+    ctx.strokeStyle = `rgba(255,236,170,${0.4 + 0.5 * k})`;
+    ctx.lineWidth = Math.max(1, s * 0.05);
+    ctx.stroke();
   }
   ctx.restore();
   return { ex: x + 1.2 * s, ey: y - h * 0.95 };
@@ -1372,4 +1388,93 @@ export function star(ctx: CanvasRenderingContext2D, x: number, y: number, r: num
   }
   ctx.closePath();
   ctx.fill();
+}
+
+/**
+ * A soft round glow behind a ready button or a glowing card's badge: a radial sprite made once per colour
+ * (64 px, scaled when drawn) instead of a per-frame shadowBlur, which a phone pays for in fill rate.  `rgb` as
+ * "255,200,80"; `a` its strength.
+ */
+const GLOWS = new Map<string, HTMLCanvasElement | null>();
+export function glow(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, rgb: string, a = 1): void {
+  if (a <= 0.01 || r < 1) return;
+  let c = GLOWS.get(rgb);
+  if (c === undefined) {
+    c = null;
+    if (typeof document !== 'undefined') {
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 64;
+      const g = cv.getContext('2d');
+      if (g) {
+        const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grad.addColorStop(0, `rgba(${rgb},0.95)`);
+        grad.addColorStop(0.5, `rgba(${rgb},0.45)`);
+        grad.addColorStop(1, `rgba(${rgb},0)`);
+        g.fillStyle = grad;
+        g.fillRect(0, 0, 64, 64);
+        c = cv;
+      }
+    }
+    GLOWS.set(rgb, c);
+  }
+  if (!c) return;
+  const a0 = ctx.globalAlpha;
+  ctx.globalAlpha = a0 * Math.min(1, a);
+  ctx.drawImage(c, x - r, y - r, 2 * r, 2 * r);
+  ctx.globalAlpha = a0;
+}
+
+/**
+ * The gates' bar's little gates, (x, y) at the foot, `s` tall: the tower of light (pale stone, a lit door, its
+ * lantern) and the arch of ash (basalt with a jagged crown and an ember door).
+ */
+export function gateGlyph(ctx: CanvasRenderingContext2D, kind: 'light' | 'ash', x: number, y: number, s: number): void {
+  ctx.save();
+  if (kind === 'light') {
+    const w = s * 0.6, bh = s * 0.78;
+    ctx.fillStyle = C.stone;
+    ctx.strokeStyle = C.stoneDark;
+    ctx.lineWidth = Math.max(1, s * 0.05);
+    ctx.beginPath();
+    ctx.rect(x - w / 2, y - bh, w, bh);
+    for (let i = 0; i < 3; i++) ctx.rect(x - w / 2 + i * (w * 0.4), y - bh - s * 0.13, w * 0.2, s * 0.13);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = C.goldLight;
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.2, y);
+    ctx.lineTo(x - w * 0.2, y - bh * 0.42);
+    ctx.arc(x, y - bh * 0.42, w * 0.2, Math.PI, 0);
+    ctx.lineTo(x + w * 0.2, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = C.gold;
+    ctx.beginPath();
+    ctx.arc(x, y - bh - s * 0.2, s * 0.08, 0, TAU);
+    ctx.fill();
+  } else {
+    const w = s * 0.7;
+    ctx.fillStyle = C.basalt;
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, y);
+    ctx.lineTo(x - w / 2, y - s * 0.62);
+    ctx.lineTo(x - w * 0.3, y - s * 0.95);
+    ctx.lineTo(x - w * 0.1, y - s * 0.72);
+    ctx.lineTo(x + w * 0.08, y - s);
+    ctx.lineTo(x + w * 0.26, y - s * 0.74);
+    ctx.lineTo(x + w / 2, y - s * 0.9);
+    ctx.lineTo(x + w / 2, y);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = C.ember;
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.18, y);
+    ctx.lineTo(x - w * 0.18, y - s * 0.34);
+    ctx.lineTo(x, y - s * 0.48);
+    ctx.lineTo(x + w * 0.18, y - s * 0.34);
+    ctx.lineTo(x + w * 0.18, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
 }
