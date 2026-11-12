@@ -23,6 +23,8 @@ export const RULES = {
   // ── wiring: fire together, wire together ─────────────────────
   /** two neurons fired within this many seconds of each other wire (or thicken) */
   hebbSec: 1.6,
+  /** a second tap on the empty field this soon after the hint wires the lesson's pair (a phone's Space) (s) */
+  hintHelpSec: 4,
   /** a new link grows from one neuron to the other in this many seconds (before the growth multiplier) */
   sproutSec: 1.7,
   /** synapses one link can hold */

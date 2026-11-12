@@ -347,6 +347,11 @@ describe('wiring: fire together, wire together', () => {
     sim.fieldTap(5, 5);
     expect(sim.links.size).toBe(n);
     expect(sim.hinted).toBe(sim.t);
+    // a second empty tap while the hint glows wires the lesson's pair (a phone's Space), and the hint is spent
+    const want = sim.suggest()!;
+    sim.fieldTap(5, 5);
+    expect(sim.link(want[0], want[1])).toBeDefined();
+    expect(sim.hinted).toBe(-99);
   });
 });
 

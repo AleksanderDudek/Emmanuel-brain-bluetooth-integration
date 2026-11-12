@@ -579,6 +579,12 @@ export class SynapsySim {
       this.pair(best[0], best[1]);
       return;
     }
+    // a second tap on the empty field while the hint still glows: the hand that keeps tapping gets the
+    // lesson's pair, as Space does on a desktop — so a phone never taps into nothing
+    if (this.t - this.hinted <= RULES.hintHelpSec && this.helpPair()) {
+      this.hinted = -99;
+      return;
+    }
     this.hinted = this.t;
   }
 
