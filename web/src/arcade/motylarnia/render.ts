@@ -7,11 +7,15 @@
  * colours deepen with calm in a siesta), the flowerbed strip with the last 40 s, Hieronim and his
  * bubble, an arrow to the rare flower, the side goal's pill, the cards, the hatching butterflies and
  * the juice (particles, floating words, shake).  The runner's standard HUD (the Mendi panel, the
- * score) sits on top; the play keeps below `hudTop`.
+ * score) sits on top; the play keeps below it and the passive things (Hieronim, the side goal's pill, the
+ * twig) sit in the band right under it, out of the thumb's way (layout.ts, mobile first).  On a touch
+ * screen the floating stick is drawn where the thumb steers (stick.ts).  Every word at 11 px and up,
+ * everything to read at 13 and up.
  */
 import { passage } from '../../content/scripture';
 import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
-import { drawPassage, layoutPassage, type PassageLayout } from '../kit/scripture';
+import { MIN_READ, fitText } from '../kit/mobile';
+import type { Insets } from '../kit/types';
 import { LAG_SEC, traceBars } from '../kit/trace';
 import {
   drawButterfly, drawChrysalis, paintWing, spriteOfRecord, wingMidY, type ButterflySprite, type ChrysalisLook, type WingBitmap,
@@ -20,13 +24,14 @@ import { PIGMENTS, capital, gardenAt, speciesById, type Species } from './conten
 import { drawBird, drawBubble, drawDecor, drawFlowerbed, drawHedge, drawSnail, drawSwoop, foodSprite, gardenDecor, lawnTile, type Decor } from './garden';
 import { t } from './i18n';
 import { buildLeaf } from './leaf';
-import { computeLayout, toScreen, toWorld, zoomFor, type Camera, type Layout } from './layout';
-import { INK, PAPER, SANS, SERIF, darken, fitFont, rgba, roundRect, wrapLines } from './paint';
+import { camAt, computeLayout, gardenCardBox, openCard, toScreen, toWorld, zoomFor, type Camera, type Layout, type OpenCard, type Rect } from './layout';
+import { INK, PAPER, SANS, SERIF, darken, font, fontPx, rgba, roundRect } from './paint';
 import { drawCaterpillar, type BodyPoint } from './paint';
 import { REACH_MARK, RULES } from './rules';
 import type { Chrysalis, MothSim, SimEvent, Worm } from './sim';
 import { decodePath } from './wing';
 import { MothIntro } from './intro';
+import type { StickState } from './stick';
 
 const TAU = Math.PI * 2;
 
@@ -51,7 +56,6 @@ export class MothView {
   private w = 1;
   private h = 1;
   private dpr = 1;
-  private hudTop = 0;
   readonly cam: Camera = { x: RULES.worldW / 2, y: RULES.worldH / 2, z: 1 };
   private clock = 0;
   private decor: Decor[] = [];
@@ -63,22 +67,24 @@ export class MothView {
   private fliers: Flier[] = [];
   private readonly wings = new Map<number, { pale: WingBitmap; deep: WingBitmap }>();
   private readonly arrive = new Map<number, number>();
-  private verse: PassageLayout | null = null;
+  /** the opening card as laid out for this screen */
+  private open: OpenCard | null = null;
+  /** the floating stick under the thumb (touch), as the game holds it */
+  stick: StickState | null = null;
   private readonly curlPts: BodyPoint[] = Array.from({ length: 140 }, () => ({ x: 0, y: 0 }));
   private goldT = 0;
 
-  constructor(readonly canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; hudTop: () => number }) {
+  constructor(readonly canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; touch: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number): void {
+  resize(w: number, h: number, dpr: number, insets: Insets): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.hudTop = this.opts.hudTop();
-    this.L = computeLayout(w, h, this.hudTop);
-    this.verse = null;
+    this.L = computeLayout(w, h, insets);
+    this.open = null;
     this.particles.clear();
     this.floaters.items.length = 0;
   }
@@ -134,9 +140,9 @@ export class MothView {
     this.cam.z += (zoomFor(this.L, sim.len) - this.cam.z) * (1 - Math.exp(-dt / 0.8));
     // never show much more than the hedge beyond the garden
     const P = this.L.play, z = this.cam.z, over = RULES.hedge * 2.5;
-    const hw = P.w / 2 / z, hh = P.h / 2 / z;
+    const hw = P.w / 2 / z, up = (P.h * this.L.anchor) / z, down = (P.h * (1 - this.L.anchor)) / z;
     this.cam.x = RULES.worldW + 2 * over > 2 * hw ? clamp(this.cam.x, hw - over, RULES.worldW - hw + over) : RULES.worldW / 2;
-    this.cam.y = RULES.worldH + 2 * over > 2 * hh ? clamp(this.cam.y, hh - over, RULES.worldH - hh + over) : RULES.worldH / 2;
+    this.cam.y = RULES.worldH + 2 * over > up + down ? clamp(this.cam.y, up - over, RULES.worldH - down + over) : RULES.worldH / 2;
     // a sprint kicks up dust behind the tail
     if (sim.sprinting && sim.player.curl <= 0) {
       this.dust -= dt;
@@ -246,7 +252,7 @@ export class MothView {
       this.decorFor = sim.gardenIndex;
     }
     const sh = this.shake.offset(1 / 60, 10);
-    const z = this.cam.z, cx = L.play.x + L.play.w / 2 + sh.x, cy = L.play.y + L.play.h / 2 + sh.y;
+    const z = this.cam.z, c = camAt(L), cx = c.x + sh.x, cy = c.y + sh.y;
     ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * (cx - this.cam.x * z), dpr * (cy - this.cam.y * z));
     const x0 = this.cam.x - cx / z, x1 = this.cam.x + (this.w - cx) / z, y0 = this.cam.y - cy / z, y1 = this.cam.y + (this.h - cy) / z;
     this.drawWorld(ctx, sim, x0, y0, x1, y1);
@@ -485,25 +491,84 @@ export class MothView {
     const n = Math.max(20, Math.min(60, Math.floor(w / 16)));
     const bars = traceBars(sim.trace, sim.t, n, 40);
     const lag = LAG_SEC[this.opts.eeg ? 'eeg' : 'fnirs'];
-    drawFlowerbed(ctx, bars, L.bed.x, L.bed.y, L.bed.w, L.bed.h, lag / 40, `~${lag} s`, this.clock);
+    drawFlowerbed(ctx, bars, L.bed.x, L.bed.y, L.bed.w, L.bed.h - L.ins.bottom, lag / 40, `~${lag} s`, this.clock);
+    if (L.ins.bottom > 0) {
+      // the home indicator's strip under the flowerbed is soil too
+      ctx.fillStyle = '#6E5134';
+      ctx.fillRect(L.bed.x, L.bed.y + L.bed.h - L.ins.bottom, L.bed.w, L.ins.bottom);
+    }
     this.drawSidePill(ctx, sim);
-    // Hieronim and his line
+    // Hieronim top left under the HUD, his line hanging beside him (over the pill while he talks)
     const s = L.snail, line = sim.talk;
     drawSnail(ctx, s.x, s.y, s.s, this.clock, !!line, this.scared);
     if (line && !sim.card) {
       const k = Math.min(1, line.t / 0.15, (line.dur - line.t) / 0.25);
-      drawBubble(ctx, line.text, s.x + 30 * s.s, s.y - 40 * s.s, Math.min(380, w - s.x - 40), clamp(k));
+      drawBubble(ctx, line.text, L.bubble.x, L.bubble.y, L.bubble.maxW, clamp(k), true);
     }
+    this.drawStick(ctx);
     if (sim.card) this.drawCard(ctx, sim);
+  }
+
+  /** The floating stick where the thumb steers: its base, the sprint's rim (gold, solid while sprinting), the knob. */
+  private drawStick(ctx: CanvasRenderingContext2D): void {
+    const s = this.stick;
+    if (!s) return;
+    const S = this.L.stick;
+    ctx.save();
+    ctx.fillStyle = 'rgba(30,45,20,.14)';
+    ctx.beginPath();
+    ctx.arc(s.bx, s.by, S.sprint, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,252,240,.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(s.bx, s.by, S.r, 0, TAU);
+    ctx.stroke();
+    ctx.strokeStyle = s.sprint ? 'rgba(255,211,77,.95)' : 'rgba(255,211,77,.55)';
+    ctx.lineWidth = s.sprint ? 4 : 2;
+    if (!s.sprint) ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(s.bx, s.by, S.sprint, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // the knob at the finger, held within the far edge (the base follows a finger pulled further)
+    const dx = s.x - s.bx, dy = s.y - s.by, d = Math.hypot(dx, dy), far = S.sprint + S.r * 0.35;
+    const k = d > far ? far / d : 1;
+    ctx.fillStyle = s.sprint ? 'rgba(255,211,77,.9)' : 'rgba(255,252,240,.8)';
+    ctx.beginPath();
+    ctx.arc(s.bx + dx * k, s.by + dy * k, S.knob, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Where the twig's branch starts on the left: as far as its chrysalises (and one free slot) need. */
+  private twigLeft(sim: MothSim): number {
+    const tw = this.L.twig, rest = sim.block.kind === 'rest' && sim.phase === 'play';
+    const len = tw.len * (rest ? 1.15 : 1);
+    return Math.max(tw.x0, tw.x1 - (Math.max(1, sim.twig.length) + 1.1) * len * 0.95);
+  }
+
+  /** The card on screen that waits for a tap (the game's one target then), as drawn. */
+  cardBox(sim: MothSim): Rect | null {
+    const c = sim.card;
+    if (!c || c.t >= c.dur) return null;
+    if (c.kind === 'open') return (this.open ??= this.layOpen()).box;
+    return gardenCardBox(this.L);
+  }
+
+  private layOpen(): OpenCard {
+    return openCard(this.ctx, this.L, { body: t('card.open.text') }, passage('2co5.17'), font);
   }
 
   private drawRareArrow(ctx: CanvasRenderingContext2D, sim: MothSim): void {
     const r = sim.rare;
     if (!r || sim.phase !== 'play') return;
+    // on the edge of the play's inner box: below Hieronim and the pill in the band under the HUD
     const s = this.worldToScreen(r.x, r.y), P = this.L.play, m = 34;
-    if (s.x > P.x + m && s.x < P.x + P.w - m && s.y > P.y + m && s.y < P.y + P.h - m) return;
-    const cx = P.x + P.w / 2, cy = P.y + P.h / 2, a = Math.atan2(s.y - cy, s.x - cx);
-    const kx = (P.w / 2 - m) / Math.max(1e-6, Math.abs(Math.cos(a))), ky = (P.h / 2 - m) / Math.max(1e-6, Math.abs(Math.sin(a)));
+    const x0 = P.x + m, x1 = P.x + P.w - m, y0 = Math.max(P.y + m, this.L.band + 22), y1 = P.y + P.h - m;
+    if (s.x > x0 && s.x < x1 && s.y > y0 && s.y < y1) return;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, a = Math.atan2(s.y - cy, s.x - cx);
+    const kx = (x1 - x0) / 2 / Math.max(1e-6, Math.abs(Math.cos(a))), ky = (y1 - y0) / 2 / Math.max(1e-6, Math.abs(Math.sin(a)));
     const d = Math.min(kx, ky), x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d;
     const pulse = 1 + 0.1 * Math.sin(this.clock * 5);
     ctx.save();
@@ -540,17 +605,18 @@ export class MothView {
     const tw = this.L.twig;
     if (!sim.twig.length && !rest) return;
     const len = tw.len * (rest ? 1.15 : 1);
-    // the branch from the right edge
+    // the branch from the right edge, as long as its chrysalises need and a slot more
+    const bx0 = this.twigLeft(sim);
     ctx.strokeStyle = '#6E4B2E';
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(tw.x1, tw.y - 4);
-    ctx.quadraticCurveTo((tw.x0 + tw.x1) / 2, tw.y + 6, tw.x0, tw.y);
+    ctx.quadraticCurveTo((bx0 + tw.x1) / 2, tw.y + 6, bx0, tw.y);
     ctx.stroke();
     ctx.fillStyle = '#6FA548';
     for (let i = 0; i < 4; i++) {
-      const x = tw.x0 + ((tw.x1 - tw.x0) * (i + 0.5)) / 4;
+      const x = bx0 + ((tw.x1 - bx0) * (i + 0.5)) / 4;
       ctx.beginPath();
       ctx.ellipse(x, tw.y - 7, 9, 4, -0.5 + i * 0.3, 0, TAU);
       ctx.fill();
@@ -614,71 +680,79 @@ export class MothView {
       ctx.stroke();
     }
     if (rest) {
-      ctx.font = `700 11px ${SANS}`;
-      ctx.fillStyle = 'rgba(40,30,15,.75)';
+      // the twig's word on a plate, inside the gutter
+      const word = sim.twig.length ? t('hud.hatchAt') : t('hud.rest');
+      const right = this.L.x1, maxW = Math.max(80, Math.min(280 * this.L.u, right - this.L.x0));
+      const text = fitText(ctx, word, maxW, 13, 700, SANS, MIN_READ);
+      const tw2 = ctx.measureText(text).width, ty = tw.y + len * 1.45;
+      ctx.fillStyle = 'rgba(255,251,239,.78)';
+      roundRect(ctx, right - tw2 - 8, ty - 2, tw2 + 12, 19, 9);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(40,30,15,.85)';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
-      ctx.fillText(sim.twig.length ? t('hud.hatchAt') : t('hud.rest'), tw.x1 - 8, tw.y + len * 1.45);
+      ctx.fillText(text, right - 2, ty);
     }
   }
 
+  /** The side goal's pill, in the band under the HUD beside Hieronim (passive: nothing to press). */
   private drawSidePill(ctx: CanvasRenderingContext2D, sim: MothSim): void {
     if (sim.phase !== 'play') return;
-    const text = `${sim.sideDone ? '✓ ' : ''}${t('hud.side', { side: sideText(sim) })}`;
-    ctx.font = `700 12px ${SANS}`;
-    const tw = ctx.measureText(text).width + 18, x = this.w - tw - 10, y = this.L.bed.y - 30;
-    ctx.fillStyle = sim.sideDone ? 'rgba(255,214,90,.92)' : 'rgba(255,251,239,.86)';
-    roundRect(ctx, x, y, tw, 22, 11);
+    const P = this.L.pill, u = this.L.u;
+    // beside the twig while it shows (chrysalises on it, or a siesta), else the row to the gutter
+    const twig = sim.twig.length > 0 || (sim.block.kind === 'rest' && sim.phase === 'play');
+    const maxW = Math.max(P.maxW, (twig ? this.twigLeft(sim) - 10 : this.L.x1) - P.x);
+    const raw = `${sim.sideDone ? '✓ ' : ''}${t('hud.side', { side: sideText(sim) })}`;
+    const text = fitText(ctx, raw, maxW - 20 * u, 14 * u, 700, SANS, MIN_READ);
+    const tw = ctx.measureText(text).width + 20 * u;
+    ctx.fillStyle = sim.sideDone ? 'rgba(255,214,90,.92)' : 'rgba(255,251,239,.88)';
+    roundRect(ctx, P.x, P.y, tw, P.h, P.h / 2);
     ctx.fill();
     ctx.fillStyle = INK;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, x + 9, y + 11.5);
+    ctx.fillText(text, P.x + 10 * u, P.y + P.h / 2 + 0.5);
   }
 
+  /**
+   * The cards that wait for a tap: the opening story (the title, the story, 2 Corinthians 5:17 fitted to the
+   * play area at 16 px where they fit, never under 13) and a new garden's goals (on a phone a sheet over the
+   * flowerbed, clear of the runner's block banner).
+   */
   private drawCard(ctx: CanvasRenderingContext2D, sim: MothSim): void {
-    const c = sim.card!, L = this.L;
+    const c = sim.card!, L = this.L, u = L.u;
     const a = Math.min(1, c.t / 0.25, (c.dur - c.t) / 0.3);
     if (a <= 0) return;
-    const cw = Math.min(460, this.w - 32);
     ctx.save();
     ctx.globalAlpha = clamp(a);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
     if (c.kind === 'open') {
-      const ch = Math.min(L.play.h - 16, 300), x = (this.w - cw) / 2, y = L.play.y + Math.max(8, (L.play.h - ch) / 2);
-      this.panel(ctx, x, y, cw, ch);
+      const O = (this.open ??= this.layOpen()), b = O.box, cx = b.x + b.w / 2, iw = b.w - 2 * O.pad;
+      this.panel(ctx, b.x, b.y, b.w, b.h);
       ctx.fillStyle = INK;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      fitFont(ctx, t('card.open.title'), cw - 40, 28, 700, SERIF);
-      ctx.fillText(t('card.open.title'), this.w / 2, y + 16);
-      ctx.font = `500 15px ${SANS}`;
-      const lines = wrapLines(ctx, t('card.open.text'), cw - 44);
-      lines.forEach((l, i) => ctx.fillText(l, this.w / 2, y + 56 + i * 20));
-      const vy = y + 64 + lines.length * 20;
+      ctx.fillText(fitText(ctx, t('card.open.title'), iw, O.titleSize, 700, SERIF, MIN_READ), cx, b.y + O.pad);
+      ctx.font = font(O.bodySize, 500);
+      O.body.forEach((l, i) => ctx.fillText(l, cx, b.y + O.yBody + i * O.bodyLH));
+      ctx.fillStyle = '#4A3B28';
+      ctx.font = `italic 400 ${fontPx(O.verse.size)}px ${SERIF}`;
+      O.verse.lines.forEach((l, i) => ctx.fillText(l, cx, b.y + O.yVerse + i * O.verse.lineH));
       const p = passage('2co5.17');
-      this.verse ??= layoutPassage(ctx, p, cw - 48, Math.max(40, ch - (vy - y) - 34), { max: 17, min: 11 });
-      drawPassage(ctx, p, this.verse, this.w / 2, vy, { text: '#4A3B28', ref: '#8A7558' });
-      ctx.font = `700 12px ${SANS}`;
       ctx.fillStyle = '#8A7558';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(t('card.tap'), this.w / 2, y + ch - 10);
+      ctx.font = font(O.refSize, 600);
+      ctx.fillText(`${p.ref} · ${p.bible}`, cx, b.y + O.yRef);
+      ctx.fillStyle = '#7A5A2E';
+      ctx.globalAlpha = clamp(a) * (0.75 + 0.25 * Math.sin(this.clock * 3.2));
+      ctx.fillText(fitText(ctx, `${this.opts.touch ? t('card.tap') : t('card.tap.keys')}  ›`, iw, O.tapSize, 700, SANS, MIN_READ), cx, b.y + O.yTap);
     } else {
-      const g = gardenAt(c.garden), ch = 132, x = (this.w - cw) / 2, y = L.play.y + Math.max(8, L.play.h * 0.18);
-      this.panel(ctx, x, y, cw, ch);
+      const g = gardenAt(c.garden), b = gardenCardBox(L), cx = b.x + b.w / 2, iw = b.w - 36 * u;
+      this.panel(ctx, b.x, b.y, b.w, b.h);
       ctx.fillStyle = INK;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      const title = t('card.garden', { n: c.garden + 1, name: g.name });
-      fitFont(ctx, title, cw - 40, 24, 700, SERIF);
-      ctx.fillText(title, this.w / 2, y + 14);
-      ctx.font = `600 14px ${SANS}`;
+      ctx.fillText(fitText(ctx, t('card.garden', { n: c.garden + 1, name: g.name }), iw, 22 * u, 700, SERIF, MIN_READ), cx, b.y + 16 * u);
       ctx.fillStyle = '#5A4A34';
       const side = g.side === 'rare' ? t('side.rare') : t(g.side === 'curl' ? 'side.curl' : g.side === 'dew' ? 'side.dew' : 'side.flowers', { n: g.n });
       const rows = [`★ ${t('goal.len', { n: g.len })}`, `★★ ${t('star.two')}`, `★★★ ${side}`];
-      rows.forEach((r, i) => {
-        fitFont(ctx, r, cw - 40, 14, 600, SANS);
-        ctx.fillText(r, this.w / 2, y + 50 + i * 22);
-      });
+      rows.forEach((r, i) => ctx.fillText(fitText(ctx, r, iw, 15 * u, 600, SANS, MIN_READ), cx, b.y + 52 * u + i * 26 * u));
     }
     ctx.restore();
   }

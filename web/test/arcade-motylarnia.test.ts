@@ -3,7 +3,12 @@ import { DEFAULT_TUNING, type FocusFrame } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { GARDENS, LINES, LINE_COUNT, SPECIES, TIPS, gardenAt, speciesById } from '../src/arcade/motylarnia/content';
 import { CATALOGS, t } from '../src/arcade/motylarnia/i18n';
-import { computeLayout, toScreen, toWorld, zoomFor } from '../src/arcade/motylarnia/layout';
+import { computeLayout, gardenCardBox, openCard, tapTargets, toScreen, toWorld, zoomFor } from '../src/arcade/motylarnia/layout';
+import { fitFont, font, fontPx } from '../src/arcade/motylarnia/paint';
+import { Stick } from '../src/arcade/motylarnia/stick';
+import { howto, teachText } from '../src/arcade/motylarnia/index';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { passage as passageIn } from '../src/content/scripture';
 import { drawEggs, emerge, finishGarden, freshProgress, migrate, starCount, type MothProgress } from '../src/arcade/motylarnia/meta';
 import { REACH_MARK, RULES, girthOf, reachFor } from '../src/arcade/motylarnia/rules';
 import { MothSim, addPigment, multOf, planBlocks, sizeClass, starsOf, wingspan, type SimEvent } from '../src/arcade/motylarnia/sim';
@@ -609,5 +614,133 @@ describe('texts', () => {
     expect(TIPS.push.length).toBe(6);
     expect(t('unit')).toBeTruthy();
     expect(SPECIES.length).toBe(18);
+  });
+});
+
+// ── mobile first ─────────────────────────────────────────────────
+const pxOf = (f: string): number => Number(f.match(/(\d+(?:\.\d+)?)px/)![1]);
+/** A canvas stand-in that measures text a little wide (0.55 em a letter), so a fit here fits on a phone. */
+function measuring(): CanvasRenderingContext2D {
+  const ctx = {
+    font: '10px sans-serif', save() { /* nothing */ }, restore() { /* nothing */ },
+    measureText(text: string) { return { width: text.length * pxOf(this.font) * 0.55 } as TextMetrics; },
+  };
+  return ctx as unknown as CanvasRenderingContext2D;
+}
+const LANGS = ['pl', 'en', 'de', 'sv'] as const;
+const word = (l: (typeof LANGS)[number], k: string): string => (CATALOGS[l] as Record<string, unknown>)[k] as string;
+
+describe('mobile first (DESIGN §3.3, §12)', () => {
+  it('keeps the play under the HUD and the flowerbed on the bottom, the passive things in the band under the HUD', () => {
+    for (const c of CHECK_SIZES) {
+      const L = computeLayout(c.w, c.h, c.insets);
+      expect(L.u).toBeGreaterThanOrEqual(1);
+      expect(L.u).toBeLessThanOrEqual(1.3);
+      if (Math.min(c.w, c.h) <= 390) expect(L.u, c.name).toBe(1);
+      expect(L.play.y).toBe(c.insets.top);
+      expect(L.play.y + L.play.h).toBe(L.bed.y);
+      expect(L.bed.y + L.bed.h).toBe(c.h);
+      expect(L.bed.y, c.name).toBeLessThanOrEqual(c.h - c.insets.bottom - 30);
+      // Hieronim, the side goal's pill and his bubble: under the HUD, inside the gutters, clear of the twig
+      const sx = L.snail.x - 26 * L.snail.s, sy = L.snail.y - 44 * L.snail.s;
+      expect(sx, c.name).toBeGreaterThanOrEqual(c.insets.left + (c.h > c.w && c.w < 600 ? 16 : 8) - 0.01);
+      expect(sy, c.name).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.pill.y).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.pill.x + Math.min(L.pill.maxW, 200), c.name).toBeLessThanOrEqual(Math.max(L.twig.x0 - 8, L.pill.x + L.pill.maxW) + 0.01);
+      expect(L.pill.x + L.pill.maxW).toBeLessThanOrEqual(L.twig.x0 - 8 + 0.01);
+      expect(L.pill.h).toBeGreaterThanOrEqual(26);
+      expect(L.bubble.y).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.bubble.x + L.bubble.maxW, c.name).toBeLessThanOrEqual(L.x1 + 0.01);
+      expect(L.bubble.maxW).toBeGreaterThanOrEqual(170);
+      // everything passive sits in the top half, out of the thumb's way
+      expect(L.pill.y + L.pill.h, c.name).toBeLessThan(c.h - (c.h - c.insets.top) * THUMB);
+      expect(L.snail.y, c.name).toBeLessThan(c.h - (c.h - c.insets.top) * THUMB);
+      // the floating stick: a finger-sized base, the sprint's rim beyond it, a small dead zone
+      expect(2 * L.stick.r).toBeGreaterThanOrEqual(MIN_TAP * 2);
+      expect(L.stick.sprint).toBeGreaterThan(L.stick.r);
+      expect(L.stick.dead).toBeGreaterThanOrEqual(8);
+      expect(L.stick.dead).toBeLessThan(L.stick.r / 2);
+      // a phone shows the garden at 1 px per unit or more (the caterpillar stays readable), a desktop as before
+      if (Math.min(c.w, c.h) < 600) expect(L.zoom, c.name).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('fits the opening card in four languages at every size (13 px and up, 15 and up on a phone), the garden card too; each is the one target', () => {
+    const ctx = measuring();
+    for (const c of CHECK_SIZES) {
+      const L = computeLayout(c.w, c.h, c.insets);
+      for (const l of LANGS) {
+        const O = openCard(ctx, L, { body: word(l, 'card.open.text') }, passageIn('2co5.17', l), (px, weight = 700, family = 'sans') => `${weight} ${fontPx(px)}px ${family}`);
+        const at = `${c.name} ${l}`;
+        expect(O.verse.fits, at).toBe(true);
+        expect(O.box.y).toBeGreaterThanOrEqual(L.card.y);
+        expect(O.box.y + O.box.h, at).toBeLessThanOrEqual(L.card.y + L.card.h + 0.01);
+        for (const px of [O.bodySize, O.verse.size, O.refSize, O.tapSize]) expect(px, at).toBeGreaterThanOrEqual(MIN_READ);
+        if (Math.min(c.w, c.h) < 600) expect(O.bodySize, at).toBeGreaterThanOrEqual(15);
+        expect(auditTargets(tapTargets(L, O.box), c.w, c.h, c.insets), at).toEqual([]);
+      }
+      const g = gardenCardBox(L);
+      expect(auditTargets(tapTargets(L, g), c.w, c.h, c.insets), c.name).toEqual([]);
+      expect(g.y + g.h).toBeLessThanOrEqual(L.bed.y);
+      // on a phone upright the garden's card is a sheet over the flowerbed, clear of the runner's block banner
+      if (L.shape === 'tall') expect(g.y, c.name).toBeGreaterThan(c.insets.top + 130);
+      expect(tapTargets(L, null)).toEqual([]);
+    }
+  });
+
+  it('never draws text under 11 px: the font helper has a floor, the fitting helper too', () => {
+    for (const px of [0, 4, 9.5, 10, 10.99, 11, 12, 13, 28]) expect(pxOf(font(px))).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(fontPx(14.26)).toBe(14.3);
+    const ctx = measuring();
+    expect(fitFont(ctx, 'Ogród 7: Bardzo długa nazwa ogrodu za płotem', 40, 22, 700, 'serif')).toBeGreaterThanOrEqual(MIN_TEXT);
+  });
+
+  it('steers with a floating stick: the drag\'s direction, a dead zone, a push past the rim sprints, a tap points', () => {
+    const st = new Stick({ r: 46, knob: 21, dead: 10, sprint: 53 });
+    expect(st.down(1, 200, 400, 0)).toBe(true);
+    // a second finger does not take the stick over
+    expect(st.down(2, 50, 50, 0)).toBe(false);
+    expect(st.move(2, 60, 60)).toBeNull();
+    // inside the dead zone: no heading yet
+    expect(st.move(1, 204, 397)).toEqual({ aim: null, sprint: false });
+    // up and to the right: the heading of the drag, wherever the thumb is on the screen
+    const m = st.move(1, 230, 370)!;
+    expect(m.aim).toBeCloseTo(Math.atan2(-30, 30));
+    expect(m.sprint).toBe(false);
+    // pushed past the rim: a sprint; pulled back inside: none
+    expect(st.move(1, 200, 340)!.sprint).toBe(true);
+    expect(st.move(1, 200, 370)!.sprint).toBe(false);
+    // pulled far away: the base follows, the knob stays at the far edge, still a sprint
+    const far = st.move(1, 200, 100)!;
+    expect(far.sprint).toBe(true);
+    expect(far.aim).toBeCloseTo(-Math.PI / 2);
+    expect(400 - st.s!.by).toBeGreaterThan(200);
+    expect(st.up(1, 2)).toEqual({ tap: false, sprintEnds: true });
+    expect(st.s).toBeNull();
+    // a quick tap without a drag points (the game turns toward the tapped spot)
+    st.down(3, 100, 100, 5);
+    st.move(3, 104, 102);
+    expect(st.up(3, 5.2)).toEqual({ tap: true, sprintEnds: false });
+    // a long still press is not a tap (the heading stays)
+    st.down(4, 100, 100, 6);
+    expect(st.up(4, 7)).toEqual({ tap: false, sprintEnds: false });
+  });
+
+  it('speaks to the hand the player has: a finger never hears of keys or a mouse, a mouse keeps them', () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|blanksteg|klawisz|taste|tangent|\bkey|klik|klick|click|mysz|mouse|maus|musen|musknapp|[←→↑↓]/i;
+    for (const l of LANGS) {
+      for (const k of ['teach.steer', 'teach.sprint', 'how.steer', 'how.sprint', 'how.goal', 'card.tap']) {
+        expect(word(l, k), `${l}.${k}`).toBeTypeOf('string');
+        expect(word(l, k), `${l}.${k}`).not.toMatch(KEYS);
+      }
+      for (const k of ['teach.steer.keys', 'teach.sprint.keys', 'how.steer.mouse', 'how.sprint.mouse', 'how.keys', 'card.tap.keys']) expect(word(l, k), `${l}.${k}`).toMatch(KEYS);
+    }
+    for (const what of ['steer', 'sprint', 'eat', 'rival', 'bird', 'reach', 'rest', 'rare', 'goal'] as const) expect(teachText(what, true)).not.toMatch(KEYS);
+    expect(teachText('steer', false)).toMatch(KEYS);
+    expect(teachText('sprint', false)).toMatch(KEYS);
+    const touch = howto(true), desk = howto(false);
+    expect(touch.hands.some(h => h.gesture === 'keys')).toBe(false);
+    expect(touch.hands.map(h => h.text).join(' ')).not.toMatch(KEYS);
+    expect(desk.hands.some(h => h.gesture === 'keys')).toBe(true);
   });
 });

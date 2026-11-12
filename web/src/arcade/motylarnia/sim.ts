@@ -274,6 +274,8 @@ export class MothSim {
   private finaleT = 0;
   private settled = false;
   private taught = new Set<string>();
+  /** when the last coach mark came (s of play): Hieronim keeps quiet while it shows */
+  private teachAt = -99;
 
   constructor(readonly o: SimInit) {
     this.p = migrate(o.progress);
@@ -424,6 +426,7 @@ export class MothSim {
     if (this.taught.has(what)) return;
     this.taught.add(what);
     if (!this.p.seen.includes(what)) this.p.seen.push(what);
+    this.teachAt = this.t;
     this.emit({ type: 'teach', what, x, y });
   }
 
@@ -470,7 +473,8 @@ export class MothSim {
     this.trace.push(t, f, this.phase === 'finale' || b.kind === 'warmup' ? 'free' : b.kind === 'push' ? 'focus' : 'rest', this.blind);
     this.brain(dt, f);
     const banner = this.blockT < RULES.bannerSec && this.block.kind !== 'warmup';
-    this.talkLines.update(dt, t, banner || (!!this.card && this.card.kind === 'open'));
+    // Hieronim keeps quiet over the runner's banner, the opening card and a coach mark (one bubble at a time)
+    this.talkLines.update(dt, t, banner || (!!this.card && this.card.kind === 'open') || t - this.teachAt < RULES.teachQuiet);
     if (this.phase === 'finale') { this.runFinale(dt); return; }
     if (this.card) {
       this.card.t += dt;

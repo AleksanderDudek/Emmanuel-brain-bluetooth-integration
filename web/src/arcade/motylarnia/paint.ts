@@ -5,10 +5,15 @@
  * offscreen canvases (small caches with a cap); per-frame drawing reuses them: the caterpillar's
  * shaded segments and head are sprites per larva and size.
  */
+import { MIN_TEXT } from '../kit/mobile';
 import { PIGMENTS, type Larva, type PigmentPattern } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
+/** A font size never under the kit's floor (MIN_TEXT, 11 px: smaller text is a smudge on a phone). */
+export const fontPx = (px: number): number => Math.round(Math.max(MIN_TEXT, px) * 10) / 10;
+/** A canvas font, never under MIN_TEXT. */
+export const font = (px: number, weight = 700, family = SANS): string => `${weight} ${fontPx(px)}px ${family}`;
 export const PAPER = '#F6F0E1';
 export const INK = '#2F3A26';
 export const INK_SOFT = '#6B5D48';
@@ -75,7 +80,7 @@ export function remember<K, V>(map: Map<K, V>, key: K, value: V, cap: number): V
 const fitted = new Map<string, number>();
 
 /** The largest font size (≤ `size`) at which `text` fits `maxW`; sets ctx.font (memoised: the HUD asks every frame). */
-export function fitFont(ctx: CanvasRenderingContext2D, text: string, maxW: number, size: number, weight: number, family: string, min = 10): number {
+export function fitFont(ctx: CanvasRenderingContext2D, text: string, maxW: number, size: number, weight: number, family: string, min = MIN_TEXT): number {
   const key = `${text}|${Math.round(maxW)}|${size}|${weight}|${family}|${min}`;
   let s = fitted.get(key);
   if (s === undefined) {

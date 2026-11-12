@@ -9,7 +9,7 @@
 import { mulberry32 } from '../../core/random';
 import type { TraceBar } from '../kit/trace';
 import { PIGMENTS, type Garden } from './content';
-import { SANS, canvas, ctx2d, darken, lighten, remember, rgba, roundRect, wrapLines } from './paint';
+import { canvas, ctx2d, darken, font, lighten, remember, rgba, roundRect, wrapLines } from './paint';
 import { RULES } from './rules';
 
 const TAU = Math.PI * 2;
@@ -430,14 +430,24 @@ export function drawSnail(ctx: CanvasRenderingContext2D, x: number, y: number, s
   ctx.restore();
 }
 
-/** A speech bubble left-anchored at (x, y) (its tail points down-left to the speaker), at most `maxW` wide. */
-export function drawBubble(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, alpha: number): void {
+/**
+ * A speech bubble left-anchored at (x, y), at most `maxW` wide: above the point with its tail down-left to the
+ * speaker, or (`below`) hanging from it with its tail out to the left, where the speaker sits beside it.  Its
+ * words at 14 px (13 at the least before a fourth line), at most four lines.
+ */
+export function drawBubble(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, alpha: number, below = false): void {
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.font = `600 14px ${SANS}`;
-  const lines = wrapLines(ctx, text, maxW - 24).slice(0, 3);
-  const w = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 24), lh = 18, h = lines.length * lh + 16;
-  const bx = x, by = y - h;
+  let size = 14, lines: string[] = [];
+  for (; ; size -= 0.5) {
+    ctx.font = font(size, 600);
+    lines = wrapLines(ctx, text, maxW - 24);
+    if (lines.length <= 3 || size <= 13) break;
+  }
+  lines = lines.slice(0, 4);
+  const lh = Math.round(size * 1.3);
+  const w = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 24), h = lines.length * lh + 16;
+  const bx = x, by = below ? y : y - h;
   ctx.fillStyle = 'rgba(60,40,20,.18)';
   roundRect(ctx, bx + 2, by + 3, w, h, 12);
   ctx.fill();
@@ -445,9 +455,15 @@ export function drawBubble(ctx: CanvasRenderingContext2D, text: string, x: numbe
   roundRect(ctx, bx, by, w, h, 12);
   ctx.fill();
   ctx.beginPath();
-  ctx.moveTo(bx + 10, by + h - 2);
-  ctx.lineTo(bx - 6, by + h + 10);
-  ctx.lineTo(bx + 24, by + h - 2);
+  if (below) {
+    ctx.moveTo(bx + 2, by + 10);
+    ctx.lineTo(bx - 10, by + 18);
+    ctx.lineTo(bx + 2, by + 26);
+  } else {
+    ctx.moveTo(bx + 10, by + h - 2);
+    ctx.lineTo(bx - 6, by + h + 10);
+    ctx.lineTo(bx + 24, by + h - 2);
+  }
   ctx.fill();
   ctx.strokeStyle = 'rgba(110,80,40,.35)';
   ctx.lineWidth = 1;
@@ -456,7 +472,7 @@ export function drawBubble(ctx: CanvasRenderingContext2D, text: string, x: numbe
   ctx.fillStyle = '#3B3024';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  lines.forEach((l, i) => ctx.fillText(l, bx + 12, by + 8 + i * lh));
+  lines.forEach((l, i) => ctx.fillText(l, bx + 12, by + 8 + i * lh + (lh - size) / 2));
   ctx.restore();
 }
 
@@ -540,9 +556,14 @@ export function drawFlowerbed(ctx: CanvasRenderingContext2D, bars: readonly Trac
   ctx.lineTo(x0 + w - 3, y0 + 1);
   ctx.lineTo(x0 + w - 3, y0 + 4);
   ctx.stroke();
-  ctx.font = `700 10px ${SANS}`;
-  ctx.fillStyle = 'rgba(255,248,230,.9)';
+  // the delay's tag on the soil, on a plate (the flowers grow tall under it)
+  ctx.font = font(13, 700);
+  const tw = ctx.measureText(lagText).width;
+  ctx.fillStyle = 'rgba(70,48,26,.72)';
+  roundRect(ctx, lx - tw - 9, y0 + 2, tw + 10, 18, 7);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,248,230,.95)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
-  ctx.fillText(lagText, lx - 4, y0 + 2);
+  ctx.fillText(lagText, lx - 4, y0 + 4);
 }

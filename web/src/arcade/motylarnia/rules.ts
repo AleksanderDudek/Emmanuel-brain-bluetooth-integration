@@ -138,8 +138,11 @@ export const RULES = {
   /** the spin cutscene (s) and the garden card after it (s) */
   spinSec: 1.6,
   cardSec: 2.6,
-  /** the opening card of the first session: at most this long (s), a tap closes it */
-  openSec: 7,
+  /** the opening card of the first session: at most this long (s), a tap closes it (the story and the verse read
+   *  at a phone's pace; "Stuknij, by zacząć" says how to close it sooner) */
+  openSec: 12,
+  /** Hieronim keeps quiet this long after a coach mark appears (it shows 4.2 s) */
+  teachQuiet: 4.2,
   /** a session-end caterpillar this share of its goal long still spins */
   lateShare: 0.6,
 
