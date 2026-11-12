@@ -21,7 +21,7 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ChlebySound } from './audio';
 import { t, unit } from './i18n';
 import { bestOf, freshProgress, migrate, type ChlebyProgress } from './meta';
@@ -39,7 +39,7 @@ class ChlebyGame implements ArcadeGame {
     this.sim = new ChlebySim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
-    this.view = new ChlebyView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', hudTop: () => env.hudTop() });
+    this.view = new ChlebyView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', insets: () => env.insets(), touch: env.touch });
     this.sound = new ChlebySound(env.audio);
   }
 
@@ -66,8 +66,9 @@ class ChlebyGame implements ArcadeGame {
   draw(): void { this.view.draw(this.sim); }
 
   /**
-   * A press aims and fires a burst, a hold pours, a drag aims; a tap on the help button sends the
-   * help, a tap on the giant loaf bursts it; on the cards between levels a tap builds or goes on.
+   * A press fires a burst at once and pours while held, a drag aims (by the finger's travel on a touch
+   * screen, to the pointer with a mouse); a tap on the help button sends the help (or says how full it
+   * is), a tap on the giant loaf bursts it; on the sheets between levels a tap builds or goes on.
    */
   pointer(e: PointerInput): void {
     const hit = this.view.pointer(e.type, e.x, e.y, e.id, this.sim);
@@ -76,14 +77,21 @@ class ChlebyGame implements ArcadeGame {
       case 'press': this.sim.press(hit.x); break;
       case 'drag': this.sim.drag(hit.x); break;
       case 'release': this.sim.release(); break;
-      case 'offer': this.sim.buy(hit.i); break;
+      case 'offer':
+        if (this.sim.buy(hit.i) && this.env.haptics) buzz(12);
+        break;
       case 'go': this.sim.skip(); break;
-      case 'help': this.sim.useHelp(); break;
+      case 'help':
+        if (this.env.haptics) buzz(8);
+        if (!this.sim.useHelp()) this.view.helpWait(this.sim);
+        break;
       case 'pop': this.sim.popGiant(); break;
       default: break;
     }
     this.drain();
   }
+
+  targets(): TapTarget[] { return this.view.targets(this.sim); }
 
   /** ←/→ (A/D) move the basket, Space bursts (a giant loaf first), E or Enter send the help, 1–3 build. */
   key(key: string, down: boolean): boolean {
@@ -102,7 +110,9 @@ class ChlebyGame implements ArcadeGame {
   private drain(): void {
     for (const e of this.sim.take()) {
       if (e.type === 'teach') {
-        this.env.hint(this.view.hintText(e.what), this.view.anchor(e.what, this.sim), 3800);
+        const at = this.view.anchor(e.what, this.sim);
+        this.env.hint(this.view.hintText(e.what), at, 3800);
+        this.view.hinted(at, 3.8);
         continue;
       }
       this.view.on(e, this.sim);
@@ -158,12 +168,14 @@ const mod: ArcadeModule<ChlebyProgress> = {
   unit,
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
+  // taps and drags for everyone; the keys as a fourth row, which the runner leaves out on a touch screen
   howto: (): HowTo => ({
     goal: t('howto.goal'),
     hands: [
       { gesture: 'hold', text: t('howto.hold') },
       { gesture: 'drag', text: t('howto.drag') },
       { gesture: 'tap', text: t('howto.tap') },
+      { gesture: 'keys', text: t('howto.keys') },
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],
   }),

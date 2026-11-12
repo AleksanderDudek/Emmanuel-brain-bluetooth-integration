@@ -1751,6 +1751,51 @@ the band keeps the same two jobs (the part "Version 3" at the end of this sectio
   lubią pomagać."), the giant loaf's burst, the help ready and each help, a bundle, a new card, an
   evolution, a league tier, a mission, a building, the jar.
 
+**Mobile first (2026-11-12, §12).** Mob Control is played upright with one thumb; Chleby now is too.
+
+* **The thumb zone, upright** (`layout.ts`, the reference a 360 × 366 band under the HUD): the tables'
+  hunger bars sit right under the HUD (the band is computed from the sprites' size, so their numbers,
+  ≥ 13 px, never slip under it); the lane fills the width; the boy stands on the row of twelve baskets of
+  crumbs along the bottom, his basket at about 85 % of the canvas; the help button (52 px, its name on a
+  ribbon across its foot) is in the bottom-right corner, 20 px from the edge and 16 px above the bottom.
+  The band the old simulator switch kept empty is gone: the baskets run from the left edge to the
+  button, on a wicker shelf with "Kosze: N" on a plate.
+* **Under a finger.** A touch-down fires a handful at once (the recoil answers on the down, not the
+  up) and a hold pours. A drag steers the basket by the finger's sideways travel — relative, as in Mob
+  Control, a gain of 1–1.8 so the whole lane is about 60 % of the screen's width of thumb travel, with a
+  10 px slop — so the thumb rests anywhere low and never covers the basket; a short slider with a knob
+  shows under the thumb while it steers. A mouse still aims to the pointer. The help button sinks under
+  the finger; tapped before it is full it shakes and says "Pomoc: 40 %". The giant loaf takes a
+  generous box round its body (it moves), never by the basket (a tap there pours) nor over the help
+  button. Haptics: the help pressed, a building raised, and the moments of v3.
+* **The dial.** The champion's ring round the basket keeps its place (the signal in sight); its words
+  sit on a plate beside it, on the side with more room — "Wielki kosz 45 %", 13 px.
+* **Sheets, not cards.** The level fed (stars, the baskets, the path), the bundles' reveal (at most six
+  tiles, three a row, the last "+N"), the village (one finger-sized row per building, 64 px, and a
+  48 px "Dalej") and the story cards rise from the bottom as full-width sheets with 13–16 px text (the
+  verse ≥ 17 px). On a phone on its side they are side sheets on the left and the lane slides right so
+  they never cover it (the v3 reward cards did); a story card there spans the band (it holds the hands
+  anyway). A desktop shows the same side sheets, bottom left.
+* **On its side** (601 × 292 under a 68 px HUD row): a left column with Mirka and the baskets in two
+  rows of six, the lane in the middle (its top under the HUD row — v3 put the tables under the score box),
+  the help button bottom right.
+* **Text.** `u` is 1 on any phone (kit `uiScale`) and grows to 1.3; `font()` never goes under 11 px;
+  bubbles 14 px, banners 28/14, gates' numbers ≥ 13 px with an outline; every string is fitted to its
+  room with a floor and an ellipsis. The game's banners sit low on the lane, under the runner's block
+  banner, and step aside when a coach mark points there.
+* **Words for the hand.** The hints speak of tapping ("stuknij przycisk w rogu"); a keyboard gets the
+  keys as shortcuts ("(albo E)", "(albo spacja)") and a keys row on the how-to card, which the runner
+  leaves out on a touch screen; the registry's tip no longer names Space.
+* **`targets()`**: the help button and the giant loaf in a level, the buildings and "Dalej" on the
+  village sheet; a test audits them at all nine `CHECK_SIZES` with the giant anywhere on the lane and one
+  to three buildings, and checks the sheets fit, the slide clears them and the font floor.
+* **Measured** (`scripts/arcade-mobile.mjs`, six devices, before → after): strings under 11 px 222 / 119 /
+  116 / 91 / 0 / 0 → 0 on every device; under 13 px only the gate's "próg" tag, the verse's reference
+  and the dozing "z" (small phone 21 → 3, desktop 113 → 1); targets none → the help button, the giant
+  loaf, the village rows and "Dalej", all ≥ 44 px, inside the insets and apart; the game's own frame
+  0.7 ms on a desktop and 2.3–3.3 ms on the small phone at 4× CPU, 60 fps everywhere. German on the
+  small phone and on its side, and HALO on an iPhone, pass too.
+
 ### 9.4 Jerzy i smok — the knight on the dragon's lands (survivors-like, v2 → v3)
 
 *Ephesians 6:16 — "Take up the shield of faith, with which you can extinguish all the flaming

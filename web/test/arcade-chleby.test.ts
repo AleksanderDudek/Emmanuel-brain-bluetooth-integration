@@ -3,19 +3,24 @@ import { makeBoss, munchSpots, stepBoss, stunBoss, type BossEvent } from '../src
 import {
   CARDS, KINDS, MAX_LEVEL, PACK, copiesFor, evoOf, levelOf, oddsWith, rollPack, starterCards, type CardId, type Loadout,
 } from '../src/arcade/chleby/cards';
-import { HINTS, LINES, bossName, buildName, cardName, cardText, dayName, missionText, tierName } from '../src/arcade/chleby/content';
+import { HINTS, HINTS_KEYS, LINES, bossName, buildName, cardName, cardText, dayName, hintFor, missionText, tierName } from '../src/arcade/chleby/content';
 import {
   Field, bossOf, isBoss, placeOf, planTerrace, terracesOf, type FieldCtl, type FieldEvent, type Runner, type Shot, type TerracePlan,
 } from '../src/arcade/chleby/field';
 import { CATALOGS, t, unit } from '../src/arcade/chleby/i18n';
 import {
+  EDGE, chlebyTargets, giantRect, helpRect, layout, revealGeo, sheetBox, tablesBand, toScreen, villageGeo, wonBox, type Layout, type Rect,
+} from '../src/arcade/chleby/layout';
+import {
   BOSSES, BUILDINGS, BUILD_PRICES, MISSION_KINDS, addCrumbs, bestOf, build, buildPrice, champBonus, dayOf, fishEvery, freshProgress, giftOf, helpNeed,
   luckOf, migrate, offers, parOf, progressMission, starsFor, starsTotal, streamRate, tierFloor, tierOf, villageLevel, type ChlebyProgress,
   type DayKind,
 } from '../src/arcade/chleby/meta';
+import { SANS, SERIF, font } from '../src/arcade/chleby/paint';
 import { RULES, goldMult } from '../src/arcade/chleby/rules';
 import { ChlebySim, planBlocks, sayDur, type SimEvent } from '../src/arcade/chleby/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
@@ -1297,5 +1302,133 @@ describe('words', () => {
   it('the unit bends with the number', () => {
     expect(unit(1)).toBeTruthy();
     expect(t('fed', { n: 5 })).toContain('5');
+  });
+});
+
+describe('mobile first: the layout at every checked size (DESIGN §12)', () => {
+  const inside = (r: Rect, L: Layout) =>
+    r.x >= L.play.x - 0.5 && r.y >= L.play.y - 0.5 && r.x + r.w <= L.play.x + L.play.w + 0.5 && r.y + r.h <= L.play.y + L.play.h + 0.5;
+  const giantAt = (L: Layout, x: number, y: number) => {
+    const q = toScreen(L.lane, x, y), S = L.lane.su * q.s;
+    return { x: q.x, y: q.y - S, r: S * 1.5 + 8 };
+  };
+
+  for (const c of CHECK_SIZES) {
+    describe(c.name, () => {
+      const L = layout(c.w, c.h, c.insets);
+
+      it('the help button and the giant loaf anywhere on the lane pass the audit', () => {
+        expect(auditTargets(chlebyTargets(L, { stage: 'level', idle: false, offers: 0, giant: null }), c.w, c.h, c.insets)).toEqual([]);
+        for (const gx of [RULES.edge, 2, 5, 8, RULES.laneW - RULES.edge]) {
+          for (const gy of [0, 0.8, 2, 4, 8, 13, 17, RULES.laneH]) {
+            const tg = chlebyTargets(L, { stage: 'level', idle: false, offers: 0, giant: giantAt(L, gx, gy) });
+            expect(auditTargets(tg, c.w, c.h, c.insets), `giant at ${gx},${gy}`).toEqual([]);
+          }
+        }
+      });
+
+      it('the village sheet with one to three buildings passes the audit: rows and "Dalej" finger-sized, apart, inside', () => {
+        for (const n of [1, 2, 3]) {
+          const tg = chlebyTargets(L, { stage: 'card', idle: false, offers: n, giant: null });
+          expect(tg.length).toBe(n + 1);
+          expect(auditTargets(tg, c.w, c.h, c.insets), `${n} offers`).toEqual([]);
+          for (const r of tg) expect(Math.min(r.w, r.h), r.label).toBeGreaterThanOrEqual(MIN_TAP + 4);
+          const v = villageGeo(L, n);
+          for (let i = 0; i + 1 < v.rows.length; i++) expect(v.rows[i + 1].y - (v.rows[i].y + v.rows[i].h)).toBeGreaterThanOrEqual(TAP_GAP);
+          expect(v.go.y - (v.rows[n - 1].y + v.rows[n - 1].h)).toBeGreaterThanOrEqual(TAP_GAP);
+        }
+      });
+
+      it('nothing is a target while a story card holds the hands, between terraces, after a level or on the reveal', () => {
+        expect(chlebyTargets(L, { stage: 'level', idle: true, offers: 0, giant: giantAt(L, 5, 8) })).toEqual([]);
+        for (const stage of ['climb', 'won', 'pack'] as const) expect(chlebyTargets(L, { stage, idle: false, offers: 3, giant: null })).toEqual([]);
+      });
+
+      it('every sheet fits the play area: the level fed, the reveal (six or eight tiles), the village, a story card', () => {
+        expect(inside(wonBox(L), L)).toBe(true);
+        for (const [n, sub] of [[1, false], [6, true], [8, true]] as const) {
+          const g = revealGeo(L, n, sub);
+          expect(inside(g.box, L), `reveal ${n}`).toBe(true);
+          for (const cell of g.cells) {
+            expect(inside(cell, L)).toBe(true);
+            expect(cell.y + cell.h).toBeLessThanOrEqual(g.box.y + g.box.h - g.foot + 0.5);
+          }
+          expect(g.cells.length).toBeLessThanOrEqual(g.max);
+        }
+        const v = villageGeo(L, 3);
+        expect(inside(v.box, L)).toBe(true);
+        expect(v.go.y + v.go.h).toBeLessThanOrEqual(v.box.y + v.box.h);
+        expect(inside(sheetBox(L, 320, true), L)).toBe(true);
+        // a phone held upright: the sheets rise from the bottom, full width
+        if (L.mode === 'tall' && c.w < 500) {
+          const b = wonBox(L);
+          expect(b.y + b.h).toBeCloseTo(L.play.y + L.play.h - 8, 0);
+          expect(b.w).toBeGreaterThanOrEqual(c.w - 16 - 0.5);
+        }
+      });
+
+      it('a side sheet never covers the lane: the lane slides aside by enough', () => {
+        if (L.sheet !== 'side') return;
+        const b = wonBox(L);
+        expect(L.lane.cx - L.lane.hwB + L.slide).toBeGreaterThanOrEqual(b.x + b.w + 6);
+      });
+
+      it('the tables\' numbers stay under the HUD, the help button and the baskets inside the play area and apart', () => {
+        expect(L.lane.yT - tablesBand(L.lane.su / (1 + L.lane.k))).toBeGreaterThanOrEqual(L.hudTop - 2);
+        const h = helpRect(L);
+        expect(inside(h, L)).toBe(true);
+        expect(inside(L.bank, L)).toBe(true);
+        const bank = { x: L.bank.x - 6, y: L.bank.y - 3, w: L.bank.w + 12, h: L.bank.h + 6 };
+        expect(bank.x + bank.w <= h.x || bank.y + bank.h <= h.y || h.x + h.w <= bank.x).toBe(true);
+        expect(L.lane.yB).toBeGreaterThan(L.lane.yT + 120);
+      });
+
+      if (c.w < c.h) {
+        it('on a phone upright: the help button low in the thumb zone, clear of the side edges; the basket low', () => {
+          const h = helpRect(L);
+          expect(h.y).toBeGreaterThanOrEqual(c.h * (1 - THUMB));
+          expect(h.x).toBeGreaterThanOrEqual(EDGE);
+          expect(h.x + h.w).toBeLessThanOrEqual(c.w - EDGE);
+          expect(L.lane.yB).toBeGreaterThanOrEqual(c.h * 0.72);
+          // the lane fills the width: no tiny world
+          expect(2 * L.lane.hwB).toBeGreaterThanOrEqual(c.w * 0.85);
+        });
+      }
+    });
+  }
+
+  it('the giant loaf is not a target while it is still at the basket (a tap there pours), and never over the help button', () => {
+    const L = layout(360, 500, { top: 134, right: 0, bottom: 0, left: 0 });
+    expect(giantRect(L, toScreen(L.lane, 5, 0).x, L.lane.yB - L.lane.su, L.lane.su * 1.5 + 8)).toBeNull();
+    const far = giantAt(L, RULES.laneW - RULES.edge, 1.5);
+    const g = giantRect(L, far.x, far.y, far.r);
+    const h = helpRect(L);
+    if (g) expect(g.y + g.h <= h.y - TAP_GAP + 0.5 || g.x + g.w <= h.x || g.x >= h.x + h.w).toBe(true);
+  });
+
+  it('the font helper never draws under 11 px', () => {
+    const px = (f: string) => Number(f.match(/(\d+(?:\.\d+)?)px/)?.[1]);
+    for (const size of [0, 4, 8, 9.5, 10.9, 11, 12.5, 13, 20]) {
+      expect(px(font(800, size, SANS))).toBeGreaterThanOrEqual(MIN_TEXT);
+      expect(px(font(500, size, SERIF, true))).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(px(font(800, 15, SANS))).toBe(15);
+    expect(MIN_READ).toBe(13);
+  });
+
+  it('speaks of taps and drags to a finger, and names the keys only as shortcuts for a keyboard', () => {
+    // the keys (not the lane's pebble arrows, which are a thing in the game): Space, E, the arrow keys, WASD, a mouse
+    const KEYS = /spac|Space|Leertaste|mellanslag|\(E\)|albo E|or E|oder E|eller E|←|→|WASD|klik|click|Klick|mysz|mouse|Maus|\bmus\b/i;
+    for (const [lang, cat] of Object.entries(CATALOGS)) {
+      const c = cat as Record<string, unknown>;
+      for (const k of ['hint.help', 'hint.burst', 'howto.tap', 'howto.hold', 'howto.drag', 'hint.tap', 'hint.hold', 'hint.drag', 'story.tap', 'reveal.tap']) {
+        expect(String(c[k]), `${lang}.${k}`).not.toMatch(KEYS);
+      }
+      expect(String(c['hint.help.keys']), lang).toMatch(/E\)/);
+      expect(String(c['howto.keys']), lang).toMatch(/1–3/);
+    }
+    for (const w of Object.keys(HINTS) as (keyof typeof HINTS)[]) expect(hintFor(w, true), w).not.toMatch(KEYS);
+    expect(hintFor('help', false)).toBe(HINTS_KEYS.help);
+    expect(hintFor('tap', false)).toBe(HINTS.tap);
   });
 });

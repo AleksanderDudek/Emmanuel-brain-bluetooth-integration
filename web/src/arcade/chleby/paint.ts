@@ -9,10 +9,13 @@
  * sizes in px from the caller (`s` = px per u at that depth).
  */
 
+import { MIN_TEXT } from '../kit/mobile';
+
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
+/** A CSS font; never under MIN_TEXT (11 px): nothing on a phone's canvas is drawn smaller (DESIGN §12). */
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
 
 export const C = {
   crust: '#c98b3a', crustDark: '#9c6526', crumb: '#f1cf8a', loafLight: '#f5d58f', score: '#8a5520',
@@ -389,10 +392,18 @@ export function paintGate(ctx: CanvasRenderingContext2D, x: number, y: number, w
     ctx.fillStyle = C.post;
     ctx.fillRect(px - s * 0.09, by - s * 0.12, s * 0.1, y - by + s * 0.12);
   }
-  ctx.fillStyle = '#fffaf0';
-  ctx.font = font(850, Math.max(8, bannerH * 0.78), SANS);
+  // the number: never under 13 px, outlined so it reads past the banner's edge on a far gate
+  const px = Math.max(13, bannerH * 0.78);
+  ctx.font = font(850, px, SANS);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  if (px > bannerH * 0.9) {
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = col[1];
+    ctx.strokeText(label, x, by + bannerH * 0.53);
+  }
+  ctx.fillStyle = '#fffaf0';
   ctx.fillText(label, x, by + bannerH * 0.53);
 }
 
@@ -1090,7 +1101,8 @@ export function paintTable(ctx: CanvasRenderingContext2D, cx: number, cy: number
       ctx.roundRect(cx - bw / 2, by - bh / 2, Math.max(bh, bw * k), bh, bh / 2);
       ctx.fill();
     }
-    ctx.font = font(900, Math.max(10, bh * 1.35), SANS);
+    // the number of the hungry: at least 13 px (layout.ts tableLabelPx keeps room for it under the HUD)
+    ctx.font = font(900, Math.max(13, bh * 1.35), SANS);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.lineWidth = 3;

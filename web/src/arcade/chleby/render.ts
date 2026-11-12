@@ -14,12 +14,15 @@
  */
 import { fmtNum } from '../../i18n';
 import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
-import { HINTS, bossName, buildName, cardName, dayName, dayText, tierName } from './content';
+import type { Insets, TapTarget } from '../kit/types';
+import { HINTS, bossName, buildName, cardName, dayName, dayText, hintFor, tierName } from './content';
 import { placeOf, type Gate, type Gull, type Runner } from './field';
 import { Hud } from './hud';
 import { t } from './i18n';
 import { ChlebyIntro } from './intro';
-import { layout, laneX, scaleAt, toScreen, type Layout } from './layout';
+import {
+  chlebyTargets, giantRect, helpRect, inRect, layout, laneX, revealGeo, scaleAt, toScreen, villageGeo, type Layout, type Rect,
+} from './layout';
 import type { ChlebyProgress, Teach } from './meta';
 import {
   C, PALETTES, SANS, font, glow, paintBasket, paintBigBasket, paintBoy, paintGate, paintGoldGate, paintGrass, paintGull, paintGullWalk,
@@ -32,6 +35,9 @@ import {
 } from './sprites';
 
 const TAU = Math.PI * 2;
+/** A finger must travel this far (px) before a press becomes a drag (DESIGN §12: slop ≥ 10 px). */
+const SLOP = 10;
+
 const TXT = {
   thr: t('hud.thr'), bank: t('hud.bank'), climb: t('hud.climb'), fed: t('fx.fed'), peck: t('fx.peck'), help: t('hud.help'),
   shoo: t('fx.shoo'), wave: t('fx.wave'), fat: t('fx.fat'), sated: t('fx.sated'), disciples: t('fx.help'), embers: t('hud.embers'),
@@ -54,13 +60,24 @@ export type Hit =
 export class ChlebyView {
   readonly hud: Hud;
   private readonly ctx: CanvasRenderingContext2D;
-  private L = layout(800, 600, 120);
+  private L = layout(800, 600);
   private dpr = 1;
   private t = 0;
   private readonly parts = new Particles(500);
   private readonly shake: Shake;
   private readonly introScene = new ChlebyIntro();
-  private pointerId: number | null = null;
+  /**
+   * The finger (or the mouse button) down on the field: where it came down, where it is, the aim it
+   * steers.  On a touch screen the drag is relative, as in Mob Control: the basket moves with the
+   * finger's sideways travel (a little faster), so the thumb can stay low and never covers the basket.
+   */
+  private hand: { id: number; x0: number; y0: number; x: number; y: number; last: number; moved: boolean; aim: number } | null = null;
+  /** the help button under a finger (1 → 0), its shake when tapped before it is ready, its presence */
+  private helpPress = 0;
+  private helpShake = 0;
+  private helpA = 1;
+  /** how far the lane has slid right for a side sheet (px) */
+  private slideX = 0;
   /** seconds of hit-stop left (the index slows the field while > 0) */
   hitStop = 0;
   /** the terrace slide: coming in (0..1) */
@@ -81,7 +98,7 @@ export class ChlebyView {
   private stabT = 9;
   private helpPop = 0;
 
-  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; hudTop: () => number }) {
+  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; insets: () => Insets; touch: boolean }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('2d canvas unavailable');
     this.ctx = ctx;
@@ -92,7 +109,7 @@ export class ChlebyView {
 
   resize(w: number, h: number, dpr: number): void {
     this.dpr = dpr;
-    this.L = layout(w, h, this.opts.hudTop());
+    this.L = layout(w, h, this.opts.insets());
     this.hud.resize(this.L);
   }
 
@@ -123,17 +140,13 @@ export class ChlebyView {
     return { x: q.x, y: q.y - this.L.lane.boy * 0.15 };
   }
 
-  /** The help button: low on the right of the lane, clear of the simulator's switch (bottom left). */
-  helpAt(): { x: number; y: number; r: number } {
-    const L = this.L, lane = L.lane, u = L.u;
-    const r = clamp(lane.boy * 0.72, 17, 28 * u);
-    const x = Math.min(L.w - r - 12 * u, lane.cx + lane.hwB - r * 0.4);
-    const y = Math.min(L.bank.y - r - 22 * u, lane.yB - r * 0.6);
-    return { x, y, r };
-  }
-
   /** Where a coach mark points (CSS px), or null when the thing is not on screen. */
   anchor(w: Teach, sim: ChlebySim): { x: number; y: number } | null {
+    const q = this.anchorWorld(w, sim);
+    return q ? { x: q.x + this.slideX, y: q.y } : null;
+  }
+
+  private anchorWorld(w: Teach, sim: ChlebySim): { x: number; y: number } | null {
     const f = sim.field, L = this.L;
     const gateAt = (g: Gate | undefined) => (g ? this.P(g.x, g.y) : null);
     switch (w) {
@@ -171,53 +184,117 @@ export class ChlebyView {
         return r ? this.P(r.x, r.y) : null;
       }
       case 'help': {
-        const h = this.helpAt();
-        return { x: h.x, y: h.y - h.r * 1.2 };
+        const h = L.help;
+        return { x: h.x - this.slideX, y: h.y - h.r * 1.25 };
       }
-      case 'pack': return { x: L.cardX, y: L.cardY - 40 * L.u };
+      case 'pack': {
+        const b = revealGeo(L, 4, false).box;
+        return { x: b.x + b.w / 2 - this.slideX, y: b.y + 6 };
+      }
       case 'rest': return { x: L.bank.x + L.bank.w / 2, y: L.bank.y - 4 };
     }
   }
 
-  hintText(w: Teach): string { return HINTS[w]; }
+  /** A coach mark's words for the hand the player has: taps and drags on a touch screen, keys as shortcuts otherwise. */
+  hintText(w: Teach): string { return this.opts.touch ? HINTS[w] : hintFor(w, false); }
+
+  /** A coach mark went up pointing at `at` (or the middle): the game's banners step aside from it. */
+  hinted(at: { x: number; y: number } | null, sec: number): void { this.hud.marked(at?.y ?? this.L.cardY, sec); }
 
   // ── input ────────────────────────────────────────────────────────
+  /**
+   * A finger (or the mouse) on the canvas.  Down: a story card takes the tap; on the reveal any tap goes
+   * on; on the village sheet a row builds and "Dalej" goes on; in a level the help button sends the
+   * help, the giant loaf bursts, and anywhere else the basket fires a handful at once (the touch-down
+   * answers at once) and pours while held.  Move: the basket follows — on a touch screen by the finger's
+   * sideways travel past a 10 px slop (relative, so the thumb never covers the basket), with a mouse to
+   * the pointer's x.
+   */
   pointer(type: 'down' | 'move' | 'up', x: number, y: number, id: number, sim: ChlebySim): Hit | null {
-    if (type === 'down' && this.hud.storyOn) {
-      this.hud.hideStory();
-      return { kind: 'story' };
-    }
-    if (type === 'down' && sim.stage === 'pack') return { kind: 'go' };
-    if (type === 'down' && sim.stage === 'card') {
-      const i = this.hud.offerRects.findIndex(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
-      if (i >= 0) return { kind: 'offer', i };
-      const g = this.hud.goRect;
-      if (g && x >= g.x - 6 && x <= g.x + g.w + 6 && y >= g.y - 6 && y <= g.y + g.h + 6) return { kind: 'go' };
-      return null;
-    }
-    if (type === 'down' && sim.stage === 'level') {
-      const h = this.helpAt();
-      if (Math.hypot(x - h.x, y - h.y) <= h.r * 1.25) return { kind: 'help' };
-      // a tap on the giant loaf bursts it
-      for (const r of sim.field.runners) {
-        if (r.champ !== 'olbrzym' || r.w <= 0) continue;
-        const q = this.P(r.x, r.y);
-        const S = this.L.lane.su * q.s;
-        if (Math.hypot(x - q.x, y - (q.y - S)) <= S * 1.6 + 16) return { kind: 'pop' };
-      }
-    }
-    const lx = clamp(laneX(this.L.lane, x), 0, RULES.laneW);
+    const L = this.L;
     if (type === 'down') {
-      this.pointerId = id;
-      return { kind: 'press', x: lx };
+      if (this.hud.storyOn) {
+        this.hud.hideStory();
+        return { kind: 'story' };
+      }
+      if (sim.stage === 'pack') return { kind: 'go' };
+      if (sim.stage === 'card') {
+        const v = villageGeo(L, sim.offers.length);
+        const i = v.rows.findIndex(r => inRect(r, x, y));
+        if (i >= 0) {
+          this.hud.press(i);
+          return { kind: 'offer', i };
+        }
+        if (inRect(v.go, x, y)) {
+          this.hud.press(-1);
+          return { kind: 'go' };
+        }
+        return null;
+      }
+      if (sim.stage === 'level' && sim.phase !== 'done') {
+        if (inRect(helpRect(L), x, y)) {
+          this.helpPress = 1;
+          return { kind: 'help' };
+        }
+        const g = this.giantBox(sim);
+        if (g && inRect(g, x, y)) return { kind: 'pop' };
+      }
+      this.hand = { id, x0: x, y0: y, x, y, last: x, moved: false, aim: sim.aim };
+      return { kind: 'press', x: this.opts.touch ? sim.aim : this.laneAt(x) };
     }
-    if (id !== this.pointerId) return null;
-    if (type === 'move') return { kind: 'drag', x: lx };
-    this.pointerId = null;
+    const d = this.hand;
+    if (!d || id !== d.id) return null;
+    if (type === 'move') {
+      d.x = x;
+      d.y = y;
+      if (!this.opts.touch) return { kind: 'drag', x: this.laneAt(x) };
+      if (!d.moved) {
+        if (Math.abs(x - d.x0) < SLOP) return null;
+        d.moved = true;
+        d.last = d.x0 + Math.sign(x - d.x0) * SLOP;
+      }
+      d.aim = clamp(d.aim + ((x - d.last) * this.gain()) / L.lane.unit, RULES.edge, RULES.laneW - RULES.edge);
+      d.last = x;
+      return { kind: 'drag', x: d.aim };
+    }
+    this.hand = null;
     return { kind: 'release' };
   }
 
-  release(): void { this.pointerId = null; }
+  release(): void { this.hand = null; }
+
+  /** A screen x at the basket's row → lane x (u), the lane's slide taken off. */
+  private laneAt(x: number): number { return clamp(laneX(this.L.lane, x - this.slideX), 0, RULES.laneW); }
+
+  /** The relative drag's gain: the whole lane in about 60 % of the screen's width of thumb travel (never slower than 1:1). */
+  private gain(): number { return clamp((2 * this.L.lane.hwB) / (0.6 * this.L.play.w), 1, 1.8); }
+
+  /** The giant loaf's tap area (screen px), or null when none is on the lane or it is still by the basket. */
+  private giantBox(sim: ChlebySim): Rect | null {
+    const b = this.giantBody(sim);
+    return b ? giantRect(this.L, b.x, b.y, b.r) : null;
+  }
+
+  private giantBody(sim: ChlebySim): { x: number; y: number; r: number } | null {
+    const r = sim.field.runners.find(x => x.champ === 'olbrzym' && x.w > 0);
+    if (!r) return null;
+    const q = this.P(r.x, r.y);
+    const S = this.L.lane.su * q.s;
+    return { x: q.x + this.slideX, y: q.y - S, r: S * 1.5 + 8 };
+  }
+
+  /** Every control the player can tap now (ArcadeGame.targets): see layout.ts chlebyTargets. */
+  targets(sim: ChlebySim): TapTarget[] {
+    return chlebyTargets(this.L, {
+      stage: sim.stage, idle: sim.phase === 'done' || this.hud.storyOn, offers: sim.offers.length, giant: this.giantBody(sim),
+    });
+  }
+
+  /** The help button tapped before it is ready: it shakes, and its ribbon says how full it is for a moment. */
+  helpWait(sim: ChlebySim): void {
+    if (sim.helpReady) return;
+    this.helpShake = 1;
+  }
 
   // ── events ───────────────────────────────────────────────────────
   on(e: SimEvent, sim: ChlebySim): void {
@@ -399,9 +476,10 @@ export class ChlebyView {
         break;
       }
       case 'helpReady': {
-        const h = this.helpAt();
-        hud.float(TXT.helpReady, h.x, h.y - h.r * 1.6, C.goldLight, 14, 1.4, 24);
-        this.parts.burst(h.x, h.y, 14, { color: C.gold, speed: 140, size: 2.2, life: 0.7, shape: 'spark' });
+        // high over the button, clear of the dial's words beside the basket
+        const h = L.help;
+        hud.float(TXT.helpReady, h.x - this.slideX, h.y - h.r * 2.7, C.goldLight, 15, 1.4, 24);
+        this.parts.burst(h.x - this.slideX, h.y, 14, { color: C.gold, speed: 140, size: 2.2, life: 0.7, shape: 'spark' });
         break;
       }
       case 'disciples':
@@ -443,7 +521,7 @@ export class ChlebyView {
       case 'reinforce': {
         // beside the basket, clear of the banner and the champion's word
         const b = this.basketAt(sim);
-        hud.float(t('fx.reinforce', { n: e.n }), b.x - 70 * u, b.y - L.lane.boy * 0.6, '#fff6e0', 13, 1.2, 22);
+        hud.float(t('fx.reinforce', { n: e.n }), b.x < L.w / 2 ? b.x + 80 * u : b.x - 80 * u, b.y - L.lane.boy * 1.4, '#fff6e0', 14, 1.2, 22);
         break;
       }
       case 'tier':
@@ -476,6 +554,11 @@ export class ChlebyView {
   update(dt: number, sim: ChlebySim): void {
     this.t += dt;
     this.hitStop = Math.max(0, this.hitStop - dt);
+    // a side sheet slides the lane aside; the help button shows only while it can be pressed
+    this.slideX = approach(this.slideX, this.L.sheet === 'side' && this.hud.sheetOn(sim) ? this.L.slide : 0, dt, 0.12);
+    this.helpA = approach(this.helpA, sim.stage === 'level' && sim.phase !== 'done' ? 1 : sim.stage === 'pack' || sim.stage === 'card' ? 0 : 0.45, dt, 0.1);
+    this.helpPress = Math.max(0, this.helpPress - dt * 5);
+    this.helpShake = Math.max(0, this.helpShake - dt * 1.2);
     this.parts.update(dt);
     this.hud.update(dt, sim);
     this.enter = Math.min(1, this.enter + dt / 0.55);
@@ -521,6 +604,8 @@ export class ChlebyView {
     paintSky(ctx, L.w, L.horizon, pal, t);
     paintLake(ctx, L.w, L.horizon, L.lakeD, pal, t);
     paintGrass(ctx, L.w, L.horizon + L.lakeD, L.h + 10, pal, t);
+    // the hill's things slide aside together when a side sheet shows
+    ctx.translate(this.slideX, 0);
     // the lane up the hill
     const left: { x: number; y: number }[] = [], right: { x: number; y: number }[] = [];
     for (let i = 0; i <= 8; i++) {
@@ -542,14 +627,18 @@ export class ChlebyView {
     }
     this.drawGround(sim);
     this.drawField(sim);
+    this.drawBank(sim);
     this.drawBoy(sim);
     this.drawMirka(sim);
-    this.drawBank(sim);
     this.drawWind(sim);
-    this.drawHelp(sim);
     this.parts.draw(ctx);
+    this.hud.drawWorld();
+    ctx.translate(-this.slideX, 0);
+    this.drawHelp(sim);
+    this.drawHand(sim);
     ctx.restore();
-    this.hud.draw(sim, { mirka: this.mirkaAt(), boy: { x: this.basketAt(sim).x, y: this.basketAt(sim).y - lane.boy * 0.9 } });
+    const b = this.basketAt(sim), m = this.mirkaAt();
+    this.hud.draw(sim, { mirka: { x: m.x + this.slideX, y: m.y }, boy: { x: b.x + this.slideX, y: b.y - lane.boy * 0.9 } }, [helpRect(L)]);
   }
 
   // ── the ground: pebble arrows, the brook and its stones, the telegraphs ──
@@ -812,10 +901,53 @@ export class ChlebyView {
 
   // ── the help button ──────────────────────────────────────────────
   private drawHelp(sim: ChlebySim): void {
-    if (sim.phase === 'done') return;
-    const h = this.helpAt();
+    if (sim.phase === 'done' || this.helpA < 0.02) return;
+    const ctx = this.ctx, h = this.L.help;
     const pop = 1 + 0.25 * ease.outCubic(this.helpPop);
-    paintHelpButton(this.ctx, h.x, h.y, h.r * pop, { id: sim.pomoc, charge: sim.helpCharge, ready: sim.helpReady, t: this.t, label: TXT.help, u: this.L.u });
+    const shake = this.opts.reducedMotion ? 0 : Math.sin(this.t * 60) * 4 * clamp(this.helpShake * 3 - 2);
+    ctx.save();
+    ctx.globalAlpha = this.helpA;
+    // tapped too early, the ribbon says how full it is instead of its name
+    const label = this.helpShake > 0 && !sim.helpReady ? t('pct', { n: Math.round(sim.helpCharge * 100) }) : TXT.help;
+    paintHelpButton(ctx, h.x + shake, h.y, h.r * pop, {
+      id: sim.pomoc, charge: sim.helpCharge, ready: sim.helpReady, t: this.t, label, u: this.L.u, press: this.helpPress,
+    });
+    ctx.restore();
+  }
+
+  /**
+   * A finger on a touch screen steering the basket: a short track under it with the knob at the finger,
+   * so the sideways drag reads as a slider (the finger covers the knob, never the basket).
+   */
+  private drawHand(sim: ChlebySim): void {
+    const d = this.hand;
+    if (!d || !this.opts.touch || sim.stage !== 'level' || !sim.pressing) return;
+    const ctx = this.ctx, u = this.L.u;
+    const half = 64 * u, y = d.y0;
+    const kx = clamp(d.x, d.x0 - half, d.x0 + half);
+    ctx.save();
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = 'rgba(40,25,10,.45)';
+    ctx.beginPath();
+    ctx.roundRect(d.x0 - half - 8 * u, y - 7 * u, 2 * half + 16 * u, 14 * u, 7 * u);
+    ctx.fill();
+    ctx.strokeStyle = '#fff6e0';
+    ctx.lineWidth = 2.5 * u;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    for (const s of [-1, 1]) {
+      const ax = d.x0 + s * (half - 2 * u);
+      ctx.moveTo(ax - s * 6 * u, y - 5 * u);
+      ctx.lineTo(ax, y);
+      ctx.lineTo(ax - s * 6 * u, y + 5 * u);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 0.75;
+    ctx.beginPath();
+    ctx.arc(kx, y, 13 * u, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
   }
 
   // ── the boy and his basket-cannon ────────────────────────────────
@@ -849,8 +981,8 @@ export class ChlebyView {
       glow(ctx, b.x, by, R * 2.2, C.goldGlow, 0.35 + 0.15 * Math.sin(this.t * 6) + this.ring * 0.4);
       ctx.restore();
     }
-    ctx.lineWidth = Math.max(3, 5 * u);
-    ctx.strokeStyle = 'rgba(60,40,15,.35)';
+    ctx.lineWidth = Math.max(4, 5 * u);
+    ctx.strokeStyle = 'rgba(60,40,15,.38)';
     ctx.beginPath();
     ctx.arc(b.x, by, R, 0, TAU);
     ctx.stroke();
@@ -875,24 +1007,25 @@ export class ChlebyView {
       ctx.arc(b.x, by, R * 0.72, Math.PI * 0.8 - Math.PI * 0.6 * clamp(sim.embers / sim.ovenMax), Math.PI * 0.8);
       ctx.stroke();
     }
-    // the champion's name under the ring, small
-    if (L.mode !== 'short') {
-      ctx.font = font(800, 10 * u, SANS);
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = ready ? '#fff3c0' : 'rgba(255,246,224,.85)';
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(50,30,10,.55)';
-      const text = t('hud.ring', { name: cardName(sim.mistrz), n: Math.round(clamp(sim.charge) * 100) });
-      const lx = Math.min(L.w - ctx.measureText(text).width - 6, b.x + R + 8 * u);
-      ctx.strokeText(text, lx, by - 6 * u);
-      ctx.fillText(text, lx, by - 6 * u);
-      if (sim.kosz === 'piec') {
-        const e2 = `${TXT.embers} ${Math.ceil(sim.embers)}\u00a0s`;
-        ctx.strokeText(e2, lx, by + 6 * u);
-        ctx.fillText(e2, lx, by + 6 * u);
-      }
-    }
+    // the dial's words on a plate beside the ring, on the side with more room: the champion and how full
+    if (sim.stage !== 'level' && sim.stage !== 'climb') return;
+    const lines = [ready ? t('fx.ready', { name: cardName(sim.mistrz) }) : t('hud.ring', { name: cardName(sim.mistrz), n: Math.round(clamp(sim.charge) * 100) })];
+    if (sim.kosz === 'piec') lines.push(`${TXT.embers} ${Math.ceil(sim.embers)}\u00a0s`);
+    const px = 13 * u, lh = px + 3 * u;
+    ctx.font = font(800, px, SANS);
+    const tw = Math.max(...lines.map(l => ctx.measureText(l).width));
+    const pw = tw + 14 * u, ph = lines.length * lh + 7 * u;
+    const right = b.x + this.slideX < L.w / 2;
+    const px0 = right ? Math.min(b.x + R + 8 * u, L.w - this.slideX - pw - 6) : Math.max(b.x - R - 8 * u - pw, 6 - this.slideX);
+    const py0 = by - ph / 2;
+    ctx.fillStyle = ready ? 'rgba(120,80,10,.82)' : 'rgba(50,32,14,.62)';
+    ctx.beginPath();
+    ctx.roundRect(px0, py0, pw, ph, ph / 2 > 12 * u ? 10 * u : ph / 2);
+    ctx.fill();
+    ctx.fillStyle = ready ? '#fff3c0' : '#fff6e0';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    lines.forEach((l, i) => ctx.fillText(l, px0 + 7 * u, py0 + 3.5 * u + lh * (i + 0.5)));
   }
 
   // ── Mirka on her post ────────────────────────────────────────────
@@ -916,13 +1049,25 @@ export class ChlebyView {
   }
 
   // ── the bank: twelve baskets of crumbs ───────────────────────────
+  /**
+   * The row of twelve baskets of crumbs (the signal in sight for calm): a wicker shelf along the bottom
+   * of an upright phone, two rows of six in the left column on its side, under the lane on a desktop;
+   * the pantry's count on a plate beside it.
+   */
   private drawBank(sim: ChlebySim): void {
     const ctx = this.ctx, L = this.L, B = L.bank, u = L.u;
-    const n = 12, step = B.w / n, r = Math.min(step * 0.4, B.h * 0.75);
+    const n = 12, cw = B.w / B.cols, rh = B.h / B.rows;
+    const r = Math.min(cw * 0.42, rh * 0.62);
     const filled = Math.min(n, sim.basketsNow);
     const pop = 1 + 0.25 * ease.outCubic(this.bankPop);
+    // the shelf: the baskets read over the lane and the grass
+    ctx.fillStyle = 'rgba(70,45,18,.34)';
+    ctx.beginPath();
+    ctx.roundRect(B.x - 6, B.y - 3, B.w + 12, B.h + 6, 9);
+    ctx.fill();
     for (let i = 0; i < n; i++) {
-      const x = B.x + step * (i + 0.5), y = B.y + B.h * 0.55;
+      const col = i % B.cols, row = Math.floor(i / B.cols);
+      const x = B.x + cw * (col + 0.5), y = B.y + rh * (row + 0.5) + r * 0.25;
       const fill = i < filled ? 1 : i === filled ? sim.p.crumbs : 0;
       ctx.save();
       if (i === Math.max(0, filled - 1) && this.bankPop > 0) {
@@ -930,23 +1075,25 @@ export class ChlebyView {
         ctx.scale(pop, pop);
         ctx.translate(-x, -y);
       }
-      ctx.globalAlpha = i < filled ? 1 : 0.55;
+      ctx.globalAlpha = i < filled ? 1 : i === filled ? 0.85 : 0.6;
       paintBasket(ctx, x, y, r, { fill, gold: i < filled && this.restK > 0.5 });
       ctx.restore();
     }
-    // the bank's count at the row's start
-    ctx.font = font(850, 11 * u, SANS);
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(50,30,10,.55)';
+    // the pantry's count on a plate
     const text = `${TXT.bank}: ${fmtNum(sim.p.bank)}`;
-    // beside the row on wide screens, over its right end on an upright phone
-    const lx = L.mode === 'tall' ? B.x + B.w : Math.max(ctx.measureText(text).width + 6, B.x - 6 * u);
-    const ly = L.mode === 'tall' ? B.y - 9 * u : B.y + B.h * 0.4;
-    ctx.strokeText(text, lx, ly);
+    const lb = L.bankLabel;
+    ctx.font = font(850, 13 * u, SANS);
+    const tw = ctx.measureText(text).width, ph = 19 * u;
+    const x0 = lb.align === 'left' ? lb.x : lb.x - tw - 12 * u;
+    const y0 = lb.base === 'bottom' ? lb.y - ph : lb.y - ph / 2;
+    ctx.fillStyle = 'rgba(50,32,14,.62)';
+    ctx.beginPath();
+    ctx.roundRect(x0, y0, tw + 12 * u, ph, ph / 2);
+    ctx.fill();
     ctx.fillStyle = '#fff6e0';
-    ctx.fillText(text, lx, ly);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x0 + 6 * u, y0 + ph / 2 + 0.5);
   }
 }
 

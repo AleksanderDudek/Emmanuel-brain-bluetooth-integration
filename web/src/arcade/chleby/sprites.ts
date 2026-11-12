@@ -29,7 +29,7 @@ function shadow(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number,
 
 /** A number over a sprite (its worth, a pouch, a burst), outlined so it reads over anything. */
 export function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number, fill = '#fff3c0', stroke = 'rgba(70,40,5,.85)'): void {
-  ctx.font = font(900, Math.max(9, size), SANS);
+  ctx.font = font(900, Math.max(12, size), SANS);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
   ctx.lineJoin = 'round';
@@ -781,42 +781,62 @@ export function paintHelpIcon(ctx: CanvasRenderingContext2D, id: PomocId, x: num
       ctx.fillStyle = C.postDark;
       ctx.fillRect(x - r * 0.75, y - r * 0.6, r * 0.14, r * 1.2);
       ctx.fillRect(x + r * 0.61, y - r * 0.6, r * 0.14, r * 1.2);
-      ctx.fillStyle = '#fffaf0';
-      ctx.font = font(900, r * 0.36, SANS);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('×3', x, y - r * 0.4);
+      // the number only where it fits its banner (a card's art; not the small button icon)
+      if (r * 0.36 >= 11) {
+        ctx.fillStyle = '#fffaf0';
+        ctx.font = font(900, r * 0.36, SANS);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('×3', x, y - r * 0.4);
+      }
       break;
     }
   }
 }
 
-/** The help button: a round button with the help's picture and a ring that fills; it pulses when ready. */
-export function paintHelpButton(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, o: { id: PomocId; charge: number; ready: boolean; t: number; label: string; u: number }): void {
+/**
+ * The help button: a round button with the help's picture, a ring that fills and its name on a ribbon
+ * across its foot (13 px, a plate under it); it pulses when ready and sinks under a finger (`press`).
+ */
+export function paintHelpButton(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, o: {
+  id: PomocId; charge: number; ready: boolean; t: number; label: string; u: number; press?: number;
+}): void {
   const k = Math.max(0, Math.min(1, o.charge));
+  const press = Math.max(0, Math.min(1, o.press ?? 0));
   if (o.ready) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     glow(ctx, x, y, r * 2.1, C.goldGlow, 0.35 + 0.2 * Math.sin(o.t * 6));
     ctx.restore();
   }
-  const pulse = o.ready ? 1 + 0.06 * Math.sin(o.t * 6) : 1;
+  const pulse = (o.ready ? 1 + 0.06 * Math.sin(o.t * 6) : 1) * (1 - 0.08 * press);
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(pulse, pulse);
-  ctx.fillStyle = o.ready ? 'rgba(255,246,224,.97)' : 'rgba(255,246,224,.78)';
-  ctx.strokeStyle = 'rgba(90,60,25,.55)';
+  // a soft shadow under it, so it reads as a button over the grass and the lane
+  ctx.fillStyle = 'rgba(40,25,10,.28)';
+  ctx.beginPath();
+  ctx.arc(0, r * 0.08 * (1 - press), r * 1.04, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = o.ready ? 'rgba(255,246,224,.98)' : 'rgba(255,246,224,.86)';
+  ctx.strokeStyle = 'rgba(90,60,25,.6)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, TAU);
   ctx.fill();
   ctx.stroke();
-  ctx.globalAlpha = o.ready ? 1 : 0.55;
-  paintHelpIcon(ctx, o.id, 0, 0, r * 0.62, o.t);
+  ctx.globalAlpha = o.ready ? 1 : 0.6;
+  paintHelpIcon(ctx, o.id, 0, -r * 0.12, r * 0.56, o.t);
   ctx.globalAlpha = 1;
+  if (press > 0) {
+    ctx.fillStyle = `rgba(90,60,25,${0.22 * press})`;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, TAU);
+    ctx.fill();
+  }
   // the charge ring
-  ctx.lineWidth = Math.max(3, r * 0.14);
-  ctx.strokeStyle = 'rgba(60,40,15,.25)';
+  ctx.lineWidth = Math.max(3.5, r * 0.15);
+  ctx.strokeStyle = 'rgba(60,40,15,.3)';
   ctx.beginPath();
   ctx.arc(0, 0, r + ctx.lineWidth * 0.6, 0, TAU);
   ctx.stroke();
@@ -827,15 +847,25 @@ export function paintHelpButton(ctx: CanvasRenderingContext2D, x: number, y: num
     ctx.stroke();
   }
   ctx.restore();
-  // its name under it
-  ctx.font = font(850, 10 * o.u, SANS);
+  // its name on a ribbon across the foot: outside the press and the pulse, so it stays 13 px
+  let px = 13;
+  ctx.font = font(850, px, SANS);
+  const maxW = r * 2.3;
+  let tw = ctx.measureText(o.label).width;
+  if (tw > maxW - 12) {
+    px = Math.max(11, (px * (maxW - 12)) / tw);
+    ctx.font = font(850, px, SANS);
+    tw = ctx.measureText(o.label).width;
+  }
+  const bw = Math.min(maxW, tw + 14), bh = px + 7, by = y + r * 0.62 * pulse;
+  ctx.fillStyle = o.ready ? C.goldDeep : 'rgba(90,62,30,.92)';
+  ctx.beginPath();
+  ctx.roundRect(x - bw / 2, by, bw, bh, bh / 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff8e6';
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = 'rgba(50,30,10,.6)';
-  ctx.strokeText(o.label, x, y + r * 1.25);
-  ctx.fillStyle = o.ready ? '#fff3c0' : '#fff6e0';
-  ctx.fillText(o.label, x, y + r * 1.25);
+  ctx.textBaseline = 'middle';
+  ctx.fillText(o.label, x, by + bh / 2 + 0.5);
 }
 
 // ── the cards' pictures ────────────────────────────────────────────
@@ -1007,11 +1037,13 @@ export function paintBuilding(ctx: CanvasRenderingContext2D, b: Building, x: num
       ctx.fillRect(x - s * 0.85, y - s * 1.02, s * 1.7, s * 0.18);
       ctx.fillStyle = C.honey;
       ctx.fillRect(x - s * 0.45, y - s * 0.8, s * 0.9, s * 0.22);
-      ctx.fillStyle = '#fffaf0';
-      ctx.font = font(900, s * 0.2, SANS);
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('×2', x, y - s * 0.69);
+      if (s * 0.2 >= 11) {
+        ctx.fillStyle = '#fffaf0';
+        ctx.font = font(900, s * 0.2, SANS);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('×2', x, y - s * 0.69);
+      }
       break;
     }
     case 'studnia': {

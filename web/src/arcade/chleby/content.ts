@@ -51,13 +51,19 @@ export const dayText = (d: DayKind): string => t(`day.${d}.text` as Key);
 /** A mission in words: "Nakarm 300 ludzi". */
 export const missionText = (kind: MissionKind, goal: number): string => t(`mission.${kind}` as Key, { n: fmtNum(goal) });
 
-/** The coach marks' words. */
+/** The coach marks' words: taps and drags only, as a finger needs them (DESIGN §12). */
 export const HINTS: Readonly<Record<Teach, string>> = Object.fromEntries(
   ([
     'tap', 'hold', 'drag', 'gull', 'gold', 'big', 'rest', 'pelikan', 'sub', 'add', 'help', 'pack', 'jar', 'brook', 'sprint', 'rock',
     'koziol', 'czapla', 'kormorany', 'burst', 'osiol', 'woz', 'wielblad', 'four',
   ] as const).map(w => [w, t(`hint.${w}` as Key)]),
 ) as Record<Teach, string>;
+
+/** The same marks for a player with a keyboard: the key named as a shortcut where there is one. */
+export const HINTS_KEYS: Readonly<Partial<Record<Teach, string>>> = { help: t('hint.help.keys'), burst: t('hint.burst.keys') };
+
+/** A coach mark's words for the hand the player has (`touch`: a finger, never a key). */
+export const hintFor = (w: Teach, touch: boolean): string => (touch ? HINTS[w] : HINTS_KEYS[w] ?? HINTS[w]);
 
 /** The moments the companion speaks at, and who speaks. */
 export type Moment =
