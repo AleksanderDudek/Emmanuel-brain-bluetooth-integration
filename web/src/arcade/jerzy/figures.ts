@@ -6,7 +6,7 @@
  * the twelve treasures of the hoard.  All canvas paths, sizes in u times `s` (px per u); feet at (x, y).
  */
 import type { CompanionId, TreasureId } from './content';
-import { C, glow } from './paint';
+import { C, SANS, font, glow } from './paint';
 
 const TAU = Math.PI * 2;
 
@@ -232,7 +232,7 @@ function paintBeaver(ctx: CanvasRenderingContext2D, x: number, y: number, s: num
   ctx.fillRect(s * 0.316, hy + s * 0.06, s * 0.004 + 0.6, s * 0.05);
   if (p.nap > 0.5) {
     ctx.fillStyle = 'rgba(255,255,255,.85)';
-    ctx.font = `700 ${Math.max(8, s * 0.2)}px sans-serif`;
+    ctx.font = font(700, s * 0.2, SANS);
     ctx.fillText('z', s * 0.32, hy - s * 0.14 - Math.sin(p.t * 2) * s * 0.03);
   }
   ctx.restore();

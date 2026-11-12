@@ -652,6 +652,11 @@ export class JerzySim {
     this.brain(dt, w, f);
     if (this.phase === 'play') this.schedule(dt, f, t);
     else if (this.phase === 'finale' && t >= this.plannedSec) this.endFinale();
+    // a choice that waited for the block banner opens once it is gone
+    if (!this.choice && !this.tally && this.queued.length && !this.bannerUp && this.phase !== 'done') {
+      const nx = this.queued.shift()!;
+      this.offerChoice(nx.source, nx.gold);
+    }
     if (w > 0 && this.phase !== 'done') {
       this.run.t += w;
       this.moveKnight(w);
@@ -671,8 +676,12 @@ export class JerzySim {
   get talkBlocked(): boolean {
     const b = this.block;
     const tele = this.phase === 'play' && b && this.blockT >= b.dur - RULES.telegraph;
-    const banner = this.phase === 'play' && this.blockT < RULES.bannerSec && this.blockIndex > 0;
-    return !!(tele || banner || this.story || this.tally || this.quiet > 0 || (this.boss.state === 'tele'));
+    return !!(tele || this.bannerUp || this.story || this.tally || this.quiet > 0 || (this.boss.state === 'tele'));
+  }
+
+  /** The runner's block banner covers the screen's upper half for the first seconds of a block (Linda and the cards wait). */
+  get bannerUp(): boolean {
+    return this.phase === 'play' && this.blockT < RULES.bannerSec && this.blockIndex > 0;
   }
 
   /** seconds Linda keeps quiet: the runner's coach mark is on the field (the index sets it) */
@@ -857,8 +866,8 @@ export class JerzySim {
         }
       } else {
         if (verdict) this.passedRests++;
-        // the Postój's gift: a free card (golden after a calm one)
-        this.offerChoice('rest', verdict === true);
+        // the Postój's gift: a free card (golden after a calm one) — it opens once the next block's banner is gone
+        this.queued.push({ source: 'rest', gold: verdict === true });
       }
     }
     this.judge.reset();
@@ -1854,7 +1863,8 @@ export class JerzySim {
 
   private offerChoice(source: ChoiceSource, gold: boolean): void {
     if (this.phase === 'done') return;
-    if (this.choice || this.tally) {
+    // one at a time; and none under the runner's block banner (on a phone it would hide the cards): they wait
+    if (this.choice || this.tally || this.bannerUp) {
       if (!this.tally) this.queued.push({ source, gold });
       return;
     }

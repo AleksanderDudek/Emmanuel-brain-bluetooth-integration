@@ -1826,9 +1826,8 @@ names, art and numbers are ours.
   fireball to quench, the sword ready, the Postój, the dragon's red shapes, a chest, an evolution; in
   v3 also the reshuffle, the companion, a treasure, a duet, a weak spot, the ring of fire. Later
   sessions get a mark only for what is new to the player.
-* **A phone on its side** (v2's cramped layout): the hearts, the level's bar and the dragon's bar move
-  into the free strip between the runner's panel and score, the field is drawn smaller so the widest
-  aura fits, and cards, the tally and the story cards sit under the runner's panel.
+* **A phone upright, on its side, a tablet:** see "Mobile first" at the end of this section (v2 squeezed
+  a desktop layout into the strip between the runner's panel and score).
 * **Pacing, checked by simulation** (`test/arcade-jerzy.test.ts`, "pacing table", `JERZY_BALANCE=1`):
   a bot plays careers of sessions on one save (sharp: every telegraph dodged; casual: slower, misses a
   third of them) with no signal, an average and a good focus. v2's numbers let a sharp bot reach level
@@ -1853,6 +1852,59 @@ names, art and numbers are ours.
   a weak spot found for the first time: James 1:5; a Miecz światła: Ephesians 6:17; many fires
   quenched: Ephesians 6:16; new armour or an evolution: Ephesians 6:10-11; a long stand: 2 Timothy
   4:7; a calm Postój: 1 Corinthians 16:13; else Ephesians 6:16.
+
+**Mobile first (2026-11-12, §12).** Knight Survivor is played upright with one thumb — a floating
+joystick anywhere, the weapons striking by themselves — and so is Jerzy now.
+
+* **The thumb zone, upright** (`layout.ts`, the reference a 360 × 366 band under the HUD). The knight
+  stands in the middle of the band and the camera comes closer: ten metres across a phone (`s` = width /
+  10; the widest shield still fits). The 62 px the old simulator switch kept empty at the bottom are gone:
+  the whole field is the joystick's, and the game's one button, the **Miecz światła's dial**, sits in the
+  bottom-right corner — 60 px (a 72 px target), 16 px in from the edge, its name over it. Charging, it is a
+  dark plate with the charge running round it; ready, it turns gold, glows, sends rings out and says
+  "Stuknij!" (15 px). **Passive things live right under the HUD**: a status band with the hearts (14 px,
+  the last one beating when it is all that is left) and Linda's apples, the level (14 px) and its numbers
+  (13 px), the level's bar, and a row of 26 px chips for the build (levels at 11 px, ★ when evolved) and
+  the treasures (gold coins that overlap when many). While the dragon is around **his bar takes the top
+  row** and the status moves down under it (the chips step aside); the marks over his head stay below it.
+* **Under a finger.** The joystick's base and knob show where the thumb lands, dim until it steers (a
+  10 px dead zone; the base follows a thumb that runs past its rim; a wedge shows the way he walks). A
+  touch on the dial lets a ready sword go at once, and a short tap anywhere still does — nothing needs aim,
+  the weapons pick their targets. A card is pressed when a finger lands (squashed, a gold rim) and taken
+  when it lifts there; sliding off cancels, and the cards ignore a finger for 0.3 s after they come up, so
+  a thumb already on its way never picks. Haptics on a pick, a reshuffle and a chest, besides v3's moments.
+* **Sheets for the hand.** The level-up is a bottom sheet: the title and Linda's reshuffle (a 44 px pill
+  sized to its label) on one row, then three stacked full-width cards, 94 px on the smallest phone and up
+  to 118 — the icon in a well on the left, the name (17 px) with its tag, the numbers as large as the card
+  allows (13–15 px), the duet or the pair at the bottom. The run's tally has a "Nowy bieg" button, the
+  story cards a "Zaczynamy" / "Dalej" one (their text 13–15 px, fitted to the room, the verse 17–19 px so its
+  reference stays at the 11 px floor); Linda's bubbles are 14 px, kept under the status band and off the
+  dial. **The runner's block banner** covers the upper half for the first 5 s of a block: a level-up offered
+  then — and the Postój's free card, which always came with the next block's banner and hid under it —
+  waits for it while the world goes on, and the game's own banners drop under the knight meanwhile.
+* **On its side** (601 × 360 under a 68 px HUD row, the chart a column on the right): the status top left
+  under the HUD row, the dragon's bar top right, the dial bottom right under the right thumb, the cards in
+  a row; the field is sized so the widest shield stays clear of the HUD row. **A tablet and a desktop**
+  get the same layout grown (`u` up to 1.2): the status and the dragon's bar centred under the HUD, the
+  cards in a row — anchored low for a finger, centred for a mouse with the keys under them.
+* **Words for the hand.** With a finger the coach marks, the dial and the buttons say "stuknij",
+  "przeciągnij", "przycisk w rogu"; a keyboard gets each one's `.keys` variant with the keys as shortcuts
+  (WASD, Spacja, 1–3, R) and a keys row on the how-to card, which the runner leaves out on a touch screen.
+* **Text and speed.** `font()` never returns under 11 px; what the player reads is fitted down to 13 px and
+  then cut, never shrunk further; numbers sit on plates or carry a rim. Glows are baked once per colour into
+  128 px sprites (no gradient made per call), the blade's glow lost its per-frame `shadowBlur`, the
+  vignette and a hit's red edge are made once per canvas size.
+* **`targets()`**: the dial in play; the three cards and the reshuffle in a level-up; the tally's and the
+  story card's buttons. The tests audit them at all nine `CHECK_SIZES` (play, the dragon with a bubble, cards
+  with and without the reshuffle, the tally, both story cards), check every string drawn (≥ 11 px; under
+  13 only a secondary label), the font floor, the press-and-lift of a card, the dial and the joystick, and
+  the smoke's input on a desktop and on the smallest phone.
+* **Measured** (`scripts/arcade-mobile.mjs`, small / iPhone / large Android / on its side / tablet /
+  desktop, before → after): strings under 11 px 80 / 74 / 77 / 27 / 46 / 1 → 0 on all six; under 13 px
+  12 / 13 / 14 / 26 / 34 / 53 → 4 / 4 / 3 / 3 / 2 / 2 (only the chip levels, the drowsy "z" and the
+  verse's reference); targets none → the dial, the cards, the reshuffle and the story's button, all
+  ≥ 44 px, inside the insets, none overlapping; the game's own frame 3.6 → 2.8 ms on the small phone at
+  4× CPU slowdown and ~1 ms on the desktop.
 
 ### 9.5 How they fit the set
 

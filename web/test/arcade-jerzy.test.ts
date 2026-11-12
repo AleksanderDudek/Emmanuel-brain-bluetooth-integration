@@ -1,17 +1,22 @@
 import { writeFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   ARMOUR, BROOD, COMPANIONS, DRAGONS, DUETS, FORGE, LINES, LINE_COUNT, MOMENTS, TREASURES, WEAPONS, gearStats, palStats, weaponStats,
   type CompanionId, type ItemId, type TreasureId, type WeaponId,
 } from '../src/arcade/jerzy/content';
-import { CATALOGS, t, unit } from '../src/arcade/jerzy/i18n';
+import { CATALOGS, hand, t, unit } from '../src/arcade/jerzy/i18n';
+import { layout, sheet, tallyBox } from '../src/arcade/jerzy/layout';
+import { SANS, SERIF, font } from '../src/arcade/jerzy/paint';
 import {
   affordable, bestOf, buyForge, canFight, clearFight, crowns, earnArmour, earnCompanions, fightOf, fights, freshProgress, frontier, hpOf, migrate,
   pickFight, road, slots, toggleParty, woundKey, type JerzyProgress,
 } from '../src/arcade/jerzy/meta';
 import { RULES } from '../src/arcade/jerzy/rules';
 import { JerzySim, auraFor, duetsOf, finaleFor, planBlocks, xpNeed, type Card, type Creature, type SimEvent } from '../src/arcade/jerzy/sim';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
@@ -73,6 +78,7 @@ type Inner = {
   open: (d: { id: number; kind: string; x: number; y: number; t: number; pulled: boolean; src?: string }) => void;
   addTreasure: (id: TreasureId, x: number, y: number) => void;
   apply: (c: Card, gold: boolean) => void;
+  endRun: () => void;
 };
 const inner = (sim: JerzySim) => sim as unknown as Inner;
 
@@ -448,7 +454,7 @@ describe('levels, cards, rerolls and duets', () => {
 });
 
 describe('the Postój', () => {
-  it('heals hearts with calm and gives a free card at its end (golden after a calm one)', () => {
+  it('heals hearts with calm and gives a free card at its end (golden after a calm one), once the next block\'s banner is gone', () => {
     const sim = later();
     quiet(sim);
     const clock = { t: 0 };
@@ -457,7 +463,11 @@ describe('the Postój', () => {
     sim.knight.hearts = 1;
     const evs = drive(sim, sim.block.dur, CALM, clock, empty(sim));
     expect(sim.knight.hearts).toBeGreaterThan(1.5);
-    const ch = ofType(evs, 'choice');
+    // the next block's banner covers the upper half of a phone: the card waits for it while the world goes on
+    expect(sim.bannerUp).toBe(true);
+    expect(sim.choice).toBeNull();
+    const after = drive(sim, RULES.bannerSec, frame(), clock, empty(sim));
+    const ch = ofType([...evs, ...after], 'choice');
     expect(ch.some(e => e.source === 'rest' && e.gold)).toBe(true);
     expect(sim.choice!.gold).toBe(true);
   });
@@ -1089,6 +1099,336 @@ describe('the smoke path', () => {
   it('a tap without a drag never moves the knight', () => {
     const { sim } = smoke({ sessions: 6 }, 2, false, 300);
     expect(Math.hypot(sim.knight.x, sim.knight.y)).toBeLessThan(1);
+  });
+});
+
+// ── on a phone first (src/arcade/DESIGN.md §12, §9.4 "Mobile first") ──
+const pxOf = (f: string): number => Number(f.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+/** every string drawn on a canvas made by the patched getContext, with its font size */
+const drawn: { text: string; px: number }[] = [];
+
+/** A context that draws nothing, measures text at 0.55 em a character and notes each string drawn with its size. */
+function noteContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+  const gradient = { addColorStop: () => undefined };
+  const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+  const note = (s: unknown) => {
+    const text = String(s);
+    if (text.trim() && (state.globalAlpha as number) > 0.05) drawn.push({ text, px: pxOf(String(state.font)) });
+  };
+  return new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (prop === 'measureText') return (s: string) => ({ width: String(s).length * pxOf(String(target.font)) * 0.55 });
+      if (prop === 'fillText' || prop === 'strokeText') return (s: unknown) => note(s);
+      if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
+      if (prop === 'createPattern') return () => null;
+      if (prop === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+      return () => undefined;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+type Size = (typeof CHECK_SIZES)[number];
+const upright = (z: Size) => z.w < 600;
+
+/** Text allowed under MIN_READ: a secondary label (a chip's level, a card's tag or note, the bar's numbers, the threshold's name, a verse's reference). */
+function secondary(s: string): boolean {
+  if (/^[\d★]+$/.test(s) || /^[\d\s .,]+\/\s?[\d\s .,]+$/.test(s) || s === t('hud.mark') || s.includes('6,16')) return true;
+  const prefixes = [t('card.new'), t('card.evo'), t('card.treasure'), t('card.pal'), t('card.lv', { a: 1, b: 2 }).split(' ')[0],
+    t('card.pair', { name: '' }).trim(), t('card.duet', { name: '' }).trim(), t('card.with', { name: '' }).trim(), t('choice.gold')];
+  return prefixes.some(p => s.startsWith(p));
+}
+
+describe('on a phone first: the layout', () => {
+  it('the font helper never goes under 11 px', () => {
+    for (const px of [0, 4, 7.6, 8.6, 10.9, 11, 13, 24, 40]) {
+      for (const fam of [SANS, SERIF]) expect(pxOf(font(700, px, fam, px > 20))).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(pxOf(font(800, 24, SERIF))).toBe(24);
+  });
+
+  it('every checked screen: the shape, a scale that starts from the phone, the knight in the band under the status', () => {
+    for (const z of CHECK_SIZES) {
+      const L = layout(z.w, z.h, z.insets, true);
+      const name = z.name;
+      expect(L.shape, name).toBe(upright(z) ? 'phone' : z.h < 470 ? 'side' : 'wide');
+      expect(L.u, name).toBeGreaterThanOrEqual(1);
+      expect(L.u, name).toBeLessThanOrEqual(1.2);
+      expect(L.ky, name).toBeGreaterThan(L.top);
+      expect(L.ky, name).toBeLessThan(L.bottom);
+      // the knight's head clear of the status band, his feet clear of the dial's row
+      expect(L.ky - L.s * 1.4, name).toBeGreaterThan(L.statBottom);
+      expect(L.ky + L.s * 0.5, name).toBeLessThan(L.swordHit.y + L.swordHit.h);
+      // the widest shield (every gear and forge level, full focus) fits across an upright phone…
+      const widest = 0.42 + 0.75 + 0.36 + 0.2 + RULES.shieldExtra;
+      if (L.shape === 'phone') expect(widest * L.s, name).toBeLessThanOrEqual((L.right - L.left) / 2);
+      // …and stays clear of the HUD row on a phone on its side
+      if (L.shape === 'side') expect(L.ky - 0.35 * L.s - 0.8 * widest * L.s, name).toBeGreaterThanOrEqual(L.top);
+      // a phone upright shows ten metres across or so: no tiny world
+      if (L.shape === 'phone') expect(L.s, name).toBeGreaterThanOrEqual((L.right - L.left) / 11);
+    }
+  });
+
+  it('the Miecz światła dial: 56–70 px, a finger-sized target in the bottom-right thumb zone, inside the safe area', () => {
+    for (const z of CHECK_SIZES) {
+      const L = layout(z.w, z.h, z.insets, true);
+      const name = z.name;
+      expect(L.sword.r * 2, name).toBeGreaterThanOrEqual(56);
+      expect(L.sword.r * 2, name).toBeLessThanOrEqual(70);
+      expect(auditTargets([target('Miecz światła', L.swordHit)], z.w, z.h, z.insets), name).toEqual([]);
+      expect(L.sword.x, name).toBeGreaterThan((L.left + L.right) / 2);
+      if (upright(z)) {
+        expect(L.sword.y, name).toBeGreaterThanOrEqual(z.h * (1 - THUMB));
+        expect(L.swordHit.x + L.swordHit.w, name).toBeLessThanOrEqual(z.w - 16);
+      }
+    }
+  });
+
+  it('the level-up: stacked full-width cards in the thumb zone on a phone, a row elsewhere; every card and the reshuffle a clear target', () => {
+    for (const z of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        for (const rerolls of [0, 1, 3]) {
+          const L = layout(z.w, z.h, z.insets, touch);
+          const sh = sheet(L, 3, rerolls);
+          const name = `${z.name} touch ${touch} rerolls ${rerolls}`;
+          const ts = sh.cards.map((r, i) => target(`card ${i + 1}`, r));
+          if (sh.reroll) ts.push(target('reshuffle', sh.reroll));
+          expect(auditTargets(ts, z.w, z.h, z.insets), name).toEqual([]);
+          expect(!!sh.reroll, name).toBe(rerolls > 0);
+          for (const r of [...sh.cards, sh.head]) expect(r.y + r.h, name).toBeLessThanOrEqual(L.bottom + 0.5);
+          if (upright(z)) {
+            expect(sh.stacked, name).toBe(true);
+            for (const r of sh.cards) {
+              expect(r.w, name).toBeGreaterThanOrEqual(z.w - 32 - 1);
+              expect(r.h, name).toBeGreaterThanOrEqual(76);
+            }
+            // the last card ends near the bottom: the thumb reaches the sheet
+            expect(sh.cards[2].y + sh.cards[2].h, name).toBeGreaterThan(L.bottom - 20);
+          } else {
+            expect(sh.stacked, name).toBe(false);
+            expect(sh.cards[0].w, name).toBeGreaterThanOrEqual(150);
+          }
+          if (sh.hintY !== null) expect(sh.hintY, name).toBeLessThan(L.bottom);
+        }
+      }
+    }
+  });
+
+  it('the tally\'s button is a clear target inside the band', () => {
+    for (const z of CHECK_SIZES) {
+      const L = layout(z.w, z.h, z.insets, true);
+      for (const bars of [0, 3]) {
+        const { box, btn } = tallyBox(L, bars);
+        expect(auditTargets([target('next run', btn)], z.w, z.h, z.insets), z.name).toEqual([]);
+        expect(box.y, z.name).toBeGreaterThanOrEqual(L.top);
+        expect(box.y + box.h, z.name).toBeLessThanOrEqual(L.bottom);
+      }
+    }
+  });
+});
+
+describe('on a phone first: the game at every checked size', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return noteContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  const returning = (): JerzyProgress => ({ ...freshProgress(), sessions: 5, pushes: 1, seen: [...SEEN] });
+
+  function envFor(z: { w: number; h: number; insets: Insets }, progress: JerzyProgress, touch: boolean, hints: string[] = []): GameEnv<JerzyProgress> {
+    return {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress, rng: mulberry32(3), day: DAY, daySeed: 7, plannedSec: 300, tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false,
+      tuning: TUNING, hint: (text: string) => { if (text) hints.push(text); }, hudTop: () => z.insets.top, insets: () => z.insets, touch,
+    };
+  }
+
+  async function gameAt(z: { w: number; h: number; insets: Insets }, touch = true, progress = returning()) {
+    const mod = (await import('../src/arcade/jerzy/index')).default;
+    const game = mod.create(envFor(z, progress, touch));
+    game.resize(z.w, z.h, 1);
+    game.start();
+    const sim = (game as unknown as { sim: JerzySim }).sim;
+    return { game, sim };
+  }
+
+  const run = (game: ArcadeGame, sec: number, f = frame()) => {
+    for (let i = 0; i < Math.round(sec * 30); i++) {
+      game.update(1 / 30, f, i / 30);
+      game.draw();
+    }
+  };
+
+  /** Draw one frame and check it: the targets (size, the safe area, no overlaps) and every string (≥ 11 px; under 13 only a secondary label). */
+  function check(game: ArcadeGame, z: { name: string; w: number; h: number; insets: Insets }, what: string): string[] {
+    drawn.length = 0;
+    game.draw();
+    const name = `${z.name}: ${what}`;
+    const ts = game.targets!();
+    expect(auditTargets(ts, z.w, z.h, z.insets), name).toEqual([]);
+    expect(drawn.filter(d => d.px < MIN_TEXT - 1e-6), name).toEqual([]);
+    expect(drawn.filter(d => d.px < MIN_READ - 1e-6 && !secondary(d.text)), name).toEqual([]);
+    return ts.map(x => x.label);
+  }
+
+  it('play, the level-up, the dragon, Linda\'s bubble, the tally and the story cards: targets and text pass the phone checks', async () => {
+    for (const z of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        if (!touch && upright(z)) continue;
+        const { game, sim } = await gameAt(z, touch);
+        quiet(sim);
+        run(game, 0.5);
+        expect(check(game, z, 'play'), z.name).toEqual(['Miecz światła']);
+        // the dragon with his bar (the status makes room), Linda talking at length
+        bossNow(sim);
+        sim.talk.line = { moment: 'level', text: 'To jest bardzo długa kwestia Lindy, żeby sprawdzić, czy dymek mieści się na wąskim ekranie.', t: 0.5, dur: 4 };
+        run(game, 0.6);
+        sim.talk.line = { moment: 'level', text: 'To jest bardzo długa kwestia Lindy, żeby sprawdzić, czy dymek mieści się na wąskim ekranie.', t: 0.5, dur: 4 };
+        check(game, z, 'the dragon and a bubble');
+        // a level-up: three cards and the reshuffle, then none left
+        sim.run.items.miecz = 2;
+        sim.run.items.kopia = 1;
+        sim.run.items.sztandar = 1;
+        sim.run.order.push('kopia', 'sztandar');
+        inner(sim).collect(xpNeed(sim.run.level), sim.knight.x, sim.knight.y);
+        expect(sim.choice, z.name).not.toBeNull();
+        run(game, 0.5);
+        expect(check(game, z, 'cards'), z.name).toEqual(['card 1', 'card 2', 'card 3', 'reshuffle']);
+        sim.run.rerolls = 0;
+        expect(check(game, z, 'cards, no reshuffle'), z.name).toEqual(['card 1', 'card 2', 'card 3']);
+        sim.pick(0);
+        run(game, 0.2);
+        // the run's tally
+        inner(sim).endRun();
+        run(game, 1.5);
+        expect(check(game, z, 'tally'), z.name).toEqual(['next run']);
+        sim.tap();
+        run(game, 0.2);
+        // the story cards: the opening and a land freed (with Iskierka's line)
+        sim.story = { kind: 'open', t: 1, dur: 8, from: 'zielony', to: null, tier: 0, toTier: 0, first: false };
+        expect(check(game, z, 'the opening card'), z.name).toEqual(['story']);
+        sim.story = { kind: 'land', t: 1, dur: 4, from: 'zielony', to: 'bagienny', tier: 1, toTier: 0, first: true };
+        expect(check(game, z, 'a land freed'), z.name).toEqual(['story']);
+        game.destroy();
+      }
+    }
+  });
+
+  it('a card takes a finger that lands and lifts on it; a finger that slides off, or comes too soon, takes nothing', async () => {
+    const z = CHECK_SIZES[0];
+    const { game, sim } = await gameAt(z);
+    quiet(sim);
+    run(game, 0.3);
+    inner(sim).collect(xpNeed(1), 0, 0);
+    const sh = sheet(layout(z.w, z.h, z.insets, true), 3, sim.run.rerolls);
+    const c1 = sh.cards[1], mid = { x: c1.x + c1.w / 2, y: c1.y + c1.h / 2 };
+    // too soon: a thumb already on its way does not pick
+    game.pointer!({ type: 'down', ...mid, id: 1 });
+    game.pointer!({ type: 'up', ...mid, id: 1 });
+    expect(sim.choice).not.toBeNull();
+    run(game, 0.4);
+    // pressed, then slid off: nothing
+    game.pointer!({ type: 'down', ...mid, id: 2 });
+    game.pointer!({ type: 'move', x: mid.x, y: c1.y - 40, id: 2 });
+    game.pointer!({ type: 'up', x: mid.x, y: c1.y - 40, id: 2 });
+    expect(sim.choice).not.toBeNull();
+    // pressed and lifted on it: the second card
+    const want = sim.choice!.cards[1];
+    game.pointer!({ type: 'down', ...mid, id: 3 });
+    expect(sim.choice).not.toBeNull();
+    game.pointer!({ type: 'up', ...mid, id: 3 });
+    expect(sim.choice).toBeNull();
+    if (want.id) expect(sim.itemLevel(want.id)).toBe(want.to);
+  });
+
+  it('the dial lets a ready sword go at the touch; a drag from anywhere (the dial too) is the joystick, shown from the touch-down', async () => {
+    const z = CHECK_SIZES[1];
+    const { game, sim } = await gameAt(z);
+    quiet(sim);
+    run(game, 0.3);
+    const L = layout(z.w, z.h, z.insets, true);
+    const dial = { x: L.sword.x, y: L.sword.y };
+    const view = (game as unknown as { view: { stick: unknown } }).view;
+    // not ready: the dial's press steers like the rest of the field
+    game.pointer!({ type: 'down', ...dial, id: 1 });
+    expect(view.stick).toMatchObject({ ox: dial.x, oy: dial.y, live: false });
+    game.pointer!({ type: 'move', x: dial.x - 50, y: dial.y, id: 1 });
+    expect(view.stick).toMatchObject({ live: true });
+    run(game, 0.5);
+    expect(sim.knight.x).toBeLessThan(-0.5);
+    game.pointer!({ type: 'up', x: dial.x - 50, y: dial.y, id: 1 });
+    expect(view.stick).toBeNull();
+    // ready: the touch itself lets it go
+    sim.charge = 1;
+    sim.swordReady = true;
+    game.pointer!({ type: 'down', ...dial, id: 2 });
+    expect(sim.swordReady).toBe(false);
+    game.pointer!({ type: 'up', ...dial, id: 2 });
+  });
+
+  it('the smoke\'s input scores within 22 s on a desktop and on the smallest phone (a centre click every 0.65 s, Space every 2 s)', async () => {
+    for (const [z, touch] of [[CHECK_SIZES[7], false], [CHECK_SIZES[0], true]] as const) {
+      const { game } = await gameAt(z, touch, freshProgress());
+      const focus = new FocusInput(BEGINNER);
+      let f = focus.push(0, true, 0.1), tap = 0, space = 0, hub = 0, scoreAt: number | null = null;
+      const dt = 1 / 30;
+      for (let tt = 0; tt < 22; tt += dt) {
+        if ((hub += dt) >= 0.1) {
+          hub -= 0.1;
+          f = focus.push(20 * (1 - Math.exp(-tt / 4)), true, 0.1);
+        }
+        game.update(dt, f, tt);
+        game.draw();
+        if ((tap += dt) >= 0.65) {
+          tap = 0;
+          game.pointer!({ type: 'down', x: z.w / 2, y: z.h * 0.6, id: 1 });
+          game.pointer!({ type: 'up', x: z.w / 2, y: z.h * 0.6, id: 1 });
+        }
+        if ((space += dt) >= 2) {
+          space = 0;
+          game.key!(' ', true);
+          game.key!(' ', false);
+        }
+        if (scoreAt === null && game.result().score > 0) scoreAt = tt;
+      }
+      expect(scoreAt, z.name).not.toBeNull();
+    }
+  });
+
+  it('speaks of the hand the player has: no keys on a touch screen, keys as shortcuts on a desktop', () => {
+    // a key named (the letter R alone, case-sensitive: \b is ASCII-only and splits "går" before its r)
+    const named = (s: string) => /WASD|Space|Spacj|Leertaste|mellanslag|1–3|klik|click|Klick/i.test(s) || /(^|[\s(])R([\s).,!]|$)/.test(s);
+    for (const k of ['coach.move', 'coach.sword', 'coach.reroll', 'hud.swordTap', 'tally.next', 'story.tap', 'story.next', 'howto.move', 'howto.cards'] as const) {
+      for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+        const touchText = String(CATALOGS[lang][k]);
+        expect(named(touchText), `${lang} ${k}: ${touchText}`).toBe(false);
+        const desk = (CATALOGS[lang] as Record<string, unknown>)[`${k}.keys`];
+        if (desk !== undefined) expect(named(String(desk)), `${lang} ${k}.keys: ${String(desk)}`).toBe(true);
+      }
+    }
+    expect(hand('coach.sword', true)).toBe(t('coach.sword'));
+    expect(hand('coach.sword', false)).toBe(t('coach.sword.keys'));
+    expect(hand('coach.scales', false)).toBe(t('coach.scales'));
+  });
+
+  it('a level-up under the runner\'s block banner waits for it while the world goes on, then the cards come up', () => {
+    const sim = later();
+    quiet(sim);
+    const clock = { t: 0 };
+    drive(sim, sim.block.dur + 0.2, frame(), clock, empty(sim));
+    expect(sim.bannerUp).toBe(true);
+    inner(sim).collect(xpNeed(sim.run.level), 0, 0);
+    expect(sim.choice).toBeNull();
+    sim.steer(1, 0);
+    drive(sim, 1, frame(), clock, empty(sim));
+    expect(sim.knight.x).toBeGreaterThan(1);
+    drive(sim, RULES.bannerSec, frame(), clock, empty(sim));
+    expect(sim.choice).not.toBeNull();
+    expect(MIN_TAP).toBe(44);
   });
 });
 

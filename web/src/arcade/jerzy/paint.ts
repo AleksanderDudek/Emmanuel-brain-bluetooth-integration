@@ -9,12 +9,14 @@
  * the items' little pictures, and the endless field of each land.  All canvas paths, no images;
  * sizes in u (about a metre) times `s` (px per u).
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { ArenaKind, BroodKind, DragonKind, ItemId } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
+/** A canvas font, never under the kit's floor (MIN_TEXT, 11 px): smaller text is a smudge on a phone. */
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
 
 export const C = {
   ink: '#2a2233', inkSoft: 'rgba(42,34,51,.78)', parchment: '#f4e8c8', parchmentDeep: '#e6d3a4',
@@ -36,9 +38,47 @@ export function hash(i: number): number {
 
 const TAU = Math.PI * 2;
 
-/** A soft radial glow (additive). */
+/** Each glow colour baked once into a small offscreen sprite (a phone's fill rate: no gradient made per frame). */
+const GLOW_R = 64;
+const glowSprites = new Map<string, HTMLCanvasElement | null>();
+
+function glowSprite(color: string): HTMLCanvasElement | null {
+  const had = glowSprites.get(color);
+  if (had !== undefined) return had;
+  let sprite: HTMLCanvasElement | null = null;
+  try {
+    if (typeof document !== 'undefined') {
+      const c = document.createElement('canvas');
+      c.width = c.height = GLOW_R * 2;
+      const g = c.getContext('2d');
+      if (g) {
+        const grad = g.createRadialGradient(GLOW_R, GLOW_R, 0, GLOW_R, GLOW_R, GLOW_R);
+        grad.addColorStop(0, `${color}1)`);
+        grad.addColorStop(0.45, `${color}0.45)`);
+        grad.addColorStop(1, `${color}0)`);
+        g.fillStyle = grad;
+        g.fillRect(0, 0, GLOW_R * 2, GLOW_R * 2);
+        sprite = c;
+      }
+    }
+  } catch {
+    sprite = null;
+  }
+  glowSprites.set(color, sprite);
+  return sprite;
+}
+
+/** A soft radial glow (additive where the caller sets 'lighter'): `color` is an "rgba(r,g,b," prefix, `a` its peak alpha. */
 export function glow(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, a: number): void {
   if (a <= 0.003 || r <= 0) return;
+  const sprite = glowSprite(color);
+  if (sprite) {
+    const was = ctx.globalAlpha;
+    ctx.globalAlpha = was * Math.min(1, a);
+    ctx.drawImage(sprite, x - r, y - r, r * 2, r * 2);
+    ctx.globalAlpha = was;
+    return;
+  }
   const g = ctx.createRadialGradient(x, y, 0, x, y, r);
   g.addColorStop(0, `${color}${a})`);
   g.addColorStop(0.45, `${color}${a * 0.45})`);
@@ -313,12 +353,16 @@ export function paintKnight(ctx: CanvasRenderingContext2D, x: number, y: number,
   ctx.save();
   ctx.translate(-s * 0.18, -s * 0.78);
   ctx.rotate(-Math.PI / 2 + (p.swing > 0 ? swordA : -0.5) + Math.PI / 2);
-  // the blade's glow: the Miecz światła's charge
+  // the blade's glow: the Miecz światła's charge (baked glows along the blade, no per-frame blur)
   if (p.charge > 0.02) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.shadowColor = p.ready ? 'rgba(255,230,140,1)' : 'rgba(255,214,120,.8)';
-    ctx.shadowBlur = s * (0.2 + 0.5 * p.charge) * (p.ready ? 1 + 0.3 * Math.sin(p.t * 10) : 1);
+    const pulse = p.ready ? 1 + 0.3 * Math.sin(p.t * 10) : 1;
+    const gr = s * (0.16 + 0.3 * p.charge) * pulse, ga = (0.3 + 0.5 * p.charge) * (p.ready ? 1 : 0.8);
+    const col = p.ready ? 'rgba(255,230,140,' : 'rgba(255,214,120,';
+    glow(ctx, 0, -s * 0.78, gr, col, ga);
+    glow(ctx, 0, -s * 0.5, gr, col, ga * 0.85);
+    glow(ctx, 0, -s * 0.24, gr * 0.8, col, ga * 0.6);
     ctx.fillStyle = `rgba(255,236,170,${0.25 + 0.6 * p.charge})`;
     ctx.fillRect(-s * 0.06, -s * 0.95, s * 0.12, s * 0.8);
     ctx.restore();
@@ -1326,7 +1370,7 @@ export function paintBrood(ctx: CanvasRenderingContext2D, x: number, y: number, 
   if (p.drowsy > 0.5) {
     ctx.scale(p.flip, 1);
     ctx.fillStyle = 'rgba(255,255,255,.85)';
-    ctx.font = `700 ${Math.max(8, R * 0.6)}px ${SANS}`;
+    ctx.font = font(700, R * 0.6, SANS);
     ctx.fillText('z', R * 0.5, -R * (0.9 + 0.2 * Math.sin(p.t * 2 + p.seed)));
   }
   ctx.restore();
@@ -1505,12 +1549,21 @@ export function paintField(ctx: CanvasRenderingContext2D, kind: ArenaKind, cx: n
       }
     }
   }
-  // the edge of sight: a warm vignette
-  const v = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
-  v.addColorStop(0, 'rgba(0,0,0,0)');
-  v.addColorStop(1, 'rgba(30,25,15,.28)');
-  ctx.fillStyle = v;
+  // the edge of sight: a warm vignette (one gradient per canvas size, not one a frame)
+  ctx.fillStyle = vignette(ctx, w, h);
   ctx.fillRect(0, 0, w, h);
+}
+
+const vignettes = new WeakMap<CanvasRenderingContext2D, { w: number; h: number; g: CanvasGradient }>();
+
+function vignette(ctx: CanvasRenderingContext2D, w: number, h: number): CanvasGradient {
+  const had = vignettes.get(ctx);
+  if (had && had.w === w && had.h === h) return had.g;
+  const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(30,25,15,.28)');
+  vignettes.set(ctx, { w, h, g });
+  return g;
 }
 
 // ── the lobby's map tiles ─────────────────────────────────────────

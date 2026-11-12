@@ -12,12 +12,14 @@
  */
 import { fmtNum } from '../../i18n';
 import { Floaters, Particles, Shake, approach, clamp } from '../kit/juice';
+import { NO_INSETS } from '../kit/mobile';
+import type { Insets } from '../kit/types';
 import { dragonName, duetName, evoName, flawName, roadName, treasureName, WEAPONS, type CompanionId, type WeaponId } from './content';
 import { paintCaltrop, paintCoin, paintHammer, paintPal, paintWall, type PalPose } from './figures';
 import { Hud } from './hud';
 import { t } from './i18n';
 import { JerzyIntro } from './intro';
-import { layout, type Layout } from './layout';
+import { layout, sheet, type Layout } from './layout';
 import type { JerzyProgress } from './meta';
 import {
   C, SANS, font, glow, paintApple, paintBrood, paintChest, paintDragon, paintFalcon, paintField, paintFireball, paintFlame,
@@ -38,8 +40,10 @@ export class JerzyView {
   private w = 0;
   private h = 0;
   private dpr = 1;
-  private hudTop = 64;
-  L: Layout = layout(800, 600, 64);
+  private ins: Insets = NO_INSETS;
+  /** the primary input is a finger (the words and the hints follow it) */
+  private readonly touch: boolean;
+  L: Layout = layout(800, 600, { ...NO_INSETS, top: 64 }, true);
   readonly hud = new Hud();
   private readonly fx = new Particles(560);
   private readonly floaters = new Floaters();
@@ -59,29 +63,37 @@ export class JerzyView {
   private swingT = 1;
   private readonly streaks: Streak[] = [];
   private readonly palViews = new Map<CompanionId, PalView>();
-  /** the joystick's ring (CSS px), while a finger steers */
-  stick: { ox: number; oy: number; x: number; y: number } | null = null;
+  /** the floating joystick (CSS px): its base where the finger came down, its knob under the finger; live once it steers */
+  stick: { ox: number; oy: number; x: number; y: number; live: boolean } | null = null;
+  /** a finger just came down on the Miecz światła's dial (1 → 0) */
+  dialPress = 0;
+  /** the dragon's bar (and the status making room for it) eases in and out (0..1) */
+  private bossK = 0;
+  private hurtGrad: { w: number; h: number; g: CanvasGradient } | null = null;
   private readonly kp: KnightPose = { flip: 1, step: 0, walking: 0, swing: 0, roll: 0, down: 0, hit: 0, charge: 0, ready: false, t: 0 };
   private readonly lp: LindaPose = { flip: 1, step: 0, walking: 0, arm: 0, sit: 0, talk: false, t: 0 };
   private readonly dp: DragonPose = { kind: 'zielony', flip: 1, r: 1, air: 0, jaw: 0, wings: 0, hit: 0, scales: 1, sleep: 0, daze: 0, heads: 3, t: 0, hot: 0 };
 
-  constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean; eeg: boolean }) {
+  constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean; eeg: boolean; touch: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
+    this.touch = opts.touch;
   }
 
-  resize(w: number, h: number, dpr: number): void {
+  resize(w: number, h: number, dpr: number, ins: Insets = this.ins): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, this.hudTop);
+    this.ins = { ...ins };
+    this.L = layout(w, h, this.ins, this.touch);
   }
 
-  /** The runner's HUD bottom (read in resize). */
-  setTop(top: number): void {
-    if (Math.abs(top - this.hudTop) < 0.5) return;
-    this.hudTop = top;
-    this.L = layout(this.w, this.h, top);
+  /** What covers the canvas's edges (the runner's insets: the HUD band, the home indicator, a notch); read in resize. */
+  setInsets(ins: Insets): void {
+    const a = this.ins;
+    if (Math.abs(a.top - ins.top) < 0.5 && Math.abs(a.right - ins.right) < 0.5 && Math.abs(a.bottom - ins.bottom) < 0.5 && Math.abs(a.left - ins.left) < 0.5) return;
+    this.ins = { ...ins };
+    this.L = layout(this.w, this.h, this.ins, this.touch);
   }
 
   /** World (u) → canvas (CSS px). */
@@ -175,7 +187,7 @@ export class JerzyView {
         if (this.streaks.length > 24) this.streaks.shift();
         break;
       case 'swordReady':
-        this.floaters.add(t('hud.sword'), this.L.sword.x - 40 * u, this.L.sword.y - this.L.sword.r - 20 * u, { color: C.goldLight, size: 16 * u });
+        this.floaters.add(t('hud.sword'), Math.min(this.L.sword.x - 30 * u, this.L.right - 70), this.L.sword.y - this.L.sword.r - 34 * u, { color: C.goldLight, size: 16 * u });
         break;
       case 'sword':
         this.flash = 1;
@@ -295,6 +307,8 @@ export class JerzyView {
     this.floaters.update(dt);
     this.flash = Math.max(0, this.flash - dt * 2.2);
     this.hurtFlash = Math.max(0, this.hurtFlash - dt * 3);
+    this.dialPress = Math.max(0, this.dialPress - dt * 5);
+    this.bossK = approach(this.bossK, sim.boss.state !== 'away' ? 1 : 0, dt, 0.12);
     this.levelPop = Math.max(0, this.levelPop - dt * 2.5);
     if (this.banner) {
       this.banner.t += dt;
@@ -527,24 +541,31 @@ export class JerzyView {
       ctx.fillRect(0, 0, this.w, this.h);
     }
     if (this.hurtFlash > 0) {
-      const g = ctx.createRadialGradient(this.w / 2, this.h / 2, Math.min(this.w, this.h) * 0.3, this.w / 2, this.h / 2, Math.max(this.w, this.h) * 0.7);
-      g.addColorStop(0, 'rgba(200,40,30,0)');
-      g.addColorStop(1, `rgba(200,40,30,${0.35 * this.hurtFlash})`);
-      ctx.fillStyle = g;
+      // the red edge of a hit (its gradient made once per canvas size)
+      let hg = this.hurtGrad;
+      if (!hg || hg.w !== this.w || hg.h !== this.h) {
+        const g = ctx.createRadialGradient(this.w / 2, this.h / 2, Math.min(this.w, this.h) * 0.3, this.w / 2, this.h / 2, Math.max(this.w, this.h) * 0.7);
+        g.addColorStop(0, 'rgba(200,40,30,0)');
+        g.addColorStop(1, 'rgba(200,40,30,0.35)');
+        hg = this.hurtGrad = { w: this.w, h: this.h, g };
+      }
+      ctx.globalAlpha = this.hurtFlash;
+      ctx.fillStyle = hg.g;
       ctx.fillRect(0, 0, this.w, this.h);
+      ctx.globalAlpha = 1;
     }
-    // the game's own bits
-    this.hud.drawBoss(ctx, L, sim, now);
-    this.hud.drawBars(ctx, L, sim, now, this.levelPop);
+    // the game's own bits: the status band and the dragon's bar under the HUD, the dial in the thumb zone
+    const sheetUp = !!(sim.choice || sim.story);
+    this.hud.drawStatus(ctx, L, sim, now, this.levelPop, this.bossK);
+    this.hud.drawBoss(ctx, L, sim, now, this.bossK);
+    if (!sheetUp) this.hud.drawDial(ctx, L, sim, now, this.dialPress);
     const line = sim.talk.line;
-    if (line && !sim.choice && !sim.story) this.hud.drawBubble(ctx, L, line.text, lpp.x, lpp.y - s * 1.2, line.t);
-    if (this.banner && !sim.choice && !sim.tally && !sim.story) this.hud.drawBanner(ctx, L, this.banner.text, this.banner.t / this.banner.dur, this.banner.color);
-    if (this.stick && !sim.choice && !sim.tally && !sim.story) this.drawStick(ctx);
-    if (!sim.story) this.hud.drawChoice(ctx, L, sim, now);
-    else {
-      this.hud.cards = [];
-      this.hud.reroll = null;
-    }
+    if (line && !sheetUp) this.hud.drawBubble(ctx, L, line.text, lpp.x, lpp.y - s * 1.2, line.t);
+    // a banner goes under the knight while the runner's block banner covers the upper half
+    const low = sim.phase === 'play' && !!sim.block && sim.block.kind !== 'warmup' && sim.blockT < RULES.bannerSec + 0.4;
+    if (this.banner && !sim.frozen) this.hud.drawBanner(ctx, L, this.banner.text, this.banner.t / this.banner.dur, this.banner.color, low);
+    if (this.stick && !sim.frozen) this.drawStick(ctx);
+    this.hud.drawChoice(ctx, L, sim, sim.choice && !sim.story ? sheet(L, sim.choice.cards.length, sim.run.rerolls) : null, now);
     this.hud.drawTally(ctx, L, sim, now);
     this.hud.drawStory(ctx, L, sim);
   }
@@ -664,10 +685,14 @@ export class JerzyView {
       ctx.ellipse(p.x, cy, mark, mark * 0.8, 0, 0, TAU);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = font(700, 10.5 * this.L.u, SANS);
+      ctx.font = font(700, 13 * this.L.u, SANS);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,250,232,.9)';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(30,20,20,.45)';
+      ctx.strokeText(t('hud.mark'), p.x + mark * 0.72 + 4, cy - mark * 0.62);
+      ctx.fillStyle = 'rgba(255,250,232,.95)';
       ctx.fillText(t('hud.mark'), p.x + mark * 0.72 + 4, cy - mark * 0.62);
     }
     // the rim
@@ -762,8 +787,8 @@ export class JerzyView {
     const b = sim.boss, s = this.L.s, p = this.toScreen(b.x, b.y);
     const d = this.dp;
     const L = this.L;
-    // the marks over his head never go up under the dragon's bar (or the runner's HUD)
-    const ceil = L.land ? L.top + 8 : L.boss.y + L.boss.h + 10;
+    // the marks over his head never go up under the status band and the dragon's bar (or the runner's HUD)
+    const ceil = L.statBottom + 10;
     const labelY = Math.max(p.y - s * 2.85, ceil + s * 0.3);
     const starsY = labelY + s * 0.55;
     d.kind = b.spec.kind;
@@ -816,22 +841,38 @@ export class JerzyView {
     }
   }
 
+  /**
+   * The floating joystick: its base where the finger came down (shown at once, so the touch answers),
+   * the knob under the finger, a wedge toward where the knight walks; brighter once it steers.
+   */
   private drawStick(ctx: CanvasRenderingContext2D): void {
     const st = this.stick!;
-    const R = RULES.stickPx;
+    const R = RULES.stickPx, on = st.live ? 1 : 0.6;
+    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > R ? R / d : 1;
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,250,232,.45)';
-    ctx.fillStyle = 'rgba(255,250,232,.12)';
-    ctx.lineWidth = 2;
+    ctx.fillStyle = `rgba(20,16,28,${0.22 * on})`;
     ctx.beginPath();
     ctx.arc(st.ox, st.oy, R, 0, TAU);
     ctx.fill();
+    ctx.strokeStyle = `rgba(255,250,232,${0.55 * on})`;
+    ctx.lineWidth = 2.5;
     ctx.stroke();
-    const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy), k = d > R ? R / d : 1;
-    ctx.fillStyle = 'rgba(255,250,232,.55)';
+    if (st.live && d > 4) {
+      const a = Math.atan2(dy, dx);
+      ctx.fillStyle = 'rgba(255,231,163,.5)';
+      ctx.beginPath();
+      ctx.arc(st.ox, st.oy, R - 2, a - 0.38, a + 0.38);
+      ctx.arc(st.ox, st.oy, R * 0.62, a + 0.38, a - 0.38, true);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = `rgba(255,250,232,${0.45 + 0.35 * on})`;
     ctx.beginPath();
     ctx.arc(st.ox + dx * k, st.oy + dy * k, R * 0.42, 0, TAU);
     ctx.fill();
+    ctx.strokeStyle = 'rgba(42,34,51,.35)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
     ctx.restore();
   }
 }

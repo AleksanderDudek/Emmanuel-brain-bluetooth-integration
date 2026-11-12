@@ -15,9 +15,9 @@ export const RULES = {
   knightR: 0.36,
   /** walking speed (u/s) at a full joystick */
   walk: 3.6,
-  /** the joystick: full speed this far from where the finger went down (px), nothing under the dead zone (px) */
+  /** the joystick: full speed this far from where the finger went down (px), nothing under the dead zone (px: a thumb's wobble) */
   stickPx: 56,
-  stickDead: 8,
+  stickDead: 10,
   /** a tap: up within this long (s) and this close (px) to the press */
   tapSec: 0.3,
   tapPx: 14,

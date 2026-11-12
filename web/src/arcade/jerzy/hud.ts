@@ -1,21 +1,26 @@
 /**
- * Jerzy i smok's own bits over the field, drawn on the canvas — never the band's panel nor the score
- * (the runner draws those): the hearts, the level's bar, the run's build and its treasures, the Miecz
- * światła's dial, the dragon's bar (his road, his weak spot when it opens) and the short banners; the
- * level-up's three cards with their numbers, the duet a card would form and the treasure that works
- * on it, and Linda's reshuffle (and where they are, for a tap); the run's tally with what each weapon
- * did; the story cards; Linda's speech bubble.
+ * Jerzy i smok's own bits over the field, drawn on the canvas phone first (layout.ts) — never the
+ * band's panel nor the score (the runner draws those): the status band (the hearts, the level and its
+ * bar, the build and its treasures), the dragon's bar (his road, his weak spot when it opens), the
+ * Miecz światła's dial — the one button, in the thumb zone — and the short banners; the level-up's
+ * cards (a bottom sheet of full-width cards on a phone, a row elsewhere) with their numbers, the duet
+ * a card would form and the treasure that works on it, and Linda's reshuffle; the run's tally with
+ * what each weapon did; the story cards; Linda's speech bubble.
+ *
+ * Text never goes under the kit's floor (paint.font: 11 px); what the player reads to play — a card,
+ * a bubble, a button — is 13 px or more, and what a finger taps is 44 px or more (kit/mobile).
  */
 import { fmtNum } from '../../i18n';
 import { ease } from '../kit/juice';
+import { MIN_READ, MIN_TEXT } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageLayout } from '../kit/scripture';
 import {
   WEAPONS, dragonName, duetName, flawName, gearStats, isWeapon, itemName, palStats, roadName, townName, townStory, treasureName, treasureText,
   weaponStats, type GearId, type WeaponId,
 } from './content';
 import { paintPal, paintTreasureIcon, type PalPose } from './figures';
-import { t, scales as scalesText } from './i18n';
-import type { Layout, Rect } from './layout';
+import { hand, t, scales as scalesText } from './i18n';
+import { tallyBox, type Layout, type Rect, type Sheet } from './layout';
 import { C, SANS, SERIF, font, glow, paintApple, paintItemIcon, paintScale } from './paint';
 import { RULES } from './rules';
 import type { Card, JerzySim } from './sim';
@@ -23,10 +28,14 @@ import { xpNeed } from './sim';
 
 const TAU = Math.PI * 2;
 const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 const PAL_POSE: PalPose = { flip: 1, step: 0, walking: 0, t: 0, act: 0, roll: 0, nap: 0 };
+/** the pressed index of the reshuffle button (cards are 0..n−1) */
+export const REROLL = -2;
 
-export function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
-  const words = text.split(/\s+/), out: string[] = [];
+/** Lines of at most `maxW` at the current font; at most `max` of them, the last one cut with "…" when more would follow. */
+export function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number, max = Infinity): string[] {
+  const words = text.split(/\s+/).filter(Boolean), out: string[] = [];
   let line = '';
   for (const w of words) {
     const tryL = line ? `${line} ${w}` : w;
@@ -36,19 +45,76 @@ export function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number):
     } else line = tryL;
   }
   if (line) out.push(line);
-  return out;
+  if (out.length <= max) return out;
+  const kept = out.slice(0, Math.max(1, max));
+  kept[kept.length - 1] = cut(ctx, `${kept[kept.length - 1]} ${out[kept.length]}`, maxW);
+  return kept;
 }
 
-function panel(ctx: CanvasRenderingContext2D, r: Rect, fill: string, stroke: string | null, rad: number): void {
+/** `text` cut with "…" to fit `maxW` at the current font. */
+function cut(ctx: CanvasRenderingContext2D, text: string, maxW: number): string {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let lo = 0, hi = text.length;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (ctx.measureText(`${text.slice(0, mid).trimEnd()}…`).width <= maxW) lo = mid; else hi = mid - 1;
+  }
+  return lo > 0 ? `${text.slice(0, lo).trimEnd()}…` : '';
+}
+
+/** Set a font that fits `text` into `maxW`, from `px` down to `min` (never under it), and return the text (cut if it must be). */
+function fit(ctx: CanvasRenderingContext2D, text: string, maxW: number, px: number, weight: number, family: string, min = MIN_READ, italic = false): string {
+  let size = Math.max(min, px);
+  ctx.font = font(weight, size, family, italic);
+  const w = ctx.measureText(text).width;
+  if (w > maxW && size > min) {
+    size = Math.max(min, Math.floor((size * maxW * 10) / w) / 10);
+    ctx.font = font(weight, size, family, italic);
+  }
+  return cut(ctx, text, maxW);
+}
+
+/** A paragraph at the largest size from `max` down to `min` whose lines fit `maxH`; the font is left set. */
+function para(ctx: CanvasRenderingContext2D, text: string, maxW: number, maxH: number, max: number, min: number, weight: number, family: string, lh = 1.24): { lines: string[]; lineH: number } {
+  for (let size = max; size >= min - 1e-6; size -= 0.5) {
+    ctx.font = font(weight, size, family);
+    const lines = wrap(ctx, text, maxW);
+    if (lines.length * size * lh <= maxH + 0.5) return { lines, lineH: size * lh };
+  }
+  ctx.font = font(weight, min, family);
+  return { lines: wrap(ctx, text, maxW, Math.max(1, Math.floor(maxH / (min * lh)))), lineH: min * lh };
+}
+
+function panel(ctx: CanvasRenderingContext2D, r: Rect, fill: string, stroke: string | null, rad: number, lw = 1.5): void {
   ctx.fillStyle = fill;
   ctx.beginPath();
-  ctx.roundRect(r.x, r.y, r.w, r.h, rad);
+  ctx.roundRect(r.x, r.y, r.w, r.h, Math.min(rad, r.h / 2, r.w / 2));
   ctx.fill();
   if (stroke) {
     ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = lw;
     ctx.stroke();
   }
+}
+
+/** Text with a dark rim, readable over grass, ash and gold alike. */
+function rimText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, color: string, rim = 'rgba(30,20,20,.6)', lw = 3): void {
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = lw;
+  ctx.strokeStyle = rim;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+}
+
+/** A button: a dark pill with a gold rim (dimmed until it may be pressed, lit while a finger is on it). */
+function button(ctx: CanvasRenderingContext2D, r: Rect, label: string, on: boolean, pressed: boolean, px: number): void {
+  panel(ctx, r, pressed ? '#4a3b20' : on ? '#2a2233' : 'rgba(42,34,51,.4)', on ? (pressed ? '#ffe7a3' : C.gold) : null, r.h / 2, pressed ? 3 : 2);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const s = fit(ctx, label, r.w - 20, px, 800, SANS);
+  ctx.fillStyle = on ? C.goldLight : 'rgba(255,248,230,.72)';
+  ctx.fillText(s, r.x + r.w / 2, r.y + r.h / 2 + 1);
 }
 
 function heart(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, fill: number): void {
@@ -59,7 +125,7 @@ function heart(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, f
     ctx.bezierCurveTo(x + r * 0.6, y - r * 1.05, x + r * 1.3, y - r * 0.1, x, y + r * 0.85);
   };
   path();
-  ctx.fillStyle = 'rgba(40,20,20,.45)';
+  ctx.fillStyle = 'rgba(40,20,20,.55)';
   ctx.fill();
   if (fill > 0) {
     ctx.save();
@@ -70,291 +136,306 @@ function heart(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, f
     ctx.restore();
   }
   path();
-  ctx.strokeStyle = 'rgba(255,245,225,.9)';
-  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = 'rgba(255,245,225,.95)';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 }
 
+const inside = (r: Rect, x: number, y: number): boolean => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+
 export class Hud {
-  /** the cards' rects this frame (for a tap), and the reshuffle button's */
-  cards: Rect[] = [];
-  reroll: Rect | null = null;
-  private passage: { id: string; l: PassageLayout; w: number } | null = null;
+  /** the level-up's sheet drawn this frame */
+  sheet: Sheet | null = null;
+  /** a finger on a card (its index) or on the reshuffle (REROLL); −1: none */
+  pressed = -1;
+  /** the story card's and the tally's buttons as drawn (a tap anywhere does the same) */
+  storyBtn: Rect | null = null;
+  tallyBtn: Rect | null = null;
+  private storyCache: { key: string; h: number; titleLines: string[]; titleSize: number; body: { lines: string[]; lineH: number }; bodySize: number; pass: PassageLayout | null } | null = null;
+  private xpGrad: { key: string; g: CanvasGradient } | null = null;
 
-  /** Which card a tap at (x, y) lands on (−1: none). */
-  cardAt(x: number, y: number): number {
-    return this.cards.findIndex(r => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h);
+  /** Which card of `sh` a tap at (x, y) lands on (−1: none). */
+  static cardAt(sh: Sheet | null, x: number, y: number): number {
+    return sh ? sh.cards.findIndex(r => inside(r, x, y)) : -1;
   }
 
-  /** Whether a tap at (x, y) lands on the reshuffle button. */
-  rerollAt(x: number, y: number): boolean {
-    const r = this.reroll;
-    return !!r && x >= r.x - 6 && x <= r.x + r.w + 6 && y >= r.y - 6 && y <= r.y + r.h + 6;
+  /** Whether a tap at (x, y) lands on the reshuffle button of `sh`. */
+  static rerollAt(sh: Sheet | null, x: number, y: number): boolean {
+    return !!sh?.reroll && inside(sh.reroll, x, y);
   }
 
-  /** The hearts, the level's bar, the build and the treasures, the sword's dial. */
-  drawBars(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number, pop: number): void {
-    const u = L.u, k = sim.knight;
-    // the level's bar
-    const xp = L.xp;
-    panel(ctx, { x: xp.x - 2, y: xp.y - 2, w: xp.w + 4, h: xp.h + 4 }, 'rgba(30,26,40,.6)', null, (xp.h + 4) / 2);
-    const fill = sim.levelProgress;
-    const g = ctx.createLinearGradient(xp.x, 0, xp.x + xp.w, 0);
+  private xpFill(ctx: CanvasRenderingContext2D, r: Rect): CanvasGradient {
+    const key = `${r.x}|${r.w}`;
+    if (this.xpGrad?.key === key) return this.xpGrad.g;
+    const g = ctx.createLinearGradient(r.x, 0, r.x + r.w, 0);
     g.addColorStop(0, '#c8901c');
     g.addColorStop(1, '#ffe08a');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.roundRect(xp.x, xp.y, Math.max(xp.h, xp.w * fill), xp.h, xp.h / 2);
-    ctx.fill();
-    const fs = L.land ? 11 : 12 * u;
-    ctx.font = font(800, fs, SANS);
-    ctx.textBaseline = 'bottom';
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#fff8e6';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(30,20,20,.5)';
-    const nums = `${fmtNum(Math.floor(sim.run.xp))} / ${fmtNum(xpNeed(sim.run.level))}`;
-    ctx.strokeText(nums, xp.x + xp.w, xp.y - 3);
-    ctx.fillText(nums, xp.x + xp.w, xp.y - 3);
-    ctx.textAlign = 'left';
-    ctx.font = font(800, (L.land ? 12 : 13 * u) + 4 * pop * u, SANS);
-    const lvl = t('hud.level', { n: sim.run.level });
-    ctx.strokeText(lvl, xp.x, xp.y - 3);
-    ctx.fillText(lvl, xp.x, xp.y - 3);
-    // hearts (half hearts show) and Linda's apples
-    const hr = (L.land ? 7 : 8.5 * u), gap = hr * 2.5;
-    const lw = ctx.measureText(lvl).width;
-    let hx = xp.x + lw + 14 * u + hr;
-    const hy = xp.y - (L.land ? 9 : 10 * u);
+    this.xpGrad = { key, g };
+    return g;
+  }
+
+  /**
+   * The status band: the hearts (half hearts show) and Linda's apples, the level and its numbers, the
+   * level's bar, the build's chips and the treasures.  On a phone upright and a big screen it moves
+   * down while the dragon's bar shows (`bossK` 0..1), and the chips step aside for it.
+   */
+  drawStatus(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number, pop: number, bossK: number): void {
+    const st = L.stat, u = L.u, k = sim.knight;
+    const dy = L.statShift * bossK;
+    const rowY = st.rowY + dy, xp = { ...st.xp, y: st.xp.y + dy };
+    panel(ctx, { x: st.x - 7 * u, y: rowY - 12 * u, w: st.w + 14 * u, h: xp.y + xp.h + 6 * u - (rowY - 12 * u) }, 'rgba(30,26,40,.42)', null, 10 * u);
+    const hr = st.heartR, n = k.max + sim.run.apples;
+    const gap = Math.min(hr * 2.55, (st.w * 0.56) / Math.max(1, n));
+    let hx = st.x + hr * 1.15;
+    // the last heart beats when it is all that is left
+    const low = k.hearts > 0 && k.hearts <= 1 ? 1 + 0.14 * Math.max(0, Math.sin(now * 9)) : 1;
     for (let i = 0; i < k.max; i++) {
-      heart(ctx, hx, hy, hr * (k.hit > 0 && i === Math.floor(k.hearts) ? 1.2 : 1), Math.max(0, Math.min(1, k.hearts - i)));
+      heart(ctx, hx, rowY + hr * 0.1, hr * (k.hit > 0 && i === Math.floor(k.hearts) ? 1.2 : i === 0 ? low : 1), clamp01(k.hearts - i));
       hx += gap;
     }
     for (let i = 0; i < sim.run.apples; i++) {
-      paintApple(ctx, hx + 2 * u, hy, hr * 0.85);
-      hx += gap * 0.9;
+      paintApple(ctx, hx + 1, rowY, hr * 0.85);
+      hx += gap * 0.92;
     }
-    // the build: weapons, then gear, then the treasures (not on a very short screen)
-    if (L.showBuild) {
-      let bx = xp.x;
-      const by = L.buildY, br = 11 * u;
-      for (const it of sim.build) {
-        panel(ctx, { x: bx, y: by - br, w: br * 2, h: br * 2 }, isWeapon(it.id) ? 'rgba(30,26,40,.62)' : 'rgba(47,79,158,.55)', it.level >= 6 ? C.gold : null, 6 * u);
-        paintItemIcon(ctx, it.id, bx + br, by, br * 0.62, it.level >= 6);
-        ctx.font = font(800, 9 * u, SANS);
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillStyle = it.level >= 6 ? C.goldLight : '#fff';
-        ctx.fillText(it.level >= 6 ? '★' : String(it.level), bx + br * 2 - 2, by + br - 2);
-        bx += br * 2 + 4 * u;
-      }
-      if (sim.run.treasures.length) bx += 6 * u;
-      for (const id of sim.run.treasures) {
-        panel(ctx, { x: bx, y: by - br, w: br * 2, h: br * 2 }, 'rgba(120,84,20,.6)', C.gold, br);
-        paintTreasureIcon(ctx, id, bx + br, by, br * 0.6);
-        bx += br * 2 + 4 * u;
-      }
-    }
-    // the sword's dial
-    const sw = L.sword;
-    ctx.save();
-    if (sim.swordReady) {
-      ctx.globalCompositeOperation = 'lighter';
-      glow(ctx, sw.x, sw.y, sw.r * (2 + 0.3 * Math.sin(now * 6)), 'rgba(255,220,130,', 0.6);
-      ctx.globalCompositeOperation = 'source-over';
-    }
-    ctx.fillStyle = 'rgba(30,26,40,.7)';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'right';
+    ctx.font = font(700, 13 * u, SANS);
+    const nums = `${fmtNum(Math.floor(sim.run.xp))} / ${fmtNum(xpNeed(sim.run.level))}`;
+    rimText(ctx, nums, st.x + st.w, rowY + 0.5, '#fff8e6');
+    const nw = ctx.measureText(nums).width;
+    ctx.font = font(800, (14 + 3 * pop) * u, SANS);
+    rimText(ctx, t('hud.level', { n: sim.run.level }), st.x + st.w - nw - 9 * u, rowY + 0.5, C.goldLight);
+    panel(ctx, { x: xp.x - 2, y: xp.y - 2, w: xp.w + 4, h: xp.h + 4 }, 'rgba(20,16,28,.66)', null, (xp.h + 4) / 2);
+    ctx.fillStyle = this.xpFill(ctx, xp);
     ctx.beginPath();
-    ctx.arc(sw.x, sw.y, sw.r, 0, TAU);
+    ctx.roundRect(xp.x, xp.y, Math.max(xp.h, xp.w * sim.levelProgress), xp.h, xp.h / 2);
     ctx.fill();
-    ctx.strokeStyle = sim.swordReady ? C.goldLight : C.gold;
-    ctx.lineWidth = 4 * u;
-    ctx.beginPath();
-    ctx.arc(sw.x, sw.y, sw.r - 3 * u, -Math.PI / 2, -Math.PI / 2 + TAU * sim.charge);
-    ctx.stroke();
-    ctx.strokeStyle = sim.swordReady ? '#fffbe8' : C.steel;
-    ctx.lineWidth = 3 * u;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(sw.x - sw.r * 0.35, sw.y + sw.r * 0.35);
-    ctx.lineTo(sw.x + sw.r * 0.4, sw.y - sw.r * 0.4);
-    ctx.stroke();
-    ctx.strokeStyle = C.goldDeep;
-    ctx.beginPath();
-    ctx.moveTo(sw.x - sw.r * 0.4, sw.y + sw.r * 0.05);
-    ctx.lineTo(sw.x - sw.r * 0.05, sw.y + sw.r * 0.4);
-    ctx.stroke();
-    ctx.restore();
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.font = font(800, (sim.swordReady ? 13 : 10.5) * u, SANS);
-    ctx.fillStyle = sim.swordReady ? C.goldLight : 'rgba(255,248,230,.85)';
-    const label = sim.swordReady ? t('hud.swordTap') : t('hud.sword');
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(30,20,20,.45)';
-    const lx = Math.min(sw.x, L.w - ctx.measureText(label).width / 2 - 6);
-    ctx.strokeText(label, lx, sw.y - sw.r - 4 * u);
-    ctx.fillText(label, lx, sw.y - sw.r - 4 * u);
+    const chipA = L.chipsYieldToBoss ? 1 - bossK : 1;
+    if (chipA > 0.02 && (sim.build.length || sim.run.treasures.length)) this.drawChips(ctx, L, sim, chipA);
   }
 
-  /** The dragon's bar while he is around (or flying off for his nap): his name, his road, his thirds; gold while he is open. */
-  drawBoss(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number): void {
+  /** The run's build: a chip per weapon (dark) and gear (blue) with its level, then the treasures (gold coins, overlapping when many). */
+  private drawChips(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, alpha: number): void {
+    const st = L.stat, u = L.u, c = st.chip, cy = st.chipY;
+    const items = sim.build, trs = sim.run.treasures;
+    const step = c + 4 * u, tr = c * 0.88;
+    let trStep = tr + 3 * u;
+    const used = items.length * step + (trs.length ? 6 * u + trs.length * trStep : 0);
+    if (used > st.w && trs.length > 1) trStep = Math.max(tr * 0.45, (st.w - items.length * step - 6 * u - tr) / (trs.length - 1));
+    ctx.save();
+    ctx.globalAlpha *= alpha;
+    let bx = st.chipX;
+    for (const it of items) {
+      const evo = it.level >= 6;
+      panel(ctx, { x: bx, y: cy - c / 2, w: c, h: c }, isWeapon(it.id) ? 'rgba(30,26,40,.74)' : 'rgba(47,79,158,.72)', evo ? C.gold : 'rgba(255,248,230,.24)', 6 * u, 1.2);
+      paintItemIcon(ctx, it.id, bx + c / 2, cy - c * 0.06, c * 0.3, evo);
+      ctx.font = font(800, 11 * u, SANS);
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'alphabetic';
+      rimText(ctx, evo ? '★' : String(it.level), bx + c - 2 * u, cy + c / 2 - 2.5 * u, evo ? C.goldLight : '#fff', 'rgba(20,16,28,.85)', 2.5);
+      bx += step;
+    }
+    if (trs.length) bx += 6 * u;
+    for (const id of trs) {
+      panel(ctx, { x: bx, y: cy - tr / 2, w: tr, h: tr }, 'rgba(120,84,20,.82)', C.gold, tr / 2, 1.2);
+      paintTreasureIcon(ctx, id, bx + tr / 2, cy, tr * 0.32);
+      bx += trStep;
+    }
+    ctx.restore();
+  }
+
+  /** The dragon's bar while he is around (or flying off for his nap): his name and road, his thirds; gold while his weak spot is open. */
+  drawBoss(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number, bossK: number): void {
     const b = sim.boss;
-    if (b.state === 'away') return;
-    const r = L.boss, u = L.land ? 0.8 : L.u;
-    panel(ctx, r, b.fatal && b.state === 'flaw' ? 'rgba(90,64,10,.82)' : 'rgba(30,26,40,.7)', b.fatal && b.state === 'flaw' ? C.gold : null, 8 * u);
-    const pad = 8 * u;
-    ctx.font = font(700, 12 * u, SERIF);
+    if (bossK <= 0.02) return;
+    const r = L.boss, u = L.u;
+    const open = b.fatal && b.state === 'flaw';
+    ctx.save();
+    ctx.globalAlpha *= bossK;
+    panel(ctx, r, open ? 'rgba(90,64,10,.88)' : 'rgba(30,26,40,.8)', open ? C.gold : 'rgba(255,248,230,.2)', 9 * u);
+    const pad = 10 * u;
+    const name = cap(dragonName(b.spec.kind)) + (b.tier > 0 ? ` · ${roadName(b.tier)}` : '');
+    const label = open ? `${flawName(b.spec.flaw)}! ×${fmtNum(b.k, b.k % 1 ? 1 : 0)}` : name;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    ctx.fillStyle = '#fff3d6';
-    const name = cap(dragonName(b.spec.kind)) + (b.tier > 0 ? ` · ${roadName(b.tier)}` : '');
-    const label = b.fatal && b.state === 'flaw' ? `${flawName(b.spec.flaw)}! ×${fmtNum(b.k, b.k % 1 ? 1 : 0)}` : name;
-    const maxLabel = r.w * 0.55;
-    let shown = label;
-    while (shown.length > 4 && ctx.measureText(shown).width > maxLabel) shown = `${shown.slice(0, -2)}…`;
-    ctx.fillStyle = b.fatal && b.state === 'flaw' ? C.goldLight : '#fff3d6';
-    ctx.fillText(shown, r.x + pad, r.y + r.h / 2);
+    const shown = fit(ctx, label, r.w * 0.52, 13.5 * u, 700, SERIF);
+    ctx.fillStyle = open ? C.goldLight : '#fff3d6';
+    ctx.fillText(shown, r.x + pad, r.y + r.h / 2 + 0.5);
     const nx = r.x + pad + ctx.measureText(shown).width + 10 * u;
-    const bw = r.x + r.w - pad - nx, bh = 8 * u, by = r.y + (r.h - bh) / 2;
-    if (bw < 20) return;
-    ctx.fillStyle = 'rgba(255,255,255,.12)';
-    ctx.fillRect(nx, by, bw, bh);
-    const left = 1 - b.damage / b.all;
-    ctx.fillStyle = b.state === 'flaw' ? (b.fatal ? `rgba(255,${Math.round(214 + 30 * Math.sin(now * 10))},120,1)` : C.goldLight) : C.vermilion;
-    ctx.fillRect(nx, by, bw * left, bh);
-    ctx.fillStyle = 'rgba(30,26,40,.9)';
-    for (let i = 1; i < 3; i++) ctx.fillRect(nx + (bw * i) / 3 - 1, by, 2, bh);
+    const bw = r.x + r.w - pad - nx, bh = 10 * u, by = r.y + (r.h - bh) / 2;
+    if (bw >= 24) {
+      panel(ctx, { x: nx, y: by, w: bw, h: bh }, 'rgba(255,255,255,.14)', null, bh / 2);
+      const left = 1 - b.damage / b.all;
+      ctx.fillStyle = b.state === 'flaw' ? (b.fatal ? `rgba(255,${Math.round(214 + 30 * Math.sin(now * 10))},120,1)` : C.goldLight) : C.vermilion;
+      ctx.beginPath();
+      ctx.roundRect(nx, by, Math.max(bh, bw * left), bh, bh / 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(30,26,40,.9)';
+      for (let i = 1; i < 3; i++) ctx.fillRect(nx + (bw * i) / 3 - 1, by, 2, bh);
+    }
+    ctx.restore();
   }
 
-  /** A short banner in the middle of the band (a wave, the dragon, a chest, a weak spot found). */
-  drawBanner(ctx: CanvasRenderingContext2D, L: Layout, text: string, k: number, color: string): void {
+  /**
+   * The Miecz światła's dial, the game's one button (bottom right, under the thumb): a dark plate
+   * with the charge running round it; ready, it turns gold, glows, sends rings out and says what to
+   * do.  `press` (0..1): a finger just came down on it.
+   */
+  drawDial(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number, press: number): void {
+    const sw = L.sword, r = sw.r, u = L.u, ready = sim.swordReady;
+    ctx.save();
+    ctx.translate(sw.x, sw.y);
+    const sc = 1 - 0.1 * press;
+    ctx.scale(sc, sc);
+    if (ready) {
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, 0, 0, r * (2.1 + 0.25 * Math.sin(now * 6)), 'rgba(255,220,130,', 0.55);
+      ctx.globalCompositeOperation = 'source-over';
+      const q = (now * 1.2) % 1;
+      ctx.strokeStyle = `rgba(255,231,163,${0.75 * (1 - q)})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, r + 3 + q * 15, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.fillStyle = ready ? '#c8901c' : 'rgba(30,26,40,.82)';
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, TAU);
+    ctx.fill();
+    ctx.strokeStyle = ready ? '#fff1c4' : 'rgba(255,248,230,.32)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    if (!ready) {
+      ctx.lineCap = 'round';
+      ctx.lineWidth = 5 * u;
+      ctx.strokeStyle = 'rgba(255,248,230,.15)';
+      ctx.beginPath();
+      ctx.arc(0, 0, r - 6 * u, 0, TAU);
+      ctx.stroke();
+      if (sim.charge > 0.01) {
+        ctx.strokeStyle = C.gold;
+        ctx.beginPath();
+        ctx.arc(0, 0, r - 6 * u, -Math.PI / 2, -Math.PI / 2 + TAU * sim.charge);
+        ctx.stroke();
+      }
+    }
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = ready ? '#fffbe8' : C.steel;
+    ctx.lineWidth = 4 * u;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.36, r * 0.36);
+    ctx.lineTo(r * 0.42, -r * 0.42);
+    ctx.stroke();
+    ctx.strokeStyle = ready ? '#7a4f10' : C.goldDeep;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.42, r * 0.06);
+    ctx.lineTo(-r * 0.06, r * 0.42);
+    ctx.stroke();
+    if (press > 0.02) {
+      ctx.strokeStyle = `rgba(255,255,255,${0.85 * press})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, r + 5, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
+    // its name over it, or what to do once it is ready
+    const label = ready ? hand('hud.swordTap', L.touch) : t('hud.sword');
+    ctx.font = font(800, (ready ? 15 : 13) * u, SANS);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const lw = ctx.measureText(label).width;
+    const lx = Math.min(sw.x, L.right - 8 - lw / 2);
+    rimText(ctx, label, lx, sw.y - r - 7 * u, ready ? C.goldLight : 'rgba(255,248,230,.96)', 'rgba(30,20,20,.72)', 3.5);
+  }
+
+  /** A short banner (a wave, the dragon, a chest, a weak spot found): over the knight, or under him while the runner's banner is up. */
+  drawBanner(ctx: CanvasRenderingContext2D, L: Layout, text: string, k: number, color: string, low: boolean): void {
     if (!text || k <= 0) return;
     const u = L.u;
     const a = k < 0.15 ? k / 0.15 : k > 0.8 ? (1 - k) / 0.2 : 1;
     const sc = k < 0.15 ? ease.outBack(k / 0.15) : 1;
     ctx.save();
     ctx.globalAlpha = Math.max(0, a);
-    ctx.translate(L.w / 2, L.bannerY);
+    ctx.translate((L.left + L.right) / 2, low ? L.bannerLowY : L.bannerY);
     ctx.scale(sc, sc);
-    ctx.font = font(800, (L.land ? 18 : 24) * u, SERIF, true);
+    const maxW = L.right - L.left - 40;
+    // one line, or two a little smaller — never shrunk to a smudge
+    let size = (L.shape === 'side' ? 20 : 24) * u;
+    ctx.font = font(800, size, SERIF, true);
+    let lines = [text];
+    if (ctx.measureText(text).width > maxW) {
+      size = Math.max(16, size * 0.8);
+      ctx.font = font(800, size, SERIF, true);
+      lines = wrap(ctx, text, maxW, 2);
+    }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const maxW = L.w - 40;
-    const tw = ctx.measureText(text).width;
-    if (tw > maxW) ctx.scale(maxW / tw, maxW / tw);
-    ctx.lineWidth = 5 * u;
-    ctx.strokeStyle = 'rgba(30,20,20,.55)';
-    ctx.strokeText(text, 0, 0);
-    ctx.fillStyle = color;
-    ctx.fillText(text, 0, 0);
+    const lh = size * 1.15, y0 = -((lines.length - 1) * lh) / 2;
+    lines.forEach((l, i) => rimText(ctx, l, 0, y0 + i * lh, color, 'rgba(30,20,20,.6)', 5 * u));
     ctx.restore();
   }
 
-  /** The level-up: three cards with their numbers, and Linda's reshuffle under them. */
-  drawChoice(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number): void {
+  /** The level-up: the title and Linda's reshuffle on one row, then three cards (a bottom sheet on a phone). */
+  drawChoice(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, sh: Sheet | null, now: number): void {
     const ch = sim.choice;
-    this.cards = [];
-    this.reroll = null;
-    if (!ch) return;
+    this.sheet = ch ? sh : null;
+    if (!ch || !sh) return;
     const u = L.u, k = Math.min(1, ch.t / 0.25);
-    ctx.fillStyle = `rgba(20,16,28,${0.55 * k})`;
+    ctx.fillStyle = `rgba(20,16,28,${0.66 * k})`;
     ctx.fillRect(0, 0, L.w, L.h);
+    if (sh.stacked) {
+      const y = sh.head.y - 8;
+      panel(ctx, { x: L.left + 8, y, w: L.right - L.left - 16, h: L.bottom - 2 - y }, 'rgba(36,30,46,.72)', 'rgba(226,178,60,.4)', 18);
+    } else panel(ctx, { x: sh.head.x - 6 * u, y: sh.head.y - 2 * u, w: sh.head.w + 12 * u, h: sh.head.h + 4 * u }, 'rgba(36,30,46,.8)', null, 14 * u);
+    // the title (and the golden cards' note) on the head row, the reshuffle at its right
     const title = ch.source === 'rest' ? t('choice.rest') : t('choice.level', { n: sim.run.level });
-    const n = ch.cards.length;
-    const areaTop = L.top + 8 * u, areaBot = L.bottom - 8 * u;
-    // a phone on its side: little height, so the cards lie in a row, each drawn like a narrow one
-    const short = L.land || (!L.narrow && areaBot - areaTop < 300 * u);
-    const rerolls = sim.run.rerolls;
-    let cw: number, chh: number, positions: { x: number; y: number }[];
-    if (short) {
-      const bot = L.h - 46;
-      cw = Math.min(250 * u, (L.w - 40) / n - 10);
-      const y0 = L.land ? L.top + 2 : areaTop + 30 * u;
-      chh = Math.max(64, Math.min(120 * u, bot - y0 - 26));
-      const total = n * cw + (n - 1) * 10;
-      positions = ch.cards.map((_, i) => ({ x: (L.w - total) / 2 + i * (cw + 10), y: y0 }));
-    } else if (L.narrow) {
-      cw = Math.min(L.w - 28, 360);
-      chh = Math.min(118 * u, (areaBot - areaTop - 100 * u) / n - 10 * u);
-      const total = n * chh + (n - 1) * 10 * u;
-      const y0 = areaTop + 48 * u + Math.max(0, (areaBot - areaTop - 100 * u - total) / 2);
-      positions = ch.cards.map((_, i) => ({ x: (L.w - cw) / 2, y: y0 + i * (chh + 10 * u) }));
-    } else {
-      cw = Math.min(230 * u, (L.w - 60) / n - 16);
-      chh = Math.min(232 * u, areaBot - areaTop - 120 * u);
-      const total = n * cw + (n - 1) * 16 * u;
-      const y0 = areaTop + 50 * u + Math.max(0, (areaBot - areaTop - 120 * u - chh) / 2);
-      positions = ch.cards.map((_, i) => ({ x: (L.w - total) / 2 + i * (cw + 16 * u), y: y0 }));
-    }
-    const titleY = L.land ? 62 : positions[0].y - (short ? 14 : 30) * u;
-    const titleX = L.land ? L.xp.x + L.xp.w / 2 : L.w / 2;
-    ctx.textAlign = 'center';
+    const hd = sh.head, rr = sh.reroll;
+    const tw = rr ? hd.w - rr.w - 12 * u : hd.w;
+    const tx = rr ? hd.x + 4 * u : hd.x + hd.w / 2;
+    ctx.textAlign = rr ? 'left' : 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = font(800, (short ? 17 : 24) * u, SERIF, true);
-    ctx.fillStyle = C.goldLight;
-    ctx.fillText(title, titleX, titleY);
-    if (ch.gold && !short) {
-      ctx.font = font(700, 12 * u, SANS);
-      ctx.fillStyle = '#fff3d6';
-      ctx.fillText(t('choice.gold'), L.w / 2, titleY + 18 * u);
+    const gold = ch.gold ? t('choice.gold') : '';
+    const ty = gold ? hd.y + hd.h * 0.34 : hd.y + hd.h / 2;
+    const ts = fit(ctx, title, tw, 20 * u, 800, SERIF, sh.stacked ? MIN_READ : 15, true);
+    rimText(ctx, ts, tx, ty, C.goldLight, 'rgba(20,16,28,.55)', 3);
+    if (gold) {
+      const gs = fit(ctx, gold, tw, 13 * u, 700, SANS, 12);
+      rimText(ctx, gs, tx, hd.y + hd.h * 0.8, '#fff3d6', 'rgba(20,16,28,.55)', 3);
     }
+    if (rr) button(ctx, rr, t('hud.reroll', { n: sim.run.rerolls }), ch.t >= 0.25, this.pressed === REROLL, 14 * u);
     ch.cards.forEach((card, i) => {
-      const p = positions[i];
+      const r = sh.cards[i];
       const pop = ease.outBack(Math.min(1, Math.max(0, (ch.t - i * 0.06) / 0.3)));
-      const r = { x: p.x, y: p.y, w: cw, h: chh };
-      this.cards.push(r);
+      const pressed = this.pressed === i;
+      const s = pop * (pressed ? 0.97 : 1);
       ctx.save();
       ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
-      ctx.scale(pop, pop);
+      ctx.scale(s, s);
       ctx.translate(-r.w / 2, -r.h / 2);
-      this.drawCard(ctx, { x: 0, y: 0, w: r.w, h: r.h }, card, sim, ch.gold, i, u, L.narrow || short, now);
+      this.drawCard(ctx, { x: 0, y: 0, w: r.w, h: r.h }, card, sim, ch.gold, i, L, sh.stacked, now, pressed);
       ctx.restore();
     });
-    // the auto-pick countdown on the first card
-    const left = Math.max(0, RULES.choiceSec - ch.t);
-    const r0 = this.cards[0];
+    // the first card is taken by itself when the time runs out
+    const left = Math.max(0, RULES.choiceSec - ch.t), r0 = sh.cards[0];
     ctx.fillStyle = C.gold;
-    ctx.fillRect(r0.x + 10 * u, r0.y + r0.h - 6 * u, (r0.w - 20 * u) * (left / RULES.choiceSec), 3 * u);
-    // Linda's reshuffle, and the hint
-    const last = this.cards[this.cards.length - 1];
-    const below = Math.max(...this.cards.map(c => c.y + c.h));
-    if (rerolls > 0) {
-      ctx.font = font(800, 13 * u, SANS);
-      const label = t('hud.reroll', { n: rerolls });
-      const bw = ctx.measureText(label).width + 28 * u, bh = 30 * u;
-      const bx = (L.w - bw) / 2, byy = Math.min(L.h - bh - 6, below + 10 * u);
-      this.reroll = { x: bx, y: byy, w: bw, h: bh };
-      panel(ctx, this.reroll, 'rgba(246,236,210,.95)', C.gold, bh / 2);
-      ctx.fillStyle = C.ink;
+    ctx.fillRect(r0.x + 12 * u, r0.y + r0.h - 5 * u, (r0.w - 24 * u) * (left / RULES.choiceSec), 3 * u);
+    if (sh.hintY !== null) {
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, L.w / 2, byy + bh / 2 + 1);
-    }
-    if (!short) {
-      ctx.font = font(600, 12 * u, SANS);
-      ctx.fillStyle = 'rgba(255,248,230,.85)';
-      ctx.textAlign = 'center';
-      const hy = rerolls > 0 && this.reroll ? this.reroll.y + this.reroll.h + 14 * u : last.y + last.h + 16 * u;
-      if (hy < L.bottom + 20) ctx.fillText(t('choice.hint'), L.w / 2, hy);
+      const hs = fit(ctx, t('choice.hint'), L.right - L.left - 40, 13 * u, 600, SANS);
+      rimText(ctx, hs, (L.left + L.right) / 2, sh.hintY, 'rgba(255,248,230,.92)', 'rgba(20,16,28,.5)', 3);
     }
   }
 
-  private drawCard(ctx: CanvasRenderingContext2D, r: Rect, card: Card, sim: JerzySim, gold: boolean, i: number, u: number, narrow: boolean, now: number): void {
-    const evo = card.kind === 'evo', special = card.kind === 'treasure';
-    panel(ctx, r, evo || special ? '#fff4cf' : '#f6ecd2', evo || gold || special ? C.gold : 'rgba(120,90,40,.35)', 12 * u);
+  private drawCard(ctx: CanvasRenderingContext2D, r: Rect, card: Card, sim: JerzySim, gold: boolean, i: number, L: Layout, stacked: boolean, now: number, pressed: boolean): void {
+    const u = L.u, evo = card.kind === 'evo', special = card.kind === 'treasure';
+    panel(ctx, r, evo || special ? '#fff4cf' : '#f6ecd2', pressed ? '#d99a1c' : evo || gold || special ? C.gold : 'rgba(120,90,40,.4)', 12 * u, pressed ? 3.5 : 1.5);
     if (evo || special) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       glow(ctx, r.x + r.w / 2, r.y + r.h * 0.3, r.w * 0.6, 'rgba(255,200,90,', 0.2 + 0.1 * Math.sin(now * 4));
       ctx.restore();
     }
-    const pad = 12 * u;
-    ctx.fillStyle = 'rgba(42,34,51,.5)';
-    ctx.font = font(800, 11 * u, SANS);
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.fillText(String(i + 1), r.x + pad * 0.7, r.y + pad * 0.6);
     const title = sim.cardTitle(card);
     const tag = evo ? t('card.evo') : card.kind === 'new' ? t('card.new') : card.kind === 'up' ? t('card.lv', { a: card.from, b: card.to })
       : card.kind === 'pal' ? `${t('card.pal')} · ${t('card.lv', { a: card.from, b: card.to })}` : special ? t('card.treasure') : '';
@@ -365,7 +446,12 @@ export class Hud {
     const notes = sim.cardNotes(card);
     const pair = card.id && isWeapon(card.id) && !evo ? t('card.pair', { name: itemName(WEAPONS[card.id as WeaponId].pair) }) : '';
     const extra = notes.duet ? t('card.duet', { name: duetName(notes.duet) }) : notes.treasure ? t('card.with', { name: treasureName(notes.treasure) }) : '';
+    const note = extra || pair;
     const icon = (cx: number, cy: number, ir: number) => {
+      ctx.fillStyle = evo || special ? 'rgba(226,178,60,.22)' : 'rgba(120,90,40,.1)';
+      ctx.beginPath();
+      ctx.arc(cx, cy, ir * 1.3, 0, TAU);
+      ctx.fill();
       if (card.kind === 'pal' && card.pal) {
         PAL_POSE.t = now;
         PAL_POSE.roll = now * 6;
@@ -373,200 +459,240 @@ export class Hud {
       } else if (special && card.tr) paintTreasureIcon(ctx, card.tr, cx, cy, ir * 0.85);
       else paintItemIcon(ctx, card.kind === 'apple' ? 'apple' : card.kind === 'scales' ? 'scales' : card.id!, cx, cy, ir, evo);
     };
-    if (narrow) {
-      const ir = Math.min(r.h * 0.3, 26 * u, r.w * 0.12);
-      icon(r.x + pad + ir, r.y + r.h / 2, ir);
-      const tx = r.x + pad * 2 + ir * 2, tw = r.w - (tx - r.x) - pad;
+    const tagColor = evo || special ? C.goldDeep : C.vermilionDeep;
+    // the key that takes it (a keyboard's shortcut; a finger needs none)
+    if (!L.touch) {
+      ctx.font = font(800, 12 * u, SANS);
+      ctx.fillStyle = 'rgba(42,34,51,.5)';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText(String(i + 1), r.x + 8 * u, r.y + 6 * u);
+    }
+    if (stacked) {
+      // a full-width card: the icon in its well on the left; the name and its tag, the numbers, the note
+      const pad = 11, ir = Math.min(21, r.h * 0.25);
+      const icx = r.x + pad + ir * 1.3 + 4;
+      icon(icx, r.y + r.h / 2, ir);
+      const tx = icx + ir * 1.3 + 12, tw = r.x + r.w - pad - tx;
+      const y1 = r.y + pad + 10;
+      ctx.textBaseline = 'middle';
+      let tagW = 0;
+      if (tag) {
+        // the tag takes what the name leaves (at least 40 % of the row)
+        ctx.font = font(700, 17, SERIF);
+        const nameW = ctx.measureText(title).width;
+        ctx.textAlign = 'right';
+        const tg = fit(ctx, tag, Math.max(tw * 0.4, tw - nameW - 10), 12.5, 800, SANS, MIN_TEXT);
+        ctx.fillStyle = tagColor;
+        ctx.fillText(tg, r.x + r.w - pad, y1);
+        tagW = ctx.measureText(tg).width + 8;
+      }
       ctx.textAlign = 'left';
       ctx.fillStyle = C.ink;
-      ctx.font = font(700, 16 * u, SERIF);
-      ctx.fillText(title, tx, r.y + pad * 0.7);
-      ctx.font = font(800, 10.5 * u, SANS);
-      ctx.fillStyle = evo || special ? C.goldDeep : C.vermilionDeep;
-      ctx.fillText(tag, tx, r.y + pad * 0.7 + 20 * u);
-      ctx.font = font(500, 11.5 * u, SANS);
+      ctx.fillText(fit(ctx, title, tw - tagW, 17, 700, SERIF), tx, y1);
+      const top = y1 + 13, bot = r.y + r.h - pad - (note ? 16 : 0);
+      const p = para(ctx, desc, tw, bot - top, 15, MIN_READ, 500, SANS);
       ctx.fillStyle = C.inkSoft;
-      const lines = wrap(ctx, desc, tw).slice(0, r.h > 96 * u ? 3 : 2);
-      lines.forEach((l, j) => ctx.fillText(l, tx, r.y + pad * 0.7 + 36 * u + j * 14 * u));
-      const ny = r.y + r.h - pad - 8 * u;
-      if (extra && ny > r.y + pad * 0.7 + 36 * u + lines.length * 14 * u) {
-        ctx.font = font(800, 10 * u, SANS);
-        ctx.fillStyle = C.goldDeep;
-        ctx.fillText(extra, tx, ny);
-      } else if (pair && ny > r.y + pad * 0.7 + 36 * u + lines.length * 14 * u) {
-        ctx.font = font(600, 10 * u, SANS);
-        ctx.fillStyle = 'rgba(42,34,51,.55)';
-        ctx.fillText(pair, tx, ny);
+      ctx.textBaseline = 'top';
+      p.lines.forEach((l, j) => ctx.fillText(l, tx, top + j * p.lineH));
+      if (note) {
+        ctx.textBaseline = 'bottom';
+        const ns = fit(ctx, note, tw, 12.5, extra ? 800 : 600, SANS, MIN_TEXT);
+        ctx.fillStyle = extra ? C.goldDeep : 'rgba(42,34,51,.66)';
+        ctx.fillText(ns, tx, r.y + r.h - pad + 2);
       }
       return;
     }
-    const ir = Math.min(r.w * 0.17, 30 * u);
-    icon(r.x + r.w / 2, r.y + pad + ir + 6 * u, ir);
+    // a tall card (in a row): the icon on top, the name, the tag, the numbers, the note at the bottom
+    const pad = 12 * u, ir = Math.min(24 * u, r.w * 0.14, r.h * 0.12);
+    const cx = r.x + r.w / 2, iw = r.w - pad * 2;
+    icon(cx, r.y + pad + ir * 1.3, ir);
     ctx.textAlign = 'center';
-    let y = r.y + pad + ir * 2 + 18 * u;
+    ctx.textBaseline = 'top';
+    let y = r.y + pad + ir * 2.6 + 8 * u;
     ctx.fillStyle = C.ink;
-    ctx.font = font(700, 18 * u, SERIF);
-    wrap(ctx, title, r.w - pad * 2).slice(0, 2).forEach(l => { ctx.fillText(l, r.x + r.w / 2, y); y += 21 * u; });
-    if (tag) {
-      ctx.font = font(800, 11 * u, SANS);
-      ctx.fillStyle = evo || special ? C.goldDeep : C.vermilionDeep;
-      ctx.fillText(tag, r.x + r.w / 2, y + 2 * u);
+    ctx.font = font(700, 17 * u, SERIF);
+    for (const l of wrap(ctx, title, iw, 2)) {
+      ctx.fillText(l, cx, y);
       y += 20 * u;
     }
-    ctx.font = font(500, 12.5 * u, SANS);
+    if (tag) {
+      ctx.fillStyle = tagColor;
+      ctx.fillText(fit(ctx, tag, iw, 12.5 * u, 800, SANS, MIN_TEXT), cx, y + 1);
+      y += 19 * u;
+    }
+    ctx.font = font(extra ? 800 : 600, 12.5 * u, SANS);
+    const noteLines = note ? wrap(ctx, note, iw, 2) : [];
+    const noteH = noteLines.length * 15 * u;
+    const p = para(ctx, desc, iw, r.y + r.h - pad - noteH - 6 * u - y, 15 * u, MIN_READ, 500, SANS);
     ctx.fillStyle = C.inkSoft;
-    wrap(ctx, desc, r.w - pad * 2).slice(0, 4).forEach(l => { ctx.fillText(l, r.x + r.w / 2, y); y += 16 * u; });
-    if (extra) {
-      ctx.font = font(800, 11 * u, SANS);
-      ctx.fillStyle = C.goldDeep;
-      wrap(ctx, extra, r.w - pad * 2).slice(0, 2).forEach((l, j) => ctx.fillText(l, r.x + r.w / 2, r.y + r.h - pad - 30 * u + j * 14 * u));
-    } else if (pair) {
-      ctx.font = font(600, 10.5 * u, SANS);
-      ctx.fillStyle = 'rgba(42,34,51,.55)';
-      ctx.fillText(pair, r.x + r.w / 2, r.y + r.h - pad - 16 * u);
+    p.lines.forEach((l, j) => ctx.fillText(l, cx, y + j * p.lineH));
+    if (noteLines.length) {
+      ctx.font = font(extra ? 800 : 600, 12.5 * u, SANS);
+      ctx.fillStyle = extra ? C.goldDeep : 'rgba(42,34,51,.66)';
+      noteLines.forEach((l, j) => ctx.fillText(l, cx, r.y + r.h - pad - noteH + j * 15 * u));
     }
   }
 
-  /** The run's tally: what it gathered, how near the record, what each weapon did, and on to the next. */
+  /** The run's tally: what it gathered, how near the record, what each weapon did, and the button to the next run. */
   drawTally(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim, now: number): void {
     const ta = sim.tally;
+    this.tallyBtn = null;
     if (!ta) return;
-    const u = L.land ? 0.72 : L.u, k = Math.min(1, ta.t / 0.3);
-    ctx.fillStyle = `rgba(20,16,28,${0.6 * k})`;
+    const u = L.u, k = Math.min(1, ta.t / 0.3);
+    ctx.fillStyle = `rgba(20,16,28,${0.62 * k})`;
     ctx.fillRect(0, 0, L.w, L.h);
     const bars = ta.top.length;
-    const w = Math.min(L.w - 28, (L.land ? 560 : 420) * u), h = (L.land ? 196 : 238 + bars * 20) * u;
-    const r = { x: (L.w - w) / 2, y: L.land ? Math.max(L.top, Math.min(L.h - h - 4, (L.top + L.h - h) / 2)) : L.top + Math.max(4, Math.min((L.bottom - L.top - h) / 2, L.h - L.top - h - 4)), w, h };
+    const { box, btn, cols } = tallyBox(L, bars);
+    this.tallyBtn = btn;
     ctx.save();
-    ctx.translate(r.x + w / 2, r.y + h / 2);
     const sc = ease.outBack(k);
+    ctx.translate(box.x + box.w / 2, box.y + box.h / 2);
     ctx.scale(sc, sc);
-    ctx.translate(-w / 2, -h / 2);
-    panel(ctx, { x: 0, y: 0, w, h }, '#f6ecd2', C.gold, 14 * u);
+    ctx.translate(-box.x - box.w / 2, -box.y - box.h / 2);
+    panel(ctx, box, '#f6ecd2', C.gold, 14 * u);
+    const x0 = box.x, w = box.w, colW = cols ? w * 0.5 : w;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = C.ink;
-    ctx.font = font(800, 22 * u, SERIF, true);
-    ctx.fillText(t('tally.title', { n: ta.run }), w / 2, 28 * u);
-    const colW = L.land ? w * 0.5 : w;
-    const cols: [string, string][] = [
+    ctx.fillText(fit(ctx, t('tally.title', { n: ta.run }), w - 32, 21 * u, 800, SERIF, 15, true), x0 + w / 2, box.y + 26 * u);
+    const vals: [string, string][] = [
       [t('tally.scales'), fmtNum(ta.scales)],
       [t('tally.time'), `${Math.floor(ta.time / 60)}:${String(Math.floor(ta.time % 60)).padStart(2, '0')}`],
       [t('tally.level'), String(ta.level)],
     ];
-    cols.forEach(([kk, v], i) => {
-      const cx = colW * (0.2 + 0.3 * i);
+    const vy = box.y + 64 * u;
+    vals.forEach(([lab, v], i) => {
+      const cx = x0 + colW * (0.2 + 0.3 * i);
       ctx.font = font(800, 24 * u, SANS);
       ctx.fillStyle = i === 0 ? C.goldDeep : C.ink;
-      ctx.fillText(v, cx, 72 * u);
-      ctx.font = font(600, 11 * u, SANS);
+      ctx.fillText(v, cx, vy);
+      if (i === 0 && ta.scales > 0) paintScale(ctx, cx - ctx.measureText(v).width / 2 - 12 * u, vy, 8 * u, 10, now);
       ctx.fillStyle = C.inkSoft;
-      ctx.fillText(kk, cx, 94 * u);
+      ctx.fillText(fit(ctx, lab, colW * 0.29, 13 * u, 600, SANS), cx, vy + 22 * u);
     });
-    if (ta.scales > 0) paintScale(ctx, colW * 0.2 - 32 * u, 72 * u, 9 * u, 10, now);
-    ctx.font = font(700, 14 * u, SANS);
-    ctx.fillStyle = ta.best ? C.goldDeep : C.vermilionDeep;
     const line = ta.best ? t('tally.best') : ta.toBest > 0 ? t('tally.toBest', { scales: scalesText(ta.toBest) }) : '';
-    if (line) ctx.fillText(line, colW / 2, 122 * u);
+    if (line) {
+      ctx.fillStyle = ta.best ? C.goldDeep : C.vermilionDeep;
+      ctx.fillText(fit(ctx, line, colW - 28 * u, 14.5 * u, 700, SANS), x0 + colW / 2, vy + 50 * u);
+    }
     // what each weapon did: the players' stat screen
     if (bars) {
-      const bx = L.land ? w * 0.54 : 24 * u, bw = L.land ? w * 0.42 : w - 48 * u;
-      let y = L.land ? 60 * u : 148 * u;
+      const bx = cols ? x0 + w * 0.53 : x0 + 20 * u, bw = cols ? w * 0.43 : w - 40 * u;
+      let y = cols ? box.y + 58 * u : vy + 78 * u;
       ctx.textAlign = 'left';
-      ctx.font = font(800, 10.5 * u, SANS);
+      ctx.font = font(800, 13 * u, SANS);
       ctx.fillStyle = C.inkSoft;
       ctx.fillText(t('tally.dmg'), bx, y);
-      y += 16 * u;
+      y += 19 * u;
+      const bh = 19 * u;
       for (const s of ta.top) {
-        ctx.fillStyle = 'rgba(42,34,51,.12)';
-        ctx.fillRect(bx, y - 6 * u, bw, 12 * u);
-        ctx.fillStyle = C.gold;
-        ctx.fillRect(bx, y - 6 * u, bw * Math.max(0.02, s.share), 12 * u);
+        panel(ctx, { x: bx, y: y - bh / 2, w: bw, h: bh }, 'rgba(42,34,51,.12)', null, 5 * u);
+        panel(ctx, { x: bx, y: y - bh / 2, w: Math.max(bh * 0.6, bw * s.share), h: bh }, 'rgba(226,178,60,.88)', null, 5 * u);
         ctx.fillStyle = C.ink;
-        ctx.font = font(700, 10.5 * u, SANS);
-        ctx.fillText(`${sim.sourceName(s.src)} · ${Math.round(s.share * 100)}%`, bx + 6 * u, y + 0.5);
-        y += 18 * u;
+        ctx.fillText(fit(ctx, `${sim.sourceName(s.src)} · ${Math.round(s.share * 100)}%`, bw - 12 * u, 13 * u, 700, SANS), bx + 7 * u, y + 0.5);
+        y += 24 * u;
       }
       ctx.textAlign = 'center';
     }
-    ctx.font = font(500, 12 * u, SANS);
+    // the scales stay; then the button
+    ctx.font = font(500, 13 * u, SANS);
     ctx.fillStyle = C.inkSoft;
-    const keptY = L.land ? 146 * u : h - 52 * u;
-    wrap(ctx, t('tally.kept'), colW - 30 * u).slice(0, 2).forEach((l, i) => ctx.fillText(l, colW / 2, keptY + i * 15 * u));
-    if (ta.t >= RULES.tallyMin) {
-      ctx.font = font(800, 13 * u, SANS);
-      ctx.fillStyle = C.goldDeep;
-      ctx.fillText(t('tally.next'), w / 2, h - 18 * u);
-    }
+    const kept = wrap(ctx, t('tally.kept'), colW - 32 * u, 2);
+    const ky = btn.y - 12 * u - (kept.length - 0.5) * 16 * u;
+    kept.forEach((l, i) => ctx.fillText(l, x0 + colW / 2, ky + i * 16 * u));
+    button(ctx, btn, hand('tally.next', L.touch), ta.t >= RULES.tallyMin, false, 15 * u);
     ctx.restore();
   }
 
-  /** The opening card (the first session) and the card of a land freed (its road won, the next fight). */
+  /** The opening card (the first session) and the card of a land freed (its road won, the next fight), each with its button. */
   drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: JerzySim): void {
     const st = sim.story;
+    this.storyBtn = null;
     if (!st || st.t < 0) return;
-    const u = L.land ? 0.78 : L.u, k = Math.min(1, st.t / 0.35), out = st.dur - st.t < 0.3 ? (st.dur - st.t) / 0.3 : 1;
+    const u = L.u, k = Math.min(1, st.t / 0.35), out = st.dur - st.t < 0.3 ? (st.dur - st.t) / 0.3 : 1;
+    const open = st.kind === 'open';
+    const w = Math.min(L.right - L.left - 16, 480 * u), pad = 16 * u, tw = w - pad * 2;
+    const room = L.bottom - L.top - 12, btnH = 46 * u;
+    const ps = passage('eph6.16');
+    const next = st.to ?? st.from;
+    const key = `${st.kind}|${st.from}|${st.to}|${st.tier}|${st.first}|${w}|${room}`;
+    let lay = this.storyCache?.key === key ? this.storyCache : null;
+    if (!lay) {
+      // measure first: the words at the largest size that fits the room (a German card on the smallest phone too)
+      const titleText = open ? t('story.open.title') : t('story.land.title', { name: cap(dragonName(st.from)) });
+      ctx.font = font(800, (open ? 24 : 21) * u, SERIF, true);
+      const titleLines = open ? [cut(ctx, titleText, tw)] : wrap(ctx, titleText, tw, 2);
+      const titleSize = (open ? 24 : 21) * u;
+      const text = open ? t('story.open.text')
+        : [t('story.land.sub', { town: townName(st.from), road: roadName(st.tier), next: `${townName(next)} (${roadName(st.toTier)})`, story: `${cap(dragonName(next))} ${townStory(next)}` }),
+          ...(st.first ? [t('story.land.pal')] : [])].join(' ');
+      const fixed = pad * 2 + titleLines.length * titleSize * 1.2 + 8 * u + 12 * u + btnH;
+      let pick: { body: { lines: string[]; lineH: number }; size: number; pass: PassageLayout | null; h: number } | null = null;
+      for (let size = 15 * u; size >= MIN_READ - 1e-6 && !pick; size -= 0.5) {
+        ctx.font = font(500, size, SANS);
+        const lines = wrap(ctx, text, tw);
+        const bodyH = lines.length * size * 1.3;
+        // the verse at 17 px or more: its reference line (62 % of it) then stays at the 11 px floor
+        const pass = open ? layoutPassage(ctx, ps, tw, Math.max(40, room - fixed - bodyH - 10 * u), { max: 19, min: 17 }) : null;
+        const h = fixed + bodyH + (pass ? pass.height + 10 * u : 0);
+        const last = size - 0.5 < MIN_READ - 1e-6;
+        if ((h <= room && (!pass || pass.fits)) || last) pick = { body: { lines, lineH: size * 1.3 }, size, pass, h: Math.min(room, h) };
+      }
+      lay = { key, h: pick!.h, titleLines, titleSize, body: pick!.body, bodySize: pick!.size, pass: pick!.pass };
+      this.storyCache = lay;
+    }
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(k, out));
-    ctx.fillStyle = 'rgba(20,16,28,.6)';
+    ctx.fillStyle = 'rgba(20,16,28,.62)';
     ctx.fillRect(0, 0, L.w, L.h);
-    const w = Math.min(L.w - 24, (L.land ? 560 : 470) * u);
-    const open = st.kind === 'open';
-    const pad = 18 * u;
-    const top = L.top;
-    // measure first: the card fits its words (and the passage) and no more
-    ctx.font = font(500, 14 * u, SANS);
-    const openLines = open ? wrap(ctx, t('story.open.text'), w - pad * 2).slice(0, 5) : [];
-    ctx.font = font(800, 21 * u, SERIF, true);
-    const next = st.to ?? st.from;
-    const titleLines = open ? [] : wrap(ctx, t('story.land.title', { name: cap(dragonName(st.from)) }), w - pad * 2).slice(0, 2);
-    ctx.font = font(500, 13.5 * u, SANS);
-    const sub = t('story.land.sub', { town: townName(st.from), road: roadName(st.tier), next: `${townName(next)} (${roadName(st.toTier)})`, story: `${cap(dragonName(next))} ${townStory(next)}` });
-    const subLines = open ? [] : [...wrap(ctx, sub, w - pad * 2), ...(st.first ? wrap(ctx, t('story.land.pal'), w - pad * 2) : [])].slice(0, 6);
-    const room = L.h - top - 16;
-    const ps = passage('eph6.16');
-    if (open && (!this.passage || this.passage.w !== w)) this.passage = { id: 'eph6.16', l: layoutPassage(ctx, ps, w - pad * 2, Math.max(40, room - (36 * u + openLines.length * 19 * u + pad * 2 + 40 * u)), { max: 16, min: 10 }), w };
-    const h = open ? Math.min(room, pad * 2 + 36 * u + openLines.length * 19 * u + 10 * u + (this.passage?.l.height ?? 60) + 34 * u)
-      : pad * 2 + titleLines.length * 26 * u + subLines.length * 18 * u + 8 * u;
-    const r = { x: (L.w - w) / 2, y: top + Math.max(L.land ? 2 : 8, Math.min(40 * u, (L.h - top - h) / 3)), w, h };
+    const h = lay.h;
+    const r = { x: (L.left + L.right - w) / 2, y: L.top + 6 + Math.max(0, (room - h) * 0.4), w, h };
     panel(ctx, r, '#f6ecd2', C.gold, 14 * u);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
+    const cx = r.x + w / 2;
+    let y = r.y + pad;
     ctx.fillStyle = C.ink;
-    if (open) {
-      ctx.font = font(800, 24 * u, SERIF, true);
-      ctx.fillText(t('story.open.title'), L.w / 2, r.y + pad);
-      ctx.font = font(500, 14 * u, SANS);
-      ctx.fillStyle = C.inkSoft;
-      let y = r.y + pad + 36 * u;
-      for (const l of openLines) { ctx.fillText(l, L.w / 2, y); y += 19 * u; }
-      if (this.passage) drawPassage(ctx, ps, this.passage.l, L.w / 2, y + 10 * u, { text: C.ink, ref: C.goldDeep });
-      ctx.font = font(800, 12 * u, SANS);
-      ctx.fillStyle = C.goldDeep;
-      ctx.fillText(t('story.tap'), L.w / 2, r.y + h - pad - 6 * u);
-    } else {
-      ctx.font = font(800, 21 * u, SERIF, true);
-      let y = r.y + pad;
-      for (const l of titleLines) { ctx.fillText(l, L.w / 2, y); y += 26 * u; }
-      ctx.font = font(500, 13.5 * u, SANS);
-      ctx.fillStyle = C.inkSoft;
-      for (const l of subLines) { ctx.fillText(l, L.w / 2, y + 6 * u); y += 18 * u; }
+    ctx.font = font(800, lay.titleSize, SERIF, true);
+    for (const l of lay.titleLines) {
+      ctx.fillText(l, cx, y);
+      y += lay.titleSize * 1.2;
     }
+    y += 8 * u;
+    ctx.font = font(500, lay.bodySize, SANS);
+    ctx.fillStyle = C.inkSoft;
+    // what does not fit the room is cut (only ever on a screen smaller than any phone checked)
+    const maxBody = Math.max(1, Math.floor((r.y + h - pad - btnH - 12 * u - (lay.pass ? lay.pass.height + 10 * u : 0) - y) / lay.body.lineH));
+    const body = lay.body.lines.length > maxBody ? [...lay.body.lines.slice(0, maxBody - 1), cut(ctx, lay.body.lines.slice(maxBody - 1).join(' '), tw)] : lay.body.lines;
+    for (const l of body) {
+      ctx.fillText(l, cx, y);
+      y += lay.body.lineH;
+    }
+    if (lay.pass) drawPassage(ctx, ps, lay.pass, cx, y + 10 * u, { text: C.ink, ref: C.goldDeep });
+    const bw = Math.min(230 * u, w - 40);
+    const btn = { x: cx - bw / 2, y: r.y + h - pad * 0.75 - btnH, w: bw, h: btnH };
+    this.storyBtn = btn;
+    button(ctx, btn, hand(open ? 'story.tap' : 'story.next', L.touch), st.t >= 0.6, false, 15 * u);
     ctx.restore();
   }
 
-  /** Linda's bubble over her head (kept on screen and under the runner's HUD). */
+  /** Linda's bubble over her head: under the status band, above the bottom edge, never over the dial. */
   drawBubble(ctx: CanvasRenderingContext2D, L: Layout, text: string, x: number, y: number, k: number): void {
-    const u = L.land ? 0.8 : L.u;
+    const u = L.u;
     ctx.save();
-    ctx.font = font(600, 13 * u, SANS);
-    const maxW = Math.min(250 * u, L.w - 24);
-    const lines = wrap(ctx, text, maxW - 20 * u);
-    const lh = 16 * u;
-    const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 20 * u), bh = lines.length * lh + 14 * u;
-    const bx = Math.max(8, Math.min(L.w - bw - 8, x - bw * 0.3));
-    const minY = L.land ? L.top - 6 : L.top + 4;
-    const by = Math.max(minY, Math.min(L.bottom - bh - (L.land ? 4 : 60 * u), y - bh - 12 * u));
+    ctx.font = font(600, 14 * u, SANS);
+    const maxW = Math.min(260 * u, L.right - L.left - 24);
+    const lines = wrap(ctx, text, maxW - 22 * u, 3);
+    const lh = 18 * u;
+    const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 22 * u), bh = lines.length * lh + 14 * u;
+    let bx = Math.max(L.left + 8, Math.min(L.right - bw - 8, x - bw * 0.3));
+    let by = Math.max(L.statBottom + 6, Math.min(L.bottom - bh - 10, y - bh - 12 * u));
+    const d = L.swordHit, dTop = d.y - 26 * u;
+    if (bx + bw > d.x - 6 && by + bh > dTop) {
+      if (d.x - 6 - bw >= L.left + 8) bx = d.x - 6 - bw;
+      else by = Math.max(L.statBottom + 6, dTop - bh - 6);
+    }
     ctx.globalAlpha = Math.min(1, k * 4);
     ctx.fillStyle = '#fffaf0';
     ctx.strokeStyle = 'rgba(42,34,51,.35)';
@@ -587,7 +713,7 @@ export class Hud {
     ctx.fillStyle = C.ink;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    lines.forEach((l, i) => ctx.fillText(l, bx + 10 * u, by + 7 * u + i * lh));
+    lines.forEach((l, i) => ctx.fillText(l, bx + 11 * u, by + 7 * u + i * lh));
     ctx.restore();
   }
 }
