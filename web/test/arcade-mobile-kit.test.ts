@@ -3,6 +3,7 @@
  * shrinking under the floor, and the target audit every game's layout test uses.
  */
 import { describe, expect, it } from 'vitest';
+import { splitFont } from '../src/arcade/kit/juice';
 import { CHECK_SIZES, MIN_TAP, MIN_TEXT, auditTargets, fitText, hitRect, hits, target, uiScale } from '../src/arcade/kit/mobile';
 
 const SIZE = /(\d+(?:\.\d+)?)px/;
@@ -70,6 +71,13 @@ describe('kit/mobile', () => {
     expect(bad.some(p => p.includes('"under the HUD"'))).toBe(true);
     expect(bad.some(p => p.includes('"off the edge"'))).toBe(true);
     expect(bad.some(p => p.includes('overlap'))).toBe(true);
+  });
+
+  it('reads a floater font as a family, a weight and a family, or a whole font', () => {
+    expect(splitFont('"Manrope Variable", sans-serif')).toEqual({ pre: '', family: '"Manrope Variable", sans-serif' });
+    expect(splitFont('800 "Manrope Variable", sans-serif')).toEqual({ pre: '800 ', family: '"Manrope Variable", sans-serif' });
+    expect(splitFont('italic 700 17px Fraunces, serif')).toEqual({ pre: 'italic 700 ', family: 'Fraunces, serif' });
+    expect(splitFont('800 17.5px/1.2 Manrope')).toEqual({ pre: '800 ', family: 'Manrope' });
   });
 
   it('checks the hardest phone first, and every size leaves room to play', () => {

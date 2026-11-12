@@ -127,14 +127,20 @@ export class Floaters {
     while (this.items.length && this.items[0].t >= this.items[0].dur) this.items.shift();
   }
 
+  /**
+   * `font` is a family ("Manrope, sans-serif"), or a weight and a family ("800 Manrope"), or even a whole
+   * font ("800 17px Manrope"): the size is always the floater's own.  (Three games passed a weight or a
+   * whole font, which made "17px 800 Manrope" — invalid, so the canvas kept its 10 px default.)
+   */
   draw(ctx: CanvasRenderingContext2D, font: string): void {
+    const { pre, family } = splitFont(font);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const f of this.items) {
       const k = f.t / f.dur;
       const pop = k < 0.18 ? ease.outBack(k / 0.18) : 1;
       ctx.globalAlpha = k > 0.65 ? Math.max(0, 1 - (k - 0.65) / 0.35) : 1;
-      ctx.font = `${Math.round(f.size * pop)}px ${font}`;
+      ctx.font = `${pre}${Math.round(f.size * pop)}px ${family}`;
       ctx.fillStyle = 'rgba(0,0,0,.35)';
       ctx.fillText(f.text, f.x, f.y - 46 * ease.outCubic(k) + 2);
       ctx.fillStyle = f.color;
@@ -142,6 +148,12 @@ export class Floaters {
     }
     ctx.globalAlpha = 1;
   }
+}
+
+/** A CSS font's style and weight (with their trailing space) and its family, its size (if any) left out. */
+export function splitFont(font: string): { pre: string; family: string } {
+  const m = font.match(/^\s*((?:(?:italic|oblique|normal|bold|bolder|lighter|\d{3})\s+)*)(?:\d+(?:\.\d+)?px(?:\/[\d.]+)?\s+)?(.+)$/);
+  return m ? { pre: m[1], family: m[2].trim() } : { pre: '', family: font.trim() };
 }
 
 /** A decaying camera shake (trauma model); silent with reduced motion. */
