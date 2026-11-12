@@ -4206,22 +4206,160 @@ audio.ts, i18n.ts; tests in test/arcade-rozswietl.test.ts.
 
 ### 13.8 Ja jestem… — the vision drawn, coloured and lit
 
-*Direction (the builder rewrites this section).* Before play the player chooses a **declaration**
-(one of about eighteen, each a word, a matching procedural picture and its verse: zdrowy/zdrowa,
-uzdrowiony, silny, szczęśliwy, bogaty, wolny, kochany, spokojny, odważny, nowy, zwycięzcą, światłem,
-dzieckiem Bożym, błogosławiony, mądry, bezpieczny, przebaczony, wybrany) or **their own vision** (their
-picture and their own word, kept only on this device). By default the game offers the next
-declaration the player has not had yet — "the record is always a unique affirmation". Polish needs
-the speaker's form: the progress card asks once ("jestem silny / jestem silna"), German, English and
-Swedish need none. The picture is **prepared before the game** (in the lobby when chosen, and during
-calibration at the latest): a structure-aware mosaic (denser cells where the picture has detail),
-a pencil sketch, each cell's colour. Play: the sketch on paper behind thin leading like stained glass;
-focus pours **colour** into the chosen cell (a watercolour bloom from its centre), a full cell
-**lights** and its leading turns gold; neighbours lit together merge into larger panes. Rest is
-**glow**: lit cells brighten and an aura gathers around the frame while the task asks the player to
-repeat the declaration slowly in the mind. The finale (all cells lit, or time up): the leading
-dissolves, the picture glows from within, the **aura** radiates (rays, bloom, rising motes), and the
-declaration is written out in a serif, with its verse. The summary and the album keep it.
+The founder: *"IN THE POWERFUL NAME OF JESUS I AM … — you give it your own picture of a dream and
+strengthen it step by step; the game works by focusing on the picture; the picture is first turned into a
+mosaic sketch, processed before the game starts; then fragment after fragment takes colour and lights up;
+a beautiful, aesthetic building of the vision that lights up at the end with an aura; the record is always
+a unique affirmation 'Przez potężne imię Jezusa ja jestem…' with a matching picture."* So: **one vision a
+session** — a picture in an arched stained-glass window — sketched before play, coloured cell by cell by
+the player's focus, glowing with their calm, and at the end written out as the declaration with its verse.
+
+**The declarations.** Eighteen, each a word (Polish in the speaker's form), a picture painted in code in
+one style (luminous gouache: layered skies, light as additive glows, silhouettes with a warm rim, grass and
+flowers in strokes) and the verse it stands on (§13.3: identity in Christ, never a promise of outcomes).
+The figures are the player; Jesus is named, never shown; no dove, no butterfly, no cross (§13.4).
+
+| id | pl (m / f) | en · de · sv | picture (its named fragments) | verse |
+|---|---|---|---|---|
+| kochany | kochany / kochana | loved · geliebt · älskad | two people embracing on a hill against the evening sun (Objęcie, Światło, Niebo, Ogród) | Jer 31:3 |
+| zdrowy | zdrowy / zdrowa | healthy · gesund · frisk | a runner on a hill path at sunrise (Bieg o świcie, Słońce, Niebo, Wzgórza, Łąka) | Jer 33:6 |
+| silny | silny / silna | strong · stark · stark | a cedar of Lebanon on a mountain ledge, snow peaks (Cedr, Szczyty, Niebo, Skała) | Phil 4:13 |
+| szczesliwy | szczęśliwy / -a | happy · glücklich · lycklig | a dance in a meadow of poppies and cornflowers (Taniec, Słońce, Drzewo, Niebo, Kwiaty, Łąka) | John 15:11 |
+| spokojny | spokojny / -a | at peace · in Frieden · i frid | a still lake at dawn, mist, a jetty, reeds (Słońce, Pomost, Niebo, Brzeg, Blask na wodzie, Jezioro) | John 14:27 |
+| wolny | wolny / -a | free · frei · fri | a swallow leaving an open golden cage for the wide sky over the sea | John 8:36 |
+| dziecko | dzieckiem Bożym | a child of God · ein Kind Gottes · ett Guds barn | a child running with a kite toward the rising sun | John 1:12 |
+| bogaty | bogaty / -a | rich · reich · rik | a harvest table under an orchard, an overflowing basket | 2 Cor 8:9 |
+| odwazny | odważny / -a | brave · mutig · modig | a figure on a rock facing a great wave, light breaking through | 2 Tim 1:7 |
+| bezpieczny | bezpieczny / -a | safe · geborgen · trygg | a strong tower on a rock at dusk, its windows lit | Prov 18:10 |
+| swiatlo | światłem | light · Licht · ljus | a city on a hill at night, its lights in the river | Eph 5:8 |
+| blogoslawiony | błogosławiony / -a | blessed · gesegnet · välsignad | gentle rain from one cloud over sunlit fields | Eph 1:3 |
+| wybrany | wybrany / -a | chosen · auserwählt · utvald | an open, lit doorway in an evening street | Col 3:12 |
+| uzdrowiony | uzdrowiony / -a | healed · geheilt · helad | a young tree growing from an old stump after rain | Isa 53:5 |
+| nowy | nowym człowiekiem | a new creation · ein neuer Mensch · en ny människa | a green shoot breaking the soil toward the sun | Eph 4:24 |
+| oczyszczony | oczyszczony / -a | forgiven · frei von Schuld · förlåten | a clear stream washing white linen in the sun | 1 John 1:9 |
+| madry | mądry / -a | wise · weise · vis | an open book by an oil lamp at night | Prov 2:6 |
+| zwyciezca | zwycięzcą / zwyciężczynią | victorious · siegreich · segerrik | a figure, arms raised, on a summit over a sea of clouds | Rom 8:37 |
+
+The sentence: pl "Przez potężne imię Jezusa ja jestem {word}.", en "In the powerful name of Jesus I am
+{word}.", de "Im mächtigen Namen Jesu bin ich {word}.", sv "I Jesu mäktiga namn är jag {word}." Each
+picture's geometry lives in `scenes.ts`, shared by its painter and by its **fragments**: the first region
+whose test holds for a cell's centre names it, so "Bieg o świcie" in the game is the runner in the picture
+(the subject always keeps at least the cell nearest the picture's heart).
+
+**The unique affirmation and the choice.** By default the next session brings the next declaration not yet
+in the album (the newcomer's order begins with *kochany*, then the founder's own four); once all eighteen
+are in, the one received least and longest ago. The lobby's card lets the player **choose** one for the next
+session, **pin** one for every session, or take an **own vision**: a photo of their dream
+(kit/images.ts: resized, kept only on this device, never uploaded) and their own word (≤ 24 characters,
+plain text — set with textContent and fillText, never markup; it lives in the picture's label on the device
+and never goes into the saved session stats). An own word stands on Philippians 4:13. Polish asks the
+speaker's form once — on the first session's card and in the lobby ("Mów do mnie: jestem silny / jestem
+silna") — and keeps it in the progress; English, German and Swedish need none.
+
+**Prepared before play** (prep.ts). The *analysis* — the picture at the window's 600 × 700 (painted, or the
+photo cut to the window), its pixels, the kit's edge map, the pencil sketch (`sketch`, strength 1.45 on
+warm paper) and the heart (a declaration's subject; a photo's centre of detail pulled toward the middle) —
+takes ≈ 60–120 ms, so it runs in small steps: in the lobby as soon as the vision is chosen (the card says
+"Przygotowuję szkic…" → "Szkic gotowy", and the lobby's hero shows that very sketch), in the calibration at
+the latest (a step per frame, while the intro draws it), and at `start()` whatever is left. The *cut* — the
+kit's `makeMosaic` for the session's cell count, its density 0.55 × `detailWeight` + 0.45 × a glow around
+the heart (detail alone spent the cells on grass and flowers), each cell's colour (`cellColors`), the
+fragments (named regions, or for a photo k-means over place and colour, 3–6, ordered from the heart) — costs
+a few ms when the session knows its length. Cells whose inside share of the arch is under 35 % belong to
+the frame.
+
+**How many cells.** The window is cut into as many cells as the player can colour: the plan's pouring
+seconds (push blocks, the warm-up × 1.2) × the player's **pace** (mean cells lit per pouring second,
+averaged over sessions, 1/4.2 to start) × 0.95, within **24–64**. A typical player finishes near the end; a
+strong one earlier (then the light pass); the windows grow finer as the player grows.
+
+**The colour (push blocks: the gauge "Barwa").** Colour pours into one cell — its capacity 0.55 + 0.45 ×
+area / mean (0.6–1.6 units) — as a **watercolour bloom** from its centre (an irregular, living edge, the
+picture's own colours inside, a darker rim where the paint pools). The flow: **0.12 units/s at the base**
+(grace: showing up colours about half the window), **0.12 + 0.34 × x^1.3** above it with x = (level − 0.15)
+/ 0.75 — about **twice the base at the threshold, almost four times at full** — after the band's lead-in
+(5 s fNIRS, 2 s EEG); a bad signal holds the base, never less. A full cell **lights**: a flash, sparkles, a
+bell climbing a pentatonic ladder through the block, the glass baked in with a bevel of light, its leading
+gold-touched. **Neighbours lit together merge**: the lead between two lit cells thins to a fine line of gold;
+a **whole fragment** becomes **one pane** (the lead inside it fades to a thread), its name rises in the serif
+("Bieg o świcie"), a chord. Every cell lit
+before the end → "Cała wizja w barwie" and the **light pass**: a push now pours light into the whole window.
+**The stream** from the oculus to the cell is the band made visible: its width and its drops follow the
+level, gold above the threshold.
+
+**The hands.** Untouched, the colour finds its own way: **from the picture's heart outward**, finishing the
+current fragment before the next, a half-filled cell first (`autoNext`). **Tap** a cell: the colour goes
+there, with a drop (0.06 units, once per 0.6 s) — a tap beside or on the light finds the nearest unlit cell,
+so a centre tap always pours somewhere useful. **Drag** across the sketch: a path of up to 12 cells the
+colour follows. **Space**: a drop. Switching never loses colour. In a rest a tap on the glass makes it glow
+a little, and a tap on the sketch marks where the next push begins. Every touch shows a ring at once.
+
+**The glow (rest blocks: "Blask").** No colour flows: the lit glass gathers light — (0.3 + 0.7 × calm) /
+30 per second (a little even without a signal) — the aura's halo grows, everything breathes **in 4, out 6**
+(the light, the rings, a soft swell of sound), and the task asks the player to **repeat the declaration
+slowly in the mind** ("Powtarzaj w myślach powoli: ja jestem kochany.").
+
+**The aura and the verdicts.** Each block is judged once at its end (`RoundJudge`, the last 15 s): a passed
+push leaves a **ray** in the aura (≤ 6), a passed rest a **ring of glow** around the window (≤ 5); nothing is
+ever taken away. `BlockContrast` gives the summary's focus − rest.
+
+**The night (blind push, every 4th from the 3rd session).** The window darkens under a starry veil, the
+oculus shows a night sky, the stream is a constant silver thread: the base flow shows, what focus adds is
+kept — and **at dawn** it is poured, the cells lighting one by one in a warm wash ("Świt"), with the share
+of the night in focus.
+
+**The finale** (20 s in sessions from 3 min, 14 s from 2, 8 s in a short test; its moments scale with it).
+What is still unlit fills with **light** from the lit cells outward (grace: the picture's colours nearly
+whole, touched with gold, so the vision always ends complete and beautiful — "Brakujące części wypełniło
+światło"; the score counts only the player's pieces), the
+leading and the frame dissolve, the picture glows from within, the **rays** turn behind it, rings stand
+round it, motes rise, and the declaration is **written letter by letter** in Fraunces — "Przez potężne imię
+Jezusa / *ja jestem kochany.*" in gold — with its verse fading in under it. On a phone upright the window
+rises and shrinks over the words; on a wide screen the words take the column beside it.
+
+**The blocks.** The first session opens with Hanna's card (the root verse; in Polish the form question)
+and a warm-up (30 s / 20 s / 6 s in a test) with a quick flow (0.3 units/s) that teaches the hands; then push
+26 ± 4 s / rest 22 ± 3 s, ending on a rest, the finale last; `?trainingSec=40` and any length from 10 s fit.
+Strategies (§13.1): the push asks first for the **picture's own scene** ("Zobacz, kto Cię obejmuje. Poczuj
+ciepło tego objęcia."), and again every third push, with imagery, recall and one counting strategy between;
+the night asks for imagery in the dark or counting down by sevens; the light pass for the light itself; the
+rest for the declaration, the 4/6 breath, a soft forehead.
+
+**Hanna the glazier** (her name means grace) talks in a dark bubble with her emblem of coloured glass under
+the oculus (in the column on a wide screen): calm, few words, 19 moments × 3–4 lines, never under a banner,
+a telegraph or the card, never a promise ("Odłóż pędzel. Niech światło samo rośnie."; "Resztę dopełni
+światło. Nic nie przepada."). Her Polish lines never use a gendered past tense for the player.
+
+**The meta.** The **album**: the eighteen as little arched windows — in pencil until received, in colour
+after, ×n, the most pieces, the aura's best rays and rings — and the own visions the same way; the pace
+that makes windows finer; the headline **części** (pieces lit this session; "z 36" under it; "cała wizja",
+"noc"); the summary's first highlight is the declaration itself, `result().verse` its verse, then "Nowe
+wyznanie w albumie: 7 z 18" or "To wyznanie po raz 3.", the record, the grace or the whole vision, the aura,
+the night, and a closing line.
+
+**The look and the sound.** A chapel wall in the dusk (plum to black, faint courses of stone, the window's
+light on the floor); the window in a dark stone frame; the paper cells are frosted panes with a breath of
+their future colour; the oculus — a six-lobed rose set into the arch's crown — fills from below with the
+stream's colour up to the level, a dashed gold line across its middle is the threshold (two notches
+outside), gold all over above it; silver with the calm in a rest. All light is baked sprites; the layers
+(picture, paper, glass, glow, lead) are baked when they change, never per frame (≈ 0.3 ms a frame on a
+desktop). Sound: a D-major-add-9 pad the runner brightens with focus, a soft trickle while paint flows
+(silent at night), bells and chords, the breath's swells, the finale's chord and bells under the writing.
+
+**Mobile first.** *Tall* (a phone upright): the window as large as the band allows, the oculus set into
+its crown, Hanna's bubble under it; the opening card a bottom sheet with its two answers (≥ 48 px, in the
+thumb zone). *Wide* (a phone on its side, a desktop): the window in the middle — where a thumb or a centre
+tap finds it — and a column on its right (the declaration, the fragments, Hanna) when one fits. The window
+itself is the free play area (tap, drag), so `targets()` lists only the card's answers. Texts ≥ 13 px
+(bubbles 14, captions 17–21), nothing under 11. Measured (scripts/arcade-mobile.mjs, 2026-11-12): all six
+devices pass — 0 strings under 11 px, one under 13 (the opening card's verse reference, the kit's 11 px
+floor), the two answers ≥ 48 px in the thumb zone, 60 fps with the CPU slowed 2–4×, the game's own work
+0.33–0.94 ms a frame; the play takes 61 % (small Android) to 81 % (a phone on its side) of the screen's
+height; German on the small phone and on its side passes the same.
+
+Files: `src/arcade/jestem/` — rules.ts, scenes.ts, art.ts, pictures.ts, content.ts, vision.ts, prep.ts,
+meta.ts, talk.ts, sim.ts, layout.ts, paint.ts, render.ts, intro.ts, preview.ts, panel.ts, audio.ts, i18n.ts,
+index.ts; tests in test/arcade-jestem.test.ts.
 
 ### 13.9 Odporność — the white cells on watch
 
