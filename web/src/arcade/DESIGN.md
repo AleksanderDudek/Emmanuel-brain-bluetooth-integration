@@ -3145,3 +3145,650 @@ device.
 Each game's own section (§9.2–§9.4, §11.6–§11.9) ends with a "Mobile first" part: what moved into the
 thumb zone, how the controls feel under a finger, the sizes, the landscape layout, and the measured
 results.
+
+### 12.6 The other fourteen (2026-11-12, round 7)
+
+The first mobile-first round covered the seven games of §11. Its report said the other fourteen had only
+the shared shell and still drew text as small as 6–9 px; the founder answered *"fix the rest issues"*.
+Seven builders took two games each, with the same contract (§12.2) and the same audit (§12.4); the lead
+fixed the shell issues they and the first round found:
+
+* the calibration card fits a phone without scrolling — how to play turns through short pages, the dock
+  lends its room, a phone on its side gets two columns (it scrolled ~600 px on a small phone);
+* flying words (`Floaters`) accept a family, a weight and a family, or a whole font — three games had
+  handed it a weight, which made an invalid font and the canvas's 10 px default;
+* `fitText` shrinks step by step before it cuts; a verse's reference line is never under 11 px.
+
+Canvas strings under 11 px, iPhone in Safari / phone on its side, before → after:
+
+| Game | Before | After |
+|---|---|---|
+| Posłaniec | 104 / 105 | 0 / 0 |
+| Zastępy | 69 / 65 | 0 / 0 |
+| Latarnik | 53 / 62 | 0 / 0 |
+| Pasterz | 46 / 38 | 0 / 0 |
+| Firmament | 44 / 58 | 0 / 0 |
+| Zacheusz | 24 / 21 | 0 / 0 |
+| Anioł Stróż | 22 / 31 | 0 / 0 |
+| Glina | 17 / 16 | 0 / 0 |
+| Geoda | 9 / 18 | 0 / 0 |
+| Źródła | 5 / 5 | 0 / 0 |
+| Wzlot | 4 / 4 | 0 / 0 |
+| Urodzaj | 2 / 2 | 0 / 0 |
+| Motylarnia | 1 / 2 | 0 / 0 |
+| Arka | 1 / 2 | 0 / 0 |
+
+Every game now implements `targets()` and tests `auditTargets()` at every `CHECK_SIZES` entry, keeps no
+reserve for the old simulator switch, and speaks of tapping and dragging on a touch screen (keys only as
+a desktop's shortcuts, in a how-to row the runner drops on touch). What each one changed:
+
+#### Geoda
+
+**Mobile first (round 7, 2026-11-12).** Block Blast is played upright with one thumb: the board across the
+screen, three pieces under the thumb, a piece lifted well above the finger as it is dragged. Geoda kept
+the desktop's order on a phone: a 56 px strip (the dial, the goal, Bazyl) between the board and the tray,
+so the small phone's board was 208 px (26 px cells) with 70 px of empty margin either side; the dragged
+piece floated 30 px above the finger, under the thumb; the opening card squeezed Isaiah 54:11–12 to 10 px.
+
+* **Two upright shapes, the bigger board wins** (`layout.ts`). *Strip* (a large phone, an installed
+  app): the dial, the goal (the bowl in a Szlif) and Bazyl in a strip right above the board, his bubble
+  under it. *Columns* (a small phone, an iPhone in Safari, a tablet): the shine is a column of five steps
+  in the board's left margin (×1 at the foot, gold from ×3 with the threshold's notch, ×N in big type; the
+  bowl in a Szlif), the chamber's jewels and their counts in the right margin, Bazyl under them, his bubble
+  over the board's foot; the plates may cover the rind's rough outer half, never the board. The board sits
+  on the tray (a short drag); spare height grows the tray (80 → 150 px), then the strip. Cells: small phone
+  26 → 30 px, iPhone 33 → 34, tablet 78 → 81; the large phone's 40 and the installed iPhone's 39 overlap nothing.
+* **The tray under the thumb.** Three slots ≥ 80 px tall across the bottom, 16 px off the edges, the
+  pieces sized to the slot; a slot lights and its piece swells on touch-down (and a 6 ms tick); `targets()`
+  are the slots with a piece in them (the story card while one is up).
+* **The drag, phone first.** A dragged piece is centred over the finger with its lower edge 56 px and more
+  above it (a cell under a mouse), so the thumb never covers it, and it snaps to the nearest spot where it
+  fits within 1.35 cells (0.95 with a mouse): the ghost and the lines it would clear show there, a light tick
+  says it found one. A press that moves 10 px is a drag. The piece is drawn at the board's size and scaled
+  (no sprite per frame); Bazyl's bubble steps back to 22 % while a piece is in the air.
+* **Readable.** Every word fitted with a floor (kit `fitText`) instead of fillText's maxW squeeze: the
+  goal's counts across the plate at 13+ ("10/11" fits a 40 px column), the Szlif's line in two lines at
+  13 px (the bowl column's word and polish only where they fit at 13), "nie pasuje" 13+ with a rim (two
+  lines where a language needs them: "får inte / plats"), the dial's ×N 15+, its label and digits 13 (the
+  digits only on a dial ≥ 44 px), Bazyl 14 px; a narrow goal box leaves the chamber's name to the HUD.
+  The story cards are the whole band on a phone (they wait for the tap): title 20–32, text 15–17, the
+  verse 13–18 px with its reference at 13. A test plays a focus block and a Szlif on every phone size in
+  all four languages and finds no word under 13 px.
+* **On its side** (601 × 292 under the HUD row): the dial, the bowl and Bazyl on the left, the board in the
+  middle with its foot and skyline on screen, the goal over the three slots stacked under the right thumb.
+* **Words for the hand.** "Stuknij planszę — kawałek sam ląduje w najlepszym miejscu" with a finger;
+  "Kliknij planszę albo naciśnij Spację…" and "1–3" only with a keyboard (`how.tap.keys`, four languages);
+  the registry's tip no longer names Space.
+* **Fill rate.** No shadowBlur per frame: the jewels glow with a halo, the dial's gold with a wide stroke and
+  a disc, the bowl's ring with a stroke, the bubble and the dragged piece cast offset shapes.
+* **Measured** (scripts/arcade-mobile.mjs, 50 s): under 11 px 7/8/0/18/0/6 → 0 and under 13 px
+  16/15/11/25/5/2 → 0 on small/iPhone/large/side/tablet/desktop (German, Swedish and EEG too); targets
+  none → the story card and three pieces; game ms 2.47/1.18/1.86/1.79/1.52/0.99 → 1.68/1.00/1.66/1.03/0.90/0.78.
+
+#### Latarnik
+
+**Mobile first (2026-11-12, §12).** Pop the Lock and Knife Hit are played upright with one thumb, the circle
+filling the screen; Latarnik was laid out on a desktop and squeezed onto a phone — a UI scale of
+`min(w, h) / 430` floored at 0.84 drew the night's name, "zasięg 62%" and "próg" at 8.8–9.2 px (54–65 strings
+under 11 px per phone), a 66 px band stayed empty under the deck (the old simulator reserve), the sea had a
+115 px radius on a 360 px phone and the boats 20 px. Now the phone is the reference (`layout(w, h, insets)`,
+`u` = the kit's `uiScale`: 1 on a phone, up to 1.3):
+
+* **Upright: the sea as wide as the screen.** The whole screen is the button, so the layout has one job —
+  the largest round sea with the horizon's boats and the reach ring in sight (`SEA_PAD` 1.07 R): R 145 on
+  the smallest phone (was 115; 80 % of its width), 175 on an iPhone (90 %). Right under the HUD a 44 px row
+  holds Zośka on her post and the **night's pill** — the night and its three stars on the first line, the
+  goal at 14 px under it, the count big on the right (a goal too long for one line at 13 px takes both
+  lines); her bubble (14 px) and the cards (amber, the blind reveal, an upgrade: one line of title, one of
+  detail) take the pill's place while they show. The lanterns and the perfect ladder sit in the band's lower
+  corners, clear of the horizon's boats — the ladder's words only where they fit ("×3" else); where the band
+  is taller than the sea (a large phone, an installed iPhone) they form a row under the sea and the card goes
+  under them. The rest of the band is the thumb's: it taps there without covering the sea.
+* **Under a finger.** A touch anywhere flashes on touch-down — the sea, the free band, the chart under the
+  game (it reaches the game as a touch on the canvas's edge), the opening card (any tap closes it, its one
+  target); the beam flares at once, an empty flash dims the lamp and draws its recharge. Boats are at least
+  24 px (were 20), a flotilla's numbers 13 px on their badges; the haptics stay. Nothing needs a key: with a
+  finger the how-to has one row (tap anywhere) and the lesson's coach mark says "stuknij teraz"; on a desktop
+  the keys' row stays and the lesson and the opening card say "kliknij albo naciśnij Spację".
+* **Words at 360 px.** `font()` floors at 11; what is read to play is 13 px or more — the goal 14, Zośka 14,
+  the cards 15/13, the between-nights card 14.5/13.5, the opening story 14.5 (13.5 on the smallest phone when
+  the verse would not fit whole, so Mt 5,14–16 reads whole in German too) with the verse at 13–16, the titles
+  over the sea fitted down to 15 at most. The ring's words sit on dark plates: "zasięg 62%" 13 px, "próg"
+  and "wczoraj" 12. Left at 11–13: the night's name in capitals (12), "próg" (12), the verse's reference (11).
+* **On its side** (601 × 360, the HUD one 68 px row): the sea takes the band's height on the right (R 132, was
+  112); a 280 px column on the left holds the lanterns and the ladder with its words, the pill, the card, and
+  Zośka at its foot with her bubble beside her. **A tablet** upright is a big phone (R 368); **a desktop**
+  keeps the sea rising between the panel and the score (R 288), the columns beside it.
+* **The frame.** The titles' blurred shadow (`shadowBlur` every frame) is a dark rim now (`strokeText`).
+* **Measured** (scripts/arcade-mobile.mjs, before → after): strings under 11 px — small phone 60 → 0, iPhone
+  56 → 0, large Android 54 → 0, on its side 65 → 0 (tablet, desktop 0 → 0); under 13 px — 17, 10, 21, 14, 3, 4
+  → 4, 3, 3, 3, 0, 0 (the night's name, "próg", the verse's reference); targets: none → the opening card while
+  it shows (finger-sized, inside the insets); the game's own frame 1.4–2.7 ms with the CPU slowed 2–4× (60 fps),
+  0.7 ms on a desktop.
+
+#### Motylarnia
+
+**Mobile first (2026-11-12, §12).** Slither.io and Snake.io are played upright with one thumb that steers
+from wherever it rests; Motylarnia now is too. Before, the caterpillar turned toward the finger itself — on
+a phone the finger had to sit over the garden ahead of the head (a thumb resting low could only steer
+down) — and a press held still for 0.22 s sprinted, costing tail, by accident; Hieronim and his bubble sat
+bottom left and the side goal's pill bottom right, under the thumb (on a small phone his bubble covered the
+caterpillar spinning its chrysalis); a new garden's card came with the runner's block banner and hid under
+it; the flowerbed's "~5 s" was 10 px. Now (`computeLayout(w, h, insets)`; `u` = the kit's `uiScale`):
+
+* **A floating stick under one thumb** (stick.ts). Its base appears wherever the thumb lands; past a 10 px
+  dead zone the caterpillar turns toward the drag's direction; a push past the rim (1.15 × the 46 px base,
+  a dashed gold ring) sprints — the ring turns solid gold with a 10 ms tick — and pulling back inside
+  stops; a finger pulled far drags the base along; lifting keeps the heading; a quick tap without a drag
+  still turns toward the tapped spot (the original's "point or tap"). The thumb never covers the caterpillar
+  or the garden it crawls into: on a phone upright the camera holds the head at 44 % of the play's height,
+  leaving the lower part to the stick, and the play shows the garden at 1 px per unit or more (was
+  0.84–0.9; the caterpillar ~70 px long on a 360 px phone). With a mouse nothing changed (the pointer
+  steers, a held button or Space sprints, ←/→ turn).
+* **The band under the HUD** carries the passive things: Hieronim top left, his bubble hanging beside him
+  (14 px, at most four lines), the side goal's pill beside him (14 px, the whole row until the twig needs
+  its place), the twig top right (its branch only as long as its chrysalises need; "wylęg na końcu sjesty"
+  13 px on a plate). Hieronim keeps quiet while a coach mark shows; the rare flower's arrow keeps below the
+  band; the flowerbed stays along the bottom (the band's last 40 s in the world), its delay tag 13 px on a
+  plate.
+* **Cards.** The opening story fits a 360 × 328 play area at 16 px — the title 26 px, 2 Corinthians 5:17
+  at 16 with its 13 px reference, "Stuknij, by zacząć ›" ("Kliknij albo naciśnij Spację…" at a keyboard) —
+  in four languages at every checked size; it waits up to 12 s (was 7) and closes on any tap. A new
+  garden's goals (22/15 px) come as a sheet over the flowerbed on a phone upright, clear of the runner's
+  banner and near the thumb that closes it. Each card is the game's one `targets()` entry while it shows.
+* **Words for the hand:** a finger hears of dragging ("Przeciągnij palcem w dowolnym miejscu…", "Pociągnij
+  palec dalej, za brzeg koła: sprint"), a mouse of pointing, the button and the keys (`teach.*.keys`,
+  `how.*.mouse`); the lobby's tips speak of dragging. `font()` floors at 11 px.
+* **On its side** (601 × 360) the same arrangement fits a 254 px play area (Hieronim and the pill top left,
+  the twig right, the story 460 px wide); a tablet and a desktop grow it (u 1.3; the desktop keeps its
+  zoom and its centred camera).
+* **Measured** (six devices, 50 s): 0 strings under 11 px and 0 under 13 everywhere (was 1 and 7–10 on
+  each; German and HALO too); the cards the only targets, finger-sized and inside the insets; the game's
+  own frame 0.96 ms on the desktop, 1.0–3.0 ms on phones at 2–4× CPU slowdown while seven audits ran.
+
+#### Arka
+
+**Mobile first (2026-11-12, §12).** Arrows – Puzzle Escape is played upright with one thumb: a tap sends an
+arrow, the board fills the screen. Arka was laid out for the old HUD and a desktop: its bar carried the dove's
+42 px button with a 10 px "Gołąb" at the top, far from the thumb; the boards are portrait-shaped (3×4 … 9×11)
+while a phone's deck area is landscape-shaped, so the cells shrank to 29 px at level 12 on the small phone; on
+its side the old "compact" layout left a deck of 12–34 px cells beside an empty meadow; and a tap sent the
+animal on touch-down. Now the phone is the reference (`layout(w, h, insets, cols, rows)`, `u` = the kit's
+`uiScale`: 1 on a phone, up to 1.3; `font()` never under 11 px):
+
+* **The deck turns a quarter** when that gives larger cells — a pure mapping of the view (`toScreen`, `toSim`,
+  `sdir`): the board's cells, the animals' directions and every rule stay the same. Small phone, levels 2 / 6
+  / 9 / 12 / 20: 52 / 44 / 33 / 29 / 24 → 60 / 56 / 40 / 34 / 26 px; iPhone in Safari 64 / 54 / 40 / 36 / 29 →
+  68 / 61 / 46 / 40 / 33; on its side 18 / 18 / 12 / 12 / 12 → 63 / 53 / 39 / 35 / 29; a tablet's small decks
+  grow to 110.
+* **Upright:** the bar right under the HUD (passive: hearts, the level at 15 px and its par at 13, the raven
+  perched on its right end), the deck as large as the band allows, the gangway, and the new land at the
+  bottom where the firsts of their kinds wait — with, in the bottom-right thumb zone, **the dove's button: a
+  52 px pill with the bird and its name**, pressed under a finger, shaded while the dove rests.
+* **Under a finger.** A touch picks the animal under it — on an empty cell the nearest one within a finger's
+  reach (its cells grown to 44 px where the neighbours leave room) — and shows it at once: its cells ringed,
+  the animal lifted, and on a deck of cells under 52 px a bubble above the finger with the animal big, turned
+  the way it will walk (the finger hides the animal itself). Sliding picks the one now under the finger,
+  lifting sends it, sliding off the deck lets it be: a heart is never lost to a finger that landed on the
+  wrong animal. The pick never tells whether the way is free — that stays the puzzle and the mist's reward.
+* **On its side** (601 × 360): three columns — the bar as a card (hearts over the level and the par) with the
+  raven under it, talking in his own column; the deck as tall as the band; the new land and the dove's pill
+  under the right thumb, the waiting animals in two rows over it.
+* **Cards and words.** The level's pill grows with its subtitle ("Jeszcze raz — pary zostają" stays 13 px),
+  the stars card's tap line is 13 px, the opening passage at least 13. With a finger the how-to keeps the
+  dove as a tap ("Gołąb na łące: stuknij…" — before, a phone's how-to lost the dove, a `keys` row) and its
+  coach mark says "stuknij gołębia na łące" instead of "(spacja)"; with a keyboard Space, H and the arrows stay.
+* **Measured** (small / iPhone / large / on its side / tablet / desktop): strings under 11 px 1 everywhere
+  ("Gołąb" 10) → 0, German too; at 11–13 px 21 → 2 (the verse's reference at 11, the mist's "próg" tag at
+  12); targets: none → the dove's pill (48–64 px, inside the insets) and a card that takes the tap; pairs in
+  the audit's 50 s 0 → 2–5; the game's frame ≤ 2.3 ms on the small phone at 4× slowdown, 0.7 ms on a desktop
+  (0.6 before). The tests check the deck in the band at every `CHECK_SIZES` entry for seven levels, the
+  mapping and its directions, the dove in the thumb zone, the pick (down, slide, lift, off the deck), the
+  reach, the targets answering taps, and no string under 11 px at every size on a recording context.
+
+#### Urodzaj
+
+**Mobile first (2026-11-12, §12).** Suika is held upright and played with one thumb: drag anywhere, the fruit
+follows along the top, let go. Urodzaj already played that way; what the phone lacked was room and words: a basket
+195–210 px wide on a 360 px phone, the next fruit in a 28 px bubble with a 10 px "Następny", the circle of fruits as
+18 px icons, "Pokłosie" at 10 px, and hints that spoke of the mouse and the arrow keys.
+* **The basket first** (`layout.ts`, upright): as wide as the band allows — its ground on the circle of fruits, a
+  strip of eleven icons (20 px and up) along the bottom 16 px off the edges, in the thumb zone. The next fruit's
+  bubble takes whichever place leaves the basket wider: a margin of its own beside Feliks's twine (a narrow phone:
+  the basket 191 px, its height the limit anyway) or a row under the HUD (a wide or tall phone, an installed app:
+  the basket 254–313 px). The bubble is 44 px and up with the fruit at 72 % of it and "Następny" at 13 px on a
+  light plate; it never touches the wall or Feliks's flight.
+* **Under a finger:** a finger anywhere aims — the hanging fruit is at the top, so it is always above the finger,
+  and the lower half of the basket lies in the thumb zone; the release drops; a tap drops where it lands (the
+  how-to's third line on a phone). The touch is answered at once: Feliks flies over and a soft ring shows where the
+  finger came down. One finger at a time (a second one is ignored until the first lifts). Haptics as before.
+* **No buttons in play**, as in Suika: `targets()` is empty while you play and is the story's or a festival's
+  card while one shows (a tap anywhere on it closes it).
+* **Feliks's line** (14 px, up to four lines) stands beside him on the side with room, never over the next
+  fruit; where neither side holds it (a 360 px phone, Feliks mid-basket) it sits under his hanging fruit across
+  the basket's empty top, its tail up to him — he and the fruit stay in sight.
+* **Words and cards:** "Pokłosie" 13 px plated; the tally (16/34/14 px), a festival (19/14 px) and the mission
+  pill (15 px) scale with the screen; the story card fills the band's width with 15 px words, the verse at
+  13–17 px; every card stays under the runner's HUD, the desktop's risen basket too. With a finger the hints say
+  "przesuń palcem w bok", "puść palec"; with a keyboard they add "myszą albo ← →", "kliknij albo naciśnij
+  Spację"; the tip on the calibration card names no keys.
+* **On its side and bigger:** a phone on its side keeps the wide layout (the circle as a ring left of the basket,
+  the table right, the next bubble beside the twine); a tablet upright grows the phone's (u 1.3, the basket 473 px).
+* **Cheaper frames:** the field (three screen-sized gradients, a sun glow over half the screen, seventy stubble
+  strokes) is painted once per size into an offscreen canvas.
+* **Measured** (`scripts/arcade-mobile.mjs`; small phone / iPhone / large phone / on its side / tablet / desktop):
+  strings under 11 px 2 / 2 / 2 / 2 / 0 / 0 → 0 everywhere; at 11–13 px 2 / 2 / 2 / 2 / 3 / 2 → 1 / 1 / 1 / 1 /
+  0 / 0 (the verse's reference); the game's frame on a desktop 0.51 → 0.41 ms. The layout test checks the basket,
+  the bubble, its label and the strip at every `CHECK_SIZES` entry; a game test draws the story card, play,
+  Feliks at length (mid-basket and at both walls), the gleaners, a festival and the tally at every size and
+  checks the text floor and the targets; German passes on the small phone and on its side.
+
+#### Wzlot
+
+**Mobile first (2026-11-12, §12).** Tiny Wings is played on its side; Wzlot is held upright in one hand first —
+and the hold is the whole control, so the thumb rests on the screen for long seconds. Before: a UI scale of
+`min(w, h) / 430` floored at 0.8; the flying words ("×5", "Mama Cię łapie", "Słońce przytrzymane +4 s") drawn by
+the kit's `Floaters` with a whole font string where it wants a family — an invalid CSS font, so the canvas fell
+back to its 10 px default on every device (6–8 strings under 11 px, a desktop too); the story card, Leon and the
+banners at 11.7 px on a phone; the world 1.7 screen heights across upright (the eaglet 28 px on a 360 px phone),
+its ground 7 % over the foot, where the thumb holds. Now (`layout(w, h, insets)`, `u` = the kit's `uiScale`):
+
+* **Upright: a world that reads, a thumb that never covers it.** The camera comes closer — 1.45 screen heights
+  across (212 → 242 px per screen height on the smallest phone, 229 → 269 on an iPhone; the eaglet 31–35 px, a
+  hill's drop easy to read), the eaglet a fifth in (was a quarter), 1.16–1.19 screen heights of slope still in
+  sight ahead. The lowest ground in sight stands a **thumb pad** above the canvas's foot (16 % of the band,
+  59–110 px): the earth goes on under it, and a thumb held there — or on the chart under the game, which reaches
+  the canvas as a touch on its edge — never hides the eaglet or the valley it dives into. A tablet is capped at
+  290 × u px per screen height: it sees more of the granie (1.74 screen heights ahead) instead of a giant eaglet.
+* **The band's sun** rides its arc under the HUD as a 14 px sun, its halo, the threshold ring and the Poryw's
+  charge inside the band, drawn over the cloud deck so a zoomed-out camera never hides the gauge; "W chmurze"
+  12.5 px on a pale plate.
+* **Under a finger.** A hold anywhere is the dive (the eaglet folds and squashes at once), letting go the launch;
+  the chart under the game holds too. While the story card, the day's tally or the dawn's "tap for sunrise"
+  shows, it is the one target (a tap anywhere does it). With a finger the how-to shows hold and let go, the
+  first coach mark says "Przytrzymaj palec gdziekolwiek", the cards "Dotknij…"; with a keyboard the how-to keeps
+  Space and ↓, and the coach mark and the cards name the mouse and Space. The registry's first tip no longer
+  names Space (the calibration card turns the tips on a phone too).
+* **Words at 360 px.** `font()` floors at 11; the flying words are the game's own (800 weight, 13 px at the
+  least, a dark rim, kept in the band): "×5" 14.7, "Mama Cię łapie" 17, "+4 s" 18; banners fitted down to 19 px
+  or broken into two lines (17 px and more: a lesson in German), laid out before Leon's bubble — which keeps
+  off them — and stepping aside from the runner's coach mark; Leon 14 px; the story card 15 px with Pwt 32,11 at
+  13–16 (the story 13.5 on the smallest phone if the verse would not fit whole); the tally's rows 15 px. Left
+  under 13: the verse's reference (11, the kit's).
+* **On its side, a tablet, a desktop:** 2.6 screen heights across, the eaglet at three tenths, cards in the band
+  clear of a notch, the words grown with `u`.
+* **The frame.** The cards' blurred shadow (`shadowBlur` every frame) is an offset shape; the cards opaque paper.
+* **Measured** (scripts/arcade-mobile.mjs, before → after): strings under 11 px — 7, 8, 6, 6, 8, 6 → 0 on all six
+  devices; under 13 px — 16, 16, 1, 17, 1, 1 → 1, 1, 1, 1, 0, 0 (the verse's reference); targets: none → the card
+  or the dawn prompt on screen (finger-sized, inside the insets); the game's own frame 0.6–2.2 ms with the CPU
+  slowed 2–4× (60 fps), 0.65 ms on a desktop.
+
+#### Źródła
+
+**Mobile first (2026-11-12, §12).** Pipe Mania is played on a phone held upright, a tap per cell; Źródła is
+now too: every cell a finger's size, the dispenser and the spring's dial under the thumb.
+
+* **The valley at a finger's size** (`layout.ts`). Cells are never under 44 px. The whole valley shows where
+  it fits — a 7-wide valley on a 360 px phone (46 px cells), every valley on an iPhone (44–48 px) and up —
+  and otherwise it shows through a window the camera pans by less than a cell: an 8-wide valley on a 360 px
+  phone (by 24 px), seven rows on a phone on its side (by 43 px). The camera rests at either end of each pan,
+  so the window always shows whole cells, and goes to the end that shows the way's open end (else the water's
+  head, the keyboard's cursor, the spring); a small arrow on the frame says where the valley goes on, and a
+  finger aiming at the window's edge nudges it.
+* **The thumb zone, upright** (the reference: a 360 × 366 band under the HUD). The valley sits low over a tray:
+  the next stone (50 px, its gold frame) and the four after it, the goal ("Cel 3/6", 14 px) and its bar over
+  them, Kumka, and the dial at the right (r 27). A tap on the next stone or on the dial is Kumka's help (what
+  Space does): she lays the stone where it helps, and once the way holds the goal the water runs fast. Where
+  the valley leaves a band over it (a tall phone), Kumka moves up there and talks to her right.
+* **Under a finger.** A finger on a cell shows the next stone there at once (a gold outline; rose where it
+  cannot go) and, on a touch screen, the stone lifted over the finger, which hides the cell; the aim follows a
+  sliding finger from cell to cell (a 3 ms tick), the lift lays it, lifted off the valley nothing is laid. The
+  next stone and the dial are pressed at the touch (squashed, a thicker frame) and help on the lift; a thumb
+  that slides off cancels. One finger plays; Space, F, the arrows and Enter stay as shortcuts.
+* **The dial reads on a phone**: "próg" 13 px over it, the pace "×1,0" and "Cisza" 13 px on a plate inside
+  it (they were 6–9 px), the countdown 16 px, "pod / ziemią" on two lines when blind; its name under it only on
+  a desktop (on a phone the runner's panel names the gauge). Kumka's bubble is 14 px, keeps to a room of its
+  own, and steps back (¼ alpha) while the water's head, the way's open end or a finger's aim is under it.
+* **On its side** (601 × 360 under a 68 px HUD row): three columns — the dispenser under the left thumb (the
+  next stone at the bottom, as in Pipe Mania), the valley, the dial at the bottom right under the right thumb
+  with the goal and Kumka over it. **A desktop** gets the same columns grown: the dial at the top of its
+  column with its name, the goal and what the help does in words, Kumka at the foot.
+* **Words for the hand.** With a finger the hints and Kumka say "stuknij następny kamień" (the help's coach
+  mark points at it); a keyboard gets `.keys` variants with Spacja; the how-to card has a touch row for the
+  help and a keys row the runner drops on a touch screen; "the next stone is on top" became "in the gold
+  frame"; the lobby's tip no longer names Space.
+* **`targets()`**: every cell a stone can go on that the window shows whole, the next stone and the dial; on a
+  story card, the card. The tests audit them at all nine `CHECK_SIZES` for four grids (7×5 to 8×7) at both
+  ends of the pan, play the game at every size (the countdown, Kumka talking, the water, a rest, a blind push,
+  four story cards) checking every string, and cover the aim and the lift, the help's press and slide-off,
+  the camera keeping the way's end in sight, and the words for each hand.
+* **Measured** (`scripts/arcade-mobile.mjs`, small / iPhone / large Android / on its side / tablet / desktop,
+  before → after): strings under 11 px 8 / 8 / 7 / 8 / 7 / 0 → 0 on all six (the dial's "×1,0" was 6.4 px);
+  under 13 px 5 / 5 / 5 / 24 / 6 / 4 → 1 everywhere (the opening card's verse reference, 11 px, the kit's);
+  targets none → 38–39 (the cells a stone can go on, the next stone, the dial; the story card), all ≥ 44 px,
+  inside the insets, none overlapping; the game's own frame 2.5 → 3.6 ms on the small phone at 4× CPU
+  slowdown (seven audits at once), ~0.7 ms on the desktop.
+
+#### Glina
+
+**Mobile first (2026-11-12, §12).** Let's Create! Pottery is played upright with one finger on the clay. Glina was laid
+out on a desktop and squeezed: a UI scale of `min(w / 1100, h / 640)` floored at 0.55 drew the order's "ZAMÓWIENIE" at 9 px,
+Szamot's lines at 9, the glaze names at 9.2, "Gotowe" at 11.8 (70 × 29 px on a phone on its side), the level's name at 7;
+the potter's hand sat under the thumb that shaped the wall; with eight glazes the swatches would have been 34 px. Now the
+phone is the reference (`layout(w, h, insets)`, `u` = the kit's `uiScale`):
+
+* **Upright.** The top band under the HUD is passive: the **order ticket** on the left (62 % of the width × 100 px:
+  ZAMÓWIENIE 13 px with the live stars, the customer 16 px serif, the silhouette, the glaze and the band asked 14 px,
+  the match 17 px) and the kiln standing on its shelf on the right with Szamot on top. The pot's stage runs across the
+  middle (134 px on the smallest phone, 198 on an iPhone), and the **thumb zone** is a 100 px floor band: the level
+  under the wheel, the master's hand at the left, **Gotowe** (124 × 52) bottom right.
+* **The finger and the clay.** On a phone the potter's hand works **32 px above the finger** and follows its moves from
+  where it came down — up and down picks the height, sideways narrows or widens, a rim pulled up grows from its own
+  height — so the thumb never covers the clay it shapes and a touch never makes the wall jump; a ring marks the finger,
+  a dotted thread runs up to the hand. Gotowe's top sits a finger's lift under the wheel line (a finger working the
+  pot's foot stays above it), and Gotowe answers on touch-down but acts on the lift: a finger that came down on it and
+  moves shapes the clay instead. Szamot keeps quiet while a finger works the clay or a piece is glazed on a phone (his
+  bubble would hang over them) and speaks at 15 px under the kiln. A mouse still works the clay directly.
+* **Glazing as a bottom sheet.** The palette (`palette(L, glazes, patterns)`) puts the first three colours beside Gotowe
+  in the bottom row (Gotowe where the wheel's is), the rest five a row above, the patterns' chips above them (no row
+  while only one pattern is owned): 48 px swatches with the order's colour marked, 46 px chips drawn in the brush's
+  colour, each pressed on touch-down; the ticket shrinks to the customer and the glaze line while glazing, so even with
+  all eight glazes and five patterns the piece keeps a 92 px stage on the smallest phone (204 px with the starter
+  palette). Coach marks for the palette point above the sheet, never over its swatches.
+* **Cards and words.** Cards 23/17 px with "Stuknij, by dalej" on every one, each a tap target; the customer's reaction
+  18/14 px; the gauge's word 14 px; `font()` floors at 11 and every canvas string is at least 13 px on all six devices;
+  the sleeping cat's "z" is drawn. On a phone the how-to's hands drag / drag / tap and its keys row is left out; on a
+  desktop the keys row ("Spacja kończy etap … 1–8 — kolory") and the Gotowe mark name Space.
+* **On its side** (601 × 360, the HUD one 68 px row): ticket | wheel with Gotowe right of it | kiln, the level's and the
+  master's names 13 px where the floor band has room; glazing puts the colours along the bottom with Gotowe at the row's
+  right end under the right thumb, the patterns over them. **A tablet and a desktop** grow the same layout (`u` 1.3).
+* **The frame budget.** No per-frame `shadowBlur`: the ticket and the cards, Gotowe, Szamot's bubble and the master's
+  guide line draw offset shapes or a wide soft stroke; the palette is computed once per size and count.
+* **Measured** (scripts/arcade-mobile.mjs, before → after): strings under 11 px — small phone 22 → 0, iPhone 22 → 0, large
+  Android 22 → 0, on its side 23 → 0, tablet 2 → 0; under 13 px — 99, 99, 93, 94, 9, 3 → 0 on all six devices (German and
+  HALO too); targets 0 → the card, Gotowe, every swatch, chip and the glazing Gotowe (finger-sized, inside the insets, no
+  overlaps; the tests check the full eight-glaze, five-pattern palette at all nine checked sizes); 60 fps with the CPU
+  slowed 2–4×; the game's own frame 0.66 ms on a desktop, 1.35–2.95 ms on the throttled devices (was 1.02 and 1.87–3.63).
+
+#### Posłaniec
+
+**Mobile first (2026-11-12, §12).** Subway Surfers is played upright with one thumb — a swipe anywhere,
+nothing to press; Posłaniec now is too. Before, a UI scale of `min(w, h) / 640` floored at 0.62 drew the
+game's own words at 6–9 px on every phone (136 strings under 11 px on a small phone, 104 even on a
+desktop: "SŁOWO DNIA" 5.6, the stork's "LOT n %" 6.2, Klekot's bubble 8.7); the day's word and the
+power-ups' timers sat in the bottom corners under the swiping thumb; the opening story covered the lesson
+road while its first fence came. Now the phone is the reference (`layout(w, h, insets)`, layout.ts; `u` =
+the kit's `uiScale`):
+
+* **Upright.** The road fills the band from a thin strip of sky under the HUD to the bottom; a lane is
+  0.29 of a narrow phone's width at the messenger's depth and the cast is drawn ×1.25, so he stands
+  ~95 px tall, low (feet at 0.86 h), and a thumb swipes under and beside him — or on the dock's chart,
+  which plays as the canvas's bottom edge. The band under the HUD holds only passive things: Klekot's
+  gauge top right over the grass (a 78 px plate, under it two 13 px rows: "SKRZYDŁA / LOT 45 %", the
+  horn's three fires, or the band's warm-up note), the **quest pill** top left (the day's word, 22 px
+  tiles) with the power-ups' timers under it (40 px plates), and Klekot's bubble between them (14 px, at
+  most four lines; its tail at his gauge, or down at him while he carries the messenger). Cards stack
+  under the HUD; a block's verdict shows over the messenger's head, clear of the runner's banner.
+* **The hands under a finger.** A swipe acts the moment the finger has travelled 22 px (was 30); a quick
+  flick lifted sooner but past a 12 px slop within 0.3 s still counts, so a short sloppy stroke is never
+  turned into a jump; a press within the slop is a tap by thirds of the safe width; one move per touch,
+  each finger on its own. A soft ring answers every finger as it lands; haptics also on a power-up, a
+  letter and a bump against the road's edge. Nothing needs a key: the coach marks speak of swipes on a
+  phone and of keys first at a keyboard (`hint.*.keys`). Klekot keeps quiet while any coach mark shows
+  (one bubble at a time under the HUD) and on the first-ever lesson road.
+* **The opening story waits.** The first-ever session holds the run at the milestone (`sim.hold`, ≤ 20 s)
+  while the story card shows — title 22 px, the three sentences and Isaiah 52:7 at 16 px where they fit
+  (15 in German on a 360 × 366 band), the reference 13, "Stuknij, by ruszyć w drogę ›" ("Kliknij albo
+  naciśnij Spację…" at a keyboard); a tap anywhere (the card is the game's one `targets()` entry), a move
+  key or Enter sets off, and only then the lesson road's first fence comes with its coach mark.
+* **A readable world.** `font()` floors at 11 px; every string the game draws is 13 px or more on all
+  six devices; words on things down the road (a letter tile, the seal's ×2, a station's sign) are drawn
+  only once readable instead of being blown up. The tally and the city card fit 360 px; the wings' coach
+  mark is centred on a phone while the gauge glows.
+* **On its side** the same arrangement fits a 292 px band (the road between the trees, the pill over the
+  left grass, the gauge over the right); a tablet and a desktop grow it (u 1.3), and on a wide screen the
+  ribbon of dawn still runs in the sky between the runner's panel and its score.
+* **Measured** (six devices, 50 s): 0 strings under 11 px and 0 under 13 everywhere (German and HALO
+  too); the story the one target; the game's own frame 0.95 ms on the desktop, 1.2–1.9 ms on phones at
+  2–3× CPU slowdown (≤ 4.1 at 4× while seven audits ran); the smoke's input scores live (876 pts in 60 s).
+
+#### Zacheusz
+
+**Mobile first (2026-11-12, §12).** Super Mario Run is played upright with one thumb — a tap anywhere jumps, a hold
+jumps higher, the course in a band across the middle. Zacheusz was laid out on a desktop (a UI scale of
+`min(w, h) / 430` floored at 0.84 drew Mela's name at 9 px, the bubble button's label at 8, the band's "≈5 s" at 8, the
+goose's dizzy "×" at 4.5) and its trick words drew at whatever size the last label had set (the kit's floaters were
+handed "800 <family>" as the family, an invalid font). Now the phone is the reference (`layout(w, h, insets)`, `u` = the
+kit's `uiScale`):
+
+* **Upright.** The scale comes from the width — 9 u across, 40 px/u on a 360 px phone (Zacchaeus ≈ 40 px, 6.4 u ≈ 1.2 s
+  of street ahead) — with 5.7 u above the street for the light road's lane, the roofs and a coin over his head under
+  the HUD; the camera keeps his head under the level strip (14 px code + five 18 px slots, passive). Under the street a
+  **ground band** (24 % of the canvas, at least 122 px) is the thumb's pad: a press anywhere jumps on touch-down, so the
+  thumb never covers the run. The band also holds **Mela's lines** — a box under the street with "Mela:" in front and a
+  tail up to the goat, 15 px (13 at worst) — so she never hides the light road or the roofs again, and the **bubble
+  button** in its right corner: 56 px (hit 64), inside the 16 px edges, above the home indicator and the canvas's last
+  rows (a touch on the signal dock plays at y = h − 1 and is always a jump).
+* **The hands under a finger.** A ring answers every press where it came down; holding goes higher (the original's
+  verbs unchanged: spin in the air, kick off walls, pause stones wait for a tap). The button squashes and lights its rim
+  on touch-down and dims when it cannot rewind; a press on it that cannot rewind (no bubbles, in a bubble) is an ordinary
+  press — a tap is never swallowed. A special denarius left behind with a bubble in hand points a coach mark at the
+  button, once a session, until it has been used. A bubble starting buzzes; the other haptics stay. On a phone the
+  how-to's rows are tap / hold / tap (the bubble in the corner) and its keys row is left out; on a desktop the keys row
+  and the jump's coach marks name Space, ↑ and B.
+* **Cards at 360 px.** The tally (title 24 px, rows 15/16, the next level 14.5, "stuknij — dalej" 13.5) and the story cards
+  (world 13.5, title 23, text 15 or 14, Luke 19 at 16–13 px with its own 13 px reference) fit the small phone and are
+  **tap targets** after 1.2 s (a tap anywhere goes on too); the button hides under them. Mela waits under a card.
+* **A readable world.** `font()` floors at 11 px; every canvas string is at least 13 px on a phone except the band's delay
+  tag over the skyline ("≈5 s", 12 px on a plate); the finish palm's height marks 13 px on plates; the dizzy eyes are
+  drawn, not written. Mela trots 1.2–1.8 u behind him (her lag led away) so the whole goat stays on a 360 px screen,
+  and the camera never lets the bubble's float back carry him off its edge.
+* **On its side** (601 × 360 with the chart column, the HUD one 68 px row): a 61 px ground band holds Mela's line in
+  one or two rows beside the button (its label left of it); the scale from the height (39 px/u, 11 u ahead). **A tablet
+  and a desktop** grow the same layout; the scene is capped at 52 × `u` px/u, so a tablet shows 12 u of Jericho instead
+  of an 80 px Zacchaeus in a sky of 480 px.
+* **The frame budget.** No per-frame `shadowBlur`: cards drop an offset shape, the glows of stones, springs, light
+  planks, light and special coins and the road's reach are a baked radial sprite stretched (`paintGlow`), the sky is a
+  cached layer, Mela's line is measured once a line.
+* **Measured** (scripts/arcade-mobile.mjs, before → after): strings under 11 px — small phone 24 → 0, iPhone 19 → 0, large
+  Android 4 → 0, on its side 30 → 0, tablet 1 → 0, desktop 1 → 0; under 13 px — 16, 19, 38, 14, 2, 2 → 1 (the 12 px
+  delay tag) on the phones, 0 on the tablet and the desktop; targets 0 → the bubble button, the tally and the story
+  card (finger-sized, inside the insets, no overlaps); 60 fps with the CPU slowed 2–4× (was 34–49); the game's own frame
+  0.9 ms on a desktop, 1.3–3.4 ms on the throttled phones.
+
+#### Pasterz
+
+**Mobile first (2026-11-12, §12).** Crowd City is played upright with one thumb — a drag anywhere steers the
+leader — and so is Pasterz now; Łatek's whistle got a button of its own in the thumb zone.
+
+* **The thumb zone, upright** (`layout.ts`, the reference a 360 × 366 band under the HUD). The 66 px the old
+  simulator strip kept empty at the bottom are gone: the hill runs to the home indicator and the whole field
+  is the joystick's. The camera comes closer — 14 m across an upright phone (was 15.5: a sheep ~25 px long,
+  the call ring's dotted threshold and gold rim readable at 360 px) — and keeps to the hill (at most a metre
+  beyond its edge; near the edge the shepherd walks off the middle instead of a dead band showing). The
+  shepherd stands at 47 % of the band, so the thumb steers from below him. **Łatek's button** sits bottom
+  right, 16 px in from the edge: a 60 px disc (a 64 × 84 target with its word "Gwizdnij" under it) with the
+  dog on it, the whistle's 3.2 s cool-down sweeping its rim, gold when ready, a soft pulse while loose sheep
+  are in his reach; it steps aside in a night (the hands rest) and while the tally shows. **Passive things
+  live right under the HUD**: the ranking at the right (152 px wide; the pasture and its clock 13–13.5 px,
+  the rows 13–14 px with the dye, the crown and the count; a name too long is fitted down to 12 px and cut),
+  in a night the row of twelve stars across the band instead.
+* **Under a finger.** The joystick shows from the touch-down — a dark base with a light rim where the thumb
+  landed, the knob under it, a gold wedge toward the walk once the drag passes the 10 px slop — the base
+  trails a thumb that runs past 1.4 × its rim, and it fades where the finger lifts. A short tap anywhere still
+  whistles (the smoke's centre click does); on the button the press shows at once (pressed disc, 6 ms buzz)
+  and the whistle goes on the lift; a thumb that slides 10 px off it steers instead; a tap too soon shakes
+  the button (4 ms buzz). One finger plays.
+* **Text and bubbles.** `font()` never returns under 11 px: the counts over the flocks 15 / 13 px, the rivals'
+  names 13 px with a shadow and kept on the screen, the edge markers r 15 with 13–14 px counts, kept apart
+  along the edge and off the ranking and the button, "Bee!" 13 px; Łatek's bubble 14.5 px, the rivals' 13 px,
+  both inside the field and above the button's row. A coach mark hushes Łatek and, when it comes up over the
+  top band, fades the ranking; its point stays 96 px under the HUD so its bubble clears the panel.
+* **The tally card** is a sheet from the bottom: a round ends where the next block begins, so the runner's
+  block banner is over the top of the room exactly while it shows (3.6 s under a ~5 s banner — on a phone its
+  title and place were never seen). One column upright (14–20 px), two on a wider screen (the result left,
+  the rows, the wardrobe and the next hill right); the story's lines drop first when the room is short.
+* **On its side** (601 × 360 under a 68 px HUD row): the ranking top right under the row, the button bottom
+  right under the right thumb, the joystick anywhere; the field 15.5 m across or the height's limit; the card
+  in two columns. **A tablet and a desktop** get the same layout grown (`u` up to 1.3); keys stay shortcuts.
+* **Words for the hand.** With a finger the hints say "przeciągnij palcem", "stuknij Łatka" (pointing at the
+  button); a keyboard gets each one's `.keys` variant (myszą, strzałki / WASD, Spacja) and a keys row on the
+  how-to card, which the runner drops on a touch screen. "Dotknij luźnych owiec" became "Wejdź w luźne owce"
+  (it read as "tap the sheep" on a phone).
+* **Speed.** The ring's gold glow lost its per-frame `shadowBlur` (a wide soft stroke under the rim), the
+  fires' and the lost lamb's glows are a sprite baked once per colour, the floating words pop by transform.
+* **`targets()`**: Łatek's button while it shows (by day, in play). The tests audit it at all nine
+  `CHECK_SIZES` (by day, with bubbles, in a night, on the tally and the last card), check every string drawn
+  (≥ 11 px; under 13 only a fitted name or a count), the font floor, the joystick from the touch-down and past
+  the slop, the tap, the button's press-and-lift and slide-off, the coach marks' place and hush, the camera
+  keeping to the hill, and the words for each hand.
+* **Measured** (`scripts/arcade-mobile.mjs`, small / iPhone / large Android / on its side / tablet / desktop,
+  before → after): strings under 11 px 49 / 42 / 35 / 78 / 0 / 0 → 0 on all six; under 13 px
+  36 / 22 / 18 / 26 / 29 / 43 → 4 / 4 / 4 / 3 / 3 / 0 (only rivals' names fitted to the ranking, 12 px);
+  targets none → Łatek's button (64 × 84 on a phone), inside the insets; the game's own frame 5.8 → 5.1 ms on
+  the small phone at 4× CPU slowdown, 1.2–1.8 ms on the desktop (seven audits running at once); German on
+  the small phone and on its side, and the EEG band on the iPhone, pass the same checks.
+
+#### Anioł Stróż
+
+**Mobile first (round 7, 2026-11-12).** Anioł Stróż was laid out on a desktop: on a phone its UI scale fell
+to 0.84 — the combo's "SERIA", "Płomień", "Sen 100%" and the trace's "≈ 5 s" at 7.6–9 px — a 62 px band at
+the bottom stayed empty for the simulator's old switch, nothing on screen said where to tap, and a
+level-up offered three 102 px cards in a row.
+
+* **Three thumb pads.** Along the bottom of every screen, in the thumb zone of a phone upright: ◀ the left
+  side, the nearer side in the middle (the old middle third: the one-thumb aid and the smoke's centre tap),
+  ▶ the right side — 60 px tall on a phone, the side pads ~123 px wide and the middle one 66 px, 8 px apart,
+  16 px off the screen's edges. They are the visible part of the tap zones: a tap anywhere in a pad's
+  column strikes like the pad (a desktop keeps the thirds a mouse expects; its pads are 56 px key caps
+  "← A", "Spacja", "D →"). A strike lands on the press; the pad shows it at once (lighter, squashed 7 %);
+  a key lights its pad too.
+* **The pads tell when to strike.** A pad turns gold while a strike on its side would land
+  (`sim.ready()`: the strike's own reach, the spear and Skrzydła ognia included), pulses brighter while the
+  nearest Zmora's edge is in the perfect band, and greys for a whiff's 0.25 s; the middle pad lights the
+  chevron of the nearer side. The how-to says so.
+* **The room uses the phone.** Upright the room is zoomed to ±3.85 u with the floor right above the pads;
+  the window (the band's last 40 s) and its sill sit under the HUD with the night's feather bar under
+  them, and the window takes the height the room does not need (51 px of sky on a small phone, ~190 on a
+  tall one) — no empty band. On its side the room spans the whole width (S 43 → 58 px/u), the window in
+  its upper left corner beside the angel, the boss bar top right; a tablet zooms in to S 106.
+* **Readable.** UI scale 1 on a phone (`uiScale`), a font floor of 11 px in paint.ts, 13 px for anything
+  read in play: "Sen 62%" on a plate under the dream bubble, the combo's "SERIA" and ×n, "Płomień",
+  "próg", the boss's name, the Fikołek's arrows; 14.5 px bubbles; the story card at 16–15 px, laid out to
+  fit above the Zmory's heads — two pages on a small phone (the words, then Psalm 91:11), never under
+  13 px or cut — and it waits under the block's banner and the gifts.
+* **Gifts as a bottom sheet.** On a phone upright a level-up slides up three full-width cards (66 px, the
+  icon beside the name and what it does) under the thumb; the first one's gold rim and bar count down to
+  its pick; elsewhere a row of three. While it is up only a card answers a tap (keys still strike).
+* **One thing at a time.** Toasts sit over the window on a phone, so the angel stays in sight; Pan Guzik
+  and the coach marks wait while a toast or the story is up (`sim.busy`), the first Zmora's and the
+  gifts' marks excepted; the middle pad and the gift sheet get marks pointing at them, and the gifts'
+  mark goes when a gift is taken.
+* **Words for the hand.** With a finger the coach marks and the how-to speak of the pads ("Środkowy
+  przycisk: cios w stronę bliższej zmory", "Stuknij dar · za 5 s pierwszy"); with a keyboard they name
+  ←/→, Space and 1–3 (`*.keys` variants, four languages); the registry's tip no longer says "arrows".
+* **Fill rate.** No shadowBlur per frame (the aura's gold rim and the Płomień ring glow with wide
+  translucent strokes, cards and bubbles cast offset shapes); the child's room is painted once per size
+  into an offscreen canvas; wrapped paragraphs are cached.
+* **Measured** (scripts/arcade-mobile.mjs, six devices): strings under 11 px 36/21/37/48/0/0 → 0 on all
+  six, under 13 px 5/19/29/6/17/17 → 0 (German and HALO too); targets 0 → the three pads and the three
+  gift cards, all ≥ 48 px and apart; the game's own frame 0.76 ms on a desktop (0.87 before; budget 4).
+
+#### Zastępy
+
+**Mobile first (2026-11-12, §12).** We Are Warriors! is held upright: the lane across the screen, the unit
+buttons along the bottom under the thumb. Zastępy was laid out for a desktop and squeezed onto a phone: a UI
+scale of 0.84 (the walls' "Mury 650" at 8 px, the prices at 11, key badges "1 2 3", "H", "T" on a touch
+screen), 58 px kept empty under the cards for the old simulator switch, the card between battles at the top.
+* **The thumb zone** (an upright phone, `layout.ts` shape `tall`): the light's row — the lantern (the band's
+  gauge, 52 px), the light bar with its count and ×n, the pillar's and the trumpet's buttons (52 px, 10 apart)
+  — over the unit cards, 16 px off the edges, on the bottom (over the home indicator, the last pixel free for
+  the dock's touches). A card keeps 52 px across: one row while that holds (the next card's locked preview gives
+  way first), else two (4 + 3 at gate 6: 77 × 54, the unit left, the price right); one row is 72–92 px tall.
+  A card shows the shade it beats (a badge; orange with "×2" when that shade comes), its level in gold pips and
+  its price at 15 px; a keyboard adds the digit.
+* **Under the HUD, passive:** the gates' bar — the gate of light's walls with their number on the left (red when
+  low, blue while a Cisza mends them, a flash when struck), the gate of ash's (or the boss's name and life while
+  its gate is sealed) on the right, the chapter's five battles between them: 13 px numbers on 28 px bars. Under
+  it Tymek (14 px, up to four lines) and "Nadchodzą" (13 px) with the wave's icons, which steps under his
+  bubble rather than over his words.
+* **The road:** ten metres or so across an upright phone, 13 at most with two rows of cards (the camera follows
+  the front; a drag past 10 px pans); with room to spare (a tablet, an installed app) the road sits at four
+  fifths of the band, the sea of clouds below it rather than empty sky above. The banners (the last 40 s) stand
+  between the gates, so a gate in view never hides "now". The causeway is a strip painted once per size, the
+  cards' units are sprites, and no glow is a shadowBlur any more (sprites, wide faint strokes).
+* **Under a finger:** a card sends at the touch (a lane battler answers at once) and squashes; one not ready
+  shakes and says why over itself; a thumb in the 6 px gap between two cards takes the nearer; a locked card
+  shakes. The two buttons squash at the touch; not ready they shake with "Jeszcze chwila"; ready they glow and
+  pulse. The pillar's button raises it at the front (auto-aim), a tap on the road where you tap.
+* **Between battles:** a bottom sheet on a phone — the title and the gold, the chapter's map under its name,
+  three stacked full-width offers (54–72 px: the picture, the name and the price at 15 px, the numbers before →
+  after at 13 px on up to two lines), "Dalej · 5 s" 50 px at the foot. On its side two columns: the title, the
+  gold, the map and "Dalej" under the left thumb, the offers stacked under the right; a desktop has three tiles.
+* **On its side** (601 × 360): the road across the width (21 m in view); one strip along the bottom held in two
+  hands — the cards from the left edge (58 px each at gate 6), the pillar and the trumpet under the right thumb
+  — and over it a slim row with the lantern (out from under a resting thumb) and the light bar. A tablet grows
+  the phone's layout (u 1.3, cards 120 px tall); a desktop shows the whole road, the row and the cards centred.
+* **Words for the hand:** with a finger the coach marks and the how-to speak of tapping only ("Trąba gotowa —
+  stuknij ją"; the how-to's third line is the trumpet's tap); with a keyboard they add the shortcut ("kliknij ją
+  albo naciśnij T", 1–7, H), the badges show, and a story card says "Kliknij albo naciśnij Spację". The tip on
+  the calibration card names no keys. Story cards fill the band's width: words at 15 px, the verse at 13–16.
+* **Measured** (`scripts/arcade-mobile.mjs`; small phone / iPhone / large phone / on its side / tablet /
+  desktop): strings under 11 px 79 / 69 / 12 / 65 / 0 / 0 → 0 everywhere; at 11–13 px 12 / 10 / 62 / 13 / 13 /
+  15 → 3 / 3 / 3 / 3 / 0 / 0 (the lag's "≈ 5 s", a locked card's "brama 2", the verse's reference); targets:
+  none → the cards, the pillar and the trumpet (the offers and "Dalej" between battles, the card under a
+  story), all ≥ 44 px, inside the insets, 6 px apart; the game's frame on a desktop 1.24 → 0.82 ms. The layout
+  test audits the targets at every `CHECK_SIZES` entry, every gate level (4–7 cards) and one to three offers,
+  for a finger and a keyboard; a game test draws play, Tymek at length, seven cards, the sheet, a boss gate and
+  both story cards at every size and checks the text floor; German passes on the small phone and on its side.
+
+#### Firmament
+
+**Mobile first (2026-11-12, §12).** Candy Crush and Royal Match are played upright with one thumb: the board
+is the field, a swipe on a candy swaps it, the boosters wait under the thumb. Firmament was laid out on a
+desktop and squeezed onto a phone (a UI scale of `min(w, h) / 700` floored at 0.62 drew the tray's digits at
+6.6 px, the story card at 7.9, the goal strip's "500 / 6000" at 9.6, the telescope's words at 6.8–10.6 and the
+flying points at 10 — the kit's `Floaters` got a whole font string and fell back to the canvas's default — and
+gave the board 8 × 29 px of a 360 px phone). Now the phone is the reference (`layout(w, h, insets, rows, cols,
+slots)`, `u` = the kit's `uiScale`: 1 on a phone, up to 1.3; `font()` never under 11 px):
+
+* **Upright: the board as large as the band allows, the tools under the thumb.** Right under the HUD a 40 px
+  goal strip (passive: the moves in their ring, what is left to clear at 15 px, the score bar with its stars;
+  a reached score keeps its points beside the tick); then the board; then, over the home indicator, the thumb
+  row: Bubo, the telescope's lens (the charge ring, the threshold ring, the light trail) and the tray, slots
+  of 52 px (68 on a tablet), 8 px apart, off the outer 16 px. Cells 32 px on the smallest band (360 × 366,
+  29 before), 40 on an iPhone in Safari (36), 50 on a large phone, 47 — the width filled — in an installed app.
+* **Under a finger.** A swipe on a body swaps it with the neighbour it points to after 10 px (a third of a
+  cell, at most 18 px); while the finger is down the body lifts and leans toward the swipe. A tap selects, a
+  tap on its neighbour swaps, a tap on the selected one lets it go — decided when the finger lifts, so a
+  swipe from a body picked by a tap swaps (it used to let it go on the way down). A touch up to 0.4 cell off
+  the board takes the nearest body; one on the sky lets go and hushes Bubo. A tool acts on the touch (+5
+  moves, the shuffle) or arms (the slot sinks under the finger, an armed one glows, its use in a pill over
+  it); an aimed tool shows its strike while the finger is down (the hammer's cell, the ray's whole row),
+  follows the finger and strikes where it lifts — lifted off the board, nothing is spent. A buzz on a move, a
+  bounce, a tool earned and used, a level won.
+* **The telescope on a phone.** Its words (the lead-in, no signal, clouds, the calm sky's stars, a full tray,
+  a pulsar next) rise above the lens for 2.8 s when they change; the charge's per cent stays the ring's. Its
+  brass and glass are one cached sprite, the board's glass one cached layer per level, the dark clouds
+  sprites; no blur in a frame (glows are wide faint strokes).
+* **Cards are bottom sheets** on a phone upright (the play waits under them): the story (15 px, the passage
+  at 13–19, its reference at 12), the goal card (the level at 28 px, the goal at 17), the tally, and out of
+  moves with "+5 ruchów z teleskopu" and "Jeszcze raz" 50 px tall at its foot, in the thumb zone.
+* **On its side** (601 × 360, the HUD one 68 px row, the chart a column): three columns — the goal card
+  (the level, the moves ring and its word, the goal, the bar) and Bubo with his bubble over him on the left;
+  the board as tall as the band in the middle (35 px cells, 30 before; it no longer rises under the HUD
+  row); the telescope, its words in up to three lines and the tray (60 px slots, 2 × 2 or a row) under the
+  right thumb. Cards sit on the board, narrow enough that the goal and Bubo's comment stay in sight (the
+  story spreads wider). A desktop keeps its picture grown to 1.3: the 600 px board risen between the Mendi
+  panel and the score, the tools' names over the tray, the shortcut digits on the slots (without touch only).
+* **Words for the hand.** With a finger the how-to says "Przesuń" (a swipe), the coach mark about Space says
+  "stuknij dwa sąsiednie ciała po kolei", and the registry's first tip no longer names Space (four
+  languages); with a keyboard the keys stay shortcuts (Space plays the hint, the arrows, Enter, 1–4).
+* **Measured** (`scripts/arcade-mobile.mjs`; small phone / iPhone / large phone / on its side / tablet /
+  desktop): strings under 11 px 114 / 113 / 112 / 125 / 96 / 101 (one per per cent of the charge) → 0
+  everywhere, German too; at 11–13 px only the verse's reference (12) and, on its side, "RUCHY" and "/ 6000"
+  (12); targets: none → the tools, the card, out of moves its two buttons (52–73 px, inside the insets, no
+  overlaps); the game's frame 0.70 ms on a desktop (0.82 before), 2.3 ms on the small phone at 4× slowdown.
+  The layout test audits the targets at every `CHECK_SIZES` entry with three and four slots and every stage;
+  another draws the story, the goal card, play with a tool armed and Bubo talking, out of moves and the tally
+  at every size on a recording context and finds no string under 11 px.
