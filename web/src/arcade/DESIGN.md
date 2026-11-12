@@ -3939,22 +3939,129 @@ Each builder rewrites its game's section below with the full design.
 
 ### 13.6 Ogień, ogień, ogień — from a spark to the fire of Pentecost
 
-*Direction (the builder rewrites this section).* Seven rungs, each a scene at its own scale, the camera
-pulling back by orders of magnitude at each change: **Iskra** (a spark on tinder in cupped hands) →
-**Świeca** (a candle in a window at night) → **Ognisko** (a bonfire on a hill, people around it) →
-**Słup ognia** (the founder's "???": the pillar of fire over Israel's camp in the desert, the bridge
-from earth to sky) → **Gwiazda** (a star in space) → **Megagwiazda** (a hypergiant in its nebula) →
-**Duch Święty** (Pentecost at dawn: wind, and tongues of fire coming down on the gathered; §13.4).
-A ring around the fire is its charge. Above the threshold it fills, faster the higher the signal
-("charging goes with growing concentration"); the fire brightens, throws more light and sparks, and
-grows. A full ring sets off **the change**: a flare, a white-out, the zoom-out, the next form
-igniting, its name and verse. Rest blocks bank the gathered heat as light: what is banked is never
-lost, and the flame breathes slowly with a 4/6 breath. Each scale has one small task for the hands
-(<2 s, §2.1): blow on the spark, shield the candle from draughts, feed the bonfire, light the camp's
-lamps from the pillar, fuse hydrogen in the star, gather the nebula; touch also adds a little base
-charge, so a player without control climbs too, only slower. Meta: each session's highest fire
-becomes a star in the player's own sky (Gen 15:5), a gallery of the seven forms with their verses,
-records of the highest rung and the fastest change.
+The founder's words: *"FIRE, FIRE, FIRE (spark → candle → bonfire → ??? → a star → a mega star → Holy
+Spirit) — concentration charges the successive pictures, which light up, gain energy and grow; past a
+threshold they turn into something of a higher scale, and so on; the charging goes with growing
+concentration."* Root: 2 Timothy 1:6, *"fan into flame the gift of God"*. Code: `src/arcade/ogien/`
+(rules, content, meta, sim, talk, scenes, paint, render, layout, intro, preview, panel, audio, i18n),
+tests `test/arcade-ogien.test.ts`.
+
+**The ladder: seven worlds, each at its own scale.** Every fire is a whole scene with its own palette
+and scale cues, drawn in code (a cached backdrop, live layers of light, the fire, the props):
+
+| | Fire | The scene | Frame | The hands (< 2 s) | Its verse |
+|---|---|---|---|---|---|
+| 1 | **Iskra** | a spark on tinder in cupped hands, the fingers lit from inside, the night far out of focus (at dawn in the 2nd picture) | 10⁻¹ m | **blow** (tap): a breath from below, the ember brightens | Isa 42:3 |
+| 2 | **Świeca** | a candle on a sill, a winter village under snow outside, a curtain the draughts lift (an oil lamp in a stone window over a desert night) | 10⁰ m | **shelter** (hold): a draught is warned 1.6 s ahead (the curtain lifts, pale streaks); a held finger cups hands round the flame | Prov 20:27 |
+| 3 | **Ognisko** | a bonfire on a hilltop under the stars, people sitting round it rim-lit (a charcoal fire by a lake at dawn, a boat) | 10² m | **feed** (drag a log from the pile onto the fire; tap the pile or the fire to poke it) | Luke 24:32 |
+| 4 | **Słup ognia** | the pillar of fire from the sand to the clouds over Israel's camp, tents to the horizon (under a mountain) | 10⁴ m | **light the tents** (tap a dark tent: a flame arcs from the pillar to its lamp; lamps fade in ~28 s) | Exod 13:21 |
+| 5 | **Gwiazda** | a star: limb-darkened disc, granulation, corona streamers, prominences (a blue giant) | 10⁹ m | **fuse** (tap a pair of hydrogen nuclei: a flash, helium) | Dan 12:3 |
+| 6 | **Megagwiazda** | a hypergiant inside the nebula it threw off: glowing gas, dark dust, expanding shells (a blue one in a two-lobed nebula) | 10¹⁵ m | **gather** (drag through the gas: wisps spiral in; a tap pulls the nearest) | Isa 60:19 |
+| 7 | **Zesłanie Ducha Świętego** (en Pentecost) | dawn over the city, a house whose upper room opens to the street, the wind, tongues of fire coming **down** on the gathered; the light spills into the city as the ring fills (the crowd in the streets) | from above | **pass the fire on** (tap one who waits: the flame goes from the nearest lit one to them) | Acts 2:3 |
+
+*The "???" is the pillar of fire (Exodus 13:21)*, kept from the lead's direction: it is the first fire no
+hand lit, kilometres from the sand to the clouds over a whole people — the bridge from the earth's fires
+to the sky's. *The last fire is named "Zesłanie Ducha Świętego"* (the Sending of the Holy Spirit; en
+Pentecost, de Pfingsten, sv Pingst), not "Duch Święty": the founder's Holy Spirit stays in the name, and
+the name says what §13.4 asks — the Spirit is *sent down*, a gift that meets the player's fire; the player's
+fire never *becomes* the Spirit. For the same reason the zoom turns around there: after the hypergiant the
+camera comes **down** from the sky to the house.
+
+**Focus charges the fire (push blocks).** Each fire has a ring, its charge 0..1. Past the lead-in (5 s
+Mendi, 2 s HALO) the brain adds `k(level) / ringSec` a second, with `k = 0` at the threshold (level 0.5),
+rising linearly to 1 at the top: the higher the signal, the faster it fills — the founder's "with growing
+concentration". `ringSec` grows up the ladder (9, 12, 15, 18, 22, 26, 30 s of full focus; ×1.2 each later
+round). A passed rest leaves an **ember bed** (the next push charges ×1.15); a passed push adds 5 %. The
+ring never shrinks. Everything about the fire rises continuously with the shown heat (the eased level) and
+the charge: its size, brightness, light radius on the world, flicker, the spark rate (sparks fly from the
+fire to the ring's tip while focus charges it), the crackle (faster and louder), the pad's filter and a
+soft bell for every tenth of the ring. A bad signal freezes the brain's part at neutral: no charge, no
+loss, the fire never shown low for it.
+
+**The hands add a base.** Each task's gain is a share of a ring (blow 1.2 %, trim 1 %, poke 0.9 %, a
+sheltered draught 5 %, a log 6 %, a tent 3 %, a fusion 3.2 %, a wisp 1.6 %, a passed flame 4 %), softly
+capped per block (each gain × (1 − used / cap); 24 % of a ring per push, 50 % in the warm-up), so
+everyone climbs and tapping never outruns focus. A centre tap and Space always do the scale's task on its
+best target (the smoke contract). In rest the hands rest: a tap only ripples.
+
+**The change (the money shot, 2.8 s).** A full ring: a flare and sparks; a warm white-out (light pouring
+from the fire, never a flash; a gentle cross-fade with reduced motion); the camera pulls back ×14 —
+"Powers of Ten": the new world shrinks from close up while the old one is seen through a lens of light
+closing on the new fire's heart, with the frame's width as a rolling power of ten ("10⁹ m", "×10⁵");
+the new fire ignites with a shockwave; then its card: the scale, the name, a line, and its verse (a bottom
+sheet on a phone upright, a column beside the ring elsewhere; "new in the gallery" when it is). The change
+fires only in a push block or the finale: a ring that would fill in the warm-up or a rest stops short and
+the rest waits as light, so the money shot always comes with focus. A full ring at Pentecost is a new
+round: the camera dives into one flame, which becomes the next spark in new hands, in the richer picture —
+never an empty end.
+
+**Rest: light, never lost.** Past its own lead-in (4 s / 2 s) calm banks **light** (1.2 % of a ring a
+second at calm 1, up to 45 %): a pale arc after the gold one, the scene's glow deepening; the flame and a
+breathing circle keep a 4-in / 6-out breath ("wdech", "wydech" under the ring; a hum rises and falls with
+it). At the next push the banked light pours back into the ring over its lead-in — the band's lag is
+never dead time. The finale pours what is left.
+
+**Blind blocks** (every 4th push from the 3rd session): smoke veils the ring and the heat; the fire burns
+neutral; the brain's charge is kept apart and poured in when the smoke lifts (its sparks counted then, so
+the headline leaks nothing).
+
+**The signal on the fire** (§10.2): around the fire, the heat as a circle whose radius is the eased level,
+the threshold as a dashed circle — past it the circle turns gold and the ring charges; the ring is the
+charge. `meter()` is the heat in a sighted push past its lead-in ("Żar"), calm in rest ("Światło"), null
+blind or without signal. `padLevel` follows the heat in a sighted push, null in rest and blind.
+
+**Headline: sparks** (iskry / sparks / Funken / gnistor): charge gathered × the fire's worth (100, 140,
+180, 240, 300, 380, 480 a ring; ×1.5 each later round), light counted when banked.
+
+**The pace** (tuned by a test with an Ornstein–Uhlenbeck signal model): in 5 minutes a player without
+control reaches the bonfire (the pillar with the hands busy), some control the pillar or the star, good
+focus Pentecost (with busy hands the whole ladder and a new round); 10 minutes of good focus go round.
+
+**Ignacy, the old lamplighter** (en/sv Ignatius, de Ignaz — *ignis*): sixty years a keeper of the flame,
+he wonders at each scale with gentle humour ("Sixty years lighting lamps, and never a single star"), in
+drawn bubbles (≤ 90 characters, one at a time, never over a telegraph, the banner, a card or a coach
+mark): 31 moments × 3 lines × 4 languages (arriving at each fire, each task, a missed draught, the good
+heat, the near-full ring, the light pouring back, the smoke lifting, passed blocks, a record, a round, the
+end). His portrait is drawn in a few shapes (a cap, a white beard, his lantern's light on one cheek).
+
+**Story.** The first session opens with a card in Ignacy's words and the root verse; every change shows
+its fire's card and verse; a round has its own card. The summary closes with a line for the highest fire
+("Twój ogień doszedł dziś do gwiazdy.") and that fire's verse; after a long burn (a 9-minute session or a
+held focus of 14 s) Jer 20:9 and Song 8:7 take turns with it.
+
+**Strategies (signal().task).** Push: two imagery strategies of the current scene each ("Zobacz słup
+ognia nad obozem: od piasku po chmury."), a counting or recalling one every third push; blind: counting
+and imagining the hidden flame; rest: breathing with the flame. Never the same twice running; each at
+most 58 characters, so the phone panel's two lines show it whole.
+
+**Meta.** *The night sky:* every session's highest fire becomes a star in the player's own sky, in a
+place fixed by the session's number (a golden-angle spiral), as bright and as warm as the fire (a spark
+a faint red star, Pentecost a radiant gold one, later rounds bigger) — the lobby's picture and the
+progress card. *The gallery of fire:* 14 forms (each fire's two pictures), with how often each was reached
+and its fastest change; a fire's second picture unlocks after three sessions there or in a second round;
+the verses of the fires reached, in a fold. *Records:* sparks per session length, the highest fire (as a
+ladder index), the fastest change out of each fire, changes, whole ladders, sparks in all.
+
+**Sound** (kit/audio): each fire's own pad chord (warm and low on the earth, airy among the stars,
+bright at Pentecost); the crackle or a star's hum; a voice for every task; the change's rising swell and
+the new fire's bells; the breath's hum in rest.
+
+**Reverence** (§13.4): no dove, no figure in the light at Pentecost — wind, fire, light; the tongues come
+down from above by themselves (a gift, in every block), the player only passes the fire on; the pillar
+is fire over the camp, never a figure; no verse is typed (all by id from `scripture.ts`).
+
+**Mobile first.** Upright: the fire and its ring in the band between the HUD and the thumb zone; the
+ladder of seven down the left edge (passive); Ignacy's bubble under the HUD; the scale's button (a 56 px
+pill with the scene's flame and its verb) bottom right and the bonfire's pile (≥ 96 × 56 px) bottom left;
+cards rise as a sheet from the bottom and are the only target while up. On its side and on a desktop the
+cards sit in a column beside the ring. A drag lifts the log 48–80 px above the finger; a press shows at
+once (the button presses in, the scene ripples or answers). No canvas text under 11 px (the game's own
+floaters pop from three quarters of their size), the words to read at 13 px and more. The audit
+(`scripts/arcade-mobile.mjs`, 2026-11-12): all six devices pass — 0 strings under 11 px; under 13 px only
+the verse's reference line of a card at 11 px (the kit's floor) on the phones; 60 fps with the CPU slowed
+4× on the small Android phone, the game's own update + draw 0.5–1.7 ms a frame; the play keeps 61 % of
+the small phone's height, 81 % on its side. Performance: backdrops are cached per size (at most three), the
+stars' discs and coronas are baked sprites turned each frame, every glow is a baked radial sprite.
 
 ### 13.7 Rozświetl — the dark mosaic and the light behind it
 
