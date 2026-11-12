@@ -2811,6 +2811,63 @@ night you keep the watch, gate by gate through Nehemiah 3.
 * **Saves.** Progress `ver: 1`; the placeholder's `{ sessions }` keeps its count and starts the
   campaign; a v1 save with wrong types is repaired and clamped.
 
+**Mobile first (§12, round 6).** Before: a UI scale of 0.72 on every phone (the stores' numbers 9 px, cost
+cards 9 px, "próg" 7 px, bubble names 8 px), a 45 px empty band under the bar (the old simulator reserve), the
+guide's chip no button, the horn a small dial at the edge, a phone on its side showing the city in a 600 × 230
+strip, and the fire, wall and post markers at x 3.9 and 14.1 stacked within 1.5 u, where no finger could pick one.
+
+* **A phone upright** (the reference: the 360 × 366 band of a small Android): the world zooms to at least 42 px
+  per u (≈ 8.6 u across) and the camera follows Nehemiah — by day it keeps the wall's badges in sight while he
+  works in the city; by night, and at dusk while tonight's preview shows, it looks up to the hills, the roads and
+  the ridge of the band's history. The bottom is the thumb's: a panel with the stores (five numbers at 14 px)
+  over one big button — by day **"Następne"** (the guide's build and its cost; a tap builds it), by night **"Na
+  mur!"** (Nehemiah runs where it is hottest; "Za zbójem!" when a raider is inside, with the night's tally)
+  beside **the ram's horn**, a 64 px button: its charge as a ring and a percent, then gold, breathing, "Dmij!",
+  with a double tick of the phone when it fills. The controls end 10 px above the screen's foot (the home
+  indicator's inset kept); nothing is reserved under them.
+* **Build badges.** Every site with a build carries a badge — what it builds (bricks, an arch, a tower, a flame,
+  a spear, a house, a loaf, a sack, a well, stacked stones, the governor's columns), its next level as pips,
+  cream where the stores can pay, dark where not, gold and bobbing under a chevron for the guide's pick. Their
+  tap boxes stand in rows that never overlap at 42 px per u or more: the fires and towers above the wall line
+  (down to the spot where Nehemiah stands), the wall's sections and the gate on the scaffold strip below it (a
+  section's whole width), then the guard posts and the city on their plots — the posts moved back from the
+  scaffold for it (y 6.1 → 7.2; their guards still stand on the wall at night). Only a badge wholly inside the
+  band and 16 px from the edges takes a tap. Standing on a spot still builds it, and a tap on the open field
+  still builds the guide's suggestion (the smoke's centre tap on a desktop lands on the open city: a test).
+* **Under a finger.** The buttons, the badges and the cards look pressed the moment a finger lands and act when
+  it lifts on them (a finger that slides off walks instead); the horn blows at the touch, and a press before it
+  is ready shakes it; a ripple answers a tap on the field; the floating joystick shows its base under the thumb
+  and its knob. A pressed badge raises its cost card (one at a time: the pressed badge, else the site Nehemiah
+  stands on, else the guide's pick on wider screens — those two only where they cover no other badge).
+  Haptics: a tick when a build is paid, a double tick when the stores fall short or the horn fills, and the old
+  patterns for a build, a tier, the horn, a breach and a finished gate.
+* **Cards.** A story card fits a 360 px phone whole: its text at 16 px stepping down to 13, the passage uncut at
+  17–13 px with its reference drawn at 13 px (the kit's reference would be 10 px), the kicker giving way only on
+  the tightest screen — checked in four languages at every size. The choice cards (a decree, a tower's way) stack
+  full width on a phone, the name at 18 px and the effect at 15 px; side by side on its side and wider.
+* **Tirza's bubbles** (14 px on a phone) take the place where they cover the fewest badges; a badge under a
+  bubble (or under tonight's chips) waits, and a tap on the bubble hushes it.
+* **The night at phone size.** Each fire's light edge is a crisp stroke over a soft wide one (no blur), gold
+  above the threshold; the dotted threshold ring is at least 2 px; the ring between the two glows gold above the
+  threshold and reads dark below it; "próg" stands on a plate on the ring nearest the middle. Tonight's raiders
+  line up as chips under the HUD, with an arrow toward each road whose head is off the screen.
+* **Nehemiah's officers** got their own figures: Hanani in a teal robe with the family's gold sash, his blue
+  cloak streaming as he runs to the pressed stretch; Hananiah, the citadel's commander, in steel and red with a
+  crested bronze helmet and a round shield at the gate — each with a gold ring at his feet.
+* **On its side** (601 × 360 beside the chart's column): one row along the bottom — the stores on the left, the
+  button, the horn in the right thumb's corner — and the camera pans both ways at 42 px per u (14 u across). A
+  tablet is the phone grown (u 1.3, 10 u across); a desktop is the row grown and centred under the whole stretch.
+* **Words for the hand.** With a finger the how-to says drag and tap; the keys are a row of their own that a
+  phone leaves out (WASD / arrows, Space, 1–2); the coach marks for walking, the guide and the horn come in a
+  touch and a keys version, and the story card says "kliknij albo Spacja" only on a desktop.
+* **Measured** (`scripts/arcade-mobile.mjs`, before → after): strings under 11 px small phone 63 → 0, iPhone
+  42 → 0, large Android 41 → 0, on its side 67 → 0, tablet 7 → 0, desktop 0 → 0 (under 13 px: 14/33/30/12/41/7
+  → 0 on every device; German and the HALO the same); targets 0 → 37–286 seen (badges, the guide's button, "Na
+  mur!", the horn, the cards, the bubble), all ≥ 44 px, inside the insets, none overlapping; the game's own frame
+  0.98 ms on a desktop (3.6 ms on the small phone at 4× CPU slowdown); the desktop smoke's input raises 60 cubits
+  in 60 s. Layout tests run every `CHECK_SIZES` entry with Nehemiah at 520 places (day and dusk), the night's
+  buttons, the stores' strip, every story card and every decree pair in four languages.
+
 ### 11.9 Kocia straż — the abbey cats (idle merge shooter after Idle Cat Gunner)
 
 *Song of Songs 2:15 — "Catch for us the foxes—the little foxes that ruin the vineyards—for our

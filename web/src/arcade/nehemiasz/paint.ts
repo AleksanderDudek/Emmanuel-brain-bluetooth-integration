@@ -5,7 +5,8 @@
  * above its top.  Figures share one painter (robes, headwear, a tool, a walk, a flinch, a comic
  * flight); buildings grow with their level.  Everything here is stateless.
  */
-import type { Band, RaiderKind } from './content';
+import { MIN_TEXT } from '../kit/mobile';
+import type { Band, Kind, RaiderKind } from './content';
 
 export const C = {
   // the day
@@ -26,7 +27,8 @@ export const C = {
 
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
-export const font = (px: number, weight = 700, family = SANS): string => `${weight} ${Math.round(px)}px ${family}`;
+/** A canvas font, never under MIN_TEXT (11 px): the floor every string of the game keeps (src/arcade/DESIGN.md §12). */
+export const font = (px: number, weight = 700, family = SANS): string => `${weight} ${Math.max(MIN_TEXT, Math.round(px))}px ${family}`;
 const TAU = Math.PI * 2;
 
 /** A stable pseudo-random number in 0..1 for an integer seed. */
@@ -1269,6 +1271,214 @@ export function paintChevron(ctx: CanvasRenderingContext2D, x: number, y: number
   ctx.lineTo(x, y - r * 0.05);
   ctx.lineTo(x - r * 0.55, y - r * 0.6);
   ctx.closePath();
+  ctx.fill();
+}
+
+/**
+ * A small glyph for what a build badge builds (radius r, one colour): two courses of a crenellated
+ * wall, a gate's arch, a tower, a flame, a spear with a pennant, a house, a loaf, a sack, a well under
+ * its roof, a dressed stone, the governor's columns.
+ */
+export function paintKindIcon(ctx: CanvasRenderingContext2D, kind: Kind, x: number, y: number, r: number, color: string): void {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1.3, r * 0.15);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const hole = 'rgba(40,25,10,.55)';
+  switch (kind) {
+    case 'wall':
+      ctx.fillRect(x - r * 0.85, y - r * 0.2, r * 1.7, r * 0.8);
+      for (let i = 0; i < 3; i++) ctx.fillRect(x - r * 0.85 + i * r * 0.65, y - r * 0.55, r * 0.4, r * 0.3);
+      ctx.fillStyle = hole;
+      ctx.fillRect(x - r * 0.85, y + r * 0.17, r * 1.7, r * 0.08);
+      ctx.fillRect(x - r * 0.05, y - r * 0.2, r * 0.08, r * 0.37);
+      break;
+    case 'gate':
+      ctx.fillRect(x - r * 0.9, y - r * 0.55, r * 1.8, r * 1.15);
+      ctx.fillStyle = hole;
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.38, y + r * 0.6);
+      ctx.lineTo(x - r * 0.38, y);
+      ctx.arc(x, y, r * 0.38, Math.PI, 0);
+      ctx.lineTo(x + r * 0.38, y + r * 0.6);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'tower':
+      ctx.fillRect(x - r * 0.42, y - r * 0.55, r * 0.84, r * 1.25);
+      for (let i = 0; i < 3; i++) ctx.fillRect(x - r * 0.6 + i * r * 0.45, y - r * 0.85, r * 0.3, r * 0.34);
+      ctx.fillRect(x - r * 0.6, y - r * 0.6, r * 1.2, r * 0.12);
+      ctx.fillStyle = hole;
+      ctx.fillRect(x - r * 0.1, y - r * 0.25, r * 0.2, r * 0.36);
+      break;
+    case 'fire':
+      ctx.beginPath();
+      ctx.moveTo(x, y - r * 0.95);
+      ctx.quadraticCurveTo(x + r * 0.75, y - r * 0.1, x + r * 0.45, y + r * 0.45);
+      ctx.quadraticCurveTo(x, y + r * 0.8, x - r * 0.45, y + r * 0.45);
+      ctx.quadraticCurveTo(x - r * 0.75, y - r * 0.1, x, y - r * 0.95);
+      ctx.fill();
+      ctx.fillStyle = hole;
+      ctx.beginPath();
+      ctx.ellipse(x, y + r * 0.25, r * 0.2, r * 0.3, 0, 0, TAU);
+      ctx.fill();
+      break;
+    case 'post':
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.35, y + r * 0.85);
+      ctx.lineTo(x + r * 0.2, y - r * 0.55);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x + r * 0.32, y - r * 0.95);
+      ctx.lineTo(x + r * 0.42, y - r * 0.45);
+      ctx.lineTo(x + r * 0.02, y - r * 0.6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.1, y - r * 0.1);
+      ctx.lineTo(x - r * 0.75, y - r * 0.25);
+      ctx.lineTo(x - r * 0.2, y + r * 0.2);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    case 'house':
+      ctx.fillRect(x - r * 0.75, y - r * 0.3, r * 1.5, r * 0.95);
+      ctx.fillRect(x - r * 0.9, y - r * 0.48, r * 1.8, r * 0.2);
+      ctx.fillStyle = hole;
+      ctx.fillRect(x - r * 0.16, y + r * 0.15, r * 0.32, r * 0.5);
+      break;
+    case 'bakery':
+      ctx.beginPath();
+      ctx.ellipse(x, y + r * 0.1, r * 0.9, r * 0.58, 0, Math.PI, 0);
+      ctx.lineTo(x + r * 0.9, y + r * 0.35);
+      ctx.lineTo(x - r * 0.9, y + r * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = hole;
+      for (const dx of [-0.35, 0.05, 0.45]) {
+        ctx.beginPath();
+        ctx.moveTo(x + (dx - 0.12) * r, y - r * 0.25);
+        ctx.lineTo(x + (dx + 0.08) * r, y + r * 0.05);
+        ctx.stroke();
+      }
+      break;
+    case 'granary':
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.2, y - r * 0.6);
+      ctx.quadraticCurveTo(x - r * 0.85, y - r * 0.2, x - r * 0.65, y + r * 0.7);
+      ctx.lineTo(x + r * 0.65, y + r * 0.7);
+      ctx.quadraticCurveTo(x + r * 0.85, y - r * 0.2, x + r * 0.2, y - r * 0.6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillRect(x - r * 0.28, y - r * 0.9, r * 0.56, r * 0.3);
+      ctx.fillStyle = hole;
+      ctx.fillRect(x - r * 0.3, y - r * 0.62, r * 0.6, r * 0.1);
+      break;
+    case 'well':
+      // two posts and a crossbar, a rope with a bucket, the round stone rim below
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.62, y + r * 0.25);
+      ctx.lineTo(x - r * 0.62, y - r * 0.85);
+      ctx.lineTo(x + r * 0.62, y - r * 0.85);
+      ctx.lineTo(x + r * 0.62, y + r * 0.25);
+      ctx.stroke();
+      ctx.lineWidth = Math.max(1, r * 0.08);
+      ctx.beginPath();
+      ctx.moveTo(x, y - r * 0.85);
+      ctx.lineTo(x, y - r * 0.4);
+      ctx.stroke();
+      ctx.fillRect(x - r * 0.18, y - r * 0.42, r * 0.36, r * 0.3);
+      ctx.beginPath();
+      ctx.ellipse(x, y + r * 0.42, r * 0.88, r * 0.42, 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = hole;
+      ctx.beginPath();
+      ctx.ellipse(x, y + r * 0.32, r * 0.58, r * 0.2, 0, 0, TAU);
+      ctx.fill();
+      break;
+    case 'yard':
+      // dressed stones stacked two and one
+      for (const [dx, dy] of [[-0.46, 0.28], [0.46, 0.28], [0, -0.38]] as const) {
+        roundRect(ctx, x + (dx - 0.42) * r, y + (dy - 0.3) * r, r * 0.84, r * 0.6, r * 0.1);
+        ctx.fill();
+      }
+      ctx.fillStyle = hole;
+      ctx.fillRect(x - r * 0.9, y - r * 0.04, r * 1.8, r * 0.06);
+      break;
+    case 'governor':
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.95, y - r * 0.4);
+      ctx.lineTo(x, y - r * 0.92);
+      ctx.lineTo(x + r * 0.95, y - r * 0.4);
+      ctx.closePath();
+      ctx.fill();
+      for (let i = 0; i < 4; i++) ctx.fillRect(x - r * 0.75 + i * r * 0.46, y - r * 0.3, r * 0.2, r * 0.75);
+      ctx.fillRect(x - r * 0.95, y + r * 0.48, r * 1.9, r * 0.2);
+      break;
+  }
+  ctx.restore();
+}
+
+export type Officer = 'hanani' | 'hananiah';
+export interface OfficerPose { flip: 1 | -1; step: number; walking: number; t: number }
+/**
+ * Nehemiah's officers (Neh 7:2), each drawn as his own man with a gold ring at his feet: Hanani,
+ * Nehemiah's brother — a teal robe with the family's gold sash, a cream turban, a blue cloak streaming
+ * as he runs to where the wall is pressed; Hananiah, the commander of the citadel — steel and red, a
+ * bronze helmet with a red crest and a round bronze shield, holding the gate.
+ */
+export function paintOfficer(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, who: Officer, p: OfficerPose): void {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,211,107,.7)';
+  ctx.lineWidth = Math.max(1.5, s * 0.04);
+  ctx.beginPath();
+  ctx.ellipse(x, y, s * 0.3, s * 0.1, 0, 0, TAU);
+  ctx.stroke();
+  ctx.restore();
+  shadow(ctx, x, y, s * 0.2);
+  const size = who === 'hanani' ? 1.1 : 1.14;
+  const k = s * 0.5 * size;
+  const bob = p.walking > 0 ? Math.abs(Math.sin(p.step)) * 0.06 * k * p.walking : 0;
+  if (who === 'hanani') {
+    // the cloak behind him, streaming as he runs
+    const flow = p.walking > 0 ? 0.12 + 0.06 * Math.sin(p.step * 2) : 0.02 * Math.sin(p.t * 2);
+    ctx.save();
+    ctx.translate(x, y - bob);
+    ctx.scale(p.flip, 1);
+    ctx.fillStyle = '#2f5d9a';
+    ctx.beginPath();
+    ctx.moveTo(-0.1 * k, -0.98 * k);
+    ctx.quadraticCurveTo((-0.42 - flow) * k, -0.62 * k, (-0.34 - flow * 1.6) * k, -0.18 * k);
+    ctx.lineTo(-0.12 * k, -0.24 * k);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    paintFigure(ctx, x, y, s, {
+      robe: '#2b7a86', trim: C.nehSash, hat: 'turban', hatColor: '#efe4c8', flip: p.flip, step: p.step, walking: p.walking,
+      arm: 0.35, tool: 'spear', size, beard: '#3d2b1e',
+    });
+    return;
+  }
+  paintFigure(ctx, x, y, s, {
+    robe: '#56606e', trim: '#c8553d', hat: 'helmet', hatColor: '#c49a52', flip: p.flip, step: p.step, walking: p.walking,
+    arm: 0.25, tool: 'spear', size, beard: '#5a4030', shield: '#b8873e',
+  });
+  // the helmet's horsehair crest, front to back with its tail falling behind, and the shield's boss
+  const hy = y - bob - 1.13 * k, f = p.flip;
+  ctx.fillStyle = '#c8553d';
+  ctx.beginPath();
+  ctx.moveTo(x + 0.15 * k * f, hy - 0.16 * k);
+  ctx.quadraticCurveTo(x + 0.06 * k * f, hy - 0.44 * k, x - 0.2 * k * f, hy - 0.31 * k);
+  ctx.quadraticCurveTo(x - 0.33 * k * f, hy - 0.22 * k, x - 0.28 * k * f, hy + 0.02 * k);
+  ctx.quadraticCurveTo(x - 0.18 * k * f, hy - 0.2 * k, x - 0.02 * k * f, hy - 0.22 * k);
+  ctx.quadraticCurveTo(x + 0.08 * k * f, hy - 0.22 * k, x + 0.15 * k * f, hy - 0.16 * k);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = C.gold;
+  ctx.beginPath();
+  ctx.arc(x + 0.2 * k * p.flip, y - bob - 0.6 * k, Math.max(1, 0.05 * k), 0, TAU);
   ctx.fill();
 }
 

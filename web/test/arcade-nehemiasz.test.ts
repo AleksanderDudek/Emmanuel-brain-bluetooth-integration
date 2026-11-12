@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   CHRONICLE_SIZE, DECREE, DECREES, GATES, GATE_SEG, LINES, LINE_COUNT, MARKERS, MOMENTS, PERKS, ROUTE_IDS, SEGS, gateDays, gateFirstDay,
   markerSpec, routeAt, routeLen, tierCubits,
@@ -13,7 +13,12 @@ import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type Focu
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
-import { catalogProblems } from '../src/i18n';
+import { LANGS, catalogProblems, type Lang } from '../src/i18n';
+import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
+import type { TapTarget } from '../src/arcade/kit/types';
+import { S_MIN, badgeFree, badgeOf, cameraFor, inside, layout, type Layout } from '../src/arcade/nehemiasz/layout';
+import { font } from '../src/arcade/nehemiasz/paint';
+import type { Choice, Story, StoryKind } from '../src/arcade/nehemiasz/sim';
 
 const DAY = '2026-11-11';
 const STEP = 1 / 60;
@@ -215,6 +220,56 @@ describe('Nehemiah and the build', () => {
     sim.tap({ x: m.x, y: m.y });
     expect(ofType(sim.take(), 'missing').some(e => e.id === 'well')).toBe(true);
     expect(sim.neh.order).toBeNull();
+  });
+
+  it('a tap on a build badge (phones) walks there and builds it, says what is missing, and does nothing by night', () => {
+    const sim = later({ progress: { stone: 40, timber: 20 } });
+    drive(sim, 0.2, frame(), { t: 0 }, through(sim));
+    expect(sim.build('t1')).toBe(true);
+    expect(sim.neh.order ?? sim.neh.build?.id).toBe('t1');
+    const evs = drive(sim, 5, frame());
+    expect(ofType(evs, 'built').some(e => e.id === 't1')).toBe(true);
+    expect(sim.p.stretch.t1).toBe(1);
+    // the stores cannot pay: it says what is missing and stays
+    sim.p.stone = 0;
+    sim.p.timber = 0;
+    sim.build('bakery');
+    expect(ofType(sim.take(), 'missing').some(e => e.id === 'bakery')).toBe(true);
+    // a badge whose site takes no build now leaves the tap to the guide (here: nothing to pay for)
+    sim.p.wall[GATE_SEG].tier = sim.p.wall[GATE_SEG].done + 1;
+    expect(sim.nextLevel('gate')).toBeNull();
+    sim.p.stone = 30;
+    sim.p.timber = 12;
+    drive(sim, 0.2, frame());
+    const guide = sim.guideId;
+    sim.build('gate');
+    expect(sim.neh.order ?? sim.neh.build?.id ?? null).toBe(guide);
+    // by night the badges are gone: build() refuses
+    const night = later({ progress: { stone: 40, timber: 20 } });
+    toBlock(night, 'push', frame(), { t: 0 });
+    expect(night.build('bakery')).toBe(false);
+  });
+
+  it('the night\'s button sends Nehemiah where it is hottest and never blows the horn; a tap on a bubble hushes the line', () => {
+    const sim = later({ planned: 300 });
+    const clock = { t: 0 };
+    toBlock(sim, 'push', frame(), clock);
+    drive(sim, 9, HIGH, clock, through(sim));
+    sim.horn = 1;
+    sim.hornReady = true;
+    expect(sim.rush()).toBe(true);
+    expect(sim.neh.goal).not.toBeNull();
+    expect(sim.hornReady).toBe(true);
+    expect(sim.horns).toBe(0);
+    // by day it does nothing
+    const day = later();
+    expect(day.rush()).toBe(false);
+    // the line on screen fades at once
+    for (let i = 0; i < 600 && !day.talk.line; i++) drive(day, 0.1, frame(), clock, through(day));
+    expect(day.talk.line).not.toBeNull();
+    day.talk.hush();
+    drive(day, 0.3, frame(), clock);
+    expect(day.talk.line).toBeNull();
   });
 
   it('the governor\'s house caps the other buildings one level above it', () => {
@@ -738,5 +793,172 @@ describe('the lobby (index.ts, panel.ts)', () => {
     buy!.click();
     expect(saved).toBe(1);
     expect(p.starBank).toBeLessThan(3);
+  });
+});
+
+// ── mobile first (src/arcade/DESIGN.md §12): the layout at every size the runner reports ──────────
+const PX = /(\d+(?:\.\d+)?)px/;
+/** A context that measures text at 0.6 em a character (a little wider than Manrope), for the cards' layouts. */
+function measuring(): CanvasRenderingContext2D {
+  const ctx = {
+    font: '10px sans-serif',
+    save() { /* nothing to keep */ },
+    restore() { /* nothing to restore */ },
+    measureText(text: string) { return { width: text.length * Number(String(this.font).match(PX)?.[1] ?? 10) * 0.6 } as TextMetrics; },
+  };
+  return ctx as unknown as CanvasRenderingContext2D;
+}
+
+/** The day's targets for Nehemiah at (nx, ny), the worst case: every build site has a build, so every badge shows (`dusk`: the camera looks up while tonight's preview shows). */
+function dayTargets(L: Layout, nx: number, ny: number, dusk = false): TapTarget[] {
+  const cam = cameraFor(L, nx, ny, dusk);
+  const out = [target('next build', L.guide)];
+  for (const m of MARKERS) {
+    const b = badgeOf(L, cam.x, cam.y, m);
+    if (badgeFree(L, b)) out.push(target(`build ${m.id}`, b.box));
+  }
+  return out;
+}
+
+const STORY_KINDS: StoryKind[] = ['open', 'gate', 'done', 'horn', 'ono', 'wall', 'dedication', 'year'];
+const story = (kind: StoryKind, gate = 0): Story => ({ kind, t: 1, dur: 6, gate, next: (gate + 1) % 10, stars: 2, year: 1 });
+
+/** The modules of the cards in another language (the language is settled when the modules load). */
+async function cardsIn(l: Lang) {
+  localStorage.setItem('brainlink.lang', l);
+  vi.resetModules();
+  return { hud: await import('../src/arcade/nehemiasz/hud'), lay: await import('../src/arcade/nehemiasz/layout') };
+}
+
+describe('mobile first (layout.ts, hud.ts)', () => {
+  afterEach(() => { localStorage.setItem('brainlink.lang', 'pl'); });
+
+  it('a phone upright shows ~8.6 u across and follows Nehemiah; no size goes under S_MIN px per u; the panel has no empty band', () => {
+    expect(layout(360, 500, { top: 134, right: 0, bottom: 0, left: 0 }).s).toBeCloseTo(360 / 8.6, 0);
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.s, c.name).toBeGreaterThanOrEqual(S_MIN);
+      expect(L.u, c.name).toBeGreaterThanOrEqual(1);
+      // the controls sit just above the screen's foot (the home indicator kept clear), nothing reserved under them
+      const foot = c.h - c.insets.bottom;
+      expect(foot - (L.guide.y + L.guide.h), c.name).toBeLessThanOrEqual(24);
+      expect(foot - (L.horn.y + L.horn.r), c.name).toBeLessThanOrEqual(16);
+      expect(L.bottom - L.top, c.name).toBeGreaterThan(c.h * 0.3);
+    }
+  });
+
+  it('every size: by day the guide\'s button and every build badge take a finger, inside the insets and apart, wherever Nehemiah walks', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      let seen = 0;
+      for (let nx = 0.3; nx <= RULES.worldW - 0.3; nx += 0.7) {
+        for (let ny = RULES.walkTop; ny <= RULES.worldH - 0.4; ny += 0.6) {
+          for (const dusk of [false, true]) {
+            const ts = dayTargets(L, nx, ny, dusk);
+            seen = Math.max(seen, ts.length);
+            expect(auditTargets(ts, c.w, c.h, c.insets), `${c.name}, Nehemiah at ${nx.toFixed(1)},${ny.toFixed(1)}${dusk ? ' at dusk' : ''}`).toEqual([]);
+          }
+        }
+      }
+      // a phone still offers a handful of sites at once; a desktop most of them
+      expect(seen, c.name).toBeGreaterThanOrEqual(c.w < 700 ? 5 : 12);
+    }
+  });
+
+  it('every size: by night "To the wall!" and the horn (a 56–64 px button on a phone) sit in the thumb zone', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      const h = L.horn;
+      const ts = [target('to the wall', L.rush), target('horn', { x: h.x - h.r, y: h.y - h.r, w: h.r * 2, h: h.r * 2 })];
+      expect(auditTargets(ts, c.w, c.h, c.insets), c.name).toEqual([]);
+      expect(h.r * 2, c.name).toBeGreaterThanOrEqual(56);
+      expect(L.rush.h, c.name).toBeGreaterThanOrEqual(48);
+      if (L.phone) {
+        // upright: the bottom 45 %, and nothing to press in the outer 16 px
+        for (const t2 of [...ts, target('next build', L.guide)]) {
+          expect(t2.y + t2.h / 2, `${c.name} ${t2.label}`).toBeGreaterThanOrEqual(c.h * (1 - THUMB));
+          expect(t2.x, `${c.name} ${t2.label}`).toBeGreaterThanOrEqual(16);
+          expect(t2.x + t2.w, `${c.name} ${t2.label}`).toBeLessThanOrEqual(c.w - 16);
+        }
+      }
+    }
+  });
+
+  it('the desktop smoke\'s centre tap lands on the open city, so it builds what the guide suggests', () => {
+    const L = layout(1280, 672, { top: 192, right: 0, bottom: 0, left: 0 });
+    expect(L.panX || L.panY).toBe(false);
+    const cam = cameraFor(L, 9, 8.1, false);
+    for (const m of MARKERS) expect(inside(badgeOf(L, cam.x, cam.y, m).box, 640, 672 * 0.6), m.id).toBe(false);
+    expect(inside(L.guide, 640, 672 * 0.6)).toBe(false);
+  });
+
+  it('every size: the stores\' strip holds its five numbers at 12 px or more, the widest they get', async () => {
+    const { storesFit } = await import('../src/arcade/nehemiasz/hud');
+    const ctx = measuring();
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      const fit = storesFit(ctx, L, ['130', '99', '130', '40/40', '100%']);
+      expect(fit.fits, c.name).toBe(true);
+      expect(fit.px, c.name).toBeGreaterThanOrEqual(12);
+    }
+  });
+
+  it('the font never goes under 11 px', () => {
+    for (const px of [0, 4, 6.5, 9, 10.9, 11, 12.4, 13, 16, 30]) {
+      expect(Number(font(px).match(PX)![1]), String(px)).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(font(16, 700)).toContain('16px');
+  });
+
+  it('every size, every language: a story card fits the screen whole, its text at 13 px or more and its passage uncut', async () => {
+    for (const l of LANGS) {
+      const { hud, lay } = await cardsIn(l);
+      const ctx = measuring();
+      for (const c of CHECK_SIZES) {
+        const L = lay.layout(c.w, c.h, c.insets);
+        for (const kind of STORY_KINDS) {
+          for (const gate of kind === 'gate' || kind === 'done' ? [0, 3, 4, 8, 9] : [0]) {
+            const sl = hud.storyLayout(ctx, L, hud.storyText(story(kind, gate)));
+            const what = `${l} ${c.name} ${kind} ${gate}`;
+            expect(sl.textPx, what).toBeGreaterThanOrEqual(MIN_READ);
+            expect(Math.min(sl.kickerPx, sl.footPx), what).toBeGreaterThanOrEqual(MIN_READ);
+            expect(sl.rect.y, what).toBeGreaterThanOrEqual(c.insets.top);
+            expect(sl.rect.y + sl.rect.h, what).toBeLessThanOrEqual(c.h - c.insets.bottom);
+            if (sl.verse) {
+              expect(sl.verse.fits, what).toBe(true);
+              expect(sl.verse.size, what).toBeGreaterThanOrEqual(MIN_READ);
+              expect(sl.refPx, what).toBeGreaterThanOrEqual(MIN_READ);
+            }
+            expect(auditTargets([target('story card', sl.rect)], c.w, c.h, c.insets), what).toEqual([]);
+          }
+        }
+      }
+    }
+  });
+
+  it('every size, every language: the choice cards fit and take a finger; on a phone they stack full width at 15 px', async () => {
+    for (const l of LANGS) {
+      const { hud, lay } = await cardsIn(l);
+      const ctx = measuring();
+      const choices: Choice[] = [{ kind: 'tower', options: ['far', 'quick'], t: 1, marker: 't1' }];
+      for (let i = 0; i < DECREES.length; i++) for (let j = i + 1; j < DECREES.length; j++) choices.push({ kind: 'decree', options: [DECREES[i], DECREES[j]], t: 1, marker: null });
+      for (const c of CHECK_SIZES) {
+        const L = lay.layout(c.w, c.h, c.insets);
+        for (const ch of choices) {
+          const cl = hud.choiceLayout(ctx, L, hud.choiceText(ch));
+          const what = `${l} ${c.name} ${ch.options.join('+')}`;
+          const ts = cl.cards.map((r, i) => target(`choice ${i + 1}`, r));
+          expect(auditTargets(ts, c.w, c.h, c.insets), what).toEqual([]);
+          expect(cl.headY, what).toBeGreaterThanOrEqual(c.insets.top);
+          expect(Math.min(cl.fxPx, cl.refPx), what).toBeGreaterThanOrEqual(MIN_READ);
+          expect(cl.fxs.every(f => f.length <= 5) && cl.names.every(n => n.length <= 2), what).toBe(true);
+          if (L.phone) {
+            for (const r of cl.cards) expect(r.w, what).toBeCloseTo(L.right - L.left, 5);
+            expect(cl.cards[1].y, what).toBeGreaterThan(cl.cards[0].y + cl.cards[0].h);
+            if (l === 'pl') expect(cl.fxPx, what).toBeGreaterThanOrEqual(15);
+          }
+        }
+      }
+    }
   });
 });

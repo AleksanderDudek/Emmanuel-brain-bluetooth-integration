@@ -5,43 +5,61 @@
  * the stretch of wall in depth order (the wall rises course by course, scaffolds while a tier is laid,
  * cracks and breaches), the people at their work, Nehemiah and Tirza, the raiders, and at night the
  * darkness with the watch fires' pools of light — the band, drawn large: each fire's light reaches as
- * far as the focus, its threshold a dotted ring on the ground, its edge gold above it.  Juice:
- * hit-stop (from the sim), particles, flying numbers, shakes (none with reduced motion).
+ * far as the focus, its threshold a dotted ring on the ground, its edge gold above it.  By day each
+ * build site carries a badge (what it builds, its next level) that takes a finger-sized tap.  Juice:
+ * hit-stop (from the sim), particles, flying numbers, shakes (none with reduced motion), a pressed
+ * look on touch-down, a ripple where a finger lands, the floating joystick under the thumb.
  */
 import { fmtNum } from '../../i18n';
 import { Floaters, Particles, Shake, approach, clamp, ease } from '../kit/juice';
 import type { FocusFrame } from '../kit/focus';
+import { NO_INSETS, target } from '../kit/mobile';
 import { LAG_SEC, SignalTrace, type TracePhase } from '../kit/trace';
+import type { Insets, TapTarget } from '../kit/types';
 import {
   FIRE_IDS, GATE_SEG, MARKERS, POST_IDS, RAIDER_KINDS, ROUTES, ROUTE_IDS, SEGS, TOWER_IDS, gateName, kindName, markerSpec, routeAt,
-  segAt, segMid, tierName, townName, type RaiderKind,
+  segAt, segMid, tierName, townName, type Kind, type RaiderKind,
 } from './content';
-import { Hud, type Banner } from './hud';
+import { Hud, type Banner, type Press } from './hud';
 import { t } from './i18n';
 import { NehIntro } from './intro';
-import { K, layout, type Layout } from './layout';
+import { K, badgeFree, badgeOf, cameraFor, inside, layout, overlaps, type Badge, type Layout, type Rect } from './layout';
 import { heightOf, maxHp, stoneCap, type NehProgress } from './meta';
 import {
   C, SANS, UP, bandColor, font, glow, hash, paintBakery, paintBrazier, paintChevron, paintFox, paintGate, paintGovernor, paintGranary,
-  paintHouse, paintNehemiah, paintOlive, paintPost, paintRaider, paintSanballat, paintStoneIcon, paintTents,
+  paintHouse, paintKindIcon, paintNehemiah, paintOfficer, paintOlive, paintPost, paintRaider, paintSanballat, paintStoneIcon, paintTents,
   paintTimberIcon, paintTirza, paintTobiah, paintTower, paintWallSeg, paintWell, paintWorker, paintYard, roundRect,
   wallHeightU, type Job,
 } from './paint';
 import { RULES } from './rules';
-import type { NehSim, SimEvent } from './sim';
+import type { MarkerView, NehSim, SimEvent } from './sim';
 import { fireReach } from './sim';
 
 const TAU = Math.PI * 2;
 const VILLAINS = { x: 12.3, y: 1.95 };
+
+/** A build badge on screen this frame: where it is, whether a finger may press it there. */
+export interface BadgeView extends Badge { kind: Kind; mv: MarkerView; free: boolean }
 
 export class NehView {
   private readonly ctx: CanvasRenderingContext2D;
   private w = 0;
   private h = 0;
   private dpr = 1;
-  private hudTop = 64;
-  L: Layout = layout(800, 600, 64);
-  readonly hud = new Hud();
+  private ins: Insets = NO_INSETS;
+  L: Layout = layout(800, 600, { ...NO_INSETS, top: 64 });
+  readonly hud: Hud;
+  /** what a finger presses right now (index.ts sets it): drawn pressed until it lifts */
+  press: Press = null;
+  private readonly ripples: { x: number; y: number; t: number }[] = [];
+  /** what a speech bubble must not cover this frame (the build badges, the cost card) */
+  private avoid: Rect[] = [];
+  /** the speech bubble on screen (a tap on it hushes it; the badges under it wait) */
+  private bubbleRect: Rect | null = null;
+  /** the preview's row of chips under the HUD on a narrow screen (the badges under it wait) */
+  private previewRect: Rect | null = null;
+  /** the officers' last positions (they walk when they move) */
+  private readonly guardPrev = new Map<number, { x: number; y: number; walking: number }>();
   private readonly fx = new Particles(640);
   private readonly floaters = new Floaters();
   private readonly shake: Shake;
@@ -67,24 +85,26 @@ export class NehView {
   /** the joystick's ring (CSS px), while a finger steers */
   stick: { ox: number; oy: number; x: number; y: number } | null = null;
 
-  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
+  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; touch: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
+    this.hud = new Hud(opts.touch);
   }
 
   resize(w: number, h: number, dpr: number): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, this.hudTop);
+    this.L = layout(w, h, this.ins);
     this.dark = null;
   }
 
-  /** The runner's HUD bottom (read in resize). */
-  setTop(top: number): void {
-    if (Math.abs(top - this.hudTop) < 0.5) return;
-    this.hudTop = top;
-    this.L = layout(this.w, this.h, top);
+  /** What covers the canvas's edges: the runner's HUD band at the top, the home indicator, a notch (read in resize). */
+  setInsets(ins: Insets): void {
+    const o = this.ins;
+    if (Math.abs(o.top - ins.top) < 0.5 && Math.abs(o.bottom - ins.bottom) < 0.5 && Math.abs(o.left - ins.left) < 0.5 && Math.abs(o.right - ins.right) < 0.5) return;
+    this.ins = { ...ins };
+    this.L = layout(this.w, this.h, this.ins);
   }
 
   /** World (u) → canvas (CSS px). */
@@ -114,20 +134,79 @@ export class NehView {
     else if (this.banners.length < 3) this.banners.push(b);
   }
 
-  /** The camera follows Nehemiah where the world is wider or taller than the screen. */
+  /**
+   * The camera follows Nehemiah where the world is wider or taller than the band.  By day it keeps the
+   * wall's badges in sight while he works in the city; by night it looks up toward the hills (the roads,
+   * the ridge of the band's history), never losing him.
+   */
   private followCamera(sim: NehSim, k: number): void {
-    const L = this.L, s = L.s;
-    const visW = L.w / s, visH = (L.bottom - L.top) / (s * K);
-    let tx = RULES.worldW / 2, ty = (RULES.viewTop + RULES.worldH) / 2;
-    if (L.panX) tx = clamp(sim.neh.x, visW / 2 - 0.4, RULES.worldW - visW / 2 + 0.4);
-    if (L.panY) {
-      // at night look a little toward the hills, where the raiders come from
-      const want = sim.nightTime ? Math.min(sim.neh.y, RULES.wallY + 0.5) : sim.neh.y;
-      ty = clamp(want, RULES.viewTop + visH / 2 - 0.3, RULES.worldH - visH / 2 + 0.2);
-    }
-    this.camX += (tx - this.camX) * k;
-    this.camY += (ty - this.camY) * k;
+    const c = cameraFor(this.L, sim.neh.x, sim.neh.y, sim.nightTime || sim.showPreview);
+    this.camX += (c.x - this.camX) * k;
+    this.camY += (c.y - this.camY) * k;
   }
+
+  // ── what a finger can press ─────────────────────────────────────
+  /** The build badges on screen this frame (by day, a build there now), with whether each may be pressed. */
+  badges(sim: NehSim): BadgeView[] {
+    if (!sim.dayTime || sim.frozen) return [];
+    const L = this.L, out: BadgeView[] = [];
+    for (const m of MARKERS) {
+      const mv = sim.markerView(m.id);
+      if (mv.next === null) continue;
+      const b = badgeOf(L, this.camX, this.camY, m);
+      if (b.box.x > L.w || b.box.x + b.box.w < 0 || b.box.y > L.h || b.box.y + b.box.h < 0) continue;
+      const under = (!!this.bubbleRect && overlaps(b.box, this.bubbleRect)) || (!!this.previewRect && overlaps(b.box, this.previewRect));
+      out.push({ ...b, kind: m.kind, mv, free: badgeFree(L, b) && !under });
+    }
+    return out;
+  }
+
+  /** The control under a finger that goes down here (null: the free field — a drag walks, a tap does what the guide says). */
+  pressAt(sim: NehSim, x: number, y: number): Press {
+    const L = this.L;
+    if (!sim.started || sim.phase === 'done' || sim.frozen) return null;
+    if (this.bubbleRect && inside(this.bubbleRect, x, y)) return { kind: 'bubble' };
+    if (sim.nightTime) {
+      if (Math.hypot(x - L.horn.x, y - L.horn.y) <= L.horn.r + 6) return { kind: 'horn' };
+      if (inside(L.rush, x, y)) return { kind: 'rush' };
+      return null;
+    }
+    if (inside(L.guide, x, y)) return { kind: 'guide' };
+    for (const b of this.badges(sim)) if (b.free && inside(b.box, x, y)) return { kind: 'marker', id: b.id };
+    return null;
+  }
+
+  /** Whether a point is on the panel (the thumb zone's bar): a tap there that hits no button does nothing. */
+  onPanel(x: number, y: number): boolean { return y >= this.L.panel.y && x >= 0 && x <= this.L.w; }
+
+  /** Every control the player can tap right now, as the hit rectangles the taps test (kit/types: ArcadeGame.targets). */
+  targets(sim: NehSim): TapTarget[] {
+    const L = this.L;
+    if (!this.started || !sim.started || sim.phase === 'done') return [];
+    this.hud.layoutCards(this.ctx, sim, L);
+    if (sim.story) return this.hud.storyRect ? [target('story card', this.hud.storyRect)] : [];
+    if (sim.choice) return this.hud.cards.map((c, i) => target(`choice ${i + 1}`, c));
+    const out: TapTarget[] = this.bubbleRect && sim.talk.line ? [target('speech bubble', this.bubbleRect)] : [];
+    if (sim.nightTime) {
+      const h = L.horn;
+      out.push(target('to the wall', L.rush), target('horn', { x: h.x - h.r, y: h.y - h.r, w: h.r * 2, h: h.r * 2 }));
+      return out;
+    }
+    if (!sim.dayTime) return out;
+    out.push(target('next build', L.guide));
+    for (const b of this.badges(sim)) if (b.free) out.push(target(`build ${b.id}`, b.box));
+    return out;
+  }
+
+  /** A finger landed on the free field: a ring answers at once. */
+  ripple(x: number, y: number): void {
+    if (this.opts.reducedMotion) return;
+    this.ripples.push({ x, y, t: 0 });
+    if (this.ripples.length > 4) this.ripples.shift();
+  }
+
+  /** The horn was pressed before it was ready. */
+  hornNotReady(): void { this.hud.hornNotReady(); }
 
   // ── events: juice ───────────────────────────────────────────────
   on(e: SimEvent, sim: NehSim): void {
@@ -203,7 +282,7 @@ export class NehView {
       case 'bonk': {
         const p = P(e.x, e.y);
         fx.burst(p.x, p.y - s * 0.45, e.volley ? 6 : 4, { color: '#fff6dc', size: 2, speed: 110, life: 0.3, g: 60, shape: 'spark' });
-        if (e.volley || Math.random() < 0.3) this.floaters.add('bonk!', p.x, p.y - s * 0.75, { color: '#fff6dc', size: 11 * u, dur: 0.6 });
+        if (e.volley || Math.random() < 0.3) this.floaters.add('bonk!', p.x, p.y - s * 0.75, { color: '#fff6dc', size: 13 * u, dur: 0.6 });
         break;
       }
       case 'jab': {
@@ -217,7 +296,7 @@ export class NehView {
         this.comboT = this.clock;
         fx.burst(p.x, p.y - s * 0.3, 10 + this.combo * 2, { color: '#e8dcc4', size: 2.5, speed: 90, life: 0.6, g: -10 });
         if (this.combo >= 2) this.floaters.add(`×${this.combo}`, p.x, p.y - s * 1.0, { color: C.gold, size: (14 + Math.min(10, this.combo * 2)) * u, dur: 0.9 });
-        else this.floaters.add(t('hud.fled'), p.x, p.y - s * 0.9, { color: '#fff3d6', size: 12 * u, dur: 0.8 });
+        else this.floaters.add(t('hud.fled'), p.x, p.y - s * 0.9, { color: '#fff3d6', size: 14 * u, dur: 0.8 });
         if (this.combo >= 4) this.shake.add(0.08);
         break;
       }
@@ -294,6 +373,10 @@ export class NehView {
     this.fx.update(dt);
     this.floaters.update(dt);
     this.hud.update(dt);
+    for (let i = this.ripples.length - 1; i >= 0; i--) {
+      this.ripples[i].t += dt;
+      if (this.ripples[i].t > 0.35) this.ripples.splice(i, 1);
+    }
     this.flash = Math.max(0, this.flash - dt * 1.6);
     const runnerBanner = sim.phase === 'play' && sim.blockIndex > 0 && sim.blockT < RULES.bannerSec;
     if (this.banner && !(runnerBanner && this.banner.t === 0)) {
@@ -333,8 +416,10 @@ export class NehView {
     this.background(sim);
     this.roads(sim);
     this.cityGround(sim);
-    this.markers(sim);
+    this.groundMarks(sim);
     this.scene(sim);
+    this.avoid = [];
+    this.buildBadges(sim);
     this.night(sim);
     this.ridge(sim);
     this.projectiles(sim);
@@ -350,18 +435,35 @@ export class NehView {
       ctx.fillRect(0, 0, L.w, L.h);
     }
     const hold = sim.phase === 'play' && sim.blockIndex > 0 && sim.blockT < RULES.bannerSec && this.banner?.t === 0;
-    this.hud.draw(ctx, sim, L, hold ? null : this.banner);
-    if (this.stick) {
-      const st = this.stick;
-      ctx.strokeStyle = 'rgba(255,255,255,.45)';
-      ctx.lineWidth = 2;
+    this.hud.draw(ctx, sim, L, hold ? null : this.banner, this.press);
+    // where a finger landed: a ring that answers at once
+    for (const r of this.ripples) {
+      const k = r.t / 0.35;
+      ctx.strokeStyle = `rgba(255,246,222,${0.7 * (1 - k)})`;
+      ctx.lineWidth = 3 * (1 - k) + 1;
       ctx.beginPath();
-      ctx.arc(st.ox, st.oy, RULES.stickPx, 0, TAU);
+      ctx.arc(r.x, r.y, 10 + 22 * ease.outCubic(k), 0, TAU);
       ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,.4)';
+    }
+    // the floating joystick: its base under the thumb, the knob where the thumb is
+    if (this.stick) {
+      const st = this.stick, R = RULES.stickPx;
+      ctx.fillStyle = 'rgba(20,14,10,.22)';
       ctx.beginPath();
-      ctx.arc(st.x, st.y, 14, 0, TAU);
+      ctx.arc(st.ox, st.oy, R + 6, 0, TAU);
       ctx.fill();
+      ctx.strokeStyle = 'rgba(255,246,222,.55)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(st.ox, st.oy, R, 0, TAU);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,246,222,.85)';
+      ctx.beginPath();
+      ctx.arc(st.x, st.y, 17, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(120,80,30,.5)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
   }
 
@@ -589,11 +691,11 @@ export class NehView {
     paintTents(ctx, this.X(1.0), this.Y(9.75), s, Math.min(6, Math.max(2, Math.ceil(sim.p.people / 5))), night);
   }
 
-  // ── the markers (by day) ────────────────────────────────────────
-  private markers(sim: NehSim): void {
+  // ── the build sites (by day) ────────────────────────────────────
+  /** The spots on the ground where Nehemiah stands to build (a dashed ring), and his build's ring filling. */
+  private groundMarks(sim: NehSim): void {
     if (!sim.dayTime || sim.frozen) return;
-    const ctx = this.ctx, s = this.L.s, u = this.L.u;
-    const near = sim.markerNear(sim.neh.x, sim.neh.y, 1.2);
+    const ctx = this.ctx, s = this.L.s;
     for (const m of MARKERS) {
       const mv = sim.markerView(m.id);
       if (mv.next === null && mv.working === null) continue;
@@ -609,7 +711,6 @@ export class NehView {
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.restore();
-      // the build in progress: a ring filling
       if (sim.neh.build?.id === m.id) {
         const k = clamp(sim.neh.build.t / RULES.buildSec);
         ctx.strokeStyle = C.gold;
@@ -618,36 +719,108 @@ export class NehView {
         ctx.ellipse(x, y, r * 1.1, r * K * 0.7, 0, -Math.PI / 2, -Math.PI / 2 + TAU * k);
         ctx.stroke();
       }
-      if (guide && !sim.neh.build) paintChevron(ctx, x, y - s * 1.1 - Math.abs(Math.sin(this.clock * 4)) * s * 0.15, s * 0.16, C.gold);
-      // the card: the guide's target or the marker Nehemiah stands by
-      if ((guide || near?.id === m.id) && mv.next !== null && mv.cost) {
-        const name = m.kind === 'wall' || m.kind === 'gate' ? tierName(m.kind, mv.next) : `${kindName(m.kind)} ${mv.next}`;
-        this.costCard(x, y - s * (guide ? 1.45 : 1.0), name, mv.cost, sim.p.stone, sim.p.timber, u);
-      }
     }
   }
 
-  private costCard(x: number, y: number, name: string, cost: { stone: number; timber: number }, stone: number, timber: number, u: number): void {
+  /**
+   * The build badges: a disc with what the site builds and its next level as pips — cream where the stores
+   * can pay, dark where they cannot, gold and bobbing under a chevron for the guide's pick; pressed, it
+   * sinks and shows its cost.  One cost card at a time: the pressed badge, else the site Nehemiah stands
+   * by, else the guide's.
+   */
+  private buildBadges(sim: NehSim): void {
+    const list = this.badges(sim);
+    if (!list.length) return;
     const ctx = this.ctx;
+    const pressId = this.press?.kind === 'marker' ? this.press.id : null;
+    const near = sim.markerNear(sim.neh.x, sim.neh.y, RULES.standR * 1.6);
+    let card: BadgeView | null = null;
+    for (const b of list) {
+      const guide = sim.guideId === b.id, pressed = pressId === b.id;
+      const bob = guide && !pressed ? Math.sin(this.clock * 4) * 1.5 : 0;
+      const r = b.r * (pressed ? 0.86 : 1);
+      const can = b.mv.can;
+      ctx.save();
+      ctx.globalAlpha = b.free ? 1 : 0.5;
+      ctx.translate(b.x, b.y + bob);
+      ctx.fillStyle = 'rgba(30,18,8,.28)';
+      ctx.beginPath();
+      ctx.arc(0, 2, r, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = can ? (guide ? '#ffe39a' : '#fff3d6') : 'rgba(36,27,20,.8)';
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, TAU);
+      ctx.fill();
+      ctx.lineWidth = guide || pressed ? 2.5 : 1.5;
+      ctx.strokeStyle = pressed ? C.gold : guide ? '#c9902e' : can ? 'rgba(165,116,58,.9)' : 'rgba(255,236,200,.5)';
+      ctx.stroke();
+      paintKindIcon(ctx, b.kind, 0, -r * 0.1, r * 0.56, can ? '#5a3c1e' : 'rgba(255,240,215,.85)');
+      const pips = b.mv.next ?? 1;
+      ctx.fillStyle = can ? '#a5743a' : 'rgba(255,240,215,.75)';
+      for (let i = 0; i < pips; i++) {
+        ctx.beginPath();
+        ctx.arc((i - (pips - 1) / 2) * r * 0.3, r * 0.64, Math.max(1.4, r * 0.09), 0, TAU);
+        ctx.fill();
+      }
+      if (sim.neh.build?.id === b.id) {
+        ctx.strokeStyle = C.gold;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, r + 4, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(sim.neh.build.t / RULES.buildSec));
+        ctx.stroke();
+      }
+      ctx.restore();
+      if (guide && !sim.neh.build && b.free) paintChevron(ctx, b.x, b.y - b.r - 9 - Math.abs(Math.sin(this.clock * 4)) * 5, Math.max(6, b.r * 0.45), C.gold);
+      if (pressed) card = b;
+      if (b.free) this.avoid.push(b.box);
+      if (b.free && guide) this.avoid.push(b.box, b.box);
+    }
+    // the card: the pressed badge, else the site Nehemiah stands on (standing builds it), else — where the
+    // guide's button does not already say it (wider screens) — the guide's pick
+    // (those two only where they cover no other badge a finger may want)
+    const pressedCard = !!card;
+    if (!card) card = list.find(b => b.id === near?.id && b.free) ?? (this.L.phone ? null : list.find(b => b.id === sim.guideId && b.free)) ?? null;
+    if (card && card.mv.cost && card.mv.next !== null) {
+      const others = pressedCard ? null : list.filter(b => b.free && b.id !== card!.id).map(b => b.box);
+      this.costCard(card, tierName(card.kind, card.mv.next), card.mv.cost, sim.p.stone, sim.p.timber, others);
+    }
+  }
+
+  /** A badge's cost card: above it, or below where the HUD leaves no room; with `clear`, only where it covers none of those. */
+  private costCard(b: Badge, name: string, cost: { stone: number; timber: number }, stone: number, timber: number, clear: Rect[] | null): void {
+    const ctx = this.ctx, L = this.L, u = L.u;
     ctx.save();
-    ctx.font = font(12 * u, 750);
+    ctx.font = font(13 * u, 750);
     const nameW = ctx.measureText(name).width;
-    const r = 6 * u;
+    const r = 7 * u;
     const parts: [number, boolean, 'stone' | 'timber'][] = [];
     if (cost.stone > 0) parts.push([cost.stone, stone >= cost.stone, 'stone']);
     if (cost.timber > 0) parts.push([cost.timber, timber >= cost.timber, 'timber']);
     const costW = parts.reduce((s2, [n]) => s2 + r * 2 + 8 + ctx.measureText(String(n)).width + 6, 0);
-    const w = Math.max(nameW, costW) + 16 * u, h = 36 * u;
-    const bx = clamp(x - w / 2, 4, this.L.w - w - 4), by = Math.max(this.L.top + 2, y - h);
-    ctx.fillStyle = 'rgba(255,246,227,.94)';
-    roundRect(ctx, bx, by, w, h, 8 * u);
+    const w = Math.min(L.right - L.left, Math.max(nameW, costW) + 18 * u), h = 42 * u;
+    const bx = clamp(b.x - w / 2, L.left, L.right - w);
+    let by = b.y - b.r - 12 - h;
+    if (by < L.top + 4) by = b.y + b.r + 8;
+    const rect = { x: bx, y: by, w, h };
+    if (clear?.some(r => overlaps(r, rect))) {
+      ctx.restore();
+      return;
+    }
+    this.avoid.push(rect);
+    ctx.fillStyle = 'rgba(255,246,227,.96)';
+    roundRect(ctx, bx, by, w, h, 9 * u);
     ctx.fill();
+    ctx.strokeStyle = 'rgba(165,116,58,.6)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
     ctx.fillStyle = C.ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(name, bx + w / 2, by + 4 * u);
+    let label = name;
+    while (label.length > 4 && ctx.measureText(label).width > w - 12) label = `${label.slice(0, -2)}…`;
+    ctx.fillText(label, bx + w / 2, by + 5 * u);
     let cx = bx + w / 2 - costW / 2;
-    const cy = by + 24 * u;
+    const cy = by + 29 * u;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     for (const [n, ok, kind] of parts) {
@@ -831,15 +1004,17 @@ export class NehView {
       return;
     }
     for (const g of sim.guards) {
-      add(g.y, () => {
-        paintWorker(ctx, this.X(g.x), this.Y(g.y), s * (g.hero ? 1.08 : 1), 'guard', t, g.id, g.face);
-        if (g.hero) {
-          ctx.fillStyle = C.gold;
-          ctx.font = font(9 * this.L.u, 800);
-          ctx.textAlign = 'center';
-          ctx.fillText('★', this.X(g.x), this.Y(g.y) - s * 0.75);
-        }
-      });
+      if (!g.hero) {
+        add(g.y, () => paintWorker(ctx, this.X(g.x), this.Y(g.y), s, 'guard', t, g.id, g.face));
+        continue;
+      }
+      // Nehemiah's officers: their own figures; they walk while they move
+      const prev = this.guardPrev.get(g.id);
+      const moved = prev ? Math.hypot(g.x - prev.x, g.y - prev.y) : 0;
+      const walking = approach(prev?.walking ?? 0, moved > 0.004 ? 1 : 0, 1 / 60, 0.08);
+      this.guardPrev.set(g.id, { x: g.x, y: g.y, walking });
+      const hero = g.hero;
+      add(g.y, () => paintOfficer(ctx, this.X(g.x), this.Y(g.y), s, hero, { flip: g.face, step: t * 10 + g.id, walking, t }));
     }
   }
 
@@ -914,44 +1089,70 @@ export class NehView {
       glow(ctx, this.X(markerSpec(id)!.x), this.Y(RULES.wallY), r * s * 0.7, sim.strongLight ? 'rgba(255,190,90,' : 'rgba(255,160,80,', 0.12 * n);
     }
     ctx.restore();
-    // the band, drawn large: each fire's light edge (gold above the threshold) and its threshold, a dotted ring
+    // the band, drawn large: each fire's light edge (gold above the threshold) and its threshold, a dotted
+    // ring; above it the ring between them glows gold, below it the gap still to reach reads dark.  The
+    // strokes grow with the zoom so a phone reads them at a glance.
     if (!sim.nightTime) return;
+    const thin = Math.max(2, s * 0.045), bold = Math.max(3, s * 0.075);
+    let label: { x: number; y: number } | null = null, labelD = Infinity;
     ctx.save();
     for (const id of FIRE_IDS) {
       const lv = sim.p.stretch[id] ?? 0;
       if (!lv) continue;
       const fx = this.X(markerSpec(id)!.x), fy = this.Y(RULES.wallY);
       const mark = fireReach(lv, 0.5) * s, live = (sim.fireR[id] ?? 0) * s;
+      if (fx + mark < -20 || fx - mark > L.w + 20) continue;
       if (sim.blind) {
         // a moonless night: smoke where the light would be
-        ctx.strokeStyle = 'rgba(200,210,235,.25)';
-        ctx.setLineDash([2, 6]);
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(200,210,235,.3)';
+        ctx.setLineDash([3, 7]);
+        ctx.lineWidth = thin;
         ctx.beginPath();
         ctx.ellipse(fx, fy, mark, mark * K, 0, Math.PI, TAU);
         ctx.stroke();
         ctx.setLineDash([]);
         continue;
       }
-      ctx.setLineDash([3, 6]);
-      ctx.strokeStyle = 'rgba(255,250,232,.7)';
-      ctx.lineWidth = 1.5;
+      const above = sim.strongLight && live > mark;
+      // the band between the threshold and the light's edge
+      ctx.beginPath();
+      ctx.ellipse(fx, fy, Math.max(live, mark), Math.max(live, mark) * K, 0, Math.PI, TAU);
+      ctx.ellipse(fx, fy, Math.min(live, mark), Math.min(live, mark) * K, 0, TAU, Math.PI, true);
+      ctx.closePath();
+      ctx.fillStyle = above ? 'rgba(255,205,90,.16)' : 'rgba(6,8,24,.22)';
+      ctx.fill();
+      ctx.setLineDash([thin * 1.6, thin * 2.6]);
+      ctx.strokeStyle = 'rgba(255,250,232,.85)';
+      ctx.lineWidth = thin;
       ctx.beginPath();
       ctx.ellipse(fx, fy, mark, mark * K, 0, Math.PI, TAU);
       ctx.stroke();
       ctx.setLineDash([]);
-      const above = sim.strongLight;
-      ctx.strokeStyle = above ? C.gold : 'rgba(255,236,200,.75)';
-      ctx.lineWidth = above ? 3 : 2;
+      // the light's edge: a soft wide stroke under a crisp one (no blur)
+      ctx.strokeStyle = above ? 'rgba(255,211,107,.3)' : 'rgba(255,236,200,.18)';
+      ctx.lineWidth = bold * 2.6;
       ctx.beginPath();
       ctx.ellipse(fx, fy, live, live * K, 0, Math.PI, TAU);
       ctx.stroke();
-      if (id === 'f2') {
-        ctx.font = font(10 * L.u, 800);
-        ctx.fillStyle = 'rgba(255,250,232,.85)';
-        ctx.textAlign = 'center';
-        ctx.fillText(t('hud.mark'), fx + mark * 0.72, fy - mark * K * 0.72 - 4);
-      }
+      ctx.strokeStyle = above ? C.gold : 'rgba(255,236,200,.85)';
+      ctx.lineWidth = above ? bold : thin * 1.2;
+      ctx.stroke();
+      // the threshold's name, on the ring nearest the middle of the screen
+      const d = Math.abs(fx - L.w / 2);
+      if (d < labelD) { labelD = d; label = { x: fx, y: fy - mark * K }; }
+    }
+    if (label) {
+      ctx.font = font(13 * L.u, 800);
+      const text = t('hud.mark');
+      const tw = ctx.measureText(text).width + 12 * L.u, th = 18 * L.u;
+      const lx = clamp(label.x, L.left + tw / 2, L.right - tw / 2), ly = Math.max(L.top + th, label.y - 4);
+      ctx.fillStyle = 'rgba(16,14,34,.72)';
+      roundRect(ctx, lx - tw / 2, ly - th, tw, th, th / 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff6dc';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, lx, ly - th / 2 + 1);
     }
     ctx.restore();
   }
@@ -1008,38 +1209,74 @@ export class NehView {
   // ── the night's preview, the bubbles, off-screen raiders ────────
   /** Tonight's raiders at the head of each road (Thronefall's preview): their kinds and counts. */
   private preview(sim: NehSim): void {
-    if (!sim.showPreview) return;
-    const ctx = this.ctx, s = this.L.s, u = this.L.u;
+    this.previewRect = null;
+    if (!sim.showPreview || !sim.preview.length) return;
+    const ctx = this.ctx, L = this.L, u = L.u;
     const a = clamp((sim.blockT - (sim.block.dur - RULES.previewSec)) / 0.6);
-    for (const pv of sim.preview) {
+    const chipH = 30 * u;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.font = font(13 * u, 800);
+    const make = (compact: boolean) => sim.preview.map(pv => {
+      // compact (a narrow row): the road's strongest kind and its whole count
+      const all = RAIDER_KINDS.filter(k => (pv.counts[k] ?? 0) > 0);
+      const kinds = compact ? all.slice(-1) : all;
+      const count = (k: RaiderKind) => (compact ? pv.total : pv.counts[k] ?? 0);
+      const w = kinds.reduce((sum, k) => sum + 22 * u + ctx.measureText(`×${count(k)}`).width, 12 * u);
       const head = routeAt(pv.route, 1.4);
-      const x = this.X(head.x), y = Math.max(this.L.top + 22 * u, this.Y(head.y));
-      const kinds = RAIDER_KINDS.filter(k => (pv.counts[k] ?? 0) > 0);
-      ctx.save();
-      ctx.globalAlpha = a;
-      ctx.font = font(12 * u, 800);
-      const w = kinds.reduce((sum, k) => sum + 22 * u + ctx.measureText(`×${pv.counts[k]}`).width, 10 * u);
-      const bx = clamp(x - w / 2, 4, this.L.w - w - 4), by = y - 14 * u;
-      ctx.fillStyle = 'rgba(30,18,18,.72)';
-      roundRect(ctx, bx, by, w, 28 * u, 14 * u);
+      return { pv, kinds, count, w, hx: this.X(head.x), hy: this.Y(head.y) };
+    });
+    let chips = make(false);
+    // where every road's head is on screen the chips stand there; otherwise (a phone's narrow view) they
+    // line up under the HUD in the roads' order, each with an arrow toward its road
+    const atHeads = chips.every(c => c.hx - c.w / 2 >= L.left && c.hx + c.w / 2 <= L.right && c.hy - chipH / 2 >= L.top + 4);
+    const rowW = (cs: typeof chips) => cs.reduce((sum, c) => sum + c.w + 22 * u, 0) + (cs.length - 1) * 6 * u;
+    if (!atHeads && rowW(chips) > L.right - L.left) chips = make(true);
+    const total = rowW(chips);
+    let rowX = L.w / 2 - total / 2;
+    if (!atHeads) this.previewRect = { x: rowX, y: L.top + 8, w: total, h: chipH };
+    for (const c of chips) {
+      const band = ROUTES[c.pv.route].band;
+      let bx: number, by: number, arrow = 0;
+      if (atHeads) {
+        bx = c.hx - c.w / 2;
+        by = c.hy - chipH / 2;
+      } else {
+        arrow = c.hx < 0 ? -1 : c.hx > L.w ? 1 : 0;
+        bx = rowX + (arrow < 0 ? 22 * u : 0);
+        by = L.top + 8;
+        rowX += c.w + 22 * u + 6 * u;
+      }
+      ctx.fillStyle = 'rgba(30,18,18,.8)';
+      roundRect(ctx, bx, by, c.w, chipH, chipH / 2);
       ctx.fill();
-      ctx.strokeStyle = bandColor(ROUTES[pv.route].band);
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = bandColor(band);
+      ctx.lineWidth = 2.5;
       ctx.stroke();
-      let cx = bx + 8 * u;
-      for (const k of kinds) {
-        this.kindIcon(k, cx + 7 * u, by + 14 * u, 7 * u, ROUTES[pv.route].band);
+      if (arrow !== 0) {
+        // an arrow toward the road off the screen's side
+        const ax = arrow < 0 ? bx - 6 * u : bx + c.w + 6 * u, ay = by + chipH / 2;
+        ctx.fillStyle = bandColor(band);
+        ctx.beginPath();
+        ctx.moveTo(ax + arrow * 12 * u, ay);
+        ctx.lineTo(ax, ay - 8 * u);
+        ctx.lineTo(ax, ay + 8 * u);
+        ctx.closePath();
+        ctx.fill();
+      }
+      let cx = bx + 9 * u;
+      for (const k of c.kinds) {
+        this.kindIcon(k, cx + 7 * u, by + chipH / 2, 7.5 * u, band);
         cx += 16 * u;
         ctx.fillStyle = '#fff4dc';
         ctx.textBaseline = 'middle';
         ctx.textAlign = 'left';
-        const txt = `×${pv.counts[k]}`;
-        ctx.fillText(txt, cx, by + 14 * u + 1);
+        const txt = `×${c.count(k)}`;
+        ctx.fillText(txt, cx, by + chipH / 2 + 1);
         cx += ctx.measureText(txt).width + 6 * u;
       }
-      ctx.restore();
     }
-    void s;
+    ctx.restore();
   }
 
   private kindIcon(k: RaiderKind, x: number, y: number, r: number, band: 'samaria' | 'arabia' | 'ammon'): void {
@@ -1074,6 +1311,7 @@ export class NehView {
   /** The speech bubble: Tirza's over her head, the villains' over the hill, the messenger's at the gate. */
   private bubbles(sim: NehSim): void {
     const line = sim.talk.line;
+    this.bubbleRect = null;
     if (!line || sim.frozen) return;
     const ctx = this.ctx, L = this.L, s = L.s, u = L.u;
     let ax: number, ay: number;
@@ -1084,25 +1322,42 @@ export class NehView {
     const k = clamp(line.t / 0.18), out = clamp((line.dur - line.t) / 0.25);
     ctx.save();
     ctx.globalAlpha = Math.min(k, out);
-    ctx.font = font(13 * u, 650);
-    const maxW = Math.min(260 * u, L.w - 24);
+    const px = (L.phone ? 14 : 15) * u;
+    ctx.font = font(px, 650);
+    const maxW = Math.min((L.phone ? 260 : 290) * u, L.right - L.left);
     const words = line.text.split(' ');
     const lines: string[] = [];
     let cur = '';
     for (const wd of words) {
       const next = cur ? `${cur} ${wd}` : wd;
-      if (cur && ctx.measureText(next).width > maxW - 20) { lines.push(cur); cur = wd; } else cur = next;
+      if (cur && ctx.measureText(next).width > maxW - 24 * u) { lines.push(cur); cur = wd; } else cur = next;
     }
     if (cur) lines.push(cur);
-    const lh = 17 * u;
-    const w = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 22 * u);
-    const h = lines.length * lh + 26 * u;
-    let bx = clamp(ax - w / 2, 8, L.w - w - 8);
-    let by = ay - h - 8 * u;
-    let below = false;
-    if (by < L.top + 2) { by = ay + s * 1.0; below = true; }
-    by = Math.min(by, L.bottom - h - 4);
-    bx = Math.round(bx);
+    const lh = Math.round(px * 1.3);
+    const w = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 24 * u);
+    const h = lines.length * lh + 31 * u;
+    // the first place that covers no build badge (nor the cost card): above the speaker, below, to a side,
+    // up under the HUD; never over the panel's buttons
+    const spot = (x: number, y: number) => ({ x: Math.round(clamp(x, L.left, L.right - w)), y: Math.max(L.top + 4, Math.min(y, L.bottom - h - 6)) });
+    const up = ay - h - 8 * u, down = ay + s * 1.0;
+    const tries = [
+      spot(ax - w / 2, up), spot(ax - w + 26, up), spot(ax - 26, up),
+      spot(ax - w / 2, down), spot(ax - w + 26, down), spot(ax - 26, down),
+      spot(L.left, L.top + 4), spot(L.right - w, L.top + 4), spot(L.left, L.bottom), spot(L.right - w, L.bottom),
+    ];
+    const cover = (p: { x: number; y: number }) => this.avoid.reduce((sum, r) => {
+      const ox = Math.min(p.x + w, r.x + r.w) - Math.max(p.x, r.x), oy = Math.min(p.y + h, r.y + r.h) - Math.max(p.y, r.y);
+      return sum + (ox > 0 && oy > 0 ? ox * oy : 0);
+    }, 0);
+    let best = tries[0], bestC = cover(best);
+    for (const p of tries) {
+      if (bestC === 0) break;
+      const c = cover(p);
+      if (c < bestC) { best = p; bestC = c; }
+    }
+    const bx = best.x, by = best.y;
+    const below = by > ay;
+    if (Math.min(k, out) > 0.5) this.bubbleRect = { x: bx, y: by, w, h };
     const pop = ease.outBack(k);
     ctx.translate(ax, below ? by : by + h);
     ctx.scale(0.8 + 0.2 * pop, 0.8 + 0.2 * pop);
@@ -1116,13 +1371,13 @@ export class NehView {
     if (below) { ctx.moveTo(tx - 7, by); ctx.lineTo(tx, by - 9); ctx.lineTo(tx + 7, by); } else { ctx.moveTo(tx - 7, by + h); ctx.lineTo(tx, by + h + 9); ctx.lineTo(tx + 7, by + h); }
     ctx.fill();
     ctx.fillStyle = villain ? '#6b4a8a' : '#a5432c';
-    ctx.font = font(10.5 * u, 800);
+    ctx.font = font(13 * u, 800);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(name.toUpperCase(), bx + 11 * u, by + 7 * u);
+    ctx.fillText(name.toUpperCase(), bx + 12 * u, by + 7 * u);
     ctx.fillStyle = C.ink;
-    ctx.font = font(13 * u, 650);
-    lines.forEach((l, i) => ctx.fillText(l, bx + 11 * u, by + 21 * u + i * lh));
+    ctx.font = font(px, 650);
+    lines.forEach((l, i) => ctx.fillText(l, bx + 12 * u, by + 24 * u + i * lh));
     ctx.restore();
   }
 
@@ -1138,31 +1393,30 @@ export class NehView {
       if (x < -8) left++;
       else if (x > L.w + 8) right++;
     }
-    const y = this.Y(RULES.wallY - 1.2);
+    const y = clamp(this.Y(RULES.wallY - 1.2), L.top + 30, L.bottom - 40);
     ctx.save();
-    ctx.font = font(12 * L.u, 800);
+    ctx.font = font(13 * L.u, 800);
     ctx.textBaseline = 'middle';
     for (const [n, side] of [[left, -1], [right, 1]] as const) {
       if (!n) continue;
       const x = side < 0 ? 16 : L.w - 16;
-      ctx.fillStyle = 'rgba(210,85,63,.9)';
+      ctx.fillStyle = 'rgba(210,85,63,.92)';
       ctx.beginPath();
-      ctx.moveTo(x + side * 10, y);
-      ctx.lineTo(x - side * 4, y - 11);
-      ctx.lineTo(x - side * 4, y + 11);
+      ctx.moveTo(x + side * 12, y);
+      ctx.lineTo(x - side * 5, y - 13);
+      ctx.lineTo(x - side * 5, y + 13);
       ctx.closePath();
       ctx.fill();
+      const txt = String(n), tw = ctx.measureText(txt).width + 10;
+      const tx = side < 0 ? x - 6 : x + 6 - tw;
+      ctx.fillStyle = 'rgba(30,18,18,.75)';
+      roundRect(ctx, tx, y + 14, tw, 18, 9);
+      ctx.fill();
       ctx.fillStyle = '#fff4dc';
-      ctx.textAlign = side < 0 ? 'left' : 'right';
-      ctx.fillText(String(n), x - side * 8, y + 18);
+      ctx.textAlign = 'center';
+      ctx.fillText(txt, tx + tw / 2, y + 23);
     }
     ctx.restore();
-  }
-
-  /** For the index: the dial of the horn (a tap on it blows it). */
-  hornHit(x: number, y: number): boolean {
-    const h = this.L.horn;
-    return Math.hypot(x - h.x, y - h.y) <= h.r + 8;
   }
 
   /** A number formatted for the view. */

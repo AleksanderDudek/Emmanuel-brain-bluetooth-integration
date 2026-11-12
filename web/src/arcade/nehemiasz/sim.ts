@@ -417,14 +417,38 @@ export class NehSim {
     // its top, its tier still being laid) leaves the tap to the guide
     const m = at ? this.markerNear(at.x, at.y, RULES.tapMarker) : null;
     const nl = m ? this.nextLevel(m.id) : null;
-    if (m && nl !== null) {
-      const cost = costOf(m.kind, nl)!;
-      if (canPay(this.p, cost)) this.orderBuild(m.id);
-      else this.emit({ type: 'missing', id: m.id, x: m.x, y: m.y, stone: Math.max(0, Math.ceil(cost.stone - this.p.stone)), timber: Math.max(0, Math.ceil(cost.timber - this.p.timber)) });
-      return true;
-    }
+    if (m && nl !== null) return this.orderOrSay(m, nl);
     if (!this.guideId) return false;
     this.orderBuild(this.guideId);
+    return true;
+  }
+
+  /**
+   * A tap on a marker's build badge (phones: the badge is the finger-sized target): by day walk there
+   * and build it, or say what it still needs; a marker that takes no build now leaves the tap to the
+   * guide.  A build in progress finishes first.
+   */
+  build(id: string): boolean {
+    if (!this.started || this.phase === 'done' || this.frozen || !this.dayTime) return false;
+    if (this.neh.build) return true;
+    const m = markerSpec(id);
+    const nl = m ? this.nextLevel(m.id) : null;
+    if (!m || nl === null) return this.tap(null);
+    return this.orderOrSay(m, nl);
+  }
+
+  private orderOrSay(m: MarkerSpec, nl: number): boolean {
+    const cost = costOf(m.kind, nl)!;
+    if (canPay(this.p, cost)) this.orderBuild(m.id);
+    else this.emit({ type: 'missing', id: m.id, x: m.x, y: m.y, stone: Math.max(0, Math.ceil(cost.stone - this.p.stone)), timber: Math.max(0, Math.ceil(cost.timber - this.p.timber)) });
+    return true;
+  }
+
+  /** The night's button ("To the wall!"): Nehemiah runs to where it is hottest — never the horn, which has its own button. */
+  rush(): boolean {
+    if (!this.started || this.phase === 'done' || this.frozen || !this.nightTime) return false;
+    this.neh.order = null;
+    this.neh.goal = this.hotSpot();
     return true;
   }
 

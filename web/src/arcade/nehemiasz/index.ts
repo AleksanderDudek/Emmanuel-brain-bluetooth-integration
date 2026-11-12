@@ -16,10 +16,12 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { NehSound } from './audio';
 import { gateName } from './content';
-import { cubits, t, unit } from './i18n';
+import type { Press } from './hud';
+import { cubits, t, unit, type Key } from './i18n';
+import { inside } from './layout';
 import { bestOf, freshProgress, migrate, type NehProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -31,8 +33,8 @@ class NehGame implements ArcadeGame {
   private readonly sim: NehSim;
   private readonly view: NehView;
   private readonly sound: NehSound;
-  /** the finger on the field: where it went down and when, how far it went */
-  private touch: { id: number; x: number; y: number; at: number; far: number } | null = null;
+  /** the finger down: where it went down and when, how far it went, the control it pressed (null: the field) */
+  private finger: { id: number; x: number; y: number; at: number; last: number; far: number; press: Press } | null = null;
   private now = 0;
   /** first-time explanations waiting for a clear screen (one at a time, a few seconds apart) */
   private readonly hints: { what: Coach; x: number; y: number }[] = [];
@@ -43,21 +45,27 @@ class NehGame implements ArcadeGame {
     this.sim = new NehSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
-    this.view = new NehView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg' });
+    this.view = new NehView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.sound = new NehSound(env.audio);
     // ?debug: the session in the console (and for screenshot scripts)
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __nehemiasz?: unknown }).__nehemiasz = this.sim;
   }
 
   resize(w: number, h: number, dpr: number): void {
+    this.view.setInsets(this.insets());
     this.view.resize(w, h, dpr);
-    this.view.setTop(this.env.hudTop());
+  }
+
+  /** The runner's insets (its HUD band at the top, the home indicator, a notch); older runners give only hudTop(). */
+  private insets() {
+    const e = this.env;
+    return typeof e.insets === 'function' ? e.insets() : { top: e.hudTop(), right: 0, bottom: 0, left: 0 };
   }
 
   intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
 
   start(): void {
-    this.view.setTop(this.env.hudTop());
+    this.view.setInsets(this.insets());
     this.sim.start();
     this.sound.start();
     this.view.start(this.sim);
@@ -77,59 +85,122 @@ class NehGame implements ArcadeGame {
   draw(): void { this.view.draw(this.sim); }
 
   /**
-   * A press on a card picks it (a story card moves on); on the horn's dial at night it blows the
-   * horn.  Elsewhere the press is a floating joystick: a drag walks Nehemiah, and a short tap without
-   * a drag builds the marker under it — or what the guide suggests — by day, and at night blows a
-   * ready horn or sends Nehemiah where it is hottest.
+   * One finger (or the mouse) does everything, phone first.  A story card moves on at the press.  The
+   * horn's button blows at the press (or shakes: not ready yet).  The other buttons — the choice cards,
+   * the guide's "Następne" by day, "Na mur!" by night, a build site's badge — show pressed at once and
+   * act when the finger lifts on them; a finger that slides off past the slop lets go of the button and
+   * walks instead.  Anywhere else the press is a floating joystick: a drag walks Nehemiah, and a short tap
+   * without a drag builds what the guide suggests by day, and by night blows a ready horn or sends
+   * Nehemiah where it is hottest.  A tap on the panel's empty parts does nothing.
    */
   pointer(e: PointerInput): void {
-    const sim = this.sim;
+    const sim = this.sim, view = this.view;
     if (e.type === 'down') {
+      // one finger at a time; a finger that goes down again, or one silent for a while, lost its lift
+      if (this.finger && this.finger.id !== e.id && this.now - this.finger.last < 1) return;
+      this.finger = null;
+      view.stick = null;
+      sim.steer(0, 0);
       if (sim.story) {
         sim.tap();
         this.drain();
         return;
       }
+      let press: Press = null;
       if (sim.choice) {
-        const i = this.view.hud.cardAt(e.x, e.y);
-        if (i >= 0) sim.tap(null, i);
-        this.drain();
-        return;
+        const i = view.hud.cardAt(e.x, e.y);
+        press = i >= 0 ? { kind: 'card', i } : null;
+      } else {
+        press = view.pressAt(sim, e.x, e.y);
+        if (press?.kind === 'horn') {
+          if (sim.hornReady) sim.blowHorn();
+          else {
+            view.hornNotReady();
+            if (this.env.haptics) buzz(6);
+          }
+          this.drain();
+          return;
+        }
+        if (!press && !view.onPanel(e.x, e.y)) view.ripple(e.x, e.y);
       }
-      if (sim.nightTime && sim.hornReady && this.view.hornHit(e.x, e.y)) {
-        sim.blowHorn();
-        this.drain();
-        return;
-      }
-      this.touch = { id: e.id, x: e.x, y: e.y, at: this.now, far: 0 };
+      this.finger = { id: e.id, x: e.x, y: e.y, at: this.now, last: this.now, far: 0, press };
+      view.press = press;
       return;
     }
-    const tc = this.touch;
-    if (!tc || tc.id !== e.id) return;
-    const dx = e.x - tc.x, dy = e.y - tc.y, d = Math.hypot(dx, dy);
-    tc.far = Math.max(tc.far, d);
+    const f = this.finger;
+    if (!f || f.id !== e.id) return;
+    f.last = this.now;
+    const dx = e.x - f.x, dy = e.y - f.y, d = Math.hypot(dx, dy);
+    f.far = Math.max(f.far, d);
     if (e.type === 'up') {
-      this.touch = null;
-      this.view.stick = null;
+      this.finger = null;
+      view.press = null;
+      view.stick = null;
       sim.steer(0, 0);
-      if (this.now - tc.at <= RULES.tapSec && tc.far <= RULES.tapPx) {
-        sim.tap(this.view.toWorld(e.x, e.y));
-        this.drain();
+      const tap = this.now - f.at <= RULES.tapSec && f.far <= RULES.tapPx;
+      const p = f.press;
+      if (p) {
+        // a button acts when the finger lifts on it
+        if (f.far <= RULES.tapPx || this.stillOn(p, e.x, e.y)) this.act(p);
+      } else if (tap && !sim.frozen && !view.onPanel(f.x, f.y)) sim.tap(null);
+      this.drain();
+      return;
+    }
+    if (f.press) {
+      // sliding off a button past the slop lets go of it (the card stays put; elsewhere the finger walks)
+      if (d > RULES.tapPx && !this.stillOn(f.press, e.x, e.y)) {
+        const was = f.press;
+        f.press = null;
+        view.press = null;
+        if (was.kind === 'card') { this.finger = null; return; }
+        f.x = e.x;
+        f.y = e.y;
+        f.far = RULES.tapPx + 1;
       }
       return;
     }
+    if (sim.frozen) return;
     if (d > RULES.stickDead) {
       // the joystick's origin follows a finger that goes past its rim (it never falls behind)
       if (d > RULES.stickPx * 1.4) {
         const k = (d - RULES.stickPx * 1.4) / d;
-        tc.x += dx * k;
-        tc.y += dy * k;
+        f.x += dx * k;
+        f.y += dy * k;
       }
-      const ddx = e.x - tc.x, ddy = e.y - tc.y;
+      const ddx = e.x - f.x, ddy = e.y - f.y;
       sim.steer(ddx / RULES.stickPx, ddy / RULES.stickPx);
-      this.view.stick = { ox: tc.x, oy: tc.y, x: e.x, y: e.y };
+      view.stick = { ox: f.x, oy: f.y, x: e.x, y: e.y };
     } else sim.steer(0, 0);
   }
+
+  /** Whether a finger at (x, y) is still on the control it pressed. */
+  private stillOn(p: NonNullable<Press>, x: number, y: number): boolean {
+    const L = this.view.L;
+    switch (p.kind) {
+      case 'card': return this.view.hud.cardAt(x, y) === p.i;
+      case 'guide': return inside(L.guide, x, y);
+      case 'rush': return inside(L.rush, x, y);
+      case 'bubble': return this.view.pressAt(this.sim, x, y)?.kind === 'bubble';
+      case 'marker': return this.view.badges(this.sim).some(b => b.id === p.id && b.free && inside(b.box, x, y));
+      default: return false;
+    }
+  }
+
+  /** A pressed control lifted on: do what it does. */
+  private act(p: NonNullable<Press>): void {
+    const sim = this.sim;
+    switch (p.kind) {
+      case 'card': if (sim.choice) sim.tap(null, p.i); break;
+      case 'guide': sim.tap(null); break;
+      case 'rush': if (!sim.rush()) sim.tap(null); break;
+      case 'marker': sim.build(p.id); break;
+      case 'bubble': sim.talk.hush(); break;
+      default: break;
+    }
+  }
+
+  /** Every control the player can tap right now (kit/types: ArcadeGame.targets). */
+  targets(): TapTarget[] { return this.view.targets(this.sim); }
 
   /** Arrows and WASD walk, Space and Enter build what the guide suggests (by night: the horn), 1–2 pick a card. */
   key(key: string, down: boolean): boolean {
@@ -141,8 +212,9 @@ class NehGame implements ArcadeGame {
   pause(paused: boolean): void {
     if (paused) {
       this.sim.release();
-      this.touch = null;
+      this.finger = null;
       this.view.stick = null;
+      this.view.press = null;
     }
   }
 
@@ -175,19 +247,25 @@ class NehGame implements ArcadeGame {
       if (!card) return;
       this.hints.shift();
       this.hintCool = 4.4;
-      this.env.hint(t(`coach.${h.what}`), { x: card.x + card.w / 2, y: card.y + 4 }, 3800);
+      this.env.hint(this.coachText(h.what), { x: card.x + card.w / 2, y: card.y + 4 }, 3800);
       return;
     }
     if (sim.choice) return;
     if (h.what === 'horn' && !sim.hornReady) { this.hints.shift(); return; }
     const L = this.view.L;
-    let at = h.what === 'horn' ? { x: L.horn.x, y: L.horn.y - L.horn.r } : h.what === 'guide' ? { x: L.guide.x + L.guide.w / 2, y: L.guide.y } : this.view.toScreen(h.x, h.y);
+    let at = h.what === 'horn' ? { x: L.horn.x, y: L.horn.y - L.horn.r - 4 } : h.what === 'guide' ? { x: L.guide.x + L.guide.w / 2, y: L.guide.y - 4 } : this.view.toScreen(h.x, h.y);
     // keep the bubble well inside the screen (it is wider than its arrow)
-    at = { x: Math.max(L.w * 0.22, Math.min(L.w * 0.78, at.x)), y: Math.max(L.top + 10, Math.min(L.bottom - 10, at.y)) };
+    at = { x: Math.max(L.w * 0.22, Math.min(L.w * 0.78, at.x)), y: Math.max(L.top + 10, Math.min(h.what === 'horn' || h.what === 'guide' ? at.y : L.bottom - 10, at.y)) };
     this.hints.shift();
     const ms = h.what === 'move' || h.what === 'light' || h.what === 'day' || h.what === 'night' ? 5000 : 3800;
     this.hintCool = ms / 1000 + 0.6;
-    this.env.hint(t(`coach.${h.what}`), at, ms);
+    this.env.hint(this.coachText(h.what), at, ms);
+  }
+
+  /** A coach mark in the words for the hand the player has: a finger taps and drags, a desktop may use the keys. */
+  private coachText(what: Coach): string {
+    const keys = !this.env.touch && (what === 'move' || what === 'guide' || what === 'horn');
+    return t((keys ? `coach.${what}Keys` : `coach.${what}`) as Key);
   }
 
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
@@ -238,8 +316,11 @@ const NIGHT_COACH: readonly Coach[] = ['night', 'light', 'horn', 'breach', 'ono'
 
 function haptic(e: SimEvent): void {
   switch (e.type) {
+    case 'pay': buzz(8); break;
+    case 'missing': buzz([6, 50, 6]); break;
     case 'built': buzz(18); break;
     case 'tier': buzz([12, 30, 12]); break;
+    case 'hornReady': buzz([10, 60, 10]); break;
     case 'horn': buzz([30, 40, 60]); break;
     case 'breach': buzz(40); break;
     case 'gateDone': buzz([20, 30, 20, 30, 60]); break;
@@ -250,10 +331,11 @@ function haptic(e: SimEvent): void {
 function howto(): HowTo {
   return {
     goal: t('howto.goal'),
+    // a phone's card leaves the keys out (the runner drops a 'keys' row on touch)
     hands: [
       { gesture: 'drag', text: t('howto.move') },
       { gesture: 'tap', text: t('howto.tap') },
-      { gesture: 'tap', text: t('howto.night') },
+      { gesture: 'keys', text: t('howto.keys') },
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],
   };

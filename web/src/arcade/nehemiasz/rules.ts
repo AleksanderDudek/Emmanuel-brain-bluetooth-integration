@@ -30,10 +30,11 @@ export const RULES = {
   autoWalk: 3.6,
   /** the joystick: full speed this far from where the finger went down (px), nothing under the dead zone (px) */
   stickPx: 56,
-  stickDead: 9,
-  /** a tap: up within this long (s) and this close (px) to the press */
+  stickDead: 12,
+  /** a tap: up within this long (s) and this close (px) to the press — the same slop as the dead zone, so a
+   *  touch is either a tap or a walk, never both */
   tapSec: 0.32,
-  tapPx: 14,
+  tapPx: 12,
   /** a tap this close to a marker (u) means that marker */
   tapMarker: 0.55,
   /** standing this close to a marker (u) builds it; the build takes this long (s) while the stones fly */

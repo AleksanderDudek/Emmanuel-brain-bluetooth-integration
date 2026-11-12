@@ -41,6 +41,9 @@ export class Talk {
   /** Forget what was asked (a story card covers everything). */
   clear(): void { this.queue.length = 0; }
 
+  /** The line on screen fades now (a tap on its bubble); the next waits its usual pause. */
+  hush(): void { if (this.line) this.line.t = Math.max(this.line.t, this.line.dur - 0.25); }
+
   /** A frame: the line ages, a telegraph or a banner cuts it, and the best fresh ask is said when the way is clear. */
   update(dt: number, now: number, blocked: boolean): void {
     this.now = now;

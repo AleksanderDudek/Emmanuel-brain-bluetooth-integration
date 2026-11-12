@@ -51,10 +51,11 @@ export const MARKERS: readonly MarkerSpec[] = [
   { id: 'f2', kind: 'fire', x: 9, y: RULES.wallY },
   { id: 'f3', kind: 'fire', x: 14.1, y: RULES.wallY },
   { id: 'f4', kind: 'fire', x: 16.7, y: RULES.wallY },
-  // guard posts behind the lowest points (Neh 4:13)
-  { id: 'p0', kind: 'post', x: 3.9, y: 6.1 },
-  { id: 'p1', kind: 'post', x: 7.1, y: 6.1 },
-  { id: 'p2', kind: 'post', x: 14.1, y: 6.1 },
+  // guard posts behind the lowest points (Neh 4:13), set back from the scaffold so each build badge
+  // takes its own finger-sized tap on a phone (layout.ts: badgeOf)
+  { id: 'p0', kind: 'post', x: 3.9, y: 7.2 },
+  { id: 'p1', kind: 'post', x: 7.1, y: 7.2 },
+  { id: 'p2', kind: 'post', x: 14.1, y: 7.2 },
   // the city
   { id: 'yard', kind: 'yard', x: 1.9, y: 7.4 },
   { id: 'well', kind: 'well', x: 5.6, y: 7.6 },
