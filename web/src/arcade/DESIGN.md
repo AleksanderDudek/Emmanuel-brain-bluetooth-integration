@@ -4389,15 +4389,212 @@ to stay with it and read what it does. Calm game, rest-led, the lullaby among th
 
 ### 13.11 Synapsy — the mind renewed
 
-*Direction (the builder rewrites this section).* A field of neurons in two hemispheres. **Hebb**:
-neurons that fire together wire together — tap two in rhythm, a synapse grows (LTP: the spine
-swells, the link thickens); **myelin**: oligodendrocytes wrap an axon and its signal jumps from
-~1 m/s to tens of m/s; **paths**: a thought must travel from an input (the eye) to an output (the
-hand) across the network the player built; **the bridge**: the corpus callosum joins the halves, and
-when `env.body().balance` is inside the even band, the two halves' rhythms fall into step and the
-bridge glows (without a reading, the bridge follows focus alone — never a fake balance). Rest is
-**consolidation**: the network replays the day's paths, weak unused links fade (pruning), and the
-brain's night clean-up flushes waste (the glymphatic flow of sleep).
+**The building puzzle of the series** (Romans 12:2, "transformed by the renewing of your mind"). The
+founder asked for "building neural connections in the brain and synchronising the hemispheres", and for
+the processes to be "as real as medicine can map them". Synapsy is a brain seen from above — the front at
+the top, where the headband sits — in which the player wires neurons into paths for thoughts, an
+oligodendrocyte wraps them in myelin, and rest consolidates what was learned. Every process on screen is
+real and sourced (the table at the end of this section); its speed is compressed, and the game says so.
+
+**The brain** (`brain.ts`). One egg split by the longitudinal fissure: two hemispheres of 19 neurons each,
+a hand-made template jittered a little by each player's own seed (chosen at the first session, the same
+ever after, so saved links keep their neurons; neighbours never closer than 0.235 units). The anatomy is
+honest in a cartoon way: vision at the back (the left occipital lobe sees the right half of the view),
+hearing at the temporal sides, the motor strips across the middle (the left hemisphere moves the right
+hand), Broca's area for the voice in the left frontal lobe (speech is left-lateralised in ~96 % of strong
+right-handers), the hippocampi deep and near the midline (memory, drawn as a seahorse), the prefrontal
+cortex in front, and the **corpus callosum** along the midline with two lanes (front and back) — the only
+links between the halves. A neuron reaches neighbours within 0.5 units (~42 mm of a 167 mm brain), keeps
+at most five links, and no input wires straight to an output (a thought always passes a relay). The
+central sulcus and the lateral fissure are drawn among the gyri.
+
+**The hands** (one thumb, §12).
+
+* **Tap two neurons one after the other** — they fire together and wire: a link sprouts from the first
+  toward the second (a growth cone runs across) and brings its first synapse; **tap the pair again** and
+  it grows toward the next synapse (up to six). A tap **between** two neurons wires them too; tapping one
+  neuron twice wires it with its best partner.
+* **Drag across several neurons** — the path follows the finger (its tip rides up to 46 px above a
+  fingertip), and each neuron the tip passes wires to the one before: a whole path in one stroke.
+* **Oli's button** (bottom right, the thumb zone): a tap sends Oli with myelin to the barest axon of the
+  lesson's path (she goes on along it); **dragged onto an axon**, she wraps that one.
+* A pair fired **on the song's beat** grows ×1.5 ("w rytmie!" — the spike-timing window, playfully).
+  Nothing is lost to a mistap; a near miss (a neuron just out of reach) says "too far — through a
+  neighbour", a tap across the brain just starts a new chain. With a keyboard: Space wires the pair the
+  lesson needs next (or sends a thought when the path is whole), O sends Oli. After six idle seconds (and
+  always in the first session), or after a tap where nothing can wire, the next pair the lesson needs shows
+  as a faint dotted line.
+
+**Thoughts and lessons.** The lesson's input fires on every second beat of the song (every fourth in rest);
+its pulse takes the **fastest path** the grown network offers (by real conduction time) to the output,
+through the hippocampus when the lesson asks; without a whole path it runs as far as the network goes and
+fades. Each synapse passes a thought with a chance — 1 − 0.5ⁿ for n synapses (transmission is
+probabilistic; more synapses, a surer path) — and a thought that passes **strengthens** the link (use builds
+the path, Hebb). The bridge passes 94 % (all of them in step). Learned paths keep "habit" thoughts running in
+later lessons and sessions. A lesson is learned when its thoughts arrive (5–6, two more each round of the
+ladder) — a gold sweep runs along its path; a **fast** lesson counts only thoughts under its conduction limit
+(10 / 5 / 2.5 ms by round), computed from each link's length in millimetres and its speed — the reason to
+myelinate.
+
+| # | Lesson | Path | Lights |
+|---|---|---|---|
+| 1 | Zobacz i sięgnij | eye (left hemisphere) → right hand | vision, movement |
+| 2 | Usłysz i klaśnij | ear (right) → left hand | hearing |
+| 3 | Przez most | eye (right hemisphere: the left half of the view) → right hand | the bridge |
+| 4 | Nazwij dźwięk | ear (left) → voice | language |
+| 5 | Zapamiętaj melodię | ear (right) → hippocampus (right) → voice | memory |
+| 6 | Złap! | eye → right hand under 10 ms | (myelin) |
+| 7 | Klaśnij w rytm | ear (left) → left hand, across | — |
+| 8 | Opowiedz, co widzisz | eye (right) → hippocampus (left) → voice | — |
+
+From the second round the bridge's lessons (3, 7) are fast too, and every lesson asks two more thoughts.
+
+**Myelin and Oli.** A sheath grows while Oli wraps it: 0.055 a second at base (a full sheath in ~18 s),
+× (1 + 2 · level) in a sighted push, ×1.5 on an axon that carried a thought in the last 6 s
+(activity-dependent myelination). Speed = 1 + 99 · myelin² m/s (1 → 100 m/s, inside the textbook's
+0.5–150 m/s); the m/s shows on the axon while she works, and on myelin a pulse **hops from node to node**
+(saltatory conduction). Pearl internodes appear one by one as she wraps.
+
+**The band.**
+
+* **Push = growth** (`meter()` = the level past the 5 s / 2 s lead-in; "Wzrost"). Every growth is
+  × (1 + 2 · level); active links also grow by themselves (0.07 · level · heat a second, focus multiplied);
+  a held focus fills the **BDNF bloom** (0.085 a second at full focus, nothing under 0.35): when full, every
+  link of the lesson's path and every active link grows a synapse at once, sprouting links finish, gold
+  bursts, a gentle shake (none with reduced motion) — the push block's peak. In the world: the frontal poles
+  glow with the reading (where the band looks), and **the lens** (bottom left on a phone) shows one synapse
+  up close — the presynaptic bouton with its vesicles, glutamate crossing the cleft, the dendritic spine whose
+  head swells with the level (AMPA receptors appear on it), a dashed ring at the threshold's size, gold above
+  it, and the bloom's charge as an arc around the lens.
+* **Rest = consolidation** (`meter()` = calm; "Utrwalanie"). The brain's night: a soft blue dusk. Every
+  3.0 s at calm 0 down to 1.1 s at calm 1 one of the session's paths **replays** at 7× a thought's speed
+  (aqua streaks; sleep's replay is ~20× compressed) and consolidates its links (+0.22 × (0.6 + 0.8 · calm));
+  a consolidated link gets a fine gold core and **is kept for the next session** — what was not
+  consolidated is gone by then. A weak link (one synapse) idle 22 s, unconsolidated and off every path the
+  session used, is **pruned** kindly (it fades into motes that drift home; its material refills the bloom's
+  charge) — one every 3.4 s at most. The **glymphatic wash** follows a 4/6 breath (aqua waves from the
+  midline outward on the out-breath) and clears the waste motes the work left (0.004 a second plus 0.0012
+  per pulse in flight; washed at 0.02 + 0.08 · calm a second); a clean brain grows up to ×1.3. The lens
+  breathes with the guide ("wdech" / "wydech").
+* **Blind push** (every 4th from the 3rd session): the lens is veiled, growth runs at its base, the song
+  holds; at the end the share above the threshold is revealed and paid at once (the path's links grow
+  1.2 × share, the bloom's charge + 0.6 × share).
+* **No signal**: everything runs at its base, the gauge shows nothing, nothing is lost.
+* **The song's layers** follow the level in a sighted push, a gentle 0.32 in rest, 0.4 in the warm-up,
+  and hold (null) in a blind block.
+
+**The halves in step** (`env.body().balance`, `isEven`). What is real: ~200 million callosal axons join the
+hemispheres, and coherent rhythms of the two halves depend on them (cutting the callosum abolished
+interhemispheric synchrony in cat visual cortex). What the band measures: the balance of the **left and
+right prefrontal cortex** — Mendi's oxygenation asymmetry (the balance trainer's metric), HALO's Fp2 − Fp1
+engagement. The game says exactly that (the how-to's tip, the lobby's note, Oli). When the balance stays
+inside the even band (0.47–0.53) for a second, the hemispheres' ripples fall into phase and the bridge glows
+gold: every thought passes the bridge, crossing paths grow ×1.5, and the time in step counts toward a record
+(real readings only). Outside the band the bridge rests. **Without a reading** the plate on the bridge says
+"brak odczytu" and the bridge follows focus alone (lit in a sighted push above the threshold) — never a
+made-up balance; Oli says so once a session. The plate sits on the callosum between its lanes: L · the even
+band · R, the reading's dot, its word in up to two lines.
+
+**The score.** The headline is the session's **connections** ("połączeń"): every synapse grown — a new
+link's first, every thickening, the bloom's. The score corner's line: the lesson and its thoughts
+("Lekcja 3 · 2/6"), or how far to the record when near, or "Nauczone! Za chwilę lekcja 4". Records: the best
+session per length, the fastest path (ms), the longest time the halves were in step (s). The summary's stats:
+lessons learned, thoughts delivered, the fastest path, the halves in step, links consolidated, pruned, BDNF
+blooms, focus − rest.
+
+**The meta loop.** The player's own brain persists: the consolidated links (strongest first, up to 90) and the
+bridge's myelin are saved, so yesterday's paths are there today — in gold, carrying habit thoughts — and the
+calibration scene shows them coming back. The **map of the mind** lights its regions (planning, vision,
+movement, hearing, the bridge, language, memory, touch) as lessons use them, brighter with the links kept
+there. **Wiedza**: twenty fact cards, each unlocked when its process is first met in play (the first link:
+synapses; a thickening: Hebb and LTP; a pair on the beat: the timing window; a delivered thought: the NMDA
+receptor; a bloom: BDNF; a sheath: myelin; Oli sent: oligodendrocytes; three sheaths or the third session:
+white matter; a crossing: the corpus callosum; the halves in step: rhythms in step; speech learned: language;
+a replay; a pruning; a consolidated link: sleep tidies up; a rest block: the wash; a clean brain:
+aquaporin-4; the second session: energy; the first push: glia; "Złap!" learned: white matter learns). A card
+shows once in the message strip (its number, its sentence, its source) and stays in the lobby's album. The
+progress is version 1 from the start and reads the placeholder's save.
+
+**The voice: Oli**, a young oligodendrocyte — a soft round glial cell with wavy arms that end in little
+sheets of myelin, living in her button in the thumb zone and flying out to wrap. She wonders and jokes gently
+("I have lots of arms, and none of them can wave"; "Ranvier would clap"), reacts to what happened (30
+moments, three lines each in four languages: the first link, a strong one, a whole path, a lost thought, a
+slow one, a crossing, the halves in step, no reading, a bloom, a pruning, a replay, the wash, a lesson
+learned…), never over a telegraph, the runner's banner or the story card.
+
+**Story and verses.** The first session opens with a card: about 86 billion neurons, connections that grow
+when we learn, rest and sleep that set them; Romans 12:2; "Stuknij, by zacząć". Each lesson begins with a
+two-line card in the message strip (what is real about its path). The summary closes in turn with Romans
+12:2, Colossians 2:2 (the halves in step — "knit together"), Psalm 86:11 (a lesson learned — "teach me Your
+way"), Psalm 16:7 (a calm rest that consolidated — "even at night"), 1 Corinthians 2:16 (a region of the map
+lit) and Ephesians 4:16 (the network grown).
+
+**The song: "Połączenia" ("Connections")** (`music.ts`, kit/song.ts): light synth-pop at 112 bpm in D major —
+the game's own two verses (original words in four languages: "Iskra tu i iskra tam, / dwa neurony, jeden
+plan; / razem błysk i razem lot — / rośnie most i rośnie splot." and "Uczę się i rośnie sieć, / każda droga
+lśni jak nić; / we śnie wszystko złoży się — / jutro znowu zbudzę się.") around the series' refrain "Weź moc,
+obudź się" (`seriesChorus`): verse, refrain, verse, refrain, 128 beats. Layer 0 a pad and a bright pluck
+arpeggio over I–V–vi–IV; layer 1 the bass and the sung lead; layer 2 bells and a four-on-the-floor kick;
+layer 3 the snare and off-beat hats. The inputs fire on its beats; the sing-along line sits at the bottom
+(13.5 px serif, a gold thread for the line's progress, from `lineAt` on the game's own beat, so it shows with
+the sound off too); the lobby's card has a switch that turns the song off (saved in the progress).
+
+**Sound** (`audio.ts`) in the song's key: a neuron's pluck pitched by where it sits, a new link's chirp, a
+thickening's bell climbing with its synapses, an arrival's chord with a clap (the hand) or a sung "ah" (the
+voice), a lost thought's quiet sigh, myelin's whoosh, the bloom's cascade, an open fifth for the halves in
+step, a replay's glissando, pruning's low pluck, the wash's swell, a lesson's fanfare; small sounds throttled.
+
+**Reverence and honesty.** No person is drawn; the neurons are cells, the brain is anatomy. The game never
+claims to heal: the how-to's last tip and the lobby say "visualisation and attention training — it does not
+heal and does not replace treatment"; no disease is named. Pruning is tidying ("its material goes into
+growth"), never loss. The band's halves are described exactly.
+
+**Mobile first.** Upright (the reference): the brain fills the band under the HUD (169 px a unit on the
+smallest phone: neurons ≥ 40 px apart, a finger picks the nearest within 25 px); the lens bottom-left and
+Oli's 56–64 px button bottom-right in the thumb zone, the sing-along line between them; the message strip at
+the top of the band and Oli's bubble are passive. On its side: the brain in the middle at the band's height,
+the lens and the strip in a left column, Oli under the right thumb. Tablet and desktop grow with `uiScale` up
+to 1.3. No string under 11 px (a test draws every state at every `CHECK_SIZES` entry on a recording context);
+what is read to play is 13 px or more (bubbles 14, the strip 14.5/13.5, the story 15.5, the IO labels, Oli's
+name and the lens's word 13); the passive marks (L/R on the plate, a card's citation, a verse's reference)
+11–12. `targets()`: Oli's button, or the story card while it is up. A fuzz test plays the whole game with
+random taps, drags, Oli and keys at every size, with a resize mid-play.
+
+**Sources** (each number in a caption, a card or this section; abstracts read on PubMed unless marked):
+
+| Fact | Number | Source |
+|---|---|---|
+| Neurons; non-neuronal cells | 86 billion; ~85 billion | Azevedo et al. 2009, J Comp Neurol 513:532 |
+| Synapses in the neocortex | 164 × 10¹² | Tang et al. 2001, Synapse 41:258 |
+| LTP discovered | 30 min – 10 h | Bliss & Lømo 1973, J Physiol 232:331 |
+| Spines grow with LTP; AMPA receptors added | — | Matsuzaki et al. 2004, Nature 429:761; Malinow & Malenka 2002, Annu Rev Neurosci 25:103 |
+| Spike-timing window | 20 ms | Bi & Poo 1998, J Neurosci 18:10464 |
+| NMDA's magnesium block | ~1 mM Mg²⁺ | Nowak et al. 1984, Nature 307:462 |
+| Release is probabilistic (a thought may not pass a weak link) | — | Branco & Staras 2009, Nat Rev Neurosci 10:373 |
+| BDNF is activity-dependent; exercise | hippocampus +2 % | Park & Poo 2013, Nat Rev Neurosci 14:7; Erickson et al. 2011, PNAS 108:3017 |
+| Conduction speed | 0.5–10 m/s bare, up to 150 m/s myelinated | Purves et al., Neuroscience, 2nd ed. 2001 (textbook) |
+| Activity-dependent myelination; new oligodendrocytes for learning | — | Gibson et al. 2014, Science 344:1252304; McKenzie et al. 2014, Science 346:318 |
+| Training changes white matter | — | Scholz et al. 2009, Nat Neurosci 12:1370 |
+| Myelinated fibre length at 20 | 149 000–176 000 km | Marner et al. 2003, J Comp Neurol 462:144 |
+| Corpus callosum | ~200 million axons | Aboitiz et al. 1992, Brain Res 598:143 |
+| Interhemispheric synchrony via the callosum | — | Engel et al. 1991, Science 252:1177 |
+| Right-hemisphere speech | 4 % of strong right-handers, 27 % of strong left-handers | Knecht et al. 2000, Brain 123:2512 |
+| Replay in sleep | ~20× compressed, ~100 ms bursts | Lee & Wilson 2002, Neuron 36:1183; Wilson & McNaughton 1994, Science 265:676 |
+| Ripples needed for memory | — | Girardeau et al. 2009, Nat Neurosci 12:1222; Buzsáki 2015, Hippocampus 25:1073 |
+| Oscillations nested in human sleep | — | Staresina et al. 2015, Nat Neurosci 18:1679; Rasch & Born 2013, Physiol Rev 93:681 |
+| Awake rest consolidates | — | Tambini et al. 2010, Neuron 65:280 |
+| Pruning | 2–3× the spines in childhood, to ~30 | Petanjek et al. 2011, PNAS 108:13281; Schafer et al. 2012, Neuron 74:691 |
+| Sleep downscales synapses | ~18 % | de Vivo et al. 2017, Science 355:507 |
+| Glymphatic clearance in sleep | interstitial space +60 % | Xie et al. 2013, Science 342:373 |
+| AQP4 carries it | ~70 % less without | Iliff et al. 2012, Sci Transl Med 4:147ra111 |
+| CSF waves in human sleep | — | Fultz et al. 2019, Science 366:628 |
+| The brain's energy | 2 % of weight, 20 % of energy | Raichle & Gusnard 2002, PNAS 99:10237 |
+| We answer a sound faster than a sight (the card of "Usłysz i klaśnij") | — | Jain et al. 2015, Int J Appl Basic Med Res 5:124 |
+
+**What is compressed or pictured.** A thought's pulse is slowed thousands of times so it can be seen; the
+m/s and a path's milliseconds are computed from the real speeds and a 167 mm brain. Replay, pruning,
+myelination and the wash happen in seconds instead of nights and weeks; tens of neurons stand for billions;
+"a synapse" is the game's unit of a connection's strength.
 
 ### 13.12 Odnowa — the cell renews itself
 
