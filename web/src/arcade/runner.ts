@@ -674,7 +674,8 @@ export class ArcadeRunner {
     const on = meter !== null && (rest ? !f.focused && meter >= 0.5 : meter >= 0.5);
     ui.panel.update({
       want: ph.want, blind: ph.blind, sec: c.blockSec, left: ph.left ?? null, next: ph.next ?? null,
-      meter, on, task: ui.dock.strategy, state: c.state,
+      // the warm-up before the first block says what it is (as the dock does), not an empty line
+      meter, on, task: ui.dock.strategy || (ph.want === 'free' && c.report === null ? t('task.free') : ''), state: c.state,
       stateText: stateText(c.state, c.activity !== null ? c.activity - c.threshold : 0, c.lagSec),
     });
     if (game.headline) this.safe(() => ui.panel.setScore(game.headline!()));

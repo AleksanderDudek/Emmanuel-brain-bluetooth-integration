@@ -224,9 +224,15 @@ export class SignalDock {
     this.drawnAt = ms;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, w, hh);
-    const box = { x: 40, y: 14, w: w - 40 - 34, h: hh - 14 - 14 };
-    if (box.w < 40 || box.h < 16) return;
     const font = (wt: number, px: number) => `${wt} ${px}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+    // the margins fit their labels in this language: the scale on the left ("−12,5 %"), the threshold's
+    // name on the right ("próg", "Schwelle", "tröskel")
+    ctx.font = font(600, 11);
+    const left = Math.max(40, Math.ceil(Math.max(ctx.measureText(axis(-9.9)).width, ctx.measureText(axis(-88.8)).width)) + 10);
+    ctx.font = font(650, 11);
+    const right = Math.max(34, Math.ceil(ctx.measureText(t('dock.threshold')).width) + 8);
+    const box = { x: left, y: 14, w: w - left - right, h: hh - 14 - 14 };
+    if (box.w < 40 || box.h < 16) return;
     if (!this.playing || this.trace.samples.length < 2) {
       ctx.strokeStyle = 'rgba(255,255,255,.18)';
       ctx.setLineDash([4, 4]);
