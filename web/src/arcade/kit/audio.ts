@@ -53,6 +53,9 @@ export class ArcadeAudio {
 
   get on(): boolean { return this.ctx !== null; }
 
+  /** The master bus (volume and the fade-out on stop): kit/song.ts plays its songs into it. */
+  get out(): AudioNode | null { return this.master; }
+
   /** A sustained ambient chord; `focus(level)` opens its filter. */
   pad(spec: PadSpec): void {
     const ctx = this.ctx;

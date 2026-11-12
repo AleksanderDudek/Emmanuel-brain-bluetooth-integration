@@ -154,6 +154,16 @@ body[data-tool="eeg"] .btn.primary{color:#070b18}
 .btn.danger:hover{border-color:var(--bad);color:var(--bad)}
 .btn:disabled{opacity:.4;cursor:not-allowed;filter:none}
 .btn[hidden]{display:none}
+/* the visualisation games' own pictures (kit/images.ts): a picker button, thumbnails */
+.img-pick{position:relative;cursor:pointer;min-height:44px}
+.img-pick-input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip-path:inset(50%);pointer-events:none}
+.img-pick:focus-within{outline:2px solid var(--tool);outline-offset:2px}
+.img-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
+.img-thumb{position:relative;aspect-ratio:3/4;border-radius:10px;overflow:hidden;border:1px solid var(--line-2);background:var(--ink-3)}
+.img-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.img-thumb.on{border-color:var(--tool);box-shadow:0 0 0 2px var(--tool-dim)}
+.img-thumb button{position:absolute;inset:auto 4px 4px auto;min-width:44px;min-height:44px}
+.img-note{color:var(--tx3);font-size:13px}
 .icon-btn{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:1px solid var(--line-2);background:rgba(10,12,18,.6);color:var(--tx);cursor:pointer}
 .icon-btn:hover{border-color:var(--tool);color:var(--tool)}
 .btn:focus-visible,.icon-btn:focus-visible,.devchip:focus-visible,.toolswitch button:focus-visible,.rail a:focus-visible,a:focus-visible,
