@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RANKS, ROOM, ZMORY } from '../src/arcade/aniol/content';
 import { CATALOGS, t, unit } from '../src/arcade/aniol/i18n';
 import {
@@ -11,7 +11,11 @@ import { CHAPTERS } from '../src/arcade/aniol/content';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
-import { catalogProblems } from '../src/i18n';
+import { catalogProblems, type Lang } from '../src/i18n';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { PADS, giftAt, layout, padAt, tapTargets } from '../src/arcade/aniol/layout';
+import { font, fontPx, SANS } from '../src/arcade/aniol/paint';
+import { GIFTS } from '../src/arcade/aniol/content';
 
 const DAY = '2026-11-03';
 const STEP = 1 / 60;
@@ -1055,5 +1059,278 @@ describe('v2: the meta (old saves, the tree, the dreams)', () => {
     expect(sim.p.stars[2]).toBe(3);
     const r = sim.result();
     expect(r.highlights[r.highlights.length - 1]).toBe(t('hl.nextDream', { dream: t('ch.strych') }));
+  });
+});
+
+// ── mobile first ─────────────────────────────────────────────────
+const PX = /(\d+(?:\.\d+)?)px/;
+const pxOf = (f: string): number => Number(f.match(PX)?.[1] ?? 0);
+
+/** A canvas context that measures text as 0.6 em per character (enough to test fitting and wrapping). */
+function measuring(): CanvasRenderingContext2D {
+  const ctx = { font: '10px sans-serif', measureText(text: string) { return { width: text.length * pxOf(this.font) * 0.6 } as TextMetrics; } };
+  return ctx as unknown as CanvasRenderingContext2D;
+}
+
+const LANGS: readonly Lang[] = ['pl', 'en', 'de', 'sv'];
+const upright = CHECK_SIZES.filter(c => c.w < 600 && c.h > c.w);
+
+/** The view's words in another language: the modules load again with it. */
+async function viewIn(l: Lang) {
+  localStorage.setItem('brainlink.lang', l);
+  vi.resetModules();
+  return {
+    hud: await import('../src/arcade/aniol/hud'), lay: await import('../src/arcade/aniol/layout'), content: await import('../src/arcade/aniol/content'),
+    i18n: await import('../src/arcade/aniol/i18n'), scripture: await import('../src/arcade/kit/scripture'), index: await import('../src/arcade/aniol/index'),
+  };
+}
+
+describe('mobile first (DESIGN §8.2, §12)', () => {
+  afterEach(() => { localStorage.setItem('brainlink.lang', 'pl'); });
+
+  it('gives every control a finger-sized target inside the insets, clear of the others, at every checked size and state', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      const play = tapTargets(L, { choice: false, done: false });
+      expect(play.map(x => x.label), c.name).toEqual(['strike left', 'strike nearer', 'strike right']);
+      expect(auditTargets(play, c.w, c.h, c.insets), `${c.name}: play`).toEqual([]);
+      for (const r of play) expect(Math.min(r.w, r.h), `${c.name}: ${r.label}`).toBeGreaterThanOrEqual(48);
+      const gifts = tapTargets(L, { choice: true, done: false });
+      expect(gifts).toHaveLength(3);
+      expect(auditTargets(gifts, c.w, c.h, c.insets), `${c.name}: gifts`).toEqual([]);
+      expect(tapTargets(L, { choice: false, done: true })).toEqual([]);
+      // the canvas's last pixel row stays free (a touch on the dock arrives there)
+      for (const r of [...play, ...gifts]) expect(r.y + r.h, c.name).toBeLessThan(c.h - 1);
+    }
+  });
+
+  it('puts the three pads in the thumb zone of a phone upright: big, off the edges, on the bottom, the floor right above them', () => {
+    for (const c of upright) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.mode, c.name).toBe('tall');
+      expect(L.u).toBeLessThan(1.1);
+      const ps = PADS.map(p => L.pads[p]);
+      for (const r of ps) {
+        expect(r.y, c.name).toBeGreaterThanOrEqual(c.h * (1 - THUMB));
+        expect(r.h, c.name).toBeGreaterThanOrEqual(56);
+        expect(r.x, c.name).toBeGreaterThanOrEqual(c.insets.left + 16 - 0.01);
+        expect(r.x + r.w, c.name).toBeLessThanOrEqual(c.w - c.insets.right - 16 + 0.01);
+        expect(c.h - c.insets.bottom - (r.y + r.h), c.name).toBeLessThanOrEqual(12);
+      }
+      expect(L.pads.left.w, c.name).toBeGreaterThanOrEqual(100);
+      expect(L.pads.mid.w, c.name).toBeGreaterThanOrEqual(64);
+      expect(L.pads.mid.x - (L.pads.left.x + L.pads.left.w)).toBeGreaterThanOrEqual(TAP_GAP);
+      expect(L.pads.right.x - (L.pads.mid.x + L.pads.mid.w)).toBeGreaterThanOrEqual(TAP_GAP);
+      // the floor right above the pads, the room under the window, zoomed to ±3.85 u (the Zmory step in from the edges)
+      expect(L.floorY, c.name).toBeLessThan(L.pads.left.y);
+      expect(L.pads.left.y - L.floorY, c.name).toBeLessThanOrEqual(40);
+      expect(L.floorY - 3.4 * L.S, c.name).toBeGreaterThanOrEqual(L.roomTop - 1);
+      expect(L.S, c.name).toBeCloseTo(c.w / (2 * 3.85), 0);
+      expect(L.win.y, c.name).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.xp.y, c.name).toBeGreaterThan(L.sill.y);
+      // no empty band: the window takes what the room does not need
+      expect(L.floorY - 3.45 * L.S - L.roomTop, c.name).toBeLessThan(150);
+    }
+  });
+
+  it('strikes by the pads\' columns: left of the middle pad the left, right of it the right, its column the nearer side; the smoke\'s centre tap the nearer side', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      const mid = (p: 'left' | 'mid' | 'right') => L.pads[p].x + L.pads[p].w / 2;
+      expect(padAt(L, mid('left')), c.name).toBe(-1);
+      expect(padAt(L, mid('mid')), c.name).toBe(0);
+      expect(padAt(L, mid('right')), c.name).toBe(1);
+      expect(padAt(L, 1), c.name).toBe(-1);
+      expect(padAt(L, c.w - 1), c.name).toBe(1);
+      expect(padAt(L, c.w / 2), c.name).toBe(0);
+      // every point of a pad strikes its side
+      for (const p of PADS) {
+        const r = L.pads[p], want = p === 'left' ? -1 : p === 'right' ? 1 : 0;
+        expect(padAt(L, r.x + 0.5), `${c.name} ${p}`).toBe(want);
+        expect(padAt(L, r.x + r.w - 0.5), `${c.name} ${p}`).toBe(want);
+      }
+    }
+    // a desktop keeps the thirds a mouse expects
+    const D = layout(1280, 672, { top: 192, right: 0, bottom: 0, left: 0 });
+    expect(D.mode).toBe('wide');
+    expect(D.zone.r - D.zone.l).toBeGreaterThan(1280 * 0.28);
+  });
+
+  it('lays a phone on its side out with the room across the whole width, the window in its corner, the pads along the bottom', () => {
+    for (const c of CHECK_SIZES.filter(x => x.name.startsWith('phone on its side'))) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.mode, c.name).toBe('short');
+      expect(L.S, c.name).toBeGreaterThanOrEqual(50);
+      expect(L.win.w, c.name).toBeGreaterThanOrEqual(110);
+      expect(L.win.x + L.win.w, c.name).toBeLessThanOrEqual(L.cx - 1.2 * L.S);
+      expect(L.win.y, c.name).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.floorY - 3.45 * L.S, c.name).toBeGreaterThanOrEqual(c.insets.top - 2);
+      for (const p of PADS) expect(L.pads[p].y, `${c.name} ${p}`).toBeGreaterThan(L.floorY);
+      expect(L.pads.left.x, c.name).toBeLessThanOrEqual(c.insets.left + 16);
+      expect(L.pads.right.x + L.pads.right.w, c.name).toBeGreaterThanOrEqual(c.w - c.insets.right - 16);
+      // the boss bar right of the window, under the HUD; the combo under the boss bar
+      expect(L.boss.x, c.name).toBeGreaterThan(L.win.x + L.win.w);
+      expect(L.boss.y - 14, c.name).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.combo.y, c.name).toBeGreaterThan(L.boss.y + L.boss.h);
+    }
+  });
+
+  it('grows on a tablet and a desktop, never past 1.3; the room is not lost on a tall tablet', () => {
+    for (const c of CHECK_SIZES.filter(x => Math.min(x.w, x.h) > 600)) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.u, c.name).toBeGreaterThan(1);
+      expect(L.u, c.name).toBeLessThanOrEqual(1.3);
+      expect(L.S, c.name).toBeGreaterThanOrEqual(90);
+    }
+  });
+
+  it('offers the gifts as a bottom sheet of three full-width cards on a phone upright, a row of three elsewhere; a tap on a card picks it', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.sheetTitle, c.name).toBeGreaterThanOrEqual(c.insets.top);
+      L.gifts.forEach((r, i) => expect(giftAt(L, r.x + r.w / 2, r.y + r.h / 2), c.name).toBe(i));
+      expect(giftAt(L, 1, 1)).toBe(-1);
+      if (c.w < 600 && c.h > c.w) {
+        expect(L.stacked, c.name).toBe(true);
+        for (const r of L.gifts) {
+          expect(r.w, c.name).toBeGreaterThanOrEqual(c.w - 2 * 16 - 1);
+          expect(r.h, c.name).toBeGreaterThanOrEqual(64);
+        }
+        expect(L.gifts[1].y - (L.gifts[0].y + L.gifts[0].h)).toBeGreaterThanOrEqual(TAP_GAP);
+        // the last two under the thumb
+        for (const r of L.gifts.slice(1)) expect(r.y, c.name).toBeGreaterThanOrEqual(c.h * (1 - THUMB) - 1);
+      } else if (L.mode !== 'tall') {
+        expect(L.stacked, c.name).toBe(false);
+        expect(L.gifts[1].y).toBe(L.gifts[0].y);
+        for (const r of L.gifts) expect(Math.min(r.w, r.h), c.name).toBeGreaterThanOrEqual(MIN_TAP + 30);
+      }
+    }
+  });
+
+  it('never draws text under 11 px: the font helper has a floor', () => {
+    for (const px of [0, 4, 6.5, 8, 9.5, 10.99, 11, 12.5, 13, 30]) expect(pxOf(font(800, px, SANS)), String(px)).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(fontPx(4)).toBe(MIN_TEXT);
+    expect(font(600, 14.5, SANS, true)).toContain('italic 600 14.5px');
+    expect(MIN_READ).toBe(13);
+  });
+
+  it('every size, every language: the story card keeps the Zmory in sight at 13 px or more (15–16 on one page), its verse uncut', async () => {
+    for (const l of LANGS) {
+      const { hud, lay, i18n, scripture } = await viewIn(l);
+      const verse = scripture.passage('psa91.11');
+      for (const c of CHECK_SIZES) {
+        const L = lay.layout(c.w, c.h, c.insets);
+        for (const [kind, ch] of [['open', 0], ['chapter', 0], ['chapter', 2], ['chapter', 4]] as const) {
+          const h = new hud.Hud(measuring(), false, true);
+          h.resize(L);
+          h.showStory(kind, ch, 4);
+          const sl = h.storyNow()!;
+          const what = `${l} ${c.name} ${kind} ${ch}`;
+          expect(pxOf(sl.titleFont), what).toBeGreaterThanOrEqual(15);
+          for (const pg of sl.pages) {
+            expect(pg.h, what).toBeLessThanOrEqual(L.story.maxH + 0.5);
+            for (const line of pg.lines) expect(pxOf(line.font), what).toBeGreaterThanOrEqual(MIN_READ);
+          }
+          // nothing cut: the pages hold the whole text and the whole verse (and its reference)
+          const said = sl.pages.flatMap(p => p.lines.map(x => x.text)).join(' ').replace(/\s+/g, ' ');
+          const whole = kind === 'open' ? `${i18n.t('story.open.text')} ${verse.text} ${verse.ref}` : i18n.t(`story.${CHAPTERS[ch].id}` as 'story.pokoj');
+          expect(said, what).toBe(whole.replace(/\s+/g, ' '));
+          if (sl.pages.length === 1) for (const line of sl.pages[0].lines) if (!/750/.test(line.font)) expect(pxOf(line.font), what).toBeGreaterThanOrEqual(15);
+          expect(L.story.y, what).toBeGreaterThanOrEqual(c.insets.top);
+          // the card never comes down to the Zmory's heads
+          expect(L.story.y + Math.max(...sl.pages.map(p => p.h)), what).toBeLessThanOrEqual(L.floorY - 1.2 * L.S + 0.5);
+        }
+      }
+    }
+  });
+
+  it('every size, every language: a gift card\'s name and what it does fit uncut at 13 px or more', async () => {
+    for (const l of LANGS) {
+      const { hud, lay, content } = await viewIn(l);
+      const ctx = measuring();
+      for (const c of CHECK_SIZES) {
+        const L = lay.layout(c.w, c.h, c.insets);
+        for (const touch of [true, false]) {
+          const h = new hud.Hud(ctx, false, touch);
+          h.resize(L);
+          for (const g of content.GIFTS) {
+            for (const r of L.gifts) {
+              const w = h.giftWords(g.id, r);
+              const what = `${l} ${c.name} ${g.id}`;
+              expect(w.body.size, what).toBeGreaterThanOrEqual(MIN_READ);
+              expect(w.body.lines.join(' ').replace(/\s+/g, ' '), what).toBe(g.text.replace(/\s+/g, ' '));
+              expect(pxOf(w.nameFont), what).toBeGreaterThanOrEqual(14);
+              ctx.font = w.nameFont;
+              expect(ctx.measureText(g.name).width, what).toBeLessThanOrEqual(w.nameW + 0.5);
+            }
+          }
+        }
+      }
+    }
+    expect(GIFTS.length).toBeGreaterThan(3);
+  });
+
+  it('speaks to the hand the player has: a finger hears of the pads, a keyboard keeps its keys as shortcuts', async () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|mysz[ąy]|mouse|maus|1–3|←|→|\bA\/D\b/i;
+    for (const l of LANGS) {
+      const c = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['how.goal', 'how.tap', 'how.middle', 'how.ready', 'how.tip1', 'how.tip2', 'coach.tap', 'coach.middle', 'coach.gift', 'coach.whiff', 'coach.perfect', 'level.hint']) {
+        expect(c[k], `${l}.${k}`).toBeTypeOf('string');
+        expect(c[k], `${l}.${k}`).not.toMatch(KEYS);
+      }
+      for (const k of ['coach.tap.keys', 'coach.middle.keys', 'coach.gift.keys', 'level.hint.keys', 'how.keys']) expect(c[k], `${l}.${k}`).toMatch(KEYS);
+    }
+    const { index: { coachText, howto }, i18n } = await viewIn('pl');
+    const touch = howto(true), desk = howto(false);
+    expect(touch.hands.map(x => x.gesture)).toEqual(['tap', 'tap', 'tap']);
+    for (const x of touch.hands) expect(x.text).not.toMatch(KEYS);
+    expect(desk.hands.map(x => x.gesture)).toEqual(['tap', 'tap', 'keys']);
+    for (const k of ['coach.tap', 'coach.middle', 'coach.gift'] as const) {
+      expect(coachText(k, true)).not.toMatch(KEYS);
+      expect(coachText(k, false)).toMatch(KEYS);
+    }
+    expect(coachText('coach.aura', false)).toBe(i18n.t('coach.aura'));
+  });
+
+  it('the pads tell what a strike would do: gold in reach, brighter in the perfect band, dark at nothing — as the strike then does', () => {
+    const sim = later();
+    quiet(sim);
+    expect(sim.ready(-1)).toBe(0);
+    expect(sim.ready(1)).toBe(0);
+    // in the perfect band: its near edge just inside the reach
+    const r = ZMORY.mara.r;
+    place(sim, 'mara', -1, sim.reach + r - sim.perfectBand / 2);
+    expect(sim.ready(-1)).toBe(2);
+    expect(sim.ready(1)).toBe(0);
+    sim.strike(-1);
+    const hit = ofType(sim.take(), 'hit')[0];
+    expect(hit.perfect).toBe(true);
+    // deep in the reach: a plain hit
+    quiet(sim);
+    place(sim, 'mara', 1, 1.0 + r + 0.3);
+    expect(sim.ready(1)).toBe(1);
+    sim.strike(1);
+    const hit2 = ofType(sim.take(), 'hit')[0];
+    expect(hit2.perfect).toBe(false);
+    // armour bounces: in reach, never perfect
+    quiet(sim);
+    place(sim, 'pancerna', -1, sim.reach + ZMORY.pancerna.r - 0.1);
+    expect(sim.ready(-1)).toBe(1);
+    // out of reach: a whiff
+    quiet(sim);
+    place(sim, 'mara', 1, sim.reach + r + 0.5);
+    expect(sim.ready(1)).toBe(0);
+    sim.strike(1);
+    expect(ofType(sim.take(), 'whiff')).toHaveLength(1);
+  });
+
+  it('keeps Pan Guzik and the coach marks back while the view\'s cards are up (sim.busy), the first Zmora\'s mark excepted', () => {
+    const sim = makeSim({ planned: 300 });
+    sim.busy = true;
+    const evs = drive(sim, 6, frame());
+    expect(ofType(evs, 'say')).toHaveLength(0);
+    expect(ofType(evs, 'coach').map(e => e.key).every(k => k === 'coach.tap')).toBe(true);
+    sim.busy = false;
+    expect(sim.quiet || sim.phase !== 'play' || sim.blockT < RULES.quietStart).toBe(true);
   });
 });

@@ -6,12 +6,15 @@
  * feathers, the gifts' little pictures and the room's cosy things.  All canvas paths, no images;
  * sizes in u (about a metre) times `s` (px per u).
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { BossKind, GiftId, RoomItem, ZKind } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
+/** A canvas font's size, never under the kit's floor (MIN_TEXT, 11 px): smaller text is a smudge on a phone. */
+export const fontPx = (size: number): number => Math.round(Math.max(MIN_TEXT, size) * 10) / 10;
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${fontPx(size)}px ${family}`;
 
 export const C = {
   night: '#1c1d3f', nightDeep: '#12122b', wall: '#3b3a72', wallLight: '#4d4a8a', wallDark: '#2b2a58', trim: '#5c5698',

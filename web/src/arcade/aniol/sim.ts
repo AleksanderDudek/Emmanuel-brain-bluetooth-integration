@@ -119,8 +119,8 @@ export interface Boss {
   n: number;
 }
 
-/** Where a coach mark points. */
-export type CoachAt = { z: number } | { ui: 'aura' | 'flame' | 'bubble' | 'combo' | 'reachL' | 'reachR' } | null;
+/** Where a coach mark points (`mid`: the middle pad, `sheet`: the gift choice's title). */
+export type CoachAt = { z: number } | { ui: 'aura' | 'flame' | 'bubble' | 'combo' | 'reachL' | 'reachR' | 'mid' | 'sheet' } | null;
 
 export type SimEvent =
   | { type: 'spawn'; id: number; kind: ZKind; side: Side }
@@ -497,6 +497,23 @@ export class AniolSim {
     this.emit({ type: 'strike', side: s, hit: true, spear });
     const dmg = (this.taken.double ? 2 : 1) * (this.glory > 0 ? 2 : 1);
     for (const z of targets) this.hitZ(z, dmg, true);
+  }
+
+  /**
+   * What a strike on this side would do now, for the pads' tell: 0 a whiff (nothing in reach), 1 a hit (a
+   * Zmora or an ink drop in reach), 2 a perfect hit (the nearest's near edge in the perfect band).  The
+   * same reach as strike(): the spear and Skrzydła ognia reach further.
+   */
+  ready(side: Side): 0 | 1 | 2 {
+    if (!this.started || this.phase === 'done') return 0;
+    if (this.drops.some(o => o.dir < 0 && o.side === side && o.d <= this.reach + 0.1)) return 1;
+    const reach = this.reach + (this.glory > 0 ? 99 : this.taken.spear ? RULES.spearReach : 0);
+    let best: Zmora | null = null;
+    for (const z of this.zmory) if (z.side === side && this.strikable(z) && z.d - z.r <= reach && (!best || z.d < best.d)) best = z;
+    if (!best) return 0;
+    const edge = best.d - best.r;
+    if (!best.boss && !best.armoured && edge >= this.reach - this.perfectBand && edge <= this.reach + 1e-6) return 2;
+    return 1;
   }
 
   /** The side whose Zmora (or ink drop) is nearest the bed (the facing side when the room is empty). */
@@ -1060,7 +1077,7 @@ export class AniolSim {
     this.comboStep();
     this.stop = Math.max(this.stop, R.stopHit);
     this.emit({ type: 'hit', id: z.id, kind: z.kind, side: z.side, d: z.d, z: z.z, left: Math.max(0, z.hp), combo: this.combo, perfect });
-    if (this.hits === 3) this.coach('coach.middle', null);
+    if (this.hits === 3) this.coach('coach.middle', { ui: 'mid' });
     if (this.hits === 7) this.coach('coach.perfect', { ui: z.side < 0 ? 'reachL' : 'reachR' });
     if (z.boss) {
       this.bossHurt(z, hurt, counter);
@@ -1202,7 +1219,7 @@ export class AniolSim {
     const options = this.giftOptions();
     this.choice = { options, t: 0 };
     this.emit({ type: 'level', level: this.nightLevel, options });
-    this.coach('coach.gift', null);
+    this.coach('coach.gift', { ui: 'sheet' });
   }
 
   // ── the finale: the dream's great nightmare ────────────────────
@@ -1412,9 +1429,15 @@ export class AniolSim {
   }
 
   // ── Pan Guzik and the coach marks ───────────────────────────────
-  /** Is the screen free for a bubble: not in a block's first seconds (the banner), not in its telegraph, not in a choice. */
+  /**
+   * The view's word that its own cards are on screen (a story card, a toast): Pan Guzik and the coach marks
+   * wait for them, so a phone never shows three bubbles over one angel.  Set by the view every frame.
+   */
+  busy = false;
+
+  /** Is the screen free for a bubble: not in a block's first seconds (the banner), not in its telegraph, not in a choice, no card up. */
   get quiet(): boolean {
-    if (this.choice) return false;
+    if (this.choice || this.busy) return false;
     const b = this.block;
     if (!b || this.phase !== 'play') return true;
     return this.blockT >= RULES.quietStart && this.blockT < b.dur - RULES.telegraph;
@@ -1448,7 +1471,10 @@ export class AniolSim {
       } else if (this.t - q.at > 6) this.sayQ = null;
     } else if (q && this.t - q.at > 9) this.sayQ = null;
     // coach marks: one at a time, a few seconds apart, not in a block's first seconds, never over the gifts
-    if (this.coachQ.length && (!this.choice || this.coachQ[0].key === 'coach.gift') && this.t - this.lastCoach >= RULES.coachGap && (this.phase !== 'play' || this.blockT >= 1.5 || this.block.kind === 'warmup')) {
+    // (the first Zmora's and the gifts' go at once; the rest wait for the view's cards to go)
+    const first = this.coachQ[0]?.key;
+    const now = first === 'coach.tap' || first === 'coach.gift';
+    if (this.coachQ.length && (!this.choice || first === 'coach.gift') && (!this.busy || now) && this.t - this.lastCoach >= RULES.coachGap && (this.phase !== 'play' || this.blockT >= 1.5 || this.block.kind === 'warmup')) {
       const c = this.coachQ.shift()!;
       if (!this.fits(c)) {
         // stale (its Zmora gone, its block over, too long in the queue): it waits for another night

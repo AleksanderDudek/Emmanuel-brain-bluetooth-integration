@@ -11,11 +11,12 @@
  * scene is intro.ts.  The runner draws the standard HUD on top (the panel, the score, the coach).
  */
 import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
+import type { Insets } from '../kit/types';
 import { bossName, giftById, type RoomItem } from './content';
 import { Hud } from './hud';
 import { feathers as feathersText, t } from './i18n';
 import { AniolIntro } from './intro';
-import { layout, type Layout } from './layout';
+import { layout, type Layout, type Pad } from './layout';
 import { roomItems, type AniolProgress } from './meta';
 import {
   C, SANS, font, glow, paintAngel, paintBear, paintBed, paintBoss, paintDream, paintDrop, paintFeather, paintLamp, paintRoom, paintRoomItem,
@@ -80,20 +81,28 @@ export class AniolView {
   private readonly sideLit = { [-1]: 0, [1]: 0 } as Record<Side, number>;
   private head = { headX: 0, headY: 0 };
 
-  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
+  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; touch: boolean }) {
     this.ctx = canvas.getContext('2d')!;
-    this.hud = new Hud(this.ctx, opts.eeg);
+    this.hud = new Hud(this.ctx, opts.eeg, opts.touch);
     this.hud.resize(this.L);
     this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number, hudTop: number): void {
+  resize(w: number, h: number, dpr: number, insets: Insets): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, hudTop);
+    this.L = layout(w, h, insets);
     this.hud.resize(this.L);
   }
+
+  /** A finger down on a pad's column (index.ts): the pad shows pressed until it lifts. */
+  press(pad: Pad, id: number): void { this.hud.press(pad, id); }
+  /** A finger lifts (null: all of them, the pause). */
+  release(id: number | null): void { this.hud.release(id); }
+  /** A key pressed the pad's strike. */
+  flashPad(pad: Pad): void { this.hud.flash(pad); }
+  pressGift(i: number): void { this.hud.pressGift(i); }
 
   start(sim: AniolSim): void {
     this.started = true;
@@ -109,6 +118,8 @@ export class AniolView {
 
   // ── the room's points ───────────────────────────────────────────
   private get S(): number { return this.L.S; }
+  /** text scale: 1 on a phone, a little more on a tablet or a desktop (hud.ts uses the same) */
+  private get tu(): number { return 1 + (this.L.u - 1) * 0.6; }
   /** a point on the line across the room (side, distance from the bed's centre, height) in px */
   xOf(side: number, d: number): number { return this.L.cx + side * d * this.S; }
   yOf(z: number): number { return this.L.floorY - z * this.S; }
@@ -123,16 +134,16 @@ export class AniolView {
     return { x: this.L.cx + 0.68 * S, y: this.L.floorY - 0.86 * S, r: 0.27 * S };
   }
 
-  /** The side of the screen a tap is on: the left third −1, the right third +1, the middle 0 (the nearer side). */
-  sideAt(x: number): Side | 0 {
-    const x0 = this.L.roomX0, k = (x - x0) / Math.max(1, this.w - x0);
-    return k < 1 / 3 ? -1 : k > 2 / 3 ? 1 : 0;
-  }
-
   /** Where a coach mark points (CSS px), kept on the screen; null centres it over the play. */
   anchor(at: CoachAt, sim: AniolSim): { x: number; y: number } | null {
     if (!at) return null;
     const S = this.S, L = this.L;
+    const half = Math.min(150, (L.roomX1 - L.roomX0) / 2);
+    // the middle pad and the gift sheet: the mark sits over them (a pad is under the floor line)
+    if ('ui' in at && (at.ui === 'mid' || at.ui === 'sheet')) {
+      const x = at.ui === 'mid' ? L.pads.mid.x + L.pads.mid.w / 2 : (L.roomX0 + L.roomX1) / 2;
+      return { x: clamp(x, L.roomX0 + half, L.roomX1 - half), y: at.ui === 'mid' ? L.pads.mid.y - 4 : Math.max(L.top + 40, L.sheetTitle - 4) };
+    }
     let p: { x: number; y: number } | null = null;
     if ('z' in at) {
       const z = sim.zmory.find(x => x.id === at.z);
@@ -140,11 +151,10 @@ export class AniolView {
     } else if (at.ui === 'aura') p = { x: this.xOf(1, sim.auraR * 0.72), y: L.floorY - sim.auraR * 0.72 * 0.78 * S };
     else if (at.ui === 'flame') p = { x: this.angelX + S * 0.9, y: this.angelY - S * 1.1 };
     else if (at.ui === 'bubble') p = { x: this.bubble.x, y: this.bubble.y - this.bubble.r };
-    else if (at.ui === 'combo') p = { x: Math.min(L.cx + S * 1.6, this.w - 60), y: L.floorY - S * 3.1 };
+    else if (at.ui === 'combo') p = { x: L.combo.x + 20 * L.u, y: L.combo.y + 8 * L.u };
     else p = { x: this.xOf(at.ui === 'reachL' ? -1 : 1, sim.reach), y: L.floorY - S * 0.35 };
     if (!p) return null;
-    const half = Math.min(150, (this.w - L.roomX0) / 2);
-    return { x: clamp(p.x, L.roomX0 + half, this.w - half), y: clamp(p.y, L.roomTop + 30, L.floorY - 10) };
+    return { x: clamp(p.x, L.roomX0 + half, L.roomX1 - half), y: clamp(p.y, L.roomTop + 30, L.floorY - 10) };
   }
 
   // ── reacting to the rules ───────────────────────────────────────
@@ -238,7 +248,9 @@ export class AniolView {
         this.hud.float(TXT.close, this.xOf(e.side, e.d), this.yOf(1.5), '#ffb48a', 15, 0.9, 26);
         break;
       case 'whiff':
-        this.hud.float(TXT.whiff, this.xOf(e.side, sim.reach * 0.75), this.yOf(0.9), 'rgba(220,214,240,.9)', 12, 0.6, 16);
+        // low, where the sweep met the empty floor (higher it would cover the dream bubble's "Sen" on a phone)
+        this.hud.float(TXT.whiff, this.xOf(e.side, sim.reach * 0.75), this.yOf(0.3), 'rgba(220,214,240,.9)', 13, 0.6, 12);
+        this.hud.whiff(e.side);
         break;
       case 'harp': {
         const x = this.angelX + e.side * S * 0.6, y = this.angelY - S * 0.3;
@@ -340,6 +352,8 @@ export class AniolView {
       default:
         break;
     }
+    // a card just went up: Pan Guzik and the coach marks wait from the rules' very next step
+    sim.busy = this.hud.busy;
   }
 
   private flashOn(a: number): void {
@@ -412,6 +426,8 @@ export class AniolView {
       this.parts.burst(this.angelX + sd * this.S * (0.5 + this.rnd() * 0.6), this.angelY - this.S * 0.3, 1, { color: '#ffb347', size: 2.2 * this.L.u, speed: 40 * this.L.u, g: 60, drag: 1, life: 0.9, shape: 'spark', rnd: this.rnd });
     }
     this.hud.update(dt, sim);
+    // Pan Guzik and the coach marks wait while the view's cards are up (the next frame's rules read it)
+    sim.busy = this.hud.busy;
   }
 
   draw(sim: AniolSim): void {
@@ -422,7 +438,7 @@ export class AniolView {
     ctx.save();
     ctx.translate(off.x, off.y);
     const box = { w: this.w, h: this.h, cx: L.cx, floorY: L.floorY, s: S, win: L.win };
-    if (this.chapter === 0) paintRoom(ctx, box, this.clock, this.dawn);
+    if (this.chapter === 0) this.paintRoomCached(ctx, box);
     else paintDream(ctx, this.chapter, box, this.clock, this.dawn);
     this.hud.drawWindow(sim, this.dawn, this.chapter === 0 && this.items.includes('curtain'));
     if (this.chapter === 0) this.drawItemsBack();
@@ -487,6 +503,32 @@ export class AniolView {
       ctx.fillStyle = `rgba(18,18,43,${this.fade})`;
       ctx.fillRect(0, 0, this.w, this.h);
     }
+  }
+
+  /**
+   * The child's room (the wall and its wallpaper, the floor, the rug, the wardrobe, the door, the dark at the
+   * walls) does not move: it is painted once per size into an offscreen canvas and copied each frame — one fill
+   * instead of four gradients and a few hundred dots, which a phone feels.  The dawn repaints it in 20 steps.
+   */
+  private room: { key: string; c: HTMLCanvasElement } | null = null;
+
+  private paintRoomCached(ctx: CanvasRenderingContext2D, box: Parameters<typeof paintRoom>[1]): void {
+    const dawn = Math.round(this.dawn * 20) / 20;
+    const key = `${this.w}x${this.h}@${this.dpr}|${box.cx}|${box.floorY}|${box.s}|${dawn}`;
+    if (!this.room || this.room.key !== key) {
+      const c = this.room?.c ?? (typeof document !== 'undefined' ? document.createElement('canvas') : null);
+      const g = c?.getContext('2d') ?? null;
+      if (!c || !g) {
+        paintRoom(ctx, box, this.clock, this.dawn);
+        return;
+      }
+      c.width = Math.max(1, Math.round(this.w * this.dpr));
+      c.height = Math.max(1, Math.round(this.h * this.dpr));
+      g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+      paintRoom(g, box, 0, dawn);
+      this.room = { key, c };
+    }
+    ctx.drawImage(this.room.c, 0, 0, this.w, this.h);
   }
 
   // ── the room's cosy things ──────────────────────────────────────
@@ -556,27 +598,37 @@ export class AniolView {
       dome(mark);
       ctx.stroke();
       ctx.setLineDash([]);
-      ctx.font = font(800, 10.5 * u, SANS);
+      ctx.font = font(800, 13 * this.tu, SANS);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'bottom';
       const lx = cx + Math.cos(-Math.PI / 4) * mark, ly = cy + Math.sin(-Math.PI / 4) * mark * ry;
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(20,16,44,.6)';
-      ctx.strokeText(TXT.mark, lx + 5 * u, ly - 2 * u);
+      // kept on the screen (on a phone the dome reaches past its edge)
+      const tx = Math.min(lx + 5 * u, L.roomX1 - 8 - ctx.measureText(TXT.mark).width);
+      ctx.lineWidth = 3.5;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(20,16,44,.7)';
+      ctx.strokeText(TXT.mark, tx, ly - 2 * u);
       ctx.fillStyle = 'rgba(255,250,232,.95)';
-      ctx.fillText(TXT.mark, lx + 5 * u, ly - 2 * u);
+      ctx.fillText(TXT.mark, tx, ly - 2 * u);
     }
     // the rim: gold beyond the threshold, pale below it, grey without signal, dashed while waiting
     ctx.strokeStyle = above ? '#ffd36b' : look === 'grey' ? 'rgba(190,190,205,.6)' : look === 'lamp' ? 'rgba(255,200,120,.7)' : 'rgba(255,250,232,.85)';
+    if (above) {
+      // the glow beyond the threshold: wide translucent strokes under the rim (no blur per frame)
+      const rim = ctx.strokeStyle;
+      ctx.strokeStyle = 'rgba(255,211,107,.16)';
+      ctx.lineWidth = 16;
+      dome(R);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,211,107,.28)';
+      ctx.lineWidth = 9;
+      ctx.stroke();
+      ctx.strokeStyle = rim;
+    }
     ctx.lineWidth = above ? 4.5 : 2.4;
     if (look === 'wait') ctx.setLineDash([8, 6]);
-    if (above) {
-      ctx.shadowColor = 'rgba(255,211,107,.9)';
-      ctx.shadowBlur = 18;
-    }
     dome(R);
     ctx.stroke();
-    ctx.shadowBlur = 0;
     ctx.setLineDash([]);
     // where the aura meets the floor: two bright feet
     ctx.fillStyle = above ? '#ffd36b' : 'rgba(255,250,232,.8)';
@@ -706,16 +758,20 @@ export class AniolView {
       ctx.lineTo(b.x, b.y + rr + 6 * u);
       ctx.stroke();
     }
-    ctx.font = font(800, 10 * u, SANS);
+    // Sen in words under the bubble, on a plate: the child's sleep must read at a glance on a phone
+    ctx.font = font(800, 13 * this.tu, SANS);
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(20,16,44,.7)';
+    ctx.textBaseline = 'middle';
     const label = `${TXT.sen} ${Math.round(lvl * 100)}%`;
-    const ly = b.y + r + (sim.restBlock ? 14 : 5) * u;
-    ctx.strokeText(label, b.x, ly);
-    ctx.fillStyle = lvl < 0.3 ? '#d7c8ff' : '#e6ecff';
-    ctx.fillText(label, b.x, ly);
+    const tw = ctx.measureText(label).width, ph = 19 * u;
+    const ly = b.y + r + (sim.restBlock ? 14 : 5) * u + ph / 2;
+    const lx = clamp(b.x, this.L.roomX0 + tw / 2 + 10, this.L.roomX1 - tw / 2 - 10);
+    ctx.fillStyle = lvl < 0.3 ? 'rgba(70,40,110,.82)' : 'rgba(20,18,50,.72)';
+    ctx.beginPath();
+    ctx.roundRect(lx - tw / 2 - 7 * u, ly - ph / 2, tw + 14 * u, ph, ph / 2);
+    ctx.fill();
+    ctx.fillStyle = lvl < 0.3 ? '#e4d8ff' : '#eef2ff';
+    ctx.fillText(label, lx, ly + 0.5);
   }
 
   // ── the Zmory and their ink ─────────────────────────────────────
@@ -790,15 +846,15 @@ export class AniolView {
     ctx.save();
     ctx.fillStyle = 'rgba(20,16,44,.6)';
     ctx.beginPath();
-    ctx.roundRect(x - 20 * u, y - 8 * u, 40 * u, 16 * u, 8 * u);
+    ctx.roundRect(x - 22 * u, y - 9 * u, 44 * u, 18 * u, 9 * u);
     ctx.fill();
-    ctx.font = font(850, 11 * u, SANS);
+    ctx.font = font(850, 13 * this.tu, SANS);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#ff9a52';
-    ctx.fillText(side < 0 ? '←' : '→', x - 8 * u, y);
+    ctx.fillText(side < 0 ? '←' : '→', x - 9 * u, y);
     ctx.fillStyle = '#7fc8ff';
-    ctx.fillText(side < 0 ? '→' : '←', x + 8 * u, y);
+    ctx.fillText(side < 0 ? '→' : '←', x + 9 * u, y);
     ctx.restore();
   }
 
@@ -866,16 +922,16 @@ export class AniolView {
     const z = sim.zmory.find(x => x.id === sim.boss!.id);
     if (!z) return;
     const ctx = this.ctx, L = this.L, u = L.u;
-    const w = Math.min(320 * u, (this.w - L.roomX0) * 0.7), h = 8 * u;
-    const x = (L.roomX0 + this.w) / 2 - w / 2, y = L.roomTop + 18 * u;
+    const { x, y, w, h } = L.boss;
     this.bossShown = approach(this.bossShown, clamp(z.hp / z.maxHp), 1 / 60, 0.15);
     ctx.save();
     ctx.globalAlpha = this.bossBar;
-    ctx.font = font(800, 11 * u, SANS);
+    ctx.font = font(800, 13 * this.tu, SANS);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(20,16,44,.7)';
+    ctx.lineWidth = 3.5;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(20,16,44,.75)';
     const name = bossName(sim.boss.kind);
     ctx.strokeText(name, x + w / 2, y - 3 * u);
     ctx.fillStyle = '#ffd9b0';
@@ -923,27 +979,32 @@ export class AniolView {
       ctx.arc(ax, ay - S * 0.25, r, 0, TAU);
       ctx.stroke();
       if (k > 0.01) {
-        ctx.strokeStyle = k > 0.85 ? '#ffb347' : '#ffd36b';
-        ctx.shadowColor = 'rgba(255,190,90,.9)';
-        ctx.shadowBlur = 10 + 10 * k;
+        // its glow: a wide translucent arc under it (no blur per frame)
+        ctx.strokeStyle = `rgba(255,190,90,${0.18 + 0.2 * k})`;
+        ctx.lineWidth = (10 + 6 * k) * u;
         ctx.beginPath();
         ctx.arc(ax, ay - S * 0.25, r, -Math.PI / 2, -Math.PI / 2 + TAU * k);
         ctx.stroke();
-        ctx.shadowBlur = 0;
+        ctx.strokeStyle = k > 0.85 ? '#ffb347' : '#ffd36b';
+        ctx.lineWidth = 4 * u;
+        ctx.stroke();
         const hx = ax + Math.cos(-Math.PI / 2 + TAU * k) * r, hy = ay - S * 0.25 + Math.sin(-Math.PI / 2 + TAU * k) * r;
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         glow(ctx, hx, hy, 12 * u, 'rgba(255,200,110,', 0.9);
         ctx.restore();
       }
-      ctx.font = font(800, 9.5 * u, SANS);
+      ctx.font = font(800, 13 * this.tu, SANS);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = 'rgba(20,16,44,.6)';
-      const lx = ax + Math.cos(0.5) * r + 6 * u, ly = ay - S * 0.25 + Math.sin(0.5) * r;
+      ctx.lineWidth = 3.5;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(20,16,44,.72)';
+      // right of the ring, kept on the screen
+      const lw = ctx.measureText(TXT.flameLabel).width;
+      const lx = Math.min(ax + Math.cos(0.5) * r + 6 * u, this.L.roomX1 - 8 - lw), ly = ay - S * 0.25 + Math.sin(0.5) * r;
       ctx.strokeText(TXT.flameLabel, lx, ly);
-      ctx.fillStyle = k > 0.01 ? '#ffe2a0' : 'rgba(255,250,232,.6)';
+      ctx.fillStyle = k > 0.01 ? '#ffe2a0' : 'rgba(255,250,232,.82)';
       ctx.fillText(TXT.flameLabel, lx, ly);
     }
     // the wing shield, ready: a faint wing over the bed
