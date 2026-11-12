@@ -61,8 +61,10 @@ export function fitText(ctx: CanvasRenderingContext2D, text: string, maxW: numbe
   let size = Math.max(min, px);
   ctx.font = `${weight} ${size}px ${family}`;
   let w = ctx.measureText(text).width;
-  if (w > maxW && size > min) {
-    size = Math.max(min, Math.floor(size * maxW / w * 10) / 10);
+  // shrink toward the width (text does not scale exactly with its size: kerning, hinting), at least half
+  // a pixel a step, until it fits or reaches the floor — only then cut
+  while (w > maxW && size > min) {
+    size = Math.max(min, Math.min(size - 0.5, Math.floor(size * maxW / w * 10) / 10));
     ctx.font = `${weight} ${size}px ${family}`;
     w = ctx.measureText(text).width;
   }
