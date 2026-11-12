@@ -191,6 +191,8 @@ export class GlinaSim {
   t = 0;
   tip = '';
   card: Card | null = null;
+  /** Szamot keeps quiet while a finger works the clay and while a piece is glazed (a phone: his bubble would cover them) */
+  quietWhileShaping = false;
   lastInput = 0;
 
   // the wheel
@@ -302,6 +304,8 @@ export class GlinaSim {
   get guide(): boolean { return this.sighted && this.reliable && this.steady >= RULES.guideAt && this.wheel === 'shape'; }
   get talkBlocked(): boolean {
     if (this.card) return true;
+    // on a phone his bubble would hang over the clay a finger is working: he waits for the lift
+    if (this.quietWhileShaping && (this.finger || this.kiln === 'glaze')) return true;
     if (this.ended) return false;
     if (this.block.kind !== 'warmup' && this.blockT < RULES.bannerSec) return true;
     return this.telegraphing;

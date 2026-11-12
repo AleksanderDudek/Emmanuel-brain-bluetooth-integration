@@ -5,12 +5,15 @@
  * hands (warm silhouettes), and small shapes: stars and cards.
  * Everything is drawn in CSS pixels; what a frame draws again and again is made once.
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { GlazeId } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
 
-export const font = (weight: number, size: number, family: string, italic = false) => `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+/** A CSS font for the canvas, never under the arcade's 11 px floor (kit/mobile MIN_TEXT). */
+export const font = (weight: number, size: number, family: string, italic = false) =>
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
 
 /** The palette (art direction §8.1): a whitewashed courtyard under a Judean sky; glow only in the kiln. */
 export const C = {
@@ -154,15 +157,20 @@ export function star(ctx: CanvasRenderingContext2D, x: number, y: number, r: num
 /** A rounded card in the courtyard's light: whitewash with a soft shadow. */
 export function cardBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, a: number, r = 16, fill: string = C.card): void {
   ctx.save();
-  ctx.globalAlpha = a;
-  ctx.shadowColor = 'rgba(59,42,34,.22)';
-  ctx.shadowBlur = 18;
-  ctx.shadowOffsetY = 4;
+  ctx.globalAlpha *= a;
+  // a soft drop as two offset shapes (a shadowBlur on every frame costs a phone its fill rate)
+  ctx.fillStyle = 'rgba(59,42,34,.1)';
+  ctx.beginPath();
+  ctx.roundRect(x - 1, y + 2, w + 2, h + 6, r + 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(59,42,34,.12)';
+  ctx.beginPath();
+  ctx.roundRect(x, y + 3, w, h + 1, r);
+  ctx.fill();
   ctx.fillStyle = fill;
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
   ctx.fill();
-  ctx.shadowColor = 'transparent';
   ctx.strokeStyle = C.cardEdge;
   ctx.lineWidth = 1;
   ctx.stroke();

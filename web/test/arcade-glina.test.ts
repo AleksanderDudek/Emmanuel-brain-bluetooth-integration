@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type { ArcadeAudio } from '../src/arcade/kit/audio';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame } from '../src/arcade/kit/focus';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
+import type { ArcadeGame, GameEnv, Insets, TapTarget } from '../src/arcade/kit/types';
+import glina, { LIFT } from '../src/arcade/glina/index';
+import { DOCK_ROW, EDGE, layout, palette, stageScale } from '../src/arcade/glina/layout';
+import { font } from '../src/arcade/glina/paint';
+import { radiusAt } from '../src/arcade/glina/vessel';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { FORM, FORMS, LINES, MOMENTS, REACT, SHOP, STORY, TIPS, formTarget } from '../src/arcade/glina/content';
 import { CATALOGS, coinsText, t } from '../src/arcade/glina/i18n';
@@ -615,5 +622,288 @@ describe('Glina words', () => {
     expect(t('unit', { n: 5 })).toBe('5 sykli');
     expect(coinsText(2)).toBe('2 sykle');
     expect(FORM.kubek.name).toBe('kubek');
+  });
+});
+
+// ── mobile first (DESIGN.md §12) ────────────────────────────────
+const PX = /(\d+(?:\.\d+)?)px/;
+const pxOf = (f: unknown): number => Number(String(f).match(PX)?.[1] ?? 10);
+
+/** A 2D context that draws nothing: it measures text at 0.56 em a character and notes every string at its largest size. */
+function fakeCtx(texts = new Map<string, number>()): CanvasRenderingContext2D {
+  const state: Record<string | symbol, unknown> = { font: '10px sans-serif', globalAlpha: 1, lineWidth: 1 };
+  const grad = { addColorStop: () => undefined };
+  const note = (s: unknown) => {
+    const k = String(s), px = pxOf(state.font);
+    if (k.trim() && (state.globalAlpha as number) > 0.05) texts.set(k, Math.max(texts.get(k) ?? 0, px));
+  };
+  const fns: Record<string, (...a: unknown[]) => unknown> = {
+    measureText: (s: unknown) => ({ width: String(s).length * pxOf(state.font) * 0.56 }),
+    fillText: note, strokeText: note,
+    createLinearGradient: () => grad, createRadialGradient: () => grad, createPattern: () => null,
+    getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+  };
+  return new Proxy(state, {
+    get: (o, k) => (typeof k === 'string' && k in fns ? fns[k] : k in o ? o[k] : () => undefined),
+    set: (o, k, v) => { o[k] = v; return true; },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+const silent = new Proxy({ on: false }, { get: (o, k) => (k in o ? (o as Record<string | symbol, unknown>)[k] : () => undefined) }) as unknown as ArcadeAudio;
+
+/** The game as the runner makes it, on a canvas that draws nothing (a finger by default, the insets of a CHECK_SIZES entry). */
+function phoneGame(progress: GlinaProgress, ins: Insets, o: { texts?: Map<string, number>; touch?: boolean; planned?: number } = {}) {
+  const ctx = fakeCtx(o.texts);
+  const hints: string[] = [];
+  const env = {
+    canvas: { getContext: () => ctx } as unknown as HTMLCanvasElement, hud: document.createElement('div'), audio: silent,
+    progress, rng: mulberry32(5), day: '2026-11-12', daySeed: 4242, plannedSec: o.planned ?? 180, tool: 'fnirs' as const,
+    simulated: true, reducedMotion: false, haptics: false, tuning: TUNING,
+    hint: (text: string) => { hints.push(text); }, hudTop: () => ins.top, insets: () => ins, touch: o.touch ?? true,
+  } satisfies GameEnv<GlinaProgress>;
+  const game = glina.create(env);
+  return { game, sim: (game as unknown as { sim: GlinaSim }).sim, hints };
+}
+
+/** Run the game `sec` seconds at 60 frames a second, drawing every frame; `each` runs before each frame. */
+function play(game: ArcadeGame, clock: { t: number }, sec: number, f: () => FocusFrame = () => frame(), each?: () => void): void {
+  for (let i = 0, n = Math.round(sec * 60); i < n; i++) {
+    clock.t += 1 / 60;
+    each?.();
+    game.update(1 / 60, f(), clock.t);
+    game.draw();
+  }
+}
+
+/** Play until `cond` holds (at most `max` s). */
+function until(game: ArcadeGame, clock: { t: number }, cond: () => boolean, max = 30, each?: () => void): void {
+  for (let i = 0; i < max * 60 && !cond(); i++) play(game, clock, 1 / 60, () => frame(), each);
+}
+
+const ALL_GLAZES = ['biel', 'miod', 'zelazo', 'seledyn', 'kobalt', 'oliwka', 'turkus', 'purpura'] as const;
+const ALL_PATTERNS = ['pas', 'fala', 'kropki', 'zygzak', 'galazka'] as const;
+
+describe('Glina: mobile first', () => {
+  it('never asks for canvas text under 11 px', () => {
+    for (const size of [0, 4, 8, 10.9, 11, 13, 22]) expect(pxOf(font(800, size, 'x'))).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(pxOf(font(600, 15, 'x', true))).toBe(15);
+  });
+
+  it('lays out every checked screen phone first: the ticket under the HUD, a stage for the pot, Gotowe under the thumb', () => {
+    for (const s of CHECK_SIZES) {
+      const L = layout(s.w, s.h, s.insets);
+      const phone = Math.min(s.w, s.h) <= 430;
+      expect(L.u, s.name).toBeGreaterThanOrEqual(1);
+      expect(L.u, s.name).toBeLessThanOrEqual(1.3);
+      if (phone) expect(L.u, s.name).toBeLessThan(1.1);
+      expect(L.portrait, s.name).toBe(s.h > s.w * 1.05);
+      // the ticket: under the HUD, inside the safe edges, readable (at least 100 px tall)
+      expect(L.ticket.y, s.name).toBeGreaterThanOrEqual(s.insets.top);
+      expect(L.ticket.x, s.name).toBeGreaterThanOrEqual(s.insets.left + EDGE);
+      expect(L.ticket.x + L.ticket.w, s.name).toBeLessThanOrEqual(s.w - s.insets.right - EDGE);
+      expect(L.ticket.h, s.name).toBeGreaterThanOrEqual(100);
+      // room for the pot between the top band and the wheel
+      expect(L.stageH, s.name).toBeGreaterThanOrEqual(phone ? 130 : 200);
+      expect(L.floor - L.stageH, s.name).toBeGreaterThan(s.insets.top);
+      // Gotowe: finger-sized, in the safe area, clear of the dock's row; upright under the wheel in the thumb zone
+      const d = L.done;
+      expect(auditTargets([{ label: 'Gotowe', ...d }], s.w, s.h, s.insets), s.name).toEqual([]);
+      expect(Math.min(d.w, d.h), s.name).toBeGreaterThanOrEqual(48);
+      expect(d.x, s.name).toBeGreaterThanOrEqual(s.insets.left + EDGE - 0.5);
+      expect(d.x + d.w, s.name).toBeLessThanOrEqual(s.w - s.insets.right - EDGE + 0.5);
+      expect(d.y + d.h, s.name).toBeLessThanOrEqual(s.h - DOCK_ROW);
+      if (L.portrait) {
+        // a finger working the pot's foot (the hand LIFT px above it) stays above the button
+        expect(d.y, s.name).toBeGreaterThanOrEqual(L.floor + LIFT * L.u);
+        expect(d.y, s.name).toBeGreaterThanOrEqual(s.h * 0.55);
+        // the level beside it, never under it
+        expect(L.level.x + L.level.w, s.name).toBeLessThanOrEqual(d.x - 6);
+      } else {
+        // on its side Gotowe stands right of the wheel, clear of the pot's widest (stageScale keeps it within 0.95 stageW)
+        expect(d.x, s.name).toBeGreaterThanOrEqual(L.axis + L.stageW * 0.95);
+      }
+    }
+  });
+
+  it('lays the glazing palette out finger-sized and apart, with room for the piece, for 1–8 glazes and 1–5 patterns', () => {
+    for (const s of CHECK_SIZES) {
+      const L = layout(s.w, s.h, s.insets);
+      for (const [nc, np] of [[3, 1], [3, 2], [4, 2], [5, 3], [6, 5], [8, 1], [8, 5]]) {
+        const P = palette(L, nc, np);
+        expect(P.colors, s.name).toHaveLength(nc);
+        expect(P.patterns, s.name).toHaveLength(np > 1 ? np : 0);
+        const tg: TapTarget[] = [
+          ...P.colors.map((c, i) => ({ label: `glaze ${i}`, x: c.x - c.r, y: c.y - c.r, w: c.r * 2, h: c.r * 2 })),
+          ...P.patterns.map((r, i) => ({ label: `pattern ${i}`, ...r })),
+          { label: 'Gotowe', ...P.done },
+        ];
+        expect(auditTargets(tg, s.w, s.h, s.insets), `${s.name} ${nc}/${np}`).toEqual([]);
+        for (const t0 of tg) {
+          expect(t0.x, `${s.name} ${t0.label}`).toBeGreaterThanOrEqual(s.insets.left + EDGE - 0.5);
+          expect(t0.x + t0.w, `${s.name} ${t0.label}`).toBeLessThanOrEqual(s.w - s.insets.right - EDGE + 0.5);
+          expect(t0.y + t0.h, `${s.name} ${t0.label}`).toBeLessThanOrEqual(s.h - DOCK_ROW);
+          // under the thumb upright: the palette is the screen's lower half
+          if (L.portrait) expect(t0.y, `${s.name} ${t0.label}`).toBeGreaterThanOrEqual(s.h * 0.5);
+        }
+        // the piece keeps a stage over the palette (upright under the compact ticket)
+        const top = L.portrait ? P.ticket.y + P.ticket.h + 12 : L.floor - L.stageH;
+        expect(P.floor - top, `${s.name} ${nc}/${np}`).toBeGreaterThanOrEqual(80);
+        // the swatches never crowd the piece's own room on its side: they sit under the floor
+        expect(P.top, s.name).toBeGreaterThan(P.floor);
+      }
+    }
+  });
+
+  it('reports what can be tapped in each state, finger-sized and in the safe area, at every checked size', () => {
+    for (const s of CHECK_SIZES) {
+      const { game, sim } = phoneGame(freshProgress(), s.insets);
+      game.resize(s.w, s.h, 2);
+      game.start();
+      const clock = { t: 0 };
+      // the opening card: a tap goes on (after a moment)
+      play(game, clock, 0.8);
+      let tg = game.targets!();
+      expect(tg.map(x => x.label), s.name).toEqual(['card']);
+      expect(auditTargets(tg, s.w, s.h, s.insets), s.name).toEqual([]);
+      sim.dismiss();
+      // shaping: Gotowe
+      until(game, clock, () => sim.wheel === 'shape');
+      tg = game.targets!();
+      expect(tg.map(x => x.label), s.name).toEqual(['Gotowe']);
+      expect(auditTargets(tg, s.w, s.h, s.insets), s.name).toEqual([]);
+      // glazing with the full palette: every swatch, chip and Gotowe
+      sim.p.glazes = [...ALL_GLAZES];
+      sim.p.patterns = [...ALL_PATTERNS];
+      sim.done();
+      until(game, clock, () => !!sim.glazing);
+      tg = game.targets!();
+      expect(tg, s.name).toHaveLength(8 + 5 + 1);
+      expect(auditTargets(tg, s.w, s.h, s.insets), `${s.name} glazing`).toEqual([]);
+      for (const t0 of tg) expect(Math.min(t0.w, t0.h), `${s.name} ${t0.label}`).toBeGreaterThanOrEqual(MIN_TAP);
+      // a tap on a swatch dips the piece in that glaze, a chip picks the pattern, Gotowe sends it on
+      const kob = tg.find(x => x.label === 'glaze kobalt')!;
+      game.pointer!({ type: 'down', x: kob.x + kob.w / 2, y: kob.y + kob.h / 2, id: 1 });
+      game.pointer!({ type: 'up', x: kob.x + kob.w / 2, y: kob.y + kob.h / 2, id: 1 });
+      expect(sim.glazing?.glaze, s.name).toBe('kobalt');
+      const fala = tg.find(x => x.label === 'pattern fala')!;
+      game.pointer!({ type: 'down', x: fala.x + fala.w / 2, y: fala.y + fala.h / 2, id: 2 });
+      game.pointer!({ type: 'up', x: fala.x + fala.w / 2, y: fala.y + fala.h / 2, id: 2 });
+      expect(sim.brush.pattern, s.name).toBe('fala');
+      const done = tg.find(x => x.label === 'glazing Gotowe')!;
+      game.pointer!({ type: 'down', x: done.x + done.w / 2, y: done.y + done.h / 2, id: 3 });
+      game.pointer!({ type: 'up', x: done.x + done.w / 2, y: done.y + done.h / 2, id: 3 });
+      expect(sim.glazing, s.name).toBe(null);
+      // the kiln: nothing to aim at (a tap anywhere stops the needle)
+      until(game, clock, () => sim.kiln === 'fire');
+      expect(game.targets!(), s.name).toEqual([]);
+    }
+  });
+
+  it('on a phone the hand works above the finger: no jump on touch-down, the wall follows the sideways move', () => {
+    const s = CHECK_SIZES[0];
+    const { game, sim } = phoneGame(returning(), s.insets);
+    game.resize(s.w, s.h, 2);
+    game.start();
+    const clock = { t: 0 };
+    until(game, clock, () => sim.wheel === 'shape' && !!sim.pot);
+    play(game, clock, 0.6);
+    const L = layout(s.w, s.h, s.insets), pot = sim.pot!, sc = stageScale(L, sim.order!.target);
+    // a finger right of the pot, low on it: the hand works LIFT px above it, at the wall there
+    const fy = L.floor - pot.H * sc * 0.25 + LIFT;
+    const u = (L.floor - (fy - LIFT)) / (pot.H * sc);
+    const x0 = L.axis + radiusAt(pot.r, u) * sc + 30;
+    game.pointer!({ type: 'down', x: x0, y: fy, id: 1 });
+    const f0 = sim.finger!;
+    expect(f0.mode).toBe('wall');
+    if (f0.mode !== 'wall') return;
+    expect(f0.u).toBeCloseTo(u, 2);
+    expect(f0.d).toBeCloseTo(radiusAt(pot.r, u), 1);
+    // 20 px inward: 20 px narrower at that height (the finger stays outside the clay)
+    game.pointer!({ type: 'move', x: x0 - 20, y: fy, id: 1 });
+    const f1 = sim.finger!;
+    if (f1.mode !== 'wall') throw new Error('wall');
+    expect(f1.d).toBeCloseTo(radiusAt(pot.r, u) - 20 / sc, 1);
+    game.pointer!({ type: 'up', x: x0 - 20, y: fy, id: 1 });
+    expect(sim.finger).toBe(null);
+    // the rim: a finger LIFT below it pulls the pot taller as it rises, from where it is (no jump)
+    const H0 = sim.pot!.H, ry = L.floor - H0 * sc + LIFT - 4;
+    game.pointer!({ type: 'down', x: L.axis, y: ry, id: 2 });
+    const r0 = sim.finger!;
+    expect(r0.mode).toBe('rim');
+    if (r0.mode === 'rim') expect(r0.H).toBeCloseTo(H0, 2);
+    game.pointer!({ type: 'move', x: L.axis, y: ry - 30, id: 2 });
+    const r1 = sim.finger!;
+    if (r1.mode === 'rim') expect(r1.H).toBeCloseTo(H0 + 30 / sc, 2);
+    game.pointer!({ type: 'up', x: L.axis, y: ry - 30, id: 2 });
+    // a finger that comes down on Gotowe (under the pot's foot) and moves works the clay; a tap on it is done
+    const d = L.done;
+    game.pointer!({ type: 'down', x: d.x + 20, y: d.y + 10, id: 3 });
+    expect(sim.wheel).toBe('shape');
+    game.pointer!({ type: 'move', x: d.x + 4, y: d.y + 8, id: 3 });
+    expect(sim.finger?.mode).toBe('wall');
+    game.pointer!({ type: 'up', x: d.x + 4, y: d.y + 8, id: 3 });
+    expect(sim.wheel).toBe('shape');
+    game.pointer!({ type: 'down', x: d.x + d.w / 2, y: d.y + d.h / 2, id: 4 });
+    expect(sim.wheel).toBe('shape');
+    game.pointer!({ type: 'up', x: d.x + d.w / 2, y: d.y + d.h / 2, id: 4 });
+    expect(sim.wheel === 'assist' || sim.wheel === 'cut').toBe(true);
+  });
+
+  it('keeps Szamot quiet while a finger works the clay on a phone', () => {
+    const { game, sim } = phoneGame(returning(), CHECK_SIZES[0].insets);
+    game.resize(360, 500, 2);
+    game.start();
+    const clock = { t: 0 };
+    until(game, clock, () => sim.wheel === 'shape' && !!sim.pot);
+    sim.touchWall(0.4, 3);
+    expect(sim.talkBlocked).toBe(true);
+    sim.release();
+    expect(sim.quietWhileShaping).toBe(true);
+  });
+
+  it('draws no play text under 13 px on the smallest phone (the ticket, the cat, the cards, the palette, the gauge)', () => {
+    const texts = new Map<string, number>();
+    const s = CHECK_SIZES[0];
+    const { game, sim } = phoneGame(freshProgress(), s.insets, { texts, planned: 120 });
+    game.resize(s.w, s.h, 3);
+    game.start();
+    const clock = { t: 0 };
+    play(game, clock, 1.2);
+    sim.dismiss();
+    sim.p.glazes = [...ALL_GLAZES];
+    sim.p.patterns = [...ALL_PATTERNS];
+    // a whole order by the sim's own hands: shape, glaze, fire, sell; the cat says his lines
+    let k = 0;
+    play(game, clock, 70, () => (sim.pushBlock ? focusing() : sim.restBlock ? resting() : frame()), () => {
+      if (sim.card) sim.dismiss();
+      if (k++ % 20 === 0 && !sim.talk.line) sim.talk.ask('good', 3, 5);
+      if (sim.wheel === 'shape' && sim.pot && k % 90 === 0) sim.done();
+      if (sim.glazing && k % 40 === 0) { sim.pickGlaze('kobalt'); sim.paint(0.5); sim.glazeDone(); }
+      if (sim.kiln === 'fire' && k % 30 === 0) sim.stopNeedle();
+    });
+    // let the last words over the counter finish their pop-in (a cut run would note them mid-scale)
+    play(game, clock, 2.5);
+    const small = [...texts].filter(([, px]) => px < MIN_READ);
+    expect(small).toEqual([]);
+    expect([...texts].filter(([, px]) => px < MIN_TEXT)).toEqual([]);
+    expect(texts.size).toBeGreaterThan(20);
+    expect(texts.has(t('ui.order').toUpperCase())).toBe(true);
+    expect(texts.has(t('ui.tapOn'))).toBe(true);
+    expect(sim.sold).toBeGreaterThan(0);
+  });
+
+  it('speaks to a finger: the how-to and the coach marks name keys only on a desktop', () => {
+    const how = glina.howto!();
+    expect(how.hands.map(h => h.gesture)).toEqual(['drag', 'drag', 'tap', 'keys']);
+    const KEYS = /Spac|Space|Leertaste|mellanslag|↑|←|WASD|klawisz|Taste|tangent|\bkey\b|1–8/i;
+    for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[lang] as Record<string, unknown>;
+      for (const k of Object.keys(cat)) {
+        if (k.endsWith('.keys') || !/^(how|hint|ui|card)\./.test(k)) continue;
+        expect(String(cat[k]), `${lang} ${k}`).not.toMatch(KEYS);
+      }
+      expect(String(cat['how.keys']), lang).toMatch(/1–8/);
+      expect(String(cat['hint.done.keys']), lang).toMatch(/spac|Space|Leertaste|mellanslag/i);
+    }
   });
 });

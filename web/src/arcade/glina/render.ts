@@ -11,10 +11,12 @@
  * master's spin, clay splashes, sparkles, flying coins and numbers, a pitch-rising streak.
  */
 import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
+import { MIN_READ, fitText, target } from '../kit/mobile';
+import type { Insets, TapTarget } from '../kit/types';
 import { traceBars } from '../kit/trace';
 import { FORM, GLAZE_NAME, PATTERN_NAME, type GlazeId } from './content';
 import { cap, coinsText, quote, t } from './i18n';
-import { layout, rowSlots, stageScale, type Layout, type Rect } from './layout';
+import { layout, palette, stageScale, type Layout, type Palette, type Rect } from './layout';
 import { C, GLAZE, SANS, SERIF, cardBox, font, hand, mix, star } from './paint';
 import { RULES, zoneOf } from './rules';
 import { Room, cat, coin, customer, kilnDome, kilnDoor, type CatPose, type Mood } from './scene';
@@ -54,6 +56,12 @@ export class GlinaView {
   private cut: { piece: Piece; t: number; market: boolean } | null = null;
   private stroke = 0;
   private salePiece: Piece | null = null;
+  /** the glazing palette for the counts owned */
+  private pal: { nc: number; np: number; p: Palette } | null = null;
+  /** the card on screen as last drawn (a tap there goes on) */
+  private cardRect: Rect | null = null;
+  /** the control last pressed, how long ago (s), and whether a finger still holds it */
+  private pressed: { key: string; t: number; held: boolean } | null = null;
 
   constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean }) {
     const ctx = canvas.getContext('2d');
@@ -65,20 +73,57 @@ export class GlinaView {
 
   get context(): CanvasRenderingContext2D { return this.ctx; }
 
-  resize(w: number, h: number, dpr: number, top: number): void {
+  resize(w: number, h: number, dpr: number, insets: Insets | number): void {
     this.size = { w, h, dpr };
-    this.L = layout(w, h, top);
+    this.L = layout(w, h, insets);
+    this.pal = null;
   }
 
   // ── geometry the input needs ────────────────────────────────────
   /** px per cm of the current order on the throwing stage. */
   scaleFor(tg: Target): number { return stageScale(this.L, tg); }
 
-  /** the glazing stage's scale (the palette takes the bottom) */
-  glazeScale(tg: Target): number { return stageScale(this.L, tg, Math.max(60, this.L.glazeFloor - (this.L.floor - this.L.stageH))); }
+  /** The glazing palette for the glazes and patterns owned (made once per size and count). */
+  palette(sim: GlinaSim): Palette {
+    const nc = sim.p.glazes.length, np = sim.p.patterns.length;
+    if (!this.pal || this.pal.nc !== nc || this.pal.np !== np) this.pal = { nc, np, p: palette(this.L, nc, np) };
+    return this.pal.p;
+  }
 
-  colorSlots(n: number) { return rowSlots(this.L.colors, n); }
-  patternSlots(n: number) { return rowSlots(this.L.patterns, n); }
+  /** The glazing stage's top: under the (compact, upright) ticket, or the throwing stage's top. */
+  private glazeTop(sim: GlinaSim): number {
+    const P = this.palette(sim);
+    return this.L.portrait ? P.ticket.y + P.ticket.h + 12 : this.L.floor - this.L.stageH;
+  }
+
+  /** the glazing stage's scale (the palette takes the bottom) */
+  glazeScale(tg: Target, sim: GlinaSim): number {
+    return stageScale(this.L, tg, Math.max(60, this.palette(sim).floor - this.glazeTop(sim)));
+  }
+
+  /** A finger on the clay (touch): where it is, drawn as a ring with a thread to the hand above it. */
+  finger: { x: number; y: number } | null = null;
+
+  /**
+   * What the player can tap right now (kit/mobile auditTargets): a card on screen (a tap goes on); the
+   * glazing palette's colours, patterns and Gotowe; the wheel's Gotowe while shaping.  The clay, the kiln's
+   * needle (a tap anywhere stops it) and the sale (a tap anywhere hurries it) are the free play area.
+   */
+  targets(sim: GlinaSim): TapTarget[] {
+    if (!sim.started || sim.ended) return [];
+    if (sim.card) return this.cardRect && (sim.card.kind !== 'open' || sim.card.t >= 0.6) ? [target('card', this.cardRect)] : [];
+    const pc = sim.glazing;
+    if (pc) {
+      const P = this.palette(sim);
+      return [
+        ...P.colors.map((c, i) => target(`glaze ${sim.p.glazes[i]}`, { x: c.x - c.r, y: c.y - c.r, w: c.r * 2, h: c.r * 2 })),
+        ...P.patterns.map((r, i) => target(`pattern ${sim.p.patterns[i]}`, r)),
+        target('glazing Gotowe', P.done),
+      ];
+    }
+    if (sim.wheel === 'shape' && sim.pot && sim.order) return [target('Gotowe', this.L.done)];
+    return [];
+  }
 
   // ── events ──────────────────────────────────────────────────────
   on(e: GlinaEvent, sim: GlinaSim): void {
@@ -112,10 +157,10 @@ export class GlinaView {
         break;
       case 'dip':
         this.dipT = 0;
-        this.fx.burst(L.axis, L.glazeFloor - 20, 18, { color: GLAZE[e.glaze].c, size: 3.5, speed: 160, g: 600 });
+        this.fx.burst(L.axis, this.palette(sim).floor - 20, 18, { color: GLAZE[e.glaze].c, size: 3.5, speed: 160, g: 600 });
         break;
       case 'band':
-        this.fx.burst(L.axis + 30, L.glazeFloor - 40, 6, { color: GLAZE[e.glaze].c, size: 2.5, speed: 90, g: 300 });
+        this.fx.burst(L.axis + 30, this.palette(sim).floor - 40, 6, { color: GLAZE[e.glaze].c, size: 2.5, speed: 90, g: 300 });
         break;
       case 'heat':
         this.fx.burst(L.kiln.x + L.kiln.w / 2, L.kiln.y + L.kiln.h * 0.7, 16, { color: '#FFB060', shape: 'spark', speed: 140, g: -40, life: 0.8 });
@@ -194,6 +239,7 @@ export class GlinaView {
     this.spinGlow = Math.max(0, this.spinGlow - dt * 0.6);
     this.dipT += dt;
     this.stroke = Math.max(0, this.stroke - dt);
+    if (this.pressed && !this.pressed.held && (this.pressed.t += dt) > 0.3) this.pressed = null;
     if (this.catPoseT > 0) this.catPoseT -= dt;
     if (this.react) {
       this.react.t += dt;
@@ -295,14 +341,14 @@ export class GlinaView {
       ctx.lineTo(bx - slot * 0.3, by);
       ctx.fill();
       ctx.fillStyle = C.ink;
-      ctx.font = font(800, 13 * L.u + 3, SANS);
+      ctx.font = font(800, 14 * L.u, SANS);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      ctx.fillText(t('ui.market', { n: sim.market.length }), bx, s.y + s.h + 6);
+      ctx.fillText(t('ui.market', { n: sim.market.length }), Math.min(bx, L.right - ctx.measureText(t('ui.market', { n: sim.market.length })).width / 2), s.y + s.h + 6);
     }
     if (sim.station === 'wheel' && !L.portrait) {
       ctx.fillStyle = C.muted;
-      ctx.font = font(700, 11 * L.u + 3, SANS);
+      ctx.font = font(700, 13 * L.u, SANS);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       ctx.fillText(t('ui.shelf', { n: Math.min(sim.batch.length, sim.cap), cap: sim.cap }), s.x, s.y + s.h + 6);
@@ -409,7 +455,7 @@ export class GlinaView {
     ctx.fillStyle = '#FFF4DC';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.font = font(800, Math.max(11, g.r * (g.big ? 0.12 : 0.17)), SANS);
+    ctx.font = font(800, Math.max(14 * this.L.u, g.r * (g.big ? 0.12 : 0.17)), SANS);
     const label = sim.kiln === 'heat' ? t('ui.heating') : sim.kiln === 'fire' ? t('ui.tapFire') : t('ui.heat');
     ctx.fillText(label, g.x, g.y - g.r * 0.2);
     // flames under the gauge: calm and blue-gold with even heat, flickering orange without
@@ -482,70 +528,104 @@ export class GlinaView {
   }
 
   // ── the ticket ──────────────────────────────────────────────────
+  /**
+   * The order ticket under the HUD: ZAMÓWIENIE and the stars, the customer, the silhouette with the glaze and
+   * the band asked, the live match.  Upright while glazing it shrinks to the customer and the glaze line (the
+   * palette takes the bottom).  Phone sizes: 13 px label, 16 px name, 14 px glaze and band, 17 px match.
+   */
   private drawTicket(sim: GlinaSim): void {
-    const { ctx, L } = this, r = L.ticket;
+    const { ctx, L } = this;
     if (this.react && (sim.kiln === 'sell' || sim.kiln === 'cool' || sim.kiln === 'cold' || !sim.order)) {
-      this.drawReaction(r);
+      this.drawReaction(L.ticket);
       return;
     }
     const pc = sim.glazing;
     const o = pc ? pc.order : sim.wheel !== 'idle' ? sim.order : null;
     if (!o) {
-      if (sim.restBlock && sim.kiln !== 'sell') this.drawWaiting(sim, r);
+      if (sim.restBlock && sim.kiln !== 'sell') this.drawWaiting(sim, L.ticket);
       return;
     }
+    const compact = !!pc && L.portrait;
+    const r = compact ? this.palette(sim).ticket : L.ticket;
     cardBox(ctx, r.x, r.y, r.w, r.h, 1, 12);
-    const pad = 10, u = Math.min(1, L.u + 0.1);
-    const f1 = 9 * u + 3, f2 = 12 * u + 3, f3 = 11 * u + 2;
+    const u = L.u, pad = 10 * u;
+    const f1 = 13 * u, f2 = 16 * u, f3 = 14 * u;
+    const inner = r.w - pad * 2;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
+    const shaping = sim.wheel === 'shape' || sim.wheel === 'assist' || sim.wheel === 'spin';
+    const m = sim.pot?.match ?? 0;
+    const st = m >= RULES.shapeStars[1] ? 3 : m >= RULES.shapeStars[0] ? 2 : 1;
+    if (compact) {
+      // the customer and the piece's number, then the glaze and the band asked
+      const all = sim.batch.length, n = Math.min(all, sim.glazeIdx + 1);
+      ctx.font = font(800, f1, SANS);
+      // "Szkliwienie 1/2" when the name still has room, else just "1/2"
+      let count = t('ui.glazeN', { n, m: all });
+      if (ctx.measureText(count).width > inner * 0.42) count = `${n}/${all}`;
+      const cw = ctx.measureText(count).width;
+      ctx.fillStyle = C.muted;
+      ctx.textAlign = 'right';
+      ctx.fillText(count, r.x + r.w - pad, r.y + pad + 2);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = C.ink;
+      ctx.fillText(fitText(ctx, cap(t(`who.${o.customer}` as 'who.karczma')), inner - cw - 8, 15 * u, 700, SERIF, MIN_READ), r.x + pad, r.y + pad);
+      this.askLine(o, r.x + pad, r.y + r.h - pad - f3 * 0.6, inner, f3);
+      return;
+    }
     ctx.fillStyle = C.terracotta;
-    ctx.font = font(800, f1, SANS);
-    ctx.fillText(t('ui.order').toUpperCase(), r.x + pad, r.y + pad);
+    ctx.fillText(fitText(ctx, t('ui.order').toUpperCase(), inner - 66 * u, f1, 800, SANS, MIN_READ), r.x + pad, r.y + pad);
+    if (shaping) for (let i = 0; i < 3; i++) star(ctx, r.x + r.w - pad - 7 * u - (2 - i) * 19 * u, r.y + pad + f1 * 0.55, 7 * u + 1, i < st, '#D9A441');
     ctx.fillStyle = C.ink;
-    ctx.font = font(700, f2, SERIF);
-    ctx.fillText(fit(ctx, cap(t(`who.${o.customer}` as 'who.karczma')), r.w - pad * 2), r.x + pad, r.y + pad + f1 + 4);
-    const midTop = r.y + pad + f1 + f2 + 12, footH = f2 + 12;
-    const midH = Math.max(20, r.y + r.h - footH - midTop - 4);
+    ctx.fillText(fitText(ctx, cap(t(`who.${o.customer}` as 'who.karczma')), inner, f2, 700, SERIF, MIN_READ), r.x + pad, r.y + pad + f1 + 5 * u);
+    const midTop = r.y + pad + f1 + f2 + 12 * u;
+    // on its side and on a desktop the match has its own row at the foot
+    const footH = shaping && !L.portrait ? 24 * u : 0;
+    const midH = Math.max(28, r.y + r.h - pad - footH - midTop);
     // the silhouette, in its own box
-    const bw = Math.min(r.w * 0.4, midH * 1.3);
+    const bw = Math.min(r.w * 0.34, midH * 1.15);
     ctx.fillStyle = 'rgba(176,122,85,.12)';
     ctx.beginPath();
     ctx.roundRect(r.x + pad, midTop, bw, midH, 8);
     ctx.fill();
-    const scale = Math.min((midH - 10) / o.target.H, (bw * 0.42) / Math.max(1, maxR(o.target.r)));
+    const scale = Math.min((midH - 8) / o.target.H, (bw * 0.42) / Math.max(1, maxR(o.target.r)));
     ghost(ctx, r.x + pad + bw / 2, midTop + midH - 4, scale, o.target, 'rgba(110,70,50,.22)', C.wet, 1.5, [4, 3]);
-    // the glaze and the band asked for
-    const ix = r.x + pad + bw + 10, iw = r.x + r.w - pad - ix;
-    const sw = Math.max(6, Math.min(10, midH * 0.16));
-    ctx.font = font(700, f3, SANS);
-    ctx.textBaseline = 'middle';
-    const gy = midTop + (o.band ? midH * 0.25 : midH * 0.5);
-    swatch(ctx, ix + sw, gy, sw, o.glaze);
-    ctx.fillStyle = C.ink;
-    ctx.fillText(fit(ctx, cap(GLAZE_NAME[o.glaze]), iw - sw * 2 - 6), ix + sw * 2 + 6, gy);
-    if (o.band) {
-      const by = midTop + midH * 0.72;
-      bandChip(ctx, ix, by - sw * 0.6, sw * 2, sw * 1.2, o.band.glaze, o.band.pattern);
-      ctx.fillStyle = C.ink;
-      ctx.fillText(fit(ctx, cap(PATTERN_NAME[o.band.pattern]), iw - sw * 2 - 6), ix + sw * 2 + 6, by);
-    }
-    // the live match (shaping) or the glazing count, along the foot
-    const fy = r.y + r.h - pad - f2 / 2;
-    if (sim.wheel === 'shape' || sim.wheel === 'assist' || sim.wheel === 'spin') {
-      const m = sim.pot?.match ?? 0;
-      ctx.font = font(900, f2 + 1, SERIF);
+    // the match, big at the right while the wheel turns
+    let matchW = 0;
+    if (shaping) {
+      ctx.font = font(900, 17 * u, SERIF);
+      const label = L.portrait ? `${Math.round(m * 100)}%` : t('ui.match', { n: Math.round(m * 100) });
+      matchW = ctx.measureText(label).width;
       ctx.fillStyle = m >= RULES.shapeStars[1] ? '#B8862E' : m >= RULES.shapeStars[0] ? C.fig : C.ink;
-      const label = t('ui.match', { n: Math.round(m * 100) });
-      ctx.fillText(label, r.x + pad, fy);
-      const st = m >= RULES.shapeStars[1] ? 3 : m >= RULES.shapeStars[0] ? 2 : 1;
-      const sx = Math.min(r.x + r.w - pad - 52 * u, r.x + pad + ctx.measureText(label).width + 12);
-      for (let i = 0; i < 3; i++) star(ctx, sx + 8 * u + i * 17 * u, fy, 7 * u + 1, i < st, '#D9A441');
-    } else if (pc) {
-      ctx.font = font(800, f3, SANS);
+      ctx.textAlign = L.portrait ? 'right' : 'left';
+      ctx.textBaseline = 'middle';
+      if (L.portrait) ctx.fillText(label, r.x + r.w - pad, midTop + midH / 2);
+      else ctx.fillText(label, r.x + pad, r.y + r.h - pad - footH / 2);
+      if (!L.portrait) matchW = 0;
+      ctx.textAlign = 'left';
+    }
+    // the glaze and the band asked, beside the silhouette
+    const ix = r.x + pad + bw + 10 * u, iw = r.x + r.w - pad - ix - (matchW ? matchW + 8 * u : 0);
+    const rowH = Math.min(24 * u, midH / (o.band ? 2 : 1));
+    const y0 = o.band ? midTop + midH / 2 - rowH / 2 : midTop + midH / 2;
+    this.askLine(o, ix, y0, iw, f3, true, rowH);
+  }
+
+  /** The glaze asked (a swatch and its name) and the band (a chip and its pattern): in one line, or `stacked`. */
+  private askLine(o: { glaze: GlazeId; band: { glaze: GlazeId; pattern: string } | null }, x: number, y: number, w: number, size: number, stacked = false, rowH = 0): void {
+    const { ctx } = this;
+    const sw = Math.max(6, size * 0.5);
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    const half = stacked || !o.band ? w : w / 2 - 4;
+    swatch(ctx, x + sw, y, sw, o.glaze);
+    ctx.fillStyle = C.ink;
+    ctx.fillText(fitText(ctx, cap(GLAZE_NAME[o.glaze]), half - sw * 2 - 6, size, 700, SANS, MIN_READ), x + sw * 2 + 6, y);
+    if (o.band) {
+      const bx = stacked ? x : x + half + 8, by = stacked ? y + rowH : y;
+      bandChip(ctx, bx, by - sw * 0.6, sw * 2, sw * 1.2, o.band.glaze, o.band.pattern);
       ctx.fillStyle = C.ink;
-      const all = sim.batch.length;
-      ctx.fillText(t('ui.glazeN', { n: Math.min(all, sim.glazeIdx + 1), m: all }), r.x + pad, fy);
+      ctx.fillText(fitText(ctx, cap(PATTERN_NAME[o.band.pattern as keyof typeof PATTERN_NAME]), half - sw * 2 - 6, size, 700, SANS, MIN_READ), bx + sw * 2 + 6, by);
     }
   }
 
@@ -553,34 +633,41 @@ export class GlinaView {
     const { ctx, L } = this;
     const n = sim.batch.filter(p => !p.sold).length;
     if (!n) return;
-    cardBox(ctx, r.x, r.y, r.w, Math.min(r.h, 56 * L.u + 10), 0.9, 12);
+    const h = Math.min(r.h, 44 * L.u + 8);
+    cardBox(ctx, r.x, r.y, r.w, h, 0.9, 12);
     ctx.fillStyle = C.ink;
-    ctx.font = font(700, 12 * L.u + 2, SANS);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(fit(ctx, `${t('ui.waits')} · ${n}`, r.w - 20), r.x + 10, r.y + (28 * L.u + 5));
+    ctx.fillText(fitText(ctx, `${t('ui.waits')} · ${n}`, r.w - 20, 14 * L.u, 700, SANS, MIN_READ), r.x + 10, r.y + h / 2);
   }
 
   private drawReaction(r: Rect): void {
     const { ctx, L } = this, re = this.react!;
     const k = Math.min(1, re.t / 0.25), pop = ease.outBack(k);
-    const h = Math.min(r.h, 120 * L.u + 20);
+    const u = L.u;
+    const h = Math.min(Math.max(r.h, 96 * u), 132 * u);
     ctx.save();
     ctx.translate(r.x + r.w / 2, r.y + h / 2);
     ctx.scale(pop, pop);
     cardBox(ctx, -r.w / 2, -h / 2, r.w, h, 1, 12);
-    for (let i = 0; i < 3; i++) star(ctx, -r.w / 2 + 18 + i * 22 * L.u, -h / 2 + 18, 9 * L.u + 1, i < re.stars, '#D9A441');
+    for (let i = 0; i < 3; i++) star(ctx, -r.w / 2 + 18 * u + i * 22 * u, -h / 2 + 20 * u, 9 * u + 1, i < re.stars, '#D9A441');
     ctx.fillStyle = '#B8862E';
-    ctx.font = font(900, 16 * L.u + 3, SERIF);
+    ctx.font = font(900, 18 * u, SERIF);
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`+${coinsText(re.coins)}`, r.w / 2 - 10, -h / 2 + 18);
+    ctx.fillText(`+${coinsText(re.coins)}`, r.w / 2 - 10 * u, -h / 2 + 20 * u);
     ctx.fillStyle = C.ink;
-    ctx.font = font(600, 12 * L.u + 2, SERIF, true);
+    const size = 14 * u, lh = Math.round(size * 1.3);
+    ctx.font = font(600, size, SERIF, true);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    wrap(ctx, quote(re.text), r.w - 20).slice(0, 3)
-      .forEach((l, i) => ctx.fillText(l, -r.w / 2 + 10, -h / 2 + 34 * L.u + 4 + i * (15 * L.u + 3)));
+    const room = Math.max(1, Math.floor((h - 40 * u - 8) / lh));
+    const lines = wrap(ctx, quote(re.text), r.w - 20 * u);
+    if (lines.length > room) {
+      lines.length = room;
+      lines[room - 1] = `${lines[room - 1].replace(/[\s,;:.]+$/, '')}…`;
+    }
+    lines.forEach((l, i) => ctx.fillText(l, -r.w / 2 + 10 * u, -h / 2 + 36 * u + i * lh));
     ctx.restore();
   }
 
@@ -632,9 +719,27 @@ export class GlinaView {
       if (sim.guide) this.drawGuide(sim, sc);
       if (sim.finger) {
         const p = this.fingerPx(sim);
-        if (p) hand(ctx, p.x, p.y, 40 * L.u, p.x >= L.axis ? 1 : -1, this.stroke > 0 ? 1 : 0.5, 1);
+        if (p) {
+          // a finger on the glass: a ring where it is and a thread up to the hand it moves (drawn above it)
+          const f = this.finger;
+          if (f && Math.hypot(f.x - p.x, f.y - p.y) > 10) {
+            ctx.strokeStyle = 'rgba(255,248,236,.75)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3, 4]);
+            ctx.beginPath();
+            ctx.moveTo(f.x, f.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, 16, 0, TAU);
+            ctx.stroke();
+          }
+          hand(ctx, p.x, p.y, 40 * L.u, p.x >= L.axis ? 1 : -1, this.stroke > 0 ? 1 : 0.5, 1);
+        }
       }
-      if (sim.wheel === 'shape') this.drawDone(L.done);
+      if (sim.wheel === 'shape') this.drawDone(L.done, this.pressK('Gotowe'));
     } else if (this.cut && this.cut.t < 0.8) {
       const pc = this.cut.piece, k = ease.outCubic(this.cut.t / 0.8);
       const sc = this.scaleFor(pc.order.target);
@@ -722,11 +827,14 @@ export class GlinaView {
     ctx.beginPath();
     ctx.ellipse(bx, r.y + r.h / 2, r.h * 0.55, r.h * 0.34, 0, 0, TAU);
     ctx.fill();
-    ctx.fillStyle = C.ink;
-    ctx.font = font(800, 9 * L.u + 2, SANS);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    if (!L.portrait) ctx.fillText(t('hint.level').split(':')[0], cx, r.y + r.h + 8);
+    // its name under it on its side and on a desktop, where the floor band has the room
+    if (!L.portrait && L.bottom - (r.y + r.h + 6) >= 15 * L.u) {
+      ctx.fillStyle = C.ink;
+      ctx.font = font(800, 13 * L.u, SANS);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(t('hint.level').split(':')[0], cx, r.y + r.h + 4);
+    }
   }
 
   /** The master's hand: a ring filling gold with held focus. */
@@ -749,22 +857,22 @@ export class GlinaView {
     ctx.arc(c.x, c.y, c.r * 0.78, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(sim.charge));
     ctx.stroke();
     sparkle(ctx, c.x, c.y, c.r * 0.5, sim.charge >= 1 ? '#FFD86B' : 'rgba(255,236,190,.85)');
-    ctx.fillStyle = C.ink;
-    ctx.font = font(800, 9 * L.u + 2, SANS);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    if (!L.portrait) ctx.fillText(t('ui.master'), c.x, c.y + c.r + 4);
+    if (!L.portrait) {
+      ctx.fillStyle = C.ink;
+      ctx.font = font(800, 13 * L.u, SANS);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(t('ui.master'), c.x, c.y + c.r + 4);
+    }
     ctx.restore();
   }
 
   /** The master's guide: the order's outline in gold, and an arrow at the ring furthest off. */
   private drawGuide(sim: GlinaSim, sc: number): void {
     const { ctx, L } = this, pot = sim.pot!, o = sim.order!;
-    ctx.save();
-    ctx.shadowColor = 'rgba(242,181,58,.8)';
-    ctx.shadowBlur = 8;
+    // a soft wide stroke under the crisp one (a glow without shadowBlur)
+    ghost(ctx, L.axis, L.floor, sc, o.target, null, 'rgba(242,181,58,.3)', 8, []);
     ghost(ctx, L.axis, L.floor, sc, o.target, null, 'rgba(242,194,48,.95)', 2.4, []);
-    ctx.restore();
     const w = pot.worst();
     if (w.err < 0.05) return;
     const pulse = 0.6 + 0.4 * Math.sin(this.t * 8);
@@ -779,45 +887,66 @@ export class GlinaView {
     }
   }
 
-  private drawDone(r: Rect): void {
+  /** The Gotowe button: a pill with an offset shadow (no shadowBlur), darker and lower while pressed. */
+  private drawDone(r: Rect, press = 0): void {
     const { ctx, L } = this;
-    ctx.save();
-    ctx.shadowColor = 'rgba(59,42,34,.3)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 3;
-    ctx.fillStyle = C.fig;
+    const dy = 2 * press;
+    ctx.fillStyle = 'rgba(59,42,34,.28)';
     ctx.beginPath();
-    ctx.roundRect(r.x, r.y, r.w, r.h, r.h / 2);
+    ctx.roundRect(r.x + 1, r.y + 4, r.w, r.h, r.h / 2);
     ctx.fill();
-    ctx.restore();
+    ctx.fillStyle = press > 0 ? mix(C.fig, '#000000', 0.18 * press) : C.fig;
+    ctx.beginPath();
+    ctx.roundRect(r.x, r.y + dy, r.w, r.h, r.h / 2);
+    ctx.fill();
     ctx.fillStyle = '#FFF8EC';
-    ctx.font = font(800, 16 * L.u + 3, SANS);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`✓ ${t('ui.done')}`, r.x + r.w / 2, r.y + r.h / 2 + 1);
+    ctx.fillText(fitText(ctx, `✓ ${t('ui.done')}`, r.w - 16, 17 * L.u, 800, SANS, MIN_READ), r.x + r.w / 2, r.y + r.h / 2 + 1 + dy);
   }
+
+  /** How pressed a control is (1 at touch-down, fading over 0.25 s): the hand's answer before the release. */
+  private pressK(key: string): number {
+    const p = this.pressed;
+    return p && p.key === key ? (p.held ? 1 : Math.max(0, 1 - p.t / 0.25)) : 0;
+  }
+
+  /** A control took a press: it shows pressed for a moment (`held`: until unpress()). */
+  press(key: string, held = false): void { this.pressed = { key, t: 0, held }; }
+
+  /** The finger left the control (it fades back). */
+  unpress(): void { if (this.pressed) { this.pressed.held = false; this.pressed.t = 0; } }
 
   // ── glazing ─────────────────────────────────────────────────────
   private drawGlazing(sim: GlinaSim, pc: Piece): void {
     const { ctx, L } = this;
-    const sc = this.glazeScale(pc.order.target);
+    const P = this.palette(sim);
+    const sc = this.glazeScale(pc.order.target, sim);
     // the banding wheel
     ctx.fillStyle = '#7A5A44';
     ctx.beginPath();
-    ctx.ellipse(L.axis, L.glazeFloor + 4, L.wheel.rx * 0.7, L.wheel.ry * 0.7, 0, 0, TAU);
+    ctx.ellipse(L.axis, P.floor + 4, L.wheel.rx * 0.7, L.wheel.ry * 0.7, 0, 0, TAU);
     ctx.fill();
     const dip = this.dipT < 0.5 ? Math.sin((this.dipT / 0.5) * Math.PI) : 0;
     Object.assign(this.pot, look(), {
-      x: L.axis, y: L.glazeFloor - dip * 14, scale: sc, H: pc.H, r: pc.r, body: pc.glaze ? 'glazed' : 'leather', glaze: pc.glaze,
+      x: L.axis, y: P.floor - dip * 14, scale: sc, H: pc.H, r: pc.r, body: pc.glaze ? 'glazed' : 'leather', glaze: pc.glaze,
       fired: 0.7, rot: sim.rot, rows: 120, attach: FORM[pc.order.form].attach,
       bands: pc.bands.map(b => ({ u: b.u, glaze: b.glaze, pattern: b.pattern, k: b.t })),
     });
     drawVessel(ctx, this.pot);
-    // the palette
-    const cs = this.colorSlots(sim.p.glazes.length);
+    // the palette: upright a sheet under the thumb
+    if (L.portrait) {
+      ctx.fillStyle = 'rgba(59,42,34,.14)';
+      ctx.beginPath();
+      ctx.roundRect(L.left - 8, P.top - 8, L.right - L.left + 16, L.bottom - P.top + 4, 16);
+      ctx.fill();
+    }
+    // the colours: the brush's ringed, the ones the order asks for marked
     sim.p.glazes.forEach((g, i) => {
-      const s = cs[i];
-      swatch(ctx, s.x, s.y, s.r, g);
+      const s = P.colors[i];
+      if (!s) return;
+      const press = this.pressK(`glaze ${g}`);
+      swatch(ctx, s.x, s.y, s.r * (1 - 0.1 * press), g);
       if (sim.brush.glaze === g) {
         ctx.strokeStyle = C.ink;
         ctx.lineWidth = 3;
@@ -828,25 +957,33 @@ export class GlinaView {
       if (pc.order.glaze === g || pc.order.band?.glaze === g) {
         ctx.fillStyle = C.terracotta;
         ctx.beginPath();
-        ctx.arc(s.x + s.r * 0.75, s.y - s.r * 0.75, Math.max(3, s.r * 0.22), 0, TAU);
+        ctx.arc(s.x + s.r * 0.75, s.y - s.r * 0.75, Math.max(4, s.r * 0.24), 0, TAU);
         ctx.fill();
       }
     });
-    const ps = this.patternSlots(sim.p.patterns.length);
+    // the patterns: a chip each, drawn in the brush's colour
     sim.p.patterns.forEach((p, i) => {
-      const s = ps[i];
-      ctx.fillStyle = sim.brush.pattern === p ? '#FFF8EC' : 'rgba(255,248,236,.7)';
+      const r = P.patterns[i];
+      if (!r) return;
+      const on = sim.brush.pattern === p, press = this.pressK(`pattern ${p}`);
+      ctx.fillStyle = on ? '#FFF8EC' : press > 0 ? 'rgba(255,248,236,.92)' : 'rgba(255,248,236,.72)';
       ctx.beginPath();
-      ctx.roundRect(s.x - s.r * 1.3, s.y - s.r * 0.75, s.r * 2.6, s.r * 1.5, 8);
+      ctx.roundRect(r.x, r.y, r.w, r.h, 10);
       ctx.fill();
-      if (sim.brush.pattern === p) {
+      if (on) {
         ctx.strokeStyle = C.ink;
         ctx.lineWidth = 2;
         ctx.stroke();
       }
-      bandChip(ctx, s.x - s.r * 1.0, s.y - s.r * 0.3, s.r * 2, s.r * 0.6, sim.brush.glaze, p);
+      bandChip(ctx, r.x + r.w * 0.16, r.y + r.h * 0.32, r.w * 0.68, r.h * 0.36, sim.brush.glaze, p);
+      if (pc.order.band?.pattern === p) {
+        ctx.fillStyle = C.terracotta;
+        ctx.beginPath();
+        ctx.arc(r.x + r.w - 6, r.y + 6, 4, 0, TAU);
+        ctx.fill();
+      }
     });
-    this.drawDone(L.done.y + L.done.h > L.glazeFloor ? { ...L.done, y: L.glazeFloor - L.done.h - 10 } : L.done);
+    this.drawDone(P.done, this.pressK('glazing Gotowe'));
   }
 
   // ── Szamot ──────────────────────────────────────────────────────
@@ -858,10 +995,10 @@ export class GlinaView {
     if (!line) return;
     const a = Math.min(1, line.t / 0.15, (line.dur - line.t) / 0.25);
     if (a <= 0) return;
-    const right = L.w - cx - 24;
-    const maxW = Math.min(L.portrait ? L.w * 0.72 : 300, Math.max(right, L.w * 0.5));
-    const size = Math.round(13 * L.u + 2);
-    bubble(ctx, line.text, cx, cy + 10, maxW, a, size, L.w, right >= 200 ? 'right' : 'left');
+    // his bubble hangs at the room the layout keeps for it (upright under the kiln on the right, on its side under
+    // the shelf), its tail up to him; 15 px on a phone
+    const T = L.talk;
+    bubble(ctx, line.text, cx, cy + 6, T.x, T.y, T.maxW, a, Math.round(15 * L.u), L.left);
   }
 
   // ── banners and cards ───────────────────────────────────────────
@@ -889,11 +1026,12 @@ export class GlinaView {
 
   private drawCard(sim: GlinaSim): void {
     const c = sim.card;
+    this.cardRect = null;
     if (!c) return;
     const { ctx, L } = this;
     const a = Math.min(1, c.t / 0.3, (c.dur - c.t) / 0.3);
     if (a <= 0) return;
-    const w = Math.min(L.w - 32, 460), x = (L.w - w) / 2;
+    const w = Math.min(L.right - L.left, 460 * L.u), x = (L.left + L.right - w) / 2;
     ctx.save();
     ctx.globalAlpha = a;
     ctx.fillStyle = 'rgba(42,29,24,.35)';
@@ -902,26 +1040,29 @@ export class GlinaView {
     if (c.kind === 'open') { title = t('card.open.title'); text = t('card.open.text'); }
     else if (c.kind === 'tally') { title = t('card.tally.title'); text = `${t('card.tally.text', { n: c.n, three: c.three })} · +${coinsText(c.coins)}`; }
     else { title = t('card.story.title', { who: cap(t(`who.${c.house}` as 'who.karczma')), n: c.step }); text = c.text; }
-    ctx.font = font(500, 15 * L.u + 2, SERIF);
+    const u = L.u, cx = x + w / 2;
+    ctx.font = font(500, 15 * u + 2, SERIF);
     const lines = wrap(ctx, text, w - 40);
-    const lh = 20 * L.u + 3;
-    const h = 60 * L.u + 20 + lines.length * lh + (c.kind === 'open' ? 26 : 0);
+    const lh = Math.round(20 * u + 3);
+    const starsH = c.kind === 'tally' ? 26 * u : 0;
+    const textTop = 16 + 23 * u + 14 + starsH;
+    // every card says how it goes on: a tap anywhere (the open card after a moment)
+    const h = textTop + lines.length * lh + 14 + 22 * u;
     const y = c.kind === 'open' ? Math.max(L.top + 10, (L.h - h) / 2) : L.top + 12;
+    this.cardRect = { x, y, w, h };
     cardBox(ctx, x, y, w, h, 1, 18);
     ctx.fillStyle = C.terracotta;
-    ctx.font = font(800, 20 * L.u + 3, SERIF);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(fit(ctx, title, w - 30), L.w / 2, y + 16);
-    if (c.kind === 'tally') for (let i = 0; i < 3; i++) star(ctx, L.w / 2 - 22 + i * 22, y + 26 * L.u + 30, 8, i < Math.min(3, c.three), '#D9A441');
+    ctx.fillText(fitText(ctx, title, w - 30, 20 * u + 3, 800, SERIF, 17), cx, y + 16);
+    if (c.kind === 'tally') for (let i = 0; i < 3; i++) star(ctx, cx - 24 * u + i * 24 * u, y + 16 + 23 * u + 14 + 9 * u, 9 * u, i < Math.min(3, c.three), '#D9A441');
     ctx.fillStyle = C.ink;
-    ctx.font = font(500, 15 * L.u + 2, SERIF);
-    lines.forEach((l, i) => ctx.fillText(l, L.w / 2, y + 40 * L.u + 18 + (c.kind === 'tally' ? 14 : 0) + i * lh));
-    if (c.kind === 'open') {
-      ctx.fillStyle = C.muted;
-      ctx.font = font(700, 12 * L.u + 2, SANS);
-      ctx.fillText(t('ui.tapOn'), L.w / 2, y + h - 26);
-    }
+    ctx.font = font(500, 15 * u + 2, SERIF);
+    lines.forEach((l, i) => ctx.fillText(l, cx, y + textTop + i * lh));
+    ctx.fillStyle = C.muted;
+    ctx.font = font(700, 14 * u, SANS);
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(t('ui.tapOn'), cx, y + h - 10);
     ctx.restore();
   }
 
@@ -1089,33 +1230,41 @@ function fit(ctx: CanvasRenderingContext2D, s: string, maxW: number): string {
 }
 
 
-/** The cat's speech bubble under him (he sits on a shelf near the top), kept on screen. */
-function bubble(ctx: CanvasRenderingContext2D, text: string, tx: number, ty: number, maxW: number, alpha: number, size: number, screenW: number, side: 'left' | 'right'): void {
+/**
+ * The cat's speech bubble: right-aligned to `right` at `top` (at most `maxW` wide, never left of `minX`), its
+ * tail up toward him at (tx, ty).  An offset shape for its shadow (no shadowBlur).
+ */
+function bubble(ctx: CanvasRenderingContext2D, text: string, tx: number, ty: number, right: number, top: number, maxW: number, alpha: number, size: number, minX: number): void {
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.font = font(600, size, SANS);
-  const lines = wrap(ctx, text, maxW - 22);
+  const pad = Math.round(size * 0.75);
+  const lines = wrap(ctx, text, maxW - pad * 2);
   const lh = Math.round(size * 1.3);
-  const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 22);
-  const bh = lines.length * lh + 14;
-  const bx = Math.max(8, Math.min(screenW - bw - 8, side === 'right' ? tx - 20 : tx - bw + 30)), by = ty + 14;
-  ctx.fillStyle = 'rgba(255,248,236,.97)';
-  ctx.shadowColor = 'rgba(0,0,0,.3)';
-  ctx.shadowBlur = 10;
+  const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + pad * 2);
+  const bh = lines.length * lh + pad * 1.2;
+  const bx = Math.max(minX, right - bw), by = top;
+  ctx.fillStyle = 'rgba(59,42,34,.2)';
+  ctx.beginPath();
+  ctx.roundRect(bx + 1, by + 4, bw, bh, 12);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,248,236,.98)';
   ctx.beginPath();
   ctx.roundRect(bx, by, bw, bh, 12);
   ctx.fill();
-  ctx.shadowBlur = 0;
-  const cx = Math.max(bx + 14, Math.min(bx + bw - 14, tx));
-  ctx.beginPath();
-  ctx.moveTo(cx - 7, by + 1);
-  ctx.lineTo(tx, ty);
-  ctx.lineTo(cx + 7, by + 1);
-  ctx.closePath();
-  ctx.fill();
+  // the tail, toward him (he sits above the bubble)
+  if (ty < by) {
+    const cx = Math.max(bx + 14, Math.min(bx + bw - 14, tx));
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, by + 1);
+    ctx.lineTo(Math.max(bx + 6, Math.min(bx + bw - 6, tx)), Math.max(ty, by - 14));
+    ctx.lineTo(cx + 7, by + 1);
+    ctx.closePath();
+    ctx.fill();
+  }
   ctx.fillStyle = '#2B1B12';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  lines.forEach((l, i) => ctx.fillText(l, bx + 11, by + 7 + i * lh));
+  lines.forEach((l, i) => ctx.fillText(l, bx + pad, by + pad * 0.6 + i * lh));
   ctx.restore();
 }

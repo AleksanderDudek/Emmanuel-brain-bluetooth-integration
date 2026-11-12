@@ -19,10 +19,11 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import type { TracePhase } from '../kit/trace';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { GlinaSound } from './audio';
 import { bare, t, type Key } from './i18n';
 import { KneadIntro } from './intro';
+import { MIN_TAP } from '../kit/mobile';
 import { hit, hitCircle } from './layout';
 import { bestOf, freshProgress, migrate, type GlinaProgress } from './meta';
 import { progressPanel } from './panel';
@@ -36,8 +37,24 @@ const phaseOf = (k: BlockKind): TracePhase => (k === 'push' ? 'focus' : k === 'r
 
 type HintKey = 'wallIn' | 'wallOut' | 'rim' | 'done' | 'dip' | 'band' | 'glazeDone' | 'fire' | 'level' | 'guide' | 'kiln' | 'master' | 'blind' | 'market' | 'sell';
 
-/** A finger on the glass: what it works (the wall, the rim, a glazing stroke). */
-interface Press { id: number; mode: 'wall' | 'rim' | 'paint' | 'none'; lastU: number }
+/**
+ * A finger on the glass: what it works (the wall, the rim, a glazing stroke).  On a phone it works the clay
+ * from below and from the side: where it came down (x0, y0), the wall's radius there (d0, cm) or the pot's
+ * height (h0, cm), and the side of the axis it works.
+ */
+interface Press { id: number; mode: 'wall' | 'rim' | 'paint' | 'none'; lastU: number; x0: number; y0: number; d0: number; h0: number; side: number; done: boolean; t0: number }
+
+/** A press on the wheel's Gotowe is a tap: it acts on the lift, within this long and this far (s, px); a drag from it works the clay. */
+const TAP_SEC = 0.6, SLOP = 10;
+
+/**
+ * On a phone the hand works this far above the finger (CSS px at u = 1), so the thumb never covers the
+ * clay it shapes; the wall then follows the finger's sideways move (no jump on touch-down).
+ */
+export const LIFT = 32;
+
+/** The coach marks that name a key on a desktop. */
+const KEYED: ReadonlySet<HintKey> = new Set<HintKey>(['done']);
 
 class GlinaGame implements ArcadeGame {
   readonly sim: GlinaSim;
@@ -66,7 +83,7 @@ class GlinaGame implements ArcadeGame {
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __glina?: unknown }).__glina = this.sim;
   }
 
-  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.hudTop()); }
+  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.insets()); }
 
   intro(dt: number, p: number): void {
     const v = this.view, s = v.size;
@@ -76,6 +93,7 @@ class GlinaGame implements ArcadeGame {
   }
 
   start(): void {
+    this.sim.quietWhileShaping = this.env.touch;
     this.sim.start();
     this.sound.start();
     this.drain();
@@ -106,21 +124,25 @@ class GlinaGame implements ArcadeGame {
     const sim = this.sim, v = this.view, L = v.L;
     if (e.type === 'down') {
       if (this.press) return;
-      this.press = { id: e.id, mode: 'none', lastU: -1 };
+      this.press = { id: e.id, mode: 'none', lastU: -1, x0: e.x, y0: e.y, d0: 0, h0: 0, side: 1, done: false, t0: this.now };
       if (sim.card) {
         sim.dismiss();
         return;
       }
-      // the glazing wheel
+      // the glazing wheel: the palette's swatches and chips (finger-sized), its Gotowe, then a stroke on the piece
       const pc = sim.glazing;
       if (pc) {
-        if (hit(this.glazeDone(), e.x, e.y, 6)) { sim.glazeDone(); this.drain(); return; }
-        const cs = v.colorSlots(sim.p.glazes.length);
-        const ci = cs.findIndex(c => hitCircle(c, e.x, e.y));
-        if (ci >= 0) { sim.pickGlaze(sim.p.glazes[ci]); this.drain(); return; }
-        const ps = v.patternSlots(sim.p.patterns.length);
-        const pi = ps.findIndex(c => hit({ x: c.x - c.r * 1.3, y: c.y - c.r * 0.75, w: c.r * 2.6, h: c.r * 1.5 }, e.x, e.y, 4));
-        if (pi >= 0) { sim.pickPattern(sim.p.patterns[pi]); this.drain(); return; }
+        const P = v.palette(sim);
+        if (hit(P.done, e.x, e.y, 2)) { v.press('glazing Gotowe'); sim.glazeDone(); this.drain(); return; }
+        // the nearest swatch within a finger's reach (two neighbours' reaches may meet: the closer wins)
+        let ci = -1, best = Infinity;
+        P.colors.forEach((c, i) => {
+          const dd = Math.hypot(e.x - c.x, e.y - c.y);
+          if (dd < best && hitCircle(c, e.x, e.y, Math.max(6, MIN_TAP / 2 - c.r + 4))) { best = dd; ci = i; }
+        });
+        if (ci >= 0) { v.press(`glaze ${sim.p.glazes[ci]}`); sim.pickGlaze(sim.p.glazes[ci]); this.drain(); return; }
+        const pi = P.patterns.findIndex(r => hit(r, e.x, e.y, 2));
+        if (pi >= 0) { v.press(`pattern ${sim.p.patterns[pi]}`); sim.pickPattern(sim.p.patterns[pi]); this.drain(); return; }
         const u = this.glazeU(e.x, e.y);
         if (u !== null) {
           sim.paint(u);
@@ -134,7 +156,9 @@ class GlinaGame implements ArcadeGame {
       if (sim.kiln === 'open' || sim.kiln === 'sell') { sim.hurry(); return; }
       // the wheel
       if (sim.wheel === 'shape' && sim.pot && sim.order) {
-        if (hit(L.done, e.x, e.y, 8)) { sim.done(); this.drain(); return; }
+        // Gotowe answers on touch-down (pressed) and acts on the lift: a finger that came down on it to work the
+        // pot's foot (the hand works above the finger) and moves on shapes the clay instead
+        if (hit(L.done, e.x, e.y, 2)) { v.press('Gotowe', true); this.press.done = true; return; }
         this.press.mode = this.touchClay(e.x, e.y, null);
         this.drain();
       }
@@ -142,6 +166,22 @@ class GlinaGame implements ArcadeGame {
     }
     const pr = this.press;
     if (!pr || pr.id !== e.id) return;
+    if (pr.done) {
+      if (e.type === 'move' && Math.hypot(e.x - pr.x0, e.y - pr.y0) > SLOP) {
+        pr.done = false;
+        v.unpress();
+        pr.x0 = e.x;
+        pr.y0 = e.y;
+        if (sim.wheel === 'shape' && sim.pot && sim.order) pr.mode = this.touchClay(e.x, e.y, null);
+        this.drain();
+      } else if (e.type === 'up') {
+        this.press = null;
+        v.unpress();
+        if (this.now - pr.t0 <= TAP_SEC) sim.done();
+        this.drain();
+      }
+      return;
+    }
     if (e.type === 'move') {
       if (pr.mode === 'wall' || pr.mode === 'rim') this.touchClay(e.x, e.y, pr.mode);
       else if (pr.mode === 'paint') {
@@ -155,17 +195,53 @@ class GlinaGame implements ArcadeGame {
     }
     // up
     this.press = null;
+    this.view.finger = null;
     if (pr.mode === 'wall' || pr.mode === 'rim') {
       sim.release();
       this.drain();
     }
   }
 
-  /** A finger on the clay: the rim (up, or close under it) moves the height; the wall follows the finger. */
+  /** The palette's swatches, chips and Gotowe while glazing; the wheel's Gotowe while shaping; a card (the clay is free play). */
+  targets(): TapTarget[] { return this.view.targets(this.sim); }
+
+  /**
+   * A finger on the clay: the rim (up, or close under it) moves the height; the wall follows the finger.  With a
+   * mouse the pointer is the hand.  On a phone the hand works LIFT px above the finger and follows its moves from
+   * where it came down: up and down to pick the height, sideways to narrow or widen — the thumb never covers the
+   * clay, and a touch never makes the wall jump.
+   */
   private touchClay(x: number, y: number, mode: 'wall' | 'rim' | null): 'wall' | 'rim' | 'none' {
     const sim = this.sim, pot = sim.pot, o = sim.order, L = this.view.L;
     if (!pot || !o || sim.wheel !== 'shape') return 'none';
     const sc = this.view.scaleFor(o.target);
+    const pr = this.press;
+    if (this.env.touch && pr) {
+      const lift = LIFT * L.u;
+      this.view.finger = { x, y };
+      const rimY = L.floor - pot.H * sc;
+      const m = mode ?? (y - lift < rimY + RULES.rimPx * L.u ? 'rim' : 'wall');
+      if (m === 'rim') {
+        if (!mode) {
+          pr.h0 = pot.H;
+          this.rimUsed++;
+        }
+        sim.touchRim(pr.h0 + (pr.y0 - y) / sc);
+      } else {
+        const u = Math.min(1, Math.max(0, (L.floor - (y - lift)) / (pot.H * sc)));
+        if (!mode) {
+          pr.side = x >= L.axis ? 1 : -1;
+          pr.d0 = radiusAt(pot.r, u);
+        }
+        const before = radiusAt(pot.r, u);
+        const d = Math.max(0, pr.d0 + (pr.side * (x - pr.x0)) / sc);
+        sim.touchWall(u, d);
+        this.view.fingerSide = pr.side;
+        if (d < before - 0.3) this.wallIn++;
+        else if (d > before + 0.3) this.wallOut++;
+      }
+      return m;
+    }
     const rimY = L.floor - pot.H * sc;
     const m = mode ?? (y < rimY + RULES.rimPx * L.u ? 'rim' : 'wall');
     if (m === 'rim') {
@@ -187,18 +263,14 @@ class GlinaGame implements ArcadeGame {
   private glazeU(x: number, y: number): number | null {
     const pc = this.sim.glazing, L = this.view.L;
     if (!pc) return null;
-    const sc = this.view.glazeScale(pc.order.target);
-    const u = (L.glazeFloor - y) / (pc.H * sc);
+    const sc = this.view.glazeScale(pc.order.target, this.sim);
+    const u = (this.view.palette(this.sim).floor - y) / (pc.H * sc);
     if (u < -0.05 || u > 1.08) return null;
     const r = radiusAt(pc.r, Math.min(1, Math.max(0, u))) * sc;
     if (Math.abs(x - L.axis) > r + 30) return null;
     return Math.min(1, Math.max(0, u));
   }
 
-  private glazeDone() {
-    const L = this.view.L;
-    return L.done.y + L.done.h > L.glazeFloor ? { ...L.done, y: L.glazeFloor - L.done.h - 10 } : L.done;
-  }
 
   /** Space or Enter: finish the step in front of the player; 1–8 pick a glaze while glazing. */
   key(key: string, down: boolean): boolean {
@@ -340,9 +412,16 @@ class GlinaGame implements ArcadeGame {
       case 'guide': at = potAt(0.6, 10); break;
       case 'master': at = { x: L.charge.x, y: L.charge.y - L.charge.r }; break;
       case 'level': case 'blind': at = { x: L.level.x + L.level.w / 2, y: L.level.y }; break;
-      case 'dip': { const c = v.colorSlots(sim.p.glazes.length)[0]; at = c ? { x: c.x, y: c.y - c.r } : null; break; }
-      case 'band': at = { x: L.axis, y: L.glazeFloor - 40 }; break;
-      case 'glazeDone': { const d = this.glazeDone(); at = { x: d.x + d.w / 2, y: d.y }; break; }
+      case 'dip': {
+        // the order's own colour (it carries the mark), else the first
+        const P = v.palette(sim), i = Math.max(0, sim.p.glazes.indexOf(sim.glazing?.order.glaze ?? sim.p.glazes[0]));
+        const c = P.colors[i] ?? P.colors[0];
+        at = !c ? null : L.portrait ? { x: c.x, y: P.top - 4 } : { x: c.x, y: c.y - c.r };
+        break;
+      }
+      case 'band': at = { x: L.axis, y: v.palette(sim).floor - 40 }; break;
+      // over the palette (never over its swatches): the mark sits above the sheet, its arrow on it
+      case 'glazeDone': { const P = v.palette(sim), d = P.done; at = { x: d.x + d.w / 2, y: L.portrait ? P.top - 4 : d.y }; break; }
       case 'fire': at = { x: L.axis, y: L.floor - L.stageH * 0.45 }; break;
       case 'kiln': at = { x: L.gauge.x, y: L.gauge.y - L.gauge.r }; break;
       case 'market': at = { x: L.shelf.x + L.shelf.w * 0.8, y: L.shelf.y }; break;
@@ -352,7 +431,7 @@ class GlinaGame implements ArcadeGame {
     if (!this.env.progress.seen.includes(key)) this.env.progress.seen.push(key);
     this.hintAt = this.now;
     this.shown = key;
-    this.env.hint(t(`hint.${key}` as Key), at, key === 'sell' ? 2600 : 3600);
+    this.env.hint(t((!this.env.touch && KEYED.has(key) ? `hint.${key}.keys` : `hint.${key}`) as Key), at, key === 'sell' ? 2600 : 3600);
   }
 
   // ── what the runner reads ───────────────────────────────────────
@@ -398,12 +477,14 @@ function haptic(e: GlinaEvent): void {
   }
 }
 
+/** The hands in a finger's words; the keys in their own row (a phone's card leaves it out, a desktop shows it). */
 const howto = (): HowTo => ({
   goal: t('how.goal'),
   hands: [
     { gesture: 'drag', text: t('how.wall') },
     { gesture: 'drag', text: t('how.rim') },
     { gesture: 'tap', text: t('how.tap') },
+    { gesture: 'keys', text: t('how.keys') },
   ],
   tips: [t('how.tip1'), t('how.tip2')],
 });

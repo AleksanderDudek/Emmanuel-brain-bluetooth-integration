@@ -408,10 +408,16 @@ export function cat(ctx: CanvasRenderingContext2D, x: number, y: number, s: numb
       ctx.arc(-s * 0.3 + sx * s * 0.07, -s * 0.18, s * 0.04, 0.1 * Math.PI, 0.9 * Math.PI);
       ctx.stroke();
     }
-    // z z
-    ctx.fillStyle = 'rgba(59,42,34,.5)';
-    ctx.font = `700 ${Math.round(s * 0.22)}px system-ui, sans-serif`;
-    ctx.fillText('z', -s * 0.5, -s * 0.5 - (t % 2) * s * 0.1);
+    // z z: a drawn zigzag (a path stays crisp at any size; no tiny text)
+    ctx.strokeStyle = 'rgba(59,42,34,.5)';
+    ctx.lineWidth = Math.max(1.2, s * 0.03);
+    const zx = -s * 0.56, zy = -s * 0.6 - (t % 2) * s * 0.1, zs = s * 0.11;
+    ctx.beginPath();
+    ctx.moveTo(zx, zy);
+    ctx.lineTo(zx + zs, zy);
+    ctx.lineTo(zx, zy + zs);
+    ctx.lineTo(zx + zs, zy + zs);
+    ctx.stroke();
     ctx.restore();
     return;
   }
