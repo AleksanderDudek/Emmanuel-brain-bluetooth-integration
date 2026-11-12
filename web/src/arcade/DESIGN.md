@@ -4377,15 +4377,156 @@ the next session (the meta). Every caption is accurate and sourced in this secti
 
 ### 13.10 Światło ciała — the light of the body
 
-*Direction (the builder rewrites this section).* A full-body figure; a band of light scans from head
-to toe, and at each organ its **homeostasis** is shown as it is: the hypothalamus holding 37 °C,
-the heart's rate and rhythm (with Mendi, the player's own pulse — `env.body().heartRate`), the lungs'
-oxygen and carbon dioxide, the blood's pH 7.35–7.45, glucose and insulin, the kidneys' water and salt,
-cortisol's daily rhythm, the gut's lining renewed in days, the bones' calcium. Focus moves the band
-on and brightens it, and a lit organ's value returns to its range faster; rest is the
-**parasympathetic rest** of the vagus nerve: a longer out-breath slows the heart (respiratory sinus
-arrhythmia), the organs settle. Body-scan practice is attention, so the touch is gentle: tap an organ
-to stay with it and read what it does. Calm game, rest-led, the lullaby among the songs.
+*A body scan made a game: the calm, rest-led game of the series, rooted in Matthew 6:22 ("the eye is the
+lamp of the body … your whole body will be full of light").* A serene standing figure of frosted glass on
+a night of deep blue; its organs are drawn simply and clearly where they are, in warm colours that glow
+when they are in balance. A **band of light** scans the figure from the crown to the soles. At each of
+nine organs a **real homeostatic loop** is pushed out of its healthy range by an everyday thing, and the
+body brings it back — drawn as it is (a first-order return), compressed in time, which the game says on
+every panel ("typowe ciało · przyspieszone").
+
+**The scan (the stage loop, ~2 minutes).** Nine stations, head to toe:
+
+| Station | The loop (value, healthy range) | The everyday push | What the body does (drawn) | Hands |
+|---|---|---|---|---|
+| Podwzgórze | core temperature, 37 ± 0.5 °C (S1) | a hot bath 37.8 °C / a chilly morning 36.2 °C | skin vessels widen and sweat evaporates / vessels narrow and muscles shiver (S3, S4, S5, S6) | tap |
+| Płuca | blood pH 7.35–7.45 (S7) | a held breath pH 7.31 / fast breathing pH 7.49 | chemoreceptors read CO₂ and set the breath (S9) | breathe out CO₂ bubbles |
+| Serce | rate 60–100/min (S11) | the stairs 118 / a sudden noise 110 | the vagus brakes the SA node (S12) | tap on the beat |
+| Wątroba i trzustka | fasting glucose 70–99 mg/dL, 3.9–5.5 mmol/L (S17) | a meal 138 / a long walk before breakfast 64 | insulin: the liver and muscles store glycogen / glucagon releases it (S18, S19) | tap |
+| Nadnercza | cortisol against the day's curve (S20, S21) | a stressful thought | cortisol's own feedback quiets the HPA axis (S22) | tap |
+| Nerki | sodium 135–145 mmol/L (S26) | a salty soup 148 / many glasses of water 132 | thirst and ADH keep water / ADH falls (S26, S27) | tap |
+| Jelita | the lining's renewal (no number shown) | a busy day of digestion | stem cells in the crypts divide, new cells climb (S29) | tap |
+| Skóra (the palms) | surface pH below 5, ~4.7 (S36) | washing hands in tap water pH 5.8 | the skin restores its acid mantle (S36) | tap |
+| Kości | serum calcium 2.2–2.6 mmol/L (S33) | calcium in the blood dipped 2.15 | the parathyroids send PTH: bone releases calcium, kidneys keep it (S33, S34) | tap |
+
+A value comes home along `d(s) = d₀ · (B/d₀)^(1−s)` (B = 0.8 half-ranges inside the range), `s` running
+from 1 to 0 at `k₀ · (1 + 1.6 · light)` a second (k₀ = 0.07: about 14 s with no light, 5.5 s in full light),
+which looks like a real first-order loop. Inside the band for 1 s the organ **settles**: it lights up — soft,
+bright (within 13 s) or **golden** (within 9 s with the band gold 60 % of the time) — its lux fly off, its
+**Wiedza card** opens the first time (one real number and its source), and the band moves on. After the
+soles the light **sweeps back up** the whole body ("your whole body will be full of light"), a short card
+gives the scan's stars (★ whole, ★★ from 4 golden, ★★★ from 7) and the next scan begins — **deeper**.
+
+**Depths (the meta).** Organs → cells → systems. The first whole scan opens *Komórki* (each organ drawn as a
+tissue of cells; the cards turn to alveoli, nephrons, villi, the SA node, glycogen…), the next one *Układy*
+(the paths between organs glow: the vagus from the brainstem to the heart and the gut, the HPA axis from the
+hypothalamus to the adrenals, the aorta). Within a session each later scan goes one deeper; across sessions a
+scan starts at the shallowest depth that still has dark organs. The **body map** (9 organs × 3 depths, best
+rating each, golden ringed) and the **27 Wiedza cards** fill over sessions; records: lux per session length,
+whole scans, golden organs, the most golden in one scan, the fastest scan, breaths in rhythm. The **day's
+organ** (the same for everyone) pays double.
+
+**Focus — the band's light.** In a sighted push block past its lead-in (5 s Mendi, 2 s HALO) the light
+follows `level`; the band thickens and turns from ice to gold, and the **threshold is drawn on the band
+itself**: two dashed lines where its core reaches at the threshold, and a lamp at its side (a ring that fills,
+its notch at half) where there is room (not on an upright phone, where the panel's column takes it). The
+lit organ returns faster and the band travels on faster (× 0.6 + 1.4 · light). The gauge (`meter()`,
+"Światło") is that light. No signal, the lead-in, a blind block: the light holds at its neutral base (0.45,
+just under the threshold) — never lower, never a loss.
+
+**Rest — the vagus' rest.** The band dims to violet; a **breath guide** in 4 / out 6 (six breaths a minute,
+where heart-rate variability is largest: S10, S13) shows as rings that grow and settle around the chest; the
+current organ keeps settling (k₀ · (0.6 + calm)), the band drifts on slowly, and every organ in balance
+glows with calm and pours lux (`luxRest · (0.3 + calm) · (1 + lit/9)` a second). The heart slows: with
+Mendi it is the player's **own pulse** (`env.body().heartRate`, "Twoje tętno: 66/min"; if the rest's mean is
+3/min or more under the push's, Zofia says so and the summary keeps it); without a reading the figure's heart
+beats a typical rhythm that calm slows, labelled "typowo ~70/min · bez pomiaru" — never presented as theirs.
+A tap within 0.7 s of a turn of the breath is "with the breath" (+2 lx). Every 3 s the light gathered in rest
+rises from the chest as a soft "+N lx", so rest visibly pays. The gauge in rest ("Spokój") is calm.
+
+**The hands.** One round button in the thumb zone (= Space = a tap on the body): it helps the organ in the
+light — at the heart a tap on the beat (within 24 % of a beat's period) helps twice, off the beat half; at the
+lungs it breathes out a CO₂ bubble; elsewhere a gentle push home; between organs it steps the band on; in rest
+it taps the breath. Each tap's effect falls with a flurry (`1 / (1 + 0.5 · fervour)`), so the light stays the
+main driver. A tap on the organ's panel (its "Wiedza ›" chip says so; or Enter) opens its Wiedza card and, when the
+organ has settled, stays with it a little longer; a tap on a glowing organ of the figure opens that organ's
+card. A card that opens by itself (the organ's first time at a depth) keeps the band there 3.4 s instead of
+1.6 s — stay and read — and gives the panel back 0.9 s after the next organ arrives.
+
+**The voice.** Zofia, a calm and kind body-scan guide with a soft humour ("Wątroba ma tyle zadań, że nie
+mówimy jej o nowych", "Nerki filtrują około 180 litrów na dobę. Ty tylko oddychaj."), three or more lines a
+moment for 28 moments (one per organ), never over a telegraph, the runner's banner, a story card or a card.
+**Story**: the first-ever session opens with a card (the eye is the lamp of the body; Matthew 6:22); every
+whole scan has a short card with its stars and the depth that comes next.
+
+**The song.** A lullaby at 66 bpm in C major (lullaby.ts on kit/song.ts): two verses of our own — "Światło
+idzie przeze mnie cicho, / od korony aż do stóp; / każdy narząd zna swą miarę, / ciało wraca w równy krok" and
+"Serce zwalnia, oddech długi…", original melody and words in four languages — around the series' refrain
+(`seriesChorus`), arranged softly: a pad always, then the voice and the bass, then a bell and a lub-dub
+heartbeat on the kick, then a harp of plucked arpeggios; the refrain's snare and hat stay out. Its level is
+the focus in a sighted push, a fixed 0.32 in rest, 0.4 around, and held (null) in a blind block. The sung line
+shows under the HUD (≥ 13 px, the sung part gold). The lobby's card switches it off (saved); without it the
+runner's pad plays, its filter on the band's light.
+
+**Headline: lux** (luksów / lux / Lux / lux) — the light gathered in the body: the band's light while it
+shines (3 · (0.5 + light) a second), each settled organ 24 / 36 / 50 × the depth (1, 1.25, 1.5) × 2 for the
+day's organ, a whole scan 100 × depth, rest's glow, taps in rhythm 2, a block judged well 30, a blind block's
+share × 100. A 5-minute session with mid focus gathers roughly 1 000–2 500 lx.
+
+**Blocks** follow §2: Skan 24 ± 3 s and Odpoczynek 26 ± 3 s (rest a little longer: a rest-led game), a 4 s
+telegraph, each judged once at its end over its last 15 s (`RoundJudge.from(env.tuning)`, `BlockContrast` for
+the summary), every 4th push blind from the 3rd session (the band turns silver; its share is revealed at the
+end), a warm-up the first time (the light enters through the eyes), a calm finale. Strategies (`signal().task`)
+are imagery of the scene — the warm light moving through the body, the organ in the light seen in the mind,
+the place in the light felt — with one counting (heartbeats to 20: S15) and one recall (what this organ does);
+rest's are the breath (4 / 6, a longer out-breath, the face and shoulders softening).
+
+**Honesty and reverence (§13.3, §13.4).** The values are a typical healthy body's, compressed, each with its
+source; the only measurement is the pulse. Nothing claims to heal; the how-to's last tip says it plainly. No
+disease is named. The scan of light is this game's symbol; no figure of God, the figure is everyone's body,
+its eyes closed in peace. Closing passages: the first session Psalm 139:13-14; a scan with 4+ golden organs
+1 Corinthians 6:19-20; calm rests or a slowed pulse Proverbs 3:7-8; new cards Proverbs 4:20-22; the bones lit
+or a whole scan Proverbs 16:24 — in turn, session by session.
+
+**Sources** (verified on 2026-11-12; abstracts via PubMed and Europe PMC, full texts where open):
+S1 Osilla EV et al., *Physiology, Temperature Regulation*, StatPearls 2023 (PMID 29939615) · S2 Mackowiak PA et
+al., JAMA 1992;268:1578 (PMID 1302471) · S3 Charkoudian N, Mayo Clin Proc 2003;78:603, doi:10.4065/78.5.603 ·
+S4 Baker LB, Temperature 2019;6:211, doi:10.1080/23328940.2019.1632145 · S5 Haman F, Blondin DP, Temperature
+2017;4:217, doi:10.1080/23328940.2017.1328999 · S6 Morrison SF, Nakamura K, Annu Rev Physiol 2019;81:285,
+doi:10.1146/annurev-physiol-020518-114546 · S7 Hopkins E et al., *Physiology, Acid Base Balance*, StatPearls
+2022 (PMID 29939584) · S8 Ochs M et al., Am J Respir Crit Care Med 2004;169:120, doi:10.1164/rccm.200308-1107OC ·
+S9 Brinkman JE et al., *Physiology, Respiratory Drive*, StatPearls 2023 (PMID 29494021) · S10 Russo MA et al.,
+Breathe 2017;13:298, doi:10.1183/20734735.009817 · S11 Henning A, Krawiec C, *Sinus Tachycardia*, StatPearls 2023
+(PMID 31985921) · S12 Hafeez Y et al., *Sinus Bradycardia*, StatPearls 2026 (PMID 29630253); Kashou AH et al.,
+*Physiology, Sinoatrial Node*, StatPearls 2022 (PMID 29083608) · S13 Lehrer PM, Gevirtz R, Front Psychol
+2014;5:756, doi:10.3389/fpsyg.2014.00756 · S14 Shaffer F, Ginsberg JP, Front Public Health 2017;5:258,
+doi:10.3389/fpubh.2017.00258 · S15 Schandry R, Psychophysiology 1981;18:483, doi:10.1111/j.1469-8986.1981.tb02486.x ·
+S16 Berthoud HR, Neuhuber WL, Auton Neurosci 2000;85:1, doi:10.1016/S1566-0702(00)00215-0 · S17 ADA, Standards of
+Care in Diabetes—2025, §2 (doi:10.2337/dc25-s002) and §6 (doi:10.2337/dc25-s006) · S18 Jensen J et al., Front
+Physiol 2011;2:112, doi:10.3389/fphys.2011.00112 · S19 Kamel-ElSayed SA, Mukherjee S, *Physiology, Pancreas*,
+StatPearls 2023 (PMID 29083590); Venugopal SK et al., *Physiology, Glucagon*, StatPearls 2023 (PMID 30725767) ·
+S20 Chourpiliadis C, Aeddula NR, *Physiology, Glucocorticoids*, StatPearls 2023 (PMID 32809732); Kaur J et al.,
+*Physiology, Cortisol*, StatPearls 2025 (PMID 30855827) · S21 Stalder T et al., Psychoneuroendocrinology
+2016;63:414, doi:10.1016/j.psyneuen.2015.10.010 · S22 Smith SM, Vale WW, Dialogues Clin Neurosci 2006;8:383,
+doi:10.31887/DCNS.2006.8.4/ssmith · S23 Berson DM et al., Science 2002;295:1070, doi:10.1126/science.1067262 ·
+S24 Kaufman DP et al., *Physiology, Glomerular Filtration Rate*, StatPearls 2023 (PMID 29763208) · S25 Bertram JF
+et al., Pediatr Nephrol 2011;26:1529, doi:10.1007/s00467-011-1843-8 · S26 Rout P, Afzal M, *Hyponatremia*,
+StatPearls 2026 (PMID 29262111); Sonani B, Al-Dhahir MA, *Hypernatremia*, StatPearls 2023 (PMID 28722989) ·
+S27 Cuzzo B et al., *Physiology, Vasopressin*, StatPearls 2023 (PMID 30252325); Scott JH et al., *Physiology,
+Aldosterone*, StatPearls 2023 (PMID 29261963) · S28 Helander HF, Fändriks L, Scand J Gastroenterol 2014;49:681,
+doi:10.3109/00365521.2014.898326 · S29 Darwich AS et al., Drug Metab Dispos 2014;42:2016, doi:10.1124/dmd.114.058404 ·
+S30 Sender R et al., PLoS Biol 2016;14:e1002533, doi:10.1371/journal.pbio.1002533 · S31 Bergstresser PR, Taylor JR,
+Br J Dermatol 1977, doi:10.1111/j.1365-2133.1977.tb07152.x; Iizuka H, J Dermatol Sci 1994,
+doi:10.1016/0923-1811(94)90057-4 · S32 Yousef H et al., *Anatomy, Skin (Integument), Epidermis*, StatPearls 2024
+(PMID 29262154) · S33 Sahota RJ et al., *Physiology, Calcium*, StatPearls 2026 (PMID 29489276) · S34 Lofrese JJ et
+al., *Physiology, Parathyroid*, StatPearls 2023 (PMID 29494116) · S35 Office of the Surgeon General (US), *Bone Health
+and Osteoporosis*, 2004, ch. 2 (NBK45504); Kenkre JS, Bassett JHD, Ann Clin Biochem 2018;55:308,
+doi:10.1177/0004563218759371 · S36 Lambers H et al., Int J Cosmet Sci 2006;28:359, doi:10.1111/j.1467-2494.2006.00344.x.
+
+**Mobile first (§12).** One layout in three shapes (layout.ts, pure, tested at every `CHECK_SIZES` entry):
+*tall* — any upright screen, a phone the reference: the sing-along line under the HUD, the standing figure in
+the left column as tall as the band allows (330 px on the smallest phone, 820 px on a tablet), the organ's
+panel (or its card) in the right column at the band's height (148–230 px × u wide), the round help button
+(60 px, its hit area 72 × 88 px with the caption) in the bottom-right thumb zone, out of the 16 px edge band;
+Zofia's bubble over the figure's column at the end away from the band. *side* — a phone on its side: the
+panel left, the figure in the middle, the bubble and the button right. *wide* — a desktop or a tablet on its
+side: the side layout grown (u ≤ 1.3), the figure capped so both columns keep 250 px × u. The band's lamp is
+drawn on the side away from the panel and only where it fits (never on an upright phone, where the dashed
+threshold lines on the band and its gold carry the gauge). `targets()`: the button, the panel as drawn, the
+story card while it is up (then the only one). Text: what the player reads to play is 13 px and more (the
+panel's lines, the push, the range, the bubble 14, the button's caption 13, the cards 14), the sources and
+the "typical body" note 12, a verse's reference 11 — never under 11. No shadowBlur and no filters per frame:
+the figure and every organ's lit sprite are baked per size and depth; glows are baked sprites drawn additively.
 
 ### 13.11 Synapsy — the mind renewed
 
