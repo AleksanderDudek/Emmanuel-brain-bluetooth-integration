@@ -186,6 +186,9 @@ try {
         return { w: c.width, h: c.height, top: c.top, left: c.left };
       });
       const first = await state();
+      // a page from another server on the same port (or an old build) has a runner without insets(): say so
+      // instead of auditing the wrong code (seen once: localhost answered over IPv4 by another process)
+      if (first && !first.insets) throw new Error('stale page: its runner has no insets() — is another server answering on this port?');
       const ins = first?.insets ?? { top: 0, right: 0, bottom: 0, left: 0 };
       r.layout = {
         canvas: `${Math.round(geo.w)}×${Math.round(geo.h)}`, hudTop: Math.round(ins.top), insets: ins,
