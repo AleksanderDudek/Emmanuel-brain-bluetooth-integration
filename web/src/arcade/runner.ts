@@ -109,6 +109,8 @@ export class ArcadeRunner {
    */
   private hintNow: { text: string; at: { x: number; y: number } | null; ms: number; until: number } | null = null;
   private hintLater: { text: string; at: { x: number; y: number } | null; ms: number } | null = null;
+  /** the kinds of block whose banner showed this session: on a phone the next ones leave out what the block drives */
+  private readonly bannerKinds = new Set<string>();
   private countTimer: ReturnType<typeof setTimeout> | null = null;
   /** a pause asked for during the countdown: it takes effect when play begins */
   private pauseAtStart = false;
@@ -187,6 +189,7 @@ export class ArcadeRunner {
     this.pointersDown.clear();
     this.dprCap = 2;
     this.perf = { sum: 0, n: 0, slow: 0 };
+    this.bannerKinds.clear();
     this.frameMs = 0;
     this.sizeKey = '';
     try {
@@ -483,6 +486,10 @@ export class ArcadeRunner {
     if (!ui) return;
     const title = b.want === 'rest' ? t('ban.rest') : b.blind ? t('ban.blind') : t('ban.focus');
     ui.banner.dataset.kind = b.want;
+    // the second banner of a kind on: a phone shows only the block and what to do in the head (styles.css)
+    const kind = b.blind ? 'blind' : b.want;
+    ui.banner.classList.toggle('brief', this.bannerKinds.has(kind));
+    this.bannerKinds.add(kind);
     ui.banner.replaceChildren(
       h('b', { class: 'ban-chip' }, title),
       h('p', { class: 'ban-task' }, `${t('task.label')}: ${b.task}`),

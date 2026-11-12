@@ -3119,6 +3119,11 @@ area to a finger.
 * **Adaptive resolution**: two slow windows of 2.5 s (mean frame over 24 ms) lower the canvas by half a
   device pixel, down to 1; it never goes back up in the session.
 * **Coach marks wait for the block banner**, and one on screen when a banner comes returns after it.
+  On a phone a block's banner says what the block drives only the first time per kind; after that it
+  is the block and what to do in the head (two lines over the play instead of four).
+* **The chart does not swallow the thumb.** On an upright phone the dock is where a thumb rests: a
+  touch there (never the mouse) plays as a touch on the nearest point of the canvas's edge, the whole
+  gesture shifted alike, so a tap stays a tap and a drag a drag — a jump, a joystick, an aim.
 * **`insets()`** tells a game what covers each canvas edge: the HUD band, the home indicator, the notch
   of a phone on its side (an edge the dock covers is 0). **`touch`** says the primary input is a finger;
   the how-to card leaves out the keys there.

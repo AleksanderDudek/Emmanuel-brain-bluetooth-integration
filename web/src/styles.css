@@ -722,6 +722,8 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .arcade-banner{padding:9px 14px;max-width:calc(100% - var(--dock-r) - 24px)}
   .arcade-banner .ban-task{font-size:13.5px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
   .arcade-banner .ban-link{font-size:12px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+  /* what the block drives is said the first time; after that a phone keeps the banner to two lines */
+  .arcade-banner.brief .ban-link{display:none}
 }
 @media (max-width:640px){
   /* a phone upright: the time as a line along the top edge, the clock and the buttons, then the panel beside
