@@ -10,6 +10,7 @@
  * land.  Each look is drawn once per size into a sprite.  Noah and his family are small figures seen
  * from behind, without faces; God is never drawn — the rainbow is His sign.
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { KindId } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
@@ -32,8 +33,10 @@ export function hash(i: number): number {
   return x - Math.floor(x);
 }
 
+/** A font's size in CSS px, never under the arcade's floor (kit/mobile MIN_TEXT, 11 px): nothing on the canvas is smaller. */
+export const fontPx = (size: number): number => Math.max(MIN_TEXT, Math.round(size * 10) / 10);
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${fontPx(size)}px ${family}`;
 
 function canvas(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement('canvas');

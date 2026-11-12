@@ -1,13 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
 import { boardFor, cloneBoard, firstBoard, generate, gridOf, solve, wayOut, type BoardSpec } from '../src/arcade/arka/board';
 import { FIRST_OF, KINDS, STAGES, kindsAt, levelSpec } from '../src/arcade/arka/content';
 import { CATALOGS, t, unit } from '../src/arcade/arka/i18n';
-import { cellAt, cellCentre, layout, sightRadius } from '../src/arcade/arka/layout';
+import arka, { howto } from '../src/arcade/arka/index';
+import { cellAt, cellCentre, cellRect, layout, reachOf, sdir, sightRadius, tapTargets, toScreen, toSim, type Layout } from '../src/arcade/arka/layout';
+import { SANS, font, fontPx } from '../src/arcade/arka/paint';
 import { clearLevel, freshProgress, homestead, migrate, settle, totalStars, type ArkaProgress } from '../src/arcade/arka/meta';
-import { RULES, parFor, sightShare, starsFor } from '../src/arcade/arka/rules';
+import { DX, DY, RULES, parFor, sightShare, starsFor } from '../src/arcade/arka/rules';
 import { ArkaSim, planBlocks, type SimEvent } from '../src/arcade/arka/sim';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
+import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 
@@ -584,44 +589,101 @@ describe('the meta, the result and the texts', () => {
   });
 });
 
-describe('the layout', () => {
-  const screens: [number, number, number][] = [[1280, 618, 136], [1280, 672, 190], [390, 640, 124], [844, 300, 120], [768, 900, 136], [1024, 600, 190]];
+describe('the layout, mobile first (DESIGN §12)', () => {
+  const LEVELS = [1, 2, 6, 9, 12, 20, 40];
 
-  it('keeps the deck below the HUD band and above the new land, on every screen and board size', () => {
-    for (const [w, h, top] of screens) {
-      for (const n of [1, 6, 20, 40]) {
+  it('keeps the deck in the band: under the HUD and the bar, over the new land, clear of the columns, at every size and board', () => {
+    for (const c of CHECK_SIZES) {
+      for (const n of LEVELS) {
         const b: BoardSpec = boardFor(n);
-        const L = layout(w, h, top, b.cols, b.rows);
-        if (L.wide) {
-          // the middle column: clear of the panel (left ~350 px) and the score (right ~140 px)
-          expect(L.deck.x).toBeGreaterThanOrEqual(Math.min(352, w * 0.3));
-          expect(L.deck.x + L.deck.w).toBeLessThanOrEqual(w - 140);
-          expect(L.bar.x).toBeGreaterThanOrEqual(Math.min(352, w * 0.3));
-          expect(L.deck.y).toBeGreaterThanOrEqual(L.bar.y + L.bar.h);
-          expect(L.deck.y + L.deck.h).toBeLessThanOrEqual(L.shore.y + 1);
-          continue;
-        }
-        expect(L.bar.y).toBeGreaterThanOrEqual(Math.min(top, h * 0.45));
-        if (L.compact) {
-          // beside the panel's column: the deck starts right of the bar and the new land
-          expect(L.deck.x).toBeGreaterThanOrEqual(L.bar.x + L.bar.w);
-          expect(L.deck.x).toBeGreaterThanOrEqual(L.shore.x + L.shore.w);
-          expect(L.deck.y + L.deck.h).toBeLessThanOrEqual(h);
+        const L = layout(c.w, c.h, c.insets, b.cols, b.rows);
+        const name = `${c.name}, level ${n}`;
+        expect(L.cols * L.rows, name).toBe(b.cols * b.rows);
+        if (L.mode === 'side') {
+          expect(L.deck.y - L.rim, name).toBeGreaterThanOrEqual(c.insets.top);
+          expect(L.deck.x - L.rim, name).toBeGreaterThanOrEqual(L.bar.x + L.bar.w);
+          expect(L.deck.x + L.deck.w + L.rim, name).toBeLessThanOrEqual(L.dove.x);
+          expect(L.deck.y + L.deck.h, name).toBeLessThanOrEqual(c.h - c.insets.bottom);
         } else {
-          expect(L.deck.y).toBeGreaterThanOrEqual(L.bar.y + L.bar.h);
-          expect(L.deck.y + L.deck.h).toBeLessThanOrEqual(L.shore.y + 1);
+          expect(L.deck.y - L.rim, name).toBeGreaterThanOrEqual(L.bar.y + L.bar.h);
+          expect(L.deck.y + L.deck.h + L.rim, name).toBeLessThanOrEqual(L.shore.y);
+          expect(L.deck.x - L.rim, name).toBeGreaterThanOrEqual(c.insets.left);
+          expect(L.deck.x + L.deck.w + L.rim, name).toBeLessThanOrEqual(c.w - c.insets.right);
         }
-        expect(L.deck.x).toBeGreaterThanOrEqual(0);
-        expect(L.deck.x + L.deck.w).toBeLessThanOrEqual(w);
-        const c = cellCentre(L, b.cols - 1, b.rows - 1);
-        expect(cellAt(L, c.x, c.y)).toEqual({ x: b.cols - 1, y: b.rows - 1 });
+        if (L.mode === 'tall') expect(L.bar.y, name).toBeGreaterThanOrEqual(c.insets.top);
+        // every board cell maps to its own screen square and back, turned or not
+        const seen = new Set<string>();
+        for (let y = 0; y < b.rows; y++) for (let x = 0; x < b.cols; x++) {
+          const p = cellCentre(L, x, y);
+          expect(cellAt(L, p.x, p.y), name).toEqual({ x, y });
+          const r = cellRect(L, x, y);
+          expect(p.x).toBeCloseTo(r.x + r.w / 2, 6);
+          seen.add(`${r.x},${r.y}`);
+        }
+        expect(seen.size).toBe(b.cols * b.rows);
       }
     }
   });
 
-  it('gives a 390 px phone held upright cells of 36 px or more on the biggest boards', () => {
-    const L = layout(390, 640, 124, 9, 11);
-    expect(L.cell).toBeGreaterThanOrEqual(36);
+  it('turns a portrait board a quarter where the deck area is landscape and the cells grow: directions turn with it', () => {
+    const small = CHECK_SIZES[0];
+    const L = layout(small.w, small.h, small.insets, 7, 9);
+    expect(L.rot).toBe(true);
+    expect([L.cols, L.rows]).toEqual([9, 7]);
+    const straight = layout(small.w, small.h, small.insets, 7, 9);
+    expect(straight.cell).toBeGreaterThanOrEqual(Math.floor(Math.min((small.w - 22) / 7, 233 / 9)));
+    // a step in a rules' direction is a step in the drawn direction on the screen's grid
+    for (let d = 0; d < 4; d++) {
+      const a = toScreen(L, 3, 4), b2 = toScreen(L, 3 + DX[d], 4 + DY[d]);
+      const sd = sdir(L, d) % 4;
+      expect([b2.x - a.x, b2.y - a.y]).toEqual([DX[sd], DY[sd]]);
+      expect(toSim(L, a.x, a.y)).toEqual({ x: 3, y: 4 });
+    }
+    // a portrait deck area keeps a portrait board as it is (an installed app, the chart off)
+    const app = CHECK_SIZES.find(x => x.name.startsWith('iPhone (installed'))!;
+    expect(layout(app.w, app.h, app.insets, 7, 9).rot).toBe(false);
+  });
+
+  it('makes the cells as large as the band allows: 44 px and more on the early decks of a phone, larger than before on the big ones', () => {
+    const cell = (name: string, n: number) => {
+      const c = CHECK_SIZES.find(x => x.name === name)!, b = boardFor(n);
+      return layout(c.w, c.h, c.insets, b.cols, b.rows).cell;
+    };
+    for (const n of [1, 2, 3, 4, 6]) expect(cell('small phone (Chrome)', n), `level ${n}`).toBeGreaterThanOrEqual(44);
+    for (const n of [1, 2, 3, 4, 6, 7, 8, 9]) expect(cell('iPhone (Safari)', n), `level ${n}`).toBeGreaterThanOrEqual(44);
+    // the biggest deck (9 × 11): 24 px on the small phone and 31 on an iPhone before
+    expect(cell('small phone (Chrome)', 40)).toBeGreaterThanOrEqual(26);
+    expect(cell('iPhone (Safari)', 40)).toBeGreaterThanOrEqual(33);
+    expect(cell('phone on its side (chart on)', 40)).toBeGreaterThanOrEqual(27);
+    expect(cell('phone on its side (chart on)', 6)).toBeGreaterThanOrEqual(44);
+    // a finger's reach around a small animal: its cell grown to 44 px
+    const L = layout(360, 500, CHECK_SIZES[0].insets, 9, 11);
+    expect(L.cell + 2 * reachOf(L)).toBeGreaterThanOrEqual(44);
+  });
+
+  it('puts the dove\'s button in the thumb zone: a labelled pill of 48 px and more, off the edges, inside the insets', () => {
+    for (const c of CHECK_SIZES) {
+      for (const n of [1, 20]) {
+        const b = boardFor(n);
+        const L = layout(c.w, c.h, c.insets, b.cols, b.rows);
+        const d = L.dove;
+        expect(auditTargets(tapTargets(L, { card: null, dove: true }), c.w, c.h, c.insets), c.name).toEqual([]);
+        expect(d.h, c.name).toBeGreaterThanOrEqual(48);
+        expect(d.w).toBeGreaterThanOrEqual(100);
+        expect(d.y + d.h, c.name).toBeLessThanOrEqual(c.h - c.insets.bottom - 2);
+        if (L.mode === 'tall') {
+          expect(d.y, c.name).toBeGreaterThanOrEqual(c.h * (1 - THUMB));
+          if (c.w < 600) expect(d.x + d.w).toBeLessThanOrEqual(c.w - c.insets.right - 16 + 0.01);
+          // the waiting animals stand on the land left of it, clear of the gangway
+          for (const s0 of L.slots) expect(s0.x).toBeLessThan(d.x);
+          expect(L.slots.length, c.name).toBeGreaterThanOrEqual(3);
+        }
+        if (L.mode === 'side') {
+          expect(d.x).toBeGreaterThan(L.deck.x + L.deck.w);
+          for (const s0 of L.slots) expect(s0.y).toBeLessThan(d.y);
+        }
+      }
+    }
   });
 
   it('grows the clear circle from a third of the deck to all of it', () => {
@@ -630,5 +692,206 @@ describe('the layout', () => {
     expect(sightRadius(L, sightShare(0))).toBeLessThan(far * 0.35);
     expect(sightRadius(L, sightShare(1))).toBeGreaterThan(far);
     expect(parFor(10)).toBe(Math.round(RULES.parBase + RULES.parPer * 10));
+  });
+});
+
+// ── under a finger, on the real view ────────────────────────────────
+const PX = /(\d+(?:\.\d+)?)px/;
+const pxOf = (f: string): number => Number(String(f).match(PX)?.[1] ?? 0);
+
+/** A 2D context that draws nothing and notes the size of every string drawn (and measures 0.56 em a character). */
+function fakeContext(canvas: HTMLCanvasElement, sizes: { text: string; px: number }[]): CanvasRenderingContext2D {
+  const gradient = { addColorStop: () => undefined };
+  const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+  const note = (text: unknown) => { if (String(text).trim() && Number(state.globalAlpha) > 0.05) sizes.push({ text: String(text), px: pxOf(String(state.font)) }); };
+  return new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (prop === 'measureText') return (s: string) => ({ width: String(s).length * pxOf(String(target.font)) * 0.56 });
+      if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
+      if (prop === 'createPattern') return () => null;
+      if (prop === 'getTransform') return () => ({ a: 1, b: 0 });
+      if (prop === 'fillText' || prop === 'strokeText') return (text: unknown) => note(text);
+      return () => undefined;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+type Size = { name: string; w: number; h: number; insets: Insets };
+interface Played { game: ArcadeGame; sim: ArkaSim; view: { L: Layout; pick: { id: number } | null; cardBox: unknown }; sizes: { text: string; px: number }[] }
+const mid = (r: { x: number; y: number; w: number; h: number }) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+
+describe('Arka under a finger (DESIGN §12)', () => {
+  const sizes: { text: string; px: number }[] = [];
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this, sizes); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  const TAUGHT = ['tap', 'bump', 'hearts', 'pair', 'dove', 'mist', 'rainbow', 'file', 'sleepy', 'turner', 'locked'];
+
+  function play(size: Size, progress: Partial<ArkaProgress> = { sessions: 5, level: 9, taught: TAUGHT }, touch = true): Played {
+    const env: GameEnv<ArkaProgress> = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), ...progress }, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 300, tool: 'fnirs',
+      simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+      hudTop: () => size.insets.top, insets: () => size.insets, touch,
+    };
+    sizes.length = 0;
+    const game = arka.create(env);
+    game.resize(size.w, size.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: ArkaSim; view: Played['view'] };
+    const p: Played = { game, sim: inner.sim, view: inner.view, sizes };
+    frames(p, 40);
+    return p;
+  }
+  function frames(p: Played, n: number, f: FocusFrame = frame()): void {
+    for (let i = 0; i < n; i++) {
+      p.game.update(STEP, f, p.sim.now + STEP);
+      p.game.draw();
+    }
+  }
+  const down = (p: Played, at: { x: number; y: number }, id = 1) => p.game.pointer!({ type: 'down', ...at, id });
+  const move = (p: Played, at: { x: number; y: number }, id = 1) => p.game.pointer!({ type: 'move', ...at, id });
+  const up = (p: Played, at: { x: number; y: number }, id = 1) => p.game.pointer!({ type: 'up', ...at, id });
+
+  it('picks the animal under a finger on touch-down and sends it when the finger lifts; sliding off the deck lets it be', () => {
+    const p = play(CHECK_SIZES[0]);
+    const { sim } = p;
+    expect(sim.levelState).toBe('play');
+    const L = p.view.L;
+    const free = sim.freeIds()[0];
+    const a = sim.animals[free];
+    const at = cellCentre(L, a.cells[0].x, a.cells[0].y);
+    down(p, at);
+    expect(p.view.pick?.id).toBe(free);
+    expect(a.out).toBe(false);
+    // slid off the deck and lifted: nothing goes
+    move(p, { x: at.x, y: L.bar.y - 20 });
+    expect(p.view.pick).toBeNull();
+    up(p, { x: at.x, y: L.bar.y - 20 });
+    expect(a.out).toBe(false);
+    // down and up on it: it goes
+    down(p, at);
+    up(p, at);
+    expect(a.out).toBe(true);
+  });
+
+  it('slides from one animal to another before lifting: the last one under the finger goes', () => {
+    const p = play(CHECK_SIZES[1]);
+    const { sim } = p;
+    const L = p.view.L;
+    const ids = sim.freeIds();
+    const blocked = sim.animals.find(a => !a.out && !ids.includes(a.id))!;
+    const free = sim.animals[ids[0]];
+    const hearts = sim.hearts;
+    down(p, cellCentre(L, blocked.cells[0].x, blocked.cells[0].y));
+    expect(p.view.pick?.id).toBe(blocked.id);
+    const to = cellCentre(L, free.cells[0].x, free.cells[0].y);
+    move(p, to);
+    expect(p.view.pick?.id).toBe(free.id);
+    up(p, to);
+    expect(free.out).toBe(true);
+    expect(sim.hearts).toBe(hearts);
+  });
+
+  it('takes a touch a finger\'s reach off a small animal, and nothing farther', () => {
+    const p = play(CHECK_SIZES[0], { sessions: 5, level: 40, taught: TAUGHT });
+    const { sim } = p;
+    const L = p.view.L;
+    expect(L.cell).toBeLessThan(44);
+    // an empty cell next to an animal: the animal is taken
+    let found = false;
+    for (let y = 0; y < sim.board.rows && !found; y++) for (let x = 0; x < sim.board.cols && !found; x++) {
+      if (sim.animalAt(x, y)) continue;
+      const r = cellRect(L, x, y);
+      const id = (p.view as unknown as { pickAt: (s: ArkaSim, x: number, y: number) => number }).pickAt(sim, r.x + r.w / 2, r.y + r.h / 2);
+      const near = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => sim.animalAt(x + dx, y + dy));
+      if (near && L.cell / 2 <= reachOf(L)) { expect(id).toBeGreaterThanOrEqual(0); found = true; }
+    }
+    // far off the deck: nothing
+    const pickAt = (p.view as unknown as { pickAt: (s: ArkaSim, x: number, y: number) => number }).pickAt.bind(p.view);
+    expect(pickAt(sim, L.deck.x - reachOf(L) - 4, L.deck.y + 5)).toBe(-1);
+  });
+
+  it('reports the dove\'s button in play and a card while one takes the tap; both answer a tap', () => {
+    const first = play(CHECK_SIZES[0], { ...freshProgress() });
+    // the first-ever session opens on the story card: it takes the tap
+    const ts = first.game.targets!();
+    expect(ts.map(x => x.label)).toEqual(['card']);
+    for (const c of CHECK_SIZES.slice(0, 1)) expect(auditTargets(ts, c.w, c.h, c.insets)).toEqual([]);
+    const p = play(CHECK_SIZES[0]);
+    const t2 = p.game.targets!();
+    expect(t2.map(x => x.label)).toEqual(['dove']);
+    const on = p.sim.onDeck;
+    down(p, mid(t2[0]));
+    up(p, mid(t2[0]));
+    expect(p.sim.onDeck).toBe(on - 1);
+  });
+
+  it('never draws text under 11 px at any size: the story card, play with a pick and the raven, a bump, the stars card', () => {
+    for (const c of CHECK_SIZES) {
+      const seen: { text: string; px: number }[] = [];
+      const grab = (p: Played) => { seen.push(...p.sizes); p.sizes.length = 0; };
+      const first = play(c, { ...freshProgress() }, c.name !== 'desktop');
+      frames(first, 30);
+      grab(first);
+      const p = play(c, { sessions: 5, level: 12, taught: TAUGHT }, c.name !== 'desktop');
+      const L = p.view.L;
+      const blocked = p.sim.animals.find(a => !a.out && !p.sim.freeIds().includes(a.id));
+      if (blocked) {
+        const at = cellCentre(L, blocked.cells[0].x, blocked.cells[0].y);
+        down(p, at);
+        frames(p, 5);
+        up(p, at);
+      }
+      p.sim.dove();
+      frames(p, 60);
+      grab(p);
+      // clear the deck: every free animal in turn
+      for (let k = 0; k < 400 && p.sim.levelState === 'play'; k++) {
+        const id = p.sim.freeIds()[0];
+        if (id === undefined) { frames(p, 10); continue; }
+        p.sim.tap(id);
+        frames(p, 2);
+      }
+      frames(p, 40);
+      grab(p);
+      expect(seen.length, c.name).toBeGreaterThan(10);
+      // each string at its largest, as the audit takes it (the kit's floating words pop in from nothing)
+      const most = new Map<string, number>();
+      for (const x of seen) most.set(x.text, Math.max(most.get(x.text) ?? 0, x.px));
+      const tiny = [...most].filter(([, px]) => px < MIN_TEXT);
+      expect(tiny, `${c.name}: ${JSON.stringify(tiny.slice(0, 5))}`).toEqual([]);
+      for (const key of ['hud.dove', 'card.tap'] as const) if (most.has(t(key))) expect(most.get(t(key)), `${c.name}: ${key}`).toBeGreaterThanOrEqual(MIN_READ);
+      expect(most.has(t('hud.dove')), c.name).toBe(true);
+    }
+  });
+
+  it('keeps its font helper over the floor', () => {
+    for (const px of [0, 4, 9.6, 10.99, 11, 12.5, 30]) expect(pxOf(font(700, px, SANS))).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(fontPx(3)).toBe(MIN_TEXT);
+  });
+
+  it('speaks to the hand the player has: a finger hears of the dove on the meadow, a keyboard of Space', () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|mysz[ąy]|mouse|maus|strzałk|arrow|pfeil|piltangent/i;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['how.goal', 'how.tap', 'how.dove.touch', 'coach.dove.touch', 'coach.tap', 'card.tap']) {
+        expect(c[k], `${l}.${k}`).toBeTypeOf('string');
+        expect(c[k], `${l}.${k}`).not.toMatch(KEYS);
+      }
+      expect(c['how.dove'], `${l}.how.dove`).toMatch(KEYS);
+      expect(c['coach.dove'], `${l}.coach.dove`).toMatch(KEYS);
+    }
+    const touch = howto(true), desk = howto(false);
+    expect(touch.hands.some(x => x.gesture === 'keys')).toBe(false);
+    expect(touch.hands).toHaveLength(2);
+    expect(desk.hands.filter(x => x.gesture === 'keys')).toHaveLength(2);
   });
 });

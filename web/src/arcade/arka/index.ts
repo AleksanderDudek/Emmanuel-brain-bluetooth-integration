@@ -13,12 +13,19 @@
  * the numbers in rules.ts, the data in content.ts, the meta in meta.ts), the pictures (render.ts
  * with layout.ts and paint.ts, intro.ts for calibration, preview.ts for the lobby), the sound
  * (audio.ts) and the lobby's card (panel.ts); the words in i18n.ts.
+ *
+ * Under a finger (DESIGN §12): a touch on the deck picks the animal under it — or the nearest one a
+ * finger's reach away — and shows it (ringed and lifted; on a small deck big in a bubble above the
+ * finger); sliding picks another, lifting sends it, sliding off the deck lets it be.  The dove's button
+ * acts on the touch; a card takes any tap.
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import { coarsePointer } from '../kit/mobile';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ArkaSound } from './audio';
 import { t, unit } from './i18n';
+import { tapTargets } from './layout';
 import { bestOf, freshProgress, migrate, type ArkaProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -34,12 +41,14 @@ class ArkaGame implements ArcadeGame {
   private w = 1;
   private h = 1;
   private dpr = 1;
+  /** a finger on the deck: where it came down, the animal it is on (-1: none) */
+  private press: { id: number; x: number; y: number; moved: boolean } | null = null;
 
   constructor(private readonly env: GameEnv<ArkaProgress>) {
     this.sim = new ArkaSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
-    this.view = new ArkaView(env.canvas, { reducedMotion: env.reducedMotion });
+    this.view = new ArkaView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new ArkaSound(env.audio);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __arka?: unknown }).__arka = this.sim;
   }
@@ -48,7 +57,7 @@ class ArkaGame implements ArcadeGame {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.view.resize(w, h, dpr, this.env.hudTop());
+    this.view.resize(w, h, dpr, this.env.insets());
   }
 
   intro(dt: number, p: number): void { this.view.intro_(dt, p, this.env.progress); }
@@ -57,7 +66,7 @@ class ArkaGame implements ArcadeGame {
     this.sim.start();
     this.sound.start();
     // the HUD band is laid out by now: measure it again
-    this.view.resize(this.w, this.h, this.dpr, this.env.hudTop());
+    this.view.resize(this.w, this.h, this.dpr, this.env.insets());
     this.view.start(this.sim);
     this.drain();
   }
@@ -71,26 +80,71 @@ class ArkaGame implements ArcadeGame {
 
   draw(): void { this.view.draw(this.sim); }
 
-  /** A tap: a card first (the opening and chapter cards close, the stars card moves on), the dove's button, else the deck's cell. */
+  /**
+   * A touch: a card first (the opening and chapter cards close, the stars card moves on), the dove's button,
+   * else the deck — the animal under the finger is picked and goes when the finger lifts.
+   */
   pointer(e: PointerInput): void {
-    if (e.type !== 'down') return;
     const sim = this.sim, view = this.view;
-    if (view.cardTap()) return;
-    if (sim.levelState === 'clear') {
-      sim.skip();
-      this.drain();
+    if (e.type === 'down') {
+      this.letGo();
+      if (view.cardTap()) return;
+      if (sim.levelState === 'clear') {
+        sim.skip();
+        this.drain();
+        return;
+      }
+      if (view.onDove(sim, e.x, e.y)) {
+        view.dovePressed = true;
+        sim.dove();
+        this.drain();
+        return;
+      }
+      const id = view.pickAt(sim, e.x, e.y);
+      this.press = { id: e.id, x: e.x, y: e.y, moved: false };
+      view.pick = id >= 0 ? { id, x: e.x, y: e.y } : null;
       return;
     }
-    if (view.onDove(sim, e.x, e.y)) {
-      sim.dove();
-      this.drain();
+    const p = this.press;
+    if (!p || p.id !== e.id) {
+      if (e.type === 'up') view.dovePressed = false;
       return;
     }
-    const c = view.cellAt(sim, e.x, e.y);
-    if (c) {
-      sim.tapCell(c.x, c.y);
+    if (e.type === 'move') {
+      // a slide picks the animal now under the finger (off the deck: none)
+      if (!p.moved && Math.hypot(e.x - p.x, e.y - p.y) < 6) return;
+      p.moved = true;
+      const id = view.pickAt(sim, e.x, e.y);
+      view.pick = id >= 0 ? { id, x: e.x, y: e.y } : null;
+      return;
+    }
+    const pick = view.pick;
+    this.letGo();
+    if (pick) {
+      const a = sim.animals[pick.id];
+      if (a && !a.out) sim.tapCell(a.cells[0].x, a.cells[0].y);
       this.drain();
     }
+  }
+
+  /** Forget a touch in progress (a new one, a pause). */
+  private letGo(): void {
+    this.press = null;
+    this.view.pick = null;
+    this.view.dovePressed = false;
+  }
+
+  pause(paused: boolean): void {
+    if (paused) this.letGo();
+  }
+
+  /** The dove's button in play, or a card that takes the tap (the deck is the play field). */
+  targets(): TapTarget[] {
+    const sim = this.sim, L = this.view.L;
+    if (!L || !sim.started) return [];
+    const card = this.view.cardBox;
+    if (card && (this.view.blocking || sim.levelState === 'clear')) return tapTargets(L, { card, dove: false });
+    return tapTargets(L, { card: null, dove: sim.levelState === 'play' || sim.levelState === 'drop' });
   }
 
   /** Arrows move the cursor, Enter sends the animal under it, Space (or H) calls the dove. */
@@ -119,7 +173,11 @@ class ArkaGame implements ArcadeGame {
       this.view.on(e, this.sim);
       this.sound.on(e);
       if (this.env.haptics) haptic(e);
-      if (e.type === 'coach') this.env.hint(t(`coach.${e.key}` as Parameters<typeof t>[0]), this.view.coachPoint(this.sim, e.at), 4200);
+      if (e.type === 'coach') {
+        // a phone hears of the dove's button, not of Space
+        const key = e.key === 'dove' && this.env.touch ? 'coach.dove.touch' : `coach.${e.key}`;
+        this.env.hint(t(key as Parameters<typeof t>[0]), this.view.coachPoint(this.sim, e.at), 4200);
+      }
     }
   }
 
@@ -164,14 +222,13 @@ function haptic(e: SimEvent): void {
   }
 }
 
-function howto(): HowTo {
+/** How to play, in the words of the hand the player has: the dove's button for a finger, Space and the arrows as shortcuts for a keyboard. */
+export function howto(touch: boolean = coarsePointer()): HowTo {
   return {
     goal: t('how.goal'),
-    hands: [
-      { gesture: 'tap', text: t('how.tap') },
-      { gesture: 'keys', text: t('how.dove') },
-      { gesture: 'keys', text: t('how.keys') },
-    ],
+    hands: touch
+      ? [{ gesture: 'tap', text: t('how.tap') }, { gesture: 'tap', text: t('how.dove.touch') }]
+      : [{ gesture: 'tap', text: t('how.tap') }, { gesture: 'keys', text: t('how.dove') }, { gesture: 'keys', text: t('how.keys') }],
     tips: [t('how.tip1'), t('how.tip2')],
   };
 }
@@ -183,6 +240,6 @@ const mod: ArcadeModule<ArkaProgress> = {
   unit,
   progressPanel: p => progressPanel(migrate(p)),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
-  howto,
+  howto: () => howto(),
 };
 export default mod;
