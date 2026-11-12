@@ -15,7 +15,8 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import { coarsePointer, target } from '../kit/mobile';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { LatarnikSound } from './audio';
 import { t, unit, type Key } from './i18n';
 import { freshProgress, migrate, type LatarnikProgress } from './meta';
@@ -25,7 +26,7 @@ import { LatarnikView } from './render';
 import { RULES } from './rules';
 import { LatarnikSim, type SimEvent } from './sim';
 
-type HintKey = 'tap' | 'perfect' | 'goal' | 'lanterns' | 'reach' | 'glow' | 'blind' | 'fog' | 'flotilla' | 'rescue' | 'squall' | 'whale' | 'upgrade';
+export type HintKey = 'tap' | 'perfect' | 'goal' | 'lanterns' | 'reach' | 'glow' | 'blind' | 'fog' | 'flotilla' | 'rescue' | 'squall' | 'whale' | 'upgrade';
 
 export class LatarnikGame implements ArcadeGame {
   readonly sim: LatarnikSim;
@@ -33,6 +34,9 @@ export class LatarnikGame implements ArcadeGame {
   private readonly sound: LatarnikSound;
   private keyHeld = false;
   private now = 0;
+  private w = 1;
+  private h = 1;
+  private dpr = 1;
   // the coach marks: one at a time, each once ever (the progress remembers them)
   private hintAt = -99;
   private readonly later: { key: HintKey; at: number; a?: number; r?: number }[] = [];
@@ -43,16 +47,23 @@ export class LatarnikGame implements ArcadeGame {
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg',
       tuning: env.tuning,
     });
-    this.view = new LatarnikView(env.canvas, { reducedMotion: env.reducedMotion });
+    this.view = new LatarnikView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new LatarnikSound(env.audio);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __latarnik?: unknown }).__latarnik = this.sim;
   }
 
-  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.hudTop()); }
+  resize(w: number, h: number, dpr: number): void {
+    this.w = w;
+    this.h = h;
+    this.dpr = dpr;
+    this.view.resize(w, h, dpr, this.env.insets());
+  }
 
   intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
 
   start(): void {
+    // the HUD is laid out by now: read its band again
+    this.view.resize(this.w, this.h, this.dpr, this.env.insets());
     this.sim.start();
     this.sound.start();
     this.view.start();
@@ -174,16 +185,25 @@ export class LatarnikGame implements ArcadeGame {
       case 'tap': case 'fog': case 'rescue': case 'whale':
         at = on ? this.view.point(on.a, on.r) : null;
         break;
-      case 'perfect': at = { x: L.ladder.x - 50 * L.u, y: L.ladder.y - 10 * L.u }; break;
+      case 'perfect': at = { x: L.ladder.x - 48 * L.u, y: L.ladder.y - 8 * L.u }; break;
       case 'goal': case 'flotilla': at = { x: L.goal.x + L.goal.w * 0.5, y: L.goal.y + 4 }; break;
-      case 'lanterns': at = { x: L.lanterns.x + 30 * L.u, y: L.lanterns.y - 16 * L.u }; break;
+      case 'lanterns': at = { x: L.lanterns.x + L.lanterns.s * 2.9, y: L.lanterns.y - L.lanterns.s * 1.3 }; break;
       case 'reach': case 'blind': at = this.view.point(-0.75, Math.min(1, s.reach)); break;
       case 'glow': case 'upgrade': at = { x: L.cx, y: L.cy + L.s * 0.6 }; break;
       case 'squall': at = this.view.point(0, 0.6); break;
     }
     this.hintAt = this.now;
     if (!this.env.progress.seen.includes(key)) this.env.progress.seen.push(key);
-    this.env.hint(t(`hint.${key}` as Key), at, key === 'tap' ? RULES.lessonSec * 1000 : 3800);
+    this.env.hint(hintText(key, this.env.touch), at, key === 'tap' ? RULES.lessonSec * 1000 : 3800);
+  }
+
+  /**
+   * Nothing to aim at: the whole screen is the button, so the free sea is no target.  Only the opening card
+   * (any tap closes it) is a control while it shows.
+   */
+  targets(): TapTarget[] {
+    const open = this.sim.story ? this.view.openCard : null;
+    return open ? [target('story', open)] : [];
   }
 
   // ── what the runner reads ───────────────────────────────────────
@@ -222,14 +242,22 @@ function haptic(e: SimEvent): void {
   }
 }
 
-const howto = (): HowTo => ({
-  goal: t('how.goal'),
-  hands: [
-    { gesture: 'tap', text: t('how.tap') },
-    { gesture: 'keys', text: t('how.keys') },
-  ],
-  tips: [t('how.tip1'), t('how.tip2')],
-});
+/** A coach mark's words for the hand the player has: a finger taps; a keyboard hears of Space as a shortcut. */
+export function hintText(key: HintKey, touch: boolean): string {
+  return key === 'tap' && !touch ? t('hint.tap.keys') : t(`hint.${key}` as Key);
+}
+
+/** How to play: tap anywhere; on a keyboard Space and Enter as shortcuts (the runner drops the keys' row for a finger). */
+export function howto(touch = coarsePointer()): HowTo {
+  return {
+    goal: t('how.goal'),
+    hands: touch ? [{ gesture: 'tap', text: t('how.tap') }] : [
+      { gesture: 'tap', text: t('how.tap') },
+      { gesture: 'keys', text: t('how.keys') },
+    ],
+    tips: [t('how.tip1'), t('how.tip2')],
+  };
+}
 
 const mod: ArcadeModule<LatarnikProgress> = {
   freshProgress,
@@ -244,6 +272,6 @@ const mod: ArcadeModule<LatarnikProgress> = {
     return progressPanel(p, save);
   },
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : p),
-  howto,
+  howto: () => howto(),
 };
 export default mod;

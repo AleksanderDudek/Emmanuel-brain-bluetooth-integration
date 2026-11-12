@@ -4,8 +4,10 @@ import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type Focu
 import type { GameEnv } from '../src/arcade/kit/types';
 import { AMBER, CRAFT_OKRUCHY, LETTERS, MOMENTS, TIPS, VILLAGE, ZOSKA } from '../src/arcade/latarnik/content';
 import { CATALOGS, bare, cap, farShips, t, unit } from '../src/arcade/latarnik/i18n';
-import latarnik from '../src/arcade/latarnik/index';
-import { BOTTOM, layout } from '../src/arcade/latarnik/layout';
+import latarnik, { hintText, howto } from '../src/arcade/latarnik/index';
+import { Hud, fitSlot, font } from '../src/arcade/latarnik/hud';
+import { CHECK_SIZES, MIN_READ, MIN_TEXT, auditTargets, target } from '../src/arcade/kit/mobile';
+import { SEA_PAD, layout, openCardRect } from '../src/arcade/latarnik/layout';
 import {
   OLD_CRATES_CREDIT, addCrumbs, addToWorkshop, costOf, daysBetween, drawAmber, freshProgress, migrate, newChance, nextMissing, village, workshopTarget, type LatarnikProgress,
 } from '../src/arcade/latarnik/meta';
@@ -1313,14 +1315,14 @@ describe('the view: where things go', () => {
 
   it.each(sizes)('keeps the card slot off the sea and on the stage at %i×%i', (w, h) => {
     const L = layout(w, h);
-    // when wide the card sits under the lanterns, whose row follows the status block (about 150–170 px of it)
     const s = L.card;
     const nx = Math.min(Math.max(L.cx, s.x), s.x + s.w), ny = Math.min(Math.max(L.cy, s.y), s.y + s.h);
     expect(Math.hypot(nx - L.cx, ny - L.cy)).toBeGreaterThan(L.R);      // the nearest corner of the card lies off the sea
-    expect(s.y + s.h).toBeLessThanOrEqual(h - BOTTOM);
+    expect(s.y + s.h).toBeLessThanOrEqual(L.bottom);
     expect(s.x).toBeGreaterThanOrEqual(0);
     expect(s.x + s.w).toBeLessThanOrEqual(w);
-    if (L.portrait) expect(s.y).toBeGreaterThan(L.cy + L.R);   // under the sea
+    // upright: in the pill's place over the sea, or under the sea's deck where the band is taller
+    if (L.portrait) expect(L.cardOver === 'goal' ? s.y + s.h < L.cy - L.R : s.y > L.cy + L.R).toBe(true);
   });
 
   it('draws the boats and the island large enough to read on a phone', () => {
@@ -1783,7 +1785,7 @@ describe('version 2: the standard HUD', () => {
 
   it('keeps the sea under the HUD on a phone and clear of the panel and the score when wide', () => {
     for (const [w, h, top] of [[390, 694, 174], [375, 560, 174], [412, 760, 174], [1280, 672, 186], [1440, 770, 186], [1024, 640, 186], [844, 390, 174]]) {
-      const L = layout(w, h, top);
+      const L = layout(w, h, { top, right: 0, bottom: 0, left: 0 });
       if (L.portrait) expect(L.cy - L.R, `${w}×${h}`).toBeGreaterThanOrEqual(top - 1);
       else {
         for (const b of [[0, Math.min(w * 0.64, 350)], [w - Math.min(w * 0.3, 190), w]]) {
@@ -1792,7 +1794,7 @@ describe('version 2: the standard HUD', () => {
         }
       }
       for (const y of [L.goal.y, L.lanterns.y - 20 * L.u, L.ladder.y - 22 * L.u, L.card.y]) expect(y, `${w}×${h}`).toBeGreaterThanOrEqual(L.top - 1);
-      expect(L.goal.y + L.goal.h, `${w}×${h}`).toBeLessThanOrEqual(h - BOTTOM + 1);
+      expect(L.goal.y + L.goal.h, `${w}×${h}`).toBeLessThanOrEqual(L.bottom + 1);
       expect(L.R).toBeGreaterThanOrEqual(60);
     }
   });
@@ -1838,3 +1840,226 @@ describe('version 2: Zośka', () => {
     expect(sim.talk.line).toBeNull();
   });
 });
+
+// ── mobile first (DESIGN §12) ──────────────────────────────────
+/** The size in a canvas font string. */
+const pxOf = (f: unknown): number => Number(String(f).match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+
+/** How far a box lies from a point (0: the point is inside it). */
+const boxDist = (b: { x0: number; y0: number; x1: number; y1: number }, x: number, y: number): number =>
+  Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.y0 - y, 0, y - b.y1));
+
+/**
+ * A 2D context that draws nothing and notes every string filled or stroked at the size it shows (the font's
+ * size times the transform's scale over the pixel ratio), the largest per string — as the mobile audit
+ * measures it.  Save and restore keep the scale, the font and the alpha like a real context.
+ */
+function recordingContext(canvas: unknown, dpr: number, texts: Map<string, number> | null): CanvasRenderingContext2D {
+  const gradient = { addColorStop: () => undefined };
+  const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+  const stack: { k: number; font: unknown; alpha: unknown }[] = [];
+  let k = 1 / dpr;
+  const width = (s: string) => s.length * pxOf(state.font) * 0.55;
+  const note = (text: unknown, maxW?: number) => {
+    const str = String(text);
+    if (!texts || !str.trim() || Number(state.globalAlpha) <= 0.05) return;
+    let px = pxOf(state.font) * k;
+    if (maxW !== undefined && maxW > 0 && width(str) > maxW) px *= maxW / width(str);
+    texts.set(str, Math.max(texts.get(str) ?? 0, px));
+  };
+  return new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      switch (prop) {
+        case 'measureText': return (s: string) => ({ width: width(String(s)) });
+        case 'createLinearGradient': case 'createRadialGradient': case 'createConicGradient': return () => gradient;
+        case 'setTransform': return (a: number, b: number) => { k = Math.hypot(a, b) / dpr; };
+        case 'scale': return (sx: number) => { k *= sx; };
+        case 'save': return () => { stack.push({ k, font: state.font, alpha: state.globalAlpha }); };
+        case 'restore': return () => {
+          const top = stack.pop();
+          if (top) { k = top.k; state.font = top.font; state.globalAlpha = top.alpha; }
+        };
+        case 'fillText': case 'strokeText': return (s: string, _x: number, _y: number, maxW?: number) => note(s, maxW);
+        default: return () => undefined;
+      }
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+describe('mobile first (DESIGN §3.2, §12)', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  const g = globalThis as unknown as { Path2D?: unknown };
+  const hadPath = 'Path2D' in g;
+  let recording: { canvas: HTMLCanvasElement; texts: Map<string, number> } | null = null;
+  beforeAll(() => {
+    proto.getContext = function (this: HTMLCanvasElement) {
+      return recording && recording.canvas === this ? recordingContext(this, 2, recording.texts) : recordingContext(this, 1, null);
+    };
+    if (!hadPath) g.Path2D = class { moveTo() {} lineTo() {} quadraticCurveTo() {} bezierCurveTo() {} closePath() {} roundRect() {} arc() {} ellipse() {} rect() {} };
+  });
+  afterAll(() => {
+    proto.getContext = original;
+    if (!hadPath) delete g.Path2D;
+  });
+
+  const envAt = (progress: LatarnikProgress, c: (typeof CHECK_SIZES)[number], plannedSec: number, touch = true): GameEnv<LatarnikProgress> => ({
+    canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+    progress, rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
+    tuning: TUNING, hint: () => {}, hudTop: () => c.insets.top, insets: () => c.insets, touch,
+  });
+
+  it('lays the sea as large as the band allows, the deck inside the band and off the sea, at every checked size', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      const keep = L.R * SEA_PAD, u = L.u;
+      const name = `${c.name} (${L.shape})`;
+      // the scale starts from the phone and grows to 1.3
+      if (Math.min(c.w, c.h) <= 390) expect(u, name).toBe(1);
+      else expect(u, name).toBeGreaterThan(1);
+      expect(u).toBeLessThanOrEqual(1.3);
+      // the sea and the horizon's boats in sight: inside the band's sides, under the HUD where it has the room
+      expect(L.cx - keep, name).toBeGreaterThanOrEqual(c.insets.left - 0.5);
+      expect(L.cx + keep, name).toBeLessThanOrEqual(c.w - c.insets.right + 0.5);
+      expect(L.cy + keep, name).toBeLessThanOrEqual(c.h - c.insets.bottom + (L.shape === 'wide' ? 5 : 0.5));
+      if (L.shape !== 'wide') expect(L.cy - keep, name).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.boat, name).toBeGreaterThanOrEqual(24);
+      // the deck: the pill, the lanterns, the ladder (and its words) inside the band, none of them on the sea
+      const s = L.lanterns.s, r = 4.6 * u, ly = L.ladder.y - r - 8 * u;
+      const boxes = {
+        pill: { x0: L.goal.x, y0: L.goal.y, x1: L.goal.x + L.goal.w, y1: L.goal.y + L.goal.h },
+        lanterns: { x0: L.lanterns.x + s * 0.1, y0: L.lanterns.y - s * 1.3, x1: L.lanterns.x + s * 5.7, y1: L.lanterns.y + s * 0.82 },
+        ladder: { x0: L.ladder.x - 2 * r - 7 * 12 * u, y0: L.ladder.y - 1.25 * r, x1: L.ladder.x, y1: L.ladder.y + 1.25 * r },
+        ...(L.ladder.label >= 40 ? { words: { x0: L.ladder.x - L.ladder.label, y0: ly - 13 * u, x1: L.ladder.x, y1: ly + 3 } } : {}),
+        card: { x0: L.card.x, y0: L.card.y, x1: L.card.x + L.card.w, y1: L.card.y + L.card.h },
+      };
+      for (const [what, b] of Object.entries(boxes)) {
+        expect(b.x0, `${name}: ${what}`).toBeGreaterThanOrEqual(c.insets.left - 0.5);
+        expect(b.x1, `${name}: ${what}`).toBeLessThanOrEqual(c.w - c.insets.right + 0.5);
+        expect(b.y0, `${name}: ${what}`).toBeGreaterThanOrEqual(c.insets.top - 0.5);
+        expect(b.y1, `${name}: ${what}`).toBeLessThanOrEqual(c.h - c.insets.bottom + 0.5);
+        expect(boxDist(b, L.cx, L.cy), `${name}: ${what}`).toBeGreaterThanOrEqual(keep - 0.5);
+      }
+    }
+  });
+
+  it('makes the sea of an upright phone fill its width, the night\'s pill right under the HUD', () => {
+    for (const c of CHECK_SIZES.filter(x => x.w < 600 && x.h > x.w)) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.shape, c.name).toBe('tall');
+      expect(2 * L.R * SEA_PAD, c.name).toBeGreaterThan(c.w * 0.78);
+      expect(L.goal.y - c.insets.top, c.name).toBeLessThanOrEqual(8);
+      expect(L.goal.h, c.name).toBeGreaterThanOrEqual(40);
+      // Zośka on her post at the pill's left; her bubble takes the pill's place
+      expect(L.gull.x + L.gull.s * 0.5, c.name).toBeLessThanOrEqual(L.goal.x);
+      expect(L.bubbleOnGoal).toBe(true);
+    }
+    // the smallest phone: a 360 × 366 band, the sea at least 140 px in radius (it was 115)
+    const small = layout(CHECK_SIZES[0].w, CHECK_SIZES[0].h, CHECK_SIZES[0].insets);
+    expect(small.R).toBeGreaterThan(140);
+    // a phone on its side: the column on the left, the sea the band's height beside it
+    for (const c of CHECK_SIZES.filter(x => x.name.startsWith('phone on its side'))) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.shape, c.name).toBe('side');
+      expect(L.goal.x + L.goal.w, c.name).toBeLessThan(L.cx - L.R * SEA_PAD);
+      expect(2 * L.R * SEA_PAD, c.name).toBeGreaterThan((c.h - c.insets.top - c.insets.bottom) * 0.9);
+      expect(L.goal.w, c.name).toBeGreaterThanOrEqual(200);
+    }
+  });
+
+  it('gives the one control it has — the opening card — a finger-sized target in the band, and none over the free sea', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(auditTargets([target('story', openCardRect(L))], c.w, c.h, c.insets), c.name).toEqual([]);
+      // the game as the runner plays it: the first session opens with the card; a tap anywhere closes it
+      const game = latarnik.create(envAt(latarnik.freshProgress(), c, 60));
+      game.resize(c.w, c.h, 2);
+      game.start();
+      game.update(STEP, frame(), STEP);
+      game.draw();
+      const ts = game.targets!();
+      expect(ts.map(x => x.label), c.name).toEqual(['story']);
+      expect(auditTargets(ts, c.w, c.h, c.insets), c.name).toEqual([]);
+      game.pointer!({ type: 'down', x: c.w / 2, y: c.h - 1, id: 1 });   // a tap on the dock reaches the canvas's bottom edge
+      game.update(STEP, frame(), 2 * STEP);
+      game.draw();
+      expect(game.targets!(), c.name).toEqual([]);
+      game.destroy();
+    }
+  });
+
+  it('never draws text under 11 px: the font helper has a floor, fitting never shrinks under it', () => {
+    for (const px of [0, 3, 6.4, 8.8, 10.5, 10.99, 11, 12.3, 13, 30]) expect(pxOf(font(600, px, 'sans-serif'))).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(pxOf(font(600, 14.24, 'sans-serif', true))).toBe(14.2);
+    const ctx = recordingContext(null, 1, null);
+    const hud = new Hud(ctx);
+    const slot = fitSlot();
+    // a goal far too long for its room: 13 px (MIN_READ) at the least, then cut with "…"
+    expect(hud.fitIn(slot, 'Wprowadź 1 flotyllę, numer po numerze', 60, 14, 650, 'sans-serif')).toBe(MIN_READ);
+    expect(slot.shown.endsWith('…')).toBe(true);
+    expect(hud.fitIn(slot, 'Noc', 200, 14, 650, 'sans-serif')).toBe(14);
+    expect(slot.shown).toBe('Noc');
+    // a secondary label may go to 11, never under
+    expect(hud.fitIn(slot, 'NOC 12 · NA RATUNEK', 20, 12, 750, 'sans-serif', false, 4)).toBe(MIN_TEXT);
+  });
+
+  it('draws every word of a session at 11 px or more on the smallest phone, on its side and on a desktop; what is read to play at 13', () => {
+    for (const c of [CHECK_SIZES[0], CHECK_SIZES[4], CHECK_SIZES[7]]) {
+      for (const first of [true, false]) {
+        const texts = new Map<string, number>();
+        const progress = first ? latarnik.freshProgress() : { ...latarnik.freshProgress(), sessions: 5, lastNewSession: 5, konwoje: 2, crates: 400 };
+        const env = envAt(progress, c, first ? 40 : 90);
+        recording = { canvas: env.canvas, texts };
+        const game = latarnik.create(env);
+        recording = null;
+        game.resize(c.w, c.h, 2);
+        game.start();
+        const sim = (game as unknown as { sim: LatarnikSim }).sim;
+        const tap = tapper(sim, 3, 0.04, 0.9);
+        for (let time = 0; time < (first ? 40 : 90) + 6 && !(time > 10 && sim.phase === 'done'); time += 0.05) {
+          const k = sim.block?.kind === 'konwoj';
+          game.update(0.05, frame({ level: k ? 0.85 : 0.3, activity: k ? 6 : -1, focused: k, calm: k ? 0.3 : 0.9 }), time);
+          if (first && sim.story && time > 2) game.pointer!({ type: 'down', x: c.w / 2, y: c.h / 2, id: 1 });
+          tap(time);
+          game.draw();
+        }
+        const name = `${c.name}, ${first ? 'the first session' : 'a later one'}`;
+        expect(texts.size, name).toBeGreaterThan(8);
+        for (const [s, px] of texts) expect(px, `${name}: "${s}"`).toBeGreaterThanOrEqual(MIN_TEXT - 0.05);
+        // what the player reads to play: Zośka's lines, the night's goal, the opening story
+        const reading = [...sim.talk.said, goalTextOf(sim), CATALOGS.pl['open.text']];
+        for (const [s, px] of texts) {
+          if (s.length > 8 && reading.some(r => r.includes(s.replace(/…$/, '')))) expect(px, `${name}: "${s}"`).toBeGreaterThanOrEqual(MIN_READ - 0.05);
+        }
+        game.destroy();
+      }
+    }
+  }, 90_000);
+
+  it('speaks to the hand the player has: a finger never hears of keys, a keyboard keeps them as shortcuts', () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|mysz[ąy]|mouse|maus/i;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['hint.tap', 'open.tap', 'how.goal', 'how.tap', 'how.tip1', 'how.tip2', 'hud.armed']) {
+        expect(cat[k], `${l}.${k}`).toBeTypeOf('string');
+        expect(cat[k], `${l}.${k}`).not.toMatch(KEYS);
+      }
+      for (const k of ['hint.tap.keys', 'open.tap.keys', 'how.keys']) expect(cat[k], `${l}.${k}`).toMatch(KEYS);
+    }
+    expect(hintText('tap', true)).not.toMatch(KEYS);
+    expect(hintText('tap', false)).toMatch(KEYS);
+    expect(hintText('fog', false)).toBe(t('hint.fog'));
+    expect(howto(true).hands.map(x => x.gesture)).toEqual(['tap']);
+    expect(howto(false).hands.map(x => x.gesture)).toEqual(['tap', 'keys']);
+  });
+});
+
+/** The night's goal as the pill says it. */
+function goalTextOf(sim: LatarnikSim): string {
+  return t(`goal.${sim.spec.kind}` as 'goal.powroty', { n: sim.spec.goal });
+}

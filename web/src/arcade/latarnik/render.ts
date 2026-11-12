@@ -9,11 +9,13 @@
  * never leaves the screen.  A frame allocates nothing: points go through one scratch pair.
  */
 import { Particles, approach, clamp, ease } from '../kit/juice';
+import { NO_INSETS } from '../kit/mobile';
+import type { Insets } from '../kit/types';
 import { LETTERS, UPGRADE_NAME, UPGRADE_WHAT, VILLAGE } from './content';
 import { Hud, NumText, age, fitSlot, font } from './hud';
 import { cap, nightName, t } from './i18n';
 import { DuskIntro } from './intro';
-import { BOTTOM, TOP, layout, type Layout } from './layout';
+import { layout, type Layout } from './layout';
 import { starsOf, village, type LatarnikProgress } from './meta';
 import {
   C, HARBOUR, NO_DASH, SANS, SERIF, amberSprite, hash, paintBadge, paintBeam, paintBoat, paintBubbles, paintBuoy, paintIsland, paintIsolines, paintRain,
@@ -73,6 +75,7 @@ export class LatarnikView {
   private reachDash = NO_DASH;
   private thresholdDash = NO_DASH;
   private labelFonts = ['', ''];
+  private thresholdW = 0;
   private readonly reachTxt = new NumText(n => t('ring.reach', { n }));
   private ghostText = '';
   private ghostW = 0;
@@ -93,26 +96,28 @@ export class LatarnikView {
   private windDir = 1;
   private rain = 0;
   private whaleLit = 0;
-  private hudTop = TOP + 60;
+  private ins: Insets = NO_INSETS;
 
-  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean }) {
+  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; touch?: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.hud = new Hud(this.ctx);
   }
 
-  resize(w: number, h: number, dpr: number, hudTop = this.hudTop): void {
-    this.hudTop = hudTop;
-    const L = (this.L = layout(w, h, hudTop));
+  resize(w: number, h: number, dpr: number, insets: Insets = this.ins): void {
+    this.ins = insets;
+    const L = (this.L = layout(w, h, insets));
     this.dpr = dpr;
     this.grad = null;
     this.fog = null;
     this.reefDash = [L.R * 0.012, L.R * 0.03];
     this.reachDash = [0.01, Math.max(7, L.R * 0.024)];
     this.thresholdDash = [2, Math.max(5, L.R * 0.016)];
-    this.labelFonts = [font(650, 11 * L.u, SANS), font(650, 10.5 * L.u, SANS)];
+    // the rings' words: 12 px and more on a plate of their own, so they read over the beam and the glow
+    this.labelFonts = [font(700, 13 * L.u, SANS), font(650, 12 * L.u, SANS)];
     this.reachTxt.reset();
     this.ghostText = '';
-    this.hud.resize(L, dpr);
+    this.thresholdW = 0;
+    this.hud.resize(L, dpr, this.opts.touch ?? true);
   }
 
   /** Play begins: the sea fades in from the dusk. */
@@ -126,6 +131,9 @@ export class LatarnikView {
 
   /** Where things are (index.ts points its coach marks at them). */
   get layout(): Layout { return this.L; }
+
+  /** The opening card as last drawn (the one control while it shows: any tap closes it), or null. */
+  get openCard(): { x: number; y: number; w: number; h: number } | null { return this.hud.openCard; }
 
   /** A point on the sea in CSS px (a copy). */
   point(a: number, r: number): { x: number; y: number } {
@@ -605,7 +613,7 @@ export class LatarnikView {
           this.ghostText = sim.ghost.label;
           this.ghostW = ctx.measureText(this.ghostText).width;
         }
-        this.ringLabel(1, this.ghostText, this.ghostW, gr, -2.35, 'rgba(230,236,255,.45)', 10.5 * u, fade);
+        this.ringLabel(1, this.ghostText, this.ghostW, gr, -2.35, 'rgba(230,236,255,.66)', 12 * u, fade);
         ghost = true;
       }
       // the threshold, marked on the sea itself: the reach the band's threshold gives (0.71 R); the light
@@ -629,11 +637,14 @@ export class LatarnikView {
         ctx.stroke();
       }
       ctx.font = this.labelFonts[1];
-      ctx.globalAlpha = fade * 0.75;
-      ctx.fillStyle = over ? C.gold : 'rgba(220,230,250,.7)';
+      if (!this.thresholdW) this.thresholdW = ctx.measureText(THRESHOLD).width;
+      const tx = cx + Math.cos(2.2) * (tr + 14 * u), ty = cy + Math.sin(2.2) * (tr + 14 * u);
+      ctx.globalAlpha = fade * 0.85;
+      this.plate(tx - this.thresholdW / 2, ty, this.thresholdW, 12 * u);
+      ctx.fillStyle = over ? C.gold : 'rgba(220,230,250,.82)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(THRESHOLD, cx + Math.cos(2.2) * (tr + 12 * u), cy + Math.sin(2.2) * (tr + 12 * u));
+      ctx.fillText(THRESHOLD, tx, ty);
       ctx.globalAlpha = 1;
       const rr = Math.min(sim.reach, RING_MAX) * R;
       if (sim.reach > 1) {
@@ -652,7 +663,7 @@ export class LatarnikView {
       this.reachRing(rr, sim.reliable ? 'rgba(255,214,140,.75)' : 'rgba(255,214,140,.3)', -t * 6, fade);
       ctx.font = this.labelFonts[0];
       const text = this.reachTxt.get(Math.round(sim.reach * 100), ctx);
-      this.ringLabel(0, text, this.reachTxt.w, rr, -0.75, sim.reliable ? 'rgba(255,220,160,.85)' : 'rgba(255,220,160,.4)', 11 * u, fade);
+      this.ringLabel(0, text, this.reachTxt.w, rr, -0.75, sim.reliable ? 'rgba(255,224,170,.95)' : 'rgba(255,220,160,.45)', 13 * u, fade);
       reach = true;
     } else if (fade > 0.02 && kind === 'cisza') this.reachRing(Math.min(sim.reach, RING_MAX) * R, 'rgba(255,214,140,.2)', 0, fade);
     if (!ghost) this.hud.release(1);
@@ -680,23 +691,33 @@ export class LatarnikView {
   private ringLabel(slot: 0 | 1, text: string, tw: number, r: number, a: number, color: string, size: number, fade: number): void {
     const { ctx } = this;
     const { cx, cy, u } = this.L;
-    // beside the ring, kept on the canvas and out of the runner's strips
-    const ax = cx + Math.cos(a) * (r + 12 * u);
+    // beside the ring, kept on the canvas and inside the play band (under the HUD, over the home indicator)
+    const L = this.L;
+    const ax = cx + Math.cos(a) * (r + 14 * u);
     const left = Math.cos(a) > 0.2 ? ax : Math.cos(a) < -0.2 ? ax - tw : ax - tw / 2;
-    const x = clamp(left, 10, this.L.w - 10 - tw);
-    const y = clamp(cy + Math.sin(a) * (r + 12 * u), TOP + size, this.L.h - BOTTOM - size);
-    this.hud.reserve(slot, x - 4, y - size * 0.75, x + tw + 4, y + size * 0.75);
+    const x = clamp(left, L.left + 10, L.right - 10 - tw);
+    const y = clamp(cy + Math.sin(a) * (r + 14 * u), L.top + size, L.bottom - size);
+    this.hud.reserve(slot, x - 6, y - size * 0.8, x + tw + 6, y + size * 0.8);
     // a title over the sea passes in front: the label steps back meanwhile
     const want = this.hud.overTitle(x, y - size / 2, x + tw, y + size / 2) ? 0.12 : 1;
     this.labelAlpha[slot] = approach(this.labelAlpha[slot], want, this.drawDt, 0.12);
     ctx.globalAlpha = this.labelAlpha[slot] * fade;
+    this.plate(x, y, tw, size);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(5,10,24,.55)';
-    ctx.fillText(text, x + 1, y + 1);
     ctx.fillStyle = color;
     ctx.fillText(text, x, y);
     ctx.globalAlpha = 1;
+  }
+
+  /** A dark rounded plate under a word on the sea (`x` its left, `y` its middle, `tw` its width), so it reads over the beam. */
+  private plate(x: number, y: number, tw: number, size: number): void {
+    const { ctx } = this;
+    const px = size * 0.42, h = size * 1.45;
+    ctx.fillStyle = 'rgba(5,10,24,.62)';
+    ctx.beginPath();
+    ctx.roundRect(x - px, y - h / 2, tw + px * 2, h, h / 2);
+    ctx.fill();
   }
 
   private drawBoats(sim: LatarnikSim, t: number, home: boolean): void {
@@ -756,7 +777,8 @@ export class LatarnikView {
       }
       if (b.order > 0 && b.state === 'sea') {
         const now = sim.flotilla?.id === b.group && sim.flotilla.next === b.order;
-        paintBadge(ctx, x, y - boat * 0.75, Math.max(7, boat * 0.3), b.order, now, alpha * (now ? 0.85 + 0.15 * Math.sin(t * 6) : 0.85));
+        // the number on a badge big enough to read on a phone (13 px on a 22 px boat)
+        paintBadge(ctx, x, y - boat * 0.8, Math.max(10, boat * 0.42), b.order, now, alpha * (now ? 0.85 + 0.15 * Math.sin(t * 6) : 0.85));
       }
       if (b.kind === 'butelka' && b.state === 'sea') {
         ctx.globalAlpha = 0.35 + 0.25 * Math.sin(t * 3 + b.phase);
@@ -1085,16 +1107,16 @@ export class LatarnikView {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       // as wide as the line under it: "Morgendämmerung" needs the room, and it stays over the sea
-      const big = this.hud.fitIn(this.dawnTitle, DAWN_TITLE, Math.min(w - 32, R * 1.9), 44 * u, 500, SERIF, true);
+      const big = this.hud.fitIn(this.dawnTitle, DAWN_TITLE, Math.min(w - 32, Math.max(R * 1.9, 260)), 44 * u, 500, SERIF, true, 24);
       ctx.font = this.dawnTitle.font;
       ctx.fillStyle = 'rgba(40,20,40,.35)';
-      ctx.fillText(DAWN_TITLE, cx + 1.5, cy - R * 0.5 + 2);
+      ctx.fillText(this.dawnTitle.shown, cx + 1.5, cy - R * 0.5 + 2);
       ctx.fillStyle = '#fff3e6';
-      ctx.fillText(DAWN_TITLE, cx, cy - R * 0.5);
-      this.hud.fitIn(this.dawnSub, this.dawnLine, Math.min(w - 32, R * 1.9), 16 * u, 600, SANS);
+      ctx.fillText(this.dawnTitle.shown, cx, cy - R * 0.5);
+      this.hud.fitIn(this.dawnSub, this.dawnLine, Math.min(w - 32, Math.max(R * 1.9, 260)), 16 * u, 600, SANS);
       ctx.font = this.dawnSub.font;
       ctx.fillStyle = 'rgba(255,243,230,.9)';
-      ctx.fillText(this.dawnLine, cx, cy - R * 0.5 + big * 0.85);
+      ctx.fillText(this.dawnSub.shown, cx, cy - R * 0.5 + big * 0.85);
     }
     ctx.restore();
   }

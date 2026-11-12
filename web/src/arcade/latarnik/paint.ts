@@ -1136,7 +1136,7 @@ export function paintBadge(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = now ? '#2a1a08' : C.cream;
-  ctx.font = `700 ${Math.round(r * 1.25)}px ${SANS}`;
+  ctx.font = `700 ${Math.max(11, Math.round(r * 1.25))}px ${SANS}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(String(n), x, y + r * 0.06);
