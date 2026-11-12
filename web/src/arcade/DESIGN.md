@@ -2708,3 +2708,83 @@ Files: `rules.ts` (every number), `content.ts` (places, pests, chiefs, toys, cat
 `meta.ts` (progress `ver: 1`, the placeholder's save migrated, cushions, upgrades, the vintage), `sim.ts`
 (the session), `talk.ts`, `layout.ts`, `paint.ts`, `render.ts`, `intro.ts`, `preview.ts`, `panel.ts`,
 `audio.ts`, `i18n.ts`, `index.ts`; tests in `test/arcade-koty.test.ts`.
+
+## 12. Mobile first: every game plays on a phone held in one hand
+
+On 2026-11-12 the founder asked: *"modify all these games to be playable on mobile devices (mobile
+first). support both desktop and mobile versions."* The originals of §11 are phone games, played upright
+with one thumb; ours were laid out on a desktop and squeezed onto a phone. Measured with the audit
+(§12.4) before this round, on an iPhone in Safari (390 × 664 CSS px):
+
+* the runner's HUD and the signal dock took 40 % of the height, and a phone on its side kept a third
+  of its 360 px for play (the panel, the bar above it and a 96 px dock);
+* the games drew their own labels at 6–9 px (a UI scale of `min(w / 900, h / 640)` clamped to 0.72);
+* the simulator's switch sat bottom left, in the thumb zone, and every game kept 54–62 px empty for it;
+* hints spoke of keys ("albo WASD / strzałki") to a player without a keyboard.
+
+### 12.1 The order of design
+
+1. **A phone upright** — the reference. The smallest canvas that must play well is 360 × 500 with the
+   chart on (a small Android phone in Chrome): a 366 px band between the HUD and the dock.
+2. **A phone on its side** — 601 × 360 with the chart as a column on the right, 812 × 360 without it;
+   the HUD is one 68 px row.
+3. **A tablet** and **a desktop** — the same layout grown (`uiScale` up to 1.3), never a separate game;
+   keys stay as shortcuts.
+
+### 12.2 The contract (`kit/mobile.ts`)
+
+| Rule | Number | Why |
+|---|---|---|
+| Tap targets | ≥ 44 px on the short side (48 for a primary control), ≥ 6 px apart | Apple's 44 pt, Material's 48 dp; a thumb is ~10 mm |
+| Any canvas text | ≥ 11 px | under it a phone held at arm's length shows a smudge |
+| Text to read to play | ≥ 13 px (cards, bubbles, a button's label) | reading speed, not just legibility |
+| Thumb zone | the bottom 45 % of an upright phone | where a thumb reaches without changing grip: the recurring controls live there |
+| The top band | passive information only | it is the HUD's, and the farthest from the thumb |
+| One hand | tap, drag, hold; no two fingers, no hover, no keys required | the other hand holds the phone (or adjusts the band) |
+| Edges | nothing to press in the outer 16 px of an upright phone | Safari's back swipe starts at the left edge; the home indicator at the bottom |
+| Under a finger | what a drag moves is drawn above the finger | a merged toy, a dragged card must stay visible |
+| Frame budget | the game's update + draw ≤ 4 ms on a desktop | ≈ 16 ms on a mid-range phone, which is 60 fps |
+
+Each game declares its tappable controls in `ArcadeGame.targets()` (hit rectangles as the game tests
+them), and its layout test runs `auditTargets()` at every `CHECK_SIZES` entry: the sizes and insets
+measured on the devices above. `uiScale(w, h)` is 1 on any phone and grows to 1.3; `fitText()` shrinks a
+label to the floor and then ellipsizes it, never below `MIN_TEXT`; `hitRect()` grows a small icon's hit
+area to a finger.
+
+### 12.3 What the runner does
+
+* **One compact HUD band on a phone.** Upright: the time as a 3 px line along the top edge, the clock
+  and the buttons, then the panel — the block, its seconds and the gauge in one row over two lines of
+  what to do in the head (the next block's telegraph takes that line for its few seconds) — beside the
+  score: 134 px instead of ~180. On its side: one 68 px row (the panel, the score, the clock and the
+  buttons). The panel's gauge name and the verdict line live in the banner and the dock.
+* **The bottom is the game's.** The simulator's switch moved into the top bar ("▲ Skupienie" on a
+  phone); the signal note moved under the HUD; `insets().bottom` is only the home indicator.
+* **The chart stays in sight** (§7.7: the founder asked for it): on a phone upright a 100 px strip (the
+  chart, now, the last block); on its side a column on the right, so the game keeps its height.
+* **Full screen on Android** from the "Graj" tap (an installed app already is; an iPhone cannot); leaving
+  the game leaves full screen.
+* **Adaptive resolution**: two slow windows of 2.5 s (mean frame over 24 ms) lower the canvas by half a
+  device pixel, down to 1; it never goes back up in the session.
+* **Coach marks wait for the block banner**, and one on screen when a banner comes returns after it.
+* **`insets()`** tells a game what covers each canvas edge: the HUD band, the home indicator, the notch
+  of a phone on its side (an edge the dock covers is 0). **`touch`** says the primary input is a finger;
+  the how-to card leaves out the keys there.
+* The calibration, pause and help cards are tighter on a phone, each control's chip above its line.
+
+### 12.4 The audit (`scripts/arcade-mobile.mjs`)
+
+Headless Chrome emulates the devices from the first page load (touch, user agent, pixel ratio): a small
+Android phone (360 × 600, 4× slower CPU), an iPhone in Safari (390 × 664), a large Android phone
+(412 × 780), a phone on its side (812 × 360), a tablet (820 × 1180) and a desktop (1280 × 800). It plays
+with touch — the game's `targets()`, drags and taps in the free area, the simulator's switch — and
+reports every canvas string at its largest size (under 11 px fails, under 13 px is listed), the targets
+(size, bounds, overlaps), the frame rate with the CPU slowed like a phone's and the game's own frame
+time, the HUD band and the share left for play, whether the calibration card fits; with screenshots per
+device.
+
+### 12.5 Each game on a phone
+
+Each game's own section (§9.2–§9.4, §11.6–§11.9) ends with a "Mobile first" part: what moved into the
+thumb zone, how the controls feel under a finger, the sizes, the landscape layout, and the measured
+results.

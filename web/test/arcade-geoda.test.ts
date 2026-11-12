@@ -525,6 +525,7 @@ describe('Geoda game', () => {
     canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
     progress, rng: mulberry32(seed), day: '2026-11-07', daySeed: 99, plannedSec, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
     tuning: TUNING, hint: (text: string) => { if (text) hints.push(text); }, hudTop: () => top,
+    insets: () => ({ top, right: 0, bottom: 0, left: 0 }), touch: false,
   });
 
   /** The smoke test's input on the runner's clock: a click at 50 % × 60 % every 0.65 s, Space every ~2 s, focus on. */

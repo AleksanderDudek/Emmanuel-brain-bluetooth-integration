@@ -86,6 +86,12 @@ export class MendiPanel {
   private hintTimer: ReturnType<typeof setTimeout> | null = null;
   private memo: Record<string, string> = {};
   private lastScore = NaN;
+  /**
+   * A phone's compact panel (styles.css: upright up to 640 px wide, or on its side): one row of block, seconds and gauge over the
+   * line of what to do in the head; the telegraph of the next block takes that line for its few seconds.
+   */
+  private readonly compact: MediaQueryList | null = typeof matchMedia === 'function'
+    ? matchMedia('(max-width: 640px), (max-height: 500px) and (orientation: landscape)') : null;
 
   constructor(readonly entry: ArcadeEntry, private readonly unitOf: (n: number) => string) {
     this.chip = h('b', { class: 'mp-chip' });
@@ -148,7 +154,10 @@ export class MendiPanel {
     if (this.memo.w !== w) { this.memo.w = w; this.fill.style.width = w; }
     this.attr('on', this.bar, 'data-on', String(shown && s.on));
     this.put('val', this.value, shown ? `${Math.round(v * 100)}%` : '—');
-    this.put('task', this.task, s.task ? `${t('task.label')}: ${s.task}` : '');
+    const task = s.task ? `${t('task.label')}: ${s.task}` : '';
+    const telegraph = !!nx && !!this.compact?.matches;
+    this.put('task', this.task, telegraph ? nx : task);
+    this.attr('tg', this.task, 'data-next', String(telegraph));
     this.attr('tone', this.state, 'data-tone', STATE_TONE[s.state]);
     this.put('state', this.state, s.stateText);
   }
@@ -216,11 +225,13 @@ export class MendiPanel {
  * The standard "how to play" block: the goal, the hands (gesture icons), what focus and rest drive
  * (the registry's words), and how the gauge reads.  The same in every game.
  */
-export function howToPlay(entry: ArcadeEntry, howto: HowTo | null, tool: Tool): HTMLElement {
+export function howToPlay(entry: ArcadeEntry, howto: HowTo | null, tool: Tool, touch = false): HTMLElement {
   const row = (kind: string, chip: string, body: Node | string, icon?: SVGSVGElement) =>
     h('li', { 'data-kind': kind }, h('b', { class: 'ban-chip' }, icon ?? null, chip), h('span', null, body));
-  const hands = howto?.hands.length
-    ? howto.hands.map(c => row('hands', t(`gest.${c.gesture}`), c.text, gestureIcon(c.gesture)))
+  // a phone or a tablet has no keyboard: its card leaves the keys out
+  const shown = howto?.hands.filter(c => !(touch && c.gesture === 'keys')) ?? [];
+  const hands = shown.length
+    ? shown.map(c => row('hands', t(`gest.${c.gesture}`), c.text, gestureIcon(c.gesture)))
     : [row('hands', t('cal.handsTitle'), entry.how[2] ?? '')];
   return h('div', { class: 'arcade-howbrain' },
     h('p', { class: 'eyebrow' }, t('how.title')),

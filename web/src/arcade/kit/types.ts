@@ -44,6 +44,12 @@ export interface Headline {
 
 export const FREE_PHASE: SignalPhase = { want: 'free', blind: false };
 
+/** What covers each edge of the canvas (CSS px): see GameEnv.insets(). */
+export interface Insets { top: number; right: number; bottom: number; left: number }
+
+/** A control the player can tap right now, for the mobile audit and tests (ArcadeGame.targets). */
+export interface TapTarget { label: string; x: number; y: number; w: number; h: number }
+
 /** What the runner gives a game. */
 export interface GameEnv<P extends object> {
   canvas: HTMLCanvasElement;
@@ -81,6 +87,19 @@ export interface GameEnv<P extends object> {
    * Read it in `resize()`; it changes only with the window.
    */
   hudTop(): number;
+  /**
+   * What covers each edge of the canvas (CSS px from that edge), re-read in `resize()`: `top` is the
+   * runner's HUD band (= hudTop()), `bottom` the home indicator of a phone without a home button,
+   * `left`/`right` the notch and the rounded corners of a phone on its side.  The scene may run under
+   * them; controls and text stay inside.  The runner puts nothing of its own at the bottom, so the
+   * thumb zone is the game's (kit/mobile.ts).
+   */
+  insets(): Insets;
+  /**
+   * The primary input is a finger (a phone, a tablet; CSS `pointer: coarse`): say "tap" and "drag",
+   * never keys, and keep every control at least MIN_TAP px (kit/mobile.ts).  Read once per session.
+   */
+  touch: boolean;
 }
 
 export interface PointerInput { type: 'down' | 'move' | 'up'; x: number; y: number; id: number }
@@ -150,6 +169,13 @@ export interface ArcadeGame {
    */
   result(): ArcadeOutcome;
   destroy(): void;
+  /**
+   * The controls the player can tap right now (CSS px hit rectangles, as the game tests them), for the
+   * mobile audit (scripts/arcade-mobile.mjs) and tests: each at least MIN_TAP on its short side, inside
+   * the insets, clear of each other (kit/mobile.ts).  Cheap, no side effects; the free play area (a
+   * drag anywhere, a tap on the field) is not a target.
+   */
+  targets?(): TapTarget[];
 }
 
 export interface ArcadeModule<P extends object = object> {

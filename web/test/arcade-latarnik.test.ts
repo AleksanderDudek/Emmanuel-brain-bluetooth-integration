@@ -1420,7 +1420,7 @@ describe('Latarnik as the runner plays it', () => {
   const envFor = (progress: LatarnikProgress, plannedSec: number, tuning = TUNING): GameEnv<LatarnikProgress> => ({
     canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
     progress, rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
-    tuning, hint: () => {}, hudTop: () => 0,
+    tuning, hint: () => {}, hudTop: () => 0, insets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }), touch: false,
   });
 
   it('plays the smoke path through intro, play and the summary at every screen size, drawing every frame', () => {

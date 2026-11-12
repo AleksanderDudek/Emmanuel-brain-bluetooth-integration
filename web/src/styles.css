@@ -525,6 +525,9 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .hold.soft{color:rgba(255,255,255,.75);background:rgba(8,9,14,.4);font-weight:500;font-size:12.5px}
 .sim-focus{position:absolute;left:max(16px,env(safe-area-inset-left));bottom:max(22px,env(safe-area-inset-bottom));background:rgba(8,9,14,.6);border-color:rgba(255,255,255,.25);color:#fff}
 .sim-focus.on{background:rgba(255,255,255,.9);color:#141018;border-color:#fff}
+/* the device's safe areas, read by the arcade runner (kit/mobile.ts safeAreas) */
+.safe-probe{position:absolute;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;
+  padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
 
 .summary{position:absolute;inset:0;overflow:auto;padding:max(28px,env(safe-area-inset-top)) 20px 40px;background:radial-gradient(900px 600px at 50% -10%,var(--tool-glow),transparent 70%),#07080d;animation:fade .5s ease both}
 .summary-inner{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
@@ -584,10 +587,11 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-chips span.on{color:var(--tx);border-color:var(--tool);background:var(--tool-dim)}
 
 .arcade{position:absolute;inset:0;overflow:hidden;touch-action:none;outline:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.arcade{--dock:0px}
+.arcade{--dock:0px;--dock-r:0px}
 .arcade.docked{--dock:128px}
-.arcade>canvas{position:absolute;left:0;top:0;width:100%;height:calc(100% - var(--dock));display:block}
-.arcade-hud{position:absolute;inset:0 0 var(--dock) 0;pointer-events:none;z-index:2}
+/* the game's canvas: the dock takes the bottom (or, on a phone on its side, a column on the right: --dock-r) */
+.arcade>canvas{position:absolute;left:0;top:0;width:calc(100% - var(--dock-r));height:calc(100% - var(--dock));display:block}
+.arcade-hud{position:absolute;inset:0 var(--dock-r) var(--dock) 0;pointer-events:none;z-index:2}
 .arcade-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:12px;z-index:3;pointer-events:none;
   padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 14px max(16px,env(safe-area-inset-left));
   background:linear-gradient(180deg,rgba(6,7,12,.5),rgba(6,7,12,.22) 60%,rgba(6,7,12,0))}
@@ -595,6 +599,8 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-time i{display:block;height:100%;width:0;background:rgba(255,255,255,.85);border-radius:2px}
 .arcade-clock{min-width:64px;text-align:right;font-size:13px;color:rgba(255,255,255,.88);text-shadow:0 1px 6px rgba(0,0,0,.55)}
 .arcade-pause{pointer-events:auto;width:44px;height:44px}
+.arcade-top .sim-focus{position:static;flex:none;pointer-events:auto;min-height:40px;padding:0 14px;font-size:13px;white-space:nowrap}
+.arcade-top .sim-short{display:none}
 .arcade-pause svg{width:20px;height:20px}
 .arcade-dock-btn{pointer-events:auto;width:44px;height:44px;opacity:.7}
 .arcade-dock-btn svg{width:20px;height:20px}
@@ -665,7 +671,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-headline small:empty{display:none}
 .arcade-headline.bump b{animation:bump .35s cubic-bezier(.2,1.6,.4,1)}
 @keyframes bump{from{transform:scale(1.25)}to{transform:scale(1)}}
-.arcade-marks{position:absolute;inset:0 0 var(--dock) 0;pointer-events:none;z-index:4;overflow:hidden}
+.arcade-marks{position:absolute;inset:0 var(--dock-r) var(--dock) 0;pointer-events:none;z-index:4;overflow:hidden}
 .arcade-hint{position:absolute;max-width:min(300px,calc(100% - 24px));width:max-content;padding:9px 14px;border-radius:14px;background:#fff7e3;color:#1d1724;
   font-size:14px;font-weight:650;line-height:1.3;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.35);transform:translate(-50%,calc(-100% - 14px))}
 .arcade-hint[hidden]{display:none}
@@ -689,35 +695,71 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-help-card{max-width:560px}
 /* the dock keeps the history (chart, last block, session); "now" lives in the Mendi panel */
 .dock-text .dock-task,.dock-text .dock-meter{display:none}
-@media (max-width:640px){
-  .arcade-mendi{width:calc(64% - 14px);height:114px;padding:7px 10px;gap:4px;top:calc(max(8px,env(safe-area-inset-top)) + 48px)}
-  .mp-task{font-size:11.5px}
-  .mp-state{font-size:11px}
-  .mp-name{max-width:40%;font-size:11px}
-  .mp-next{font-size:10.5px}
-  .arcade-headline{top:calc(max(8px,env(safe-area-inset-top)) + 48px);padding:7px 10px;min-width:0}
-  .arcade-banner{top:calc(max(8px,env(safe-area-inset-top)) + 170px);padding:9px 14px}
-  .arcade-banner .ban-task{font-size:13.5px}
+@media (max-width:640px), (max-height:500px) and (orientation:landscape){
+  /* mobile first (src/arcade/DESIGN.md §12): a phone's Mendi panel is compact — the block, its seconds and the gauge in one
+     row, what to do in the head under it (the next block's telegraph takes that line for its few seconds) */
+  .arcade-mendi{display:grid;grid-template-columns:auto auto minmax(30px,1fr) auto;grid-template-rows:auto auto;column-gap:7px;row-gap:5px;
+    align-items:center;align-content:start;padding:7px 10px}
+  .arcade-mendi .mp-row,.arcade-mendi .mp-meter{display:contents}
+  .arcade-mendi .mp-next,.arcade-mendi .mp-name,.arcade-mendi .mp-state{display:none}
+  .arcade-mendi .mp-task{grid-column:1/-1;font-size:11.5px;line-height:1.27}
+  .mp-task[data-next="true"]{color:#ffe08a}
+  .mp-chip{padding:3px 8px;font-size:10px}
+  .mp-bar{height:10px}
+  .mp-val{min-width:30px;font-size:12px}
+  .arcade-top .sim-long{display:none}
+  .arcade-top .sim-short{display:inline}
+  .arcade-top .sim-focus{padding:0 12px;font-size:12.5px}
+  .arcade-headline{min-width:0;overflow:hidden;padding:7px 10px}
   .arcade-headline b{font-size:24px}
   .arcade-headline span{font-size:11px}
   /* a long unit ("nakarmionych", "szkodników") drops under the number and the line under it may take two
      lines, instead of both being cut on a 390 px phone */
   .arcade-headline p{flex-wrap:wrap;row-gap:1px}
   .arcade-headline small{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-height:1.25}
+  .arcade-banner{padding:9px 14px;max-width:calc(100% - var(--dock-r) - 24px)}
+  .arcade-banner .ban-task{font-size:13.5px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+  .arcade-banner .ban-link{font-size:12px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 }
-@media (max-height:500px) and (min-width:641px){
-  /* 78 px: the block row, the gauge and one line of "W głowie" (70 px squeezed that line to 8 px) */
-  .arcade-mendi{height:78px;gap:3px;padding:6px 10px;top:calc(max(6px,env(safe-area-inset-top)) + 46px)}
-  .arcade-mendi .mp-state{display:none}
-  .mp-task{-webkit-line-clamp:1;font-size:11.5px}
-  .arcade-headline{top:calc(max(6px,env(safe-area-inset-top)) + 46px);padding:5px 10px}
+@media (max-width:640px){
+  /* a phone upright: the time as a line along the top edge, the clock and the buttons, then the panel beside
+     the score — one band of ~130 px, so the phone keeps most of its height for the game */
+  .arcade-top{gap:8px;padding:max(8px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left))}
+  .arcade-time{position:absolute;left:0;right:0;top:env(safe-area-inset-top,0px);height:3px;border-radius:0;background:rgba(255,255,255,.14)}
+  .arcade-time i{border-radius:0}
+  .arcade-clock{flex:1;min-width:0;text-align:left;font-size:14px;font-weight:650}
+  .arcade-mendi{width:calc(64% - 14px);height:72px;top:calc(max(8px,env(safe-area-inset-top)) + 48px)}
+  .arcade-headline{top:calc(max(8px,env(safe-area-inset-top)) + 48px);height:72px}
+  /* the calibration, pause and help cards: less padding, and each control's chip above its line */
+  .arcade-overlay{padding:10px}
+  .arcade-card{padding:18px 16px 16px;gap:10px;border-radius:20px}
+  .arcade-card h2{font-size:22px}
+  .arcade-tip{font-size:14px;min-height:0}
+  .arcade-howbrain li{flex-direction:column;align-items:flex-start;gap:3px}
+  .arcade-howbrain li .ban-chip{min-width:0}
+}
+@media (max-height:500px) and (orientation:landscape){
+  /* a phone on its side: one HUD row — the panel on the left, the score, the clock and the buttons on the
+     right (the time as a line along the top edge) — and the signal chart as a column on the right (below) */
+  .arcade-top{left:auto;gap:8px;padding:max(6px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) 6px 8px;background:none}
+  .arcade-time{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);height:3px;border-radius:0;background:rgba(255,255,255,.14)}
+  .arcade-time i{border-radius:0}
+  .arcade-clock{flex:none;min-width:40px;font-size:13px;font-weight:650}
+  .arcade-top .sim-focus{min-height:38px}
+  .arcade-mendi{width:clamp(200px,34vw,380px);height:56px;padding:6px 10px;row-gap:3px;top:max(6px,env(safe-area-inset-top));left:max(10px,env(safe-area-inset-left))}
+  .arcade-mendi .mp-task{-webkit-line-clamp:1}
+  .arcade-headline{top:max(6px,env(safe-area-inset-top));right:calc(var(--top-w,320px) + 2px);height:56px;padding:5px 10px;max-width:clamp(96px,22vw,220px)}
   .arcade-headline b{font-size:22px}
+  .arcade-headline small{-webkit-line-clamp:1}
+  .arcade-banner{padding:8px 14px}
+  .arcade-banner .ban-task{font-size:13px;-webkit-line-clamp:2}
 }
 /* a block's instruction over the game, for a few seconds (the runner's showBanner) */
-.arcade-banner{position:absolute;left:50%;top:calc(max(10px,env(safe-area-inset-top)) + 186px);transform:translateX(-50%);z-index:3;width:max-content;max-width:min(560px,calc(100% - 32px));
+.arcade-banner{position:absolute;left:calc((100% - var(--dock-r)) / 2);top:calc(var(--hud-b,176px) + 10px);transform:translateX(-50%);z-index:3;width:max-content;max-width:min(560px,calc(100% - 32px));
   padding:12px 18px 13px;border-radius:18px;background:rgba(8,9,14,.82);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.14);
   color:#fff;text-align:center;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:5px}
 .arcade-banner[hidden]{display:none}
+.arcade .hold:not([hidden]) ~ .arcade-banner{margin-top:44px}
 .arcade-banner.show{animation:banner 5.2s ease both}
 @keyframes banner{0%{opacity:0;transform:translate(-50%,10px)}7%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}
 .arcade-banner p{margin:0}
@@ -741,24 +783,28 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .dock-nums{font-size:11.5px;color:rgba(255,255,255,.6)}
 .dock-text .dock-block{font-size:12px;color:rgba(255,255,255,.85);white-space:normal;line-height:1.3}
 .dock-session{font-size:12px;color:rgba(255,255,255,.6)}
-.arcade.docked .hold{bottom:calc(var(--dock) + 14px)}
-.arcade.docked .sim-focus{bottom:calc(var(--dock) + 12px)}
+.arcade .hold{left:calc((100% - var(--dock-r)) / 2);top:calc(var(--hud-b,176px) + 4px);bottom:auto;max-width:calc(100% - var(--dock-r) - 24px);text-align:center}
 .arcade.docked[data-stage="calibration"] .arcade-overlay{padding-bottom:calc(var(--dock) + 12px)}
 @media (max-width:640px){
-  .arcade.docked{--dock:150px}
-  .arcade-dock{grid-template-columns:minmax(0,1fr);grid-template-rows:72px minmax(0,1fr);gap:4px;padding-top:6px}
-  .dock-text{justify-content:flex-start}
-  .dock-text .dock-state{font-size:14px}
-  .dock-text .dock-block,.dock-session{font-size:11.5px}
-}
-@media (max-height:500px) and (min-width:641px){
-  .arcade.docked{--dock:96px}
-  .arcade-dock{grid-template-columns:minmax(0,1fr) minmax(240px,360px);padding-top:6px}
-  .dock-text{gap:2px}
-  .dock-text .dock-state{font-size:13px}
+  /* a phone's dock: the chart, then one line each for now and for the last block */
+  .arcade.docked{--dock:calc(100px + env(safe-area-inset-bottom,0px))}
+  .arcade-dock{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:2px;
+    padding:4px max(10px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left))}
+  .dock-text{justify-content:flex-start;gap:1px}
   .dock-eyebrow,.dock-session{display:none}
-  .arcade-banner{top:calc(max(6px,env(safe-area-inset-top)) + 132px);padding:8px 14px}
-  .ban-task{font-size:13px}
+  .dock-text .dock-state{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .dock-text .dock-state::before{display:inline-block;vertical-align:1px;margin-right:7px}
+  .dock-text .dock-block{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+}
+@media (max-height:500px) and (orientation:landscape){
+  /* a phone on its side: the dock is a column on the right under the HUD row, so the game keeps its height */
+  .arcade.docked{--dock:0px;--dock-r:clamp(180px,26vw,280px)}
+  .arcade-dock{left:auto;top:var(--hud-b,68px);width:var(--dock-r);height:auto;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(64px,1fr) auto;gap:4px;
+    padding:6px max(10px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) 8px;border-top:none;border-left:1px solid rgba(255,255,255,.1)}
+  .dock-text{justify-content:flex-start;gap:2px}
+  .dock-eyebrow,.dock-session{display:none}
+  .dock-text .dock-state{font-size:12.5px}
+  .dock-text .dock-block{font-size:11.5px;white-space:normal}
 }
 .arcade-chip{position:absolute;left:max(16px,env(safe-area-inset-left));top:calc(max(10px,env(safe-area-inset-top)) + 44px);z-index:3;display:flex;align-items:center;gap:8px;
   padding:6px 11px;border-radius:999px;background:rgba(8,9,14,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fff;pointer-events:none;transition:opacity .3s}

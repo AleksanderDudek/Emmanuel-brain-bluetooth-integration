@@ -240,7 +240,7 @@ export class SignalDock {
     const L = this.trace.layout(box, this.now, { span: CHART_SEC, minSpan: 4 });
 
     // the calibration's 0, when it is in sight: where this session started from
-    ctx.font = font(600, 10);
+    ctx.font = font(600, 11);
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'right';
     const yHi = box.y + 5, yLo = box.y + box.h - 5;
@@ -265,7 +265,7 @@ export class SignalDock {
     if (!last) return;
 
     // over the chart: the delay's name, right-aligned on its bracket, then the bands' names where there is room
-    ctx.font = font(650, 10);
+    ctx.font = font(650, 11);
     ctx.textBaseline = 'bottom';
     ctx.textAlign = 'right';
     ctx.fillStyle = 'rgba(255,255,255,.7)';
@@ -287,7 +287,7 @@ export class SignalDock {
     ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(255,210,122,.95)';
     ctx.fillText(t('dock.threshold'), box.x + box.w + 4, Math.min(box.y + box.h - 6, Math.max(box.y + 6, last.ty)));
-    ctx.font = font(600, 10);
+    ctx.font = font(600, 11);
     ctx.fillStyle = 'rgba(255,255,255,.5)';
     ctx.textBaseline = 'top';
     ctx.fillText(`−${CHART_SEC}\u00a0s`, box.x, box.y + box.h + 2);

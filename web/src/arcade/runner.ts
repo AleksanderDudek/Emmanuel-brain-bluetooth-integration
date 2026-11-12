@@ -21,7 +21,8 @@ import { BEGINNER_SESSIONS, BEGINNER_TUNING, DEFAULT_TUNING, type FocusTuning } 
 import { reducedMotion } from './kit/juice';
 import { dayKey, daySeed, saveProgress } from './kit/progress';
 import { ArcadeSession, type CarriedCalibration } from './kit/session';
-import { FREE_PHASE, type ArcadeGame, type ArcadeModule, type ArcadeOutcome, type SignalPhase } from './kit/types';
+import { NO_INSETS, coarsePointer, safeAreas } from './kit/mobile';
+import { FREE_PHASE, type ArcadeGame, type ArcadeModule, type ArcadeOutcome, type Insets, type SignalPhase, type TapTarget } from './kit/types';
 import { MendiPanel, howToPlay } from './mendi';
 import type { ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
@@ -38,6 +39,14 @@ const icon = (id: string) => {
 
 /** How long a block's instruction stays over the game (ms). */
 const BANNER_MS = 4200;
+
+/**
+ * Adaptive resolution: over each window of play (s), the mean frame time (ms) above which the window
+ * counts as slow; after two slow windows in a row the canvas drops half a device pixel (2 → 1.5 → 1).
+ * A phone's fill rate is the usual limit, and a sharper picture is not worth a stuttering game.
+ */
+const PERF_WINDOW_SEC = 2.5;
+const PERF_SLOW_MS = 24;
 
 /** Longest a game may keep a finished session going to resolve its current move (s). */
 const OVERTIME_SEC = 30;
@@ -94,6 +103,12 @@ export class ArcadeRunner {
   } | null = null;
   private tipTimer: ReturnType<typeof setInterval> | null = null;
   private bannerTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * The coach mark and the block banner never show at once (on a phone they would cover each other): a hint
+   * asked for while the banner is up waits for it, and one on screen when a banner comes is shown again after.
+   */
+  private hintNow: { text: string; at: { x: number; y: number } | null; ms: number; until: number } | null = null;
+  private hintLater: { text: string; at: { x: number; y: number } | null; ms: number } | null = null;
   private countTimer: ReturnType<typeof setTimeout> | null = null;
   /** a pause asked for during the countdown: it takes effect when play begins */
   private pauseAtStart = false;
@@ -103,10 +118,32 @@ export class ArcadeRunner {
   private lastPct = -1;
   /** the game's block as of the last sample (the Mendi panel reads it every frame) */
   private phase: SignalPhase = FREE_PHASE;
+  /** the primary input is a finger (read when a session starts) */
+  private touch = false;
+  /** the device's safe areas (re-read on every resize) */
+  private safeArea: Insets = NO_INSETS;
+  /** the canvas resolution's ceiling (device pixels per CSS px): adaptive resolution lowers it on a slow phone */
+  private dprCap = 2;
+  /** frame times over the current window of play, and the slow windows in a row */
+  private perf = { sum: 0, n: 0, slow: 0 };
+  /** the game's own update + draw time per frame (ms, smoothed), for the debug view */
+  private frameMs = 0;
+  /** what the canvas was last laid out for: a resize that changes nothing is not passed to the game */
+  private sizeKey = '';
+  private resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** this session put the page in full screen (a phone): leaving the game takes it out again */
+  private fullscreen = false;
 
   constructor(private readonly d: ArcadeDeps) {
     d.hub.addEventListener('sample', e => this.onSample((e as CustomEvent<HubSample>).detail));
-    window.addEventListener('resize', () => this.resize());
+    // a phone turned on its side: the first resize may come before the browser's bars settle, so look again
+    const relayout = () => {
+      this.resize();
+      if (this.resizeTimer) clearTimeout(this.resizeTimer);
+      this.resizeTimer = setTimeout(() => { this.resizeTimer = null; this.resize(); }, 260);
+    };
+    window.addEventListener('resize', relayout);
+    screen.orientation?.addEventListener?.('change', relayout);
     document.addEventListener('visibilitychange', () => {
       if (!this.active) return;
       if (document.hidden) {
@@ -132,6 +169,10 @@ export class ArcadeRunner {
     const prefs = this.d.settings.arcade;
     this.audio = new ArcadeAudio(prefs.volume, prefs.sound);
     this.audio.start();
+    this.touch = coarsePointer();
+    // a phone plays in full screen where the browser allows it (Android; an installed app already is): the
+    // request must come inside the "Graj" tap, like the audio
+    this.enterFullscreen();
     this.active = true;
     this.stage = 'calibration';
     this.entry = entry;
@@ -144,6 +185,10 @@ export class ArcadeRunner {
     this.pauseAtStart = false;
     this.keysDown.clear();
     this.pointersDown.clear();
+    this.dprCap = 2;
+    this.perf = { sum: 0, n: 0, slow: 0 };
+    this.frameMs = 0;
+    this.sizeKey = '';
     try {
       this.begin(entry, mod, progress, tool);
     } catch (e) {
@@ -177,11 +222,10 @@ export class ArcadeRunner {
       canvas: this.ui!.canvas, hud: this.ui!.hud, audio: this.audio!, progress, rng: mulberry32((Date.now() ^ 0x5bd1e995) >>> 0),
       day, daySeed: daySeed(entry.id, day), plannedSec: planned, tool, simulated: this.d.hub.status.source === 'simulator',
       reducedMotion: reducedMotion(), haptics: prefs.haptics, tuning,
-      hint: (text: string, at?: { x: number; y: number } | null, ms = 3500) => {
-        const ui = this.ui;
-        if (ui && this.stage === 'play') ui.panel.showHint(text, at, ms, ui.canvas);
-      },
+      hint: (text: string, at?: { x: number; y: number } | null, ms = 3500) => this.hint(text, at ?? null, ms),
       hudTop: () => this.hudTop(),
+      insets: () => this.insets(),
+      touch: this.touch,
     };
     this.game = mod.create(env);
     this.resize();
@@ -226,9 +270,6 @@ export class ArcadeRunner {
       e.stopPropagation();
       this.openHelp();
     });
-    const top = h('div', { class: 'arcade-top' },
-      h('div', { class: 'arcade-time', role: 'progressbar', 'aria-label': t('run.time'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, timeBar),
-      clock, help, dockBtn, pause);
     // the standard HUD (src/arcade/mendi.ts): the band's panel, the score, the coach mark
     const mod = this.mod!;
     const panel = new MendiPanel(entry, n => mod.unit?.(n) ?? entry.unit);
@@ -242,17 +283,23 @@ export class ArcadeRunner {
       chip = h('div', { class: 'arcade-chip', title: t('run.chip') },
         icon('i-brain'), h('span', { class: 'arcade-chip-bar' }, chipBar, h('b')), chipHold);
     }
+    // the simulator's switch sits in the top bar, so the bottom of the screen (a thumb's reach) is the game's
     let sim: HTMLButtonElement | null = null;
     if (this.d.hub.status.source === 'simulator') {
-      sim = h('button', { class: 'btn sim-focus', type: 'button', 'aria-pressed': 'false' }, `▲ ${t('run.simulate')}`);
+      sim = h('button', { class: 'btn sim-focus', type: 'button', 'aria-pressed': 'false', 'aria-label': t('run.simulate') },
+        h('span', { class: 'sim-long' }, `▲ ${t('run.simulate')}`), h('span', { class: 'sim-short', 'aria-hidden': 'true' }, `▲ ${t('run.simulateShort')}`));
       sim.addEventListener('click', e => {
         e.stopPropagation();
         this.toggleSim();
         wrap.focus({ preventScroll: true });   // else Space and Enter (the games' keys) would press this button again
       });
     }
+    const top = h('div', { class: 'arcade-top' },
+      h('div', { class: 'arcade-time', role: 'progressbar', 'aria-label': t('run.time'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, timeBar),
+      clock, sim, help, dockBtn, pause);
     const wrap = h('div', { class: docked ? 'arcade docked' : 'arcade', role: 'application', tabindex: '-1', 'aria-label': t('run.keys', { title: entry.title }) },
-      canvas, hud, marks, panel.el, panel.score, dock.el, top, chip, hold, banner, sim, overlay);
+      canvas, hud, marks, panel.el, panel.score, dock.el, top, chip, hold, banner, overlay);
+    if (this.touch) wrap.classList.add('touch');
     const pos = (e: PointerEvent) => {
       const r = canvas.getBoundingClientRect();
       return { x: e.clientX - r.left, y: e.clientY - r.top, id: e.pointerId };
@@ -280,15 +327,94 @@ export class ArcadeRunner {
 
   private resize(): void {
     if (!this.active || !this.ui || !this.game) return;
-    const r = this.ui.canvas.getBoundingClientRect();
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const ui = this.ui;
+    this.safeArea = safeAreas(ui.wrap);
+    // the top bar's width (a phone on its side puts the score left of it) and the HUD's lower edge, for the
+    // CSS that sits under it (the banner, the signal note, the dock's column)
+    const bar = ui.pause.parentElement;
+    if (bar) ui.wrap.style.setProperty('--top-w', `${Math.round(bar.getBoundingClientRect().width)}px`);
+    const top = this.hudTop();
+    ui.wrap.style.setProperty('--hud-b', `${top}px`);
+    const r = ui.canvas.getBoundingClientRect();
+    const dpr = Math.min(this.dprCap, window.devicePixelRatio || 1);
     const w = Math.max(1, r.width), hh = Math.max(1, r.height);
-    this.ui.canvas.width = Math.round(w * dpr);
-    this.ui.canvas.height = Math.round(hh * dpr);
+    const ins = this.insets();
+    const key = `${w}x${hh}@${dpr}|${ins.top},${ins.right},${ins.bottom},${ins.left}`;
+    if (key === this.sizeKey) return;
+    this.sizeKey = key;
+    ui.canvas.width = Math.round(w * dpr);
+    ui.canvas.height = Math.round(hh * dpr);
     this.safe(() => this.game!.resize(w, hh, dpr));
-    if (this.ui.wrap.classList.contains('docked')) this.ui.dock.resize();
+    if (ui.wrap.classList.contains('docked')) ui.dock.resize();
     // a resized canvas is blank: while paused the loop does not draw, so draw the frame once here
     if (this.session?.paused) this.safe(() => this.game!.draw());
+  }
+
+  /** What covers the canvas's edges (GameEnv.insets): the HUD band at the top, the device's safe areas elsewhere. */
+  private insets(): Insets {
+    const ui = this.ui, sa = this.safeArea;
+    if (!ui) return NO_INSETS;
+    // an edge the dock covers (its strip below, or its column on the right of a phone on its side) is not the
+    // device's edge: the dock keeps the home indicator's and the notch's room itself
+    const c = ui.canvas.getBoundingClientRect(), w = ui.wrap.getBoundingClientRect();
+    return {
+      top: this.hudTop(),
+      right: c.right < w.right - 1 ? 0 : sa.right,
+      bottom: c.bottom < w.bottom - 1 ? 0 : sa.bottom,
+      left: sa.left,
+    };
+  }
+
+  /** Full screen for a phone's session where the browser has it (not on an iPhone; an installed app already is). */
+  private enterFullscreen(): void {
+    if (!this.touch || navigator.webdriver || document.fullscreenElement) return;
+    const el = document.documentElement;
+    if (typeof el.requestFullscreen !== 'function') return;
+    try {
+      if (matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches) return;
+    } catch { /* no display-mode queries: ask anyway */ }
+    this.fullscreen = true;
+    el.requestFullscreen({ navigationUI: 'hide' }).catch(() => { this.fullscreen = false; });
+  }
+
+  private exitFullscreen(): void {
+    if (this.fullscreen && document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    this.fullscreen = false;
+  }
+
+  /**
+   * Adaptive resolution (PERF_*): a frame of play goes into the window; a window that ran slow twice in a
+   * row lowers the canvas resolution by half a device pixel, down to 1.  It never goes back up in the
+   * session, so the picture does not flicker between the two.
+   */
+  private watchFrames(dtMs: number): void {
+    const p = this.perf;
+    p.sum += dtMs;
+    p.n++;
+    if (p.sum < PERF_WINDOW_SEC * 1000) return;
+    const mean = p.sum / p.n;
+    p.sum = 0;
+    p.n = 0;
+    p.slow = mean > PERF_SLOW_MS ? p.slow + 1 : 0;
+    const dpr = window.devicePixelRatio || 1;
+    if (p.slow >= 2 && Math.min(this.dprCap, dpr) > 1) {
+      p.slow = 0;
+      this.dprCap = Math.max(1, Math.min(this.dprCap, dpr) - 0.5);
+      this.resize();
+    }
+  }
+
+  /** A game's coach mark (GameEnv.hint), held back while a block's banner is on screen. */
+  private hint(text: string, at: { x: number; y: number } | null, ms: number): void {
+    const ui = this.ui;
+    if (!ui || this.stage !== 'play') return;
+    if (text && !ui.banner.hidden) {
+      this.hintLater = { text, at, ms };
+      return;
+    }
+    if (!text) this.hintLater = null;
+    this.hintNow = text ? { text, at, ms, until: performance.now() + ms } : null;
+    ui.panel.showHint(text, at, ms, ui.canvas);
   }
 
   /** The canvas band the standard HUD covers at the top (CSS px from the canvas top). */
@@ -310,7 +436,7 @@ export class ArcadeRunner {
     ui.overlay.replaceChildren(h('div', { class: 'arcade-card arcade-help-card' },
       h('p', { class: 'eyebrow' }, t('how.eyebrow')),
       h('h2', null, entry.title),
-      howToPlay(entry, this.mod?.howto?.() ?? null, ses.tool),
+      howToPlay(entry, this.mod?.howto?.() ?? null, ses.tool, this.touch),
       back));
     back.focus();
   }
@@ -342,8 +468,22 @@ export class ArcadeRunner {
     ui.banner.classList.remove('show');
     void ui.banner.offsetWidth;
     ui.banner.classList.add('show');
+    // a coach mark on screen steps aside for the banner and comes back after it
+    const now = performance.now();
+    if (this.hintNow && this.hintNow.until > now + 600) {
+      this.hintLater = { ...this.hintNow, ms: this.hintNow.until - now };
+      this.hintNow = null;
+      ui.panel.showHint('', null, 0, ui.canvas);
+    }
     if (this.bannerTimer) clearTimeout(this.bannerTimer);
-    this.bannerTimer = setTimeout(() => { if (this.ui === ui) ui.banner.hidden = true; }, BANNER_MS);
+    this.bannerTimer = setTimeout(() => {
+      this.bannerTimer = null;
+      if (this.ui !== ui) return;
+      ui.banner.hidden = true;
+      const later = this.hintLater;
+      this.hintLater = null;
+      if (later) this.hint(later.text, later.at, Math.max(1800, later.ms));
+    }, BANNER_MS);
   }
 
   /** Show or hide the signal dock (a setting kept across sessions); the game's canvas takes the room. */
@@ -374,7 +514,7 @@ export class ArcadeRunner {
       h('h2', null, t(this.session!.tool === 'fnirs' ? 'cal.fnirs' : 'cal.eeg')),
       h('div', { class: 'progress calib-bar' }, bar), text,
       h('p', { class: 'muted' }, t('cal.still')),
-      tip, reason, howToPlay(entry, this.mod?.howto?.() ?? null, this.session!.tool),
+      tip, reason, howToPlay(entry, this.mod?.howto?.() ?? null, this.session!.tool, this.touch),
       h('button', { class: 'btn ghost', type: 'button', on: { click: () => this.cancel() } }, t('cal.back'))));
     let i = 0;
     const showTip = () => { tip.textContent = entry.tips[i++ % entry.tips.length]; };
@@ -438,16 +578,24 @@ export class ArcadeRunner {
   // ── the loop ───────────────────────────────────────────────────
   private loop = (ms: number): void => {
     if (!this.active || this.stage === 'summary') return;
-    const dt = Math.min(0.05, Math.max(0, (ms - this.lastFrame) / 1000));
+    const rawMs = Math.max(0, ms - this.lastFrame);
+    const dt = Math.min(0.05, rawMs / 1000);
     this.lastFrame = ms;
     const ses = this.session!, game = this.game!;
     const paused = ses.paused;
+    const t0 = performance.now();
     if (this.stage === 'calibration' || this.stage === 'countdown') this.safe(() => game.intro(dt, this.stage === 'countdown' ? 1 : this.calT));
     else if (this.stage === 'play' && !paused) {
       const now = ses.t + Math.min(0.15, (ms - this.lastSampleAt) / 1000);
       this.safe(() => game.update(dt, ses.frame, now));
     }
     if (!paused || this.stage !== 'play') this.safe(() => game.draw());
+    if (this.stage === 'play' && !paused && !document.hidden) {
+      const cost = performance.now() - t0;
+      this.frameMs = this.frameMs ? this.frameMs * 0.95 + cost * 0.05 : cost;
+      // a frame after a pause, a hidden tab or a hitch of the browser says nothing about the game's pace
+      if (rawMs < 250) this.watchFrames(rawMs);
+    }
     if (this.ui?.wrap.classList.contains('docked')) this.ui.dock.draw();
     this.renderTop();
     this.raf = requestAnimationFrame(this.loop);
@@ -634,6 +782,8 @@ export class ArcadeRunner {
     this.countTimer = null;
     if (this.bannerTimer) clearTimeout(this.bannerTimer);
     this.bannerTimer = null;
+    this.hintNow = null;
+    this.hintLater = null;
     this.ui?.panel.destroy();
     this.keysDown.clear();
     this.pointersDown.clear();
@@ -648,12 +798,21 @@ export class ArcadeRunner {
   }
 
   /** For the smoke test and the console (?debug): where the run is. */
-  get debug(): { stage: Stage; t: number; level: number; reliable: boolean; outcome: ArcadeOutcome | null } | null {
+  get debug(): {
+    stage: Stage; t: number; level: number; reliable: boolean; outcome: ArcadeOutcome | null;
+    targets: TapTarget[] | null; insets: Insets; touch: boolean; dpr: number; frameMs: number;
+  } | null {
     const ses = this.session;
     if (!this.active || !ses) return null;
     let outcome: ArcadeOutcome | null = null;
     try { outcome = this.game?.result() ?? null; } catch { /* mid-update */ }
-    return { stage: this.stage, t: ses.t, level: ses.frame.level, reliable: ses.frame.reliable, outcome };
+    let targets: TapTarget[] | null = null;
+    try { targets = this.game?.targets?.() ?? null; } catch { /* mid-update */ }
+    const dpr = this.ui ? this.ui.canvas.width / Math.max(1, this.ui.canvas.getBoundingClientRect().width) : 0;
+    return {
+      stage: this.stage, t: ses.t, level: ses.frame.level, reliable: ses.frame.reliable, outcome,
+      targets, insets: this.insets(), touch: this.touch, dpr: Math.round(dpr * 100) / 100, frameMs: Math.round(this.frameMs * 100) / 100,
+    };
   }
 
   /** Leave without saving (calibration "Wróć", pause "Porzuć" / "Wyjdź"). */
@@ -679,6 +838,7 @@ export class ArcadeRunner {
   private leave(): void {
     this.active = false;
     this.ui = null;
+    this.exitFullscreen();
     this.root.hidden = true;
     this.root.replaceChildren();
     document.documentElement.style.overflow = '';
