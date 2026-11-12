@@ -4,18 +4,25 @@
  * fruits, the wheat that keeps the band's last 40 s — and the juice: squash and stretch, pops, flying
  * points, a rising pitch (audio.ts), hit-stop (sim.ts), the camera's shake, the wind's sway.  The
  * runner draws the Mendi panel and the score; this view draws neither.
+ *
+ * Phone first (DESIGN §6, §12): the layout (layout.ts) reads the runner's insets; no text under 11 px
+ * (paint.ts `font`), what is read to play at 13 px and up; a touch shows a soft ring where the finger
+ * came down; the field is painted once per size; the story and festival cards report their boxes for
+ * `targets()` (a tap on them closes them).
  */
 import { fmtNum } from '../../i18n';
 import { clamp, ease, Floaters, Particles, Shake } from '../kit/juice';
+import { MIN_READ, MIN_TEXT, NO_INSETS, type Rect } from '../kit/mobile';
 import { layoutPassage, drawPassage, passage, wrapLines, type PassageLayout } from '../kit/scripture';
 import { traceBars } from '../kit/trace';
+import type { Insets } from '../kit/types';
 import { DECORS, MAX_TIER, decorName, festName, festivalAt, fruit } from './content';
 import { t } from './i18n';
 import { UrodzajIntro } from './intro';
 import { computeLayout, sx, sy, worldX, type Layout } from './layout';
 import { decorCount, reached, type UrodzajProgress } from './meta';
 import {
-  C, FONT, SERIF, FruitSprites, TAU, glow, paintBasketBack, paintBasketFront, paintBubble, paintCard, paintField, paintFruit,
+  C, FONT, FieldCache, SERIF, FruitSprites, TAU, font, glow, paintBasketBack, paintBasketFront, paintBubble, paintCard, paintFruit,
   paintGleanBasket, paintGleaner, paintRim, paintSilhouette, paintSparrow, paintStar, paintTable, paintWheatTrace, roundRect,
   type BasketPaint, type Face, type SparrowPose,
 } from './paint';
@@ -53,20 +60,28 @@ export class UrodzajView {
   private poleAt = { x: 0, y: 0 };
   private mission: { text: string; t: number } | null = null;
   private chainWord: { n: number; t: number } | null = null;
+  private readonly field = new FieldCache();
+  /** where a finger came down (a soft ring answers the touch at once) */
+  private touchAt: { x: number; y: number; t: number } | null = null;
+  /** the story's or the festival's card as drawn this frame (a tap on it closes it): the game's targets */
+  cardBox: Rect | null = null;
 
-  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean }) {
+  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; touch?: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number, hudTop: number): void {
+  resize(w: number, h: number, dpr: number, insets: Insets | number = NO_INSETS): void {
     this.w = Math.max(1, w);
     this.h = Math.max(1, h);
     this.dpr = dpr;
-    this.L = computeLayout(this.w, this.h, hudTop);
+    this.L = computeLayout(this.w, this.h, insets);
     this.sprites.setScale(this.L.S, dpr);
     this.verse = null;
   }
+
+  /** A finger (or the mouse) came down at (x, y): a soft ring answers it there. */
+  touched(x: number, y: number): void { this.touchAt = { x, y, t: 0 }; }
 
   worldX(px: number): number { return worldX(this.L, px); }
 
@@ -189,12 +204,14 @@ export class UrodzajView {
       this.chainWord.t += dt;
       if (this.chainWord.t > 1.1) this.chainWord = null;
     }
+    if (this.touchAt && (this.touchAt.t += dt) > 0.35) this.touchAt = null;
   }
 
   draw(sim: UrodzajSim): void {
     const ctx = this.ctx, L = this.L, w = this.w, h = this.h;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    paintField(ctx, w, h, L.ground, this.clock);
+    this.cardBox = null;
+    this.field.draw(ctx, w, h, L.ground, this.dpr);
     // the band's last 40 s: wheat along the ground
     const nBars = Math.max(20, Math.min(60, Math.round(w / 16)));
     paintWheatTrace(ctx, traceBars(sim.trace, sim.t, nBars), 8, w - 8, L.ground + 2, Math.min(46, L.S * 0.13), this.clock);
@@ -214,6 +231,7 @@ export class UrodzajView {
     this.floats.draw(ctx, FONT);
     this.drawChain();
     ctx.restore();
+    this.drawTouch();
     this.drawTally(sim);
     this.drawFestival(sim);
     this.drawMission();
@@ -328,7 +346,7 @@ export class UrodzajView {
     const ctx = this.ctx, L = this.L;
     const k = cw.t / 1.1;
     ctx.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
-    ctx.font = `800 ${Math.round(18 + Math.min(4, cw.n) * 3)}px ${FONT}`;
+    ctx.font = font(800, (18 + Math.min(4, cw.n) * 3) * L.u);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const x = L.cx, y = sy(L, BASKET.rim) + L.S * 0.2;
@@ -384,23 +402,69 @@ export class UrodzajView {
     paintSparrow(ctx, x, hy - (hanging ? R * 0.85 : 0), Math.max(26, L.S * 0.13), pose);
   }
 
+  /** The next fruit's bubble: 44 px and up, the fruit as large as the bubble holds, "Następny" at 13 px over it. */
   private drawNext(sim: UrodzajSim): void {
-    const ctx = this.ctx, n = this.L.next;
-    ctx.fillStyle = 'rgba(255,246,224,.92)';
-    ctx.strokeStyle = 'rgba(184,128,63,.8)';
+    const ctx = this.ctx, L = this.L, n = L.next;
+    ctx.fillStyle = 'rgba(58,36,18,.18)';
+    ctx.beginPath();
+    ctx.arc(n.x + 1, n.y + 2.5, n.r, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,246,224,.95)';
+    ctx.strokeStyle = 'rgba(184,128,63,.85)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(n.x, n.y, n.r, 0, TAU);
     ctx.fill();
     ctx.stroke();
-    const f = fruit(sim.next);
-    const R = Math.min(n.r * 0.7, f.r * this.L.S);
-    paintFruit(ctx, this.sprites, sim.next, n.x, n.y + n.r * 0.08, R, 0, 0, 'calm');
-    ctx.font = `700 ${Math.max(10, Math.round(n.r * 0.36))}px ${FONT}`;
-    ctx.fillStyle = C.ink;
+    const R = n.r * 0.72;
+    paintFruit(ctx, this.sprites, sim.next, n.x, n.y + n.r * 0.06, R, 0, 0, 'calm');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(t('world.next'), n.x, n.y - n.r - 3);
+    const label = this.fitIn(t('world.next'), Math.max(2 * n.r + 20, 70 * L.u), n.label, 800);
+    this.plated(label, Math.min(n.x, L.w - 6 - ctx.measureText(label).width / 2), n.labelY, C.ink);
+  }
+
+  /** Text with a light plate around its letters (a label over the field or the weave). */
+  private plated(text: string, x: number, y: number, fill: string, plate = 'rgba(255,246,224,.92)', lw = 3.5): void {
+    const ctx = this.ctx;
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = lw;
+    ctx.strokeStyle = plate;
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = fill;
+    ctx.fillText(text, x, y);
+  }
+
+  /** Set the font so `text` fits `maxW`, from `px` down to `min`, then cut it with "…"; returns what to draw. */
+  private fitIn(text: string, maxW: number, px: number, weight: number, min: number = MIN_READ, family = FONT): string {
+    const ctx = this.ctx;
+    let size = Math.max(min, px);
+    ctx.font = font(weight, size, family);
+    let w = ctx.measureText(text).width;
+    while (w > maxW && size > min) {
+      size = Math.max(min, Math.min(size - 0.5, Math.floor((size * maxW) / w * 10) / 10));
+      ctx.font = font(weight, size, family);
+      w = ctx.measureText(text).width;
+    }
+    if (w <= maxW || !text) return text;
+    let lo = 0, hi = text.length;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (ctx.measureText(`${text.slice(0, mid).trimEnd()}…`).width <= maxW) lo = mid; else hi = mid - 1;
+    }
+    return lo > 0 ? `${text.slice(0, lo).trimEnd()}…` : '';
+  }
+
+  /** A soft ring where the finger came down: the touch is answered at once (the aim follows from there). */
+  private drawTouch(): void {
+    const tc = this.touchAt;
+    if (!tc || !this.opts.touch) return;
+    const ctx = this.ctx, k = tc.t / 0.35;
+    ctx.strokeStyle = `rgba(255,246,224,${0.55 * (1 - k)})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(tc.x, tc.y, 14 + 16 * ease.outCubic(k), 0, TAU);
+    ctx.stroke();
   }
 
   // ── the wind's streaks ──
@@ -434,11 +498,11 @@ export class UrodzajView {
     paintGleaner(ctx, g.x + g.s * 0.02, g.y, g.s * 0.84, bend + Math.sin(this.clock * 1.1 + 1) * 0.05, '#b5523b', '#efe4cc', 1);
     paintGleanBasket(ctx, g.x - g.s * 0.6, g.y, g.s, active && sim.reliable ? clamp(sim.glean) : null, sim.gleaned);
     if (active) {
-      ctx.font = `700 ${Math.max(10, Math.round(g.s * 0.12))}px ${FONT}`;
-      ctx.fillStyle = C.ink;
+      ctx.font = font(800, Math.max(13 * this.L.u, g.s * 0.12));
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(t('world.gleaners'), g.x - g.s * 0.3, g.y - g.s * 1.02);
+      const tx = Math.max(this.L.left + ctx.measureText(t('world.gleaners')).width / 2, g.x - g.s * 0.3);
+      this.plated(t('world.gleaners'), tx, g.y - g.s * 1.02, C.ink);
     }
   }
 
@@ -487,13 +551,12 @@ export class UrodzajView {
         ctx.stroke();
       }
     }
-    ctx.font = `700 ${Math.max(10, Math.round(r.r * 0.17))}px ${FONT}`;
-    ctx.fillStyle = C.ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(t('world.ring'), r.x, r.y - r.r * 0.12);
-    ctx.font = `800 ${Math.max(11, Math.round(r.r * 0.22))}px ${FONT}`;
-    ctx.fillText(`${got}/${MAX_TIER}`, r.x, r.y + r.r * 0.16);
+    ctx.fillStyle = C.ink;
+    ctx.fillText(this.fitIn(t('world.ring'), r.r * 1.5, Math.max(13 * this.L.u, r.r * 0.17), 700, MIN_TEXT), r.x, r.y - r.r * 0.14);
+    ctx.font = font(800, Math.max(14 * this.L.u, r.r * 0.22));
+    ctx.fillText(`${got}/${MAX_TIER}`, r.x, r.y + r.r * 0.18);
   }
 
   // ── cards ──
@@ -502,8 +565,9 @@ export class UrodzajView {
     if (!c || c.t >= RULES.tally + 0.2) return;
     const ctx = this.ctx, L = this.L;
     const k = clamp(c.t / 0.3), out = c.final ? 1 : clamp((RULES.tally + 0.2 - c.t) / 0.3);
-    const cw = Math.min(L.w - 32, 320), ch = Math.min(150, Math.max(110, L.h * 0.42));
-    const x = L.cx - cw / 2, y = Math.max(8, Math.min(L.h - ch - 8, sy(L, BASKET.rim * 0.6) - ch / 2));
+    const u = L.u;
+    const cw = Math.min(L.w - 32, 320 * u), ch = Math.min(160 * u, Math.max(120, L.h * 0.42));
+    const x = L.cx - cw / 2, y = Math.max(L.cards.y, Math.min(L.bottom - ch - 4, sy(L, BASKET.rim * 0.6) - ch / 2));
     ctx.save();
     ctx.translate(L.cx, y + ch / 2);
     const s = 0.85 + 0.15 * ease.outBack(k);
@@ -514,16 +578,14 @@ export class UrodzajView {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = C.ink;
-    ctx.font = `700 15px ${FONT}`;
-    ctx.fillText(c.final ? t('tally.final') : t('tally.title', { n: c.index }), L.cx, y + 24);
-    ctx.font = `800 34px ${FONT}`;
+    ctx.fillText(this.fitIn(c.final ? t('tally.final') : t('tally.title', { n: c.index }), cw - 24, 16 * u, 800), L.cx, y + 24 * u);
+    ctx.font = font(800, 34 * u);
     ctx.fillStyle = C.goldDeep;
     ctx.fillText(fmtNum(c.score), L.cx, y + ch * 0.4);
-    for (let i = 0; i < 3; i++) paintStar(ctx, L.cx + (i - 1) * 34, y + ch * 0.64, 13, i < c.stars && c.t > 0.3 + i * 0.25);
-    ctx.font = `600 13px ${FONT}`;
+    for (let i = 0; i < 3; i++) paintStar(ctx, L.cx + (i - 1) * 34 * u, y + ch * 0.64, 13 * u, i < c.stars && c.t > 0.3 + i * 0.25);
     ctx.fillStyle = C.ink;
     const line = this.tallyLine(sim);
-    if (line) ctx.fillText(line, L.cx, y + ch - 20);
+    if (line) ctx.fillText(this.fitIn(line, cw - 24, 14 * u, 650), L.cx, y + ch - 20 * u);
     ctx.restore();
   }
 
@@ -543,18 +605,19 @@ export class UrodzajView {
     const ctx = this.ctx, L = this.L;
     const k = clamp(st.t / 0.3) * clamp((st.dur - st.t) / 0.4);
     const f = festivalAt(st.fest);
-    const cw = Math.min(L.w - 32, 340), ch = 74;
-    const x = L.cx - cw / 2, y = L.top + 8;
+    const u = L.u;
+    const cw = Math.min(L.w - 32, 360 * u), ch = 80 * u;
+    // under the runner's HUD even where the basket rises between its panel and score
+    const x = L.cx - cw / 2, y = L.cards.y + 2;
+    this.cardBox = { x, y, w: cw, h: ch };
     paintCard(ctx, x, y, cw, ch, k);
     ctx.globalAlpha = k;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = C.goldDeep;
-    ctx.font = `800 18px ${FONT}`;
-    ctx.fillText(t('story.fest.title', { fest: festName(f) }), L.cx, y + 26);
+    ctx.fillText(this.fitIn(t('story.fest.title', { fest: festName(f) }), cw - 24, 19 * u, 800), L.cx, y + 28 * u);
     ctx.fillStyle = C.ink;
-    ctx.font = `600 13px ${FONT}`;
-    ctx.fillText(t('story.fest.text', { decor: decorName(f.decor) }), L.cx, y + 50);
+    ctx.fillText(this.fitIn(t('story.fest.text', { decor: decorName(f.decor) }), cw - 24, 14 * u, 600), L.cx, y + 55 * u);
     ctx.globalAlpha = 1;
   }
 
@@ -564,73 +627,101 @@ export class UrodzajView {
     const ctx = this.ctx, L = this.L;
     const a = clamp(m.t / 0.25) * clamp((2.4 - m.t) / 0.4);
     ctx.globalAlpha = a;
-    ctx.font = `800 14px ${FONT}`;
-    const tw = ctx.measureText(m.text).width + 24;
+    const text = this.fitIn(m.text, L.right - L.left - 24, 15 * L.u, 800);
+    const tw = ctx.measureText(text).width + 24, ph = 30 * L.u;
     const x = L.cx - tw / 2, y = sy(L, BASKET.rim) + 18;
-    ctx.fillStyle = 'rgba(58,36,18,.78)';
-    roundRect(ctx, x, y, tw, 26, 13);
+    ctx.fillStyle = 'rgba(58,36,18,.8)';
+    roundRect(ctx, x, y, tw, ph, ph / 2);
     ctx.fill();
     ctx.fillStyle = C.gold;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(m.text, L.cx, y + 13);
+    ctx.fillText(text, L.cx, y + ph / 2 + 0.5);
     ctx.globalAlpha = 1;
   }
 
+  /**
+   * Feliks's line: beside him on the side with more room (never over the next fruit's bubble) — or, where neither
+   * side holds a bubble (a narrow phone, Feliks mid-basket), under his hanging fruit across the basket's empty top,
+   * its tail up to him.  14 px, up to four lines.
+   */
   private drawTalk(sim: UrodzajSim): void {
     const line = sim.talk.line;
     if (!line) return;
-    const ctx = this.ctx, L = this.L;
+    const ctx = this.ctx, L = this.L, u = L.u;
     const a = clamp(line.t / 0.15) * clamp((line.dur - line.t) / 0.25);
-    ctx.font = `600 13px ${FONT}`;
-    const maxW = Math.min(220, L.w * 0.5);
-    const lines = wrapLines(ctx, line.text, maxW - 20);
-    const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 20);
+    ctx.font = font(600, 14 * u);
+    const lh = 19 * u;
     const fx = this.feliksX, fy = sy(L, BASKET.hang) - L.S * 0.14;
-    const right = fx < L.cx;
     const gap = Math.max(34, L.S * 0.12 + 18);
-    let x = right ? fx + gap : fx - gap - bw;
-    x = Math.max(8, Math.min(L.w - 8 - bw, x));
-    const bh = lines.length * 17 + 14;
-    let y = fy - bh / 2;
-    // below the runner's top bar (time, ? and pause) even where the basket rises between the panel and the score
-    y = Math.max(Math.max(L.top + 4, 58), Math.min(L.h - bh - 8, y));
-    paintBubble(ctx, lines, x, y, bw, 17, fx + (right ? 10 : -10), fy, a);
+    const n = L.next;
+    const leftRoom = fx - gap - 8;
+    const rightRoom = (n.beside ? n.x - n.r - 8 : L.w - 8) - (fx + gap);
+    const maxW = Math.min(250 * u, Math.max(170, L.w * 0.56));
+    // under the runner's HUD (its panel, its score, its top bar) even where the basket rises between them
+    const top = Math.max(L.cards.y, 58);
+    const wrap = (w: number) => {
+      const ls = wrapLines(ctx, line.text, w - 20);
+      if (ls.length > 4) {
+        ls.length = 4;
+        ls[3] = `${ls[3].replace(/[\s,;:.]+$/, '')}…`;
+      }
+      return ls;
+    };
+    const room = Math.max(leftRoom, rightRoom);
+    if (room >= 150) {
+      const toLeft = leftRoom >= rightRoom;
+      const lines = wrap(Math.min(maxW, room));
+      const bw = Math.min(maxW, room, Math.max(...lines.map(l => ctx.measureText(l).width)) + 20);
+      const bh = lines.length * lh + 14;
+      const x = toLeft ? fx - gap - bw : fx + gap;
+      const y = Math.max(top, Math.min(L.h - bh - 8, fy - bh / 2));
+      paintBubble(ctx, lines, x, y, bw, lh, fx + (toLeft ? -10 : 10), fy, a);
+      return;
+    }
+    const lines = wrap(Math.min(330 * u, L.right - L.left));
+    const bw = Math.min(330 * u, L.right - L.left, Math.max(...lines.map(l => ctx.measureText(l).width)) + 20);
+    const bh = lines.length * lh + 14;
+    const below = sy(L, BASKET.hang) + fruit(sim.cur).r * L.S + 16;
+    const x = clamp(fx - bw / 2, L.left, L.right - bw);
+    const y = Math.min(below, L.h - bh - 8);
+    paintBubble(ctx, lines, x, y, bw, lh, fx, below - 12, a);
   }
 
   private drawStory(sim: UrodzajSim): void {
     const st = sim.story;
     if (!st || st.kind !== 'open') return;
-    const ctx = this.ctx, L = this.L;
+    const ctx = this.ctx, L = this.L, u = L.u, R = L.cards;
     const a = clamp(st.t / 0.35);
     ctx.fillStyle = `rgba(58,36,18,${0.35 * a})`;
     ctx.fillRect(0, 0, L.w, L.h);
-    const cw = Math.min(L.w - 32, 460);
-    const pad = 20;
-    ctx.font = `500 14px ${FONT}`;
+    const cw = R.w;
+    const pad = 20 * u, lh = 21 * u, head = 52 * u, tail = 44 * u;
+    ctx.font = font(500, 15 * u);
     const lines = wrapLines(ctx, t('story.open.text'), cw - pad * 2);
-    if (!this.verse || this.verse.w !== cw) {
+    // the verse takes the room the words leave (it shrinks to 13 px before it is cut)
+    const room = Math.max(60, R.h - head - lines.length * lh - 12 - tail);
+    if (!this.verse || this.verse.w !== cw || this.verse.id !== `deu8.10|${Math.round(room)}`) {
       const pv = passage('deu8.10');
-      this.verse = { id: 'deu8.10', w: cw, layout: layoutPassage(ctx, pv, cw - pad * 2, 120, { max: 17, min: 11 }) };
+      this.verse = { id: `deu8.10|${Math.round(room)}`, w: cw, layout: layoutPassage(ctx, pv, cw - pad * 2, Math.min(room, 160 * u), { max: 17 * u, min: MIN_READ }) };
     }
     const vh = this.verse.layout.height;
-    const ch = 46 + lines.length * 20 + 14 + vh + 40;
-    const x = L.cx - cw / 2, y = Math.max(L.top + 6, (L.h - ch) / 2);
+    const ch = Math.min(R.h, head + lines.length * lh + 12 + vh + tail);
+    const x = L.cx - cw / 2, y = R.y + Math.max(0, (R.h - ch) / 2);
+    this.cardBox = { x, y, w: cw, h: ch };
     paintCard(ctx, x, y, cw, ch, a);
     ctx.globalAlpha = a;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = C.goldDeep;
-    ctx.font = `800 20px ${SERIF}`;
-    ctx.fillText(t('story.open.title'), L.cx, y + 16);
+    ctx.fillText(this.fitIn(t('story.open.title'), cw - pad * 2, 22 * u, 800, 16, SERIF), L.cx, y + 16 * u);
     ctx.fillStyle = C.ink;
-    ctx.font = `500 14px ${FONT}`;
-    lines.forEach((l, i) => ctx.fillText(l, L.cx, y + 48 + i * 20));
-    drawPassage(ctx, passage('deu8.10'), this.verse.layout, L.cx, y + 48 + lines.length * 20 + 10, { text: '#5a3818', ref: '#9a6a3c' });
-    ctx.font = `700 12px ${FONT}`;
-    ctx.fillStyle = 'rgba(58,36,18,.6)';
+    ctx.font = font(500, 15 * u);
+    lines.forEach((l, i) => ctx.fillText(l, L.cx, y + head + i * lh));
+    drawPassage(ctx, passage('deu8.10'), this.verse.layout, L.cx, y + head + lines.length * lh + 10, { text: '#5a3818', ref: '#9a6a3c' });
+    ctx.fillStyle = 'rgba(58,36,18,.65)';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(t('story.tap'), L.cx, y + ch - 12);
+    ctx.fillText(this.fitIn(this.opts.touch === false ? t('story.tap.keys') : t('story.tap'), cw - pad * 2, 13.5 * u, 700), L.cx, y + ch - 14 * u);
     ctx.globalAlpha = 1;
   }
 }

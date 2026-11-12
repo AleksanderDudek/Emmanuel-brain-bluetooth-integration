@@ -1,4 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
+import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
+import { hintText, howto } from '../src/arcade/urodzaj/index';
+import { FONT, SERIF, font } from '../src/arcade/urodzaj/paint';
 import { DROP_TIERS, FESTIVALS, FRUITS, LINES, LINE_COUNT, MAX_TIER, MOMENTS, festivalAt, fruit, missionText, tierFromU } from '../src/arcade/urodzaj/content';
 import { CATALOGS, t, unit } from '../src/arcade/urodzaj/i18n';
 import { computeLayout, sx, sy, worldX } from '../src/arcade/urodzaj/layout';
@@ -584,5 +589,264 @@ describe('the lobby (index.ts, panel.ts)', () => {
     expect(el.querySelectorAll('.arcade-album > div')).toHaveLength(MAX_TIER);
     expect(el.querySelectorAll('.arcade-album > div.on')).toHaveLength(7);
     expect(el.textContent).toContain(t('decor.obrus').charAt(0).toUpperCase());
+  });
+});
+
+// ── on a phone first (src/arcade/DESIGN.md §12, §6 "Mobile first") ──
+const pxOf = (f: string): number => Number(f.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+type Size = (typeof CHECK_SIZES)[number];
+const upright = (z: Size) => z.w < 600 && z.h > z.w;
+
+describe('on a phone first: the layout', () => {
+  it('the font helper never goes under 11 px', () => {
+    for (const px of [0, 4, 9.5, 10, 10.9, 11, 13, 34]) for (const fam of [FONT, SERIF]) expect(pxOf(font(700, px, fam))).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(pxOf(font(800, 34))).toBe(34);
+  });
+
+  it('every checked size: the basket under the HUD and inside the edges, the next fruit\'s bubble big with a 13 px label clear of Feliks, the circle in the band', () => {
+    for (const z of CHECK_SIZES) {
+      const L = computeLayout(z.w, z.h, z.insets);
+      const name = z.name;
+      expect(L.u, name).toBeGreaterThanOrEqual(1);
+      expect(L.u, name).toBeLessThanOrEqual(1.3);
+      // Feliks's head (0.24 W over the twine) under the HUD, the ground over the home indicator
+      expect(sy(L, BASKET.hang + 0.24), name).toBeGreaterThanOrEqual(L.top - 0.5);
+      expect(L.ground, name).toBeLessThanOrEqual(z.h - z.insets.bottom);
+      // the walls inside the canvas and the notches
+      expect(sx(L, -BASKET.half) - L.S * 0.05, name).toBeGreaterThanOrEqual(z.insets.left);
+      expect(sx(L, BASKET.half) + L.S * 0.05, name).toBeLessThanOrEqual(z.w - z.insets.right);
+      // the next fruit: 44 px and up, "Następny" at 13 px under the HUD and inside the canvas, clear of the walls
+      const n = L.next;
+      expect(2 * n.r, name).toBeGreaterThanOrEqual(44);
+      expect(n.label, name).toBeGreaterThanOrEqual(MIN_READ);
+      expect(n.labelY - n.label, name).toBeGreaterThanOrEqual(z.insets.top);
+      expect(n.x + n.r, name).toBeLessThanOrEqual(z.w - z.insets.right);
+      if (n.beside) expect(n.x - n.r, name).toBeGreaterThan(sx(L, BASKET.half) + L.S * 0.05);
+      else expect(n.y + n.r, name).toBeLessThan(sy(L, BASKET.hang + 0.24));
+      if (upright(z)) expect(L.wide, name).toBe(false);
+      if (!L.wide) {
+        // the circle of fruits: a strip along the bottom, 16 px off the edges, icons 20 px and up, under the basket
+        expect(L.ring.strip, name).toBe(true);
+        expect(L.ring.y, name).toBeGreaterThanOrEqual(z.h * (1 - THUMB));
+        expect(L.ring.x - L.ring.w / 2, name).toBeGreaterThanOrEqual(z.insets.left + 16 - 0.01);
+        expect(L.ring.x + L.ring.w / 2, name).toBeLessThanOrEqual(z.w - z.insets.right - 16 + 0.01);
+        expect(2 * L.ring.r, name).toBeGreaterThanOrEqual(20);
+        expect(L.ring.y - L.ring.r, name).toBeGreaterThan(L.ground);
+        expect(L.ring.y + L.ring.r, name).toBeLessThanOrEqual(z.h - Math.max(8, z.insets.bottom + 4));
+        // a basket that uses the band: at least half the width and three fifths of the height
+        expect(L.S * 1.09, name).toBeGreaterThanOrEqual(z.w * 0.5);
+        expect((ABOVE_W + 0.07) * L.S, name).toBeGreaterThanOrEqual((z.h - z.insets.top - z.insets.bottom) * 0.6);
+        // the lower half of the basket lies in the thumb zone: a thumb there aims, the fruit hangs above it
+        expect(L.floor, name).toBeGreaterThan(z.h * (1 - THUMB));
+        expect(sy(L, BASKET.hang), name).toBeLessThan(z.h * (1 - THUMB));
+      } else {
+        expect(L.ring.strip, name).toBe(false);
+        expect(L.ring.x - L.ring.r, name).toBeGreaterThanOrEqual(z.insets.left);
+        expect(L.ring.y - L.ring.r, name).toBeGreaterThanOrEqual(z.insets.top);
+      }
+    }
+  });
+});
+const ABOVE_W = BASKET.hang + 0.24;
+
+/** every string drawn on a canvas made by the patched getContext, with its font size */
+const drawn: { text: string; px: number }[] = [];
+
+/** A context that draws nothing, measures text at 0.55 em a character and notes each string drawn with its size. */
+function noteContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+  const gradient = { addColorStop: () => undefined };
+  const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+  const note = (s: unknown) => {
+    const text = String(s);
+    if (text.trim() && (state.globalAlpha as number) > 0.05) drawn.push({ text, px: pxOf(String(state.font)) });
+  };
+  return new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      if (prop === 'measureText') return (s: string) => ({ width: String(s).length * pxOf(String(target.font)) * 0.55 });
+      if (prop === 'fillText' || prop === 'strokeText') return (s: unknown) => note(s);
+      if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => gradient;
+      if (prop === 'createPattern') return () => null;
+      if (prop === 'getTransform') return () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+      if (prop === 'getImageData') return () => ({ data: new Uint8ClampedArray(4) });
+      return () => undefined;
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+describe('on a phone first: the game at every checked size', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return noteContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  function envFor(z: { w: number; h: number; insets: Insets }, progress: UrodzajProgress, touch: boolean, hints: string[] = []): GameEnv<UrodzajProgress> {
+    return {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress, rng: mulberry32(3), day: DAY, daySeed: 7, plannedSec: 300, tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false,
+      tuning: TUNING, hint: (text: string) => { if (text) hints.push(text); }, hudTop: () => z.insets.top, insets: () => z.insets, touch,
+    };
+  }
+
+  async function gameAt(z: { w: number; h: number; insets: Insets }, touch = true, progress: UrodzajProgress = freshProgress(), hints: string[] = []) {
+    const mod = (await import('../src/arcade/urodzaj/index')).default;
+    const game = mod.create(envFor(z, progress, touch, hints));
+    game.resize(z.w, z.h, 1);
+    game.start();
+    const sim = (game as unknown as { sim: UrodzajSim }).sim;
+    const clock = { t: 0 };
+    const run = (sec: number, f = frame()) => {
+      for (let i = 0; i < Math.round(sec * 30); i++) {
+        clock.t += 1 / 30;
+        game.update(1 / 30, f, clock.t);
+        game.draw();
+      }
+    };
+    return { game, sim, run };
+  }
+
+  /** Text allowed at 11–13 px: the verse's reference line (the kit draws it at 62 % of the verse, never under 11). */
+  const secondary = (s: string): boolean => s.startsWith(passage('deu8.10').ref);
+
+  function check(game: ArcadeGame, z: Size, what: string): string[] {
+    drawn.length = 0;
+    game.draw();
+    const name = `${z.name}: ${what}`;
+    const ts = game.targets!();
+    expect(auditTargets(ts, z.w, z.h, z.insets), name).toEqual([]);
+    expect(drawn.filter(d => d.px < MIN_TEXT - 1e-6), name).toEqual([]);
+    expect(drawn.filter(d => d.px < MIN_READ - 1e-6 && !secondary(d.text)), name).toEqual([]);
+    return ts.map(x => x.label);
+  }
+
+  it('the story card, play, Feliks at length, the gleaners, a festival, the tally: targets and text pass the phone checks', async () => {
+    type Inner = { endBasket(final: boolean): void };
+    for (const z of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        if (!touch && upright(z)) continue;
+        const { game, sim, run } = await gameAt(z, touch);
+        run(0.5);
+        // the first session opens with the story card: it is the one target (a tap anywhere on it closes it)
+        expect(check(game, z, 'the opening card'), z.name).toEqual(['story card']);
+        sim.story = null;
+        for (const [tier, x] of [[6, -0.3], [5, 0.25], [3, -0.05], [4, 0.36], [2, 0.1], [1, -0.4]] as const) sim.world.add(tier, x, 0.4);
+        run(1.5);
+        // play: no buttons, a finger anywhere aims
+        expect(check(game, z, 'play'), z.name).toEqual([]);
+        // Feliks at length, mid-basket and at the side
+        for (const aim of [0, 0.4, -0.4]) {
+          sim.aim = sim.aimTarget = aim;
+          sim.talk.line = { moment: 'open', text: 'To jest bardzo długa kwestia Feliksa, żeby sprawdzić, czy dymek mieści się na wąskim ekranie.', t: 0.5, dur: 4 } as typeof sim.talk.line;
+          run(0.3);
+          check(game, z, `Feliks talks (aim ${aim})`);
+        }
+        sim.talk.line = null;
+        // a rest block past its lead-in: the gleaners and their word
+        const ri = sim.plan.findIndex(b => b.kind === 'rest');
+        sim.blockIndex = ri;
+        sim.blockT = 8;
+        run(0.5);
+        check(game, z, 'the gleaners');
+        // a festival's card (a tap closes it: the target) and a basket's tally
+        sim.story = { kind: 'fest', t: 0.5, dur: 3.2, fest: 0 };
+        run(0.2);
+        expect(check(game, z, 'a festival'), z.name).toEqual(['story card']);
+        sim.story = null;
+        (sim as unknown as Inner).endBasket(false);
+        run(0.6);
+        check(game, z, 'the tally');
+        game.destroy();
+      }
+    }
+  }, 30_000);
+
+  it('a finger anywhere aims, the release drops where it is, the fruit hangs above it; a press shows at once', async () => {
+    const z = CHECK_SIZES[0];
+    const { game, sim, run } = await gameAt(z, true, { ...freshProgress(), sessions: 4, dailyDay: DAY });
+    run(0.5);
+    const L = computeLayout(z.w, z.h, z.insets);
+    // a thumb low in the thumb zone, at the basket's right
+    const fx = sx(L, 0.3), fy = z.h - 60;
+    game.pointer!({ type: 'down', x: fx, y: fy, id: 1 });
+    expect((game as unknown as { view: { touchAt: unknown } }).view.touchAt).not.toBeNull();
+    game.pointer!({ type: 'move', x: fx, y: fy - 5, id: 1 });
+    run(0.3);
+    expect(sim.hangX).toBeGreaterThan(0.2);
+    expect(sy(L, BASKET.hang)).toBeLessThan(fy - 100);
+    const before = sim.drops;
+    game.pointer!({ type: 'up', x: fx, y: fy - 5, id: 1 });
+    expect(sim.drops).toBe(before + 1);
+    // a second finger while the first is down is ignored
+    run(1);
+    game.pointer!({ type: 'down', x: sx(L, -0.3), y: fy, id: 2 });
+    game.pointer!({ type: 'down', x: sx(L, 0.3), y: fy, id: 3 });
+    game.pointer!({ type: 'up', x: sx(L, 0.3), y: fy, id: 3 });
+    expect(sim.drops).toBe(before + 1);
+    game.pointer!({ type: 'up', x: sx(L, -0.3), y: fy, id: 2 });
+    expect(sim.drops).toBe(before + 2);
+  });
+
+  it('the smoke\'s input scores within 22 s on a desktop and on the smallest phone (a centre tap every 0.65 s, Space every 2 s)', async () => {
+    for (const [z, touch] of [[CHECK_SIZES[7], false], [CHECK_SIZES[0], true]] as const) {
+      const { game } = await gameAt(z, touch, { ...freshProgress(), sessions: 4, dailyDay: DAY });
+      const focus = new FocusInput(BEGINNER);
+      let f = focus.push(0, true, 0.1), tap = 0, space = 0, hub = 0, scoreAt: number | null = null;
+      const dt = 1 / 30;
+      for (let tt = 0; tt < 22; tt += dt) {
+        if ((hub += dt) >= 0.1) {
+          hub -= 0.1;
+          f = focus.push(20 * (1 - Math.exp(-tt / 4)), true, 0.1);
+        }
+        game.update(dt, f, tt);
+        game.draw();
+        if ((tap += dt) >= 0.65) {
+          tap = 0;
+          game.pointer!({ type: 'down', x: z.w / 2, y: z.h * 0.6, id: 1 });
+          game.pointer!({ type: 'up', x: z.w / 2, y: z.h * 0.6, id: 1 });
+        }
+        if ((space += dt) >= 2) {
+          space = 0;
+          game.key!(' ', true);
+          game.key!(' ', false);
+        }
+        if (scoreAt === null && game.result().score > 0) scoreAt = tt;
+      }
+      expect(scoreAt, z.name).not.toBeNull();
+    }
+  });
+
+  it('speaks to the hand the player has: a finger never hears of keys, clicks or a mouse; a keyboard keeps its shortcuts', () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|klick|mysz[ąy]|mouse|maus|musen|←|→/i;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['hint.aim', 'hint.drop', 'hint.next', 'hint.merge', 'how.goal', 'how.aim', 'how.drop', 'how.tap', 'story.tap']) {
+        expect(c[k], `${l}.${k}`).toBeTypeOf('string');
+        expect(c[k], `${l}.${k}`).not.toMatch(KEYS);
+      }
+      for (const k of ['hint.aim.keys', 'hint.drop.keys', 'how.aim.keys', 'how.drop.keys', 'how.keys', 'story.tap.keys']) expect(c[k], `${l}.${k}`).toMatch(KEYS);
+    }
+    const touch = howto(true), desk = howto(false);
+    expect(touch.hands.some(x => x.gesture === 'keys')).toBe(false);
+    expect(touch.hands).toHaveLength(3);
+    expect(desk.hands.some(x => x.gesture === 'keys')).toBe(true);
+    expect(hintText('aim', true)).not.toMatch(KEYS);
+    expect(hintText('aim', false)).toMatch(KEYS);
+    expect(hintText('merge', false)).toBe(t('hint.merge'));
+  });
+
+  it('teaches a phone\'s first session in a finger\'s words', async () => {
+    const hints: string[] = [];
+    const { run, sim, game } = await gameAt(CHECK_SIZES[1], true, freshProgress(), hints);
+    run(0.5);
+    game.pointer!({ type: 'down', x: 195, y: 400, id: 1 });
+    game.pointer!({ type: 'up', x: 195, y: 400, id: 1 });
+    run(6);
+    expect(sim.story).toBeNull();
+    expect(hints.length).toBeGreaterThan(0);
+    for (const h of hints) expect(h).not.toMatch(/spacj|mysz|←|→/i);
   });
 });

@@ -7,6 +7,7 @@
  * cards.  Pure drawing: no state but a sprite cache.
  */
 import { clamp } from '../kit/juice';
+import { MIN_TEXT } from '../kit/mobile';
 import type { TraceBar } from '../kit/trace';
 import { FRUITS, fruit, type DecorId, type FruitKind } from './content';
 
@@ -40,6 +41,41 @@ export const C = {
 
 export const FONT = '"Manrope Variable", Manrope, system-ui, sans-serif';
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
+
+/** A canvas font, never under MIN_TEXT (11 px, kit/mobile): smaller text is a smudge on a phone at arm's length. */
+export const font = (weight: number, size: number, family: string = FONT, italic = false): string =>
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
+
+/**
+ * The field at golden hour (sky, sun, hills, olive trees, the wheat field, the soil path) painted once per size
+ * into an offscreen canvas and laid down with one drawImage: it was three screen-sized gradients, a sun glow
+ * over half the screen and seventy strokes every frame.  Falls back to painting directly without a document.
+ */
+export class FieldCache {
+  private c: HTMLCanvasElement | null = null;
+  private key = '';
+
+  draw(ctx: CanvasRenderingContext2D, w: number, h: number, ground: number, dpr: number): void {
+    const key = `${Math.round(w)}x${Math.round(h)}|${Math.round(ground)}|${dpr}`;
+    if (key !== this.key) {
+      this.key = key;
+      this.c = null;
+      if (typeof document !== 'undefined') {
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w * dpr));
+        c.height = Math.max(1, Math.round(h * dpr));
+        const g = c.getContext('2d');
+        if (g) {
+          g.setTransform(dpr, 0, 0, dpr, 0, 0);
+          paintField(g, w, h, ground, 0);
+          this.c = c;
+        }
+      }
+    }
+    if (this.c) ctx.drawImage(this.c, 0, 0, w, h);
+    else paintField(ctx, w, h, ground, 0);
+  }
+}
 
 export const TAU = Math.PI * 2;
 

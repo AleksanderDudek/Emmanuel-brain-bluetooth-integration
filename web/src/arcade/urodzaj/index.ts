@@ -15,7 +15,8 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import { coarsePointer, target } from '../kit/mobile';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { UrodzajSound } from './audio';
 import { t, unit, type Key } from './i18n';
 import { freshProgress, migrate, starsFor, type UrodzajProgress } from './meta';
@@ -23,7 +24,7 @@ import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { UrodzajView } from './render';
 import { RULES } from './rules';
-import { UrodzajSim, type SimEvent } from './sim';
+import { UrodzajSim, type HintKey, type SimEvent } from './sim';
 
 const LEFT = new Set(['ArrowLeft', 'a', 'A']);
 const RIGHT = new Set(['ArrowRight', 'd', 'D']);
@@ -44,13 +45,15 @@ class UrodzajGame implements ArcadeGame {
     this.sim = new UrodzajSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
-    this.view = new UrodzajView(env.canvas, { reducedMotion: env.reducedMotion });
+    this.view = new UrodzajView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new UrodzajSound(env.audio);
     // ?debug: the basket in the console (and for screenshot scripts)
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __urodzaj?: unknown }).__urodzaj = this.sim;
   }
 
-  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.hudTop()); }
+  resize(w: number, h: number, dpr: number): void {
+    this.view.resize(w, h, dpr, typeof this.env.insets === 'function' ? this.env.insets() : this.env.hudTop());
+  }
 
   intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
 
@@ -71,12 +74,17 @@ class UrodzajGame implements ArcadeGame {
   /** The runner draws every frame, the calibration too: until play starts the intro scene stays. */
   draw(): void { if (this.sim.started) this.view.draw(this.sim); }
 
-  /** A press brings Feliks over the finger, a drag (or a hovering mouse) moves him, the release lets the fruit go. */
+  /**
+   * A press brings Feliks over the finger (a soft ring answers the touch there), a drag (or a hovering mouse)
+   * moves him, the release lets the fruit go.  The fruit hangs at the top, so it is always above the finger;
+   * one finger at a time.
+   */
   pointer(e: PointerInput): void {
     const sim = this.sim, x = this.view.worldX(e.x);
     if (e.type === 'down') {
       if (this.pointerId !== null && this.pointerId !== e.id) return;
       this.pointerId = e.id;
+      this.view.touched(e.x, e.y);
       sim.pointerDown(x);
       this.drain();
       return;
@@ -122,7 +130,7 @@ class UrodzajGame implements ArcadeGame {
     for (const e of this.sim.take()) {
       this.view.on(e, this.sim);
       this.sound.on(e);
-      if (e.type === 'hint') this.env.hint(t(`hint.${e.key}` as Key), this.view.anchor(e.at, e.x, e.y, this.sim), 4200);
+      if (e.type === 'hint') this.env.hint(hintText(e.key, this.env.touch), this.view.anchor(e.at, e.x, e.y, this.sim), 4200);
       if (this.env.haptics) haptic(e);
     }
   }
@@ -163,7 +171,18 @@ class UrodzajGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
+  /** The play has no buttons: a finger anywhere aims.  Under the story's or a festival's card, the card (a tap closes it). */
+  targets(): TapTarget[] {
+    const b = this.view.cardBox;
+    return this.sim.story && b ? [target('story card', b)] : [];
+  }
+
   destroy(): void { this.sim.release(); }
+}
+
+/** A coach mark in the words of the hand the player has: a finger hears of sliding and letting go only; a mouse and keys of clicks and keys. */
+export function hintText(key: HintKey, touch: boolean): string {
+  return t((!touch && (key === 'aim' || key === 'drop') ? `hint.${key}.keys` : `hint.${key}`) as Key);
 }
 
 function haptic(e: SimEvent): void {
@@ -177,15 +196,13 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play (the runner's standard card), in this page load's language. */
-export function howto(): HowTo {
+/** How to play (the runner's standard card), in this page load's language, for the hand the player has. */
+export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('how.goal'),
-    hands: [
-      { gesture: 'drag', text: t('how.aim') },
-      { gesture: 'tap', text: t('how.drop') },
-      { gesture: 'keys', text: t('how.keys') },
-    ],
+    hands: touch
+      ? [{ gesture: 'drag', text: t('how.aim') }, { gesture: 'tap', text: t('how.drop') }, { gesture: 'tap', text: t('how.tap') }]
+      : [{ gesture: 'drag', text: t('how.aim.keys') }, { gesture: 'tap', text: t('how.drop.keys') }, { gesture: 'keys', text: t('how.keys') }],
     tips: [t('how.tip1'), t('how.tip2')],
   };
 }
@@ -200,6 +217,6 @@ const mod: ArcadeModule<UrodzajProgress> = {
   unit,
   progressPanel: p => progressPanel(p),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
-  howto,
+  howto: () => howto(),
 };
 export default mod;
