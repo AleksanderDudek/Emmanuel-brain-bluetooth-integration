@@ -95,7 +95,7 @@ export function paintMap(ctx: CanvasRenderingContext2D, w: number, hh: number, p
   ctx.fill();
   const pos = (i: number) => {
     const k = i / (n - 1);
-    return { x: 22 + k * (w - 44), y: hh - 26 - k * (hh - 56) + Math.sin(i * 1.9) * 8 };
+    return { x: 22 + k * (w - 44), y: hh - 30 - k * (hh - 62) + Math.sin(i * 1.9) * 7 };
   };
   // the path climbing out of the valley
   ctx.strokeStyle = 'rgba(255,226,170,.35)';
@@ -112,7 +112,7 @@ export function paintMap(ctx: CanvasRenderingContext2D, w: number, hh: number, p
     const lv = first + i, q = pos(i);
     const era = ERAS[eraOfLevel(lv)];
     const done = lv < cur, here = lv === cur;
-    const r = here ? 11 : guardLevel(lv) ? 10 : 8;
+    const r = here ? 13 : guardLevel(lv) ? 12 : 10;
     ctx.fillStyle = done || here ? rgb(PAL[era].accent) : 'rgba(255,255,255,.12)';
     ctx.beginPath();
     if (guardLevel(lv)) {
@@ -129,8 +129,8 @@ export function paintMap(ctx: CanvasRenderingContext2D, w: number, hh: number, p
       ctx.lineWidth = 2.5;
       ctx.stroke();
     }
-    ctx.fillStyle = done || here ? '#16131f' : 'rgba(255,241,196,.5)';
-    ctx.font = font(800, 10, SANS);
+    ctx.fillStyle = done || here ? '#16131f' : 'rgba(255,241,196,.6)';
+    ctx.font = font(800, 12, SANS);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(lv), q.x, q.y + 0.5);
@@ -158,15 +158,15 @@ export function paintTowerMap(ctx: CanvasRenderingContext2D, w: number, hh: numb
   // the column of floors, left to right as a climbing stair
   for (let i = 0; i < n; i++) {
     const f = first + i;
-    const x = 18 + i * ((w * 0.62 - 36) / (n - 1)), y = hh - 18 - i * ((hh - 40) / (n - 1));
+    const x = 16 + i * ((w * 0.66 - 32) / (n - 1)), y = hh - 18 - i * ((hh - 40) / (n - 1));
     const keeper = f % RULES.tower.keeperEvery === 0;
     ctx.fillStyle = f < cur ? '#f0c868' : f === cur ? '#fff1c4' : 'rgba(255,255,255,.14)';
     ctx.beginPath();
-    if (keeper) ctx.roundRect(x - 9, y - 9, 18, 18, 4);
-    else ctx.arc(x, y, f === cur ? 9 : 7, 0, TAU);
+    if (keeper) ctx.roundRect(x - 11, y - 11, 22, 22, 5);
+    else ctx.arc(x, y, f === cur ? 11 : 9.5, 0, TAU);
     ctx.fill();
-    ctx.fillStyle = f <= cur ? '#1b1522' : 'rgba(255,241,196,.5)';
-    ctx.font = font(800, 9, SANS);
+    ctx.fillStyle = f <= cur ? '#1b1522' : 'rgba(255,241,196,.6)';
+    ctx.font = font(800, 11.5, SANS);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(String(f), x, y + 0.5);

@@ -6,12 +6,14 @@
  * eyes, never gore), the guardians, bricks, pits, beams and lantern posts, the upgrades' little
  * pictures.  All canvas paths, no images; sizes in u (about a metre) times `S` (px per u).
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { EraId, GuardId, MoveKind, ShadowKind, UpId } from './content';
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
+/** A canvas font; never under MIN_TEXT (11 px): a phone at arm's length shows anything smaller as a smudge. */
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
 
 export const TAU = Math.PI * 2;
 
@@ -37,6 +39,21 @@ export function hash(i: number): number {
   x = Math.imul(x ^ (x >>> 16), 0x85ebca6b);
   x = Math.imul(x ^ (x >>> 13), 0xc2b2ae35);
   return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+}
+
+/** A number on a small dark plate (a pen's, a cage's, a curtain's): readable over smoke and night, never under 14 px. */
+export function numberPlate(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, px: number, color: string): void {
+  const size = Math.max(14, px);
+  ctx.font = font(800, size, SANS);
+  const w = ctx.measureText(text).width + size * 0.8, h = size * 1.35;
+  ctx.fillStyle = 'rgba(20,15,26,.78)';
+  ctx.beginPath();
+  ctx.roundRect(x - w / 2, y - h / 2, w, h, h * 0.35);
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y + size * 0.04);
 }
 
 /** A soft radial glow (use with 'lighter'). `color` is "rgba(r,g,b," */
@@ -914,16 +931,15 @@ export function paintShadow(ctx: CanvasRenderingContext2D, x: number, yBase: num
       ctx.beginPath();
       ctx.roundRect(x - w / 2, yBase, w, h, h * 0.35);
       ctx.stroke();
-      // the red badge
+      // the red badge with its "!" (drawn, not written: it is a picture, far under any readable size)
+      const bx = x + w / 2 - S * 0.04, by = yBase + S * 0.04, br = S * 0.09 * k;
       ctx.fillStyle = '#ff5a4a';
       ctx.beginPath();
-      ctx.arc(x + w / 2 - S * 0.04, yBase + S * 0.04, S * 0.09 * k, 0, TAU);
+      ctx.arc(bx, by, br, 0, TAU);
       ctx.fill();
       ctx.fillStyle = '#fff';
-      ctx.font = `800 ${Math.max(6, S * 0.11 * k)}px ${SANS}`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('!', x + w / 2 - S * 0.04, yBase + S * 0.045);
+      ctx.fillRect(bx - br * 0.14, by - br * 0.62, br * 0.28, br * 0.78);
+      ctx.fillRect(bx - br * 0.14, by + br * 0.3, br * 0.28, br * 0.28);
       eyeX = x;
       eyeY = yBase + h * 0.5;
       ctx.restore();

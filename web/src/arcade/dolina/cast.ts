@@ -9,7 +9,7 @@
  * Shadows stay ink and smoke with ember eyes; nothing here is gore.
  */
 import type { CompId, GearSlot } from './content';
-import { C, SANS, TAU, font, glow, hash, paintEyes, type GuardPose } from './paint';
+import { C, TAU, glow, hash, numberPlate, paintEyes, type GuardPose } from './paint';
 
 /** The tiers' colours (copper … radiance), for gear and its plaques. */
 export const TIER_COLOR: readonly string[] = ['#6a6070', '#c47a4a', '#c99a5a', '#cfd6e0', '#f5c35a', '#f0e6ff', '#fff6c8'];
@@ -456,11 +456,7 @@ export function paintCage(ctx: CanvasRenderingContext2D, x: number, y: number, w
     ctx.fill();
   }
   paintEyes(ctx, x + w * 0.5, y - h + S * 0.08, S * 0.045, p.t, p.key, 0);
-  ctx.fillStyle = p.lit ? '#fff1c4' : 'rgba(255,241,196,.5)';
-  ctx.font = font(800, S * 0.36, SANS);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(p.lit ? String(Math.max(1, Math.ceil(p.hp))) : '?', x + w / 2, y - h - S * 0.32);
+  numberPlate(ctx, p.lit ? String(Math.max(1, Math.ceil(p.hp))) : '?', x + w / 2, y - h - Math.max(S * 0.34, 13), Math.max(15, S * 0.36), p.lit ? '#fff1c4' : 'rgba(255,241,196,.55)');
   ctx.restore();
 }
 
@@ -487,11 +483,7 @@ export function paintCurtain(ctx: CanvasRenderingContext2D, x: number, y: number
     ctx.arc(x + w * hash(p.key + i * 5), y - h * k, S * 0.03, 0, TAU);
     ctx.fill();
   }
-  ctx.fillStyle = p.lit ? '#ffcf8a' : 'rgba(255,207,138,.5)';
-  ctx.font = font(800, S * 0.34, SANS);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(p.lit ? String(Math.max(1, Math.ceil(p.hp))) : '?', x + w / 2, y - h * 0.55);
+  numberPlate(ctx, p.lit ? String(Math.max(1, Math.ceil(p.hp))) : '?', x + w / 2, y - h * 0.55, Math.max(14, S * 0.34), p.lit ? '#ffcf8a' : 'rgba(255,207,138,.55)');
   ctx.restore();
 }
 
@@ -733,6 +725,39 @@ export function paintUmbrella(ctx: CanvasRenderingContext2D, x: number, y: numbe
   ctx.moveTo(x, cy - r);
   ctx.lineTo(x, cy + S * 0.5);
   ctx.stroke();
+}
+
+/**
+ * Babcia's umbrella held ready (Parasol armed, between its moments): a small umbrella bobbing over his
+ * shoulder, one per hit it will take — so the shield reads without a canopy over his head all the time.
+ */
+export function paintUmbrellaBadge(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, t: number, hits: number): void {
+  for (let i = 0; i < Math.min(2, hits); i++) {
+    const r = S * (0.22 - i * 0.04);
+    const cx = x - S * (0.26 + i * 0.34), cy = y - S * (1.78 - i * 0.1) + Math.sin(t * 3 + i) * S * 0.04;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-0.35);
+    ctx.fillStyle = 'rgba(26,20,34,.95)';
+    ctx.beginPath();
+    ctx.arc(0, 0, r, Math.PI, TAU);
+    ctx.quadraticCurveTo(r * 0.5, r * 0.18, 0, 0);
+    ctx.quadraticCurveTo(-r * 0.5, r * 0.18, -r, 0);
+    ctx.fill();
+    ctx.strokeStyle = '#ffd36b';
+    ctx.lineWidth = Math.max(1.5, S * 0.04);
+    ctx.beginPath();
+    ctx.arc(0, 0, r, Math.PI, TAU);
+    ctx.stroke();
+    ctx.strokeStyle = '#1a1420';
+    ctx.lineWidth = Math.max(1.5, S * 0.035);
+    ctx.beginPath();
+    ctx.moveTo(0, -r);
+    ctx.lineTo(0, r * 0.9);
+    ctx.arc(-r * 0.18, r * 0.9, r * 0.18, 0, Math.PI);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 /** A chest (closed or open with light), centred at (x, y), size s. */

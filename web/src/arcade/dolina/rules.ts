@@ -246,6 +246,8 @@ export const RULES = {
   rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
+  /** the runner's block banner stands over the play this long after a push or a rest begins (its 4.2 s and its fade): cards and coach marks wait under it */
+  bannerSec: 4.5,
   /** the run toward the dawn at the end (s): sessions of 2 min and more / shorter */
   finale: { long: 8, short: 4 },
   /** the first-ever session's warm-up (s): 34 in 5 and 10 min, 24 in 3, 8 in a 40 s test */

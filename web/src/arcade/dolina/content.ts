@@ -89,9 +89,14 @@ export function powerOf(tier: number): number {
 }
 /** The weapon's name at a tier: the staff, the shod staff, the sword, the sword of dawn (and its number). */
 export function weaponName(tier: number): string {
+  const w = weaponParts(tier);
+  return t('weapon', { name: w.name, n: w.n });
+}
+/** The weapon's name and its number apart (the pack keeps the number when a phone has to cut the name). */
+export function weaponParts(tier: number): { name: string; n: string } {
   const k = Math.min(3, Math.floor((Math.max(1, tier) - 1) / 3));
   const n = (Math.max(1, tier) - 1) % 3 + 1;
-  return t('weapon', { name: t(`weapon.${k}` as Key), n: ['I', 'II', 'III'][n - 1] });
+  return { name: t(`weapon.${k}` as Key), n: ['I', 'II', 'III'][n - 1] };
 }
 
 // ── the upgrades between runs ────────────────────────────────────

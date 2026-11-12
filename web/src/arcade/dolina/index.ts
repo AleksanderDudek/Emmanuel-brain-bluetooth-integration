@@ -24,7 +24,7 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DolinaSound } from './audio';
 import { t } from './i18n';
 import { bestOf, freshProgress, migrate, type DolinaProgress } from './meta';
@@ -33,15 +33,21 @@ import { drawPreview } from './preview';
 import { DolinaView } from './render';
 import { DolinaSim, type SimEvent } from './sim';
 
-/** A swipe down: this far (CSS px), mostly down. */
-const SWIPE = 28;
+/**
+ * A swipe down: this far (CSS px) and mostly down.  A finger's tap wobbles a few px, so a tap stays a tap
+ * (the slop is twice the 10 px a tap may drift); a thumb's flick passes 20 px within its first 50 ms.
+ */
+export const SWIPE = 20;
+/** A swipe read this soon after its own press takes back the double jump that press made (the stomp alone counts). */
+export const UNDO_SEC = 0.25;
 
 class DolinaGame implements ArcadeGame {
   private readonly sim: DolinaSim;
   private readonly view: DolinaView;
   private readonly sound: DolinaSound;
-  /** the pointers down: where they began and whether they already swiped */
-  private readonly touches = new Map<number, { x: number; y: number; swiped: boolean }>();
+  /** the pointers down: where and when they began, whether they already swiped, whether their press was the double jump */
+  private readonly touches = new Map<number, { x: number; y: number; t: number; swiped: boolean; flap: boolean }>();
+  private time = 0;
 
   constructor(private readonly env: GameEnv<DolinaProgress>) {
     migrate(env.progress);
@@ -52,7 +58,7 @@ class DolinaGame implements ArcadeGame {
     this.sound = new DolinaSound(env.audio);
   }
 
-  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.hudTop()); }
+  resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.insets()); }
 
   intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
 
@@ -64,6 +70,7 @@ class DolinaGame implements ArcadeGame {
   }
 
   update(dt: number, f: FocusFrame, t: number): void {
+    this.time += dt;
     this.sim.hold = this.view.busy;
     this.sim.update(dt, f, t);
     this.drain();
@@ -73,18 +80,27 @@ class DolinaGame implements ArcadeGame {
 
   draw(): void { this.view.draw(this.sim); }
 
-  /** A press anywhere jumps (on the press, not the release); letting go cuts a rising jump; a drag down stomps. */
+  /**
+   * One thumb, anywhere on the field: a press jumps on the press itself (not the release), in the air it is
+   * the double jump; holding goes higher, letting go cuts a rising jump; a swipe down stomps.  A swipe begins
+   * as a press, so a swipe read on the finger that just made the double jump takes that flap back — a
+   * stomp never costs the double jump.  A press on a card or a toast also closes it (it still jumps).
+   */
   pointer(e: PointerInput): void {
     if (e.type === 'down') {
-      this.touches.set(e.id, { x: e.x, y: e.y, swiped: false });
+      const air = this.sim.airUsed;
       this.sim.press();
+      this.touches.set(e.id, { x: e.x, y: e.y, t: this.time, swiped: false, flap: this.sim.airUsed > air });
+      this.view.press(e.x, e.y);
     } else if (e.type === 'move') {
       const p = this.touches.get(e.id);
       if (!p || p.swiped) return;
       const dx = e.x - p.x, dy = e.y - p.y;
-      if (dy >= SWIPE && dy > Math.abs(dx)) {
+      if (dy >= SWIPE && dy > Math.abs(dx) * 1.2) {
         p.swiped = true;
+        if (p.flap && this.time - p.t <= UNDO_SEC) this.sim.undoAirJump();
         this.sim.stomp();
+        this.view.swiped(e.x, e.y);
       }
     } else {
       this.touches.delete(e.id);
@@ -107,13 +123,22 @@ class DolinaGame implements ArcadeGame {
     }
   }
 
+  /** The field is the control (a press anywhere); only a card or a toast on screen is a target (a tap closes it). */
+  targets(): TapTarget[] { return this.view.targets(); }
+
   private drain(): void {
     for (const e of this.sim.take()) {
       this.view.on(e, this.sim);
       this.sound.on(e);
-      if (e.type === 'teach') this.env.hint(t(`teach.${e.what}`), this.view.toScreen(e.x, e.y, this.sim), 3600);
+      if (e.type === 'teach') this.env.hint(this.teachText(e.what), this.view.toScreen(e.x, e.y, this.sim), 3600);
       if (this.env.haptics) haptic(e);
     }
+  }
+
+  /** A coach mark's words: a finger's on a phone; on a desktop the hands' first three name their keys too. */
+  private teachText(what: Extract<SimEvent, { type: 'teach' }>['what']): string {
+    if (!this.env.touch && (what === 'jump' || what === 'double' || what === 'stomp')) return t(`teach.${what}.keys`);
+    return t(`teach.${what}`);
   }
 
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
@@ -190,12 +215,14 @@ const mod: ArcadeModule<DolinaProgress> = {
   },
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
+  // the hands in finger words (a phone's card leaves the keys' row out; a desktop shows it as shortcuts)
   howto: (): HowTo => ({
     goal: t('how.goal'),
     hands: [
       { gesture: 'tap', text: t('how.tap') },
       { gesture: 'hold', text: t('how.hold') },
       { gesture: 'swipe', text: t('how.down') },
+      { gesture: 'keys', text: t('how.keys') },
     ],
     tips: [t('how.tip1'), t('how.tip2')],
   }),

@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { SAY, lineSec, speakerOf } from '../src/arcade/dolina/companion';
-import { COMPS, ERAS, GEAR, KEEPERS, MISSIONS, SEQ, TRIALS, UPGRADES, eraOfLevel, guardLevel, powerOf, weaponName } from '../src/arcade/dolina/content';
+import {
+  COMPS, ERAS, GEAR, KEEPERS, MISSIONS, SEQ, TRIALS, UPGRADES, compName, compText, eraName, eraOfLevel, guardLevel, missionText, powerName, powerOf, weaponName,
+} from '../src/arcade/dolina/content';
+import { Hud, weaponLabel } from '../src/arcade/dolina/hud';
 import { CATALOGS, t } from '../src/arcade/dolina/i18n';
+import dolina, { SWIPE, UNDO_SEC } from '../src/arcade/dolina/index';
+import { EDGE, ROOM, layout } from '../src/arcade/dolina/layout';
+import { font } from '../src/arcade/dolina/paint';
+import type { ArcadeAudio } from '../src/arcade/kit/audio';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import {
   addGear, applyChest, bestOf, bondLevel, buyUp, clockTime, completeMission, freshProgress, lookOf, migrate, nightOf, partyFor, rollChest, setStars,
   slotsFor, starTotal, starsOf, strengthOf, toggleParty, upLevel, upPrice, type DolinaProgress,
@@ -1283,5 +1292,268 @@ describe('Dolina v3: gear, chests, provisions, missions, forms', () => {
     expect(broken.mode).toBe('valley');
     expect(broken.missions).toHaveLength(3);
     expect(broken.buffs).toEqual({ honey: 0, raisins: 0, dates: 0 });
+  });
+});
+
+// ── mobile first (DESIGN §12) ─────────────────────────────────────
+const PX = /(\d+(?:\.\d+)?)px/;
+const pxOf = (f: unknown): number => Number(String(f).match(PX)?.[1] ?? 10);
+
+/**
+ * A 2D context that draws nothing: it measures text at 0.56 em a character and notes every string it is
+ * asked to write at its largest size (as the mobile audit does), so the view and the HUD run in a test.
+ */
+function fakeCtx(texts = new Map<string, number>()): CanvasRenderingContext2D {
+  const state: Record<string | symbol, unknown> = { font: '10px sans-serif', globalAlpha: 1, lineWidth: 1 };
+  const grad = { addColorStop: () => undefined };
+  const note = (s: unknown) => {
+    const k = String(s), px = pxOf(state.font);
+    if (k.trim()) texts.set(k, Math.max(texts.get(k) ?? 0, px));
+  };
+  const fns: Record<string, (...a: unknown[]) => unknown> = {
+    measureText: (s: unknown) => ({ width: String(s).length * pxOf(state.font) * 0.56 }),
+    fillText: note, strokeText: () => undefined,
+    createLinearGradient: () => grad, createRadialGradient: () => grad, createPattern: () => null,
+    getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+  };
+  return new Proxy(state, {
+    get: (o, k) => (typeof k === 'string' && k in fns ? fns[k] : k in o ? o[k] : () => undefined),
+    set: (o, k, v) => { o[k] = v; return true; },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+const silent = new Proxy({ on: false }, { get: (o, k) => (k in o ? (o as Record<string | symbol, unknown>)[k] : () => undefined) }) as unknown as ArcadeAudio;
+
+/** The game as the runner makes it, on a canvas that draws nothing (a phone: touch, the insets of a CHECK_SIZES entry). */
+function phoneGame(progress: Partial<DolinaProgress>, ins: Insets, texts?: Map<string, number>): { game: ArcadeGame; sim: DolinaSim; hints: string[] } {
+  const ctx = fakeCtx(texts);
+  const hints: string[] = [];
+  const env = {
+    canvas: { getContext: () => ctx } as unknown as HTMLCanvasElement, hud: document.createElement('div'), audio: silent,
+    progress: { ...freshProgress(), ...progress }, rng: mulberry32(5), day: DAY, daySeed: 4242, plannedSec: 300, tool: 'fnirs' as const,
+    simulated: true, reducedMotion: false, haptics: false, tuning: TUNING,
+    hint: (text: string) => { hints.push(text); }, hudTop: () => ins.top, insets: () => ins, touch: true,
+  } satisfies GameEnv<DolinaProgress>;
+  const game = dolina.create(env);
+  return { game, sim: (game as unknown as { sim: DolinaSim }).sim, hints };
+}
+
+const RETURNING: Partial<DolinaProgress> = { sessions: 5, giftDay: DAY, pushes: 1, seen: ['tide', 'meadow', 'guard', 'open', 'fog', 'dawn', 'stairs', 'cage', 'mate', 'power', 'chest', 'tower', 'bridge', 'pend', 'barrier'] };
+
+/** Every kind of card and toast the play shows, with its real words. */
+function showAll(hud: Hud): (() => void)[] {
+  return [
+    () => hud.card('story', t('story.title'), t('story.text'), RULES.storySec, { verse: 'psa23.4' }),
+    () => hud.card('story', t('tower.title'), t('tower.text'), RULES.storySec, { verse: 'php3.14' }),
+    () => hud.card('level', t('level.done', { n: 12 }), '+48 iskier', RULES.cardSec, {
+      stars: 2, lines: [[t('level.star.top'), true], [t('level.star.lambs', { a: 1, b: 2 }), false], [t('level.star.tide'), true]],
+    }),
+    () => hud.card('level', eraName('twierdza'), t('era.twierdza.text'), 3.2, { lines: [[t('era.lap', { n: 2 }), false]] }),
+    () => hud.card('level', t('card.found'), compText('babcia'), 3.4, { portrait: 'babcia', sub2: compName('babcia'), sub3: t('card.power', { power: powerName('babcia') }) }),
+    () => hud.card('finale', t('finale.title'), t('finale.sub', { metres: t('metres', { n: 1240 }) }), 6),
+    () => hud.card('toast', t('fx.dawn'), t('fx.dawnSub'), 2.4),
+    () => hud.card('toast', t('fx.chest'), 'Srebrne ostrze · +1 do pancerza', 3, { icon: 'chest' }),
+    () => hud.card('toast', t('fx.mission', { text: missionText('stairs', 11) }), '+55 iskier', 2.6, { icon: 'check' }),
+  ];
+}
+
+describe('Dolina: mobile first', () => {
+  it('never asks for canvas text under 11 px', () => {
+    for (const size of [0, 4, 8, 10.9, 11, 13, 22]) expect(pxOf(font(800, size, 'x'))).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(pxOf(font(560, 22, 'x', true))).toBe(22);
+  });
+
+  it('lays out every checked screen phone first: room to climb, the road ahead, the pack under the road, clear of the HUD', () => {
+    for (const s of CHECK_SIZES) {
+      const L = layout(s.w, s.h, s.insets);
+      const phone = Math.min(s.w, s.h) <= 430;
+      expect(L.u, s.name).toBeGreaterThanOrEqual(1);
+      expect(L.u, s.name).toBeLessThanOrEqual(1.3);
+      if (phone) expect(L.u, s.name).toBeLessThan(1.1);
+      expect(L.tall, s.name).toBe(s.w < s.h);
+      // a ledge's top, both jumps and the gate in the air fit between the HUD and the floor
+      expect(L.floorLine - L.top - 8, s.name).toBeGreaterThanOrEqual(ROOM * L.S - 0.5);
+      // the double jump's apex with his head stays under the HUD (on its side: the 68 px row)
+      expect(L.floorLine - (RULES.reach2 + 1.5) * L.S, s.name).toBeGreaterThanOrEqual(L.top);
+      // more than a second of road ahead at his speed, and room behind him for the party
+      expect((s.w - L.runX) / L.S / RULES.run, s.name).toBeGreaterThan(1.2);
+      expect(L.runX - L.left, s.name).toBeGreaterThanOrEqual(1.8 * L.S);
+      // the pack's row: under the road, inside the safe area, above the home indicator, a finger tall
+      expect(L.pack.y, s.name).toBeGreaterThan(L.floorLine);
+      expect(L.pack.y + L.pack.h, s.name).toBeLessThanOrEqual(s.h - s.insets.bottom);
+      expect(L.pack.x, s.name).toBeGreaterThanOrEqual(s.insets.left + EDGE);
+      expect(L.pack.x + L.pack.w, s.name).toBeLessThanOrEqual(s.w - s.insets.right - EDGE);
+      expect(L.pack.h, s.name).toBeGreaterThanOrEqual(36);
+      // upright, a thumb's pad stays free under the pack
+      if (L.tall) expect(s.h - s.insets.bottom - (L.pack.y + L.pack.h), s.name).toBeGreaterThanOrEqual(50);
+      // cards fit the width with the 16 px edges, under the HUD
+      expect(L.cardW, s.name).toBeLessThanOrEqual(s.w - s.insets.left - s.insets.right - 2 * EDGE);
+      expect(L.cardTop, s.name).toBeGreaterThanOrEqual(s.insets.top);
+    }
+  });
+
+  it('makes every card and toast a finger-sized tap target inside the safe area, at every checked size', () => {
+    for (const s of CHECK_SIZES) {
+      const L = layout(s.w, s.h, s.insets);
+      const hud = new Hud(fakeCtx());
+      hud.resize(L);
+      for (const show of showAll(hud)) {
+        expect(hud.targets(), s.name).toEqual([]);
+        show();
+        hud.update(0.7, 0, 1);
+        const tg = hud.targets();
+        expect(tg, s.name).toHaveLength(1);
+        expect(auditTargets(tg, s.w, s.h, s.insets), `${s.name}: ${tg[0].label}`).toEqual([]);
+        // nothing to press in the outer 16 px of the screen's sides
+        expect(tg[0].x, s.name).toBeGreaterThanOrEqual(s.insets.left + EDGE - 0.5);
+        expect(tg[0].x + tg[0].w, s.name).toBeLessThanOrEqual(s.w - s.insets.right - EDGE + 0.5);
+        expect(Math.min(tg[0].w, tg[0].h), s.name).toBeGreaterThanOrEqual(MIN_TAP);
+        // a card in play (not the opening story, which runs on a quiet road) leaves the pilgrim's floor in sight
+        if (!tg[0].label.includes('story')) expect(tg[0].y + tg[0].h, `${s.name}: ${tg[0].label}`).toBeLessThan(L.floorLine);
+        // a tap on it closes it
+        expect(hud.tap(tg[0].x + tg[0].w / 2, tg[0].y + tg[0].h / 2)).toBe(true);
+        hud.update(0.3, 0, 1);
+        expect(hud.targets(), s.name).toEqual([]);
+      }
+    }
+  });
+
+  it('keeps Ćma quiet over a coach mark the runner holds under its block banner (one voice at a time)', () => {
+    const sim = later({ progress: { seen: ['tide', 'guard', 'open', 'fog', 'dawn', 'stairs'] } });
+    const clock = { t: 0 };
+    let at = -1;
+    for (let i = 0; i < 60 * 80 && at < 0; i++) {
+      clock.t += STEP;
+      sim.update(STEP, LOW, clock.t);
+      for (const e of sim.take()) if (e.type === 'teach' && e.what === 'meadow') at = sim.blockT;
+    }
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(at).toBeLessThan(RULES.bannerSec);
+    // past the block's own quiet start (5.6 s) the coach mark is still on screen: she waits for it
+    drive(sim, 5.9 - sim.blockT, CALM, clock);
+    expect(sim.bannerLeft).toBe(0);
+    expect(sim.quiet).toBe(true);
+    drive(sim, RULES.bannerSec + 3.6 - sim.blockT, CALM, clock);
+    expect(sim.quiet).toBe(false);
+  });
+
+  it('waits with its cards while the runner’s block banner covers the top band', () => {
+    const hud = new Hud(fakeCtx());
+    hud.resize(layout(360, 500, CHECK_SIZES[0].insets));
+    hud.card('toast', t('fx.dawn'), t('fx.dawnSub'), 2.4);
+    hud.update(3, 0, 1, true);
+    expect(hud.targets()).toEqual([]);
+    hud.update(0.7, 0, 1, false);
+    expect(hud.targets()).toHaveLength(1);
+  });
+
+  it('keeps the sword’s number when a phone has to cut its name', () => {
+    const ctx = fakeCtx();
+    for (const tier of [1, 5, 12]) {
+      const full = weaponName(tier);
+      expect(weaponLabel(ctx, tier, 400, 15)).toBe(full);
+      const cut = weaponLabel(ctx, tier, 60, 15);
+      expect(cut.endsWith(full.split(' ').pop()!)).toBe(true);
+      expect(pxOf(ctx.font)).toBeGreaterThanOrEqual(MIN_READ);
+    }
+  });
+
+  it('draws no play text under 13 px on the smallest phone (cards, bubbles, the pack, numbers, signs)', () => {
+    const texts = new Map<string, number>();
+    const ins = CHECK_SIZES[0].insets;
+    const { game, sim } = phoneGame({ ...RETURNING, sparksAll: RULES.looks[2], found: ['glaz', 'babcia'], party: ['glaz', 'babcia'], guards: 2 }, ins, texts);
+    game.resize(360, 500, 3);
+    game.start();
+    const hud = (game as unknown as { view: { hud: Hud } }).view.hud;
+    let tt = 0;
+    for (let i = 0; i < 60 * 70; i++) {
+      tt += STEP;
+      const live = sim.block.kind === 'push' ? HIGH : CALM;
+      game.update(STEP, live, tt);
+      if (i % 40 === 0) game.pointer!({ type: 'down', x: 220, y: 440, id: 1 });
+      if (i % 40 === 8) game.pointer!({ type: 'up', x: 220, y: 440, id: 1 });
+      if (i % 600 === 300) for (const show of showAll(hud)) show();
+      game.draw();
+    }
+    const small = [...texts].filter(([, px]) => px < MIN_READ);
+    expect(small).toEqual([]);
+    expect(texts.size).toBeGreaterThan(12);
+  });
+
+  it('reads a tap as a jump and a swipe down as a stomp; the swipe takes back the double jump its own press made', () => {
+    const { game, sim } = phoneGame(RETURNING, CHECK_SIZES[0].insets);
+    game.resize(360, 500, 3);
+    game.start();
+    flatRoad(sim);
+    let tt = 0;
+    const run = (sec: number) => { for (let i = 0; i < Math.round(sec / STEP); i++) { tt += STEP; game.update(STEP, LOW, tt); } };
+    run(0.5);
+    // a tap with a finger's wobble: a jump, no stomp
+    game.pointer!({ type: 'down', x: 200, y: 440, id: 1 });
+    expect(sim.grounded).toBe(false);
+    game.pointer!({ type: 'move', x: 203, y: 446, id: 1 });
+    expect(sim.stomping).toBe(false);
+    run(0.12);
+    game.pointer!({ type: 'up', x: 203, y: 446, id: 1 });
+    // a second press in the air is the double jump; the same finger swiping down at once makes it a stomp
+    run(0.1);
+    game.pointer!({ type: 'down', x: 200, y: 420, id: 2 });
+    expect(sim.airUsed).toBe(1);
+    expect(sim.doubles).toBe(1);
+    run(0.05);
+    game.pointer!({ type: 'move', x: 204, y: 420 + SWIPE + 2, id: 2 });
+    expect(sim.stomping).toBe(true);
+    expect(sim.airUsed).toBe(0);
+    expect(sim.doubles).toBe(0);
+    game.pointer!({ type: 'up', x: 204, y: 450, id: 2 });
+    run(1);
+    expect(sim.grounded).toBe(true);
+    // a sideways drag is not a stomp; a slow swipe long after a double jump keeps the jump counted
+    game.pointer!({ type: 'down', x: 200, y: 440, id: 3 });
+    game.pointer!({ type: 'up', x: 200, y: 440, id: 3 });
+    run(0.15);
+    game.pointer!({ type: 'down', x: 200, y: 400, id: 4 });
+    expect(sim.doubles).toBe(1);
+    game.pointer!({ type: 'move', x: 240, y: 400 + SWIPE, id: 4 });
+    expect(sim.stomping).toBe(false);
+    run(UNDO_SEC + 0.05);
+    game.pointer!({ type: 'move', x: 200, y: 400 + SWIPE + 30, id: 4 });
+    expect(sim.stomping || sim.grounded).toBe(true);
+    expect(sim.doubles).toBe(1);
+    game.pointer!({ type: 'up', x: 200, y: 440, id: 4 });
+    expect(SWIPE).toBeGreaterThanOrEqual(20);
+  });
+
+  it('reports a card as its only target; a tap on it closes it and still jumps', () => {
+    const { game, sim } = phoneGame(RETURNING, CHECK_SIZES[0].insets);
+    game.resize(360, 500, 3);
+    game.start();
+    flatRoad(sim);
+    const view = (game as unknown as { view: { hud: Hud } }).view;
+    let tt = 0;
+    const run = (sec: number) => { for (let i = 0; i < Math.round(sec / STEP); i++) { tt += STEP; game.update(STEP, LOW, tt); } };
+    run(9);
+    expect(game.targets!()).toEqual([]);
+    view.hud.card('level', eraName('miasto'), t('era.miasto.text'), 3.2);
+    run(0.6);
+    const tg = game.targets!();
+    expect(tg).toHaveLength(1);
+    expect(auditTargets(tg, 360, 500, CHECK_SIZES[0].insets)).toEqual([]);
+    game.pointer!({ type: 'down', x: tg[0].x + tg[0].w / 2, y: tg[0].y + tg[0].h / 2, id: 9 });
+    expect(sim.grounded).toBe(false);
+    run(0.4);
+    expect(game.targets!()).toEqual([]);
+  });
+
+  it('speaks to a finger in the how-to: the keys only in their own row (left out on a phone)', () => {
+    const how = dolina.howto!();
+    expect(how.hands.map(h => h.gesture)).toEqual(['tap', 'hold', 'swipe', 'keys']);
+    for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[lang] as Record<string, unknown>;
+      for (const k of ['how.tap', 'how.hold', 'how.down', 'how.goal', 'how.tip1', 'how.tip2']) {
+        expect(String(cat[k]), `${lang} ${k}`).not.toMatch(/Spac|Space|Leertaste|mellanslag|↑|↓|WASD|klaw|Taste|tangent|\bkey/i);
+      }
+      expect(String(cat['how.keys']), lang).toMatch(/↑/);
+    }
   });
 });

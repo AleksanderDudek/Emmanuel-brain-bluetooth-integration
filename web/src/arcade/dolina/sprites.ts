@@ -6,7 +6,7 @@
  * guardian throws.  All canvas paths, sizes in u times `S` (px per u); y grows downward on screen.
  */
 import type { EraId } from './content';
-import { C, SANS, TAU, font, glow, hash, mix, rgb, type Palette } from './paint';
+import { C, SANS, TAU, font, glow, hash, mix, numberPlate, rgb, type Palette } from './paint';
 
 // ── the ground ────────────────────────────────────────────────────
 /** A floor's ground from x0 to x1 (px), its top at `top`, down to `bottom`; the meadow is grass, the dawn warm. */
@@ -143,15 +143,16 @@ export function paintBlock(ctx: CanvasRenderingContext2D, x: number, y: number, 
     ctx.lineWidth = Math.max(2, S * 0.07);
     ctx.strokeRect(x, y - h, w, h);
   }
-  // the plaque with its number (in the fog only a question mark)
-  const ph = p.giant ? S * 0.62 : Math.min(S * 0.42, h * 0.38), pw = Math.max(p.giant ? S * 1.25 : S * 0.7, w * 0.78);
+  // the plaque with its number (in the fog only a question mark): never under 14 px, on a dark plate
+  const ph = p.giant ? Math.max(24, S * 0.62) : Math.max(19, Math.min(S * 0.42, h * 0.38));
+  const pw = Math.max(p.giant ? S * 1.25 : S * 0.7, w * 0.78, ph * 1.5);
   const px = x + (w - pw) / 2, py = y - h * (p.tall ? 0.62 : 0.55) - ph / 2;
-  ctx.fillStyle = 'rgba(24,18,26,.78)';
+  ctx.fillStyle = 'rgba(24,18,26,.82)';
   ctx.beginPath();
   ctx.roundRect(px, py, pw, ph, ph * 0.3);
   ctx.fill();
-  ctx.fillStyle = p.lit ? '#fff1c4' : 'rgba(255,241,196,.45)';
-  ctx.font = font(800, ph * 0.78, SANS);
+  ctx.fillStyle = p.lit ? '#fff1c4' : 'rgba(255,241,196,.5)';
+  ctx.font = font(800, Math.max(14, ph * 0.76), SANS);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(p.lit ? String(Math.max(1, Math.ceil(p.hp))) : '?', px + pw / 2, py + ph * 0.54);
@@ -237,8 +238,9 @@ export function paintGate(ctx: CanvasRenderingContext2D, x: number, base: number
 }
 
 function plaque(ctx: CanvasRenderingContext2D, x: number, y: number, S: number, text: string, color: string): void {
-  ctx.font = font(800, S * 0.36, SANS);
-  const w = ctx.measureText(text).width + S * 0.36, h = S * 0.5;
+  const px = Math.max(14, S * 0.36);
+  ctx.font = font(800, px, SANS);
+  const w = ctx.measureText(text).width + px, h = px * 1.4;
   ctx.fillStyle = 'rgba(24,18,26,.82)';
   ctx.beginPath();
   ctx.roundRect(x - w / 2, y - h / 2, w, h, h * 0.4);
@@ -272,11 +274,7 @@ export function paintPen(ctx: CanvasRenderingContext2D, x: number, y: number, w:
     ctx.arc(x + w * (0.2 + 0.3 * i) + Math.sin(k * 6) * S * 0.1, y - h - k * S * 0.6, S * (0.06 + 0.1 * k), 0, TAU);
     ctx.fill();
   }
-  ctx.fillStyle = p.lit ? '#fff1c4' : 'rgba(255,241,196,.45)';
-  ctx.font = font(800, S * 0.32, SANS);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(p.lit ? String(Math.max(1, Math.ceil(p.hp))) : '?', x + w / 2, y - h - S * 0.28);
+  numberPlate(ctx, p.lit ? String(Math.max(1, Math.ceil(p.hp))) : '?', x + w / 2, y - h - Math.max(S * 0.3, 12), Math.max(14, S * 0.32), p.lit ? '#fff1c4' : 'rgba(255,241,196,.5)');
   ctx.restore();
 }
 

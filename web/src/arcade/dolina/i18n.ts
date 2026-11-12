@@ -43,9 +43,10 @@ const pl = {
 
   // how to play
   'how.goal': 'Uciekaj z doliny cienia piętro po piętrze: rozbijaj kamienie, buduj z nich schody, skacz, uwalniaj towarzyszy.',
-  'how.tap': 'Stuknij (Spacja, ↑): skok. W powietrzu stuknij jeszcze raz: podwójny skok.',
+  'how.tap': 'Stuknij gdziekolwiek: skok. W powietrzu stuknij jeszcze raz: podwójny skok.',
   'how.hold': 'Przytrzymaj: skok wyżej. Puść wcześnie: niżej.',
-  'how.down': 'Przesuń w dół (↓) w powietrzu: tupnięcie. Miecz uderza sam.',
+  'how.down': 'Przesuń palcem w dół w powietrzu: tupnięcie. Miecz uderza sam.',
+  'how.keys': 'Klawisze: Spacja, ↑ albo W — skok (przytrzymaj: wyżej); ↓ albo S — tupnięcie.',
   'how.tip1': 'Wysoka brama daje +2 do miecza, ale sięgniesz jej tylko dwoma skokami.',
   'how.tip2': 'Każdy kamień w sakwie to stopień schodów przy następnej półce.',
 
@@ -56,6 +57,10 @@ const pl = {
   'teach.tall': 'Wysoki kamień: rozbij go albo przeskocz dwoma skokami',
   'teach.gate': 'Wysoka brama: dwa skoki = +2 do miecza',
   'teach.stomp': 'Skocz cieniowi na głowę: tupnięcie',
+  // the same three with the keys, for a desktop (a phone's coach marks never speak of keys)
+  'teach.jump.keys': 'Spacja albo klik: skok nad przepaścią',
+  'teach.double.keys': 'Szeroko! Skocz, a w powietrzu jeszcze raz Spacja',
+  'teach.stomp.keys': 'Skocz cieniowi na głowę (↓ — szybciej w dół): tupnięcie',
   'teach.lamb': 'W zagrodzie owieczka! Rozbij zagrodę',
   'teach.stairsJump': 'Schody za krótkie: na górze skocz',
   'teach.stairsDouble': 'Za wysoko na jeden skok: skok i drugi w powietrzu',
@@ -447,7 +452,7 @@ const pl = {
   'fx.giant': 'Ogromny blok!',
   'fx.wood': { one: '+{n} drewniany stopień', few: '+{n} drewniane stopnie', many: '+{n} drewnianych stopni', other: '+{n} drewnianego stopnia' },
   'card.found': 'Ktoś nowy w drużynie!',
-  'card.foundPower': 'Moc: {power}. {text}',
+  'card.power': 'Moc: {power}',
 
   // the summary
   'stat.floors': 'Piętra wieży',
@@ -617,9 +622,10 @@ const en: Cat = {
   'tip.firstRest': 'Let go: calm gathers pebbles from the brook and tops up the oil.',
 
   'how.goal': 'Escape the valley of the shadow floor by floor: break stones, build stairs from them, jump, free your companions.',
-  'how.tap': 'Tap (Space, ↑): jump. Tap again in the air: double jump.',
+  'how.tap': 'Tap anywhere: jump. Tap again in the air: double jump.',
   'how.hold': 'Hold: jump higher. Let go early: lower.',
-  'how.down': 'Swipe down (↓) in the air: stomp. Your sword strikes by itself.',
+  'how.down': 'Swipe down in the air: stomp. Your sword strikes by itself.',
+  'how.keys': 'Keys: Space, ↑ or W — jump (hold: higher); ↓ or S — stomp.',
   'how.tip1': 'A high gate gives your sword +2, but only a double jump reaches it.',
   'how.tip2': 'Every stone in your bag is one step of the stairs at the next ledge.',
 
@@ -629,6 +635,9 @@ const en: Cat = {
   'teach.tall': 'Tall stone: break it or clear it with a double jump',
   'teach.gate': 'High gate: double jump = sword +2',
   'teach.stomp': 'Jump on the shadow’s head: stomp',
+  'teach.jump.keys': 'Space or click: jump the gap',
+  'teach.double.keys': 'Wide! Jump, then Space again in the air',
+  'teach.stomp.keys': 'Jump on the shadow’s head (↓ drops faster): stomp',
   'teach.lamb': 'A lamb in the pen! Break the pen',
   'teach.stairsJump': 'Stairs too short: jump at the top',
   'teach.stairsDouble': 'Too high for one jump: jump, and again in the air',
@@ -1003,7 +1012,7 @@ const en: Cat = {
   'fx.giant': 'Giant block!',
   'fx.wood': { one: `+{n}${N}wooden step`, other: `+{n}${N}wooden steps` },
   'card.found': 'Someone new in the party!',
-  'card.foundPower': 'Power: {power}. {text}',
+  'card.power': 'Power: {power}',
 
   'stat.floors': 'Tower floors',
   'stat.floorsVal': '{from} → {to}',
@@ -1165,9 +1174,10 @@ const de: Cat = {
   'tip.firstRest': 'Lass los: Ruhe sammelt Kiesel aus dem Bach und füllt Öl nach.',
 
   'how.goal': 'Entkomme dem finsteren Tal Stockwerk um Stockwerk: Steine zerschlagen, Stufen bauen, springen, Gefährten befreien.',
-  'how.tap': 'Tippen (Leertaste, ↑): Sprung. In der Luft noch einmal: Doppelsprung.',
+  'how.tap': 'Tippe irgendwo: Sprung. In der Luft noch einmal: Doppelsprung.',
   'how.hold': 'Halten: höher springen. Früh loslassen: niedriger.',
-  'how.down': 'In der Luft nach unten wischen (↓): Stampfer. Dein Schwert schlägt von selbst.',
+  'how.down': 'In der Luft nach unten wischen: Stampfer. Dein Schwert schlägt von selbst.',
+  'how.keys': 'Tasten: Leertaste, ↑ oder W – Sprung (halten: höher); ↓ oder S – Stampfer.',
   'how.tip1': 'Ein hohes Tor gibt dem Schwert +2, aber nur ein Doppelsprung erreicht es.',
   'how.tip2': 'Jeder Stein im Beutel ist eine Stufe an der nächsten Kante.',
 
@@ -1177,6 +1187,9 @@ const de: Cat = {
   'teach.tall': 'Hoher Stein: zerschlag ihn oder nimm ihn mit dem Doppelsprung',
   'teach.gate': 'Hohes Tor: Doppelsprung = Schwert +2',
   'teach.stomp': 'Spring dem Schatten auf den Kopf: Stampfer',
+  'teach.jump.keys': 'Leertaste oder Klick: Sprung über den Abgrund',
+  'teach.double.keys': 'Breit! Spring und drück in der Luft noch einmal die Leertaste',
+  'teach.stomp.keys': 'Spring dem Schatten auf den Kopf (↓ fällt schneller): Stampfer',
   'teach.lamb': 'Ein Lamm im Pferch! Zerschlag den Pferch',
   'teach.stairsJump': 'Treppe zu kurz: oben springen',
   'teach.stairsDouble': 'Zu hoch für einen Sprung: spring, und in der Luft noch einmal',
@@ -1551,7 +1564,7 @@ const de: Cat = {
   'fx.giant': 'Riesenblock!',
   'fx.wood': { one: `+{n}${N}Holzstufe`, other: `+{n}${N}Holzstufen` },
   'card.found': 'Jemand Neues in der Gruppe!',
-  'card.foundPower': 'Kraft: {power}. {text}',
+  'card.power': 'Kraft: {power}',
 
   'stat.floors': 'Turmstockwerke',
   'stat.floorsVal': '{from} → {to}',
@@ -1713,9 +1726,10 @@ const sv: Cat = {
   'tip.firstRest': 'Släpp taget: lugnet samlar småsten ur bäcken och fyller på oljan.',
 
   'how.goal': 'Fly ur dödsskuggans dal våning för våning: krossa stenar, bygg trappor av dem, hoppa, befria följeslagare.',
-  'how.tap': 'Tryck (mellanslag, ↑): hopp. Tryck igen i luften: dubbelhopp.',
+  'how.tap': 'Tryck var som helst: hopp. Tryck igen i luften: dubbelhopp.',
   'how.hold': 'Håll kvar: högre hopp. Släpp tidigt: lägre.',
-  'how.down': 'Svep nedåt (↓) i luften: stamp. Ditt svärd slår av sig självt.',
+  'how.down': 'Svep nedåt i luften: stamp. Ditt svärd slår av sig självt.',
+  'how.keys': 'Tangenter: mellanslag, ↑ eller W – hopp (håll kvar: högre); ↓ eller S – stamp.',
   'how.tip1': 'En hög port ger svärdet +2, men bara ett dubbelhopp når den.',
   'how.tip2': 'Varje sten i påsen är ett trappsteg vid nästa avsats.',
 
@@ -1725,6 +1739,9 @@ const sv: Cat = {
   'teach.tall': 'Hög sten: krossa den eller ta den med dubbelhopp',
   'teach.gate': 'Hög port: dubbelhopp = svärd +2',
   'teach.stomp': 'Hoppa på skuggans huvud: stamp',
+  'teach.jump.keys': 'Mellanslag eller klick: hoppa över avgrunden',
+  'teach.double.keys': 'Brett! Hoppa och tryck mellanslag igen i luften',
+  'teach.stomp.keys': 'Hoppa på skuggans huvud (↓ faller fortare): stamp',
   'teach.lamb': 'Ett lamm i fållan! Krossa fållan',
   'teach.stairsJump': 'Trappan är för kort: hoppa högst upp',
   'teach.stairsDouble': 'För högt för ett hopp: hoppa, och igen i luften',
@@ -2099,7 +2116,7 @@ const sv: Cat = {
   'fx.giant': 'Jätteblock!',
   'fx.wood': { one: `+{n}${N}trästeg`, other: `+{n}${N}trästeg` },
   'card.found': 'Någon ny i gänget!',
-  'card.foundPower': 'Kraft: {power}. {text}',
+  'card.power': 'Kraft: {power}',
 
   'stat.floors': 'Tornvåningar',
   'stat.floorsVal': '{from} → {to}',

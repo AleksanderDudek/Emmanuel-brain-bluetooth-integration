@@ -1497,6 +1497,57 @@ by play here; nothing is bought, timed or ad-gated.
   the tower at floor 1, no companions yet — their cages stand on the next levels — no gear, three
   missions); a version-1 save keeps its records and session count; damaged fields are repaired.
 
+**Mobile first (2026-11-12, §12).** Hell Escape is played upright with one thumb; Dolina was laid out
+on a desktop (a UI scale of `min(w, h) / 430` floored at 0.84 drew the pack at 11 px, the bubbles at
+10.9, the threshold's tag at 8.4) with the pack bottom right, under a right thumb. Now the phone is
+the reference (`layout(w, h, insets)`, `u` = the kit's `uiScale`: 1 on a phone, up to 1.3):
+
+* **Upright.** The road runs across the lower middle. The scale comes from the width — 9 u across,
+  40 px/u on a 360 px phone (the pilgrim ≈ 56 px, a block 38 px) — so about 1.3 s of road shows
+  ahead (the pilgrim a quarter of the way in, the party's room behind him); 5.8 u above the floor keep a
+  ledge's top, both jumps and the high gate in sight under the HUD. Under the road a ground band (24 %
+  of the canvas, at least 122 px) holds the **pack's row** just under the floor — the sword (its name
+  fitted down to 13 px, never losing its tier's numeral), the stones (18 px), the oil — 36 px pills where
+  the eye already is and above the thumb, and under them a **thumb pad**. Nothing there is a button:
+  the whole field is the control, so the thumb never has to cover the climb.
+* **The hands under a finger.** A press anywhere jumps on the press itself; a second press in the air
+  is Ćma's flap; holding goes higher. A **swipe down** (20 px, more down than sideways ×1.2; a tap's
+  wobble stays under it) stomps. A swipe begins as a press, so a swipe read within 0.25 s on the finger
+  whose press made the double jump takes the flap back (`undoAirJump`: the air jump returns, the
+  doubles and their mission do not count it) — a stomp never costs the double jump. A soft ring
+  answers every press under the finger (even one that only waits as a buffer), a chevron every swipe;
+  the haptics stay. Nothing needs a key: on a phone the how-to's hands speak of taps and swipes and its
+  `keys` row is left out; on a desktop that row and the first three coach marks (jump, double, stomp)
+  name the keys.
+* **Cards and toasts at 360 px.** Titles 22 px serif, words 15 px, the verse 14–17 px with its own
+  reference line at 13 px (kit/scripture's reference floor is 10); a companion's card puts the
+  portrait (the companion scaled to fill it) under the title with the name and the power beside it; a
+  level's sparks share its stars' row; toasts are
+  16/14 px and at least 44 px tall. **Each is a tap target**: a tap closes it (after half a second, so
+  a jump's tap does not close it unread) and still jumps — a card never eats a jump. Cards in play
+  (not the opening story, which runs on a quiet road) leave the pilgrim's floor in sight, and all wait
+  while the runner's block banner covers the top band (a push's or a rest's first 4.5 s); a coach mark
+  the runner holds under its banner keeps Ćma quiet until it has been read (one bubble at a time).
+* **A readable world.** Every canvas string is at least 13 px on a phone (`font()` floors at 11):
+  blocks' numbers 14 px+ on 19 px plaques, pens, cages and curtains on number plates, the gates'
+  plaques, the threshold's tag outlined at 13, the guardian's name 14, the sign for the hands 16; the
+  notification shadow's "!" is drawn, not written.
+* **Babcia's umbrella** opens over him only for its moments — 1.4 s as Parasol fires, 0.9 s when it
+  takes a hit; while armed a small umbrella rides over his shoulder (two for two hits). It no longer
+  hides him most of the time.
+* **On its side** (601 × 360 with the chart column, the HUD one 68 px row): a 54 px ground band holds
+  the pack's row, centred; the scale comes from the height under the row (39.7 px/u instead of 35.4,
+  15 u across, the pilgrim at 28 %), so the floor line (306) and the double jump's apex with his head
+  stay clear of the HUD row, with about two seconds of road ahead; a notch's insets keep the pack, the
+  floats and the cards inside. **A tablet and a desktop** grow the same layout; upright the scene is
+  capped at 58 × `u` px/u, so a tablet shows 11 u of valley instead of a giant pilgrim.
+* **The frame budget.** No per-frame `shadowBlur`: the card's shadow is an offset shape and the gold
+  rim's glow a wide soft stroke.
+* **Measured** (scripts/arcade-mobile.mjs, before → after): strings under 11 px — small phone 11 → 0,
+  iPhone 4 → 0, large Android 2 → 0, on its side 10 → 0; under 13 px — 13, 13, 14, 13, 2, 2 → 0 on
+  all six; targets 0 → the card or toast on screen (finger-sized, inside the insets, no overlaps);
+  the game's own frame 1.2–2.4 ms with the CPU slowed 2–4× (60 fps).
+
 ### 9.3 Chleby — five loaves and two fish (crowd cannon after Mob Control, v3)
 
 *John 6:9 — "Here is a boy with five barley loaves and two small fish. But what difference will

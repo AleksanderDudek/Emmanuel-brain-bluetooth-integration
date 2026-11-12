@@ -12,8 +12,10 @@
  */
 import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
 import { passage } from '../kit/scripture';
+import type { Insets, TapTarget } from '../kit/types';
 import {
   MATE_H, paintCage, paintChargeRing, paintCurtain, paintFallingPlank, paintKukulka, paintMate, paintPendulum, paintPlank, paintTowerBack, paintUmbrella,
+  paintUmbrellaBadge,
 } from './cast';
 import { compName, compText, eraName, floorName, floorRule, guardName, missionText, powerName, weaponName, type CompId, type EraId } from './content';
 import { Hud } from './hud';
@@ -46,7 +48,7 @@ export class DolinaView {
   private w = 1280;
   private h = 800;
   private dpr = 1;
-  private L: Layout = layout(1280, 800, 0);
+  private L: Layout = layout(1280, 800);
   private readonly hud: Hud;
   private readonly intro0 = new DolinaIntro();
   private clock = 0;
@@ -79,6 +81,10 @@ export class DolinaView {
   private readonly falls: Fall[] = [];
   private slowK = 0;
   private umbrellaK = 0;
+  /** Babcia's umbrella stands open over him this long (s): when Parasol fires and when it takes a hit */
+  private umbrellaT = 0;
+  /** the fingers' marks: a ring where a press came down, a chevron where a swipe went down */
+  private readonly touches: { x: number; y: number; t: number; swipe: boolean }[] = [];
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
     this.ctx = canvas.getContext('2d')!;
@@ -86,12 +92,31 @@ export class DolinaView {
     this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number, hudTop: number): void {
+  resize(w: number, h: number, dpr: number, insets: Insets): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, hudTop);
+    this.L = layout(w, h, insets);
     this.hud.resize(this.L);
+  }
+
+  /** The layout in use (tests and the game's hit tests). */
+  get layout(): Layout { return this.L; }
+
+  /** The card or toast on screen as a tap target (a tap closes it). */
+  targets(): TapTarget[] { return this.started ? this.hud.targets() : []; }
+
+  /** A press came down at (x, y): its ring under the finger; on a card or a toast it closes it (true). */
+  press(x: number, y: number): boolean {
+    this.touches.push({ x, y, t: 0, swipe: false });
+    if (this.touches.length > 6) this.touches.shift();
+    return this.hud.tap(x, y);
+  }
+
+  /** A swipe down was read at (x, y): a chevron where the finger went. */
+  swiped(x: number, y: number): void {
+    this.touches.push({ x, y, t: 0, swipe: true });
+    if (this.touches.length > 6) this.touches.shift();
   }
 
   start(sim: DolinaSim): void {
@@ -156,7 +181,7 @@ export class DolinaView {
       case 'strike': {
         const x = this.sx(e.x, sim), y = this.sy(e.y);
         this.parts.burst(x, y, 5, { color: e.what === 'stone' ? STONE_CHIP[sim.era] : '#fff1c4', size: 2.4 * u, speed: 160 * u, angle: -Math.PI * 0.8, spread: Math.PI * 0.8, g: 600, life: 0.45, shape: 'square', rnd });
-        if (e.what !== 'shadow') this.hud.float(`−${e.dmg}`, x + S * 0.2, y - S * 0.3, 'rgba(255,241,196,.9)', 12, 0.6, 22);
+        if (e.what !== 'shadow') this.hud.float(`−${e.dmg}`, x + S * 0.2, y - S * 0.3, 'rgba(255,241,196,.92)', 13, 0.6, 22);
         if (e.what === 'guard') this.shake.add(0.1);
         break;
       }
@@ -199,7 +224,7 @@ export class DolinaView {
         const x = this.sx(e.x, sim), y = this.sy(e.y);
         this.ghosts.push({ kind: e.kind, x: e.x, y: e.y, t: 0, id: e.id });
         this.parts.burst(x, y, 16, { color: '#fff4d6', size: 2.2 * u, speed: 110 * u, g: -90, drag: 1.6, life: 0.9, rnd });
-        if (e.sparks > 0 && e.via !== 'dawn' && e.via !== 'flash') this.hud.float(`+${e.sparks}`, x, y - S * 0.5, '#ffd36b', 13, 0.9);
+        if (e.sparks > 0 && e.via !== 'dawn' && e.via !== 'flash') this.hud.float(`+${e.sparks}`, x, y - S * 0.5, '#ffd36b', 14, 0.9);
         break;
       }
       case 'gate': {
@@ -224,7 +249,7 @@ export class DolinaView {
         break;
       }
       case 'climb':
-        this.hud.float(t('fx.climb'), this.L.runX, this.sy(e.y + 1.6), 'rgba(255,241,196,.9)', 13, 1.2);
+        this.hud.float(t('fx.climb'), this.L.runX, this.sy(e.y + 1.6), 'rgba(255,241,196,.92)', 14, 1.2);
         break;
       case 'pit':
         this.hud.float(t('fx.pit'), this.L.runX, this.sy(sim.floorY + 1.6), '#fff1c4', 15, 1.2);
@@ -280,7 +305,7 @@ export class DolinaView {
         this.ring(this.L.runX, this.sy(e.y + 0.5), S * 0.3, S * 3, 'rgba(255,214,140,', 0.8, 4 * u);
         break;
       case 'brook':
-        this.hud.float(t('fx.brook'), this.L.runX + S * 0.4, this.sy(sim.py + 1.6), '#bfe6ff', 13, 1.1);
+        this.hud.float(t('fx.brook'), this.L.runX + S * 0.4, this.sy(sim.py + 1.6), '#bfe6ff', 14, 1.1);
         this.hud.popStones();
         this.parts.burst(this.L.runX + S * 1.4, this.L.floorLine + S * 0.5, 6, { color: '#cfe6ff', size: 2 * u, speed: 90 * u, angle: -Math.PI / 2, spread: 0.9, g: 300, life: 0.6, rnd });
         break;
@@ -344,7 +369,7 @@ export class DolinaView {
       case 'mate': {
         if (e.what === 'join') {
           if (!this.mates.has(e.id)) this.mates.set(e.id, { x: e.x, y: e.y, act: 0.8, actDur: 0.8, dash: 0 });
-          this.hud.card('level', t('card.found'), t('card.foundPower', { power: powerName(e.id), text: compText(e.id) }), 3.4, { portrait: e.id, sub2: compName(e.id) });
+          this.hud.card('level', t('card.found'), compText(e.id), 3.4, { portrait: e.id, sub2: compName(e.id), sub3: t('card.power', { power: powerName(e.id) }) });
         } else this.hud.card('toast', t('fx.wait', { name: compName(e.id) }), '', 2.4);
         break;
       }
@@ -363,6 +388,7 @@ export class DolinaView {
       }
       case 'shield': {
         const x = this.sx(e.x, sim), y = this.sy(e.y);
+        this.umbrellaT = 0.9;
         this.ring(this.L.runX, this.sy(sim.py + 1.5), S * 0.5, S * 1.8, 'rgba(255,236,190,', 0.45, 4 * u);
         this.parts.burst(x, y, 12, { color: '#fff1c4', size: 2.2 * u, speed: 140 * u, life: 0.5, shape: 'spark', rnd });
         this.hud.float(t('fx.shield'), this.L.runX, this.sy(sim.py + 2.6), '#fff1c4', 16, 1);
@@ -431,7 +457,7 @@ export class DolinaView {
         if (v) v.dash = Math.max(0, e.x - v.x);
         break;
       case 'parasol':
-        this.umbrellaK = 1;
+        this.umbrellaT = 1.4;
         this.hud.float(`${powerName(e.id)}!`, this.L.runX, this.sy(sim.py + 2.7), '#fff1c4', 17, 1.1);
         break;
       case 'rusztowanie':
@@ -512,7 +538,8 @@ export class DolinaView {
     // Ćma flutters by the lamp; on a double jump she holds his hood and flaps; in a pit she lifts him
     const l = this.lampAt(sim);
     const hood = sim.flapAge < 0.4 || sim.state === 'pit';
-    const head = { x: this.L.runX - S * 0.05, y: this.sy(sim.py + 1.35) };
+    // (in a pit he is drawn at most 1.5 u under the floor: she holds the hood there, not down under the pack)
+    const head = { x: this.L.runX - S * 0.05, y: this.sy((sim.state === 'pit' ? Math.max(sim.py, sim.floorY - 1.5) : sim.py) + 1.35) };
     const tx = hood ? head.x : l.x + S * (0.55 + 0.35 * Math.sin(this.clock * 1.7));
     const ty = hood ? head.y : l.y - S * (0.75 + 0.25 * Math.cos(this.clock * 2.3)) + (this.meadow > 0.5 ? S * 0.2 : 0);
     const k = hood ? 40 : this.opts.reducedMotion ? 4 : 9;
@@ -531,7 +558,11 @@ export class DolinaView {
     }
     for (let i = this.falls.length - 1; i >= 0; i--) if (this.falls[i].t > 1.4) this.falls.splice(i, 1);
     this.slowK = approach(this.slowK, sim.slowT > 0 ? 1 : 0, dt, 0.15);
-    this.umbrellaK = approach(this.umbrellaK, sim.shieldHits > 0 ? 1 : 0, dt, 0.08);
+    // the umbrella opens over him only for its moments; between them it is a small badge (it used to stay up)
+    this.umbrellaT = Math.max(0, this.umbrellaT - dt);
+    this.umbrellaK = approach(this.umbrellaK, this.umbrellaT > 0 ? 1 : 0, dt, 0.08);
+    for (const m of this.touches) m.t += dt;
+    while (this.touches.length && this.touches[0].t > 0.45) this.touches.shift();
     // the line on screen, over its speaker (Ćma or a companion)
     const line = sim.talk.current;
     if (line && !this.hud.busy) {
@@ -547,7 +578,7 @@ export class DolinaView {
     if (this.meadow > 0.5 && this.rnd() < dt * 3) {
       this.parts.burst(this.rnd() * this.w, this.L.floorLine - this.rnd() * S * 2.5, 1, { color: '#e8f5a0', size: 1.6 * this.L.u, speed: 12, g: -6, drag: 0.5, life: 2.2, rnd: this.rnd });
     }
-    this.hud.update(dt, sim.stones, sim.oil);
+    this.hud.update(dt, sim.stones, sim.oil, sim.bannerLeft > 0);
   }
 
   /**
@@ -635,7 +666,12 @@ export class DolinaView {
     });
     if (this.umbrellaK > 0.02) {
       ctx.globalAlpha = this.umbrellaK;
-      paintUmbrella(ctx, L.runX, drawY, S, this.clock, sim.shieldHits);
+      paintUmbrella(ctx, L.runX, drawY, S, this.clock, Math.max(1, sim.shieldHits));
+      ctx.globalAlpha = 1;
+    }
+    if (sim.shieldHits > 0 && this.umbrellaK < 0.98) {
+      ctx.globalAlpha = 1 - this.umbrellaK;
+      paintUmbrellaBadge(ctx, L.runX, drawY, S, this.clock, sim.shieldHits);
       ctx.globalAlpha = 1;
     }
     this.drawDawnRing(sim, lamp);
@@ -669,6 +705,7 @@ export class DolinaView {
       ctx.fillRect(0, 0, this.w, this.h);
     }
     this.hud.drawPack(sim.tier, sim.oil, sim.combo, sim.mult);
+    this.drawTouches();
     this.hud.drawFloats();
     this.hud.drawBubble(this.bubbleText, this.bubbleA, this.bubbleAt.x, this.bubbleAt.y);
     this.hud.drawCards();
@@ -899,11 +936,15 @@ export class DolinaView {
     ctx.beginPath();
     ctx.roundRect(bx, by, Math.max(bh, bw * (g.hp / g.max)), bh, bh / 2);
     ctx.fill();
-    ctx.font = font(800, 11 * u, SANS);
+    ctx.font = font(800, 14 * u, SANS);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(20,14,26,.8)';
+    const gx = clamp(bx + bw / 2, this.L.left + 40, this.L.right - 40);
+    ctx.strokeText(guardName(g.id), gx, by - 5);
     ctx.fillStyle = '#fff1c4';
-    ctx.fillText(guardName(g.id), bx + bw / 2, by - 5);
+    ctx.fillText(guardName(g.id), gx, by - 5);
     // the weak point, bowed over him while open
     if (sim.guardOpen) {
       const wx = this.sx(sim.px + g.rel + 0.35, sim), wy = this.sy(a.y + RULES.weakY + 0.25);
@@ -921,9 +962,9 @@ export class DolinaView {
     const ans = sim.answer;
     if (ans && g.state === 'fight') {
       const text = t(`ans.${ans}`);
-      ctx.font = font(800, 15 * u, SANS);
-      const tw = ctx.measureText(text).width + 22 * u, th = 26 * u;
-      const sx = Math.min(this.w - tw / 2 - 8, Math.max(tw / 2 + 8, this.L.runX + S * 2.4)), sy = Math.max(this.L.top + 14 * u, this.sy(a.y + 3.1));
+      ctx.font = font(800, 16 * u, SANS);
+      const tw = ctx.measureText(text).width + 24 * u, th = 30 * u;
+      const sx = Math.min(this.L.right - tw / 2, Math.max(this.L.left + tw / 2, this.L.runX + S * 2.4)), sy = Math.max(this.L.top + 16 * u, this.sy(a.y + 3.1));
       ctx.fillStyle = ans === 'open' ? 'rgba(245,195,90,.95)' : ans === 'stay' ? 'rgba(127,176,200,.95)' : 'rgba(246,238,220,.95)';
       ctx.beginPath();
       ctx.roundRect(sx - tw / 2, sy - th / 2, tw, th, th / 2);
@@ -1012,27 +1053,56 @@ export class DolinaView {
     ctx.stroke();
     ctx.setLineDash([]);
     const over = look === 'live' && sim.level01 >= 0.5;
+    if (over) {
+      // the gold rim's glow: a wide soft stroke under the line (a shadow blur costs a phone a full pass every frame)
+      ctx.strokeStyle = 'rgba(255,200,90,.22)';
+      ctx.lineWidth = 11 * u;
+      ctx.beginPath();
+      ctx.arc(l.x, l.y, R, 0, TAU);
+      ctx.stroke();
+    }
     ctx.strokeStyle = look === 'grey' ? 'rgba(180,176,190,.6)' : look === 'wait' ? 'rgba(255,236,190,.45)' : over ? '#ffd36b' : 'rgba(255,236,190,.8)';
     ctx.lineWidth = (over ? 3.5 : 2) * u;
-    if (over) {
-      ctx.shadowColor = 'rgba(255,200,90,.8)';
-      ctx.shadowBlur = 12 * u;
-    }
     ctx.beginPath();
     ctx.arc(l.x, l.y, R, 0, TAU);
     ctx.stroke();
-    ctx.shadowBlur = 0;
-    // the threshold's name on its ring, up and ahead
+    // the threshold's name on its ring, up and ahead (kept inside the screen, under the HUD)
     const ang = -Math.PI / 5;
-    const mx = l.x + Math.cos(ang) * mark, my = l.y + Math.sin(ang) * mark;
-    ctx.font = font(800, 10 * u, SANS);
+    const mx = clamp(l.x + Math.cos(ang) * mark, L.left + 20, L.right - 20), my = Math.max(L.top + 12, l.y + Math.sin(ang) * mark);
+    ctx.font = font(800, 13 * u, SANS);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(20,14,26,.8)';
+    ctx.lineWidth = 3.5;
+    ctx.strokeStyle = 'rgba(20,14,26,.85)';
     ctx.strokeText(t('hud.mark'), mx, my);
     ctx.fillStyle = 'rgba(255,246,220,.9)';
     ctx.fillText(t('hud.mark'), mx, my);
+    ctx.restore();
+  }
+
+  /**
+   * Under the finger, on the press itself (not the release): a soft ring where it came down; a chevron
+   * sliding down where a swipe was read as a stomp.  The answer of the world (the jump, the stomp) comes
+   * on the same frame; this says the screen heard the finger even when the press only waits (a buffer).
+   */
+  private drawTouches(): void {
+    if (!this.touches.length) return;
+    const ctx = this.ctx, u = this.L.u;
+    ctx.save();
+    for (const m of this.touches) {
+      const k = Math.min(1, m.t / 0.45), a = (1 - k) * 0.55;
+      if (a <= 0.01) continue;
+      ctx.strokeStyle = `rgba(255,241,196,${a})`;
+      ctx.lineWidth = 2.5 * u;
+      ctx.beginPath();
+      if (m.swipe) {
+        const y = m.y + ease.outCubic(k) * 26 * u, s = 11 * u;
+        ctx.moveTo(m.x - s, y - s * 0.6);
+        ctx.lineTo(m.x, y + s * 0.4);
+        ctx.lineTo(m.x + s, y - s * 0.6);
+      } else ctx.arc(m.x, m.y, (12 + 22 * ease.outCubic(k)) * u, 0, TAU);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -1061,6 +1131,6 @@ export class DolinaView {
 
   /** A world point on screen (CSS px), for the coach marks. */
   toScreen(x: number, y: number, sim: DolinaSim): { x: number; y: number } {
-    return { x: clamp(this.sx(x, sim), 20, this.w - 20), y: clamp(this.sy(y), this.L.top + 20, this.h - 20) };
+    return { x: clamp(this.sx(x, sim), this.L.left + 4, this.L.right - 4), y: clamp(this.sy(y), this.L.top + 20, this.L.bottom - 20) };
   }
 }

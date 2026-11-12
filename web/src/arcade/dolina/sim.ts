@@ -711,6 +711,21 @@ export class DolinaSim {
     }
   }
 
+  /**
+   * The double jump taken back: a finger's swipe down begins as a press, so the press made the flap a
+   * moment before the swipe could be told apart.  The air jump returns and does not count (the doubles,
+   * their mission); the stomp follows.  Only within a moment of the flap, in the air.  True when undone.
+   */
+  undoAirJump(): boolean {
+    if (!this.started || this.grounded || this.airUsed <= 0 || this.flapAge > 0.3) return false;
+    this.airUsed--;
+    this.doubles = Math.max(0, this.doubles - 1);
+    this.flapAge = 9;
+    const m = this.p.missions.find(x => x.kind === 'doubles');
+    if (m && m.have > 0 && m.have < m.goal) m.have--;
+    return true;
+  }
+
   /** ↓ in the air: straight down (a stomp). */
   stomp(): void {
     if (!this.started || this.state !== 'run' || this.grounded) return;
@@ -787,6 +802,12 @@ export class DolinaSim {
 
   /** the view has a card up: Ćma waits for it (set by the game every frame) */
   hold = false;
+
+  /** Seconds the runner's block banner still stands over the play (a push's or a rest's first seconds), else 0. */
+  get bannerLeft(): number {
+    const b = this.block;
+    return this.phase === 'play' && b && b.kind !== 'warmup' ? Math.max(0, RULES.bannerSec - this.blockT) : 0;
+  }
 
   /** The companion keeps quiet over a telegraph, while the runner's block banner is up and while a card is shown. */
   get quiet(): boolean {
@@ -2516,7 +2537,8 @@ export class DolinaSim {
     if (this.taught.has(key) || this.t - this.teachAt < 2.5) return;
     if ([...this.taught.values()].filter(v => v === what).length >= 2) return;
     this.taught.set(key, what);
-    this.teachAt = this.t;
+    // the runner holds a coach mark under its block banner: Ćma's quiet counts from when it shows
+    this.teachAt = this.t + this.bannerLeft;
     this.emit({ type: 'teach', what, x, y });
   }
 
