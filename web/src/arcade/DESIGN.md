@@ -2903,6 +2903,60 @@ Files: `rules.ts` (every number), `content.ts` (places, pests, chiefs, toys, cat
 (the session), `talk.ts`, `layout.ts`, `paint.ts`, `render.ts`, `intro.ts`, `preview.ts`, `panel.ts`,
 `audio.ts`, `i18n.ts`, `index.ts`; tests in `test/arcade-koty.test.ts`.
 
+**Mobile first (2026-11-12, §12).** Idle Cat Gunner is played upright with one thumb: the merge chest and
+the buttons under it are the hand's whole job, the field above is to watch. Kocia straż was laid out on a
+desktop and squeezed onto a phone (a UI scale of `min(w / 430, h / 640)` floored at 0.78 drew the button
+names and costs at 8 px, the stage's bar at 9, a toy's grade at 6, and kept 56 px empty at the bottom for
+the simulator's switch). Now the phone is the reference (`layout(w, h, insets)`, `u` = the kit's `uiScale`:
+1 on a phone, up to 1.3):
+
+* **Upright: the thumb zone is the hand's.** The field runs from the HUD down; a bar over its top edge holds
+  the fish (a chip — where the fish fly) and the stage (the wave's bar, or the chief's courage and
+  patience). Then the wall, and on the bottom edge, over the home indicator, the hand's part: the
+  **chest** (5 × 2, cells 56 px on a 360 px phone, up to 64 × u where the band has room) and the **row of
+  buttons** (the three upgrades, a toy, the paw; 54 px tall, nothing in the screen's outer 16 px): a
+  button's name on one or two lines at 13 px (German's "Spielzeug" at 11.5), its cost at 13 px with a
+  fish, a stripe of its icon's colour on top; a tablet's wider buttons keep the icon, the effect and the
+  level. The field gets the rest: 114 px on the smallest phone (106 before), 178 on an iPhone in Safari
+  (138), 365 in an installed app.
+* **Six cats on a 360 px wall.** The sim's cushion spots put six cats 43 px apart, too close for a
+  finger, so the view seats them itself (`wallRow`): two groups around the eye, every cat and the eye a
+  target of 44 px or more, 6 px apart; the groups keep 16 px from the edges and give up to 8 px of it only
+  for six cats on a 360 px phone. A fresh shot leaves the drawn cat and eases onto the sim's path.
+* **Under a finger.** A press shows at touch-down (a tray sinks, a button goes down and darkens — never
+  shrinking its words —, a cat gets a ring). A toy dragged past 10 px floats a cell's height above the
+  finger (a mouse lifts it a little) and lands on the nearest cell or cat within reach: it is pulled
+  toward it, the landing place is ringed (gold for a merge) and the other mates pulse; let go over
+  nothing, it goes home. A tick on the pick-up and on a snap onto a mate, a buzz on a merge, an equip, a
+  buy. Held, an upgrade keeps buying and the paw keeps helping. The paw button is Space on the screen:
+  a ready hunt first (it turns gold, "Łowy!"), so the Great Hunt is in the thumb zone too. A tap on the
+  field takes the pest nearest the finger on screen (30 px and more), not in the squashed field's units.
+  One finger at a time — a new one takes over, so nothing sticks. Resting hands see a mergeable pair
+  shimmer after six seconds.
+* **On its side** (601 × 360, the HUD one 68 px row, the chart a column on the right): three columns —
+  the chest as 2 × 5 (cells 48 px) under the left thumb, the field and the wall in the middle (room for six
+  cats and the eye in one row), the five buttons one above another under the right thumb, each with its
+  icon, cost and effect (a long name takes two lines and leaves the effect out); the wall stands 14 px
+  above the bottom so the eye's word reads under it. The vintage is a compact grapes button on a phone
+  (its card says what it does). On a desktop the column on the right stays, with no empty band under it.
+* **Words for the hand.** With a finger the how-to has a line for the Paw where the keys were, and the
+  coach marks say "stuknij oko albo Łapę"; with a keyboard the keys stay as shortcuts ("Łapa · ␣",
+  Space, 1–4).
+* **Cards, marks, the brother.** A story card and the vintage's question are a bottom sheet on a phone
+  (the play is frozen under them, so they may cover the controls): words at 15–16 px, the verse at 13–16,
+  its reference at 12 (the kit's own floor is 10), the two answers in the thumb zone. The runner's coach
+  bubble sits above its point, so a mark about a button or the vintage is centred over the field while
+  the control itself glows, a mark about the chest points at its top edge, and a field mark stands low in
+  the field, under the HUD; Brother Anselm (the field's top corner, 14 px words) finishes his line before a
+  mark and steps aside for an urgent one, and fades while a toy is carried over the cats. Numbers float
+  only inside the field.
+* **Measured** (`scripts/arcade-mobile.mjs`; small phone / iPhone / large phone / on its side / tablet /
+  desktop): strings under 11 px 33 / 29 / 7 / 44 / 2 / 1 → 0 everywhere; at 11–13 px 34 / 30 / 58 / 46 /
+  1 / 10 → 4 / 2 / 2 / 5 / 0 / 0 (the eye's "próg" tag, the verse's reference, the effects on a phone on
+  its side); targets: none → 22, all ≥ 44 px, inside the insets, no overlaps; the game's frame 0.97 ms on
+  a desktop (1.08 before). The layout test audits the targets at every `CHECK_SIZES` entry with one to six
+  cushions, the vintage, a story and the vintage's question.
+
 ## 12. Mobile first: every game plays on a phone held in one hand
 
 On 2026-11-12 the founder asked: *"modify all these games to be playable on mobile devices (mobile

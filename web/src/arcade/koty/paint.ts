@@ -6,6 +6,7 @@
  * (a scarf, a straw crown, pearls, spectacles), the toys are toys.  The places of the abbey are drawn
  * once per size into a cache; everything that moves is drawn every frame, cheaply.
  */
+import { MIN_TEXT } from '../kit/mobile';
 import type { BossId, CatSpec, FamId, PestId, PlaceId, Toy } from './content';
 import { gradeColor } from './content';
 
@@ -19,7 +20,12 @@ export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 const TAU = Math.PI * 2;
 
-export const font = (px: number, weight = 700, serif = false): string => `${weight} ${Math.round(px)}px ${serif ? SERIF : SANS}`;
+/**
+ * A canvas font, never under MIN_TEXT (11 px: the smallest text a phone held at arm's length still shows, kit/mobile);
+ * text the player must read to play asks for 13 px and more itself.
+ */
+export const fontPx = (px: number): number => Math.max(MIN_TEXT, Math.round(px * 2) / 2);
+export const font = (px: number, weight = 700, serif = false): string => `${weight} ${fontPx(px)}px ${serif ? SERIF : SANS}`;
 
 // ── small helpers ────────────────────────────────────────────────
 export function ell(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number, rot = 0): void {
@@ -77,13 +83,14 @@ export function label(ctx: CanvasRenderingContext2D, text: string, x: number, y:
   ctx.fillText(text, x, y);
 }
 
-/** Fit a text into a width by shrinking the font down to `min` px; returns the size used. */
-export function fitFont(ctx: CanvasRenderingContext2D, text: string, maxW: number, px: number, min = 8, weight = 700): number {
-  let size = px;
-  ctx.font = font(size, weight);
-  while (size > min && ctx.measureText(text).width > maxW) {
-    size -= 0.5;
-    ctx.font = font(size, weight);
+/** Fit a text into a width by shrinking the font down to `min` px (never under MIN_TEXT); returns the size used. */
+export function fitFont(ctx: CanvasRenderingContext2D, text: string, maxW: number, px: number, min = MIN_TEXT, weight = 700, serif = false): number {
+  const floor = Math.max(MIN_TEXT, min);
+  let size = fontPx(Math.max(floor, px));
+  ctx.font = font(size, weight, serif);
+  while (size > floor && ctx.measureText(text).width > maxW) {
+    size = Math.max(floor, size - 0.5);
+    ctx.font = font(size, weight, serif);
   }
   return size;
 }
@@ -864,8 +871,13 @@ export function paintToy(ctx: CanvasRenderingContext2D, x: number, y: number, si
   ctx.restore();
 }
 
+/** The smallest grade badge (its number at 11.5 px). */
+export const BADGE_MIN = 10;
+
 /** The grade's badge: a coin in the grade's colour with its number. */
-export function paintBadge(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, g: number): void {
+export function paintBadge(ctx: CanvasRenderingContext2D, x: number, y: number, r0: number, g: number): void {
+  // never smaller than its number at MIN_TEXT (the grade is what the player matches to merge)
+  const r = Math.max(r0, BADGE_MIN);
   ell(ctx, x, y, r, r);
   fs(ctx, gradeColor(g), Math.max(1, r * 0.18));
   if (g >= 6) {
@@ -896,8 +908,9 @@ export function paintToyCell(ctx: CanvasRenderingContext2D, x: number, y: number
     ctx.stroke();
   }
   if (!toy) return;
-  paintToy(ctx, x + size * 0.5, y + size * 0.55, size * 0.62, toy.fam, toy.g);
-  paintBadge(ctx, x + size * 0.2, y + size * 0.2, size * 0.15, toy.g);
+  paintToy(ctx, x + size * 0.5, y + size * 0.56, size * 0.6, toy.fam, toy.g);
+  const br = Math.max(BADGE_MIN, size * 0.17);
+  paintBadge(ctx, x + br + 3, y + br + 3, br, toy.g);
 }
 
 // ── the pests ────────────────────────────────────────────────────
@@ -979,7 +992,6 @@ export function paintPest(ctx: CanvasRenderingContext2D, x: number, y: number, s
   if (p.move < 0.3 && p.doze < 0.5 && !p.flee) ctx.translate(0, -Math.abs(Math.sin(p.t * 9 + p.seed)) * s * 0.04);
   const step = Math.sin(p.t * 12 + p.seed) * p.move;
   const body = p.elite ? '#ffd166' : L.body;
-  if (p.frozen) ctx.filter = 'none';
   switch (kind) {
     case 'liszka':
     case 'zajac':

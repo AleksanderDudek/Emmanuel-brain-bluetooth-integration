@@ -1,33 +1,45 @@
 /**
- * Where Kocia straż's play view puts things (CSS px), for desktops, phones upright and phones on their
- * side.  The runner's standard HUD covers the top (its Mendi panel on the left and the score on the
- * right, down to `hudTop`), and its simulator switch sits bottom left; the game keeps out of both.
+ * Where Kocia straż's play view puts things (CSS px), mobile first (DESIGN §11.9 "Mobile first", §12).  The
+ * runner's HUD covers the top of the canvas (`insets().top`), a phone's home indicator or notch the other
+ * edges; the game owns the rest, the bottom included.  Sizes start from a 360 px phone at u = 1 (kit/mobile
+ * `uiScale`) and grow to 1.3 on a tablet or a desktop.
  *
- *   tall (a phone upright)   the field under the HUD, the wall with the cats and the gatehouse's eye, the
- *                            chest (5 × 2), and the row of buttons (the three upgrades, a toy, the paw)
- *   wide (desktops, tablets) the field and the wall on the left, a column on the right under the score:
- *                            the fish, the chest, the buttons, the vintage
- *   short (a phone on its side) the chest under the Mendi panel, the field and the wall in the middle,
- *                            the buttons in a column under the score
+ *   tall  (a phone upright, a tablet upright)  the field from the HUD down, a bar over its top edge (the fish
+ *         and the stage), the wall with the cats and the gatehouse's eye; then the thumb zone: the toy
+ *         chest (5 × 2, cells of 56 px and more) and the row of buttons (the three upgrades, a toy, the paw)
+ *   short (a phone on its side)  three columns under the HUD's one row: the chest (2 × 5) under the left
+ *         thumb, the field and the wall in the middle, the buttons one above another under the right thumb
+ *   wide  (desktops, tablets on their side)  the field and the wall on the left, a column on the right: the
+ *         fish, the chest, the buttons, the vintage
  *
  * The field is the sim's 10 × 10 (x across, y from the far edge down to the wall), stretched onto its
- * rectangle; the cushions sit on the wall at the sim's `cushionX`, split around the eye in the middle.
+ * rectangle.  The cats sit along the wall in two groups around the eye in the middle — the view's own seats
+ * (`wallRow`), spaced so that every cat is a finger-sized target even with six on a 360 px wall; the sim's
+ * `cushionX` is only where their shots start, and the view bends a fresh shot out of the drawn cat.
+ *
+ * Everything the player taps is a rectangle here (`tapTargets`), the same ones the view hit-tests and the
+ * mobile audit checks: at least MIN_TAP on the short side, apart from each other, inside the insets.
  */
 import { clamp } from '../kit/juice';
+import { MIN_TAP, NO_INSETS, TAP_GAP, uiScale, type Rect } from '../kit/mobile';
+import type { Insets, TapTarget } from '../kit/types';
 import type { BuyId } from './meta';
 import { RULES } from './rules';
-import { cushionX } from './sim';
 
-export interface Rect { x: number; y: number; w: number; h: number }
+export type { Rect };
 export type Mode = 'tall' | 'wide' | 'short';
+
+/** The buttons along the bottom (or down the column), in order; the paw comes after them. */
+export const BUYS: readonly BuyId[] = ['aim', 'paws', 'bowl', 'toy'];
 
 export interface Layout {
   w: number;
   h: number;
   mode: Mode;
-  /** UI scale (1 on a desktop) */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
   u: number;
-  /** the runner's HUD's lower edge */
+  /** what covers each edge (the HUD band on top), and the HUD's lower edge */
+  ins: Insets;
   top: number;
   /** the field (the sim's 10 × 10 maps onto it) and the scenery band above it */
   field: Rect;
@@ -41,130 +53,166 @@ export interface Layout {
   seatY: number;
   /** a cat's height (px) */
   cat: number;
-  /** the gatehouse's eye: the band's gauge and the hunt's button */
+  /** the cats' row along the wall: the span it prefers and the narrowest edges it may use */
+  row: { l: number; r: number; minL: number; minR: number };
+  /** the gatehouse's eye (the band's gauge, the hunt's button) and its finger-sized target */
   eye: { x: number; y: number; r: number };
-  /** the stage's bar (the stage, the place, the wave, the chief's courage and patience) */
+  eyeHit: Rect;
+  /** the bar over the field's top: the stage's pill (the stage, the wave, the chief's courage and patience) */
   bar: Rect;
-  /** the fish in the bowl */
+  stage: Rect;
+  /** the fish in the bowl (a chip in the bar, or a row atop the column) */
   fish: Rect;
-  /** the chest: its box, its cells (5 × 2 or 2 × 5) */
+  /** the chest: its box, its cells (5 × 2, or 2 × 5 on a phone on its side), the gap between them */
   chest: Rect;
   cols: number;
   rows: number;
   cell: number;
+  gap: number;
   /** the buttons */
   ups: Record<BuyId, Rect>;
   paw: Rect;
   vintage: Rect;
-  /** Brother Anselm's portrait (centre, radius) and the room for his bubble */
-  brother: { x: number; y: number; r: number; maxW: number; side: 'above' | 'right' };
-  /** cards (story, the vintage's question) */
+  /** the buttons have room for an icon, the effect and the cost side by side (else the name over the cost) */
+  rich: boolean;
+  /** Brother Anselm's portrait (centre, radius) and the room for his bubble to his right */
+  brother: { x: number; y: number; r: number; maxW: number };
+  /** where cards go (story, the vintage's question): a bottom sheet on a phone upright, else centred */
   card: Rect;
+  anchor: 'bottom' | 'centre';
 }
 
-/** the runner's simulator switch sits bottom left (only on the simulator): the game keeps out of its corner */
-const SWITCH = 56;
-
-export function layout(w: number, h: number, hudTop: number, simulated = true): Layout {
-  const BOTTOM = simulated ? SWITCH : 12;
+export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout {
   const W = Math.max(240, w), H = Math.max(200, h);
   const mode: Mode = W / H < 0.9 ? 'tall' : H < 460 ? 'short' : 'wide';
-  const u = clamp(Math.min(W / 430, H / 640), 0.78, 1.25);
-  const top = clamp(hudTop || 120, 40, H * 0.6);
-  let field: Rect, wall: Rect, chest: Rect, fish: Rect, paw: Rect, vintage: Rect, bar: Rect;
+  const u = uiScale(W, H);
+  const top = clamp(insets.top, 0, H * 0.6);
+  const ins: Insets = { top, right: Math.max(0, insets.right), bottom: Math.max(0, insets.bottom), left: Math.max(0, insets.left) };
+  const gap = Math.round(TAP_GAP * u);
+  let field: Rect, wall: Rect, chest: Rect, fish: Rect, paw: Rect, vintage: Rect, bar: Rect, stage: Rect, card: Rect;
   let ups: Record<BuyId, Rect>;
-  let cols = 5, rows = 2, cell: number;
-  const gap = 6 * u;
+  let row: Layout['row'];
+  let cols = 5, rows = 2, cell: number, rich: boolean;
+  let anchor: Layout['anchor'] = 'centre';
   if (mode === 'tall') {
-    const m = 10;
-    const btnH = Math.round(54 * u);
-    const btnY = H - BOTTOM - btnH;
-    const bw = (W - 2 * m - 4 * gap) / 5;
-    const b = (i: number): Rect => ({ x: m + i * (bw + gap), y: btnY, w: bw, h: btnH });
+    // nothing to press in the outer 16 px of a phone upright (the back swipe, a thumb's reach)
+    const edge = W < 600 ? 16 : Math.round(24 * u);
+    const x0 = ins.left + edge, x1 = W - ins.right - edge;
+    const mid = (ins.left + W - ins.right) / 2;
+    const panelW = Math.min(x1 - x0, 560 * u);
+    const pad = Math.round(8 * u);
+    const bh = Math.round(54 * u);
+    const btnY = H - ins.bottom - pad - bh;
+    const bw = (panelW - 4 * gap) / 5;
+    const b = (i: number): Rect => ({ x: mid - panelW / 2 + i * (bw + gap), y: btnY, w: bw, h: bh });
     ups = { aim: b(0), paws: b(1), bowl: b(2), toy: b(3) };
     paw = b(4);
-    cell = Math.min(56 * u, (W - 2 * m - 4 * gap) / 5, (btnY - top) * 0.135);
-    const chestW = cols * cell + (cols - 1) * gap;
-    const chestH = rows * cell + (rows - 1) * gap;
-    chest = { x: (W - chestW) / 2 + 22 * u, y: btnY - gap * 1.5 - chestH, w: chestW, h: chestH };
-    fish = { x: m, y: chest.y, w: Math.max(40, chest.x - m - gap), h: chestH };
-    const wallH = Math.round(Math.max(54, 68 * u));
-    wall = { x: 0, y: chest.y - gap - wallH, w: W, h: wallH };
-    field = { x: 0, y: top + 24 * u, w: W, h: Math.max(60, wall.y - (top + 24 * u)) };
-    bar = { x: m, y: top + 2, w: W - 2 * m, h: 18 * u };
-    vintage = { x: W - m - 132 * u, y: field.y + 4, w: 132 * u, h: 30 * u };
-  } else if (mode === 'wide') {
-    const sideW = clamp(W * 0.27, 250, 380);
-    const sx = W - sideW - 6;
-    const m = 12;
-    const colX = sx + 8, colW = sideW - 8 - m;
-    cell = Math.min(62 * u, (colW - 4 * gap) / 5);
-    const chestW = cols * cell + (cols - 1) * gap;
-    const chestH = rows * cell + (rows - 1) * gap;
-    fish = { x: colX, y: top + 4, w: colW, h: 34 * u };
-    chest = { x: colX + (colW - chestW) / 2, y: fish.y + fish.h + gap * 1.5, w: chestW, h: chestH };
-    const btnH = Math.round(56 * u);
-    const bw = (colW - gap) / 2;
-    const by = chest.y + chestH + gap * 2;
-    ups = {
-      aim: { x: colX, y: by, w: bw, h: btnH }, paws: { x: colX + bw + gap, y: by, w: bw, h: btnH },
-      bowl: { x: colX, y: by + btnH + gap, w: bw, h: btnH }, toy: { x: colX + bw + gap, y: by + btnH + gap, w: bw, h: btnH },
-    };
-    paw = { x: colX, y: by + 2 * (btnH + gap), w: bw, h: btnH * 0.8 };
-    vintage = { x: colX + bw + gap, y: by + 2 * (btnH + gap), w: bw, h: btnH * 0.8 };
-    const wallH = Math.round(Math.max(64, 78 * u));
-    wall = { x: 0, y: H - BOTTOM - wallH, w: sx, h: wallH };
-    field = { x: 0, y: top + 26 * u, w: sx, h: Math.max(80, wall.y - (top + 26 * u)) };
-    bar = { x: m, y: top + 3, w: Math.min(sx - 2 * m, 560 * u), h: 20 * u };
-    bar.x = (sx - bar.w) / 2;
-  } else {
-    // short: a phone on its side — three columns under the top bar
+    // the chest: cells of 56 px at least (a toy under a thumb), larger where the band has room
+    const band = H - ins.bottom - top;
+    cell = Math.min((panelW - 4 * gap) / 5, Math.max(56, Math.min(64 * u, (band * 0.27 - gap) / 2)));
+    const chestW = 5 * cell + 4 * gap, chestH = 2 * cell + gap;
+    chest = { x: mid - chestW / 2, y: btnY - Math.round(10 * u) - chestH, w: chestW, h: chestH };
+    // the wall (and the cats on it) grows with a tall band: a tablet's cats are not lost on its big field
+    const wallH = Math.round(clamp(Math.max(50 * u, band * 0.085), 46, 90));
+    wall = { x: 0, y: chest.y - Math.round(12 * u) - wallH, w: W, h: wallH };
+    field = { x: 0, y: top, w: W, h: Math.max(60, wall.y - top) };
+    bar = { x: x0, y: top + 4, w: x1 - x0, h: Math.round(26 * u) };
+    fish = { x: bar.x, y: bar.y, w: Math.round(Math.min(112 * u, bar.w * 0.34)), h: bar.h };
+    stage = { x: fish.x + fish.w + gap, y: bar.y, w: bar.x + bar.w - (fish.x + fish.w + gap), h: bar.h };
+    rich = bw >= 112;
+    // the vintage: a compact grapes button on a phone (its card says what it does), a labelled one on a tablet
+    const vw = Math.round((rich ? 150 : 64) * u);
+    vintage = { x: x1 - vw, y: bar.y + bar.h + 6, w: vw, h: Math.round(46 * u) };
+    row = { l: x0, r: x1, minL: ins.left + 8, minR: W - ins.right - 8 };
+    // a bottom sheet over the whole band: the play is frozen under a card, so it may cover the controls
+    const cw = Math.min(x1 - x0 + 12, 560 * u);
+    card = { x: mid - cw / 2, y: top + 8, w: cw, h: H - ins.bottom - pad - (top + 8) };
+    anchor = 'bottom';
+  } else if (mode === 'short') {
+    // a phone on its side: the HUD is one row; two thumbs hold the phone at its ends
     const m = 8;
-    const leftW = Math.min(W * 0.4, 342);
-    const rightW = clamp(W * 0.2, 130, 190);
-    const fx = leftW + 6, fw = W - leftW - rightW - 12;
-    const below = clamp(top, 56, H - 90);
-    cols = 5;
-    rows = 2;
-    const avail = H - BOTTOM - below - 4;
-    cell = Math.max(24, Math.min((avail - gap) / 2, (leftW - 2 * m - 4 * gap - 46) / 5));
-    const chestW = cols * cell + (cols - 1) * gap;
-    const chestH = rows * cell + gap;
-    chest = { x: m + 2, y: below + 2, w: chestW, h: chestH };
-    fish = { x: chest.x + chestW + gap, y: chest.y, w: Math.max(30, leftW - chestW - m - gap - 4), h: chestH };
-    const rx = W - rightW - m;
-    const scoreBottom = Math.min(H * 0.45, 128);
-    const bh = Math.max(26, (H - scoreBottom - 8 - 5 * 4) / 5);
-    const r = (i: number): Rect => ({ x: rx, y: scoreBottom + i * (bh + 4), w: rightW, h: bh });
-    ups = { aim: r(0), paws: r(1), bowl: r(2), toy: r(3) };
-    paw = { x: rx, y: scoreBottom + 4 * (bh + 4), w: rightW / 2 - 2, h: bh };
-    vintage = { x: rx + rightW / 2 + 2, y: paw.y, w: rightW / 2 - 2, h: bh };
-    const wallH = Math.round(Math.max(44, Math.min(60, H * 0.2)));
-    wall = { x: fx, y: H - wallH - 4, w: fw, h: wallH };
-    const fy = 56;
-    field = { x: fx, y: fy + 14, w: fw, h: Math.max(50, wall.y - fy - 14) };
-    bar = { x: fx + 4, y: fy - 2, w: fw - 8, h: 15 };
+    const y0 = top + 6, y1 = H - ins.bottom - 6;
+    const availH = y1 - y0;
+    const bw = Math.round(clamp(W * 0.19, 112, 160 * u));
+    const bx = W - ins.right - m - bw;
+    const bh = Math.min(64 * u, (availH - 4 * gap) / 5);
+    const stackH = 5 * bh + 4 * gap;
+    const b = (i: number): Rect => ({ x: bx, y: y0 + (availH - stackH) / 2 + i * (bh + gap), w: bw, h: bh });
+    ups = { aim: b(0), paws: b(1), bowl: b(2), toy: b(3) };
+    paw = b(4);
+    // the middle keeps room for six cats and the eye in one row of finger-sized targets
+    const needMid = 7 * MIN_TAP + 6 * gap + 8;
+    const x0 = ins.left + m;
+    cols = 2;
+    rows = 5;
+    cell = Math.max(MIN_TAP + 2, Math.min((availH - 4 * gap) / 5, (bx - m - needMid - m - x0 - gap) / 2, 60 * u));
+    const chestW = 2 * cell + gap, chestH = 5 * cell + 4 * gap;
+    chest = { x: x0, y: y0 + (availH - chestH) / 2, w: chestW, h: chestH };
+    const mx0 = chest.x + chestW + m, mx1 = bx - m;
+    // the wall stands a little above the bottom: the eye's word (×1,4, the nap) reads under it
+    const wallH = Math.round(clamp(H * 0.15, 48, 60));
+    wall = { x: mx0, y: H - ins.bottom - wallH - 14, w: mx1 - mx0, h: wallH };
+    field = { x: mx0, y: top, w: mx1 - mx0, h: Math.max(60, wall.y - top) };
+    bar = { x: mx0 + 4, y: top + 4, w: mx1 - mx0 - 8, h: Math.round(26 * u) };
+    fish = { x: bar.x, y: bar.y, w: Math.round(Math.min(104 * u, bar.w * 0.32)), h: bar.h };
+    stage = { x: fish.x + fish.w + gap, y: bar.y, w: bar.x + bar.w - (fish.x + fish.w + gap), h: bar.h };
+    // the middle column is narrow: the compact grapes button, so the brother's bubble keeps its width
+    const vw = Math.round(64 * u);
+    vintage = { x: mx1 - 4 - vw, y: bar.y + bar.h + 6, w: vw, h: Math.round(46 * u) };
+    row = { l: mx0 + 4, r: mx1 - 4, minL: mx0, minR: mx1 };
+    rich = bw >= 112;
+    const cw = Math.min(W - ins.left - ins.right - 24, 600 * u);
+    card = { x: (ins.left + W - ins.right) / 2 - cw / 2, y: top + 6, w: cw, h: H - ins.bottom - 6 - (top + 6) };
+  } else {
+    // a desktop or a tablet on its side: the column on the right under the score
+    const m = Math.round(12 * u);
+    const sideW = clamp(W * 0.27, 5 * 50 + 4 * gap + 2 * m, 420 * u);
+    const sx = W - ins.right - sideW;
+    const colX = sx + m, colW = sideW - 2 * m;
+    fish = { x: colX, y: top + 6, w: colW, h: Math.round(40 * u) };
+    cell = Math.min(64 * u, (colW - 4 * gap) / 5);
+    const chestW = 5 * cell + 4 * gap, chestH = 2 * cell + gap;
+    chest = { x: colX + (colW - chestW) / 2, y: fish.y + fish.h + Math.round(12 * u), w: chestW, h: chestH };
+    const by = chest.y + chestH + Math.round(14 * u);
+    const bottom = H - ins.bottom - m;
+    const bh = Math.max(MIN_TAP + 4, Math.min(56 * u, (bottom - by - 2 * gap) / 2.8));
+    const bw = (colW - gap) / 2;
+    ups = {
+      aim: { x: colX, y: by, w: bw, h: bh }, paws: { x: colX + bw + gap, y: by, w: bw, h: bh },
+      bowl: { x: colX, y: by + bh + gap, w: bw, h: bh }, toy: { x: colX + bw + gap, y: by + bh + gap, w: bw, h: bh },
+    };
+    paw = { x: colX, y: by + 2 * (bh + gap), w: bw, h: Math.max(MIN_TAP + 4, bh * 0.8) };
+    vintage = { x: colX + bw + gap, y: paw.y, w: bw, h: paw.h };
+    const wallH = Math.round(clamp(70 * u, 60, 96));
+    wall = { x: ins.left, y: H - ins.bottom - wallH - Math.round(18 * u), w: sx - ins.left, h: wallH };
+    field = { x: ins.left, y: top, w: sx - ins.left, h: Math.max(80, wall.y - top) };
+    const bw2 = Math.min(field.w - 2 * m, 560 * u);
+    bar = { x: field.x + (field.w - bw2) / 2, y: top + 4, w: bw2, h: Math.round(26 * u) };
+    stage = { ...bar };
+    row = { l: field.x + 16, r: field.x + field.w - 16, minL: field.x + 8, minR: field.x + field.w - 8 };
+    rich = true;
+    const cw = Math.min(field.w - 32, 480 * u);
+    card = { x: field.x + (field.w - cw) / 2, y: top + 8, w: cw, h: wall.y + wall.h - 8 - (top + 8) };
   }
   const sx = field.w / RULES.FW;
   const sy = field.h / RULES.FH;
   const s = clamp(Math.min(sx, sy * 1.25) * 1.15, 14, 56);
   const seatY = wall.y + wall.h * 0.38;
-  const cat = Math.min(wall.h * 1.05, field.w / 7.2, 84);
-  const eyeR = Math.min(wall.h * 0.46, field.w * 0.07, 46);
+  const cat = Math.min(wall.h * 1.05, (row.r - row.l) / 7.2, 84);
+  // the eye: as large as the wall allows, and narrow enough to leave six cats their targets around it
+  const room = row.minR - row.minL - 2 * (3 * MIN_TAP + 2 * gap) - 2 * gap;
+  const eyeR = Math.max(14, Math.min(wall.h * 0.46, 46, room / 2.2));
   const eye = { x: wall.x + wall.w / 2, y: wall.y + wall.h * 0.46, r: eyeR };
+  const es = Math.max(MIN_TAP, Math.min(2.2 * eyeR, room));
+  const eyeHit: Rect = { x: eye.x - es / 2, y: eye.y - es / 2, w: es, h: es };
   const sky: Rect = { x: field.x, y: 0, w: field.w, h: field.y };
-  const brR = (mode === 'short' ? 14 : 18) * u;
-  // a phone upright fills its narrow wall with cats: the brother looks in from the field's top corner
-  // instead, his bubble to his right; elsewhere he stands at the wall's end with his bubble above
-  const brother = mode === 'tall'
-    ? { x: field.x + brR + 8, y: field.y + brR + 4, r: brR, maxW: Math.min(field.w - 2 * brR - 30, 360 * u), side: 'right' as const }
-    : { x: field.x + brR + 8, y: wall.y - brR - 10 * u, r: brR, maxW: Math.min(field.w - 2 * brR - 30, 360 * u), side: 'above' as const };
-  const cw = Math.min(field.w - 24, 440 * u);
-  const ch = Math.min(field.h + wall.h - 12, 300 * u);
-  const card: Rect = { x: field.x + (field.w - cw) / 2, y: Math.max(field.y, field.y + (field.h + wall.h - ch) / 2 - 10), w: cw, h: ch };
+  // Brother Anselm looks in from the field's top corner, under the bar, his bubble to his right
+  const brR = Math.round((mode === 'short' ? 15 : 18) * u);
+  const brX = field.x + Math.max(ins.left, field.x === 0 ? 16 : 0) + brR + 6;
+  const brother = { x: brX, y: bar.y + bar.h + 8 + brR, r: brR, maxW: Math.max(120, Math.min(field.x + field.w - 10 - (brX + brR + 12), 380 * u)) };
   return {
-    w: W, h: H, mode, u, top, field, sky, sx, sy, s, wall, seatY, cat, eye, bar, fish, chest, cols, rows, cell, ups, paw, vintage,
-    brother, card,
+    w: W, h: H, mode, u, ins, top, field, sky, sx, sy, s, wall, seatY, cat, row, eye, eyeHit, bar, stage, fish, chest, cols, rows, cell, gap,
+    ups, paw, vintage, rich, brother, card, anchor,
   };
 }
 
@@ -174,17 +222,108 @@ export const toPx = (L: Layout, x: number, y: number): { x: number; y: number } 
 /** A canvas point (px) in the field (u). */
 export const toField = (L: Layout, x: number, y: number): { x: number; y: number } => ({ x: (x - L.field.x) / L.sx, y: (y - L.field.y) / L.sy });
 
+/**
+ * The cats' row for `n` cushions: each cat's x, its target (from its ears to its cushion), and the eye's target
+ * between the two groups (null where the wall is too narrow for it: the paw button and Space release the hunt
+ * there, and it goes by itself).  The groups keep the 16 px edges while they fit and give them up, down to
+ * 8 px, for six cats on a 360 px phone.
+ */
+export interface WallRow { x: number[]; hit: Rect[]; eye: Rect | null }
+
+const ROWS = new WeakMap<Layout, WallRow[]>();
+
+export function wallRow(L: Layout, n: number): WallRow {
+  let memo = ROWS.get(L);
+  if (!memo) ROWS.set(L, (memo = []));
+  const k = Math.max(0, Math.min(RULES.slotsMax, Math.floor(n)));
+  const known = memo[k];
+  if (known) return known;
+  const g = L.gap, cx = L.eye.x;
+  const left = Math.ceil(k / 2), right = k - left;
+  const big = Math.max(1, left);
+  const catW = Math.max(MIN_TAP, Math.min(L.cat * 1.1, 96));
+  const need = big * MIN_TAP + (big - 1) * g;
+  let eye: Rect | null = L.eyeHit;
+  let inner = L.eyeHit.w / 2 + g;
+  const pref = Math.min(cx - inner - L.row.l, L.row.r - cx - inner);
+  const most = Math.min(cx - inner - L.row.minL, L.row.minR - cx - inner);
+  let half = pref >= need ? pref : Math.min(need, most);
+  if (half < need) {
+    // too narrow even at the narrowest edges: the eye stays a picture, its room goes to the cats
+    eye = null;
+    inner = g / 2;
+    half = Math.min(cx - inner - L.row.minL, L.row.minR - cx - inner);
+  }
+  const top = L.seatY - L.cat * 0.98, bottom = L.seatY + L.cat * 0.26;
+  const xs: number[] = [], hits: Rect[] = [];
+  /** a group of cats across [from, from + half]: spread out while there is room, else packed edge to edge */
+  const place = (count: number, from: number): void => {
+    if (!count) return;
+    const pitch = half / count;
+    const packed = pitch - g < catW;
+    const tw = packed ? Math.max(1, (half - (count - 1) * g) / count) : catW;
+    for (let j = 0; j < count; j++) {
+      const x = from + (packed ? tw / 2 + j * (tw + g) : pitch * (j + 0.5));
+      xs.push(x);
+      hits.push({ x: x - tw / 2, y: top, w: tw, h: bottom - top });
+    }
+  };
+  // left to right: the left group from the wall's end to the eye, the right one from the eye on
+  place(left, cx - inner - half);
+  place(right, cx + inner);
+  const out: WallRow = { x: xs, hit: hits, eye };
+  memo[k] = out;
+  return out;
+}
+
 /** A cushion's seat on the wall (px): where the cat sits. */
 export function seat(L: Layout, i: number, n: number): { x: number; y: number } {
-  return { x: L.wall.x + (cushionX(i, n) / RULES.FW) * L.wall.w, y: L.seatY };
+  const r = wallRow(L, n);
+  return { x: r.x[i] ?? L.eye.x, y: L.seatY };
 }
 
 /** The chest's i-th cell (px). */
 export function cellRect(L: Layout, i: number): Rect {
   const c = i % L.cols, r = Math.floor(i / L.cols);
-  const gap = (L.chest.w - L.cols * L.cell) / Math.max(1, L.cols - 1);
-  const gy = L.rows > 1 ? (L.chest.h - L.rows * L.cell) / (L.rows - 1) : 0;
-  return { x: L.chest.x + c * (L.cell + gap), y: L.chest.y + r * (L.cell + gy), w: L.cell, h: L.cell };
+  return { x: L.chest.x + c * (L.cell + L.gap), y: L.chest.y + r * (L.cell + L.gap), w: L.cell, h: L.cell };
+}
+
+/** The vintage question's two buttons inside its card (finger-sized, at the card's foot). */
+export function confirmButtons(L: Layout, c: Rect): { yes: Rect; no: Rect } {
+  const u = L.u, pad = Math.round(16 * u), bw = (c.w - pad * 3) / 2, bh = Math.max(MIN_TAP + 6, Math.round(50 * u)), by = c.y + c.h - pad - bh;
+  return { yes: { x: c.x + pad, y: by, w: bw, h: bh }, no: { x: c.x + pad * 2 + bw, y: by, w: bw, h: bh } };
 }
 
 export const inRect = (r: Rect, x: number, y: number, pad = 0): boolean => x >= r.x - pad && x <= r.x + r.w + pad && y >= r.y - pad && y <= r.y + r.h + pad;
+
+/** What is on screen that decides the targets: the open cushions, the vintage's button, a card. */
+export interface TargetState {
+  slots: number;
+  vintage: boolean;
+  card: null | 'story' | 'confirm';
+  /** the card as drawn (it sizes to its words); the layout's room for it before the first frame */
+  cardBox?: Rect | null;
+}
+
+/**
+ * Every control the player can tap right now, as the view hit-tests it (ArcadeGame.targets): the chest's
+ * cells, the cats, the eye, the buttons, the vintage; under a card only the card (a tap anywhere closes a
+ * story) or the question's two answers.  The free field (a tap marks a pest, "psst!") is not a target.
+ */
+export function tapTargets(L: Layout, s: TargetState): TapTarget[] {
+  const r1 = (label: string, r: Rect): TapTarget => ({ label, x: r.x, y: r.y, w: r.w, h: r.h });
+  if (s.card === 'story') return [r1('story', s.cardBox ?? L.card)];
+  if (s.card === 'confirm') {
+    const { yes, no } = confirmButtons(L, s.cardBox ?? L.card);
+    return [r1('vintage: yes', yes), r1('vintage: no', no)];
+  }
+  const out: TapTarget[] = [];
+  for (let i = 0; i < RULES.chest; i++) out.push(r1(`chest ${i + 1}`, cellRect(L, i)));
+  const row = wallRow(L, s.slots);
+  row.hit.forEach((r, i) => out.push(r1(`cat ${i + 1}`, r)));
+  if (row.eye) out.push(r1('eye', row.eye));
+  for (const id of BUYS) out.push(r1(id, L.ups[id]));
+  out.push(r1('paw', L.paw));
+  if (s.vintage) out.push(r1('vintage', L.vintage));
+  return out;
+}

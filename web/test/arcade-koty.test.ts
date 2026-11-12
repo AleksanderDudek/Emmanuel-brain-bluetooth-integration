@@ -10,6 +10,10 @@ import {
 import { RULES } from '../src/arcade/koty/rules';
 import { BOSS_TARGET, KotySim, bossCourage, courage, cushionX, finaleFor, planBlocks, starText, waveSize, type SimEvent } from '../src/arcade/koty/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { coachText, howto } from '../src/arcade/koty/index';
+import { BUYS, cellRect, layout, tapTargets, wallRow } from '../src/arcade/koty/layout';
+import { BADGE_MIN, fitFont, font, fontPx } from '../src/arcade/koty/paint';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
@@ -850,5 +854,137 @@ describe('the words', () => {
       expect(t(`cat.${c.id}.bio` as never).length).toBeGreaterThan(20);
     }
     for (const pl of PLACES) expect(t(`place.${pl.id}` as never)).not.toMatch(/^place\./);
+  });
+});
+
+/** The size in a canvas font string. */
+const pxOf = (f: string): number => Number(f.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+
+/** A canvas context that measures text as 0.6 em per character (enough to test fitting). */
+function measuring(): CanvasRenderingContext2D {
+  const ctx = { font: '10px sans-serif', measureText(text: string) { return { width: text.length * pxOf(this.font) * 0.6 } as TextMetrics; } };
+  return ctx as unknown as CanvasRenderingContext2D;
+}
+
+describe('mobile first (DESIGN §11.9, §12)', () => {
+  it('gives every control a finger-sized target inside the insets, clear of the others, at every checked size and state', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      for (let n = 1; n <= RULES.slotsMax; n++) {
+        for (const vintage of [false, true]) {
+          const ts = tapTargets(L, { slots: n, vintage, card: null });
+          expect(auditTargets(ts, c.w, c.h, c.insets), `${c.name}: ${n} cushions${vintage ? ', the vintage' : ''}`).toEqual([]);
+          expect(ts.length).toBe(RULES.chest + n + 1 + BUYS.length + 1 + (vintage ? 1 : 0));
+        }
+      }
+      // under a card: a story takes any tap on it, the vintage's question has two answers (on a card of any height)
+      expect(auditTargets(tapTargets(L, { slots: 6, vintage: true, card: 'story' }), c.w, c.h, c.insets), `${c.name}: a story`).toEqual([]);
+      for (const h of [L.card.h, 230, 180]) {
+        const box = { ...L.card, y: L.anchor === 'bottom' ? L.card.y + L.card.h - h : L.card.y + (L.card.h - h) / 2, h };
+        const ts = tapTargets(L, { slots: 6, vintage: true, card: 'confirm', cardBox: box });
+        expect(ts.map(x => x.label)).toEqual(['vintage: yes', 'vintage: no']);
+        expect(auditTargets(ts, c.w, c.h, c.insets), `${c.name}: the vintage's question, ${h} px`).toEqual([]);
+      }
+    }
+  });
+
+  it('puts the chest and the buttons in the thumb zone of a phone upright: big cells, tall buttons, off the edges, no empty band', () => {
+    for (const c of CHECK_SIZES.filter(x => x.w < 600 && x.h > x.w)) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.mode, c.name).toBe('tall');
+      expect(L.u).toBeLessThan(1.1);
+      expect(L.cell, c.name).toBeGreaterThanOrEqual(56);
+      const zone = c.h * (1 - THUMB);
+      for (let i = 0; i < RULES.chest; i++) expect(cellRect(L, i).y, `${c.name}: cell ${i}`).toBeGreaterThanOrEqual(zone);
+      for (const r of [...BUYS.map(id => L.ups[id]), L.paw]) {
+        expect(r.h).toBeGreaterThanOrEqual(48);
+        expect(r.y).toBeGreaterThanOrEqual(zone);
+        expect(r.x).toBeGreaterThanOrEqual(c.insets.left + 16 - 0.01);
+        expect(r.x + r.w).toBeLessThanOrEqual(c.w - c.insets.right - 16 + 0.01);
+      }
+      // the buttons sit on the bottom (over the home indicator), the chest right above them, the field takes the rest
+      expect(c.h - c.insets.bottom - (L.paw.y + L.paw.h)).toBeLessThanOrEqual(10);
+      expect(L.ups.aim.y - (L.chest.y + L.chest.h)).toBeLessThanOrEqual(12);
+      expect(L.field.y).toBe(c.insets.top);
+      expect(L.field.h, c.name).toBeGreaterThanOrEqual(110);
+      // the bar and the brother stay under the HUD, the field's top is the bar's
+      expect(L.bar.y).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.brother.y - L.brother.r).toBeGreaterThanOrEqual(L.bar.y + L.bar.h);
+    }
+  });
+
+  it('keeps six cats and the eye apart on the narrowest wall: every cat at least 44 px wide, 6 px between them', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      for (let n = 1; n <= RULES.slotsMax; n++) {
+        const row = wallRow(L, n);
+        expect(row.x).toHaveLength(n);
+        const boxes = [...row.hit, ...(row.eye ? [row.eye] : [])].sort((a, b) => a.x - b.x);
+        for (const b of boxes) expect(b.w, `${c.name}: ${n}`).toBeGreaterThanOrEqual(MIN_TAP);
+        for (let i = 1; i < boxes.length; i++) expect(boxes[i].x - (boxes[i - 1].x + boxes[i - 1].w), `${c.name}: ${n}`).toBeGreaterThanOrEqual(TAP_GAP - 0.01);
+        // the cats read left to right, the left group left of the eye
+        for (let i = 1; i < n; i++) expect(row.x[i]).toBeGreaterThan(row.x[i - 1]);
+        expect(row.x[Math.ceil(n / 2) - 1]).toBeLessThan(L.eye.x);
+        expect(row.eye, c.name).not.toBeNull();
+      }
+    }
+  });
+
+  it('lays a phone on its side out in three columns: the chest under the left thumb, the field, the buttons under the right', () => {
+    for (const c of CHECK_SIZES.filter(x => x.name.startsWith('phone on its side'))) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.mode).toBe('short');
+      expect(L.cols * L.rows).toBe(RULES.chest);
+      expect(L.chest.x + L.chest.w).toBeLessThan(L.field.x);
+      for (const r of [...BUYS.map(id => L.ups[id]), L.paw]) {
+        expect(r.x).toBeGreaterThan(L.field.x + L.field.w);
+        expect(r.h).toBeGreaterThanOrEqual(MIN_TAP + 4);
+        expect(r.y).toBeGreaterThanOrEqual(c.insets.top);
+      }
+      expect(L.chest.y).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.field.w).toBeGreaterThan(c.w * 0.5);
+      expect(L.field.h).toBeGreaterThan(200);
+    }
+  });
+
+  it('grows on a tablet and a desktop, never past 1.3', () => {
+    for (const c of CHECK_SIZES.filter(x => Math.min(x.w, x.h) > 600)) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.u).toBeGreaterThan(1);
+      expect(L.u).toBeLessThanOrEqual(1.3);
+      expect(L.cell).toBeGreaterThanOrEqual(56);
+      expect(L.rich).toBe(true);
+    }
+  });
+
+  it('never draws text under 11 px: the font helper has a floor, fitting never shrinks under it, badges hold their number', () => {
+    for (const px of [0, 3, 6.4, 8, 10.4, 10.99, 11, 12.3, 13, 30]) expect(pxOf(font(px))).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(fontPx(4)).toBe(MIN_TEXT);
+    expect(pxOf(font(14.2, 800, true))).toBe(14);
+    const ctx = measuring();
+    expect(fitFont(ctx, 'Zwinne łapy · poz. 12', 20, 14, 6)).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(fitFont(ctx, 'Łapa', 200, 13, 11)).toBe(13);
+    expect(BADGE_MIN * 1.15).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(MIN_READ).toBe(13);
+  });
+
+  it('speaks to the hand the player has: a finger never hears of keys, a keyboard keeps them as shortcuts', () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|mysz[ąy]|mouse|maus/i;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['howto.goal', 'howto.drag', 'howto.tap', 'howto.paw', 'coach.hunt', 'coach.paw', 'coach.merge', 'coach.upgrade', 'coach.target', 'coach.pet', 'story.tap']) {
+        expect(c[k], `${l}.${k}`).toBeTypeOf('string');
+        expect(c[k], `${l}.${k}`).not.toMatch(KEYS);
+      }
+      expect(c['coach.hunt.keys'], `${l}.coach.hunt.keys`).toMatch(KEYS);
+      expect(c['coach.paw.keys'], `${l}.coach.paw.keys`).toMatch(KEYS);
+      expect(c['howto.keys'], `${l}.howto.keys`).toMatch(KEYS);
+    }
+    const touch = howto(true), desk = howto(false);
+    expect(touch.hands.some(x => x.gesture === 'keys')).toBe(false);
+    expect(touch.hands).toHaveLength(3);
+    expect(desk.hands.some(x => x.gesture === 'keys')).toBe(true);
+    for (const what of ['hunt', 'paw', 'merge', 'merge2', 'upgrade'] as const) expect(coachText(what, true)).not.toMatch(KEYS);
+    expect(coachText('hunt', false)).toMatch(KEYS);
   });
 });

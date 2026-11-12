@@ -18,22 +18,29 @@
  * the sound (audio.ts) and the lobby's card (panel.ts); the words in i18n.ts.
  */
 import type { FocusFrame } from '../kit/focus';
-import { buzz } from '../kit/juice';
+import { buzz, clamp } from '../kit/juice';
+import { coarsePointer } from '../kit/mobile';
 import { SignalTrace } from '../kit/trace';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { KotySound } from './audio';
 import { bossName, placeName } from './content';
 import { t, unit } from './i18n';
 import { KotyIntro } from './intro';
+import { tapTargets } from './layout';
 import { bestOf, freshProgress, migrate, type BuyId, type KotyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { KotyView } from './render';
+import { RULES } from './rules';
 import { KotySim, type Coach, type CoachAt, type Loc, type SimEvent } from './sim';
 
+/** a finger that moves farther than this (px) drags; less is a tap */
 const TAP_PX = 10;
 const HOLD_FIRST = 0.42;
 const HOLD_EVERY = 0.15;
+const HOLD_PAW = 0.3;
+
+const same = (a: Loc | null | undefined, b: Loc | null | undefined): boolean => !!a && !!b && a.kind === b.kind && a.i === b.i;
 
 class KotyGame implements ArcadeGame {
   private readonly sim: KotySim;
@@ -44,10 +51,12 @@ class KotyGame implements ArcadeGame {
   private w = 1;
   private h = 1;
   private dpr = 1;
-  /** the finger on the toys: where it went down, what it holds */
-  private press: { id: number; x: number; y: number; loc: Loc } | null = null;
+  /** the one finger (pointer) the game follows: a new one takes over from a finger that went astray */
+  private finger: number | null = null;
+  /** the finger on the toys or the cats: where it went down, on what */
+  private press: { x: number; y: number; loc: Loc } | null = null;
   /** a buy button held down: it buys again and again */
-  private hold: { id: BuyId; t: number; next: number } | null = null;
+  private hold: { id: BuyId | 'paw'; t: number; next: number } | null = null;
   /** first-time explanations waiting for a clear screen (one at a time, a few seconds apart) */
   private readonly hints: { what: Coach; at: CoachAt }[] = [];
   private hintCool = 1.5;
@@ -62,7 +71,7 @@ class KotyGame implements ArcadeGame {
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg',
       tuning: env.tuning, now: Date.now(),
     });
-    this.view = new KotyView(env.canvas, { reducedMotion: env.reducedMotion, simulated: env.simulated });
+    this.view = new KotyView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new KotySound(env.audio);
     this.ctx = env.canvas.getContext('2d');
     // ?debug: the watch in the console (and for screenshot scripts)
@@ -73,7 +82,7 @@ class KotyGame implements ArcadeGame {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.view.resize(w, h, dpr, this.env.hudTop());
+    this.view.resize(w, h, dpr, this.env.insets());
   }
 
   intro(dt: number, p: number): void {
@@ -84,7 +93,7 @@ class KotyGame implements ArcadeGame {
   }
 
   start(): void {
-    this.view.resize(this.w, this.h, this.dpr, this.env.hudTop());
+    this.view.resize(this.w, this.h, this.dpr, this.env.insets());
     this.sim.start();
     this.sound.start();
     this.drain();
@@ -98,12 +107,20 @@ class KotyGame implements ArcadeGame {
     if (this.hold) {
       this.hold.t += dt;
       if (this.hold.t >= this.hold.next) {
-        this.hold.next += HOLD_EVERY;
-        if (!this.sim.buy(this.hold.id)) this.hold.next += 0.4;
+        // a held paw keeps helping, a little slower than a held upgrade keeps buying
+        if (this.hold.id === 'paw') {
+          this.hold.next += HOLD_PAW;
+          if (!this.sim.paw()) this.hold.next += 0.4;
+          else this.view.pawPressed();
+        } else {
+          this.hold.next += HOLD_EVERY;
+          if (!this.sim.buy(this.hold.id)) this.hold.next += 0.4;
+        }
       }
     }
     this.drain();
     this.view.update(dt, this.sim);
+    this.trackDrag();
     this.sound.update(dt, this.sim);
     this.hintCool -= dt;
     // a card covers the field: the coach mark on screen goes with it
@@ -119,14 +136,18 @@ class KotyGame implements ArcadeGame {
   }
 
   /**
-   * A press on a toy picks it up (drag it onto a mate to merge, onto a cat to hand it over; a tap merges
-   * it with its mate or hands it to the weakest cat); on a cat without dragging, it pets the cat; on a
-   * button, it buys (held, again and again) or lends the helping paw; on the eye, it releases a ready
-   * hunt; on the field, it marks the squad's target and goes "psst!"; on a card, it closes it.
+   * A press on a toy picks it up (drag it onto a mate to merge, onto a cat to hand it over — it floats above
+   * the finger and lands on the nearest cell or cat; a tap merges it with its mate or hands it to the weakest
+   * cat); on a cat without dragging, it pets the cat; on a button, it buys (held, again and again) or lends the
+   * helping paw (a ready hunt first, like Space); on the eye, it releases a ready hunt; on the field, it marks
+   * the pest nearest the finger as the squad's target and goes "psst!"; on a card, it closes it.  Every press
+   * shows on touch-down.  One finger at a time: a new one takes over.
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view;
     if (e.type === 'down') {
+      if (this.finger !== null && this.finger !== e.id) this.letGo();
+      this.finger = e.id;
       const h = view.hit(e.x, e.y, sim);
       switch (h.kind) {
         case 'story': sim.tap(); break;
@@ -135,19 +156,21 @@ class KotyGame implements ArcadeGame {
         case 'chest':
         case 'slot': {
           const loc: Loc = { kind: h.kind, i: h.i };
-          this.press = { id: e.id, x: e.x, y: e.y, loc };
+          this.press = { x: e.x, y: e.y, loc };
+          view.press = loc;
           const toy = sim.toyAt(loc);
-          if (toy) view.drag = { from: loc, toy, x: e.x, y: e.y, moved: false };
+          if (toy && !sim.frozen) view.drag = { from: loc, toy, x: e.x, y: e.y, moved: false, lift: this.lift(), k: 0, snap: null };
           break;
         }
         case 'up':
-          sim.buy(h.id);
+          if (sim.buy(h.id) && this.env.haptics) buzz(8);
           view.pressed = h.id;
           this.hold = { id: h.id, t: 0, next: HOLD_FIRST };
           break;
         case 'paw':
-          sim.paw();
-          view.pawPressed();
+          view.pawDown = true;
+          this.helpingPaw();
+          this.hold = { id: 'paw', t: 0, next: HOLD_FIRST };
           break;
         case 'eye':
           // the eye releases a ready hunt; before that a tap on it goes "psst!" at the nearest pest
@@ -156,42 +179,85 @@ class KotyGame implements ArcadeGame {
         case 'vintage':
           sim.askVintage();
           break;
-        case 'field':
-          sim.aim(h.x, h.y);
-          sim.clap(h.x, h.y);
+        case 'field': {
+          // the pest nearest the finger (measured on screen: the field is squashed on a phone) becomes the target
+          const pe = view.pestAt(e.x, e.y, sim);
+          if (pe) {
+            sim.aim(pe.x, pe.y);
+            sim.clap(pe.x, pe.y);
+          } else sim.clap(h.x, h.y);
           break;
+        }
         default:
           break;
       }
       this.drain();
       return;
     }
+    if (e.id !== this.finger) return;
     const pr = this.press;
     if (e.type === 'move') {
       const d = view.drag;
-      if (pr && pr.id === e.id && d) {
+      if (pr && d) {
         d.x = e.x;
         d.y = e.y;
-        if (Math.hypot(e.x - pr.x, e.y - pr.y) > TAP_PX) d.moved = true;
+        if (!d.moved && Math.hypot(e.x - pr.x, e.y - pr.y) > TAP_PX) {
+          d.moved = true;
+          view.press = null;
+          if (this.env.haptics) buzz(8);
+        }
+        this.trackDrag();
       }
       return;
     }
-    // up
-    this.hold = null;
-    view.pressed = null;
-    if (!pr || pr.id !== e.id) return;
+    // up: a drag lands where it snapped, a tap pets a cat or places a toy
+    this.trackDrag();
     const d = view.drag;
-    this.press = null;
-    view.drag = null;
+    this.letGo();
+    if (!pr) return;
     if (d && d.moved) {
-      const to = view.locAt(e.x, e.y, sim);
-      if (to) sim.drop(d.from, to);
+      if (d.snap) sim.drop(d.from, d.snap);
     } else if (pr.loc.kind === 'slot') {
       sim.pet(pr.loc.i);
     } else if (d) {
       sim.autoPlace(pr.loc);
     }
     this.drain();
+  }
+
+  /** Whatever the finger held is let go (nothing lands): the hold, the pressed looks, a toy in the air. */
+  private letGo(): void {
+    this.finger = null;
+    this.hold = null;
+    this.press = null;
+    const v = this.view;
+    v.pressed = null;
+    v.pawDown = false;
+    v.press = null;
+    v.drag = null;
+  }
+
+  /** How far above the finger a dragged toy floats: clear of a fingertip on a phone, a little lift under a mouse. */
+  private lift(): number {
+    const c = this.view.L.cell;
+    return this.env.touch ? clamp(c * 0.95, 44, 76) : Math.round(c * 0.3);
+  }
+
+  /** Where a dragged toy would land now; a light tick when that is a mate to merge with. */
+  private trackDrag(): void {
+    const d = this.view.drag;
+    if (!d || !d.moved) return;
+    const snap = this.view.snapAt(d.x, d.y - d.lift * d.k, this.sim, d.from);
+    if (same(snap, d.snap)) return;
+    d.snap = snap;
+    const toy = snap ? this.sim.toyAt(snap) : null;
+    if (toy && toy.g === d.toy.g && toy.g < RULES.grades && this.env.haptics) buzz(6);
+  }
+
+  /** The paw button is Space on the screen: a ready hunt first, else the helping paw. */
+  private helpingPaw(): void {
+    if (!this.sim.releaseHunt()) this.sim.paw();
+    this.view.pawPressed();
   }
 
   /** Space and Enter: close a card, release a ready hunt, or the helping paw; 1–4 buy along the bottom. */
@@ -209,12 +275,7 @@ class KotyGame implements ArcadeGame {
   }
 
   pause(paused: boolean): void {
-    if (paused) {
-      this.hold = null;
-      this.press = null;
-      this.view.drag = null;
-      this.view.pressed = null;
-    }
+    if (paused) this.letGo();
   }
 
   private drain(): void {
@@ -243,12 +304,16 @@ class KotyGame implements ArcadeGame {
       if (v === 'drop') { this.hints.splice(i--, 1); continue; }
       if (v === 'wait') continue;
       if (sim.talkBlocked && !urgent(h.what)) return;
+      // Brother Anselm finishes his line first (an urgent mark goes ahead and his bubble steps aside)
+      if (sim.talk.line && !urgent(h.what)) return;
       this.hints.splice(i, 1);
       const at = this.view.pointFor(h.at, sim);
       const ms = h.what === 'eye' || h.what === 'nap' || h.what === 'merge' || h.what === 'merge2' ? 5200 : 4000;
       this.hintCool = ms / 1000 + 0.8;
-      const key = h.what === 'merge2' ? 'merge' : h.what;
-      this.env.hint(t(`coach.${key}` as 'coach.merge'), at, ms);
+      this.env.hint(coachText(h.what, this.env.touch), at, ms);
+      this.view.coachShown(ms);
+      // a mark about a control in the thumb zone sits over the field: the control itself glows
+      if (!at) this.view.coachRing(h.at, ms);
       return;
     }
   }
@@ -310,15 +375,31 @@ class KotyGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void {
-    this.hold = null;
-    this.press = null;
+  /** Every control the player can tap now (the layout's rectangles, as `hit` tests them), for the mobile audit. */
+  targets(): TapTarget[] {
+    const s = this.sim;
+    if (!s.started) return [];
+    return tapTargets(this.view.L, {
+      slots: s.cushions.length, vintage: s.vintageOpen && !s.frozen, card: s.confirm ? 'confirm' : s.story ? 'story' : null, cardBox: this.view.cardBox,
+    });
   }
+
+  destroy(): void {
+    this.letGo();
+  }
+}
+
+/** A coach mark's words for the hand the player has: a finger never hears of keys, a keyboard may. */
+export function coachText(what: Coach, touch: boolean): string {
+  const key = what === 'merge2' ? 'merge' : what;
+  if (!touch && (key === 'hunt' || key === 'paw')) return t(`coach.${key}.keys`);
+  return t(`coach.${key}` as 'coach.merge');
 }
 
 function haptic(e: SimEvent): void {
   switch (e.type) {
-    case 'merge': buzz(e.fresh ? [12, 30, 20] : 12); break;
+    case 'merge': buzz(e.fresh ? [14, 30, 22] : 14); break;
+    case 'equip': buzz(10); break;
     case 'hunt': buzz([30, 40, 60]); break;
     case 'bossChased': buzz([30, 40, 30, 40, 80]); break;
     case 'boss': buzz(40); break;
@@ -328,13 +409,14 @@ function haptic(e: SimEvent): void {
   }
 }
 
-function howto(): HowTo {
+/** How to play, for the hand the player has: the paw's button on a phone, Space and the digits on a keyboard. */
+export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('howto.goal'),
     hands: [
       { gesture: 'drag', text: t('howto.drag') },
       { gesture: 'tap', text: t('howto.tap') },
-      { gesture: 'keys', text: t('howto.keys') },
+      touch ? { gesture: 'tap', text: t('howto.paw') } : { gesture: 'keys', text: t('howto.keys') },
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],
   };
@@ -350,6 +432,6 @@ const mod: ArcadeModule<KotyProgress> = {
   unit,
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
-  howto,
+  howto: () => howto(),
 };
 export default mod;
