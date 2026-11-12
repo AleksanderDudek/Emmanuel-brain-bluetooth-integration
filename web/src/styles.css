@@ -698,13 +698,15 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 @media (max-width:640px), (max-height:500px) and (orientation:landscape){
   /* mobile first (src/arcade/DESIGN.md §12): a phone's Mendi panel is compact — the block, its seconds and the gauge in one
      row, what to do in the head under it (the next block's telegraph takes that line for its few seconds) */
-  .arcade-mendi{display:grid;grid-template-columns:auto auto minmax(30px,1fr) auto;grid-template-rows:auto auto;column-gap:7px;row-gap:5px;
+  /* the chip may give way (an ellipsis), the gauge keeps 24 px and the value is never cut: "ODPOCZYNEK" or
+     "SKUPIENIE NA WYCZUCIE" with its seconds is wider than a 360 px phone's panel */
+  .arcade-mendi{display:grid;grid-template-columns:minmax(0,max-content) auto minmax(24px,1fr) auto;grid-template-rows:auto auto;column-gap:6px;row-gap:5px;
     align-items:center;align-content:start;padding:7px 10px}
   .arcade-mendi .mp-row,.arcade-mendi .mp-meter{display:contents}
   .arcade-mendi .mp-next,.arcade-mendi .mp-name,.arcade-mendi .mp-state{display:none}
   .arcade-mendi .mp-task{grid-column:1/-1;font-size:11.5px;line-height:1.27}
   .mp-task[data-next="true"]{color:#ffe08a}
-  .mp-chip{padding:3px 8px;font-size:10px}
+  .mp-chip{padding:3px 7px;font-size:10px;letter-spacing:.05em;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mp-bar{height:10px}
   .mp-val{min-width:30px;font-size:12px}
   .arcade-top .sim-long{display:none}
@@ -850,7 +852,8 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-root .arcade-verse figcaption{margin-top:6px;color:var(--tx3)}
 .arcade-record{display:inline-flex;align-items:center;gap:6px;color:#ffd28a;font-weight:700}
 .arcade-record svg{width:18px;height:18px}
-.arcade-again{position:sticky;bottom:0;padding:14px 0 max(10px,env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,#07080d 38%)}
+/* the summary's buttons stay at a thumb's reach; the fade ends above them, so nothing shows through behind them */
+.arcade-again{position:sticky;bottom:0;padding:16px 0 max(10px,env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(7,8,13,0),#07080d 14px)}
 
 /* ── the language picker (src/ui/language.ts) ────────────────── */
 .lang-row{grid-column:1/-1;display:flex;align-items:center;flex-wrap:wrap;gap:2px 4px;color:var(--tx3);font-size:12.5px}

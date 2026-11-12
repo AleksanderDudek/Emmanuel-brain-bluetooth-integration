@@ -300,29 +300,52 @@ export class ArcadeRunner {
     const wrap = h('div', { class: docked ? 'arcade docked' : 'arcade', role: 'application', tabindex: '-1', 'aria-label': t('run.keys', { title: entry.title }) },
       canvas, hud, marks, panel.el, panel.score, dock.el, top, chip, hold, banner, overlay);
     if (this.touch) wrap.classList.add('touch');
+    // a touch that began on the signal dock plays shifted onto the canvas's edge (see below), all its way
+    const shift = new Map<number, { dx: number; dy: number }>();
     const pos = (e: PointerEvent) => {
-      const r = canvas.getBoundingClientRect();
-      return { x: e.clientX - r.left, y: e.clientY - r.top, id: e.pointerId };
+      const r = canvas.getBoundingClientRect(), s = shift.get(e.pointerId);
+      return { x: e.clientX - r.left + (s?.dx ?? 0), y: e.clientY - r.top + (s?.dy ?? 0), id: e.pointerId };
     };
     const send = (type: 'down' | 'move' | 'up') => (e: PointerEvent) => {
-      if (this.stage !== 'play' || this.session?.paused || !this.game?.pointer) return;
-      const p = pos(e);
-      if (type === 'down') {
-        wrap.focus({ preventScroll: true });
-        canvas.setPointerCapture?.(e.pointerId);
-        this.pointersDown.set(p.id, p);
-      } else if (type === 'move') {
-        if (this.pointersDown.has(p.id)) this.pointersDown.set(p.id, p);
-      } else this.pointersDown.delete(p.id);
-      this.safe(() => this.game!.pointer!({ type, ...p }));
+      if (type === 'up') {
+        const p = pos(e);
+        shift.delete(e.pointerId);
+        this.deliver('up', e, p, wrap, canvas);
+      } else this.deliver(type, e, pos(e), wrap, canvas);
     };
     canvas.addEventListener('pointerdown', send('down'));
     canvas.addEventListener('pointermove', send('move'));
     canvas.addEventListener('pointerup', send('up'));
     canvas.addEventListener('pointercancel', send('up'));
+    // On an upright phone the dock is where the thumb rests: a touch there (never the mouse, which reads the
+    // chart) plays as a touch on the nearest point of the canvas's edge — a jump, a joystick, an aim — and the
+    // whole gesture keeps that shift, so a tap stays a tap.  The dock has nothing of its own to press.
+    dock.el.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse' || this.stage !== 'play' || this.session?.paused || !this.game?.pointer) return;
+      const r = canvas.getBoundingClientRect();
+      const x0 = e.clientX - r.left, y0 = e.clientY - r.top;
+      const x = Math.min(r.width - 1, Math.max(0, x0)), y = Math.min(r.height - 1, Math.max(0, y0));
+      shift.set(e.pointerId, { dx: x - x0, dy: y - y0 });
+      this.deliver('down', e, pos(e), wrap, canvas);
+    });
+    // (should the canvas not have taken the pointer over, its end still clears the shift)
+    for (const end of ['pointerup', 'pointercancel'] as const) dock.el.addEventListener(end, e => { shift.delete(e.pointerId); });
     this.root.replaceChildren(wrap);
     this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn, banner, panel, marks };
     wrap.focus({ preventScroll: true });
+  }
+
+  /** A pointer event to the game (only during play), its capture on the canvas, and the record of what is down. */
+  private deliver(type: 'down' | 'move' | 'up', e: PointerEvent, p: { x: number; y: number; id: number }, wrap: HTMLElement, canvas: HTMLCanvasElement): void {
+    if (this.stage !== 'play' || this.session?.paused || !this.game?.pointer) return;
+    if (type === 'down') {
+      wrap.focus({ preventScroll: true });
+      try { canvas.setPointerCapture?.(e.pointerId); } catch { /* the pointer is already gone */ }
+      this.pointersDown.set(p.id, p);
+    } else if (type === 'move') {
+      if (this.pointersDown.has(p.id)) this.pointersDown.set(p.id, p);
+    } else this.pointersDown.delete(p.id);
+    this.safe(() => this.game!.pointer!({ type, ...p }));
   }
 
   private resize(): void {

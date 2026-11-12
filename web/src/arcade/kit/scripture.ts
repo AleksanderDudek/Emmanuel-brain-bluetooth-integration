@@ -61,7 +61,8 @@ export function layoutPassage(ctx: CanvasRenderingContext2D, p: Passage, w: numb
     ctx.font = `italic 400 ${size}px ${VERSE_FONT}`;
     const lines = wrapLines(ctx, p.text, w);
     const lineH = Math.round(size * 1.32);
-    const refSize = Math.max(10, Math.round(size * 0.62));
+    // the reference line is text too: never under the arcade's 11 px floor (kit/mobile MIN_TEXT)
+    const refSize = Math.max(11, Math.round(size * 0.62));
     const height = lines.length * lineH + Math.round(size * 0.55) + refSize;
     out = { lines, size, lineH, refSize, height, fits: height <= h };
     if (out.fits) break;
