@@ -15,12 +15,14 @@
  * stays below it.  hud.ts draws the words, the bubble and the cards.
  */
 import { approach, clamp, Particles, Shake } from '../kit/juice';
+import { NO_INSETS } from '../kit/mobile';
+import type { Insets } from '../kit/types';
 import { fmtInt, t } from './i18n';
 import { WzlotIntro } from './intro';
 import { layout, type Layout } from './layout';
 import { type WzlotProgress } from './meta';
 import {
-  C, LAND_LOOK, LANDS, LANDS_SEED, hash, mix, mixInto, paintCloud, paintCoin, paintEagle, paintEaglet, paintLark, paintNestFamily, paintOrb,
+  C, LAND_LOOK, LANDS, LANDS_SEED, SANS, SERIF, font, hash, mix, mixInto, paintCloud, paintCoin, paintEagle, paintEaglet, paintLark, paintNestFamily, paintOrb,
   paintRange, paintSky, paintSpire, paintSunGauge, paintThermal, rgb, skyAt, type EagletPose, type Land, type LandLook, type RGB, type SkyLook,
 } from './paint';
 import { Hud } from './hud';
@@ -35,9 +37,9 @@ const NIGHT: RGB = [22, 26, 58];
 export class WzlotView {
   readonly hud = new Hud();
   private readonly ctx: CanvasRenderingContext2D;
-  private L: Layout = layout(800, 600, 0);
+  private L: Layout = layout(800, 600);
   private dpr = 1;
-  private hudTop = 0;
+  private ins: Insets = NO_INSETS;
   private readonly introScene = new WzlotIntro();
   private readonly particles = new Particles(520);
   private readonly shake: Shake;
@@ -71,11 +73,11 @@ export class WzlotView {
     this.shake = new Shake(opts.reducedMotion);
   }
 
-  resize(w: number, h: number, dpr: number, hudTop: number): void {
+  resize(w: number, h: number, dpr: number, insets: Insets = this.ins, touch = true): void {
     this.dpr = dpr;
-    this.hudTop = hudTop;
-    this.L = layout(w, h, hudTop);
-    this.hud.resize(this.L);
+    this.ins = insets;
+    this.L = layout(w, h, insets);
+    this.hud.resize(this.L, touch);
     this.snap = true;
   }
 
@@ -226,7 +228,7 @@ export class WzlotView {
     const top = Math.max(e.y, T.height(e.x)) + 0.4;
     const want = clamp(top - low + 0.25, 1.15, 3.8);
     this.span = this.snap ? want : approach(this.span, want, dt, want > this.span ? 0.25 : 0.9);
-    const S = Math.min((L.bottom - L.top) / (this.span + 0.12), L.w / L.minWorldW);
+    const S = Math.min((L.bottom - L.top) / (this.span + 0.12), L.w / L.minWorldW, L.maxS);
     this.S = this.snap ? S : approach(this.S, S, dt, 0.2);
     this.camX = this.snap || Math.abs(e.x - this.camX) > 3 ? e.x : approach(this.camX, e.x, dt, 0.05);
     const floor = low - 0.12;
@@ -287,8 +289,10 @@ export class WzlotView {
     const g0 = sim.terrain.granAt(this.camX);
     const land: Land = LANDS[(g0?.index ?? 0) % LANDS.length];
     this.drawRanges(ctx, land);
-    this.drawSun(ctx, sim);
+    // the cloud deck behind the sun: the sun is the band's gauge, and a camera zoomed out (a tablet, a high
+    // flight) brings the deck up to its arc
     this.drawClouds(ctx);
+    this.drawSun(ctx, sim);
     this.drawThermals(ctx, sim);
     this.drawGround(ctx, sim);
     this.drawNest(ctx, sim);
@@ -374,12 +378,19 @@ export class WzlotView {
     this.sunPos = p;
     const meter = sim.inPush ? sim.meter() : null;
     const charge = sim.inPush && !sim.blind && !sim.fever ? sim.charge : 0;
-    paintSunGauge(ctx, p.x, p.y, 13 * u, meter, charge, sim.blind, this.time, mix(this.sky.sun, [255, 190, 90], 0.35 * sim.sunAt));
+    paintSunGauge(ctx, p.x, p.y, L.sunR, meter, charge, sim.blind, this.time, mix(this.sky.sun, [255, 190, 90], 0.35 * sim.sunAt));
     if (sim.blind) {
-      ctx.font = `700 ${Math.round(11 * u)}px "Manrope Variable", Manrope, system-ui, sans-serif`;
+      // the veil's word on the cloud, on a pale plate: 12 px and more
+      ctx.font = font(750, 12.5 * u, SANS);
       ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(80,70,100,.9)';
-      ctx.fillText(t('fx.veil'), p.x, p.y + 4);
+      ctx.textBaseline = 'middle';
+      const veil = t('fx.veil'), vw = ctx.measureText(veil).width, vy = p.y + L.sunR * 0.4;
+      ctx.fillStyle = 'rgba(255,252,246,.72)';
+      ctx.beginPath();
+      ctx.roundRect(p.x - vw / 2 - 6, vy - 9 * u, vw + 12, 18 * u, 9 * u);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(70,60,92,.95)';
+      ctx.fillText(veil, p.x, vy);
     }
   }
 
@@ -562,7 +573,7 @@ export class WzlotView {
     paintEaglet(ctx, 0, 0, size, e.mode === 'nest' ? 0 : e.angle, pose);
     ctx.restore();
     if (sim.dayPhase === 'dusk' || (e.mode === 'nest' && sim.dayPhase === 'tally')) {
-      ctx.font = `italic 700 ${Math.round(14 * L.u)}px "Fraunces Variable", Fraunces, Georgia, serif`;
+      ctx.font = font(700, 15 * L.u, SERIF, true);
       ctx.fillStyle = 'rgba(255,248,230,.9)';
       ctx.textAlign = 'center';
       for (let i = 0; i < 3; i++) {
@@ -598,9 +609,8 @@ export class WzlotView {
     ctx.globalAlpha = 1;
   }
 
-  /** The hud reads Layout; the index reads the canvas band. */
+  /** Where things are (the hud and the targets read it). */
   get layout(): Layout { return this.L; }
-  get top(): number { return this.hudTop; }
 }
 
 export { C };

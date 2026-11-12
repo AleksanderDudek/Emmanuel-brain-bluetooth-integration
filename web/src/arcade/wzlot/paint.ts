@@ -11,14 +11,17 @@
  * The eagle belongs to Wzlot alone (DESIGN.md §5).  Nothing here depicts God: the mother is an eagle
  * and only an eagle, and the sun is the sun.
  */
+import { MIN_TEXT } from '../kit/mobile';
+
 export type Land = 'negev' | 'wadi' | 'jordan' | 'hermon';
 export const LANDS: readonly Land[] = ['negev', 'wadi', 'jordan', 'hermon'];
 
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
 
+/** A canvas font, never under the kit's floor (MIN_TEXT, 11 px): smaller text is a smudge on a phone. */
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${Math.round(Math.max(MIN_TEXT, size) * 10) / 10}px ${family}`;
 
 export const C = {
   ink: '#2b2219', paper: '#fbf3e4', gold: '#e9b44c', gold2: '#ffd98a', rose: '#d98c6c', warm: '#ffcf8a',
@@ -886,9 +889,13 @@ export function paintSunGauge(
   }
 }
 
-/** A drawn speech bubble with a tail toward (tx, ty); the text wrapped to `maxW`. Returns its box. */
+/**
+ * A drawn speech bubble with a tail toward (tx, ty); the text wrapped to `maxW`, standing on (x, y) inside
+ * `bounds`.  Where it would cover `avoid` (a banner) it moves above that, or under the speaker.
+ */
 export function paintBubble(
   ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, size: number, tx: number, ty: number, alpha: number, bounds: { x0: number; y0: number; x1: number; y1: number },
+  avoid: { x0: number; y0: number; x1: number; y1: number } | null = null,
 ): void {
   ctx.save();
   ctx.globalAlpha *= alpha;
@@ -910,6 +917,14 @@ export function paintBubble(
   let bx = x - w / 2, by = y - h;
   bx = Math.max(bounds.x0, Math.min(bounds.x1 - w, bx));
   by = Math.max(bounds.y0, Math.min(bounds.y1 - h, by));
+  if (avoid) {
+    const hits = (top: number) => bx < avoid.x1 && bx + w > avoid.x0 && top < avoid.y1 && top + h > avoid.y0;
+    if (hits(by)) {
+      const over = avoid.y0 - 6 - h, under = Math.max(ty + 12, avoid.y1 + 6);
+      if (over >= bounds.y0) by = over;
+      else if (under + h <= bounds.y1) by = under;
+    }
+  }
   ctx.fillStyle = 'rgba(255,250,238,.96)';
   ctx.strokeStyle = 'rgba(94,61,34,.55)';
   ctx.lineWidth = 1.5;

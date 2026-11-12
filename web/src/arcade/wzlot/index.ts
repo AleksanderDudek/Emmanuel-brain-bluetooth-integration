@@ -16,7 +16,8 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase } from '../kit/types';
+import { coarsePointer, target } from '../kit/mobile';
+import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { WzlotSound } from './audio';
 import { t, unit, type Key } from './i18n';
 import { bestOf, freshProgress, type WzlotProgress } from './meta';
@@ -24,9 +25,10 @@ import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { WzlotView } from './render';
 import { WzlotSim, type SimEvent } from './sim';
+import type { Teach } from './meta';
 
-class WzlotGame implements ArcadeGame {
-  private readonly sim: WzlotSim;
+export class WzlotGame implements ArcadeGame {
+  readonly sim: WzlotSim;
   private readonly view: WzlotView;
   private readonly sound: WzlotSound;
   private w = 1;
@@ -38,6 +40,7 @@ class WzlotGame implements ArcadeGame {
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
     this.view = new WzlotView(env.canvas, { reducedMotion: env.reducedMotion });
+    this.view.hud.resize(this.view.layout, env.touch);
     this.sound = new WzlotSound(env.audio);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __wzlot?: unknown }).__wzlot = this.sim;
   }
@@ -46,14 +49,14 @@ class WzlotGame implements ArcadeGame {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.view.resize(w, h, dpr, this.env.hudTop());
+    this.view.resize(w, h, dpr, this.env.insets(), this.env.touch);
   }
 
   intro(dt: number, p: number): void { this.view.intro(dt, p, this.env.progress); }
 
   start(): void {
     // the HUD is laid out by now: read its band again
-    this.view.resize(this.w, this.h, this.dpr, this.env.hudTop());
+    this.view.resize(this.w, this.h, this.dpr, this.env.insets(), this.env.touch);
     this.sim.start();
     this.sound.start();
     this.view.start();
@@ -90,7 +93,11 @@ class WzlotGame implements ArcadeGame {
   private drain(): void {
     for (const e of this.sim.take()) {
       if (e.type === 'hint') {
-        this.env.hint(t(`hint.${e.key}` as Key), this.view.anchor(e.at, this.sim), 4200);
+        const at = this.view.anchor(e.at, this.sim);
+        this.env.hint(hintText(e.key, this.env.touch), at, 4200);
+        // the coach mark's bubble stands over the point (under it near the top), shown now or after the runner's
+        // block banner (up to 4 s later): the game's banners keep off it meanwhile
+        if (at) this.view.hud.coachAt(at.y < this.view.layout.h * 0.3 ? at.y + 50 : at.y - 50, 8.5);
         continue;
       }
       if (e.type === 'perfect') this.sim.hitStop(0.05);
@@ -117,6 +124,33 @@ class WzlotGame implements ArcadeGame {
   result(): ArcadeOutcome { return this.sim.result(); }
 
   destroy(): void { this.sim.release(); }
+
+  /**
+   * The free play area — a hold anywhere — is no target.  While a card or the dawn prompt shows, it is the one
+   * thing to tap (a tap anywhere does it): the story card, the dawn's "tap for sunrise", the day's tally.
+   */
+  targets(): TapTarget[] {
+    const b = this.view.hud.box;
+    return b ? [target(b.kind, b.r)] : [];
+  }
+}
+
+/** A coach mark's words for the hand the player has: a finger holds; a keyboard hears of Space as a shortcut. */
+export function hintText(key: Teach, touch: boolean): string {
+  return key === 'hold' && !touch ? t('hint.hold.keys') : t(`hint.${key}` as Key);
+}
+
+/** How to play: hold and let go anywhere; on a keyboard Space and ↓ as shortcuts (the runner drops the keys' row for a finger). */
+export function howto(touch = coarsePointer()): HowTo {
+  return {
+    goal: t('how.goal'),
+    hands: [
+      { gesture: 'hold', text: t('how.hold') },
+      { gesture: 'tap', text: t('how.release') },
+      ...(touch ? [] : [{ gesture: 'keys' as const, text: t('how.keys') }]),
+    ],
+    tips: [t('how.tip1'), t('how.tip2')],
+  };
 }
 
 function haptic(e: SimEvent): void {
@@ -138,14 +172,6 @@ const mod: ArcadeModule<WzlotProgress> = {
   unit,
   progressPanel: p => progressPanel(p),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
-  howto: (): HowTo => ({
-    goal: t('how.goal'),
-    hands: [
-      { gesture: 'hold', text: t('how.hold') },
-      { gesture: 'tap', text: t('how.release') },
-      { gesture: 'keys', text: t('how.keys') },
-    ],
-    tips: [t('how.tip1'), t('how.tip2')],
-  }),
+  howto: () => howto(),
 };
 export default mod;

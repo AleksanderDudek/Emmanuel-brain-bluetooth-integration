@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { LINE_COUNT, MOMENTS, SETS, lessonsOf, lines } from '../src/arcade/wzlot/content';
 import { CATALOGS, t } from '../src/arcade/wzlot/i18n';
 import { TEACH, bestOf, checkLessons, freshProgress, hatch, migrate, noFeats, openLessons, type WzlotProgress } from '../src/arcade/wzlot/meta';
@@ -10,6 +10,13 @@ import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type Focu
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
+import { CATALOGS as SHARED } from '../src/i18n/arcade';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
+import { CHECK_SIZES, MIN_READ, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
+import type { GameEnv } from '../src/arcade/kit/types';
+import wzlot, { hintText, howto } from '../src/arcade/wzlot/index';
+import { layout } from '../src/arcade/wzlot/layout';
+import { font } from '../src/arcade/wzlot/paint';
 
 const DAY = '2026-11-07';
 const STEP = 1 / 60;
@@ -624,5 +631,215 @@ describe('the module (index.ts, panel.ts)', () => {
     const el = progressPanel(p);
     expect(el.querySelectorAll('.arcade-chips span, li').length).toBeGreaterThan(0);
     expect(el.textContent).toContain(t('panel.nest'));
+  });
+});
+
+// ── mobile first (DESIGN §12) ──────────────────────────────────
+/** The size in a canvas font string. */
+const pxOf = (f: unknown): number => Number(String(f).match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
+
+/**
+ * A 2D context that draws nothing and notes every string filled or stroked at the size it shows (the font's
+ * size times the transform's scale over the pixel ratio), the largest per string — as the mobile audit
+ * measures it.  Save and restore keep the scale, the font and the alpha like a real context.
+ */
+function recordingContext(canvas: unknown, dpr: number, texts: Map<string, number> | null): CanvasRenderingContext2D {
+  const gradient = { addColorStop: () => undefined };
+  const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+  const stack: { k: number; font: unknown; alpha: unknown }[] = [];
+  let k = 1 / dpr;
+  const width = (s: string) => s.length * pxOf(state.font) * 0.55;
+  const note = (text: unknown, maxW?: number) => {
+    const str = String(text);
+    if (!texts || !str.trim() || Number(state.globalAlpha) <= 0.05) return;
+    let px = pxOf(state.font) * k;
+    if (maxW !== undefined && maxW > 0 && width(str) > maxW) px *= maxW / width(str);
+    texts.set(str, Math.max(texts.get(str) ?? 0, px));
+  };
+  return new Proxy(state, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      switch (prop) {
+        case 'measureText': return (s: string) => ({ width: width(String(s)) });
+        case 'createLinearGradient': case 'createRadialGradient': case 'createConicGradient': return () => gradient;
+        case 'setTransform': return (a: number, b: number) => { k = Math.hypot(a, b) / dpr; };
+        case 'scale': return (sx: number) => { k *= sx; };
+        case 'save': return () => { stack.push({ k, font: state.font, alpha: state.globalAlpha }); };
+        case 'restore': return () => {
+          const top = stack.pop();
+          if (top) { k = top.k; state.font = top.font; state.globalAlpha = top.alpha; }
+        };
+        case 'fillText': case 'strokeText': return (s: string, _x: number, _y: number, maxW?: number) => note(s, maxW);
+        default: return () => undefined;
+      }
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+type Box = { kind: string; r: { x: number; y: number; w: number; h: number } } | null;
+type Game = ReturnType<typeof wzlot.create> & { sim: WzlotSim; view: { hud: { box: Box; float(text: string, x: number, y: number, color?: string, size?: number): void } } };
+
+describe('mobile first (DESIGN §12)', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  let recording: { canvas: HTMLCanvasElement; texts: Map<string, number> } | null = null;
+  beforeAll(() => {
+    proto.getContext = function (this: HTMLCanvasElement) {
+      return recording && recording.canvas === this ? recordingContext(this, 2, recording.texts) : recordingContext(this, 1, null);
+    };
+  });
+  afterAll(() => {
+    proto.getContext = original;
+  });
+
+  const envAt = (progress: WzlotProgress, c: (typeof CHECK_SIZES)[number], plannedSec: number, touch = true): GameEnv<WzlotProgress> => ({
+    canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+    progress, rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
+    tuning: TUNING, hint: () => {}, hudTop: () => c.insets.top, insets: () => c.insets, touch,
+  });
+
+  /** A game as the runner starts it at size c (a first-ever session unless `later`). */
+  function startAt(c: (typeof CHECK_SIZES)[number], later = false, texts: Map<string, number> | null = null, planned = 90): Game {
+    const progress = later ? { ...freshProgress(), sessions: 5, opened: true, taught: 255 } : freshProgress();
+    const env = envAt(progress, c, planned);
+    recording = texts ? { canvas: env.canvas, texts } : null;
+    const game = wzlot.create(env) as Game;
+    recording = null;
+    game.resize(c.w, c.h, 2);
+    game.start();
+    return game;
+  }
+
+  /** Play until `until` holds (or `max` s): hold on the way down, let go on the way up, drawing every frame. */
+  function play(game: Game, max: number, f: FocusFrame = MID, until: () => boolean = () => false, clock = { t: 0 }): void {
+    const fly = pilot(game.sim);
+    for (let i = 0; i < max / 0.05 && !until(); i++) {
+      clock.t += 0.05;
+      fly();
+      game.update(0.05, f, clock.t);
+      game.draw();
+    }
+  }
+
+  it('lays the world out phone first at every checked size: a thumb pad under the ground upright, the sun under the HUD', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets);
+      const name = c.name;
+      if (Math.min(c.w, c.h) <= 390) expect(L.u, name).toBe(1);
+      else expect(L.u, name).toBeGreaterThan(1);
+      expect(L.u).toBeLessThanOrEqual(1.3);
+      expect(L.top, name).toBe(c.insets.top);
+      expect(L.foot, name).toBe(c.h - c.insets.bottom);
+      // the sun (from noon, the arc's middle, to the night at its end), its gauge and the Poryw's ring stay in the
+      // band; the sun itself inside the sides
+      expect(L.arcTop - L.sunR * 3.5, name).toBeGreaterThanOrEqual(c.insets.top - 6);
+      expect((L.arcX0 + L.arcX1) / 2 - L.sunR * 3.5, name).toBeGreaterThanOrEqual(c.insets.left);
+      expect(L.arcX1 + L.sunR * 2, name).toBeLessThanOrEqual(c.w - c.insets.right);
+      expect(L.sunR, name).toBeGreaterThanOrEqual(14);
+      expect(L.cardY, name).toBeGreaterThan(L.top);
+      expect(L.cardY, name).toBeLessThan(L.bottom);
+      // the camera on the ground (span 1.15): the world closer upright than it was (212 px per screen height on a 360 px phone)
+      const S = Math.min((L.bottom - L.top) / 1.27, L.w / L.minWorldW, L.maxS);
+      if (L.tall && c.w < 600) {
+        expect(c.h - c.insets.bottom - L.bottom, `${name}: the thumb pad`).toBeGreaterThanOrEqual(50);
+        expect(S, name).toBeGreaterThanOrEqual(240);
+        expect(0.13 * S, `${name}: the eaglet`).toBeGreaterThanOrEqual(31);
+        expect(L.ex, name).toBeLessThanOrEqual(c.w * 0.22);
+      }
+      expect(S, name).toBeLessThanOrEqual(L.maxS + 1e-9);
+    }
+  });
+
+  it('gives the one control on screen — the story card, the tally, the dawn prompt — a finger-sized target in the band, and none over the free sky', () => {
+    for (const c of CHECK_SIZES) {
+      const game = startAt(c);
+      game.update(0.05, MID, 0.05);
+      game.draw();
+      let ts = game.targets!();
+      expect(ts.map(x => x.label), c.name).toEqual(['story']);
+      expect(auditTargets(ts, c.w, c.h, c.insets), `${c.name}: the story`).toEqual([]);
+      // a tap on the chart under the game (the canvas's bottom edge) takes off once the card has been up a moment
+      play(game, 1.4);
+      game.pointer!({ type: 'down', x: c.w / 2, y: c.h - 1, id: 1 });
+      game.pointer!({ type: 'up', x: c.w / 2, y: c.h - 1, id: 1 });
+      play(game, 1);
+      expect(game.sim.opening, c.name).toBe(false);
+      expect(game.targets!(), `${c.name}: flying`).toEqual([]);
+      // nightfall: the tally, then the dawn's prompt
+      game.sim.dayLeft = 0.05;
+      play(game, 12, MID, () => game.sim.dayPhase === 'tally');
+      play(game, 0.3);
+      ts = game.targets!();
+      expect(ts.map(x => x.label), c.name).toEqual(['tally']);
+      expect(auditTargets(ts, c.w, c.h, c.insets), `${c.name}: the tally`).toEqual([]);
+      play(game, 2.5);
+      game.pointer!({ type: 'down', x: c.w / 2, y: c.h / 2, id: 1 });
+      game.pointer!({ type: 'up', x: c.w / 2, y: c.h / 2, id: 1 });
+      play(game, 0.3);
+      ts = game.targets!();
+      expect(ts.map(x => x.label), c.name).toEqual(['dawn']);
+      expect(auditTargets(ts, c.w, c.h, c.insets), `${c.name}: the dawn`).toEqual([]);
+      game.destroy();
+    }
+  });
+
+  it('never draws text under 11 px: the font helper has a floor, the flying words 13 px and more', () => {
+    for (const px of [0, 3, 6.4, 8, 10, 10.99, 11, 12.3, 13, 30]) expect(pxOf(font(600, px, 'sans-serif'))).toBeGreaterThanOrEqual(MIN_TEXT);
+    expect(pxOf(font(800, 14.24, 'serif', true))).toBe(14.2);
+    const game = startAt(CHECK_SIZES[0]);
+    game.view.hud.float('×5', 100, 300, '#fff', 8);
+    const f = (game.view.hud as unknown as { floats: { items: { size: number }[] } }).floats.items;
+    expect(f[f.length - 1].size).toBeGreaterThanOrEqual(MIN_READ);
+    game.destroy();
+  });
+
+  it('draws every word of a session at 11 px or more on the smallest phone, on its side and on a desktop; the flying words, Leon and the cards at 13', () => {
+    for (const c of [CHECK_SIZES[0], CHECK_SIZES[4], CHECK_SIZES[7]]) {
+      for (const later of [false, true]) {
+        const texts = new Map<string, number>();
+        const game = startAt(c, later, texts, 60);
+        const name = `${c.name}, ${later ? 'a later session' : 'the first'}`;
+        const clock = { t: 0 };
+        play(game, 1.6, MID, undefined, clock);
+        game.pointer!({ type: 'down', x: c.w / 2, y: c.h / 2, id: 1 });
+        game.pointer!({ type: 'up', x: c.w / 2, y: c.h / 2, id: 1 });
+        play(game, 40, (clock.t % 50) < 25 ? HIGH : CALM, undefined, clock);
+        game.sim.dayLeft = 0.05;
+        play(game, 12, MID, () => game.sim.dayPhase === 'tally', clock);
+        play(game, 2.5, MID, undefined, clock);
+        expect(texts.size, name).toBeGreaterThan(6);
+        for (const [s, px] of texts) expect(px, `${name}: "${s}"`).toBeGreaterThanOrEqual(MIN_TEXT - 0.05);
+        // what the player reads to play: Leon's lines, the flying words, the tally's rows
+        const reading = [...game.sim.talk.said, t('fx.caught'), t('fx.perfect'), t('tally.perfect'), t('tally.coins'), t('dawn.tap'), t('tally.next')];
+        for (const [s, px] of texts) {
+          if (s.length > 5 && reading.some(r => r.includes(s.replace(/…$/, '')))) expect(px, `${name}: "${s}"`).toBeGreaterThanOrEqual(MIN_READ - 0.05);
+        }
+        game.destroy();
+      }
+    }
+  }, 90_000);
+
+  it('speaks to the hand the player has: a finger never hears of keys, a keyboard keeps them as shortcuts', () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|mysz[ąy]|mouse|maus/i;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['hint.hold', 'hint.release', 'dawn.tap', 'tally.next', 'how.goal', 'how.hold', 'how.release', 'how.tip1', 'how.tip2']) {
+        expect(cat[k], `${l}.${k}`).toBeTypeOf('string');
+        expect(cat[k], `${l}.${k}`).not.toMatch(KEYS);
+      }
+      for (const k of ['hint.hold.keys', 'dawn.tap.keys', 'tally.next.keys', 'how.keys']) expect(cat[k], `${l}.${k}`).toMatch(KEYS);
+      // the calibration card turns the registry's tips on a phone too
+      const shared = SHARED[l] as Record<string, unknown>;
+      for (let i = 1; i <= 5; i++) expect(shared[`wzlot.tip${i}`], `${l} wzlot.tip${i}`).not.toMatch(KEYS);
+    }
+    expect(hintText('hold', true)).not.toMatch(KEYS);
+    expect(hintText('hold', false)).toMatch(KEYS);
+    expect(hintText('sun', false)).toBe(t('hint.sun'));
+    expect(howto(true).hands.map(x => x.gesture)).toEqual(['hold', 'tap']);
+    expect(howto(false).hands.map(x => x.gesture)).toEqual(['hold', 'tap', 'keys']);
   });
 });
