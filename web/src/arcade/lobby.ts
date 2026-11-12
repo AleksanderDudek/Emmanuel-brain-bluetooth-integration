@@ -144,7 +144,8 @@ export class ArcadeLobby {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       try {
-        this.mod.preview(ctx, c.width / dpr, c.height / dpr, (now - this.t0) / 1000, this.progress ?? undefined);
+        // a rAF timestamp can fall a hair before t0 on the first frame: a preview never sees negative time
+        this.mod.preview(ctx, c.width / dpr, c.height / dpr, Math.max(0, now - this.t0) / 1000, this.progress ?? undefined);
       } catch (e) {
         console.error(e);
         return;
