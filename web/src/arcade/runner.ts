@@ -23,7 +23,7 @@ import { dayKey, daySeed, saveProgress } from './kit/progress';
 import { ArcadeSession, type CarriedCalibration } from './kit/session';
 import { NO_INSETS, coarsePointer, safeAreas } from './kit/mobile';
 import { FREE_PHASE, type ArcadeGame, type ArcadeModule, type ArcadeOutcome, type Insets, type SignalPhase, type TapTarget } from './kit/types';
-import { MendiPanel, howToPlay } from './mendi';
+import { MendiPanel, howToPages, howToPlay } from './mendi';
 import type { ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
 
@@ -539,15 +539,22 @@ export class ArcadeRunner {
     const bar = h('div'), text = h('p', { class: 'muted' }), reason = h('p', { class: 'calib-reason', role: 'status' });
     const tip = h('p', { class: 'arcade-tip', 'aria-live': 'polite' });
     ui.cal = { bar, text, reason, tip };
-    ui.overlay.replaceChildren(h('div', { class: 'arcade-card' },
+    // how to play in two pages that take turns (the help card behind "?" shows it whole), so the card
+    // fits a small phone without scrolling while the reference is taken
+    const how = howToPages(entry, this.mod?.howto?.() ?? null, this.session!.tool, this.touch);
+    ui.overlay.replaceChildren(h('div', { class: 'arcade-card arcade-calib' },
       h('p', { class: 'eyebrow' }, t('cal.eyebrow')),
       h('h2', null, t(this.session!.tool === 'fnirs' ? 'cal.fnirs' : 'cal.eeg')),
       h('div', { class: 'progress calib-bar' }, bar), text,
-      h('p', { class: 'muted' }, t('cal.still')),
-      tip, reason, howToPlay(entry, this.mod?.howto?.() ?? null, this.session!.tool, this.touch),
+      h('p', { class: 'muted cal-still' }, t('cal.still')),
+      tip, reason, how.el,
       h('button', { class: 'btn ghost', type: 'button', on: { click: () => this.cancel() } }, t('cal.back'))));
-    let i = 0;
-    const showTip = () => { tip.textContent = entry.tips[i++ % entry.tips.length]; };
+    let i = 0, ticks = 0;
+    const showTip = () => {
+      tip.textContent = entry.tips[i++ % entry.tips.length];
+      // the how-to's page turns every other tip (10 s): long enough to read a page
+      if (++ticks % 2 === 1 && ticks > 1) how.turn();
+    };
     showTip();
     if (this.tipTimer) clearInterval(this.tipTimer);
     this.tipTimer = setInterval(showTip, 5000);

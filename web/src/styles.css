@@ -693,6 +693,14 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .how-tips li{font-size:12.5px;color:var(--tx2);padding-left:14px;position:relative}
 .how-tips li::before{content:"★";position:absolute;left:0;color:#ffd27a;font-size:10px;top:2px}
 .arcade-help-card{max-width:560px}
+/* the calibration card's how-to in two pages stacked in one cell (mendi.ts howToPages): the card keeps the
+   taller page's height, so it does not jump when the page turns */
+.arcade-howbrain.paged{gap:4px}
+.how-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.how-next{min-height:40px;padding:4px 14px;font-size:12.5px}
+.how-pages{display:grid;cursor:pointer}
+.how-page{grid-area:1/1;display:flex;flex-direction:column;gap:6px;transition:opacity .35s ease}
+.how-page[data-on="false"]{visibility:hidden;opacity:0}
 /* the dock keeps the history (chart, last block, session); "now" lives in the Mendi panel */
 .dock-text .dock-task,.dock-text .dock-meter{display:none}
 @media (max-width:640px), (max-height:500px) and (orientation:landscape){
@@ -736,11 +744,23 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .arcade-headline{top:calc(max(8px,env(safe-area-inset-top)) + 48px);height:72px}
   /* the calibration, pause and help cards: less padding, and each control's chip above its line */
   .arcade-overlay{padding:10px}
-  .arcade-card{padding:18px 16px 16px;gap:10px;border-radius:20px}
-  .arcade-card h2{font-size:22px}
+  .arcade-overlay .arcade-card{padding:18px 16px 16px;gap:10px;border-radius:20px}
+  .arcade-overlay .arcade-card h2{font-size:22px}
   .arcade-tip{font-size:14px;min-height:0}
   .arcade-howbrain li{flex-direction:column;align-items:flex-start;gap:3px}
-  .arcade-howbrain li .ban-chip{min-width:0}
+  .arcade-overlay .arcade-howbrain li .ban-chip{min-width:0}
+  /* the calibration card on a phone: the title and what to do now, the bar, the how-to's page; the rotating
+     tip and the eyebrow give way, and the dock (nothing to chart yet) lends the card its room */
+  .arcade-overlay .arcade-calib>.eyebrow,.arcade-overlay .arcade-calib .arcade-tip{display:none}
+  .arcade-overlay .arcade-calib{gap:6px;padding-top:14px;padding-bottom:12px}
+  .arcade-overlay .arcade-calib h2{font-size:18px}
+  .arcade-overlay .arcade-calib .cal-still{font-size:12.5px;line-height:1.3}
+  .arcade-overlay .paged{padding:8px 12px}
+  .arcade-overlay .paged ul{gap:5px}
+  /* the hands' rows on the calibration card: the gesture's icon beside its line (its name stays for screen readers) */
+  .arcade-overlay .paged li[data-kind="hands"]{flex-direction:row;align-items:flex-start;gap:9px}
+  .arcade-overlay .paged li[data-kind="hands"] .ban-chip{min-width:0;font-size:0;letter-spacing:0;padding:5px 7px;gap:0}
+  .arcade-overlay .paged li[data-kind="hands"] .ban-chip svg{width:16px;height:16px}
 }
 @media (max-height:500px) and (orientation:landscape){
   /* a phone on its side: one HUD row — the panel on the left, the score, the clock and the buttons on the
@@ -757,6 +777,18 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .arcade-headline small{-webkit-line-clamp:1}
   .arcade-banner{padding:8px 14px}
   .arcade-banner .ban-task{font-size:13px;-webkit-line-clamp:2}
+  /* the calibration card on its side: two columns, the session on the left, how to play on the right */
+  .arcade-overlay .arcade-calib{width:min(760px,100%);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);column-gap:18px;row-gap:8px;
+    align-items:start;align-content:start;text-align:left;padding:14px 16px}
+  .arcade-overlay .arcade-calib>*{grid-column:1}
+  .arcade-overlay .arcade-calib>.arcade-howbrain{grid-column:2;grid-row:1/span 9}
+  .arcade-overlay .arcade-calib>.eyebrow,.arcade-overlay .arcade-calib .arcade-tip{display:none}
+  .arcade-overlay .arcade-calib h2{font-size:18px}
+  .arcade-overlay .arcade-calib .calib-bar{width:100%}
+  .arcade-overlay .arcade-calib>.btn{justify-self:start}
+  .arcade-overlay .paged li[data-kind="hands"]{flex-direction:row;align-items:flex-start;gap:9px}
+  .arcade-overlay .paged li[data-kind="hands"] .ban-chip{min-width:0;font-size:0;letter-spacing:0;padding:5px 7px;gap:0}
+  .arcade-overlay .paged li[data-kind="hands"] .ban-chip svg{width:16px;height:16px}
 }
 /* a block's instruction over the game, for a few seconds (the runner's showBanner) */
 .arcade-banner{position:absolute;left:calc((100% - var(--dock-r)) / 2);top:calc(var(--hud-b,176px) + 10px);transform:translateX(-50%);z-index:3;width:max-content;max-width:min(560px,calc(100% - 32px));
@@ -788,7 +820,9 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .dock-text .dock-block{font-size:12px;color:rgba(255,255,255,.85);white-space:normal;line-height:1.3}
 .dock-session{font-size:12px;color:rgba(255,255,255,.6)}
 .arcade .hold{left:calc((100% - var(--dock-r)) / 2);top:calc(var(--hud-b,176px) + 4px);bottom:auto;max-width:calc(100% - var(--dock-r) - 24px);text-align:center}
-.arcade.docked[data-stage="calibration"] .arcade-overlay{padding-bottom:calc(var(--dock) + 12px)}
+.arcade.docked[data-stage="calibration"] .arcade-dock{visibility:hidden}
+.arcade.docked[data-stage="calibration"] .arcade-overlay{padding-bottom:max(16px,env(safe-area-inset-bottom))}
+.arcade-overlay .calib-reason:empty{display:none}
 @media (max-width:640px){
   /* a phone's dock: the chart, then one line each for now and for the last block */
   .arcade.docked{--dock:calc(100px + env(safe-area-inset-bottom,0px))}
@@ -809,6 +843,8 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .dock-eyebrow,.dock-session{display:none}
   .dock-text .dock-state{font-size:12.5px}
   .dock-text .dock-block{font-size:11.5px;white-space:normal}
+  /* nothing to chart during the calibration: the card takes the whole width */
+  .arcade[data-stage="calibration"] .arcade-overlay{right:0}
 }
 .arcade-chip{position:absolute;left:max(16px,env(safe-area-inset-left));top:calc(max(10px,env(safe-area-inset-top)) + 44px);z-index:3;display:flex;align-items:center;gap:8px;
   padding:6px 11px;border-radius:999px;background:rgba(8,9,14,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#fff;pointer-events:none;transition:opacity .3s}
@@ -820,7 +856,8 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-chip.on .arcade-chip-bar i{background:linear-gradient(90deg,#ffb36b,#ffe08a)}
 .arcade-chip.off{opacity:.45}
 .arcade .sim-focus,.arcade .hold{z-index:3}
-.arcade-overlay{position:absolute;inset:0;display:grid;place-items:center;z-index:4;padding:16px;pointer-events:none}
+/* the cards and the countdown sit over the game, not over the dock's column on a phone on its side */
+.arcade-overlay{position:absolute;inset:0 var(--dock-r) 0 0;display:grid;place-items:center;z-index:4;padding:16px;pointer-events:none}
 .arcade[data-stage="calibration"] .arcade-overlay{place-items:end center;padding-bottom:max(18px,env(safe-area-inset-bottom))}
 .arcade[data-stage="calibration"] .arcade-time,.arcade[data-stage="calibration"] .arcade-chip,.arcade[data-stage="calibration"] .sim-focus,
 .arcade[data-stage="countdown"] .arcade-chip{visibility:hidden}

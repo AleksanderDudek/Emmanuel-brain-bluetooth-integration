@@ -221,25 +221,60 @@ export class MendiPanel {
   }
 }
 
-/**
- * The standard "how to play" block: the goal, the hands (gesture icons), what focus and rest drive
- * (the registry's words), and how the gauge reads.  The same in every game.
- */
-export function howToPlay(entry: ArcadeEntry, howto: HowTo | null, tool: Tool, touch = false): HTMLElement {
+/** The parts of the standard "how to play": the goal, the hands' rows, the band's rows, the tips, the gauge's note. */
+function howParts(entry: ArcadeEntry, howto: HowTo | null, tool: Tool, touch: boolean) {
   const row = (kind: string, chip: string, body: Node | string, icon?: SVGSVGElement) =>
     h('li', { 'data-kind': kind }, h('b', { class: 'ban-chip' }, icon ?? null, chip), h('span', null, body));
   // a phone or a tablet has no keyboard: its card leaves the keys out
   const shown = howto?.hands.filter(c => !(touch && c.gesture === 'keys')) ?? [];
-  const hands = shown.length
-    ? shown.map(c => row('hands', t(`gest.${c.gesture}`), c.text, gestureIcon(c.gesture)))
-    : [row('hands', t('cal.handsTitle'), entry.how[2] ?? '')];
+  return {
+    goal: howto?.goal ? h('p', { class: 'how-goal' }, howto.goal) : null,
+    hands: shown.length
+      ? shown.map(c => row('hands', t(`gest.${c.gesture}`), c.text, gestureIcon(c.gesture)))
+      : [row('hands', t('cal.handsTitle'), entry.how[2] ?? '')],
+    brain: [row('focus', t('ban.focus'), `→ ${entry.brain.focus}`), row('rest', t('ban.rest'), `→ ${entry.brain.rest}`)],
+    tips: howto?.tips?.length ? h('ul', { class: 'how-tips' }, howto.tips.slice(0, 2).map(x => h('li', null, x))) : null,
+    meter: h('p', { class: 'muted' }, t(tool === 'eeg' ? 'how.meterEeg' : 'how.meter', { meter: entry.brain.meter })),
+  };
+}
+
+/**
+ * The standard "how to play" block: the goal, the hands (gesture icons), what focus and rest drive
+ * (the registry's words), and how the gauge reads.  The same in every game (the help card shows it whole).
+ */
+export function howToPlay(entry: ArcadeEntry, howto: HowTo | null, tool: Tool, touch = false): HTMLElement {
+  const p = howParts(entry, howto, tool, touch);
   return h('div', { class: 'arcade-howbrain' },
-    h('p', { class: 'eyebrow' }, t('how.title')),
-    howto?.goal ? h('p', { class: 'how-goal' }, howto.goal) : null,
-    h('ul', null,
-      hands,
-      row('focus', t('ban.focus'), `→ ${entry.brain.focus}`),
-      row('rest', t('ban.rest'), `→ ${entry.brain.rest}`)),
-    howto?.tips?.length ? h('ul', { class: 'how-tips' }, howto.tips.slice(0, 2).map(x => h('li', null, x))) : null,
-    h('p', { class: 'muted' }, t(tool === 'eeg' ? 'how.meterEeg' : 'how.meter', { meter: entry.brain.meter })));
+    h('p', { class: 'eyebrow' }, t('how.title')), p.goal, h('ul', null, p.hands, p.brain), p.tips, p.meter);
+}
+
+/**
+ * The calibration card's "how to play" in pages that take turns — the goal and the hands, then what
+ * focus and rest drive and how the gauge reads, then the tips — stacked in one cell, so the card keeps
+ * the height of the tallest page and fits a small phone without scrolling.  `turn()` shows the next page (the runner turns
+ * them every few seconds; a tap on the page or its button turns them too).
+ */
+export function howToPages(entry: ArcadeEntry, howto: HowTo | null, tool: Tool, touch = false): { el: HTMLElement; turn: () => void } {
+  const p = howParts(entry, howto, tool, touch);
+  // the goal and the hands, then the band, then the tips on a page of their own: three short pages keep
+  // the card under a small phone's height where two long ones did not
+  const pages = [
+    h('div', { class: 'how-page' }, p.goal, h('ul', null, p.hands)),
+    h('div', { class: 'how-page' }, h('ul', null, p.brain), p.meter),
+  ];
+  if (p.tips) pages.push(h('div', { class: 'how-page' }, p.tips));
+  const count = h('span', { class: 'mono' });
+  let on = 0;
+  const show = () => {
+    pages.forEach((pg, i) => {
+      pg.dataset.on = String(i === on);
+      pg.setAttribute('aria-hidden', String(i !== on));
+    });
+    count.textContent = `${on + 1}/${pages.length}`;
+  };
+  const turn = () => { on = (on + 1) % pages.length; show(); };
+  const next = h('button', { class: 'btn ghost how-next', type: 'button', 'aria-label': t('how.next'), on: { click: turn } }, count, ' ›');
+  const stack = h('div', { class: 'how-pages', on: { click: (e: Event) => { if (!(e.target as Element).closest('button')) turn(); } } }, pages);
+  show();
+  return { el: h('div', { class: 'arcade-howbrain paged' }, h('div', { class: 'how-head' }, h('p', { class: 'eyebrow' }, t('how.title')), next), stack), turn };
 }
