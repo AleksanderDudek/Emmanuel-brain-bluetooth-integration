@@ -33,7 +33,8 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   const c = p ? Math.floor(p.level / RULES.perConst) : 0;
   const lit = p ? p.level - c * RULES.perConst : 4;
   const drift = Math.sin(t * 0.25) * h * 0.02;
-  const box = { x: w * 0.05, y: h * 0.2 + drift, w: w * 0.5, h: h * 0.6 };
+  // the map keeps to the upper part: the lobby's title and tagline lie over the lower left of the hero
+  const box = { x: w * 0.05, y: h * 0.1 + drift, w: w * 0.5, h: h * 0.44 };
   ctx.save();
   ctx.globalAlpha = 0.3;
   drawFigure(ctx, c + 1, { x: w * 0.1, y: -h * 0.42 + drift, w: w * 0.42, h: h * 0.5 }, 0, t, -1);

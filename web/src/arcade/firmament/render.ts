@@ -6,13 +6,20 @@
  * the cascade's words (Ładnie! Jasno! Promiennie! Gwiezdnie!), hit-stop on the big ones and a shake
  * (none with reduced motion).  The telescope, the goal card, the tray, Bubo and the cards are drawn
  * by hud.ts on top.
+ *
+ * Under a finger (DESIGN §12): the body pressed lifts and leans toward the swipe before it swaps, an armed
+ * tool shows where it will strike while the finger is down (the ray its whole row), a touch a little off
+ * the board takes the nearest body.  On a phone's budget: the board's glass is one cached layer, the dark
+ * clouds are sprites, no blur in a frame.
  */
 import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
+import { NO_INSETS } from '../kit/mobile';
+import type { Insets } from '../kit/types';
 import { type Blast, type Resolution, type Sp, type Step, MOON } from './board';
 import { t } from './i18n';
 import { HudDraw, type Hit } from './hud';
 import { layout, inRect, type Layout } from './layout';
-import { C, KIND_COLOR, SANS, SERIF, Sprites, font, hash, paintCloud, paintCometMark, paintExit, paintInk, paintLock, paintMeteorMark, paintMoon, paintNovaMark, paintPulsar, paintRock, paintSkyLayer, paintStar } from './paint';
+import { C, KIND_COLOR, SANS, SERIF, Sprites, font, hash, paintCometMark, paintExit, paintInk, paintLock, paintMeteorMark, paintMoon, paintNovaMark, paintPulsar, paintRock, paintSkyLayer, paintStar } from './paint';
 import { RULES, type FirmamentSim, type SimEvent } from './sim';
 
 interface Vis {
@@ -37,9 +44,15 @@ export class FirmamentView {
   private w = 1;
   private h = 1;
   private dpr = 1;
-  private top = 0;
+  private ins: Insets = NO_INSETS;
+  private slots: number = RULES.tray;
   L!: Layout;
   private sky: HTMLCanvasElement | null = null;
+  /** the board's glass and rim for this level and size, painted once */
+  private glass: { key: string; c: HTMLCanvasElement | null } | null = null;
+  /** a body under a finger (its cell, how far the finger has moved), and an armed tool's aim */
+  press: { cell: number; dx: number; dy: number } | null = null;
+  aim = -1;
   private readonly sprites = new Sprites();
   private readonly parts = new Particles(500);
   private readonly floats = new Floaters();
@@ -65,20 +78,30 @@ export class FirmamentView {
   clock = 0;
   onStep: ((st: Step, shower: boolean) => void) | null = null;
 
-  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
+  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; touch: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
     this.hud = new HudDraw(opts);
   }
 
-  resize(w: number, h: number, dpr: number, top: number): void {
+  resize(w: number, h: number, dpr: number, insets: Insets): void {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.top = top;
+    this.ins = { ...insets };
     this.sky = null;
-    if (this.L) this.L = layout(w, h, top, this.L.rows, this.L.cols);
+    this.glass = null;
+    if (this.L) {
+      this.L = layout(w, h, this.ins, this.L.rows, this.L.cols, this.slots);
+      this.sprites.ensure(this.L.cell, this.dpr);
+    }
   }
+
+  /** The slot under a finger, for its pressed look (-1: none). */
+  set pressSlot(k: number) { this.hud.pressSlot = k; }
+
+  /** A touch on the sky: Bubo's bubble steps aside. */
+  hush(): void { this.hud.hush(this.clock); }
 
   get cellSize(): number { return this.L?.cell ?? 40; }
 
@@ -105,8 +128,9 @@ export class FirmamentView {
   /** Take the board as it is (a new level, a retry, after a resolution): every body where the rules have it. */
   private sync(sim: FirmamentSim, hard: boolean): void {
     const B = sim.board;
-    if (hard || !this.L || this.L.rows !== B.rows || this.L.cols !== B.cols) {
-      this.L = layout(this.w, this.h, this.top, B.rows, B.cols);
+    if (hard || !this.L || this.L.rows !== B.rows || this.L.cols !== B.cols || this.slots !== sim.traySize) {
+      this.slots = sim.traySize;
+      this.L = layout(this.w, this.h, this.ins, B.rows, B.cols, this.slots);
       this.sprites.ensure(this.L.cell, this.dpr);
     }
     if (hard) {
@@ -445,19 +469,25 @@ export class FirmamentView {
   }
 
   // ── hands ───────────────────────────────────────────────────────
+  /** What a touch at (x, y) lands on: a card's button, a tool, or a body (a finger a little off the board takes the nearest one). */
   hit(sim: FirmamentSim, x: number, y: number): Hit | null {
     const h = this.hud.hit(x, y, this.L, sim);
     if (h) return h;
+    const cell = this.cellAt(sim, x, y);
+    return cell >= 0 ? { cell } : null;
+  }
+
+  /** The cell under (x, y), snapped from up to the layout's slop outside the board; -1 in the free sky. */
+  cellAt(sim: FirmamentSim, x: number, y: number): number {
     const L = this.L, B = sim.board;
-    if (!inRect(L.board, x, y)) return null;
-    const c = Math.floor((x - L.board.x) / L.cell), r = Math.floor((y - L.board.y) / L.cell);
-    if (c < 0 || r < 0 || c >= B.cols || r >= B.rows) return null;
-    return { cell: r * B.cols + c };
+    if (!inRect(L.board, x, y, L.slop)) return -1;
+    const c = clamp(Math.floor((x - L.board.x) / L.cell), 0, B.cols - 1), r = clamp(Math.floor((y - L.board.y) / L.cell), 0, B.rows - 1);
+    return r * B.cols + c;
   }
 
   // ── drawing ─────────────────────────────────────────────────────
   draw(sim: FirmamentSim): void {
-    const ctx = this.ctx, w = this.w, h = this.h;
+    const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.drawSky(sim);
     if (!this.L) return;
@@ -468,10 +498,30 @@ export class FirmamentView {
     this.drawBeams();
     this.drawStars();
     this.parts.draw(ctx);
-    this.floats.draw(ctx, font(800, 18, SANS));
+    this.drawFloats();
     this.drawWord();
     ctx.restore();
-    this.hud.draw(ctx, this.L, sim, this.clock, w, h);
+    this.hud.draw(ctx, this.L, sim, this.clock);
+  }
+
+  /** The flying points and words: bold, with a shadow, popping in (never under the 11 px floor). */
+  private drawFloats(): void {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const f of this.floats.items) {
+      const k = f.t / f.dur;
+      const pop = k < 0.18 ? 0.6 + 0.4 * ease.outBack(k / 0.18) : 1;
+      ctx.globalAlpha = k > 0.65 ? Math.max(0, 1 - (k - 0.65) / 0.35) : 1;
+      ctx.font = font(800, f.size * pop, SANS);
+      const y = f.y - 46 * ease.outCubic(k);
+      ctx.fillStyle = 'rgba(0,0,0,.4)';
+      ctx.fillText(f.text, f.x, y + 2);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, y);
+    }
+    ctx.restore();
   }
 
   private drawSky(sim: FirmamentSim): void {
@@ -506,25 +556,47 @@ export class FirmamentView {
     }
   }
 
+  /** The board's glass, cell by cell, and the rim round the sky's shape: one layer per level and size. */
+  private drawGlass(sim: FirmamentSim): void {
+    const ctx = this.ctx, L = this.L, B = sim.board, s = L.cell;
+    const paint = (g: CanvasRenderingContext2D, ox: number, oy: number) => {
+      for (let i = 0; i < B.n; i++) {
+        if (!B.mask[i]) continue;
+        const x = ox + ((i % B.cols) + 0.5) * s, y = oy + (Math.floor(i / B.cols) + 0.5) * s;
+        const odd = (Math.floor(i / B.cols) + (i % B.cols)) % 2;
+        g.fillStyle = odd ? 'rgba(30,36,92,.72)' : 'rgba(22,27,74,.72)';
+        g.beginPath();
+        g.roundRect(x - s / 2 + 1, y - s / 2 + 1, s - 2, s - 2, s * 0.18);
+        g.fill();
+      }
+      g.strokeStyle = 'rgba(255,220,150,.16)';
+      g.lineWidth = 1;
+      g.strokeRect(ox - 3, oy - 3, L.board.w + 6, L.board.h + 6);
+    };
+    const key = `${this.levelKey}|${L.board.x},${L.board.y},${s}|${this.dpr}`;
+    if (!this.glass || this.glass.key !== key) {
+      let c: HTMLCanvasElement | null = null;
+      if (typeof document !== 'undefined') {
+        c = document.createElement('canvas');
+        c.width = Math.ceil((L.board.w + 8) * this.dpr);
+        c.height = Math.ceil((L.board.h + 8) * this.dpr);
+        const g = c.getContext('2d');
+        if (g) { g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); paint(g, 4, 4); } else c = null;
+      }
+      this.glass = { key, c };
+    }
+    if (this.glass.c) ctx.drawImage(this.glass.c, L.board.x - 4, L.board.y - 4, L.board.w + 8, L.board.h + 8);
+    else paint(ctx, L.board.x, L.board.y);
+  }
+
   private drawBoard(sim: FirmamentSim): void {
     const ctx = this.ctx, L = this.L, B = sim.board, s = L.cell, T = this.clock;
-    // the board's glass, cell by cell
-    ctx.save();
+    this.drawGlass(sim);
     for (let i = 0; i < B.n; i++) {
-      if (!B.mask[i]) continue;
+      if (!B.mask[i] || !(this.cloud[i] > 0)) continue;
       const { x, y } = this.cellXY(i, B.cols);
-      const odd = (Math.floor(i / B.cols) + (i % B.cols)) % 2;
-      ctx.fillStyle = odd ? 'rgba(30,36,92,.72)' : 'rgba(22,27,74,.72)';
-      ctx.beginPath();
-      ctx.roundRect(x - s / 2 + 1, y - s / 2 + 1, s - 2, s - 2, s * 0.18);
-      ctx.fill();
-      if (this.cloud[i] > 0) paintCloud(ctx, x, y, s, this.cloud[i], T, i + 1);
+      this.sprites.cloud(ctx, x, y, this.cloud[i], i + 1);
     }
-    // the rim around the sky's shape
-    ctx.strokeStyle = 'rgba(255,220,150,.16)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(L.board.x - 3, L.board.y - 3, L.board.w + 6, L.board.h + 6);
-    ctx.restore();
     // exits for the moons
     if (sim.level.goal === 'moons') {
       for (let i = 0; i < B.n; i++) if (B.exit[i] && B.mask[i] && Math.floor(i / B.cols) === B.rows - 1) {
@@ -532,28 +604,41 @@ export class FirmamentView {
         paintExit(ctx, x, y + s * 0.5 + 2, s, T);
       }
     }
-    // the hint and the selection under the bodies
-    const glowCell = (i: number, color: string, k: number) => {
+    // the hint, the selection and a finger's press under the bodies (a wide faint stroke for the glow, no blur)
+    const ringCell = (i: number, color: string, glow: string | null) => {
       const { x, y } = this.cellXY(i, B.cols);
-      ctx.save();
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 14 * k;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.roundRect(x - s / 2 + 3, y - s / 2 + 3, s - 6, s - 6, s * 0.18);
+      if (glow) {
+        ctx.strokeStyle = glow;
+        ctx.lineWidth = 7;
+        ctx.stroke();
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
-      ctx.restore();
     };
     const idle = sim.stage === 'play' && !this.busy && sim.busyT <= 0;
+    ctx.save();
     if (idle && sim.hintShown && sim.hint) {
       const k = 0.5 + 0.5 * Math.sin(T * 5);
-      glowCell(sim.hint.a, `rgba(255,236,170,${0.35 + 0.5 * k})`, k);
-      glowCell(sim.hint.b, `rgba(255,236,170,${0.35 + 0.5 * k})`, k);
+      const c = `rgba(255,236,170,${0.35 + 0.5 * k})`, g = `rgba(255,236,170,${0.12 + 0.18 * k})`;
+      ringCell(sim.hint.a, c, g);
+      ringCell(sim.hint.b, c, g);
     }
-    if (sim.selected >= 0) glowCell(sim.selected, '#ffffff', 1);
+    if (sim.selected >= 0) ringCell(sim.selected, '#ffffff', 'rgba(255,255,255,.25)');
+    const press = this.press && sim.stage === 'play' ? this.press : null;
+    if (press && press.cell !== sim.selected) ringCell(press.cell, 'rgba(255,255,255,.7)', 'rgba(255,255,255,.14)');
+    ctx.restore();
     // bodies
     const bounce = this.bounce;
+    // a pressed body leans toward the swipe (a quarter of a cell at most) and lifts a little
+    let lean: { id: number; x: number; y: number } | null = null;
+    if (press && B.cells[press.cell]) {
+      const ax = Math.abs(press.dx) >= Math.abs(press.dy);
+      const d = clamp((ax ? press.dx : press.dy) / s, -0.22, 0.22);
+      lean = { id: B.cells[press.cell]!.id, x: ax ? d : 0, y: ax ? 0 : d };
+    }
     for (const v of this.vis.values()) {
       let cx = v.x, cy = v.y;
       if (bounce) {
@@ -565,6 +650,12 @@ export class FirmamentView {
           cy += (Math.floor(other / B.cols) - v.y) * k;
         }
       }
+      let lift = 1;
+      if (lean && lean.id === v.id && this.clock >= v.t1) {
+        cx += lean.x;
+        cy += lean.y;
+        lift = 1.08;
+      }
       if (cy < -0.6) continue;
       const p = this.px(cx, cy);
       let k = 1;
@@ -573,11 +664,12 @@ export class FirmamentView {
       if (k <= 0.02) continue;
       const clipTop = L.board.y - s * 0.1;
       if (p.y < clipTop) continue;
-      this.drawPiece(v, p.x, p.y, s, k);
+      this.drawPiece(v, p.x, p.y, s, k * lift);
     }
     // what sits on top of a cell: locks, asteroids, ink
     for (let i = 0; i < B.n; i++) {
       if (!B.mask[i]) continue;
+      if (!this.lock[i] && !(this.rock[i] > 0) && !this.ink[i] && !this.inkFade.has(i)) continue;
       const { x, y } = this.cellXY(i, B.cols);
       if (this.lock[i]) paintLock(ctx, x, y, s * 0.4, T + i);
       if (this.rock[i] > 0) paintRock(ctx, x, y, s * 0.44, this.rock[i], i + 3);
@@ -593,8 +685,8 @@ export class FirmamentView {
         ctx.restore();
       }
     }
-    // the keyboard's cursor, the armed tool's aim
-    if (sim.cursor >= 0 && sim.stage === 'play') {
+    // the keyboard's cursor
+    if (sim.cursor >= 0 && sim.stage === 'play' && !this.opts.touch) {
       const { x, y } = this.cellXY(sim.cursor, B.cols);
       ctx.save();
       ctx.setLineDash([5, 4]);
@@ -603,18 +695,33 @@ export class FirmamentView {
       ctx.strokeRect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4);
       ctx.restore();
     }
-    if (sim.armedTool) {
+    // an armed tool: the board's frame pulses, and while a finger is down it shows where the tool will strike
+    const tool = sim.armedTool;
+    if (tool) {
       ctx.save();
       ctx.strokeStyle = `rgba(255,210,122,${0.5 + 0.4 * Math.sin(T * 6)})`;
       ctx.lineWidth = 3;
       ctx.setLineDash([10, 6]);
       ctx.strokeRect(L.board.x - 5, L.board.y - 5, L.board.w + 10, L.board.h + 10);
+      ctx.setLineDash([]);
+      if (this.aim >= 0 && this.aim < B.n && B.mask[this.aim]) {
+        const { x, y } = this.cellXY(this.aim, B.cols);
+        ctx.fillStyle = 'rgba(255,210,122,.22)';
+        ctx.strokeStyle = C.gold;
+        ctx.lineWidth = 2.5;
+        if (tool === 'ray') {
+          ctx.beginPath();
+          ctx.roundRect(L.board.x + 2, y - s / 2 + 2, L.board.w - 4, s - 4, s * 0.2);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.roundRect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4, s * 0.2);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
       ctx.restore();
-    }
-    // the cards dim the sky
-    if (sim.stage === 'story' || sim.stage === 'intro' || sim.stage === 'won' || sim.stage === 'out') {
-      ctx.fillStyle = 'rgba(5,7,26,.45)';
-      ctx.fillRect(L.board.x - 4, L.board.y - 4, L.board.w + 8, L.board.h + 8);
     }
   }
 

@@ -5,12 +5,16 @@
  * spiral nebula, a faceted meteorite), the specials drawn over a body (the comet's streak, the
  * supernova's halo, the pulsar's beams, the meteor's flame), the level's things (dark clouds,
  * asteroids, orbit locks, ink, the moons and their exits), Bubo the owl, the telescope's tools and the
- * night sky behind it all.  Bodies are painted once per size into sprites.
+ * night sky behind it all.  Bodies and dark clouds are painted once per size into sprites.
  */
+import { MIN_TEXT } from '../kit/mobile';
+
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
+/** A font's size in CSS px, never under the arcade's floor (kit/mobile MIN_TEXT, 11 px): nothing on the canvas is smaller. */
+export const fontPx = (size: number): number => Math.max(MIN_TEXT, Math.round(size * 10) / 10);
 export const font = (weight: number, size: number, family: string, italic = false): string =>
-  `${italic ? 'italic ' : ''}${weight} ${Math.round(size * 10) / 10}px ${family}`;
+  `${italic ? 'italic ' : ''}${weight} ${fontPx(size)}px ${family}`;
 
 const TAU = Math.PI * 2;
 
@@ -345,9 +349,11 @@ export function paintPulsar(ctx: CanvasRenderingContext2D, x: number, y: number,
 }
 
 // ── sprites ──────────────────────────────────────────────────────
-/** The six bodies, the satellite and the asteroids painted once for a cell size (CSS px) and a pixel ratio. */
+/** The six bodies and the dark clouds painted once for a cell size (CSS px) and a pixel ratio. */
 export class Sprites {
   private cache: (HTMLCanvasElement | null)[] = [];
+  /** dark clouds by layers and a variant of their puffs (a phone's frame cannot afford five gradients a cloud) */
+  private clouds = new Map<string, HTMLCanvasElement | null>();
   size = 0;
   private dpr = 1;
 
@@ -357,7 +363,22 @@ export class Sprites {
     this.size = s;
     this.dpr = dpr;
     this.cache = [];
+    this.clouds.clear();
     for (let k = 0; k < 6; k++) this.cache.push(this.make(s, ctx => paintBody(ctx, k, s / 2, s / 2, s * 0.4)));
+  }
+
+  /** A dark cloud of `layers` on the cell centred at (x, y); `seed` picks one of five puff patterns. */
+  cloud(ctx: CanvasRenderingContext2D, x: number, y: number, layers: number, seed: number): void {
+    if (layers <= 0) return;
+    const s = this.size, l = layers >= 2 ? 2 : 1, v = Math.abs(Math.floor(seed)) % 5;
+    const key = `${l}:${v}`;
+    let c = this.clouds.get(key);
+    if (c === undefined) {
+      c = this.make(s, g => paintCloud(g, s / 2, s / 2, s, l, 0, v + 1));
+      this.clouds.set(key, c);
+    }
+    if (c) ctx.drawImage(c, x - s / 2, y - s / 2, s, s);
+    else paintCloud(ctx, x, y, s, l, 0, v + 1);
   }
 
   private make(s: number, paint: (ctx: CanvasRenderingContext2D) => void): HTMLCanvasElement | null {

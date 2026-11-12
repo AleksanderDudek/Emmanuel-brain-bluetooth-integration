@@ -48,9 +48,10 @@ function mapCanvas(p: FirmamentProgress, c: number): HTMLElement {
 
 function toolChip(tool: ToolKind): HTMLElement {
   const k = dpr();
-  const c = h('canvas', { width: String(Math.round(22 * k)), height: String(Math.round(22 * k)), 'aria-hidden': 'true' });
-  c.style.width = '22px';
-  c.style.height = '22px';
+  // 26 px: the +5's digits keep the arcade's 11 px floor inside the chip
+  const c = h('canvas', { width: String(Math.round(26 * k)), height: String(Math.round(26 * k)), 'aria-hidden': 'true' });
+  c.style.width = '26px';
+  c.style.height = '26px';
   c.style.verticalAlign = 'middle';
   c.style.marginRight = '6px';
   const ctx = c.getContext('2d');
@@ -58,9 +59,9 @@ function toolChip(tool: ToolKind): HTMLElement {
     ctx.setTransform(k, 0, 0, k, 0, 0);
     ctx.fillStyle = C.ink;
     ctx.beginPath();
-    ctx.roundRect(0, 0, 22, 22, 6);
+    ctx.roundRect(0, 0, 26, 26, 7);
     ctx.fill();
-    paintToolIcon(ctx, tool, 11, 11, 8, 0.6);
+    paintToolIcon(ctx, tool, 13, 13, 11, 0.6);
   }
   return h('span', { class: 'on' }, c, toolName(tool));
 }

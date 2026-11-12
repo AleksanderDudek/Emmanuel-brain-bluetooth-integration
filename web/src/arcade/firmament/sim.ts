@@ -621,6 +621,18 @@ export class FirmamentSim {
     if (this.movesThisLevel === 4) this.coach('hint.space', null);
   }
 
+  /** A swipe from a body toward its neighbour (a finger on a phone, a drag with the mouse): swap them, whatever was selected. */
+  swipe(a: number, b: number): void {
+    if (!this.started || this.phase !== 'play' || this.stage !== 'play') return;
+    const B = this.board;
+    if (a < 0 || b < 0 || a >= B.n || b >= B.n || !B.mask[a] || !B.mask[b]) return;
+    const tool = this.armedTool;
+    if (tool && AIMED.includes(tool)) return;
+    this.cursor = a;
+    this.idleT = 0;
+    this.trySwap(a, b);
+  }
+
   /** Space: play the best move (and on a card, go on). */
   space(): void {
     if (!this.started || this.phase !== 'play') return;
