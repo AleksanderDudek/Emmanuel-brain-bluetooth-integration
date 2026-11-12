@@ -3792,3 +3792,262 @@ slots)`, `u` = the kit's `uiScale`: 1 on a phone, up to 1.3; `font()` never unde
   The layout test audits the targets at every `CHECK_SIZES` entry with three and four slots and every stage;
   another draws the story, the goal card, play with a tool armed and Bubo talking, out of moves and the tally
   at every size on a recording context and finds no string under 11 px.
+
+## 13. Version 4: seven games of visualisation (2026-11-12)
+
+On 2026-11-12 the founder wrote four ideas, asked for them to be built "using all the games' mechanics
+and the earlier instructions for making games", and, as always, gave a free hand to make them better:
+
+* **FIRE, FIRE, FIRE** — *"spark → candle → bonfire → ??? → a star → a mega star → Holy Spirit:
+  concentration charges the successive pictures, which light up, gain energy and grow; past a
+  threshold they turn into something of a higher scale; the charging goes with growing concentration."*
+* **LIGHT UP (YOUR MOOD)** — *"transformations from negative to positive: loneliness into company,
+  depression into joy, debts into wealth; custom pictures too; the point is to support visualisation.
+  The negative picture is a mosaic of a few, a dozen or dozens of parts covering something good; truly
+  negative pictures of people's negative states are destroyed piece by piece and turned into positive
+  ones; light shines along the cracks of the mosaic, and the negative pieces explode at some point."*
+* **TAKE POWER, WAKE UP** — *"a game reflecting the real biochemical processes in our body: a
+  visualisation of overcoming illness, of strengthening healing and regeneration; map the real
+  processes from medicine (white cells eating pathogens…); the mechanic is passing through
+  visualisations of positive processes (homeostasis restored in every organ, the whole body scanned
+  and lit up, pathogens eaten and beaten, neural connections built and the hemispheres synchronised…),
+  with variants of songs like 'every little cell…' in the background; the idea is to engage
+  concentration in visualising and setting off the mind's self-healing and growth. Plan it sensibly as
+  separate games."*
+* **IN THE POWERFUL NAME OF JESUS I AM …** — *"you give it your own picture of a dream and strengthen
+  it step by step, by focusing on the picture; the picture is first turned into a mosaic sketch (it is
+  processed before the game starts); then fragment after fragment takes colour and light; a beautiful,
+  aesthetic building of the vision that lights up at the end with an aura around it. The record is
+  always a unique affirmation 'Przez potężne imię Jezusa ja jestem…' (rich, happy, strong, healthy…)
+  with a matching picture."*
+
+Seven games came of it (the third idea is a series of four), in two new sections of the Games tab:
+
+| Section (registry `kind`) | Game (id) | From the founder's idea |
+|---|---|---|
+| Wizualizacje (`vision`) | **Ogień, ogień, ogień** (`ogien`) | FIRE, FIRE, FIRE (§13.6) |
+| | **Rozświetl** (`rozswietl`) | LIGHT UP (YOUR MOOD) (§13.7) |
+| | **Ja jestem…** (`jestem`) | IN THE POWERFUL NAME OF JESUS I AM (§13.8) |
+| Weź moc, obudź się (`body`) | **Odporność** (`odpornosc`) | the immune response: white cells, antibodies, T cells, healing (§13.9) |
+| | **Światło ciała** (`swiatlo`) | the body scanned and lit, every organ's homeostasis (§13.10) |
+| | **Synapsy** (`synapsy`) | neural connections, myelin, the two hemispheres in step (§13.11) |
+| | **Odnowa** (`odnowa`) | the cell's own renewal: ATP, DNA repair, autophagy, stem cells (§13.12) |
+
+The body series is split by what the player does, so that no two games play alike: an action game
+of hunting (Odporność), a calm scan with breath (Światło ciała), a building puzzle of connections
+(Synapsy), and a machine to run and repair (Odnowa). The section's header carries the series line
+once: "four games about real processes in your body; visualisation and attention training, not a
+treatment" (`gry.bodyNote`).
+
+### 13.1 The picture is the strategy
+
+Mental imagery is one of the strategies that move prefrontal fNIRS feedback (Kohl 2020 lists imagery,
+mental arithmetic and recall among the strategies of successful studies; §2.7). In these seven games
+the push block asks the player to **picture the game's own scene** — the warmth of the flame, what
+lies under the mosaic, the white cell finding the trail, the signal crossing the bridge — so the
+picture on the screen and the strategy in the head are one and the same. Each game's `signal().task`
+("W głowie") is an imagery strategy tied to its scene, rotated so it never repeats twice in a row,
+with one plain counting or recalling strategy in the rotation for the players who do not picture
+easily (about a third of people report weak imagery).
+
+Rest blocks are **contemplation**: the picture deepens (warmth, glow, colour, an aura) while calm
+holds, and a breathing guide (in for 4, out for 6 — six breaths a minute, the slow breathing that
+raises heart-rate variability) moves with the picture. Rest is never waiting: it is when the picture
+becomes one's own.
+
+Everything else of §10–§12 holds: the standard HUD, the signal dock, the block design with blind
+blocks, the grace rules (nothing is lost for a bad signal), mobile first (kit/mobile.ts), four
+languages, the scripture rules.
+
+### 13.2 What the lead built for this round
+
+* **`env.body()`** (kit/body.ts, hub.ts): the band's side readings — the **balance of the two
+  prefrontal halves** (Mendi's oxygenation asymmetry, the balance trainer's own metric; HALO's Fp2 − Fp1
+  engagement), 0..1 with 0.5 even and the trainer's band 0.47–0.53 (`isEven`), and **Mendi's pulse**
+  (bpm, from its light sensors). Each is null while unknown or unreliable: a game shows "no reading",
+  never a made-up value. Synapsy shows the halves in step; Światło ciała shows the player's own pulse
+  at the heart.
+* **`kit/mosaic.ts`**: Voronoi mosaics (seeds spread evenly by Lloyd relaxation, denser where a picture
+  has detail), cell polygons with neighbours and shared edges, the cell under a finger, shards for a
+  burst, crack lines that grow inside a cell, and the picture analysis (each cell's mean colour, an edge
+  map, a pencil sketch, a dark veil) — for Rozświetl and Ja jestem.
+* **`kit/images.ts`**: the player's own pictures, kept **only on this device** (IndexedDB
+  `brainlink-images`, resized to 1280 px, never uploaded), with a picker for the lobby's progress card.
+* **`kit/song.ts`**: background songs synthesised on the arcade audio (no files, offline): a little
+  sequencer with instruments, layers that join as the signal rises (adaptive music: the song itself is
+  feedback), lyrics with timing for a sing-along line on the canvas. The body games each write their
+  own song (an original melody and words in four languages).
+* **Scripture**: 62 new passages, each read in all four editions (§13.5 lists them per game).
+
+### 13.3 What these games promise — and what they do not
+
+* **The body games depict real physiology**, named and with real numbers (a source for every number
+  in each game's section), at a scale a player can see: the processes are real, their speed is
+  compressed and the scene is a picture. They never say or imply that playing heals, cures or
+  replaces treatment; the series line says it once in the Games tab, the how-to's last tip says it in
+  each game. No disease is named as a target ("beat your cancer" never appears); the pathogens are
+  ordinary ones (a splinter's bacteria, a cold virus).
+* **Rozświetl's dark pictures** are of moods and states — loneliness, sadness, debt, fear, exhaustion —
+  drawn with dignity: never self-harm, never a wound, never a hospital horror. The game names sadness
+  *smutek*, not *depresja*, and its lobby carries one plain line: the game supports the imagination
+  and does not treat depression; if things are very heavy, talk to someone (pl 116 123 for adults and
+  116 111 for the young, both free; de TelefonSeelsorge 0800 111 0 111 / 0800 111 0 222, free and round
+  the clock; sv Självmordslinjen 90101; en Samaritans 116 123 in the UK and Ireland, 988 in the US,
+  findahelpline.com elsewhere; 112 in an emergency).
+* **Declarations (Ja jestem…).** §5 rules out "prosperity promises". The founder's decision of
+  2026-11-12 widens it: a **declaration of identity in Christ** ("Przez potężne imię Jezusa ja jestem
+  silny") is allowed, because each one stands on a verse that says it (Philippians 4:13 for strong,
+  2 Corinthians 8:9 for rich, Jeremiah 33:6 for healthy…), shown with it. What stays ruled out is a
+  **promise of outcomes**: the game never says the declaration will make the player rich or well, and
+  the album keeps declarations, not "results".
+
+### 13.4 Reverence for the seven
+
+* **Ogień.** The ladder is a picture of growth, like the mustard seed. Its last rung is **Pentecost**:
+  tongues of fire that come *down* on the gathered disciples (Acts 2:3) — a gift that meets the
+  player's small fire, never a product of the band and never "becoming" the Spirit. The Spirit is
+  shown only as fire, wind and light (the dove is Arka's symbol, §5). The pillar of fire is the LORD
+  going before Israel (Exodus 13:21): shown as fire over the camp, never as a figure.
+* **Ja jestem….** The title keeps its ellipsis: "Ja jestem…" is the start of the player's sentence,
+  never the divine name of Exodus 3:14. Jesus is named in the declaration and in the verses, never
+  shown; no cross as an object. The aura is light around the player's picture, not a halo on a person.
+* **Rozświetl.** The light that breaks the mosaic is just light — no figure in it, no angel. Kintsugi's
+  golden seams are a craft image of healing, not a ritual.
+* **The body games.** No blood gore, no dying people. Bacteria dissolve in the phagolysosome as a soft
+  fizz; an infected cell's apoptosis folds it into tidy bubbles that macrophages carry away; nothing is
+  ever "killed" in words a child would flinch at. The songs are original — never the viral song's words
+  or melody — and never a chant that claims power over the body.
+* **Exclusive symbols.** The fire ladder and Pentecost's tongues of fire to Ogień; the dark mosaic with
+  golden seams to Rozświetl; the stained-glass sketch, the aura and the declarations to Ja jestem; the
+  white cells to Odporność; the scan of light to Światło ciała; the neurons and the bridge between the
+  halves to Synapsy; the ATP turbine and the double helix to Odnowa.
+
+### 13.5 The seven in one table
+
+| | Ogień, ogień, ogień | Rozświetl | Ja jestem… | Odporność | Światło ciała | Synapsy | Odnowa |
+|---|---|---|---|---|---|---|---|
+| Core | charge a fire through seven scales, a "powers of ten" zoom-out at each change | light breaks a dark mosaic along its cracks; tiles burst and show the bright picture under it | a sketch in stained-glass cells fills with colour and light, then an aura | lead a swarm of white cells through the real stages of an immune response | a band of light scans the body; each organ's balance comes back | build a network of neurons in two halves; fire pairs together to wire them | run the cell: proton pumps, the ATP turbine, DNA repair, recycling |
+| Push (focus) | **charge**: the ring fills faster the higher the signal; full → the next scale | **light pressure** on the aimed tile; the cracks brighten and spread; full → it bursts | **colour** pours into the chosen cell; full → it lights | **alarm**: the cytokine signal reaches further, more cells answer, engulfing speeds up | **scan**: the band brightens and moves on; a lit organ settles faster | **growth**: synapses grow and thicken, myelin speeds the signal | **energy**: pumps and turbine speed up; repair goes faster |
+| Rest (calm) | **embers → light**: the charge is banked as light; the flame breathes with the player | **gazing**: the uncovered picture warms, gold fills its seams | **glow**: lit cells shine brighter, the aura grows | **healing**: inflammation settles, collagen closes the wound | **rest**: the vagus slows the heart, breath lengthens, organs settle | **consolidation**: replay, pruning, the night clean-up of the brain | **clean-up**: autophagy recycles worn parts |
+| Hands | blow (tap), shield from wind (hold), feed the fire (drag) — one small task per scale | tap a tile to aim the light, drag across tiles | tap a cell to send the colour, drag to paint | drag the swarm, tap targets | tap an organ, drag the band | tap pairs in rhythm / drag to connect | tap lesions, drag parts to lysosomes |
+| Side reading (`env.body()`) | — | — | — | — | the player's pulse at the heart (Mendi) | the halves in step lights the bridge | — |
+| Headline | iskier / sparks | odłamków / shards | części / pieces | patogenów / pathogens | pkt (builder may name it) | połączeń / connections | ATP |
+| Root | 2 Tim 1:6 | Isa 60:1 | Phil 2:9-10 | Ps 103:2-3 | Mat 6:22 | Rom 12:2 | 2 Cor 4:16 |
+| Closing passages | Isa 42:3, Prov 20:27, Luke 24:32, Exod 13:21, Dan 12:3, Isa 60:19, Acts 2:3, Jer 20:9, Song 8:7 | Eccl 4:9-10, Ps 30:5, 2 Kgs 4:7, Phil 4:19, Isa 41:10, Isa 58:8, Mark 4:39, Gal 5:1, Isa 40:29, Mat 5:4, Rev 21:4, Ps 34:5, Isa 61:3, Isa 43:19 | per declaration: Jer 33:6, Isa 53:5, Phil 4:13, John 15:11, 2 Cor 8:9, John 8:36, Jer 31:3, John 14:27, 2 Tim 1:7, Eph 4:24, Rom 8:37, Eph 5:8, John 1:12, Eph 1:3, Prov 2:6, Prov 18:10, 1 John 1:9, Col 3:12 | Ps 121:7-8, Isa 54:17, Prov 17:22, Exod 23:25 | Ps 139:13-14, 1 Cor 6:19-20, Prov 16:24, Prov 3:7-8, Prov 4:20-22 | Eph 4:16, Col 2:2, 1 Cor 2:16, Ps 86:11, Ps 16:7 | Ps 139:16, Ezek 37:5-6, Job 33:25, Ps 51:10, John 12:24 |
+
+Each builder rewrites its game's section below with the full design.
+
+### 13.6 Ogień, ogień, ogień — from a spark to the fire of Pentecost
+
+*Direction (the builder rewrites this section).* Seven rungs, each a scene at its own scale, the camera
+pulling back by orders of magnitude at each change: **Iskra** (a spark on tinder in cupped hands) →
+**Świeca** (a candle in a window at night) → **Ognisko** (a bonfire on a hill, people around it) →
+**Słup ognia** (the founder's "???": the pillar of fire over Israel's camp in the desert, the bridge
+from earth to sky) → **Gwiazda** (a star in space) → **Megagwiazda** (a hypergiant in its nebula) →
+**Duch Święty** (Pentecost at dawn: wind, and tongues of fire coming down on the gathered; §13.4).
+A ring around the fire is its charge. Above the threshold it fills, faster the higher the signal
+("charging goes with growing concentration"); the fire brightens, throws more light and sparks, and
+grows. A full ring sets off **the change**: a flare, a white-out, the zoom-out, the next form
+igniting, its name and verse. Rest blocks bank the gathered heat as light: what is banked is never
+lost, and the flame breathes slowly with a 4/6 breath. Each scale has one small task for the hands
+(<2 s, §2.1): blow on the spark, shield the candle from draughts, feed the bonfire, light the camp's
+lamps from the pillar, fuse hydrogen in the star, gather the nebula; touch also adds a little base
+charge, so a player without control climbs too, only slower. Meta: each session's highest fire
+becomes a star in the player's own sky (Gen 15:5), a gallery of the seven forms with their verses,
+records of the highest rung and the fastest change.
+
+### 13.7 Rozświetl — the dark mosaic and the light behind it
+
+*Direction (the builder rewrites this section).* Eight built-in pairs, each **one place in two
+states** drawn procedurally (the same composition, so the light shows the same scene transformed):
+Samotność → Wspólnota (Eccl 4:9-10), Smutek → Radość (Ps 30:5), Długi → Dostatek (2 Kgs 4:7,
+Phil 4:19), Lęk → Odwaga (Isa 41:10), Choroba → Zdrowie (Isa 58:8), Burza → Pokój (Mark 4:39),
+Kajdany → Wolność (Gal 5:1), Zmęczenie → Siła (Isa 40:29); later pairs may use Mat 5:4, Rev 21:4,
+Ps 34:5, Isa 61:3. The dark picture lies on Voronoi tiles (kit/mosaic.ts) over the bright one: a few
+tiles in the first session, a dozen soon, dozens later ("kilku-, kilkunasto-, kilkudziesięcioczęściowa").
+Focus is **light pressure**: light seeps through the grout lines from behind, the cracks brighten and
+run along the network of edges, new cracks spider across the aimed tile, and at full pressure the
+tile **bursts** — shards fly and dissolve into motes, a flash, and the bright picture under it shows.
+A burst passes some light to its neighbours (chains). The player taps or drags to aim; untouched, the
+light goes to the most cracked tile. Rest is **gazing**: the uncovered parts warm and deepen, their
+seams fill with gold (kintsugi: what was broken is mended with gold), and the task asks the player to
+see themself in the picture. A picture done: the last tiles go in a chain, the bright scene blooms,
+its title card and verse; the next pair begins. **Own pictures**: an "after" photo and, optionally, a
+"before"; without a "before" the game veils the "after" in ash and rain (kit/mosaic.ts `veil`); kept
+only on this device (kit/images.ts). The lobby's help line: §13.3. Meta: an album of transformed
+pictures, the tile count growing with sessions, the day's picture.
+
+### 13.8 Ja jestem… — the vision drawn, coloured and lit
+
+*Direction (the builder rewrites this section).* Before play the player chooses a **declaration**
+(one of about eighteen, each a word, a matching procedural picture and its verse: zdrowy/zdrowa,
+uzdrowiony, silny, szczęśliwy, bogaty, wolny, kochany, spokojny, odważny, nowy, zwycięzcą, światłem,
+dzieckiem Bożym, błogosławiony, mądry, bezpieczny, przebaczony, wybrany) or **their own vision** (their
+picture and their own word, kept only on this device). By default the game offers the next
+declaration the player has not had yet — "the record is always a unique affirmation". Polish needs
+the speaker's form: the progress card asks once ("jestem silny / jestem silna"), German, English and
+Swedish need none. The picture is **prepared before the game** (in the lobby when chosen, and during
+calibration at the latest): a structure-aware mosaic (denser cells where the picture has detail),
+a pencil sketch, each cell's colour. Play: the sketch on paper behind thin leading like stained glass;
+focus pours **colour** into the chosen cell (a watercolour bloom from its centre), a full cell
+**lights** and its leading turns gold; neighbours lit together merge into larger panes. Rest is
+**glow**: lit cells brighten and an aura gathers around the frame while the task asks the player to
+repeat the declaration slowly in the mind. The finale (all cells lit, or time up): the leading
+dissolves, the picture glows from within, the **aura** radiates (rays, bloom, rising motes), and the
+declaration is written out in a serif, with its verse. The summary and the album keep it.
+
+### 13.9 Odporność — the white cells on watch
+
+*Direction (the builder rewrites this section).* The real cascade, stage by stage, each a level of
+the run: **alarm** (a splinter lets bacteria in; a tissue macrophage senses them and releases
+cytokines and chemokines — rings of signal), **recruitment** (neutrophils tumble in the blood, roll on
+the vessel wall, stop and squeeze through — diapedesis), **the hunt** (chemotaxis up the gradient,
+phagocytosis: pseudopods wrap the bacterium, the phagolysosome digests it), **antibodies** (a dendritic
+cell carries a piece to the lymph node; B cells' antibodies tag the bacteria, which glow and are
+easier to catch — opsonisation), **T cells** (a cell infected by a cold virus shows fragments on its
+surface; a cytotoxic T cell docks and the cell folds itself away — apoptosis, tidy, §13.4), and
+**healing** (rest: macrophages clear the spent neutrophils, fibroblasts weave collagen, new
+capillaries sprout, the skin closes). Memory cells stay: a pathogen met before is answered faster in
+the next session (the meta). Every caption is accurate and sourced in this section.
+
+### 13.10 Światło ciała — the light of the body
+
+*Direction (the builder rewrites this section).* A full-body figure; a band of light scans from head
+to toe, and at each organ its **homeostasis** is shown as it is: the hypothalamus holding 37 °C,
+the heart's rate and rhythm (with Mendi, the player's own pulse — `env.body().heartRate`), the lungs'
+oxygen and carbon dioxide, the blood's pH 7.35–7.45, glucose and insulin, the kidneys' water and salt,
+cortisol's daily rhythm, the gut's lining renewed in days, the bones' calcium. Focus moves the band
+on and brightens it, and a lit organ's value returns to its range faster; rest is the
+**parasympathetic rest** of the vagus nerve: a longer out-breath slows the heart (respiratory sinus
+arrhythmia), the organs settle. Body-scan practice is attention, so the touch is gentle: tap an organ
+to stay with it and read what it does. Calm game, rest-led, the lullaby among the songs.
+
+### 13.11 Synapsy — the mind renewed
+
+*Direction (the builder rewrites this section).* A field of neurons in two hemispheres. **Hebb**:
+neurons that fire together wire together — tap two in rhythm, a synapse grows (LTP: the spine
+swells, the link thickens); **myelin**: oligodendrocytes wrap an axon and its signal jumps from
+~1 m/s to tens of m/s; **paths**: a thought must travel from an input (the eye) to an output (the
+hand) across the network the player built; **the bridge**: the corpus callosum joins the halves, and
+when `env.body().balance` is inside the even band, the two halves' rhythms fall into step and the
+bridge glows (without a reading, the bridge follows focus alone — never a fake balance). Rest is
+**consolidation**: the network replays the day's paths, weak unused links fade (pruning), and the
+brain's night clean-up flushes waste (the glymphatic flow of sleep).
+
+### 13.12 Odnowa — the cell renews itself
+
+*Direction (the builder rewrites this section).* Inside one cell: **mitochondria** (the electron
+transport chain pumps protons across the inner membrane; ATP synthase, a real rotary motor, turns
+and makes three ATP per turn — the headline), **DNA repair** (lesions glow on the scrolling double
+helix; tap one and an enzyme cuts the damaged piece out and fills the gap), **autophagy** (rest: worn
+organelles are wrapped in an autophagosome and recycled in a lysosome — the Nobel Prize of 2016),
+**stem cells** (a stem cell divides into one stem cell and one that becomes skin, gut or blood;
+the body's real turnover times). Every number sourced in this section.
+
+### 13.13 What waits for the founder's go
+
+The founder's generation rules (the `/generate` skill) need an explicit go for any music run and a
+check-in after five images, and the founder was away: so this round's pictures are drawn in code like
+every other game, and the songs are synthesised. Ready for a go: a set of painted pairs for Rozświetl
+and pictures for the declarations of Ja jestem (drawn to the same compositions), and sung versions
+of the four body songs with their original words in four languages.

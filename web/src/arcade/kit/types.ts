@@ -5,6 +5,7 @@
  */
 import type { Tool } from '../../tools';
 import type { ArcadeAudio } from './audio';
+import type { BodySignals } from './body';
 import type { FocusFrame, FocusTuning } from './focus';
 import type { PassageId } from './scripture';
 import type { TracePhase } from './trace';
@@ -100,6 +101,12 @@ export interface GameEnv<P extends object> {
    * never keys, and keep every control at least MIN_TAP px (kit/mobile.ts).  Read once per session.
    */
   touch: boolean;
+  /**
+   * The band's side readings this frame (kit/body.ts): the balance of the two prefrontal halves
+   * (0..1, 0.5 even) and Mendi's pulse (bpm).  Each is null while unknown or unreliable — show "no
+   * reading", never a made-up value.  For games about the body (DESIGN.md §13); optional in test envs.
+   */
+  body?(): BodySignals;
 }
 
 export interface PointerInput { type: 'down' | 'move' | 'up'; x: number; y: number; id: number }

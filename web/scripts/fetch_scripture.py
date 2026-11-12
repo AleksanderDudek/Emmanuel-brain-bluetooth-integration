@@ -80,6 +80,7 @@ BOOKS: dict[str, tuple[str, str, str, str, str, str]] = {
     "RUT": ("Ruth", "Rt", "Ruth", "rut", "Rut", "Rut"),
     "1SA": ("1 Samuel", "1 Sm", "1. Samuel", "1_samuel", "Första Samuelsboken", "1 Sam"),
     "1KI": ("1 Kings", "1 Krl", "1. Könige", "1_koenige", "Första Konungaboken", "1 Kung"),
+    "2KI": ("2 Kings", "2 Krl", "2. Könige", "2_koenige", "Andra Konungaboken", "2 Kung"),
     "NEH": ("Nehemiah", "Ne", "Nehemia", "nehemia", "Nehemja", "Neh"),
     "JOB": ("Job", "Hi", "Hiob", "hiob", "Job", "Job"),
     "PSA": ("Psalm", "Ps", "Psalm", "psalm", "Psaltaren", "Ps"),
@@ -205,6 +206,33 @@ PASSAGES: list[tuple[str, str]] = [
     # Kocia straż (the abbey's cats keep the vineyard from the little foxes)
     ("sng2.15", "Song of Solomon 2:15"), ("pro27.18", "Proverbs 27:18"), ("isa11.6", "Isaiah 11:6"), ("job12.7", "Job 12:7"),
     ("pro12.10", "Proverbs 12:10"),
+    # Ogień (fire, fire, fire: from a spark to the fire of Pentecost, a gift that comes down)
+    ("2ti1.6", "2 Timothy 1:6"), ("pro20.27", "Proverbs 20:27"), ("luk24.32", "Luke 24:32"), ("exo13.21", "Exodus 13:21"),
+    ("isa60.19", "Isaiah 60:19"), ("act2.3", "Acts 2:3"), ("jer20.9", "Jeremiah 20:9"), ("sng8.7", "Song of Solomon 8:7"),
+    # Rozświetl (light up: the dark mosaic breaks along its cracks and shows what it covered)
+    ("isa60.1", "Isaiah 60:1"), ("ecc4.9-10", "Ecclesiastes 4:9-10"), ("psa30.5", "Psalm 30:5"),
+    ("2ki4.7", "2 Kings 4:7"), ("php4.19", "Philippians 4:19"), ("isa41.10", "Isaiah 41:10"), ("isa58.8", "Isaiah 58:8"),
+    ("gal5.1", "Galatians 5:1"), ("isa40.29", "Isaiah 40:29"), ("mat5.4", "Matthew 5:4"), ("rev21.4", "Revelation 21:4"),
+    ("isa43.19", "Isaiah 43:19"),
+    # Ja jestem (in the powerful name of Jesus I am…: each declaration stands on a verse)
+    ("php2.9-10", "Philippians 2:9-10"), ("jer33.6", "Jeremiah 33:6"), ("isa53.5", "Isaiah 53:5"), ("php4.13", "Philippians 4:13"),
+    ("jhn15.11", "John 15:11"), ("2co8.9", "2 Corinthians 8:9"), ("jhn8.36", "John 8:36"), ("jer31.3", "Jeremiah 31:3"),
+    ("jhn14.27", "John 14:27"), ("2ti1.7", "2 Timothy 1:7"), ("eph4.24", "Ephesians 4:24"), ("rom8.37", "Romans 8:37"),
+    ("eph5.8", "Ephesians 5:8"), ("jhn1.12", "John 1:12"), ("eph1.3", "Ephesians 1:3"), ("pro2.6", "Proverbs 2:6"),
+    ("pro18.10", "Proverbs 18:10"), ("1jn1.9", "1 John 1:9"), ("col3.12", "Colossians 3:12"),
+    # Weź moc, obudź się (take power, wake up): the body's own processes, four games
+    # Odporność (immunity: the white blood cells keep the body)
+    ("psa103.2-3", "Psalm 103:2-3"), ("psa121.7-8", "Psalm 121:7-8"), ("isa54.17", "Isaiah 54:17"), ("pro17.22", "Proverbs 17:22"),
+    ("exo23.25", "Exodus 23:25"),
+    # Światło ciała (the light of the body: a scan from head to toe, every organ back in balance)
+    ("mat6.22", "Matthew 6:22"), ("psa139.13-14", "Psalm 139:13-14"), ("1co6.19-20", "1 Corinthians 6:19-20"),
+    ("pro16.24", "Proverbs 16:24"), ("pro3.7-8", "Proverbs 3:7-8"), ("pro4.20-22", "Proverbs 4:20-22"),
+    # Synapsy (synapses: the mind renewed, the two halves in step)
+    ("rom12.2", "Romans 12:2"), ("eph4.16", "Ephesians 4:16"), ("col2.2", "Colossians 2:2"), ("1co2.16", "1 Corinthians 2:16"),
+    ("psa86.11", "Psalm 86:11"), ("psa16.7", "Psalm 16:7"),
+    # Odnowa (renewal: the cell's own repairs, day by day)
+    ("2co4.16", "2 Corinthians 4:16"), ("psa139.16", "Psalm 139:16"), ("ezk37.5-6", "Ezekiel 37:5-6"), ("job33.25", "Job 33:25"),
+    ("psa51.10", "Psalm 51:10"), ("jhn12.24", "John 12:24"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
@@ -227,11 +255,13 @@ DROP_END: dict[str, dict[str, str]] = {
 FIX: dict[str, dict[str, tuple[str, str]]] = {
     "psa133.3": {"de": ("verheizt", "verheißt")},   # eBible's Luther 1912 lost the ß; bibel-online.net has „verheißt“
     "jhn8.12": {"de": ("sondern wir das Licht", "sondern wird das Licht")},   # a dropped "d": the 1912 text reads „wird“
+    "isa43.19": {"pl": ("poznacie Nadto", "poznacie? Nadto")},   # getbible lost the question mark the 1881 print has
+    "2ti1.7": {"sv": ("försagdbetens", "försagdhetens")},   # a scanning slip on Wikisource; getbible's 1917 reads „försagdhetens“
 }
 
 # The Gdańsk Bible starts every verse with a capital, even inside a sentence ("ślepych, A będziesz"): a verse that
 # continues one ending in , ; or : starts lower case when its first word is one of these (never a name or "Pan").
-PL_CONTINUE = {"A", "Ale", "Albo", "Albowiem", "Ani", "Aż", "Aby", "Abyś", "Ażeby", "Bo", "Gdy", "Gdyż", "I", "Iż", "Jako",
+PL_CONTINUE = {"A", "Ale", "Albo", "Albowiem", "Albowiemeście", "Ani", "Aż", "Aby", "Abyś", "Ażeby", "Bo", "Gdy", "Gdyż", "I", "Iż", "Jako",
                "Kiedy", "Lecz", "Nadto", "Oto", "Owszem", "Przetoż", "Także", "Tedy", "Więc", "Zaiste", "Że"}
 
 # getbible "polgdanska" records that hold two verses (chapter ends fitted to English chapter lengths):

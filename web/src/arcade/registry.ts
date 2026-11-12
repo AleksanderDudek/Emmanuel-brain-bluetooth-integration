@@ -14,8 +14,9 @@ import type { PassageId } from './kit/scripture';
 import type { ArcadeModule } from './kit/types';
 
 /** What kind of play a game is: the Games tab shows the games in these sections, in this order. */
-export type ArcadeKind = 'puzzle' | 'run' | 'arcade' | 'strategy' | 'craft';
-export const KINDS: readonly ArcadeKind[] = ['puzzle', 'run', 'arcade', 'strategy', 'craft'];
+export type ArcadeKind = 'vision' | 'body' | 'puzzle' | 'run' | 'arcade' | 'strategy' | 'craft';
+/** `vision`: the visualisation games (§13); `body`: the series "Weź moc, obudź się" about the body's own processes (§13). */
+export const KINDS: readonly ArcadeKind[] = ['vision', 'body', 'puzzle', 'run', 'arcade', 'strategy', 'craft'];
 
 export interface ArcadeEntry {
   id: string;
@@ -53,7 +54,8 @@ export interface ArcadeEntry {
   load: () => Promise<ArcadeModule<any>>;
 }
 
-type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty';
+type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty'
+  | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -247,6 +249,70 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'sng2.15',
     brain: brain('koty'),
     load: () => import('./koty/index').then(m => m.default),
+  },
+  // ── version 4 (DESIGN.md §13): three visualisation games and the series "Weź moc, obudź się"
+  {
+    id: 'ogien', kind: 'vision', title: t('ogien.title'), tagline: t('ogien.tagline'), text: t('ogien.text'),
+    how: [t('ogien.how1'), t('ogien.how2'), t('ogien.how3')],
+    tips: [t('ogien.tip1'), t('ogien.tip2'), t('ogien.tip3'), t('ogien.tip4'), t('ogien.tip5')],
+    unit: t('ogien.unit'), art: 'art-ogien', fill: ['#fff1c2', '#ffb347', '#e8562a', '#2a0f1e'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: '2ti1.6',
+    brain: brain('ogien'),
+    load: () => import('./ogien/index').then(m => m.default),
+  },
+  {
+    id: 'rozswietl', kind: 'vision', title: t('rozswietl.title'), tagline: t('rozswietl.tagline'), text: t('rozswietl.text'),
+    how: [t('rozswietl.how1'), t('rozswietl.how2'), t('rozswietl.how3')],
+    tips: [t('rozswietl.tip1'), t('rozswietl.tip2'), t('rozswietl.tip3'), t('rozswietl.tip4'), t('rozswietl.tip5')],
+    unit: t('rozswietl.unit'), art: 'art-rozswietl', fill: ['#fff6d8', '#f6c35c', '#6c7aa8', '#1f2233'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'isa60.1',
+    brain: brain('rozswietl'),
+    load: () => import('./rozswietl/index').then(m => m.default),
+  },
+  {
+    id: 'jestem', kind: 'vision', title: t('jestem.title'), tagline: t('jestem.tagline'), text: t('jestem.text'),
+    how: [t('jestem.how1'), t('jestem.how2'), t('jestem.how3')],
+    tips: [t('jestem.tip1'), t('jestem.tip2'), t('jestem.tip3'), t('jestem.tip4'), t('jestem.tip5')],
+    unit: t('jestem.unit'), art: 'art-jestem', fill: ['#fff8e6', '#f3d27a', '#b98bd6', '#2b1f45'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'php2.9-10',
+    brain: brain('jestem'),
+    load: () => import('./jestem/index').then(m => m.default),
+  },
+  {
+    id: 'odpornosc', kind: 'body', title: t('odpornosc.title'), tagline: t('odpornosc.tagline'), text: t('odpornosc.text'),
+    how: [t('odpornosc.how1'), t('odpornosc.how2'), t('odpornosc.how3')],
+    tips: [t('odpornosc.tip1'), t('odpornosc.tip2'), t('odpornosc.tip3'), t('odpornosc.tip4'), t('odpornosc.tip5')],
+    unit: t('odpornosc.unit'), art: 'art-odpornosc', fill: ['#f5f7ff', '#ffb3c1', '#c2416b', '#2c1430'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa103.2-3',
+    brain: brain('odpornosc'),
+    load: () => import('./odpornosc/index').then(m => m.default),
+  },
+  {
+    id: 'swiatlo', kind: 'body', title: t('swiatlo.title'), tagline: t('swiatlo.tagline'), text: t('swiatlo.text'),
+    how: [t('swiatlo.how1'), t('swiatlo.how2'), t('swiatlo.how3')],
+    tips: [t('swiatlo.tip1'), t('swiatlo.tip2'), t('swiatlo.tip3'), t('swiatlo.tip4'), t('swiatlo.tip5')],
+    unit: t('swiatlo.unit'), art: 'art-swiatlo', fill: ['#e9fbff', '#8fd6e8', '#3f7fb8', '#14203a'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'mat6.22',
+    brain: brain('swiatlo'),
+    load: () => import('./swiatlo/index').then(m => m.default),
+  },
+  {
+    id: 'synapsy', kind: 'body', title: t('synapsy.title'), tagline: t('synapsy.tagline'), text: t('synapsy.text'),
+    how: [t('synapsy.how1'), t('synapsy.how2'), t('synapsy.how3')],
+    tips: [t('synapsy.tip1'), t('synapsy.tip2'), t('synapsy.tip3'), t('synapsy.tip4'), t('synapsy.tip5')],
+    unit: t('synapsy.unit'), art: 'art-synapsy', fill: ['#f3e9ff', '#b48cff', '#5a46c8', '#120f30'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'rom12.2',
+    brain: brain('synapsy'),
+    load: () => import('./synapsy/index').then(m => m.default),
+  },
+  {
+    id: 'odnowa', kind: 'body', title: t('odnowa.title'), tagline: t('odnowa.tagline'), text: t('odnowa.text'),
+    how: [t('odnowa.how1'), t('odnowa.how2'), t('odnowa.how3')],
+    tips: [t('odnowa.tip1'), t('odnowa.tip2'), t('odnowa.tip3'), t('odnowa.tip4'), t('odnowa.tip5')],
+    unit: t('odnowa.unit'), art: 'art-odnowa', fill: ['#effff0', '#8fe3a3', '#2e9a76', '#0f2a2a'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: '2co4.16',
+    brain: brain('odnowa'),
+    load: () => import('./odnowa/index').then(m => m.default),
   },
 ];
 

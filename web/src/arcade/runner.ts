@@ -17,6 +17,7 @@ import { $, fmtDur, h, run, toast } from '../ui/dom';
 import { drawOverview } from '../ui/focus';
 import { SignalDock, stateText, type BlockStart } from './dock';
 import { ArcadeAudio } from './kit/audio';
+import { BodyTracker, type BodySignals } from './kit/body';
 import { BEGINNER_SESSIONS, BEGINNER_TUNING, DEFAULT_TUNING, type FocusTuning } from './kit/focus';
 import { reducedMotion } from './kit/juice';
 import { dayKey, daySeed, saveProgress } from './kit/progress';
@@ -89,6 +90,8 @@ export class ArcadeRunner {
   private raf = 0;
   private lastFrame = 0;
   private lastSampleAt = 0;
+  /** the band's side readings for the body games (GameEnv.body) */
+  private readonly bodySignals = new BodyTracker();
   private calT = 0;
   private overtime = 0;
   private completing = false;
@@ -188,6 +191,7 @@ export class ArcadeRunner {
     this.keysDown.clear();
     this.pointersDown.clear();
     this.dprCap = 2;
+    this.bodySignals.reset();
     this.perf = { sum: 0, n: 0, slow: 0 };
     this.bannerKinds.clear();
     this.frameMs = 0;
@@ -229,6 +233,7 @@ export class ArcadeRunner {
       hudTop: () => this.hudTop(),
       insets: () => this.insets(),
       touch: this.touch,
+      body: () => this.bodySignals.value,
     };
     this.game = mod.create(env);
     this.resize();
@@ -713,6 +718,7 @@ export class ArcadeRunner {
     if (!this.active || !ses || this.stage === 'summary') return;
     const tick = ses.onSample(s);
     this.lastSampleAt = performance.now();
+    if (s.tool === ses.tool && !ses.paused) this.bodySignals.push(s);
     if (this.stage === 'calibration') {
       if (tick.calibrated) this.countdown(); else this.renderCalibration();
       return;
@@ -838,7 +844,7 @@ export class ArcadeRunner {
   /** For the smoke test and the console (?debug): where the run is. */
   get debug(): {
     stage: Stage; t: number; level: number; reliable: boolean; outcome: ArcadeOutcome | null;
-    targets: TapTarget[] | null; insets: Insets; touch: boolean; dpr: number; frameMs: number;
+    targets: TapTarget[] | null; insets: Insets; touch: boolean; dpr: number; frameMs: number; body: BodySignals;
   } | null {
     const ses = this.session;
     if (!this.active || !ses) return null;
@@ -850,6 +856,7 @@ export class ArcadeRunner {
     return {
       stage: this.stage, t: ses.t, level: ses.frame.level, reliable: ses.frame.reliable, outcome,
       targets, insets: this.insets(), touch: this.touch, dpr: Math.round(dpr * 100) / 100, frameMs: Math.round(this.frameMs * 100) / 100,
+      body: this.bodySignals.value,
     };
   }
 

@@ -55,8 +55,8 @@ describe('the arcade catalog', () => {
   });
 
   it('keeps the Polish registry texts (the source)', () => {
-    expect(ARCADE.map(a => a.title)).toEqual(['Geoda', 'Latarnik', 'Motylarnia', 'Arka', 'Urodzaj', 'Wzlot', 'Glina', 'Źródła', 'Posłaniec', 'Zacheusz', 'Pasterz', 'Anioł Stróż', 'Zastępy', 'Firmament', 'Dolina', 'Chleby i ryby', 'Jerzy i smok', 'Dawid', 'Dziewiątka', 'Nehemiasz', 'Kocia straż']);
-    expect(ARCADE.map(a => a.unit)).toEqual(['ct', 'łodzi', 'pkt', 'par', 'pkt', 'pkt', 'sykli', 'dzbanów', 'pkt', 'denarów', 'owiec', 'zmór', 'demonów', 'pkt', 'm', 'nakarmionych', 'łusek', 'XP', 'uciszonych', 'łokci', 'szkodników']);
+    expect(ARCADE.map(a => a.title)).toEqual(['Geoda', 'Latarnik', 'Motylarnia', 'Arka', 'Urodzaj', 'Wzlot', 'Glina', 'Źródła', 'Posłaniec', 'Zacheusz', 'Pasterz', 'Anioł Stróż', 'Zastępy', 'Firmament', 'Dolina', 'Chleby i ryby', 'Jerzy i smok', 'Dawid', 'Dziewiątka', 'Nehemiasz', 'Kocia straż', 'Ogień, ogień, ogień', 'Rozświetl', 'Ja jestem…', 'Odporność', 'Światło ciała', 'Synapsy', 'Odnowa']);
+    expect(ARCADE.map(a => a.unit)).toEqual(['ct', 'łodzi', 'pkt', 'par', 'pkt', 'pkt', 'sykli', 'dzbanów', 'pkt', 'denarów', 'owiec', 'zmór', 'demonów', 'pkt', 'm', 'nakarmionych', 'łusek', 'XP', 'uciszonych', 'łokci', 'szkodników', 'iskier', 'odłamków', 'części', 'patogenów', 'pkt', 'połączeń', 'ATP']);
     for (const a of ARCADE) {
       expect(a.how).toHaveLength(3);
       expect(a.tips.length).toBeGreaterThanOrEqual(5);
@@ -66,9 +66,9 @@ describe('the arcade catalog', () => {
 
   it('gives the games the glossary’s titles and the runner its words in English, German and Swedish', async () => {
     const titles: Record<Exclude<Lang, 'pl'>, string[]> = {
-      en: ['Geode', 'Lighthouse Keeper', 'Butterfly House', 'The Ark', 'Harvest', 'Updraft', 'Clay', 'Wellsprings', 'The Messenger', 'Zacchaeus', 'The Shepherd', 'Guardian Angel', 'The Hosts', 'Firmament', 'The Valley', 'Loaves and Fish', 'George and the Dragon', 'David', 'The Nine', 'Nehemiah', 'Cat Watch'],
-      de: ['Geode', 'Leuchtturmwärter', 'Schmetterlingshaus', 'Die Arche', 'Ernte', 'Aufwind', 'Töpferton', 'Quellen', 'Der Bote', 'Zachäus', 'Der Hirte', 'Schutzengel', 'Heerscharen', 'Firmament', 'Das Tal', 'Brote und Fische', 'Georg und der Drache', 'David', 'Die Neun', 'Nehemia', 'Katzenwache'],
-      sv: ['Geod', 'Fyrvaktaren', 'Fjärilshuset', 'Arken', 'Skörd', 'Uppvind', 'Lera', 'Källorna', 'Budbäraren', 'Sackeus', 'Herden', 'Skyddsängeln', 'Härskarorna', 'Himlavalvet', 'Dalen', 'Bröd och fiskar', 'Göran och draken', 'David', 'De nio', 'Nehemja', 'Kattvakten'],
+      en: ['Geode', 'Lighthouse Keeper', 'Butterfly House', 'The Ark', 'Harvest', 'Updraft', 'Clay', 'Wellsprings', 'The Messenger', 'Zacchaeus', 'The Shepherd', 'Guardian Angel', 'The Hosts', 'Firmament', 'The Valley', 'Loaves and Fish', 'George and the Dragon', 'David', 'The Nine', 'Nehemiah', 'Cat Watch', 'Fire, Fire, Fire', 'Light Up', 'I Am…', 'Immunity', 'The Light of the Body', 'Synapses', 'Renewal'],
+      de: ['Geode', 'Leuchtturmwärter', 'Schmetterlingshaus', 'Die Arche', 'Ernte', 'Aufwind', 'Töpferton', 'Quellen', 'Der Bote', 'Zachäus', 'Der Hirte', 'Schutzengel', 'Heerscharen', 'Firmament', 'Das Tal', 'Brote und Fische', 'Georg und der Drache', 'David', 'Die Neun', 'Nehemia', 'Katzenwache', 'Feuer, Feuer, Feuer', 'Lichtblick', 'Ich bin…', 'Abwehrkräfte', 'Licht des Leibes', 'Synapsen', 'Erneuerung'],
+      sv: ['Geod', 'Fyrvaktaren', 'Fjärilshuset', 'Arken', 'Skörd', 'Uppvind', 'Lera', 'Källorna', 'Budbäraren', 'Sackeus', 'Herden', 'Skyddsängeln', 'Härskarorna', 'Himlavalvet', 'Dalen', 'Bröd och fiskar', 'Göran och draken', 'David', 'De nio', 'Nehemja', 'Kattvakten', 'Eld, eld, eld', 'Ljusglimt', 'Jag är…', 'Immunförsvaret', 'Kroppens ljus', 'Synapser', 'Förnyelse'],
     };
     const words = {
       en: { streak: '2-day streak', best: 'Best: 12 boats', parts: 'Commitment 40/70 · performance 9/30', again: 'Play again' },

@@ -69,6 +69,27 @@ export interface HubSample {
   dt: number;
   /** the engine's signal epoch: a change means a new baseline, so earlier references no longer hold */
   epoch: number;
+  /**
+   * The two prefrontal halves, 0..1 (0.5 even; > 0.5 the right more active): Mendi's oxygenation
+   * asymmetry (the balance trainer's metric), or HALO's Fp2 − Fp1 engagement (`eegBalance`); null while unknown.
+   */
+  balance?: number | null;
+  /** Mendi's pulse from its light sensors (beats per minute); null for HALO or before a reading */
+  heartRate?: number | null;
+}
+
+/** What a tick adds besides the focus signal (HubSample.balance, HubSample.heartRate). */
+interface SideReadings { balance: number | null; heartRate: number | null }
+const NO_SIDE: SideReadings = { balance: null, heartRate: null };
+
+/**
+ * HALO's balance of the two prefrontal channels as a 0..1 asymmetry like Mendi's: the engagement
+ * log(beta / alpha) of Fp2 (right) minus Fp1 (left) through a logistic of width 0.35.
+ */
+export function eegBalance(bp: Record<'Fp1' | 'Fp2', { alpha: number; beta: number }>): number | null {
+  const e = (c: { alpha: number; beta: number }) => Math.log(Math.max(c.beta, 1e-6) / Math.max(c.alpha, 1e-6));
+  const d = e(bp.Fp2) - e(bp.Fp1);
+  return Number.isFinite(d) ? 1 / (1 + Math.exp(-d / 0.35)) : null;
 }
 
 const REASONS: readonly SignalReason[] = ['no_tool', 'off', 'no_device', 'connecting', 'no_data', 'baseline', 'motion', 'poor_signal'];
@@ -265,7 +286,7 @@ export class Hub extends EventTarget {
       tool: this.tool, source: f.source, device, recording: f.recording,
       signal: { reliable: reason === null, reason, progress: f.baseline_ready ? 1 : f.baseline_progress ?? 0, quality,
                 warning: reason === null ? warning : null, detail, heartRate: f.heart_rate_bpm ?? null },
-    }, oxy);
+    }, oxy, { balance: f.metrics?.asymmetry ?? null, heartRate: f.heart_rate_bpm ?? null });
   }
 
   private onEeg(f: EegFrame): void {
@@ -295,10 +316,10 @@ export class Hub extends EventTarget {
                 quality: !f.ready ? null : flat || noisy ? 'poor' : 'good', warning: reason === null && noisy ? 'noisy' : null,
                 detail: f.ready ? Object.entries(f.contact).map(([ch, c]) => `${ch}: ${c.sd === null ? '—' : `${fmtNum(c.sd, 1)} µV`}`).join(' · ') : null,
                 heartRate: null },
-    }, x);
+    }, x, { balance: bp && f.samples_this_tick > 0 ? eegBalance(bp) : null, heartRate: null });
   }
 
-  private publish(status: HubStatus, x: number | null): void {
+  private publish(status: HubStatus, x: number | null, side: SideReadings = NO_SIDE): void {
     this.status = status;
     if (status.tool) {
       // BLE arrives in bursts: an empty tick inside a fresh stream is no reason to doubt the signal
@@ -311,7 +332,7 @@ export class Hub extends EventTarget {
       const s = status.signal;
       const epoch = status.tool === 'eeg' ? this.eeg.epoch : this.fnirs.epoch;
       this.dispatchEvent(new CustomEvent<HubSample>('sample', {
-        detail: { tool: status.tool, x, reliable: s.reliable, reason: s.reason, warning: s.warning, dt: this.dt(), epoch },
+        detail: { tool: status.tool, x, reliable: s.reliable, reason: s.reason, warning: s.warning, dt: this.dt(), epoch, ...side },
       }));
     }
   }
