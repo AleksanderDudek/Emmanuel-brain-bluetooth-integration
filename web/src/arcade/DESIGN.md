@@ -4363,17 +4363,135 @@ index.ts; tests in test/arcade-jestem.test.ts.
 
 ### 13.9 Odporność — the white cells on watch
 
-*Direction (the builder rewrites this section).* The real cascade, stage by stage, each a level of
-the run: **alarm** (a splinter lets bacteria in; a tissue macrophage senses them and releases
-cytokines and chemokines — rings of signal), **recruitment** (neutrophils tumble in the blood, roll on
-the vessel wall, stop and squeeze through — diapedesis), **the hunt** (chemotaxis up the gradient,
-phagocytosis: pseudopods wrap the bacterium, the phagolysosome digests it), **antibodies** (a dendritic
-cell carries a piece to the lymph node; B cells' antibodies tag the bacteria, which glow and are
-easier to catch — opsonisation), **T cells** (a cell infected by a cold virus shows fragments on its
-surface; a cytotoxic T cell docks and the cell folds itself away — apoptosis, tidy, §13.4), and
-**healing** (rest: macrophages clear the spent neutrophils, fibroblasts weave collagen, new
-capillaries sprout, the skin closes). Memory cells stay: a pathogen met before is answered faster in
-the next session (the meta). Every caption is accurate and sourced in this section.
+The founder's own example — "leukocytes eating pathogens" — so this is the series' **action game**: a
+slice of skin like a living microscope slide (rose dermis, the skin's surface with the wound on top, a
+venule with flowing red cells along the bottom), where the player leads a swarm of white cells through
+the **real stages of an immune response, in their real order**, each a level of the run. Root Psalm
+103:2-3; the headline counts **pathogens** cleared (patogenów / pathogens / Erreger / patogener). Code:
+`src/arcade/odpornosc/` (sim.ts the rules, render/paint/hud/layout the view, i18n.ts the words).
+
+**The run: six stages, a loop per wound** (each 40–90 s; a goal, a soft cap after which the body's
+other defences finish the job — never a failure, no stars; the run carries over between sessions):
+
+| Stage | What really happens (shown) | The hands | Goal | Real time → here |
+|---|---|---|---|---|
+| **Alarm** | a splinter carries skin cocci in; Makro, the tissue macrophage, senses them (TLRs) and engulfs them; cytokines (IL-1β, TNF) go out as rings; where a ring reaches the venule its wall lights (selectins, the chemokine CXCL8) | drag Makro; tap a bacterium (he gulps it: a ring 1.6× as far) | 5 lit places on the wall | minutes → seconds |
+| **Rekrutacja** | neutrophils tumble in the blood, are captured over the lit wall and **roll**, stop (integrins), crawl to a junction and **squeeze through** (diapedesis) into the tissue | tap a rolling cell (or drag along the vessel) to stop it; it stops by itself a little later anyway | 12 recruits (+2 a loop) | ~4 min through the lining → a second |
+| **Łowy** | someone pulled the splinter out, the bacteria stayed and divide; the swarm follows the trail (chemotaxis) and engulfs: pseudopods wrap, a phagosome fizzes (the granules, the respiratory burst), the bacterium dissolves; a neutrophil eats 3–20 and is spent, falls into tidy apoptotic bubbles | drag to lead the swarm (drawn above the finger); tap a bacterium; the **Burst** and **NET** buttons | clear the wave (24, more each loop) | ~20 s an engulf, hours → a moment |
+| **Przeciwciała** | a dendritic cell takes a piece and leaves for the lymph node (an inset: a B cell, plasma cells, Ys flying); antibodies (gold Ys) and complement (C3b dots) tag the bacteria gold — tagged ones are engulfed three times faster; bacteria in a slippery capsule bounce a neutrophil off until tagged | as in the hunt | clear the wave | ~2 weeks (memory: 3–4 days) → seconds |
+| **Limfocyty T** | the nose's lining; a cold virus (a rhinovirus) replicates in its cells, which show violet flags (viral peptides on MHC I); a cytotoxic T cell docks (perforin, granzymes) and the cell **folds itself away** into tidy bubbles (apoptosis); a cell left alone bursts and the virions infect neighbours, unless interferon has made them antiviral; from loop 2 some cells hide their flags and only **NK cells** find them | tap an infected cell (the nearest T cell goes), drag to lead the T cells | no infected cell left | 30 s to the holes, minutes to fold → a second |
+| **Gojenie** | back at the wound: Makro turns green (repair mode) and tidies the spent neutrophils (efferocytosis), fibroblasts weave collagen, capillaries sprout up from the venule, the skin's edges close over; a few stragglers hide in crevices | drag across the wound to lay collagen; tap a spent cell to have it tidied | the wound closed | 4–21 days, remodelling a year → a minute |
+
+Then the next loop: a splinter in a finger (skin cocci, rhinovirus A), a scraped knee (soil bacilli, many
+in capsules; rhinovirus B), the gut wall (gut rods that swim with flagella; rhinovirus C) — and again,
+harder (bigger waves, faster division, more capsules, more infected cells).
+
+**The band.** Push blocks drive the **alarm** (0..1, 0.5 at the threshold), eased toward the focus level
+in a sighted push after the lead-in (5 s Mendi, 2 s HALO): how far the cytokine signal reaches (50 → 100
+units; the rings, and around Makro the reach drawn now and the threshold as a dashed gold ring tagged
+"próg"), how many neutrophils answer (recruitment × 1…2.6), how fast they engulf and digest (× 1…1.9),
+how far they smell bacteria, how far interferon protects in the nose, how far the growth signal finds
+the stragglers while healing. A **held focus** (5 s Mendi, 3 s HALO above the threshold) fills the
+**respiratory burst** (also a little per engulf in a push): ready, the button glows gold; a tap, Space,
+or by itself after 6 s — for 6 s every neutrophil engulfs on contact and digests ×4, blue light. Rest
+blocks are **healing** (gauge "Gojenie"): no new bacteria come and division pauses (the swarm holds
+the line: a game convention), a **breathing guide** in the song's row swells and settles (in for 4, out
+for 6, §13.1) while the swarm spreads out and dozes, calm settles the inflammation (the warm glow around
+the wound breathes with it), the marrow refreshes the swarm (fresh neutrophils roll in), tapping spent
+cells has Makro tidy them, a drag across the wound weaves collagen (the repair starts under the surface:
+the wound bed's first strands show), and in the healing stage calm closes the wound. Blind pushes ("Na
+wyczucie", every 4th from the 3rd session): the rings and the gauge hide, the
+alarm stays at the base, and the block's share above the threshold is revealed at its end and paid as
+burst charge. Without a reliable signal everything stays at the base: never a loss.
+`meter()` = the alarm (push) / calm (rest); `padLevel` and the song follow `f.level` only in a sighted
+push (the song plays a gentle fixed level in rest and holds in a blind push).
+
+**The hands** (one finger, §12): a drag leads the swarm (Makro in the alarm, the T cells in the nose)
+to a point 56–84 px **above the finger**, golden-angle slots with flocking; a tap sends the nearest free
+defenders to the bacterium or infected cell under the finger (generous: 15 units), or from bare
+tissue to the nearest target (the smoke test's centre tap); in the vessel a tap stops the nearest
+rolling cell and a drag along it stops every one it passes; while healing, and in any rest on the skin,
+a drag across the wound lays collagen; the two round 60 px buttons (the burst, the NET) sit in the thumb zone. Space: the burst when
+ready, else the defenders to the nearest target; B the burst, N a NET. A **NET**: a charge every
+8-combo (one at the hunt's start; two with "Mocniejsze sieci"); the neutrophil nearest the densest
+cluster casts its DNA over it — the caught bacteria stop and dissolve — and crawls on without its lobed
+nucleus (vital NETosis, Yipp 2012).
+
+**Juice and beauty.** A palette like a stained slide: rose and coral tissue that deepens toward the
+vessel, pearl cells with lilac three-lobed nuclei (as Giemsa stains them) and eyes, lime, gold and teal
+bacteria, gold antibodies; light from baked glow sprites (no shadowBlur, no filters); cached layers
+(the air with a beam, the epidermis as cobblestones, collagen bundles, fibroblasts, bokeh, the venule's
+endothelium). Every engulf: the cheeks puff, pseudopods wrap, a pop, a fizz of sparks rising from the
+phagosome, a bloop whose pitch climbs with the combo (a bell every third), combo numbers, a 60–100 ms
+hit-stop on a burst, a NET and a stage won, haptics on the moments that matter; reduced motion: no
+shake, the burst's light softer.
+
+**The voice and the story.** Neo, a young neutrophil (appetite, a life of less than a day: "Mam mniej
+niż dobę, więc deser jem na początku"), and Makro, the veteran macrophage with bushy brows ("Siedzę w tej
+skórze od lat"): 31 moments × 3 lines in four languages, ≤ 90 characters, 2–4 s, one at a time, never
+over a card, a banner, a telegraph or a coach mark. The first session opens with a story card and the
+root verse; each stage opens with a short card — what happens, **"Naprawdę: … Tu: …"** (the real time
+against the game's), and the last "Wiedza" card found; the summary closes with a line and a passage
+(Prov 17:22 a wound closed, Exod 23:25 a loop done, Ps 121:7-8 the T cells' watch or a memory formed,
+Isa 54:17 a stage won with a burst or a NET).
+
+**The meta.** **Immune memory**: each pathogen (three bacteria, three rhinoviruses — memory works mostly
+for the same type) is remembered one level deeper (0–3) when its adaptive stage is cleared; next time
+its antibodies are there at once (no trip to the node, up to 75 % tagged from the start) and its
+virus meets more T cells. **Wiedza**: 30 cards, one sourced number each, at most two new a stage, so the
+collection spans sessions; the lobby lists them with their sources. **Defenders that join with play**:
+mast cells (40 pathogens: a second alarm source), NK cells (after the first T cells), monocytes (200: a
+second macrophage), the marrow's reserve (350), a big appetite (520: +4), stronger nets (750). Stars per
+stage and place, the longest streak, wounds healed.
+
+**The song** (`song.ts`, kit/song.ts): C major, 112 bpm — our verse (a white patrol squeezing through
+the wall and following the trail), the series' refrain, a second verse (golden antibodies; calm,
+breath, new skin), the refrain again; original words in four languages, never the viral song's;
+the pad and a pluck always, then bass and lead, bell and kick, snare and hats as the level rises; the
+sing-along line under the strip (the bubble takes its place while Neo talks); a switch in the lobby.
+
+**Honest by design** (§13.3, §13.4): the lobby's last line and the how-to's last tip: it visualises
+real processes and trains attention, it does not heal and does not replace treatment; no disease is
+named, the virus is "a cold virus"; nothing is killed in words — bacteria dissolve, a cell folds itself
+away, spent cells are tidied; no blood (the wound is a rose slit plugged by a golden fibrin net).
+
+**Sources** (every number on a card or a caption):
+Summers et al. 2010 Trends Immunol 31:318 (50–100 bn neutrophils/day); Mestas & Hughes 2004 J Immunol
+172:2731 (50–70 % of leukocytes); Lahoz-Beneytez et al. 2016 Blood 127:3431 (blood half-life ~19 h);
+Lämmermann et al. 2013 Nature 498:371 (crawling 10–20 µm/min, macrophages 3–5; the LTB4 swarm relay
+from >300 µm); Phillipson et al. 2006 J Exp Med 203:2569 (rolling ~40 µm/s) and Ley et al. 2007 Nat Rev
+Immunol 7:678 (the adhesion cascade); Proebstl et al. 2012 J Exp Med 209:1219 (~4 min through the
+endothelium, 15–40 min the wall); Kawai & Akira 2010 Nat Immunol 11:373 (10 human TLRs, TLR2);
+Cambier et al. 2023 Cell Mol Immunol 20:217 (CXCL8); Guyton & Hall, Textbook of Medical Physiology 12th
+ed. ch. 33 (3–20 bacteria a neutrophil, ~100 a macrophage); Segal 2005 Annu Rev Immunol 23:197 (engulfed
+in ~20 s, granules +20 s; MPO ~5 % of the protein); Winterbourn et al. 2016 Annu Rev Biochem 85:765
+(NOX2, MPO, HOCl); Brinkmann et al. 2004 Science 303:1532 and Yipp et al. 2012 Nat Med 18:1386 (NETs);
+Gibson et al. 2018 Proc R Soc B 285:20180789 (E. coli 20 min in the lab, ~15 h in the wild); Hayes et
+al. 2019 Front Immunol 10:598 (dendritic cells peak ~26 h); Hibi & Dosch 1986 Eur J Immunol 16:139
+(>10,000 antibodies/s); Merle et al. 2015 Front Immunol 6:257 and Ricklin et al. 2010 Nat Immunol 11:785
+(C3 ~1 mg/ml, C3b); Pollard & Bijker 2021 Nat Rev Immunol 21:83 (~2 weeks; memory 3–4 days); Morell et
+al. 1970 J Clin Invest 49:673 (IgG half-life 21 days); Heikkinen & Järvinen 2003 Lancet 361:51
+(rhinoviruses 30–50 % of colds); Lopez et al. 2013 Blood 121:2659 (perforin ~30 s, dying within 2 min);
+Halle et al. 2016 Immunity 44:233 (2–16 kills a day, mice); Kärre et al. 1986 Nature 319:675 (missing
+self); Qi et al. 2014 PNAS 111:13139 (≥100 million TCRs); Serhan & Savill 2005 Nat Immunol 6:1191 and
+Fadok et al. 1998 J Clin Invest 101:890 (efferocytosis, TGF-β); Landén et al. 2016 Cell Mol Life Sci
+73:3861 (the phases of healing; edges move within hours); Shoulders & Raines 2009 Annu Rev Biochem 78:929
+(collagen 1/3 of protein, 3/4 of the skin's dry weight); Wilkinson & Hardman 2020 Open Biol 10:200223
+(a scar up to 80 %); Amanna et al. 2007 N Engl J Med 357:1903 (antibody half-lives 50 to >200 years);
+Cavaillon 2021 J Venom Anim Toxins 27:e20200147 and Kaufmann 2019 Front Immunol 10:684 (Metchnikoff's
+rose thorns, 1882); Monteiro et al. 2015 Nat Commun 6:8055 (S. aureus ~1 µm).
+
+**Mobile first.** Upright: the strip (six stage dots, the stage, its goal) and the sing-along line under
+the HUD, the whole world (126 units high) in the band at one uniform scale with the venule by the thumb,
+capped on tall screens (the air above the skin takes the rest: a warm beam and bokeh); the two buttons
+in the bottom corners (60 px, 16 px off the edges, over the vessel's ends). On its side the song line
+moves into the strip's row so the world keeps its height (a neutrophil ≥ 8 px everywhere); on a desktop
+or a phone on its side the world (≤ 240 units wide) is centred and the buttons sit in the side margins.
+Cards are a bottom sheet on an upright phone. Tests: `auditTargets` at every `CHECK_SIZES` entry in four
+states, the thumb zone, the font floor. Measured (`scripts/arcade-mobile.mjs`, 2026-11-12): all six devices
+pass — 0 strings under 11 px; under 13 px only the kit's verse reference (11 px); 60 fps everywhere
+(small Android at 4× CPU slowdown); the game's own frame 0.9–2.6 ms; the play keeps 61 % (small phone)
+to 81 % (on its side) of the screen's height; German on the small phone and on its side passes too.
 
 ### 13.10 Światło ciała — the light of the body
 
