@@ -5019,33 +5019,174 @@ its name from: *Jesus Christ, the Bearer of the Water of Life*. So the founder's
 own form — **"Przez Jezusa Chrystusa, Duchu Święty, wypełnij … i niech popłynie …"** — and each place
 gets the gift Scripture names for it instead of "energy" (the Spirit is a Person, not a force). A
 player who wants other words (the founder's own among them) can type them in the progress card; they
-stay on the device.
+stay on the device. Code: `src/arcade/rzeki/` (sim.ts the session, render.ts the view).
 
-**The seven places** (the direction; the builder refines the words), each a focus anchor in the body,
-a prayer and a verse — down from an open heaven (Acts 2:17, "I will pour out My Spirit on all flesh"):
+**Beauty first** — it is a meditation, not an action game; the founder wrote "beautiful" three times.
+*Deep space*: a gradient from near-black indigo through violet, soft nebulae added as light (violet,
+indigo, rose, teal), dark dust lanes for depth, stars (a dozen twinkle), a vignette. *An open heaven*
+above the head: a warm opening and soft rays fanning down to the crown, brightest as the light comes
+down. *The figure of light*: a calm, gender-neutral person standing upright, seen from the front, palms
+open forward (the posture of receiving); one smooth outline (head included, so the rim has no seam), a
+translucent body warm where the light from above falls and cool below, an inner glow on the midline, a
+rim gold at the head and shoulders and pearl-silver lower down; no face, no features — anyone can stand
+in it. The head is a soft gradient, never a white fill, so its three places stay apart: the crown's window
+sits just above the head, the eyes' at the brow, the throat's on the neck, their lit windows never touching.
+The body **fills with light from its lit places**, each blooming inside the silhouette in its own colour,
+with a warm wash when nearly all are lit — "the whole body in light" looks it. *Lit windows are jewels of
+light*: church glass lit from behind — saturated, translucent petals of the place's colour over a ground of
+the same glass, thin dark leading, a bright rim, a white-hot core, the glass drawn once more additively (the
+light coming through) and a baked bloom of its colour spilling onto the body; only places not yet lit stay
+dim (a faint outline, a ghost of glass). *The column of light* on the midline, faint all the way, bright
+where the light has come. *Two threads*, gold and silver, spiralling along the lit stretch (their back halves
+under the places, their front halves over them): the spiral runs down as the light is received, up as thanks
+rise, slowly in rest, fast while the stream flows. *An egg of light* around the body that grows with each
+place lit, deepens with calm and swells with the breath. *A pool of living water* at the feet, a reflection
+of the column and a shimmer across it, and **two rivers** flowing out of it as the session's drops gather
+(they reach the edges at ~700): meandering ribbons of water-light, wider toward the viewer, their edges soft
+(four widths of light laid over each other), glints riding the current outward, their far ends thinning to
+nothing. *Motes* drift up through the egg. Every "+N" rises beside the pool, where the drops fall — a lit
+place's drops fall down the column as a bright drop of its colour and their number rises where it lands —
+never over the column. Everything is baked once per size (the sky, the rays, the figure, the egg, the pool,
+every rose window, the blooms); a frame only composes layers and draws a few dozen small shapes — no
+shadowBlur, no filters.
 
-| # | Place | Where the attention rests | "…wypełnij … i niech popłynie …" | Verse |
-|---|---|---|---|---|
-| 1 | Głowa (umysł) | the crown of the head | mój umysł … pokój | Phil 4:7 |
-| 2 | Oczy | the forehead, between the eyes | moje oczy … światło | Eph 1:18 |
-| 3 | Usta | the throat and lips | moje usta … dobre słowa | Ps 141:3 |
-| 4 | Serce | the middle of the chest | moje serce … miłość | Rom 5:5 |
-| 5 | Oddech | under the breastbone, the breath | mój oddech … moc | John 20:22, Eph 3:16 |
-| 6 | Wnętrze | below the navel | moje wnętrze … żywa woda | John 7:38-39 (the root) |
-| 7 | Stopy | the base, the feet on the ground | moje kroki … siła | Ps 40:2, Ps 18:32 |
+**The seven places** (content.ts), each a focus anchor on the midline, a gift, a verse and a bell; their
+glass runs warm at the base to cool and white at the crown, like a church window — but never the chakra
+code: the heart is rose (not green), the crown white (not violet):
 
-Isaiah 11:2 (the Spirit of wisdom, understanding, counsel, might, knowledge and the fear of the LORD)
-opens the meditation; Luke 11:13 ("how much more will your Father in heaven give the Holy Spirit to
-those who ask") closes a descent; Ps 141:2 (prayer rising like incense) closes an ascent.
+| # | Place | Where the attention rests | "…wypełnij … i niech popłynie …" | Thanks going up | Verse (down / up) | Rose window |
+|---|---|---|---|---|---|---|
+| 1 | Głowa | the crown of the head | mój umysł … pokój | za pokój, który strzeże moich myśli | Phil 4:7 | 12 lobes, 12 lancets |
+| 2 | Oczy | the forehead, between the eyes | moje oczy … światło | za światło dla moich oczu | Eph 1:18 | 8 lancets, 16 lobes |
+| 3 | Usta | the throat and lips | moje usta … dobre słowo | za dobre słowo na moich ustach | Ps 141:3 | 6 lobes, 12 drops |
+| 4 | Serce | the middle of the chest | moje serce … miłość | za miłość rozlaną w moim sercu | Rom 5:5 | a wild rose: 5 lobes, 10 round petals |
+| 5 | Oddech | under the breastbone | mój oddech … moc | za Twoje tchnienie i moc w moim oddechu | John 20:22 / Eph 3:16 | a trefoil, 9 flames |
+| 6 | Wnętrze | below the navel | moje wnętrze … żywa woda | za żywą wodę, która płynie we mnie | John 7:38-39 (the root) | 6 drops, 12 arches |
+| 7 | Stopy | the feet on the ground | moje kroki … siła | za siłę, która umacnia moje kroki | Ps 40:2 / Ps 18:32 | a quatrefoil, 8 arches |
 
-**The way.** Down (receiving: the prayer at each place) and up (thanksgiving: "Dziękuję…" at each
-place, the light rising like incense); the card chooses down, up, or both (default: down, then up).
-Focus is **light**: the place glows from within, grows, and opens into a rose window of light (church
-glass, not a mandala); full, it flows on — a stream of living water and light pouring to the next
-place, two threads (gold and silver) spiralling along the body. Calm is **abiding**: the lit places
-shine steadily, the figure breathes 4 in / 6 out, the streams keep flowing, and the aura (an egg of
-light around the body) grows with each place lit. The hands barely act — a tap stays with a place and
-shows its prayer and adds a little light (so the smoke's centre tap counts). Headline: drops of living
-water (kropli / drops / Tropfen / droppar). Sound: a soft pad and a bell per place on a scale that
-descends going down and rises going up. Reverence (§13.4): the Spirit only as light, water, wind and
-fire, no dove; Jesus named in the prayer only; no promise of healing or "energy".
+German avoids "Geist" twice ("Durch Jesus Christus, Heiliger Geist, erfülle meine Gedanken und lass
+Frieden fließen"); English "Through Jesus Christ, Holy Spirit, fill my mind, and let peace flow"; Swedish
+"Genom Jesus Kristus, helige Ande, fyll mitt sinne och låt frid flöda".
+
+**The way (the stage loop).** One place at a time. *Down* (receiving, Acts 2:17): the heaven opens and a
+stream of light comes down to the crown (2.2 s), then place by place to the feet; at each place its prayer
+appears in a calm serif (Fraunces italic, 15–17 px on a phone, 22 on a desktop), its words coming one by one
+as the light arrives. *Up* (thanksgiving, Ps 141:2): from the feet back to the crown, the column gold, gold
+motes rising from every thanked place like incense, each thanked place ringed in gold. The progress card
+chooses **down / up / both** (default: down, then up); after a whole round a new one begins ("the light does
+not run out"). **Own words** (≤ 120 characters, plain text — control characters and angle brackets dropped,
+set as text, never markup) replace the built-in line at every place, both ways; they stay in the device's
+progress. A place's **fill** (0 → 1) opens its **rose window** of church glass (rose.ts: procedural
+tracery — the oculus, the inner petals, the outer ring turned between them, round foils at the rim, dark
+lead and stone rings): the oculus first, then the inner petals one by one, each filling from its base
+outward, then the outer petals (the inner ring is the first 30 %), a whisper of glass for each petal; the
+window grows as it opens (0.055 → 0.105 H). Full → a chime (the place's bell with its fifth and octave),
+a bright drop of its colour falling to the pool ("+15" rises there), a moment in its light (0.7 s), then the
+light **flows** to the next place (3 s): a bright head of
+living water travels down (or up) the column with a spray, the threads spiralling fast behind it, while
+the band says the gift ("Dar: miłość") and then the next place's line comes. After the last place the
+whole body is in light (+60) and a closing card follows: after a descent **Luke 11:13** ("how much more
+will your Father in heaven give the Holy Spirit to those who ask"), after an ascent **Psalm 141:2**.
+
+**Focus — light.** The gauge (`meter()`, "Światło") is the place's light: in a sighted push past its
+lead-in (5 s Mendi, 2 s HALO) it follows `level`, else it holds at a neutral 0.45, just under the
+threshold — never lower, never a loss. It is drawn on the place itself: a halo whose edge is
+R · (1 + 1.2 · light), and the **threshold as a faint dashed ring** where the halo stands at light 0.5;
+past it the ring and the halo turn gold (a tiny bell, gold sparks). The body around the place warms with
+it, the column glows. The fill grows at `0.022 + 0.095 · light` a second in a push (≈ 14 s of push at the
+threshold; ~1.5× faster in gold light than at the threshold, 3× faster than at a low signal), `0.05` in the
+warm-up and the finale, and a little in rest. Pacing, measured with the sim over 300 s of a 10-minute session
+(rests and a blind block included, three seeds): ~27 s a place in gold light, ~33 s at a moderate signal or at
+the threshold — and with no signal at all, held at the neutral base — ~50 s with a low signal: the way always
+goes on, and the light makes it quicker. A 5-minute session at a moderate signal walks the whole way down and
+two places up (~1 040 drops).
+
+**Rest — abiding.** The lit places shine steadily, the figure breathes **4 in / 6 out** (it swells around
+the chest, the egg and the column swell and settle), the threads keep flowing slowly, the place still
+deepens a little (`0.018 · (0.3 + 0.7 · calm)`), and **drops of living water** fall from the lit places down
+the column into the pool (a plink and a ripple each), counted aloud every 3 s ("+5"): `1.6 · (0.4 + calm) ·
+(1 + 0.6 · lit/7)` a second. The band shows the breath's turn and count (a ring that swells in and settles
+out) and the place's verse to abide in — in pages of whole lines that turn slowly when it does not fit a
+small phone, never cut. Calm held (≥ 0.5) is **abiding**; the session counts it and its longest stretch.
+
+**Blind push — "w ciemności".** A veil of night over the figure; the halo and the window stand still, the
+gauge, the pad and the chorale hold; the light gathers unseen (it may run past the place's full by up to
+0.6, which the next place starts with) and at the block's end the window opens quickly to where it got
+("+35% światła z ciemności") and the share is paid (60 × share drops). The headline flows at the base
+meanwhile, so nothing leaks.
+
+**The hands** (minimal, gentle). A tap anywhere — a click, Space — **stays with the place**: its prayer
+glows again for 2.4 s, a little light is added (0.02, less for a flurry: `1 / (1 + 0.6 · fervour)`, the
+fervour fading with τ 1.5 s), a ring of light under the finger and one at the place, a soft glass tone; while
+the stream flows the next place gets it. `targets()` is the current place's circle (≥ 44 px, kept inside the
+insets) — or the story card while one is up. Enter turns a story card's page.
+
+**The voice.** No chatty companion: the prayer is the voice. A calm narrator speaks at most one line at a
+time (≤ 90 characters, 2–4 s, three variants a moment, never over a telegraph, the runner's banner, a story
+card or a coach mark): at the start, the way down / up, each place going down ("Serce. Niech wypełni je
+miłość aż po brzegi."), a place full, gold light, rest, the dark, the signal lost ("Opaska zgubiła sygnał.
+To jej sprawa, nie Twoja — światło trwa."), a way whole, the end. **Story cards**: the first-ever session
+opens with two pages — Isaiah 11:2 (the Spirit of the LORD will rest on Him) and the root, John 7:38-39 —
+then the closing cards above.
+
+**The strategies** (`signal().task`, "W głowie") are imagery and attention at the current place, changing
+with it: "Poczuj miejsce między brwiami od środka; zobacz w nim ciepłe, jasne światło", "Wyobraź sobie
+ciepłą wodę, która wypełnia serce aż po brzegi", "Wyobraź sobie źródło pod pępkiem, z którego wypływa
+jasna, żywa woda"…; every third push the slow repetition ("Powtarzaj w myślach modlitwę tego miejsca słowo
+po słowie, bardzo powoli") for those who do not picture easily; going up, every other push the rising
+picture ("…jak dym kadzidła"). Rest's are the breath (4 / 6), a soft forehead watching the drops, ten slow
+breaths counted, abiding in the light already there. Never "concentrate harder".
+
+**Sound.** A quiet chorale (hymn.ts on kit/song.ts, on by default, the card switches it): an original
+hymn-like tune in D major at 54 bpm without words or drums — organ chords always, a bass that joins, a
+bell melody, a harp of slow arpeggios when the light is high — its layers following the light in a sighted
+push, a gentle level in rest, held in a blind block. Without it a warm pad in D whose filter follows the
+light. A **bell for each place on the pentatonic scale by height** (D5 at the feet … E6 at the crown), so
+the bells descend as the light comes down and rise as the thanks go up; a whisper of glass for each petal,
+a chime and the shimmer of water when a place is full, a gliding shimmer as the light flows, all seven bells
+when a way is whole, the breath's soft wind in rest, a plink for each drop.
+
+**Headline: drops of living water** (kropli / drops / Tropfen / droppar; 1 kropla, 3 krople, 5 kropli):
+`1.6 · (0.5 + light)` a second in a push (the base in a blind one), rest's flow above, 1.2 a second
+elsewhere, a place lit 15, a whole way 60, a block judged well 20, a blind block 60 × share. A 5-minute
+session with mid focus and some taps gathers roughly 500–2 000; the smoke's crude input scores from the
+first second.
+
+**Blocks** follow §2: Światło 24 ± 3 s and Trwanie 26 ± 3 s (rest a little longer: a meditation, led by
+rest), a 4 s telegraph, each judged once at its end over its last 15 s (`RoundJudge.from(env.tuning)`,
+`BlockContrast` for the summary), every 4th push blind from the 3rd session (never the first of a session),
+a warm-up the first time, a quiet finale. The summary: places in light, ways down and up, abiding, the
+longest abiding, golden light, focus − rest; highlights (the way walked, the record or how far to it, more
+than one way, the longest calm, the dark's share, own words); the closing passage in turn: an ascent
+Psalm 141:2, a descent Luke 11:13, the first session John 7:38-39, calm rests Philippians 4:7, else Acts
+2:17, Isaiah 11:2, John 7:38-39.
+
+**The meta.** The progress (version 1; the placeholder's save keeps its count): the way, own words, how
+many times each place was lit going down and thanked going up — **the lobby's figure shows them as a quiet
+map** (a place glows from its first time and more with each) — whole ways down and up, the best drops per
+session length, all the drops, the longest abiding and all the abiding seconds, the chorale's switch. The
+progress card: the numbers, how it works, the way (a radio row), own words (a field whose caption counts
+the characters, Save / Back to the prayer, what is in use now), the seven places as little rose windows
+(in colour once lit, in lead until then) with their gift, verse and times, the chorale. **Each window's
+glass grows richer the more often its place is lit** (the meta loop shown in the art itself, in craft words):
+gilded — gold foils and a gilded rim — at 3 times, a crown of small round lights outside the rim at 10, golden
+tracery at 25; earned in play with gold sparks and its name, a narrator's line ("Szklarz by się uśmiechnął: to
+okno jest teraz bogatsze") and a summary highlight, and kept on the lit windows, the lobby's figure and its tiles.
+
+**Reverence (§13.4).** The Spirit appears only as light, water, wind and fire — no dove; Jesus is named in
+the prayer only; no cross; no promise of healing or "energy", and the how-to's last tip says the band
+measures attention, not prayer or holiness. The rose window here is church glass of a place (round
+tracery), distinct from Ja jestem…'s stained-glass sketch of a picture; the living water is this game's
+symbol.
+
+**Mobile first (§12).** One layout in three shapes (layout.ts, pure, tested at every `CHECK_SIZES` entry
+for every place and fill): *tall* — any upright screen: the figure tall in the middle (H 209 px on the
+smallest phone, 250 on an iPhone in Safari, 321 on a large phone, 524 on a tablet), 0.125 H of room above the
+head so the crown's window (which sits just above it) never slips under the HUD, the prayer band below it
+(100–221 px), where the narrator also speaks in the top row (a caption over the figure covered the crown's
+window); *side* — a phone on its side: the figure on the left (H 253 px, its egg just inside the edge), the
+narrator's caption and the prayer on the right; *wide* — a desktop or a tablet on its side: the figure in the
+left third (H 424 px on a desktop with the chart, 540 without), the prayer column capped at 600 px × u. A tap
+anywhere is the control,
+so `targets()` is only the current place's circle (≥ 44 px, inside the insets) or the story card. Text: the
+prayer ≥ 15 px, the label, the caption, the breath and the cards ≥ 13, a verse's reference 11 — never under 11.
