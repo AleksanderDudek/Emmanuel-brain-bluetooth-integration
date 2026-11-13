@@ -230,7 +230,7 @@ function howParts(entry: ArcadeEntry, howto: HowTo | null, tool: Tool, touch: bo
   return {
     goal: howto?.goal ? h('p', { class: 'how-goal' }, howto.goal) : null,
     hands: shown.length
-      ? shown.map(c => row('hands', t(`gest.${c.gesture}`), c.text, gestureIcon(c.gesture)))
+      ? shown.map(c => row('hands', t(!touch && c.gesture === 'tap' ? 'gest.click' : `gest.${c.gesture}`), c.text, gestureIcon(c.gesture)))
       : [row('hands', t('cal.handsTitle'), entry.how[2] ?? '')],
     brain: [row('focus', t('ban.focus'), `→ ${entry.brain.focus}`), row('rest', t('ban.rest'), `→ ${entry.brain.rest}`)],
     tips: howto?.tips?.length ? h('ul', { class: 'how-tips' }, howto.tips.slice(0, 2).map(x => h('li', null, x))) : null,
@@ -246,6 +246,15 @@ export function howToPlay(entry: ArcadeEntry, howto: HowTo | null, tool: Tool, t
   const p = howParts(entry, howto, tool, touch);
   return h('div', { class: 'arcade-howbrain' },
     h('p', { class: 'eyebrow' }, t('how.title')), p.goal, h('ul', null, p.hands, p.brain), p.tips, p.meter);
+}
+
+/**
+ * The big screen's left column (DESIGN §14): the goal, the hands (keys included — a desktop has them) and
+ * the tips, always in sight beside the play, so a desktop player never has to pause to look them up.
+ */
+export function howToSide(entry: ArcadeEntry, howto: HowTo | null, tool: Tool): HTMLElement {
+  const p = howParts(entry, howto, tool, false);
+  return h('div', { class: 'arcade-howbrain arcade-side-how' }, p.goal, h('ul', null, p.hands), p.tips);
 }
 
 /**

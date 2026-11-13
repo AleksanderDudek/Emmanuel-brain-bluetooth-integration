@@ -24,7 +24,7 @@ import { dayKey, daySeed, saveProgress } from './kit/progress';
 import { ArcadeSession, type CarriedCalibration } from './kit/session';
 import { NO_INSETS, coarsePointer, safeAreas } from './kit/mobile';
 import { FREE_PHASE, type ArcadeGame, type ArcadeModule, type ArcadeOutcome, type Insets, type SignalPhase, type TapTarget } from './kit/types';
-import { MendiPanel, howToPages, howToPlay } from './mendi';
+import { howToPages, howToPlay, howToSide, MendiPanel } from './mendi';
 import type { ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
 
@@ -101,7 +101,7 @@ export class ArcadeRunner {
     wrap: HTMLElement; canvas: HTMLCanvasElement; hud: HTMLElement; overlay: HTMLElement;
     time: HTMLElement; clock: HTMLElement; hold: HTMLElement; pause: HTMLButtonElement;
     chip: HTMLElement | null; chipBar: HTMLElement | null; chipHold: HTMLElement | null; sim: HTMLButtonElement | null;
-    dock: SignalDock; dockBtn: HTMLButtonElement; banner: HTMLElement; panel: MendiPanel; marks: HTMLElement;
+    dock: SignalDock; dockBtn: HTMLButtonElement; banner: HTMLElement; panel: MendiPanel; marks: HTMLElement; top: HTMLElement;
     cal?: { bar: HTMLElement; text: HTMLElement; reason: HTMLElement; tip: HTMLElement };
   } | null = null;
   private tipTimer: ReturnType<typeof setInterval> | null = null;
@@ -305,8 +305,12 @@ export class ArcadeRunner {
     const top = h('div', { class: 'arcade-top' },
       h('div', { class: 'arcade-time', role: 'progressbar', 'aria-label': t('run.time'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, timeBar),
       clock, sim, help, dockBtn, pause);
+    // a wide big screen's left column under the panel (DESIGN §14; CSS shows it only there): the game's
+    // title and how to play, in sight all the time (the help card says the same, so readers skip it)
+    const side = h('aside', { class: 'arcade-side', 'aria-hidden': 'true' },
+      h('h2', null, entry.title), howToSide(entry, mod.howto?.() ?? null, this.session!.tool));
     const wrap = h('div', { class: docked ? 'arcade docked' : 'arcade', role: 'application', tabindex: '-1', 'aria-label': t('run.keys', { title: entry.title }) },
-      canvas, hud, marks, panel.el, panel.score, dock.el, top, chip, hold, banner, overlay);
+      canvas, hud, marks, panel.el, panel.score, side, dock.el, top, chip, hold, banner, overlay);
     if (this.touch) wrap.classList.add('touch');
     // a touch that began on the signal dock plays shifted onto the canvas's edge (see below), all its way
     const shift = new Map<number, { dx: number; dy: number }>();
@@ -339,7 +343,7 @@ export class ArcadeRunner {
     // (should the canvas not have taken the pointer over, its end still clears the shift)
     for (const end of ['pointerup', 'pointercancel'] as const) dock.el.addEventListener(end, e => { shift.delete(e.pointerId); });
     this.root.replaceChildren(wrap);
-    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn, banner, panel, marks };
+    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn, banner, panel, marks, top };
     wrap.focus({ preventScroll: true });
   }
 
@@ -392,7 +396,7 @@ export class ArcadeRunner {
       top: this.hudTop(),
       right: c.right < w.right - 1 ? 0 : sa.right,
       bottom: c.bottom < w.bottom - 1 ? 0 : sa.bottom,
-      left: sa.left,
+      left: c.left > w.left + 1 ? 0 : sa.left,
     };
   }
 
@@ -452,9 +456,15 @@ export class ArcadeRunner {
   private hudTop(): number {
     const ui = this.ui;
     if (!ui) return 0;
-    const c = ui.canvas.getBoundingClientRect().top;
-    const b = Math.max(ui.panel.el.getBoundingClientRect().bottom, ui.panel.score.getBoundingClientRect().bottom);
-    return Math.max(0, Math.round(b - c + 6));
+    // only what lies over the canvas counts: on a big screen the panel and the score stand in side columns
+    // beside it (DESIGN §14), and only the top bar overlaps the play
+    const c = ui.canvas.getBoundingClientRect();
+    let b = c.top;
+    for (const el of [ui.panel.el, ui.panel.score, ui.top]) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0 && r.right > c.left + 1 && r.left < c.right - 1) b = Math.max(b, r.bottom);
+    }
+    return Math.max(0, Math.round(b - c.top + 6));
   }
 
   /** The "?" button: pause, and show how to play (the same card as on the calibration screen). */

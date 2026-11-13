@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { splitFont } from '../src/arcade/kit/juice';
-import { CHECK_SIZES, MIN_TAP, MIN_TEXT, auditTargets, fitText, hitRect, hits, target, uiScale } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_MAX, MIN_TAP, MIN_TEXT, auditTargets, fitText, hitRect, hits, screenKind, target, uiScale } from '../src/arcade/kit/mobile';
 
 const SIZE = /(\d+(?:\.\d+)?)px/;
 const sizeOf = (font: string): number => Number(font.match(SIZE)?.[1] ?? 10);
@@ -40,6 +40,29 @@ describe('kit/mobile', () => {
     expect(uiScale(844, 390)).toBe(1);
     expect(uiScale(1280, 672)).toBeCloseTo(1.3);
     expect(uiScale(820, 1052, 1.2)).toBeCloseTo(1.2);
+  });
+
+  it('keeps growing the UI on a big screen with the canvas, up to its cap (DESIGN §14)', () => {
+    expect(uiScale(1440, 662)).toBeCloseTo(1.3);              // a laptop: as a desktop was
+    expect(uiScale(1280, 800)).toBeCloseTo(1.3);              // a smaller desktop stays at its cap
+    expect(uiScale(1190, 960)).toBeCloseTo(1190 / 880, 3);    // a Full HD monitor's middle column
+    expect(uiScale(1587, 1300)).toBeCloseTo(1587 / 880, 3);   // a 2560 × 1440 monitor's
+    expect(uiScale(3800, 2000)).toBe(DESK_MAX);
+    expect(uiScale(1190, 960, 1.15)).toBeGreaterThan(1.15);    // a game's own phone cap does not hold a big screen back
+    expect(uiScale(1180, 520)).toBeCloseTo(1.3);              // too short for a desktop's growth: a tablet's
+  });
+
+  it('tells the kind of screen from the canvas and the pointer', () => {
+    expect(screenKind(360, 366, true)).toBe('phone');
+    expect(screenKind(601, 292, true)).toBe('phone-side');
+    expect(screenKind(820, 860, true)).toBe('tablet');
+    expect(screenKind(1180, 700, true)).toBe('tablet');       // a big tablet is still a finger's screen
+    expect(screenKind(1280, 672, false)).toBe('desktop');
+    expect(screenKind(1440, 662, false)).toBe('desktop');
+    expect(screenKind(1190, 960, false)).toBe('big');
+    expect(screenKind(1587, 1300, false)).toBe('big');
+    expect(screenKind(700, 420, false)).toBe('phone-side');   // a narrow desktop window plays like a phone
+    expect(screenKind(900, 640, false)).toBe('tablet');
   });
 
   it('fits a label by shrinking to the floor, then cuts it with an ellipsis', () => {

@@ -53,6 +53,11 @@ const DEVICES = {
   side: { name: 'phone on its side', w: 812, h: 360, dpr: 3, mobile: true, ua: IOS_UA, throttle: 2, landscape: true },
   tablet: { name: 'tablet', w: 820, h: 1180, dpr: 2, mobile: true, ua: IPAD_UA, throttle: 2 },
   desktop: { name: 'desktop', w: 1280, h: 800, dpr: 1, mobile: false, ua: null, throttle: 1 },
+  // big screens (DESIGN §14): a laptop, a Full HD monitor and a 2560 × 1440 one, each with a maximised
+  // browser's viewport (the window's tabs and toolbar take the rest)
+  laptop: { name: 'laptop', w: 1440, h: 790, dpr: 2, mobile: false, ua: null, throttle: 1 },
+  fullhd: { name: 'Full HD monitor', w: 1920, h: 960, dpr: 1, mobile: false, ua: null, throttle: 1 },
+  qhd: { name: '2560 × 1440 monitor', w: 2560, h: 1300, dpr: 1, mobile: false, ua: null, throttle: 1 },
 };
 const picked = arg('devices', 'small,iphone,android,side,tablet,desktop').split(',').filter(Boolean);
 for (const d of picked) if (!DEVICES[d]) { console.error(`unknown device "${d}" (${Object.keys(DEVICES).join(', ')})`); process.exit(2); }

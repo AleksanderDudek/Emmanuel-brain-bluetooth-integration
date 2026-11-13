@@ -5190,3 +5190,51 @@ left third (H 424 px on a desktop with the chart, 540 without), the prayer colum
 anywhere is the control,
 so `targets()` is only the current place's circle (≥ 44 px, inside the insets) or the story card. Text: the
 prayer ≥ 15 px, the label, the caption, the breath and the cards ≥ 13, a verse's reference 11 — never under 11.
+
+## 14. Desktop first too: every game on a big screen (2026-11-13)
+
+After the v4 round went live the founder wrote: *"now I don't see the games in the browser version. I want
+two versions of the game interface: mobile (it exists) and desktop (it is missing now) — take the big
+screen into account; choose the game's look from the detected screen and its parameters; and show the
+games in every menu."* The audit agreed: on a Full HD monitor the app's column stopped at 1 200 px with
+a third of the screen empty; inside a game the runner's HUD took the top 257 px and the dock the bottom
+173 px, leaving a 1 920 × 530 band (3.6 : 1) for games designed for an upright phone, and `uiScale`
+stopped at 1.3 — a phone's UI drawn a little larger in the middle of a big screen.
+
+### 14.1 The screen decides (`kit/mobile.ts`)
+
+* `screenKind(w, h, touch)` → `phone` · `phone-side` · `tablet` · `desktop` · `big`: a finger means a phone
+  or a tablet whatever the size; a mouse with a desktop-sized canvas a desktop; one at least 860 px on its
+  short side (`DESK_BIG`, a Full HD monitor's middle column and up) a big screen.  Games choose their
+  layout family from it.
+* `uiScale(w, h, max)` keeps the phone's 1 and the tablet's cap, and on a big screen grows past the cap with
+  the canvas — `min(w / 880, h / 600)`, up to `DESK_MAX` 2.2: 1.35 in a Full HD monitor's middle column
+  (1 190 × 960), 1.8 on a 2 560 × 1 440 monitor.  Smaller desktops (1 280 × 672–800, a 1 440 laptop) stay
+  at their cap, so nothing changes there.
+* `CHECK_SIZES` adds a laptop (1 440 × 662 under a top HUD) and the middle columns of a Full HD
+  (1 190 × 960) and a 2 560 × 1 440 monitor (1 587 × 1 300) — every game's layout test audits them;
+  `scripts/arcade-mobile.mjs` gains the devices `laptop`, `fullhd` and `qhd`.
+
+### 14.2 The runner on a big screen
+
+* **The HUD grows with the screen** (`--hud-k`, a mouse and a large window: 1.2 from 1 580 × 840, 1.35
+  from 1 880 × 920, 1.65 from 2 300 × 1 200, 2 from 3 000 × 1 600): the top bar, the band's panel, the score,
+  the dock and the cards zoom as wholes (the runner reads their real size for `insets()`), the banner and
+  the coach mark scale their type.
+* **Side columns on a wide big screen** (a mouse, at least 1 500 × 700, wider than 3 : 2): the band's panel
+  stands in a left column with the game's title and how to play under it (`howToSide`: the goal, the hands
+  with the keys, the tips — always in sight, so a desktop player never pauses to look), the score and the
+  signal chart with its verdict in a right column, and **the game takes the middle at full height** —
+  1 190 × 960 on a Full HD monitor instead of 1 920 × 530.  `hudTop()` now counts only the HUD that lies
+  over the canvas (the top bar there), and an edge a column covers is no device edge in `insets()`.
+  A laptop and anything narrower keep the top HUD and the dock below.
+* Mouse words: the how-to's chip for a tap says "Kliknij" without a touch screen.
+
+### 14.3 Each game on a big screen (the desktop pass)
+
+Every game, by its builder: the world and its art fill the big canvas (the camera zooms in, the board
+grows, no phone layout lost in the middle); type and controls follow `uiScale`; the controls the mouse
+uses again and again sit beside the play rather than in a phone's thumb zone; hover answers the mouse
+(a highlight, a cursor), the keys are shortcuts listed in `howto()`; hints speak of clicking when there is
+no touch; the phone's layouts stay exactly as they were (the audit's small, iphone and side devices).
+Each game's part follows in §14.5.

@@ -26,13 +26,44 @@ export interface Rect { x: number; y: number; w: number; h: number }
 
 export const NO_INSETS: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
 
+/** A desktop canvas at least this wide and tall (CSS px) is a desktop's (§14). */
+export const DESK_MIN_W = 1024;
+export const DESK_MIN_H = 560;
+/** A desktop canvas this tall on its short side (a Full HD monitor's middle column and up) is a big screen's: its UI grows. */
+export const DESK_BIG = 860;
+/** The largest UI scale, on a large monitor (a 2560 × 1440 screen and up). */
+export const DESK_MAX = 2.2;
+
 /**
  * A UI scale for a canvas of w × h CSS px that starts from the phone: 1 for anything up to a phone's
- * 390 px short side (upright or on its side), growing to `max` on a tablet or a desktop.  Size the
- * play's UI for 1 and it is readable and tappable on the smallest phone; never scale below 1.
+ * 390 px short side (upright or on its side), growing to `max` on a tablet.  Size the play's UI for 1
+ * and it is readable and tappable on the smallest phone; never scale below 1.
+ *
+ * A big screen's canvas (at least DESK_MIN_W wide and DESK_BIG on its short side) keeps growing past
+ * `max`, up to DESK_MAX: 1.35 in a Full HD monitor's middle column (1190 × 960), 1.8 on a 2560 × 1440
+ * one — a big, readable game, not a phone's UI lost in it (§14).  Smaller desktops stay at `max`.
  */
 export function uiScale(w: number, h: number, max = 1.3): number {
-  return clamp(Math.min(w, h) / 390, 1, max);
+  const phone = clamp(Math.min(w, h) / 390, 1, max);
+  if (w < DESK_MIN_W || Math.min(w, h) < DESK_BIG) return phone;
+  return Math.max(phone, clamp(Math.min(w / 880, h / 600), 1, Math.max(max, DESK_MAX)));
+}
+
+/**
+ * The kind of screen a game lays itself out for (§14): an upright phone, a phone on its side, a tablet,
+ * a desktop, or a big desktop (a Full HD monitor and up).  From the canvas (CSS px) and the pointer:
+ * a finger means a phone or a tablet whatever the size; a mouse with a desktop-sized canvas means a
+ * desktop, and one at least 860 px on its short side (a Full HD monitor's middle column and up) a big
+ * desktop.  A small desktop window plays like a tablet.
+ */
+export type ScreenKind = 'phone' | 'phone-side' | 'tablet' | 'desktop' | 'big';
+
+export function screenKind(w: number, h: number, touch: boolean): ScreenKind {
+  const short = Math.min(w, h);
+  if (touch && short < 600) return w > h ? 'phone-side' : 'phone';
+  if (!touch && short < 480) return w > h ? 'phone-side' : 'phone';   // a narrow desktop window
+  if (touch || w < DESK_MIN_W && h < DESK_BIG || h < DESK_MIN_H) return 'tablet';
+  return short >= DESK_BIG ? 'big' : 'desktop';
 }
 
 /** A rectangle grown around its centre to at least `min` on each side (a small icon keeps a finger-sized target). */
@@ -145,4 +176,9 @@ export const CHECK_SIZES: readonly { name: string; w: number; h: number; insets:
   { name: 'tablet', w: 820, h: 1052, insets: { top: 192, right: 0, bottom: 0, left: 0 } },
   { name: 'desktop', w: 1280, h: 672, insets: { top: 192, right: 0, bottom: 0, left: 0 } },
   { name: 'desktop (chart off)', w: 1280, h: 800, insets: { top: 192, right: 0, bottom: 0, left: 0 } },
+  // big screens (§14), measured in a maximised browser: a laptop keeps the HUD on top; a Full HD and a
+  // 2560 × 1440 monitor put it in side columns and give the game the middle at full height
+  { name: 'laptop (1440 × 790)', w: 1440, h: 662, insets: { top: 192, right: 0, bottom: 0, left: 0 } },
+  { name: 'Full HD monitor (the middle column)', w: 1190, h: 960, insets: { top: 98, right: 0, bottom: 0, left: 0 } },
+  { name: '2560 × 1440 monitor (the middle column)', w: 1587, h: 1300, insets: { top: 118, right: 0, bottom: 0, left: 0 } },
 ];
