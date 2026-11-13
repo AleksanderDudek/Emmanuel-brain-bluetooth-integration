@@ -99,6 +99,23 @@ export function whyNot(a: Activity, tool: Tool | null, short = false): string | 
 }
 
 /** Draw the arcade cards' art in `root` (after it is laid out: a hidden canvas has no size). */
+/**
+ * A game's or an exercise's tile (Start's rows, the games strip in every menu): its art, its tag (the bands,
+ * or "Gra dnia"), its title and one line — why it cannot run now, or its tagline.
+ */
+export function activityTile(a: Activity, tool: Tool | null, today: string, extra = ''): HTMLElement {
+  const why = whyNot(a, tool, true);
+  const note = polishNote(a);
+  return h('a', { class: `tile${a.id === 'focus' ? ' feature' : ''}${extra}`, href: a.href, 'data-activity': a.id, 'aria-disabled': String(!!why && !a.optional) },
+    a.id === 'focus' ? h('canvas', { 'aria-hidden': 'true' })
+      : h('div', { class: `tile-art ${a.art}` }, a.arcade ? h('canvas', { class: 'arcade-art', 'aria-hidden': 'true' }) : artImage(a)),
+    h('span', { class: 'tag' }, a.id === today ? t('tag.today') : bandTags(a).join(' · ')),
+    note ? h('span', { class: 'lang-note' }, note) : null,
+    h('b', null, a.title),
+    h('small', null, why ?? a.tile ?? (a.id === 'focus' ? t('tile.focus') : a.arcade ? a.arcade.tagline
+      : a.optional ? t('tile.holy') : t('tile.balance'))));
+}
+
 export function drawArcadeCards(root: HTMLElement, list: Activity[]): void {
   requestAnimationFrame(() => {
     for (const a of list) {

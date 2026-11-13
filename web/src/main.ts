@@ -26,6 +26,7 @@ import { DeviceSheet, simScenarioLabel, simStateLabel } from './ui/device-sheet'
 import { $, h, run, toast } from './ui/dom';
 import { EegMonitor } from './ui/eeg-monitor';
 import { FocusRunner, FocusSetup } from './ui/focus';
+import { GameStrip, type StripKind } from './ui/game-strip';
 import { GameLayer } from './ui/games';
 import { LanguagePicker } from './ui/language';
 import { renderMonitor } from './ui/monitor';
@@ -77,6 +78,28 @@ async function main(): Promise<void> {
   let today = { id: gameOfDay().id, view: todayCard() };
   let played = new Set<string>();
   const gameViews = () => [today.view, ...kindCards, holyCards];
+  // games in every menu (DESIGN §14.4): a strip of game tiles in each view that is not about games
+  const strips: Record<string, { strip: GameStrip; slot: string }> = {
+    trening: { strip: new GameStrip('training'), slot: 'stripTraining' },
+    sygnal: { strip: new GameStrip('signal'), slot: 'stripSignal' },
+    sesje: { strip: new GameStrip('again'), slot: 'stripAgain' },
+    ustawienia: { strip: new GameStrip('settings'), slot: 'stripSettings' },
+    arcade: { strip: new GameStrip('more' satisfies StripKind), slot: 'stripMore' },
+  };
+  for (const { strip, slot } of Object.values(strips)) $(slot).append(strip.el);
+  /** The games played, most recent first (the strips' "play again"). */
+  let recent: string[] = [];
+  const renderStrip = () => {
+    const r = router.current, s = strips[r.view];
+    // only the view in sight: a hidden strip would draw its cards at zero size and keep them blank
+    if (s) s.strip.render(hub.tool, { today: gameOfDay().id, recent, current: r.view === 'arcade' ? r.arcade ?? null : null });
+  };
+  // the Games tab's section menu: a chip per section that has games, jumping to its heading
+  const sections = [...KINDS.filter(k => GAME_ACTIVITIES().some(a => a.arcade?.kind === k)).map(k => ({ id: `gk-${k}`, label: tPage(`gry.kind.${k}`) })),
+    { id: 'gk-holy', label: 'HolyHolyHoly' }];
+  $('gamesNav').replaceChildren(...sections.map(x => h('button', { class: 'chip', type: 'button', on: {
+    click: () => document.getElementById(x.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+  } }, x.label)));
   const buy = new BuyBox();
   const support = new Support();
   const awake = new ScreenAwake();
@@ -86,6 +109,8 @@ async function main(): Promise<void> {
     trainings = list;
     start.setTrainings(list);
     played = new Set(list.flatMap(r => (r.kind === 'game' && r.game ? [r.game.id] : [])));
+    recent = [...played];   // the list is newest first, and a Set keeps the first time it saw each id
+    renderStrip();
     for (const v of gameViews()) v.setPlayed(played);
     if (router.current.view === 'sesje') sessions.renderTrainings(list);
   };
@@ -171,6 +196,7 @@ async function main(): Promise<void> {
       sessions.renderTrainings(trainings);
     }
     if (r.view === 'ustawienia') void settingsView.renderStorage();
+    renderStrip();
     if (r.game) games.open(r.game); else games.close();
     needsSig = '';
     renderStatus(hub.status);
@@ -250,6 +276,7 @@ async function main(): Promise<void> {
     if (v === 'focus') focusSetup.render(s);
     if (v === 'arcade') lobby.render(s);
     if (v === 'karty') cards.renderStatus(s);
+    if (strips[v]) renderStrip();   // a band's change rewrites the tiles' notes
     if (v === 'trening') activities.render(s, settings.training.scene);
     if (v === 'gry') {
       for (const v of gameViews()) v.render(s, settings.training.scene);

@@ -142,6 +142,7 @@
       <p class="lede"><span data-i18n="trening.lede">Ćwiczenia neurofeedbacku z opaską połączoną w aplikacji.</span> <a class="acc" href="#gry" data-i18n="trening.gamesLink">Gry znajdziesz w zakładce Gry →</a></p>
     </header>
     <div class="activities" id="activities"></div>
+    <div class="strip-slot" id="stripTraining"></div>
     <aside class="buy" data-buy hidden></aside>
     <aside class="support" data-support hidden></aside>
   </section>
@@ -152,25 +153,26 @@
       <h1 id="gryTitle" data-i18n="gry.title">Gry</h1>
       <p class="lede" data-i18n="gry.lede">Gry otwierają się tutaj i od razu czytają opaskę połączoną w aplikacji (albo jej symulator) — bez ponownego parowania.</p>
     </header>
+    <nav class="games-nav" id="gamesNav" aria-label="Działy gier" data-i18n-attr="aria-label:gry.nav"></nav>
     <div class="card games-status" id="gamesStatus" role="status"></div>
     <div class="activities games" id="gameOfDay"></div>
     <div class="row-title"><h2 class="section-title" data-i18n="gry.training">Gry treningowe</h2><span class="muted" data-i18n="gry.trainingNote">Mendi albo HALO · każda sesja liczy się do wyniku dnia i serii</span></div>
-    <h3 class="games-kind" data-i18n="gry.kind.vision">Wizualizacje</h3>
+    <h3 class="games-kind" id="gk-vision" data-i18n="gry.kind.vision">Wizualizacje</h3>
     <div class="activities games games-grid" id="games-vision"></div>
-    <h3 class="games-kind" data-i18n="gry.kind.body">Weź moc, obudź się</h3>
+    <h3 class="games-kind" id="gk-body" data-i18n="gry.kind.body">Weź moc, obudź się</h3>
     <p class="games-note" data-i18n="gry.bodyNote">Cztery gry o prawdziwych procesach w Twoim ciele. To wizualizacja i trening uwagi — nie zastępuje leczenia.</p>
     <div class="activities games games-grid" id="games-body"></div>
-    <h3 class="games-kind" data-i18n="gry.kind.puzzle">Łamigłówki</h3>
+    <h3 class="games-kind" id="gk-puzzle" data-i18n="gry.kind.puzzle">Łamigłówki</h3>
     <div class="activities games games-grid" id="games-puzzle"></div>
-    <h3 class="games-kind" data-i18n="gry.kind.run">Biegi</h3>
+    <h3 class="games-kind" id="gk-run" data-i18n="gry.kind.run">Biegi</h3>
     <div class="activities games games-grid" id="games-run"></div>
-    <h3 class="games-kind" data-i18n="gry.kind.arcade">Zręcznościowe</h3>
+    <h3 class="games-kind" id="gk-arcade" data-i18n="gry.kind.arcade">Zręcznościowe</h3>
     <div class="activities games games-grid" id="games-arcade"></div>
-    <h3 class="games-kind" data-i18n="gry.kind.strategy">Strategiczne</h3>
+    <h3 class="games-kind" id="gk-strategy" data-i18n="gry.kind.strategy">Strategiczne</h3>
     <div class="activities games games-grid" id="games-strategy"></div>
-    <h3 class="games-kind" data-i18n="gry.kind.craft">Twórcze</h3>
+    <h3 class="games-kind" id="gk-craft" data-i18n="gry.kind.craft">Twórcze</h3>
     <div class="activities games games-grid" id="games-craft"></div>
-    <div class="row-title mt16"><h2 class="section-title">HolyHolyHoly</h2><span class="muted" data-i18n="gry.holyNote">Mendi · działają też bez opaski</span></div>
+    <div class="row-title mt16" id="gk-holy"><h2 class="section-title">HolyHolyHoly</h2><span class="muted" data-i18n="gry.holyNote">Mendi · działają też bez opaski</span></div>
     <div class="activities games" id="gamesHoly"></div>
     <aside class="buy" data-buy hidden></aside>
     <aside class="support" data-support hidden></aside>
@@ -207,6 +209,7 @@
         <div id="arcadeProgressBody"></div>
       </div>
     </div>
+    <div class="strip-slot" id="stripMore"></div>
   </section>
 
   <!-- ── Trening skupienia: przygotowanie ──────────────────────── -->
@@ -408,6 +411,7 @@
       </div>
       <p class="disclaimer"><span data-i18n="eeg.note">EEG w przeglądarce: te same filtry i metryki co serwer na komputerze. Klasyfikator stanów, kalibracja z przewodnikiem, kreator combo i nagrywanie EEG są tylko w serwerze.</span> <span data-i18n="eeg.server">Serwer uruchomisz poleceniem</span> <span class="mono">python run.py</span>. <span data-i18n="eeg.contactNote">HALO nie przesyła impedancji przez Bluetooth, więc kontakt jest szacowany z amplitudy.</span></p>
     </div>
+    <div class="strip-slot" id="stripSignal"></div>
     <aside class="buy" data-buy hidden></aside>
     <aside class="support" data-support hidden></aside>
   </section>
@@ -418,6 +422,7 @@
       <h1 id="sesjeTitle" data-i18n="ses.title">Sesje</h1>
       <p class="lede" data-i18n="ses.lede">Wyniki treningów i nagrania sygnału. Wszystko zostaje na tym urządzeniu.</p>
     </header>
+    <div class="strip-slot" id="stripAgain"></div>
     <div class="card">
       <div class="card-head"><span data-i18n="ses.trainings">Treningi i gry</span> <span class="hint" id="trainingsHint"></span></div>
       <div class="sessions" id="trainingList"></div>
@@ -494,6 +499,7 @@
         <p class="disclaimer mt8" data-i18n="ust.aboutNote">Emmanuel to aplikacja do neurofeedbacku i eksperymentów, a nie wyrób medyczny — nie służy do diagnozy ani terapii. Połączenia z opaskami opierają się na nieoficjalnych, odtworzonych protokołach Bluetooth; trening skupienia jest wzorowany na treningu z aplikacji Mendi, ale nie jest z nią związany.</p>
       </div>
     </div>
+    <div class="strip-slot" id="stripSettings"></div>
     <aside class="buy" data-buy hidden></aside>
     <aside class="support" data-support hidden></aside>
   </section>

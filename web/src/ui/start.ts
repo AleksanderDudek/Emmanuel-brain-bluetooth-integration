@@ -12,7 +12,7 @@ import type { SceneId } from '../settings';
 import { TOOL_INFO, type Tool } from '../tools';
 import { drawScenePreview } from '../training/scene';
 import { dayScore, type TrainingResult } from '../training/score';
-import { artImage, bandTags, drawArcadeCards, EXERCISES, GAME_ACTIVITIES, polishNote, whyNot, type Activity } from './activities';
+import { activityTile, drawArcadeCards, EXERCISES, GAME_ACTIVITIES, type Activity } from './activities';
 import { $, fmtDur, h } from './dom';
 import { drawOverview } from './focus';
 
@@ -132,18 +132,7 @@ export class StartView {
     const key = `${tool}|${this.scene()}|${today}`;
     if (key === this.tilesFor) return;
     this.tilesFor = key;
-    const tile = (a: Activity, extra = '') => {
-      const why = whyNot(a, tool, true);
-      const note = polishNote(a);
-      return h('a', { class: `tile${a.id === 'focus' ? ' feature' : ''}${extra}`, href: a.href, 'data-activity': a.id, 'aria-disabled': String(!!why && !a.optional) },
-        a.id === 'focus' ? h('canvas', { 'aria-hidden': 'true' })
-          : h('div', { class: `tile-art ${a.art}` }, a.arcade ? h('canvas', { class: 'arcade-art', 'aria-hidden': 'true' }) : artImage(a)),
-        h('span', { class: 'tag' }, a.id === today ? t('tag.today') : bandTags(a).join(' · ')),
-        note ? h('span', { class: 'lang-note' }, note) : null,
-        h('b', null, a.title),
-        h('small', null, why ?? a.tile ?? (a.id === 'focus' ? t('tile.focus') : a.arcade ? a.arcade.tagline
-          : a.optional ? t('tile.holy') : t('tile.balance'))));
-    };
+    const tile = (a: Activity, extra = '') => activityTile(a, tool, today, extra);
     $('trainTiles').replaceChildren(...EXERCISES().map(a => tile(a)),
       h('a', { class: 'tile', href: '#sygnal' }, h('div', { class: 'tile-art art-signal' }), h('span', { class: 'tag' }, t('tile.live')),
         h('b', null, t('tile.signal')), h('small', null, tool === 'eeg' ? t('tile.signalEeg') : t('tile.signalFnirs'))));

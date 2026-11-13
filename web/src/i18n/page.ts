@@ -52,6 +52,7 @@ const pl = {
   'start.allExercises': 'Wszystkie ćwiczenia →',
   'start.rowPlay': 'Graj',
   'start.allGames': 'Wszystkie gry →',
+  'gry.nav': 'Działy gier',
   'start.today': 'Dziś',
 
   // ── Trening, Gry, the arcade lobby ──────────────────────────────
@@ -251,6 +252,7 @@ const en: Catalog<Key> = {
   'start.allExercises': 'All exercises →',
   'start.rowPlay': 'Play',
   'start.allGames': 'All games →',
+  'gry.nav': 'Game sections',
   'start.today': 'Today',
   'trening.title': 'Training',
   'trening.lede': 'Neurofeedback exercises with the headband connected in the app.',
@@ -434,6 +436,7 @@ const de: Catalog<Key> = {
   'start.allExercises': 'Alle Übungen →',
   'start.rowPlay': 'Spielen',
   'start.allGames': 'Alle Spiele →',
+  'gry.nav': 'Spielbereiche',
   'start.today': 'Heute',
   'trening.title': 'Training',
   'trening.lede': 'Neurofeedback-Übungen mit dem Stirnband, das in der App verbunden ist.',
@@ -617,6 +620,7 @@ const sv: Catalog<Key> = {
   'start.allExercises': 'Alla övningar →',
   'start.rowPlay': 'Spela',
   'start.allGames': 'Alla spel →',
+  'gry.nav': 'Spelavdelningar',
   'start.today': 'I dag',
   'trening.title': 'Träning',
   'trening.lede': 'Neurofeedbackövningar med pannbandet som är anslutet i appen.',
