@@ -12,14 +12,17 @@
  *         the board as tall as the band in the middle, the telescope and the tray (a grid of slots) under
  *         the right thumb.
  *   wide  (a desktop, a tablet on its side)  the side layout grown; the board may rise into the HUD's band
- *         between the Mendi panel and the score, where it stays clear of both.
+ *         between the Mendi panel and the score, where it stays clear of both.  On a big screen with a mouse
+ *         (DESIGN §14: a Full HD monitor's middle column and up) the same columns hug a board as large as the
+ *         band allows — 696 px on Full HD, 936 on 2560 × 1440 (568 and 776 before) — with the tray's slots,
+ *         Bubo and every word grown with the UI scale (`tk`).
  *
  * The board is the play field (a swipe on a body, or a tap and a tap), not a list of targets; everything
  * else the player taps is a rectangle here (`tapTargets`), the same ones the view hit-tests and the mobile
  * audit checks: at least MIN_TAP on the short side, apart from each other, inside the insets.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -32,8 +35,15 @@ export interface Layout {
   w: number;
   h: number;
   mode: Mode;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, up to DESK_MAX on a big screen */
   u: number;
+  /** the screen (kit/mobile `screenKind`): a big screen with a mouse gets its own `wide` (DESIGN §14) */
+  kind: ScreenKind;
+  /**
+   * The scale of the words that stay at a phone's size elsewhere (the cards, the bubble, the telescope's words):
+   * the UI scale capped at 1.15 on a phone and a tablet (as before), the whole UI scale on a desktop.
+   */
+  tk: number;
   /** what covers each edge (the HUD band on top) */
   ins: Insets;
   /** the band the game's own parts keep to: under the HUD, inside the notch and over the home indicator */
@@ -65,18 +75,23 @@ export interface Layout {
 /** The runner's top bar on a desktop (the clock and its buttons): the board may rise to just under it. */
 const BAR = 58;
 
-export function layout(w: number, h: number, insets: Insets = NO_INSETS, rows: number = RULES.rows, cols: number = RULES.cols, slots: number = RULES.tray): Layout {
+/** `touch`: the player's hand (a finger by default, as the phone-first tests assume); a mouse on a big screen gets the desk. */
+export function layout(w: number, h: number, insets: Insets = NO_INSETS, rows: number = RULES.rows, cols: number = RULES.cols, slots: number = RULES.tray, touch = true): Layout {
   const W = Math.max(240, w), H = Math.max(200, h);
   const u = uiScale(W, H);
   const top = clamp(insets.top, 0, H * 0.6);
   const ins: Insets = { top, right: Math.max(0, insets.right), bottom: Math.max(0, insets.bottom), left: Math.max(0, insets.left) };
   const n = clamp(Math.round(slots), 1, RULES.trayMax);
   const mode: Mode = W / H < 0.9 ? 'tall' : H < 460 ? 'side' : 'wide';
-  const L = mode === 'tall' ? tall(W, H, ins, u, rows, cols, n) : mode === 'side' ? side(W, H, ins, u, rows, cols, n) : wide(W, H, ins, u, rows, cols, n);
-  return { ...L, slop: Math.round(clamp(L.cell * 0.4, 8, 24)), reach: clamp(L.cell * RULES.dragCell, 10, 18) };
+  // the screen decides (DESIGN §14): a phone and a tablet keep their layouts and their words exactly
+  const kind = screenKind(W, H, touch);
+  const desk = kind === 'desktop' || kind === 'big';
+  const L = mode === 'tall' ? tall(W, H, ins, u, rows, cols, n) : mode === 'side' ? side(W, H, ins, u, rows, cols, n)
+    : kind === 'big' ? big(W, H, ins, u, rows, cols, n) : wide(W, H, ins, u, rows, cols, n);
+  return { ...L, kind, tk: desk ? u : Math.min(u, 1.15), slop: Math.round(clamp(L.cell * 0.4, 8, 24)), reach: clamp(L.cell * RULES.dragCell, 10, 18) };
 }
 
-type Parts = Omit<Layout, 'slop' | 'reach'>;
+type Parts = Omit<Layout, 'slop' | 'reach' | 'kind' | 'tk'>;
 
 /** A phone upright (and a tablet upright): the goal strip, the board, the thumb row. */
 function tall(W: number, H: number, ins: Insets, u: number, rows: number, cols: number, n: number): Parts {
@@ -172,10 +187,12 @@ function wide(W: number, H: number, ins: Insets, u: number, rows: number, cols: 
   // the runner's Mendi panel (left) and score card (right) on a desktop: the board may rise between them
   const panelRight = 12 + Math.min(330, W * 0.62 - 12), scoreLeft = W - 12 - Math.min(160, W * 0.36);
   let midX0 = L0 + sideW + 10, midX1 = R0 - sideW - 10;
-  let y0 = BAR + 4;
+  // (only a HUD whose panel and score lie over the canvas leaves its middle free: a band under a top bar alone —
+  // a big screen's side columns, DESIGN §14 — is no room to rise into)
+  let y0 = top >= 150 ? BAR + 4 : yTop;
   let size = Math.min(midX1 - midX0, yBot - y0);
   let bx = (midX0 + midX1) / 2 - size / 2;
-  if (bx < panelRight + 4 || bx + size > scoreLeft - 4) {
+  if (top >= 150 && (bx < panelRight + 4 || bx + size > scoreLeft - 4)) {
     const between = scoreLeft - panelRight - 16;
     if (between >= (yBot - top) * 0.9 && between > 200) {
       midX0 = panelRight + 8;
@@ -213,6 +230,54 @@ function wide(W: number, H: number, ins: Insets, u: number, rows: number, cols: 
   // the tools' names sit over the tray
   const scopeText = { x: scope.x, y: textY, w: rw - 8, h: trayY - 26 * u - textY };
   const cw = Math.min(R0 - L0, Math.max(bw * 0.96, 320 * u), 560 * u + 40);
+  const card = { x: board.x + bw / 2 - cw / 2, y: yTop, w: cw, h: yBot - yTop };
+  return { w: W, h: H, mode: 'wide', u, ins, band, board, cell, rows, cols, goal, scope, scopeText, tray, owl, bubble, card, anchor: 'centre' };
+}
+
+/**
+ * A big screen with a mouse (DESIGN §14: a Full HD monitor's middle column, 1 190 × 960, and up; the runner's panel
+ * and score stand in side columns, only its top bar lies over the canvas): the board as large as the band allows
+ * between two columns of ~150 px of UI, centred, the columns hugging it — the goal card over Bubo on the left (his
+ * bubble to his right), the telescope over its words and the tray on the right, a short move of the mouse from the
+ * board.  The tray's slots grow to 64 px of UI (86 on Full HD); every word follows `tk` (the whole UI scale).
+ */
+function big(W: number, H: number, ins: Insets, u: number, rows: number, cols: number, n: number): Parts {
+  const top = ins.top;
+  const m = Math.round(14 * u), gap = Math.round(16 * u);
+  const L0 = ins.left + m, R0 = W - ins.right - m;
+  const yTop = top + Math.round(8 * u), yBot = H - ins.bottom - Math.round(10 * u);
+  const band = { x: ins.left, y: top, w: W - ins.left - ins.right, h: H - ins.bottom - top };
+  const colW = Math.round(clamp(W * 0.17, 150 * u, 230 * u));
+  const cell = Math.max(16, Math.floor(Math.min((R0 - L0 - 2 * (colW + gap)) / cols, (yBot - yTop) / rows)));
+  const bw = cell * cols, bh = cell * rows;
+  const board = { x: Math.round((L0 + R0) / 2 - bw / 2), y: Math.round(yTop + (yBot - yTop - bh) / 2), w: bw, h: bh };
+  // the columns as tall as the board, hugging it
+  const lx = board.x - gap - colW, rx0 = board.x + bw + gap, rw = colW;
+  const cTop = board.y, cBot = board.y + bh, colH = cBot - cTop;
+  // the left column: the goal card on top, Bubo at the foot, his bubble over him across the column (hud.ts: a big
+  // screen's bubble stands above him, never beside him over the board's edge)
+  const goal = { x: lx, y: cTop, w: colW, h: Math.round(clamp(colH * 0.36, 130 * u, 180 * u)) };
+  const owlR = Math.round(clamp(colW * 0.21, 18, 48 * u));
+  const owl = { x: lx + colW * 0.4, y: cBot - owlR * 1.25, r: owlR };
+  const bubble = { x: lx, y: owl.y - owlR * 1.45, w: colW };
+  // the right column: the telescope, its words, the tray at the foot (a 2 × 2 grid of 64 px of UI, or a row)
+  const tg = Math.round(10 * u);
+  const want = 64 * u;
+  const perRow = rw >= n * want + (n - 1) * tg ? n : 2;
+  const slot = Math.round(clamp((rw - (perRow - 1) * tg) / perRow, 52, want));
+  const trayRows = Math.ceil(n / perRow);
+  const trayY = cBot - (trayRows * slot + (trayRows - 1) * tg);
+  const tray: Rect[] = Array.from({ length: n }, (_, k) => {
+    const r = Math.floor(k / perRow), inRow = Math.min(perRow, n - r * perRow), c = k % perRow;
+    const rowW = inRow * slot + (inRow - 1) * tg;
+    return { x: rx0 + rw / 2 - rowW / 2 + c * (slot + tg), y: trayY + r * (slot + tg), w: slot, h: slot };
+  });
+  const scopeR = Math.round(clamp(Math.min(rw * 0.3, (trayY - cTop - 90 * u) / 3.2), 24, 72 * u));
+  const scope = { x: rx0 + rw / 2, y: cTop + scopeR * 1.42, r: scopeR };
+  const textY = scope.y + scopeR * 1.16 + 6 * u;
+  // the tools' names sit over the tray
+  const scopeText = { x: scope.x, y: textY, w: rw - 8, h: trayY - 26 * u - textY };
+  const cw = Math.min(R0 - L0, Math.max(bw * 0.9, 320 * u), 600 * u);
   const card = { x: board.x + bw / 2 - cw / 2, y: yTop, w: cw, h: yBot - yTop };
   return { w: W, h: H, mode: 'wide', u, ins, band, board, cell, rows, cols, goal, scope, scopeText, tray, owl, bubble, card, anchor: 'centre' };
 }

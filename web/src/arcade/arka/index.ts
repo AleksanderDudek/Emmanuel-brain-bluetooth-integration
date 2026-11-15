@@ -43,6 +43,10 @@ class ArkaGame implements ArcadeGame {
   private dpr = 1;
   /** a finger on the deck: where it came down, the animal it is on (-1: none) */
   private press: { id: number; x: number; y: number; moved: boolean } | null = null;
+  /** a desktop's mouse over the canvas, buttons up or down (DESIGN §14): what it rests on answers */
+  private mouse: { x: number; y: number } | null = null;
+  /** the canvas's CSS cursor as last set */
+  private cursorNow = '';
 
   constructor(private readonly env: GameEnv<ArkaProgress>) {
     this.sim = new ArkaSim({
@@ -76,6 +80,7 @@ class ArkaGame implements ArcadeGame {
     this.drain();
     this.view.update(dt, this.sim);
     this.sound.update(dt, this.sim);
+    this.hovered();
   }
 
   draw(): void { this.view.draw(this.sim); }
@@ -85,6 +90,13 @@ class ArkaGame implements ArcadeGame {
    * else the deck — the animal under the finger is picked and goes when the finger lifts.
    */
   pointer(e: PointerInput): void {
+    // a desktop's mouse moves with no button down too: what it rests on answers (DESIGN §14); a finger never hovers
+    if (!this.env.touch) this.mouse = { x: e.x, y: e.y };
+    this.hand(e);
+    this.hovered();
+  }
+
+  private hand(e: PointerInput): void {
     const sim = this.sim, view = this.view;
     if (e.type === 'down') {
       this.letGo();
@@ -127,6 +139,32 @@ class ArkaGame implements ArcadeGame {
     }
   }
 
+  /**
+   * What a desktop's resting cursor is over (DESIGN §14): the animal under it is ringed and lifts (never telling whether
+   * its way is free), the dove's pill lights; the CSS cursor says what a click does.  Every frame too: an animal that
+   * leaves, a card that comes, change the answer without a move.
+   */
+  private hovered(): void {
+    if (this.env.touch) return;
+    const sim = this.sim, view = this.view, m = this.mouse;
+    let id = -1, dove = false, c = 'default';
+    if (!sim.started) c = '';
+    else if (view.blocking || sim.levelState === 'clear') c = 'pointer';
+    else if (m && view.L) {
+      if (view.onDove(sim, m.x, m.y)) { dove = true; c = 'pointer'; }
+      else if (sim.levelState === 'play') {
+        id = this.press ? -1 : view.pickAt(sim, m.x, m.y);
+        if (id >= 0 || view.pick) c = 'pointer';
+      }
+    }
+    view.hover = id;
+    view.doveHover = dove;
+    if (c !== this.cursorNow) {
+      this.cursorNow = c;
+      this.env.canvas.style.cursor = c;
+    }
+  }
+
   /** Forget a touch in progress (a new one, a pause). */
   private letGo(): void {
     this.press = null;
@@ -135,7 +173,14 @@ class ArkaGame implements ArcadeGame {
   }
 
   pause(paused: boolean): void {
-    if (paused) this.letGo();
+    if (!paused) return;
+    this.letGo();
+    // the pause card has the page's own cursor; the mouse is read again when play goes on
+    this.mouse = null;
+    this.view.hover = -1;
+    this.view.doveHover = false;
+    this.cursorNow = '';
+    this.env.canvas.style.cursor = '';
   }
 
   /** The dove's button in play, or a card that takes the tap (the deck is the play field). */
@@ -174,8 +219,11 @@ class ArkaGame implements ArcadeGame {
       this.sound.on(e);
       if (this.env.haptics) haptic(e);
       if (e.type === 'coach') {
+        // a desktop's raven holds his line while the coach mark is up (his bubble stands where it may go, DESIGN §14)
+        if (!this.env.touch) this.sim.hush(4.4);
         // a phone hears of the dove's button, not of Space
-        const key = e.key === 'dove' && this.env.touch ? 'coach.dove.touch' : `coach.${e.key}`;
+        // (a mouse hears of clicking an animal, DESIGN §14)
+        const key = e.key === 'dove' && this.env.touch ? 'coach.dove.touch' : e.key === 'tap' && !this.env.touch ? 'coach.click' : `coach.${e.key}`;
         this.env.hint(t(key as Parameters<typeof t>[0]), this.view.coachPoint(this.sim, e.at), 4200);
       }
     }
@@ -207,7 +255,10 @@ class ArkaGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { /* the runner stops the audio; the canvas goes with the stage */ }
+  destroy(): void {
+    // the runner stops the audio; the canvas goes with the stage — and its cursor with it
+    this.env.canvas.style.cursor = '';
+  }
 }
 
 function haptic(e: SimEvent): void {
@@ -228,7 +279,7 @@ export function howto(touch: boolean = coarsePointer()): HowTo {
     goal: t('how.goal'),
     hands: touch
       ? [{ gesture: 'tap', text: t('how.tap') }, { gesture: 'tap', text: t('how.dove.touch') }]
-      : [{ gesture: 'tap', text: t('how.tap') }, { gesture: 'keys', text: t('how.dove') }, { gesture: 'keys', text: t('how.keys') }],
+      : [{ gesture: 'tap', text: t('how.click') }, { gesture: 'keys', text: t('how.dove') }, { gesture: 'keys', text: t('how.keys') }],
     tips: [t('how.tip1'), t('how.tip2')],
   };
 }

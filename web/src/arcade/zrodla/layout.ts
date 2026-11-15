@@ -10,7 +10,11 @@
  *   side   (a phone on its side)  the valley between two columns under the HUD's row: the dispenser under the
  *          left thumb (the next stone at the bottom, as in Pipe Mania), the dial, the goal and Kumka under the
  *          right
- *   wide   (a desktop, a tablet on its side)  the same three columns, grown; Kumka's bubble in her column
+ *   wide   (a desktop, a tablet on its side)  the same three columns, grown; Kumka's bubble in her column.
+ *          On a big screen with a mouse (DESIGN §14: a Full HD monitor's middle column and up) the columns hug a
+ *          valley as large as the band allows (cells up to 72 px of UI and a third more: a 7 × 5 valley 679 →
+ *          784 px wide on Full HD), the dispenser's next stone level with the valley's foot, the dial (grown
+ *          with the UI, 66 px at most before) level with its top, Kumka at its foot; every word grows (`tk`)
  *
  * Every cell is at least MIN_TAP (44 px).  When the whole valley fits at that size it shows whole; when not —
  * an eight-wide valley on a 360 px phone, seven rows on a phone on its side — it shows through a window
@@ -18,7 +22,7 @@
  * the whole valley lies under the window now.  The smoke's tap at 50 % × 60 % of the canvas lands on the valley.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 
 export interface Box { x: number; y: number; w: number; h: number }
@@ -32,8 +36,12 @@ export const CELL_MAX = 72;
 export interface Layout {
   w: number;
   h: number;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, up to DESK_MAX on a big screen */
   u: number;
+  /** the screen (kit/mobile `screenKind`): a big screen with a mouse gets its own `wide` (DESIGN §14) */
+  kind: ScreenKind;
+  /** the words' scale: the UI scale capped at 1.15 on a phone and a tablet (as before), the whole of it on a desktop */
+  tk: number;
   shape: Shape;
   /** the tray under the valley (tall); else the dispenser and the dial stand in columns beside it */
   portrait: boolean;
@@ -81,9 +89,9 @@ export interface Layout {
 interface Fit { cell: number; view: Box; board: Box; panX: number; panY: number }
 
 /** The valley in a room: cells at least MIN_TAP (a window that pans when the whole does not fit), centred across. */
-function fitValley(cols: number, rows: number, u: number, x0: number, x1: number, y0: number, y1: number, alignY: 'bottom' | 'middle'): Fit {
+function fitValley(cols: number, rows: number, u: number, x0: number, x1: number, y0: number, y1: number, alignY: 'bottom' | 'middle', most = CELL_MAX * u): Fit {
   const roomW = Math.max(MIN_TAP, x1 - x0), roomH = Math.max(MIN_TAP, y1 - y0);
-  const cell = Math.floor(clamp(Math.min(roomW / cols, roomH / rows), MIN_TAP, CELL_MAX * u));
+  const cell = Math.floor(clamp(Math.min(roomW / cols, roomH / rows), MIN_TAP, most));
   const bw = cols * cell, bh = rows * cell;
   // a valley a few px too big for its room takes them from the margins rather than panning by a sliver
   const vw = bw - roomW <= 4 ? bw : Math.floor(roomW), vh = bh - roomH <= 4 ? bh : Math.floor(roomH);
@@ -92,9 +100,17 @@ function fitValley(cols: number, rows: number, u: number, x0: number, x1: number
   return { cell, view: { x: vx, y: vy, w: vw, h: vh }, board: { x: vx, y: vy, w: bw, h: bh }, panX: bw - vw, panY: bh - vh };
 }
 
-export function computeLayout(w: number, h: number, ins: Insets = NO_INSETS, cols = 7, rows = 5): Layout {
+/** `touch`: the player's hand (a finger by default, as the phone-first tests assume); a mouse on a big screen gets `big`. */
+export function computeLayout(w: number, h: number, ins: Insets = NO_INSETS, cols = 7, rows = 5, touch = true): Layout {
   const W = Math.max(1, w), H = Math.max(1, h);
   const u = uiScale(W, H);
+  // the screen decides (DESIGN §14): a phone and a tablet keep their layouts and their words exactly
+  const kind = screenKind(W, H, touch);
+  const k = { kind, tk: kind === 'desktop' || kind === 'big' ? u : Math.min(u, 1.15) };
+  return { ...lay(W, H, ins, cols, rows, u, kind === 'big'), ...k };
+}
+
+function lay(W: number, H: number, ins: Insets, cols: number, rows: number, u: number, big: boolean): Omit<Layout, 'kind' | 'tk'> {
   const top = clamp(ins.top, 0, H * 0.45);
   const bottom = Math.max(top + 160, H - ins.bottom);
   const left = ins.left, right = W - ins.right;
@@ -145,6 +161,7 @@ export function computeLayout(w: number, h: number, ins: Insets = NO_INSETS, col
     };
   }
 
+  if (shape === 'wide' && big) return bigLayout(W, H, top, bottom, left, right, xMin, xMax, cols, rows, u);
   // side and wide: three columns — the dispenser, the valley, the dial (with the goal and Kumka)
   const wide = shape === 'wide';
   const reedH = r(10);
@@ -193,6 +210,56 @@ export function computeLayout(w: number, h: number, ins: Insets = NO_INSETS, col
     goal: { x: cx, y: goalY, w: colRW - r(16), align: 'center' },
     helpLine, frog, talk, talkAbove: true, reeds,
     card: { x: f.view.x + f.view.w / 2 - Math.min(W - 24, 460 * u) / 2, y: top + 8, w: Math.min(W - 24, 460 * u), h: bottom - top - 16 },
+  };
+}
+
+/**
+ * A big screen with a mouse (DESIGN §14): the valley as large as the band allows between the dispenser and the dial's
+ * column (its cells up to 72 px of UI and a third more), centred, the columns hugging it — the next stone level with
+ * the valley's foot and the four after it stacked over it (the chute of Pipe Mania), the dial level with the valley's
+ * top with its name, the goal and the help's words under it, Kumka at the valley's foot talking above herself.
+ */
+function bigLayout(W: number, H: number, top: number, bottom: number, left: number, right: number, xMin: number, xMax: number, cols: number, rows: number, u: number): Omit<Layout, 'kind' | 'tk'> {
+  const r = (v: number) => Math.round(v * u);
+  const reedH = r(10), lab = r(18), gap = r(18);
+  const s0 = r(64), s1 = r(46);
+  const gr = Math.round(clamp(52 * u, 30, 130));
+  const colLW = s0 + r(16);
+  const colRW = Math.max(2 * gr + r(40), r(150));
+  // the valley first: the room between the columns, centred across the canvas
+  const x0 = xMin + colLW + gap, x1 = xMax - colRW - gap;
+  const f = fitValley(cols, rows, u, x0, x1, top + r(10), bottom - r(10) - reedH - 6, 'middle', CELL_MAX * u * 1.34);
+  const reeds = { x: f.view.x, y: f.view.y + f.view.h + 5, w: f.view.w, h: reedH };
+  const vTop = f.view.y, vBot = f.view.y + f.view.h;
+  // the dispenser hugging the valley's left: the next stone level with its foot, the four after it over it
+  const colL = f.view.x - gap - colLW;
+  const slots: Box[] = [{ x: colL + (colLW - s0) / 2, y: vBot - s0, w: s0, h: s0 }];
+  let y = vBot - s0 - lab - r(10) - s1;
+  for (let i = 1; i < 5; i++) {
+    slots.push({ x: colL + (colLW - s1) / 2, y, w: s1, h: s1 });
+    y -= s1 + r(6);
+  }
+  const queueTop = Math.max(top + 4, slots[4].y - r(10));
+  // the dial's column hugging the valley's right: the dial at its top, its name, the goal, the help; Kumka at its foot
+  const colR = f.view.x + f.view.w + gap, cx = colR + colRW / 2;
+  // (the dial's box, its "próg" over it included, starts level with the valley's top)
+  const gauge = { x: cx, y: vTop + lab + r(4) + gr, r: gr };
+  const goalY = gauge.y + gr * 1.15 + r(36);
+  const helpLine = { x: cx, y: goalY + r(36) };
+  const s = Math.max(0, Math.min(r(78), colRW * 0.42, vBot - (helpLine.y + r(110))));
+  const frog = { x: colR + colRW * 0.62, y: vBot, s };
+  const talk = { x: colR, y: helpLine.y + r(26), w: colRW, h: vBot - s * 0.95 - (helpLine.y + r(26)) };
+  const dial = { x: gauge.x - gr - 6, y: gauge.y - gr - lab, w: 2 * gr + 12, h: 2 * gr + lab + 6 };
+  const cw = Math.min(W - 24, 460 * u);
+  return {
+    w: W, h: H, u, shape: 'wide', portrait: false, top, bottom, left, right, cols, rows, ...f,
+    queue: { x: colL - r(4), y: queueTop, w: colLW + r(8), h: vBot + r(4) - queueTop },
+    slots, next: { x: slots[0].x - 4, y: slots[0].y - 4, w: s0 + 8, h: s0 + 8 },
+    nextLabel: { x: slots[0].x + s0 / 2, y: slots[0].y - r(12) },
+    gauge, dial, dialLabel: true,
+    goal: { x: cx, y: goalY, w: colRW - r(16), align: 'center' },
+    helpLine, frog, talk, talkAbove: true, reeds,
+    card: { x: f.view.x + f.view.w / 2 - cw / 2, y: top + 8, w: cw, h: bottom - top - 16 },
   };
 }
 

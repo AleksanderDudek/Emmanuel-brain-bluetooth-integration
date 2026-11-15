@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import type { GameEnv } from '../src/arcade/kit/types';
 import geoda, { howto } from '../src/arcade/geoda/index';
@@ -859,5 +859,177 @@ describe('Geoda mobile first (DESIGN §3.1, §12)', () => {
     expect(touch.hands.map(x => x.gesture)).toEqual(['drag', 'tap']);
     for (const h of touch.hands) expect(h.text).not.toMatch(KEYS);
     expect(desk.hands.map(x => x.gesture)).toEqual(['drag', 'tap', 'keys']);
+  });
+});
+
+// ── a big screen (DESIGN §14) ────────────────────────────────────
+
+describe('Geoda on a desktop and a big screen (DESIGN §14)', () => {
+  const said: { text: string; px: number }[] = [];
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return recordingContext(this, said); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  const monitors = CHECK_SIZES.filter(c => /monitor/.test(c.name));
+  const envAt = (progress: GeodaProgress, c: (typeof CHECK_SIZES)[number], touch: boolean): GameEnv<GeodaProgress> => ({
+    canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+    progress, rng: mulberry32(7), day: '2026-11-13', daySeed: 99, plannedSec: 180, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
+    tuning: TUNING, hint: () => undefined, hudTop: () => c.insets.top, insets: () => c.insets, touch,
+  });
+  type Inside = { sim: GeodaSim; view: GeodaView; hand: { drag: { grab?: { fx: number; fy: number } | null } | null } };
+  const play = (c: (typeof CHECK_SIZES)[number], touch: boolean, progress = returning({ mode: 'classic' })) => {
+    const env = envAt(progress, c, touch);
+    const game = geoda.create(env);
+    game.resize(c.w, c.h, 1);
+    game.start();
+    game.update(1 / 30, frame(), 0.1);
+    return { env, game, in: game as unknown as Inside };
+  };
+
+  it('chooses its layout from the screen: a finger keeps the phone’s and the tablet’s, a mouse on a desktop gets the desk', () => {
+    for (const c of CHECK_SIZES) {
+      const T = computeLayout(c.w, c.h, c.insets, true);
+      expect(T.mode, c.name).not.toBe('desk');
+      expect(T.tk, c.name).toBe(1);
+      expect(T.grab, c.name).toBe(false);
+      const M = computeLayout(c.w, c.h, c.insets, false);
+      const desk = M.kind === 'desktop' || M.kind === 'big';
+      expect(M.tk, c.name).toBe(desk ? M.u : 1);
+      if (desk && c.w > c.h * 1.05) {
+        expect(M.mode, c.name).toBe('desk');
+        expect(M.grab, c.name).toBe(true);
+      }
+    }
+  });
+
+  it('fills a big monitor: a board ≥ 68 % of the band (≥ 1.15 × before), the tray right beside it, the type grown', () => {
+    for (const c of monitors) {
+      const L = computeLayout(c.w, c.h, c.insets, false);
+      const before = computeLayout(c.w, c.h, c.insets, true);   // the grown phone layout a desktop had until now
+      const band = c.h - c.insets.top - c.insets.bottom;
+      expect(L.kind, c.name).toBe('big');
+      expect(L.board.h / band, c.name).toBeGreaterThanOrEqual(0.68);
+      expect(L.board.w, c.name).toBeGreaterThanOrEqual(before.board.w * 1.15);
+      expect(L.board.y - L.rim, c.name).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.board.y + L.board.h + L.rim * 2.5, c.name).toBeLessThanOrEqual(c.h - c.insets.bottom + 0.5);
+      // the tray a short mouse move right of the geode, its pieces at ≥ 40 % of a board cell
+      const reach = L.rim * GEODE_REACH;
+      for (const s of L.slots) {
+        expect(s.x, c.name).toBeGreaterThanOrEqual(L.board.x + L.board.w + reach);
+        expect(s.x - (L.board.x + L.board.w), c.name).toBeLessThan(L.cell * 1.5);
+        expect(s.x + s.w, c.name).toBeLessThanOrEqual(c.w);
+      }
+      expect(L.trayCell, c.name).toBeGreaterThanOrEqual(L.cell * 0.4);
+      // the dial (with its threshold mark), the bowl and Bazyl left of the geode
+      expect(L.dial.x + L.dial.r * 1.25, c.name).toBeLessThanOrEqual(L.board.x - reach);
+      expect(L.mole.x + L.mole.s * 0.5, c.name).toBeLessThanOrEqual(L.board.x - reach * 0.5);
+      expect(L.dial.r, c.name).toBeGreaterThanOrEqual(70);
+      // the UI scale past the phone's cap: 1.35 on Full HD, 1.8 on 2560 × 1440
+      expect(L.u, c.name).toBeGreaterThan(1.3);
+      expect(L.u, c.name).toBeLessThanOrEqual(DESK_MAX);
+    }
+    // a laptop and a desktop under the top HUD: the board as tall as before (the band decides), the tray beside it
+    for (const c of CHECK_SIZES.filter(x => x.w >= 1280 && x.w > x.h * 1.4 && !/monitor/.test(x.name))) {
+      const L = computeLayout(c.w, c.h, c.insets, false), before = computeLayout(c.w, c.h, c.insets, true);
+      expect(L.mode, c.name).toBe('desk');
+      expect(L.board.w, c.name).toBeGreaterThanOrEqual(before.board.w);
+      expect(L.slots[0].x - (L.board.x + L.board.w), c.name).toBeLessThan(L.cell * 1.5);
+    }
+  });
+
+  it('draws its words grown on a big monitor: the goal and the dial ≥ 1.5 × an iPhone’s, nothing under 13 px', () => {
+    const sizeOf = (c: (typeof CHECK_SIZES)[number], touch: boolean, pick: (s: string) => boolean) => {
+      said.length = 0;
+      const { game } = play(c, touch, returning());
+      for (let tm = 0.1; tm < 14; tm += 1 / 30) { game.update(1 / 30, focusing(), tm); game.draw(); }
+      const words = said.filter(x => pick(x.text));
+      return { max: Math.max(0, ...words.map(x => x.px)), all: said.slice() };
+    };
+    const phone = CHECK_SIZES[1];
+    const count = (s: string) => /^\d+\/\d+$/.test(s);
+    const mult = (s: string) => /^×\d$/.test(s);
+    const p0 = sizeOf(phone, true, count).max, d0 = sizeOf(phone, true, mult).max;
+    expect(p0).toBeGreaterThan(0);
+    for (const c of monitors) {
+      const p = sizeOf(c, false, count), d = sizeOf(c, false, mult);
+      expect(p.max, `${c.name}: the goal's count`).toBeGreaterThanOrEqual(p0 * 1.5);
+      expect(d.max, `${c.name}: the dial's ×N`).toBeGreaterThanOrEqual(d0 * 1.5);
+      expect(p.all.filter(x => x.px < MIN_READ - 1e-6).slice(0, 5), c.name).toEqual([]);
+    }
+  });
+
+  it('answers a resting mouse: the board shows where a click sets the piece, the slot lights, the cursor tells', () => {
+    for (const c of monitors) {
+      const { env, game, in: g } = play(c, false);
+      const L = g.view.layout;
+      // over the board: where a click sets the current piece (a ghost), the cursor a pointer
+      const x = L.board.x + L.board.w * 0.3, y = L.board.y + L.board.h * 0.6;
+      game.pointer!({ type: 'move', x, y, id: 1 });
+      game.update(1 / 30, frame(), 0.2);
+      game.draw();
+      const spot = g.view.hovered(g.sim);
+      expect(spot, c.name).not.toBeNull();
+      expect(env.canvas.style.cursor, c.name).toBe('pointer');
+      // a click there sets it exactly there
+      const item = g.sim.tray[g.sim.current]!;
+      game.pointer!({ type: 'down', x, y, id: 1 });
+      game.pointer!({ type: 'up', x, y, id: 1 });
+      for (const [cx, cy] of item.piece.cells) expect(g.sim.board.cells[idx(spot!.gx + cx, spot!.gy + cy)], c.name).not.toBe(EMPTY);
+      // over a piece in the tray: the hand opens; off everything: the plain arrow
+      const k = g.sim.tray.findIndex(v => !!v);
+      const s = L.slots[k];
+      game.pointer!({ type: 'move', x: s.x + s.w / 2, y: s.y + s.h / 2, id: 1 });
+      expect(g.view.hoveredSlot(g.sim), c.name).toBe(k);
+      expect(env.canvas.style.cursor, c.name).toBe('grab');
+      game.pointer!({ type: 'move', x: 4, y: c.h - 4, id: 1 });
+      expect(env.canvas.style.cursor, c.name).toBe('default');
+      // a pause gives the page its cursor back
+      game.pause!(true);
+      expect(env.canvas.style.cursor, c.name).toBe('');
+    }
+  });
+
+  it('drags a piece under the mouse by the point it was taken and drops it where its ghost shows', () => {
+    for (const c of monitors) {
+      const { env, game, in: g } = play(c, false);
+      const L = g.view.layout;
+      const k = g.sim.tray.findIndex(v => !!v);
+      const item = g.sim.tray[k]!;
+      const box = g.view.trayBox(k, item.piece);
+      const px = box.x + box.w * 0.25, py = box.y + box.h * 0.75;
+      game.pointer!({ type: 'down', x: px, y: py, id: 1 });
+      const tx = L.board.x + L.board.w * 0.45, ty = L.board.y + L.board.h * 0.5;
+      for (let i = 1; i <= 12; i++) game.pointer!({ type: 'move', x: px + (tx - px) * i / 12, y: py + (ty - py) * i / 12, id: 1 });
+      const grab = g.hand.drag?.grab ?? null;
+      expect(grab, c.name).not.toBeNull();
+      expect(grab!.fx, c.name).toBeCloseTo(0.25, 5);
+      expect(grab!.fy, c.name).toBeCloseTo(0.75, 5);
+      expect(env.canvas.style.cursor, c.name).toBe('grabbing');
+      // the cursor holds the same point of the grown piece
+      const o = g.view.dragOrigin(item.piece, tx, ty, grab);
+      expect(tx - o.x, c.name).toBeCloseTo(0.25 * item.piece.w * L.cell, 5);
+      expect(ty - o.y, c.name).toBeCloseTo(0.75 * item.piece.h * L.cell, 5);
+      const snap = g.view.snap(g.sim, item.piece, tx, ty, grab);
+      expect(snap, c.name).not.toBeNull();
+      game.pointer!({ type: 'up', x: tx, y: ty, id: 1 });
+      for (const [cx, cy] of item.piece.cells) expect(g.sim.board.cells[idx(snap!.gx + cx, snap!.gy + cy)], c.name).not.toBe(EMPTY);
+    }
+  });
+
+  it('speaks of clicking to a mouse and of tapping to a finger, in every language', () => {
+    for (const l of LANGS) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['open.click', 'v.clickOn', 'hint.click']) expect(cat[k], `${l}.${k}`).toMatch(/klik|click|klick/i);
+    }
+    // the opening card's last line: "Kliknij" under a mouse, "Stuknij" under a finger
+    for (const touch of [false, true]) {
+      said.length = 0;
+      const c = touch ? CHECK_SIZES[1] : monitors[0];
+      const { game } = play(c, touch, freshProgress());
+      for (let tm = 0.1; tm < 1.5; tm += 1 / 30) { game.update(1 / 30, frame(), tm); game.draw(); }
+      expect(said.some(x => x.text === t(touch ? 'open.tap' : 'open.click')), touch ? 'finger' : 'mouse').toBe(true);
+      expect(said.some(x => x.text === t(touch ? 'open.click' : 'open.tap')), touch ? 'finger' : 'mouse').toBe(false);
+    }
   });
 });

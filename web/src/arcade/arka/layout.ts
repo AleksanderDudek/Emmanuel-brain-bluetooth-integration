@@ -11,7 +11,11 @@
  *   side  (a phone on its side)  three columns under the HUD's one row: the bar and the raven on the left, the
  *         deck as tall as the band in the middle, the new land and the dove's button under the right thumb
  *   wide  (a desktop, a tablet on its side)  the deck in the middle column between the Mendi panel and the
- *         score, up to the top bar; the new land along the bottom with the dove at its right end
+ *         score, up to the top bar; the new land along the bottom with the dove at its right end.  On a big
+ *         screen with a mouse (DESIGN §14: a Full HD monitor's middle column and up, where the runner's panel and
+ *         score stand beside the canvas and only its top bar lies over it) the bar sits under the top bar and the
+ *         deck takes the whole middle — the biggest deck's cells 48 → 71 px on Full HD — the raven beside it,
+ *         every part and word grown with the UI scale (`tk`)
  *
  * The boards are portrait-shaped (3×4 … 9×11) and a phone's deck area is landscape-shaped, so the deck may
  * turn a quarter (`rot`) when that gives bigger cells: a pure mapping of the view — the board's cells and the
@@ -19,7 +23,7 @@
  * the deck is a rectangle here (`tapTargets`), as the view hit-tests it and the mobile audit checks it.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 
 export interface Rect { x: number; y: number; w: number; h: number }
@@ -30,8 +34,15 @@ export interface Layout {
   w: number;
   h: number;
   mode: Mode;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, up to DESK_MAX on a big screen */
   u: number;
+  /** the screen (kit/mobile `screenKind`): a big screen with a mouse gets its own `wide` (DESIGN §14) */
+  kind: ScreenKind;
+  /**
+   * The scale of the words: the UI scale capped at 1.15 on a phone and a tablet (the bar, the dove's pill; the
+   * cards and the raven at their phone's size) as before, the whole UI scale on a desktop and a big screen.
+   */
+  tk: number;
   ins: Insets;
   /** the HUD's lower edge (cards and bubbles keep under it) */
   top: number;
@@ -76,17 +87,23 @@ function deckIn(area: Rect, cols: number, rows: number, max: number, align: 'cen
   return { deck: { x: Math.round(area.x + (area.w - dw) / 2), y: Math.round(y), w: dw, h: dh }, cell, rot, sc, sr };
 }
 
-export function layout(w: number, h: number, insets: Insets | number = NO_INSETS, cols: number = 3, rows: number = 4): Layout {
+/** `touch`: the player's hand (a finger by default, as the phone-first tests assume); a mouse on a big screen gets `big`. */
+export function layout(w: number, h: number, insets: Insets | number = NO_INSETS, cols: number = 3, rows: number = 4, touch = true): Layout {
   const ins0: Insets = typeof insets === 'number' ? { top: insets, right: 0, bottom: 0, left: 0 } : insets;
   const W = Math.max(240, w), H = Math.max(200, h);
   const u = uiScale(W, H);
   const top = clamp(ins0.top, 0, H * 0.6);
   const ins: Insets = { top, right: Math.max(0, ins0.right), bottom: Math.max(0, ins0.bottom), left: Math.max(0, ins0.left) };
   const mode: Mode = W / H < 0.95 ? 'tall' : H < 460 ? 'side' : 'wide';
-  if (mode === 'tall') return tall(W, H, ins, u, cols, rows);
-  if (mode === 'side') return side(W, H, ins, u, cols, rows);
-  return wide(W, H, ins, u, cols, rows);
+  // the screen decides (DESIGN §14): a phone and a tablet keep their layouts and their words exactly
+  const kind = screenKind(W, H, touch);
+  const k = { kind, tk: kind === 'desktop' || kind === 'big' ? u : Math.min(u, 1.15) };
+  if (mode === 'tall') return { ...tall(W, H, ins, u, cols, rows), ...k };
+  if (mode === 'side') return { ...side(W, H, ins, u, cols, rows), ...k };
+  return { ...(kind === 'big' ? big(W, H, ins, u, cols, rows) : wide(W, H, ins, u, cols, rows)), ...k };
 }
+
+type Parts = Omit<Layout, 'kind' | 'tk'>;
 
 /** The dove's pill: as wide as its words at the label's size, at least a finger. */
 const pillW = (u: number): number => Math.round(clamp(118 * u, 104, 150));
@@ -104,7 +121,7 @@ function slotsOn(x0: number, x1: number, y: number, step: number, gangway: [numb
 /** The largest cell: a phone's 68 px grown with the UI scale, a quarter more on a screen whose short side passes 700 px. */
 const maxCell = (W: number, H: number, u: number): number => MAX_CELL * u * (Math.min(W, H) > 700 ? 1.25 : 1);
 
-function tall(W: number, H: number, ins: Insets, u: number, cols: number, rows: number): Layout {
+function tall(W: number, H: number, ins: Insets, u: number, cols: number, rows: number): Parts {
   const L0 = ins.left, R0 = W - ins.right, mid = (L0 + R0) / 2;
   const edge = W < 600 ? 16 : Math.round(24 * u);
   const yTop = ins.top + 2, yBot = H - ins.bottom - 3;
@@ -136,7 +153,7 @@ function tall(W: number, H: number, ins: Insets, u: number, cols: number, rows: 
   };
 }
 
-function side(W: number, H: number, ins: Insets, u: number, cols: number, rows: number): Layout {
+function side(W: number, H: number, ins: Insets, u: number, cols: number, rows: number): Parts {
   const yTop = ins.top + 4, yBot = H - ins.bottom - 4;
   const L0 = ins.left + 8, R0 = W - ins.right - 8;
   const colW = Math.round(clamp(W * 0.19, 112, 168 * u));
@@ -166,7 +183,7 @@ function side(W: number, H: number, ins: Insets, u: number, cols: number, rows: 
   };
 }
 
-function wide(W: number, H: number, ins: Insets, u: number, cols: number, rows: number): Layout {
+function wide(W: number, H: number, ins: Insets, u: number, cols: number, rows: number): Parts {
   const yBot = H - ins.bottom - 6;
   const pillH = Math.round(clamp(52 * u, 48, 60));
   const shoreH = pillH + 10;
@@ -190,6 +207,47 @@ function wide(W: number, H: number, ins: Insets, u: number, cols: number, rows: 
   const s = Math.round(clamp(34 * u, 30, 46));
   const rx = Math.min(W - s * 1.2, d.deck.x + d.deck.w + Math.max(s * 1.1, Math.min(90, (W - d.deck.x - d.deck.w) * 0.3)));
   const raven = { x: rx, y: Math.max(ins.top + s * 1.2, d.deck.y + s * 1.6), s };
+  return {
+    w: W, h: H, mode: 'wide', u, ins, top: ins.top, bar, deck: d.deck, cell: d.cell, rot: d.rot, simCols: cols, simRows: rows, cols: d.sc, rows: d.sr, rim,
+    shore, door, slots, slotH, dove, raven,
+  };
+}
+
+/**
+ * A big screen with a mouse (DESIGN §14): only the runner's top bar lies over the canvas (its panel and score stand
+ * in side columns), so the bar sits right under it and the deck takes the whole middle, as large as the band allows
+ * (turned a quarter where that gives larger cells, its cells up to 68 px of UI and a quarter more), centred, with
+ * room on either side for the raven (on the right, talking above himself) — the new land along the foot, the dove's
+ * pill at its right end grown with the UI, the waiting firsts on both sides of the gangway.
+ */
+function big(W: number, H: number, ins: Insets, u: number, cols: number, rows: number): Parts {
+  const L0 = ins.left, R0 = W - ins.right;
+  const m = Math.round(16 * u);
+  const yTop = ins.top + Math.round(6 * u), yBot = H - ins.bottom - Math.round(8 * u);
+  const pillH = Math.round(clamp(52 * u, 48, 100));
+  const shoreH = pillH + Math.round(16 * u);
+  const shore: Rect = { x: 0, y: yBot - shoreH, w: W, h: H - (yBot - shoreH) };
+  const barH = Math.round(44 * u);
+  // the raven's size, and his room beside the deck (the same on the other side keeps the deck centred)
+  const s = Math.round(clamp(38 * u, 30, 80));
+  const side = Math.round(s * 2.6);
+  const rim0 = Math.round(10 * u);
+  const ay = yTop + barH + Math.round(8 * u) + rim0;
+  const area: Rect = { x: L0 + m + side + rim0, y: ay, w: R0 - L0 - 2 * (m + side + rim0), h: shore.y - Math.round(8 * u) - rim0 - ay };
+  const d = deckIn(area, cols, rows, maxCell(W, H, u));
+  const rim = Math.max(8, Math.min(rim0, d.cell * 0.28));
+  const barW = Math.round(clamp(d.deck.w + 2 * rim, 420 * u, R0 - L0 - 2 * m));
+  const bar: Rect = { x: Math.round(d.deck.x + d.deck.w / 2 - barW / 2), y: yTop, w: barW, h: barH };
+  const door = { x: d.deck.x + d.deck.w / 2, y: d.deck.y + d.deck.h };
+  const pw = Math.round(clamp(118 * u, 104, 240));
+  const dove: Rect = { x: R0 - m - pw, y: yBot - pillH - 2, w: pw, h: pillH };
+  // the waiting firsts on the land, both sides of the gangway, left of the dove
+  const slotH = Math.min(shoreH * 0.62, 44 * u);
+  const step = clamp(slotH * 1.1, 40, 60 * u);
+  const gw = Math.max(18, d.cell * 0.7);
+  const slots = slotsOn(L0 + m + step, dove.x - step * 0.6, shore.y + shoreH * 0.8, step, [door.x - gw / 2, door.x + gw / 2]);
+  // the raven right of the hull, a third down the deck
+  const raven = { x: Math.min(R0 - s * 1.2, d.deck.x + d.deck.w + rim + s * 1.2), y: d.deck.y + Math.max(s * 1.8, d.deck.h * 0.32), s };
   return {
     w: W, h: H, mode: 'wide', u, ins, top: ins.top, bar, deck: d.deck, cell: d.cell, rot: d.rot, simCols: cols, simRows: rows, cols: d.sc, rows: d.sr, rim,
     shore, door, slots, slotH, dove, raven,

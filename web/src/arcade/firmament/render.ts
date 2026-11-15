@@ -53,6 +53,8 @@ export class FirmamentView {
   /** a body under a finger (its cell, how far the finger has moved), and an armed tool's aim */
   press: { cell: number; dx: number; dy: number } | null = null;
   aim = -1;
+  /** the cell a desktop's resting cursor is over (-1: none): its body is ringed, gold beside the selected one (DESIGN §14) */
+  hover = -1;
   private readonly sprites = new Sprites();
   private readonly parts = new Particles(500);
   private readonly floats = new Floaters();
@@ -92,13 +94,16 @@ export class FirmamentView {
     this.sky = null;
     this.glass = null;
     if (this.L) {
-      this.L = layout(w, h, this.ins, this.L.rows, this.L.cols, this.slots);
+      this.L = layout(w, h, this.ins, this.L.rows, this.L.cols, this.slots, this.opts.touch);
       this.sprites.ensure(this.L.cell, this.dpr);
     }
   }
 
   /** The slot under a finger, for its pressed look (-1: none). */
   set pressSlot(k: number) { this.hud.pressSlot = k; }
+
+  /** The slot a desktop's resting cursor is over, for its lit look (-1: none). */
+  set hoverSlot(k: number) { this.hud.hoverSlot = k; }
 
   /** A touch on the sky: Bubo's bubble steps aside. */
   hush(): void { this.hud.hush(this.clock); }
@@ -130,7 +135,7 @@ export class FirmamentView {
     const B = sim.board;
     if (hard || !this.L || this.L.rows !== B.rows || this.L.cols !== B.cols || this.slots !== sim.traySize) {
       this.slots = sim.traySize;
-      this.L = layout(this.w, this.h, this.ins, B.rows, B.cols, this.slots);
+      this.L = layout(this.w, this.h, this.ins, B.rows, B.cols, this.slots, this.opts.touch);
       this.sprites.ensure(this.L.cell, this.dpr);
     }
     if (hard) {
@@ -605,17 +610,19 @@ export class FirmamentView {
       }
     }
     // the hint, the selection and a finger's press under the bodies (a wide faint stroke for the glow, no blur)
+    // (the rings' strokes grow with a desktop's UI; a phone's and a tablet's stay as they were)
+    const lk = L.kind === 'desktop' || L.kind === 'big' ? L.u : 1;
     const ringCell = (i: number, color: string, glow: string | null) => {
       const { x, y } = this.cellXY(i, B.cols);
       ctx.beginPath();
-      ctx.roundRect(x - s / 2 + 3, y - s / 2 + 3, s - 6, s - 6, s * 0.18);
+      ctx.roundRect(x - s / 2 + 3 * lk, y - s / 2 + 3 * lk, s - 6 * lk, s - 6 * lk, s * 0.18);
       if (glow) {
         ctx.strokeStyle = glow;
-        ctx.lineWidth = 7;
+        ctx.lineWidth = 7 * lk;
         ctx.stroke();
       }
       ctx.strokeStyle = color;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2.5 * lk;
       ctx.stroke();
     };
     const idle = sim.stage === 'play' && !this.busy && sim.busyT <= 0;
@@ -629,6 +636,13 @@ export class FirmamentView {
     if (sim.selected >= 0) ringCell(sim.selected, '#ffffff', 'rgba(255,255,255,.25)');
     const press = this.press && sim.stage === 'play' ? this.press : null;
     if (press && press.cell !== sim.selected) ringCell(press.cell, 'rgba(255,255,255,.7)', 'rgba(255,255,255,.14)');
+    // a desktop's resting cursor: a faint ring on the body a click would take; beside the selected body a gold one —
+    // a click there swaps them (an armed tool shows its strike instead)
+    const hv = this.hover;
+    if (hv >= 0 && hv < B.n && idle && !press && !sim.armedTool && hv !== sim.selected && B.mask[hv] && B.free(hv)) {
+      if (sim.selected >= 0 && B.adjacent(sim.selected, hv)) ringCell(hv, C.gold, 'rgba(255,210,122,.24)');
+      else ringCell(hv, 'rgba(255,255,255,.5)', null);
+    }
     ctx.restore();
     // bodies
     const bounce = this.bounce;

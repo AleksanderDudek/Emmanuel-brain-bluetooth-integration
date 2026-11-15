@@ -22,7 +22,7 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import type { TracePhase } from '../kit/trace';
-import { hits } from '../kit/mobile';
+import { coarsePointer, hits } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ZrodlaSound } from './audio';
 import { isPool, PIPE } from './grid';
@@ -58,6 +58,10 @@ export class ZrodlaGame implements ArcadeGame {
   private readonly later: { key: HintKey; at: number }[] = [];
   private lays = 0;
   private press: Press | null = null;
+  /** a desktop's mouse over the canvas, buttons up or down (DESIGN §14): where it rests answers */
+  private mouse: { x: number; y: number } | null = null;
+  /** the canvas's CSS cursor as last set */
+  private cursorNow = '';
 
   constructor(private readonly env: GameEnv<ZrodlaProgress>) {
     migrate(env.progress);
@@ -89,6 +93,7 @@ export class ZrodlaGame implements ArcadeGame {
     this.drain();
     this.view.update(dt, this.sim);
     this.coach();
+    this.hovered();
   }
 
   draw(): void {
@@ -106,6 +111,36 @@ export class ZrodlaGame implements ArcadeGame {
    * the touch, Kumka's help (what Space does) on the lift; a thumb that slides off takes nothing.
    */
   pointer(e: PointerInput): void {
+    // a desktop's mouse moves with no button down too: where it rests answers (DESIGN §14); a finger never hovers
+    if (!this.env.touch) this.mouse = { x: e.x, y: e.y };
+    this.hand(e);
+    this.hovered();
+  }
+
+  /**
+   * What a desktop's resting cursor is over (DESIGN §14): over the valley the next stone shows in the cell where a
+   * click lays it (gold; rose where it cannot go — the finger's aim, without the finger), the cursor saying so
+   * (pointer / not-allowed); the next stone and the dial (Kumka's help) and a story card take a pointer.
+   */
+  private hovered(): void {
+    if (this.env.touch) return;
+    const sim = this.sim, view = this.view, L = view.layout, m = this.mouse;
+    let c = 'default';
+    if (!sim.started) c = '';
+    else if (sim.story) c = 'pointer';
+    else if (m && !this.press) {
+      const cell = sim.phase !== 'over' && !sim.ended ? cellAt(L, m.x, m.y) : -1;
+      view.aim = cell;
+      if (cell >= 0) c = sim.valley.canLay(cell) ? 'pointer' : 'not-allowed';
+      else if (hits(L.dial, m.x, m.y) || hits(L.next, m.x, m.y)) c = 'pointer';
+    } else if (this.press) c = 'pointer';
+    if (c !== this.cursorNow) {
+      this.cursorNow = c;
+      this.env.canvas.style.cursor = c;
+    }
+  }
+
+  private hand(e: PointerInput): void {
     const sim = this.sim, view = this.view, L = view.layout;
     if (e.type === 'down') {
       if (this.press) return;   // one finger plays
@@ -314,9 +349,16 @@ export class ZrodlaGame implements ArcadeGame {
     this.view.aimAt = null;
     this.view.holding = false;
     this.view.pressed = null;
+    // the pause card has the page's own cursor; the mouse is read again when play goes on
+    this.mouse = null;
+    this.cursorNow = '';
+    this.env.canvas.style.cursor = '';
   }
 
-  destroy(): void { /* the runner stops the audio; nothing else holds resources */ }
+  destroy(): void {
+    // the runner stops the audio; nothing else holds resources but the canvas's cursor
+    this.env.canvas.style.cursor = '';
+  }
 }
 
 function haptic(e: ZrodlaEvent): void {
@@ -330,12 +372,15 @@ function haptic(e: ZrodlaEvent): void {
   }
 }
 
-/** How to play: the tap and Kumka's help in words for a finger; the keys on a row of their own (dropped on a touch screen). */
-export const howto = (): HowTo => ({
+/**
+ * How to play: the tap and Kumka's help in the words of the hand (a finger taps, a mouse clicks — DESIGN §14); the keys
+ * on a row of their own (dropped on a touch screen).
+ */
+export const howto = (touch: boolean = coarsePointer()): HowTo => ({
   goal: t('how.goal'),
   hands: [
-    { gesture: 'tap', text: t('how.tap') },
-    { gesture: 'tap', text: t('how.help') },
+    { gesture: 'tap', text: hand('how.tap', touch) },
+    { gesture: 'tap', text: hand('how.help', touch) },
     { gesture: 'keys', text: t('how.space') },
   ],
   tips: [t('how.tip1'), t('how.tip2')],
@@ -348,7 +393,7 @@ const mod: ArcadeModule<ZrodlaProgress> = {
   unit,
   progressPanel: p => progressPanel(p),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
-  howto,
+  howto: () => howto(),
 };
 
 export default mod;

@@ -23,7 +23,7 @@ import { drawPassage, layoutPassage, passage, type PassageId, type PassageLayout
 import { traceBars } from '../kit/trace';
 import { STATION_VERSE, psalmOf, stationName } from './content';
 import { GARDEN, isPool, PIPE, ROCK, SPRING, type Kind } from './grid';
-import { fmt, t } from './i18n';
+import { fmt, hand, t } from './i18n';
 import { cellBox, cellCentre, computeLayout, type Box, type Layout } from './layout';
 import {
   C, font, hash, paintBubble, paintContours, paintFrog, paintGardenEnd, paintGauge, paintGreen, paintPilgrim, paintPoolFill, paintReeds, paintRock,
@@ -102,7 +102,7 @@ export class ZrodlaView {
   }
 
   private relayout(): void {
-    this.layout = computeLayout(this.w, this.h, this.ins, this.cols, this.rows);
+    this.layout = computeLayout(this.w, this.h, this.ins, this.cols, this.rows, this.touch);
     this.verse = null;
     this.camX = clamp(this.camX, 0, this.layout.panX);
     this.camY = clamp(this.camY, 0, this.layout.panY);
@@ -239,7 +239,7 @@ export class ZrodlaView {
         const p = at(e.cell);
         this.qShift = 1;
         this.fx.burst(p.x, p.y, e.replaced ? 10 : 5, { color: e.replaced ? '#a58a62' : '#efe2c6', size: 2.4, speed: e.replaced ? 160 : 80, life: 0.45, g: 260 });
-        if (e.replaced) this.words.add(t('fx.swap'), p.x, p.y - cs * 0.3, { color: '#7a5a36', size: 15, dur: 0.8 });
+        if (e.replaced) this.word(t('fx.swap'), p.x, p.y - cs * 0.3, { color: '#7a5a36', size: 15, dur: 0.8 });
         break;
       }
       case 'deny': {
@@ -251,7 +251,7 @@ export class ZrodlaView {
       }
       case 'flow': {
         const p = at(sim.valley.spring);
-        this.words.add(t('fx.go'), p.x, p.y - cs * 0.5, { color: C.pool, size: 22 });
+        this.word(t('fx.go'), p.x, p.y - cs * 0.5, { color: C.pool, size: 22 });
         this.fx.burst(p.x, p.y, 14, { color: C.foam, size: 2.6, speed: 120, life: 0.6, g: 120 });
         break;
       }
@@ -259,27 +259,27 @@ export class ZrodlaView {
         const p = at(e.seg.cell);
         this.fx.burst(p.x, p.y, e.fast ? 3 : 5, { color: C.foam, size: 2, speed: 70, life: 0.4, g: 160 });
         const col = e.fast ? '#ffd27a' : '#ffffff';
-        this.words.add(`+${fmt(e.points)}`, p.x, p.y - cs * 0.15, { color: col, size: e.loop ? 22 : 15, dur: 0.8 });
+        this.word(`+${fmt(e.points)}`, p.x, p.y - cs * 0.15, { color: col, size: e.loop ? 22 : 15, dur: 0.8 });
         if (e.loop) {
-          this.words.add(t('fx.loop'), p.x, p.y - cs * 0.6, { color: C.gold, size: 26 });
+          this.word(t('fx.loop'), p.x, p.y - cs * 0.6, { color: C.gold, size: 26 });
           this.fx.burst(p.x, p.y, 1, { shape: 'ring', color: C.gold, size: cs * 0.3, speed: 0, life: 0.6, g: 0 });
           this.fx.burst(p.x, p.y, 16, { color: C.gold, shape: 'spark', size: 2.5, speed: 200, life: 0.5, g: 0 });
           this.shake.add(0.2);
           this.cheer();
         }
-        if (e.aqueduct) this.words.add(t('fx.aqueduct'), p.x, p.y - cs * 0.6, { color: C.rose, size: 18 });
+        if (e.aqueduct) this.word(t('fx.aqueduct'), p.x, p.y - cs * 0.6, { color: C.rose, size: 18 });
         break;
       }
       case 'poolDone': {
         const p = at(e.cell);
-        this.words.add(`${t('fx.pool')} +${fmt(e.points)}`, p.x, p.y - cs * 0.5, { color: C.pool, size: 20 });
+        this.word(`${t('fx.pool')} +${fmt(e.points)}`, p.x, p.y - cs * 0.5, { color: C.pool, size: 20 });
         this.fx.burst(p.x, p.y, 1, { shape: 'ring', color: C.foam, size: cs * 0.35, speed: 0, life: 0.7, g: 0 });
         this.hop();
         break;
       }
       case 'goal': {
         const b = L.view;
-        this.words.add(t('fx.goal'), b.x + b.w / 2, b.y + b.h * 0.12 + 14, { color: C.olive, size: 24 });
+        this.word(t('fx.goal'), b.x + b.w / 2, b.y + b.h * 0.12 + 14, { color: C.olive, size: 24 });
         this.hop();
         break;
       }
@@ -290,13 +290,13 @@ export class ZrodlaView {
         this.spillAt = { x, y, t: 0 };
         this.fx.burst(x, y, 22, { color: C.water, size: 3, speed: 170, life: 0.7, g: 240 });
         this.fx.burst(x, y, 12, { color: '#c9a873', size: 2.5, speed: 120, life: 0.6, g: 300 });
-        this.words.add(t('fx.spill'), x, y - cs * 0.4, { color: '#9e6656', size: 20 });
+        this.word(t('fx.spill'), x, y - cs * 0.4, { color: '#9e6656', size: 20 });
         this.shake.add(0.35);
         break;
       }
       case 'garden': {
         const p = at(e.cell);
-        this.words.add(t('fx.garden'), p.x, p.y - cs * 0.6, { color: C.olive, size: 28 });
+        this.word(t('fx.garden'), p.x, p.y - cs * 0.6, { color: C.olive, size: 28 });
         this.fx.burst(p.x, p.y, 26, { color: '#8fc46e', shape: 'square', size: 2.6, speed: 180, life: 0.9, g: 120 });
         this.flash = 0.6;
         this.cheer();
@@ -307,13 +307,13 @@ export class ZrodlaView {
         break;
       case 'fast': {
         const p = at(sim.valley.spring);
-        this.words.add(t('fx.fast'), p.x, p.y - cs * 0.6, { color: '#e9a23b', size: 22 });
+        this.word(t('fx.fast'), p.x, p.y - cs * 0.6, { color: '#e9a23b', size: 22 });
         break;
       }
       case 'still': {
         if (e.on) {
           const b = L.view;
-          this.words.add(t('fx.still'), b.x + b.w / 2, b.y + b.h * 0.4, { color: C.pool, size: 30, dur: 1.6 });
+          this.word(t('fx.still'), b.x + b.w / 2, b.y + b.h * 0.4, { color: C.pool, size: 30, dur: 1.6 });
           this.fx.burst(L.gauge.x, L.gauge.y, 20, { color: C.still, shape: 'spark', size: 2.5, speed: 160, life: 0.8, g: 0 });
           this.flash = 0.5;
           this.gaugePop = 1;
@@ -324,11 +324,11 @@ export class ZrodlaView {
       case 'bloom': {
         const p = at(e.cell);
         this.fx.burst(p.x, p.y, 12, { color: [C.anemone, C.crocus, C.oleander][e.cell % 3], shape: 'square', size: 2.2, speed: 110, life: 0.8, g: 60 });
-        this.words.add(`+${fmt(e.points)}`, p.x, p.y - cs * 0.2, { color: C.olive, size: 18 });
+        this.word(`+${fmt(e.points)}`, p.x, p.y - cs * 0.2, { color: C.olive, size: 18 });
         break;
       }
       case 'reveal':
-        this.words.add(t('fx.reveal', { n: e.sec }), L.gauge.x, L.gauge.y - L.gauge.r * 1.4, { color: '#7a5a36', size: 16, dur: 2.2 });
+        this.word(t('fx.reveal', { n: e.sec }), L.gauge.x, L.gauge.y - L.gauge.r * 1.4, { color: '#7a5a36', size: 16, dur: 2.2 });
         break;
       default:
         break;
@@ -614,12 +614,35 @@ export class ZrodlaView {
     ctx.lineWidth = 1;
     ctx.stroke();
     const n = L.slots.length;
+    // a desktop's chute (DESIGN §14): the next stone pops into its frame instead of sliding down across the
+    // "Następny" row between the chute and the frame (the four over it still slide within the chute)
+    const pop = !L.portrait && this.dk() > 1;
     sim.queue.forEach((k, i) => {
       const s = L.slots[i];
       if (!s) return;
       // where this stone came from: the slot after it (the last one from past the end)
       const from = L.slots[i + 1] ?? { x: s.x + (s.x - L.slots[n - 2].x), y: s.y + (s.y - L.slots[n - 2].y) };
-      const x = s.x + (from.x - s.x) * this.qShift, y = s.y + (from.y - s.y) * this.qShift;
+      const still = pop && i === 0;
+      const x = still ? s.x : s.x + (from.x - s.x) * this.qShift, y = still ? s.y : s.y + (from.y - s.y) * this.qShift;
+      if (still && this.qShift > 0.01 && this.pressed !== 'next') {
+        // the frame first, then the stone growing into it
+        ctx.fillStyle = 'rgba(244,199,107,.35)';
+        ctx.beginPath();
+        roundRect(ctx, s.x - 4, s.y - 4, s.w + 8, s.h + 8, 12);
+        ctx.fill();
+        ctx.strokeStyle = C.gold;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        const g = 1 - 0.45 * this.qShift, cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+        ctx.save();
+        ctx.globalAlpha = 1 - 0.7 * this.qShift;
+        ctx.translate(cx, cy);
+        ctx.scale(g, g);
+        ctx.translate(-cx, -cy);
+        paintStone(ctx, x, y, s.w, k, 'queue', 1);
+        ctx.restore();
+        return;
+      }
       if (i === 0) {
         const pr = this.pressed === 'next';
         ctx.fillStyle = pr ? 'rgba(244,199,107,.6)' : 'rgba(244,199,107,.35)';
@@ -646,7 +669,7 @@ export class ZrodlaView {
     ctx.fillStyle = C.ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const word = fitText(ctx, t('g.next'), Math.max(L.slots[0].w + 24 * u, 70 * u), 13.5 * Math.min(u, 1.15), 800, SANS, MIN_READ);
+    const word = fitText(ctx, t('g.next'), Math.max(L.slots[0].w + 24 * u, 70 * u), 13.5 * L.tk, 800, SANS, MIN_READ);
     ctx.fillText(word, L.nextLabel.x, L.nextLabel.y);
     ctx.restore();
   }
@@ -672,7 +695,7 @@ export class ZrodlaView {
     ctx.save();
     const goal = sim.spec.goal, G = L.goal;
     const label = `${t('g.goal')} ${Math.min(sim.cells, 999)}/${goal}`;
-    const size = (L.portrait ? 14 : 15) * Math.min(u, 1.15);
+    const size = (L.portrait ? 14 : 15) * L.tk;
     ctx.textBaseline = 'middle';
     ctx.textAlign = G.align;
     ctx.fillStyle = sim.cells >= goal ? C.olive : C.ink;
@@ -684,7 +707,7 @@ export class ZrodlaView {
       ctx.textAlign = 'center';
       ctx.fillStyle = C.inkSoft;
       const help = t(sim.wayDone ? (this.touch ? 'g.fast.touch' : 'g.fast') : (this.touch ? 'g.help.touch' : 'g.help'));
-      ctx.fillText(fitText(ctx, help, G.w, 13.5 * Math.min(u, 1.15), 650, SANS, MIN_READ), L.helpLine.x, L.helpLine.y);
+      ctx.fillText(fitText(ctx, help, G.w, 13.5 * L.tk, 650, SANS, MIN_READ), L.helpLine.x, L.helpLine.y);
     }
     ctx.restore();
   }
@@ -724,8 +747,19 @@ export class ZrodlaView {
         if (near) alpha *= 0.25;
       }
       void val;
-      this.bubbleBox = paintBubble(ctx, this.bubbleText, tx, ty, L.talk, alpha, !L.talkAbove, 14 * Math.min(L.u, 1.15));
+      this.bubbleBox = paintBubble(ctx, this.bubbleText, tx, ty, L.talk, alpha, !L.talkAbove, 14 * L.tk);
     } else this.bubbleBox = null;
+  }
+
+  /** A flying word, grown with a desktop's UI (DESIGN §14); a phone's and a tablet's keep their sizes. */
+  private word(text: string, x: number, y: number, o: { color?: string; size?: number; dur?: number }): void {
+    this.words.add(text, x, y, { ...o, size: (o.size ?? 26) * this.dk() });
+  }
+
+  /** How much a desktop's cards and fixed words grow (DESIGN §14): its UI scale; 1 on a phone and a tablet. */
+  private dk(): number {
+    const L = this.layout;
+    return L.kind === 'desktop' || L.kind === 'big' ? L.u : 1;
   }
 
   // ── the cards ───────────────────────────────────────────────────
@@ -734,7 +768,8 @@ export class ZrodlaView {
     const s = sim.story, L = this.layout, top = this.ins.top;
     const cw = Math.min(L.card.w, this.w - 24);
     const room = L.bottom - top - 20;
-    const ch = Math.min(room, s?.kind === 'open' ? 390 : s?.kind === 'station' ? 340 : 230);
+    // (a desktop's card is a phone's grown with its UI, DESIGN §14: drawStory lays it out `dk` times smaller, scaled)
+    const ch = Math.min(room, (s?.kind === 'open' ? 390 : s?.kind === 'station' ? 340 : 230) * this.dk());
     const cx = clamp(L.view.x + L.view.w / 2 - cw / 2, L.left + 8, Math.max(L.left + 8, L.right - cw - 8));
     const cy = Math.max(top + 10, Math.min(L.bottom - 10 - ch, L.view.y + L.view.h / 2 - ch / 2));
     return { x: cx, y: cy, w: cw, h: ch };
@@ -750,7 +785,11 @@ export class ZrodlaView {
     ctx.fillStyle = 'rgba(40,30,20,.35)';
     ctx.fillRect(0, this.ins.top, this.w, this.h - this.ins.top);
     const b0 = this.storyBox(sim);
-    const box: Box = { ...b0, y: b0.y + (1 - k) * 20 };
+    // a desktop's card: laid out at a phone's size in its own frame, drawn `dk` times larger (crisp words)
+    const dk = this.dk();
+    ctx.translate(b0.x, b0.y + (1 - k) * 20);
+    ctx.scale(dk, dk);
+    const box: Box = { x: 0, y: 0, w: b0.w / dk, h: b0.h / dk };
     ctx.fillStyle = '#fbf4e2';
     ctx.beginPath();
     roundRect(ctx, box.x, box.y, box.w, box.h, 18);
@@ -821,7 +860,7 @@ export class ZrodlaView {
       ctx.fillStyle = C.inkSoft;
       ctx.font = font(650, 13.5, SANS);
       ctx.textBaseline = 'bottom';
-      ctx.fillText(t('card.tap'), mid, box.y + box.h - 10);
+      ctx.fillText(hand('card.tap', this.touch), mid, box.y + box.h - 10);
     }
     ctx.restore();
   }

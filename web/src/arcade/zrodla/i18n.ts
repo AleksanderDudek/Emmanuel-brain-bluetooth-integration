@@ -92,6 +92,7 @@ const pl = {
   'card.open.title': 'Źródła w dolinie Baka',
   'card.open.text': 'Pielgrzymi idą do Jeruzalem przez suchą dolinę. Kumka, rzekotka z dyplomem hydraulika, zna drogę wody. Ułóż kanały przed nurtem, a dolina stanie się źródłem.',
   'card.tap': 'Stuknij, by iść dalej',
+  'card.tap.keys': 'Kliknij, by iść dalej',
   'card.tally.title': 'Dolina {n} nawodniona',
   'card.cells': { one: '{n} odcinek wody', few: '{n} odcinki wody', many: '{n} odcinków wody', other: '{n} odcinka wody' },
   'card.goal': 'cel {n}',
@@ -110,6 +111,7 @@ const pl = {
 
   // the coach marks
   'hint.tap': 'Stuknij pole przy źródle: wskoczy tam następny kamień',
+  'hint.tap.keys': 'Kliknij pole przy źródle: wskoczy tam następny kamień — kursor pokazuje go w polu',
   'hint.queue': 'Kolejka: następny kamień jest w złotej ramce, kamienie się nie obracają',
   'hint.count': 'Gdy licznik dojdzie do zera, woda ruszy',
   'hint.flow': 'Woda płynie! Kładź kamienie przed nią',
@@ -132,7 +134,9 @@ const pl = {
   // how to play
   'how.goal': 'Układaj kanał przed płynącą wodą, aż przepłynie przez cel doliny.',
   'how.tap': 'Stuknij pole: kładziesz tam następny kamień (suchy wymienisz)',
+  'how.tap.keys': 'Kliknij pole: kładziesz tam następny kamień (suchy wymienisz); kursor pokazuje go w polu',
   'how.help': 'Stuknij następny kamień albo zastawkę: Kumka położy go, gdzie pomoże; gdy droga gotowa — szybki nurt ×2',
+  'how.help.keys': 'Kliknij następny kamień albo zastawkę: Kumka położy go, gdzie pomoże; gdy droga gotowa — szybki nurt ×2',
   'how.space': 'Spacja: kamień sam znajdzie miejsce; gdy droga gotowa, szybki nurt ×2',
   'how.keys': 'Strzałki i Enter: kamień przy kursorze',
   'how.tip1': 'Kamień, który nie pasuje, odłóż z dala od wody: przyda się później.',
@@ -175,7 +179,7 @@ const pl = {
   'say.open.1': 'Kumka, hydrauliczka z dyplomem. Ty kładziesz kamienie, ja pilnuję wody.',
   'say.open.2': 'Znowu w drodze! Ja niosę dobry humor, Ty kładź kanał przed wodą.',
   'say.open.3': 'Dzień dobry! Sucho tu jak w moim kapeluszu. Zróbmy z tej doliny źródło.',
-  'say.warm.1': 'Na rozgrzewkę: stuknij wolne pole, a kamień z kolejki tam wskoczy.',
+  'say.warm.1': 'Na rozgrzewkę: wybierz wolne pole, a kamień z kolejki tam wskoczy.',
   'say.warm.2': 'Kamienie się nie obracają. Patrz w kolejkę i szukaj im miejsca.',
   'say.warm.3': 'Spokojnie, woda jeszcze śpi. Ułóż jej drogę od źródła.',
   'say.count.1': 'Zastawka się otwiera. Licz ze mną: kum, kum, kum… zaraz popłynie!',
@@ -232,9 +236,9 @@ const pl = {
   'say.end.1': 'Na dziś starczy. Dolina pije, my odpoczywamy.',
   'say.end.2': 'Koniec dnia. Wysuszę kapelusz i jutro idziemy dalej.',
   'say.end.3': 'Dobra robota! Zostawiam wodę w dobrych rękach. Twoich.',
-  'say.idle.1': 'Kamienie czekają! Stuknij pole albo następny kamień, to pomogę.',
+  'say.idle.1': 'Kamienie czekają! Wybierz pole albo następny kamień, to pomogę.',
   'say.idle.2': 'Halo? Woda niedługo ruszy. Kładź kanał od źródła.',
-  'say.idle.3': 'Mogę położyć kamień za Ciebie: stuknij następny kamień. Albo pole.',
+  'say.idle.3': 'Mogę położyć kamień za Ciebie: wybierz następny kamień. Albo pole.',
 };
 
 export type Key = keyof typeof pl;
@@ -310,6 +314,7 @@ const en: Catalog<Key> = {
   'card.open.title': 'Springs in the Valley of Baca',
   'card.open.text': 'Pilgrims walk to Jerusalem through a dry valley. Kumka, a tree frog with a plumber’s diploma, knows the water’s ways. Lay channels ahead of the stream, and the valley becomes a spring.',
   'card.tap': 'Tap to go on',
+  'card.tap.keys': 'Click to go on',
   'card.tally.title': 'Valley {n} watered',
   'card.cells': { one: '{n} stretch of water', other: '{n} stretches of water' },
   'card.goal': 'goal {n}',
@@ -327,6 +332,7 @@ const en: Catalog<Key> = {
   'card.nextGarden': 'The next valley ends in a garden',
 
   'hint.tap': 'Tap a cell by the spring: the next stone drops in there',
+  'hint.tap.keys': 'Click a cell by the spring: the next stone drops in there (the cursor shows it in the cell)',
   'hint.queue': 'The queue: the next stone is in the gold frame, and stones never turn',
   'hint.count': 'When the counter reaches zero, the water starts',
   'hint.flow': 'The water is running! Lay stones ahead of it',
@@ -348,7 +354,9 @@ const en: Catalog<Key> = {
 
   'how.goal': 'Lay the channel ahead of the running water until it runs through the valley’s goal.',
   'how.tap': 'Tap a cell: the next stone goes there (a dry one is swapped)',
+  'how.tap.keys': 'Click a cell: the next stone goes there (a dry one is swapped); the cursor shows it in the cell',
   'how.help': 'Tap the next stone or the sluice: Kumka lays it where it helps; once the way is ready, fast flow ×2',
+  'how.help.keys': 'Click the next stone or the sluice: Kumka lays it where it helps; once the way is ready, fast flow ×2',
   'how.space': 'Space: the stone finds its place; once the way is ready, fast flow ×2',
   'how.keys': 'Arrows and Enter: a stone at the cursor',
   'how.tip1': 'Park a stone that doesn’t fit away from the water: it will come in handy.',
@@ -388,7 +396,7 @@ const en: Catalog<Key> = {
   'say.open.1': 'Kumka, plumber with a diploma. You lay the stones, I keep an eye on the water.',
   'say.open.2': 'On the road again! I bring the good mood, you lay the channel.',
   'say.open.3': 'Good morning! It’s as dry here as my hat. Let’s make this valley a spring.',
-  'say.warm.1': 'Warm-up: tap a free cell, and a stone from the queue hops in.',
+  'say.warm.1': 'Warm-up: pick a free cell, and a stone from the queue hops in.',
   'say.warm.2': 'Stones don’t turn. Watch the queue and find them a place.',
   'say.warm.3': 'Easy, the water’s still asleep. Lay its way from the spring.',
   'say.count.1': 'The sluice is opening. Count with me: ribbit, ribbit… here it comes!',
@@ -445,9 +453,9 @@ const en: Catalog<Key> = {
   'say.end.1': 'Enough for today. The valley drinks, we rest.',
   'say.end.2': 'End of the day. I’ll dry my hat, and tomorrow we walk on.',
   'say.end.3': 'Good work! I leave the water in good hands. Yours.',
-  'say.idle.1': 'The stones are waiting! Tap a cell, or the next stone, and I’ll help.',
+  'say.idle.1': 'The stones are waiting! Pick a cell, or the next stone, and I’ll help.',
   'say.idle.2': 'Hello? The water starts soon. Lay the channel from the spring.',
-  'say.idle.3': 'I can lay a stone for you: tap the next stone. Or a cell.',
+  'say.idle.3': 'I can lay a stone for you: pick the next stone. Or a cell.',
 };
 
 const de: Catalog<Key> = {
@@ -521,6 +529,7 @@ const de: Catalog<Key> = {
   'card.open.title': 'Quellen im Tränental',
   'card.open.text': 'Pilger ziehen durch ein trockenes Tal nach Jerusalem. Kumka, ein Laubfrosch mit Klempnerdiplom, kennt die Wege des Wassers. Leg Rinnen vor die Strömung, und das Tal wird zur Quelle.',
   'card.tap': 'Tippen, um weiterzugehen',
+  'card.tap.keys': 'Klicken, um weiterzugehen',
   'card.tally.title': 'Tal {n} bewässert',
   'card.cells': { one: '{n} Wasserstück', other: '{n} Wasserstücke' },
   'card.goal': 'Ziel {n}',
@@ -538,6 +547,7 @@ const de: Catalog<Key> = {
   'card.nextGarden': 'Das nächste Tal endet in einem Garten',
 
   'hint.tap': 'Tipp ein Feld an der Quelle an: Dort landet der nächste Stein',
+  'hint.tap.keys': 'Klick ein Feld an der Quelle an: Dort landet der nächste Stein (der Cursor zeigt ihn im Feld)',
   'hint.queue': 'Die Reihe: Der nächste Stein liegt im goldenen Rahmen, Steine drehen sich nie',
   'hint.count': 'Wenn der Zähler null erreicht, fließt das Wasser los',
   'hint.flow': 'Das Wasser fließt! Leg Steine vor ihm',
@@ -559,7 +569,9 @@ const de: Catalog<Key> = {
 
   'how.goal': 'Leg die Rinne vor das fließende Wasser, bis es durch das Ziel des Tals geflossen ist.',
   'how.tap': 'Tipp ein Feld an: Dort liegt der nächste Stein (einen trockenen tauschst du)',
+  'how.tap.keys': 'Klick ein Feld an: Dort liegt der nächste Stein (einen trockenen tauschst du); der Cursor zeigt ihn im Feld',
   'how.help': 'Tipp den nächsten Stein oder die Schleuse an: Kumka legt ihn, wo er hilft; steht der Weg, schneller Strom ×2',
+  'how.help.keys': 'Klick den nächsten Stein oder die Schleuse an: Kumka legt ihn, wo er hilft; steht der Weg, schneller Strom ×2',
   'how.space': 'Leertaste: Der Stein findet seinen Platz; steht der Weg, schneller Strom ×2',
   'how.keys': 'Pfeile und Enter: ein Stein am Cursor',
   'how.tip1': 'Leg einen Stein, der nicht passt, weit weg vom Wasser ab: Er hilft später.',
@@ -599,7 +611,7 @@ const de: Catalog<Key> = {
   'say.open.1': 'Kumka, Klempnerin mit Diplom. Du legst die Steine, ich passe aufs Wasser auf.',
   'say.open.2': 'Wieder unterwegs! Ich bringe gute Laune mit, du legst die Rinne.',
   'say.open.3': 'Guten Morgen! Hier ist es so trocken wie in meinem Hut. Machen wir eine Quelle draus.',
-  'say.warm.1': 'Zum Aufwärmen: Tipp ein freies Feld an, und ein Stein aus der Reihe hüpft hinein.',
+  'say.warm.1': 'Zum Aufwärmen: Wähl ein freies Feld, und ein Stein aus der Reihe hüpft hinein.',
   'say.warm.2': 'Steine drehen sich nicht. Schau in die Reihe und such ihnen einen Platz.',
   'say.warm.3': 'Ruhig, das Wasser schläft noch. Leg ihm den Weg von der Quelle aus.',
   'say.count.1': 'Die Schleuse öffnet sich. Zähl mit: quak, quak, quak… gleich fließt es!',
@@ -656,9 +668,9 @@ const de: Catalog<Key> = {
   'say.end.1': 'Genug für heute. Das Tal trinkt, wir ruhen.',
   'say.end.2': 'Feierabend. Ich trockne meinen Hut, und morgen geht es weiter.',
   'say.end.3': 'Gute Arbeit! Ich lasse das Wasser in guten Händen. Deinen.',
-  'say.idle.1': 'Die Steine warten! Tipp ein Feld an oder den nächsten Stein, ich helfe.',
+  'say.idle.1': 'Die Steine warten! Wähl ein Feld oder den nächsten Stein, ich helfe.',
   'say.idle.2': 'Hallo? Das Wasser läuft gleich los. Leg die Rinne von der Quelle aus.',
-  'say.idle.3': 'Ich kann einen Stein für dich legen: Tipp den nächsten Stein an. Oder ein Feld.',
+  'say.idle.3': 'Ich kann einen Stein für dich legen: Wähl den nächsten Stein. Oder ein Feld.',
 };
 
 const sv: Catalog<Key> = {
@@ -732,6 +744,7 @@ const sv: Catalog<Key> = {
   'card.open.title': 'Källor i Bakadalen',
   'card.open.text': 'Pilgrimer vandrar till Jerusalem genom en torr dal. Kumka, en lövgroda med rörmokardiplom, kan vattnets vägar. Lägg rännor framför strömmen, så blir dalen en källa.',
   'card.tap': 'Tryck för att gå vidare',
+  'card.tap.keys': 'Klicka för att gå vidare',
   'card.tally.title': 'Dal {n} bevattnad',
   'card.cells': { one: '{n} vattensträcka', other: '{n} vattensträckor' },
   'card.goal': 'mål {n}',
@@ -749,6 +762,7 @@ const sv: Catalog<Key> = {
   'card.nextGarden': 'Nästa dal slutar i en trädgård',
 
   'hint.tap': 'Tryck på en ruta vid källan: nästa sten hoppar in där',
+  'hint.tap.keys': 'Klicka på en ruta vid källan: nästa sten hoppar in där (markören visar den i rutan)',
   'hint.queue': 'Kön: nästa sten ligger i den gyllene ramen, och stenar vrids aldrig',
   'hint.count': 'När räknaren når noll börjar vattnet rinna',
   'hint.flow': 'Vattnet rinner! Lägg stenar framför det',
@@ -770,7 +784,9 @@ const sv: Catalog<Key> = {
 
   'how.goal': 'Lägg rännan framför det rinnande vattnet tills det runnit genom dalens mål.',
   'how.tap': 'Tryck på en ruta: nästa sten hamnar där (en torr byter du)',
+  'how.tap.keys': 'Klicka på en ruta: nästa sten hamnar där (en torr byter du); markören visar den i rutan',
   'how.help': 'Tryck på nästa sten eller slussen: Kumka lägger den där den hjälper; när vägen är klar, snabbt flöde ×2',
+  'how.help.keys': 'Klicka på nästa sten eller slussen: Kumka lägger den där den hjälper; när vägen är klar, snabbt flöde ×2',
   'how.space': 'Mellanslag: stenen hittar sin plats; när vägen är klar, snabbt flöde ×2',
   'how.keys': 'Pilar och Enter: en sten vid markören',
   'how.tip1': 'Lägg en sten som inte passar långt från vattnet: den kommer till nytta sen.',
@@ -810,7 +826,7 @@ const sv: Catalog<Key> = {
   'say.open.1': 'Kumka, rörmokare med diplom. Du lägger stenarna, jag håller koll på vattnet.',
   'say.open.2': 'På väg igen! Jag står för humöret, du lägger rännan.',
   'say.open.3': 'God morgon! Här är lika torrt som i min hatt. Vi gör dalen till en källa.',
-  'say.warm.1': 'Uppvärmning: tryck på en fri ruta så hoppar en sten ur kön dit.',
+  'say.warm.1': 'Uppvärmning: välj en fri ruta så hoppar en sten ur kön dit.',
   'say.warm.2': 'Stenar vrids inte. Titta i kön och hitta en plats åt dem.',
   'say.warm.3': 'Lugnt, vattnet sover än. Lägg dess väg från källan.',
   'say.count.1': 'Slussen öppnas. Räkna med mig: kväk, kväk, kväk… snart rinner det!',
@@ -867,9 +883,9 @@ const sv: Catalog<Key> = {
   'say.end.1': 'Nog för i dag. Dalen dricker, vi vilar.',
   'say.end.2': 'Dagen är slut. Jag torkar hatten, och i morgon går vi vidare.',
   'say.end.3': 'Bra jobbat! Jag lämnar vattnet i goda händer. Dina.',
-  'say.idle.1': 'Stenarna väntar! Tryck på en ruta, eller på nästa sten, så hjälper jag.',
+  'say.idle.1': 'Stenarna väntar! Välj en ruta, eller nästa sten, så hjälper jag.',
   'say.idle.2': 'Hallå? Vattnet börjar snart. Lägg rännan från källan.',
-  'say.idle.3': 'Jag kan lägga en sten åt dig: tryck på nästa sten. Eller på en ruta.',
+  'say.idle.3': 'Jag kan lägga en sten åt dig: välj nästa sten. Eller en ruta.',
 };
 
 export const CATALOGS = { pl, en, de, sv };

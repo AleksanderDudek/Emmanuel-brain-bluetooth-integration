@@ -56,6 +56,12 @@ export class ArkaView {
   pick: { id: number; x: number; y: number } | null = null;
   /** the dove's button is under a finger (its pressed look) */
   dovePressed = false;
+  /**
+   * A desktop's resting cursor (DESIGN §14): the animal under it (-1: none) is ringed and lifts a little — never
+   * telling whether its way is free (that stays the puzzle and the mist's reward) — and the dove's pill lights.
+   */
+  hover = -1;
+  doveHover = false;
   private dims = '';
   private clock = 0;
   private readonly intro = new ArkIntro();
@@ -106,7 +112,7 @@ export class ArkaView {
     const key = `${this.w}|${this.h}|${i.top},${i.right},${i.bottom},${i.left}|${sim.board.cols}|${sim.board.rows}`;
     if (key !== this.dims || !this.L) {
       this.dims = key;
-      this.L = layout(this.w, this.h, i, sim.board.cols, sim.board.rows);
+      this.L = layout(this.w, this.h, i, sim.board.cols, sim.board.rows, this.opts.touch);
     }
     return this.L;
   }
@@ -218,7 +224,7 @@ export class ArkaView {
         this.leavers.push({ kind: e.kind, path, lead, len: a.cells.length, s: 0, v: 7, dir: e.dir, dove: e.dove });
         const c = cellCentre(L, a.cells[0].x, a.cells[0].y), sd = sdir(L, e.dir) % 4;
         this.parts.burst(c.x - DX[sd] * L.cell * 0.4, c.y - DY[sd] * L.cell * 0.4, 8, { color: '#e8d6b0', size: 2.4, speed: 70, g: 40, life: 0.5, angle: Math.atan2(-DY[sd], -DX[sd]), spread: 1.6 });
-        if (e.chain >= 3) this.floats.add(t('fx.chain', { n: e.chain }), c.x, c.y - L.cell * 0.4, { color: C.amber2, size: Math.min(30, 16 + e.chain) });
+        if (e.chain >= 3) this.float(t('fx.chain', { n: e.chain }), c.x, c.y - L.cell * 0.4, { color: C.amber2, size: Math.min(30, 16 + e.chain) });
         if (this.bumps.has(e.id)) this.bumps.delete(e.id);
         break;
       }
@@ -233,7 +239,7 @@ export class ArkaView {
         } else if (sim.practice) {
           const a = sim.animals[e.id];
           const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
-          this.floats.add(t('fx.practice'), c.x, c.y - L.cell * 0.5, { color: C.cream, size: 15, dur: 1.5 });
+          this.float(t('fx.practice'), c.x, c.y - L.cell * 0.5, { color: C.cream, size: 15, dur: 1.5 });
         }
         if (e.blocker >= 0) this.jolts.set(e.blocker, 0);
         break;
@@ -244,16 +250,16 @@ export class ArkaView {
         this.walkers.push({ kind: e.kind, x, t: 0, heart: true });
         const p = { x, y: s0.y - L.slotH * 0.5 };
         this.parts.burst(p.x, p.y - 10, e.bonus ? 16 : 8, { color: e.bonus ? C.amber : '#e98b8b', size: 3, speed: 90, g: -30, life: 0.9, shape: 'dot' });
-        this.floats.add(e.bonus ? t('fx.bonus') : t('fx.pair'), Math.min(this.w - 60, p.x + 30), p.y - 22, { color: e.bonus ? C.amber2 : C.cream, size: e.bonus ? 26 : 20 });
-        if (e.newKind) this.floats.add(t('fx.newKind', { name: KIND[e.kind].name }), L.door.x, L.door.y - 14, { color: C.cream, size: 16, dur: 2 });
-        if (e.young) this.floats.add(t('fx.young', { young: KIND[e.kind].young }), L.door.x, L.door.y - 34, { color: C.amber2, size: 17, dur: 2.2 });
+        this.float(e.bonus ? t('fx.bonus') : t('fx.pair'), Math.min(this.w - 60, p.x + 30), p.y - 22, { color: e.bonus ? C.amber2 : C.cream, size: e.bonus ? 26 : 20 });
+        if (e.newKind) this.float(t('fx.newKind', { name: KIND[e.kind].name }), L.door.x, L.door.y - 14, { color: C.cream, size: 16, dur: 2 });
+        if (e.young) this.float(t('fx.young', { young: KIND[e.kind].young }), L.door.x, L.door.y - 34, { color: C.amber2, size: 17, dur: 2.2 });
         break;
       }
       case 'wake': {
         this.wakes.set(e.id, 0);
         const a = sim.animals[e.id];
         const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
-        this.floats.add(t('fx.wake'), c.x, c.y - L.cell * 0.4, { color: C.cream, size: 17 });
+        this.float(t('fx.wake'), c.x, c.y - L.cell * 0.4, { color: C.cream, size: 17 });
         break;
       }
       case 'turn': this.turns.set(e.id, 0); break;
@@ -261,7 +267,7 @@ export class ArkaView {
         const a = sim.animals[e.id];
         const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
         this.jolts.set(e.id, 0);
-        this.floats.add(t('fx.locked'), c.x, c.y - L.cell * 0.4, { color: C.cream, size: 16 });
+        this.float(t('fx.locked'), c.x, c.y - L.cell * 0.4, { color: C.cream, size: 16 });
         break;
       }
       case 'unlock': {
@@ -269,7 +275,7 @@ export class ArkaView {
         const a = sim.animals[e.id];
         const c = cellCentre(L, a.cells[0].x, a.cells[0].y);
         this.parts.burst(c.x, c.y, 12, { color: C.amber, size: 2.5, speed: 110, g: 60, life: 0.6, shape: 'spark' });
-        this.floats.add(t('fx.open'), c.x, c.y - L.cell * 0.4, { color: C.amber2, size: 18 });
+        this.float(t('fx.open'), c.x, c.y - L.cell * 0.4, { color: C.amber2, size: 18 });
         break;
       }
       case 'clear': {
@@ -291,15 +297,15 @@ export class ArkaView {
         break;
       }
       case 'doveBusy':
-        this.floats.add(t('fx.doveBusy'), Math.min(this.w - 80, Math.max(80, L.dove.x + L.dove.w / 2)), L.dove.y - 14, { color: C.cream, size: 15, dur: 1.1 });
+        this.float(t('fx.doveBusy'), Math.min(this.w - 80, Math.max(80, L.dove.x + L.dove.w / 2)), L.dove.y - 14, { color: C.cream, size: 15, dur: 1.1 });
         break;
       case 'rainbow': {
         if (e.heart) {
           const to = this.heartPos(L, Math.max(0, sim.hearts - 1));
           this.heartFx.push({ from: { x: L.door.x, y: L.deck.y + L.deck.h * 0.3 }, to, t: 0, lost: false });
-          this.floats.add(t('fx.heart'), to.x + 30, to.y + 24, { color: '#f2a7a0', size: 18 });
+          this.float(t('fx.heart'), to.x + 30, to.y + 24, { color: '#f2a7a0', size: 18 });
         }
-        this.floats.add(t('fx.rainbow'), L.door.x, L.deck.y + L.deck.h * 0.3, { color: C.cream, size: 24, dur: 1.4 });
+        this.float(t('fx.rainbow'), L.door.x, L.deck.y + L.deck.h * 0.3, { color: C.cream, size: 24, dur: 1.4 });
         for (let i = 0; i < 30; i++) {
           const a = Math.PI + (i / 29) * Math.PI;
           const r = this.bowR(L);
@@ -310,7 +316,7 @@ export class ArkaView {
       case 'sun': {
         const r = sightRadius(L, sightShare(sim.sight));
         this.ringPulse = 1;
-        this.floats.add(t('fx.sun'), L.door.x, Math.max(L.deck.y + 20, L.door.y - r * 0.7), { color: C.amber2, size: 22 });
+        this.float(t('fx.sun'), L.door.x, Math.max(L.deck.y + 20, L.door.y - r * 0.7), { color: C.amber2, size: 22 });
         for (let i = 0; i < 24; i++) {
           const a = Math.PI + (i / 23) * Math.PI;
           this.parts.burst(L.door.x + Math.cos(a) * r, L.door.y + Math.sin(a) * r, 1, { color: C.amber2, size: 2.2, speed: 50, g: -10, life: 0.9, shape: 'spark' });
@@ -318,7 +324,7 @@ export class ArkaView {
         break;
       }
       case 'blindReveal':
-        this.floats.add(t('fx.blind', { n: Math.round(e.share * 100) }), L.door.x, L.deck.y + L.deck.h * 0.35, { color: C.cream, size: 18, dur: 2.4 });
+        this.float(t('fx.blind', { n: Math.round(e.share * 100) }), L.door.x, L.deck.y + L.deck.h * 0.35, { color: C.cream, size: 18, dur: 2.4 });
         break;
       case 'say':
         this.ravenHop = Math.max(this.ravenHop, 0.5);
@@ -329,6 +335,12 @@ export class ArkaView {
   }
 
   /** A heart's place on the bar (a phone on its side: a row atop the bar's card). */
+  /** A flying word, grown with a desktop's UI (DESIGN §14); a phone's and a tablet's keep their sizes. */
+  private float(text: string, x: number, y: number, o: { color?: string; size?: number; dur?: number }): void {
+    const L = this.L, k = L && (L.kind === 'desktop' || L.kind === 'big') ? L.u : 1;
+    this.floats.add(text, x, y, { ...o, size: (o.size ?? 26) * k });
+  }
+
   private heartPos(L: Layout, i: number): Pt {
     const s = this.heartSize(L);
     const y = L.mode === 'side' ? L.bar.y + 8 + s / 2 : L.bar.y + L.bar.h / 2;
@@ -422,20 +434,22 @@ export class ArkaView {
     this.drawCard(ctx, L);
   }
 
-  /** The animal a finger is on: its cells ringed on the deck (it lifts a little in drawAnimals). */
+  /** The animal a finger is on: its cells ringed on the deck (it lifts a little in drawAnimals); a resting cursor's, lighter. */
   private drawPick(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
     const p = this.pick;
-    const a = p ? sim.animals[p.id] : null;
+    const id = p ? p.id : this.hover;
+    const a = id >= 0 ? sim.animals[id] : null;
     if (!a || a.out || sim.levelState !== 'play') return;
+    const k = L.kind === 'desktop' || L.kind === 'big' ? L.u : 1;
     ctx.save();
     for (const c of a.cells) {
       const r = cellRect(L, c.x, c.y);
       roundRect(ctx, r.x + 1.5, r.y + 1.5, r.w - 3, r.h - 3, r.w * 0.2);
-      ctx.strokeStyle = 'rgba(255,247,225,.35)';
-      ctx.lineWidth = 6;
+      ctx.strokeStyle = p ? 'rgba(255,247,225,.35)' : 'rgba(255,247,225,.22)';
+      ctx.lineWidth = 6 * k;
       ctx.stroke();
-      ctx.strokeStyle = C.cream;
-      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = p ? C.cream : 'rgba(255,247,225,.8)';
+      ctx.lineWidth = (p ? 2.5 : 2) * k;
       ctx.stroke();
     }
     ctx.restore();
@@ -486,18 +500,18 @@ export class ArkaView {
     ctx.fillStyle = 'rgba(30,20,12,.28)';
     roundRect(ctx, d.x + 2, d.y + 4, d.w, d.h, d.h / 2);
     ctx.fill();
-    ctx.fillStyle = pressed ? '#e9dcc0' : 'rgba(247,240,225,.96)';
+    ctx.fillStyle = pressed ? '#e9dcc0' : this.doveHover ? '#fffaf0' : 'rgba(247,240,225,.96)';
     roundRect(ctx, d.x, d.y, d.w, d.h, d.h / 2);
     ctx.fill();
-    ctx.strokeStyle = C.ink;
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = this.doveHover && !pressed ? C.amber2 : C.ink;
+    ctx.lineWidth = this.doveHover && !pressed ? 3 : 2;
     ctx.stroke();
     const ix = d.x + d.h * 0.55, iy = d.y + d.h / 2;
     paintDove(ctx, ix + 2, iy + 3, d.h * 0.5, Math.sin(this.clock * (sim.doveT > 0 ? 2 : 6)) * 0.5, false, -1);
     ctx.fillStyle = C.ink;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    const s = fitText(ctx, t('hud.dove'), d.x + d.w - 12 - (d.x + d.h), 15 * Math.min(L.u, 1.15), 800, SANS, 13);
+    const s = fitText(ctx, t('hud.dove'), d.x + d.w - 12 - (d.x + d.h), 15 * L.tk, 800, SANS, 13);
     ctx.fillText(s, d.x + d.h, iy + 1);
     if (sim.doveT > 0) {
       // resting: a shade over the pill that draws back as the dove gets ready
@@ -729,6 +743,7 @@ export class ArkaView {
     const restart = sim.levelState === 'restart' ? clamp(sim.stateT / RULES.restartSec) : 0;
     const size = L.cell * 1.28;
     const picked = this.pick && sim.levelState === 'play' ? this.pick.id : -1;
+    const hovered = !this.pick && sim.levelState === 'play' ? this.hover : -1;
     for (const a of sim.animals) {
       if (a.out) continue;
       const sd = sdir(L, a.dir) % 4;
@@ -774,7 +789,7 @@ export class ArkaView {
       const breathe = a.asleep ? Math.sin(this.clock * 1.6 + a.id) * 0.03 : Math.sin(this.clock * 2.2 + a.id * 1.7) * 0.012;
       const squash = w !== undefined ? 0.2 * (1 - w / 0.5) : breathe;
       // the animal a finger is on lifts a little (its ring is drawn over the deck)
-      paintAnimal(ctx, a.kind, c.x, c.y, dir, size * (a.id === picked ? 1.1 : 1), this.dpr, { pose: a.asleep ? 'sleep' : 'stand', squash });
+      paintAnimal(ctx, a.kind, c.x, c.y, dir, size * (a.id === picked ? 1.1 : a.id === hovered ? 1.05 : 1), this.dpr, { pose: a.asleep ? 'sleep' : 'stand', squash });
       if (!a.asleep) this.chevron(ctx, c, dir, L.cell, a.lockedBy >= 0 && !sim.animals[a.lockedBy].out);
       if (a.asleep) {
         ctx.fillStyle = C.cream;
@@ -965,13 +980,15 @@ export class ArkaView {
     // the threshold's label on the ring
     const ly = L.door.y - r5;
     if (ly > L.deck.y + 6) {
-      ctx.font = font(800, 12, SANS);
+      // (a desktop's tag grows with its UI, 13 px and more; a phone's and a tablet's stays as it was)
+      const k = L.kind === 'desktop' || L.kind === 'big' ? L.u : 1;
+      ctx.font = font(800, k > 1 ? 13 * k : 12, SANS);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'middle';
-      const lx = L.door.x + 8;
+      const lx = L.door.x + 8 * k;
       ctx.fillStyle = 'rgba(42,33,27,.72)';
       const tw = ctx.measureText(t('hud.ring')).width;
-      ctx.fillRect(lx - 4, ly - 9, tw + 8, 18);
+      ctx.fillRect(lx - 4 * k, ly - 9 * k, tw + 8 * k, 18 * k);
       ctx.fillStyle = C.amber2;
       ctx.fillText(t('hud.ring'), lx, ly);
     }
@@ -1003,7 +1020,7 @@ export class ArkaView {
 
   // ── the bar, the raven, the cards ──────────────────────────────
   private drawBar(ctx: CanvasRenderingContext2D, L: Layout, sim: ArkaSim): void {
-    const b = L.bar, u = Math.min(L.u, 1.15);
+    const b = L.bar, u = L.tk;
     ctx.save();
     // a soft plank under the bar
     ctx.fillStyle = 'rgba(42,33,27,.55)';
@@ -1070,24 +1087,29 @@ export class ArkaView {
     const idleHop = (this.clock % 5) < 0.4 ? (this.clock % 5) / 0.4 : 0;
     const hop = Math.max(this.ravenHop, idleHop);
     paintRaven(ctx, R.x, R.y, R.s, { bob: hop, talk, face: R.x > this.w / 2 ? -1 : 1, tilt: -this.ravenFlinch * 0.4 * Math.sin(this.clock * 20) });
-    if (!line) return;
+    // (held while a desktop's coach mark is up: the line waits for it, DESIGN §14)
+    if (!line || sim.now < sim.hushUntil) return;
     const age = sim.now - line.t0;
     const a = clamp(Math.min(age / 0.18, (line.dur - age) / 0.3));
     if (a <= 0) return;
     ctx.save();
     ctx.globalAlpha = a;
-    const fs = this.w < 500 ? 13 : 14;
+    // (a desktop's words grow with its UI, DESIGN §14; a phone's and a tablet's stay as they were)
+    const dk = L.kind === 'desktop' || L.kind === 'big' ? L.u : 1;
+    const fs = (this.w < 500 ? 13 : 14) * dk;
     ctx.font = font(650, fs, SANS);
-    // on its side the raven talks in his own column, under him
+    // on its side the raven talks in his own column, under him; on a big screen above himself, in the margin
+    // right of the hull (the deck stays clear)
     const column = L.mode === 'side';
-    const maxW = column ? L.bar.w : Math.min(260, this.w * 0.56);
+    const margin = L.kind === 'big' ? this.w - (L.deck.x + L.deck.w + L.rim) - 16 : 0;
+    const maxW = column ? L.bar.w : L.kind === 'big' ? clamp(margin, 170, 300 * dk) : Math.min(260, this.w * 0.56);
     const lines = wrapLines(ctx, line.text, maxW - 20);
     const bw = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 22);
     const bh = lines.length * (fs + 4) + 14;
     // beside the raven, on the side away from the deck when there is room there
     const roomR = this.w - (R.x + R.s * 0.4) - 8 >= bw && R.x > L.deck.x + L.deck.w;
     const left = !roomR && R.x > this.w / 2;
-    let bx = column ? L.bar.x : left ? R.x - R.s * 0.3 - bw : R.x + R.s * 0.3;
+    let bx = column ? L.bar.x : L.kind === 'big' ? Math.max(L.deck.x + L.deck.w + L.rim + 6, R.x - bw / 2) : left ? R.x - R.s * 0.3 - bw : R.x + R.s * 0.3;
     let by = column ? R.y + 10 : R.y - R.s * 0.75 - bh;
     bx = Math.max(8, Math.min(this.w - bw - 8, bx));
     if (by < L.top) by = R.y + 6;
@@ -1123,22 +1145,28 @@ export class ArkaView {
     if (!c) return;
     const k = clamp(Math.min(c.t / 0.25, (c.dur - c.t) / 0.3));
     if (k <= 0) return;
+    // a desktop's card grows with its UI (DESIGN §14): laid out at a phone's size on a canvas `dk` times smaller and
+    // drawn scaled (the words stay crisp); a phone's and a tablet's card are as they were (dk = 1)
+    const dk = L.kind === 'desktop' || L.kind === 'big' ? L.u : 1;
+    const W = this.w / dk, H = this.h / dk, top = L.top / dk;
+    const deck = { x: L.deck.x / dk, y: L.deck.y / dk, w: L.deck.w / dk, h: L.deck.h / dk };
     ctx.save();
+    ctx.scale(dk, dk);
     ctx.globalAlpha = k;
     if (c.kind === 'level' || c.kind === 'restart') {
-      const y = L.deck.y + L.deck.h * 0.42;
-      ctx.font = font(800, Math.min(30, L.deck.w / 9), SERIF);
+      const y = deck.y + deck.h * 0.42;
+      ctx.font = font(800, Math.min(30, deck.w / 9), SERIF);
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const s = 0.8 + 0.2 * ease.outBack(clamp(c.t / 0.3));
-      ctx.translate(L.door.x, y);
+      ctx.translate(L.door.x / dk, y);
       ctx.scale(s, s);
       const titleFont = ctx.font;
       const titleW = ctx.measureText(c.title).width;
       // the pill takes the subtitle's width too ("Jeszcze raz — pary zostają"), within the screen
       ctx.font = font(700, 13, SANS);
       const textW = c.text ? ctx.measureText(c.text).width : 0;
-      const tw = Math.min(this.w - 24, Math.max(titleW, textW, 120) + 40);
+      const tw = Math.min(W - 24, Math.max(titleW, textW, 120) + 40);
       ctx.font = titleFont;
       ctx.fillStyle = 'rgba(42,33,27,.78)';
       roundRect(ctx, -tw / 2, -30, tw, c.text ? 66 : 50, 14);
@@ -1154,23 +1182,23 @@ export class ArkaView {
     }
     // the big cards: a parchment panel over a dimmed deck
     ctx.fillStyle = 'rgba(20,14,8,.45)';
-    ctx.fillRect(0, 0, this.w, this.h);
-    const pw = Math.min(this.w - 32, 460);
+    ctx.fillRect(0, 0, W, H);
+    const pw = Math.min(W - 32, 460);
     // the panel fits its content: the title, the wrapped text and (on the opening card) the root passage
     ctx.font = font(500, 15, SANS);
     const textLines = c.kind === 'clear' ? [] : wrapLines(ctx, c.text, pw - 40);
     let ph = c.kind === 'clear' ? 200 : 66 + textLines.length * 21 + 14;
     if (c.kind === 'open') {
       if (!this.verse.l || this.verse.w !== pw) {
-        this.verse.l = layoutPassage(ctx, passage(this.verse.id), pw - 48, Math.max(40, this.h - L.top - 40 - ph - 20), { max: 17, min: 13 });
+        this.verse.l = layoutPassage(ctx, passage(this.verse.id), pw - 48, Math.max(40, H - top - 40 - ph - 20), { max: 17, min: 13 });
         this.verse.w = pw;
       }
       ph += this.verse.l.height + 14;
     }
-    ph = Math.min(ph, this.h - L.top - 14);
-    const px = (this.w - pw) / 2;
-    const py = Math.max(L.top + 4, Math.min(this.h - ph - 10, (this.h - ph) / 2 + 20));
-    this.cardBox = { x: px, y: py, w: pw, h: ph };
+    ph = Math.min(ph, H - top - 14);
+    const px = (W - pw) / 2;
+    const py = Math.max(top + 4, Math.min(H - ph - 10, (H - ph) / 2 + 20));
+    this.cardBox = { x: px * dk, y: py * dk, w: pw * dk, h: ph * dk };
     ctx.fillStyle = C.paper;
     ctx.strokeStyle = C.walnut;
     ctx.lineWidth = 3;
@@ -1181,30 +1209,30 @@ export class ArkaView {
     ctx.textBaseline = 'top';
     ctx.fillStyle = C.ink;
     ctx.font = font(800, 24, SERIF);
-    ctx.fillText(c.title, this.w / 2, py + 16);
+    ctx.fillText(c.title, W / 2, py + 16);
     if (c.kind === 'clear' && c.ev) {
       const e = c.ev;
       for (let i = 0; i < 3; i++) {
         const sk = clamp((c.t - 0.25 - i * 0.22) / 0.3);
         const filled = i < e.stars && sk > 0;
-        paintStar(ctx, this.w / 2 + (i - 1) * 54, py + 82 - (i === 1 ? 8 : 0), 22 * (filled ? ease.outBack(sk) : 1), filled, filled ? (1 - sk) * 0.8 : 0);
+        paintStar(ctx, W / 2 + (i - 1) * 54, py + 82 - (i === 1 ? 8 : 0), 22 * (filled ? ease.outBack(sk) : 1), filled, filled ? (1 - sk) * 0.8 : 0);
       }
       ctx.font = font(700, 14, SANS);
       ctx.fillStyle = C.ink2;
       const what = [t('card.time', { sec: Math.round(e.sec), par: e.par }), e.bumps ? t('card.bumps', { n: e.bumps }) : t('card.noBump')];
       if (e.doves) what.push(t('card.dove'));
-      ctx.fillText(what.join(' · '), this.w / 2, py + 118);
+      ctx.fillText(what.join(' · '), W / 2, py + 118);
       ctx.font = font(650, 13, SANS);
       ctx.fillStyle = 'rgba(42,33,27,.66)';
-      ctx.fillText(t('card.tap'), this.w / 2, py + ph - 30);
+      ctx.fillText(t(this.opts.touch ? 'card.tap' : 'card.click'), W / 2, py + ph - 30);
     } else {
       ctx.font = font(500, 15, SANS);
       ctx.fillStyle = C.ink2;
-      textLines.forEach((l, i) => ctx.fillText(l, this.w / 2, py + 56 + i * 21));
+      textLines.forEach((l, i) => ctx.fillText(l, W / 2, py + 56 + i * 21));
       if (c.kind === 'open' && this.verse.l) {
         const p = passage(this.verse.id);
         const top = py + 66 + textLines.length * 21;
-        drawPassage(ctx, p, this.verse.l, this.w / 2, top, { text: C.walnut2, ref: 'rgba(42,33,27,.6)' });
+        drawPassage(ctx, p, this.verse.l, W / 2, top, { text: C.walnut2, ref: 'rgba(42,33,27,.6)' });
       }
     }
     ctx.restore();

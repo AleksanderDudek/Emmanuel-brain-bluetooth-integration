@@ -18,23 +18,30 @@ import { traceBars } from '../kit/trace';
 import type { Insets } from '../kit/types';
 import { clamp, ease, Floaters, Particles, Shake } from '../kit/juice';
 import { drawGeode, drawSpecimen, fitFont, fitLines, GEODE_REACH, rrect, sparkle, TileCache } from './art';
-import { EMPTY, idx, N, ROCK, type TrayItem } from './board';
+import { EMPTY, idx, N, ROCK, tapSpot, type TrayItem } from './board';
 import { chamberName, chamberStory, GEMS, JEWELS, MINERALS, TIERS, type Piece } from './content';
 import { fmt, pct, t } from './i18n';
-import { boardAt, computeLayout, trayCellFor, type Box, type Layout } from './layout';
+import { boardAt, computeLayout, slotAt, trayCellFor, type Box, type Layout } from './layout';
 import { C, paintBowl, paintBubble, paintCave, paintDial, paintDruse, paintJewel, paintMole, paintShineColumn, paintSkyline, SANS, SERIF, type MolePose } from './paint';
 import type { GeodaEvent, GeodaSim } from './sim';
 
+/** Where a desktop's cursor holds a dragged piece: a share of its width and height from its top-left (DESIGN §14). */
+export interface Grab { fx: number; fy: number }
+
 /** The finger's part: a piece being dragged (where the finger is), or a tray slot pressed. */
 export interface Hand {
-  drag: { slot: number; x: number; y: number; t: number } | null;
+  /** `grab`: under a desktop's mouse the piece keeps the point the cursor took it by (else it floats over the finger) */
+  drag: { slot: number; x: number; y: number; t: number; grab?: Grab | null } | null;
   /** how long the player has been idle (s): the auto-place ghost shows after a while */
   idle: number;
 }
 
 interface Clearing { i: number; tile: number; jewel: number; t: number; delay: number }
 interface Fly { kind: number; x: number; y: number; t: number }
-interface Back { slot: number; item: TrayItem; x: number; y: number; t: number }
+interface Back { slot: number; item: TrayItem; x: number; y: number; t: number; grab: Grab | null }
+
+/** What a desktop's resting cursor would do (DESIGN §14): the board cell under it and where a click would set the piece. */
+interface HoverSpot { key: string; slot: number; gx: number; gy: number; rows: number[]; cols: number[] }
 
 const POP = 0.28;
 
@@ -71,6 +78,9 @@ export class GeodaView {
   private readonly touch: boolean;
   /** the tray slot a finger (or the mouse) is pressing: drawn pressed until it lifts */
   pressed = -1;
+  /** a mouse resting over the canvas (no button): the slot it would take, the spot a click would set the piece on */
+  hover: { x: number; y: number } | null = null;
+  private hoverSpot: HoverSpot | null = null;
 
   constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean; touch?: boolean }) {
     const ctx = canvas.getContext('2d');
@@ -110,7 +120,7 @@ export class GeodaView {
 
   // ── events ──────────────────────────────────────────────────────
   on(e: GeodaEvent, sim: GeodaSim): void {
-    const L = this.layout, cs = L.cell;
+    const L = this.layout, cs = L.cell, tk = L.tk;
     const cx = (i: number) => L.board.x + (i % N + 0.5) * cs, cy = (i: number) => L.board.y + (Math.floor(i / N) + 0.5) * cs;
     switch (e.type) {
       case 'deal':
@@ -132,7 +142,7 @@ export class GeodaView {
           this.shake.add(e.lines >= 3 ? 0.45 : e.lines === 2 ? 0.22 : 0.08);
           this.flash = Math.min(1, 0.25 + 0.15 * e.lines);
           const pts = e.points - e.item.piece.cells.length;
-          const big = Math.min(46, 22 + e.lines * 4 + e.combo);
+          const big = Math.min(46, 22 + e.lines * 4 + e.combo) * tk;
           if (!e.blind && pts > 0) this.words.add(`+${fmt(pts)}`, mx, my - cs * 0.3, { color: e.mult >= 3 ? C.gold : C.ink, size: big * 0.8, dur: 1.1 });
           if (e.blind) this.words.add('+?', mx, my - cs * 0.3, { color: '#a99bd0', size: big * 0.7 });
           if (e.mult >= 2 && !e.blind) this.words.add(`×${e.mult}`, mx + cs * 1.2, my - cs * 0.9, { color: C.gold, size: big * 0.6, dur: 0.9 });
@@ -145,7 +155,7 @@ export class GeodaView {
         }
         if (e.druse > 0) {
           for (const i of e.placed.druseCells) this.fx.burst(cx(i), cy(i), 8, { color: C.gold, size: 2.4, speed: 140, life: 0.6, shape: 'spark', g: 120 });
-          this.words.add(t('v.druse', { n: fmt(e.druse * (e.blind ? 1 : e.mult)) }), mx, my + cs * 0.6, { color: C.gold, size: 18, dur: 1.1 });
+          this.words.add(t('v.druse', { n: fmt(e.druse * (e.blind ? 1 : e.mult)) }), mx, my + cs * 0.6, { color: C.gold, size: 18 * tk, dur: 1.1 });
         }
         break;
       }
@@ -168,7 +178,7 @@ export class GeodaView {
         break;
       case 'level':
         this.cheer();
-        for (let k = 0; k < 4; k++) this.fx.burst(L.card.x + L.card.w * (0.2 + 0.2 * k), L.card.y + L.card.h * 0.3, 18, { color: k % 2 ? C.gold : '#c8f3ff', size: 3, speed: 220, life: 1.2, shape: 'square' });
+        for (let k = 0; k < 4; k++) this.fx.burst(L.card.x + L.card.w * (0.2 + 0.2 * k), L.card.y + L.card.h * 0.3, 18, { color: k % 2 ? C.gold : '#c8f3ff', size: 3 * tk, speed: 220 * tk, life: 1.2, shape: 'square' });
         break;
       case 'gem': {
         const m = MINERALS[e.mineral];
@@ -177,7 +187,7 @@ export class GeodaView {
         if (L.mode === 'columns') this.words.add(text, L.board.x + L.board.w / 2, L.board.y + L.board.h * 0.3, { color: C.gold, size: 16, dur: 2.4 });
         const b = L.bowl;
         this.fx.burst(b.x + b.w / 2, b.y + b.h * 0.4, 24, { color: e.polished ? C.gold : '#e8e0ff', size: 2.5, speed: 160, life: 1, shape: 'spark', g: 60 });
-        if (e.points > 0) this.words.add(`+${fmt(e.points)}`, b.x + b.w / 2, b.y + b.h * 0.2, { color: C.gold, size: 24 });
+        if (e.points > 0) this.words.add(`+${fmt(e.points)}`, b.x + b.w / 2, b.y + b.h * 0.2, { color: C.gold, size: 24 * tk });
         if (e.polished) this.cheer();
         break;
       }
@@ -237,16 +247,34 @@ export class GeodaView {
   }
 
   /** A dragged piece that did not land flies back to its slot. */
-  sendBack(slot: number, item: TrayItem, x: number, y: number): void {
-    this.backs.push({ slot, item, x, y, t: 0 });
+  sendBack(slot: number, item: TrayItem, x: number, y: number, grab: Grab | null = null): void {
+    this.backs.push({ slot, item, x, y, t: 0, grab });
+  }
+
+  /** Where a tray piece is drawn in its slot (CSS px), at rest. */
+  trayBox(slot: number, p: Piece): Box {
+    const L = this.layout, s = L.slots[slot], tc = trayCellFor(L, s, p.w, p.h);
+    return { x: s.x + (s.w - p.w * tc) / 2, y: s.y + (s.h - p.h * tc) / 2, w: p.w * tc, h: p.h * tc };
+  }
+
+  /**
+   * Where a desktop's cursor takes a tray piece (DESIGN §14): the share of the piece under the press, kept while it
+   * is dragged — a press beside the piece holds it by its nearest edge.  Null on a phone (the piece floats instead).
+   */
+  grabAt(slot: number, p: Piece, x: number, y: number): Grab | null {
+    if (!this.layout.grab) return null;
+    const b = this.trayBox(slot, p);
+    return { fx: clamp((x - b.x) / Math.max(1, b.w)), fy: clamp((y - b.y) / Math.max(1, b.h)) };
   }
 
   /**
    * Where a dragged piece sits (its top-left, CSS px) for a finger at (x, y): centred over it, its lower edge
-   * `layout.lift` above it — a cell under a mouse, clear of the thumb (56 px and more) under a finger.
+   * `layout.lift` above it — a cell under a phone's mouse, clear of the thumb (56 px and more) under a finger.
+   * Under a desktop's mouse (`grab`) the piece keeps the point the cursor took it by: it follows the cursor.
    */
-  dragOrigin(p: Piece, x: number, y: number): { x: number; y: number } {
+  dragOrigin(p: Piece, x: number, y: number, grab: Grab | null = null): { x: number; y: number } {
     const L = this.layout, cs = L.cell;
+    if (L.grab && grab) return { x: x - grab.fx * p.w * cs, y: y - grab.fy * p.h * cs };
     return { x: x - (p.w * cs) / 2, y: y - L.lift - p.h * cs };
   }
 
@@ -254,8 +282,8 @@ export class GeodaView {
    * The board spot a dragged piece snaps to: the nearest spot where it fits, within 0.95 of a cell under a mouse
    * and 1.35 under a finger (a fingertip is not a cursor), or null.
    */
-  snap(sim: GeodaSim, p: Piece, x: number, y: number): { gx: number; gy: number } | null {
-    const L = this.layout, o = this.dragOrigin(p, x, y);
+  snap(sim: GeodaSim, p: Piece, x: number, y: number, grab: Grab | null = null): { gx: number; gy: number } | null {
+    const L = this.layout, o = this.dragOrigin(p, x, y, grab);
     const fx = (o.x - L.board.x) / L.cell, fy = (o.y - L.board.y) / L.cell;
     const reach = this.touch ? 1.35 : 0.95;
     let best: { gx: number; gy: number } | null = null, bd = Infinity;
@@ -271,6 +299,39 @@ export class GeodaView {
 
   /** A cell under a point (for taps), with a margin around the board. */
   cellAt(x: number, y: number): [number, number] | null { return boardAt(this.layout, x, y); }
+
+  /**
+   * What a click at the resting cursor would do (DESIGN §14): the current piece set where a tap there sets it (the
+   * tapped cell, else the nearest spot it fits, else the best), and the lines that would clear.  Cached while the
+   * cell, the piece and the board stay the same (a 64-cell sum a frame).
+   */
+  hovered(sim: GeodaSim): HoverSpot | null {
+    const h = this.hover;
+    if (!h || sim.story || !sim.started || sim.ended) return null;
+    const cell = boardAt(this.layout, h.x, h.y, 0.1);
+    const slot = sim.current, item = sim.tray[slot];
+    if (!cell || !item) return null;
+    let sig = 0;
+    for (let i = 0; i < N * N; i++) sig = (sig * 31 + sim.board.cells[i]) | 0;
+    const key = `${cell[0]},${cell[1]},${slot},${item.piece.id},${item.tile},${sig}`;
+    if (this.hoverSpot?.key === key) return this.hoverSpot;
+    const s = tapSpot(sim.board, item.piece, cell[0], cell[1]);
+    if (!s) {
+      this.hoverSpot = null;
+      return null;
+    }
+    const c = sim.board.wouldClear(item.piece, s[0], s[1]);
+    this.hoverSpot = { key, slot, gx: s[0], gy: s[1], rows: c.rows, cols: c.cols };
+    return this.hoverSpot;
+  }
+
+  /** The tray slot (with a piece) under the resting cursor, or −1. */
+  hoveredSlot(sim: GeodaSim): number {
+    const h = this.hover;
+    if (!h || sim.story) return -1;
+    const k = slotAt(this.layout, h.x, h.y);
+    return k >= 0 && sim.tray[k] ? k : -1;
+  }
 
   // ── drawing ─────────────────────────────────────────────────────
   draw(sim: GeodaSim, hand: Hand): void {
@@ -291,9 +352,13 @@ export class GeodaView {
     this.drawTray(sim, hand);
     // the shine (a dial, or a column in a small phone's margin), the goal, the Szlif's bowl in a rest
     const rest = sim.restBlock || !!this.gemShow;
-    if (L.mode === 'wide') {
+    if (L.mode === 'wide' || (L.mode === 'desk' && L.bowl.y > L.dial.y)) {
       this.drawDial(sim);
       this.drawBowl(sim);
+      this.drawGoal(sim);
+    } else if (L.mode === 'desk') {
+      // a short desktop column: the bowl takes the dial's place in a rest (the shine waits for the next Blask)
+      if (rest) this.drawBowl(sim); else this.drawDial(sim);
       this.drawGoal(sim);
     } else if (L.mode === 'strip') {
       this.drawDial(sim);
@@ -373,14 +438,21 @@ export class GeodaView {
   private drawPreview(sim: GeodaSim, hand: Hand): void {
     const ctx = this.ctx, L = this.layout, cs = L.cell;
     let slot = -1, gx = 0, gy = 0, ghost = 0.45;
+    // a desktop's resting cursor over the board: where a click sets the current piece, and what it clears
+    const hs = hand.drag ? null : this.hovered(sim);
     if (hand.drag) {
       const item = sim.tray[hand.drag.slot];
       if (!item) return;
-      const s = this.snap(sim, item.piece, hand.drag.x, hand.drag.y);
+      const s = this.snap(sim, item.piece, hand.drag.x, hand.drag.y, hand.drag.grab ?? null);
       if (!s) return;
       slot = hand.drag.slot;
       gx = s.gx;
       gy = s.gy;
+    } else if (hs) {
+      slot = hs.slot;
+      gx = hs.gx;
+      gy = hs.gy;
+      ghost = 0.5;
     } else if (hand.idle > 2.5 && !sim.story) {
       const a = sim.autoSpot();
       if (!a) return;
@@ -391,31 +463,34 @@ export class GeodaView {
     } else return;
     const item = sim.tray[slot]!;
     const p = item.piece;
-    const clear = sim.board.wouldClear(p, gx, gy);
+    const clear = hs ?? sim.board.wouldClear(p, gx, gy);
     const tile = item.tile - 1;
-    // the lines it would clear: their crystals take the piece's colour and glow
-    if (hand.drag && (clear.rows.length || clear.cols.length)) {
-      const g = GEMS[tile % GEMS.length];
+    // the lines it would clear: their crystals take the piece's colour and glow (softer under a resting cursor)
+    if ((hand.drag || hs) && (clear.rows.length || clear.cols.length)) {
       ctx.save();
-      for (const r of clear.rows) for (let x = 0; x < N; x++) this.tiles.draw(ctx, 'gem', tile, 3, L.board.x + x * cs, L.board.y + r * cs, cs);
-      for (const c of clear.cols) for (let y = 0; y < N; y++) this.tiles.draw(ctx, 'gem', tile, 3, L.board.x + c * cs, L.board.y + y * cs, cs);
+      if (hand.drag) {
+        for (const r of clear.rows) for (let x = 0; x < N; x++) this.tiles.draw(ctx, 'gem', tile, 3, L.board.x + x * cs, L.board.y + r * cs, cs);
+        for (const c of clear.cols) for (let y = 0; y < N; y++) this.tiles.draw(ctx, 'gem', tile, 3, L.board.x + c * cs, L.board.y + y * cs, cs);
+      }
       ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = `rgba(255,240,200,${(0.12 + 0.08 * Math.sin(this.clock * 10)).toFixed(3)})`;
+      const a = hand.drag ? 0.12 + 0.08 * Math.sin(this.clock * 10) : 0.08 + 0.04 * Math.sin(this.clock * 6);
+      ctx.fillStyle = `rgba(255,240,200,${a.toFixed(3)})`;
       for (const r of clear.rows) ctx.fillRect(L.board.x, L.board.y + r * cs, L.board.w, cs);
       for (const c of clear.cols) ctx.fillRect(L.board.x + c * cs, L.board.y, cs, L.board.h);
       ctx.restore();
-      void g;
     }
     ctx.save();
     ctx.globalAlpha = ghost;
     for (const [x, y] of p.cells) this.tiles.draw(ctx, 'gem', tile, 2, L.board.x + (gx + x) * cs, L.board.y + (gy + y) * cs, cs);
     ctx.restore();
     if (!hand.drag) {
+      // a dashed outline: a click (or the wait's tap) sets it here; brighter under a resting cursor
+      const k = L.tk;
       ctx.save();
-      ctx.strokeStyle = 'rgba(255,236,190,.55)';
-      ctx.setLineDash([4, 4]);
-      ctx.lineWidth = 1.5;
-      for (const [x, y] of p.cells) ctx.strokeRect(L.board.x + (gx + x) * cs + 3, L.board.y + (gy + y) * cs + 3, cs - 6, cs - 6);
+      ctx.strokeStyle = hs ? 'rgba(255,226,150,.85)' : 'rgba(255,236,190,.55)';
+      ctx.setLineDash([4 * k, 4 * k]);
+      ctx.lineWidth = (hs ? 2 : 1.5) * k;
+      for (const [x, y] of p.cells) ctx.strokeRect(L.board.x + (gx + x) * cs + 3 * k, L.board.y + (gy + y) * cs + 3 * k, cs - 6 * k, cs - 6 * k);
       ctx.restore();
     }
   }
@@ -459,18 +534,21 @@ export class GeodaView {
   }
 
   private drawTray(sim: GeodaSim, hand: Hand): void {
-    const ctx = this.ctx, L = this.layout;
+    const ctx = this.ctx, L = this.layout, tk = L.tk;
+    // a desktop's resting cursor over a piece: its slot lights and the piece leans toward the hand (DESIGN §14)
+    const over = hand.drag ? -1 : this.hoveredSlot(sim);
     for (let k = 0; k < 3; k++) {
       const s = L.slots[k];
       const item = sim.tray[k];
       const sel = k === sim.current && !hand.drag && !!item;
       const down = k === this.pressed && !!item && !hand.drag;
-      // the slot's hollow (lit on touch-down)
+      const hov = k === over && !down;
+      // the slot's hollow (lit on touch-down, under the cursor)
       ctx.save();
-      ctx.fillStyle = down ? 'rgba(255,211,107,.2)' : sel ? 'rgba(255,211,107,.10)' : 'rgba(255,255,255,.035)';
-      ctx.strokeStyle = sel || down ? 'rgba(255,211,107,.6)' : 'rgba(255,255,255,.08)';
-      ctx.lineWidth = sel || down ? 2 : 1;
-      rrect(ctx, s.x + 4, s.y + 4, s.w - 8, s.h - 8, 14);
+      ctx.fillStyle = down ? 'rgba(255,211,107,.2)' : hov ? 'rgba(255,211,107,.15)' : sel ? 'rgba(255,211,107,.10)' : 'rgba(255,255,255,.035)';
+      ctx.strokeStyle = hov ? 'rgba(255,226,150,.85)' : sel || down ? 'rgba(255,211,107,.6)' : 'rgba(255,255,255,.08)';
+      ctx.lineWidth = (sel || down || hov ? 2 : 1) * tk;
+      rrect(ctx, s.x + 4 * tk, s.y + 4 * tk, s.w - 8 * tk, s.h - 8 * tk, 14 * tk);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
@@ -483,12 +561,12 @@ export class GeodaView {
       const fits = sim.board.fitsAnywhere(p);
       const ox = s.x + (s.w - p.w * tc) / 2 + (L.portrait ? 0 : slide), oy = s.y + (s.h - p.h * tc) / 2 + (L.portrait ? slide : 0);
       const wob = this.stuck === k && this.stuckT < 0.5 ? Math.sin(this.stuckT * 40) * 3 * (1 - this.stuckT * 2) : 0;
-      if (down) {
-        // a pressed piece rises a little toward the finger's drag
-        const cx = s.x + s.w / 2, cy = s.y + s.h / 2;
+      if (down || hov) {
+        // a pressed piece rises a little toward the finger's drag (a hovered one less)
+        const cx = s.x + s.w / 2, cy = s.y + s.h / 2, sc = down ? 1.08 : 1.05;
         ctx.save();
         ctx.translate(cx, cy);
-        ctx.scale(1.08, 1.08);
+        ctx.scale(sc, sc);
         ctx.translate(-cx, -cy);
         this.piece(item, ox + wob, oy, tc, inK * (fits ? 1 : 0.35));
         ctx.restore();
@@ -499,7 +577,7 @@ export class GeodaView {
         ctx.textBaseline = 'alphabetic';
         // one line down to 13 px, else two ("får inte / plats" in a small phone's slot)
         const room = s.w - 14;
-        const two = fitLines(ctx, t('v.stuck'), Math.max(MIN_READ, Math.min(15, s.h * 0.16)), room, SANS, 700, MIN_READ, MIN_READ);
+        const two = fitLines(ctx, t('v.stuck'), Math.max(MIN_READ, Math.min(15 * tk, s.h * 0.16)), room, SANS, 700, MIN_READ, MIN_READ);
         const lines = two.lines.slice(0, 2);
         ctx.lineWidth = 3;
         ctx.lineJoin = 'round';
@@ -519,7 +597,7 @@ export class GeodaView {
       const k = ease.outCubic(clamp(b.t / 0.25));
       const tc = trayCellFor(L, s, b.item.piece.w, b.item.piece.h);
       const tx = s.x + (s.w - b.item.piece.w * tc) / 2, ty = s.y + (s.h - b.item.piece.h * tc) / 2;
-      const o = this.dragOrigin(b.item.piece, b.x, b.y);
+      const o = this.dragOrigin(b.item.piece, b.x, b.y, b.grab);
       // drawn at the board's size and scaled (a sprite per in-between size would fill the tile cache)
       const sc = (L.cell + (tc - L.cell) * k) / L.cell;
       ctx.save();
@@ -538,10 +616,12 @@ export class GeodaView {
     const grow = ease.outCubic(clamp(hand.drag.t / 0.12));
     const s = L.slots[hand.drag.slot];
     const tc = trayCellFor(L, s, p.w, p.h);
-    // it grows from the tray's size to the board's, scaled from the board-size sprites
+    // it grows from the tray's size to the board's, scaled from the board-size sprites — around its middle over a
+    // finger, around the point the cursor holds under a desktop's mouse (that point stays under the cursor)
     const k = (tc + (cs - tc) * grow) / cs;
-    const o = this.dragOrigin(p, hand.drag.x, hand.drag.y);
-    const cx = o.x + (p.w * cs) / 2, cy = o.y + (p.h * cs) / 2;
+    const grab = L.grab ? hand.drag.grab ?? null : null;
+    const o = this.dragOrigin(p, hand.drag.x, hand.drag.y, grab);
+    const cx = grab ? hand.drag.x : o.x + (p.w * cs) / 2, cy = grab ? hand.drag.y : o.y + (p.h * cs) / 2;
     ctx.save();
     ctx.translate(cx, cy);
     ctx.scale(k, k);
@@ -568,6 +648,10 @@ export class GeodaView {
   private drawGoal(sim: GeodaSim): void {
     if (this.layout.mode === 'columns') {
       this.drawGoalColumn(sim);
+      return;
+    }
+    if (this.layout.mode === 'desk') {
+      this.drawGoalDesk(sim);
       return;
     }
     const ctx = this.ctx, L = this.layout, g = L.goal;
@@ -606,6 +690,64 @@ export class GeodaView {
     ctx.restore();
   }
 
+  /**
+   * A desktop's goal over the tray (DESIGN §14), in two lines grown with the screen: the chamber (its number and its
+   * name) over its jewels and their counts; three kinds that do not fit one line share the two (the chamber's number
+   * then beside the third).  The Klasyka: its name over the board's tally.
+   */
+  private drawGoalDesk(sim: GeodaSim): void {
+    const ctx = this.ctx, L = this.layout, g = L.goal, tk = L.tk;
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,14,28,.6)';
+    rrect(ctx, g.x, g.y, g.w, g.h, 12 * tk);
+    ctx.fill();
+    const pad = 10 * tk, inner = g.w - pad * 2;
+    const y1 = g.y + g.h * 0.3, y2 = g.y + g.h * 0.7;
+    const s1 = Math.max(MIN_READ, Math.min(15 * tk, g.h * 0.24)), s2 = Math.max(MIN_READ, Math.min(18 * tk, g.h * 0.28));
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    if (sim.mode !== 'adventure') {
+      ctx.fillStyle = C.inkSoft;
+      ctx.fillText(fitText(ctx, t('v.classic'), inner, s1, 700, SANS, MIN_READ), g.x + pad, y1);
+      ctx.fillStyle = C.ink;
+      ctx.fillText(fitText(ctx, sim.headlineSub(), inner, s2, 800, SANS, MIN_READ), g.x + pad, y2);
+      ctx.restore();
+      return;
+    }
+    const goal = sim.spec.goal, n = goal.length;
+    const r = Math.min(g.h * 0.13, 13 * tk);
+    // a group: the jewel, then "got/need" (measured at its widest, "need/need")
+    ctx.font = `800 ${s2}px ${SANS}`;
+    const groupW = (k: number) => r * 2 + 6 * tk + ctx.measureText(`${goal[k][1]}/${goal[k][1]}`).width + 8 * tk;
+    const one = n < 3 || goal.reduce((s, _, k) => s + groupW(k), 0) <= inner;
+    const group = (k: number, x: number, y: number, w: number) => {
+      const [kind, need] = goal[k];
+      const got = Math.min(need, sim.got[k] ?? 0);
+      paintJewel(ctx, x + r, y, r, kind, this.clock);
+      ctx.fillStyle = got >= need ? C.gold : C.ink;
+      ctx.fillText(fitText(ctx, got >= need ? '✓' : `${got}/${need}`, w - r * 2 - 6 * tk, s2, 800, SANS, MIN_READ), x + r * 2 + 6 * tk, y);
+    };
+    const num = t('v.chamber', { n: sim.spec.level + 1 });
+    if (one) {
+      // the chamber's number and its name where they fit at 13 px and more, else the number alone
+      ctx.fillStyle = C.inkSoft;
+      const full = `${num} · ${chamberName(sim.spec.level)}`;
+      const fit = fitText(ctx, full, inner, s1, 700, SANS, MIN_READ);
+      ctx.fillText(fit === full ? fit : fitText(ctx, num, inner, s1, 700, SANS, MIN_READ), g.x + pad, y1);
+      const cw = inner / n;
+      goal.forEach((_, k) => group(k, g.x + pad + k * cw, y2, cw));
+    } else {
+      // two kinds on the first line, the third and the chamber's number on the second
+      const cw = inner / 2;
+      group(0, g.x + pad, y1, cw);
+      group(1, g.x + pad + cw, y1, cw);
+      group(2, g.x + pad, y2, cw);
+      ctx.fillStyle = C.inkSoft;
+      ctx.fillText(fitText(ctx, num, cw, s1, 700, SANS, MIN_READ), g.x + pad + cw, y2);
+    }
+    ctx.restore();
+  }
+
   /** A small phone's right margin: the chamber's jewels one under another, each with its count (the classic board: none). */
   private drawGoalColumn(sim: GeodaSim): void {
     if (sim.mode !== 'adventure') return;
@@ -636,7 +778,7 @@ export class GeodaView {
     const ctx = this.ctx, L = this.layout, b = L.bowl;
     const bw = sim.bowl;
     const active = sim.restBlock && !!bw;
-    const s = Math.min(b.w * 0.62, b.h * (L.portrait ? 1.6 : 0.62), 170);
+    const s = Math.min(b.w * 0.62, b.h * (L.portrait ? 1.6 : 0.62), 170 * L.tk);
     const cx = L.portrait ? b.x + s * 0.6 : b.x + b.w / 2;
     const by = L.portrait ? b.y + b.h - 2 : b.y + s * 0.95;
     ctx.save();
@@ -658,8 +800,9 @@ export class GeodaView {
     // the words under (or beside) it, fitted (never squeezed under 13 px)
     ctx.textAlign = L.portrait ? 'left' : 'center';
     ctx.textBaseline = 'top';
-    const tx = L.portrait ? cx + s * 0.6 : cx, ty = L.portrait ? b.y + 2 : by + 6, maxW = L.portrait ? b.x + b.w - tx : b.w;
-    const size = Math.max(14, Math.min(16, s * 0.13));
+    // (a desktop's words keep clear of the polish ring, which reaches 0.08 s under the bowl's foot)
+    const tx = L.portrait ? cx + s * 0.6 : cx, ty = L.portrait ? b.y + 2 : by + (L.mode === 'desk' ? s * 0.08 + 8 : 6), maxW = L.portrait ? b.x + b.w - tx : b.w;
+    const size = Math.max(14, Math.min(16 * L.tk, s * 0.13));
     ctx.fillStyle = active ? C.rest : C.inkSoft;
     ctx.fillText(fitText(ctx, t('v.bowl').toUpperCase(), maxW, size, 800, SANS, MIN_READ), tx, ty);
     ctx.fillStyle = C.ink;
@@ -708,7 +851,7 @@ export class GeodaView {
     if (!line) return;
     // a piece in the air matters more than a joke: the bubble steps back while the finger drags
     const a = Math.min(1, line.t / 0.15, (line.dur - line.t) / 0.25) * (hand.drag ? 0.22 : 1);
-    const size = Math.max(14, Math.min(16, m.s * 0.14));
+    const size = Math.max(14, Math.min(16 * L.tk, m.s * 0.14));
     if (b.below) paintBubble(this.ctx, line.text, b.x, b.y, b.w, m.x - m.s * 0.2, m.y - m.s * 0.55, a, size, true, true);
     else if (L.mode === 'columns') paintBubble(this.ctx, line.text, b.x, b.y, b.w, m.x - m.s * 0.3, m.y - m.s * 0.78, a, size, false, true);
     else paintBubble(this.ctx, line.text, b.x, b.y, b.w, m.x + m.s * 0.1, m.y - m.s * 0.92, a, size);
@@ -759,8 +902,9 @@ export class GeodaView {
         y += size * 1.35;
       }
     };
-    const big = Math.max(20, Math.min(32, c.w * 0.07));
-    const small = Math.max(15, Math.min(17, c.w * 0.042));
+    // (type grows with a desktop's UI scale: `tk` is 1 on a phone and a tablet)
+    const big = Math.max(20, Math.min(32 * L.tk, c.w * 0.07));
+    const small = Math.max(15, Math.min(17 * L.tk, c.w * 0.042));
     if (s.kind === 'open') {
       title(t('open.title'), big);
       body(t('open.text'), small);
@@ -768,13 +912,13 @@ export class GeodaView {
       const box = { x: c.x + pad, y, w: c.w - pad * 2, h: c.y + c.h - pad * 2.6 - y };
       if (box.h > 40) {
         const p = passage('isa54.11-12');
-        if (!this.verse || this.verse.w !== box.w) this.verse = { lay: layoutPassage(ctx, p, box.w, box.h, { max: Math.min(18, small + 1), min: MIN_READ }), w: box.w };
+        if (!this.verse || this.verse.w !== box.w) this.verse = { lay: layoutPassage(ctx, p, box.w, box.h, { max: Math.min(18 * L.tk, small + 1), min: MIN_READ }), w: box.w };
         drawVerse(ctx, p, this.verse.lay, cx, box.y);
       }
     } else if (s.kind === 'level') {
       title(t('v.levelTitle', { n: s.level + 1 }), big);
       // the stars
-      const sr = Math.min(28, c.w * 0.07);
+      const sr = Math.min(28 * L.tk, c.w * 0.07);
       for (let k = 0; k < 3; k++) {
         const on = k < s.stars;
         const pop = ease.outBack(clamp((s.t - 0.3 - k * 0.25) / 0.3));
@@ -793,7 +937,9 @@ export class GeodaView {
     }
     ctx.font = `700 ${Math.max(14, small * 0.9)}px ${SANS}`;
     ctx.fillStyle = 'rgba(253,246,234,.78)';
-    ctx.fillText(s.kind === 'open' ? t('open.tap') : t('v.tapOn'), cx, c.y + c.h - pad * 1.8);
+    // a mouse clicks (DESIGN §14), a finger taps
+    const on = s.kind === 'open' ? (this.touch ? 'open.tap' : 'open.click') : this.touch ? 'v.tapOn' : 'v.clickOn';
+    ctx.fillText(t(on), cx, c.y + c.h - pad * 1.8);
     ctx.restore();
   }
 

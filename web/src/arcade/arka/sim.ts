@@ -244,6 +244,8 @@ export class ArkaSim {
   line: { text: string; t0: number; dur: number; moment: Moment } | null = null;
   /** a card is on screen (the view says so each frame): the raven and the coach wait */
   cardOn = false;
+  /** until when the raven holds his tongue for a desktop's coach mark (hush): his line waits, none begins */
+  hushUntil = -1;
   private pending: { m: Moment; at: number }[] = [];
   private lastSaid: Partial<Record<Moment, number>> = {};
   private turnOf: Partial<Record<Moment, number>> = {};
@@ -314,8 +316,24 @@ export class ArkaSim {
       this.shineT -= dt;
       if (this.shineT <= 0 || this.animals[this.shine]?.out) this.shine = -1;
     }
+    // a desktop's coach mark is up: the raven's line waits (its clock stops, and the next one's with it) and goes on after
+    if (this.line && this.now < this.hushUntil) {
+      this.line.t0 += dt;
+      this.talkTill += dt;
+    }
     this.talk();
     this.coach();
+  }
+
+  /**
+   * A desktop's coach mark goes up (DESIGN §14: the runner's bubble may stand where the raven talks, right of the
+   * hull): the raven holds his line and starts none for `sec` — counted from the end of a block's banner when one
+   * is up, since the runner shows its coach mark only after the banner.
+   */
+  hush(sec: number): void {
+    const b = this.block;
+    const banner = this.phase === 'play' && b && b.kind !== 'warmup' ? Math.max(0, 5.3 - this.blockT) : 0;
+    this.hushUntil = Math.max(this.hushUntil, this.now + banner + sec);
   }
 
   private blocks(dt: number, f: FocusFrame, t: number): void {
@@ -763,7 +781,7 @@ export class ArkaSim {
 
   /** May a line show now: never over a card, the runner's block banner (its first 5.3 s) or the telegraph. */
   private quiet(): boolean {
-    if (this.cardOn) return true;
+    if (this.cardOn || this.now < this.hushUntil) return true;
     if (this.phase !== 'play') return false;
     const b = this.block;
     if (b.kind !== 'warmup' && this.blockT < 5.3) return true;

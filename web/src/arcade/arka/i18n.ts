@@ -57,6 +57,7 @@ const pl = {
   'card.dove': 'z pomocą gołębia',
   'card.home': 'Gospodarstwo rośnie: {name}',
   'card.tap': 'Stuknij, by grać dalej',
+  'card.click': 'Kliknij, by grać dalej',
 
   // chapters
   'ch.1': 'Wody opadają',
@@ -76,6 +77,7 @@ const pl = {
 
   // coach marks
   'coach.tap': 'Stuknij zwierzę — pójdzie tam, gdzie patrzy',
+  'coach.click': 'Kliknij zwierzę — pójdzie tam, gdzie patrzy',
   'coach.bump': 'Temu ktoś stoi na drodze: wpadnie na niego i zabierze serce',
   'coach.hearts': 'Trzy serca na pokład. Bez serc pokład od nowa, a pary zostają',
   'coach.pair': 'Para na nowej ziemi! Wypuszczaj partnera zaraz po nim: Parami!',
@@ -167,6 +169,7 @@ const pl = {
   // how to play
   'how.goal': 'Wyprowadź z arki wszystkie zwierzęta, parami, nie wpadając na sąsiadów.',
   'how.tap': 'Stuknij zwierzę: wyjdzie tam, gdzie patrzy, jeśli droga jest wolna',
+  'how.click': 'Kliknij zwierzę: wyjdzie tam, gdzie patrzy, jeśli droga jest wolna',
   'how.dove': 'Spacja albo gołąb: wskaże i wyśle wolne zwierzę',
   'how.dove.touch': 'Gołąb na łące: stuknij, a wskaże i wyśle wolne zwierzę',
   'how.keys': 'Strzałki i Enter: wybór i wysłanie z klawiatury',
@@ -264,6 +267,7 @@ const en: Catalog<Key> = {
   'card.dove': 'with the dove’s help',
   'card.home': 'The homestead grows: {name}',
   'card.tap': 'Tap to play on',
+  'card.click': 'Click to play on',
 
   'ch.1': 'The waters go down',
   'ch.1.text': 'After the flood the wind dries the land. The deck is getting crowded: time to go out.',
@@ -281,6 +285,7 @@ const en: Catalog<Key> = {
   'ch.more.text': 'More herds wait on deck. The new land has room for them all.',
 
   'coach.tap': 'Tap an animal: it walks the way it faces',
+  'coach.click': 'Click an animal: it walks the way it faces',
   'coach.bump': 'Someone stands in this one’s way: it will bump and cost a heart',
   'coach.hearts': 'Three hearts per deck. Out of hearts, the deck starts again and the pairs stay',
   'coach.pair': 'A pair on the new land! Send a mate right after the other: two by two!',
@@ -369,6 +374,7 @@ const en: Catalog<Key> = {
 
   'how.goal': 'Lead every animal out of the ark, two by two, without bumping into its neighbours.',
   'how.tap': 'Tap an animal: it leaves the way it faces if the way is clear',
+  'how.click': 'Click an animal: it leaves the way it faces if the way is clear',
   'how.dove': 'Space or the dove: shows and sends a free animal',
   'how.dove.touch': 'The dove on the meadow: tap it and it shows and sends a free animal',
   'how.keys': 'Arrows and Enter: pick and send with the keyboard',
@@ -461,6 +467,7 @@ const de: Catalog<Key> = {
   'card.dove': 'mit Hilfe der Taube',
   'card.home': 'Der Hof wächst: {name}',
   'card.tap': 'Tippen zum Weiterspielen',
+  'card.click': 'Klicken zum Weiterspielen',
 
   'ch.1': 'Das Wasser sinkt',
   'ch.1.text': 'Nach der Flut trocknet der Wind das Land. An Deck wird es eng – Zeit hinauszugehen.',
@@ -478,6 +485,7 @@ const de: Catalog<Key> = {
   'ch.more.text': 'Weitere Herden warten an Deck. Das neue Land hat Platz für alle.',
 
   'coach.tap': 'Tipp ein Tier an – es geht in seine Blickrichtung',
+  'coach.click': 'Klick ein Tier an – es geht in seine Blickrichtung',
   'coach.bump': 'Diesem steht jemand im Weg: Es stößt an und kostet ein Herz',
   'coach.hearts': 'Drei Herzen pro Deck. Ohne Herzen beginnt es neu, die Paare bleiben',
   'coach.pair': 'Ein Paar im neuen Land! Schick den Gefährten gleich hinterher: paarweise!',
@@ -566,6 +574,7 @@ const de: Catalog<Key> = {
 
   'how.goal': 'Führ alle Tiere paarweise aus der Arche, ohne an die Nachbarn zu stoßen.',
   'how.tap': 'Tipp ein Tier an: Es geht in Blickrichtung hinaus, wenn der Weg frei ist',
+  'how.click': 'Klick ein Tier an: Es geht in Blickrichtung hinaus, wenn der Weg frei ist',
   'how.dove': 'Leertaste oder Taube: zeigt ein freies Tier und schickt es los',
   'how.dove.touch': 'Die Taube auf der Wiese: antippen, und sie zeigt ein freies Tier und schickt es los',
   'how.keys': 'Pfeile und Enter: mit der Tastatur wählen und losschicken',
@@ -658,6 +667,7 @@ const sv: Catalog<Key> = {
   'card.dove': 'med duvans hjälp',
   'card.home': 'Gården växer: {name}',
   'card.tap': 'Tryck för att spela vidare',
+  'card.click': 'Klicka för att spela vidare',
 
   'ch.1': 'Vattnet sjunker',
   'ch.1.text': 'Efter floden torkar vinden landet. Det blir trångt på däck – dags att gå ut.',
@@ -675,6 +685,7 @@ const sv: Catalog<Key> = {
   'ch.more.text': 'Fler hjordar väntar på däck. Det nya landet har plats för alla.',
 
   'coach.tap': 'Tryck på ett djur – det går åt det håll det tittar',
+  'coach.click': 'Klicka på ett djur – det går åt det håll det tittar',
   'coach.bump': 'Någon står i vägen för det här: det krockar och kostar ett hjärta',
   'coach.hearts': 'Tre hjärtan per däck. Utan hjärtan börjar det om, och paren stannar',
   'coach.pair': 'Ett par på det nya landet! Skicka maken direkt efter: parvis!',
@@ -763,6 +774,7 @@ const sv: Catalog<Key> = {
 
   'how.goal': 'Led ut alla djur ur arken, parvis, utan att krocka med grannarna.',
   'how.tap': 'Tryck på ett djur: det går ut åt det håll det tittar om vägen är fri',
+  'how.click': 'Klicka på ett djur: det går ut åt det håll det tittar om vägen är fri',
   'how.dove': 'Mellanslag eller duvan: visar och skickar ett fritt djur',
   'how.dove.touch': 'Duvan på ängen: tryck, så visar den och skickar ett fritt djur',
   'how.keys': 'Pilar och Enter: välj och skicka med tangentbordet',

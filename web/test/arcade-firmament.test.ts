@@ -11,7 +11,7 @@ import { RULES } from '../src/arcade/firmament/rules';
 import { FirmamentSim, chargeRate, planBlocks, type SimEvent } from '../src/arcade/firmament/sim';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, DESK_MIN_W, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { passage } from '../src/arcade/kit/scripture';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mulberry32 } from '../src/core/random';
@@ -765,11 +765,12 @@ describe('Firmament — mobile first (DESIGN §8.4, §12)', () => {
     }
   });
 
-  it('grows on a tablet and a desktop (never past 1.3), with the board as large as before on a desktop', () => {
+  it('grows on a tablet and a desktop (past 1.3 only on a big screen, DESIGN §14), with the board as large as before on a desktop', () => {
     for (const c of CHECK_SIZES.filter(x => Math.min(x.w, x.h) > 600)) {
       const L = layout(c.w, c.h, c.insets);
+      const big = c.w >= DESK_MIN_W && Math.min(c.w, c.h) >= DESK_BIG;
       expect(L.u).toBeGreaterThan(1);
-      expect(L.u).toBeLessThanOrEqual(1.3);
+      expect(L.u, c.name).toBeLessThanOrEqual(big ? DESK_MAX : 1.3);
       for (const r of L.tray) expect(r.w).toBeGreaterThanOrEqual(52);
       expect(L.cell).toBeGreaterThanOrEqual(60);
     }
@@ -920,13 +921,14 @@ describe('Firmament — mobile first (DESIGN §8.4, §12)', () => {
       }
       expect(seen.length, c.name).toBeGreaterThan(20);
       expect([...stages].sort(), c.name).toEqual(['intro', 'out', 'play', 'story', 'won']);
-      // the words that ask to be read: the cards' lines, the bubble, the tool's use
-      for (const key of ['story.tap', 'card.tap', 'out.retry'] as const) {
+      // the words that ask to be read: the cards' lines, the bubble, the tool's use (a mouse clicks, DESIGN §14)
+      const mouse = c.name === 'desktop';
+      for (const key of [mouse ? 'story.click' : 'story.tap', mouse ? 'card.click' : 'card.tap', 'out.retry'] as const) {
         const w = seen.filter(x => x.text === t(key));
         expect(w.length, `${c.name}: ${key}`).toBeGreaterThan(0);
         for (const x of w) expect(x.px, `${c.name}: ${key}`).toBeGreaterThanOrEqual(MIN_READ);
       }
-      for (const x of seen.filter(y => y.text === t('use.hammer'))) expect(x.px).toBeGreaterThanOrEqual(MIN_READ - 1);
+      for (const x of seen.filter(y => y.text === t(mouse ? 'use.hammer.click' : 'use.hammer'))) expect(x.px).toBeGreaterThanOrEqual(MIN_READ - 1);
       const tiny = seen.filter(x => x.px < MIN_TEXT);
       expect(tiny, `${c.name}: ${JSON.stringify(tiny.slice(0, 5))}`).toEqual([]);
     }
@@ -974,5 +976,181 @@ describe('Firmament — mobile first (DESIGN §8.4, §12)', () => {
     // the finale: nothing to tap
     phone.sim.finish();
     expect(phone.game.targets!()).toEqual([]);
+  });
+});
+
+// ── a big screen (DESIGN §14) ────────────────────────────────────────
+
+describe('Firmament on a desktop and a big screen (DESIGN §14)', () => {
+  const sizes: { text: string; px: number }[] = [];
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this, sizes); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  const RETURNING: Partial<FirmamentProgress> = { sessions: 5, pushes: 1, story: [0, 1, 2, 3, 4, 5, 6, 7], seen: ['x'] };
+  const monitors = CHECK_SIZES.filter(c => /monitor/.test(c.name));
+  type Inside = { sim: FirmamentSim; view: { L: Layout; hover: number; aim: number }; env: GameEnv<FirmamentProgress> };
+  function play(size: Size, progress: Partial<FirmamentProgress> = RETURNING, touch = false) {
+    const env: GameEnv<FirmamentProgress> = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), ...progress }, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 300, tool: 'fnirs',
+      simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+      hudTop: () => size.insets.top, insets: () => size.insets, touch,
+    };
+    sizes.length = 0;
+    const game = firmament.create(env);
+    game.resize(size.w, size.h, 1);
+    game.start();
+    const inner = game as unknown as Inside;
+    const step = (n: number) => { for (let i = 0; i < n; i++) { game.update(STEP, frame(), inner.sim.t + STEP); game.draw(); } };
+    step(4);
+    return { game, env, sim: inner.sim, view: inner.view, step };
+  }
+  const toBoard = (p: ReturnType<typeof play>) => {
+    for (let k = 0; k < 200 && p.sim.stage !== 'play'; k++) {
+      p.step(3);
+      p.game.pointer!({ type: 'down', x: p.view.L.w / 2, y: p.view.L.h * 0.6, id: 1 });
+      p.game.pointer!({ type: 'up', x: p.view.L.w / 2, y: p.view.L.h * 0.6, id: 1 });
+    }
+    p.step(2);
+  };
+  const cellXY = (L: Layout, i: number) => ({ x: L.board.x + ((i % L.cols) + 0.5) * L.cell, y: L.board.y + (Math.floor(i / L.cols) + 0.5) * L.cell });
+
+  it('chooses its layout from the screen: a finger keeps the phone’s and the tablet’s words, a mouse on a big screen gets its own', () => {
+    for (const c of CHECK_SIZES) {
+      const T = layout(c.w, c.h, c.insets, RULES.rows, RULES.cols, RULES.tray, true);
+      expect(['phone', 'phone-side', 'tablet'], c.name).toContain(T.kind);
+      expect(T.tk, c.name).toBe(Math.min(T.u, 1.15));
+      const M = layout(c.w, c.h, c.insets, RULES.rows, RULES.cols, RULES.tray, false);
+      expect(M.tk, c.name).toBe(M.kind === 'desktop' || M.kind === 'big' ? M.u : Math.min(M.u, 1.15));
+    }
+    for (const c of monitors) expect(layout(c.w, c.h, c.insets, RULES.rows, RULES.cols, RULES.tray, false).kind, c.name).toBe('big');
+  });
+
+  it('fills a big monitor: a board ≥ 1.18 × before and ≥ 75 % of the band, under the top bar, the columns hugging it', () => {
+    for (const c of monitors) {
+      for (const slots of [RULES.tray, RULES.trayMax]) {
+        const L = layout(c.w, c.h, c.insets, RULES.rows, RULES.cols, slots, false);
+        const before = layout(c.w, c.h, c.insets, RULES.rows, RULES.cols, slots, true);
+        const band = c.h - c.insets.top - c.insets.bottom;
+        expect(L.board.w, c.name).toBeGreaterThanOrEqual(before.board.w * 1.18);
+        expect(L.board.h / band, c.name).toBeGreaterThanOrEqual(0.75);
+        expect(L.board.y, c.name).toBeGreaterThanOrEqual(c.insets.top);
+        expect(L.board.y + L.board.h, c.name).toBeLessThanOrEqual(c.h - c.insets.bottom);
+        // the goal card and Bubo left of the board, the telescope and the tray right of it, a short move away
+        expect(L.goal.x + L.goal.w, c.name).toBeLessThan(L.board.x);
+        expect(L.board.x - (L.goal.x + L.goal.w), c.name).toBeLessThan(L.cell * 0.6);
+        expect(L.owl.x + L.owl.r, c.name).toBeLessThan(L.board.x);
+        expect(L.scope.x - L.scope.r * 1.3, c.name).toBeGreaterThan(L.board.x + L.board.w);
+        for (const r of L.tray) {
+          expect(r.x, c.name).toBeGreaterThan(L.board.x + L.board.w);
+          expect(r.x - (L.board.x + L.board.w), c.name).toBeLessThan(L.cell * 1.6);
+          expect(r.w, c.name).toBeGreaterThanOrEqual(64);
+        }
+        expect(L.scopeText!.y + L.scopeText!.h, c.name).toBeLessThanOrEqual(Math.min(...L.tray.map(r => r.y)));
+        // every control finger-sized (a mouse too), inside, apart, at every stage
+        for (let tools = 0; tools <= slots; tools++) expect(auditTargets(tapTargets(L, { stage: 'play', tools, can: false }), c.w, c.h, c.insets), c.name).toEqual([]);
+        for (const stage of ['story', 'intro', 'won'] as const) expect(auditTargets(tapTargets(L, { stage, tools: slots, can: false }), c.w, c.h, c.insets), `${c.name}: ${stage}`).toEqual([]);
+        for (const can of [false, true]) expect(auditTargets(tapTargets(L, { stage: 'out', tools: slots, can }), c.w, c.h, c.insets), `${c.name}: out`).toEqual([]);
+        expect(L.u, c.name).toBeGreaterThan(1.3);
+        expect(L.u, c.name).toBeLessThanOrEqual(DESK_MAX);
+      }
+    }
+    // a laptop's and a desktop's top HUD: the board still rises between the panel and the score, as before
+    expect(layout(1280, 672, { top: 192, right: 0, bottom: 0, left: 0 }, RULES.rows, RULES.cols, RULES.tray, false).board.w).toBeGreaterThanOrEqual(600);
+  });
+
+  it('draws every word grown on a big monitor (× its UI scale over an iPhone’s), never under 13 px where it is read, never under 11', () => {
+    const wordsAt = (c: Size, touch: boolean) => {
+      const p = play(c, { ...freshProgress() }, touch);
+      const seen: { text: string; px: number }[] = [];
+      p.step(40);
+      seen.push(...sizes);
+      sizes.length = 0;
+      expect(p.sim.stage).toBe('story');
+      p.game.pointer!({ type: 'down', x: c.w / 2, y: c.h * 0.6, id: 1 });
+      p.game.pointer!({ type: 'up', x: c.w / 2, y: c.h * 0.6, id: 1 });
+      p.step(20);
+      seen.push(...sizes);
+      sizes.length = 0;
+      toBoard(p);
+      p.sim.tray.push('hammer', 'moves');
+      p.sim.pickTool(0);
+      p.step(30);
+      seen.push(...sizes);
+      return seen;
+    };
+    const phone = wordsAt(CHECK_SIZES[1], true);
+    // (a column wraps a long line: its pieces count)
+    const sizeOf = (w: typeof phone, text: string) => Math.max(0, ...w.filter(x => x.text === text || (x.text.length > 4 && text.includes(x.text))).map(x => x.px));
+    for (const c of monitors) {
+      const desk = wordsAt(c, false);
+      const u = layout(c.w, c.h, c.insets, RULES.rows, RULES.cols, RULES.tray, false).u;
+      expect(desk.filter(x => x.px < MIN_TEXT), c.name).toEqual([]);
+      for (const [mouse, finger] of [['story.click', 'story.tap'], ['card.click', 'card.tap'], ['use.hammer.click', 'use.hammer']] as const) {
+        const d = sizeOf(desk, t(mouse)), f = sizeOf(phone, t(finger));
+        expect(d, `${c.name}: ${mouse}`).toBeGreaterThanOrEqual(Math.max(MIN_READ, f * Math.min(u, 1.6) * 0.97, f * 1.3));
+      }
+    }
+  });
+
+  it('answers a resting mouse: a ring on the body, gold beside the selected one, a tool’s strike follows, the cursor tells', () => {
+    for (const c of monitors) {
+      const p = play(c, { ...RETURNING, kit: ['hammer'] });
+      toBoard(p);
+      const { sim, view, env, game } = p;
+      const L = view.L, B = sim.board;
+      const m = B.findMoves()[0];
+      // over a body: a ring, a pointer
+      const a = cellXY(L, m.a), b = cellXY(L, m.b);
+      game.pointer!({ type: 'move', ...a, id: 1 });
+      expect(view.hover, c.name).toBe(m.a);
+      expect(env.canvas.style.cursor, c.name).toBe('pointer');
+      // a click takes it; over its neighbour a click swaps
+      game.pointer!({ type: 'down', ...a, id: 1 });
+      game.pointer!({ type: 'up', ...a, id: 1 });
+      expect(sim.selected, c.name).toBe(m.a);
+      game.pointer!({ type: 'move', ...b, id: 1 });
+      expect(view.hover, c.name).toBe(m.b);
+      const moves = sim.movesLeft;
+      game.pointer!({ type: 'down', ...b, id: 1 });
+      game.pointer!({ type: 'up', ...b, id: 1 });
+      expect(sim.movesLeft, c.name).toBe(moves - 1);
+      p.step(90);
+      // over the tray's tool: lit, a pointer; armed, the hammer's strike follows the cursor over the sky
+      const slot = mid(L.tray[0]);
+      game.pointer!({ type: 'move', ...slot, id: 1 });
+      expect(env.canvas.style.cursor, c.name).toBe('pointer');
+      game.pointer!({ type: 'down', ...slot, id: 1 });
+      game.pointer!({ type: 'up', ...slot, id: 1 });
+      expect(sim.armedTool, c.name).toBe('hammer');
+      const target = B.at(4, 4), at = cellXY(L, target);
+      game.pointer!({ type: 'move', ...at, id: 1 });
+      expect(view.aim, c.name).toBe(target);
+      expect(env.canvas.style.cursor, c.name).toBe('crosshair');
+      const score = sim.score;
+      game.pointer!({ type: 'down', ...at, id: 1 });
+      game.pointer!({ type: 'up', ...at, id: 1 });
+      expect(sim.tray, c.name).toEqual([]);
+      expect(sim.score, c.name).toBeGreaterThan(score);
+      // off everything: the plain arrow; a pause gives the page its cursor back
+      game.pointer!({ type: 'move', x: 4, y: c.h - 4, id: 1 });
+      expect(env.canvas.style.cursor, c.name).toBe('default');
+      game.pause!(true);
+      expect(env.canvas.style.cursor, c.name).toBe('');
+    }
+  });
+
+  it('speaks of clicking to a mouse, in every language, and keeps a finger’s words', () => {
+    const CLICK = /klik|click|klick/i;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['card.click', 'story.click', 'use.hammer.click', 'use.ray.click', 'use.pulsar.click', 'hint.tool.click', 'how.tool.click', 'how.swap', 'hint.space']) {
+        expect(c[k], `${l}.${k}`).toMatch(CLICK);
+      }
+    }
+    expect(howto(false).hands.map(h => h.text)).toContain(t('how.tool.click'));
+    expect(howto(true).hands.map(h => h.text)).toContain(t('how.tool'));
   });
 });

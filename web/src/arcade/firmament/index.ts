@@ -38,6 +38,8 @@ import { FirmamentSim, RULES, type SimEvent } from './sim';
 
 /** The coach marks a finger reads in other words (no keys on a phone). */
 const TOUCH_WORDS: Partial<Record<Key, Key>> = { 'hint.space': 'hint.space.touch' };
+/** …and the ones a mouse reads in its own (it clicks, DESIGN §14). */
+const MOUSE_WORDS: Partial<Record<Key, Key>> = { 'hint.tool': 'hint.tool.click' };
 
 class FirmamentGame implements ArcadeGame {
   private readonly sim: FirmamentSim;
@@ -56,6 +58,10 @@ class FirmamentGame implements ArcadeGame {
   private aiming: number | null = null;
   /** a finger on a tray's slot (its pressed look) */
   private slotDown: { id: number; slot: number } | null = null;
+  /** a desktop's mouse over the canvas, buttons up or down (DESIGN §14): what it rests on answers */
+  private mouse: { x: number; y: number } | null = null;
+  /** the canvas's CSS cursor as last set */
+  private cursorNow = '';
 
   constructor(private readonly env: GameEnv<FirmamentProgress>) {
     migrate(env.progress);
@@ -96,6 +102,7 @@ class FirmamentGame implements ArcadeGame {
     this.sim.update(dt, f, t);
     this.drain();
     this.view.update(dt, this.sim);
+    this.hovered();
   }
 
   draw(): void { this.view.draw(this.sim); }
@@ -107,6 +114,8 @@ class FirmamentGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view;
+    // a desktop's mouse moves with no button down too: what it rests on answers (DESIGN §14); a finger never hovers
+    if (!this.env.touch) this.mouse = { x: e.x, y: e.y };
     if (e.type === 'down') {
       this.letGo();
       const hit = view.hit(sim, e.x, e.y);
@@ -175,6 +184,44 @@ class FirmamentGame implements ArcadeGame {
       }
     }
     this.drain();
+    this.hovered();
+  }
+
+  /**
+   * What a desktop's resting cursor is over (DESIGN §14): a body's ring (gold beside the selected one: a click swaps),
+   * a tool's lit frame, an armed tool's strike following the cursor; the CSS cursor says what a click does.  Cheap
+   * (a few rectangles), so it runs every frame too: a card, a swap, a tool used change the answer without a move.
+   */
+  private hovered(): void {
+    if (this.env.touch) return;
+    const sim = this.sim, view = this.view, m = this.mouse;
+    let cell = -1, slot = -1, cursor = 'default';
+    if (m && sim.started && sim.phase === 'play' && view.L) {
+      const hit = view.hit(sim, m.x, m.y);
+      if (hit && 'button' in hit) cursor = 'pointer';
+      else if (hit && 'slot' in hit) {
+        slot = hit.slot;
+        if (sim.tray[hit.slot]) cursor = 'pointer';
+      } else if (hit && 'cell' in hit && sim.stage === 'play') {
+        cell = hit.cell;
+        const tool = sim.armedTool;
+        if (tool && AIMED.includes(tool)) cursor = 'crosshair';
+        else if (this.press) cursor = 'grabbing';
+        else if (sim.board.free(cell)) cursor = 'pointer';
+      }
+    } else if (!sim.started) cursor = '';
+    view.hover = cell;
+    view.hoverSlot = slot;
+    // an armed tool's strike follows the resting cursor (while the button is down it is the aim already)
+    const tool = sim.armedTool;
+    if (this.aiming === null) view.aim = tool && AIMED.includes(tool) && sim.stage === 'play' ? cell : -1;
+    this.setCursor(cursor);
+  }
+
+  private setCursor(c: string): void {
+    if (c === this.cursorNow) return;
+    this.cursorNow = c;
+    this.env.canvas.style.cursor = c;
   }
 
   /** Forget a gesture in progress (a new touch, a pause). */
@@ -195,7 +242,13 @@ class FirmamentGame implements ArcadeGame {
   }
 
   pause(paused: boolean): void {
-    if (paused) this.letGo();
+    if (!paused) return;
+    this.letGo();
+    // the pause card has the page's own cursor; the mouse is read again when play goes on
+    this.mouse = null;
+    this.view.hover = -1;
+    this.view.hoverSlot = -1;
+    this.setCursor('');
   }
 
   private drain(): void {
@@ -209,7 +262,7 @@ class FirmamentGame implements ArcadeGame {
         const at = e.at === null ? { x: B.x + B.w / 2, y: B.y + B.h * 0.3 } : 'cell' in e.at ? this.view.cellXY(e.at.cell, this.sim.board.cols) : this.view.uiPoint(e.at.ui);
         // the runner's bubble is centred on the point: keep it on the screen
         at.x = Math.max(Math.min(160, this.w / 2), Math.min(this.w - Math.min(160, this.w / 2), at.x));
-        this.env.hint(t((this.env.touch && TOUCH_WORDS[e.key]) || e.key), at, 4200);
+        this.env.hint(t((this.env.touch ? TOUCH_WORDS[e.key] : MOUSE_WORDS[e.key]) || e.key), at, 4200);
       }
     }
   }
@@ -239,7 +292,10 @@ class FirmamentGame implements ArcadeGame {
     return tapTargets(L, { stage: sim.stage, tools: Math.min(sim.tray.length, sim.traySize), can: sim.tray.includes('moves') });
   }
 
-  destroy(): void { this.letGo(); }
+  destroy(): void {
+    this.letGo();
+    this.setCursor('');
+  }
 }
 
 function haptic(e: SimEvent): void {
@@ -261,7 +317,7 @@ export function howto(touch: boolean): HowTo {
     goal: t('how.goal'),
     hands: [
       touch ? { gesture: 'swipe', text: t('how.swipe') } : { gesture: 'drag', text: t('how.swap') },
-      { gesture: 'tap', text: t('how.tool') },
+      { gesture: 'tap', text: t(touch ? 'how.tool' : 'how.tool.click') },
       { gesture: 'keys', text: t('how.keys') },
     ],
     tips: [t('how.tip1'), t('how.tip2')],

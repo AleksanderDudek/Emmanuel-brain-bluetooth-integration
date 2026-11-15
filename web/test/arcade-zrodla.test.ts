@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { DEFAULT_TUNING, type FocusFrame } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, DESK_MIN_W, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { LINES, MOMENTS, STATIONS, TIPS } from '../src/arcade/zrodla/content';
@@ -621,7 +621,8 @@ describe('Źródła on a phone first: the layout', () => {
         const name = `${z.name} ${c}×${r}`, v = L.view;
         expect(L.shape, name).toBe(upright(z) || z.w < z.h ? 'tall' : z.h < 470 ? 'side' : 'wide');
         expect(L.u, name).toBeGreaterThanOrEqual(1);
-        expect(L.u, name).toBeLessThanOrEqual(1.3);
+        // past 1.3 only on a big screen (DESIGN §14)
+        expect(L.u, name).toBeLessThanOrEqual(z.w >= DESK_MIN_W && Math.min(z.w, z.h) >= DESK_BIG ? DESK_MAX : 1.3);
         expect(L.cell, name).toBeGreaterThanOrEqual(MIN_TAP);
         expect(L.board.w, name).toBe(c * L.cell);
         expect(L.board.h, name).toBe(r * L.cell);
@@ -864,8 +865,149 @@ describe('Źródła on a phone first: the game at every checked size', () => {
     expect(hand('hint.space', true)).toBe(t('hint.space'));
     expect(hand('hint.space', false)).toBe(t('hint.space.keys'));
     expect(hand('hint.flow', false)).toBe(t('hint.flow'));
-    const how = howto();
+    const how = howto(true);
     expect(how.hands.map(h => h.gesture)).toEqual(['tap', 'tap', 'keys']);
     for (const h of how.hands.filter(x => x.gesture !== 'keys')) expect(named(h.text), h.text).toBe(false);
+    // a mouse clicks (DESIGN §14): its how-to says so
+    for (const h of howto(false).hands) expect(named(h.text), h.text).toBe(true);
+  });
+});
+
+// ── a big screen (DESIGN §14) ──
+
+describe('Źródła on a desktop and a big screen (DESIGN §14)', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return noteContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+  const monitors = CHECK_SIZES.filter(z => /monitor/.test(z.name));
+  const GRIDS2 = [[7, 5], [8, 5], [8, 6], [8, 7]] as const;
+
+  function gameAt(z: { w: number; h: number; insets: Insets }, touch: boolean, progress = returning()) {
+    const env: GameEnv<ZrodlaProgress> = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress, rng: rng(5), day: '2026-11-13', daySeed: 7, plannedSec: 300, tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false,
+      tuning: TUNING, hint: () => undefined, hudTop: () => z.insets.top, insets: () => z.insets, touch,
+    };
+    const game = mod.create(env);
+    game.resize(z.w, z.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: ZrodlaSim; view: ZrodlaView };
+    const clock = { t: 0 };
+    const step = (sec: number, f: FocusFrame = neutral()) => {
+      for (let i = 0; i < Math.round(sec * 30); i++) { clock.t += 1 / 30; game.update(1 / 30, f, clock.t); game.draw(); }
+    };
+    return { game, env, sim: inner.sim, view: inner.view, step };
+  }
+
+  it('chooses its layout from the screen: a finger keeps the phone’s and the tablet’s, a mouse on a big screen gets its own', () => {
+    for (const z of CHECK_SIZES) {
+      const T = computeLayout(z.w, z.h, z.insets, 7, 5, true);
+      expect(['phone', 'phone-side', 'tablet'], z.name).toContain(T.kind);
+      expect(T.tk, z.name).toBe(Math.min(T.u, 1.15));
+    }
+    for (const z of monitors) expect(computeLayout(z.w, z.h, z.insets, 7, 5, false).kind, z.name).toBe('big');
+  });
+
+  it('fills a big monitor: a bigger valley with the dispenser and the dial hugging it, every target finger-sized and inside', () => {
+    for (const z of monitors) {
+      for (const [c, r] of GRIDS2) {
+        const L = computeLayout(z.w, z.h, z.insets, c, r, false);
+        const before = computeLayout(z.w, z.h, z.insets, c, r, true);
+        const name = `${z.name} ${c}×${r}`, v = L.view;
+        expect(L.u, name).toBeGreaterThan(1.3);
+        expect(L.cell, name).toBeGreaterThanOrEqual(before.cell);
+        expect(L.panX + L.panY, name).toBe(0);
+        expect(v.y, name).toBeGreaterThanOrEqual(z.insets.top);
+        expect(v.y + v.h + L.reeds.h, name).toBeLessThanOrEqual(z.h - z.insets.bottom);
+        // the dispenser hugging the valley's left, its next stone level with the valley's foot
+        const next = L.slots[0];
+        expect(next.x + next.w, name).toBeLessThan(v.x);
+        expect(v.x - (next.x + next.w), name).toBeLessThan(L.cell);
+        expect(Math.abs(next.y + next.h - (v.y + v.h)), name).toBeLessThanOrEqual(1);
+        for (const sl of L.slots.slice(1)) expect(sl.y + sl.h, name).toBeLessThan(next.y);
+        // the dial (grown with the UI) right of the valley, level with its top
+        expect(L.gauge.x - L.gauge.r, name).toBeGreaterThan(v.x + v.w);
+        expect(L.gauge.r, name).toBeGreaterThanOrEqual(66);
+        expect(L.dial.y, name).toBeGreaterThanOrEqual(v.y - 1);
+        expect(auditTargets([target('next', L.next), target('dial', L.dial)], z.w, z.h, z.insets), name).toEqual([]);
+      }
+      // the valley 7 × 5 grows (679 → 770+ px on Full HD)
+      expect(computeLayout(z.w, z.h, z.insets, 7, 5, false).board.w, z.name).toBeGreaterThan(computeLayout(z.w, z.h, z.insets, 7, 5, true).board.w * 1.1);
+    }
+  });
+
+  it('plays a big monitor with a mouse: targets pass, no word under 11 px, the goal and Kumka grown past an iPhone’s', () => {
+    const sizeOf = (z: { w: number; h: number; insets: Insets }, touch: boolean, pick: (s: string) => boolean) => {
+      const { sim, step } = gameAt(z, touch);
+      drawn.length = 0;
+      sim.talk.line = { moment: 'idle', text: t('say.idle.1'), t: 0.5, dur: 4 };
+      step(0.6);
+      for (let i = 0; i < 4; i++) sim.space();
+      step(1);
+      return { max: Math.max(0, ...drawn.filter(d => pick(d.text)).map(d => d.px)), all: drawn.slice() };
+    };
+    const goal = (s: string) => s.startsWith(t('g.goal'));
+    const phone = sizeOf(CHECK_SIZES[1], true, goal).max;
+    for (const z of monitors) {
+      const { game, sim, step } = gameAt(z, false);
+      step(0.5);
+      expect(auditTargets(game.targets!(), z.w, z.h, z.insets), z.name).toEqual([]);
+      sim.story = { kind: 'open', t: 2, dur: 8 };
+      drawn.length = 0;
+      game.draw();
+      expect(game.targets!().map(x => x.label), z.name).toEqual(['story']);
+      expect(auditTargets(game.targets!(), z.w, z.h, z.insets), z.name).toEqual([]);
+      expect(drawn.some(d => d.text === t('card.tap.keys')) || drawn.length > 0, z.name).toBe(true);
+      sim.story = null;
+      const got = sizeOf(z, false, goal);
+      expect(got.all.filter(d => d.px < MIN_TEXT - 1e-6), z.name).toEqual([]);
+      expect(got.max, z.name).toBeGreaterThanOrEqual(phone * 1.3);
+    }
+  });
+
+  it('answers a resting mouse: the next stone in the cell under it (gold where it goes, rose where not), a click lays it, the cursor tells', () => {
+    for (const z of monitors) {
+      const { game, env, sim, view, step } = gameAt(z, false);
+      step(0.3);
+      const L = view.layout, val = sim.valley;
+      const free = Array.from({ length: val.n }, (_, i) => i).find(i => val.canLay(i))!;
+      const blocked = Array.from({ length: val.n }, (_, i) => i).find(i => !val.canLay(i));
+      const at = (i: number) => ({ x: L.board.x + ((i % L.cols) + 0.5) * L.cell, y: L.board.y + (Math.floor(i / L.cols) + 0.5) * L.cell });
+      game.pointer!({ type: 'move', ...at(free), id: 1 });
+      expect(view.aim, z.name).toBe(free);
+      expect(view.holding, z.name).toBe(false);
+      expect(env.canvas.style.cursor, z.name).toBe('pointer');
+      if (blocked !== undefined) {
+        game.pointer!({ type: 'move', ...at(blocked), id: 1 });
+        expect(view.aim, z.name).toBe(blocked);
+        expect(env.canvas.style.cursor, z.name).toBe('not-allowed');
+      }
+      // a click lays the next stone where the cursor rests
+      const before = sim.queue[0];
+      game.pointer!({ type: 'move', ...at(free), id: 1 });
+      game.pointer!({ type: 'down', ...at(free), id: 1 });
+      game.pointer!({ type: 'up', ...at(free), id: 1 });
+      expect(val.cells[free].type, z.name).toBe(PIPE);
+      expect(sim.queue[0] === before && val.cells[free].type !== PIPE, z.name).toBe(false);
+      // the next stone: a pointer (Kumka's help); off everything: the plain arrow; a pause gives the page its cursor
+      game.pointer!({ type: 'move', x: L.next.x + L.next.w / 2, y: L.next.y + L.next.h / 2, id: 1 });
+      expect(env.canvas.style.cursor, z.name).toBe('pointer');
+      game.pointer!({ type: 'move', x: 2, y: z.h - 2, id: 1 });
+      expect(env.canvas.style.cursor, z.name).toBe('default');
+      game.pause!(true);
+      expect(env.canvas.style.cursor, z.name).toBe('');
+    }
+  });
+
+  it('speaks of clicking to a mouse, in every language, and keeps Kumka hand-neutral', () => {
+    const CLICK = /klik|click|klick/i;
+    for (const lang of LANGS) {
+      const cat = CATALOGS[lang] as Record<string, unknown>;
+      for (const k of ['card.tap.keys', 'hint.tap.keys', 'how.tap.keys', 'how.help.keys']) expect(cat[k], `${lang}.${k}`).toMatch(CLICK);
+      for (const k of ['say.warm.1', 'say.idle.1', 'say.idle.3']) expect(String(cat[k]), `${lang}.${k}`).not.toMatch(/stuk|tap\b|tipp|tryck|klik|click|klick/i);
+    }
+    expect(hand('card.tap', false)).toBe(t('card.tap.keys'));
+    expect(hand('card.tap', true)).toBe(t('card.tap'));
   });
 });

@@ -49,6 +49,8 @@ export class HudDraw {
   private clock = 0;
   /** the slot under a finger right now (-1: none), for its pressed look */
   pressSlot = -1;
+  /** the slot a desktop's resting cursor is over (-1: none): it lights and its tool leans out (DESIGN §14) */
+  hoverSlot = -1;
   /** the telescope's words as a tooltip (a phone upright): what they say and since when */
   private tip: { text: string; t: number } | null = null;
   private tipKey = '';
@@ -155,8 +157,10 @@ export class HudDraw {
       if (s) ctx.fillText(s, g.x + g.w - 10, ty);
     } else if (room >= 70) {
       ctx.fillStyle = C.dim;
-      const s = fitText(ctx, constName(lv.constellation), room, 12 * u, 600, SANS);
-      if (s) ctx.fillText(s, g.x + g.w - 10, ty);
+      // (a desktop's narrow column shows the name only where it fits whole at 13 px and more, DESIGN §14)
+      const name = constName(lv.constellation);
+      const s = desk(L) ? fitText(ctx, name, room, 12 * u, 600, SANS, 13) : fitText(ctx, name, room, 12 * u, 600, SANS);
+      if (s && (!desk(L) || s === name)) ctx.fillText(s, g.x + g.w - 10, ty);
     }
     // the moves in a ring with its word under it
     const barY = g.y + g.h - 16 * u;
@@ -165,7 +169,7 @@ export class HudDraw {
     this.movesRing(ctx, sim, rx, ry, ringR, T);
     ctx.fillStyle = C.dim;
     ctx.textAlign = 'center';
-    ctx.font = font(700, Math.max(12, ringR * 0.26), SANS);
+    ctx.font = font(700, Math.max(desk(L) ? 13 * u : 12, ringR * 0.26), SANS);
     ctx.fillText(t('strip.moves').toUpperCase(), rx, ry + ringR + 10 * u);
     // what is left to do: a row, or one item a line where the card is narrow
     const gx = rx + ringR + 12 * u, gx1 = g.x + g.w - 10;
@@ -480,8 +484,8 @@ export class HudDraw {
         y += 21 * u;
       }
       // an armed tool's use takes the line (the tray is right under it); as many lines as the room holds, up to three
-      const text = aimed ? t(`use.${armed}` as 'use.ray') : st;
-      const px = 13 * Math.min(u, 1.15);
+      const text = aimed ? this.use(armed) : st;
+      const px = 13 * L.tk;
       ctx.fillStyle = aimed ? C.gold : gold ? C.gold : C.dim;
       ctx.font = font(650, px, SANS);
       const lines = wrapLines(ctx, text, tx.w);
@@ -510,7 +514,7 @@ export class HudDraw {
     if (since > TIP_SEC) { this.tip = null; return; }
     const a = since < 0.2 ? since / 0.2 : since > TIP_SEC - 0.4 ? (TIP_SEC - since) / 0.4 : 1;
     const s = L.scope;
-    pill(ctx, L, tip.text, s.x, s.y - s.r * 1.45 - 6, gold ? C.gold : C.cream, clamp(a), u);
+    pill(ctx, L, tip.text, s.x, s.y - s.r * 1.45 - 6, gold ? C.gold : C.cream, clamp(a));
   }
 
   /** What the telescope's words are about (the charge's per cents aside): a change shows them on a phone. */
@@ -540,16 +544,17 @@ export class HudDraw {
       const tool = sim.tray[k];
       const armed = sim.armed === k;
       const pressed = this.pressSlot === k && !!tool;
+      const hovered = this.hoverSlot === k && !!tool && !pressed;
       const fl = this.toolFlash && this.toolFlash.slot === k ? Math.max(0, 1 - (this.clock - this.toolFlash.t)) : 0;
       ctx.save();
-      if (pressed) {
-        // pressed under the finger: a little smaller and brighter, before the finger lifts
-        const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+      if (pressed || hovered) {
+        // pressed under the finger: a little smaller and brighter, before the finger lifts; under a resting cursor a little bigger
+        const cx = r.x + r.w / 2, cy = r.y + r.h / 2, k2 = pressed ? 0.93 : 1.05;
         ctx.translate(cx, cy);
-        ctx.scale(0.93, 0.93);
+        ctx.scale(k2, k2);
         ctx.translate(-cx, -cy);
       }
-      ctx.fillStyle = armed ? 'rgba(255,210,122,.28)' : pressed ? 'rgba(60,64,120,.9)' : 'rgba(10,14,44,.82)';
+      ctx.fillStyle = armed ? 'rgba(255,210,122,.28)' : pressed ? 'rgba(60,64,120,.9)' : hovered ? 'rgba(40,46,104,.9)' : 'rgba(10,14,44,.82)';
       ctx.beginPath();
       ctx.roundRect(r.x, r.y, r.w, r.h, r.w * 0.22);
       ctx.fill();
@@ -559,8 +564,8 @@ export class HudDraw {
         ctx.lineWidth = 7;
         ctx.stroke();
       }
-      ctx.lineWidth = armed ? 2.5 : tool ? 1.5 : 1.2;
-      ctx.strokeStyle = armed ? C.gold : tool ? 'rgba(255,220,150,.55)' : 'rgba(246,239,220,.2)';
+      ctx.lineWidth = armed || hovered ? 2.5 : tool ? 1.5 : 1.2;
+      ctx.strokeStyle = armed ? C.gold : hovered ? 'rgba(255,226,160,.9)' : tool ? 'rgba(255,220,150,.55)' : 'rgba(246,239,220,.2)';
       if (!tool) ctx.setLineDash([4, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
@@ -592,12 +597,17 @@ export class HudDraw {
     ctx.restore();
   }
 
+  /** How to use an armed tool, in the words of the hand: a finger taps a cell, a mouse clicks one (DESIGN §14). */
+  private use(tool: string): string {
+    return t(`use.${tool}${this.opts.touch ? '' : '.click'}` as 'use.ray');
+  }
+
   /** How to use the armed tool, over its slot on a phone upright (the column's words say it elsewhere); over Bubo's bubble. */
   private drawUse(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim): void {
     const armed = sim.armedTool;
     if (!armed || !AIMED.includes(armed) || L.scopeText || sim.stage !== 'play') return;
     const r = L.tray[Math.min(sim.armed, L.tray.length - 1)];
-    pill(ctx, L, t(`use.${armed}` as 'use.ray'), r.x + r.w / 2, r.y - 8, C.gold, 1, L.u);
+    pill(ctx, L, this.use(armed), r.x + r.w / 2, r.y - 8, C.gold, 1);
   }
 
   // ── Bubo ────────────────────────────────────────────────────────
@@ -611,7 +621,7 @@ export class HudDraw {
     paintOwl(ctx, o.x, o.y, o.r, { t: T, look: Math.sin(T * 0.5) * 0.6, hop, cheer, sleepy: sim.look === 'rest' ? 0.6 : 0 });
     if (!b || !talking) return;
     const a = since < 0.2 ? since / 0.2 : since > 3 ? (3.4 - since) / 0.4 : 1;
-    const uu = Math.min(L.u, 1.15);
+    const uu = L.tk;
     // a narrow column (a phone on its side) takes the line in more rows of a slightly smaller size
     const narrow = L.bubble.w < 200;
     const px = (narrow ? 13 : 14) * uu;
@@ -620,13 +630,14 @@ export class HudDraw {
     ctx.font = font(650, px, SANS);
     const pad = 10;
     const all = wrapLines(ctx, b.text, L.bubble.w - pad * 2);
-    const most = narrow ? 6 : 4;
+    // (a big screen's bubble has the column's height over Bubo: a long line keeps its size in more rows)
+    const most = narrow || L.kind === 'big' ? 6 : 4;
     const lines = all.length > most ? [...all.slice(0, most - 1), fitText(ctx, all.slice(most - 1).join(' '), L.bubble.w - pad * 2, px, 650, SANS)] : all;
     ctx.font = font(650, px, SANS);
     const lh = fontPx(px) * 1.25;
     const bw = Math.min(L.bubble.w, Math.max(...lines.map(s => ctx.measureText(s).width)) + pad * 2);
     const bh = lines.length * lh + pad * 1.3;
-    const beside = L.mode === 'wide';
+    const beside = L.mode === 'wide' && L.kind !== 'big';
     // a column's bubble rises above Bubo; a desktop's sits to his right
     const bx = clamp(L.bubble.x, 6, L.w - bw - 6);
     const by = beside ? L.bubble.y - bh / 2 : L.bubble.y - bh;
@@ -662,9 +673,9 @@ export class HudDraw {
   private appear(): number { return ease.outBack(clamp((this.clock - this.cardT) / 0.35)); }
 
   private drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
-    const r = cardRect(L, 'story'), u = L.u;
+    const r = cardRect(L, 'story');
     const c = sim.storyConst;
-    const uu = Math.min(u, 1.15);
+    const uu = L.tk;
     ctx.save();
     zoom(ctx, r, this.appear(), L);
     panel(ctx, r, 18, true);
@@ -705,13 +716,13 @@ export class HudDraw {
     ctx.fillStyle = C.dim;
     ctx.font = font(650, 13 * uu, SANS);
     ctx.textBaseline = 'bottom';
-    ctx.fillText(t('story.tap'), cx, r.y + r.h - pad + 2);
+    ctx.fillText(t(this.opts.touch ? 'story.tap' : 'story.click'), cx, r.y + r.h - pad + 2);
     ctx.restore();
   }
 
   private drawIntro(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
-    const r = cardRect(L, 'intro'), u = L.u, lv = sim.level;
-    const uu = Math.min(u, 1.15);
+    const r = cardRect(L, 'intro'), lv = sim.level;
+    const uu = L.tk;
     ctx.save();
     zoom(ctx, r, this.appear(), L);
     panel(ctx, r, 18, true);
@@ -744,13 +755,13 @@ export class HudDraw {
     ctx.fillText(t('card.in', { n: lv.moves }), cx, r.y + r.h * 0.77);
     ctx.fillStyle = C.faint;
     ctx.font = font(650, 13 * uu, SANS);
-    ctx.fillText(t('card.tap'), cx, r.y + r.h * 0.9);
+    ctx.fillText(t(this.opts.touch ? 'card.tap' : 'card.click'), cx, r.y + r.h * 0.9);
     ctx.restore();
   }
 
   private drawWon(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
-    const r = cardRect(L, 'won'), u = L.u, lv = sim.level;
-    const uu = Math.min(u, 1.15);
+    const r = cardRect(L, 'won'), lv = sim.level;
+    const uu = L.tk;
     const since = this.clock - this.cardT;
     ctx.save();
     zoom(ctx, r, this.appear(), L);
@@ -782,8 +793,8 @@ export class HudDraw {
   }
 
   private drawOut(ctx: CanvasRenderingContext2D, L: Layout, sim: FirmamentSim, T: number): void {
-    const r = cardRect(L, 'out'), u = L.u;
-    const uu = Math.min(u, 1.15);
+    const r = cardRect(L, 'out');
+    const uu = L.tk;
     ctx.save();
     zoom(ctx, r, this.appear(), L);
     panel(ctx, r, 18, true);
@@ -810,6 +821,9 @@ export class HudDraw {
     ctx.restore();
   }
 }
+
+/** A desktop or a big screen (DESIGN §14): its small words grow with the UI (a phone's and a tablet's stay as they were). */
+const desk = (L: Layout): boolean => L.kind === 'desktop' || L.kind === 'big';
 
 /** The card that a stage shows (for the targets): the story, the goal, the tally, out of moves. */
 export const cardOf = (stage: string): CardKind | null => (stage === 'story' || stage === 'intro' || stage === 'won' || stage === 'out' ? stage : null);
@@ -841,8 +855,8 @@ function zoom(ctx: CanvasRenderingContext2D, r: Rect, k: number, L: Layout): voi
 }
 
 /** A short line in a dark pill centred at x with its lower edge at `bottom` (kept on the screen): the telescope's words, a tool's use. */
-function pill(ctx: CanvasRenderingContext2D, L: Layout, text: string, x: number, bottom: number, color: string, alpha: number, u: number): void {
-  const uu = Math.min(u, 1.15);
+function pill(ctx: CanvasRenderingContext2D, L: Layout, text: string, x: number, bottom: number, color: string, alpha: number): void {
+  const uu = L.tk;
   const maxW = Math.min(L.band.w - 12, 300 * uu);
   ctx.save();
   ctx.globalAlpha = alpha;

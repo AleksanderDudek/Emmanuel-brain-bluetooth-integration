@@ -59,6 +59,8 @@ export class GeodaGame implements ArcadeGame {
   private placedOnce = false;
   /** the dragged piece has a spot on the board now (for the tick when it first finds one) */
   private snapped = false;
+  /** the canvas's CSS cursor as last set (a desktop's mouse: DESIGN §14) */
+  private cursorNow = '';
 
   constructor(private readonly env: GameEnv<GeodaProgress>) {
     migrate(env.progress);
@@ -96,6 +98,7 @@ export class GeodaGame implements ArcadeGame {
     this.drain();
     this.view.update(dt, this.sim);
     this.coach();
+    this.cursor();
   }
 
   /** The runner draws every frame, the calibration too: until play begins the intro scene stays. */
@@ -106,6 +109,9 @@ export class GeodaGame implements ArcadeGame {
   // ── the hands ───────────────────────────────────────────────────
   pointer(e: PointerInput): void {
     const sim = this.sim;
+    // a desktop's mouse moves with no button down too: what it rests on answers — the slot lights, the board shows
+    // where a click sets the piece, the cursor says what a click does (DESIGN §14); a finger never hovers
+    if (!this.env.touch) this.view.hover = { x: e.x, y: e.y };
     if (e.type === 'down') {
       if (this.press) return;
       const slot = slotAt(this.view.layout, e.x, e.y);
@@ -118,14 +124,20 @@ export class GeodaGame implements ArcadeGame {
         this.drain();
       }
       this.snapped = false;
+      this.cursor();
       return;
     }
     const pr = this.press;
-    if (!pr || pr.id !== e.id) return;
+    if (!pr || pr.id !== e.id) {
+      this.cursor();
+      return;
+    }
     if (e.type === 'move') {
       if (!pr.moved && Math.hypot(e.x - pr.x, e.y - pr.y) >= DRAG_PX) {
         pr.moved = true;
-        if (pr.slot >= 0 && sim.tray[pr.slot]) this.hand.drag = { slot: pr.slot, x: e.x, y: e.y, t: 0 };
+        const item = pr.slot >= 0 ? sim.tray[pr.slot] : null;
+        // under a desktop's mouse the piece keeps the point it was taken by (null on a phone: it floats over the finger)
+        if (item) this.hand.drag = { slot: pr.slot, x: e.x, y: e.y, t: 0, grab: this.view.grabAt(pr.slot, item.piece, pr.x, pr.y) };
       }
       const d = this.hand.drag;
       if (d) {
@@ -133,10 +145,11 @@ export class GeodaGame implements ArcadeGame {
         d.y = e.y;
         // a light tick when the piece first finds a spot on the board (the ghost appears)
         const item = sim.tray[d.slot];
-        const on = !!item && this.view.snap(sim, item.piece, e.x, e.y) !== null;
+        const on = !!item && this.view.snap(sim, item.piece, e.x, e.y, d.grab ?? null) !== null;
         if (on && !this.snapped && this.env.haptics) buzz(5);
         this.snapped = on;
       }
+      this.cursor();
       return;
     }
     // up
@@ -147,9 +160,10 @@ export class GeodaGame implements ArcadeGame {
     if (drag) {
       const item = sim.tray[drag.slot];
       if (!item) return;
-      const s = this.view.snap(sim, item.piece, e.x, e.y);
+      const s = this.view.snap(sim, item.piece, e.x, e.y, drag.grab ?? null);
       if (s && sim.place(drag.slot, s.gx, s.gy)) this.drain();
-      else this.view.sendBack(drag.slot, item, e.x, e.y);
+      else this.view.sendBack(drag.slot, item, e.x, e.y, drag.grab ?? null);
+      this.cursor();
       return;
     }
     if (pr.moved) return;
@@ -171,7 +185,29 @@ export class GeodaGame implements ArcadeGame {
       this.press = null;
       this.hand.drag = null;
       this.view.pressed = -1;
+      // the pause card has the page's own cursor; the mouse is read again when play goes on
+      this.view.hover = null;
+      this.setCursor('');
     }
+  }
+
+  /** A desktop's cursor says what a click does (DESIGN §14): take a piece, set it on the board, go on from a card. */
+  private cursor(): void {
+    if (this.env.touch) return;
+    const v = this.view, sim = this.sim;
+    let c = 'default';
+    if (!sim.started) c = '';
+    else if (this.hand.drag) c = 'grabbing';
+    else if (sim.story) c = 'pointer';
+    else if (v.hoveredSlot(sim) >= 0) c = this.press ? 'grabbing' : 'grab';
+    else if (v.hovered(sim)) c = 'pointer';
+    this.setCursor(c);
+  }
+
+  private setCursor(c: string): void {
+    if (c === this.cursorNow) return;
+    this.cursorNow = c;
+    this.env.canvas.style.cursor = c;
   }
 
   private drain(): void {
@@ -264,7 +300,8 @@ export class GeodaGame implements ArcadeGame {
     this.hinted.add(key);
     if (!this.env.progress.seen.includes(key)) this.env.progress.seen.push(key);
     this.hintAt = this.now;
-    this.env.hint(t(`hint.${key}` as GeodaKey), at, 3600);
+    // a mouse clicks, a finger taps (DESIGN §14)
+    this.env.hint(t(key === 'tap' && !this.env.touch ? 'hint.click' : `hint.${key}` as GeodaKey), at, 3600);
   }
 
   // ── what the runner reads ───────────────────────────────────────
@@ -303,6 +340,7 @@ export class GeodaGame implements ArcadeGame {
   destroy(): void {
     this.press = null;
     this.hand.drag = null;
+    this.setCursor('');
   }
 }
 
