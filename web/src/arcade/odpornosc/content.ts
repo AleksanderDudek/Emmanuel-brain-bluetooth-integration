@@ -165,19 +165,26 @@ export type Speaker = 'neo' | 'makro';
 const MAKRO: ReadonlySet<Moment> = new Set<Moment>(['alarm', 'pads', 'heal', 'collagen', 'closed', 'tidy', 'grace']);
 export const speakerOf = (m: Moment): Speaker => (MAKRO.has(m) ? 'makro' : 'neo');
 
-/** each moment's lines in the page's language (i18n keys say.<moment>.1 … .n) */
-function linesOf(m: Moment): string[] {
+/**
+ * Each moment's lines in the page's language (i18n keys say.<moment>.1 … .n).  For a mouse (a desktop) a line
+ * that speaks of tapping has a variant that says "click" (`say.<moment>.<n>.mouse`): it takes the line's place.
+ */
+function linesOf(m: Moment, mouse = false): string[] {
   const out: string[] = [];
   for (let i = 1; i <= 6; i++) {
     const k = `say.${m}.${i}` as Key;
     const s = t(k);
     if (s === k) break;
-    out.push(s);
+    const km = `${k}.mouse` as Key;
+    const sm = mouse ? t(km) : km;
+    out.push(sm !== km ? sm : s);
   }
   return out;
 }
 
 export const LINES: Readonly<Record<Moment, readonly string[]>> = Object.fromEntries(MOMENTS.map(m => [m, linesOf(m)])) as Record<Moment, string[]>;
+/** Neo's and Makro's lines for a mouse: the same, with "kliknij" where a line speaks of tapping. */
+export const LINES_MOUSE: Readonly<Record<Moment, readonly string[]>> = Object.fromEntries(MOMENTS.map(m => [m, linesOf(m, true)])) as Record<Moment, string[]>;
 export const LINE_COUNT = MOMENTS.reduce((s, m) => s + LINES[m].length, 0);
 
 // ── the strategies under a block's name (imagery of the scene; one counting / recall in turn) ──

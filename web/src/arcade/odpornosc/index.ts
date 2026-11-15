@@ -58,14 +58,22 @@ class OdpGame implements ArcadeGame {
   private hintCool = 2;
   private cardUp = false;
   private ended = false;
+  /** the mouse's cursor as last set (a desk: a hand on targets, "grab" on the field) */
+  private cursor = '';
+  /** the mouse left the canvas: no hover */
+  private readonly leave = (): void => { this.view.hover = null; this.setCursor('default'); };
 
   constructor(private readonly env: GameEnv<OdpProgress>) {
     migrate(env.progress);
-    this.sim = new OdpSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning });
+    this.sim = new OdpSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, mouse: !env.touch });
     this.view = new OdpView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new OdpSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
-    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __odpornosc?: unknown }).__odpornosc = this.sim;
+    if (!env.touch) env.canvas.addEventListener?.('pointerleave', this.leave);
+    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) {
+      (globalThis as { __odpornosc?: unknown }).__odpornosc = this.sim;
+      (globalThis as { __odpornoscView?: unknown }).__odpornoscView = this.view;
+    }
   }
 
   resize(w: number, h: number, dpr: number): void {
@@ -110,6 +118,13 @@ class OdpGame implements ArcadeGame {
     if (card && !this.cardUp) this.env.hint('');
     this.cardUp = card;
     this.flushHints();
+    if (this.view.hover) this.setCursor(this.view.cursor(this.sim));
+  }
+
+  private setCursor(c: string): void {
+    if (c === this.cursor) return;
+    this.cursor = c;
+    if (this.env.canvas.style) this.env.canvas.style.cursor = c;
   }
 
   draw(): void {
@@ -129,6 +144,11 @@ class OdpGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view, L = view.L;
+    if (!this.env.touch) {
+      const was = view.hover;
+      if (!was || Math.hypot(was.x - e.x, was.y - e.y) > 2) view.hoverAge = 0;
+      view.hover = { x: e.x, y: e.y };
+    }
     if (e.type === 'down') {
       if (this.finger !== null && this.finger !== e.id) this.letGo();
       this.finger = e.id;
@@ -288,6 +308,8 @@ class OdpGame implements ArcadeGame {
     this.letGo();
     this.song?.stop(0.4);
     this.song = null;
+    this.env.canvas.removeEventListener?.('pointerleave', this.leave);
+    if (this.env.canvas.style) this.env.canvas.style.cursor = '';
   }
 }
 
@@ -311,9 +333,13 @@ function hintFits(what: Coach, sim: OdpSim): boolean {
   }
 }
 
-/** A coach mark's words for the hand the player has: a finger never hears of keys. */
+/** The coach marks that speak of the hands: a mouse hears "kliknij" and "przeciągnij myszą" in them. */
+const MOUSE_COACH: ReadonlySet<Coach> = new Set<Coach>(['drag', 'tap', 'roll', 'swarm', 'net', 'tidy', 'tcell']);
+
+/** A coach mark's words for the hand the player has: a finger never hears of keys, a mouse clicks (and has keys). */
 export function coachText(what: Coach, touch: boolean): string {
   if (what === 'burst' && !touch) return t('coach.burst.keys');
+  if (!touch && MOUSE_COACH.has(what)) return t(`coach.${what}.mouse` as Key);
   return t(`coach.${what}` as Key);
 }
 
@@ -336,8 +362,8 @@ export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('howto.goal'),
     hands: [
-      { gesture: 'drag', text: t('howto.drag') },
-      { gesture: 'tap', text: t('howto.tap') },
+      { gesture: 'drag', text: t(touch ? 'howto.drag' : 'howto.drag.mouse') },
+      { gesture: 'tap', text: t(touch ? 'howto.tap' : 'howto.tap.mouse') },
       touch ? { gesture: 'tap', text: t('howto.burst') } : { gesture: 'keys', text: t('howto.keys') },
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],

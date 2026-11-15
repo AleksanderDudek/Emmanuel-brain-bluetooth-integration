@@ -11,7 +11,7 @@ import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
 import type { Insets } from '../kit/types';
 import type { PassageLayout } from '../kit/scripture';
 import { PATHOGEN, factTitle, pathogenName, unlockName, type CoachAt } from './content';
-import { drawBreath, drawBubble, drawButtons, drawCard, drawSongLine, drawStrip } from './hud';
+import { drawAimTag, drawBreath, drawBubble, drawButtons, drawCard, drawSongLine, drawStrip } from './hud';
 import { t } from './i18n';
 import { layout, onButton, sx, sy, wx, wy, type Layout } from './layout';
 import {
@@ -19,7 +19,7 @@ import {
   paintNeutrophil, paintSplinter, paintVirion, paintY, rgbOf, rr,
 } from './paint';
 import { RULES } from './rules';
-import type { Cell, OdpSim, SimEvent } from './sim';
+import type { Aim, Cell, OdpSim, SimEvent } from './sim';
 
 export type Hit = { kind: 'card' } | { kind: 'burst' } | { kind: 'net' } | { kind: 'field'; x: number; y: number };
 
@@ -56,6 +56,10 @@ export class OdpView {
 
   /** the bottom of Neo's bubble while it shows (the toast goes under it) */
   private bubbleBottom = 0;
+  /** where a mouse rests (a desk: hover answers), null when it left or on a touch screen */
+  hover: { x: number; y: number } | null = null;
+  /** seconds since the mouse last moved (a resting mouse's tag fades) */
+  hoverAge = 0;
 
   private toast(text: string, color = '#fff8ef', dur = 2.4): void {
     if (this.toasts.some(x => x.text === text)) return;
@@ -207,6 +211,7 @@ export class OdpView {
 
   update(dt: number): void {
     this.now += dt;
+    this.hoverAge += dt;
     this.particles.update(dt);
     this.floaters.update(dt);
     this.burstFlash = Math.max(0, this.burstFlash - dt * 1.4);
@@ -228,6 +233,77 @@ export class OdpView {
     if (sim.burstShown && onButton(L.burst, x, y)) return { kind: 'burst' };
     if (sim.netShown && onButton(L.net, x, y)) return { kind: 'net' };
     return { kind: 'field', x: wx(L, x), y: wy(L, y) };
+  }
+
+  // ── a desk's mouse ───────────────────────────────────────────────────────────────
+  /**
+   * What the mouse rests on: the card, a button, or in the world what a click there would act on (the sim's
+   * `aimAt`: a rolling cell, a bacterium, an infected cell, a spent neutrophil, or the free tissue).  Never on a
+   * touch screen (a finger has no hover), never while a drag is under way.
+   */
+  overPart(sim: OdpSim): { part: 'card' | 'burst' | 'net' | 'aim' | 'field' | null; aim: Aim | null } {
+    const hv = this.hover;
+    if (!hv || this.opts.touch || !sim.started || sim.phase === 'done') return { part: null, aim: null };
+    const h = this.hit(hv.x, hv.y, sim);
+    if (h.kind !== 'field') return { part: h.kind, aim: null };
+    if (this.drag) return { part: 'field', aim: null };
+    const aim = sim.aimAt(h.x, h.y);
+    if (aim.kind === 'none') return { part: null, aim: null };
+    return aim.kind === 'field' ? { part: 'field', aim } : { part: 'aim', aim };
+  }
+
+  /** The cursor for the mouse: a hand on what a click acts on, a crosshair where a drag weaves collagen, else "grab" (a drag leads the swarm). */
+  cursor(sim: OdpSim): string {
+    const o = this.overPart(sim);
+    if (o.part === 'card' || o.part === 'burst' || o.part === 'net' || o.part === 'aim') return 'pointer';
+    if (this.drag) return this.drag.mode === 'lead' ? 'grabbing' : 'crosshair';
+    if (o.part !== 'field' || !this.hover) return 'default';
+    const L = this.L, wy0 = wy(L, this.hover.y), wx0 = wx(L, this.hover.x);
+    if (sim.canWeave && Math.abs(wx0 - sim.woundX) < 30 && wy0 < 48) return 'crosshair';
+    return 'grab';
+  }
+
+  /** What a click would act on: a ring round it and a tag — its name, a word about it, what the click does. */
+  private drawAim(ctx: CanvasRenderingContext2D, sim: OdpSim, aim: Exclude<Aim, { kind: 'none' } | { kind: 'field' }>): void {
+    const L = this.L, k = L.k, u = L.u;
+    const x = sx(L, aim.x), y = sy(L, aim.y);
+    let r: number, title: string, sub = '', act: string;
+    switch (aim.kind) {
+      case 'roller':
+        r = RULES.neut.r * k * 0.85 * 1.5;
+        title = t('aim.roller');
+        act = t('aim.roller.act');
+        break;
+      case 'bug': {
+        const spec = PATHOGEN[aim.bug];
+        r = (spec.shape === 'coccus' ? RULES.bug.coccus : RULES.bug.rod) * k * 1.6;
+        title = pathogenName(aim.bug);
+        sub = aim.tagged ? t('aim.tagged') : aim.capsule ? t('aim.capsule') : '';
+        act = t(sim.stage === 'alarm' ? 'aim.bug.makro' : 'aim.bug.act');
+        break;
+      }
+      case 'epi':
+      case 'hidden':
+        r = Math.max(aim.w * k * 0.55, 10 * u);
+        title = t(aim.kind === 'epi' ? 'aim.epi' : 'aim.hidden');
+        act = t(aim.kind === 'epi' ? 'aim.epi.act' : 'aim.hidden.act');
+        break;
+      default:
+        r = aim.r * k * 1.25;
+        title = t('aim.body');
+        act = t('aim.body.act');
+        break;
+    }
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,248,239,0.9)';
+    ctx.lineWidth = Math.max(1.5, 1.6 * u);
+    ctx.setLineDash([5 * u, 4 * u]);
+    ctx.lineDashOffset = -this.now * 14 * u;
+    circle(ctx, x, y, Math.max(r, 9 * u));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    drawAimTag(ctx, L, x, y, Math.max(r, 9 * u) + 8 * u, title, sub, act, clamp((3 - this.hoverAge) / 0.6));
   }
 
   /** A coach mark's point on the canvas. */
@@ -291,7 +367,10 @@ export class OdpView {
       else if (song.on && !sim.card) drawSongLine(ctx, L, song.line, pulse, song.chorus);
     }
     if (this.toasts.length && !sim.card) this.drawToast(ctx, this.toasts[0]);
-    if (!sim.card) drawButtons(ctx, L, sim, this.pressed, this.now, this.pressFlash);
+    const over = this.overPart(sim);
+    const aim = over.aim;
+    if (aim && aim.kind !== 'none' && aim.kind !== 'field') this.drawAim(ctx, sim, aim);
+    if (!sim.card) drawButtons(ctx, L, sim, this.pressed, this.now, this.pressFlash, over.part === 'burst' || over.part === 'net' ? over.part : null);
     if (this.touchAt) {
       const k = this.touchAt.t / 0.45;
       ctx.strokeStyle = `rgba(255,248,239,${0.6 * (1 - k)})`;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FACTS, FACT_IDS, LINES, LINE_COUNT, LOOPS, MOMENTS, PATHOGENS, STAGES, TIPS, UNLOCKS, loopSpec } from '../src/arcade/odpornosc/content';
+import { FACTS, FACT_IDS, LINES, LINES_MOUSE, LINE_COUNT, LOOPS, MOMENTS, PATHOGENS, STAGES, TIPS, UNLOCKS, loopSpec } from '../src/arcade/odpornosc/content';
 import { CATALOGS, t, unit } from '../src/arcade/odpornosc/i18n';
 import { checkUnlocks, freshProgress, memoryOf, migrate, type OdpProgress } from '../src/arcade/odpornosc/meta';
 import { RULES } from '../src/arcade/odpornosc/rules';
@@ -8,13 +8,15 @@ import { buildSong, isChorus } from '../src/arcade/odpornosc/song';
 import { WORLD_H, layout, sx, sy, tapTargets, wx, wy } from '../src/arcade/odpornosc/layout';
 import { fitFont, font, fontPx } from '../src/arcade/odpornosc/paint';
 import { coachText, howto } from '../src/arcade/odpornosc/index';
-import { CHECK_SIZES, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { OdpView } from '../src/arcade/odpornosc/render';
+import { drawAimTag } from '../src/arcade/odpornosc/hud';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { CHORUS_BEATS, songProblems } from '../src/arcade/kit/song';
 import { mulberry32 } from '../src/core/random';
-import { catalogProblems } from '../src/i18n';
+import { LANGS, catalogProblems } from '../src/i18n';
 
 const STEP = 1 / 60;
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
@@ -748,5 +750,133 @@ describe('mobile first (DESIGN §12, §13.9)', () => {
     expect(coachText('burst', true)).not.toMatch(/Spacj/);
     expect(coachText('burst', false)).toMatch(/Spacj/);
     expect(howto(true).tips?.at(-1)).toMatch(/nie zastępuje leczenia/);
+  });
+});
+
+describe('a desk: a mouse on a desktop or a big screen (DESIGN §14)', () => {
+  const desks = CHECK_SIZES.filter(c => c.w >= 1024 && c.h >= 560);
+  const big = desks.filter(c => Math.min(c.w, c.h) >= DESK_BIG);
+
+  it('chooses its layout from the screen: a desk for a mouse on a desktop, the phone’s for a finger', () => {
+    for (const c of CHECK_SIZES) {
+      const mouse = layout(c.w, c.h, c.insets, false), finger = layout(c.w, c.h, c.insets, true);
+      expect(finger.desk, c.name).toBe(false);
+      expect(mouse.desk, c.name).toBe(desks.includes(c));
+      // the phones' and the tablet's layouts never change for a mouse (but the lift above a finger)
+      if (!desks.includes(c)) expect({ ...mouse, lift: 0 }, c.name).toEqual({ ...finger, lift: 0 });
+    }
+    expect(desks.length).toBe(5);
+  });
+
+  it('fills the field with the world on a big screen: the phone’s cap lifted, the cells grown', () => {
+    for (const c of big) {
+      const L = layout(c.w, c.h, c.insets, false), old = layout(c.w, c.h, c.insets, true);
+      expect(L.u, c.name).toBeGreaterThan(1.3);
+      expect(L.k * WORLD_H, c.name).toBeGreaterThanOrEqual(L.field.h - 1);
+      expect(L.k / old.k, c.name).toBeGreaterThanOrEqual(1.25);
+      expect(L.W).toBeGreaterThanOrEqual(150);
+      expect(L.W).toBeLessThanOrEqual(RULES.maxW);
+      expect(RULES.neut.r * L.k, c.name).toBeGreaterThanOrEqual(24);
+      expect(L.wx0).toBeGreaterThanOrEqual(-0.5);
+      expect(L.wx1).toBeLessThanOrEqual(c.w + 0.5);
+      expect(sy(L, RULES.skinTop)).toBeGreaterThanOrEqual(L.field.y - 0.5);
+      expect(sy(L, RULES.floor)).toBeLessThanOrEqual(c.h - c.insets.bottom + 0.5);
+      // the words grow with it (the strip, the song, the buttons follow u)
+      expect(L.strip.h).toBeGreaterThanOrEqual(Math.round(26 * 1.3));
+      expect(L.burst.r).toBeGreaterThanOrEqual(30 * 1.3);
+    }
+  });
+
+  it('sets the buttons beside the world where it leaves margins, by the vessel, inside the canvas', () => {
+    let beside = 0;
+    for (const c of desks) {
+      const L = layout(c.w, c.h, c.insets, false);
+      const gap = Math.round(14 * L.u);
+      if (L.sideButtons) {
+        beside++;
+        expect(L.burst.x + L.burst.r, c.name).toBeCloseTo(L.wx0 - gap, 5);
+        expect(L.net.x - L.net.r, c.name).toBeCloseTo(L.wx1 + gap, 5);
+      }
+      for (const b of [L.burst, L.net]) {
+        expect(b.x - b.r, c.name).toBeGreaterThanOrEqual(c.insets.left);
+        expect(b.x + b.r, c.name).toBeLessThanOrEqual(c.w - c.insets.right);
+        expect(b.y + b.r, c.name).toBeLessThanOrEqual(c.h - c.insets.bottom);
+        expect(b.y, c.name).toBeGreaterThanOrEqual(sy(L, RULES.wallY) - b.r);
+      }
+    }
+    expect(beside).toBe(3);   // the 1280 desktops and the laptop; a big screen's world fills the width
+  });
+
+  it('answers a hovering mouse with what a click would do there; a finger has no hover', () => {
+    const sim = at(2);
+    toStage(sim, 'hunt');
+    drive(sim, 1.5, MID, { t: 100 }, closeCards(sim));
+    const c = big[0];
+    const canvas = { getContext: () => null, clientWidth: c.w, clientHeight: c.h } as unknown as HTMLCanvasElement;
+    const view = new OdpView(canvas, { reducedMotion: false, touch: false });
+    view.resize(c.w, c.h, 1, c.insets);
+    const L = view.L;
+    const b = sim.live.find(x => !sim.cells.some(cl => cl.kind === 'neut' && (cl.state === 'body' || cl.state === 'spent') && Math.hypot(cl.x - x.x, cl.y - x.y) <= cl.r + 8))!;
+    expect(b).toBeDefined();
+    expect(sim.aimAt(b.x + 1, b.y)).toMatchObject({ kind: 'bug', bug: b.kind });
+    view.hover = { x: sx(L, b.x + 1), y: sy(L, b.y) };
+    expect(view.overPart(sim)).toMatchObject({ part: 'aim' });
+    expect(view.cursor(sim)).toBe('pointer');
+    // the free tissue (nothing within a tap's reach): "grab" — a drag leads the swarm
+    let free: { x: number; y: number } | null = null;
+    for (let y = 20; y < 90 && !free; y += 4) for (let x = 4; x < sim.W - 4 && !free; x += 4) if (sim.aimAt(x, y).kind === 'field') free = { x, y };
+    expect(free).not.toBeNull();
+    view.hover = { x: sx(L, free!.x), y: sy(L, free!.y) };
+    expect(view.overPart(sim).part).toBe('field');
+    expect(['grab', 'crosshair']).toContain(view.cursor(sim));
+    // a button is a hand too; a card takes every click
+    view.hover = { x: L.burst.x, y: L.burst.y };
+    if (sim.burstShown) expect(view.cursor(sim)).toBe('pointer');
+    const touchView = new OdpView(canvas, { reducedMotion: false, touch: true });
+    touchView.resize(c.w, c.h, 1, c.insets);
+    touchView.hover = { x: sx(L, b.x), y: sy(L, b.y) };
+    expect(touchView.overPart(sim).part).toBeNull();
+  });
+
+  it('tags what a click would hit in readable words, never under the floor', () => {
+    const texts: { text: string; px: number }[] = [];
+    let f = '10px x';
+    const ctx = new Proxy({} as Record<string, unknown>, {
+      get: (o, k) => (k === 'font' ? f : k === 'measureText' ? (s: string) => ({ width: s.length * Number(f.match(/(\d+(?:\.\d+)?)px/)![1]) * 0.55 })
+        : k === 'fillText' ? (s: string) => texts.push({ text: s, px: Number(f.match(/(\d+(?:\.\d+)?)px/)![1]) })
+        : typeof k === 'string' && /^[a-z]/.test(k) && !['globalAlpha', 'lineWidth', 'fillStyle', 'strokeStyle', 'textAlign', 'textBaseline'].includes(k) ? () => undefined : o[k as string]),
+      set: (o, k, v) => { if (k === 'font') f = String(v); else o[k as string] = v; return true; },
+    }) as unknown as CanvasRenderingContext2D;
+    for (const c of desks) {
+      const L = layout(c.w, c.h, c.insets, false);
+      drawAimTag(ctx, L, L.w / 2, L.h / 2, 20, t('path.ziarniaki'), t('aim.tagged'), t('aim.bug.act'), 1);
+    }
+    expect(texts.length).toBe(desks.length * 3);
+    expect(texts.every(x => x.px >= MIN_READ)).toBe(true);
+    expect(texts.map(x => x.text)).toContain(t('aim.bug.act'));
+  });
+
+  it('speaks to a mouse in clicks: the how-to, the coach marks and Neo', () => {
+    const CLICK = /klik|click|klick|mysz|mouse|maus|musen/i;
+    const TAP: Record<string, RegExp> = { pl: /stuk|palc/i, en: /\btap|finger/i, de: /tipp|finger/i, sv: /^tryck|finger/i };
+    const keys = ['howto.drag.mouse', 'howto.tap.mouse', 'coach.drag.mouse', 'coach.tap.mouse', 'coach.roll.mouse', 'coach.swarm.mouse', 'coach.net.mouse',
+      'coach.tidy.mouse', 'coach.tcell.mouse', 'coach.burst.keys', 'say.recruit.2.mouse', 'say.burstReady.2.mouse'];
+    for (const l of LANGS) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const k of keys) {
+        expect(cat[k], `${l}.${k}`).toMatch(CLICK);
+        expect(cat[k], `${l}.${k}`).not.toMatch(TAP[l]);
+      }
+      expect(cat['howto.keys'], `${l}.howto.keys`).toMatch(/B:/);
+    }
+    for (const h of howto(false).hands.filter(x => x.gesture !== 'keys')) expect(h.text).toMatch(CLICK);
+    for (const what of ['drag', 'tap', 'roll', 'swarm', 'net', 'tidy', 'tcell'] as const) {
+      expect(coachText(what, false), what).toMatch(CLICK);
+      expect(coachText(what, true), what).not.toMatch(CLICK);
+    }
+    for (const m of MOMENTS) expect(LINES_MOUSE[m].length, m).toBe(LINES[m].length);
+    expect(LINES_MOUSE.recruit).toContain(t('say.recruit.2.mouse'));
+    expect(LINES.recruit).not.toContain(t('say.recruit.2.mouse'));
+    expect(Object.values(LINES_MOUSE).flat().some(x => /stuk/i.test(x))).toBe(false);
   });
 });

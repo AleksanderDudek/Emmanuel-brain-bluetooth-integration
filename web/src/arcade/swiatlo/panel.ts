@@ -11,6 +11,7 @@ import { ALL_CARDS, DEPTHS, ORGAN, ORGANS, dayOrgan, depthName, factSource, fact
 import { ORGAN_SHAPES, ORGAN_SPOT, spline, type Shape } from './figure';
 import { t } from './i18n';
 import { bestOf, mapLit, mapRating, type SwiatloProgress } from './meta';
+import { coarsePointer } from '../kit/mobile';
 import { daySeed } from '../kit/progress';
 import { rgbaPrefix } from './paint';
 
@@ -130,7 +131,7 @@ function build(p: SwiatloProgress, changed: () => void): HTMLElement[] {
       stat(t('panel.scans'), fmtNum(p.scans)),
       stat(t('panel.golden'), fmtNum(p.golden)),
       stat(t('panel.depth'), depthName(Math.min(3, Math.max(1, p.depth)) as Depth))),
-    h('p', { class: 'muted' }, t('panel.rules')),
+    h('p', { class: 'muted' }, t(coarsePointer() ? 'panel.rules' : 'panel.rules.mouse')),
     h('p', null, t('panel.day', { organ: organName(today) })),
     h('p', { class: 'muted' }, t('panel.pulse')),
     h('div', { class: 'arcade-sub' }, `${t('panel.map')} · ${lit.lit}/${lit.all}`),

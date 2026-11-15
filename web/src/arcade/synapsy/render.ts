@@ -22,14 +22,14 @@ import { fmtNum } from '../../i18n';
 import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
 import { drawPassage, layoutPassage, passage, type PassageLayout } from '../kit/scripture';
 import type { Insets } from '../kit/types';
-import { HEMI, halfWidth as halfWidthAt, keyOf, type Brain, type IoKind } from './brain';
-import { cardSrc, cardText, cardTitle, ioName, lessonLine, lessonTitle, mpsText, type CardId } from './content';
+import { HEMI, canPair, dist, edgeMs, halfWidth as halfWidthAt, insideHemi, keyOf, type Brain, type IoKind } from './brain';
+import { cardSrc, cardText, cardTitle, ioName, lessonLine, lessonTitle, mpsText, msText, regionName, type CardId } from './content';
 import { t } from './i18n';
-import { layout, toScreen, type Layout } from './layout';
+import { layout, onOli, toBrain, toScreen, typeK, type Layout } from './layout';
 import {
-  C, SANS, ctx2d, fitFont, fitLines, font, glow, gyri, hash, hemiPath, ioIcon, makeCanvas, mix, neuronBody, paintLens, paintOli, plate, rr, somaCore, withAlpha,
+  C, SANS, ctx2d, fitFont, fitLines, font, glow, gyri, hash, hemiPath, ioIcon, makeCanvas, mix, neuronBody, paintLens, paintOli, plate, rr, somaCore, withAlpha, wrap,
 } from './paint';
-import { RULES, speedOf } from './rules';
+import { RULES, mmOf, speedOf } from './rules';
 import type { Link, SimEvent, SynapsySim } from './sim';
 
 const TAU = Math.PI * 2;
@@ -76,6 +76,10 @@ export class SynapsyView {
   private outFlash = new Map<number, number>();
   /** a learned path: gold light sweeps along it from the input to the output */
   private sweep: { path: number[]; t: number } | null = null;
+  /** where a mouse rests (a desk: hover answers), null when it left or on a touch screen */
+  hover: { x: number; y: number } | null = null;
+  /** seconds since the mouse last moved (a resting mouse's tag fades) */
+  hoverAge = 0;
 
   constructor(canvas: HTMLCanvasElement, private readonly brain: Brain, private readonly o: ViewOpts) {
     this.ctx = canvas.getContext('2d');
@@ -85,7 +89,7 @@ export class SynapsyView {
 
   resize(w: number, h: number, dpr: number, ins: Insets): void {
     this.dpr = dpr;
-    this.L = layout(w, h, ins, this.brain.spacing);
+    this.L = layout(w, h, ins, this.brain.spacing, this.o.touch);
     this.geo.clear();
     this.storyKey = '';
     this.bake();
@@ -196,7 +200,7 @@ export class SynapsyView {
       case 'pair': {
         const a = this.neuronXY(e.a), b = this.neuronXY(e.b);
         this.parts.burst((a.x + b.x) / 2, (a.y + b.y) / 2, e.fresh ? 10 : 6, { color: e.beat ? C.gold : C.linkHi, speed: 70, g: 0, life: 0.6, size: 2, drag: 2.5 });
-        if (e.beat) this.floats.add(t('hud.beat'), (a.x + b.x) / 2, (a.y + b.y) / 2 - 10, { color: C.gold, size: 15, dur: 0.9 });
+        if (e.beat) this.floats.add(t('hud.beat'), (a.x + b.x) / 2, (a.y + b.y) / 2 - 10, { color: C.gold, size: this.fz(15), dur: 0.9 });
         this.idle = 0;
         break;
       }
@@ -206,7 +210,7 @@ export class SynapsyView {
           const p = this.pointOn(Lk, 1, Lk.from);
           this.flare(p.x, p.y, C.linkHi, this.L.soma * 4, 0.5);
           this.parts.burst(p.x, p.y, 12, { color: C.goldHi, speed: 90, g: 0, life: 0.7, size: 2.2, drag: 2 });
-          this.floats.add('+1', p.x, p.y - 8, { color: C.goldHi, size: 17, dur: 1 });
+          this.floats.add('+1', p.x, p.y - 8, { color: C.goldHi, size: this.fz(17), dur: 1 });
         }
         break;
       }
@@ -215,7 +219,7 @@ export class SynapsyView {
         if (Lk) {
           const p = this.pointOn(Lk, 0.5, Lk.from);
           this.parts.burst(p.x, p.y, 8, { color: C.gold, speed: 60, g: 0, life: 0.6, size: 2, drag: 2.2, shape: 'spark' });
-          this.floats.add('+1', p.x, p.y - 6, { color: C.gold, size: 15, dur: 0.9 });
+          this.floats.add('+1', p.x, p.y - 6, { color: C.gold, size: this.fz(15), dur: 0.9 });
         }
         break;
       }
@@ -225,14 +229,14 @@ export class SynapsyView {
         if (e.counted) {
           this.flare(p.x, p.y, C.gold, this.L.soma * 7, 0.7);
           this.parts.burst(p.x, p.y, 16, { color: C.goldHi, speed: 120, g: 0, life: 0.8, size: 2.4, drag: 1.8 });
-          this.floats.add(`${sim.done}/${sim.lesson.goal}`, p.x, p.y - 18, { color: C.text, size: 16, dur: 1.1 });
+          this.floats.add(`${sim.done}/${sim.lesson.goal}`, p.x, p.y - 18, { color: C.text, size: this.fz(16), dur: 1.1 });
         } else this.flare(p.x, p.y, e.lesson ? C.rest : C.habit, this.L.soma * 4, 0.5);
         break;
       }
       case 'slow': {
         const to = sim.io(sim.lesson.to);
         const p = this.neuronXY(to);
-        this.floats.add(t('hud.slow'), p.x, p.y - 20, { color: C.rest, size: 14, dur: 1.2 });
+        this.floats.add(t('hud.slow'), p.x, p.y - 20, { color: C.rest, size: this.fz(14), dur: 1.2 });
         break;
       }
       case 'lost': {
@@ -242,12 +246,12 @@ export class SynapsyView {
       }
       case 'far': {
         const p = this.neuronXY(e.b);
-        this.floats.add(t('hud.far'), p.x, p.y - 16, { color: C.dim, size: 13, dur: 1 });
+        this.floats.add(t('hud.far'), p.x, p.y - 16, { color: C.dim, size: this.fz(13), dur: 1 });
         break;
       }
       case 'full': {
         const p = this.neuronXY(e.n);
-        this.floats.add(t('hud.full'), p.x, p.y - 16, { color: C.dim, size: 13, dur: 1 });
+        this.floats.add(t('hud.full'), p.x, p.y - 16, { color: C.dim, size: this.fz(13), dur: 1 });
         break;
       }
       case 'wrapped': {
@@ -255,7 +259,7 @@ export class SynapsyView {
         if (Lk) {
           const p = this.pointOn(Lk, 0.5, Lk.from);
           this.flare(p.x, p.y, C.node, this.L.soma * 5, 0.6);
-          this.floats.add(mpsText(e.mps), p.x, p.y - 14, { color: C.node, size: 15, dur: 1.4 });
+          this.floats.add(mpsText(e.mps), p.x, p.y - 14, { color: C.node, size: this.fz(15), dur: 1.4 });
         }
         break;
       }
@@ -263,7 +267,7 @@ export class SynapsyView {
         const L = this.L;
         this.shake.add(0.35);
         this.flare(L.cx, L.cy, C.gold, L.s * 1.3, 1.1);
-        this.floats.add(t('hud.bloom'), L.cx, L.cy - L.s * 0.3, { color: C.goldHi, size: 22, dur: 1.6 });
+        this.floats.add(t('hud.bloom'), L.cx, L.cy - L.s * 0.3, { color: C.goldHi, size: this.fz(22), dur: 1.6 });
         for (const Lk of sim.links.values()) {
           if (Lk.glow < 0.9) continue;
           const p = this.pointOn(Lk, 0.5, Lk.from);
@@ -275,7 +279,7 @@ export class SynapsyView {
         const Lk = sim.links.get(e.key);
         if (Lk) {
           const p = this.pointOn(Lk, 0.5, Lk.from);
-          this.floats.add(t('hud.kept'), p.x, p.y - 10, { color: C.goldHi, size: 13, dur: 1.1 });
+          this.floats.add(t('hud.kept'), p.x, p.y - 10, { color: C.goldHi, size: this.fz(13), dur: 1.1 });
         }
         break;
       }
@@ -293,7 +297,7 @@ export class SynapsyView {
         const route = sim.lessonRoute();
         if (route) this.sweep = { path: route, t: 0 };
         this.flare(p.x, p.y, C.goldHi, this.L.s * 0.5, 1);
-        this.floats.add(t('hud.learned'), this.L.cx, this.L.cy - this.L.s * 0.45, { color: C.goldHi, size: 24, dur: 1.8 });
+        this.floats.add(t('hud.learned'), this.L.cx, this.L.cy - this.L.s * 0.45, { color: C.goldHi, size: this.fz(24), dur: 1.8 });
         this.parts.burst(p.x, p.y, 30, { color: C.gold, speed: 170, g: 40, life: 1.2, size: 2.6, drag: 1.2, shape: 'spark' });
         break;
       }
@@ -328,10 +332,14 @@ export class SynapsyView {
   /** The message strip is busy (the coach marks wait for it). */
   get busy(): boolean { return !!this.msg; }
 
+  /** A floating word's size: the phone's, grown with the type on a desk. */
+  private fz(px: number): number { return this.L.desk ? px * this.L.u : px; }
+
   // ── a frame ────────────────────────────────────────────────────
   update(dt: number, sim: SynapsySim): void {
     this.clock += dt;
     this.idle += dt;
+    this.hoverAge += dt;
     this.parts.update(dt);
     this.floats.update(dt);
     for (let i = this.flares.length - 1; i >= 0; i--) {
@@ -393,6 +401,7 @@ export class SynapsyView {
     if (this.sweep) this.drawSweep(ctx, sim);
     this.drawNeurons(ctx, sim);
     this.drawFlares(ctx);
+    this.drawHover(ctx, sim);
     this.drawPlate(ctx, sim);
     this.drawLens(ctx, sim);
     this.drawOli(ctx, sim);
@@ -528,7 +537,7 @@ export class SynapsyView {
 
   /** The halves' plate on the bridge: the balance between L and R with the even band, and its words ("no reading" when there is none). */
   private drawPlate(ctx: CanvasRenderingContext2D, sim: SynapsySim): void {
-    const P = this.L.plate, u = Math.min(1.15, this.L.u);
+    const P = this.L.plate, u = typeK(this.L), q = this.L.desk ? this.L.u : 1;
     const bal = sim.balance;
     const label = bal === null ? t('hud.noReading') : sim.inStep ? t('hud.inStep') : t('hud.halves');
     const words = fitLines(ctx, label, P.w - 6, 2, 13 * u, 11, 800);
@@ -538,7 +547,7 @@ export class SynapsyView {
     plate(ctx, P.x, y, P.w, h, 8, sim.inStep ? withAlpha(C.bridgeOn, 0.8) : C.plateEdge);
     // the bar: L and R at its ends, the even band in its middle, the reading's dot
     const barY = y + 9 * u, bx = P.x + 11 * u, bw = P.w - 22 * u;
-    ctx.font = font(11, 800);
+    ctx.font = font(11 * q, 800);
     ctx.textBaseline = 'middle';
     ctx.fillStyle = C.dim;
     ctx.textAlign = 'left';
@@ -633,13 +642,14 @@ export class SynapsyView {
       if (Lk) {
         const p = this.pointOn(Lk, 0.5, Lk.from);
         const txt = mpsText(speedOf(Lk.myelin));
-        ctx.font = font(13, 800);
-        const w = ctx.measureText(txt).width + 12;
-        plate(ctx, p.x - w / 2, p.y + 10, w, 20, 8, withAlpha(C.node, 0.6));
+        const q = L.desk ? u : 1;
+        ctx.font = font(13 * q, 800);
+        const w = ctx.measureText(txt).width + 12 * q;
+        plate(ctx, p.x - w / 2, p.y + 10 * q, w, 20 * q, 8 * q, withAlpha(C.node, 0.6));
         ctx.fillStyle = C.node;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(txt, p.x, p.y + 20);
+        ctx.fillText(txt, p.x, p.y + 20 * q);
       }
     }
   }
@@ -811,16 +821,17 @@ export class SynapsyView {
 
   private ioLabel(ctx: CanvasRenderingContext2D, kind: IoKind, side: -1 | 1, x: number, cy: number, r: number, above: boolean, via: boolean | undefined): void {
     const txt = ioName(kind, side < 0 ? 'L' : 'R') + (via ? ` · ${t('hud.via')}` : '');
-    const size = fitFont(ctx, txt, Math.min(170, this.L.w * 0.42), 13 * Math.min(1.15, this.L.u), 11, 800);
+    const q = this.L.desk ? this.L.u : 1;
+    const size = fitFont(ctx, txt, Math.min(170 * q, this.L.w * 0.42), 13 * typeK(this.L), 11, 800);
     ctx.font = font(size, 800);
-    const w = ctx.measureText(txt).width + 10;
-    const y = above ? cy - r - 5 - (size + 7) : cy + r + 4;
+    const w = ctx.measureText(txt).width + 10 * q;
+    const y = above ? cy - r - 5 * q - (size + 7 * q) : cy + r + 4 * q;
     const bx = Math.max(this.L.band.x + 2, Math.min(this.L.band.x + this.L.band.w - w - 2, x - w / 2));
-    plate(ctx, bx, y, w, size + 7, 7);
+    plate(ctx, bx, y, w, size + 7 * q, 7 * q);
     ctx.fillStyle = C.goldHi;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(txt, bx + w / 2, y + (size + 7) / 2 + 0.5);
+    ctx.fillText(txt, bx + w / 2, y + (size + 7 * q) / 2 + 0.5);
   }
 
   private drawFlares(ctx: CanvasRenderingContext2D): void {
@@ -847,7 +858,7 @@ export class SynapsyView {
       if (!this.o.reducedMotion) r = l.r * (0.9 + 0.1 * k);
       label = inBreath ? t('hud.in') : t('hud.out');
     }
-    paintLens(ctx, l.x, l.y, r, { mode, value, t: this.clock, charge: sim.blind ? 0 : sim.charge }, label, Math.min(1.2, this.L.u));
+    paintLens(ctx, l.x, l.y, r, { mode, value, t: this.clock, charge: sim.blind ? 0 : sim.charge }, label, typeK(this.L, 1.2));
   }
 
   // ── Oli ────────────────────────────────────────────────────────
@@ -858,10 +869,11 @@ export class SynapsyView {
     ctx.beginPath();
     ctx.arc(hx, hy, B.w / 2, 0, TAU);
     const pressed = this.oliDown;
-    ctx.fillStyle = pressed ? 'rgba(80,64,170,0.92)' : 'rgba(30,22,78,0.9)';
+    const hovered = this.overPart(sim).part === 'oli';
+    ctx.fillStyle = pressed ? 'rgba(80,64,170,0.92)' : hovered ? 'rgba(52,40,120,0.92)' : 'rgba(30,22,78,0.9)';
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = sim.oli.state === 'home' ? withAlpha(C.oliEdge, 0.9) : withAlpha(C.oliEdge, 0.4);
+    ctx.lineWidth = hovered ? 3 : 2;
+    ctx.strokeStyle = hovered ? C.oliEdge : sim.oli.state === 'home' ? withAlpha(C.oliEdge, 0.9) : withAlpha(C.oliEdge, 0.4);
     ctx.stroke();
     const o = sim.oli;
     const r = B.w * 0.3 * (pressed ? 0.92 : 1);
@@ -870,15 +882,17 @@ export class SynapsyView {
     } else {
       paintOli(ctx, hx, hy, r * 0.8, this.clock, { dim: true });
     }
-    // her name over the nest: a button's label (13 px)
-    ctx.font = font(13, 800);
+    // her name over the nest: a button's label (13 px, grown on a desk), and on a desk the O key's cap under it
+    const q = L.desk ? L.u : 1;
+    ctx.font = font(13 * q, 800);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(8,6,24,0.85)';
-    ctx.strokeText(t('hud.oli'), hx, B.y - 7);
+    ctx.strokeText(t('hud.oli'), hx, B.y - 7 * q);
     ctx.fillStyle = C.text;
-    ctx.fillText(t('hud.oli'), hx, B.y - 7);
+    ctx.fillText(t('hud.oli'), hx, B.y - 7 * q);
+    if (L.oliKey) this.drawKey(ctx, 'O', hx, L.oliKey.y, L.oliKey.h, q);
     // dragged toward an axon: drawn above the finger
     if (this.oliDrag) {
       paintOli(ctx, this.oliDrag.x, this.oliDrag.y, r * 0.9, this.clock, { wrap: 0.3, happy: 0.9 });
@@ -915,18 +929,19 @@ export class SynapsyView {
     if (!line || sim.story) return;
     const L = this.L, B = L.bubble, u = L.u;
     const k = Math.min(1, line.t / 0.18), out = Math.max(0, (line.t - line.dur + 0.25) / 0.25);
-    const fit = fitLines(ctx, line.text, B.w - 24, 3, 14 * Math.min(1.15, u), 13, 650);
+    const q = L.desk ? u : 1;
+    const fit = fitLines(ctx, line.text, B.w - 24 * q, L.desk ? 5 : 3, 14 * typeK(L), 13, 650);
     const lh = Math.round(fit.size * 1.3);
-    const h = fit.lines.length * lh + 16;
+    const h = fit.lines.length * lh + 16 * q;
     const widest = Math.max(...fit.lines.map(s => { ctx.font = font(fit.size, 650); return ctx.measureText(s).width; }));
-    const w = Math.min(B.w, widest + 24);
-    const x = B.x + B.w - w, y = B.y + B.h - h;
+    const w = Math.min(B.w, widest + 24 * q);
+    const x = L.desk ? B.x : B.x + B.w - w, y = B.y + B.h - h;
     ctx.save();
     ctx.globalAlpha = k * (1 - out);
-    plate(ctx, x, y, w, h, 12, withAlpha(C.oliEdge, 0.7), 'rgba(24,18,60,0.92)');
+    plate(ctx, x, y, w, h, 12 * q, withAlpha(C.oliEdge, 0.7), 'rgba(24,18,60,0.92)');
     // the tail toward Oli's nest
     ctx.beginPath();
-    const tx = Math.min(x + w - 18, L.oli.x + L.oli.w / 2);
+    const tx = L.desk ? Math.max(x + 18, Math.min(x + w - 18, L.oli.x + L.oli.w / 2)) : Math.min(x + w - 18, L.oli.x + L.oli.w / 2);
     ctx.moveTo(tx - 7, y + h);
     ctx.lineTo(tx + 3, y + h + 9);
     ctx.lineTo(tx + 7, y + h);
@@ -936,7 +951,7 @@ export class SynapsyView {
     ctx.fillStyle = C.text;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    fit.lines.forEach((s, i) => ctx.fillText(s, x + 12, y + 8 + i * lh));
+    fit.lines.forEach((s, i) => ctx.fillText(s, x + 12 * q, y + 8 * q + i * lh));
     ctx.restore();
   }
 
@@ -946,6 +961,10 @@ export class SynapsyView {
     const line = sim.songLine();
     if (!line) return;
     const S = this.L.song;
+    if (this.L.desk) {
+      this.drawDeskSong(ctx, line);
+      return;
+    }
     const size = fitFont(ctx, line.text, S.w - 8, 13.5 * Math.min(1.2, this.L.u), 11, 650, true);
     ctx.font = font(size, 650, true);
     ctx.textAlign = 'center';
@@ -965,6 +984,10 @@ export class SynapsyView {
   private drawStrip(ctx: CanvasRenderingContext2D): void {
     const m = this.msg;
     if (!m) return;
+    if (this.L.desk) {
+      this.drawDeskStrip(ctx, m);
+      return;
+    }
     const L = this.L, S = L.strip, u = Math.min(1.15, L.u);
     const k = Math.min(1, m.t / 0.25), out = Math.max(0, (m.t - m.dur + 0.4) / 0.4);
     ctx.save();
@@ -994,7 +1017,7 @@ export class SynapsyView {
   }
 
   private drawStory(ctx: CanvasRenderingContext2D, sim: SynapsySim): void {
-    const L = this.L, P = L.card, u = Math.min(1.2, L.u);
+    const L = this.L, P = L.card, u = typeK(L, 1.2);
     ctx.fillStyle = 'rgba(6,4,20,0.55)';
     ctx.fillRect(0, 0, L.w, L.h);
     plate(ctx, P.x, P.y, P.w, P.h, 16, withAlpha(C.gold, 0.55), 'rgba(18,12,48,0.96)');
@@ -1027,6 +1050,227 @@ export class SynapsyView {
     ctx.fillText(tap, P.x + P.w / 2, tapY + 6);
     ctx.globalAlpha = 1;
     void sim;
+  }
+
+  // ── a desk's mouse ─────────────────────────────────────────────
+  /**
+   * What the mouse rests on: Oli's button, a neuron (the nearest within the pick radius), a grown link (a
+   * click there thickens it), the story card, or nothing.  Never on a touch screen (a finger has no hover).
+   */
+  overPart(sim: SynapsySim): { part: 'story' | 'oli' | 'neuron' | 'link' | null; n: number; key: string | null } {
+    const hv = this.hover;
+    const none = { part: null, n: -1, key: null };
+    if (!hv || this.o.touch || !sim.started || sim.phase === 'done') return none;
+    if (sim.story) return { part: 'story', n: -1, key: null };
+    const L = this.L;
+    if (onOli(L, hv.x, hv.y)) return { part: 'oli', n: -1, key: null };
+    const b = toBrain(L, hv.x, hv.y);
+    const n = sim.neuronAt(b.x, b.y, L.pick / L.s);
+    if (n >= 0) return { part: 'neuron', n, key: null };
+    const lk = sim.linkAt(b.x, b.y, Math.max(0.03, 10 / L.s));
+    if (lk) return { part: 'link', n: -1, key: lk.key };
+    return none;
+  }
+
+  /** The cursor for a resting mouse: a hand over what a click acts on (a neuron, a link, Oli, the story card), else the hemispheres' own. */
+  cursor(sim: SynapsySim): string {
+    const p = this.overPart(sim).part;
+    if (p) return 'pointer';
+    const hv = this.hover;
+    if (!hv) return 'default';
+    const b = toBrain(this.L, hv.x, hv.y);
+    // a click on the free tissue wires the pair the lesson needs (the field's tap): a crosshair says "aim"
+    return insideHemi(b.x, b.y) ? 'crosshair' : 'default';
+  }
+
+  /** What the mouse is over, drawn: a neuron ringed with its region and what a click does, a link with its real numbers. */
+  private drawHover(ctx: CanvasRenderingContext2D, sim: SynapsySim): void {
+    const over = this.overPart(sim);
+    if (over.part !== 'neuron' && over.part !== 'link') return;
+    const k = clamp((3 - this.hoverAge) / 0.6);
+    const L = this.L, q = L.desk ? L.u : 1;
+    const N = this.brain.neurons;
+    ctx.save();
+    if (over.part === 'neuron') {
+      const n = over.n, p = this.neuronXY(n);
+      const pend = sim.pending && sim.t - sim.pending.t <= RULES.hebbSec ? sim.pending.n : -1;
+      // the line the click would grow, from the neuron fired a moment ago
+      if (pend >= 0 && pend !== n) {
+        const a = this.neuronXY(pend);
+        const ok = sim.link(pend, n) ? true : sim.canWire(pend, n);
+        ctx.setLineDash([6 * q, 5 * q]);
+        ctx.lineDashOffset = -this.clock * 24;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.lineWidth = 2.5 * Math.min(q, 1.6);
+        ctx.strokeStyle = withAlpha(ok ? C.goldHi : '#a99bd6', ok ? 0.75 : 0.45);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, L.soma * 2.1 + 3, 0, TAU);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = withAlpha(C.goldHi, 0.85);
+      ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
+      glow(ctx, C.goldHi, p.x, p.y, L.soma * 3.2, 0.35);
+      ctx.globalCompositeOperation = 'source-over';
+      if (k > 0.01) {
+        const nn = N[n];
+        const side = nn.side < 0 ? t('hud.left') : t('hud.right');
+        const title = nn.io ? ioName(nn.io as IoKind, nn.side < 0 ? 'L' : 'R') : `${regionName(nn.region)} · ${side}`;
+        let act: string;
+        if (pend < 0) act = t('hover.first');
+        else if (pend === n) act = t('hover.self');
+        else {
+          const lk = sim.link(pend, n);
+          if (lk && lk.prune === 0) act = lk.syn >= RULES.synMax ? t('hover.full') : t('hover.thicken');
+          else if (sim.canWire(pend, n)) act = t('hover.wire');
+          else if (!canPair(this.brain, pend, n) && N[pend].side === nn.side && dist(this.brain, pend, n) < RULES.reach * 2.2) act = t('hover.far');
+          else act = canPair(this.brain, pend, n) ? t('hover.full') : t('hover.first');
+        }
+        ctx.globalAlpha = k;
+        this.tag(ctx, p.x, p.y, L.soma * 2.4 + 6 * q, title, t(`region.${nn.region}.where` as 'region.plan.where'), act);
+      }
+    } else if (over.key) {
+      const Lk = sim.links.get(over.key);
+      if (Lk) {
+        const geo = this.geoOf(Lk);
+        ctx.beginPath();
+        geo.pts.forEach((pt, i) => (i ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y)));
+        ctx.lineCap = 'round';
+        ctx.lineWidth = (1.3 + 0.75 * Math.max(1, Lk.syn)) * Math.min(1.2, L.u) + 6;
+        ctx.strokeStyle = withAlpha(C.goldHi, 0.28);
+        ctx.stroke();
+        if (k > 0.01) {
+          const units = dist(this.brain, Lk.a, Lk.b);
+          const nums = [t('syn', { n: Lk.syn }), t('mm', { n: fmtNum(Math.round(mmOf(units))) }), mpsText(speedOf(Lk.myelin)), msText(edgeMs(units, Lk.myelin))].join(' · ');
+          const mid = this.pointOn(Lk, 0.5, Lk.from);
+          const head = Lk.lane >= 0 ? t('hover.bridge') : `${regionName(N[Lk.a].region)} – ${regionName(N[Lk.b].region)}`;
+          const sub = Lk.myelin > 0.02 ? `${nums} · ${t('hover.myelin', { n: Math.round(Lk.myelin * 100) })}` : nums;
+          ctx.globalAlpha = k;
+          this.tag(ctx, mid.x, mid.y, 10 * q, head, sub, Lk.lane >= 0 || Lk.syn >= RULES.synMax ? null : t('hover.link'));
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  /** A tag beside a point: a title, a line under it and (gold) what a click does; right of the point, or left where the canvas ends. */
+  private tag(ctx: CanvasRenderingContext2D, x: number, y: number, gap: number, title: string, sub: string, act: string | null): void {
+    const L = this.L, q = L.desk ? L.u : 1;
+    const tp = 13 * q, sp = Math.max(11, 11.5 * q), pad = 8 * q;
+    ctx.font = font(tp, 800);
+    const tw = ctx.measureText(title).width;
+    ctx.font = font(sp, 600);
+    const maxW = Math.min(320 * q, L.w * 0.4);
+    const subLines = wrap(ctx, sub, maxW).slice(0, 2);
+    const sw = Math.max(...subLines.map(s => ctx.measureText(s).width));
+    ctx.font = font(sp, 700);
+    const aw = act ? ctx.measureText(act).width : 0;
+    const w = Math.min(maxW, Math.max(tw, sw, aw)) + 2 * pad;
+    const lh = Math.round(sp * 1.3);
+    const h = 2 * pad + Math.round(tp * 1.25) + subLines.length * lh + (act ? lh : 0);
+    let bx = x + gap;
+    if (bx + w > L.band.x + L.band.w - 6) bx = x - gap - w;
+    const by = clamp(y - h / 2, L.band.y + 4, L.band.y + L.band.h - h - 4);
+    plate(ctx, bx, by, w, h, 10 * q, withAlpha(C.goldHi, 0.55), 'rgba(16,11,44,0.94)');
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.font = font(fitFont(ctx, title, w - 2 * pad, tp, 11, 800), 800);
+    ctx.fillStyle = C.goldHi;
+    ctx.fillText(title, bx + pad, by + pad);
+    ctx.font = font(sp, 600);
+    ctx.fillStyle = C.text;
+    subLines.forEach((s, i) => ctx.fillText(s, bx + pad, by + pad + Math.round(tp * 1.25) + i * lh));
+    if (act) {
+      ctx.font = font(sp, 700);
+      ctx.fillStyle = C.gold;
+      ctx.fillText(act, bx + pad, by + pad + Math.round(tp * 1.25) + subLines.length * lh);
+    }
+  }
+
+  /** A desk's message card in its column: the title (up to two lines), the text, the source whole — all at the desk's size. */
+  private drawDeskStrip(ctx: CanvasRenderingContext2D, m: Msg): void {
+    const L = this.L, S = L.strip, u = L.u;
+    const k = Math.min(1, m.t / 0.25), out = Math.max(0, (m.t - m.dur + 0.4) / 0.4);
+    ctx.save();
+    ctx.globalAlpha = k * (1 - out);
+    const pad = Math.round(10 * u);
+    const title = fitLines(ctx, m.title, S.w - 2 * pad, 2, 14.5 * u, 13, 800);
+    const tlh = Math.round(title.size * 1.22);
+    const srcSize = Math.max(11, 11 * u);
+    const srcFit = m.src ? fitLines(ctx, m.src, S.w - 2 * pad, 3, srcSize, 11, 600) : { lines: [] as string[], size: srcSize };
+    const srcLh = Math.round(srcFit.size * 1.27);
+    // the body takes what the column leaves (a long card shrinks toward 13 px before it is cut)
+    const room = S.h - (2 * pad + title.lines.length * tlh + 6 * u + srcFit.lines.length * srcLh + 4 * u);
+    const bodyPx = 13.5 * u;
+    const maxLines = Math.max(2, Math.floor(room / Math.round(bodyPx * 1.28)));
+    const body = m.text ? fitLines(ctx, m.text, S.w - 2 * pad, Math.min(9, maxLines), bodyPx, 13, 600) : { lines: [] as string[], size: 13 };
+    const lh = Math.round(body.size * 1.28);
+    const h = 2 * pad + title.lines.length * tlh + (body.lines.length ? 6 * u + body.lines.length * lh : 0) + (srcFit.lines.length ? 4 * u + srcFit.lines.length * srcLh : 0);
+    plate(ctx, S.x, S.y, S.w, h, 12 * u, m.kind === 'card' ? withAlpha(C.gold, 0.6) : withAlpha(C.oliEdge, 0.6), 'rgba(16,11,44,0.9)');
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    let y = S.y + pad;
+    ctx.font = font(title.size, 800);
+    ctx.fillStyle = m.kind === 'card' ? C.goldHi : C.text;
+    for (const s of title.lines) { ctx.fillText(s, S.x + pad, y); y += tlh; }
+    if (body.lines.length) {
+      y += 6 * u;
+      ctx.font = font(body.size, 600);
+      ctx.fillStyle = C.text;
+      for (const s of body.lines) { ctx.fillText(s, S.x + pad, y); y += lh; }
+    }
+    if (srcFit.lines.length) {
+      y += 4 * u;
+      ctx.font = font(srcFit.size, 600);
+      ctx.fillStyle = C.dim;
+      for (const s of srcFit.lines) { ctx.fillText(s, S.x + pad, y); y += srcLh; }
+    }
+    ctx.restore();
+  }
+
+  /** A desk's song beside the brain: the sung line (a gold thread for how far it is sung) and the next one under it, quieter. */
+  private drawDeskSong(ctx: CanvasRenderingContext2D, line: { text: string; next: string | null; p: number }): void {
+    const S = this.L.song, u = this.L.u;
+    const lh = Math.round(13.5 * u * 1.4);
+    ctx.save();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const size = fitFont(ctx, line.text, S.w, 13.5 * u, 13, 650, true);
+    ctx.font = font(size, 650, true);
+    const y = S.y + lh / 2;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(8,6,24,0.8)';
+    ctx.strokeText(line.text, S.x, y);
+    ctx.fillStyle = withAlpha('#efe6ff', 0.92);
+    ctx.fillText(line.text, S.x, y);
+    const tw = Math.min(S.w, ctx.measureText(line.text).width);
+    ctx.fillStyle = withAlpha(C.gold, 0.7);
+    ctx.fillRect(S.x, y + size * 0.72, tw * clamp(line.p), Math.max(1.5, u * 1.2));
+    if (line.next) {
+      const ns = fitFont(ctx, line.next, S.w, Math.max(13, 13.5 * u * 0.92), 13, 650, true);
+      ctx.font = font(ns, 650, true);
+      ctx.fillStyle = withAlpha('#efe6ff', 0.45);
+      ctx.fillText(line.next, S.x, y + lh);
+    }
+    ctx.restore();
+  }
+
+  /** A key's name in a little cap, centred on x, its top at y. */
+  private drawKey(ctx: CanvasRenderingContext2D, name: string, x: number, y: number, h: number, q: number): void {
+    const px = Math.max(11, h - 9 * q);
+    ctx.save();
+    ctx.font = font(px, 800);
+    const w = Math.max(h * 1.3, ctx.measureText(name).width + 14 * q);
+    plate(ctx, x - w / 2, y, w, h, 5 * q, withAlpha(C.oliEdge, 0.5), 'rgba(16,11,44,0.85)');
+    ctx.fillStyle = C.text;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(name, x, y + h / 2 + 0.5);
+    ctx.restore();
   }
 
   /** Where a coach mark should point (px), or null for the middle. */

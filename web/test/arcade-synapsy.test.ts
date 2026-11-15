@@ -7,7 +7,7 @@ import {
   HEMI, TEMPLATE_SIZE, canPair, dist, edgeMs, fastest, hopsTo, insideHemi, keyOf, makeBrain, type Brain,
 } from '../src/arcade/synapsy/brain';
 import {
-  CARDS, CARD_IDS, LESSONS, LINES, LINE_COUNT, MOMENTS, REGIONS, TIPS, cardText, lessonAt, msText,
+  CARDS, CARD_IDS, LESSONS, LINES, LINES_MOUSE, LINE_COUNT, MOMENTS, REGIONS, TIPS, cardText, lessonAt, msText,
 } from '../src/arcade/synapsy/content';
 import { CATALOGS, t, unit } from '../src/arcade/synapsy/i18n';
 import { NEURONS, bestOf, freshProgress, migrate, type SynapsyProgress } from '../src/arcade/synapsy/meta';
@@ -20,9 +20,9 @@ import mod from '../src/arcade/synapsy/index';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import type { GameEnv } from '../src/arcade/kit/types';
 import { SynapsyView } from '../src/arcade/synapsy/render';
-import { layout, onOli, tapTargets, toBrain, toScreen } from '../src/arcade/synapsy/layout';
+import { SPAN_X, SPAN_Y, layout, onOli, tapTargets, toBrain, toScreen, typeK } from '../src/arcade/synapsy/layout';
 import { fitFont, fitLines, font, fontPx } from '../src/arcade/synapsy/paint';
-import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, DESK_MIN_W, MIN_READ, MIN_TEXT, THUMB, auditTargets, uiScale } from '../src/arcade/kit/mobile';
 import { SynapsySim, finaleFor, planBlocks, type SimEvent } from '../src/arcade/synapsy/sim';
 import { mulberry32 } from '../src/core/random';
 import { LANGS, catalogProblems } from '../src/i18n';
@@ -953,11 +953,13 @@ describe('mobile first (DESIGN §12)', () => {
     }
   });
 
-  it('grows on a tablet and a desktop, never past 1.3', () => {
+  it('grows on a tablet and a desktop to 1.3 (past it only on a big screen)', () => {
     for (const c of CHECK_SIZES.filter(x => Math.min(x.w, x.h) > 600)) {
       const L = layout(c.w, c.h, c.insets, B.spacing);
       expect(L.u).toBeGreaterThan(1);
-      expect(L.u).toBeLessThanOrEqual(1.3);
+      expect(L.u, c.name).toBeLessThanOrEqual(c.w >= DESK_MIN_W && Math.min(c.w, c.h) >= DESK_BIG ? DESK_MAX : 1.3);
+      // a finger's layout keeps the phone's type caps
+      expect(typeK(L)).toBeLessThanOrEqual(1.15);
     }
   });
 
@@ -989,6 +991,181 @@ describe('mobile first (DESIGN §12)', () => {
     expect(touch.tips!.at(-1)).toBe(t('howto.tip2'));
     for (const what of ['pair', 'oli', 'speed', 'chain', 'lens'] as const) expect(coachText(what, true)).not.toMatch(KEYS);
     expect(coachText('pair', false)).toMatch(KEYS);
+  });
+});
+
+describe('a desk: a mouse on a desktop or a big screen (DESIGN §14)', () => {
+  const B = makeBrain(777);
+  const desks = CHECK_SIZES.filter(c => c.w >= 1024 && c.h >= 560);
+  const big = desks.filter(c => Math.min(c.w, c.h) >= DESK_BIG);
+  const overlap = (a: { x: number; y: number; w: number; h: number }, b: { x: number; y: number; w: number; h: number }) =>
+    Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0.5 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0.5;
+
+  it('chooses its layout from the screen: a desk for a mouse on a desktop, the phone’s for a finger', () => {
+    for (const c of CHECK_SIZES) {
+      const mouse = layout(c.w, c.h, c.insets, B.spacing, false), finger = layout(c.w, c.h, c.insets, B.spacing, true);
+      expect(finger.desk, c.name).toBe(false);
+      expect(mouse.desk, c.name).toBe(desks.includes(c));
+      // the phones' and the tablet's layouts never change for a mouse
+      if (!desks.includes(c)) expect(mouse, c.name).toEqual(finger);
+    }
+    expect(desks.length).toBe(5);
+  });
+
+  it('keeps Oli and the story card finger-sized, inside the insets and apart at every desk size', () => {
+    for (const c of desks) {
+      const L = layout(c.w, c.h, c.insets, B.spacing, false);
+      for (const story of [false, true]) expect(auditTargets(tapTargets(L, { story }), c.w, c.h, c.insets), c.name).toEqual([]);
+    }
+  });
+
+  it('stands the brain as tall as the band with the HUD in columns beside it, Oli right by the brain', () => {
+    for (const c of desks) {
+      const L = layout(c.w, c.h, c.insets, B.spacing, false);
+      const band = c.h - c.insets.top - c.insets.bottom;
+      expect(L.mode).toBe('desk');
+      expect(L.brain.h, c.name).toBeGreaterThanOrEqual(0.9 * (band - 24));
+      expect(L.brain.y).toBeGreaterThanOrEqual(c.insets.top - 0.01);
+      expect(L.brain.y + L.brain.h).toBeLessThanOrEqual(c.h - c.insets.bottom + 0.01);
+      expect(L.brain.x).toBeGreaterThanOrEqual(16 - 0.01);
+      expect(L.brain.x + L.brain.w).toBeLessThanOrEqual(c.w - 16 + 0.01);
+      expect(L.brain.w).toBeCloseTo(2 * SPAN_X * L.s, 5);
+      expect(L.brain.h).toBeCloseTo(2 * SPAN_Y * L.s, 5);
+      // the lens, the cards, the song, Oli's words and Oli beside the brain, inside the band, apart from each other
+      const lensBox = { x: L.lens.x - L.lens.r, y: L.lens.y - L.lens.r, w: 2 * L.lens.r, h: 2 * L.lens.r };
+      const nameBox = { x: L.oli.x, y: L.oli.y - 13 * L.u - 12, w: L.oli.w, h: 13 * L.u + 12 };
+      const parts = { lens: lensBox, strip: L.strip, song: L.song, bubble: L.bubble, oli: L.oli, key: L.oliKey!, name: nameBox };
+      for (const [name, r] of Object.entries(parts)) {
+        expect(overlap(r, L.brain), `${c.name}: ${name} over the brain`).toBe(false);
+        expect(r.y, `${c.name}: ${name}`).toBeGreaterThanOrEqual(c.insets.top);
+        expect(r.y + r.h, `${c.name}: ${name}`).toBeLessThanOrEqual(c.h - c.insets.bottom + 0.01);
+        expect(r.x + r.w, `${c.name}: ${name}`).toBeLessThanOrEqual(c.w - 16 + 0.01);
+      }
+      const names = Object.keys(parts) as (keyof typeof parts)[];
+      for (let i = 0; i < names.length; i++) {
+        for (let j = i + 1; j < names.length; j++) {
+          if ((names[i] === 'oli' && names[j] === 'name') || (names[i] === 'oli' && names[j] === 'key')) continue;
+          expect(overlap(parts[names[i]], parts[names[j]]), `${c.name}: ${names[i]} and ${names[j]}`).toBe(false);
+        }
+      }
+      for (const r of [L.strip, L.song, L.bubble]) expect(r.w, c.name).toBeGreaterThanOrEqual(260);
+      expect(L.strip.h).toBeGreaterThanOrEqual(150);
+      expect(L.bubble.h).toBeGreaterThanOrEqual(90);
+      // Oli by the brain, not in a phone's thumb corner; the O key's cap under her
+      expect(L.oli.x - (L.brain.x + L.brain.w), c.name).toBeLessThanOrEqual(60);
+      expect(c.w - (L.oli.x + L.oli.w), c.name).toBeGreaterThan(150);
+      expect(L.oliKey!.y).toBeGreaterThanOrEqual(L.oli.y + L.oli.h);
+      // the neurons a mouse's width apart, the plate on the bridge clear of them, none under Oli
+      expect(B.spacing * L.s).toBeGreaterThanOrEqual(32);
+      for (const n of B.neurons) {
+        const p = toScreen(L, n.x, n.y), r = L.soma * 1.9;
+        const inX = p.x + r > L.plate.x && p.x - r < L.plate.x + L.plate.w;
+        const inY = p.y + r > L.plate.y && p.y - r < L.plate.y + L.plate.h;
+        expect(inX && inY, `${c.name}: neuron ${n.id} under the plate`).toBe(false);
+        expect(onOli(L, p.x, p.y), `${c.name}: neuron ${n.id} under Oli`).toBe(false);
+      }
+    }
+  });
+
+  it('grows on a big screen: a brain most of the canvas high, the type and the controls with the screen', () => {
+    for (const c of big) {
+      const L = layout(c.w, c.h, c.insets, B.spacing, false);
+      expect(L.u, c.name).toBeCloseTo(uiScale(c.w, c.h), 5);
+      expect(L.u).toBeGreaterThan(1.3);
+      expect(typeK(L)).toBe(L.u);
+      expect(typeK(L, 1.2)).toBe(L.u);
+      expect(L.brain.h / c.h, c.name).toBeGreaterThanOrEqual(0.85);
+      // twice the phone's brain, and a fifth bigger than the phone-on-its-side layout the desk replaces
+      const phone = layout(390, 564, CHECK_SIZES[1].insets, B.spacing, true);
+      expect(L.s / phone.s, c.name).toBeGreaterThanOrEqual(2);
+      expect(L.s / layout(c.w, c.h, c.insets, B.spacing, true).s, c.name).toBeGreaterThanOrEqual(1.2);
+      expect(L.lens.r).toBeGreaterThanOrEqual(46 * 1.3);
+      expect(L.oli.w).toBeGreaterThanOrEqual(64 * 1.3);
+      expect(L.soma).toBeGreaterThanOrEqual(9 * 1.3);
+    }
+    const qhd = layout(1587, 1300, { top: 118, right: 0, bottom: 0, left: 0 }, B.spacing, false);
+    expect(qhd.u).toBeGreaterThanOrEqual(1.75);
+    expect(qhd.brain.h).toBeGreaterThanOrEqual(1100);
+  });
+
+  it('answers a hovering mouse: a neuron’s region and what a click does, a link’s real numbers', () => {
+    const P2D = (globalThis as { Path2D?: unknown }).Path2D;
+    if (!P2D) (globalThis as { Path2D?: unknown }).Path2D = class { moveTo() {} lineTo() {} quadraticCurveTo() {} closePath() {} };
+    const c = CHECK_SIZES.find(x => x.name.startsWith('Full HD'))!;
+    const { ctx, texts } = recorder();
+    const canvas = { getContext: () => ctx } as unknown as HTMLCanvasElement;
+    const sim = later();
+    const view = new SynapsyView(canvas, sim.brain, { reducedMotion: false, touch: false });
+    view.resize(c.w, c.h, 1, c.insets);
+    const N = sim.brain.neurons;
+    // a plain neuron and a neighbour it may wire with
+    const a = N.find(n => !n.io && n.region !== 'bridge' && sim.brain.near[n.id].some(m => !N[m].io && sim.canWire(n.id, m)))!;
+    const b = sim.brain.near[a.id].find(m => !N[m].io && sim.canWire(a.id, m))!;
+    const pa = toScreen(view.L, a.x, a.y), pb = toScreen(view.L, N[b].x, N[b].y);
+    view.hover = { x: pa.x + 2, y: pa.y + 1 };
+    expect(view.overPart(sim)).toMatchObject({ part: 'neuron', n: a.id });
+    expect(view.cursor(sim)).toBe('pointer');
+    texts.length = 0;
+    view.draw(sim);
+    expect(texts.map(x => x.text)).toContain(t('hover.first'));
+    expect(texts.some(x => x.text.startsWith(t(`region.${a.region}` as 'region.plan')))).toBe(true);
+    // a neuron fired a moment ago: the neighbour under the mouse says the click wires them
+    sim.touchNeuron(a.id);
+    view.hover = { x: pb.x, y: pb.y };
+    texts.length = 0;
+    view.draw(sim);
+    expect(texts.map(x => x.text)).toContain(t('hover.wire'));
+    // the link grown between them: its synapses, length, speed and time across, in real units
+    sim.touchNeuron(b);
+    const clock = { t: 0 };
+    drive(sim, 3, MID, clock);
+    const lk = sim.link(a.id, b)!;
+    expect(lk.sprout).toBe(1);
+    const mid = view.pointOn(lk, 0.5, lk.from);
+    view.hover = { x: mid.x, y: mid.y };
+    view.hoverAge = 0;
+    expect(view.overPart(sim).part).toBe('link');
+    texts.length = 0;
+    view.draw(sim);
+    const tag = texts.map(x => x.text).find(x => x.includes('m/s'));
+    expect(tag, texts.map(x => x.text).join(' | ')).toBeDefined();
+    expect(tag).toMatch(/synaps/);
+    expect(tag).toMatch(/\d mm/);
+    expect(tag).toMatch(/ms$/);
+    // every hover word at a readable size, never under the floor; a touch screen has no hover
+    expect(texts.every(x => x.px >= MIN_TEXT)).toBe(true);
+    const touchView = new SynapsyView(canvas, sim.brain, { reducedMotion: false, touch: true });
+    touchView.resize(c.w, c.h, 1, c.insets);
+    touchView.hover = { x: mid.x, y: mid.y };
+    expect(touchView.overPart(sim).part).toBeNull();
+    if (!P2D) delete (globalThis as { Path2D?: unknown }).Path2D;
+  });
+
+  it('speaks to a mouse in clicks: the how-to, the coach marks and Oli', () => {
+    const CLICK = /klik|click|klick/i;
+    const TAP: Record<string, RegExp> = { pl: /stuk/i, en: /\btap/i, de: /tipp/i, sv: /^tryck/i };
+    for (const l of LANGS) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['howto.tap.mouse', 'howto.oli.mouse', 'coach.weak.mouse', 'coach.oli.keys', 'say.warm.1.mouse', 'say.slow.2.mouse']) {
+        expect(cat[k], `${l}.${k}`).toMatch(CLICK);
+        expect(cat[k], `${l}.${k}`).not.toMatch(TAP[l]);
+      }
+    }
+    const desk = howto(false);
+    expect(desk.hands.filter(x => x.gesture === 'tap').every(x => CLICK.test(x.text))).toBe(true);
+    expect(coachText('weak', false)).toMatch(CLICK);
+    expect(coachText('weak', true)).not.toMatch(CLICK);
+    // Oli: the same moments and as many lines, "kliknij" where a line speaks of tapping
+    for (const m of MOMENTS) expect(LINES_MOUSE[m].length, m).toBe(LINES[m].length);
+    expect(LINES.warm).not.toContain(t('say.warm.1.mouse'));
+    expect(LINES_MOUSE.warm).toContain(t('say.warm.1.mouse'));
+    expect(LINES_MOUSE.slow).toContain(t('say.slow.2.mouse'));
+    expect(Object.values(LINES_MOUSE).flat().some(x => /stuk/i.test(x))).toBe(false);
+    const sim = new SynapsySim({ progress: freshProgress(), rng: mulberry32(3), plannedSec: 120, eeg: false, tuning: TUNING, seed: 12345, mouse: true });
+    sim.start();
+    sim.closeStory();
+    drive(sim, 60, MID);
+    expect(sim.talk.said.some(x => /stuk/i.test(x))).toBe(false);
   });
 });
 

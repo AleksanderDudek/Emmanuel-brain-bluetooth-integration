@@ -46,17 +46,25 @@ class SynapsyGame implements ArcadeGame {
   private press: { kind: 'oli' | 'neuron' | 'field'; x: number; y: number; moved: boolean; n: number } | null = null;
   private readonly hints: { what: Coach; at: CoachAt; t: number }[] = [];
   private hintCool = 2;
+  /** the mouse's cursor as last set (a desk: a hand over what a click acts on) */
+  private cursor = '';
+  /** the mouse left the canvas: no hover */
+  private readonly leave = (): void => { this.view.hover = null; this.setCursor('default'); };
 
   constructor(private readonly env: GameEnv<SynapsyProgress>) {
     migrate(env.progress);
     this.sim = new SynapsySim({
       progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
-      seed: Math.floor(env.rng() * 2147483646) + 1,
+      seed: Math.floor(env.rng() * 2147483646) + 1, mouse: !env.touch,
     });
     this.view = new SynapsyView(env.canvas, this.sim.brain, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new SynapsySound(env.audio, this.sim.song, this.sim.brain);
     this.ctx = env.canvas.getContext('2d');
-    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __synapsy?: unknown }).__synapsy = this.sim;
+    if (!env.touch) env.canvas.addEventListener?.('pointerleave', this.leave);
+    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) {
+      (globalThis as { __synapsy?: unknown }).__synapsy = this.sim;
+      (globalThis as { __synapsyView?: unknown }).__synapsyView = this.view;
+    }
   }
 
   resize(w: number, h: number, dpr: number): void {
@@ -90,6 +98,13 @@ class SynapsyGame implements ArcadeGame {
     this.hintCool -= dt;
     this.flushHints();
     if (this.sim.phase === 'done') this.sound.stop();
+    if (this.view.hover) this.setCursor(this.press?.kind === 'oli' && this.press.moved ? 'grabbing' : this.view.cursor(this.sim));
+  }
+
+  private setCursor(c: string): void {
+    if (c === this.cursor) return;
+    this.cursor = c;
+    if (this.env.canvas.style) this.env.canvas.style.cursor = c;
   }
 
   draw(): void {
@@ -111,6 +126,11 @@ class SynapsyGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view, L = view.L;
+    if (!this.env.touch) {
+      const was = view.hover;
+      if (!was || Math.hypot(was.x - e.x, was.y - e.y) > 2) view.hoverAge = 0;
+      view.hover = { x: e.x, y: e.y };
+    }
     if (e.type === 'down') {
       if (this.finger !== null && this.finger !== e.id) this.letGo();
       this.finger = e.id;
@@ -290,12 +310,15 @@ class SynapsyGame implements ArcadeGame {
   destroy(): void {
     this.letGo();
     this.sound.stop();
+    this.env.canvas.removeEventListener?.('pointerleave', this.leave);
+    if (this.env.canvas.style) this.env.canvas.style.cursor = '';
   }
 }
 
-/** A coach mark's words for the hand the player has: a finger never hears of keys, a keyboard may. */
+/** A coach mark's words for the hand the player has: a finger never hears of keys, a mouse clicks (and has keys). */
 export function coachText(what: Coach, touch: boolean): string {
   if (!touch && (what === 'pair' || what === 'oli' || what === 'speed')) return t(`coach.${what}.keys` as 'coach.pair.keys');
+  if (!touch && what === 'weak') return t('coach.weak.mouse');
   return t(`coach.${what}` as 'coach.pair');
 }
 
@@ -311,14 +334,14 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play, for the hand the player has: Oli's button on a phone, keys as a desktop's shortcuts. */
+/** How to play, for the hand the player has: Oli's button on a phone; clicks, and keys as a desktop's shortcuts. */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('howto.goal'),
     hands: [
-      { gesture: 'tap', text: t('howto.tap') },
+      { gesture: 'tap', text: t(touch ? 'howto.tap' : 'howto.tap.mouse') },
       touch ? { gesture: 'drag', text: t('howto.drag') } : { gesture: 'keys', text: t('howto.keys') },
-      { gesture: 'tap', text: t('howto.oli') },
+      { gesture: 'tap', text: t(touch ? 'howto.oli' : 'howto.oli.mouse') },
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],
   };

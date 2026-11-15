@@ -7,6 +7,7 @@
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import { coarsePointer } from '../kit/mobile';
 import { CARDS, NICHES, cardNum, cardText, cardTitle, nicheName, type NicheId } from './content';
 import { t } from './i18n';
 import { bestOf, cardShare, nicheOpen, patchOf, sessionNiche, traitState, TRAITS, type OdnowaProgress, type Trait } from './meta';
@@ -109,7 +110,7 @@ function build(p: OdnowaProgress, changed: () => void): HTMLElement[] {
       stat(t('panel.cells'), fmtNum(cells)),
       stat(t('panel.repairs'), fmtNum(p.repairs)),
       stat(t('panel.atp'), fmtNum(p.atpTotal))),
-    h('p', { class: 'muted' }, t('panel.rules')),
+    h('p', { class: 'muted' }, t(coarsePointer() ? 'panel.rules' : 'panel.rules.mouse')),
     h('div', { class: 'arcade-sub' }, t('panel.tissue')), album,
     h('div', { class: 'arcade-sub' }, t('panel.niche')), choice,
     h('div', { class: 'arcade-sub' }, t('panel.traits')), ...traits,

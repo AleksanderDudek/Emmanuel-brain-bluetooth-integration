@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, CARD_IDS, LESIONS, LINE_COUNT, MOMENTS, NICHES, lines, type LesionKind } from '../src/arcade/odnowa/content';
+import { OdnowaView } from '../src/arcade/odnowa/render';
 import { CATALOGS, atpText, t, unit } from '../src/arcade/odnowa/i18n';
 import {
   bestOf, enzymeLevel, freshProgress, levelOf, lysoLevel, migrate, mitoLevel, nicheOpen, patchOf, sessionNiche, traitState,
@@ -11,8 +12,8 @@ import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } fr
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
-import { catalogProblems } from '../src/i18n';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { LANGS, catalogProblems } from '../src/i18n';
+import { CHECK_SIZES, DESK_BIG, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { CHORUS_BEATS, lineAt, seriesChorus, songProblems } from '../src/arcade/kit/song';
 import { buildSong, verseBeats } from '../src/arcade/odnowa/song';
 import { laneU, laneX, layout, onLane, onLens, tapTargets } from '../src/arcade/odnowa/layout';
@@ -925,5 +926,112 @@ describe('mobile first (DESIGN §12)', () => {
     for (const l of ['pl', 'en', 'de', 'sv'] as const) {
       for (const k of ['how.tap', 'how.turbine', 'how.drag', 'coach.lane', 'coach.surge'] as const) expect(CATALOGS[l][k]).not.toMatch(/Spac|Space|Leertaste|mellanslag/i);
     }
+  });
+});
+
+describe('a desk: a mouse on a desktop or a big screen (DESIGN §14)', () => {
+  const desks = CHECK_SIZES.filter(c => c.w >= 1024 && c.h >= 560);
+  const big = desks.filter(c => Math.min(c.w, c.h) >= DESK_BIG);
+
+  it('chooses its layout from the screen: a desk for a mouse on a desktop, the phone’s for a finger', () => {
+    for (const c of CHECK_SIZES) {
+      const mouse = layout(c.w, c.h, c.insets, false), finger = layout(c.w, c.h, c.insets, true);
+      expect(finger.desk, c.name).toBe(false);
+      expect(mouse.desk, c.name).toBe(desks.includes(c));
+      // the phones' and the tablet's layouts never change for a mouse
+      if (!desks.includes(c)) expect(mouse, c.name).toEqual(finger);
+      for (const card of [false, true]) expect(auditTargets(tapTargets(mouse, { card, started: true }), c.w, c.h, c.insets), c.name).toEqual([]);
+    }
+    expect(desks.length).toBe(5);
+  });
+
+  it('grows the engine on a big screen and keeps Mito, the clean-up and the chips clear of it', () => {
+    for (const c of big) {
+      const L = layout(c.w, c.h, c.insets, false), old = layout(c.w, c.h, c.insets, true);
+      expect(L.u, c.name).toBeGreaterThan(1.3);
+      expect(L.lens.r / old.lens.r, c.name).toBeGreaterThanOrEqual(1.25);
+      expect(L.lens.r, c.name).toBeGreaterThanOrEqual(250);
+      expect(L.lens.y + L.lens.r * 1.12, c.name).toBeLessThanOrEqual(L.lane.y);
+      expect(L.lens.y - L.lens.r * 1.12, c.name).toBeGreaterThanOrEqual(L.city.y - 1);
+    }
+    for (const c of desks) {
+      const L = layout(c.w, c.h, c.insets, false);
+      for (const p of [L.mito, ...L.lysos]) {
+        expect(Math.hypot(p.x - L.lens.x, p.y - L.lens.y), c.name).toBeGreaterThanOrEqual(L.lens.r + p.r * 0.6);
+        expect(p.y + p.r, c.name).toBeLessThanOrEqual(L.lane.y);
+      }
+      for (const sp of L.spots) expect(Math.hypot(sp.x - L.lens.x, sp.y - L.lens.y), c.name).toBeGreaterThanOrEqual(L.lens.r);
+      const sz = Math.max(14, L.mito.r * 1.05) * 1.4;
+      for (const p of [...L.spots, ...L.lysos]) {
+        for (const ch of L.chips) {
+          const clear = p.x + sz < ch.x || p.x - sz > ch.x + ch.w || p.y - sz * 0.8 > ch.y + ch.h || p.y + sz < ch.y;
+          expect(clear, `${c.name}: ${Math.round(p.x)},${Math.round(p.y)}`).toBe(true);
+        }
+      }
+      for (const ch of L.chips) expect(ch.x, c.name).toBeGreaterThanOrEqual(L.lens.x + L.lens.r * 1.12 - 1);
+      // Mito's words have room: his bubble spans the column left of the lens
+      expect(L.bubble.maxW, c.name).toBeGreaterThanOrEqual(250);
+      expect(L.bubble.x, c.name).toBeLessThanOrEqual(L.lens.x - L.lens.r * 1.12);
+      // a Wiedza card has room to show whole: its sentence and its source
+      expect(L.toast.h, c.name).toBeGreaterThanOrEqual(Math.round(118 * L.u) - 1);
+      expect(L.toast.y + L.toast.h, c.name).toBeLessThanOrEqual(L.lane.y);
+      expect(L.toast.x, c.name).toBeGreaterThanOrEqual(0);
+      expect(L.toast.x + L.toast.w, c.name).toBeLessThanOrEqual(c.w);
+      for (const ch of L.chips) expect(L.toast.x + L.toast.w, `${c.name}: the card under a chip`).toBeLessThanOrEqual(ch.x - 4);
+    }
+  });
+
+  it('answers a hovering mouse: the turbine, Mito and the lesion a click on the lane would mend; a finger has no hover', () => {
+    const sim = later();
+    drive(sim, 12, MID);
+    const open = sim.openLesions;
+    expect(open.length).toBeGreaterThan(0);
+    const l = open[0];
+    expect(sim.laneAim(l.u)?.id).toBe(l.id);
+    expect(sim.nextAim()?.id).toBe([...open].sort((a, b) => a.u - b.u)[0].id);
+    const c = big[0];
+    const canvas = { getContext: () => null } as unknown as HTMLCanvasElement;
+    const view = new OdnowaView(canvas, { reducedMotion: false, touch: false });
+    view.resize(c.w, c.h, 1, c.insets);
+    const L = view.L;
+    view.hover = { x: L.lens.x, y: L.lens.y };
+    expect(view.overPart(sim).part).toBe('lens');
+    expect(view.cursor(sim)).toBe('pointer');
+    view.hover = { x: L.mito.x, y: L.mito.y };
+    expect(view.overPart(sim).part).toBe('mito');
+    view.hover = { x: laneX(L, l.u), y: L.laneMid };
+    const o = view.overPart(sim);
+    expect(o.part).toBe('lesion');
+    expect(o.lesion?.kind).toBe(l.kind);
+    view.hover = { x: 4, y: L.top + 4 };
+    expect(view.cursor(sim)).toBe('default');
+    const touchView = new OdnowaView(canvas, { reducedMotion: false, touch: true });
+    touchView.resize(c.w, c.h, 1, c.insets);
+    touchView.hover = { x: L.lens.x, y: L.lens.y };
+    expect(touchView.overPart(sim).part).toBeNull();
+  });
+
+  it('speaks to a mouse in clicks: the how-to, the coach marks, Mito and the lobby', () => {
+    const CLICK = /klik|click|klick/i;
+    const TAP: Record<string, RegExp> = { pl: /stuk/i, en: /\btap/i, de: /tipp/i, sv: /\btryck/i };
+    const mito = ['warm.1', 'ready.1', 'ready.2', 'ready.3', 'two.1', 'two.2', 'two.3', 'dsb.1', 'kick.2', 'kick.5'];
+    for (const l of LANGS) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['how.tap.mouse', 'how.turbine.mouse', 'coach.two.mouse', 'coach.drag.mouse', 'panel.rules.mouse', ...mito.map(m => `say.${m}.mouse`)]) {
+        expect(cat[k], `${l}.${k}`).toMatch(CLICK);
+        expect(cat[k], `${l}.${k}`).not.toMatch(TAP[l]);
+        if (k.startsWith('say.')) expect((cat[k] as string).length, `${l}.${k}`).toBeLessThanOrEqual(90);
+      }
+    }
+    for (const h of howto(false).hands.filter(x => x.gesture !== 'keys')) expect(h.text).toMatch(CLICK);
+    for (const what of ['two', 'drag'] as const) {
+      expect(coachText(what, false), what).toMatch(CLICK);
+      expect(coachText(what, true), what).not.toMatch(CLICK);
+    }
+    const touch = lines(false), mouse = lines(true);
+    for (const m of MOMENTS) expect(mouse[m].length, m).toBe(touch[m].length);
+    expect(mouse.ready).toContain(t('say.ready.1.mouse'));
+    expect(touch.ready).not.toContain(t('say.ready.1.mouse'));
+    expect(Object.values(mouse).flat().some(x => /stuk/i.test(x))).toBe(false);
   });
 });

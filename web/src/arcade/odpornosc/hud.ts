@@ -192,9 +192,22 @@ export function drawBubble(ctx: CanvasRenderingContext2D, L: Layout, text: strin
   return Math.max(by + bh, n.y + n.r);
 }
 
-/** The two round buttons: the respiratory burst (its charge ring, gold when ready) and the NET (its charges). */
-export function drawButtons(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSim, pressed: 'burst' | 'net' | null, now: number, flash: number): void {
+/**
+ * The two round buttons: the respiratory burst (its charge ring, gold when ready) and the NET (its charges).
+ * On a desk each carries its key's cap (B, N) and a hovered one is ringed.
+ */
+export function drawButtons(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSim, pressed: 'burst' | 'net' | null, now: number, flash: number, hover: 'burst' | 'net' | null = null): void {
   const u = L.u;
+  for (const which of ['burst', 'net'] as const) {
+    if (hover !== which || !(which === 'burst' ? sim.burstShown : sim.netShown)) continue;
+    const b = which === 'burst' ? L.burst : L.net;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,248,239,0.85)';
+    ctx.lineWidth = 2;
+    circle(ctx, b.x, b.y, b.r + 4 * u);
+    ctx.stroke();
+    ctx.restore();
+  }
   if (sim.burstShown) {
     const b = L.burst, ready = sim.burstReady, down = pressed === 'burst';
     const r = b.r * (down ? 0.94 : 1);
@@ -277,6 +290,73 @@ export function drawButtons(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSi
     circle(ctx, pressed === 'net' ? L.net.x : L.burst.x, pressed === 'net' ? L.net.y : L.burst.y, L.burst.r);
     ctx.fill();
   }
+  // a desk: the keys' caps on the buttons' shoulders
+  if (L.desk) {
+    if (sim.burstShown) keyCap(ctx, 'B', L.burst.x + L.burst.r * 0.74, L.burst.y - L.burst.r * 0.74, u);
+    if (sim.netShown) keyCap(ctx, 'N', L.net.x + L.net.r * 0.74, L.net.y - L.net.r * 0.74, u);
+  }
+}
+
+/** A key's letter in a small cap, centred on (x, y). */
+export function keyCap(ctx: CanvasRenderingContext2D, key: string, x: number, y: number, u: number): void {
+  const px = Math.max(MIN_READ, Math.round(12 * u));
+  ctx.save();
+  ctx.font = font(px, 800);
+  const w = Math.max(px + 10 * u, ctx.measureText(key).width + 12 * u), h = px + 8 * u;
+  rr(ctx, x - w / 2, y - h / 2, w, h, 5 * u);
+  ctx.fillStyle = 'rgba(38,14,30,0.9)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,209,102,0.7)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.fillStyle = CREAM;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(key, x, y + 0.5);
+  ctx.restore();
+}
+
+/** A hovered target's tag (a desk): its name, a line about it, and what a click does — beside the point, inside the field. */
+export function drawAimTag(ctx: CanvasRenderingContext2D, L: Layout, x: number, y: number, gap: number, title: string, sub: string, act: string, alpha: number): void {
+  if (alpha <= 0.01) return;
+  const u = L.u, pad = Math.round(8 * u);
+  const tp = Math.max(MIN_READ, 13.5 * u), sp = Math.max(MIN_READ, 12.5 * u);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = font(tp, 800);
+  const tw = ctx.measureText(title).width;
+  ctx.font = font(sp, 600);
+  const sw = sub ? ctx.measureText(sub).width : 0;
+  ctx.font = font(sp, 700);
+  const aw = ctx.measureText(act).width;
+  const w = Math.max(tw, sw, aw) + 2 * pad;
+  const lh = Math.round(sp * 1.3);
+  const h = 2 * pad + Math.round(tp * 1.25) + (sub ? lh : 0) + lh;
+  let bx = x + gap;
+  if (bx + w > L.field.x + L.field.w - 6) bx = x - gap - w;
+  const by = Math.max(L.field.y + 4, Math.min(L.field.y + L.field.h - h - 4, y - h / 2));
+  rr(ctx, bx, by, w, h, 10 * u);
+  ctx.fillStyle = 'rgba(38,14,30,0.88)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,209,102,0.55)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.font = font(tp, 800);
+  ctx.fillStyle = CREAM;
+  ctx.fillText(title, bx + pad, by + pad);
+  let ty = by + pad + Math.round(tp * 1.25);
+  if (sub) {
+    ctx.font = font(sp, 600);
+    ctx.fillStyle = 'rgba(255,248,239,0.78)';
+    ctx.fillText(sub, bx + pad, ty);
+    ty += lh;
+  }
+  ctx.font = font(sp, 700);
+  ctx.fillStyle = PAL.gold;
+  ctx.fillText(act, bx + pad, ty);
+  ctx.restore();
 }
 
 /** A card's words for the view (title, kicker, lines), in the page's language. */

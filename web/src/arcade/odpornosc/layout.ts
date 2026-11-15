@@ -11,12 +11,16 @@
  *                 an upright phone (over the vessel's ends), the side margins of a phone on its side or a
  *                 desktop when the world leaves room there
  *   the card      a bottom sheet on a phone upright, centred elsewhere
+ *   a desk        a mouse on a desktop or a big screen (kit/mobile `screenKind`, §14): the world as tall as the
+ *                 field (the phone's cap on the scale lifted: a Full HD monitor's slice of skin grows from 613 to
+ *                 786 px, the cells with it), the buttons beside the world when it leaves margins (by the vessel,
+ *                 not in the canvas's corners), the keys' caps on them, hover answers in the view
  *
  * Everything the player taps is a rectangle here (`tapTargets`), the same ones the view hit-tests and the
  * mobile audit checks: at least MIN_TAP on the short side, apart from each other, inside the insets.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type Rect } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -27,7 +31,9 @@ export interface Layout {
   w: number;
   h: number;
   mode: Mode;
-  /** UI scale: 1 on a phone, up to 1.3 */
+  /** a mouse on a desktop or a big screen: the world fills the field, keys on the buttons, hover answers */
+  desk: boolean;
+  /** UI scale: 1 on a phone, up to 1.3 (a big screen's desk: up to 2.2) */
   u: number;
   ins: Insets;
   top: number;
@@ -64,6 +70,8 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   const top = clamp(insets.top, 0, H0 * 0.6);
   const ins: Insets = { top, right: Math.max(0, insets.right), bottom: Math.max(0, insets.bottom), left: Math.max(0, insets.left) };
   const mode: Mode = W0 / H0 < 0.9 ? 'tall' : H0 < 460 ? 'short' : 'wide';
+  const kind = screenKind(W0, H0, touch);
+  const desk = !touch && mode === 'wide' && (kind === 'desktop' || kind === 'big');
   const edge = mode === 'tall' && W0 < 600 ? 16 : Math.round(16 * u);
   const x0 = ins.left, x1 = W0 - ins.right;
   // the strip and the song row (passive information under the HUD)
@@ -75,8 +83,9 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
     : { x: strip.x, y: strip.y + stripH + Math.round(2 * u), w: strip.w, h: songH };
   const fTop = (mode === 'short' ? strip.y + stripH : song.y + songH) + Math.round(2 * u), fBot = H0 - ins.bottom;
   const field: Rect = { x: x0, y: fTop, w: x1 - x0, h: Math.max(80, fBot - fTop) };
-  // one uniform scale: the world's full height in the field, capped on tall screens (the air takes the rest)
-  const kMax = 3.6 * u;
+  // one uniform scale: the world's full height in the field, capped on tall screens (the air takes the rest);
+  // a desk lifts the cap — a big screen's field is wide, and the world fills it (the cells grow with it)
+  const kMax = desk ? 14 * u : 3.6 * u;
   const k = Math.min(field.h / WORLD_H, kMax);
   const W = clamp(field.w / k, RULES.minW, RULES.maxW);
   const worldPx = W * k;
@@ -88,7 +97,12 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   const sideButtons = margin >= 2 * r + 2 * Math.round(8 * u);
   const by = fBot - Math.round(10 * u) - r;
   let burst: Layout['burst'], net: Layout['net'];
-  if (sideButtons) {
+  if (sideButtons && desk) {
+    // a desk: beside the world, by the vessel's ends (the hand works in the world, not at the canvas's edge)
+    const gap = Math.round(14 * u);
+    burst = { x: ox - gap - r, y: by, r };
+    net = { x: ox + worldPx + gap + r, y: by, r };
+  } else if (sideButtons) {
     burst = { x: x0 + margin / 2, y: by, r };
     net = { x: x1 - margin / 2, y: by, r };
   } else {
@@ -112,7 +126,7 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   }
   const lift = touch ? Math.round(clamp(64 * u, 56, 84)) : 0;
   return {
-    w: W0, h: H0, mode, u, ins, top, strip, song, field, k, ox, oy, W, wx0: ox, wx1: ox + worldPx,
+    w: W0, h: H0, mode, desk, u, ins, top, strip, song, field, k, ox, oy, W, wx0: ox, wx1: ox + worldPx,
     burst, net, sideButtons, neo, card, anchor, lift,
   };
 }

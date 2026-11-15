@@ -148,12 +148,19 @@ export const LINE_COUNT: Readonly<Record<Moment, number>> = {
   dsb: 3, gate: 3, check: 3, divide: 3, cell: 4, upMito: 3, upEnzyme: 3, upLyso: 3, kick: 5, recycle: 4, fact: 8, end: 4,
 };
 
-/** Every moment's lines in the page's language. */
-export function lines(): Readonly<Record<Moment, readonly string[]>> {
+/**
+ * Every moment's lines in the page's language.  For a mouse (a desktop) a line that speaks of tapping has a
+ * variant that says "click" (`say.<moment>.<n>.mouse`): it takes the line's place.
+ */
+export function lines(mouse = false): Readonly<Record<Moment, readonly string[]>> {
   const out = {} as Record<Moment, string[]>;
   for (const m of MOMENTS) {
     out[m] = [];
-    for (let i = 1; i <= LINE_COUNT[m]; i++) out[m].push(t(`say.${m}.${i}` as Key));
+    for (let i = 1; i <= LINE_COUNT[m]; i++) {
+      const k = `say.${m}.${i}` as Key, km = `say.${m}.${i}.mouse` as Key;
+      const sm = mouse ? t(km) : km;
+      out[m].push(sm !== km ? sm : t(k));
+    }
   }
   return out;
 }

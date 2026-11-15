@@ -33,7 +33,7 @@ import type { ArcadeOutcome } from '../kit/types';
 import {
   canPair, dist, edgeMs, fastest, hopsTo, keyOf, makeBrain, reachable, type Brain, type Edge, type NodeKey, type RegionId,
 } from './brain';
-import { LINES, TIPS, cardTitle, connText, lessonAt, lessonTitle, msText, secText, type CardId, type Lesson } from './content';
+import { LINES, LINES_MOUSE, TIPS, cardTitle, connText, lessonAt, lessonTitle, msText, secText, type CardId, type Lesson } from './content';
 import { t, unit } from './i18n';
 import { bestFor, lenKey, lightRegion, unlockCard, type SynapsyProgress } from './meta';
 import { buildSong } from './music';
@@ -197,6 +197,8 @@ export interface SimInit {
   tuning: FocusTuning;
   /** a seed for a new player's brain (used once, at the first session) */
   seed: number;
+  /** the player has a mouse, not a finger: Oli says "click" where she speaks of the hands */
+  mouse?: boolean;
 }
 
 export class SynapsySim {
@@ -306,7 +308,7 @@ export class SynapsySim {
     this.seen = new Set(this.p.seen);
     this.pushesBase = this.p.pushes;
     this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
-    this.talk = new Talk(LINES, init.rng);
+    this.talk = new Talk(init.mouse ? LINES_MOUSE : LINES, init.rng);
     this.lesson = lessonAt(this.p.lesson);
     this.restore();
   }

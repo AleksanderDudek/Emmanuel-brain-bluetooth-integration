@@ -210,6 +210,8 @@ export interface SimInit {
   tuning: FocusTuning;
   /** play a given niche (the screenshot scripts; otherwise the progress chooses) */
   niche?: NicheId;
+  /** the player has a mouse, not a finger: Mito says "click" where he speaks of the hands */
+  mouse?: boolean;
 }
 
 export class OdnowaSim {
@@ -338,7 +340,7 @@ export class OdnowaSim {
     this.bestBefore = bestFor(p, init.plannedSec);
     this.niche = init.niche ?? sessionNiche(p);
     this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
-    this.talk = new Talk(lines(), init.rng);
+    this.talk = new Talk(lines(init.mouse === true), init.rng);
     this.lv = { mito: mitoLevel(p), enzyme: enzymeLevel(p), lyso: lysoLevel(p) };
     this.nextAt = 0.6;
   }
@@ -427,6 +429,23 @@ export class OdnowaSim {
     if (!best || d > RULES.tapReach) best = this.urgent();
     return best ? this.crew(best, 'tap') : false;
   }
+
+  /**
+   * The lesion a tap on the lane at `u` would send the crew to, without sending it (a desktop's hover): the
+   * nearest open one within reach, else the most urgent; null when the hands cannot act or nothing is open.
+   */
+  laneAim(u: number): Lesion | null {
+    if (!this.canTouch()) return null;
+    let best: Lesion | null = null, d = Infinity;
+    for (const l of this.openLesions) {
+      const dd = Math.abs(l.u - u);
+      if (dd < d) { d = dd; best = l; }
+    }
+    return !best || d > RULES.tapReach ? this.urgent() : best;
+  }
+
+  /** The lesion Space or a tap on the free city would mend (the most urgent), without mending it. */
+  nextAim(): Lesion | null { return this.canTouch() ? this.urgent() : null; }
 
   /** Space, or a tap on the free city: the most urgent lesion (the one nearest the gate). */
   repairNext(): boolean {

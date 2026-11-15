@@ -1,23 +1,31 @@
 /**
- * Where everything sits on Synapsy's canvas, phone first (DESIGN §12): pure numbers, so the tests can check
+ * Where everything sits on Synapsy's canvas, phone first (DESIGN §12, §14): pure numbers, so the tests can check
  * every size the arcade is played on.
  *
  *   tall   a phone upright (the reference) and a tablet: the brain fills the band under the HUD; the lens
  *          (the gauge) in the bottom-left corner beside the occipital lobe, Oli's button in the bottom-right
  *          corner under the thumb, the sing-along line between them; the message strip (a lesson card, a
  *          Wiedza card) at the top of the band, over the frontal lobes for a few seconds.
- *   side   a phone on its side and a desktop: the brain in the middle at the band's full height; a column on
- *          the left for the lens and the message strip, a column on the right for Oli (bottom, under the
- *          right thumb) and her bubble; the song line at the bottom of the left column.
+ *   side   a phone on its side (and a tablet on its side): the brain in the middle at the band's full height;
+ *          a column on the left for the lens and the message strip, a column on the right for Oli (bottom,
+ *          under the right thumb) and her bubble; the song line at the bottom of the left column.
+ *   desk   a mouse on a desktop or a big screen (kit/mobile `screenKind`, §14): the brain as tall as the band
+ *          and the HUD in columns beside it, its type growing with `uiScale` (to 2.2 on a big monitor).  Where
+ *          the band is wide (a laptop, a 1280 px window under the top HUD) the brain stands in the middle with
+ *          the lens and the cards on its left and the song, Oli's words and Oli on its right; on a big
+ *          screen's middle column (Full HD, QHD) a full-height brain leaves room for one column, on its right:
+ *          the lens at the top, the cards, Oli's words, the song (the sung line and the next) and Oli at the
+ *          foot, right by the brain, the O key's cap under her.
  *
  * The halves' plate sits on the corpus callosum itself, between its two lanes.  `u` is the kit's uiScale
- * (1 on any phone, up to 1.3).
+ * (1 on any phone, up to 1.3; on a big screen's desk up to 2.2); `k` scales the HUD's type: the phone's caps
+ * (1.15–1.2) everywhere but a desk, where it is u.
  */
-import { MIN_TAP, target, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, screenKind, target, uiScale, type Rect } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { OUTLINE } from './brain';
 
-export type Mode = 'tall' | 'side';
+export type Mode = 'tall' | 'side' | 'desk';
 
 export interface Layout {
   w: number;
@@ -25,6 +33,8 @@ export interface Layout {
   u: number;
   ins: Insets;
   mode: Mode;
+  /** a mouse on a desktop or a big screen: hover answers, keys shown, the type grows with u */
+  desk: boolean;
   /** the play band under the HUD, inside the insets */
   band: Rect;
   /** the brain's centre (px) and its scale (px per unit) */
@@ -37,11 +47,13 @@ export interface Layout {
   lens: { x: number; y: number; r: number };
   /** Oli's button (a round button in this square) */
   oli: Rect;
-  /** the sing-along line */
+  /** a desk's key cap under Oli's button ("O"), else null */
+  oliKey: Rect | null;
+  /** the sing-along line (on a desk two lines: the sung one and the next) */
   song: Rect;
   /** the message strip: a lesson's card, a new Wiedza card */
   strip: Rect;
-  /** Oli's bubble: where it may grow (it hangs from its bottom-right corner over Oli) */
+  /** Oli's bubble: where it may grow (it hangs from its bottom corner over Oli: right on a phone, left on a desk) */
   bubble: Rect;
   /** the halves' plate on the bridge */
   plate: Rect;
@@ -54,12 +66,17 @@ export interface Layout {
 }
 
 /** The brain's outline spans about this many units across and down (both hemispheres, with the egg's rim). */
-const SPAN_X = OUTLINE.half + 0.02;
-const SPAN_Y = OUTLINE.ry + 0.02;
+export const SPAN_X = OUTLINE.half + 0.02;
+export const SPAN_Y = OUTLINE.ry + 0.02;
 
-export function layout(w: number, h: number, ins: Insets, spacing = 0.235): Layout {
+/** The HUD's type scale: the phone's cap `cap` (1.15 or 1.2), or u on a desk. */
+export const typeK = (L: Pick<Layout, 'u' | 'desk'>, cap = 1.15): number => (L.desk ? L.u : Math.min(cap, L.u));
+
+export function layout(w: number, h: number, ins: Insets, spacing = 0.235, touch = true): Layout {
   const u = uiScale(w, h);
   const band: Rect = { x: ins.left, y: ins.top, w: Math.max(1, w - ins.left - ins.right), h: Math.max(1, h - ins.top - ins.bottom) };
+  const kind = screenKind(w, h, touch);
+  if (!touch && (kind === 'desktop' || kind === 'big') && band.w / band.h >= 1.15) return deskLayout(w, h, u, ins, band, spacing);
   const mode: Mode = band.w / band.h < 1.15 ? 'tall' : 'side';
   const songH = Math.round(24 * u);
   const edge = 16;   // nothing to press in the outer 16 px of the sides
@@ -105,7 +122,71 @@ export function layout(w: number, h: number, ins: Insets, spacing = 0.235): Layo
   const ch = Math.min(band.h - 16, Math.round(330 * u));
   const card: Rect = { x: band.x + (band.w - cw) / 2, y: band.y + (band.h - ch) / 2, w: cw, h: ch };
   const pick = Math.max(22, Math.min(40, spacing * s * 0.62));
-  return { w, h, u, ins, mode, band, cx, cy, s, brain, lens, oli, song, strip, bubble, plate, card, pick, soma };
+  return { w, h, u, ins, mode, desk: false, band, cx, cy, s, brain, lens, oli, oliKey: null, song, strip, bubble, plate, card, pick, soma };
+}
+
+/**
+ * A desk: the brain as tall as the band (unless one readable column would not fit beside it) and the HUD in
+ * columns — two when the band is wide enough for them (the brain in the middle), else one on the right.
+ */
+function deskLayout(w: number, h: number, u: number, ins: Insets, band: Rect, spacing: number): Layout {
+  const edge = 16, gap = Math.round(14 * u);
+  const colMin = Math.max(260, 220 * u);
+  const top = band.y + 12, bottom = band.y + band.h - 12;
+  const s = Math.max(40, Math.min((bottom - top) / 2 / SPAN_Y, (band.w - 2 * edge - colMin - gap) / 2 / SPAN_X));
+  const bw = 2 * SPAN_X * s;
+  const free = band.w - 2 * edge - bw;
+  const two = free - 2 * gap >= 2 * colMin;
+  let cx: number, colL: Rect | null, colR: Rect;
+  if (two) {
+    cx = band.x + band.w / 2;
+    const cw = Math.min(440 * u, (free - 2 * gap) / 2);
+    colL = { x: cx - bw / 2 - gap - cw, y: top, w: cw, h: bottom - top };
+    colR = { x: cx + bw / 2 + gap, y: top, w: cw, h: bottom - top };
+  } else {
+    cx = band.x + edge + bw / 2;
+    colL = null;
+    const x = cx + bw / 2 + gap;
+    colR = { x, y: top, w: Math.min(460 * u, band.x + band.w - edge - x), h: bottom - top };
+  }
+  const cy = band.y + band.h / 2;
+  // Oli at the foot of the right column, by the brain, her name over her nest and the O key under it
+  const oliSize = Math.round(64 * u);
+  const keyH = Math.round(12 * u) + 12;
+  const oli: Rect = { x: colR.x + 6, y: bottom - keyH - oliSize, w: oliSize, h: oliSize };
+  const oliKey: Rect = { x: oli.x, y: oli.y + oli.h + 4, w: oli.w, h: keyH - 4 };
+  const nameTop = oli.y - Math.round(13 * u) - 12;
+  const lineH = Math.round(13.5 * u * 1.4);
+  const songH = 2 * lineH + 6;
+  // the lens at the top of the left column (or of the only one)
+  const lc = colL ?? colR;
+  const r = Math.round(Math.min(lc.w * 0.3, 82 * u, band.h * 0.16));
+  const lens = { x: lc.x + lc.w / 2, y: top + r + 4, r };
+  const lensBottom = lens.y + r + gap;
+  let song: Rect, strip: Rect, bubble: Rect;
+  if (colL) {
+    // the left column: the lens and the cards under it; the right one: the song, Oli's words, Oli
+    strip = { x: colL.x, y: lensBottom, w: colL.w, h: bottom - lensBottom };
+    song = { x: colR.x, y: top, w: colR.w, h: songH };
+    bubble = { x: colR.x, y: song.y + song.h + gap, w: colR.w, h: nameTop - gap - (song.y + song.h + gap) };
+  } else {
+    // one column: the lens, the cards, Oli's words, the song, Oli
+    song = { x: colR.x, y: nameTop - gap - songH, w: colR.w, h: songH };
+    const mid = song.y - gap - lensBottom;
+    const stripH = Math.round(mid * 0.58);
+    strip = { x: colR.x, y: lensBottom, w: colR.w, h: stripH };
+    bubble = { x: colR.x, y: lensBottom + stripH + gap, w: colR.w, h: song.y - gap - (lensBottom + stripH + gap) };
+  }
+  const brain: Rect = { x: cx - SPAN_X * s, y: cy - SPAN_Y * s, w: 2 * SPAN_X * s, h: 2 * SPAN_Y * s };
+  const soma = Math.max(5.5, Math.min(9 * u, s * 0.035));
+  const pw = Math.round(Math.max(44, Math.min(78 * u, 2 * (0.28 * s - soma * 1.9 - 3))));
+  const ph = Math.round(48 * u);
+  const plate: Rect = { x: cx - pw / 2, y: cy + 0.13 * s - ph / 2, w: pw, h: ph };
+  const cw = Math.min(band.w - 24, Math.round(470 * u));
+  const ch = Math.min(band.h - 16, Math.round(330 * u));
+  const card: Rect = { x: band.x + (band.w - cw) / 2, y: band.y + (band.h - ch) / 2, w: cw, h: ch };
+  const pick = Math.max(22, Math.min(40, spacing * s * 0.62));
+  return { w, h, u, ins, mode: 'desk', desk: true, band, cx, cy, s, brain, lens, oli, oliKey, song, strip, bubble, plate, card, pick, soma };
 }
 
 /** A point of the brain (units) on the screen (px). */

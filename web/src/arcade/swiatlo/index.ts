@@ -48,19 +48,27 @@ class SwiatloGame implements ArcadeGame {
   /** first-time explanations waiting for a clear screen (one at a time, a little apart) */
   private readonly hints: { what: Coach; at: CoachAt }[] = [];
   private hintCool = 1.5;
+  /** the mouse's cursor as last set (a desk: a hand over what a click acts on) */
+  private cursor = '';
+  /** the mouse left the canvas: no hover */
+  private readonly leave = (): void => { this.view.hover = null; this.setCursor('default'); };
 
   constructor(private readonly env: GameEnv<SwiatloProgress>) {
     migrate(env.progress);
     const d = new Date();
     this.sim = new SwiatloSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg',
-      tuning: env.tuning, hour: d.getHours() + d.getMinutes() / 60,
+      tuning: env.tuning, hour: d.getHours() + d.getMinutes() / 60, mouse: !env.touch,
     });
     this.view = new SwiatloView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new SwiatloSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
+    if (!env.touch) env.canvas.addEventListener?.('pointerleave', this.leave);
     // ?debug: the session in the console (and for screenshot scripts)
-    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __swiatlo?: unknown }).__swiatlo = this.sim;
+    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) {
+      (globalThis as { __swiatlo?: unknown }).__swiatlo = this.sim;
+      (globalThis as { __swiatloView?: unknown }).__swiatloView = this.view;
+    }
   }
 
   resize(w: number, h: number, dpr: number): void {
@@ -105,6 +113,13 @@ class SwiatloGame implements ArcadeGame {
     this.sound.update(dt, this.sim);
     this.hintCool -= dt;
     this.flushHints();
+    if (this.view.hover) this.setCursor(this.view.cursor(this.sim));
+  }
+
+  private setCursor(c: string): void {
+    if (c === this.cursor) return;
+    this.cursor = c;
+    if (this.env.canvas.style) this.env.canvas.style.cursor = c;
   }
 
   draw(): void {
@@ -118,6 +133,12 @@ class SwiatloGame implements ArcadeGame {
    * story card, it closes it.  Every press shows on touch-down.
    */
   pointer(e: PointerInput): void {
+    if (!this.env.touch) {
+      const was = this.view.hover;
+      if (!was || Math.hypot(was.x - e.x, was.y - e.y) > 2) this.view.hoverAge = 0;
+      this.view.hover = { x: e.x, y: e.y };
+      this.setCursor(this.view.cursor(this.sim));
+    }
     if (e.type !== 'down') {
       if (e.type === 'up' && e.id === this.finger) this.finger = null;
       return;
@@ -241,12 +262,17 @@ class SwiatloGame implements ArcadeGame {
   destroy(): void {
     this.song?.stop(0.4);
     this.song = null;
+    this.env.canvas.removeEventListener?.('pointerleave', this.leave);
+    if (this.env.canvas.style) this.env.canvas.style.cursor = '';
   }
 }
 
-/** A coach mark's words for the hand the player has: a finger never hears of keys, a keyboard may. */
+/** A coach mark's words for the hand the player has: a finger never hears of keys, a mouse clicks (and has keys). */
 export function coachText(what: Coach, touch: boolean): string {
-  if (what === 'help' && !touch) return t('coach.help.keys');
+  if (!touch) {
+    if (what === 'help') return t('coach.help.keys');
+    if (what === 'card' || what === 'beat' || what === 'bubbles') return t(`coach.${what}.mouse`);
+  }
   return t(`coach.${what}` as 'coach.help');
 }
 
@@ -260,13 +286,13 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play, for the hand the player has: taps on a phone, Space and Enter on a keyboard. */
+/** How to play, for the hand the player has: taps on a phone; clicks, Space and Enter with a mouse. */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('howto.goal'),
     hands: [
-      { gesture: 'tap', text: t('howto.help') },
-      { gesture: 'tap', text: t('howto.card') },
+      { gesture: 'tap', text: t(touch ? 'howto.help' : 'howto.help.mouse') },
+      { gesture: 'tap', text: t(touch ? 'howto.card' : 'howto.card.mouse') },
       ...(touch ? [] : [{ gesture: 'keys' as const, text: t('howto.keys') }]),
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],

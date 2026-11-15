@@ -14,13 +14,15 @@ import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
-import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, DESK_MIN_W, MIN_READ, MIN_TEXT, THUMB, auditTargets, uiScale } from '../src/arcade/kit/mobile';
 import { songProblems } from '../src/arcade/kit/song';
 import { coachText, howto } from '../src/arcade/swiatlo/index';
-import { FIG_HALF, bubbleRect, figPt, layout, panelRect, storyRect, tapTargets } from '../src/arcade/swiatlo/layout';
+import {
+  FIG_HALF, LAMP_R, RAIL_X, bubbleRect, cardRect, figPt, hitTest, layout, panelRect, storyRect, tapTargets,
+} from '../src/arcade/swiatlo/layout';
 import { organAt } from '../src/arcade/swiatlo/figure';
 import { font, fontPx } from '../src/arcade/swiatlo/paint';
-import { pulseText } from '../src/arcade/swiatlo/hud';
+import { hoverText, pulseText, sourcesText } from '../src/arcade/swiatlo/hud';
 import { buildSong } from '../src/arcade/swiatlo/lullaby';
 
 const DAY = '2026-11-12';
@@ -898,11 +900,11 @@ describe('mobile first (DESIGN §12, §13.10)', () => {
     }
   });
 
-  it('grows on a tablet and a desktop, never past 1.3: a tablet upright keeps the tall layout with a big figure', () => {
+  it('grows on a tablet and a desktop to 1.3 (past it only on a big screen): a tablet upright keeps the tall layout with a big figure', () => {
     for (const c of CHECK_SIZES.filter(x => Math.min(x.w, x.h) > 600)) {
       const L = layout(c.w, c.h, c.insets);
       expect(L.u).toBeGreaterThan(1);
-      expect(L.u).toBeLessThanOrEqual(1.3);
+      expect(L.u, c.name).toBeLessThanOrEqual(c.w >= DESK_MIN_W && Math.min(c.w, c.h) >= DESK_BIG ? DESK_MAX : 1.3);
       expect(L.shape, c.name).toBe(c.w > c.h ? 'wide' : 'tall');
       expect(L.panel.w).toBeGreaterThanOrEqual(240);
       if (L.shape === 'wide') expect(L.bubble.w).toBeGreaterThanOrEqual(240);
@@ -952,6 +954,153 @@ describe('mobile first (DESIGN §12, §13.10)', () => {
     expect(touch.tips!.at(-1)).toMatch(/nie zastępuje leczenia/);
     expect(coachText('help', true)).not.toMatch(KEYS);
     expect(coachText('help', false)).toMatch(KEYS);
+  });
+});
+
+describe('a desk: a mouse on a desktop or a big screen (DESIGN §14)', () => {
+  const desks = CHECK_SIZES.filter(c => c.w >= 1024 && c.h >= 560);
+  const big = desks.filter(c => Math.min(c.w, c.h) >= DESK_BIG);
+  const bands = (L: ReturnType<typeof layout>) => [0.06, 0.25, 0.45, 0.62, 0.95].map(v => L.fig.top + v * L.fig.H);
+
+  it('chooses its own layout from the screen: a desk for a mouse on a desktop, the phone’s shapes for a finger', () => {
+    for (const c of CHECK_SIZES) {
+      const mouse = layout(c.w, c.h, c.insets, false), finger = layout(c.w, c.h, c.insets, true);
+      expect(finger.shape, c.name).not.toBe('desk');
+      expect(mouse.shape, c.name).toBe(desks.includes(c) ? 'desk' : finger.shape);
+      // a finger's layout is the same whatever the mouse would get (the phone's layouts never change)
+      if (!desks.includes(c)) expect(mouse.fig, c.name).toEqual(finger.fig);
+    }
+    expect(desks.map(c => c.name)).toEqual(expect.arrayContaining(['desktop', 'laptop (1440 × 790)', 'Full HD monitor (the middle column)']));
+  });
+
+  it('gives every control a target inside the insets, clear of the others, at every desk size, band and card', () => {
+    for (const c of desks) {
+      const L = layout(c.w, c.h, c.insets, false);
+      for (const y of bands(L)) {
+        for (const ph of [140, 260, 420, 900]) {
+          for (const ch of [0, 150, 260, 600]) {
+            const panel = panelRect(L, y, ph), card = ch ? cardRect(L, y, ch) : null;
+            const ts = tapTargets(L, { story: null, panel, card });
+            expect(auditTargets(ts, c.w, c.h, c.insets), `${c.name}: panel ${ph}, card ${ch} at ${Math.round(y)}`).toEqual([]);
+            // a click on the card is the panel's (it closes the card), never the field's or the button's
+            if (card) expect(hitTest(L, { story: null, panel, card }, card.x + card.w / 2, card.y + card.h / 2).kind).toBe('panel');
+          }
+        }
+      }
+      const story = storyRect(L, 360);
+      expect(auditTargets(tapTargets(L, { story, panel: null }), c.w, c.h, c.insets), `${c.name}: a story`).toEqual([]);
+    }
+  });
+
+  it('stands the figure in the middle at the band’s height, the panel left of it, the rail, then the right column', () => {
+    for (const c of desks) {
+      const L = layout(c.w, c.h, c.insets, false);
+      const H = L.fig.H, band = c.h - c.insets.top - c.insets.bottom;
+      expect(H, c.name).toBeGreaterThanOrEqual(0.9 * (band - 24));
+      expect(L.fig.top).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.fig.top + H).toBeLessThanOrEqual(c.h - c.insets.bottom);
+      // the panel against the figure's left, the rail and its lamp on the right, then the card, Zofia, the song and the button
+      expect(L.panel.x + L.panel.w, c.name).toBeLessThanOrEqual(L.fig.cx - FIG_HALF * H + 0.01);
+      expect(L.panel.x).toBeGreaterThanOrEqual(16 - 0.01);
+      const rail = L.fig.cx + RAIL_X * H + Math.max(7, LAMP_R * H);
+      for (const col of [L.card!, L.bubble]) {
+        expect(col.x, c.name).toBeGreaterThanOrEqual(rail);
+        expect(col.x + col.w).toBeLessThanOrEqual(c.w - 16 + 0.01);
+        expect(col.w).toBeGreaterThanOrEqual(280);
+        expect(col.y0).toBeGreaterThanOrEqual(L.line.y + L.line.h);
+        expect(col.y1).toBeLessThanOrEqual(L.buttonHit.y);
+      }
+      expect(L.panel.w).toBeGreaterThanOrEqual(280);
+      expect(L.line.x).toBeGreaterThanOrEqual(rail);
+      expect(L.line.y).toBeGreaterThanOrEqual(c.insets.top);
+      // the button by the figure (its column's inner edge), not in a phone's thumb corner
+      expect(L.buttonHit.x).toBeGreaterThanOrEqual(rail);
+      expect(L.button.x - (L.fig.cx + FIG_HALF * H), c.name).toBeLessThanOrEqual(0.2 * H + 0.12 * c.w);
+      expect(c.w - (L.buttonHit.x + L.buttonHit.w), c.name).toBeGreaterThan(200);
+      // the card at the band's height, the bubble at the end away from it — inside the column
+      for (const y of bands(L)) {
+        const r = cardRect(L, y, 240)!;
+        expect(r.y).toBeGreaterThanOrEqual(L.card!.y0 - 0.01);
+        expect(r.y + r.h).toBeLessThanOrEqual(L.card!.y1 + 0.01);
+      }
+    }
+  });
+
+  it('grows on a big screen: the figure most of the canvas, the type and the button past the phone’s', () => {
+    for (const c of big) {
+      const L = layout(c.w, c.h, c.insets, false);
+      expect(L.u, c.name).toBeCloseTo(uiScale(c.w, c.h, 1.3), 5);
+      expect(L.u).toBeGreaterThan(1.3);
+      expect(L.u).toBeLessThanOrEqual(DESK_MAX);
+      expect(L.k).toBe(L.u);
+      expect(L.fig.H / c.h, c.name).toBeGreaterThanOrEqual(0.85);
+      // the phone's type × u: what is read to play ≥ 13 × 1.3, the notes and sources ≥ 12 × 1.3
+      expect(L.font.text).toBeGreaterThanOrEqual(Math.floor(13 * 1.3));
+      expect(L.font.bubble).toBeGreaterThanOrEqual(Math.floor(14 * 1.3));
+      expect(L.font.note).toBeGreaterThanOrEqual(Math.floor(12 * 1.3));
+      expect(L.font.caption).toBeGreaterThanOrEqual(Math.floor(13 * 1.3));
+      expect(L.button.r * 2).toBeGreaterThanOrEqual(60 * 1.3 - 1);
+    }
+    const qhd = layout(1587, 1300, { top: 118, right: 0, bottom: 0, left: 0 }, false);
+    expect(qhd.u).toBeGreaterThanOrEqual(1.75);
+    expect(qhd.font.text).toBeGreaterThanOrEqual(23);
+    expect(qhd.panel.w).toBeGreaterThanOrEqual(420);
+    // every size keeps the floor
+    for (const c of desks) {
+      const L = layout(c.w, c.h, c.insets, false);
+      for (const v of Object.values(L.font)) expect(v).toBeGreaterThanOrEqual(MIN_TEXT);
+      expect(L.font.bubble).toBeGreaterThanOrEqual(MIN_READ);
+      expect(L.font.caption).toBeGreaterThanOrEqual(MIN_READ);
+    }
+  });
+
+  it('shows what the phone hides: the loop’s sources in full beside the panel’s numbers', () => {
+    const s = sourcesText(ORGAN.brain.src);
+    expect(s).toMatch(/^Źródła: /);
+    expect(s).toContain('Osilla');
+    expect(s).toContain('Charkoudian, Mayo Clin Proc 2003;78:603');
+    expect(s.split('; ').length).toBe(ORGAN.brain.src.length);
+  });
+
+  it('answers a hovering mouse: the organ’s name and what a click does there', () => {
+    const sim = later();
+    untilAt(sim, 'brain', MID);
+    expect(hoverText(sim, 'brain')).toEqual({ title: 'Podwzgórze', sub: 'w świetle · kliknij, by pomóc' });
+    expect(hoverText(sim, 'bone').sub).toBe('czeka na światło');
+    drive(sim, 30, HIGH);
+    const lit = ORGANS.find(o => sim.lit[o] > 0)!;
+    expect(lit).toBeDefined();
+    expect(hoverText(sim, lit).sub).toMatch(/^w równowadze ★/);
+  });
+
+  it('speaks to a mouse in clicks: the how-to, the coach marks and Zofia', () => {
+    const CLICK = /klik|click|klick/i;
+    const TAP: Record<string, RegExp> = { pl: /stuk/i, en: /\btap/i, de: /tipp/i, sv: /^tryck/i };
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['howto.help.mouse', 'howto.card.mouse', 'coach.card.mouse', 'coach.beat.mouse', 'coach.bubbles.mouse', 'panel.rules.mouse',
+        'say.warm.1.mouse', 'say.idle.1.mouse', 'say.idle.2.mouse', 'say.idle.3.mouse', 'say.at.heart.2.mouse', 'say.breath.1.mouse']) {
+        expect(c[k], `${l}.${k}`).toMatch(CLICK);
+        expect(c[k], `${l}.${k}`).not.toMatch(TAP[l]);
+      }
+    }
+    const desk = howto(false);
+    expect(desk.hands.filter(x => x.gesture === 'tap').every(x => CLICK.test(x.text))).toBe(true);
+    for (const what of ['card', 'beat', 'bubbles'] as const) {
+      expect(coachText(what, false), what).toMatch(CLICK);
+      expect(coachText(what, true), what).not.toMatch(CLICK);
+    }
+    // Zofia: the lines about the hands say "kliknij" to a mouse, "stuknij" to a finger
+    expect(linesOf('idle', true).every(s => CLICK.test(s))).toBe(true);
+    expect(linesOf('idle', false).every(s => /stuk/i.test(s))).toBe(true);
+    expect(linesOf('at.heart', true)).toContain(t('say.at.heart.2.mouse'));
+    expect(linesOf('scan', true)).toEqual(linesOf('scan', false));
+    const mouseSim = new SwiatloSim({
+      progress: freshProgress(), rng: mulberry32(3), day: DAY, daySeed: 4242, plannedSec: 120, eeg: false, tuning: TUNING, hour: 9, mouse: true,
+    });
+    mouseSim.start();
+    drive(mouseSim, 60, LOW);
+    expect(mouseSim.talk.said.some(s => /stuk/i.test(s))).toBe(false);
   });
 });
 

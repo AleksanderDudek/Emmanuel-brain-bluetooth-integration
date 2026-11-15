@@ -9,7 +9,7 @@
  * compressed and the game says so; the only measurement is the player's pulse from Mendi.
  */
 import { fmtNum, lang } from '../../i18n';
-import { t, type Key } from './i18n';
+import { CATALOGS, t, type Key } from './i18n';
 
 export type OrganId = 'brain' | 'lungs' | 'heart' | 'liver' | 'adrenal' | 'kidney' | 'gut' | 'skin' | 'bone';
 /** the scan's order, head to toe */
@@ -209,10 +209,16 @@ export const MOMENTS: readonly Moment[] = [
 /** How many variants each moment has in the catalogs (`say.<moment>.<n>`). */
 export const LINE_COUNT: Readonly<Record<Moment, number>> = Object.fromEntries(MOMENTS.map(m => [m, 3])) as Record<Moment, number>;
 
-/** A moment's lines in the page's language. */
-export function linesOf(m: Moment): string[] {
+/**
+ * A moment's lines in the page's language.  For a mouse (a desktop) the lines that speak of the hands
+ * have a variant that says "click" (`say.<moment>.<n>.mouse`): it takes the tap's place.
+ */
+export function linesOf(m: Moment, mouse = false): string[] {
   const out: string[] = [];
-  for (let i = 1; i <= LINE_COUNT[m]; i++) out.push(t(`say.${m}.${i}` as Key));
+  for (let i = 1; i <= LINE_COUNT[m]; i++) {
+    const key = `say.${m}.${i}`;
+    out.push(t((mouse && `${key}.mouse` in CATALOGS.pl ? `${key}.mouse` : key) as Key));
+  }
   return out;
 }
 

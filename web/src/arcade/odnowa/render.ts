@@ -9,16 +9,16 @@ import { clamp, ease, Floaters, Particles, Shake } from '../kit/juice';
 import { MIN_READ } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageLayout } from '../kit/scripture';
 import type { Insets } from '../kit/types';
-import { LESIONS, cardNum, cardSpec, cardText, cardTitle, cellName, stepName, type CardId, type NicheId } from './content';
+import { LESIONS, cardNum, cardSpec, cardText, cardTitle, cellName, lesionName, partName, pathName, stepName, type CardId, type NicheId } from './content';
 import { t } from './i18n';
-import { inRect, laneX, layout, type Layout } from './layout';
+import { inRect, laneU, laneX, layout, onLane, onLens, type Layout } from './layout';
 import {
   C, ENTRY_ANGLE, PUMP_ANGLES, SANS, fitFont, font, glow, hash, label, paintAtp, paintBubble, paintCellIcon, paintChipIcon,
   paintCity, paintCrew, paintGauge, paintHelixStrip, paintLensBack, paintLensRim, paintLesion, paintLysosome, paintMended,
   paintMito, paintMitoSmall, paintMitosis, paintPart, paintPhagophore, paintTurbine, rgba, rr, strands,
 } from './paint';
 import { RULES } from './rules';
-import type { CoachAt, OdnowaSim, Part, SimEvent } from './sim';
+import type { CoachAt, Lesion, OdnowaSim, Part, SimEvent } from './sim';
 
 const TAU = Math.PI * 2;
 
@@ -67,6 +67,10 @@ export class OdnowaView {
   private storyKey = '';
   /** an autophagosome under a finger: where it is drawn (above the finger) */
   drag: { id: number; x: number; y: number } | null = null;
+  /** where a mouse rests (a desk: hover answers), null when it left or on a touch screen */
+  hover: { x: number; y: number } | null = null;
+  /** seconds since the mouse last moved (a resting mouse's tag fades) */
+  hoverAge = 0;
   lyric: Lyric | null = null;
   private cellNiche: NicheId = 'gut';
   /** Wiedza cards met in play, shown one at a time as a small toast */
@@ -85,7 +89,7 @@ export class OdnowaView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, insets);
+    this.L = layout(w, h, insets, this.o.touch);
     this.city = null;
     this.lensBack = null;
     this.strip = null;
@@ -354,6 +358,7 @@ export class OdnowaView {
   // ── the frame ───────────────────────────────────────────────────
   update(dt: number, sim: OdnowaSim): void {
     this.now += dt;
+    this.hoverAge += dt;
     const rest = sim.restBlock ? 1 : 0;
     this.lensK += ((rest ? 0.84 : 1) - this.lensK) * Math.min(1, dt * 3);
     for (let i = 0; i < 3; i++) {
@@ -455,6 +460,7 @@ export class OdnowaView {
     }
     this.sparks.draw(ctx);
     ctx.restore();
+    this.drawHover(ctx, sim);
     this.drawMito(ctx, sim);
     this.drawChips(ctx, sim);
     this.drawLyric(ctx);
@@ -862,6 +868,12 @@ export class OdnowaView {
     ctx.strokeStyle = rgba(C.gold, 0.75);
     ctx.lineWidth = 1.5;
     ctx.stroke();
+    // a desk's card gives its whole width to the words (the icon would sit on them)
+    if (L.desk) {
+      this.drawDeskCard(ctx, cs.id, y);
+      ctx.globalAlpha = 1;
+      return;
+    }
     const g = cardSpec(cs.id).group;
     const ix = b.x + b.h * 0.5, iy = y + b.h / 2, is = b.h * 0.5;
     if (g === 'energy') paintChipIcon(ctx, 0, ix, iy, is, this.now);
@@ -883,6 +895,148 @@ export class OdnowaView {
     ctx.fillStyle = C.cream;
     ctx.fillText(cut === text ? text : `${cut}…`, tx, y + b.h * 0.7);
     ctx.globalAlpha = 1;
+  }
+
+  /** A desk's Wiedza card, whole: the title and its number, the sentence, the source (the words take the card's width). */
+  private drawDeskCard(ctx: CanvasRenderingContext2D, id: CardId, y: number): void {
+    const L = this.L, b = L.toast, u = L.u;
+    const pad = Math.round(14 * u);
+    const tx = b.x + pad, tw = b.w - 2 * pad;
+    const px = Math.max(MIN_READ, Math.round(13.5 * u));
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    let ty = y + pad;
+    const title = `${cardTitle(id)} · ${cardNum(id)}`;
+    const tp = fitFont(ctx, title, tw, px + 2, MIN_READ, 800);
+    ctx.fillStyle = C.goldHi;
+    ctx.fillText(title, tx, ty);
+    ty += Math.round(tp * 1.3);
+    ctx.font = font(px, 600);
+    const lines = wrap(ctx, cardText(id), tw).slice(0, 3);
+    ctx.fillStyle = C.cream;
+    for (const line of lines) { ctx.fillText(line, tx, ty); ty += Math.round(px * 1.28); }
+    const sp = Math.max(MIN_READ, Math.round(12 * u));
+    const src = cardSpec(id).src;
+    fitFont(ctx, src, tw, sp, MIN_READ, 600);
+    ctx.fillStyle = 'rgba(230,250,255,0.62)';
+    ctx.fillText(src, tx, Math.min(ty + 2, y + b.h - pad - sp));
+  }
+
+  // ── a desk's mouse ───────────────────────────────────────────────
+  /**
+   * What the mouse rests on: the story card, the turbine, Mito, an autophagosome, the lane (the lesion a click
+   * there would mend), or nothing.  Never on a touch screen (a finger has no hover), never mid-drag.
+   */
+  overPart(sim: OdnowaSim): { part: 'story' | 'lens' | 'mito' | 'part' | 'lesion' | null; id: number; lesion: Lesion | null } {
+    const hv = this.hover;
+    const none = { part: null, id: -1, lesion: null };
+    if (!hv || this.o.touch || !sim.started || sim.phase === 'done' || this.drag) return none;
+    if (sim.story) return { part: 'story', id: -1, lesion: null };
+    const L = this.L;
+    if (onLens(L, hv.x, hv.y)) return { part: 'lens', id: -1, lesion: null };
+    if (inRect(L.mitoHit, hv.x, hv.y)) return { part: 'mito', id: -1, lesion: null };
+    const p = this.partAt(sim, hv.x, hv.y);
+    if (p !== null) return { part: 'part', id: p, lesion: null };
+    if (onLane(L, hv.x, hv.y)) {
+      const l = sim.laneAim(laneU(L, hv.x));
+      return l ? { part: 'lesion', id: l.id, lesion: l } : none;
+    }
+    return none;
+  }
+
+  /** The cursor for the mouse: a hand on what a click acts on. */
+  cursor(sim: OdnowaSim): string {
+    return this.overPart(sim).part ? 'pointer' : 'default';
+  }
+
+  /** What a click would act on, ringed, with a tag: its name, what it is, what the click does. */
+  private drawHover(ctx: CanvasRenderingContext2D, sim: OdnowaSim): void {
+    const o = this.overPart(sim);
+    if (!o.part || o.part === 'story') return;
+    const L = this.L, u = L.u;
+    const k = clamp((3 - this.hoverAge) / 0.6);
+    let x: number, y: number, r: number, title: string, sub: string, act: string, up = false;
+    if (o.part === 'lens') {
+      x = L.lens.x; y = L.lens.y; r = L.lens.r * this.lensK + Math.max(8, L.lens.r * 0.1);
+      title = t('aim.turbine'); sub = t('aim.turbine.sub');
+      act = t(sim.ready && !sim.restBlock ? 'aim.turbine.surge' : 'aim.turbine.kick');
+    } else if (o.part === 'mito') {
+      x = L.mito.x; y = L.mito.y; r = L.mito.r * 1.35;
+      title = t('aim.mito'); sub = ''; act = t('aim.mito.act');
+    } else if (o.part === 'part') {
+      const p = sim.parts.find(q => q.id === o.id);
+      if (!p) return;
+      const q = this.partPos(p);
+      x = q.x; y = q.y; r = Math.max(14, L.mito.r * 1.05) * 1.25;
+      title = t('aim.part'); sub = partName(p.kind); act = t('aim.part.act');
+    } else {
+      const l = o.lesion!;
+      x = this.rungX(sim, l.u); y = L.laneMid; r = L.amp * 0.95; up = true;
+      const spec = LESIONS[l.kind];
+      title = lesionName(l.kind);
+      title = title.charAt(0).toUpperCase() + title.slice(1);
+      sub = `${pathName(spec.path)}: ${spec.stages.map(st => st.map(stepName).join(' → ')).join(' · ')}`;
+      act = t(l.state === 'wait' ? 'aim.lesion.wait' : 'aim.lesion.act');
+    }
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,246,230,0.9)';
+    ctx.lineWidth = Math.max(1.5, 1.6 * u);
+    ctx.setLineDash([5 * u, 4 * u]);
+    ctx.lineDashOffset = -this.now * 14 * u;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    if (k > 0.01) this.aimTag(ctx, x, y, r + 8 * u, title, sub, act, k, up);
+  }
+
+  /** A tag beside a point (or above it, for the lane): a title, a line, what a click does in gold. */
+  private aimTag(ctx: CanvasRenderingContext2D, x: number, y: number, gap: number, title: string, sub: string, act: string, a: number, up: boolean): void {
+    const L = this.L, u = L.u, pad = Math.round(8 * u);
+    const tp = Math.max(MIN_READ, 13.5 * u), sp = Math.max(MIN_READ, 12.5 * u);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.font = font(tp, 800);
+    const tw = ctx.measureText(title).width;
+    ctx.font = font(sp, 600);
+    const sw = sub ? ctx.measureText(sub).width : 0;
+    ctx.font = font(sp, 700);
+    const aw = ctx.measureText(act).width;
+    const w = Math.min(L.w - 16, Math.max(tw, sw, aw) + 2 * pad);
+    const lh = Math.round(sp * 1.3);
+    const h = 2 * pad + Math.round(tp * 1.25) + (sub ? lh : 0) + lh;
+    let bx: number, by: number;
+    if (up) {
+      bx = Math.max(8, Math.min(L.w - 8 - w, x - w / 2));
+      by = y - gap - h;
+    } else {
+      bx = x + gap;
+      if (bx + w > L.w - 8) bx = x - gap - w;
+      by = Math.max(L.top + 4, Math.min(L.h - h - 4, y - h / 2));
+    }
+    rr(ctx, bx, by, w, h, 10 * u);
+    ctx.fillStyle = 'rgba(6,22,26,0.9)';
+    ctx.fill();
+    ctx.strokeStyle = rgba(C.gold, 0.6);
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.font = font(fitFont(ctx, title, w - 2 * pad, tp, MIN_READ, 800), 800);
+    ctx.fillStyle = C.cream;
+    ctx.fillText(title, bx + pad, by + pad);
+    let ty = by + pad + Math.round(tp * 1.25);
+    if (sub) {
+      ctx.font = font(fitFont(ctx, sub, w - 2 * pad, sp, MIN_READ, 600), 600);
+      ctx.fillStyle = 'rgba(230,250,255,0.8)';
+      ctx.fillText(sub, bx + pad, ty);
+      ty += lh;
+    }
+    ctx.font = font(fitFont(ctx, act, w - 2 * pad, sp, MIN_READ, 700), 700);
+    ctx.fillStyle = C.gold;
+    ctx.fillText(act, bx + pad, ty);
+    ctx.restore();
   }
 
   private drawToast(ctx: CanvasRenderingContext2D, sim: OdnowaSim): void {

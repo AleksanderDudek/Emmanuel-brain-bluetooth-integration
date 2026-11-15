@@ -11,6 +11,9 @@
  *         right, the lane across the bottom
  *   wide  (desktops, tablets on their side)  the tall layout grown: the lens centred, Mito and his bubble on
  *         the left, the clean-up on both sides, a wide lane
+ *   a desk (a mouse on a desktop or a big screen, kit/mobile `screenKind`, §14)  the wide layout with the lens
+ *         as big as the city allows (the phone's caps lifted: 262 px of radius in a Full HD monitor's middle
+ *         column, was 202), a Wiedza card shown whole with its source, hover answers in the view
  *
  * Everything the player taps is a rectangle here (`tapTargets`), the same ones the view hit-tests and the
  * mobile audit checks: the turbine (the lens), Mito, and the story card while it is up.  The lane, the
@@ -18,7 +21,7 @@
  * nearest lesion (the sim's `tapLane`/`repairNext`).
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, TAP_GAP, target, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, TAP_GAP, screenKind, target, uiScale, type Rect } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -31,7 +34,9 @@ export interface Layout {
   w: number;
   h: number;
   mode: Mode;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** a mouse on a desktop or a big screen: the lens grows, the cards show whole, hover answers */
+  desk: boolean;
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop (a big screen's desk: up to 2.2) */
   u: number;
   ins: Insets;
   top: number;
@@ -69,9 +74,11 @@ export interface Layout {
   fs: number;
 }
 
-export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout {
+export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch = true): Layout {
   const W = Math.max(240, w), H = Math.max(200, h);
   const mode: Mode = W / H < 0.9 ? 'tall' : H < 460 ? 'short' : 'wide';
+  const kind = screenKind(W, H, touch);
+  const desk = !touch && mode === 'wide' && (kind === 'desktop' || kind === 'big');
   const u = uiScale(W, H);
   const top = clamp(insets.top, 0, H * 0.6);
   const ins: Insets = { top, right: Math.max(0, insets.right), bottom: Math.max(0, insets.bottom), left: Math.max(0, insets.left) };
@@ -150,7 +157,8 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     lane = { x: (x0 + x1) / 2 - laneW / 2, y: bottom - Math.round(14 * u) - laneH, w: laneW, h: laneH };
     const cTop = lyric.y + lyric.h + 6;
     city = { x: x0, y: cTop, w: x1 - x0, h: Math.max(80, lane.y - 10 - cTop) };
-    const r = clamp(Math.min((city.h / 2 - 4) / 1.12, (x1 - x0) * 0.17), 64, 190 * u);
+    // a desk lets the lens take more of the width (the side columns keep room for the chips and Mito)
+    const r = clamp(Math.min((city.h / 2 - 4) / 1.12, (x1 - x0) * (desk ? 0.22 : 0.17)), 64, (desk ? 260 : 190) * u);
     lens = { x: (x0 + x1) / 2, y: city.y + city.h / 2, r };
     const side = (x1 - x0) / 2 - r * 1.12;
     const lc = lens.x - r * 1.12 - side / 2, rc = lens.x + r * 1.12 + side / 2;
@@ -158,8 +166,10 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     chips = [0, 1, 2].map(i => ({ x: rc - chipW / 2, y: city.y + 8 + i * (chipH + gap), w: chipW, h: chipH })) as [Rect, Rect, Rect];
     const mr = Math.round(24 * u);
     mito = { x: lens.x - r * 1.12 - Math.min(side * 0.3, 70 * u), y: lens.y - r * 0.62, r: mr };
-    const bw = Math.min(340 * u, mito.x - mr * 1.4 - x0 - 24);
-    bubble = { x: mito.x - mr * 1.4, y: mito.y - mr - 8, maxW: Math.max(140, bw), side: 'left' };
+    // a desk's bubble spans the left column up to the lens's rim (a bigger lens leaves Mito little room to his left)
+    const bubbleX = desk ? lens.x - r * 1.12 - 10 : mito.x - mr * 1.4;
+    const bw = Math.min(340 * u, bubbleX - x0 - 24);
+    bubble = { x: bubbleX, y: mito.y - mr - 8, maxW: Math.max(140, bw), side: 'left' };
     const lr = Math.round(24 * u);
     // the right column's top is the chips': its worn parts and lysosomes keep below them
     const chipsBottom = chips[2].y + chips[2].h;
@@ -175,8 +185,9 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     ];
     const cw = Math.min(x1 - x0 - 48, 560 * u), ch = Math.min(bottom - top - 24, 420 * u);
     card = { x: (x0 + x1) / 2 - cw / 2, y: top + (bottom - top - ch) / 2, w: cw, h: ch };
-    const tw = Math.min(x1 - x0 - 48, 420 * u);
-    toast = { x: (x0 + x1) / 2 - tw / 2, y: city.y + 4, w: tw, h: Math.round(66 * u) };
+    // a desk's toast holds a Wiedza card whole: its title and number, its sentence and its source
+    const tw = Math.min(x1 - x0 - 48, (desk ? 560 : 420) * u, desk ? 2 * (chips[0].x - 12 - lens.x) : Infinity);
+    toast = { x: (x0 + x1) / 2 - tw / 2, y: city.y + 4, w: tw, h: Math.round((desk ? 118 : 66) * u) };
   }
   // the turbine's target: the square inside the lens (a finger on the glass), at least MIN_TAP
   const side = Math.max(MIN_TAP, lens.r * 1.36);
@@ -191,7 +202,7 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
   const ux0 = lane.x + pad, ux1 = lane.x + lane.w - pad;
   const nucleus: Circle = { x: lane.x + lane.w * 0.12, y: lane.y + lane.h * 0.2, r: Math.max(90, W * 0.36) };
   return {
-    w: W, h: H, mode, u, ins, top, band, lyric, chips, city, lens, lensHit, lane, laneMid: lane.y + lane.h * 0.54, amp: lane.h * 0.27,
+    w: W, h: H, mode, desk, u, ins, top, band, lyric, chips, city, lens, lensHit, lane, laneMid: lane.y + lane.h * 0.54, amp: lane.h * 0.27,
     ux0, ux1, mito, mitoHit: { x: mitoHit.x, y: mitoHit.y, w: mitoHit.w, h: mitoHit.h }, bubble, spots, lysos, extras, nucleus, card, toast, fs,
   };
 }

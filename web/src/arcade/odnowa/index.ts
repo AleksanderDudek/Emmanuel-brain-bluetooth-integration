@@ -50,6 +50,10 @@ class OdnowaGame implements ArcadeGame {
   private readonly hints: { what: Coach; at: CoachAt }[] = [];
   private hintCool = 2;
   private songDone = false;
+  /** the mouse's cursor as last set (a desk: a hand on what a click acts on) */
+  private cursor = '';
+  /** the mouse left the canvas: no hover */
+  private readonly leave = (): void => { this.view.hover = null; this.setCursor('default'); };
 
   constructor(private readonly env: GameEnv<OdnowaProgress>) {
     migrate(env.progress);
@@ -62,11 +66,15 @@ class OdnowaGame implements ArcadeGame {
       const atp = location.search.match(/[?&]odnowaAtp=(\d+)/)?.[1];
       if (atp) env.progress.atpTotal = Number(atp);
     }
-    this.sim = new OdnowaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, niche });
+    this.sim = new OdnowaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, niche, mouse: !env.touch });
     this.view = new OdnowaView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new OdnowaSound(env.audio, env.progress.song);
     this.ctx = env.canvas.getContext('2d');
-    if (debug) (globalThis as { __odnowa?: unknown }).__odnowa = this.sim;
+    if (!env.touch) env.canvas.addEventListener?.('pointerleave', this.leave);
+    if (debug) {
+      (globalThis as { __odnowa?: unknown }).__odnowa = this.sim;
+      (globalThis as { __odnowaView?: unknown }).__odnowaView = this.view;
+    }
   }
 
   resize(w: number, h: number, dpr: number): void {
@@ -109,6 +117,13 @@ class OdnowaGame implements ArcadeGame {
       this.songDone = true;
       this.sound.stop();
     }
+    if (this.view.hover) this.setCursor(this.press?.moved ? 'grabbing' : this.view.cursor(this.sim));
+  }
+
+  private setCursor(c: string): void {
+    if (c === this.cursor) return;
+    this.cursor = c;
+    if (this.env.canvas.style) this.env.canvas.style.cursor = c;
   }
 
   draw(): void {
@@ -124,6 +139,11 @@ class OdnowaGame implements ArcadeGame {
   pointer(e: PointerInput): void {
     const s = this.sim, v = this.view, L = v.L;
     const lift = this.env.touch ? Math.round(52 * L.u) : 0;
+    if (!this.env.touch) {
+      const was = v.hover;
+      if (!was || Math.hypot(was.x - e.x, was.y - e.y) > 2) v.hoverAge = 0;
+      v.hover = { x: e.x, y: e.y };
+    }
     if (e.type === 'down') {
       if (this.finger !== null && this.finger !== e.id) this.letGo();
       this.finger = e.id;
@@ -259,12 +279,15 @@ class OdnowaGame implements ArcadeGame {
   destroy(): void {
     this.letGo();
     this.sound.stop();
+    this.env.canvas.removeEventListener?.('pointerleave', this.leave);
+    if (this.env.canvas.style) this.env.canvas.style.cursor = '';
   }
 }
 
-/** A coach mark's words for the hand the player has: a finger never hears of keys, a keyboard may. */
+/** A coach mark's words for the hand the player has: a finger never hears of keys, a mouse clicks (and has keys). */
 export function coachText(what: Coach, touch: boolean): string {
   if (!touch && (what === 'lane' || what === 'surge')) return t(`coach.${what}.keys` as Key);
+  if (!touch && (what === 'two' || what === 'drag')) return t(`coach.${what}.mouse` as Key);
   return t(`coach.${what}` as Key);
 }
 
@@ -288,7 +311,7 @@ export function howto(touch = coarsePointer()): HowTo {
     goal: t('how.goal'),
     hands: touch
       ? [{ gesture: 'tap', text: t('how.tap') }, { gesture: 'tap', text: t('how.turbine') }, { gesture: 'drag', text: t('how.drag') }]
-      : [{ gesture: 'tap', text: t('how.tap') }, { gesture: 'tap', text: t('how.turbine') }, { gesture: 'keys', text: t('how.keys') }],
+      : [{ gesture: 'tap', text: t('how.tap.mouse') }, { gesture: 'tap', text: t('how.turbine.mouse') }, { gesture: 'keys', text: t('how.keys') }],
     tips: [t('how.tip1'), t('how.tip2')],
   };
 }

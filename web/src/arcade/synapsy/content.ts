@@ -117,8 +117,11 @@ export const cardText = (id: CardId): string => t(`card.${id}.text` as Key);
 export const cardSrc = (id: CardId): string => CARDS.find(c => c.id === id)?.src ?? '';
 
 // ── the words of a block and Oli's moments ──────────────────────
-const keysOf = (prefix: string): string[] => Object.keys(CATALOGS.pl).filter(k => k.startsWith(prefix));
-const linesOf = (prefix: string): string[] => keysOf(prefix).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })).map(k => t(k as Key));
+// a line's mouse variant (`say.warm.1.mouse`: "kliknij" where the line speaks of tapping) is not a line of its own
+const keysOf = (prefix: string): string[] => Object.keys(CATALOGS.pl).filter(k => k.startsWith(prefix) && !k.endsWith('.mouse'));
+const byNumber = (a: string, b: string): number => a.localeCompare(b, 'en', { numeric: true });
+const linesOf = (prefix: string, mouse = false): string[] =>
+  keysOf(prefix).sort(byNumber).map(k => t((mouse && `${k}.mouse` in CATALOGS.pl ? `${k}.mouse` : k) as Key));
 
 export const TIPS = {
   warmup: linesOf('tip.warmup.'),
@@ -139,6 +142,11 @@ export type Moment = (typeof MOMENTS)[number];
 
 export const LINES: Readonly<Record<Moment, readonly string[]>> = Object.fromEntries(
   MOMENTS.map(m => [m, linesOf(`say.${m}.`)]),
+) as unknown as Record<Moment, readonly string[]>;
+
+/** Oli's lines for a mouse (a desktop): the same, with "kliknij" where a line speaks of tapping. */
+export const LINES_MOUSE: Readonly<Record<Moment, readonly string[]>> = Object.fromEntries(
+  MOMENTS.map(m => [m, linesOf(`say.${m}.`, true)]),
 ) as unknown as Record<Moment, readonly string[]>;
 
 /** How many lines Oli has (the tests check each moment has at least three). */

@@ -13,9 +13,9 @@ import type { Insets, TapTarget } from '../kit/types';
 import { ORGAN, ORGANS, type Depth, type OrganId } from './content';
 import { HYPOTHALAMUS, ORGAN_SPOT, PITUITARY, SYSTEMS, organAt, spline } from './figure';
 import {
-  bandColor, bubbleBox, drawBubble, drawButton, drawLine, drawPanel, drawStory, luxFloat, panelBox,
+  bandColor, bubbleBox, cardBox, drawBubble, drawButton, drawLine, drawPanel, drawStory, drawTag, hoverText, luxFloat, panelBox,
 } from './hud';
-import { figPt, hitTest, layout, tapTargets, type Hit, type Layout, type Rect } from './layout';
+import { LAMP_R, RAIL_X, figPt, hitTest, layout, tapTargets, type Hit, type Layout, type Rect } from './layout';
 import { CYAN, GOLD, ICE, REST, SANS, bakeFigure, bakeNight, bandSprite, glow, mapper, rgbaPrefix, type FigureLayers, type Layer } from './paint';
 import { RULES } from './rules';
 import type { SimEvent, SwiatloSim } from './sim';
@@ -36,7 +36,13 @@ export class SwiatloView {
   private moteT = 0;
   /** the panel and the bubble as last drawn (for taps and the mobile audit) */
   panelRect: Rect | null = null;
+  /** a desk's Wiedza card beside the panel, as last drawn */
+  cardRect: Rect | null = null;
   storyRect: Rect | null = null;
+  /** where a mouse rests over the canvas (a desk: hover answers), null when it left or on a touch screen */
+  hover: { x: number; y: number } | null = null;
+  /** seconds since the mouse last moved: an organ's tag fades when it rests (a player clicking in one spot) */
+  hoverAge = 0;
   /** touch-down looks */
   buttonDown = 0;
   panelDown = 0;
@@ -146,6 +152,7 @@ export class SwiatloView {
 
   update(dt: number, sim: SwiatloSim): void {
     this.time += dt;
+    this.hoverAge += dt;
     if (this.stop > 0) {
       this.stop -= dt;
       dt *= 0.15;
@@ -174,7 +181,7 @@ export class SwiatloView {
   }
 
   // ── drawing ────────────────────────────────────────────────────
-  draw(sim: SwiatloSim, now: number, song: { text: string; p: number } | null): void {
+  draw(sim: SwiatloSim, now: number, song: { text: string; next?: string | null; p: number } | null): void {
     const ctx = this.ctx;
     if (!ctx) return;
     const L = this.L, H = L.fig.H;
@@ -238,14 +245,88 @@ export class SwiatloView {
       glow(ctx, this.flashHue, L.fig.cx, L.fig.top + H * 0.45, H * 0.8, this.flash * 0.35);
       ctx.globalCompositeOperation = 'source-over';
     }
+    // a desk's mouse over the figure: the organ under it, named, and what a click there does
+    const over = this.overPart(sim);
+    const tagK = clamp((3 - this.hoverAge) / 0.6);
+    if (over.organ && tagK > 0.01) this.drawHoverOrgan(ctx, sim, over.organ, tagK);
     // the HUD
     drawLine(ctx, L, song, sim.story ? 0 : 1);
     const pb = panelBox(ctx, L, sim, bandY);
     this.panelRect = pb ? pb.rect : null;
-    if (pb) drawPanel(ctx, sim, pb, now, this.panelDown);
-    if (sim.started && !sim.story) drawButton(ctx, L, sim, this.buttonDown, now);
-    if (this.bubbleK > 0.01 && this.lastLine && !sim.story) drawBubble(ctx, bubbleBox(ctx, L, this.lastLine, bandY), this.bubbleK);
+    // a desk opens the Wiedza card beside the panel (a click on either closes it): both answer the mouse
+    const cb = cardBox(ctx, L, sim, bandY);
+    this.cardRect = cb ? cb.rect : null;
+    const onPanel = over.part === 'panel';
+    if (pb) drawPanel(ctx, L, sim, pb, now, this.panelDown, onPanel);
+    if (cb) drawPanel(ctx, L, sim, cb, now, this.panelDown, onPanel);
+    if (sim.started && !sim.story) drawButton(ctx, L, sim, this.buttonDown, now, over.part === 'button');
+    // Zofia waits while a card is up (talk.ts); on a desk her column is the card's, so her fading line goes at once
+    if (this.bubbleK > 0.01 && this.lastLine && !sim.story && !cb) drawBubble(ctx, bubbleBox(ctx, L, this.lastLine, bandY), this.bubbleK);
     this.storyRect = drawStory(ctx, L, sim);
+  }
+
+  // ── a desk's mouse ─────────────────────────────────────────────
+  /**
+   * What the mouse rests on now: a control (the button, the panel or its card, a story card), an organ of
+   * the figure (a click there helps the organ in the light, or opens its card once it has settled), the
+   * figure itself, or nothing.  Never on a touch screen (a finger has no hover).
+   */
+  overPart(sim: SwiatloSim): { part: 'story' | 'button' | 'panel' | 'organ' | 'body' | null; organ: OrganId | null } {
+    const hv = this.hover;
+    if (!hv || this.o.touch || !sim.started) return { part: null, organ: null };
+    const h = this.hit(hv.x, hv.y, sim);
+    if (h.kind === 'story' || h.kind === 'button' || h.kind === 'panel') return { part: h.kind, organ: null };
+    if (h.kind !== 'field') return { part: null, organ: null };
+    const L = this.L;
+    // the mouse is precise: an organ counts from its own outline and a few px around it
+    const organ = organAt((hv.x - L.fig.cx) / L.fig.H, (hv.y - L.fig.top) / L.fig.H, 6 / L.fig.H);
+    if (organ) return { part: 'organ', organ };
+    return { part: this.overFigure(hv.x, hv.y) ? 'body' : null, organ: null };
+  }
+
+  /** The cursor for the mouse where it rests: a hand over what a click acts on. */
+  cursor(sim: SwiatloSim): string {
+    const p = this.overPart(sim).part;
+    return p ? 'pointer' : 'default';
+  }
+
+  /** Whether (x, y) lies inside the figure's silhouette (as baked for this size). */
+  private overFigure(x: number, y: number): boolean {
+    const ctx = this.ctx, clip = this.fig?.clip;
+    if (!ctx || !clip) return false;
+    ctx.save();
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const inside = ctx.isPointInPath(clip, x * this.dpr, y * this.dpr);
+    ctx.restore();
+    return inside;
+  }
+
+  /** A hovered organ: a ring in its colour round each of its spots, a soft light, and its tag beside it. */
+  private drawHoverOrgan(ctx: CanvasRenderingContext2D, sim: SwiatloSim, o: OrganId, k: number): void {
+    const L = this.L, H = L.fig.H, hv = this.hover!;
+    const s = ORGAN_SPOT[o], hue = ORGAN[o].hue;
+    const xs = s.pair ? [s.x, -s.x] : [s.x];
+    ctx.save();
+    ctx.globalAlpha = k;
+    ctx.strokeStyle = hue;
+    ctx.lineWidth = Math.max(1.5, H * 0.0028);
+    ctx.setLineDash([H * 0.01, H * 0.007]);
+    for (const sx of xs) {
+      const p = figPt(L, sx, s.y);
+      glow(ctx, hue, p.x, p.y, (s.r + 0.035) * H, 0.22 * k);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, (s.r + 0.012) * H, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+    // the tag by the spot nearer the mouse, on the outer side of the body
+    const sx = xs.reduce((a, b) => (Math.abs(figPt(L, b, s.y).x - hv.x) < Math.abs(figPt(L, a, s.y).x - hv.x) ? b : a));
+    const p = figPt(L, sx, s.y);
+    const { title, sub } = hoverText(sim, o);
+    ctx.globalAlpha = k;
+    drawTag(ctx, L, p.x, p.y, (s.r + 0.03) * H, title, sub, hue);
+    ctx.globalAlpha = 1;
   }
 
   /** The band of light: a soft halo across the night, a bright core inside the body, the scan line, the threshold. */
@@ -297,7 +378,7 @@ export class SwiatloView {
       }
       ctx.setLineDash([]);
       // the band's lamp at its side (the gauge on the thing itself), on the side away from the panel, where it fits
-      const r = Math.max(7, H * 0.022);
+      const r = Math.max(7, H * LAMP_R);
       const rail = this.railX(r);
       const lx = rail ?? 0;
       if (rail !== null) {
@@ -326,7 +407,7 @@ export class SwiatloView {
   private railX(r: number): number | null {
     const L = this.L, H = L.fig.H;
     const away = L.panel.x > L.fig.cx ? -1 : 1;
-    const x = L.fig.cx + away * (H * 0.205 + H * 0.07);
+    const x = L.fig.cx + away * H * RAIL_X;
     const fits = away < 0 ? x - r >= L.left + 8 : x + r <= Math.min(L.right - 8, L.bubble.x + L.bubble.w);
     return fits ? x : null;
   }
@@ -334,7 +415,7 @@ export class SwiatloView {
   /** The scan's rail beside the figure: the nine stations as dots that light in their colours (gold-ringed when golden). */
   private drawRail(ctx: CanvasRenderingContext2D, sim: SwiatloSim, bandY: number, now: number): void {
     const L = this.L, H = L.fig.H;
-    const x = this.railX(Math.max(7, H * 0.022));
+    const x = this.railX(Math.max(7, H * LAMP_R));
     if (x === null) return;
     const y0 = L.fig.top + RULES.startV * H, y1 = L.fig.top + RULES.endV * H;
     ctx.save();
@@ -354,7 +435,7 @@ export class SwiatloView {
     for (const o of ORGANS) {
       const y = L.fig.top + ORGAN[o].v * H;
       const lit = sim.lit[o], here = sim.loop?.organ === o;
-      const r = here ? 4.5 + 1.2 * Math.sin(now * 4) : 3.5;
+      const r = (here ? 4.5 + 1.2 * Math.sin(now * 4) : 3.5) * L.k;
       ctx.beginPath();
       ctx.arc(x, y, Math.max(2.5, r), 0, TAU);
       ctx.fillStyle = lit > 0 ? ORGAN[o].hue : here ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.16)';
@@ -363,7 +444,7 @@ export class SwiatloView {
         ctx.strokeStyle = GOLD;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(x, y, 6, 0, TAU);
+        ctx.arc(x, y, 6 * L.k, 0, TAU);
         ctx.stroke();
       }
     }
@@ -638,7 +719,7 @@ export class SwiatloView {
   // ── input ──────────────────────────────────────────────────────
   /** What a tap at (x, y) lands on; on the field, also which organ of the figure (if any). */
   hit(x: number, y: number, sim: SwiatloSim): Hit & { organ?: OrganId | null } {
-    const h = hitTest(this.L, { story: sim.story ? (this.storyRect ?? this.L.story) : null, panel: this.panelRect }, x, y);
+    const h = hitTest(this.L, { story: sim.story ? (this.storyRect ?? this.L.story) : null, panel: this.panelRect, card: this.cardRect }, x, y);
     if (h.kind !== 'field') return h;
     const L = this.L, H = L.fig.H;
     const fx = (x - L.fig.cx) / H, fy = (y - L.fig.top) / H;
@@ -648,6 +729,6 @@ export class SwiatloView {
 
   targets(sim: SwiatloSim): TapTarget[] {
     if (!sim.started) return [];
-    return tapTargets(this.L, { story: sim.story ? (this.storyRect ?? this.L.story) : null, panel: this.panelRect });
+    return tapTargets(this.L, { story: sim.story ? (this.storyRect ?? this.L.story) : null, panel: this.panelRect, card: this.cardRect });
   }
 }

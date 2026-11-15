@@ -179,6 +179,8 @@ export interface SimInit {
   tuning: FocusTuning;
   /** the local hour (0..24) for cortisol's day curve */
   hour: number;
+  /** the player has a mouse, not a finger: Zofia says "click" where she speaks of the hands */
+  mouse?: boolean;
 }
 
 export class SwiatloSim {
@@ -296,7 +298,7 @@ export class SwiatloSim {
     this.lead = this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.finaleSec = finaleFor(this.plannedSec);
     this.plan = planBlocks(this.plannedSec, this.firstEver, init.rng);
-    this.talk = new Talk(m => linesOf(m), init.rng);
+    this.talk = new Talk(m => linesOf(m, init.mouse === true), init.rng);
     this.lit = Object.fromEntries(ORGANS.map(o => [o, 0])) as Record<OrganId, number>;
     this.glow = Object.fromEntries(ORGANS.map(o => [o, 0])) as Record<OrganId, number>;
   }

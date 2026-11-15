@@ -18,7 +18,7 @@ import { approach, clamp } from '../kit/juice';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
-  CLOSINGS, LINES, PATHOGEN, ROOT, STAGES, TIPS, loopSpec, pathogenName, placeName, stageName, unlockName,
+  CLOSINGS, LINES, LINES_MOUSE, PATHOGEN, ROOT, STAGES, TIPS, loopSpec, pathogenName, placeName, stageName, unlockName,
   type Coach, type CoachAt, type FactId, type PathogenId, type StageId, type UnlockId,
 } from './content';
 import { t, unit, pathogensText } from './i18n';
@@ -243,7 +243,22 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the player has a mouse, not a finger: Neo says "click" where he speaks of the hands */
+  mouse?: boolean;
 }
+
+/**
+ * What a tap at a world point would act on (a desktop's hover, `OdpSim.aimAt`): a rolling white cell in the
+ * vessel, a bacterium, an infected (or flagless) cell of the nose's lining, a spent neutrophil Makro can tidy, or
+ * the free tissue (a tap there sends the swarm to the nearest target).
+ */
+export type Aim =
+  | { kind: 'none' }
+  | { kind: 'field' }
+  | { kind: 'roller'; x: number; y: number }
+  | { kind: 'bug'; x: number; y: number; bug: PathogenId; tagged: boolean; capsule: boolean }
+  | { kind: 'epi' | 'hidden'; x: number; y: number; w: number }
+  | { kind: 'body'; x: number; y: number; r: number };
 
 export class OdpSim {
   readonly p: OdpProgress;
@@ -384,7 +399,7 @@ export class OdpSim {
     this.bestBefore = bestOf(this.p);
     this.pushesBase = this.p.pushes;
     this.finaleSec = finaleFor(this.plannedSec);
-    this.talk = new Talk(LINES, this.rng);
+    this.talk = new Talk(init.mouse ? LINES_MOUSE : LINES, this.rng);
   }
 
   // ── reading ──────────────────────────────────────────────────────────────────────
@@ -1922,6 +1937,33 @@ export class OdpSim {
       const o = this.findBug(b.x, b.y, 24, c);
       if (o) c.target = o.id;
     }
+  }
+
+  /**
+   * What a tap at (x, y) would act on, without acting (a desktop's hover): the same choices as `tap`, in its
+   * order — a rolling cell in the vessel, the nose's infected cells, a spent neutrophil, a bacterium within the
+   * tap's reach — else the free tissue.  Pure: no events, no state.
+   */
+  aimAt(x: number, y: number): Aim {
+    if (!this.started || this.phase === 'done' || this.card) return { kind: 'none' };
+    const R = RULES;
+    if (y >= R.wallY - 3 && this.flow.some(f => f.state === 'roll')) {
+      let best: Flow | null = null, bd = 22;
+      for (const f of this.flow) { if (f.state !== 'roll') continue; const d = Math.abs(f.x - x); if (d < bd) { bd = d; best = f; } }
+      if (best) return { kind: 'roller', x: best.x, y: R.lumenTop + R.neut.r * 0.85 * 0.95 };
+    }
+    if (this.scene === 'nose') {
+      let bi = -1, bd = R.epi.w * 0.9;
+      this.epi.forEach((e, i) => { const d = Math.abs(e.x - x); if (d < bd && (e.state === 'infected' || e.state === 'hidden') && Math.abs(y - R.epi.y) < 26) { bd = d; bi = i; } });
+      if (bi < 0) return { kind: 'field' };
+      const e = this.epi[bi];
+      return { kind: e.state === 'hidden' ? 'hidden' : 'epi', x: e.x, y: R.epi.y, w: this.W / Math.max(1, this.epi.length) };
+    }
+    const body = this.cells.find(c => c.kind === 'neut' && (c.state === 'body' || c.state === 'spent') && dist(c.x, c.y, x, y) <= c.r + 8);
+    if (body && this.makro) return { kind: 'body', x: body.x, y: body.y, r: body.r };
+    const near = this.findBug(x, y, R.tapPick);
+    if (near) return { kind: 'bug', x: near.x, y: near.y, bug: near.kind, tagged: near.tag >= 1, capsule: near.capsule && near.tag < 1 };
+    return { kind: 'field' };
   }
 
   /** The finger leads (a drag): the swarm (Makro in the alarm, the T cells in the nose) follows the point; null lets go. */
