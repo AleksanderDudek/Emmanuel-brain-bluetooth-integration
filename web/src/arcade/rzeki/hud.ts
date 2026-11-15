@@ -11,7 +11,7 @@ import { MIN_READ, MIN_TEXT } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageLayout, type PassageId } from '../kit/scripture';
 import { PLACE, giftName, lineAt, placeName, type PlaceId } from './content';
 import { t } from './i18n';
-import { type Layout, type Rect, storyRect } from './layout';
+import { type Layout, type Rect, labelRowH, storyRect } from './layout';
 import { GOLD, GOLD_HI, INK, LILAC, PEARL, WATER, fitFont, font, mix, rgbaPrefix, rr, wrap } from './paint';
 import { RULES } from './rules';
 import type { RzekiSim } from './sim';
@@ -22,9 +22,13 @@ interface Wrapped { key: string; lines: string[]; size: number; lineH: number }
 let wrapMemo: Wrapped | null = null;
 let verseMemo: { key: string; lay: PassageLayout; pages: string[][] } | null = null;
 
-/** The prayer wrapped into the band: from `px` down to `min` until it fits `maxLines` (memoised by text and box). */
-function wrapPrayer(ctx: CanvasRenderingContext2D, text: string, w: number, px: number, min: number, maxLines: number): Wrapped {
-  const key = `${text}|${Math.round(w)}|${px}|${min}|${maxLines}`;
+/**
+ * The prayer wrapped into the band: from `px` down to `min` until it fits `maxLines` (memoised by text and box).
+ * `balance` (a desktop's column): the same number of lines, made as even as they can be — no word left alone
+ * on the last line.
+ */
+function wrapPrayer(ctx: CanvasRenderingContext2D, text: string, w: number, px: number, min: number, maxLines: number, balance = false): Wrapped {
+  const key = `${text}|${Math.round(w)}|${px}|${min}|${maxLines}|${balance}`;
   if (wrapMemo?.key === key) return wrapMemo;
   let size = Math.max(min, px), lines: string[] = [];
   for (; size >= min; size -= 0.5) {
@@ -37,6 +41,14 @@ function wrapPrayer(ctx: CanvasRenderingContext2D, text: string, w: number, px: 
   if (lines.length > maxLines) {
     lines = lines.slice(0, maxLines);
     lines[maxLines - 1] = `${lines[maxLines - 1].replace(/[\s,;:.]+$/, '')}…`;
+  } else if (balance && lines.length > 1) {
+    // the narrowest measure that keeps the count of lines (a few halvings: memoised, so once per line of prayer)
+    let lo = ctx.measureText(text).width / lines.length, hi = w;
+    for (let i = 0; i < 12 && hi - lo > 1; i++) {
+      const mid = (lo + hi) / 2;
+      if (wrap(ctx, text, mid).length <= lines.length) hi = mid; else lo = mid;
+    }
+    lines = wrap(ctx, text, hi);
   }
   wrapMemo = { key, lines, size, lineH: Math.round(size * 1.34) };
   return wrapMemo;
@@ -79,6 +91,10 @@ let rowEase = 0;
 export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, dt: number, caption: { text: string; k: number }): void {
   const r = L.prayer;
   if (!sim.started || sim.story) return;
+  if (L.desk) {
+    drawPrayerDesk(ctx, L, sim, dt);
+    return;
+  }
   // a soft dark veil behind the words, never a hard box
   if (L.shape === 'tall') {
     const g = ctx.createLinearGradient(0, r.y - 14, 0, r.y + r.h + 8);
@@ -163,6 +179,62 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
   ctx.fillRect(cx - rw / 2, ruleY, rw, 1);
   const box = { x: r.x, y: ruleY + 7, w: r.w, h: rest ? r.y + r.h - (ruleY + 7) : bodyH };
   if (rest || !wr) drawAbide(ctx, L, sim, box, dt);
+  else drawLine(ctx, L, sim, box, wr);
+}
+
+/**
+ * The prayer's column on a desktop or a big screen (DESIGN §14): from the top down — its first row (the place's
+ * name, or rest's breath) level with the place, as the view keeps the column there (layout `wordsAt`), a gilded
+ * rule, then the line in balanced lines (or, in rest, the verse to abide in) — over a soft veil fitted to them.
+ */
+function drawPrayerDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, dt: number): void {
+  const r = L.prayer, cx = r.x + r.w / 2;
+  const lab = bandLabel(sim);
+  const lpx = fitFont(ctx, lab.text, r.w, Math.max(MIN_READ, L.font.label), MIN_READ, 700);
+  const rowH = labelRowH(L);
+  const rest = sim.restBlock && sim.stage !== 'whole';
+  const areaH = r.h - rowH - 10;
+  const ruleY = r.y + rowH + 3;
+  const box = { x: r.x, y: ruleY + 7, w: r.w, h: r.y + r.h - (ruleY + 7) };
+  let wr: Wrapped | null = null;
+  let bodyH: number;
+  if (!rest) {
+    const maxLines = Math.max(2, Math.min(5, Math.floor(areaH / Math.round(L.font.prayerMin * 1.34))));
+    wr = wrapPrayer(ctx, sim.stage === 'flow' && sim.stageT / RULES.flowSec >= 0.5 && sim.nextPlace ? lineAt(sim.nextPlace, sim.dir, sim.own) : sim.line,
+      r.w, Math.max(L.font.prayerMin, L.font.prayer), L.font.prayerMin, maxLines, true);
+    bodyH = Math.min(box.h, Math.max(wr.lines.length * wr.lineH, Math.round(26 * L.u)));
+    box.h = bodyH;
+  } else bodyH = Math.min(box.h, abideHeight(ctx, L, sim.verse, box));
+  // a soft dark veil fitted to the words, never a hard box
+  const groupH = rowH + 10 + bodyH;
+  ctx.save();
+  ctx.translate(cx, r.y + groupH / 2);
+  ctx.scale(r.w / 2 + 56 * L.u, groupH / 2 + 44 * L.u);
+  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+  g.addColorStop(0, 'rgba(6,4,22,.5)');
+  g.addColorStop(0.65, 'rgba(6,4,22,.34)');
+  g.addColorStop(1, 'rgba(6,4,22,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(-1, -1, 2, 2);
+  ctx.restore();
+  const rowMid = r.y + rowH / 2;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (rest) drawBreathRow(ctx, L, sim, cx, rowMid);
+  else {
+    ctx.font = font(lpx, 700);
+    ctx.fillStyle = lab.color;
+    ctx.fillText(lab.text, cx, rowMid);
+  }
+  // a short gilded rule under the row
+  const rw = Math.min(r.w * 0.3, 90 * L.u);
+  const rg = ctx.createLinearGradient(cx - rw / 2, 0, cx + rw / 2, 0);
+  rg.addColorStop(0, 'rgba(255,217,138,0)');
+  rg.addColorStop(0.5, 'rgba(255,217,138,.7)');
+  rg.addColorStop(1, 'rgba(255,217,138,0)');
+  ctx.fillStyle = rg;
+  ctx.fillRect(cx - rw / 2, ruleY, rw, 1);
+  if (rest || !wr) drawAbide(ctx, L, sim, box, dt, true);
   else drawLine(ctx, L, sim, box, wr);
 }
 
@@ -265,17 +337,39 @@ let verseClock = 0;
  * Rest: the place's verse to abide in.  When it does not fit the band whole even at the reading size, it is
  * shown in pages of whole lines that turn slowly, each with its reference — never cut.
  */
-function drawAbide(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, box: Rect, dt = 1 / 60): void {
+function drawAbide(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, box: Rect, dt = 1 / 60, top = false): void {
   const id: PassageId = sim.verse;
   const vh = box.h;
   if (vh < 28) return;
   verseClock += dt;
   const cx = box.x + box.w / 2;
+  const { lay, pages } = abideLayout(ctx, L, id, box);
+  const colors = { text: 'rgba(246,238,255,.92)', ref: 'rgba(255,226,170,.78)' };
+  if (!pages.length) {
+    drawPassage(ctx, passage(id), lay, cx, box.y + (top ? 0 : Math.max(0, (vh - lay.height) / 2)), colors);
+    return;
+  }
+  const n = Math.floor(verseClock / VERSE_PAGE) % pages.length, inPage = verseClock % VERSE_PAGE;
+  const fade = clamp(Math.min(inPage / VERSE_FADE, (VERSE_PAGE - inPage) / VERSE_FADE));
+  const lines = pages[n];
+  const h = lines.length * lay.lineH + Math.round(lay.size * 0.55) + lay.refSize;
+  ctx.globalAlpha = fade;
+  drawPassage(ctx, passage(id), { ...lay, lines, height: h }, cx, box.y + (top ? 0 : Math.max(0, (vh - h) / 2)), colors);
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * The verse laid out for its box (memoised): whole at up to the layout's verse size when it fits, else all its
+ * lines at the reading size in pages of what fits.  (A passage may end with its own "…": only a layout that
+ * does not fit is paged.)
+ */
+function abideLayout(ctx: CanvasRenderingContext2D, L: Layout, id: PassageId, box: Rect): { lay: PassageLayout; pages: string[][] } {
+  const vh = box.h;
   const key = `${id}|${Math.round(box.w)}|${Math.round(vh)}|${L.font.verse}`;
   if (verseMemo?.key !== key) {
     let lay = layoutPassage(ctx, passage(id), box.w, vh, { max: Math.max(MIN_READ, L.font.verse), min: MIN_READ });
     const pages: string[][] = [];
-    if (!lay.fits || lay.lines.join(' ').endsWith('…')) {
+    if (!lay.fits) {
       // all its lines at the reading size, in pages of what fits
       lay = layoutPassage(ctx, passage(id), box.w, 100000, { max: MIN_READ, min: MIN_READ });
       const per = Math.max(1, Math.floor((vh - lay.refSize - Math.round(lay.size * 0.55)) / lay.lineH));
@@ -284,19 +378,15 @@ function drawAbide(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, box:
     }
     verseMemo = { key, lay, pages };
   }
-  const { lay, pages } = verseMemo;
-  const colors = { text: 'rgba(246,238,255,.92)', ref: 'rgba(255,226,170,.78)' };
-  if (!pages.length) {
-    drawPassage(ctx, passage(id), lay, cx, box.y + Math.max(0, (vh - lay.height) / 2), colors);
-    return;
-  }
-  const n = Math.floor(verseClock / VERSE_PAGE) % pages.length, inPage = verseClock % VERSE_PAGE;
-  const fade = clamp(Math.min(inPage / VERSE_FADE, (VERSE_PAGE - inPage) / VERSE_FADE));
-  const lines = pages[n];
-  const h = lines.length * lay.lineH + Math.round(lay.size * 0.55) + lay.refSize;
-  ctx.globalAlpha = fade;
-  drawPassage(ctx, passage(id), { ...lay, lines, height: h }, cx, box.y + Math.max(0, (vh - h) / 2), colors);
-  ctx.globalAlpha = 1;
+  return verseMemo;
+}
+
+/** How tall the verse is drawn in its box (its tallest page when it turns pages). */
+function abideHeight(ctx: CanvasRenderingContext2D, L: Layout, id: PassageId, box: Rect): number {
+  if (box.h < 28) return 0;
+  const { lay, pages } = abideLayout(ctx, L, id, box);
+  if (!pages.length) return lay.height;
+  return Math.max(...pages.map(p => p.length)) * lay.lineH + Math.round(lay.size * 0.55) + lay.refSize;
 }
 
 // ── the narrator's caption ───────────────────────────────────────
@@ -345,19 +435,24 @@ function pageOf(sim: RzekiSim): Page | null {
 
 let storyMemo: { key: string; lay: PassageLayout; lines: string[]; titlePx: number; textPx: number; h: number } | null = null;
 
-/** The story card: a glass card with its title, a sentence or two, its verse, and how to go on. Returns its rectangle. */
-export function drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim): Rect | null {
+/**
+ * The story card: a glass card with its title, a sentence or two, its verse, and how to go on. Returns its
+ * rectangle.  `hover`: the mouse is over it (a click turns the page) — its rim and its "go on" brighten.
+ */
+export function drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, hover = false): Rect | null {
   const s = sim.story, pg = pageOf(sim);
   if (!s || !pg) return null;
   const u = L.u, inner = Math.min(L.story.w, 560 * u) - 2 * 18;
-  const tapPx = 13;
+  // how to go on: read from further away on a desktop, the page dots with room of their own above it
+  const tapPx = L.desk ? Math.round(13 * u) : 13;
+  const dotsGap = L.desk ? Math.round(14 * u) + 10 : 14, dotsUp = L.desk ? Math.round(10 * u) : 6, dotStep = L.desk ? 12 * u : 12;
   const key = `${s.kind}${s.page}|${Math.round(inner)}|${Math.round(L.story.h)}`;
   if (storyMemo?.key !== key) {
     const titlePx = fitFont(ctx, pg.title, inner, 26 * u, 18, 600, true);
     const textPx = Math.max(MIN_READ + 1, Math.round(15 * u));
     ctx.font = font(textPx, 500);
     const lines = wrap(ctx, pg.text, inner);
-    const fixed = 18 + titlePx * 1.3 + 10 + lines.length * Math.round(textPx * 1.4) + 14 + tapPx * 1.5 + 16;
+    const fixed = 18 + titlePx * 1.3 + 10 + lines.length * Math.round(textPx * 1.4) + dotsGap + tapPx * 1.5 + 16;
     const room = Math.max(60, L.story.h - fixed - 12);
     const lay = layoutPassage(ctx, passage(pg.verse), inner, room, { max: Math.max(MIN_READ, Math.round(16 * u)), min: MIN_READ });
     storyMemo = { key, lay, lines, titlePx, textPx, h: fixed + 12 + lay.height };
@@ -375,8 +470,8 @@ export function drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSi
   g.addColorStop(1, 'rgba(14,10,38,.97)');
   ctx.fillStyle = g;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,217,138,.75)';
-  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = hover ? 'rgba(255,231,180,.95)' : 'rgba(255,217,138,.75)';
+  ctx.lineWidth = hover ? 2 : 1.4;
   ctx.stroke();
   const cx = r.x + r.w / 2;
   let y = r.y + 18;
@@ -394,17 +489,17 @@ export function drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSi
   }
   y += 12;
   drawPassage(ctx, passage(pg.verse), m.lay, cx, y, { text: '#f6e9cf', ref: 'rgba(255,226,170,.78)' });
-  y += m.lay.height + 14;
+  y += m.lay.height + dotsGap;
   // the pages, as dots, and how to go on
   if (s.pages > 1) {
     for (let i = 0; i < s.pages; i++) {
       ctx.beginPath();
-      ctx.arc(cx + (i - (s.pages - 1) / 2) * 12, y - 6, i === s.page ? 3 : 2, 0, Math.PI * 2);
+      ctx.arc(cx + (i - (s.pages - 1) / 2) * dotStep, y - dotsUp, (i === s.page ? 3 : 2) * (L.desk ? u : 1), 0, Math.PI * 2);
       ctx.fillStyle = i === s.page ? GOLD : 'rgba(255,217,138,.4)';
       ctx.fill();
     }
   }
-  ctx.fillStyle = 'rgba(226,220,255,.75)';
+  ctx.fillStyle = hover ? GOLD_HI : 'rgba(226,220,255,.75)';
   ctx.font = font(tapPx, 600);
   ctx.fillText(L.touch ? t('story.tap') : t('story.tap.keys'), cx, y);
   ctx.restore();

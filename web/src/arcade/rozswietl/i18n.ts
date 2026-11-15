@@ -76,6 +76,7 @@ const pl = {
 
   // the strategies (never "concentrate harder"; one counting, one recalling, one with letters)
   'task.warm': 'Stuknij kafel — światło napiera na niego od spodu.',
+  'task.warm.mouse': 'Kliknij kafel — światło napiera na niego od spodu.',
   'task.push.see': 'Zobacz, kto stoi pod mozaiką: twarze, kolory, światło.',
   'task.push.count': 'Odejmuj w myślach po 7 od 100: 93, 86, 79…',
   'task.push.letter': 'Wymieniaj w myślach dobre słowa na kolejne litery: A, B, C…',
@@ -91,6 +92,7 @@ const pl = {
   // how to play
   'howto.goal': 'Rozbij ciemną mozaikę światłem i odsłoń jasny obraz, który jest pod nią.',
   'howto.tap': 'Stuknij kafel — światło napiera właśnie na niego; stuknij znowu — pukasz i pęka szybciej.',
+  'howto.click': 'Kliknij kafel — światło napiera właśnie na niego; kliknij znowu — pukasz i pęka szybciej.',
   'howto.drag': 'Przeciągnij palcem po kaflach — światło idzie za soczewką nad palcem.',
   'howto.drag.mouse': 'Przeciągnij myszą po kaflach — światło idzie za soczewką.',
   'howto.flare': 'Gdy Rozbłysk jest gotowy, stuknij mozaikę: światło wybuchnie w tym miejscu.',
@@ -100,7 +102,9 @@ const pl = {
 
   // coach marks (first time only)
   'coach.aim': 'Stuknij kafel: światło zacznie na niego napierać',
+  'coach.aim.keys': 'Kliknij kafel: światło zacznie na niego napierać',
   'coach.knock': 'Stukaj dalej: każde puknięcie to nowa rysa',
+  'coach.knock.keys': 'Klikaj dalej albo naciskaj Spację: każde puknięcie to nowa rysa',
   'coach.halo': 'Złota obręcz to Twoje skupienie, kropkowana linia to próg',
   'coach.chain': 'Pęknięty kafel oddaje światło sąsiadom — to łańcuch',
   'coach.rest': 'Odpoczynek: złoto płynie po spoinach odsłoniętych kawałków',
@@ -169,6 +173,7 @@ const pl = {
   'panel.nextAuto': 'Wybierze gra',
   'panel.nextIs': 'Następny: {title}',
   'panel.choose': 'Stuknij obraz w albumie, by zacząć od niego następną sesję.',
+  'panel.choose.mouse': 'Kliknij obraz w albumie, by zacząć od niego następną sesję.',
   'panel.source': 'Obrazy w grze',
   'panel.src.builtin': 'Wbudowane',
   'panel.src.own': 'Moje',
@@ -314,6 +319,7 @@ const en: Cat = {
   'pair.zmeczenie.reveal': 'Dawn. New strength for a new day.',
 
   'task.warm': 'Tap a tile: the light presses on it from beneath.',
+  'task.warm.mouse': 'Click a tile: the light presses on it from beneath.',
   'task.push.see': 'See who is standing under the mosaic: faces, colours, light.',
   'task.push.count': 'Subtract 7 from 100 in your head: 93, 86, 79…',
   'task.push.letter': 'Name good words in your head, letter by letter: A, B, C…',
@@ -328,6 +334,7 @@ const en: Cat = {
 
   'howto.goal': 'Break the dark mosaic open with light and uncover the bright picture beneath it.',
   'howto.tap': 'Tap a tile: the light presses on that one; tap again to knock and it cracks faster.',
+  'howto.click': 'Click a tile: the light presses on that one; click again to knock and it cracks faster.',
   'howto.drag': 'Drag your finger across the tiles: the light follows the lens above your finger.',
   'howto.drag.mouse': 'Drag the mouse across the tiles: the light follows the lens.',
   'howto.flare': 'When the flare is ready, tap the mosaic: the light bursts out right there.',
@@ -336,7 +343,9 @@ const en: Cat = {
   'howto.tip2': 'When the golden ring is wide, the light reaches the neighbours and chains begin.',
 
   'coach.aim': 'Tap a tile: the light will start pressing on it',
+  'coach.aim.keys': 'Click a tile: the light will start pressing on it',
   'coach.knock': 'Keep tapping: every knock is a new crack',
+  'coach.knock.keys': 'Keep clicking or press Space: every knock is a new crack',
   'coach.halo': 'The golden ring is your focus; the dotted line is the threshold',
   'coach.chain': 'A broken tile passes its light to the neighbours: a chain',
   'coach.rest': 'Rest: gold flows along the seams of the uncovered pieces',
@@ -401,6 +410,7 @@ const en: Cat = {
   'panel.nextAuto': 'The game picks',
   'panel.nextIs': 'Next: {title}',
   'panel.choose': 'Tap a picture in the album to start your next session with it.',
+  'panel.choose.mouse': 'Click a picture in the album to start your next session with it.',
   'panel.source': 'Pictures in play',
   'panel.src.builtin': 'Built-in',
   'panel.src.own': 'Mine',
@@ -542,6 +552,7 @@ const de: Cat = {
   'pair.zmeczenie.reveal': 'Morgen. Neue Kraft für einen neuen Tag.',
 
   'task.warm': 'Tippe eine Kachel an: Das Licht drückt von unten auf sie.',
+  'task.warm.mouse': 'Klicke eine Kachel an: Das Licht drückt von unten auf sie.',
   'task.push.see': 'Sieh, wer unter dem Mosaik steht: Gesichter, Farben, Licht.',
   'task.push.count': 'Zieh im Kopf von 100 immer 7 ab: 93, 86, 79…',
   'task.push.letter': 'Nenn im Kopf gute Wörter, Buchstabe für Buchstabe: A, B, C…',
@@ -556,6 +567,7 @@ const de: Cat = {
 
   'howto.goal': 'Brich das dunkle Mosaik mit Licht auf und leg das helle Bild darunter frei.',
   'howto.tap': 'Tippe eine Kachel an: Das Licht drückt auf genau sie; tipp noch einmal, dann klopfst du und sie bricht schneller.',
+  'howto.click': 'Klicke eine Kachel an: Das Licht drückt auf genau sie; klick noch einmal, dann klopfst du und sie bricht schneller.',
   'howto.drag': 'Zieh den Finger über die Kacheln: Das Licht folgt der Linse über deinem Finger.',
   'howto.drag.mouse': 'Zieh die Maus über die Kacheln: Das Licht folgt der Linse.',
   'howto.flare': 'Ist das Aufleuchten bereit, tippe aufs Mosaik: Dort bricht das Licht hervor.',
@@ -564,7 +576,9 @@ const de: Cat = {
   'howto.tip2': 'Ist der goldene Ring weit, erreicht das Licht die Nachbarn, und Ketten beginnen.',
 
   'coach.aim': 'Tippe eine Kachel an: Das Licht beginnt auf sie zu drücken',
+  'coach.aim.keys': 'Klicke eine Kachel an: Das Licht beginnt auf sie zu drücken',
   'coach.knock': 'Tipp weiter: Jedes Klopfen ist ein neuer Riss',
+  'coach.knock.keys': 'Klick weiter oder drück die Leertaste: Jedes Klopfen ist ein neuer Riss',
   'coach.halo': 'Der goldene Ring ist dein Fokus, die gepunktete Linie die Schwelle',
   'coach.chain': 'Eine gebrochene Kachel gibt ihr Licht an die Nachbarn weiter: eine Kette',
   'coach.rest': 'Ruhe: Gold fließt durch die Fugen der freigelegten Stücke',
@@ -629,6 +643,7 @@ const de: Cat = {
   'panel.nextAuto': 'Das Spiel wählt',
   'panel.nextIs': 'Als Nächstes: {title}',
   'panel.choose': 'Tippe ein Bild im Album an, um die nächste Sitzung damit zu beginnen.',
+  'panel.choose.mouse': 'Klicke ein Bild im Album an, um die nächste Sitzung damit zu beginnen.',
   'panel.source': 'Bilder im Spiel',
   'panel.src.builtin': 'Eingebaut',
   'panel.src.own': 'Meine',
@@ -770,6 +785,7 @@ const sv: Cat = {
   'pair.zmeczenie.reveal': 'Gryning. Nya krafter för en ny dag.',
 
   'task.warm': 'Tryck på en platta: ljuset trycker på den underifrån.',
+  'task.warm.mouse': 'Klicka på en platta: ljuset trycker på den underifrån.',
   'task.push.see': 'Se vem som står under mosaiken: ansikten, färger, ljus.',
   'task.push.count': 'Dra 7 från 100 i tanken: 93, 86, 79…',
   'task.push.letter': 'Säg goda ord i tanken, bokstav för bokstav: A, B, C…',
@@ -784,6 +800,7 @@ const sv: Cat = {
 
   'howto.goal': 'Bryt upp den mörka mosaiken med ljus och frilägg den ljusa bilden under den.',
   'howto.tap': 'Tryck på en platta: ljuset trycker just på den; tryck igen för att knacka, så spricker den fortare.',
+  'howto.click': 'Klicka på en platta: ljuset trycker just på den; klicka igen för att knacka, så spricker den fortare.',
   'howto.drag': 'Dra fingret över plattorna: ljuset följer linsen ovanför fingret.',
   'howto.drag.mouse': 'Dra musen över plattorna: ljuset följer linsen.',
   'howto.flare': 'När ljusblixten är redo, tryck på mosaiken: där bryter ljuset fram.',
@@ -792,7 +809,9 @@ const sv: Cat = {
   'howto.tip2': 'När den gyllene ringen är vid når ljuset grannarna och kedjor börjar.',
 
   'coach.aim': 'Tryck på en platta: ljuset börjar trycka på den',
+  'coach.aim.keys': 'Klicka på en platta: ljuset börjar trycka på den',
   'coach.knock': 'Fortsätt trycka: varje knackning är en ny spricka',
+  'coach.knock.keys': 'Fortsätt klicka eller tryck på mellanslag: varje knackning är en ny spricka',
   'coach.halo': 'Den gyllene ringen är ditt fokus, den prickade linjen är tröskeln',
   'coach.chain': 'En bruten platta ger sitt ljus till grannarna: en kedja',
   'coach.rest': 'Vila: guld flyter längs fogarna på de friade bitarna',
@@ -857,6 +876,7 @@ const sv: Cat = {
   'panel.nextAuto': 'Spelet väljer',
   'panel.nextIs': 'Nästa: {title}',
   'panel.choose': 'Tryck på en bild i albumet för att börja nästa session med den.',
+  'panel.choose.mouse': 'Klicka på en bild i albumet för att börja nästa session med den.',
   'panel.source': 'Bilder i spelet',
   'panel.src.builtin': 'Inbyggda',
   'panel.src.own': 'Mina',

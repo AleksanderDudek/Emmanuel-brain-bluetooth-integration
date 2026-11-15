@@ -111,10 +111,22 @@ class RzekiGame implements ArcadeGame {
    * turns a story card's page.  It answers at once: a ring under the finger.
    */
   pointer(e: PointerInput): void {
+    if (!this.env.touch) this.mouseAt(e);
     if (e.type !== 'down') return;
     if (!this.sim.story) this.view.touch(e.x, e.y);
     if (this.sim.stay() && this.env.haptics && !this.sim.story) buzz(5);
     this.drain();
+  }
+
+  /**
+   * A desktop's mouse (DESIGN §14): the place a click would stay with answers with a ring of light, and the cursor
+   * says a click does something — anywhere in the play (a click anywhere stays with the place), on a story card.
+   */
+  private mouseAt(e: PointerInput): void {
+    const v = this.view;
+    v.hover(e.x, e.y);
+    const on = this.sim.story ? v.overStory(e.x, e.y) : e.y >= v.L.top;
+    this.env.canvas.style.cursor = on ? 'pointer' : '';
   }
 
   key(key: string, down: boolean): boolean {
@@ -204,6 +216,7 @@ class RzekiGame implements ArcadeGame {
   destroy(): void {
     this.song?.stop(0.4);
     this.song = null;
+    this.env.canvas.style.cursor = '';
   }
 }
 
@@ -221,12 +234,12 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play, for the hand the player has: taps on a phone, Space and Enter on a keyboard. */
+/** How to play, for the hand the player has: taps on a phone; a click, Space and Enter on a desktop. */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('howto.goal'),
     hands: [
-      { gesture: 'tap', text: t('howto.tap') },
+      { gesture: 'tap', text: t(touch ? 'howto.tap' : 'howto.click') },
       ...(touch ? [] : [{ gesture: 'keys' as const, text: t('howto.keys') }]),
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],

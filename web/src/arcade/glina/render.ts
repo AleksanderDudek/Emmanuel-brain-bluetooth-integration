@@ -62,12 +62,23 @@ export class GlinaView {
   private cardRect: Rect | null = null;
   /** the control last pressed, how long ago (s), and whether a finger still holds it */
   private pressed: { key: string; t: number; held: boolean } | null = null;
+  /** the primary input is a finger (its words say tap; a mouse's say click) */
+  private readonly touch: boolean;
+  /**
+   * A desktop's mouse (DESIGN §14), set by the game each frame: the control under it ('Gotowe', 'glazing Gotowe',
+   * 'glaze …', 'pattern …'), where a press would take the clay while shaping (the wall at a point, or the rim at a
+   * height), and the band a stroke would paint on the glazing piece (its height u).
+   */
+  hoverKey: string | null = null;
+  hoverClay: { mode: 'wall' | 'rim'; x: number; y: number } | null = null;
+  hoverBand: number | null = null;
 
-  constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean }) {
+  constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean; touch?: boolean }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('canvas 2d unavailable');
     this.ctx = ctx;
     this.reduced = opts.reducedMotion;
+    this.touch = opts.touch ?? true;
     this.shake = new Shake(opts.reducedMotion);
   }
 
@@ -75,7 +86,7 @@ export class GlinaView {
 
   resize(w: number, h: number, dpr: number, insets: Insets | number): void {
     this.size = { w, h, dpr };
-    this.L = layout(w, h, insets);
+    this.L = layout(w, h, insets, this.touch);
     this.pal = null;
   }
 
@@ -456,7 +467,7 @@ export class GlinaView {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.font = font(800, Math.max(14 * this.L.u, g.r * (g.big ? 0.12 : 0.17)), SANS);
-    const label = sim.kiln === 'heat' ? t('ui.heating') : sim.kiln === 'fire' ? t('ui.tapFire') : t('ui.heat');
+    const label = sim.kiln === 'heat' ? t('ui.heating') : sim.kiln === 'fire' ? t(this.touch ? 'ui.tapFire' : 'ui.tapFire.mouse') : t('ui.heat');
     ctx.fillText(label, g.x, g.y - g.r * 0.2);
     // flames under the gauge: calm and blue-gold with even heat, flickering orange without
     if (g.big) {
@@ -739,7 +750,10 @@ export class GlinaView {
           hand(ctx, p.x, p.y, 40 * L.u, p.x >= L.axis ? 1 : -1, this.stroke > 0 ? 1 : 0.5, 1);
         }
       }
-      if (sim.wheel === 'shape') this.drawDone(L.done, this.pressK('Gotowe'));
+      if (sim.wheel === 'shape') {
+        if (!sim.finger) this.drawClayHover(sim, sc);
+        this.drawDone(L.done, this.pressK('Gotowe'), this.hoverKey === 'Gotowe');
+      }
     } else if (this.cut && this.cut.t < 0.8) {
       const pc = this.cut.piece, k = ease.outCubic(this.cut.t / 0.8);
       const sc = this.scaleFor(pc.order.target);
@@ -887,18 +901,72 @@ export class GlinaView {
     }
   }
 
-  /** The Gotowe button: a pill with an offset shadow (no shadowBlur), darker and lower while pressed. */
-  private drawDone(r: Rect, press = 0): void {
+  /**
+   * A desktop's hover on the clay: a ghost of the potter's hand where a press would take the wall, or — on the
+   * rim — a dashed line across the pot at the height the rim would go to, the hand at its edge.
+   */
+  private drawClayHover(sim: GlinaSim, sc: number): void {
+    const c = this.hoverClay, pot = sim.pot;
+    if (!c || !pot) return;
+    const { ctx, L } = this;
+    const side = c.x >= L.axis ? 1 : -1;
+    ctx.save();
+    if (c.mode === 'rim') {
+      const half = Math.max(radiusAt(pot.r, 1), 2) * sc + 18 * L.u;
+      ctx.strokeStyle = 'rgba(59,42,34,.6)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.moveTo(L.axis - half, c.y);
+      ctx.lineTo(L.axis + half, c.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 0.55;
+      hand(ctx, L.axis + side * half, c.y, 40 * L.u, side, 0, 1);
+    } else {
+      ctx.globalAlpha = 0.5;
+      hand(ctx, c.x, c.y, 40 * L.u, side, 0, 1);
+    }
+    ctx.restore();
+  }
+
+  /** A desktop's hover on the glazing piece: the band a stroke would paint there, a dashed ring round the piece. */
+  private drawBandHover(sim: GlinaSim, pc: Piece, P: Palette, sc: number): void {
+    const u = this.hoverBand;
+    if (u === null) return;
+    const { ctx } = this;
+    const y = P.floor - u * pc.H * sc, r = Math.max(4, radiusAt(pc.r, u) * sc + 3);
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 5]);
+    ctx.strokeStyle = 'rgba(255,248,236,.9)';
+    ctx.beginPath();
+    ctx.ellipse(this.L.axis, y, r, r * 0.16, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(59,42,34,.55)';
+    ctx.lineDashOffset = 5.5;
+    ctx.stroke();
+    ctx.restore();
+    void sim;
+  }
+
+  /** The Gotowe button: a pill with an offset shadow (no shadowBlur), darker and lower while pressed, lit under a mouse. */
+  private drawDone(r: Rect, press = 0, hover = false): void {
     const { ctx, L } = this;
     const dy = 2 * press;
     ctx.fillStyle = 'rgba(59,42,34,.28)';
     ctx.beginPath();
     ctx.roundRect(r.x + 1, r.y + 4, r.w, r.h, r.h / 2);
     ctx.fill();
-    ctx.fillStyle = press > 0 ? mix(C.fig, '#000000', 0.18 * press) : C.fig;
+    ctx.fillStyle = press > 0 ? mix(C.fig, '#000000', 0.18 * press) : hover ? mix(C.fig, '#ffffff', 0.14) : C.fig;
     ctx.beginPath();
     ctx.roundRect(r.x, r.y + dy, r.w, r.h, r.h / 2);
     ctx.fill();
+    if (hover && press <= 0) {
+      ctx.strokeStyle = 'rgba(255,248,236,.9)';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
     ctx.fillStyle = '#FFF8EC';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -934,6 +1002,7 @@ export class GlinaView {
       bands: pc.bands.map(b => ({ u: b.u, glaze: b.glaze, pattern: b.pattern, k: b.t })),
     });
     drawVessel(ctx, this.pot);
+    this.drawBandHover(sim, pc, P, sc);
     // the palette: upright a sheet under the thumb
     if (L.portrait) {
       ctx.fillStyle = 'rgba(59,42,34,.14)';
@@ -954,6 +1023,14 @@ export class GlinaView {
         ctx.arc(s.x, s.y, s.r + 4, 0, TAU);
         ctx.stroke();
       }
+      if (this.hoverKey === `glaze ${g}`) {
+        // a mouse over it: a ring of light outside the brush's ring
+        ctx.strokeStyle = 'rgba(255,248,236,.95)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r + 8, 0, TAU);
+        ctx.stroke();
+      }
       if (pc.order.glaze === g || pc.order.band?.glaze === g) {
         ctx.fillStyle = C.terracotta;
         ctx.beginPath();
@@ -965,13 +1042,13 @@ export class GlinaView {
     sim.p.patterns.forEach((p, i) => {
       const r = P.patterns[i];
       if (!r) return;
-      const on = sim.brush.pattern === p, press = this.pressK(`pattern ${p}`);
-      ctx.fillStyle = on ? '#FFF8EC' : press > 0 ? 'rgba(255,248,236,.92)' : 'rgba(255,248,236,.72)';
+      const on = sim.brush.pattern === p, press = this.pressK(`pattern ${p}`), hov = this.hoverKey === `pattern ${p}`;
+      ctx.fillStyle = on || hov ? '#FFF8EC' : press > 0 ? 'rgba(255,248,236,.92)' : 'rgba(255,248,236,.72)';
       ctx.beginPath();
       ctx.roundRect(r.x, r.y, r.w, r.h, 10);
       ctx.fill();
-      if (on) {
-        ctx.strokeStyle = C.ink;
+      if (on || hov) {
+        ctx.strokeStyle = on ? C.ink : 'rgba(59,42,34,.55)';
         ctx.lineWidth = 2;
         ctx.stroke();
       }
@@ -983,7 +1060,7 @@ export class GlinaView {
         ctx.fill();
       }
     });
-    this.drawDone(P.done, this.pressK('glazing Gotowe'));
+    this.drawDone(P.done, this.pressK('glazing Gotowe'), this.hoverKey === 'glazing Gotowe');
   }
 
   // ── Szamot ──────────────────────────────────────────────────────
@@ -1062,7 +1139,7 @@ export class GlinaView {
     ctx.fillStyle = C.muted;
     ctx.font = font(700, 14 * u, SANS);
     ctx.textBaseline = 'bottom';
-    ctx.fillText(t('ui.tapOn'), cx, y + h - 10);
+    ctx.fillText(t(this.touch ? 'ui.tapOn' : 'ui.tapOn.mouse'), cx, y + h - 10);
     ctx.restore();
   }
 

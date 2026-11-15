@@ -141,6 +141,7 @@ class RozGame implements ArcadeGame {
     if (this.sim.started && this.press === null) this.sim.refit(this.view.aspect);
     this.sim.update(dt, f, t);
     this.drain();
+    this.view.hoverCell = this.hoverCell();
     this.view.update(dt, this.sim);
     this.sound.update(dt, this.sim);
     this.hintCool -= dt;
@@ -160,6 +161,7 @@ class RozGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view;
+    if (!this.env.touch) this.mouseAt(e);
     if (e.type === 'down') {
       if (this.finger !== null && this.finger !== e.id) this.letGo();
       this.finger = e.id;
@@ -193,6 +195,26 @@ class RozGame implements ArcadeGame {
       return;
     }
     this.letGo();
+  }
+
+  /**
+   * A desktop's mouse (DESIGN §14): the view shows the tile a click would act on (`hoverCell`, kept fresh in
+   * update); the cursor says where a click does something — the mosaic, a card.
+   */
+  private mouseAt(e: PointerInput): void {
+    const v = this.view;
+    v.mouse = { x: e.x, y: e.y };
+    const r = v.cardRect;
+    const on = this.sim.story ? !!r && e.x >= r.x && e.x <= r.x + r.w && e.y >= r.y && e.y <= r.y + r.h : v.inFrame(e.x, e.y, 12);
+    this.env.canvas.style.cursor = on ? 'pointer' : '';
+  }
+
+  /** The tile a click at the mouse would act on now (none while dragging, off the mosaic, on a phone). */
+  private hoverCell(): number {
+    const v = this.view, m = v.mouse;
+    if (this.env.touch || !m || this.press?.moved || !v.inFrame(m.x, m.y, 12)) return -1;
+    const f = v.frame;
+    return this.sim.hoverAt(v.toPic(clamp(m.x, f.x, f.x + f.w), clamp(m.y, f.y, f.y + f.h)));
   }
 
   private letGo(): void {
@@ -257,7 +279,9 @@ class RozGame implements ArcadeGame {
     const s = this.sim, b = s.block;
     if (!s.started || s.phase !== 'play' || !b || b.kind === 'warmup') {
       const next = s.started && s.phase === 'play' && b?.kind === 'warmup' && s.telegraphed && s.next ? (s.next.kind === 'push' ? 'focus' : 'rest') : null;
-      return { want: 'free', blind: false, task: s.task || undefined, left: b && s.phase === 'play' ? Math.max(0, b.dur - s.blockT) : undefined, next };
+      // the warm-up's line speaks of the hand the player has (a click on a desktop)
+      const task = b?.kind === 'warmup' && !this.env.touch ? t('task.warm.mouse') : s.task;
+      return { want: 'free', blind: false, task: task || undefined, left: b && s.phase === 'play' ? Math.max(0, b.dur - s.blockT) : undefined, next };
     }
     const nb = s.next;
     return {
@@ -297,6 +321,7 @@ class RozGame implements ArcadeGame {
   destroy(): void {
     this.alive = false;
     this.letGo();
+    this.env.canvas.style.cursor = '';
   }
 }
 
@@ -339,7 +364,7 @@ function ashAndRain(c: HTMLCanvasElement): HTMLCanvasElement {
 
 /** A coach mark's words for the hand the player has: a finger never hears of keys, a keyboard may. */
 export function coachText(what: Coach, touch: boolean): string {
-  if (!touch && (what === 'flare' || what === 'drag')) return t(`coach.${what}.keys` as Key);
+  if (!touch && (what === 'flare' || what === 'drag' || what === 'aim' || what === 'knock')) return t(`coach.${what}.keys` as Key);
   return t(`coach.${what}` as Key);
 }
 
@@ -355,12 +380,12 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play, for the hand the player has: a flare by a tap on a phone, Space on a keyboard. */
+/** How to play, for the hand the player has: taps and a flare by a tap on a phone; clicks and Space on a desktop. */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('howto.goal'),
     hands: [
-      { gesture: 'tap', text: t('howto.tap') },
+      { gesture: 'tap', text: t(touch ? 'howto.tap' : 'howto.click') },
       { gesture: 'drag', text: touch ? t('howto.drag') : t('howto.drag.mouse') },
       touch ? { gesture: 'tap', text: t('howto.flare') } : { gesture: 'keys', text: t('howto.keys') },
     ],

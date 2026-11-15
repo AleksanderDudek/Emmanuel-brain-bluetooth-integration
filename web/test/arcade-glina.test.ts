@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ArcadeAudio } from '../src/arcade/kit/audio';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets, TapTarget } from '../src/arcade/kit/types';
 import glina, { LIFT } from '../src/arcade/glina/index';
 import { DOCK_ROW, EDGE, layout, palette, stageScale } from '../src/arcade/glina/layout';
@@ -656,7 +656,7 @@ function phoneGame(progress: GlinaProgress, ins: Insets, o: { texts?: Map<string
   const ctx = fakeCtx(o.texts);
   const hints: string[] = [];
   const env = {
-    canvas: { getContext: () => ctx } as unknown as HTMLCanvasElement, hud: document.createElement('div'), audio: silent,
+    canvas: { getContext: () => ctx, style: {} } as unknown as HTMLCanvasElement, hud: document.createElement('div'), audio: silent,
     progress, rng: mulberry32(5), day: '2026-11-12', daySeed: 4242, plannedSec: o.planned ?? 180, tool: 'fnirs' as const,
     simulated: true, reducedMotion: false, haptics: false, tuning: TUNING,
     hint: (text: string) => { hints.push(text); }, hudTop: () => ins.top, insets: () => ins, touch: o.touch ?? true,
@@ -694,7 +694,8 @@ describe('Glina: mobile first', () => {
       const L = layout(s.w, s.h, s.insets);
       const phone = Math.min(s.w, s.h) <= 430;
       expect(L.u, s.name).toBeGreaterThanOrEqual(1);
-      expect(L.u, s.name).toBeLessThanOrEqual(1.3);
+      // 1.3 at most below a big screen; a big screen's grows on (§14)
+      expect(L.u, s.name).toBeLessThanOrEqual(Math.min(s.w, s.h) >= DESK_BIG && s.w >= 1024 ? DESK_MAX : 1.3);
       if (phone) expect(L.u, s.name).toBeLessThan(1.1);
       expect(L.portrait, s.name).toBe(s.h > s.w * 1.05);
       // the ticket: under the HUD, inside the safe edges, readable (at least 100 px tall)
@@ -797,6 +798,89 @@ describe('Glina: mobile first', () => {
       until(game, clock, () => sim.kiln === 'fire');
       expect(game.targets!(), s.name).toEqual([]);
     }
+  });
+
+  describe('a big screen and a mouse (DESIGN §14)', () => {
+    const desks = CHECK_SIZES.filter(s => s.h <= s.w * 1.05 && ['desktop', 'big'].includes(screenKind(s.w, s.h, false)));
+
+    it('lays a desktop out for the mouse: a wider stage, Gotowe clear of the pot, the palette’s Gotowe beside the colours; a finger’s as it was', () => {
+      expect(desks.length).toBeGreaterThanOrEqual(5);
+      for (const s of CHECK_SIZES) {
+        expect(layout(s.w, s.h, s.insets).desk, s.name).toBe(false);
+        expect(layout(s.w, s.h, s.insets, true)).toEqual(layout(s.w, s.h, s.insets));
+      }
+      for (const s of desks) {
+        const L = layout(s.w, s.h, s.insets, false), T = layout(s.w, s.h, s.insets, true);
+        expect(L.desk, s.name).toBe(true);
+        expect(L.stageW, s.name).toBeGreaterThan(T.stageW);
+        expect(L.done.x, s.name).toBeGreaterThanOrEqual(L.axis + L.stageW * 0.95);
+        expect(auditTargets([{ label: 'Gotowe', ...L.done }], s.w, s.h, s.insets), s.name).toEqual([]);
+        for (const [nc, np] of [[3, 1], [5, 3], [8, 5]]) {
+          const P = palette(L, nc, np);
+          const tg: TapTarget[] = [
+            ...P.colors.map((c, i) => ({ label: `glaze ${i}`, x: c.x - c.r, y: c.y - c.r, w: c.r * 2, h: c.r * 2 })),
+            ...P.patterns.map((r, i) => ({ label: `pattern ${i}`, ...r })),
+            { label: 'Gotowe', ...P.done },
+          ];
+          expect(auditTargets(tg, s.w, s.h, s.insets), `${s.name} ${nc}/${np}`).toEqual([]);
+          // Gotowe right after the last colour, beside the piece — not out in the corner
+          const last = P.colors[P.colors.length - 1];
+          expect(P.done.x - (last.x + last.r), `${s.name} ${nc}`).toBeLessThanOrEqual(60 * L.u);
+          expect(P.done.x, `${s.name} ${nc}`).toBeGreaterThan(last.x + last.r);
+        }
+        if (Math.min(s.w, s.h) >= DESK_BIG) expect(L.u, s.name).toBeGreaterThan(1.3);
+      }
+    });
+
+    it('answers the mouse: the control a click would hit lit, the hand’s ghost on the clay, the cursor', () => {
+      const s = desks.find(x => x.name.startsWith('Full HD'))!;
+      const { game, sim } = phoneGame(returning(), s.insets, { touch: false });
+      game.resize(s.w, s.h, 1);
+      game.start();
+      const clock = { t: 0 };
+      const view = (game as unknown as { view: { L: ReturnType<typeof layout>; hoverKey: string | null; hoverClay: unknown; hoverBand: number | null } }).view;
+      const env = (game as unknown as { env: GameEnv<GlinaProgress> }).env;
+      until(game, clock, () => sim.wheel === 'shape' && !!sim.pot);
+      play(game, clock, 0.3);
+      const L = view.L;
+      // over Gotowe: lit, a pointer
+      game.pointer!({ type: 'move', x: L.done.x + L.done.w / 2, y: L.done.y + L.done.h / 2, id: 1 });
+      play(game, clock, 1 / 60);
+      expect(view.hoverKey).toBe('Gotowe');
+      expect(env.canvas.style.cursor).toBe('pointer');
+      // over the clay: the hand's ghost where a press would take the wall, a grabbing hand
+      const sc = stageScale(L, sim.order!.target), pot = sim.pot!;
+      game.pointer!({ type: 'move', x: L.axis + radiusAt(pot.r, 0.3) * sc, y: L.floor - pot.H * sc * 0.3, id: 1 });
+      play(game, clock, 1 / 60);
+      expect(view.hoverClay).toMatchObject({ mode: 'wall' });
+      expect(env.canvas.style.cursor).toBe('grab');
+      // glazing: a swatch under the mouse is lit
+      sim.done();
+      until(game, clock, () => !!sim.glazing);
+      const sw = game.targets!().find(x => x.label.startsWith('glaze '))!;
+      game.pointer!({ type: 'move', x: sw.x + sw.w / 2, y: sw.y + sw.h / 2, id: 1 });
+      play(game, clock, 1 / 60);
+      expect(view.hoverKey).toBe(sw.label);
+      // a phone never shows any of it
+      const q = phoneGame(returning(), CHECK_SIZES[1].insets);
+      q.game.resize(CHECK_SIZES[1].w, CHECK_SIZES[1].h, 2);
+      q.game.start();
+      q.game.pointer!({ type: 'move', x: 100, y: 300, id: 1 });
+      play(q.game, { t: 0 }, 1 / 60);
+      expect((q.game as unknown as { view: { hoverKey: string | null; hoverClay: unknown } }).view.hoverClay).toBe(null);
+    });
+
+    it('speaks to a mouse: click words in the how-to, the coach marks and the canvas, in every language', () => {
+      for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+        const cat = CATALOGS[lang] as Record<string, string>;
+        for (const k of ['how.wall.mouse', 'how.tap.mouse', 'ui.tapFire.mouse', 'ui.tapOn.mouse', 'hint.wallIn.keys', 'hint.wallOut.keys', 'hint.dip.keys', 'hint.fire.keys', 'hint.done.keys']) {
+          expect(cat[k], `${lang} ${k}`).toBeTypeOf('string');
+          expect(cat[k], `${lang} ${k}`).not.toMatch(/stuk|palc|finger|tipp(?!e,)|\btap\b|fingret/i);
+        }
+        for (const k of ['how.tap.mouse', 'ui.tapFire.mouse', 'ui.tapOn.mouse', 'hint.dip.keys', 'hint.fire.keys', 'hint.done.keys']) expect(cat[k], `${lang} ${k}`).toMatch(/klik|click|klick/i);
+        for (const k of ['how.wall.mouse', 'hint.wallIn.keys', 'hint.wallOut.keys']) expect(cat[k], `${lang} ${k}`).toMatch(/mysz|mouse|maus|mus/i);
+      }
+    });
   });
 
   it('on a phone the hand works above the finger: no jump on touch-down, the wall follows the sideways move', () => {

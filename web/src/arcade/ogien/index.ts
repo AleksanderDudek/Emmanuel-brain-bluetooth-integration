@@ -46,6 +46,9 @@ class OgienGame implements ArcadeGame {
   /** the one finger the game follows: a new one takes over from a finger that went astray */
   private finger: number | null = null;
   private gathering = false;
+  /** a desktop's mouse: its last point on the canvas, and the cursor last set */
+  private mouse: { x: number; y: number } | null = null;
+  private cursor = '';
   private readonly hints: { what: Coach; at: CoachAt }[] = [];
   private hintCool = 2;
   private readonly bestNow: number | null;
@@ -84,6 +87,7 @@ class OgienGame implements ArcadeGame {
   update(dt: number, f: FocusFrame, t: number): void {
     this.sim.update(dt, f, t);
     this.drain();
+    this.hoverNow();
     this.view.update(dt, this.sim);
     this.sound.update(dt, this.sim);
     this.hintCool -= dt;
@@ -108,6 +112,7 @@ class OgienGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view;
+    if (!this.env.touch) this.mouse = { x: e.x, y: e.y };
     if (e.type === 'down') {
       if (this.finger !== null && this.finger !== e.id) this.letGo();
       this.finger = e.id;
@@ -157,6 +162,38 @@ class OgienGame implements ArcadeGame {
     }
     this.release();
     this.drain();
+  }
+
+  /**
+   * A desktop's mouse (DESIGN §14), each frame from its last point (the scene moves under a resting mouse): the
+   * view shows what a click would act on — the button's or the pile's own highlight, or a ring of light at the
+   * spot in the scene (`sim.hoverAt`, the button's target while the mouse is on it) — and the cursor says where a
+   * click does something.  Nothing while a log or the gas is in hand.
+   */
+  private hoverNow(): void {
+    const v = this.view, m = this.mouse;
+    let cursor = '';
+    v.hoverSpot = null;
+    v.hoverCtl = null;
+    if (!this.env.touch && m && !v.drag && !this.gathering && this.finger === null && this.sim.started) {
+      const hit = v.hit(m.x, m.y, this.sim);
+      if (hit.kind === 'card') cursor = 'pointer';
+      else if (hit.kind === 'btn') {
+        v.hoverCtl = 'btn';
+        v.hoverSpot = this.sim.hoverAt(null);
+        cursor = 'pointer';
+      } else if (hit.kind === 'pile') {
+        v.hoverCtl = 'pile';
+        if (this.sim.logs > 0) cursor = 'pointer';
+      } else if (m.y >= v.L.top) {
+        v.hoverSpot = this.sim.hoverAt({ x: hit.x, y: hit.y });
+        if (v.hoverSpot) cursor = 'pointer';
+      }
+    }
+    if (cursor !== this.cursor) {
+      this.cursor = cursor;
+      this.env.canvas.style.cursor = cursor;
+    }
   }
 
   /** The finger lifted: a log lands (on the fire it burns, elsewhere it goes back), the shelter ends. */
@@ -292,12 +329,15 @@ class OgienGame implements ArcadeGame {
 
   destroy(): void {
     this.letGo();
+    this.env.canvas.style.cursor = '';
   }
 }
 
 /** A coach mark's words for the hand the player has: a finger never hears of keys, a keyboard may. */
 export function coachText(what: Coach, touch: boolean): string {
-  if (!touch && (what === 'blow' || what === 'shield' || what === 'gather')) return t(`coach.${what}.keys` as 'coach.blow.keys');
+  if (!touch && (what === 'blow' || what === 'shield' || what === 'gather' || what === 'feed' || what === 'tents' || what === 'fuse' || what === 'pass' || what === 'button')) {
+    return t(`coach.${what}.keys` as 'coach.blow.keys');
+  }
   return t(`coach.${what}` as 'coach.blow');
 }
 
@@ -318,7 +358,7 @@ export function howto(touch = coarsePointer()): HowTo {
     goal: t('howto.goal'),
     hands: touch
       ? [{ gesture: 'tap', text: t('howto.tap') }, { gesture: 'hold', text: t('howto.hold') }, { gesture: 'drag', text: t('howto.drag') }]
-      : [{ gesture: 'tap', text: t('howto.tap') }, { gesture: 'drag', text: t('howto.drag') }, { gesture: 'keys', text: t('howto.keys') }],
+      : [{ gesture: 'tap', text: t('howto.click') }, { gesture: 'drag', text: t('howto.drag.mouse') }, { gesture: 'keys', text: t('howto.keys') }],
     tips: [t('howto.tip1'), t('howto.tip2')],
   };
 }

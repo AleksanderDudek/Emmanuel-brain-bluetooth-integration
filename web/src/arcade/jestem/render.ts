@@ -18,7 +18,7 @@ import { layoutPassage, drawPassage, passage, type PassageLayout } from '../kit/
 import type { RGB } from './art';
 import { DECLS, OWN_AURA, fragName, sentence } from './content';
 import { t } from './i18n';
-import { formButtons, layout, windowAt, type Layout, type Rect } from './layout';
+import { formButtons, layout, tu, windowAt, type Layout, type Rect } from './layout';
 import {
   GOLD, LEAD, PAPER, TAU, blit, fitFont, font, fontPx, glowSprite, paintBubble, paintOculus, raySprite, roundRect, windowPath, wrap,
 } from './paint';
@@ -79,6 +79,14 @@ export class JestemView {
   private finText: { a: string; b: string; size: number; sizeB: number; pass: PassageLayout | null; key: string } | null = null;
   /** the path a drag is laying (cells, in order) */
   drag: number[] = [];
+  /**
+   * A desktop's mouse over the play (DESIGN §14): where it is, the cell a click there would act on (the game
+   * sets it from the rules: the part the colour would go to, the glass that would glow), and the card's answer
+   * under it.
+   */
+  mouse: { x: number; y: number } | null = null;
+  hoverCell = -1;
+  hoverForm: 0 | 1 | -1 = -1;
   /** the card's box as drawn (the hit test reads it) */
   cardBox: Rect | null = null;
   pressed: 0 | 1 | -1 = -1;
@@ -92,7 +100,7 @@ export class JestemView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, ins);
+    this.L = layout(w, h, ins, this.opts.touch);
     this.bg = null;
     this.finText = null;
     this.cardBox = null;
@@ -734,6 +742,19 @@ export class JestemView {
       ctx.lineWidth = 2.2 * this.L.u;
       ctx.stroke(this.paths[sim.marked]);
     }
+    // a desktop's hover: the part a click would act on, tinted warm and outlined in light over a dark edge (it
+    // reads on the pale sketch and on the lit glass alike)
+    const hc = this.hoverCell;
+    if (hc >= 0 && this.paths[hc] && !this.drag.length) {
+      ctx.fillStyle = sim.lit[hc] ? 'rgba(255,246,220,0.14)' : 'rgba(255,206,120,0.22)';
+      ctx.fill(this.paths[hc]);
+      ctx.strokeStyle = 'rgba(46,26,30,0.55)';
+      ctx.lineWidth = 4.5 * this.L.u;
+      ctx.stroke(this.paths[hc]);
+      ctx.strokeStyle = 'rgba(255,238,196,0.98)';
+      ctx.lineWidth = 2 * this.L.u;
+      ctx.stroke(this.paths[hc]);
+    }
     ctx.restore();
   }
 
@@ -824,7 +845,7 @@ export class JestemView {
     for (const c of this.captions) {
       const k = c.t / c.dur;
       const a = k < 0.15 ? k / 0.15 : k > 0.7 ? (1 - k) / 0.3 : 1;
-      const px = (c.big ? 21 : 17) * Math.min(L.u, 1.2);
+      const px = (c.big ? 21 : 17) * tu(L, 1.2);
       const maxW = L.win.w - 16;
       const size = fitFont(ctx, c.text, maxW, px, 13, 600, true, true);
       ctx.font = font(size, 600, true, true);
@@ -850,7 +871,7 @@ export class JestemView {
       const top = L.side ? L.side.y + 4 : L.bubble.y;
       const cx = L.side ? L.side.x + Math.min(L.side.w, 420 * L.u) / 2 : L.bubble.x;
       const maxW = L.side ? Math.min(L.side.w, 420 * L.u) : L.bubble.maxW;
-      paintBubble(ctx, line.text, cx, top, maxW, L.u, a);
+      paintBubble(ctx, line.text, cx, top, maxW, L.u, a, L.desk);
     }
     if (L.side && this.vis && !sim.story && this.fin < 0) this.drawSide(ctx, sim);
     if (sim.story) this.drawStory(ctx, sim);
@@ -859,18 +880,21 @@ export class JestemView {
   /** The column beside the window (wide): the declaration, and the picture's fragments with the lit ones in gold. */
   private drawSide(ctx: CanvasRenderingContext2D, sim: JestemSim): void {
     const L = this.L, S = L.side!, v = this.vis!;
-    // under the room Hanna's bubble may take (three lines at most)
-    const top = S.y + Math.max(74 * L.u, 98);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillStyle = 'rgba(255,240,214,0.6)';
     const a = sentence(this.word || '…');
-    ctx.font = font(15 * Math.min(L.u, 1.2), 500, true, true);
+    ctx.font = font(15 * tu(L, 1.2), 500, true, true);
     const lines = wrap(ctx, a, S.w, 3);
-    const lh = 15 * Math.min(L.u, 1.2) * 1.35;
+    const lh = 15 * tu(L, 1.2) * 1.35;
+    const px = 13 * tu(L, 1.15);
+    // under the room Hanna's bubble may take (three lines at most); on a desktop the words stand a little above
+    // the window's middle, beside it, rather than up in the corner
+    const bubbleRoom = S.y + Math.max(74 * L.u, 98);
+    const wordsH = lines.length * lh + 14 + v.geo.frags.length * px * 1.6;
+    const top = L.desk ? Math.max(bubbleRoom, Math.min(S.y + (S.h - wordsH) * 0.4, S.y + S.h - wordsH)) : bubbleRoom;
     lines.forEach((l, i) => ctx.fillText(l, S.x, top + i * lh));
     let y = top + lines.length * lh + 14;
-    const px = 13 * Math.min(L.u, 1.15);
     ctx.font = font(px, 600);
     for (let i = 0; i < v.geo.frags.length && y < S.y + S.h - px; i++) {
       const f = v.geo.frags[i];
@@ -893,16 +917,18 @@ export class JestemView {
     const C = L.card;
     const a = Math.min(1, st.t / 0.4);
     const pad = 16;
-    const titlePx = 20 * Math.min(L.u, 1.15), textPx = 14 * Math.min(L.u, 1.1);
+    const titlePx = 20 * tu(L, 1.15), textPx = 14 * tu(L, 1.1);
     ctx.font = font(textPx, 500);
     const textLines = wrap(ctx, t('story.text'), C.w - 2 * pad, 6);
     const lh = fontPx(textPx) * 1.4;
     const btnH = st.ask ? Math.max(48, 50 * L.u) : 0;
     const head = pad + titlePx * 1.4 + textLines.length * lh + 10;
-    const foot = st.ask ? 22 + btnH + pad + 8 : 34;
+    // a desktop's small print grows with the screen (k), a phone's stays at its 13 px
+    const k = L.desk ? L.u : 1;
+    const foot = st.ask ? 22 * k + btnH + pad + 8 : 34 * k;
     const verseH = Math.max(40, C.h - head - foot);
     const pass = passage('php2.9-10');
-    const pl = layoutPassage(ctx, pass, C.w - 2 * pad, verseH, { max: 15 * Math.min(L.u, 1.1), min: 12 });
+    const pl = layoutPassage(ctx, pass, C.w - 2 * pad, verseH, { max: 15 * tu(L, 1.1), min: 12 });
     const h = Math.min(C.h, head + pl.height + 10 + foot);
     const y = L.anchor === 'bottom' ? C.y + C.h - h : C.y + (C.h - h) / 2;
     const box: Rect = { x: C.x, y, w: C.w, h };
@@ -929,18 +955,18 @@ export class JestemView {
     if (st.ask) {
       const [b1, b2] = formButtons(L, box);
       ctx.fillStyle = 'rgba(244,234,216,0.75)';
-      ctx.font = font(13, 600);
+      ctx.font = font(13 * k, 600);
       ctx.textAlign = 'left';
-      ctx.fillText(t('story.ask'), box.x + pad, b1.y - 20);
+      ctx.fillText(t('story.ask'), box.x + pad, b1.y - 20 * k);
       ([[b1, 'm'], [b2, 'f']] as const).forEach(([b, f], i) => {
         roundRect(ctx, b.x, b.y, b.w, b.h, 14);
-        ctx.fillStyle = this.pressed === i ? 'rgba(246,212,136,0.35)' : 'rgba(246,212,136,0.14)';
+        ctx.fillStyle = this.pressed === i ? 'rgba(246,212,136,0.35)' : this.hoverForm === i ? 'rgba(246,212,136,0.25)' : 'rgba(246,212,136,0.14)';
         ctx.fill();
         ctx.strokeStyle = GOLD;
         ctx.stroke();
         const word = this.formWord?.(f) ?? '';
         const text = t('label', { word });
-        const sz = fitFont(ctx, text, b.w - 16, 15 * Math.min(L.u, 1.1), 12, 600, true);
+        const sz = fitFont(ctx, text, b.w - 16, 15 * tu(L, 1.1), 12, 600, true);
         ctx.font = font(sz, 600, true);
         ctx.fillStyle = '#ffe9b0';
         ctx.textAlign = 'center';
@@ -949,9 +975,9 @@ export class JestemView {
       });
     } else {
       ctx.fillStyle = 'rgba(244,234,216,0.6)';
-      ctx.font = font(13, 600);
+      ctx.font = font(13 * k, 600);
       ctx.textAlign = 'center';
-      ctx.fillText(t(this.opts.touch ? 'story.tap' : 'story.click'), box.x + box.w / 2, box.y + box.h - 26);
+      ctx.fillText(t(this.opts.touch ? 'story.tap' : 'story.click'), box.x + box.w / 2, box.y + box.h - 26 * k);
     }
     ctx.restore();
   }
@@ -972,7 +998,7 @@ export class JestemView {
       const sizeA = fitFont(ctx, a, T.w, Math.min(26 * L.u, T.w / 11), 14, 600, true);
       const sizeB = fitFont(ctx, b, T.w, Math.min(34 * L.u, T.w / 8), 16, 700, true);
       const used = sizeA * 1.5 + sizeB * 1.5 + 16;
-      const pass = T.h - used > 50 ? layoutPassage(ctx, passage(sim.verse), T.w, T.h - used - 6, { max: 15 * Math.min(L.u, 1.15), min: 12 }) : null;
+      const pass = T.h - used > 50 ? layoutPassage(ctx, passage(sim.verse), T.w, T.h - used - 6, { max: 15 * tu(L, 1.15), min: 12 }) : null;
       this.finText = { a, b, size: sizeA, sizeB, pass, key };
     }
     const X = this.finText;

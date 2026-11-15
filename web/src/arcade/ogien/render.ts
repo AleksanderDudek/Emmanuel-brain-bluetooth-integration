@@ -111,7 +111,7 @@ export class OgienView {
   }
 
   resize(w: number, h: number, dpr: number, insets: Insets): void {
-    this.L = layout(w, h, insets);
+    this.L = layout(w, h, insets, this.opts.touch);
     this.dpr = dpr;
     this.cache.clear();
     this.passageCache = null;
@@ -356,6 +356,13 @@ export class OgienView {
 
   pressButton(): void { this.btnDown = 1; }
 
+  /**
+   * A desktop's mouse (DESIGN §14), set by the game each frame: what a click would act on (a spot and a radius in
+   * units — the fire, a tent, a pair, the wisps in reach, the one waiting) and the control under it.
+   */
+  hoverSpot: { x: number; y: number; r: number } | null = null;
+  hoverCtl: 'btn' | 'pile' | null = null;
+
   /** A first-time explanation about a control: the control itself glows for a while. */
   coachGlow(at: CoachAt, ms: number): void { this.coachRing = { at, until: this.clock + ms / 1000 }; }
 
@@ -401,6 +408,7 @@ export class OgienView {
     else this.drawScene(ctx, sim, sim.rung, sim.variant, 1, true);
     this.drawMotes(ctx);
     this.drawRipples(ctx);
+    if (!tr) this.drawHover(ctx);
     this.drawGauge(ctx, sim);
     this.drawLadder(ctx, sim);
     if (sim.task === 'feed' && sim.handsOn) this.drawPile(ctx, sim);
@@ -786,10 +794,33 @@ export class OgienView {
   }
 
   /** The scale's button (bottom right): its icon and verb; dimmed while the hands rest. */
+  /** A desktop's hover: two arcs of warm light turning slowly around what a click would act on. */
+  private drawHover(ctx: CanvasRenderingContext2D): void {
+    const s = this.hoverSpot;
+    if (!s) return;
+    const L = this.L;
+    const x = L.cx + s.x * L.R, y = L.cy + s.y * L.R, r = Math.max(18 * L.u, s.r * L.R);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    drawGlow(ctx, x, y, r * 1.25, [255, 214, 150], 0.14);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(1.5, 2.2 * L.u);
+    ctx.strokeStyle = 'rgba(255,232,186,.85)';
+    const a0 = this.opts.reducedMotion ? -Math.PI / 2 : this.clock * 1.1;
+    for (let i = 0; i < 2; i++) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, a0 + i * Math.PI, a0 + i * Math.PI + 1.8);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   private drawButton(ctx: CanvasRenderingContext2D, sim: OgienSim): void {
     const L = this.L, b = L.btn, u = L.u;
     const on = sim.handsOn;
     const press = this.btnDown;
+    const hov = this.hoverCtl === 'btn' && on;
     ctx.save();
     ctx.globalAlpha = on ? 1 : 0.5;
     const s = 1 - 0.04 * press;
@@ -803,9 +834,9 @@ export class OgienView {
       ctx.globalCompositeOperation = 'source-over';
     }
     roundRect(ctx, b.x, b.y, b.w, b.h, b.h / 2);
-    ctx.fillStyle = press > 0.1 ? 'rgba(70,36,22,.9)' : 'rgba(26,14,14,.78)';
+    ctx.fillStyle = press > 0.1 ? 'rgba(70,36,22,.9)' : hov ? 'rgba(52,28,20,.88)' : 'rgba(26,14,14,.78)';
     ctx.fill();
-    ctx.strokeStyle = `rgba(255,206,120,${(0.6 + 0.3 * press).toFixed(3)})`;
+    ctx.strokeStyle = `rgba(255,206,120,${Math.min(1, 0.6 + 0.3 * press + (hov ? 0.3 : 0)).toFixed(3)})`;
     ctx.lineWidth = Math.max(1.5, 2 * u);
     ctx.stroke();
     // the icon: the scene's own small flame in a disc
@@ -833,7 +864,8 @@ export class OgienView {
     ctx.fillStyle = 'rgba(26,14,14,.55)';
     ctx.fill();
     const ready = sim.logs > 0;
-    ctx.strokeStyle = ready ? `rgba(255,206,120,${(0.45 + 0.25 * Math.sin(this.clock * 3)).toFixed(3)})` : 'rgba(255,240,220,.2)';
+    const hov = this.hoverCtl === 'pile' && ready;
+    ctx.strokeStyle = hov ? 'rgba(255,226,170,.95)' : ready ? `rgba(255,206,120,${(0.45 + 0.25 * Math.sin(this.clock * 3)).toFixed(3)})` : 'rgba(255,240,220,.2)';
     ctx.lineWidth = Math.max(1.2, 1.6 * u);
     ctx.stroke();
     const lw = p.w * 0.7, lh = Math.max(10, p.h * 0.2);
@@ -1020,7 +1052,8 @@ export class OgienView {
     ctx.textBaseline = 'alphabetic';
     const hint = this.opts.touch ? t('card.tap') : t('card.click');
     ctx.fillStyle = 'rgba(255,240,220,.6)';
-    const hp = fitFont(ctx, hint, innerW, 13, 13, 600);
+    // read from further away on a desktop
+    const hp = fitFont(ctx, hint, innerW, L.desk ? 13 * u : 13, 13, 600);
     ctx.font = font(hp, 600);
     ctx.textAlign = 'center';
     ctx.fillText(hint, cx, rect.y + rect.h - pad * 0.7);

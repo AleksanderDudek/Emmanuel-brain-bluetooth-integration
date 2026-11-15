@@ -97,6 +97,12 @@ export class RozView {
   private rngS = 1;
 
   // the hand
+  /**
+   * A desktop's mouse over the play (DESIGN §14): where it is, and the tile a click there would act on (the
+   * game sets it from the rules) — shown softly lit with a rim of light.
+   */
+  mouse: { x: number; y: number } | null = null;
+  hoverCell = -1;
   /** a touch drag's lens (CSS px), where the light is aimed from */
   lens: { x: number; y: number; fx: number; fy: number } | null = null;
   /** touch-down ripples (CSS px, age in s) */
@@ -569,6 +575,7 @@ export class RozView {
     this.drawBloom(ctx, sim);
     if (this.vignette) ctx.drawImage(this.vignette, f.x, f.y, f.w, f.h);
     this.drawAim(ctx, sim);
+    this.drawHover(ctx);
     ctx.restore();
     // the flashes, then the shards flying out over the frame's edge, then the motes
     ctx.globalCompositeOperation = 'lighter';
@@ -795,6 +802,25 @@ export class RozView {
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.stroke();
     }
+  }
+
+  /** A desktop's hover: the tile a click would act on, a soft light over it and a rim of light (not while dragging). */
+  private drawHover(ctx: CanvasRenderingContext2D): void {
+    const hc = this.hoverCell;
+    if (hc < 0 || !this.inset[hc] || this.lens) return;
+    ctx.save();
+    ctx.translate(this.frame.x, this.frame.y);
+    ctx.fillStyle = 'rgba(255,236,190,.14)';
+    ctx.fill(this.inset[hc]);
+    ctx.lineJoin = 'round';
+    // a dark edge under the rim of light: it reads on a dark tile and on an uncovered bright piece alike
+    ctx.strokeStyle = 'rgba(8,10,16,.5)';
+    ctx.lineWidth = 4.5 * this.L.u;
+    ctx.stroke(this.inset[hc]);
+    ctx.strokeStyle = 'rgba(255,240,205,.95)';
+    ctx.lineWidth = 2 * this.L.u;
+    ctx.stroke(this.inset[hc]);
+    ctx.restore();
   }
 
   private drawShards(ctx: CanvasRenderingContext2D): void {

@@ -9,12 +9,16 @@
  *         declaration is written under it
  *   wide  (a phone on its side, a desktop)  the window left of centre, a column on the right for the
  *         picture's words (its declaration, its fragments) and, in the finale, the declaration and verse
+ *   desk  (wide, with a mouse on a desktop or a big screen, kit/mobile `screenKind`, DESIGN §14)  the window
+ *         at the band's full height and the column beside it at a reading measure, centred as one group (the
+ *         window still under the middle of the canvas, where a centre click lands); the words grow with the
+ *         screen (`tu`) instead of stopping at a phone's 1.2
  *
  * The only things to tap besides the window are on the opening card (any tap closes it; in Polish two
  * buttons answer "jestem silny / jestem silna"): `tapTargets` lists them for the mobile audit.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -27,8 +31,11 @@ export interface Layout {
   w: number;
   h: number;
   mode: Mode;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, up to DESK_MAX on a big screen */
   u: number;
+  /** the kind of screen (kit/mobile `screenKind`) and whether it is laid out for a mouse (`desk`, see above) */
+  kind: ScreenKind;
+  desk: boolean;
   ins: Insets;
   /** the band between the HUD and the bottom edge */
   band: Rect;
@@ -52,15 +59,37 @@ export interface Layout {
 /** The window of height `hh` centred on (cx, top…) — width from the aspect. */
 const winRect = (cx: number, top: number, hh: number): Rect => ({ x: cx - (hh * ASPECT) / 2, y: top, w: hh * ASPECT, h: hh });
 
-export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
+/**
+ * A text size's scale: a phone's words stop growing at `cap` (they were sized for a phone held close); a
+ * desktop's grow with the screen (read from further away).
+ */
+export const tu = (L: Pick<Layout, 'u' | 'desk'>, cap: number): number => (L.desk ? L.u : Math.min(L.u, cap));
+
+export function layout(w: number, h: number, ins: Insets = NO_INSETS, touch = true): Layout {
   const u = uiScale(w, h);
   const band: Rect = { x: ins.left, y: ins.top, w: Math.max(1, w - ins.left - ins.right), h: Math.max(1, h - ins.top - ins.bottom) };
   const mode: Mode = band.w > band.h * 1.18 ? 'wide' : 'tall';
+  const kind = screenKind(w, h, touch);
+  const desk = mode === 'wide' && (kind === 'desktop' || kind === 'big');
   const r = clamp(Math.min(band.w, band.h) * 0.06, 15, 30) * u;
   const topPad = r + 6, botPad = 8 * u;
   let win: Rect;
   let side: Rect | null = null;
-  if (mode === 'tall') {
+  if (desk) {
+    // the window at the band's full height, the column beside it at a reading measure (about 18 of the
+    // declaration's ems), both centred as one group — but the window keeps the canvas's middle (a centre
+    // click lands on it)
+    const hh = band.h - topPad - botPad;
+    const ww = hh * ASPECT;
+    const gap = Math.round(28 * u), edge = Math.round(16 * u);
+    const colW = Math.round(clamp(band.w - 2 * edge - gap - ww, 190 * u, 18 * 15 * u));
+    const group = ww + gap + colW;
+    let x0 = band.x + Math.max(edge, (band.w - group) / 2);
+    const mid = band.x + band.w / 2;
+    if (x0 + ww < mid + 40 * u) x0 = Math.min(band.x + band.w - edge - group, mid + 40 * u - ww);
+    win = { x: x0, y: band.y + topPad, w: ww, h: hh };
+    side = { x: x0 + ww + gap, y: band.y + 8, w: colW, h: band.h - 16 };
+  } else if (mode === 'tall') {
     let hh = band.h - topPad - botPad;
     if (hh * ASPECT > band.w - 20) hh = (band.w - 20) / ASPECT;
     const extra = band.h - topPad - botPad - hh;
@@ -112,7 +141,7 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
     const ty = finWin.y + finWin.h + 8;
     finText = { x: band.x + 16, y: ty, w: band.w - 32, h: Math.max(50, band.y + band.h - ty - 6) };
   }
-  return { w, h, mode, u, ins, band, win, k, oculus, bubble, side, card, anchor, finWin, finText };
+  return { w, h, mode, u, kind, desk, ins, band, win, k, oculus, bubble, side, card, anchor, finWin, finText };
 }
 
 /** The opening card's two answers (Polish only): side by side along the card's bottom, finger-sized. */

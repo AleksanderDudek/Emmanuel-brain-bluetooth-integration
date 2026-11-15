@@ -23,7 +23,7 @@ import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo,
 import { GlinaSound } from './audio';
 import { bare, t, type Key } from './i18n';
 import { KneadIntro } from './intro';
-import { MIN_TAP } from '../kit/mobile';
+import { MIN_TAP, coarsePointer } from '../kit/mobile';
 import { hit, hitCircle } from './layout';
 import { bestOf, freshProgress, migrate, type GlinaProgress } from './meta';
 import { progressPanel } from './panel';
@@ -54,7 +54,7 @@ const TAP_SEC = 0.6, SLOP = 10;
 export const LIFT = 32;
 
 /** The coach marks that name a key on a desktop. */
-const KEYED: ReadonlySet<HintKey> = new Set<HintKey>(['done']);
+const KEYED: ReadonlySet<HintKey> = new Set<HintKey>(['done', 'wallIn', 'wallOut', 'dip', 'fire']);
 
 class GlinaGame implements ArcadeGame {
   readonly sim: GlinaSim;
@@ -63,6 +63,9 @@ class GlinaGame implements ArcadeGame {
   private readonly intro0 = new KneadIntro();
   private press: Press | null = null;
   private now = 0;
+  /** a desktop's mouse: its last point on the canvas, and the cursor last set */
+  private mouse: { x: number; y: number } | null = null;
+  private cursor = '';
   // the coach marks
   private readonly hinted = new Set<HintKey>();
   private hintAt = -99;
@@ -78,7 +81,7 @@ class GlinaGame implements ArcadeGame {
   constructor(private readonly env: GameEnv<GlinaProgress>) {
     migrate(env.progress);
     this.sim = new GlinaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, day: env.day });
-    this.view = new GlinaView(env.canvas, { reducedMotion: env.reducedMotion });
+    this.view = new GlinaView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new GlinaSound(env.audio);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __glina?: unknown }).__glina = this.sim;
   }
@@ -103,6 +106,7 @@ class GlinaGame implements ArcadeGame {
     this.now = t;
     this.sim.update(dt, f, t);
     this.drain();
+    this.hoverNow();
     this.view.update(dt, this.sim);
     this.sound.update(dt, this.sim);
     if (this.sim.wheel === 'shape') this.shapeT += dt;
@@ -122,6 +126,7 @@ class GlinaGame implements ArcadeGame {
   // ── the hands ───────────────────────────────────────────────────
   pointer(e: PointerInput): void {
     const sim = this.sim, v = this.view, L = v.L;
+    if (!this.env.touch) this.mouse = { x: e.x, y: e.y };
     if (e.type === 'down') {
       if (this.press) return;
       this.press = { id: e.id, mode: 'none', lastU: -1, x0: e.x, y0: e.y, d0: 0, h0: 0, side: 1, done: false, t0: this.now };
@@ -200,6 +205,63 @@ class GlinaGame implements ArcadeGame {
       sim.release();
       this.drain();
     }
+  }
+
+  /**
+   * A desktop's mouse (DESIGN §14), each frame from its last point: the view lights the control a click would hit
+   * (a swatch, a chip, a Gotowe), shows where a press would take the clay (a ghost of the hand at the wall, or the
+   * rim's new height) or the band a stroke would paint; the cursor says it — a pointer on what a click does, a
+   * grabbing hand on the clay.  Nothing on a phone.
+   */
+  private hoverNow(): void {
+    const v = this.view, m = this.mouse, sim = this.sim;
+    v.hoverKey = null;
+    v.hoverClay = null;
+    v.hoverBand = null;
+    let cursor = '';
+    if (!this.env.touch && m && sim.started && !sim.ended) {
+      const pr = this.press;
+      if (sim.card || sim.kiln === 'fire') cursor = 'pointer';
+      else if (sim.glazing) {
+        const P = v.palette(sim);
+        if (hit(P.done, m.x, m.y, 2)) v.hoverKey = 'glazing Gotowe';
+        else {
+          let ci = -1, best = Infinity;
+          P.colors.forEach((c, i) => {
+            const dd = Math.hypot(m.x - c.x, m.y - c.y);
+            if (dd < best && hitCircle(c, m.x, m.y, Math.max(6, MIN_TAP / 2 - c.r + 4))) { best = dd; ci = i; }
+          });
+          const pi = ci < 0 ? P.patterns.findIndex(r => hit(r, m.x, m.y, 2)) : -1;
+          if (ci >= 0) v.hoverKey = `glaze ${sim.p.glazes[ci]}`;
+          else if (pi >= 0) v.hoverKey = `pattern ${sim.p.patterns[pi]}`;
+          else if (!pr) v.hoverBand = this.glazeU(m.x, m.y);
+        }
+        if (v.hoverKey || v.hoverBand !== null || pr?.mode === 'paint') cursor = 'pointer';
+      } else if (sim.wheel === 'shape' && sim.pot && sim.order) {
+        if (pr && (pr.mode === 'wall' || pr.mode === 'rim')) cursor = 'grabbing';
+        else if (hit(v.L.done, m.x, m.y, 2)) {
+          v.hoverKey = 'Gotowe';
+          cursor = 'pointer';
+        } else if (!pr) {
+          v.hoverClay = this.clayAt(m.x, m.y);
+          if (v.hoverClay) cursor = 'grab';
+        }
+      }
+    }
+    if (cursor !== this.cursor && this.env.canvas.style) {
+      this.cursor = cursor;
+      this.env.canvas.style.cursor = cursor;
+    }
+  }
+
+  /** Where a mouse press at (x, y) would take the clay — the rim at that height, or the wall there — near the pot only. */
+  private clayAt(x: number, y: number): { mode: 'wall' | 'rim'; x: number; y: number } | null {
+    const sim = this.sim, pot = sim.pot, o = sim.order, L = this.view.L;
+    if (!pot || !o || sim.wheel !== 'shape') return null;
+    if (Math.abs(x - L.axis) > L.stageW * 1.35 || y > L.floor + 12 * L.u || y < L.floor - L.stageH - 12 * L.u) return null;
+    const sc = this.view.scaleFor(o.target);
+    const rimY = L.floor - pot.H * sc;
+    return { mode: y < rimY + RULES.rimPx * L.u ? 'rim' : 'wall', x, y };
   }
 
   /** The palette's swatches, chips and Gotowe while glazing; the wheel's Gotowe while shaping; a card (the clay is free play). */
@@ -462,6 +524,7 @@ class GlinaGame implements ArcadeGame {
 
   destroy(): void {
     this.press = null;
+    if (this.env.canvas.style) this.env.canvas.style.cursor = '';
   }
 }
 
@@ -478,12 +541,13 @@ function haptic(e: GlinaEvent): void {
 }
 
 /** The hands in a finger's words; the keys in their own row (a phone's card leaves it out, a desktop shows it). */
-const howto = (): HowTo => ({
+/** How to play, for the hand the player has: a finger's words on a phone, a mouse's on a desktop (the keys too). */
+const howto = (touch = coarsePointer()): HowTo => ({
   goal: t('how.goal'),
   hands: [
-    { gesture: 'drag', text: t('how.wall') },
+    { gesture: 'drag', text: t(touch ? 'how.wall' : 'how.wall.mouse') },
     { gesture: 'drag', text: t('how.rim') },
-    { gesture: 'tap', text: t('how.tap') },
+    { gesture: 'tap', text: t(touch ? 'how.tap' : 'how.tap.mouse') },
     { gesture: 'keys', text: t('how.keys') },
   ],
   tips: [t('how.tip1'), t('how.tip2')],

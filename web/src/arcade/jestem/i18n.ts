@@ -122,7 +122,9 @@ const pl = {
   'howto.goal': 'Wypełnij szkic swojej wizji barwą i światłem, kawałek po kawałku, aż zabłyśnie.',
   'howto.tap': 'Stuknij część szkicu: tam popłynie barwa. Bez stukania płynie sama, od serca obrazu.',
   'howto.drag': 'Przeciągnij palcem po szkicu, by wyznaczyć barwie drogę przez kilka części.',
-  'howto.keys': 'Spacja: kropla barwy do części, która się wypełnia.',
+  'howto.click': 'Kliknij część szkicu: tam popłynie barwa. Bez klikania płynie sama, od serca obrazu.',
+  'howto.drag.mouse': 'Przeciągnij myszą po szkicu, by wyznaczyć barwie drogę przez kilka części.',
+  'howto.keys': 'Spacja: kropla barwy do części, która się wypełnia; Enter zamyka kartę.',
   'howto.tip1': 'Okrągłe okienko nad szkicem to Twoja barwa: kreska w połowie to próg.',
   'howto.tip2': 'W odpoczynku powtarzaj w myślach swoje wyznanie: szkło nabiera blasku.',
 
@@ -372,7 +374,9 @@ const en: Cat = {
   'howto.goal': 'Fill the sketch of your vision with colour and light, piece by piece, until it shines.',
   'howto.tap': 'Tap a part of the sketch: the colour flows there. Untouched, it flows by itself from the heart of the picture.',
   'howto.drag': 'Drag across the sketch to lay the colour’s path through several parts.',
-  'howto.keys': 'Space: a drop of colour into the part being filled.',
+  'howto.click': 'Click a part of the sketch: the colour flows there. Untouched, it flows by itself from the heart of the picture.',
+  'howto.drag.mouse': 'Drag the mouse across the sketch to lay the colour’s path through several parts.',
+  'howto.keys': 'Space: a drop of colour into the part being filled; Enter closes the card.',
   'howto.tip1': 'The round window above the sketch is your colour: the line halfway is the threshold.',
   'howto.tip2': 'In rest, repeat your declaration in your mind: the glass gathers its glow.',
 
@@ -613,7 +617,9 @@ const de: Cat = {
   'howto.goal': 'Fülle die Skizze deiner Vision mit Farbe und Licht, Stück für Stück, bis sie leuchtet.',
   'howto.tap': 'Tippe einen Teil der Skizze an: Dorthin fließt die Farbe. Ohne Tippen fließt sie von selbst, vom Herzen des Bildes aus.',
   'howto.drag': 'Ziehe über die Skizze, um der Farbe einen Weg durch mehrere Teile zu legen.',
-  'howto.keys': 'Leertaste: ein Tropfen Farbe in den Teil, der sich gerade füllt.',
+  'howto.click': 'Klicke einen Teil der Skizze an: Dorthin fließt die Farbe. Ohne Klick fließt sie von selbst, vom Herzen des Bildes aus.',
+  'howto.drag.mouse': 'Ziehe mit der Maus über die Skizze, um der Farbe einen Weg durch mehrere Teile zu legen.',
+  'howto.keys': 'Leertaste: ein Tropfen Farbe in den Teil, der sich gerade füllt; Enter schließt die Karte.',
   'howto.tip1': 'Das runde Fenster über der Skizze ist deine Farbe: Die Linie in der Mitte ist die Schwelle.',
   'howto.tip2': 'Wiederhole in der Ruhe dein Bekenntnis in Gedanken: Das Glas sammelt seinen Schein.',
 
@@ -854,7 +860,9 @@ const sv: Cat = {
   'howto.goal': 'Fyll skissen av din vision med färg och ljus, bit för bit, tills den lyser.',
   'howto.tap': 'Tryck på en del av skissen: dit flödar färgen. Utan tryck flödar den av sig själv från bildens hjärta.',
   'howto.drag': 'Dra över skissen för att lägga färgens väg genom flera delar.',
-  'howto.keys': 'Mellanslag: en droppe färg i delen som fylls.',
+  'howto.click': 'Klicka på en del av skissen: dit flödar färgen. Utan klick flödar den av sig själv från bildens hjärta.',
+  'howto.drag.mouse': 'Dra med musen över skissen för att lägga färgens väg genom flera delar.',
+  'howto.keys': 'Mellanslag: en droppe färg i delen som fylls; Enter stänger kortet.',
   'howto.tip1': 'Det runda fönstret över skissen är din färg: linjen på mitten är tröskeln.',
   'howto.tip2': 'I vilan, upprepa din bekännelse i tankarna: glaset samlar sitt sken.',
 

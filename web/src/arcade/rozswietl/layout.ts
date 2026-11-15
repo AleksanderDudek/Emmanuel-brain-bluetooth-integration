@@ -8,15 +8,16 @@
  *   phone  upright: the frame 16 px in from the sides, the firefly at its lower left corner (over the
  *          picture), its bubble above it across the frame; the cards in the frame's lower part
  *   side   a phone on its side: the same, the frame wide and low
- *   wide   a tablet or a desktop: the frame grown (u up to 1.3), the firefly in the wall beside the
- *          frame when there is room
+ *   wide   a tablet or a desktop: the frame grown (u up to 1.3, on a big screen up to DESK_MAX), the
+ *          firefly in the wall beside the frame when there is room; with a mouse (`desk`, DESIGN §14) the
+ *          tile a click would act on answers the mouse (render.ts), the frame filling a big screen's band
  *
  * The tiles themselves are the controls (a tap aims and knocks, a drag moves the light), so the play has
  * no buttons: `targets()` lists only a card while one waits for a tap.  Pure (tests run it at every
  * kit/mobile CHECK_SIZES entry).
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -35,7 +36,10 @@ export interface Layout {
   right: number;
   shape: Shape;
   touch: boolean;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** the kind of screen (kit/mobile `screenKind`) and whether it is a desktop's with a mouse */
+  kind: ScreenKind;
+  desk: boolean;
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, up to DESK_MAX on a big screen */
   u: number;
   /** the room the frame may take (the band less its margins) */
   room: Rect;
@@ -51,12 +55,14 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   const side = h < 470 && w > h * 1.3;
   const shape: Shape = side ? 'side' : w < 600 ? 'phone' : 'wide';
   const u = shape === 'wide' ? uiScale(w, h) : 1;
+  const kind = screenKind(w, h, touch);
+  const desk = kind === 'desktop' || kind === 'big';
   // nothing to press in the outer 16 px of a phone's sides (Safari's back swipe); a little air under the HUD
   const mx = shape === 'wide' ? Math.round(22 * u) : 16;
   const mt = shape === 'side' ? 6 : Math.round(8 * u), mb = shape === 'side' ? 6 : Math.round(10 * u);
   const room = { x: left + mx, y: top + mt, w: Math.max(40, right - left - 2 * mx), h: Math.max(40, bottom - top - mt - mb) };
   const aspect = clamp(room.w / room.h, RULES.aspect[0], RULES.aspect[1]);
-  return { w, h, ins, top, bottom, left, right, shape, touch, u, room, aspect };
+  return { w, h, ins, top, bottom, left, right, shape, touch, kind, desk, u, room, aspect };
 }
 
 /** The picture's frame for a picture of `aspect` (w / h): as large as fits the room, centred. */

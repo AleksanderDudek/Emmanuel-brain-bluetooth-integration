@@ -13,9 +13,9 @@ import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
-import { CHECK_SIZES, MIN_READ, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import { coachText, howto } from '../src/arcade/rzeki/index';
-import { layout, litR, storyRect, tapTargets, windowR } from '../src/arcade/rzeki/layout';
+import { labelRowH, layout, litR, storyRect, tapTargets, windowR, wordsAt } from '../src/arcade/rzeki/layout';
 import { font, fontPx } from '../src/arcade/rzeki/paint';
 import { RING, openness, partPath, petalAngle, pieces } from '../src/arcade/rzeki/rose';
 import { buildHymn } from '../src/arcade/rzeki/hymn';
@@ -799,11 +799,13 @@ describe('mobile first (DESIGN §12, §13.14)', () => {
     }
   });
 
-  it('grows on a tablet and a desktop, never past 1.3', () => {
+  it('grows on a tablet and a desktop: 1.3 at most below a big screen, up to DESK_MAX on one', () => {
     for (const s of CHECK_SIZES) {
-      const L = layout(s.w, s.h, s.insets, true);
-      expect(L.u).toBeGreaterThanOrEqual(1);
-      expect(L.u).toBeLessThanOrEqual(1.3);
+      for (const touch of [true, false]) {
+        const L = layout(s.w, s.h, s.insets, touch);
+        expect(L.u).toBeGreaterThanOrEqual(1);
+        expect(L.u, s.name).toBeLessThanOrEqual(Math.min(s.w, s.h) >= DESK_BIG && s.w >= 1024 ? DESK_MAX : 1.3);
+      }
     }
     const tablet = layout(820, 1052, { top: 192, right: 0, bottom: 0, left: 0 }, true);
     expect(tablet.shape).toBe('tall');
@@ -831,6 +833,89 @@ describe('mobile first (DESIGN §12, §13.14)', () => {
     expect(coachText('tap', true)).not.toMatch(/spacj|klik/i);
     expect(coachText('tap', false)).toMatch(/spacj/i);
     for (const w of ['light', 'petals', 'breath', 'drops', 'blind'] as const) expect(coachText(w, true).length).toBeGreaterThan(10);
+    // a mouse clicks: the how-to and the keys' row speak of clicks, never of taps
+    expect(keys.hands[0].text).toMatch(/^Kliknij/);
+    expect(keys.hands.map(hd => hd.text).join(' ')).not.toMatch(/stuk/i);
+    expect(touch.hands[0].text).toMatch(/^Stuknij/);
+  });
+});
+
+describe('a big screen and a mouse (DESIGN §14)', () => {
+  // a wide desktop canvas with a mouse (an upright one keeps the tall layout, grown)
+  const desks = CHECK_SIZES.filter(s => s.w > s.h && ['desktop', 'big'].includes(screenKind(s.w, s.h, false)));
+
+  it('lays a desktop and a big screen out for the mouse; a finger keeps its own layouts', () => {
+    expect(desks.map(s => s.name)).toEqual(expect.arrayContaining(['desktop', 'laptop (1440 × 790)', 'Full HD monitor (the middle column)', '2560 × 1440 monitor (the middle column)']));
+    for (const s of CHECK_SIZES) {
+      const touch = layout(s.w, s.h, s.insets, true);
+      expect(touch.desk, s.name).toBe(false);
+      expect(layout(s.w, s.h, s.insets, false).desk, s.name).toBe(desks.includes(s));
+    }
+  });
+
+  it('fills the band with the figure and stands the words beside it at a reading measure', () => {
+    for (const s of desks) {
+      const L = layout(s.w, s.h, s.insets, false);
+      const band = L.bottom - L.top;
+      expect(L.shape, s.name).toBe('wide');
+      // the figure as tall as the band allows: its feet and pool inside, its egg of light inside the left edge
+      expect(L.fig.H, s.name).toBeGreaterThanOrEqual(0.8 * band);
+      expect(L.fig.top + 1.04 * L.fig.H, s.name).toBeLessThanOrEqual(L.bottom);
+      expect(L.fig.cx - 0.34 * L.fig.H, s.name).toBeGreaterThanOrEqual(L.left);
+      // on a big screen the crown's window, open in full, stays under the bar
+      if (L.kind === 'big') expect(L.fig.top + PLACE.mind.y * L.fig.H - windowR(L, 1), s.name).toBeGreaterThanOrEqual(L.top - 0.5);
+      // the words right of the egg, inside the edge, at a reading measure (about 30–40 characters of the prayer)
+      expect(L.prayer.x, s.name).toBeGreaterThanOrEqual(L.fig.cx + 0.34 * L.fig.H);
+      expect(L.prayer.x + L.prayer.w, s.name).toBeLessThanOrEqual(L.right - 16);
+      expect(L.prayer.w, s.name).toBeLessThanOrEqual(18 * L.font.prayer);
+      expect(L.prayer.w, s.name).toBeGreaterThanOrEqual(14 * L.font.prayer);
+      // the figure and its words as one group in the middle: as much room on the left as on the right
+      const leftRoom = L.fig.cx - 0.34 * L.fig.H - L.left, rightRoom = L.right - (L.prayer.x + L.prayer.w);
+      expect(Math.abs(leftRoom - rightRoom), s.name).toBeLessThan(0.05 * (L.right - L.left));
+    }
+  });
+
+  it('grows the words with the screen: on a big screen the prayer is 1.4× a phone’s and more', () => {
+    const phone = layout(CHECK_SIZES[0].w, CHECK_SIZES[0].h, CHECK_SIZES[0].insets, true);
+    for (const s of desks) {
+      const L = layout(s.w, s.h, s.insets, false);
+      expect(L.font.prayer, s.name).toBeGreaterThanOrEqual(Math.round(phone.font.prayer * (L.kind === 'big' ? 1.4 : 1.3)));
+      expect(L.font.prayerMin).toBeGreaterThanOrEqual(15);
+      for (const px of [L.font.label, L.font.caption, L.font.verse]) expect(px, s.name).toBeGreaterThanOrEqual(1.3 * MIN_READ);
+      expect(L.font.small).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    const qhd = layout(1587, 1300, { top: 118, right: 0, bottom: 0, left: 0 }, false);
+    expect(qhd.u).toBeGreaterThan(1.7);
+    expect(qhd.fig.H).toBeGreaterThan(950);
+  });
+
+  it('stands the words level with each place, whole inside the band', () => {
+    for (const s of desks) {
+      const L = layout(s.w, s.h, s.insets, false);
+      for (const p of PLACES) {
+        const y = L.fig.top + PLACE[p].y * L.fig.H;
+        const W = wordsAt(L, y);
+        expect(W.caption.y, `${s.name} ${p}`).toBeGreaterThanOrEqual(L.top);
+        expect(W.caption.y + W.caption.h, `${s.name} ${p}`).toBeLessThanOrEqual(W.prayer.y);
+        expect(W.prayer.y + W.prayer.h, `${s.name} ${p}`).toBeLessThanOrEqual(L.bottom);
+        // the place's name (the band's first row) level with the place wherever the band has room for it
+        const row = W.prayer.y + labelRowH(L) / 2;
+        if (y > L.top + W.caption.h + 6 + 8 + labelRowH(L) / 2 && y < L.bottom - 8 - L.prayer.h + labelRowH(L) / 2) expect(Math.abs(row - y), `${s.name} ${p}`).toBeLessThan(1);
+      }
+      // other layouts keep their words where they are
+      const phone = layout(360, 500, CHECK_SIZES[0].insets, true);
+      expect(wordsAt(phone, 0)).toBe(phone);
+    }
+  });
+
+  it('keeps the place’s target finger-sized and inside the play at every desk size, for every place and fill', () => {
+    for (const s of desks) {
+      const L = layout(s.w, s.h, s.insets, false);
+      for (const p of PLACES) {
+        for (const fill of [0, 0.5, 1]) expect(auditTargets(tapTargets(L, { story: null, place: p, fill }), s.w, s.h, L.ins), `${s.name} ${p}`).toEqual([]);
+      }
+      expect(auditTargets(tapTargets(L, { story: storyRect(L, 420), place: 'heart', fill: 0.5 }), s.w, s.h, L.ins), s.name).toEqual([]);
+    }
   });
 });
 

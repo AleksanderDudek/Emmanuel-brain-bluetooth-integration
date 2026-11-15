@@ -13,10 +13,14 @@
  * hangs under the kiln on the right (it waits while a finger works the clay).  On its side and on a
  * desktop: the ticket and the customer on the left, the wheel in the middle with Gotowe at its right,
  * the kiln on the right, the palette along the bottom.  `u` is the kit's `uiScale` (1 on a phone, up to
- * 1.3); every control is at least MIN_TAP and keeps the 16 px edges, the home indicator and the canvas's
- * last rows (a touch on the signal dock plays there) clear.
+ * 1.3, up to DESK_MAX on a big screen); every control is at least MIN_TAP and keeps the 16 px edges, the home
+ * indicator and the canvas's last rows (a touch on the signal dock plays there) clear.
+ *
+ * With a mouse on a desktop or a big screen (`desk`, kit/mobile `screenKind`, DESIGN §14) the pot's stage and the
+ * wheel are a little wider (the pot is the hero), and the glazing palette's Gotowe stands right after the colours'
+ * row, beside the piece, instead of in a phone's thumb corner.
  */
-import { MIN_TAP, NO_INSETS, uiScale } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 import { RULES } from './rules';
 import { widestOf, type Target } from './shape';
@@ -34,8 +38,11 @@ export interface Layout {
   right: number;
   bottom: number;
   portrait: boolean;
-  /** the UI scale: 1 on a phone, up to 1.3 on a tablet or a desktop */
+  /** the UI scale: 1 on a phone, up to 1.3 on a tablet or a desktop, up to DESK_MAX on a big screen */
   u: number;
+  /** the kind of screen (kit/mobile `screenKind`) and whether it is laid out for a mouse (see above) */
+  kind: ScreenKind;
+  desk: boolean;
   /** the wheel's axis, and the pot's foot (the wheel head's top) */
   axis: number;
   floor: number;
@@ -70,11 +77,13 @@ export const DOCK_ROW = 4;
 /** Two neighbouring controls keep this far apart. */
 export const GAP = 8;
 
-export function layout(w: number, h: number, insets: Insets | number = NO_INSETS): Layout {
+export function layout(w: number, h: number, insets: Insets | number = NO_INSETS, touch = true): Layout {
   const ins: Insets = typeof insets === 'number' ? { ...NO_INSETS, top: insets } : insets;
   const W = Math.max(240, w), H = Math.max(200, h);
   const portrait = H > W * 1.05;
   const u = uiScale(W, H);
+  const kind = screenKind(W, H, touch);
+  const desk = !portrait && (kind === 'desktop' || kind === 'big');
   const T = Math.min(H * 0.5, Math.max(0, ins.top || 0));
   const left = Math.max(0, ins.left || 0) + EDGE;
   const right = W - Math.max(0, ins.right || 0) - EDGE;
@@ -86,20 +95,22 @@ export function layout(w: number, h: number, insets: Insets | number = NO_INSETS
     const axis = W * 0.5;
     const stageTop = T + 16;
     const stageH = Math.max(60, floor - stageTop);
-    const stageW = Math.min(W * 0.17, 230 * u);
-    const wheelRx = Math.min(stageW * 1.05, 150 * u);
+    // a mouse's big screen: the pot is the hero, its stage and the wheel a little wider
+    const stageW = desk ? Math.min(W * 0.2, 265 * u) : Math.min(W * 0.17, 230 * u);
+    const wheelRx = Math.min(stageW * 1.05, (desk ? 172 : 150) * u);
     const ticketW = Math.min(250 * u, Math.max(186 * u, W * 0.2));
     const kilnW = Math.min(200 * u, Math.max(118 * u, W * 0.16));
     const kilnH = Math.min(kilnW, (floor - T) * 0.6);
     const gaugeR = Math.min(kilnW * 0.5, (floor - T) * 0.22);
     const ticketH = Math.max(108 * u, Math.min(176 * u, (floor - T) * 0.5));
     const doneW = 124 * u, doneH = 52 * u;
-    const doneX = Math.min(right - doneW, axis + wheelRx + 14 * u);
+    // right of the wheel and clear of the pot's widest (a laptop's stage is wider than its wheel)
+    const doneX = Math.min(right - doneW, Math.max(axis + wheelRx + 14 * u, axis + stageW * 0.95 + 2));
     const kiln = { x: right - kilnW, y: floor + 20 * u - kilnH, w: kilnW, h: kilnH };
     const shelfX = axis + stageW + 30 * u;
     const talkX = axis + 24 * u;
     return {
-      w: W, h: H, top: T, left, right, bottom, portrait, u, axis, floor, stageH, stageW,
+      w: W, h: H, top: T, left, right, bottom, portrait, u, kind, desk, axis, floor, stageH, stageW,
       wheel: { x: axis, y: floor, rx: wheelRx, ry: wheelRx * 0.2 },
       level: { x: axis - 46 * u, y: floor + Math.min(18 * u, (bottom - floor) * 0.3), w: 92 * u, h: 16 * u },
       charge: { x: axis - wheelRx - 30 * u, y: floor - 30 * u, r: 22 * u },
@@ -136,7 +147,7 @@ export function layout(w: number, h: number, insets: Insets | number = NO_INSETS
   const levelX = Math.min(axis - levelW / 2, done.x - 12 - levelW);
   const shelfX = ticket.x + ticket.w + 10;
   return {
-    w: W, h: H, top: T, left, right, bottom, portrait, u, axis, floor, stageH, stageW,
+    w: W, h: H, top: T, left, right, bottom, portrait, u, kind, desk, axis, floor, stageH, stageW,
     wheel: { x: axis, y: floor, rx: wheelRx, ry: wheelRx * 0.2 },
     level: { x: levelX, y: floor + 16 * u, w: levelW, h: 16 * u },
     charge: { x: left + 26 * u, y: floor + 46 * u, r: 22 * u },
@@ -220,6 +231,8 @@ export function palette(L: Layout, nColors: number, nPatterns: number): Palette 
   // centred under the piece when they fit left of Gotowe, else pushed left
   const c0 = Math.max(L.left, Math.min(L.axis - cw / 2, regionR - cw));
   const colors = spread(nColors, c0, c0 + cw, cell).map(x => ({ x, y: colorsY + rowH / 2, r: swatchR }));
+  // a mouse's desktop: Gotowe right after the colours, beside the piece (not out in the corner)
+  if (L.desk) done.x = Math.min(done.x, c0 + cw + 3 * GAP);
   const chipW = 76 * u;
   const many = nPatterns > 1;
   const pw = Math.min(regionR - L.left, (chipW + GAP) * Math.max(1, nPatterns));

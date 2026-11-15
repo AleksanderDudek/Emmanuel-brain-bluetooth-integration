@@ -81,7 +81,8 @@ const pl = {
   // how to play, the coach marks
   'howto.goal': 'Rozświetl skupieniem siedem miejsc ciała, od głowy do stóp i z powrotem, z modlitwą przy każdym.',
   'howto.tap': 'Stuknij — zostań przy miejscu: modlitwa wraca, a światła trochę przybywa',
-  'howto.keys': 'Spacja — to samo co stuknięcie; Enter zamyka kartę',
+  'howto.click': 'Kliknij — zostań przy miejscu: modlitwa wraca, a światła trochę przybywa',
+  'howto.keys': 'Spacja — to samo co kliknięcie; Enter zamyka kartę',
   'howto.tip1': 'Patrz na miejsce, które świeci, i czuj je od środka; gdy rozeta jest cała, światło płynie dalej.',
   'howto.tip2': 'Opaska mierzy uwagę, nie modlitwę ani świętość: każde miejsce rozświetli się w swoim czasie.',
   'coach.tap': 'Stuknij — zostajesz przy tym miejscu: modlitwa wraca, a światło trochę rośnie.',
@@ -313,7 +314,8 @@ const en: Cat = {
 
   'howto.goal': 'Light seven places of the body with your focus, from the head to the feet and back, with a prayer at each.',
   'howto.tap': 'Tap — stay with the place: its prayer returns and the light grows a little',
-  'howto.keys': 'Space — the same as a tap; Enter closes a card',
+  'howto.click': 'Click — stay with the place: its prayer returns and the light grows a little',
+  'howto.keys': 'Space — the same as a click; Enter closes a card',
   'howto.tip1': 'Look at the shining place and feel it from within; when its rose window is whole, the light flows on.',
   'howto.tip2': 'The headband measures attention, not prayer or holiness: every place lights up in its own time.',
   'coach.tap': 'Tap — you stay with this place: its prayer returns and the light grows a little.',
@@ -537,7 +539,8 @@ const de: Cat = {
 
   'howto.goal': 'Erhelle mit deinem Fokus sieben Orte des Körpers, vom Kopf zu den Füßen und zurück, mit einem Gebet an jedem.',
   'howto.tap': 'Tippen — bleib bei dem Ort: Sein Gebet kehrt zurück, und das Licht wächst ein wenig',
-  'howto.keys': 'Leertaste — wie ein Tippen; Enter schließt eine Karte',
+  'howto.click': 'Klicken — bleib bei dem Ort: Sein Gebet kehrt zurück, und das Licht wächst ein wenig',
+  'howto.keys': 'Leertaste — wie ein Klick; Enter schließt eine Karte',
   'howto.tip1': 'Schau auf den leuchtenden Ort und spüre ihn von innen; ist seine Rosette ganz, fließt das Licht weiter.',
   'howto.tip2': 'Das Stirnband misst Aufmerksamkeit, nicht Gebet oder Heiligkeit: Jeder Ort leuchtet zu seiner Zeit.',
   'coach.tap': 'Tippen — du bleibst bei diesem Ort: Sein Gebet kehrt zurück, das Licht wächst ein wenig.',
@@ -761,7 +764,8 @@ const sv: Cat = {
 
   'howto.goal': 'Lys upp sju platser i kroppen med ditt fokus, från huvudet till fötterna och tillbaka, med en bön vid var och en.',
   'howto.tap': 'Tryck — stanna vid platsen: bönen kommer tillbaka och ljuset växer lite',
-  'howto.keys': 'Mellanslag — samma som ett tryck; Enter stänger ett kort',
+  'howto.click': 'Klicka — stanna vid platsen: bönen kommer tillbaka och ljuset växer lite',
+  'howto.keys': 'Mellanslag — samma som ett klick; Enter stänger ett kort',
   'howto.tip1': 'Se på den lysande platsen och känn den inifrån; när dess rosettfönster är helt flödar ljuset vidare.',
   'howto.tip2': 'Pannbandet mäter uppmärksamhet, inte bön eller helighet: varje plats lyser upp i sin tid.',
   'coach.tap': 'Tryck — du stannar vid platsen: bönen kommer tillbaka och ljuset växer lite.',

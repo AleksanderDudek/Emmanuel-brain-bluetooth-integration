@@ -717,6 +717,22 @@ export class JestemSim {
     return true;
   }
 
+  /**
+   * The cell a tap at (x, y) (picture units) would act on now, as `tapAt` chooses it — the part the colour
+   * would go to, the glass that would glow, the part a rest would mark — or -1.  No side effects: a desktop's
+   * hover shows it (DESIGN §14).
+   */
+  hoverAt(x: number, y: number): number {
+    const v = this.vision;
+    if (!v || !this.started || this.phase !== 'play' || this.story) return -1;
+    if (this.block.kind === 'rest' || this.complete) {
+      const c = cellUnder(v.geo, x, y);
+      if (c >= 0 && this.lit[c]) return c;
+      if (this.complete) return c;
+    }
+    return pickAt(v.geo, this.lit, x, y);
+  }
+
   /** A drag laid a path over these cells (in order): the colour follows it after the current cell. */
   setPath(cells: readonly number[]): void {
     if (!this.vision || this.phase !== 'play' || this.story) return;

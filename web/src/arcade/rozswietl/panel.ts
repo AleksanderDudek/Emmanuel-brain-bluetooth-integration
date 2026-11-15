@@ -11,6 +11,7 @@ import { h } from '../../ui/dom';
 import {
   cleanLabel, deleteImage, imagePicker, imagesAvailable, listImages, saveImage, setLabel, thumbUrl, type StoredImage,
 } from '../kit/images';
+import { coarsePointer } from '../kit/mobile';
 import { dayKey, daySeed } from '../kit/progress';
 import { PAIR_IDS, pairFrom, pairTitle, pairTo, type PairId } from './content';
 import { pct, t } from './i18n';
@@ -110,7 +111,7 @@ function build(p: RozProgress, st: PanelState, changed: () => void, refresh: () 
   const pickTitle = p.pick ? (isPair(p.pick) ? pairTitle(p.pick) : p.own.find(o => o.id === p.pick)?.label ?? '') : '';
   out.push(
     h('div', { class: 'arcade-sub' }, t('panel.albumOf', { n: albumCount(p) })), album,
-    h('p', { class: 'muted' }, pickTitle ? t('panel.nextIs', { title: pickTitle }) : t('panel.choose')),
+    h('p', { class: 'muted' }, pickTitle ? t('panel.nextIs', { title: pickTitle }) : t(coarsePointer() ? 'panel.choose' : 'panel.choose.mouse')),
   );
   // which pictures play
   const src = (s: Source, key: 'panel.src.builtin' | 'panel.src.own' | 'panel.src.both') => button(t(key), p.source === s, () => {

@@ -1042,6 +1042,24 @@ export class RozSim {
     this.knock(i, at);
   }
 
+  /**
+   * The tile a tap at `at` (mosaic units) would act on now, as `tap` chooses it — the dark tile it would aim
+   * and knock, the piece it would gild while gazing, the nearest dark tile for a tap on the light, where a
+   * ready flare would go off — or -1 (a card, between pictures).  No side effects: a desktop's hover shows it
+   * (DESIGN §14).
+   */
+  hoverAt(at: Pt): number {
+    if (!this.started || this.phase === 'done' || this.story) return -1;
+    const pic = this.pic;
+    const i = cellAt(pic.mosaic, at.x, at.y);
+    const tile = pic.tiles[i];
+    if (!tile) return -1;
+    if (tile.open && this.restBlock) return i;
+    if (pic.state !== 'play' && pic.state !== 'assemble') return -1;
+    if (this.flareReady && !this.restBlock) return i;
+    return tile.open ? this.nearestDark(at) : i;
+  }
+
   /** A drag over the mosaic: the light follows the lens (no knock). */
   drag(at: Pt): void {
     if (!this.started || this.phase === 'done' || this.story || (this.pic.state !== 'play' && this.pic.state !== 'assemble')) return;

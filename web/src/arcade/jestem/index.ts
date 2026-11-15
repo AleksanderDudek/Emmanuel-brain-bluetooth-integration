@@ -130,6 +130,7 @@ class JestemGame implements ArcadeGame {
     }
     this.sim.update(dt, f, t);
     this.drain();
+    this.view.hoverCell = this.hoverCell();
     this.view.update(dt, this.sim);
     this.sound.update(dt, this.sim);
     this.hintCool -= dt;
@@ -151,6 +152,7 @@ class JestemGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view;
+    if (!this.env.touch) this.mouseAt(e);
     if (e.type === 'down') {
       this.finger = e.id;
       view.ripple(e.x, e.y);
@@ -193,6 +195,27 @@ class JestemGame implements ArcadeGame {
     }
     view.drag = [];
     this.drain();
+  }
+
+  /**
+   * A desktop's mouse (DESIGN §14): the view shows the part a click would act on (`hoverCell`, kept fresh in
+   * update) and the card's answer under it; the cursor says where a click does something — the window, the card.
+   */
+  private mouseAt(e: PointerInput): void {
+    const v = this.view;
+    v.mouse = { x: e.x, y: e.y };
+    const box = v.cardBox;
+    const onCard = !!this.sim.story && !!box && e.x >= box.x && e.x <= box.x + box.w && e.y >= box.y && e.y <= box.y + box.h;
+    v.hoverForm = this.sim.story?.ask ? v.formAt(e.x, e.y) : -1;
+    this.env.canvas.style.cursor = (this.sim.story ? onCard : v.onWindow(e.x, e.y)) ? 'pointer' : '';
+  }
+
+  /** The part a click at the mouse would act on now (none while a drag lays its path, off the window, on a phone). */
+  private hoverCell(): number {
+    const m = this.view.mouse;
+    if (this.env.touch || !m || this.press?.moved || !this.view.onWindow(m.x, m.y)) return -1;
+    const q = this.view.toPicture(m.x, m.y);
+    return q ? this.sim.hoverAt(q.x, q.y) : -1;
   }
 
   private addToPath(x: number, y: number): void {
@@ -317,6 +340,7 @@ class JestemGame implements ArcadeGame {
   destroy(): void {
     this.finger = null;
     this.press = null;
+    this.env.canvas.style.cursor = '';
   }
 }
 
@@ -337,13 +361,13 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play, for the hand the player has: tap and drag on a phone; the drop on Space on a keyboard. */
+/** How to play, for the hand the player has: tap and drag on a phone; click and drag, the drop on Space on a desktop. */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('howto.goal'),
     hands: [
-      { gesture: 'tap', text: t('howto.tap') },
-      { gesture: 'drag', text: t('howto.drag') },
+      { gesture: 'tap', text: t(touch ? 'howto.tap' : 'howto.click') },
+      { gesture: 'drag', text: t(touch ? 'howto.drag' : 'howto.drag.mouse') },
       ...(touch ? [] : [{ gesture: 'keys' as const, text: t('howto.keys') }]),
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],

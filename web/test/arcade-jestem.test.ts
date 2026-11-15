@@ -12,9 +12,9 @@ import { SCENES, inPolygon, type DeclId } from '../src/arcade/jestem/scenes';
 import { JestemSim, finaleFor, planBlocks, pourRate, pourSecOf, type SimEvent, type SimVision } from '../src/arcade/jestem/sim';
 import { ARCH_H, autoNext, buildVision, inWindow, pickAt, type VisionGeo } from '../src/arcade/jestem/vision';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { coachText, howto } from '../src/arcade/jestem/index';
-import { formButtons, layout, tapTargets, windowAt } from '../src/arcade/jestem/layout';
+import { formButtons, layout, tapTargets, tu, windowAt } from '../src/arcade/jestem/layout';
 import { fitFont, font, fontPx } from '../src/arcade/jestem/paint';
 import { edgeMap, makeMosaic, type Pixels } from '../src/arcade/kit/mosaic';
 import { cut, heartOf, seedOf, type Analysis } from '../src/arcade/jestem/prep';
@@ -754,6 +754,106 @@ describe('mobile first (DESIGN §12, §13.8)', () => {
     expect(touch.tips?.length).toBe(2);
     expect(coachText('tap', true)).not.toMatch(KEYS);
     expect(coachText('tap', false)).toMatch(KEYS);
+    // a mouse clicks and drags with the mouse: never a tap or a finger
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, string>;
+      expect(c['howto.click'], `${l}.howto.click`).toMatch(/klik|click|klick/i);
+      expect(c['howto.drag.mouse'], `${l}.howto.drag.mouse`).toMatch(/mysz|mouse|maus|mus/i);
+      for (const k of ['howto.click', 'howto.drag.mouse', 'howto.keys']) expect(c[k], `${l}.${k}`).not.toMatch(/stuk|palc|\btap|finger|tipp|tryck på en|fingret/i);
+    }
+    expect(desk.hands.map(x => x.text)).toEqual([t('howto.click'), t('howto.drag.mouse'), t('howto.keys')]);
+    expect(touch.hands.map(x => x.text)).toEqual([t('howto.tap'), t('howto.drag')]);
+  });
+});
+
+describe('a big screen and a mouse (DESIGN §14)', () => {
+  // a wide desktop canvas with a mouse
+  const desks = CHECK_SIZES.filter(c => c.w > c.h && c.w >= 1024 && c.h >= 560);
+
+  it('lays a desktop and a big screen out for the mouse; a finger keeps its own layouts', () => {
+    expect(desks.length).toBeGreaterThanOrEqual(5);
+    for (const c of CHECK_SIZES) {
+      expect(layout(c.w, c.h, c.insets).desk, c.name).toBe(false);
+      expect(layout(c.w, c.h, c.insets, false).desk, c.name).toBe(desks.includes(c));
+      // a finger's layout is the same as before the desktop pass
+      expect(layout(c.w, c.h, c.insets, true)).toEqual(layout(c.w, c.h, c.insets));
+    }
+  });
+
+  it('gives the window the band’s full height and the words a column beside it, centred as one group', () => {
+    for (const c of desks) {
+      const L = layout(c.w, c.h, c.insets, false);
+      expect(L.mode, c.name).toBe('wide');
+      // the window as tall as the band allows, under the middle of the canvas (where a centre click lands)
+      expect(L.win.h / L.band.h, c.name).toBeGreaterThan(0.88);
+      expect(L.win.x, c.name).toBeLessThan(c.w / 2);
+      expect(L.win.x + L.win.w, c.name).toBeGreaterThan(c.w / 2);
+      expect(L.win.y, c.name).toBeLessThan(c.h * 0.6);
+      expect(L.win.y + L.win.h, c.name).toBeGreaterThan(c.h * 0.6);
+      // the column: beside the window, inside the edge, at a reading measure (about 18 ems of the declaration)
+      const S = L.side!;
+      expect(S, c.name).not.toBeNull();
+      expect(S.x, c.name).toBeGreaterThan(L.win.x + L.win.w);
+      expect(S.x + S.w, c.name).toBeLessThanOrEqual(c.w - c.insets.right - 16);
+      expect(S.w, c.name).toBeGreaterThanOrEqual(190 * L.u - 0.5);
+      expect(S.w, c.name).toBeLessThanOrEqual(18 * 15 * L.u + 0.5);
+      // the finale writes beside the window there
+      expect(L.finText).toEqual({ x: S.x, y: L.band.y + 8, w: S.w, h: L.band.h - 16 });
+    }
+    // on a big screen the window and the column stand as one group in the middle: no empty band on one side
+    for (const c of desks.filter(x => Math.min(x.w, x.h) >= DESK_BIG)) {
+      const L = layout(c.w, c.h, c.insets, false);
+      const leftRoom = L.win.x - L.band.x, rightRoom = L.band.x + L.band.w - (L.side!.x + L.side!.w);
+      expect(Math.abs(leftRoom - rightRoom), c.name).toBeLessThan(0.06 * L.band.w);
+      expect(L.u, c.name).toBeGreaterThan(1.3);
+      expect(L.u, c.name).toBeLessThanOrEqual(DESK_MAX);
+    }
+  });
+
+  it('grows the words with the screen on a desktop; a phone’s stop where they did', () => {
+    const big = layout(1587, 1300, { top: 118, right: 0, bottom: 0, left: 0 }, false);
+    expect(tu(big, 1.2)).toBeCloseTo(big.u, 6);
+    expect(15 * tu(big, 1.2)).toBeGreaterThanOrEqual(1.5 * 15);
+    const tablet = layout(820, 1052, CHECK_SIZES[6].insets, true);
+    expect(tu(tablet, 1.2)).toBeCloseTo(Math.min(tablet.u, 1.2), 6);
+    const phone = layout(360, 500, CHECK_SIZES[0].insets);
+    expect(tu(phone, 1.15)).toBe(1);
+  });
+
+  it('keeps the card’s answers finger-sized and in place at every desk size', () => {
+    for (const c of desks) {
+      const L = layout(c.w, c.h, c.insets, false);
+      const ts = tapTargets(L, { card: 'ask' });
+      expect(auditTargets(ts, c.w, c.h, c.insets), c.name).toEqual([]);
+    }
+  });
+
+  it('shows the part a click would act on (hoverAt), the same that a click then chooses', () => {
+    const sim = later();
+    const g = sim.vision!.geo;
+    // a push: the part under the mouse (unlit) is the one a click sends the colour to
+    const far = g.cells.reduce((b, c) => (c.heartD > g.cells[b].heartD ? c.id : b), 0);
+    sim.take();
+    const target = sim.target;
+    expect(sim.hoverAt(g.cells[far].cx, g.cells[far].cy)).toBe(far);
+    // only a look: no event, nothing chosen
+    expect(sim.take()).toEqual([]);
+    expect(sim.target).toBe(target);
+    sim.tapAt(g.cells[far].cx, g.cells[far].cy);
+    expect(sim.target).toBe(far);
+    // on the light: the nearest unlit part, as a click finds it
+    const clock = { t: 0 };
+    drive(sim, 25, HIGH, clock);
+    const lit = sim.lit.findIndex(Boolean);
+    expect(lit).toBeGreaterThanOrEqual(0);
+    if (sim.pushBlock) expect(sim.lit[sim.hoverAt(g.cells[lit].cx, g.cells[lit].cy)]).toBe(false);
+    // a rest: the glass under the mouse is what would glow
+    until(sim, 'rest', HIGH, clock);
+    const litNow = sim.lit.findIndex(Boolean);
+    expect(sim.hoverAt(g.cells[litNow].cx, g.cells[litNow].cy)).toBe(litNow);
+    // nothing to show over the opening card
+    const first = makeSim({ ask: false });
+    if (first.story) expect(first.hoverAt(g.cells[0].cx, g.cells[0].cy)).toBe(-1);
   });
 });
 

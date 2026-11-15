@@ -10,7 +10,7 @@ import { RozSim, finaleFor, planBlocks, type SimEvent } from '../src/arcade/rozs
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
-import { CHECK_SIZES, MIN_TAP, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_TAP, MIN_TEXT, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import { coachText, howto } from '../src/arcade/rozswietl/index';
 import { cardBox, flySpot, frameFor, layout, tapTargets } from '../src/arcade/rozswietl/layout';
 import { font, fontPx } from '../src/arcade/rozswietl/paint';
@@ -768,10 +768,14 @@ describe('mobile first (DESIGN §12, §13.7)', () => {
     }
   });
 
-  it('grows on a tablet and a desktop, never past 1.3', () => {
+  it('grows on a tablet and a desktop: 1.3 at most below a big screen, up to DESK_MAX on one', () => {
     expect(layout(360, 500, CHECK_SIZES[0].insets).u).toBe(1);
     expect(layout(1280, 800, CHECK_SIZES[8].insets).u).toBeLessThanOrEqual(1.3);
     expect(layout(820, 1052, CHECK_SIZES[6].insets).u).toBeGreaterThan(1);
+    for (const s of CHECK_SIZES) {
+      const big = Math.min(s.w, s.h) >= DESK_BIG && s.w >= 1024;
+      expect(layout(s.w, s.h, s.insets, false).u, s.name).toBeLessThanOrEqual(big ? DESK_MAX : 1.3);
+    }
   });
 
   it('never draws text under 11 px: the font helper has a floor', () => {
@@ -789,5 +793,52 @@ describe('mobile first (DESIGN §12, §13.7)', () => {
     expect(coachText('flare', false)).toMatch(/Spacj/);
     expect(coachText('drag', true)).toMatch(/palcem/);
     expect(touch.tips!.length).toBeLessThanOrEqual(2);
+    // a mouse clicks: its how-to, its coach marks and the warm-up's line never say tap
+    for (const h of mouse.hands) expect(h.text, h.gesture).not.toMatch(/stuk|palc/i);
+    expect(mouse.hands[0].text).toMatch(/^Kliknij/);
+    for (const w of ['aim', 'knock', 'flare', 'drag'] as const) {
+      expect(coachText(w, false), w).not.toMatch(/stuk|palc/i);
+      expect(coachText(w, false), w).toMatch(/klik|spacj|mysz/i);
+    }
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, string>;
+      for (const k of ['howto.click', 'task.warm.mouse', 'coach.aim.keys', 'coach.knock.keys', 'panel.choose.mouse']) expect(c[k], `${l}.${k}`).toMatch(/klik|click|klick/i);
+    }
+  });
+});
+
+describe('a big screen and a mouse (DESIGN §14)', () => {
+  const desks = CHECK_SIZES.filter(s => ['desktop', 'big'].includes(screenKind(s.w, s.h, false)));
+
+  it('lays a desktop out for the mouse; a finger keeps its layouts; a big screen’s picture fills its band', () => {
+    expect(desks.length).toBeGreaterThanOrEqual(5);
+    for (const s of CHECK_SIZES) {
+      expect(layout(s.w, s.h, s.insets, true).desk, s.name).toBe(false);
+      expect(layout(s.w, s.h, s.insets, false).desk, s.name).toBe(desks.includes(s));
+    }
+    for (const s of desks.filter(x => Math.min(x.w, x.h) >= DESK_BIG)) {
+      const L = layout(s.w, s.h, s.insets, false);
+      const f = frameFor(L, L.aspect);
+      expect(f.w * f.h, s.name).toBeGreaterThan(0.85 * (L.right - L.left) * (L.bottom - L.top));
+      expect(L.u, s.name).toBeGreaterThan(1.3);
+      // the card grows with the screen (its words were sized by u)
+      expect(cardBox(L, f, 'done').w, s.name).toBeGreaterThan(520 * 1.3);
+    }
+  });
+
+  it('shows the tile a click would act on (hoverAt), the one a click then aims; nothing over a card', () => {
+    const sim = later();
+    drive(sim, 0.5, NONE);
+    sim.take();
+    const target = sim.pic.mosaic.cells.find(c => c.id !== sim.aim && c.ring > 0.3 && !sim.pic.tiles[c.id].open)!;
+    const aim = sim.aim;
+    expect(sim.hoverAt({ x: target.cx, y: target.cy })).toBe(target.id);
+    // only a look: nothing aimed, nothing knocked
+    expect(sim.take()).toEqual([]);
+    expect(sim.aim).toBe(aim);
+    sim.tap({ x: target.cx, y: target.cy });
+    expect(sim.aim).toBe(target.id);
+    const first = makeSim();
+    if (first.story) expect(first.hoverAt({ x: target.cx, y: target.cy })).toBe(-1);
   });
 });

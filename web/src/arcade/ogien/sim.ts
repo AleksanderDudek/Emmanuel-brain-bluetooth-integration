@@ -857,6 +857,67 @@ export class OgienSim {
     }
   }
 
+  /**
+   * What a tap at `at` (units; null: the button's tap) would act on now, as `tap` chooses it — the fire (blow,
+   * shelter, poke), the dark tent it would light, the pair it would fuse, the wisps within reach, the one waiting
+   * the flame would pass to — as a spot and a radius in units, or null (the hands rest, a change, nothing in
+   * reach).  No side effects: a desktop's hover shows it (DESIGN §14).
+   */
+  hoverAt(at: Pt | null): { x: number; y: number; r: number } | null {
+    if (!this.started || this.phase === 'done' || !this.handsOn || this.changing > 0.6) return null;
+    const R = RULES;
+    switch (this.task) {
+      case 'blow': return { x: 0, y: -0.05, r: 0.34 };
+      case 'shield': return { x: 0, y: -0.2, r: 0.42 };
+      case 'feed': return { x: 0, y: 0.1, r: 0.46 };
+      case 'tents': {
+        const from = at ?? { x: 0, y: 0.9 };
+        let best = -1, bd = Infinity;
+        this.tents.forEach((tt, i) => {
+          if (tt.lit >= R.relight || tt.arc >= 0) return;
+          const d = Math.hypot(tt.x - from.x, tt.y - from.y);
+          if (d < bd) { bd = d; best = i; }
+        });
+        if (best < 0) return null;
+        const tt = this.tents[best];
+        return { x: tt.x, y: tt.y - tt.s * 0.3, r: tt.s * 0.8 };
+      }
+      case 'fuse': {
+        const from = at ?? { x: 0, y: 0 };
+        let best: Pair | null = null, bd = Infinity;
+        for (const p of this.pairs) {
+          if (p.fused >= 0) continue;
+          const q = this.pairAt(p);
+          const d = Math.hypot(q.x - from.x, q.y - from.y);
+          if (d < bd) { bd = d; best = p; }
+        }
+        if (!best || (at && bd > R.pairReach)) return null;
+        const q = this.pairAt(best);
+        return { x: q.x, y: q.y, r: 0.17 };
+      }
+      case 'gather': {
+        const from = at ?? { x: 0, y: 0 };
+        const free = this.wisps.filter(w => w.caught < 0).map(w => ({ p: this.wispAt(w), d: Math.hypot(this.wispAt(w).x - from.x, this.wispAt(w).y - from.y) }));
+        if (!at) {
+          free.sort((a, b) => a.d - b.d);
+          return free.length ? { x: free[0].p.x, y: free[0].p.y, r: 0.2 } : null;
+        }
+        return free.some(x => x.d <= R.pullReach) ? { x: at.x, y: at.y, r: R.pullReach } : null;
+      }
+      case 'pass': {
+        const lit = this.figures.filter(f => f.state === 'lit');
+        const waiting = this.figures.filter(f => f.state === 'wait' && f.fade >= 0.6);
+        if (!lit.length || !waiting.length) return null;
+        const from = at ?? lit[0];
+        waiting.sort((a, b) => Math.hypot(a.x - from.x, a.y - from.y) - Math.hypot(b.x - from.x, b.y - from.y));
+        const f = waiting[0];
+        return { x: f.x, y: f.y - f.h * 0.5, r: f.h * 0.62 };
+      }
+      default:
+        return null;
+    }
+  }
+
   /** A task done: its gain into the ring, the event, sometimes Ignacy's word. */
   private handTask(kind: TaskKind | 'poke' | 'trim', base: number, x: number, y: number, target: number, sayChance: number): boolean {
     const gain = this.handGain(base);

@@ -296,12 +296,13 @@ export function paintEmblem(ctx: CanvasRenderingContext2D, x: number, y: number,
 
 /**
  * Hanna's bubble: a dark rounded card with her emblem, the line in up to two lines (13 px and more),
- * centred on `cx` with its top at `top`; `a` fades it.  Returns its box.
+ * centred on `cx` with its top at `top`; `a` fades it.  Returns its box.  `grow`: a desktop's bubble grows
+ * with the screen (a phone's stops at 1.15).
  */
-export function paintBubble(ctx: CanvasRenderingContext2D, text: string, cx: number, top: number, maxW: number, u: number, a: number): Rect {
-  const px = 14 * Math.min(u, 1.15);
+export function paintBubble(ctx: CanvasRenderingContext2D, text: string, cx: number, top: number, maxW: number, u: number, a: number, grow = false): Rect {
+  const px = 14 * (grow ? u : Math.min(u, 1.15));
   ctx.font = font(px, 600);
-  const er = 13 * Math.min(u, 1.2);
+  const er = 13 * (grow ? u : Math.min(u, 1.2));
   const innerW = Math.max(80, maxW - er * 2 - 30);
   const lines = wrap(ctx, text, innerW, 3);
   const lw = Math.max(...lines.map(l => ctx.measureText(l).width));

@@ -10,13 +10,17 @@
  *   short (a phone on its side)  the fire left of the middle, the button and the pile under the thumbs at the
  *         bottom corners, cards in the column right of the ring
  *   wide  (desktops, tablets on their side)  the fire in the middle, the button bottom right, cards right of the ring
+ *   desk  (wide, a desktop or a big screen with a mouse — kit/mobile `screenKind`, DESIGN §14)  the fire as large as
+ *         the band allows (its scene reaches ~1.4 R below it and ~1.7 R aside), the scale's button beside the ring's
+ *         lower right and the pile beside its lower left (where the mouse already is, not in a thumb's corner), the
+ *         cards over the ring's right half; the words under the ring and Ignacy grow with the screen
  *
  * The scene's own coordinates are units of the ring's radius around the fire (rules.ts): `L.R` px a unit.
  * Everything the player taps is a rectangle here (`tapTargets`), the same ones the view hit-tests and the mobile
  * audit checks: at least MIN_TAP on the short side, apart from each other, inside the insets.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 
 export type { Rect };
@@ -26,7 +30,10 @@ export interface Layout {
   w: number;
   h: number;
   mode: Mode;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** the kind of screen (kit/mobile `screenKind`) and whether it is laid out for a mouse (`desk`, see above) */
+  kind: ScreenKind;
+  desk: boolean;
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, up to DESK_MAX on a big screen */
   u: number;
   ins: Insets;
   /** the HUD's lower edge and the band's lower edge */
@@ -53,9 +60,11 @@ export interface Layout {
   under: number;
 }
 
-export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout {
+export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch = true): Layout {
   const W = Math.max(240, w), H = Math.max(200, h);
   const mode: Mode = W / H < 0.9 ? 'tall' : H < 460 ? 'short' : 'wide';
+  const kind = screenKind(W, H, touch);
+  const desk = mode === 'wide' && (kind === 'desktop' || kind === 'big');
   const u = uiScale(W, H);
   const top = clamp(insets.top, 0, H * 0.6);
   const ins: Insets = { top, right: Math.max(0, insets.right), bottom: Math.max(0, insets.bottom), left: Math.max(0, insets.left) };
@@ -89,6 +98,26 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     card = { x: cardX, y: top + Math.round(8 * u), w: Math.max(200, x1 - cardX), h: band - Math.round(16 * u) };
     anchor = 'side';
     pile = { x: x0 + Math.round(22 * u), y: bottom - pad - ph, w: pw, h: ph };
+  } else if (desk) {
+    // the fire as large as the band allows; the button and the pile beside the ring's lower half, the cards
+    // over its right half (the fire itself stays in sight)
+    R = Math.round(clamp(Math.min(band * 0.36, (W - ins.left - ins.right) * 0.25), 80, 480));
+    cx = Math.round((ins.left + W - ins.right) / 2);
+    cy = Math.round(top + band * 0.48);
+    const gap = Math.round(30 * u);
+    const bx = cx + R + gap, bw2 = Math.round(Math.max(150, Math.min(210 * u, x1 - bx)));
+    const by = Math.round(Math.min(cy + R * 0.5 - bh / 2, bottom - pad - bh));
+    btn.x = Math.min(bx, x1 - bw2);
+    btn.y = by;
+    btn.w = bw2;
+    // the pile grows with the screen here (a phone's stops at 150 × 84)
+    const pw2 = Math.round(108 * u), ph2 = Math.round(64 * u);
+    pile = { x: Math.max(x0, cx - R - gap - pw2), y: Math.round(Math.min(cy + R * 0.5 - ph2 / 2, bottom - pad - ph2)), w: pw2, h: ph2 };
+    const cardX = Math.round(cx + R * 0.5);
+    const cw = Math.min(x1 - cardX, Math.round(440 * u));
+    const chh = Math.min(band - Math.round(24 * u), Math.round(440 * u));
+    card = { x: x1 - cw, y: Math.round(top + (band - chh) / 2), w: cw, h: chh };
+    anchor = 'side';
   } else {
     R = Math.round(clamp(Math.min(band * 0.33, W * 0.19), 80, 260));
     cx = Math.round((ins.left + W - ins.right) / 2);
@@ -106,8 +135,9 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     y: top + Math.round(6 * u),
     maxW: mode === 'tall' ? x1 - x0 - Math.round(10 * u) : Math.round(Math.min(W * 0.46, 480 * u)),
   };
-  const under = Math.round(Math.min(cy + R + 22 * u, btn.y - 10 * u));
-  return { w: W, h: H, mode, u, ins, top, bottom, edge, cx, cy, R, btn, pile, ladder, bubble, card, anchor, under };
+  // the words under the ring (the breath, the smoke): above the button where it sits below the ring
+  const under = Math.round(desk ? Math.min(cy + R + 22 * u, bottom - 14 * u) : Math.min(cy + R + 22 * u, btn.y - 10 * u));
+  return { w: W, h: H, mode, kind, desk, u, ins, top, bottom, edge, cx, cy, R, btn, pile, ladder, bubble, card, anchor, under };
 }
 
 /** What can be tapped right now: a card (alone, it covers the controls), else the button and, at the bonfire, the pile. */

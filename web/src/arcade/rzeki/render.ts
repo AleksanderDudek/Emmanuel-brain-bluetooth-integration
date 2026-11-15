@@ -16,7 +16,7 @@ import { PLACE, PLACES, tierName, type PlaceId } from './content';
 import { CHEST } from './figure';
 import { drawCaption, drawPrayer, drawStory, dropFloat } from './hud';
 import { t } from './i18n';
-import { idleR, layout, litR, maxWindowR, placeXY, tapTargets, windowR, type Layout, type Rect } from './layout';
+import { idleR, labelRowH, layout, litR, maxWindowR, placeXY, tapTargets, windowR, wordsAt, type Layout, type Rect } from './layout';
 import {
   GOLD, GOLD_HI, PEARL, SANS, SILVER, WATER, auraSprite, bakeFigure, bakeRays, bakeRose, bakeRoses, bakeSky, bloom, columnSprite, glow, glowSprite, hash,
   mix, poolSprite, rgbaPrefix, starSprite, type FigureLayer, type Layer, type RoseLayers,
@@ -69,6 +69,15 @@ export class RzekiView {
   private lastCaption = '';
   /** the story card as last drawn (for taps and the audit) */
   storyRect: Rect | null = null;
+  /**
+   * A desktop's mouse (DESIGN §14): where it is, how long since it moved, and how much the place a click would
+   * stay with shows it (a ring of light around that place, fading once the mouse rests).
+   */
+  private mouse: { x: number; y: number } | null = null;
+  private mouseIdle = 99;
+  private hoverK = 0;
+  /** a desk layout's words: the height they stand at, eased after the place (or the stream) */
+  private wordsY = Number.NaN;
 
   constructor(canvas: HTMLCanvasElement, private readonly o: ViewOpts) {
     this.ctx = canvas.getContext('2d');
@@ -78,6 +87,7 @@ export class RzekiView {
   resize(w: number, h: number, dpr: number, ins: Insets): void {
     this.dpr = dpr;
     this.L = layout(w, h, ins, this.o.touch);
+    this.wordsY = Number.NaN;
     const L = this.L, H = L.fig.H;
     this.sky = bakeSky(w, h, dpr, { cx: L.fig.cx, heavenY: L.top - H * 0.02, midY: L.fig.top + H * 0.45, H });
     const rw = Math.min(w, H * 1.3);
@@ -207,9 +217,38 @@ export class RzekiView {
     this.parts.burst(x, y, 1, { color: PEARL, speed: 0, life: 0.5, size: 12, g: 0, drag: 0, shape: 'ring' });
   }
 
+  /** The mouse moved over the play (a desktop): the place a click would stay with answers (`drawHover`). */
+  hover(x: number, y: number): void {
+    if (this.o.touch) return;
+    this.mouse = { x, y };
+    this.mouseIdle = 0;
+  }
+
+  /** The mouse left the canvas. */
+  unhover(): void {
+    this.mouse = null;
+  }
+
+  /** Whether a point is over the figure's egg of light (a click there plainly goes to its place: a pointer cursor). */
+  overFigure(x: number, y: number): boolean {
+    const L = this.L, H = L.fig.H;
+    const dx = (x - L.fig.cx) / (H * 0.36), dy = (y - (L.fig.top + H * 0.47)) / (H * 0.64);
+    return dx * dx + dy * dy <= 1;
+  }
+
+  /** Whether a point is on the story card as last drawn. */
+  overStory(x: number, y: number): boolean {
+    const r = this.storyRect;
+    return !!r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+  }
+
   update(dt: number, sim: RzekiSim): void {
     this.time += dt;
     this.lastDt = dt;
+    // the mouse's answer comes quickly and goes slowly once it rests (a meditation is not a cursor chase)
+    this.mouseIdle += dt;
+    const wantHover = this.mouse && this.mouseIdle < 2.6 && !sim.story ? 1 : 0;
+    this.hoverK = wantHover > this.hoverK ? Math.min(1, this.hoverK + dt * 5) : Math.max(0, this.hoverK - dt * 1.2);
     this.parts.update(dt);
     this.floats.update(dt);
     this.pop = Math.max(0, this.pop - dt * 2.2);
@@ -334,17 +373,67 @@ export class RzekiView {
     this.drawPlaces(ctx, sim, breathe);
     this.drawThreads(ctx, sim, true);
     this.drawStream(ctx, sim);
+    this.drawHover(ctx, sim);
     this.drawDrops(ctx);
     this.drawMotes(ctx);
     this.parts.draw(ctx);
     this.floats.draw(ctx, `800 ${SANS}`);
     if (this.flash > 0) glow(ctx, GOLD_HI, L.fig.cx, L.fig.top + H * 0.45, H * 0.85, 0.32 * Math.sin(Math.PI * Math.min(1, this.flash)));
     if (sim.blind) this.drawVeil(ctx);
-    // the words: the narrator in its own column (or in the band's top row on a phone held upright), the prayer
+    // the words: the narrator in its own column (or in the band's top row on a phone held upright), the prayer;
+    // on a desktop they stand level with the place the light is at
     const k = sim.story ? 0 : this.captionK;
-    if (L.shape !== 'tall') drawCaption(ctx, L, this.lastCaption, k);
-    drawPrayer(ctx, L, sim, this.lastDt, { text: this.lastCaption, k });
-    this.storyRect = drawStory(ctx, L, sim);
+    const Lw = this.wordsLayout(sim);
+    if (L.shape !== 'tall') drawCaption(ctx, Lw, this.lastCaption, k);
+    drawPrayer(ctx, Lw, sim, this.lastDt, { text: this.lastCaption, k });
+    this.storyRect = drawStory(ctx, L, sim, !!this.mouse && this.overStory(this.mouse.x, this.mouse.y));
+  }
+
+  /**
+   * A desk layout's words, standing level with the place the light is at, gliding with the stream to the next
+   * (eased); with the whole body in light, at the chest.  Reduced motion keeps them still at the chest.
+   */
+  private wordsLayout(sim: RzekiSim): Layout {
+    const L = this.L;
+    if (!L.desk || this.o.reducedMotion) return L;
+    let target = sim.stage === 'whole' ? L.fig.top + L.fig.H * 0.3 : this.streamY(sim);
+    // the runner's banner covers the top of the play in a block's first seconds: the words wait under it
+    if (sim.phase === 'play' && (sim.pushBlock || sim.restBlock) && sim.blockT < RULES.bannerSec) {
+      const room = Math.max(150, 0.24 * (L.bottom - L.top));
+      target = Math.max(target, L.top + room + L.caption.h + 6 + labelRowH(L) / 2);
+    }
+    if (!Number.isFinite(this.wordsY)) this.wordsY = target;
+    else this.wordsY += (target - this.wordsY) * Math.min(1, this.lastDt * 3);
+    return wordsAt(L, this.wordsY);
+  }
+
+  /**
+   * A desktop's hover: two arcs of light turning slowly around the place a click would stay with — the current
+   * place, or the next one while the stream flows there — brighter while the mouse is on the figure; it fades
+   * once the mouse rests (the dashed ring further out is the threshold, a different thing).
+   */
+  private drawHover(ctx: CanvasRenderingContext2D, sim: RzekiSim): void {
+    if (this.hoverK < 0.01 || !sim.started || sim.story) return;
+    const at = sim.stage === 'at' || sim.stage === 'hold';
+    const p = sim.stage === 'flow' ? sim.nextPlace : sim.stage === 'whole' ? null : sim.place;
+    if (!p) return;
+    const L = this.L, H = L.fig.H, c = placeXY(L, p);
+    const R = at && p === sim.place ? windowR(L, sim.fill) : litR(L) * 1.2;
+    const m = this.mouse;
+    const k = this.hoverK * (m && this.overFigure(m.x, m.y) ? 1 : 0.55);
+    const rr = R * 1.28 + Math.max(4, H * 0.008);
+    glow(ctx, PEARL, c.x, c.y, rr * 1.3, 0.12 * k);
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(1.5, H * 0.0042);
+    ctx.strokeStyle = `rgba(246,242,255,${(0.78 * k).toFixed(3)})`;
+    const a0 = this.o.reducedMotion ? -Math.PI / 2 : this.time * 0.9;
+    for (let i = 0; i < 2; i++) {
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, rr, a0 + i * Math.PI, a0 + i * Math.PI + 1.7);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /** A dozen stars that twinkle slowly (the rest of the sky is baked). */
@@ -765,7 +854,16 @@ export class RzekiView {
   private drawVeil(ctx: CanvasRenderingContext2D): void {
     const L = this.L;
     ctx.fillStyle = 'rgba(6,4,22,.32)';
-    ctx.fillRect(0, L.top, L.w, L.prayer.y - L.top);
+    if (L.desk) {
+      // a desktop: over the figure's side of the band, fading out before the words beside it (no seam in the sky)
+      const x1 = Math.max(1, L.prayer.x - 10 * L.u), x0 = Math.max(0, x1 - 140 * L.u);
+      const g = ctx.createLinearGradient(x0, 0, x1, 0);
+      g.addColorStop(0, 'rgba(6,4,22,.32)');
+      g.addColorStop(1, 'rgba(6,4,22,0)');
+      ctx.fillRect(0, L.top, x0, L.bottom - L.top);
+      ctx.fillStyle = g;
+      ctx.fillRect(x0, L.top, x1 - x0, L.bottom - L.top);
+    } else ctx.fillRect(0, L.top, L.w, L.prayer.y - L.top);
   }
 
   /** Every control the player can tap now (a story card, or the current place's circle), for the audit. */

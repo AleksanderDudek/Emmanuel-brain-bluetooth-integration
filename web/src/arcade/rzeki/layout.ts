@@ -7,14 +7,19 @@
  *          narrator's caption under the HUD, the figure tall in the middle, the prayer in the band below it
  *          (the eye goes from the place down to its words); a tablet upright is the same, grown (u ≤ 1.3)
  *   side   a phone on its side (one 68 px HUD row): the figure on the left, the caption and the prayer on the right
- *   wide   a desktop or a tablet on its side: the side layout grown, the prayer column capped to read well
+ *   wide   a tablet on its side: the side layout grown, the prayer column capped to read well
+ *          — and a desktop or a big screen with a mouse (`desk`, kit/mobile `screenKind`, DESIGN §14): the figure
+ *          as tall as the band allows, with room above the head for the crown's open window, and the words in a
+ *          column beside it at a reading measure (the prayer in two or three balanced lines), the figure and
+ *          its words centred as one group; the words stand at the height of the place the light is at
+ *          (`wordsAt`), so the eye goes straight across from the window to its prayer
  *
  * A tap anywhere stays with the place, so the only target is the place's own circle (≥ 44 px) — or the story
  * card while one is up.  The figure is drawn in its own units: a point (fx, fy) is (cx + fx·H, top + fy·H).
  * Everything here is pure: the tests run it at every kit/mobile CHECK_SIZES entry.
  */
 import { clamp, ease } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { PLACE, type PlaceId } from './content';
 
@@ -33,7 +38,11 @@ export interface Layout {
   right: number;
   shape: Shape;
   touch: boolean;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** the kind of screen (kit/mobile `screenKind`) */
+  kind: ScreenKind;
+  /** a desktop or a big screen with a mouse: the figure fills the band, the words stand beside it at the place's height */
+  desk: boolean;
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, up to DESK_MAX on a big screen */
   u: number;
   /** the figure: its midline, its crown's y, its height (px) */
   fig: { cx: number; top: number; H: number };
@@ -70,12 +79,20 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   const bw = right - left, bh = bottom - top;
   const side = h < 470 && w > h * 1.3;
   const shape: Shape = side ? 'side' : w > h ? 'wide' : 'tall';
+  const kind = screenKind(w, h, touch);
+  const desk = shape === 'wide' && (kind === 'desktop' || kind === 'big');
   const u = shape === 'side' ? 1 : uiScale(w, h, 1.3);
   const edge = 16;
-  const font = {
-    label: Math.round(13 * u), prayer: Math.round(17 * u), prayerMin: 15, caption: Math.max(13, Math.round(13.5 * u)),
-    verse: Math.round(15 * u), small: Math.max(11, Math.round(12 * u)),
-  };
+  const font = desk
+    // a desktop reads from further away than a phone: the prayer a little larger than the rest grown with the screen
+    ? {
+      label: Math.round(14 * u), prayer: Math.round(18.5 * u), prayerMin: Math.max(15, Math.round(15 * u)), caption: Math.round(14.5 * u),
+      verse: Math.round(16.5 * u), small: Math.round(12.5 * u),
+    }
+    : {
+      label: Math.round(13 * u), prayer: Math.round(17 * u), prayerMin: 15, caption: Math.max(13, Math.round(13.5 * u)),
+      verse: Math.round(15 * u), small: Math.max(11, Math.round(12 * u)),
+    };
 
   if (shape === 'tall') {
     // the narrator speaks in the prayer band's top row here (a caption above the figure would cover the crown)
@@ -87,7 +104,34 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
     // HUD), the feet stand at H, the pool lies below them
     const H = Math.max(120, Math.min((yB - top - 4) / 1.185, (bw - 2 * edge) / 0.5));
     const fig = { cx: (left + right) / 2, top: top + 4 + 0.125 * H + Math.max(0, (yB - top - 4 - 1.185 * H) / 2), H };
-    return { w, h, ins, top, bottom, left, right, shape, touch, u, fig, caption, prayer, story: { x: left + edge, y: top + 8, w: bw - 2 * edge, h: bh - 16 }, font };
+    return { w, h, ins, top, bottom, left, right, shape, touch, kind, desk, u, fig, caption, prayer, story: { x: left + edge, y: top + 8, w: bw - 2 * edge, h: bh - 16 }, font };
+  }
+
+  if (desk) {
+    // the figure as tall as the band allows: on a big screen room above the head for the crown's open window
+    // (it never slips under the bar), a little less on a desktop under the top HUD (its middle is free there);
+    // the pool and the rivers' near ends lie under the feet (to 1.06 H)
+    const head = kind === 'big' ? 0.13 : 0.075, foot = 1.06;
+    const H = Math.max(120, Math.min((bh - 16) / (head + foot), bw * 0.62));
+    // the words beside it at a reading measure (about 34 characters of the prayer a line), the figure's egg of
+    // light (± 0.34 H) and the column centred as one group: the figure left of the middle, the words right of it
+    const egg = 0.34 * H, gap = Math.round(36 * u);
+    const colW = Math.round(Math.max(240, Math.min(17 * font.prayer, bw - 2 * edge - 2 * egg - gap)));
+    const x0 = left + Math.max(edge, (bw - (2 * egg + gap + colW)) / 2);
+    const cx = x0 + egg;
+    const fig = { cx, top: top + 8 + head * H + Math.max(0, (bh - 16 - (head + foot) * H) / 2), H };
+    const colX = Math.min(right - edge - colW, cx + egg + gap);
+    const prH = Math.round(clamp(9.5 * font.prayer, 160, bh * 0.5));
+    const capH = Math.round(font.caption * 1.35) * 2 + 8;
+    // centred on the chest until the view moves it to the place's height (wordsAt)
+    const prayer = { x: colX, y: 0, w: colW, h: prH };
+    const caption = { x: colX, y: 0, w: colW, h: capH };
+    const storyW = Math.min(bw - 2 * edge, 560 * u);
+    const base: Layout = {
+      w, h, ins, top, bottom, left, right, shape, touch, kind, desk, u, fig, caption, prayer,
+      story: { x: (left + right - storyW) / 2, y: top + 8, w: storyW, h: bh - 16 }, font,
+    };
+    return wordsAt(base, fig.top + 0.3 * H);
   }
 
   // side and wide: the figure on the left, the caption and the prayer on the right
@@ -105,10 +149,26 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   const caption = { x: x0, y: prayer.y - capH - 6, w: colW, h: capH };
   const storyW = Math.min(bw - 2 * edge, 560 * u);
   return {
-    w, h, ins, top, bottom, left, right, shape, touch, u, fig, caption, prayer,
+    w, h, ins, top, bottom, left, right, shape, touch, kind, desk, u, fig, caption, prayer,
     story: { x: (left + right - storyW) / 2, y: top + 8, w: storyW, h: bh - 16 }, font,
   };
 }
+
+/**
+ * A desk layout's words — the narrator's caption over the prayer's band — standing at the height `y` (the
+ * place the light is at, or the stream on its way), kept whole inside the band.  Other layouts as they are.
+ */
+export function wordsAt(L: Layout, y: number): Layout {
+  if (!L.desk) return L;
+  const capH = L.caption.h, gap = 6;
+  // the band's words start at its top here (hud.ts): its first row — the place's name — level with the place
+  const lo = L.top + 8 + capH + gap, hi = L.bottom - 8 - L.prayer.h;
+  const py = clamp(y - labelRowH(L) / 2, lo, Math.max(lo, hi));
+  return { ...L, caption: { ...L.caption, y: py - gap - capH }, prayer: { ...L.prayer, y: py } };
+}
+
+/** The height of the prayer band's first row (the label: the place's name), as hud.ts draws it. */
+export const labelRowH = (L: Pick<Layout, 'font'>): number => Math.round(Math.max(13, L.font.label) * 1.5);
 
 /** The story card's rectangle for a content height (centred in its box). */
 export function storyRect(L: Layout, height: number): Rect {

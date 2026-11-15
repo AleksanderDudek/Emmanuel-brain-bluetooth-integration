@@ -8,7 +8,7 @@ import { OgienSim, brainK, breathAt, finaleFor, planBlocks, ringSecFor, type Sim
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
-import { CHECK_SIZES, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, MIN_TEXT, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import ogien, { coachText, howto } from '../src/arcade/ogien/index';
 import { layout } from '../src/arcade/ogien/layout';
@@ -772,7 +772,8 @@ describe('phone first (DESIGN.md §12)', () => {
         for (const d of read) expect(d.px, `${s.name}: “${d.text}”`).toBeGreaterThanOrEqual(13);
       }
     }
-  });
+    // ~80 s of play at each of the twelve checked sizes: ~5 s on a quiet machine, far more under a busy one
+  }, 120_000);
 
   it('fits every language’s verb on the smallest phone’s button at 13 px (a bold sans’ 0.62 em a letter)', () => {
     const L = layout(CHECK_SIZES[0].w, CHECK_SIZES[0].h, CHECK_SIZES[0].insets);
@@ -792,6 +793,104 @@ describe('phone first (DESIGN.md §12)', () => {
     for (const w of ['blow', 'shield', 'gather', 'ring', 'pass', 'feed'] as const) expect(coachText(w, true)).not.toMatch(/Spacj|klik|mysz/i);
     expect(coachText('blow', false)).toMatch(/Spacj/);
     for (const x of touch.hands) expect(x.text).not.toMatch(/Spacj|klawisz/i);
+    // a mouse clicks and drags with the mouse: its how-to and every coach mark about the hands say so
+    for (const x of desk.hands) expect(x.text, x.gesture).not.toMatch(/stuk|palc/i);
+    for (const w of ['blow', 'shield', 'gather', 'feed', 'tents', 'fuse', 'pass', 'button'] as const) {
+      expect(coachText(w, false), w).not.toMatch(/stuk|palc/i);
+      expect(coachText(w, false), w).toMatch(/klik|spacj|mysz/i);
+    }
+    for (const l of LANGS) {
+      const c = CATALOGS[l] as Record<string, string>;
+      for (const k of ['howto.click', 'coach.tents.keys', 'coach.fuse.keys', 'coach.pass.keys', 'coach.feed.keys', 'coach.button.keys']) expect(c[k], `${l}.${k}`).toMatch(/klik|click|klick/i);
+      expect(c['howto.drag.mouse'], `${l}.howto.drag.mouse`).toMatch(/mysz|mouse|maus|mus/i);
+    }
+  });
+
+  describe('a big screen and a mouse (DESIGN §14)', () => {
+    const desks = CHECK_SIZES.filter(s => s.w / s.h >= 0.9 && s.h >= 460 && ['desktop', 'big'].includes(screenKind(s.w, s.h, false)));
+
+    it('lays a desktop out for the mouse: the fire larger, the button and the pile beside the ring, a finger’s layout as it was', () => {
+      expect(desks.length).toBeGreaterThanOrEqual(5);
+      for (const s of CHECK_SIZES) {
+        expect(layout(s.w, s.h, s.insets).desk, s.name).toBe(false);
+        expect(layout(s.w, s.h, s.insets, true)).toEqual(layout(s.w, s.h, s.insets));
+      }
+      for (const s of desks) {
+        const L = layout(s.w, s.h, s.insets, false), T = layout(s.w, s.h, s.insets, true);
+        expect(L.desk, s.name).toBe(true);
+        // the fire larger than the touch layout's, filling most of the band
+        expect(L.R, s.name).toBeGreaterThan(T.R);
+        expect(2 * L.R / (L.bottom - L.top), s.name).toBeGreaterThan(0.64);
+        // the button right of the ring and the pile left of it, beside its lower half (where the mouse is)
+        expect(L.btn.x, s.name).toBeGreaterThanOrEqual(L.cx + L.R);
+        expect(L.pile.x + L.pile.w, s.name).toBeLessThanOrEqual(L.cx - L.R);
+        for (const r of [L.btn, L.pile]) {
+          expect(r.y + r.h / 2, s.name).toBeGreaterThan(L.cy);
+          expect(r.y, s.name).toBeLessThan(L.cy + L.R);
+          expect(r.y + r.h, s.name).toBeLessThanOrEqual(L.bottom);
+        }
+        expect(L.under, s.name).toBeLessThanOrEqual(L.bottom - 13);
+        if (Math.min(s.w, s.h) >= 860) expect(L.u, s.name).toBeGreaterThan(1.3);
+      }
+    });
+
+    it('keeps every control a finger-sized target inside the play at every desk size and state, with a mouse', () => {
+      for (const s of desks) {
+        const p = play(s, { sessions: 5, pushes: 1, seen: [...ALL_SEEN] }, false);
+        audit(p, s, 'a spark in a push (mouse)');
+        p.sim.rung = 2;
+        (p.sim as unknown as { setupTask(): void }).setupTask();
+        frames(p, 4);
+        expect(p.game.targets!().map(t => t.label).sort()).toEqual(['act', 'pile']);
+        audit(p, s, 'the bonfire (mouse)');
+        p.sim.ring = 0.995;
+        frames(p, 60 * 8, HIGH);
+        expect(p.game.targets!().map(t => t.label)).toEqual(['card']);
+        audit(p, s, 'a card (mouse)');
+        expect(p.view.cardOverflow, `${s.name} · card`).toBeLessThanOrEqual(0.5);
+        // every fire's card fits its box over the ring's right half
+        for (let rung = 0; rung < RUNGS.length; rung++) {
+          p.sim.card = { kind: rung === 0 ? 'cycle' : 'change', rung, variant: 1, cycle: rung === 0 ? 1 : 0, t: 3, dur: 7, fresh: true, verse: RUNGS[rung].verse };
+          p.game.draw();
+          expect(p.view.cardOverflow, `${s.name} · card ${rung} (mouse)`).toBeLessThanOrEqual(0.5);
+        }
+      }
+    });
+
+    it('answers the mouse: a ring at what a click would act on, the button lit under it, the cursor a pointer', () => {
+      const s = desks.find(x => x.name.startsWith('Full HD'))!;
+      const p = play(s, { sessions: 5, pushes: 1, seen: [...ALL_SEEN] }, false);
+      const L = p.view.L;
+      const canvas = (p.game as unknown as { env: GameEnv<OgienProgress> }).env.canvas;
+      // over the spark: the fire is what a click blows on
+      p.game.pointer!({ type: 'move', x: L.cx, y: L.cy, id: 1 });
+      frames(p, 1);
+      expect(p.view.hoverSpot).not.toBeNull();
+      expect(Math.hypot(p.view.hoverSpot!.x, p.view.hoverSpot!.y)).toBeLessThan(0.3);
+      expect(canvas.style.cursor).toBe('pointer');
+      // over the button: the button lit, and the spot the button's tap acts on
+      p.game.pointer!({ type: 'move', x: L.btn.x + L.btn.w / 2, y: L.btn.y + L.btn.h / 2, id: 1 });
+      frames(p, 1);
+      expect(p.view.hoverCtl).toBe('btn');
+      // the pillar of fire: the ring stands on the dark tent a click would light, the one a click then lights
+      p.sim.rung = 3;
+      (p.sim as unknown as { setupTask(): void }).setupTask();
+      frames(p, 2);
+      const dark = p.sim.tents.map((x, i) => ({ x, i })).filter(o => o.x.lit < RULES.relight && o.x.arc < 0)[0];
+      const at = { x: L.cx + dark.x.x * L.R, y: L.cy + dark.x.y * L.R };
+      p.game.pointer!({ type: 'move', ...at, id: 1 });
+      frames(p, 1);
+      const spot = p.view.hoverSpot!;
+      expect(Math.hypot(spot.x - dark.x.x, spot.y - (dark.x.y - dark.x.s * 0.3))).toBeLessThan(0.01);
+      p.game.pointer!({ type: 'down', ...at, id: 1 });
+      p.game.pointer!({ type: 'up', ...at, id: 1 });
+      expect(p.sim.tents[dark.i].arc).toBeGreaterThanOrEqual(0);
+      // a phone never shows it
+      const q = play(CHECK_SIZES[1]);
+      q.game.pointer!({ type: 'move', x: q.view.L.cx, y: q.view.L.cy, id: 1 });
+      frames(q, 1);
+      expect(q.view.hoverSpot).toBeNull();
+    });
   });
 
   it('shows the same number in the headline as the result, and the ring in its line', () => {
