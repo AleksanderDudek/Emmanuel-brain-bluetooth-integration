@@ -5228,6 +5228,9 @@ stopped at 1.3 — a phone's UI drawn a little larger in the middle of a big scr
   1 190 × 960 on a Full HD monitor instead of 1 920 × 530.  `hudTop()` now counts only the HUD that lies
   over the canvas (the top bar there), and an edge a column covers is no device edge in `insets()`.
   A laptop and anything narrower keep the top HUD and the dock below.
+* **The left column holds whole lines** (`fitSide`, on every resize): the tips drop from the last until the
+  how-to fits the window's height, so a sentence is never cut off; only what still overflows a short window
+  fades out at the bottom (`clip`), and under 780 px of height the column is not shown at all.
 * Mouse words: the how-to's chip for a tap says "Kliknij" without a touch screen.
 
 ### 14.3 Each game on a big screen (the desktop pass)
@@ -5238,3 +5241,660 @@ uses again and again sit beside the play rather than in a phone's thumb zone; ho
 (a highlight, a cursor), the keys are shortcuts listed in `howto()`; hints speak of clicking when there is
 no touch; the phone's layouts stay exactly as they were (the audit's small, iphone and side devices).
 Each game's part follows in §14.5.
+
+### 14.4 The games in every menu, and the app on a wide screen
+
+The founder's *"show the games in every menu"*: a player who opens Trening, the signal or the settings is
+one click from a game, without going back to Gry.
+
+* **A strip of games** (`ui/game-strip.ts`, `GameStrip`): a row of Start's game tiles (`activityTile`) that
+  scrolls sideways, under the views that are not about games, each with its own choice (`pickGames`, at
+  most ten, always topped up with the rest so a strip is never short):
+  * **Trening**: the game of the day, then the visualisation and body games not played yet, then the recent;
+  * **Sygnał**: the game of the day, then the recent;
+  * **Sesje** ("Zagraj ponownie"): the recent first, then the game of the day, then the unplayed;
+  * **Ustawienia**: the recent, then the game of the day;
+  * **under a game's lobby** ("Więcej gier"): the game's own section first (its neighbours), then the game
+    of the day and the recent; the game itself is left out.
+  On a desktop two buttons page the row (‹ ›, hidden on a touch screen, which swipes); "Wszystkie gry"
+  opens Gry.  A strip renders only when its list or the band changes.
+* **Gry's section menu** (`#gamesNav`): chips for the sections (and the HolyHolyHoly games) that stay
+  under the app bar while the page scrolls, so a big list of 29 games is one click from any section.
+* **A wide app** (≥ 1 500 px: the column 1 640 px wide, Gry's grid in 4 columns, Start's tiles in 5,
+  the activities in 3; ≥ 2 200 px: 2 100 px, 5 / 6 columns): a Full HD monitor no longer shows a phone's
+  column with a third of the screen empty.  The strips show 4, 5 or 6 tiles at once with the screen.
+
+### 14.5 Each game on a big screen
+
+By its builder, in the registry's order: what the game looked like on a big screen before, what its desk
+layout does, the mouse, and what was measured.
+
+#### Geoda
+
+On a Full HD monitor Geoda was the phone's side layout grown: a 520 px board
+capped at 0.44 of the width, a phone's 13–16 px words, the dial and Bazyl far off, no answer to a resting
+mouse. Now `screenKind` decides: a phone, a phone on its side and a tablet keep their layouts to the pixel; a
+desktop or a big screen with a mouse gets the **desk**:
+
+* **The board fills the middle.** As large as the band allows while a column on each side keeps room for the
+  tray's five-cell bar at ~42 % of a board cell: 616 px on Full HD (520 before), 824 on 2560 × 1440 (696),
+  centred, the columns hugging the geode. Left: the shine dial (r 79 / 105), the Szlif's bowl, Bazyl (127 / 169
+  px) and his bubble; right: the goal in two lines (the chamber's number and name over its jewels), then the
+  three slots down to the geode's foot. A short column (a laptop, a desktop under the HUD) gives the bowl the
+  dial's place in a rest. Every word grows with the UI scale (1.35 / 1.8).
+* **The mouse.** A resting cursor over the board shows the current piece where a click sets it, with the
+  lines it would clear washed in light; a hovered piece's slot lights and the piece leans out; the cursor says
+  what a click does (grab, grabbing, pointer). A dragged piece follows the cursor by the point it was taken
+  (it grows around the cursor), its ghost where it lands. Keys stay shortcuts (Space/Enter the best spot, 1–3
+  a piece), listed in the how-to.
+* **Words for the hand.** "Kliknij, by zacząć", "Albo kliknij planszę — zarys pod kursorem pokazuje, gdzie
+  kawałek wyląduje", "Kliknij pole — kawałek ląduje tam, gdzie pokazuje zarys; Spacja kładzie go w najlepszym
+  miejscu"; the calibration tip and Bazyl's warm-up line became hand-neutral ("Wybierz pole na planszy").
+* **Measured:** desktop / laptop / Full HD / QHD all checks passed, 0 strings under 13 px, game 0.65–0.73 ms
+  (QHD 0.69, 0.99 before); the phone audit unchanged (0 under 13 px, 4 targets, 60 fps).
+
+#### Latarnik
+
+On a Full HD monitor's middle column the desktop's `wide` layout — made for a panel and a
+score over the canvas's top corners — squeezed the night's pill into a 192 px column under a panel that was not there
+("Sprowadź☆ 6 ł…", at QHD "NO…" and a 13 px goal), the card slot to 150 px, the ladder's words away, and pushed the sea
+60–80 px off the middle. Now a mouse on a big canvas gets its own shape, `big` (phones, tablets and desktops keep theirs):
+
+* **The sea in the middle, the deck in the corners.** The sea is centred in the band at 0.94 of the largest it holds —
+  R 374 at Full HD, 513 on a 2560 × 1440 monitor, boats 37–51 px — and each corner holds a part of the deck fitted to the
+  room the circle leaves, at the big UI scale (1.35–1.8): the night's pill top left (the night, its stars and the goal on
+  one line at 14 px × u; on a big screen a long goal takes two lines rather than shrinking), the lanterns over the perfect
+  ladder and its words top right, Zośka on her post bottom left with her bubble beside her (four lines of 14 px × u, its
+  middle at her beak), the card slot bottom right. The last 6 % of the sea buys a deck that reads without a cut word.
+* **A mouse.** The whole screen is the button: a pointer cursor over the sea, a click anywhere flashes, Space and Enter
+  are the keys (the how-to's keys row). The deck answers the mouse: the part under it lights up in gold and says what it
+  is beside it — the pill the stars' rule, a line per star; the lanterns what puts one out; the ladder that eight
+  perfects bring Pełne światło — and lets go when the mouse rests 6 s or leaves; Zośka flaps when the mouse finds her.
+  The how-to says "Kliknij w dowolnym miejscu, gdy promień jest na łodzi", the armed ladder "Pełne światło — kliknij"
+  (four languages); the calibration card's tip names no gesture.
+* **Measured** (scripts/arcade-mobile.mjs): desktop / laptop / Full HD / QHD 0 strings under 13 px, the story card the one
+  target, the game's frame 0.54 / 0.52 / 0.76 / 0.63 ms; the phones unchanged (small, iPhone, on its side: R 145 / 175 /
+  132, 3 strings at 11–13 px as before). Tests: the big shape grows (≥ 0.9 of the band, ≥ 1.25 × a desktop's sea, the deck
+  ≥ 1.35 ×, no overlaps), every phone, tablet and desktop keeps its numbers, the mouse's answers, the words at both sizes.
+
+#### Motylarnia
+
+Slither on a big monitor: the garden stopped at the desktop's zoom of 2 (a ~230 px
+caterpillar on a 2560 × 1440 screen), Hieronim stayed at 1.2 in his corner with a 14 px line, the flowerbed (the
+band's last 40 s) a 46 px strip with a 13 px tag, the flying words at a phone's sizes; the mouse steered and sprinted
+already, but the default arrow and nothing at the pointer said so. A mouse on a big screen now gets `big` (phones,
+tablets and desktops keep every number):
+
+* **The garden closer with the screen.** The zoom grows past 2 with the UI scale (2 × u / 1.35: 2.0 at Full HD, 2.67 at
+  QHD), so both monitors show the same ~594 × 410 units of garden, the bigger one larger; it still zooms out as the
+  caterpillar grows. Hieronim, his line (14 px × u), the side goal's pill, the twig (58 × u), the flowerbed (36 × u, its
+  tag 13 px × u) and the flying words grow with the screen.
+* **A mouse.** The pointer steers and a held button sprints, as before; now a crosshair over the garden (a hand while a
+  card waits for a click) and an aim ring at the pointer — cream while it crawls, gold and filled while it sprints —
+  with a faint dotted line from the head, gone when the mouse leaves. Keys ←/→ turn, Space sprints (the keys row); the
+  calibration card's first tip names no finger ("Prowadź gąsienicę z dowolnego miejsca ekranu…", four languages).
+* **Measured**: desktop / laptop / Full HD / QHD 0 strings under 13 px, the game's frame 0.85 / 0.73 / 0.91 / 0.91 ms;
+  the phones unchanged (0 strings under 13). Tests: the big garden, every other size's numbers kept, the mouse's
+  answers through the game.
+
+#### Arka
+
+On a Full HD monitor Arka kept the desktop's `wide`: its bar rose into the band
+between the Mendi panel and the score — which on a big screen stand beside the canvas, so the bar sat up under
+the runner's top bar — and the deck stayed a 458 px column (the biggest deck at 48 px cells) with empty sky and
+water either side. Now `screenKind` decides: a phone, a phone on its side and a tablet keep their layouts
+(checked against the old code), the desktop under the top HUD keeps its risen bar, and a big screen with a mouse
+gets its own:
+
+* **The deck takes the middle.** The bar right under the top bar, the deck as large as the band allows across
+  the whole middle (turned a quarter where that gives larger cells): on Full HD the biggest deck's cells 48 →
+  71 px, 7 × 8 62 → 91, 5 × 6 87 → 114; the new land along the foot with the waiting firsts on both sides of the
+  gangway; the raven right of the hull, talking above himself in the margin (the deck stays clear) and holding
+  his line while a coach mark is up (the runner's bubble may stand there); the dove's pill grown (70 px). The
+  bar, the dove, the raven, the flying words, the cards and the mist's tag grow with the UI scale — the cards
+  drawn at a phone's size and scaled, crisp.
+* **The mouse.** A resting cursor rings the animal a click would send and lifts it a little — a free one and a
+  blocked one alike: the ring tells which animal, never whether its way is free (that stays the puzzle and the
+  mist's reward); the dove's pill lights; the cursor says what a click does. Keys stay shortcuts (the arrows and
+  Enter, Space or H for the dove).
+* **Words for the hand.** "Kliknij zwierzę — pójdzie tam, gdzie patrzy", "Kliknij, by grać dalej"; the
+  calibration tip "Wybierz zwierzę…" to every hand.
+* **Measured:** desktop / laptop / Full HD / QHD all passed with no string under 13 px (2 before), game
+  0.61–0.85 ms; the phones unchanged (0 under 11 px).
+
+#### Urodzaj
+
+In a 2560 × 1440 monitor's middle column the wide layout's "rise between the runner's
+panel and score" fired under a top bar that spans the whole width: the scene's top at 10 px, under the 118 px bar; the
+circle of fruits stopped at r 110 with 16 px fruit beside a 794 px basket, the flying words at a phone's 16–34 px; the
+how-to's first row told a mouse "Przeciągnij". A mouse on a big screen now gets `big` (phones, tablets and desktops
+keep every number):
+
+* **The basket as tall as the band, under the top bar** — S 504 at Full HD, 696 at QHD, its scene 0.97 of the band's
+  height and 47–49 % of its width; the circle of fruits grows with the screen (r 121 / 160, its fruit up to 16 × u),
+  the flying words and the wheat of the band's last 40 s too (× u).
+* **A mouse.** Feliks follows the hovering pointer and a click drops, as before; now a pointer cursor, and resting on
+  a fruit of the circle rings it in gold and names it ("4 · Figa"), on the next fruit "Następny: oliwka" (14 px × u),
+  gone after 6 s still or when the mouse leaves. The how-to's first row is "Steruj: Przesuń myszą — Feliks niesie owoc
+  nad koszem"; the keys ← → / A D and Space / Enter / ↓; the calibration card's first tip names no finger ("Prowadź
+  Feliksa nad koszem i upuść owoc tam, gdzie ma spaść…", four languages).
+* **Measured**: desktop / laptop / Full HD / QHD 0 strings under 13 px, the game's frame 0.55 / 0.51 / 0.63 / 0.49 ms;
+  the phones unchanged (1 string at 11–13 px, the verse's reference). Tests: the big layout, every other size's numbers
+  kept, the mouse's answers.
+
+#### Wzlot
+
+Tiny Wings' camera stopped at 290 × u px a screen height: in a Full HD monitor's middle
+column, over low ground, the hills were a strip along the foot, a 51 px eaglet at the bottom left and two thirds of
+the canvas sky; and the how-to told a mouse "Kliknij: Puść na podejściu" (the release row's `tap` gesture is named
+"Kliknij" without a touch screen) and "Spacja albo ↓ działają jak palec". A mouse on a big screen now gets `big`
+(phones, tablets and desktops keep every number):
+
+* **The world closer.** 2.2 screen heights across and no cap below that: 541 px a screen height at Full HD (was 392),
+  721 at QHD (was 523) — the eaglet 70–94 px, the hills fill the lower half, still 1.5 screen heights of slope ahead;
+  a high flight zooms out to the band's height as before.
+* **The band's gauge in sight.** The sun's arc stands lower and flatter (its noon 135 × u under the top bar), so the
+  runner's block banner no longer hides the sun and its threshold ring for the 4 s a push block begins; a coach mark
+  over the bigger eaglet stops above its head.
+* **A mouse.** A pointer cursor over the sky, a closed hand while a button holds the dive; resting on the sun, the
+  night at the arc's end, a warm column or the grań's flag rings it in gold and says what it is (the coach marks'
+  words, 13.5 px × u) — never during a hold, gone when the mouse rests 6 s or leaves; a card lights under it. The
+  how-to's first row is one line for the hold and the let-go ("Przytrzymaj przycisk myszy w dół zbocza, puść na
+  podejściu…"), the keys "jak przycisk myszy"; four languages.
+* **Measured**: desktop / laptop / Full HD / QHD 0 strings under 13 px, the game's frame 0.54 / 0.45 / 0.62 / 0.48 ms;
+  the phones unchanged (1 string at 11–13 px, the verse's reference). Tests: the big camera, every other size's numbers
+  kept, the mouse's answers, the words at both big sizes.
+
+#### Glina
+
+With a mouse on a desktop or a big screen (`screenKind` desktop / big, landscape —
+layout.ts `desk`) the pot is the hero: its stage is 0.2 of the width (≤ 265u; 238 px in a Full HD monitor's middle
+column, 317 on a 2560 × 1440 one, was 202 / 270) and the wheel up to 172u; the workshop around it (the ticket, the
+customer, the kiln and its dial, Szamot on the shelf) grows with u as before. Gotowe stands right of the wheel and
+clear of the pot's widest on every landscape screen (a laptop's had overlapped the stage), and the glazing palette's
+Gotowe right after the colours' row, beside the piece, instead of in a phone's corner. **The mouse:** the pointer is
+the potter's hand — over the clay a ghost of the hand shows where a press would take the wall, or a dashed line the
+rim's new height (the cursor a grabbing hand, then grabbing); a swatch gets a ring of light, a chip lights, both
+Gotowe lighten with a rim; on the glazing piece a dashed ring shows the band a stroke would paint; the cursor is a
+pointer on every control, on a card and on the kiln's needle. Keys: Space or Enter finish the step (Gotowe, the
+order's glaze, the firing), 1–8 pick a glaze — in the left column. Words without a touch screen: "Ciągnij myszą po
+ścianie…", "Kliknij kolor i maluj paski myszą; przy piecu kliknij…", "Kliknij w zieleni!", "Kliknij, by dalej" and
+keyboard variants of the coach marks; Szamot's lines are device-neutral. Measured: desktop / laptop / Full HD / QHD ✓,
+the game's frame 0.75–0.92 ms; the phone's layouts unchanged (small / iphone / side ✓).
+
+#### Źródła
+
+On a Full HD monitor Źródła was the desktop's three columns spread over the
+canvas: a 679 px valley centred with empty bands above and below, the dispenser in the bottom-left corner (the
+next stone ~100 px under the valley), the dial (capped at r 66) in the top-right corner, the words capped at
+1.15×. Now `screenKind` decides: a phone, a phone on its side and a tablet keep their layouts (checked against
+the old code); a big screen with a mouse gets its own:
+
+* **The valley fills the middle, the columns hug it.** Cells up to 72 px of UI and a third more: on Full HD a
+  7 × 5 valley 97 → 114 px cells (798 px wide), on 2560 × 1440 129 → 153; the dispenser right beside it with the
+  next stone level with the valley's foot and the four after it stacked over it (Pipe Mania's chute; after a lay
+  the next stone pops into its frame, so nothing crosses "Następny" on its own row); the dial
+  (r 70 / 94) level with the valley's top with its name, the goal and the help's words under it; Kumka at the
+  valley's foot. Every word grows with the UI scale; the story cards are drawn at a phone's size and scaled.
+* **The mouse.** A resting cursor shows the next stone in the cell where a click lays it — gold where it can go,
+  rose where not, with a pointer or a not-allowed cursor — the finger's aim without the finger; a click lays it
+  there. The next stone and the dial take a pointer (Kumka's help). Keys stay shortcuts (Space, F, the arrows,
+  Enter).
+* **Words for the hand.** "Kliknij pole: kładziesz tam następny kamień…; kursor pokazuje go w polu", "Kliknij
+  następny kamień albo zastawkę…", "Kliknij, by iść dalej"; Kumka's lines and the calibration tips say "wybierz"
+  to every hand.
+* **Measured:** desktop / laptop / Full HD / QHD all passed with no string under 13 px (the opening card's
+  reference was 11), game 0.64–0.89 ms; the phones unchanged (0 under 11, the kit's verse reference at 11).
+
+#### Posłaniec
+
+The pseudo-3D road already scaled with the canvas (the road fills the middle column, the messenger stood
+~250 px tall on Full HD), so the pass is about the view, the sky and the hands. `layout()` takes the screen's
+kind (`screenKind(w, h, env.touch)`); a finger keeps the phone's layout exactly (a test compares them).
+
+* **A desktop's longer lens** (desktop and big): the camera rides 13 m behind him instead of 10 at the same
+  height on screen — the road ahead is drawn ~22 % larger in the same place (30 m ahead ×1.22), so obstacles
+  read sooner; the cast is ×1.1 (277 px on Full HD, 375 on QHD). What he has passed fades a metre behind him
+  over four, so a beam does not sweep across the foreground on its way past the camera.
+* **An open sky**: where only the runner's top bar lies over the canvas (a wide big screen's side columns hold
+  the panel and the score) the quest pill, the ribbon of dawn and Klekot's gauge share one row along the top;
+  the ribbon grows with the screen (758 × 97 px on Full HD, 1011 × 130 on QHD; it was ≤ 620 × 84) and Klekot
+  speaks from under his gauge, beside the road, his bubble's tail up to him. A laptop's top HUD keeps the old
+  arrangement.
+* **Keys first**: the how-to lists ⌨ ←/→ A/D, ↑ W Space, ↓ S first at a keyboard, then "Kliknij" (a side —
+  a lane, the middle — a jump) and "Przeciągnij" (a mouse drag as the swipe); the coach marks name the keys and
+  then the mouse ("lub kliknij środek", "lub przeciągnij myszą w dół", "lub kliknij z boku").
+* **Hover**: the mouse resting over the road shows what a click would do — the lane it steps into glows on the
+  paving with a chevron at his knee, or a double chevron rises over his head for a jump; it fades a second
+  after the mouse stops, so a player on the keys is not followed by it. A pointer cursor in play.
+* **Measured** (`scripts/arcade-mobile.mjs`, desktop / laptop / Full HD / QHD): 0 strings under 13 px, the
+  story the one target, 60 fps, the game's frame 0.91 / 0.8 / 1.0 / 0.99 ms (QHD 1.3 before); the phones
+  (small, iPhone, on its side) unchanged.
+
+#### Zacheusz
+
+On a Full HD monitor Zacheusz was a phone's street lost in a big canvas: the scene stopped at a tablet's cap
+(52 × u px a unit, the 80 px clamp on QHD), so Zacchaeus stood 70–80 px tall under ~9 units of empty sky,
+and the bubble button floated in the bottom-right corner, ~1 100 px from him on a 2560 monitor.  `layout()`
+now takes the screen's kind (`screenKind(w, h, env.touch)`); a finger keeps the phone's layout exactly.
+
+* **A desktop's street** (desktop and big): no thumb's pad — the ground band is 16 % of the canvas and holds
+  Mela's lines and the button; the scene grows with the screen (px a unit = the height's room for the light
+  road, his jump and a coin, or the width over 12.5 units): **Zacchaeus 95 px on Full HD, 127 on QHD** (a
+  tenth of the canvas), running at 22 % of the width with **~1.9 s of street ahead** (a phone 1.2 s).
+* **The bubble button by the play**: under the street a few strides ahead of him, its label to its right with
+  its key — "Bańka · B" — and Mela's box on its left under her; never in a corner.  A ring lights it while the
+  mouse rests on it; the cursor is a pointer in play (any click jumps).
+* **Keys first, clicks for taps**: the how-to lists the keys first at a keyboard (Space / ↑ — jump, hold —
+  higher; B / ← — a bubble), then "Kliknij albo Spacja — skok…", "Przytrzymaj (przycisk myszy albo
+  Spację)…", "Bańka pod ulicą albo B…"; the coach marks for a jump, a hold, a pause stone, a wall, the dash
+  arrow, the bubble and the button name the click and the key; the cards say "kliknij albo Spacja — dalej";
+  Mela's "Stuknij, a skoczy" becomes "Kliknij, a skoczy"; the lobby's map "kliknij poziom".
+* **Measured** (desktop / laptop / Full HD / QHD): 0 strings under 13 px, the button and the cards
+  finger-sized inside the play, 60 fps, the game's frame 1.03 / 0.71 / 1.05 / 0.82 ms; the phones (small,
+  iPhone, on its side) unchanged.
+
+#### Pasterz
+
+On a big monitor the hill was a phone's camera stretched: the scale stopped at 48 px a metre, so a Full HD
+column showed 25 m of hill and a 2560 monitor 33 m, with sheep the size of a phone's; the mouse drove a
+floating joystick, and Łatek's button sat in the bottom-right corner.  `layout()` takes the screen's kind
+(`screenKind(w, h, env.touch)`); a finger keeps the phone's layout exactly.
+
+* **The camera comes closer on a big screen**: 18 m across without the phone's cap — 55 px a metre on Full HD,
+  75 on QHD: sheep two to three times a phone's while a little more of the hill (21 m) stays in sight; the
+  camera still zooms out as the flock grows.
+* **The mouse walks him to the pointer**: held on the field, the shepherd walks to the pointer (full speed with
+  it 2.5 m away, slower near it, standing within half a metre) — the desktop's "point and go" instead of a
+  joystick; a click whistles, as a tap does.  The hover answers: a ring at the pointer and a dotted way to it
+  from the shepherd; held, a gold wedge at his feet toward it.  A pointer cursor in play.
+* **Łatek's button under the shepherd** at the bottom's middle (he stands in the field's centre), a little
+  larger on a big screen, its label with its key: "Gwizdnij · Spacja"; a ring under the mouse.
+* **Keys first**: arrows/WASD walk, Space/Enter whistle, then "przytrzymaj przycisk myszy — pasterz idzie do
+  wskaźnika" and "kliknij (albo Spacja) — Łatek przygania…"; the steer coach mark and the warm-up's panel tips
+  in the mouse's words.
+* **Measured** (desktop / laptop / Full HD / QHD): 0 strings under 11 px (under 13 only a rival's name fitted
+  to the ranking), 60 fps, the game's frame 1.12 / 1.16 / 1.39 / 1.18 ms; the phones unchanged.
+
+#### Anioł Stróż
+
+On a Full HD monitor's middle column (1 190 × 960) the desktop's layout fell back
+to its "window under the HUD" branch: a 1 154 × 200 px window across the top — the band's last 40 s drawn a
+second time beside the runner's chart — over a room at ±5.2 u (114 px a unit; 130 on QHD, the old cap), the story
+card hanging over the angel, three wide key caps and a row of gift cards at the foot.
+
+* **The screen decides** (`layout(w, h, insets, touch)` → kit `screenKind`): a mouse on a big canvas gets the `big`
+  mode; the phones, the tablet, the desktop and the laptop keep their layouts exactly (a test compares a finger's
+  and a mouse's layout at every other `CHECK_SIZES` entry).
+* **The room fills the screen**: ±4 u across — 149 px a unit on Full HD (1.3× before), 198 on QHD (1.5×); the floor
+  at 87 % of the height, three key caps under it (48 u tall, the thirds still strike as a mouse expects); a window
+  centred on the wall, two thirds of the width and as tall as the room leaves (125 / 193 px), its sill and the
+  night's level bar under it; the boss's light bar on the wall beside the window.
+* **Words beside the play**: the toasts and the story card (700 u wide, the opening's verse on one line) stand over
+  the window band and never come below the angel's wing tips.
+* **Gifts**: a dialog in the middle of the room — three 297 × 189 cards (396 × 252 on QHD), a larger picture, the
+  name and what it does at 1.2–1.5× a phone's type, a key cap "1/2/3" in the corner.
+* **The mouse**: the third under it lights its key cap; **the aim** rings the Zmora (or the ink drop) a click there
+  would hit, a gold chevron over it, brighter in the perfect band, or lights the reach's arrow where the click
+  would strike the air (`sim.aim`, the pads' own reach); the card under it lifts; a hand cursor wherever a click acts.
+  Keys as before (←/→ A/D, Space, 1–3), listed in the side column; mouse words in the tips and the Ciągutek's mark.
+* **Measured**: 0 strings under 13 px at desktop / laptop / Full HD / QHD; the game's frame 0.71 ms on Full HD and
+  1.02 ms on QHD (budget 4); the phones' audit unchanged (0 under 11 or 13, six targets).
+
+#### Zastępy
+
+The desktop keeps the whole 30 m road in view, so on a Full HD monitor's middle column
+(1 190 × 960) the road's scale was set by the width — 33 px a metre (43.5 on QHD) — and the road lay right over the
+controls: a thin strip of 50 px angels under 450–600 px of empty sky.
+
+* **The screen decides**: a mouse on a big canvas (`screenKind` 'big') gets its own road; the phones, the tablet, the
+  desktop and the laptop keep theirs exactly (a test compares a finger's and a mouse's layout at every other size).
+* **The road comes closer**: 22 m across (`BIG_VIEW`) — 54 px a metre on Full HD, 72 on QHD (1.66× before); the camera
+  follows the front as on a phone, a drag pans. The road stands at seven tenths of the band like the phone's: the sea of
+  clouds and the causeway's pillars below, the gates, the fliers and taller banners (the band's last 40 s) above.
+* **The mouse**: the card under it lifts with a white ring, the pillar's and the trumpet's buttons ring gold, an offer
+  warms; over the road a ghost pillar of cloud shows where a click would raise it while it is ready. The cursor says
+  what a click does — a hand on a card, a button, an offer, the road with the pillar ready, a grab where a drag pans —
+  from the same order as the HUD's hit test. Keys as before (1–7, Space, H, T, Enter); the side column and the coach
+  marks speak of clicking.
+* **Measured**: 0 strings under 13 px at desktop, laptop, Full HD and QHD; the game's frame 0.99 ms on Full HD and
+  0.72 ms on QHD; the phones' audit unchanged (0 under 11; under 13 only "≈ 5 s", a locked card's gate and the verse's
+  reference).
+
+#### Firmament
+
+On a Full HD monitor Firmament was the desktop's `wide` grown: a 568 px board
+pinned to the band's top with ~280 px of empty sky under it and the tray in the far corner; on a 2560 × 1440
+monitor the board even rose under the runner's top bar (the layout counted on a 58 px bar between the panel
+and the score, which on a big screen stand beside the canvas), and the cards and Bubo's words stayed capped at
+1.15×. Now `screenKind` decides: a phone, a phone on its side and a tablet keep their layouts (checked against
+the old code), the desktop under the top HUD keeps its board risen between the panel and the score, and a big
+screen with a mouse gets its own:
+
+* **The sky fills the middle.** The board as large as the band allows between two ~150 px columns, centred:
+  696 px on Full HD (568), 936 on 2560 × 1440 (776). Left: the goal card, Bubo at the column's foot with his
+  bubble above him (never over the board's edge); right: the telescope and its words, the tray's slots (86 px
+  on Full HD) level with the board's foot. Every word follows the UI scale (1.35 / 1.8), "RUCHY" included, and
+  a constellation's name shows only where it fits whole.
+* **The mouse.** A resting cursor rings the body a click would take — gold beside the selected one, where a
+  click swaps; a tool's slot lights under it; an armed hammer's or ray's strike follows the cursor (a
+  crosshair) and lands on the click. The cursor says what a click does; a drag swaps as a swipe does. Keys stay
+  shortcuts (Space the hint, the arrows and Enter, 1–4 the tools).
+* **Words for the hand.** "Kliknij, by zacząć", "Kliknij pole: młot rozbija jedno", "Masz przyrząd! Kliknij go
+  (albo 1–4)…", "Kliknij przyrząd z teleskopu, potem pole na niebie — celownik pokazuje, gdzie uderzy"; the
+  calibration tip says "wybierz dwa po kolei" to every hand.
+* **Measured:** desktop / laptop / Full HD / QHD all passed with no string under 13 px, game 0.58–0.65 ms; the
+  phones unchanged.
+
+#### Dolina
+
+The valley kept a phone-on-its-side scale on a big monitor — 17 units across with an 82 px cap — so the pilgrim
+stood ~100 px tall on Full HD and ~120 on a 2560 monitor under a tall dark sky.  `layout()` takes the screen's
+kind (`screenKind(w, h, env.touch)`); a finger keeps the phone's layout exactly.
+
+* **A desktop's valley** (desktop and big): 13 units across and no phone's cap — 91 px a unit on Full HD, 122
+  on QHD: the pilgrim a tenth of the canvas (~130 / ~170 px), a quarter of the way in, with about two seconds
+  of road ahead; the room above the floor still holds a ledge, both jumps and the high gate under the HUD.  The
+  pack's row (sword, stones, oil) and the cards grow with the screen.
+* **The keys first**: Space / ↑ / W jump (held — higher), ↓ / S stomp; the mouse plays the same verbs — a click
+  jumps, a second in the air is the double jump, a held button goes higher, a drag down stomps — and the
+  how-to, the warm-up's tip and the lobby's party speak of clicks ("Kliknij gdziekolwiek…", "Przytrzymaj
+  przycisk myszy…", "Przeciągnij myszą w dół…").  A card or toast under the resting mouse lights its rim (a
+  click closes it); a pointer cursor in play.
+* **Measured** (desktop / laptop / Full HD / QHD): 0 strings under 13 px, the cards finger-sized inside the play,
+  60 fps, the game's frame 0.67 / 0.91 / 0.7 / 0.86 ms; the phones (small, iPhone, on its side) unchanged.
+
+#### Chleby i ryby
+
+On a big screen the desktop's lane already filled the canvas and its loaves grew with
+it (77–110 px a unit), but what the desktop capped at a phone's size stayed there: a 52 px boy smaller than his own
+loaves on QHD, a 64 px help button, a 30 px row of baskets, side sheets that cut the village's names.
+
+* **The screen decides**: a mouse on a big canvas (`screenKind` 'big') gets big sizes; phones, the tablet, the desktop
+  and the laptop keep theirs exactly (a test compares a finger's and a mouse's layout at every other size).
+* **Grown with the screen**: the boy and his basket follow the lane — 70 px on Full HD, 94 on QHD; the help button 70 /
+  94 px across; the baskets' row 30 / 40 px; the side sheets 36 % of the play (428 / 571 px), the lane sliding clear.
+* **The mouse**: before a click a dotted line runs up the lane from a ring at the basket's row — where a click would pour
+  (a press aims at the pointer at once); the help button and the giant loaf ring under it, a village row warms, "Dalej"
+  lightens. The cursor: a crosshair over the lane, a hand on the help, the giant loaf, a row, a story or the reveal.
+  The side column and the coach marks speak of holding the mouse button, moving the mouse and clicking (keys as
+  shortcuts: ←/→, Space, E, 1–3); Mirka's lines name no hand.
+* **A reveal's words wait until a tile has turned** (on every screen): mid-turn they were squeezed under the 11 px floor.
+* **Measured**: 0 strings under 13 px on Full HD and QHD; the game's frame 0.65 ms on Full HD and 0.89 ms on QHD; the
+  phones' audit as round 7's (0 under 11; under 13 only "próg", the verse's reference and "z").
+
+#### Jerzy i smok
+
+The desktop caps the field's scale at 56 px a unit, so a QHD monitor's column showed a
+28 × 21 u field with a 70 px knight and 30 px brood, and the Miecz światła's dial sat in a phone's thumb corner, far
+from the play.
+
+* **The screen decides**: a mouse on a big canvas (`screenKind` 'big') gets its own field and dial; phones, the tablet,
+  the desktop and the laptop keep theirs exactly (a test compares a finger's and a mouse's layout at every other size).
+* **The field comes closer**: about 18 × 13 u in sight on any big screen — 65 px a unit on Full HD, 89 on QHD (1.16× and
+  1.58× the desktop's) — more of the field than a phone sees, the knight, Linda and the brood grown with the screen.
+* **The dial under the knight**, at the bottom's middle (82–96 px), its label over it: a mouse never travels to a thumb's
+  corner; Space or a click anywhere still lets the sword go.
+* **The mouse**: the card under it lifts with a gold rim, the reshuffle and the story's button warm, the dial rings; the
+  cursor says what a click does — a grab on the field (a drag walks), a hand while the sword is ready, on a card or a
+  button. Cards show their keys as caps; the side column and the coach marks speak of clicking; Linda's lines name no
+  hand. The story's verse grows with the screen (its reference ≥ 13 px).
+* **Measured**: 0 strings under 13 px on Full HD and QHD (one before); the game's frame 0.92 ms on Full HD, 1.09 ms on
+  QHD; the phones' audit unchanged.
+
+#### Dawid
+
+On a phone David's world is a thumb's; on a desktop it is a mouse's and a big
+screen's. `layout(w, h, insets, touch)` takes the family from `screenKind`: a finger keeps the phone's layouts
+at any size; a mouse on a desktop or a big screen gets a desktop's.
+* *The world fills the screen.* The camera zooms with a big canvas: about 14.5 × 11 u in view (80 px a u in a
+  Full HD monitor's middle column, 109 on a 2560 × 1440 one; the phone's map stopped at 66, so QHD showed 24 u of
+  meadow with David 85 px tall — now he is ~140 px). A desktop under the top HUD keeps the phone family's height.
+* *An action bar under David.* The great stone and the bag stand side by side in the middle of the bottom edge,
+  right below him (not in a thumb's corner), 54–97 px discs with their key caps (the space bar, B). The party,
+  health, the level and its bar and the treasury stack in the hero's frame at the bottom left, never wider than
+  340·u (on Full HD the bars had run 1 000 px across). The quest pill carries Q, the minimap is 150·u, the camp's
+  sheet comes from the right in three columns with 1–4 on its tabs.
+* *Hover answers.* Every control lights up and the cursor becomes a hand; after a moment's rest a tooltip names
+  it with its key ("Torba 23/60 — kliknij albo B: do obozu"). Over the field a dashed ring shows what a click
+  would do: round David (hunt), on the spot (walk there), or a gold crosshair on the great stone's mark when it
+  is ready (the cursor a crosshair).
+* *Keys:* WASD and arrows walk, Space hunts / throws / buys, **B** the bag, **Q** the quest, 1–4 the camp's tabs.
+  A mouse reads mouse words: the coach marks', the story cards', the how-to's (shorter, so the side column shows
+  the goal, three rows and a tip) and the lamb's five lines that spoke of tapping.
+* *Measured* (`scripts/arcade-mobile.mjs`): desktop, laptop, Full HD and QHD all ok, 0 strings under 13 px; the
+  game's frame at QHD 1.08 ms (1.56 before: a tighter view draws less); the phones unchanged (small 3.83 ms at 4×,
+  iPhone 1.67, on its side 1.92). Tests audit every `CHECK_SIZES` entry with a finger and with a mouse, check the
+  zoom (≥ 78 px a u, ≥ 1.18 × the phone family's), the action bar and the frame, the font floor and the type's
+  growth (median ≥ 1.7 × the phone's on QHD), hover, keys and the mouse's words.
+
+#### Dziewiątka
+
+Hero Wars on a monitor is a wide battle with the team along the bottom; ours kept
+the phone's wide strip but under a thin street (Full HD: figures 120 px tall at the bottom of a 960 px column, 640
+px of sky over them). With a mouse on a desktop or a big screen (`layout(…, touch)` → `desk`):
+* *The street zooms in* the way an upright phone draws it: the figures larger than their spacing (×1.5 on Full HD
+  and QHD: 120 / 160 px a u), the rows deeper, the houses of the band's history filling the back — no thin street
+  under an empty sky. A desktop under the top HUD keeps its street (k = 1 where the band is short).
+* *The strip grows with the screen* past the tablet's 124 px (130 on Full HD, 173 on QHD), and so does the type
+  (`tk` = u / 1.3 lifts every capped size: labels, names, boons, story cards, Klara's bubble).
+* *Keys on the cards:* 1–5 on the portraits, B on the bell, 1–3 on the boons (gold when they act now); a ready card
+  says "Kliknij!" to a mouse.
+* *Hover answers:* a portrait lifts with a violet frame and, after a moment, a tooltip names the hero, the role
+  and the special with what it does; the bell says how full Harmony is (or "Kliknij albo B"); the dial says what
+  the band drives. Over the street a dashed gold ring marks the portrait a click there would fire (the one that
+  waited longest; the bell when Harmony is ready; at the well the hero a piece fits) — the tap that fires "the
+  next ready" is no longer a guess. The cursor is a hand wherever a click acts.
+* *Words for a mouse:* the coach marks (ult, bell, well, the street), the boons' hint ("1–3 albo Spacja"), the
+  story card, the how-to (three rows and a short tip for the side column) and Klara's five lines about tapping.
+* *Measured:* desktop, laptop, Full HD and QHD ok (1 string under 13 px, the "próg" tag, as before); the game's
+  frame 1.0–1.1 ms on the big screens; the phones unchanged. Tests audit every size with a mouse too, check the
+  zoom (figures ≥ 1.45 ×, rows ≥ 1.3 × the tablet street's), the strip's and the type's growth, hover, the aim
+  ring (and that its click rings the bell), the font floor and Klara's mouse lines.
+
+#### Nehemiasz
+
+Nehemiasz already filled a big screen's band with the stretch of wall (Full HD
+101 px a u, QHD 140) and kept one row under it; what a desktop lacked was a mouse's answers. With a mouse on a
+desktop or a big screen (`layout(…, touch)` → `desk`, no other geometry change):
+* *Hover answers:* a build badge under the mouse grows and raises **its cost card** (before the site Nehemiah
+  stands on or the guide's pick) — a desktop player reads every price without clicking; the guide's button, "Na
+  mur!", the horn and the choice cards light up; over the open field by day **the guide's pick wears a dashed gold
+  ring** — a click there builds it. Tooltips name the stores ("Kamień: 40 z 130 — na mur", "Belki", "Chleb",
+  "Ludzie 12 z 20 miejsc", "Siły 80 %") and say what a button does with its key. The cursor is a hand wherever a
+  click acts.
+* *Keys on the buttons:* the space bar's cap on "Następne" by day, on the horn when it is ready, else on "Na mur!";
+  1–2 on the choice cards.
+* *Words for a mouse:* the how-to's rows ("Kliknij znacznik albo „Następne”; nocą „Na mur!” albo róg") — shorter,
+  so the side column shows them with a tip; the coach marks and the story card already had theirs.
+* The controls' foot margin is min(10·u, 14) px (a QHD screen had opened a 27 px band under the button).
+* *Measured:* desktop, laptop, Full HD and QHD ok (0 strings under 13 px), the game's frame ~1.0–1.1 ms; the phones
+  unchanged. Tests check `desk` at every size, the unchanged geometry, hover (the guide's button and its tooltip,
+  a badge, the stone store's numbers, the ringed guide's pick, the horn and "Na mur!" at night; none with a
+  finger), the font floor with a mouse and the mouse's words in four languages.
+
+#### Kocia straż
+
+Kocia straż already had a desktop shape — the field on the left, a column on the
+right — but on a monitor it was a phone's column: 27 % of the canvas, 60 px toy cells, then 400 px of empty brown
+under the paw; the cats 84 px on a 770 px vineyard. With a mouse on a big screen (`layout(…, touch)` → `desk`):
+* *The chest is what the hand works on:* the column is 36 % of the canvas (≤ 560·u), the cells 73 px on a Full HD
+  monitor's middle column and 97 on a 2560 × 1440 one, the buttons taller with their key caps (1–4).
+* *Brother Anselm moves beside the play:* his portrait and his bubble take the column's free room under the
+  buttons — no empty band, and his words no longer cover the field's corner.
+* *The cats, the pests and the wall grow with the screen* (`tk`: QHD's cats 116 px instead of 84).
+* *Hover answers the merge:* a toy under the mouse glows with **its mates** — where a click would merge it — and
+  the cursor offers to grab it (`grab`, `grabbing` while carried); a cat gets its ring and a tooltip with its gift;
+  the buttons light up and name their key ("Kliknij albo 2: kup · przytrzymaj: kupuje dalej"); a pest under the
+  mouse wears a crosshair — a click makes it the squad's target.
+* *Words for a mouse:* the how-to (a short drag row, the click row, the keys, one tip), the coach marks for the
+  upgrade, the target, petting and the hunt, the story card, and the brother's line about the eye.
+* *Measured:* desktop, laptop, Full HD and QHD ok (0 strings under 13 px), the game's frame ≤ 1.1 ms; the phones as
+  before. Tests audit every size with a mouse (1–6 cushions, the vintage, a story), check the column, the cells,
+  the brother's corner, the cats' growth, hover (toy + tooltip, button + key, paw, pest crosshair; none with a
+  finger), the font floor and the mouse's words.
+
+#### Ogień, ogień, ogień
+
+With a mouse on a desktop or a big screen (`screenKind` desktop / big, wide
+— layout.ts `desk`) the fire is as large as the band allows: the ring's radius R = min(0.36 band, 0.25 width), up to
+480 — 298 px in a Full HD monitor's middle column (was 226), 397 on a 2560 × 1440 one (was 260, the phone's cap) —
+so the spark in the hands, the candle's window, the bonfire, the camp, the star and Pentecost fill the middle column.
+The scale's button stands **beside the ring's lower right** and the bonfire's pile beside its lower left, where the
+mouse already is, instead of in a phone's thumb corners; the cards stand over the ring's right half, the fire still
+in sight; the words under the ring and Ignacy grow with u. **The mouse:** two arcs of warm light turn around what a
+click would act on — the rules' own choice (`sim.hoverAt`): the spark to blow on, the candle to shelter, the bonfire
+to poke, the dark tent the pillar would light, the pair that would fuse, the wisps within reach, the one waiting the
+flame would pass to; over the button it lights and shows the button's target; the pile's rim brightens; the cursor
+is a pointer wherever a click does something. Keys: Space or Enter do the scale's task (held at the candle, they
+shelter it), listed in the left column. Words: "Kliknij scenę albo przycisk…", "Przeciągnij myszą polano…" and the
+coach marks for tents, nuclei, the waiting, the pile and the button speak of clicks. Measured: desktop / laptop /
+Full HD / QHD ✓, the game's frame 0.45–0.50 ms; the phone's layouts unchanged (small / iphone / side ✓).
+
+#### Rozświetl
+
+The dark mosaic already takes the band in its own proportions — 1130 × 837 px in a
+Full HD monitor's middle column, 1507 × 1150 on a 2560 × 1440 one (92 % of the band), the firefly, its bubble, the
+breath's word and the cards growing with u up to DESK_MAX — so the desktop pass is the mouse: **the tile a click
+would act on answers it**, the rules' own choice (`sim.hoverAt`: the dark tile a click aims and knocks, the piece it
+would gild while gazing, the nearest dark tile for a click on the light, where a ready flare would go off) — softly
+lit with a rim of light over a dark edge, readable on a dark tile and on an uncovered bright piece, beside the aimed
+tile's own pulsing edge; the cursor is a pointer on the mosaic and on a card. A drag moves the light with the mouse
+as before (the lens without a finger's lift). Keys: Space knocks on the aimed tile or releases a ready flare (left
+column). Words without a touch screen: "Kliknij kafel… kliknij znowu…", the coach marks "Kliknij kafel", "Klikaj
+dalej albo naciskaj Spację", the warm-up's line in the panel "Kliknij kafel — światło napiera…", the album's "Kliknij
+obraz w albumie…". Measured: desktop / laptop / Full HD / QHD ✓, the game's frame 0.24–0.55 ms; the phone's layouts
+unchanged (small / iphone / side ✓).
+
+#### Ja jestem…
+
+With a mouse on a desktop or a big screen (`screenKind` desktop / big, wide —
+layout.ts `desk`) the stained-glass window takes the band's full height (690 × 805 px in a Full HD monitor's middle
+column, 949 × 1107 on a 2560 × 1440 one) and the picture's words — the declaration, the fragments with their parts
+lit — stand in a column beside it at a reading measure (365 px at Full HD, 487 at QHD), the window and its column
+centred as one group (the window keeps the canvas's middle, where a centre click lands); on a desk the words stand a
+little above the window's middle instead of in the corner. Type grows with the screen there (`tu`): the
+declaration 20 / 27 px, the fragments 18 / 23, Hanna's bubble, the captions in the glass, the opening card and its
+small print — a phone's stop where they did. **The mouse:** the part a click would act on — the rules' own choice
+(`sim.hoverAt`: where the colour would go, the glass that would glow in a rest, the part a rest would mark) — is
+tinted warm with a rim of light over a dark edge, readable on the pale sketch and on lit glass; the card's answers
+brighten under the mouse; the cursor is a pointer on the window and the card. A drag lays the colour's path as
+before. Keys: Space a drop of colour, Enter closes the card (listed in the left column). Words: "Kliknij część
+szkicu…", "Przeciągnij myszą po szkicu…" without a touch screen. Measured: desktop / laptop / Full HD / QHD ✓, the
+game's frame 0.54–0.78 ms; the phone's layouts unchanged (small / iphone / side ✓, pixel-identical).
+
+#### Odporność
+
+A mouse on a desktop or a big screen gets the `desk` layout (layout.ts,
+chosen from `screenKind`; a finger keeps every phone layout, the same numbers). **The world fills the field**: a
+phone caps the slice of skin at 3.6 u per unit and lets the air take the rest of a tall screen, a desk lifts the
+cap — a Full HD monitor's middle column shows the skin, the dermis and the venule 786 px high (was 613 under a
+band of air), a QHD 1 080 px, so Makro, the neutrophils and the bacteria grow ~30 % while the world stays 185–190
+units wide (a phone shows 130–150). Where the world leaves margins (a 1 280 window, a laptop) the burst and the
+NET stand **right beside it, by the vessel's ends**, not in the middle of the margin; each carries its key's
+cap (B, N). **The mouse:** whatever a click would act on is ringed and tagged with its name and what the click
+does — a bacterium ("Ziarniaki ze skóry · oznaczona przeciwciałami · kliknij: obrońcy ruszą"; in the alarm
+"kliknij: Makro ją połknie"), a rolling white cell ("kliknij: zatrzyma się i przeciśnie"), an infected or a
+flagless cell of the nose ("limfocyt T" / "komórka NK"), a spent neutrophil ("Makro posprząta") — through the
+sim's pure `aimAt`, the same choices as a tap; the cursor is a hand on targets and buttons, `grab` on the free
+tissue (a drag leads the swarm; `grabbing` while it does) and a crosshair over the wound when a drag weaves
+collagen. **Keys:** Space sends the swarm to the nearest bacterium (or lets the burst go when ready), B the
+burst, N a NET (the how-to lists all three). The how-to, seven coach marks and Neo's lines say "kliknij /
+przeciągnij myszą". **Measured:** desktop, laptop, Full HD, QHD ✓, 0 strings under 13 px, game ≤ 0.82 ms at QHD;
+the phones as before.
+
+#### Światło ciała
+
+A mouse on a desktop or a big screen gets its own shape, `desk`
+(layout.ts; chosen from `screenKind` and the width — an upright mouse window keeps `tall`, a finger keeps
+every phone shape, the same numbers): the figure as tall as the band in the middle (1 190 × 960 at Full HD:
+the figure 838 px, 87 % of the canvas; QHD 1 158 px), the scan's rail and lamp beside it. The **left column**
+is the organ's live panel at the band's height — the value on its gauge, the range, what the body does — and,
+on a desk only, **the loop's sources in full** ("Źródła: Osilla … 2023; Charkoudian … 2003; Haman …"; the rest
+panel cites Russo 2017 and Lehrer & Gevirtz 2014). The **right column** is for what speaks: the sung line
+and the next one at its top, the **Wiedza card at the band's height beside the panel** (a phone swaps the
+panel for it; a desk keeps both — the band of light runs from the panel through the organ to its card), Zofia
+at the end away from the band, and the **round button at its foot, by the figure's knees**, with the key's
+name in a cap ("Spacja") under its caption. Type follows `uiScale` (1.3 on a laptop, 1.35 Full HD, 1.8
+QHD) and the phone's fixed 12 px notes and chips grow with it (`L.k`). **The mouse:** the cursor is a hand
+over what a click acts on (the body, the panel and its card, the button); a hovered organ is ringed in its
+colour (both of a pair) with a tag — its name and its state with what a click does ("w świetle · kliknij, by
+pomóc", "w równowadze · kliknij: Wiedza", "czeka na światło"); the tag fades when the mouse rests 3 s. **Keys:**
+Space helps the organ in the light (on the beat at the heart, a breath's turn in rest), Enter opens and
+closes the card; both are on screen (the button's cap, the panel's "Wiedza › Enter" chip). The how-to,
+the coach marks, Zofia's lines about the hands and the lobby's rules say "kliknij / click / klicke / klicka".
+**Measured** (scripts/arcade-mobile.mjs): desktop, laptop, Full HD, QHD ✓ — 0 strings under 13 px (before:
+6 at 12 px), game 0.6–0.73 ms; the phones as before (small, iPhone, side ✓, the same counts).
+
+#### Synapsy
+
+A mouse on a desktop or a big screen gets the `desk` mode (layout.ts,
+chosen from `screenKind` and a landscape band; a finger and an upright window keep the phone's `tall`/`side`,
+identical). **The brain is as tall as the band** — 842 px in a Full HD monitor's middle column and 1 133 px on
+QHD (the old side layout: 673 / 897), so neurons stand 99 px apart for the mouse — and the HUD takes columns
+beside it: on a wide, short band (a laptop, a 1 280 window under the top HUD) the brain stands in the middle with
+the **lens and the lesson/Wiedza cards** on its left and the **song, Oli's words and Oli** on its right; on a big
+screen's middle column the full-height brain leaves one column on its right — the lens at the top, the cards
+(their sources whole, e.g. "Engel et al. 1991 · Science 252:1177"), Oli's words, the sung line and the next one,
+and **Oli at the foot, right by the brain**, the O key's cap under her nest. Every size the phone capped at
+1.15–1.2 (IO labels, the m/s plate, the halves' plate, the bubble, the lens's word, the story) grows with
+`uiScale` (`typeK`). **The mouse:** a neuron under the cursor is ringed and named with its region and where it is
+("Wzrok · L — płaty potyliczne, z tyłu głowy") and what a click does now ("kliknij, potem sąsiada", "kliknij:
+połączą się", "kliknij: połączenie zgrubieje", "za daleko — połącz przez sąsiada"), with a dashed line from the
+neuron fired a moment ago, gold when they can wire; a grown link under the cursor glows and **shows its real
+numbers** — synapses, length (mm of a 167 mm brain), speed (m/s from its myelin), the time across (ms), myelin
+%. The cursor is a hand on neurons, links and Oli, a crosshair on free tissue (a click there wires the nearest
+pair), an arrow elsewhere; tags fade when the mouse rests. **Keys:** Space (or Enter) wires the pair the lesson
+needs next, O sends Oli (her key cap). Mouse words in the how-to, the coach marks and Oli's lines. **Measured:**
+desktop, laptop, Full HD, QHD ✓, ≤ 2 strings under 13 px (before 5), game ≤ 0.9 ms; phones as before.
+
+#### Odnowa
+
+A mouse on a desktop or a big screen gets the `desk` layout (layout.ts, from
+`screenKind`; a finger keeps every phone layout, identical). **The engine grows**: the lens may take 0.22 of the
+width (a phone's rule 0.17) — the ATP synthase is 524 px across in a Full HD monitor's middle column (was 404) and
+698 px on QHD — with Mito and his bubble in the left column (the bubble spans it up to the lens's rim), the
+recipe's chips in the right one and the clean-up below them, all kept clear of it. **A Wiedza card met in play
+shows whole** between the columns — its icon, title and number, its sentence and **its source** ("Watt et al.
+2010, PNAS 107:16823"), where a phone keeps a one-line toast. **The mouse:** on the lane, the lesion a click would
+mend is ringed and tagged with the real pathway in order ("Utleniona zasada · BER: glikozylaza → APE1 →
+polimeraza β → ligaza · kliknij: ekipa naprawcza rusza"; a two-step repair: "drugi krok naprawy"), through the
+sim's pure `laneAim` — the same choice as a tap; the turbine ("Syntaza ATP · 8 protonów = 1 obrót = 3 ATP ·
+kliknij: Pełna moc / jeden proton dalej"), Mito ("kliknij: ciekawostka") and a sealed vesicle ("Autofagosom ·
+kliknij: do lizosomu · albo przeciągnij") answer too; the cursor is a hand on each, `grabbing` while a vesicle is
+carried. **Keys:** Space or Enter take a ready full power, mend the most urgent lesion or nudge the turbine (the
+lens says "Pełna moc — Spacja!" when ready). The how-to, the coach marks, Mito's ten lines about tapping and the
+lobby's rules say "kliknij". **Measured:** desktop, laptop, Full HD, QHD ✓ (game ≤ 0.83 ms; the 1.3 desks keep
+the three 12–13 px words they had), the phones as before.
+
+#### Rzeki żywej wody
+
+A desktop or a big screen with a mouse (`screenKind` desktop / big, wide)
+gets its own layout (layout.ts `desk`): the figure of light as tall as the band allows — 82 % of the Full HD
+middle column's band (H 711 px), 980 px on a 2560 × 1440 monitor — with room above the head for the crown's open
+window (it no longer slips under the bar), and the words in a column beside it at a reading measure (~34
+characters of the prayer, 425 px at Full HD, 561 at QHD), the figure's egg of light and the column centred as one
+group. The words **stand level with the place the light is at** (`wordsAt`): the place's name on the band's first
+row at the window's height, the prayer under it in balanced lines (no orphan word), the narrator above; they glide
+with the stream of living water to the next place, rest at the chest when the whole body is lit, and wait under
+the runner's banner in a block's first seconds. Type grows with the screen: the prayer 18.5u (24 px desktop, 25
+Full HD, 33 QHD), the verse 16.5u — and the rest verse is no longer always 13 px (a passage ending with its own "…"
+was taken for a cut one; fixed for every screen). **The mouse:** a click anywhere stays with the place, so the
+cursor is a pointer over the play; two arcs of light turn around the place a click would stay with (the next one
+while the stream flows), brighter over the figure, fading once the mouse rests — a meditation, not a cursor chase;
+a story card brightens under the mouse. Keys: Space stays with the place, Enter turns a card (listed in the
+left column); the how-to says "Kliknij — zostań przy miejscu…", the keys "to samo co kliknięcie". Measured: audit
+desktop / laptop / Full HD / QHD ✓, no string under 13 px, the game's frame 0.57–0.66 ms (QHD 0.57); the phone's
+layouts unchanged (small / iphone / side ✓).
+
+### 14.6 The registry's lines for a mouse (`i18n/arcade-mouse.ts`)
+
+A game's card text, its lobby's three lines and its calibration tips are written for a finger ("stuknij",
+"przesuń palcem"): most players hold a phone.  At a desktop those words mislead, so a line that names a
+finger's gesture has a twin with the same key in `i18n/arcade-mouse.ts` — the click, and the key where the
+game has one, as the game's own how-to names them ("Kliknij albo Spacja — skok").  `forHands(entry, touch)`
+(registry) gives the lines for the hands that play; the Gry cards and the lobby ask `coarsePointer()`, the
+calibration card and the how-to the runner's `touch`.  A line that names both ("stuknij lub kliknij") needs
+no twin.  `test/arcade-mouse.test.ts` holds the twins to the registry's keys and order, keeps every finger's
+word out of them in all four languages, and fails when a registry line names a finger's gesture without a
+twin — so a new game cannot forget its desktop words.

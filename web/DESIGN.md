@@ -65,6 +65,13 @@ language, and each text's English, German and Swedish forms are in the catalogs 
   of the day.
 * The Mendi **Signal** view starts with "play with this signal", which opens the games straight
   from the instrument view.
+* **Games in every menu** (2026-11-13, `src/ui/game-strip.ts`): Training, Signal, Sessions and Settings
+  each end with a sideways strip of game tiles chosen for that view (the game of the day and the
+  visualisation games in Training, the recent ones first in Sessions — "Zagraj ponownie" — and so on),
+  and a game's lobby ends with "Więcej gier" (its own section first). The Games tab has a sticky row of
+  section chips. A wide screen (≥ 1 500 px) widens the app's column and adds grid columns instead of
+  leaving a phone's column in the middle of a monitor. The arcade's DESIGN §14 has the details and the
+  games' own big-screen layouts.
 * **Signal** is the instrument view: the existing fNIRS monitor, or a new EEG monitor
   (metrics, traces, band powers, contact, combos). Recording controls live here, where the
   signal is.
