@@ -12,7 +12,10 @@
  *   the joystick    from the touch-down: its base where the finger went down (it trails a finger that runs
  *                   past its rim), its knob under the finger, a wedge on the rim toward the walk
  *   Łatek's button  the whistle in the thumb zone: pressed at the touch, its cool-down on the rim, a soft
- *                   pulse while loose sheep are in his reach; it steps aside in a night and on the tally
+ *                   pulse while loose sheep are in his reach; it steps aside in a night and on the tally;
+ *                   on a desktop at the bottom's middle with its key, a ring under the mouse
+ *   the mouse's way on a desktop: a ring where the pointer rests over the field and a dotted way to it from
+ *                   the shepherd (held, he walks it: a gold wedge toward the ring)
  *   Łatek's bubble  short lines over the dog, never over a telegraph, the banner or his button (talk.ts)
  *   the tally card  at dawn after a round: the place, the flock, the bonuses, the near miss, the
  *                   wardrobe's next piece and the next hill with its line of story
@@ -52,6 +55,8 @@ export class PasterzHud {
   private clock = 0;
   /** the ranking steps back (faded) while a coach mark speaks over the top band, until this session time */
   quietRankUntil = 0;
+  /** the mouse rests on Łatek's button (a desktop): it shows a ring */
+  hoverBtn = false;
   private rankK = 1;
   /** the edge markers drawn this frame (they keep apart) */
   private readonly placed: { x: number; y: number }[] = [];
@@ -122,6 +127,7 @@ export class PasterzHud {
     this.button(ctx, sim, view);
     this.talk(ctx, sim, view);
     this.joystick(ctx, sim, view);
+    this.way(ctx, sim, view);
     if (card) this.card(ctx, sim, view);
   }
 
@@ -215,9 +221,13 @@ export class PasterzHud {
     const r = L.rank;
     if (ex > r.x - pad && ey < r.y + r.h + pad) ey = Math.max(ey, r.y + r.h + pad);
     const b = L.whistle.hit;
-    if (this.btnK > 0.02 && ex > b.x - pad && ey > b.y - pad) {
-      // beside the button: above it on the right edge, left of it on the bottom edge
-      if (ex - (b.x - pad) < ey - (b.y - pad)) ex = b.x - pad;
+    if (this.btnK > 0.02 && ex > b.x - pad && ex < b.x + b.w + pad && ey > b.y - pad) {
+      // beside the button: above it on the right edge, left of it on the bottom edge (a desktop's, in the
+      // bottom's middle: beside it on the bottom edge, to the nearer side)
+      if (L.desk) {
+        if (ey >= y1 - 1) ex = ex < b.x + b.w / 2 ? b.x - pad : b.x + b.w + pad;
+        else ey = b.y - pad;
+      } else if (ex - (b.x - pad) < ey - (b.y - pad)) ex = b.x - pad;
       else ey = b.y - pad;
     }
     ex = clamp(ex, x0, x1);
@@ -246,7 +256,7 @@ export class PasterzHud {
     const L = view.L, gap = 32 * L.u, b = L.whistle.hit;
     const upright = p.x <= L.left + pad + 1 || p.x >= L.right - pad - 1;
     const taken = (x: number, y: number) =>
-      this.placed.some(q => Math.hypot(q.x - x, q.y - y) < gap) || (this.btnK > 0.02 && x > b.x - pad && y > b.y - pad);
+      this.placed.some(q => Math.hypot(q.x - x, q.y - y) < gap) || (this.btnK > 0.02 && x > b.x - pad && x < b.x + b.w + pad && y > b.y - pad);
     if (taken(p.x, p.y)) {
       const dir = upright ? (Math.sin(p.a) >= 0 ? 1 : -1) : (Math.cos(p.a) >= 0 ? 1 : -1);
       search: for (let k = 1; k <= 6; k++) {
@@ -393,6 +403,55 @@ export class PasterzHud {
     ctx.restore();
   }
 
+  /**
+   * The mouse's way on a desktop: resting over the field, a ring at the pointer and a dotted way to it from the
+   * shepherd (fading a second after the mouse stops); held, he walks it — a gold wedge at his feet toward the
+   * ring.  Nothing in a night, on the tally, or while he sleeps.
+   */
+  private way(ctx: CanvasRenderingContext2D, sim: PasterzSim, view: PasterzView): void {
+    const L = view.L;
+    if (!L.desk || sim.asleep || sim.frozen || this.cardShown(sim)) return;
+    const held = view.follow, rest = view.hover;
+    const at = held ?? rest;
+    if (!at) return;
+    const k = held ? 1 : clamp(1 - ((rest?.t ?? 0) - 1) / 0.6);
+    if (k <= 0) return;
+    const u = L.u, px = view.sx(sim.player.x), py = view.sy(sim.player.y);
+    const dx = at.x - px, dy = at.y - py, d = Math.hypot(dx, dy);
+    ctx.save();
+    ctx.lineCap = 'round';
+    if (d > 30 * u) {
+      const a = Math.atan2(dy, dx), r0 = 26 * u;
+      ctx.globalAlpha = (held ? 0.55 : 0.35) * k;
+      ctx.setLineDash([2 * u, 9 * u]);
+      ctx.strokeStyle = '#fff6dc';
+      ctx.lineWidth = 3 * u;
+      ctx.beginPath();
+      ctx.moveTo(px + Math.cos(a) * r0, py + Math.sin(a) * r0);
+      ctx.lineTo(at.x - Math.cos(a) * 16 * u, at.y - Math.sin(a) * 16 * u);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (held) {
+        // the walk: a gold wedge at his feet toward the pointer
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = '#ffd67a';
+        ctx.beginPath();
+        ctx.moveTo(px + Math.cos(a) * (r0 + 14 * u), py + Math.sin(a) * (r0 + 14 * u));
+        ctx.lineTo(px + Math.cos(a + 0.42) * r0, py + Math.sin(a + 0.42) * r0);
+        ctx.lineTo(px + Math.cos(a - 0.42) * r0, py + Math.sin(a - 0.42) * r0);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = (held ? 0.95 : 0.7) * k;
+    ctx.strokeStyle = held ? '#ffd67a' : '#fff6dc';
+    ctx.lineWidth = 2.5 * u;
+    ctx.beginPath();
+    ctx.arc(at.x, at.y, (held ? 12 : 14) * u, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   /** Łatek's button: a dark disc with the dog on it, the whistle's cool-down sweeping its rim (gold when ready). */
   private button(ctx: CanvasRenderingContext2D, sim: PasterzSim, view: PasterzView): void {
     if (this.btnK < 0.02) return;
@@ -431,6 +490,14 @@ export class PasterzHud {
       ctx.arc(0, 0, R + 3 + 3 * Math.sin(now * 5), 0, TAU);
       ctx.stroke();
     }
+    if (this.hoverBtn && L.desk) {
+      // the mouse rests on it: a light ring says a click here whistles
+      ctx.strokeStyle = 'rgba(255,248,230,.8)';
+      ctx.lineWidth = 2.5 * u;
+      ctx.beginPath();
+      ctx.arc(0, 0, R + 8 * u, 0, TAU);
+      ctx.stroke();
+    }
     // Łatek, ears up, and the whistle's call over him when he can go
     ctx.globalAlpha = this.btnK * (ready ? 1 : 0.55);
     paintDog(ctx, -R * 0.03, R * 0.06, R * 1.45, -Math.PI / 2, 0, now, view.dogCoat[0], view.dogCoat[1]);
@@ -449,8 +516,9 @@ export class PasterzHud {
     // the word under it, on a plate (the grass is busy)
     ctx.save();
     ctx.globalAlpha = this.btnK;
-    ctx.font = font(800, MIN_READ * Math.min(u, 1.15), SANS);
-    const word = fitText(ctx, t('ui.whistle'), b.hit.w + 12 * u, MIN_READ * Math.min(u, 1.15), 800, SANS, 12);
+    const lu = Math.min(u, L.desk ? 1.6 : 1.15);
+    ctx.font = font(800, MIN_READ * lu, SANS);
+    const word = fitText(ctx, t(L.desk ? 'ui.whistle.keys' : 'ui.whistle'), L.desk ? 220 * u : b.hit.w + 12 * u, MIN_READ * lu, 800, SANS, 12);
     const tw = ctx.measureText(word).width;
     const ly = b.y + R + 4 + 9 * u;
     ctx.fillStyle = 'rgba(30,22,14,.62)';
@@ -476,7 +544,7 @@ export class PasterzHud {
     const h = lines.length * lh + pad * 1.2;
     const bx = clamp(x - w / 2, L.left + 8, L.right - 8 - w);
     // over the button's column the bubble stays above it; elsewhere it may come down to the bottom
-    const floor = bx + w > L.whistle.hit.x - 6 && this.btnK > 0.02 ? L.field.bottom : L.bottom - 8;
+    const floor = bx + w > L.whistle.hit.x - 6 && bx < L.whistle.hit.x + L.whistle.hit.w + 6 && this.btnK > 0.02 ? L.field.bottom : L.bottom - 8;
     const by = clamp(y - h - 10, L.field.top + 4, Math.max(L.field.top + 4, floor - h - 12));
     const pop = age < 0.18 ? ease.outBack(age / 0.18) : 1;
     ctx.globalAlpha = alpha * Math.min(1, age * 6);

@@ -15,24 +15,41 @@
  *   wide   (desktops, tablets on their side)  the same, grown, and the ribbon of dawn (the band's last 40 s)
  *          in the open sky between the runner's panel and its score
  *
+ * A mouse at a desktop-sized canvas (kit/mobile `screenKind`: a desktop, a big screen; DESIGN §14) keeps
+ * that arrangement and makes the view a desktop's: the camera rides further behind on a longer lens, so
+ * the road ahead shows larger at the same place on screen (the player sees further), and the cast is a
+ * little larger than life.  Where only the runner's top bar lies over the canvas (a wide big screen puts
+ * the panel and the score in side columns) the sky is open: the quest pill, the ribbon of dawn — grown
+ * with the screen — and Klekot's gauge share one row along its top, and Klekot speaks from under his
+ * gauge, beside the road, so neither his bubble nor the ribbon covers the other or the road.
+ *
  * Nothing is pressed in play: a swipe anywhere (or a tap by thirds) moves the messenger, so the free play
  * area is not a target.  The only targets are the cards that wait for a tap — the opening story, which
  * holds the run at the milestone until the player sets off.
  */
 import { clamp } from '../kit/juice';
-import { MIN_READ, NO_INSETS, uiScale, type Rect } from '../kit/mobile';
+import { MIN_READ, NO_INSETS, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
 import { layoutPassage, wrapLines, type Passage, type PassageLayout } from '../kit/scripture';
 import type { Insets, TapTarget } from '../kit/types';
 import { SANS, font } from './paint';
+import { RULES } from './rules';
 
 export type { Rect };
 export type Shape = 'tall' | 'short' | 'wide';
+
+/** The longest day's word in any language (letters): the quest pill is never wider than this many tiles. */
+export const PILL_MAX = 7;
 
 export interface Layout {
   w: number;
   h: number;
   shape: Shape;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** the kind of screen (kit/mobile `screenKind`), and whether it is a desktop's (a mouse, keys) */
+  kind: ScreenKind;
+  desk: boolean;
+  /** only the runner's top bar lies over the canvas: the sky along the top is the game's (a big screen's side columns) */
+  open: boolean;
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, growing on a big screen (kit/mobile `uiScale`) */
   u: number;
   /** what covers each edge (the HUD band on top) */
   ins: Insets;
@@ -48,6 +65,9 @@ export interface Layout {
   /** a lane's share of the width at the messenger's depth (the road's scale), and the cast's enlargement */
   lane: number;
   big: number;
+  /** px per metre at the messenger's depth, and how far behind him the camera rides (m) */
+  scale: number;
+  camBack: number;
   /** Klekot's gauge: the arc's centre and radius, and the plate round it (the flight's ring inside it) */
   stork: { x: number; y: number; r: number; plate: number };
   /** the top of the gauge's words under the plate */
@@ -56,8 +76,11 @@ export interface Layout {
   pill: { x: number; y: number; tile: number; gap: number; pad: number; label: number; h: number };
   /** the power-ups' timers: a row of round plates (centres from x, `step` apart); y with and without the pill above */
   powers: { x: number; yUnder: number; yTop: number; r: number; step: number };
-  /** Klekot's bubble: its right edge (the tail reaches on to the plate), top, widest, at most this many lines */
-  bubble: { right: number; y: number; maxW: number; lines: number; size: number };
+  /**
+   * Klekot's bubble: its right edge, top, widest, at most this many lines; its tail reaches right to his
+   * gauge beside it, or up to the gauge above it (an open sky: the bubble hangs under the gauge's words)
+   */
+  bubble: { right: number; y: number; maxW: number; lines: number; size: number; tail: 'right' | 'up' };
   /** where the cards (a city reached, a mission done) stack from, and how wide they may be */
   cards: { y: number; maxW: number };
   /** the box the opening story and the run's tally are centred in */
@@ -68,12 +91,15 @@ export interface Layout {
   ribbon: Rect | null;
 }
 
-export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout {
+export function layout(w: number, h: number, insets: Insets = NO_INSETS, kind: ScreenKind = screenKind(w, h, true)): Layout {
   const W = Math.max(200, w), H = Math.max(160, h);
   const shape: Shape = W / H < 0.9 ? 'tall' : H < 460 ? 'short' : 'wide';
   const u = uiScale(W, H);
   const top = clamp(insets.top, 0, H * 0.6);
   const ins: Insets = { top, right: Math.max(0, insets.right), bottom: Math.max(0, insets.bottom), left: Math.max(0, insets.left) };
+  // a desktop's (a mouse, keys), and whether only the runner's top bar lies over the canvas (its side columns)
+  const desk = kind === 'desktop' || kind === 'big';
+  const open = desk && shape === 'wide' && top <= 84 * u;
   // nothing to read in the outer 16 px of a phone upright (the back swipe starts at the left edge)
   const edge = shape === 'tall' ? (W < 600 ? 16 : Math.round(24 * u)) : Math.round(12 * u);
   const x0 = ins.left + edge, x1 = W - ins.right - edge;
@@ -83,7 +109,12 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
   const runnerY = Math.min(H * 0.86, bottom - Math.max(40, H * 0.1));
   const horizon = Math.max(top + (shape === 'tall' ? 18 : 10) * u, H * 0.28);
   const lane = shape === 'tall' && W < 600 ? 0.29 : 0.27;
-  const big = shape === 'tall' ? 1.25 : 1;
+  // the cast a little larger than life where the lanes are narrow (a phone upright) or the screen is a desktop's
+  const big = shape === 'tall' ? 1.25 : desk ? 1.1 : 1;
+  // the view: px per metre at the messenger's depth (from the road's height on screen, or the width a lane
+  // takes), and the camera behind him — a desktop's longer lens: the road ahead shows larger in the same place
+  const scale = Math.min((runnerY - horizon) / 4.2, (W * lane) / RULES.laneW);
+  const camBack = desk ? 13 : 10;
   // Klekot's gauge, top right under the HUD (over the grass beside the road)
   const r = Math.round((shape === 'short' ? 24 : 27) * u);
   const plate = r + Math.round(12 * u);
@@ -96,22 +127,42 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
   // a timer's plate: its icon 0.8 of it, so the seal's "×2" reads at 11 px and up
   const pr = Math.round(20 * u);
   const powers = { x: x0 + pr, yUnder: pill.y + pillH + Math.round(8 * u) + pr, yTop: top + 6 + pr, r: pr, step: 2 * pr + Math.round(6 * u) };
-  // Klekot's bubble, left of his gauge, at the top
-  const right = stork.x - plate - Math.round(10 * u);
-  const bubble = { right, y: top + 6, maxW: Math.max(120, Math.min(right - x0, (shape === 'short' ? 320 : 340) * u)), lines: 4, size: 14 * u };
+  // Klekot's bubble, left of his gauge at the top; under an open sky (the ribbon has the row along the top)
+  // it hangs under his gauge's words — two rows on a plate — beside the road, its tail up to him
+  let bubble: Layout['bubble'];
+  if (open) {
+    bubble = { right: x1, y: labelY + Math.round(40 * u) + Math.round(10 * u), maxW: Math.max(120, Math.min(x1 - x0, 300 * u)), lines: 4, size: 14 * u, tail: 'up' };
+  } else {
+    const right = stork.x - plate - Math.round(10 * u);
+    bubble = { right, y: top + 6, maxW: Math.max(120, Math.min(right - x0, (shape === 'short' ? 320 : 340) * u)), lines: 4, size: 14 * u, tail: 'right' };
+  }
   const cards = { y: top + 6, maxW: Math.min(x1 - x0, 420 * u) };
   const sheet: Rect = { x: x0, y: top + 6, w: x1 - x0, h: Math.max(80, bottom - 6 - (top + 6)) };
   const sheetW = Math.min(x1 - x0, (shape === 'short' ? 600 : 460) * u);
-  // the ribbon: on a wide screen, in the open sky between the runner's panel and its score
+  // the ribbon: on a wide screen, in the open sky between the runner's panel and its score — or, where the
+  // sky is the game's (an open top band), grown with the screen between the quest pill and the gauge, level
+  // with the gauge
   let ribbon: Rect | null = null;
-  if (shape === 'wide') {
+  if (open) {
+    const pillMax = PILL_MAX * tile + (PILL_MAX - 1) * gap + 2 * pad;
+    const rx0 = x0 + pillMax + Math.round(16 * u), rx1 = stork.x - plate - Math.round(16 * u);
+    const ry0 = top + 6, ry1 = horizon - 16 * u;
+    if (rx1 - rx0 >= 300 && ry1 - ry0 >= 46) {
+      const bw = Math.min(rx1 - rx0, 760 * u), bh = Math.min(Math.round(72 * u), ry1 - ry0);
+      const cy = clamp(stork.y, ry0 + bh / 2, ry1 - bh / 2);
+      ribbon = { x: rx0 + (rx1 - rx0 - bw) / 2, y: cy - bh / 2, w: bw, h: bh };
+    }
+  } else if (shape === 'wide') {
     const rx0 = 360, rx1 = W - 150, ry0 = 62, ry1 = horizon - 16 * u;
     if (rx1 - rx0 >= 300 && ry1 - ry0 >= 46) {
       const bw = Math.min(rx1 - rx0, 620), bh = Math.min(84, ry1 - ry0);
       ribbon = { x: rx0 + (rx1 - rx0 - bw) / 2, y: ry1 - bh, w: bw, h: bh };
     }
   }
-  return { w: W, h: H, shape, u, ins, top, x0, x1, cx, runnerY, horizon, lane, big, stork, labelY, pill, powers, bubble, cards, sheet, sheetW, ribbon };
+  return {
+    w: W, h: H, shape, kind, desk, open, u, ins, top, x0, x1, cx, runnerY, horizon, lane, big, scale, camBack, stork, labelY, pill, powers, bubble, cards,
+    sheet, sheetW, ribbon,
+  };
 }
 
 /** The quest pill's width for a word of `n` letters (tiles in a row, the label above them). */

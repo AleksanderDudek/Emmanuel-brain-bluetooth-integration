@@ -21,7 +21,7 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
-import { hits } from '../kit/mobile';
+import { coarsePointer, hits } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { PasterzSound } from './audio';
 import { hand, t, unit, type HandKey } from './i18n';
@@ -33,6 +33,10 @@ import { RULES } from './rules';
 import { PasterzSim, type BlockKind, type SimEvent } from './sim';
 
 const want = (k: BlockKind | undefined): 'focus' | 'rest' | 'free' => (k === 'call' ? 'focus' : k === 'watch' ? 'rest' : 'free');
+
+/** A desktop's mouse on the field: held this long (s) he starts to walk to the pointer; a click shorter than CLICK_SEC whistles. */
+const FOLLOW_SEC = 0.18;
+const CLICK_SEC = 0.3;
 
 /**
  * A finger on the screen: on Łatek's button (pressed at once, a whistle on the lift; a thumb that slides off
@@ -48,13 +52,17 @@ class PasterzGame implements ArcadeGame {
   private readonly sound: PasterzSound;
   private press: Press | null = null;
   private now = 0;
+  /** the mouse's last place on the canvas (a desktop: he walks to it while its button is held) */
+  private mouse = { x: 0, y: 0 };
 
   constructor(private readonly env: GameEnv<PasterzProgress>) {
     this.sim = new PasterzSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
-    this.view = new PasterzView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg' });
+    this.view = new PasterzView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.sound = new PasterzSound(env.audio);
+    // the warm-up's tips speak of the mouse at a desktop
+    this.sim.handKeys = !env.touch;
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __pasterz?: unknown }).__pasterz = this.sim;
   }
 
@@ -67,11 +75,14 @@ class PasterzGame implements ArcadeGame {
     this.sim.start();
     this.sound.start();
     this.view.start(this.sim);
+    // a mouse: the whole hill answers it (held, a walk to the pointer; a click, a whistle)
+    if (!this.env.touch && this.env.canvas.style) this.env.canvas.style.cursor = 'pointer';
     this.drain();
   }
 
   update(dt: number, f: FocusFrame, t: number): void {
     this.now += dt;
+    this.follow();
     if (!this.view.hitStop(dt)) {
       this.sim.update(dt, f, t);
       this.drain();
@@ -92,7 +103,14 @@ class PasterzGame implements ArcadeGame {
    * steers, a short tap whistles.  One finger plays; a second waits.
    */
   pointer(e: PointerInput): void {
-    const view = this.view, hud = view.hud;
+    const view = this.view, hud = view.hud, desk = view.L.desk;
+    if (e.type === 'move' && desk && !this.press) {
+      // a desktop's mouse resting (no button down): the button lights under it, or the way to it shows
+      const onButton = hud.whistleLive(this.sim) && hits(view.L.whistle.hit, e.x, e.y);
+      hud.hoverBtn = onButton;
+      view.hover = onButton ? null : { x: e.x, y: e.y, t: 0 };
+      return;
+    }
     if (e.type === 'down') {
       if (this.press) return;
       const onButton = hud.whistleLive(this.sim) && hits(view.L.whistle.hit, e.x, e.y);
@@ -103,12 +121,30 @@ class PasterzGame implements ArcadeGame {
         return;
       }
       this.sim.drag(0, 0);
+      if (desk) {
+        // a mouse on the field: held, he walks to the pointer (update() steers him every frame)
+        this.mouse = { x: e.x, y: e.y };
+        view.hover = null;
+        return;
+      }
       view.stick = { ox: e.x, oy: e.y, x: e.x, y: e.y, on: false };
       return;
     }
     const pr = this.press;
     if (!pr || pr.id !== e.id) return;
     pr.far = Math.max(pr.far, Math.hypot(e.x - pr.x0, e.y - pr.y0));
+    if (desk && pr.kind === 'field') {
+      this.mouse = { x: e.x, y: e.y };
+      if (e.type === 'up') {
+        this.press = null;
+        view.follow = null;
+        view.hover = { x: e.x, y: e.y, t: 0 };
+        this.sim.drag(null);
+        // a click (quick, in place) whistles
+        if (pr.far < RULES.deadPx && this.now - pr.at <= CLICK_SEC) this.whistle();
+      }
+      return;
+    }
     const tap = pr.far < RULES.deadPx && this.now - pr.at <= RULES.tapSec + 0.25;
     if (pr.kind === 'button') {
       if (e.type === 'up') {
@@ -118,11 +154,13 @@ class PasterzGame implements ArcadeGame {
         return;
       }
       if (pr.far >= RULES.deadPx) {
-        // the thumb slid off the button: from here it steers, as if it had come down on the field
+        // the thumb slid off the button: from here it steers, as if it had come down on the field (a
+        // desktop's mouse: he walks to the pointer, follow() steers him)
         hud.pressed = false;
         pr.kind = 'field';
         pr.at = -99;
-        this.steer(pr, e);
+        if (desk) this.mouse = { x: e.x, y: e.y };
+        else this.steer(pr, e);
       }
       return;
     }
@@ -134,6 +172,21 @@ class PasterzGame implements ArcadeGame {
       return;
     }
     this.steer(pr, e);
+  }
+
+  /**
+   * A desktop's mouse held on the field: once it is held a moment (or moved), the shepherd walks to the
+   * pointer — full speed with it 2.5 m away and more, slower as he nears it, standing within half a metre.
+   * Every frame, since he moves while the pointer may rest.
+   */
+  private follow(): void {
+    const pr = this.press, view = this.view;
+    if (!pr || pr.kind !== 'field' || !view.L.desk) return;
+    if (pr.far < RULES.deadPx && this.now - pr.at < FOLLOW_SEC) return;
+    const p = view.toScreen(this.sim.player.x, this.sim.player.y);
+    const k = RULES.stickPx / (2.5 * view.S);
+    this.sim.drag((this.mouse.x - p.x) * k, (this.mouse.y - p.y) * k);
+    view.follow = { x: this.mouse.x, y: this.mouse.y };
   }
 
   /** The joystick follows the finger: past 1.4 × its rim the base is dragged along (it never falls behind). */
@@ -177,6 +230,8 @@ class PasterzGame implements ArcadeGame {
       this.sim.release();
       this.press = null;
       this.view.stick = null;
+      this.view.follow = null;
+      this.view.hover = null;
       this.view.hud.pressed = false;
     }
   }
@@ -241,7 +296,10 @@ class PasterzGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { this.sim.release(); }
+  destroy(): void {
+    this.sim.release();
+    if (this.env.canvas.style) this.env.canvas.style.cursor = '';
+  }
 }
 
 function haptic(e: SimEvent): void {
@@ -258,14 +316,28 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play: the drag and the tap in words for a finger; the keys on a row of their own (dropped on a touch screen). */
+/**
+ * How to play: the drag and the tap in words for a finger, the keys on a row of their own (dropped on a touch
+ * screen); at a keyboard the keys come first, then the mouse — held, a walk to the pointer; a click, a whistle.
+ */
 export function howto(): HowTo {
+  if (coarsePointer()) {
+    return {
+      goal: t('how.goal'),
+      hands: [
+        { gesture: 'drag', text: t('how.drag') },
+        { gesture: 'tap', text: t('how.tap') },
+        { gesture: 'keys', text: t('how.keys') },
+      ],
+      tips: [t('how.tip1'), t('how.tip2')],
+    };
+  }
   return {
     goal: t('how.goal'),
     hands: [
-      { gesture: 'drag', text: t('how.drag') },
-      { gesture: 'tap', text: t('how.tap') },
       { gesture: 'keys', text: t('how.keys') },
+      { gesture: 'hold', text: t('how.drag.keys') },
+      { gesture: 'tap', text: t('how.tap.keys') },
     ],
     tips: [t('how.tip1'), t('how.tip2')],
   };

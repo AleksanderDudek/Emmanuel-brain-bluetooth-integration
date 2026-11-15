@@ -12,6 +12,7 @@
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import { coarsePointer } from '../kit/mobile';
 import { dayKey } from '../kit/progress';
 import { paintGearIcon, paintMate, paintClock, TIER_COLOR } from './cast';
 import {
@@ -234,7 +235,7 @@ function build(p: DolinaProgress, changed: () => void): HTMLElement[] {
     }, canvas(52, 40, ctx => paintMate(ctx, id, 26, 38, id === 'glaz' ? 22 : 28, { run: 0.6, t: 0, act: 0, gold: going, air: false, sleep: !going })),
     compName(id), h('small', null, going ? t('panel.lv', { n: lv }) : `${t('panel.lv', { n: lv })} · ${t('panel.camp')}`));
   })));
-  out.push(h('p', { class: 'muted' }, p.found.length ? `${t('panel.partyHint')} ${slots < 3 ? t('panel.slotHint') : ''}`.trim() : t('panel.unknownHint')));
+  out.push(h('p', { class: 'muted' }, p.found.length ? `${t(coarsePointer() ? 'panel.partyHint' : 'panel.partyHint.keys')} ${slots < 3 ? t('panel.slotHint') : ''}`.trim() : t('panel.unknownHint')));
   // the gear
   out.push(h('div', { class: 'arcade-sub' }, `${t('panel.gear')} · ${t('panel.strength', { n: fmtNum(strengthOf(p)) })}`));
   out.push(h('div', { class: 'arcade-album' }, GEAR.map(s => {

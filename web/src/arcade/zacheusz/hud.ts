@@ -7,7 +7,8 @@
  *                     slots (Mario's pink-coin row), filled as they are found
  *   the level card    for two seconds at a level's start: its name and the set it shows
  *   the bubble button the ground band's right corner, under the thumb: a soap bubble with the count; a tap
- *                     rewinds a few seconds (it squashes on touch-down, dims without bubbles)
+ *                     rewinds a few seconds (it squashes on touch-down, dims without bubbles); on a desktop
+ *                     under the street a few strides ahead of him, its key B on its label, a ring on hover
  *   Mela's lines      a box in the ground band under the street — never over the light road, the roofs or
  *                     the button — its tail up to the goat, 15 px
  *   the tally card    at the finish: denarii, specials, the crowd's cheers, the height, the stars
@@ -122,7 +123,7 @@ export function drawLevelCard(ctx: CanvasRenderingContext2D, L: Layout, level: n
  * cannot rewind (`live` false); `press` 0..1 squashes it on touch-down.  Its label sits above it upright,
  * to its left on a phone on its side (the band is one button tall there).
  */
-export function drawButton(ctx: CanvasRenderingContext2D, L: Layout, n: number, clock: number, press: number, live: boolean): void {
+export function drawButton(ctx: CanvasRenderingContext2D, L: Layout, n: number, clock: number, press: number, live: boolean, hover = false): void {
   const { x, y, r } = L.btn;
   ctx.save();
   ctx.globalAlpha = live ? 1 : 0.45;
@@ -130,6 +131,14 @@ export function drawButton(ctx: CanvasRenderingContext2D, L: Layout, n: number, 
   ctx.beginPath();
   ctx.arc(x, y, r + 4, 0, TAU);
   ctx.fill();
+  if (hover && live) {
+    // the mouse rests on it: a light ring says a click here rewinds
+    ctx.strokeStyle = 'rgba(255,246,214,.85)';
+    ctx.lineWidth = 2.5 * L.u;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 9 * L.u + Math.sin(clock * 6) * 1.5 * L.u, 0, TAU);
+    ctx.stroke();
+  }
   if (press > 0) {
     // the finger's answer: a bright rim while it is down
     ctx.strokeStyle = `rgba(255,246,214,${(0.9 * press).toFixed(3)})`;
@@ -147,11 +156,11 @@ export function drawButton(ctx: CanvasRenderingContext2D, L: Layout, n: number, 
   ctx.strokeText(String(n), x, y + 1);
   ctx.fillStyle = C.paper;
   ctx.fillText(String(n), x, y + 1);
-  // the label on a plate, so it reads over the ground's texture
+  // the label on a plate, so it reads over the ground's texture (on a desktop with its key, to the right)
   ctx.font = font(800, 13 * L.u, SANS);
-  const label = t('bubble.btn');
+  const label = t(L.desk ? 'bubble.btn.keys' : 'bubble.btn');
   const lw = ctx.measureText(label).width + 12, lh = 18 * L.u;
-  const lx = L.tall ? x : x - r - 10 - lw / 2, ly = L.tall ? y - r - 8 - lh / 2 : y;
+  const lx = L.desk ? x + r + 10 + lw / 2 : L.tall ? x : x - r - 10 - lw / 2, ly = L.tall && !L.desk ? y - r - 8 - lh / 2 : y;
   ctx.fillStyle = 'rgba(42,30,23,.5)';
   ctx.beginPath();
   ctx.roundRect(lx - lw / 2, ly - lh / 2, lw, lh, lh / 2);
@@ -163,7 +172,7 @@ export function drawButton(ctx: CanvasRenderingContext2D, L: Layout, n: number, 
 
 /** How much room the button's label takes left of it on a phone on its side (Mela's box keeps clear). */
 export function labelRoom(ctx: CanvasRenderingContext2D, L: Layout): number {
-  if (L.tall) return 0;
+  if (L.tall || L.desk) return 0;
   if (labelW.u !== L.u) {
     ctx.font = font(800, 13 * L.u, SANS);
     labelW.u = L.u;
@@ -311,7 +320,7 @@ export function drawTally(ctx: CanvasRenderingContext2D, L: Layout, res: LevelRe
   const line = res.completed ? (res.tier >= 2 ? t('tally.setLast') : t('tally.set', { tier: t(`tier.${TIERS[res.tier]}`), next: t(`tier.${TIERS[res.tier + 1]}`) })) : t('tally.next', { name: nextName });
   fit(ctx, line, L.w / 2, y + 222 * v, w - 2 * pad, 700, 14.5 * v, SANS);
   ctx.fillStyle = 'rgba(42,30,23,.6)';
-  fit(ctx, t('tally.tap'), L.w / 2, y + 246 * v, w - 2 * pad, 600, 13.5 * v, SANS);
+  fit(ctx, t(L.desk ? 'tally.tap.keys' : 'tally.tap'), L.w / 2, y + 246 * v, w - 2 * pad, 600, 13.5 * v, SANS);
   ctx.restore();
   return box;
 }
@@ -383,7 +392,7 @@ export class StoryCard {
     if (id && verseH > 0 && this.verse) drawVerse(ctx, passage(id), this.verse.l, L.w / 2, ty + textH + 14 * u);
     ctx.fillStyle = 'rgba(42,30,23,.6)';
     ctx.textBaseline = 'middle';
-    fit(ctx, t('story.tap'), L.w / 2, y + h - 20 * u, w - 2 * pad, 600, 13.5 * u, SANS);
+    fit(ctx, t(L.desk ? 'story.tap.keys' : 'story.tap'), L.w / 2, y + h - 20 * u, w - 2 * pad, 600, 13.5 * u, SANS);
     ctx.restore();
     return { x, y, w, h };
   }

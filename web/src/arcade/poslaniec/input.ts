@@ -62,6 +62,9 @@ export class Gestures {
   /** Whether a finger is down (the view keeps its touch ring while it is). */
   get down(): boolean { return this.presses.size > 0; }
 
+  /** The move a click at `x` would make (a tap's thirds of the safe width): the mouse's hover shows it. */
+  tapMove(x: number): Move { return tapAt(x - this.left, this.width); }
+
   clear(): void { this.presses.clear(); }
 }
 

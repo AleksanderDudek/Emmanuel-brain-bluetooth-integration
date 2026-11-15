@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ArcadeAudio } from '../src/arcade/kit/audio';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import { passage } from '../src/arcade/kit/scripture';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import zacheusz from '../src/arcade/zacheusz/index';
@@ -731,7 +731,8 @@ describe('Zacheusz: mobile first', () => {
       const L = layout(s.w, s.h, s.insets);
       const phone = Math.min(s.w, s.h) <= 430;
       expect(L.u, s.name).toBeGreaterThanOrEqual(1);
-      expect(L.u, s.name).toBeLessThanOrEqual(1.3);
+      // a big screen's UI grows with it (§14), up to DESK_MAX; anything smaller stops at 1.3
+      expect(L.u, s.name).toBeLessThanOrEqual(Math.min(s.w, s.h) >= DESK_BIG ? DESK_MAX : 1.3);
       if (phone) expect(L.u, s.name).toBeLessThan(1.1);
       expect(L.tall, s.name).toBe(s.w < s.h);
       // the light road's lane, his height and a coin over him fit between the HUD and the street
@@ -868,7 +869,10 @@ describe('Zacheusz: mobile first', () => {
   });
 
   it('speaks to a finger: the how-to and the coach marks name keys only on a desktop', () => {
+    // a touch screen's card (the runner drops its keys row)
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('coarse'), media: q }));
     const how = zacheusz.howto!();
+    vi.unstubAllGlobals();
     expect(how.hands.map(h => h.gesture)).toEqual(['tap', 'hold', 'tap', 'keys']);
     const KEYS = /Spac|Space|Leertaste|mellanslag|↑|←|WASD|klaw|Taste|tangent|\bkey|klik|click|mysz|mouse|Maus|\bmus\b/i;
     for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
@@ -889,5 +893,142 @@ describe('Zacheusz: mobile first', () => {
       expect(hints, String(touch)).toContain(t(touch ? 'hint.tap' : 'hint.tap.keys'));
       if (touch) for (const h of hints) expect(h).not.toMatch(/Spac|↑|←/);
     }
+  });
+});
+
+// ── a desktop and a big screen (DESIGN.md §14) ─────────────────────
+describe('Zacheusz: a desktop and a big screen', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+  /** A checked screen laid out for a mouse (a desktop-sized canvas is a desktop's, a narrow one stays a tablet's). */
+  const mouse = (s: (typeof CHECK_SIZES)[number]) => layout(s.w, s.h, s.insets, screenKind(s.w, s.h, false));
+  const big = CHECK_SIZES.filter(s => Math.min(s.w, s.h) >= DESK_BIG);
+
+  it('chooses the layout from the screen: a finger keeps the phone’s at every size, a mouse gets the desktop’s', () => {
+    for (const s of CHECK_SIZES) {
+      expect(layout(s.w, s.h, s.insets), s.name).toEqual(layout(s.w, s.h, s.insets, screenKind(s.w, s.h, true)));
+      expect(layout(s.w, s.h, s.insets).desk, s.name).toBe(false);
+      const L = mouse(s);
+      expect(L.desk, s.name).toBe(L.kind === 'desktop' || L.kind === 'big');
+    }
+    expect(CHECK_SIZES.filter(s => mouse(s).desk).length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('on a desktop: room to jump, two seconds of street ahead, the bubble button by the play — never in a corner — Mela beside it', () => {
+    for (const s of CHECK_SIZES) {
+      const L = mouse(s);
+      if (!L.desk) continue;
+      // the light road's lane, his height and a coin over him fit under the HUD; more street ahead than a phone
+      expect(L.gy - s.insets.top - 8, s.name).toBeGreaterThanOrEqual(NEED_U * L.S - 0.5);
+      expect((s.w - s.insets.right - L.hx) / L.S / RULES.run, s.name).toBeGreaterThan(1.6);
+      expect(L.hx - (melaBehind(L) + 0.65) * L.S, s.name).toBeGreaterThanOrEqual(s.insets.left - 1);
+      // the bubble button: under the street a few strides ahead of him, inside the safe area, far from the corner
+      const b = buttonRect(L);
+      expect(auditTargets([{ label: 'bubble', ...b }], s.w, s.h, s.insets), s.name).toEqual([]);
+      expect(Math.min(b.w, b.h), s.name).toBeGreaterThanOrEqual(56);
+      expect(b.y + b.h, s.name).toBeLessThanOrEqual(s.h - DOCK_ROW);
+      expect(L.btn.y - L.btn.r, s.name).toBeGreaterThan(L.gy);
+      expect(L.btn.x - L.hx, s.name).toBeGreaterThan(0);
+      expect(L.btn.x - L.hx, s.name).toBeLessThanOrEqual(3.5 * L.S);
+      expect(s.w - s.insets.right - (b.x + b.w), s.name).toBeGreaterThan(s.w * 0.3);
+      // its label (and key) to its right, inside the screen
+      expect(L.btn.x + L.btn.r + 10 + 150 * L.u, s.name).toBeLessThanOrEqual(s.w - s.insets.right - EDGE);
+      // Mela's box: under the street, left of the button, two lines at least and a readable width
+      expect(L.talk.y, s.name).toBeGreaterThan(L.gy);
+      expect(L.talk.y + L.talk.h, s.name).toBeLessThanOrEqual(s.h - s.insets.bottom);
+      expect(L.talk.x, s.name).toBeGreaterThanOrEqual(s.insets.left + EDGE);
+      expect(L.talk.x + L.talk.w, s.name).toBeLessThanOrEqual(b.x);
+      expect(L.talk.h, s.name).toBeGreaterThanOrEqual(2 * Math.round(15 * L.u * 1.28) + 2 * 10 * L.u - 4);
+      expect(L.talk.w, s.name).toBeGreaterThanOrEqual(220 * L.u);
+    }
+  });
+
+  it('grows with a big screen: Zacchaeus a tenth of the canvas tall and twice a phone’s, the UI past 1.3', () => {
+    const phone = layout(CHECK_SIZES[0].w, CHECK_SIZES[0].h, CHECK_SIZES[0].insets);
+    expect(big.length).toBeGreaterThanOrEqual(2);
+    for (const s of big) {
+      const L = mouse(s);
+      expect(L.kind, s.name).toBe('big');
+      expect(L.S / s.h, s.name).toBeGreaterThan(1 / 11);
+      expect(L.S / phone.S, s.name).toBeGreaterThan(2);
+      // the phone's layout at the same size stops at a tablet's cap (an 80 px Zacchaeus in a sky)
+      expect(L.S / layout(s.w, s.h, s.insets).S, s.name).toBeGreaterThan(1.15);
+      expect(L.u, s.name).toBeGreaterThan(1.3);
+      expect(L.btn.r, s.name).toBeGreaterThanOrEqual(28 * 1.3);
+    }
+  });
+
+  it('plays with a mouse: the button and the cards are the targets, the hover lights the button, B and the keys work', () => {
+    for (const s of CHECK_SIZES) {
+      if (!mouse(s).desk) continue;
+      const run = phoneGame(RETURNING, s.insets, { touch: false });
+      run.game.resize(s.w, s.h, 1);
+      run.game.start();
+      const clock = { t: 0 };
+      play(run.game, clock, 1.5);
+      const tg = run.game.targets!();
+      expect(tg.map(x => x.label), s.name).toEqual(['bubble button']);
+      expect(auditTargets(tg, s.w, s.h, s.insets), s.name).toEqual([]);
+      // the mouse resting on the button lights it; elsewhere it does not
+      const view = (run.game as unknown as { view: { hoverBtn: boolean } }).view;
+      const c = { x: tg[0].x + tg[0].w / 2, y: tg[0].y + tg[0].h / 2 };
+      run.game.pointer!({ type: 'move', x: c.x, y: c.y, id: 1 });
+      expect(view.hoverBtn, s.name).toBe(true);
+      run.game.pointer!({ type: 'move', x: s.w / 2, y: s.insets.top + 40, id: 1 });
+      expect(view.hoverBtn, s.name).toBe(false);
+      // a click on the button rewinds while bubbles last
+      const had = run.sim.bubbles;
+      run.game.pointer!({ type: 'down', x: c.x, y: c.y, id: 1 });
+      run.game.pointer!({ type: 'up', x: c.x, y: c.y, id: 1 });
+      expect(run.sim.stage, s.name).toBe('bubble');
+      expect(run.sim.bubbles, s.name).toBe(had - 1);
+    }
+    // B is the bubble's key, Space the jump's
+    const { game, sim } = phoneGame(RETURNING, CHECK_SIZES[10].insets, { touch: false });
+    game.resize(CHECK_SIZES[10].w, CHECK_SIZES[10].h, 1);
+    game.start();
+    sim.world = flatWorld();
+    sim.hero.place(5, 0, RULES.run);
+    const clock = { t: 0 };
+    play(game, clock, 1.5);
+    expect(game.key!(' ', true)).toBe(true);
+    play(game, clock, 0.05);
+    expect(sim.hero.ground).toBe(false);
+    game.key!(' ', false);
+    play(game, clock, 1.2);
+    const had = sim.bubbles;
+    expect(game.key!('b', true)).toBe(true);
+    expect(sim.stage).toBe('bubble');
+    expect(sim.bubbles).toBe(had - 1);
+  });
+
+  it('speaks to a mouse and the keys on a desktop: keys first, clicks for taps, the button by name and key', () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q }));
+    const how = zacheusz.howto!();
+    expect(how.hands.map(h => h.gesture)).toEqual(['keys', 'tap', 'hold', 'tap']);
+    const TAP = /stuk|\btap\b|tipp|tryck(?! på)/i;
+    for (const h of how.hands) expect(h.text).not.toMatch(TAP);
+    for (const tip of how.tips ?? []) expect(tip).not.toMatch(TAP);
+    const CLICK = /klik|click|klick|Spac|Space|Leertaste|mellanslag|\bB\b/i;
+    for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[lang] as Record<string, unknown>;
+      for (const k of Object.keys(cat).filter(x => x.endsWith('.keys'))) {
+        expect(String(cat[k]), `${lang} ${k}`).toMatch(CLICK);
+        expect(String(cat[k]), `${lang} ${k}`).not.toMatch(TAP);
+      }
+    }
+    // a desktop session's coach marks and cards say click, never tap
+    const texts = new Map<string, number>();
+    const s = CHECK_SIZES[10];
+    const { game, sim, hints } = phoneGame({ giftDay: DAY }, s.insets, { touch: false, texts, planned: 120 });
+    game.resize(s.w, s.h, 1);
+    game.start();
+    play(game, { t: 0 }, 1.6);
+    expect(sim.stage).toBe('story');
+    expect(texts.has(t('story.tap.keys'))).toBe(true);
+    expect(texts.has(t('story.tap'))).toBe(false);
+    for (const h of hints) expect(h).not.toMatch(TAP);
+    // the phone's words stay a finger's
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('coarse'), media: q }));
+    expect(zacheusz.howto!().hands.map(h => h.gesture)).toEqual(['tap', 'hold', 'tap', 'keys']);
   });
 });

@@ -8,6 +8,7 @@
  * verse here: the lobby already shows the game's root passage.
  */
 import { h } from '../../ui/dom';
+import { coarsePointer } from '../kit/mobile';
 import { dayKey } from '../kit/progress';
 import { HOMES, LEVELS, levelCode, levelName, missionById, worldName } from './content';
 import { cap, grouped, t } from './i18n';
@@ -97,7 +98,7 @@ export function progressPanel(p: ZacheuszProgress, save: () => void): HTMLElemen
         stat(t('panel.best'), best === null ? '—' : grouped(best)),
         stat(t('panel.levels'), `${levelsDone(p)}/${LEVELS.length}`),
         stat(t('panel.stars'), `${starsAll(p)}/${LEVELS.length * 3}`)),
-      h('div', { class: 'arcade-sub' }, t('panel.map')), pickLine, ...worlds, rules,
+      h('div', { class: 'arcade-sub' }, t(coarsePointer() ? 'panel.map' : 'panel.map.keys')), pickLine, ...worlds, rules,
       h('div', { class: 'arcade-sub' }, t('panel.town', { have: restored, total: HOMES.length })), meter, town,
       h('div', { class: 'arcade-sub' }, t('panel.missions', { n: p.missionsDone })), log,
       gift);

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { HILLS, LAMBS, LINES, LINE_COUNT, MOMENTS, RIVALS, RIVAL_LINES, SKINS, UNLOCKS } from '../src/arcade/pasterz/content';
 import { CATALOGS, hand, t, unit } from '../src/arcade/pasterz/i18n';
 import { howto } from '../src/arcade/pasterz/index';
@@ -12,7 +12,7 @@ import { Talk } from '../src/arcade/pasterz/talk';
 import { World } from '../src/arcade/pasterz/world';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, THUMB, auditTargets, screenKind, target } from '../src/arcade/kit/mobile';
 import { passage } from '../src/arcade/kit/scripture';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mulberry32 } from '../src/core/random';
@@ -728,7 +728,8 @@ describe('on a phone first: the layout', () => {
       const L = layout(z.w, z.h, z.insets);
       const name = z.name;
       expect(L.u, name).toBeGreaterThanOrEqual(1);
-      expect(L.u, name).toBeLessThanOrEqual(1.3);
+      // a big screen's UI grows with it (§14), up to DESK_MAX; anything smaller stops at 1.3
+      expect(L.u, name).toBeLessThanOrEqual(Math.min(z.w, z.h) >= DESK_BIG ? DESK_MAX : 1.3);
       // a phone upright is sized at 1 (a 412 px phone grows a hair)
       if (upright(z)) expect(L.u, name).toBeLessThanOrEqual(1.06);
       // no reserve at the bottom: the room runs to the home indicator
@@ -835,8 +836,10 @@ describe('on a phone first: the game at every checked size', () => {
   }
 
   it('by day, with bubbles, in a night, on the tally and the last card: targets and text pass the phone checks', async () => {
-    for (const z of CHECK_SIZES) {
-      const touch = !z.name.startsWith('desktop');
+    // every size with a finger, and with a mouse where the canvas is a desktop's
+    const runs = CHECK_SIZES.flatMap(z => [{ z, touch: true }, ...(layout(z.w, z.h, z.insets, screenKind(z.w, z.h, false)).desk ? [{ z, touch: false }] : [])]);
+    expect(runs.length).toBeGreaterThan(CHECK_SIZES.length + 3);
+    for (const { z, touch } of runs) {
       const { game, sim, clock } = await gameAt(z, touch);
       run(game, clock, 0.6, HIGH);
       expect(check(game, z, 'by day'), z.name).toEqual([t('ui.whistle')]);
@@ -973,8 +976,139 @@ describe('on a phone first: the game at every checked size', () => {
     expect(hand('hint.whistle', false)).toBe(t('hint.whistle.keys'));
     expect(hand('hint.ring', false)).toBe(t('hint.ring'));
     // the how-to card: the keys on a row of their own (the runner drops it on a touch screen)
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('coarse'), media: q }));
     const how = howto();
+    vi.unstubAllGlobals();
     expect(how.hands.map(h => h.gesture)).toEqual(['drag', 'tap', 'keys']);
     for (const h of how.hands.filter(x => x.gesture !== 'keys')) expect(named(h.text), h.text).toBe(false);
+  });
+
+  // ── a desktop and a big screen (DESIGN §14) ──
+  it('a mouse walks him to the pointer while its button is held, a click whistles, the hover shows the way', async () => {
+    for (const z of CHECK_SIZES.filter(c => layout(c.w, c.h, c.insets, screenKind(c.w, c.h, false)).desk)) {
+      const { game, sim, view, clock } = await gameAt(z, false);
+      clearHill(sim);
+      run(game, clock, 0.4);
+      const L = view.L;
+      expect(L.desk, z.name).toBe(true);
+      // the hover: a ring where the pointer rests and the way to it; nothing moves
+      const me = () => ({ x: view.sx(sim.player.x), y: view.sy(sim.player.y) });
+      const x0 = sim.player.x, y0 = sim.player.y;
+      const to = { x: me().x + 6 * view.S, y: me().y - 2 * view.S };
+      game.pointer!({ type: 'move', x: to.x, y: to.y, id: 1 });
+      expect(view.hover, z.name).toMatchObject({ x: to.x, y: to.y });
+      run(game, clock, 0.5);
+      expect(Math.hypot(sim.stickX, sim.stickY), z.name).toBeLessThan(0.08);
+      expect(view.follow, z.name).toBeNull();
+      Object.assign(sim.player, { x: x0, y: y0, vx: 0, vy: 0 });
+      run(game, clock, 0.05);
+      // held: he walks toward the pointer (no joystick under it), and stops near it
+      game.pointer!({ type: 'down', x: to.x, y: to.y, id: 1 });
+      run(game, clock, 1.2);
+      expect(view.stick, z.name).toBeNull();
+      expect(sim.player.x - x0, z.name).toBeGreaterThan(2);
+      expect(sim.player.y - y0, z.name).toBeLessThan(0);
+      game.pointer!({ type: 'up', x: to.x, y: to.y, id: 1 });
+      expect(sim.whistleCool, z.name).toBe(0);
+      // a click (quick, in place) whistles
+      game.pointer!({ type: 'down', x: to.x, y: to.y, id: 2 });
+      game.pointer!({ type: 'up', x: to.x + 2, y: to.y, id: 2 });
+      expect(sim.whistleCool, z.name).toBeGreaterThan(0);
+      run(game, clock, RULES.whistleCool + 0.3);
+      // the button: a click on it whistles; the mouse resting on it lights it
+      const b = L.whistle;
+      game.pointer!({ type: 'move', x: b.x, y: b.y, id: 1 });
+      expect(view.hud.hoverBtn, z.name).toBe(true);
+      game.pointer!({ type: 'down', x: b.x, y: b.y, id: 3 });
+      game.pointer!({ type: 'up', x: b.x, y: b.y, id: 3 });
+      expect(sim.whistleCool, z.name).toBeGreaterThan(0);
+      // a mouse that slides off the button walks him to the pointer (no joystick under a mouse), no whistle
+      run(game, clock, RULES.whistleCool + 0.3);
+      const y1 = sim.player.y;
+      game.pointer!({ type: 'down', x: b.x, y: b.y, id: 4 });
+      game.pointer!({ type: 'move', x: b.x, y: b.y - 10 * view.S, id: 4 });
+      run(game, clock, 0.8);
+      expect(view.stick, z.name).toBeNull();
+      expect(sim.player.y, z.name).toBeLessThan(y1 - 1);
+      game.pointer!({ type: 'up', x: b.x, y: b.y - 10 * view.S, id: 4 });
+      expect(sim.whistleCool, z.name).toBe(0);
+      game.destroy();
+    }
+  });
+
+  it('lists the keys first at a keyboard and speaks of the mouse there', () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q }));
+    const how = howto();
+    vi.unstubAllGlobals();
+    expect(how.hands.map(h => h.gesture)).toEqual(['keys', 'hold', 'tap']);
+    const MOUSE = /klik|click|Klick|mysz|mouse|Maus|mus/i;
+    const TOUCH = /stuk|\btap\b|tipp|palc|finger|Finger|fingret/i;
+    for (const h of how.hands.slice(1)) {
+      expect(h.text, h.text).toMatch(MOUSE);
+      expect(h.text, h.text).not.toMatch(TOUCH);
+    }
+    for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[lang] as Record<string, unknown>;
+      for (const k of Object.keys(cat).filter(x => x.endsWith('.keys'))) expect(String(cat[k]), `${lang} ${k}`).not.toMatch(TOUCH);
+      for (const k of ['tip.warmup.1.keys', 'tip.warmup.3.keys', 'hint.steer.keys', 'how.drag.keys', 'how.tap.keys']) expect(String(cat[k]), `${lang} ${k}`).toMatch(MOUSE);
+    }
+    // the warm-up's tips in the panel: a mouse's words at a desktop (each of the three)
+    for (let seed = 1; seed <= 6; seed++) {
+      const sim = new PasterzSim({ progress: freshProgress(), rng: mulberry32(seed), day: DAY, daySeed: 4242, plannedSec: 300, eeg: false, tuning: TUNING });
+      sim.handKeys = true;
+      sim.start();
+      expect(sim.block.kind).toBe('warmup');
+      expect(sim.tip, sim.tip).not.toMatch(TOUCH);
+    }
+  });
+});
+
+describe('Pasterz: a desktop and a big screen (DESIGN §14)', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const mouse = (z: Size) => layout(z.w, z.h, z.insets, screenKind(z.w, z.h, false));
+
+  it('a finger keeps the phone layout at every size; a mouse at a desktop-sized canvas gets the desktop one', () => {
+    for (const z of CHECK_SIZES) {
+      expect(layout(z.w, z.h, z.insets), z.name).toEqual(layout(z.w, z.h, z.insets, screenKind(z.w, z.h, true)));
+      expect(layout(z.w, z.h, z.insets).desk, z.name).toBe(false);
+      expect(mouse(z).desk, z.name).toBe(['desktop', 'big'].includes(screenKind(z.w, z.h, false)));
+    }
+  });
+
+  it("Łatek's button by the play on a desktop: under the shepherd at the bottom's middle, never in a corner", () => {
+    for (const z of CHECK_SIZES) {
+      const L = mouse(z);
+      if (!L.desk) continue;
+      const b = L.whistle, name = z.name;
+      expect(auditTargets([target('whistle', b.hit)], z.w, z.h, z.insets), name).toEqual([]);
+      expect(Math.abs(b.x - L.cx), name).toBeLessThan(1);
+      expect(b.y, name).toBeGreaterThan(L.cy);
+      expect(b.hit.y + b.hit.h, name).toBeLessThan(z.h - 1);
+      expect(L.field.bottom, name).toBeLessThanOrEqual(b.hit.y);
+      // the smoke's centre tap lands on the field
+      const sx = z.w / 2, sy = z.h * 0.6;
+      expect(sx >= b.hit.x && sx <= b.hit.x + b.hit.w && sy >= b.hit.y && sy <= b.hit.y + b.hit.h, name).toBe(false);
+      // the ranking stays inside, clear of the button
+      expect(L.rank.x + L.rank.w, name).toBeLessThanOrEqual(L.right);
+      expect(L.rank.y + L.rank.h, name).toBeLessThan(b.hit.y);
+    }
+  });
+
+  it('grows the hill on a big screen: sheep more than twice a phone\'s, a little more of the hill in sight, the UI past 1.3', () => {
+    const phone = layout(CHECK_SIZES[0].w, CHECK_SIZES[0].h, CHECK_SIZES[0].insets);
+    const big = CHECK_SIZES.filter(z => Math.min(z.w, z.h) >= DESK_BIG);
+    expect(big.length).toBeGreaterThanOrEqual(2);
+    for (const z of big) {
+      const L = mouse(z), name = z.name;
+      expect(L.kind, name).toBe('big');
+      expect(L.S0 / phone.S0, name).toBeGreaterThan(2);
+      // the phone's layout at the same size stopped at 48 px a metre (a hill of tiny sheep)
+      expect(L.S0 / layout(z.w, z.h, z.insets).S0, name).toBeGreaterThan(1.1);
+      const across = (L.right - L.left) / L.S0;
+      expect(across, name).toBeGreaterThan(16);
+      expect(across, name).toBeLessThan(26);
+      expect(L.u, name).toBeGreaterThan(1.3);
+      expect(L.whistle.r * 2, name).toBeGreaterThan(70);
+    }
   });
 });

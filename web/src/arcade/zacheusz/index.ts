@@ -17,6 +17,7 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
+import { coarsePointer } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ZacheuszSound } from './audio';
 import { t, unit, type Key } from './i18n';
@@ -26,8 +27,8 @@ import { drawPreview } from './preview';
 import { ZacheuszView } from './render';
 import { ZacheuszSim, type SimEvent, type Teach } from './sim';
 
-/** The coach marks that name the keys on a desktop (a finger's words on a phone). */
-const KEYED: ReadonlySet<Teach> = new Set<Teach>(['tap', 'hold', 'button']);
+/** The coach marks that name the keys and the mouse on a desktop (a finger's words on a phone). */
+const KEYED: ReadonlySet<Teach> = new Set<Teach>(['tap', 'hold', 'button', 'pause', 'wall', 'dash', 'bubble']);
 
 class ZacheuszGame implements ArcadeGame {
   private readonly sim: ZacheuszSim;
@@ -42,8 +43,10 @@ class ZacheuszGame implements ArcadeGame {
     this.sim = new ZacheuszSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
-    this.view = new ZacheuszView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg' });
+    this.view = new ZacheuszView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.sound = new ZacheuszSound(env.audio);
+    // Mela speaks of clicks at a mouse
+    this.sim.talk.keys = !env.touch;
   }
 
   resize(w: number, h: number, dpr: number): void {
@@ -61,6 +64,8 @@ class ZacheuszGame implements ArcadeGame {
     this.sim.start();
     this.sound.start();
     this.view.start();
+    // a mouse: any click jumps (the street is the control), the button rewinds
+    if (!this.env.touch && this.env.canvas.style) this.env.canvas.style.cursor = 'pointer';
     this.drain();
   }
 
@@ -80,6 +85,8 @@ class ZacheuszGame implements ArcadeGame {
    * that cannot rewind (no bubbles, a card up) is an ordinary press, so a tap is never swallowed.
    */
   pointer(e: PointerInput): void {
+    // a mouse resting (no button down): the bubble button lights under it
+    if (e.type === 'move' && !this.env.touch && this.downs.size === 0) this.view.hover(e.x, e.y);
     if (e.type === 'down') {
       if (this.view.onButton(e.x, e.y) && this.sim.bubbleNow()) this.view.pressButton();
       else {
@@ -141,7 +148,10 @@ class ZacheuszGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { this.sim.release(); }
+  destroy(): void {
+    this.sim.release();
+    if (this.env.canvas.style) this.env.canvas.style.cursor = '';
+  }
 }
 
 function haptic(e: SimEvent): void {
@@ -159,17 +169,32 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** The hands in a finger's words; the keys in their own row (a phone's card leaves it out, a desktop shows it). */
+/**
+ * The hands in a finger's words, the keys in their own row (a phone's card leaves it out); at a keyboard the
+ * keys come first — the desktop's own hands — and the rows speak of clicks and of the button by the street.
+ */
 function howto(): HowTo {
+  if (coarsePointer()) {
+    return {
+      goal: t('how.goal'),
+      hands: [
+        { gesture: 'tap', text: t('how.tap') },
+        { gesture: 'hold', text: t('how.hold') },
+        { gesture: 'tap', text: t('how.bubble') },
+        { gesture: 'keys', text: t('how.keys') },
+      ],
+      tips: [t('how.tip1'), t('how.tip2')],
+    };
+  }
   return {
     goal: t('how.goal'),
     hands: [
-      { gesture: 'tap', text: t('how.tap') },
-      { gesture: 'hold', text: t('how.hold') },
-      { gesture: 'tap', text: t('how.bubble') },
       { gesture: 'keys', text: t('how.keys') },
+      { gesture: 'tap', text: t('how.tap.keys') },
+      { gesture: 'hold', text: t('how.hold.keys') },
+      { gesture: 'tap', text: t('how.bubble.keys') },
     ],
-    tips: [t('how.tip1'), t('how.tip2')],
+    tips: [t('how.tip1.keys'), t('how.tip2')],
   };
 }
 

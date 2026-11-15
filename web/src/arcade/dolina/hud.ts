@@ -51,6 +51,8 @@ export class Hud {
   private tierPop = 0;
   /** the runner's block banner covers the top band: the cards wait under it (not drawn, their clocks stopped) */
   private held = false;
+  /** the card or toast the resting mouse was last found on (a desktop): its rim lights while it is the one on screen */
+  private hoverOn: Card | null = null;
   private readonly wraps = new Map<string, string[]>();
 
   constructor(private readonly ctx: CanvasRenderingContext2D) {}
@@ -101,6 +103,16 @@ export class Hud {
     const r = hitRect({ x: g.x, y: g.y, w: g.w, h: g.h }, MIN_TAP);
     return [{ label: c.kind === 'toast' ? 'toast' : `card:${c.kind}`, x: r.x, y: r.y, w: r.w, h: r.h }];
   }
+
+  /** The mouse rests at (x, y) with no button down (a desktop): whether it is on the card on screen. */
+  hoverAt(x: number, y: number): void {
+    const c = this.shown();
+    const g = c ? this.geo(c) : null;
+    this.hoverOn = c && g && hits({ x: g.x, y: g.y, w: g.w, h: g.h }, x, y) ? c : null;
+  }
+
+  /** The resting mouse is on the card or toast on screen now (a card that came after it does not light). */
+  get hover(): boolean { return this.hoverOn !== null && this.hoverOn === this.shown(); }
 
   /** A tap at (x, y): on the card or toast on screen it closes it (true). */
   tap(x: number, y: number): boolean {
@@ -330,6 +342,17 @@ export class Hud {
     const a = Math.min(inK, outK);
     if (a <= 0.01) return;
     const g = this.geo(c);
+    if (L.desk && this.hover && this.hoverOn === c) {
+      // the mouse rests on it: a light rim says a click closes it
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = 'rgba(255,236,190,.75)';
+      ctx.lineWidth = 2.5 * u;
+      ctx.beginPath();
+      ctx.roundRect(g.x - 6 * u, g.y - 6 * u, g.w + 12 * u, g.h + 12 * u, 20 * u);
+      ctx.stroke();
+      ctx.restore();
+    }
     ctx.save();
     ctx.globalAlpha = a;
     const drop = (1 - ease.outCubic(inK)) * -14 * u;

@@ -24,6 +24,7 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
+import { coarsePointer } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DolinaSound } from './audio';
 import { t } from './i18n';
@@ -54,8 +55,10 @@ class DolinaGame implements ArcadeGame {
     this.sim = new DolinaSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
     });
-    this.view = new DolinaView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg' });
+    this.view = new DolinaView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.sound = new DolinaSound(env.audio);
+    // the warm-up's tip speaks of the mouse at a desktop
+    this.sim.handKeys = !env.touch;
   }
 
   resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr, this.env.insets()); }
@@ -66,6 +69,8 @@ class DolinaGame implements ArcadeGame {
     this.sim.start();
     this.sound.start();
     this.view.start(this.sim);
+    // a mouse: any click jumps (the valley is the control), a click on a card closes it
+    if (!this.env.touch && this.env.canvas.style) this.env.canvas.style.cursor = 'pointer';
     this.drain();
   }
 
@@ -93,6 +98,11 @@ class DolinaGame implements ArcadeGame {
       this.touches.set(e.id, { x: e.x, y: e.y, t: this.time, swiped: false, flap: this.sim.airUsed > air });
       this.view.press(e.x, e.y);
     } else if (e.type === 'move') {
+      // a mouse resting (no button down): a card under it lights
+      if (!this.env.touch && !this.touches.size) {
+        this.view.hover(e.x, e.y);
+        return;
+      }
       const p = this.touches.get(e.id);
       if (!p || p.swiped) return;
       const dx = e.x - p.x, dy = e.y - p.y;
@@ -181,7 +191,10 @@ class DolinaGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { this.sim.release(); }
+  destroy(): void {
+    this.sim.release();
+    if (this.env.canvas.style) this.env.canvas.style.cursor = '';
+  }
 }
 
 function haptic(e: SimEvent): void {
@@ -215,16 +228,28 @@ const mod: ArcadeModule<DolinaProgress> = {
   },
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
-  // the hands in finger words (a phone's card leaves the keys' row out; a desktop shows it as shortcuts)
-  howto: (): HowTo => ({
-    goal: t('how.goal'),
-    hands: [
-      { gesture: 'tap', text: t('how.tap') },
-      { gesture: 'hold', text: t('how.hold') },
-      { gesture: 'swipe', text: t('how.down') },
-      { gesture: 'keys', text: t('how.keys') },
-    ],
-    tips: [t('how.tip1'), t('how.tip2')],
-  }),
+  // the hands in finger words (a phone's card leaves the keys' row out); at a keyboard the keys come first
+  // and the rows speak of the mouse: a click, a held button, a drag down
+  howto: (): HowTo => (coarsePointer()
+    ? {
+      goal: t('how.goal'),
+      hands: [
+        { gesture: 'tap', text: t('how.tap') },
+        { gesture: 'hold', text: t('how.hold') },
+        { gesture: 'swipe', text: t('how.down') },
+        { gesture: 'keys', text: t('how.keys') },
+      ],
+      tips: [t('how.tip1'), t('how.tip2')],
+    }
+    : {
+      goal: t('how.goal'),
+      hands: [
+        { gesture: 'keys', text: t('how.keys') },
+        { gesture: 'tap', text: t('how.tap.keys') },
+        { gesture: 'hold', text: t('how.hold.keys') },
+        { gesture: 'drag', text: t('how.down.keys') },
+      ],
+      tips: [t('how.tip1'), t('how.tip2')],
+    }),
 };
 export default mod;

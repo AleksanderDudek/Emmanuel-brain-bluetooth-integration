@@ -25,6 +25,9 @@ export const SAY: Readonly<Record<Moment, number>> = {
 
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 
+/** Lines that speak of the hand: a desktop hears their `.keys` variant (a click, not a tap). */
+const HANDS: ReadonlySet<string> = new Set(['first.3']);
+
 /** A line's time on screen: 2–4 s by its length. */
 export const lineSec = (text: string): number => Math.max(2, Math.min(4, 1.4 + text.length * 0.032));
 
@@ -35,6 +38,8 @@ export class Companion {
   private clock = 0;
   private since = 99;
   readonly said: Line[] = [];
+  /** the player has a mouse and keys (a desktop): the lines about the hand say click */
+  keys = false;
 
   constructor(private readonly rng: () => number) {}
 
@@ -82,6 +87,6 @@ export class Companion {
     if (!free.length) return null;
     const i = free[Math.floor(this.rng() * free.length) % free.length];
     this.used.add(`${m}.${i}`);
-    return t(`say.${m}.${i}` as Key);
+    return t((this.keys && HANDS.has(`${m}.${i}`) ? `say.${m}.${i}.keys` : `say.${m}.${i}`) as Key);
   }
 }

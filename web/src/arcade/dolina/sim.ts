@@ -376,6 +376,8 @@ export class DolinaSim {
   phaseT = 0;
   t = 0;
   tip = '';
+  /** the player has a mouse and keys (a desktop): the warm-up's tip speaks of them */
+  handKeys = false;
   /** the opening story card is up (first-ever session): the road stays quiet */
   story = 0;
 
@@ -984,7 +986,7 @@ export class DolinaSim {
 
   private tipFor(b: Block, i: number, first: boolean): string {
     let key: Key;
-    if (b.kind === 'warmup') key = TIPS.warmup[0];
+    if (b.kind === 'warmup') key = this.handKeys ? 'tip.warmup.1.keys' : TIPS.warmup[0];
     else if (b.kind === 'push') {
       if (b.blind) key = TIPS.blind[(this.session + i) % TIPS.blind.length];
       else if (first && this.pushesBase === 0) key = TIPS.firstPush;

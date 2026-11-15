@@ -9,11 +9,16 @@
  * that a pad for the thumb (any tap on the field jumps, so the thumb never has to cover the climb).  The
  * scale comes from the width, so he sees more than a second of road ahead; the height above the floor
  * keeps room for a ledge, both jumps and a gate in the air.  On its side: a thin ground band and the
- * scale from the height under the HUD's one row.  A tablet and a desktop grow the same layout (`u` up to
- * 1.3, the scene capped so a big screen shows more valley rather than a giant pilgrim).
+ * scale from the height under the HUD's one row.  A tablet grows the same layout (`u` up to 1.3, the scene
+ * capped so it shows more valley rather than a giant pilgrim).
+ *
+ * A desktop (kit/mobile `screenKind`: a mouse at a desktop-sized canvas, DESIGN §14) keeps that shape and
+ * makes the valley a desktop's: 13 u across instead of 15–17 and no phone's cap, so on a big screen the
+ * pilgrim stands about a tenth of the canvas tall, a quarter of the way in, with about two seconds of road
+ * ahead; the pack's row and the cards grow with `u`.
  */
 import { clamp } from '../kit/juice';
-import { NO_INSETS, uiScale } from '../kit/mobile';
+import { NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 
 export interface Box { x: number; y: number; w: number; h: number }
@@ -21,7 +26,10 @@ export interface Box { x: number; y: number; w: number; h: number }
 export interface Layout {
   w: number;
   h: number;
-  /** UI scale: 1 on any phone, growing to 1.3 on a tablet or a desktop (kit/mobile `uiScale`) */
+  /** the kind of screen (kit/mobile `screenKind`), and whether it is a desktop's: a mouse and keys */
+  kind: ScreenKind;
+  desk: boolean;
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a small desktop, growing on a big screen (kit/mobile `uiScale`) */
   u: number;
   /** an upright screen (a phone in one hand, a tablet upright) */
   tall: boolean;
@@ -48,9 +56,10 @@ export const EDGE = 16;
 /** The room above the floor (u): a ledge's top (up to 5.2 u), both jumps (3 u + his height) and the high gate. */
 export const ROOM = 5.8;
 
-export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout {
+export function layout(w: number, h: number, insets: Insets = NO_INSETS, kind: ScreenKind = screenKind(w, h, true)): Layout {
   const W = Math.max(240, w), H = Math.max(200, h);
   const u = uiScale(W, H);
+  const desk = kind === 'desktop' || kind === 'big';
   const tall = W / H < 0.9;
   const top = clamp(insets.top || 0, 0, H * 0.45);
   const left = Math.max(0, insets.left || 0) + EDGE;
@@ -74,15 +83,16 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     const band = clamp(H * 0.15, 52 * u, 110 * u);
     floorLine = Math.max(top + 120, bottom - band);
     const Sv = (floorLine - top - 8) / ROOM;
-    const Sh = W / (W < 900 ? 15 : 17);
-    S = clamp(Math.min(Sv, Sh), 16, 82);
-    runX = clamp(W * 0.28, left + S * 2.6, W * 0.42);
+    // a desktop sees 13 u across with no phone's cap (a big screen's pilgrim a tenth of the canvas tall)
+    const Sh = W / (desk ? 13 : W < 900 ? 15 : 17);
+    S = clamp(Math.min(Sv, Sh), 16, desk ? 160 : 82);
+    runX = clamp(W * (desk ? 0.24 : 0.28), left + S * 2.6, W * 0.42);
     packY = floorLine + Math.max(4, (Math.min(bottom, H) - floorLine - packH) / 2);
   }
   // the pack never sinks under the home indicator
   packY = Math.min(packY, bottom - packH - 6);
   return {
-    w: W, h: H, u, tall, S, floorLine, runX, top, left, right, bottom,
+    w: W, h: H, kind, desk, u, tall, S, floorLine, runX, top, left, right, bottom,
     pack: { x: left, y: packY, w: right - left, h: packH },
     cardW: Math.min(right - left, 460 * u), cardTop: top + 8,
   };

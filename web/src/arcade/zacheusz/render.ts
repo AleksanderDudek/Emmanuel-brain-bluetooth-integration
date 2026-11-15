@@ -20,7 +20,7 @@
 import type { TraceBar } from '../kit/trace';
 import { traceBars } from '../kit/trace';
 import { Floaters, Particles, Shake, approach, clamp, ease } from '../kit/juice';
-import { MIN_READ, target } from '../kit/mobile';
+import { MIN_READ, screenKind, target } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { HOMES, levelName } from './content';
 import { t } from './i18n';
@@ -89,7 +89,10 @@ export class ZacheuszView {
   private sky: HTMLCanvasElement | null = null;
   private skyKey = '';
 
-  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
+  /** the mouse rests on the bubble button (a desktop): it shows a ring */
+  hoverBtn = false;
+
+  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; touch?: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
   }
@@ -98,7 +101,8 @@ export class ZacheuszView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, insets);
+    // the screen decides (DESIGN §14): a phone's layout, or a desktop's grown scene and button by the play
+    this.L = layout(w, h, insets, screenKind(w, h, this.opts.touch ?? true));
     this.skyKey = '';
   }
 
@@ -126,11 +130,14 @@ export class ZacheuszView {
   /** Where a coach mark about the bubble button points: just over its label. */
   buttonTip(): { x: number; y: number } {
     const b = this.L.btn;
-    return { x: b.x, y: b.y - b.r - (this.L.tall ? 26 : 6) * this.L.u };
+    return { x: b.x, y: b.y - b.r - (this.L.tall && !this.L.desk ? 26 : 6) * this.L.u };
   }
 
   /** The bubble button took a press: it squashes and lights its rim. */
   pressButton(): void { this.btnPress = 1; }
+
+  /** The mouse moved with no button down (a desktop): a ring on the bubble button while it rests there. */
+  hover(x: number, y: number): void { this.hoverBtn = this.onButton(x, y); }
 
   /** A press came down at (x, y): a ring under the finger (the hand's answer on touch-down). */
   touch(x: number, y: number): void {
@@ -723,7 +730,7 @@ export class ZacheuszView {
     if (this.levelT < 2.6 && sim.stage === 'run') drawLevelCard(ctx, L, sim.levelIndex, sim.tier, this.levelReplay, this.levelT / 2.6);
     // the bubble button: lit while it can rewind, dim otherwise, hidden under a card
     const card = sim.stage === 'tally' || sim.stage === 'story';
-    if (!card) drawButton(ctx, L, sim.bubbles, this.clock, this.btnPress, sim.stage === 'run' && sim.bubbles > 0);
+    if (!card) drawButton(ctx, L, sim.bubbles, this.clock, this.btnPress, sim.stage === 'run' && sim.bubbles > 0, this.hoverBtn);
     if (this.banner) drawBanner(ctx, L, this.banner.text, this.banner.t / 1.6, this.banner.color);
     // Mela's line: in the ground band under the street, her feet where the tail points
     const line = sim.talk.current;

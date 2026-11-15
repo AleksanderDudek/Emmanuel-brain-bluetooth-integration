@@ -11,7 +11,7 @@
  * runner draws the band's panel and the score; this view draws neither.
  */
 import { approach, clamp, ease, Particles, Shake } from '../kit/juice';
-import { target } from '../kit/mobile';
+import { screenKind, target } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import type { PasterzProgress } from './meta';
 import { CLOAKS, CROOKS, DOGS, PLAYER_DYE } from './content';
@@ -35,6 +35,8 @@ interface WFloat { text: string; x: number; y: number; t: number; dur: number; c
 interface Shoot { sx: number; sy: number; x: number; y: number; t: number }
 /** The floating joystick (CSS px): where the finger went down (the base trails a finger past its rim), where it is, whether it steers yet. */
 export interface Stick { ox: number; oy: number; x: number; y: number; on: boolean }
+/** A mouse over the field (a desktop): where the pointer rests and for how long (s), with no button down. */
+export interface Hover { x: number; y: number; t: number }
 
 export class PasterzView {
   private readonly ctx: CanvasRenderingContext2D;
@@ -59,6 +61,9 @@ export class PasterzView {
   clock = 0;
   /** the finger's joystick while a finger is down on the field (the HUD fades it out after the lift) */
   stick: Stick | null = null;
+  /** a desktop's mouse: resting over the field (the way to it shows), or held there (he walks to it) */
+  hover: Hover | null = null;
+  follow: { x: number; y: number } | null = null;
   /** a short freeze on big moments (s) */
   stop = 0;
   /** the joins in a short window, shown as one "+n" over the shepherd */
@@ -76,7 +81,7 @@ export class PasterzView {
   /** soft glows baked once per colour (the fires', the lost lamb's): no gradient or blur per frame */
   private readonly glows = new Map<string, HTMLCanvasElement | null>();
 
-  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
+  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; touch?: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.shake = new Shake(opts.reducedMotion);
     this.hud = new PasterzHud();
@@ -86,11 +91,14 @@ export class PasterzView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, ins);
+    this.L = layout(w, h, ins, this.kind());
   }
 
   /** The runner's insets settled (the HUD band is measured once play begins): lay out again. */
-  setInsets(ins: Insets): void { this.L = layout(this.w, this.h, ins); }
+  setInsets(ins: Insets): void { this.L = layout(this.w, this.h, ins, this.kind()); }
+
+  /** The screen decides (DESIGN §14): a phone's layout, or a desktop's (a mouse, keys). */
+  private kind() { return screenKind(this.w, this.h, this.opts.touch ?? true); }
 
   /** What the player can tap now: Łatek's button (the field itself is the joystick, not a target). */
   targets(sim: PasterzSim): TapTarget[] {
@@ -160,6 +168,7 @@ export class PasterzView {
     sim.viewW = this.w / 2 / this.S;
     sim.viewH = (L.bottom - L.top) / 2 / this.S;
     this.parts.update(dt);
+    if (this.hover && (this.hover.t += dt) > 1.6) this.hover = null;
     for (const f of this.floats) f.t += dt;
     while (this.floats.length && this.floats[0].t >= this.floats[0].dur) this.floats.shift();
     for (const p of this.pulses) p.t += dt;

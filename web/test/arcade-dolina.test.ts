@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SAY, lineSec, speakerOf } from '../src/arcade/dolina/companion';
 import {
   COMPS, ERAS, GEAR, KEEPERS, MISSIONS, SEQ, TRIALS, UPGRADES, compName, compText, eraName, eraOfLevel, guardLevel, missionText, powerName, powerOf, weaponName,
@@ -9,7 +9,7 @@ import dolina, { SWIPE, UNDO_SEC } from '../src/arcade/dolina/index';
 import { EDGE, ROOM, layout } from '../src/arcade/dolina/layout';
 import { font } from '../src/arcade/dolina/paint';
 import type { ArcadeAudio } from '../src/arcade/kit/audio';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import {
   addGear, applyChest, bestOf, bondLevel, buyUp, clockTime, completeMission, freshProgress, lookOf, migrate, nightOf, partyFor, rollChest, setStars,
@@ -1325,14 +1325,14 @@ function fakeCtx(texts = new Map<string, number>()): CanvasRenderingContext2D {
 const silent = new Proxy({ on: false }, { get: (o, k) => (k in o ? (o as Record<string | symbol, unknown>)[k] : () => undefined) }) as unknown as ArcadeAudio;
 
 /** The game as the runner makes it, on a canvas that draws nothing (a phone: touch, the insets of a CHECK_SIZES entry). */
-function phoneGame(progress: Partial<DolinaProgress>, ins: Insets, texts?: Map<string, number>): { game: ArcadeGame; sim: DolinaSim; hints: string[] } {
+function phoneGame(progress: Partial<DolinaProgress>, ins: Insets, texts?: Map<string, number>, touch = true): { game: ArcadeGame; sim: DolinaSim; hints: string[] } {
   const ctx = fakeCtx(texts);
   const hints: string[] = [];
   const env = {
     canvas: { getContext: () => ctx } as unknown as HTMLCanvasElement, hud: document.createElement('div'), audio: silent,
     progress: { ...freshProgress(), ...progress }, rng: mulberry32(5), day: DAY, daySeed: 4242, plannedSec: 300, tool: 'fnirs' as const,
     simulated: true, reducedMotion: false, haptics: false, tuning: TUNING,
-    hint: (text: string) => { hints.push(text); }, hudTop: () => ins.top, insets: () => ins, touch: true,
+    hint: (text: string) => { hints.push(text); }, hudTop: () => ins.top, insets: () => ins, touch,
   } satisfies GameEnv<DolinaProgress>;
   const game = dolina.create(env);
   return { game, sim: (game as unknown as { sim: DolinaSim }).sim, hints };
@@ -1368,7 +1368,8 @@ describe('Dolina: mobile first', () => {
       const L = layout(s.w, s.h, s.insets);
       const phone = Math.min(s.w, s.h) <= 430;
       expect(L.u, s.name).toBeGreaterThanOrEqual(1);
-      expect(L.u, s.name).toBeLessThanOrEqual(1.3);
+      // a big screen's UI grows with it (§14), up to DESK_MAX; anything smaller stops at 1.3
+      expect(L.u, s.name).toBeLessThanOrEqual(Math.min(s.w, s.h) >= DESK_BIG ? DESK_MAX : 1.3);
       if (phone) expect(L.u, s.name).toBeLessThan(1.1);
       expect(L.tall, s.name).toBe(s.w < s.h);
       // a ledge's top, both jumps and the gate in the air fit between the HUD and the floor
@@ -1546,7 +1547,9 @@ describe('Dolina: mobile first', () => {
   });
 
   it('speaks to a finger in the how-to: the keys only in their own row (left out on a phone)', () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('coarse'), media: q }));
     const how = dolina.howto!();
+    vi.unstubAllGlobals();
     expect(how.hands.map(h => h.gesture)).toEqual(['tap', 'hold', 'swipe', 'keys']);
     for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
       const cat = CATALOGS[lang] as Record<string, unknown>;
@@ -1555,5 +1558,113 @@ describe('Dolina: mobile first', () => {
       }
       expect(String(cat['how.keys']), lang).toMatch(/↑/);
     }
+  });
+});
+
+// ── a desktop and a big screen (DESIGN §14) ───────────────────────
+describe('Dolina: a desktop and a big screen', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const mouse = (s: (typeof CHECK_SIZES)[number]) => layout(s.w, s.h, s.insets, screenKind(s.w, s.h, false));
+
+  it('chooses the layout from the screen: a finger keeps the phone’s at every size, a mouse gets the desktop’s', () => {
+    for (const s of CHECK_SIZES) {
+      expect(layout(s.w, s.h, s.insets), s.name).toEqual(layout(s.w, s.h, s.insets, screenKind(s.w, s.h, true)));
+      expect(layout(s.w, s.h, s.insets).desk, s.name).toBe(false);
+      expect(mouse(s).desk, s.name).toBe(['desktop', 'big'].includes(screenKind(s.w, s.h, false)));
+    }
+    expect(CHECK_SIZES.filter(s => mouse(s).desk).length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('on a desktop: room to climb, the apex under the HUD, two seconds of road ahead, the party behind, the pack under the road', () => {
+    for (const s of CHECK_SIZES) {
+      const L = mouse(s);
+      if (!L.desk) continue;
+      expect(L.floorLine - L.top - 8, s.name).toBeGreaterThanOrEqual(ROOM * L.S - 0.5);
+      expect(L.floorLine - (RULES.reach2 + 1.5) * L.S, s.name).toBeGreaterThanOrEqual(L.top);
+      expect((s.w - L.runX) / L.S / RULES.run, s.name).toBeGreaterThan(1.6);
+      expect(L.runX - L.left, s.name).toBeGreaterThanOrEqual(1.8 * L.S);
+      expect(L.pack.y, s.name).toBeGreaterThan(L.floorLine);
+      expect(L.pack.y + L.pack.h, s.name).toBeLessThanOrEqual(s.h - s.insets.bottom);
+      expect(L.pack.h, s.name).toBeGreaterThanOrEqual(36);
+      expect(L.cardW, s.name).toBeLessThanOrEqual(s.w - s.insets.left - s.insets.right - 2 * EDGE);
+      expect(L.cardTop, s.name).toBeGreaterThanOrEqual(s.insets.top);
+    }
+  });
+
+  it('grows the valley with a big screen: the pilgrim a tenth of the canvas and twice a phone’s, the UI past 1.3', () => {
+    const phone = layout(CHECK_SIZES[0].w, CHECK_SIZES[0].h, CHECK_SIZES[0].insets);
+    const big = CHECK_SIZES.filter(s => Math.min(s.w, s.h) >= DESK_BIG);
+    expect(big.length).toBeGreaterThanOrEqual(2);
+    for (const s of big) {
+      const L = mouse(s);
+      expect(L.kind, s.name).toBe('big');
+      expect(L.S / s.h, s.name).toBeGreaterThan(1 / 11);
+      expect(L.S / phone.S, s.name).toBeGreaterThan(2);
+      expect(L.S / layout(s.w, s.h, s.insets).S, s.name).toBeGreaterThan(1.2);
+      expect(L.u, s.name).toBeGreaterThan(1.3);
+      expect(L.pack.h, s.name).toBeGreaterThan(36 * 1.3);
+    }
+  });
+
+  it('plays with a mouse: a click jumps, a second click in the air flaps, a drag down stomps; a card under the mouse lights', () => {
+    for (const s of CHECK_SIZES) {
+      if (!mouse(s).desk) continue;
+      const { game, sim } = phoneGame(RETURNING, s.insets, undefined, false);
+      game.resize(s.w, s.h, 1);
+      game.start();
+      flatRoad(sim);
+      let tt = 0;
+      const run = (sec: number) => { for (let i = 0; i < Math.round(sec / STEP); i++) { tt += STEP; game.update(STEP, LOW, tt); game.draw(); } };
+      run(0.5);
+      const x = s.w * 0.6, y = s.h * 0.6;
+      game.pointer!({ type: 'down', x, y, id: 1 });
+      expect(sim.grounded, s.name).toBe(false);
+      game.pointer!({ type: 'up', x, y, id: 1 });
+      run(0.12);
+      game.pointer!({ type: 'down', x, y, id: 1 });
+      expect(sim.airUsed, s.name).toBe(1);
+      game.pointer!({ type: 'move', x, y: y + SWIPE + 4, id: 1 });
+      expect(sim.stomping, s.name).toBe(true);
+      game.pointer!({ type: 'up', x, y: y + SWIPE + 4, id: 1 });
+      run(1);
+      expect(sim.grounded, s.name).toBe(true);
+      // a card (past the block banner's hold at the start): the mouse resting on it lights it
+      run(8);
+      const view = (game as unknown as { view: { hud: Hud } }).view;
+      view.hud.card('level', eraName('miasto'), t('era.miasto.text'), 3.2);
+      run(0.6);
+      const tg = game.targets!();
+      expect(tg, s.name).toHaveLength(1);
+      expect(auditTargets(tg, s.w, s.h, s.insets), s.name).toEqual([]);
+      game.pointer!({ type: 'move', x: tg[0].x + tg[0].w / 2, y: tg[0].y + tg[0].h / 2, id: 1 });
+      expect(view.hud.hover, s.name).toBe(true);
+      game.pointer!({ type: 'move', x: 4, y: s.h - 4, id: 1 });
+      expect(view.hud.hover, s.name).toBe(false);
+      game.destroy();
+    }
+  });
+
+  it('lists the keys first at a keyboard and speaks of the mouse there', () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q }));
+    const how = dolina.howto!();
+    expect(how.hands.map(h => h.gesture)).toEqual(['keys', 'tap', 'hold', 'drag']);
+    const TOUCH = /stuk|\btap\b|tipp|palc|finger|Finger|fingret|wisch|svep|przesuń/i;
+    const MOUSE = /klik|click|Klick|mysz|mouse|Maus|mus/i;
+    for (const h of how.hands.slice(1)) {
+      expect(h.text, h.text).toMatch(MOUSE);
+      expect(h.text, h.text).not.toMatch(TOUCH);
+    }
+    for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[lang] as Record<string, unknown>;
+      for (const k of Object.keys(cat).filter(x => x.endsWith('.keys'))) expect(String(cat[k]), `${lang} ${k}`).not.toMatch(TOUCH);
+      for (const k of ['how.tap.keys', 'how.hold.keys', 'how.down.keys', 'tip.warmup.1.keys', 'panel.partyHint.keys']) expect(String(cat[k]), `${lang} ${k}`).toMatch(MOUSE);
+    }
+    // the warm-up's tip in the panel at a desktop
+    const sim = new DolinaSim({ progress: freshProgress(), rng: mulberry32(1), day: DAY, daySeed: 4242, plannedSec: 300, eeg: false, tuning: TUNING });
+    sim.handKeys = true;
+    sim.start();
+    expect(sim.block.kind).toBe('warmup');
+    expect(sim.tip).not.toMatch(TOUCH);
+    expect(sim.tip).toMatch(MOUSE);
   });
 });

@@ -11,6 +11,7 @@
  * particles, hit-stop, shake, and the game's own layer (hud.ts) on top.  It only reads the sim.
  */
 import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
+import { screenKind } from '../kit/mobile';
 import { passage } from '../kit/scripture';
 import type { Insets, TapTarget } from '../kit/types';
 import {
@@ -86,7 +87,7 @@ export class DolinaView {
   /** the fingers' marks: a ring where a press came down, a chevron where a swipe went down */
   private readonly touches: { x: number; y: number; t: number; swipe: boolean }[] = [];
 
-  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean }) {
+  constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; eeg: boolean; touch?: boolean }) {
     this.ctx = canvas.getContext('2d')!;
     this.hud = new Hud(this.ctx);
     this.shake = new Shake(opts.reducedMotion);
@@ -96,9 +97,13 @@ export class DolinaView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, insets);
+    // the screen decides (DESIGN §14): a phone's layout, or a desktop's wider, larger valley
+    this.L = layout(w, h, insets, screenKind(w, h, this.opts.touch ?? true));
     this.hud.resize(this.L);
   }
+
+  /** The mouse rests at (x, y) with no button down (a desktop): a card under it lights. */
+  hover(x: number, y: number): void { this.hud.hoverAt(x, y); }
 
   /** The layout in use (tests and the game's hit tests). */
   get layout(): Layout { return this.L; }

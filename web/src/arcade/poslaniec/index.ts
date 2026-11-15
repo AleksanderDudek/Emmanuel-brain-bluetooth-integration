@@ -15,6 +15,7 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
+import { coarsePointer, screenKind } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { PoslaniecSound } from './audio';
 import { t } from './i18n';
@@ -55,7 +56,8 @@ class PoslaniecGame implements ArcadeGame {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, this.env.insets());
+    // the screen decides (DESIGN §14): a phone's layout, or a desktop's longer lens and open sky
+    this.L = layout(w, h, this.env.insets(), screenKind(w, h, this.env.touch));
     this.view.resize(w, h, dpr, this.L);
     // the thirds of a tap divide the safe width (a notch on its side is not the road)
     this.hands.resize(w, this.L.ins.left, w - this.L.ins.right);
@@ -75,6 +77,8 @@ class PoslaniecGame implements ArcadeGame {
     if (this.sim.firstEver) this.sim.hold(RULES.storyHold);
     this.sound.start();
     this.view.start(this.sim.p, this.sim.firstEver);
+    // a mouse: the whole road answers a click (a lane by the sides, a jump in the middle)
+    if (!this.env.touch && this.env.canvas.style) this.env.canvas.style.cursor = 'pointer';
     this.drain();
   }
 
@@ -97,6 +101,11 @@ class PoslaniecGame implements ArcadeGame {
    * every finger the moment it goes down.  While the opening story holds the run, any tap sets off.
    */
   pointer(e: PointerInput): void {
+    // a mouse resting over the road (no button down): what a click there would do shows on the road
+    if (e.type === 'move' && !this.env.touch && !this.hands.down) {
+      this.view.hover(this.sim.held > 0 ? null : this.hands.tapMove(e.x));
+      return;
+    }
     if (e.type === 'down') this.view.touch(e.x, e.y);
     if (this.sim.held > 0) {
       if (e.type === 'up') this.setOff();
@@ -168,7 +177,10 @@ class PoslaniecGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { this.hands.clear(); }
+  destroy(): void {
+    this.hands.clear();
+    if (this.env.canvas.style) this.env.canvas.style.cursor = '';
+  }
 }
 
 function haptic(e: SimEvent): void {
@@ -187,6 +199,16 @@ function haptic(e: SimEvent): void {
   }
 }
 
+/**
+ * How to play: a finger swipes and taps (the runner drops the keys row on a touch screen); at a keyboard the
+ * keys come first — the desktop's natural hands — then a click by the sides or the middle, then a drag.
+ */
+function howto(): HowTo {
+  const keys = { gesture: 'keys', text: t('how.keys') } as const;
+  if (coarsePointer()) return { goal: t('how.goal'), hands: [{ gesture: 'swipe', text: t('how.swipe') }, { gesture: 'tap', text: t('how.tap') }, keys], tips: [t('how.tip1'), t('how.tip2')] };
+  return { goal: t('how.goal'), hands: [keys, { gesture: 'tap', text: t('how.tap') }, { gesture: 'drag', text: t('how.swipe') }], tips: [t('how.tip1'), t('how.tip2')] };
+}
+
 const mod: ArcadeModule<PoslaniecProgress> = {
   freshProgress,
   create: env => {
@@ -203,14 +225,7 @@ const mod: ArcadeModule<PoslaniecProgress> = {
     return progressPanel(p, save);
   },
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p),
-  howto: (): HowTo => ({
-    goal: t('how.goal'),
-    hands: [
-      { gesture: 'swipe', text: t('how.swipe') },
-      { gesture: 'tap', text: t('how.tap') },
-      { gesture: 'keys', text: t('how.keys') },
-    ],
-    tips: [t('how.tip1'), t('how.tip2')],
-  }),
+  howto,
+
 };
 export default mod;

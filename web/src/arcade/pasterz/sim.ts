@@ -37,7 +37,7 @@ import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome } from '../kit/types';
 import { LAMBS, LINES, PLAYER_DYE, RIVALS, RIVAL_LINES, TIPS, hillAt, type Habit, type HillDef, type Moment, type RivalSay, type SkinKind } from './content';
-import { sheep as sheepText, t, unit } from './i18n';
+import { hand, sheep as sheepText, t, unit, type HandKey } from './i18n';
 import { addHome, bestFor, homeFor, lenKey, migrate, nameLamb, nextUnlock, openWardrobe, type PasterzProgress } from './meta';
 import { RULES, span } from './rules';
 import { Talk } from './talk';
@@ -276,6 +276,8 @@ export class PasterzSim {
   phaseT = 0;
   t = 0;
   tip = '';
+  /** the player has a mouse and keys (a desktop): the warm-up's tips speak of them */
+  handKeys = false;
 
   // the hill
   world!: World;
@@ -842,7 +844,7 @@ export class PasterzSim {
 
   private tipFor(b: Block, i: number): string {
     const k = this.session - 1 + i;
-    if (b.kind === 'warmup') return TIPS.warmup[k % TIPS.warmup.length];
+    if (b.kind === 'warmup') return this.handKeys ? hand(`tip.warmup.${(k % TIPS.warmup.length) + 1}` as HandKey, false) : TIPS.warmup[k % TIPS.warmup.length];
     if (b.kind === 'call') return b.blind ? TIPS.blind[k % TIPS.blind.length] : TIPS.call[k % TIPS.call.length];
     return TIPS.watch[k % TIPS.watch.length];
   }

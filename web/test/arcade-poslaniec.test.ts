@@ -1,13 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { passage } from '../src/arcade/kit/scripture';
 import { passage as passageIn } from '../src/content/scripture';
 import { CITIES, UP_IDS, dayWord, missionSet, missionText, taskFor, upPrice } from '../src/arcade/poslaniec/content';
 import { CATALOGS, metres, t } from '../src/arcade/poslaniec/i18n';
 import { FLICK_SEC, Gestures, SWIPE_PX, TAP_SLOP, hintText, keyMove, swipe, tapAt } from '../src/arcade/poslaniec/input';
-import { layout, pillWidth, storyLayout, tapTargets } from '../src/arcade/poslaniec/layout';
+import { PILL_MAX, layout, pillWidth, storyLayout, tapTargets, type Layout } from '../src/arcade/poslaniec/layout';
 import { SANS, font, fontPx, legible } from '../src/arcade/poslaniec/paint';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import {
   LAP, buyUp, citiesBetween, countMission, dayBefore, flightSecFor, freshProgress, migrate, multOf, postcards, powerSecFor, routeAt, wordComplete, wordToday,
   type PoslaniecProgress,
@@ -893,44 +893,66 @@ function measuring(): CanvasRenderingContext2D {
 }
 const LANGS = ['pl', 'en', 'de', 'sv'] as const;
 const word = (l: (typeof LANGS)[number], k: string): string => (CATALOGS[l] as Record<string, unknown>)[k] as string;
+/** Every checked screen laid out for either hand: a finger (a phone, a tablet) and a mouse (a desktop, a big screen). */
+function* everyLayout(): Generator<{ c: (typeof CHECK_SIZES)[number]; L: Layout; at: string }> {
+  for (const c of CHECK_SIZES) {
+    for (const touch of [true, false]) {
+      const kind = screenKind(c.w, c.h, touch);
+      yield { c, L: layout(c.w, c.h, c.insets, kind), at: `${c.name} (${kind})` };
+    }
+  }
+}
+/** The messenger's height on screen (px): 1.9 m at the view's scale at his depth, the cast's enlargement. */
+const heroPx = (L: Layout): number => 1.9 * L.scale * L.big;
 
 describe('mobile first (DESIGN §7.3, §12)', () => {
-  it('lays a phone upright out tall, on its side short, a desktop wide; u is 1 on a phone and never past 1.3', () => {
-    for (const c of CHECK_SIZES) {
-      const L = layout(c.w, c.h, c.insets);
-      expect(L.shape, c.name).toBe(c.w / c.h < 0.9 ? 'tall' : c.h < 460 ? 'short' : 'wide');
-      if (Math.min(c.w, c.h) <= 390) expect(L.u, c.name).toBe(1);
-      if (Math.min(c.w, c.h) <= 430) expect(L.u, c.name).toBeLessThan(1.1);
+  it('lays a phone upright out tall, on its side short, a desktop wide; u is 1 on a phone, 1.3 at most off a big screen', () => {
+    for (const { c, L, at } of everyLayout()) {
+      expect(L.shape, at).toBe(c.w / c.h < 0.9 ? 'tall' : c.h < 460 ? 'short' : 'wide');
+      if (Math.min(c.w, c.h) <= 390) expect(L.u, at).toBe(1);
+      if (Math.min(c.w, c.h) <= 430) expect(L.u, at).toBeLessThan(1.1);
       expect(L.u).toBeGreaterThanOrEqual(1);
-      expect(L.u).toBeLessThanOrEqual(1.3);
+      // a big screen's UI grows with it (§14), up to DESK_MAX; anything smaller stops at 1.3
+      expect(L.u, at).toBeLessThanOrEqual(Math.min(c.w, c.h) >= DESK_BIG ? DESK_MAX : 1.3);
+      expect(L.desk, at).toBe(L.kind === 'desktop' || L.kind === 'big');
     }
   });
 
   it('keeps the gauge, the quest pill, the bubble and the cards under the HUD, inside the gutters and clear of each other', () => {
-    for (const c of CHECK_SIZES) {
-      const L = layout(c.w, c.h, c.insets);
+    for (const { c, L, at } of everyLayout()) {
       const S = L.stork;
       // Klekot's gauge: under the HUD, top right, inside the safe width
-      expect(S.y - S.plate, c.name).toBeGreaterThanOrEqual(c.insets.top);
-      expect(S.x + S.plate, c.name).toBeLessThanOrEqual(c.w - c.insets.right - (c.w < 600 && c.h > c.w ? 16 : 0) + 0.01);
-      expect(S.y + S.plate, c.name).toBeLessThan(c.insets.top + (c.h - c.insets.top) * 0.45);
+      expect(S.y - S.plate, at).toBeGreaterThanOrEqual(c.insets.top);
+      expect(S.x + S.plate, at).toBeLessThanOrEqual(c.w - c.insets.right - (c.w < 600 && c.h > c.w ? 16 : 0) + 0.01);
+      expect(S.y + S.plate, at).toBeLessThan(c.insets.top + (c.h - c.insets.top) * 0.45);
       // the quest pill top left, at least 16 px from an upright phone's edge, its widest word clear of the gauge
       expect(L.pill.y).toBeGreaterThanOrEqual(c.insets.top);
       expect(L.pill.x).toBeGreaterThanOrEqual(c.insets.left + (c.h > c.w && c.w < 600 ? 16 : 8));
       for (const l of LANGS) {
         const longest = Math.max(...Array.from({ length: 10 }, (_, i) => word(l, `word.${i + 1}`).length));
+        expect(longest, l).toBeLessThanOrEqual(PILL_MAX);
         const pw = pillWidth(L, longest, word(l, 'w.word').length * 13 * L.u * 0.62);
-        expect(L.pill.x + pw, `${c.name} ${l}`).toBeLessThan(S.x - S.plate);
+        expect(L.pill.x + pw, `${at} ${l}`).toBeLessThan(S.x - S.plate);
+        // where the ribbon of dawn runs beside the pill (an open top band), the widest pill keeps clear of it
+        if (L.open && L.ribbon) expect(L.pill.x + pw, `${at} ${l}`).toBeLessThan(L.ribbon.x);
       }
       // the power-ups' row under the pill: four timers fit beside the gauge
       expect(L.powers.yUnder - L.powers.r).toBeGreaterThan(L.pill.y + L.pill.h);
       expect(L.powers.x - L.powers.r).toBeGreaterThanOrEqual(L.x0 - 0.01);
-      expect(L.powers.x + 3 * L.powers.step + L.powers.r, c.name).toBeLessThan(S.x - S.plate);
-      // Klekot's bubble between the left gutter and his gauge, wide enough for three lines of 14 px
+      expect(L.powers.x + 3 * L.powers.step + L.powers.r, at).toBeLessThan(S.x - S.plate);
+      // Klekot's bubble: left of his gauge between the gutters (under the HUD), or — where the top band is
+      // open — under his gauge's words, beside the road; wide enough for three lines of 14 px
       expect(L.bubble.y).toBeGreaterThanOrEqual(c.insets.top);
-      expect(L.bubble.right).toBeLessThan(S.x - S.plate);
+      if (L.bubble.tail === 'right') expect(L.bubble.right).toBeLessThan(S.x - S.plate);
+      else {
+        expect(L.open, at).toBe(true);
+        expect(L.bubble.y, at).toBeGreaterThanOrEqual(L.labelY + 40 * L.u);
+        expect(L.bubble.right, at).toBeLessThanOrEqual(L.x1 + 0.01);
+        // its four lines end above the messenger's head
+        expect(L.bubble.y + 4 * Math.round(L.bubble.size * 1.3) + 2 * Math.round(8 * L.u), at).toBeLessThan(L.runnerY - heroPx(L));
+      }
       expect(L.bubble.right - L.bubble.maxW).toBeGreaterThanOrEqual(L.x0 - 0.01);
-      expect(L.bubble.maxW, c.name).toBeGreaterThanOrEqual(200);
+      expect(L.bubble.maxW, at).toBeGreaterThanOrEqual(200);
       expect(L.bubble.size).toBeGreaterThanOrEqual(14);
       // the cards and the sheets inside the safe area
       expect(L.cards.y).toBeGreaterThanOrEqual(c.insets.top);
@@ -938,24 +960,31 @@ describe('mobile first (DESIGN §7.3, §12)', () => {
       expect(L.sheet.y + L.sheet.h).toBeLessThanOrEqual(c.h - c.insets.bottom);
       expect(L.sheet.x).toBeGreaterThanOrEqual(c.insets.left);
       expect(L.sheet.x + L.sheet.w).toBeLessThanOrEqual(c.w - c.insets.right);
+      // the ribbon of dawn in the sky: under the HUD's top bar where it is open, above the horizon, clear of the gauge
+      if (L.ribbon && L.open) {
+        expect(L.ribbon.y, at).toBeGreaterThanOrEqual(c.insets.top);
+        expect(L.ribbon.y + L.ribbon.h, at).toBeLessThanOrEqual(L.horizon);
+        expect(L.ribbon.x + L.ribbon.w, at).toBeLessThan(S.x - S.plate);
+      }
     }
   });
 
   it('gives the road the room: the horizon just under the HUD, the messenger low with a thumb\'s room under him', () => {
-    for (const c of CHECK_SIZES) {
-      const L = layout(c.w, c.h, c.insets);
+    for (const { c, L, at } of everyLayout()) {
       const band = c.h - c.insets.top - c.insets.bottom;
       expect(L.horizon).toBeGreaterThanOrEqual(c.insets.top);
-      expect(L.horizon - c.insets.top, c.name).toBeLessThanOrEqual(Math.max(30, band * 0.25));
+      expect(L.horizon - c.insets.top, at).toBeLessThanOrEqual(Math.max(30, band * 0.25));
       // the messenger in the thumb's half, with room under him to swipe, above the home indicator
-      expect(L.runnerY, c.name).toBeGreaterThan(c.h - band * THUMB);
-      expect(c.h - c.insets.bottom - L.runnerY, c.name).toBeGreaterThanOrEqual(40);
-      expect(L.runnerY - L.horizon, c.name).toBeGreaterThan(band * 0.55);
+      expect(L.runnerY, at).toBeGreaterThan(c.h - band * THUMB);
+      expect(c.h - c.insets.bottom - L.runnerY, at).toBeGreaterThanOrEqual(40);
+      expect(L.runnerY - L.horizon, at).toBeGreaterThan(band * 0.55);
       // on a narrow phone the lanes are wider and the cast a little larger than life
       if (c.h > c.w && c.w < 600) {
         expect(L.lane).toBeGreaterThan(0.27);
         expect(L.big).toBeGreaterThan(1);
       }
+      // the road at the messenger's depth fits the safe width (a lane change never leaves the screen)
+      expect(L.scale * 3 * RULES.laneW, at).toBeLessThanOrEqual(c.w - c.insets.left - c.insets.right);
       // the ribbon only where the sky between the panel and the score is open (a wide screen)
       if (L.ribbon) expect(L.shape).toBe('wide');
     }
@@ -963,12 +992,11 @@ describe('mobile first (DESIGN §7.3, §12)', () => {
 
   it('fits the opening story at every size in four languages: 13 px and up (15 and up on a phone), its reference too', () => {
     const ctx = measuring();
-    for (const c of CHECK_SIZES) {
-      const L = layout(c.w, c.h, c.insets);
+    for (const { c, L, at: on } of everyLayout()) {
       for (const l of LANGS) {
         for (const tap of [word(l, 'story.tap'), word(l, 'story.tap.keys')]) {
           const S = storyLayout(ctx, L, { body: word(l, 'story.body'), tap }, passageIn('isa52.7', l));
-          const at = `${c.name} ${l}`;
+          const at = `${on} ${l}`;
           expect(S.verse.fits, at).toBe(true);
           expect(S.box.y, at).toBeGreaterThanOrEqual(L.sheet.y);
           expect(S.box.y + S.box.h, at).toBeLessThanOrEqual(L.sheet.y + L.sheet.h + 0.01);
@@ -996,7 +1024,7 @@ describe('mobile first (DESIGN §7.3, §12)', () => {
     expect(legible(10.9)).toBe(false);
     expect(legible(MIN_TEXT)).toBe(true);
     // the power-ups' timers are large enough for the seal's "×2" (0.72 of the icon, the icon 0.8 of the plate)
-    for (const c of CHECK_SIZES) expect(legible(layout(c.w, c.h, c.insets).powers.r * 0.8 * 0.72), c.name).toBe(true);
+    for (const { L, at } of everyLayout()) expect(legible(L.powers.r * 0.8 * 0.72), at).toBe(true);
   });
 
   it('reads a thumb: a stroke past the swipe length acts at once, a quick short flick on release, a wobble is a tap', () => {
@@ -1082,5 +1110,90 @@ describe('mobile first (DESIGN §7.3, §12)', () => {
     }
     for (const what of ['jump', 'roll', 'lane', 'ramp', 'wings', 'goat'] as const) expect(hintText(what, true)).not.toMatch(KEYS);
     for (const what of ['jump', 'roll', 'lane'] as const) expect(hintText(what, false)).toMatch(KEYS);
+  });
+});
+
+describe('a big screen (DESIGN §14)', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+  const big = CHECK_SIZES.filter(c => Math.min(c.w, c.h) >= DESK_BIG);
+  const phone = CHECK_SIZES[0];
+
+  it('chooses the layout from the screen: a finger keeps the phone\'s, a mouse gets the desktop\'s', () => {
+    for (const c of CHECK_SIZES) {
+      const touch = layout(c.w, c.h, c.insets, screenKind(c.w, c.h, true));
+      const mouse = layout(c.w, c.h, c.insets, screenKind(c.w, c.h, false));
+      // the phone's layouts are what they were: the default is a finger's
+      expect(layout(c.w, c.h, c.insets), c.name).toEqual(touch);
+      expect(touch.desk, c.name).toBe(false);
+      expect(touch.camBack).toBe(10);
+      if (mouse.desk) {
+        // a desktop's longer lens: the road 30 m ahead shows larger than through the phone's, the messenger alike
+        const ahead = (L: Layout) => (L.scale * L.camBack) / (L.camBack + 30);
+        expect(ahead(mouse) / ahead(touch), c.name).toBeGreaterThan(1.15);
+        expect(mouse.scale).toBe(touch.scale);
+        expect(mouse.big, c.name).toBeGreaterThan(1);
+      }
+    }
+  });
+
+  it('grows the road, the messenger and his gauge with a big screen, and opens the sky for the ribbon', () => {
+    const small = layout(phone.w, phone.h, phone.insets);
+    expect(big.length).toBeGreaterThanOrEqual(2);
+    for (const c of big) {
+      const L = layout(c.w, c.h, c.insets, screenKind(c.w, c.h, false));
+      const band = c.h - c.insets.top;
+      expect(L.kind, c.name).toBe('big');
+      expect(L.open, c.name).toBe(true);
+      // the messenger stands a fifth of the play's height and more, twice his height on a small phone
+      expect(heroPx(L) / band, c.name).toBeGreaterThan(0.2);
+      expect(heroPx(L) / heroPx(small), c.name).toBeGreaterThan(2);
+      // the road at his depth fills most of the middle column
+      expect((L.scale * 2 * (RULES.laneW * 1.5 + 0.5)) / c.w, c.name).toBeGreaterThan(0.8);
+      // the game's own words and the gauge grow with the screen (u past the 1.3 of a small desktop)
+      expect(L.u, c.name).toBeGreaterThan(1.3);
+      expect(L.bubble.size, c.name).toBeGreaterThanOrEqual(14 * 1.3);
+      expect(L.stork.plate / small.stork.plate, c.name).toBeGreaterThan(1.3);
+      // the ribbon of dawn across the open sky between the pill and the gauge: wide and tall, not a phone's strip
+      expect(L.ribbon, c.name).not.toBeNull();
+      expect(L.ribbon!.w, c.name).toBeGreaterThan(Math.max(620, c.w * 0.5));
+      expect(L.ribbon!.h, c.name).toBeGreaterThan(90);
+      // Klekot speaks from under his gauge, beside the road (never over the ribbon or the road's far end)
+      expect(L.bubble.tail).toBe('up');
+      expect(L.bubble.y, c.name).toBeGreaterThan(L.ribbon!.y + L.ribbon!.h);
+      expect(L.bubble.right - L.bubble.maxW, c.name).toBeGreaterThan(L.cx + 0.12 * c.w);
+    }
+  });
+
+  it('answers a mouse: a click by the sides steps a lane, in the middle jumps — the hover shows the same', () => {
+    const g = new Gestures();
+    g.resize(1190);
+    expect(g.tapMove(100)).toBe('left');
+    expect(g.tapMove(595)).toBe('jump');
+    expect(g.tapMove(1100)).toBe('right');
+    // what the hover promises is what the click does
+    for (const x of [10, 390, 400, 600, 790, 800, 1180]) {
+      g.pointer('down', 1, x, 500, 0);
+      expect(g.pointer('up', 1, x, 500, 0.1)).toBe(g.tapMove(x));
+    }
+    // keys are the shortcuts: arrows, WASD, Space
+    expect(['ArrowLeft', 'a', 'ArrowRight', 'd', 'ArrowUp', 'w', ' ', 'ArrowDown', 's'].map(keyMove))
+      .toEqual(['left', 'left', 'right', 'right', 'jump', 'jump', 'jump', 'roll', 'roll']);
+  });
+
+  it('lists the keys first at a keyboard, the mouse after; a finger\'s card speaks of swipes and taps', async () => {
+    const mod = (await import('../src/arcade/poslaniec/index')).default;
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q }));
+    expect(mod.howto!().hands.map(c => c.gesture)).toEqual(['keys', 'tap', 'drag']);
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('coarse'), media: q }));
+    expect(mod.howto!().hands.map(c => c.gesture)).toEqual(['swipe', 'tap', 'keys']);
+    // the desktop's coach marks offer the mouse (a click, a drag), never a swipe
+    const SWIPE = /przesu|swipe|wisch|svep/i;
+    const MOUSE = /klik|click|klick|mysz|mouse|maus|mus/i;
+    for (const l of LANGS) {
+      for (const k of ['hint.jump.keys', 'hint.roll.keys', 'hint.lane.keys', 'story.tap.keys']) {
+        expect(word(l, k), `${l}.${k}`).not.toMatch(SWIPE);
+        expect(word(l, k), `${l}.${k}`).toMatch(MOUSE);
+      }
+    }
   });
 });

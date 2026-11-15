@@ -27,6 +27,7 @@ import {
 } from './paint';
 import { paintRibbon } from './ribbon';
 import { RULES } from './rules';
+import type { Move } from './input';
 import type { PoslaniecSim, SimEvent } from './sim';
 import type { Obstacle } from './track';
 
@@ -34,7 +35,6 @@ const LW = RULES.laneW;
 const ROAD = LW * 1.5 + 0.5;
 const SEG = 3;
 const AHEAD = 100;
-const CAM_BACK = 10;
 const TAU = Math.PI * 2;
 const CANVAS: readonly string[] = ['#efe3c8', '#c8553d', '#2f4f8f', '#7d8b4a'];
 const PAVE: [RGB, RGB] = [hex('#cdb38c'), hex('#bda27a')];
@@ -46,6 +46,9 @@ interface Card { kind: 'city' | 'mission' | 'mult' | 'verdict'; t: number; dur: 
 
 /** A ring where a finger went down: the touch's visible answer before the move it makes. */
 interface Ring { x: number; y: number; t: number }
+
+/** The mouse over the road with no button down (a desktop): the move a click there would make, and since when. */
+interface Hover { move: Move; t: number }
 
 export class PoslaniecView {
   private readonly ctx: CanvasRenderingContext2D;
@@ -60,6 +63,8 @@ export class PoslaniecView {
   private horizon = 1;
   private f = 1;
   private camH = 3.4;
+  /** how far behind the messenger the camera rides (m): a desktop's longer lens (layout.ts) */
+  private camBack = 10;
   private cx = 0;
   private camX = 0;
   private camY = 3.4;
@@ -84,6 +89,8 @@ export class PoslaniecView {
   private readonly shake: Shake;
   private readonly cards: Card[] = [];
   private readonly rings: Ring[] = [];
+  /** what a click would do where the mouse rests (a desktop); it fades a second after the mouse stops */
+  private hov: Hover | null = null;
   /** the opening story: shown (0..1, fading), laid out for this screen */
   private storyOn = false;
   private storyK = 0;
@@ -109,12 +116,11 @@ export class PoslaniecView {
     this.top = L.top;
     this.cx = L.cx;
     this.horizon = L.horizon;
-    const fH = ((L.runnerY - this.horizon) * CAM_BACK) / 4.2;
-    const fW = (w * L.lane * CAM_BACK) / LW;
-    this.f = Math.min(fH, fW);
-    this.camH = ((L.runnerY - this.horizon) * CAM_BACK) / this.f;
+    this.camBack = L.camBack;
+    this.f = L.scale * L.camBack;
+    this.camH = ((L.runnerY - this.horizon) * L.camBack) / this.f;
     this.camY = this.camH;
-    this.headY = L.runnerY - 1.9 * (this.f / CAM_BACK) * this.big;
+    this.headY = L.runnerY - 1.9 * L.scale * this.big;
     this.storyLay = null;
   }
 
@@ -133,6 +139,16 @@ export class PoslaniecView {
   touch(x: number, y: number): void {
     if (this.rings.length >= 4) this.rings.shift();
     this.rings.push({ x, y, t: 0 });
+    this.hov = null;
+  }
+
+  /**
+   * The mouse moved over the road with no button down (a desktop): the lane a click there steps into glows on
+   * the paving with a chevron, or — over the middle — a chevron rises over his head (a jump).  It fades a
+   * second after the mouse stops, so a player on the keys is not followed by it.
+   */
+  hover(move: Move | null): void {
+    this.hov = move ? { move, t: 0 } : null;
   }
 
   /** Where a thing on the road shows on the canvas (CSS px), for the coach marks (low enough for a two-line bubble above it under the HUD). */
@@ -150,6 +166,8 @@ export class PoslaniecView {
   storkAt(): { x: number; y: number } | null {
     this.glow = 4;
     if (this.L.shape !== 'wide') return null;
+    // an open sky: the bubble left of the gauge and low enough to clear the runner's top bar
+    if (this.L.open) return { x: this.storkX - this.L.stork.plate - 170 * this.u, y: this.storkY + this.L.stork.plate + 30 * this.u };
     return { x: Math.min(this.storkX - 50 * this.u, this.w - 200 * this.u), y: this.storkY + 10 * this.u };
   }
 
@@ -166,6 +184,7 @@ export class PoslaniecView {
       }
     }
     for (const g of this.rings) g.t += dt;
+    if (this.hov && (this.hov.t += dt) > 1.4) this.hov = null;
     while (this.rings.length && this.rings[0].t > 0.45) this.rings.shift();
     this.particles.update(dt);
     this.floaters.update(dt);
@@ -183,7 +202,7 @@ export class PoslaniecView {
     this.camX += (r.x * 0.62 - this.camX) * Math.min(1, dt * 7);
     const lift = sim.flying ? r.y : r.roof ? RULES.wagonTop * 0.85 : Math.min(r.y, 1) * 0.3;
     this.camY += (this.camH + lift - this.camY) * Math.min(1, dt * (sim.flying ? 3 : 5));
-    this.camZ = sim.z - CAM_BACK;
+    this.camZ = sim.z - this.camBack;
     for (const c of this.cards) c.t += dt;
     while (this.cards.length && this.cards[0].t >= this.cards[0].dur) this.cards.shift();
   }
@@ -198,7 +217,7 @@ export class PoslaniecView {
   /** What the sim just did, in particles, words, shakes and cards. */
   on(e: SimEvent, sim: PoslaniecSim): void {
     const me = this.pointAt(sim.z + 0.5, 0, sim.r.y + 1);
-    me.x = this.cx + (sim.r.x - this.camX) * (this.f / CAM_BACK);
+    me.x = this.cx + (sim.r.x - this.camX) * (this.f / this.camBack);
     const u = this.u;
     switch (e.type) {
       case 'jump':
@@ -316,7 +335,9 @@ export class PoslaniecView {
     ctx.translate(sh.x, sh.y);
     this.drawSky(sim);
     this.drawGround();
+    this.drawHover(sim, false);
     this.drawWorld(sim);
+    this.drawHover(sim, true);
     ctx.restore();
     this.particles.draw(ctx);
     this.floaters.draw(ctx, SANS);
@@ -329,6 +350,60 @@ export class PoslaniecView {
     if (sim.tally) this.drawTally(sim);
     if (this.storyOn) this.drawStory();
     this.drawRings();
+  }
+
+  /**
+   * What a click would do where the mouse rests (a desktop): the lane it steps into glows on the paving
+   * (`over` false: under the world) with a chevron toward it at his knee (`over` true), or over the middle a
+   * chevron rises over his head.  Nothing while a card waits or he cannot do it (the road's edge, a jump in
+   * the air with the stork).
+   */
+  private drawHover(sim: PoslaniecSim, over: boolean): void {
+    const hv = this.hov;
+    if (!hv || sim.held > 0 || sim.tally || sim.phase !== 'play') return;
+    const k = clamp(1 - (hv.t - 0.9) / 0.5);
+    if (k <= 0) return;
+    const u = this.u, r = sim.r;
+    if (hv.move === 'jump' || hv.move === 'roll') {
+      if (!over || sim.flying) return;
+      const [x, y] = this.P(r.x, r.y + 2.2 * this.big, sim.z);
+      this.chevron(x, y - 6 * u, hv.move === 'jump' ? 0 : 2, 13 * u, k);
+      return;
+    }
+    const to = r.lane + (hv.move === 'left' ? -1 : 1);
+    if (to < -1 || to > 1) return;
+    const X = to * LW;
+    if (!over) {
+      const hw = LW * 0.44, z0 = sim.z - 0.6, z1 = sim.z + 11;
+      this.quad(this.P(X - hw, 0.01, z0), this.P(X + hw, 0.01, z0), this.P(X + hw, 0.01, z1), this.P(X - hw, 0.01, z1), `rgba(255,231,168,${0.28 * k})`);
+      return;
+    }
+    const [x, y, s] = this.P(X, 0.9, sim.z + 0.4);
+    this.chevron(x, y, hv.move === 'left' ? -1 : 1, clamp(0.3 * s, 12 * u, 22 * u), k);
+  }
+
+  /** A double chevron (screen space, gold on a dark edge) pointing left (−1), right (1), up (0) or down (2). */
+  private chevron(x: number, y: number, dir: -1 | 0 | 1 | 2, size: number, alpha: number): void {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (let i = 1; i >= 0; i--) {
+      const o = i * size * 0.8;
+      const pts: [number, number][] = dir === 0 ? [[x - size, y - o + size * 0.5], [x, y - o - size * 0.5], [x + size, y - o + size * 0.5]]
+        : dir === 2 ? [[x - size, y + o - size * 0.5], [x, y + o + size * 0.5], [x + size, y + o - size * 0.5]]
+          : [[x + dir * o - dir * size * 0.5, y - size], [x + dir * o + dir * size * 0.5, y], [x + dir * o - dir * size * 0.5, y + size]];
+      for (const [color, width] of [[`rgba(60,35,15,${alpha * 0.35})`, size * 0.5], [`rgba(255,231,168,${alpha * (i ? 0.55 : 0.95)})`, size * 0.28]] as const) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = Math.max(2, width);
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        ctx.lineTo(pts[1][0], pts[1][1]);
+        ctx.lineTo(pts[2][0], pts[2][1]);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
   }
 
   /** Where fingers went down: a soft ring widening round each (the touch's answer at once). */
@@ -453,6 +528,14 @@ export class PoslaniecView {
 
   private fade(z: number): number { return clamp((this.camZ + AHEAD - z) / 18); }
 
+  /**
+   * Through a desktop's longer lens a thing he has passed (its far end `z1` behind him at `z`) would fill the
+   * foreground on its way past the camera: it fades from a metre behind him over the next four.
+   */
+  private behind(z1: number, z: number): number {
+    return this.camBack > 10 ? clamp(1 - (z - z1 - 1) / 4) : 1;
+  }
+
   private drawSide(z: number): void {
     const ctx = this.ctx;
     for (const side of [-1, 1]) {
@@ -559,7 +642,11 @@ export class PoslaniecView {
     const X = o.lane * LW, hw = LW * 0.42;
     const z0 = Math.max(o.z, this.camZ + 0.7), z1 = o.z + o.len;
     if (z1 <= z0) return;
-    ctx.globalAlpha = this.fade(o.z) * (o.hit ? 0.35 : 1);
+    ctx.globalAlpha = this.fade(o.z) * (o.hit ? 0.35 : 1) * this.behind(z1, sim.z);
+    if (ctx.globalAlpha <= 0.01) {
+      ctx.globalAlpha = 1;
+      return;
+    }
     if (o.kind === 'low') {
       const P = (x: number, y: number) => this.P(X + x, y, z0);
       const [, , s] = P(0, 0);
@@ -980,10 +1067,12 @@ export class PoslaniecView {
     const bw = Math.min(B.maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 2 * padX);
     const bh = lines.length * lh + 2 * padY;
     const right = B.right, x = right - bw, y = B.y;
-    // the tail points at the stork: right at his gauge beside the bubble, or down at him carrying the messenger
+    // the tail points at the stork: right at his gauge beside the bubble, up at it over the bubble (an open
+    // sky, the bubble under his gauge's words), or down at him carrying the messenger
     const down = sim.flying;
-    const tx = down ? clamp(this.storkX, x + 18 * u, right - 18 * u) : right;
-    const ty = down ? y + bh : clamp(this.storkY, y + 12 * u, y + bh - 12 * u);
+    const up = !down && B.tail === 'up';
+    const tx = down || up ? clamp(this.storkX, x + 18 * u, right - 18 * u) : right;
+    const ty = down ? y + bh : up ? y : clamp(this.storkY, y + 12 * u, y + bh - 12 * u);
     const pop = 0.85 + 0.15 * ease.outBack(Math.min(1, line.t / 0.25));
     ctx.globalAlpha = k;
     ctx.translate(tx, ty);
@@ -996,6 +1085,10 @@ export class PoslaniecView {
       ctx.moveTo(tx - 7 * u, ty - 2);
       ctx.lineTo(tx, ty + 9 * u);
       ctx.lineTo(tx + 7 * u, ty - 2);
+    } else if (up) {
+      ctx.moveTo(tx - 7 * u, ty + 2);
+      ctx.lineTo(tx, ty - 9 * u);
+      ctx.lineTo(tx + 7 * u, ty + 2);
     } else {
       ctx.moveTo(right - 2, ty - 7 * u);
       ctx.lineTo(right + 9 * u, ty);

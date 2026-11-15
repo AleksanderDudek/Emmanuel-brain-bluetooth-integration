@@ -13,9 +13,14 @@
  *   the tally card  between rounds, a sheet from the bottom: one column on a phone held upright, two on a
  *                   wider screen — a round ends where the next block begins, so the runner's block banner
  *                   is over the top of the room while the card shows, and the card keeps under it
+ *
+ * A desktop (kit/mobile `screenKind`: a mouse at a desktop-sized canvas, DESIGN §14) has no thumb zone:
+ * Łatek's button sits at the bottom's middle, under the shepherd, its key on its label; a big screen's camera
+ * comes closer than a phone's cap of 48 px a metre allows — 18 m across, so the sheep are two to three
+ * times a phone's and a little more of the hill is in sight.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 
 export type { Rect };
@@ -32,7 +37,10 @@ export interface Button { x: number; y: number; r: number; hit: Rect }
 export interface Layout {
   w: number;
   h: number;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** the kind of screen (kit/mobile `screenKind`), and whether it is a desktop's: a mouse and keys */
+  kind: ScreenKind;
+  desk: boolean;
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a small desktop, growing on a big screen (kit/mobile `uiScale`) */
   u: number;
   /** taller than wide (a phone upright, a tablet upright) */
   tall: boolean;
@@ -66,9 +74,10 @@ export const BANNER_ROOM = 106;
 export const RANK_HEAD = 24;
 export const RANK_ROW = 21;
 
-export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
+export function layout(w: number, h: number, ins: Insets = NO_INSETS, kind: ScreenKind = screenKind(w, h, true)): Layout {
   const W = Math.max(240, w), H = Math.max(240, h);
   const u = uiScale(W, H);
+  const desk = kind === 'desktop' || kind === 'big';
   const tall = W / H < 1;
   const top = clamp(ins.top, 0, H * 0.45);
   const bottom = Math.max(top + 160, H - ins.bottom);
@@ -77,13 +86,13 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
   // where a control may reach: EDGE from the screen's sides, inside a notch
   const xMax = Math.min(W - EDGE, right - 6);
 
-  // ── the thumb zone: Łatek's button at the bottom right ────────────
-  const R = BUTTON_R * Math.min(u, 1.15);
+  // ── the thumb zone: Łatek's button at the bottom right (a desktop: at the bottom's middle, under him) ──
+  const R = BUTTON_R * Math.min(u, desk ? 1.6 : 1.15);
   const hw = Math.max(R + 2, MIN_TAP / 2);
   const labelH = LABEL_H * u;
   const bb = bottom - 8;
   const by = bb - labelH - 4 - R;
-  const bx = xMax - hw;
+  const bx = desk ? (left + right) / 2 : xMax - hw;
   const whistle: Button = { x: bx, y: by, r: R, hit: { x: bx - hw, y: by - hw, w: hw * 2, h: bb - (by - hw) } };
 
   // ── the top band: the ranking at the right, the stars across the middle ─────
@@ -98,7 +107,8 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
   // a phone upright sees about 14 m across (the flock and its ring read at 360 px); wider screens 15.5 m,
   // the height limiting a short one
   const across = tall && W < 600 ? 14 : 15.5;
-  const S0 = clamp(Math.min(right - left, room * 1.15) / across, 20, 48);
+  // a big screen: 18 m across without a phone's cap (sheep two to three times a phone's)
+  const S0 = kind === 'big' ? clamp(Math.min(right - left, room * 1.15) / 18, 20, 96) : clamp(Math.min(right - left, room * 1.15) / across, 20, 48);
   const cx = (left + right) / 2;
   const cy = top + room * (tall ? 0.47 : 0.52);
 
@@ -107,5 +117,5 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
   const cw = Math.min(right - left - 24, (cardWide ? 600 : 400) * u);
   const card: Rect = { x: cx - cw / 2, y: top + BANNER_ROOM * u, w: cw, h: bottom - 8 - (top + BANNER_ROOM * u) };
 
-  return { w: W, h: H, u, tall, top, bottom, left, right, S0, cx, cy, rank, stars, card, cardWide, whistle, field };
+  return { w: W, h: H, kind, desk, u, tall, top, bottom, left, right, S0, cx, cy, rank, stars, card, cardWide, whistle, field };
 }

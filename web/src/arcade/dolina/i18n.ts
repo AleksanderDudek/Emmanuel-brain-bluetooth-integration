@@ -28,6 +28,8 @@ const pl = {
   // the line under the block's name: strategies to try, never "concentrate harder"
   'tip.warmup.1': 'Stuknij, by skoczyć; w powietrzu stuknij jeszcze raz.',
   'tip.warmup.2': 'Miecz sam rozbija kamienie. Z kamieni powstaną schody.',
+  // the warm-up's first tip at a mouse and the keys (a desktop)
+  'tip.warmup.1.keys': 'Kliknij albo Spacja, by skoczyć; w powietrzu jeszcze raz.',
   'tip.push.1': 'Licz w myślach wstecz od 200 co 7.',
   'tip.push.2': 'Opisz sobie w myślach drogę przed Tobą, krok po kroku.',
   'tip.push.3': 'Ułóż w myślach plan jutrzejszego dnia, godzina po godzinie.',
@@ -47,6 +49,10 @@ const pl = {
   'how.hold': 'Przytrzymaj: skok wyżej. Puść wcześnie: niżej.',
   'how.down': 'Przesuń palcem w dół w powietrzu: tupnięcie. Miecz uderza sam.',
   'how.keys': 'Klawisze: Spacja, ↑ albo W — skok (przytrzymaj: wyżej); ↓ albo S — tupnięcie.',
+  // the hands at a mouse (a desktop's how-to)
+  'how.tap.keys': 'Kliknij gdziekolwiek: skok. W powietrzu kliknij jeszcze raz: podwójny skok.',
+  'how.hold.keys': 'Przytrzymaj przycisk myszy (albo Spację): skok wyżej. Puść wcześnie: niżej.',
+  'how.down.keys': 'Przeciągnij myszą w dół w powietrzu (albo ↓): tupnięcie. Miecz uderza sam.',
   'how.tip1': 'Wysoka brama daje +2 do miecza, ale sięgniesz jej tylko dwoma skokami.',
   'how.tip2': 'Każdy kamień w sakwie to stopień schodów przy następnej półce.',
 
@@ -480,6 +486,7 @@ const pl = {
   'panel.towerAt': 'Piętro {n} · zegar {time} · rekord: {best}',
   'panel.party': 'Drużyna {n}/{slots}',
   'panel.partyHint': 'Stuknij towarzysza, by zabrać go w drogę albo zostawić w obozie.',
+  'panel.partyHint.keys': 'Kliknij towarzysza, by zabrać go w drogę albo zostawić w obozie.',
   'panel.slotHint': 'Kolejne miejsce otworzy pokonany strażnik.',
   'panel.lv': 'więź {n}',
   'panel.camp': 'w obozie',
@@ -608,6 +615,7 @@ const en: Cat = {
 
   'tip.warmup.1': 'Tap to jump; tap again in the air.',
   'tip.warmup.2': 'Your sword breaks the stones by itself. The stones become stairs.',
+  'tip.warmup.1.keys': 'Click or press Space to jump; again in the air.',
   'tip.push.1': 'Count back from 200 in sevens in your head.',
   'tip.push.2': 'Describe the road ahead of you to yourself, step by step.',
   'tip.push.3': 'Plan tomorrow in your head, hour by hour.',
@@ -626,6 +634,9 @@ const en: Cat = {
   'how.hold': 'Hold: jump higher. Let go early: lower.',
   'how.down': 'Swipe down in the air: stomp. Your sword strikes by itself.',
   'how.keys': 'Keys: Space, ↑ or W — jump (hold: higher); ↓ or S — stomp.',
+  'how.tap.keys': 'Click anywhere: jump. Click again in the air: double jump.',
+  'how.hold.keys': 'Hold the mouse button (or Space): jump higher. Let go early: lower.',
+  'how.down.keys': 'Drag the mouse down in the air (or ↓): stomp. Your sword strikes by itself.',
   'how.tip1': 'A high gate gives your sword +2, but only a double jump reaches it.',
   'how.tip2': 'Every stone in your bag is one step of the stairs at the next ledge.',
 
@@ -1038,6 +1049,7 @@ const en: Cat = {
   'panel.towerAt': 'Floor {n} · clock {time} · best: {best}',
   'panel.party': 'Party {n}/{slots}',
   'panel.partyHint': 'Tap a companion to take them along or leave them at the camp.',
+  'panel.partyHint.keys': 'Click a companion to take them along or leave them at the camp.',
   'panel.slotHint': 'A beaten guardian opens the next place.',
   'panel.lv': 'bond {n}',
   'panel.camp': 'at the camp',
@@ -1160,6 +1172,7 @@ const de: Cat = {
 
   'tip.warmup.1': 'Tippe zum Springen; tippe in der Luft noch einmal.',
   'tip.warmup.2': 'Dein Schwert zerschlägt die Steine von selbst. Aus den Steinen werden Stufen.',
+  'tip.warmup.1.keys': 'Klick oder Leertaste zum Springen; in der Luft noch einmal.',
   'tip.push.1': 'Zähl in Gedanken von 200 in Siebenerschritten rückwärts.',
   'tip.push.2': 'Beschreib dir den Weg vor dir Schritt für Schritt.',
   'tip.push.3': 'Plane in Gedanken den morgigen Tag, Stunde für Stunde.',
@@ -1178,6 +1191,9 @@ const de: Cat = {
   'how.hold': 'Halten: höher springen. Früh loslassen: niedriger.',
   'how.down': 'In der Luft nach unten wischen: Stampfer. Dein Schwert schlägt von selbst.',
   'how.keys': 'Tasten: Leertaste, ↑ oder W – Sprung (halten: höher); ↓ oder S – Stampfer.',
+  'how.tap.keys': 'Klick irgendwo: Sprung. In der Luft noch einmal klicken: Doppelsprung.',
+  'how.hold.keys': 'Maustaste (oder Leertaste) halten: höher springen. Früh loslassen: niedriger.',
+  'how.down.keys': 'In der Luft die Maus nach unten ziehen (oder ↓): Stampfer. Dein Schwert schlägt von selbst.',
   'how.tip1': 'Ein hohes Tor gibt dem Schwert +2, aber nur ein Doppelsprung erreicht es.',
   'how.tip2': 'Jeder Stein im Beutel ist eine Stufe an der nächsten Kante.',
 
@@ -1590,6 +1606,7 @@ const de: Cat = {
   'panel.towerAt': 'Stockwerk {n} · Uhr {time} · Rekord: {best}',
   'panel.party': 'Gruppe {n}/{slots}',
   'panel.partyHint': 'Tippe einen Gefährten an, um ihn mitzunehmen oder im Lager zu lassen.',
+  'panel.partyHint.keys': 'Klick einen Gefährten an, um ihn mitzunehmen oder im Lager zu lassen.',
   'panel.slotHint': 'Ein besiegter Wächter öffnet den nächsten Platz.',
   'panel.lv': 'Bindung {n}',
   'panel.camp': 'im Lager',
@@ -1712,6 +1729,7 @@ const sv: Cat = {
 
   'tip.warmup.1': 'Tryck för att hoppa; tryck igen i luften.',
   'tip.warmup.2': 'Ditt svärd krossar stenarna av sig självt. Stenarna blir trappsteg.',
+  'tip.warmup.1.keys': 'Klicka eller mellanslag för att hoppa; igen i luften.',
   'tip.push.1': 'Räkna baklänges från 200 med sju i taget i huvudet.',
   'tip.push.2': 'Beskriv vägen framför dig för dig själv, steg för steg.',
   'tip.push.3': 'Planera morgondagen i huvudet, timme för timme.',
@@ -1730,6 +1748,9 @@ const sv: Cat = {
   'how.hold': 'Håll kvar: högre hopp. Släpp tidigt: lägre.',
   'how.down': 'Svep nedåt i luften: stamp. Ditt svärd slår av sig självt.',
   'how.keys': 'Tangenter: mellanslag, ↑ eller W – hopp (håll kvar: högre); ↓ eller S – stamp.',
+  'how.tap.keys': 'Klicka var som helst: hopp. Klicka igen i luften: dubbelhopp.',
+  'how.hold.keys': 'Håll ned musknappen (eller mellanslag): högre hopp. Släpp tidigt: lägre.',
+  'how.down.keys': 'Dra musen nedåt i luften (eller ↓): stamp. Ditt svärd slår av sig självt.',
   'how.tip1': 'En hög port ger svärdet +2, men bara ett dubbelhopp når den.',
   'how.tip2': 'Varje sten i påsen är ett trappsteg vid nästa avsats.',
 
@@ -2142,6 +2163,7 @@ const sv: Cat = {
   'panel.towerAt': 'Våning {n} · klockan {time} · rekord: {best}',
   'panel.party': 'Gänget {n}/{slots}',
   'panel.partyHint': 'Tryck på en följeslagare för att ta med den eller lämna den i lägret.',
+  'panel.partyHint.keys': 'Klicka på en följeslagare för att ta med den eller lämna den i lägret.',
   'panel.slotHint': 'En besegrad väktare öppnar nästa plats.',
   'panel.lv': 'band {n}',
   'panel.camp': 'i lägret',
