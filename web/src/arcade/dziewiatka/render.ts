@@ -16,7 +16,7 @@ import type { FocusFrame } from '../kit/focus';
 import type { Insets } from '../kit/types';
 import type { Din, Hero } from './battle';
 import { HEROES, RANK_COLOR, heroCry, heroName, rankName, windCry, dinName, pieceName, type HeroId } from './content';
-import { Hud, fitLabel } from './hud';
+import { Hud, drawTip, fitLabel } from './hud';
 import { t } from './i18n';
 import { DziewiatkaIntro } from './intro';
 import { layout, toScreen, type Layout } from './layout';
@@ -42,8 +42,10 @@ export class DziewiatkaView {
   private ins: Insets = { ...NO_INSETS, top: 64 };
   L: Layout = layout(800, 600, this.ins);
   readonly hud: Hud;
-  /** the player's primary input is a finger (the words on the boons' sheet) */
+  /** the player's primary input is a finger (the words on the boons' sheet; a mouse gets a desktop's layout) */
   touch = false;
+  /** a desktop: the tooltip over the control the mouse rests on */
+  tip: { title: string; text: string; x: number; y: number; k: number } | null = null;
   private readonly street = freshStreetCache();
   private readonly fx = new Particles(560);
   private readonly floaters = new Floaters();
@@ -77,7 +79,8 @@ export class DziewiatkaView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, this.ins);
+    this.L = layout(w, h, this.ins, this.touch);
+    this.hud.mouse = !this.touch;
   }
 
   /** What covers the canvas's edges (the runner's insets(), read in resize): the HUD band, the home indicator, a notch. */
@@ -85,7 +88,7 @@ export class DziewiatkaView {
     const o = this.ins;
     if (Math.abs(o.top - ins.top) < 0.5 && Math.abs(o.bottom - ins.bottom) < 0.5 && Math.abs(o.left - ins.left) < 0.5 && Math.abs(o.right - ins.right) < 0.5) return;
     this.ins = { ...ins };
-    this.L = layout(this.w, this.h, this.ins);
+    this.L = layout(this.w, this.h, this.ins, this.touch);
   }
 
   /** A finger on the street: a ring where it landed (a tap always answers, even when nothing was ready). */
@@ -490,6 +493,7 @@ export class DziewiatkaView {
     }
     this.hud.drawWipe(ctx, L, sim);
     this.hud.drawChoice(ctx, L, sim, this.clock, this.touch);
+    if (this.tip && !sim.story && !sim.tally) drawTip(ctx, L, this.tip.title, this.tip.text, this.tip.x, this.tip.y, this.tip.k);
     this.hud.drawStory(ctx, L, sim, this.clock);
   }
 

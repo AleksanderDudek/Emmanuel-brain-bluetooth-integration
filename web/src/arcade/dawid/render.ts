@@ -49,6 +49,12 @@ interface Mark { x: number; y: number; t: number; kind: 'go' | 'hunt' }
 /** The floating joystick (CSS px): where the finger went down, where it is, whether it steers yet. */
 export interface Stick { ox: number; oy: number; x: number; y: number; on: boolean }
 
+/**
+ * What a click on the field would do, shown under a resting mouse (a desktop): hunt (a ring round David), walk
+ * to a spot (a ring there), or throw the ready great stone at its mark (world u).
+ */
+export interface HoverMark { kind: 'hunt' | 'go' | 'stone'; x: number; y: number }
+
 export class DawidView {
   private readonly ctx: CanvasRenderingContext2D;
   private w = 0;
@@ -92,6 +98,9 @@ export class DawidView {
   private marks: Mark[] = [];
   /** the tile a tap just bought (its gold bursts from there) */
   boughtTile = -1;
+  /** a desktop: what a click on the field would do now, and the tooltip over the control the mouse rests on */
+  hoverMark: HoverMark | null = null;
+  tip: { text: string; x: number; y: number; k: number; below?: boolean } | null = null;
 
   constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean }) {
     this.ctx = canvas.getContext('2d')!;
@@ -103,7 +112,7 @@ export class DawidView {
     this.h = h;
     this.dpr = dpr;
     this.ins = ins;
-    this.L = layout(w, h, ins);
+    this.L = layout(w, h, ins, this.touch);
     this.anchor();
   }
 
@@ -112,7 +121,7 @@ export class DawidView {
     const o = this.ins;
     if (Math.abs(o.top - ins.top) < 0.5 && Math.abs(o.bottom - ins.bottom) < 0.5 && Math.abs(o.left - ins.left) < 0.5 && Math.abs(o.right - ins.right) < 0.5) return;
     this.ins = ins;
-    this.L = layout(this.w, this.h, ins);
+    this.L = layout(this.w, this.h, ins, this.touch);
     this.anchor();
   }
 
@@ -617,6 +626,7 @@ export class DawidView {
     if (line && !sim.story && !this.levelUp) this.hud.drawBubble(ctx, L, line.text, lp.x, lp.y - s * 0.9, line.t, false, floor);
     const st = this.stick ?? this.stickLast;
     if (st && this.stickK > 0.02 && !sim.story) this.drawStick(ctx, st, this.stickK);
+    if (this.tip && !sim.story) this.hud.drawTip(ctx, L, this.tip.text, this.tip.x, this.tip.y, this.tip.k, !!this.tip.below);
     this.hud.drawStory(ctx, L, sim, this.touch);
   }
 
@@ -644,6 +654,36 @@ export class DawidView {
       ctx.beginPath();
       ctx.ellipse(p.x, p.y, r, r * 0.56, 0, 0, TAU);
       ctx.stroke();
+    }
+    // a desktop: what a click would do, under the resting mouse (dashed: a promise, not a deed)
+    const hv = this.hoverMark;
+    if (hv && !sim.story) {
+      const p = this.toScreen(hv.x, hv.y), k = 0.5 + 0.5 * Math.sin(now * 4);
+      ctx.setLineDash([s * 0.16, s * 0.12]);
+      ctx.lineWidth = Math.max(2, s * 0.035);
+      if (hv.kind === 'stone') {
+        // the great stone's mark: a gold ring with four ticks
+        const r = s * (0.75 + 0.06 * k);
+        ctx.strokeStyle = `rgba(255,214,110,${0.75 + 0.2 * k})`;
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y - s * 0.3, r, r * 0.7, 0, 0, TAU);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        for (let i = 0; i < 4; i++) {
+          const a = (i * Math.PI) / 2, cx = p.x + Math.cos(a) * r, cy = p.y - s * 0.3 + Math.sin(a) * r * 0.7;
+          ctx.beginPath();
+          ctx.moveTo(cx - Math.cos(a) * s * 0.18, cy - Math.sin(a) * s * 0.13);
+          ctx.lineTo(cx + Math.cos(a) * s * 0.12, cy + Math.sin(a) * s * 0.09);
+          ctx.stroke();
+        }
+      } else {
+        const r = hv.kind === 'hunt' ? s * (1.1 + 0.05 * k) : s * (0.4 + 0.04 * k);
+        ctx.strokeStyle = hv.kind === 'hunt' ? 'rgba(255,250,232,.7)' : 'rgba(255,231,163,.8)';
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, r, r * 0.56, 0, 0, TAU);
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
     }
     ctx.restore();
   }

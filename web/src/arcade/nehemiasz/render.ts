@@ -51,6 +51,14 @@ export class NehView {
   readonly hud: Hud;
   /** what a finger presses right now (index.ts sets it): drawn pressed until it lifts */
   press: Press = null;
+  /**
+   * A desktop: what the mouse is over (index.ts sets it) — a control drawn lit, a build badge lit with its cost
+   * card; `aim`: the mouse rests on the open field, where a click builds the guide's pick (its badge ringed);
+   * and the tooltip over the control it rests on.
+   */
+  hover: Press = null;
+  aim = false;
+  tip: { text: string; x: number; y: number; k: number } | null = null;
   private readonly ripples: { x: number; y: number; t: number }[] = [];
   /** what a speech bubble must not cover this frame (the build badges, the cost card) */
   private avoid: Rect[] = [];
@@ -95,7 +103,7 @@ export class NehView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, this.ins);
+    this.L = layout(w, h, this.ins, this.opts.touch);
     this.dark = null;
   }
 
@@ -104,7 +112,7 @@ export class NehView {
     const o = this.ins;
     if (Math.abs(o.top - ins.top) < 0.5 && Math.abs(o.bottom - ins.bottom) < 0.5 && Math.abs(o.left - ins.left) < 0.5 && Math.abs(o.right - ins.right) < 0.5) return;
     this.ins = { ...ins };
-    this.L = layout(this.w, this.h, this.ins);
+    this.L = layout(this.w, this.h, this.ins, this.opts.touch);
   }
 
   /** World (u) → canvas (CSS px). */
@@ -435,7 +443,8 @@ export class NehView {
       ctx.fillRect(0, 0, L.w, L.h);
     }
     const hold = sim.phase === 'play' && sim.blockIndex > 0 && sim.blockT < RULES.bannerSec && this.banner?.t === 0;
-    this.hud.draw(ctx, sim, L, hold ? null : this.banner, this.press);
+    this.hud.draw(ctx, sim, L, hold ? null : this.banner, this.press, this.hover);
+    if (this.tip && !sim.story && !sim.choice) this.hud.drawTip(ctx, L, this.tip.text, this.tip.x, this.tip.y, this.tip.k);
     // where a finger landed: a ring that answers at once
     for (const r of this.ripples) {
       const k = r.t / 0.35;
@@ -733,12 +742,13 @@ export class NehView {
     if (!list.length) return;
     const ctx = this.ctx;
     const pressId = this.press?.kind === 'marker' ? this.press.id : null;
+    const hoverId = !pressId && this.hover?.kind === 'marker' ? this.hover.id : null;
     const near = sim.markerNear(sim.neh.x, sim.neh.y, RULES.standR * 1.6);
     let card: BadgeView | null = null;
     for (const b of list) {
-      const guide = sim.guideId === b.id, pressed = pressId === b.id;
+      const guide = sim.guideId === b.id, pressed = pressId === b.id, lit = hoverId === b.id;
       const bob = guide && !pressed ? Math.sin(this.clock * 4) * 1.5 : 0;
-      const r = b.r * (pressed ? 0.86 : 1);
+      const r = b.r * (pressed ? 0.86 : lit ? 1.12 : 1);
       const can = b.mv.can;
       ctx.save();
       ctx.globalAlpha = b.free ? 1 : 0.5;
@@ -751,9 +761,23 @@ export class NehView {
       ctx.beginPath();
       ctx.arc(0, 0, r, 0, TAU);
       ctx.fill();
-      ctx.lineWidth = guide || pressed ? 2.5 : 1.5;
-      ctx.strokeStyle = pressed ? C.gold : guide ? '#c9902e' : can ? 'rgba(165,116,58,.9)' : 'rgba(255,236,200,.5)';
+      ctx.lineWidth = guide || pressed || lit ? 2.5 : 1.5;
+      ctx.strokeStyle = pressed || lit ? C.gold : guide ? '#c9902e' : can ? 'rgba(165,116,58,.9)' : 'rgba(255,236,200,.5)';
       ctx.stroke();
+      if (lit || (guide && this.aim)) {
+        // the mouse over it (or over the open field, where a click builds the guide's pick): a ring round it
+        ctx.save();
+        if (!lit) {
+          ctx.setLineDash([5, 4]);
+          ctx.lineDashOffset = -this.clock * 24;
+        }
+        ctx.strokeStyle = lit ? 'rgba(255,246,222,.95)' : C.goldLight;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, r + 5, 0, TAU);
+        ctx.stroke();
+        ctx.restore();
+      }
       paintKindIcon(ctx, b.kind, 0, -r * 0.1, r * 0.56, can ? '#5a3c1e' : 'rgba(255,240,215,.85)');
       const pips = b.mv.next ?? 1;
       ctx.fillStyle = can ? '#a5743a' : 'rgba(255,240,215,.75)';
@@ -771,14 +795,14 @@ export class NehView {
       }
       ctx.restore();
       if (guide && !sim.neh.build && b.free) paintChevron(ctx, b.x, b.y - b.r - 9 - Math.abs(Math.sin(this.clock * 4)) * 5, Math.max(6, b.r * 0.45), C.gold);
-      if (pressed) card = b;
+      if (pressed || (lit && !card)) card = b;
       if (b.free) this.avoid.push(b.box);
       if (b.free && guide) this.avoid.push(b.box, b.box);
     }
     // the card: the pressed badge, else the site Nehemiah stands on (standing builds it), else — where the
     // guide's button does not already say it (wider screens) — the guide's pick
     // (those two only where they cover no other badge a finger may want)
-    const pressedCard = !!card;
+    const pressedCard = !!card && (pressId !== null || hoverId !== null);
     if (!card) card = list.find(b => b.id === near?.id && b.free) ?? (this.L.phone ? null : list.find(b => b.id === sim.guideId && b.free)) ?? null;
     if (card && card.mv.cost && card.mv.next !== null) {
       const others = pressedCard ? null : list.filter(b => b.free && b.id !== card!.id).map(b => b.box);

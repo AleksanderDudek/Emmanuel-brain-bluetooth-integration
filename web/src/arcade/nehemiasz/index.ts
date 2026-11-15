@@ -15,14 +15,15 @@
  * with paint.ts), the sound (audio.ts) and the lobby's card (panel.ts); the words in i18n.ts.
  */
 import type { FocusFrame } from '../kit/focus';
-import { buzz } from '../kit/juice';
+import { buzz, clamp } from '../kit/juice';
+import { coarsePointer } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { NehSound } from './audio';
 import { gateName } from './content';
 import type { Press } from './hud';
 import { cubits, t, unit, type Key } from './i18n';
 import { inside } from './layout';
-import { bestOf, freshProgress, migrate, type NehProgress } from './meta';
+import { bestOf, freshProgress, migrate, room, stoneCap, type NehProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { NehView } from './render';
@@ -39,6 +40,10 @@ class NehGame implements ArcadeGame {
   /** first-time explanations waiting for a clear screen (one at a time, a few seconds apart) */
   private readonly hints: { what: Coach; x: number; y: number }[] = [];
   private hintCool = 0;
+  /** a mouse over the canvas (a desktop): where it is, when it last moved; what it rests on and since when */
+  private mouse: { x: number; y: number; t: number } | null = null;
+  private resting: { what: string; t: number } | null = null;
+  private cursor = '';
 
   constructor(private readonly env: GameEnv<NehProgress>) {
     migrate(env.progress);
@@ -80,9 +85,76 @@ class NehGame implements ArcadeGame {
     this.sound.update(dt, this.sim);
     this.hintCool -= dt;
     this.flushHints();
+    this.hover();
   }
 
   draw(): void { this.view.draw(this.sim); }
+
+  /**
+   * A mouse (a desktop): what is under it answers.  A build badge lights up and raises its cost card; the
+   * guide's button, "Na mur!", the horn and the choice cards light up; the cursor becomes a hand.  After a
+   * moment's rest a tooltip says what a button does with its key, or what a store's number is.  Over the open
+   * field by day the guide's pick wears a dashed ring: a click there builds it.  A finger has no hover.
+   */
+  private hover(): void {
+    const sim = this.sim, view = this.view, L = view.L, ms = this.mouse;
+    view.hover = null;
+    view.aim = false;
+    let cursor = '', what = '', tip: { text: string; x: number; y: number } | null = null;
+    if (!this.env.touch && ms && this.now - ms.t < 4 && sim.started && sim.phase !== 'done' && !this.finger) {
+      if (sim.story) cursor = 'pointer';
+      else if (sim.choice) {
+        const i = view.hud.cardAt(ms.x, ms.y);
+        if (i >= 0) {
+          view.hover = { kind: 'card', i };
+          cursor = 'pointer';
+        }
+      } else {
+        const p = view.pressAt(sim, ms.x, ms.y);
+        if (p) {
+          view.hover = p;
+          cursor = 'pointer';
+          what = p.kind === 'marker' ? '' : p.kind;
+          if (p.kind === 'guide' && sim.guideId) tip = { text: t('hover.guide'), x: L.guide.x + L.guide.w / 2, y: L.guide.y };
+          else if (p.kind === 'rush') tip = { text: t('hover.rush'), x: L.rush.x + L.rush.w / 2, y: L.rush.y };
+          else if (p.kind === 'horn') {
+            tip = { text: sim.hornReady ? t('hover.horn') : t('hover.hornWait', { n: Math.floor(clamp(sim.horn) * 100) }), x: L.horn.x, y: L.horn.y - L.horn.r };
+          }
+        } else if (view.onPanel(ms.x, ms.y)) {
+          // the stores: what each number is
+          const i = view.hud.storeRects.findIndex(r => ms.x >= r.x && ms.x <= r.x + r.w && ms.y >= r.y && ms.y <= r.y + r.h);
+          if (i >= 0) {
+            const q = sim.p, r = view.hud.storeRects[i];
+            what = `store${i}`;
+            const text = [
+              () => t('hover.stone', { n: Math.floor(q.stone), max: stoneCap(q) }),
+              () => t('hover.timber', { n: Math.floor(q.timber) }),
+              () => t('hover.bread', { n: Math.floor(q.bread) }),
+              () => t('hover.people', { n: q.people, max: room(q) }),
+              () => t('hover.strength', { n: Math.round(q.strength * 100) }),
+            ][i]();
+            tip = { text, x: r.x + r.w / 2, y: r.y };
+          }
+        } else if (!sim.frozen) {
+          // the open field: a click builds the guide's pick by day, by night blows a ready horn or runs to the wall
+          cursor = 'pointer';
+          view.aim = sim.dayTime && !!sim.guideId && !sim.neh.build;
+        }
+      }
+    }
+    if (what && tip) {
+      if (!this.resting || this.resting.what !== what) this.resting = { what, t: this.now };
+      const k = (this.now - this.resting.t - 0.35) / 0.2;
+      view.tip = k > 0 ? { ...tip, k: Math.min(1, k) } : null;
+    } else {
+      this.resting = null;
+      view.tip = null;
+    }
+    if (cursor !== this.cursor) {
+      this.cursor = cursor;
+      this.env.canvas.style.cursor = cursor;
+    }
+  }
 
   /**
    * One finger (or the mouse) does everything, phone first.  A story card moves on at the press.  The
@@ -95,6 +167,8 @@ class NehGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view;
+    // a mouse moves without a button too: hover() answers what is under it
+    if (!this.env.touch) this.mouse = { x: e.x, y: e.y, t: this.now };
     if (e.type === 'down') {
       // one finger at a time; a finger that goes down again, or one silent for a while, lost its lift
       if (this.finger && this.finger.id !== e.id && this.now - this.finger.last < 1) return;
@@ -328,16 +402,19 @@ function haptic(e: SimEvent): void {
   }
 }
 
+/** How to play: a finger's words, or — with a mouse (the runner's own test, `pointer: coarse`) — a click's. */
 function howto(): HowTo {
+  const mouse = !coarsePointer();
   return {
     goal: t('howto.goal'),
     // a phone's card leaves the keys out (the runner drops a 'keys' row on touch)
     hands: [
-      { gesture: 'drag', text: t('howto.move') },
-      { gesture: 'tap', text: t('howto.tap') },
+      { gesture: 'drag', text: t(mouse ? 'howto.move.keys' : 'howto.move') },
+      { gesture: 'tap', text: t(mouse ? 'howto.tap.keys' : 'howto.tap') },
       { gesture: 'keys', text: t('howto.keys') },
     ],
-    tips: [t('howto.tip1'), t('howto.tip2')],
+    // a mouse's card stands beside the play on a big screen (515 px on Full HD): shorter rows and one tip
+    tips: mouse ? [t('howto.tip.short')] : [t('howto.tip1'), t('howto.tip2')],
   };
 }
 

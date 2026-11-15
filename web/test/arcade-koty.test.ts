@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
-  BOSSES, BOSS_IDS, CATS, FAMS, FAM_IDS, LINES, LINE_COUNT, MOMENTS, PERKS, PESTS, PLACES, big, perkCost, stageInfo, toyDps, toyHit,
+  BOSSES, BOSS_IDS, CATS, FAMS, FAM_IDS, HAND_LINES, LINES, LINE_COUNT, MOMENTS, PERKS, PESTS, PLACES, big, famName, famText, gradeName, linesFor,
+  perkCost, stageInfo, toyDps, toyHit,
 } from '../src/arcade/koty/content';
 import { CATALOGS, t, unit } from '../src/arcade/koty/i18n';
 import {
@@ -10,9 +11,11 @@ import {
 import { RULES } from '../src/arcade/koty/rules';
 import { BOSS_TARGET, KotySim, bossCourage, courage, cushionX, finaleFor, planBlocks, starText, waveSize, type SimEvent } from '../src/arcade/koty/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
-import { coachText, howto } from '../src/arcade/koty/index';
-import { BUYS, cellRect, layout, tapTargets, wallRow } from '../src/arcade/koty/layout';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets, screenKind } from '../src/arcade/kit/mobile';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
+import koty, { coachText, howto } from '../src/arcade/koty/index';
+import { BUYS, capBox, cellRect, layout, tapTargets, wallRow } from '../src/arcade/koty/layout';
 import { BADGE_MIN, fitFont, font, fontPx } from '../src/arcade/koty/paint';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
@@ -947,11 +950,11 @@ describe('mobile first (DESIGN §11.9, §12)', () => {
     }
   });
 
-  it('grows on a tablet and a desktop, never past 1.3', () => {
+  it('grows on a tablet and a desktop, never past 1.3 (past it only on a big screen, up to DESK_MAX: §14)', () => {
     for (const c of CHECK_SIZES.filter(x => Math.min(x.w, x.h) > 600)) {
       const L = layout(c.w, c.h, c.insets);
       expect(L.u).toBeGreaterThan(1);
-      expect(L.u).toBeLessThanOrEqual(1.3);
+      expect(L.u).toBeLessThanOrEqual(c.w >= 1024 && Math.min(c.w, c.h) >= DESK_BIG ? DESK_MAX : 1.3);
       expect(L.cell).toBeGreaterThanOrEqual(56);
       expect(L.rich).toBe(true);
     }
@@ -986,5 +989,204 @@ describe('mobile first (DESIGN §11.9, §12)', () => {
     expect(desk.hands.some(x => x.gesture === 'keys')).toBe(true);
     for (const what of ['hunt', 'paw', 'merge', 'merge2', 'upgrade'] as const) expect(coachText(what, true)).not.toMatch(KEYS);
     expect(coachText('hunt', false)).toMatch(KEYS);
+  });
+});
+
+// ── a big screen and a mouse (DESIGN.md §14) ─────────────────────────
+
+describe('a big screen and a mouse (DESIGN §14)', () => {
+  const PXR = /(\d+(?:\.\d+)?)px/;
+  const FONTS: number[] = [];
+  /** every text drawn since the last clear: where it starts, how wide it is (at the fake's 0.55 em), its alignment */
+  const TEXTS: { text: string; x: number; y: number; w: number; align: string }[] = [];
+  /** A canvas context that draws nothing, keeps what is set, measures text at 0.55 em a character and logs every font. */
+  function fakeContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+    const gradient = { addColorStop: () => undefined };
+    const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+    return new Proxy(state, {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        const width = (x: string) => String(x).length * Number(String(target.font).match(PXR)?.[1] ?? 10) * 0.55;
+        if (prop === 'measureText') return (x: string) => ({ width: width(x) });
+        if (prop === 'fillText') return (x: string, tx: number, ty: number) => { TEXTS.push({ text: String(x), x: tx, y: ty, w: width(x), align: String(target.textAlign ?? 'start') }); };
+        if (prop === 'createLinearGradient' || prop === 'createRadialGradient' || prop === 'createPattern') return () => gradient;
+        if (prop === 'getTransform') return () => ({ a: 1, b: 0 });
+        return () => undefined;
+      },
+      set(target, prop, value) {
+        target[prop] = value;
+        if (prop === 'font') FONTS.push(Number(String(value).match(PXR)?.[1] ?? 10));
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+  }
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+  afterEach(() => { localStorage.setItem('brainlink.lang', 'pl'); });
+
+  type Size = { name: string; w: number; h: number; insets: Insets };
+  const BIG = CHECK_SIZES.filter(c => screenKind(c.w, c.h, false) === 'big');
+  const FULLHD = BIG[0];
+  interface View { L: ReturnType<typeof layout>; hover: { kind: string; i?: number; id?: string } | null; hoverPest: { x: number; y: number } | null; tip: { text: string } | null; pestAt(x: number, y: number, sim: KotySim): { x: number; y: number } | null }
+  interface Played { game: ArcadeGame; sim: KotySim; view: View; canvas: HTMLCanvasElement }
+
+  /** The real game on a canvas of w × h with the runner's insets, a few frames in (a finger's, or a mouse's). */
+  function play(size: Size, touch: boolean, progress: Partial<KotyProgress> = { sessions: 5, pushes: 1, seen: [...ALL_SEEN] }): Played {
+    const canvas = document.createElement('canvas');
+    const env: GameEnv<KotyProgress> = {
+      canvas, hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), ...progress }, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 300,
+      tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+      hudTop: () => size.insets.top, insets: () => size.insets, touch,
+    };
+    const game = koty.create(env);
+    game.resize(size.w, size.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: KotySim; view: View };
+    const p: Played = { game, sim: inner.sim, view: inner.view, canvas };
+    frames(p, 20);
+    return p;
+  }
+  function frames(p: Played, n: number, f: FocusFrame = frame()): void {
+    for (let i = 0; i < n; i++) {
+      p.game.update(STEP, f, p.sim.t + STEP);
+      p.game.draw();
+    }
+  }
+  const mid = (r: { x: number; y: number; w: number; h: number }) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  const move = (p: Played, at: { x: number; y: number }, n = 1) => {
+    p.game.pointer!({ type: 'move', ...at, id: 1 });
+    frames(p, n);
+  };
+
+  it('a mouse on a big screen gets a wider column (big cells), Brother Anselm in its free room, larger cats; every size audits clean with a mouse', () => {
+    expect(BIG.map(c => c.w)).toEqual([1190, 1587]);
+    for (const c of CHECK_SIZES) {
+      const kind = screenKind(c.w, c.h, false);
+      const M = layout(c.w, c.h, c.insets, false), F = layout(c.w, c.h, c.insets, true);
+      expect(F.desk, c.name).toBe(false);
+      expect(M.desk, c.name).toBe(M.mode === 'wide' && (kind === 'desktop' || kind === 'big'));
+      for (let n = 1; n <= RULES.slotsMax; n++) {
+        for (const vintage of [false, true]) {
+          expect(auditTargets(tapTargets(M, { slots: n, vintage, card: null }), c.w, c.h, c.insets), `${c.name} (mouse): ${n}${vintage ? ', the vintage' : ''}`).toEqual([]);
+        }
+      }
+      expect(auditTargets(tapTargets(M, { slots: 6, vintage: true, card: 'story' }), c.w, c.h, c.insets), `${c.name} (mouse): a story`).toEqual([]);
+      if (kind !== 'big') continue;
+      // the chest is what the hand works on: cells ≥ 70 px (≥ 95 on QHD), not a phone's column lost on a monitor
+      expect(M.cell, c.name).toBeGreaterThanOrEqual(c.w > 1400 ? 95 : 70);
+      expect(M.cell, c.name).toBeGreaterThanOrEqual(1.15 * F.cell);
+      // Brother Anselm in the column under the buttons (its free room is no empty band)
+      expect(M.brother.x - M.brother.r, c.name).toBeGreaterThanOrEqual(M.field.x + M.field.w);
+      expect(M.brother.y - M.brother.r, c.name).toBeGreaterThan(M.paw.y + M.paw.h);
+      expect(M.brother.y + M.brother.r, c.name).toBeLessThanOrEqual(c.h - c.insets.bottom);
+      // the cats, the pests and the wall grow with the screen
+      expect(M.cat, c.name).toBeGreaterThanOrEqual(F.cat);
+      expect(M.tk, c.name).toBeGreaterThan(1);
+    }
+    const qhd = layout(BIG[1].w, BIG[1].h, BIG[1].insets, false), qf = layout(BIG[1].w, BIG[1].h, BIG[1].insets, true);
+    expect(qhd.cat).toBeGreaterThanOrEqual(1.3 * qf.cat);
+  });
+
+  it('a mouse: a toy lights up with its mates and offers a grab, a button and a cat answer with tooltips, a pest gets a crosshair; a finger has none', () => {
+    const p = play(FULLHD, false);
+    const sim = p.sim, L = p.view.L;
+    expect(L.desk).toBe(true);
+    // two toys of one grade in the chest: hovering one offers to grab it, its tooltip names it
+    sim.p.chest[0] = { fam: FAM_IDS[0], g: 2 };
+    sim.p.chest[3] = { fam: FAM_IDS[1], g: 2 };
+    move(p, mid(cellRect(L, 0)));
+    expect(p.view.hover).toMatchObject({ kind: 'chest', i: 0 });
+    expect(p.canvas.style.cursor).toBe('grab');
+    frames(p, 40);
+    expect(p.view.tip?.text).toBe(t('hover.toy', { toy: famName(FAM_IDS[0]), grade: gradeName(2), what: famText(FAM_IDS[0]) }));
+    // an upgrade's button: its key in the tooltip
+    move(p, mid(L.ups.paws), 40);
+    expect(p.view.hover).toMatchObject({ kind: 'up', id: 'paws' });
+    expect(p.canvas.style.cursor).toBe('pointer');
+    expect(p.view.tip?.text).toBe(t('hover.buy', { n: 2 }));
+    // the paw
+    move(p, mid(L.paw), 40);
+    expect(p.view.hover).toMatchObject({ kind: 'paw' });
+    // a pest on the field: a crosshair (a click makes it the target)
+    for (let i = 0; i < 400 && !sim.pests.length; i++) frames(p, 1);
+    const pe = sim.pests[0];
+    expect(pe).toBeTruthy();
+    const at = { x: L.field.x + pe.x * L.sx, y: L.field.y + pe.y * L.sy };
+    move(p, at);
+    expect(p.view.hoverPest).not.toBeNull();
+    expect(p.canvas.style.cursor).toBe('crosshair');
+    // a finger: no hover
+    const f = play(FULLHD, true);
+    move(f, mid(f.view.L.ups.aim), 40);
+    expect(f.view.hover).toBeNull();
+    expect(f.view.tip).toBeNull();
+  });
+
+  it('fits every upgrade\'s title to the room left of its key cap, at every desktop size, in Polish and German', async () => {
+    for (const l of ['pl', 'de'] as const) {
+      localStorage.setItem('brainlink.lang', l);
+      vi.resetModules();
+      const mod = (await import('../src/arcade/koty/index')).default;
+      const titles = (await import('../src/arcade/koty/i18n')).CATALOGS[l] as Record<string, string>;
+      for (const c of CHECK_SIZES.filter(x => layout(x.w, x.h, x.insets, false).desk)) {
+        const canvas = document.createElement('canvas');
+        const env: GameEnv<KotyProgress> = {
+          canvas, hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+          progress: { ...freshProgress(), sessions: 5, pushes: 1, seen: [...ALL_SEEN] }, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 300,
+          tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+          hudTop: () => c.insets.top, insets: () => c.insets, touch: false,
+        };
+        const game = mod.create(env);
+        game.resize(c.w, c.h, 1);
+        game.start();
+        TEXTS.length = 0;
+        game.update(STEP, frame(), STEP);
+        game.draw();
+        const L = layout(c.w, c.h, c.insets, false);
+        for (const id of BUYS) {
+          const r = L.ups[id], cap = capBox(L, r)!;
+          expect(cap, `${l} ${c.name} ${id}`).not.toBeNull();
+          // the cap inside its button
+          expect(cap.x >= r.x && cap.x + cap.w <= r.x + r.w && cap.y >= r.y, `${l} ${c.name} ${id}`).toBe(true);
+          // the title's words: drawn left-aligned inside the button, never reaching the cap
+          const words = titles[`up.${id}`].split(/\s+/);
+          const drawn = TEXTS.filter(x => x.align === 'left' && x.x > r.x && x.x < r.x + r.w && x.y > r.y && x.y < r.y + r.h * 0.6 && words.some(wd => x.text.includes(wd.replace(/…$/, ''))));
+          expect(drawn.length, `${l} ${c.name} ${id}: the title is drawn`).toBeGreaterThan(0);
+          for (const x of drawn) expect(x.x + x.w, `${l} ${c.name} ${id}: "${x.text}"`).toBeLessThanOrEqual(cap.x - 8 * L.u);
+        }
+      }
+    }
+  });
+
+  it('keeps the font floor with a mouse at every desktop size (playing, a tooltip, a story card)', () => {
+    for (const c of CHECK_SIZES.filter(x => layout(x.w, x.h, x.insets, false).desk)) {
+      FONTS.length = 0;
+      const p = play(c, false);
+      move(p, mid(p.view.L.ups.aim), 40);
+      play(c, false, {});
+      expect(Math.min(...FONTS), c.name).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+  });
+
+  it('speaks of clicks to a mouse: the how-to, the coach marks, the story card and the brother\'s line about the eye', () => {
+    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|klick|mysz[ąy]|mouse|maus/i;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['howto.tap.keys', 'story.tap.keys', 'coach.upgrade.keys', 'coach.target.keys', 'coach.pet.keys', 'coach.hunt.keys', 'say.huntReady.1.keys']) {
+        expect(c[k], `${l}.${k}`).toMatch(KEYS);
+        expect(c[k], `${l}.${k}`).not.toMatch(/stuk|\btap|tipp|tryck på ögat/i);
+      }
+      for (const k of HAND_LINES) expect(String(c[`${k}.keys`]).length, `${l}.${k}.keys`).toBeLessThanOrEqual(90);
+    }
+    for (const what of ['upgrade', 'target', 'pet'] as const) expect(coachText(what, false)).toMatch(KEYS);
+    expect(howto(false).hands[1].text).toBe(t('howto.tap.keys'));
+    expect(howto(false).tips).toHaveLength(1);
+    // a finger hears the old line, a mouse the click's
+    expect(LINES.huntReady).not.toContain(t('say.huntReady.1.keys'));
+    expect(linesFor(false).huntReady).toContain(t('say.huntReady.1.keys'));
+    expect(linesFor(true)).toBe(LINES);
   });
 });

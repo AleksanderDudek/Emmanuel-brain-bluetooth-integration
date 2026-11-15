@@ -10,7 +10,10 @@
  *   short (a phone on its side)  three columns under the HUD's one row: the chest (2 × 5) under the left
  *         thumb, the field and the wall in the middle, the buttons one above another under the right thumb
  *   wide  (desktops, tablets on their side)  the field and the wall on the left, a column on the right: the
- *         fish, the chest, the buttons, the vintage
+ *         fish, the chest, the buttons, the vintage.  A mouse on a big screen (DESIGN §14, `desk`) gets a
+ *         wider column (the chest's cells ~73 px on a Full HD monitor, ~97 on a 2560 × 1440 one), taller
+ *         buttons with their keys, Brother Anselm in the column's free room under them (no empty band, his
+ *         words beside the play), and cats, pests and the wall grown with the screen (`tk`)
  *
  * The field is the sim's 10 × 10 (x across, y from the far edge down to the wall), stretched onto its
  * rectangle.  The cats sit along the wall in two groups around the eye in the middle — the view's own seats
@@ -21,7 +24,7 @@
  * mobile audit checks: at least MIN_TAP on the short side, apart from each other, inside the insets.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, TAP_GAP, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, TAP_GAP, screenKind, uiScale, type Rect } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import type { BuyId } from './meta';
 import { RULES } from './rules';
@@ -36,8 +39,12 @@ export interface Layout {
   w: number;
   h: number;
   mode: Mode;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, growing on a big screen (kit/mobile.ts) */
   u: number;
+  /** how far the caps grow past a tablet's (1 up to u = 1.3, then u / 1.3): a big screen's cats and words grow */
+  tk: number;
+  /** a mouse on a desktop or a big screen in the wide shape (`screenKind`): key caps, hover and tooltips */
+  desk: boolean;
   /** what covers each edge (the HUD band on top), and the HUD's lower edge */
   ins: Insets;
   top: number;
@@ -82,10 +89,15 @@ export interface Layout {
   anchor: 'bottom' | 'centre';
 }
 
-export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout {
+export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch = true): Layout {
   const W = Math.max(240, w), H = Math.max(200, h);
   const mode: Mode = W / H < 0.9 ? 'tall' : H < 460 ? 'short' : 'wide';
   const u = uiScale(W, H);
+  const kind = screenKind(W, H, touch);
+  const desk = mode === 'wide' && (kind === 'desktop' || kind === 'big');
+  const big = desk && kind === 'big';
+  const tk = Math.max(1, u / 1.3);
+  let brotherIn: { x: number; y: number; w: number; h: number } | null = null;
   const top = clamp(insets.top, 0, H * 0.6);
   const ins: Insets = { top, right: Math.max(0, insets.right), bottom: Math.max(0, insets.bottom), left: Math.max(0, insets.left) };
   const gap = Math.round(TAP_GAP * u);
@@ -164,9 +176,11 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     const cw = Math.min(W - ins.left - ins.right - 24, 600 * u);
     card = { x: (ins.left + W - ins.right) / 2 - cw / 2, y: top + 6, w: cw, h: H - ins.bottom - 6 - (top + 6) };
   } else {
-    // a desktop or a tablet on its side: the column on the right under the score
+    // a desktop or a tablet on its side: the column on the right under the score (a big screen's is wider: the
+    // chest is what the hand works on)
     const m = Math.round(12 * u);
-    const sideW = clamp(W * 0.27, 5 * 50 + 4 * gap + 2 * m, 420 * u);
+    // (never so narrow that a cell drops under 56 px: a big touch screen's Full HD column is only 1190 wide)
+    const sideW = clamp(W * (big ? 0.36 : 0.27), 5 * 56 + 4 * gap + 2 * m, (big ? 560 : 420) * u);
     const sx = W - ins.right - sideW;
     const colX = sx + m, colW = sideW - 2 * m;
     fish = { x: colX, y: top + 6, w: colW, h: Math.round(40 * u) };
@@ -175,7 +189,7 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     chest = { x: colX + (colW - chestW) / 2, y: fish.y + fish.h + Math.round(12 * u), w: chestW, h: chestH };
     const by = chest.y + chestH + Math.round(14 * u);
     const bottom = H - ins.bottom - m;
-    const bh = Math.max(MIN_TAP + 4, Math.min(56 * u, (bottom - by - 2 * gap) / 2.8));
+    const bh = Math.max(MIN_TAP + 4, Math.min((big ? 62 : 56) * u, (bottom - by - 2 * gap) / 2.8));
     const bw = (colW - gap) / 2;
     ups = {
       aim: { x: colX, y: by, w: bw, h: bh }, paws: { x: colX + bw + gap, y: by, w: bw, h: bh },
@@ -183,7 +197,10 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     };
     paw = { x: colX, y: by + 2 * (bh + gap), w: bw, h: Math.max(MIN_TAP + 4, bh * 0.8) };
     vintage = { x: colX + bw + gap, y: paw.y, w: bw, h: paw.h };
-    const wallH = Math.round(clamp(70 * u, 60, 96));
+    // a desktop: the column's free room under the buttons is Brother Anselm's (his words beside the play)
+    const free = bottom - (paw.y + paw.h) - Math.round(16 * u);
+    if (desk && free >= 150 * u) brotherIn = { x: colX, y: paw.y + paw.h + Math.round(16 * u), w: colW, h: free };
+    const wallH = Math.round(clamp(70 * u, 60, 96 * (desk ? tk : 1)));
     wall = { x: ins.left, y: H - ins.bottom - wallH - Math.round(18 * u), w: sx - ins.left, h: wallH };
     field = { x: ins.left, y: top, w: sx - ins.left, h: Math.max(80, wall.y - top) };
     const bw2 = Math.min(field.w - 2 * m, 560 * u);
@@ -196,9 +213,9 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
   }
   const sx = field.w / RULES.FW;
   const sy = field.h / RULES.FH;
-  const s = clamp(Math.min(sx, sy * 1.25) * 1.15, 14, 56);
+  const s = clamp(Math.min(sx, sy * 1.25) * 1.15, 14, 56 * (desk ? tk : 1));
   const seatY = wall.y + wall.h * 0.38;
-  const cat = Math.min(wall.h * 1.05, (row.r - row.l) / 7.2, 84);
+  const cat = Math.min(wall.h * 1.05, (row.r - row.l) / 7.2, 84 * (desk ? tk : 1));
   // the eye: as large as the wall allows, and narrow enough to leave six cats their targets around it
   const room = row.minR - row.minL - 2 * (3 * MIN_TAP + 2 * gap) - 2 * gap;
   const eyeR = Math.max(14, Math.min(wall.h * 0.46, 46, room / 2.2));
@@ -209,11 +226,25 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
   // Brother Anselm looks in from the field's top corner, under the bar, his bubble to his right
   const brR = Math.round((mode === 'short' ? 15 : 18) * u);
   const brX = field.x + Math.max(ins.left, field.x === 0 ? 16 : 0) + brR + 6;
-  const brother = { x: brX, y: bar.y + bar.h + 8 + brR, r: brR, maxW: Math.max(120, Math.min(field.x + field.w - 10 - (brX + brR + 12), 380 * u)) };
+  // on a desktop with room in the column he sits there, larger, his bubble to his right inside the column
+  const bi = brotherIn as { x: number; y: number; w: number; h: number } | null;
+  const brother = bi
+    ? { x: bi.x + Math.round(26 * u) + 4, y: bi.y + Math.min(bi.h / 2, 90 * u), r: Math.round(26 * u), maxW: bi.w - Math.round(26 * u) * 2 - 16 }
+    : { x: brX, y: bar.y + bar.h + 8 + brR, r: brR, maxW: Math.max(120, Math.min(field.x + field.w - 10 - (brX + brR + 12), 380 * u)) };
   return {
-    w: W, h: H, mode, u, ins, top, field, sky, sx, sy, s, wall, seatY, cat, row, eye, eyeHit, bar, stage, fish, chest, cols, rows, cell, gap,
+    w: W, h: H, mode, u, tk, desk, ins, top, field, sky, sx, sy, s, wall, seatY, cat, row, eye, eyeHit, bar, stage, fish, chest, cols, rows, cell, gap,
     ups, paw, vintage, rich, brother, card, anchor,
   };
+}
+
+/**
+ * A desktop's key cap on an upgrade button (1–4, its top right corner), or null where a button carries none (a
+ * finger, a narrow button).  The button's title keeps clear of it: render.ts fits the title to `cap.x - 10·u`.
+ */
+export function capBox(L: Layout, r: Rect): Rect | null {
+  if (!L.desk || !L.rich) return null;
+  const s = 18 * L.u;   // one digit: a square key
+  return { x: r.x + r.w - 15 * L.u - s / 2, y: r.y + 14 * L.u - s / 2, w: s, h: s };
 }
 
 /** A field point (u) on the canvas (px). */

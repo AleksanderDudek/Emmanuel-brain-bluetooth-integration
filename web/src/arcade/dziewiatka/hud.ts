@@ -95,8 +95,18 @@ export class Hud {
   /** each portrait's face painted once per size (five clipped faces a frame otherwise) */
   private readonly faces = new Map<string, HTMLCanvasElement | null>();
 
+  /** a mouse is the hand (a desktop): "Kliknij!" on a ready card */
+  mouse = false;
+  /**
+   * What the mouse is over (a desktop): a portrait, the bell or a boon card, lit; or `aim` — the street, where a
+   * click fires the portrait `i` (the bell: −1), which then shows a dashed gold ring.
+   */
+  hover: { kind: 'slot' | 'bell' | 'card' | 'aim'; i: number } | null = null;
+
   /** `still`: the player asked for reduced motion (the ready cards glow without bouncing) */
   constructor(private readonly still = false) {}
+
+  private isHover(kind: 'slot' | 'bell' | 'card' | 'aim', i = 0): boolean { return !!this.hover && this.hover.kind === kind && this.hover.i === i; }
 
   nope(slot: number): void { if (slot >= 0 && slot < 5) this.wobble[slot] = 1; }
   bellNope(): void { this.bellWob = 1; }
@@ -153,7 +163,8 @@ export class Hud {
     const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
     const wob = this.wobble[i] > 0 ? Math.sin(this.wobble[i] * 30) * 4 * this.wobble[i] : 0;
     // a full bar lifts the card and makes it bounce (only glows with reduced motion); a finger squashes it
-    const hop = ready ? (this.still ? -3 : -(4 + 4 * Math.abs(Math.sin(clock * 5.2)))) : 0;
+    const lit = this.isHover('slot', i), aimed = this.isHover('aim', i);
+    const hop = (ready ? (this.still ? -3 : -(4 + 4 * Math.abs(Math.sin(clock * 5.2)))) : 0) - (lit ? 3 : 0);
     const sq = 1 - 0.08 * this.squash[i];
     ctx.save();
     ctx.translate(cx + wob, cy + hop);
@@ -177,16 +188,28 @@ export class Hud {
     ctx.fillRect(r.x, r.y, r.w, Math.max(5, r.h * 0.06));
     ctx.restore();
     roundRect(ctx, r.x, r.y, r.w, r.h, rad);
-    ctx.lineWidth = ready ? 3.5 : 1.5;
-    ctx.strokeStyle = ready ? '#f5a800' : 'rgba(43,34,56,.45)';
+    ctx.lineWidth = ready ? 3.5 : lit ? 2.5 : 1.5;
+    ctx.strokeStyle = ready ? '#f5a800' : lit ? '#7a5cb0' : 'rgba(43,34,56,.45)';
     ctx.stroke();
-    // the face in its rank's ring, the stars on its rim, the name (a wide card), the bars
     const u = L.u;
+    if (aimed) {
+      // a click on the street fires this one: a dashed gold ring round the card
+      ctx.save();
+      ctx.setLineDash([7 * u, 5 * u]);
+      ctx.lineDashOffset = -clock * 30;
+      ctx.lineWidth = 2.5 * u;
+      ctx.strokeStyle = '#ffd36b';
+      roundRect(ctx, r.x - 5 * u, r.y - 5 * u, r.w + 10 * u, r.h + 10 * u, rad + 5 * u);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (L.desk) keyCap(ctx, r.x + 7 * u + 9.5 * u, r.y + 10 * u + 9.5 * u, String(i + 1), u, ready);
+    // the face in its rank's ring, the stars on its rim, the name (a wide card), the bars
     const bh = clamp(r.h * 0.075, 5, 9);
     const barsH = 2 * bh + 3;
     const barsTop = r.y + r.h - Math.max(5, r.h * 0.06) - barsH;
     const starR = clamp(r.w * 0.065, 3.8, 6.5);
-    const namePx = named ? clamp(13 * u, 12, 15) : 0;
+    const namePx = named ? clamp(13 * u, 12, 15 * L.tk) : 0;
     const nameH = named ? namePx + 5 : 0;
     const top = r.y + Math.max(5, r.h * 0.06) + 3 + (well ? (r.h < 80 ? 4 : 9) : 0);
     const mr = clamp((barsTop - top - starR * 1.4 - nameH - 3) / 2, 10, r.w * 0.36);
@@ -261,9 +284,9 @@ export class Hud {
       ctx.fillText(t('hud.silenced'), mx, my - mr * 0.7);
     } else if (ready) {
       // "Stuknij!" on a gold tag across the chin
-      const label = fitLabel(ctx, t('hud.ready'), r.w - 12, clamp(13 * u, 13, 16), 900, SANS);
+      const label = fitLabel(ctx, t(this.mouse ? 'hud.ready.keys' : 'hud.ready'), r.w - 12, clamp(13 * u, 13, 16 * L.tk), 900, SANS);
       const tw = Math.min(r.w - 4, ctx.measureText(label).width + 12);
-      const th = clamp(13 * u, 13, 16) + 7;
+      const th = clamp(13 * u, 13, 16 * L.tk) + 7;
       const ty = Math.min(my + mr * 0.82, barsTop - th / 2 - 2);
       ctx.fillStyle = '#ffcf3a';
       roundRect(ctx, mx - tw / 2, ty - th / 2, tw, th, th / 2);
@@ -358,7 +381,7 @@ export class Hud {
     ctx.strokeStyle = hot ? '#f5a800' : 'rgba(43,34,56,.45)';
     ctx.stroke();
     // three shapes: a row (an upright phone), a box (on its side, a desktop), a tall card
-    const labelPx = clamp(13 * u, 13, 16);
+    const labelPx = clamp(13 * u, 13, 16 * L.tk);
     const foot = labelPx + 10;
     const shape = r.w >= r.h * 2.6 ? 'row' : r.w >= r.h * 1.25 ? 'box' : 'tall';
     let cx: number, cy: number, rad: number;
@@ -493,13 +516,25 @@ export class Hud {
       glow(ctx, cxr, cyr, Math.max(r.w, r.h) * 0.85, 'rgba(255,200,80,', 0.5 + 0.3 * Math.sin(clock * 5));
       ctx.restore();
     }
+    const lit = this.isHover('bell'), aimed = this.isHover('aim', -1);
     ctx.fillStyle = ready ? 'rgba(255,232,150,.98)' : 'rgba(251,241,220,.95)';
     roundRect(ctx, r.x, r.y, r.w, r.h, 14);
     ctx.fill();
-    ctx.lineWidth = ready ? 3.5 : 1.5;
-    ctx.strokeStyle = ready ? '#f5a800' : 'rgba(43,34,56,.45)';
+    ctx.lineWidth = ready ? 3.5 : lit ? 2.5 : 1.5;
+    ctx.strokeStyle = ready ? '#f5a800' : lit ? '#7a5cb0' : 'rgba(43,34,56,.45)';
     ctx.stroke();
-    const labelPx = clamp(13 * u, 13, 16);
+    if (aimed) {
+      ctx.save();
+      ctx.setLineDash([7 * u, 5 * u]);
+      ctx.lineDashOffset = -clock * 30;
+      ctx.lineWidth = 2.5 * u;
+      ctx.strokeStyle = '#ffd36b';
+      roundRect(ctx, r.x - 5 * u, r.y - 5 * u, r.w + 10 * u, r.h + 10 * u, 19);
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (L.desk) keyCap(ctx, r.x + 8 * u + 9.5 * u, r.y + 8 * u + 9.5 * u, 'B', u, ready);
+    const labelPx = clamp(13 * u, 13, 16 * L.tk);
     const row = r.w >= r.h * 2;
     // the bell (its crown at bx, by), swinging when ready or just rung
     let br: number, bx: number, by: number;
@@ -537,7 +572,7 @@ export class Hud {
       ctx.fillText(fitLabel(ctx, name, tw, labelPx + 1, 800, SANS, 12), tx, r.y + r.h * 0.33);
       if (ready) {
         ctx.fillStyle = '#5c3700';
-        ctx.fillText(fitLabel(ctx, t('hud.ready'), tw, labelPx, 900, SANS, 12), tx, r.y + r.h * 0.7);
+        ctx.fillText(fitLabel(ctx, t(this.mouse ? 'hud.ready.keys' : 'hud.ready'), tw, labelPx, 900, SANS, 12), tx, r.y + r.h * 0.7);
       } else {
         const bw = Math.min(tw, 90 * u), bh = 7, x = tx - bw / 2, y = r.y + r.h * 0.7 - bh / 2;
         ctx.fillStyle = 'rgba(43,34,56,.16)';
@@ -551,7 +586,7 @@ export class Hud {
       }
     } else {
       ctx.fillStyle = ready ? '#5c3700' : 'rgba(43,34,56,.78)';
-      ctx.fillText(fitLabel(ctx, ready ? t('hud.ready') : name, r.w - 8, labelPx, ready ? 900 : 750, SANS, 12), cxr, r.y + r.h - (labelPx + 10) / 2 - 1);
+      ctx.fillText(fitLabel(ctx, ready ? t(this.mouse ? 'hud.ready.keys' : 'hud.ready') : name, r.w - 8, labelPx, ready ? 900 : 750, SANS, 12), cxr, r.y + r.h - (labelPx + 10) / 2 - 1);
     }
     ctx.restore();
   }
@@ -661,30 +696,30 @@ export class Hud {
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = c.gold ? C.goldLight : C.cream;
     const title = c.gold ? t('card.boonGold') : t('card.boonTitle');
-    const tl = fitLines(ctx, title, L.w - 2 * L.padL, sheet ? 2 : 1, clamp(19 * u, 19, 24), sheet ? 16 : 13, 850, SERIF);
+    const tl = fitLines(ctx, title, L.w - 2 * L.padL, sheet ? 2 : 1, clamp(19 * u, 19, 24 * L.tk), sheet ? 16 : 13, 850, SERIF);
     tl.lines.forEach((l, i) => ctx.fillText(l, L.w / 2, L.cardsTitle - (tl.lines.length - 1 - i) * tl.px * 1.18));
     c.ids.forEach((id, i) => {
       const r = L.cards[i];
       if (!r) return;
       const lift = (1 - k) * 30 + (this.still ? 0 : Math.sin(clock * 2 + i) * 1.2);
-      this.boonCard(ctx, r, id, c.gold, lift, this.cardSquash[i], u);
+      this.boonCard(ctx, r, id, c.gold, lift, this.cardSquash[i], u, L.tk, L.desk ? i + 1 : 0, this.isHover('card', i));
     });
     ctx.textBaseline = 'top';
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(255,246,227,.88)';
-    ctx.fillText(fitLabel(ctx, t(touch ? 'card.boonPickTouch' : 'card.boonPick'), L.w - 2 * L.padL, clamp(13 * u, 13, 16), 650, SANS, 12), L.w / 2, L.cardsHint);
+    ctx.fillText(fitLabel(ctx, t(touch ? 'card.boonPickTouch' : 'card.boonPick'), L.w - 2 * L.padL, clamp(13 * u, 13, 16 * L.tk), 650, SANS, 12), L.w / 2, L.cardsHint);
     const left = clamp(1 - c.t / RULES.choiceSec);
     const bw = 120 * u;
     ctx.fillStyle = 'rgba(255,255,255,.18)';
-    roundRect(ctx, L.w / 2 - bw / 2, L.cardsHint + clamp(13 * u, 13, 16) + 8, bw, 4, 2);
+    roundRect(ctx, L.w / 2 - bw / 2, L.cardsHint + clamp(13 * u, 13, 16 * L.tk) + 8, bw, 4, 2);
     ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,.6)';
-    roundRect(ctx, L.w / 2 - bw / 2, L.cardsHint + clamp(13 * u, 13, 16) + 8, Math.max(4, bw * left), 4, 2);
+    roundRect(ctx, L.w / 2 - bw / 2, L.cardsHint + clamp(13 * u, 13, 16 * L.tk) + 8, Math.max(4, bw * left), 4, 2);
     ctx.fill();
     ctx.restore();
   }
 
-  private boonCard(ctx: CanvasRenderingContext2D, r: Rect, id: BoonId, gold: boolean, lift: number, press: number, u: number): void {
+  private boonCard(ctx: CanvasRenderingContext2D, r: Rect, id: BoonId, gold: boolean, lift: number, press: number, u: number, tk = 1, keyNo = 0, lit = false): void {
     const row = r.w > r.h * 1.8;
     const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
     ctx.save();
@@ -698,9 +733,16 @@ export class Hud {
     ctx.fillStyle = gold ? '#fff2c4' : C.paper;
     roundRect(ctx, r.x, r.y, r.w, r.h, 16);
     ctx.fill();
-    ctx.lineWidth = gold || press > 0.3 ? 3 : 1.5;
-    ctx.strokeStyle = gold || press > 0.3 ? '#f5a800' : 'rgba(43,34,56,.5)';
+    ctx.lineWidth = gold || press > 0.3 || lit ? 3 : 1.5;
+    ctx.strokeStyle = gold || press > 0.3 ? '#f5a800' : lit ? '#c98a00' : 'rgba(43,34,56,.5)';
     ctx.stroke();
+    if (lit) {
+      // the mouse over it: a soft gold wash
+      ctx.fillStyle = 'rgba(255,214,110,.16)';
+      roundRect(ctx, r.x, r.y, r.w, r.h, 16);
+      ctx.fill();
+    }
+    if (keyNo) keyCap(ctx, r.x + 12 * u + 9.5 * u, r.y + 12 * u + 9.5 * u, String(keyNo), u);
     ctx.fillStyle = INK;
     if (row) {
       // an upright phone: the picture on the left, the name and what it does on the right
@@ -709,8 +751,8 @@ export class Hud {
       const tx = r.x + icon + 28, tw = r.x + r.w - 14 - tx;
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      const namePx = clamp(16 * u, 16, 19);
-      const body = fitLines(ctx, boonText(id, gold), tw, 2, clamp(14 * u, 14, 16), 13, 600);
+      const namePx = clamp(16 * u, 16, 19 * tk);
+      const body = fitLines(ctx, boonText(id, gold), tw, 2, clamp(14 * u, 14, 16 * tk), 13, 600);
       const lh = body.px * 1.3;
       const total = namePx + 6 + body.lines.length * lh;
       const y0 = cy - total / 2;
@@ -722,8 +764,8 @@ export class Hud {
     } else {
       const icon = Math.min(r.h * 0.36, r.w * 0.32);
       const tw = r.w - 20;
-      const namePx = clamp(16 * u, 16, 20);
-      const body = fitLines(ctx, boonText(id, gold), tw, 3, clamp(14 * u, 14, 16), 13, 600);
+      const namePx = clamp(16 * u, 16, 20 * tk);
+      const body = fitLines(ctx, boonText(id, gold), tw, 3, clamp(14 * u, 14, 16 * tk), 13, 600);
       const total = icon + 8 + namePx + 6 + body.lines.length * body.px * 1.3;
       const iy = r.y + Math.max(12, (r.h - total) / 2) + icon / 2;
       boonIcon(ctx, id, cx, iy, icon / 2);
@@ -762,13 +804,13 @@ export class Hud {
     const pad = clamp(r.w * 0.06, 16, 30);
     const iw = r.w - 2 * pad;
     const cx = r.x + r.w / 2;
-    const tapPx = clamp(13 * u, 13, 15);
+    const tapPx = clamp(13 * u, 13, 15 * L.tk);
     const end = r.y + r.h - tapPx - 16;
     const fr = st.kind === 'join' && st.hero ? clamp(r.h * 0.1, 22, 40) : 0;
-    const tl = fitLines(ctx, title, iw, 2, clamp(24 * u, 22, 30), 17, 800, SERIF);
+    const tl = fitLines(ctx, title, iw, 2, clamp(24 * u, 22, 30 * L.tk), 17, 800, SERIF);
     const head = (fr ? fr * 2 + 10 : 0) + tl.lines.length * tl.px * 1.15 + 10;
     // the text (and, the opening, its verse) at the largest sizes that fit what is left of the card
-    const fit = this.storyFit(ctx, `${st.kind}|${st.hero}|${st.chapter}|${Math.round(r.w)}x${Math.round(r.h)}|${head.toFixed(0)}`, text, st.kind === 'open', iw, end - r.y - pad - head, u);
+    const fit = this.storyFit(ctx, `${st.kind}|${st.hero}|${st.chapter}|${Math.round(r.w)}x${Math.round(r.h)}|${head.toFixed(0)}`, text, st.kind === 'open', iw, end - r.y - pad - head, u, L.tk);
     // a short story sits in the middle of its card
     let y = r.y + Math.max(pad, (end - r.y - head - fit.h) / 2);
     if (fr && st.hero) {
@@ -797,12 +839,12 @@ export class Hud {
     }
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = 'rgba(43,34,56,.6)';
-    ctx.fillText(fitLabel(ctx, t('card.tap'), iw, tapPx, 700, SANS, 12), cx, r.y + r.h - 10);
+    ctx.fillText(fitLabel(ctx, t(this.mouse ? 'card.tap.keys' : 'card.tap'), iw, tapPx, 700, SANS, 12), cx, r.y + r.h - 10);
     ctx.restore();
   }
 
   /** The largest text size (16 → 13) and verse size (≤ the text's, 17 → 13) where both fit `room`; else the smallest, cut. */
-  private storyFit(ctx: CanvasRenderingContext2D, key: string, text: string, verse: boolean, iw: number, room: number, u: number): StoryFit {
+  private storyFit(ctx: CanvasRenderingContext2D, key: string, text: string, verse: boolean, iw: number, room: number, u: number, tk = 1): StoryFit {
     if (this.story?.key === key) return this.story;
     const p = verse ? passage('gal5.22-23') : null;
     const measure = (tp: number, vp: number) => {
@@ -818,8 +860,8 @@ export class Hud {
       return { tp, tLines, vp, vLines, refPx, h: tLines.length * tp * 1.36 + vH };
     };
     let pick: ReturnType<typeof measure> | null = null;
-    for (let tp = Math.round(clamp(16 * u, 16, 19)); tp >= 13 && !pick; tp--) {
-      for (let vp = Math.min(tp + 1, 17); vp >= 13; vp--) {
+    for (let tp = Math.round(clamp(16 * u, 16, 19 * tk)); tp >= 13 && !pick; tp--) {
+      for (let vp = Math.min(tp + 1, Math.round(17 * tk)); vp >= 13; vp--) {
         const m = measure(tp, vp);
         if (m.h <= room) { pick = m; break; }
         if (!p) break;
@@ -855,9 +897,9 @@ export class Hud {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = INK;
-    const titlePx = clamp(19 * u, 19, 23);
+    const titlePx = clamp(19 * u, 19, 23 * L.tk);
     ctx.fillText(fitLabel(ctx, t('wipe.title'), r.w - 24, titlePx, 800, SERIF, 15), r.x + r.w / 2, r.y + 14);
-    const body = fitLines(ctx, t('wipe.text'), r.w - 32, 3, clamp(15 * u, 15, 17), 13, 600);
+    const body = fitLines(ctx, t('wipe.text'), r.w - 32, 3, clamp(15 * u, 15, 17 * L.tk), 13, 600);
     ctx.fillStyle = 'rgba(43,34,56,.88)';
     body.lines.forEach((l, i) => ctx.fillText(l, r.x + r.w / 2, r.y + 14 + titlePx + 10 + i * body.px * 1.32));
     ctx.restore();
@@ -869,7 +911,7 @@ export class Hud {
     const u = L.u;
     ctx.save();
     ctx.globalAlpha = a;
-    const px = clamp(14 * u, 14, 16);
+    const px = clamp(14 * u, 14, 16 * L.tk);
     ctx.font = font(px, 650);
     const maxW = Math.min(300 * u, L.w - 20);
     const lines = wrapLines(ctx, text, maxW - 24).slice(0, 4);
@@ -898,6 +940,69 @@ export class Hud {
     lines.forEach((l, i) => ctx.fillText(l, x + 12, y + 7 + i * lh));
     ctx.restore();
   }
+}
+
+/**
+ * A tooltip over a control the mouse rests on (a desktop): a title and up to two lines, on a dark plate with a
+ * tick down to (x, y); `k` fades it in.
+ */
+export function drawTip(ctx: CanvasRenderingContext2D, L: Layout, title: string, text: string, x: number, y: number, k: number): void {
+  const u = L.u;
+  ctx.save();
+  ctx.globalAlpha = clamp(k);
+  const maxW = Math.min(380 * u, L.w - 24);
+  const tp = clamp(14 * u, 14, 16 * L.tk), bp = clamp(13 * u, 13, 15 * L.tk);
+  ctx.font = font(tp, 800);
+  const head = fitLabel(ctx, title, maxW - 24 * u, tp, 800, SANS, 13);
+  const headW = ctx.measureText(head).width;
+  const body = text ? fitLines(ctx, text, maxW - 24 * u, 2, bp, 13, 600) : { lines: [] as string[], px: bp };
+  ctx.font = font(body.px, 600);
+  const w = Math.min(maxW, Math.max(headW, ...body.lines.map(l => ctx.measureText(l).width)) + 24 * u);
+  const h = 12 * u + tp * 1.25 + body.lines.length * body.px * 1.3 + 8 * u;
+  const bx = clamp(x - w / 2, 8, L.w - w - 8), by = Math.max(L.top + 4, y - h - 10 * u);
+  ctx.fillStyle = 'rgba(30,24,40,.94)';
+  roundRect(ctx, bx, by, w, h, 10 * u);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,214,110,.6)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  const tx = clamp(x, bx + 14 * u, bx + w - 14 * u);
+  ctx.beginPath();
+  ctx.moveTo(tx - 7 * u, by + h - 0.5);
+  ctx.lineTo(tx, by + h + 7 * u);
+  ctx.lineTo(tx + 7 * u, by + h - 0.5);
+  ctx.fill();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#ffe7a3';
+  ctx.font = font(tp, 800);
+  ctx.fillText(head, bx + 12 * u, by + 9 * u);
+  ctx.fillStyle = 'rgba(255,246,227,.9)';
+  ctx.font = font(body.px, 600);
+  body.lines.forEach((l, i) => ctx.fillText(l, bx + 12 * u, by + 9 * u + tp * 1.25 + i * body.px * 1.3));
+  ctx.restore();
+}
+
+/** A key cap centred on (x, y) (a desktop): a small light key with its digit or letter; `lit`: it does something now. */
+export function keyCap(ctx: CanvasRenderingContext2D, x: number, y: number, key: string, u: number, lit = false): void {
+  const h = 19 * u;
+  ctx.save();
+  ctx.font = font(12.5 * u, 800);
+  const w = Math.max(h, ctx.measureText(key).width + 10 * u);
+  ctx.fillStyle = 'rgba(30,24,40,.35)';
+  roundRect(ctx, x - w / 2, y - h / 2 + 2 * u, w, h, 5 * u);
+  ctx.fill();
+  ctx.fillStyle = lit ? '#ffe7a3' : '#fffaf0';
+  roundRect(ctx, x - w / 2, y - h / 2, w, h, 5 * u);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(43,34,56,.55)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.fillStyle = INK;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(key, x, y + 0.5);
+  ctx.restore();
 }
 
 /** A small picture for each boon. */

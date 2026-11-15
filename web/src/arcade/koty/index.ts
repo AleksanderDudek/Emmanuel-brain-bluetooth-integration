@@ -23,10 +23,10 @@ import { coarsePointer } from '../kit/mobile';
 import { SignalTrace } from '../kit/trace';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { KotySound } from './audio';
-import { bossName, placeName } from './content';
+import { bossName, catName, famName, famText, giftText, gradeName, placeName } from './content';
 import { t, unit } from './i18n';
 import { KotyIntro } from './intro';
-import { tapTargets } from './layout';
+import { BUYS, tapTargets } from './layout';
 import { bestOf, freshProgress, migrate, type BuyId, type KotyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -64,12 +64,17 @@ class KotyGame implements ArcadeGame {
   private readonly trace = new SignalTrace(40, 1);
   private now = 0;
   private cardUp = false;
+  /** a mouse over the canvas (a desktop): where it is, when it last moved (the game's clock); what it rests on and since when */
+  private mouse: { x: number; y: number; t: number } | null = null;
+  private resting: { what: string; t: number } | null = null;
+  private cursor = '';
+  private clockT = 0;
 
   constructor(private readonly env: GameEnv<KotyProgress>) {
     migrate(env.progress);
     this.sim = new KotySim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg',
-      tuning: env.tuning, now: Date.now(),
+      tuning: env.tuning, now: Date.now(), touch: env.touch,
     });
     this.view = new KotyView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new KotySound(env.audio);
@@ -101,6 +106,7 @@ class KotyGame implements ArcadeGame {
 
   update(dt: number, f: FocusFrame, t: number): void {
     this.now = t;
+    this.clockT += dt;
     this.sim.update(dt, f, t);
     const ph = this.signal();
     this.trace.push(t, f, ph.want, ph.blind);
@@ -128,6 +134,77 @@ class KotyGame implements ArcadeGame {
     if (card && !this.cardUp) this.env.hint('');
     this.cardUp = card;
     this.flushHints();
+    this.hover();
+  }
+
+  /**
+   * A mouse (a desktop): what is under it answers.  A toy's cell lights up with its mates (where a click would
+   * merge it) and the cursor offers to grab it; a cat, a button, the paw and the eye light up under a hand; a
+   * pest under the mouse wears a crosshair (a click makes it the squad's target).  After a moment's rest a
+   * tooltip names the toy, the cat's gift, a button's key.  A finger has no hover.
+   */
+  private hover(): void {
+    const sim = this.sim, view = this.view, L = view.L, ms = this.mouse;
+    view.hover = null;
+    view.hoverPest = null;
+    let cursor = '', what = '', tip: { text: string; x: number; y: number } | null = null;
+    if (!this.env.touch && ms && this.clockT - ms.t < 4 && sim.started) {
+      if (view.drag?.moved) cursor = 'grabbing';
+      else if (this.finger === null) {
+        const h = view.hit(ms.x, ms.y, sim);
+        if (h.kind === 'story' || h.kind === 'yes' || h.kind === 'no' || h.kind === 'vintage') cursor = 'pointer';
+        else if (h.kind === 'chest' || h.kind === 'slot') {
+          view.hover = h;
+          const toy = sim.toyAt({ kind: h.kind, i: h.i });
+          cursor = toy ? 'grab' : h.kind === 'slot' ? 'pointer' : '';
+          const r = view.locBox({ kind: h.kind, i: h.i }, sim);
+          if (h.kind === 'slot') {
+            const c = sim.cushions[h.i];
+            if (c?.cat && c.spec) {
+              what = `slot${h.i}`;
+              tip = { text: t('hover.cat', { cat: catName(c.cat), gift: giftText(c.spec.gift) }), x: r.x + r.w / 2, y: r.y };
+            }
+          } else if (toy) {
+            what = `chest${h.i}`;
+            tip = { text: t('hover.toy', { toy: famName(toy.fam), grade: gradeName(toy.g), what: famText(toy.fam) }), x: r.x + r.w / 2, y: r.y };
+          }
+        } else if (h.kind === 'up') {
+          view.hover = h;
+          cursor = 'pointer';
+          what = `up${h.id}`;
+          const r = L.ups[h.id];
+          tip = { text: t('hover.buy', { n: BUYS.indexOf(h.id) + 1 }), x: r.x + r.w / 2, y: r.y };
+        } else if (h.kind === 'paw') {
+          view.hover = h;
+          cursor = 'pointer';
+          what = 'paw';
+          tip = { text: sim.huntReady && !sim.napping ? t('hover.hunt') : t('hover.paw'), x: L.paw.x + L.paw.w / 2, y: L.paw.y };
+        } else if (h.kind === 'eye') {
+          view.hover = h;
+          cursor = 'pointer';
+          what = 'eye';
+          tip = { text: sim.huntReady && !sim.napping ? t('hover.hunt') : t('hover.eye'), x: L.eye.x, y: L.eye.y - L.eye.r };
+        } else if (h.kind === 'field' && !sim.frozen) {
+          const pe = view.pestAt(ms.x, ms.y, sim);
+          if (pe) {
+            view.hoverPest = pe;
+            cursor = 'crosshair';
+          }
+        }
+      }
+    }
+    if (what && tip) {
+      if (!this.resting || this.resting.what !== what) this.resting = { what, t: this.clockT };
+      const k = (this.clockT - this.resting.t - 0.35) / 0.2;
+      view.tip = k > 0 ? { ...tip, k: Math.min(1, k) } : null;
+    } else {
+      this.resting = null;
+      view.tip = null;
+    }
+    if (cursor !== this.cursor) {
+      this.cursor = cursor;
+      this.env.canvas.style.cursor = cursor;
+    }
   }
 
   /** Before play the runner's intro() has painted the calibration scene this frame; after it, the watch. */
@@ -145,6 +222,8 @@ class KotyGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view;
+    // a mouse moves without a button too: hover() answers what is under it
+    if (!this.env.touch) this.mouse = { x: e.x, y: e.y, t: this.clockT };
     if (e.type === 'down') {
       if (this.finger !== null && this.finger !== e.id) this.letGo();
       this.finger = e.id;
@@ -392,7 +471,7 @@ class KotyGame implements ArcadeGame {
 /** A coach mark's words for the hand the player has: a finger never hears of keys, a keyboard may. */
 export function coachText(what: Coach, touch: boolean): string {
   const key = what === 'merge2' ? 'merge' : what;
-  if (!touch && (key === 'hunt' || key === 'paw')) return t(`coach.${key}.keys`);
+  if (!touch && (key === 'hunt' || key === 'paw' || key === 'upgrade' || key === 'target' || key === 'pet')) return t(`coach.${key}.keys`);
   return t(`coach.${key}` as 'coach.merge');
 }
 
@@ -412,13 +491,14 @@ function haptic(e: SimEvent): void {
 /** How to play, for the hand the player has: the paw's button on a phone, Space and the digits on a keyboard. */
 export function howto(touch = coarsePointer()): HowTo {
   return {
-    goal: t('howto.goal'),
+    goal: t(touch ? 'howto.goal' : 'howto.goalShort'),
     hands: [
-      { gesture: 'drag', text: t('howto.drag') },
-      { gesture: 'tap', text: t('howto.tap') },
+      { gesture: 'drag', text: t(touch ? 'howto.drag' : 'howto.drag.keys') },
+      { gesture: 'tap', text: t(touch ? 'howto.tap' : 'howto.tap.keys') },
       touch ? { gesture: 'tap', text: t('howto.paw') } : { gesture: 'keys', text: t('howto.keys') },
     ],
-    tips: [t('howto.tip1'), t('howto.tip2')],
+    // a mouse's card stands beside the play on a big screen (515 px on Full HD): one tip there
+    tips: touch ? [t('howto.tip1'), t('howto.tip2')] : [t('howto.tip.short')],
   };
 }
 

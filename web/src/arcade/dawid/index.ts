@@ -22,6 +22,7 @@
 import { fmtNum } from '../../i18n';
 import type { FocusFrame } from '../kit/focus';
 import { buzz, clamp } from '../kit/juice';
+import { coarsePointer } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DawidSound } from './audio';
 import { landName } from './content';
@@ -58,11 +59,16 @@ class DawidGame implements ArcadeGame {
   private hintCool = 0;
   /** the first session repeats "drag" and "tap" until each has been done once */
   private nudged = { move: 0, hunt: 0 };
+  /** a mouse over the canvas (a desktop): where it is and when it last moved; what it rests on, since when */
+  private mouse: { x: number; y: number; t: number } | null = null;
+  private resting: { what: string; t: number } | null = null;
+  private cursor = '';
 
   constructor(private readonly env: GameEnv<DawidProgress>) {
     migrate(env.progress);
     this.sim = new DawidSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      touch: env.touch,
     });
     this.view = new DawidView(env.canvas, { reducedMotion: env.reducedMotion });
     this.view.touch = env.touch;
@@ -97,6 +103,82 @@ class DawidGame implements ArcadeGame {
     this.sim.hush = this.hintCool > 0.6;
     this.nudge();
     this.flushHints();
+    this.hover();
+  }
+
+  /**
+   * A mouse (a desktop): what is under it answers — a control is lit and the cursor becomes a hand (a tooltip
+   * with its key after a moment's rest); over the field a dashed ring shows what a click would do: hunt round
+   * David, walk to the spot, or the great stone's mark when it is ready.  A finger has no hover.
+   */
+  private hover(): void {
+    const sim = this.sim, view = this.view, hud = view.hud, L = view.L, ms = this.mouse;
+    view.hoverMark = null;
+    hud.hover = null;
+    let cursor = '', tip: { text: string; x: number; y: number; below?: boolean } | null = null, what = '';
+    if (!this.env.touch && ms && this.now - ms.t < 4) {
+      if (this.press) cursor = this.press.kind === 'field' ? '' : 'pointer';
+      else if (sim.story) cursor = sim.story.t >= 0.6 ? 'pointer' : '';
+      else {
+        const hit = this.hitAt(ms.x, ms.y);
+        if (hit === 'stone' || hit === 'bag' || hit === 'quest') {
+          hud.hover = { kind: hit, i: 0 };
+          cursor = 'pointer';
+          what = hit;
+          if (hit === 'quest' && hud.questBox) {
+            const q = hud.questBox;
+            tip = { text: t('hover.quest'), x: q.x + Math.min(q.w / 2, 120 * L.u), y: q.y + q.h + 2, below: true };
+          } else if (hit !== 'quest') {
+            const b = hit === 'stone' ? L.stone : L.bag;
+            const text = hit === 'bag' ? t('hover.bag', { n: fmtNum(Math.round(sim.bagLoad)), max: fmtNum(sim.bagCap) })
+              : sim.stoneReady ? t('hover.stone') : t('hover.stoneWait', { n: Math.round(sim.charge * 100) });
+            tip = { text, x: b.x, y: b.y - b.r - 12 * L.u };
+          }
+        } else if (hit && typeof hit === 'object') {
+          if (hit.kind === 'hunt') hud.hover = { kind: 'hunt', i: 0 };
+          else if (hit.kind === 'tab') hud.hover = { kind: 'tab', i: hit.i };
+          else if (hit.kind === 'tile') hud.hover = { kind: 'tile', i: hit.i };
+          cursor = hit.kind === 'sheet' ? '' : 'pointer';
+        } else if (hit === 'field' && !sim.sitting && sim.david.down <= 0) {
+          const mark = sim.stoneReady ? sim.stoneTarget() : null;
+          if (mark) {
+            view.hoverMark = { kind: 'stone', x: mark.x, y: mark.y };
+            cursor = 'crosshair';
+          } else {
+            const w = view.toWorld(ms.x, ms.y), d = sim.david;
+            view.hoverMark = Math.hypot(w.x - d.x, w.y - d.y) <= RULES.tapNear ? { kind: 'hunt', x: d.x, y: d.y } : { kind: 'go', x: w.x, y: w.y };
+            cursor = 'pointer';
+          }
+        }
+      }
+    }
+    // the tooltip after a short rest on the same control, fading in
+    if (what && tip) {
+      if (!this.resting || this.resting.what !== what) this.resting = { what, t: this.now };
+      const k = (this.now - this.resting.t - 0.35) / 0.2;
+      view.tip = k > 0 ? { ...tip, k: Math.min(1, k) } : null;
+    } else {
+      this.resting = null;
+      view.tip = null;
+    }
+    if (cursor !== this.cursor) {
+      this.cursor = cursor;
+      this.env.canvas.style.cursor = cursor;
+    }
+  }
+
+  /** What a press at (x, y) would land on now: a button, the quest pill, the camp's sheet, the field (as pointer() decides). */
+  private hitAt(x: number, y: number): 'stone' | 'bag' | 'quest' | SheetHit | 'field' | null {
+    const sim = this.sim, view = this.view, hud = view.hud, L = view.L;
+    if (view.sheetOpen(sim)) {
+      const hit = hud.sheetAt(x, y);
+      if (hit) return hit.kind === 'tile' && !hit.whole ? { kind: 'sheet' } : hit;
+    } else if (view.campOpen < 0.5) {
+      if (inRect(L.stone.hit, x, y)) return 'stone';
+      if (inRect(L.bag.hit, x, y)) return 'bag';
+    }
+    if (hud.questBox && inRect(grow(hud.questBox), x, y)) return 'quest';
+    return 'field';
   }
 
   draw(): void { this.view.draw(this.sim); }
@@ -113,6 +195,8 @@ class DawidGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view, hud = view.hud, L = view.L;
+    // a mouse moves without a button too: hover() answers what is under it
+    if (!this.env.touch) this.mouse = { x: e.x, y: e.y, t: this.now };
     if (e.type === 'down') {
       if (this.press) return;   // one finger plays; a second one waits
       if (sim.story) {
@@ -283,8 +367,19 @@ class DawidGame implements ArcadeGame {
     else if (sim.mode === 'hunt') this.view.mark('hunt', sim.david.x, sim.david.y);
   }
 
-  /** Arrows and WASD walk; Space and Enter throw a ready stone, buy the first tile in camp, else hunt; 1–4 pick the camp's tab. */
+  /**
+   * Arrows and WASD walk; Space and Enter throw a ready stone, buy the first tile in camp, else hunt; 1–4 pick
+   * the camp's tab; B is the bag (home, or out of the cave) and Q the quest pill — the buttons' own answers.
+   */
   key(key: string, down: boolean): boolean {
+    const k = key.length === 1 ? key.toLowerCase() : key;
+    if (k === 'b' || k === 'q') {
+      if (down && !this.sim.story && this.sim.started) {
+        const what = k === 'b' ? 'bag' : 'quest';
+        if (what === 'bag' || this.view.hud.questBox) this.button(what);
+      }
+      return true;
+    }
     const used = this.sim.key(key, down);
     if (used) this.drain();
     return used;
@@ -445,8 +540,23 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play: a finger's words; the keys in a row of their own, which a phone's card leaves out (mendi.ts). */
+/**
+ * How to play: a finger's words, the keys in a row of their own, which a phone's card leaves out (mendi.ts).  With
+ * a mouse (the runner's own test, `pointer: coarse`) a mouse's words: shorter, three rows and one tip, so the big
+ * screen's side column (515 px on a Full HD monitor) shows them whole.
+ */
 function howto(): HowTo {
+  if (!coarsePointer()) {
+    return {
+      goal: t('howto.goalShort'),
+      hands: [
+        { gesture: 'drag', text: t('howto.move.keys') },
+        { gesture: 'tap', text: t('howto.tap.keys') },
+        { gesture: 'keys', text: t('howto.keys') },
+      ],
+      tips: [t('howto.tip1.short')],
+    };
+  }
   return {
     goal: t('howto.goal'),
     hands: [

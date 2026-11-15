@@ -24,7 +24,7 @@ import type { ArcadeOutcome } from '../kit/types';
 import { Battle, type BattleEvent, type Hero, type TeamMods } from './battle';
 import {
   BOONS, BOON_IDS, CAMPAIGN, CHAPTERS, DIN, HEROES, LINES, MISSIONS_PER_CHAPTER, PIECES, TIPS,
-  boonName, campaignMission, chapterName, dinName, heroName, rankName, towerFloor,
+  boonName, campaignMission, chapterName, dinName, heroName, linesFor, rankName, towerFloor,
   type BoonId, type DinKind, type HeroId, type MissionSpec, type ShadowKind,
 } from './content';
 import { hushed as hushedText, t, unit } from './i18n';
@@ -173,6 +173,8 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
+  /** the primary input is a finger (default): Klara speaks of tapping; with a mouse, of clicks and keys */
+  touch?: boolean;
 }
 
 export class DziewiatkaSim {
@@ -283,7 +285,7 @@ export class DziewiatkaSim {
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
-    this.talk = new Talk(LINES, init.rng);
+    this.talk = new Talk(init.touch === false ? linesFor(false) : LINES, init.rng);
     this.battle = new Battle(e => this.onBattle(e), init.rng);
     this.setTeam();
     this.mission = this.makeMission();

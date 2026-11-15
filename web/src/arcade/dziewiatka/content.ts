@@ -295,3 +295,15 @@ export const MOMENTS = Object.keys(LINE_COUNT) as Moment[];
 export const LINES: Readonly<Record<Moment, readonly string[]>> = Object.fromEntries(
   MOMENTS.map(m => [m, range(`say.${m}`, LINE_COUNT[m])]),
 ) as unknown as Record<Moment, readonly string[]>;
+
+/** Klara's lines that speak of the hand ("Stuknij portret"): a mouse hears their `.keys` words (a click, a key). */
+export const HAND_LINES: ReadonlySet<string> = new Set(['say.warm.2', 'say.rest.4', 'say.harmonyReady.1', 'say.harmonyReady.2', 'say.harmonyReady.3']);
+
+/** Klara's lines for the player's hand: a finger's (LINES), or a mouse's (the hand's lines in its own words). */
+export function linesFor(touch: boolean): Readonly<Record<Moment, readonly string[]>> {
+  if (touch) return LINES;
+  return Object.fromEntries(MOMENTS.map(m => [m, Array.from({ length: LINE_COUNT[m] }, (_, i) => {
+    const k = `say.${m}.${i + 1}`;
+    return t((HAND_LINES.has(k) ? `${k}.keys` : k) as Key);
+  })])) as unknown as Record<Moment, readonly string[]>;
+}

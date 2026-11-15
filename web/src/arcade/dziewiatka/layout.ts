@@ -11,12 +11,17 @@
  *             bottom — the dial, the five, the bell — the way Hero Wars itself is held
  *   wide      a tablet on its side or a desktop: the same strip, grown by the UI scale (≤ 1.3) and centred
  *
+ * A mouse on a desktop or a big screen (DESIGN §14, `screenKind`: `desk`) keeps the wide shape and makes it a
+ * desktop's: the street zooms in (the figures larger than their spacing, the rows deeper, as an upright phone
+ * draws them — no thin street under an empty sky), the strip grows with the screen past the tablet's cap, the
+ * type grows with it (`tk`), and the five, the bell and the boons carry their keys (1–5, B, 1–3).
+ *
  * Right under the HUD sit the passive bits: the mission's pill and the boss's bar.  The boons are a bottom sheet
  * of three stacked full-width cards on an upright phone (three in a row elsewhere); the story card fills the
  * band of a phone.  `u` is 1 on any phone and grows to 1.3 (kit/mobile.ts `uiScale`).
  */
 import { clamp } from '../kit/juice';
-import { NO_INSETS, TAP_GAP, target, uiScale, type Rect } from '../kit/mobile';
+import { NO_INSETS, TAP_GAP, screenKind, target, uiScale, type Rect } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -34,8 +39,12 @@ export interface Layout {
   /** the lowest y a control or a card reaches (above the home indicator) */
   bottom: number;
   ins: Insets;
-  /** UI scale: 1 on a phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on a phone, up to 1.3 on a tablet or a desktop, growing on a big screen (kit/mobile.ts) */
   u: number;
+  /** how far the type's caps grow past a tablet's (1 up to u = 1.3, then u / 1.3): a big screen's words grow too */
+  tk: number;
+  /** a mouse on a desktop or a big screen (`screenKind`): the desktop's street, strip and key caps */
+  desk: boolean;
   shape: Shape;
   /** the side margins the controls keep (px) */
   padL: number;
@@ -69,17 +78,20 @@ export interface Layout {
   bossBar: Rect;
 }
 
-export function layout(w: number, h: number, insets: Partial<Insets> = NO_INSETS): Layout {
+export function layout(w: number, h: number, insets: Partial<Insets> = NO_INSETS, touch = true): Layout {
   const ins: Insets = { ...NO_INSETS, ...insets };
   const u = uiScale(w, h);
+  const tk = Math.max(1, u / 1.3);
+  const kind = screenKind(w, h, touch);
   const top = clamp(ins.top || 64, 40, h * 0.6);
   const shape: Shape = h - top < 330 && w > h ? 'side' : h >= w ? 'portrait' : 'wide';
   const portrait = shape === 'portrait', side = shape === 'side';
+  const desk = shape === 'wide' && (kind === 'desktop' || kind === 'big');
   // the side margins: 16 px on an upright phone, the notch's own room on its side
   const edge = portrait ? 16 * u : side ? 10 : 12 * u;
   const padL = Math.max(edge, ins.left > 0 ? ins.left + 6 : 0);
   const padR = Math.max(edge, ins.right > 0 ? ins.right + 6 : 0);
-  const bottom = h - Math.max(portrait ? 10 : side ? 6 : 12 * u, ins.bottom > 0 ? ins.bottom + 4 : 0);
+  const bottom = h - Math.max(portrait ? 10 : side ? 6 : Math.min(12 * u, 16), ins.bottom > 0 ? ins.bottom + 4 : 0);
   const room = bottom - top;
   const A = w - padL - padR;
 
@@ -103,9 +115,10 @@ export function layout(w: number, h: number, insets: Partial<Insets> = NO_INSETS
   } else {
     // one strip along the bottom: the dial, the five, the bell
     gap = side ? TAP_GAP : Math.round(10 * u);
-    slotH = side ? clamp(room * 0.255, 66, 80) : clamp(Math.min(96 * u, room * 0.24), 72, 124);
+    // a desktop's strip grows with the screen (a tablet's stops at 124 px)
+    slotH = side ? clamp(room * 0.255, 66, 80) : desk ? clamp(Math.min(96 * u, room * 0.24), 72, 124 * tk) : clamp(Math.min(96 * u, room * 0.24), 72, 124);
     let dialW = slotH * (side ? 1.5 : 1.35), bellW = slotH * (side ? 1.12 : 1);
-    slotW = side ? Math.min(100, (A - dialW - bellW - 6 * gap) / 5) : clamp(slotH * 1.12, 84, 140);
+    slotW = side ? Math.min(100, (A - dialW - bellW - 6 * gap) / 5) : clamp(slotH * 1.12, 84, 140 * (desk ? tk : 1));
     const least = side ? 60 : 72;
     if (dialW + bellW + 5 * slotW + 6 * gap > A) slotW = Math.max(least, (A - dialW - bellW - 6 * gap) / 5);
     if (dialW + bellW + 5 * slotW + 6 * gap > A) {
@@ -132,9 +145,10 @@ export function layout(w: number, h: number, insets: Partial<Insets> = NO_INSETS
   const span = w < 700 ? 13.2 : 14.8;
   const s = Math.max(14, Math.min(w / span, fieldH / (portrait ? 2.4 : 2.75)));
   const x0 = RULES.fieldW + 0.1 - w / s;
-  const k = portrait ? clamp(fieldH / s / 6, 1, 1.8) : 1;
+  // a desktop zooms in the same way where the street has the height (Full HD's middle column: ×1.5)
+  const k = portrait ? clamp(fieldH / s / 6, 1, 1.8) : desk ? clamp(fieldH / s / 5.8, 1, 1.5) : 1;
   const S = s * k;
-  const depth = portrait ? Math.min(S * 0.8, fieldH * 0.22) : Math.min(S * 0.5, fieldH * 0.16);
+  const depth = portrait ? Math.min(S * 0.8, fieldH * 0.22) : desk ? Math.min(S * 0.62, fieldH * 0.18) : Math.min(S * 0.5, fieldH * 0.16);
   const groundY = fieldBottom - Math.max(6, fieldH * 0.05);
   // the curb sits a little behind the back row, however deep the rows
   const streetY = Math.min(groundY, groundY - depth - S * 0.22 + S * 0.55);
@@ -163,7 +177,7 @@ export function layout(w: number, h: number, insets: Partial<Insets> = NO_INSETS
     cardsTitle = y - 10;
     cardsHint = y + ch + 8;
   } else {
-    const cw = clamp(230 * u, 190, 300), ch = clamp(170 * u, 150, 230);
+    const cw = clamp(230 * u, 190, 300 * (desk ? tk : 1)), ch = clamp(170 * u, 150, 230 * (desk ? tk : 1));
     const y = top + Math.max(60 * u, (fieldBottom - top - ch) / 2 + 10 * u);
     cards = [0, 1, 2].map(i => ({ x: padL + A / 2 + (i - 1) * (cw + 18 * u) - cw / 2, y, w: cw, h: ch }));
     cardsTitle = y - 14 * u;
@@ -185,15 +199,15 @@ export function layout(w: number, h: number, insets: Partial<Insets> = NO_INSETS
   }
   // ── under the HUD: the mission's pill and the boss's bar ────────
   const pw = Math.min(A, 380 * u);
-  const ph = Math.round(clamp(24 * u, 26, 32));
+  const ph = Math.round(clamp(24 * u, 26, 32 * tk));
   const pill: Rect = { x: padL + (A - pw) / 2, y: top + 6, w: pw, h: ph };
-  const bossBar: Rect = { x: pill.x, y: pill.y + ph + 5, w: pw, h: Math.round(clamp(15 * u, 17, 21)) };
+  const bossBar: Rect = { x: pill.x, y: pill.y + ph + 5, w: pw, h: Math.round(clamp(15 * u, 17, 21 * tk)) };
   // the wipe's card under them, over the sky: the five get up below it, in sight
   const ww = Math.min(A, 430 * u), wh = 104 * Math.min(u, 1.15);
   const wipe: Rect = { x: padL + (A - ww) / 2, y: Math.min(bossBar.y + bossBar.h + 10, Math.max(top + 6, fieldBottom - wh - 40)), w: ww, h: wh };
 
   return {
-    w, h, top, bottom, ins, u, shape, padL, padR, s, k, x0, viewW: w / s, groundY, depth, streetY, fieldBottom,
+    w, h, top, bottom, ins, u, tk, desk, shape, padL, padR, s, k, x0, viewW: w / s, groundY, depth, streetY, fieldBottom,
     slots, gap, dial, bell, cards, sheet, cardsTitle, cardsHint, story, wipe, pill, bossBar,
   };
 }

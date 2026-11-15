@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Battle, type BattleEvent } from '../src/arcade/dziewiatka/battle';
 import {
-  BOONS, CAMPAIGN, CHAPTERS, DIN, HEROES, HERO_IDS, LINES, LINE_COUNT, MISSIONS_PER_CHAPTER, MOMENTS, START_TEAM, campaignMission, towerFloor,
+  BOONS, BOON_IDS, CAMPAIGN, CHAPTERS, DIN, HAND_LINES, HEROES, HERO_IDS, LINES, LINE_COUNT, MISSIONS_PER_CHAPTER, MOMENTS, START_TEAM, campaignMission,
+  heroName, linesFor, towerFloor,
 } from '../src/arcade/dziewiatka/content';
+import dziewiatka from '../src/arcade/dziewiatka/index';
 import { CATALOGS, t, unit } from '../src/arcade/dziewiatka/i18n';
 import {
   addNotes, addXp, bestOf, equip, equipAll, familyBonus, freshProgress, growth, migrate, powerOf, swapIn, xpNeed,
@@ -13,7 +15,9 @@ import { font } from '../src/arcade/dziewiatka/paint';
 import { RULES } from '../src/arcade/dziewiatka/rules';
 import { DziewiatkaSim, autoTeam, finaleFor, multFor, planBlocks, starsFor, type SimEvent } from '../src/arcade/dziewiatka/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets, screenKind } from '../src/arcade/kit/mobile';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
+import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
@@ -688,14 +692,21 @@ describe('the lobby (index.ts, panel.ts)', () => {
     expect(mod.best(p)).toBe(45);
     expect(mod.unit!(1)).toBe('uciszony');
     expect(mod.unit!(5)).toBe('uciszonych');
-    const how = mod.howto!();
     // a finger's card (the runner drops the keys' row on touch) has one to three controls and no keys in its words
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('coarse'), media: q }));
+    const how = mod.howto!();
+    vi.unstubAllGlobals();
     const finger = how.hands.filter(c => c.gesture !== 'keys');
     expect(finger.length).toBeGreaterThanOrEqual(1);
     expect(finger.length).toBeLessThanOrEqual(3);
     for (const c of finger) expect(c.text).not.toMatch(/spacj|klawisz|space|\bkey|leertaste|taste|mellanslag|tangent|klik|click|mysz|mouse/i);
     expect(how.hands.filter(c => c.gesture === 'keys')).toHaveLength(1);
     expect((how.tips ?? []).length).toBeLessThanOrEqual(2);
+    // a mouse's card (no coarse pointer): clicks and keys, three rows and one tip for the big screen's side column
+    const mouse = mod.howto!();
+    expect(mouse.hands.map(c => c.gesture)).toEqual(['tap', 'tap', 'keys']);
+    for (const c of mouse.hands) expect(c.text).not.toMatch(/stuk|\btap|tipp|tryck på (ett|en|det)/i);
+    expect(mouse.tips).toHaveLength(1);
     // the placeholder's save survives the module's own entry points
     const old = { sessions: 4 } as unknown as DziewiatkaProgress;
     expect(mod.best(old)).toBeNull();
@@ -843,5 +854,187 @@ describe('mobile first (DESIGN.md §11.7, kit/mobile.ts): the layout on every ch
     expect(long.lines[1].endsWith('…')).toBe(true);
     const tiny = fitLines(ctx, 'Selbstbeherrschung', 40, 1, 14, 3);
     expect(tiny.px).toBe(MIN_TEXT);
+  });
+});
+
+// ── a big screen and a mouse (DESIGN.md §14) ─────────────────────────
+
+describe('a big screen and a mouse (DESIGN.md §14)', () => {
+  const PX = /(\d+(?:\.\d+)?)px/;
+  const FONTS: number[] = [];
+  /** A canvas context that draws nothing, keeps what is set, measures text at 0.55 em a character and logs every font. */
+  function fakeContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+    const gradient = { addColorStop: () => undefined };
+    const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+    return new Proxy(state, {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        if (prop === 'measureText') return (x: string) => ({ width: String(x).length * Number(String(target.font).match(PX)?.[1] ?? 10) * 0.55 });
+        if (prop === 'createLinearGradient' || prop === 'createRadialGradient' || prop === 'createPattern') return () => gradient;
+        if (prop === 'getTransform') return () => ({ a: 1, b: 0 });
+        return () => undefined;
+      },
+      set(target, prop, value) {
+        target[prop] = value;
+        if (prop === 'font') FONTS.push(Number(String(value).match(PX)?.[1] ?? 10));
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+  }
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  type Size = { name: string; w: number; h: number; insets: Insets };
+  const BIG = CHECK_SIZES.filter(c => screenKind(c.w, c.h, false) === 'big');
+  const FULLHD = BIG[0];
+  const RETURNING: Partial<DziewiatkaProgress> = { sessions: 5, pushes: 1, seen: [...SEEN] };
+  interface View { L: ReturnType<typeof layout>; hud: { hover: { kind: string; i: number } | null }; tip: { title: string; text: string } | null }
+  interface Played { game: ArcadeGame; sim: DziewiatkaSim; view: View; canvas: HTMLCanvasElement }
+
+  /** The real game on a canvas of w × h with the runner's insets, a few frames in (a finger's, or a mouse's). */
+  function play(size: Size, touch: boolean, progress: Partial<DziewiatkaProgress> = RETURNING): Played {
+    const canvas = document.createElement('canvas');
+    const env: GameEnv<DziewiatkaProgress> = {
+      canvas, hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: migrate(mergeSaved(freshProgress(), { ...freshProgress(), ...progress })), rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 300,
+      tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+      hudTop: () => size.insets.top, insets: () => size.insets, touch,
+    };
+    const game = dziewiatka.create(env);
+    game.resize(size.w, size.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: DziewiatkaSim; view: View };
+    const p: Played = { game, sim: inner.sim, view: inner.view, canvas };
+    frames(p, 20);
+    return p;
+  }
+  function frames(p: Played, n: number, f: FocusFrame = frame()): void {
+    for (let i = 0; i < n; i++) {
+      p.game.update(STEP, f, p.sim.t + STEP);
+      p.game.draw();
+    }
+  }
+  const mid = (r: { x: number; y: number; w: number; h: number }) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  const move = (p: Played, at: { x: number; y: number }, n = 1) => {
+    p.game.pointer!({ type: 'move', ...at, id: 1 });
+    frames(p, n);
+  };
+
+  it('a mouse on a desktop gets a desktop’s layout: on a big screen the street zooms in, the strip and the type grow; a finger keeps its own', () => {
+    expect(BIG.map(c => c.w)).toEqual([1190, 1587]);
+    for (const c of CHECK_SIZES) {
+      const kind = screenKind(c.w, c.h, false);
+      const M = layout(c.w, c.h, c.insets, false), F = layout(c.w, c.h, c.insets, true);
+      expect(F.desk, c.name).toBe(false);
+      expect(M.desk, c.name).toBe(M.shape === 'wide' && (kind === 'desktop' || kind === 'big'));
+      // every control finger-sized (and mouse-sized), inside the insets, apart — in every state
+      for (const st of ['play', 'choice', 'story'] as const) expect(auditTargets(targetsFor(M, st), c.w, c.h, c.insets), `${c.name} · mouse · ${st}`).toEqual([]);
+      const low = Math.max(...M.slots.map(r => r.y + r.h));
+      expect(c.h - c.insets.bottom - low, c.name).toBeLessThanOrEqual(16);
+      if (!M.desk) continue;
+      // never smaller than a tablet's on a desktop
+      expect(M.slots[0].h, c.name).toBeGreaterThanOrEqual(F.slots[0].h - 0.5);
+      expect(M.s * M.k, c.name).toBeGreaterThanOrEqual(F.s * F.k - 0.5);
+      if (kind !== 'big') continue;
+      // a big screen: the figures half again as large as the tablet's street, the rows deeper, no thin street under an empty sky
+      expect(M.s * M.k, c.name).toBeGreaterThanOrEqual(1.45 * F.s * F.k);
+      expect(M.depth, c.name).toBeGreaterThanOrEqual(1.3 * F.depth);
+      expect(M.groundY - M.top, c.name).toBeGreaterThanOrEqual(0.6 * (M.fieldBottom - M.top));
+      // the strip and the type grow past the tablet's caps
+      expect(M.slots[0].h, c.name).toBeGreaterThanOrEqual(124 * Math.min(1.04, M.tk) - 0.5);
+      expect(M.tk, c.name).toBeGreaterThan(1);
+    }
+    const qhd = layout(BIG[1].w, BIG[1].h, BIG[1].insets, false);
+    expect(qhd.slots[0].h).toBeGreaterThanOrEqual(170);
+    expect(qhd.u).toBeCloseTo(1587 / 880, 3);
+  });
+
+  it('a mouse: a portrait lights up with its tooltip (name, role, special), the bell too; over the street the portrait a click fires is ringed; a finger has none of it', () => {
+    const p = play(FULLHD, false);
+    const L = p.view.L, sim = p.sim;
+    expect(L.desk).toBe(true);
+    // a portrait: lit and a hand at once, the tooltip after a moment's rest
+    move(p, mid(L.slots[2]));
+    expect(p.view.hud.hover).toEqual({ kind: 'slot', i: 2 });
+    expect(p.canvas.style.cursor).toBe('pointer');
+    expect(p.view.tip).toBeNull();
+    frames(p, 40);
+    expect(p.view.tip?.title).toContain(heroName(sim.battle.heroBySlot(2)!.kind));
+    // the bell
+    move(p, mid(L.bell), 40);
+    expect(p.view.hud.hover).toEqual({ kind: 'bell', i: 0 });
+    expect(p.view.tip?.title).toBe(t('hud.bell'));
+    // the street: the ready hero a click would fire wears the ring; Harmony ready: the bell
+    for (const h of sim.battle.heroes) h.energy = 0;
+    const h0 = sim.battle.heroBySlot(1)!;
+    h0.energy = RULES.energyMax;
+    const street = { x: L.w * 0.55, y: (L.top + L.fieldBottom) / 2 };
+    move(p, street);
+    expect(p.view.tip).toBeNull();
+    expect(sim.fighting).toBe(true);
+    expect(p.view.hud.hover).toEqual({ kind: 'aim', i: 1 });
+    sim.harmonyReady = true;
+    frames(p, 1);
+    expect(p.view.hud.hover).toEqual({ kind: 'aim', i: -1 });
+    // and a click there rings it
+    p.game.pointer!({ type: 'down', ...street, id: 1 });
+    p.game.pointer!({ type: 'up', ...street, id: 1 });
+    expect(sim.harmonyReady).toBe(false);
+    // the boons: the card under the mouse
+    sim.choice = { ids: BOON_IDS.slice(0, 3), gold: false, t: 1 };
+    move(p, mid(L.cards[1]));
+    expect(p.view.hud.hover).toEqual({ kind: 'card', i: 1 });
+    expect(p.canvas.style.cursor).toBe('pointer');
+    // a finger: no hover, no tooltip
+    const f = play(FULLHD, true);
+    move(f, mid(f.view.L.slots[2]), 40);
+    expect(f.view.hud.hover).toBeNull();
+    expect(f.view.tip).toBeNull();
+  });
+
+  it('keeps the font floor on a big screen and grows the type with it (playing, a tooltip, the boons, a story card)', () => {
+    const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+    const sizesOf = (size: Size, touch: boolean): number[] => {
+      FONTS.length = 0;
+      const p = play(size, touch);
+      move(p, mid(p.view.L.slots[0]), 40);
+      p.sim.choice = { ids: BOON_IDS.slice(0, 3), gold: true, t: 1 };
+      frames(p, 3);
+      play(size, touch, {});
+      return [...FONTS];
+    };
+    const phone = sizesOf(CHECK_SIZES[0], true);
+    expect(Math.min(...phone)).toBeGreaterThanOrEqual(MIN_TEXT);
+    for (const c of CHECK_SIZES.filter(x => layout(x.w, x.h, x.insets, false).desk)) {
+      const desk = sizesOf(c, false);
+      expect(Math.min(...desk), c.name).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(median(sizesOf(BIG[1], false))).toBeGreaterThanOrEqual(median(phone) * 1.25);
+  });
+
+  it('Klara speaks of clicks and keys to a mouse: every line about the hand has a mouse’s words in four languages', () => {
+    const FINGER = { pl: /stuk|palc/i, en: /\btap|finger/i, de: /tipp|finger/i, sv: /tryck på (den|ett|en|porträttet|klockan)|ett tryck|du trycker/i } as const;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const m of MOMENTS) {
+        for (let i = 1; i <= LINE_COUNT[m]; i++) {
+          const k = `say.${m}.${i}`;
+          if (!HAND_LINES.has(k)) {
+            expect(String(cat[k]), `${l} ${k}`).not.toMatch(FINGER[l]);
+            continue;
+          }
+          const v = String(cat[`${k}.keys`]);
+          expect(v.length, `${l} ${k}.keys`).toBeLessThanOrEqual(90);
+          expect(v, `${l} ${k}.keys`).not.toMatch(l === 'sv' ? /tryck på (den|porträttet)|ett tryck|du trycker/i : FINGER[l]);
+        }
+      }
+      for (const k of ['hud.ready.keys', 'card.tap.keys', 'coach.ult.keys', 'coach.bell.keys', 'coach.well.keys', 'howto.ult.keys', 'howto.well.keys', 'hover.bellReady', 'hover.bellWait', 'hover.dial']) {
+        expect(typeof cat[k], `${l} ${k}`).toBe('string');
+      }
+    }
+    expect(linesFor(false).warm[1]).toBe(t('say.warm.2.keys'));
+    expect(linesFor(true)).toBe(LINES);
   });
 });

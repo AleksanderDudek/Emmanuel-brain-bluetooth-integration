@@ -23,7 +23,7 @@ import {
   PESTS, big, bossName, catName, f1, famName, fishText, gradeColor, gradeName, goldText, placeName, trickName, type PlaceId, type Toy,
 } from './content';
 import { t } from './i18n';
-import { BUYS, cellRect, confirmButtons, inRect, layout, seat, toPx, wallRow, type Layout, type Rect } from './layout';
+import { BUYS, capBox, cellRect, confirmButtons, inRect, layout, seat, toPx, wallRow, type Layout, type Rect } from './layout';
 import { aimMult, bowlMult, costOf, pawsMult, shopGrade, type BuyId } from './meta';
 import {
   BADGE_MIN, CAT_POSE, CREAM, GOLD, INK, SANS, bubble, ell, fitFont, font, glow, label, paintBadge, paintBoss, paintBrother, paintCat,
@@ -89,6 +89,13 @@ export class KotyView {
   /** buttons held down (the index repeats purchases), the paw pressed */
   pressed: BuyId | null = null;
   pawDown = false;
+  /**
+   * A desktop: what the mouse is over (index.ts sets it) — a cell or a cat lit (a toy's mates glow: where a
+   * click would merge it), a button lit; the pest a click would target (field u, a crosshair); the tooltip.
+   */
+  hover: Hit | null = null;
+  hoverPest: { x: number; y: number } | null = null;
+  tip: { text: string; x: number; y: number; k: number } | null = null;
   /** a control a coach mark talks about: it glows while the runner's bubble says what to do with it */
   private ring: { at: CoachAt; t: number; dur: number } | null = null;
   /** seconds the runner's coach mark stays up: Brother Anselm's bubble steps aside meanwhile */
@@ -110,7 +117,7 @@ export class KotyView {
 
   resize(w: number, h: number, dpr: number, ins: Insets): void {
     this.dpr = dpr;
-    this.L = layout(w, h, ins);
+    this.L = layout(w, h, ins, this.touch);
     this.cacheKey = '';
     this.verse = null;
     this.lines.clear();
@@ -383,9 +390,45 @@ export class KotyView {
     ctx.translate(off.x, off.y);
     this.drawWorld(ctx, sim);
     if (trace) this.drawPrints(ctx, trace, now);
+    if (this.hoverPest && !sim.frozen) {
+      // the pest a click would make the squad's target
+      const L = this.L, p = toPx(L, this.hoverPest.x, this.hoverPest.y);
+      ctx.globalAlpha = 0.75;
+      this.crosshair(ctx, p.x, p.y, Math.max(16, L.s * 0.55));
+      ctx.globalAlpha = 1;
+    }
     ctx.restore();
     this.drawHud(ctx, sim);
+    if (this.tip && !sim.frozen) this.drawTip(ctx, this.tip.text, this.tip.x, this.tip.y, this.tip.k);
     this.drawCards(ctx, sim);
+  }
+
+  /** A short tooltip by the control the mouse rests on (a desktop), on a dark plate with a tick down to (x, y). */
+  private drawTip(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, k: number): void {
+    const L = this.L, u = L.u;
+    ctx.save();
+    ctx.globalAlpha = clamp(k);
+    const px = Math.max(MIN_READ, 13.5 * u);
+    const s = fitText(ctx, text, Math.min(460 * u, L.w - 24), px, 700, SANS, MIN_READ);
+    const w = ctx.measureText(s).width + 22 * u, h = 30 * u;
+    const bx = clamp(x - w / 2, 8, L.w - w - 8), by = Math.max(L.top + 4, y - h - 10 * u);
+    rr(ctx, bx, by, w, h, 8 * u);
+    ctx.fillStyle = 'rgba(26,16,10,.94)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,214,140,.6)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    const tx = clamp(x, bx + 12 * u, bx + w - 12 * u);
+    ctx.beginPath();
+    ctx.moveTo(tx - 6 * u, by + h - 0.5);
+    ctx.lineTo(tx, by + h + 6 * u);
+    ctx.lineTo(tx + 6 * u, by + h - 0.5);
+    ctx.fill();
+    ctx.fillStyle = CREAM;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(s, bx + w / 2, by + h / 2 + 0.5);
+    ctx.restore();
   }
 
   private ensureCache(place: PlaceId): void {
@@ -608,7 +651,8 @@ export class KotyView {
       // pressed or the drop's landing place: a ring of light under the finger
       const pressed = same(this.press, { kind: 'slot', i }) && !this.drag?.moved;
       const landing = !!this.drag?.moved && same(this.drag.snap, { kind: 'slot', i });
-      if (pressed || landing) {
+      const lit = !this.drag && this.hover?.kind === 'slot' && this.hover.i === i;
+      if (pressed || landing || lit) {
         const merge = landing && this.isMate({ kind: 'slot', i }, sim);
         ctx.strokeStyle = merge ? GOLD : 'rgba(255,244,220,.9)';
         ctx.lineWidth = 3;
@@ -744,6 +788,14 @@ export class KotyView {
   private dropHot(l: Loc, sim: KotySim): number {
     const d = this.drag;
     if (!d) {
+      // a mouse over a toy: it and its mates glow (a click merges it with one, or hands it to a cat)
+      const hv = this.hover;
+      if (hv && (hv.kind === 'chest' || hv.kind === 'slot')) {
+        const at: Loc = { kind: hv.kind, i: hv.i }, toy = sim.toyAt(at);
+        if (same(at, l)) return 0.55;
+        const other = sim.toyAt(l);
+        if (toy && other && other.g === toy.g && toy.g < RULES.grades) return 0.3 + 0.25 * (0.5 + 0.5 * Math.sin(this.clock * 6));
+      }
       const p = this.pair;
       return p && (same(p.from, l) || same(p.to, l)) ? 0.15 + 0.25 * (0.5 + 0.5 * Math.sin(this.clock * 3.5)) : 0;
     }
@@ -865,6 +917,12 @@ export class KotyView {
     }
   }
 
+  /** A place's box on screen: a chest cell, or a cat from its ears to its cushion (a tooltip stands over it). */
+  locBox(l: Loc, sim: KotySim): Rect {
+    if (l.kind === 'chest') return cellRect(this.L, l.i);
+    return wallRow(this.L, sim.cushions.length).hit[l.i] ?? cellRect(this.L, 0);
+  }
+
   /** Where the dragged toy is drawn (and where it lands): above the finger, pulled a little toward its landing place. */
   dragPoint(): { x: number; y: number } {
     const d = this.drag;
@@ -947,6 +1005,19 @@ export class KotyView {
   }
 
   /** A button's label in one line, or two at a space, from `px` down to `min` (then cut). */
+  /** A label on one line from `px` down to `min` (half a pixel a step), or null where it does not fit that way. */
+  private oneLine(ctx: CanvasRenderingContext2D, text: string, maxW: number, px: number, min: number, weight: number): { lines: string[]; size: number } | null {
+    const key = `1|${text}|${Math.round(maxW)}|${px}|${min}|${weight}`;
+    if (this.lines.has(key)) return this.lines.get(key)!.lines.length ? this.lines.get(key)! : null;
+    let out: { lines: string[]; size: number } = { lines: [], size: min };
+    for (let size = px; size >= min; size -= 0.5) {
+      ctx.font = font(size, weight);
+      if (ctx.measureText(text).width <= maxW) { out = { lines: [text], size }; break; }
+    }
+    this.lines.set(key, out);
+    return out.lines.length ? out : null;
+  }
+
   private labelLines(ctx: CanvasRenderingContext2D, text: string, maxW: number, px: number, min: number, weight: number): { lines: string[]; size: number } {
     const key = `${text}|${Math.round(maxW)}|${px}|${min}|${weight}`;
     const known = this.lines.get(key);
@@ -990,12 +1061,16 @@ export class KotyView {
       ctx.fillStyle = 'rgba(20,12,8,.45)';
       ctx.fill();
     }
+    const lit = !down && this.hover?.kind === 'up' && this.hover.id === id;
     rr(ctx, r.x, r.y, r.w, r.h, 12 * u);
-    ctx.fillStyle = down ? (can ? '#5e3b22' : 'rgba(50,36,26,.9)') : can ? '#7a4f2f' : 'rgba(70,50,36,.9)';
+    ctx.fillStyle = down ? (can ? '#5e3b22' : 'rgba(50,36,26,.9)') : can ? (lit ? '#8c5d38' : '#7a4f2f') : lit ? 'rgba(84,62,46,.92)' : 'rgba(70,50,36,.9)';
     ctx.fill();
-    ctx.strokeStyle = can ? 'rgba(255,214,140,.8)' : 'rgba(255,255,255,.16)';
-    ctx.lineWidth = can ? 2 : 1;
+    ctx.strokeStyle = lit ? 'rgba(255,236,190,.95)' : can ? 'rgba(255,214,140,.8)' : 'rgba(255,255,255,.16)';
+    ctx.lineWidth = lit ? 2.5 : can ? 2 : 1;
     ctx.stroke();
+    // a desktop: the key that buys it (1–4) in its top right corner
+    const cap = capBox(L, r);
+    if (cap) keyCap(ctx, cap.x + cap.w / 2, cap.y + cap.h / 2, String(BUYS.indexOf(id) + 1), u, can);
     const p = sim.p;
     const name = t(`up.${id}` as 'up.aim');
     const fx = id === 'aim' ? t('up.aim.fx', { x: f1(aimMult(p.up.aim)) })
@@ -1026,7 +1101,10 @@ export class KotyView {
       const tx = r.x + ir * 2 + 16, tw = r.x + r.w - tx - 5;
       // the name on one line, with the effect (and the level when it fits) under it; a long name takes two
       // lines and leaves the effect out (German on a phone on its side)
-      const lab = this.labelLines(ctx, name, tw, Math.min(14 * u, r.h * 0.3), 11.5, 800);
+      // (a desktop's key cap sits at the title's right end: the title is fitted to the room left of it — on one
+      // line a little smaller where it can, so the effect under it stays, else on two)
+      const room = cap ? Math.min(tw, cap.x - 10 * u - tx) : tw, px0 = Math.min(14 * u, r.h * 0.3);
+      const lab = (cap ? this.oneLine(ctx, name, room, px0, Math.max(11.5, px0 * 0.82), 800) : null) ?? this.labelLines(ctx, name, room, px0, 11.5, 800);
       ctx.font = font(lab.size, 800);
       ctx.fillStyle = CREAM;
       ctx.textAlign = 'left';
@@ -1081,7 +1159,8 @@ export class KotyView {
     }
     rr(ctx, r.x, r.y, r.w, r.h, 12 * u);
     const beat = 0.5 + 0.5 * Math.sin(this.clock * 9);
-    ctx.fillStyle = hunt ? (this.pawDown ? '#b8862a' : '#d9a23a') : this.pawDown ? '#46602d' : '#5a7a3a';
+    const lit = !this.pawDown && this.hover?.kind === 'paw';
+    ctx.fillStyle = hunt ? (this.pawDown ? '#b8862a' : lit ? '#e6b04a' : '#d9a23a') : this.pawDown ? '#46602d' : lit ? '#668a44' : '#5a7a3a';
     ctx.fill();
     ctx.strokeStyle = hunt ? `rgba(255,240,170,${0.6 + 0.4 * beat})` : 'rgba(220,255,180,.6)';
     ctx.lineWidth = hunt ? 3 : 2;
@@ -1247,7 +1326,7 @@ export class KotyView {
       ctx.font = font(Math.max(MIN_READ, 13 * u), 700);
       ctx.fillStyle = '#8a6448';
       ctx.textBaseline = 'bottom';
-      ctx.fillText(t('story.tap'), c.x + c.w / 2, c.y + c.h - 12 * u);
+      ctx.fillText(t(this.touch ? 'story.tap' : 'story.tap.keys'), c.x + c.w / 2, c.y + c.h - 12 * u);
     }
     ctx.globalAlpha = 1;
   }
@@ -1368,6 +1447,28 @@ export class KotyView {
 }
 
 /** Text fitted into a width (down to `min`, never under MIN_TEXT, then cut with "…"). */
+/** A key cap centred on (x, y) (a desktop): a small light key with its digit; `lit`: it does something now. */
+function keyCap(ctx: CanvasRenderingContext2D, x: number, y: number, key: string, u: number, lit = false): void {
+  const h = 18 * u;
+  ctx.save();
+  ctx.font = font(12 * u, 800);
+  const w = Math.max(h, ctx.measureText(key).width + 10 * u);
+  rr(ctx, x - w / 2, y - h / 2 + 2 * u, w, h, 5 * u);
+  ctx.fillStyle = 'rgba(20,12,8,.4)';
+  ctx.fill();
+  rr(ctx, x - w / 2, y - h / 2, w, h, 5 * u);
+  ctx.fillStyle = lit ? '#ffe7a3' : '#fff4dc';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(58,40,22,.6)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.fillStyle = INK;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(key, x, y + 0.5);
+  ctx.restore();
+}
+
 function fitAndFill(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, px: number, color: string, align: CanvasTextAlign, weight = 800, min = MIN_TEXT): void {
   const s = fitText(ctx, text, Math.max(10, maxW), Math.max(min, px), weight, SANS, Math.max(MIN_TEXT, min));
   ctx.fillStyle = color;

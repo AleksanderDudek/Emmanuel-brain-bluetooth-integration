@@ -210,6 +210,8 @@ export class Hud {
   private pulse = 0;
   /** the horn's button shakes a moment when pressed before it is ready */
   private hornNo = 0;
+  /** where each of the five stores was drawn this frame (a desktop's tooltips name them) */
+  storeRects: Rect[] = [];
 
   constructor(private readonly touch: boolean) {}
 
@@ -251,16 +253,46 @@ export class Hud {
     }
   }
 
-  draw(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, banner: Banner | null, press: Press): void {
-    this.panel(ctx, sim, L, press);
+  draw(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, banner: Banner | null, press: Press, hover: Press = null): void {
+    this.panel(ctx, sim, L, press, hover);
     if (banner) this.drawBanner(ctx, L, banner);
     this.layoutCards(ctx, sim, L);
     if (sim.story && this.storyLay) this.story(ctx, sim, L, this.storyLay);
-    else if (sim.choice && this.choiceLay) this.choice(ctx, sim, L, this.choiceLay, press);
+    else if (sim.choice && this.choiceLay) this.choice(ctx, sim, L, this.choiceLay, press, hover);
+  }
+
+  /**
+   * A short tooltip by the control the mouse rests on (a desktop): what it is and its key, on a dark plate with a
+   * tick down to (x, y); `k` fades it in.
+   */
+  drawTip(ctx: CanvasRenderingContext2D, L: Layout, text: string, x: number, y: number, k: number): void {
+    const u = L.u;
+    ctx.save();
+    ctx.globalAlpha = clamp(k);
+    const s = fitText(ctx, text, Math.min(440 * u, L.right - L.left - 16), 14 * u, 700, SANS, MIN_READ);
+    const w = ctx.measureText(s).width + 22 * u, h = 30 * u;
+    const bx = clamp(x - w / 2, L.left, L.right - w), by = Math.max(L.top + 4, y - h - 10 * u);
+    ctx.fillStyle = 'rgba(22,16,12,.94)';
+    roundRect(ctx, bx, by, w, h, 8 * u);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,211,107,.6)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    const tx = clamp(x, bx + 12 * u, bx + w - 12 * u);
+    ctx.beginPath();
+    ctx.moveTo(tx - 6 * u, by + h - 0.5);
+    ctx.lineTo(tx, by + h + 6 * u);
+    ctx.lineTo(tx + 6 * u, by + h - 0.5);
+    ctx.fill();
+    ctx.fillStyle = '#fff4dc';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(s, bx + w / 2, by + h / 2 + 0.5);
+    ctx.restore();
   }
 
   // ── the panel: the stores, the guide's button, the horn ──────────
-  private panel(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, press: Press): void {
+  private panel(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, press: Press, hover: Press): void {
     const p = L.panel;
     // a soft dark foot, so the buttons read on sand and on the night alike
     const g = ctx.createLinearGradient(0, p.y - 16, 0, p.y + 30);
@@ -270,9 +302,17 @@ export class Hud {
     ctx.fillRect(0, p.y - 16, L.w, L.h - p.y + 16);
     this.stores(ctx, sim, L);
     if (sim.nightTime) {
-      this.rush(ctx, sim, L, press?.kind === 'rush');
-      this.horn(ctx, sim, L, press?.kind === 'horn');
-    } else this.guide(ctx, sim, L, press?.kind === 'guide');
+      this.rush(ctx, sim, L, press?.kind === 'rush', !press && hover?.kind === 'rush');
+      this.horn(ctx, sim, L, press?.kind === 'horn', !press && hover?.kind === 'horn');
+      // a desktop: Space blows a ready horn, else sends Nehemiah to the wall
+      if (L.desk) {
+        if (sim.hornReady) keyCap(ctx, L.horn.x + L.horn.r * 0.78, L.horn.y - L.horn.r * 0.78, ' ', L.u, true);
+        else keyCap(ctx, L.rush.x + L.rush.w - 22 * L.u, L.rush.y + 4 * L.u, ' ', L.u);
+      }
+    } else {
+      this.guide(ctx, sim, L, press?.kind === 'guide', !press && hover?.kind === 'guide');
+      if (L.desk && sim.guideId) keyCap(ctx, L.guide.x + L.guide.w - 22 * L.u, L.guide.y + 4 * L.u, ' ', L.u, true);
+    }
   }
 
   private stores(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout): void {
@@ -294,7 +334,9 @@ export class Hud {
     ctx.textAlign = 'left';
     let x = b.x + fit.pad;
     const y = b.y + b.h / 2;
+    this.storeRects = [];
     items.forEach((it, i) => {
+      this.storeRects.push({ x: x - fit.gap / 2, y: b.y, w: fit.widths[i] + fit.gap, h: b.h });
       it.icon(x + fit.r, y, fit.r);
       ctx.fillStyle = it.warn ? '#ffb39a' : '#fff4dc';
       ctx.fillText(it.text, x + fit.r * 2 + fit.gapIcon, y + 1);
@@ -321,7 +363,7 @@ export class Hud {
   }
 
   /** By day: what the guide suggests and its cost; a tap builds it. */
-  private guide(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, pressed: boolean): void {
+  private guide(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, pressed: boolean, lit = false): void {
     const g = L.guide, u = L.u;
     let name = '', cost: { stone: number; timber: number } | null = null;
     const on = !!sim.guideId;
@@ -333,7 +375,7 @@ export class Hud {
     } else name = t('hud.nextNone');
     ctx.save();
     const glowA = 0.55 + 0.35 * Math.sin(this.pulse * 4);
-    this.slab(ctx, g, on ? (pressed ? '#ffe2a0' : '#ffecbe') : 'rgba(28,20,14,.8)', on ? `rgba(214,150,40,${glowA})` : 'rgba(255,255,255,.18)', on ? 2.5 : 1.5, pressed);
+    this.slab(ctx, g, on ? (pressed ? '#ffe2a0' : lit ? '#fff4d6' : '#ffecbe') : 'rgba(28,20,14,.8)', on ? (lit ? '#c98a1e' : `rgba(214,150,40,${glowA})`) : 'rgba(255,255,255,.18)', on ? (lit ? 3.5 : 2.5) : 1.5, pressed);
     const dy = pressed ? 2 : 0;
     const ink = on ? C.ink : '#fff4dc';
     // the play mark
@@ -383,11 +425,11 @@ export class Hud {
   }
 
   /** By night: "To the wall!" (or after a raider inside the city) with the night's tally; a tap sends Nehemiah. */
-  private rush(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, pressed: boolean): void {
+  private rush(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, pressed: boolean, lit = false): void {
     const g = L.rush, u = L.u;
     const inside = sim.raiders.some(r => r.state !== 'flee' && r.y > RULES.wallIn);
     ctx.save();
-    this.slab(ctx, g, pressed ? 'rgba(58,50,92,.95)' : 'rgba(34,30,60,.9)', inside ? 'rgba(255,150,120,.8)' : 'rgba(255,236,200,.4)', inside ? 2.5 : 1.5, pressed);
+    this.slab(ctx, g, pressed ? 'rgba(58,50,92,.95)' : lit ? 'rgba(52,46,86,.95)' : 'rgba(34,30,60,.9)', inside ? 'rgba(255,150,120,.8)' : lit ? 'rgba(255,236,200,.85)' : 'rgba(255,236,200,.4)', inside || lit ? 2.5 : 1.5, pressed);
     const dy = pressed ? 2 : 0;
     // an arrow up, to the wall
     const ax = g.x + g.h * 0.4, ay = g.y + g.h / 2 + dy, as = g.h * 0.17;
@@ -413,7 +455,7 @@ export class Hud {
   }
 
   /** The ram's horn: its charge as a ring; ready, it turns gold and pulses, and a tap blows it. */
-  private horn(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, pressed: boolean): void {
+  private horn(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, pressed: boolean, lit = false): void {
     const { x, y, r } = L.horn;
     const ready = sim.hornReady, u = L.u;
     const shake = this.hornNo > 0 ? Math.sin(this.hornNo * 70) * 4 * (this.hornNo / 0.4) : 0;
@@ -428,7 +470,7 @@ export class Hud {
       ctx.arc(0, 0, r + 6 + 3 * b, 0, Math.PI * 2);
       ctx.stroke();
     }
-    const k = (pressed ? 0.9 : 1) * (ready ? 1 + 0.04 * Math.sin(this.pulse * 6) : 1);
+    const k = (pressed ? 0.9 : 1) * (ready ? 1 + 0.04 * Math.sin(this.pulse * 6) : 1) * (lit ? 1.05 : 1);
     ctx.scale(k, k);
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath();
@@ -538,7 +580,7 @@ export class Hud {
   }
 
   // ── the choice cards ────────────────────────────────────────────
-  private choice(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, lay: ChoiceLayout, press: Press): void {
+  private choice(ctx: CanvasRenderingContext2D, sim: NehSim, L: Layout, lay: ChoiceLayout, press: Press, hover: Press = null): void {
     const c = sim.choice!, u = L.u;
     const ct = choiceText(c);
     const a = clamp(c.t / 0.3);
@@ -554,6 +596,7 @@ export class Hud {
     ct.options.forEach((opt, i) => {
       const r = lay.cards[i];
       const pressed = press?.kind === 'card' && press.i === i;
+      const lit = !pressed && hover?.kind === 'card' && hover.i === i;
       const pop = ease.outBack(clamp((c.t - i * 0.06) / 0.3)) * (pressed ? 0.97 : 1);
       ctx.save();
       ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
@@ -562,9 +605,10 @@ export class Hud {
       ctx.fillStyle = pressed ? '#ffe6b0' : i === 0 ? '#fff1cf' : C.paper;
       roundRect(ctx, r.x, r.y, r.w, r.h, 14 * u);
       ctx.fill();
-      ctx.strokeStyle = pressed ? C.gold : i === 0 ? '#d6a24a' : C.paperEdge;
-      ctx.lineWidth = pressed ? 3 : 2;
+      ctx.strokeStyle = pressed || lit ? C.gold : i === 0 ? '#d6a24a' : C.paperEdge;
+      ctx.lineWidth = pressed || lit ? 3 : 2;
       ctx.stroke();
+      if (L.desk) keyCap(ctx, r.x + r.w - 12 * u - 9.5 * u, r.y + 12 * u + 9.5 * u, String(i + 1), u);
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       let y = r.y + lay.pad;
@@ -591,6 +635,44 @@ export class Hud {
     });
     ctx.restore();
   }
+}
+
+/**
+ * A key cap centred on (x, y) (a desktop): a small light key with its digit, or — for ' ' — the space bar's
+ * bracket drawn as a line; `lit`: the key does something now.
+ */
+function keyCap(ctx: CanvasRenderingContext2D, x: number, y: number, key: string, u: number, lit = false): void {
+  const h = 19 * u;
+  ctx.save();
+  ctx.font = font(12.5 * u, 800);
+  const space = key === ' ';
+  const w = space ? 30 * u : Math.max(h, ctx.measureText(key).width + 10 * u);
+  ctx.fillStyle = 'rgba(22,16,12,.4)';
+  roundRect(ctx, x - w / 2, y - h / 2 + 2 * u, w, h, 5 * u);
+  ctx.fill();
+  ctx.fillStyle = lit ? '#ffe7a3' : '#fff4dc';
+  roundRect(ctx, x - w / 2, y - h / 2, w, h, 5 * u);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(58,40,22,.6)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.strokeStyle = ctx.fillStyle = '#3a2a1a';
+  if (space) {
+    ctx.lineWidth = 1.8 * u;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - 8 * u, y - 2.5 * u);
+    ctx.lineTo(x - 8 * u, y + 3 * u);
+    ctx.lineTo(x + 8 * u, y + 3 * u);
+    ctx.lineTo(x + 8 * u, y - 2.5 * u);
+    ctx.stroke();
+  } else {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(key, x, y + 0.5);
+  }
+  ctx.restore();
 }
 
 /** A laid-out passage, centred on `cx` from `top` down, its reference at a readable size. */

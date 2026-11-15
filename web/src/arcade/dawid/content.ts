@@ -403,5 +403,17 @@ export const LINES: Readonly<Record<Moment, readonly string[]>> = Object.fromEnt
   MOMENTS.map(m => [m, Array.from({ length: LINE_COUNT[m] }, (_, i) => t(`say.${m}.${i + 1}` as Key))]),
 ) as unknown as Record<Moment, readonly string[]>;
 
+/** The lamb's lines that speak of the hand ("Stuknij!"): a mouse hears their `.keys` words (a click, a key). */
+export const HAND_LINES: ReadonlySet<string> = new Set(['say.warm.1', 'say.hunt.2', 'say.stoneReady.1', 'say.stoneReady.3', 'say.bagFull.3']);
+
+/** The lamb's lines for the player's hand: a finger's (LINES), or a mouse's (the hand's lines in its own words). */
+export function linesFor(touch: boolean): Readonly<Record<Moment, readonly string[]>> {
+  if (touch) return LINES;
+  return Object.fromEntries(MOMENTS.map(m => [m, Array.from({ length: LINE_COUNT[m] }, (_, i) => {
+    const k = `say.${m}.${i + 1}`;
+    return t((HAND_LINES.has(k) ? `${k}.keys` : k) as Key);
+  })])) as unknown as Record<Moment, readonly string[]>;
+}
+
 /** Goliath's taunts (his own bubble; he shouts, the lamb answers) and the giants' */
 export const TAUNTS: readonly string[] = [t('taunt.1'), t('taunt.2'), t('taunt.3'), t('taunt.4')];

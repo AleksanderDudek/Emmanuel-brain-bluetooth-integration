@@ -18,12 +18,14 @@
  * all drawn with paint.ts), the sound (audio.ts) and the lobby's card (panel.ts); the words in i18n.ts.
  */
 import type { FocusFrame } from '../kit/focus';
-import { buzz } from '../kit/juice';
+import { buzz, clamp } from '../kit/juice';
+import { coarsePointer } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { DziewiatkaSound } from './audio';
+import { HEROES, heroName, heroText, roleName, ultName } from './content';
 import { t, unit, type Key } from './i18n';
 import { CHOICE_GUARD, inRect, slotAt, targetsFor, toScreen } from './layout';
-import { bestOf, freshProgress, migrate, type DziewiatkaProgress } from './meta';
+import { bestOf, freshProgress, migrate, nextToEquip, type DziewiatkaProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { DziewiatkaView } from './render';
@@ -39,11 +41,17 @@ class DziewiatkaGame implements ArcadeGame {
   private hintCool = 0;
   /** a finger on a boon card: the card is taken when it lifts on the same card (a tap, not a brush) */
   private cardDown = -1;
+  /** a mouse over the canvas (a desktop): where it is, when it last moved; what it rests on and since when */
+  private mouse: { x: number; y: number; t: number } | null = null;
+  private resting: { what: string; t: number } | null = null;
+  private cursor = '';
+  private now = 0;
 
   constructor(private readonly env: GameEnv<DziewiatkaProgress>) {
     migrate(env.progress);
     this.sim = new DziewiatkaSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      touch: env.touch,
     });
     this.view = new DziewiatkaView(env.canvas, { reducedMotion: env.reducedMotion });
     this.view.touch = env.touch;
@@ -67,12 +75,91 @@ class DziewiatkaGame implements ArcadeGame {
   }
 
   update(dt: number, f: FocusFrame, t: number): void {
+    this.now += dt;
     this.sim.update(dt, f, t);
     this.drain();
     this.view.update(dt, this.sim, f, t);
     this.sound.update(dt, this.sim);
     this.hintCool -= dt;
     this.flushHints();
+    this.hover();
+  }
+
+  /**
+   * A mouse (a desktop): what is under it answers.  A portrait, the bell or a boon card lights up and the cursor
+   * becomes a hand; after a moment's rest a tooltip names the hero, the role and the special (the bell: Harmony;
+   * the dial: what the band drives).  Over the street the portrait a click would fire wears a dashed gold ring —
+   * the one that waited longest, the bell when Harmony is ready, at the well whoever a piece fits — and the
+   * cursor says a click does something.  A finger has no hover.
+   */
+  private hover(): void {
+    const sim = this.sim, view = this.view, hud = view.hud, L = view.L, ms = this.mouse;
+    hud.hover = null;
+    let cursor = '', what = '';
+    let tip: { title: string; text: string; x: number; y: number } | null = null;
+    if (!this.env.touch && ms && this.now - ms.t < 4 && sim.started && sim.phase !== 'done') {
+      if (sim.story || sim.tally) cursor = 'pointer';
+      else if (sim.choice) {
+        const i = hud.cardAt(L, ms.x, ms.y);
+        if (i >= 0 && i < sim.choice.ids.length) {
+          hud.hover = { kind: 'card', i };
+          cursor = sim.choice.t >= CHOICE_GUARD ? 'pointer' : '';
+        }
+      } else {
+        const slot = slotAt(L, ms.x, ms.y);
+        const h = slot >= 0 ? sim.battle.heroBySlot(slot) : null;
+        if (h) {
+          hud.hover = { kind: 'slot', i: slot };
+          cursor = 'pointer';
+          what = `slot${slot}`;
+          const r = L.slots[slot];
+          tip = { title: `${heroName(h.kind)} · ${roleName(HEROES[h.kind].role)}`, text: `${ultName(h.kind)}: ${heroText(h.kind)}`, x: r.x + r.w / 2, y: r.y };
+        } else if (hud.bellAt(L, ms.x, ms.y)) {
+          hud.hover = { kind: 'bell', i: 0 };
+          cursor = 'pointer';
+          what = 'bell';
+          const r = L.bell;
+          tip = { title: t('hud.bell'), text: sim.harmonyReady ? t('hover.bellReady') : t('hover.bellWait', { n: Math.round(clamp(sim.harmony) * 100) }), x: r.x + r.w / 2, y: r.y };
+        } else if (inRect(L.dial, ms.x, ms.y)) {
+          what = 'dial';
+          const r = L.dial;
+          tip = { title: t('hud.energy'), text: t('hover.dial'), x: r.x + r.w / 2, y: r.y };
+        } else if (ms.y < L.fieldBottom) {
+          // the street: what a click there fires
+          const aim = this.aim();
+          if (aim !== null) {
+            hud.hover = { kind: 'aim', i: aim };
+            cursor = 'pointer';
+          }
+        }
+      }
+    }
+    if (what && tip) {
+      if (!this.resting || this.resting.what !== what) this.resting = { what, t: this.now };
+      const k = (this.now - this.resting.t - 0.4) / 0.2;
+      view.tip = k > 0 ? { ...tip, k: Math.min(1, k) } : null;
+    } else {
+      this.resting = null;
+      view.tip = null;
+    }
+    if (cursor !== this.cursor) {
+      this.cursor = cursor;
+      this.env.canvas.style.cursor = cursor;
+    }
+  }
+
+  /** What a click on the street fires now (sim.tap's own order): the bell (−1), a portrait's slot, or nothing (null). */
+  private aim(): number | null {
+    const sim = this.sim;
+    if (sim.atWell) {
+      const id = nextToEquip(sim.p);
+      const h = id ? sim.battle.heroes.find(x => x.kind === id) : null;
+      return h ? h.slot : null;
+    }
+    if (!sim.fighting) return null;
+    if (sim.harmonyReady) return -1;
+    const h = sim.battle.readyHeroes[0];
+    return h ? h.slot : null;
   }
 
   /** Play only: before the start the calibration's intro scene stays on the canvas. */
@@ -87,6 +174,8 @@ class DziewiatkaGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view, hud = view.hud, L = view.L;
+    // a mouse moves without a button too: hover() answers what is under it
+    if (!this.env.touch) this.mouse = { x: e.x, y: e.y, t: this.now };
     if (e.type === 'move') return;
     if (e.type === 'up') {
       const i = this.cardDown;
@@ -152,10 +241,11 @@ class DziewiatkaGame implements ArcadeGame {
     }
   }
 
-  /** A coach mark's words for the hand the player has: a finger never hears of keys. */
+  /** A coach mark's words for the hand the player has: a finger never hears of keys, a mouse of taps. */
   private coachText(what: Coach): string {
-    const touchKey = `coach.${what}.touch`;
-    return t((this.env.touch && touchKey in TOUCH_COACH ? touchKey : `coach.${what}`) as Key);
+    const touchKey = `coach.${what}.touch`, mouseKey = `coach.${what}.keys`;
+    if (this.env.touch) return t((touchKey in TOUCH_COACH ? touchKey : `coach.${what}`) as Key);
+    return t((mouseKey in MOUSE_COACH ? mouseKey : `coach.${what}`) as Key);
   }
 
   /** The runner's coach mark, pointing at the thing it explains — never over a story card or the wipe's card. */
@@ -231,6 +321,8 @@ class DziewiatkaGame implements ArcadeGame {
 
 /** The coach marks that speak of keys on a desktop and have their own words for a finger. */
 const TOUCH_COACH: Readonly<Record<string, true>> = { 'coach.tap.touch': true };
+/** The coach marks that speak of tapping and have a mouse's words (a click, a key). */
+const MOUSE_COACH: Readonly<Record<string, true>> = { 'coach.ult.keys': true, 'coach.bell.keys': true, 'coach.well.keys': true };
 
 function haptic(e: SimEvent): void {
   switch (e.type) {
@@ -245,8 +337,22 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play: taps only (a phone's card leaves the keys' row out). */
+/**
+ * How to play: taps only (a phone's card leaves the keys' row out).  With a mouse (the runner's own test,
+ * `pointer: coarse`) a mouse's words, three rows and one tip, so the big screen's side column shows them whole.
+ */
 function howto(): HowTo {
+  if (!coarsePointer()) {
+    return {
+      goal: t('howto.goalShort'),
+      hands: [
+        { gesture: 'tap', text: t('howto.ult.keys') },
+        { gesture: 'tap', text: t('howto.well.keys') },
+        { gesture: 'keys', text: t('howto.keys') },
+      ],
+      tips: [t('howto.tip1.short')],
+    };
+  }
   return {
     goal: t('howto.goal'),
     hands: [

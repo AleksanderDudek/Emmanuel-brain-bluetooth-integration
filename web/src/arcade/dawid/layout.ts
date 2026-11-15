@@ -13,9 +13,14 @@
  *   the camp's sheet  in camp: from the bottom on a phone held upright or a tablet (two columns of tiles on a
  *                     phone, three or four on a tablet), from the right on a phone on its side or a desktop —
  *                     the field keeps the rest, with David in its middle
+ *
+ * A desktop with a mouse (DESIGN §14: `screenKind` says 'desktop' or 'big') gets a family of its own: the
+ * camera zooms with a big canvas (about 14.5 × 11 u in view, David over 100 px tall on a Full HD monitor's
+ * middle column), the great stone and the bag stand under David as an action bar with their keys, the party,
+ * health and the level in the hero's frame at the bottom left, a larger minimap, the camp's sheet from the right.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 
 /** Nothing to press within this many px of the screen's left and right edges (Safari's back swipe, DESIGN §12.2). */
@@ -61,8 +66,12 @@ export interface Layout {
   bottom: number;
   left: number;
   right: number;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, growing on a big screen (kit/mobile.ts) */
   u: number;
+  /** the kind of screen (kit/mobile.ts) */
+  kind: ScreenKind;
+  /** the desktop family (a mouse on a desktop or a big screen): the action bar under David, key caps, hover */
+  desk: boolean;
   /** a canvas wider than tall (a phone on its side, a desktop window) */
   side: boolean;
   /** the margin of the passive bits */
@@ -102,7 +111,14 @@ export function grow(r: Rect, min = MIN_TAP): Rect {
   return { x: r.x + r.w / 2 - w / 2, y: r.y + r.h / 2 - h / 2, w, h };
 }
 
-export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
+/**
+ * The play view's layout for a canvas of w × h CSS px with the runner's insets; `touch`: the primary input is a
+ * finger (a phone or a tablet keeps the phone's layout whatever its size; a mouse on a desktop-sized canvas
+ * gets the desktop family).
+ */
+export function layout(w: number, h: number, ins: Insets = NO_INSETS, touch = true): Layout {
+  const kind = screenKind(w, h, touch);
+  if (kind === 'desktop' || kind === 'big') return deskLayout(w, h, ins, kind);
   const u = uiScale(w, h);
   const top = clamp(ins.top, 0, h * 0.6);
   const bottom = Math.max(top + 120, h - ins.bottom);
@@ -171,8 +187,77 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
   const campKy = sheet.dock === 'right' ? ky : Math.max(field.top + s * 1.75, field.top + (sheet.head.y - field.top) * 0.78);
 
   return {
-    w, h, top, bottom, left, right, u, side, m, s, kx, ky, halfW, halfH, campKx, campKy, field,
+    w, h, top, bottom, left, right, u, kind, desk: false, side, m, s, kx, ky, halfW, halfH, campKx, campKy, field,
     lv, xp, hp, party, treasury, row, bag, stone, quest, mini, sheet, bannerY: field.top + 40 * u,
+  };
+}
+
+/** A key cap's room beside a control (the desktop family): its size at u. */
+export const CAP = 19;
+
+/**
+ * The desktop family (a mouse on a desktop or a big screen, DESIGN §14).  The world fills the canvas: the camera
+ * zooms with a big one (≈ 14.5 u across and 10.8 u down: ~80 px/u in a Full HD monitor's middle column, ~109 on a
+ * 2560 × 1440 one), a desktop under the top HUD keeps ≈ 9.2 u of height (as close as the phone's family there).  The great stone and the bag are an
+ * action bar right under David (the bottom's middle), each with its key cap; the party, health, the level's bar
+ * and the treasury stack in the hero's frame at the bottom left (at most 340·u wide, never a bar across the whole
+ * screen); the quest pill under the HUD on the left, a larger minimap on the right; the camp's sheet from the
+ * right (three columns), David in the middle of the field it leaves.
+ */
+function deskLayout(w: number, h: number, ins: Insets, kind: ScreenKind): Layout {
+  const u = uiScale(w, h);
+  const big = kind === 'big';
+  const top = clamp(ins.top, 0, h * 0.6);
+  const bottom = Math.max(top + 120, h - ins.bottom);
+  const left = ins.left, right = w - ins.right;
+  const m = 12 * u;
+  const xMin = Math.max(EDGE, left + 6), xMax = Math.min(w - EDGE, right - 6);
+  const kx = (left + right) / 2;
+
+  // ── the action bar under David: the great stone and the bag, side by side ─────
+  const R = 27 * u;
+  const hw = Math.max(R + 2, MIN_TAP / 2);
+  const labelH = 18 * u;
+  const bb = bottom - 10 * u;
+  const by = bb - labelH - 4 - R;
+  const button = (cx: number): Button => ({ x: cx, y: by, r: R, hit: { x: cx - hw, y: by - hw, w: hw * 2, h: bb - (by - hw) } });
+  const gap = 22 * u;
+  const stone = button(kx - hw - gap / 2);
+  const bag = button(kx + hw + gap / 2);
+
+  // ── the hero's frame at the bottom left: the party and the treasury, health, the level's badge and bar ─────
+  const bl = left + m, br = Math.min(bl + 340 * u, stone.hit.x - CAP * u - 16 * u);
+  const pr = 17 * u;
+  const lvW = 66 * u, lvH = 26 * u, xpH = 17 * u, hpH = 16 * u;
+  const lv = { x: bl, y: bb - lvH, w: lvW, h: lvH };
+  const xp = { x: lv.x + lv.w + 6 * u, y: lv.y + (lvH - xpH) / 2, w: br - (lv.x + lv.w + 6 * u), h: xpH };
+  const hp = { x: bl, y: lv.y - 8 * u - hpH, w: br - bl, h: hpH };
+  const party = { x: bl + pr + 2, y: hp.y - 8 * u - pr, r: pr, gap: pr * 2 + 8 * u };
+  const treasury = { x: br, y: party.y };
+  const bandTop = stone.hit.y - CAP * u * 0.5;
+
+  // ── the top band: the quest pill and a larger minimap ─────────────
+  const mw = 150 * u;
+  const mini = h - top < 260 ? null : { x: right - m - mw, y: top + 8, w: mw, h: mw * (42 / 64) };
+  const qx = Math.max(left + m, xMin - 4);
+  const quest = { x: qx, y: top + 8, w: Math.min(460 * u, (mini ? mini.x - 12 * u : right - m) - qx), h: 34 * u };
+
+  // ── the field and the camera ─────────────────────────────────────
+  const field = { top: quest.y + quest.h + 6, bottom: bandTop - 6 };
+  const s = big
+    ? clamp(Math.min((right - left) / 14.5, (bottom - top) / 10.8), 28, 170)
+    : clamp(Math.min((right - left) / 12.5, (bottom - top) / 9.2), 28, 66);
+  const ky = top + (bandTop - top) * 0.53;
+  const halfW = Math.max(kx - left, right - kx) / s;
+  const halfH = Math.max(ky - top, bottom - ky) / s;
+
+  // ── the camp's sheet, from the right ──────────────────────────────
+  const sheet = sheetLayout(u, top, bottom, w, xMin, xMax, true, field.top);
+  const campKx = (left + sheet.x) / 2;
+
+  return {
+    w, h, top, bottom, left, right, u, kind, desk: true, side: true, m, s, kx, ky, halfW, halfH, campKx, campKy: ky, field,
+    lv, xp, hp, party, treasury, row: false, bag, stone, quest, mini, sheet, bannerY: field.top + 40 * u,
   };
 }
 

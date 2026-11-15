@@ -7,12 +7,13 @@
  * upright shows ~8.6 u across and the camera follows Nehemiah.
  *
  * Two shapes: upright (a phone, a tablet) the stores sit over the buttons; on its side (a phone) and on
- * a desktop one row holds the stores, the button and the horn.  The build badges stand in rows that
+ * a desktop one row holds the stores, the button and the horn.  A mouse on a desktop or a big screen
+ * (DESIGN §14: `desk`) keeps the row and adds a mouse's answers (hover, key caps, tooltips: render.ts).  The build badges stand in rows that
  * never overlap at S_MIN px per u or more: the fires and towers above the wall line, the wall's
  * sections and the gate just below it, then the guard posts, then the city.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, screenKind, uiScale, type Rect } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 import { SEGS, type MarkerSpec } from './content';
 import { RULES } from './rules';
@@ -31,8 +32,10 @@ export interface Layout {
   /** the play band: from the runner's HUD down to the panel */
   top: number;
   bottom: number;
-  /** UI scale: 1 on a phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on a phone, up to 1.3 on a tablet or a desktop, growing on a big screen (kit/mobile.ts) */
   u: number;
+  /** a mouse on a desktop or a big screen (`screenKind`): key caps on the buttons, hover and tooltips */
+  desk: boolean;
   /** px per u, and the screen point the camera centre maps to */
   s: number;
   cx: number;
@@ -55,16 +58,19 @@ export interface Layout {
   horn: { x: number; y: number; r: number };
 }
 
-export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
+export function layout(w: number, h: number, ins: Insets = NO_INSETS, touch = true): Layout {
   const u = uiScale(w, h);
   const side = h < 480;
   const stack = !side && w < 900;
   const phone = stack && w < 600;
+  const kind = screenKind(w, h, touch);
+  const desk = !stack && !side && (kind === 'desktop' || kind === 'big');
   const top = clamp(ins.top, 0, h * 0.6);
   const edge = side ? 12 : 16 * u;
   const left = Math.max(ins.left > 0 ? ins.left + 8 : 0, edge);
   const right = w - Math.max(ins.right > 0 ? ins.right + 8 : 0, edge);
-  const yb = h - ins.bottom - (side ? 8 : 10) * u;
+  // the controls end just above the screen's foot (a big screen's u must not open a band under them)
+  const yb = h - ins.bottom - Math.min((side ? 8 : 10) * u, 14);
   const hornR = Math.round((side ? 28 : 32) * u);
   const btnH = Math.round((side ? 50 : 54) * u);
   const rowH = Math.max(btnH, hornR * 2);
@@ -99,7 +105,7 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
   // least 10 u across), never under S_MIN
   const s = phone ? clamp(w / 8.6, S_MIN, 48) : Math.max(S_MIN, Math.min(playH / Hu, Math.max(w / Wu, w / 10)));
   return {
-    w, h, ins, top, bottom, u, s, cx: w / 2, cy: top + playH / 2,
+    w, h, ins, top, bottom, u, desk, s, cx: w / 2, cy: top + playH / 2,
     panX: Wu * s > w + 1, panY: Hu * s > playH + 1,
     left, right, phone, side, stack, panel, stores, guide, rush, horn,
   };

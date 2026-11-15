@@ -272,7 +272,8 @@ export function fishText(v: number): string {
 export const goldText = (n: number): string => t('gold', { n: Math.max(0, Math.floor(n)) });
 
 // ── the words of a block and Brother Anselm's moments ────────────
-const keysOf = (prefix: string): string[] => Object.keys(CATALOGS.pl).filter(k => k.startsWith(prefix));
+// (a line's mouse variant, `….keys`, is no line of its own: linesFor() swaps it in for a mouse)
+const keysOf = (prefix: string): string[] => Object.keys(CATALOGS.pl).filter(k => k.startsWith(prefix) && !k.endsWith('.keys'));
 const linesOf = (prefix: string): string[] => keysOf(prefix).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })).map(k => t(k as Key));
 
 export const TIPS = {
@@ -293,6 +294,16 @@ export type Moment = (typeof MOMENTS)[number];
 export const LINES: Readonly<Record<Moment, readonly string[]>> = Object.fromEntries(
   MOMENTS.map(m => [m, linesOf(`say.${m}.`)]),
 ) as unknown as Record<Moment, readonly string[]>;
+
+/** Brother Anselm's lines that speak of the hand ("Stuknij oko"): a mouse hears their `.keys` words. */
+export const HAND_LINES: ReadonlySet<string> = new Set(['say.huntReady.1']);
+
+/** Brother Anselm's lines for the player's hand: a finger's (LINES), or a mouse's (the hand's lines in its own words). */
+export function linesFor(touch: boolean): Readonly<Record<Moment, readonly string[]>> {
+  if (touch) return LINES;
+  return Object.fromEntries(MOMENTS.map(m => [m, keysOf(`say.${m}.`).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
+    .map(k => t((HAND_LINES.has(k) ? `${k}.keys` : k) as Key))])) as unknown as Record<Moment, readonly string[]>;
+}
 
 /** How many lines Brother Anselm has (the tests check that each moment has at least three). */
 export const LINE_COUNT = MOMENTS.reduce((s, m) => s + LINES[m].length, 0);

@@ -87,6 +87,8 @@ export class Hud {
   fling = 0;
   /** what a finger holds down now */
   pressed: Pressed | null = null;
+  /** what the mouse is over now (a desktop): drawn lit, and the cursor turns to a hand */
+  hover: Pressed | null = null;
   /** the controls as drawn this frame: the sheet, the quest pill, the story card */
   sheetShown: SheetNow | null = null;
   questBox: Rect | null = null;
@@ -167,6 +169,8 @@ export class Hud {
   }
 
   private isPressed(kind: PressKind, i = 0): boolean { return !!this.pressed && this.pressed.kind === kind && this.pressed.i === i; }
+
+  private isHover(kind: PressKind, i = 0): boolean { return !this.pressed && !!this.hover && this.hover.kind === kind && this.hover.i === i; }
 
   /**
    * The tappable controls now, as hit rectangles (CSS px), for the mobile audit and the tests: a story card
@@ -293,7 +297,8 @@ export class Hud {
     const st = L.stone, ready = sim.stoneReady, charging = sim.pushBlock || sim.charge > 0;
     const live = ready && !sim.sitting && !!sim.stoneTarget();
     const sx = st.x + this.wobble('stone');
-    const sk = this.isPressed('stone') ? 0.9 : 1 + (live ? 0.05 * Math.sin(now * 6) : 0);
+    const sHover = this.isHover('stone');
+    const sk = this.isPressed('stone') ? 0.9 : 1 + (live ? 0.05 * Math.sin(now * 6) : 0) + (sHover ? 0.04 : 0);
     ctx.save();
     if (live) {
       ctx.globalCompositeOperation = 'lighter';
@@ -302,7 +307,8 @@ export class Hud {
     }
     ctx.translate(sx, st.y);
     ctx.scale(sk, sk);
-    disc(ctx, st.r, this.isPressed('stone') ? 'rgba(20,14,8,.92)' : 'rgba(36,28,20,.84)');
+    disc(ctx, st.r, this.isPressed('stone') ? 'rgba(20,14,8,.92)' : sHover ? 'rgba(58,44,30,.9)' : 'rgba(36,28,20,.84)');
+    if (sHover) hoverRim(ctx, st.r, u);
     ctx.strokeStyle = 'rgba(255,248,230,.18)';
     ctx.lineWidth = 4 * u;
     ctx.beginPath();
@@ -332,9 +338,12 @@ export class Hud {
     ctx.restore();
     const word = live ? t('hud.stoneGo') : ready ? t('hud.stoneReady') : t('pct', { n: Math.round(sim.charge * 100) });
     label(ctx, L, word, st.x, st.y + st.r + 4, ready ? C.goldLight : 'rgba(255,248,230,.92)', live ? 14 : 13, live);
+    // a desktop: the key beside it (Space throws a ready stone)
+    if (L.desk) keyCap(ctx, sx + st.r * 0.8, st.y - st.r * 0.78, ' ', u, live);
     // the bag
     const bg = L.bag, load = clamp(sim.bagLoad / Math.max(1, sim.bagCap)), full = sim.bagFull;
-    const bk = this.isPressed('bag') ? 0.9 : 1 + 0.1 * bagPop + (full ? 0.04 * Math.sin(now * 7) : 0);
+    const bHover = this.isHover('bag');
+    const bk = this.isPressed('bag') ? 0.9 : 1 + 0.1 * bagPop + (full ? 0.04 * Math.sin(now * 7) : 0) + (bHover ? 0.04 : 0);
     ctx.save();
     if (full) {
       ctx.globalCompositeOperation = 'lighter';
@@ -343,7 +352,8 @@ export class Hud {
     }
     ctx.translate(bg.x + this.wobble('bag'), bg.y);
     ctx.scale(bk, bk);
-    disc(ctx, bg.r, this.isPressed('bag') ? 'rgba(20,14,8,.92)' : 'rgba(36,28,20,.84)');
+    disc(ctx, bg.r, this.isPressed('bag') ? 'rgba(20,14,8,.92)' : bHover ? 'rgba(58,44,30,.9)' : 'rgba(36,28,20,.84)');
+    if (bHover) hoverRim(ctx, bg.r, u);
     ctx.strokeStyle = 'rgba(255,248,230,.18)';
     ctx.lineWidth = 4 * u;
     ctx.beginPath();
@@ -370,6 +380,35 @@ export class Hud {
     paintCoin(ctx, 'silver', R * 0.05, R * 0.3, R * 0.8, now, 1);
     ctx.restore();
     label(ctx, L, full ? t('hud.home') : `${fmtNum(Math.round(sim.bagLoad))}/${fmtNum(sim.bagCap)}`, bg.x, bg.y + bg.r + 4, full ? C.goldLight : '#fff8e6', 13, full);
+    if (L.desk) keyCap(ctx, bg.x + bg.r * 0.8, bg.y - bg.r * 0.78, 'B', u, full);
+  }
+
+  /**
+   * A short tooltip by the control the mouse rests on (a desktop): its name and its key, on a dark plate with a
+   * tick toward (x, y) — above it, or `below` it for a control under the HUD; `k` fades it in.
+   */
+  drawTip(ctx: CanvasRenderingContext2D, L: Layout, text: string, x: number, y: number, k: number, below = false): void {
+    const u = L.u;
+    ctx.save();
+    ctx.globalAlpha = clamp(k);
+    const size = 13.5 * u;
+    const s = fitText(ctx, text, Math.min(420 * u, L.right - L.left - 24), size, 700, SANS, MIN_READ);
+    const w = ctx.measureText(s).width + 22 * u, h = 30 * u;
+    const bx = clamp(x - w / 2, L.left + 8, L.right - w - 8), by = below ? y + 9 * u : Math.max(L.top + 4, y - h - 9 * u);
+    panel(ctx, { x: bx, y: by, w, h }, 'rgba(24,18,12,.92)', 'rgba(255,231,163,.55)', 8 * u, 1.2);
+    ctx.fillStyle = 'rgba(24,18,12,.92)';
+    const tx = clamp(x, bx + 12 * u, bx + w - 12 * u);
+    const edge = below ? by + 0.5 : by + h - 0.5, tipY = below ? by - 6 * u : by + h + 6 * u;
+    ctx.beginPath();
+    ctx.moveTo(tx - 6 * u, edge);
+    ctx.lineTo(tx, tipY);
+    ctx.lineTo(tx + 6 * u, edge);
+    ctx.fill();
+    ctx.fillStyle = '#fff3d6';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(s, bx + w / 2, by + h / 2 + 0.5);
+    ctx.restore();
   }
 
   // ── the top band ────────────────────────────────────────────────────
@@ -386,7 +425,9 @@ export class Hud {
     const u = L.u, r = L.quest;
     const maxW = Math.min(r.w, maxR - r.x);
     const label = q.progress ? `${q.text} · ${q.progress}` : q.text;
-    const room = maxW - 46 * u;
+    // a desktop shows its key (Q) before the chevron
+    const capW = L.desk ? 27 * u : 0;
+    const room = maxW - 46 * u - capW;
     ctx.font = font(700, 13.5 * u, SANS);
     let lines = [label];
     if (ctx.measureText(label).width > room) {
@@ -396,19 +437,20 @@ export class Hud {
     }
     const tw = Math.max(...lines.map(l => ctx.measureText(l).width));
     const h = lines.length > 1 ? r.h + 17 * u : r.h;
-    const w = Math.min(maxW, tw + 46 * u);
+    const w = Math.min(maxW, tw + 46 * u + capW);
     const box = { x: r.x, y: r.y, w, h };
     this.questBox = box;
-    const pressed = this.isPressed('quest');
+    const pressed = this.isPressed('quest'), lit = this.isHover('quest');
     ctx.save();
     ctx.translate(this.wobble('quest'), 0);
-    const k = (pressed ? 0.95 : 1) + 0.1 * pop;
+    const k = (pressed ? 0.95 : 1) + 0.1 * pop + (lit ? 0.02 : 0);
     if (k !== 1) {
       ctx.translate(r.x + w / 2, r.y + h / 2);
       ctx.scale(k, k);
       ctx.translate(-(r.x + w / 2), -(r.y + h / 2));
     }
-    panel(ctx, box, pressed ? 'rgba(20,14,8,.85)' : 'rgba(36,28,20,.76)', pop > 0 ? C.goldLight : 'rgba(234,181,61,.7)', Math.min(h / 2, 16 * u), 2);
+    panel(ctx, box, pressed ? 'rgba(20,14,8,.85)' : lit ? 'rgba(62,46,30,.88)' : 'rgba(36,28,20,.76)', pop > 0 || lit ? C.goldLight : 'rgba(234,181,61,.7)', Math.min(h / 2, 16 * u), lit ? 2.5 : 2);
+    if (capW) keyCap(ctx, r.x + w - 21 * u - 9.5 * u, r.y + h / 2, 'Q', u);
     const cx = r.x + 14 * u, cy = r.y + h / 2;
     ctx.fillStyle = C.gold;
     ctx.beginPath();
@@ -594,14 +636,14 @@ export class Hud {
       if (x > plate.x + plate.w - 20 * u) break;
     }
     // "Na łowy": back to the hunt (one tap, the thumb's way out of the camp)
-    const hb = g.hunt, hp = this.isPressed('hunt');
+    const hb = g.hunt, hp = this.isPressed('hunt'), hl = this.isHover('hunt');
     ctx.save();
     if (hp) {
       ctx.translate(hb.x + hb.w / 2, hb.y + hb.h / 2);
       ctx.scale(0.94, 0.94);
       ctx.translate(-(hb.x + hb.w / 2), -(hb.y + hb.h / 2));
     }
-    panel(ctx, hb, hp ? C.terracottaDeep : C.terracotta, 'rgba(90,40,20,.6)', hb.h / 2, 2);
+    panel(ctx, hb, hp ? C.terracottaDeep : hl ? '#d77a52' : C.terracotta, hl ? 'rgba(255,240,200,.9)' : 'rgba(90,40,20,.6)', hb.h / 2, hl ? 2.5 : 2);
     const ht = fitText(ctx, `${t('camp.hunt')} ›`, hb.w - 16 * u, 14 * u, 800, SANS, MIN_READ);
     ctx.fillStyle = '#fff8e6';
     ctx.textAlign = 'center';
@@ -609,13 +651,16 @@ export class Hud {
     ctx.restore();
     // tabs
     g.tabs.forEach((rr, i) => {
-      const id = TABS[i], on = sim.campTab === id, pr = this.isPressed('tab', i);
-      panel(ctx, rr, on ? C.terracotta : pr ? 'rgba(43,33,24,.2)' : 'rgba(43,33,24,.08)', on ? null : 'rgba(43,33,24,.14)', 12 * u);
-      const label = fitText(ctx, t(TAB_KEYS[id]), rr.w - 6, 13.5 * u, 800, SANS, MIN_READ);
+      const id = TABS[i], on = sim.campTab === id, pr = this.isPressed('tab', i), lit = !on && this.isHover('tab', i);
+      panel(ctx, rr, on ? C.terracotta : pr ? 'rgba(43,33,24,.2)' : lit ? 'rgba(43,33,24,.15)' : 'rgba(43,33,24,.08)', on ? null : lit ? 'rgba(43,33,24,.4)' : 'rgba(43,33,24,.14)', 12 * u);
+      // a desktop: the tab's key (1–4) at its left, the name in the rest
+      const cap = L.desk ? 26 * u : 0;
+      if (cap) keyCap(ctx, rr.x + 6 * u + 9.5 * u, rr.y + rr.h / 2, String(i + 1), u, on);
+      const label = fitText(ctx, t(TAB_KEYS[id]), rr.w - 6 - cap, 13.5 * u, 800, SANS, MIN_READ);
       ctx.fillStyle = on ? '#fff8e6' : C.ink;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, rr.x + rr.w / 2, rr.y + rr.h / 2 + 0.5);
+      ctx.fillText(label, rr.x + cap + (rr.w - cap) / 2, rr.y + rr.h / 2 + 0.5);
     });
     // tiles, clipped to the window
     const v = g.view;
@@ -657,7 +702,9 @@ export class Hud {
     }
     const nope = this.wobble('tile', i);
     if (nope) ctx.translate(nope, 0);
-    panel(ctx, rr, tile.why === 'in' ? 'rgba(234,181,61,.28)' : pr ? '#f3e2bb' : can ? '#fffaf0' : 'rgba(43,33,24,.06)', can ? C.gold : 'rgba(43,33,24,.2)', 10 * u, can ? 2 : 1.2);
+    const lit = this.isHover('tile', i);
+    panel(ctx, rr, tile.why === 'in' ? 'rgba(234,181,61,.28)' : pr ? '#f3e2bb' : can ? (lit ? '#fff3d6' : '#fffaf0') : lit ? 'rgba(43,33,24,.1)' : 'rgba(43,33,24,.06)',
+      can ? (lit ? C.goldDeep : C.gold) : lit ? 'rgba(43,33,24,.45)' : 'rgba(43,33,24,.2)', 10 * u, lit ? 3 : can ? 2 : 1.2);
     if (can) {
       ctx.save();
       ctx.globalAlpha *= 0.22 + 0.14 * Math.sin(now * 4 + i);
@@ -911,6 +958,50 @@ function disc(ctx: CanvasRenderingContext2D, r: number, fill: string): void {
   ctx.strokeStyle = 'rgba(255,248,230,.35)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
+}
+
+/** The lit rim of a round button the mouse is over (at the origin). */
+function hoverRim(ctx: CanvasRenderingContext2D, r: number, u: number): void {
+  ctx.strokeStyle = 'rgba(255,240,200,.85)';
+  ctx.lineWidth = 2.5 * u;
+  ctx.beginPath();
+  ctx.arc(0, 0, r + 2.5 * u, 0, TAU);
+  ctx.stroke();
+}
+
+/**
+ * A key cap centred on (x, y) (a desktop): a small light key with its letter, or — for ' ' — the space bar's
+ * bracket drawn as a line (no glyph a font might lack).  `lit`: the key does something now (gold).
+ */
+export function keyCap(ctx: CanvasRenderingContext2D, x: number, y: number, key: string, u: number, lit = false): void {
+  const h = 19 * u;
+  ctx.save();
+  ctx.font = font(800, 12.5 * u, SANS);
+  const space = key === ' ';
+  const w = space ? 30 * u : Math.max(h, ctx.measureText(key).width + 10 * u);
+  const r = { x: x - w / 2, y: y - h / 2, w, h };
+  ctx.fillStyle = 'rgba(24,18,12,.45)';
+  ctx.beginPath();
+  ctx.roundRect(r.x, r.y + 2 * u, r.w, r.h, 5 * u);
+  ctx.fill();
+  panel(ctx, r, lit ? '#ffe7a3' : '#fff8e6', 'rgba(36,28,20,.6)', 5 * u, 1.2);
+  ctx.strokeStyle = ctx.fillStyle = '#3a2a1a';
+  if (space) {
+    ctx.lineWidth = 1.8 * u;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x - 8 * u, y - 2.5 * u);
+    ctx.lineTo(x - 8 * u, y + 3 * u);
+    ctx.lineTo(x + 8 * u, y + 3 * u);
+    ctx.lineTo(x + 8 * u, y - 2.5 * u);
+    ctx.stroke();
+  } else {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(key, x, y + 0.5);
+  }
+  ctx.restore();
 }
 
 /** A button's word under it, on a dark plate (readable on any grass). */

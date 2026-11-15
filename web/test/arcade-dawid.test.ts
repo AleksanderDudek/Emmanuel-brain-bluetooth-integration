@@ -1,13 +1,13 @@
 import { writeFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { BEASTS, COMPANIONS, GUARDS, LANDS, LINES, LINE_COUNT, MOMENTS, QUESTS, TAUNTS } from '../src/arcade/dawid/content';
+import { BEASTS, COMPANIONS, GUARDS, HAND_LINES, LANDS, LINES, LINE_COUNT, MOMENTS, QUESTS, TAUNTS, linesFor } from '../src/arcade/dawid/content';
 import { Hud } from '../src/arcade/dawid/hud';
 import { CATALOGS, t, unit } from '../src/arcade/dawid/i18n';
 import dawid from '../src/arcade/dawid/index';
 import { EDGE, layout } from '../src/arcade/dawid/layout';
 import { SANS, SERIF, font } from '../src/arcade/dawid/paint';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
-import { CHECK_SIZES, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_TEXT, THUMB, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import {
   abilityCost, abilityWhy, bagCap, bestOf, build, buyAbility, forge, freshProgress, guardHp, join, landAt, landK, migrate, partyNow, partySlots,
@@ -729,6 +729,8 @@ describe.runIf(process.env.DAWID_PACING)('pacing (manual)', () => {
 // ── phone first (src/arcade/DESIGN.md §12) ──────────────────────────
 
 const PX = /(\d+(?:\.\d+)?)px/;
+/** Every font size the game set on a canvas since the last clear (CSS px). */
+const FONT_LOG: number[] = [];
 
 /** A canvas context that draws nothing, keeps what is set and measures text at 0.56 em a character. */
 function fakeContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
@@ -744,6 +746,7 @@ function fakeContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
     },
     set(target, prop, value) {
       target[prop] = value;
+      if (prop === 'font') FONT_LOG.push(Number(String(value).match(PX)?.[1] ?? 10));
       return true;
     },
   }) as unknown as CanvasRenderingContext2D;
@@ -760,7 +763,8 @@ describe('phone first (DESIGN.md §12)', () => {
 
   const RETURNING: Partial<DawidProgress> = { sessions: 5, pushes: 1, seen: SEEN };
 
-  /** The real game on a canvas of w × h with the runner's insets, a few frames in. */
+  /** The real game on a canvas of w × h with the runner's insets, a few frames in (a finger's, or a mouse's). */
+  const playAs = (size: Size, progress: Partial<DawidProgress> = RETURNING, touch = true): Played => play(size, progress, touch);
   function play(size: Size, progress: Partial<DawidProgress> = RETURNING, touch = true): Played {
     const env: GameEnv<DawidProgress> = {
       canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
@@ -816,10 +820,12 @@ describe('phone first (DESIGN.md §12)', () => {
   it('lays out for the phone first: u = 1 on a phone, the great stone and the bag in the thumb zone, David in the field', () => {
     for (const s of CHECK_SIZES) {
       const L = layout(s.w, s.h, s.insets);
-      // 1 on a phone up to 390 px across (a bigger phone a hair more), never under 1, at most 1.3
+      // 1 on a phone up to 390 px across (a bigger phone a hair more), never under 1, at most 1.3 — growing past it
+      // only on a big screen (DESIGN §14), up to DESK_MAX
       if (Math.min(s.w, s.h) <= 390) expect(L.u, s.name).toBe(1);
       expect(L.u, s.name).toBeGreaterThanOrEqual(1);
-      expect(L.u, s.name).toBeLessThanOrEqual(1.3);
+      expect(L.u, s.name).toBeLessThanOrEqual(s.w >= 1024 && Math.min(s.w, s.h) >= DESK_BIG ? DESK_MAX : 1.3);
+      expect(L.desk, `${s.name}: a finger keeps the phone's family`).toBe(false);
       for (const b of [L.bag, L.stone]) {
         expect(b.r * 2, s.name).toBeGreaterThanOrEqual(56);
         expect(b.hit.x, s.name).toBeGreaterThanOrEqual(EDGE - 0.5);
@@ -854,7 +860,10 @@ describe('phone first (DESIGN.md §12)', () => {
   });
 
   it('every control is finger-sized, inside the insets and clear of the others at every size: playing, in camp (each tab, scrolled), a story card', () => {
-    for (const s of CHECK_SIZES) {
+    // with a finger (the phone's family at every size) and with a mouse (a desktop-sized canvas: the desktop family)
+    for (const [base, touch] of CHECK_SIZES.flatMap(c => [[c, true], [c, false]] as const)) {
+      const s = { ...base, name: `${base.name}${touch ? '' : ' (mouse)'}` };
+      const play = (sz: Size, progress: Partial<DawidProgress> = RETURNING) => playAs(sz, progress, touch);
       const p = play(s);
       expect(audit(p, s, 'play').map(x => x.label)).toEqual(expect.arrayContaining(['stone', 'bag', 'quest']));
       // into the camp: while the sheet slides in, nothing of it (nor the buttons under it) is offered for a tap
@@ -1014,9 +1023,177 @@ describe('phone first (DESIGN.md §12)', () => {
         // (the quest's arrow on the field is no key: "strzałka", "the arrow", "der Pfeil", "pilen")
         expect(String(cat[k]), `${l} ${k}`).not.toMatch(/WASD|Spacj|Space|Leertaste|mellanslag|klik|click|Klick|klicka|mysz|mouse|Maus|musen|strzałki|strzałkami|\barrows\b|Pfeiltaste|piltangent/i);
       }
-      for (const k of ['coach.move.keys', 'coach.hunt.keys', 'coach.bag.keys', 'coach.camp.keys', 'coach.quest.keys', 'coach.stone.keys', 'story.tap.keys', 'story.next.keys', 'howto.keys']) {
+      for (const k of ['coach.move.keys', 'coach.hunt.keys', 'coach.bag.keys', 'coach.camp.keys', 'coach.quest.keys', 'coach.stone.keys', 'story.tap.keys', 'story.next.keys', 'howto.keys',
+        'howto.move.keys', 'howto.tap.keys', 'hover.stone', 'hover.stoneWait', 'hover.bag', 'hover.quest']) {
         expect(typeof cat[k], `${l} ${k}`).toBe('string');
       }
+      // a mouse's words name the mouse and the keys; its how-to is shorter than a finger's (the big screen's side column)
+      expect(String(cat['howto.tap.keys']), l).not.toMatch(/stuk|\btap|tipp|tryck på skärmen/i);
+      const mouse = ['howto.move.keys', 'howto.tap.keys', 'howto.keys'].reduce((n, k) => n + String(cat[k]).length, 0);
+      const finger = ['howto.move', 'howto.tap', 'howto.camp', 'howto.keys'].reduce((n, k) => n + String(cat[k]).length, 0);
+      expect(mouse, l).toBeLessThan(finger * 0.85);
+      expect(String(cat['hover.bag']), l).toMatch(/\bB\b/);
+      expect(String(cat['hover.quest']), l).toMatch(/\bQ\b/);
     }
+    // the how-to card: a mouse's three rows (no matchMedia here: no coarse pointer)
+    const how = dawid.howto!();
+    expect(how.hands.map(c => c.gesture)).toEqual(['drag', 'tap', 'keys']);
+    expect(how.hands[0].text).toBe(t('howto.move.keys'));
+    expect(how.goal).toBe(t('howto.goalShort'));
+    // the lamb: every line that speaks of a finger has a mouse's variant (a bubble's 90 characters at most)
+    const FINGER = { pl: /stuk|palc/i, en: /\btap|finger/i, de: /tipp|finger/i, sv: /tryck|finger/i } as const;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const m of MOMENTS) {
+        for (let i = 1; i <= LINE_COUNT[m]; i++) {
+          const k = `say.${m}.${i}`;
+          if (!HAND_LINES.has(k)) {
+            expect(String(cat[k]), `${l} ${k}`).not.toMatch(FINGER[l]);
+            continue;
+          }
+          const v = String(cat[`${k}.keys`]);
+          expect(v.length, `${l} ${k}.keys`).toBeLessThanOrEqual(90);
+          expect(v, `${l} ${k}.keys`).not.toMatch(l === 'sv' ? /finger/i : FINGER[l]);
+        }
+      }
+    }
+    expect(linesFor(false).warm[0]).toBe(t('say.warm.1.keys'));
+    expect(linesFor(true)).toBe(LINES);
+  });
+
+  // ── a big screen and a mouse (DESIGN.md §14) ─────────────────────────
+  const BIG = CHECK_SIZES.filter(c => screenKind(c.w, c.h, false) === 'big');
+  const FULLHD = CHECK_SIZES.find(c => c.name.startsWith('Full HD'))!;
+
+  it('a mouse on a desktop gets its own layout: the world zooms on a big screen, the action bar under David, the hero’s frame bottom left', () => {
+    expect(BIG.map(c => c.w)).toEqual([1190, 1587]);
+    for (const s of CHECK_SIZES) {
+      const kind = screenKind(s.w, s.h, false);
+      const L = layout(s.w, s.h, s.insets, false);
+      expect(L.desk, s.name).toBe(kind === 'desktop' || kind === 'big');
+      if (!L.desk) continue;
+      const phone = layout(s.w, s.h, s.insets, true);
+      // the great stone and the bag side by side right under David, bigger than a phone's
+      expect(Math.abs((L.stone.x + L.bag.x) / 2 - L.kx), s.name).toBeLessThan(1);
+      expect(L.stone.y, s.name).toBeGreaterThan(L.ky + L.s * 2.5);
+      expect(L.stone.r * 2, s.name).toBeGreaterThanOrEqual(64);
+      expect(L.bag.hit.x, s.name).toBeGreaterThanOrEqual(L.stone.hit.x + L.stone.hit.w + 6);
+      // the hero's frame at the bottom left: health and the level's bar never run across the whole screen
+      expect(L.hp.w, s.name).toBeLessThanOrEqual(340 * L.u + 0.5);
+      expect(L.hp.x + L.hp.w, s.name).toBeLessThan(L.stone.hit.x);
+      expect(L.xp.x + L.xp.w, s.name).toBeLessThan(L.stone.hit.x);
+      expect(L.lv.y + L.lv.h, s.name).toBeLessThanOrEqual(L.bottom);
+      // David in the field, the sling's reach in sight across
+      expect(L.ky, s.name).toBeGreaterThan(L.field.top);
+      expect(L.ky, s.name).toBeLessThan(L.field.bottom);
+      expect(L.halfW, s.name).toBeGreaterThanOrEqual(RULES.slingRange);
+      // the camp's sheet from the right, leaving the field its left
+      expect(L.sheet.dock, s.name).toBe('right');
+      expect(L.sheet.x / s.w, s.name).toBeGreaterThanOrEqual(0.4);
+      expect(L.campKx, s.name).toBeLessThan(L.sheet.x);
+      if (kind === 'big') {
+        // the camera zooms in: ≥ 78 px a u (a phone's map stops at 66), about 14.5 u across instead of 18–24
+        expect(L.s, s.name).toBeGreaterThanOrEqual(78);
+        expect(L.s, s.name).toBeGreaterThanOrEqual(1.18 * phone.s);
+        expect(2 * L.halfW, s.name).toBeLessThanOrEqual(16);
+        // type and controls grow with the screen; a larger minimap
+        expect(L.u, s.name).toBeGreaterThanOrEqual(1.35);
+        expect(L.mini!.w, s.name).toBeGreaterThanOrEqual(150 * 1.35 - 0.01);
+      } else {
+        // a desktop under the top HUD: the world as close as the phone's family showed it there
+        expect(L.s, s.name).toBeGreaterThanOrEqual(phone.s * 0.97);
+      }
+    }
+    expect(layout(1587, 1300, BIG[1].insets, false).u).toBeCloseTo(1587 / 880, 3);
+  });
+
+  it('a big screen keeps the font floor and grows the type with the screen (playing, a tooltip, the camp, a story card)', () => {
+    const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
+    const sizesOf = (s: Size, touch: boolean): number[] => {
+      FONT_LOG.length = 0;
+      const p = play(s, RETURNING, touch);
+      p.game.pointer!({ type: 'move', ...mid(p.view.L.bag.hit), id: 1 });
+      frames(p, 40);
+      toCamp(p);
+      for (const tab of ['ab', 'bd', 'wp', 'party'] as const) {
+        p.sim.setTab(tab);
+        frames(p, 2);
+      }
+      play(s, {}, touch);
+      return [...FONT_LOG];
+    };
+    const phone = sizesOf(CHECK_SIZES[0], true);
+    expect(Math.min(...phone)).toBeGreaterThanOrEqual(MIN_TEXT);
+    for (const s of CHECK_SIZES.filter(c => screenKind(c.w, c.h, false) !== 'phone' && screenKind(c.w, c.h, false) !== 'phone-side')) {
+      const desk = sizesOf(s, false);
+      expect(Math.min(...desk), s.name).toBeGreaterThanOrEqual(MIN_TEXT);
+      if (screenKind(s.w, s.h, false) === 'big') expect(median(desk), s.name).toBeGreaterThanOrEqual(median(phone) * 1.3);
+    }
+    expect(median(sizesOf(BIG[1], false))).toBeGreaterThanOrEqual(median(phone) * 1.7);
+  });
+
+  it('a mouse: what is under it answers — a lit control, a hand, a tooltip with its key, a ring where a click sends David; a finger has none of it', () => {
+    const p = play(FULLHD, RETURNING, false);
+    quiet(p.sim);
+    const L = p.view.L, view = p.view as unknown as { hoverMark: { kind: string } | null; tip: { text: string } | null };
+    const canvas = (p.game as unknown as { env: GameEnv<DawidProgress> }).env.canvas;
+    expect(L.desk).toBe(true);
+    const move = (at: { x: number; y: number }, n = 1) => {
+      p.game.pointer!({ type: 'move', ...at, id: 1 });
+      frames(p, n);
+    };
+    // the bag: lit and a hand at once, its tooltip (with its key) after a moment's rest
+    move(mid(L.bag.hit));
+    expect(p.view.hud.hover).toEqual({ kind: 'bag', i: 0 });
+    expect(canvas.style.cursor).toBe('pointer');
+    expect(view.tip).toBeNull();
+    frames(p, 40);
+    expect(view.tip?.text).toMatch(/\bB\b/);
+    // the field next to David: a click hunts (a ring round him); farther: a ring where he would walk
+    move({ x: L.kx + L.s * 0.6, y: L.ky });
+    expect(p.view.hud.hover).toBeNull();
+    expect(view.tip).toBeNull();
+    expect(view.hoverMark?.kind).toBe('hunt');
+    move({ x: L.kx + L.s * 5, y: L.ky - L.s * 2 });
+    expect(view.hoverMark?.kind).toBe('go');
+    // the great stone ready with a mark in sight: a click throws it — its mark shows, the cursor is a crosshair
+    place(p.sim, 'szakal', 2.5, 0);
+    p.sim.stoneReady = true;
+    p.sim.charge = 1;
+    frames(p, 1);
+    expect(view.hoverMark?.kind).toBe('stone');
+    expect(canvas.style.cursor).toBe('crosshair');
+    // in camp: the tiles and the tabs light up under the mouse
+    toCamp(p);
+    const g = p.view.hud.sheetShown!;
+    move(mid(g.tiles[1]));
+    expect(p.view.hud.hover).toEqual({ kind: 'tile', i: 1 });
+    move(mid(g.tabs[2]));
+    expect(p.view.hud.hover).toEqual({ kind: 'tab', i: 2 });
+    expect(canvas.style.cursor).toBe('pointer');
+    // a finger: no hover, no rings, no cursor
+    const f = play(FULLHD, RETURNING, true);
+    f.game.pointer!({ type: 'move', ...mid(f.view.L.bag.hit), id: 1 });
+    frames(f, 40);
+    expect(f.view.hud.hover).toBeNull();
+    expect((f.view as unknown as { hoverMark: unknown }).hoverMark).toBeNull();
+  });
+
+  it('keys on a desktop: B sends David home with the bag, Q follows the quest (the buttons’ own answers)', () => {
+    const p = play(FULLHD, RETURNING, false);
+    p.sim.mode = 'none';
+    expect(p.game.key!('b', true)).toBe(true);
+    p.game.key!('b', false);
+    expect(p.sim.mode).toBe('home');
+    p.sim.mode = 'none';
+    p.sim.p.quest = 0;   // hunt four jackals
+    frames(p, 2);
+    expect(p.game.key!('Q', true)).toBe(true);
+    expect(['go', 'hunt']).toContain(p.sim.mode);
+    // a story card swallows them (a tap or Space moves it on)
+    const first = play(FULLHD, {}, false);
+    first.sim.mode = 'none';
+    expect(first.game.key!('b', true)).toBe(true);
+    expect(first.sim.mode).toBe('none');
   });
 });

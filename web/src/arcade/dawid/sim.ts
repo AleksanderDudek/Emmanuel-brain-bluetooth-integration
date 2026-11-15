@@ -30,7 +30,7 @@ import type { ArcadeOutcome } from '../kit/types';
 import {
   ABILITIES, BEASTS, BEAST_KINDS, BONDS, BUILDINGS, COMPANIONS, CRAFT, FOLD_INCOME, GUARDS, LINES, QUESTS, STORE_K, TAUNTS, TIPS, WEAPONS,
   WEAPON_IDS, WELL_K, ability, abilityName, beastCount, buildingName, circleQuests, companionName, companionSpec, guardName, kitName,
-  landName, landStory, weaponName,
+  landName, landStory, linesFor, weaponName,
   type AbilityId, type BeastKind, type BeastSpec, type BuildingId, type CompanionId, type GuardKind, type GuardSpec, type Kit, type LandSpec,
   type NodeKind, type Pattern, type QuestSpec, type Spot, type WeaponId,
 } from './content';
@@ -270,6 +270,8 @@ export interface SimInit {
   eeg: boolean;
   /** the session's focus tuning: the blocks' judges follow it */
   tuning: FocusTuning;
+  /** the primary input is a finger (default): the lamb speaks of tapping; with a mouse, of clicks and keys */
+  touch?: boolean;
 }
 
 export class DawidSim {
@@ -414,7 +416,7 @@ export class DawidSim {
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
     this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
-    this.talk = new Talk(LINES, init.rng);
+    this.talk = new Talk(init.touch === false ? linesFor(false) : LINES, init.rng);
     fillParty(p);
     this.stats = statsOf(p, partyNow(p));
     const L = landAt(p.land);

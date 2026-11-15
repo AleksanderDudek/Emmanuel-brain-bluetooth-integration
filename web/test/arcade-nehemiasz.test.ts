@@ -1,11 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   CHRONICLE_SIZE, DECREE, DECREES, GATES, GATE_SEG, LINES, LINE_COUNT, MARKERS, MOMENTS, PERKS, ROUTE_IDS, SEGS, gateDays, gateFirstDay,
   markerSpec, routeAt, routeLen, tierCubits,
 } from '../src/arcade/nehemiasz/content';
 import { CATALOGS, t, unit } from '../src/arcade/nehemiasz/i18n';
 import {
-  affordablePerk, bestOf, buyPerk, freshProgress, heightOf, isOpen, jobs, maxHp, migrate, room, starsOf, type NehProgress,
+  affordablePerk, bestOf, buyPerk, freshProgress, heightOf, isOpen, jobs, maxHp, migrate, room, starsOf, stoneCap, type NehProgress,
 } from '../src/arcade/nehemiasz/meta';
 import { RULES } from '../src/arcade/nehemiasz/rules';
 import { NehSim, finaleFor, fireReach, planBlocks, type SimEvent } from '../src/arcade/nehemiasz/sim';
@@ -14,8 +14,10 @@ import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { LANGS, catalogProblems, type Lang } from '../src/i18n';
-import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
-import type { TapTarget } from '../src/arcade/kit/types';
+import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets, screenKind, target } from '../src/arcade/kit/mobile';
+import type { ArcadeGame, GameEnv, Insets, TapTarget } from '../src/arcade/kit/types';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
+import nehemiasz from '../src/arcade/nehemiasz/index';
 import { S_MIN, badgeFree, badgeOf, cameraFor, inside, layout, type Layout } from '../src/arcade/nehemiasz/layout';
 import { font } from '../src/arcade/nehemiasz/paint';
 import type { Choice, Story, StoryKind } from '../src/arcade/nehemiasz/sim';
@@ -960,5 +962,160 @@ describe('mobile first (layout.ts, hud.ts)', () => {
         }
       }
     }
+  });
+});
+
+// ── a big screen and a mouse (DESIGN.md §14) ─────────────────────────
+
+describe('a big screen and a mouse (DESIGN.md §14)', () => {
+  const FONTS: number[] = [];
+  /** A canvas context that draws nothing, keeps what is set, measures text at 0.55 em a character and logs every font. */
+  function fakeContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+    const gradient = { addColorStop: () => undefined };
+    const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+    return new Proxy(state, {
+      get(target2, prop) {
+        if (prop in target2) return target2[prop];
+        if (prop === 'measureText') return (x: string) => ({ width: String(x).length * Number(String(target2.font).match(PX)?.[1] ?? 10) * 0.55 });
+        if (prop === 'createLinearGradient' || prop === 'createRadialGradient' || prop === 'createPattern') return () => gradient;
+        if (prop === 'getTransform') return () => ({ a: 1, b: 0 });
+        return () => undefined;
+      },
+      set(target2, prop, value) {
+        target2[prop] = value;
+        if (prop === 'font') FONTS.push(Number(String(value).match(PX)?.[1] ?? 10));
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+  }
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+
+  type Size = { name: string; w: number; h: number; insets: Insets };
+  const FULLHD = CHECK_SIZES.find(c => c.name.startsWith('Full HD'))!;
+  const QHD = CHECK_SIZES.find(c => c.name.startsWith('2560'))!;
+  const RETURNING: Partial<NehProgress> = { sessions: 5, pushes: 1, gateDay: 1, day: 1, seen: SEEN, cards: ['horn', 'ono'] };
+  interface View { L: Layout; hover: { kind: string; id?: string; i?: number } | null; aim: boolean; tip: { text: string } | null; hud: { storeRects: { x: number; y: number; w: number; h: number }[] }; badges(sim: NehSim): { id: string; free: boolean; box: { x: number; y: number; w: number; h: number } }[] }
+  interface Played { game: ArcadeGame; sim: NehSim; view: View; canvas: HTMLCanvasElement }
+
+  /** The real game on a canvas of w × h with the runner's insets, a few frames in (a finger's, or a mouse's). */
+  function play(size: Size, touch: boolean, progress: Partial<NehProgress> = RETURNING): Played {
+    const canvas = document.createElement('canvas');
+    const env: GameEnv<NehProgress> = {
+      canvas, hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: migrate(mergeSaved(freshProgress(), { ...freshProgress(), ...progress })), rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 300,
+      tool: 'fnirs', simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => undefined,
+      hudTop: () => size.insets.top, insets: () => size.insets, touch,
+    };
+    const game = nehemiasz.create(env);
+    game.resize(size.w, size.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: NehSim; view: View };
+    const p: Played = { game, sim: inner.sim, view: inner.view, canvas };
+    frames(p, 20);
+    return p;
+  }
+  function frames(p: Played, n: number, f: FocusFrame = frame()): void {
+    for (let i = 0; i < n; i++) {
+      p.game.update(STEP, f, p.sim.t + STEP);
+      p.game.draw();
+    }
+  }
+  const mid = (r: { x: number; y: number; w: number; h: number }) => ({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+  const move = (p: Played, at: { x: number; y: number }, n = 1) => {
+    p.game.pointer!({ type: 'move', ...at, id: 1 });
+    frames(p, n);
+  };
+
+  it('a mouse on a desktop keeps the row and gets a desktop\'s answers; a finger keeps its layouts; every size audits clean with a mouse', () => {
+    for (const c of CHECK_SIZES) {
+      const kind = screenKind(c.w, c.h, false);
+      const M = layout(c.w, c.h, c.insets, false), F = layout(c.w, c.h, c.insets, true);
+      expect(F.desk, c.name).toBe(false);
+      expect(M.desk, c.name).toBe(!M.stack && !M.side && (kind === 'desktop' || kind === 'big'));
+      // the same geometry: the desktop's answers are hover, key caps and tooltips, not another panel
+      expect([M.s, M.guide.x, M.guide.w, M.horn.r], c.name).toEqual([F.s, F.guide.x, F.guide.w, F.horn.r]);
+      const foot = c.h - c.insets.bottom;
+      expect(foot - (M.guide.y + M.guide.h), c.name).toBeLessThanOrEqual(24);
+      expect(foot - (M.horn.y + M.horn.r), c.name).toBeLessThanOrEqual(16);
+      if (!M.desk) continue;
+      // a big screen fills the band's height with the world (QHD: 140 px a u) and grows its panel with the screen
+      if (kind === 'big') {
+        expect(M.s, c.name).toBeGreaterThanOrEqual(95);
+        expect(M.horn.r, c.name).toBeGreaterThanOrEqual(32 * 1.35 - 0.5);
+      }
+    }
+    expect(layout(QHD.w, QHD.h, QHD.insets, false).s).toBeGreaterThanOrEqual(135);
+  });
+
+  it('a mouse: a build badge lights up with its cost card, the buttons and the stores answer with tooltips, the open field rings the guide\'s pick; a finger has none of it', () => {
+    const p = play(FULLHD, false);
+    const sim = p.sim, L = p.view.L;
+    expect(L.desk).toBe(true);
+    expect(sim.dayTime).toBe(true);
+    // the guide's button: lit, a hand, its tooltip with its key
+    move(p, mid(L.guide));
+    expect(p.view.hover?.kind).toBe('guide');
+    expect(p.canvas.style.cursor).toBe('pointer');
+    frames(p, 40);
+    expect(sim.guideId).toBeTruthy();
+    expect(p.view.tip?.text).toBe(t('hover.guide'));
+    // a free build badge
+    const b = p.view.badges(sim).find(x => x.free)!;
+    expect(b).toBeTruthy();
+    move(p, mid(b.box));
+    expect(p.view.hover).toEqual({ kind: 'marker', id: b.id });
+    // the stores: what each number is
+    const r = p.view.hud.storeRects[0];
+    move(p, mid(r), 40);
+    expect(p.view.tip?.text).toBe(t('hover.stone', { n: Math.floor(sim.p.stone), max: stoneCap(sim.p) }));
+    // the open field by day: a click builds the guide's pick, which wears a ring
+    move(p, { x: L.w / 2, y: L.top + (L.bottom - L.top) * 0.12 });
+    expect(p.view.hover).toBeNull();
+    expect(p.view.tip).toBeNull();
+    expect(p.canvas.style.cursor).toBe('pointer');
+    expect(sim.neh.build).toBeFalsy();
+    expect(p.view.aim).toBe(true);
+    // the night: the horn and "Na mur!"
+    sim.blockIndex = sim.plan.findIndex(x => x.kind === 'push');
+    sim.blockT = 6;
+    frames(p, 2);
+    expect(sim.nightTime).toBe(true);
+    move(p, { x: L.horn.x, y: L.horn.y }, 40);
+    expect(p.view.hover?.kind).toBe('horn');
+    expect(p.view.tip?.text).toBe(sim.hornReady ? t('hover.horn') : t('hover.hornWait', { n: Math.floor(Math.min(1, sim.horn) * 100) }));
+    move(p, mid(L.rush), 40);
+    expect(p.view.hover?.kind).toBe('rush');
+    expect(p.view.tip?.text).toBe(t('hover.rush'));
+    // a finger: no hover
+    const f = play(FULLHD, true);
+    move(f, mid(f.view.L.guide), 40);
+    expect(f.view.hover).toBeNull();
+    expect(f.view.tip).toBeNull();
+  });
+
+  it('keeps the font floor with a mouse at every desktop size (playing, a tooltip, a choice, a story card)', () => {
+    for (const c of CHECK_SIZES.filter(x => layout(x.w, x.h, x.insets, false).desk)) {
+      FONTS.length = 0;
+      const p = play(c, false);
+      move(p, mid(p.view.L.guide), 40);
+      move(p, mid(p.view.hud.storeRects[4]), 40);
+      play(c, false, { sessions: 0 });
+      expect(Math.min(...FONTS), c.name).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+  });
+
+  it('speaks of clicks to a mouse: the how-to, the coach marks and the story card have a mouse\'s words in four languages', () => {
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      expect(String(cat['howto.tap.keys']), l).not.toMatch(/stuk|\btap|tipp|tryck på en/i);
+      for (const k of ['hover.guide', 'hover.rush', 'hover.horn', 'hover.hornWait', 'hover.stone', 'hover.timber', 'hover.bread', 'hover.people', 'hover.strength', 'hud.tapKeys', 'coach.moveKeys', 'coach.guideKeys', 'coach.hornKeys']) {
+        expect(typeof cat[k], `${l} ${k}`).toBe('string');
+      }
+    }
+    // no matchMedia here: no coarse pointer — the mouse's how-to
+    expect(nehemiasz.howto!().hands[1].text).toBe(t('howto.tap.keys'));
   });
 });

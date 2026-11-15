@@ -27,7 +27,7 @@ import { approach, clamp } from '../kit/juice';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
-  BOSSES, FAMS, FAM_IDS, LINES, PESTS, TIPS, big, bossName, catName, catSpec, fishText, gradeName, famName, goldText, placeName, stageInfo,
+  BOSSES, FAMS, FAM_IDS, LINES, PESTS, TIPS, big, bossName, catName, catSpec, fishText, gradeName, famName, goldText, linesFor, placeName, stageInfo,
   toyHit, toyDps, type BossId, type BossSpec, type CatId, type CatSpec, type FamId, type Pattern, type PestId, type PestSpec,
   type PlaceId, type Toy, type Trick,
 } from './content';
@@ -241,6 +241,8 @@ export interface SimInit {
   tuning: FocusTuning;
   /** now (ms since the epoch): the gift of the watch kept while away */
   now: number;
+  /** the primary input is a finger (default): the brother speaks of tapping; with a mouse, of clicks */
+  touch?: boolean;
 }
 
 export class KotySim {
@@ -364,7 +366,7 @@ export class KotySim {
     this.startMs = init.now;
     this.stageStart = p.stage;
     this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
-    this.talk = new Talk(LINES, init.rng);
+    this.talk = new Talk(init.touch === false ? linesFor(false) : LINES, init.rng);
     // the watch kept while away: modest and capped
     const pk = perks(p);
     const awaySec = p.lastSeen > 0 ? (init.now - p.lastSeen) / 1000 : 0;
