@@ -13,12 +13,15 @@
  *   side   a phone on its side (one 68 px HUD row, the chart a column on the right): the knight in
  *          the middle, the status top left under the HUD row, the dragon's bar top right, the dial
  *          bottom right under the right thumb; cards in a row.
- *   wide   a tablet or a desktop: the phone's layout grown (u up to 1.2), cards in a row.
+ *   wide   a tablet or a desktop: the phone's layout grown (u up to 1.2), cards in a row.  A big screen with
+ *          a mouse (kit/mobile `screenKind` 'big', DESIGN §14) brings the field closer — about 18 × 13 u in
+ *          sight, the knight 1.15–1.55× a desktop's — and puts the Miecz światła's dial under the knight, at
+ *          the bottom's middle, instead of a phone's thumb corner.
  *
  * Everything here is pure (tests run it at every kit/mobile CHECK_SIZES entry); the hud draws it.
  */
 import { clamp } from '../kit/juice';
-import { NO_INSETS, uiScale } from '../kit/mobile';
+import { NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 import { t } from './i18n';
 
@@ -39,8 +42,11 @@ export interface Layout {
   shape: Shape;
   /** the primary input is a finger (words and hints follow it) */
   touch: boolean;
-  /** UI scale: 1 on any phone, up to 1.2 on a tablet or a desktop */
+  /** UI scale: 1 on any phone, up to 1.2 on a tablet or a desktop, up to 2.2 on a big screen */
   u: number;
+  /** the screen this layout was made for (kit/mobile `screenKind`); a big one with a mouse gets its own field and dial */
+  kind: ScreenKind;
+  big: boolean;
   /** px per u of the field, and where the knight stands (px) */
   s: number;
   kx: number;
@@ -80,8 +86,11 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   const side = h < 470 && w > h * 1.3;
   const shape: Shape = side ? 'side' : w < 600 ? 'phone' : 'wide';
   const u = shape === 'wide' ? uiScale(w, h, 1.2) : 1;
+  const kind = screenKind(w, h, touch);
+  const big = kind === 'big' && shape === 'wide';
   const m = 12 * u;
-  // the field: close on a phone (ten metres across), the old desktop view grown on wider screens
+  // the field: close on a phone (ten metres across), the old desktop view grown on wider screens, closer again on a
+  // big screen (about 18 × 13 u: more of the field than a phone sees, the knight and the brood grown with the screen)
   let s: number, ky: number;
   if (shape === 'phone') {
     s = clamp(bw / 10, 30, 44);
@@ -89,15 +98,19 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   } else if (shape === 'side') {
     s = clamp(Math.min(bw / 17, (bottom - top) / 8.2), 22, 40);
     ky = top + (bottom - top) * 0.54;
+  } else if (big) {
+    s = clamp(Math.min(w, h - top * 0.5) / 14, 30, 120);
+    ky = top + (bottom - top) * 0.47;
   } else {
     s = clamp(Math.min(w, h - top * 0.5) / 11, 30, 56);
     ky = top + (bottom - top) * 0.5;
   }
   const kx = (left + right) / 2;
   const halfW = Math.max(kx, w - kx) / s, halfH = Math.max(ky, h - ky) / s;
-  // the dial: 60 px (69 px grown) in the bottom-right corner, 16 px in from the edge
-  const r = 30 * Math.min(u, 1.15);
-  const sword = { x: right - 22 - r, y: bottom - 18 - r, r };
+  // the dial: 60 px (69 px grown) in the bottom-right corner, 16 px in from the edge — on a big screen under the
+  // knight, at the bottom's middle, grown with the screen (a mouse need not travel to a thumb's corner)
+  const r = 30 * Math.min(u, big ? 1.6 : 1.15);
+  const sword = big ? { x: kx, y: bottom - 16 * u - r, r } : { x: right - 22 - r, y: bottom - 18 - r, r };
   const swordHit = { x: sword.x - r - 6, y: sword.y - r - 6, w: 2 * r + 12, h: 2 * r + 12 };
   const y0 = top + 6 * u;
   const heartR = 7 * u, chip = 26 * u;
@@ -110,7 +123,7 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
     const bwide = Math.min(380, bw * 0.44);
     const boss = { x: right - m - bwide, y: y0, w: bwide, h: 28 };
     return {
-      w, h, ins, top, bottom, left, right, shape, touch, u, s, kx, ky, halfW, halfH, up: (ky - top) / s,
+      w, h, ins, top, bottom, left, right, shape, touch, u, kind, big, s, kx, ky, halfW, halfH, up: (ky - top) / s,
       stat: { x: sx, w: sw, rowY: y0 + 9, heartR, xp, chipX: sx, chipY, chip },
       statShift: 0, chipsYieldToBoss: false, statBottom: chipY + chip / 2 + 4, boss, sword, swordHit,
       bannerY: chipY + chip / 2 + 30, bannerLowY: Math.min(ky + s * 1.8, bottom - 30),
@@ -124,11 +137,24 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   const statShift = boss.h + 6 * u;
   const statBottom = Math.max(chipY + chip / 2, xp.y + xp.h + statShift) + 4 * u;
   return {
-    w, h, ins, top, bottom, left, right, shape, touch, u, s, kx, ky, halfW, halfH, up: (ky - top) / s,
+    w, h, ins, top, bottom, left, right, shape, touch, u, kind, big, s, kx, ky, halfW, halfH, up: (ky - top) / s,
     stat: { x: sx, w: sw, rowY: y0 + 9 * u, heartR, xp, chipX: sx, chipY, chip },
     statShift, chipsYieldToBoss: true, statBottom, boss, sword, swordHit,
     bannerY: statBottom + 30 * u, bannerLowY: Math.min(ky + s * 2, swordHit.y - 22),
   };
+}
+
+/**
+ * The mouse's cursor (DESIGN §14): a hand where a click acts — on a story card or the tally anywhere (a click moves
+ * on), on a card or the reshuffle, on the field while the Miecz światła is ready (a click anywhere lets it go) — a
+ * grab on the field otherwise (a drag walks), grabbing while it does, the arrow elsewhere.
+ */
+export function cursorFor(s: { busy: boolean; choice: boolean; onChoice: boolean; steering: boolean; swordReady: boolean; over: boolean }): '' | 'pointer' | 'grab' | 'grabbing' {
+  if (!s.over) return '';
+  if (s.busy) return 'pointer';
+  if (s.choice) return s.onChoice ? 'pointer' : '';
+  if (s.steering) return 'grabbing';
+  return s.swordReady ? 'pointer' : 'grab';
 }
 
 /** The level-up's sheet: the title row (with Linda's reshuffle), the cards, the desktop's hint line. */

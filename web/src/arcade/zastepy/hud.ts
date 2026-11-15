@@ -26,7 +26,7 @@ import { LAG_SEC, traceBars } from '../kit/trace';
 import type { TapTarget } from '../kit/types';
 import { AGES, AGE_STORY, DEMON_NAME, HOST_NAME } from './content';
 import { t } from './i18n';
-import { cardAt, discRect, tapTargets, type Layout, type Rect } from './layout';
+import { cardAt, discRect, overAt, tapTargets, type Layout, type Over, type Rect } from './layout';
 import {
   ageOf, bossOf, chapterOf, flowFor, gateLevel, heroLevel, isBossBattle, pillarFor, unitLevel, unitStats, wallsFor,
 } from './meta';
@@ -94,6 +94,11 @@ export class Hud {
   /** each card's unit, painted once per card size and age (a static layer, not ~50 paths a card a frame) */
   private sprites = new Map<string, HTMLCanvasElement | null>();
   private dpr = 1;
+  /** the mouse over the canvas (a desktop, DESIGN §14): what a click there would take, and how lit it is (eased) */
+  private hoverAt: { x: number; y: number } | null = null;
+  private over: Over = { kind: 'none' };
+  private overKey = '';
+  private overA = 0;
 
   constructor(ctx: CanvasRenderingContext2D, eeg: boolean) {
     this.ctx = ctx;
@@ -191,6 +196,19 @@ export class Hud {
 
   get storyOn(): boolean { return this.story !== null; }
 
+  /** The mouse moved over the canvas (null: it left it). */
+  hover(at: { x: number; y: number } | null): void { this.hoverAt = at; }
+
+  /** What a click where the mouse rests would take now (none without a mouse over the canvas). */
+  overNow(sim: ZastepySim): Over {
+    const at = this.hoverAt;
+    if (!at) return { kind: 'none' };
+    return overAt(this.L, { story: !!this.story, offers: this.upOn(sim) ? sim.offers.length : null, battle: sim.stage === 'battle' && sim.phase !== 'done' }, at.x, at.y);
+  }
+
+  /** How lit the hovered thing `key` is (0 when the mouse is elsewhere). */
+  private lit(key: string): number { return this.overKey === key ? this.overA : 0; }
+
   /** The card between battles is up (and takes the taps). */
   upOn(sim: ZastepySim): boolean { return sim.stage === 'upgrade' && this.upA > 0.5; }
 
@@ -229,6 +247,15 @@ export class Hud {
     // the lantern: what the band drives right now, eased
     const want = this.lampValue(sim);
     this.lamp = approach(this.lamp, want ?? 0.5, dt, 0.18);
+    // the hover: a new thing under the mouse lights up from nothing
+    this.over = this.overNow(sim);
+    const o = this.over;
+    const key = o.kind === 'card' ? (o.open ? `card ${o.id}` : '') : o.kind === 'offer' ? `offer ${o.i}` : o.kind === 'go' || o.kind === 'pillar' || o.kind === 'trumpet' ? o.kind : '';
+    if (key !== this.overKey) {
+      this.overKey = key;
+      this.overA = 0;
+    }
+    this.overA = approach(this.overA, key ? 1 : 0, dt, 0.06);
     // the stream: motes leave the lantern as fast as the band drives
     const b = sim.battle;
     const rest = sim.calmNow > 0;
@@ -734,6 +761,17 @@ export class Hud {
     }
   }
 
+  /** The mouse over a round button: a gold ring round it (a click presses it). */
+  private hoverRing(x: number, y: number, r: number, k: number): void {
+    if (k < 0.02) return;
+    const ctx = this.ctx, u = this.L.u;
+    ctx.strokeStyle = `rgba(208,150,40,${0.85 * k})`;
+    ctx.lineWidth = 2.5 * u;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 5 * u, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   /** A key's badge at a button's shoulder — for a keyboard only (a finger never hears of keys). */
   private keyBadge(key: string, x: number, y: number, on: boolean): void {
     if (this.L.touch) return;
@@ -790,6 +828,7 @@ export class Hud {
     ctx.fillStyle = ready || standing ? 'rgba(255,190,90,.8)' : 'rgba(200,170,120,.45)';
     ctx.fillRect(-P.r * 0.07, -P.r * 0.4, P.r * 0.14, P.r * 0.75);
     ctx.restore();
+    this.hoverRing(P.x, P.y, P.r, this.lit('pillar'));
     this.keyBadge('H', P.x + P.r * 0.74, P.y - P.r * 0.74, ready);
   }
 
@@ -825,6 +864,7 @@ export class Hud {
     }
     paintTrumpet(ctx, 1 * u, 2 * u, T.r * 1.15, ready ? C.goldDeep : 'rgba(150,120,70,.8)');
     ctx.restore();
+    this.hoverRing(T.x, T.y, T.r, this.lit('trumpet'));
     this.keyBadge('T', T.x + T.r * 0.74, T.y - T.r * 0.74, ready);
   }
 
@@ -871,11 +911,12 @@ export class Hud {
       const bane = BANE[id];
       const hot = open && fighting && bane !== null && want.has(bane);
       const press = this.pressT.get(id) ?? 0, shake = this.shakeT.get(id) ?? 0;
+      const hov = this.lit(`card ${id}`);
       const narrow = r.w < 64 * u;
       const rad = Math.min(10 * u, r.w * 0.18);
       ctx.save();
       ctx.globalAlpha = dim;
-      ctx.translate(r.x + r.w / 2 + Math.sin(shake * 60) * shake * 10 * u, r.y + r.h / 2 - (hot ? 3 * u : 0));
+      ctx.translate(r.x + r.w / 2 + Math.sin(shake * 60) * shake * 10 * u, r.y + r.h / 2 - (hot ? 3 * u : 0) - 4 * u * hov);
       const sc = 1 - press * 0.3 + (ready && (full || hot) ? 0.025 * Math.sin(this.clock * 5 + i) : 0);
       ctx.scale(sc, sc);
       ctx.translate(-r.w / 2, -r.h / 2);
@@ -894,6 +935,14 @@ export class Hud {
       ctx.strokeStyle = hot ? '#e0861c' : ready ? C.gold : 'rgba(185,127,31,.4)';
       ctx.lineWidth = hot ? 3 : ready ? 2.5 : 1;
       ctx.stroke();
+      // the mouse over it: a white ring round the lifted card (a click sends it)
+      if (hov > 0.02) {
+        ctx.strokeStyle = `rgba(255,255,255,${0.9 * hov})`;
+        ctx.lineWidth = 3 * u;
+        ctx.beginPath();
+        ctx.roundRect(-3 * u, -3 * u, r.w + 6 * u, r.h + 6 * u, rad + 3 * u);
+        ctx.stroke();
+      }
       // the unit, painted, standing on the price's strip (a wide, low card: the unit on the left, the price on the right)
       const land = r.w >= r.h * 1.3;
       const strip = land ? 0 : Math.max(20 * u, Math.min(26 * u, r.h * 0.28));
@@ -1129,6 +1178,11 @@ export class Hud {
     ctx.beginPath();
     ctx.roundRect(g.x, g.y, g.w, g.h, g.h / 2);
     ctx.fill();
+    const gh = this.lit('go');
+    if (gh > 0.02) {
+      ctx.fillStyle = `rgba(255,248,232,${0.14 * gh})`;
+      ctx.fill();
+    }
     ctx.fillStyle = 'rgba(232,176,74,.5)';
     ctx.beginPath();
     ctx.roundRect(g.x, g.y, Math.max(g.h, g.w * clamp(left / RULES.upgradeSec)), g.h, g.h / 2);
@@ -1151,6 +1205,15 @@ export class Hud {
     ctx.roundRect(r.x, r.y, r.w, r.h, 12 * u);
     ctx.fill();
     ctx.stroke();
+    // the mouse over it: warmer, a firmer rim (a click buys it)
+    const hov = this.lit(`offer ${i}`);
+    if (hov > 0.02) {
+      ctx.fillStyle = `rgba(255,214,110,${0.2 * hov})`;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(208,150,40,${0.9 * hov})`;
+      ctx.lineWidth = 2 + 1.5 * hov;
+      ctx.stroke();
+    }
     const { name, nums } = this.offerText(sim, o);
     const pt = fmtNum(o.price);
     ctx.font = F.price;

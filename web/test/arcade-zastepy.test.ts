@@ -1,13 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_READ, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_MAX, MIN_READ, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { passage } from '../src/arcade/kit/scripture';
 import { Battle, type BattleEvent, type Control } from '../src/arcade/zastepy/battle';
 import { LINES } from '../src/arcade/zastepy/content';
 import { hintFor, howto } from '../src/arcade/zastepy/index';
-import { CARD_MIN, cardAt, cardIds, discRect, layout, tapTargets } from '../src/arcade/zastepy/layout';
+import { BIG_VIEW, CARD_MIN, cardAt, cardIds, cursorFor, discRect, layout, overAt, tapTargets } from '../src/arcade/zastepy/layout';
 import { SANS, SERIF, font } from '../src/arcade/zastepy/paint';
 import { CATALOGS, t, unit } from '../src/arcade/zastepy/i18n';
 import {
@@ -1117,15 +1117,81 @@ describe('on a phone first: the layout', () => {
     }
   });
 
-  it('grows on a tablet and a desktop, never past 1.3; a desktop shows the whole road', () => {
+  it('grows on a tablet and a desktop, never past 1.3 (a big screen up to DESK_MAX); a desktop shows the whole road', () => {
     for (const z of CHECK_SIZES.filter(x => Math.min(x.w, x.h) > 600)) {
       const L = layout(z.w, z.h, z.insets, !z.name.startsWith('desktop'), 3);
       expect(L.u, z.name).toBeGreaterThan(1);
-      expect(L.u, z.name).toBeLessThanOrEqual(1.3);
+      // (the UI scale grows past 1.3 on any big canvas, DESIGN §14; the layout's big shape needs a mouse too)
+      expect(L.u, z.name).toBeLessThanOrEqual(z.w >= 1024 && Math.min(z.w, z.h) >= 860 ? DESK_MAX : 1.3);
       if (z.name.startsWith('desktop')) {
         expect(L.shape).toBe('wide');
         expect(L.viewM).toBeGreaterThanOrEqual(RULES.road + 3);
       }
+    }
+  });
+
+  it('a big screen (a mouse): its own layout only there — every other size is the same for a finger and a mouse', () => {
+    const BIG = CHECK_SIZES.filter(z => z.w >= 1024 && Math.min(z.w, z.h) >= 860);
+    expect(BIG).toHaveLength(2);
+    for (const z of CHECK_SIZES) {
+      for (let gate = 1; gate <= RULES.gateMax; gate++) {
+        const mouse = layout(z.w, z.h, z.insets, false, gate), finger = layout(z.w, z.h, z.insets, true, gate);
+        expect(mouse.big, z.name).toBe(BIG.includes(z));
+        expect(finger.big, z.name).toBe(false);
+        if (!BIG.includes(z)) expect({ ...finger, touch: false, kind: '' }, `${z.name} · gate ${gate}`).toEqual({ ...mouse, touch: false, kind: '' });
+      }
+    }
+  });
+
+  it('a big screen zooms the road in: 22 m in view, the host and the shades 1.5× a desktop\'s and more, the road at about seven tenths of the band, taller banners', () => {
+    const D = layout(1280, 800, { top: 192, right: 0, bottom: 0, left: 0 }, false, 3);
+    for (const z of CHECK_SIZES.filter(x => x.w >= 1024 && Math.min(x.w, x.h) >= 860)) {
+      for (let gate = 1; gate <= RULES.gateMax; gate++) {
+        const L = layout(z.w, z.h, z.insets, false, gate);
+        const name = `${z.name} · gate ${gate}`;
+        expect(L.shape, name).toBe('wide');
+        expect(L.big, name).toBe(true);
+        expect(L.viewM, name).toBeCloseTo(BIG_VIEW, 0);
+        expect(L.viewM, name).toBeLessThan(RULES.road + 3);   // the camera follows the front (a drag pans)
+        expect(L.S, name).toBeGreaterThanOrEqual(1.5 * D.S);
+        // the road at 0.6–0.8 of the band under the gates' bar, the clouds below it, 6.4 m of sky over it
+        const below = L.bar.y + L.bar.h, room = L.row.y - below;
+        expect((L.roadY - below) / room, name).toBeGreaterThanOrEqual(0.6);
+        expect((L.roadY - below) / room, name).toBeLessThanOrEqual(0.8);
+        expect(L.roadY - below, name).toBeGreaterThanOrEqual(6.4 * L.S - 1);
+        expect(L.row.y - L.roadY, name).toBeGreaterThanOrEqual(1.5 * L.S);
+        expect(L.banners.h, name).toBeGreaterThanOrEqual(2 * L.S);
+        // the controls grow with the screen
+        expect(L.u, name).toBeGreaterThan(1.3);
+        for (const c of L.cards) expect(c.r.h, name).toBeGreaterThanOrEqual(84 * L.u - 0.5);
+        expect(2 * L.trumpet.r, name).toBeGreaterThanOrEqual(2 * D.trumpet.r);
+      }
+    }
+  });
+
+  it('the mouse: what a click would take, and its cursor — a hand on a card, a button, an offer, the road while the pillar is ready; a grab where a drag pans', () => {
+    for (const z of [CHECK_SIZES[11], CHECK_SIZES[8]]) {
+      const L = layout(z.w, z.h, z.insets, false, 3);
+      const battle = { story: false, offers: null, battle: true };
+      const mid = (r: Box) => [r.x + r.w / 2, r.y + r.h / 2] as const;
+      const open = L.cards.find(c => c.open)!, locked = L.cards.find(c => !c.open);
+      expect(overAt(L, battle, ...mid(open.r)), z.name).toEqual({ kind: 'card', id: open.id, open: true });
+      expect(cursorFor(overAt(L, battle, ...mid(open.r)), false, true)).toBe('pointer');
+      if (locked) expect(cursorFor(overAt(L, battle, ...mid(locked.r)), true, true), z.name).toBe('');
+      expect(overAt(L, battle, L.pillar.x, L.pillar.y).kind).toBe('pillar');
+      expect(overAt(L, battle, L.trumpet.x, L.trumpet.y).kind).toBe('trumpet');
+      const road = overAt(L, battle, L.w / 2, L.roadY - L.S);
+      expect(road.kind, z.name).toBe('road');
+      expect(cursorFor(road, true, L.viewM >= RULES.road + 3)).toBe('pointer');
+      expect(cursorFor(road, false, L.viewM >= RULES.road + 3), z.name).toBe(L.big ? 'grab' : '');
+      // the controls' band between the buttons is no road
+      expect(overAt(L, battle, L.row.x + 2, L.row.y + 2).kind, z.name).toBe('none');
+      // between battles: the offers and "go on"
+      const up = { story: false, offers: 3, battle: false };
+      L.sheet.offers.forEach((r, i) => expect(overAt(L, up, ...mid(r))).toEqual({ kind: 'offer', i }));
+      expect(overAt(L, up, ...mid(L.sheet.go)).kind).toBe('go');
+      expect(cursorFor(overAt(L, up, L.sheet.box.x + 3, L.sheet.box.y + 3), true, true)).toBe('');
+      expect(cursorFor(overAt(L, { story: true, offers: null, battle: true }, 5, 5), true, true)).toBe('pointer');
     }
   });
 
@@ -1330,6 +1396,55 @@ describe('on a phone first: the game at every checked size', () => {
     expect(sim.stage).toBe('battle');
   });
 
+  it('a mouse on a big screen: what a click would take lights, the cursor says it (a hand, a grab), leaving the canvas clears both', async () => {
+    const z = CHECK_SIZES.find(x => x.name.startsWith('Full HD'))!;
+    const mod = (await import('../src/arcade/zastepy/index')).default;
+    const env = envFor(z, returning(), false);
+    const game = mod.create(env);
+    game.resize(z.w, z.h, 1);
+    game.start();
+    const inner = game as unknown as { sim: ZastepySim; view: { L: ReturnType<typeof layout>; roadFits: boolean; hud: { overNow(s: ZastepySim): { kind: string } } } };
+    const clock = { t: 0 };
+    const run = (sec: number) => {
+      for (let i = 0; i < Math.round(sec * 30); i++) {
+        clock.t += 1 / 30;
+        game.update(1 / 30, frame(), clock.t);
+        game.draw();
+      }
+    };
+    run(1);
+    const L = inner.view.L;
+    expect(L.big).toBe(true);
+    expect(inner.view.roadFits).toBe(false);
+    const move = (x: number, y: number) => {
+      game.pointer!({ type: 'move', x, y, id: 1 });
+      run(1 / 30);
+    };
+    const card = L.cards.find(c => c.open)!;
+    move(card.r.x + card.r.w / 2, card.r.y + card.r.h / 2);
+    expect(inner.view.hud.overNow(inner.sim).kind).toBe('card');
+    expect(env.canvas.style.cursor).toBe('pointer');
+    // the road: a grab while the pillar cools (a drag pans the zoomed road), a hand once it is ready to rise there
+    inner.sim.battle.pillarCd = 60;
+    move(L.w / 2, L.roadY - L.S);
+    expect(inner.view.hud.overNow(inner.sim).kind).toBe('road');
+    expect(env.canvas.style.cursor).toBe('grab');
+    inner.sim.battle.pillarCd = 0;
+    run(1 / 30);
+    expect(inner.sim.battle.pillarReady).toBe(true);
+    expect(env.canvas.style.cursor).toBe('pointer');
+    // the trumpet's button
+    move(L.trumpet.x, L.trumpet.y);
+    expect(inner.view.hud.overNow(inner.sim).kind).toBe('trumpet');
+    expect(env.canvas.style.cursor).toBe('pointer');
+    // off the canvas: nothing lit, the arrow back
+    env.canvas.dispatchEvent(new Event('pointerleave'));
+    run(1 / 30);
+    expect(inner.view.hud.overNow(inner.sim).kind).toBe('none');
+    expect(env.canvas.style.cursor).toBe('');
+    game.destroy();
+  });
+
   it('the smoke\'s input scores within 22 s on a desktop and on the smallest phone (a centre tap every 0.65 s, Space every 2 s)', async () => {
     for (const [z, touch] of [[CHECK_SIZES[7], false], [CHECK_SIZES[0], true]] as const) {
       const { game } = await gameAt(z, touch, freshProgress());
@@ -1367,7 +1482,7 @@ describe('on a phone first: the game at every checked size', () => {
         expect(c[k], `${l}.${k}`).toBeTypeOf('string');
         expect(c[k], `${l}.${k}`).not.toMatch(KEYS);
       }
-      for (const k of ['hint.card.keys', 'hint.pillar.keys', 'hint.trumpet.keys', 'howto.keys', 'story.tap.keys']) expect(c[k], `${l}.${k}`).toMatch(KEYS);
+      for (const k of ['hint.card.keys', 'hint.pillar.keys', 'hint.trumpet.keys', 'hint.upgrade.keys', 'howto.cards.keys', 'howto.road.keys', 'howto.keys', 'story.tap.keys']) expect(c[k], `${l}.${k}`).toMatch(KEYS);
     }
     const touch = howto(true), desk = howto(false);
     expect(touch.hands.some(x => x.gesture === 'keys')).toBe(false);
@@ -1377,7 +1492,9 @@ describe('on a phone first: the game at every checked size', () => {
       expect(hintFor(w, true)).not.toMatch(KEYS);
       expect(hintFor(w, false)).toMatch(KEYS);
     }
-    expect(hintFor('upgrade', true)).toBe('');
+    expect(hintFor('upgrade', true)).toBe(t('hint.upgrade'));
+    expect(hintFor('upgrade', false)).toMatch(KEYS);
+    expect(hintFor('rest', true)).toBe('');
   });
 
   it('teaches with the hand\'s words: a phone\'s first session hears no key', async () => {

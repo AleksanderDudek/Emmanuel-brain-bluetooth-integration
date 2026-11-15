@@ -17,12 +17,12 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
-import { target } from '../kit/mobile';
+import { coarsePointer, target } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { JerzySound } from './audio';
 import { Hud, REROLL } from './hud';
 import { hand, t, unit, type Key } from './i18n';
-import { sheet, tallyBox, type Rect, type Sheet } from './layout';
+import { cursorFor, sheet, tallyBox, type Rect, type Sheet } from './layout';
 import { bestOf, freshProgress, migrate, type JerzyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -59,6 +59,38 @@ class JerzyGame implements ArcadeGame {
     this.sound = new JerzySound(env.audio);
     // ?debug: the run in the console (and for screenshot scripts)
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __jerzy?: unknown }).__jerzy = this.sim;
+    // a mouse that leaves the canvas takes its hover with it (the lit card or dial, the cursor)
+    if (!env.touch) env.canvas.addEventListener('pointerleave', this.leave);
+  }
+
+  /** where the mouse rests over the canvas (a desktop), and the cursor it was given there */
+  private mouse: { x: number; y: number } | null = null;
+  private cursor = '';
+  private readonly leave = (): void => {
+    this.mouse = null;
+    this.view.hud.hover = null;
+    this.setCursor('');
+  };
+
+  private setCursor(c: string): void {
+    if (c === this.cursor) return;
+    this.cursor = c;
+    this.env.canvas.style.cursor = c;
+  }
+
+  /** What a click where the mouse rests would do, as a cursor (a hand, a grab where a drag walks, the arrow). */
+  private cursorNow(): string {
+    const sim = this.sim, m = this.mouse;
+    if (!m) return '';
+    const sh = this.sheetNow();
+    return cursorFor({
+      over: sim.started && sim.phase !== 'done',
+      busy: !!(sim.story || sim.tally),
+      choice: !!sim.choice,
+      onChoice: !!sh && sim.choice!.t >= CARD_GUARD && (Hud.cardAt(sh, m.x, m.y) >= 0 || Hud.rerollAt(sh, m.x, m.y)),
+      steering: !!this.finger,
+      swordReady: sim.swordReady && sim.knight.down <= 0,
+    });
   }
 
   resize(w: number, h: number, dpr: number): void {
@@ -91,6 +123,7 @@ class JerzyGame implements ArcadeGame {
     this.sound.update(dt, this.sim);
     this.hintCool -= dt;
     this.flushHints();
+    if (this.mouse) this.setCursor(this.cursorNow());
   }
 
   draw(): void { this.view.draw(this.sim); }
@@ -104,6 +137,11 @@ class JerzyGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view;
+    if (!this.env.touch) {
+      // a mouse: what it is over lights (a card, the reshuffle, the dial, a button) and the cursor says it
+      this.mouse = { x: e.x, y: e.y };
+      view.hud.hover = this.mouse;
+    }
     if (e.type === 'down') {
       if (sim.story || sim.tally) {
         sim.tap();
@@ -320,7 +358,11 @@ class JerzyGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { this.sim.release(); }
+  destroy(): void {
+    this.sim.release();
+    this.env.canvas.removeEventListener('pointerleave', this.leave);
+    this.setCursor('');
+  }
 }
 
 function haptic(e: SimEvent): void {
@@ -344,12 +386,13 @@ function haptic(e: SimEvent): void {
 }
 
 /** How to play: a drag and a tap for a finger; the keys row (shortcuts on a desktop) the runner leaves out on a touch screen. */
-function howto(): HowTo {
+/** How to play for the hand the player has: a finger taps the cards and the dial, a mouse clicks them (the keys row only shows at a keyboard). */
+export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('howto.goal'),
     hands: [
       { gesture: 'drag', text: t('howto.move') },
-      { gesture: 'tap', text: t('howto.cards') },
+      { gesture: 'tap', text: hand('howto.cards', touch) },
       { gesture: 'keys', text: t('howto.keys') },
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],
@@ -366,6 +409,6 @@ const mod: ArcadeModule<JerzyProgress> = {
   unit,
   progressPanel: (p, save) => progressPanel(migrate(p), save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p ? migrate(p) : undefined),
-  howto,
+  howto: () => howto(),
 };
 export default mod;

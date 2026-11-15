@@ -60,7 +60,9 @@ export const HINTS: Readonly<Record<Teach, string>> = Object.fromEntries(
 ) as Record<Teach, string>;
 
 /** The same marks for a player with a keyboard: the key named as a shortcut where there is one. */
-export const HINTS_KEYS: Readonly<Partial<Record<Teach, string>>> = { help: t('hint.help.keys'), burst: t('hint.burst.keys') };
+export const HINTS_KEYS: Readonly<Partial<Record<Teach, string>>> = {
+  tap: t('hint.tap.keys'), hold: t('hint.hold.keys'), drag: t('hint.drag.keys'), help: t('hint.help.keys'), burst: t('hint.burst.keys'),
+};
 
 /** A coach mark's words for the hand the player has (`touch`: a finger, never a key). */
 export const hintFor = (w: Teach, touch: boolean): string => (touch ? HINTS[w] : HINTS_KEYS[w] ?? HINTS[w]);

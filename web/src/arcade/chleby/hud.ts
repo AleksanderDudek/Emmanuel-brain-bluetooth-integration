@@ -23,7 +23,7 @@ import { RARITIES, cardDef, type Drop } from './cards';
 import { CHAPTERS, STORIES, bossName, bossStory, buildName, buildText, cardName } from './content';
 import { isBoss, placeOf } from './field';
 import { baskets as basketsText, t } from './i18n';
-import { revealGeo, sheetBox, villageGeo, wonBox, type Layout, type Rect } from './layout';
+import { revealGeo, sheetBox, villageGeo, wonBox, type Layout, type Over, type Rect } from './layout';
 import type { BossKind } from './meta';
 import { C, SANS, SERIF, font, glow, paintBasket, paintStar } from './paint';
 import { RULES, type ChlebySim, type Pack } from './sim';
@@ -47,6 +47,11 @@ const TXT = {
 
 const PX = /(\d+(?:\.\d+)?)px/;
 const overlap = (a: Rect, b: Rect): boolean => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+/** A revealed tile's turn across (0 edge-on … 1 facing; `k` 0..1 of its turn, a little overshoot at the end). */
+export const revealFlip = (k: number): number => ease.outBack(k) * Math.abs(Math.cos((1 - k) * Math.PI * 0.5)) + 0.0001;
+/** A tile's name and badge (fitted with a 12 px floor) show from this much of the turn: never under the 11 px floor. */
+export const REVEAL_WORDS = 0.92;
 
 export class Hud {
   private L!: Layout;
@@ -73,6 +78,9 @@ export class Hud {
   private pressT = 0;
   /** the runner's coach mark on screen (where it points, until when): a banner steps aside for it */
   private mark: { y: number; until: number } | null = null;
+
+  /** what the mouse is over (a desktop, DESIGN §14): a village row or "Dalej" lights */
+  hover: Over | null = null;
 
   constructor(ctx: CanvasRenderingContext2D) {
     this.ctx = ctx;
@@ -436,7 +444,11 @@ export class Hud {
       const rarity = def?.rarity ?? 'common';
       ctx.save();
       ctx.translate(c.x + c.w / 2, c.y + c.h / 2);
-      ctx.scale(ease.outBack(k) * Math.abs(Math.cos((1 - k) * Math.PI * 0.5)) + 0.0001, ease.outBack(k));
+      const flip = revealFlip(k);
+      ctx.scale(flip, ease.outBack(k));
+      // the words show once the face has turned to the player: mid-turn they would be squeezed under the 11 px floor
+      // (a tap that goes on early never leaves a smudge of a name)
+      const words = flip >= REVEAL_WORDS;
       const tw = c.w, th = c.h;
       if (rarity === 'legend' || rarity === 'epic' || d.evo) {
         ctx.save();
@@ -459,6 +471,10 @@ export class Hud {
       const artTop = -th / 2 + 6 * u, artH = nameTop - 3 * u - artTop;
       const art = Math.max(8 * u, Math.min(tw * 0.3, artH * 0.42));
       if (def) paintCardArt(ctx, d.id, def.kind, 0, artTop + artH * 0.56, art, this.clock);
+      if (!words) {
+        ctx.restore();
+        return;
+      }
       ctx.fillStyle = C.text;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -522,9 +538,11 @@ export class Hud {
       const row = v.rows[i];
       if (!row) return;
       const pressed = this.pressRow === i && this.pressT > 0;
-      ctx.fillStyle = pressed ? 'rgba(243,193,63,.5)' : o.can ? 'rgba(243,193,63,.24)' : 'rgba(90,70,40,.08)';
+      // the mouse over a row it can build: warmer, a firmer rim (a click builds)
+      const hov = !pressed && o.can && this.hover?.kind === 'build' && this.hover.i === i;
+      ctx.fillStyle = pressed ? 'rgba(243,193,63,.5)' : hov ? 'rgba(243,193,63,.38)' : o.can ? 'rgba(243,193,63,.24)' : 'rgba(90,70,40,.08)';
       ctx.strokeStyle = o.can ? C.goldDeep : 'rgba(90,70,40,.25)';
-      ctx.lineWidth = o.can ? 1.5 : 1;
+      ctx.lineWidth = o.can ? (hov ? 2.5 : 1.5) : 1;
       ctx.beginPath();
       ctx.roundRect(row.x, row.y, row.w, row.h, 11 * u);
       ctx.fill();
@@ -562,6 +580,10 @@ export class Hud {
     ctx.beginPath();
     ctx.roundRect(g.x, g.y, g.w, g.h, g.h / 2);
     ctx.fill();
+    if (!pressed && this.hover?.kind === 'go') {
+      ctx.fillStyle = 'rgba(255,255,255,.16)';
+      ctx.fill();
+    }
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#ffffff';

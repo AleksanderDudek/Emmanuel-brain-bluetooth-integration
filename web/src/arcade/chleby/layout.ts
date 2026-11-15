@@ -7,13 +7,15 @@
  * with the help button in the bottom-right corner, clear of the screen's edges.  The cards between
  * levels are bottom sheets there.  On a phone on its side the lane sits right of a left column (Mirka,
  * the baskets, and the side sheets, which slide the lane aside instead of covering it) with the help
- * button bottom right; a desktop keeps the lane in the middle with the sheets on its left.
+ * button bottom right; a desktop keeps the lane in the middle with the sheets on its left.  A big screen
+ * with a mouse (kit/mobile `screenKind` 'big', DESIGN §14) grows what the desktop caps at a phone's size —
+ * the boy and his basket, the help button, the baskets of crumbs, the side sheets — with the screen.
  *
  * Everything that can be tapped is computed here, without a canvas, so the view's hit tests, the
  * game's `targets()` and the layout tests (every `CHECK_SIZES` entry) use the same rectangles.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, TAP_GAP, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, TAP_GAP, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -43,9 +45,12 @@ export type Mode = 'tall' | 'short' | 'wide';
 export interface Layout {
   w: number;
   h: number;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop (kit/mobile.ts uiScale) */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, up to 2.2 on a big screen (kit/mobile.ts uiScale) */
   u: number;
   mode: Mode;
+  /** the screen this layout was made for (kit/mobile `screenKind`); a big one with a mouse grows the boy and the controls */
+  kind: ScreenKind;
+  big: boolean;
   lane: Lane;
   /** the sky down to the horizon, then the lake's depth, then the grass */
   horizon: number;
@@ -114,9 +119,11 @@ function fitLane(roof: number, feet: number, x0: number, x1: number, k: number, 
   return lane;
 }
 
-export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
+/** The layout for a canvas of w × h under these insets; `touch` (the runner's `env.touch`) picks the screen's kind with the size. */
+export function layout(w: number, h: number, ins: Insets = NO_INSETS, touch = false): Layout {
   const W = Math.max(240, w), H = Math.max(200, h);
   const u = uiScale(W, H);
+  const kind = screenKind(W, H, touch);
   const I: Insets = {
     top: clamp(ins.top, 0, H * 0.6), right: clamp(ins.right, 0, W * 0.2), bottom: clamp(ins.bottom, 0, H * 0.2), left: clamp(ins.left, 0, W * 0.2),
   };
@@ -124,7 +131,8 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
   const play = { x: left, y: top, w: right - left, h: bottom - top };
   const tall = W / H < 0.9;
   const mode: Mode = tall ? 'tall' : bottom - top < 340 ? 'short' : 'wide';
-  const r = clamp(26 * u, 26, 32);
+  const big = kind === 'big' && mode === 'wide';
+  const r = clamp(26 * u, 26, big ? 64 : 32);
   // the tables' band starts right under the HUD: their bars and numbers are the top band's passive news
   const roof = top + 2;
   let lane: Lane, help: Layout['help'], bank: Layout['bank'], bankLabel: Layout['bankLabel'], perch: Layout['perch'];
@@ -151,10 +159,11 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
     sideW = clamp(play.w * 0.46, 260, 360);
     sideX = left + 8;
   } else {
-    // a desktop: the lane in the middle, the baskets under it, the help button beside its foot
-    const bh = clamp(22 * u, 22, 30);
+    // a desktop: the lane in the middle, the baskets under it, the help button beside its foot (a big screen grows
+    // the boy, the baskets and the button with it)
+    const bh = clamp(22 * u, 22, big ? 48 : 30);
     const rowY = bottom - 10 - bh;
-    lane = fitLane(roof, rowY - 4, left + 40, right - 40, 0.45, 0.8, 30 * u, 30, 52);
+    lane = fitLane(roof, rowY - 4, left + 40, right - 40, 0.45, 0.8, 30 * u, 30, big ? 52 * u : 52);
     const bw = Math.min(lane.hwB * 2, 12 * bh * 1.9);
     bank = { x: lane.cx - bw / 2, y: rowY, w: bw, h: bh, cols: 12, rows: 1 };
     // the count after the row: a side sheet (bottom left) never covers it
@@ -162,7 +171,7 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
     help = { x: Math.min(right - KEEP - r, lane.cx + lane.hwB + 24 + r), y: lane.yB - r * 0.3, r };
     const leftRoom = lane.cx - lane.hwB - left;
     perch = { x: leftRoom < 60 * u ? lane.cx - lane.hwB + 18 * u : lane.cx - lane.hwB - 34 * u, y: lane.yB - (lane.yB - lane.yT) * 0.32, dir: 1 };
-    sideW = clamp(play.w * 0.28, 300, 400);
+    sideW = big ? clamp(play.w * 0.36, 300, 320 * u) : clamp(play.w * 0.28, 300, 400);
     sideX = left + 24;
   }
   const short = mode === 'short';
@@ -171,7 +180,7 @@ export function layout(w: number, h: number, ins: Insets = NO_INSETS): Layout {
   const sheet = mode === 'tall' ? 'bottom' : 'side';
   const slide = sheet === 'side' ? Math.max(0, sideX + sideW + 10 - (lane.cx - lane.hwB)) : 0;
   return {
-    w: W, h: H, u, mode, lane, horizon, lakeD, hudTop: top, ins: I, play, bank, bankLabel, help, perch,
+    w: W, h: H, u, mode, kind, big, lane, horizon, lakeD, hudTop: top, ins: I, play, bank, bankLabel, help, perch,
     cardX: lane.cx, cardY: lane.yT + (lane.yB - lane.yT) * 0.48,
     bannerY: lane.yT + (lane.yB - lane.yT) * (mode === 'wide' ? 0.55 : 0.62),
     sheet, sideW, slide,
@@ -314,6 +323,34 @@ export interface TargetState {
 }
 
 export const inRect = (r: Rect, x: number, y: number): boolean => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+
+/** What a click at a point would do now (DESIGN §14 — the mouse's hover and its cursor answer it), as the view's press takes it. */
+export type Over =
+  | { kind: 'next' } | { kind: 'build'; i: number } | { kind: 'go' } | { kind: 'help' } | { kind: 'giant' } | { kind: 'lane' } | { kind: 'none' };
+
+/**
+ * The same order as the view's press: a story card or the reveal take any click (it goes on); the village sheet's rows
+ * and "Dalej"; in a level the help button, the giant loaf (its box as the view tests it), and the lane anywhere else
+ * (a click pours, the stream goes up the lane where the mouse is).
+ */
+export function overAt(L: Layout, s: { story: boolean; stage: TargetState['stage']; done: boolean; offers: number; giant: Rect | null }, x: number, y: number): Over {
+  if (s.story || s.stage === 'pack') return { kind: 'next' };
+  if (s.stage === 'card') {
+    const v = villageGeo(L, s.offers);
+    const i = v.rows.findIndex(r => inRect(r, x, y));
+    if (i >= 0) return { kind: 'build', i };
+    return inRect(v.go, x, y) ? { kind: 'go' } : { kind: 'none' };
+  }
+  if (s.stage !== 'level' || s.done) return { kind: 'none' };
+  if (inRect(helpRect(L), x, y)) return { kind: 'help' };
+  if (s.giant && inRect(s.giant, x, y)) return { kind: 'giant' };
+  return y >= L.play.y ? { kind: 'lane' } : { kind: 'none' };
+}
+
+/** The mouse's cursor: a crosshair over the lane (a click pours there, the stream aimed at it), a hand on a button or a card, else the arrow. */
+export function cursorFor(o: Over): '' | 'pointer' | 'crosshair' {
+  return o.kind === 'lane' ? 'crosshair' : o.kind === 'none' ? '' : 'pointer';
+}
 
 /**
  * Every control the player can tap now (ArcadeGame.targets): the help button and the giant loaf

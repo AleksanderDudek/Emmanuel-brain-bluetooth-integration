@@ -21,7 +21,7 @@ import { Hud } from './hud';
 import { t } from './i18n';
 import { ChlebyIntro } from './intro';
 import {
-  chlebyTargets, giantRect, helpRect, inRect, layout, laneX, revealGeo, scaleAt, toScreen, villageGeo, type Layout, type Rect,
+  chlebyTargets, giantRect, helpRect, inRect, layout, laneX, overAt, revealGeo, scaleAt, toScreen, villageGeo, type Layout, type Over, type Rect,
 } from './layout';
 import type { ChlebyProgress, Teach } from './meta';
 import {
@@ -109,7 +109,7 @@ export class ChlebyView {
 
   resize(w: number, h: number, dpr: number): void {
     this.dpr = dpr;
-    this.L = layout(w, h, this.opts.insets());
+    this.L = layout(w, h, this.opts.insets(), this.opts.touch);
     this.hud.resize(this.L);
   }
 
@@ -262,6 +262,17 @@ export class ChlebyView {
   }
 
   release(): void { this.hand = null; }
+
+  /** Where the mouse rests over the canvas (null: off it, or a finger): the aim, the help button, the giant loaf, a row answer it. */
+  private hoverAt: { x: number; y: number } | null = null;
+  hover(x: number | null, y = 0): void { this.hoverAt = x === null || this.opts.touch ? null : { x, y }; }
+
+  /** What a click where the mouse rests would do now (none without a mouse over the canvas). */
+  overNow(sim: ChlebySim): Over {
+    const at = this.hoverAt;
+    if (!at) return { kind: 'none' };
+    return overAt(this.L, { story: this.hud.storyOn, stage: sim.stage, done: sim.phase === 'done', offers: sim.offers.length, giant: this.giantBox(sim) }, at.x, at.y);
+  }
 
   /** A screen x at the basket's row → lane x (u), the lane's slide taken off. */
   private laneAt(x: number): number { return clamp(laneX(this.L.lane, x - this.slideX), 0, RULES.laneW); }
@@ -560,6 +571,7 @@ export class ChlebyView {
     this.helpPress = Math.max(0, this.helpPress - dt * 5);
     this.helpShake = Math.max(0, this.helpShake - dt * 1.2);
     this.parts.update(dt);
+    this.hud.hover = this.hoverAt ? this.overNow(sim) : null;
     this.hud.update(dt, sim);
     this.enter = Math.min(1, this.enter + dt / 0.55);
     for (const [k, v] of this.cheer) this.cheer.set(k, v + dt);
@@ -636,6 +648,7 @@ export class ChlebyView {
     ctx.translate(-this.slideX, 0);
     this.drawHelp(sim);
     this.drawHand(sim);
+    this.drawHoverRing(sim);
     ctx.restore();
     const b = this.basketAt(sim), m = this.mirkaAt();
     this.hud.draw(sim, { mirka: { x: m.x + this.slideX, y: m.y }, boy: { x: b.x + this.slideX, y: b.y - lane.boy * 0.9 } }, [helpRect(L)]);
@@ -899,6 +912,23 @@ export class ChlebyView {
     ctx.restore();
   }
 
+  /** The mouse over the help button or the giant loaf (a desktop): a ring round it — a click sends the help, bursts the loaf. */
+  private drawHoverRing(sim: ChlebySim): void {
+    const o = this.overNow(sim);
+    if (o.kind !== 'help' && o.kind !== 'giant') return;
+    const ctx = this.ctx, u = this.L.u;
+    const c = o.kind === 'help' ? { x: this.L.help.x, y: this.L.help.y, r: this.L.help.r * 1.08 + 5 * u } : this.giantBody(sim);
+    if (!c) return;
+    const pulse = 0.5 + 0.5 * Math.sin(this.t * 6);
+    ctx.save();
+    ctx.strokeStyle = o.kind === 'help' && !sim.helpReady ? 'rgba(255,246,224,.55)' : `rgba(255,214,110,${0.7 + 0.3 * pulse})`;
+    ctx.lineWidth = 3 * u;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, o.kind === 'help' ? c.r : c.r * 0.8, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // ── the help button ──────────────────────────────────────────────
   private drawHelp(sim: ChlebySim): void {
     if (sim.phase === 'done' || this.helpA < 0.02) return;
@@ -957,6 +987,28 @@ export class ChlebyView {
     const boy = lane.boy;
     const recoil = clamp(1 - sim.shotT / 0.12);
     const jam = sim.jam > 0 ? Math.sin(this.t * 40) * 3 * u : 0;
+    // the mouse over the lane, not pouring yet (a desktop, DESIGN §14): where a click would send the stream — a
+    // fainter dotted line up the lane from a ring at the basket's row
+    const at = this.hoverAt;
+    if (at && !sim.pressing && !this.hand && sim.stage === 'level' && sim.phase !== 'done' && this.overNow(sim).kind === 'lane') {
+      const lx = clamp(this.laneAt(at.x), RULES.edge, RULES.laneW - RULES.edge);
+      const a = toScreen(lane, lx, 1), c = toScreen(lane, lx, 7), o = toScreen(lane, lx, 0);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,246,224,.5)';
+      ctx.lineWidth = 2.2 * u;
+      ctx.setLineDash([4 * u, 7 * u]);
+      ctx.lineDashOffset = -this.t * 22 * u;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(c.x, c.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(255,246,224,.78)';
+      ctx.beginPath();
+      ctx.ellipse(o.x, o.y, 13 * u, 5.5 * u, 0, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
     // the aim: a soft dotted line up the lane while pouring
     if (sim.pressing && sim.stage === 'level') {
       ctx.save();

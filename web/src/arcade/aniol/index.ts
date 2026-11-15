@@ -24,7 +24,7 @@ import { coarsePointer } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { AniolSound } from './audio';
 import { t, unit, type Key } from './i18n';
-import { giftAt, padAt, padOf, tapTargets } from './layout';
+import { cursorAt, giftAt, padAt, padOf, tapTargets } from './layout';
 import { bestOf, freshProgress, migrate, type AniolProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -52,11 +52,29 @@ class AniolGame implements ArcadeGame {
     this.sound = new AniolSound(env.audio);
     // the app's ?debug view lets the screenshot scripts reach the rules (never in normal play)
     if (debug) (globalThis as { __aniol?: AniolSim }).__aniol = this.sim;
+    // a mouse that leaves the canvas takes its hover with it (the pads, the aim, the cursor)
+    if (!env.touch) env.canvas.addEventListener('pointerleave', this.leave);
   }
 
   private size = { w: 1, h: 1, dpr: 1 };
   /** the coach mark on screen points at the gift sheet (it goes when a gift is taken) */
   private giftMark = false;
+  /** where the mouse rests over the canvas (a desktop), and the cursor it was given there */
+  private mouse: { x: number; y: number } | null = null;
+  private cursor = '';
+  private readonly leave = (): void => {
+    this.mouse = null;
+    this.view.hover(null);
+    this.setCursor('');
+  };
+
+  private setCursor(c: string): void {
+    if (c === this.cursor) return;
+    this.cursor = c;
+    this.env.canvas.style.cursor = c;
+  }
+
+  private targetState() { return { choice: !!this.sim.choice, done: !this.sim.started || this.sim.phase === 'done' }; }
 
   /** The HUD's band is read again at the start: the runner shows its panel only when play begins. */
   resize(w: number, h: number, dpr: number): void {
@@ -79,6 +97,8 @@ class AniolGame implements ArcadeGame {
     this.drain();
     this.view.update(dt, this.sim);
     this.sound.update(dt, this.sim);
+    // the cursor follows what is under a resting mouse too (the gifts open under it, the night ends)
+    if (this.mouse) this.setCursor(cursorAt(this.view.L, this.targetState(), this.mouse.x, this.mouse.y));
   }
 
   draw(): void { this.view.draw(this.sim); }
@@ -90,6 +110,12 @@ class AniolGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const view = this.view, L = view.L;
+    if (!this.env.touch) {
+      // a mouse: what it is over answers (the pad of its third, the aim, a gift card) and the cursor says it
+      this.mouse = { x: e.x, y: e.y };
+      view.hover(e.x, e.y);
+      this.setCursor(cursorAt(L, this.targetState(), e.x, e.y));
+    }
     if (e.type === 'up') {
       view.release(e.id);
       return;
@@ -158,7 +184,7 @@ class AniolGame implements ArcadeGame {
 
   /** The pads while the night goes on, the gift cards while a choice is open (kit/mobile's audit checks them). */
   targets(): TapTarget[] {
-    return tapTargets(this.view.L, { choice: !!this.sim.choice, done: !this.sim.started || this.sim.phase === 'done' });
+    return tapTargets(this.view.L, this.targetState());
   }
 
   /** Ended early: the sim settles at once; its events are dropped (the view and the sound are about to go). */
@@ -169,7 +195,11 @@ class AniolGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { this.sim.release(); }
+  destroy(): void {
+    this.sim.release();
+    this.env.canvas.removeEventListener('pointerleave', this.leave);
+    this.setCursor('');
+  }
 }
 
 function haptic(e: SimEvent): void {
@@ -189,7 +219,7 @@ function haptic(e: SimEvent): void {
 }
 
 /** The coach marks that name a control: a finger hears of the pads, a keyboard of its keys (`<key>.keys`). */
-const KEYED = new Set<Key>(['coach.tap', 'coach.middle', 'coach.gift']);
+const KEYED = new Set<Key>(['coach.tap', 'coach.middle', 'coach.gift', 'coach.k.ciagutek']);
 
 export function coachText(key: Key, touch: boolean): string {
   return !touch && KEYED.has(key) ? t(`${key}.keys` as Key) : t(key);
@@ -210,7 +240,7 @@ export function howto(touch = coarsePointer()): HowTo {
         { gesture: 'tap', text: t('how.middle.keys') },
         { gesture: 'keys', text: t('how.keys') },
       ],
-    tips: [t('how.tip1'), t('how.tip2')],
+    tips: [t('how.tip1'), t(touch ? 'how.tip2' : 'how.tip2.keys')],
   };
 }
 

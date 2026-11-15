@@ -107,9 +107,10 @@ function rimText(ctx: CanvasRenderingContext2D, text: string, x: number, y: numb
   ctx.fillText(text, x, y);
 }
 
-/** A button: a dark pill with a gold rim (dimmed until it may be pressed, lit while a finger is on it). */
-function button(ctx: CanvasRenderingContext2D, r: Rect, label: string, on: boolean, pressed: boolean, px: number): void {
-  panel(ctx, r, pressed ? '#4a3b20' : on ? '#2a2233' : 'rgba(42,34,51,.4)', on ? (pressed ? '#ffe7a3' : C.gold) : null, r.h / 2, pressed ? 3 : 2);
+/** A button: a dark pill with a gold rim (dimmed until it may be pressed, lit while a finger is on it, warmer under a mouse). */
+function button(ctx: CanvasRenderingContext2D, r: Rect, label: string, on: boolean, pressed: boolean, px: number, hover = false): void {
+  const hov = hover && on && !pressed;
+  panel(ctx, r, pressed ? '#4a3b20' : hov ? '#3d3046' : on ? '#2a2233' : 'rgba(42,34,51,.4)', on ? (pressed || hov ? '#ffe7a3' : C.gold) : null, r.h / 2, pressed ? 3 : hov ? 2.6 : 2);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const s = fit(ctx, label, r.w - 20, px, 800, SANS);
@@ -146,6 +147,9 @@ const inside = (r: Rect, x: number, y: number): boolean => x >= r.x && x <= r.x 
 export class Hud {
   /** the level-up's sheet drawn this frame */
   sheet: Sheet | null = null;
+  /** the mouse over the canvas (a desktop, DESIGN §14): the card, the reshuffle, the dial or the button under it lights */
+  hover: { x: number; y: number } | null = null;
+  private hovered(r: Rect | null): boolean { return !!this.hover && !!r && inside(r, this.hover.x, this.hover.y); }
   /** a finger on a card (its index) or on the reshuffle (REROLL); −1: none */
   pressed = -1;
   /** the story card's and the tally's buttons as drawn (a tap anywhere does the same) */
@@ -337,6 +341,13 @@ export class Hud {
       ctx.beginPath();
       ctx.arc(0, 0, r + 5, 0, TAU);
       ctx.stroke();
+    } else if (this.hovered(L.swordHit)) {
+      // the mouse over it: a ring (gold once a click would let the sword go)
+      ctx.strokeStyle = ready ? '#ffe7a3' : 'rgba(255,248,230,.6)';
+      ctx.lineWidth = 2.5 * u;
+      ctx.beginPath();
+      ctx.arc(0, 0, r + 6 * u, 0, TAU);
+      ctx.stroke();
     }
     ctx.restore();
     // its name over it, or what to do once it is ready
@@ -403,17 +414,19 @@ export class Hud {
       const gs = fit(ctx, gold, tw, 13 * u, 700, SANS, 12);
       rimText(ctx, gs, tx, hd.y + hd.h * 0.8, '#fff3d6', 'rgba(20,16,28,.55)', 3);
     }
-    if (rr) button(ctx, rr, t('hud.reroll', { n: sim.run.rerolls }), ch.t >= 0.25, this.pressed === REROLL, 14 * u);
+    if (rr) button(ctx, rr, t('hud.reroll', { n: sim.run.rerolls }), ch.t >= 0.25, this.pressed === REROLL, 14 * u, this.hovered(rr));
     ch.cards.forEach((card, i) => {
       const r = sh.cards[i];
       const pop = ease.outBack(Math.min(1, Math.max(0, (ch.t - i * 0.06) / 0.3)));
       const pressed = this.pressed === i;
-      const s = pop * (pressed ? 0.97 : 1);
+      // the mouse over a card lifts it a little and rims it in gold (a click takes it)
+      const hov = !pressed && ch.t >= 0.3 && this.hovered(r);
+      const s = pop * (pressed ? 0.97 : hov ? 1.025 : 1);
       ctx.save();
-      ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
+      ctx.translate(r.x + r.w / 2, r.y + r.h / 2 - (hov ? 5 * u : 0));
       ctx.scale(s, s);
       ctx.translate(-r.w / 2, -r.h / 2);
-      this.drawCard(ctx, { x: 0, y: 0, w: r.w, h: r.h }, card, sim, ch.gold, i, L, sh.stacked, now, pressed);
+      this.drawCard(ctx, { x: 0, y: 0, w: r.w, h: r.h }, card, sim, ch.gold, i, L, sh.stacked, now, pressed, hov);
       ctx.restore();
     });
     // the first card is taken by itself when the time runs out
@@ -427,9 +440,9 @@ export class Hud {
     }
   }
 
-  private drawCard(ctx: CanvasRenderingContext2D, r: Rect, card: Card, sim: JerzySim, gold: boolean, i: number, L: Layout, stacked: boolean, now: number, pressed: boolean): void {
+  private drawCard(ctx: CanvasRenderingContext2D, r: Rect, card: Card, sim: JerzySim, gold: boolean, i: number, L: Layout, stacked: boolean, now: number, pressed: boolean, hover = false): void {
     const u = L.u, evo = card.kind === 'evo', special = card.kind === 'treasure';
-    panel(ctx, r, evo || special ? '#fff4cf' : '#f6ecd2', pressed ? '#d99a1c' : evo || gold || special ? C.gold : 'rgba(120,90,40,.4)', 12 * u, pressed ? 3.5 : 1.5);
+    panel(ctx, r, evo || special || hover ? '#fff4cf' : '#f6ecd2', pressed || hover ? '#d99a1c' : evo || gold || special ? C.gold : 'rgba(120,90,40,.4)', 12 * u, pressed ? 3.5 : hover ? 3 : 1.5);
     if (evo || special) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -460,13 +473,21 @@ export class Hud {
       else paintItemIcon(ctx, card.kind === 'apple' ? 'apple' : card.kind === 'scales' ? 'scales' : card.id!, cx, cy, ir, evo);
     };
     const tagColor = evo || special ? C.goldDeep : C.vermilionDeep;
-    // the key that takes it (a keyboard's shortcut; a finger needs none)
-    if (!L.touch) {
+    // the key that takes it (a keyboard's shortcut; a finger needs none) — a key cap in the corner of a card in a row
+    if (!L.touch && stacked) {
       ctx.font = font(800, 12 * u, SANS);
       ctx.fillStyle = 'rgba(42,34,51,.5)';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       ctx.fillText(String(i + 1), r.x + 8 * u, r.y + 6 * u);
+    } else if (!L.touch) {
+      const kw = Math.round(22 * u), kx = r.x + 9 * u, ky = r.y + 9 * u;
+      panel(ctx, { x: kx, y: ky, w: kw, h: kw }, 'rgba(42,34,51,.08)', 'rgba(42,34,51,.45)', 5 * u, 1.2);
+      ctx.font = font(800, 13 * u, SANS);
+      ctx.fillStyle = 'rgba(42,34,51,.85)';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(i + 1), kx + kw / 2, ky + kw / 2 + 0.5);
     }
     if (stacked) {
       // a full-width card: the icon in its well on the left; the name and its tag, the numbers, the note
@@ -601,7 +622,7 @@ export class Hud {
     const kept = wrap(ctx, t('tally.kept'), colW - 32 * u, 2);
     const ky = btn.y - 12 * u - (kept.length - 0.5) * 16 * u;
     kept.forEach((l, i) => ctx.fillText(l, x0 + colW / 2, ky + i * 16 * u));
-    button(ctx, btn, hand('tally.next', L.touch), ta.t >= RULES.tallyMin, false, 15 * u);
+    button(ctx, btn, hand('tally.next', L.touch), ta.t >= RULES.tallyMin, false, 15 * u, !!this.hover);
     ctx.restore();
   }
 
@@ -634,7 +655,9 @@ export class Hud {
         const lines = wrap(ctx, text, tw);
         const bodyH = lines.length * size * 1.3;
         // the verse at 17 px or more: its reference line (62 % of it) then stays at the 11 px floor
-        const pass = open ? layoutPassage(ctx, ps, tw, Math.max(40, room - fixed - bodyH - 10 * u), { max: 19, min: 17 }) : null;
+        // (on a big screen it grows with the screen like the rest of the card)
+        const vk = L.big ? u : 1;
+        const pass = open ? layoutPassage(ctx, ps, tw, Math.max(40, room - fixed - bodyH - 10 * u), { max: 19 * vk, min: 17 * Math.min(vk, 1.3) }) : null;
         const h = fixed + bodyH + (pass ? pass.height + 10 * u : 0);
         const last = size - 0.5 < MIN_READ - 1e-6;
         if ((h <= room && (!pass || pass.fits)) || last) pick = { body: { lines, lineH: size * 1.3 }, size, pass, h: Math.min(room, h) };
@@ -673,7 +696,7 @@ export class Hud {
     const bw = Math.min(230 * u, w - 40);
     const btn = { x: cx - bw / 2, y: r.y + h - pad * 0.75 - btnH, w: bw, h: btnH };
     this.storyBtn = btn;
-    button(ctx, btn, hand(open ? 'story.tap' : 'story.next', L.touch), st.t >= 0.6, false, 15 * u);
+    button(ctx, btn, hand(open ? 'story.tap' : 'story.next', L.touch), st.t >= 0.6, false, 15 * u, !!this.hover);
     ctx.restore();
   }
 

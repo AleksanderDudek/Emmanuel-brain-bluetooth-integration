@@ -5,7 +5,7 @@ import {
   type CompanionId, type ItemId, type TreasureId, type WeaponId,
 } from '../src/arcade/jerzy/content';
 import { CATALOGS, hand, t, unit } from '../src/arcade/jerzy/i18n';
-import { layout, sheet, tallyBox } from '../src/arcade/jerzy/layout';
+import { cursorFor, layout, sheet, tallyBox } from '../src/arcade/jerzy/layout';
 import { SANS, SERIF, font } from '../src/arcade/jerzy/paint';
 import {
   affordable, bestOf, buyForge, canFight, clearFight, crowns, earnArmour, earnCompanions, fightOf, fights, freshProgress, frontier, hpOf, migrate,
@@ -15,7 +15,7 @@ import { RULES } from '../src/arcade/jerzy/rules';
 import { JerzySim, auraFor, duetsOf, finaleFor, planBlocks, xpNeed, type Card, type Creature, type SimEvent } from '../src/arcade/jerzy/sim';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
@@ -1157,7 +1157,8 @@ describe('on a phone first: the layout', () => {
       const name = z.name;
       expect(L.shape, name).toBe(upright(z) ? 'phone' : z.h < 470 ? 'side' : 'wide');
       expect(L.u, name).toBeGreaterThanOrEqual(1);
-      expect(L.u, name).toBeLessThanOrEqual(1.2);
+      // (the UI scale grows past the cap on any big canvas, DESIGN §14)
+      expect(L.u, name).toBeLessThanOrEqual(z.w >= 1024 && Math.min(z.w, z.h) >= 860 ? DESK_MAX : 1.2);
       expect(L.ky, name).toBeGreaterThan(L.top);
       expect(L.ky, name).toBeLessThan(L.bottom);
       // the knight's head clear of the status band, his feet clear of the dial's row
@@ -1216,6 +1217,53 @@ describe('on a phone first: the layout', () => {
         }
       }
     }
+  });
+
+  it('a big screen (a mouse): its own layout only there — every other size is the same for a finger and a mouse', () => {
+    const BIG = CHECK_SIZES.filter(z => z.w >= 1024 && Math.min(z.w, z.h) >= 860);
+    expect(BIG).toHaveLength(2);
+    for (const z of CHECK_SIZES) {
+      const mouse = layout(z.w, z.h, z.insets, false), finger = layout(z.w, z.h, z.insets, true);
+      expect(mouse.big, z.name).toBe(BIG.includes(z));
+      expect(finger.big, z.name).toBe(false);
+      if (!BIG.includes(z)) expect({ ...finger, touch: false, kind: '' }, z.name).toEqual({ ...mouse, touch: false, kind: '' });
+    }
+  });
+
+  it('a big screen brings the field closer (the knight 1.15× a desktop\'s and more, still more field than a phone sees) and puts the dial under the knight', () => {
+    const D = layout(1280, 800, { top: 192, right: 0, bottom: 0, left: 0 }, false);
+    for (const z of CHECK_SIZES.filter(x => x.w >= 1024 && Math.min(x.w, x.h) >= 860)) {
+      const L = layout(z.w, z.h, z.insets, false);
+      expect(L.shape, z.name).toBe('wide');
+      expect(L.big, z.name).toBe(true);
+      expect(L.s, z.name).toBeGreaterThanOrEqual(1.15 * D.s);
+      // about 18 × 13 u in sight: more than a phone's ten metres, the knight still a sixtieth of the area or more
+      expect((L.right - L.left) / L.s, z.name).toBeGreaterThanOrEqual(16);
+      expect((L.right - L.left) / L.s, z.name).toBeLessThanOrEqual(20);
+      expect((L.bottom - L.top) / L.s, z.name).toBeGreaterThanOrEqual(12);
+      // the dial: under the knight at the bottom's middle, grown with the screen, a clear target
+      expect(Math.abs(L.sword.x - L.kx), z.name).toBeLessThan(1);
+      expect(L.sword.y, z.name).toBeGreaterThan(L.ky + 3 * L.s);
+      expect(L.sword.r * 2, z.name).toBeGreaterThanOrEqual(80);
+      expect(auditTargets([target('Miecz światła', L.swordHit)], z.w, z.h, z.insets), z.name).toEqual([]);
+      // the level-up's cards: a row centred for a mouse, larger than a desktop's
+      const sh = sheet(L, 3, 1), dsh = sheet(D, 3, 1);
+      expect(sh.stacked, z.name).toBe(false);
+      expect(sh.cards[0].w, z.name).toBeGreaterThanOrEqual(dsh.cards[0].w);
+      const mid = (sh.cards[0].x + sh.cards[2].x + sh.cards[2].w) / 2;
+      expect(Math.abs(mid - (L.left + L.right) / 2), z.name).toBeLessThan(1);
+    }
+  });
+
+  it('the mouse\'s cursor: a hand where a click acts (a card, a story, the field while the sword is ready), a grab where a drag walks', () => {
+    const base = { over: true, busy: false, choice: false, onChoice: false, steering: false, swordReady: false };
+    expect(cursorFor(base)).toBe('grab');
+    expect(cursorFor({ ...base, steering: true })).toBe('grabbing');
+    expect(cursorFor({ ...base, swordReady: true })).toBe('pointer');
+    expect(cursorFor({ ...base, busy: true })).toBe('pointer');
+    expect(cursorFor({ ...base, choice: true })).toBe('');
+    expect(cursorFor({ ...base, choice: true, onChoice: true })).toBe('pointer');
+    expect(cursorFor({ ...base, over: false })).toBe('');
   });
 
   it('the tally\'s button is a clear target inside the band', () => {
@@ -1370,6 +1418,59 @@ describe('on a phone first: the game at every checked size', () => {
     game.pointer!({ type: 'up', ...dial, id: 2 });
   });
 
+  it('a mouse on a big screen: what it is over lights, the cursor says what a click does (a grab on the field, a hand on a card or a ready sword), leaving clears it', async () => {
+    const z = CHECK_SIZES.find(x => x.name.startsWith('Full HD'))!;
+    const mod = (await import('../src/arcade/jerzy/index')).default;
+    const env = envFor(z, returning(), false);
+    const game = mod.create(env);
+    game.resize(z.w, z.h, 1);
+    game.start();
+    const sim = (game as unknown as { sim: JerzySim }).sim;
+    const hud = (game as unknown as { view: { hud: { hover: unknown } } }).view.hud;
+    quiet(sim);
+    run(game, 0.3);
+    const L = layout(z.w, z.h, z.insets, false);
+    expect(L.big).toBe(true);
+    game.pointer!({ type: 'move', x: L.kx + 200, y: L.ky, id: 1 });
+    run(game, 1 / 30);
+    expect(hud.hover).toEqual({ x: L.kx + 200, y: L.ky });
+    expect(env.canvas.style.cursor).toBe('grab');
+    sim.charge = 1;
+    sim.swordReady = true;
+    run(game, 1 / 30);
+    expect(env.canvas.style.cursor).toBe('pointer');
+    sim.swordReady = false;
+    sim.charge = 0;
+    // a level-up: a hand on a card, the arrow beside the cards
+    inner(sim).collect(xpNeed(sim.run.level), sim.knight.x, sim.knight.y);
+    run(game, 0.5);
+    expect(sim.choice).not.toBeNull();
+    const sh = sheet(L, sim.choice!.cards.length, sim.run.rerolls);
+    game.pointer!({ type: 'move', x: sh.cards[1].x + sh.cards[1].w / 2, y: sh.cards[1].y + sh.cards[1].h / 2, id: 1 });
+    run(game, 1 / 30);
+    expect(env.canvas.style.cursor).toBe('pointer');
+    game.pointer!({ type: 'move', x: 5, y: L.bottom - 5, id: 1 });
+    run(game, 1 / 30);
+    expect(env.canvas.style.cursor).toBe('');
+    env.canvas.dispatchEvent(new Event('pointerleave'));
+    expect(hud.hover).toBeNull();
+    expect(env.canvas.style.cursor).toBe('');
+    game.destroy();
+  });
+
+  it('speaks of clicking at a desktop: the how-to, the cards\' coach mark; Linda\'s lines name no hand', async () => {
+    const { howto } = await import('../src/arcade/jerzy/index');
+    const TAP = /stuk|\btap|tipp|\btryck på|trycker/i;
+    const desk = howto(false), phone = howto(true);
+    for (const x of [desk.goal, ...desk.hands.map(hh => hh.text), ...(desk.tips ?? [])]) expect(x).not.toMatch(TAP);
+    expect(phone.hands[1].text).toBe(t('howto.cards'));
+    expect(hand('coach.choose', false)).toBe(t('coach.choose.keys'));
+    for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[lang] as Record<string, unknown>;
+      for (const k of ['say.swordReady.1', 'say.swordReady.2', 'say.swordReady.3']) expect(String(c[k]), `${lang} ${k}`).not.toMatch(TAP);
+    }
+  });
+
   it('the smoke\'s input scores within 22 s on a desktop and on the smallest phone (a centre click every 0.65 s, Space every 2 s)', async () => {
     for (const [z, touch] of [[CHECK_SIZES[7], false], [CHECK_SIZES[0], true]] as const) {
       const { game } = await gameAt(z, touch, freshProgress());
@@ -1402,7 +1503,7 @@ describe('on a phone first: the game at every checked size', () => {
   it('speaks of the hand the player has: no keys on a touch screen, keys as shortcuts on a desktop', () => {
     // a key named (the letter R alone, case-sensitive: \b is ASCII-only and splits "går" before its r)
     const named = (s: string) => /WASD|Space|Spacj|Leertaste|mellanslag|1–3|klik|click|Klick/i.test(s) || /(^|[\s(])R([\s).,!]|$)/.test(s);
-    for (const k of ['coach.move', 'coach.sword', 'coach.reroll', 'hud.swordTap', 'tally.next', 'story.tap', 'story.next', 'howto.move', 'howto.cards'] as const) {
+    for (const k of ['coach.move', 'coach.choose', 'coach.sword', 'coach.reroll', 'hud.swordTap', 'tally.next', 'story.tap', 'story.next', 'howto.move', 'howto.cards'] as const) {
       for (const lang of ['pl', 'en', 'de', 'sv'] as const) {
         const touchText = String(CATALOGS[lang][k]);
         expect(named(touchText), `${lang} ${k}: ${touchText}`).toBe(false);

@@ -21,9 +21,11 @@
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
+import { coarsePointer } from '../kit/mobile';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ChlebySound } from './audio';
-import { t, unit } from './i18n';
+import { t, unit, type Key } from './i18n';
+import { cursorFor } from './layout';
 import { bestOf, freshProgress, migrate, type ChlebyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -41,6 +43,23 @@ class ChlebyGame implements ArcadeGame {
     });
     this.view = new ChlebyView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', insets: () => env.insets(), touch: env.touch });
     this.sound = new ChlebySound(env.audio);
+    // a mouse that leaves the canvas takes its hover with it (the aim, the rings, the cursor)
+    if (!env.touch) env.canvas.addEventListener('pointerleave', this.leave);
+  }
+
+  /** where the mouse rests over the canvas (a desktop), and the cursor it was given there */
+  private mouse = false;
+  private cursor = '';
+  private readonly leave = (): void => {
+    this.mouse = false;
+    this.view.hover(null);
+    this.setCursor('');
+  };
+
+  private setCursor(c: string): void {
+    if (c === this.cursor) return;
+    this.cursor = c;
+    this.env.canvas.style.cursor = c;
   }
 
   resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr); }
@@ -61,6 +80,8 @@ class ChlebyGame implements ArcadeGame {
     this.drain();
     this.view.update(dt, this.sim);
     this.sound.update(dt, this.sim);
+    // the cursor follows what comes under a resting mouse too (the help filling, the village sheet)
+    if (this.mouse) this.setCursor(cursorFor(this.view.overNow(this.sim)));
   }
 
   draw(): void { this.view.draw(this.sim); }
@@ -71,6 +92,12 @@ class ChlebyGame implements ArcadeGame {
    * is), a tap on the giant loaf bursts it; on the sheets between levels a tap builds or goes on.
    */
   pointer(e: PointerInput): void {
+    if (!this.env.touch) {
+      // a mouse: the aim follows it up the lane before a click, the help button and the giant loaf ring, the cursor says it
+      this.mouse = true;
+      this.view.hover(e.x, e.y);
+      this.setCursor(cursorFor(this.view.overNow(this.sim)));
+    }
     const hit = this.view.pointer(e.type, e.x, e.y, e.id, this.sim);
     if (!hit) return;
     switch (hit.kind) {
@@ -139,7 +166,11 @@ class ChlebyGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { this.view.release(); }
+  destroy(): void {
+    this.view.release();
+    this.env.canvas.removeEventListener('pointerleave', this.leave);
+    this.setCursor('');
+  }
 }
 
 function haptic(e: SimEvent): void {
@@ -161,6 +192,21 @@ function haptic(e: SimEvent): void {
   }
 }
 
+/** How to play for the hand the player has: a finger holds, drags and taps; a mouse holds its button, aims with the pointer and clicks. */
+export function howto(touch = coarsePointer()): HowTo {
+  const hand = (key: 'howto.hold' | 'howto.drag' | 'howto.tap'): string => t((touch ? key : `${key}.keys`) as Key);
+  return {
+    goal: t('howto.goal'),
+    hands: [
+      { gesture: 'hold', text: hand('howto.hold') },
+      { gesture: 'drag', text: hand('howto.drag') },
+      { gesture: 'tap', text: hand('howto.tap') },
+      { gesture: 'keys', text: t('howto.keys') },
+    ],
+    tips: [t('howto.tip1'), t('howto.tip2')],
+  };
+}
+
 const mod: ArcadeModule<ChlebyProgress> = {
   freshProgress,
   create: env => new ChlebyGame(env),
@@ -169,15 +215,6 @@ const mod: ArcadeModule<ChlebyProgress> = {
   progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
   // taps and drags for everyone; the keys as a fourth row, which the runner leaves out on a touch screen
-  howto: (): HowTo => ({
-    goal: t('howto.goal'),
-    hands: [
-      { gesture: 'hold', text: t('howto.hold') },
-      { gesture: 'drag', text: t('howto.drag') },
-      { gesture: 'tap', text: t('howto.tap') },
-      { gesture: 'keys', text: t('howto.keys') },
-    ],
-    tips: [t('howto.tip1'), t('howto.tip2')],
-  }),
+  howto: () => howto(),
 };
 export default mod;

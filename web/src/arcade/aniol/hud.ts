@@ -19,7 +19,7 @@ import { passage } from '../kit/scripture';
 import { LAG_SEC, drawTrace, traceBars, type TraceStyle } from '../kit/trace';
 import { CHAPTERS, chapterName, giftById, type GiftId } from './content';
 import { t } from './i18n';
-import { PADS, type Layout, type Pad, type Rect } from './layout';
+import { PADS, giftAt, padAt, padOf, type Layout, type Pad, type Rect } from './layout';
 import { nightInChapter } from './meta';
 import { C, SANS, SERIF, font, fontPx, paintFeather, paintGiftIcon, paintSill, paintStar, paintWindow } from './paint';
 import { RULES, comboRung, levelNeed, type AniolSim } from './sim';
@@ -73,6 +73,10 @@ export class Hud {
   private giftPress = -1;
   private giftPressT = 0;
   private clock = 0;
+  /** the mouse over the canvas (a desktop): the pad of its third and the gift card under it light (DESIGN §14) */
+  private hoverAt: { x: number; y: number } | null = null;
+  private readonly padHover: Record<Pad, number> = { left: 0, mid: 0, right: 0 };
+  private readonly giftHover = [0, 0, 0];
 
   constructor(ctx: CanvasRenderingContext2D, eeg: boolean, private readonly touch: boolean) {
     this.ctx = ctx;
@@ -158,6 +162,17 @@ export class Hud {
     this.giftPressT = 0.35;
   }
 
+  /** The mouse moved over the canvas (null: it left it). */
+  hover(at: { x: number; y: number } | null): void { this.hoverAt = at; }
+
+  /** What the mouse is over now: the pad of its third (the night goes on) or a gift card (the gifts offered). */
+  hovered(choice: boolean): { pad: Pad | null; gift: number } {
+    const at = this.hoverAt;
+    if (!at || at.y < this.L.top) return { pad: null, gift: -1 };
+    if (choice) return { pad: null, gift: giftAt(this.L, at.x, at.y) };
+    return { pad: padOf(padAt(this.L, at.x)), gift: -1 };
+  }
+
   update(dt: number, sim: AniolSim): void {
     this.clock += dt;
     let n = 0;
@@ -186,11 +201,14 @@ export class Hud {
     this.padReady.left = sim.ready(-1);
     this.padReady.right = sim.ready(1);
     this.padReady.mid = sim.ready(this.nearSide);
+    const over = this.hovered(!!sim.choice);
     for (const p of PADS) {
       this.padGlow[p] = approach(this.padGlow[p], this.padReady[p] > 0 ? 1 : 0, dt, this.padReady[p] > 0 ? 0.04 : 0.12);
       this.padFlash[p] = Math.max(0, this.padFlash[p] - dt * 5);
       this.padWhiff[p] = Math.max(0, this.padWhiff[p] - dt * 3.5);
+      this.padHover[p] = approach(this.padHover[p], over.pad === p ? 1 : 0, dt, 0.06);
     }
+    for (let i = 0; i < 3; i++) this.giftHover[i] = approach(this.giftHover[i], over.gift === i ? 1 : 0, dt, 0.06);
   }
 
   /** Drawn over the room: the level bar, the combo, the pads, the floats, a toast, the story, the dawn, the gifts. */
@@ -392,7 +410,7 @@ export class Hud {
     for (const p of PADS) {
       const r = L.pads[p];
       const k = Math.max(held.has(p) ? 1 : 0, this.padFlash[p]);
-      const glow = this.padGlow[p], perfect = this.padReady[p] === 2 ? 1 : 0, whiff = this.padWhiff[p];
+      const glow = this.padGlow[p], perfect = this.padReady[p] === 2 ? 1 : 0, whiff = this.padWhiff[p], hov = this.padHover[p];
       const rad = Math.min(r.h / 2, 18 * u);
       const cx = r.x + r.w / 2, cy = r.y + r.h / 2, s = 1 - 0.07 * k;
       ctx.save();
@@ -415,11 +433,16 @@ export class Hud {
         ctx.fillStyle = `rgba(255,${glow > 0.02 ? 211 : 244},${glow > 0.02 ? 107 : 214},${0.12 * glow + 0.1 * perfect * pulse + 0.3 * k})`;
         ctx.fill();
       }
-      ctx.strokeStyle = glow > 0.02 ? `rgba(255,211,107,${0.45 + 0.5 * glow})` : 'rgba(255,244,214,.3)';
-      ctx.lineWidth = (1.5 + 1.2 * glow) * u;
+      // the mouse over the pad's third: a light wash and a brighter rim (a click there strikes like the pad)
+      if (hov > 0.02) {
+        ctx.fillStyle = `rgba(255,244,214,${0.1 * hov})`;
+        ctx.fill();
+      }
+      ctx.strokeStyle = glow > 0.02 ? `rgba(255,211,107,${0.45 + 0.5 * glow})` : `rgba(255,244,214,${0.3 + 0.45 * hov})`;
+      ctx.lineWidth = (1.5 + 1.2 * glow + 0.8 * hov) * u;
       ctx.stroke();
       // the icon: a chevron toward the side (the middle pad: both, the nearer one lit)
-      const ink = (lit: boolean): string => (lit ? (perfect ? '#fff1b8' : '#ffd36b') : whiff > 0.02 ? 'rgba(200,190,220,.55)' : 'rgba(255,244,214,.78)');
+      const ink = (lit: boolean): string => (lit ? (perfect ? '#fff1b8' : '#ffd36b') : whiff > 0.02 ? 'rgba(200,190,220,.55)' : `rgba(255,244,214,${0.78 + 0.2 * hov})`);
       const keys = !this.touch;
       const iy = keys ? r.y + r.h * 0.4 : cy;
       const size = Math.min(r.h * (keys ? 0.24 : 0.3), 20 * u);
@@ -437,7 +460,7 @@ export class Hud {
         ctx.font = this.fit(label, r.w - 12 * u, this.F.padKey);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(255,244,214,.72)';
+        ctx.fillStyle = `rgba(255,244,214,${0.72 + 0.26 * hov})`;
         ctx.fillText(label, cx, r.y + r.h * 0.76);
       }
       ctx.restore();
@@ -661,11 +684,17 @@ export class Hud {
       const tx = r.x + 2 * ir + (this.touch ? 30 : 36) * u, tw = r.x + r.w - 12 * u - tx;
       return { nameFont: this.fit(g.name, tw, F.giftName, 14), nameW: tw, body: this.para(g.text, tw, 13.5 * this.tu, MIN_READ, 2, 600, SANS), textW: tw };
     }
-    const ir = Math.min(16 * u, r.h * 0.14);
+    const ir = this.giftIconR(r);
     const nameY = 18 * u + 2 * ir, textY = nameY + Math.round(fontPx(16 * this.tu) * 1.3);
     const max = Math.max(1, Math.floor((r.h - 8 * u - textY) / Math.round(fontPx(13.5 * this.tu) * 1.28)));
     const tw = r.w - 16 * u;
     return { nameFont: this.fit(g.name, r.w - 14 * u, F.giftName, 14), nameW: r.w - 14 * u, body: this.para(g.text, tw, 13.5 * this.tu, MIN_READ, max, 600, SANS), textW: tw };
+  }
+
+  /** A gift card's picture (a row's card: over the name; a big screen's dialog draws it larger). */
+  private giftIconR(r: Rect): number {
+    const u = this.L.u;
+    return this.L.mode === 'big' ? Math.min(22 * u, r.h * 0.16) : Math.min(16 * u, r.h * 0.14);
   }
 
   /** The story card: the dream's name and two sentences; the first night's also carries the root verse (a page of its own on a small phone). */
@@ -771,7 +800,8 @@ export class Hud {
     ctx.save();
     ctx.globalAlpha = a;
     ctx.translate(0, slide);
-    if (L.stacked) {
+    if (L.stacked || L.mode === 'big') {
+      // a phone's bottom sheet, a big screen's dialog in the middle of the room
       const s = L.sheet;
       ctx.fillStyle = 'rgba(28,29,63,.96)';
       ctx.beginPath();
@@ -791,31 +821,48 @@ export class Hud {
       const g = giftById(id), r = L.gifts[i];
       const inK = ease.outBack(clamp((c.t - i * 0.06) / 0.28));
       const pressed = this.giftPress === i && this.giftPressT > 0 ? this.giftPressT / 0.35 : 0;
-      const dy = (1 - inK) * 20 * u;
+      // the mouse over a card lifts it a little and warms it (a click there takes it)
+      const hov = this.touch ? 0 : this.giftHover[i];
+      const dy = (1 - inK) * 20 * u - 4 * u * hov;
       ctx.save();
       ctx.globalAlpha = a * clamp(inK);
-      const cx = r.x + r.w / 2, cy = r.y + dy + r.h / 2, sc = 1 - 0.04 * pressed;
+      const cx = r.x + r.w / 2, cy = r.y + dy + r.h / 2, sc = (1 - 0.04 * pressed) * (1 + 0.025 * hov);
       ctx.translate(cx, cy);
       ctx.scale(sc, sc);
       ctx.translate(-cx, -cy);
       const y = r.y + dy;
-      this.shade(r.x, y, r.w, r.h, 12 * u, 0.3);
+      this.shade(r.x, y + 3 * u * hov, r.w, r.h, 12 * u, 0.3 + 0.1 * hov);
       this.paper(r.x, y, r.w, r.h, 0.98, 12);
-      ctx.strokeStyle = i === 0 ? `rgba(211,154,44,${0.75 + 0.25 * Math.sin(sim.t * 5)})` : 'rgba(160,140,190,.5)';
-      ctx.lineWidth = i === 0 ? 2.5 : 1;
+      ctx.strokeStyle = i === 0 ? `rgba(211,154,44,${0.75 + 0.25 * Math.sin(sim.t * 5)})` : hov > 0.02 ? `rgba(211,154,44,${0.45 + 0.5 * hov})` : 'rgba(160,140,190,.5)';
+      ctx.lineWidth = i === 0 ? 2.5 : 1 + 1.5 * hov;
       ctx.beginPath();
       ctx.roundRect(r.x, y, r.w, r.h, 12 * u);
       ctx.stroke();
-      if (pressed > 0) {
-        ctx.fillStyle = `rgba(255,214,120,${0.3 * pressed})`;
+      if (pressed > 0 || hov > 0.02) {
+        ctx.fillStyle = `rgba(255,214,120,${0.3 * pressed + 0.12 * hov})`;
         ctx.fill();
       }
-      if (!this.touch) {
+      if (!this.touch && L.stacked) {
         ctx.fillStyle = 'rgba(80,70,110,.8)';
         ctx.font = F.giftKey;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
         ctx.fillText(String(i + 1), r.x + 8 * u, y + 6 * u);
+      } else if (!this.touch) {
+        // its key, as a key cap in the corner
+        const kw = Math.round(24 * this.tu), kx = r.x + 9 * u, ky = y + 9 * u;
+        ctx.fillStyle = 'rgba(80,70,110,.1)';
+        ctx.strokeStyle = 'rgba(80,70,110,.55)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.roundRect(kx, ky, kw, kw, 5 * u);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(60,52,92,.95)';
+        ctx.font = F.giftKey;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(i + 1), kx + kw / 2, ky + kw / 2 + 0.5);
       }
       const words = this.giftWords(id, r);
       const lh = Math.round(words.body.size * 1.28);
@@ -837,7 +884,7 @@ export class Hud {
         ctx.fillStyle = C.textSoft;
         words.body.lines.forEach((l, k) => ctx.fillText(l, tx, ty + k * lh));
       } else {
-        const ir = Math.min(16 * u, r.h * 0.14);
+        const ir = this.giftIconR(r);
         paintGiftIcon(ctx, id, cx, y + 12 * u + ir, ir);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';

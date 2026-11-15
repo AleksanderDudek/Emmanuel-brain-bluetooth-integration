@@ -12,8 +12,8 @@ import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type Focu
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems, type Lang } from '../src/i18n';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
-import { PADS, giftAt, layout, padAt, tapTargets } from '../src/arcade/aniol/layout';
+import { CHECK_SIZES, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { ANGEL_TOP, PADS, cursorAt, giftAt, layout, padAt, padOf, tapTargets } from '../src/arcade/aniol/layout';
 import { font, fontPx, SANS } from '../src/arcade/aniol/paint';
 import { GIFTS } from '../src/arcade/aniol/content';
 
@@ -1175,11 +1175,11 @@ describe('mobile first (DESIGN §8.2, §12)', () => {
     }
   });
 
-  it('grows on a tablet and a desktop, never past 1.3; the room is not lost on a tall tablet', () => {
+  it('grows on a tablet and a desktop, never past 1.3 (a big screen up to DESK_MAX); the room is not lost on a tall tablet', () => {
     for (const c of CHECK_SIZES.filter(x => Math.min(x.w, x.h) > 600)) {
       const L = layout(c.w, c.h, c.insets);
       expect(L.u, c.name).toBeGreaterThan(1);
-      expect(L.u, c.name).toBeLessThanOrEqual(1.3);
+      expect(L.u, c.name).toBeLessThanOrEqual(L.kind === 'big' ? DESK_MAX : 1.3);
       expect(L.S, c.name).toBeGreaterThanOrEqual(90);
     }
   });
@@ -1332,5 +1332,167 @@ describe('mobile first (DESIGN §8.2, §12)', () => {
     expect(ofType(evs, 'coach').map(e => e.key).every(k => k === 'coach.tap')).toBe(true);
     sim.busy = false;
     expect(sim.quiet || sim.phase !== 'play' || sim.blockT < RULES.quietStart).toBe(true);
+  });
+});
+
+// ── a big screen with a mouse (DESIGN §14) ─────────────────────────
+describe('a big screen with a mouse (DESIGN §14)', () => {
+  const BIG = CHECK_SIZES.filter(c => c.w >= 1024 && Math.min(c.w, c.h) >= 860);
+  const DESK = CHECK_SIZES.find(c => c.name === 'desktop (chart off)')!;
+  afterEach(() => { localStorage.setItem('brainlink.lang', 'pl'); });
+
+  it('chooses the layout from the screen: the big one for a mouse on a big canvas only; every other size the same for a finger and a mouse', () => {
+    expect(BIG).toHaveLength(2);
+    for (const c of CHECK_SIZES) {
+      const mouse = layout(c.w, c.h, c.insets, false), finger = layout(c.w, c.h, c.insets, true);
+      expect(mouse.mode === 'big', c.name).toBe(BIG.includes(c));
+      expect(finger.mode, c.name).not.toBe('big');
+      // the phones', the tablet's and the desktops' layouts do not change with the pointer (nothing of theirs moved)
+      if (!BIG.includes(c)) expect({ ...finger, kind: '' }, c.name).toEqual({ ...mouse, kind: '' });
+    }
+  });
+
+  it('fills the big canvas: the room zoomed in (≥ 1.2× a desktop\'s px per u), the floor low, the window centred over it, no empty band', () => {
+    const D = layout(DESK.w, DESK.h, DESK.insets);
+    for (const c of BIG) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.u, c.name).toBeGreaterThan(1.3);
+      expect(L.S, c.name).toBeGreaterThanOrEqual(1.2 * D.S);
+      // ±4 u across: the bed (2 u) a sixth of the width or more
+      expect((2 * L.S) / c.w, c.name).toBeGreaterThanOrEqual(0.24);
+      expect(L.floorY - 3.45 * L.S, c.name).toBeGreaterThanOrEqual(L.roomTop - 1);
+      expect(L.floorY, c.name).toBeGreaterThanOrEqual(0.8 * c.h);
+      expect(L.floorY - 3.45 * L.S - L.roomTop, c.name).toBeLessThan(0.12 * c.h);
+      for (const p of PADS) {
+        expect(L.pads[p].y, `${c.name} ${p}`).toBeGreaterThan(L.floorY);
+        expect(L.pads[p].h, `${c.name} ${p}`).toBeGreaterThanOrEqual(48 * L.u - 1);
+      }
+      // the window centred on the wall under the HUD, two thirds of the width; the level bar under its sill
+      expect(Math.abs(L.win.x + L.win.w / 2 - L.cx), c.name).toBeLessThan(1);
+      expect(L.win.w / c.w, c.name).toBeGreaterThan(0.6);
+      expect(L.win.w / c.w, c.name).toBeLessThan(0.7);
+      expect(L.win.y, c.name).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.xp.y, c.name).toBeGreaterThan(L.sill.y);
+      expect(L.roomTop, c.name).toBeGreaterThan(L.xp.y + L.xp.h);
+    }
+  });
+
+  it('keeps the words that come and go over the window, never over the angel: the toasts, the story card in every language', async () => {
+    for (const l of LANGS) {
+      const { hud, lay } = await viewIn(l);
+      for (const c of BIG) {
+        const L = lay.layout(c.w, c.h, c.insets);
+        const halo = L.floorY - ANGEL_TOP * L.S;
+        expect(L.card.y, c.name).toBeGreaterThanOrEqual(c.insets.top);
+        // a toast (a title and two lines) ends above the angel's halo
+        expect(L.card.y + 100 * L.u, c.name).toBeLessThanOrEqual(halo);
+        const h = new hud.Hud(measuring(), false, false);
+        h.resize(L);
+        for (const [kind, ch] of [['open', 0], ['chapter', 1], ['chapter', 3]] as const) {
+          h.showStory(kind, ch, 4);
+          const sl = h.storyNow()!;
+          for (const pg of sl.pages) expect(L.story.y + pg.h, `${l} ${c.name} ${kind} ${ch}`).toBeLessThanOrEqual(halo + 0.5);
+          // grown with the screen: the title 1.2× a phone's 20 px at least
+          expect(pxOf(sl.titleFont), `${l} ${c.name}`).toBeGreaterThanOrEqual(20 * 1.2 - 0.05);
+        }
+      }
+    }
+  });
+
+  it('offers the gifts as a dialog centred in the room — cards sized for a mouse, larger type — not a strip across the monitor', async () => {
+    const D = layout(DESK.w, DESK.h, DESK.insets);
+    const { hud, content } = await viewIn('en');
+    for (const c of BIG) {
+      const L = layout(c.w, c.h, c.insets);
+      expect(L.stacked, c.name).toBe(false);
+      const [a, , z] = L.gifts;
+      expect(Math.abs((a.x + z.x + z.w) / 2 - L.cx), c.name).toBeLessThan(1);
+      expect(L.sheet.w / c.w, c.name).toBeLessThan(0.86);
+      expect(L.sheet.y, c.name).toBeGreaterThanOrEqual(L.roomTop - 60 * L.u);
+      expect(L.sheet.y + L.sheet.h, c.name).toBeLessThanOrEqual(L.floorY + 1);
+      for (const r of L.gifts) {
+        expect(r.w, c.name).toBeGreaterThanOrEqual(D.gifts[0].w);
+        expect(r.w * r.h, c.name).toBeGreaterThanOrEqual(1.25 * D.gifts[0].w * D.gifts[0].h);
+        expect(r.y, c.name).toBeGreaterThan(L.sheetTitle);
+      }
+      const h = new hud.Hud(measuring(), false, false);
+      h.resize(L);
+      for (const g of content.GIFTS) {
+        const w = h.giftWords(g.id, L.gifts[1]);
+        expect(w.body.size, `${c.name} ${g.id}`).toBeGreaterThanOrEqual(13.5 * 1.2 - 0.05);
+        expect(w.body.lines.join(' ').replace(/\s+/g, ' '), `${c.name} ${g.id}`).toBe(g.text.replace(/\s+/g, ' '));
+      }
+    }
+  });
+
+  it('answers the mouse: a hand cursor where a click does something, the pad of its third lit, the card under it lifted', async () => {
+    const { hud } = await viewIn('pl');
+    for (const c of [...BIG, DESK]) {
+      const L = layout(c.w, c.h, c.insets);
+      const y = (L.roomTop + L.floorY) / 2;
+      // the night: anywhere in the room strikes (a hand), nothing once it is over
+      expect(cursorAt(L, { choice: false, done: false }, L.cx, y), c.name).toBe('pointer');
+      expect(cursorAt(L, { choice: false, done: false }, 5, L.floorY), c.name).toBe('pointer');
+      expect(cursorAt(L, { choice: false, done: true }, L.cx, y), c.name).toBe('');
+      // the gifts: a hand only over a card
+      for (const r of L.gifts) expect(cursorAt(L, { choice: true, done: false }, r.x + r.w / 2, r.y + r.h / 2), c.name).toBe('pointer');
+      expect(cursorAt(L, { choice: true, done: false }, L.sheet.x - 10, L.sheet.y - 10), c.name).toBe('');
+      const h = new hud.Hud(measuring(), false, false);
+      h.resize(L);
+      for (const p of PADS) {
+        const r = L.pads[p];
+        h.hover({ x: r.x + r.w / 2, y: (L.roomTop + L.floorY) / 2 });
+        expect(h.hovered(false).pad, `${c.name} ${p}`).toBe(p);
+      }
+      // the whole third answers, not just the cap
+      h.hover({ x: 3, y });
+      expect(h.hovered(false).pad, c.name).toBe(padOf(-1));
+      L.gifts.forEach((r, i) => {
+        h.hover({ x: r.x + r.w / 2, y: r.y + r.h / 2 });
+        expect(h.hovered(true).gift, c.name).toBe(i);
+      });
+      h.hover(null);
+      expect(h.hovered(false)).toEqual({ pad: null, gift: -1 });
+    }
+  });
+
+  it('aims where the mouse rests: aim() names what a strike would hit, null exactly when the pad says a whiff', () => {
+    const sim = later();
+    quiet(sim);
+    expect(sim.aim(-1)).toBeNull();
+    expect(sim.aim(1)).toBeNull();
+    const r = ZMORY.mara.r;
+    const z = place(sim, 'mara', -1, sim.reach + r - sim.perfectBand / 2);
+    expect(sim.aim(-1)?.d).toBeCloseTo(z.d, 5);
+    expect(sim.ready(-1)).toBe(2);
+    expect(sim.aim(1)).toBeNull();
+    // the nearer of two on a side
+    const near = place(sim, 'mara', 1, 1.0 + r + 0.3);
+    place(sim, 'mara', 1, sim.reach + r - 0.1);
+    expect(sim.aim(1)?.d).toBeCloseTo(near.d, 5);
+    // out of reach: nothing (and the strike whiffs)
+    quiet(sim);
+    place(sim, 'mara', 1, sim.reach + r + 0.6);
+    expect(sim.aim(1)).toBeNull();
+    expect(sim.ready(1)).toBe(0);
+    // over many random rooms the two agree
+    const rng = mulberry32(7);
+    for (let i = 0; i < 200; i++) {
+      quiet(sim);
+      for (let k = 0; k < 3; k++) place(sim, rng() < 0.5 ? 'mara' : 'pancerna', rng() < 0.5 ? -1 : 1, 1.2 + rng() * 3);
+      for (const side of [-1, 1] as const) expect(sim.aim(side) === null, `room ${i}`).toBe(sim.ready(side) === 0);
+    }
+  });
+
+  it('speaks of clicking at a desktop: the how-to, its tips and the keyed coach marks name no tap', async () => {
+    const TAP = /stuk|\btap|tipp|\btryck på|tryck snabbt|\btryck i\b/i;
+    for (const l of LANGS) {
+      const { index: { coachText, howto } } = await viewIn(l);
+      const desk = howto(false);
+      for (const x of [desk.goal, ...desk.hands.map(hh => hh.text), ...(desk.tips ?? [])]) expect(x, `${l}: ${x}`).not.toMatch(TAP);
+      for (const k of ['coach.tap', 'coach.middle', 'coach.gift', 'coach.k.ciagutek'] as const) expect(coachText(k, false), `${l}.${k}`).not.toMatch(TAP);
+      // a finger keeps its words
+      expect(coachText('coach.k.ciagutek', true)).not.toBe(coachText('coach.k.ciagutek', false));
+    }
   });
 });

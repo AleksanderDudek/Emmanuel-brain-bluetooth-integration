@@ -9,7 +9,7 @@ import {
 } from '../src/arcade/chleby/field';
 import { CATALOGS, t, unit } from '../src/arcade/chleby/i18n';
 import {
-  EDGE, chlebyTargets, giantRect, helpRect, layout, revealGeo, sheetBox, tablesBand, toScreen, villageGeo, wonBox, type Layout, type Rect,
+  EDGE, chlebyTargets, cursorFor, giantRect, helpRect, layout, overAt, revealGeo, sheetBox, tablesBand, toScreen, villageGeo, wonBox, type Layout, type Rect,
 } from '../src/arcade/chleby/layout';
 import {
   BOSSES, BUILDINGS, BUILD_PRICES, MISSION_KINDS, addCrumbs, bestOf, build, buildPrice, champBonus, dayOf, fishEvery, freshProgress, giftOf, helpNeed,
@@ -1397,6 +1397,64 @@ describe('mobile first: the layout at every checked size (DESIGN §12)', () => {
     });
   }
 
+  it('a big screen (a mouse): its own sizes only there — every other size is the same for a finger and a mouse', () => {
+    const BIG = CHECK_SIZES.filter(z => z.w >= 1024 && Math.min(z.w, z.h) >= 860);
+    expect(BIG).toHaveLength(2);
+    for (const z of CHECK_SIZES) {
+      const mouse = layout(z.w, z.h, z.insets, false), finger = layout(z.w, z.h, z.insets, true);
+      expect(mouse.big, z.name).toBe(BIG.includes(z));
+      expect(finger.big, z.name).toBe(false);
+      if (!BIG.includes(z)) expect({ ...finger, kind: '' }, z.name).toEqual({ ...mouse, kind: '' });
+    }
+  });
+
+  it('a big screen grows what a desktop keeps at a phone\'s size: the boy and his basket, the help button, the baskets, the side sheets', () => {
+    const D = layout(1280, 800, { top: 192, right: 0, bottom: 0, left: 0 });
+    for (const z of CHECK_SIZES.filter(x => x.w >= 1024 && Math.min(x.w, x.h) >= 860)) {
+      const L = layout(z.w, z.h, z.insets);
+      const k = z.h > 1200 ? 1.3 : 1;   // a QHD monitor's column: clearly larger; a Full HD one (about a desktop's canvas): no smaller
+      expect(L.mode, z.name).toBe('wide');
+      expect(L.lane.boy, z.name).toBeGreaterThanOrEqual(k * D.lane.boy - 0.5);
+      expect(L.help.r, z.name).toBeGreaterThanOrEqual(k * D.help.r - 0.5);
+      expect(L.bank.h, z.name).toBeGreaterThanOrEqual(D.bank.h - 0.5);
+      expect(L.sideW, z.name).toBeGreaterThanOrEqual(0.35 * L.play.w);
+      // the lane fills the canvas: the boy low, the tables under the HUD, most of the width
+      expect(L.lane.yB, z.name).toBeGreaterThanOrEqual(0.8 * z.h);
+      expect(2 * L.lane.hwB, z.name).toBeGreaterThanOrEqual(0.7 * L.play.w);
+    }
+  });
+
+  it('the mouse: what a click would do, and its cursor — a crosshair over the lane (it pours there), a hand on the help, the giant loaf, a row', () => {
+    for (const z of [CHECK_SIZES[10], CHECK_SIZES[11], CHECK_SIZES[8]]) {
+      const L = layout(z.w, z.h, z.insets);
+      const level = { story: false, stage: 'level' as const, done: false, offers: 0, giant: null };
+      const mid = toScreen(L.lane, 5, 6);
+      expect(overAt(L, level, mid.x, mid.y), z.name).toEqual({ kind: 'lane' });
+      expect(cursorFor(overAt(L, level, mid.x, mid.y))).toBe('crosshair');
+      expect(overAt(L, level, L.help.x, L.help.y), z.name).toEqual({ kind: 'help' });
+      expect(cursorFor({ kind: 'help' })).toBe('pointer');
+      const g = giantAt(L, 5, 8), gr = giantRect(L, g.x, g.y, g.r)!;
+      expect(overAt(L, { ...level, giant: gr }, g.x, g.y), z.name).toEqual({ kind: 'giant' });
+      expect(overAt(L, { ...level, done: true }, mid.x, mid.y)).toEqual({ kind: 'none' });
+      // the village sheet: a row builds, "Dalej" goes on, the rest is nothing
+      const v = villageGeo(L, 3);
+      const card = { ...level, stage: 'card' as const, offers: 3 };
+      v.rows.forEach((r, i) => expect(overAt(L, card, r.x + r.w / 2, r.y + r.h / 2)).toEqual({ kind: 'build', i }));
+      expect(overAt(L, card, v.go.x + v.go.w / 2, v.go.y + v.go.h / 2)).toEqual({ kind: 'go' });
+      expect(cursorFor(overAt(L, card, mid.x + L.lane.hwB, L.play.y + 4))).toBe('');
+      // a story card or the reveal take any click
+      expect(cursorFor(overAt(L, { ...level, story: true }, 5, 5))).toBe('pointer');
+      expect(cursorFor(overAt(L, { ...level, stage: 'pack' }, 5, 5))).toBe('pointer');
+    }
+  });
+
+  it('speaks of clicking to a mouse: the how-to has no tap in it, a finger\'s keeps its words', async () => {
+    const { howto } = await import('../src/arcade/chleby/index');
+    const desk = howto(false), phone = howto(true);
+    for (const x of [desk.goal, ...desk.hands.map(hh => hh.text), ...(desk.tips ?? [])]) expect(x).not.toMatch(/stuk|\btap\b|tipp|\btryck på\b/i);
+    expect(phone.hands.map(hh => hh.text)).toEqual([t('howto.hold'), t('howto.drag'), t('howto.tap'), t('howto.keys')]);
+  });
+
   it('the giant loaf is not a target while it is still at the basket (a tap there pours), and never over the help button', () => {
     const L = layout(360, 500, { top: 134, right: 0, bottom: 0, left: 0 });
     expect(giantRect(L, toScreen(L.lane, 5, 0).x, L.lane.yB - L.lane.su, L.lane.su * 1.5 + 8)).toBeNull();
@@ -1404,6 +1462,15 @@ describe('mobile first: the layout at every checked size (DESIGN §12)', () => {
     const g = giantRect(L, far.x, far.y, far.r);
     const h = helpRect(L);
     if (g) expect(g.y + g.h <= h.y - TAP_GAP + 0.5 || g.x + g.w <= h.x || g.x >= h.x + h.w).toBe(true);
+  });
+
+  it('the reveal\'s tiles show their words only once turned to the player: never squeezed under 11 px mid-turn', async () => {
+    const { revealFlip, REVEAL_WORDS } = await import('../src/arcade/chleby/hud');
+    for (let k = 0; k <= 1.0001; k += 0.001) {
+      const f = revealFlip(Math.min(1, k));
+      if (f >= REVEAL_WORDS) expect(12 * f, `k ${k.toFixed(3)}`).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+    expect(revealFlip(1)).toBeGreaterThanOrEqual(REVEAL_WORDS);
   });
 
   it('the font helper never draws under 11 px', () => {
@@ -1424,11 +1491,17 @@ describe('mobile first: the layout at every checked size (DESIGN §12)', () => {
       for (const k of ['hint.help', 'hint.burst', 'howto.tap', 'howto.hold', 'howto.drag', 'hint.tap', 'hint.hold', 'hint.drag', 'story.tap', 'reveal.tap']) {
         expect(String(c[k]), `${lang}.${k}`).not.toMatch(KEYS);
       }
-      expect(String(c['hint.help.keys']), lang).toMatch(/E\)/);
+      expect(String(c['hint.help.keys']), lang).toMatch(/\bE\b/);
       expect(String(c['howto.keys']), lang).toMatch(/1–3/);
+      // a mouse hears of clicking, holding its button and moving it (DESIGN §14), never of tapping
+      for (const k of ['hint.help', 'hint.burst', 'howto.tap', 'howto.hold', 'howto.drag', 'hint.tap', 'hint.hold', 'hint.drag']) {
+        expect(String(c[`${k}.keys`]), `${lang}.${k}.keys`).toMatch(new RegExp(`${KEYS.source}|musen|musknapp`, 'i'));
+        expect(String(c[`${k}.keys`]), `${lang}.${k}.keys`).not.toMatch(/stuk|\btap\b|tipp|\btryck på\b/i);
+      }
     }
     for (const w of Object.keys(HINTS) as (keyof typeof HINTS)[]) expect(hintFor(w, true), w).not.toMatch(KEYS);
     expect(hintFor('help', false)).toBe(HINTS_KEYS.help);
-    expect(hintFor('tap', false)).toBe(HINTS.tap);
+    expect(hintFor('tap', false)).toBe(HINTS_KEYS.tap);
+    expect(hintFor('gull', false)).toBe(HINTS.gull);
   });
 });

@@ -14,31 +14,41 @@
  *          under the two thumbs
  *   wide   a desktop or a tablet on its side: the window hangs between the panel and the score when there
  *          is room for it (else under the HUD), the room below, three pads along the bottom (the thirds)
+ *   big    a big screen with a mouse (kit/mobile `screenKind` 'big': a Full HD monitor's middle column and
+ *          up, DESIGN §14): the room zoomed in (±4 u, the characters 1.2–1.6× a desktop's) under
+ *          a window centred on the wall; the words that come and go (the toasts, the story card) stand in
+ *          the band over the room, never over the angel; three key caps under the floor (the thirds); the
+ *          gifts a dialog centred in the room, cards sized for a mouse
  *
  * The pads are the visible part of the tap zones: a tap anywhere in a pad's column strikes like the pad
  * (left of the middle zone the left side, right of it the right side, in it the nearer side; on a desktop
  * the zones are the thirds).  The gift choice is a bottom sheet of three full-width cards on a phone
- * upright and a row of three cards near the bottom elsewhere.  Every rectangle the player taps is here
- * (`tapTargets`), the same ones the view hit-tests and the mobile audit checks.
+ * upright, a centred dialog on a big screen and a row of three cards near the bottom elsewhere.  Every
+ * rectangle the player taps is here (`tapTargets`), the same ones the view hit-tests and the mobile audit checks.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, TAP_GAP, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, TAP_GAP, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 
 export type { Rect };
-export type Mode = 'wide' | 'tall' | 'short';
+export type Mode = 'wide' | 'tall' | 'short' | 'big';
 export type Pad = 'left' | 'mid' | 'right';
 export const PADS: readonly Pad[] = ['left', 'mid', 'right'];
 
 /** The runner's top bar on a desktop (the window may hang under it, between the panel and the score). */
 const TOP_BAR = 58;
 
+/** The angel's wing tips stand this high over the floor (u): a big screen's story card stays above them. */
+export const ANGEL_TOP = 3.6;
+
 export interface Layout {
   w: number;
   h: number;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, up to 2.2 on a big screen */
   u: number;
   mode: Mode;
+  /** the screen this layout was made for (kit/mobile `screenKind`) */
+  kind: ScreenKind;
   tall: boolean;
   /** what covers each edge (the HUD band on top) and the HUD's lower edge */
   ins: Insets;
@@ -75,30 +85,35 @@ export interface Layout {
   stacked: boolean;
 }
 
-export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout {
+/**
+ * The layout for a canvas of w × h CSS px under these insets; `touch` (the runner's `env.touch`) picks the
+ * screen's kind with the size — a mouse on a big canvas gets the big screen's layout, a finger never does.
+ */
+export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch = false): Layout {
   const W = Math.max(240, w), H = Math.max(200, h);
   const u = uiScale(W, H);
+  const kind = screenKind(W, H, touch);
   const top = clamp(insets.top, 0, H * 0.6);
   const ins: Insets = { top, right: Math.max(0, insets.right), bottom: Math.max(0, insets.bottom), left: Math.max(0, insets.left) };
   const tall = W / H < 0.9;
   const band = H - top - ins.bottom;
-  const mode: Mode = tall ? 'tall' : band < 340 ? 'short' : 'wide';
+  const mode: Mode = tall ? 'tall' : kind === 'big' ? 'big' : band < 340 ? 'short' : 'wide';
   const roomX0 = ins.left, roomX1 = W - ins.right;
   const gap = Math.round(TAP_GAP * u) + 2;
   // nothing to press in the outer 16 px of a phone's sides (the back swipe, the grip)
-  const edge = mode === 'wide' ? Math.round(24 * u) : mode === 'short' ? 12 : W < 600 ? 16 : Math.round(24 * u);
+  const edge = mode === 'wide' || mode === 'big' ? Math.round(24 * u) : mode === 'short' ? 12 : W < 600 ? 16 : Math.round(24 * u);
   const x0 = ins.left + edge, x1 = W - ins.right - edge;
   const span = x1 - x0;
   // the pads: finger-sized and more, sitting on the bottom (over the home indicator)
-  // (a desktop's are key caps under the mouse: a little lower, so the room keeps its size)
-  const padH = Math.round(mode === 'short' ? clamp(52 * u, 50, 64) : mode === 'wide' ? 56 : clamp(60 * u, 56, 76));
-  const padY = H - ins.bottom - Math.round((mode === 'short' ? 8 : 10) * u) - padH;
+  // (a desktop's are key caps under the mouse: a little lower, so the room keeps its size; a big screen's grow with it)
+  const padH = Math.round(mode === 'short' ? clamp(52 * u, 50, 64) : mode === 'wide' ? 56 : mode === 'big' ? 48 * u : clamp(60 * u, 56, 76));
+  const padY = H - ins.bottom - Math.round((mode === 'short' ? 8 : mode === 'big' ? 12 : 10) * u) - padH;
   let pads: Record<Pad, Rect>;
   let zone: { l: number; r: number };
-  if (mode === 'wide') {
+  if (mode === 'wide' || mode === 'big') {
     // a desktop: three key caps, one in each third (the thirds are the zones, as a mouse expects)
     const third = (span - 2 * gap) / 3;
-    const pw = Math.min(third, 240 * u);
+    const pw = Math.min(third, (mode === 'big' ? 200 : 240) * u);
     const at = (i: number): Rect => ({ x: x0 + i * (third + gap) + (third - pw) / 2, y: padY, w: pw, h: padH });
     pads = { left: at(0), mid: at(1), right: at(2) };
     zone = { l: x0 + third + gap / 2, r: x0 + 2 * third + gap * 1.5 };
@@ -113,14 +128,28 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     };
     zone = { l: pads.mid.x - gap / 2, r: pads.mid.x + midW + gap / 2 };
   }
-  // the room: the Zmory step in from beyond the screen's edges upright (±3.85 u), ±5 u on its side, ±5.2 u wide
-  const across = mode === 'tall' ? 3.85 : mode === 'short' ? 5.0 : 5.2;
-  const S0 = clamp((roomX1 - roomX0) / (2 * across), 22, 130);
-  const floorGap = Math.round(mode === 'short' ? clamp(0.42 * S0, 18, 34) : mode === 'wide' ? clamp(0.4 * S0, 24, 44) : clamp(0.62 * S0, 26, 64));
+  // the room: the Zmory step in from beyond the screen's edges upright (±3.85 u), ±5 u on its side, ±5.2 u wide,
+  // ±4 u on a big screen (closer: the characters grow with the screen, the approach still in sight)
+  const across = mode === 'tall' ? 3.85 : mode === 'short' ? 5.0 : mode === 'big' ? 4.0 : 5.2;
+  const S0 = clamp((roomX1 - roomX0) / (2 * across), 22, mode === 'big' ? 300 : 130);
+  const floorGap = Math.round(mode === 'short' ? clamp(0.42 * S0, 18, 34) : mode === 'wide' ? clamp(0.4 * S0, 24, 44) : mode === 'big' ? 0.3 * S0 : clamp(0.62 * S0, 26, 64));
   const floorY = padY - floorGap;
   const sillH = Math.round(14 * u), xpH = Math.round(14 * u);
   let win: Rect, sill: Rect, xp: Rect, roomTop: number, S: number;
-  if (mode === 'short') {
+  if (mode === 'big') {
+    // a big screen: the window centred on the wall under the HUD (two thirds of the room's width), as tall as the
+    // room leaves it — the toasts and the story card come over it, never over the angel
+    const ww = Math.round(Math.min(roomX1 - roomX0 - 2 * edge, (roomX1 - roomX0) * 0.66));
+    let wh = Math.round(44 * u);
+    const fixed = top + 6 + wh + 3 + sillH + 6 + xpH + 10;
+    const spare = floorY - 3.45 * S0 - fixed;
+    if (spare > 0) wh += Math.round(Math.min(spare * 0.65, 170 * u));
+    win = { x: (roomX0 + roomX1) / 2 - ww / 2, y: top + 6, w: ww, h: wh };
+    sill = { x: win.x, y: win.y + wh + 3, w: ww, h: sillH };
+    xp = { x: win.x, y: sill.y + sillH + 6, w: ww, h: xpH };
+    roomTop = xp.y + xp.h + 10;
+    S = clamp(Math.min(S0, (floorY - roomTop - 4) / 3.4), 22, 300);
+  } else if (mode === 'short') {
     // the room takes the whole band; the window sits in its upper left corner, left of the angel's wings
     roomTop = top + 4;
     S = clamp(Math.min(S0, (floorY - roomTop - 2) / 3.45), 22, 130);
@@ -156,20 +185,25 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     S = clamp(Math.min(S0, (floorY - roomTop - 4) / 3.4), 22, 130);
   }
   const cx = (roomX0 + roomX1) / 2;
-  // the story card keeps the Zmory's heads in sight (1.3 u above the floor)
-  const storyW = Math.min(mode === 'short' ? 540 * u : 440 * u, roomX1 - roomX0 - 24);
+  // the story card keeps the Zmory's heads in sight (1.3 u above the floor); on a big screen it stands over the
+  // window and the wall, above the angel's wings (3.6 u)
+  const storyW = mode === 'big' ? Math.min(700 * u, roomX1 - roomX0 - 48) : Math.min(mode === 'short' ? 540 * u : 440 * u, roomX1 - roomX0 - 24);
   const storyY = top + (mode === 'wide' ? 4 : 6);
-  const story = { w: storyW, y: storyY, maxH: Math.max(120, floorY - (mode === 'short' ? 1.2 : 1.3) * S - storyY) };
-  // the great nightmare's bar (its name above it): under the level bar; on its side right of the window, at the top
-  const bw = mode === 'short' ? Math.min(260 * u, roomX1 - 16 - (win.x + win.w + 24)) : Math.min(320 * u, (roomX1 - roomX0) * 0.7);
+  const storyFloor = floorY - (mode === 'big' ? ANGEL_TOP : mode === 'short' ? 1.2 : 1.3) * S;
+  const story = { w: storyW, y: storyY, maxH: Math.max(120, storyFloor - storyY) };
+  // the great nightmare's bar (its name above it): under the level bar; on its side right of the window, at the top;
+  // on a big screen on the wall right of the window (under the level bar it would cross the angel's wings)
+  const bigBoss = mode === 'big' ? Math.max(0, roomX1 - Math.round(18 * u) - (win.x + win.w + Math.round(18 * u))) : 0;
+  const bw = mode === 'short' ? Math.min(260 * u, roomX1 - 16 - (win.x + win.w + 24)) : mode === 'big' ? bigBoss : Math.min(320 * u, (roomX1 - roomX0) * 0.7);
   const bh = Math.round(8 * u);
   const boss = mode === 'short'
     ? { x: roomX1 - 16 - bw, y: top + Math.round(24 * u), w: bw, h: bh }
+    : mode === 'big' ? { x: win.x + win.w + Math.round(18 * u), y: win.y + win.h / 2, w: bw, h: bh }
     : { x: cx - bw / 2, y: roomTop + Math.round(20 * u), w: bw, h: bh };
-  // the toasts: on a phone upright over the window (the angel stays in sight), on its side over the window's
-  // corner, on a desktop under the boss bar, over the angel's head
-  const cw = mode === 'short' ? clamp(win.w + 24, 240, 320) : Math.min(340 * u, roomX1 - roomX0 - 32);
-  const card = mode === 'tall' ? { x: cx - cw / 2, w: cw, y: top + 6 }
+  // the toasts: on a phone upright and on a big screen over the window (the angel stays in sight), on its side
+  // over the window's corner, on a desktop under the boss bar, over the angel's head
+  const cw = mode === 'short' ? clamp(win.w + 24, 240, 320) : Math.min((mode === 'big' ? 380 : 340) * u, roomX1 - roomX0 - 32);
+  const card = mode === 'tall' || mode === 'big' ? { x: cx - cw / 2, w: cw, y: top + 6 }
     : mode === 'short' ? { x: roomX0 + 10, w: cw, y: top + 4 }
     : { x: cx - cw / 2, w: cw, y: boss.y + boss.h + Math.round(10 * u) };
   // the combo ladder right of the angel, clear of the boss bar
@@ -189,6 +223,16 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     sheetTitle = sy + pad;
     const gy = sheetTitle + titleH;
     for (let i = 0; i < 3; i++) gifts.push({ x: cx - cw / 2, y: gy + i * (ch + cg), w: cw, h: ch });
+  } else if (mode === 'big') {
+    // a dialog centred in the room: the title, a row of three cards sized for a mouse, the countdown under them
+    const cg = Math.round(18 * u), pad = Math.round(16 * u);
+    const cw = Math.min(Math.round(220 * u), (span - 2 * cg) / 3), ch = Math.round(140 * u);
+    const titleH = Math.round(36 * u), hintH = Math.round(30 * u);
+    const dh = pad + titleH + ch + hintH + pad, total = 3 * cw + 2 * cg;
+    const dy = clamp((roomTop + floorY) / 2 - dh / 2, top + 4, H - ins.bottom - 6 - dh);
+    sheetTitle = dy + pad;
+    for (let i = 0; i < 3; i++) gifts.push({ x: cx - total / 2 + i * (cw + cg), y: sheetTitle + titleH, w: cw, h: ch });
+    sheet = { x: cx - total / 2 - pad, y: dy, w: total + 2 * pad, h: dh };
   } else {
     // a row of three near the bottom (a phone on its side: under the thumbs), the title over it
     const cg = Math.round(10 * u);
@@ -203,9 +247,18 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
     sheet = { x: roomX0, y: sheetTitle - 8, w: roomX1 - roomX0, h: H - ins.bottom - (sheetTitle - 8) };
   }
   return {
-    w: W, h: H, u, mode, tall, ins, top, S, cx, floorY, win, sill, xp, roomTop, roomX0, roomX1, card, combo, story, boss,
+    w: W, h: H, u, mode, kind, tall, ins, top, S, cx, floorY, win, sill, xp, roomTop, roomX0, roomX1, card, combo, story, boss,
     pads, zone, sheet, sheetTitle, gifts, stacked,
   };
+}
+
+/**
+ * The mouse's cursor over (x, y) (DESIGN §14): a hand where a click does something — anywhere in the room while
+ * the night goes on (a click strikes that side), over a gift card while the gifts are offered — else the arrow.
+ */
+export function cursorAt(L: Layout, s: TargetState, x: number, y: number): '' | 'pointer' {
+  if (s.choice) return giftAt(L, x, y) >= 0 ? 'pointer' : '';
+  return s.done || y < L.top ? '' : 'pointer';
 }
 
 /** The side a tap at x strikes: left of the middle zone −1, right of it +1, in it 0 (the nearer side). */

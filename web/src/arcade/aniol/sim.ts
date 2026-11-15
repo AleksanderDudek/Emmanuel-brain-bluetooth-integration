@@ -516,6 +516,22 @@ export class AniolSim {
     return 1;
   }
 
+  /**
+   * What a strike on this side would hit first now — the mouse's hover answers with it on a desktop (DESIGN
+   * §14): the nearer of the ink drop and the Zmora in reach (the spear's and Skrzydła ognia's reach included),
+   * or null for a whiff.  The same reach as ready(): aim() is null exactly when ready() is 0.
+   */
+  aim(side: Side): { d: number; z: number; r: number } | null {
+    if (!this.started || this.phase === 'done') return null;
+    const reach = this.reach + (this.glory > 0 ? 99 : this.taken.spear ? RULES.spearReach : 0);
+    let best: Zmora | null = null;
+    for (const z of this.zmory) if (z.side === side && this.strikable(z) && z.d - z.r <= reach && (!best || z.d < best.d)) best = z;
+    let drop: Drop | null = null;
+    for (const o of this.drops) if (o.dir < 0 && o.side === side && o.d <= this.reach + 0.1 && (!drop || o.d < drop.d)) drop = o;
+    if (drop && (!best || drop.d <= best.d - best.r)) return { d: drop.d, z: drop.z, r: 0.14 };
+    return best ? { d: best.d, z: best.z, r: best.r } : null;
+  }
+
   /** The side whose Zmora (or ink drop) is nearest the bed (the facing side when the room is empty). */
   nearerSide(): Side {
     let best: { side: Side; d: number } | null = null;

@@ -11,12 +11,13 @@
  * scene is intro.ts.  The runner draws the standard HUD on top (the panel, the score, the coach).
  */
 import { Particles, Shake, approach, clamp, ease } from '../kit/juice';
+import { fitText } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 import { bossName, giftById, type RoomItem } from './content';
 import { Hud } from './hud';
 import { feathers as feathersText, t } from './i18n';
 import { AniolIntro } from './intro';
-import { layout, type Layout, type Pad } from './layout';
+import { layout, padAt, type Layout, type Pad } from './layout';
 import { roomItems, type AniolProgress } from './meta';
 import {
   C, SANS, font, glow, paintAngel, paintBear, paintBed, paintBoss, paintDream, paintDrop, paintFeather, paintLamp, paintRoom, paintRoomItem,
@@ -92,8 +93,15 @@ export class AniolView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, insets);
+    this.L = layout(w, h, insets, this.opts.touch);
     this.hud.resize(this.L);
+  }
+
+  /** Where the mouse rests over the canvas (null: off it, or a finger): the pads, the cards and the aim answer it. */
+  private hoverAt: { x: number; y: number } | null = null;
+  hover(x: number | null, y = 0): void {
+    this.hoverAt = x === null || this.opts.touch ? null : { x, y };
+    this.hud.hover(this.hoverAt);
   }
 
   /** A finger down on a pad's column (index.ts): the pad shows pressed until it lifts. */
@@ -450,6 +458,7 @@ export class AniolView {
     ctx.restore();
     this.drawAura(sim);
     this.drawReach(sim);
+    this.drawAim(sim);
     // the Ośmiornica rises out of the sea behind the bed
     const boss = sim.boss ? sim.zmory.find(z => z.id === sim.boss!.id) : undefined;
     if (boss && sim.boss!.kind === 'osmiornica') this.drawBoss(sim, boss);
@@ -661,6 +670,60 @@ export class AniolView {
       ctx.lineTo(x1 - sd * 7 * u, L.floorY - 5 * u);
       ctx.stroke();
     }
+  }
+
+  /**
+   * The mouse's aim on a desktop (DESIGN §14): what a click where it rests would strike — the Zmora (or the ink
+   * drop) the strike would hit ringed on the floor with a chevron over it, gold and brighter in the perfect band;
+   * with nothing in reach, that side's reach mark lights instead (a click there strikes the air).  The middle third
+   * aims at the nearer side, as its click does.
+   */
+  private drawAim(sim: AniolSim): void {
+    const at = this.hoverAt;
+    if (!at || sim.choice || !sim.started || sim.phase === 'done' || at.y < this.L.top) return;
+    const ctx = this.ctx, L = this.L, S = this.S, u = L.u;
+    const pick = padAt(L, at.x);
+    const side: Side = pick === 0 ? sim.nearerSide() : pick;
+    const hit = sim.aim(side);
+    const pulse = 0.5 + 0.5 * Math.sin(this.clock * 6);
+    ctx.save();
+    if (hit) {
+      const perfect = sim.ready(side) === 2;
+      const x = this.xOf(side, hit.d), rx = (hit.r + 0.2) * S, ry = Math.max(4 * u, 0.12 * S);
+      ctx.strokeStyle = perfect ? `rgba(255,236,160,${0.75 + 0.25 * pulse})` : `rgba(255,211,107,${0.55 + 0.3 * pulse})`;
+      ctx.lineWidth = (perfect ? 3.2 : 2.4) * u;
+      ctx.setLineDash([7 * u, 5 * u]);
+      ctx.lineDashOffset = -this.clock * 18 * u;
+      ctx.beginPath();
+      ctx.ellipse(x, L.floorY + 2 * u, rx, ry, 0, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // the chevron over its head, pointing down at it
+      const y = Math.max(L.roomTop + 12 * u, this.yOf(hit.z) - hit.r * S * 2.9 - (12 + 4 * pulse) * u), s = 9 * u;
+      ctx.fillStyle = perfect ? '#fff1b8' : '#ffd36b';
+      ctx.strokeStyle = 'rgba(20,16,44,.7)';
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x - s, y - s * 0.9);
+      ctx.lineTo(x + s, y - s * 0.9);
+      ctx.lineTo(x, y + s * 0.5);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.fill();
+    } else {
+      // nothing in reach on that side: its reach mark lights (a click there would strike the air)
+      const x1 = L.cx + side * sim.reach * S;
+      ctx.strokeStyle = `rgba(255,244,214,${0.5 + 0.35 * pulse})`;
+      ctx.lineWidth = 3 * u;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x1 - side * 11 * u, L.floorY + 10 * u);
+      ctx.lineTo(x1 + side * 2 * u, L.floorY + 1);
+      ctx.lineTo(x1 - side * 11 * u, L.floorY - 8 * u);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // ── Pan Guzik ───────────────────────────────────────────────────
@@ -926,13 +989,13 @@ export class AniolView {
     this.bossShown = approach(this.bossShown, clamp(z.hp / z.maxHp), 1 / 60, 0.15);
     ctx.save();
     ctx.globalAlpha = this.bossBar;
-    ctx.font = font(800, 13 * this.tu, SANS);
+    // (fitted to the bar: a big screen's stands on the wall beside the window)
+    const name = fitText(ctx, bossName(sim.boss.kind), w + 16 * u, 13 * this.tu, 800, SANS, 13);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     ctx.lineWidth = 3.5;
     ctx.lineJoin = 'round';
     ctx.strokeStyle = 'rgba(20,16,44,.75)';
-    const name = bossName(sim.boss.kind);
     ctx.strokeText(name, x + w / 2, y - 3 * u);
     ctx.fillStyle = '#ffd9b0';
     ctx.fillText(name, x + w / 2, y - 3 * u);

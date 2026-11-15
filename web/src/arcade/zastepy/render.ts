@@ -155,7 +155,7 @@ export class ZastepyView {
     }
     this.drag = null;
     if (d.moved) return null;
-    return { kind: 'road', x: clamp(this.camX + (x - this.L.w / 2) / this.S, 1.5, RULES.road - 1.5) };
+    return { kind: 'road', x: this.roadX(x) };
   }
 
   /** Where a coach mark points for a thing (CSS px). */
@@ -181,8 +181,22 @@ export class ZastepyView {
 
   release(): void { this.drag = null; }
 
+  /** Where the mouse rests over the canvas (null: off it, or a finger): the HUD lights what a click would take. */
+  private hoverAt: { x: number; y: number } | null = null;
+  hover(x: number | null, y = 0): void {
+    this.hoverAt = x === null || this.opts.touch ? null : { x, y };
+    this.hud.hover(this.hoverAt);
+  }
+
   /** the whole road (and a little of both gates) fits the screen */
   private get fits(): boolean { return this.L.viewM >= RULES.road + 3; }
+  /** the whole road is in view (else a drag pans it) */
+  get roadFits(): boolean { return this.fits; }
+  /** a drag is panning the road now */
+  get dragging(): boolean { return !!this.drag?.moved && !this.fits; }
+
+  /** The road's metre under a screen x (where a tap there raises the pillar). */
+  private roadX(x: number): number { return clamp(this.camX + (x - this.L.w / 2) / this.S, 1.5, RULES.road - 1.5); }
   private clampCam(x: number): number {
     const half = this.L.viewM / 2;
     return this.fits ? RULES.road / 2 : clamp(x, half - 2.6, RULES.road + 2.6 - half);
@@ -434,6 +448,7 @@ export class ZastepyView {
     paintLightGate(ctx, this.sx(0), L.roadY + 0.15 * S, S, { glow, walls: b.walls / b.wallsMax, t: this.clock, mend: sim.calmNow, age: b.age });
     paintAshGate(ctx, this.sx(b.road), L.roadY + 0.15 * S, S, { ash: b.bossBattle ? 1 : b.ash / b.ashMax, t: this.clock, fall: ease.inOutSine(this.fall), sealed: b.bossBattle && b.outcome === null });
     this.drawSpecial(sim);
+    this.drawGhostPillar(sim);
     this.drawFighters(sim);
     if (b.pillar) paintPillar(ctx, this.sx(b.pillar.x), L.roadY - 0.25 * S, S, L.bar.y + L.bar.h, clamp(b.pillar.t / b.pillar.sec), ease.outCubic(this.pillarIn), this.clock);
     this.drawBolts();
@@ -461,6 +476,30 @@ export class ZastepyView {
       ctx.fillStyle = `rgba(255,241,201,${ease.inOutSine(this.fade) * 0.85})`;
       ctx.fillRect(0, 0, this.w, this.h);
     }
+  }
+
+  /**
+   * The mouse over the road while the pillar is ready (a desktop, DESIGN §14): the pillar of cloud as a ghost where a
+   * click would raise it, its foot ringed on the road.
+   */
+  private drawGhostPillar(sim: ZastepySim): void {
+    const at = this.hoverAt;
+    const b = sim.battle;
+    if (!at || !b.pillarReady || b.pillar || sim.stage !== 'battle' || sim.phase === 'done' || this.hud.storyOn) return;
+    if (this.hud.overNow(sim).kind !== 'road') return;
+    const ctx = this.ctx, L = this.L, S = this.S, x = this.sx(this.roadX(at.x));
+    const pulse = 0.5 + 0.5 * Math.sin(this.clock * 5);
+    ctx.save();
+    ctx.globalAlpha = 0.3 + 0.12 * pulse;
+    paintPillar(ctx, x, L.roadY - 0.25 * S, S, L.bar.y + L.bar.h, 1, 1, this.clock);
+    ctx.restore();
+    ctx.strokeStyle = `rgba(208,150,40,${0.6 + 0.3 * pulse})`;
+    ctx.lineWidth = 2.5 * L.u;
+    ctx.setLineDash([6 * L.u, 5 * L.u]);
+    ctx.beginPath();
+    ctx.ellipse(x, (L.roadY + L.roadBack) / 2, 0.75 * S, 0.3 * S, 0, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   // ── the sky and the road ────────────────────────────────────────

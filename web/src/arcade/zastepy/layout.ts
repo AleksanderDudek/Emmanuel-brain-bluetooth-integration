@@ -14,13 +14,17 @@
  *         middle with the light bar over them, the pillar and the trumpet under the right thumb
  *   wide  a desktop or a tablet on its side: the whole road in view, the light's row and the cards centred
  *         along the bottom, grown by the UI scale
+ *   (big) a big screen with a mouse (kit/mobile `screenKind` 'big', DESIGN §14) keeps the wide shape's controls
+ *         and zooms the road in: 22 m in view (the camera follows the front, as on a phone; a drag pans), the
+ *         host and the shades 1.6× a desktop's, the road at seven tenths of the band with the sea of clouds below
+ *         it and the gates, the fliers and taller banners in the sky over it — no empty sky, no strip lost at the foot
  *
  * The card between battles is a bottom sheet of stacked offers on an upright phone (a centred card elsewhere);
  * the story cards fill the band's width.  All of it is pure: the tests run it at every kit/mobile CHECK_SIZES
  * entry and gate level, and `tapTargets` is what the view hit-tests and the mobile audit taps.
  */
 import { clamp } from '../kit/juice';
-import { NO_INSETS, TAP_GAP, target, uiScale, type Rect } from '../kit/mobile';
+import { NO_INSETS, TAP_GAP, hits, screenKind, target, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { HOST, HOST_IDS, RULES, type HostId } from './rules';
 
@@ -50,9 +54,12 @@ export interface Sheet {
 export interface Layout {
   w: number;
   h: number;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, up to 2.2 on a big screen */
   u: number;
   shape: Shape;
+  /** the screen this layout was made for (kit/mobile `screenKind`); a big one zooms the road in (BIG_VIEW m) */
+  kind: ScreenKind;
+  big: boolean;
   /** shape === 'tall' / 'side' (the painters ask) */
   tall: boolean;
   short: boolean;
@@ -100,6 +107,9 @@ export interface Layout {
 /** A card keeps at least this much across in one row (a portrait and its price under a thumb). */
 export const CARD_MIN = 52;
 
+/** The metres of road a big screen shows across (the camera follows the front): the host big, most of the road in sight. */
+export const BIG_VIEW = 22;
+
 /** The cards the gate has opened, in order, and the next one (shown locked while there is room). */
 export function cardIds(gate: number): { open: HostId[]; next: HostId | null } {
   return { open: HOST_IDS.filter(id => HOST[id].gate <= gate), next: HOST_IDS.find(id => HOST[id].gate > gate) ?? null };
@@ -116,6 +126,8 @@ export function layout(w: number, h: number, insets: Partial<Insets> = NO_INSETS
   const band0 = H - top - Math.max(0, ins.bottom);
   const shape: Shape = W / H < 1 ? 'tall' : band0 < 340 ? 'side' : 'wide';
   const tall = shape === 'tall', side = shape === 'side';
+  const kind = screenKind(W, H, touch);
+  const big = kind === 'big' && shape === 'wide';
   // nothing to press in the outer 16 px of an upright phone (the back swipe), the notch's room on its side
   const edge = tall ? (W < 600 ? 16 : Math.round(24 * u)) : side ? 10 : Math.round(12 * u);
   const left = Math.max(edge, ins.left > 0 ? ins.left + 6 : 0);
@@ -218,18 +230,21 @@ export function layout(w: number, h: number, insets: Partial<Insets> = NO_INSETS
   const soon = { x: right, y: below + 6, icon };
   const tymek = { x: tyX, y: below + 8 + tyR, r: tyR, maxW: Math.max(150, Math.min(right - (tyX + tyR + 12), 400 * u)) };
 
-  // ── the road: ten metres across an upright phone (the camera follows the front), all of it on a desktop ─────
+  // ── the road: ten metres across an upright phone (the camera follows the front), all of it on a desktop, 22 m on a
+  // big screen ───────────────────────────────────────────────────────────────────────────────────────────────
   const room = row.y - below;
   let S: number;
   if (tall) S = clamp(Math.min(W / 10.5, room / 5.2), 22, 44 * u);
   else if (side) S = clamp(Math.min(W / 21, room / 5), 18, 34);
+  else if (big) S = clamp(Math.min(W / BIG_VIEW, (room * 0.72) / 6.4), 16, 90 * u);
   else S = clamp(Math.min(W / (RULES.road + 6.5), room / 5.4), 16, 48 * u);
-  // the road's line: right over the controls, or — where a tall screen has room to spare — at about four fifths of
-  // the band, the sea of clouds below it and no empty sky above (it keeps 6.4 m over it for Tymek, the banners, the host)
+  // the road's line: right over the controls, or — where a tall screen or a big one has room to spare — at about four
+  // fifths (a big one: seven tenths) of the band, the sea of clouds below it and no empty sky above (it keeps 6.4 m
+  // over it for Tymek, the banners, the host)
   const lowRoad = row.y + 4 - Math.max((side ? 10 : 14) * u, S * (side ? 0.5 : 0.55));
-  const roadY = tall ? Math.min(lowRoad, Math.max(below + 6.4 * S, below + room * 0.78)) : lowRoad;
+  const roadY = tall || big ? Math.min(lowRoad, Math.max(below + 6.4 * S, below + room * (big ? 0.72 : 0.78))) : lowRoad;
   const roadBack = roadY - S * 1.05;
-  const bannerH = Math.max(18, Math.min(S * (tall ? 2.4 : 1.6), roadBack - below - 8 - S * 1.6));
+  const bannerH = Math.max(18, Math.min(S * (tall || big ? 2.4 : 1.6), roadBack - below - 8 - S * 1.6));
 
   // ── the card between battles ──────────────────────────────────────────────────────────────────
   const pad = Math.round(12 * u), sg = Math.round(8 * u);
@@ -302,7 +317,7 @@ export function layout(w: number, h: number, insets: Partial<Insets> = NO_INSETS
 
   const tyBottom = tymek.y + tymek.r;
   return {
-    w: W, h: H, u, shape, tall, short: side, touch, ins, top, bottom, left, right, gap,
+    w: W, h: H, u, shape, kind, big, tall, short: side, touch, ins, top, bottom, left, right, gap,
     S, roadY, roadBack, viewM: W / S,
     bar, tymek, soon,
     banners: { y: roadBack, h: bannerH, x0: ins.left + 8, x1: W - ins.right - 8 },
@@ -326,6 +341,50 @@ export function cardAt(L: Layout, x: number, y: number): CardSlot | null {
     if (d < bd) { bd = d; best = c; }
   }
   return best;
+}
+
+/** What the mouse is over, as a tap there would be taken (the HUD's hit test, DESIGN §14 — the hover and the cursor answer it). */
+export type Over =
+  | { kind: 'card'; id: HostId; open: boolean } | { kind: 'pillar' } | { kind: 'trumpet' } | { kind: 'road' }
+  | { kind: 'offer'; i: number } | { kind: 'go' } | { kind: 'story' } | { kind: 'none' };
+
+/** What is on screen that decides what a click does: a story card, the card between battles (its offers), the battle. */
+export interface OverState {
+  story: boolean;
+  offers: number | null;
+  battle: boolean;
+}
+
+const inRect = (r: Rect, x: number, y: number): boolean => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+
+/** What a click at (x, y) would take now — the same order as the HUD's hit test (the story, the offers, the buttons, the cards, the road). */
+export function overAt(L: Layout, s: OverState, x: number, y: number): Over {
+  if (s.story) return { kind: 'story' };
+  if (s.offers !== null) {
+    for (let i = 0; i < Math.min(3, s.offers); i++) if (inRect(L.sheet.offers[i], x, y)) return { kind: 'offer', i };
+    if (inRect(L.sheet.go, x, y)) return { kind: 'go' };
+    if (inRect(L.sheet.box, x, y)) return { kind: 'none' };
+  }
+  if (!s.battle) return { kind: 'none' };
+  if (hits(discRect(L.trumpet), x, y)) return { kind: 'trumpet' };
+  if (hits(discRect(L.pillar), x, y)) return { kind: 'pillar' };
+  const c = cardAt(L, x, y);
+  if (c) return { kind: 'card', id: c.id, open: c.open };
+  return y >= L.row.y || y < L.top ? { kind: 'none' } : { kind: 'road' };
+}
+
+/**
+ * The mouse's cursor for what it is over: a hand where a click acts (a story card, an offer, "go on", an open card, a
+ * button, the road while the pillar is ready to rise there), a grab where a drag pans the road (a big screen's road
+ * wider than the view), else the arrow.
+ */
+export function cursorFor(o: Over, pillarReady: boolean, fits: boolean): '' | 'pointer' | 'grab' {
+  switch (o.kind) {
+    case 'story': case 'offer': case 'go': case 'pillar': case 'trumpet': return 'pointer';
+    case 'card': return o.open ? 'pointer' : '';
+    case 'road': return pillarReady ? 'pointer' : fits ? '' : 'grab';
+    default: return '';
+  }
 }
 
 /** What a finger can press now (ArcadeGame.targets): the story card, or the card between battles, or the battle's controls. */

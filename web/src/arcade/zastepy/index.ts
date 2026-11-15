@@ -30,6 +30,7 @@ import { t, unit, type Key } from './i18n';
 import { bestOf, bossOf, freshProgress, migrate, type ZastepyProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
+import { cursorFor } from './layout';
 import { ZastepyView } from './render';
 import { ZastepySim, type SimEvent } from './sim';
 
@@ -49,6 +50,30 @@ class ZastepyGame implements ArcadeGame {
     this.sound = new ZastepySound(env.audio);
     // the console's and the screenshot scripts' handle (?debug only)
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __zastepy?: unknown }).__zastepy = { sim: this.sim, view: this.view };
+    // a mouse that leaves the canvas takes its hover with it (the lit card, the ghost pillar, the cursor)
+    if (!env.touch) env.canvas.addEventListener('pointerleave', this.leave);
+  }
+
+  /** where the mouse rests over the canvas (a desktop), and the cursor it was given there */
+  private mouse: { x: number; y: number } | null = null;
+  private cursor = '';
+  private readonly leave = (): void => {
+    this.mouse = null;
+    this.view.hover(null);
+    this.setCursor('');
+  };
+
+  private setCursor(c: string): void {
+    if (c === this.cursor) return;
+    this.cursor = c;
+    this.env.canvas.style.cursor = c;
+  }
+
+  /** The cursor for what a click where the mouse rests would take (a hand, a grab where a drag pans, the arrow). */
+  private cursorNow(): string {
+    if (!this.mouse) return '';
+    if (this.view.dragging) return 'grabbing';
+    return cursorFor(this.view.hud.overNow(this.sim), this.sim.battle.pillarReady && this.sim.stage === 'battle', this.view.roadFits);
   }
 
   resize(w: number, h: number, dpr: number): void { this.view.resize(w, h, dpr); }
@@ -68,6 +93,8 @@ class ZastepyGame implements ArcadeGame {
     this.drain();
     this.view.update(dt, this.sim);
     this.sound.update(dt);
+    // the cursor follows what comes under a resting mouse too (a card turning ready, the card between battles)
+    if (this.mouse) this.setCursor(this.cursorNow());
   }
 
   draw(): void { this.view.draw(this.sim); }
@@ -80,6 +107,11 @@ class ZastepyGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const hit = this.view.pointer(e.type, e.x, e.y, e.id, this.sim);
+    if (!this.env.touch) {
+      this.mouse = { x: e.x, y: e.y };
+      this.view.hover(e.x, e.y);
+      this.setCursor(this.cursorNow());
+    }
     if (!hit) return;
     switch (hit.kind) {
       case 'story': this.view.hud.hideStory(); break;
@@ -158,7 +190,11 @@ class ZastepyGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { this.view.release(); }
+  destroy(): void {
+    this.view.release();
+    this.env.canvas.removeEventListener('pointerleave', this.leave);
+    this.setCursor('');
+  }
 }
 
 /**
@@ -166,17 +202,17 @@ class ZastepyGame implements ArcadeGame {
  * shortcut (the card's digit, H, T).  Empty for a mark without such a pair.
  */
 export function hintFor(what: string, touch: boolean): string {
-  if (what !== 'card' && what !== 'pillar' && what !== 'trumpet') return '';
+  if (what !== 'card' && what !== 'pillar' && what !== 'trumpet' && what !== 'upgrade') return '';
   return t((touch ? `hint.${what}` : `hint.${what}.keys`) as Key);
 }
 
-/** How to play for the hand the player has: on a touch screen the trumpet's tap takes the keys' line. */
+/** How to play for the hand the player has: on a touch screen the trumpet's tap takes the keys' line; a mouse clicks. */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('howto.goal'),
     hands: [
-      { gesture: 'tap', text: t('howto.cards') },
-      { gesture: 'tap', text: t('howto.road') },
+      { gesture: 'tap', text: t(touch ? 'howto.cards' : 'howto.cards.keys') },
+      { gesture: 'tap', text: t(touch ? 'howto.road' : 'howto.road.keys') },
       touch ? { gesture: 'tap', text: t('howto.trumpet') } : { gesture: 'keys', text: t('howto.keys') },
     ],
     tips: [t('howto.tip1'), t('howto.tip2')],
