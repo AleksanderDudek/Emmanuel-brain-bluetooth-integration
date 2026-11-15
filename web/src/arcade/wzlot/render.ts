@@ -19,18 +19,21 @@ import { NO_INSETS } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 import { fmtInt, t } from './i18n';
 import { WzlotIntro } from './intro';
-import { layout, type Layout } from './layout';
+import { layout, type Layout, type Rect } from './layout';
 import { type WzlotProgress } from './meta';
 import {
   C, LAND_LOOK, LANDS, LANDS_SEED, SANS, SERIF, font, hash, mix, mixInto, paintCloud, paintCoin, paintEagle, paintEaglet, paintLark, paintNestFamily, paintOrb,
   paintRange, paintSky, paintSpire, paintSunGauge, paintThermal, rgb, skyAt, type EagletPose, type Land, type LandLook, type RGB, type SkyLook,
 } from './paint';
-import { Hud } from './hud';
+import { Hud, type WorldPart } from './hud';
 import { RULES } from './rules';
 import type { Anchor, SimEvent, WzlotSim } from './sim';
 
 const TAU = Math.PI * 2;
 const TRAIL = 56;
+/** The mouse rests this long before a part explains itself, and a still mouse lets it go after this. */
+const TIP_DELAY = 0.3;
+const TIP_HOLD = 6;
 const BINS = 48;
 const NIGHT: RGB = [22, 26, 58];
 
@@ -67,6 +70,13 @@ export class WzlotView {
   private readonly track = new Int8Array(BINS).fill(-1);
   private sunPos = { x: 0, y: 0 };
   private lastThermal: { x: number; y: number } | null = null;
+  /** the mouse over the canvas (a desktop; null once it left), how long it has been still, a button down */
+  private mouse: { x: number; y: number; still: number; down: boolean } | null = null;
+  /** the part under the mouse and its box, how long it has been there, its explanation's fade */
+  private part: { what: WorldPart; box: Rect } | null = null;
+  private partT = 0;
+  private tipA = 0;
+  private tipPart: { what: WorldPart; box: Rect } | null = null;
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean }) {
     this.ctx = canvas.getContext('2d')!;
@@ -76,7 +86,7 @@ export class WzlotView {
   resize(w: number, h: number, dpr: number, insets: Insets = this.ins, touch = true): void {
     this.dpr = dpr;
     this.ins = insets;
-    this.L = layout(w, h, insets);
+    this.L = layout(w, h, insets, touch);
     this.hud.resize(this.L, touch);
     this.snap = true;
   }
@@ -107,7 +117,8 @@ export class WzlotView {
   private rawAnchor(a: Anchor, sim: WzlotSim): { x: number; y: number } | null {
     const L = this.L, e = sim.eaglet;
     switch (a) {
-      case 'eaglet': return { x: this.sx(e.x), y: this.sy(e.y) - 18 * L.u };
+      // (a big screen's eaglet is 70–94 px: the coach mark's tail stops over its head, not on it)
+      case 'eaglet': return { x: this.sx(e.x), y: this.sy(e.y) - (L.big ? Math.max(18 * L.u, 0.1 * this.S) : 18 * L.u) };
       case 'sun': return { x: this.sunPos.x, y: this.sunPos.y + 24 * L.u };
       case 'crag': {
         const g = sim.terrain.byIndex(sim.granIdx);
@@ -268,6 +279,54 @@ export class WzlotView {
     this.larkY = approach(this.larkY || ty, clamp(ty, L.top + 30, L.bottom - 20), dt, 0.18);
     this.particles.update(dt);
     this.hud.update(dt, sim);
+    this.hoverUpdate(dt, sim);
+  }
+
+  // ── the mouse's answers (a desktop) ─────────────────────────────
+  /** The mouse moved over the canvas (`down`: a button held), or left it (null). */
+  hover(x: number | null, y = 0, down = false): void {
+    this.mouse = x === null ? null : { x, y, still: 0, down };
+  }
+
+  /** The part under the mouse (tests, the cursor). */
+  get hovered(): WorldPart | null { return this.part?.what ?? null; }
+
+  /**
+   * What lies under the mouse: a card (the story, the tally, the dawn's prompt — a click anywhere does it), or in
+   * flight one of the world's gauges — the sun (the band), the night at the arc's end, a warm column, the grań's flag.
+   */
+  private partAt(x: number, y: number, sim: WzlotSim): { what: WorldPart; box: Rect } | null {
+    const L = this.L, u = L.u, b = this.hud.box;
+    if (b && x >= b.r.x && x <= b.r.x + b.r.w && y >= b.r.y && y <= b.r.y + b.r.h) return { what: 'card', box: b.r };
+    if (b || sim.dayPhase !== 'fly' || sim.opening) return null;
+    const sr = L.sunR * 2.3, sp = this.sunPos;
+    if (Math.hypot(x - sp.x, y - sp.y) <= sr) return { what: 'sun', box: { x: sp.x - sr, y: sp.y - sr, w: sr * 2, h: sr * 2 } };
+    const nr = 15 * u, nx = L.arcX1, ny = L.arcTop + L.arcH;
+    if (Math.hypot(x - nx, y - ny) <= nr) return { what: 'night', box: { x: nx - nr, y: ny - nr, w: nr * 2, h: nr * 2 } };
+    for (const th of sim.thermals) {
+      const px = this.sx(th.x), half = RULES.thermalHalf * this.S, y0 = this.sy(th.base + 1 + 1.6 * sim.T), y1 = this.sy(th.base);
+      if (Math.abs(x - px) <= half && y >= y0 && y <= y1) return { what: 'thermal', box: { x: px - half, y: y0, w: half * 2, h: y1 - y0 } };
+    }
+    const g = sim.terrain.byIndex(sim.granIdx);
+    if (g) {
+      const fx = this.sx(g.crag), fy = this.sy(g.cragY), S = this.S;
+      const box = { x: fx - 0.05 * S - 6, y: fy - 0.2 * S - 6, w: 0.17 * S + 12, h: 0.2 * S + 12 };
+      if (x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) return { what: 'crag', box };
+    }
+    return null;
+  }
+
+  private hoverUpdate(dt: number, sim: WzlotSim): void {
+    const m = this.mouse;
+    if (m) m.still += dt;
+    // a held button is the dive: nothing to explain then, the answer waits for the hand to rest
+    const now = m && !m.down && m.still < TIP_HOLD ? this.partAt(m.x, m.y, sim) : null;
+    if (now?.what !== this.part?.what) this.partT = 0;
+    else this.partT += dt;
+    this.part = now;
+    if (now) this.tipPart = now;
+    const want = now && this.partT >= (now.what === 'card' ? 0 : TIP_DELAY) ? 1 : 0;
+    this.tipA = approach(this.tipA, want, dt, want ? 0.08 : 0.12);
   }
 
   private sunQ(sim: WzlotSim): number { return 0.5 + 0.5 * sim.sunAt; }
@@ -307,6 +366,11 @@ export class WzlotView {
       ctx.fillRect(0, 0, L.w, L.h);
     }
     this.hud.draw(ctx, sim, { x: this.larkX, y: this.larkY - 10 * L.u }, this.time);
+    if (this.tipA > 0.02 && this.tipPart) {
+      // the part follows the world while it fades (a thermal, the flag move with the camera)
+      const p = this.part && this.part.what === this.tipPart.what ? this.part : this.tipPart;
+      this.hud.drawTip(ctx, p.what, p.box, this.tipA);
+    }
   }
 
   private drawStars(ctx: CanvasRenderingContext2D, night: number): void {

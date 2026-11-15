@@ -6,8 +6,8 @@ import { AMBER, CRAFT_OKRUCHY, LETTERS, MOMENTS, TIPS, VILLAGE, ZOSKA } from '..
 import { CATALOGS, bare, cap, farShips, t, unit } from '../src/arcade/latarnik/i18n';
 import latarnik, { hintText, howto } from '../src/arcade/latarnik/index';
 import { Hud, fitSlot, font } from '../src/arcade/latarnik/hud';
-import { CHECK_SIZES, MIN_READ, MIN_TEXT, auditTargets, target } from '../src/arcade/kit/mobile';
-import { SEA_PAD, layout, openCardRect } from '../src/arcade/latarnik/layout';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, auditTargets, target } from '../src/arcade/kit/mobile';
+import { SEA_PAD, layout, openCardRect, type Layout } from '../src/arcade/latarnik/layout';
 import {
   OLD_CRATES_CREDIT, addCrumbs, addToWorkshop, costOf, daysBetween, drawAmber, freshProgress, migrate, newChance, nextMissing, village, workshopTarget, type LatarnikProgress,
 } from '../src/arcade/latarnik/meta';
@@ -1845,6 +1845,9 @@ describe('version 2: Zośka', () => {
 /** The size in a canvas font string. */
 const pxOf = (f: unknown): number => Number(String(f).match(/(\d+(?:\.\d+)?)px/)?.[1] ?? 0);
 
+/** The hand on a checked size: a finger on a phone and a tablet, a mouse on a desktop and the big monitors (§14). */
+const touchAt = (c: { w: number }): boolean => c.w < 1024;
+
 /** How far a box lies from a point (0: the point is inside it). */
 const boxDist = (b: { x0: number; y0: number; x1: number; y1: number }, x: number, y: number): number =>
   Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.y0 - y, 0, y - b.y1));
@@ -1916,13 +1919,13 @@ describe('mobile first (DESIGN §3.2, §12)', () => {
 
   it('lays the sea as large as the band allows, the deck inside the band and off the sea, at every checked size', () => {
     for (const c of CHECK_SIZES) {
-      const L = layout(c.w, c.h, c.insets);
+      const L = layout(c.w, c.h, c.insets, touchAt(c));
       const keep = L.R * SEA_PAD, u = L.u;
       const name = `${c.name} (${L.shape})`;
-      // the scale starts from the phone and grows to 1.3
+      // the scale starts from the phone and grows to 1.3; a big screen's grows on to DESK_MAX (§14)
       if (Math.min(c.w, c.h) <= 390) expect(u, name).toBe(1);
       else expect(u, name).toBeGreaterThan(1);
-      expect(u).toBeLessThanOrEqual(1.3);
+      expect(u, name).toBeLessThanOrEqual(Math.min(c.w, c.h) >= DESK_BIG ? DESK_MAX : 1.3);
       // the sea and the horizon's boats in sight: inside the band's sides, under the HUD where it has the room
       expect(L.cx - keep, name).toBeGreaterThanOrEqual(c.insets.left - 0.5);
       expect(L.cx + keep, name).toBeLessThanOrEqual(c.w - c.insets.right + 0.5);
@@ -1937,6 +1940,11 @@ describe('mobile first (DESIGN §3.2, §12)', () => {
         ladder: { x0: L.ladder.x - 2 * r - 7 * 12 * u, y0: L.ladder.y - 1.25 * r, x1: L.ladder.x, y1: L.ladder.y + 1.25 * r },
         ...(L.ladder.label >= 40 ? { words: { x0: L.ladder.x - L.ladder.label, y0: ly - 13 * u, x1: L.ladder.x, y1: ly + 3 } } : {}),
         card: { x0: L.card.x, y0: L.card.y, x1: L.card.x + L.card.w, y1: L.card.y + L.card.h },
+        // a big screen: Zośka and her bubble's room in their corner too
+        ...(L.shape === 'big' ? {
+          zoska: { x0: L.gull.x - L.gull.s * 0.46, y0: L.gull.y - L.gull.s * 1.27, x1: L.gull.x + L.gull.s * 0.5, y1: L.gull.y },
+          bubble: { x0: L.bubble.x, y0: L.bubble.y, x1: L.bubble.x + L.bubble.w, y1: L.bubble.y + L.bubble.h },
+        } : {}),
       };
       for (const [what, b] of Object.entries(boxes)) {
         expect(b.x0, `${name}: ${what}`).toBeGreaterThanOrEqual(c.insets.left - 0.5);
@@ -2056,6 +2064,208 @@ describe('mobile first (DESIGN §3.2, §12)', () => {
     expect(hintText('fog', false)).toBe(t('hint.fog'));
     expect(howto(true).hands.map(x => x.gesture)).toEqual(['tap']);
     expect(howto(false).hands.map(x => x.gesture)).toEqual(['tap', 'keys']);
+  });
+});
+
+describe('big screens and the mouse (DESIGN §14)', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  const g = globalThis as unknown as { Path2D?: unknown };
+  const hadPath = 'Path2D' in g;
+  let recording: { canvas: HTMLCanvasElement; texts: Map<string, number> } | null = null;
+  beforeAll(() => {
+    proto.getContext = function (this: HTMLCanvasElement) {
+      return recording && recording.canvas === this ? recordingContext(this, 2, recording.texts) : recordingContext(this, 1, null);
+    };
+    if (!hadPath) g.Path2D = class { moveTo() {} lineTo() {} quadraticCurveTo() {} bezierCurveTo() {} closePath() {} roundRect() {} arc() {} ellipse() {} rect() {} };
+  });
+  afterAll(() => {
+    proto.getContext = original;
+    if (!hadPath) delete g.Path2D;
+  });
+
+  const BIG = CHECK_SIZES.filter(c => Math.min(c.w, c.h) >= DESK_BIG);
+  const later = (): LatarnikProgress => ({ ...latarnik.freshProgress(), sessions: 5, lastNewSession: 5, konwoje: 2, crates: 400 });
+  const envAt = (progress: LatarnikProgress, c: (typeof CHECK_SIZES)[number], plannedSec: number, touch: boolean): GameEnv<LatarnikProgress> => ({
+    canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+    progress, rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
+    tuning: TUNING, hint: () => {}, hudTop: () => c.insets.top, insets: () => c.insets, touch,
+  });
+  const rect = (r: { x: number; y: number; w: number; h: number }) => ({ x0: r.x, y0: r.y, x1: r.x + r.w, y1: r.y + r.h });
+  const overlap = (a: ReturnType<typeof rect>, b: ReturnType<typeof rect>) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
+  it('gives a big screen with a mouse its own shape: the sea centred at nearly the band\'s height, the deck in the corners, all of it grown', () => {
+    expect(BIG.map(c => c.w)).toEqual([1190, 1587]);
+    const desk = layout(1280, 672, { top: 192, right: 0, bottom: 0, left: 0 }, false);
+    for (const c of BIG) {
+      const L = layout(c.w, c.h, c.insets, false);
+      const most = (c.h - c.insets.top) / 2 / SEA_PAD;
+      expect(L.shape, c.name).toBe('big');
+      expect(L.kind, c.name).toBe('big');
+      // the sea: in the middle of the column, 0.9 of the largest the band holds and more, far larger than a desktop's
+      expect(Math.abs(L.cx - c.w / 2), c.name).toBeLessThan(1);
+      expect(Math.abs(L.cy - (c.insets.top + c.h) / 2), c.name).toBeLessThan(1);
+      expect(L.R / most, c.name).toBeGreaterThan(0.9);
+      expect(L.R, c.name).toBeGreaterThan(desk.R * 1.25);
+      expect(2 * L.R * SEA_PAD / (c.h - c.insets.top), c.name).toBeGreaterThan(0.85);
+      expect(L.boat, c.name).toBeGreaterThanOrEqual(36);
+      // the deck grown with the screen (u ≥ 1.35), each part in its own corner, clear of the others
+      expect(L.u, c.name).toBeGreaterThanOrEqual(1.35);
+      expect(L.goal.w, c.name).toBeGreaterThanOrEqual(230 * L.u);
+      expect(L.goal.h, c.name).toBeGreaterThanOrEqual(56 * L.u - 1);
+      expect(L.gull.s, c.name).toBeGreaterThanOrEqual(48 * L.u - 1);
+      expect(L.bubble.w, c.name).toBeGreaterThanOrEqual(160 * L.u);
+      expect(L.bubble.h, c.name).toBeGreaterThanOrEqual(4 * 14 * L.u * 1.24);
+      expect(L.card.w, c.name).toBeGreaterThanOrEqual(220 * L.u);
+      expect(L.ladder.label, c.name).toBeGreaterThanOrEqual(110 * L.u);
+      const mx = c.w / 2, my = (c.insets.top + c.h) / 2;
+      expect(L.goal.x + L.goal.w < mx && L.goal.y + L.goal.h < my, `${c.name}: the pill top left`).toBe(true);
+      expect(L.lanterns.x > mx && L.ladder.y < my, `${c.name}: the lanterns and the ladder top right`).toBe(true);
+      expect(L.gull.x < mx && L.bubble.y > my && L.bubble.x + L.bubble.w < mx, `${c.name}: Zośka and her bubble bottom left`).toBe(true);
+      expect(L.card.x > mx && L.card.y > my, `${c.name}: the card bottom right`).toBe(true);
+      expect(L.bubbleOnGoal || L.cardOver !== null, c.name).toBe(false);
+      const s = L.lanterns.s;
+      const parts = [rect(L.goal), rect(L.bubble), rect(L.card), { x0: L.ladder.x - L.ladder.label, y0: L.lanterns.y - s * 1.3, x1: L.ladder.x, y1: L.ladder.y + 6 * L.u }];
+      for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) expect(overlap(parts[i], parts[j]), `${c.name}: parts ${i} and ${j}`).toBe(false);
+    }
+  });
+
+  it('keeps every phone, tablet and desktop as it was: only a mouse on a big screen gets the big shape', () => {
+    // the sea's radius on each checked size before the desktop pass (2026-11-13)
+    const before = [145, 175, 179, 189, 132, 136, 368, 288, 348, 283];
+    CHECK_SIZES.filter(c => Math.min(c.w, c.h) < DESK_BIG).forEach((c, i) => {
+      const finger = layout(c.w, c.h, c.insets, true), mouse = layout(c.w, c.h, c.insets, false);
+      expect(Math.round(finger.R), c.name).toBe(before[i]);
+      expect(layout(c.w, c.h, c.insets), c.name).toEqual(finger);
+      // a mouse on a phone-sized window or a desktop: the same numbers, only the hand differs
+      const { kind: k1, mouse: m1, ...a } = mouse;
+      const { kind: k2, mouse: m2, ...b } = finger;
+      expect(a, c.name).toEqual(b);
+      expect([m1, m2]).toEqual([true, false]);
+      expect(k1 === 'big' || k2 === 'big', c.name).toBe(false);
+    });
+    // a finger on a big canvas (a large tablet) keeps the tablet's shapes
+    for (const c of BIG) expect(layout(c.w, c.h, c.insets, true).shape, c.name).not.toBe('big');
+  });
+
+  it('answers the mouse: a pointer cursor, the deck part under it lit and explained, Zośka flapping; a finger gets none of it', () => {
+    for (const c of BIG) {
+      const texts = new Map<string, number>();
+      const env = envAt(later(), c, 90, false);
+      recording = { canvas: env.canvas, texts };
+      const game = latarnik.create(env);
+      recording = null;
+      game.resize(c.w, c.h, 2);
+      game.start();
+      expect(env.canvas.style.cursor, c.name).toBe('pointer');
+      const view = (game as unknown as { view: LatarnikView }).view;
+      const sim = (game as unknown as { sim: LatarnikSim }).sim;
+      const L: Layout = view.layout;
+      let time = 0;
+      const run = (sec: number) => {
+        for (const end = time + sec; time < end; time += 0.05) {
+          game.update(0.05, frame(), time);
+          game.draw();
+        }
+      };
+      const move = (x: number, y: number) => game.pointer!({ type: 'move', x, y, id: 1 });
+      run(1);
+      sim.talk.line = null;
+      move(L.goal.x + L.goal.w / 2, L.goal.y + L.goal.h / 2);
+      run(0.6);
+      expect(view.hovered, c.name).toBe('pill');
+      // its explanation: the stars' rule, read at 13 px (× u) and more
+      const rule = t('stars.rule');
+      const shown = [...texts].filter(([s]) => s.length > 6 && rule.includes(s));
+      expect(shown.length, c.name).toBeGreaterThan(0);
+      for (const [s, px] of shown) expect(px, `${c.name}: "${s}"`).toBeGreaterThanOrEqual(13 * L.u - 0.05);
+      move(L.lanterns.x + L.lanterns.s * 2.9, L.lanterns.y - L.lanterns.s * 0.2);
+      run(0.1);
+      expect(view.hovered, c.name).toBe('lanterns');
+      move(L.ladder.x - 30 * L.u, L.ladder.y);
+      run(0.1);
+      expect(view.hovered, c.name).toBe('ladder');
+      move(L.cx + L.R * 0.5, L.cy);
+      run(0.1);
+      expect(view.hovered, c.name).toBeNull();
+      // Zośka flaps when the mouse finds her
+      move(L.gull.x, L.gull.y - L.gull.s * 0.6);
+      run(0.05);
+      expect(view.hovered, c.name).toBe('gull');
+      const hud = (view as unknown as { hud: Hud }).hud;
+      expect(hud.gull.flap, c.name).toBeGreaterThan(0.5);
+      // a click still flashes wherever it lands, the deck too; a still mouse lets the answer go, leaving takes it at once
+      move(L.goal.x + 10, L.goal.y + 10);
+      run(7);
+      expect(view.hovered, c.name).toBeNull();
+      move(L.goal.x + 10, L.goal.y + 10);
+      run(0.1);
+      expect(view.hovered, c.name).toBe('pill');
+      env.canvas.dispatchEvent(new Event('pointerleave'));
+      run(0.05);
+      expect(view.hovered, c.name).toBeNull();
+      game.destroy();
+      expect(env.canvas.style.cursor, c.name).toBe('');
+      // a finger: no cursor, no answer
+      const env2 = envAt(later(), c, 90, true);
+      const g2 = latarnik.create(env2);
+      g2.resize(c.w, c.h, 2);
+      g2.start();
+      g2.update(0.05, frame(), 0.05);
+      g2.pointer!({ type: 'move', x: L.goal.x + 10, y: L.goal.y + 10, id: 1 });
+      g2.update(0.6, frame(), 0.65);
+      expect(env2.canvas.style.cursor, c.name).toBe('');
+      expect((g2 as unknown as { view: LatarnikView }).view.hovered, c.name).toBeNull();
+      g2.destroy();
+    }
+  });
+
+  it('draws every word of a session at 11 px or more on the big screens, what is read to play at 13 (× u at the least 12.5 × u), Zośka grown', () => {
+    for (const c of BIG) {
+      for (const first of [true, false]) {
+        const texts = new Map<string, number>();
+        const progress = first ? latarnik.freshProgress() : later();
+        const env = envAt(progress, c, first ? 40 : 90, false);
+        recording = { canvas: env.canvas, texts };
+        const game = latarnik.create(env);
+        recording = null;
+        game.resize(c.w, c.h, 2);
+        game.start();
+        const sim = (game as unknown as { sim: LatarnikSim }).sim;
+        const u = (game as unknown as { view: LatarnikView }).view.layout.u;
+        const tap = tapper(sim, 3, 0.04, 0.9);
+        for (let time = 0; time < (first ? 40 : 90) + 6 && !(time > 10 && sim.phase === 'done'); time += 0.05) {
+          const k = sim.block?.kind === 'konwoj';
+          game.update(0.05, frame({ level: k ? 0.85 : 0.3, activity: k ? 6 : -1, focused: k, calm: k ? 0.3 : 0.9 }), time);
+          if (first && sim.story && time > 2) game.pointer!({ type: 'down', x: c.w / 2, y: c.h / 2, id: 1 });
+          tap(time);
+          game.draw();
+        }
+        const name = `${c.name}, ${first ? 'the first session' : 'a later one'}`;
+        expect(texts.size, name).toBeGreaterThan(8);
+        for (const [s, px] of texts) expect(px, `${name}: "${s}"`).toBeGreaterThanOrEqual(MIN_TEXT - 0.05);
+        const reading = [...sim.talk.said, goalTextOf(sim), CATALOGS.pl['open.text']];
+        let zoska = 0;
+        for (const [s, px] of texts) {
+          if (s.length > 8 && reading.some(r => r.includes(s.replace(/…$/, '')))) expect(px, `${name}: "${s}"`).toBeGreaterThanOrEqual(12.5 * u - 0.05);
+          if (s.length > 8 && sim.talk.said.some(r => r.includes(s))) zoska = Math.max(zoska, px);
+        }
+        // Zośka speaks at the phone's 14 px × u: 1.35 × in a Full HD monitor's column, 1.8 × on a 2560 × 1440 one
+        if (sim.talk.said.length) expect(zoska, name).toBeGreaterThanOrEqual(14 * u - 0.05);
+        game.destroy();
+      }
+    }
+  }, 90_000);
+
+  it('speaks of clicking to a mouse: the how-to\'s row, the armed ladder, the opening card, the lesson; of tapping to a finger', () => {
+    const CLICK = /klik|click|klick/i;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['how.tap.mouse', 'hud.armed.mouse', 'open.tap.keys', 'hint.tap.keys']) expect(cat[k], `${l}.${k}`).toMatch(CLICK);
+      for (const k of ['how.tap', 'hud.armed', 'open.tap', 'hint.tap']) expect(cat[k], `${l}.${k}`).not.toMatch(CLICK);
+    }
+    expect(howto(false).hands).toEqual([{ gesture: 'tap', text: t('how.tap.mouse') }, { gesture: 'keys', text: t('how.keys') }]);
+    expect(howto(true).hands).toEqual([{ gesture: 'tap', text: t('how.tap') }]);
   });
 });
 

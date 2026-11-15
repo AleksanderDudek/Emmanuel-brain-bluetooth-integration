@@ -34,6 +34,10 @@ export class WzlotGame implements ArcadeGame {
   private w = 1;
   private h = 1;
   private dpr = 1;
+  /** the mouse buttons down (a desktop): the cursor closes its hand while one holds the dive */
+  private readonly held = new Set<number>();
+  /** a mouse that leaves the canvas takes the world's answer with it */
+  private readonly leave = (): void => this.view.hover(null);
 
   constructor(private readonly env: GameEnv<WzlotProgress>) {
     this.sim = new WzlotSim({
@@ -42,6 +46,7 @@ export class WzlotGame implements ArcadeGame {
     this.view = new WzlotView(env.canvas, { reducedMotion: env.reducedMotion });
     this.view.hud.resize(this.view.layout, env.touch);
     this.sound = new WzlotSound(env.audio);
+    if (!env.touch) env.canvas.addEventListener('pointerleave', this.leave);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __wzlot?: unknown }).__wzlot = this.sim;
   }
 
@@ -60,6 +65,8 @@ export class WzlotGame implements ArcadeGame {
     this.sim.start();
     this.sound.start();
     this.view.start();
+    // a hold anywhere is the dive: with a mouse the cursor says the whole sky is the button
+    if (!this.env.touch) this.env.canvas.style.cursor = 'pointer';
     this.drain();
   }
 
@@ -72,8 +79,18 @@ export class WzlotGame implements ArcadeGame {
 
   draw(): void { this.view.draw(this.sim); }
 
-  /** Any finger or mouse button down anywhere is the hold. */
+  /**
+   * Any finger or mouse button down anywhere is the hold.  A mouse also answers: its cursor closes while it holds,
+   * and resting on the sun, the night, a warm column, the grań's flag or a card lights it (move events come without
+   * a button too).
+   */
   pointer(e: PointerInput): void {
+    if (!this.env.touch) {
+      if (e.type === 'down') this.held.add(e.id);
+      else if (e.type === 'up') this.held.delete(e.id);
+      this.view.hover(e.x, e.y, this.held.size > 0);
+      this.env.canvas.style.cursor = this.held.size ? 'grabbing' : 'pointer';
+    }
     if (e.type === 'move') return;
     this.sim.pointer(e.type, e.id);
     this.drain();
@@ -87,7 +104,11 @@ export class WzlotGame implements ArcadeGame {
   }
 
   pause(paused: boolean): void {
-    if (paused) this.sim.release();
+    if (!paused) return;
+    this.sim.release();
+    this.held.clear();
+    this.view.hover(null);
+    if (!this.env.touch) this.env.canvas.style.cursor = 'pointer';
   }
 
   private drain(): void {
@@ -123,7 +144,12 @@ export class WzlotGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { this.sim.release(); }
+  destroy(): void {
+    this.sim.release();
+    // the canvas keeps no listener or cursor of this game's
+    this.env.canvas.removeEventListener('pointerleave', this.leave);
+    this.env.canvas.style.cursor = '';
+  }
 
   /**
    * The free play area — a hold anywhere — is no target.  While a card or the dawn prompt shows, it is the one
@@ -140,15 +166,16 @@ export function hintText(key: Teach, touch: boolean): string {
   return key === 'hold' && !touch ? t('hint.hold.keys') : t(`hint.${key}` as Key);
 }
 
-/** How to play: hold and let go anywhere; on a keyboard Space and ↓ as shortcuts (the runner drops the keys' row for a finger). */
+/**
+ * How to play: hold and let go anywhere.  A finger: the hold, then the let-go.  A mouse: one row (the runner names a
+ * `tap` row "Kliknij" without a touch screen, and a let-go is no click), then Space and ↓ as shortcuts.
+ */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('how.goal'),
-    hands: [
-      { gesture: 'hold', text: t('how.hold') },
-      { gesture: 'tap', text: t('how.release') },
-      ...(touch ? [] : [{ gesture: 'keys' as const, text: t('how.keys') }]),
-    ],
+    hands: touch
+      ? [{ gesture: 'hold', text: t('how.hold') }, { gesture: 'tap', text: t('how.release') }]
+      : [{ gesture: 'hold', text: t('how.hold.mouse') }, { gesture: 'keys', text: t('how.keys') }],
     tips: [t('how.tip1'), t('how.tip2')],
   };
 }

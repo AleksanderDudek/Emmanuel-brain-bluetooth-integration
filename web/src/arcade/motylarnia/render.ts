@@ -71,6 +71,8 @@ export class MothView {
   private open: OpenCard | null = null;
   /** the floating stick under the thumb (touch), as the game holds it */
   stick: StickState | null = null;
+  /** the mouse over the garden (a desktop; null once it left or over a card): the caterpillar heads for it */
+  mouse: { x: number; y: number } | null = null;
   private readonly curlPts: BodyPoint[] = Array.from({ length: 140 }, () => ({ x: 0, y: 0 }));
   private goldT = 0;
 
@@ -83,7 +85,7 @@ export class MothView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = computeLayout(w, h, insets);
+    this.L = computeLayout(w, h, insets, this.opts.touch);
     this.open = null;
     this.particles.clear();
     this.floaters.items.length = 0;
@@ -164,6 +166,8 @@ export class MothView {
 
   on(e: SimEvent, sim: MothSim): void {
     const fl = this.floaters, P = this.particles;
+    // the flying words grow with a big screen (k = its UI scale there, 1 everywhere else)
+    const k = this.L.k;
     const at = (x: number, y: number) => this.worldToScreen(x, y);
     switch (e.type) {
       case 'eat': {
@@ -172,13 +176,13 @@ export class MothView {
         const col = e.kind === 'flower' || e.kind === 'rare' ? PIGMENTS[Math.max(0, e.pig) % 5].color : e.kind === 'dew' ? '#BFE6FF' : '#8DC35A';
         P.burst(s.x, s.y, e.kind === 'rare' ? 30 : e.kind === 'flower' ? 10 : 4, { color: col, speed: e.kind === 'rare' ? 200 : 90, life: 0.6, g: 60, size: e.kind === 'rare' ? 4 : 2.5 });
         if (e.kind === 'rare' || e.kind === 'flower' || (e.mult > 1 && e.chain % 3 === 0)) {
-          fl.add(`+${e.pts}${e.mult > 1 ? ` ×${e.mult}` : ''}`, s.x, s.y - 14, { color: e.mult >= 3 ? '#FFD34D' : '#FFFBEF', size: e.kind === 'rare' ? 30 : 18 + 2 * e.mult, dur: 0.9 });
+          fl.add(`+${e.pts}${e.mult > 1 ? ` ×${e.mult}` : ''}`, s.x, s.y - 14 * k, { color: e.mult >= 3 ? '#FFD34D' : '#FFFBEF', size: (e.kind === 'rare' ? 30 : 18 + 2 * e.mult) * k, dur: 0.9 });
         }
         break;
       }
       case 'moult': {
         const s = this.headScreen(sim);
-        fl.add(t('fl.moult'), s.x, s.y - 30, { color: '#FFF2B0', size: 24 });
+        fl.add(t('fl.moult'), s.x, s.y - 30 * k, { color: '#FFF2B0', size: 24 * k });
         P.burst(s.x, s.y, 18, { color: '#FFF6D0', speed: 120, life: 0.7, g: 0, shape: 'ring', size: 4 });
         break;
       }
@@ -187,19 +191,19 @@ export class MothView {
         this.shake.add(0.45);
         this.flash = 0.6;
         P.burst(s.x, s.y, 16, { color: '#E9E1C8', speed: 160, life: 0.6, g: 200, size: 3 });
-        fl.add(t(e.cause === 'self' ? 'fl.self' : e.cause === 'bird' ? 'fl.peck' : 'fl.stumble'), s.x, s.y - 26, { color: '#FFE3D6', size: 26 });
+        fl.add(t(e.cause === 'self' ? 'fl.self' : e.cause === 'bird' ? 'fl.peck' : 'fl.stumble'), s.x, s.y - 26 * k, { color: '#FFE3D6', size: 26 * k });
         break;
       }
       case 'curl': {
         const s = at(e.x, e.y);
         this.shake.add(0.25);
         P.burst(s.x, s.y, 24, { color: '#FFE07A', speed: 180, life: 0.7, g: 80, shape: 'spark', size: 3 });
-        fl.add(`${t('fl.curl')} +${e.pts}`, s.x, s.y - 20, { color: '#FFE07A', size: 24 });
+        fl.add(`${t('fl.curl')} +${e.pts}`, s.x, s.y - 20 * k, { color: '#FFE07A', size: 24 * k });
         break;
       }
       case 'near': {
         const s = at(e.x, e.y);
-        fl.add(t('fl.near'), s.x, s.y - 36, { color: '#D8F2FF', size: 22 });
+        fl.add(t('fl.near'), s.x, s.y - 36 * k, { color: '#D8F2FF', size: 22 * k });
         break;
       }
       case 'peck': {
@@ -209,19 +213,19 @@ export class MothView {
         break;
       }
       case 'swoop': this.scared = Math.max(this.scared, 0.6); break;
-      case 'side': fl.add(t('fl.side'), this.w / 2, this.L.play.y + this.L.play.h * 0.3, { color: '#FFE07A', size: 30, dur: 1.6 }); break;
+      case 'side': fl.add(t('fl.side'), this.w / 2, this.L.play.y + this.L.play.h * 0.3, { color: '#FFE07A', size: 30 * k, dur: 1.6 }); break;
       case 'goal': {
         const s = at(e.x, e.y);
         this.shake.add(0.2);
-        fl.add(t('fl.goal'), s.x, s.y - 50, { color: '#FFF2B0', size: 34, dur: 1.6 });
-        fl.add('★'.repeat(e.stars) + '☆'.repeat(3 - e.stars), s.x, s.y - 14, { color: '#FFD34D', size: 34, dur: 1.8 });
+        fl.add(t('fl.goal'), s.x, s.y - 50 * k, { color: '#FFF2B0', size: 34 * k, dur: 1.6 });
+        fl.add('★'.repeat(e.stars) + '☆'.repeat(3 - e.stars), s.x, s.y - 14 * k, { color: '#FFD34D', size: 34 * k, dur: 1.8 });
         P.burst(s.x, s.y, 40, { color: '#FFF4C8', speed: 220, life: 1, g: 40, shape: 'spark', size: 3 });
         break;
       }
       case 'spun': this.arrive.set(e.c.id, 0); break;
       case 'feast': {
         const s = at(e.x, e.y);
-        fl.add(t('fl.feast'), s.x, s.y - 40, { color: '#FFE07A', size: 32, dur: 1.5 });
+        fl.add(t('fl.feast'), s.x, s.y - 40 * k, { color: '#FFE07A', size: 32 * k, dur: 1.5 });
         P.burst(s.x, s.y, 36, { color: '#FFF0A0', speed: 200, life: 0.9, g: 0, shape: 'spark', size: 3 });
         break;
       }
@@ -235,7 +239,7 @@ export class MothView {
         const words = [capital(e.b.sp.name)];
         if (e.b.isNew) words.push(t('fl.new'));
         if (e.b.radiant) words.push(t('fl.radiant'));
-        fl.add(words.join(' · '), Math.min(this.w - 140, Math.max(140, x - 60)), y + 30, { color: e.b.radiant ? '#FFE07A' : '#FFFBEF', size: 20, dur: 2.4 });
+        fl.add(words.join(' · '), Math.min(this.w - 140, Math.max(140, x - 60)), y + 30 * k, { color: e.b.radiant ? '#FFE07A' : '#FFFBEF', size: 20 * k, dur: 2.4 });
         P.burst(x, y, 24, { color: '#FFFFFF', speed: 120, life: 0.9, g: -20, shape: 'spark', size: 2.5 });
         break;
       }
@@ -491,7 +495,7 @@ export class MothView {
     const n = Math.max(20, Math.min(60, Math.floor(w / 16)));
     const bars = traceBars(sim.trace, sim.t, n, 40);
     const lag = LAG_SEC[this.opts.eeg ? 'eeg' : 'fnirs'];
-    drawFlowerbed(ctx, bars, L.bed.x, L.bed.y, L.bed.w, L.bed.h - L.ins.bottom, lag / 40, `~${lag} s`, this.clock);
+    drawFlowerbed(ctx, bars, L.bed.x, L.bed.y, L.bed.w, L.bed.h - L.ins.bottom, lag / 40, `~${lag} s`, this.clock, L.k);
     if (L.ins.bottom > 0) {
       // the home indicator's strip under the flowerbed is soil too
       ctx.fillStyle = '#6E5134';
@@ -503,10 +507,49 @@ export class MothView {
     drawSnail(ctx, s.x, s.y, s.s, this.clock, !!line, this.scared);
     if (line && !sim.card) {
       const k = Math.min(1, line.t / 0.15, (line.dur - line.t) / 0.25);
-      drawBubble(ctx, line.text, L.bubble.x, L.bubble.y, L.bubble.maxW, clamp(k), true);
+      drawBubble(ctx, line.text, L.bubble.x, L.bubble.y, L.bubble.maxW, clamp(k), true, L.k);
     }
     this.drawStick(ctx);
+    if (!sim.card) this.drawMouseAim(ctx, sim);
     if (sim.card) this.drawCard(ctx, sim);
+  }
+
+  /**
+   * The mouse's answer (a desktop): where the caterpillar heads, a ring at the pointer — cream while it crawls, gold and
+   * filled while a held button sprints — and a faint dotted line from the head to it.  The pointer is the control, so
+   * this is what a desktop player steers by (the thumb's stick on a touch screen).
+   */
+  private drawMouseAim(ctx: CanvasRenderingContext2D, sim: MothSim): void {
+    const m = this.mouse;
+    if (!m || this.opts.touch || sim.phase !== 'play') return;
+    const L = this.L, k = L.k, r = 13 * k, h = this.headScreen(sim);
+    const d = Math.hypot(m.x - h.x, m.y - h.y);
+    ctx.save();
+    if (d > r * 3) {
+      // the line from just past the head to just short of the ring
+      const ux = (m.x - h.x) / d, uy = (m.y - h.y) / d, from = Math.min(d * 0.35, 40 * k);
+      ctx.strokeStyle = 'rgba(255,252,240,.32)';
+      ctx.lineWidth = 2 * k;
+      ctx.setLineDash([3 * k, 7 * k]);
+      ctx.beginPath();
+      ctx.moveTo(h.x + ux * from, h.y + uy * from);
+      ctx.lineTo(m.x - ux * (r + 4 * k), m.y - uy * (r + 4 * k));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    const sprint = sim.sprinting;
+    if (sprint) {
+      ctx.fillStyle = 'rgba(255,211,77,.3)';
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, r, 0, TAU);
+      ctx.fill();
+    }
+    ctx.strokeStyle = sprint ? 'rgba(255,211,77,.95)' : 'rgba(255,252,240,.75)';
+    ctx.lineWidth = (sprint ? 3 : 2) * k;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, r, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
   }
 
   /** The floating stick where the thumb steers: its base, the sprint's rim (gold, solid while sprinting), the knob. */

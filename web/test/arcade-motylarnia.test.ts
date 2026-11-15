@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { ArcadeAudio } from '../src/arcade/kit/audio';
+import type { GameEnv } from '../src/arcade/kit/types';
+import motylarnia from '../src/arcade/motylarnia/index';
+import { drawBubble } from '../src/arcade/motylarnia/garden';
 import { DEFAULT_TUNING, type FocusFrame } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { GARDENS, LINES, LINE_COUNT, SPECIES, TIPS, gardenAt, speciesById } from '../src/arcade/motylarnia/content';
@@ -7,7 +11,7 @@ import { computeLayout, gardenCardBox, openCard, tapTargets, toScreen, toWorld, 
 import { fitFont, font, fontPx } from '../src/arcade/motylarnia/paint';
 import { Stick } from '../src/arcade/motylarnia/stick';
 import { howto, teachText } from '../src/arcade/motylarnia/index';
-import { CHECK_SIZES, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { passage as passageIn } from '../src/content/scripture';
 import { drawEggs, emerge, finishGarden, freshProgress, migrate, starCount, type MothProgress } from '../src/arcade/motylarnia/meta';
 import { REACH_MARK, RULES, girthOf, reachFor } from '../src/arcade/motylarnia/rules';
@@ -633,9 +637,10 @@ const word = (l: (typeof LANGS)[number], k: string): string => (CATALOGS[l] as R
 describe('mobile first (DESIGN §3.3, §12)', () => {
   it('keeps the play under the HUD and the flowerbed on the bottom, the passive things in the band under the HUD', () => {
     for (const c of CHECK_SIZES) {
-      const L = computeLayout(c.w, c.h, c.insets);
+      // a finger on a phone and a tablet, a mouse on a desktop and the big monitors (§14)
+      const L = computeLayout(c.w, c.h, c.insets, c.w < 1024);
       expect(L.u).toBeGreaterThanOrEqual(1);
-      expect(L.u).toBeLessThanOrEqual(1.3);
+      expect(L.u, c.name).toBeLessThanOrEqual(Math.min(c.w, c.h) >= DESK_BIG ? DESK_MAX : 1.3);
       if (Math.min(c.w, c.h) <= 390) expect(L.u, c.name).toBe(1);
       expect(L.play.y).toBe(c.insets.top);
       expect(L.play.y + L.play.h).toBe(L.bed.y);
@@ -742,5 +747,142 @@ describe('mobile first (DESIGN §3.3, §12)', () => {
     expect(touch.hands.some(h => h.gesture === 'keys')).toBe(false);
     expect(touch.hands.map(h => h.text).join(' ')).not.toMatch(KEYS);
     expect(desk.hands.some(h => h.gesture === 'keys')).toBe(true);
+  });
+});
+
+describe('big screens and the mouse (DESIGN §14)', () => {
+  const BIG = CHECK_SIZES.filter(c => Math.min(c.w, c.h) >= DESK_BIG);
+  /** every string filled on a context, with its font size */
+  const texts: { text: string; px: number }[] = [];
+  function quiet(canvas: unknown): CanvasRenderingContext2D {
+    const gradient = { addColorStop: () => undefined };
+    const state: Record<PropertyKey, unknown> = { canvas, font: '10px sans-serif', globalAlpha: 1 };
+    return new Proxy(state, {
+      get(target, prop) {
+        if (prop in target) return target[prop];
+        switch (prop) {
+          case 'measureText': return (str: string) => ({ width: String(str).length * pxOf(String(state.font)) * 0.55 });
+          case 'createLinearGradient': case 'createRadialGradient': case 'createConicGradient': case 'createPattern': return () => gradient;
+          case 'getImageData': return (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(Math.max(1, w * h * 4)), width: w, height: h });
+          case 'createImageData': return (w: number, h: number) => ({ data: new Uint8ClampedArray(Math.max(1, w * h * 4)), width: w, height: h });
+          case 'fillText': case 'strokeText': return (str: string) => { texts.push({ text: String(str), px: pxOf(String(state.font)) }); };
+          default: return () => undefined;
+        }
+      },
+      set(target, prop, value) { target[prop] = value; return true; },
+    }) as unknown as CanvasRenderingContext2D;
+  }
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  const g = globalThis as unknown as { Path2D?: unknown };
+  const hadPath = 'Path2D' in g;
+  beforeAll(() => {
+    proto.getContext = function (this: HTMLCanvasElement) { return quiet(this); };
+    if (!hadPath) g.Path2D = class { moveTo() {} lineTo() {} quadraticCurveTo() {} bezierCurveTo() {} closePath() {} roundRect() {} arc() {} ellipse() {} rect() {} addPath() {} };
+  });
+  afterAll(() => {
+    proto.getContext = original;
+    if (!hadPath) delete g.Path2D;
+  });
+
+  it('brings the garden closer with a big screen and grows the passive things with it', () => {
+    expect(BIG.map(c => c.w)).toEqual([1190, 1587]);
+    const views: number[] = [];
+    for (const c of BIG) {
+      const L = computeLayout(c.w, c.h, c.insets, false);
+      expect(L.big && L.mouse, c.name).toBe(true);
+      // the zoom grows past the desktop's 2 with the UI scale: QHD shows the garden Full HD does, larger
+      expect(L.zoom, c.name).toBeCloseTo(Math.min(2 * L.u / 1.35, Math.min(c.w, c.h * 1.1) / 430), 5);
+      expect(L.zoom, c.name).toBeGreaterThanOrEqual(2);
+      views.push(L.play.w / L.zoom);
+      // Hieronim, his line, the twig and the flowerbed at the screen's scale (they stopped at a phone's size)
+      expect(L.k, c.name).toBe(L.u);
+      expect(L.snail.s, c.name).toBe(L.u);
+      expect(L.bed.h, c.name).toBeGreaterThanOrEqual(Math.round(36 * L.u));
+      expect(L.pill.h, c.name).toBeGreaterThanOrEqual(28 * L.u - 1);
+      expect(L.bubble.maxW, c.name).toBeGreaterThanOrEqual(380 * L.u - 1);
+      // still under the HUD, inside the gutters, the flowerbed on the bottom
+      expect(L.play.y, c.name).toBe(c.insets.top);
+      expect(L.bed.y + L.bed.h, c.name).toBe(c.h);
+      expect(L.snail.y - 44 * L.snail.s, c.name).toBeGreaterThanOrEqual(c.insets.top);
+      expect(L.pill.x + L.pill.maxW, c.name).toBeLessThanOrEqual(L.twig.x0 - 8 + 0.01);
+    }
+    expect(Math.abs(views[0] - views[1]), 'the same garden in sight').toBeLessThan(5);
+    const qhd = computeLayout(BIG[1].w, BIG[1].h, BIG[1].insets, false);
+    expect(qhd.zoom).toBeGreaterThan(2.5);
+    // Hieronim's line at 14 px × the screen's scale
+    texts.length = 0;
+    drawBubble(quiet(null), 'Ogród jest duży, a ja mam czas. Pełzaj spokojnie!', 0, 0, qhd.bubble.maxW, 1, true, qhd.k);
+    expect(texts.length).toBeGreaterThan(0);
+    for (const x of texts) expect(x.px).toBeGreaterThanOrEqual(13 * qhd.k - 0.05);
+  });
+
+  it('keeps every phone, tablet and desktop as it was: only a mouse on a big screen changes the garden', () => {
+    for (const c of CHECK_SIZES) {
+      const finger = computeLayout(c.w, c.h, c.insets, true), mouse = computeLayout(c.w, c.h, c.insets, false);
+      expect(computeLayout(c.w, c.h, c.insets), c.name).toEqual(finger);
+      expect(finger.big || finger.k !== 1, c.name).toBe(false);
+      if (Math.min(c.w, c.h) >= DESK_BIG) continue;
+      const { mouse: m1, ...a } = mouse;
+      const { mouse: m2, ...b } = finger;
+      expect(a, c.name).toEqual(b);
+      expect([m1, m2]).toEqual([true, false]);
+    }
+    // the zoom before the desktop pass (2026-11-13): small phone, side, tablet, desktop, laptop, Full HD under a finger
+    const z = (i: number) => Math.round(computeLayout(CHECK_SIZES[i].w, CHECK_SIZES[i].h, CHECK_SIZES[i].insets, CHECK_SIZES[i].w < 1024).zoom * 100) / 100;
+    expect([0, 4, 6, 7, 9].map(z)).toEqual([1, 1, 1.91, 1.72, 1.69]);
+  });
+
+  it('answers the mouse: a crosshair over the garden, an aim ring where the caterpillar heads, a hand over a card', () => {
+    for (const c of BIG) {
+      const env: GameEnv<MothProgress> = {
+        canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+        progress: freshProgress(), rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec: 90, tool: 'fnirs', simulated: true, reducedMotion: true,
+        haptics: false, tuning: DEFAULT_TUNING, hint: () => {}, hudTop: () => c.insets.top, insets: () => c.insets, touch: false,
+      };
+      const game = motylarnia.create(env);
+      game.resize(c.w, c.h, 1);
+      game.start();
+      const sim = (game as unknown as { sim: MothSim }).sim;
+      const view = (game as unknown as { view: { mouse: { x: number; y: number } | null; headScreen(s: MothSim): { x: number; y: number } } }).view;
+      let time = 0;
+      const step = (sec: number, level = 0.3) => {
+        for (const end = time + sec; time < end; time += DT) {
+          game.update(DT, frame(level), time);
+          game.draw();
+        }
+      };
+      step(0.6);
+      // the first session opens with its story card: a hand (a click closes it once it has been up a moment)
+      expect(sim.card, c.name).not.toBeNull();
+      expect(env.canvas.style.cursor, c.name).toBe('pointer');
+      game.pointer!({ type: 'down', x: c.w / 2, y: c.h / 2, id: 1 });
+      game.pointer!({ type: 'up', x: c.w / 2, y: c.h / 2, id: 1 });
+      step(0.5);
+      expect(sim.card, c.name).toBeNull();
+      expect(env.canvas.style.cursor, c.name).toBe('crosshair');
+      // the pointer steers: the ring where it is, the caterpillar turning toward it
+      const h = view.headScreen(sim), tx = h.x + 300, ty = h.y - 200;
+      game.pointer!({ type: 'move', x: tx, y: ty, id: 1 });
+      expect(view.mouse, c.name).toEqual({ x: tx, y: ty });
+      step(1);
+      const p = sim.player, dir = Math.atan2(ty - h.y, tx - h.x);
+      expect(Math.abs(Math.atan2(Math.sin(p.want - dir), Math.cos(p.want - dir))), c.name).toBeLessThan(0.6);
+      // leaving the canvas takes the ring away; the end puts the cursor back
+      env.canvas.dispatchEvent(new Event('pointerleave'));
+      expect(view.mouse, c.name).toBeNull();
+      game.destroy();
+      expect(env.canvas.style.cursor, c.name).toBe('');
+      // a finger: no cursor, no ring
+      const env2 = { ...env, canvas: document.createElement('canvas'), progress: freshProgress(), touch: true };
+      const g2 = motylarnia.create(env2);
+      g2.resize(c.w, c.h, 1);
+      g2.start();
+      g2.update(DT, frame(0.3), DT);
+      g2.pointer!({ type: 'move', x: 100, y: 300, id: 1 });
+      expect(env2.canvas.style.cursor, c.name).toBe('');
+      expect((g2 as unknown as { view: { mouse: unknown } }).view.mouse, c.name).toBeNull();
+      g2.destroy();
+    }
   });
 });

@@ -40,6 +40,8 @@ export class LatarnikGame implements ArcadeGame {
   // the coach marks: one at a time, each once ever (the progress remembers them)
   private hintAt = -99;
   private readonly later: { key: HintKey; at: number; a?: number; r?: number }[] = [];
+  /** a mouse that leaves the canvas takes the deck's answer with it (a desktop) */
+  private readonly leave = (): void => this.view.hover(null);
 
   constructor(private readonly env: GameEnv<LatarnikProgress>) {
     migrate(env.progress);
@@ -49,6 +51,7 @@ export class LatarnikGame implements ArcadeGame {
     });
     this.view = new LatarnikView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new LatarnikSound(env.audio);
+    if (!env.touch) env.canvas.addEventListener('pointerleave', this.leave);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __latarnik?: unknown }).__latarnik = this.sim;
   }
 
@@ -67,6 +70,8 @@ export class LatarnikGame implements ArcadeGame {
     this.sim.start();
     this.sound.start();
     this.view.start();
+    // the whole screen is the button: with a mouse the cursor says so everywhere over the sea
+    if (!this.env.touch) this.env.canvas.style.cursor = 'pointer';
     this.drain();
   }
 
@@ -82,6 +87,8 @@ export class LatarnikGame implements ArcadeGame {
   draw(): void { this.view.draw(this.sim); }
 
   pointer(e: PointerInput): void {
+    // a mouse moving over the deck lights the part under it and says what it is (move events come without a button)
+    if (!this.env.touch) this.view.hover(e.x, e.y);
     if (e.type === 'down') this.flash();
   }
 
@@ -93,7 +100,10 @@ export class LatarnikGame implements ArcadeGame {
   }
 
   pause(paused: boolean): void {
-    if (paused) this.keyHeld = false;
+    if (paused) {
+      this.keyHeld = false;
+      this.view.hover(null);
+    }
   }
 
   private flash(): void {
@@ -226,7 +236,11 @@ export class LatarnikGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  destroy(): void { /* the runner stops the audio; nothing else holds resources */ }
+  destroy(): void {
+    // the runner stops the audio; the canvas keeps no listener or cursor of this game's
+    this.env.canvas.removeEventListener('pointerleave', this.leave);
+    this.env.canvas.style.cursor = '';
+  }
 }
 
 function haptic(e: SimEvent): void {
@@ -247,12 +261,15 @@ export function hintText(key: HintKey, touch: boolean): string {
   return key === 'tap' && !touch ? t('hint.tap.keys') : t(`hint.${key}` as Key);
 }
 
-/** How to play: tap anywhere; on a keyboard Space and Enter as shortcuts (the runner drops the keys' row for a finger). */
+/**
+ * How to play: tap anywhere; with a mouse a click anywhere, and Space and Enter as shortcuts (the runner drops the
+ * keys' row for a finger and names the gesture "Kliknij" without one).
+ */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('how.goal'),
     hands: touch ? [{ gesture: 'tap', text: t('how.tap') }] : [
-      { gesture: 'tap', text: t('how.tap') },
+      { gesture: 'tap', text: t('how.tap.mouse') },
       { gesture: 'keys', text: t('how.keys') },
     ],
     tips: [t('how.tip1'), t('how.tip2')],

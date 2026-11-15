@@ -13,10 +13,15 @@
 import { clamp, ease, Floaters } from '../kit/juice';
 import { MIN_READ } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageLayout } from '../kit/scripture';
-import { fmtInt, metres, t } from './i18n';
+import { fmtInt, metres, t, type Key } from './i18n';
 import type { Layout, Rect } from './layout';
 import { C, SANS, SERIF, font, paintBubble } from './paint';
 import type { Tally, WzlotSim } from './sim';
+
+/** What the mouse can rest on (a desktop): the world's gauges explain themselves, a card lights up. */
+export type WorldPart = 'sun' | 'night' | 'thermal' | 'crag' | 'card';
+/** What each gauge says under the mouse (the coach marks' own words). */
+const PART_TIP: Record<Exclude<WorldPart, 'card'>, Key> = { sun: 'hint.sun', night: 'hint.night', thermal: 'hint.thermal', crag: 'hint.crag' };
 
 interface Banner { text: string; sub: string; t: number; dur: number; color: string }
 /** A banner as laid out this frame: its box, its title's lines and size, its first line's middle. */
@@ -36,11 +41,52 @@ export class Hud {
   private coachY = 0;
   private coachUntil = -1;
   private clock = 0;
+  /** the mouse's answer as laid out: its gauge, its lines and its width */
+  private tipLay: { what: WorldPart; maxW: number; lines: string[]; w: number } | null = null;
 
   resize(L: Layout, touch = this.touch): void {
     this.L = L;
     this.touch = touch;
     this.verse = null;
+  }
+
+  /**
+   * The mouse's answer (a desktop): the part under it outlined in gold — a ring round the sun or the night, a frame
+   * round a warm column, the grań's flag or a card — and, but for a card, the coach mark's words for it on a dark
+   * plate beside it (13.5 px × u), under a part in the upper half of the band, over one in the lower half.
+   */
+  drawTip(ctx: CanvasRenderingContext2D, what: WorldPart, box: Rect, a: number): void {
+    const L = this.L, u = L.u;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = 'rgba(255,214,110,.92)';
+    ctx.lineWidth = Math.max(2, 2 * u);
+    ctx.beginPath();
+    if (what === 'sun' || what === 'night') ctx.arc(box.x + box.w / 2, box.y + box.h / 2, box.w / 2, 0, Math.PI * 2);
+    else ctx.roundRect(box.x - 3, box.y - 3, box.w + 6, box.h + 6, Math.min(16 * u, (box.h + 6) / 2));
+    ctx.stroke();
+    if (what !== 'card') {
+      const size = Math.max(MIN_READ + 0.5, 13.5 * u), pad = 10 * u, maxW = Math.min(300 * u, L.right - L.left - 24);
+      if (!this.tipLay || this.tipLay.what !== what || this.tipLay.maxW !== maxW) {
+        ctx.font = font(650, size, SANS);
+        const lines = wrap(ctx, t(PART_TIP[what]), maxW - pad * 2);
+        this.tipLay = { what, maxW, lines, w: Math.max(...lines.map(l => ctx.measureText(l).width)) + pad * 2 };
+      }
+      const T = this.tipLay, lh = size * 1.3, h = T.lines.length * lh + pad * 1.2;
+      const upper = box.y + box.h / 2 < (L.top + L.bottom) / 2;
+      const x = clamp(box.x + box.w / 2 - T.w / 2, L.left + 8, L.right - 8 - T.w);
+      const y = clamp(upper ? box.y + box.h + 10 * u : box.y - 10 * u - h, L.top + 4, L.foot - 8 - h);
+      ctx.fillStyle = 'rgba(43,30,20,.86)';
+      ctx.beginPath();
+      ctx.roundRect(x, y, T.w, h, Math.min(12 * u, h / 2));
+      ctx.fill();
+      ctx.font = font(650, size, SANS);
+      ctx.fillStyle = '#fff6dc';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      T.lines.forEach((l, i) => ctx.fillText(l, x + pad, y + pad * 0.6 + lh * (i + 0.5)));
+    }
+    ctx.restore();
   }
 
   /** A short banner under the HUD band (a grań, the Poryw, a nest level). */

@@ -6,11 +6,16 @@
  * him, the side goal's pill next to him, the twig with the chrysalises top right.  Sizes start from a 360 px
  * phone at u = 1 (kit/mobile `uiScale`) and grow to 1.3.
  *
+ * A big screen with a mouse (DESIGN §14, kit/mobile screenKind 'big'): the garden comes closer with the screen (the
+ * zoom grows with u past the desktop's 2, so a 2560 × 1440 monitor shows the garden a Full HD one does, larger), and
+ * the passive things grow with it — Hieronim and his line, the twig, the flowerbed — instead of stopping at a phone's
+ * size in a corner of a big canvas.
+ *
  * Nothing here is a button: the whole garden is the control — a floating stick wherever the thumb lands on a
  * touch screen (stick.ts), the pointer with a mouse.  The only targets are the cards that wait for a tap (the
  * opening story, a new garden's goals).  Pure numbers (and text measuring for the cards), no drawing.
  */
-import { MIN_READ, NO_INSETS, uiScale } from '../kit/mobile';
+import { MIN_READ, NO_INSETS, screenKind, uiScale } from '../kit/mobile';
 import { layoutPassage, wrapLines as wrapKit, type Passage, type PassageLayout } from '../kit/scripture';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
@@ -25,8 +30,13 @@ export interface Layout {
   w: number;
   h: number;
   shape: Shape;
-  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
+  /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop, more on a big screen */
   u: number;
+  /** a big screen with a mouse (the garden closer, the passive things grown) and whether a mouse is the hand */
+  big: boolean;
+  mouse: boolean;
+  /** the passive things' scale: Hieronim's line, the flowerbed's tag (1 but on a big screen, where it is u) */
+  k: number;
   ins: Insets;
   top: number;
   /** the side gutters: nothing to read nearer the screen's edges */
@@ -59,26 +69,31 @@ export interface Layout {
   phone: boolean;
 }
 
-/** The layout for a canvas of w × h CSS px with these insets (a number: only the HUD band on top). */
-export function computeLayout(w: number, h: number, insets: Insets | number = NO_INSETS): Layout {
+/**
+ * The layout for a canvas of w × h CSS px with these insets (a number: only the HUD band on top); `touch` as the
+ * runner's env says (without it a finger: the shapes as before).
+ */
+export function computeLayout(w: number, h: number, insets: Insets | number = NO_INSETS, touch = true): Layout {
   const ins0: Insets = typeof insets === 'number' ? { top: insets, right: 0, bottom: 0, left: 0 } : insets;
   const W = Math.max(1, w), H = Math.max(1, h);
   const shape: Shape = W / H < 0.9 ? 'tall' : H < 460 ? 'short' : 'wide';
   const u = uiScale(W, H);
   const phone = Math.min(W, H) < 600;
+  const big = shape === 'wide' && screenKind(W, H, touch) === 'big';
+  const k = big ? u : 1;
   const top = Math.min(H * 0.4, Math.max(0, ins0.top));
   const ins: Insets = { top, right: Math.max(0, ins0.right), bottom: Math.max(0, ins0.bottom), left: Math.max(0, ins0.left) };
   const edge = shape === 'tall' ? (W < 600 ? 16 : Math.round(24 * u)) : Math.round(12 * u);
   const x0 = ins.left + edge, x1 = W - ins.right - edge;
   // the flowerbed along the bottom; the home indicator's strip under it is soil too
-  const bedH = phone ? 38 : 46;
+  const bedH = phone ? 38 : big ? Math.round(36 * u) : 46;
   const bed: Rect = { x: 0, y: H - ins.bottom - bedH, w: W, h: bedH + ins.bottom };
   const play: Rect = { x: 0, y: top, w: W, h: Math.max(80, bed.y - top) };
   // the twig hangs from the right edge, under the score corner's band
-  const len = Math.max(36, Math.min(76, Math.min(W, H) * 0.1));
+  const len = Math.max(36, Math.min(big ? 58 * u : 76, Math.min(W, H) * 0.1));
   const twig = { x0: W - ins.right - Math.min(W * 0.42, 6 + len * 0.95 * (RULES.twigMax + 0.6)), x1: W - ins.right + 4, y: top + 10, len };
   // Hieronim top left under the HUD; the side goal's pill beside him; his bubble hangs beside him over it
-  const s = phone ? 0.85 : Math.min(1.2, u);
+  const s = phone ? 0.85 : big ? u : Math.min(1.2, u);
   const snail = { x: x0 + 26 * s, y: top + 10 + 40 * s, s };
   const px = snail.x + 34 * s;
   const pill = { x: px, y: top + 10, h: Math.round(28 * u), maxW: Math.max(110, twig.x0 - 10 - px) };
@@ -88,10 +103,11 @@ export function computeLayout(w: number, h: number, insets: Insets | number = NO
   const stick = { r, knob: Math.round(21 * u), dead: 10, sprint: Math.round(r * 1.15) };
   const cardW = Math.min(x1 - x0, 460 * u);
   const card: Rect = { x: x0, y: top + 6, w: x1 - x0, h: Math.max(80, bed.y - 6 - (top + 6)) };
-  // a phone shows the garden at least at 1 px per unit (the caterpillar stays readable); a desktop as before
-  const zoom = Math.max(shape === 'wide' ? 0.8 : 1, Math.min(2, Math.min(W, H * 1.1) / 430));
+  // a phone shows the garden at least at 1 px per unit (the caterpillar stays readable); a desktop as before; a big
+  // screen past the desktop's 2 with its UI scale (1.35 → 2, 1.8 → 2.67: the same garden in sight, larger)
+  const zoom = Math.max(shape === 'wide' ? 0.8 : 1, Math.min(big ? 2 * u / 1.35 : 2, Math.min(W, H * 1.1) / 430));
   const anchor = shape === 'tall' ? 0.44 : 0.5;
-  return { w: W, h: H, shape, u, ins, top, x0, x1, play, bed, twig, snail, bubble, pill, band, stick, card, cardW, zoom, anchor, phone };
+  return { w: W, h: H, shape, u, big, mouse: !touch, k, ins, top, x0, x1, play, bed, twig, snail, bubble, pill, band, stick, card, cardW, zoom, anchor, phone };
 }
 
 /** The camera's zoom for a caterpillar of `len` segments (it zooms out as it grows). */

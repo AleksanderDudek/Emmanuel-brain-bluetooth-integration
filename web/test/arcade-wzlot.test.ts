@@ -12,10 +12,11 @@ import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 import { CATALOGS as SHARED } from '../src/i18n/arcade';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
-import { CHECK_SIZES, MIN_READ, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
 import type { GameEnv } from '../src/arcade/kit/types';
 import wzlot, { hintText, howto } from '../src/arcade/wzlot/index';
-import { layout } from '../src/arcade/wzlot/layout';
+import { BIG_ACROSS, layout } from '../src/arcade/wzlot/layout';
+import type { WzlotView } from '../src/arcade/wzlot/render';
 import { font } from '../src/arcade/wzlot/paint';
 
 const DAY = '2026-11-07';
@@ -727,11 +728,12 @@ describe('mobile first (DESIGN §12)', () => {
 
   it('lays the world out phone first at every checked size: a thumb pad under the ground upright, the sun under the HUD', () => {
     for (const c of CHECK_SIZES) {
-      const L = layout(c.w, c.h, c.insets);
+      // a finger on a phone and a tablet, a mouse on a desktop and the big monitors (§14)
+      const L = layout(c.w, c.h, c.insets, c.w < 1024);
       const name = c.name;
       if (Math.min(c.w, c.h) <= 390) expect(L.u, name).toBe(1);
       else expect(L.u, name).toBeGreaterThan(1);
-      expect(L.u).toBeLessThanOrEqual(1.3);
+      expect(L.u, name).toBeLessThanOrEqual(Math.min(c.w, c.h) >= DESK_BIG ? DESK_MAX : 1.3);
       expect(L.top, name).toBe(c.insets.top);
       expect(L.foot, name).toBe(c.h - c.insets.bottom);
       // the sun (from noon, the arc's middle, to the night at its end), its gauge and the Poryw's ring stay in the
@@ -840,6 +842,191 @@ describe('mobile first (DESIGN §12)', () => {
     expect(hintText('hold', false)).toMatch(KEYS);
     expect(hintText('sun', false)).toBe(t('hint.sun'));
     expect(howto(true).hands.map(x => x.gesture)).toEqual(['hold', 'tap']);
-    expect(howto(false).hands.map(x => x.gesture)).toEqual(['hold', 'tap', 'keys']);
+    // a mouse: one row for the hold and the let-go (a let-go is no click), then the keys
+    expect(howto(false).hands.map(x => x.gesture)).toEqual(['hold', 'keys']);
+  });
+});
+
+describe('big screens and the mouse (DESIGN §14)', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  let recording: { canvas: HTMLCanvasElement; texts: Map<string, number> } | null = null;
+  beforeAll(() => {
+    proto.getContext = function (this: HTMLCanvasElement) {
+      return recording && recording.canvas === this ? recordingContext(this, 2, recording.texts) : recordingContext(this, 1, null);
+    };
+  });
+  afterAll(() => {
+    proto.getContext = original;
+  });
+
+  const BIG = CHECK_SIZES.filter(c => Math.min(c.w, c.h) >= DESK_BIG);
+  /** The camera's scale on the ground (span 1.15), as render.ts sets it. */
+  const ground = (L: ReturnType<typeof layout>) => Math.min((L.bottom - L.top) / 1.27, L.w / L.minWorldW, L.maxS);
+  /** The view as the tests read it (its camera's scale and the sun's place are private). */
+  type View = { S: number; sunPos: { x: number; y: number }; layout: WzlotView['layout']; hovered: WzlotView['hovered'] };
+  function startAt(c: (typeof CHECK_SIZES)[number], touch: boolean, texts: Map<string, number> | null = null, later = true) {
+    const progress = later ? { ...freshProgress(), sessions: 5, opened: true, taught: 255 } : freshProgress();
+    const env: GameEnv<WzlotProgress> = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress, rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec: 90, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,
+      tuning: TUNING, hint: () => {}, hudTop: () => c.insets.top, insets: () => c.insets, touch,
+    };
+    recording = texts ? { canvas: env.canvas, texts } : null;
+    const game = wzlot.create(env) as Game;
+    recording = null;
+    game.resize(c.w, c.h, 2);
+    game.start();
+    return { game, env, view: game.view as unknown as View };
+  }
+  function play(game: Game, sec: number, f: FocusFrame = MID, clock = { t: 0 }, fly = true): void {
+    const p = pilot(game.sim);
+    for (let i = 0; i < sec / 0.05; i++) {
+      clock.t += 0.05;
+      if (fly) p();
+      game.update(0.05, f, clock.t);
+      game.draw();
+    }
+  }
+
+  it('brings the camera closer on a big screen with a mouse: the hills fill the canvas, the eaglet half as large again', () => {
+    expect(BIG.map(c => c.w)).toEqual([1190, 1587]);
+    const desk = layout(1280, 672, { top: 192, right: 0, bottom: 0, left: 0 }, false);
+    for (const c of BIG) {
+      const L = layout(c.w, c.h, c.insets, false);
+      const S = ground(L);
+      expect(L.big && L.mouse, c.name).toBe(true);
+      // on the ground: 2.2 screen heights across (it was 3.0, the 290 × u cap), the eaglet 70 px and more
+      expect(L.w / S, c.name).toBeCloseTo(BIG_ACROSS, 5);
+      expect(S, c.name).toBeGreaterThan(290 * L.u * 1.35);
+      expect(0.13 * S, `${c.name}: the eaglet`).toBeGreaterThanOrEqual(70);
+      expect(0.13 * S, `${c.name}: the eaglet`).toBeGreaterThan(0.13 * ground(desk) * 1.45);
+      // still 1.5 screen heights of slope ahead of the eaglet, and a high flight (span 3.8) still fits the band's height
+      expect((L.w - L.ex) / S, c.name).toBeGreaterThan(1.5);
+      expect((L.bottom - L.top) / (3.8 + 0.12), c.name).toBeLessThan(S);
+      // the sun's gauge grows with the screen
+      expect(L.sunR, c.name).toBeGreaterThanOrEqual(14 * 1.35 - 0.01);
+    }
+    // the game itself: the camera holds that scale over low ground
+    for (const c of BIG) {
+      const { game, view } = startAt(c, false);
+      play(game, 3);
+      expect(view.S, c.name).toBeGreaterThan(400 * view.layout.u / 1.35 * 0.98 - 1);
+      game.destroy();
+    }
+  });
+
+  it('keeps every phone, tablet and desktop as it was: the closer camera is a big screen\'s with a mouse only', () => {
+    // the camera's scale on the ground at each checked size before the desktop pass (2026-11-13)
+    const before = [242, 269, 269, 284, 221, 228, 377, 362, 377, 354];
+    CHECK_SIZES.filter(c => Math.min(c.w, c.h) < DESK_BIG).forEach((c, i) => {
+      const finger = layout(c.w, c.h, c.insets, true), mouse = layout(c.w, c.h, c.insets, false);
+      expect(Math.round(ground(finger)), c.name).toBe(before[i]);
+      expect(layout(c.w, c.h, c.insets), c.name).toEqual(finger);
+      const { mouse: m1, ...a } = mouse;
+      const { mouse: m2, ...b } = finger;
+      expect(a, c.name).toEqual(b);
+      expect([m1, m2, a.big]).toEqual([true, false, false]);
+    });
+    for (const c of BIG) expect(layout(c.w, c.h, c.insets, true).big, `${c.name} under a finger`).toBe(false);
+  });
+
+  it('answers the mouse: a pointer cursor that closes while it holds, the sun and the night explained under it, a card lit', () => {
+    for (const c of BIG) {
+      const texts = new Map<string, number>();
+      const { game, env, view } = startAt(c, false, texts);
+      const L = view.layout, clock = { t: 0 };
+      expect(env.canvas.style.cursor, c.name).toBe('pointer');
+      // the day under way (the dawn's prompt taken), a second of flight
+      for (let i = 0; i < 200 && game.sim.dayPhase !== 'fly'; i++) play(game, 0.05, MID, clock);
+      play(game, 1, MID, clock);
+      // the sun: its ring and the coach mark's words beside it, 13.5 px × u
+      game.pointer!({ type: 'move', x: view.sunPos.x, y: view.sunPos.y, id: 1 });
+      play(game, 0.5, MID, clock, false);
+      expect(view.hovered, c.name).toBe('sun');
+      const sun = [...texts].filter(([s]) => s.length > 6 && t('hint.sun').includes(s));
+      expect(sun.length, c.name).toBeGreaterThan(0);
+      for (const [s, px] of sun) expect(px, `${c.name}: "${s}"`).toBeGreaterThanOrEqual(13.5 * L.u - 0.05);
+      // a held button is the dive: the cursor closes, the answer waits
+      game.pointer!({ type: 'down', x: view.sunPos.x, y: view.sunPos.y, id: 1 });
+      play(game, 0.1, MID, clock, false);
+      expect(env.canvas.style.cursor, c.name).toBe('grabbing');
+      expect(view.hovered, c.name).toBeNull();
+      expect(game.sim.held, c.name).toBe(true);
+      game.pointer!({ type: 'up', x: view.sunPos.x, y: view.sunPos.y, id: 1 });
+      expect(env.canvas.style.cursor, c.name).toBe('pointer');
+      // the night at the arc's end
+      game.pointer!({ type: 'move', x: L.arcX1, y: L.arcTop + L.arcH, id: 1 });
+      play(game, 0.5, MID, clock, false);
+      expect(view.hovered, c.name).toBe('night');
+      // the open sky: nothing; a still mouse lets go, leaving takes it at once
+      game.pointer!({ type: 'move', x: L.w * 0.6, y: L.top + 20 * L.u, id: 1 });
+      play(game, 0.1, MID, clock, false);
+      expect(view.hovered, c.name).toBeNull();
+      game.pointer!({ type: 'move', x: L.arcX1, y: L.arcTop + L.arcH, id: 1 });
+      play(game, 7, MID, clock, false);
+      expect(view.hovered, c.name).toBeNull();
+      game.pointer!({ type: 'move', x: L.arcX1, y: L.arcTop + L.arcH, id: 1 });
+      play(game, 0.2, MID, clock, false);
+      expect(view.hovered, c.name).toBe('night');
+      env.canvas.dispatchEvent(new Event('pointerleave'));
+      play(game, 0.05, MID, clock, false);
+      expect(view.hovered, c.name).toBeNull();
+      // nightfall: the tally card lights under the mouse
+      game.sim.dayLeft = 0.05;
+      for (let i = 0; i < 240 && game.sim.dayPhase !== 'tally'; i++) play(game, 0.05, MID, clock);
+      play(game, 0.3, MID, clock, false);
+      const box = game.view.hud.box!;
+      game.pointer!({ type: 'move', x: box.r.x + box.r.w / 2, y: box.r.y + box.r.h / 2, id: 1 });
+      play(game, 0.1, MID, clock, false);
+      expect(view.hovered, c.name).toBe('card');
+      game.destroy();
+      expect(env.canvas.style.cursor, c.name).toBe('');
+      // a finger: no cursor, no answer
+      const f = startAt(c, true);
+      play(f.game, 2);
+      f.game.pointer!({ type: 'move', x: f.view.sunPos.x, y: f.view.sunPos.y, id: 1 });
+      play(f.game, 0.5, MID, { t: 2 }, false);
+      expect(f.env.canvas.style.cursor, c.name).toBe('');
+      expect(f.view.hovered, c.name).toBeNull();
+      f.game.destroy();
+    }
+  });
+
+  it('draws every word of a session at 11 px or more on the big screens, what is read to play at 13 × u and more', () => {
+    for (const c of BIG) {
+      for (const later of [false, true]) {
+        const texts = new Map<string, number>();
+        const { game, view } = startAt(c, false, texts, later);
+        const u = view.layout.u, clock = { t: 0 };
+        const name = `${c.name}, ${later ? 'a later session' : 'the first'}`;
+        play(game, 1.6, MID, clock);
+        game.pointer!({ type: 'down', x: c.w / 2, y: c.h / 2, id: 1 });
+        game.pointer!({ type: 'up', x: c.w / 2, y: c.h / 2, id: 1 });
+        play(game, 40, (clock.t % 50) < 25 ? HIGH : CALM, clock);
+        game.sim.dayLeft = 0.05;
+        for (let i = 0; i < 240 && game.sim.dayPhase !== 'tally'; i++) play(game, 0.05, MID, clock);
+        play(game, 2.5, MID, clock);
+        expect(texts.size, name).toBeGreaterThan(6);
+        for (const [s, px] of texts) expect(px, `${name}: "${s}"`).toBeGreaterThanOrEqual(MIN_TEXT - 0.05);
+        // Leon's lines, the flying words and the tally's rows grow with the screen
+        const reading = [...game.sim.talk.said, t('fx.caught'), t('fx.perfect'), t('tally.perfect'), t('tally.coins'), t('dawn.tap.keys'), t('tally.next.keys')];
+        for (const [s, px] of texts) {
+          if (s.length > 5 && reading.some(r => r.includes(s.replace(/…$/, '')))) expect(px, `${name}: "${s}"`).toBeGreaterThanOrEqual(13 * u - 0.05);
+        }
+        game.destroy();
+      }
+    }
+  }, 90_000);
+
+  it('speaks of the mouse to a mouse: one row for the hold and the let-go, the keys like the mouse button, in four languages', () => {
+    const MOUSE = /mysz|mouse|maus|mus/i;
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const k of ['how.hold.mouse', 'how.keys']) expect(cat[k], `${l}.${k}`).toMatch(MOUSE);
+      for (const k of ['how.hold', 'how.release', 'hint.hold', 'dawn.tap', 'tally.next']) expect(cat[k], `${l}.${k}`).not.toMatch(MOUSE);
+    }
+    expect(howto(false).hands).toEqual([{ gesture: 'hold', text: t('how.hold.mouse') }, { gesture: 'keys', text: t('how.keys') }]);
+    expect(howto(true).hands).toEqual([{ gesture: 'hold', text: t('how.hold') }, { gesture: 'tap', text: t('how.release') }]);
   });
 });

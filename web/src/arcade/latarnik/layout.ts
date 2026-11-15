@@ -15,15 +15,21 @@
  *   wide  (a desktop, a tablet on its side)  the sea centred, rising between the HUD's panel and its score;
  *         the lanterns and the pill under the panel, the ladder and the card under the score, Zośka low on
  *         the left
+ *   big   (a big screen with a mouse, DESIGN §14: a Full HD monitor's middle column and up, the runner's panel and
+ *         score in columns beside the canvas, only its top bar over it)  the sea centred in the band at nearly
+ *         its whole height, the deck in the four corners it leaves, at the big UI scale: the night's pill top
+ *         left, the lanterns over the perfect ladder top right, Zośka on her post bottom left with her bubble
+ *         beside her, the card slot bottom right
  *
- * Everything is pure (tests run it at every kit/mobile CHECK_SIZES entry).
+ * The screen's kind (kit/mobile `screenKind`) chooses: only a mouse on a big canvas gets `big`; a phone, a tablet
+ * and a desktop keep the shapes they had.  Everything is pure (tests run it at every kit/mobile CHECK_SIZES entry).
  */
 import { clamp } from '../kit/juice';
-import { NO_INSETS, uiScale, type Rect } from '../kit/mobile';
+import { NO_INSETS, screenKind, uiScale, type Rect, type ScreenKind } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 
 export type { Rect };
-export type Shape = 'tall' | 'side' | 'wide';
+export type Shape = 'tall' | 'side' | 'wide' | 'big';
 
 /**
  * The sea keeps this much of R around its centre in sight: a boat at the horizon (0.99 R, and half a boat
@@ -40,6 +46,9 @@ export interface Layout {
   w: number;
   h: number;
   shape: Shape;
+  /** the screen's kind (kit/mobile screenKind) and whether a mouse is the hand (the words say click, the cursor answers) */
+  kind: ScreenKind;
+  mouse: boolean;
   /** the night's pill sits in a row under the HUD, the sea under it (a phone or a tablet upright) */
   portrait: boolean;
   /** UI scale: 1 on any phone, up to 1.3 on a tablet or a desktop */
@@ -95,7 +104,11 @@ function clearRightOf(cx: number, cy: number, r: number, y0: number, y1: number)
   return dy >= r ? -Infinity : cx + Math.sqrt(r * r - dy * dy);
 }
 
-export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout {
+/**
+ * The layout for a canvas of w × h CSS px with these insets; `touch` as the runner's env says (a finger is the
+ * primary input).  Without it a finger is assumed: the shapes the phone and the tablet have always had.
+ */
+export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch = true): Layout {
   const W = Math.max(240, w), H = Math.max(200, h);
   const u = uiScale(W, H);
   const ins: Insets = {
@@ -103,16 +116,21 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS): Layout
   };
   const top = ins.top, bottom = H - ins.bottom, left = ins.left, right = W - ins.right;
   const bw = right - left, bh = bottom - top;
-  const shape: Shape = W / H < 0.9 ? 'tall' : bh < 470 && W > H * 1.3 ? 'side' : 'wide';
+  const kind = screenKind(W, H, touch);
+  // a big screen whose HUD stands beside the canvas (only the top bar over it) gets its own shape; one with the
+  // HUD over its top corners (a big window narrower than 3 : 2) keeps the desktop's
+  const bigBand = kind === 'big' && top <= Math.max(140, H * 0.16);
+  const shape: Shape = W / H < 0.9 ? 'tall' : bigBand ? 'big' : bh < 470 && W > H * 1.3 ? 'side' : 'wide';
   const ls = 12.5 * u;
   const L: Layout = {
-    w: W, h: H, shape, portrait: shape === 'tall', u, ins, top, bottom, left, right,
+    w: W, h: H, shape, kind, mouse: !touch, portrait: shape === 'tall', u, ins, top, bottom, left, right,
     cx: W / 2, cy: H / 2, R: 60, s: 0, boat: 0,
     lanterns: { x: 0, y: 0, s: ls }, ladder: { x: 0, y: 0, label: 0 }, goal: { x: 0, y: 0, w: 0, h: 0 },
     gull: { x: 0, y: 0, s: 0, face: 1 }, bubble: { x: 0, y: 0, w: 0, h: 0 }, bubbleOnGoal: false, card: { x: 0, y: 0, w: 0, h: 0 }, cardOver: null,
   };
   if (shape === 'tall') tall(L, bw, ls);
   else if (shape === 'side') side(L, bw, ls);
+  else if (shape === 'big') big(L, ls);
   else wide(L, ls);
   const R = L.R;
   // a small sea gets a slightly larger island; boats never under 24 px, so their timing reads on a phone
@@ -250,6 +268,71 @@ function wide(L: Layout, ls: number): void {
     L.bubble = { x: L.goal.x, y: L.goal.y, w: L.goal.w, h: L.goal.h };
     L.bubbleOnGoal = true;
   }
+}
+
+/**
+ * The sea on a big screen, as a share of the largest the band holds: the corners it leaves hold the deck at the big
+ * UI scale (a sea 6 % smaller gives Zośka's bubble four lines and the pill its night and goal side by side).
+ */
+export const BIG_SEA = 0.94;
+/** Zośka's bubble on a big screen: the most lines its room keeps (taller ones grow upward over the sea's rim). */
+export const BIG_BUBBLE_LINES = 4;
+
+/**
+ * How wide a box `h` tall may be in a corner of the band — its outer corner at (x0, y0), growing toward the
+ * centre (cx, cy) — so that its inner corner stays at least `need` from the centre (the sea's keep ring and a gap).
+ */
+function cornerW(x0: number, y0: number, h: number, cx: number, cy: number, need: number): number {
+  const dy = Math.max(0, Math.abs(cy - y0) - h), dx = Math.abs(cx - x0);
+  return dy >= need ? dx : Math.max(0, dx - Math.sqrt(need * need - dy * dy));
+}
+
+/**
+ * A big screen with a mouse (DESIGN §14): only the runner's top bar lies over the canvas, so the sea is centred in
+ * the band at BIG_SEA of the largest it holds, and the deck takes the four corners around it at the big UI scale,
+ * each box as wide as its corner allows up to its own width — the night's pill top left, the lanterns over the
+ * perfect ladder and its words top right, Zośka on her post bottom left with her bubble beside her (four lines'
+ * room standing on the band's foot), the card slot bottom right.  Where a corner cannot hold its box at the
+ * least width (an odd window), the sea gives way a little more.
+ */
+function big(L: Layout, ls: number): void {
+  const { u, top, bottom, left, right } = L;
+  const m = Math.round(14 * u), gap = Math.round(10 * u), foot = Math.round(6 * u);
+  const cx = (left + right) / 2, cy = (top + bottom) / 2;
+  const r = LADDER_R * u;
+  const pillH = Math.round(56 * u), cardH = Math.round(66 * u);
+  // Zośka (her box: 0.46 s left of her foot, 0.5 s right, 1.27 s up), her bubble's room beside her: four lines of 14 px (× u)
+  const gs = Math.round(48 * u);
+  const gx = left + m + gs * 0.46, bx = Math.round(gx + gs * 0.62 + 6 * u);
+  const bubbleH = Math.round(BIG_BUBBLE_LINES * 14 * u * 1.24 + 9 * u * 1.3);
+  // the lanterns (their tops 1.12 s over the baseline), the ladder's words under them, its diamonds under the words
+  const lanY = top + m + ls * 1.15;
+  const ladY = Math.round(lanY + ls * 0.82 + 12 * u + 13 * u + 8 * u + r);
+  const trH = ladY + r * 1.3 - (top + m);
+  const most = Math.min((bottom - top) / 2 - 4 * u, (right - left) / 2 - 4 * u);
+  let keep = most * BIG_SEA, w = { pill: 0, tr: 0, bubble: 0, card: 0 };
+  for (let i = 0; i < 24; i++) {
+    const need = keep + gap;
+    w = {
+      pill: Math.min(290 * u, cornerW(left + m, top + m, pillH, cx, cy, need)),
+      tr: Math.min(180 * u, cornerW(right - m, top + m, trH, cx, cy, need)),
+      bubble: Math.min(250 * u, cornerW(bx, bottom - foot, bubbleH, cx, cy, need)),
+      card: Math.min(270 * u, cornerW(right - m, bottom - foot, cardH, cx, cy, need)),
+    };
+    if (w.pill >= 230 * u && w.tr >= 110 * u && w.bubble >= 160 * u && w.card >= 220 * u) break;
+    keep *= 0.98;
+  }
+  L.R = Math.max(60, keep / SEA_PAD);
+  L.cx = cx;
+  L.cy = cy;
+  L.goal = { x: left + m, y: top + m, w: Math.round(w.pill), h: pillH };
+  L.lanterns = { x: right - m - ls * 5.7, y: lanY, s: ls };
+  L.ladder = { x: right - m, y: ladY, label: Math.round(w.tr) };
+  L.gull = { x: gx, y: bottom - foot, s: gs, face: 1 };
+  L.bubble = { x: bx, y: bottom - foot - bubbleH, w: Math.round(w.bubble), h: bubbleH };
+  L.bubbleOnGoal = false;
+  L.card = { x: right - m - Math.round(w.card), y: bottom - foot - cardH, w: Math.round(w.card), h: cardH };
+  L.cardOver = null;
 }
 
 /** The first session's opening card (the story and the root verse): centred in the band, as tall as it allows. */

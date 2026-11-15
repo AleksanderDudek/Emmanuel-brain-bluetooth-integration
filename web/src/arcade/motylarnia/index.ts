@@ -41,6 +41,10 @@ class Motylarnia implements ArcadeGame {
   private readonly stick: Stick;
   private thumbSprint = false;
   private now = 0;
+  /** a mouse that leaves the canvas takes its aim ring with it */
+  private readonly leave = (): void => { this.view.mouse = null; };
+  /** the cursor as last set (written only when it changes) */
+  private cursor = '';
 
   constructor(private readonly env: GameEnv<MothProgress>) {
     this.sim = new MothSim({
@@ -49,6 +53,7 @@ class Motylarnia implements ArcadeGame {
     this.view = new MothView(env.canvas, { reducedMotion: env.reducedMotion, eeg: env.tool === 'eeg', touch: env.touch });
     this.stick = new Stick(this.view.L.stick);
     this.sound = new MothSound(env.audio);
+    if (!env.touch) env.canvas.addEventListener('pointerleave', this.leave);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __motylarnia?: unknown }).__motylarnia = this.sim;
   }
 
@@ -71,6 +76,9 @@ class Motylarnia implements ArcadeGame {
 
   update(dt: number, f: FocusFrame, t: number): void {
     this.now += dt;
+    // a mouse steers toward the pointer: a crosshair over the garden, a hand over a card that waits for a click
+    const cursor = this.env.touch ? '' : this.sim.card ? 'pointer' : 'crosshair';
+    if (cursor !== this.cursor) this.env.canvas.style.cursor = this.cursor = cursor;
     // a mouse button held long enough is a sprint (a click only steers); a thumb sprints by pushing the stick
     if (this.press && this.now - this.press.at >= RULES.holdSec) this.sim.sprint(true);
     this.view.stick = this.stick.s;
@@ -94,6 +102,7 @@ class Motylarnia implements ArcadeGame {
       this.thumb(e);
       return;
     }
+    this.view.mouse = { x: e.x, y: e.y };
     if (e.type === 'down') {
       this.sim.tapCard();
       this.aimAt(e.x, e.y);
@@ -157,6 +166,7 @@ class Motylarnia implements ArcadeGame {
       this.press = null;
       this.stick.clear();
       this.thumbSprint = false;
+      this.view.mouse = null;
     }
   }
 
@@ -209,6 +219,9 @@ class Motylarnia implements ArcadeGame {
   destroy(): void {
     this.sim.release();
     this.stick.clear();
+    // the canvas keeps no listener or cursor of this game's
+    this.env.canvas.removeEventListener('pointerleave', this.leave);
+    this.env.canvas.style.cursor = '';
   }
 }
 

@@ -39,6 +39,8 @@ class UrodzajGame implements ArcadeGame {
   private left = false;
   private right = false;
   private dropHeld = false;
+  /** a mouse that leaves the canvas takes the circle's and the next fruit's answer with it */
+  private readonly leave = (): void => this.view.hover(null);
 
   constructor(private readonly env: GameEnv<UrodzajProgress>) {
     migrate(env.progress);
@@ -47,6 +49,7 @@ class UrodzajGame implements ArcadeGame {
     });
     this.view = new UrodzajView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new UrodzajSound(env.audio);
+    if (!env.touch) env.canvas.addEventListener('pointerleave', this.leave);
     // ?debug: the basket in the console (and for screenshot scripts)
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __urodzaj?: unknown }).__urodzaj = this.sim;
   }
@@ -61,6 +64,8 @@ class UrodzajGame implements ArcadeGame {
     this.sim.start();
     this.sound.start();
     this.view.start(this.sim);
+    // the mouse steers Feliks wherever it is and a click drops: the cursor says the whole field is the button
+    if (!this.env.touch) this.env.canvas.style.cursor = 'pointer';
     this.drain();
   }
 
@@ -81,6 +86,8 @@ class UrodzajGame implements ArcadeGame {
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, x = this.view.worldX(e.x);
+    // a mouse resting on the circle of fruits or the next fruit hears their names
+    if (!this.env.touch) this.view.hover(e.x, e.y);
     if (e.type === 'down') {
       if (this.pointerId !== null && this.pointerId !== e.id) return;
       this.pointerId = e.id;
@@ -124,6 +131,7 @@ class UrodzajGame implements ArcadeGame {
     this.pointerId = null;
     this.left = this.right = this.dropHeld = false;
     this.sim.release();
+    this.view.hover(null);
   }
 
   private drain(): void {
@@ -177,7 +185,12 @@ class UrodzajGame implements ArcadeGame {
     return this.sim.story && b ? [target('story card', b)] : [];
   }
 
-  destroy(): void { this.sim.release(); }
+  destroy(): void {
+    this.sim.release();
+    // the canvas keeps no listener or cursor of this game's
+    this.env.canvas.removeEventListener('pointerleave', this.leave);
+    this.env.canvas.style.cursor = '';
+  }
 }
 
 /** A coach mark in the words of the hand the player has: a finger hears of sliding and letting go only; a mouse and keys of clicks and keys. */
@@ -196,13 +209,16 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play (the runner's standard card), in this page load's language, for the hand the player has. */
+/**
+ * How to play (the runner's standard card), in this page load's language, for the hand the player has.  A mouse
+ * steers Feliks by moving, no button held (the chip says "Steruj", not "Przeciągnij"), and a click drops.
+ */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('how.goal'),
     hands: touch
       ? [{ gesture: 'drag', text: t('how.aim') }, { gesture: 'tap', text: t('how.drop') }, { gesture: 'tap', text: t('how.tap') }]
-      : [{ gesture: 'drag', text: t('how.aim.keys') }, { gesture: 'tap', text: t('how.drop.keys') }, { gesture: 'keys', text: t('how.keys') }],
+      : [{ gesture: 'steer', text: t('how.aim.keys') }, { gesture: 'tap', text: t('how.drop.keys') }, { gesture: 'keys', text: t('how.keys') }],
     tips: [t('how.tip1'), t('how.tip2')],
   };
 }

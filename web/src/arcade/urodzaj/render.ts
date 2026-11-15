@@ -17,7 +17,7 @@ import { layoutPassage, drawPassage, passage, wrapLines, type PassageLayout } fr
 import { traceBars } from '../kit/trace';
 import type { Insets } from '../kit/types';
 import { DECORS, MAX_TIER, decorName, festName, festivalAt, fruit } from './content';
-import { t } from './i18n';
+import { cap, t } from './i18n';
 import { UrodzajIntro } from './intro';
 import { computeLayout, sx, sy, worldX, type Layout } from './layout';
 import { decorCount, reached, type UrodzajProgress } from './meta';
@@ -65,6 +65,12 @@ export class UrodzajView {
   private touchAt: { x: number; y: number; t: number } | null = null;
   /** the story's or the festival's card as drawn this frame (a tap on it closes it): the game's targets */
   cardBox: Rect | null = null;
+  /** the mouse over the canvas (a desktop; null once it left) and how long it has been still */
+  private mouse: { x: number; y: number; still: number } | null = null;
+  /** what the mouse rests on — a fruit of the circle (its tier) or the next fruit's bubble (0) — and its fade */
+  private hovering: number | null = null;
+  private hoverA = 0;
+  private hoverShown = 0;
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; touch?: boolean }) {
     this.ctx = canvas.getContext('2d')!;
@@ -75,13 +81,45 @@ export class UrodzajView {
     this.w = Math.max(1, w);
     this.h = Math.max(1, h);
     this.dpr = dpr;
-    this.L = computeLayout(this.w, this.h, insets);
+    this.L = computeLayout(this.w, this.h, insets, this.opts.touch ?? true);
     this.sprites.setScale(this.L.S, dpr);
     this.verse = null;
   }
 
   /** A finger (or the mouse) came down at (x, y): a soft ring answers it there. */
   touched(x: number, y: number): void { this.touchAt = { x, y, t: 0 }; }
+
+  /** The mouse moved over the canvas (a desktop), or left it (null): the circle and the next fruit answer it. */
+  hover(x: number | null, y = 0): void {
+    this.mouse = x === null ? null : { x, y, still: 0 };
+  }
+
+  /** What the mouse rests on: a fruit of the circle (1–11), the next fruit's bubble (0), or nothing (tests). */
+  get hovered(): number | null { return this.hovering; }
+
+  /** The circle's fruit (its tier) or the next fruit's bubble (0) at (x, y), as drawn. */
+  private partAt(x: number, y: number, sim: UrodzajSim): number | null {
+    const n = this.L.next;
+    if (sim.story) return null;
+    if (Math.hypot(x - n.x, y - n.y) <= n.r + 4) return 0;
+    for (let i = 0; i < MAX_TIER; i++) {
+      const p = this.ringSpot(i);
+      if (Math.hypot(x - p.x, y - p.y) <= Math.max(p.r + 6, 14)) return i + 1;
+    }
+    return null;
+  }
+
+  /** Where the circle draws its fruit i (0-based): its centre and radius. */
+  private ringSpot(i: number): { x: number; y: number; r: number } {
+    const r = this.L.ring;
+    if (r.strip) {
+      const step = r.w / MAX_TIER;
+      return { x: r.x - r.w / 2 + (i + 0.5) * step, y: r.y, r: Math.min(r.r, step * 0.42) };
+    }
+    const a = -Math.PI / 2 + (i / MAX_TIER) * TAU;
+    const iconR = Math.min(r.r * 0.26, 16 * (this.L.big ? this.L.u : 1));
+    return { x: r.x + Math.cos(a) * r.r, y: r.y + Math.sin(a) * r.r, r: iconR * (0.6 + 0.4 * (i / (MAX_TIER - 1))) };
+  }
 
   worldX(px: number): number { return worldX(this.L, px); }
 
@@ -110,6 +148,8 @@ export class UrodzajView {
   // ── events ──
   on(e: SimEvent, sim: UrodzajSim): void {
     const L = this.L;
+    // the flying words grow with a big screen (a phone's sizes everywhere else)
+    const fk = L.big ? L.u : 1;
     switch (e.type) {
       case 'drop':
         this.flap = 1;
@@ -127,17 +167,17 @@ export class UrodzajView {
         this.pops.push({ x, y, r: R, t: 0, color: f.light });
         this.parts.burst(x, y, 8 + e.tier * 2, { color: f.base, speed: 80 + e.tier * 18, life: 0.6, size: 2.5 + e.tier * 0.25, g: 220, shape: e.tier % 2 ? 'dot' : 'square' });
         this.parts.burst(x, y, 6, { color: '#fff4cc', speed: 120, life: 0.4, size: 2, shape: 'spark', g: 0 });
-        this.floats.add(`+${fmtNum(e.pts)}`, x, y - R * 0.4, { color: e.link > 0 ? C.gold : '#fffaf0', size: Math.min(34, 16 + e.tier * 1.6 + e.link * 2) });
+        this.floats.add(`+${fmtNum(e.pts)}`, x, y - R * 0.4, { color: e.link > 0 ? C.gold : '#fffaf0', size: Math.min(34, 16 + e.tier * 1.6 + e.link * 2) * fk });
         if (e.link >= 1) this.chainWord = { n: e.link + 1, t: 0 };
         if (e.tier >= 7) this.shake.add(0.18 + (e.tier - 7) * 0.08);
-        if (e.first) this.floats.add(t('world.new'), x, y - R - 22, { color: C.gold, size: 22, dur: 1.6 });
+        if (e.first) this.floats.add(t('world.new'), x, y - R - 22 * fk, { color: C.gold, size: 22 * fk, dur: 1.6 });
         break;
       }
       case 'pole':
         this.poleT = 0;
         this.poleAt = { x: sx(L, e.x), y: sy(L, e.y) };
         this.parts.burst(this.poleAt.x, this.poleAt.y, 40, { color: C.gold, speed: 260, life: 1, size: 3 });
-        this.floats.add(`+${fmtNum(e.pts)}`, this.poleAt.x, this.poleAt.y, { color: C.gold, size: 36, dur: 1.6 });
+        this.floats.add(`+${fmtNum(e.pts)}`, this.poleAt.x, this.poleAt.y, { color: C.gold, size: 36 * fk, dur: 1.6 });
         this.shake.add(0.5);
         break;
       case 'windUp':
@@ -146,17 +186,17 @@ export class UrodzajView {
       case 'wind':
         this.burst = 1;
         this.shake.add(0.25);
-        this.floats.add(t('world.windGo'), L.cx, sy(L, BASKET.rim * 0.6), { color: C.gold, size: 30, dur: 1.6 });
+        this.floats.add(t('world.windGo'), L.cx, sy(L, BASKET.rim * 0.6), { color: C.gold, size: 30 * fk, dur: 1.6 });
         for (let i = 0; i < 30; i++) this.parts.burst(sx(L, -0.5 + (i / 30)), sy(L, BASKET.rim * (i % 5) / 5), 1, { color: '#fff1b8', speed: 220, angle: 0, spread: 0.4, life: 0.8, size: 2, shape: 'spark', g: 0 });
         break;
       case 'glean': {
         const x = sx(L, e.x), y = sy(L, e.y);
-        this.floats.add(`+${fmtNum(e.pts)}`, x, y - 20, { color: C.cool, size: 18 });
+        this.floats.add(`+${fmtNum(e.pts)}`, x, y - 20 * fk, { color: C.cool, size: 18 * fk });
         this.parts.burst(x, y, 6, { color: '#fff6e0', speed: 60, life: 0.5, size: 2 });
         break;
       }
       case 'reveal':
-        this.floats.add(t('world.reveal', { n: Math.round(Math.min(1, e.charge) * 100) }), L.cx, sy(L, BASKET.rim) - 30, { color: C.gold, size: 20, dur: 2 });
+        this.floats.add(t('world.reveal', { n: Math.round(Math.min(1, e.charge) * 100) }), L.cx, sy(L, BASKET.rim) - 30 * fk, { color: C.gold, size: 20 * fk, dur: 2 });
         break;
       case 'basketEnd':
         this.shake.add(0.15);
@@ -205,6 +245,12 @@ export class UrodzajView {
       if (this.chainWord.t > 1.1) this.chainWord = null;
     }
     if (this.touchAt && (this.touchAt.t += dt) > 0.35) this.touchAt = null;
+    // the mouse's answer: what it rests on lights up and says its name; a still mouse lets it go after 6 s
+    const m = this.mouse;
+    if (m) m.still += dt;
+    this.hovering = m && m.still < 6 ? this.partAt(m.x, m.y, sim) : null;
+    if (this.hovering !== null) this.hoverShown = this.hovering;
+    this.hoverA += ((this.hovering !== null ? 1 : 0) - this.hoverA) * Math.min(1, dt * 12);
   }
 
   draw(sim: UrodzajSim): void {
@@ -214,7 +260,7 @@ export class UrodzajView {
     this.field.draw(ctx, w, h, L.ground, this.dpr);
     // the band's last 40 s: wheat along the ground
     const nBars = Math.max(20, Math.min(60, Math.round(w / 16)));
-    paintWheatTrace(ctx, traceBars(sim.trace, sim.t, nBars), 8, w - 8, L.ground + 2, Math.min(46, L.S * 0.13), this.clock);
+    paintWheatTrace(ctx, traceBars(sim.trace, sim.t, nBars), 8, w - 8, L.ground + 2, Math.min(46 * (L.big ? L.u : 1), L.S * 0.13), this.clock);
     const decor = DECORS.slice(0, decorCount(sim.progress));
     if (L.table.on) paintTable(ctx, L.table.x, L.table.y, L.table.w, decor, sim.progress.baskets, this.clock);
     this.drawRing(sim);
@@ -232,6 +278,7 @@ export class UrodzajView {
     this.drawChain();
     ctx.restore();
     this.drawTouch();
+    this.drawHover(sim);
     this.drawTally(sim);
     this.drawFestival(sim);
     this.drawMission();
@@ -455,6 +502,39 @@ export class UrodzajView {
     return lo > 0 ? `${text.slice(0, lo).trimEnd()}…` : '';
   }
 
+  /**
+   * The mouse's answer (a desktop): the circle's fruit under it ringed in gold with its number and name on a plate
+   * beside it ("4 · Figa"), or the next fruit's bubble ringed with "Następny: figa" — 13 px × u and more.
+   */
+  private drawHover(sim: UrodzajSim): void {
+    if (this.hoverA < 0.03) return;
+    const ctx = this.ctx, L = this.L, u = L.u, k = this.hoverShown;
+    const spot = k === 0 ? { x: L.next.x, y: L.next.y, r: L.next.r } : this.ringSpot(k - 1);
+    const text = k === 0 ? `${t('world.next')}: ${fruit(sim.next).name}` : `${k} · ${cap(fruit(k).name)}`;
+    ctx.save();
+    ctx.globalAlpha = this.hoverA;
+    ctx.strokeStyle = C.gold;
+    ctx.lineWidth = Math.max(2.5, 2.5 * u);
+    ctx.beginPath();
+    ctx.arc(spot.x, spot.y, spot.r + 5 * u, 0, TAU);
+    ctx.stroke();
+    const size = Math.max(MIN_READ + 1, 14 * u);
+    ctx.font = font(800, size);
+    const tw = ctx.measureText(text).width, pad = 9 * u, ph = size * 1.7;
+    // a fruit of the circle: beside it toward the middle of the screen; the next fruit: under its bubble (Feliks
+    // flies beside it, following the mouse) — kept on the canvas and under the runner's HUD
+    const x = clamp(k === 0 ? spot.x - tw / 2 - pad : spot.x < L.w / 2 ? spot.x + spot.r + 10 * u : spot.x - spot.r - 10 * u - tw - pad * 2, L.left, L.right - tw - pad * 2);
+    const y = clamp(k === 0 ? spot.y + spot.r + 10 * u : spot.y - ph / 2, L.cards.y, L.h - ph - 6);
+    ctx.fillStyle = 'rgba(58,36,18,.86)';
+    roundRect(ctx, x, y, tw + pad * 2, ph, ph / 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff6e0';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + pad, y + ph / 2 + 0.5);
+    ctx.restore();
+  }
+
   /** A soft ring where the finger came down: the touch is answered at once (the aim follows from there). */
   private drawTouch(): void {
     const tc = this.touchAt;
@@ -536,11 +616,8 @@ export class UrodzajView {
     ctx.beginPath();
     ctx.arc(r.x, r.y, r.r, 0, TAU);
     ctx.stroke();
-    const iconR = Math.min(r.r * 0.26, 16);
     for (let i = 0; i < MAX_TIER; i++) {
-      const a = -Math.PI / 2 + (i / MAX_TIER) * TAU;
-      const x = r.x + Math.cos(a) * r.r, y = r.y + Math.sin(a) * r.r;
-      const R = iconR * (0.6 + 0.4 * (i / (MAX_TIER - 1)));
+      const { x, y, r: R } = this.ringSpot(i);
       if (i + 1 <= got) paintFruit(ctx, this.sprites, i + 1, x, y, R, 0, 0, 'none');
       else paintSilhouette(ctx, i + 1, x, y, R);
       if (i + 1 === top) {

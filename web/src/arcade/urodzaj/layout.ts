@@ -12,11 +12,14 @@
  *         lower half and the strip
  *   wide  a desktop, a tablet or a phone on its side: the circle left of the basket, the table right of it, the
  *         basket risen between the runner's panel and score where it is clear of both
+ *   big   (wide, DESIGN §14) a big screen with a mouse whose HUD stands in columns beside the canvas, only its top bar
+ *         over it: the basket under that bar (the bar spans the whole width — there is nothing to rise between), as
+ *         large as the band allows; the circle of fruits grown with the screen (110 × u at the most)
  *
  * `u` is 1 on any phone and grows to 1.3 (kit/mobile `uiScale`).  Pure: the tests run it at every CHECK_SIZES entry.
  */
 import { clamp } from '../kit/juice';
-import { NO_INSETS, uiScale, type Rect } from '../kit/mobile';
+import { NO_INSETS, screenKind, uiScale, type Rect } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 import { BASKET } from './rules';
 
@@ -26,6 +29,10 @@ export interface Layout {
   w: number;
   h: number;
   wide: boolean;
+  /** a big screen with a mouse whose HUD stands beside the canvas (kit/mobile screenKind 'big') */
+  big: boolean;
+  /** a mouse is the hand: the cursor answers it, the circle and the next fruit say their names under it */
+  mouse: boolean;
   /** UI scale: 1 on any phone, up to 1.3 */
   u: number;
   /** what covers each edge; the top of the play (the runner's HUD's lower edge where it must be); the lowest y of words */
@@ -61,14 +68,20 @@ const ABOVE = BASKET.hang + 0.24;
 const BELOW = 0.07;
 const WALLS = 1.09;
 
-/** `insets` as the runner reports them (a bare number is the HUD's lower edge, as before the insets). */
-export function computeLayout(w: number, h: number, insets: Partial<Insets> | number = NO_INSETS): Layout {
+/**
+ * `insets` as the runner reports them (a bare number is the HUD's lower edge, as before the insets); `touch` as the
+ * runner's env says (without it a finger: the shapes as before).
+ */
+export function computeLayout(w: number, h: number, insets: Partial<Insets> | number = NO_INSETS, touch = true): Layout {
   const ins: Insets = typeof insets === 'number' ? { ...NO_INSETS, top: insets } : { ...NO_INSETS, ...insets };
   const W = Math.max(1, w), H = Math.max(1, h);
   const u = uiScale(W, H);
   const hudTop = clamp(ins.top, 0, H * 0.6);
   const wide = W >= H * 1.05;
   const label = Math.round(13 * u);
+  // a big screen whose HUD is only a top bar over the canvas (its panel and score in columns beside it)
+  const big = wide && screenKind(W, H, touch) === 'big' && hudTop <= Math.max(140, H * 0.16);
+  const mouse = !touch;
   if (wide) {
     const margin = 10;
     const left = Math.max(12, ins.left + 6), right = W - Math.max(12, ins.right + 6);
@@ -77,18 +90,18 @@ export function computeLayout(w: number, h: number, insets: Partial<Insets> | nu
     // free of the panel and the score at its width: the basket may start high
     const sHigh = Math.min((bottom - margin - 6) / (ABOVE + BELOW), (W * 0.5) / 1.12);
     const halfPx = (sHigh * 1.12) / 2 + 30;
-    const clear = W / 2 - halfPx > PANEL_W && W / 2 - halfPx > SCORE_W;
+    const clear = !big && W / 2 - halfPx > PANEL_W && W / 2 - halfPx > SCORE_W;
     const S = Math.max(40, clear ? sHigh : sBelow);
     const top = clear ? margin : hudTop;
     const floor = Math.min(bottom - BELOW * S, top + ABOVE * S + Math.max(0, (bottom - top - (ABOVE + BELOW) * S) / 2));
     const cx = W / 2;
     const bl = cx - S * 0.56;
-    const ringR = Math.max(40, Math.min(110, (bl - 24) * 0.42, (floor - hudTop) * 0.3));
+    const ringR = Math.max(40, Math.min(110 * (big ? u : 1), (bl - 24) * 0.42, (floor - hudTop) * 0.3));
     const nr = Math.round(clamp(S * 0.1, 22, 32 * u));
     const ny = floor - BASKET.hang * S;
     const cw = Math.min(right - left, 460 * u);
     return {
-      w: W, h: H, wide, u, ins, top, bottom, left, right, S, cx, floor, ground: floor + BELOW * S,
+      w: W, h: H, wide, big, mouse, u, ins, top, bottom, left, right, S, cx, floor, ground: floor + BELOW * S,
       // beside the twine, its word under the runner's HUD even where the basket rises between the panel and the score
       next: { x: cx + S * 0.5 + Math.max(8, S * 0.045) + nr + 12, y: Math.max(ny, hudTop + label + nr + 8), r: nr, label, labelY: Math.max(ny, hudTop + label + nr + 8) - nr - 5, beside: true },
       ring: { x: Math.max(ringR + 16 + ins.left, bl - ringR - 40), y: Math.max(hudTop + ringR + 26, floor - (BASKET.rim * S) * 0.62), r: ringR, strip: false, w: ringR * 2 },
@@ -122,7 +135,7 @@ export function computeLayout(w: number, h: number, insets: Partial<Insets> | nu
   const ny = onRow ? hudTop + label + 8 + nr : Math.max(hang, hudTop + label + 8 + nr);
   const cw = Math.min(W - ins.left - ins.right - 20, 480 * u);
   return {
-    w: W, h: H, wide, u, ins, top: hudTop, bottom, left, right, S, cx, floor, ground,
+    w: W, h: H, wide, big: false, mouse, u, ins, top: hudTop, bottom, left, right, S, cx, floor, ground,
     next: { x: right - nr, y: ny, r: nr, label, labelY: ny - nr - 5, beside: !onRow },
     ring: { x: cx, y: bottom - ringH / 2, r: Math.min(ringH * 0.4, (A / 11) * 0.42), strip: true, w: A },
     glean: { x: cx - S * 0.42, y: ground, s: S * 0.24 },

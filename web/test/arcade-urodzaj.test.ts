@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
-import { CHECK_SIZES, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import { hintText, howto } from '../src/arcade/urodzaj/index';
 import { FONT, SERIF, font } from '../src/arcade/urodzaj/paint';
 import { DROP_TIERS, FESTIVALS, FRUITS, LINES, LINE_COUNT, MAX_TIER, MOMENTS, festivalAt, fruit, missionText, tierFromU } from '../src/arcade/urodzaj/content';
-import { CATALOGS, t, unit } from '../src/arcade/urodzaj/i18n';
+import { CATALOGS, cap, t, unit } from '../src/arcade/urodzaj/i18n';
 import { computeLayout, sx, sy, worldX } from '../src/arcade/urodzaj/layout';
 import { festFeed, freshProgress, migrate, reached, starsFor, type UrodzajProgress } from '../src/arcade/urodzaj/meta';
 import { PHYS, World } from '../src/arcade/urodzaj/physics';
@@ -605,12 +605,15 @@ describe('on a phone first: the layout', () => {
 
   it('every checked size: the basket under the HUD and inside the edges, the next fruit\'s bubble big with a 13 px label clear of Feliks, the circle in the band', () => {
     for (const z of CHECK_SIZES) {
-      const L = computeLayout(z.w, z.h, z.insets);
+      // a finger on a phone and a tablet, a mouse on a desktop and the big monitors (§14)
+      const L = computeLayout(z.w, z.h, z.insets, z.w < 1024);
       const name = z.name;
       expect(L.u, name).toBeGreaterThanOrEqual(1);
-      expect(L.u, name).toBeLessThanOrEqual(1.3);
-      // Feliks's head (0.24 W over the twine) under the HUD, the ground over the home indicator
+      expect(L.u, name).toBeLessThanOrEqual(Math.min(z.w, z.h) >= DESK_BIG ? DESK_MAX : 1.3);
+      // Feliks's head (0.24 W over the twine) under the HUD, the ground over the home indicator; on a big screen
+      // under the runner's top bar, which spans the whole canvas there
       expect(sy(L, BASKET.hang + 0.24), name).toBeGreaterThanOrEqual(L.top - 0.5);
+      if (L.big) expect(sy(L, BASKET.hang + 0.24), name).toBeGreaterThanOrEqual(z.insets.top);
       expect(L.ground, name).toBeLessThanOrEqual(z.h - z.insets.bottom);
       // the walls inside the canvas and the notches
       expect(sx(L, -BASKET.half) - L.S * 0.05, name).toBeGreaterThanOrEqual(z.insets.left);
@@ -833,6 +836,9 @@ describe('on a phone first: the game at every checked size', () => {
     expect(touch.hands.some(x => x.gesture === 'keys')).toBe(false);
     expect(touch.hands).toHaveLength(3);
     expect(desk.hands.some(x => x.gesture === 'keys')).toBe(true);
+    // a mouse steers by moving, no button held: the runner's chip says "Steruj", not "Przeciągnij"
+    expect(desk.hands.map(x => x.gesture)).toEqual(['steer', 'tap', 'keys']);
+    expect(touch.hands.map(x => x.gesture)).toEqual(['drag', 'tap', 'tap']);
     expect(hintText('aim', true)).not.toMatch(KEYS);
     expect(hintText('aim', false)).toMatch(KEYS);
     expect(hintText('merge', false)).toBe(t('hint.merge'));
@@ -848,5 +854,124 @@ describe('on a phone first: the game at every checked size', () => {
     expect(sim.story).toBeNull();
     expect(hints.length).toBeGreaterThan(0);
     for (const h of hints) expect(h).not.toMatch(/spacj|mysz|←|→/i);
+  });
+});
+
+describe('big screens and the mouse (DESIGN §14)', () => {
+  const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+  const original = proto.getContext;
+  beforeAll(() => { proto.getContext = function (this: HTMLCanvasElement) { return noteContext(this); }; });
+  afterAll(() => { proto.getContext = original; });
+  const BIG = CHECK_SIZES.filter(z => Math.min(z.w, z.h) >= DESK_BIG);
+
+  async function gameAt(z: { w: number; h: number; insets: Insets }, touch: boolean) {
+    const mod = (await import('../src/arcade/urodzaj/index')).default;
+    const env: GameEnv<UrodzajProgress> = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), sessions: 4, dailyDay: DAY }, rng: mulberry32(3), day: DAY, daySeed: 7, plannedSec: 300, tool: 'fnirs',
+      simulated: true, reducedMotion: true, haptics: false, tuning: TUNING, hint: () => {}, hudTop: () => z.insets.top, insets: () => z.insets, touch,
+    };
+    const game = mod.create(env);
+    game.resize(z.w, z.h, 1);
+    game.start();
+    const sim = (game as unknown as { sim: UrodzajSim }).sim;
+    const view = (game as unknown as { view: { L: ReturnType<typeof computeLayout>; hovered: number | null } }).view;
+    const clock = { t: 0 };
+    const run = (sec: number, f = frame()) => {
+      for (let i = 0; i < Math.round(sec * 30); i++) {
+        clock.t += 1 / 30;
+        game.update(1 / 30, f, clock.t);
+        game.draw();
+      }
+    };
+    return { game, sim, view, env, run };
+  }
+
+  it('lays a big screen out under the runner\'s top bar: the basket as tall as the band, the circle of fruits grown', () => {
+    expect(BIG.map(z => z.w)).toEqual([1190, 1587]);
+    for (const z of BIG) {
+      const L = computeLayout(z.w, z.h, z.insets, false);
+      expect(L.big && L.mouse && L.wide, z.name).toBe(true);
+      // the bar spans the whole canvas: nothing to rise between, Feliks's head and the next fruit's word under it
+      expect(L.top, z.name).toBe(z.insets.top);
+      expect(sy(L, BASKET.hang + 0.24), z.name).toBeGreaterThanOrEqual(z.insets.top);
+      expect(L.next.labelY - L.next.label, z.name).toBeGreaterThanOrEqual(z.insets.top);
+      // the basket uses the band: its scene (Feliks's head to the ground) 0.95 of the band's height, half the width
+      expect((ABOVE_W + 0.07) * L.S, z.name).toBeGreaterThan((z.h - z.insets.top) * 0.95);
+      expect(L.S * 1.12, z.name).toBeGreaterThan(z.w * 0.45);
+      // the circle of fruits grows with the screen (it stopped at 110 px), the table beside the basket
+      expect(L.ring.r, z.name).toBeGreaterThan(110);
+      expect(L.ring.r, z.name).toBeLessThanOrEqual(110 * L.u + 0.01);
+      expect(L.ring.x - L.ring.r * 1.22, z.name).toBeGreaterThanOrEqual(0);
+      expect(L.ring.x + L.ring.r * 1.22, z.name).toBeLessThan(sx(L, -BASKET.half));
+      expect(L.table.on, z.name).toBe(true);
+    }
+    // a finger on the same canvas (a large tablet) keeps the old shape
+    for (const z of BIG) expect(computeLayout(z.w, z.h, z.insets, true).big, z.name).toBe(false);
+  });
+
+  it('keeps every phone, tablet and desktop as it was: only a mouse on a big screen changes the shape', () => {
+    for (const z of CHECK_SIZES.filter(c => Math.min(c.w, c.h) < DESK_BIG)) {
+      const finger = computeLayout(z.w, z.h, z.insets, true), mouse = computeLayout(z.w, z.h, z.insets, false);
+      expect(computeLayout(z.w, z.h, z.insets), z.name).toEqual(finger);
+      const { mouse: m1, ...a } = mouse;
+      const { mouse: m2, ...b } = finger;
+      expect(a, z.name).toEqual(b);
+      expect([m1, m2, a.big]).toEqual([true, false, false]);
+    }
+    // the basket's scale before the desktop pass (2026-11-13): small phone, iPhone, side, tablet, desktop, laptop
+    const S = (i: number) => Math.round(computeLayout(CHECK_SIZES[i].w, CHECK_SIZES[i].h, CHECK_SIZES[i].insets, CHECK_SIZES[i].w < 1024).S);
+    expect([0, 1, 4, 6, 7, 9].map(S)).toEqual([192, 218, 163, 473, 387, 381]);
+  });
+
+  it('answers the mouse: a pointer cursor, the circle\'s fruit and the next fruit named under it, Feliks following', async () => {
+    for (const z of BIG) {
+      const { game, sim, view, env, run } = await gameAt(z, false);
+      run(0.5);
+      sim.story = null;
+      expect(env.canvas.style.cursor, z.name).toBe('pointer');
+      const L = view.L;
+      // the circle's fourth fruit: ringed, "4 · Figa" at 14 px × u
+      const a = -Math.PI / 2 + (3 / MAX_TIER) * Math.PI * 2;
+      game.pointer!({ type: 'move', x: L.ring.x + Math.cos(a) * L.ring.r, y: L.ring.y + Math.sin(a) * L.ring.r, id: 1 });
+      drawn.length = 0;
+      run(0.3);
+      expect(view.hovered, z.name).toBe(4);
+      const label = drawn.filter(d => d.text === `4 · ${cap(fruit(4).name)}`);
+      expect(label.length, z.name).toBeGreaterThan(0);
+      for (const d of label) expect(d.px, z.name).toBeGreaterThanOrEqual(14 * L.u - 0.05);
+      // the next fruit's bubble: its name
+      game.pointer!({ type: 'move', x: L.next.x, y: L.next.y, id: 1 });
+      drawn.length = 0;
+      run(0.3);
+      expect(view.hovered, z.name).toBe(0);
+      expect(drawn.some(d => d.text === `${t('world.next')}: ${fruit(sim.next).name}`), z.name).toBe(true);
+      // over the basket: no name, and Feliks follows the hovering mouse (no button held)
+      game.pointer!({ type: 'move', x: sx(L, 0.3), y: L.floor - L.S * 0.3, id: 1 });
+      run(0.4);
+      expect(view.hovered, z.name).toBeNull();
+      expect(sim.hangX, z.name).toBeGreaterThan(0.2);
+      // a still mouse lets the name go; leaving takes it at once
+      game.pointer!({ type: 'move', x: L.next.x, y: L.next.y, id: 1 });
+      run(6.5);
+      expect(view.hovered, z.name).toBeNull();
+      game.pointer!({ type: 'move', x: L.next.x, y: L.next.y, id: 1 });
+      run(0.1);
+      expect(view.hovered, z.name).toBe(0);
+      env.canvas.dispatchEvent(new Event('pointerleave'));
+      run(0.1);
+      expect(view.hovered, z.name).toBeNull();
+      game.destroy();
+      expect(env.canvas.style.cursor, z.name).toBe('');
+      // a finger: no cursor, no names
+      const f = await gameAt(z, true);
+      f.run(0.5);
+      f.sim.story = null;
+      f.game.pointer!({ type: 'move', x: f.view.L.next.x, y: f.view.L.next.y, id: 1 });
+      f.run(0.3);
+      expect(f.env.canvas.style.cursor, z.name).toBe('');
+      expect(f.view.hovered, z.name).toBeNull();
+      f.game.destroy();
+    }
   });
 });

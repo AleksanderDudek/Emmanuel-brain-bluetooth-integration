@@ -12,7 +12,7 @@ import { Particles, approach, clamp, ease } from '../kit/juice';
 import { NO_INSETS } from '../kit/mobile';
 import type { Insets } from '../kit/types';
 import { LETTERS, UPGRADE_NAME, UPGRADE_WHAT, VILLAGE } from './content';
-import { Hud, NumText, age, fitSlot, font } from './hud';
+import { Hud, NumText, age, fitSlot, font, type DeckPart } from './hud';
 import { cap, nightName, t } from './i18n';
 import { DuskIntro } from './intro';
 import { layout, type Layout } from './layout';
@@ -105,7 +105,7 @@ export class LatarnikView {
 
   resize(w: number, h: number, dpr: number, insets: Insets = this.ins): void {
     this.ins = insets;
-    const L = (this.L = layout(w, h, insets));
+    const L = (this.L = layout(w, h, insets, this.opts.touch ?? true));
     this.dpr = dpr;
     this.grad = null;
     this.fog = null;
@@ -131,6 +131,15 @@ export class LatarnikView {
 
   /** Where things are (index.ts points its coach marks at them). */
   get layout(): Layout { return this.L; }
+
+  /** The mouse over the canvas at (x, y), or gone (null): the deck answers it (a desktop). */
+  hover(x: number | null, y = 0): void {
+    if (x === null) this.hud.hover(null);
+    else this.hud.hover(x, y);
+  }
+
+  /** The deck part under the mouse (tests). */
+  get hovered(): DeckPart | null { return this.hud.hovered; }
 
   /** The opening card as last drawn (the one control while it shows: any tap closes it), or null. */
   get openCard(): { x: number; y: number; w: number; h: number } | null { return this.hud.openCard; }
@@ -366,7 +375,7 @@ export class LatarnikView {
     this.wind = approach(this.wind, g.state === 'blow' ? 1 : g.state === 'warn' ? 0.55 : 0, dt, 0.25);
     this.rain = approach(this.rain, sim.spec.boss && sim.phase === 'play' ? 0.45 + 0.6 * this.wind : 0, dt, 0.6);
     this.whaleLit = Math.max(0, this.whaleLit - dt * 0.8);
-    this.hud.update(dt);
+    this.hud.update(dt, sim);
     if (this.pulse && (this.pulse.t += dt) > RULES.telegraph) this.pulse = null;
     this.flare = Math.max(0, this.flare - dt * 3.5);
     this.short = Math.max(0, this.short - dt * 3);

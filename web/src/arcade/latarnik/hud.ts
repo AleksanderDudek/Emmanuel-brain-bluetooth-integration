@@ -81,7 +81,18 @@ interface Card {
 const TITLE_Y = -0.46;
 const PAD = 3;
 const MAX_BOXES = 40;
-const TXT = { armed: t('hud.armed'), ladder: t('hud.ladder'), blind: t('block.blind'), open: t('open.title'), openText: t('open.text'), again: t('card.again'), rule: t('stars.rule') };
+const TXT = {
+  armed: t('hud.armed'), armedMouse: t('hud.armed.mouse'), ladder: t('hud.ladder'), blind: t('block.blind'), open: t('open.title'), openText: t('open.text'),
+  again: t('card.again'), rule: t('stars.rule'),
+};
+
+/** A part of the deck the mouse can rest on (a desktop): it lights up and says what it is. */
+export type DeckPart = 'pill' | 'lanterns' | 'ladder' | 'gull';
+/** What each part says under the mouse (Zośka says nothing: she flaps). */
+const PART_TIP: Record<Exclude<DeckPart, 'gull'>, string> = { pill: TXT.rule, lanterns: t('hint.lanterns'), ladder: t('how.tip1') };
+/** The mouse rests this long before a part explains itself, and a still mouse lets it go after this. */
+const TIP_DELAY = 0.25;
+const TIP_HOLD = 6;
 
 export class Hud {
   private L: Layout = layout(390, 844);
@@ -108,8 +119,58 @@ export class Hud {
   private openRect: Rect | null = null;
   /** what the "tap" lines say: a finger taps, a keyboard may press Space too */
   private touch = true;
+  /** the mouse over the canvas (a desktop; null once it left): where it is and how long it has been still */
+  private mouse: { x: number; y: number; still: number } | null = null;
+  /** the part of the deck under the mouse, how long it has been there, and its explanation's fade and layout */
+  private part: DeckPart | null = null;
+  private partT = 0;
+  private tipA = 0;
+  private tipLay: { part: DeckPart; w: number; lines: string[]; font: string; tw: number } | null = null;
 
   constructor(private readonly ctx: CanvasRenderingContext2D) {}
+
+  /** The mouse moved to (x, y) over the canvas, or left it (null). */
+  hover(x: number, y: number): void;
+  hover(at: null): void;
+  hover(x: number | null, y = 0): void {
+    if (x === null) {
+      this.mouse = null;
+      return;
+    }
+    this.mouse = { x, y, still: 0 };
+  }
+
+  /** The part of the deck under the mouse, if any (tests and the cursor). */
+  get hovered(): DeckPart | null { return this.part; }
+
+  /** The deck part at (x, y) as drawn now: the pill (while it shows), the lanterns, the ladder, Zośka. */
+  partAt(x: number, y: number, sim: LatarnikSim): DeckPart | null {
+    const L = this.L, u = L.u;
+    if (!sim.block || sim.ended || sim.story || sim.phase === 'between') return null;
+    const inside = (x0: number, y0: number, x1: number, y1: number) => x >= x0 && x <= x1 && y >= y0 && y <= y1;
+    const g = L.goal, s = L.lanterns.s, lad = L.ladder, r = LADDER_R * u, gap = LADDER_GAP * u;
+    const pillShown = !(sim.talk.line && L.bubbleOnGoal) && !(L.cardOver === 'goal' && this.cards.head);
+    if (pillShown && inside(g.x, g.y, g.x + g.w, g.y + g.h)) return 'pill';
+    if (inside(L.lanterns.x - 4, L.lanterns.y - s * 1.4, L.lanterns.x + s * 6, L.lanterns.y + s)) return 'lanterns';
+    if (inside(lad.x - 7 * gap - 2 * r - 6, lad.y - r - 24 * u, lad.x + 6, lad.y + r + 6)) return 'ladder';
+    const gl = L.gull;
+    if (gl.s > 0 && inside(gl.x - gl.s * 0.5, gl.y - gl.s * 1.3, gl.x + gl.s * 0.55, gl.y)) return 'gull';
+    return null;
+  }
+
+  /** The mouse's answer this frame: which part it rests on (Zośka flaps when it finds her). */
+  private hoverUpdate(dt: number, sim: LatarnikSim): void {
+    const m = this.mouse;
+    if (m) m.still += dt;
+    const part = m && m.still < TIP_HOLD ? this.partAt(m.x, m.y, sim) : null;
+    if (part !== this.part) {
+      if (part === 'gull') this.gull.flap = 1;
+      this.part = part;
+      this.partT = 0;
+    } else this.partT += dt;
+    const want = part && part !== 'gull' && this.partT >= TIP_DELAY ? 1 : 0;
+    this.tipA = approach(this.tipA, want, dt, want ? 0.08 : 0.12);
+  }
 
   private static fontsFor(u: number) {
     return {
@@ -218,7 +279,7 @@ export class Hud {
   popLanterns(): void { this.lanternPop.fill(1); }
   popGoal(): void { this.goalPop = 1; }
 
-  update(dt: number): void {
+  update(dt: number, sim?: LatarnikSim): void {
     this.titles.update(dt);
     this.cards.update(dt);
     for (let i = 0; i < 3; i++) this.lanternPop[i] = Math.max(0, this.lanternPop[i] - dt * 1.4);
@@ -227,6 +288,7 @@ export class Hud {
     this.gull.flap = Math.max(0, this.gull.flap - dt * 1.5);
     age(this.floats, dt);
     this.layoutFloats(dt);
+    if (sim) this.hoverUpdate(dt, sim);
   }
 
   draw(sim: LatarnikSim, t: number): void {
@@ -235,9 +297,102 @@ export class Hud {
     this.drawFloats();
     if (sim.phase !== 'between' && !sim.story) this.drawTitle();
     this.drawCards();
+    this.drawTip();
     if (sim.phase === 'between') this.drawBetween(sim);
     if (sim.story) this.drawOpen(sim);
     else this.openRect = null;
+  }
+
+  /**
+   * The mouse's answer (a desktop): the deck part under it lit by a gold outline, and a short line of what it is
+   * beside it, toward the middle of the screen — the pill the stars' rule, the lanterns what puts one out, the ladder
+   * what eight perfects bring.  13 px (× u) on a dark plate; it fades in after a moment and out with a still mouse.
+   */
+  private drawTip(): void {
+    if (this.tipA < 0.02) return;
+    const part = this.part && this.part !== 'gull' ? this.part : this.tipLay?.part;
+    if (!part || part === 'gull') return;
+    const { ctx, L } = this;
+    const u = L.u;
+    const box = this.partBox(part);
+    const maxW = Math.min(300 * u, L.right - L.left - 24);
+    if (!this.tipLay || this.tipLay.part !== part || this.tipLay.w !== maxW) {
+      const f = font(600, Math.max(MIN_READ, 13 * u), SANS);
+      // the stars' rule a line per star, the others wrapped
+      const lines = PART_TIP[part].split(' · ').flatMap(seg => this.wrapLines(seg, maxW - 20 * u, f, 4)).slice(0, 4);
+      ctx.font = f;
+      let tw = 0;
+      for (const ln of lines) tw = Math.max(tw, ctx.measureText(ln).width);
+      this.tipLay = { part, w: maxW, lines, font: f, tw };
+    }
+    const T = this.tipLay;
+    const pad = 10 * u, size = Math.max(MIN_READ, 13 * u), lh = size * 1.3;
+    const w = T.tw + pad * 2, h = T.lines.length * lh + pad * 1.2;
+    const { x, y } = this.tipAt(part, box, w, h);
+    ctx.save();
+    ctx.globalAlpha = this.tipA;
+    // the part, outlined in gold
+    ctx.strokeStyle = 'rgba(255,210,122,.7)';
+    ctx.lineWidth = Math.max(1.5, 1.5 * u);
+    ctx.beginPath();
+    ctx.roundRect(box.x - 3, box.y - 3, box.w + 6, box.h + 6, Math.min(12 * u, (box.h + 6) / 2));
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(8,12,26,.94)';
+    ctx.strokeStyle = 'rgba(255,210,122,.45)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, Math.min(10 * u, h / 2));
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = C.text;
+    ctx.font = T.font;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    T.lines.forEach((ln, i) => ctx.fillText(ln, x + pad, y + pad * 0.6 + lh * (i + 0.5)));
+    ctx.restore();
+  }
+
+  /**
+   * Where a part's explanation goes: beside it toward the screen's middle — under a part in the top half (over one
+   * in the bottom half), else on its inner side, else on its far side — the first place inside the band that covers
+   * no other part of the deck (the lanterns' line keeps off the ladder under them).
+   */
+  private tipAt(part: Exclude<DeckPart, 'gull'>, box: Rect, w: number, h: number): { x: number; y: number } {
+    const L = this.L, u = L.u, g = 8 * u;
+    const leftHalf = box.x + box.w / 2 < L.w / 2, topHalf = box.y + box.h / 2 < (L.top + L.bottom) / 2;
+    const ax = leftHalf ? box.x : box.x + box.w - w, my = box.y + box.h / 2 - h / 2;
+    const near = topHalf ? box.y + box.h + g : box.y - g - h, far = topHalf ? box.y - g - h : box.y + box.h + g;
+    const side = leftHalf ? box.x + box.w + g : box.x - g - w;
+    const others: Rect[] = (['pill', 'lanterns', 'ladder'] as const).filter(p => p !== part).map(p => this.partBox(p, true));
+    const gl = L.gull;
+    if (gl.s > 0) others.push({ x: gl.x - gl.s * 0.5, y: gl.y - gl.s * 1.3, w: gl.s * 1.05, h: gl.s * 1.3 });
+    // each place kept inside the band (a part at the band's edge pushes its line in), then the first clear of the part
+    // and the others (a few pixels' touch does not count: the ladder's words are narrower than their room)
+    const keepX = (x: number) => clamp(x, L.left + 8, L.right - 8 - w), keepY = (y: number) => clamp(y, L.top + 4, L.bottom - 4 - h);
+    const tol = 4 * u;
+    for (const [x0, y0] of [[ax, near], [side, my], [ax, far]]) {
+      const x = keepX(x0), y = keepY(y0);
+      const hit = (o: Rect) => Math.min(x + w, o.x + o.w) - Math.max(x, o.x) > tol && Math.min(y + h, o.y + o.h) - Math.max(y, o.y) > tol;
+      if (!hit(box) && !others.some(hit)) return { x, y };
+    }
+    return { x: keepX(ax), y: keepY(near) };
+  }
+
+  /** A deck part's box as drawn (the outline the mouse's answer draws around it); `words`: the ladder with its words over it. */
+  private partBox(part: Exclude<DeckPart, 'gull'>, words = false): Rect {
+    const L = this.L, u = L.u;
+    if (part === 'pill') return L.goal;
+    if (part === 'lanterns') {
+      const s = L.lanterns.s;
+      return { x: L.lanterns.x - 2, y: L.lanterns.y - s * 1.35, w: s * 5.8 + 4, h: s * 2.3 };
+    }
+    const lad = L.ladder, r = LADDER_R * u, wd = 7 * LADDER_GAP * u + 2 * r;
+    if (words) {
+      // its words over it, right-aligned (13 px × u, 8 px × u over the diamonds)
+      const ww = Math.max(wd, Math.min(lad.label, 170 * u));
+      return { x: lad.x - ww - 2, y: lad.y - r - 24 * u, w: ww + 4, h: r * 2 + 24 * u + 2 };
+    }
+    return { x: lad.x - wd - 2, y: lad.y - r - 2, w: wd + 4, h: 2 * r + 4 };
   }
 
   /**
@@ -389,7 +544,8 @@ export class Hud {
       const head = `${t('sub.night', { n: spec.n + 1, got: done, goal: spec.goal }).split(' · ')[0]} · ${nightName(spec.kind)}`.toLocaleUpperCase();
       const goal = goalText(spec.kind, spec.goal);
       const slot = fitSlot();
-      this.fitIn(slot, goal, textW, 14 * u, 650, SANS);
+      // on a big screen the goal keeps its big size (two lines rather than a shrunken one)
+      this.fitIn(slot, goal, textW, 14 * u, 650, SANS, false, L.shape === 'big' ? 12.5 * u : MIN_READ);
       let lines: string[], f: string;
       if (slot.shown === goal) {
         lines = [goal];
@@ -534,7 +690,7 @@ export class Hud {
     ctx.textAlign = 'right';
     ctx.textBaseline = 'alphabetic';
     ctx.fillStyle = sim.armed ? C.gold : 'rgba(239,232,220,.72)';
-    let label = sim.armed ? TXT.armed : sim.streak > 0 ? this.streakTxt.get(sim.streak) : TXT.ladder;
+    let label = sim.armed ? (this.touch ? TXT.armed : TXT.armedMouse) : sim.streak > 0 ? this.streakTxt.get(sim.streak) : TXT.ladder;
     if (ctx.measureText(label).width > this.L.ladder.label) label = !sim.armed && sim.streak > 0 ? `×${sim.streak}` : '';
     if (label) ctx.fillText(label, right, y - r - 8 * u);
   }
@@ -562,8 +718,13 @@ export class Hud {
     const { lines, size } = this.bubbleWrap;
     const lh = size * 1.24;
     const bh = lines.length * lh + pad * 1.3;
-    // on the pill it hangs from the pill's top; beside her post it stands on its foot (and grows upward)
-    const by = L.bubbleOnGoal ? b.y : Math.max(L.top + 4, b.y + b.h - bh);
+    const beakX = g.x + g.s * 0.45 * g.face, beakY = g.y - g.s * 1.12;
+    // on the pill it hangs from the pill's top; above her post it stands on its foot (and grows upward); beside her
+    // (a big screen) its middle is at her beak, inside its room (a taller one grows upward from the room's foot)
+    const beside = L.shape === 'big';
+    const by = L.bubbleOnGoal ? b.y
+      : beside ? Math.max(L.top + 4, bh <= b.h ? clamp(beakY - bh * 0.45, b.y, b.y + b.h - bh) : b.y + b.h - bh)
+        : Math.max(L.top + 4, b.y + b.h - bh);
     ctx.save();
     ctx.globalAlpha = a;
     ctx.fillStyle = '#fbf6ea';
@@ -574,10 +735,14 @@ export class Hud {
     ctx.fill();
     ctx.stroke();
     // the tail toward her beak
-    const beakX = g.x + g.s * 0.45 * g.face, beakY = g.y - g.s * 1.12;
     ctx.beginPath();
     if (g.s <= 0) {
       // no post to point at
+    } else if (beside) {
+      const ty = clamp(beakY, by + 9 * u, by + bh - 9 * u);
+      ctx.moveTo(b.x + 1, ty - 7 * u);
+      ctx.lineTo(beakX + 3 * u, beakY);
+      ctx.lineTo(b.x + 1, ty + 5 * u);
     } else if (L.bubbleOnGoal) {
       const ty = Math.min(by + bh * 0.62, by + 30 * u);
       ctx.moveTo(b.x, Math.max(by + 6 * u, ty - 12 * u));

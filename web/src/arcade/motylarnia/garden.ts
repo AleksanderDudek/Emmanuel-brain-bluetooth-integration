@@ -435,44 +435,46 @@ export function drawSnail(ctx: CanvasRenderingContext2D, x: number, y: number, s
  * speaker, or (`below`) hanging from it with its tail out to the left, where the speaker sits beside it.  Its
  * words at 14 px (13 at the least before a fourth line), at most four lines.
  */
-export function drawBubble(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, alpha: number, below = false): void {
+export function drawBubble(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, alpha: number, below = false, k = 1): void {
+  // `k`: the passive things' scale (1; a big screen's UI scale there) — the words 14 px × k, never under 13
   ctx.save();
   ctx.globalAlpha = alpha;
-  let size = 14, lines: string[] = [];
+  let size = 14 * k, lines: string[] = [];
+  const pad = 12 * k;
   for (; ; size -= 0.5) {
     ctx.font = font(size, 600);
-    lines = wrapLines(ctx, text, maxW - 24);
-    if (lines.length <= 3 || size <= 13) break;
+    lines = wrapLines(ctx, text, maxW - pad * 2);
+    if (lines.length <= 3 || size <= 13 * k) break;
   }
   lines = lines.slice(0, 4);
   const lh = Math.round(size * 1.3);
-  const w = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 24), h = lines.length * lh + 16;
+  const w = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + pad * 2), h = lines.length * lh + 16 * k;
   const bx = x, by = below ? y : y - h;
   ctx.fillStyle = 'rgba(60,40,20,.18)';
-  roundRect(ctx, bx + 2, by + 3, w, h, 12);
+  roundRect(ctx, bx + 2, by + 3, w, h, 12 * k);
   ctx.fill();
   ctx.fillStyle = '#FFFBEF';
-  roundRect(ctx, bx, by, w, h, 12);
+  roundRect(ctx, bx, by, w, h, 12 * k);
   ctx.fill();
   ctx.beginPath();
   if (below) {
-    ctx.moveTo(bx + 2, by + 10);
-    ctx.lineTo(bx - 10, by + 18);
-    ctx.lineTo(bx + 2, by + 26);
+    ctx.moveTo(bx + 2, by + 10 * k);
+    ctx.lineTo(bx - 10 * k, by + 18 * k);
+    ctx.lineTo(bx + 2, by + 26 * k);
   } else {
-    ctx.moveTo(bx + 10, by + h - 2);
-    ctx.lineTo(bx - 6, by + h + 10);
-    ctx.lineTo(bx + 24, by + h - 2);
+    ctx.moveTo(bx + 10 * k, by + h - 2);
+    ctx.lineTo(bx - 6 * k, by + h + 10 * k);
+    ctx.lineTo(bx + 24 * k, by + h - 2);
   }
   ctx.fill();
   ctx.strokeStyle = 'rgba(110,80,40,.35)';
   ctx.lineWidth = 1;
-  roundRect(ctx, bx, by, w, h, 12);
+  roundRect(ctx, bx, by, w, h, 12 * k);
   ctx.stroke();
   ctx.fillStyle = '#3B3024';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  lines.forEach((l, i) => ctx.fillText(l, bx + 12, by + 8 + i * lh + (lh - size) / 2));
+  lines.forEach((l, i) => ctx.fillText(l, bx + pad, by + 8 * k + i * lh + (lh - size) / 2));
   ctx.restore();
 }
 
@@ -483,7 +485,7 @@ export function drawBubble(ctx: CanvasRenderingContext2D, text: string, x: numbe
  * over what a blind block still hides.  A dotted line marks the threshold's height, a bracket at the
  * right end the band's delay.
  */
-export function drawFlowerbed(ctx: CanvasRenderingContext2D, bars: readonly TraceBar[], x0: number, y0: number, w: number, h: number, lagShare: number, lagText: string, t: number): void {
+export function drawFlowerbed(ctx: CanvasRenderingContext2D, bars: readonly TraceBar[], x0: number, y0: number, w: number, h: number, lagShare: number, lagText: string, t: number, k = 1): void {
   const g = ctx.createLinearGradient(0, y0, 0, y0 + h);
   g.addColorStop(0, '#8C6A44');
   g.addColorStop(1, '#6E5134');
@@ -556,14 +558,14 @@ export function drawFlowerbed(ctx: CanvasRenderingContext2D, bars: readonly Trac
   ctx.lineTo(x0 + w - 3, y0 + 1);
   ctx.lineTo(x0 + w - 3, y0 + 4);
   ctx.stroke();
-  // the delay's tag on the soil, on a plate (the flowers grow tall under it)
-  ctx.font = font(13, 700);
+  // the delay's tag on the soil, on a plate (the flowers grow tall under it); `k` grows it on a big screen
+  ctx.font = font(13 * k, 700);
   const tw = ctx.measureText(lagText).width;
   ctx.fillStyle = 'rgba(70,48,26,.72)';
-  roundRect(ctx, lx - tw - 9, y0 + 2, tw + 10, 18, 7);
+  roundRect(ctx, lx - tw - 9 * k, y0 + 2, tw + 10 * k, 18 * k, 7 * k);
   ctx.fill();
   ctx.fillStyle = 'rgba(255,248,230,.95)';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'top';
-  ctx.fillText(lagText, lx - 4, y0 + 4);
+  ctx.fillText(lagText, lx - 4 * k, y0 + 2 + 2 * k);
 }
