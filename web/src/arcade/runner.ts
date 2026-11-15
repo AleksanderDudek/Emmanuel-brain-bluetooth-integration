@@ -24,8 +24,8 @@ import { dayKey, daySeed, saveProgress } from './kit/progress';
 import { ArcadeSession, type CarriedCalibration } from './kit/session';
 import { NO_INSETS, coarsePointer, safeAreas } from './kit/mobile';
 import { FREE_PHASE, type ArcadeGame, type ArcadeModule, type ArcadeOutcome, type Insets, type SignalPhase, type TapTarget } from './kit/types';
-import { howToPages, howToPlay, howToSide, MendiPanel } from './mendi';
-import type { ArcadeEntry } from './registry';
+import { fitSide, howToPages, howToPlay, howToSide, MendiPanel } from './mendi';
+import { forHands, type ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -102,6 +102,7 @@ export class ArcadeRunner {
     time: HTMLElement; clock: HTMLElement; hold: HTMLElement; pause: HTMLButtonElement;
     chip: HTMLElement | null; chipBar: HTMLElement | null; chipHold: HTMLElement | null; sim: HTMLButtonElement | null;
     dock: SignalDock; dockBtn: HTMLButtonElement; banner: HTMLElement; panel: MendiPanel; marks: HTMLElement; top: HTMLElement;
+    side: HTMLElement;
     cal?: { bar: HTMLElement; text: HTMLElement; reason: HTMLElement; tip: HTMLElement };
   } | null = null;
   private tipTimer: ReturnType<typeof setInterval> | null = null;
@@ -343,7 +344,7 @@ export class ArcadeRunner {
     // (should the canvas not have taken the pointer over, its end still clears the shift)
     for (const end of ['pointerup', 'pointercancel'] as const) dock.el.addEventListener(end, e => { shift.delete(e.pointerId); });
     this.root.replaceChildren(wrap);
-    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn, banner, panel, marks, top };
+    this.ui = { wrap, canvas, hud, overlay, time: timeBar, clock, hold, pause, chip, chipBar, chipHold, sim, dock, dockBtn, banner, panel, marks, top, side };
     wrap.focus({ preventScroll: true });
   }
 
@@ -361,7 +362,10 @@ export class ArcadeRunner {
   }
 
   private resize(): void {
-    if (!this.active || !this.ui || !this.game) return;
+    if (!this.active || !this.ui) return;
+    // the big screen's left column holds whole tips for the window's height (CSS shows it only there)
+    fitSide(this.ui.side);
+    if (!this.game) return;
     const ui = this.ui;
     this.safeArea = safeAreas(ui.wrap);
     // the top bar's width (a phone on its side puts the score left of it) and the HUD's lower edge, for the
@@ -564,9 +568,11 @@ export class ArcadeRunner {
       h('p', { class: 'muted cal-still' }, t('cal.still')),
       tip, reason, how.el,
       h('button', { class: 'btn ghost', type: 'button', on: { click: () => this.cancel() } }, t('cal.back'))));
+    // the tips for these hands: a finger's on a touch screen, their mouse-and-keyboard twins at a desktop
+    const tips = forHands(entry, this.touch).tips;
     let i = 0, ticks = 0;
     const showTip = () => {
-      tip.textContent = entry.tips[i++ % entry.tips.length];
+      tip.textContent = tips[i++ % tips.length];
       // the how-to's page turns every other tip (10 s): long enough to read a page
       if (++ticks % 2 === 1 && ticks > 1) how.turn();
     };

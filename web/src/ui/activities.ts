@@ -3,7 +3,8 @@
  * the cards, the game of the day and the "new" mark on a game never played.
  */
 import { drawArcadeArt } from '../arcade/art';
-import { ARCADE, gameOfDay, type ArcadeEntry } from '../arcade/registry';
+import { coarsePointer } from '../arcade/kit/mobile';
+import { ARCADE, forHands, gameOfDay, type ArcadeEntry } from '../arcade/registry';
 import { CARDS_ACTIVITY } from '../cards/entry';
 import type { HubStatus } from '../hub';
 import { lang } from '../i18n';
@@ -45,9 +46,9 @@ export function artImage(a: Activity): HTMLImageElement | null {
   return img;
 }
 
-/** An arcade game's card, from the registry. */
+/** An arcade game's card, from the registry (its text for these hands: a finger's, or at a desktop the mouse's). */
 const arcadeActivity = (a: ArcadeEntry): Activity => ({
-  id: a.id, group: 'game', title: a.title, text: a.text, href: `#gra/${a.id}`, cta: t('act.play'), art: a.art, tools: a.tools, arcade: a,
+  id: a.id, group: 'game', title: a.title, text: forHands(a, coarsePointer()).text, href: `#gra/${a.id}`, cta: t('act.play'), art: a.art, tools: a.tools, arcade: a,
 });
 
 export const ACTIVITIES: Activity[] = [

@@ -21,7 +21,7 @@ import type { CoachState } from './kit/coach';
 import { STATE_TONE } from './kit/coach';
 import type { Gesture, HowTo } from './kit/types';
 import type { TracePhase } from './kit/trace';
-import type { ArcadeEntry } from './registry';
+import { forHands, type ArcadeEntry } from './registry';
 
 /** What the panel shows this frame (the runner gathers it from the game, the dock and the focus). */
 export interface PanelState {
@@ -231,7 +231,7 @@ function howParts(entry: ArcadeEntry, howto: HowTo | null, tool: Tool, touch: bo
     goal: howto?.goal ? h('p', { class: 'how-goal' }, howto.goal) : null,
     hands: shown.length
       ? shown.map(c => row('hands', t(!touch && c.gesture === 'tap' ? 'gest.click' : `gest.${c.gesture}`), c.text, gestureIcon(c.gesture)))
-      : [row('hands', t('cal.handsTitle'), entry.how[2] ?? '')],
+      : [row('hands', t('cal.handsTitle'), forHands(entry, touch).how[2] ?? '')],
     brain: [row('focus', t('ban.focus'), `→ ${entry.brain.focus}`), row('rest', t('ban.rest'), `→ ${entry.brain.rest}`)],
     tips: howto?.tips?.length ? h('ul', { class: 'how-tips' }, howto.tips.slice(0, 2).map(x => h('li', null, x))) : null,
     meter: h('p', { class: 'muted' }, t(tool === 'eeg' ? 'how.meterEeg' : 'how.meter', { meter: entry.brain.meter })),
@@ -255,6 +255,21 @@ export function howToPlay(entry: ArcadeEntry, howto: HowTo | null, tool: Tool, t
 export function howToSide(entry: ArcadeEntry, howto: HowTo | null, tool: Tool): HTMLElement {
   const p = howParts(entry, howto, tool, false);
   return h('div', { class: 'arcade-howbrain arcade-side-how' }, p.goal, h('ul', null, p.hands), p.tips);
+}
+
+/**
+ * Fit the big screen's left column to its room (DESIGN §14.2): the tips drop from the last until the how-to
+ * fits, so a sentence is never cut off; only what still overflows (a short window) fades out at the bottom
+ * (`clip`).  Without layout (a hidden column, a test's DOM) every height is 0 and nothing drops.
+ */
+export function fitSide(side: HTMLElement): void {
+  const tips = [...side.querySelectorAll<HTMLElement>('.how-tips li')];
+  for (const li of tips) li.classList.remove('is-off');
+  tips[0]?.parentElement?.classList.remove('is-off');
+  const over = () => side.scrollHeight > side.clientHeight + 1;
+  for (let i = tips.length - 1; i >= 0 && over(); i--) tips[i].classList.add('is-off');
+  if (tips.length && tips.every(li => li.classList.contains('is-off'))) tips[0].parentElement?.classList.add('is-off');
+  side.classList.toggle('clip', over());
 }
 
 /**

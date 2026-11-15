@@ -9,9 +9,10 @@ import type { AppSettings, ArcadePrefs } from '../settings';
 import type { SessionDB } from '../storage/db';
 import { $, h, run } from '../ui/dom';
 import { readiness } from '../ui/focus';
+import { coarsePointer } from './kit/mobile';
 import { loadProgress, saveProgress } from './kit/progress';
 import type { ArcadeModule } from './kit/types';
-import { arcadeEntry, type ArcadeEntry } from './registry';
+import { arcadeEntry, forHands, type ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
 
 const LENGTHS: ArcadePrefs['minutes'][] = [3, 5, 10];
@@ -74,7 +75,8 @@ export class ArcadeLobby {
       $('arcadeTagline').textContent = entry.tagline;
       const [a, b] = entry.tools.map(tool => BAND_NAME[tool]);
       $('arcadeKicker').textContent = b ? t('lobby.kicker2', { a, b }) : t('lobby.kicker', { band: a });
-      $('arcadeHow').replaceChildren(...entry.how.map(line => h('li', null, line)));
+      // a finger's lines on a touch screen, their mouse-and-keyboard twins at a desktop
+      $('arcadeHow').replaceChildren(...forHands(entry, coarsePointer()).how.map(line => h('li', null, line)));
       $('arcadeRoot').replaceChildren(verseSlot(entry.root));
       $('arcadeProgressBody').replaceChildren(h('p', { class: 'muted' }, t('lobby.loading')));
       document.body.dataset.arcade = entry.id;

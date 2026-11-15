@@ -917,8 +917,10 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .arcade-dock .dock-text{gap:6px}
   .arcade-overlay{right:0}
   .arcade-side{display:flex;flex-direction:column;gap:12px;position:absolute;left:16px;bottom:18px;width:calc(var(--hud-l) - 32px);z-index:2;
-    pointer-events:none;color:#fff;max-height:calc(100% - 330px * var(--hud-k));overflow:hidden;
-    -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 28px),transparent)}
+    pointer-events:none;color:#fff;max-height:calc(100% - 330px * var(--hud-k));overflow:hidden}
+  /* the runner drops whole tips until the column fits (fitSide); only what still overflows fades out */
+  .arcade-side .is-off{display:none}
+  .arcade-side.clip{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 28px),transparent)}
   .arcade-side h2{margin:0;font-family:var(--font-head);font-weight:500;font-size:calc(26px * var(--hud-k));line-height:1.08}
   .arcade-side .arcade-howbrain{padding:calc(12px * var(--hud-k)) calc(14px * var(--hud-k));gap:calc(8px * var(--hud-k))}
   .arcade-side .how-goal{font-size:calc(14px * var(--hud-k));line-height:1.4;color:rgba(255,255,255,.9)}
@@ -928,7 +930,6 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .arcade-side .arcade-howbrain li .ban-chip{min-width:0}
   .arcade-side .how-tips li{font-size:calc(12.5px * var(--hud-k));line-height:1.4;color:rgba(255,255,255,.72)}
 }
-@media (pointer:fine) and (min-width:1500px) and (min-height:700px) and (min-aspect-ratio:3/2) and (max-height:880px){.arcade-side .how-tips{display:none}}
 @media (pointer:fine) and (min-width:1500px) and (min-height:700px) and (min-aspect-ratio:3/2) and (max-height:780px){.arcade-side{display:none}}
 .arcade-overlay .calib-reason:empty{display:none}
 @media (max-width:640px){

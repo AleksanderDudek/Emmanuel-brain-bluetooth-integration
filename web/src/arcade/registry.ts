@@ -4,6 +4,7 @@
  * The texts are in this page load's language (src/i18n/arcade.ts).
  */
 import { t } from '../i18n/arcade';
+import { mouseText } from '../i18n/arcade-mouse';
 import type { SceneId } from '../settings';
 import type { Tool } from '../tools';
 import { SCENES } from '../training/scene';
@@ -326,6 +327,21 @@ export const ARCADE: ArcadeEntry[] = [
 ];
 
 export const arcadeEntry = (id: string): ArcadeEntry | undefined => ARCADE.find(a => a.id === id);
+
+/** A registry entry's words for the hands that play it: see `forHands`. */
+export interface HandsText { text: string; how: string[]; tips: string[] }
+
+/**
+ * The entry's card text, lobby lines and calibration tips for the hands that play (DESIGN §14.6): a touch
+ * screen reads them as written, for a finger; a mouse and a keyboard read each line's twin from
+ * i18n/arcade-mouse.ts where it has one ("kliknij albo Spacja" for "stuknij").  The lines' keys follow the
+ * registry's order: `<id>.text`, `<id>.how1`…, `<id>.tip1`… (a test holds the registry to it).
+ */
+export function forHands(entry: ArcadeEntry, touch: boolean): HandsText {
+  if (touch) return { text: entry.text, how: entry.how, tips: entry.tips };
+  const twin = (part: 'how' | 'tip') => (line: string, i: number) => mouseText(`${entry.id}.${part}${i + 1}`) ?? line;
+  return { text: mouseText(`${entry.id}.text`) ?? entry.text, how: entry.how.map(twin('how')), tips: entry.tips.map(twin('tip')) };
+}
 
 /**
  * The game of the day (the Games tab's first card, Start's first game): every game in turn, one a
