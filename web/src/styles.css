@@ -625,13 +625,17 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-meter>i>i{display:block;height:100%;width:0;border-radius:3px;background:linear-gradient(90deg,var(--tool),var(--tool-2))}
 .arcade-album{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:8px}
 .arcade-album>div{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;min-height:84px;padding:8px 6px;border-radius:12px;
-  background:var(--ink-1);border:1px solid var(--line);text-align:center;font-size:12px;line-height:1.2;color:var(--tx3)}
+  background:var(--ink-1);border:1px solid var(--line);text-align:center;font-size:12px;line-height:1.2;color:var(--tx3);
+  -webkit-hyphens:auto;hyphens:auto}
 .arcade-album>div canvas{width:52px;height:40px;display:block}
 .arcade-album>div.on{color:var(--tx2);border-color:var(--line-2);background:var(--ink-3)}
 .arcade-album>div.rare{border-color:rgba(122,162,255,.45)}
 .arcade-album>div.epic{border-color:rgba(190,120,255,.55)}
 .arcade-album>div.legend{border-color:rgba(255,200,90,.65);box-shadow:0 0 18px rgba(255,200,90,.12) inset}
 .arcade-album>div small{font-family:var(--mono);font-size:11px;color:var(--tx3);overflow-wrap:anywhere}
+/* a wide lobby fits many narrow tiles: from a tablet up each takes at least 100 px, so a long name
+   ("błogosławiony", "Podwzgórze") stays whole instead of breaking mid-word; a phone keeps its three columns */
+@media (min-width:700px){.arcade-album{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}}
 .arcade-daily{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--ink-1);border:1px dashed var(--line-2)}
 .arcade-daily b{font-weight:650}
 .arcade-daily p{color:var(--tx2);font-size:13px;margin-top:2px}
