@@ -5229,8 +5229,12 @@ stopped at 1.3 — a phone's UI drawn a little larger in the middle of a big scr
   over the canvas (the top bar there), and an edge a column covers is no device edge in `insets()`.
   A laptop and anything narrower keep the top HUD and the dock below.
 * **The left column holds whole lines** (`fitSide`, on every resize): the tips drop from the last until the
-  how-to fits the window's height, so a sentence is never cut off; only what still overflows a short window
-  fades out at the bottom (`clip`), and under 780 px of height the column is not shown at all.
+  how-to fits the window's height, so a sentence is never cut off; then, where the hands' rows alone are long
+  (Glina, Źródła, Zacheusz, Dolina, Chleby, Ogień at 1 920 × 960), the goal — the lobby and the help card say
+  it, and in play the controls are what the column is for.  Only what still overflows a short window fades
+  out at the bottom (`clip`), and under 780 px of height the column is not shown at all.  Checked in every
+  game at 1 600 × 860, 1 920 × 960 (pl, de, sv) and 2 560 × 1 300: nothing fades, and the column keeps 40 px
+  and more clear of the band's panel above it.
 * Mouse words: the how-to's chip for a tap says "Kliknij" without a touch screen.
 
 ### 14.3 Each game on a big screen (the desktop pass)

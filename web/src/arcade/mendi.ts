@@ -259,16 +259,21 @@ export function howToSide(entry: ArcadeEntry, howto: HowTo | null, tool: Tool): 
 
 /**
  * Fit the big screen's left column to its room (DESIGN §14.2): the tips drop from the last until the how-to
- * fits, so a sentence is never cut off; only what still overflows (a short window) fades out at the bottom
- * (`clip`).  Without layout (a hidden column, a test's DOM) every height is 0 and nothing drops.
+ * fits, so a sentence is never cut off; then, when the hands' rows alone are too long, the goal (the lobby
+ * and the help card say it too) — the controls are what a player looks to the column for in play.  Only
+ * what still overflows (a short window) fades out at the bottom (`clip`).  Without layout (a hidden column,
+ * a test's DOM) every height is 0 and nothing drops.
  */
 export function fitSide(side: HTMLElement): void {
   const tips = [...side.querySelectorAll<HTMLElement>('.how-tips li')];
+  const goal = side.querySelector<HTMLElement>('.how-goal');
   for (const li of tips) li.classList.remove('is-off');
   tips[0]?.parentElement?.classList.remove('is-off');
+  goal?.classList.remove('is-off');
   const over = () => side.scrollHeight > side.clientHeight + 1;
   for (let i = tips.length - 1; i >= 0 && over(); i--) tips[i].classList.add('is-off');
   if (tips.length && tips.every(li => li.classList.contains('is-off'))) tips[0].parentElement?.classList.add('is-off');
+  if (goal && over()) goal.classList.add('is-off');
   side.classList.toggle('clip', over());
 }
 

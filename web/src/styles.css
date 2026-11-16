@@ -921,7 +921,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
   .arcade-dock .dock-text{gap:6px}
   .arcade-overlay{right:0}
   .arcade-side{display:flex;flex-direction:column;gap:12px;position:absolute;left:16px;bottom:18px;width:calc(var(--hud-l) - 32px);z-index:2;
-    pointer-events:none;color:#fff;max-height:calc(100% - 330px * var(--hud-k));overflow:hidden}
+    pointer-events:none;color:#fff;max-height:calc(100% - 290px * var(--hud-k));overflow:hidden}
   /* the runner drops whole tips until the column fits (fitSide); only what still overflows fades out */
   .arcade-side .is-off{display:none}
   .arcade-side.clip{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 28px),transparent)}
