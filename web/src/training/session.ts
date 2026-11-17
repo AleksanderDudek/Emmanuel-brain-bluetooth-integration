@@ -5,6 +5,7 @@
  */
 import type { HubSample, SignalReason, SignalWarning } from '../hub';
 import type { Tool } from '../tools';
+import { BreakLog } from './breaks';
 import { ActivityMeter, EEG_METER, FNIRS_METER, type MeterConfig } from './meter';
 import { HISTORY_SEC, type HistoryPoint } from './scene';
 import { SessionScorer, type Mood, type TrainingResult } from './score';
@@ -37,6 +38,8 @@ export class FocusSession {
   breathworkSec = 0;
   /** the engine started a new baseline mid-game: the reference is being taken again (no points meanwhile) */
   recalibrating = false;
+  /** the breaks in the signal during play, by cause */
+  readonly breaks = new BreakLog();
   private epoch: number | null = null;
 
   constructor(readonly tool: Tool, readonly plannedSec: number, meter?: MeterConfig) {
@@ -80,6 +83,7 @@ export class FocusSession {
     }
     if (r.activity !== null && r.reliable) this.level = r.activity;
     const usable = r.reliable && r.activity !== null && !this.recalibrating;
+    this.breaks.push(usable, s.reason, s.dt);
     const res = this.scorer.tick(usable ? r.activity : null, usable, s.dt);
     this.gameT += s.dt;
     if (usable && s.warning) this.weakSec += s.dt;
@@ -116,6 +120,7 @@ export class FocusSession {
       activity_avg_pct: round1(s.meanActivity), activity_max_pct: round1(s.maxActivity === -Infinity ? null : s.maxActivity),
       reliable_pct: s.playedSec > 0 ? Math.round((100 * s.reliableSec) / s.playedSec) : 0,
       weak_signal_pct: s.reliableSec > 0 ? Math.round((100 * this.weakSec) / s.reliableSec) : 0,
+      breaks: { ...this.breaks.counts },
       series: s.series,
     };
   }

@@ -11,6 +11,7 @@ import { t as tSignal } from '../i18n/signal';
 import { t } from '../i18n/training';
 import type { SessionDB } from '../storage/db';
 import { TOOL_INFO } from '../tools';
+import { breakLine } from '../training/breaks';
 import { TrainingAudio } from '../training/audio';
 import { drawScenePreview, SceneRenderer, SCENES } from '../training/scene';
 import { dayScore, FEELINGS, isTopSession, newMilestones, type Mood, type TrainingResult } from '../training/score';
@@ -566,6 +567,7 @@ export class FocusRunner {
         t('sum.parts', { commitment: day.commitment, performance: day.performance }),
         r.reliable_pct < 90 ? t('sum.reliable', { pct: r.reliable_pct }) : '',
         (r.weak_signal_pct ?? 0) >= 30 ? t('sum.weak', { pct: r.weak_signal_pct ?? 0 }) : '',
+        r.source === 'device' ? breakLine(r.breaks) : '',
         r.source === 'simulator' ? t('sum.simulator') : '',
         r.completed ? '' : t('sum.early'),
       ].filter(Boolean).join(' ')),

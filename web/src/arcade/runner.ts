@@ -12,6 +12,7 @@ import { BAND_NAME, t } from '../i18n/arcade';
 import type { AppSettings } from '../settings';
 import type { SessionDB } from '../storage/db';
 import { TOOL_INFO, type Tool } from '../tools';
+import { breakLine } from '../training/breaks';
 import { dayScore, newMilestones, type TrainingResult } from '../training/score';
 import { $, fmtDur, h, run, toast } from '../ui/dom';
 import { drawOverview } from '../ui/focus';
@@ -971,7 +972,9 @@ export class ArcadeRunner {
         h('div', { class: 'summary-grid' },
           stat(t('sum.activity'), signPct(r.activity_avg_pct)), stat(t('sum.control'), num(r.control_sec), 's'),
           stat(t('sum.oxygen'), num(r.points), t('sum.points')), stat(t('sum.session'), fmtDur(r.played_sec), 'min')),
-        overview),
+        overview,
+        // why the band dropped, when it did, and what helps (a real band only: the simulator never breaks)
+        r.source === 'device' && breakLine(r.breaks) ? h('p', { class: 'muted mt8' }, breakLine(r.breaks)) : null),
       h('div', { class: 'summary-top' }, ring, h('div', null,
         h('p', { class: 'eyebrow' }, t('sum.day')),
         h('h2', null, day.label),

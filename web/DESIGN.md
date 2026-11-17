@@ -511,6 +511,15 @@ waiting on a GATT connect that could hang, then gave up.
 | Contact (`FNIRSPipeline.contactLost`, hub) | A band lifted off the forehead is caught **at once**: the last second's infrared light under 100 and under 30 % of its own 10 s mean. The 10 s quality label said it up to ten seconds later — seconds that used to count as brain activity. A dim but steady band is not flagged here. |
 | Words | While the meter re-anchors: "Sygnał wrócił — dopasowuję poziom, bez nowej kalibracji" (training and games). A real new calibration (a band chosen anew, the user's "new baseline", a changed setting, a rate change) still says "Nowa linia bazowa — kalibruję ponownie". |
 
+**Why it broke, after the session.** "The band often loses contact" has three different causes with three
+different cures, and the player cannot tell them apart in the moment. Each session now counts its breaks by the
+cause that started them (`src/training/breaks.ts`: a stretch of unusable signal of ≥ 1.5 s, counted once — the
+quick baseline and the settle after a reconnect belong to the reconnect): **movement**, **contact** (off the skin),
+**Bluetooth** (reconnecting, no data). The counts are saved with the result (`TrainingResult.breaks`) and the
+summary of the focus training and of every game says them with the tip for the most frequent one: "Przerwy w
+sygnale: ruch ×3, Bluetooth ×1. Najczęściej ruch: siedź z oparciem i nie kiwaj głową — mówienie też porusza
+opaską." (a real band only; the simulator never breaks).
+
 **In numbers** (the tests in test/pipeline, training, engine, ble): a Bluetooth reconnect costs the time the link is
 down + ~2 s of quick baseline + 2.5 s of settle, instead of + ~31 s; a motion or contact break costs its own length +
 2.5 s, and the activity no longer jumps by the baseline shift; a stall costs only its own length.

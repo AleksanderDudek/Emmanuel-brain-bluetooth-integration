@@ -140,6 +140,8 @@ export interface TrainingResult {
   reliable_pct: number;
   /** share of the reliable time with a weak-signal warning (low SCI, room light) */
   weak_signal_pct?: number;
+  /** breaks in the signal during play, by cause (src/training/breaks.ts); absent in older results */
+  breaks?: { motion: number; contact: number; bluetooth: number };
   /** activity % per second of play */
   series: (number | null)[];
   game?: GameResult;

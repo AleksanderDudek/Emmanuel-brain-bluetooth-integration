@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { BreakLog, breakLine, topBreak } from '../src/training/breaks';
 import { ActivityMeter, FNIRS_METER } from '../src/training/meter';
 import {
   dayScore, isTopSession, newMilestones, restedYesterday, SessionScorer, streakDays, type TrainingResult,
@@ -118,6 +119,41 @@ describe('ActivityMeter', () => {
     for (let i = 0; i < 50; i++) fresh.push(null, false, 0.1);
     expect(fresh.anchoring).toBe(false);
     expect(fresh.push(0, true, 0.1).phase).toBe('calibrating');
+  });
+});
+
+describe('BreakLog', () => {
+  it('counts the breaks by the cause that started them, never a flicker', () => {
+    const log = new BreakLog();
+    const run = (usable: boolean, reason: Parameters<BreakLog['push']>[1], sec: number) => {
+      for (let i = 0; i < Math.round(sec * 10); i++) log.push(usable, reason, 0.1);
+    };
+    run(true, null, 5);
+    run(false, 'motion', 1);                 // a flicker
+    run(true, null, 2);
+    run(false, 'motion', 3);                 // a break: movement
+    run(true, null, 2);
+    // a reconnect: the link, then the quick baseline, then the meter settling — one Bluetooth break
+    run(false, 'connecting', 2);
+    run(false, 'baseline', 2);
+    run(false, null, 2.5);
+    run(true, null, 3);
+    run(false, 'poor_signal', 4);            // the band off the skin
+    run(true, null, 1);
+    run(false, 'baseline', 5);               // a baseline with no break before it is not a break
+    expect(log.counts).toEqual({ motion: 1, contact: 1, bluetooth: 1 });
+    expect(log.total).toBe(3);
+    expect(log.lostSec).toBeCloseTo(3 + 6.5 + 4, 5);
+  });
+
+  it('says the breaks and the tip for the most frequent cause', () => {
+    expect(breakLine(undefined)).toBe('');
+    expect(breakLine({ motion: 0, contact: 0, bluetooth: 0 })).toBe('');
+    expect(topBreak({ motion: 2, contact: 2, bluetooth: 1 })).toBe('contact');
+    const line = breakLine({ motion: 3, contact: 0, bluetooth: 1 });
+    expect(line).toMatch(/Bluetooth ×1/);
+    expect(line).toMatch(/ruch ×3/);
+    expect(line).toMatch(/Najczęściej ruch/);
   });
 });
 
