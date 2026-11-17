@@ -1,84 +1,60 @@
 /**
- * Światło ciała's "Postępy" card in the lobby, from the app's shared .arcade-* classes (styles.css): the
- * records, how the game works in one paragraph (with its honesty: a typical body, sped up, sources; the
- * only reading is the pulse), the day's organ, the body map (nine organs, three depths each, golden ones
- * ringed), the Wiedza cards met (each with its number and source) and the song's switch.  Built with h();
- * the switch saves at once.
+ * Światło ciała's "Postępy" card in the lobby (DESIGN.md §13.10), from the app's shared classes (styles.css):
+ *
+ *   the numbers     the record, sessions, places lit, whole meditations
+ *   what it is      how it works in one paragraph, and plainly what it is not (not a treatment)
+ *   the meditation  five to choose (a radio row; saved at once), its line, where it goes on ("Kontynuuj od: …") and
+ *                   "Od początku"
+ *   the album       the chosen meditation's places as tiles — each its own shape, lit once focus filled it; a tap
+ *                   makes it the next start ("▶ tu zaczniesz")
+ *   the music       the lullaby's switch
+ *
+ * Built with h(); a choice saves the progress and redraws the card.
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
-import { ALL_CARDS, DEPTHS, ORGAN, ORGANS, dayOrgan, depthName, factSource, factText, organName, type Depth, type OrganId } from './content';
-import { ORGAN_SHAPES, ORGAN_SPOT, spline, type Shape } from './figure';
-import { t } from './i18n';
-import { bestOf, mapLit, mapRating, type SwiatloProgress } from './meta';
 import { coarsePointer } from '../kit/mobile';
-import { daySeed } from '../kit/progress';
-import { rgbaPrefix } from './paint';
+import { BRAIN_BOX } from './brain';
+import { LISTS, VARIANTS, count, elName, elementAt, isBrainView, variantLine, variantName, type Element, type VariantId } from './content';
+import { geoBox } from './figure';
+import { t } from './i18n';
+import { fitCam } from './layout';
+import { bestOf, choose, litIn, restart, startAt, type SwiatloProgress } from './meta';
+import { bakeNight } from './paint';
+import { drawBrain, drawFigure } from './picture';
 
 function stat(k: string, v: string): HTMLElement {
   return h('div', { class: 'stat' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v));
 }
 
-/** An organ's shapes for a tile: a pair shows its right-hand one, bigger. */
-function tileShapes(o: OrganId): readonly Shape[] {
-  const all = ORGAN_SHAPES[o];
-  if (!ORGAN_SPOT[o].pair) return all;
-  const meanX = (s: Shape) => (s.kind === 'ellipse' ? s.x : s.pts.reduce((a, q) => a + q[0], 0) / s.pts.length);
-  return all.filter(s => meanX(s) > 0);
+function button(text: string, onClick: () => void, cls = 'btn', extra: Record<string, unknown> = {}): HTMLButtonElement {
+  const b = h('button', { class: cls, type: 'button', ...extra }, text);
+  b.addEventListener('click', e => {
+    e.preventDefault();
+    onClick();
+  });
+  return b;
 }
 
-/** The extent of shapes in figure units. */
-function extent(shapes: readonly Shape[]): { cx: number; cy: number; w: number; h: number } {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const s of shapes) {
-    const pts = s.kind === 'ellipse' ? [[s.x - s.rx, s.y - s.ry], [s.x + s.rx, s.y + s.ry]] : s.pts;
-    for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-  }
-  return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: Math.max(0.01, x1 - x0), h: Math.max(0.01, y1 - y0) };
-}
-
-/** A little tile of an organ: its shape, lit in its colour when it was ever lit (a gold frame when golden). */
-function tile(o: OrganId, p: SwiatloProgress): HTMLCanvasElement {
+/** A little tile of an element: its own shape on a glimpse of the picture, lit in its colour once it was lit. */
+function tile(e: Element, lit: boolean): HTMLCanvasElement {
   const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
   const c = h('canvas', { width: String(Math.round(52 * dpr)), height: String(Math.round(40 * dpr)), 'aria-hidden': 'true' });
   const ctx = c.getContext('2d');
   if (!ctx || typeof Path2D === 'undefined') return c;
+  const night = bakeNight(52, 40, dpr, 26, 20);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = '#0b1430';
-  ctx.fillRect(0, 0, 52, 40);
-  const best = Math.max(...DEPTHS.map(d => mapRating(p, o, d)));
-  const spec = ORGAN[o];
-  const shapes = tileShapes(o);
-  const box = extent(shapes);
-  const k = Math.min(40 / box.w, 28 / box.h);
-  const map = (x: number, y: number): [number, number] => [26 + (x - box.cx) * k, 20 + (y - box.cy) * k];
-  const lit = best > 0;
-  const fill = new Path2D();
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  for (const s of shapes) {
-    if (s.kind === 'blob') spline(fill, s.pts, map, true);
-    else if (s.kind === 'ellipse') {
-      const [x, y] = map(s.x, s.y);
-      fill.moveTo(x + s.rx * k, y);
-      fill.ellipse(x, y, s.rx * k, s.ry * k, s.rot ?? 0, 0, Math.PI * 2);
-    } else {
-      const line = new Path2D();
-      spline(line, s.pts, map, false);
-      ctx.strokeStyle = lit ? spec.hue : `${rgbaPrefix(spec.deep)}.95)`;
-      ctx.lineWidth = Math.max(2, s.width * k);
-      ctx.stroke(line);
-    }
-  }
-  ctx.fillStyle = lit ? spec.hue : `${rgbaPrefix(spec.deep)}.85)`;
-  ctx.fill(fill);
-  ctx.strokeStyle = lit ? 'rgba(255,255,255,.85)' : `${rgbaPrefix(spec.hue)}.45)`;
-  ctx.lineWidth = 1;
-  ctx.stroke(fill);
-  if (best >= 3) {
-    ctx.strokeStyle = '#ffd27a';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(1.5, 1.5, 49, 37);
+  if (night) ctx.drawImage(night, 0, 0, 52, 40);
+  const box = { x: 2, y: 2, w: 48, h: 36 };
+  const st = { current: null, fill: 0, lit: () => (lit ? 1 : 0), filling: false, blind: false, rest: false, breath: 0, time: 0 };
+  if (isBrainView(e.view)) {
+    const cam = fitCam(box, BRAIN_BOX.x0, BRAIN_BOX.y0, BRAIN_BOX.x1, BRAIN_BOX.y1, 1);
+    drawBrain(ctx, dpr, cam, e.view as 'lat' | 'med', [e], { ...st, lit: () => (lit ? 1 : 0.6) });
+  } else {
+    const [x0, y0, x1, y1] = geoBox(e.geo);
+    const pad = Math.max(0.03, (y1 - y0) * 0.25);
+    const cam = fitCam(box, x0 - pad, y0 - pad, x1 + pad, y1 + pad, 0);
+    drawFigure(ctx, dpr, cam, e.view === 'back', [e], { ...st, lit: () => (lit ? 1 : 0.6) });
   }
   return c;
 }
@@ -96,52 +72,63 @@ export function progressPanel(p: SwiatloProgress, save: () => void): HTMLElement
   return root;
 }
 
-function build(p: SwiatloProgress, changed: () => void): HTMLElement[] {
-  const best = bestOf(p);
-  const lit = mapLit(p);
-  const today = dayOrgan(daySeed('swiatlo'));
-  // the body map: an album of the nine organs, three depths each
-  const map = h('div', { class: 'arcade-album' }, ORGANS.map(o => {
-    const marks = DEPTHS.map(d => {
-      const r = mapRating(p, o, d);
-      return r >= 3 ? '★' : r > 0 ? '●' : '○';
-    }).join('');
-    const any = DEPTHS.some(d => mapRating(p, o, d) > 0);
-    return h('div', { class: any ? 'on' : null, title: `${organName(o)}: ${DEPTHS.map(d => depthName(d)).join(' · ')}` }, tile(o, p), organName(o), h('small', null, marks));
+/** The album of a meditation: its places as tiles, each a button that makes it the next start. */
+function album(p: SwiatloProgress, v: VariantId, changed: () => void): HTMLElement {
+  const here = p.pos[v].idx;
+  return h('div', { class: 'arcade-album' }, LISTS[v].map((e, i) => {
+    const n = p.lit[e.id] ?? 0;
+    const pick = () => { if (startAt(p, v, i)) changed(); };
+    return h('div', {
+      class: n > 0 ? 'on rare' : i === here ? 'on' : null,
+      role: 'button', tabindex: '0', 'aria-pressed': String(i === here),
+      'aria-label': `${i + 1}. ${elName(e)} — ${t('panel.here')}`,
+      title: `${i + 1}. ${elName(e)} · ${e.latin}`,
+      on: {
+        click: (ev: Event) => { ev.preventDefault(); pick(); },
+        keydown: (ev: Event) => {
+          const k = (ev as KeyboardEvent).key;
+          if (k === 'Enter' || k === ' ') { ev.preventDefault(); pick(); }
+        },
+      },
+    }, tile(e, n > 0), `${i + 1}. ${elName(e)}`, h('small', null, i === here ? t('panel.here') : n > 0 ? `✦ ×${n}` : '○'));
   }));
-  // the Wiedza cards met, newest first
-  const met = [...p.cards].reverse().filter(id => ALL_CARDS.includes(id));
-  const cards = met.map(id => {
-    const [o, d] = id.split(':') as [OrganId, string];
-    const depth = Number(d) as Depth;
-    return h('div', { class: 'arcade-daily' },
-      h('div', null, h('b', null, `${organName(o)} · ${depthName(depth)}`), h('p', null, factText(o, depth)), h('p', { class: 'muted' }, t('hud.source', { s: factSource(o, depth) }))));
-  });
-  // the song's switch
-  const input = h('input', { type: 'checkbox', 'aria-label': t('panel.song') }) as HTMLInputElement;
-  input.checked = p.song;
-  input.addEventListener('change', () => {
-    p.song = input.checked;
+}
+
+function build(p: SwiatloProgress, changed: () => void): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  const best = bestOf(p);
+  const litAll = VARIANTS.reduce((s, v) => s + litIn(p, v), 0);
+  const wholeAll = VARIANTS.reduce((s, v) => s + (p.whole[v] ?? 0), 0);
+  out.push(h('div', { class: 'arcade-stats' },
+    stat(t('panel.best'), best === null ? '—' : fmtNum(best)),
+    stat(t('panel.sessions'), fmtNum(p.sessions)),
+    stat(t('panel.litAll'), fmtNum(litAll)),
+    stat(t('panel.wholeAll'), fmtNum(wholeAll))));
+  out.push(h('p', { class: 'muted' }, t('panel.rules')), h('p', null, t('panel.not')));
+
+  // ── the meditation ──
+  const v = p.variant;
+  const vBtn = (x: VariantId) => button(variantName(x), () => { if (choose(p, x)) changed(); }, 'btn', { role: 'radio', 'aria-checked': String(v === x) });
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.choose')),
+    h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.choose') }, VARIANTS.map(vBtn)),
+    h('p', { class: 'muted' }, variantLine(v)));
+  const place = p.pos[v];
+  out.push(h('p', null, t('panel.cont', { name: elName(elementAt(v, place.idx)), n: place.idx + 1, of: count(v) })),
+    h('div', { class: 'seg' }, button(t('panel.restart'), () => { restart(p, v); changed(); }, 'btn', { disabled: place.idx === 0 && place.fill === 0 ? '' : null })));
+
+  // ── the album ──
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.album', { lit: litIn(p, v), all: count(v) })),
+    album(p, v, changed),
+    h('p', { class: 'muted' }, t(coarsePointer() ? 'panel.albumNote' : 'panel.albumNote.mouse')));
+
+  // ── the music ──
+  const box = h('input', { type: 'checkbox', 'aria-label': t('panel.song') }) as HTMLInputElement;
+  box.checked = p.song;
+  box.addEventListener('change', () => {
+    p.song = box.checked;
     changed();
   });
-  const song = h('label', { class: 'switch' }, input, h('span', null, t('panel.song')));
-  const out: (HTMLElement | null)[] = [
-    h('div', { class: 'arcade-stats' },
-      stat(t('panel.best'), best === null ? '—' : fmtNum(best)),
-      stat(t('panel.scans'), fmtNum(p.scans)),
-      stat(t('panel.golden'), fmtNum(p.golden)),
-      stat(t('panel.depth'), depthName(Math.min(3, Math.max(1, p.depth)) as Depth))),
-    h('p', { class: 'muted' }, t(coarsePointer() ? 'panel.rules' : 'panel.rules.mouse')),
-    h('p', null, t('panel.day', { organ: organName(today) })),
-    h('p', { class: 'muted' }, t('panel.pulse')),
-    h('div', { class: 'arcade-sub' }, `${t('panel.map')} · ${lit.lit}/${lit.all}`),
-    map,
-    h('p', { class: 'muted' }, t('panel.mapNote')),
-    h('div', { class: 'arcade-sub' }, t('panel.cards', { have: p.cards.length, all: ALL_CARDS.length })),
-    ...(cards.length ? cards : [h('p', { class: 'muted' }, t('panel.locked'))]),
-    h('div', { class: 'arcade-sub' }, t('panel.song')),
-    song,
-    h('p', { class: 'muted' }, t('panel.songNote')),
-  ];
-  return out.filter((x): x is HTMLElement => !!x);
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.song')), h('label', { class: 'switch' }, box, h('span', null, t('panel.song'))),
+    h('p', { class: 'muted' }, t('panel.songNote')), h('p', { class: 'muted' }, t('panel.pulse')));
+  return out;
 }

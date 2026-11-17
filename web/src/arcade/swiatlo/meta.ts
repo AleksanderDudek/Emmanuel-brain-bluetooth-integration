@@ -1,99 +1,117 @@
 /**
- * What Światło ciała remembers between sessions, and the pure rules of its meta game:
+ * What Światło ciała remembers between sessions (version 2, round 11), and the pure rules of its meta game:
  *
- *   the body map   every organ at three depths (organs, cells, systems), lit with its best rating
- *                  (1 soft, 2 bright, 3 golden) — the figure in the lobby fills with light over sessions
- *   Wiedza         the knowledge cards met (one per organ and depth, each with a real number and its source)
- *   depths         the deepest depth opened: a whole scan opens the next one (organs → cells → systems)
- *   records        the best lux per session length, full scans, golden organs, the most golden in one scan,
- *                  the fastest whole scan, breaths in rhythm, whether a real pulse was ever seen
- *   the song       the lullaby in the background, on or off (the lobby's card switches it)
+ *   the choice    the meditation chosen (narzady, miesnie, mozg, konczyny, rownowaga)
+ *   the places    where each meditation goes on: its element and the light gathered there ("Kontynuuj")
+ *   the album     how many times each element was lit by focus; how many times each meditation was walked whole
+ *   records       the most lux per session length, all the lux ever, whether a real pulse was ever seen
+ *   the music     the lullaby in the background, on or off
  *
- * Version 1 from the start.  The placeholder's save (`{ ver: 1, sessions: n }`) keeps its count and gets
- * everything else fresh; any field of a wrong type is reset rather than trusted.  No DOM, no randomness.
+ * A version-1 save (the nine loops) keeps its sessions, pushes, records, the song and what was already explained;
+ * its body map becomes Równowaga's album (an organ lit at n depths counts as lit n times, so its next fact card is
+ * one level deeper).  Any field of a wrong type is repaired rather than trusted.  No DOM, no randomness.
  */
-import { ALL_CARDS, DEPTHS, ORGANS, cardId, type Depth, type OrganId } from './content';
+import { ALL_IDS, LISTS, LOOPS, VARIANTS, count, type VariantId } from './content';
+
+export interface Place { idx: number; fill: number }
 
 export interface SwiatloProgress {
-  ver: 1;
-  /** sessions saved */
+  ver: 2;
   sessions: number;
   /** push blocks begun, all time: every 4th is blind from the 3rd session */
   pushes: number;
-  /** whole scans, all time */
-  scans: number;
-  /** the body map: "organ:depth" → the best rating (1 soft, 2 bright, 3 golden) */
-  map: Record<string, number>;
-  /** the Wiedza cards met ("organ:depth") */
-  cards: string[];
-  /** the deepest depth opened (1..3) */
-  depth: number;
-  /** the best lux per session length (s) */
+  variant: VariantId;
+  pos: Record<VariantId, Place>;
+  /** element id → times lit by focus */
+  lit: Record<string, number>;
+  /** meditation → times walked whole */
+  whole: Record<VariantId, number>;
+  /** the most lux per session length (s), and all the lux ever */
   best: Record<string, number>;
-  /** organs settled and golden ones, all time */
-  balanced: number;
-  golden: number;
-  /** the most golden organs in one scan, and the fastest whole scan (s; 0 = none yet) */
-  bestScan: number;
-  fastest: number;
-  /** breaths tapped with the guide, all time */
-  breaths: number;
-  /** a real pulse (Mendi) was seen at least once */
+  luxAll: number;
   pulseSeen: boolean;
-  /** the lullaby in the background */
   song: boolean;
   /** first-time explanations and story cards already given */
   seen: string[];
-  /** the last session's planned length (s) */
   lastLen: number;
 }
 
+const zeroPlaces = (): Record<VariantId, Place> => Object.fromEntries(VARIANTS.map(v => [v, { idx: 0, fill: 0 }])) as Record<VariantId, Place>;
+const zeroWhole = (): Record<VariantId, number> => Object.fromEntries(VARIANTS.map(v => [v, 0])) as Record<VariantId, number>;
+
 export function freshProgress(): SwiatloProgress {
   return {
-    ver: 1, sessions: 0, pushes: 0, scans: 0, map: {}, cards: [], depth: 1, best: {}, balanced: 0, golden: 0, bestScan: 0, fastest: 0,
-    breaths: 0, pulseSeen: false, song: true, seen: [], lastLen: 0,
+    ver: 2, sessions: 0, pushes: 0, variant: 'narzady', pos: zeroPlaces(), lit: {}, whole: zeroWhole(), best: {}, luxAll: 0,
+    pulseSeen: false, song: true, seen: [], lastLen: 0,
   };
 }
 
 const num = (v: unknown, d = 0): number => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const int = (v: unknown, d = 0, lo = 0): number => Math.max(lo, Math.floor(num(v, d)));
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
-const CARD_SET = new Set<string>(ALL_CARDS);
+const IDS = new Set(ALL_IDS);
+const isVariant = (v: unknown): v is VariantId => (VARIANTS as readonly unknown[]).includes(v);
 
-/**
- * Bring a loaded save to version 1, in place (idempotent).  The placeholder's save and any older or
- * broken one keep their session count; every field of a wrong type is repaired.
- */
+/** A saved place, repaired: an element inside the meditation, a fill in 0..1 (a full one starts again at 0). */
+export function cleanPlace(v: unknown, variant: VariantId): Place {
+  if (!isObj(v)) return { idx: 0, fill: 0 };
+  const idx = Math.min(count(variant) - 1, int(v.idx));
+  const fill = Math.max(0, Math.min(1, num(v.fill)));
+  return { idx, fill: fill >= 1 ? 0 : fill };
+}
+
+function records(raw: unknown): Record<string, number> {
+  const best: Record<string, number> = {};
+  if (isObj(raw)) for (const [k, v] of Object.entries(raw)) if (num(v) > 0) best[k] = Math.floor(num(v));
+  return best;
+}
+
+const strings = (v: unknown): string[] => (Array.isArray(v) ? [...new Set(v.filter((s): s is string => typeof s === 'string'))] : []);
+
+/** Bring a loaded save to version 2, in place (idempotent). */
 export function migrate(p: SwiatloProgress): SwiatloProgress {
   const raw = p as unknown as Record<string, unknown>;
   const f = freshProgress();
-  if (raw.ver !== 1) {
-    const keep = { sessions: int(raw.sessions), pushes: int(raw.pushes) };
+  if (raw.ver !== 2) {
+    // version 1 (the nine loops) or the placeholder's save: keep what still means something
+    const v1 = raw.ver === 1;
+    const lit: Record<string, number> = {};
+    if (v1 && isObj(raw.map)) {
+      for (const id of LOOPS) {
+        const n = [1, 2, 3].filter(d => num((raw.map as Record<string, unknown>)[`${id}:${d}`]) > 0).length;
+        if (n > 0) lit[`r.${id}`] = n;
+      }
+    }
+    const keep: Partial<SwiatloProgress> = {
+      sessions: int(raw.sessions), pushes: int(raw.pushes), lit,
+      best: v1 ? records(raw.best) : {}, pulseSeen: raw.pulseSeen === true,
+      song: typeof raw.song === 'boolean' ? raw.song : true,
+      seen: v1 ? strings(raw.seen) : [],
+    };
+    if (v1 && int(raw.scans) > 0) keep.whole = { ...zeroWhole(), rownowaga: int(raw.scans) };
     for (const k of Object.keys(raw)) delete raw[k];
     Object.assign(p, f, keep);
     return p;
   }
   p.sessions = int(raw.sessions);
   p.pushes = int(raw.pushes);
-  p.scans = int(raw.scans);
-  const map: Record<string, number> = {};
-  if (isObj(raw.map)) for (const [k, v] of Object.entries(raw.map)) if (CARD_SET.has(k) && num(v) >= 1) map[k] = Math.min(3, Math.floor(num(v)));
-  p.map = map;
-  p.cards = Array.isArray(raw.cards) ? [...new Set(raw.cards.filter((c): c is string => typeof c === 'string' && CARD_SET.has(c)))] : [];
-  p.depth = Math.min(3, int(raw.depth, 1, 1));
-  const best: Record<string, number> = {};
-  if (isObj(raw.best)) for (const [k, v] of Object.entries(raw.best)) if (num(v) > 0) best[k] = Math.floor(num(v));
-  p.best = best;
-  p.balanced = int(raw.balanced);
-  p.golden = int(raw.golden);
-  p.bestScan = Math.min(ORGANS.length, int(raw.bestScan));
-  p.fastest = Math.max(0, num(raw.fastest));
-  p.breaths = int(raw.breaths);
+  p.variant = isVariant(raw.variant) ? raw.variant : f.variant;
+  const pos = zeroPlaces();
+  if (isObj(raw.pos)) for (const v of VARIANTS) pos[v] = cleanPlace(raw.pos[v], v);
+  p.pos = pos;
+  const lit: Record<string, number> = {};
+  if (isObj(raw.lit)) for (const [k, v] of Object.entries(raw.lit)) if (IDS.has(k) && int(v) > 0) lit[k] = int(v);
+  p.lit = lit;
+  const whole = zeroWhole();
+  if (isObj(raw.whole)) for (const v of VARIANTS) whole[v] = int(raw.whole[v]);
+  p.whole = whole;
+  p.best = records(raw.best);
+  p.luxAll = int(raw.luxAll);
   p.pulseSeen = raw.pulseSeen === true;
   p.song = typeof raw.song === 'boolean' ? raw.song : f.song;
-  p.seen = Array.isArray(raw.seen) ? raw.seen.filter((s): s is string => typeof s === 'string') : [];
+  p.seen = strings(raw.seen);
   p.lastLen = int(raw.lastLen);
-  p.ver = 1;
+  p.ver = 2;
   return p;
 }
 
@@ -106,61 +124,28 @@ export function bestOf(p: SwiatloProgress): number | null {
 /** The record key for a planned length: sessions are compared with sessions of the same length. */
 export const lenKey = (plannedSec: number): string => String(Math.round(plannedSec / 30) * 30);
 
-/** The map's rating of an organ at a depth (0 = dark). */
-export const mapRating = (p: SwiatloProgress, o: OrganId, d: Depth): number => p.map[cardId(o, d)] ?? 0;
+/** How many of a meditation's elements were ever lit by focus. */
+export const litIn = (p: SwiatloProgress, v: VariantId): number => LISTS[v].reduce((n, e) => n + ((p.lit[e.id] ?? 0) > 0 ? 1 : 0), 0);
 
-/** How much of the map is lit (0..27), and how much of it is golden. */
-export function mapLit(p: SwiatloProgress): { lit: number; golden: number; all: number } {
-  let lit = 0, golden = 0;
-  for (const id of ALL_CARDS) {
-    const r = p.map[id] ?? 0;
-    if (r > 0) lit++;
-    if (r >= 3) golden++;
-  }
-  return { lit, golden, all: ALL_CARDS.length };
-}
-
-/** Light an organ on the map (keeps the best rating); true when it was dark before. */
-export function lightMap(p: SwiatloProgress, o: OrganId, d: Depth, rating: number): boolean {
-  const id = cardId(o, d);
-  const was = p.map[id] ?? 0;
-  p.map[id] = Math.max(was, Math.min(3, Math.max(1, Math.floor(rating))));
-  return was === 0;
-}
-
-/** Meet a Wiedza card; true when it is new. */
-export function meetCard(p: SwiatloProgress, o: OrganId, d: Depth): boolean {
-  const id = cardId(o, d);
-  if (p.cards.includes(id)) return false;
-  p.cards.push(id);
+/** Choose a meditation (the lobby's card, the picker); false for an unknown one. */
+export function choose(p: SwiatloProgress, v: unknown): boolean {
+  if (!isVariant(v)) return false;
+  p.variant = v;
   return true;
 }
 
-/**
- * The depth a scan runs at: the session's first scan at the shallowest opened depth that still has dark
- * organs on the map (or the deepest opened one when the map is whole), each later scan of the session one
- * deeper while the depths allow — "later scans go deeper".
- */
-export function scanDepth(p: SwiatloProgress, scanInSession: number): Depth {
-  const open = Math.min(3, Math.max(1, p.depth)) as Depth;
-  let first: Depth = open;
-  for (const d of DEPTHS) {
-    if (d > open) break;
-    if (ORGANS.some(o => mapRating(p, o, d) === 0)) { first = d; break; }
-  }
-  const k = Math.max(1, Math.floor(scanInSession)) - 1;
-  return Math.min(open, first + k) as Depth;
+/** "Od początku": the chosen meditation starts again at its first element. */
+export function restart(p: SwiatloProgress, v: VariantId = p.variant): void {
+  p.pos[v] = { idx: 0, fill: 0 };
 }
 
-/** A whole scan at depth `d`: the next depth opens (organs → cells → systems); true when it did. */
-export function openDeeper(p: SwiatloProgress, d: Depth): boolean {
-  if (d >= 3 || p.depth > d) return false;
-  p.depth = d + 1;
+/** "Zacznij tutaj": the meditation starts at this element next time (it keeps the light gathered there if it is its place already). */
+export function startAt(p: SwiatloProgress, v: VariantId, idx: number): boolean {
+  if (!isVariant(v) || !Number.isFinite(idx) || idx < 0 || idx >= count(v)) return false;
+  p.variant = v;
+  if (p.pos[v].idx !== Math.floor(idx)) p.pos[v] = { idx: Math.floor(idx), fill: 0 };
   return true;
 }
-
-/** Stars for a whole scan by its golden organs: ★ whole, ★★ from 4 golden, ★★★ from 7. */
-export const scanStars = (golden: number): number => (golden >= 7 ? 3 : golden >= 4 ? 2 : 1);
 
 /** Remember a first-time thing; true when it was new. */
 export function markSeen(p: SwiatloProgress, what: string): boolean {

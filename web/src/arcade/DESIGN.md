@@ -3926,10 +3926,10 @@ languages, the scripture rules.
 
 | | Ogień, ogień, ogień | Rozświetl | Ja jestem… | Odporność | Światło ciała | Synapsy | Odnowa |
 |---|---|---|---|---|---|---|---|
-| Core | charge a fire through seven scales, a "powers of ten" zoom-out at each change | light breaks a dark mosaic along its cracks; tiles burst and show the bright picture under it | a sketch in stained-glass cells (an own photo: the photo's own shape) fills with colour and light, then an aura | lead a swarm of white cells through the real stages of an immune response | a band of light scans the body; each organ's balance comes back | build a network of neurons in two halves; fire pairs together to wire them | help one stem cell renew itself and divide: three needs, each from one source |
-| Push (focus) | **charge**: the ring fills faster the higher the signal; full → the next scale | **light pressure** on the aimed tile; the cracks brighten and spread; full → it bursts | **colour** pours into the chosen cell; full → it lights | **alarm**: the cytokine signal reaches further, more cells answer, engulfing speeds up | **scan**: the band brightens and moves on; a lit organ settles faster | **growth**: synapses grow and thicken, myelin speeds the signal | **energy**: the turbine turns only in focus, gold for a held focus |
-| Rest (calm) | **embers → light**: the charge is banked as light; the flame breathes with the player | **gazing**: the uncovered picture warms, gold fills its seams | **glow**: lit cells shine brighter, the aura grows | **healing**: inflammation settles, collagen closes the wound | **rest**: the vagus slows the heart, breath lengthens, organs settle | **consolidation**: replay, pruning, the night clean-up of the brain | **clean-up**: calm wraps worn parts into building material |
-| Hands | blow (tap), shield from wind (hold), feed the fire (drag) — one small task per scale | tap a tile to aim the light, drag across tiles | tap a cell to send the colour, drag to paint | drag the swarm, tap targets | tap an organ, drag the band | tap pairs in rhythm / drag to connect | tap the glowing damage on the DNA |
+| Core | charge a fire through seven scales, a "powers of ten" zoom-out at each change | light breaks a dark mosaic along its cracks; tiles burst and show the bright picture under it | a sketch in stained-glass cells (an own photo: the photo's own shape) fills with colour and light, then an aura | lead a swarm of white cells through the real stages of an immune response | five body-scan meditations to choose (organs, the largest muscles, the brain, the limbs in turn, the nine loops of balance): the light stops at each element | build a network of neurons in two halves; fire pairs together to wire them | help one stem cell renew itself and divide: three needs, each from one source |
+| Push (focus) | **charge**: the ring fills faster the higher the signal; full → the next scale | **light pressure** on the aimed tile; the cracks brighten and spread; full → it bursts | **colour** pours into the chosen cell; full → it lights | **alarm**: the cytokine signal reaches further, more cells answer, engulfing speeds up | **light**: only real focus fills the element; full → it glows and its true fact opens | **growth**: synapses grow and thicken, myelin speeds the signal | **energy**: the turbine turns only in focus, gold for a held focus |
+| Rest (calm) | **embers → light**: the charge is banked as light; the flame breathes with the player | **gazing**: the uncovered picture warms, gold fills its seams | **glow**: lit cells shine brighter, the aura grows | **healing**: inflammation settles, collagen closes the wound | **rest** between elements: whole breaths while the fact is read, the lit body glows | **consolidation**: replay, pruning, the night clean-up of the brain | **clean-up**: calm wraps worn parts into building material |
+| Hands | blow (tap), shield from wind (hold), feed the fire (drag) — one small task per scale | tap a tile to aim the light, drag across tiles | tap a cell to send the colour, drag to paint | drag the swarm, tap targets | ◀ ▶ walk, ≡ choose a meditation; taps never fill | tap pairs in rhythm / drag to connect | tap the glowing damage on the DNA |
 | Side reading (`env.body()`) | — | — | — | — | the player's pulse at the heart (Mendi) | the halves in step lights the bridge | — |
 | Headline | iskier / sparks | odłamków / shards | części / pieces | patogenów / pathogens | pkt (builder may name it) | połączeń / connections | ATP |
 | Root | 2 Tim 1:6 | Isa 60:1 | Phil 2:9-10 | Ps 103:2-3 | Mat 6:22 | Rom 12:2 | 2 Cor 4:16 |
@@ -4735,158 +4735,162 @@ font floor. Measured (`scripts/arcade-mobile.mjs`, 2026-11-17): all seven device
 slowdown); the game's own frame 0.7–1.5 ms (3.4 ms on the small Android at 4× slowdown); the play keeps
 61 % (small phone) to 91 % (2560 × 1440) of the screen's height.
 
-### 13.10 Światło ciała — the light of the body
+### 13.10 Światło ciała — the light of the body (round 11: five meditations, light only from focus)
 
-*A body scan made a game: the calm, rest-led game of the series, rooted in Matthew 6:22 ("the eye is the
-lamp of the body … your whole body will be full of light").* A serene standing figure of frosted glass on
-a night of deep blue; its organs are drawn simply and clearly where they are, in warm colours that glow
-when they are in balance. A **band of light** scans the figure from the crown to the soles. At each of
-nine organs a **real homeostatic loop** is pushed out of its healthy range by an everyday thing, and the
-body brings it back — drawn as it is (a first-order return), compressed in time, which the game says on
-every panel ("typowe ciało · przyspieszone").
+*The calm game of the series, rooted in Matthew 6:22 ("the eye is the lamp of the body … your whole body will be full
+of light").* The founder (2026-11-17): *"The Light of the body jest też dziwne. Dla mnie za mało elementów. Chciałbym,
+żeby ta medytacja miała kilka wariantów. Np. Największe mięśnie ciała. Np. po kolei wszystkie organy. Np. Wszystkie
+fragmenty mózgu. Np. Wszystkie kończyny ciała po kolei."* Round 11 rebuilt the game around **five meditations to
+choose**, each a list of many elements, and **one clear mechanic**. Code: `src/arcade/swiatlo/` (content.ts the lists
+and Równowaga's loops, words-*.ts the elements' words, figure.ts and brain.ts the shapes, sim.ts the session,
+layout.ts, picture.ts, hud.ts and render.ts the view, meta.ts the progress, panel.ts the lobby's card).
 
-**The scan (the stage loop, ~2 minutes).** Nine stations, head to toe:
+**The five** (the lobby's card and the in-game ≡ picker; each remembers its own place):
 
-| Station | The loop (value, healthy range) | The everyday push | What the body does (drawn) | Hands |
-|---|---|---|---|---|
-| Podwzgórze | core temperature, 37 ± 0.5 °C (S1) | a hot bath 37.8 °C / a chilly morning 36.2 °C | skin vessels widen and sweat evaporates / vessels narrow and muscles shiver (S3, S4, S5, S6) | tap |
-| Płuca | blood pH 7.35–7.45 (S7) | a held breath pH 7.31 / fast breathing pH 7.49 | chemoreceptors read CO₂ and set the breath (S9) | breathe out CO₂ bubbles |
-| Serce | rate 60–100/min (S11) | the stairs 118 / a sudden noise 110 | the vagus brakes the SA node (S12) | tap on the beat |
-| Wątroba i trzustka | fasting glucose 70–99 mg/dL, 3.9–5.5 mmol/L (S17) | a meal 138 / a long walk before breakfast 64 | insulin: the liver and muscles store glycogen / glucagon releases it (S18, S19) | tap |
-| Nadnercza | cortisol against the day's curve (S20, S21) | a stressful thought | cortisol's own feedback quiets the HPA axis (S22) | tap |
-| Nerki | sodium 135–145 mmol/L (S26) | a salty soup 148 / many glasses of water 132 | thirst and ADH keep water / ADH falls (S26, S27) | tap |
-| Jelita | the lining's renewal (no number shown) | a busy day of digestion | stem cells in the crypts divide, new cells climb (S29) | tap |
-| Skóra (the palms) | surface pH below 5, ~4.7 (S36) | washing hands in tap water pH 5.8 | the skin restores its acid mantle (S36) | tap |
-| Kości | serum calcium 2.2–2.6 mmol/L (S33) | calcium in the blood dipped 2.15 | the parathyroids send PTH: bone releases calcium, kidneys keep it (S33, S34) | tap |
+| Meditation | Elements (in order) | Picture |
+|---|---|---|
+| **Narządy po kolei** (default) | 19: brain, eyes, thyroid, lungs, heart, liver, gallbladder, stomach, spleen, pancreas, adrenals, kidneys, small intestine, large intestine, bladder, then the whole-body ones — bones, red marrow, lymph nodes, skin | the glass figure from the front |
+| **Największe mięśnie** | 19: down the front — masseter, sternocleidomastoid, pectoralis major, deltoid, biceps, diaphragm, rectus abdominis, obliques, quadriceps, sartorius, adductors, tibialis anterior — the figure **turns** — up the back: calf (triceps surae), hamstrings, gluteus maximus, erector spinae, latissimus dorsi, triceps, trapezius | front, then back (the turn is a horizontal squeeze through edge-on) |
+| **Mózg** | 21: the left hemisphere from the side — prefrontal cortex, Broca's area, motor cortex, touch cortex, parietal, Wernicke's area, temporal, occipital lobes, the insula (a window deep in the lateral fissure) — the brain turns to **a cut through the middle**: cingulate gyrus, corpus callosum, thalamus, basal ganglia, hippocampus, amygdala (the three off the midline drawn as dashed "seen-through" shapes), hypothalamus, pituitary, midbrain, pons, medulla, cerebellum (with its arbor vitae) | the camera dives into the head, then the brain fills the stage |
+| **Kończyny po kolei** | 28 segments: the left leg (toes, foot, ankle, lower leg, knee, thigh, hip), the right leg, the left arm (fingers, hand, wrist, forearm, elbow, upper arm, shoulder), the right arm; the person's left is the viewer's right | front, the camera close on the limb (hands, feet) |
+| **Równowaga** | the first version's nine homeostatic loops (hypothalamus, lungs, heart, liver + pancreas, adrenals, kidneys, gut, skin of the palms, bones) with their everyday pushes, values and ranges | front |
 
-A value comes home along `d(s) = d₀ · (B/d₀)^(1−s)` (B = 0.8 half-ranges inside the range), `s` running
-from 1 to 0 at `k₀ · (1 + 1.6 · light)` a second (k₀ = 0.07: about 14 s with no light, 5.5 s in full light),
-which looks like a real first-order loop. Inside the band for 1 s the organ **settles**: it lights up — soft,
-bright (within 13 s) or **golden** (within 9 s with the band gold 60 % of the time) — its lux fly off, its
-**Wiedza card** opens the first time (one real number and its source), and the band moves on. After the
-soles the light **sweeps back up** the whole body ("your whole body will be full of light"), a short card
-gives the scan's stars (★ whole, ★★ from 4 golden, ★★★ from 7) and the next scan begins — **deeper**.
+Every element is a shape of its own (figure.ts: organs as glassy blobs where they are, muscles as bellies on the
+surface, limb segments as bands cut by the outline; brain.ts: lobes and strips as regions cut by the hemisphere,
+deep nuclei as shapes) with its colour, its Latin name, one line of **guidance** (what to notice or imagine there —
+it is also the push's "W głowie") and one **true fact** with its source.
 
-**Depths (the meta).** Organs → cells → systems. The first whole scan opens *Komórki* (each organ drawn as a
-tissue of cells; the cards turn to alveoli, nephrons, villi, the SA node, glycogen…), the next one *Układy*
-(the paths between organs glow: the vagus from the brainstem to the heart and the gut, the HPA axis from the
-hypothalamus to the adrenals, the aorta). Within a session each later scan goes one deeper; across sessions a
-scan starts at the shallowest depth that still has dark organs. The **body map** (9 organs × 3 depths, best
-rating each, golden ringed) and the **27 Wiedza cards** fill over sessions; records: lux per session length,
-whole scans, golden organs, the most golden in one scan, the fastest scan, breaths in rhythm. The **day's
-organ** (the same for everyone) pays double.
+**One mechanic.** The light comes to an element (it outlines it, the camera eases close, the card shows its place
+"5/19", the name in the serif, the Latin small under it, the guidance). **Only real focus fills it**: in a push past
+its lead-in (5 s Mendi, 2 s HALO), with a reliable signal, while `frame.focused`, at `(0.75 + 0.5·level +
+0.25·min(1, hold/20)) / 14` a second (the first-ever warm-up at half that) — about 14 focused seconds at the threshold,
+11–12 in strong focus. A ring around the element and a bar in the card show the fill (gold while it fills). Full, it
+glows, the album counts it, and its **fact card** opens. Nothing fills in rest, the finale, without a signal, below the
+threshold, or from the hands; nothing is ever lost (a test drives random signal and checks the fill only grows).
+Równowaga keeps its loops: the fill *is* the value coming home along the first version's first-order curve
+`d = d₀·(B/d₀)^fill` (B = 0.8), so the dot enters the healthy band exactly when the light is full; its three Wiedza
+cards per organ become "each time you light it again, one level deeper" (organs → cells → systems).
 
-**Focus — the band's light.** In a sighted push block past its lead-in (5 s Mendi, 2 s HALO) the light
-follows `level`; the band thickens and turns from ice to gold, and the **threshold is drawn on the band
-itself**: two dashed lines where its core reaches at the threshold, and a lamp at its side (a ring that fills,
-its notch at half) where there is room (not on an upright phone, where the panel's column takes it). The
-lit organ returns faster and the band travels on faster (× 0.6 + 1.4 · light). The gauge (`meter()`,
-"Światło") is that light. No signal, the lead-in, a blind block: the light holds at its neutral base (0.45,
-just under the threshold) — never lower, never a loss.
+**The rest comes between elements** (as in Rzeki this round): a push fills one element and ends when it is full (no
+sooner than 12 s — an early fill flows on into the next element in the same push); a **rest of whole breaths**
+follows (kit/breath default 4·0·6·0, 2 breaths = 20 s; 1 breath in a short test), during which the fact is read and
+then the whole lit body breathes and the picture pulls back to the whole figure; 4 s before the rest ends the light
+moves on and the next push begins there. Why: the push and the content are one thing ("focus on the heart"), every
+rest begins on a finished element, and the fact is read while the haemodynamic tail of the push fades. **Safety
+valve**: a push that has not filled in 60 s ends anyway (telegraphed at 56 s, a kind line "Odpocznijmy chwilę. To
+miejsce zachowa swoje światło"), the element keeps its fill. The rest is announced when the element is ≥ 85 % full.
+Each block is judged once at its end over its last ≤ 15 s (`RoundJudge.from(env.tuning)`; a push under 10 s is not
+judged), `BlockContrast` for the summary, every 4th push blind from the 3rd session (never the first of a session; it
+still ends when its hidden fill is full and shows it then, carrying ≤ 0.5 into the next element), a warm-up the
+first time, a quiet finale (the lit body breathes).
 
-**Rest — the vagus' rest.** The band dims to violet; a **breath guide** in 4 / out 6 (six breaths a minute,
-where heart-rate variability is largest: S10, S13) shows as rings that grow and settle around the chest; the
-current organ keeps settling (k₀ · (0.6 + calm)), the band drifts on slowly, and every organ in balance
-glows with calm and pours lux (`luxRest · (0.3 + calm) · (1 + lit/9)` a second). The heart slows: with
-Mendi it is the player's **own pulse** (`env.body().heartRate`, "Twoje tętno: 66/min"; if the rest's mean is
-3/min or more under the push's, Zofia says so and the summary keeps it); without a reading the figure's heart
-beats a typical rhythm that calm slows, labelled "typowo ~70/min · bez pomiaru" — never presented as theirs.
-A tap within 0.7 s of a turn of the breath is "with the breath" (+2 lx). Every 3 s the light gathered in rest
-rises from the chest as a soft "+N lx", so rest visibly pays. The gauge in rest ("Spokój") is calm.
+**The hands never fill.** ◀ ▶ walk back and on (round the meditation), ≡ opens the picker (five rows: name, line,
+where it goes on, how much is lit), a tap on the picture or Space shows the words again and keeps the fact up longer.
+Keys: ← → M (1–5 in the picker), Space. A desk's hover names the element under the mouse and its state.
 
-**The hands.** One round button in the thumb zone (= Space = a tap on the body): it helps the organ in the
-light — at the heart a tap on the beat (within 24 % of a beat's period) helps twice, off the beat half; at the
-lungs it breathes out a CO₂ bubble; elsewhere a gentle push home; between organs it steps the band on; in rest
-it taps the breath. Each tap's effect falls with a flurry (`1 / (1 + 0.5 · fervour)`), so the light stays the
-main driver. A tap on the organ's panel (its "Wiedza ›" chip says so; or Enter) opens its Wiedza card and, when the
-organ has settled, stays with it a little longer; a tap on a glowing organ of the figure opens that organ's
-card. A card that opens by itself (the organ's first time at a depth) keeps the band there 3.4 s instead of
-1.6 s — stay and read — and gives the panel back 0.9 s after the next organ arrives.
+**Clarity (the round's rules).** A persistent "what to do now" line with an icon (◎ "Skup się na: Serce", ☾
+"Odpocznij — oddychaj z całym ciałem", ◐ "Na wyczucie: …", … "Opaska szuka sygnału — nic nie tracisz", ✦ "Koniec —
+popatrz na światło w ciele", ≡ "Wybierz medytację"), changing only with the action. Every caption and the narrator's
+lines stay ≥ 2.5 s + 70 ms × characters (≥ 4.5 s); the fact card stays its reading time (a tap adds 3 s); the
+narrator never speaks over a fact, a story card, the picker, a coach mark, a telegraph or the runner's banner.
+Coach marks teach by doing, once each: the ring at the first sighted push, the breath at the first rest, ◀ ▶ ≡ after
+the first lit element, the blind push. The first-ever session opens with two pages (Mt 6:22; then "how it works" in
+three steps); a player of the first version gets one news card ("Pięć medytacji do wyboru"). Terms are glossed in
+plain words (the vagus nerve "the heart's brake", ADH "the water-saving hormone", glycogen "the store", the
+chemoreceptors "sensors in the blood"…). The lyric sing-along line is no longer drawn (the lullaby still plays): one
+less text in the first minute.
 
-**The voice.** Zofia, a calm and kind body-scan guide with a soft humour ("Wątroba ma tyle zadań, że nie
-mówimy jej o nowych", "Nerki filtrują około 180 litrów na dobę. Ty tylko oddychaj."), three or more lines a
-moment for 28 moments (one per organ), never over a telegraph, the runner's banner, a story card or a card.
-**Story**: the first-ever session opens with a card (the eye is the lamp of the body; Matthew 6:22); every
-whole scan has a short card with its stars and the depth that comes next.
+**Headline: lux** — 3 × the multiplier a second while focus fills, 20 an element lit, 100 a whole meditation, 20 a
+block judged well, 60 × share for a blind push, 1.2 × (0.3 + calm) a second in rest with a signal.
 
-**The song.** A lullaby at 66 bpm in C major (lullaby.ts on kit/song.ts): two verses of our own — "Światło
-idzie przeze mnie cicho, / od korony aż do stóp; / każdy narząd zna swą miarę, / ciało wraca w równy krok" and
-"Serce zwalnia, oddech długi…", original melody and words in four languages — around the series' refrain
-(`seriesChorus`), arranged softly: a pad always, then the voice and the bass, then a bell and a lub-dub
-heartbeat on the kick, then a harp of plucked arpeggios; the refrain's snare and hat stay out. Its level is
-the focus in a sighted push, a fixed 0.32 in rest, 0.4 around, and held (null) in a blind block. The sung line
-shows under the HUD (≥ 13 px, the sung part gold). The lobby's card switches it off (saved); without it the
-runner's pad plays, its filter on the band's light.
+**Choose, walk, go on (meta v2).** Each meditation keeps its place `{ idx, fill }` (a lit element hands on to the
+next); the lobby's card: the five as a radio row, "Kontynuuj od: Serce (5/19)", "Od początku", and the album — every
+element as a tile of its own shape, lit once lit, a tap makes it the next start ("▶ tu zaczniesz"). A whole
+meditation shows a closing card with its verse and starts again. A version-1 save keeps its sessions, pushes,
+records, song and seen marks; its body map becomes Równowaga's album.
 
-**Headline: lux** (luksów / lux / Lux / lux) — the light gathered in the body: the band's light while it
-shines (3 · (0.5 + light) a second), each settled organ 24 / 36 / 50 × the depth (1, 1.25, 1.5) × 2 for the
-day's organ, a whole scan 100 × depth, rest's glow, taps in rhythm 2, a block judged well 30, a blind block's
-share × 100. A 5-minute session with mid focus gathers roughly 1 000–2 500 lx.
+**Verses** (scripture.ts): root Mt 6:22; closing cards Ps 139:13-14 (organs), Eph 4:16 (muscles), Isa 26:3 (the
+brain), Isa 40:31 (the limbs), Prov 3:7-8 (balance); the summary takes them in turn with Ps 139:13-14 the first time.
 
-**Blocks** follow §2: Skan 24 ± 3 s and Odpoczynek 26 ± 3 s (rest a little longer: a rest-led game), a 4 s
-telegraph, each judged once at its end over its last 15 s (`RoundJudge.from(env.tuning)`, `BlockContrast` for
-the summary), every 4th push blind from the 3rd session (the band turns silver; its share is revealed at the
-end), a warm-up the first time (the light enters through the eyes), a calm finale. Strategies (`signal().task`)
-are imagery of the scene — the warm light moving through the body, the organ in the light seen in the mind,
-the place in the light felt — with one counting (heartbeats to 20: S15) and one recall (what this organ does);
-rest's are the breath (4 / 6, a longer out-breath, the face and shoulders softening).
+**Honesty and reverence.** Every fact was checked (a research pass on 2026-11-17 against StatPearls via NCBI's
+E-utilities and Bookshelf full-text search, and PubMed; 41 facts confirmed as drafted, 44 reworded or re-numbered, 2
+replaced): e.g. the gluteus maximus is "the largest of the buttock muscles" (StatPearls), the quadriceps "the body's
+most voluminous muscle"; the cerebellum is ~10 % of the brain's **mass** with ~69 of 86 billion neurons; the femur
+≈ 27 % of height; no stomach-pH figure (not in StatPearls), no count of lymph nodes (only consumer sites). No health
+promise anywhere (a test keeps such words out); the how-to's last tip: the band measures attention, not health;
+visualisation, not treatment. The figure is everyone's body, eyes closed in peace; no genitals; no figure of God.
 
-**Honesty and reverence (§13.3, §13.4).** The values are a typical healthy body's, compressed, each with its
-source; the only measurement is the pulse. Nothing claims to heal; the how-to's last tip says it plainly. No
-disease is named. The scan of light is this game's symbol; no figure of God, the figure is everyone's body,
-its eyes closed in peace. Closing passages: the first session Psalm 139:13-14; a scan with 4+ golden organs
-1 Corinthians 6:19-20; calm rests or a slowed pulse Proverbs 3:7-8; new cards Proverbs 4:20-22; the bones lit
-or a whole scan Proverbs 16:24 — in turn, session by session.
+**Sources of the new cards** (StatPearls chapters by first author, title, edition year, NBK id; papers with PMID):
+organs — Raichle & Gusnard, PNAS 2002 (PMID 12149485); Curcio et al., J Comp Neurol 1990 (PMID 2324310); Shahid,
+Physiology, Thyroid Hormone 2023 (NBK500006); Chourpiliadis, Respiratory Rate 2022 (NBK537306); Hallett, Tidal Volume
+2023 (NBK482502); King, Cardiac Output 2023 (NBK470455); Sharma, Blood Volume 2023 (NBK526077); Kalra, Physiology,
+Liver 2023 (NBK535438); Vernon, Anatomy, Liver 2022 (NBK500014); Jones, Gallbladder 2026/2023 (NBK459288, NBK482488);
+Allen & Flemström, Am J Physiol Cell Physiol 2005 (PMID 15591243); Hsu, Physiology, Stomach 2023 (NBK535425); Kapila,
+Spleen 2023 (NBK537307); Barbalato, Red Blood Cell 2022 (NBK539702); Kamel-ElSayed, Pancreas 2023 (NBK459261); Shahid,
+Islets of Langerhans 2022 (NBK542302); Megha, Adrenal Glands 2022 (NBK482264); Dalal, Renal Blood Flow 2023
+(NBK482248); Fish, Small Bowel 2024 (NBK532263); Azzouz, Large Intestine 2023 (NBK507857); Sender et al., PLoS Biol
+2016 (PMID 27541692); Shermadou, Bladder 2023 (NBK531465); Sam, Detrusor 2023 (NBK482181); Cowan, Anatomy, Bones 2024
+(NBK537199); Caulier & Sankaran, Blood 2022 (PMID 34936695); Więcław, Lymph Nodes 2026 (NBK557717); Lopez-Ojeda, Skin
+2022 (NBK441980); Tlaskalova-Hogenova, Scand J Immunol 2005 (PMID 15953193). Muscles — Corcoran, Masseter 2023
+(NBK539869); Bordoni, Sternocleidomastoid 2026 (NBK532881); Solari, Pectoralis Major 2023 (NBK525991); Elzanie,
+Deltoid 2024 (NBK537056); Tiwana, Biceps 2024 (NBK519538); Bains, Diaphragm 2023 (NBK519558); Flynn, Abdominal Wall
+2023 (NBK551649); Varacallo, Anterolateral Abdominal Wall 2023 (NBK470334); Bordoni, Quadriceps 2023 (NBK513334);
+Walters, Sartorius 2023 (NBK532889); Ramage, Medial Thigh Muscles 2023 (NBK534775); Juneja, Tibialis Anterior 2023
+(NBK513304); Wong, Achilles Tendon 2023 (NBK499917); Hu, Hamstring 2026 (NBK546688); Elzanie, Gluteus Maximus 2023
+(NBK538193); Henson, Back Muscles 2023 (NBK537074); Jeno, Latissimus Dorsi 2023 (NBK448120); Tiwana, Triceps 2023
+(NBK536996); Ourieff, Trapezius 2023 (NBK518994). Brain — Hathaway, Prefrontal Cortex 2023 (NBK499919); Arain et al.,
+Neuropsychiatr Dis Treat 2013 (PMID 23579318); Stinnett, Broca Area 2023 (NBK526096); Dronkers, Brain 2007 (PMID
+17405763); Munakomi, Motor Cortex 2026 (NBK542188); Catani, Brain 2017 (PMID 29088352); Raju, Somatosensory Cortex 2022
+(NBK555915); Maldonado, Physiology, Brain 2023 (NBK551718); Javed, Wernicke Area 2023 (NBK533001); Patel, Temporal Lobe
+2023 (NBK519512); Saenz & Langers, Hear Res 2014 (PMID 23916753); Huff, Visual Cortex 2023 (NBK482504); Craig, Nat Rev
+Neurosci 2009 (PMID 19096369); Kortz, Insular Cortex 2023 (NBK570606); Jumah, Cingulate Cortex 2022 (NBK537077);
+Carter et al., Science 1998 (PMID 9563953); Goldstein, Corpus Callosum 2023 (NBK448209); Torrico, Thalamus 2023
+(NBK542184); Young, Basal Ganglia 2023 (NBK537141); Lanciego et al., Cold Spring Harb Perspect Med 2012 (PMID
+23071379); Fogwe, Hippocampus 2023 (NBK482171); AbuHasan, Amygdala 2023 (NBK537102); Bear, Hypothalamus 2022
+(NBK525993); Shahid, Physiology, Hypothalamus 2023 (NBK535380); Ganapathy, Pituitary Gland 2023 (NBK551529); Caminero,
+Midbrain 2024 (NBK551509); Rahman, Pons 2023 (NBK560589); Iordanova, Medulla Oblongata 2023 (NBK551589);
+Herculano-Houzel, Front Hum Neurosci 2009 (PMID 19915731); Azevedo et al., J Comp Neurol 2009 (PMID 19226510). Limbs —
+Ficke, Foot and Ankle 2026 (NBK546698); Chauhan, Arches of the Foot 2025 (NBK587361); Yousef, Epidermis 2024
+(NBK470464); Manganaro, Ankle Joint 2023 (NBK545158), Foot Joints 2023 (NBK536941); Cantrell, Leg Bones 2023
+(NBK537024); Patel, Venous Insufficiency 2026 (NBK430975); Gupton, Knee 2023 (NBK500017); Farrell, Medial Meniscus
+2023 (NBK537276); Cox, Lateral Meniscus 2023 (NBK519494); Chang, Femur 2023 (NBK532982); Feldesman et al., Am J Phys
+Anthropol 1990 (PMID 2252082); Swift, Femoral Artery 2023 (NBK538262); Gold, Hip Joint 2023 (NBK470555); Glenister,
+Hip 2023 (NBK526019); Arias, Hand Bones 2023 (NBK547684); Iheanacho, Mechanoreceptors 2023 (NBK541068); Tang, Carpal
+Bones 2022 (NBK535382); Nguyen, Opponens Pollicis 2023 (NBK546603); Beutel, Bennett Fracture 2026 (NBK500035); Rosario,
+Carpal Tunnel Syndrome 2023 (NBK562235); Patel, Forearm Bones 2023 (NBK545260); Mitchell, Forearm Muscles 2023
+(NBK536975); Card, Elbow Joint 2025 (NBK532948); Becker, Ulnar Nerve 2023 (NBK499892); Forro, Arm 2023 (NBK507841);
+Epperson, Brachial Artery 2023 (NBK537145); Chang, Glenohumeral Joint 2025 (NBK537018); La Rose, Rotator Cuff 2026
+(NBK441844). Równowaga keeps S1–S36 (above in the first version's text).
 
-**Sources** (verified on 2026-11-12; abstracts via PubMed and Europe PMC, full texts where open):
-S1 Osilla EV et al., *Physiology, Temperature Regulation*, StatPearls 2023 (PMID 29939615) · S2 Mackowiak PA et
-al., JAMA 1992;268:1578 (PMID 1302471) · S3 Charkoudian N, Mayo Clin Proc 2003;78:603, doi:10.4065/78.5.603 ·
-S4 Baker LB, Temperature 2019;6:211, doi:10.1080/23328940.2019.1632145 · S5 Haman F, Blondin DP, Temperature
-2017;4:217, doi:10.1080/23328940.2017.1328999 · S6 Morrison SF, Nakamura K, Annu Rev Physiol 2019;81:285,
-doi:10.1146/annurev-physiol-020518-114546 · S7 Hopkins E et al., *Physiology, Acid Base Balance*, StatPearls
-2022 (PMID 29939584) · S8 Ochs M et al., Am J Respir Crit Care Med 2004;169:120, doi:10.1164/rccm.200308-1107OC ·
-S9 Brinkman JE et al., *Physiology, Respiratory Drive*, StatPearls 2023 (PMID 29494021) · S10 Russo MA et al.,
-Breathe 2017;13:298, doi:10.1183/20734735.009817 · S11 Henning A, Krawiec C, *Sinus Tachycardia*, StatPearls 2023
-(PMID 31985921) · S12 Hafeez Y et al., *Sinus Bradycardia*, StatPearls 2026 (PMID 29630253); Kashou AH et al.,
-*Physiology, Sinoatrial Node*, StatPearls 2022 (PMID 29083608) · S13 Lehrer PM, Gevirtz R, Front Psychol
-2014;5:756, doi:10.3389/fpsyg.2014.00756 · S14 Shaffer F, Ginsberg JP, Front Public Health 2017;5:258,
-doi:10.3389/fpubh.2017.00258 · S15 Schandry R, Psychophysiology 1981;18:483, doi:10.1111/j.1469-8986.1981.tb02486.x ·
-S16 Berthoud HR, Neuhuber WL, Auton Neurosci 2000;85:1, doi:10.1016/S1566-0702(00)00215-0 · S17 ADA, Standards of
-Care in Diabetes—2025, §2 (doi:10.2337/dc25-s002) and §6 (doi:10.2337/dc25-s006) · S18 Jensen J et al., Front
-Physiol 2011;2:112, doi:10.3389/fphys.2011.00112 · S19 Kamel-ElSayed SA, Mukherjee S, *Physiology, Pancreas*,
-StatPearls 2023 (PMID 29083590); Venugopal SK et al., *Physiology, Glucagon*, StatPearls 2023 (PMID 30725767) ·
-S20 Chourpiliadis C, Aeddula NR, *Physiology, Glucocorticoids*, StatPearls 2023 (PMID 32809732); Kaur J et al.,
-*Physiology, Cortisol*, StatPearls 2025 (PMID 30855827) · S21 Stalder T et al., Psychoneuroendocrinology
-2016;63:414, doi:10.1016/j.psyneuen.2015.10.010 · S22 Smith SM, Vale WW, Dialogues Clin Neurosci 2006;8:383,
-doi:10.31887/DCNS.2006.8.4/ssmith · S23 Berson DM et al., Science 2002;295:1070, doi:10.1126/science.1067262 ·
-S24 Kaufman DP et al., *Physiology, Glomerular Filtration Rate*, StatPearls 2023 (PMID 29763208) · S25 Bertram JF
-et al., Pediatr Nephrol 2011;26:1529, doi:10.1007/s00467-011-1843-8 · S26 Rout P, Afzal M, *Hyponatremia*,
-StatPearls 2026 (PMID 29262111); Sonani B, Al-Dhahir MA, *Hypernatremia*, StatPearls 2023 (PMID 28722989) ·
-S27 Cuzzo B et al., *Physiology, Vasopressin*, StatPearls 2023 (PMID 30252325); Scott JH et al., *Physiology,
-Aldosterone*, StatPearls 2023 (PMID 29261963) · S28 Helander HF, Fändriks L, Scand J Gastroenterol 2014;49:681,
-doi:10.3109/00365521.2014.898326 · S29 Darwich AS et al., Drug Metab Dispos 2014;42:2016, doi:10.1124/dmd.114.058404 ·
-S30 Sender R et al., PLoS Biol 2016;14:e1002533, doi:10.1371/journal.pbio.1002533 · S31 Bergstresser PR, Taylor JR,
-Br J Dermatol 1977, doi:10.1111/j.1365-2133.1977.tb07152.x; Iizuka H, J Dermatol Sci 1994,
-doi:10.1016/0923-1811(94)90057-4 · S32 Yousef H et al., *Anatomy, Skin (Integument), Epidermis*, StatPearls 2024
-(PMID 29262154) · S33 Sahota RJ et al., *Physiology, Calcium*, StatPearls 2026 (PMID 29489276) · S34 Lofrese JJ et
-al., *Physiology, Parathyroid*, StatPearls 2023 (PMID 29494116) · S35 Office of the Surgeon General (US), *Bone Health
-and Osteoporosis*, 2004, ch. 2 (NBK45504); Kenkre JS, Bassett JHD, Ann Clin Biochem 2018;55:308,
-doi:10.1177/0004563218759371 · S36 Lambers H et al., Int J Cosmet Sci 2006;28:359, doi:10.1111/j.1467-2494.2006.00344.x.
+**The pictures.** A night of deep blue; the figure one smooth outline (head, arms with open hands, palms forward,
+the feet from the front with five toes) of frosted glass with a cyan rim; elements as ghosts of their colour while
+they wait (many small parts — lymph nodes, bones, marrow — fainter, without outlines), lit in their colour with a
+baked glow once lit, the element in the light outlined in white, filling from within, its ring around it. The
+camera eases toward the element in a push (up to 2.1× for organs and muscles, 3.2× for the limbs on a phone; 1.5× /
+2.2× on a desk) and back to the whole figure in rest; the picture runs under the glass cards, never under the HUD.
+Every shape is a Path2D built once in picture units and drawn through the camera's transform (crisp at any zoom,
+nothing baked per zoom); glows are baked sprites; no shadowBlur, no filters.
 
-**Mobile first (§12).** One layout in three shapes (layout.ts, pure, tested at every `CHECK_SIZES` entry):
-*tall* — any upright screen, a phone the reference: the sing-along line under the HUD, the standing figure in
-the left column as tall as the band allows (330 px on the smallest phone, 820 px on a tablet), the organ's
-panel (or its card) in the right column at the band's height (148–230 px × u wide), the round help button
-(60 px, its hit area 72 × 88 px with the caption) in the bottom-right thumb zone, out of the 16 px edge band;
-Zofia's bubble over the figure's column at the end away from the band. *side* — a phone on its side: the
-panel left, the figure in the middle, the bubble and the button right. *wide* — a desktop or a tablet on its
-side: the side layout grown (u ≤ 1.3), the figure capped so both columns keep 250 px × u. The band's lamp is
-drawn on the side away from the panel and only where it fits (never on an upright phone, where the dashed
-threshold lines on the band and its gold carry the gauge). `targets()`: the button, the panel as drawn, the
-story card while it is up (then the only one). Text: what the player reads to play is 13 px and more (the
-panel's lines, the push, the range, the bubble 14, the button's caption 13, the cards 14), the sources and
-the "typical body" note 12, a verse's reference 11 — never under 11. No shadowBlur and no filters per frame:
-the figure and every organ's lit sprite are baked per size and depth; glows are baked sprites drawn additively.
+**Mobile first (§12) and the desk (§14)** — layout.ts, pure, tested at every `CHECK_SIZES` entry for the figure and
+the brain, with a finger and a mouse. *tall*: the "now" line under the HUD; the figure in the left column, the card on
+the right, the three 50 px buttons in a row under it in the thumb zone; for the brain the picture over the full width,
+the card under it (a fact or the rest grows it up over the picture's foot), the buttons (44 px) in a column at the
+right edge. *side* / *wide*: the card left, the picture in the middle, the buttons in a column right; the picker in
+two columns. *desk*: the card column (type with `uiScale`), the picture as tall as the band, the right column with the
+narrator, the list of the way (◉ current, ✦ lit, ○ waiting) and the buttons with captions and key caps. Text: reading
+text ≥ 13 px (the Latin and the sources 12 on a phone), never under 11.
+
+**Measured** (scripts/arcade-mobile.mjs, final run): small phone, iPhone, phone on its side ✓ — 0 strings under 11 px,
+4–6 under 13 (the Latin and the sources at 12), 11–14 targets (the three buttons, the picker's five rows and its close,
+the story card) all valid, 60 fps with the CPU slowed 2–4×, game 0.73–1.63 ms; desktop, laptop, Full HD, QHD ✓ — 0
+under 11 px, 0 under 13, game 0.5–0.73 ms (QHD 0.73 ms), the picture 90 % of the screen's height on Full HD and QHD.
+The smoke's crude input scores from ~5 s (arcade-shot: 8 lx at 5 s, 174 lx in 60 s). Tests: test/arcade-swiatlo.test.ts
+(39): the five lists (counts, order, names/guidance/facts in four languages, a shape each, sides and places), fill only
+from focus (nothing without focus or signal or from the hands; never decreasing under random signal; ~14 focused s at
+the threshold), rest after each full element in whole breaths, the valve, judging, blind pushes, the warm-up, the smoke,
+per-meditation places and resume, start-here, restart, the picker, the turn and the dive, the v1 migration and
+garbage, the "now" line, caption durations, the fact's reading time, the strategies, the words' rules, every layout at
+every `CHECK_SIZES` entry for the figure and the brain with a finger and a mouse, the song.
 
 ### 13.11 Synapsy — the mind renewed
 
@@ -6166,26 +6170,9 @@ the phones as before.
 
 #### Światło ciała
 
-A mouse on a desktop or a big screen gets its own shape, `desk`
-(layout.ts; chosen from `screenKind` and the width — an upright mouse window keeps `tall`, a finger keeps
-every phone shape, the same numbers): the figure as tall as the band in the middle (1 190 × 960 at Full HD:
-the figure 838 px, 87 % of the canvas; QHD 1 158 px), the scan's rail and lamp beside it. The **left column**
-is the organ's live panel at the band's height — the value on its gauge, the range, what the body does — and,
-on a desk only, **the loop's sources in full** ("Źródła: Osilla … 2023; Charkoudian … 2003; Haman …"; the rest
-panel cites Russo 2017 and Lehrer & Gevirtz 2014). The **right column** is for what speaks: the sung line
-and the next one at its top, the **Wiedza card at the band's height beside the panel** (a phone swaps the
-panel for it; a desk keeps both — the band of light runs from the panel through the organ to its card), Zofia
-at the end away from the band, and the **round button at its foot, by the figure's knees**, with the key's
-name in a cap ("Spacja") under its caption. Type follows `uiScale` (1.3 on a laptop, 1.35 Full HD, 1.8
-QHD) and the phone's fixed 12 px notes and chips grow with it (`L.k`). **The mouse:** the cursor is a hand
-over what a click acts on (the body, the panel and its card, the button); a hovered organ is ringed in its
-colour (both of a pair) with a tag — its name and its state with what a click does ("w świetle · kliknij, by
-pomóc", "w równowadze · kliknij: Wiedza", "czeka na światło"); the tag fades when the mouse rests 3 s. **Keys:**
-Space helps the organ in the light (on the beat at the heart, a breath's turn in rest), Enter opens and
-closes the card; both are on screen (the button's cap, the panel's "Wiedza › Enter" chip). The how-to,
-the coach marks, Zofia's lines about the hands and the lobby's rules say "kliknij / click / klicke / klicka".
-**Measured** (scripts/arcade-mobile.mjs): desktop, laptop, Full HD, QHD ✓ — 0 strings under 13 px (before:
-6 at 12 px), game 0.6–0.73 ms; the phones as before (small, iPhone, side ✓, the same counts).
+Since round 11 (five meditations) the desk is described in §13.10 ("Mobile first (§12) and the desk (§14)"): the card
+column on the left, the picture as tall as the band, the right column with Zofia, the list of the meditation's elements
+and the ≡ ◀ ▶ controls with their key caps (M ← →); a hover names the element under the mouse and its state.
 
 #### Synapsy
 

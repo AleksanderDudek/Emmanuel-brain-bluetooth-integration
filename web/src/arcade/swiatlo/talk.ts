@@ -1,13 +1,12 @@
 /**
- * Zofia's speech bubble, without the canvas: one line at a time, 2–4 s by its length, a pause between
- * two, never while a telegraph, the runner's block banner, a story card or a Wiedza card is on screen
- * (a line on screen when one comes is cut), and no line said twice in a session until its moment has
- * used them all.  Moments ask with a priority and a shelf life; the most important one still fresh is
- * said when the way is clear.
+ * Zofia's speech bubble, without the canvas: one line at a time, on screen long enough to be read twice (≥ 2.5 s +
+ * 70 ms a character, never under 4.5 s — the round's clarity rule), a pause between two, never while a telegraph,
+ * the runner's block banner, a story card, the picker, a coach mark or a fact card is on screen (a line on screen when
+ * one comes is cut), and no line said twice in a session until its moment has used them all.  Moments ask with a
+ * priority and a shelf life; the most important one still fresh is said when the way is clear.
  */
-import { clamp } from '../kit/juice';
 import type { Moment } from './content';
-import { RULES } from './rules';
+import { RULES, readSec } from './rules';
 
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 
@@ -37,7 +36,7 @@ export class Talk {
     }
   }
 
-  /** Forget what was asked (a story card covers everything). */
+  /** Forget what was asked. */
   clear(): void { this.queue.length = 0; }
 
   /** A frame: the line ages, something on screen cuts it, and the best fresh ask is said when the way is clear. */
@@ -56,7 +55,7 @@ export class Talk {
     const a = this.queue.shift()!;
     const text = this.pick(a.moment);
     if (!text) return;
-    this.line = { moment: a.moment, text, t: 0, dur: clamp(RULES.talkMin + text.length / 32, RULES.talkMin, RULES.talkMax) };
+    this.line = { moment: a.moment, text, t: 0, dur: readSec(text) };
     this.said.push(text);
   }
 

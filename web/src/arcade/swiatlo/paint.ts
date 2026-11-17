@@ -1,13 +1,14 @@
 /**
- * Światło ciała's pictures, drawn with canvas paths (no images): a night of deep blue, a figure like
- * frosted glass with a cyan rim, organs in warm, clear colours that glow when they are in balance, a band
- * of light (cool white, gold above the threshold, violet in rest, silver when blind).  Light is light:
- * additive glows from small baked sprites, never shadowBlur or filters per frame; the figure and its
- * organs are drawn once per size and depth into offscreen layers, so a frame only composes them.
+ * Światło ciała's pictures, drawn with canvas paths (no images): a night of deep blue, a figure like frosted glass
+ * with a cyan rim, the brain as glass of the same family, and every element of a meditation as a shape of its own —
+ * a ghost of its colour while it waits, its colour lit and glowing once focus has filled it.  Light is light: additive
+ * glows from small baked sprites, never shadowBlur or filters per frame.  Every shape is a Path2D built once in its
+ * picture's units (the figure's H = 1, the brain's units) and drawn through the camera's transform, so a zoom into a
+ * hand or a dive into the head stays crisp without baking anything per zoom.
  */
 import { MIN_TEXT } from '../kit/mobile';
-import { ORGAN, ORGANS, type Depth, type OrganId } from './content';
-import { HEAD, HYPOTHALAMUS, ORGAN_SHAPES, ORGAN_SPOT, PITUITARY, SYSTEMS, organFill, organStrokes, silhouettePath, spline, type ToScreen } from './figure';
+import { LAT_CEREBELLUM, LAT_OUTLINE, LAT_STEM, LAT_SULCI, MED_OUTLINE, MED_SULCI } from './brain';
+import { OUTLINE, QUIET, polygon, spline, type Geo, type P, type Shape } from './figure';
 
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
 export const SERIF = '"Fraunces Variable", Fraunces, Georgia, serif';
@@ -26,18 +27,6 @@ export const fontPx = (px: number): number => Math.max(MIN_TEXT, Math.round(px *
 export const font = (px: number, weight = 600, serif = false, italic = false): string =>
   `${italic ? 'italic ' : ''}${weight} ${fontPx(px)}px ${serif ? SERIF : SANS}`;
 
-/** Fit a text into a width by shrinking from `px` toward `min` (never under MIN_TEXT); returns the size used. */
-export function fitFont(ctx: CanvasRenderingContext2D, text: string, maxW: number, px: number, min = MIN_TEXT, weight = 600, serif = false, italic = false): number {
-  const floor = Math.max(MIN_TEXT, min);
-  let size = fontPx(Math.max(floor, px));
-  ctx.font = font(size, weight, serif, italic);
-  while (size > floor && ctx.measureText(text).width > maxW) {
-    size = Math.max(floor, size - 0.5);
-    ctx.font = font(size, weight, serif, italic);
-  }
-  return size;
-}
-
 /** Greedy word wrap with the context's current font. */
 export function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
   const out: string[] = [];
@@ -52,6 +41,17 @@ export function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number):
   }
   if (line) out.push(line);
   return out;
+}
+
+/** Wrap `text` at the largest size from `px` down to `min` that fits `maxLines` lines in `maxW`; sets ctx.font. */
+export function fitWrap(ctx: CanvasRenderingContext2D, text: string, maxW: number, maxLines: number, px: number, min: number, weight = 600, serif = false, italic = false): { lines: string[]; px: number } {
+  let size = fontPx(px);
+  for (;;) {
+    ctx.font = font(size, weight, serif, italic);
+    const lines = wrap(ctx, text, maxW);
+    if (lines.length <= maxLines || size <= min) return { lines, px: size };
+    size = Math.max(min, size - 0.5);
+  }
 }
 
 export function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -70,6 +70,7 @@ export function rgbaPrefix(hex: string): string {
   const v = parseInt(hex.slice(1), 16);
   return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},`;
 }
+export const rgba = (hex: string, a: number): string => `${rgbaPrefix(hex)}${Math.max(0, Math.min(1, a)).toFixed(3)})`;
 
 /** Mix two "#rrggbb" colours (k = 0 → a, 1 → b) into "rgb(…)". */
 export function mix(a: string, b: string, k: number): string {
@@ -78,7 +79,7 @@ export function mix(a: string, b: string, k: number): string {
   return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
 }
 
-// ── offscreen layers ─────────────────────────────────────────────
+// ── offscreen layers and baked glows ──────────────────────────────
 export type Layer = HTMLCanvasElement;
 
 /** A blank offscreen canvas of w × h CSS px at `dpr` (null where there is no DOM). */
@@ -113,10 +114,10 @@ export function glowSprite(hex: string): Layer | null {
   return L.c;
 }
 
-/** Draw a baked glow centred at (x, y) with radius r and alpha a (additive). */
+/** Draw a baked glow centred at (x, y) with radius r and alpha a (additive), in the current transform. */
 export function glow(ctx: CanvasRenderingContext2D, hex: string, x: number, y: number, r: number, a: number): void {
   const s = glowSprite(hex);
-  if (!s || a <= 0.003 || r <= 0.5) return;
+  if (!s || a <= 0.003 || r <= 0) return;
   const op = ctx.globalCompositeOperation, ga = ctx.globalAlpha;
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = Math.min(1, a);
@@ -125,246 +126,14 @@ export function glow(ctx: CanvasRenderingContext2D, hex: string, x: number, y: n
   ctx.globalCompositeOperation = op;
 }
 
-const bandCache = new Map<string, Layer>();
-
-/** A vertical strip of light (1 × 128 px): transparent at the edges, a bright core in the middle. */
-export function bandSprite(hex: string): Layer | null {
-  const hit = bandCache.get(hex);
-  if (hit) return hit;
-  const L = layer(4, 128, 1);
-  if (!L) return null;
-  const pre = rgbaPrefix(hex);
-  const g = L.ctx.createLinearGradient(0, 0, 0, 128);
-  g.addColorStop(0, `${pre}0)`);
-  g.addColorStop(0.3, `${pre}.28)`);
-  g.addColorStop(0.47, `${pre}.9)`);
-  g.addColorStop(0.5, `${pre}1)`);
-  g.addColorStop(0.53, `${pre}.9)`);
-  g.addColorStop(0.7, `${pre}.28)`);
-  g.addColorStop(1, `${pre}0)`);
-  L.ctx.fillStyle = g;
-  L.ctx.fillRect(0, 0, 4, 128);
-  bandCache.set(hex, L.c);
-  return L.c;
-}
-
-// ── the figure ───────────────────────────────────────────────────
-export interface FigureBox { cx: number; top: number; H: number }
-
-/** The figure's own box (px) around its centre line: the arms' span and the feet, with a margin for glows. */
-export function figureBounds(f: FigureBox, pad = 0.04): { x: number; y: number; w: number; h: number } {
-  const half = (0.19 + pad) * f.H;
-  return { x: f.cx - half, y: f.top - pad * f.H, w: 2 * half, h: (1 + 2 * pad) * f.H };
-}
-
-/** Screen coordinates for figure units inside a layer whose origin is at (ox, oy). */
-export const mapper = (f: FigureBox, ox = 0, oy = 0): ToScreen => (x, y) => [f.cx - ox + x * f.H, f.top - oy + y * f.H];
-
-/** The silhouette path in screen coordinates (for clipping the band). */
-export const silhouette = (f: FigureBox): Path2D => silhouettePath(mapper(f), f.H);
-
 /** A deterministic 0..1 for an integer (decorations that never jump). */
 export function hash(n: number): number {
   const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return x - Math.floor(x);
 }
 
-/** The cells of the "cells" depth inside a path: small rounded nuclei on a soft membrane grid. */
-function cells(ctx: CanvasRenderingContext2D, path: Path2D, bx: number, by: number, bw: number, bh: number, cell: number, hue: string, a: number): void {
-  ctx.save();
-  ctx.clip(path);
-  const pre = rgbaPrefix(hue);
-  ctx.strokeStyle = `${pre}${(0.35 * a).toFixed(3)})`;
-  ctx.fillStyle = `${pre}${(0.5 * a).toFixed(3)})`;
-  ctx.lineWidth = Math.max(0.6, cell * 0.08);
-  let k = 0;
-  for (let y = by; y < by + bh + cell; y += cell * 0.86) {
-    const row = Math.round((y - by) / (cell * 0.86));
-    for (let x = bx + (row % 2 ? cell / 2 : 0); x < bx + bw + cell; x += cell) {
-      const j = hash(++k) * 0.3;
-      ctx.beginPath();
-      ctx.arc(x + j * cell, y, cell * 0.46, 0, TAU);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(x + j * cell, y, cell * 0.14, 0, TAU);
-      ctx.fill();
-    }
-  }
-  ctx.restore();
-}
-
-/** The organ's bounding box in figure units (from its shapes), padded. */
-function organBox(o: OrganId, pad: number): { x0: number; y0: number; x1: number; y1: number } {
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (const s of ORGAN_SHAPES[o]) {
-    const pts = s.kind === 'ellipse' ? [[s.x - s.rx, s.y - s.ry], [s.x + s.rx, s.y + s.ry]] : s.pts;
-    for (const [x, y] of pts) {
-      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
-    }
-  }
-  return { x0: x0 - pad, y0: y0 - pad, x1: x1 + pad, y1: y1 + pad };
-}
-
-/** Paint one organ (filled parts and strokes) into a context with a mapper. */
-function paintOrgan(ctx: CanvasRenderingContext2D, o: OrganId, map: ToScreen, H: number, fill: string | CanvasGradient, line: string, lw: number): void {
-  const p = organFill(o, map, H);
-  ctx.fillStyle = fill;
-  ctx.fill(p);
-  ctx.strokeStyle = line;
-  ctx.lineWidth = lw;
-  ctx.stroke(p);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  for (const s of organStrokes(o, map, H)) {
-    ctx.strokeStyle = line;
-    ctx.lineWidth = s.width + lw * 2;
-    ctx.stroke(s.path);
-    ctx.strokeStyle = typeof fill === 'string' ? fill : line;
-    ctx.lineWidth = s.width;
-    ctx.stroke(s.path);
-  }
-}
-
-export interface FigureLayers {
-  box: { x: number; y: number; w: number; h: number };
-  /** the glass body with its organs at rest (deep colours), the depth's details */
-  base: Layer;
-  /** each organ lit (its hue, a bloom baked in), drawn over the base with the organ's glow as alpha */
-  lit: Record<OrganId, { c: Layer; x: number; y: number; w: number; h: number }>;
-  /** the silhouette in screen px (the band's clip) */
-  clip: Path2D;
-}
-
-/** Bake the figure for a box and a depth (call on resize and when the depth changes). */
-export function bakeFigure(f: FigureBox, depth: Depth, dpr: number): FigureLayers | null {
-  const box = figureBounds(f);
-  const B = layer(box.w, box.h, dpr);
-  if (!B) return null;
-  const ctx = B.ctx, H = f.H;
-  const map = mapper(f, box.x, box.y);
-  const sil = silhouettePath(map, H);
-  // the glass body: a cool gradient, light from above, a soft inner glow at the chest
-  const g = ctx.createLinearGradient(0, map(0, 0)[1], 0, map(0, 1)[1]);
-  g.addColorStop(0, 'rgba(150,215,240,.26)');
-  g.addColorStop(0.35, 'rgba(110,170,225,.17)');
-  g.addColorStop(1, 'rgba(70,110,190,.12)');
-  ctx.fillStyle = g;
-  ctx.fill(sil);
-  ctx.save();
-  ctx.clip(sil);
-  const [cx, cy] = map(0, 0.3);
-  const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, H * 0.42);
-  rg.addColorStop(0, 'rgba(200,240,255,.14)');
-  rg.addColorStop(1, 'rgba(200,240,255,0)');
-  ctx.fillStyle = rg;
-  ctx.fillRect(0, 0, box.w, box.h);
-  // anatomy's quiet lines: the spine, the clavicles, the ribs
-  ctx.strokeStyle = 'rgba(190,235,255,.12)';
-  ctx.lineWidth = Math.max(1, H * 0.003);
-  const sp = new Path2D();
-  spline(sp, [[0, 0.13], [0, 0.25], [0.002, 0.36], [0, 0.47]], map, false);
-  ctx.stroke(sp);
-  for (const s of [1, -1]) {
-    const cl = new Path2D();
-    spline(cl, [[0.006 * s, 0.168], [0.05 * s, 0.163], [0.095 * s, 0.17]], map, false);
-    ctx.stroke(cl);
-    for (let i = 0; i < 6; i++) {
-      const y = 0.19 + i * 0.022;
-      const rib = new Path2D();
-      spline(rib, [[0.004 * s, y], [0.05 * s, y + 0.006], [0.078 * s, y + 0.022 + i * 0.002]], map, false);
-      ctx.stroke(rib);
-    }
-  }
-  ctx.restore();
-  // the organs at rest
-  for (const o of ORGANS) {
-    const spec = ORGAN[o];
-    const b = organBox(o, 0);
-    const [x0, y0] = map(b.x0, b.y0), [x1, y1] = map(b.x1, b.y1);
-    // glass with colour in it: lighter where the light from above falls, deep below; the bones quieter
-    const soft = o === 'bone' ? 0.6 : 1;
-    const og = ctx.createLinearGradient(0, y0, 0, y1);
-    og.addColorStop(0, `${rgbaPrefix(spec.hue)}${(0.34 * soft).toFixed(2)})`);
-    og.addColorStop(0.45, `${rgbaPrefix(spec.deep)}${(0.5 * soft).toFixed(2)})`);
-    og.addColorStop(1, `${rgbaPrefix(spec.deep)}${(0.62 * soft).toFixed(2)})`);
-    paintOrgan(ctx, o, map, H, og, `${rgbaPrefix(spec.hue)}${(0.42 * soft).toFixed(2)})`, Math.max(0.8, H * 0.0022));
-    if (depth >= 2) cells(ctx, organFill(o, map, H), x0, y0, x1 - x0, y1 - y0, Math.max(3, H * 0.0085), spec.hue, 0.6);
-  }
-  // the hypothalamus and the pituitary
-  for (const s of [HYPOTHALAMUS, PITUITARY]) {
-    const [x, y] = map(s.x, s.y);
-    ctx.fillStyle = 'rgba(255,220,240,.55)';
-    ctx.beginPath();
-    ctx.arc(x, y, Math.max(1.2, s.r * H), 0, TAU);
-    ctx.fill();
-  }
-  // the systems depth: the paths between the organs, quietly
-  if (depth >= 3) {
-    ctx.lineCap = 'round';
-    for (const [kind, lines] of Object.entries(SYSTEMS)) {
-      ctx.strokeStyle = kind === 'vagus' ? 'rgba(255,236,170,.32)' : kind === 'hpa' ? 'rgba(255,190,120,.3)' : 'rgba(255,140,150,.28)';
-      ctx.lineWidth = Math.max(1, H * (kind === 'aorta' ? 0.006 : 0.0032));
-      for (const pts of lines) {
-        const p = new Path2D();
-        spline(p, pts, map, false);
-        ctx.stroke(p);
-      }
-    }
-  }
-  // the rim of light around the body
-  ctx.strokeStyle = 'rgba(143,214,232,.12)';
-  ctx.lineWidth = Math.max(3, H * 0.014);
-  ctx.stroke(sil);
-  ctx.strokeStyle = 'rgba(190,240,255,.62)';
-  ctx.lineWidth = Math.max(1, H * 0.0036);
-  ctx.stroke(sil);
-  // the face, barely: closed eyes in peace
-  const [ex, ey] = map(0, HEAD.y + 0.006);
-  ctx.strokeStyle = 'rgba(220,245,255,.4)';
-  ctx.lineWidth = Math.max(0.8, H * 0.0026);
-  for (const s of [1, -1]) {
-    ctx.beginPath();
-    ctx.arc(ex + s * HEAD.rx * 0.42 * H, ey, HEAD.rx * 0.18 * H, 0.15 * Math.PI, 0.85 * Math.PI);
-    ctx.stroke();
-  }
-
-  // each organ lit, with its bloom
-  const lit = {} as FigureLayers['lit'];
-  for (const o of ORGANS) {
-    const spec = ORGAN[o];
-    const b = organBox(o, 0.05);
-    const pairBox = ORGAN_SPOT[o].pair ? { x0: Math.min(b.x0, -b.x1), x1: Math.max(b.x1, -b.x0) } : { x0: b.x0, x1: b.x1 };
-    const fx0 = pairBox.x0, fx1 = pairBox.x1;
-    const w = (fx1 - fx0) * H, h = (b.y1 - b.y0) * H;
-    const L = layer(w, h, dpr);
-    if (!L) continue;
-    const m: ToScreen = (x, y) => [(x - fx0) * H, (y - b.y0) * H];
-    const lc = L.ctx;
-    // the bloom: a few soft glows over the organ's spots
-    const spot = ORGAN_SPOT[o];
-    for (const sx of spot.pair ? [spot.x, -spot.x] : [spot.x]) {
-      const [gx, gy] = m(sx, spot.y);
-      const s = glowSprite(spec.hue);
-      if (s) {
-        lc.globalAlpha = 0.55;
-        const r = (spot.r + 0.035) * H;
-        lc.drawImage(s, gx - r, gy - r, 2 * r, 2 * r);
-        lc.globalAlpha = 1;
-      }
-    }
-    const fillG = lc.createLinearGradient(0, 0, 0, h);
-    fillG.addColorStop(0, '#ffffff');
-    fillG.addColorStop(0.35, spec.hue);
-    fillG.addColorStop(1, spec.hue);
-    paintOrgan(lc, o, m, H, fillG, 'rgba(255,255,255,.85)', Math.max(0.8, H * 0.0024));
-    if (depth >= 2) cells(lc, organFill(o, m, H), 0, 0, w, h, Math.max(3, H * 0.0085), '#ffffff', 0.55);
-    lit[o] = { c: L.c, x: f.cx + fx0 * H, y: f.top + b.y0 * H, w, h };
-  }
-  return { box, base: B.c, lit, clip: silhouettePath(mapper(f), H) };
-}
-
-/** The night sky behind the figure (baked per size): deep gradient, a few still stars, a soft floor of light. */
-export function bakeNight(w: number, h: number, dpr: number, figCx: number, figMidY: number): Layer | null {
+/** The night sky behind the picture (baked per size): deep gradient, a few still stars, a soft halo behind the stage. */
+export function bakeNight(w: number, h: number, dpr: number, cx: number, cy: number): Layer | null {
   const L = layer(w, h, dpr);
   if (!L) return null;
   const ctx = L.ctx;
@@ -374,15 +143,13 @@ export function bakeNight(w: number, h: number, dpr: number, figCx: number, figM
   g.addColorStop(1, NIGHT[2]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
-  // a halo of quiet light behind the figure
   const r = Math.max(w, h) * 0.55;
-  const rg = ctx.createRadialGradient(figCx, figMidY, 0, figCx, figMidY, r);
+  const rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
   rg.addColorStop(0, 'rgba(90,150,220,.22)');
   rg.addColorStop(0.5, 'rgba(60,90,170,.08)');
   rg.addColorStop(1, 'rgba(40,60,120,0)');
   ctx.fillStyle = rg;
   ctx.fillRect(0, 0, w, h);
-  // still stars
   for (let i = 0; i < Math.round((w * h) / 9000); i++) {
     const x = hash(i * 3 + 1) * w, y = hash(i * 7 + 2) * h, s = 0.4 + hash(i * 11 + 3) * 1.1;
     ctx.fillStyle = `rgba(220,235,255,${(0.15 + 0.45 * hash(i * 13 + 4)).toFixed(2)})`;
@@ -393,7 +160,107 @@ export function bakeNight(w: number, h: number, dpr: number, figCx: number, figM
   return L.c;
 }
 
-/** Text with a soft dark edge so it reads on any ground. */
+// ── paths in picture units ─────────────────────────────────────
+const hasPath2D = (): boolean => typeof Path2D !== 'undefined';
+
+let outlineCache: Path2D | null = null;
+/** The figure's outline (H = 1 units). */
+export function outlinePath(): Path2D | null {
+  if (!hasPath2D()) return null;
+  if (!outlineCache) {
+    outlineCache = new Path2D();
+    spline(outlineCache, OUTLINE, true);
+  }
+  return outlineCache;
+}
+
+const brainCache = new Map<string, Path2D>();
+/** The hemisphere's outline in a brain view ('lat' or 'med'), and the lateral view's cerebellum and stem. */
+export function brainPath(which: 'lat' | 'med' | 'cereb' | 'stem'): Path2D | null {
+  if (!hasPath2D()) return null;
+  let p = brainCache.get(which);
+  if (!p) {
+    p = new Path2D();
+    spline(p, which === 'lat' ? LAT_OUTLINE : which === 'med' ? MED_OUTLINE : which === 'cereb' ? LAT_CEREBELLUM : LAT_STEM, true);
+    brainCache.set(which, p);
+  }
+  return p;
+}
+
+const linesCache = new Map<string, Path2D>();
+/** Quiet lines (the figure's anatomy under the glass, the sulci of a brain view) as one path. */
+export function linesPath(which: 'quiet' | 'latSulci' | 'medSulci' | 'back'): Path2D | null {
+  if (!hasPath2D()) return null;
+  let p = linesCache.get(which);
+  if (!p) {
+    p = new Path2D();
+    const sets: readonly (readonly P[])[] = which === 'quiet' ? QUIET : which === 'latSulci' ? LAT_SULCI : which === 'medSulci' ? MED_SULCI : BACK_LINES;
+    for (const pts of sets) spline(p, pts, false);
+    linesCache.set(which, p);
+  }
+  return p;
+}
+
+/** The back's quiet lines: the spine, the shoulder blades, the line of the buttocks, the backs of the knees. */
+const BACK_LINES: readonly (readonly P[])[] = [
+  [[0, 0.15], [0, 0.3], [0.001, 0.46]],
+  [[0.03, 0.19], [0.068, 0.2], [0.075, 0.24], [0.045, 0.27]], [[-0.03, 0.19], [-0.068, 0.2], [-0.075, 0.24], [-0.045, 0.27]],
+  [[0, 0.47], [0, 0.53]],
+  [[0.036, 0.72], [0.05, 0.728], [0.064, 0.72]], [[-0.036, 0.72], [-0.05, 0.728], [-0.064, 0.72]],
+];
+
+export interface GeoPaths {
+  fill: Path2D | null;
+  lines: { p: Path2D; w: number }[];
+  marks: Path2D | null;
+  skin: boolean;
+}
+
+const geoCache = new WeakMap<Geo, GeoPaths>();
+
+function addShape(fill: Path2D, s: Shape, m: number): void {
+  const mp = (pts: readonly P[]): P[] => (m > 0 ? [...pts] : pts.map(([x, y]) => [-x, y] as P));
+  if (s.k === 'blob') spline(fill, mp(s.p), true);
+  else if (s.k === 'poly') polygon(fill, mp(s.p));
+  else if (s.k === 'ell') {
+    const x = m * s.x;
+    fill.moveTo(x + s.rx, s.y);
+    fill.ellipse(x, s.y, s.rx, s.ry, m * (s.rot ?? 0), 0, TAU);
+  }
+}
+
+/** An element's paths (built once): its filled shapes, its tubes with their widths, its decorations. */
+export function geoPaths(g: Geo): GeoPaths {
+  const hit = geoCache.get(g);
+  if (hit) return hit;
+  const out: GeoPaths = { fill: null, lines: [], marks: null, skin: false };
+  if (!hasPath2D()) return out;
+  const sides = g.mirror ? [1, -1] : [1];
+  let fill: Path2D | null = null;
+  for (const s of g.shapes) {
+    if (s.k === 'skin') { out.skin = true; continue; }
+    for (const m of sides) {
+      if (s.k === 'line') {
+        const p = new Path2D();
+        spline(p, m > 0 ? s.p : s.p.map(([x, y]) => [-x, y] as P), false);
+        out.lines.push({ p, w: s.w });
+      } else {
+        fill ??= new Path2D();
+        addShape(fill, s, m);
+      }
+    }
+  }
+  out.fill = fill;
+  if (g.marks?.length) {
+    const mk = new Path2D();
+    for (const pts of g.marks) spline(mk, pts, false);
+    out.marks = mk;
+  }
+  geoCache.set(g, out);
+  return out;
+}
+
+/** Text with a soft dark edge so it reads on any ground (screen space). */
 export function label(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, px: number, color = ICE, align: CanvasTextAlign = 'center', weight = 700): void {
   ctx.font = font(px, weight);
   ctx.textAlign = align;
@@ -405,6 +272,3 @@ export function label(ctx: CanvasRenderingContext2D, text: string, x: number, y:
   ctx.fillStyle = color;
   ctx.fillText(text, x, y);
 }
-
-/** Small stars for a rating (★ filled, ☆ empty) as text. */
-export const stars = (n: number, of = 3): string => '★'.repeat(Math.max(0, Math.min(of, n))) + '☆'.repeat(Math.max(0, of - Math.max(0, Math.min(of, n))));

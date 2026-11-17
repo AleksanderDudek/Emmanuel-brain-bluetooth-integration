@@ -1,76 +1,54 @@
 /**
- * Światło ciała's calibration intro: the night and the glass figure, standing still; while the reference
- * fills (`p` 0..1) light comes in through the eyes ("the eye is the lamp of the body"), gathers at the
- * crown into a band, and the organs the player has lit before glow faintly from the map.  The figure
- * breathes slowly.  The runner's calibration card covers the lower part of the screen, so the scene sits high.
+ * Światło ciała's calibration intro: the night and the glass figure of the chosen meditation's picture, standing
+ * still (the brain for "Mózg"); while the reference fills (`p` 0..1) light comes in through the eyes ("the eye is the
+ * lamp of the body") and the elements the player has lit before glow faintly.  The runner's calibration card covers
+ * the lower part of the screen, so the picture sits high.
  */
 import { approach, clamp } from '../kit/juice';
-import { ORGAN, ORGANS, type OrganId } from './content';
-import { HEAD, ORGAN_SPOT } from './figure';
+import { LISTS } from './content';
+import { fitCam } from './layout';
+import { BRAIN_BOX } from './brain';
 import type { SwiatloProgress } from './meta';
-import { GOLD, ICE, bakeFigure, bakeNight, bandSprite, glow, type FigureLayers, type Layer } from './paint';
+import { GOLD, ICE, bakeNight, glow, type Layer } from './paint';
+import { drawBrain, drawFigure } from './picture';
 
 export class SwiatloIntro {
   private clock = 0;
   private shown = 0;
   private key = '';
   private night: Layer | null = null;
-  private fig: FigureLayers | null = null;
 
   draw(ctx: CanvasRenderingContext2D, w: number, h: number, dt: number, p: number, progress: SwiatloProgress, dpr: number): void {
     if (w < 2 || h < 2) return;
     this.clock += dt;
     this.shown = approach(this.shown, clamp(p), dt, 0.4);
     const k = this.shown, t = this.clock;
-    const H = Math.min(h * 0.6, w * 1.6);
-    const box = { cx: w / 2, top: h * 0.05, H };
+    const box = { x: w * 0.1, y: h * 0.04, w: w * 0.8, h: h * 0.58 };
     const key = `${w}x${h}@${dpr}`;
     if (key !== this.key) {
       this.key = key;
-      this.night = bakeNight(w, h, dpr, box.cx, box.top + H * 0.45);
-      this.fig = bakeFigure(box, 1, dpr);
+      this.night = bakeNight(w, h, dpr, w / 2, box.y + box.h * 0.45);
     }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (this.night) ctx.drawImage(this.night, 0, 0, w, h);
     else {
       ctx.fillStyle = '#0b1430';
       ctx.fillRect(0, 0, w, h);
     }
-    const fig = this.fig;
-    const breathe = 1 + 0.006 * Math.sin(t * 0.63);
-    ctx.save();
-    ctx.translate(box.cx, box.top + H * 0.5);
-    ctx.scale(breathe, breathe);
-    ctx.translate(-box.cx, -(box.top + H * 0.5));
-    if (fig) ctx.drawImage(fig.base, fig.box.x, fig.box.y, fig.box.w, fig.box.h);
-    // the map's lit organs, faintly
-    if (fig) {
-      for (const o of ORGANS) {
-        const lit = [1, 2, 3].some(d => (progress.map?.[`${o}:${d}`] ?? 0) > 0);
-        const s = fig.lit[o as OrganId];
-        if (!lit || !s) continue;
-        ctx.globalAlpha = 0.18 + 0.12 * Math.sin(t * 0.8 + ORGANS.indexOf(o));
-        ctx.drawImage(s.c, s.x, s.y, s.w, s.h);
-        ctx.globalAlpha = 1;
-      }
+    const v = progress.variant ?? 'narzady';
+    const lit = (id: string) => ((progress.lit?.[id] ?? 0) > 0 ? 0.35 + 0.15 * Math.sin(t * 0.8) : 0);
+    const st = { current: null, fill: 0, lit, filling: false, blind: false, rest: true, breath: 0.5 + 0.5 * Math.sin(t * 0.63), time: t };
+    if (v === 'mozg') {
+      const cam = fitCam(box, BRAIN_BOX.x0, BRAIN_BOX.y0, BRAIN_BOX.x1, BRAIN_BOX.y1, 4);
+      drawBrain(ctx, dpr, cam, 'lat', LISTS.mozg.filter(e => e.view === 'lat'), st);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      glow(ctx, k > 0.9 ? GOLD : ICE, cam.ox + 0.15 * cam.s, cam.oy + 0.28 * cam.s, cam.s * (0.05 + 0.12 * k), 0.2 + 0.6 * k);
+      return;
     }
-    ctx.restore();
+    const cam = fitCam(box, -0.23, -0.02, 0.23, 1.02, 2);
+    drawFigure(ctx, dpr, cam, false, LISTS[v].filter(e => e.view === 'front'), st);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // light comes in through the eyes
-    const ey = box.top + (HEAD.y + 0.006) * H;
-    for (const s of [-1, 1]) glow(ctx, ICE, box.cx + s * HEAD.rx * 0.42 * H, ey, H * (0.012 + 0.03 * k), 0.25 + 0.6 * k);
-    // and gathers at the crown into the band
-    const spr = bandSprite(k > 0.9 ? GOLD : ICE);
-    if (spr && k > 0.05) {
-      const y = box.top + H * 0.012;
-      const th = H * 0.03 * k;
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.25 + 0.6 * k;
-      ctx.drawImage(spr, box.cx - H * 0.22 * k, y - th, H * 0.44 * k, th * 2);
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
-    }
-    // the heart beats softly all along
-    const hp = { x: box.cx + ORGAN_SPOT.heart.x * H, y: box.top + ORGAN_SPOT.heart.y * H };
-    const beat = Math.max(0, 1 - ((t * 70) / 60 % 1) / 0.3);
-    glow(ctx, ORGAN.heart.hue, hp.x, hp.y, H * (0.03 + 0.02 * beat), 0.12 + 0.2 * beat);
+    for (const s of [-1, 1]) glow(ctx, k > 0.9 ? GOLD : ICE, cam.ox + s * 0.017 * cam.s, cam.oy + 0.074 * cam.s, cam.s * (0.012 + 0.03 * k), 0.25 + 0.6 * k);
   }
 }

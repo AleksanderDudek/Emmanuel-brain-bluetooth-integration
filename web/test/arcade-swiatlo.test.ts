@@ -1,52 +1,42 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ALL_CARDS, DEPTHS, FACT_SRC, LINE_COUNT, MOMENTS, ORGAN, ORGANS, SOURCES, TIPS, cortisolCurve, dayOrgan, devOf, factText, linesOf,
-  rangeText, valOf, valueText,
+  ALL_IDS, LISTS, LOOP, LOOPS, MOMENTS, SOURCES, VARIANTS, count, elFact, elGuide, elName, elSource, linesOf, loopValueAt, rangeText,
+  valueText, type Element, type VariantId,
 } from '../src/arcade/swiatlo/content';
 import { CATALOGS, t, unit } from '../src/arcade/swiatlo/i18n';
-import {
-  bestOf, freshProgress, lightMap, mapLit, meetCard, migrate, openDeeper, scanDepth, scanStars, type SwiatloProgress,
-} from '../src/arcade/swiatlo/meta';
-import { BREATH, RULES } from '../src/arcade/swiatlo/rules';
-import { SwiatloSim, finaleFor, loopDev, loopValue, planBlocks, type SimEvent } from '../src/arcade/swiatlo/sim';
-import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { WORDS } from '../src/arcade/swiatlo/words';
+import { bestOf, choose, freshProgress, litIn, migrate, restart, startAt, type SwiatloProgress } from '../src/arcade/swiatlo/meta';
+import { RULES, readSec } from '../src/arcade/swiatlo/rules';
+import { ROOT, SwiatloSim, VERSE, fillMult, restFor, warmFor, type SimEvent } from '../src/arcade/swiatlo/sim';
+import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
-import { CHECK_SIZES, DESK_BIG, DESK_MAX, DESK_MIN_W, MIN_READ, MIN_TEXT, THUMB, auditTargets, uiScale } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { songProblems } from '../src/arcade/kit/song';
 import { coachText, howto } from '../src/arcade/swiatlo/index';
-import {
-  FIG_HALF, LAMP_R, RAIL_X, bubbleRect, cardRect, figPt, hitTest, layout, panelRect, storyRect, tapTargets,
-} from '../src/arcade/swiatlo/layout';
-import { organAt } from '../src/arcade/swiatlo/figure';
-import { font, fontPx } from '../src/arcade/swiatlo/paint';
-import { hoverText, pulseText, sourcesText } from '../src/arcade/swiatlo/hud';
+import { CTRLS, elementCam, figCam, hitTest, layout, pickerRect, storyRect, tapTargets } from '../src/arcade/swiatlo/layout';
+import { geoBox } from '../src/arcade/swiatlo/figure';
 import { buildSong } from '../src/arcade/swiatlo/lullaby';
 
-const DAY = '2026-11-12';
-const STEP = 1 / 60;
+const STEP = 1 / 30;
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, adapt: 0.08 };
-const BEGINNER: FocusTuning = { ...TUNING, ...BEGINNER_TUNING };
 
 const frame = (p: Partial<FocusFrame> = {}): FocusFrame =>
   ({ reliable: true, activity: 0, threshold: 2, level: 0.3, focused: false, hold: 0, calm: 0.5, ...p });
-const HIGH = frame({ level: 0.95, activity: 6, focused: true, hold: 10, calm: 0.05 });
-const MID = frame({ level: 0.5, activity: 2, focused: true, hold: 1, calm: 0.4 });
-const LOW = frame({ level: 0.15, activity: -1, calm: 0.7 });
-const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
-const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
+const HIGH = frame({ level: 0.9, activity: 6, focused: true, hold: 12, calm: 0.05 });
+const MID = frame({ level: 0.55, activity: 2.5, focused: true, hold: 2, calm: 0.3 });
+const LOW = frame({ level: 0.2, activity: -1, focused: false, calm: 0.7 });
+const NONE = frame({ reliable: false, activity: null, level: 0, focused: false, calm: 0 });
 
-const ALL_SEEN = ['s.open', 'c.help', 'c.loop', 'c.band', 'c.card', 'c.beat', 'c.bubbles', 'c.breath', 'c.pulse', 'c.typical', 'c.blind'];
+const ALL_SEEN = ['s.open', 's.news', 'c.fill', 'c.rest', 'c.nav', 'c.blind', 'c.stay'];
 
-type SimOpts = { progress?: Partial<SwiatloProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; hour?: number };
+type SimOpts = { progress?: Partial<SwiatloProgress>; planned?: number; seed?: number; mouse?: boolean };
 
 function makeSim(o: SimOpts = {}): SwiatloSim {
-  const sim = new SwiatloSim({
-    progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), day: DAY, daySeed: 4242,
-    plannedSec: o.planned ?? 300, eeg: o.eeg ?? false, tuning: o.tuning ?? TUNING, hour: o.hour ?? 9,
-  });
+  const p = { ...freshProgress(), ...o.progress };
+  const sim = new SwiatloSim({ progress: p, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 600, eeg: false, tuning: TUNING, mouse: o.mouse });
   sim.start();
   return sim;
 }
@@ -54,13 +44,13 @@ function makeSim(o: SimOpts = {}): SwiatloSim {
 /** A returning player (no warm-up, no opening card, no coach marks). */
 const later = (o: SimOpts = {}) => makeSim({ ...o, progress: { sessions: 5, pushes: 1, seen: [...ALL_SEEN], ...o.progress } });
 
-function drive(sim: SwiatloSim, sec: number, f: FocusFrame | ((t: number) => FocusFrame), clock = { t: 0 }, each?: (t: number) => void, hr: number | null = null): SimEvent[] {
+function drive(sim: SwiatloSim, sec: number, f: FocusFrame | ((t: number) => FocusFrame), clock = { t: 0 }, each?: () => void): SimEvent[] {
   const out: SimEvent[] = [];
   const n = Math.round(sec / STEP);
   for (let i = 0; i < n; i++) {
     clock.t += STEP;
-    sim.update(STEP, typeof f === 'function' ? f(clock.t) : f, clock.t, hr);
-    each?.(clock.t);
+    sim.update(STEP, typeof f === 'function' ? f(clock.t) : f, clock.t);
+    each?.();
     out.push(...sim.take());
   }
   return out;
@@ -68,705 +58,428 @@ function drive(sim: SwiatloSim, sec: number, f: FocusFrame | ((t: number) => Foc
 
 const ofType = <K extends SimEvent['type']>(evs: readonly SimEvent[], type: K) => evs.filter((e): e is Extract<SimEvent, { type: K }> => e.type === type);
 
-/** Run to the next block of a kind (returns the clock). */
-function until(sim: SwiatloSim, kind: 'push' | 'rest', f: FocusFrame | ((t: number) => FocusFrame), clock = { t: 0 }): { t: number } {
-  let guard = 0;
-  while (sim.block.kind !== kind && guard++ < 4000) drive(sim, 0.25, f, clock);
-  return clock;
-}
+/** Focus in a push, calm in rest (an ideal player). */
+const ideal = (sim: SwiatloSim) => () => (sim.restBlock ? frame({ level: 0.1, activity: -2, focused: false, calm: 0.85 }) : HIGH);
 
-/** Run until the band arrives at an organ (returns the events). */
-function untilAt(sim: SwiatloSim, o: string, f: FocusFrame, clock = { t: 0 }): SimEvent[] {
-  const out: SimEvent[] = [];
-  let guard = 0;
-  while (sim.loop?.organ !== o && guard++ < 3000) out.push(...drive(sim, 0.1, f, clock));
-  return out;
-}
+const POLISH = /[ąćęłńśźżĄĆĘŁŃŚŹŻ]|\b(opask[aęi]|się|albo|Gra|Graj)\b/;
 
-describe('the physiology (content.ts)', () => {
-  it('scans nine organs from the crown to the soles, in order', () => {
-    expect(ORGANS).toHaveLength(9);
-    for (let i = 1; i < ORGANS.length; i++) expect(ORGAN[ORGANS[i]].v).toBeGreaterThan(ORGAN[ORGANS[i - 1]].v);
-    expect(ORGAN.brain.v).toBeGreaterThan(RULES.startV);
-    expect(ORGAN.bone.v).toBeLessThan(RULES.endV);
+describe('the five meditations (content.ts, words-*.ts)', () => {
+  it('has the five variants with many elements each, in a sensible order', () => {
+    expect(VARIANTS).toEqual(['narzady', 'miesnie', 'mozg', 'konczyny', 'rownowaga']);
+    expect(VARIANTS.map(count)).toEqual([19, 19, 21, 28, 9]);
+    expect(new Set(ALL_IDS).size).toBe(ALL_IDS.length);
+    const ids = (v: VariantId) => LISTS[v].map(e => e.id.split('.').slice(1).join('.'));
+    expect(ids('narzady')).toEqual(['brain', 'eyes', 'thyroid', 'lungs', 'heart', 'liver', 'gall', 'stomach', 'spleen', 'pancreas', 'adrenals', 'kidneys',
+      'small', 'large', 'bladder', 'bones', 'marrow', 'nodes', 'skin']);
+    // the muscles: down the front, a turn, up the back
+    const views = LISTS.miesnie.map(e => e.view);
+    expect(views.indexOf('back')).toBe(12);
+    expect(views.slice(12).every(v => v === 'back')).toBe(true);
+    expect(ids('miesnie')).toContain('gluteus');
+    expect(ids('miesnie')).toContain('diaphragm');
+    // the brain: its lateral face first (9), then the cut through the middle (12)
+    expect(LISTS.mozg.slice(0, 9).every(e => e.view === 'lat')).toBe(true);
+    expect(LISTS.mozg.slice(9).every(e => e.view === 'med')).toBe(true);
+    expect(ids('mozg')).toEqual(['prefrontal', 'broca', 'motor', 'sensory', 'parietal', 'wernicke', 'temporal', 'occipital', 'insula', 'cingulate', 'callosum',
+      'thalamus', 'basal', 'hippocampus', 'amygdala', 'hypothalamus', 'pituitary', 'midbrain', 'pons', 'medulla', 'cerebellum']);
+    // the limbs: the left leg from the toes, the right leg, the left arm from the fingers, the right arm
+    expect(ids('konczyny').slice(0, 7)).toEqual(['L.toes', 'L.foot', 'L.ankle', 'L.shin', 'L.knee', 'L.thigh', 'L.hip']);
+    expect(ids('konczyny').slice(7, 14)).toEqual(['R.toes', 'R.foot', 'R.ankle', 'R.shin', 'R.knee', 'R.thigh', 'R.hip']);
+    expect(ids('konczyny').slice(14, 21)).toEqual(['L.fingers', 'L.hand', 'L.wrist', 'L.forearm', 'L.elbow', 'L.arm', 'L.shoulder']);
+    expect(ids('konczyny').slice(21)).toEqual(['R.fingers', 'R.hand', 'R.wrist', 'R.forearm', 'R.elbow', 'R.arm', 'R.shoulder']);
+    expect(ids('rownowaga')).toEqual([...LOOPS]);
   });
 
-  it('keeps every set point inside its healthy range and every everyday push outside it', () => {
-    for (const o of ORGANS) {
-      const s = ORGAN[o];
-      expect(s.lo).toBeLessThan(s.set);
-      expect(s.hi).toBeGreaterThan(s.set);
-      expect(s.kicks.length).toBeGreaterThan(0);
-      for (const k of s.kicks) {
-        const d = Math.abs(devOf(s, k.v0));
-        expect(d, `${o}.${k.id}`).toBeGreaterThan(1.1);
-        expect(d, `${o}.${k.id}`).toBeLessThan(6);
-        expect(t(`kick.${o}.${k.id}` as never)).not.toMatch(/^kick\./);
-        expect(t(`fix.${o}.${k.id}` as never)).not.toMatch(/^fix\./);
-      }
-      // the value and the deviation are inverse
-      for (const d of [-2, -1, -0.4, 0, 0.5, 1.7]) expect(devOf(s, valOf(s, d))).toBeCloseTo(d, 9);
+  it('places the elements where they are: the leg segments head down the leg, the person’s left at the viewer’s right', () => {
+    const at = (id: string) => LISTS.narzady.concat(LISTS.konczyny).find(e => e.id === id)!.geo.c;
+    expect(at('o.heart')[0]).toBeGreaterThan(0);
+    expect(at('o.liver')[0]).toBeLessThan(0);
+    expect(at('o.spleen')[0]).toBeGreaterThan(0);
+    expect(at('o.gall')[0]).toBeLessThan(0);
+    for (const side of ['L', 'R'] as const) {
+      const leg = LISTS.konczyny.filter(e => e.side === side && ['toes', 'foot', 'ankle', 'shin', 'knee', 'thigh', 'hip'].includes(e.part!));
+      for (let i = 1; i < leg.length; i++) expect(leg[i].geo.c[1], leg[i].id).toBeLessThan(leg[i - 1].geo.c[1]);
+      for (const e of LISTS.konczyny.filter(x => x.side === side)) expect(Math.sign(e.geo.c[0]), e.id).toBe(side === 'L' ? 1 : -1);
     }
+    // the brain: the frontal pole on the left of the picture, the cerebellum at the back and below
+    const b = (id: string) => LISTS.mozg.find(e => e.id === id)!.geo.c;
+    expect(b('b.prefrontal')[0]).toBeLessThan(b('b.motor')[0]);
+    expect(b('b.motor')[0]).toBeLessThan(b('b.sensory')[0]);
+    expect(b('b.occipital')[0]).toBeGreaterThan(b('b.parietal')[0]);
+    expect(b('b.cerebellum')[1]).toBeGreaterThan(b('b.thalamus')[1]);
+    expect(b('b.pons')[1]).toBeGreaterThan(b('b.midbrain')[1]);
+    expect(b('b.medulla')[1]).toBeGreaterThan(b('b.pons')[1]);
   });
 
-  it('uses the real ranges with sources (37 ± 0.5 °C, pH 7.35–7.45, 60–100/min, 70–99 mg/dL, Na 135–145, Ca 2.2–2.6)', () => {
-    expect([ORGAN.brain.lo, ORGAN.brain.hi]).toEqual([36.5, 37.5]);
-    expect([ORGAN.lungs.lo, ORGAN.lungs.hi]).toEqual([7.35, 7.45]);
-    expect([ORGAN.heart.lo, ORGAN.heart.hi]).toEqual([60, 100]);
-    expect([ORGAN.liver.lo, ORGAN.liver.hi]).toEqual([70, 99]);
-    expect([ORGAN.kidney.lo, ORGAN.kidney.hi]).toEqual([135, 145]);
-    expect([ORGAN.bone.lo, ORGAN.bone.hi]).toEqual([2.2, 2.6]);
-    for (const o of ORGANS) for (const s of ORGAN[o].src) expect(SOURCES[s], `${o}: ${s}`).toBeTruthy();
-    for (const o of ORGANS) for (const s of FACT_SRC[o]) expect(SOURCES[s], `${o}: ${s}`).toBeTruthy();
+  it('gives every element a shape of its own, a colour, its Latin, a guidance line and a fact with its source in four languages', () => {
+    for (const e of VARIANTS.flatMap(v => LISTS[v])) {
+      expect(e.geo.shapes.length, e.id).toBeGreaterThan(0);
+      expect(e.hue, e.id).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(e.latin.length, e.id).toBeGreaterThan(2);
+      expect(e.src.length, e.id).toBeGreaterThan(8);
+      const [x0, y0, x1, y1] = geoBox(e.geo);
+      expect(x1 > x0 && y1 > y0, e.id).toBe(true);
+      if (e.loop) continue;
+      for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+        const W = WORDS[l];
+        const name = W.name[e.id], guide = W.guide[e.part ? `l.${e.part}` : e.id], fact = W.fact[e.id];
+        expect(name, `${l} ${e.id} name`).toBeTruthy();
+        expect(guide, `${l} ${e.id} guide`).toBeTruthy();
+        expect(fact, `${l} ${e.id} fact`).toBeTruthy();
+        expect(fact.length, `${l} ${e.id} fact`).toBeLessThanOrEqual(190);
+        expect(guide.length, `${l} ${e.id} guide`).toBeLessThanOrEqual(110);
+        if (l !== 'pl') for (const s of [name, guide, fact]) expect(s, `${l} ${e.id}`).not.toMatch(POLISH);
+      }
+    }
+    // the limbs' two sides tell different facts
+    for (const part of ['toes', 'knee', 'hand', 'shoulder']) expect(WORDS.pl.fact[`l.L.${part}`]).not.toBe(WORDS.pl.fact[`l.R.${part}`]);
   });
 
-  it('writes the values the way each language reads them, with a no-break space before the unit', () => {
-    expect(valueText(ORGAN.brain, 37.84)).toBe('37,8 °C');
-    expect(valueText(ORGAN.lungs, 7.312)).toBe('pH 7,31');
-    expect(valueText(ORGAN.heart, 117.6)).toBe('118/min');
-    expect(valueText(ORGAN.liver, 138)).toBe('138 mg/dl');
-    expect(valueText(ORGAN.kidney, 147.6)).toBe('148 mmol/l');
-    expect(valueText(ORGAN.bone, 2.153)).toBe('2,15 mmol/l');
-    expect(valueText(ORGAN.adrenal, 1.4)).toBeNull();
-    expect(valueText(ORGAN.gut, 80)).toBeNull();
-    for (const o of ORGANS) expect(rangeText(ORGAN[o]).length).toBeGreaterThan(3);
+  it('keeps every fact true to its source and plain: no promises, a no-break space before units, the verified numbers', () => {
+    const all = (['pl', 'en', 'de', 'sv'] as const).flatMap(l => Object.entries(WORDS[l].fact).map(([k, v]) => [`${l}.${k}`, v] as const));
+    for (const [k, v] of all) {
+      expect(v, k).not.toMatch(/uzdraw|leczy|heals?\b|cures?\b|heilt|botar/i);
+      expect(v, k).not.toMatch(/\d (ml|mL|g|m|m²|mln|milion|miliard|million|billion|Million|Milliard|miljon|miljard|litr|liter|Liter|%)(?=[\s.,;)]|$)/);
+    }
+    // a few of the checked numbers (StatPearls / PubMed): the brain 2 % / 20 %, 206 bones, 86 billion neurons, 26 foot bones
+    expect(WORDS.en.fact['o.brain']).toMatch(/2%.*20%/);
+    expect(WORDS.en.fact['o.bones']).toMatch(/206/);
+    expect(WORDS.en.fact['b.cerebellum']).toMatch(/69 of its 86/);
+    expect(WORDS.en.fact['l.L.toes']).toMatch(/26 bones; 14/);
+    expect(WORDS.en.fact['m.gluteus']).toMatch(/largest of the buttock muscles/);
+    expect(WORDS.pl.fact['m.gluteus']).toMatch(/Największy z mięśni pośladka/);
   });
 
-  it('draws cortisol’s day: highest in the morning, lowest after midnight', () => {
-    const peak = cortisolCurve(8), night = cortisolCurve(2), evening = cortisolCurve(21);
-    expect(peak).toBeGreaterThan(evening);
-    expect(evening).toBeGreaterThan(night - 0.05);
-    let lo = Infinity, at = 0;
-    for (let h = 0; h < 24; h += 0.25) if (cortisolCurve(h) < lo) { lo = cortisolCurve(h); at = h; }
-    expect(at).toBeGreaterThanOrEqual(0);
-    expect(at).toBeLessThanOrEqual(4);
-  });
-
-  it('has a Wiedza card for every organ at every depth, with a number in it', () => {
-    expect(ALL_CARDS).toHaveLength(27);
-    for (const o of ORGANS) for (const d of DEPTHS) expect(factText(o, d), `${o}.${d}`).toMatch(/\d/);
-  });
-
-  it('chooses the day’s organ the same for everyone', () => {
-    expect(dayOrgan(4242)).toBe(dayOrgan(4242));
-    expect(ORGANS).toContain(dayOrgan(123456));
+  it('keeps Równowaga’s loops: the value comes home as the light fills, inside the range only when full', () => {
+    for (const id of LOOPS) {
+      const L = LOOP[id];
+      for (const kick of L.kicks) {
+        const v0 = loopValueAt(id, kick, 0), v1 = loopValueAt(id, kick, 1);
+        expect(v0, `${id}.${kick.id}`).toBeCloseTo(kick.v0, 6);
+        expect(v1 >= L.lo && v1 <= L.hi, `${id}.${kick.id}`).toBe(true);
+        expect(kick.v0 < L.lo || kick.v0 > L.hi, `${id}.${kick.id} starts out of range`).toBe(true);
+        // monotone toward the set point
+        let prev = Math.abs(v0 - L.set);
+        for (let f = 0.1; f <= 1.0001; f += 0.1) {
+          const d = Math.abs(loopValueAt(id, kick, f) - L.set);
+          expect(d).toBeLessThanOrEqual(prev + 1e-9);
+          prev = d;
+        }
+      }
+      expect(rangeText(L).length).toBeGreaterThan(2);
+      for (const d of [1, 2, 3]) {
+        const e = LISTS.rownowaga.find(x => x.loop === id)!;
+        expect(elFact(e, d).length, `${id}.${d}`).toBeGreaterThan(10);
+        expect(elSource(e, d).length).toBeGreaterThan(5);
+      }
+    }
+    expect(valueText(LOOP.brain, 37.8)).toBe('37,8 °C');
+    expect(Object.keys(SOURCES).length).toBe(36);
   });
 });
 
-describe('the block plan', () => {
-  it('opens a first-ever session with a warm-up and alternates Skan and Odpoczynek, ending on a rest', () => {
-    for (const planned of [180, 300, 600]) {
-      const plan = planBlocks(planned, true, mulberry32(3));
-      expect(plan[0].kind).toBe('warmup');
-      const rest = plan.slice(1);
-      rest.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
-      expect(rest.at(-1)!.kind).toBe('rest');
-      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
-      for (const b of rest) {
-        expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-        expect(b.dur).toBeLessThanOrEqual(31);
-      }
+describe('only real focus fills (the round’s rule)', () => {
+  it('fills nothing without focus — below the threshold, without a signal, in rest — and loses nothing', () => {
+    for (const f of [LOW, NONE]) {
+      const sim = later({ progress: { variant: 'narzady' } });
+      drive(sim, 240, f);
+      expect(sim.litNow, String(f.reliable)).toEqual([]);
+      expect(sim.fill).toBe(0);
+      expect(sim.fillSec).toBe(0);
     }
   });
 
-  it('fits a short test session (?trainingSec=40) and any planned length from 10 s', () => {
-    for (const planned of [10, 20, 40, 60]) {
-      for (const first of [true, false]) {
-        const plan = planBlocks(planned, first, mulberry32(1));
-        expect(plan.some(b => b.kind === 'push')).toBe(true);
-        expect(plan.some(b => b.kind === 'rest')).toBe(true);
-        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeLessThanOrEqual(Math.max(planned, 8) + 1e-6);
-      }
-    }
-  });
-
-  it('tells the block, its seconds left and, during the telegraph, the next one', () => {
-    const sim = later({ planned: 300 });
-    const b = sim.block;
-    expect(b.kind).toBe('push');
-    drive(sim, b.dur - 2, frame());
-    expect(sim.telegraphed).toBe(true);
-    expect(sim.next!.kind).toBe('rest');
-    expect(sim.tip.length).toBeGreaterThan(10);
-  });
-
-  it('makes every 4th push blind from the 3rd session, never the first of a session', () => {
-    const sim = later({ planned: 600, progress: { sessions: 4, pushes: 2 } });
-    const blinds: boolean[] = [];
-    const clock = { t: 0 };
-    for (let i = 0; i < 6; i++) {
-      blinds.push(sim.block.kind === 'push' ? sim.block.blind : false);
-      drive(sim, sim.block.dur + 0.05, frame(), clock);
-    }
-    expect(blinds[0]).toBe(false);
-    expect(blinds[2]).toBe(true);
-    const young = later({ planned: 600, progress: { sessions: 1, pushes: 2 } });
-    const c2 = { t: 0 };
-    for (let i = 0; i < 6; i++) {
-      expect(young.blind).toBe(false);
-      drive(young, young.block.dur + 0.05, frame(), c2);
-    }
-  });
-
-  it('judges each block once at its end, from its last 15 s', () => {
+  it('fills the element in the light with focus, faster in strong focus, and never lets the fill go back', () => {
+    expect(fillMult(HIGH)).toBeGreaterThan(fillMult(MID));
     const sim = later();
-    const evs = drive(sim, sim.block.dur + 0.1, HIGH);
-    const ends = ofType(evs, 'blockEnd');
-    expect(ends).toHaveLength(1);
-    expect(ends[0].verdict).toBe(true);
+    let prev = 0;
+    const rng = mulberry32(7);
+    drive(sim, 200, () => (rng() < 0.5 ? HIGH : rng() < 0.5 ? LOW : NONE), { t: 0 }, () => {
+      if (sim.stage === 'at' && sim.idx === 0 && sim.litNow.length === 0) {
+        expect(sim.fill).toBeGreaterThanOrEqual(prev - 1e-9);
+        prev = sim.fill;
+      }
+    });
+    expect(sim.litNow.length).toBeGreaterThan(0);
   });
 
-  it('asks for imagery of the scene, with one counting and one recall strategy in the rotation', () => {
-    const push = TIPS.push.map(k => t(k)).join(' ');
-    expect(push).toMatch(/Wyobraź|Zobacz|Poczuj/);
-    expect(push).toMatch(/Licz/);
-    expect(push).toMatch(/Przypomnij/);
-  });
-});
-
-describe('the scan and the loops', () => {
-  it('travels to the hypothalamus first and pushes its temperature out of range by an everyday thing', () => {
-    const sim = later();
-    const evs = untilAt(sim, 'brain', MID);
-    const arrive = ofType(evs, 'arrive')[0];
-    expect(arrive.organ).toBe('brain');
-    const l = sim.loop!;
-    expect(Math.abs(loopDev(l))).toBeGreaterThan(1);
-    expect(['bath', 'cold']).toContain(l.kick);
-    expect(sim.scanV).toBeCloseTo(ORGAN.brain.v, 5);
-  });
-
-  it('brings the value home as a first-order approach: faster in gold light than at the base', () => {
-    // the lungs: the second organ, reached after the push block's lead-in (the brain's loop runs mostly inside it)
-    const time = (f: FocusFrame) => {
+  it('lights an element in about 14 focused seconds at the threshold, 11–12 in strong focus (after the 5 s lead-in)', () => {
+    const at = (f: FocusFrame) => {
       const sim = later();
       const clock = { t: 0 };
-      untilAt(sim, 'lungs', f, clock);
-      const t0 = clock.t;
-      let guard = 0;
-      while (!sim.loop?.settled && guard++ < 4000) drive(sim, 0.05, f, clock);
-      return clock.t - t0;
+      while (!sim.litNow.length && clock.t < 60) drive(sim, 0.1, f, clock);
+      return clock.t;
     };
-    const lit = time(HIGH), base = time(NONE);
-    expect(lit).toBeLessThan(base * 0.8);
-    expect(lit).toBeGreaterThan(3);
-    expect(base).toBeLessThan(20);
+    const mid = at(frame({ level: 0.5, activity: 2, focused: true, hold: 0 }));
+    const high = at(HIGH);
+    expect(mid).toBeGreaterThan(5 + 13);
+    expect(mid).toBeLessThan(5 + 16);
+    expect(high).toBeLessThan(mid);
+    expect(high).toBeGreaterThan(5 + 10);
   });
 
-  it('moves the value monotonically toward the set point and holds it inside the range once settled', () => {
+  it('the hands never fill: taps, Space, walking and the picker add no light', () => {
     const sim = later();
-    const clock = { t: 0 };
-    untilAt(sim, 'brain', MID, clock);
-    const o = ORGAN.brain;
-    let prev = Math.abs(loopValue(sim.loop!) - o.set);
-    let guard = 0;
-    while (!sim.loop!.balanced && guard++ < 2000) {
-      drive(sim, 0.1, MID, clock);
-      const d = Math.abs(loopValue(sim.loop!) - o.set);
-      expect(d).toBeLessThanOrEqual(prev + 1e-9);
-      prev = d;
-    }
-    const v = loopValue(sim.loop!);
-    expect(v).toBeGreaterThanOrEqual(o.lo);
-    expect(v).toBeLessThanOrEqual(o.hi);
-  });
-
-  it('settles every organ in turn, lights it, pays lux and opens its Wiedza card the first time', () => {
-    const sim = later({ progress: { cards: [] } });
-    const evs = drive(sim, 90, HIGH);
-    const bal = ofType(evs, 'balanced');
-    expect(bal.length).toBeGreaterThanOrEqual(4);
-    expect(bal.map(e => e.organ).slice(0, 4)).toEqual(['brain', 'lungs', 'heart', 'liver']);
-    for (const e of bal) expect(e.lux).toBeGreaterThan(0);
-    expect(bal.every(e => e.fresh)).toBe(true);
-    expect(sim.p.cards.length).toBe(bal.length);
-    expect(ofType(evs, 'card').length).toBe(bal.length);
-  });
-
-  it('stays a little longer at an organ whose card just opened, and gives the panel back when the next organ comes', () => {
-    const sim = later({ progress: { cards: [] } });
-    const clock = { t: 0 };
-    let guard = 0;
-    while (!sim.loop?.balanced && guard++ < 3000) drive(sim, 0.05, HIGH, clock);
-    expect(sim.card?.fresh).toBe(true);
-    expect(sim.loop!.linger).toBeGreaterThan(RULES.linger);
-    untilAt(sim, 'lungs', HIGH, clock);
-    drive(sim, RULES.cardAfterArrive + 0.1, HIGH, clock);
-    expect(sim.card).toBeNull();
-  });
-
-  it('rates an organ golden when it settles quickly in gold light, never in a blind or signal-less push', () => {
-    const lit = later();
-    const ev1 = drive(lit, 40, HIGH);
-    expect(ofType(ev1, 'balanced').some(e => e.rating === 3)).toBe(true);
-    const dark = later();
-    const ev2 = drive(dark, 40, NONE);
-    expect(ofType(ev2, 'balanced').every(e => e.rating < 3)).toBe(true);
-  });
-
-  it('helps with the hands: taps push the value home, with diminishing returns for a flurry', () => {
-    const withTaps = later(), without = later();
-    const c1 = { t: 0 }, c2 = { t: 0 };
-    untilAt(withTaps, 'brain', NONE, c1);
-    untilAt(without, 'brain', NONE, c2);
-    let next = 0.65;
-    drive(withTaps, 4, NONE, c1, tt => { if (tt >= next) { next += 0.65; withTaps.help(); } });
-    drive(without, 4, NONE, c2);
-    expect(withTaps.loop!.s).toBeLessThan(without.loop!.s - 0.05);
-    // a burst of ten taps does less than ten times one tap
-    const burst = later(), one = later();
-    untilAt(burst, 'brain', NONE);
-    untilAt(one, 'brain', NONE);
-    const s0 = burst.loop!.s;
-    for (let i = 0; i < 10; i++) burst.help();
-    one.help();
-    expect(s0 - burst.loop!.s).toBeLessThan(10 * (s0 - one.loop!.s));
-  });
-
-  it('at the heart a tap on the beat helps twice, off the beat half', () => {
-    const sim = later({ progress: { cards: [...ALL_CARDS] } });
-    expect(sim.pushBlock).toBe(true);
-    const clock = { t: 0 };
-    untilAt(sim, 'heart', HIGH, clock);
-    // wait for a beat, then tap right on it
-    let guard = 0;
-    while (sim.sinceBeat > 0.02 && guard++ < 500) drive(sim, STEP, HIGH, clock);
-    const s0 = sim.loop!.s;
-    sim.help();
-    const onBeat = s0 - sim.loop!.s;
-    expect(ofType(sim.take(), 'help')[0]).toMatchObject({ kind: 'beat', good: true });
-    // half a beat later: off the beat
-    drive(sim, sim.beatPeriod / 2 - sim.sinceBeat, HIGH, clock);
-    const s1 = sim.loop!.s;
-    sim.help();
-    const off = s1 - sim.loop!.s;
-    expect(off).toBeLessThan(onBeat);
-  });
-
-  it('at the lungs the hands breathe out CO₂ bubbles', () => {
-    const sim = later({ progress: { cards: [...ALL_CARDS] } });
-    const clock = { t: 0 };
-    untilAt(sim, 'lungs', MID, clock);
-    drive(sim, 2, MID, clock);
-    const live = sim.bubbles.filter(b => b.pop === 0).length;
-    expect(live).toBeGreaterThan(0);
-    sim.help();
-    expect(sim.bubbles.filter(b => b.pop === 0).length).toBe(live - 1);
-  });
-
-  it('a tap on the body always helps (never a card by mistake); the settled organ in the band opens its card and keeps the band', () => {
-    const sim = later({ progress: { cards: [...ALL_CARDS] } });
-    const clock = { t: 0 };
-    untilAt(sim, 'lungs', HIGH, clock);
-    expect(sim.lit.brain).toBeGreaterThan(0);
-    const s0 = sim.loop!.s;
-    sim.tapOrgan('brain');   // a lit organ elsewhere: it helps the lungs
-    expect(sim.card).toBeNull();
-    expect(sim.loop!.s).toBeLessThan(s0);
-    let guard = 0;
-    while (!sim.loop?.settled && guard++ < 2000) drive(sim, 0.05, HIGH, clock);
-    while (!sim.loop?.balanced && guard++ < 4000) drive(sim, 0.05, HIGH, clock);
-    const linger = sim.loop!.linger;
-    sim.tapOrgan('lungs');
-    expect(sim.card?.organ).toBe('lungs');
-    expect(sim.loop!.linger).toBeGreaterThan(linger);
-  });
-
-  it('steps the band on between organs (a tap and Space move the scan)', () => {
-    const sim = later();
-    const v0 = sim.scanV;
-    sim.key(' ', true);
-    expect(sim.scanV).toBeGreaterThan(v0);
-  });
-
-  it('finishes a whole scan: a story card, stars, the map lit, the next depth opened and a deeper scan', () => {
-    const sim = later({ planned: 600, progress: { depth: 1, map: {}, cards: [] } });
-    const evs = drive(sim, 260, () => (sim.restBlock ? CALM : HIGH), { t: 0 }, () => { if (sim.story && sim.story.t > 1) sim.help(); });
-    const done = ofType(evs, 'scanDone');
-    expect(done.length).toBeGreaterThanOrEqual(1);
-    expect(done[0].deeper).toBe(true);
-    expect(done[0].stars).toBeGreaterThanOrEqual(1);
-    expect(sim.p.depth).toBeGreaterThanOrEqual(2);
-    expect(mapLit(sim.p).lit).toBeGreaterThanOrEqual(9);
-    const starts = ofType(evs, 'scanStart').filter(e => e.scan >= 2);
-    expect(starts.length).toBeGreaterThanOrEqual(1);
-    expect(starts[0].depth).toBe(2);
-    expect(ofType(evs, 'story').some(e => e.kind === 'scan')).toBe(true);
+    drive(sim, 10, LOW, { t: 0 }, () => { sim.stay(); sim.key(' ', true); });
+    expect(sim.fill).toBe(0);
+    sim.next();
+    sim.prev();
+    sim.openPicker();
+    sim.closePicker();
+    drive(sim, 5, LOW);
+    expect(sim.fill).toBe(0);
+    expect(sim.litNow).toEqual([]);
   });
 });
 
-describe('the band and the signal', () => {
-  it('drives the light with focus in a sighted push past its lead-in; the gauge shows it', () => {
-    const sim = later();
-    drive(sim, 1, HIGH);
-    expect(sim.meter()).toBeNull();   // the lead-in (Mendi: 5 s)
-    drive(sim, 7, HIGH);
-    expect(sim.light).toBeGreaterThan(0.85);
-    expect(sim.meter()).toBeGreaterThan(0.85);
-    expect(sim.goldOn).toBe(true);
-    const low = later();
-    drive(low, 8, LOW);
-    expect(low.light).toBeLessThan(0.3);
-    expect(low.goldOn).toBe(false);
-  });
-
-  it('freezes at the neutral base without a signal: no gauge, no gold, never below the base', () => {
-    const sim = later();
-    drive(sim, 10, NONE);
-    expect(sim.meter()).toBeNull();
-    expect(sim.light).toBeCloseTo(RULES.baseLight, 2);
-    expect(sim.goldOn).toBe(false);
-    expect(sim.padLevel(NONE)).toBeNull();
-    expect(sim.score).toBeGreaterThan(0);
-  });
-
-  it('a blind push hides the gauge and the song, holds the light at its base, and tells its share at the end', () => {
-    const sim = later({ planned: 600, progress: { sessions: 4, pushes: 2 } });
-    const clock = { t: 0 };
-    let guard = 0;
-    while (!sim.blind && guard++ < 400) drive(sim, 0.5, HIGH, clock);
-    expect(sim.blind).toBe(true);
-    drive(sim, 8, HIGH, clock);
-    expect(sim.meter()).toBeNull();
-    expect(sim.songLevel(HIGH)).toBeNull();
-    expect(sim.padLevel(HIGH)).toBeNull();
-    expect(sim.light).toBeCloseTo(RULES.baseLight, 2);
-    const evs = drive(sim, sim.block.dur, HIGH, clock);
-    const end = ofType(evs, 'blindEnd')[0];
-    expect(end.share).toBeGreaterThan(0.5);
-    expect(end.lux).toBeGreaterThan(0);
-  });
-
-  it('rest: the band dims, the breath guide turns in 4 / out 6, calm pours lux and the organ still settles', () => {
+describe('the blocks: a push fills one element, a rest of whole breaths follows', () => {
+  it('ends a push when its element is full, then rests in whole breaths (4 in · 6 out), then pushes the next element', () => {
     const sim = later();
     const clock = { t: 0 };
-    until(sim, 'rest', MID, clock);
-    const lux0 = sim.lux;
-    const evs = drive(sim, 12, CALM, clock);
-    expect(sim.light).toBeLessThan(0.3);
-    expect(BREATH).toBe(10);
-    const turns = ofType(evs, 'breathTurn');
-    expect(turns.length).toBeGreaterThanOrEqual(2);
-    expect(sim.meter()).toBeGreaterThan(0.6);
-    expect(sim.lux - lux0).toBeGreaterThan(12);
-    expect(sim.songLevel(CALM)).toBeCloseTo(0.32, 5);
+    drive(sim, 300, ideal(sim), clock);
+    const done = sim.blocks.filter(b => b.end !== undefined);
+    const kinds = done.map(b => b.kind);
+    for (let i = 1; i < kinds.length; i++) expect(kinds[i]).not.toBe(kinds[i - 1]);
+    for (const b of done.filter(x => x.kind === 'rest')) expect(Math.round(b.dur) % 10).toBe(0);
+    expect(restFor(600)).toBe(20);
+    // each push ended on a lit element (an ideal player never needs the valve)
+    expect(done.filter(b => b.kind === 'push').every(b => b.dur < RULES.maxPush)).toBe(true);
+    expect(sim.litNow.length).toBeGreaterThanOrEqual(done.filter(b => b.kind === 'push').length);
+    expect(sim.litNow[0]).toBe('o.brain');
+    expect(sim.litNow[1]).toBe('o.eyes');
   });
 
-  it('a tap on the breath’s turn is “with the breath”', () => {
+  it('a push that cannot fill ends after maxPush with a kind line; the element keeps its light', () => {
     const sim = later();
     const clock = { t: 0 };
-    until(sim, 'rest', MID, clock);
-    drive(sim, RULES.inhale + 0.1, CALM, clock);   // just after the turn to the out-breath
-    sim.help();
-    expect(ofType(sim.take(), 'breathTap')[0].good).toBe(true);
-    drive(sim, 2.2, CALM, clock);   // the middle of the out-breath
-    sim.help();
-    expect(ofType(sim.take(), 'breathTap')[0].good).toBe(false);
-  });
-});
-
-describe('the heart and the player’s pulse', () => {
-  it('beats at the player’s real pulse when Mendi gives one, and says it is theirs', () => {
-    const sim = later({ progress: { seen: ALL_SEEN.filter(s => s !== 'c.pulse'), pulseSeen: false } });
-    const evs = drive(sim, 3, MID, { t: 0 }, undefined, 66);
-    expect(sim.heartBpm()).toEqual({ bpm: 66, real: true });
-    expect(ofType(evs, 'pulse')[0].bpm).toBe(66);
-    expect(ofType(evs, 'coach').map(e => e.what)).toContain('pulse');
-    expect(sim.p.pulseSeen).toBe(true);
-    const beats = ofType(evs, 'beat');
-    expect(beats.length).toBeGreaterThanOrEqual(2);
-    expect(beats.every(b => b.real)).toBe(true);
+    drive(sim, 10, MID, clock);
+    const kept = sim.fill;
+    expect(kept).toBeGreaterThan(0);
+    expect(kept).toBeLessThan(1);
+    drive(sim, RULES.maxPush - 10 + 0.2, LOW, clock);
+    expect(sim.restBlock).toBe(true);
+    expect(sim.fill).toBeCloseTo(kept, 6);
+    expect(sim.blocks[0].dur).toBeCloseTo(RULES.maxPush, 0);
   });
 
-  it('without a reading draws a typical heart — never “yours” — that slows with calm in rest', () => {
-    const sim = later();
-    drive(sim, 2, MID);
-    expect(sim.heartBpm().real).toBe(false);
-    expect(sim.heartBpm().bpm).toBe(RULES.typical);
-    const clock = { t: 0 };
-    // a rest away from the heart's own loop (there the heart shows the loop's story value)
-    let guard = 0;
-    while (!(sim.restBlock && sim.blockT < 2 && sim.lit.heart > 0 && sim.loop?.organ !== 'heart') && guard++ < 4000) drive(sim, 0.25, sim.restBlock ? CALM : HIGH, clock);
-    drive(sim, 6, CALM, clock);
-    const r = sim.heartBpm();
-    expect(r.real).toBe(false);
-    expect(r.bpm).toBeLessThan(RULES.typical);
+  it('judges each block once at its end, not a push under judgeMin, and pays a block judged well', () => {
+    const sim = later({ progress: { pos: { ...freshProgress().pos, narzady: { idx: 0, fill: 0.95 } } } });
+    const evs = drive(sim, 120, ideal(sim));
+    const ends = ofType(evs, 'blockEnd');
+    expect(ends.length).toBeGreaterThan(2);
+    const short = ends.find(e => e.block.kind === 'push' && e.block.dur < RULES.judgeMin);
+    if (short) expect(short.verdict).toBeNull();
+    expect(ends.some(e => e.verdict === true)).toBe(true);
   });
 
-  it('labels the pulse honestly: “Twoje tętno” only for a real reading, else the typical rate said to be typical', () => {
-    expect(pulseText({ pulse: 66 })).toBe('Twoje tętno: 66/min');
-    expect(pulseText({ pulse: null })).toBe(`typowo ~${RULES.typical}/min · bez pomiaru`);
-    // at the heart's own loop (a story value of ~110) the label still says the typical rate
-    const sim = later({ progress: { cards: [...ALL_CARDS] } });
-    untilAt(sim, 'heart', MID);
-    expect(sim.heartBpm().bpm).toBeGreaterThan(100);
-    expect(pulseText(sim)).toContain(String(RULES.typical));
-    for (const l of ['en', 'de', 'sv'] as const) expect((CATALOGS[l] as Record<string, string>)['hud.typical']).toMatch(/~\{n\}/);
-  });
-
-  it('notices a pulse that slowed in rest, and only when it really did', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    drive(sim, sim.block.dur - 0.1, HIGH, clock, undefined, 78);
-    until(sim, 'rest', HIGH, clock);
-    drive(sim, sim.block.dur, CALM, clock, undefined, 70);
-    expect(sim.result().highlights.some(h => /zwolniło o 8/.test(h))).toBe(true);
-    const flat = later();
-    const c2 = { t: 0 };
-    drive(flat, flat.block.dur - 0.1, HIGH, c2, undefined, 70);
-    until(flat, 'rest', HIGH, c2);
-    drive(flat, flat.block.dur, CALM, c2, undefined, 70);
-    expect(flat.result().highlights.some(h => /zwolniło/.test(h))).toBe(false);
-  });
-});
-
-describe('the session', () => {
-  it('scores with the smoke test’s crude input (a centre tap every 0.65 s, Space every ~2 s, focus on)', () => {
-    const sim = makeSim({ tuning: BEGINNER, planned: 60 });
-    let next = 0.65, space = 2;
-    const clock = { t: 0 };
-    const seen: number[] = [];
-    drive(sim, 22, HIGH, clock, tt => {
-      if (tt >= next) {
-        next += 0.65;
-        sim.tapOrgan(null);
-      }
-      if (tt >= space) {
-        space += 2;
-        sim.key(' ', true);
-        sim.key(' ', false);
-      }
-      if (Math.abs(tt - Math.round(tt)) < STEP / 2) seen.push(sim.score);
+  it('makes every 4th push blind from the 3rd session, never the first of a session; a blind push hides the gauge and shows its fill at the end', () => {
+    const sim = later({ progress: { sessions: 3, pushes: 2 } });
+    const blinds: boolean[] = [];
+    let metered = false;
+    drive(sim, 400, ideal(sim), { t: 0 }, () => {
+      if (sim.pushBlock && sim.blockT < 0.04) blinds.push(sim.block.blind);
+      if (sim.blind && sim.meter() !== null) metered = true;
     });
-    expect(sim.result().score).toBeGreaterThan(0);
-    // the headline accrues live
-    expect(seen.at(-1)!).toBeGreaterThan(seen[3]);
-    expect(sim.balancedNow).toBeGreaterThanOrEqual(1);
+    expect(blinds[0]).toBe(false);
+    expect(blinds.some(Boolean)).toBe(true);
+    expect(metered).toBe(false);
+    const fresh = later({ progress: { sessions: 1, pushes: 3 } });
+    drive(fresh, 300, ideal(fresh));
+    expect(fresh.blocks.some(b => b.blind)).toBe(false);
   });
 
-  it('opens the first session with the story card and the root verse’s line, and teaches with coach marks', () => {
-    const sim = makeSim();
+  it('opens a first-ever session with the story card and a warm-up that fills at half the rate', () => {
+    const sim = makeSim({ planned: 300 });
     expect(sim.story?.kind).toBe('open');
     expect(sim.block.kind).toBe('warmup');
-    const evs = drive(sim, 60, MID, { t: 0 }, () => { if (sim.story && sim.story.t > 1) sim.help(); });
-    const coach = ofType(evs, 'coach').map(e => e.what);
-    expect(coach).toContain('help');
-    expect(coach).toContain('loop');
-    expect(coach).toContain('card');
-    // a returning player hears nothing twice
-    const again = makeSim({ progress: { ...sim.p } });
-    const ev2 = drive(again, 60, MID);
-    expect(ofType(ev2, 'coach').map(e => e.what)).not.toContain('help');
+    expect(sim.block.dur).toBe(warmFor(300));
+    sim.story!.t = 1;
+    sim.stay();
+    sim.story!.t = 1;
+    sim.stay();
+    expect(sim.story).toBeNull();
+    drive(sim, 4, HIGH);
+    const r = sim.fillRate(HIGH);
+    expect(r).toBeCloseTo((fillMult(HIGH) / RULES.elementSec) * RULES.warmK, 6);
   });
 
-  it('keeps Zofia quiet while a coach mark is up (never two bubbles), and lets her speak after', () => {
-    const sim = later();
+  it('scores with the smoke test’s crude input (40 s, focus on, a centre tap every 0.65 s, Space every third): lux > 0 within 22 s', () => {
+    const sim = makeSim({ planned: 40 });
     const clock = { t: 0 };
-    drive(sim, 6, MID, clock);   // past the runner's banner
-    sim.hintUntil = clock.t + 3;
-    sim.talk.ask('good', 5, 10);
-    drive(sim, 2.5, MID, clock);
-    expect(sim.talk.line).toBeNull();
-    drive(sim, 3, MID, clock);
-    expect(sim.talk.said.length).toBeGreaterThan(0);
-  });
-
-  it('gives result() idempotently and the record only with Math.max', () => {
-    const sim = later();
-    drive(sim, 30, HIGH);
-    const a = sim.result();
-    const b = sim.result();
-    expect(b.score).toBe(a.score);
-    expect(sim.p.best[String(300)]).toBe(a.score);
-    const sessions = sim.p.sessions;
-    sim.result();
-    expect(sim.p.sessions).toBe(sessions);
-    expect(a.unit).toBe(unit(a.score));
-  });
-
-  it('settles once at the end (or early), counting the session and its scans', () => {
-    const sim = later({ planned: 40 });
-    drive(sim, 46, MID);
-    expect(sim.phase).toBe('done');
-    expect(sim.canStop()).toBe(true);
-    expect(sim.p.sessions).toBe(6);
-    const early = later({ planned: 300 });
-    drive(early, 20, MID);
-    early.finish();
-    early.finish();
-    expect(early.p.sessions).toBe(6);
-    expect(early.phase).toBe('done');
-  });
-
-  it('closes with a passage that exists, fitting what happened', () => {
-    const sim = later();
-    drive(sim, 20, HIGH);
-    const r = sim.result();
-    expect(r.verse).toBeTruthy();
-    expect(passage(r.verse!).text.length).toBeGreaterThan(10);
-    for (const id of ['mat6.22', 'psa139.13-14', '1co6.19-20', 'pro16.24', 'pro3.7-8', 'pro4.20-22'] as const) expect(passage(id).text.length).toBeGreaterThan(10);
-    expect(makeSim().closingVerse()).toBe('psa139.13-14');
-  });
-
-  it('says what happened in the summary: readable stats and highlights', () => {
-    const sim = later();
-    drive(sim, 60, HIGH);
-    const r = sim.result();
-    expect(r.stats.length).toBeGreaterThanOrEqual(6);
-    expect(r.highlights.length).toBeGreaterThan(0);
-    for (const h of r.highlights) expect(h.length).toBeLessThan(140);
-  });
-
-  it('keeps the pace calm: a whole scan takes about 2–4 minutes of a 5-minute session with average focus', () => {
-    const sim = later({ planned: 600 });
-    const clock = { t: 0 };
-    const evs = drive(sim, 400, () => (sim.restBlock ? frame({ calm: 0.5, level: 0.4 }) : frame({ level: 0.55, activity: 2.2 })), clock,
-      () => { if (sim.story && sim.story.t > 1) sim.help(); });
-    const done = ofType(evs, 'scanDone');
-    expect(done.length).toBeGreaterThanOrEqual(2);
-    expect(done.length).toBeLessThanOrEqual(4);
-  });
-
-  it('pays a 5-minute session roughly 600–3000 lux with mid focus and some taps', () => {
-    const sim = later({ planned: 300 });
-    let next = 1.5;
-    drive(sim, 300, () => (sim.restBlock ? frame({ calm: 0.6 }) : MID), { t: 0 }, tt => {
-      if (tt >= next) { next += 1.5; sim.help(); }
-      if (sim.story && sim.story.t > 1) sim.help();
+    let n = 0, next = 0.65;
+    drive(sim, 22, HIGH, clock, () => {
+      if (clock.t >= next) {
+        next += 0.65;
+        n++;
+        sim.stay();
+        if (n % 3 === 0) sim.key(' ', true);
+      }
     });
-    expect(sim.score).toBeGreaterThan(600);
-    expect(sim.score).toBeLessThan(3000);
+    expect(sim.score).toBeGreaterThan(0);
+    drive(sim, 25, HIGH, clock);
+    expect(sim.phase).toBe('done');
   });
 });
 
-describe('what the light pays', () => {
-  const firstBalance = (sim: SwiatloSim) => {
-    const evs = drive(sim, 40, HIGH);
-    return ofType(evs, 'balanced')[0];
-  };
-
-  it('pays the day’s organ double', () => {
-    // find a day seed whose organ is the hypothalamus (the first station) and one whose organ is not
-    let dayBrain = 0, dayOther = 0;
-    for (let s = 1; s < 200 && (!dayBrain || !dayOther); s++) {
-      if (dayOrgan(s) === 'brain') dayBrain ||= s; else dayOther ||= s;
-    }
-    const mk = (daySeed: number) => {
-      const sim = new SwiatloSim({ progress: { ...freshProgress(), sessions: 5, pushes: 1, seen: [...ALL_SEEN], cards: [...ALL_CARDS] }, rng: mulberry32(1), day: DAY, daySeed, plannedSec: 300, eeg: false, tuning: TUNING, hour: 9 });
-      sim.start();
-      return sim;
-    };
-    const a = firstBalance(mk(dayBrain)), b = firstBalance(mk(dayOther));
-    expect(a.organ).toBe('brain');
-    expect(a.day).toBe(true);
-    expect(b.day).toBe(false);
-    expect(a.lux).toBe(b.lux * RULES.dayK);
+describe('choose, walk, go on (meta.ts)', () => {
+  it('remembers each meditation’s own place, and the next session goes on there', () => {
+    const p = { ...freshProgress(), sessions: 5, pushes: 1, seen: [...ALL_SEEN] };
+    const a = new SwiatloSim({ progress: p, rng: mulberry32(2), plannedSec: 300, eeg: false, tuning: TUNING });
+    a.start();
+    drive(a, 120, ideal(a));
+    const at = a.idx;
+    a.finish();
+    expect(p.pos.narzady.idx).toBeGreaterThanOrEqual(at);
+    expect(p.sessions).toBe(6);
+    const b = new SwiatloSim({ progress: p, rng: mulberry32(3), plannedSec: 300, eeg: false, tuning: TUNING });
+    b.start();
+    expect(b.idx).toBe(p.pos.narzady.idx);
   });
 
-  it('pays deeper scans more', () => {
-    const shallow = later({ progress: { depth: 1, map: {}, cards: [...ALL_CARDS] } });
-    const deep = later({ progress: { depth: 3, map: Object.fromEntries(ALL_CARDS.filter(c => !c.endsWith(':3')).map(c => [c, 1])), cards: [...ALL_CARDS] } });
-    expect(deep.depth).toBe(3);
-    const a = firstBalance(shallow), b = firstBalance(deep);
-    expect(a.rating).toBe(b.rating);
-    expect(b.lux).toBeGreaterThan(a.lux);
+  it('keeps the light gathered at the element where a session stopped', () => {
+    const p = { ...freshProgress(), sessions: 5, pushes: 1, seen: [...ALL_SEEN] };
+    const a = new SwiatloSim({ progress: p, rng: mulberry32(2), plannedSec: 300, eeg: false, tuning: TUNING });
+    a.start();
+    drive(a, 10, HIGH);
+    const f = a.fill;
+    expect(f).toBeGreaterThan(0);
+    a.finish();
+    expect(p.pos.narzady).toEqual({ idx: 0, fill: f });
+    const b = new SwiatloSim({ progress: p, rng: mulberry32(3), plannedSec: 300, eeg: false, tuning: TUNING });
+    b.start();
+    expect(b.fill).toBeCloseTo(f, 6);
   });
 
-  it('never rates golden in a blind block (no light to judge by), and the song follows the focus only in a sighted push', () => {
-    const sim = later({ planned: 600, progress: { sessions: 4, pushes: 2, cards: [...ALL_CARDS] } });
-    const clock = { t: 0 };
-    let guard = 0;
-    while (!sim.blind && guard++ < 400) drive(sim, 0.5, HIGH, clock);
-    expect(sim.blind).toBe(true);
-    const evs = drive(sim, sim.block.dur - sim.blockT - 0.1, HIGH, clock);
-    for (const e of ofType(evs, 'balanced')) expect(e.rating).toBeLessThan(3);
-    const sighted = later();
-    drive(sighted, 8, HIGH);
-    expect(sighted.sighted).toBe(true);
-    expect(sighted.songLevel(HIGH)).toBeCloseTo(HIGH.level, 5);
-    expect(sighted.songLevel(NONE)).toBeNull();
-  });
-});
-
-describe('the meta', () => {
-  it('lights the map with the best rating and meets each card once', () => {
+  it('chooses a meditation, starts it over, or starts it at a chosen element (the album)', () => {
     const p = freshProgress();
-    expect(lightMap(p, 'heart', 1, 2)).toBe(true);
-    expect(lightMap(p, 'heart', 1, 1)).toBe(false);
-    expect(p.map['heart:1']).toBe(2);
-    lightMap(p, 'heart', 1, 3);
-    expect(p.map['heart:1']).toBe(3);
-    expect(meetCard(p, 'gut', 2)).toBe(true);
-    expect(meetCard(p, 'gut', 2)).toBe(false);
-    expect(mapLit(p)).toEqual({ lit: 1, golden: 1, all: 27 });
+    expect(choose(p, 'mozg')).toBe(true);
+    expect(choose(p, 'nope')).toBe(false);
+    expect(p.variant).toBe('mozg');
+    expect(startAt(p, 'konczyny', 14)).toBe(true);
+    expect(p.variant).toBe('konczyny');
+    expect(p.pos.konczyny).toEqual({ idx: 14, fill: 0 });
+    expect(startAt(p, 'konczyny', 99)).toBe(false);
+    restart(p, 'konczyny');
+    expect(p.pos.konczyny).toEqual({ idx: 0, fill: 0 });
+    const sim = later({ progress: { variant: 'konczyny', pos: { ...freshProgress().pos, konczyny: { idx: 15, fill: 0 } } } });
+    expect(sim.element.id).toBe('l.L.hand');
   });
 
-  it('goes deeper scan by scan: organs, then cells, then systems, opened by whole scans', () => {
-    const p = freshProgress();
-    expect(scanDepth(p, 1)).toBe(1);
-    expect(scanDepth(p, 2)).toBe(1);
-    expect(openDeeper(p, 1)).toBe(true);
-    expect(scanDepth(p, 2)).toBe(2);
-    expect(openDeeper(p, 1)).toBe(false);
-    for (const o of ORGANS) lightMap(p, o, 1, 1);
-    expect(scanDepth(p, 1)).toBe(2);
-    openDeeper(p, 2);
-    expect(scanDepth(p, 2)).toBe(3);
-    expect(scanDepth(p, 5)).toBe(3);
+  it('switches meditations in the picker, each going on where it stopped; walks round with ◀ ▶', () => {
+    const sim = later();
+    drive(sim, 3, LOW);
+    sim.next();
+    sim.next();
+    expect(sim.idx).toBe(2);
+    sim.openPicker();
+    expect(sim.picker).toBe(true);
+    sim.pick('mozg');
+    expect(sim.variant).toBe('mozg');
+    expect(sim.stage).toBe('dive');
+    expect(sim.p.pos.narzady.idx).toBe(2);
+    sim.pick('narzady');
+    expect(sim.idx).toBe(2);
+    sim.prev(); sim.prev(); sim.prev();
+    expect(sim.idx).toBe(count('narzady') - 1);
   });
 
-  it('gives a scan its stars by golden organs', () => {
-    expect([0, 3, 4, 6, 7, 9].map(scanStars)).toEqual([1, 1, 2, 2, 3, 3]);
-  });
-});
-
-describe('old saves', () => {
-  it('reads the placeholder’s save ({ ver: 1, sessions: n }) and keeps the count', () => {
-    const p = mergeSaved(freshProgress(), { ver: 1, sessions: 4 }) as SwiatloProgress;
-    migrate(p);
-    expect(p.ver).toBe(1);
-    expect(p.sessions).toBe(4);
-    expect(p.song).toBe(true);
-    expect(p.depth).toBe(1);
-    expect(migrate(p)).toBe(p);
-    expect(bestOf(p)).toBeNull();
+  it('turns the figure between the front and the back muscles, and the brain between its face and its middle', () => {
+    const m = later({ progress: { variant: 'miesnie', pos: { ...freshProgress().pos, miesnie: { idx: 11, fill: 0 } } } });
+    drive(m, 2, LOW);
+    m.next();
+    expect(m.stage).toBe('turn');
+    expect(m.view).toBe('back');
+    const b = later({ progress: { variant: 'mozg', pos: { ...freshProgress().pos, mozg: { idx: 8, fill: 0 } } } });
+    expect(b.stage).toBe('dive');
+    drive(b, 3.5, LOW);
+    b.next();
+    expect(b.stage).toBe('turn');
+    expect(b.view).toBe('med');
   });
 
-  it('keeps a realistic version-1 save and repairs fields of a wrong type', () => {
-    const saved = {
-      ver: 1, sessions: 9, pushes: 14, scans: 5, map: { 'heart:1': 3, 'gut:2': 9, 'nope:1': 2, 'brain:1': 'x' }, cards: ['heart:1', 'heart:1', 'ghost:2', 7],
-      depth: 7, best: { '300': 1240, '180': 'x' }, balanced: 40, golden: 'many', bestScan: 99, fastest: -3, breaths: 12, pulseSeen: 'yes', song: false,
-      seen: ['c.help', 3], lastLen: 300,
-    };
-    const p = mergeSaved(freshProgress(), saved) as SwiatloProgress;
-    migrate(p);
-    expect(p.map).toEqual({ 'heart:1': 3, 'gut:2': 3 });
-    expect(p.cards).toEqual(['heart:1']);
-    expect(p.depth).toBe(3);
-    expect(p.best).toEqual({ 300: 1240 });
-    expect(p.golden).toBe(0);
-    expect(p.bestScan).toBe(9);
-    expect(p.fastest).toBe(0);
-    expect(p.pulseSeen).toBe(false);
+  it('reads a first-version save: its sessions, records and song stay, its map becomes Równowaga’s album', () => {
+    const v1 = { ver: 1, sessions: 7, pushes: 20, scans: 2, map: { 'brain:1': 3, 'brain:2': 1, 'heart:1': 2, 'junk:9': 3 }, cards: ['brain:1'], depth: 2,
+      best: { 300: 900 }, balanced: 12, golden: 3, bestScan: 4, fastest: 100, breaths: 9, pulseSeen: true, song: false, seen: ['s.open'], lastLen: 300 };
+    const p = migrate(mergeSaved(freshProgress(), v1) as SwiatloProgress);
+    expect(p.ver).toBe(2);
+    expect(p.sessions).toBe(7);
+    expect(p.pushes).toBe(20);
+    expect(bestOf(p)).toBe(900);
     expect(p.song).toBe(false);
-    expect(p.seen).toEqual(['c.help']);
-    expect(bestOf(p)).toBe(1240);
-    // and it plays
-    const sim = new SwiatloSim({ progress: p, rng: mulberry32(2), day: DAY, daySeed: 1, plannedSec: 180, eeg: true, tuning: TUNING, hour: 22 });
+    expect(p.lit).toEqual({ 'r.brain': 2, 'r.heart': 1 });
+    expect(p.whole.rownowaga).toBe(2);
+    expect(p.variant).toBe('narzady');
+    // a returning player hears what changed, once
+    const sim = new SwiatloSim({ progress: p, rng: mulberry32(1), plannedSec: 300, eeg: false, tuning: TUNING });
     sim.start();
-    drive(sim, 10, MID);
-    expect(sim.result().score).toBeGreaterThan(0);
+    expect(sim.story?.kind).toBe('news');
+    // Równowaga's next card for the brain is one level deeper (lit at two depths before)
+    const s2 = later({ progress: { ...p, variant: 'rownowaga', seen: [...ALL_SEEN] } });
+    const lit = ofType(drive(s2, 60, ideal(s2)), 'lit');
+    expect(lit[0].id).toBe('r.brain');
+    expect(lit[0].times).toBe(3);
   });
 
   it('survives garbage', () => {
-    for (const junk of [null, 3, 'x', [], { ver: 2 }, { ver: 1, map: 'x', cards: 5, best: [], seen: null, depth: -1 }]) {
-      const p = mergeSaved(freshProgress(), junk) as SwiatloProgress;
-      migrate(p);
-      expect(p.ver).toBe(1);
-      expect(Array.isArray(p.cards)).toBe(true);
-      expect(p.depth).toBeGreaterThanOrEqual(1);
-      expect(typeof p.map).toBe('object');
-    }
+    const p = migrate({ ver: 2, sessions: 'x', variant: 'nope', pos: { mozg: { idx: 999, fill: 7 } }, lit: { 'o.heart': 2, bogus: 4 }, whole: 5, best: null } as unknown as SwiatloProgress);
+    expect(p.sessions).toBe(0);
+    expect(p.variant).toBe('narzady');
+    expect(p.pos.mozg).toEqual({ idx: count('mozg') - 1, fill: 0 });
+    expect(p.lit).toEqual({ 'o.heart': 2 });
+    expect(litIn(p, 'narzady')).toBe(1);
+    expect(migrate(migrate(p))).toEqual(p);
+  });
+});
+
+describe('clarity: what to do now, words long enough to read, the summary', () => {
+  it('says what to do now in one short line that changes only with the action', () => {
+    const sim = later();
+    const seen = new Set<string>();
+    drive(sim, 120, ideal(sim), { t: 0 }, () => { const d = sim.doNow(); if (d) seen.add(`${d.icon} ${d.text}`); });
+    expect([...seen].some(s => s.startsWith('◎') && s.includes(elName(LISTS.narzady[0])))).toBe(true);
+    expect([...seen].some(s => s.startsWith('☾'))).toBe(true);
+    for (const s of seen) expect(s.length).toBeLessThanOrEqual(60);
+  });
+
+  it('keeps captions up long enough to read twice: ≥ 2.5 s + 70 ms a character, never under 4.5 s', () => {
+    expect(readSec('krótko')).toBe(4.5);
+    const long = 'x'.repeat(80);
+    expect(readSec(long)).toBeCloseTo(2.5 + 0.07 * 80, 6);
+    const sim = later();
+    drive(sim, 60, ideal(sim), { t: 0 }, () => {
+      const l = sim.talk.line;
+      if (l) expect(l.dur).toBeGreaterThanOrEqual(readSec(l.text) - 1e-9);
+    });
+  });
+
+  it('shows the fact card in the rest that follows, as long as it takes to read it', () => {
+    const sim = later();
+    let shownFor = 0;
+    drive(sim, 60, ideal(sim), { t: 0 }, () => { if (sim.factShown && sim.restBlock) shownFor += STEP; });
+    const f = elFact(LISTS.narzady[0]);
+    expect(shownFor).toBeGreaterThanOrEqual(readSec(f) - 0.2);
+  });
+
+  it('gives the push’s strategy as the element’s own guidance, every third push a counting one', () => {
+    const sim = later();
+    expect(sim.tip).toBe(elGuide(LISTS.narzady[0]));
+    const tips: string[] = [];
+    drive(sim, 300, ideal(sim), { t: 0 }, () => { if (sim.pushBlock && sim.blockT < 0.04) tips.push(sim.tip); });
+    expect(tips.some(x => [1, 2, 3].map(i => t(`tip.count.${i}` as 'tip.count.1')).includes(x))).toBe(true);
+  });
+
+  it('gives result() idempotently, the record with Math.max, a passage that exists', () => {
+    const sim = later();
+    drive(sim, 120, ideal(sim));
+    sim.finish();
+    const a = sim.result(), b = sim.result();
+    expect(a).toEqual(b);
+    expect(a.unit).toBe(unit(a.score));
+    expect(() => passage(a.verse!)).not.toThrow();
+    for (const v of VARIANTS) expect(() => passage(VERSE[v])).not.toThrow();
+    expect(() => passage(ROOT)).not.toThrow();
+    expect(a.highlights.length).toBeGreaterThan(0);
+    expect(a.stats.length).toBe(6);
   });
 });
 
@@ -775,348 +488,133 @@ describe('the words', () => {
     expect(catalogProblems(CATALOGS)).toEqual([]);
   });
 
-  it('gives Zofia at least three lines a moment, each fitting a bubble (90 characters)', () => {
-    for (const m of MOMENTS) {
-      expect(LINE_COUNT[m], m).toBeGreaterThanOrEqual(3);
-      expect(linesOf(m).every(s => s.length > 5), m).toBe(true);
-    }
+  it('gives Zofia three lines a moment, each fitting a bubble (90 characters)', () => {
+    for (const m of MOMENTS) expect(linesOf(m).length, m).toBe(3);
     for (const l of ['pl', 'en', 'de', 'sv'] as const) {
       for (const [k, v] of Object.entries(CATALOGS[l])) if (k.startsWith('say.') && typeof v === 'string') expect(v.length, `${l}.${k}`).toBeLessThanOrEqual(90);
     }
   });
 
-  it('keeps Polish letters and Polish words out of the other languages, and quotes in each language’s marks', () => {
+  it('keeps Polish letters and words out of the other languages, and quotes in each language’s marks', () => {
     for (const l of ['en', 'de', 'sv'] as const) {
       for (const [k, v] of Object.entries(CATALOGS[l])) {
         const texts = typeof v === 'string' ? [v] : Object.values(v).filter((x): x is string => typeof x === 'string');
         for (const s of texts) {
-          expect(s, `${l}.${k}`).not.toMatch(/[ąćęłńśźżĄĆĘŁŃŚŹŻ]|\b(opask[aęi]|się|albo|Gra|Graj)\b/);
+          expect(s, `${l}.${k}`).not.toMatch(POLISH);
           if (/[„“”"]/.test(s)) expect(s, `${l}.${k}`).toMatch(l === 'de' ? /„[^„”"“]+“/ : l === 'sv' ? /”[^„”"“]+”/ : /“[^„”"“]+”/);
+          expect(s, `${l}.${k}`).not.toMatch(/Gott mit uns/);
         }
       }
+      for (const s of Object.values(WORDS[l].fact)) if (/[„“”"]/.test(s)) expect(s).toMatch(l === 'de' ? /„[^„”"“]+“/ : l === 'sv' ? /”[^„”"“]+”/ : /“[^„”"“]+”/);
     }
     for (const [k, v] of Object.entries(CATALOGS.pl)) if (typeof v === 'string' && /[„“”"]/.test(v)) expect(v, k).toMatch(/„[^„”"“]+”/);
   });
 
-  it('suggests strategies, never to concentrate harder, and never claims to heal', () => {
+  it('suggests strategies, never to concentrate harder, never claims to heal; the last tip says the band measures attention', () => {
     for (const l of ['pl', 'en', 'de', 'sv'] as const) {
       for (const [k, v] of Object.entries(CATALOGS[l])) {
         if (typeof v !== 'string') continue;
-        if (/^(tip|howto)\./.test(k)) expect(v, `${l}.${k}`).not.toMatch(/mocniej|bardziej się skup|harder|concentrate more|stärker|mehr konzentrier|hårdare|koncentrera dig mer/i);
+        if (/^(tip|howto|now)\./.test(k)) expect(v, `${l}.${k}`).not.toMatch(/mocniej|bardziej się skup|harder|concentrate more|stärker|mehr konzentrier|hårdare|koncentrera dig mer/i);
         expect(v, `${l}.${k}`).not.toMatch(/uzdrawia|leczy Cię|heals you|cures|heilt dich|botar dig/i);
       }
     }
-    // the how-to's last tip says it plainly, in every language
-    expect(CATALOGS.pl['howto.tip2']).toMatch(/nie zastępuje leczenia/);
-    expect(CATALOGS.en['howto.tip2']).toMatch(/does not replace/);
-    expect(CATALOGS.de['howto.tip2']).toMatch(/ersetzt keine/);
-    expect(CATALOGS.sv['howto.tip2']).toMatch(/ersätter inte/);
+    expect(CATALOGS.pl['howto.tip2']).toMatch(/mierzy uwagę.*nie leczenie/);
+    expect(CATALOGS.en['howto.tip2']).toMatch(/measures attention.*not a treatment/);
+    expect(CATALOGS.de['howto.tip2']).toMatch(/misst Aufmerksamkeit.*keine Behandlung/);
+    expect(CATALOGS.sv['howto.tip2']).toMatch(/mäter uppmärksamhet.*inte behandling/);
   });
 
-  it('bends the headline’s unit (1 luks, 3 luksy, 5 luksów) and keeps a no-break space before units', () => {
+  it('glosses the loops’ terms in plain words', () => {
+    expect(CATALOGS.pl['fix.kidney.salty']).toMatch(/ADH, hormon oszczędzania wody/);
+    expect(CATALOGS.pl['fix.heart.stairs']).toMatch(/„hamulec” serca/);
+    expect(CATALOGS.en['fix.liver.meal']).toMatch(/\(as glycogen\)/);
+  });
+
+  it('bends the headline’s unit (1 luks, 3 luksy, 5 luksów)', () => {
     expect(unit(1)).toBe('luks');
     expect(unit(3)).toBe('luksy');
     expect(unit(5)).toBe('luksów');
-    expect(unit(22)).toBe('luksy');
-    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
-      for (const [k, v] of Object.entries(CATALOGS[l])) {
-        if (typeof v !== 'string' || !k.startsWith('fact.')) continue;
-        expect(v, `${l}.${k}`).not.toMatch(/\d (°C|mg|mmol|mm\b|m²|g(?=[\s.,;)]|$)|%|litr|Liter|liter|mln|Million|million|miljon)/);
-      }
-    }
-  });
-});
-
-describe('mobile first (DESIGN §12, §13.10)', () => {
-  const bands = (L: ReturnType<typeof layout>) => [0.06, 0.25, 0.45, 0.62, 0.95].map(v => L.fig.top + v * L.fig.H);
-
-  it('gives every control a finger-sized target inside the insets, clear of the others, at every checked size and state', () => {
-    for (const c of CHECK_SIZES) {
-      const L = layout(c.w, c.h, c.insets);
-      for (const y of bands(L)) {
-        for (const ph of [120, 180, 240, 400]) {
-          const panel = panelRect(L, y, ph);
-          const ts = tapTargets(L, { story: null, panel });
-          expect(auditTargets(ts, c.w, c.h, c.insets), `${c.name}: panel ${ph} px at ${Math.round(y)}`).toEqual([]);
-        }
-      }
-      const story = storyRect(L, 320);
-      expect(auditTargets(tapTargets(L, { story, panel: null }), c.w, c.h, c.insets), `${c.name}: a story`).toEqual([]);
-      expect(tapTargets(L, { story, panel: panelRect(L, L.fig.top, 150) }).map(x => x.label)).toEqual(['story']);
-    }
   });
 
-  it('puts the round button in the thumb zone of a phone upright, big and off the edges; the panel never reaches it', () => {
-    for (const c of CHECK_SIZES.filter(x => x.w < 600 && x.h > x.w)) {
-      const L = layout(c.w, c.h, c.insets);
-      expect(L.shape, c.name).toBe('tall');
-      expect(L.u).toBeLessThanOrEqual(1.1);
-      const b = L.buttonHit;
-      expect(b.y).toBeGreaterThanOrEqual(c.h * (1 - THUMB));
-      expect(L.button.r * 2).toBeGreaterThanOrEqual(56);
-      expect(b.x).toBeGreaterThanOrEqual(c.insets.left + 16 - 6.01);
-      expect(b.x + b.w).toBeLessThanOrEqual(c.w - c.insets.right - 16 + 0.01);
-      expect(b.y + b.h).toBeLessThanOrEqual(c.h - c.insets.bottom + 0.01);
-      for (const y of bands(L)) {
-        const r = panelRect(L, y, 600);
-        expect(r.y + r.h, c.name).toBeLessThanOrEqual(b.y - 6);
-        expect(r.y).toBeGreaterThanOrEqual(c.insets.top);
-        expect(r.w).toBeGreaterThanOrEqual(148);
-      }
-      // the figure stands in the band: crown under the HUD (and the sing-along line), soles over the bottom
-      expect(L.fig.top).toBeGreaterThanOrEqual(L.line.y + L.line.h);
-      expect(L.fig.top + L.fig.H).toBeLessThanOrEqual(c.h - c.insets.bottom);
-      expect(L.fig.H).toBeGreaterThanOrEqual(300);
-      // the figure's arms stay on screen and clear of the panel's column
-      expect(L.fig.cx - FIG_HALF * L.fig.H).toBeGreaterThanOrEqual(0);
-      expect(L.fig.cx + FIG_HALF * L.fig.H).toBeLessThanOrEqual(L.panel.x);
-      expect(L.line.y).toBeGreaterThanOrEqual(c.insets.top);
-    }
-  });
-
-  it('keeps Zofia’s bubble at the end of its column away from the band', () => {
-    for (const c of CHECK_SIZES) {
-      const L = layout(c.w, c.h, c.insets);
-      const high = bubbleRect(L, L.fig.top + L.fig.H * 0.1, 90), low = bubbleRect(L, L.fig.top + L.fig.H * 0.9, 90);
-      expect(high.y, c.name).toBeGreaterThan(low.y);
-      for (const r of [high, low]) {
-        expect(r.y).toBeGreaterThanOrEqual(c.insets.top);
-        expect(r.y + r.h).toBeLessThanOrEqual(c.h - c.insets.bottom + 0.01);
-        expect(r.x).toBeGreaterThanOrEqual(c.insets.left);
-        expect(r.x + r.w).toBeLessThanOrEqual(c.w - c.insets.right + 0.01);
-      }
-    }
-  });
-
-  it('lays a phone on its side out in three columns: the panel, the standing figure, the bubble and the button', () => {
-    for (const c of CHECK_SIZES.filter(x => x.name.startsWith('phone on its side'))) {
-      const L = layout(c.w, c.h, c.insets);
-      expect(L.shape).toBe('side');
-      expect(L.panel.x + L.panel.w).toBeLessThanOrEqual(L.fig.cx - FIG_HALF * L.fig.H);
-      expect(L.bubble.x).toBeGreaterThanOrEqual(L.fig.cx + FIG_HALF * L.fig.H);
-      expect(L.buttonHit.x).toBeGreaterThan(L.fig.cx + FIG_HALF * L.fig.H);
-      expect(L.panel.w).toBeGreaterThanOrEqual(170);
-      expect(L.fig.H).toBeGreaterThanOrEqual(220);
-    }
-  });
-
-  it('grows on a tablet and a desktop to 1.3 (past it only on a big screen): a tablet upright keeps the tall layout with a big figure', () => {
-    for (const c of CHECK_SIZES.filter(x => Math.min(x.w, x.h) > 600)) {
-      const L = layout(c.w, c.h, c.insets);
-      expect(L.u).toBeGreaterThan(1);
-      expect(L.u, c.name).toBeLessThanOrEqual(c.w >= DESK_MIN_W && Math.min(c.w, c.h) >= DESK_BIG ? DESK_MAX : 1.3);
-      expect(L.shape, c.name).toBe(c.w > c.h ? 'wide' : 'tall');
-      expect(L.panel.w).toBeGreaterThanOrEqual(240);
-      if (L.shape === 'wide') expect(L.bubble.w).toBeGreaterThanOrEqual(240);
-      // the figure takes most of the band's height
-      expect(L.fig.H, c.name).toBeGreaterThanOrEqual(0.75 * (c.h - c.insets.top - c.insets.bottom - 40));
-    }
-  });
-
-  it('maps the figure and finds the organ under a finger', () => {
-    const L = layout(390, 564, CHECK_SIZES[1].insets);
-    const h = figPt(L, 0.012, 0.268);
-    expect(organAt((h.x - L.fig.cx) / L.fig.H, (h.y - L.fig.top) / L.fig.H)).toBe('heart');
-    expect(organAt(-0.05, 0.39)).toBe('kidney');
-    expect(organAt(0.168, 0.522)).toBe('skin');
-    expect(organAt(0.3, 0.9)).toBeNull();
-  });
-
-  it('never draws text under 11 px: the font helper has a floor', () => {
-    for (const px of [0, 3, 6.4, 8, 10.4, 10.99, 11, 12.3, 13, 30]) {
-      const m = font(px).match(/(\d+(?:\.\d+)?)px/);
-      expect(Number(m![1])).toBeGreaterThanOrEqual(MIN_TEXT);
-    }
-    expect(fontPx(4)).toBe(MIN_TEXT);
-    expect(MIN_READ).toBe(13);
-    for (const c of CHECK_SIZES) {
-      const L = layout(c.w, c.h, c.insets);
-      for (const v of Object.values(L.font)) expect(v).toBeGreaterThanOrEqual(MIN_TEXT);
-      expect(L.font.bubble).toBeGreaterThanOrEqual(MIN_READ);
-      expect(L.font.caption).toBeGreaterThanOrEqual(MIN_READ);
-    }
-  });
-
-  it('speaks to the hand the player has: a finger never hears of keys, a keyboard keeps them as shortcuts', () => {
-    const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|mysz[ąy]|mouse|maus|enter/i;
-    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
-      const c = CATALOGS[l] as Record<string, unknown>;
-      for (const k of ['howto.goal', 'howto.help', 'howto.card', 'coach.help', 'coach.card', 'coach.beat', 'coach.bubbles', 'coach.breath', 'story.tap', 'story.next']) {
-        expect(c[k], `${l}.${k}`).toBeTypeOf('string');
-        expect(c[k], `${l}.${k}`).not.toMatch(KEYS);
-      }
-      expect(c['howto.keys'], `${l}.howto.keys`).toMatch(KEYS);
-      expect(c['coach.help.keys'], `${l}.coach.help.keys`).toMatch(KEYS);
-    }
-    const touch = howto(true), desk = howto(false);
-    expect(touch.hands.some(x => x.gesture === 'keys')).toBe(false);
-    expect(desk.hands.some(x => x.gesture === 'keys')).toBe(true);
-    expect(touch.tips!.at(-1)).toMatch(/nie zastępuje leczenia/);
-    expect(coachText('help', true)).not.toMatch(KEYS);
-    expect(coachText('help', false)).toMatch(KEYS);
-  });
-});
-
-describe('a desk: a mouse on a desktop or a big screen (DESIGN §14)', () => {
-  const desks = CHECK_SIZES.filter(c => c.w >= 1024 && c.h >= 560);
-  const big = desks.filter(c => Math.min(c.w, c.h) >= DESK_BIG);
-  const bands = (L: ReturnType<typeof layout>) => [0.06, 0.25, 0.45, 0.62, 0.95].map(v => L.fig.top + v * L.fig.H);
-
-  it('chooses its own layout from the screen: a desk for a mouse on a desktop, the phone’s shapes for a finger', () => {
-    for (const c of CHECK_SIZES) {
-      const mouse = layout(c.w, c.h, c.insets, false), finger = layout(c.w, c.h, c.insets, true);
-      expect(finger.shape, c.name).not.toBe('desk');
-      expect(mouse.shape, c.name).toBe(desks.includes(c) ? 'desk' : finger.shape);
-      // a finger's layout is the same whatever the mouse would get (the phone's layouts never change)
-      if (!desks.includes(c)) expect(mouse.fig, c.name).toEqual(finger.fig);
-    }
-    expect(desks.map(c => c.name)).toEqual(expect.arrayContaining(['desktop', 'laptop (1440 × 790)', 'Full HD monitor (the middle column)']));
-  });
-
-  it('gives every control a target inside the insets, clear of the others, at every desk size, band and card', () => {
-    for (const c of desks) {
-      const L = layout(c.w, c.h, c.insets, false);
-      for (const y of bands(L)) {
-        for (const ph of [140, 260, 420, 900]) {
-          for (const ch of [0, 150, 260, 600]) {
-            const panel = panelRect(L, y, ph), card = ch ? cardRect(L, y, ch) : null;
-            const ts = tapTargets(L, { story: null, panel, card });
-            expect(auditTargets(ts, c.w, c.h, c.insets), `${c.name}: panel ${ph}, card ${ch} at ${Math.round(y)}`).toEqual([]);
-            // a click on the card is the panel's (it closes the card), never the field's or the button's
-            if (card) expect(hitTest(L, { story: null, panel, card }, card.x + card.w / 2, card.y + card.h / 2).kind).toBe('panel');
-          }
-        }
-      }
-      const story = storyRect(L, 360);
-      expect(auditTargets(tapTargets(L, { story, panel: null }), c.w, c.h, c.insets), `${c.name}: a story`).toEqual([]);
-    }
-  });
-
-  it('stands the figure in the middle at the band’s height, the panel left of it, the rail, then the right column', () => {
-    for (const c of desks) {
-      const L = layout(c.w, c.h, c.insets, false);
-      const H = L.fig.H, band = c.h - c.insets.top - c.insets.bottom;
-      expect(H, c.name).toBeGreaterThanOrEqual(0.9 * (band - 24));
-      expect(L.fig.top).toBeGreaterThanOrEqual(c.insets.top);
-      expect(L.fig.top + H).toBeLessThanOrEqual(c.h - c.insets.bottom);
-      // the panel against the figure's left, the rail and its lamp on the right, then the card, Zofia, the song and the button
-      expect(L.panel.x + L.panel.w, c.name).toBeLessThanOrEqual(L.fig.cx - FIG_HALF * H + 0.01);
-      expect(L.panel.x).toBeGreaterThanOrEqual(16 - 0.01);
-      const rail = L.fig.cx + RAIL_X * H + Math.max(7, LAMP_R * H);
-      for (const col of [L.card!, L.bubble]) {
-        expect(col.x, c.name).toBeGreaterThanOrEqual(rail);
-        expect(col.x + col.w).toBeLessThanOrEqual(c.w - 16 + 0.01);
-        expect(col.w).toBeGreaterThanOrEqual(280);
-        expect(col.y0).toBeGreaterThanOrEqual(L.line.y + L.line.h);
-        expect(col.y1).toBeLessThanOrEqual(L.buttonHit.y);
-      }
-      expect(L.panel.w).toBeGreaterThanOrEqual(280);
-      expect(L.line.x).toBeGreaterThanOrEqual(rail);
-      expect(L.line.y).toBeGreaterThanOrEqual(c.insets.top);
-      // the button by the figure (its column's inner edge), not in a phone's thumb corner
-      expect(L.buttonHit.x).toBeGreaterThanOrEqual(rail);
-      expect(L.button.x - (L.fig.cx + FIG_HALF * H), c.name).toBeLessThanOrEqual(0.2 * H + 0.12 * c.w);
-      expect(c.w - (L.buttonHit.x + L.buttonHit.w), c.name).toBeGreaterThan(200);
-      // the card at the band's height, the bubble at the end away from it — inside the column
-      for (const y of bands(L)) {
-        const r = cardRect(L, y, 240)!;
-        expect(r.y).toBeGreaterThanOrEqual(L.card!.y0 - 0.01);
-        expect(r.y + r.h).toBeLessThanOrEqual(L.card!.y1 + 0.01);
-      }
-    }
-  });
-
-  it('grows on a big screen: the figure most of the canvas, the type and the button past the phone’s', () => {
-    for (const c of big) {
-      const L = layout(c.w, c.h, c.insets, false);
-      expect(L.u, c.name).toBeCloseTo(uiScale(c.w, c.h, 1.3), 5);
-      expect(L.u).toBeGreaterThan(1.3);
-      expect(L.u).toBeLessThanOrEqual(DESK_MAX);
-      expect(L.k).toBe(L.u);
-      expect(L.fig.H / c.h, c.name).toBeGreaterThanOrEqual(0.85);
-      // the phone's type × u: what is read to play ≥ 13 × 1.3, the notes and sources ≥ 12 × 1.3
-      expect(L.font.text).toBeGreaterThanOrEqual(Math.floor(13 * 1.3));
-      expect(L.font.bubble).toBeGreaterThanOrEqual(Math.floor(14 * 1.3));
-      expect(L.font.note).toBeGreaterThanOrEqual(Math.floor(12 * 1.3));
-      expect(L.font.caption).toBeGreaterThanOrEqual(Math.floor(13 * 1.3));
-      expect(L.button.r * 2).toBeGreaterThanOrEqual(60 * 1.3 - 1);
-    }
-    const qhd = layout(1587, 1300, { top: 118, right: 0, bottom: 0, left: 0 }, false);
-    expect(qhd.u).toBeGreaterThanOrEqual(1.75);
-    expect(qhd.font.text).toBeGreaterThanOrEqual(23);
-    expect(qhd.panel.w).toBeGreaterThanOrEqual(420);
-    // every size keeps the floor
-    for (const c of desks) {
-      const L = layout(c.w, c.h, c.insets, false);
-      for (const v of Object.values(L.font)) expect(v).toBeGreaterThanOrEqual(MIN_TEXT);
-      expect(L.font.bubble).toBeGreaterThanOrEqual(MIN_READ);
-      expect(L.font.caption).toBeGreaterThanOrEqual(MIN_READ);
-    }
-  });
-
-  it('shows what the phone hides: the loop’s sources in full beside the panel’s numbers', () => {
-    const s = sourcesText(ORGAN.brain.src);
-    expect(s).toMatch(/^Źródła: /);
-    expect(s).toContain('Osilla');
-    expect(s).toContain('Charkoudian, Mayo Clin Proc 2003;78:603');
-    expect(s.split('; ').length).toBe(ORGAN.brain.src.length);
-  });
-
-  it('answers a hovering mouse: the organ’s name and what a click does there', () => {
-    const sim = later();
-    untilAt(sim, 'brain', MID);
-    expect(hoverText(sim, 'brain')).toEqual({ title: 'Podwzgórze', sub: 'w świetle · kliknij, by pomóc' });
-    expect(hoverText(sim, 'bone').sub).toBe('czeka na światło');
-    drive(sim, 30, HIGH);
-    const lit = ORGANS.find(o => sim.lit[o] > 0)!;
-    expect(lit).toBeDefined();
-    expect(hoverText(sim, lit).sub).toMatch(/^w równowadze ★/);
-  });
-
-  it('speaks to a mouse in clicks: the how-to, the coach marks and Zofia', () => {
+  it('speaks to a mouse in clicks and to a finger in taps', () => {
     const CLICK = /klik|click|klick/i;
-    const TAP: Record<string, RegExp> = { pl: /stuk/i, en: /\btap/i, de: /tipp/i, sv: /^tryck/i };
-    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
-      const c = CATALOGS[l] as Record<string, unknown>;
-      for (const k of ['howto.help.mouse', 'howto.card.mouse', 'coach.card.mouse', 'coach.beat.mouse', 'coach.bubbles.mouse', 'panel.rules.mouse',
-        'say.warm.1.mouse', 'say.idle.1.mouse', 'say.idle.2.mouse', 'say.idle.3.mouse', 'say.at.heart.2.mouse', 'say.breath.1.mouse']) {
-        expect(c[k], `${l}.${k}`).toMatch(CLICK);
-        expect(c[k], `${l}.${k}`).not.toMatch(TAP[l]);
+    expect(howto(false).hands.filter(x => x.gesture === 'tap').every(x => CLICK.test(x.text))).toBe(true);
+    expect(howto(true).hands.some(x => CLICK.test(x.text))).toBe(false);
+    expect(coachText('nav', false)).toMatch(CLICK);
+    expect(coachText('nav', true)).not.toMatch(CLICK);
+    expect(howto(false).hands.some(x => x.gesture === 'keys')).toBe(true);
+  });
+});
+
+describe('mobile first and the desk (DESIGN §12, §14)', () => {
+  const sizes = CHECK_SIZES;
+
+  it('gives every control a finger-sized target inside the insets, clear of the others, at every size, for the figure and the brain', () => {
+    for (const s of sizes) for (const brain of [false, true]) for (const touch of [true, false]) {
+      const L = layout(s.w, s.h, s.insets, touch, brain);
+      const name = `${s.name} brain=${brain} touch=${touch}`;
+      expect(auditTargets(tapTargets(L, { story: null, picker: false }), s.w, s.h, s.insets), name).toEqual([]);
+      expect(auditTargets(tapTargets(L, { story: null, picker: true }), s.w, s.h, s.insets), `${name} picker`).toEqual([]);
+      const st = storyRect(L, 300);
+      expect(auditTargets(tapTargets(L, { story: st, picker: false }), s.w, s.h, s.insets), `${name} story`).toEqual([]);
+      // the card, the stage and the buttons do not overlap
+      const c = L.card;
+      for (const id of CTRLS) {
+        const b = L.ctrl[id].hit;
+        const ox = Math.min(c.x + c.w, b.x + b.w) - Math.max(c.x, b.x), oy = Math.min(c.y + c.h, b.y + b.h) - Math.max(c.y, b.y);
+        expect(ox > 1 && oy > 1, `${name} card × ${id}`).toBe(false);
       }
+      expect(c.h, `${name} card height`).toBeGreaterThanOrEqual(brain ? 130 : 180);
+      expect(L.stage.w > 80 && L.stage.h > 120, `${name} stage`).toBe(true);
+      // text never under the floor; reading text ≥ 13
+      for (const [k, v] of Object.entries(L.font)) expect(v, `${name} ${k}`).toBeGreaterThanOrEqual(k === 'latin' || k === 'small' ? 12 : 13);
+      expect(Math.min(...Object.values(L.font))).toBeGreaterThanOrEqual(MIN_TEXT);
     }
-    const desk = howto(false);
-    expect(desk.hands.filter(x => x.gesture === 'tap').every(x => CLICK.test(x.text))).toBe(true);
-    for (const what of ['card', 'beat', 'bubbles'] as const) {
-      expect(coachText(what, false), what).toMatch(CLICK);
-      expect(coachText(what, true), what).not.toMatch(CLICK);
+  });
+
+  it('puts the buttons in the thumb zone of an upright phone, and hit-tests them', () => {
+    for (const s of sizes.filter(x => x.h > x.w && x.w < 600)) {
+      const L = layout(s.w, s.h, s.insets, true);
+      for (const id of CTRLS) {
+        const b = L.ctrl[id];
+        expect(b.y, `${s.name} ${id}`).toBeGreaterThan(s.h * (1 - THUMB));
+        expect(Math.min(b.hit.w, b.hit.h)).toBeGreaterThanOrEqual(MIN_TAP);
+        expect(hitTest(L, { story: null, picker: false }, b.x, b.y)).toEqual({ kind: 'ctrl', id });
+      }
+      const P = pickerRect(L);
+      expect(hitTest(L, { story: null, picker: true }, P.rows[2].x + 10, P.rows[2].y + 10)).toEqual({ kind: 'pick', i: 2 });
+      expect(hitTest(L, { story: null, picker: true }, P.close.x + 5, P.close.y + 5)).toEqual({ kind: 'close' });
     }
-    // Zofia: the lines about the hands say "kliknij" to a mouse, "stuknij" to a finger
-    expect(linesOf('idle', true).every(s => CLICK.test(s))).toBe(true);
-    expect(linesOf('idle', false).every(s => /stuk/i.test(s))).toBe(true);
-    expect(linesOf('at.heart', true)).toContain(t('say.at.heart.2.mouse'));
-    expect(linesOf('scan', true)).toEqual(linesOf('scan', false));
-    const mouseSim = new SwiatloSim({
-      progress: freshProgress(), rng: mulberry32(3), day: DAY, daySeed: 4242, plannedSec: 120, eeg: false, tuning: TUNING, hour: 9, mouse: true,
-    });
-    mouseSim.start();
-    drive(mouseSim, 60, LOW);
-    expect(mouseSim.talk.said.some(s => /stuk/i.test(s))).toBe(false);
+  });
+
+  it('zooms toward the element in the light within limits, never smaller than the whole figure', () => {
+    const s = sizes[0];
+    const L = layout(s.w, s.h, s.insets, true);
+    const whole = figCam(L);
+    for (const e of [...LISTS.narzady, ...LISTS.konczyny, ...LISTS.miesnie] as Element[]) {
+      const c = elementCam(L, geoBox(e.geo), 3.2);
+      expect(c.s, e.id).toBeGreaterThanOrEqual(whole.s - 1e-9);
+      expect(c.s, e.id).toBeLessThanOrEqual(whole.s * 3.2 + 1e-9);
+    }
+  });
+
+  it('lays a desk out in three columns with the keys’ names, and a narrow window keeps the phone’s shapes', () => {
+    const d = layout(1280, 800, { top: 192, right: 0, bottom: 0, left: 0 }, false);
+    expect(d.shape).toBe('desk');
+    expect(d.keys).toBe(true);
+    expect(d.card.x + d.card.w).toBeLessThan(d.stage.x);
+    expect(d.ctrl.menu.x).toBeGreaterThan(d.stage.x + d.stage.w);
+    expect(layout(360, 500, { top: 134, right: 0, bottom: 0, left: 0 }, true).shape).toBe('tall');
+    expect(layout(844, 390, { top: 68, right: 47, bottom: 21, left: 47 }, true).shape).toBe('side');
   });
 });
 
 describe('the song (kit/song.ts)', () => {
-  it('is a well-formed lullaby: the series’ refrain around two verses of its own, slow, with lines in the page’s language', () => {
+  it('is a well-formed lullaby around the series’ refrain', () => {
     const s = buildSong();
     expect(songProblems(s)).toEqual([]);
     expect(s.bpm).toBeLessThanOrEqual(72);
-    expect(s.beats).toBe(128);
-    expect(s.lines.map(l => l.text)).toContain(t('song.a.1'));
-    expect(s.lines.map(l => l.text)).toContain(t('song.b.4'));
-    expect(s.lines.some(l => /Weź moc/.test(l.text))).toBe(true);
-    // no snare or hat in a lullaby; the refrain keeps its kick as a heartbeat
     expect(s.parts.some(p => p.voice === 'snare' || p.voice === 'hat')).toBe(false);
-    expect(s.parts.some(p => p.voice === 'lead' && p.layer === 1)).toBe(true);
-    expect(s.parts.some(p => p.layer === 0)).toBe(true);
     for (const l of ['pl', 'en', 'de', 'sv'] as const) for (const k of ['song.a.1', 'song.a.2', 'song.a.3', 'song.a.4', 'song.b.1', 'song.b.2', 'song.b.3', 'song.b.4']) {
       expect((CATALOGS[l] as Record<string, string>)[k].length, `${l}.${k}`).toBeLessThanOrEqual(44);
     }
