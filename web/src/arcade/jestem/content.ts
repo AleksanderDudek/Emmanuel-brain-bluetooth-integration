@@ -58,11 +58,51 @@ export const declWord = (id: DeclId, form: Form | null): string => t(`word.${id}
 /** A declaration that shows the Polish form (a noun — "dzieckiem Bożym" — reads the same in both: then "silny"). */
 export const formSample = (id: DeclId | null): DeclId => (id && declWord(id, 'm') !== declWord(id, 'f') ? id : 'silny');
 
-/** "Przez potężne imię Jezusa ja jestem silny." */
+/** "Przez potężne imię Jezusa ja jestem silny." — a declaration (the eighteen keep their words). */
 export const sentence = (word: string): string => t('sentence', { word });
 
 /** "jestem silny" — the album's and the picker's label. */
 export const label = (word: string): string => t('label', { word });
+
+// ── an own vision: the player's own continuation after "ja" (round 11) ─────────────────────
+/**
+ * The founder (2026-11-17): *"Zmień 'in the powerful name of Jesus I am' na 'in the powerful name of Jesus I'"* —
+ * an own picture's affirmation is the player's own continuation after "ja" / "I" ("…mam pokój", "…can do all
+ * things through Christ"), up to 100 characters.  German and Swedish put the verb second after an adverbial
+ * ("Im mächtigen Namen Jesu bin ich…"), so there the sentence turns on a colon and the player's clause begins
+ * with the subject: „Im mächtigen Namen Jesu: Ich …“, ”I Jesu mäktiga namn: jag …”.
+ */
+export const CONT_MAX = 100;
+
+/** An own continuation as plain text: controls and angle brackets turned to spaces, spaces folded, at most 100 characters. */
+export function cleanCont(s: unknown): string {
+  if (typeof s !== 'string') return '';
+  return [...s.replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, CONT_MAX).join('').trim();
+}
+
+/** The continuation an own vision says when the player wrote none: the own verse's words (Philippians 4:13). */
+export const contDefault = (): string => t('cont.default');
+
+/** An own vision's continuation, or the default one. */
+export const contOf = (cont: string): string => cleanCont(cont) || contDefault();
+
+/** A full stop, unless the player ended with their own mark. */
+const stop = (s: string): string => (/[.!?…]$/.test(s) ? s : `${s}.`);
+
+/** "Przez potężne imię Jezusa ja mam pokój." */
+export const ownSentence = (cont: string): string => stop(t('own.sentence', { cont: contOf(cont) }));
+
+/** The finale's two parts of an own vision: "Przez potężne imię Jezusa" / "ja mam pokój." */
+export const ownSentenceParts = (cont: string): [string, string] => [t('own.a'), stop(t('own.b', { cont: contOf(cont) }))];
+
+/** "ja mam pokój" — the album's and the card's label of an own vision. */
+export const ownLabel = (cont: string): string => t('own.label', { cont: contOf(cont) });
+
+/** An old own word (a save before round 11: "zdrowa") as a continuation in the page's language: "jestem zdrowa". */
+export const legacyCont = (word: string): string => {
+  const w = cleanCont(word);
+  return w ? cleanCont(t('cont.legacy', { word: w })) : '';
+};
 
 /** A fragment's name ("Słońce"); an own picture's fragments are numbered ("Część 2 z 5"). */
 export function fragName(key: string, n = 0, all = 0): string {
@@ -88,32 +128,32 @@ export const LIGHT_TIPS: readonly Key[] = ['tip.light.1', 'tip.light.2'];
 // ── Hanna's moments ──────────────────────────────────────────────
 export type Moment =
   | 'warm' | 'push' | 'rest' | 'blind' | 'dawn' | 'first' | 'lit' | 'fragment' | 'half' | 'last' | 'complete'
-  | 'good' | 'pick' | 'finale' | 'grace' | 'light' | 'glow' | 'ring' | 'ray';
+  | 'good' | 'pick' | 'finale' | 'grace' | 'light' | 'glow' | 'ring' | 'ray' | 'wait';
 
 export const MOMENTS: readonly Moment[] = [
   'warm', 'push', 'rest', 'blind', 'dawn', 'first', 'lit', 'fragment', 'half', 'last', 'complete',
-  'good', 'pick', 'finale', 'grace', 'light', 'glow', 'ring', 'ray',
+  'good', 'pick', 'finale', 'grace', 'light', 'glow', 'ring', 'ray', 'wait',
 ];
 
-/** Every line of every moment, in the page's language. */
-export const LINES: Readonly<Record<Moment, readonly string[]>> = Object.fromEntries(MOMENTS.map(m => {
-  const out: string[] = [];
-  for (let i = 1; i <= 6; i++) {
-    const k = `say.${m}.${i}` as Key;
-    const s = t(k);
-    if (s === k) break;
-    out.push(s);
-  }
-  return [m, out];
-})) as Record<Moment, string[]>;
+/** Lines that speak of a window and its lead: an own photo's mosaic (a gallery frame, thin grout) skips them. */
+const WINDOW_ONLY = new Set(['say.lit.4', 'say.fragment.1', 'say.finale.2']);
+
+function linesOf(own: boolean): Record<Moment, string[]> {
+  return Object.fromEntries(MOMENTS.map(m => {
+    const out: string[] = [];
+    for (let i = 1; i <= 6; i++) {
+      const k = `say.${m}.${i}` as Key;
+      const s = t(k);
+      if (s === k) break;
+      if (!(own && WINDOW_ONLY.has(k))) out.push(s);
+    }
+    return [m, out];
+  })) as Record<Moment, string[]>;
+}
+
+/** Every line of every moment, in the page's language (a declaration's window). */
+export const LINES: Readonly<Record<Moment, readonly string[]>> = linesOf(false);
+/** The same for an own photo: no window, no lead. */
+export const LINES_OWN: Readonly<Record<Moment, readonly string[]>> = linesOf(true);
 
 export const LINE_COUNT = MOMENTS.reduce((s, m) => s + LINES[m].length, 0);
-
-/** An own word's length limit (characters). */
-export const WORD_MAX = 24;
-
-/** The own word, as plain text: controls stripped, spaces folded, at most 24 characters. */
-export function cleanWord(s: unknown): string {
-  if (typeof s !== 'string') return '';
-  return [...s.replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim()].slice(0, WORD_MAX).join('').trim();
-}

@@ -7,11 +7,13 @@
  *                   affirmation"); the player may choose one for the next session, pin one for every
  *                   session, or take an own picture
  *   the form        how Polish says it: "jestem silny" or "jestem silna" (asked once)
- *   the pace        mean cells lit per second of pouring, averaged over sessions: the next window is cut
- *                   into as many cells as the player can colour in the time — finer windows as they grow
+ *   the pace        cells lit per minute of push and rest, averaged over sessions: the next window is cut
+ *                   into about 1.4 times what the player is expected to light (48…144) — finer as they grow
  *
- * The own pictures and their words live in kit/images.ts (only on this device); the progress keeps only
- * their ids and counts.  `migrate` repairs any field of a wrong type, so an old or foreign save loads.
+ * The own pictures and their affirmations (the player's continuation after "ja") live in kit/images.ts (only on
+ * this device); the progress keeps only their ids, counts, and whether the label is already a continuation (a
+ * save before round 11 kept a single word: `cont: false`).  `migrate` repairs any field of a wrong type, so an
+ * old or foreign save loads; a version-1 save's pace (cells per second of pouring) starts again from `pace0`.
  */
 import { clamp } from '../kit/juice';
 import { DECL_ORDER, isDecl, type DeclId, type Form } from './content';
@@ -32,13 +34,16 @@ export interface AlbumEntry {
 export interface OwnEntry extends AlbumEntry {
   /** the picture's id in kit/images.ts */
   id: string;
+  /** its label is a continuation after "ja" (round 11); false: an old single word ("zdrowa" → "jestem zdrowa") */
+  cont: boolean;
 }
 
 /** A vision: one of the declarations ("decl:silny") or an own picture ("own:<image id>"). */
 export type VisionKey = `decl:${DeclId}` | `own:${string}`;
 
 export interface JestemProgress {
-  ver: 1;
+  /** 2 since round 11 (the pace per minute, own continuations); 1 before */
+  ver: 2;
   sessions: number;
   /** push blocks begun over all sessions (every 4th from the 3rd session is blind) */
   pushes: number;
@@ -48,7 +53,7 @@ export interface JestemProgress {
   next: VisionKey | null;
   album: Partial<Record<DeclId, AlbumEntry>>;
   own: OwnEntry[];
-  /** mean cells lit per second of pouring (the plan's pace) */
+  /** cells lit per minute of push and rest (the plan's pace) */
   pace: number;
   /** the most pieces lit in a session, and all pieces ever lit */
   best: number;
@@ -62,7 +67,7 @@ export interface JestemProgress {
 
 export function freshProgress(): JestemProgress {
   return {
-    ver: 1, sessions: 0, pushes: 0, form: null, pin: null, next: null, album: {}, own: [], pace: RULES.pace0,
+    ver: 2, sessions: 0, pushes: 0, form: null, pin: null, next: null, album: {}, own: [], pace: RULES.pace0,
     best: 0, total: 0, cells: 0, last: null, seen: [],
   };
 }
@@ -91,7 +96,8 @@ export function migrate(p: JestemProgress): JestemProgress {
   if (migrated.has(p)) return p;
   const raw = p as unknown as Record<string, unknown>;
   const f = freshProgress();
-  p.ver = 1;
+  const old = raw.ver !== 2;
+  p.ver = 2;
   p.sessions = int(raw.sessions);
   p.pushes = int(raw.pushes);
   p.form = raw.form === 'm' || raw.form === 'f' ? raw.form : null;
@@ -105,11 +111,11 @@ export function migrate(p: JestemProgress): JestemProgress {
     for (const v of raw.own) {
       if (!isObj(v) || typeof v.id !== 'string' || !v.id || v.id.length > 70 || own.some(o => o.id === v.id)) continue;
       const e = entry({ ...v, n: Math.max(1, int(v.n)) })!;
-      own.push({ ...e, n: int(v.n), id: v.id });
+      own.push({ ...e, n: int(v.n), id: v.id, cont: !old && v.cont === true });
     }
   }
   p.own = own.slice(0, 40);
-  p.pace = num(raw.pace, f.pace, RULES.paceMin, RULES.paceMax);
+  p.pace = old ? f.pace : num(raw.pace, f.pace, RULES.paceMin, RULES.paceMax);
   p.best = int(raw.best);
   p.total = int(raw.total);
   p.cells = int(raw.cells, 0, 0, RULES.cellsMax);
@@ -167,9 +173,18 @@ export function pinVision(p: JestemProgress, k: VisionKey | null): void {
 /** An own picture was added (its entry, never received yet). */
 export function addOwn(p: JestemProgress, id: string): void {
   if (p.own.some(o => o.id === id)) return;
-  p.own.unshift({ id, n: 0, best: 0, rays: 0, rings: 0, first: '', last: '' });
+  p.own.unshift({ id, n: 0, best: 0, rays: 0, rings: 0, first: '', last: '', cont: true });
   if (p.own.length > 40) p.own.length = 40;
 }
+
+/** An own picture's label is now a continuation (the lobby rewrote an old word, or the player saved one). */
+export function markCont(p: JestemProgress, id: string): void {
+  const o = p.own.find(x => x.id === id);
+  if (o) o.cont = true;
+}
+
+/** Whether an own picture's stored label is still an old single word (a save before round 11). */
+export const legacyLabel = (p: JestemProgress, id: string | null): boolean => !!id && p.own.some(o => o.id === id && !o.cont);
 
 /** An own picture was deleted: its entry, and any choice of it, go. */
 export function dropOwn(p: JestemProgress, id: string): void {
@@ -181,19 +196,20 @@ export function dropOwn(p: JestemProgress, id: string): void {
 }
 
 /**
- * How many cells the next window gets: the player's pace × the seconds of pouring the session plans,
- * aimed at finishing near its end (planShare), within 24…64.
+ * How many cells the next window gets (round 11: "more pieces"): the cells the player is expected to light — their
+ * pace × the minutes of push and rest the session holds — times `planSpread` (the light completes the rest at the
+ * finale), within 48…144.
  */
-export function planCells(pace: number, pourSec: number): number {
+export function planCells(pace: number, playSec: number): number {
   const p = clamp(Number.isFinite(pace) ? pace : RULES.pace0, RULES.paceMin, RULES.paceMax);
-  return Math.round(clamp(p * pourSec * RULES.planShare, RULES.cellsMin, RULES.cellsMax));
+  return Math.round(clamp(p * (Math.max(0, playSec) / 60) * RULES.planSpread, RULES.cellsMin, RULES.cellsMax));
 }
 
-/** The pace after a session that lit `lit` cells in `pourSec` seconds of pouring (short sessions barely move it). */
-export function nextPace(pace: number, lit: number, pourSec: number): number {
-  if (!(pourSec > 0) || lit < 0) return pace;
-  const now = clamp(lit / Math.max(20, pourSec), RULES.paceMin, RULES.paceMax);
-  const mix = RULES.paceMix * clamp(pourSec / 60, 0, 1);
+/** The pace after a session that lit `lit` cells in `playSec` seconds of push and rest (short sessions barely move it). */
+export function nextPace(pace: number, lit: number, playSec: number): number {
+  if (!(playSec > 0) || lit < 0) return pace;
+  const now = clamp(lit / (Math.max(30, playSec) / 60), RULES.paceMin, RULES.paceMax);
+  const mix = RULES.paceMix * clamp(playSec / 120, 0, 1);
   return clamp(pace * (1 - mix) + now * mix, RULES.paceMin, RULES.paceMax);
 }
 
@@ -215,6 +231,6 @@ export function receive(p: JestemProgress, r: Receipt): number {
   const i = id ? p.own.findIndex(o => o.id === id) : -1;
   if (i < 0) return 1;
   const o = p.own[i];
-  p.own[i] = { ...put(o.n > 0 ? o : undefined), id: o.id };
+  p.own[i] = { ...put(o.n > 0 ? o : undefined), id: o.id, cont: o.cont };
   return p.own[i].n;
 }

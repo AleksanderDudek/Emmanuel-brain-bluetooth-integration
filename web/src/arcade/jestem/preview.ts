@@ -17,10 +17,13 @@ import { paintPicture } from './pictures';
 import { analysed } from './prep';
 import { RULES } from './rules';
 import { SCENES } from './scenes';
-import { buildVision, type VisionGeo } from './vision';
+import { buildVision, type Shape, type VisionGeo } from './vision';
 
 interface Hero {
   key: string;
+  /** the window's shape (a declaration's arch, an own photo's rectangle) and its picture's width in units */
+  shape: Shape;
+  pw: number;
   win: Rect;
   pic: HTMLCanvasElement;
   paper: HTMLCanvasElement;
@@ -64,7 +67,8 @@ function cardVision(): { geo: VisionGeo; sketch: HTMLCanvasElement } {
 }
 
 function build(key: string, w: number, h: number, decl: Parameters<typeof paintPicture>[0] | null, src: { geo: VisionGeo; sketch: HTMLCanvasElement; picture?: HTMLCanvasElement }): Hero {
-  const win = heroWindow(w, h);
+  const pw = src.geo.w;
+  const win = heroWindow(w, h, src.geo.w / src.geo.h);
   const k = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
   const pic = layer(win.w * k, win.h * k);
   const pc = pic.getContext('2d')!;
@@ -72,7 +76,7 @@ function build(key: string, w: number, h: number, decl: Parameters<typeof paintP
   else if (src.picture) pc.drawImage(src.picture, 0, 0, pic.width, pic.height);
   const paper = layer(win.w * k, win.h * k);
   paper.getContext('2d')!.drawImage(src.sketch, 0, 0, paper.width, paper.height);
-  const s = win.w / RULES.PW;
+  const s = win.w / pw;
   const paths = src.geo.cells.map(c => {
     const p = new Path2D();
     c.poly.forEach((q, i) => (i ? p.lineTo(win.x + q.x * s, win.y + q.y * s) : p.moveTo(win.x + q.x * s, win.y + q.y * s)));
@@ -80,14 +84,14 @@ function build(key: string, w: number, h: number, decl: Parameters<typeof paintP
     return p;
   });
   const order = src.geo.cells.map(c => c.id).sort((a, b) => src.geo.cells[a].heartD - src.geo.cells[b].heartD);
-  const ls = pic.width / RULES.PW;
+  const ls = pic.width / pw;
   const local = src.geo.cells.map(c => {
     const p = new Path2D();
     c.poly.forEach((q, i) => (i ? p.lineTo(q.x * ls, q.y * ls) : p.moveTo(q.x * ls, q.y * ls)));
     p.closePath();
     return p;
   });
-  return { key: `${key}|${w}x${h}`, win, pic, paper, glass: layer(pic.width, pic.height), shown: 0, local, geo: src.geo, paths, order };
+  return { key: `${key}|${w}x${h}`, shape: src.geo.shape, pw, win, pic, paper, glass: layer(pic.width, pic.height), shown: 0, local, geo: src.geo, paths, order };
 }
 
 export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number, t: number, p?: JestemProgress): void {
@@ -101,12 +105,13 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   }
   if (!hero || hero.key !== `${key}|${w}x${h}`) {
     if (a) {
-      const m = makeMosaic(RULES.PW, RULES.PH, 34, mulberry32(5), { relax: 2 });
-      const geo = buildVision(m, { heart: a.heart, regions: a.decl ? SCENES[a.decl].regions : undefined });
-      hero = build(key, w, h, a.decl, { geo, sketch: a.sketch, picture: a.photo && a.crop ? cropped(a.photo, a.crop) : a.picture });
+      const m = makeMosaic(a.w, a.h, a.shape === 'arch' ? 34 : 40, mulberry32(5), { relax: 2 });
+      const geo = buildVision(m, { shape: a.shape, heart: a.heart, regions: a.decl ? SCENES[a.decl].regions : undefined });
+      hero = build(key, w, h, a.decl, { geo, sketch: a.sketch, picture: a.picture });
     } else hero = build('card', w, h, 'zdrowy', cardVision());
   }
   const H = hero, W = H.win;
+  const path = (grow = 0) => windowPath(W, grow, false, H.shape);
   // the chapel wall in the dusk
   const g = ctx.createRadialGradient(W.x + W.w / 2, W.y + W.h / 2, W.h * 0.2, W.x + W.w / 2, W.y + W.h / 2, Math.max(w, h));
   g.addColorStop(0, '#3e2c56');
@@ -128,9 +133,9 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     ctx.restore();
   }
   ctx.fillStyle = '#2b2226';
-  ctx.fill(windowPath(W, 6));
+  ctx.fill(path(H.shape === 'rect' ? 4 : 6));
   ctx.save();
-  ctx.clip(windowPath(W));
+  ctx.clip(path());
   ctx.fillStyle = PAPER;
   ctx.fillRect(W.x, W.y, W.w, W.h);
   ctx.drawImage(H.paper, W.x, W.y, W.w, W.h);
@@ -150,7 +155,7 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     ctx.drawImage(H.glass, W.x, W.y, W.w, W.h);
   }
   if (n < H.order.length && fill > 0) {
-    const id = H.order[n], c = H.geo.cells[id], s = W.w / RULES.PW;
+    const id = H.order[n], c = H.geo.cells[id], s = W.w / H.pw;
     const part = fill * H.order.length - n;
     ctx.save();
     ctx.clip(H.paths[id]);
@@ -169,7 +174,7 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     ctx.globalCompositeOperation = 'source-over';
   }
   // the leading: gold where the light has come, fading at the glow
-  const s = W.w / RULES.PW;
+  const s = W.w / H.pw;
   const lit = new Set(H.order.slice(0, n));
   ctx.lineCap = 'round';
   ctx.globalAlpha = 1 - 0.85 * glow;
@@ -179,22 +184,16 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
     p.moveTo(W.x + e.p.x * s, W.y + e.p.y * s);
     p.lineTo(W.x + e.q.x * s, W.y + e.q.y * s);
   }
-  ctx.strokeStyle = LEAD;
-  ctx.lineWidth = 2;
+  // a declaration's lead; a photo's thin grout
+  ctx.strokeStyle = H.shape === 'rect' ? 'rgba(52,42,40,0.55)' : LEAD;
+  ctx.lineWidth = H.shape === 'rect' ? 1 : 2;
   ctx.stroke(lead);
   ctx.strokeStyle = GOLD;
-  ctx.lineWidth = 1.4;
+  ctx.lineWidth = H.shape === 'rect' ? 0.8 : 1.4;
   ctx.stroke(gold);
   ctx.globalAlpha = 1;
   ctx.restore();
   ctx.strokeStyle = 'rgba(246,212,136,0.45)';
   ctx.lineWidth = 1;
-  ctx.stroke(windowPath(W, 6));
-}
-
-/** An own photo cut to the window (the analysis's crop), for the hero's picture. */
-function cropped(photo: HTMLCanvasElement, crop: { sx: number; sy: number; sw: number; sh: number }): HTMLCanvasElement {
-  const c = layer(RULES.PW, RULES.PH);
-  c.getContext('2d')!.drawImage(photo, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, RULES.PW, RULES.PH);
-  return c;
+  ctx.stroke(path(H.shape === 'rect' ? 4 : 6));
 }

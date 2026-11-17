@@ -1,11 +1,13 @@
 /**
- * A vision's playable geometry, without the canvas (DESIGN §13.8): the window's arch, the mosaic's cells
- * that lie inside it, each cell's capacity for colour, its neighbours, and the fragments — the picture's
- * named parts for the eighteen declarations (scenes.ts), or colour-and-place clusters for a player's own
- * photo.  `autoNext` is the rule the colour follows when the player lets it flow by itself: from the
+ * A vision's playable geometry, without the canvas (DESIGN §13.8): the window's shape — the arched window of a
+ * declaration, or an own photo's own rectangle (round 11: "the mosaic takes the photo's shape, not a stained-glass
+ * window's") — the mosaic's cells that lie inside it, each cell's capacity for colour, its neighbours, and the
+ * fragments — the picture's named parts for the eighteen declarations (scenes.ts), or colour-and-place clusters for
+ * a player's own photo.  `autoNext` is the rule the colour follows when the player lets it flow by itself: from the
  * picture's heart outward, a fragment at a time, finishing what it began.
  *
- * Everything here is in the picture's own units (RULES.PW × RULES.PH), y down.
+ * Everything here is in the picture's own units (RULES.PW × RULES.PH for a declaration, `photoSpace` for a
+ * photo), y down.
  */
 import { inPoly, type Mosaic, type Pt } from '../kit/mosaic';
 import { clamp } from '../kit/juice';
@@ -41,7 +43,11 @@ export interface VFrag {
 /** An edge of the leading: between two cells inside the window, or (b = -1) a cell's border with the frame. */
 export interface VEdge { a: number; b: number; p: Pt; q: Pt }
 
+/** The window's shape: a declaration's arched window, or an own photo's rectangle. */
+export type Shape = 'arch' | 'rect';
+
 export interface VisionGeo {
+  shape: Shape;
   w: number;
   h: number;
   heart: Pt;
@@ -55,10 +61,21 @@ export interface VisionGeo {
 export const ARCH_R = RULES.archR * RULES.PW;
 export const ARCH_H = ARCH_R - Math.sqrt(ARCH_R * ARCH_R - (RULES.PW / 2) ** 2);
 
-/** Inside the window: below the arch's sides, or under its curve. */
-export function inWindow(x: number, y: number, w: number = RULES.PW, h: number = RULES.PH): boolean {
-  const k = w / RULES.PW;
+/**
+ * An own photo's picture space: its aspect held within 9:16…16:9 (the rest of the photo is cropped, centred), over
+ * about the area of a declaration's window (so a cell's capacity means the same).
+ */
+export function photoSpace(aspect: number): { w: number; h: number } {
+  const a = clamp(Number.isFinite(aspect) && aspect > 0 ? aspect : RULES.PW / RULES.PH, RULES.aspectMin, RULES.aspectMax);
+  const area = RULES.PW * RULES.PH;
+  return { w: Math.round(Math.sqrt(area * a)), h: Math.round(Math.sqrt(area / a)) };
+}
+
+/** Inside the window: below the arch's sides, or under its curve (a photo: inside its rectangle). */
+export function inWindow(x: number, y: number, w: number = RULES.PW, h: number = RULES.PH, shape: Shape = 'arch'): boolean {
   if (x < 0 || x > w || y > h) return false;
+  if (shape === 'rect') return y >= 0;
+  const k = w / RULES.PW;
   if (y >= ARCH_H * k) return y >= 0;
   return (x - w / 2) ** 2 + (y - ARCH_R * k) ** 2 <= (ARCH_R * k) ** 2;
 }
@@ -78,7 +95,7 @@ export function windowOutline(k = 1, steps = 28): Pt[] {
 
 // ── building ─────────────────────────────────────────────────────
 /** The share of a cell inside the window, and the centre of that part (a 10 × 10 sample of its box). */
-function visible(poly: readonly Pt[], w: number, h: number): { share: number; cx: number; cy: number } {
+function visible(poly: readonly Pt[], w: number, h: number, shape: Shape): { share: number; cx: number; cy: number } {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const p of poly) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y); }
   const n = 10;
@@ -88,7 +105,7 @@ function visible(poly: readonly Pt[], w: number, h: number): { share: number; cx
       const x = x0 + ((i + 0.5) / n) * (x1 - x0), y = y0 + ((j + 0.5) / n) * (y1 - y0);
       if (!inPoly(poly, x, y)) continue;
       inP++;
-      if (inWindow(x, y, w, h)) { inW++; sx += x; sy += y; }
+      if (inWindow(x, y, w, h, shape)) { inW++; sx += x; sy += y; }
     }
   }
   if (!inP) return { share: 0, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
@@ -96,6 +113,8 @@ function visible(poly: readonly Pt[], w: number, h: number): { share: number; cx
 }
 
 export interface BuildOptions {
+  /** the window's shape (an arched window by default) */
+  shape?: Shape;
   /** where the colour starts (picture units) */
   heart: Pt;
   /** the declaration's named parts (u, v tests in 0..1): the first that holds for a cell's centre */
@@ -106,11 +125,11 @@ export interface BuildOptions {
 
 /** The playable vision of a mosaic laid over the window. */
 export function buildVision(m: Mosaic, o: BuildOptions): VisionGeo {
-  const w = m.w, h = m.h;
+  const w = m.w, h = m.h, shape = o.shape ?? 'arch';
   const ids = new Map<number, number>();
   const cells: VCell[] = [];
   for (const c of m.cells) {
-    const vis = visible(c.poly, w, h);
+    const vis = visible(c.poly, w, h, shape);
     if (vis.share < RULES.inside) continue;
     ids.set(c.id, cells.length);
     cells.push({
@@ -120,7 +139,7 @@ export function buildVision(m: Mosaic, o: BuildOptions): VisionGeo {
   }
   const mean = cells.reduce((s, c) => s + c.area, 0) / Math.max(1, cells.length);
   for (const c of cells) {
-    c.cap = clamp(RULES.capBase + RULES.capArea * (c.area / Math.max(1e-9, mean)), RULES.capMin, RULES.capMax);
+    c.cap = RULES.capUnit * clamp(RULES.capBase + RULES.capArea * (c.area / Math.max(1e-9, mean)), RULES.capMin, RULES.capMax);
     c.nb = m.cells[c.m].neighbors.map(n => ids.get(n)).filter((n): n is number => n !== undefined);
   }
   const edges: VEdge[] = [];
@@ -131,7 +150,7 @@ export function buildVision(m: Mosaic, o: BuildOptions): VisionGeo {
     else edges.push({ a: (a ?? b)!, b: -1, p: e.p, q: e.q });
   }
   const frags = o.regions ? regionFrags(cells, o.regions, w, h) : clusterFrags(cells, m, o.colors ?? [], o.heart);
-  return { w, h, heart: { ...o.heart }, cells, frags, edges };
+  return { shape, w, h, heart: { ...o.heart }, cells, frags, edges };
 }
 
 /**

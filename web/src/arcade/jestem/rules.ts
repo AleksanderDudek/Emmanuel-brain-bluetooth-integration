@@ -3,9 +3,10 @@
  * mosaic, the colour that focus pours, the glow that calm gathers, the aura's rays and rings, the blocks,
  * the finale and the voice.  Tuning moves a number here and nowhere else; the tests read the same object.
  *
- * Units: the picture lives in its own space, PW × PH (the window's rectangle; the round arch cuts its top
- * corners).  Colour is poured in "units": a cell of the mean size holds one unit (`capacity`), so the rates
- * below read as "mean cells per second".
+ * Units: a declaration's picture lives in its own space, PW × PH (the window's rectangle; the round arch cuts
+ * its top corners); an own photo keeps its own shape (its aspect within 9:16…16:9) over about the same area.
+ * Colour is poured in "units": a cell of the mean size holds `capUnit` units, so a push of 3–5 cells lasts
+ * about 20–30 s of focus at the threshold (round 11: the rest comes after the cells, not after a clock).
  */
 export const RULES = {
   // ── the window and its picture ────────────────────────────────
@@ -16,22 +17,29 @@ export const RULES = {
   archR: 0.78,
   /** a tile counts as part of the window when at least this share of it lies inside the arch */
   inside: 0.35,
+  /** an own photo's shape: its aspect (width / height) is held within these (the rest is cropped, centred) */
+  aspectMin: 9 / 16,
+  aspectMax: 16 / 9,
 
   // ── the mosaic ───────────────────────────────────────────────
-  /** cells in a window: at least, at most, and the first session's */
-  cellsMin: 24,
-  cellsMax: 64,
-  /** the pace (mean cells lit per second of pouring) a newcomer is planned for, and its bounds */
-  pace0: 1 / 4.2,
-  paceMin: 1 / 8,
-  paceMax: 1 / 1.8,
+  /** cells in a window: at least, at most (round 11: "more pieces of the mosaic") */
+  cellsMin: 48,
+  cellsMax: 144,
+  /** the pace (cells lit per minute of push and rest) a newcomer is planned for, and its bounds */
+  pace0: 5.3,
+  paceMin: 2,
+  paceMax: 14,
   /** how much of a session's pace goes into the next plan (exponential average) */
   paceMix: 0.4,
-  /** the plan aims to finish the picture at this share of the pouring time */
-  planShare: 0.95,
+  /**
+   * the window holds this many times the cells a session is expected to light: the player's focus colours the
+   * picture from its heart outward, and the finale's light completes the rest
+   */
+  planSpread: 1.4,
   /** Lloyd relaxation steps for the mosaic */
   relax: 2,
-  /** a cell's capacity (units): 0.55 + 0.45 × its area / the mean area, clamped */
+  /** a cell's capacity (units): capUnit × (0.55 + 0.45 × its area / the mean area, clamped) */
+  capUnit: 1.23,
   capBase: 0.55,
   capArea: 0.45,
   capMin: 0.6,
@@ -42,9 +50,12 @@ export const RULES = {
   fragMax: 6,
 
   // ── the colour (push blocks and the warm-up) ──────────────────
-  /** units per second in the warm-up (the first session teaches the hands, quickly) */
+  /** units per second in the warm-up while focused (the first session teaches the hands, quickly) */
   warmRate: 0.3,
-  /** a push block: base + span × shape(level) — shape rises from `levelLo` to full at `levelLo + levelSpan` */
+  /**
+   * a push block, while focused past the lead-in: base + span × shape(level) — shape rises from `levelLo` to full
+   * at `levelLo + levelSpan` (≈ 0.25 u/s at the threshold, 0.46 at full); without focus nothing flows
+   */
   baseRate: 0.12,
   spanRate: 0.34,
   levelLo: 0.15,
@@ -52,7 +63,7 @@ export const RULES = {
   shapePow: 1.3,
   /** the band's delay before it acts in a push (s): fNIRS answers 4–6 s late, EEG at once */
   leadIn: { fnirs: 5, eeg: 2 },
-  /** a tap on the cell being coloured (or Space): a drop of colour, at most this often */
+  /** a tap on the cell being coloured (or Space): a drop of colour joins the flowing colour, at most this often */
   splash: 0.06,
   splashCool: 0.6,
   /** a tap chooses the unlit cell nearest the finger within this distance (picture units), else the nearest anywhere */
@@ -72,9 +83,9 @@ export const RULES = {
   /** the light pass (every cell lit before the end): glow per second in a push, (base + level) / lightSec */
   lightSec: 22,
   lightBase: 0.3,
-  /** the breath that leads a rest: in, out (s) — six breaths a minute */
-  breathIn: 4,
-  breathOut: 6,
+  /** a rest: about this many seconds of whole breaths (kit/breath, 4 · 0 · 6 · 0 → 2 breaths, 20 s), at least `restMin` */
+  restTarget: 22,
+  restMin: 12,
 
   // ── the aura ─────────────────────────────────────────────────
   /** a passed push block adds a ray, a passed rest block a ring */
@@ -84,12 +95,23 @@ export const RULES = {
   // ── the blocks ───────────────────────────────────────────────
   /** the first-ever session's warm-up (s): long sessions (≥ 300 s), shorter ones, a ≤ 60 s test */
   warm: { long: 30, short: 20, test: 6 },
-  /** push and rest blocks: mean and jitter (s) */
-  push: [26, 4] as const,
-  rest: [22, 3] as const,
-  minBlock: 12,
-  /** the telegraph before a block ends (s) */
+  /** a push ends when this many of its cells light: the first push's, and the bounds (the player's pace moves it) */
+  pushCells: 3,
+  pushCellsMin: 3,
+  pushCellsMax: 5,
+  /** a push shorter than this (s) asks one cell more next time; one longer (or cut at its cap) one fewer */
+  pushQuick: 24,
+  pushSlow: 34,
+  /** a push never lasts longer than this (s): without focus the rest still comes */
+  pushMax: 40,
+  /** the shortest push worth starting (s) before the finale; a ≤ 60 s test session's */
+  pushRoom: 16,
+  pushRoomTest: 5,
+  /** the telegraph: when the push's last cell is this full, or this long (s) before a block's end */
+  teleShare: 0.6,
   telegraph: 3.5,
+  /** once telegraphed, a push ends within this (s) even if its last cell is not yet full */
+  teleMax: 8,
   /** the runner's block banner (s): the voice keeps quiet under it */
   bannerSec: 4.5,
   /** blind pushes ("Noc"): every n-th push from this session on, never a session's first push */
@@ -108,14 +130,16 @@ export const RULES = {
 
   // ── the opening card ─────────────────────────────────────────
   /** the first session's story card closes by itself after this (s); with the form question, after `storyAsk` */
-  storySec: 9,
-  storyAsk: 14,
+  storySec: 11,
+  storyAsk: 16,
   /** a tap closes it only after this (s), so a stray tap does not skip it */
   storyMinTap: 1.2,
 
-  // ── the voice ────────────────────────────────────────────────
-  talkMin: 2.2,
-  talkMax: 4,
+  // ── the voice and the words on screen ─────────────────────────
+  /** a line stays long enough to read twice: base + per character (s), never under `readMin` (round 11) */
+  readBase: 2.5,
+  readPerChar: 0.07,
+  readMin: 4.5,
   talkGap: 2.5,
   /** the voice says something about a lit cell at most this often (s) */
   litTalkEvery: 14,
@@ -124,3 +148,7 @@ export const RULES = {
 } as const;
 
 export type Rules = typeof RULES;
+
+/** How long a line stays on screen (s): long enough to read it twice — 2.5 s + 70 ms a character, never under 4.5 s. */
+export const readSec = (text: string): number =>
+  Math.max(RULES.readMin, RULES.readBase + RULES.readPerChar * [...text].length);

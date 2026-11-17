@@ -6,7 +6,6 @@
  * dawn's rising fifths, slow swells of breath in the rest (in 4, out 6), and the finale's chord.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
-import { RULES } from './rules';
 import type { JestemSim, SimEvent } from './sim';
 
 const D3 = 146.83;
@@ -98,23 +97,22 @@ export class JestemSound {
 
   update(dt: number, sim: JestemSim): void {
     this.now += dt;
-    // the colour's soft trickle, quicker with a wider stream (never in the night: it would tell the flow)
-    if (sim.pouring && !sim.blind) {
+    // the colour's soft trickle while it flows (focus), quicker with a wider stream (never in the night: it would tell the flow)
+    if (sim.flowing) {
       this.trickle -= dt;
       if (this.trickle <= 0) {
         this.trickle = 0.5 / (0.5 + sim.flow * 1.5) * (0.8 + Math.random() * 0.4);
         this.a.noiseBurst(0.08, { freq: 2600 + Math.random() * 2400, q: 3, gain: 0.012 + 0.01 * sim.flow, type: 'bandpass' });
       }
     }
-    // the rest's breath: a swell in (4 s), a fall out (6 s)
+    // the rest's breath (kit/breath, from the rest's start): a swell in, a fall out, quiet on a hold
     if (sim.restBlock) {
-      const cyc = RULES.breathIn + RULES.breathOut;
-      const x = ((sim.t % cyc) + cyc) % cyc;
-      const phase = x < RULES.breathIn ? 0 : 1;
+      const br = sim.breath;
+      const phase = br.phase === 'in' ? 0 : br.phase === 'out' ? 1 : 2;
       if (phase !== this.breathPhase) {
         this.breathPhase = phase;
-        if (phase === 0) this.a.noiseBurst(RULES.breathIn, { freq: 500, q: 0.5, gain: 0.025, type: 'lowpass', sweepTo: 1400 });
-        else this.a.noiseBurst(RULES.breathOut, { freq: 1400, q: 0.5, gain: 0.02, type: 'lowpass', sweepTo: 300 });
+        if (phase === 0) this.a.noiseBurst(br.left, { freq: 500, q: 0.5, gain: 0.025, type: 'lowpass', sweepTo: 1400 });
+        else if (phase === 1) this.a.noiseBurst(br.left, { freq: 1400, q: 0.5, gain: 0.02, type: 'lowpass', sweepTo: 300 });
       }
     } else this.breathPhase = -1;
   }

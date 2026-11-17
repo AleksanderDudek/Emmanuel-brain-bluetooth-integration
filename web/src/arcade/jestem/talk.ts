@@ -1,13 +1,13 @@
 /**
- * Hanna's speech bubble, without the canvas: one line at a time, 2–4 s by its length, a pause between two,
+ * Hanna's speech bubble, without the canvas: one line at a time, long enough to read twice (2.5 s + 70 ms a
+ * character, never under 4.5 s — round 11's clarity rule), a pause between two,
  * never while a telegraph, the runner's block banner, the opening card or the finale's writing is on
  * screen (a line on screen when one begins is cut), and no line said twice in a session until its moment
  * has used them all.  Moments ask with a priority and a shelf life; the most important one still fresh is
  * said when the way is clear.
  */
-import { clamp } from '../kit/juice';
 import type { Moment } from './content';
-import { RULES } from './rules';
+import { RULES, readSec } from './rules';
 
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 
@@ -24,7 +24,13 @@ export class Talk {
   /** every line said this session, in order (the tests read it) */
   readonly said: string[] = [];
 
-  constructor(private readonly lines: Readonly<Record<Moment, readonly string[]>>, private readonly rng: () => number) {}
+  constructor(private lines: Readonly<Record<Moment, readonly string[]>>, private readonly rng: () => number) {}
+
+  /** Another set of lines (an own photo's mosaic speaks of no window): the shuffles start again. */
+  setLines(lines: Readonly<Record<Moment, readonly string[]>>): void {
+    this.lines = lines;
+    this.left.clear();
+  }
 
   /** Ask for a line: `pri` orders the queue (higher first), `ttl` is how long (s) it stays worth saying. */
   ask(moment: Moment, pri = 1, ttl = 4): void {
@@ -56,7 +62,7 @@ export class Talk {
     this.queue.sort((a, b) => b.pri - a.pri || a.seq - b.seq);
     const a = this.queue.shift()!;
     const text = this.pick(a.moment);
-    this.line = { moment: a.moment, text, t: 0, dur: clamp(RULES.talkMin + text.length / 32, RULES.talkMin, RULES.talkMax) };
+    this.line = { moment: a.moment, text, t: 0, dur: readSec(text) };
     this.said.push(text);
   }
 

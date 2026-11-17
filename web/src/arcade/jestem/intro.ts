@@ -9,8 +9,8 @@ import { approach, clamp } from '../kit/juice';
 import { introWindow, type Rect } from './layout';
 import { LEAD, PAPER, TAU, blit, font, glowSprite, windowPath } from './paint';
 import type { Prepared } from './prep';
-import { RULES } from './rules';
 import { t } from './i18n';
+import type { Shape } from './vision';
 
 export class JestemIntro {
   private clock = 0;
@@ -22,7 +22,10 @@ export class JestemIntro {
     this.clock += dt;
     // the drawing follows the calibration, and never runs ahead of the analysis
     this.shown = approach(this.shown, prep ? clamp(p * 1.15) : 0, dt, 0.5);
-    const W = introWindow(w, h);
+    // the window's shape: a declaration's arch, an own photo's own rectangle
+    const shape: Shape = prep?.geo.shape ?? 'arch';
+    const W = prep ? introWindow(w, h, prep.geo.w / prep.geo.h) : introWindow(w, h);
+    const path = (grow = 0) => windowPath(W, grow, false, shape);
     const g = ctx.createRadialGradient(w / 2, W.y + W.h / 2, W.h * 0.2, w / 2, W.y + W.h / 2, Math.max(w, h));
     g.addColorStop(0, '#3a2a4e');
     g.addColorStop(0.5, '#1f1628');
@@ -31,17 +34,17 @@ export class JestemIntro {
     ctx.fillRect(0, 0, w, h);
     blit(ctx, glowSprite('255,226,180'), W.x + W.w / 2, W.y + W.h / 2, W.w * 2, W.h * 1.5, 0.12 + 0.2 * this.shown);
     ctx.fillStyle = '#2b2226';
-    ctx.fill(windowPath(W, 6));
+    ctx.fill(path(6));
     ctx.fillStyle = PAPER;
-    ctx.fill(windowPath(W));
+    ctx.fill(path());
     if (!prep) {
       this.pencil(ctx, W, working);
       return;
     }
-    this.sketch(ctx, W, prep);
+    this.sketch(ctx, W, prep, path);
   }
 
-  private sketch(ctx: CanvasRenderingContext2D, W: Rect, prep: Prepared): void {
+  private sketch(ctx: CanvasRenderingContext2D, W: Rect, prep: Prepared, path: (grow?: number) => Path2D): void {
     const geo = prep.geo;
     if (!this.order || this.order.key !== `${prep.key}|${geo.cells.length}`) {
       const mid = (e: { p: { x: number; y: number }; q: { x: number; y: number } }) => Math.hypot((e.p.x + e.q.x) / 2 - geo.heart.x, (e.p.y + e.q.y) / 2 - geo.heart.y);
@@ -49,9 +52,9 @@ export class JestemIntro {
       const cells = geo.cells.map(c => c.id).sort((a, b) => geo.cells[a].heartD - geo.cells[b].heartD);
       this.order = { edges, cells, key: `${prep.key}|${geo.cells.length}` };
     }
-    const k = W.w / RULES.PW, s = this.shown;
+    const k = W.w / geo.w, s = this.shown;
     ctx.save();
-    ctx.clip(windowPath(W));
+    ctx.clip(path());
     // the pencil sketch, cell by cell from the heart (the second half of the drawing)
     const nCells = Math.floor(clamp((s - 0.35) / 0.6) * this.order.cells.length);
     if (nCells > 0) {
@@ -70,7 +73,8 @@ export class JestemIntro {
     const nEdges = Math.floor(clamp(s / 0.5) * this.order.edges.length);
     ctx.strokeStyle = LEAD;
     ctx.lineCap = 'round';
-    ctx.lineWidth = Math.max(1.4, 2.4 * (W.w / 300));
+    // a declaration's lead; a photo's thin grout
+    ctx.lineWidth = geo.shape === 'rect' ? Math.max(0.9, 1.1 * (W.w / 300)) : Math.max(1.4, 2.4 * (W.w / 300));
     ctx.beginPath();
     for (const i of this.order.edges.slice(0, nEdges)) {
       const e = geo.edges[i];
@@ -86,7 +90,7 @@ export class JestemIntro {
     ctx.restore();
     ctx.strokeStyle = 'rgba(246,212,136,0.4)';
     ctx.lineWidth = 1;
-    ctx.stroke(windowPath(W, 6));
+    ctx.stroke(path(6));
   }
 
   /** Blank paper and a pencil at work, while the picture is still being prepared. */

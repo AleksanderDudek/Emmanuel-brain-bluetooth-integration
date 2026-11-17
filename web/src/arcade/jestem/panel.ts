@@ -1,46 +1,74 @@
 /**
  * Ja jestem…'s "Postępy" card in the lobby (DESIGN §13.8), from the app's shared classes (styles.css):
  *
+ *   own picture     first on the card (round 11: the founder did not find it): "Dodaj własny obraz" — the kit's
+ *                   picker for every popular format, a drop zone for a file dragged from a folder, a pasted
+ *                   picture, a busy line while it is read, a message for each reason it cannot be; after a pick
+ *                   the picture is chosen for the next session at once and its sketch is prepared right here
+ *   the next vision its window (a declaration's arch, or the photo's prepared sketch in its own shape), its
+ *                   affirmation and verse, "Szkic gotowy"; pin it, choose another; for an own picture the
+ *                   player's own continuation after "ja" (≤ 100 characters, a live counter, plain text)
+ *   own pictures    kept only on this device (kit/images.ts): a tap chooses one, × deletes it
  *   the numbers     declarations received of 18, sessions, the most pieces lit, the window's detail
  *   the form        (Polish) "Mów do mnie: jestem silny / jestem silna", asked once, changeable
- *   the next vision its little window, its sentence and verse, and the sketch being prepared right here
- *                   (the founder: the picture is processed before the game); pin it, or choose another
- *   own visions     a picture of the player's dream and their own word (≤ 24 characters), kept only on
- *                   this device (kit/images.ts); the word is set as text, never as markup
- *   the album       the eighteen as little windows — in colour once received (×n), in pencil until then
+ *   the album       the eighteen as little windows — in colour once received (×n), in pencil until then — and
+ *                   the own visions received
  *
- * Built with h(); a choice saves the progress and redraws the card.
+ * Built with h(); a choice saves the progress and redraws the card.  The player's words are always set as text.
  */
 import { lang } from '../../i18n';
 import { h } from '../../ui/dom';
-import { deleteImage, imagePicker, imagesAvailable, listImages, saveImage, setLabel, thumbUrl, type StoredImage } from '../kit/images';
-import { passage } from '../kit/scripture';
-import { DECLS, DECL_ORDER, WORD_MAX, cleanWord, declWord, formSample, label, sceneText, sentence, type DeclId, type Form } from './content';
-import { t, piecesText } from './i18n';
 import {
-  addOwn, chooseNext, declKey, dropOwn, keyDecl, keyOwn, nextNew, nextVision, ownKey, pinVision, received, type JestemProgress,
+  ImageError, deleteImage, imageDrop, imagePicker, imagesAvailable, listImages, saveImage, setLabel, thumbUrl, type StoredImage,
+} from '../kit/images';
+import { coarsePointer } from '../kit/mobile';
+import { makeMosaic } from '../kit/mosaic';
+import { passage } from '../kit/scripture';
+import { mulberry32 } from '../../core/random';
+import {
+  CONT_MAX, DECLS, DECL_ORDER, cleanCont, contDefault, declWord, formSample, label, legacyCont, ownLabel, ownSentence, sceneText, sentence,
+  type DeclId, type Form,
+} from './content';
+import { t, piecesText, type Key } from './i18n';
+import {
+  addOwn, chooseNext, declKey, dropOwn, keyDecl, keyOwn, legacyLabel, markCont, nextNew, nextVision, ownKey, pinVision, received,
+  type JestemProgress,
 } from './meta';
 import { paintPicture } from './pictures';
-import { forget, prepareSoon, analysed } from './prep';
+import { analysed, forget, prepareSoon, setWord, type Analysis } from './prep';
 import { windowPath } from './paint';
 import { RULES } from './rules';
+import { buildVision } from './vision';
 
 /** Whether the chooser of declarations is open (kept across redraws of the card). */
 let chooserOpen = false;
-/** The own picture whose word is being edited. */
-let editing: string | null = null;
+/** The status line of the own picture (kept across the redraws of the next half minute after a pick or a failure). */
+let ownStatus: { text: string; error: boolean; until?: number } | null = null;
+/** The continuation field should take the cursor after the next redraw (a picture was just added). */
+let focusCont = false;
+/** The drop zone's and the paste's listeners of the card drawn last (removed before the next draw). */
+let dropOff: (() => void) | null = null;
+/** A picture is being read: further files wait. */
+let busy = false;
 
 const dpr = (): number => Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
 
-/** A little arched window with a declaration's picture: in colour, or as a pencil sketch (not yet received). */
-function windowThumb(id: DeclId, cssW: number, cssH: number, colour: boolean): HTMLCanvasElement {
+/** A canvas of css size w × h at the device's pixel ratio, its context scaled to css px. */
+function thumbCanvas(cssW: number, cssH: number): { c: HTMLCanvasElement; ctx: CanvasRenderingContext2D | null } {
   const k = dpr();
   const c = h('canvas', { width: String(Math.round(cssW * k)), height: String(Math.round(cssH * k)), 'aria-hidden': 'true' });
   c.style.width = `${cssW}px`;
   c.style.height = `${cssH}px`;
   const ctx = c.getContext('2d');
+  ctx?.setTransform(k, 0, 0, k, 0, 0);
+  return { c, ctx };
+}
+
+/** A little arched window with a declaration's picture: in colour, or as a pencil sketch (not yet received). */
+function windowThumb(id: DeclId, cssW: number, cssH: number, colour: boolean): HTMLCanvasElement {
+  const { c, ctx } = thumbCanvas(cssW, cssH);
   if (!ctx) return c;
-  ctx.setTransform(k, 0, 0, k, 0, 0);
+  const k = dpr();
   const wh = cssH - 2, ww = wh * (RULES.PW / RULES.PH);
   const r = { x: (cssW - ww) / 2, y: 1, w: ww, h: wh };
   const pic = document.createElement('canvas');
@@ -72,6 +100,58 @@ function windowThumb(id: DeclId, cssW: number, cssH: number, colour: boolean): H
   return c;
 }
 
+/**
+ * An own picture's prepared sketch, as the game will begin it: the pencil sketch in the photo's own shape, the
+ * mosaic's thin grout over it, a gilded fillet — the player sees the picture is ready.
+ */
+export function sketchThumb(a: Pick<Analysis, 'sketch' | 'w' | 'h' | 'heart' | 'shape'>, cssW: number, cssH: number): HTMLCanvasElement {
+  const { c, ctx } = thumbCanvas(cssW, cssH);
+  if (!ctx) return c;
+  const asp = a.w / a.h;
+  let ww = cssW - 4, hh = ww / asp;
+  if (hh > cssH - 4) { hh = cssH - 4; ww = hh * asp; }
+  const r = { x: (cssW - ww) / 2, y: (cssH - hh) / 2, w: ww, h: hh };
+  ctx.fillStyle = '#1d1619';
+  ctx.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
+  ctx.drawImage(a.sketch, r.x, r.y, r.w, r.h);
+  try {
+    const m = makeMosaic(a.w, a.h, 40, mulberry32(7), { relax: 1 });
+    const geo = buildVision(m, { shape: a.shape, heart: a.heart });
+    const s = r.w / a.w;
+    ctx.strokeStyle = 'rgba(52,42,40,0.6)';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    for (const e of geo.edges) {
+      if (e.b < 0) continue;
+      ctx.moveTo(r.x + e.p.x * s, r.y + e.p.y * s);
+      ctx.lineTo(r.x + e.q.x * s, r.y + e.q.y * s);
+    }
+    ctx.stroke();
+  } catch { /* the sketch alone */ }
+  ctx.strokeStyle = 'rgba(246,212,136,0.85)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(r.x - 0.5, r.y - 0.5, r.w + 1, r.h + 1);
+  return c;
+}
+
+/** The chooser's tile for an own picture: a frame with a plus. */
+function plusThumb(cssW: number, cssH: number): HTMLCanvasElement {
+  const { c, ctx } = thumbCanvas(cssW, cssH);
+  if (!ctx) return c;
+  ctx.strokeStyle = 'rgba(246,212,136,0.85)';
+  ctx.setLineDash([3, 3]);
+  ctx.strokeRect(4.5, 2.5, cssW - 9, cssH - 5);
+  ctx.setLineDash([]);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cssW / 2 - 7, cssH / 2);
+  ctx.lineTo(cssW / 2 + 7, cssH / 2);
+  ctx.moveTo(cssW / 2, cssH / 2 - 7);
+  ctx.lineTo(cssW / 2, cssH / 2 + 7);
+  ctx.stroke();
+  return c;
+}
+
 function stat(k: string, v: string): HTMLElement {
   return h('div', { class: 'stat' }, h('div', { class: 'k' }, k), h('div', { class: 'v' }, v));
 }
@@ -88,6 +168,8 @@ function button(text: string, onClick: () => void, cls = 'btn', extra: Record<st
 export function progressPanel(p: JestemProgress, save: () => void): HTMLElement {
   const root = h('div', { class: 'arcade-panel' });
   const render = (): void => {
+    dropOff?.();
+    dropOff = null;
     while (root.firstChild) root.removeChild(root.firstChild);
     for (const el of build(p, () => {
       save();
@@ -101,97 +183,162 @@ export function progressPanel(p: JestemProgress, save: () => void): HTMLElement 
 /** The word of a declaration in the player's form (Polish), for the card's labels. */
 const wordOf = (p: JestemProgress, id: DeclId): string => declWord(id, p.form);
 
+/** What a failed pick says, in the game's words (kit/images `ImageError.reason`). */
+export function ownErrorText(e: unknown): string {
+  const reason = e instanceof ImageError ? e.reason : 'other';
+  return t(`panel.err.${reason}` as Key);
+}
+
+/**
+ * A picture the player picked, dropped or pasted: read and kept (busy line), chosen for the next session at once,
+ * its sketch prepared; a failure says why.
+ */
+export function addOwnPicture(
+  p: JestemProgress, file: File, changed: () => void, status: (s: { text: string; error: boolean }) => void, save: typeof saveImage = saveImage,
+): Promise<void> {
+  if (busy) return Promise.resolve();
+  busy = true;
+  status({ text: t('panel.ownBusy'), error: false });
+  return save('jestem', 'vision', file, '').then(rec => {
+    addOwn(p, rec.id);
+    chooseNext(p, ownKey(rec.id));
+    ownStatus = { text: t('panel.ownChosen'), error: false, until: Date.now() + 30_000 };
+    focusCont = true;
+  }, (e: unknown) => {
+    ownStatus = { text: ownErrorText(e), error: true, until: Date.now() + 60_000 };
+  }).finally(() => {
+    busy = false;
+    changed();
+  });
+}
+
 function build(p: JestemProgress, changed: () => void): HTMLElement[] {
   const out: (HTMLElement | null)[] = [];
   const next = nextVision(p);
   const nd = keyDecl(next), nown = keyOwn(next);
-  out.push(h('div', { class: 'arcade-stats' },
-    stat(t('panel.received'), `${received(p)}/18`),
-    stat(t('panel.sessions'), String(p.sessions)),
-    stat(t('panel.best'), p.sessions > 0 ? String(p.best) : '—'),
-    stat(t('panel.detail'), p.cells > 0 ? piecesText(p.cells) : '—')));
-  out.push(h('p', { class: 'muted' }, t('panel.rule')));
+  const touch = coarsePointer();
 
-  // ── the form (Polish only) ──
-  if (lang === 'pl') {
-    const id = formSample(nd ?? nextNew(p));
-    const pick = (f: Form) => button(label(declWord(id, f)), () => { p.form = f; changed(); }, 'btn', { role: 'radio', 'aria-checked': String(p.form === f) });
-    out.push(h('div', { class: 'arcade-sub' }, t('panel.form')),
-      h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.form') }, pick('m'), pick('f')),
-      p.form === null ? h('p', { class: 'img-note' }, t('panel.formNote')) : null);
+  // ── the own picture: first on the card, impossible to miss ──
+  let pickerInput: HTMLInputElement | null = null;
+  if (!imagesAvailable()) {
+    out.push(h('div', { class: 'arcade-daily' }, h('div', null, h('b', null, t('panel.ownAdd')), h('p', null, t('panel.ownNoStore')))));
+  } else {
+    const statusEl = h('p', { class: 'img-note', role: 'status', 'aria-live': 'polite', hidden: !ownStatus });
+    const setStatus = (s: { text: string; error: boolean } | null) => {
+      ownStatus = s;
+      statusEl.hidden = !s;
+      statusEl.textContent = s?.text ?? '';
+      statusEl.setAttribute('data-error', String(!!s?.error));
+    };
+    setStatus(ownStatus && (ownStatus.until ?? Infinity) > Date.now() ? ownStatus : null);
+    const onFile = (f: File) => { void addOwnPicture(p, f, changed, setStatus); };
+    const picker = imagePicker(t('panel.ownAdd'), onFile);
+    picker.className = 'btn primary img-pick';
+    pickerInput = picker.querySelector('input');
+    const block = h('div', { class: 'arcade-daily', 'data-own': 'add' },
+      plusThumb(56, 68),
+      h('div', null,
+        h('b', null, t('panel.own')),
+        h('p', null, t('panel.ownLead')),
+        h('div', { class: 'row' }, picker),
+        h('p', { class: 'img-note' }, t(touch ? 'panel.ownFormatsTouch' : 'panel.ownFormats')),
+        statusEl));
+    dropOff = imageDrop(block, onFile);
+    out.push(block);
   }
 
   // ── the next vision ──
   const status = h('p', { class: 'img-note' }, t('panel.preparing'));
-  const setStatus = () => {
-    const a = analysed(next);
-    status.textContent = a ? t('intro.ready') : t('panel.preparing');
-  };
-  setStatus();
-  prepareSoon(next, () => setStatus());
   const pinned = p.pin === next;
   out.push(h('div', { class: 'arcade-sub' }, `${t('panel.next')}${pinned ? ` · ${t('panel.pinned')}` : ''}`));
+  const pin = button(pinned ? t('panel.unpin') : t('panel.pin'), () => { pinVision(p, pinned ? null : next); changed(); });
+  pin.style.marginLeft = 'auto';
   if (nd) {
     const d = DECLS[nd];
-    const thumb = windowThumb(nd, 64, 76, true);
-    const pin = button(pinned ? t('panel.unpin') : t('panel.pin'), () => { pinVision(p, pinned ? null : next); changed(); });
-    pin.style.marginLeft = 'auto';
-    out.push(h('div', { class: 'arcade-daily' }, thumb,
+    status.textContent = analysed(next) ? t('intro.ready') : t('panel.preparing');
+    prepareSoon(next, () => { status.textContent = analysed(next) ? t('intro.ready') : t('panel.preparing'); });
+    out.push(h('div', { class: 'arcade-daily' }, windowThumb(nd, 64, 76, true),
       h('div', null, h('b', null, sentence(wordOf(p, nd))), h('p', null, `${sceneText(nd)} · ${passage(d.verse).ref}`), status), pin));
   } else if (nown) {
+    // the photo while its sketch is prepared, then the sketch itself (the picture is ready to play)
+    const thumbBox = h('div');
     const img = h('img', { alt: '' });
     img.style.width = '64px';
     img.style.height = '76px';
     img.style.objectFit = 'cover';
-    img.style.borderRadius = '32px 32px 6px 6px';
-    const title = h('b', null, t('own'));
-    const pin = button(pinned ? t('panel.unpin') : t('panel.pin'), () => { pinVision(p, pinned ? null : next); changed(); });
-    pin.style.marginLeft = 'auto';
-    const box = h('div', { class: 'arcade-daily' }, img, h('div', null, title, h('p', null, `${t('panel.own')} · ${passage('php4.13').ref}`), status), pin);
+    img.style.borderRadius = '4px';
+    thumbBox.append(img);
+    const title = h('b', null, ownSentence(''));
+    const legacy = legacyLabel(p, nown);
+    const showReady = () => {
+      const a = analysed(next);
+      status.textContent = a ? t('intro.ready') : t('panel.preparing');
+      // the sketch at the photo's own shape: a wide photo takes a wider thumbnail
+      if (a) thumbBox.replaceChildren(sketchThumb(a, Math.round(Math.min(112, Math.max(48, 76 * (a.w / a.h)))), 76));
+    };
+    showReady();
+    prepareSoon(next, () => showReady(), legacy);
+    out.push(h('div', { class: 'arcade-daily', 'data-own': 'next' }, thumbBox,
+      h('div', null, title, h('p', null, `${t('panel.own')} · ${passage('php4.13').ref}`), status), pin));
+    const editor = h('div');
+    out.push(editor);
     void listImages('jestem', 'vision').then(list => {
       const rec = list.find(r => r.id === nown);
       if (!rec) return;
-      img.src = thumbUrl(rec);
-      const word = cleanWord(rec.label);
-      // the player's own word, as text
-      title.textContent = word ? sentence(word) : t('own');
+      if (!analysed(next)) img.src = thumbUrl(rec);
+      img.alt = t('own');
+      const cont = legacy ? legacyCont(rec.label) : cleanCont(rec.label);
+      // the player's own words, as text
+      title.textContent = ownSentence(cont);
+      fillEditor(p, rec, cont, editor, title, changed);
     }).catch(() => undefined);
-    out.push(box);
   }
   const row = h('div', { class: 'row' });
   row.append(button(chooserOpen ? t('panel.hide') : t('panel.choose'), () => { chooserOpen = !chooserOpen; changed(); }));
   if (p.next || p.pin) row.append(button(t('panel.auto'), () => { p.next = null; p.pin = null; changed(); }, 'btn ghost'));
   out.push(row);
   if (chooserOpen) {
-    out.push(h('div', { class: 'arcade-album' }, DECL_ORDER.map(id => {
+    const tile = (cls: string | null, kids: (HTMLElement | string)[], title: string, act: () => void): HTMLElement => {
+      const el = h('div', { class: cls, role: 'button', tabindex: '0', title }, ...kids);
+      el.addEventListener('click', act);
+      el.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); act(); } });
+      return el;
+    };
+    const tiles: HTMLElement[] = [];
+    // the own picture, wherever a vision is chosen
+    if (pickerInput) {
+      const input = pickerInput;
+      tiles.push(tile('on', [plusThumb(52, 40), t('panel.ownPick'), h('small', null, 'JPG · PNG · HEIC')], t('panel.ownAdd'), () => input.click()));
+    }
+    for (const id of DECL_ORDER) {
       const e = p.album[id];
-      const tile = h('div', { class: next === declKey(id) ? 'on legend' : e?.n ? 'on' : null, role: 'button', tabindex: '0', title: sceneText(id) },
-        windowThumb(id, 52, 40, !!e?.n), label(wordOf(p, id)), h('small', null, e?.n ? t('panel.times', { n: e.n }) : t('panel.sketch')));
-      const choose = () => { chooseNext(p, declKey(id)); chooserOpen = false; changed(); };
-      tile.addEventListener('click', choose);
-      tile.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(); } });
-      return tile;
-    })));
+      tiles.push(tile(next === declKey(id) ? 'on legend' : e?.n ? 'on' : null,
+        [windowThumb(id, 52, 40, !!e?.n), label(wordOf(p, id)), h('small', null, e?.n ? t('panel.times', { n: e.n }) : t('panel.sketch'))],
+        sceneText(id), () => { chooseNext(p, declKey(id)); chooserOpen = false; changed(); }));
+    }
+    out.push(h('div', { class: 'arcade-album' }, tiles));
   }
 
-  // ── own visions ──
-  out.push(h('div', { class: 'arcade-sub' }, t('panel.own')));
-  if (!imagesAvailable()) {
-    out.push(h('p', { class: 'img-note' }, t('panel.ownNoStore')));
-  } else {
-    const note = h('p', { class: 'img-note' }, t('panel.ownNote'));
-    const err = h('p', { class: 'img-note', hidden: true }, t('panel.ownError'));
+  // ── the player's own pictures ──
+  if (imagesAvailable() && p.own.length) {
     const grid = h('div', { class: 'img-thumbs' });
-    const editor = h('div');
-    out.push(note, imagePicker(t('panel.ownAdd'), file => {
-      err.hidden = true;
-      void saveImage('jestem', 'vision', file, '').then(rec => {
-        addOwn(p, rec.id);
-        editing = rec.id;
-        changed();
-      }).catch(() => { err.hidden = false; });
-    }), err, grid, editor);
-    void listImages('jestem', 'vision').then(list => fillOwn(p, list, grid, editor, changed)).catch(() => undefined);
+    out.push(h('div', { class: 'arcade-sub' }, t('panel.ownMine')), grid);
+    void listImages('jestem', 'vision').then(list => fillOwn(p, list, grid, changed)).catch(() => undefined);
+  }
+
+  // ── the numbers and the form ──
+  out.push(h('div', { class: 'arcade-stats' },
+    stat(t('panel.received'), `${received(p)}/18`),
+    stat(t('panel.sessions'), String(p.sessions)),
+    stat(t('panel.best'), p.sessions > 0 ? String(p.best) : '—'),
+    stat(t('panel.detail'), p.cells > 0 ? piecesText(p.cells) : '—')));
+  out.push(h('p', { class: 'muted' }, t('panel.rule')));
+  if (lang === 'pl') {
+    const id = formSample(nd ?? nextNew(p));
+    const pick = (f: Form) => button(label(declWord(id, f)), () => { p.form = f; changed(); }, 'btn', { role: 'radio', 'aria-checked': String(p.form === f) });
+    out.push(h('div', { class: 'arcade-sub' }, t('panel.form')),
+      h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.form') }, pick('m'), pick('f')),
+      p.form === null ? h('p', { class: 'img-note' }, t('panel.formNote')) : null);
   }
 
   // ── the album ──
@@ -203,7 +350,7 @@ function build(p: JestemProgress, changed: () => void): HTMLElement[] {
       h('small', null, e?.n ? `${t('panel.times', { n: e.n })} · ${e.best}` : t('panel.sketch')));
   }));
   out.push(album);
-  // the player's own visions received, after the eighteen: their picture and their word (as text)
+  // the player's own visions received, after the eighteen: their picture and their affirmation (as text)
   const ownDone = p.own.filter(o => o.n > 0);
   if (ownDone.length && imagesAvailable()) {
     void listImages('jestem', 'vision').then(list => {
@@ -214,9 +361,9 @@ function build(p: JestemProgress, changed: () => void): HTMLElement[] {
         img.style.width = '52px';
         img.style.height = '40px';
         img.style.objectFit = 'cover';
-        img.style.borderRadius = '20px 20px 4px 4px';
-        const word = cleanWord(rec.label);
-        album.append(h('div', { class: 'on', title: `${t('own')} · ${passage('php4.13').ref}` }, img, word ? label(word) : t('own'),
+        img.style.borderRadius = '3px';
+        const cont = o.cont ? cleanCont(rec.label) : legacyCont(rec.label);
+        album.append(h('div', { class: 'on', title: `${t('own')} · ${passage('php4.13').ref}` }, img, ownLabel(cont),
           h('small', null, `${t('panel.times', { n: o.n })} · ${o.best}`)));
       }
     }).catch(() => undefined);
@@ -224,59 +371,95 @@ function build(p: JestemProgress, changed: () => void): HTMLElement[] {
   return out.filter((x): x is HTMLElement => !!x);
 }
 
-/** The player's own pictures: thumbnails (a tap chooses one for the next session), and the chosen one's word. */
-function fillOwn(p: JestemProgress, list: StoredImage[], grid: HTMLElement, editor: HTMLElement, changed: () => void): void {
+/**
+ * The own picture's continuation after "ja": the prefix in front of the field, plain text up to 100 characters with
+ * a live counter, the default ("wszystko mogę", Philippians 4:13) when left empty; saved on the device with the picture.
+ */
+function fillEditor(p: JestemProgress, rec: StoredImage, cont: string, editor: HTMLElement, title: HTMLElement, changed: () => void): void {
+  const key = ownKey(rec.id);
+  const input = h('input', {
+    type: 'text', maxlength: String(CONT_MAX), placeholder: contDefault(), 'aria-label': `${t('panel.ownCont')}: ${t('panel.ownPrefix')} …`,
+    autocomplete: 'off', enterkeyhint: 'done',
+  });
+  input.value = cont;
+  input.style.flex = '1 1 14em';
+  input.style.minWidth = '0';
+  const count = h('span', { class: 'img-note', 'aria-live': 'off' });
+  const saved = h('span', { class: 'img-note', role: 'status' });
+  const counted = () => {
+    const n = [...input.value].length;
+    count.textContent = `${Math.min(n, CONT_MAX)} / ${CONT_MAX}`;
+    title.textContent = ownSentence(input.value);
+    saved.textContent = '';
+  };
+  counted();
+  input.addEventListener('input', counted);
+  const save = () => {
+    const c = cleanCont(input.value);
+    input.value = c;
+    counted();
+    return setLabel(rec.id, c).then(() => {
+      markCont(p, rec.id);
+      setWord(key, c);
+      saved.textContent = t('panel.ownSaved');
+    });
+  };
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); void save().then(changed); }
+  });
+  editor.replaceChildren(
+    h('div', { class: 'arcade-sub' }, t('panel.ownCont')),
+    h('div', { class: 'row' }, h('span', null, t('panel.ownPrefix')), input),
+    h('p', { class: 'img-note' }, count, ' · ', t('panel.ownHint')),
+    h('div', { class: 'row' }, button(t('panel.ownSave'), () => { void save().then(changed); }, 'btn primary'), saved),
+    h('p', { class: 'img-note' }, t('panel.ownNote')),
+  );
+  if (focusCont) {
+    focusCont = false;
+    setTimeout(() => { try { input.focus({ preventScroll: true }); } catch { /* an old engine */ } }, 0);
+  }
+}
+
+/** The player's own pictures: thumbnails (a tap chooses one for the next session), a delete on each. */
+function fillOwn(p: JestemProgress, list: StoredImage[], grid: HTMLElement, changed: () => void): void {
   const known = new Set(p.own.map(o => o.id));
   // a picture kept on the device but missing from the progress (another profile's save) joins it
-  let added = false;
-  for (const r of list) if (!known.has(r.id)) { addOwn(p, r.id); added = true; }
+  let moved = false;
+  for (const r of list) if (!known.has(r.id)) { addOwn(p, r.id); moved = true; }
   const ids = new Set(list.map(r => r.id));
-  for (const o of [...p.own]) if (!ids.has(o.id)) { dropOwn(p, o.id); added = true; }
-  if (added) { changed(); return; }
-  if (!list.length) {
-    grid.replaceWith(h('p', { class: 'img-note' }, t('panel.ownNone')));
+  for (const o of [...p.own]) if (!ids.has(o.id)) { dropOwn(p, o.id); moved = true; }
+  // a save before round 11 kept a single word: it becomes a continuation ("zdrowa" → "jestem zdrowa"), once
+  const old = p.own.filter(o => !o.cont);
+  if (old.length) {
+    void Promise.all(old.map(o => {
+      const rec = list.find(r => r.id === o.id);
+      const cont = rec ? legacyCont(rec.label) : '';
+      const done = () => { markCont(p, o.id); setWord(ownKey(o.id), cont); };
+      return rec && rec.label ? setLabel(o.id, cont).then(done) : Promise.resolve(done());
+    })).then(changed, () => undefined);
     return;
   }
+  if (moved) { changed(); return; }
   const next = nextVision(p);
   grid.replaceChildren(...list.map(rec => {
     const key = ownKey(rec.id);
-    const del = button(t('panel.ownDelete'), () => {
+    const del = button('×', () => {
       void deleteImage(rec.id).then(() => {
         dropOwn(p, rec.id);
         forget(key);
-        if (editing === rec.id) editing = null;
         changed();
       });
-    }, 'btn');
-    const img = h('img', { src: thumbUrl(rec), alt: cleanWord(rec.label) || t('own') });
-    const cell = h('div', { class: next === key || editing === rec.id ? 'img-thumb on' : 'img-thumb', role: 'button', tabindex: '0' }, img, del);
-    const open = (e: Event) => {
+    }, 'btn', { 'aria-label': t('panel.ownDelete'), title: t('panel.ownDelete') });
+    const img = h('img', { src: thumbUrl(rec), alt: ownLabel(cleanCont(rec.label)) });
+    const cell = h('div', { class: next === key ? 'img-thumb on' : 'img-thumb', role: 'button', tabindex: '0', 'aria-label': ownLabel(cleanCont(rec.label)) }, img, del);
+    const choose = (e: Event) => {
       if ((e.target as Element).closest('button')) return;
-      editing = rec.id;
+      chooseNext(p, key);
+      focusCont = true;
       changed();
     };
-    cell.addEventListener('click', open);
+    cell.addEventListener('click', choose);
+    cell.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); choose(ev); } });
     return cell;
   }));
-  const rec = list.find(r => r.id === editing) ?? null;
-  if (!rec) return;
-  const input = h('input', { type: 'text', maxlength: String(WORD_MAX), placeholder: t('panel.ownPlaceholder'), 'aria-label': t('panel.ownWord') });
-  input.value = cleanWord(rec.label);
-  const key = ownKey(rec.id);
-  const saveWord = () => {
-    const word = cleanWord(input.value);
-    input.value = word;
-    return setLabel(rec.id, word).then(() => forget(key));
-  };
-  const use = button(t('panel.ownUse'), () => {
-    void saveWord().then(() => {
-      if (!cleanWord(input.value)) { input.focus(); return; }
-      chooseNext(p, key);
-      changed();
-    });
-  }, 'btn primary');
-  editor.replaceChildren(
-    h('label', { class: 'f' }, t('panel.ownWord'), input),
-    h('div', { class: 'row' }, button(t('panel.ownSave'), () => { void saveWord().then(() => changed()); }), use),
-  );
 }

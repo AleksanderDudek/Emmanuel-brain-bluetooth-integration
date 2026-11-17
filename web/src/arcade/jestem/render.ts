@@ -11,22 +11,29 @@
  * Per frame only what moves: the watercolour bloom in the cell being filled, the stream from the oculus
  * (the gauge: its width is the band's level), flashes, sparkles and motes, the aura behind the window
  * (its halo, the rings of the rests, the rays of the pushes), the night's veil, captions, Hanna's bubble,
- * the opening card and the finale's writing.  Everything bright is drawn with baked sprites.
+ * the "what to do now" line, the opening card and the finale's writing.  Everything bright is drawn with
+ * baked sprites.
+ *
+ * An own photo (round 11) keeps its own shape: a thin gallery frame instead of the stone arch, thin grout
+ * instead of lead, a ring medallion on the frame's corner for the gauge, and at the finale the grout dissolves
+ * and the photo itself shines through, glowing, with its aura.
  */
 import { Particles, clamp, ease } from '../kit/juice';
+import { MIN_READ } from '../kit/mobile';
 import { layoutPassage, drawPassage, passage, type PassageLayout } from '../kit/scripture';
 import type { RGB } from './art';
-import { DECLS, OWN_AURA, fragName, sentence } from './content';
+import { DECLS, OWN_AURA, fragName, ownSentenceParts } from './content';
 import { t } from './i18n';
-import { formButtons, layout, tu, windowAt, type Layout, type Rect } from './layout';
+import { ARCH, formButtons, layout, tu, windowAt, type Layout, type PicShape, type Rect } from './layout';
 import {
-  GOLD, LEAD, PAPER, TAU, blit, fitFont, font, fontPx, glowSprite, paintBubble, paintOculus, raySprite, roundRect, windowPath, wrap,
+  GOLD, LEAD, PAPER, TAU, blit, fitFont, fitLines, font, fontPx, glowSprite, layoutFinale, paintBubble, paintOculus, raySprite, roundRect, windowPath, wrap,
 } from './paint';
 import { paintPicture } from './pictures';
 import type { Prepared } from './prep';
-import { RULES } from './rules';
-import type { JestemSim, SimEvent } from './sim';
+import { readSec } from './rules';
+import type { JestemSim, NowIcon, SimEvent } from './sim';
 import type { Insets } from '../kit/types';
+import { NO_INSETS } from '../kit/mobile';
 
 const rgbS = (c: RGB): string => `${c[0] | 0},${c[1] | 0},${c[2] | 0}`;
 const smooth = (x: number, a: number, b: number): number => {
@@ -44,6 +51,9 @@ export class JestemView {
   private w = 1;
   private h = 1;
   private dpr = 1;
+  private ins: Insets = NO_INSETS;
+  /** the picture's shape and space (the layout follows it) */
+  private space: PicShape = ARCH;
   private vis: Prepared | null = null;
   private word = '';
   private aura: RGB = OWN_AURA;
@@ -76,7 +86,11 @@ export class JestemView {
   private night = 0;
   private dawn = 0;
   private fin = -1;
-  private finText: { a: string; b: string; size: number; sizeB: number; pass: PassageLayout | null; key: string } | null = null;
+  private finText: {
+    a: string[]; b: string[]; size: number; sizeB: number; lhA: number; lhB: number; nA: number; nB: number; pass: PassageLayout | null; key: string;
+  } | null = null;
+  /** the "what to do now" line as drawn last (its words wrapped, memoised by text and width) */
+  private nowMemo: { key: string; lines: string[]; size: number } | null = null;
   /** the path a drag is laying (cells, in order) */
   drag: number[] = [];
   /**
@@ -100,14 +114,21 @@ export class JestemView {
     this.w = w;
     this.h = h;
     this.dpr = dpr;
-    this.L = layout(w, h, ins, this.opts.touch);
+    this.ins = ins;
+    this.relayout();
+  }
+
+  private relayout(): void {
+    this.L = layout(this.w, this.h, this.ins, this.opts.touch, this.space);
     this.bg = null;
     this.finText = null;
+    this.nowMemo = null;
     this.cardBox = null;
+    this.paths2.clear();
     if (this.vis) this.build();
   }
 
-  /** The prepared vision: its word, its aura's colours; the layers are baked now. */
+  /** The prepared vision: its words, its shape, its aura's colours; the layers are baked now. */
   setVision(p: Prepared, word: string): void {
     this.vis = p;
     this.word = word;
@@ -115,10 +136,13 @@ export class JestemView {
     this.aura = d ? d.aura : OWN_AURA;
     this.ray = d ? d.ray : [255, 226, 150];
     this.baked = p.geo.cells.map(() => 0);
-    this.build();
+    this.space = { shape: p.geo.shape, w: p.geo.w, h: p.geo.h };
+    this.relayout();
   }
 
   get ready(): boolean { return !!this.vis; }
+  /** the window is an own photo's rectangle */
+  get photo(): boolean { return this.space.shape === 'rect'; }
 
   // ── the layers ──────────────────────────────────────────────────
   private layer(): HTMLCanvasElement {
@@ -229,8 +253,29 @@ export class JestemView {
     g.clearRect(0, 0, this.lead!.width, this.lead!.height);
     g.setTransform(s, 0, 0, s, 0, 0);
     g.lineCap = 'round';
-    const base = Math.max(1.8, 2.6 * k * (RULES.PW / 320)) * Math.min(1.25, u);
+    // finer mosaics take finer lead (48 cells: 0.9 of it, 144: 0.6)
+    const fine = clamp(Math.sqrt(40 / Math.max(1, v.geo.cells.length)), 0.6, 1);
+    const base = Math.max(1.4, 2.6 * k * (600 / 320) * fine) * Math.min(1.25, u);
     const shown = (id: number) => this.inGlass[id];
+    if (this.photo) {
+      // a photo's mosaic: thin grout, warm where the light has come, a hair inside a whole fragment
+      const grout = Math.max(0.9, base * 0.42);
+      for (const e of v.geo.edges) {
+        const a = shown(e.a), b = e.b >= 0 ? shown(e.b) : false;
+        if (e.b < 0) continue;   // the frame holds the edge
+        const sameDone = a && b && v.geo.cells[e.a].frag === v.geo.cells[e.b].frag && sim.fragDone[v.geo.cells[e.a].frag];
+        g.beginPath();
+        g.moveTo(e.p.x * k, e.p.y * k);
+        g.lineTo(e.q.x * k, e.q.y * k);
+        if (sameDone) { g.strokeStyle = 'rgba(255,240,206,0.18)'; g.lineWidth = grout * 0.5; }
+        else if (a && b) { g.strokeStyle = 'rgba(255,236,190,0.42)'; g.lineWidth = grout * 0.6; }
+        else if (a || b) { g.strokeStyle = 'rgba(246,212,136,0.6)'; g.lineWidth = grout * 0.8; }
+        else { g.strokeStyle = 'rgba(52,42,40,0.5)'; g.lineWidth = grout; }
+        g.stroke();
+      }
+      this.leadDirty = false;
+      return;
+    }
     for (const e of v.geo.edges) {
       const a = shown(e.a), b = e.b >= 0 ? shown(e.b) : false;
       const sameDone = e.b >= 0 && a && b && v.geo.cells[e.a].frag === v.geo.cells[e.b].frag && sim.fragDone[v.geo.cells[e.a].frag];
@@ -368,15 +413,18 @@ export class JestemView {
     this.parts.burst(x, y, 6, { color: this.cellCss(cell), size: 2.6, speed: 40, g: -10, life: 1.1, drag: 2 });
   }
 
+  /** A caption stays long enough to read twice (round 11: 2.5 s + 70 ms a character, at least 4.5 s). */
   private caption(text: string, px: number, py: number, big: boolean): void {
     const L = this.L;
-    this.captions.push({ text, x: L.win.x + px * L.k, y: L.win.y + py * L.k, t: 0, dur: 2.8, big });
+    this.captions.push({ text, x: L.win.x + px * L.k, y: L.win.y + py * L.k, t: 0, dur: readSec(text), big });
     if (this.captions.length > 3) this.captions.shift();
   }
 
   private captionCenter(text: string): void {
     const L = this.L;
-    this.captions.push({ text, x: L.win.x + L.win.w / 2, y: L.win.y + L.win.h * 0.55, t: 0, dur: 2.4, big: false });
+    // a new centred caption replaces the one before it (they would stand on each other)
+    this.captions = this.captions.filter(c => !(c.x === L.win.x + L.win.w / 2 && c.y === L.win.y + L.win.h * 0.55));
+    this.captions.push({ text, x: L.win.x + L.win.w / 2, y: L.win.y + L.win.h * 0.55, t: 0, dur: readSec(text), big: false });
     if (this.captions.length > 3) this.captions.shift();
   }
 
@@ -498,12 +546,25 @@ export class JestemView {
     const frameA = ft >= 0 ? 1 - 0.75 * smooth(ft, 0.1 * F, 0.25 * F) : 1;
     if (frameA > 0.01) {
       ctx.globalAlpha = frameA;
-      ctx.fillStyle = '#2b2226';
-      const frame = this.winPath(W, 7 * L.u * sc);
-      ctx.fill(frame);
-      ctx.strokeStyle = 'rgba(246,212,136,0.35)';
-      ctx.lineWidth = 1;
-      ctx.stroke(frame);
+      if (this.photo) {
+        // a thin gallery frame: a dark moulding, a gold fillet next to the picture
+        const m = 6 * L.u * sc;
+        ctx.fillStyle = '#1d1619';
+        ctx.fill(this.winPath(W, m));
+        ctx.strokeStyle = 'rgba(255,236,200,0.16)';
+        ctx.lineWidth = 1;
+        ctx.stroke(this.winPath(W, m));
+        ctx.strokeStyle = 'rgba(246,212,136,0.75)';
+        ctx.lineWidth = Math.max(1, 1.4 * L.u * sc);
+        ctx.stroke(this.winPath(W, 1.2 * L.u * sc));
+      } else {
+        ctx.fillStyle = '#2b2226';
+        const frame = this.winPath(W, 7 * L.u * sc);
+        ctx.fill(frame);
+        ctx.strokeStyle = 'rgba(246,212,136,0.35)';
+        ctx.lineWidth = 1;
+        ctx.stroke(frame);
+      }
       ctx.globalAlpha = 1;
     }
     ctx.save();
@@ -524,6 +585,19 @@ export class JestemView {
     }
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
+    if (this.photo && ft >= 0) {
+      // an own photo: the mosaic gives way to the photo itself, whole and clear, glowing
+      const reveal = smooth(ft, 0.1 * F, 0.3 * F);
+      if (reveal > 0.01) {
+        ctx.globalAlpha = reveal;
+        ctx.drawImage(this.pic!, W.x, W.y, W.w, W.h);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = reveal * (0.08 + 0.05 * breath);
+        ctx.drawImage(this.pic!, W.x, W.y, W.w, W.h);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+      }
+    }
     // flashes of newly lit cells
     this.drawFlashes(ctx, W, sc);
     // the leading (it dissolves in the finale)
@@ -576,22 +650,18 @@ export class JestemView {
   /** The window's path grown by `grow` px: cached while the window stays where it is (in play it never moves). */
   private paths2 = new Map<string, Path2D>();
   private winPath(W: Rect, grow: number, open = false): Path2D {
-    const key = `${W.x.toFixed(1)},${W.y.toFixed(1)},${W.w.toFixed(1)},${grow.toFixed(1)},${open}`;
+    const key = `${W.x.toFixed(1)},${W.y.toFixed(1)},${W.w.toFixed(1)},${W.h.toFixed(1)},${grow.toFixed(1)},${open},${this.space.shape}`;
     let p = this.paths2.get(key);
     if (!p) {
       if (this.paths2.size > 24) this.paths2.clear();
-      p = windowPath(W, grow, open);
+      p = windowPath(W, grow, open, this.space.shape);
       this.paths2.set(key, p);
     }
     return p;
   }
 
-  /** The rest's breath: in for 4, out for 6 (0 → 1 → 0), slow and steady. */
-  private breath(sim: JestemSim): number {
-    const cyc = RULES.breathIn + RULES.breathOut;
-    const x = (sim.t % cyc + cyc) % cyc;
-    return x < RULES.breathIn ? ease.inOutSine(x / RULES.breathIn) : 1 - ease.inOutSine((x - RULES.breathIn) / RULES.breathOut);
-  }
+  /** The breath (0 → 1 → 0): a rest's from its start, whole breaths of 4 in, 6 out (kit/breath); a gentle one elsewhere. */
+  private breath(sim: JestemSim): number { return sim.breath.k; }
 
   private drawBg(ctx: CanvasRenderingContext2D): void {
     if (!this.bg || this.bg.width !== Math.round(this.w * this.dpr)) {
@@ -644,9 +714,9 @@ export class JestemView {
   /** Before the vision is ready: the empty paper in the window, a pencil at work. */
   private drawSketching(ctx: CanvasRenderingContext2D, W: Rect): void {
     ctx.fillStyle = '#2b2226';
-    ctx.fill(windowPath(W, 7 * this.L.u));
+    ctx.fill(this.winPath(W, 7 * this.L.u));
     ctx.fillStyle = PAPER;
-    ctx.fill(windowPath(W));
+    ctx.fill(this.winPath(W, 0));
     const a = this.clock * 1.7;
     const x = W.x + W.w * (0.5 + 0.28 * Math.cos(a)), y = W.y + W.h * (0.5 + 0.22 * Math.sin(a * 1.3));
     ctx.strokeStyle = 'rgba(62,50,46,0.7)';
@@ -815,8 +885,18 @@ export class JestemView {
   }
 
   private drawOculus(ctx: CanvasRenderingContext2D, sim: JestemSim, W: Rect, breath: number): void {
-    const L = this.L;
-    const o = this.fin >= 0 ? { x: W.x + W.w / 2, y: W.y + L.oculus.r * 0.15 * (W.w / L.win.w), r: L.oculus.r * (W.w / L.win.w) } : L.oculus;
+    const L = this.L, sc = W.w / L.win.w;
+    const o = this.fin >= 0
+      ? { x: W.x + (L.oculus.x - L.win.x) * sc, y: W.y + (L.oculus.y - L.win.y) * sc, r: L.oculus.r * sc }
+      : L.oculus;
+    // a rest: a ring of breath around the gauge, wide on the in-breath, narrow on the out-breath
+    if (sim.restBlock && !sim.story) {
+      ctx.strokeStyle = `rgba(214,222,255,${0.35 + 0.3 * breath})`;
+      ctx.lineWidth = Math.max(1.5, o.r * 0.1);
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.r * (1.35 + 0.55 * breath), 0, TAU);
+      ctx.stroke();
+    }
     const col = sim.target >= 0 ? this.vis?.colors[sim.target] : null;
     const rgb = col ? `${col.r | 0},${col.g | 0},${col.b | 0}` : '255,220,160';
     let mode: 'push' | 'rest' | 'night' | 'idle' | 'light' = 'idle';
@@ -826,7 +906,7 @@ export class JestemView {
       else if (sim.pushBlock) { mode = sim.complete ? 'light' : 'push'; value = sim.meter(); }
       else if (sim.restBlock) { mode = 'rest'; value = sim.meter(); }
     }
-    paintOculus(ctx, o.x, o.y, o.r, { value, mode, rgb, t: this.clock, breath });
+    paintOculus(ctx, o.x, o.y, o.r, { value, mode, rgb, t: this.clock, breath, plain: this.photo });
   }
 
   private drawRipples(ctx: CanvasRenderingContext2D): void {
@@ -842,16 +922,26 @@ export class JestemView {
 
   private drawCaptions(ctx: CanvasRenderingContext2D): void {
     const L = this.L;
+    // captions never stand on each other: a later one steps down (or up, at the window's foot) past an earlier one
+    const placed: { x: number; y: number; w: number; h: number }[] = [];
     for (const c of this.captions) {
-      const k = c.t / c.dur;
-      const a = k < 0.15 ? k / 0.15 : k > 0.7 ? (1 - k) / 0.3 : 1;
+      const a = Math.min(1, c.t / 0.4, (c.dur - c.t) / 0.8);
+      const k = Math.min(1, c.t / 2.4);
       const px = (c.big ? 21 : 17) * tu(L, 1.2);
       const maxW = L.win.w - 16;
       const size = fitFont(ctx, c.text, maxW, px, 13, 600, true, true);
       ctx.font = font(size, 600, true, true);
       const tw = ctx.measureText(c.text).width;
       const x = clamp(c.x, L.win.x + tw / 2 + 8, L.win.x + L.win.w - tw / 2 - 8);
-      const y = clamp(c.y - 18 * ease.outCubic(k), L.win.y + 24, L.win.y + L.win.h - 16);
+      const lo = L.win.y + 24, hi = L.win.y + L.win.h - 16;
+      let y = clamp(c.y - 18 * ease.outCubic(k), lo, hi);
+      const hit = (yy: number) => placed.some(p => Math.abs(p.x - x) < (p.w + tw) / 2 + 6 && Math.abs(p.y - yy) < (p.h + size) * 0.75);
+      for (let i = 1; i <= 4 && hit(y); i++) {
+        const down = y + size * 1.6 * i, up = y - size * 1.6 * i;
+        if (down <= hi && !hit(down)) { y = down; break; }
+        if (up >= lo && !hit(up)) { y = up; break; }
+      }
+      placed.push({ x, y, w: tw, h: size });
       blit(ctx, glowSprite('20,12,24'), x, y, tw * 1.5 + 40, size * 3.2, 0.75 * a, false);
       ctx.globalAlpha = clamp(a);
       ctx.textAlign = 'center';
@@ -874,7 +964,149 @@ export class JestemView {
       paintBubble(ctx, line.text, cx, top, maxW, L.u, a, L.desk);
     }
     if (L.side && this.vis && !sim.story && this.fin < 0) this.drawSide(ctx, sim);
+    if (this.vis && this.fin < 0) this.drawNow(ctx, sim);
     if (sim.story) this.drawStory(ctx, sim);
+  }
+
+  /**
+   * The "what to do now" line (round 11): an icon and a few words for the current phase, the push's cells as pips
+   * (lit / to the rest) — under the window, or a subtitle over its lower edge.  It changes only when the action does.
+   */
+  private drawNow(ctx: CanvasRenderingContext2D, sim: JestemSim): void {
+    const now = sim.now;
+    if (!now) return;
+    const L = this.L, N = L.now;
+    const text = t(now.key);
+    const b = sim.block;
+    const pips = b.kind === 'push' && !b.blind && !sim.complete ? b.cells : 0;
+    const px = 14 * (L.desk ? L.u : Math.min(L.u, 1.15));
+    const ir = px * 0.62;                      // the icon's radius
+    const pipR = Math.max(3, px * 0.24), pipGap = pipR * 2.8;
+    const pipW = pips ? pips * pipGap + 6 : 0;
+    const padX = 12, inner = N.maxW - 2 * padX - ir * 2 - 10 - pipW;
+    const memoKey = `${text}|${Math.round(inner)}|${px}`;
+    if (!this.nowMemo || this.nowMemo.key !== memoKey) {
+      const f = fitLines(ctx, text, inner, fontPx(px) * 1.3 * 2 + 1, px, MIN_READ, { weight: 650, maxLines: 2 });
+      this.nowMemo = { key: memoKey, lines: f.lines, size: f.size };
+    }
+    const M = this.nowMemo;
+    ctx.font = font(M.size, 650);
+    const lh = fontPx(M.size) * 1.3;
+    const tw = Math.max(...M.lines.map(l => ctx.measureText(l).width));
+    const w = Math.min(N.maxW, padX * 2 + ir * 2 + 10 + tw + pipW);
+    const h = Math.max(N.h1, M.lines.length * lh + 12);
+    const x = N.cx - w / 2;
+    const y = N.anchor === 'top' ? N.y : N.y - h;
+    ctx.save();
+    roundRect(ctx, x, y, w, h, Math.min(h / 2, 16));
+    ctx.fillStyle = 'rgba(16,10,20,0.82)';
+    ctx.fill();
+    ctx.strokeStyle = now.icon === 'breath' ? 'rgba(206,214,255,0.45)' : 'rgba(246,212,136,0.45)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    this.nowIcon(ctx, now.icon, x + padX + ir, y + h / 2, ir, sim);
+    ctx.fillStyle = '#fbf2de';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const tx = x + padX + ir * 2 + 10, ty = y + h / 2 - ((M.lines.length - 1) * lh) / 2;
+    M.lines.forEach((l, i) => ctx.fillText(l, tx, ty + i * lh));
+    // the push's cells: lit ones gold, the one filling now half, the rest an outline
+    if (pips) {
+      const lit = Math.min(sim.pushLit, pips);
+      const c = sim.target, part = c >= 0 && this.vis ? clamp(sim.ink[c] / this.vis.geo.cells[c].cap) : 0;
+      for (let i = 0; i < pips; i++) {
+        const px0 = x + w - padX - (pips - i - 0.5) * pipGap, py0 = y + h / 2;
+        ctx.beginPath();
+        ctx.arc(px0, py0, pipR, 0, TAU);
+        if (i < lit) { ctx.fillStyle = GOLD; ctx.fill(); }
+        else {
+          ctx.strokeStyle = 'rgba(246,212,136,0.7)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+          if (i === lit && part > 0.02) {
+            ctx.beginPath();
+            ctx.moveTo(px0, py0);
+            ctx.arc(px0, py0, pipR, -Math.PI / 2, -Math.PI / 2 + TAU * part);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(246,212,136,0.8)';
+            ctx.fill();
+          }
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  /** The now line's icon, drawn (no font needed): a hand's tap, a sun of focus, a moon, a star, a breathing ring, a band without signal. */
+  private nowIcon(ctx: CanvasRenderingContext2D, icon: NowIcon, x: number, y: number, r: number, sim: JestemSim): void {
+    ctx.save();
+    ctx.lineCap = 'round';
+    switch (icon) {
+      case 'focus': case 'light': {
+        const on = sim.flowing || icon === 'light';
+        ctx.fillStyle = on ? '#ffd98a' : 'rgba(246,212,136,0.55)';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.42, 0, TAU);
+        ctx.fill();
+        ctx.strokeStyle = ctx.fillStyle;
+        ctx.lineWidth = Math.max(1.2, r * 0.16);
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * TAU + (on ? this.clock * 0.8 : 0);
+          ctx.beginPath();
+          ctx.moveTo(x + Math.cos(a) * r * 0.62, y + Math.sin(a) * r * 0.62);
+          ctx.lineTo(x + Math.cos(a) * r * 0.95, y + Math.sin(a) * r * 0.95);
+          ctx.stroke();
+        }
+        break;
+      }
+      case 'breath': {
+        const k = sim.breath.k;
+        ctx.strokeStyle = 'rgba(214,222,255,0.95)';
+        ctx.lineWidth = Math.max(1.4, r * 0.18);
+        ctx.beginPath();
+        ctx.arc(x, y, r * (0.35 + 0.6 * k), 0, TAU);
+        ctx.stroke();
+        break;
+      }
+      case 'night': {
+        // a crescent: the disc less a second one, inside the first
+        const disc = new Path2D();
+        disc.arc(x, y, r * 0.8, 0, TAU);
+        ctx.clip(disc);
+        ctx.fillStyle = 'rgba(214,222,255,0.95)';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.8, 0, TAU);
+        ctx.arc(x + r * 0.38, y - r * 0.22, r * 0.7, 0, TAU);
+        ctx.fill('evenodd');
+        break;
+      }
+      case 'tap': {
+        const k = (this.clock % 1.6) / 1.6;
+        ctx.strokeStyle = `rgba(255,240,200,${0.8 * (1 - k)})`;
+        ctx.lineWidth = Math.max(1.2, r * 0.14);
+        ctx.beginPath();
+        ctx.arc(x, y, r * (0.4 + 0.55 * k), 0, TAU);
+        ctx.stroke();
+        ctx.fillStyle = '#fff1c8';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.3, 0, TAU);
+        ctx.fill();
+        break;
+      }
+      case 'nosignal': {
+        ctx.strokeStyle = 'rgba(255,240,214,0.7)';
+        ctx.lineWidth = Math.max(1.2, r * 0.16);
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.75, 0, TAU);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.5, y + r * 0.5);
+        ctx.lineTo(x + r * 0.5, y - r * 0.5);
+        ctx.stroke();
+        break;
+      }
+    }
+    ctx.restore();
   }
 
   /** The column beside the window (wide): the declaration, and the picture's fragments with the lit ones in gold. */
@@ -883,16 +1115,17 @@ export class JestemView {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillStyle = 'rgba(255,240,214,0.6)';
-    const a = sentence(this.word || '…');
-    ctx.font = font(15 * tu(L, 1.2), 500, true, true);
-    const lines = wrap(ctx, a, S.w, 3);
-    const lh = 15 * tu(L, 1.2) * 1.35;
+    // the whole affirmation (an own one up to 100 characters): wrapped, fitted down to the reading floor, never cut
+    const a = sim.affirmation || '…';
     const px = 13 * tu(L, 1.15);
     // under the room Hanna's bubble may take (three lines at most); on a desktop the words stand a little above
     // the window's middle, beside it, rather than up in the corner
     const bubbleRoom = S.y + Math.max(74 * L.u, 98);
+    const fit = fitLines(ctx, a, S.w, S.y + S.h - bubbleRoom - 4, 15 * tu(L, 1.2), MIN_READ, { weight: 500, serif: true, italic: true, lead: 1.35 });
+    const lines = fit.lines, lh = fit.lh;
     const wordsH = lines.length * lh + 14 + v.geo.frags.length * px * 1.6;
     const top = L.desk ? Math.max(bubbleRoom, Math.min(S.y + (S.h - wordsH) * 0.4, S.y + S.h - wordsH)) : bubbleRoom;
+    ctx.font = font(fit.size, 500, true, true);
     lines.forEach((l, i) => ctx.fillText(l, S.x, top + i * lh));
     let y = top + lines.length * lh + 14;
     ctx.font = font(px, 600);
@@ -919,7 +1152,7 @@ export class JestemView {
     const pad = 16;
     const titlePx = 20 * tu(L, 1.15), textPx = 14 * tu(L, 1.1);
     ctx.font = font(textPx, 500);
-    const textLines = wrap(ctx, t('story.text'), C.w - 2 * pad, 6);
+    const textLines = wrap(ctx, t(this.photo ? 'story.textOwn' : 'story.text'), C.w - 2 * pad, 6);
     const lh = fontPx(textPx) * 1.4;
     const btnH = st.ask ? Math.max(48, 50 * L.u) : 0;
     const head = pad + titlePx * 1.4 + textLines.length * lh + 10;
@@ -985,37 +1218,38 @@ export class JestemView {
   /** The word in each Polish form, for the card's answers (set by the game). */
   formWord: ((f: 'm' | 'f') => string) | null = null;
 
-  /** The finale's writing: the declaration letter by letter, in the serif, and its verse under it. */
+  /** The finale's writing: the declaration letter by letter, in the serif, wrapped to its box, and its verse under it. */
   private drawFinale(ctx: CanvasRenderingContext2D, sim: JestemSim): void {
     const ft = this.fin, F = this.F;
     const L = this.L, T = L.finText;
     const start = 0.24 * F;
     if (ft < start) return;
     const word = this.word;
-    const key = `${T.w}x${T.h}|${word}`;
+    const key = `${T.w}x${T.h}|${word}|${this.vis?.decl ?? 'own'}`;
     if (!this.finText || this.finText.key !== key) {
-      const a = t('sentence.a'), b = word ? t('sentence.b', { word }) : t('sentence.b', { word: '…' }).replace(/\s…\.$/, '…');
-      const sizeA = fitFont(ctx, a, T.w, Math.min(26 * L.u, T.w / 11), 14, 600, true);
-      const sizeB = fitFont(ctx, b, T.w, Math.min(34 * L.u, T.w / 8), 16, 700, true);
-      const used = sizeA * 1.5 + sizeB * 1.5 + 16;
-      const pass = T.h - used > 50 ? layoutPassage(ctx, passage(sim.verse), T.w, T.h - used - 6, { max: 15 * tu(L, 1.15), min: 12 }) : null;
-      this.finText = { a, b, size: sizeA, sizeB, pass, key };
+      // a declaration: "Przez potężne imię Jezusa" / "ja jestem kochany."; an own vision: "…" / "ja {continuation}."
+      const [a, b] = this.vis?.decl ? [t('sentence.a'), t('sentence.b', { word })] : ownSentenceParts(word);
+      const lay = layoutFinale(ctx, a, b, T.w, T.h, L.u);
+      const pass = T.h - lay.height > 50 ? layoutPassage(ctx, passage(sim.verse), T.w, T.h - lay.height - 16, { max: 15 * tu(L, 1.15), min: 12 }) : null;
+      const count = (ls: string[]) => ls.reduce((n, l) => n + [...l].length, 0);
+      this.finText = { a: lay.a, b: lay.b, size: lay.sizeA, sizeB: lay.sizeB, lhA: lay.lhA, lhB: lay.lhB, nA: count(lay.a), nB: count(lay.b), pass, key };
     }
     const X = this.finText;
-    // letters a second: at least 16, quicker when the finale is short (all written by 60 % of it)
-    const cps = Math.max(16, (X.a.length + X.b.length) / (0.34 * F));
+    // letters a second: at least 16, quicker when the finale is short or the words long (all written by 60 % of it)
+    const cps = Math.max(16, (X.nA + X.nB) / (0.34 * F));
     const nA = Math.floor((ft - start) * cps);
-    const nB = Math.floor((ft - start - X.a.length / cps - 0.25) * cps * 0.85);
+    const nB = Math.floor((ft - start - X.nA / cps - 0.25) * cps * 0.85);
     const cx = T.x + T.w / 2;
-    let y = T.y + (L.side ? Math.max(0, (T.h - (X.size * 1.5 + X.sizeB * 1.5 + 16 + (X.pass?.height ?? 0))) / 2) : 4);
+    const textH = X.a.length * X.lhA + 8 + X.b.length * X.lhB;
+    let y = T.y + (L.side ? Math.max(0, (T.h - (textH + 12 + (X.pass?.height ?? 0))) / 2) : 4);
     ctx.save();
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    this.typewrite(ctx, X.a, nA, cx, y, X.size, 600, '#fbefd8');
-    y += X.size * 1.5;
-    this.typewrite(ctx, X.b, nB, cx, y, X.sizeB, 700, '#ffd98a');
-    y += X.sizeB * 1.5 + 12;
-    const written = start + (X.a.length + X.b.length) / cps + 0.3;
+    this.typeLines(ctx, X.a, nA, cx, y, X.size, X.lhA, 600, '#fbefd8');
+    y += X.a.length * X.lhA + 8;
+    this.typeLines(ctx, X.b, nB, cx, y, X.sizeB, X.lhB, 700, '#ffd98a');
+    y += X.b.length * X.lhB + 12;
+    const written = start + (X.nA + X.nB / 0.85) / cps + 0.3;
     const verseA = smooth(ft, written + 0.04 * F, written + 0.14 * F);
     if (X.pass && verseA > 0) {
       ctx.globalAlpha = verseA;
@@ -1025,18 +1259,23 @@ export class JestemView {
     ctx.restore();
   }
 
-  /** A line written letter by letter: each new letter fades in with a little light. */
-  private typewrite(ctx: CanvasRenderingContext2D, text: string, n: number, cx: number, y: number, size: number, weight: number, color: string): void {
+  /** Lines written letter by letter, each centred: the newest letter glows a little. */
+  private typeLines(ctx: CanvasRenderingContext2D, lines: string[], n: number, cx: number, y: number, size: number, lh: number, weight: number, color: string): void {
     if (n <= 0) return;
     ctx.font = font(size, weight, true);
-    const full = ctx.measureText(text).width;
-    const shown = text.slice(0, Math.min(text.length, n));
-    const x0 = cx - full / 2;
     ctx.fillStyle = color;
-    ctx.fillText(shown, x0, y);
-    if (n < text.length + 3) {
-      const wNow = ctx.measureText(shown).width;
-      blit(ctx, glowSprite('255,226,160'), x0 + wNow, y + size * 0.5, size * 2.4, size * 2.4, 0.5);
+    let left = n;
+    for (let i = 0; i < lines.length && left > 0; i++) {
+      const chars = [...lines[i]];
+      const full = ctx.measureText(lines[i]).width;
+      const shown = chars.slice(0, Math.min(chars.length, left)).join('');
+      const x0 = cx - full / 2, ly = y + i * lh;
+      ctx.fillText(shown, x0, ly);
+      if (left < chars.length + 3 && left <= chars.length) {
+        const wNow = ctx.measureText(shown).width;
+        blit(ctx, glowSprite('255,226,160'), x0 + wNow, ly + size * 0.5, size * 2.4, size * 2.4, 0.5);
+      }
+      left -= chars.length;
     }
   }
 
@@ -1047,7 +1286,7 @@ export class JestemView {
   toPicture(x: number, y: number): { x: number; y: number } | null {
     const W = this.L.win;
     if (y < this.L.band.y) return null;
-    return { x: clamp((x - W.x) / this.L.k, 0, RULES.PW), y: clamp((y - W.y) / this.L.k, 0, RULES.PH) };
+    return { x: clamp((x - W.x) / this.L.k, 0, this.space.w), y: clamp((y - W.y) / this.L.k, 0, this.space.h) };
   }
 
   /** Whether a point lies on the window (or within a finger of it): a drag lays a path only there. */

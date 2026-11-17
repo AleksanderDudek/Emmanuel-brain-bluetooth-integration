@@ -1,27 +1,31 @@
 /**
- * Ja jestem…'s session, without the DOM (DESIGN §13.8).  A vision — a picture cut into a stained-glass
- * mosaic (vision.ts) — is coloured cell by cell and lit:
+ * Ja jestem…'s session, without the DOM (DESIGN §13.8).  A vision — a picture cut into a mosaic (vision.ts):
+ * a declaration's arched window, or an own photo in its own shape — is coloured cell by cell and lit:
  *
- *   warm-up (first session)  the colour flows quickly by itself; taps choose where
- *   push (Barwa)             colour pours into the chosen cell: a base flow, and above the threshold a
- *                            wider stream (after the band's lead-in); a full cell LIGHTS; a whole fragment
- *                            lit becomes one pane; every cell lit → the light pass: focus pours light
- *   blind push (Noc)         the base flow shows; what focus adds is kept and poured at dawn, at the end
- *   rest (Blask)             no colour: calm makes the lit glass glow; the aura gathers
+ *   warm-up (first session)  a quick flow while focused; taps choose where
+ *   push (Barwa)             while focused (past the band's lead-in, a reliable signal) colour pours into the
+ *                            chosen cell, wider above the threshold; a full cell LIGHTS; the push ends when its
+ *                            3rd, 4th or 5th cell lights (round 11: "rest after 3–5 completed tiles"), or at
+ *                            its cap; a whole fragment lit becomes one pane; every cell lit → the light pass
+ *   blind push (Noc)         what focus pours is kept unseen; the night ends when it holds the push's cells,
+ *                            and they light at dawn
+ *   rest (Blask)             whole breaths (kit/breath: 4 in, 6 out → 20 s); calm makes the lit glass glow
  *   each block's verdict     a passed push leaves a RAY in the aura, a passed rest a RING
  *   the finale               the light fills what is still unlit (grace), the leading dissolves, the
  *                            declaration is written out with its verse (the view)
  *
- * The brain drives only the slow flow and the glow; touch chooses where (and adds a drop now and then);
- * a bad signal holds the flow at its base, never below.  Nothing is ever lost.  Events go out through
- * `take()`; the view, the sound and the coach marks read them.
+ * Progress comes only from real focus (the founder, round 11): without focus nothing flows; what was gained
+ * stays; a bad signal never takes anything away.  Touch chooses where (and a drop joins flowing colour).
+ * Events go out through `take()`; the view, the sound and the coach marks read them.
  */
+import { BREATH_DEFAULT, breathAt, breathCycle, breathRest, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
 import type { ArcadeOutcome } from '../kit/types';
 import { fmtNum } from '../../i18n';
 import {
-  BLIND_TIPS, DECLS, LIGHT_TIPS, LINES, OWN_VERSE, PUSH_TIPS, REST_TIPS, sentence, type DeclId, type Form, type Moment,
+  BLIND_TIPS, DECLS, LIGHT_TIPS, LINES, LINES_OWN, OWN_VERSE, PUSH_TIPS, REST_TIPS, contOf, ownSentence, sentence,
+  type DeclId, type Form, type Moment,
 } from './content';
 import { t, piecesText, unit, type Key } from './i18n';
 import { keyDecl, nextPace, planCells, receive, received, type JestemProgress, type VisionKey } from './meta';
@@ -31,12 +35,16 @@ import { autoNext, cellUnder, pickAt, type VisionGeo } from './vision';
 import type { PassageId } from '../kit/scripture';
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
-export interface Block { kind: BlockKind; dur: number; blind: boolean }
+/**
+ * A block: its kind and length — a push's `dur` is its cap (it ends when its `cells` light), a rest's is whole
+ * breaths — whether it is blind, and (a push) how many cells end it.
+ */
+export interface Block { kind: BlockKind; dur: number; blind: boolean; cells: number }
 
-/** The vision the session colours: its key, its geometry, and the word it declares (resolved for the page). */
+/** The vision the session colours: its key, its geometry, and the words it declares (a declaration's word; an own continuation). */
 export interface SimVision { key: VisionKey; geo: VisionGeo; decl: DeclId | null; word: string }
 
-export type Coach = 'tap' | 'lit' | 'oculus' | 'rest' | 'drag' | 'pane' | 'night' | 'light';
+export type Coach = 'tap' | 'lit' | 'oculus' | 'push' | 'rest' | 'drag' | 'pane' | 'night' | 'light';
 export type CoachAt = { kind: 'cell'; id: number } | { kind: 'oculus' } | null;
 export type LitBy = 'player' | 'dawn' | 'grace';
 
@@ -59,7 +67,7 @@ export type SimEvent =
   | { type: 'finale' }
   | { type: 'storyEnd' }
   | { type: 'form'; form: Form }
-  | { type: 'coach'; what: Coach; at: CoachAt };
+  | { type: 'coach'; what: Coach; at: CoachAt; k?: number };
 
 export interface SimInit {
   progress: JestemProgress;
@@ -70,69 +78,45 @@ export interface SimInit {
   tuning: FocusTuning;
   /** the page's language needs the speaker's form (Polish) */
   askForm: boolean;
+  /** the window's cells, forced (tests, and `?debug&jestemCells=144` for the frame-time audit); else from the pace */
+  cells?: number;
 }
 
 /** The opening card of the first session (and the form question in Polish). */
 export interface Story { t: number; dur: number; ask: boolean }
 
+/** The "what to do now" line (round 11's clarity rule): its words and its icon; it changes only when the action does. */
+export type NowIcon = 'tap' | 'focus' | 'night' | 'light' | 'breath' | 'nosignal';
+export interface Now { key: Key; icon: NowIcon }
+
 const NO_EVENTS: readonly SimEvent[] = [];
+const BREATH = BREATH_DEFAULT;
 
 // ── pure rules ───────────────────────────────────────────────────
-/** No block under `min` s: lift the short ones and take the time from the others, keeping the total. */
-function liftShort(durs: number[], min: number): void {
-  const short = durs.reduce((s, d) => s + Math.max(0, min - d), 0);
-  if (short <= 0) return;
-  const spare = durs.reduce((s, d) => s + Math.max(0, d - min), 0);
-  const k = spare > 0 ? Math.min(1, short / spare) : 0;
-  for (let i = 0; i < durs.length; i++) durs[i] = durs[i] < min ? min : durs[i] - (durs[i] - min) * k;
-}
-
 /** The finale's length: 20 s in sessions of 3 min and more, 14 s from 2 min, 8 s in shorter ones. */
 export const finaleFor = (plannedSec: number): number =>
   (plannedSec >= 180 ? RULES.finale.long : plannedSec >= 120 ? RULES.finale.mid : RULES.finale.short);
 
-/**
- * The session's blocks: the first-ever session opens with the warm-up (30 s in 5 and 10 min, 20 s in 3,
- * 6 s in a ≤ 60 s test); then push / rest pairs (26 ± 4 s and 22 ± 3 s, scaled to end on time, jittered
- * only when there is room), ending with a rest; the finale takes the last stretch.  No block under 12 s.
- */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
-  const fin = finaleFor(plannedSec);
-  const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
-  if (plannedSec <= 60) {
-    const left = Math.max(2 * R.minBlock, plannedSec - fin);
-    if (firstEver) {
-      const warm = R.warm.test, rest = Math.max(2 * R.minBlock, left - warm);
-      return [b('warmup', warm), b('push', rest / 2), b('rest', rest / 2)];
-    }
-    const rest = Math.max(R.minBlock, Math.min(14, left / 2));
-    return [b('push', left - rest), b('rest', rest)];
-  }
-  const plan: Block[] = [];
-  let left = plannedSec - fin;
-  if (firstEver) {
-    const warm = plannedSec >= 300 ? R.warm.long : R.warm.short;
-    plan.push(b('warmup', warm));
-    left -= warm;
-  }
-  const pair = R.push[0] + R.rest[0];
-  const pairs = Math.max(1, Math.round(left / pair));
-  const jitter = pairs >= 2 && left / (pairs * pair) >= 0.85 ? 1 : 0;
-  const durs: number[] = [];
-  for (let i = 0; i < pairs; i++) durs.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1], R.rest[0] + jitter * (rnd() * 2 - 1) * R.rest[1]);
-  const scale = left / durs.reduce((s, d) => s + d, 0);
-  for (let i = 0; i < durs.length; i++) durs[i] *= scale;
-  liftShort(durs, R.minBlock);
-  durs.forEach((dur, i) => plan.push(b(i % 2 ? 'rest' : 'push', dur)));
-  return plan;
+/** The first-ever session's warm-up: 30 s in sessions from 5 min, 20 s in shorter ones, 6 s in a ≤ 60 s test. */
+export const warmFor = (plannedSec: number): number =>
+  (plannedSec <= 60 ? RULES.warm.test : plannedSec >= 300 ? RULES.warm.long : RULES.warm.short);
+
+/** The seconds of push and rest a session holds (its length less the warm-up and the finale). */
+export const playSecOf = (plannedSec: number, firstEver: boolean): number =>
+  Math.max(0, plannedSec - finaleFor(plannedSec) - (firstEver ? warmFor(plannedSec) : 0));
+
+/** A rest of whole breaths (kit/breath): about 22 s, at least 12 → 2 breaths of 4 in, 6 out = 20 s. */
+export const restSec = (): number => breathRest(BREATH, RULES.restTarget, RULES.restMin).sec;
+
+/** The cells the next push asks after one that took `sec` (cut at its cap: `capped`): quicker → one more, slow → one fewer. */
+export function nextPushCells(k: number, sec: number, capped: boolean): number {
+  let n = k;
+  if (capped || sec > RULES.pushSlow) n = k - 1;
+  else if (sec < RULES.pushQuick) n = k + 1;
+  return Math.round(clamp(n, RULES.pushCellsMin, RULES.pushCellsMax));
 }
 
-/** The seconds of pouring a plan holds (the warm-up's quick flow counts a little more). */
-export const pourSecOf = (plan: readonly Block[]): number =>
-  plan.reduce((s, b) => s + (b.kind === 'push' ? b.dur : b.kind === 'warmup' ? b.dur * 1.2 : 0), 0);
-
-/** The flow in a sighted push past its lead-in (units per second): base, and a wider stream above the threshold. */
+/** The flow while focused in a sighted push past its lead-in (units per second): wider above the threshold. */
 export function pourRate(level: number): number {
   const R = RULES;
   const x = clamp((level - R.levelLo) / R.levelSpan);
@@ -142,11 +126,13 @@ export function pourRate(level: number): number {
 // ── the session ──────────────────────────────────────────────────
 export class JestemSim {
   readonly p: JestemProgress;
-  readonly plan: Block[];
+  /** the blocks so far (each appended when it begins; a push's `dur` is set to its real length when it ends) */
+  readonly plan: Block[] = [];
   readonly session: number;
   readonly plannedSec: number;
-  readonly finaleSec: number;
-  /** the cells the window is cut into (the plan's pace × its pouring time) */
+  /** the finale's length: nominal until it begins, then what the session has left */
+  finaleSec: number;
+  /** the cells the window is cut into (the player's pace × the session's minutes of push and rest, 48…144) */
   readonly cellsWanted: number;
   readonly lead: number;
   private readonly rng: () => number;
@@ -157,6 +143,10 @@ export class JestemSim {
   private readonly bestBefore: number | null;
   private readonly askForm: boolean;
   private readonly day: string;
+  /** when the finale is planned to begin (s of the session) */
+  private readonly finaleAt: number;
+  /** the shortest push worth starting before the finale (s) */
+  private readonly pushRoom: number;
   /** the sighted pushes before the current one (the strategies' turn) */
   private tipK = 0;
 
@@ -166,8 +156,11 @@ export class JestemSim {
   blockIndex = 0;
   blockT = 0;
   telegraphed = false;
+  private teleAt = -1;
   tip = '';
   story: Story | null = null;
+  /** what comes after the current block (decided when it begins; null: the finale) */
+  nextBlock: Block | null = null;
 
   vision: SimVision | null = null;
   ink: number[] = [];
@@ -188,6 +181,10 @@ export class JestemSim {
   /** cells lit by the player (the headline) and by the finale's grace */
   litPlayer = 0;
   graced = 0;
+  /** cells the current push has lit (it ends at its `cells`) */
+  pushLit = 0;
+  /** the cells the next push will ask */
+  private nextCells: number = RULES.pushCells;
   /** the finale's clock, and when each still-unlit cell turns to light */
   finaleT = 0;
   graceAt: number[] = [];
@@ -196,7 +193,10 @@ export class JestemSim {
   flow = 0;
   calmShown = 0;
   reliable = false;
-  /** the flow this frame (units/s) and what a blind push keeps for dawn */
+  focused = false;
+  /** seconds without a reliable signal (the "what to do now" line says so after a few) */
+  private unrelT = 0;
+  /** the flow this frame (units/s; 0 without focus) and what a blind push keeps for dawn */
   rate = 0;
   hidden = 0;
   rays = 0;
@@ -211,12 +211,14 @@ export class JestemSim {
   private touchCool = 0;
   private goodT = 0;
   private goodSaid = false;
+  private waitT = 0;
+  private waitSaid = false;
   private litTalkAt = -99;
   private halfSaid = false;
   private lastSaid = false;
   private paneSeen = false;
-  /** seconds of pouring until the picture was whole (for the pace) */
-  pourT = 0;
+  /** seconds of push and rest this session (for the pace) */
+  playT = 0;
   /** the best share of a night's window in focus (%), −1 without a night */
   nightShare = -1;
   private settled = false;
@@ -229,6 +231,8 @@ export class JestemSim {
     this.rng = init.rng;
     this.plannedSec = init.plannedSec;
     this.finaleSec = finaleFor(init.plannedSec);
+    this.finaleAt = init.plannedSec - this.finaleSec;
+    this.pushRoom = init.plannedSec <= 60 ? RULES.pushRoomTest : RULES.pushRoom;
     this.session = this.p.sessions + 1;
     this.pushesBase = this.p.pushes;
     this.bestBefore = this.p.sessions > 0 ? this.p.best : null;
@@ -236,30 +240,40 @@ export class JestemSim {
     this.day = init.day;
     this.lead = init.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.judge = RoundJudge.from(init.tuning);
-    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
-    this.cellsWanted = planCells(this.p.pace, pourSecOf(this.plan));
+    this.cellsWanted = init.cells && init.cells >= RULES.cellsMin && init.cells <= RULES.cellsMax
+      ? Math.round(init.cells) : planCells(this.p.pace, playSecOf(init.plannedSec, this.session === 1));
     this.talk = new Talk(LINES, init.rng);
   }
 
   // ── state ───────────────────────────────────────────────────────
-  get block(): Block { return this.plan[Math.min(this.blockIndex, this.plan.length - 1)]; }
-  get next(): Block | null { return this.plan[this.blockIndex + 1] ?? null; }
+  get block(): Block { return this.plan[Math.min(this.blockIndex, this.plan.length - 1)] ?? { kind: 'push', dur: 0, blind: false, cells: 0 }; }
+  get next(): Block | null { return this.nextBlock; }
   get playing(): boolean { return this.started && this.phase === 'play'; }
   get pushBlock(): boolean { return this.playing && this.block.kind === 'push'; }
   get restBlock(): boolean { return this.playing && this.block.kind === 'rest'; }
   get blind(): boolean { return this.pushBlock && this.block.blind; }
   /** a sighted push past its lead-in: the stream answers the band */
   get sighted(): boolean { return this.pushBlock && !this.block.blind && this.blockT >= this.lead; }
-  /** colour flows now (the warm-up or a push, the card closed, the vision ready, not yet whole) */
+  /** colour may flow now (the warm-up or a push, the card closed, the vision ready, not yet whole) */
   get pouring(): boolean {
     return this.playing && !this.story && !!this.vision && !this.complete && (this.block.kind === 'push' || this.block.kind === 'warmup');
   }
+  /** colour flows this very frame (focus, a signal, past the lead-in): the stream, the trickle, a tap's drop */
+  get flowing(): boolean { return this.pouring && this.rate > 0 && !this.blind; }
   /** the light pass: every cell lit, a push pours light */
   get lighting(): boolean { return this.playing && !this.story && this.complete && this.block.kind === 'push'; }
   get cells(): number { return this.vision?.geo.cells.length ?? 0; }
   get score(): number { return this.litPlayer; }
   get word(): string { return this.vision?.word ?? ''; }
+  /** the vision is the player's own photo (its words a continuation after "ja") */
+  get own(): boolean { return !!this.vision && !this.vision.decl; }
   get verse(): PassageId { return this.vision?.decl ? DECLS[this.vision.decl].verse : OWN_VERSE; }
+  /** the whole affirmation: "Przez potężne imię Jezusa ja jestem silny." / "…ja mam pokój." */
+  get affirmation(): string {
+    const v = this.vision;
+    if (!v) return '';
+    return v.decl ? sentence(v.word) : ownSentence(v.word);
+  }
   /** the mean glow of the lit glass (0..1) */
   get glowMean(): number {
     let s = 0, n = 0;
@@ -269,16 +283,35 @@ export class JestemSim {
   get fragsDone(): number { return this.fragDone.filter(Boolean).length; }
   get talkBlocked(): boolean {
     const b = this.block;
-    const tele = this.playing && this.blockT >= b.dur - RULES.telegraph;
     const banner = this.playing && this.blockT < RULES.bannerSec && b.kind !== 'warmup';
-    return !!(tele || banner || this.story || (this.phase === 'finale' && this.finaleT > 2.2) || this.phase === 'done');
+    return !!((this.playing && this.telegraphed) || banner || this.story || (this.phase === 'finale' && this.finaleT > 2.2) || this.phase === 'done');
+  }
+  /** the rest's breath (kit/breath, from the rest's start), or the session's gentle one elsewhere */
+  get breath(): BreathState { return breathAt(BREATH, this.restBlock ? this.blockT : this.t); }
+  /** a rest's whole breaths */
+  get breaths(): number { return this.restBlock ? Math.max(1, Math.round(this.block.dur / breathCycle(BREATH))) : 0; }
+
+  /** What to do now, in a few words (null: a card, the finale). */
+  get now(): Now | null {
+    if (!this.playing || this.story || !this.vision) return null;
+    const b = this.block;
+    if (b.kind === 'warmup') return { key: 'now.warm', icon: 'tap' };
+    if (b.kind === 'rest') {
+      const ph = this.breath.phase;
+      return { key: ph === 'in' ? 'now.in' : ph === 'out' ? 'now.out' : 'now.hold', icon: 'breath' };
+    }
+    if (b.blind) return { key: 'now.night', icon: 'night' };
+    if (this.complete) return { key: 'now.light', icon: 'light' };
+    if (this.unrelT > 3) return { key: 'now.nosignal', icon: 'nosignal' };
+    if (b.cells > 1 && this.pushLit === b.cells - 1) return { key: 'now.last', icon: 'focus' };
+    return { key: 'now.push', icon: 'focus' };
   }
 
   // ── the session's course ────────────────────────────────────────
   start(): void {
     if (this.started) return;
     this.started = true;
-    this.startBlock(0);
+    this.startBlock(this.session === 1 ? 'warmup' : 'push');
     if (this.session === 1) {
       const ask = this.askForm && this.p.form === null;
       this.story = { t: 0, dur: ask ? RULES.storyAsk : RULES.storySec, ask };
@@ -289,6 +322,7 @@ export class JestemSim {
   setVision(v: SimVision): void {
     if (this.vision) return;
     this.vision = v;
+    if (!v.decl) this.talk.setLines(LINES_OWN);
     const n = v.geo.cells.length;
     this.ink = new Array<number>(n).fill(0);
     this.lit = new Array<boolean>(n).fill(false);
@@ -324,42 +358,43 @@ export class JestemSim {
     this.talk.update(dt, t, this.talkBlocked);
   }
 
-  /** The band's slow quantities: the stream's width in a sighted push, the calm in a rest. */
+  /** The band's slow quantities: the stream's width in a sighted push, the calm in a rest; the flow itself. */
   private brain(dt: number, f: FocusFrame): void {
-    this.reliable = f.reliable;
-    const live = this.sighted && f.reliable;
+    this.reliable = f.reliable && f.activity !== null;
+    this.focused = this.reliable && f.focused;
+    this.unrelT = this.pushBlock && !this.reliable ? this.unrelT + dt : 0;
+    const live = this.sighted && this.reliable;
     this.flow = approach(this.flow, live ? clamp(f.level) : 0, dt, RULES.meterTau);
-    this.calmShown = approach(this.calmShown, this.restBlock && f.reliable ? clamp(f.calm) : 0, dt, RULES.meterTau);
-    if (this.playing && f.reliable) this.relSec += dt;
-    // the rate: the warm-up's quick flow; in a push the base, and the stream above it once the band can answer
+    this.calmShown = approach(this.calmShown, this.restBlock && this.reliable ? clamp(f.calm) : 0, dt, RULES.meterTau);
+    if (this.playing && this.reliable) this.relSec += dt;
+    // the flow: only while focused (the round's rule) — the warm-up's quick one, or past a push's lead-in the
+    // stream that widens above the threshold; a night keeps it unseen for dawn
     const b = this.block;
-    let rate = 0, extra = 0;
-    if (this.pouring) {
+    let rate = 0;
+    if (this.pouring && this.focused) {
       if (b.kind === 'warmup') rate = RULES.warmRate;
-      else {
-        rate = RULES.baseRate;
-        if (this.blockT >= this.lead && f.reliable) {
-          const full = pourRate(clamp(f.level));
-          if (b.blind) extra = full - rate;
-          else rate = full;
-        }
-      }
+      else if (this.blockT >= this.lead) rate = pourRate(clamp(f.level));
     }
     this.rate = rate;
-    if (extra > 0) this.hidden += extra * dt;
-    if (live && f.level >= 0.5) this.goodT += dt;
+    if (rate > 0 && b.kind === 'push' && b.blind) this.hidden += rate * dt;
+    if (live && this.focused && f.level >= 0.5) this.goodT += dt;
     else this.goodT = 0;
     if (this.goodT >= RULES.goodSec && !this.goodSaid) {
       this.goodSaid = true;
-      this.say(this.complete ? 'light' : 'good', 2, 4);
+      this.say(this.complete ? 'light' : 'good', 2, 6);
+    }
+    // a signal but no focus for a while in a sighted push: once a push, how the colour flows (never "harder")
+    this.waitT = live && !this.focused && !this.complete ? this.waitT + dt : 0;
+    if (this.waitT >= 10 && !this.waitSaid) {
+      this.waitSaid = true;
+      this.say('wait', 2, 8);
     }
     if (live && this.blockT >= this.lead + 0.5) this.coachOnce('oculus', { kind: 'oculus' });
   }
 
-  /** The colour flows into the target cell; a full cell lights. */
+  /** The colour flows into the target cell (a night keeps it); a full cell lights. */
   private pour(dt: number): void {
-    if (!this.pouring) return;
-    this.pourT += dt * (this.block.kind === 'warmup' ? 1.2 : 1);
+    if (!this.pouring || this.rate <= 0 || this.block.blind) return;
     this.fill(this.rate * dt, 'player');
   }
 
@@ -415,6 +450,30 @@ export class JestemSim {
     return c;
   }
 
+  /**
+   * The units the night must hold for its cells, along the way the colour would go (the target, the path, then its
+   * own way), and the units of its last cell — no side effects.
+   */
+  nightNeed(k: number): { all: number; last: number } {
+    const v = this.vision;
+    if (!v || k <= 0) return { all: 0, last: 0 };
+    const lit = this.lit.slice();
+    const ink = this.ink;
+    const queue = [...(this.marked >= 0 ? [this.marked] : []), ...(this.target >= 0 ? [this.target] : []), ...this.path];
+    let cur = this.curFrag, all = 0, last = 0;
+    for (let i = 0; i < k; i++) {
+      let c = -1;
+      while (queue.length && c < 0) { const q = queue.shift()!; if (!lit[q]) c = q; }
+      if (c < 0) c = autoNext(v.geo, lit, ink, cur);
+      if (c < 0) break;
+      last = v.geo.cells[c].cap - ink[c];
+      all += last;
+      lit[c] = true;
+      cur = v.geo.cells[c].frag;
+    }
+    return { all, last };
+  }
+
   /** A cell lights: its glass glows, its leading turns gold; a whole fragment, half the picture, the whole. */
   private light(c: number, by: LitBy): void {
     const v = this.vision!;
@@ -426,21 +485,22 @@ export class JestemSim {
     if (this.target === c) this.target = -1;
     if (by !== 'grace') this.litPlayer++;
     else this.graced++;
+    if (by !== 'grace' && this.phase === 'play' && this.block.kind === 'push') this.pushLit++;
     this.emit({ type: 'lit', cell: c, by, n: this.litPlayer });
     if (by === 'grace') return;
     const n = this.cells, done = this.litPlayer;
     if (done === 1) {
-      this.say('first', 3, 5);
+      this.say('first', 3, 6);
       this.coachOnce('lit', { kind: 'cell', id: c });
     } else if (!this.halfSaid && done >= n / 2) {
       this.halfSaid = true;
-      this.say('half', 2, 5);
+      this.say('half', 2, 6);
     } else if (!this.lastSaid && n - done <= Math.max(2, Math.round(n * 0.12)) && n - done > 0) {
       this.lastSaid = true;
-      this.say('last', 2, 5);
+      this.say('last', 2, 6);
     } else if (this.t - this.litTalkAt >= RULES.litTalkEvery && by === 'player') {
       this.litTalkAt = this.t;
-      this.say('lit', 1, 2.5);
+      this.say('lit', 1, 3);
     }
     if (!this.paneSeen && v.geo.cells[c].nb.some(x => this.lit[x])) {
       this.paneSeen = true;
@@ -450,7 +510,7 @@ export class JestemSim {
     if (!this.fragDone[fi] && v.geo.frags[fi].cells.every(id => this.lit[id])) {
       this.fragDone[fi] = true;
       this.emit({ type: 'fragment', frag: fi });
-      if (done > 1 && done < n) this.say('fragment', 2, 5);
+      if (done > 1 && done < n) this.say('fragment', 2, 6);
     }
     if (done >= n && !this.complete) {
       this.complete = true;
@@ -458,7 +518,7 @@ export class JestemSim {
       this.path = [];
       this.emit({ type: 'complete' });
       if (this.phase === 'play') {
-        this.say('complete', 3, 6);
+        this.say('complete', 3, 8);
         this.coachOnce('light', null);
       }
     }
@@ -469,10 +529,10 @@ export class JestemSim {
     if (!this.vision || this.story) return;
     let k = 0;
     if (this.restBlock) {
-      k = (RULES.glowBase + RULES.glowCalm * (f.reliable ? clamp(f.calm) : 0)) / RULES.glowSec;
+      k = (RULES.glowBase + RULES.glowCalm * (this.reliable ? clamp(f.calm) : 0)) / RULES.glowSec;
     } else if (this.lighting) {
-      const lv = this.sighted && f.reliable ? clamp(f.level) : 0;
-      k = (RULES.lightBase + (1 - RULES.lightBase) * lv) / RULES.lightSec;
+      const lv = this.sighted && this.focused ? clamp(f.level) : 0;
+      k = (RULES.lightBase * (this.focused ? 1 : 0) + (1 - RULES.lightBase) * lv) / RULES.lightSec;
     }
     if (k <= 0) return;
     for (let i = 0; i < this.glow.length; i++) if (this.lit[i]) this.glow[i] = Math.min(1, this.glow[i] + k * dt);
@@ -484,6 +544,7 @@ export class JestemSim {
     if (this.story) return;   // the opening card holds the first block's clock (it is the warm-up's)
     this.blockT += dt;
     if (b.kind !== 'warmup') {
+      this.playT += dt;
       const want = b.kind === 'push' ? 'focus' : 'rest';
       this.judge.push(want, f, dt);
       this.contrast.push(want, f.activity, f.reliable, this.blockT, dt);
@@ -492,52 +553,110 @@ export class JestemSim {
       const best = this.lit.findIndex(Boolean);
       this.coachOnce('rest', best >= 0 ? { kind: 'cell', id: best } : null);
     }
-    const last = this.blockIndex >= this.plan.length - 1;
-    if (!this.telegraphed && this.blockT >= b.dur - R.telegraph) {
-      this.telegraphed = true;
-      this.emit({ type: 'telegraph', next: last ? null : this.plan[this.blockIndex + 1] });
+    if (b.kind === 'push' && !b.blind && !this.complete && this.blockT >= R.bannerSec && this.blockT - dt < R.bannerSec && this.vision) {
+      this.coachOnce('push', this.target >= 0 ? { kind: 'cell', id: this.target } : null, b.cells);
     }
-    if ((last && this.blockT >= b.dur) || t >= this.plannedSec - this.finaleSec) {
-      this.endBlock();
-      this.beginFinale();
-    } else if (!last && this.blockT >= b.dur) {
-      this.endBlock();
-      this.startBlock(this.blockIndex + 1);
+    // a push ends with its cells: the sighted one when its last cell lights, the night when it holds them
+    let done = false, tele = false;
+    if (b.kind === 'push' && this.vision) {
+      if (this.complete) {
+        // the whole vision lit in this push: the rest comes now (a light pass — a push begun whole — is timed)
+        done = this.pushLit > 0;
+      } else if (b.blind) {
+        const need = this.nightNeed(b.cells);
+        done = need.all > 0 && this.hidden >= need.all - 1e-9;
+        tele = need.all > 0 && this.hidden >= need.all - need.last * (1 - R.teleShare);
+      } else {
+        done = this.pushLit >= b.cells;
+        const c = this.target;
+        tele = this.pushLit >= b.cells - 1 && c >= 0 && this.ink[c] >= this.vision.geo.cells[c].cap * R.teleShare;
+      }
+    }
+    if (!this.telegraphed && (tele || this.blockT >= b.dur - R.telegraph)) {
+      this.telegraphed = true;
+      this.teleAt = this.blockT;
+      this.emit({ type: 'telegraph', next: this.nextBlock });
+    }
+    // once telegraphed a push keeps its word: it ends within teleMax s
+    const capped = this.blockT >= b.dur || (b.kind === 'push' && this.telegraphed && this.blockT >= this.teleAt + R.teleMax);
+    if (done || capped || t >= this.plannedSec - Math.min(this.finaleSec, RULES.finale.short)) {
+      const late = t >= this.plannedSec - Math.min(this.finaleSec, RULES.finale.short);
+      this.endBlock(!done);
+      if (late || !this.nextBlock) this.beginFinale();
+      else this.startBlock(this.nextBlock.kind);
     }
   }
 
-  private startBlock(i: number): void {
-    this.blockIndex = i;
+  /** A new block of `kind` now: its length, what comes after it, its words. */
+  private startBlock(kind: BlockKind): void {
+    const R = RULES;
+    const t = this.t, oneBreath = breathCycle(BREATH);
+    let dur: number, cells = 0, after: Block | null;
+    const room = this.finaleAt - t;
+    if (kind === 'warmup') {
+      dur = warmFor(this.plannedSec);
+      after = this.blk('push');
+    } else if (kind === 'push') {
+      cells = this.nextCells;
+      // a light pass has no cells to light: a timed push
+      dur = this.complete ? Math.min(R.pushMax, 20) : R.pushMax;
+      dur = Math.max(this.pushRoom, Math.min(dur, room - oneBreath));
+      after = this.blk('rest');
+    } else {
+      const nominal = restSec();
+      // another push only if it has its room and still leaves a breath of rest before the finale
+      if (room - nominal - oneBreath >= this.pushRoom) {
+        dur = nominal;
+        after = this.blk('push');
+      } else {
+        // the last rest: the whole breaths that bring the session nearest its finale (at most three: the finale
+        // takes what is left)
+        dur = room > 0 ? Math.min(3 * oneBreath, breathRest(BREATH, room, Math.min(R.restMin, room)).sec) : oneBreath;
+        after = null;
+      }
+    }
+    const b: Block = { kind, dur, blind: false, cells };
+    this.plan.push(b);
+    this.blockIndex = this.plan.length - 1;
+    this.nextBlock = after;
     this.blockT = 0;
     this.telegraphed = false;
+    this.teleAt = -1;
     this.relSec = 0;
     this.judge.reset();
     this.goodT = 0;
     this.goodSaid = false;
-    const b = this.plan[i];
-    const first = !this.plan.slice(0, i).some(x => x.kind === b.kind);
-    if (b.kind === 'push') {
+    this.waitT = 0;
+    this.waitSaid = false;
+    this.pushLit = 0;
+    const first = !this.plan.slice(0, -1).some(x => x.kind === kind);
+    if (kind === 'push') {
       this.pushesBegun++;
-      b.blind = this.session >= RULES.blindFrom && !first && (this.pushesBase + this.pushesBegun) % RULES.blindEvery === 0;
+      b.blind = this.session >= R.blindFrom && !first && !this.complete && (this.pushesBase + this.pushesBegun) % R.blindEvery === 0;
       if (b.blind) {
         this.hidden = 0;
         this.emit({ type: 'night' });
-        this.say('blind', 3, 10);
+        this.say('blind', 3, 12);
         this.coachOnce('night', null);
       } else {
-        this.say(this.complete ? 'light' : 'push', 2, 12);
+        this.say(this.complete ? 'light' : 'push', 2, 14);
       }
-    } else if (b.kind === 'rest') {
+    } else if (kind === 'rest') {
       this.restsBegun++;
       // a cell chosen in the rest waits for the next push
-      this.say('rest', 2, 12);
+      this.say('rest', 2, 14);
     } else {
-      this.say('warm', 1, 14);
+      this.say('warm', 1, 16);
     }
     this.tipK = this.pushesSighted;
-    if (b.kind === 'push' && !b.blind) this.pushesSighted++;
-    this.tip = this.tipFor(b, i, this.tipK);
-    this.emit({ type: 'blockStart', block: b, index: i });
+    if (kind === 'push' && !b.blind) this.pushesSighted++;
+    this.tip = this.tipFor(b, this.blockIndex, this.tipK);
+    this.emit({ type: 'blockStart', block: b, index: this.blockIndex });
+  }
+
+  /** A block to come (its length is decided when it begins). */
+  private blk(kind: BlockKind): Block {
+    return { kind, dur: kind === 'rest' ? restSec() : RULES.pushMax, blind: false, cells: kind === 'push' ? this.nextCells : 0 };
   }
 
   /**
@@ -555,12 +674,17 @@ export class JestemSim {
       return t(PUSH_TIPS[(this.session + k) % PUSH_TIPS.length]);
     }
     const r = this.restsBegun - 1;
-    if (r % 2 === 0 && v) return t('tip.rest.decl', { word: v.word });
+    if (r % 2 === 0 && v) {
+      if (v.decl) return t('tip.rest.decl', { word: v.word });
+      // the runner's panel shows two lines: a long own affirmation is repeated without being quoted
+      const own = `${t('tip.rest.own', { cont: contOf(v.word) })}.`.replace(/([.!?…])\.$/, '$1');
+      return own.length <= 64 ? own : t('tip.rest.ownLong');
+    }
     return t(REST_TIPS[(this.session + r) % REST_TIPS.length]);
   }
 
-  /** The block's end: its verdict and what it leaves — after its judged window, never during it. */
-  private endBlock(): void {
+  /** The block's end (`capped`: by its cap, not its cells): its verdict and what it leaves — after its judged window. */
+  private endBlock(capped = false): void {
     const b = this.block;
     let verdict: boolean | null = null, share = 0;
     if (b.kind !== 'warmup') {
@@ -568,28 +692,31 @@ export class JestemSim {
       verdict = this.relSec >= RULES.minReliable ? this.judge.verdict() : null;
       if (b.kind === 'push') {
         if (b.blind) {
-          // dawn: what focus added in the dark is poured now
+          // dawn: what focus poured in the dark lights now
           const s = this.judge.measured > 0 ? share : 0;
           this.nightShare = Math.max(this.nightShare, Math.round(s * 100));
           const cells = this.vision ? this.fill(this.hidden, 'dawn') : [];
           this.hidden = 0;
           this.emit({ type: 'dawn', cells, share: s });
-          this.say('dawn', 3, 6);
+          this.say('dawn', 3, 8);
         }
         if (verdict) {
           this.passedPush++;
           if (this.rays < RULES.raysMax) {
             this.rays++;
             this.emit({ type: 'ray', n: this.rays });
-            if (!b.blind) this.say('ray', 1, 4);
+            if (!b.blind) this.say('ray', 1, 5);
           }
         }
+        // the next push asks for as many cells as this one's pace allows (3…5)
+        if (b.cells > 0 && !this.complete) this.nextCells = nextPushCells(b.cells, this.blockT, capped);
+        b.dur = this.blockT;
       } else if (verdict) {
         this.passedRest++;
         if (this.rings < RULES.ringsMax) {
           this.rings++;
           this.emit({ type: 'ring', n: this.rings });
-          this.say('ring', 1, 4);
+          this.say('ring', 1, 5);
         }
       }
     }
@@ -601,9 +728,12 @@ export class JestemSim {
   private beginFinale(): void {
     this.phase = 'finale';
     this.finaleT = 0;
+    // the finale takes what the session has left (the last rest ended on a whole breath)
+    this.finaleSec = Math.max(RULES.finale.short * 0.5, this.plannedSec - this.t);
     this.path = [];
     this.target = -1;
     this.story = null;
+    this.nextBlock = null;
     const v = this.vision;
     if (v) {
       // the light reaches the unlit cells from the lit ones, ring by ring (all at once if none is lit)
@@ -624,8 +754,8 @@ export class JestemSim {
         const span = Math.min(RULES.graceSec, this.finaleSec * 0.3);
         this.graceAt[c.id] = 0.25 + (span - 0.25) * ((d - 1) / Math.max(1, max - 1));
       });
-      if (v.geo.cells.some(c => !this.lit[c.id])) this.say('grace', 3, 4);
-      else this.say('finale', 3, 4);
+      if (v.geo.cells.some(c => !this.lit[c.id])) this.say('grace', 3, 5);
+      else this.say('finale', 3, 5);
     }
     this.emit({ type: 'finale' });
   }
@@ -668,7 +798,7 @@ export class JestemSim {
       const decl = keyDecl(v.key);
       this.newDecl = !!decl && !(p.album[decl]?.n);
       this.times = receive(p, { key: v.key, lit: this.litPlayer, rays: this.rays, rings: this.rings, day: this.dayOf() });
-      p.pace = nextPace(p.pace, this.litPlayer, this.pourT);
+      p.pace = nextPace(p.pace, this.litPlayer, this.playT);
       p.cells = this.cells;
       p.last = v.key;
       if (p.next === v.key) p.next = null;
@@ -691,7 +821,7 @@ export class JestemSim {
         this.touchCool = 0.8;
         this.glow[c] = Math.min(1, this.glow[c] + 0.04);
         this.emit({ type: 'touchLight', cell: c });
-        if (this.rng() < 0.3) this.say('glow', 1, 2);
+        if (this.rng() < 0.3) this.say('glow', 1, 3);
         return true;
       }
       const u = pickAt(v.geo, this.lit, x, y);
@@ -711,7 +841,7 @@ export class JestemSim {
     if (c === this.target) this.splash();
     else {
       this.setTarget(c, 'tap');
-      if (this.rng() < 0.18) this.say('pick', 1, 2);
+      if (this.rng() < 0.18) this.say('pick', 1, 3);
       this.splash();
     }
     return true;
@@ -756,11 +886,14 @@ export class JestemSim {
     this.coachOnce('drag', null);
   }
 
-  /** A drop of colour into the cell being coloured (a tap on it, Space), at most every splashCool seconds. */
+  /**
+   * A drop of colour into the cell being coloured (a tap on it, Space), at most every splashCool seconds — it
+   * joins colour that flows (focus); without focus a tap only chooses the cell.
+   */
   splash(): boolean {
-    if (!this.pouring || this.splashCool > 0) return false;
+    if (!this.pouring || this.splashCool > 0 || this.block.blind) return false;
     const c = this.ensureTarget();
-    if (c < 0) return false;
+    if (c < 0 || this.rate <= 0) return false;
     this.splashCool = RULES.splashCool;
     this.emit({ type: 'splash', cell: c });
     this.fill(RULES.splash, 'player');
@@ -794,16 +927,16 @@ export class JestemSim {
     this.story = null;
     this.emit({ type: 'storyEnd' });
     this.talk.clear();
-    this.say('warm', 1, 8);
+    this.say('warm', 1, 10);
   }
 
   // ── output ──────────────────────────────────────────────────────
   private say(m: Moment, pri: number, ttl: number): void { this.talk.ask(m, pri, ttl); }
 
-  private coachOnce(what: Coach, at: CoachAt): void {
+  private coachOnce(what: Coach, at: CoachAt, k?: number): void {
     if (this.p.seen.includes(what)) return;
     this.p.seen.push(what);
-    this.emit({ type: 'coach', what, at });
+    this.emit({ type: 'coach', what, at, k });
   }
 
   private emit(e: SimEvent): void { this.events.push(e); }
@@ -836,6 +969,19 @@ export class JestemSim {
     return this.phase === 'done' || this.t >= this.plannedSec + RULES.settle;
   }
 
+  /** The headline's line under the number: the push's cells to the rest, a rest's breaths, the night, the whole. */
+  headSub(): string | undefined {
+    if (!this.started) return undefined;
+    if (this.complete) return t('hud.whole');
+    if (this.playing && !this.story) {
+      const b = this.block;
+      if (b.kind === 'warmup') return t('hud.warm');
+      if (b.kind === 'push') return b.blind ? t('hud.night') : t('hud.toRest', { n: Math.min(this.pushLit, b.cells), k: b.cells });
+      if (b.kind === 'rest') return t('hud.breath', { n: Math.min(this.breaths, this.breath.n + 1), k: this.breaths });
+    }
+    return this.cells ? t('hud.of', { n: this.cells }) : undefined;
+  }
+
   /** The session's numbers, idempotent: the record with Math.max; the album and the counters move once, when settled. */
   result(): ArcadeOutcome {
     const p = this.p;
@@ -845,7 +991,7 @@ export class JestemSim {
     const n = this.cells;
     const pct = (x: number) => t('pct', { n: fmtNum(Math.round(x)) });
     const stats: [string, string][] = [
-      // an own word never goes into the stats (they are saved with the session); the declaration does
+      // an own affirmation never goes into the stats (they are saved with the session); the declaration does
       [t('stat.vision'), v ? (v.decl ? v.word : t('own')) : '—'],
       [t('stat.pieces'), `${this.litPlayer}/${n}`],
       [t('stat.frags'), `${this.fragsDone}/${v?.geo.frags.length ?? 0}`],
@@ -865,7 +1011,7 @@ export class JestemSim {
   private highlights(): string[] {
     const v = this.vision;
     if (!v) return [];
-    const out: string[] = [sentence(v.word)];
+    const out: string[] = [this.affirmation];
     if (this.settled && v.decl && this.newDecl) out.push(t('hl.new', { n: received(this.p), all: 18 }));
     else if (this.settled && this.times > 1) out.push(t('hl.again', { n: this.times }));
     const best = this.bestBefore;

@@ -1,11 +1,12 @@
 /**
- * Ja jestem… — "In the powerful name of Jesus I am…" (DESIGN §13.8), rooted in Philippians 2:9-10.  The
- * player receives a declaration — loved, healthy, strong, free… or their own dream with their own word —
- * as a picture turned into a stained-glass sketch before the game begins; their focus pours colour into it
- * cell by cell (a full cell lights, a whole fragment becomes one pane), their calm makes the glass glow,
- * and at the end the leading dissolves, the window shines with its aura, and the declaration is written
- * out with the verse it stands on.  The record is always a declaration: one a session, the next not yet
- * received unless the player chooses.
+ * Ja jestem… — "In the powerful name of Jesus I…" (DESIGN §13.8), rooted in Philippians 2:9-10.  The player
+ * receives a declaration — loved, healthy, strong, free… — or takes their own dream: a photo of it and their
+ * own words after "ja" ("…mam pokój").  The picture is turned into a mosaic sketch before the game begins (a
+ * declaration's stained-glass window; an own photo in its own shape); their focus pours colour into it cell by
+ * cell (a full cell lights, a whole fragment becomes one pane; after 3–5 cells comes a rest of whole breaths),
+ * their calm makes the glass glow, and at the end the leading dissolves, the picture shines with its aura, and
+ * the affirmation is written out with the verse it stands on.  One a session, the next not yet received unless
+ * the player chooses.
  *
  * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts, the numbers in
  * rules.ts, the picture's geometry in vision.ts and scenes.ts, the meta in meta.ts, Hanna's bubble in
@@ -23,12 +24,12 @@ import { declWord, formSample, type Form } from './content';
 import { t, unit } from './i18n';
 import { JestemIntro } from './intro';
 import { tapTargets } from './layout';
-import { declKey, freshProgress, migrate, nextNew, nextVision, type JestemProgress, type VisionKey } from './meta';
+import { declKey, freshProgress, keyOwn, legacyLabel, migrate, nextNew, nextVision, type JestemProgress, type VisionKey } from './meta';
 import { progressPanel } from './panel';
 import { cut, prepare, seedOf, type PrepJob, type Prepared } from './prep';
 import { drawPreview } from './preview';
 import { JestemView } from './render';
-import { RULES } from './rules';
+import { RULES, readSec } from './rules';
 import { JestemSim, type Coach, type CoachAt, type SimEvent } from './sim';
 import { cellUnder } from './vision';
 
@@ -49,18 +50,23 @@ class JestemGame implements ArcadeGame {
   private dpr = 1;
   private finger: number | null = null;
   private press: { x: number; y: number; moved: boolean } | null = null;
-  private readonly hints: { what: Coach; at: CoachAt }[] = [];
+  private readonly hints: { what: Coach; at: CoachAt; k?: number }[] = [];
+  /** the first coach mark (where to tap) stays until the player's first touch */
+  private tapHint = false;
   private hintCool = 1.5;
   private cardUp = false;
   private waitSec = 0;
 
   constructor(private readonly env: GameEnv<JestemProgress>) {
     const p = migrate(env.progress);
+    // ?debug&jestemCells=144: the finest window, for the frame-time audit
+    const q = typeof location !== 'undefined' && /[?&]debug\b/.test(location.search) ? new URLSearchParams(location.search).get('jestemCells') : null;
     this.sim = new JestemSim({
       progress: p, rng: env.rng, day: env.day, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, askForm: lang === 'pl',
+      cells: q ? Number(q) : undefined,
     });
     this.visionKey = nextVision(p);
-    this.job = prepare(this.visionKey);
+    this.job = prepare(this.visionKey, legacyLabel(p, keyOwn(this.visionKey)));
     this.view = new JestemView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.view.formWord = (f: Form) => declWord(formSample(this.sim.vision?.decl ?? null), f);
     this.sound = new JestemSound(env.audio);
@@ -156,6 +162,11 @@ class JestemGame implements ArcadeGame {
     if (e.type === 'down') {
       this.finger = e.id;
       view.ripple(e.x, e.y);
+      // the player has tapped: the first coach mark has done its work
+      if (this.tapHint && !sim.story) {
+        this.tapHint = false;
+        this.env.hint('');
+      }
       if (sim.story) {
         const b = view.formAt(e.x, e.y);
         if (sim.story.ask && b >= 0) {
@@ -248,7 +259,7 @@ class JestemGame implements ArcadeGame {
     for (const e of this.sim.take()) {
       this.view.on(e);
       this.sound.on(e);
-      if (e.type === 'coach') this.hints.push({ what: e.what, at: e.at });
+      if (e.type === 'coach') this.hints.push({ what: e.what, at: e.at, k: e.k });
       if (this.env.haptics) haptic(e);
     }
   }
@@ -260,6 +271,7 @@ class JestemGame implements ArcadeGame {
     switch (what) {
       // the oculus shows the colour only in a sighted push (in a rest it holds the calm)
       case 'oculus': return s.sighted ? 'show' : 'wait';
+      case 'push': return s.pushBlock && !s.blind && !s.complete ? 'show' : 'drop';
       case 'night': return s.blind ? 'show' : 'drop';
       case 'rest': return s.restBlock ? 'show' : 'drop';
       case 'light': return s.complete ? 'show' : 'drop';
@@ -271,7 +283,7 @@ class JestemGame implements ArcadeGame {
   private flushHints(): void {
     const sim = this.sim;
     if (!this.hints.length || this.hintCool > 0 || sim.story || this.press?.moved) return;
-    let h: { what: Coach; at: CoachAt } | null = null;
+    let h: { what: Coach; at: CoachAt; k?: number } | null = null;
     for (let i = 0; i < this.hints.length; i++) {
       const v = this.hintNow(this.hints[i].what);
       if (v === 'drop') { this.hints.splice(i--, 1); continue; }
@@ -290,9 +302,12 @@ class JestemGame implements ArcadeGame {
       // a bubble is wide: keep its point away from the screen's sides
       if (c) at = { x: Math.min(L.w * 0.72, Math.max(L.w * 0.28, L.win.x + c.cx * L.k)), y: L.win.y + c.cy * L.k };
     }
-    const ms = h.what === 'oculus' || h.what === 'tap' ? 5200 : 4200;
-    this.hintCool = ms / 1000 + 1;
-    this.env.hint(coachText(h.what, this.env.touch), at, ms);
+    // long enough to read twice (round 11); the first one — where to tap — stays until the player's first touch
+    const text = coachText(h.what, this.env.touch, { photo: this.view.photo, k: h.k });
+    const ms = h.what === 'tap' ? 15000 : readSec(text) * 1000;
+    this.tapHint = h.what === 'tap';
+    this.hintCool = (h.what === 'tap' ? readSec(text) : ms / 1000) + 1;
+    this.env.hint(text, at, ms);
   }
 
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
@@ -308,17 +323,18 @@ class JestemGame implements ArcadeGame {
     }
     const nb = s.next;
     return {
-      want: b.kind === 'push' ? 'focus' : 'rest', blind: s.blind, task: s.tip, left: Math.max(0, b.dur - s.blockT),
+      // a push ends with its cells (3–5), not a clock: the panel counts its seconds up; a rest counts its breaths down
+      want: b.kind === 'push' ? 'focus' : 'rest', blind: s.blind, task: s.tip, left: b.kind === 'push' ? undefined : Math.max(0, b.dur - s.blockT),
       next: s.telegraphed ? (nb ? (nb.kind === 'push' ? 'focus' : 'rest') : 'free') : null,
     };
   }
 
   meter(): number | null { return this.sim.meter(); }
 
+  /** The pieces lit, and under them what the block counts: "2 z 4 do odpoczynku", a rest's breaths, the night. */
   headline(): Headline {
     const s = this.sim;
-    const sub = s.complete ? t('hud.whole') : s.blind ? t('hud.night') : s.cells ? t('hud.of', { n: s.cells }) : undefined;
-    return { value: s.score, sub };
+    return { value: s.score, sub: s.headSub() };
   }
 
   /** Ended early: the sim settles at once; its events are dropped (the view and the sound are about to go). */
@@ -344,9 +360,14 @@ class JestemGame implements ArcadeGame {
   }
 }
 
-/** A coach mark's words for the hand the player has: a finger never hears of keys, a keyboard may. */
-export function coachText(what: Coach, touch: boolean): string {
+/**
+ * A coach mark's words for the hand the player has (a finger never hears of keys, a keyboard may), for the window
+ * the player sees (an own photo's gauge is the ring by its frame), and the push's cells.
+ */
+export function coachText(what: Coach, touch: boolean, o: { photo?: boolean; k?: number } = {}): string {
   if (what === 'tap' && !touch) return t('coach.tap.keys');
+  if (what === 'oculus' && o.photo) return t('coach.ring');
+  if (what === 'push') return t('coach.push', { k: o.k ?? RULES.pushCells });
   return t(`coach.${what}` as 'coach.tap');
 }
 
@@ -361,7 +382,10 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play, for the hand the player has: tap and drag on a phone; click and drag, the drop on Space on a desktop. */
+/**
+ * How to play, for the hand the player has: tap and drag on a phone; click and drag, the drop on Space on a desktop.
+ * The goal says the rule of the round (focus pours, rest after 3–5 pieces); the last tip, what the band measures.
+ */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('howto.goal'),

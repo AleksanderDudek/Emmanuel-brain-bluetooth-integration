@@ -3926,7 +3926,7 @@ languages, the scripture rules.
 
 | | Ogień, ogień, ogień | Rozświetl | Ja jestem… | Odporność | Światło ciała | Synapsy | Odnowa |
 |---|---|---|---|---|---|---|---|
-| Core | charge a fire through seven scales, a "powers of ten" zoom-out at each change | light breaks a dark mosaic along its cracks; tiles burst and show the bright picture under it | a sketch in stained-glass cells fills with colour and light, then an aura | lead a swarm of white cells through the real stages of an immune response | a band of light scans the body; each organ's balance comes back | build a network of neurons in two halves; fire pairs together to wire them | help one stem cell renew itself and divide: three needs, each from one source |
+| Core | charge a fire through seven scales, a "powers of ten" zoom-out at each change | light breaks a dark mosaic along its cracks; tiles burst and show the bright picture under it | a sketch in stained-glass cells (an own photo: the photo's own shape) fills with colour and light, then an aura | lead a swarm of white cells through the real stages of an immune response | a band of light scans the body; each organ's balance comes back | build a network of neurons in two halves; fire pairs together to wire them | help one stem cell renew itself and divide: three needs, each from one source |
 | Push (focus) | **charge**: the ring fills faster the higher the signal; full → the next scale | **light pressure** on the aimed tile; the cracks brighten and spread; full → it bursts | **colour** pours into the chosen cell; full → it lights | **alarm**: the cytokine signal reaches further, more cells answer, engulfing speeds up | **scan**: the band brightens and moves on; a lit organ settles faster | **growth**: synapses grow and thicken, myelin speeds the signal | **energy**: the turbine turns only in focus, gold for a held focus |
 | Rest (calm) | **embers → light**: the charge is banked as light; the flame breathes with the player | **gazing**: the uncovered picture warms, gold fills its seams | **glow**: lit cells shine brighter, the aura grows | **healing**: inflammation settles, collagen closes the wound | **rest**: the vagus slows the heart, breath lengthens, organs settle | **consolidation**: replay, pruning, the night clean-up of the brain | **clean-up**: calm wraps worn parts into building material |
 | Hands | blow (tap), shield from wind (hold), feed the fire (drag) — one small task per scale | tap a tile to aim the light, drag across tiles | tap a cell to send the colour, drag to paint | drag the swarm, tap targets | tap an organ, drag the band | tap pairs in rhythm / drag to connect | tap the glowing damage on the DNA |
@@ -4449,6 +4449,108 @@ height; German on the small phone and on its side passes the same.
 Files: `src/arcade/jestem/` — rules.ts, scenes.ts, art.ts, pictures.ts, content.ts, vision.ts, prep.ts,
 meta.ts, talk.ts, sim.ts, layout.ts, paint.ts, render.ts, intro.ts, preview.ts, panel.ts, audio.ts, i18n.ts,
 index.ts; tests in test/arcade-jestem.test.ts.
+
+#### Round 11 (2026-11-17): an own picture in its own shape, "…ja …", the rest after 3–5 pieces, more pieces
+
+The founder played the deployed game and asked: *"brakuje mi możliwości dodania własnego obrazka w formacie .jpeg,
+.jpg, .png i innych popularnych … przetwarzany tak, żeby można go było wykorzystać w grze. Zmień 'in the powerful name
+of Jesus I am' na 'in the powerful name of Jesus I'. Tytuł gry i domyślnych afirmacji pozostaw jak jest. Chcę żeby dla
+własnych obrazków mozaika przybierała kształt zdjęcia a nie witraża. Chcę żeby faza odpoczynku następowała po 3-5
+uzupełnionych kafelkach. Chcę żeby było więcej elementów mozaiki."* — and later *"żeby afirmacje mogły mieć do 100
+znaków"*.
+
+**Why the own picture was not found.** It was the fourth section of "Postępy", the lobby's last card, under a small
+heading; the picker took `image/*` only, a transparent PNG turned black, an iPhone's HEIC failed in Chrome with one
+generic line, nothing showed while a big photo was read — and, the real fault, a picked picture was **not chosen for
+the next session** until a word was typed (the "use it" button only focused the field), so "Graj" brought the next
+declaration.
+
+**Own picture first** (panel.ts). The card opens with "Dodaj własny obraz": a primary button (the kit's picker,
+`IMAGE_ACCEPT`: JPEG/JFIF, PNG, WebP, GIF, BMP, AVIF, HEIC/HEIF, TIFF, SVG), the block itself a drop zone (`imageDrop`:
+a file dragged from a folder; a copied picture pasted with Ctrl/⌘ V), a busy line ("Wczytuję obraz…"), and a message
+for each reason a picture cannot be kept (not a picture; an iPhone's HEIC outside Safari — "otworzy Safari; w innej
+przeglądarce zapisz je jako JPG lub PNG"; a format the browser cannot read; over 60 MB; storage refused). A pick
+**chooses the picture for the next session at once**; the next-vision box shows its **prepared sketch** (the real
+prep pipeline: the pencil sketch in the photo's shape with the mosaic's grout, "Szkic gotowy"), and the continuation
+field takes the cursor. The chooser of declarations opens with an "Własny obraz" tile. Pictures are kept, chosen
+(a tap on a thumbnail), renamed (the continuation is the name) and deleted (×), only on this device.
+
+**"…ja {continuation}".** The game's title ("Ja jestem…") and the eighteen declarations ("…ja jestem kochany.") keep
+their words. An own vision's affirmation is the player's own continuation after "ja": pl „Przez potężne imię Jezusa
+ja {…}.”, en "In the powerful name of Jesus I {…}.", **de „Im mächtigen Namen Jesu: Ich {…}.“, sv ”I Jesu mäktiga
+namn: jag {…}.”** — German and Swedish put the verb second after an adverbial ("…Jesu bin ich…"), so the sentence
+turns on a colon and the player's clause begins with its subject. Up to **100 characters**, plain text (textContent,
+fillText), a live counter "37 / 100", the prefix in front of the field and the whole affirmation shown live above it;
+an empty field says the own verse's words (Philippians 4:13: "wszystko mogę" / "can do all things" / "vermag alles" /
+"förmår allt"); a continuation ending in . ! ? … gets no extra full stop. Saves before this round kept one word: the
+progress (now `ver: 2`) marks each own picture `cont: false`, the game reads its word as "jestem {word}" / "am …" /
+"bin …" / "är …" in the page's language, and the lobby rewrites the stored label once. Every place that shows the
+affirmation fits 100 characters at every `CHECK_SIZES` entry in all four languages, wrapped and fitted down to the
+reading floor, never cut: the finale (`layoutFinale`), the column beside the window (`fitLines`), the summary and the
+album (DOM); the runner's two-line "W głowie" repeats a long one without quoting it.
+
+**The photo's own shape.** An own picture's space is its own rectangle — its aspect held within 9:16…16:9 (the rest
+cropped, centred), about the window's area (600 × 700) so a cell's capacity means the same (`photoSpace`). It hangs in
+a thin gallery frame (a dark moulding, a gold fillet) instead of the stone arch; its gauge is a small ring medallion
+on the frame's top-left corner (plain glass, the threshold line, the breath ring in a rest) instead of the rose in
+the arch; the cells are cut over the photo (still denser where it has detail and around its heart) with **thin
+grout** instead of lead; at the finale the grout dissolves and **the photo itself** comes through, whole, glowing,
+with its aura. Hanna leaves out her three lines about lead for a photo; her other lines speak of "obraz", not
+"okno". Declarations keep the arched window.
+
+**Progress only from focus.** Colour flows in a push only past the band's lead-in (5 s Mendi, 2 s HALO), with a
+reliable signal, while `focused`: 0.12 + 0.34·x^1.3 units/s (≈ 0.25 at the threshold, 0.46 at full); the warm-up's
+quick 0.3 u/s also only while focused. A tap's drop joins only flowing colour (without focus a tap only chooses the
+cell). Lead-in, rest, no signal: nothing flows, nothing is lost. A signal without focus for 10 s in a push: Hanna, once
+a push, how the colour flows ("Barwa czeka na Twoją uwagę. Dopowiedz obrazowi jeden szczegół.").
+
+**The rest after 3–5 pieces.** A push has no clock: it ends when its **k-th** cell lights. k is 3 for a session's
+first push and follows the player's pace: a push under 24 s asks one more next time, one over 34 s or cut at its cap
+one fewer, within 3…5. The cap is 40 s (without focus the rest still comes) and a push never runs into the finale's
+room. The telegraph comes when the last cell is 60 % full (or 3.5 s before the cap); once telegraphed the push ends
+within 8 s. The headline's line counts it ("2 z 4 do odpoczynku"), pips beside the "what to do now" line fill with it,
+and its last cell says "Jeszcze jedna część, potem odpoczynek". The rest is whole breaths, `breathRest(BREATH_DEFAULT,
+22, 12)` = 2 breaths of 4 in, 6 out = 20 s, guided by `breathAt` from the rest's start (the line "Odpocznij — wdech /
+wydech", a ring breathing around the gauge, the glass's glow and the sound's swell); the headline says "oddech 1 z 2".
+The last rest takes the whole breaths (at most three) that bring the session nearest its finale, and the finale takes
+what is left. The night ends when what focus poured in the dark holds its k cells (or at the cap) and lights them at
+dawn. Each block is judged once at its end over its last ≤ 15 s (`RoundJudge.from(env.tuning)`), `BlockContrast` as
+before; warm-up and finale as before. The runner's panel counts a push's seconds up (`left` undefined) and a rest's
+down.
+
+**More pieces: 48–144.** A mean cell holds 1.23 units (capacity = 1.23 × (0.55 + 0.45·area/mean), clamped): ≈ 5 s of
+threshold focus. Measured with the sim (5-minute sessions, calm rests): a push of 3 / 4 / 5 cells lasts 21.6 / 24–26.5 /
+28.5–31 s at the threshold and 13.9 / 16.5 / 18.3 s at full focus; no focus → 40 s and nothing poured. The window holds
+1.4 × what the player is expected to light (pace = cells per minute of push and rest, 5.3 to start, 2…14, averaged
+over sessions; a version-1 save's pace starts again), within **48–144**: 48 in 3- and 5-minute sessions, ≈ 72 in 10
+minutes. A 5-minute session at the threshold lights ≈ 25 of 49 (at full focus ≈ 32–36): the colour flows from the
+heart outward, so the subject is the player's, and the finale's light completes the rest (the headline counts only
+the player's pieces). Thinner lead as the cells grow finer.
+
+**Clarity.** One "what to do now" line under the window where two lines fit, else a subtitle over its lower edge: a
+drawn icon (a sun of focus that turns while colour flows, a breathing ring, a moon, a tap's ripple, a band without
+signal) and a few words — "Skup się i wybierz część — tam popłynie barwa" (warm-up), "Skup się na obrazie — wtedy
+płynie barwa", "Jeszcze jedna część, potem odpoczynek", "Odpocznij — wdech / wydech", "Noc — skup się w ciemności,
+świt pokaże barwę", "Skup się — światło wlewa się w obraz", "Brak sygnału — nic nie przepada"; it changes only when the
+action does. Hanna's lines, captions and coach marks stay ≥ 2.5 s + 70 ms a character (never under 4.5 s); the first
+coach mark (where to tap) stays until the first touch; a new coach mark at the first push: "Skup się na obrazie. Po 3
+częściach w barwie przyjdzie odpoczynek"; the threshold glossed ("Kreska to próg: nad nią płynie barwa"); captions no
+longer stand on each other. The lobby's three lines are the three steps (focus → colour; after 3–5 pieces two breaths;
+the hands), the how-to's last tip says the band measures attention ("nie wiarę ani wartość wyznania").
+
+**Mobile first, and the desk.** layout.ts takes the picture's shape and space (`PicShape`): a photo's window is the
+largest of its aspect the band allows (tall: centred, a wide photo leaves room under it; wide: a wide photo on a big
+touch screen and every desk keep the column its room, the window then centred in the band's height); the gauge stays
+on screen; the now line has room for two lines at every `CHECK_SIZES` entry and shape (tested for the arch and for
+9:16, 3:4, 1:1 and 16:9 photos, with a finger and a mouse). Measured (scripts/arcade-mobile.mjs, final): small /
+iPhone / side ✓ (0 strings under 11 px, only the opening card's verse reference at 11, game 1.75 / 0.70 / 0.96 ms,
+the first at 4× CPU), desktop / laptop / Full HD / QHD ✓ (game 0.58 / 0.62 / 0.67 / 0.58 ms). With an own photo
+added through the card's own picker (a scratchpad copy of the audit that uploads a generated PNG and waits for
+"Szkic gotowy"): landscape on small / side / desktop ✓, portrait on small / iPhone / side / Full HD / QHD ✓, square on
+iPhone / laptop ✓, and a 100-character affirmation on a 144-cell portrait photo on small / side / QHD ✓ (game 0.61 ms
+at QHD, 1.67 ms on the small phone at 4× CPU) — the finale writes all of it in four lines on the smallest phone.
+
+Files: `src/arcade/jestem/` (all), tests in `test/arcade-jestem.test.ts` (74).
 
 ### 13.9 Odporność — the white cells on watch
 

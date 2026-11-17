@@ -9,7 +9,7 @@ import { MIN_TEXT } from '../kit/mobile';
 import { REF_FONT, VERSE_FONT } from '../kit/scripture';
 import type { Rect } from './layout';
 import { RULES } from './rules';
-import { ARCH_H, ARCH_R } from './vision';
+import { ARCH_H, ARCH_R, type Shape } from './vision';
 
 export const TAU = Math.PI * 2;
 export const SANS = REF_FONT;
@@ -60,11 +60,65 @@ export function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number, 
 }
 
 /**
- * The arched window's path over a rectangle (the picture's arch scaled to it), optionally grown by `grow` px;
- * `open`: only the sides and the arch, down to the window's sill (an aura's ring, never crossing under it).
+ * Every word of `text` in lines no wider than `maxW` (the context's font), never cut: a word wider than a line
+ * (a long name, a run without spaces) is broken between its letters.
  */
-export function windowPath(r: Rect, grow = 0, open = false): Path2D {
+export function wrapAll(ctx: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const words: string[] = [];
+  for (const wd of text.split(/\s+/).filter(Boolean)) {
+    if (ctx.measureText(wd).width <= maxW) { words.push(wd); continue; }
+    let part = '';
+    for (const ch of wd) {
+      if (part && ctx.measureText(part + ch).width > maxW) { words.push(part); part = ch; } else part += ch;
+    }
+    if (part) words.push(part);
+  }
+  const lines: string[] = [];
+  let line = '';
+  for (const wd of words) {
+    const next = line ? `${line} ${wd}` : wd;
+    if (line && ctx.measureText(next).width > maxW) { lines.push(line); line = wd; } else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/**
+ * Text fitted into a box: wrapped into lines (never cut), from `px` down to `min` (never under the floor) until
+ * its lines fit `maxH` at `lead` × the size; at the floor, all of it in as many lines as it takes.  Sets ctx.font.
+ */
+export function fitLines(
+  ctx: CanvasRenderingContext2D, text: string, maxW: number, maxH: number, px: number, min = MIN_TEXT,
+  o: { weight?: number; serif?: boolean; italic?: boolean; lead?: number; maxLines?: number } = {},
+): { lines: string[]; size: number; lh: number } {
+  const weight = o.weight ?? 600, lead = o.lead ?? 1.3, cap = o.maxLines ?? Infinity;
+  const floor = Math.max(MIN_TEXT, min);
+  let size = fontPx(Math.max(floor, px));
+  for (;;) {
+    ctx.font = font(size, weight, o.serif, o.italic);
+    const lines = wrapAll(ctx, text, maxW);
+    const lh = fontPx(size) * lead;
+    if ((lines.length * lh <= maxH && lines.length <= cap) || size <= floor) return { lines, size, lh };
+    size = Math.max(floor, size - 0.5);
+  }
+}
+
+/**
+ * The window's path over a rectangle, optionally grown by `grow` px: a declaration's arch (the picture's arch
+ * scaled to it), or a photo's plain rectangle; `open`: only the sides and the top, down to the sill (an aura's
+ * ring, never crossing under it).
+ */
+export function windowPath(r: Rect, grow = 0, open = false, shape: Shape = 'arch'): Path2D {
   const p = new Path2D();
+  if (shape === 'rect') {
+    const x0 = r.x - grow, y0 = r.y - grow, x1 = r.x + r.w + grow, y1 = open ? r.y + r.h : r.y + r.h + grow;
+    p.moveTo(x0, y1);
+    p.lineTo(x0, y0);
+    p.lineTo(x1, y0);
+    p.lineTo(x1, y1);
+    if (!open) p.closePath();
+    return p;
+  }
   const kx = r.w / RULES.PW, ky = r.h / RULES.PH;
   const R = ARCH_R * kx + grow, ah = ARCH_H * ky;
   const cx = r.x + r.w / 2, cy = r.y + ARCH_R * kx;
@@ -148,6 +202,8 @@ export function blit(ctx: CanvasRenderingContext2D, img: CanvasImageSource, x: n
 export interface OculusState {
   /** 0..1 (0.5 at the threshold) or null: no value shown (blind, no signal, between blocks) */
   value: number | null;
+  /** a photo's gauge: a plain gilded ring (no rose tracery) */
+  plain?: boolean;
   mode: 'push' | 'rest' | 'night' | 'idle' | 'light';
   /** the colour of the stream's cell ("r,g,b") */
   rgb: string;
@@ -209,18 +265,20 @@ export function paintOculus(ctx: CanvasRenderingContext2D, x: number, y: number,
     blit(ctx, glowSprite('255,236,200'), x, y, r * 2.4, r * 2.4, 0.35 + 0.1 * Math.sin(s.t * 1.5), false);
   }
   ctx.restore();
-  // the tracery: six lobes around a centre, in lead
+  // the tracery: six lobes around a centre, in lead (a photo's ring is plain glass)
   ctx.strokeStyle = 'rgba(28,22,22,0.9)';
   ctx.lineWidth = Math.max(1.2, r * 0.07);
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * TAU - Math.PI / 2;
+  if (!s.plain) {
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU - Math.PI / 2;
+      ctx.beginPath();
+      ctx.arc(x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5, r * 0.42, 0, TAU);
+      ctx.stroke();
+    }
     ctx.beginPath();
-    ctx.arc(x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5, r * 0.42, 0, TAU);
+    ctx.arc(x, y, r * 0.2, 0, TAU);
     ctx.stroke();
   }
-  ctx.beginPath();
-  ctx.arc(x, y, r * 0.2, 0, TAU);
-  ctx.stroke();
   ctx.beginPath();
   ctx.arc(x, y, r, 0, TAU);
   ctx.lineWidth = Math.max(1.5, r * 0.09);
@@ -326,4 +384,19 @@ export function paintBubble(ctx: CanvasRenderingContext2D, text: string, cx: num
   lines.forEach((l, i) => ctx.fillText(l, x + er * 2 + 18, ty + i * lh));
   ctx.restore();
   return { x, y: top, w, h };
+}
+
+/** The finale's declaration laid out: its two parts in lines, each fitted to the box, never cut. */
+export interface FinaleLayout { a: string[]; b: string[]; sizeA: number; sizeB: number; lhA: number; lhB: number; height: number }
+
+/**
+ * The finale's words in a w × h box (`u` the screen's scale): "Przez potężne imię Jezusa" over "ja jestem kochany." —
+ * or an own affirmation of up to 100 characters — each part wrapped into lines and fitted down (the first to 13 px,
+ * the second to 14) until both fit, never cut (DESIGN §13.8, round 11).
+ */
+export function layoutFinale(ctx: CanvasRenderingContext2D, a: string, b: string, w: number, h: number, u: number): FinaleLayout {
+  const A = fitLines(ctx, a, w, Math.max(h * 0.3, 20), Math.min(26 * u, w / 11), 13, { weight: 600, serif: true, lead: 1.35 });
+  const roomB = Math.max(20, h - A.lines.length * A.lh - 8);
+  const B = fitLines(ctx, b, w, roomB, Math.min(34 * u, w / 8), 14, { weight: 700, serif: true, lead: 1.3 });
+  return { a: A.lines, b: B.lines, sizeA: A.size, sizeB: B.size, lhA: A.lh, lhB: B.lh, height: A.lines.length * A.lh + 8 + B.lines.length * B.lh };
 }

@@ -2,9 +2,11 @@
  * Preparing a vision before play (DESIGN §13.8; the founder insists the picture is processed before the
  * game begins).  Two stages:
  *
- *   the analysis  the picture at the window's size (600 × 700): painted (a declaration) or loaded from the
- *                 device and cut to the window (an own photo), its pixels, its edge map, its pencil sketch,
- *                 and its heart — the expensive part (≈ 60–120 ms), done in small steps: in the lobby as
+ *   the analysis  the picture at its window's size: a declaration painted at 600 × 700 (the arched window),
+ *                 an own photo loaded from the device at its own shape (its aspect within 9:16…16:9, over
+ *                 about the same area: round 11 — "the mosaic takes the photo's shape"), its pixels, its edge
+ *                 map, its pencil sketch, and its heart — the expensive part (≈ 60–120 ms), done in small
+ *                 steps: in the lobby as
  *                 soon as the vision is chosen (one step per tick), and in the calibration's intro at the
  *                 latest (one step per frame); cached by vision
  *   the cut       the mosaic for the session's number of cells (structure-aware: smaller tiles where the
@@ -17,19 +19,23 @@ import { mulberry32 } from '../../core/random';
 import { getImage, loadPixels, pixelsToCanvas } from '../kit/images';
 import { cellColors, detailWeight, edgeMap, fitCover, makeMosaic, sketch, type Pixels, type Pt } from '../kit/mosaic';
 import { clamp } from '../kit/juice';
-import { cleanWord } from './content';
+import { cleanCont, legacyCont } from './content';
 import { keyDecl, keyOwn, type VisionKey } from './meta';
 import { paintPicture } from './pictures';
 import { RULES } from './rules';
 import { SCENES, type DeclId } from './scenes';
-import { buildVision, type VisionGeo } from './vision';
+import { buildVision, photoSpace, type Shape, type VisionGeo } from './vision';
 
 export interface Analysis {
   key: VisionKey;
   decl: DeclId | null;
   ownId: string | null;
-  /** an own picture's word (plain text from the device; '' when none) */
+  /** an own picture's continuation after "ja" (plain text from the device; '' when none: the default is said) */
   word: string;
+  /** the window's shape and its picture space (a declaration: the arch, PW × PH; a photo: its own rectangle) */
+  shape: Shape;
+  w: number;
+  h: number;
   /** the picture at the window's size, its pixels, its edges, its sketch, and its heart */
   picture: HTMLCanvasElement;
   px: Pixels;
@@ -122,14 +128,23 @@ function remember(a: Analysis): void {
 /** The finished analysis of a vision, if any. */
 export const analysed = (key: VisionKey): Analysis | null => analyses.get(key) ?? null;
 
-/** Forget an own picture's analysis (it was deleted or its word changed). */
+/** An own picture's continuation changed: the analysis keeps its picture and takes the new words. */
+export function setWord(key: VisionKey, word: string): void {
+  const a = analyses.get(key);
+  if (a) a.word = word;
+}
+
+/** Forget an own picture's analysis (it was deleted). */
 export function forget(key: VisionKey): void {
   analyses.delete(key);
   jobs.delete(key);
 }
 
-/** The job preparing a vision (started on the first call; a finished one is served from the cache). */
-export function prepare(key: VisionKey): PrepJob {
+/**
+ * The job preparing a vision (started on the first call; a finished one is served from the cache).  `legacy`: an
+ * own picture's label is still an old single word (a save before round 11), read as "jestem {word}".
+ */
+export function prepare(key: VisionKey, legacy = false): PrepJob {
   const have = analyses.get(key);
   if (have) {
     const j = new PrepJob(key, () => []);
@@ -139,15 +154,15 @@ export function prepare(key: VisionKey): PrepJob {
   }
   let job = jobs.get(key);
   if (!job || job.failed) {
-    job = new PrepJob(key, j => stepsFor(key, j));
+    job = new PrepJob(key, j => stepsFor(key, j, legacy));
     jobs.set(key, job);
   }
   return job;
 }
 
 /** In the lobby: prepare a vision in the background, a step per tick, so the page stays smooth. */
-export function prepareSoon(key: VisionKey, onDone?: (ok: boolean) => void): PrepJob {
-  const job = prepare(key);
+export function prepareSoon(key: VisionKey, onDone?: (ok: boolean) => void, legacy = false): PrepJob {
+  const job = prepare(key, legacy);
   const tick = () => {
     if (job.done || job.failed) { onDone?.(job.done); return; }
     job.pump(12);
@@ -158,7 +173,7 @@ export function prepareSoon(key: VisionKey, onDone?: (ok: boolean) => void): Pre
 }
 
 // ── the steps ────────────────────────────────────────────────────
-const W = RULES.PW, H = RULES.PH;
+const PW = RULES.PW, PH = RULES.PH;
 
 function canvas(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement('canvas');
@@ -167,8 +182,10 @@ function canvas(w: number, h: number): HTMLCanvasElement {
   return c;
 }
 
-function stepsFor(key: VisionKey, job: PrepJob): Step[] {
+function stepsFor(key: VisionKey, job: PrepJob, legacy: boolean): Step[] {
   const decl = keyDecl(key), own = keyOwn(key);
+  let W: number = PW, H: number = PH;
+  const shape: Shape = decl ? 'arch' : 'rect';
   let picture: HTMLCanvasElement | null = null;
   let photo: HTMLCanvasElement | null = null;
   let crop: Analysis['crop'] = null;
@@ -188,10 +205,11 @@ function stepsFor(key: VisionKey, job: PrepJob): Step[] {
     out.push(async () => {
       const rec = await getImage(own);
       if (!rec) throw new Error('picture not found');
-      word = cleanWord(rec.label);
+      word = legacy ? legacyCont(rec.label) : cleanCont(rec.label);
       const loaded = await loadPixels(rec.blob, 1280);
       photo = loaded.canvas;
-      // the window's crop of the photo, and the photo cut to the window's size for the analysis
+      // the photo's own shape (its aspect held within 9:16…16:9), its crop, and the photo at that size for the analysis
+      ({ w: W, h: H } = photoSpace(photo.width / photo.height));
       crop = fitCover(photo.width, photo.height, W, H);
       picture = canvas(W, H);
       const ctx = picture.getContext('2d', { willReadFrequently: true });
@@ -211,7 +229,7 @@ function stepsFor(key: VisionKey, job: PrepJob): Step[] {
   out.push(() => { sk = pixelsToCanvas(sketch(px!, { strength: 1.45, paper: [247, 239, 222], ink: [62, 50, 46] })); });
   out.push(() => {
     const heart = decl ? { x: SCENES[decl].heart[0] * W, y: SCENES[decl].heart[1] * H } : heartOf(edges!, W, H);
-    job.result = { key, decl, ownId: own, word, picture: picture!, px: px!, edges: edges!, sketch: sk!, heart, photo, crop };
+    job.result = { key, decl, ownId: own, word, shape, w: W, h: H, picture: picture!, px: px!, edges: edges!, sketch: sk!, heart, photo, crop };
   });
   return out;
 }
@@ -244,12 +262,13 @@ export function seedOf(key: string, salt: number): number {
  * its heart — with each cell's colour and the fragments (the picture's named parts, or colour clusters).
  */
 export function cut(a: Analysis, n: number, seed: number): Prepared {
+  const W = a.w, H = a.h;
   const detail = detailWeight(a.edges, a.px.width, a.px.height, W, H);
-  const sig2 = 2 * (0.24 * W) ** 2;
+  const sig2 = 2 * (0.24 * Math.sqrt(W * H * (PW / PH))) ** 2;
   const weight = (x: number, y: number) => clamp(0.55 * detail(x, y) + 0.45 * Math.exp(-((x - a.heart.x) ** 2 + (y - a.heart.y) ** 2) / sig2));
-  // the arch takes a few cells: ask for a few more so about `n` lie inside the window
-  const m = makeMosaic(W, H, Math.round(n / 0.95), mulberry32(seed), { weight, relax: RULES.relax });
+  // the arch takes a few cells: ask for a few more so about `n` lie inside the window (a photo keeps them all)
+  const m = makeMosaic(W, H, Math.round(a.shape === 'arch' ? n / 0.95 : n), mulberry32(seed), { weight, relax: RULES.relax });
   const all = cellColors(m, a.px);
-  const geo = buildVision(m, { heart: a.heart, regions: a.decl ? SCENES[a.decl].regions : undefined, colors: all });
+  const geo = buildVision(m, { shape: a.shape, heart: a.heart, regions: a.decl ? SCENES[a.decl].regions : undefined, colors: all });
   return { ...a, n, geo, colors: geo.cells.map(c => all[c.m]) };
 }
