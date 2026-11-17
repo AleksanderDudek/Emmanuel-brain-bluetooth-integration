@@ -28,8 +28,8 @@ interface ImagesDB extends DBSchema {
 }
 
 export const IMAGE_MAX_SIDE = 1280;
-/** A label longer than this is cut (a word for a declaration, a name for a pair). */
-export const LABEL_MAX = 40;
+/** A label longer than this is cut (an own affirmation — up to 100 characters since 2026-11-17 — or a name for a pair). */
+export const LABEL_MAX = 100;
 const DB_NAME = 'brainlink-images';
 
 let dbp: Promise<IDBPDatabase<ImagesDB>> | null = null;

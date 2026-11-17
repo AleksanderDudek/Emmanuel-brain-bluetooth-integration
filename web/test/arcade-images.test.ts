@@ -30,7 +30,8 @@ describe('kit/images', () => {
 
   it('labels as plain trimmed text, cut to the limit', async () => {
     expect(cleanLabel('  w\npracy\tmarzeń  ')).toBe('w pracy marzeń');
-    expect(cleanLabel('x'.repeat(100))).toHaveLength(LABEL_MAX);
+    expect(cleanLabel('x'.repeat(140))).toHaveLength(LABEL_MAX);
+    expect(LABEL_MAX).toBe(100);
     expect(cleanLabel('<b>silna</b>')).toBe('<b>silna</b>');   // kept as text; the game sets textContent, never markup
     const r = await putImage({ game: 'jestem-t2', role: 'vision', label: '', w: 1, h: 1, blob: blob() });
     await setLabel(r.id, '  zdrowa ');
