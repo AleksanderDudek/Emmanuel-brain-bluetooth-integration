@@ -1,24 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { CARDS, CARD_IDS, LESIONS, LINE_COUNT, MOMENTS, NICHES, lines, type LesionKind } from '../src/arcade/odnowa/content';
-import { OdnowaView } from '../src/arcade/odnowa/render';
-import { CATALOGS, atpText, t, unit } from '../src/arcade/odnowa/i18n';
+import { NEED_SYS, OdnowaView, nowKey } from '../src/arcade/odnowa/render';
+import { CATALOGS, atpText, t, unit, type Key } from '../src/arcade/odnowa/i18n';
 import {
-  bestOf, enzymeLevel, freshProgress, levelOf, lysoLevel, migrate, mitoLevel, nicheOpen, patchOf, sessionNiche, traitState,
+  SEEN_V, bestOf, enzymeLevel, freshProgress, levelOf, lysoLevel, migrate, mitoLevel, nicheOpen, patchOf, sessionNiche, traitState,
   type OdnowaProgress,
 } from '../src/arcade/odnowa/meta';
-import { RULES, need } from '../src/arcade/odnowa/rules';
-import { OdnowaSim, finaleFor, gradOf, planBlocks, recipe, spinOf, stepSec, type SimEvent } from '../src/arcade/odnowa/sim';
+import { RULES, need, readSec } from '../src/arcade/odnowa/rules';
+import {
+  COACHES, OdnowaSim, SYSTEMS, driveOf, finaleFor, needs, planBlocks, spinOf, stepSec, type NowKind, type SimEvent, type Sys,
+} from '../src/arcade/odnowa/sim';
+import { Talk } from '../src/arcade/odnowa/talk';
 import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { BREATH_DEFAULT, breathCycle } from '../src/arcade/kit/breath';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
+import type { ArcadeAudio } from '../src/arcade/kit/audio';
+import type { GameEnv } from '../src/arcade/kit/types';
 import { mulberry32 } from '../src/core/random';
 import { LANGS, catalogProblems } from '../src/i18n';
-import { CHECK_SIZES, DESK_BIG, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
+import { CHECK_SIZES, DESK_BIG, MIN_READ, MIN_TEXT, THUMB, auditTargets } from '../src/arcade/kit/mobile';
 import { CHORUS_BEATS, lineAt, seriesChorus, songProblems } from '../src/arcade/kit/song';
 import { buildSong, verseBeats } from '../src/arcade/odnowa/song';
 import { laneU, laneX, layout, onLane, onLens, tapTargets } from '../src/arcade/odnowa/layout';
 import { font, fontPx } from '../src/arcade/odnowa/paint';
-import { coachText, howto } from '../src/arcade/odnowa/index';
+import mod, { coachText, howto } from '../src/arcade/odnowa/index';
 
 const STEP = 1 / 60;
 const TUNING: FocusTuning = { ...DEFAULT_TUNING, targetRate: 0.55, adapt: 0.08 };
@@ -27,12 +33,14 @@ const BEGINNER: FocusTuning = { ...TUNING, ...BEGINNER_TUNING };
 const frame = (p: Partial<FocusFrame> = {}): FocusFrame =>
   ({ reliable: true, activity: 0, threshold: 2, level: 0.3, focused: false, hold: 0, calm: 0.5, ...p });
 const HIGH = frame({ level: 0.95, activity: 6, focused: true, hold: 10, calm: 0.05 });
-const MID = frame({ level: 0.5, activity: 2, focused: true, hold: 1, calm: 0.4 });
-const LOW = frame({ level: 0.05, activity: -3, calm: 0.95 });
+const MID = frame({ level: 0.6, activity: 2.5, focused: true, hold: 1, calm: 0.3 });
+const LOW = frame({ level: 0.2, activity: -1, focused: false, calm: 0.6 });
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
+/** focused and not calm at all */
+const FOCUS0 = frame({ level: 0.9, activity: 5, focused: true, hold: 5, calm: 0 });
 
-const ALL_SEEN = ['lane', 'turbine', 'recipe', 'gauge', 'two', 'rest', 'drag', 'surge', 'check', 'blind'];
+const ALL_SEEN = [SEEN_V, 'reveal', ...COACHES];
 
 type SimOpts = { progress?: Partial<OdnowaProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning; niche?: 'gut' | 'skin' | 'blood' };
 
@@ -43,7 +51,7 @@ function makeSim(o: SimOpts = {}): OdnowaSim {
   return sim;
 }
 
-/** A returning player (no warm-up, no opening card, every coach mark seen). */
+/** A returning player (no warm-up, no opening card, every coach mark seen, the quick reveal). */
 const later = (o: SimOpts = {}) => makeSim({ ...o, progress: { sessions: 5, pushes: 1, seen: [...ALL_SEEN], ...o.progress } });
 
 function drive(sim: OdnowaSim, sec: number, f: FocusFrame | ((t: number) => FocusFrame), clock = { t: 0 }, each?: (t: number) => void): SimEvent[] {
@@ -61,34 +69,62 @@ function drive(sim: OdnowaSim, sec: number, f: FocusFrame | ((t: number) => Focu
 const ofType = <K extends SimEvent['type']>(evs: readonly SimEvent[], type: K) => evs.filter((e): e is Extract<SimEvent, { type: K }> => e.type === type);
 
 /** Run to the next block of a kind (returns the clock). */
-function until(sim: OdnowaSim, kind: 'push' | 'rest', f: FocusFrame | ((t: number) => FocusFrame), clock = { t: 0 }): { t: number } {
+function until(sim: OdnowaSim, kind: 'push' | 'rest', f: FocusFrame | ((t: number) => FocusFrame), clock = { t: 0 }, each?: (t: number) => void): { t: number } {
   let guard = 0;
-  while (sim.block.kind !== kind && guard++ < 4000) drive(sim, 0.25, f, clock);
+  while (sim.block.kind !== kind && guard++ < 4000) drive(sim, 0.25, f, clock, each);
   return clock;
 }
 
-/** Mend every lesion that needs a tap (a diligent player). */
+/** Mend every waiting lesion (a diligent player). */
 const tapAll = (sim: OdnowaSim) => () => { for (let k = 0; k < 4 && sim.openLesions.length; k++) sim.repairNext(); };
+
+/** A first session with its opening card closed by a tap. */
+function first(o: SimOpts = {}): { sim: OdnowaSim; clock: { t: number } } {
+  const sim = makeSim(o);
+  const clock = { t: 0 };
+  drive(sim, 0.7, MID, clock);
+  sim.tap();
+  return { sim, clock };
+}
 
 describe('the block plan', () => {
   it('opens a first-ever session with a warm-up, alternates pushes and rests and ends on a rest', () => {
-    const plan = planBlocks(300, true, mulberry32(3));
-    expect(plan[0].kind).toBe('warmup');
-    expect(plan[0].dur).toBe(RULES.warm.long);
-    const rest = plan.slice(1);
-    rest.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
-    expect(rest[rest.length - 1].kind).toBe('rest');
-    const total = plan.reduce((s, b) => s + b.dur, 0);
-    expect(total).toBeCloseTo(300 - finaleFor(300), 5);
-    for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    for (const sec of [180, 300, 600]) {
+      const plan = planBlocks(sec, true, mulberry32(3));
+      expect(plan[0].kind).toBe('warmup');
+      expect(plan[0].dur).toBe(sec >= 300 ? RULES.warm.long : RULES.warm.short);
+      const rest = plan.slice(1);
+      rest.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+      expect(rest[rest.length - 1].kind).toBe('rest');
+      const total = plan.reduce((s, b) => s + b.dur, 0);
+      expect(total, String(sec)).toBeCloseTo(sec - finaleFor(sec), 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+      for (const b of plan.filter(x => x.kind === 'push')) expect(b.dur, String(sec)).toBeLessThanOrEqual(32);
+    }
+  });
+
+  it('makes every rest a whole number of breaths (4 in, 6 out), the pushes take the rest of the time', () => {
+    const cyc = breathCycle(BREATH_DEFAULT);
+    for (const sec of [120, 180, 300, 600]) {
+      for (const firstEver of [false, true]) {
+        for (const seed of [1, 7, 42]) {
+          const plan = planBlocks(sec, firstEver, mulberry32(seed));
+          for (const b of plan.filter(x => x.kind === 'rest')) {
+            expect(b.dur % cyc, `${sec} s`).toBeCloseTo(0, 6);
+            expect(b.dur).toBeGreaterThanOrEqual(20);
+          }
+          expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - finaleFor(sec), 5);
+        }
+      }
+    }
   });
 
   it('fits a 40 s test session (?trainingSec=40) and any planned length from 10 s', () => {
     const p = planBlocks(40, true, mulberry32(1));
     expect(p.map(b => b.kind)).toEqual(['warmup', 'push', 'rest']);
     for (const sec of [10, 15, 25, 40, 60, 90, 180, 600]) {
-      for (const first of [false, true]) {
-        const plan = planBlocks(sec, first, mulberry32(sec));
+      for (const firstEver of [false, true]) {
+        const plan = planBlocks(sec, firstEver, mulberry32(sec));
         expect(plan.length).toBeGreaterThanOrEqual(2);
         expect(plan.some(b => b.kind === 'push')).toBe(true);
         expect(plan.some(b => b.kind === 'rest')).toBe(true);
@@ -117,7 +153,6 @@ describe('the block plan', () => {
       if (sim.blind) blind++;
     }
     expect(blind).toBeGreaterThan(0);
-    // the 2nd session never blinds
     const early = later({ progress: { sessions: 1, pushes: 2 } });
     const c2 = { t: 0 };
     let b2 = 0;
@@ -138,318 +173,323 @@ describe('the block plan', () => {
     expect(ends[0].block.kind).toBe('rest');
     expect(ends[0].verdict).toBe(true);
     expect(sim.passedRests).toBe(1);
-    expect(sim.material).toBeGreaterThanOrEqual(mat0 + 2);
+    expect(sim.material).toBeGreaterThanOrEqual(mat0 + RULES.calmBonus);
+  });
+
+  it('holds the warm-up while the opening card is read (the turbine is shown after it)', () => {
+    const sim = makeSim();
+    drive(sim, 5, HIGH);
+    expect(sim.story).not.toBeNull();
+    expect(sim.blockT).toBe(0);
+    expect(sim.shown('energy')).toBe(false);
+    expect(sim.atp).toBe(0);
+    sim.tap();
+    drive(sim, 1, HIGH);
+    expect(sim.shown('energy')).toBe(true);
+    expect(sim.blockT).toBeGreaterThan(0.9);
   });
 });
 
-describe('the engine: the gradient, the turbine, ATP', () => {
+describe('energy: only from focus', () => {
   it('turns 3 ATP out of every full turn, 8 protons a turn', () => {
     expect(RULES.atpPerTurn).toBe(3);
     expect(RULES.protonsPerTurn).toBe(8);
     const sim = later();
+    drive(sim, 20, HIGH);
+    expect(Math.abs(sim.atp - Math.floor(sim.angle * 3) - sim.bank)).toBeLessThanOrEqual(0);
+  });
+
+  it('drives the turbine only while the player is focused: nothing without focus or without a signal', () => {
+    expect(driveOf(NONE)).toBe(0);
+    expect(driveOf(LOW)).toBe(0);
+    expect(driveOf({ reliable: true, focused: false, level: 0.9 })).toBe(0);
+    expect(driveOf({ reliable: true, focused: true, level: 0.5 })).toBeCloseTo(RULES.driveMin, 6);
+    expect(driveOf({ reliable: true, focused: true, level: 0.95 })).toBe(1);
+    expect(spinOf(0)).toBe(0);
+    expect(spinOf(1, 1)).toBeCloseTo(RULES.spinMax * (1 + RULES.goldK), 6);
+    for (const f of [LOW, NONE, CALM]) {
+      const sim = later();
+      drive(sim, 25, f);
+      expect(sim.atp, JSON.stringify(f)).toBe(0);
+      expect(sim.spin).toBe(0);
+    }
+  });
+
+  it('turns faster the higher the focus, and keeps what was made when the focus goes', () => {
+    const lo = later(), hi = later();
+    drive(lo, 20, frame({ level: 0.55, focused: true, activity: 2.2 }));
+    drive(hi, 20, frame({ level: 0.95, focused: true, activity: 6 }));
+    expect(hi.atp).toBeGreaterThan(lo.atp * 1.6);
+    const made = hi.atp;
+    drive(hi, 5, NONE, { t: 20 });
+    expect(hi.atp).toBeGreaterThanOrEqual(made);
+    expect(hi.atp).toBeLessThanOrEqual(made + 4);
+    expect(hi.spin).toBe(0);
+  });
+
+  it('makes no energy in a rest, even with focus (the rest asks for calm)', () => {
+    const sim = later();
+    const clock = until(sim, 'rest', MID);
+    const a = sim.atp;
+    drive(sim, 10, HIGH, clock);
+    expect(sim.atp - a).toBeLessThanOrEqual(3);
+    drive(sim, 5, HIGH, clock);
+    expect(sim.spin).toBe(0);
+  });
+
+  it('turns gold for a held focus (faster), says so once a push, and counts the time', () => {
+    const held = later(), short = later();
+    const evs = drive(held, 20, HIGH);
+    drive(short, 20, frame({ level: 0.95, activity: 6, focused: true, hold: 1 }));
+    expect(held.gold).toBeGreaterThan(0.9);
+    expect(short.gold).toBe(0);
+    expect(held.atp).toBeGreaterThan(short.atp * 1.25);
+    expect(ofType(evs, 'gold')).toHaveLength(1);
+    expect(held.goldSec).toBeGreaterThan(10);
+  });
+
+  it('banks a blind push’s energy (the headline holds) and shows it when the block ends', () => {
+    const sim = later({ progress: { sessions: 4, pushes: 2 } });
     const clock = { t: 0 };
-    drive(sim, 10, NONE, clock);
-    expect(sim.atp).toBe(Math.floor(sim.angle * 3));
-  });
-
-  it('runs at the neutral pace without a signal, never slower in a push for a low reading, faster with focus', () => {
-    const none = later(), low = later(), high = later();
-    const c1 = { t: 0 }, c2 = { t: 0 }, c3 = { t: 0 };
-    drive(none, 20, NONE, c1);
-    drive(low, 20, LOW, c2);
-    drive(high, 20, HIGH, c3);
-    expect(none.grad).toBeCloseTo(RULES.gradNeutral, 2);
-    expect(low.grad).toBeGreaterThanOrEqual(RULES.gradNeutral - 0.01);
-    expect(high.grad).toBeGreaterThan(0.85);
-    expect(high.spin).toBeGreaterThan(none.spin * 2);
-    expect(high.atp).toBeGreaterThan(none.atp * 1.6);
-    expect(low.atp).toBeGreaterThanOrEqual(none.atp - 1);
-  });
-
-  it('lets the band act only after the lead-in (5 s Mendi, 2 s HALO)', () => {
-    const m = later(), e = later({ eeg: true });
-    drive(m, 4, HIGH);
-    drive(e, 4, HIGH);
-    expect(m.sighted).toBe(false);
-    expect(m.meter()).toBeNull();
-    expect(e.sighted).toBe(true);
-    expect(e.meter()).toBeGreaterThan(0.2);
-  });
-
-  it('maps the gauge onto the gradient with the neutral floor, and the gradient onto the spin', () => {
-    expect(gradOf(0)).toBeCloseTo(RULES.gradNeutral, 5);
-    expect(gradOf(1)).toBeCloseTo(1, 5);
-    expect(spinOf(gradOf(0.5)) / spinOf(gradOf(0))).toBeGreaterThan(1.6);
-    expect(spinOf(1)).toBeCloseTo(RULES.spinBase + RULES.spinK, 5);
-  });
-
-  it('idles in a rest: the turbine slows, ATP still comes', () => {
-    const sim = later();
-    const clock = until(sim, 'rest', HIGH);
-    const a0 = sim.atp;
-    drive(sim, 10, CALM, clock);
-    expect(sim.grad).toBeLessThan(RULES.gradNeutral);
-    expect(sim.atp).toBeGreaterThan(a0);
-  });
-
-  it('a tap on the turbine pushes it by one proton’s step (an eighth of a turn), at most every 0.3 s', () => {
-    const sim = later();
-    drive(sim, 0.5, NONE);
-    const a0 = sim.angle;
-    expect(sim.tapTurbine()).toBe('kick');
-    expect(sim.tapTurbine()).toBeNull();
-    drive(sim, 1, NONE);
-    const spun = sim.angle - a0;
-    expect(spun).toBeGreaterThan(sim.spin * 1 + 0.1);
-    expect(sim.kicks).toBe(1);
+    let seen = false, still = true, before = 0, block = -1;
+    const evs = drive(sim, 300, HIGH, clock, () => {
+      if (sim.blind) {
+        if (block !== sim.blockIndex) { seen = true; block = sim.blockIndex; before = sim.atp; }
+        if (sim.atp !== before) still = false;
+      }
+    });
+    expect(seen).toBe(true);
+    expect(still).toBe(true);
+    const ends = ofType(evs, 'blindEnd');
+    expect(ends.length).toBeGreaterThan(0);
+    expect(ends[0].n).toBeGreaterThan(20);
+    expect(ends[0].share).toBeGreaterThan(0.5);
+    expect(sim.blindShare).toBeGreaterThan(50);
   });
 
   it('adds the extra mitochondria of biogenesis: more ATP at the same focus', () => {
-    const one = later(), four = later({ progress: { atpTotal: RULES.mitoAt[2] } });
-    expect(four.mitoCount).toBe(3);
-    drive(one, 20, MID);
-    drive(four, 20, MID);
-    expect(four.atp).toBeGreaterThan(one.atp * 1.5);
-  });
-
-  it('fills the full power from a held focus; a tap on the turbine releases it and mends every open lesion', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    let readyAt = -1;
-    drive(sim, sim.block.dur - 1, HIGH, clock, t => { if (sim.ready && readyAt < 0) readyAt = t; });
-    if (!sim.ready) {
-      // a long push is not always enough: carry on into the next push
-      until(sim, 'push', HIGH, clock);
-      drive(sim, 20, HIGH, clock);
-    }
-    expect(sim.ready).toBe(true);
-    // release at the start of a push, with damage on the helix
-    until(sim, 'rest', HIGH, clock);
-    until(sim, 'push', HIGH, clock);
-    expect(sim.ready).toBe(true);
-    const before = sim.openLesions.length;
-    expect(sim.tapTurbine()).toBe('surge');
-    expect(sim.surge).toBeGreaterThan(0);
-    const evs = drive(sim, 2.5, HIGH, clock);
-    if (before > 0) expect(ofType(evs, 'repaired').filter(e => e.by === 'surge').length).toBeGreaterThanOrEqual(Math.min(before, 1));
-    expect(sim.spin).toBeGreaterThan(spinOf(1) * 1.5);
-  });
-
-  it('never fills the full power in a rest (repair streaks there stop just short), and a rest ends a running one', () => {
-    const sim = later();
-    const clock = until(sim, 'rest', MID);
-    sim.charge = 0.98;
-    drive(sim, 15, CALM, clock, () => { if (sim.openLesions.length) sim.repairNext(); });
-    expect(sim.ready).toBe(false);
-    expect(sim.charge).toBeLessThan(1);
-    const run = later();
-    run.charge = 0.999;
-    const c2 = { t: 0 };
-    drive(run, 8, HIGH, c2);
-    expect(run.tapTurbine()).toBe('surge');
-    const evs = drive(run, run.block.dur, HIGH, c2);
-    expect(run.restBlock || run.surge === 0).toBe(true);
-    expect(ofType(evs, 'surgeEnd').length).toBeGreaterThan(0);
-  });
-
-  it('releases a ready full power by itself after a while (never in a rest)', () => {
-    const sim = later();
-    sim.charge = 0.999;
-    const clock = { t: 0 };
-    drive(sim, 7, HIGH, clock);
-    expect(sim.ready).toBe(true);
-    drive(sim, RULES.surgeAuto + 0.5, HIGH, clock);
-    expect(sim.ready).toBe(false);
-    expect(sim.surgesNow).toBe(1);
+    const plain = later(), grown = later({ progress: { atpTotal: RULES.mitoAt[1] + 10 } });
+    drive(plain, 20, HIGH);
+    drive(grown, 20, HIGH);
+    expect(grown.mitoCount).toBe(2);
+    expect(grown.atp).toBeGreaterThan(plain.atp * 1.3);
   });
 });
 
-describe('the DNA lane', () => {
-  it('brings damage in from the right as the scan moves on, and a tap sends a crew to the nearest', () => {
+describe('DNA: damage that waits for a tap', () => {
+  it('brings damage onto the visible helix in a push, at most two at a time, and it holds still', () => {
+    const sim = later();
+    const evs = drive(sim, 15, MID);
+    expect(ofType(evs, 'spawn').length).toBeGreaterThan(0);
+    expect(sim.liveLesions.length).toBeLessThanOrEqual(RULES.laneCap);
+    for (const l of sim.openLesions) {
+      expect(l.u).toBeGreaterThanOrEqual(RULES.spawnU[0]);
+      expect(l.u).toBeLessThanOrEqual(RULES.spawnU[1]);
+    }
+    const at = sim.openLesions.map(l => l.u);
+    drive(sim, 3, MID, { t: 15 });
+    expect(sim.openLesions.slice(0, at.length).map(l => l.u)).toEqual(at);
+    if (sim.openLesions.length === 2) expect(Math.abs(sim.openLesions[0].u - sim.openLesions[1].u)).toBeGreaterThanOrEqual(RULES.spawnGap - 1e-9);
+  });
+
+  it('sends the crew with one tap: on the lane to the nearest, elsewhere to the one waiting longest; nothing open is a miss', () => {
     const sim = later();
     const clock = { t: 0 };
-    const evs = drive(sim, 12, NONE, clock);
-    expect(ofType(evs, 'spawn').length).toBeGreaterThanOrEqual(2);
-    const open = sim.openLesions;
-    expect(open.length).toBeGreaterThan(0);
-    const target = open[open.length - 1];
-    expect(sim.tapLane(target.u + 0.2)).toBe(true);
-    expect(target.state).toBe('fixing');
+    while (sim.openLesions.length < 2 && clock.t < 60) drive(sim, 0.5, MID, clock);
+    const [a, b] = [...sim.openLesions].sort((x, y) => x.t - y.t);
+    expect(sim.aim(null)?.id).toBe(b.id);
+    expect(sim.aim(a.u)?.id).toBe(a.id);
+    expect(sim.tapLane(a.u)).toBe(true);
+    expect(sim.lesions.find(l => l.id === a.id)?.state).toBe('fixing');
+    expect(sim.repairNext()).toBe(true);
+    expect(sim.lesions.find(l => l.id === b.id)?.state).toBe('fixing');
+    sim.take();
+    expect(sim.repairNext()).toBe(false);
+    expect(ofType(sim.take(), 'miss')).toHaveLength(1);
   });
 
-  it('runs a base excision repair in the pathway’s order: glycosylase, APE1, polymerase β, ligase', () => {
-    expect(LESIONS.oxo.stages[0]).toEqual(['glyco', 'ape1', 'polb', 'lig']);
-    expect(LESIONS.abasic.stages[0]).toEqual(['ape1', 'polb', 'lig']);
-    expect(LESIONS.dimer.stages).toEqual([['xpc', 'tfiih'], ['cut', 'fill', 'lig']]);
-    expect(LESIONS.dsb.stages).toEqual([['ku'], ['lig4']]);
+  it('runs every pathway in its real order after a single tap (BER, NER, end joining)', () => {
+    for (const kind of ['oxo', 'dimer', 'dsb'] as LesionKind[]) {
+      const sim = later({ niche: kind === 'dimer' ? 'skin' : 'gut', progress: { divisions: 9 } });
+      const clock = { t: 0 };
+      while (!sim.openLesions.some(l => l.kind === kind) && clock.t < 400) {
+        if (kind === 'dsb' && sim.stage < RULES.dsbFrom) sim.stage = RULES.dsbFrom;
+        drive(sim, 0.5, NONE, clock);
+        for (const l of sim.openLesions) if (l.kind !== kind) sim.tapLane(l.u);
+        sim.dna = 0;
+        if (sim.restBlock) until(sim, 'push', NONE, clock);
+      }
+      const l = sim.openLesions.find(x => x.kind === kind);
+      expect(l, kind).toBeDefined();
+      if (!l) continue;
+      sim.take();
+      sim.tapLane(l.u);
+      const evs = drive(sim, 4, MID, clock);
+      const steps = ofType(evs, 'repairStep').filter(e => e.id === l.id).map(e => e.step);
+      expect(steps, kind).toEqual([...LESIONS[kind].steps]);
+      expect(ofType(evs, 'repaired').some(e => e.id === l.id)).toBe(true);
+    }
+  });
+
+  it('fills the DNA bar with each repair and brings no more damage once the stage’s repairs are done', () => {
     const sim = later();
     const clock = { t: 0 };
-    const l = sim.lesions[0];
-    l.kind = 'oxo';
-    sim.tapLane(l.u);
-    const evs = drive(sim, 3, NONE, clock);
-    const steps = ofType(evs, 'repairStep').filter(e => e.id === l.id).map(e => e.step);
-    expect(steps).toEqual(['glyco', 'ape1', 'polb', 'lig']);
-    expect(l.state).toBe('done');
-    expect(ofType(evs, 'repaired').some(e => e.id === l.id && e.by === 'tap')).toBe(true);
-    expect(ofType(evs, 'atpUse').length).toBeGreaterThan(0);
+    let full = 0;
+    drive(sim, 20, NONE, clock, () => {
+      tapAll(sim)();
+      for (const e of sim.take()) if (e.type === 'full' && e.need === 1) full++;
+    });
+    expect(sim.repairsNow).toBeGreaterThanOrEqual(sim.needs.dna);
+    expect(sim.dna).toBe(sim.repairsNow);
+    expect(full).toBe(1);
+    const evs = drive(sim, 5, NONE, clock, tapAll(sim));
+    expect(sim.block.kind).toBe('push');
+    expect(ofType(evs, 'spawn')).toHaveLength(0);
   });
 
-  it('needs a second tap for a two-step repair (nucleotide excision, end joining)', () => {
+  it('brings no damage in a rest; there the cell’s own crew mends waiting damage — only as fast as the calm allows', () => {
     const sim = later();
-    const clock = { t: 0 };
-    const l = sim.lesions[0];
-    l.kind = 'dimer';
-    sim.tapLane(l.u);
-    drive(sim, 2, NONE, clock);
-    expect(l.state).toBe('wait');
-    expect(sim.openLesions).toContain(l);
-    sim.tapLane(l.u);
-    drive(sim, 2.5, NONE, clock);
-    expect(l.state).toBe('done');
+    const clock = until(sim, 'rest', NONE);
+    const waiting = sim.openLesions.length;
+    expect(waiting).toBeGreaterThan(0);
+    const restless = drive(sim, 4, NONE, clock);
+    expect(ofType(restless, 'spawn')).toHaveLength(0);
+    expect(sim.openLesions.length).toBe(waiting);
+    const evs = drive(sim, RULES.cellFix + 4, CALM, clock);
+    expect(ofType(evs, 'repairStart').some(e => e.by === 'cell')).toBe(true);
+    expect(ofType(evs, 'spawn')).toHaveLength(0);
   });
 
-  it('stops the helix at the gate for an unrepaired lesion; the cell’s own crew mends it — nothing is lost', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    let gateSeen = false;
-    const evs = drive(sim, 60, NONE, clock, () => { if (sim.atGate) gateSeen = true; });
-    expect(gateSeen).toBe(true);
-    expect(ofType(evs, 'gate').length).toBeGreaterThan(0);
-    expect(ofType(evs, 'repaired').some(e => e.by === 'cell')).toBe(true);
-    expect(sim.repairsNow).toBeGreaterThan(0);
-  });
-
-  it('scans faster on a clean helix: a diligent player checks more genome than an idle one', () => {
-    const idle = later(), busy = later();
-    drive(idle, 60, NONE);
-    drive(busy, 60, NONE, { t: 0 }, tapAll(busy));
-    expect(busy.scanned).toBeGreaterThan(idle.scanned * 1.4);
-    expect(busy.tapRepairs).toBeGreaterThan(4);
-  });
-
-  it('chains taps into a combo that climbs and resets after a pause', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    let best = 0;
-    drive(sim, 30, NONE, clock, () => { if (sim.openLesions.length) sim.repairNext(); best = Math.max(best, sim.combo); });
-    expect(best).toBeGreaterThanOrEqual(3);
-    expect(sim.maxCombo).toBe(best);
-  });
-
-  it('times the steps by the enzymes’ level and the gradient, slower for the cell’s crew, faster in full power', () => {
-    expect(stepSec(1, 0.5, 'tap')).toBeLessThan(stepSec(0, 0.5, 'tap'));
-    expect(stepSec(0, 1, 'tap')).toBeLessThan(stepSec(0, 0.3, 'tap'));
-    expect(stepSec(0, 0.5, 'cell')).toBeGreaterThan(stepSec(0, 0.5, 'tap'));
-    expect(stepSec(0, 0.5, 'surge')).toBeLessThan(stepSec(0, 0.5, 'tap'));
+  it('times the steps by the enzymes’ level; a double-strand break and the cell’s own crew are slower', () => {
+    expect(stepSec(1, 'oxo', 'tap')).toBeLessThan(stepSec(0, 'oxo', 'tap'));
+    expect(stepSec(0, 'dsb', 'tap')).toBeGreaterThan(stepSec(0, 'oxo', 'tap'));
+    expect(stepSec(0, 'oxo', 'cell')).toBeGreaterThan(stepSec(0, 'oxo', 'tap'));
   });
 
   it('brings each niche its own damage: UV dimers in the skin, none in the gut', () => {
-    const count = (niche: 'gut' | 'skin' | 'blood'): Record<LesionKind, number> => {
-      const c: Record<LesionKind, number> = { oxo: 0, abasic: 0, dimer: 0, bulky: 0, dsb: 0 };
-      const sim = later({ niche, planned: 600, seed: 9 });
-      const evs = drive(sim, 240, NONE, { t: 0 }, tapAll(sim));
-      for (const e of ofType(evs, 'spawn')) c[e.kind]++;
-      return c;
+    const count = (niche: 'gut' | 'skin') => {
+      const sim = later({ niche, planned: 600 });
+      const kinds: LesionKind[] = [];
+      drive(sim, 400, MID, { t: 0 }, () => {
+        for (const e of sim.take()) if (e.type === 'spawn') kinds.push(e.kind);
+        tapAll(sim)();
+      });
+      return kinds;
     };
-    const skin = count('skin'), gut = count('gut');
-    expect(skin.dimer).toBeGreaterThan(0);
-    expect(gut.dimer).toBe(0);
-    expect(gut.bulky).toBeGreaterThan(0);
+    expect(count('skin')).toContain('dimer');
+    expect(count('gut')).not.toContain('dimer');
   });
 });
 
-describe('the clean-up: autophagy in a rest', () => {
+describe('the clean-up: only with calm', () => {
   it('tags, wraps, carries and digests worn parts in a rest, giving building material back', () => {
     const sim = later();
     const clock = until(sim, 'rest', MID);
     const evs = drive(sim, sim.block.dur - 0.5, CALM, clock);
     expect(ofType(evs, 'part').length).toBeGreaterThan(0);
     expect(ofType(evs, 'sealed').length).toBeGreaterThan(0);
-    expect(ofType(evs, 'recycled').length).toBeGreaterThan(0);
-    expect(sim.material).toBeGreaterThan(0);
-    expect(sim.partsNow).toBeGreaterThan(0);
+    const rec = ofType(evs, 'recycled');
+    expect(rec.length).toBeGreaterThan(0);
+    expect(sim.material).toBeGreaterThanOrEqual(rec.reduce((s, e) => s + e.mat, 0));
   });
 
-  it('wraps faster with calm, and at the neutral pace without a signal — never slower', () => {
-    const wrapSpeed = (f: FocusFrame): number => {
+  it('wraps nothing without calm (no signal, or no calm) — and loses nothing; calm finishes the job', () => {
+    for (const f of [NONE, FOCUS0]) {
       const sim = later();
       const clock = until(sim, 'rest', MID);
       drive(sim, 6, f, clock);
-      const pt = sim.parts.find(p => p.phase === 'wrap');
-      return pt ? pt.k : 1;
-    };
-    const calm = wrapSpeed(CALM), none = wrapSpeed(NONE), restless = wrapSpeed(HIGH);
-    expect(calm).toBeGreaterThan(none);
-    expect(restless).toBeGreaterThanOrEqual(none - 1e-9);
+      const wrapping = sim.parts.filter(p => p.phase === 'wrap');
+      expect(wrapping.length).toBeGreaterThan(0);
+      for (const p of wrapping) expect(p.k).toBe(0);
+      expect(sim.material).toBe(0);
+      drive(sim, 9, CALM, clock);
+      expect(sim.parts.some(p => p.phase !== 'wrap' && p.phase !== 'tag') || sim.material > 0).toBe(true);
+    }
   });
 
-  it('sends an autophagosome at once on a tap, or fuses it with the lysosome it is dropped on', () => {
+  it('wraps faster with deeper calm', () => {
+    const k = (calm: number) => {
+      const sim = later();
+      const clock = until(sim, 'rest', MID);
+      drive(sim, 4, frame({ level: 0.2, calm }), clock);
+      return sim.parts.filter(p => p.phase === 'wrap').reduce((s, p) => Math.max(s, p.k), 0);
+    };
+    expect(k(0.9)).toBeGreaterThan(k(0.3) * 2);
+  });
+
+  it('brings worn parts only in a rest', () => {
     const sim = later();
-    const clock = until(sim, 'rest', MID);
-    let sent = false, dropped = false;
-    drive(sim, sim.block.dur - 0.5, CALM, clock, () => {
-      for (const p of sim.parts) {
-        if ((p.phase === 'sealed' || p.phase === 'travel') && !sent) sent = sim.sendPart(p.id);
-        else if ((p.phase === 'sealed' || p.phase === 'travel') && !dropped) {
-          sim.holdPart(p.id, true);
-          dropped = sim.dropPart(p.id, 1);
-        }
-      }
-    });
-    expect(sent).toBe(true);
-    expect(sim.partsNow).toBeGreaterThan(0);
+    const evs = drive(sim, sim.block.dur - 1, CALM);
+    expect(ofType(evs, 'part')).toHaveLength(0);
   });
 });
 
 describe('the division', () => {
-  it('grows the recipe with the stages', () => {
-    expect(recipe(1)).toEqual({ atp: RULES.atpNeed[0], mat: RULES.matNeed[0], scan: RULES.scanNeed[0] });
-    expect(recipe(3).atp).toBeGreaterThan(recipe(2).atp);
-    expect(recipe(99).atp).toBe(RULES.atpNeed[2]);
-    expect(need(RULES.matNeed, 50, false)).toBe(RULES.matNeed[2]);
+  it('grows the needs with the stages', () => {
+    expect(needs(1)).toEqual({ atp: RULES.atpNeed[0], dna: RULES.dnaNeed[0], mat: RULES.matNeed[0] });
+    expect(needs(3).atp).toBeGreaterThan(needs(2).atp);
+    expect(needs(3).dna).toBe(RULES.dnaNeed[0] + 2);
+    expect(needs(50).atp).toBe(RULES.atpNeed[2]);
+    expect(need([5, 1, 7], 9, false)).toBe(7);
   });
 
-  it('divides once energy, material and the scan are there and no damage is open; the daughter joins the tissue', () => {
-    const sim = later({ planned: 600 });
+  it('divides once the three needs are full and no damage is open; the daughter joins the tissue', () => {
+    const sim = later();
     const clock = { t: 0 };
-    const evs = drive(sim, 240, () => (sim.restBlock ? CALM : HIGH), clock, tapAll(sim));
-    const divides = ofType(evs, 'divide');
-    expect(divides.length).toBeGreaterThanOrEqual(1);
-    expect(ofType(evs, 'mitosis').map(e => e.phase).slice(0, 5)).toEqual([0, 1, 2, 3, 4]);
-    expect(ofType(evs, 'cell').length).toBe(sim.divisionsNow);
+    let cells = 0;
+    drive(sim, 200, () => (sim.restBlock ? CALM : HIGH), clock, () => {
+      tapAll(sim)();
+      for (const e of sim.take()) if (e.type === 'cell') cells++;
+    });
+    expect(sim.divisionsNow).toBeGreaterThanOrEqual(1);
+    expect(cells).toBe(sim.divisionsNow);
     expect(sim.stage).toBe(sim.divisionsNow + 1);
-    expect(sim.cellsNow.gut).toBe(sim.divisionsNow);
-    // settled at the end: the tissue keeps them
+    expect(sim.dna).toBeLessThan(sim.needs.dna + RULES.laneCap);
     sim.finish();
     expect(sim.p.tissue.gut).toBe(sim.divisionsNow);
-    expect(sim.p.divisions).toBe(sim.divisionsNow);
   });
 
-  it('holds the division at the checkpoint while damage is open on the helix', () => {
+  it('holds the division at the checkpoint while damage is open, and says so on the line', () => {
     const sim = later();
-    sim.stageAtp = 1000;
-    sim.material = 100;
-    sim.scan = 1000;
     const clock = { t: 0 };
-    // damage on the helix: the checkpoint holds
-    expect(sim.lesions.length).toBeGreaterThan(0);
-    const evs = drive(sim, 0.2, NONE, clock);
+    while (!sim.openLesions.length && clock.t < 30) drive(sim, 0.25, MID, clock);
+    const n = sim.needs;
+    sim.stageAtp = n.atp;
+    sim.material = n.mat;
+    sim.dna = n.dna;
+    const evs = drive(sim, 3, MID, clock);
     expect(ofType(evs, 'checkpoint')).toHaveLength(1);
     expect(sim.mitosis).toBeNull();
-    // mend it all: the division begins
-    let began = false;
-    drive(sim, 15, NONE, clock, () => { tapAll(sim)(); if (sim.mitosis) began = true; });
-    expect(began).toBe(true);
+    expect(sim.now).toBe('check');
+    tapAll(sim)();
+    const after = drive(sim, 6, MID, clock);
+    expect(ofType(after, 'divide')).toHaveLength(1);
+  });
+
+  it('carries spare energy and material into the next division (what was gained stays)', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    drive(sim, 3, NONE, clock);
+    while (sim.liveLesions.length) { tapAll(sim)(); drive(sim, 2, NONE, clock); }
+    const n = sim.needs;
+    sim.stageAtp = n.atp + 7;
+    sim.material = n.mat + 2;
+    sim.dna = n.dna;
+    drive(sim, 9, NONE, clock);
+    expect(sim.divisionsNow).toBe(1);
+    expect(sim.stageAtp).toBe(7);
+    expect(sim.material).toBe(2);
+    expect(sim.dna).toBe(0);
   });
 
   it('a session ended mid-division still counts the new cell', () => {
     const sim = later();
-    sim.stageAtp = 1000;
-    sim.material = 100;
-    sim.scan = 1000;
-    for (const l of sim.lesions) l.state = 'done';
-    drive(sim, 1, NONE);
+    const clock = { t: 0 };
+    drive(sim, 3, NONE, clock);
+    while (sim.liveLesions.length) { tapAll(sim)(); drive(sim, 2, NONE, clock); }
+    const n = sim.needs;
+    Object.assign(sim, { stageAtp: n.atp, material: n.mat, dna: n.dna });
+    drive(sim, 1, NONE, clock);
     expect(sim.mitosis).not.toBeNull();
     sim.finish();
     expect(sim.divisionsNow).toBe(1);
@@ -457,42 +497,241 @@ describe('the division', () => {
   });
 });
 
-describe('the session', () => {
-  it('scores with the smoke test’s crude input (a centre tap every 0.65 s, Space every ~2 s, focus on)', () => {
-    const sim = makeSim({ tuning: BEGINNER });
-    let next = 0.65, space = 2;
-    drive(sim, 22, HIGH, { t: 0 }, tt => {
-      if (tt >= next) {
-        next += 0.65;
-        if (!sim.tap()) sim.repairNext() || sim.tapTurbine();
-      }
-      if (tt >= space) {
-        space += 2;
-        sim.key(' ', true);
-        sim.key(' ', false);
-      }
+describe('the reveal: one system at a time', () => {
+  it('shows the first session energy, then DNA, then the clean-up, then the division', () => {
+    const { sim, clock } = first();
+    const order: Sys[] = [];
+    drive(sim, 120, () => (sim.restBlock ? CALM : HIGH), clock, () => {
+      tapAll(sim)();
+      for (const e of sim.take()) if (e.type === 'reveal') order.push(e.sys);
     });
-    expect(sim.result().score).toBeGreaterThan(0);
-    expect(sim.atp).toBeGreaterThan(20);
-    expect(sim.repairsNow).toBeGreaterThan(0);
+    expect(order).toEqual([...SYSTEMS]);
+    expect(sim.p.seen).toContain('reveal');
   });
 
-  it('scores within 22 s with no input at all (the turbine turns; the opening card closes by itself)', () => {
+  it('opens the DNA once the turbine has made energy (or after a while), the clean-up with the first rest', () => {
+    const { sim, clock } = first();
+    drive(sim, RULES.dnaAfter - 1, HIGH, clock);
+    expect(sim.shown('energy')).toBe(true);
+    expect(sim.shown('dna')).toBe(false);
+    expect(sim.lesions).toHaveLength(0);
+    drive(sim, 2, HIGH, clock);
+    expect(sim.shown('dna')).toBe(true);
+    expect(sim.shown('clean')).toBe(false);
+    // a player who never focuses still gets there, a little later
+    const idle = first();
+    drive(idle.sim, RULES.dnaMax - 1, LOW, idle.clock);
+    expect(idle.sim.shown('dna')).toBe(false);
+    drive(idle.sim, 2, LOW, idle.clock);
+    expect(idle.sim.shown('dna')).toBe(true);
+    until(sim, 'rest', HIGH, clock);
+    drive(sim, 0.2, CALM, clock);
+    expect(sim.shown('clean')).toBe(true);
+    expect(sim.shown('divide')).toBe(false);
+  });
+
+  it('shows a returning player the four in a quick stagger, in the same order', () => {
+    const sim = later();
+    const at: Record<string, number> = {};
+    drive(sim, 10, MID, { t: 0 }, tt => { for (const e of sim.take()) if (e.type === 'reveal') at[e.sys] = tt; });
+    expect(Object.keys(at)).toEqual([...SYSTEMS]);
+    expect(at.divide).toBeLessThan(8);
+    expect(sim.slow).toBe(false);
+  });
+
+  it('teaches with coach marks in order, each once, never two at a time', () => {
+    const { sim, clock } = first();
+    const evs = drive(sim, 120, () => (sim.restBlock ? CALM : HIGH), clock, tapAll(sim));
+    const coach = ofType(evs, 'coach').map(e => e.what);
+    const order = ['turbine', 'energy', 'lane', 'repair', 'rest', 'divide'] as const;
+    for (const c of order) expect(coach, c).toContain(c);
+    for (let i = 1; i < order.length; i++) expect(coach.indexOf(order[i]), order[i]).toBeGreaterThan(coach.indexOf(order[i - 1]));
+    expect(new Set(coach).size).toBe(coach.length);
+    const again = later();
+    expect(ofType(drive(again, 60, HIGH, { t: 0 }, tapAll(again)), 'coach')).toHaveLength(0);
+  });
+
+  it('keeps the key coach marks until the thing is done (the turbine turned, the damage tapped, the rest cleaned)', () => {
+    const { sim, clock } = first();
+    expect(sim.coachDone('turbine')).toBe(false);
+    drive(sim, 5, HIGH, clock);
+    expect(sim.coachDone('turbine')).toBe(true);
+    drive(sim, 12, HIGH, clock);
+    expect(sim.openLesions.length).toBeGreaterThan(0);
+    expect(sim.coachDone('lane')).toBe(false);
+    sim.repairNext();
+    expect(sim.coachDone('lane')).toBe(true);
+  });
+
+  it('teaches a player of the first version again (the game changed): the explanations are forgotten, nothing else', () => {
+    const p = migrate({ ...freshProgress(), sessions: 9, divisions: 6, seen: ['lane', 'turbine', 'surge', 'two'], atpTotal: 3000 } as OdnowaProgress);
+    expect(p.seen).toEqual([SEEN_V]);
+    expect(p.divisions).toBe(6);
+    const sim = new OdnowaSim({ progress: p, rng: mulberry32(3), plannedSec: 300, eeg: false, tuning: TUNING });
+    sim.start();
+    expect(sim.slow).toBe(true);
+    expect(sim.story).toBeNull();
+    const evs = drive(sim, 4, HIGH);
+    expect(ofType(evs, 'coach').map(e => e.what)).toContain('turbine');
+  });
+});
+
+describe('what to do now: the line', () => {
+  it('names the action of the moment: energy, the damage, rest, blind, the division, no signal, the end', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    drive(sim, 2, MID, clock);
+    expect(sim.now).toBe('energy');
+    while (!sim.openLesions.some(l => l.t >= RULES.nowDna + 0.1) && clock.t < 40) drive(sim, 0.2, MID, clock);
+    drive(sim, 0.5, MID, clock);
+    expect(sim.now).toBe('dna');
+    until(sim, 'rest', MID, clock);
+    drive(sim, 0.1, CALM, clock);
+    expect(sim.now).toBe('rest');
+    drive(sim, RULES.noSignal + 0.5, NONE, clock);
+    expect(sim.now).toBe('nosignal');
+    const blind = later({ progress: { sessions: 4, pushes: 2 } });
+    const c2 = { t: 0 };
+    const kinds = new Set<NowKind>();
+    drive(blind, 300, HIGH, c2, () => { tapAll(blind)(); if (blind.blind) kinds.add(blind.now); });
+    expect(kinds.has('blind')).toBe(true);
+    expect(blind.now).toBe('end');
+  });
+
+  it('changes only when the action changes: a quick tapper never sees the damage prompt, a change holds 2.5 s', () => {
+    const quick = later();
+    const seen = new Set<NowKind>();
+    drive(quick, 25, MID, { t: 0 }, () => { tapAll(quick)(); seen.add(quick.now); });
+    expect(seen.has('dna')).toBe(false);
+    const slow = later();
+    const clock = { t: 0 };
+    let changes: { kind: NowKind; t: number }[] = [];
+    drive(slow, 26, MID, clock, tt => {
+      for (const e of slow.take()) if (e.type === 'now') changes.push({ kind: e.kind, t: tt });
+      // tap 2 s after a lesion appears
+      for (const l of slow.openLesions) if (l.t > 2) slow.tapLane(l.u);
+    });
+    changes = changes.filter(c => c.kind === 'dna' || c.kind === 'energy');
+    for (let i = 1; i < changes.length; i++) expect(changes[i].t - changes[i - 1].t).toBeGreaterThanOrEqual(RULES.nowHold - 0.05);
+    expect(changes.some(c => c.kind === 'dna')).toBe(true);
+  });
+
+  it('has the line in every language, short, with clicks for a mouse and taps for a finger', () => {
+    const KINDS: NowKind[] = ['wait', 'energy', 'dna', 'rest', 'blind', 'check', 'divide', 'nosignal', 'end'];
+    const TAP: Record<string, RegExp> = { pl: /stuk/i, en: /\btap/i, de: /tipp/i, sv: /\btryck/i };
+    for (const l of LANGS) {
+      const cat = CATALOGS[l] as Record<string, string>;
+      for (const k of KINDS) {
+        for (const touch of [true, false]) {
+          const s = cat[nowKey(k, touch)];
+          expect(s, `${l}.${nowKey(k, touch)}`).toBeTruthy();
+          expect(s.length, `${l}.${k}`).toBeLessThanOrEqual(56);
+          if (!touch) expect(s, `${l}.${k}`).not.toMatch(TAP[l]);
+        }
+      }
+      expect(cat['now.dna'], l).toMatch(TAP[l]);
+      expect(cat['now.dna.mouse'], l).toMatch(/klik|click|klick/i);
+    }
+  });
+});
+
+describe('reading time: captions stay long enough to read twice', () => {
+  it('gives a caption 2.5 s + 70 ms a character, never under 4.5 s', () => {
+    expect(readSec('')).toBe(4.5);
+    expect(readSec('x'.repeat(10))).toBe(4.5);
+    expect(readSec('x'.repeat(60))).toBeCloseTo(2.5 + 0.07 * 60, 6);
+    expect(readSec('x'.repeat(90))).toBeCloseTo(8.8, 6);
+  });
+
+  it('keeps each of Mito’s lines on screen its reading time, waiting (never cut) while a coach mark is up', () => {
+    const talk = new Talk(lines(), mulberry32(2));
+    talk.ask('push', 2, 10);
+    talk.update(0.1, 0.1, false);
+    const line = talk.line!;
+    expect(line.dur).toBeCloseTo(readSec(line.text), 6);
+    let t = 0.1;
+    for (; t < line.dur - 0.5; t += 0.1) talk.update(0.1, t, false);
+    // a coach mark comes: the line waits, its clock stops
+    for (let i = 0; i < 50; i++) talk.update(0.1, (t += 0.1), true, false);
+    expect(talk.line?.text).toBe(line.text);
+    for (let i = 0; i < 8; i++) talk.update(0.1, (t += 0.1), false);
+    expect(talk.line).toBeNull();
+    // a card over everything cuts it
+    talk.ask('rest', 2, 10);
+    talk.update(2, (t += 2), false);
+    expect(talk.line).not.toBeNull();
+    talk.update(0.1, (t += 0.1), true, true);
+    expect(talk.line).toBeNull();
+  });
+
+  it('shows the coach marks for their reading time; the first tap’s stays until the player taps', () => {
+    const { game, hints } = playGame();
+    let clock = 0;
+    const tick = (sec: number, f: FocusFrame) => { for (let i = 0; i < Math.round(sec / STEP); i++) game.update(STEP, f, (clock += STEP)); };
+    tick(0.8, HIGH);
+    game.pointer!({ type: 'down', x: 180, y: 300, id: 1 });
+    tick(20, HIGH);
+    const shown = hints.filter(h => h.text);
+    expect(shown.length).toBeGreaterThanOrEqual(2);
+    for (const h of shown) expect(h.ms, h.text).toBeGreaterThanOrEqual(readSec(h.text) * 1000 - 1);
+    const lane = coachText('lane', true);
+    tick(20, HIGH);
+    const laneAt = hints.findIndex(h => h.text === lane);
+    expect(laneAt).toBeGreaterThanOrEqual(0);
+    // no tap yet: the mark stays (nothing hid it)
+    expect(hints.slice(laneAt + 1).some(h => h.text === '')).toBe(false);
+    // a tap anywhere sends the crew; after its reading time the mark goes
+    game.pointer!({ type: 'down', x: 180, y: 300, id: 2 });
+    tick(readSec(lane) + 0.5, HIGH);
+    expect(hints.slice(laneAt + 1).some(h => h.text === '')).toBe(true);
+    game.destroy();
+  });
+});
+
+/** The whole game on a fake runner (no canvas, no sound): a first session on a small phone. */
+function playGame(touch = true) {
+  const hints: { text: string; ms: number }[] = [];
+  const canvas = { getContext: () => null, addEventListener() {}, removeEventListener() {}, style: {} } as unknown as HTMLCanvasElement;
+  const audio = { on: false, pad() {}, tone() {}, bell() {}, noiseBurst() {}, combo() {} } as unknown as ArcadeAudio;
+  const ins = CHECK_SIZES[0].insets;
+  const env: GameEnv<OdnowaProgress> = {
+    canvas, hud: {} as HTMLElement, audio, progress: migrate({ ...freshProgress(), song: false }), rng: mulberry32(5), day: '2026-11-17', daySeed: 1,
+    plannedSec: 300, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false, tuning: TUNING,
+    hint: (text, _at, ms = 3500) => { hints.push({ text, ms }); }, hudTop: () => ins.top, insets: () => ins, touch,
+  };
+  const game = mod.create(env);
+  game.resize(CHECK_SIZES[0].w, CHECK_SIZES[0].h, 1);
+  game.start();
+  return { game, hints, env };
+}
+
+describe('the session', () => {
+  it('scores with the smoke test’s crude input (a centre tap every 0.65 s, Space every ~2 s, focus on) within 22 s', () => {
+    for (const planned of [40, 300]) {
+      const sim = makeSim({ tuning: BEGINNER, planned });
+      let next = 0.65, space = 1.95;
+      drive(sim, 22, HIGH, { t: 0 }, tt => {
+        if (tt >= next) {
+          next += 0.65;
+          if (!sim.tap()) sim.repairNext();
+        }
+        if (tt >= space) {
+          space += 1.95;
+          sim.key(' ', true);
+          sim.key(' ', false);
+        }
+      });
+      expect(sim.result().score, String(planned)).toBeGreaterThan(0);
+      expect(sim.atp).toBeGreaterThan(20);
+      expect(sim.repairsNow).toBeGreaterThan(0);
+    }
+  });
+
+  it('scores within 22 s with no input at all, focused (the opening card closes by itself)', () => {
     const sim = makeSim();
     drive(sim, 22, HIGH);
+    expect(sim.story).toBeNull();
     expect(sim.atp).toBeGreaterThan(0);
-  });
-
-  it('opens the first session with the story card and teaches with coach marks, one at a time', () => {
-    const sim = makeSim();
-    expect(sim.story?.kind).toBe('open');
-    expect(sim.block.kind).toBe('warmup');
-    const evs = drive(sim, 60, MID, { t: 0 }, () => { if (sim.story && sim.story.t > 1) sim.tap(); });
-    const coach = ofType(evs, 'coach').map(e => e.what);
-    expect(coach).toContain('lane');
-    expect(coach).toContain('turbine');
-    expect(coach).toContain('recipe');
-    expect(new Set(coach).size).toBe(coach.length);
   });
 
   it('gives result() idempotently and keeps records with Math.max', () => {
@@ -527,7 +766,7 @@ describe('the session', () => {
 
   it('hides the gauge in a blind push and without a signal, shows calm in a rest', () => {
     const sim = later();
-    drive(sim, 8, NONE);
+    drive(sim, 4, NONE);
     expect(sim.meter()).toBeNull();
     drive(sim, 2, HIGH);
     expect(sim.meter()).not.toBeNull();
@@ -535,9 +774,8 @@ describe('the session', () => {
     drive(sim, 3, CALM, clock);
     expect(sim.meter()).toBeGreaterThan(0.5);
     const blind = later({ progress: { sessions: 4, pushes: 2 } });
-    const c2 = { t: 0 };
     let hidden = true, sawBlind = false;
-    drive(blind, 300, HIGH, c2, () => {
+    drive(blind, 300, HIGH, { t: 0 }, () => {
       if (blind.blind) {
         sawBlind = true;
         if (blind.meter() !== null || blind.songLevel(HIGH) !== null || blind.padLevel(HIGH) !== null) hidden = false;
@@ -545,16 +783,6 @@ describe('the session', () => {
     });
     expect(sawBlind).toBe(true);
     expect(hidden).toBe(true);
-  });
-
-  it('a blind push tells its share at the end and charges the full power with it', () => {
-    const sim = later({ progress: { sessions: 4, pushes: 2 } });
-    const clock = { t: 0 };
-    const evs = drive(sim, 300, HIGH, clock);
-    const ends = ofType(evs, 'blindEnd');
-    expect(ends.length).toBeGreaterThan(0);
-    expect(ends[0].share).toBeGreaterThan(0.5);
-    expect(sim.blindShare).toBeGreaterThan(50);
   });
 
   it('closes with a passage that exists, fitting what happened', () => {
@@ -580,19 +808,40 @@ describe('the session', () => {
     expect(r.highlights.length).toBeGreaterThan(0);
   });
 
-  it('lets Mito speak one message at a time: never over a card of the view or a new cell’s toast', () => {
+  it('lets Mito speak one message at a time: never over a coach mark, a card of the view or a new cell’s toast', () => {
     const sim = later();
+    const clock = { t: 0 };
     sim.holdTalk = true;
-    drive(sim, 12, MID);
+    drive(sim, 10, MID, clock);
     expect(sim.talk.said).toEqual([]);
     sim.holdTalk = false;
-    drive(sim, 4, MID);
+    sim.hintUp = true;
+    drive(sim, 5, MID, clock);
+    expect(sim.talk.said).toEqual([]);
+    sim.hintUp = false;
+    sim.hintQueued = true;
+    drive(sim, 3, MID, clock);
+    expect(sim.talk.said).toEqual([]);
+    sim.hintQueued = false;
+    // a held focus turns the turbine gold: Mito says so
+    drive(sim, 5, HIGH, clock);
     expect(sim.talk.said.length).toBeGreaterThan(0);
-    // a quiet stretch earns a fact (queued while nothing else is said)
-    const quiet = later();
-    quiet.holdTalk = true;
-    drive(quiet, 17, NONE);
-    expect(quiet.talk.has('fact')).toBe(true);
+  });
+
+  it('answers a tap on Mito with what to do now, in his words', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    drive(sim, 12, MID, clock);
+    sim.talk.clear();
+    sim.askHelp();
+    drive(sim, 0.2, MID, clock);
+    const help = lines()[sim.now === 'dna' ? 'help.dna' : 'help.energy'];
+    expect(help).toContain(sim.talk.line?.text);
+    until(sim, 'rest', MID, clock);
+    drive(sim, RULES.bannerSec + 0.5, CALM, clock);
+    sim.askHelp();
+    drive(sim, 0.2, CALM, clock);
+    expect(lines()['help.rest']).toContain(sim.talk.line?.text);
   });
 
   it('meets Wiedza cards in play, once each', () => {
@@ -600,7 +849,7 @@ describe('the session', () => {
     const evs = drive(sim, 300, () => (sim.restBlock ? CALM : HIGH), { t: 0 }, tapAll(sim));
     const ids = ofType(evs, 'card').map(e => e.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ['turbine', 'lesions', 'ber', 'autophagy', 'turnover', 'skin'] as const) expect(ids, id).toContain(id);
+    for (const id of ['turbine', 'lesions', 'ber', 'autophagy', 'turnover', 'skin', 'speed'] as const) expect(ids, id).toContain(id);
     expect(sim.p.cards.length).toBe(ids.length);
   });
 });
@@ -654,21 +903,32 @@ describe('the meta', () => {
 
   it('keeps a progress pace in a fair band over a week of 5-minute sessions (simulated play)', () => {
     const p = migrate(freshProgress());
+    const rnd = mulberry32(77);
     for (let s = 0; s < 7; s++) {
       const sim = new OdnowaSim({ progress: p, rng: mulberry32(100 + s), plannedSec: 300, eeg: false, tuning: TUNING });
       sim.start();
-      drive(sim, 310, t => (sim.restBlock ? (t % 7 < 4 ? CALM : MID) : t % 9 < 5 ? HIGH : MID), { t: 0 }, () => {
+      // focus about two thirds of a push, calm most of a rest, a lesion tapped within a few seconds
+      drive(sim, 310, tt => (sim.restBlock ? (tt % 7 < 5 ? CALM : LOW) : tt % 9 < 6 ? HIGH : LOW), { t: 0 }, () => {
         if (sim.story) sim.tap();
-        if (sim.openLesions.length && Math.random() < 0.05) sim.repairNext();
+        if (sim.openLesions.length && rnd() < 0.02) sim.repairNext();
       });
       sim.finish();
     }
     // a week: a dozen or more cells, two niches open, a first trait or two
-    expect(p.divisions).toBeGreaterThanOrEqual(8);
+    expect(p.divisions).toBeGreaterThanOrEqual(10);
     expect(p.divisions).toBeLessThanOrEqual(40);
     expect(nicheOpen(p, 'skin')).toBe(true);
     expect(mitoLevel(p) + enzymeLevel(p) + lysoLevel(p)).toBeGreaterThanOrEqual(2);
     expect(p.cards.length).toBeGreaterThanOrEqual(12);
+  });
+
+  it('makes no division at all without focus (the hands and the calm alone are not enough)', () => {
+    const sim = later({ planned: 600 });
+    drive(sim, 600, () => (sim.restBlock ? CALM : LOW), { t: 0 }, tapAll(sim));
+    expect(sim.atp).toBe(0);
+    expect(sim.divisionsNow).toBe(0);
+    expect(sim.repairsNow).toBeGreaterThan(0);
+    expect(sim.material).toBeGreaterThan(0);
   });
 });
 
@@ -690,7 +950,7 @@ describe('old saves', () => {
   it('repairs fields of a wrong type', () => {
     const saved = {
       ver: 1, sessions: '3', pushes: 9, atpTotal: 5000.7, repairs: -4, recycled: 'x', divisions: 2, tissue: { gut: 5, skin: 'no' },
-      log: { oxo: 3, nope: 9 }, cards: ['turbine', 'ghost', 'turbine', 7], seen: ['lane', 3], best: { '300': 420, x: 9, '600': 'y' },
+      log: { oxo: 3, nope: 9 }, cards: ['turbine', 'ghost', 'turbine', 7], seen: [SEEN_V, 'lane', 3], best: { '300': 420, x: 9, '600': 'y' },
       bestCombo: 99, niche: 'liver', lastNiche: 'skin', song: 'yes', lyrics: false,
     };
     const p = migrate(mergeSaved(freshProgress(), saved) as OdnowaProgress);
@@ -702,7 +962,7 @@ describe('old saves', () => {
     expect(p.divisions).toBe(5);
     expect(p.log.oxo).toBe(3);
     expect(p.cards).toEqual(['turbine']);
-    expect(p.seen).toEqual(['lane']);
+    expect(p.seen).toEqual([SEEN_V, 'lane']);
     expect(p.best).toEqual({ '300': 420 });
     expect(p.bestCombo).toBe(RULES.comboMax);
     expect(p.niche).toBe('auto');
@@ -729,10 +989,9 @@ describe('the words', () => {
     expect(catalogProblems(CATALOGS)).toEqual([]);
   });
 
-  it('gives Mito at least three lines a moment, each fitting a bubble (90 characters)', () => {
-    for (const m of MOMENTS) expect(LINE_COUNT[m], m).toBeGreaterThanOrEqual(3);
-    for (const [k, v] of Object.entries(CATALOGS.pl)) if (k.startsWith('say.')) expect(typeof v === 'string' && v.length <= 90, k).toBe(true);
-    for (const l of ['en', 'de', 'sv'] as const) {
+  it('gives Mito at least two lines a moment (three for the frequent ones), each fitting a bubble (90 characters)', () => {
+    for (const m of MOMENTS) expect(LINE_COUNT[m], m).toBeGreaterThanOrEqual(m.startsWith('help.') ? 2 : 3);
+    for (const l of LANGS) {
       for (const [k, v] of Object.entries(CATALOGS[l])) if (k.startsWith('say.')) expect((v as string).length, `${l}.${k}`).toBeLessThanOrEqual(90);
     }
     const all = lines();
@@ -752,7 +1011,7 @@ describe('the words', () => {
   });
 
   it('suggests strategies, never to concentrate harder', () => {
-    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+    for (const l of LANGS) {
       for (const [k, v] of Object.entries(CATALOGS[l])) {
         if (!/^(tip|how)\./.test(k) || typeof v !== 'string') continue;
         expect(v, `${l}.${k}`).not.toMatch(/mocniej|bardziej się skup|harder|concentrate more|stärker|mehr konzentrier|hårdare|koncentrera dig mer/i);
@@ -760,9 +1019,10 @@ describe('the words', () => {
     }
   });
 
-  it('never promises healing: the how-to’s last tip says it plainly in every language', () => {
-    for (const l of ['pl', 'en', 'de', 'sv'] as const) expect(CATALOGS[l]['how.tip2']).toMatch(/leczenia|treatment|Behandlung|vård/);
-    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+  it('never promises healing; the how-to’s last tip says the band measures attention and it is no treatment', () => {
+    for (const l of LANGS) {
+      expect(CATALOGS[l]['how.tip2'], l).toMatch(/leczenia|treatment|Behandlung|vård/);
+      expect(CATALOGS[l]['how.tip2'], l).toMatch(/uwag|attention|Aufmerksamkeit|uppmärksamhet/);
       for (const [k, v] of Object.entries(CATALOGS[l])) {
         for (const s of typeof v === 'string' ? [v] : Object.values(v)) expect(s, `${l}.${k}`).not.toMatch(/uleczy|wyleczy|heals you|cures|heilt dich|botar/i);
       }
@@ -770,17 +1030,16 @@ describe('the words', () => {
   });
 
   it('keeps a no-break space between a number and its unit, and before % in German and Swedish', () => {
-    expect(atpText(120)).toBe('120\u00a0ATP');
+    expect(atpText(120)).toBe('120 ATP');
     expect(unit(5)).toBe('ATP');
     for (const l of ['de', 'sv'] as const) {
       for (const [k, v] of Object.entries(CATALOGS[l])) {
-        for (const s of typeof v === 'string' ? [v] : Object.values(v)) expect(s, `${l}.${k}`).not.toMatch(/\d\u0020%|\}\u0020%/);
+        for (const s of typeof v === 'string' ? [v] : Object.values(v)) expect(s, `${l}.${k}`).not.toMatch(/\d %|\} ?%/);
       }
     }
-    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+    for (const l of LANGS) {
       for (const [k, v] of Object.entries(CATALOGS[l])) {
-        if (!k.startsWith('card.')) continue;
-        expect(v as string, `${l}.${k}`).not.toMatch(/\d\u0020(dni|days|Tage|dagar|mV|min|ATP)\b/);
+        for (const s of typeof v === 'string' ? [v] : Object.values(v)) expect(s, `${l}.${k}`).not.toMatch(/(\d|\}) (dni|days|Tage|dagar|mV|min|ATP|s)\b/);
       }
     }
   });
@@ -789,9 +1048,16 @@ describe('the words', () => {
     expect(CARD_IDS.length).toBeGreaterThanOrEqual(20);
     for (const c of CARDS) {
       expect(c.src.length, c.id).toBeGreaterThan(8);
-      for (const part of ['title', 'num', 'text'] as const) expect(t(`card.${c.id}.${part}` as 'card.turbine.title').length, `${c.id}.${part}`).toBeGreaterThan(2);
+      for (const part of ['title', 'num', 'text'] as const) expect(t(`card.${c.id}.${part}` as Key).length, `${c.id}.${part}`).toBeGreaterThan(2);
     }
-    for (const n of NICHES) expect(t(`niche.${n}` as 'niche.gut')).not.toBe(`niche.${n}`);
+    for (const n of NICHES) expect(t(`niche.${n}` as Key)).not.toBe(`niche.${n}`);
+  });
+
+  it('says plain words first and the biochemistry second, small: the turbine, the crew, the clean-up', () => {
+    expect(t('coach.turbine')).toMatch(/^To turbina komórki \(syntaza ATP\)/);
+    expect(t('lane.crew', { step: 'ligaza' })).toBe('ekipa naprawcza · ligaza');
+    expect(t('coach.rest')).toMatch(/sprząta stare części \(autofagia\)/);
+    for (let i = 0; i < 4; i++) expect(t(`mit.${i}` as Key)).toMatch(/^[a-zżźćńółęąś ]+ \([a-z]+\)$/);
   });
 });
 
@@ -816,13 +1082,11 @@ describe('the song', () => {
 
   it('follows the band in a sighted push, holds in a blind one, stays gentle in a rest', () => {
     const sim = later();
-    drive(sim, 2, HIGH);
-    expect(sim.songLevel(HIGH)).toBeCloseTo(0.42, 5);
-    drive(sim, 8, HIGH);
-    expect(sim.songLevel(HIGH)!).toBeGreaterThan(0.7);
+    drive(sim, 10, HIGH);
+    expect(sim.songLevel(HIGH)).toBeGreaterThan(0.7);
     expect(sim.songLevel(NONE)).toBeNull();
     const clock = until(sim, 'rest', HIGH);
-    drive(sim, 2, CALM, clock);
+    drive(sim, 1, CALM, clock);
     expect(sim.songLevel(CALM)).toBe(0.3);
   });
 });
@@ -834,13 +1098,36 @@ describe('mobile first (DESIGN §12)', () => {
       for (const card of [false, true]) {
         const ts = tapTargets(L, { card, started: true });
         expect(auditTargets(ts, c.w, c.h, c.insets), `${c.name}${card ? ', the story card' : ''}`).toEqual([]);
-        expect(ts.length).toBe(card ? 1 : 2);
+        expect(ts.length).toBe(1);
       }
       expect(tapTargets(L, { card: false, started: false })).toEqual([]);
     }
   });
 
-  it('puts the lane in the thumb zone of a phone upright and a finger’s worth of the turbine there too', () => {
+  it('keeps the line and the goal under the HUD, above the cell, on every screen', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(c.w, c.h, c.insets, touch);
+        expect(L.now.y, c.name).toBeGreaterThanOrEqual(c.insets.top);
+        expect(L.now.h, c.name).toBeGreaterThanOrEqual(28);
+        expect(L.now.x, c.name).toBeGreaterThanOrEqual(c.insets.left);
+        expect(L.now.x + L.now.w, c.name).toBeLessThanOrEqual(c.w - c.insets.right);
+        expect(L.now.y + L.now.h, c.name).toBeLessThanOrEqual(L.city.y);
+        for (const ch of L.chips) {
+          expect(ch.x, c.name).toBeGreaterThanOrEqual(c.insets.left);
+          expect(ch.x + ch.w, c.name).toBeLessThanOrEqual(c.w - c.insets.right);
+          expect(ch.h, c.name).toBeGreaterThanOrEqual(30);
+          // the goal never sits on the lens or the lane
+          const lensClear = ch.y + ch.h <= L.lens.y - L.lens.r * 1.12 + 1 || ch.x >= L.lens.x + L.lens.r * 1.12 - 1 || ch.x + ch.w <= L.lens.x - L.lens.r * 1.12 + 1;
+          expect(lensClear, `${c.name}: a chip on the lens`).toBe(true);
+          expect(ch.y + ch.h, c.name).toBeLessThanOrEqual(L.lane.y);
+        }
+        if (L.mode === 'tall') expect(L.goalTitle.y, c.name).toBeGreaterThan(L.now.y + L.now.h);
+      }
+    }
+  });
+
+  it('puts the lane in the thumb zone of a phone upright, and keeps the lens big', () => {
     for (const c of CHECK_SIZES.filter(x => x.w < 600 && x.h > x.w)) {
       const L = layout(c.w, c.h, c.insets);
       expect(L.mode, c.name).toBe('tall');
@@ -848,20 +1135,15 @@ describe('mobile first (DESIGN §12)', () => {
       expect(L.lane.y, c.name).toBeGreaterThanOrEqual(zone);
       expect(L.lane.h, c.name).toBeGreaterThanOrEqual(84);
       expect(L.lane.y + L.lane.h, c.name).toBeLessThanOrEqual(c.h - c.insets.bottom);
-      expect(L.lensHit.y + L.lensHit.h, c.name).toBeGreaterThanOrEqual(zone + MIN_TAP);
-      // the lane keeps off the side edges; the lens is big
       expect(L.lane.x, c.name).toBeGreaterThanOrEqual(c.insets.left + 8);
-      expect(L.lens.r, c.name).toBeGreaterThanOrEqual(80);
-      // passive words under the HUD: the lyric and the chips, above the city
-      expect(L.lyric.y).toBeGreaterThanOrEqual(c.insets.top);
-      for (const ch of L.chips) expect(ch.y + ch.h, c.name).toBeLessThanOrEqual(L.city.y);
-      // the lens and its gauge clear the lane and the chips
+      expect(L.lens.r, c.name).toBeGreaterThanOrEqual(72);
       expect(L.lens.y + L.lens.r * 1.12, c.name).toBeLessThanOrEqual(L.lane.y);
-      expect(L.lens.y - L.lens.r * 1.12, c.name).toBeGreaterThanOrEqual(L.chips[0].y + L.chips[0].h - 2);
+      expect(L.lens.y - L.lens.r * 1.12, c.name).toBeGreaterThanOrEqual(L.city.y - 1);
+      expect(L.chipStyle).toBe('compact');
     }
   });
 
-  it('keeps Mito, the lysosomes and the worn parts’ spots off the lens and inside the city', () => {
+  it('keeps Mito, the lysosomes and the worn parts’ spots off the lens and inside the cell', () => {
     for (const c of CHECK_SIZES) {
       const L = layout(c.w, c.h, c.insets);
       for (const p of [L.mito, ...L.lysos]) {
@@ -873,35 +1155,41 @@ describe('mobile first (DESIGN §12)', () => {
         expect(Math.hypot(s.x - L.lens.x, s.y - L.lens.y), c.name).toBeGreaterThanOrEqual(L.lens.r);
         expect(s.x, c.name).toBeGreaterThan(c.insets.left);
         expect(s.x, c.name).toBeLessThan(c.w - c.insets.right);
+        expect(s.y, c.name).toBeGreaterThan(L.city.y);
+        expect(s.y, c.name).toBeLessThan(L.lane.y);
       }
     }
   });
 
-  it('keeps the clean-up clear of the chips on every screen', () => {
+  it('keeps the clean-up clear of the goal on every screen', () => {
     for (const c of CHECK_SIZES) {
-      const L = layout(c.w, c.h, c.insets);
-      const s = Math.max(14, L.mito.r * 1.05) * 1.4;
-      for (const p of [...L.spots, ...L.lysos]) {
-        for (const ch of L.chips) {
-          const clear = p.x + s < ch.x || p.x - s > ch.x + ch.w || p.y - s * 0.8 > ch.y + ch.h || p.y + s < ch.y;
-          expect(clear, `${c.name}: ${Math.round(p.x)},${Math.round(p.y)} vs chip ${Math.round(ch.x)},${Math.round(ch.y)}`).toBe(true);
+      for (const touch of [true, false]) {
+        const L = layout(c.w, c.h, c.insets, touch);
+        const s = Math.max(14, L.mito.r * 1.05) * 1.4;
+        for (const p of [...L.spots, ...L.lysos]) {
+          for (const ch of [...L.chips, ...(L.outcome ? [L.outcome] : [])]) {
+            const clear = p.x + s < ch.x || p.x - s > ch.x + ch.w || p.y - s * 0.8 > ch.y + ch.h || p.y + s < ch.y;
+            expect(clear, `${c.name}: ${Math.round(p.x)},${Math.round(p.y)} vs ${Math.round(ch.x)},${Math.round(ch.y)}`).toBe(true);
+          }
         }
       }
     }
   });
 
-  it('lays a phone on its side out with the lens left, the chips stacked on the right, the lane along the foot', () => {
+  it('lays a phone on its side out with the lens left, the goal stacked on the right, the lane along the foot', () => {
     for (const c of CHECK_SIZES.filter(x => x.name.startsWith('phone on its side'))) {
       const L = layout(c.w, c.h, c.insets);
       expect(L.mode).toBe('short');
-      expect(L.lens.x).toBeLessThan(L.chips[0].x);
+      expect(L.chipStyle).toBe('line');
+      expect(L.lens.x + L.lens.r * 1.12).toBeLessThanOrEqual(L.chips[0].x + 1);
       expect(L.chips[2].y).toBeGreaterThan(L.chips[0].y);
+      expect(L.goalTitle.y + L.goalTitle.h).toBeLessThanOrEqual(L.chips[0].y);
       expect(L.lane.y + L.lane.h).toBeLessThanOrEqual(c.h - c.insets.bottom);
       expect(L.lens.y + L.lens.r).toBeLessThanOrEqual(L.lane.y);
     }
   });
 
-  it('maps the lane both ways and finds the turbine and the lane under a finger', () => {
+  it('maps the lane both ways and finds the lane under a finger', () => {
     const L = layout(360, 500, CHECK_SIZES[0].insets);
     for (const u of [0, 2.5, 10]) expect(laneU(L, laneX(L, u))).toBeCloseTo(u, 6);
     expect(onLens(L, L.lens.x, L.lens.y)).toBe(true);
@@ -923,9 +1211,14 @@ describe('mobile first (DESIGN §12)', () => {
     expect(touch.hands.map(x => x.gesture)).not.toContain('keys');
     expect(desk.hands.map(x => x.gesture)).toContain('keys');
     expect(touch.tips).toHaveLength(2);
-    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
-      for (const k of ['how.tap', 'how.turbine', 'how.drag', 'coach.lane', 'coach.surge'] as const) expect(CATALOGS[l][k]).not.toMatch(/Spac|Space|Leertaste|mellanslag/i);
+    for (const l of LANGS) {
+      for (const k of ['how.tap', 'how.mito', 'coach.lane', 'now.dna', 'src.dna'] as const) expect(CATALOGS[l][k]).not.toMatch(/Spac|Space|Leertaste|mellanslag/i);
     }
+  });
+
+  it('names the three needs in the order of the bars: energy, DNA repair, building material', () => {
+    expect(NEED_SYS).toEqual(['energy', 'dna', 'clean']);
+    expect([t('need.energy'), t('need.dna'), t('need.mat')]).toEqual(['Energia', 'Naprawa DNA', 'Budulec']);
   });
 });
 
@@ -938,14 +1231,13 @@ describe('a desk: a mouse on a desktop or a big screen (DESIGN §14)', () => {
       const mouse = layout(c.w, c.h, c.insets, false), finger = layout(c.w, c.h, c.insets, true);
       expect(finger.desk, c.name).toBe(false);
       expect(mouse.desk, c.name).toBe(desks.includes(c));
-      // the phones' and the tablet's layouts never change for a mouse
       if (!desks.includes(c)) expect(mouse, c.name).toEqual(finger);
       for (const card of [false, true]) expect(auditTargets(tapTargets(mouse, { card, started: true }), c.w, c.h, c.insets), c.name).toEqual([]);
     }
     expect(desks.length).toBe(5);
   });
 
-  it('grows the engine on a big screen and keeps Mito, the clean-up and the chips clear of it', () => {
+  it('grows the engine on a big screen and keeps Mito, the clean-up and the goal clear of it', () => {
     for (const c of big) {
       const L = layout(c.w, c.h, c.insets, false), old = layout(c.w, c.h, c.insets, true);
       expect(L.u, c.name).toBeGreaterThan(1.3);
@@ -956,53 +1248,51 @@ describe('a desk: a mouse on a desktop or a big screen (DESIGN §14)', () => {
     }
     for (const c of desks) {
       const L = layout(c.w, c.h, c.insets, false);
+      expect(L.chipStyle).toBe('bar');
       for (const p of [L.mito, ...L.lysos]) {
         expect(Math.hypot(p.x - L.lens.x, p.y - L.lens.y), c.name).toBeGreaterThanOrEqual(L.lens.r + p.r * 0.6);
         expect(p.y + p.r, c.name).toBeLessThanOrEqual(L.lane.y);
       }
       for (const sp of L.spots) expect(Math.hypot(sp.x - L.lens.x, sp.y - L.lens.y), c.name).toBeGreaterThanOrEqual(L.lens.r);
-      const sz = Math.max(14, L.mito.r * 1.05) * 1.4;
-      for (const p of [...L.spots, ...L.lysos]) {
-        for (const ch of L.chips) {
-          const clear = p.x + sz < ch.x || p.x - sz > ch.x + ch.w || p.y - sz * 0.8 > ch.y + ch.h || p.y + sz < ch.y;
-          expect(clear, `${c.name}: ${Math.round(p.x)},${Math.round(p.y)}`).toBe(true);
-        }
-      }
       for (const ch of L.chips) expect(ch.x, c.name).toBeGreaterThanOrEqual(L.lens.x + L.lens.r * 1.12 - 1);
+      expect(L.outcome, c.name).not.toBeNull();
+      expect(L.goal.y + L.goal.h, c.name).toBeLessThanOrEqual(L.lane.y);
       // Mito's words have room: his bubble spans the column left of the lens
       expect(L.bubble.maxW, c.name).toBeGreaterThanOrEqual(250);
-      expect(L.bubble.x, c.name).toBeLessThanOrEqual(L.lens.x - L.lens.r * 1.12);
+      expect(L.bubble.x + L.bubble.maxW, c.name).toBeLessThanOrEqual(L.lens.x - L.lens.r * 1.12);
       // a Wiedza card has room to show whole: its sentence and its source
       expect(L.toast.h, c.name).toBeGreaterThanOrEqual(Math.round(118 * L.u) - 1);
       expect(L.toast.y + L.toast.h, c.name).toBeLessThanOrEqual(L.lane.y);
       expect(L.toast.x, c.name).toBeGreaterThanOrEqual(0);
-      expect(L.toast.x + L.toast.w, c.name).toBeLessThanOrEqual(c.w);
-      for (const ch of L.chips) expect(L.toast.x + L.toast.w, `${c.name}: the card under a chip`).toBeLessThanOrEqual(ch.x - 4);
+      for (const ch of L.chips) expect(L.toast.x + L.toast.w, `${c.name}: the card under the goal`).toBeLessThanOrEqual(ch.x - 4);
     }
   });
 
-  it('answers a hovering mouse: the turbine, Mito and the lesion a click on the lane would mend; a finger has no hover', () => {
+  it('answers a hovering mouse: Mito, a need of the goal, the lesion a click on the lane would mend, the turbine; a finger has no hover', () => {
     const sim = later();
     drive(sim, 12, MID);
     const open = sim.openLesions;
     expect(open.length).toBeGreaterThan(0);
     const l = open[0];
-    expect(sim.laneAim(l.u)?.id).toBe(l.id);
-    expect(sim.nextAim()?.id).toBe([...open].sort((a, b) => a.u - b.u)[0].id);
     const c = big[0];
     const canvas = { getContext: () => null } as unknown as HTMLCanvasElement;
     const view = new OdnowaView(canvas, { reducedMotion: false, touch: false });
     view.resize(c.w, c.h, 1, c.insets);
+    view.update(2, sim);
     const L = view.L;
     view.hover = { x: L.lens.x, y: L.lens.y };
     expect(view.overPart(sim).part).toBe('lens');
-    expect(view.cursor(sim)).toBe('pointer');
+    expect(view.cursor(sim)).toBe('default');
     view.hover = { x: L.mito.x, y: L.mito.y };
     expect(view.overPart(sim).part).toBe('mito');
+    expect(view.cursor(sim)).toBe('pointer');
+    view.hover = { x: L.chips[1].x + 10, y: L.chips[1].y + 10 };
+    expect(view.overPart(sim)).toMatchObject({ part: 'chip', id: 1 });
     view.hover = { x: laneX(L, l.u), y: L.laneMid };
     const o = view.overPart(sim);
     expect(o.part).toBe('lesion');
     expect(o.lesion?.kind).toBe(l.kind);
+    expect(view.cursor(sim)).toBe('pointer');
     view.hover = { x: 4, y: L.top + 4 };
     expect(view.cursor(sim)).toBe('default');
     const touchView = new OdnowaView(canvas, { reducedMotion: false, touch: true });
@@ -1011,27 +1301,20 @@ describe('a desk: a mouse on a desktop or a big screen (DESIGN §14)', () => {
     expect(touchView.overPart(sim).part).toBeNull();
   });
 
-  it('speaks to a mouse in clicks: the how-to, the coach marks, Mito and the lobby', () => {
+  it('speaks to a mouse in clicks: the how-to, the coach marks, the line, Mito and the lobby', () => {
     const CLICK = /klik|click|klick/i;
     const TAP: Record<string, RegExp> = { pl: /stuk/i, en: /\btap/i, de: /tipp/i, sv: /\btryck/i };
-    const mito = ['warm.1', 'ready.1', 'ready.2', 'ready.3', 'two.1', 'two.2', 'two.3', 'dsb.1', 'kick.2', 'kick.5'];
+    const mito = ['dsb.1', 'help.dna.1', 'help.dna.2', 'help.check.1'];
     for (const l of LANGS) {
       const cat = CATALOGS[l] as Record<string, unknown>;
-      for (const k of ['how.tap.mouse', 'how.turbine.mouse', 'coach.two.mouse', 'coach.drag.mouse', 'panel.rules.mouse', ...mito.map(m => `say.${m}.mouse`)]) {
+      for (const k of ['how.tap.mouse', 'how.mito.mouse', 'coach.lane.keys', 'now.dna.mouse', 'panel.rules.mouse', 'src.dna.mouse', ...mito.map(m => `say.${m}.mouse`)]) {
         expect(cat[k], `${l}.${k}`).toMatch(CLICK);
         expect(cat[k], `${l}.${k}`).not.toMatch(TAP[l]);
-        if (k.startsWith('say.')) expect((cat[k] as string).length, `${l}.${k}`).toBeLessThanOrEqual(90);
       }
     }
     for (const h of howto(false).hands.filter(x => x.gesture !== 'keys')) expect(h.text).toMatch(CLICK);
-    for (const what of ['two', 'drag'] as const) {
-      expect(coachText(what, false), what).toMatch(CLICK);
-      expect(coachText(what, true), what).not.toMatch(CLICK);
-    }
     const touch = lines(false), mouse = lines(true);
     for (const m of MOMENTS) expect(mouse[m].length, m).toBe(touch[m].length);
-    expect(mouse.ready).toContain(t('say.ready.1.mouse'));
-    expect(touch.ready).not.toContain(t('say.ready.1.mouse'));
     expect(Object.values(mouse).flat().some(x => /stuk/i.test(x))).toBe(false);
   });
 });

@@ -1,35 +1,35 @@
 /**
- * Odnowa's rules without a screen.  Inside one stem cell, each stage of the session is one division, and a
- * division needs three things, the way a real cell does before it divides:
+ * Odnowa's rules without a screen.  Inside one stem cell the player helps the cell renew itself and divide.
+ * A division needs three things, the way a real cell does before it divides — and each comes from one source:
  *
- *   energy       ATP from the mitochondria: the respiratory chain pumps protons across the inner membrane and
- *                the ATP synthase turns on their way back, 8 protons a turn, 3 ATP a turn (Watt et al. 2010).
- *                In a sighted push the band's level drives the gradient (the panel's gauge, its middle the
- *                threshold), the gradient drives the turbine: × 1.8 at the threshold, × 2.6 at full; a held
- *                focus charges Pełna moc (full power: the turbine at × 2.5 and every open lesion mended)
- *   material     building blocks from autophagy: in a rest block worn parts are tagged, wrapped in a
- *                phagophore (calm wraps faster), carried to a lysosome and digested back into material
- *   a checked    the double helix scrolls past the scanner; damage glows on it, a tap sends the real crew
- *   genome       (base excision, nucleotide excision, end joining); an unrepaired lesion stops the helix at the
- *                gate, where the cell's own crew mends it after a while — the scan goes fast on a clean helix
+ *   Energia       ATP from the mitochondrion's turbine (the ATP synthase: 8 protons a turn, 3 ATP a turn, Watt
+ *                 et al. 2010).  It turns only while the player is focused (the band above its threshold), faster
+ *                 the higher the level; a held focus turns it gold and faster still.  No focus, no turn.
+ *   Naprawa DNA   damage glows on the double helix and waits; a tap sends the real repair crew (base excision,
+ *                 nucleotide excision, end joining), which runs every step of its pathway in order.  Each repair
+ *                 fills the bar.
+ *   Budulec       in a rest block worn parts are tagged, wrapped by the phagophore — only as fast as the calm
+ *                 allows — carried to a lysosome and digested back into building material.
  *
- * All three met and no lesion open (the checkpoint) → mitosis; one daughter stays a stem cell, the other
- * joins the player's tissue (the meta).  Nothing is ever lost: without a signal everything runs at its
- * neutral pace, an unrepaired lesion waits for the cell's crew, a full power that is not taken goes by itself.
+ * All three full and no damage open (the checkpoint) → mitosis; one daughter stays a stem cell, the other joins
+ * the player's tissue (the meta).  The first session shows the systems one at a time (energy, then DNA, then the
+ * clean-up, then the division), later sessions in a quick stagger.  A persistent "what to do now" line (`now`)
+ * names the action of the moment.  Nothing is ever lost: without a signal nothing moves.
  * The headline is the ATP made.  No DOM: the view and the sound read the state and the event queue (`take()`).
  */
 import { fmtNum } from '../../i18n';
+import { BREATH_DEFAULT, breathAt, breathRest, type BreathPattern, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp } from '../kit/juice';
-import { inTurn, type PassageId } from '../kit/scripture';
+import { inTurn, passage, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
   CARD_IDS, LESIONS, NICHE, PART, PART_KINDS, TIPS, cellName, lines,
-  type CardId, type LesionKind, type NicheId, type PartKind, type StepId,
+  type CardId, type LesionKind, type Moment, type NicheId, type PartKind, type StepId,
 } from './content';
 import { atpText, t } from './i18n';
 import { bestFor, enzymeLevel, lenKey, lysoLevel, mitoLevel, sessionNiche, type OdnowaProgress, type Trait } from './meta';
-import { RULES, need } from './rules';
+import { RULES, need, readSec } from './rules';
 import { Talk } from './talk';
 
 export { RULES } from './rules';
@@ -38,26 +38,30 @@ export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
 export type Phase = 'play' | 'finale' | 'done';
 
-export type LesionState = 'open' | 'wait' | 'fixing' | 'done';
-export type Crew = 'tap' | 'cell' | 'surge';
+/** The four systems, in the order the first session shows them. */
+export type Sys = 'energy' | 'dna' | 'clean' | 'divide';
+export const SYSTEMS: readonly Sys[] = ['energy', 'dna', 'clean', 'divide'];
+
+/** What the player should do now (the persistent line under the HUD). */
+export type NowKind = 'wait' | 'energy' | 'dna' | 'rest' | 'blind' | 'check' | 'divide' | 'nosignal' | 'end';
+
+export type LesionState = 'open' | 'fixing' | 'done';
+export type Crew = 'tap' | 'cell';
 export interface Lesion {
   id: number;
   kind: LesionKind;
   /** position on the lane (0 = the left edge, RULES.laneU = the right edge) */
   u: number;
   state: LesionState;
-  /** the repair's stage (a two-step repair has two) and the step in it, seconds into that step */
-  stage: number;
+  /** the step of the pathway the crew is at, seconds into that step (negative: the crew is on its way) */
   step: number;
   st: number;
   /** who mends it (set when a crew starts) */
   by: Crew;
-  /** seconds on the lane, seconds since mended, seconds held at the gate */
+  /** seconds open (waiting for a crew), seconds since mended, the cell's own crew's calm-weighted seconds (a rest) */
   t: number;
   done: number;
-  gate: number;
-  /** delay before a surge's crew starts (a cascade) */
-  delay: number;
+  cell: number;
   seed: number;
 }
 
@@ -74,18 +78,20 @@ export interface Part {
   /** seconds since it appeared, seconds since done */
   t: number;
   done: number;
-  /** a finger holds it (the travel waits) */
-  held: boolean;
   seed: number;
 }
 
 export interface Mitosis { t: number; phase: number; niche: NicheId }
 export type StoryKind = 'open';
 export interface Story { kind: StoryKind; t: number; dur: number }
-export interface CellCard { niche: NicheId; n: number; t: number; dur: number; card: CardId | null }
+export interface CellCard { niche: NicheId; n: number; t: number; dur: number }
 
-export type Coach = 'lane' | 'turbine' | 'recipe' | 'gauge' | 'two' | 'rest' | 'drag' | 'surge' | 'check' | 'blind';
-export type CoachAt = { kind: 'lesion'; id: number } | { kind: 'lens' } | { kind: 'part'; id: number } | { kind: 'recipe' } | { kind: 'lane' };
+/** The first-time explanations (coach marks), in the order the first session meets them. */
+export type Coach = 'turbine' | 'energy' | 'lane' | 'repair' | 'rest' | 'divide' | 'ring' | 'check' | 'blind';
+export const COACHES: readonly Coach[] = ['turbine', 'energy', 'lane', 'repair', 'rest', 'divide', 'ring', 'check', 'blind'];
+export type CoachAt =
+  | { kind: 'lesion'; id: number } | { kind: 'lens' } | { kind: 'ring' } | { kind: 'part'; id: number }
+  | { kind: 'chip'; i: 0 | 1 | 2 } | { kind: 'goal' } | { kind: 'lane' };
 
 export type SimEvent =
   | { type: 'blockStart'; block: Block; index: number }
@@ -94,22 +100,17 @@ export type SimEvent =
   | { type: 'finale' }
   | { type: 'done' }
   | { type: 'atp'; src: number }
-  | { type: 'atpUse'; n: number; u: number }
-  | { type: 'kick' }
+  | { type: 'gold' }
   | { type: 'spawn'; id: number; kind: LesionKind }
-  | { type: 'repairStart'; id: number; kind: LesionKind; by: Crew; combo: number; stage: number }
+  | { type: 'repairStart'; id: number; kind: LesionKind; by: Crew }
   | { type: 'repairStep'; id: number; step: StepId }
-  | { type: 'wait'; id: number }
-  | { type: 'repaired'; id: number; kind: LesionKind; by: Crew; combo: number }
-  | { type: 'gate'; id: number }
+  | { type: 'repaired'; id: number; kind: LesionKind; by: Crew }
   | { type: 'miss' }
   | { type: 'part'; id: number; kind: PartKind }
   | { type: 'sealed'; id: number }
-  | { type: 'fuse'; id: number; lyso: number; sent: boolean }
+  | { type: 'fuse'; id: number; lyso: number }
   | { type: 'recycled'; id: number; kind: PartKind; mat: number; lyso: number }
-  | { type: 'ready' }
-  | { type: 'surge' }
-  | { type: 'surgeEnd' }
+  | { type: 'full'; need: 0 | 1 | 2 }
   | { type: 'checkpoint' }
   | { type: 'divide'; stage: number; niche: NicheId }
   | { type: 'mitosis'; phase: number }
@@ -117,7 +118,9 @@ export type SimEvent =
   | { type: 'card'; id: CardId }
   | { type: 'up'; trait: Trait; level: number }
   | { type: 'story'; kind: StoryKind }
-  | { type: 'blindEnd'; share: number }
+  | { type: 'reveal'; sys: Sys }
+  | { type: 'now'; kind: NowKind }
+  | { type: 'blindEnd'; share: number; n: number }
   | { type: 'coach'; what: Coach; at: CoachAt };
 
 const NO_EVENTS: readonly SimEvent[] = [];
@@ -136,11 +139,13 @@ function liftShort(durs: number[], min: number): void {
 export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RULES.finale.long : RULES.finale.short);
 
 /**
- * The session's blocks: a first-ever session opens with a warm-up that teaches the hands (30 s in 5 and
- * 10 min, 20 s in 3, 6 s in a 40 s test), then pushes and rests (26 ± 4 s and 22 ± 3 s, scaled to end on
- * time, jittered when there is room) ending with a rest, then the last stretch.  No block under 12 s.
+ * The session's blocks: a first-ever session opens with a warm-up that shows the turbine (30 s in 5 and 10 min,
+ * 20 s in 3, 6 s in a 40 s test), then pushes and rests ending with a rest, then the last stretch.  A rest is a
+ * whole number of breaths (kit/breath: 4 in, 6 out — two breaths, 20 s, or three, 30 s; the founder's rule for
+ * the meditations); the pushes take the rest of the time, 26 ± 4 s jittered, never under 12 s.  Sessions of a
+ * minute and less (a test) keep plain halves.
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, breath: BreathPattern = BREATH_DEFAULT): Block[] {
   const R = RULES;
   const fin = finaleFor(plannedSec);
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
@@ -160,33 +165,50 @@ export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => nu
     plan.push(b('warmup', warm));
     left -= warm;
   }
-  const pair = R.push[0] + R.rest[0];
-  const pairs = Math.max(1, Math.round(left / pair));
-  const jitter = pairs >= 2 && left / (pairs * pair) >= 0.85 ? 1 : 0;
-  const durs: number[] = [];
-  for (let i = 0; i < pairs; i++) durs.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1], R.rest[0] + jitter * (rnd() * 2 - 1) * R.rest[1]);
-  const scale = left / durs.reduce((s, d) => s + d, 0);
-  for (let i = 0; i < durs.length; i++) durs[i] *= scale;
-  liftShort(durs, R.minBlock);
-  durs.forEach((dur, i) => plan.push(b(i % 2 ? 'rest' : 'push', dur)));
+  const restMean = breathRest(breath, R.rest[0], R.minBlock).sec;
+  const pairs = Math.max(1, Math.round(left / (R.push[0] + restMean)));
+  const jitter = pairs >= 2 ? 1 : 0;
+  const rests: number[] = [];
+  for (let i = 0; i < pairs; i++) rests.push(breathRest(breath, R.rest[0] + jitter * (rnd() * 2 - 1) * R.rest[1], R.minBlock).sec);
+  // the pushes fill what the rests leave (a long rest gives back a breath when the pushes would be too short)
+  for (let i = rests.length - 1; i >= 0 && left - rests.reduce((s, d) => s + d, 0) < pairs * R.minBlock; i--) {
+    const one = breathRest(breath, 0, R.minBlock).sec;
+    rests[i] = Math.max(one, rests[i] - (rests[i] - one));
+  }
+  const pushLeft = Math.max(pairs * R.minBlock, left - rests.reduce((s, d) => s + d, 0));
+  const pushes: number[] = [];
+  for (let i = 0; i < pairs; i++) pushes.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1]);
+  const scale = pushLeft / pushes.reduce((s, d) => s + d, 0);
+  for (let i = 0; i < pushes.length; i++) pushes[i] *= scale;
+  // the jitter never takes a push past 30 s while their mean allows it (a block of 20–30 s, §2)
+  const mean = pushLeft / pairs, top = R.push[0] + R.push[1], over = Math.max(...pushes) - mean;
+  if (mean <= top && over > top - mean) for (let i = 0; i < pushes.length; i++) pushes[i] = mean + (pushes[i] - mean) * ((top - mean) / over);
+  liftShort(pushes, R.minBlock);
+  for (let i = 0; i < pairs; i++) plan.push(b('push', pushes[i]), b('rest', rests[i]));
   return plan;
 }
 
-/** A division's recipe at a stage: ATP made, building material, genome scanned (units). */
-export function recipe(stage: number): { atp: number; mat: number; scan: number } {
-  return { atp: need(RULES.atpNeed, stage, true), mat: need(RULES.matNeed, stage, false), scan: need(RULES.scanNeed, stage, false) };
+/** A division's three needs at a stage: ATP made, DNA repairs, building material. */
+export function needs(stage: number): { atp: number; dna: number; mat: number } {
+  return { atp: need(RULES.atpNeed, stage, true), dna: need(RULES.dnaNeed, stage, false), mat: need(RULES.matNeed, stage, false) };
 }
 
-/** The turbine's turns a second from the gradient (0..1). */
-export const spinOf = (grad: number): number => RULES.spinBase + RULES.spinK * clamp(grad);
+/**
+ * The turbine's drive (0..1) from the band: nothing without a signal or without focus; while focused,
+ * `driveMin` at the threshold growing to 1 at level 0.5 + `driveSpan` — the more focus, the faster.
+ */
+export function driveOf(f: Pick<FocusFrame, 'reliable' | 'focused' | 'level'>): number {
+  if (!f.reliable || !f.focused) return 0;
+  return RULES.driveMin + (1 - RULES.driveMin) * clamp((f.level - 0.5) / RULES.driveSpan);
+}
 
-/** The gradient from the gauge (the band's level, 0..1): the neutral floor, never below it — a low reading is never a loss. */
-export const gradOf = (gauge: number): number => RULES.gradNeutral + (1 - RULES.gradNeutral) * clamp(gauge);
+/** The turbine's turns a second from its drive and its gold (a held focus). */
+export const spinOf = (drive: number, gold = 0): number => RULES.spinMax * clamp(drive) * (1 + RULES.goldK * clamp(gold));
 
-/** The seconds of one repair step: the enzymes' level and the gradient speed it, the cell's own crew is slower, a surge's fast. */
-export function stepSec(enzymes: number, grad: number, by: Crew): number {
-  const base = RULES.step * RULES.enzymeK ** Math.max(0, enzymes) / (RULES.stepFocus[0] + RULES.stepFocus[1] * clamp(grad));
-  return by === 'cell' ? base * 1.6 : by === 'surge' ? base * 0.45 : base;
+/** The seconds of one repair step: the enzymes' level speeds it, a double-strand break is slower, the cell's own crew too. */
+export function stepSec(enzymes: number, kind: LesionKind, by: Crew): number {
+  const base = RULES.step * RULES.enzymeK ** Math.max(0, enzymes) * (kind === 'dsb' ? RULES.dsbK : 1);
+  return by === 'cell' ? base * 1.4 : base;
 }
 
 /** A weighted pick from `w` (keys with weight > 0). */
@@ -200,6 +222,12 @@ function weighted<K extends string>(w: Readonly<Partial<Record<K, number>>>, rnd
   }
   return keys[keys.length - 1];
 }
+
+/** The help Mito gives when tapped, by the action of the moment. */
+const HELP: Readonly<Record<NowKind, Moment>> = {
+  wait: 'help.energy', energy: 'help.energy', dna: 'help.dna', rest: 'help.rest', blind: 'help.blind', check: 'help.check',
+  divide: 'help.divide', nosignal: 'nosignal', end: 'help.end',
+};
 
 // ── the session ──────────────────────────────────────────────────
 export interface SimInit {
@@ -223,13 +251,14 @@ export class OdnowaSim {
   readonly talk: Talk;
   private readonly events: SimEvent[] = [];
   readonly eeg: boolean;
-  private readonly lead: number;
   private readonly holdNeed: number;
-  private readonly restLead: number;
   readonly finaleSec: number;
   readonly session: number;
   readonly niche: NicheId;
   readonly plan: Block[];
+  readonly breath: BreathPattern = BREATH_DEFAULT;
+  /** the first session's slow reveal (one system at a time, each with its coach mark) */
+  readonly slow: boolean;
 
   started = false;
   phase: Phase = 'play';
@@ -242,50 +271,53 @@ export class OdnowaSim {
   cellCard: CellCard | null = null;
   /** hit-stop (s left): the world holds for a beat on a big moment */
   stop = 0;
-  /** the view shows a card of its own (a Wiedza toast): Mito waits with his next line */
+  /** the view shows a card of its own (a Wiedza card): Mito waits with his next line */
   holdTalk = false;
+  /** a coach mark is on screen (the index says so): Mito's line waits; and one is queued: Mito starts no new line */
+  hintUp = false;
+  hintQueued = false;
+
+  // the reveal and the line
+  private readonly shownAt: Record<Sys, number | null> = { energy: null, dna: null, clean: null, divide: null };
+  now: NowKind = 'wait';
+  nowT = 0;
 
   // the band
   reliable = false;
   level = 0;
   calm = 0;
   calmShown = 0;
-  /** the gauge: the band's eased level in a sighted push (0..1, 0.5 at the threshold) */
+  /** the gauge: the band's eased level (0..1, 0.5 at the threshold) */
   gauge = 0;
-  /** the proton gradient (0..1) that turns the turbine */
-  grad: number = RULES.gradNeutral;
   maxHold = 0;
-  private goodT = 0;
-  private goodSaid = false;
+  private unreliableT = 0;
   private relSec = 0;
   private pushTips = 0;
+  private nosignalSaid = -99;
 
-  // the engine
+  // energy
+  /** the turbine's drive (0..1, eased) — protons crowd with it */
+  drive = 0;
+  /** a held focus: 0..1 (the turbine's gold) */
+  gold = 0;
+  private goldSaid = false;
   /** the turbine's angle (turns) and its spin (turns per second) */
   angle = 0;
-  spin: number = spinOf(RULES.gradNeutral);
-  private kickLeft = 0;
-  private kickCool = 0;
-  kicks = 0;
+  spin = 0;
   private extraAcc = 0;
-  /** the full power: charge 0..1, ready, seconds left */
-  charge = 0;
-  ready = false;
-  surge = 0;
-  private readyT = 0;
+  /** a blind push's ATP, shown when it ends */
+  bank = 0;
 
-  // the lane
+  // DNA
   readonly lesions: Lesion[] = [];
-  /** the scan's total travel (units) and its speed now (units/s) */
+  /** the helix's scroll (units) and its speed now */
   scanned = 0;
   scanV = 0;
-  private nextAt = 0;
+  private spawnT = 0;
   private nextId = 1;
-  combo = 0;
-  maxCombo = 0;
-  private lastTap = -99;
   private dsbStage = 0;
   private warmLesions = 0;
+  tapsNow = 0;
 
   // the clean-up
   readonly parts: Part[] = [];
@@ -295,12 +327,13 @@ export class OdnowaSim {
   // the division
   stage = 1;
   stageAtp = 0;
+  dna = 0;
   material = 0;
-  scan = 0;
   checkpoint = false;
   mitosis: Mitosis | null = null;
-  private checkSaid = 0;
-  /** seconds without a line from Mito (a quiet stretch earns a fact) */
+  private checkSaid = -99;
+  private fullSaid: [boolean, boolean, boolean] = [false, false, false];
+  /** seconds without a line from Mito (a quiet rest earns a fact) */
   private quiet = 0;
 
   // the session's numbers
@@ -309,13 +342,13 @@ export class OdnowaSim {
   tapRepairs = 0;
   partsNow = 0;
   divisionsNow = 0;
-  surgesNow = 0;
   readonly logNow: Record<LesionKind, number> = { oxo: 0, abasic: 0, dimer: 0, bulky: 0, dsb: 0 };
   readonly cellsNow: Record<NicheId, number> = { gut: 0, skin: 0, blood: 0 };
   readonly cardsNow: CardId[] = [];
   readonly upsNow: Trait[] = [];
   passedRests = 0;
   passedPushes = 0;
+  goldSec = 0;
   blindShare = -1;
   private settled = false;
   private readonly pushesBase: number;
@@ -330,19 +363,16 @@ export class OdnowaSim {
     this.plannedSec = init.plannedSec;
     this.eeg = init.eeg;
     this.judge = RoundJudge.from(init.tuning);
-    const band = init.eeg ? 'eeg' : 'fnirs';
-    this.lead = RULES.leadIn[band];
-    this.holdNeed = RULES.holdNeed[band];
-    this.restLead = RULES.restLead[band];
+    this.holdNeed = RULES.holdNeed[init.eeg ? 'eeg' : 'fnirs'];
     this.finaleSec = finaleFor(init.plannedSec);
     this.session = p.sessions + 1;
     this.pushesBase = p.pushes;
     this.bestBefore = bestFor(p, init.plannedSec);
     this.niche = init.niche ?? sessionNiche(p);
-    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.session === 1, init.rng, this.breath);
     this.talk = new Talk(lines(init.mouse === true), init.rng);
     this.lv = { mito: mitoLevel(p), enzyme: enzymeLevel(p), lyso: lysoLevel(p) };
-    this.nextAt = 0.6;
+    this.slow = !p.seen.includes('reveal');
   }
 
   // ── views of the state ──────────────────────────────────────────
@@ -353,20 +383,33 @@ export class OdnowaSim {
   get pushBlock(): boolean { return this.block?.kind === 'push' && this.playing; }
   get restBlock(): boolean { return this.block?.kind === 'rest' && this.playing; }
   get warmBlock(): boolean { return this.block?.kind === 'warmup' && this.playing; }
-  /** a sighted push past its lead-in: the gradient answers the band */
-  get sighted(): boolean { return this.pushBlock && !this.block.blind && this.blockT >= this.lead; }
-  get leadIn(): number { return this.lead; }
+  /** a push the player sees (not blind) */
+  get sighted(): boolean { return this.pushBlock && !this.block.blind; }
   /** a card holds the world */
   get frozen(): boolean { return !!this.story; }
-  get recipe(): { atp: number; mat: number; scan: number } { return recipe(this.stage); }
-  /** how far the division is (0..1): the mean of the three parts of its recipe */
+  get needs(): { atp: number; dna: number; mat: number } { return needs(this.stage); }
+  /** each need's share (0..1): energy, DNA, material — the goal's three bars */
+  get shares(): [number, number, number] {
+    const n = this.needs;
+    return [clamp(this.stageAtp / n.atp), clamp(this.dna / n.dna), clamp(this.material / n.mat)];
+  }
+  /** how far the division is (0..1): the mean of the three needs */
   get progress(): number {
-    const r = this.recipe;
-    return (clamp(this.stageAtp / r.atp) + clamp(this.material / r.mat) + clamp(this.scan / r.scan)) / 3;
+    const s = this.shares;
+    return (s[0] + s[1] + s[2]) / 3;
   }
   get readyToDivide(): boolean {
-    const r = this.recipe;
-    return this.stageAtp >= r.atp && this.material >= r.mat && this.scan >= r.scan;
+    const n = this.needs;
+    return this.stageAtp >= n.atp && this.dna >= n.dna && this.material >= n.mat;
+  }
+  /** whether a system is in play yet, and for how long (s; -1 before) */
+  shown(s: Sys): boolean { return this.shownAt[s] !== null; }
+  shownFor(s: Sys): number { const a = this.shownAt[s]; return a === null ? -1 : this.t - a; }
+  /** the breath in a rest (the guide), null outside one */
+  get breathNow(): BreathState | null { return this.restBlock ? breathAt(this.breath, this.blockT) : null; }
+  /** the turbine may make energy now: shown, and the block asks for focus (a push, the warm-up) or the finale */
+  get energyOn(): boolean {
+    return this.shown('energy') && !this.frozen && this.phase !== 'done' && (this.pushBlock || this.warmBlock || this.phase === 'finale');
   }
   /** lifetime totals with this session's (until it is settled) */
   life(k: 'atp' | 'repairs' | 'recycled'): number {
@@ -376,23 +419,23 @@ export class OdnowaSim {
   get mitoCount(): number { return mitoLevel({ atpTotal: this.life('atp') }); }
   get enzymes(): number { return enzymeLevel({ repairs: this.life('repairs') }); }
   get lysoCount(): number { return lysoLevel({ recycled: this.life('recycled') }); }
-  /** lesions that still need a crew (open, or a two-step one waiting for its second tap) */
-  get openLesions(): Lesion[] { return this.lesions.filter(l => (l.state === 'open' || l.state === 'wait') && l.u < RULES.laneU); }
-  /** the lesion held at the gate (the helix waits for it), if any */
-  get atGate(): Lesion | null { return this.lesions.find(l => (l.state === 'open' || l.state === 'wait') && l.u <= RULES.gateU) ?? null; }
+  /** lesions that wait for a crew */
+  get openLesions(): Lesion[] { return this.lesions.filter(l => l.state === 'open'); }
+  /** lesions not yet mended (waiting, or a crew at work) */
+  get liveLesions(): Lesion[] { return this.lesions.filter(l => l.state !== 'done'); }
+  /** How many lysosomes the city has now (two, one more at the top lysosome level). */
+  get lysoSlots(): number { return RULES.lysos + (this.lysoCount >= 3 ? 1 : 0); }
 
   // ── start and input ─────────────────────────────────────────────
   start(): void {
     if (this.started) return;
     this.started = true;
     if (this.session === 1) {
-      this.story = { kind: 'open', t: 0, dur: RULES.openSec };
+      const text = `${t('story.title')} ${t('story.text')} ${passage('2co4.16').text}`;
+      this.story = { kind: 'open', t: 0, dur: Math.min(RULES.openMax, readSec(text)) };
       this.emit({ type: 'story', kind: 'open' });
-    }
-    // a lesion is in sight at once, so the hands have something to do (and the coach something to show)
-    this.spawnLesion(7.2);
+    } else this.talk.ask('open', 2, 10);
     this.startBlock(0);
-    this.talk.ask(this.session === 1 ? 'first' : 'open', 2, 14);
   }
 
   /** A tap closes the story card (after a moment); true when it was used. */
@@ -408,49 +451,16 @@ export class OdnowaSim {
   private closeStory(): void {
     this.story = null;
     this.talk.clear();
-  }
-
-  /** A tap on the lane at `u`: the lesion that needs a crew nearest it (within reach), else the most urgent. */
-  tapLane(u: number): boolean {
-    if (!this.canTouch()) return false;
-    const open = this.openLesions;
-    if (!open.length) {
-      this.emit({ type: 'miss' });
-      return false;
-    }
-    let best: Lesion | null = null, d = Infinity;
-    for (const l of open) {
-      const dd = Math.abs(l.u - u);
-      if (dd < d) {
-        d = dd;
-        best = l;
-      }
-    }
-    if (!best || d > RULES.tapReach) best = this.urgent();
-    return best ? this.crew(best, 'tap') : false;
+    this.talk.ask('first', 2, 20);
   }
 
   /**
-   * The lesion a tap on the lane at `u` would send the crew to, without sending it (a desktop's hover): the
-   * nearest open one within reach, else the most urgent; null when the hands cannot act or nothing is open.
+   * A tap in the cell: on the lane (`u` its position) the open lesion nearest it within reach, anywhere else (or
+   * too far) the one that has waited longest.  True when a crew went.
    */
-  laneAim(u: number): Lesion | null {
-    if (!this.canTouch()) return null;
-    let best: Lesion | null = null, d = Infinity;
-    for (const l of this.openLesions) {
-      const dd = Math.abs(l.u - u);
-      if (dd < d) { d = dd; best = l; }
-    }
-    return !best || d > RULES.tapReach ? this.urgent() : best;
-  }
-
-  /** The lesion Space or a tap on the free city would mend (the most urgent), without mending it. */
-  nextAim(): Lesion | null { return this.canTouch() ? this.urgent() : null; }
-
-  /** Space, or a tap on the free city: the most urgent lesion (the one nearest the gate). */
-  repairNext(): boolean {
+  tapAt(u: number | null): boolean {
     if (!this.canTouch()) return false;
-    const l = this.urgent();
+    const l = this.aim(u);
     if (!l) {
       this.emit({ type: 'miss' });
       return false;
@@ -458,66 +468,50 @@ export class OdnowaSim {
     return this.crew(l, 'tap');
   }
 
-  private urgent(): Lesion | null {
-    let best: Lesion | null = null;
-    for (const l of this.openLesions) if (!best || l.u < best.u) best = l;
-    return best;
+  /** A tap on the lane at `u`. */
+  tapLane(u: number): boolean { return this.tapAt(u); }
+
+  /** Space, or a tap on the free cell: the lesion that has waited longest. */
+  repairNext(): boolean { return this.tapAt(null); }
+
+  /** The lesion a tap at `u` (null: off the lane) would send the crew to, without sending it (a desktop's hover). */
+  aim(u: number | null): Lesion | null {
+    if (!this.canTouch()) return null;
+    const open = this.openLesions;
+    if (!open.length) return null;
+    if (u !== null) {
+      let best: Lesion | null = null, d = Infinity;
+      for (const l of open) {
+        const dd = Math.abs(l.u - u);
+        if (dd < d) { d = dd; best = l; }
+      }
+      if (best && d <= RULES.tapReach) return best;
+    }
+    return open.reduce((a, b) => (b.t > a.t ? b : a));
   }
+
+  laneAim(u: number): Lesion | null { return this.aim(u); }
+  nextAim(): Lesion | null { return this.aim(null); }
 
   private canTouch(): boolean { return this.started && this.phase !== 'done' && !this.frozen; }
 
-  /** A tap on the turbine: the full power when it is ready, else a kick (one proton's step, 1/8 of a turn). */
-  tapTurbine(): 'surge' | 'kick' | null {
-    if (!this.canTouch()) return null;
-    if (this.ready && this.releaseSurge()) return 'surge';
-    if (this.kickCool > 0) return null;
-    this.kickCool = RULES.kickCool;
-    this.kickLeft += 1 / RULES.protonsPerTurn;
-    this.kicks++;
-    this.emit({ type: 'kick' });
-    if (this.kicks === 6 || this.kicks % 25 === 0) this.talk.ask('kick', 1, 4);
-    return 'kick';
+  /** Mito tapped: he says what to do now, in his words (at once: a line on screen gives way). */
+  askHelp(): void {
+    if (!this.started || this.frozen) return;
+    this.talk.hush(0);
+    this.talk.ask(HELP[this.now], 4, 4);
   }
 
-  /** Space and Enter: close a card, take a ready full power, mend the most urgent lesion, or kick the turbine. */
+  /** Space and Enter: close the card, or mend the lesion that has waited longest. */
   key(key: string, down: boolean): boolean {
     const k = key.length === 1 ? key.toLowerCase() : key;
     const space = k === ' ' || k === 'Enter' || k === 'Spacebar';
     if (!space) return false;
     if (!down) return true;
     if (this.tap()) return true;
-    if (this.ready && this.releaseSurge()) return true;
-    if (this.urgent()) this.repairNext();
-    else this.tapTurbine();
+    this.repairNext();
     return true;
   }
-
-  /** Send an autophagosome to its lysosome at once (a tap on it); true when it went. */
-  sendPart(id: number): boolean {
-    const pt = this.parts.find(x => x.id === id);
-    if (!pt || !this.canTouch() || (pt.phase !== 'sealed' && pt.phase !== 'travel')) return false;
-    pt.held = false;
-    this.fuse(pt, pt.lyso, true);
-    return true;
-  }
-
-  /** A finger picks an autophagosome up (its travel waits), or lets it go. */
-  holdPart(id: number, held: boolean): void {
-    const pt = this.parts.find(x => x.id === id);
-    if (pt && (pt.phase === 'sealed' || pt.phase === 'travel')) pt.held = held;
-  }
-
-  /** An autophagosome dropped on a lysosome fuses with it at once. */
-  dropPart(id: number, lyso: number): boolean {
-    const pt = this.parts.find(x => x.id === id);
-    if (!pt || !this.canTouch() || (pt.phase !== 'sealed' && pt.phase !== 'travel')) return false;
-    pt.held = false;
-    this.fuse(pt, clamp(Math.round(lyso), 0, this.lysoSlots - 1), true);
-    return true;
-  }
-
-  /** How many lysosomes the city has now (two, one more at the top lysosome level). */
-  get lysoSlots(): number { return RULES.lysos + (this.lysoCount >= 3 ? 1 : 0); }
 
   // ── the frame ───────────────────────────────────────────────────
   update(dt: number, f: FocusFrame, t: number): void {
@@ -534,23 +528,26 @@ export class OdnowaSim {
       this.cellCard.t += dt;
       if (this.cellCard.t >= this.cellCard.dur) this.cellCard = null;
     }
-    this.brain(dt, w, f);
+    this.brain(dt, f);
     if (this.phase === 'play') this.schedule(dt, f, t);
     else if (this.phase === 'finale' && t >= this.plannedSec && !this.mitosis) this.endFinale();
+    this.reveal();
     if (w > 0 && this.phase !== 'done') {
-      this.engine(w);
-      this.lane(w);
+      this.engine(w, f);
+      this.lane(w, f);
       this.cleanup(w, f);
       this.division(w);
     }
     this.tutor();
-    this.talk.update(dt, t, this.talkBlocked);
-    // a quiet stretch: Mito shares a fact (lowest priority, a short shelf life)
+    this.updateNow(dt);
+    const cut = !!this.story || !!this.cellCard;
+    this.talk.update(dt, t, this.talkBlocked || this.hintQueued, cut, this.talkBlocked);
+    // a quiet rest: Mito shares a fact (lowest priority; never while the first session is still showing things)
     if (this.talk.line) this.quiet = 0;
     else this.quiet += dt;
-    if (this.quiet > 16 && this.phase === 'play' && !this.frozen) {
+    if (this.quiet > 14 && this.restBlock && !this.frozen && this.shown('divide')) {
       this.quiet = 0;
-      this.talk.ask('fact', 0, 8);
+      this.talk.ask('fact', 0, 6);
     }
   }
 
@@ -558,83 +555,90 @@ export class OdnowaSim {
     const b = this.block;
     const tele = this.phase === 'play' && !!b && this.blockT >= b.dur - RULES.telegraph;
     const banner = this.phase === 'play' && this.blockT < RULES.bannerSec && this.blockIndex > 0;
-    return tele || banner || !!this.story || !!this.cellCard || this.holdTalk;
+    return tele || banner || !!this.story || !!this.cellCard || this.holdTalk || this.hintUp;
   }
 
-  /** The band's slow quantities: the gauge and the gradient, the full power's charge, the calm shown. */
-  private brain(dt: number, w: number, f: FocusFrame): void {
+  /** The band's slow quantities: the gauge, the calm shown, the held focus. */
+  private brain(dt: number, f: FocusFrame): void {
     this.reliable = f.reliable;
     this.level = f.reliable ? f.level : 0;
     this.calm = f.reliable ? f.calm : 0;
     this.calmShown = approach(this.calmShown, this.calm, dt, 0.6);
+    this.unreliableT = f.reliable ? 0 : this.unreliableT + dt;
     if (this.playing && f.reliable) this.relSec += dt;
-    const live = this.sighted && f.reliable;
-    this.gauge = approach(this.gauge, live ? clamp(f.level) : 0, dt, RULES.gradTau);
-    const target = live ? gradOf(this.gauge) : this.restBlock ? RULES.gradRest : RULES.gradNeutral;
-    this.grad = approach(this.grad, this.surge > 0 ? 1 : target, dt, RULES.gradTau);
-    if (live) this.maxHold = Math.max(this.maxHold, f.hold);
-    if (live && f.hold >= this.holdNeed && w > 0) this.addCharge(RULES.holdRate * dt);
-    if (live && f.level >= 0.5) this.goodT += dt;
-    else this.goodT = 0;
-    if (this.goodT >= 6 && !this.goodSaid) {
-      this.goodSaid = true;
-      this.talk.ask('good', 2, 5);
+    this.gauge = approach(this.gauge, f.reliable ? clamp(f.level) : 0, dt, 0.5);
+    const on = this.energyOn && f.reliable && f.focused;
+    if (on) this.maxHold = Math.max(this.maxHold, f.hold);
+    const goldWant = on && f.hold >= this.holdNeed ? 1 : 0;
+    this.gold = approach(this.gold, goldWant, dt, RULES.goldTau);
+    if (this.gold > 0.6 && !this.blind) this.goldSec += dt;
+    if (this.gold > 0.9 && !this.goldSaid && !this.blind) {
+      this.goldSaid = true;
+      this.emit({ type: 'gold' });
+      this.talk.ask('gold', 2, 6);
       this.card('pmf');
-    }
-    if (live && this.blockT >= this.lead + 1) this.coach('gauge', { kind: 'lens' });
-    // a ready full power waits for a tap, then goes by itself — never in a rest (the cell rests), nor so late in a
-    // push that the rest would cut it short
-    const room = this.pushBlock ? this.block.dur - this.blockT >= RULES.surgeSec : !this.restBlock;
-    if (this.ready && w > 0 && room) {
-      this.readyT += w;
-      if (this.readyT >= RULES.surgeAuto) this.releaseSurge();
+      this.card('speed');
     }
   }
 
-  private addCharge(v: number): void {
-    if (this.ready || this.surge > 0 || !(v > 0)) return;
-    // a rest never fills it: full power waits for the engine to run again
-    this.charge = Math.min(this.restBlock ? 0.99 : 1, this.charge + v);
-    if (this.charge >= 1 - 1e-9) {
-      this.charge = 1;
-      this.ready = true;
-      this.readyT = 0;
-      this.emit({ type: 'ready' });
-      this.talk.ask('ready', 3, 5);
-      this.coach('surge', { kind: 'lens' });
+  // ── the reveal: one system at a time ─────────────────────────────
+  private reveal(): void {
+    if (this.frozen || this.phase === 'done') return;
+    const at = (s: Sys) => this.shownAt[s];
+    if (!this.slow) {
+      // a returning player: the four in a quick stagger, each with a short highlight
+      SYSTEMS.forEach((s, i) => { if (at(s) === null && this.t >= RULES.stagger0 + i * RULES.stagger) this.show(s); });
+      return;
+    }
+    if (at('energy') === null) {
+      this.show('energy');
+      this.coach('turbine', { kind: 'lens' });
+      return;
+    }
+    if (at('dna') === null) {
+      const e = this.shownFor('energy');
+      if ((e >= RULES.dnaAfter && this.atp + this.bank >= RULES.dnaAtp) || e >= RULES.dnaMax || this.restBlock) this.show('dna');
+      return;
+    }
+    if (at('clean') === null) {
+      if (this.restBlock) this.show('clean');
+      return;
+    }
+    if (at('divide') === null) {
+      const full = this.shares.filter(x => x >= 1).length;
+      // after the rest's own explanation: one thing at a time
+      const restSaid = !this.restBlock || this.p.seen.includes('rest');
+      if (((this.shownFor('clean') >= RULES.divideAfter && !this.restBlock) || full >= 2 || this.readyToDivide) && restSaid) {
+        this.show('divide');
+        this.coach('divide', { kind: 'goal' });
+        if (!this.p.seen.includes('reveal')) this.p.seen.push('reveal');
+      }
     }
   }
 
-  /** Pełna moc: the turbine at full gradient and × 2.5 for a few seconds, every open lesion mended in a cascade. */
-  releaseSurge(): boolean {
-    if (!this.ready || this.restBlock || this.frozen || this.phase === 'done') return false;
-    this.ready = false;
-    this.charge = 0;
-    this.readyT = 0;
-    this.surge = RULES.surgeSec;
-    this.surgesNow++;
-    this.stop = Math.max(this.stop, 0.1);
-    let k = 0;
-    for (const l of this.openLesions.sort((a, b) => a.u - b.u)) {
-      l.delay = 0.12 * k++;
-      this.crew(l, 'surge');
-    }
-    this.emit({ type: 'surge' });
-    this.talk.ask('surge', 3, 4);
-    this.card('speed');
-    return true;
+  private show(s: Sys): void {
+    if (this.shownAt[s] !== null) return;
+    this.shownAt[s] = this.t;
+    if (s === 'dna') this.spawnT = RULES.firstLesion;
+    if (s === 'clean') this.partT = RULES.partEvery - RULES.partFirst;
+    this.emit({ type: 'reveal', sys: s });
   }
 
   // ── the blocks ──────────────────────────────────────────────────
   private schedule(dt: number, f: FocusFrame, t: number): void {
     const b = this.block;
-    this.blockT += dt;
+    // the warm-up waits while the opening card is read (the session's clock runs on: the last block gives way)
+    if (!(b.kind === 'warmup' && this.story)) this.blockT += dt;
     if (b.kind !== 'warmup') {
       const want = b.kind === 'push' ? 'focus' : 'rest';
       this.judge.push(want, f, dt);
       this.contrast.push(want, f.activity, f.reliable, this.blockT, dt);
     }
-    if (b.kind === 'rest' && this.blockT >= RULES.bannerSec && this.blockT - dt < RULES.bannerSec) this.coach('rest', { kind: 'lens' });
+    if (b.kind === 'rest' && this.blockT >= RULES.bannerSec && this.blockT - dt < RULES.bannerSec && this.shown('clean')) {
+      const first = this.parts.find(p => p.phase !== 'done');
+      this.coach('rest', first ? { kind: 'part', id: first.id } : { kind: 'chip', i: 2 });
+    }
+    if (b.kind === 'push' && this.slow === false && this.blockT >= 6 && this.blockT - dt < 6) this.coach('ring', { kind: 'ring' });
     const last = this.blockIndex >= this.plan.length - 1;
     if (!this.telegraphed && this.blockT >= b.dur - RULES.telegraph) {
       this.telegraphed = true;
@@ -660,20 +664,17 @@ export class OdnowaSim {
     if (b.kind === 'push') {
       this.pushesBegun++;
       b.blind = this.session >= RULES.blindFrom && !first && (this.pushesBase + this.pushesBegun) % RULES.blindEvery === 0;
-      this.goodT = 0;
-      this.goodSaid = false;
-      this.talk.ask(b.blind ? 'blind' : 'push', 2, 12);
-      if (b.blind) this.coach('blind', { kind: 'lens' });
+      this.goldSaid = false;
+      this.bank = 0;
+      if (b.blind) {
+        this.talk.ask('blind', 3, 10);
+        this.coach('blind', { kind: 'lens' });
+      } else if (first) this.talk.ask('push', 2, 10);
       this.card('pumps');
     } else if (b.kind === 'rest') {
-      this.partT = RULES.partEvery * 0.5;
-      // the rest calms the engine: a full power still running ends here
-      if (this.surge > 0) {
-        this.surge = 0;
-        this.emit({ type: 'surgeEnd' });
-      }
-      this.talk.ask('rest', 2, 12);
-    } else this.talk.ask('warm', 1, 10);
+      this.partT = Math.max(this.partT, RULES.partEvery - RULES.partFirst);
+      if (first) this.talk.ask('rest', 2, 10);
+    }
     this.tip = this.tipFor(b, i, first);
     this.emit({ type: 'blockStart', block: b, index: i });
   }
@@ -701,19 +702,20 @@ export class OdnowaSim {
       needShare = this.judge.need(want);
       verdict = this.relSec >= RULES.minReliable ? this.judge.verdict() : null;
       if (b.kind === 'push' && b.blind) {
-        // the reveal: the share of the block above the threshold charges the full power
+        // the reveal: the energy made under the veil arrives, with the block's share above the threshold
         const s = this.judge.measured > 0 ? share : 0;
         this.blindShare = Math.max(this.blindShare, Math.round(s * 100));
-        this.addCharge(s * RULES.blindCharge);
-        this.emit({ type: 'blindEnd', share: s });
-      } else if (b.kind === 'push' && verdict) {
-        this.passedPushes++;
-        this.addCharge(0.15);
-      }
+        const n = this.bank;
+        this.bank = 0;
+        this.atp += n;
+        this.stageAtp += n;
+        this.emit({ type: 'blindEnd', share: s, n });
+        this.talk.ask('blindEnd', 3, 8);
+      } else if (b.kind === 'push' && verdict) this.passedPushes++;
       if (b.kind === 'rest' && verdict) {
         // a deep clean-up: a little extra building material
         this.passedRests++;
-        this.material += 2;
+        this.material += RULES.calmBonus;
         this.talk.ask('calm', 2, 6);
       }
     }
@@ -721,31 +723,22 @@ export class OdnowaSim {
     this.emit({ type: 'blockEnd', block: b, verdict, share, need: needShare });
   }
 
-  // ── the engine ──────────────────────────────────────────────────
-  private engine(w: number): void {
-    if (this.surge > 0) {
-      this.surge -= w;
-      if (this.surge <= 0) {
-        this.surge = 0;
-        this.emit({ type: 'surgeEnd' });
-      }
-    }
-    this.kickCool = Math.max(0, this.kickCool - w);
-    const target = spinOf(this.grad) * (this.surge > 0 ? RULES.surgeK : 1) * (this.mitosis ? 0.7 : 1);
-    this.spin = approach(this.spin, target, w, RULES.spinTau);
-    let turn = this.spin * w;
-    if (this.kickLeft > 0) {
-      const k = Math.min(this.kickLeft, w * 1.6);
-      this.kickLeft -= k;
-      turn += k;
-    }
+  // ── energy ─────────────────────────────────────────────────────
+  private engine(w: number, f: FocusFrame): void {
+    const on = this.energyOn && f.reliable && f.focused;
+    const want = on ? driveOf(f) : 0;
+    this.drive = approach(this.drive, want, w, RULES.driveTau);
+    this.spin = approach(this.spin, on ? spinOf(want, this.gold) : 0, w, RULES.spinTau);
+    // a rotor that coasts to a stop keeps no momentum to make ATP without focus: it settles in a tenth of a turn
+    if (!on && this.spin < 0.04) this.spin = 0;
+    const turn = this.spin * w;
     const before = Math.floor(this.angle * RULES.atpPerTurn);
     this.angle += turn;
     const made = Math.floor(this.angle * RULES.atpPerTurn) - before;
     for (let i = 0; i < made; i++) this.makeAtp(0);
     // the extra mitochondria (biogenesis): each a quarter of the big turbine's output
     const extra = this.mitoCount;
-    if (extra > 0) {
+    if (extra > 0 && turn > 0) {
       this.extraAcc += turn * RULES.atpPerTurn * RULES.mitoShare * extra;
       while (this.extraAcc >= 1) {
         this.extraAcc -= 1;
@@ -756,13 +749,18 @@ export class OdnowaSim {
 
   private makeAtp(src: number): void {
     const lvBefore = this.mitoCount;
-    this.atp++;
-    this.stageAtp++;
-    this.emit({ type: 'atp', src });
-    if (this.atp === 3) this.card('turbine');
-    if (this.atp === 500) this.card('daily');
+    if (this.blind) this.bank++;
+    else {
+      this.atp++;
+      this.stageAtp++;
+      this.emit({ type: 'atp', src });
+    }
+    const made = this.atp + this.bank;
+    if (made === 3) this.card('turbine');
+    if (made === 60) this.card('powerhouse');
+    if (made === 500) this.card('daily');
     if (this.life('atp') >= 1000) this.card('glucose');
-    if (this.atp === 60) this.card('powerhouse');
+    if (!this.blind && this.stageAtp >= RULES.dnaAtp) this.coach('energy', { kind: 'chip', i: 0 });
     const lv = this.mitoCount;
     if (lv > lvBefore) this.levelUp('mito', lv);
   }
@@ -776,54 +774,44 @@ export class OdnowaSim {
     if (trait === 'mito') this.card('biogenesis');
   }
 
-  // ── the DNA lane ────────────────────────────────────────────────
-  private lane(w: number): void {
+  // ── DNA ────────────────────────────────────────────────────────
+  private lane(w: number, f: FocusFrame): void {
     const R = RULES;
-    const gate = this.atGate;
-    const open = this.openLesions.length > 0;
-    const v = this.mitosis ? 0 : gate ? 0 : open ? R.scanSlow : R.scanFast;
-    this.scanV = approach(this.scanV, v, w, 0.25);
+    // the helix scrolls on along a clean strand; damage holds it still (a mended rung drifts away)
+    const clean = !this.liveLesions.length;
+    this.scanV = approach(this.scanV, clean && !this.mitosis ? R.scanV : 0, w, 0.3);
     const du = this.scanV * w;
     this.scanned += du;
-    if (!this.mitosis) this.scan += du;
     for (const l of this.lesions) {
-      l.u -= du;
-      l.t += w;
+      if (l.state === 'done') { l.u -= du; l.done += w; }
+      else if (l.state === 'open') l.t += w;
     }
-    // the gate: the helix waits, and the cell's own crew comes
-    if (gate) {
-      if (gate.gate === 0) this.emit({ type: 'gate', id: gate.id });
-      gate.gate += w;
-      if (gate.gate >= R.gateFix) {
-        this.crew(gate, 'cell');
-        this.talk.ask('gate', 1, 4);
+    // new damage while the hands are asked (a push, the warm-up), until the stage's repairs are done
+    const asked = this.pushBlock || this.warmBlock;
+    if (this.shown('dna') && asked && !this.mitosis && this.dna < this.needs.dna) {
+      this.spawnT -= w;
+      if (this.spawnT <= 0 && this.liveLesions.length < R.laneCap) {
+        this.spawn();
+        const gap = this.warmBlock ? R.lesionEveryWarm : R.lesionEvery;
+        this.spawnT = gap[0] + this.rng() * (gap[1] - gap[0]);
       }
     }
-    // new damage comes in from the right as the scan moves on, now and then two from one oxidative burst
-    if (this.scanned >= this.nextAt && !this.mitosis) {
-      const k = this.restBlock ? R.restGapK : this.warmBlock ? R.warmGapK : 1;
-      const room = R.laneCap - this.openLesions.length;
-      if (room > 0) this.spawnLesion(R.laneU + 0.35);
-      if (room > 1 && !this.restBlock && !this.warmBlock && this.rng() < R.cluster) {
-        this.spawnLesion(R.laneU + 0.35 + R.clusterGap[0] + this.rng() * (R.clusterGap[1] - R.clusterGap[0]));
-      }
-      this.nextAt = this.scanned + (R.gap[0] + this.rng() * (R.gap[1] - R.gap[0])) * k;
+    // in a rest the cell's own crew comes to waiting damage, as fast as the calm lets it (and in the last stretch)
+    for (const l of this.openLesions) {
+      if (this.restBlock) l.cell += w * (f.reliable ? clamp(f.calm) : 0);
+      else if (this.phase === 'finale') l.cell += w;
+      if (l.cell >= R.cellFix) this.crew(l, 'cell');
     }
-    // the crews at work
-    for (const l of this.lesions) {
-      if (l.state === 'fixing') this.work(l, w);
-      else if (l.state === 'done') l.done += w;
-    }
+    for (const l of this.lesions) if (l.state === 'fixing') this.work(l, w);
     for (let i = this.lesions.length - 1; i >= 0; i--) {
       const l = this.lesions[i];
-      if ((l.state === 'done' && l.done > 1.2 && l.u < -0.5) || l.u < -2) this.lesions.splice(i, 1);
+      if (l.state === 'done' && (l.done > 3 || l.u < -1)) this.lesions.splice(i, 1);
     }
-    if (this.combo > 0 && this.t - this.lastTap > R.comboSec) this.combo = 0;
   }
 
   /** The damage the session's niche brings (a double-strand break now and then from the second stage). */
   private pickKind(): LesionKind {
-    if (this.session === 1 && this.warmBlock) return this.warmLesions++ < 3 ? 'oxo' : 'abasic';
+    if (this.session === 1 && this.warmBlock) return this.warmLesions++ < 2 ? 'oxo' : 'abasic';
     if (this.stage >= RULES.dsbFrom && this.dsbStage !== this.stage && this.rng() < RULES.dsbChance) {
       this.dsbStage = this.stage;
       return 'dsb';
@@ -831,73 +819,64 @@ export class OdnowaSim {
     return weighted(NICHE[this.niche].mix, this.rng);
   }
 
-  private spawnLesion(u: number): void {
+  /** A lesion on the visible helix, clear of the others. */
+  private spawn(): void {
+    const R = RULES;
+    const others = this.liveLesions.map(l => l.u);
+    let u = R.spawnU[0] + this.rng() * (R.spawnU[1] - R.spawnU[0]);
+    for (let k = 0; k < 8 && others.some(o => Math.abs(o - u) < R.spawnGap); k++) u = R.spawnU[0] + this.rng() * (R.spawnU[1] - R.spawnU[0]);
     const kind = this.pickKind();
-    const l: Lesion = { id: this.nextId++, kind, u, state: 'open', stage: 0, step: 0, st: 0, by: 'tap', t: 0, done: 0, gate: 0, delay: 0, seed: this.rng() };
+    const l: Lesion = { id: this.nextId++, kind, u, state: 'open', step: 0, st: 0, by: 'tap', t: 0, done: 0, cell: 0, seed: this.rng() };
     this.lesions.push(l);
     this.emit({ type: 'spawn', id: l.id, kind });
-    if (LESIONS[kind].stages.length > 1) this.coach('two', { kind: 'lesion', id: l.id });
+    this.coach('lane', { kind: 'lesion', id: l.id });
     if (kind === 'dsb') this.talk.ask('dsb', 3, 6);
   }
 
-  /** A crew starts (or a two-step repair takes its second step). */
+  /** A crew starts. */
   private crew(l: Lesion, by: Crew): boolean {
-    if (l.state !== 'open' && l.state !== 'wait') return false;
+    if (l.state !== 'open') return false;
     l.state = 'fixing';
     l.by = by;
     l.step = 0;
-    l.st = -RULES.crewIn - (by === 'surge' ? l.delay : 0);
-    l.gate = 0;
-    if (by === 'tap') {
-      this.combo = this.t - this.lastTap <= RULES.comboSec ? Math.min(RULES.comboMax, this.combo + 1) : 1;
-      this.lastTap = this.t;
-      this.maxCombo = Math.max(this.maxCombo, this.combo);
-      if (this.combo >= 3) this.addCharge(RULES.comboCharge);
-      if (this.combo === 4 || this.combo === 8) this.talk.ask('combo', 2, 3);
-    }
-    this.emit({ type: 'repairStart', id: l.id, kind: l.kind, by, combo: by === 'tap' ? this.combo : 0, stage: l.stage });
+    l.st = -RULES.crewIn;
+    if (by === 'tap') this.tapsNow++;
+    this.emit({ type: 'repairStart', id: l.id, kind: l.kind, by });
     return true;
   }
 
   private work(l: Lesion, w: number): void {
-    const spec = LESIONS[l.kind];
-    const steps = spec.stages[l.stage];
-    const sec = stepSec(this.enzymes, this.grad, l.by);
+    const steps = LESIONS[l.kind].steps;
+    const sec = stepSec(this.enzymes, l.kind, l.by);
     l.st += w;
     while (l.st >= sec && l.state === 'fixing') {
       l.st -= sec;
       this.emit({ type: 'repairStep', id: l.id, step: steps[l.step] });
       l.step++;
-      if (l.step >= steps.length) {
-        l.stage++;
-        l.step = 0;
-        if (l.stage >= spec.stages.length) this.mended(l);
-        else if (l.by === 'tap') {
-          l.state = 'wait';
-          this.emit({ type: 'wait', id: l.id });
-          if (!this.talk.has('two') && this.rng() < 0.5) this.talk.ask('two', 1, 3);
-        }
-        // the cell's own crew and a surge's take the next step at once
-        else l.st = 0;
-      }
+      if (l.step >= steps.length) this.mended(l);
     }
   }
 
   private mended(l: Lesion): void {
     const spec = LESIONS[l.kind];
     const lv = this.enzymes;
+    const was = this.dna;
     l.state = 'done';
     l.done = 0;
+    this.dna++;
     this.repairsNow++;
     this.logNow[l.kind]++;
     if (l.by === 'tap') this.tapRepairs++;
-    this.emit({ type: 'repaired', id: l.id, kind: l.kind, by: l.by, combo: l.by === 'tap' ? this.combo : 0 });
-    this.emit({ type: 'atpUse', n: spec.atp, u: l.u });
+    this.emit({ type: 'repaired', id: l.id, kind: l.kind, by: l.by });
+    if (was < this.needs.dna && this.dna >= this.needs.dna) this.full(1);
     this.card('lesions');
     this.card(spec.path === 'ber' ? 'ber' : spec.path === 'ner' ? 'ner' : 'dsb');
     if (l.kind === 'dimer') this.card('uv');
     if (this.life('repairs') >= 50) this.card('fidelity');
-    if (this.repairsNow === 1 || (this.rng() < 0.18 && l.by === 'tap')) this.talk.ask('repair', 1, 3);
+    if (this.repairsNow === 1) {
+      this.talk.ask('repair', 1, 5);
+      this.coach('repair', { kind: 'chip', i: 1 });
+    }
     if (this.enzymes > lv) this.levelUp('enzyme', this.enzymes);
   }
 
@@ -906,7 +885,7 @@ export class OdnowaSim {
     const R = RULES;
     const lyK = R.lysoK ** this.lysoCount;
     // new worn parts appear in a rest block, one spot at a time
-    if (this.restBlock && !this.mitosis) {
+    if (this.restBlock && this.shown('clean') && !this.mitosis) {
       this.partT += w;
       const busy = this.parts.filter(p => p.phase !== 'done').length;
       if (busy < R.partCap && this.partT >= R.partEvery) {
@@ -918,18 +897,18 @@ export class OdnowaSim {
         if (spot !== undefined) {
           this.nextSide = 1 - (spot >> 1);
           this.partT = 0;
-          const kind = this.session === 1 && this.partsNow === 0 && !this.parts.length ? 'mito' : weighted(Object.fromEntries(PART_KINDS.map(k => [k, PART[k].weight])) as Record<PartKind, number>, this.rng);
-          const pt: Part = { id: this.nextId++, kind, spot, lyso: (spot >> 1) % this.lysoSlots, phase: 'tag', k: 0, t: 0, done: 0, held: false, seed: this.rng() };
+          const kind = this.session === 1 && this.partsNow === 0 && !this.parts.length
+            ? 'mito'
+            : weighted(Object.fromEntries(PART_KINDS.map(k => [k, PART[k].weight])) as Record<PartKind, number>, this.rng);
+          const pt: Part = { id: this.nextId++, kind, spot, lyso: (spot >> 1) % this.lysoSlots, phase: 'tag', k: 0, t: 0, done: 0, seed: this.rng() };
           this.parts.push(pt);
           this.emit({ type: 'part', id: pt.id, kind });
         }
       }
     }
-    // calm wraps; without a signal at the neutral pace, never slower
-    const rest = this.restBlock && this.blockT >= this.restLead;
-    const calmK = rest && f.reliable ? clamp(f.calm) : 0;
-    const wrapping = this.restBlock || this.phase === 'finale';
-    const wrapRate = R.wrapRate * lyK * (R.wrapNeutral + (1 - R.wrapNeutral) * calmK);
+    // only calm wraps (a rest, and the last stretch): no calm, no wrapping — and nothing is lost
+    const calmK = (this.restBlock || this.phase === 'finale') && f.reliable ? clamp(f.calm) : 0;
+    const wrapRate = R.wrapRate * lyK * calmK;
     for (const pt of this.parts) {
       pt.t += w;
       switch (pt.phase) {
@@ -938,20 +917,22 @@ export class OdnowaSim {
           if (pt.k >= 1) this.phaseOf(pt, 'wrap');
           break;
         case 'wrap':
-          if (wrapping) pt.k += wrapRate * w;
+          pt.k += wrapRate * w;
           if (pt.k >= 1) {
             this.phaseOf(pt, 'sealed');
             this.emit({ type: 'sealed', id: pt.id });
-            this.coach('drag', { kind: 'part', id: pt.id });
           }
           break;
         case 'sealed':
-          if (!pt.held) pt.k += w / 0.7;
+          pt.k += w / R.sealSec;
           if (pt.k >= 1) this.phaseOf(pt, 'travel');
           break;
         case 'travel':
-          if (!pt.held) pt.k += w / R.travelSec;
-          if (pt.k >= 1) this.fuse(pt, pt.lyso, false);
+          pt.k += w / R.travelSec;
+          if (pt.k >= 1) {
+            this.phaseOf(pt, 'fuse');
+            this.emit({ type: 'fuse', id: pt.id, lyso: pt.lyso });
+          }
           break;
         case 'fuse':
           pt.k += w / R.fuseSec;
@@ -974,25 +955,28 @@ export class OdnowaSim {
     pt.k = 0;
   }
 
-  private fuse(pt: Part, lyso: number, sent: boolean): void {
-    pt.lyso = lyso;
-    this.phaseOf(pt, 'fuse');
-    this.emit({ type: 'fuse', id: pt.id, lyso, sent });
-  }
-
   private recycle(pt: Part): void {
     const lv = this.lysoCount;
     const mat = PART[pt.kind].mat;
+    const was = this.material;
     this.phaseOf(pt, 'done');
     pt.done = 0;
     this.material += mat;
     this.partsNow++;
     this.emit({ type: 'recycled', id: pt.id, kind: pt.kind, mat, lyso: pt.lyso });
+    if (was < this.needs.mat && this.material >= this.needs.mat) this.full(2);
     this.card('autophagy');
     if (pt.kind === 'mito') this.card('mitophagy');
     if (this.life('recycled') >= 3) this.card('lysosome');
-    if (this.partsNow === 1 || this.rng() < 0.35) this.talk.ask('recycle', 1, 4);
+    if (this.partsNow === 1) this.talk.ask('recycle', 1, 5);
     if (this.lysoCount > lv) this.levelUp('lyso', this.lysoCount);
+  }
+
+  /** A need filled for this stage (once a stage each). */
+  private full(i: 0 | 1 | 2): void {
+    if (this.fullSaid[i]) return;
+    this.fullSaid[i] = true;
+    this.emit({ type: 'full', need: i });
   }
 
   // ── the division ────────────────────────────────────────────────
@@ -1013,58 +997,92 @@ export class OdnowaSim {
       if (m.t >= acc) this.divided(m);
       return;
     }
-    if (!this.readyToDivide || this.phase === 'done') return;
+    if (this.stageAtp >= this.needs.atp) this.full(0);
+    if (!this.readyToDivide || this.phase === 'done') {
+      this.checkpoint = false;
+      return;
+    }
     // the checkpoint: no division while damage is open on the helix
-    if (this.lesions.some(l => l.state !== 'done' && l.u < RULES.laneU)) {
+    const live = this.liveLesions;
+    if (live.length) {
       if (!this.checkpoint) {
         this.checkpoint = true;
         this.emit({ type: 'checkpoint' });
-        this.coach('check', { kind: 'lane' });
+        const l = live.find(x => x.state === 'open');
+        if (l) this.coach('check', { kind: 'lesion', id: l.id });
         if (this.t - this.checkSaid > 20) {
           this.checkSaid = this.t;
-          this.talk.ask('check', 2, 5);
+          this.talk.ask('check', 2, 6);
         }
       }
       return;
     }
     this.checkpoint = false;
+    if (!this.shown('divide')) this.show('divide');
     this.mitosis = { t: 0, phase: 0, niche: this.niche };
     this.stop = Math.max(this.stop, 0.08);
     this.emit({ type: 'divide', stage: this.stage, niche: this.niche });
     this.emit({ type: 'mitosis', phase: 0 });
-    this.talk.ask('divide', 3, 5);
+    this.talk.ask('divide', 3, 6);
   }
 
   private divided(m: Mitosis): void {
-    const r = this.recipe;
+    const n = this.needs;
     this.mitosis = null;
     this.divisionsNow++;
     this.cellsNow[m.niche]++;
-    const n = this.p.tissue[m.niche] + (this.settled ? 0 : this.cellsNow[m.niche]);
-    const before = this.cardsNow.length;
+    const count = this.p.tissue[m.niche] + (this.settled ? 0 : this.cellsNow[m.niche]);
     this.card('turnover');
     this.card(m.niche);
-    const fresh = this.cardsNow.length > before ? this.cardsNow[this.cardsNow.length - 1] : null;
-    this.cellCard = { niche: m.niche, n, t: 0, dur: RULES.cellCard, card: fresh };
+    const text = `${t('cellcard.title')} ${t('cellcard.what', { cell: cellName(m.niche), n: count })}`;
+    this.cellCard = { niche: m.niche, n: count, t: 0, dur: readSec(text) };
     this.emit({ type: 'cell', niche: m.niche, stage: this.stage });
-    this.talk.ask('cell', 3, 6);
-    // the next division: its recipe grows; spare material carries over
-    this.material = Math.max(0, this.material - r.mat);
-    this.stageAtp = 0;
-    this.scan = 0;
+    this.talk.ask('cell', 3, 12);
+    // the next division: its needs grow; spare energy and material carry over (what was gained stays)
+    this.stageAtp = Math.max(0, this.stageAtp - n.atp);
+    this.material = Math.max(0, this.material - n.mat);
+    this.dna = 0;
+    this.fullSaid = [false, false, false];
     this.stage++;
+    this.spawnT = Math.min(this.spawnT, RULES.firstLesion);
+  }
+
+  // ── the line: what to do now ─────────────────────────────────────
+  /** What the moment asks of the player (before the hold that keeps the line steady). */
+  nowWant(): NowKind {
+    if (this.phase === 'done' || (this.phase === 'finale' && !this.mitosis)) return 'end';
+    if (this.story || !this.shown('energy')) return 'wait';
+    if (this.mitosis) return 'divide';
+    if (this.unreliableT >= RULES.noSignal) return 'nosignal';
+    if (this.restBlock) return 'rest';
+    if (this.checkpoint && this.openLesions.length) return 'check';
+    if (this.openLesions.some(l => l.t >= RULES.nowDna)) return 'dna';
+    return this.blind ? 'blind' : 'energy';
+  }
+
+  private updateNow(dt: number): void {
+    this.nowT += dt;
+    const want = this.nowWant();
+    if (want === this.now) return;
+    // a new block, a card, a division or the end change the line at once; the hands' prompts hold a little
+    const hard = (k: NowKind) => k === 'rest' || k === 'divide' || k === 'end' || k === 'wait';
+    if (hard(want) || hard(this.now) || this.blockT < 0.05 || this.nowT >= RULES.nowHold) {
+      this.now = want;
+      this.nowT = 0;
+      this.emit({ type: 'now', kind: want });
+      if (want === 'nosignal' && this.t - this.nosignalSaid > 30) {
+        this.nosignalSaid = this.t;
+        this.talk.ask('nosignal', 2, 6);
+      }
+    }
   }
 
   // ── teaching ────────────────────────────────────────────────────
-  /** The first session teaches one thing at a time, when it first matters; later sessions only new things. */
+  /** The first session teaches one thing at a time, when it first matters. */
   private tutor(): void {
     if (this.frozen || this.phase !== 'play') return;
-    if (this.session === 1) {
-      const first = this.lesions.find(l => l.state === 'open' && l.u < RULES.laneU - 0.5);
-      if (this.t >= 1.5 && first) this.coach('lane', { kind: 'lesion', id: first.id });
-      if (this.t >= 9 && this.p.seen.includes('lane')) this.coach('turbine', { kind: 'lens' });
-      if (this.t >= 17 && this.p.seen.includes('turbine')) this.coach('recipe', { kind: 'recipe' });
-    }
+    // the gauge ring, once the turbine has turned in a push (the first session, after its first explanations)
+    if (this.slow && this.pushBlock && !this.blind && this.shown('dna') && this.blockT >= 6 && this.p.seen.includes('lane')) this.coach('ring', { kind: 'ring' });
   }
 
   /** A first-time explanation (once ever): the index turns it into the runner's coach mark. */
@@ -1072,6 +1090,17 @@ export class OdnowaSim {
     if (this.p.seen.includes(what)) return;
     this.p.seen.push(what);
     this.emit({ type: 'coach', what, at });
+  }
+
+  /** Whether a coach mark's thing has been done (the index keeps a key mark up until then). */
+  coachDone(what: Coach): boolean {
+    switch (what) {
+      case 'turbine': return this.atp + this.bank >= RULES.dnaAtp;
+      case 'lane': return this.tapsNow > 0 || this.restBlock;
+      case 'rest': return this.partsNow > 0 || !this.restBlock;
+      case 'check': return !this.checkpoint;
+      default: return true;
+    }
   }
 
   /** A Wiedza card met (once ever; the summary lists the new ones). */
@@ -1108,17 +1137,15 @@ export class OdnowaSim {
     p.repairs += this.repairsNow;
     p.recycled += this.partsNow;
     p.divisions += this.divisionsNow;
-    p.surges += this.surgesNow;
     for (const n of Object.keys(this.cellsNow) as NicheId[]) p.tissue[n] += this.cellsNow[n];
     for (const k of Object.keys(this.logNow) as LesionKind[]) p.log[k] += this.logNow[k];
-    p.bestCombo = Math.max(p.bestCombo, this.maxCombo);
     p.bestDivisions = Math.max(p.bestDivisions, this.divisionsNow);
     p.lastNiche = this.niche;
     p.lastLen = this.plannedSec;
     this.settled = true;
   }
 
-  /** The session ends before its own end: settle as the end would (a division under way completes). */
+  /** The session ends before its own end: settle as the end would (a division under way completes, a blind bank pays). */
   finish(): void {
     if (!this.started || this.settled) return;
     if (this.phase === 'play') this.endBlock();
@@ -1138,10 +1165,10 @@ export class OdnowaSim {
     return out;
   }
 
-  /** The panel's gauge: the gradient's drive in a sighted push past its lead-in, calm in a rest; null blind, without signal, elsewhere. */
+  /** The panel's gauge: the band's level where it turns the turbine (a sighted push, the warm-up), calm in a rest; null blind, without a signal, elsewhere. */
   meter(): number | null {
     if (!this.started || !this.reliable || this.blind) return null;
-    if (this.pushBlock) return this.blockT < this.lead ? null : clamp(this.gauge);
+    if (this.sighted || (this.warmBlock && this.shown('energy'))) return clamp(this.gauge);
     if (this.restBlock) return clamp(this.calmShown);
     return null;
   }
@@ -1162,7 +1189,7 @@ export class OdnowaSim {
     if (!this.started) return null;
     if (this.phase !== 'play') return 0.42;
     if (this.blind) return null;
-    if (this.pushBlock) return this.blockT < this.lead ? 0.42 : f.reliable ? clamp(0.2 + 0.8 * this.gauge) : null;
+    if (this.pushBlock) return f.reliable ? clamp(0.2 + 0.8 * this.gauge) : null;
     if (this.restBlock) return 0.3;
     return 0.42;
   }
@@ -1181,13 +1208,12 @@ export class OdnowaSim {
       p.best[key] = Math.max(p.best[key] ?? 0, this.atp);
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
-    const cells = this.divisionsNow;
     const stats: [string, string][] = [
       [t('stat.atp'), fmtNum(this.atp)],
-      [t('stat.cells'), fmtNum(cells)],
-      [t('stat.repairs'), this.maxCombo > 1 ? t('stat.repairsCombo', { n: this.repairsNow, combo: this.maxCombo }) : fmtNum(this.repairsNow)],
+      [t('stat.cells'), fmtNum(this.divisionsNow)],
+      [t('stat.repairs'), fmtNum(this.repairsNow)],
       [t('stat.recycled'), fmtNum(this.partsNow)],
-      [t('stat.surges'), fmtNum(this.surgesNow)],
+      [t('stat.gold'), t('sec', { n: fmtNum(Math.round(this.goldSec)) })],
       [t('stat.contrast'), c === null ? '—' : t('pct', { n: `${c > 0 ? '+' : c < 0 ? '−' : ''}${fmtNum(Math.abs(c), 1)}` })],
     ];
     return {
@@ -1218,17 +1244,16 @@ export class OdnowaSim {
     const notes: { rank: number; text: string }[] = [];
     const add = (rank: number, text: string) => notes.push({ rank, text });
     if (this.divisionsNow > 0) add(0, t('hl.close.cells', { n: this.divisionsNow, cell: cellName(this.niche) }));
-    else if (this.started) add(0, t('hl.close.calm'));
+    else if (this.started) add(0, t('hl.close.calm', { p: Math.round(this.progress * 100) }));
     if (this.bestBefore !== null && this.atp > this.bestBefore) add(1, t('hl.record', { atp: atpText(this.atp) }));
     else if (this.bestBefore !== null && this.atp > 0 && this.bestBefore - this.atp <= Math.max(30, this.bestBefore * 0.25)) {
       add(1, t('hl.toBest', { atp: atpText(this.bestBefore - this.atp) }));
     }
     for (const tr of this.upsNow) add(2, t(`hl.up.${tr}` as 'hl.up.mito'));
     if (this.cardsNow.length) add(3, t('hl.cards', { n: this.cardsNow.length }));
-    if (this.maxCombo >= 4) add(4, t('hl.combo', { n: this.maxCombo }));
+    if (this.goldSec >= 5) add(4, t('hl.gold', { n: Math.round(this.goldSec) }));
     if (this.partsNow > 0) add(5, t('hl.recycled', { n: this.partsNow }));
     if (this.blindShare >= 0) add(6, t('hl.blind', { n: this.blindShare }));
-    if (this.surgesNow > 0) add(7, t('hl.surges', { n: this.surgesNow }));
     return notes.sort((a, b) => a.rank - b.rank).slice(0, 5).map(n => n.text);
   }
 }

@@ -1,16 +1,16 @@
 /**
  * Odnowa (Renewal): the series "Weź moc, obudź się", rooted in 2 Corinthians 4:16 — "our inner self is being
- * renewed day by day".  Inside one stem cell the player runs and repairs the cell's machine: the ATP synthase
- * turns in the engine lens (8 protons a turn, 3 ATP a turn: the headline), damage glows on the double helix
- * and a tap sends the real repair crew, and in the calm the cell recycles its worn parts (autophagy).  Energy,
- * building material and a checked genome make a division: one daughter stays a stem cell, the other joins
- * the player's tissue — gut lining, skin or blood — which grows from session to session.
+ * renewed day by day".  Help one stem cell renew itself and divide: it needs three things, each from one source —
+ * **Energia** from the player's focus (the ATP synthase turns in the engine lens only while they are focused; ATP
+ * is the headline), **Naprawa DNA** from their taps (damage glows on the double helix, a tap sends the real repair
+ * crew), **Budulec** from rest (calm wraps worn parts, the lysosomes digest them into building material).  All
+ * three full → the cell divides; one daughter stays a stem cell, the other joins the player's tissue — gut lining,
+ * skin or blood — which grows from session to session.
  *
- * The band: in a sighted push the gauge is the proton gradient (the turbine speeds up, the crews work faster,
- * a held focus charges Pełna moc); in a rest calm wraps the worn parts; a blind push hides the gauge and pays
- * its share at the end.  Without a signal everything runs at its neutral pace.  Mito, a cheerful nerdy
- * mitochondrion, talks; the song (song.ts) fills with focus.  A visualisation and attention training — never
- * a treatment.
+ * Round 11 (the founder: "nie rozumiem kompletnie co robię"): the goal and its three bars always on screen, a
+ * persistent "what to do now" line, the systems shown one at a time with coach marks that stay until the thing
+ * is done, plain words first; the full power, the turbine nudge, two-tap repairs, the streak, the gate and the
+ * drag of autophagosomes went (DESIGN §13.12).  A visualisation and attention training — never a treatment.
  *
  * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts, rules.ts, content.ts,
  * meta.ts, talk.ts), the pictures (render.ts with layout.ts and paint.ts, intro.ts for calibration, preview.ts
@@ -24,15 +24,20 @@ import { OdnowaSound } from './audio';
 import { NICHES, type NicheId } from './content';
 import { t, unit, type Key } from './i18n';
 import { OdnowaIntro } from './intro';
-import { inRect, laneU, onLane, onLens, tapTargets } from './layout';
+import { inRect, laneU, onLane, tapTargets } from './layout';
 import { bestOf, freshProgress, migrate, type OdnowaProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { OdnowaView } from './render';
+import { RULES, readSec } from './rules';
 import { OdnowaSim, type Coach, type CoachAt, type SimEvent } from './sim';
 
-/** a finger that moves farther than this (px) drags; less is a tap */
-const TAP_PX = 10;
+/** The coach marks that stay until the player has done the thing (the sim's `coachDone`), and how long at most (s). */
+const KEEP: Partial<Record<Coach, number>> = { turbine: 20, lane: 30, rest: 20, check: 20 };
+/** The marks that belong in a rest (the others are about the push and wait for one — or are dropped). */
+const STAY_IN_REST: ReadonlySet<Coach> = new Set<Coach>(['rest', 'divide', 'check']);
+/** The small marks of a moment: past it (another block, or 20 s later) they are dropped. */
+const STALE: ReadonlySet<Coach> = new Set<Coach>(['energy', 'repair', 'ring', 'blind']);
 
 class OdnowaGame implements ArcadeGame {
   private readonly sim: OdnowaSim;
@@ -43,12 +48,11 @@ class OdnowaGame implements ArcadeGame {
   private w = 1;
   private h = 1;
   private dpr = 1;
-  /** the one finger the game follows, and an autophagosome it holds */
-  private finger: number | null = null;
-  private press: { x: number; y: number; part: number; moved: boolean } | null = null;
-  /** first-time explanations waiting for a clear screen (one at a time, a few seconds apart) */
-  private readonly hints: { what: Coach; at: CoachAt }[] = [];
-  private hintCool = 2;
+  /** first-time explanations waiting for a clear screen (one at a time), and the one on screen */
+  private readonly hints: { what: Coach; at: CoachAt; t: number; block: number }[] = [];
+  private clock = 0;
+  private hintNow: { what: Coach; t: number; min: number; max: number } | null = null;
+  private hintCool = 1.2;
   private songDone = false;
   /** the mouse's cursor as last set (a desk: a hand on what a click acts on) */
   private cursor = '';
@@ -101,6 +105,7 @@ class OdnowaGame implements ArcadeGame {
   }
 
   update(dt: number, f: FocusFrame, t: number): void {
+    this.clock = t;
     this.sim.holdTalk = this.view.toastUp;
     this.sim.update(dt, f, t);
     this.drain();
@@ -111,13 +116,12 @@ class OdnowaGame implements ArcadeGame {
     const line = p.song && p.lyrics ? this.sound.line() : null;
     this.view.lyric = line ? { text: line.text, p: line.p } : null;
     this.view.update(dt, this.sim);
-    this.hintCool -= dt;
-    this.flushHints();
+    this.flushHints(dt);
     if (this.sim.phase === 'done' && !this.songDone) {
       this.songDone = true;
       this.sound.stop();
     }
-    if (this.view.hover) this.setCursor(this.press?.moved ? 'grabbing' : this.view.cursor(this.sim));
+    if (this.view.hover) this.setCursor(this.view.cursor(this.sim));
   }
 
   private setCursor(c: string): void {
@@ -131,88 +135,33 @@ class OdnowaGame implements ArcadeGame {
   }
 
   /**
-   * A press answers at once (on touch-down): on the story card it begins; on the turbine it releases the full
-   * power or nudges it one proton on; on Mito he tells a fact; on an autophagosome it picks it up (a tap sends
-   * it to its lysosome, a drag carries it — drawn above the finger — to the one it is dropped on); on the lane
-   * the crew goes to the nearest damage; anywhere else in the cell to the most urgent one.
+   * A press answers at once (on touch-down): on the story card it begins; on Mito he says what to do now; anywhere
+   * else in the cell the repair crew goes — on the lane to the nearest damage, elsewhere to the damage that has
+   * waited longest (generous: never a precision tap).  A tap with nothing to mend ripples.
    */
   pointer(e: PointerInput): void {
     const s = this.sim, v = this.view, L = v.L;
-    const lift = this.env.touch ? Math.round(52 * L.u) : 0;
     if (!this.env.touch) {
       const was = v.hover;
       if (!was || Math.hypot(was.x - e.x, was.y - e.y) > 2) v.hoverAge = 0;
       v.hover = { x: e.x, y: e.y };
     }
-    if (e.type === 'down') {
-      if (this.finger !== null && this.finger !== e.id) this.letGo();
-      this.finger = e.id;
-      if (s.story) {
-        s.tap();
-        return;
-      }
-      if (s.phase === 'done') return;
-      if (onLens(L, e.x, e.y)) {
-        v.pressLens();
-        s.tapTurbine();
-      } else if (inRect(L.mitoHit, e.x, e.y)) {
-        s.talk.ask('fact', 2, 3);
-      } else {
-        const part = v.partAt(s, e.x, e.y);
-        if (part !== null) {
-          this.press = { x: e.x, y: e.y, part, moved: false };
-          s.holdPart(part, true);
-          v.drag = { id: part, x: e.x, y: e.y };
-        } else if (onLane(L, e.x, e.y)) {
-          if (!s.tapLane(laneU(L, e.x))) v.ripple(e.x, e.y);
-        } else if (!s.repairNext()) v.ripple(e.x, e.y);
-      }
-      this.drain();
+    if (e.type !== 'down') return;
+    if (s.story) {
+      s.tap();
       return;
     }
-    if (e.id !== this.finger) return;
-    const pr = this.press;
-    if (e.type === 'move') {
-      if (pr) {
-        if (!pr.moved && Math.hypot(e.x - pr.x, e.y - pr.y) >= TAP_PX) pr.moved = true;
-        if (pr.moved) v.drag = { id: pr.part, x: e.x, y: e.y - lift };
-      }
-      return;
-    }
-    // up
-    if (pr) {
-      this.press = null;
-      v.drag = null;
-      if (!pr.moved) s.sendPart(pr.part);
-      else {
-        const ly = v.lysoAt(s, e.x, e.y - lift);
-        if (ly >= 0) s.dropPart(pr.part, ly);
-        else s.holdPart(pr.part, false);
-      }
-      this.drain();
-    }
-    this.finger = null;
+    if (s.phase === 'done') return;
+    if (inRect(L.mitoHit, e.x, e.y)) s.askHelp();
+    else if (!s.tapAt(onLane(L, e.x, e.y) ? laneU(L, e.x) : null)) v.ripple(e.x, e.y);
+    this.drain();
   }
 
-  private letGo(): void {
-    if (this.press) this.sim.holdPart(this.press.part, false);
-    this.press = null;
-    this.view.drag = null;
-    this.finger = null;
-  }
-
-  /** Space and Enter: close the card, take a ready full power, mend the most urgent lesion, or nudge the turbine. */
+  /** Space and Enter: close the card, or mend the damage that has waited longest. */
   key(key: string, down: boolean): boolean {
     const used = this.sim.key(key, down);
-    if (used && down) {
-      if (this.sim.ready || this.sim.surge > 0) this.view.pressLens();
-      this.drain();
-    }
+    if (used && down) this.drain();
     return used;
-  }
-
-  pause(paused: boolean): void {
-    if (paused) this.letGo();
   }
 
   private drain(): void {
@@ -220,16 +169,52 @@ class OdnowaGame implements ArcadeGame {
       this.view.on(e, this.sim);
       this.sound.on(e);
       if (this.env.haptics) haptic(e);
-      if (e.type === 'coach') this.hints.push({ what: e.what, at: e.at });
+      if (e.type === 'coach') this.hints.push({ what: e.what, at: e.at, t: this.clock, block: this.sim.blockIndex });
     }
   }
 
-  /** One coach mark at a time, never over the story card, a few seconds apart. */
-  private flushHints(): void {
-    if (this.sim.story || this.hintCool > 0 || !this.hints.length) return;
-    const h = this.hints.shift()!;
-    this.env.hint(coachText(h.what, this.env.touch), this.view.anchor(h.at, this.sim), 4200);
-    this.hintCool = 4.6;
+  /**
+   * One coach mark at a time, never over the story card nor a block's banner, after Mito's line: each stays its
+   * reading time (≥ 2.5 s + 70 ms a character); the key ones (the turbine, the damage, the rest) stay until the
+   * player has done the thing.  While one is up Mito waits, and the first tap's gesture is drawn on the damage.
+   */
+  private flushHints(dt: number): void {
+    const s = this.sim;
+    s.hintQueued = this.hints.length > 0;
+    const cur = this.hintNow;
+    if (cur) {
+      cur.t += dt;
+      const done = s.coachDone(cur.what);
+      if ((done && cur.t >= cur.min) || cur.t >= cur.max || s.phase === 'done' || s.story) {
+        if (cur.t < cur.max) this.env.hint('');
+        this.hintNow = null;
+        this.hintCool = 1.4;
+        this.view.hand = false;
+        s.hintUp = false;
+      }
+      return;
+    }
+    this.hintCool -= dt;
+    if (!this.hints.length || this.hintCool > 0 || s.story || s.cellCard) return;
+    const b = s.block;
+    if (s.phase === 'play' && b && b.kind !== 'warmup' && (s.telegraphed || s.blockT < RULES.bannerSec)) return;
+    // the narrator finishes his line first (never two voices at once)
+    if (s.talk.line) return;
+    // a prompt to act (the first damage, the checkpoint) goes before an explanation that waits
+    const urgent = this.hints.findIndex(x => x.what === 'lane' || x.what === 'check');
+    const h = this.hints.splice(urgent > 0 ? urgent : 0, 1)[0];
+    const keep = KEEP[h.what];
+    // a prompt whose thing is already done is not shown at all (the explanations still are: the turbine's name, the
+    // rest's); a mark about the push is never shown in a rest, nor a small one that waited past its moment
+    if ((h.what === 'lane' || h.what === 'check') && s.coachDone(h.what)) return;
+    if (!STAY_IN_REST.has(h.what) && s.restBlock) return;
+    if (STALE.has(h.what) && (s.blockIndex !== h.block || this.clock - h.t > 20)) return;
+    const text = coachText(h.what, this.env.touch);
+    const min = readSec(text), max = keep ? Math.max(keep, min) : min;
+    this.env.hint(text, this.view.anchor(h.at, s), Math.round(max * 1000));
+    this.hintNow = { what: h.what, t: 0, min, max };
+    this.view.hand = h.what === 'lane';
+    s.hintUp = true;
   }
 
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
@@ -254,13 +239,14 @@ class OdnowaGame implements ArcadeGame {
 
   headline(): Headline {
     const s = this.sim;
-    if (s.surge > 0) return { value: s.atp, sub: t('hud.subSurge') };
+    const p = Math.round(s.progress * 100);
+    if (s.blind) return { value: s.atp, sub: t('hud.subBlind') };
     if (s.mitosis) return { value: s.atp, sub: t('hud.subDivide') };
     if (s.checkpoint) return { value: s.atp, sub: t('hud.subCheck') };
     const best = bestOf(s.p);
     const left = best !== null ? best - s.atp : 0;
     if (best !== null && left > 0 && left <= Math.max(40, best * 0.2)) return { value: s.atp, sub: t('hud.subBest', { left }) };
-    return { value: s.atp, sub: t('hud.sub', { n: s.stage, p: Math.round(s.progress * 100) }) };
+    return { value: s.atp, sub: s.divisionsNow > 0 ? t('hud.subCells', { n: s.divisionsNow, p }) : t('hud.sub', { p }) };
   }
 
   /** Ended early: the sim settles at once; its events are dropped (the view and the sound are about to go). */
@@ -271,14 +257,14 @@ class OdnowaGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  /** The turbine and Mito (or the story card while it is up), for the mobile audit. */
+  /** Mito (or the story card while it is up), for the mobile audit. */
   targets(): TapTarget[] {
     return tapTargets(this.view.L, { card: !!this.sim.story, started: this.sim.started });
   }
 
   destroy(): void {
-    this.letGo();
     this.sound.stop();
+    this.env.hint('');
     this.env.canvas.removeEventListener?.('pointerleave', this.leave);
     if (this.env.canvas.style) this.env.canvas.style.cursor = '';
   }
@@ -286,32 +272,29 @@ class OdnowaGame implements ArcadeGame {
 
 /** A coach mark's words for the hand the player has: a finger never hears of keys, a mouse clicks (and has keys). */
 export function coachText(what: Coach, touch: boolean): string {
-  if (!touch && (what === 'lane' || what === 'surge')) return t(`coach.${what}.keys` as Key);
-  if (!touch && (what === 'two' || what === 'drag')) return t(`coach.${what}.mouse` as Key);
+  if (!touch && what === 'lane') return t('coach.lane.keys');
   return t(`coach.${what}` as Key);
 }
 
 function haptic(e: SimEvent): void {
   switch (e.type) {
-    case 'repairStart': if (e.by === 'tap') buzz(e.combo >= 4 ? [6, 18, 8] : 8); break;
-    case 'kick': buzz(4); break;
-    case 'surge': buzz([30, 40, 60]); break;
-    case 'ready': buzz(20); break;
+    case 'repairStart': if (e.by === 'tap') buzz(8); break;
+    case 'gold': buzz(20); break;
     case 'spawn': if (e.kind === 'dsb') buzz(30); break;
+    case 'full': buzz([10, 30, 14]); break;
     case 'cell': buzz([20, 40, 20, 40, 60]); break;
-    case 'fuse': if (e.sent) buzz(12); break;
     case 'up': buzz([12, 30, 12]); break;
     default: break;
   }
 }
 
-/** How to play, for the hand the player has: taps on a phone, the keys too on a desktop. */
+/** How to play, for the hand the player has: taps on a phone, clicks and Space on a desktop. */
 export function howto(touch = coarsePointer()): HowTo {
   return {
     goal: t('how.goal'),
     hands: touch
-      ? [{ gesture: 'tap', text: t('how.tap') }, { gesture: 'tap', text: t('how.turbine') }, { gesture: 'drag', text: t('how.drag') }]
-      : [{ gesture: 'tap', text: t('how.tap.mouse') }, { gesture: 'tap', text: t('how.turbine.mouse') }, { gesture: 'keys', text: t('how.keys') }],
+      ? [{ gesture: 'tap', text: t('how.tap') }, { gesture: 'tap', text: t('how.mito') }]
+      : [{ gesture: 'tap', text: t('how.tap.mouse') }, { gesture: 'tap', text: t('how.mito.mouse') }, { gesture: 'keys', text: t('how.keys') }],
     tips: [t('how.tip1'), t('how.tip2')],
   };
 }

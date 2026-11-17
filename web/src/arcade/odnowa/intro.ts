@@ -53,7 +53,7 @@ export class OdnowaIntro {
     ctx.arc(0, 0, r, 0, Math.PI * 2);
     ctx.clip();
     paintLensBack(ctx, r);
-    paintTurbine(ctx, r, { angle: this.angle, grad: 0.15 + 0.6 * k, spin, beta: [0, 0, 0], surge: 0, t: this.t, veiled: false, rest: 0 });
+    paintTurbine(ctx, r, { angle: this.angle, grad: 0.15 + 0.6 * k, spin, beta: [0, 0, 0], gold: 0, t: this.t, veiled: false, rest: 0 });
     ctx.restore();
     paintGauge(ctx, cx, cy, r + Math.max(6, r * 0.08), k, rgba(C.vane, 0.9), C.gold);
     paintLensRim(ctx, cx, cy, r, 0);

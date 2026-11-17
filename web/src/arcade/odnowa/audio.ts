@@ -4,9 +4,9 @@
  * fixed level in a rest, and hold still in a blind push — or, with the song off, a quiet ambient pad.
  *
  * Every event has a small voice, throttled so a busy cell never turns into noise: a soft tink as each ATP
- * leaves the turbine (three notes a turn, one per β), a crisp click when a crew sets off and a chime that
- * climbs with a repair streak, the snap of a broken strand, the bloop of a closing autophagosome, the fizz
- * of a lysosome, the rush of full power, the chord of a division.
+ * leaves the turbine (three notes a turn, one per β), a crisp click when a crew sets off and a chime when it
+ * is done, the snap of a broken strand, the bloop of a closing autophagosome, the fizz of a lysosome, a warm
+ * swell when a held focus turns the turbine gold, a bell when a need fills, the chord of a division.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
 import { SongPlayer } from '../kit/song';
@@ -62,15 +62,8 @@ export class OdnowaSound {
         this.atpGap = 0.07;
         a.tone(ladder(5 + (this.atpI++ % 3) * 2, ROOT), 0.07, { type: 'sine', gain: e.src === 0 ? 0.016 : 0.009, attack: 0.004 });
         break;
-      case 'kick':
-        a.noiseBurst(0.09, { type: 'bandpass', freq: 900, sweepTo: 2200, q: 1.4, gain: 0.03 });
-        a.tone(300, 0.08, { type: 'triangle', gain: 0.02, slideTo: 540 });
-        break;
       case 'repairStart':
-        if (e.by === 'tap') {
-          a.tone(2300, 0.03, { type: 'square', gain: 0.01, slideTo: 1500 });
-          if (e.combo >= 2) a.combo(Math.min(e.combo + 2, 14), 659.25, 0.04);
-        }
+        if (e.by === 'tap') a.tone(2300, 0.03, { type: 'square', gain: 0.01, slideTo: 1500 });
         break;
       case 'repairStep':
         if (this.stepGap > 0) break;
@@ -78,13 +71,7 @@ export class OdnowaSound {
         a.tone(e.step === 'lig' || e.step === 'lig4' ? 1568 : 1046, 0.035, { type: 'sine', gain: 0.012 });
         break;
       case 'repaired':
-        a.bell(ladder(4 + Math.min(8, e.combo), ROOT * 2), e.by === 'tap' ? 0.035 : 0.018, 0.7);
-        break;
-      case 'wait':
-        a.tone(660, 0.12, { type: 'triangle', gain: 0.022 });
-        break;
-      case 'gate':
-        a.tone(220, 0.3, { type: 'triangle', gain: 0.03, slideTo: 196 });
+        a.bell(ladder(6, ROOT * 2), e.by === 'tap' ? 0.035 : 0.018, 0.7);
         break;
       case 'spawn':
         if (e.kind === 'dsb') {
@@ -105,17 +92,16 @@ export class OdnowaSound {
       case 'recycled':
         for (let i = 0; i < 3; i++) a.bell(ladder(5 + i * 2, ROOT), 0.022, 0.9, i * 0.09);
         break;
-      case 'ready':
-        a.noiseBurst(0.5, { type: 'bandpass', freq: 500, sweepTo: 3000, q: 0.9, gain: 0.03 });
-        a.bell(ladder(10, ROOT), 0.04, 1.4, 0.3);
+      case 'gold':
+        a.noiseBurst(0.5, { type: 'bandpass', freq: 500, sweepTo: 2400, q: 0.9, gain: 0.025 });
+        [0, 4, 7].forEach((s, i) => a.bell(ROOT * 2 ** (s / 12), 0.03, 1.4, 0.05 + i * 0.08));
         break;
-      case 'surge':
-        a.noiseBurst(0.9, { type: 'bandpass', freq: 300, sweepTo: 3600, q: 0.8, gain: 0.05 });
-        a.tone(98, 1.3, { type: 'sawtooth', gain: 0.025, attack: 0.05 });
-        [0, 4, 7, 12].forEach((s, i) => a.bell(ROOT * 2 ** (s / 12), 0.035, 1.6, 0.1 + i * 0.06));
+      case 'full':
+        a.bell(ladder(7 + e.need * 2, ROOT), 0.035, 1.2);
+        a.bell(ladder(11 + e.need * 2, ROOT), 0.025, 1.2, 0.12);
         break;
-      case 'surgeEnd':
-        a.tone(400, 0.4, { type: 'sine', gain: 0.015, slideTo: 260 });
+      case 'reveal':
+        a.bell(ladder(9, ROOT), 0.02, 1.0);
         break;
       case 'checkpoint':
         a.bell(ladder(4, ROOT), 0.025, 0.8);
@@ -145,6 +131,7 @@ export class OdnowaSound {
         break;
       case 'blindEnd':
         a.bell(ladder(e.share >= 0.5 ? 9 : 5, ROOT), 0.03, 1.4);
+        if (e.n > 0) [0, 2, 4].forEach((s, i) => a.bell(ladder(5 + s, ROOT), 0.02, 0.9, 0.2 + i * 0.07));
         break;
       default:
         break;

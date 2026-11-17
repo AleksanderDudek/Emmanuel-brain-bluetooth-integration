@@ -13,6 +13,8 @@
  *     Nobel Prize 2015);
  *   a double-strand break by non-homologous end joining (NHEJ): Ku holds both ends, DNA-PKcs bridges them,
  *     ligase IV joins them — in about 30 minutes in a real cell (Mao et al. 2008).
+ * One tap starts a crew and it runs every step of its pathway in order (round 11: the two-tap repairs went —
+ * the second tap taught nothing the steps on screen do not show).
  */
 import { t, type Key } from './i18n';
 
@@ -26,20 +28,18 @@ export type StepId = 'glyco' | 'ape1' | 'polb' | 'lig' | 'xpc' | 'tfiih' | 'cut'
 export interface LesionSpec {
   kind: LesionKind;
   path: Path;
-  /** the steps after each tap: one tap runs the whole repair, a two-step repair waits for a second tap */
-  stages: readonly (readonly StepId[])[];
-  /** ATP the repair uses (the ligase seals with ATP; TFIIH and DNA-PKcs spend it too) */
-  atp: number;
+  /** the crew's steps, in the pathway's order (one tap runs them all) */
+  steps: readonly StepId[];
   /** how many rungs the damage spans on the helix */
   span: number;
 }
 
 export const LESIONS: Readonly<Record<LesionKind, LesionSpec>> = {
-  oxo: { kind: 'oxo', path: 'ber', stages: [['glyco', 'ape1', 'polb', 'lig']], atp: 1, span: 1 },
-  abasic: { kind: 'abasic', path: 'ber', stages: [['ape1', 'polb', 'lig']], atp: 1, span: 1 },
-  dimer: { kind: 'dimer', path: 'ner', stages: [['xpc', 'tfiih'], ['cut', 'fill', 'lig']], atp: 2, span: 2 },
-  bulky: { kind: 'bulky', path: 'ner', stages: [['xpc', 'tfiih'], ['cut', 'fill', 'lig']], atp: 2, span: 2 },
-  dsb: { kind: 'dsb', path: 'nhej', stages: [['ku'], ['lig4']], atp: 2, span: 1 },
+  oxo: { kind: 'oxo', path: 'ber', steps: ['glyco', 'ape1', 'polb', 'lig'], span: 1 },
+  abasic: { kind: 'abasic', path: 'ber', steps: ['ape1', 'polb', 'lig'], span: 1 },
+  dimer: { kind: 'dimer', path: 'ner', steps: ['xpc', 'tfiih', 'cut', 'fill', 'lig'], span: 2 },
+  bulky: { kind: 'bulky', path: 'ner', steps: ['xpc', 'tfiih', 'cut', 'fill', 'lig'], span: 2 },
+  dsb: { kind: 'dsb', path: 'nhej', steps: ['ku', 'lig4'], span: 1 },
 };
 
 export const lesionName = (k: LesionKind): string => t(`lesion.${k}` as Key);
@@ -135,17 +135,23 @@ export const TIPS = {
   rest: (): readonly string[] => [t('tip.rest.1'), t('tip.rest.2'), t('tip.rest.3'), t('tip.rest.4')],
 };
 
-// ── Mito's moments (each at least three lines, ≤ 90 characters) ────────
+// ── Mito's moments (each at least two lines, ≤ 90 characters) ────────
+/**
+ * Mito says what matters while the player learns (round 11): who he is, what the block asks, what just happened —
+ * and, when tapped, what to do now (`help.*`, by phase).  Trivia waits for a rest (`fact`).
+ */
 export const MOMENTS = [
-  'first', 'open', 'warm', 'push', 'good', 'blind', 'rest', 'calm', 'ready', 'surge', 'repair', 'combo', 'two', 'dsb',
-  'gate', 'check', 'divide', 'cell', 'upMito', 'upEnzyme', 'upLyso', 'kick', 'recycle', 'fact', 'end',
+  'first', 'open', 'push', 'gold', 'blind', 'blindEnd', 'rest', 'calm', 'repair', 'dsb', 'check', 'divide', 'cell',
+  'recycle', 'upMito', 'upEnzyme', 'upLyso', 'nosignal', 'fact', 'end',
+  'help.energy', 'help.dna', 'help.rest', 'help.blind', 'help.check', 'help.divide', 'help.end',
 ] as const;
 export type Moment = typeof MOMENTS[number];
 
 /** How many lines each moment has in the catalog (`say.<moment>.<n>`, from 1). */
 export const LINE_COUNT: Readonly<Record<Moment, number>> = {
-  first: 3, open: 4, warm: 3, push: 5, good: 4, blind: 3, rest: 4, calm: 3, ready: 3, surge: 4, repair: 5, combo: 4, two: 3,
-  dsb: 3, gate: 3, check: 3, divide: 3, cell: 4, upMito: 3, upEnzyme: 3, upLyso: 3, kick: 5, recycle: 4, fact: 8, end: 4,
+  first: 3, open: 4, push: 4, gold: 3, blind: 3, blindEnd: 3, rest: 4, calm: 3, repair: 4, dsb: 3, check: 3, divide: 3,
+  cell: 4, recycle: 3, upMito: 3, upEnzyme: 3, upLyso: 3, nosignal: 3, fact: 8, end: 4,
+  'help.energy': 3, 'help.dna': 2, 'help.rest': 3, 'help.blind': 2, 'help.check': 2, 'help.divide': 2, 'help.end': 2,
 };
 
 /**

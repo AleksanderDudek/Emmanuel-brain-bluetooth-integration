@@ -76,7 +76,7 @@ export function drawPreview(ctx: CanvasRenderingContext2D, w: number, h: number,
   const pulse = 1 - ((angle * 3) % 1);
   const beta: [number, number, number] = [0, 0, 0];
   beta[third] = pulse * pulse;
-  paintTurbine(ctx, r, { angle, grad: 0.75, spin: 0.9, beta, surge: 0, t: time, veiled: false, rest: 0 });
+  paintTurbine(ctx, r, { angle, grad: 0.75, spin: 0.9, beta, gold: 0, t: time, veiled: false, rest: 0 });
   ctx.restore();
   paintGauge(ctx, cx, cy, r + Math.max(4, r * 0.08), 0.68 + 0.08 * Math.sin(time), C.vane, C.gold);
   paintLensRim(ctx, cx, cy, r, 0.4);

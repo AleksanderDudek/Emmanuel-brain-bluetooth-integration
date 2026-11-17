@@ -1,12 +1,13 @@
 /**
- * Mito's speech bubble without the canvas: one line at a time for 2.2–4 s (by its length), a short pause
- * between two, never while a block's telegraph, the runner's banner or a card is up (a line on screen when
- * one comes is cut), and no line twice in a session before its moment has said them all.  Moments ask with a
- * priority and a shelf life; the most important fresh one is said when the way is clear.
+ * Mito's speech bubble without the canvas: one line at a time, long enough to read it twice (round 11:
+ * ≥ 2.5 s + 70 ms a character, never under 4.5 s — rules.ts `readSec`), a short pause between two, never while
+ * a block's telegraph, the runner's banner, a coach mark or a card is up (a line on screen when one of those
+ * comes waits, faded, and is not cut — unless `hush`), and no line twice in a session before its moment has said
+ * them all.  Moments ask with a priority and a shelf life; the most important fresh one is said when the way is
+ * clear.
  */
-import { clamp } from '../kit/juice';
 import type { Moment } from './content';
-import { RULES } from './rules';
+import { RULES, readSec } from './rules';
 
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 
@@ -42,18 +43,21 @@ export class Talk {
   /** Forget what was asked (a card covers everything). */
   clear(): void { this.queue.length = 0; }
 
-  /** Cut the line on screen now. */
-  hush(): void {
-    if (!this.line) return;
+  /** Cut the line on screen now; the next may follow after `gap` s (0: at once — Mito answering a tap). */
+  hush(gap: number = RULES.talkGap): void {
     this.line = null;
-    this.gap = RULES.talkGap;
+    this.gap = gap;
   }
 
-  update(dt: number, now: number, blocked: boolean): void {
+  /**
+   * One frame: `blocked` holds a new line back; `hold` stops the clock of the line on screen (a banner, a coach mark:
+   * it waits, faded, never lost half-read); `cut` removes it (a card over everything).
+   */
+  update(dt: number, now: number, blocked: boolean, cut = blocked, hold = blocked): void {
     this.now = now;
     if (this.line) {
-      this.line.t += dt;
-      if (blocked || this.line.t >= this.line.dur) {
+      if (!hold) this.line.t += dt;
+      if (cut || this.line.t >= this.line.dur) {
         this.line = null;
         this.gap = RULES.talkGap;
       }
@@ -63,7 +67,7 @@ export class Talk {
     this.queue.sort((a, b) => b.pri - a.pri || a.seq - b.seq);
     const a = this.queue.shift()!;
     const text = this.pick(a.moment);
-    this.line = { moment: a.moment, text, t: 0, dur: clamp(RULES.talkMin + text.length / 34, RULES.talkMin, RULES.talkMax) };
+    this.line = { moment: a.moment, text, t: 0, dur: readSec(text) };
     this.said.push(text);
   }
 

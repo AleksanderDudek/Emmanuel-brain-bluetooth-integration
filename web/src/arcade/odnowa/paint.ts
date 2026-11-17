@@ -399,12 +399,13 @@ export function paintLensBack(ctx: CanvasRenderingContext2D, r: number, deep = '
 export interface TurbineState {
   /** the rotor's angle in turns */
   angle: number;
-  /** the gradient 0..1 (how many protons crowd) and the spin (turns/s) */
+  /** the drive 0..1 (how many protons crowd: the focus) and the spin (turns/s) */
   grad: number;
   spin: number;
   /** 0..1 pulses of the three β subunits (an ATP released) */
   beta: [number, number, number];
-  surge: number;
+  /** a held focus: the turbine glows gold (0..1) */
+  gold: number;
   t: number;
   /** the gauge is hidden (a blind block): the vanes run dim and even */
   veiled: boolean;
@@ -420,7 +421,7 @@ export const ENTRY_ANGLE = Math.PI * 1.18;
 /** The rotor, the head and the shaft, centred at 0,0 (the caller translates); `r` is the lens radius. */
 export function paintTurbine(ctx: CanvasRenderingContext2D, r: number, s: TurbineState): void {
   const rot = s.angle * TAU;
-  const hot = s.veiled ? 0.25 : Math.min(1, 0.3 + s.grad * 0.8 + s.surge);
+  const hot = s.veiled ? 0.25 : Math.min(1, 0.22 + s.grad * 0.8 + s.gold * 0.3);
   const cool = s.rest;
   // the pumps of the respiratory chain on the rim
   PUMP_ANGLES.forEach((a, i) => {
@@ -448,14 +449,6 @@ export function paintTurbine(ctx: CanvasRenderingContext2D, r: number, s: Turbin
     ctx.lineWidth = 1.2;
     ctx.stroke();
   });
-  // the pumps' names on a big lens
-  if (r >= 70) {
-    ctx.font = font(Math.max(11, r * 0.085), 800);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(255,240,255,0.9)';
-    PUMP_ANGLES.forEach((a, i) => ctx.fillText(['I', 'III', 'IV'][i], Math.cos(a) * r * 0.86, Math.sin(a) * r * 0.86 + (i === 0 ? r * 0.02 : 0)));
-  }
   // the c-ring: a wheel of eight vanes, a proton in each from the entry around to the exit
   const R0 = r * 0.42, R1 = r * 0.74;
   ctx.strokeStyle = rgba(cool > 0.5 ? '#8fd0ff' : C.vane, 0.22 + 0.2 * hot);
@@ -1109,14 +1102,17 @@ export function paintChipIcon(ctx: CanvasRenderingContext2D, kind: 0 | 1 | 2, x:
   }
 }
 
-/** Mito's speech bubble: wrapped text in a soft card with a tail toward (tx, ty); returns its box. */
-export function paintBubble(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, side: 'right' | 'left', px: number, tx: number, ty: number, a: number): { x: number; y: number; w: number; h: number } {
+/**
+ * Mito's speech bubble: wrapped text in a soft card with a tail toward (tx, ty); `y` is its top, or its bottom with
+ * `bottom` (Mito under his words), never above `minY`; returns its box.
+ */
+export function paintBubble(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, side: 'right' | 'left', px: number, tx: number, ty: number, a: number, bottom = false, minY = 0): { x: number; y: number; w: number; h: number } {
   ctx.font = font(px, 700);
   const lines = wrapLines(ctx, text, maxW - 20);
   const lh = Math.round(px * 1.3);
   const w = Math.min(maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 22);
   const h = lines.length * lh + 14;
-  const bx = side === 'right' ? x : x - w, by = y;
+  const bx = side === 'right' ? x : x - w, by = Math.max(minY, bottom ? y - h : y);
   ctx.globalAlpha = a;
   ctx.fillStyle = 'rgba(4,16,20,0.45)';
   rr(ctx, bx + 2, by + 3, w, h, 12);
@@ -1125,10 +1121,12 @@ export function paintBubble(ctx: CanvasRenderingContext2D, text: string, x: numb
   rr(ctx, bx, by, w, h, 12);
   ctx.fill();
   ctx.beginPath();
-  const ax = side === 'right' ? bx + 14 : bx + w - 14;
-  ctx.moveTo(ax - 6, by + h - 2);
+  // the tail leaves the edge nearest Mito
+  const ax = Math.max(bx + 14, Math.min(bx + w - 14, side === 'right' && !bottom ? bx + 14 : tx));
+  const ey = ty > by + h / 2 ? by + h - 2 : by + 2;
+  ctx.moveTo(ax - 6, ey);
   ctx.lineTo(tx, ty);
-  ctx.lineTo(ax + 6, by + h - 2);
+  ctx.lineTo(ax + 6, ey);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = '#3a1a18';
@@ -1150,4 +1148,207 @@ export function label(ctx: CanvasRenderingContext2D, text: string, x: number, y:
   ctx.strokeText(text, x, y);
   ctx.fillStyle = color;
   ctx.fillText(text, x, y);
+}
+
+// ── round 11: the words' icons, the gesture, the check ─────────────────
+/** The "what to do now" line's icons (language-free): focus, a tap, rest, a veil, the checkpoint, a division, no signal, the end. */
+export type NowIcon = 'focus' | 'tap' | 'rest' | 'blind' | 'check' | 'divide' | 'nosignal' | 'end';
+
+/** An icon centred at (x, y), `s` its size (px), in `color`. */
+export function paintNowIcon(ctx: CanvasRenderingContext2D, kind: NowIcon, x: number, y: number, s: number, color: string, t = 0): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = Math.max(1.4, s * 0.1);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const k = s / 2;
+  switch (kind) {
+    case 'focus': {
+      // a head in profile with rays from the forehead (attention)
+      ctx.beginPath();
+      ctx.arc(-k * 0.12, 0, k * 0.62, Math.PI * 0.55, Math.PI * 2.05);
+      ctx.lineTo(k * 0.62, k * 0.25);
+      ctx.lineTo(k * 0.42, k * 0.32);
+      ctx.lineTo(k * 0.38, k * 0.72);
+      ctx.stroke();
+      const p = 0.5 + 0.5 * Math.sin(t * 4);
+      ctx.globalAlpha = 0.5 + 0.5 * p;
+      for (let i = -1; i <= 1; i++) {
+        const a = -Math.PI * 0.32 + i * 0.42;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * k * 0.78, Math.sin(a) * k * 0.78 - k * 0.1);
+        ctx.lineTo(Math.cos(a) * k * 1.05, Math.sin(a) * k * 1.05 - k * 0.1);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'tap': {
+      // a fingertip pressing, with a ring where it lands
+      const p = (t * 1.2) % 1;
+      ctx.globalAlpha = 1 - p;
+      ctx.beginPath();
+      ctx.arc(0, k * 0.55, k * (0.2 + p * 0.5), 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.moveTo(-k * 0.22, k * 0.5);
+      ctx.lineTo(-k * 0.22, -k * 0.5);
+      ctx.arc(0, -k * 0.5, k * 0.22, Math.PI, 0);
+      ctx.lineTo(k * 0.22, k * 0.5);
+      ctx.stroke();
+      break;
+    }
+    case 'rest': {
+      // a crescent moon
+      ctx.beginPath();
+      ctx.arc(0, 0, k * 0.72, Math.PI * 0.35, Math.PI * 1.65);
+      ctx.arc(k * 0.32, -k * 0.05, k * 0.56, Math.PI * 1.55, Math.PI * 0.45, true);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'blind': {
+      // a closed eye
+      ctx.beginPath();
+      ctx.moveTo(-k * 0.8, -k * 0.05);
+      ctx.quadraticCurveTo(0, k * 0.65, k * 0.8, -k * 0.05);
+      ctx.stroke();
+      for (const dx of [-0.45, 0, 0.45]) {
+        ctx.beginPath();
+        ctx.moveTo(dx * k, k * 0.28);
+        ctx.lineTo(dx * k * 1.2, k * 0.62);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'check': {
+      // a shield with a mark: the checkpoint
+      ctx.beginPath();
+      ctx.moveTo(0, -k * 0.8);
+      ctx.lineTo(k * 0.66, -k * 0.5);
+      ctx.quadraticCurveTo(k * 0.6, k * 0.45, 0, k * 0.82);
+      ctx.quadraticCurveTo(-k * 0.6, k * 0.45, -k * 0.66, -k * 0.5);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, -k * 0.35);
+      ctx.lineTo(0, k * 0.15);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, k * 0.42, ctx.lineWidth * 0.7, 0, TAU);
+      ctx.fill();
+      break;
+    }
+    case 'divide': {
+      // one cell pinching into two
+      const p = 0.5 + 0.5 * Math.sin(t * 2.5);
+      const dx = k * (0.3 + 0.12 * p);
+      ctx.beginPath();
+      ctx.arc(-dx, 0, k * 0.48, 0, TAU);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(dx, 0, k * 0.48, 0, TAU);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(-dx, 0, k * 0.14, 0, TAU);
+      ctx.arc(dx, 0, k * 0.14, 0, TAU);
+      ctx.fill();
+      break;
+    }
+    case 'nosignal': {
+      // three arcs of a signal, struck through
+      for (let i = 1; i <= 3; i++) {
+        ctx.globalAlpha = 0.45;
+        ctx.beginPath();
+        ctx.arc(0, k * 0.55, k * 0.36 * i, Math.PI * 1.25, Math.PI * 1.75);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.moveTo(-k * 0.7, -k * 0.7);
+      ctx.lineTo(k * 0.7, k * 0.7);
+      ctx.stroke();
+      break;
+    }
+    case 'end': {
+      // a four-pointed star of light
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = -Math.PI / 2 + (i / 8) * TAU, rr0 = i % 2 ? k * 0.28 : k * 0.85;
+        if (i === 0) ctx.moveTo(Math.cos(a) * rr0, Math.sin(a) * rr0);
+        else ctx.lineTo(Math.cos(a) * rr0, Math.sin(a) * rr0);
+      }
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * The gesture drawn for the first tap (round 11: teach by doing): a hand whose index finger comes down on (x, y)
+ * every 1.3 s, a ring blooming where it lands.  `s` is the hand's height; the fingertip is the point.
+ */
+export function paintHand(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t: number): void {
+  const cyc = (t % 1.3) / 1.3;
+  const down = cyc < 0.35 ? 1 - cyc / 0.35 : cyc < 0.5 ? 0 : (cyc - 0.5) / 0.5;
+  const lift = down * s * 0.22;
+  if (cyc >= 0.33 && cyc < 0.9) {
+    const k = (cyc - 0.33) / 0.57;
+    ctx.strokeStyle = rgba(C.goldHi, 0.9 * (1 - k));
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(x, y, s * (0.12 + k * 0.4), 0, TAU);
+    ctx.stroke();
+  }
+  ctx.save();
+  ctx.translate(x + s * 0.06, y + lift);
+  ctx.rotate(-0.28);
+  const fw = s * 0.17;
+  // the palm and the curled fingers, the index finger pointing down to the tip at (0, 0)
+  ctx.fillStyle = '#fff6e6';
+  ctx.strokeStyle = 'rgba(6,22,26,0.85)';
+  ctx.lineWidth = Math.max(1.5, s * 0.035);
+  ctx.beginPath();
+  rrPath(ctx, -fw / 2, 0, fw, s * 0.55, fw / 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  rrPath(ctx, -fw * 0.6, s * 0.42, fw * 2.7, s * 0.5, fw * 0.8);
+  ctx.fill();
+  ctx.stroke();
+  for (let i = 1; i <= 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-fw * 0.6 + fw * 0.9 * i, s * 0.47);
+    ctx.lineTo(-fw * 0.6 + fw * 0.9 * i, s * 0.62);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function rrPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
+  const k = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.moveTo(x + k, y);
+  ctx.arcTo(x + w, y, x + w, y + h, k);
+  ctx.arcTo(x + w, y + h, x, y + h, k);
+  ctx.arcTo(x, y + h, x, y, k);
+  ctx.arcTo(x, y, x + w, y, k);
+  ctx.closePath();
+}
+
+/** A tick: a need that is full. */
+export function paintTick(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(2, s * 0.16);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x - s * 0.4, y);
+  ctx.lineTo(x - s * 0.1, y + s * 0.3);
+  ctx.lineTo(x + s * 0.42, y - s * 0.32);
+  ctx.stroke();
+  ctx.lineCap = 'butt';
 }

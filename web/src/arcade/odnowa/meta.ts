@@ -8,7 +8,8 @@
  *   the niches      the gut crypt from the start, the skin's basal layer and the bone marrow open with
  *                   divisions; a session takes the chosen niche or the next one in turn
  *   Wiedza          the cards met in play (content.ts CARDS)
- *   records         the best ATP for each session length, the longest combo, the most divisions in a session
+ *   records         the best ATP for each session length, the most divisions in a session (the longest repair
+ *                   streak of the first version stays in an old save; round 11 dropped the streak)
  *
  * `migrate` repairs anything of a wrong type, so the placeholder's save ({ ver: 1, sessions: n }) and any
  * older or broken save load as a playable progress.
@@ -33,7 +34,10 @@ export interface OdnowaProgress {
   log: Record<LesionKind, number>;
   /** the Wiedza cards met */
   cards: CardId[];
-  /** first-time explanations already shown */
+  /**
+   * first-time explanations already shown, and 'reveal' once the first session has shown the four systems one by
+   * one; SEEN_V marks the round-11 explanations (an older save's are forgotten: the game changed, it teaches again)
+   */
   seen: string[];
   /** the best ATP for each session length (seconds as the key) */
   best: Record<string, number>;
@@ -48,12 +52,15 @@ export interface OdnowaProgress {
   lastLen: number;
 }
 
+/** The round-11 explanations' mark in `seen` (2026-11-17: the clarity redesign teaches every player once more). */
+export const SEEN_V = 'r11';
+
 export function freshProgress(): OdnowaProgress {
   return {
     ver: 1, sessions: 0, pushes: 0, atpTotal: 0, repairs: 0, recycled: 0, divisions: 0, surges: 0,
     tissue: { gut: 0, skin: 0, blood: 0 },
     log: { oxo: 0, abasic: 0, dimer: 0, bulky: 0, dsb: 0 },
-    cards: [], seen: [], best: {}, bestCombo: 0, bestDivisions: 0,
+    cards: [], seen: [SEEN_V], best: {}, bestCombo: 0, bestDivisions: 0,
     niche: 'auto', lastNiche: null, song: true, lyrics: true, lastLen: 0,
   };
 }
@@ -81,6 +88,8 @@ export function migrate(p: OdnowaProgress): OdnowaProgress {
   for (const k of LESION_KINDS) p.log[k] = Math.floor(num(log[k]));
   p.cards = Array.isArray(raw.cards) ? [...new Set(raw.cards.filter((c): c is CardId => typeof c === 'string' && (CARD_IDS as readonly string[]).includes(c)))] : [];
   p.seen = Array.isArray(raw.seen) ? [...new Set(raw.seen.filter((s): s is string => typeof s === 'string'))] : [];
+  // explanations of the game before round 11 no longer fit it: forget them (the rest of the progress stays)
+  if (!p.seen.includes(SEEN_V)) p.seen = [SEEN_V];
   const best: Record<string, number> = {};
   if (isObj(raw.best)) for (const [k, v] of Object.entries(raw.best)) if (/^\d+$/.test(k) && typeof v === 'number' && Number.isFinite(v) && v > 0) best[k] = Math.floor(v);
   p.best = best;

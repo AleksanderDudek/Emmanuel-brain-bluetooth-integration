@@ -3926,10 +3926,10 @@ languages, the scripture rules.
 
 | | Ogień, ogień, ogień | Rozświetl | Ja jestem… | Odporność | Światło ciała | Synapsy | Odnowa |
 |---|---|---|---|---|---|---|---|
-| Core | charge a fire through seven scales, a "powers of ten" zoom-out at each change | light breaks a dark mosaic along its cracks; tiles burst and show the bright picture under it | a sketch in stained-glass cells fills with colour and light, then an aura | lead a swarm of white cells through the real stages of an immune response | a band of light scans the body; each organ's balance comes back | build a network of neurons in two halves; fire pairs together to wire them | run the cell: proton pumps, the ATP turbine, DNA repair, recycling |
-| Push (focus) | **charge**: the ring fills faster the higher the signal; full → the next scale | **light pressure** on the aimed tile; the cracks brighten and spread; full → it bursts | **colour** pours into the chosen cell; full → it lights | **alarm**: the cytokine signal reaches further, more cells answer, engulfing speeds up | **scan**: the band brightens and moves on; a lit organ settles faster | **growth**: synapses grow and thicken, myelin speeds the signal | **energy**: pumps and turbine speed up; repair goes faster |
-| Rest (calm) | **embers → light**: the charge is banked as light; the flame breathes with the player | **gazing**: the uncovered picture warms, gold fills its seams | **glow**: lit cells shine brighter, the aura grows | **healing**: inflammation settles, collagen closes the wound | **rest**: the vagus slows the heart, breath lengthens, organs settle | **consolidation**: replay, pruning, the night clean-up of the brain | **clean-up**: autophagy recycles worn parts |
-| Hands | blow (tap), shield from wind (hold), feed the fire (drag) — one small task per scale | tap a tile to aim the light, drag across tiles | tap a cell to send the colour, drag to paint | drag the swarm, tap targets | tap an organ, drag the band | tap pairs in rhythm / drag to connect | tap lesions, drag parts to lysosomes |
+| Core | charge a fire through seven scales, a "powers of ten" zoom-out at each change | light breaks a dark mosaic along its cracks; tiles burst and show the bright picture under it | a sketch in stained-glass cells fills with colour and light, then an aura | lead a swarm of white cells through the real stages of an immune response | a band of light scans the body; each organ's balance comes back | build a network of neurons in two halves; fire pairs together to wire them | help one stem cell renew itself and divide: three needs, each from one source |
+| Push (focus) | **charge**: the ring fills faster the higher the signal; full → the next scale | **light pressure** on the aimed tile; the cracks brighten and spread; full → it bursts | **colour** pours into the chosen cell; full → it lights | **alarm**: the cytokine signal reaches further, more cells answer, engulfing speeds up | **scan**: the band brightens and moves on; a lit organ settles faster | **growth**: synapses grow and thicken, myelin speeds the signal | **energy**: the turbine turns only in focus, gold for a held focus |
+| Rest (calm) | **embers → light**: the charge is banked as light; the flame breathes with the player | **gazing**: the uncovered picture warms, gold fills its seams | **glow**: lit cells shine brighter, the aura grows | **healing**: inflammation settles, collagen closes the wound | **rest**: the vagus slows the heart, breath lengthens, organs settle | **consolidation**: replay, pruning, the night clean-up of the brain | **clean-up**: calm wraps worn parts into building material |
+| Hands | blow (tap), shield from wind (hold), feed the fire (drag) — one small task per scale | tap a tile to aim the light, drag across tiles | tap a cell to send the colour, drag to paint | drag the swarm, tap targets | tap an organ, drag the band | tap pairs in rhythm / drag to connect | tap the glowing damage on the DNA |
 | Side reading (`env.body()`) | — | — | — | — | the player's pulse at the heart (Mendi) | the halves in step lights the bridge | — |
 | Headline | iskier / sparks | odłamków / shards | części / pieces | patogenów / pathogens | pkt (builder may name it) | połączeń / connections | ATP |
 | Root | 2 Tim 1:6 | Isa 60:1 | Phil 2:9-10 | Ps 103:2-3 | Mat 6:22 | Rom 12:2 | 2 Cor 4:16 |
@@ -4997,107 +4997,109 @@ myelination and the wash happen in seconds instead of nights and weeks; tens of 
 
 ### 13.12 Odnowa — the cell renews itself
 
-A machine to run and repair (2026-11-12). Files: `src/arcade/odnowa/` (rules, content, meta, talk, sim,
-layout, paint, render, intro, preview, panel, audio, song, i18n, index), tests in `test/arcade-odnowa.test.ts`.
+A cell to help (2026-11-12; rebuilt for clarity in round 11, 2026-11-17). Files: `src/arcade/odnowa/` (rules,
+content, meta, talk, sim, layout, paint, render, intro, preview, panel, audio, song, i18n, index), tests in
+`test/arcade-odnowa.test.ts`.
 
-**The picture.** Inside one stem cell at night: a teal cytoplasm lit from within, the nucleus behind, the
-endoplasmic reticulum with its ribosomes, vesicles drifting. In the middle the **engine lens** shows Mito's
-inner membrane face-on: the ATP synthase, big — the c-ring's eight teal vanes turning round the α₃β₃ head
-(three lavender α, three golden β) on the bent γ shaft — and the three pumps of the respiratory chain
-(complexes I, III, IV) on the rim sending protons round to the turbine's entry. Every third of a turn a β
-glows and a golden ATP flies out to where energy is needed: the division's energy chip, or a repair crew on
-the lane (the ligase seals with ATP; TFIIH and DNA-PKcs spend it too). Across the bottom the **DNA lane**:
-the double helix, with its major and minor grooves, scrolls past as the scan moves on. The voice is **Mito**,
-a cheerful, slightly nerdy mitochondrion ("Yes, *that* powerhouse"); a faint magnifier cone joins him to the
-lens — the turbine is his.
+**Round 11: "nie rozumiem kompletnie co robię".** The founder could not tell what to do: the first version showed at
+once a turbine with pumps, three unnamed chips, a scrolling DNA lane with a gate, crew names, a streak, a full-power
+charge, Wiedza toasts with sources in the middle of a push, Mito's bubble and the sing-along line — and the turbine
+turned without any focus. Now the game says one goal and shows it always, each need has one source, the systems
+come one at a time, and progress comes only from the real thing.
 
-**One stage, one division.** A real cell divides only with energy, building material and a checked genome;
-so does ours. Three chips under the HUD hold the recipe — **Energia** (ATP made this stage), **Budulec**
-(material back from recycling), **DNA** (the share of the genome scanned). All three full and no damage open
-on the helix (the **checkpoint**: no division with damaged DNA) → **mitosis**, drawn in the lens: prophase
-(chromosomes condense), metaphase (in line on the spindle), anaphase (pulled apart), telophase and
-cytokinesis (the cell pinches in two); the daughters part — one stays a stem cell (mint), the other takes its
-fate's colour and joins the player's tissue; a toast names it. The recipe grows each stage (ATP 95 × 1.17ⁿ⁻¹,
-material 5 + (n − 1), scan 38 + 5(n − 1) units, capped).
+**The goal, always on screen.** Under the HUD: **„Pomóż komórce się odnowić i podzielić”** and the three needs as
+labelled bars — **Energia** (from focus), **Naprawa DNA** (from the hands), **Budulec** (from rest). A phone upright
+shows „Napełnij 3 paski — komórka się podzieli” over three two-line chips (the name; under it the source's sign — a
+head with rays, a fingertip, a moon — the bar and the count); a phone on its side stacks one-line chips on the right;
+a wide screen has a panel in the right column (the sentence, each bar with „· ze skupienia / Twoje stuknięcia /
+z odpoczynku”, and the outcome row „Trzy pełne → podział: nowa komórka w Twojej tkance (n)”). A full bar turns gold
+with a tick; what fills it flies into it (golden ATP from the turbine, a bead from a mended rung, building beads
+from a lysosome).
 
-**Focus (push): energy.** The gauge (`meter`, "Energia") is the **proton gradient**: in a sighted push past
-its lead-in (5 s Mendi, 2 s HALO) it follows the band's level, and it never sinks below its neutral floor,
-so a low reading is never a loss. The turbine turns at 0.1 + 2.3 × gradient turns a second (× 1.8 at the
-threshold, × 2.6 at full); the protons crowd thicker, the pumps beat faster, electrons hop I → III → IV, the
-crews' steps quicken; above the threshold the rim and the gauge turn gold. A held focus (3 s Mendi, 1.5 s
-HALO) charges **Pełna moc** (full power): a tap on the turbine or Space releases it — 6 s at × 2.5, a golden
-storm of ATP, every open lesion mended in a cascade. Repair streaks of ×3 and more add a little charge; a
-ready full power not taken goes by itself after 8 s, but never in a rest nor so late in a push that the rest
-would cut it short (a rest ends a running one: the cell rests).
+**What to do now.** A persistent pill over the play (an icon and a few words): „Skup się — turbina robi energię”,
+„Stuknij świecące uszkodzenie na DNA” (once a lesion has waited 1.5 s — a quick tapper never sees it), „Odpocznij —
+komórka sprząta”, „Skup się na wyczucie — wynik po bloku”, „Napraw DNA — wtedy komórka się podzieli” (the checkpoint),
+„Komórka się dzieli — patrz!”, „Brak sygnału — nic nie przepada”, „Koniec sesji — komórka odpoczywa”. It changes only
+when the action changes: a new block, the division and the end at once, the hands' prompts after 2.5 s on screen.
+A mouse reads „Kliknij …”. Mito, tapped, says the same in his words (`help.*`).
 
-**Calm (rest): clean-up.** The engine idles in cooler light; worn parts appear in the side columns (a worn
-mitochondrion, a protein clump, an old peroxisome), are **tagged** (ubiquitin; PINK1 and Parkin on a
-mitochondrion), **wrapped** by the phagophore — calm wraps faster (`meterRest`, "Sprzątanie"; without a
-signal at the neutral pace, never slower) — sealed into an **autophagosome**, carried to a **lysosome**,
-**fused** and **digested**: coloured building beads fly back to the material chip. A tap on an autophagosome
-sends it at once; a drag (drawn above the finger) carries it to the lysosome it is dropped on. A breathing
-ring (in 4, out 6) swells round the lysosomes, "wdech/wydech" in the lens. A rest judged calm leaves 2 extra
-material; a push judged above the threshold charges full power a little.
+**One system at a time.** The first session: a short card (the goal, „pokażę Ci je po kolei”, 2 Corinthians 4:16;
+the warm-up waits while it is read, it closes by itself after its reading time); then **energy** (the turbine and its
+bar; the lane dim, the clean-up hidden, the other bars dim), then **DNA** (once the turbine has been shown 8 s and
+made 6 ATP, or after 16 s), then the **clean-up** (with the first rest), then the **division** (after the rest's own
+explanation, 10 s into the clean-up or when two needs are full). Each comes with a highlight and a coach mark at the
+thing. A returning player sees the four in a quick stagger (0.5, 2.5, 4.5, 6.5 s). A player of the first version is
+taught again once (the save's explanations are forgotten: `seen` gets the mark `r11`).
 
-**The hands: the lane.** Damage glows on the helix. A tap on the lane sends the real crew to the nearest
-lesion — generous, never a precision tap on a moving thing — and a tap elsewhere in the cell (or Space, or
-the smoke test's centre click) to the most urgent one. The crews run the pathways in their real order, each
-step named over the lane: **base excision** (glycosylase → APE1 → polymerase β → ligase; an abasic site
-starts at APE1); **nucleotide excision** for UV dimers (the skin) and bulky adducts (the gut), in two taps
-(XPC and TFIIH find and unwind it; then XPF + XPG cut a 24–32-letter piece out, a polymerase fills the gap, a
-ligase seals); a **double-strand break** (rare, from the second stage) by end joining, in two taps (Ku holds
-the ends, then ligase IV joins them). Taps chain into a **streak** (×N, a rising chime). The scan runs fast on
-a clean helix and slows while damage is open; an unrepaired lesion that reaches the **gate** on the left stops
-the helix there and the cell's own crew mends it after 3 s — slower, never lost. Damage often comes in pairs
-(an oxidative burst). A tap on the turbine nudges it one proton's step (an eighth of a turn; Mito protests
-that he is not a spinning top), a tap on Mito tells a fact.
+**Energy — only from focus.** The ATP synthase turns only while the band says *focused* (above the threshold, short
+dips forgiven): its drive is 0.3 at the threshold and 1 at level 0.9, 1.5 turns a second at full drive, 3 ATP a turn
+(8 protons, the c₈ ring); a focus held 3 s (1.5 s HALO) turns it **gold** and ×1.4 (no tap: the full power of the
+first version went). Without focus — or without a signal — the rotor coasts to a stop and shivers in place; nothing
+is lost. In a rest it idles cool (the rest asks for calm). The panel's gauge (`meter`, „Energia”) is the band's level,
+and the ring round the lens shows the same with the threshold mark at the top. A blind push banks its ATP (the
+headline and the bar hold) and pays it at the block's end („na wyczucie: +62 ATP”).
 
-**Niches.** A session plays one niche, in turn or chosen in the lobby: the **gut crypt** (from the start;
-oxidation, lost bases, bulky adducts from food), the **skin's basal layer** (after 2 divisions; UV dimers),
-the **bone marrow** (after 5). Each tints the city and gives the daughter its fate: a gut lining cell, a skin
-cell, a blood cell progenitor.
+**DNA repair — from the hands.** In a push (and the warm-up) damage glows on the helix — at most two at a time, at
+least 1.7 units apart, one every 4.5–7.5 s — and waits: the helix scrolls on only while it is clean. One tap sends
+the real crew, which runs every step of its pathway in order, named small over the lane („ekipa naprawcza ·
+glikozylaza”): base excision (glycosylase → APE1 → polymerase β → ligase; an abasic site starts at APE1),
+nucleotide excision for UV dimers and bulky adducts (XPC → TFIIH → XPF + XPG → polymerase → ligase), end joining for
+a double-strand break (Ku → ligase IV; rare, from the second stage, slower). A tap on the lane goes to the nearest
+damage, anywhere else (or Space) to the one waiting longest. Each repair fills the DNA bar; once it is full no new
+damage comes („DNA sprawdzone ✓”). In a rest no damage comes, and the cell's own crew mends what waits — as fast as
+the calm allows. The **checkpoint**: all three full but damage open → no division until it is mended.
 
-**The meta.** The **tissue**: cells per niche in patches of twelve, drawn round the lens in the lobby. Traits
-earned by the lifetime, visible in the cell: **mitochondria** (biogenesis: +1 at 1 400 / 4 500 / 11 000 ATP,
-each a small turbine beside the lens adding a quarter of its output), **enzymes** (faster steps at 25 / 80 /
-180 repairs), **lysosomes** (faster wrapping and digestion at 8 / 24 / 50 parts, a third lysosome at the
-top). **Wiedza**: 21 cards met in play, each one real number, one sentence and its source (the lobby lists
-them). Records: the best ATP per session length, the longest streak, the most divisions in a session.
+**Building material — from rest.** In a rest worn parts appear in the clean-up's column (a worn mitochondrion, a
+protein clump, an old peroxisome), are tagged (ubiquitin; PINK1 and Parkin), wrapped by the phagophore **only with
+calm** (rate 0.3 × calm a second; no calm, no wrapping — and nothing lost: a part half-wrapped waits for the next
+rest), sealed, carried to a lysosome, fused and digested into 2–3 material. No tap, no drag: rest is rest. A calm
+rest (judged at its end) adds 2. The breath guide (kit/breath, 4 in · 6 out) rings the lysosomes and the lens
+counts „wdech · 4”; rests are whole breaths (two or three, 20 or 30 s).
 
-**Blocks and words.** Pushes 26 ± 4 s, rests 22 ± 3 s, a 3.5 s telegraph; a first-ever session opens with a
-warm-up that teaches the lane, the turbine and the recipe one coach mark at a time (then, when each first
-matters: the gauge, the second tap, the clean-up, the drag, full power, the checkpoint, the blind block).
-Blind pushes every 4th from the 3rd session: the lens frosts over, the gauge, the pad and the song hold, and
-the block's share above the threshold charges full power at its end. Each block is judged once at its end
-from its last 15 s (`RoundJudge`); `BlockContrast` for the summary. The tasks are imagery of the scene
-("Wyobraź sobie turbinę ATP: każdy obrót wyrzuca trzy złote iskry", the protons crowding at the turbine, one
-electron through I, III, IV to a drop of water, thousands of turbines in one heart cell), one counting (the
-ATP in threes) and one recall (today's breakfast turning into ATP); in a rest the 4/6 breath, the lysosome at
-work, a soft forehead, "with every out-breath something old goes and makes room for the new". The story
-card of the first session: 330 billion cells renewed a day, this one is a stem cell, and the game's time is
-changed (the turbine a hundred times slower, repair and clean-up thousands of times faster) — with the root,
-2 Corinthians 4:16. Closing passages by what happened: the first session Psalm 139:16; a skin cell
-Ezekiel 37:5–6; a division Job 33:25; a calm rest Psalm 51:10; two parts recycled John 12:24 (gently: renewal
-through letting go of the old); else 2 Corinthians 4:16. Never a claim of healing: the how-to's last tip and
-the lobby card say it is visualisation and attention training, not a treatment; nothing is "killed".
+**The division.** All three full and no damage open → mitosis in the lens, in plain words with the term after
+(„chromosomy gęstnieją (profaza)”, „stają w szeregu (metafaza)”, „rozchodzą się (anafaza)”, „z jednej robią się
+dwie (telofaza)”); one daughter stays a stem cell, the other joins the tissue („Nowa komórka! komórka nabłonka
+jelita — 3. w Twojej tkance”). The needs grow: ATP 60 × 1.15ⁿ⁻¹ (to 300), repairs 3 + (n − 1) (to 8), material
+5 + (n − 1) (to 12); spare energy and material carry over. Pace (simulated): ~5 divisions in a 5-minute session
+with strong focus and calm rests, ~4 at a realistic level; with no focus at all, none.
 
-**The song** (`song.ts`): warm and steady, 92 bpm in G major — verse A, the series refrain, verse B, the
-refrain (128 beats, ~83 s), an original melody and original words in four languages ("Kręci się turbina w
-nas, / złote iskry raz po raz; / enzym łata każdy ślad — / dzień po dniu odnawia świat." and "Co zużyte,
-wraca w krąg, / lizosom ma pełno rąk; / jedna dzieli się na dwie — / dzień po dniu odnawiam się."). The
-layers mirror the machine: eight plucks a bar (eight protons a turn), three bells a bar (three ATP). The
-level follows the gauge in a sighted push, stays at 0.3 in a rest and 0.42 elsewhere, holds in a blind push;
-the current line is drawn under the HUD with a karaoke fill. The lobby card switches the song and its line
-off (saved); with the song off a quiet pad plays.
+**Words: plain first, read twice.** „turbina komórki (syntaza ATP)”, „ekipa naprawcza (ligaza)”, „sprzątanie
+(autofagia)”. Every caption stays ≥ 2.5 s + 70 ms a character and never under 4.5 s (`readSec`): Mito's lines, the
+coach marks, the new cell's card, a Wiedza card. The key coach marks stay until the thing is done (the turbine
+turned, the damage tapped — with a drawn hand tapping it —, the first material made); Mito finishes his line first,
+then waits while a mark is up or queued (one voice at a time; a held line fades and waits, never cut). The first
+damage's prompt goes before an explanation that waits; a mark about the push is never shown in a rest; the small ones
+(energy, repair, ring, blind) are dropped once their moment has passed. Wiedza cards come only in a rest, one a rest,
+after the reveal; the rest are listed in the summary and the lobby.
 
-**Mobile first.** Upright: the lyric and the three chips under the HUD (passive), the city with the lens
-anchored just over the lane, the lane across the bottom in the thumb zone (86–136 px tall), Mito top left
-with his bubble to the right. Targets: the turbine (the square inside the lens, a finger's worth of it in the
-thumb zone) and Mito; the story card alone while it is up. On its side: the lens left, the chips stacked on
-the right, the lane along the foot. Wide: the lens as large as the height allows, the chips a column on the
-right, Mito with his bubble on the left. Words to read ≥ 13 px (a chip's name only where it fits at 13),
-nothing under 11. Fill rate: glow sprites with 'lighter'; the city, the lens's backdrop and one period of the
-helix cached on resize; no shadowBlur, no filter.
+**Mito** says what matters: who he is, the first push („turbina kręci się tylko wtedy, gdy się skupiasz”), the gold
+turbine, the blind block and its reveal, the first rest, a calm rest, the first repair, a double break, the
+checkpoint, the division and the new cell, the traits, a lost signal; facts only in a quiet rest. Tapped, he says
+what to do now. His lines about tapping have mouse twins.
+
+**Removed in round 11** (each cost more understanding than it gave): Pełna moc (a hidden second meaning of the
+turbine and a tap that competed with focus) → the automatic gold turbine; the turbine nudge (progress without focus);
+two-tap repairs (one tap runs the whole pathway); the repair streak (it rewarded fast tapping in a push, §2.5); the
+scroll-to-the-gate lane and the „genome scanned” share (the DNA bar counts repairs); dragging autophagosomes; ATP
+flying to repairs (looked like the bar being spent); the sing-along line on phones (kept on a wide screen, under the
+goal); the pumps' Roman numerals.
+
+**Kept**: the turbine and its real numbers, the helix and its crews, autophagy, mitosis, Mito, the niches (gut crypt
+from the start, skin after 2 divisions, bone marrow after 5; each its damage mix and its daughter), the tissue in
+patches of twelve, the traits (mitochondria at 1 400 / 4 500 / 11 000 ATP, each +25 % — still only with focus;
+enzymes at 25 / 80 / 180 repairs; lysosomes at 8 / 24 / 50 parts), 21 Wiedza cards with sources, the song (§ below),
+the blocks (pushes 26 ± 4 s kept ≤ 30, a 3.5 s telegraph, judged once at the end from the last 15 s, blind every 4th
+push from the 3rd session, `BlockContrast`), the closing passages.
+
+**The song** (`song.ts`): unchanged — 92 bpm in G major, verse A, the series refrain, verse B, the refrain; its
+layers follow the gauge in a sighted push, 0.3 in a rest, 0.42 elsewhere, hold in a blind push.
+
+**Mobile first.** Upright: the now pill (30 px), the goal's sentence and the three chips (40 px), then the cell with
+the lens (r ≥ 72 on the 360 × 366 band) over the lane (84–130 px, in the thumb zone), Mito top left with his bubble to
+the right, the clean-up in the side columns. Only target: Mito (and the story card while up); the lane and the cell
+are the play area (a tap anywhere sends the crew). On its side: the pill over the cell, the lens left, the goal
+stacked right, the lane along the foot. Wide: the pill centred, the lens centred, the goal panel right, Mito with his
+words over him and the clean-up in the left column. Words to read ≥ 13 px (the chips' counts 12), nothing under 11.
 
 **Sources** (every number on screen):
 * ATP synthase: the mammalian c₈ ring, 8 protons and 3 ATP a turn, rotation ~100 times a second — Watt IN et
@@ -6107,22 +6109,12 @@ desktop, laptop, Full HD, QHD ✓, ≤ 2 strings under 13 px (before 5), game �
 
 #### Odnowa
 
-A mouse on a desktop or a big screen gets the `desk` layout (layout.ts, from
-`screenKind`; a finger keeps every phone layout, identical). **The engine grows**: the lens may take 0.22 of the
-width (a phone's rule 0.17) — the ATP synthase is 524 px across in a Full HD monitor's middle column (was 404) and
-698 px on QHD — with Mito and his bubble in the left column (the bubble spans it up to the lens's rim), the
-recipe's chips in the right one and the clean-up below them, all kept clear of it. **A Wiedza card met in play
-shows whole** between the columns — its icon, title and number, its sentence and **its source** ("Watt et al.
-2010, PNAS 107:16823"), where a phone keeps a one-line toast. **The mouse:** on the lane, the lesion a click would
-mend is ringed and tagged with the real pathway in order ("Utleniona zasada · BER: glikozylaza → APE1 →
-polimeraza β → ligaza · kliknij: ekipa naprawcza rusza"; a two-step repair: "drugi krok naprawy"), through the
-sim's pure `laneAim` — the same choice as a tap; the turbine ("Syntaza ATP · 8 protonów = 1 obrót = 3 ATP ·
-kliknij: Pełna moc / jeden proton dalej"), Mito ("kliknij: ciekawostka") and a sealed vesicle ("Autofagosom ·
-kliknij: do lizosomu · albo przeciągnij") answer too; the cursor is a hand on each, `grabbing` while a vesicle is
-carried. **Keys:** Space or Enter take a ready full power, mend the most urgent lesion or nudge the turbine (the
-lens says "Pełna moc — Spacja!" when ready). The how-to, the coach marks, Mito's ten lines about tapping and the
-lobby's rules say "kliknij". **Measured:** desktop, laptop, Full HD, QHD ✓ (game ≤ 0.83 ms; the 1.3 desks keep
-the three 12–13 px words they had), the phones as before.
+A desk (round 11): the lens up to 0.22 of the width (262 px of radius in a Full HD middle column); hover answers —
+the turbine („Turbina komórki (syntaza ATP) · 8 protonów = 1 obrót = 3 ATP · kręci się, gdy się skupiasz”), Mito
+(„kliknij: co teraz robić?”), a need of the goal (its source and count), a worn part („sprzątanie komórki (autofagia)
+· w spokoju zamienia się w budulec”), the lesion a click on the lane would mend (its name and the crew's steps ·
+„kliknij: napraw”); the cursor is a hand on Mito and on damage. Space or Enter mend the damage waiting longest. A
+Wiedza card shows whole with its source.
 
 #### Rzeki żywej wody
 
