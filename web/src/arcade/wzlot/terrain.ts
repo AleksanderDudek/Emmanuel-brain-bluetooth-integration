@@ -18,6 +18,25 @@ import { RULES, span } from './rules';
 /** How a grań is made: its seed, and whether it is the first-ever session's gentle first one. */
 export interface GranSpec { seed: number; gentle: boolean }
 
+/**
+ * What the hands do over a stretch of ground (round 11, the founder could not tell when to steer): `hold` on a
+ * downslope (heavy, the eaglet gathers speed), `release` on an upslope (light, it launches off the crest), `gap`
+ * over a gorge (glide: never dive into it).
+ */
+export type Zone = 'hold' | 'release' | 'gap';
+
+/** One stretch between two keypoints (a half cosine): falling (a downslope) or rising (an upslope). */
+export interface Stretch {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  /** falling: a downslope (hold) */
+  down: boolean;
+  /** inside a gorge (glide) */
+  gap: boolean;
+}
+
 export interface Coin { x: number; y: number; taken: boolean }
 export interface Orb { x: number; y: number; taken: boolean }
 
@@ -123,6 +142,40 @@ export class Terrain {
       if (ky[i] > ky[i - 1] && ky[i] > ky[i + 1] && kx[i] > x + 0.02) return { x: kx[i], y: ky[i] };
     }
     return { x: kx[kx.length - 1], y: ky[ky.length - 1] };
+  }
+
+  /** The stretch x lies on: its keypoints, whether it falls, whether it is a gorge's. */
+  stretch(x: number): Stretch {
+    const i = this.seg(x), x0 = this.kx[i], x1 = this.kx[i + 1], y0 = this.ky[i], y1 = this.ky[i + 1];
+    return { x0, x1, y0, y1, down: y1 < y0, gap: this.gapAt((x0 + x1) / 2) !== null };
+  }
+
+  /** What the hands do over x: hold on a downslope, let go on an upslope, glide over a gorge. */
+  zoneAt(x: number): Zone {
+    const s = this.stretch(x);
+    return s.gap ? 'gap' : s.down ? 'hold' : 'release';
+  }
+
+  /**
+   * The valley x lies in, for a slide: the downslope's trough (where to let go) and the crest after it (where the
+   * eaglet takes off).  On an upslope, the trough behind it.
+   */
+  valley(x: number): { trough: number; crest: number; down0: number } {
+    this.ensure(x + 3);
+    const i = this.seg(x), kx = this.kx, ky = this.ky;
+    const t = ky[i + 1] < ky[i] ? i + 1 : i;
+    return { down0: kx[Math.max(0, t - 1)], trough: kx[t], crest: kx[Math.min(kx.length - 1, t + 1)] };
+  }
+
+  /** Every stretch that overlaps [a, b], in order (the view colours them by what the hands do). */
+  stretches(a: number, b: number, out: Stretch[] = []): Stretch[] {
+    out.length = 0;
+    const kx = this.kx, ky = this.ky;
+    for (let i = this.seg(a); i < kx.length - 1 && kx[i] < b; i++) {
+      const x0 = kx[i], x1 = kx[i + 1];
+      out.push({ x0, x1, y0: ky[i], y1: ky[i + 1], down: ky[i + 1] < ky[i], gap: this.gapAt((x0 + x1) / 2) !== null });
+    }
+    return out;
   }
 
   /** The grań whose gorge spans x (null: none). */

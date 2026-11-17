@@ -11,6 +11,10 @@
  * charge fills around it, and the arc behind the sun keeps the history — gold where focus held the
  * sun up, cool where the day ran through a rest.  In a blind block a cloud covers the sun.
  *
+ * When to steer, in the world (round 11): every downslope ahead glows cool blue along its ridge (hold), every
+ * upslope warm orange (let go), a bead marks each valley's bottom (let go here); each verdict leaves a pin on the
+ * hill where it happened and a dashed gold ring where it would have been right.
+ *
  * The runner's standard HUD (the Mendi panel, the score) covers the top band (`hudTop`): the play
  * stays below it.  hud.ts draws the words, the bubble and the cards.
  */
@@ -25,9 +29,10 @@ import {
   C, LAND_LOOK, LANDS, LANDS_SEED, SANS, SERIF, font, hash, mix, mixInto, paintCloud, paintCoin, paintEagle, paintEaglet, paintLark, paintNestFamily, paintOrb,
   paintRange, paintSky, paintSpire, paintSunGauge, paintThermal, rgb, skyAt, type EagletPose, type Land, type LandLook, type RGB, type SkyLook,
 } from './paint';
-import { Hud, type WorldPart } from './hud';
+import { CUE_RGB, Hud, type Scene, type WorldPart } from './hud';
 import { RULES } from './rules';
-import type { Anchor, SimEvent, WzlotSim } from './sim';
+import type { Anchor, SimEvent, Verdict, WzlotSim } from './sim';
+import type { Stretch } from './terrain';
 
 const TAU = Math.PI * 2;
 const TRAIL = 56;
@@ -77,6 +82,12 @@ export class WzlotView {
   private partT = 0;
   private tipA = 0;
   private tipPart: { what: WorldPart; box: Rect } | null = null;
+  /** the verdicts' marks on the hills (world x): the moment, and where it would have been right */
+  private readonly marks: { x: number; ideal: number | null; v: Verdict; t: number }[] = [];
+  private readonly zoneBuf: Stretch[] = [];
+  /** the warm column the label points at (world x), the scene handed to the hud */
+  private labelThermal: number | null = null;
+  private readonly scene: Scene = { bx: 0, by: 0, gy: 0, size: 30, sun: { x: 0, y: 0 }, thermal: null };
 
   constructor(canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean }) {
     this.ctx = canvas.getContext('2d')!;
@@ -121,9 +132,10 @@ export class WzlotView {
       case 'eaglet': return { x: this.sx(e.x), y: this.sy(e.y) - (L.big ? Math.max(18 * L.u, 0.1 * this.S) : 18 * L.u) };
       case 'sun': return { x: this.sunPos.x, y: this.sunPos.y + 24 * L.u };
       case 'crag': {
+        // over the flag's top, so the bubble stands in the sky, not over the slope the eaglet takes
         const g = sim.terrain.byIndex(sim.granIdx);
         if (!g) return null;
-        return { x: clamp(this.sx(g.crag), 40, L.w - 40), y: clamp(this.sy(g.cragY), L.top + 40, L.bottom - 20) };
+        return { x: clamp(this.sx(g.crag), 40, L.w - 40), y: clamp(this.sy(g.cragY + 0.18), L.top + 40, L.bottom - 20) };
       }
       case 'thermal': return this.lastThermal ? { x: clamp(this.sx(this.lastThermal.x), 40, L.w - 40), y: clamp(this.sy(this.lastThermal.y), L.top + 40, L.bottom - 20) } : null;
       case 'night': return { x: L.w * 0.12, y: L.cardY };
@@ -146,14 +158,16 @@ export class WzlotView {
         this.particles.burst(ex, ey, 14, { color: '#f4ecdc', size: 2.5, speed: 90, spread: Math.PI, angle: -Math.PI / 2, g: 120 });
         break;
       case 'perfect': {
-        hud.float(e.chain > 1 ? t('fx.chain', { n: e.chain }) : t('fx.perfect'), ex, ey - 30 * u, gold, 18 + Math.min(6, e.chain));
-        hud.float(`+${fmtInt(e.pts)}`, ex + 30 * u, ey - 6 * u, '#fff6dc', 15, 0.9);
+        // the word is the verdict's ("Idealnie!"); the chain is the cue's pips
+        hud.float(`+${fmtInt(e.pts)}`, ex + 34 * u, ey - 10 * u, '#fff6dc', 15, 0.9);
         this.particles.burst(ex, ey, 18 + e.chain * 3, { color: gold, size: 3, speed: 170, shape: 'spark', g: 60, life: 0.7 });
         this.shake.add(0.12);
         break;
       }
       case 'fever':
-        hud.say(e.band ? t('fx.bandFever') : t('fx.fever'), '×2', '#ffcf5a', 2);
+        // a Poryw from the hands flashes by the eaglet (the pips stay lit, ×2); one from the head is a banner: it says why
+        if (e.band) sim.talk.hush(hud.say(t('fx.bandFever'), '×2', '#ffcf5a'));
+        else hud.float(`${t('fx.fever')} ×2`, ex, ey - 64 * u, '#ffcf5a', 26, 1.5);
         this.particles.burst(ex, ey, 60, { color: '#ffcf5a', size: 3.5, speed: 260, shape: 'spark', g: 40, life: 1 });
         this.flash = 1;
         this.shake.add(0.35);
@@ -162,7 +176,7 @@ export class WzlotView {
         hud.float(t('fx.feverEnd'), ex, ey - 26 * u, '#f6e6c8', 14);
         break;
       case 'bump':
-        hud.float(t('fx.bump'), ex, ey - 24 * u, '#f2b28a', 17);
+        // (the verdict says what went wrong: "Za późno" / "Za wcześnie")
         this.particles.burst(ex, ey + 6, 16, { color: rgb(this.land(sim, sim.eaglet.x).ground), size: 3, speed: 120, angle: -Math.PI / 2, spread: 2, g: 420 });
         this.shake.add(0.3);
         break;
@@ -180,7 +194,7 @@ export class WzlotView {
         this.particles.burst(ex, ey, 20, { color: 'rgba(255,255,255,.9)', size: 5, speed: 80, g: -10, drag: 2, life: 1 });
         break;
       case 'gran':
-        hud.say(t('fx.gran', { n: e.index + 1 }), e.sun > 0 ? t('fx.sun', { n: Math.round(e.sun) }) : `+${fmtInt(e.pts)}`, '#ffe3a0');
+        sim.talk.hush(hud.say(t('fx.gran', { n: e.index + 1 }), e.sun > 0 ? t('fx.sun', { n: Math.round(e.sun) }) : `+${fmtInt(e.pts)}`, '#ffe3a0'));
         this.particles.burst(ex, ey, 30, { color: '#fff1c8', size: 3, speed: 160, shape: 'spark', g: 30, life: 0.9 });
         if (e.sun > 0) this.particles.burst(this.sunPos.x, this.sunPos.y, 24, { color: '#ffd36b', size: 2.5, speed: 120, shape: 'spark', g: 0, life: 0.8 });
         break;
@@ -211,18 +225,36 @@ export class WzlotView {
         this.shake.add(0.1);
         break;
       case 'blockEnd':
-        if (e.block.kind === 'push' && e.block.blind) hud.say(t('fx.blind', { n: Math.round(e.sunHeld) }), e.verdict ? `+${fmtInt(e.pts)}` : '', '#f3e7ff', 2.6);
+        if (e.block.kind === 'push' && e.block.blind) sim.talk.hush(hud.say(t('fx.blind', { n: Math.round(e.sunHeld) }), e.verdict ? `+${fmtInt(e.pts)}` : '', '#f3e7ff'));
         else if (e.verdict && e.block.kind === 'push') hud.float(`${t('fx.pushPass')} +${RULES.pushSun} s`, this.sunPos.x, this.sunPos.y + 46 * u, '#ffe08a', 18, 1.8);
         else if (e.verdict && e.block.kind === 'rest') hud.float(t('fx.restPass'), ex, ey - 40 * u, '#ffd8a8', 15, 1.6);
         break;
       case 'lesson':
-        hud.say(t('fx.lesson', { text: e.text }), '', '#e6f4c8', 2.6);
+        sim.talk.hush(hud.say(t('fx.lesson', { text: e.text }), '', '#e6f4c8'));
         break;
       case 'nest':
-        hud.say(t('fx.nest', { m: e.level }), t('tally.nest', { m: e.level }), '#ffe3a0', 2.8);
+        sim.talk.hush(hud.say(t('fx.nest', { m: e.level }), t('tally.nest', { m: e.level }), '#ffe3a0'));
         break;
       case 'hatch':
-        hud.say(t('hatch', { n: e.n }), '', '#fff1d6', 2.8);
+        sim.talk.hush(hud.say(t('hatch', { n: e.n }), '', '#fff1d6'));
+        break;
+      case 'verdict':
+        hud.verdict(e.v, e.why, sim.cueLevel > 0.3);
+        this.marks.push({ x: e.x, ideal: e.ideal, v: e.v, t: 0 });
+        if (this.marks.length > 4) this.marks.shift();
+        if (e.v === 'perfect') this.particles.burst(this.sx(e.x), this.sy(sim.terrain.height(e.x)), 10, { color: gold, size: 2.5, speed: 90, shape: 'spark', g: 40, life: 0.6 });
+        break;
+      case 'practiceDone':
+        if (!e.finished) break;
+        // (the Poryw's flash by the eaglet gives way to the banner that says it)
+        for (let i = hud.floats.items.length - 1; i >= 0; i--) if (hud.floats.items[i].text === `${t('fx.fever')} ×2`) hud.floats.items.splice(i, 1);
+        // the third perfect slide lit the Poryw: one banner says both
+        if (sim.fever) sim.talk.hush(hud.say(t('fx.fever'), t('practice.feverSub'), '#ffcf5a'));
+        else sim.talk.hush(hud.say(t('practice.done'), t('practice.doneSub'), '#e6f4c8'));
+        break;
+      case 'label':
+        hud.label(e.what);
+        if (e.what === 'thermal') this.labelThermal = e.x;
         break;
       default:
         break;
@@ -278,6 +310,8 @@ export class WzlotView {
     this.larkX = approach(this.larkX || tx, clamp(tx, 20, L.w - 20), dt, 0.18);
     this.larkY = approach(this.larkY || ty, clamp(ty, L.top + 30, L.bottom - 20), dt, 0.18);
     this.particles.update(dt);
+    for (const m of this.marks) m.t += dt;
+    while (this.marks.length && this.marks[0].t > RULES.markSec) this.marks.shift();
     this.hud.update(dt, sim);
     this.hoverUpdate(dt, sim);
   }
@@ -354,6 +388,8 @@ export class WzlotView {
     this.drawSun(ctx, sim);
     this.drawThermals(ctx, sim);
     this.drawGround(ctx, sim);
+    this.drawZones(ctx, sim);
+    this.drawMarks(ctx, sim);
     this.drawNest(ctx, sim);
     this.drawPickups(ctx, sim);
     this.drawTrail(ctx);
@@ -365,7 +401,7 @@ export class WzlotView {
       ctx.fillStyle = `rgba(255,236,170,${(0.35 * this.flash).toFixed(3)})`;
       ctx.fillRect(0, 0, L.w, L.h);
     }
-    this.hud.draw(ctx, sim, { x: this.larkX, y: this.larkY - 10 * L.u }, this.time);
+    this.hud.draw(ctx, sim, { x: this.larkX, y: this.larkY - 10 * L.u }, this.time, this.sceneOf(sim));
     if (this.tipA > 0.02 && this.tipPart) {
       // the part follows the world while it fades (a thermal, the flag move with the camera)
       const p = this.part && this.part.what === this.tipPart.what ? this.part : this.tipPart;
@@ -558,6 +594,127 @@ export class WzlotView {
       const drift = Math.sin(this.time * 0.4 + g.index) * 0.04 * w;
       for (let i = 0; i < 3; i++) paintCloud(ctx, a + w * (0.25 + 0.25 * i) + drift, y + (i % 2) * 0.05 * this.S, w * 0.55, 0.22 * this.S, 0.75 * (1 - 0.5 * this.sky.night), g.index * 7 + i, '250,246,240');
     }
+  }
+
+  /**
+   * What the hands do, painted on the hills (round 11: the founder could not tell when to steer): ahead of the eaglet
+   * every downslope glows cool blue along its ridge (hold), every upslope warm orange (let go), a gorge not at all —
+   * strongest within two screen heights, thinning toward the right edge, gone behind the eaglet; a bright bead where
+   * blue turns orange (the valley's bottom: let go here).  As the cues fade (sim.cueLevel) the colours thin to a hint.
+   * While the practice waits, the stretch it waits on pulses.
+   */
+  private drawZones(ctx: CanvasRenderingContext2D, sim: WzlotSim): void {
+    if (sim.dayPhase !== 'fly' && sim.dayPhase !== 'nest') return;
+    const L = this.L, T = sim.terrain, e = sim.eaglet, S = this.S;
+    const strength = 0.3 + 0.7 * sim.cueLevel;
+    const x0 = e.x - 0.05, mid = e.x + 2, x1 = this.wx(L.w + 6);
+    const list = T.stretches(x0, x1, this.zoneBuf);
+    const step = 7 / S;
+    const pulseAt = sim.waiting ? e.x + (sim.practice?.step === 'waitHold' ? 0.01 : 0.04) : null;
+    const beat = 0.5 + 0.5 * Math.sin(this.time * 6);
+    const glow = Math.max(9, 0.07 * S), band = Math.max(3.5, 0.022 * S);
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    // a few strokes a frame: each colour near (two screen heights ahead, full) and far (thinner), and the stretch the
+    // practice waits on (pulsing) — a soft glow along the ridge, then the crisp band on it
+    for (let k = 0; k < 5; k++) {
+      const pulse = k === 4, down = k < 2, near = k % 2 === 0;
+      if (pulse && pulseAt === null) continue;
+      ctx.beginPath();
+      let any = false;
+      for (const st of list) {
+        if (st.gap || (!pulse && st.down !== down)) continue;
+        const on = pulseAt !== null && pulseAt >= st.x0 && pulseAt < st.x1;
+        if (on !== pulse) continue;
+        const a = Math.max(st.x0, pulse ? x0 : near ? x0 : mid), b = Math.min(st.x1, pulse ? x1 : near ? mid : x1);
+        if (b <= a) continue;
+        any = true;
+        ctx.moveTo(this.sx(a), this.sy(T.height(a)));
+        for (let x = a + step; x < b; x += step) ctx.lineTo(this.sx(x), this.sy(T.height(x)));
+        ctx.lineTo(this.sx(b), this.sy(T.height(b)));
+      }
+      if (!any) continue;
+      const col = CUE_RGB[pulse ? (sim.practice?.step === 'waitHold' ? 'hold' : 'release') : down ? 'hold' : 'release'];
+      const alpha = pulse ? 1 : near ? strength : 0.5 * strength;
+      ctx.strokeStyle = `rgba(${col},${(0.26 + (pulse ? 0.2 * beat : 0)) * alpha})`;
+      ctx.lineWidth = glow * (pulse ? 1 + 0.35 * beat : 1);
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(${col},${0.95 * alpha})`;
+      ctx.lineWidth = band;
+      ctx.stroke();
+    }
+    // the valleys' bottoms, where blue turns orange (let go here): a bright bead over both bands
+    const r = Math.max(4, 0.019 * S);
+    for (const st of list) {
+      if (st.gap || !st.down || st.x1 < e.x - 0.05 || st.x1 > e.x + 2.6) continue;
+      const d = st.x1 - e.x, alpha = d < 0 ? clamp(1 + d / 0.05) : (d < 2 ? 1 : 0.6) * strength;
+      const bx = this.sx(st.x1), by = this.sy(st.y1);
+      ctx.fillStyle = `rgba(255,250,235,${alpha})`;
+      ctx.strokeStyle = `rgba(${CUE_RGB.release},${alpha})`;
+      ctx.lineWidth = Math.max(2, 0.008 * S);
+      ctx.beginPath();
+      ctx.arc(bx, by, r, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /**
+   * The verdicts' marks on the hill, fading over a few seconds: a pin where it happened (the let-go, the touchdown),
+   * in the verdict's colour, and a dashed gold ring where it would have been right.
+   */
+  private drawMarks(ctx: CanvasRenderingContext2D, sim: WzlotSim): void {
+    if (!this.marks.length || sim.dayPhase !== 'fly') return;
+    const T = sim.terrain, S = this.S, L = this.L;
+    ctx.save();
+    for (const m of this.marks) {
+      const a = clamp((RULES.markSec - m.t) / 0.8) * clamp(m.t / 0.12);
+      if (a <= 0.02) continue;
+      if (m.ideal !== null) {
+        const ix = this.sx(m.ideal);
+        if (ix > -20 && ix < L.w + 20) {
+          const iy = this.sy(T.height(m.ideal)), r = Math.max(8, 0.04 * S);
+          ctx.setLineDash([Math.max(3, 0.015 * S), Math.max(3, 0.012 * S)]);
+          ctx.strokeStyle = `rgba(255,224,140,${a})`;
+          ctx.lineWidth = Math.max(2.5, 0.011 * S);
+          ctx.beginPath();
+          ctx.arc(ix, iy, r, 0, TAU);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+      const px = this.sx(m.x);
+      if (px < -20 || px > L.w + 20) continue;
+      const py = this.sy(T.height(m.x)), top = py - Math.max(18, 0.1 * S), r = Math.max(4.5, 0.022 * S);
+      const col = m.v === 'perfect' ? '255,211,107' : m.v === 'early' ? '168,212,255' : '255,183,132';
+      ctx.strokeStyle = `rgba(43,30,20,${0.8 * a})`;
+      ctx.lineWidth = Math.max(2, 0.008 * S);
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(px, top);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(${col},${a})`;
+      ctx.beginPath();
+      ctx.arc(px, top, r, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Where the eaglet, its ground, the sun and the labelled warm column are this frame, for the hud. */
+  private sceneOf(sim: WzlotSim): Scene {
+    const e = sim.eaglet, T = sim.terrain, sc = this.scene;
+    sc.size = Math.max(26, 0.13 * this.S);
+    sc.bx = this.sx(e.x);
+    sc.by = this.sy(e.y) - (e.mode === 'ground' || e.mode === 'nest' ? sc.size * 0.22 : 0);
+    sc.gy = this.sy(T.height(e.x));
+    sc.sun = this.sunPos;
+    const th = this.labelThermal;
+    sc.thermal = th === null ? null : { x: this.sx(th), y: this.sy(T.height(th) + 0.45) };
+    return sc;
   }
 
   private drawNest(ctx: CanvasRenderingContext2D, sim: WzlotSim): void {

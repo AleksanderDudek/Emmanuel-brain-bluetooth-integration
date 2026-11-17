@@ -1,13 +1,12 @@
 /**
- * Leon the lark's speech bubble, without the canvas: one line at a time, 2–4 s by its length, a
- * pause between two, never while a telegraph or the runner's block banner is on screen (a line on
- * screen when one begins is cut), and no line said twice in a session until its moment has used
- * them all.  Moments ask with a priority and a shelf life; the most important one that is still
- * fresh is said when the way is clear.
+ * Leon the lark's speech bubble, without the canvas: one line at a time, long enough to read twice
+ * (2.5 s + 70 ms a character, never under 4.5 s: DESIGN §16.1), a pause between two, never while a
+ * telegraph or the runner's block banner is on screen (a line on screen when one begins is cut), and
+ * no line said twice in a session until its moment has used them all.  Moments ask with a priority
+ * and a shelf life; the most important one that is still fresh is said when the way is clear.
  */
-import { clamp } from '../kit/juice';
 import type { Moment } from './content';
-import { RULES } from './rules';
+import { RULES, readSec } from './rules';
 
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 
@@ -18,6 +17,7 @@ export class Talk {
   private gap = 0;
   private now = 0;
   private seq = 0;
+  private hushUntil = -1;
   private readonly queue: Ask[] = [];
   /** the variants each moment still has to say this session (shuffled) */
   private readonly left = new Map<Moment, number[]>();
@@ -41,9 +41,22 @@ export class Talk {
   /** Forget what was asked (a story card covers everything). */
   clear(): void { this.queue.length = 0; }
 
+  /**
+   * Quiet for `sec` seconds: a banner, a label or a coach mark is on screen and one text at a time is read (round 11:
+   * the founder could not tell what to read).  A line on screen gives way at once.
+   */
+  hush(sec: number): void {
+    this.hushUntil = Math.max(this.hushUntil, this.now + sec);
+    if (this.line) {
+      this.line = null;
+      this.gap = RULES.talkGap;
+    }
+  }
+
   /** A frame: the line ages, a telegraph or a banner cuts it, and the best fresh ask is said when the way is clear. */
   update(dt: number, now: number, blocked: boolean): void {
     this.now = now;
+    blocked ||= now < this.hushUntil;
     if (this.line) {
       this.line.t += dt;
       if (blocked || this.line.t >= this.line.dur) {
@@ -56,7 +69,7 @@ export class Talk {
     this.queue.sort((a, b) => b.pri - a.pri || a.seq - b.seq);
     const a = this.queue.shift()!;
     const text = this.pick(a.moment);
-    this.line = { moment: a.moment, text, t: 0, dur: clamp(RULES.talkMin + text.length / 32, RULES.talkMin, RULES.talkMax) };
+    this.line = { moment: a.moment, text, t: 0, dur: readSec(text) };
     this.said.push(text);
   }
 

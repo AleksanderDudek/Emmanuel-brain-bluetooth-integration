@@ -4,8 +4,8 @@
  * louder with the eaglet's speed and a rush while it dives; a perfect slide's plucked note climbing
  * the pentatonic ladder with the chain; the promyki's tiny bells rising with a streak; the Poryw's
  * fanfare; a bump's thud; the mother's high cry and a warm chord when she sets the eaglet down; the
- * thermal's swell; a grań's chime; the nightfall's lullaby and the tally's count.  A lapse makes no
- * sound at all.
+ * thermal's swell; a grań's chime; the nightfall's lullaby and the tally's count; the practice valley's soft
+ * call when it waits for the hand.  A lapse — and a slide too early or too late — makes no sound at all.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
 import type { SimEvent, WzlotSim } from './sim';
@@ -120,6 +120,14 @@ export class WzlotSound {
         break;
       case 'finale':
         a.padChord([73.42, 110, 146.83, 185], 3);
+        break;
+      case 'practice':
+        // the practice valley stops and waits: a soft call, low for the hold, high for the let-go
+        if (e.step === 'waitHold') a.bell(ladder(0, ROOT), 0.035, 1.1);
+        else if (e.step === 'waitRelease') a.bell(ladder(4, ROOT), 0.035, 1.1);
+        break;
+      case 'practiceDone':
+        if (e.finished) [0, 4, 7, 9].forEach((n, i) => a.bell(ladder(n, ROOT), 0.04, 1.4, i * 0.09));
         break;
       default:
         break;

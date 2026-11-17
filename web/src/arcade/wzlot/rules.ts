@@ -123,6 +123,46 @@ export const RULES = {
   startX: 0.05,
   startV: 0.9,
 
+  // ── when to steer (round 11: the founder could not tell how and when) ─────────────
+  /**
+   * The cue near the eaglet ("Trzymaj ↓" / "Puść ↑") reads the ground this many seconds of travel ahead on the way
+   * down, so "Puść" shows just before the valley's bottom (a hand needs a moment); the hold shows only past the crest
+   * (a hold before it keeps the eaglet on the ground).  In the air: "Trzymaj" while falling over a downslope within
+   * cueReach (sh) of it, else "Puść" (glide on).
+   */
+  cueLead: 0.22,
+  cueReach: 1.2,
+  /**
+   * A slide's verdict: the let-go is on time from releaseEarly × the downslope's length (or releaseEarlySec of travel)
+   * before the trough to releaseLate × the upslope's length (or releaseLateSec of travel) after it — "Za wcześnie"
+   * before, "Za późno" after (still held there).  On time, and over the crest: "Idealnie!", a perfect slide.
+   */
+  releaseEarly: 0.3,
+  releaseEarlySec: 0.16,
+  releaseLate: 0.4,
+  releaseLateSec: 0.16,
+  /** a new hold within this share of the upslope under the crest is the next slide's (no harm); lower, too early */
+  pressNear: 0.25,
+  /** the cues fade as the player gets it: full up to cueFull perfect slides ever, gone at cueGone (never in a first session, or with the setting on) */
+  cueFull: 20,
+  cueGone: 50,
+  /** two misses in a row bring the cues back in full until the next perfect slide */
+  cueMiss: 2,
+  /** a verdict's words over the eaglet (s; the next verdict replaces it) and its mark on the hill (s) */
+  verdictSec: 1.6,
+  markSec: 3.2,
+
+  // ── the practice valley (the first session, or the lobby's "Ćwiczenie") ───────
+  /** three slides in slow motion; the game waits for the hold at a downslope's top and the let-go at its bottom */
+  practiceReps: 3,
+  practiceSlow: 0.45,
+  /** a let-go this far (share of the downslope) before the bottom asks for the hold again */
+  practiceEarly: 0.22,
+  /** at most this long (s; and at most practiceShare of the session), then the flight goes on at full speed */
+  practiceMax: 75,
+  practiceShare: 0.35,
+  practiceMin: 20,
+
   // ── the Poryw (Tiny Wings' fever) ─────────────────────────────
   /** perfect slides in a row that light it */
   feverAfter: 3,
@@ -215,9 +255,11 @@ export const RULES = {
   /** the runner's banner covers the first seconds of a block: the companion waits */
   banner: 4.5,
 
-  // ── the companion (Leon the lark) ───────────────────────────
-  talkMin: 2,
-  talkMax: 4,
+  // ── the companion (Leon the lark) and every caption ─────────────
+  /** a caption stays long enough to read twice: readBase + readPerChar × its characters, never under readMin (s) */
+  readBase: 2.5,
+  readPerChar: 0.07,
+  readMin: 4.5,
   talkGap: 2.2,
   talkChars: 90,
 
@@ -228,3 +270,6 @@ export const RULES = {
 
 /** a + (b − a) × t for a [lo, hi] pair. */
 export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
+
+/** How long a caption of this text stays (s): long enough to read twice (DESIGN §16.1), never under 4.5 s. */
+export const readSec = (text: string): number => Math.max(RULES.readMin, RULES.readBase + RULES.readPerChar * [...text].length);

@@ -43,7 +43,7 @@ function makeSim(o: SimOpts = {}): WzlotSim {
 }
 
 /** A returning player: no warm-up, no opening card, nothing left to teach. */
-const later = (o: SimOpts = {}) => makeSim({ ...o, progress: { sessions: 5, opened: true, taught: 255, ...o.progress } });
+const later = (o: SimOpts = {}) => makeSim({ ...o, progress: { sessions: 5, opened: true, taught: 255, practiced: 1, ...o.progress } });
 
 function drive(sim: WzlotSim, sec: number, f: FocusFrame | ((t: number) => FocusFrame), clock = { t: 0 }, each?: (t: number) => void): SimEvent[] {
   const out: SimEvent[] = [];
@@ -59,17 +59,36 @@ function drive(sim: WzlotSim, sec: number, f: FocusFrame | ((t: number) => Focus
 
 const ofType = <K extends SimEvent['type']>(evs: readonly SimEvent[], type: K) => evs.filter((e): e is Extract<SimEvent, { type: K }> => e.type === type);
 
-/** Tiny Wings played well: heavy on the way down, light on the way up (and over the crag's run-up). */
+/**
+ * Tiny Wings played well: heavy on the way down, light on the way up (and over the crag's run-up); in the practice
+ * valley it does what the prompt asks.
+ */
 function pilot(sim: WzlotSim): () => void {
   let down = false;
   return () => {
     const e = sim.eaglet, T = sim.terrain;
     const m = T.slope(e.x + 0.05);
     const h = e.y - T.height(e.x);
-    const want = sim.dayPhase === 'fly' && (e.mode === 'ground' ? m < -0.02 : (e.vy < 0 && m < 0 && h < 0.5) || (e.vy < -0.2 && T.slope(e.x + 0.25) < 0));
+    const step = sim.practice?.step;
+    const want = step === 'waitHold' ? true : step === 'waitRelease' ? false
+      : sim.dayPhase === 'fly' && (e.mode === 'ground' ? m < -0.02 : (e.vy < 0 && m < 0 && h < 0.5) || (e.vy < -0.2 && T.slope(e.x + 0.25) < 0));
     if (want !== down) {
       down = want;
       sim.pointer(want ? 'down' : 'up', 1);
+    }
+  };
+}
+
+/** A player who does only what the practice valley's prompts ask (hold at its wait for the hold, let go at the other), then flies with `after`. */
+function prompted(sim: WzlotSim, after: () => void = () => {}): () => void {
+  let down = false;
+  return () => {
+    const step = sim.practice?.step;
+    if (!step) return after();
+    const want = step === 'waitHold' || step === 'down' ? true : step === 'waitRelease' || step === 'up' ? false : down && step !== 'go';
+    if (want !== down) {
+      down = want;
+      sim.pointer(want ? 'down' : 'up', 7);
     }
   };
 }
@@ -211,6 +230,7 @@ describe('the flight (touch)', () => {
   });
 
   it('crude taps (the smoke test) still carry the eaglet forward, points accruing live', () => {
+    // a first session: the taps take the practice valley's three slides, then the flight runs at full speed
     const sim = makeSim({ planned: 40, tuning: BEGINNER });
     let tap = 0;
     const seen: number[] = [];
@@ -222,7 +242,8 @@ describe('the flight (touch)', () => {
       }
       seen.push(sim.headline().value);
     });
-    expect(sim.eaglet.maxX).toBeGreaterThan(8);
+    expect(sim.practiceFinished).toBe(true);
+    expect(sim.eaglet.maxX).toBeGreaterThan(4);
     expect(sim.result().score).toBeGreaterThan(100);
     expect(seen[seen.length - 1]).toBeGreaterThan(seen[Math.floor(seen.length / 2)]);
   });
@@ -433,10 +454,11 @@ describe('the meta: lessons, the nest, eggs', () => {
     expect(p.nest).toBe(1);
     expect((p as unknown as Record<string, unknown>).best).toBeUndefined();
     expect(bestOf(p)).toBeNull();
-    // a session runs on it
+    // a session runs on it (opening with the practice valley, which a player from before round 11 never had)
     const sim = new WzlotSim({ progress: p, rng: mulberry32(2), day: DAY, daySeed: 1, plannedSec: 60, eeg: false, tuning: TUNING });
     sim.start();
-    drive(sim, 10, MID);
+    expect(sim.practiceSession).toBe(true);
+    drive(sim, 10, MID, { t: 0 }, pilot(sim));
     expect(sim.result().score).toBeGreaterThan(0);
     // and it is idempotent
     const copy = JSON.stringify(p);
@@ -454,15 +476,35 @@ describe('the meta: lessons, the nest, eggs', () => {
 });
 
 describe('the coach marks', () => {
-  it('teach the controls in the first session, one at a time, and the band blocks when they come', () => {
+  it('teach the controls in the first session by doing: the practice valley shows the hold and the let-go, coach marks only what comes after', () => {
     const sim = makeSim({ planned: 300 });
     const clock = { t: 0 };
-    const evs = drive(sim, 60, MID, clock, pilot(sim));
+    // a player who does what the prompts say, when they say it, and flies well after
+    const fly = pilot(sim);
+    const evs = drive(sim, 60, MID, clock, prompted(sim, fly));
+    const steps = ofType(evs, 'practice').map(e => e.step);
+    expect(steps).toContain('waitHold');
+    expect(steps).toContain('waitRelease');
+    expect(ofType(evs, 'practiceDone')).toEqual([{ type: 'practiceDone', finished: true }]);
     const keys = ofType(evs, 'hint').map(e => e.key);
-    expect(keys[0]).toBe('hold');
-    expect(keys).toContain('release');
-    expect(keys).toContain('perfect');
-    expect(sim.p.taught & TEACH.hold).toBeTruthy();
+    for (const k of ['hold', 'release', 'perfect'] as const) expect(keys, k).not.toContain(k);
+    for (const k of ['hold', 'release', 'perfect'] as const) expect(sim.p.taught & TEACH[k], k).toBeTruthy();
+    // no coach mark while the practice runs
+    const done = evs.findIndex(e => e.type === 'practiceDone');
+    expect(evs.slice(0, done).filter(e => e.type === 'hint')).toEqual([]);
+  });
+
+  it('a practice that ran out of time leaves the hold to the coach mark', () => {
+    const sim = makeSim({ planned: 60 });
+    const clock = { t: 0 };
+    // the story card is tapped, then nothing: the practice waits, and gives up at its cap
+    drive(sim, 1.5, MID, clock);
+    sim.pointer('down', 1);
+    sim.pointer('up', 1);
+    const evs = drive(sim, 30, MID, clock);
+    expect(ofType(evs, 'practiceDone')).toEqual([{ type: 'practiceDone', finished: false }]);
+    expect(sim.p.practiced).toBe(0);
+    expect(ofType(evs, 'hint').map(e => e.key)).toContain('hold');
   });
 
   it('later sessions only hear about new things', () => {
@@ -567,6 +609,540 @@ describe('the texts in four languages', () => {
   });
 });
 
+// ── when to steer (round 11: "dalej niezrozumiałe jak i kiedy mam sterować") ─────────────
+/** The first valley past `from` whose downslope and upslope are each at least `min` long (no gorge). */
+function valleyAhead(sim: WzlotSim, from: number, min = 0.3) {
+  const T = sim.terrain;
+  T.ensure(from + 10);
+  const list = T.stretches(from, from + 10);
+  for (let i = 0; i + 1 < list.length; i++) {
+    const a = list[i], b = list[i + 1];
+    if (a.down && !a.gap && !b.down && !b.gap && a.x0 >= from && a.x1 - a.x0 >= min && b.x1 - b.x0 >= min) {
+      return { top: a.x0, trough: a.x1, crest: b.x1, downLen: a.x1 - a.x0, upLen: b.x1 - b.x0 };
+    }
+  }
+  throw new Error('no valley');
+}
+
+/** A returning player's sim in flight, the eaglet set on the ground at x sliding at s (any slide forgotten). */
+function flyingAt(x: number, s = 1, o: SimOpts = {}): { sim: WzlotSim; clock: { t: number } } {
+  const sim = later({ planned: 600, ...o });
+  const clock = { t: 0 };
+  drive(sim, RULES.dawnWait + 0.1, MID, clock);
+  Object.assign(sim.eaglet, { mode: 'ground', x, y: sim.terrain.height(x), s, maxX: x, vx: 0, vy: 0 });
+  (sim as unknown as { slide: unknown }).slide = null;
+  sim.take();
+  return { sim, clock };
+}
+
+/** Drive while the hand holds where `hold(x)` says (pointer 3), until `stop(x)`; the events. */
+function slideBy(sim: WzlotSim, clock: { t: number }, hold: (x: number) => boolean, stop: (x: number) => boolean, max = 6): SimEvent[] {
+  const out: SimEvent[] = [];
+  let down = false;
+  for (let i = 0; i < max / STEP && !stop(sim.eaglet.x); i++) {
+    const want = hold(sim.eaglet.x);
+    if (want !== down) {
+      down = want;
+      sim.pointer(want ? 'down' : 'up', 3);
+    }
+    out.push(...drive(sim, STEP, MID, clock));
+  }
+  if (down) sim.pointer('up', 3);
+  return out;
+}
+
+describe('when to steer: the slopes, the cue, the verdict (round 11)', () => {
+  it('colours the ground ahead of the eaglet by what the hands do: a downslope holds, an upslope lets go, a gorge glides', () => {
+    const sim = later({ planned: 600 });
+    const T = sim.terrain;
+    T.ensure(20);
+    let hold = 0, release = 0, gap = 0;
+    for (let x = 0.031; x < 18; x += 0.0173) {
+      const z = T.zoneAt(x), m = T.slope(x);
+      if (T.gapAt(x)) {
+        gap++;
+        expect(z, `x ${x}`).toBe('gap');
+        continue;
+      }
+      if (z === 'gap') continue;   // the gorge's rim stretches, just outside it
+      if (Math.abs(m) < 1e-3) continue;   // a keypoint: flat
+      expect(z, `x ${x.toFixed(3)} slope ${m.toFixed(3)}`).toBe(m < 0 ? 'hold' : 'release');
+      if (z === 'hold') hold++; else release++;
+    }
+    expect(hold).toBeGreaterThan(100);
+    expect(release).toBeGreaterThan(100);
+    expect(gap).toBeGreaterThan(10);
+    // a valley's numbers: its bottom between its top and the crest after it
+    const v = valleyAhead(sim, 1);
+    expect(T.valley(v.top + 0.05)).toEqual({ down0: v.top, trough: v.trough, crest: v.crest });
+    expect(T.valley(v.trough + 0.05)).toEqual({ down0: v.top, trough: v.trough, crest: v.crest });
+  });
+
+  it('cues the hand a moment ahead: "hold" down the slope, "let go" just before its bottom, never "hold" before the crest', () => {
+    const { sim } = flyingAt(1);
+    const v = valleyAhead(sim, 1.5);
+    const e = sim.eaglet, T = sim.terrain;
+    const cueOf = () => (sim as unknown as { cueOf(): string | null }).cueOf();
+    const ground = (x: number, s: number) => Object.assign(e, { mode: 'ground', x, y: T.height(x), s });
+    ground(v.top + 0.3 * v.downLen, 1.5);
+    expect(cueOf()).toBe('hold');
+    // the let-go shows cueLead seconds of travel before the bottom
+    ground(v.trough - 1.5 * RULES.cueLead * 0.6, 1.5);
+    expect(cueOf()).toBe('release');
+    ground(v.trough - 1.5 * RULES.cueLead * 1.4, 1.5);
+    expect(cueOf()).toBe('hold');
+    ground(v.trough + 0.3 * v.upLen, 1.5);
+    expect(cueOf()).toBe('release');
+    ground(v.crest - 0.01, 2.5);
+    expect(cueOf()).toBe('release');
+    // in the air: rising, glide on; falling over a downslope within reach, hold; too high or over an upslope, glide
+    const air = (x: number, h: number, vy: number) => Object.assign(e, { mode: 'air', x, y: T.height(x) + h, vx: 1.4, vy });
+    air(v.top + 0.3 * v.downLen, 0.3, 0.5);
+    expect(cueOf()).toBe('release');
+    air(v.top + 0.3 * v.downLen, 0.3, -0.5);
+    expect(cueOf()).toBe('hold');
+    air(v.top + 0.3 * v.downLen, RULES.cueReach + 0.5, -0.5);
+    expect(cueOf()).toBe('release');
+    air(v.trough + 0.4 * v.upLen, 0.3, -0.5);
+    expect(cueOf()).toBe('release');
+    Object.assign(e, { mode: 'climb' });
+    expect(cueOf()).toBe('release');
+    Object.assign(e, { mode: 'carry' });
+    expect(cueOf()).toBeNull();
+  });
+
+  it('turns the cue to "let go" shortly before the valley\'s bottom as the eaglet slides, and back to "hold" past the next crest', () => {
+    const { sim, clock } = flyingAt(1, 1.2);
+    const v = valleyAhead(sim, 1.5, 0.35);
+    Object.assign(sim.eaglet, { x: v.top + 0.03, y: sim.terrain.height(v.top + 0.03), s: 1.2 });
+    let flip = -1, bottom = -1, back = -1;
+    const evs = slideBy(sim, clock, x => x < v.trough, x => x > v.crest + 0.3 || sim.eaglet.mode !== 'ground' && x > v.crest, 4);
+    void evs;
+    // replay: watch the cue against the eaglet's place
+    const { sim: s2, clock: c2 } = flyingAt(v.top + 0.03, 1.2);
+    let down = false;
+    for (let i = 0; i < 4 / STEP; i++) {
+      const x = s2.eaglet.x;
+      const want = x < v.trough;
+      if (want !== down) { down = want; s2.pointer(want ? 'down' : 'up', 3); }
+      drive(s2, STEP, MID, c2);
+      const cue = s2.cue();
+      if (flip < 0 && cue === 'release' && i > 2) flip = c2.t;
+      if (bottom < 0 && s2.eaglet.x >= v.trough) bottom = c2.t;
+      if (flip > 0 && back < 0 && cue === 'hold' && s2.eaglet.x > v.trough) back = s2.eaglet.x;
+      if (back > 0) break;
+    }
+    expect(flip).toBeGreaterThan(0);
+    expect(bottom - flip, 'the let-go shows before the bottom').toBeGreaterThan(0.05);
+    expect(bottom - flip, '…by about cueLead').toBeLessThan(RULES.cueLead + 0.12);
+    if (back > 0) expect(back, 'hold again only past the crest').toBeGreaterThan(v.crest - 0.02);
+  });
+
+  it('judges a slide held down the slope and let go at its bottom "Idealnie!" over the crest', () => {
+    const { sim, clock } = flyingAt(1);
+    const v = valleyAhead(sim, 1.5);
+    Object.assign(sim.eaglet, { x: v.top + 0.02, y: sim.terrain.height(v.top + 0.02), s: 1 });
+    const evs = slideBy(sim, clock, x => x < v.trough - 0.02, x => x > v.crest + 0.05);
+    const vs = ofType(evs, 'verdict');
+    expect(vs[0]).toMatchObject({ v: 'perfect', why: 'slide', ideal: null, chain: 1 });
+    // (the let-go lands on the frame after the hand's, a few hundredths of a screen height on)
+    expect(vs[0].x).toBeGreaterThan(v.trough - 0.08);
+    expect(vs[0].x).toBeLessThan(v.trough + 0.08);
+    expect(ofType(evs, 'perfect')).toHaveLength(1);
+    expect(sim.chain).toBe(1);
+    expect(sim.p.perfectAll).toBe(1);
+  });
+
+  it('judges a let-go high on the way down "Za wcześnie", marking the let-go and the bottom where it belonged', () => {
+    const { sim, clock } = flyingAt(1);
+    const v = valleyAhead(sim, 1.5, 0.45);
+    Object.assign(sim.eaglet, { x: v.top + 0.02, y: sim.terrain.height(v.top + 0.02), s: 1 });
+    const at = v.top + 0.15 * v.downLen;
+    const evs = slideBy(sim, clock, x => x < at, x => x > v.crest + 0.05);
+    const vs = ofType(evs, 'verdict');
+    expect(vs[0]).toMatchObject({ v: 'early', why: 'releaseEarly', ideal: v.trough, chain: 0 });
+    expect(vs[0].x).toBeGreaterThan(at - 0.01);
+    expect(vs[0].x).toBeLessThan(v.trough - RULES.releaseEarly * v.downLen);
+    expect(ofType(evs, 'perfect')).toHaveLength(0);
+  });
+
+  it('judges a hold kept up the next slope "Za późno", the moment marked past the bottom', () => {
+    const { sim, clock } = flyingAt(1);
+    const v = valleyAhead(sim, 1.5);
+    Object.assign(sim.eaglet, { x: v.top + 0.02, y: sim.terrain.height(v.top + 0.02), s: 1 });
+    const evs = slideBy(sim, clock, () => true, x => x > v.crest + 0.05);
+    const vs = ofType(evs, 'verdict');
+    expect(vs[0]).toMatchObject({ v: 'late', why: 'releaseLate', ideal: v.trough });
+    expect(vs[0].x).toBeGreaterThan(v.trough);
+    expect(vs[0].x).toBeLessThan(v.crest);
+  });
+
+  it('a new hold just under the crest is the next slide\'s (no harm); lower on the way up it comes too early', () => {
+    const near = flyingAt(1);
+    const v = valleyAhead(near.sim, 1.5);
+    Object.assign(near.sim.eaglet, { x: v.top + 0.02, y: near.sim.terrain.height(v.top + 0.02), s: 1 });
+    let evs = slideBy(near.sim, near.clock, x => x < v.trough - 0.02 || x > v.crest - 0.1 * v.upLen, x => x > v.crest + 0.02);
+    expect(ofType(evs, 'verdict')[0]).toMatchObject({ v: 'perfect' });
+    const low = flyingAt(1);
+    Object.assign(low.sim.eaglet, { x: v.top + 0.02, y: low.sim.terrain.height(v.top + 0.02), s: 1 });
+    evs = slideBy(low.sim, low.clock, x => x < v.trough - 0.02 || x > v.trough + 0.35 * v.upLen, x => x > v.crest + 0.02);
+    expect(ofType(evs, 'verdict')[0]).toMatchObject({ v: 'early', why: 'diveEarly' });
+  });
+
+  it('says nothing of a valley the hand never held (the cue asks instead)', () => {
+    const { sim, clock } = flyingAt(1);
+    const v = valleyAhead(sim, 1.5);
+    Object.assign(sim.eaglet, { x: v.top + 0.02, y: sim.terrain.height(v.top + 0.02), s: 1 });
+    const evs = slideBy(sim, clock, () => false, x => x > v.crest - 0.01 || sim.eaglet.mode !== 'ground');
+    expect(ofType(evs, 'verdict')).toEqual([]);
+  });
+
+  it('judges a landing into an upslope: a glide that missed the downhill "Za późno", a dive over the upslope "Za wcześnie"', () => {
+    for (const held of [false, true]) {
+      const { sim, clock } = flyingAt(1);
+      const v = valleyAhead(sim, 1.5);
+      const x = v.trough + 0.35 * v.upLen;
+      Object.assign(sim.eaglet, { mode: 'air', x, y: sim.terrain.height(x) + 0.12, vx: 1, vy: -0.9, airT: 0.6 });
+      if (held) sim.pointer('down', 4);
+      const evs = drive(sim, 0.5, MID, clock);
+      sim.pointer('up', 4);
+      const vs = ofType(evs, 'verdict');
+      expect(ofType(evs, 'land')[0]?.cls, `held ${held}`).toBe('stall');
+      expect(vs[0], `held ${held}`).toMatchObject(held ? { v: 'early', why: 'diveEarly' } : { v: 'late', why: 'diveLate', ideal: (v.top + v.trough) / 2 });
+      if (held) expect(vs[0].ideal).toBeGreaterThan(v.crest);
+    }
+  });
+
+  it('counts perfect slides toward the Poryw (three light it), a miss breaks the chain and brings the cues back in full', () => {
+    const sim = later({ planned: 600, progress: { perfectAll: 80 } });
+    expect(sim.cueLevel).toBe(0);
+    const verdict = (sim as unknown as { slideVerdict(v: string, w: string, x: number, i: number | null): void }).slideVerdict.bind(sim);
+    drive(sim, RULES.dawnWait + 0.2, MID);
+    verdict('perfect', 'slide', 1, null);
+    verdict('perfect', 'slide', 2, null);
+    expect(sim.fever).toBe(false);
+    verdict('perfect', 'slide', 3, null);
+    expect(sim.fever).toBe(true);
+    expect(sim.chain).toBe(3);
+    verdict('late', 'releaseLate', 4, 3.9);
+    expect(sim.chain).toBe(0);
+    expect(sim.cueLevel).toBe(0);
+    verdict('early', 'releaseEarly', 5, 5.2);
+    expect(sim.cueLevel).toBe(1);
+    verdict('perfect', 'slide', 6, null);
+    expect(sim.cueLevel).toBe(0);
+  });
+
+  it('fades the cues as perfect slides add up — never in a first session, never with the lobby\'s setting on', async () => {
+    const { cueBase } = await import('../src/arcade/wzlot/meta');
+    const p = freshProgress();
+    expect(cueBase({ ...p, perfectAll: 0 })).toBe(1);
+    expect(cueBase({ ...p, perfectAll: RULES.cueFull })).toBe(1);
+    expect(cueBase({ ...p, perfectAll: (RULES.cueFull + RULES.cueGone) / 2 })).toBeCloseTo(0.5, 5);
+    expect(cueBase({ ...p, perfectAll: RULES.cueGone })).toBe(0);
+    expect(cueBase({ ...p, perfectAll: 500, cues: true })).toBe(1);
+    expect(makeSim({ progress: { perfectAll: 500 } }).cueLevel).toBe(1);
+    expect(later({ progress: { perfectAll: 500 } }).cueLevel).toBe(0);
+    expect(later({ progress: { perfectAll: 500, cues: true } }).cueLevel).toBe(1);
+    expect(later({ progress: { perfectAll: 500, practice: true } }).cueLevel).toBe(1);
+  });
+});
+
+describe('the practice valley (round 11)', () => {
+  /** A first-ever sim with its story card tapped away: the practice begins. */
+  function practising(planned = 300): { sim: WzlotSim; clock: { t: number } } {
+    const sim = makeSim({ planned });
+    const clock = { t: 0 };
+    drive(sim, 1.4, MID, clock);
+    sim.pointer('down', 1);
+    sim.pointer('up', 1);
+    drive(sim, 0.3, MID, clock);
+    return { sim, clock };
+  }
+  const steps = (evs: readonly SimEvent[]) => ofType(evs, 'practice').map(e => `${e.step}${e.again ? '!' : ''}`);
+
+  it('waits for the hold at the top of the first downslope: the tap that took off is no hold, nothing moves, the night waits', () => {
+    const { sim, clock } = practising();
+    expect(sim.practice).toMatchObject({ step: 'waitHold', rep: 0, again: false });
+    expect(sim.terrain.zoneAt(sim.eaglet.x)).toBe('hold');
+    expect(sim.cue()).toBe('hold');
+    expect(sim.waiting).toBe(true);
+    const x = sim.eaglet.x, day = sim.dayLeft;
+    drive(sim, 4, MID, clock);
+    expect(sim.eaglet.x).toBe(x);
+    expect(sim.dayLeft).toBe(day);
+    expect(sim.practice!.step).toBe('waitHold');
+  });
+
+  it('a hold slides it down in slow motion; at the bottom it waits for the let-go, then rides up and over: one slide', () => {
+    const { sim, clock } = practising();
+    sim.pointer('down', 2);
+    let evs = drive(sim, 0.4, MID, clock);
+    expect(steps(evs)).toEqual(['down']);
+    const pr = sim.practice!;
+    const x0 = sim.eaglet.x;
+    drive(sim, 0.5, MID, clock);
+    // slow motion: the eaglet covers practiceSlow of what its speed would carry it
+    expect(sim.eaglet.x - x0).toBeLessThan(sim.eaglet.speed * 0.5 * (RULES.practiceSlow + 0.15));
+    evs = drive(sim, 6, MID, clock, () => undefined);
+    expect(steps(evs)).toEqual(['waitRelease']);
+    expect(Math.abs(sim.eaglet.x - pr.trough)).toBeLessThan(0.03);
+    expect(sim.cue()).toBe('release');
+    const xb = sim.eaglet.x;
+    drive(sim, 2, MID, clock);
+    expect(sim.eaglet.x).toBe(xb);
+    sim.pointer('up', 2);
+    evs = drive(sim, 8, MID, clock, () => undefined);
+    expect(steps(evs).slice(0, 2)).toEqual(['up', 'go']);
+    expect(ofType(evs, 'verdict')[0]).toMatchObject({ v: 'perfect' });
+    expect(sim.practice!.rep).toBe(1);
+  });
+
+  it('a let-go high on the way down asks for the hold again; a hold on the way up, for the let-go', () => {
+    const { sim, clock } = practising();
+    sim.pointer('down', 2);
+    drive(sim, 0.5, MID, clock);
+    sim.pointer('up', 2);
+    let evs = drive(sim, 0.3, MID, clock);
+    expect(steps(evs)).toEqual(['waitHold!']);
+    sim.pointer('down', 2);
+    evs = drive(sim, 8, MID, clock);
+    expect(steps(evs)).toEqual(['down', 'waitRelease']);
+    sim.pointer('up', 2);
+    drive(sim, 0.3, MID, clock);
+    expect(sim.practice!.step).toBe('up');
+    sim.pointer('down', 2);
+    evs = drive(sim, 0.3, MID, clock);
+    expect(steps(evs)).toEqual(['waitRelease!']);
+    sim.pointer('up', 2);
+  });
+
+  it('three slides finish it: the Poryw lit, the hold and the let-go taught, the next session flies at once', () => {
+    const { sim, clock } = practising();
+    const evs = drive(sim, 60, MID, clock, prompted(sim));
+    expect(ofType(evs, 'practiceDone')).toEqual([{ type: 'practiceDone', finished: true }]);
+    expect(ofType(evs, 'verdict').filter(v => v.v === 'perfect').length).toBeGreaterThanOrEqual(3);
+    expect(ofType(evs, 'fever')).toHaveLength(1);
+    expect(sim.p).toMatchObject({ practiced: 1, practice: false });
+    for (const k of ['hold', 'release', 'perfect', 'fever'] as const) expect(sim.p.taught & TEACH[k], k).toBeTruthy();
+    // the next session skips it; the lobby's "Ćwiczenie" brings it back, with a warm-up first
+    sim.result();
+    expect(later({ progress: { practiced: 1 } }).practiceSession).toBe(false);
+    const again = later({ progress: { practiced: 1, practice: true } });
+    expect(again.practiceSession).toBe(true);
+    expect(again.plan[0].kind).toBe('warmup');
+  });
+
+  it('the warm-up waits for the practice, and the blocks after it are planned again to end on time', () => {
+    const { sim, clock } = practising(180);
+    const warm = sim.plan[0].dur;
+    // a slow learner: 30 s at the first prompt
+    drive(sim, 30, MID, clock);
+    expect(sim.block.kind).toBe('warmup');
+    expect(sim.blockT).toBeGreaterThan(warm);
+    const evs = drive(sim, 60, MID, clock, prompted(sim));
+    expect(ofType(evs, 'practiceDone')[0]).toMatchObject({ finished: true });
+    const tele = ofType(evs, 'telegraph')[0];
+    expect(tele.next.kind).toBe('push');
+    const total = sim.plan.reduce((a, b) => a + b.dur, 0);
+    expect(total).toBeCloseTo(180 - RULES.finale, 0);
+    for (const b of sim.plan.slice(1)) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-6);
+  });
+});
+
+describe('every caption long enough to read twice (round 11)', () => {
+  it('2.5 s + 70 ms a character, never under 4.5 s: Leon, the coach marks, the banners, the labels', async () => {
+    const { readSec } = await import('../src/arcade/wzlot/rules');
+    expect(readSec('')).toBe(4.5);
+    expect(readSec('x'.repeat(60))).toBeCloseTo(6.7, 5);
+    const talk = new Talk(lines(), mulberry32(3));
+    talk.ask('open');
+    talk.update(0.016, 0, false);
+    expect(talk.line!.dur).toBe(readSec(talk.line!.text));
+    expect(talk.line!.dur).toBeGreaterThanOrEqual(4.5);
+    const { Hud } = await import('../src/arcade/wzlot/hud');
+    const hud = new Hud();
+    hud.resize(layout(390, 564, { top: 134, right: 0, bottom: 0, left: 0 }));
+    expect(hud.say(t('fx.gran', { n: 2 }), t('fx.sun', { n: 8 }))).toBe(readSec(`${t('fx.gran', { n: 2 })} ${t('fx.sun', { n: 8 })}`));
+  });
+
+  it('one explanation at a time: a label waits for the coach mark on screen, and Leon keeps quiet meanwhile', () => {
+    const sim = later({ planned: 600, progress: { taught: 255 & ~TEACH.night } });
+    const clock = { t: 0 };
+    drive(sim, RULES.dawnWait + 0.2, MID, clock);
+    sim.take();
+    const x = sim as unknown as { teach(k: string, a: string): void; explain(e: object): void };
+    x.teach('night', 'night');
+    x.explain({ key: 'sun', label: true, x: 1, until: clock.t + 20 });
+    let evs = sim.take();
+    expect(evs.map(e => e.type)).toEqual(['hint']);
+    // (and while the runner's block banner holds the coach mark back, that wait too)
+    const sec = readSecOf(t('hint.night')) + Math.max(0, RULES.banner - sim.blockT);
+    sim.talk.ask('idle', 9, 30);
+    evs = drive(sim, sec - 0.5, MID, clock);
+    expect(ofType(evs, 'label')).toEqual([]);
+    expect(sim.talk.line).toBeNull();
+    evs = drive(sim, 1.2, MID, clock);
+    expect(ofType(evs, 'label').map(e => e.what)).toEqual(['sun']);
+  });
+
+  it('asks the runner to keep a coach mark up as long as it takes to read twice', () => {
+    const asked: number[] = [];
+    const env = {
+      canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), sessions: 5, opened: true, practiced: 1 }, rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec: 120,
+      tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false, tuning: TUNING,
+      hint: (_s: string, _a?: unknown, ms?: number) => { asked.push(ms ?? 0); }, hudTop: () => 134, insets: () => ({ top: 134, right: 0, bottom: 0, left: 0 }), touch: true,
+    } as GameEnv<WzlotProgress>;
+    const game = wzlot.create(env);
+    game.resize(390, 564, 1);
+    game.start();
+    for (let i = 0; i < 80; i++) game.update(0.05, MID, i * 0.05);
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked[0]).toBe(Math.round(readSecOf(t('hint.hold')) * 1000));
+    game.destroy();
+  });
+});
+
+/** readSec without the import dance (the same rule). */
+const readSecOf = (s: string): number => Math.max(RULES.readMin, RULES.readBase + RULES.readPerChar * [...s].length);
+
+describe('the hold never sticks and is never lost (round 11)', () => {
+  function gameIn(frame: HTMLElement, touch = false) {
+    const canvas = document.createElement('canvas');
+    frame.append(canvas);
+    const env = {
+      canvas, hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+      progress: { ...freshProgress(), sessions: 5, opened: true, taught: 255, practiced: 1 }, rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec: 120,
+      tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false, tuning: TUNING,
+      hint: () => {}, hudTop: () => 134, insets: () => ({ top: 134, right: 0, bottom: 0, left: 0 }), touch,
+    } as GameEnv<WzlotProgress>;
+    const game = wzlot.create(env) as Game;
+    game.resize(1280, 672, 1);
+    game.start();
+    for (let i = 0; i < 60; i++) game.update(0.05, MID, i * 0.05);
+    return { game, canvas };
+  }
+  const pe = (type: string, id: number, button = 0) => {
+    const e = new Event(type, { bubbles: true, cancelable: true }) as Event & { pointerId: number; button: number };
+    Object.assign(e, { pointerId: id, button });
+    return e;
+  };
+  const step = (game: Game) => game.update(0.05, MID, 10);
+
+  it('no context menu on the canvas (a right-button hold, Android\'s long press); a lost capture lets go', () => {
+    const frame = document.createElement('div');
+    document.body.append(frame);
+    const { game, canvas } = gameIn(frame);
+    const menu = new Event('contextmenu', { cancelable: true });
+    canvas.dispatchEvent(menu);
+    expect(menu.defaultPrevented).toBe(true);
+    game.pointer!({ type: 'down', x: 600, y: 400, id: 9 });
+    step(game);
+    expect(game.sim.held).toBe(true);
+    canvas.dispatchEvent(pe('lostpointercapture', 9));
+    game.update(0.2, MID, 11);
+    expect(game.sim.held).toBe(false);
+    game.destroy();
+    frame.remove();
+  });
+
+  it('a press on the game\'s screen outside the canvas holds too, and lets go on any pointerup or when the window loses focus', () => {
+    const frame = document.createElement('div');
+    const side = document.createElement('aside');
+    const btn = document.createElement('button');
+    frame.append(side, btn);
+    document.body.append(frame);
+    const { game } = gameIn(frame);
+    let now = 10;
+    const tick = () => game.update(0.05, MID, (now += 0.5));
+    side.dispatchEvent(pe('pointerdown', 21));
+    tick();
+    expect(game.sim.held, 'a press outside').toBe(true);
+    window.dispatchEvent(pe('pointerup', 21));
+    tick();
+    expect(game.sim.held, 'its pointerup anywhere').toBe(false);
+    side.dispatchEvent(pe('pointerdown', 22));
+    tick();
+    expect(game.sim.held, 'another').toBe(true);
+    window.dispatchEvent(new Event('blur'));
+    tick();
+    expect(game.sim.held, 'the window lost focus').toBe(false);
+    // a button is a button, and a paused game holds nothing
+    btn.dispatchEvent(pe('pointerdown', 23));
+    tick();
+    expect(game.sim.held, 'a button').toBe(false);
+    game.pause!(true);
+    side.dispatchEvent(pe('pointerdown', 24));
+    game.pause!(false);
+    tick();
+    expect(game.sim.held, 'paused').toBe(false);
+    game.destroy();
+    // destroyed: nothing listens
+    side.dispatchEvent(pe('pointerdown', 25));
+    expect((game.sim as unknown as { downs: Set<number> }).downs.size).toBe(0);
+    frame.remove();
+  });
+});
+
+describe('the lobby\'s card: the practice on demand and the cues kept (round 11)', () => {
+  it('"Ćwiczenie" opens the next session with the practice; a switch keeps the cues; each choice saves', async () => {
+    const { progressPanel } = await import('../src/arcade/wzlot/panel');
+    const p = { ...freshProgress(), sessions: 3, practiced: 1 };
+    let saved = 0;
+    const el = progressPanel(p, () => { saved++; });
+    const btn = [...el.querySelectorAll('button')].find(b => b.textContent === t('panel.practiceBtn'))!;
+    expect(btn).toBeTruthy();
+    btn.click();
+    expect(p.practice).toBe(true);
+    expect(saved).toBe(1);
+    expect(el.textContent).toContain(t('panel.practiceOn'));
+    [...el.querySelectorAll('button')].find(b => b.textContent === t('panel.practiceOff'))!.click();
+    expect(p.practice).toBe(false);
+    const box = el.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    box.checked = true;
+    box.dispatchEvent(new Event('change'));
+    expect(p.cues).toBe(true);
+    expect(saved).toBe(3);
+    // a player who never finished one: the practice comes anyway, no way to skip it yet
+    const fresh = progressPanel(freshProgress());
+    expect(fresh.textContent).toContain(t('panel.practiceOn'));
+    expect([...fresh.querySelectorAll('button')].some(b => b.textContent === t('panel.practiceOff'))).toBe(false);
+  });
+});
+
+describe('the words of round 11', () => {
+  it('cue, verdicts, practice and labels in four languages; Polish verdicts without gendered past forms', () => {
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as unknown as Record<string, string>;
+      for (const k of ['cue.hold', 'cue.release', 'verdict.perfect', 'verdict.early', 'verdict.late', 'practice.hold', 'practice.release', 'label.sun', 'label.thermal']) {
+        expect(cat[k], `${l}.${k}`).toBeTruthy();
+      }
+      // the cue is a word or two
+      expect(cat['cue.hold'].split(' ').length).toBeLessThanOrEqual(2);
+      expect(cat['cue.release'].split(' ').length).toBeLessThanOrEqual(2);
+    }
+    const pl = CATALOGS.pl as unknown as Record<string, string>;
+    for (const k of Object.keys(pl).filter(k => /^(verdict|why|practice|cue)\./.test(k))) expect(pl[k], k).not.toMatch(/łeś|łaś|łem|łam|łyś/);
+    expect(pl['label.sun']).toBe('Twoje skupienie trzyma słońce wysoko');
+    expect(pl['label.thermal']).toBe('Spokój unosi — prąd wznoszący');
+  });
+
+  it('how to play in a few concrete steps, the last saying the band measures attention', () => {
+    for (const touch of [true, false]) {
+      const how = howto(touch);
+      const steps = 1 + how.hands.length + (how.tips ?? []).length;
+      expect(steps).toBeGreaterThanOrEqual(3);
+      expect(steps).toBeLessThanOrEqual(5);
+      expect((how.tips ?? []).at(-1)).toMatch(/uwag/);
+    }
+    for (const l of ['en', 'de', 'sv'] as const) expect((CATALOGS[l] as unknown as Record<string, string>)['how.tip2']).toMatch(/attention|Aufmerksamkeit|uppmärksamhet/);
+    // hold anywhere, said so
+    expect(t('how.hold')).toMatch(/gdziekolwiek/);
+    expect(t('practice.hold')).toMatch(/gdziekolwiek/);
+  });
+});
+
 describe('the smoke path', () => {
   /** The smoke test's input: a click at the centre every 0.65 s, Space every ~2 s, the simulator's focus on. */
   function smoke(progress: Partial<WzlotProgress>, seed: number, eeg: boolean, planned = 40) {
@@ -607,7 +1183,7 @@ describe('the smoke path', () => {
         expect(live[Math.floor(live.length / 2)]).toBeGreaterThan(0);
       }
     }
-    expect(smoke({ sessions: 6, opened: true, taught: 255 }, 3, false, 300).at22).toBeGreaterThan(50);
+    expect(smoke({ sessions: 6, opened: true, taught: 255, practiced: 1 }, 3, false, 300).at22).toBeGreaterThan(50);
   });
 });
 
@@ -705,7 +1281,7 @@ describe('mobile first (DESIGN §12)', () => {
 
   /** A game as the runner starts it at size c (a first-ever session unless `later`). */
   function startAt(c: (typeof CHECK_SIZES)[number], later = false, texts: Map<string, number> | null = null, planned = 90): Game {
-    const progress = later ? { ...freshProgress(), sessions: 5, opened: true, taught: 255 } : freshProgress();
+    const progress = later ? { ...freshProgress(), sessions: 5, opened: true, taught: 255, practiced: 1 } : freshProgress();
     const env = envAt(progress, c, planned);
     recording = texts ? { canvas: env.canvas, texts } : null;
     const game = wzlot.create(env) as Game;
@@ -771,7 +1347,9 @@ describe('mobile first (DESIGN §12)', () => {
       play(game, 1);
       expect(game.sim.opening, c.name).toBe(false);
       expect(game.targets!(), `${c.name}: flying`).toEqual([]);
-      // nightfall: the tally, then the dawn's prompt
+      // the practice valley (the night waits for it), then nightfall: the tally, then the dawn's prompt
+      play(game, 40, MID, () => game.sim.practice === null);
+      expect(game.sim.practiceFinished, c.name).toBe(true);
       game.sim.dayLeft = 0.05;
       play(game, 12, MID, () => game.sim.dayPhase === 'tally');
       play(game, 0.3);
@@ -825,6 +1403,36 @@ describe('mobile first (DESIGN §12)', () => {
     }
   }, 90_000);
 
+  it('draws the practice valley\'s prompts, the cue and the verdicts at 13 px or more at every checked size', () => {
+    const RE = (s: string) => s.replace(/…$/, '');
+    for (const c of CHECK_SIZES) {
+      const texts = new Map<string, number>();
+      const game = startAt(c, false, texts, 120);
+      const clock = { t: 0 };
+      for (let i = 0; i < 30; i++) { clock.t += 0.05; game.update(0.05, MID, clock.t); game.draw(); }
+      game.pointer!({ type: 'down', x: c.w / 2, y: c.h / 2, id: 1 });
+      game.pointer!({ type: 'up', x: c.w / 2, y: c.h / 2, id: 1 });
+      // the first prompt (wait for the hold), then the let-go's, then the rest of the practice and some flight
+      for (let i = 0; i < 20; i++) { clock.t += 0.05; game.update(0.05, MID, clock.t); game.draw(); }
+      expect(game.sim.practice?.step, c.name).toBe('waitHold');
+      game.pointer!({ type: 'down', x: c.w / 2, y: c.h / 2, id: 2 });
+      for (let i = 0; i < 200 && game.sim.practice?.step !== 'waitRelease'; i++) { clock.t += 0.05; game.update(0.05, MID, clock.t); game.draw(); }
+      for (let i = 0; i < 6; i++) { clock.t += 0.05; game.update(0.05, MID, clock.t); game.draw(); }
+      game.pointer!({ type: 'up', x: c.w / 2, y: c.h / 2, id: 2 });
+      play(game, 30, MID, () => false, clock);
+      const reading = [
+        t('practice.hold'), t('practice.holdSub'), t('practice.release'), t('practice.releaseSub'), t('practice.title', { n: 1, m: 3 }),
+        t('cue.hold'), t('verdict.perfect'), t('verdict.early'), t('verdict.late'), t('why.releaseLate'), t('why.releaseEarly'), t('why.diveLate'),
+      ];
+      const seen = reading.filter(r => [...texts.keys()].some(s => r.includes(RE(s))));
+      expect(seen.length, `${c.name}: prompts drawn`).toBeGreaterThanOrEqual(5);
+      for (const [s, px] of texts) {
+        if (s.length > 4 && reading.some(r => r.includes(RE(s)))) expect(px, `${c.name}: "${s}"`).toBeGreaterThanOrEqual(MIN_READ - 0.05);
+      }
+      game.destroy();
+    }
+  }, 120_000);
+
   it('speaks to the hand the player has: a finger never hears of keys, a keyboard keeps them as shortcuts', () => {
     const KEYS = /spacj|space|leertaste|mellanslag|klawisz|taste|tangent|\bkey|klik|click|mysz[ąy]|mouse|maus/i;
     for (const l of ['pl', 'en', 'de', 'sv'] as const) {
@@ -866,7 +1474,7 @@ describe('big screens and the mouse (DESIGN §14)', () => {
   /** The view as the tests read it (its camera's scale and the sun's place are private). */
   type View = { S: number; sunPos: { x: number; y: number }; layout: WzlotView['layout']; hovered: WzlotView['hovered'] };
   function startAt(c: (typeof CHECK_SIZES)[number], touch: boolean, texts: Map<string, number> | null = null, later = true) {
-    const progress = later ? { ...freshProgress(), sessions: 5, opened: true, taught: 255 } : freshProgress();
+    const progress = later ? { ...freshProgress(), sessions: 5, opened: true, taught: 255, practiced: 1 } : freshProgress();
     const env: GameEnv<WzlotProgress> = {
       canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
       progress, rng: mulberry32(5), day: DAY, daySeed: 31, plannedSec: 90, tool: 'fnirs', simulated: true, reducedMotion: false, haptics: false,

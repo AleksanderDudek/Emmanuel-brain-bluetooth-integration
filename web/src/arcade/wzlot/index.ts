@@ -24,6 +24,7 @@ import { bestOf, freshProgress, type WzlotProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { WzlotView } from './render';
+import { readSec } from './rules';
 import { WzlotSim, type SimEvent } from './sim';
 import type { Teach } from './meta';
 
@@ -38,6 +39,34 @@ export class WzlotGame implements ArcadeGame {
   private readonly held = new Set<number>();
   /** a mouse that leaves the canvas takes the world's answer with it */
   private readonly leave = (): void => this.view.hover(null);
+  /** play is on (started, not paused): only then does a press outside the canvas hold */
+  private live = false;
+  /** holds begun outside the canvas (a big screen's side columns): their own ids, let go on any pointerup */
+  private readonly outside = new Set<number>();
+  /**
+   * The hold must never stick or be lost (round 11, "hold anywhere"): no context menu on the canvas (a right-button
+   * hold opened one and lost its pointerup — a dive that never ended; Android's long press fires one too); a lost
+   * pointer capture and a pointerup anywhere let go; a press on the game's screen outside the canvas (a big screen's
+   * side columns with the panel and the how-to) holds too.  The runner already lets go on pointercancel and blur.
+   */
+  private readonly noMenu = (e: Event): void => e.preventDefault();
+  private readonly lost = (e: PointerEvent): void => this.letGo(e.pointerId);
+  private readonly upAnywhere = (e: PointerEvent): void => {
+    if (this.outside.delete(e.pointerId) || this.held.has(e.pointerId)) this.letGo(e.pointerId);
+  };
+  private readonly blur = (): void => {
+    for (const id of this.outside) this.letGo(id);
+    this.outside.clear();
+  };
+  private readonly downOutside = (e: PointerEvent): void => {
+    const el = e.target as Element | null;
+    if (!this.live || !el || el === this.env.canvas || e.button > 0) return;
+    if (el.closest?.('button, a, input, select, textarea, label, [role="button"], .arcade-dock, .arcade-overlay')) return;
+    this.outside.add(e.pointerId);
+    this.sim.pointer('down', e.pointerId);
+    this.drain();
+  };
+  private readonly frame: HTMLElement | null;
 
   constructor(private readonly env: GameEnv<WzlotProgress>) {
     this.sim = new WzlotSim({
@@ -47,7 +76,22 @@ export class WzlotGame implements ArcadeGame {
     this.view.hud.resize(this.view.layout, env.touch);
     this.sound = new WzlotSound(env.audio);
     if (!env.touch) env.canvas.addEventListener('pointerleave', this.leave);
+    env.canvas.addEventListener('contextmenu', this.noMenu);
+    env.canvas.addEventListener('lostpointercapture', this.lost);
+    this.frame = env.canvas.parentElement;
+    this.frame?.addEventListener('pointerdown', this.downOutside);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pointerup', this.upAnywhere, true);
+      window.addEventListener('pointercancel', this.upAnywhere, true);
+      window.addEventListener('blur', this.blur);
+    }
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __wzlot?: unknown }).__wzlot = this.sim;
+  }
+
+  /** A pointer is up, whatever said so first (the runner, a lost capture, a pointerup outside the canvas). */
+  private letGo(id: number): void {
+    this.sim.pointer('up', id);
+    if (this.held.delete(id) && !this.env.touch) this.env.canvas.style.cursor = this.held.size ? 'grabbing' : 'pointer';
   }
 
   resize(w: number, h: number, dpr: number): void {
@@ -65,6 +109,7 @@ export class WzlotGame implements ArcadeGame {
     this.sim.start();
     this.sound.start();
     this.view.start();
+    this.live = true;
     // a hold anywhere is the dive: with a mouse the cursor says the whole sky is the button
     if (!this.env.touch) this.env.canvas.style.cursor = 'pointer';
     this.drain();
@@ -104,9 +149,11 @@ export class WzlotGame implements ArcadeGame {
   }
 
   pause(paused: boolean): void {
+    this.live = !paused;
     if (!paused) return;
     this.sim.release();
     this.held.clear();
+    this.outside.clear();
     this.view.hover(null);
     if (!this.env.touch) this.env.canvas.style.cursor = 'pointer';
   }
@@ -115,10 +162,12 @@ export class WzlotGame implements ArcadeGame {
     for (const e of this.sim.take()) {
       if (e.type === 'hint') {
         const at = this.view.anchor(e.at, this.sim);
-        this.env.hint(hintText(e.key, this.env.touch), at, 4200);
+        // long enough to read twice (2.5 s + 70 ms a character, never under 4.5 s)
+        const text = hintText(e.key, this.env.touch), sec = readSec(text);
+        this.env.hint(text, at, Math.round(sec * 1000));
         // the coach mark's bubble stands over the point (under it near the top), shown now or after the runner's
         // block banner (up to 4 s later): the game's banners keep off it meanwhile
-        if (at) this.view.hud.coachAt(at.y < this.view.layout.h * 0.3 ? at.y + 50 : at.y - 50, 8.5);
+        if (at) this.view.hud.coachAt(at.y < this.view.layout.h * 0.3 ? at.y + 50 : at.y - 50, sec + 4.3);
         continue;
       }
       if (e.type === 'perfect') this.sim.hitStop(0.05);
@@ -145,9 +194,18 @@ export class WzlotGame implements ArcadeGame {
   result(): ArcadeOutcome { return this.sim.result(); }
 
   destroy(): void {
+    this.live = false;
     this.sim.release();
-    // the canvas keeps no listener or cursor of this game's
+    // the canvas, its frame and the window keep no listener or cursor of this game's
     this.env.canvas.removeEventListener('pointerleave', this.leave);
+    this.env.canvas.removeEventListener('contextmenu', this.noMenu);
+    this.env.canvas.removeEventListener('lostpointercapture', this.lost);
+    this.frame?.removeEventListener('pointerdown', this.downOutside);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('pointerup', this.upAnywhere, true);
+      window.removeEventListener('pointercancel', this.upAnywhere, true);
+      window.removeEventListener('blur', this.blur);
+    }
     this.env.canvas.style.cursor = '';
   }
 
@@ -197,7 +255,7 @@ const mod: ArcadeModule<WzlotProgress> = {
   create: env => new WzlotGame(env),
   best: p => bestOf(p),
   unit,
-  progressPanel: p => progressPanel(p),
+  progressPanel: (p, save) => progressPanel(p, save),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
   howto: () => howto(),
 };

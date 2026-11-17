@@ -3,11 +3,16 @@
  * records (the best session, the best day, the farthest flight), the nest (its level, which is the
  * points' multiplier, its chicks and eggs, painted), the three flight lessons open now, and the
  * plumage the nest has grown.  Built with h(); no verse here (the lobby shows the root passage).
+ *
+ * Round 11 (the founder could not tell when to steer): "Ćwiczenie" opens the next session with the
+ * practice valley again (three slow slides, the game waiting for the hold and the let-go), and a
+ * switch keeps the cues — the coloured slopes and "Trzymaj / Puść" by the eaglet — in full for good
+ * instead of letting them fade as perfect slides add up.  A choice saves the progress and redraws.
  */
 import { h } from '../../ui/dom';
 import { lessonText } from './content';
 import { fmtInt, metres, t, type Key } from './i18n';
-import { migrate, multOf, openLessons, plumageOf, type WzlotProgress } from './meta';
+import { migrate, multOf, openLessons, plumageOf, wantsPractice, type WzlotProgress } from './meta';
 import { paintNestFamily } from './paint';
 import { RULES } from './rules';
 
@@ -31,8 +36,48 @@ function nestPicture(p: WzlotProgress): HTMLElement {
   return c;
 }
 
-export function progressPanel(p: WzlotProgress): HTMLElement {
+function button(text: string, onClick: () => void, cls = 'btn'): HTMLButtonElement {
+  const b = h('button', { class: cls, type: 'button' }, text);
+  b.addEventListener('click', e => {
+    e.preventDefault();
+    onClick();
+  });
+  return b;
+}
+
+/** The practice valley on demand, and the cues kept for good. */
+function steering(p: WzlotProgress, changed: () => void): HTMLElement[] {
+  const on = wantsPractice(p);
+  const practice = h('div', { class: 'row' }, on
+    ? [h('span', null, `✓ ${t('panel.practiceOn')}`), p.practiced > 0 ? button(t('panel.practiceOff'), () => { p.practice = false; changed(); }, 'btn ghost') : null]
+    : [button(t('panel.practiceBtn'), () => { p.practice = true; changed(); }, 'btn primary')]);
+  const box = h('input', { type: 'checkbox', 'aria-label': t('panel.cuesKeep') }) as HTMLInputElement;
+  box.checked = p.cues;
+  box.addEventListener('change', () => {
+    p.cues = box.checked;
+    changed();
+  });
+  return [
+    h('div', { class: 'arcade-sub' }, t('panel.practice')), practice, h('p', { class: 'muted' }, t('panel.practiceNote')),
+    h('div', { class: 'arcade-sub' }, t('panel.cues')), h('label', { class: 'switch' }, box, h('span', null, t('panel.cuesKeep'))),
+    h('p', { class: 'muted' }, t('panel.cuesNote')),
+  ];
+}
+
+export function progressPanel(p: WzlotProgress, save: () => void = () => {}): HTMLElement {
   migrate(p);
+  const root = h('div', { class: 'arcade-panel' });
+  const render = (): void => {
+    root.replaceChildren(...build(p, () => {
+      save();
+      render();
+    }).filter((el): el is HTMLElement => el !== null));
+  };
+  render();
+  return root;
+}
+
+function build(p: WzlotProgress, changed: () => void): (HTMLElement | null)[] {
   const plum = plumageOf(p);
   const lessons = openLessons(p);
   const list = h('div', { class: 'arcade-chips' }, lessons.map(o =>
@@ -40,7 +85,7 @@ export function progressPanel(p: WzlotProgress): HTMLElement {
   const chips = h('div', { class: 'arcade-chips' }, [1, 2, 3].map(i =>
     h('span', { class: i <= plum ? 'on' : null }, t(`plumage.${i}` as Key))));
   const nextAt = plum < 3 ? RULES.plumage[plum - 1] : null;
-  return h('div', { class: 'arcade-panel' },
+  return [
     p.sessions === 0 ? h('p', { class: 'muted' }, t('panel.none')) : null,
     h('div', { class: 'arcade-stats' },
       stat(t('panel.best'), p.bestTotal > 0 ? `${fmtInt(p.bestTotal)} ${t('unit')}` : '—'),
@@ -51,5 +96,6 @@ export function progressPanel(p: WzlotProgress): HTMLElement {
     p.chicks > 0 ? h('p', { class: 'muted' }, `${t('panel.chicks')}: ${p.chicks}`) : null,
     h('div', { class: 'arcade-sub' }, t('panel.lessons', { n: p.set + 1 })), list,
     h('div', { class: 'arcade-sub' }, t('panel.plumage')), chips,
-    nextAt !== null ? h('p', { class: 'muted' }, t('panel.nextPlumage', { n: nextAt })) : null);
+    nextAt !== null ? h('p', { class: 'muted' }, t('panel.nextPlumage', { n: nextAt })) : null,
+    ...steering(p, changed)];
 }

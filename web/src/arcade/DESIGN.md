@@ -461,7 +461,7 @@ boring and unclear, so it was rebuilt on Suika Game's loop, copied as closely as
   wind's sway and the pole added), Ruth's gleaners, the table; an old save keeps its best day and
   session count (`migrate`, `ver: 2`).
 
-**Wzlot, version 2 (2026-11-07): Tiny Wings over the wilderness.** The founder found the first
+**Wzlot, version 2 (2026-11-07): Tiny Wings over the wilderness** (the timing made visible in round 11: §16.2). The founder found the first
 Wzlot boring (the band only widened the wings, and nothing chased the eaglet), so it was rebuilt
 on Tiny Wings' loop, copied as closely as it serves play (the table's column above is the first
 design; this paragraph replaces it):
@@ -6458,3 +6458,69 @@ part of the same branch and had not been deployed when the founder played, so so
 * **The clarity rules** every game of the round follows: a caption stays ≥ 2.5 s + 70 ms a character and never under
   4.5 s (*"Napisy i tłumaczenia zbyt szybko znikają"*); one persistent "what to do now" line per phase; each control
   taught the first time it matters, with the gesture drawn; each technical term glossed in plain words the first time.
+
+### 16.2 Wzlot — see when to steer, see how well, learn by doing
+
+The founder, after round 7's coach marks and round 9's mouse words: *„Updraft — dalej niezrozumiałe jak i kiedy mam
+sterować.”* More text would not do: at 1.5–3 sh/s a downslope passes in a fraction of a second, so a word that says
+"now" always comes late. The timing now lives **in the world**, is **judged after every slide**, and is **taught
+slowly once** before the game runs at speed.
+
+* **The slopes say what the hands do.** Every downslope ahead of the eaglet glows cool blue along its ridge — *hold*
+  (heavy, it gathers speed) — every upslope warm orange — *let go* (light, it takes off over the crest); a gorge is not
+  coloured (glide). A white bead with an orange ring marks each valley's bottom: let go here. The colours are strongest
+  within two screen heights ahead, thin toward the right edge and are gone behind the eaglet (`terrain.zoneAt`,
+  `stretches`, `valley`; blue and orange are the colour-blind-safe pair and read on sandstone and at dusk).
+* **The cue by the eaglet** — "↓ Trzymaj" in blue, "↑ Puść" in orange (Hold / Let go, Halten / Loslassen, Håll /
+  Släpp) — on a dark plate that never covers the slope ahead: on an upright phone in the thumb pad under the eaglet,
+  on a wide screen behind it in the ground it has passed; with **three pips** that count perfect slides toward the
+  Poryw (all lit and "×2" while it lasts). On the ground it reads 0.22 s of
+  travel ahead, so "Puść" shows just before the bottom (a hand needs a moment), and "Trzymaj" only past the crest (a
+  hold before it keeps the eaglet on the ground); in the air: rising — let go, falling over a downslope within 1.2 sh —
+  hold, otherwise glide. A cue-following hand with 0.1–0.25 s of latency makes mostly perfect slides; a hand reading
+  the colours lets go at the boundary, which is the window's middle.
+* **A verdict after every slide, where the eye is.** A slide is one valley on the ground. The let-go is on time from
+  0.3 of the downslope (or 0.16 s of travel) before the bottom to 0.4 of the upslope (or 0.16 s) after it; earlier is
+  **„Za wcześnie”** (*trzymaj aż do dna doliny*), a hold still on later is **„Za późno”** (*puść na dnie doliny*), on
+  time and over the crest is **„Idealnie!”** — a perfect slide (+50, +10 a link, a pip). A new hold in the top quarter
+  of the upslope is the next slide's (anticipation is never punished); lower it is early (*poczekaj na zjazd za
+  szczytem*). A landing into an upslope tells the dive: begun over that upslope — early; a glide onto it, or a landing
+  across a downslope — late (*trzymaj już nad zjazdem*). A valley the hand never held gets no verdict (the cue asks).
+  The word pops over the eaglet for 1.6 s (the next replaces it); the *why* line shows while the cues still teach; a
+  pin on the hill marks the moment and a dashed gold ring where it would have been right (3 s). Misses make no sound.
+  *The perfect slide is now this timing* (it was "a smooth landing, then a launch"), so what the slopes teach and what
+  scores are the same thing.
+* **The cues fade as the player gets it**: full in a first session, in a session with the practice, after two misses
+  in a row, and with the lobby's switch *Podpowiedzi „Trzymaj / Puść” — Zawsze pokazuj*; otherwise from 20 to 50
+  perfect slides ever the word fades (the pips stay) and the slopes thin to a hint (30 %).
+* **The practice valley** opens the first session (and the next one of any player who never finished it — the
+  founder included — and any session the lobby's *Zacznij następną sesję od ćwiczenia* asks for). Slow motion (0.45);
+  at a downslope's top the world stands still until the hold — „Przytrzymaj palec gdziekolwiek” (with a mouse:
+  „Przytrzymaj Spację albo przycisk myszy”), the gesture drawn (a fingertip pressing, ripples spreading; a mouse with
+  its button lit), the blue stretch pulsing, a soft low call — and at the bottom until the let-go („Teraz puść”, the
+  finger lifting, the orange stretch pulsing, a higher call). A let-go high up asks again („Trzymaj aż do dna doliny”),
+  a hold low on the way up too („Puść — pod górę orlę ma być lekkie”). Three slides, each „Idealnie!”, light the Poryw:
+  *PORYW! — trzy idealne ślizgi · teraz pełna prędkość*. The tap that closed the story card is no hold (a hold kept
+  half a second is). The night, Leon and the coach marks wait; the warm-up block waits too (a session with the practice
+  always opens with one) and, should the practice outlast it, the blocks after it are planned again to end on time;
+  with no room left for a push and a rest the flight stays free to the last sunset. After max(20 s, min(75 s, 35 % of
+  the session)) it gives way and comes back next time.
+* **Hold anywhere, reliably.** Any finger, mouse button, Space, ↓, Enter or S, anywhere — said so in the prompt, the
+  how-to and the lobby (mouse twins in `i18n/arcade-mouse.ts`). No context menu on the canvas (a right-button hold
+  used to lose its pointerup and dive for ever; Android's long press fires one), a lost pointer capture lets go, a
+  pointerup anywhere lets a mouse hold go, a press on the game's screen outside the canvas (a big screen's side
+  columns) holds too — never on a button, the chart or a card, never while paused; the window's blur lets go.
+* **Focus and calm, one line each, at the moment they matter**: „Twoje skupienie trzyma słońce wysoko” under the sun
+  the first time in a session the focus holds it up for a second; „Spokój unosi — prąd wznoszący / Nie trzymaj: wleć
+  z otwartymi skrzydłami” beside the session's first warm column, once it is in sight.
+* **One text at a time, long enough to read twice.** Leon, coach marks, banners and labels stay 2.5 s + 70 ms a
+  character (never under 4.5 s); a coach mark or a label waits for the one on screen; Leon hushes under a banner, a
+  coach mark or a label (and chats less: idle every 25 s); a banner keeps off a label. The hands' Poryw is a 1.5 s flash
+  by the eaglet (the pips keep ×2 in sight); the head's Poryw stays a banner, since it says why.
+* **Plain words**: grań — *pasmo wzgórz*; Poryw — *szybszy lot, punkty ×2*; idealny ślizg — *w dół trzymasz, na dnie
+  puszczasz*; ciepły komin — *prąd wznoszący*; podmuch — *szybciej!*.
+* **How to play**: the goal, two hands (blue: hold anywhere; orange: let go — a mouse: one row, then the keys) and two
+  tips, the last *Opaska mierzy uwagę: skupienie trzyma słońce wyżej, spokój unosi orlę. Sterujesz zawsze Ty.* The
+  lobby's three lines are three concrete steps (blue, orange and the verdicts, the practice and what the band measures).
+* Kept: the flight's physics, the granie, the day and its night, the sun gauge and the thermals, the meta, Leon.
+* Saves gain `perfectAll`, `cues`, `practice`, `practiced` (an older save is repaired by `migrate`).

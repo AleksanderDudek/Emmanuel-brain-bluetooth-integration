@@ -3,6 +3,8 @@
  * nest's level (its multiplier), the flight lessons (three at a time; a full set grows the nest and
  * lays an egg that hatches next session), the plumage the nest unlocks, the records (the best day,
  * the best session, the farthest day, the farthest grań) and what the coach has already taught.
+ * Round 11: the perfect slides of all time (the cues fade as they grow), the lobby's "keep the cues"
+ * setting, and the practice valley (asked for again by the lobby's "Ćwiczenie", and how many were done).
  * No DOM; no randomness.
  *
  * Version 2 rebuilt the game.  A version-1 save (`v: 1`, metres per session length, plumage
@@ -39,6 +41,13 @@ export interface WzlotProgress {
   opened: boolean;
   taught: number;
   lastLen: number;
+  /** perfect slides, all time: the cues "Trzymaj ↓ / Puść ↑" fade as they grow (RULES.cueFull … cueGone) */
+  perfectAll: number;
+  /** the lobby's setting: keep the cues and the coloured slopes in full, always */
+  cues: boolean;
+  /** the practice valley: asked for by the lobby's "Ćwiczenie" for the next session; how many were finished */
+  practice: boolean;
+  practiced: number;
 }
 
 /** What the coach marks teach, once ever each. */
@@ -49,7 +58,24 @@ export function freshProgress(): WzlotProgress {
   return {
     ver: 2, sessions: 0, days: 0, nest: 1, set: 0, doneMask: 0, coins: 0, eggs: 0, chicks: 0,
     bestDay: 0, bestTotal: 0, farthest: 0, bestGran: 0, pushes: 0, opened: false, taught: 0, lastLen: 0,
+    perfectAll: 0, cues: false, practice: false, practiced: 0,
   };
+}
+
+/**
+ * Does the next session open with the practice valley?  Until one has been finished (a first session, and a player
+ * from before round 11 who never had one), and whenever the lobby's "Ćwiczenie" asked for it.
+ */
+export const wantsPractice = (p: WzlotProgress): boolean => p.practice || p.practiced < 1;
+
+/**
+ * How strongly the cues show (0..1) for a session that is not the first: in full up to RULES.cueFull perfect slides
+ * ever, then fading to nothing at RULES.cueGone; in full with the lobby's setting on.
+ */
+export function cueBase(p: WzlotProgress): number {
+  if (p.cues) return 1;
+  const k = (p.perfectAll - RULES.cueFull) / (RULES.cueGone - RULES.cueFull);
+  return Math.min(1, Math.max(0, 1 - k));
 }
 
 const num = (v: unknown, lo = 0): number => (typeof v === 'number' && Number.isFinite(v) && v >= lo ? v : lo);
