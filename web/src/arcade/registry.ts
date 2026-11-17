@@ -15,9 +15,12 @@ import type { PassageId } from './kit/scripture';
 import type { ArcadeModule } from './kit/types';
 
 /** What kind of play a game is: the Games tab shows the games in these sections, in this order. */
-export type ArcadeKind = 'vision' | 'body' | 'puzzle' | 'run' | 'arcade' | 'strategy' | 'craft';
-/** `vision`: the visualisation games (§13); `body`: the series "Weź moc, obudź się" about the body's own processes (§13). */
-export const KINDS: readonly ArcadeKind[] = ['vision', 'body', 'puzzle', 'run', 'arcade', 'strategy', 'craft'];
+export type ArcadeKind = 'vision' | 'health' | 'body' | 'puzzle' | 'run' | 'arcade' | 'strategy' | 'craft';
+/**
+ * `vision`: the visualisation games (§13); `health`: the health visualisations, guided meditations to choose, walk
+ * through and repeat (§15); `body`: the series "Weź moc, obudź się" about the body's own processes (§13).
+ */
+export const KINDS: readonly ArcadeKind[] = ['vision', 'health', 'body', 'puzzle', 'run', 'arcade', 'strategy', 'craft'];
 
 export interface ArcadeEntry {
   id: string;

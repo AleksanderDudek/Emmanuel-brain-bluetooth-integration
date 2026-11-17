@@ -280,6 +280,29 @@ export type PassageId =
   | 'psa18.32'
   | 'psa141.2'
   | 'luk11.13'
+  | 'gen28.17'
+  | 'jhn10.9'
+  | 'psa8.3-4'
+  | 'jas1.17'
+  | 'psa23.3'
+  | 'psa42.1'
+  | 'heb13.15'
+  | 'psa90.17'
+  | 'psa63.4'
+  | 'psa107.29'
+  | 'psa46.4'
+  | 'rom8.11'
+  | 'col2.7'
+  | 'eph3.17'
+  | 'psa85.11'
+  | 'isa6.3'
+  | 'isa30.21'
+  | 'psa121.6'
+  | 'luk12.7'
+  | 'psa23.5'
+  | 'psa1.3'
+  | 'mrk4.27-28'
+  | 'psa3.3'
   ;
 
 export interface Passage {
@@ -1901,6 +1924,144 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['So if you who are evil know how to give good gifts to your children, how much more will your Father in heaven give the Holy Spirit to those who ask Him!', 'Luke 11:13'],
     de: ['So denn ihr, die ihr arg seid, könnet euren Kindern gute Gaben geben, wie viel mehr wird der Vater im Himmel den heiligen Geist geben denen, die ihn bitten!', 'Lukas 11,13'],
     sv: ['Om nu I, som ären onda, förstån att giva edra barn goda gåvor, huru mycket mer skall icke då den himmelske Fadern giva helig ande åt dem som bedja honom!', 'Luk 11:13'],
+  },
+  'gen28.17': {
+    pl: ['I zlęknąwszy się, rzekł: O jako to straszne miejsce! nic tu nie jest innego jedno dom Boży, a tu brama niebieska.', 'Rdz 28,17'],
+    en: ['And he was afraid and said, “How awesome is this place! This is none other than the house of God; this is the gate of heaven!”', 'Genesis 28:17'],
+    de: ['…und fürchtete sich und sprach: Wie heilig ist diese Stätte! Hier ist nichts anderes als Gottes Haus, und hier ist die Pforte des Himmels.', '1. Mose 28,17'],
+    sv: ['Och han betogs av fruktan och sade: »Detta måste vara en helig plats, här bor förvisso Gud, och här är himmelens port.»', '1 Mos 28:17'],
+  },
+  'jhn10.9': {
+    pl: ['Jamci jest drzwiami; jeźli kto przez mię wnijdzie, zbawiony będzie, a wnijdzie i wynijdzie, a pastwisko znajdzie.', 'J 10,9'],
+    en: ['I am the gate. If anyone enters through Me, he will be saved. He will come in and go out and find pasture.', 'John 10:9'],
+    de: ['Ich bin die Tür; so jemand durch mich eingeht, der wird selig werden und wird ein und aus gehen und Weide finden.', 'Johannes 10,9'],
+    sv: ['Jag är dörren; den som går in genom mig, han skall bliva frälst, och han skall få gå ut och in och skall finna bete.', 'Joh 10:9'],
+  },
+  'psa8.3-4': {
+    pl: ['Gdy się przypatruję niebiosom twoim, dziełu palców twoich, miesiącowi i gwiazdom, któreś wystawił, tedy mówię: Cóż jest człowiek, iż nań pamiętasz? albo Syn człowieczy, iż go nawiedzasz?', 'Ps 8,4–5'],
+    en: ['When I behold Your heavens, the work of Your fingers, the moon and the stars, which You have set in place— what is man that You are mindful of him, or the son of man that You care for him?', 'Psalm 8:3–4'],
+    de: ['Wenn ich sehe die Himmel, deiner Finger Werk, den Mond und die Sterne, die du bereitet hast: was ist der Mensch, daß du seiner gedenkst, und des Menschenkind, daß du sich seiner annimmst?', 'Psalm 8,4–5'],
+    sv: ['När jag ser din himmel, dina fingrars verk, månen och stjärnorna, som du har berett, vad är då en människa, att du tänker på henne, eller en människoson, att du låter dig vårda om honom.', 'Ps 8:4–5'],
+  },
+  'jas1.17': {
+    pl: ['Wszelki datek dobry i wszelki dar doskonały z góry jest, zstępujący od Ojca światłości, u którego nie masz odmiany, ani zaćmienia na wstecz się wracającego.', 'Jk 1,17'],
+    en: ['Every good and perfect gift is from above, coming down from the Father of the heavenly lights, with whom there is no change or shifting shadow.', 'James 1:17'],
+    de: ['Alle gute Gabe und alle vollkommene Gabe kommt von obenherab, von dem Vater des Lichts, bei welchem ist keine Veränderung noch Wechsel des Lichtes und der Finsternis.', 'Jakobus 1,17'],
+    sv: ['Idel goda gåvor och idel fullkomliga skänker komma ned ovanifrån, från himlaljusens Fader, hos vilken ingen förändring äger rum och ingen växling av ljus och mörker.', 'Jak 1:17'],
+  },
+  'psa23.3': {
+    pl: ['Duszę moję posila: prowadzi mię ścieszkami sprawiedliwości dla imienia swego.', 'Ps 23,3'],
+    en: ['He restores my soul; He guides me in the paths of righteousness for the sake of His name.', 'Psalm 23:3'],
+    de: ['Er erquicket meine Seele; er führet mich auf rechter Straße um seines Namens willen.', 'Psalm 23,3'],
+    sv: ['…han vederkvicker min själ; han leder mig på rätta vägar, för sitt namns skull.', 'Ps 23:3'],
+  },
+  'psa42.1': {
+    pl: ['Jako jeleń krzyczy do strumieni wód, tak dusza moja woła do ciebie, o Boże!', 'Ps 42,2'],
+    en: ['As the deer pants for streams of water, so my soul longs after You, O God.', 'Psalm 42:1'],
+    de: ['Wie der Hirsch schreit nach frischem Wasser, so schreit meine Seele, Gott, zu dir.', 'Psalm 42,2'],
+    sv: ['Såsom hjorten trängtar till vattenbäckar, så trängtar min själ efter dig, o Gud.', 'Ps 42:2'],
+  },
+  'heb13.15': {
+    pl: ['Przetoż przez niego ofiarujmy Bogu ofiarę chwały ustawicznie, to jest owoce warg wyznawających imieniowi jego.', 'Hbr 13,15'],
+    en: ['Through Jesus, therefore, let us continually offer to God a sacrifice of praise, the fruit of lips that confess His name.', 'Hebrews 13:15'],
+    de: ['So lasset uns nun opfern durch ihn das Lobopfer Gott allezeit, das ist die Frucht der Lippen, die seinen Namen bekennen.', 'Hebräer 13,15'],
+    sv: ['Så låtom oss då genom honom alltid till Gud »frambära ett lovets offer», det är »en frukt ifrån läppar» som prisa hans namn.', 'Hebr 13:15'],
+  },
+  'psa90.17': {
+    pl: ['Niech będzie przyjemność Pana, Boga naszego, przy nas, a sprawę rąk naszych utwierdź między nami, sprawę rąk naszych utwierdź, Panie!', 'Ps 90,17'],
+    en: ['May the favor of the Lord our God rest upon us; establish for us the work of our hands—yes, establish the work of our hands!', 'Psalm 90:17'],
+    de: ['Und der HERR, unser Gott, sei uns freundlich und fördere das Werk unsrer Hände bei uns; ja, das Werk unsrer Hände wolle er fördern!', 'Psalm 90,17'],
+    sv: ['Och HERRENS, vår Guds, ljuvlighet komme över oss. Må du främja för oss våra händers verk; ja, våra händers verk främje du.', 'Ps 90:17'],
+  },
+  'psa63.4': {
+    pl: ['Abym cię błogosławił za żywota mego, a w imieniu twojem abym podnosił ręce moje.', 'Ps 63,5'],
+    en: ['So I will bless You as long as I live; in Your name I will lift my hands.', 'Psalm 63:4'],
+    de: ['Daselbst wollte ich dich gerne loben mein Leben lang und meine Hände in deinem Namen aufheben.', 'Psalm 63,5'],
+    sv: ['Så skall jag då lova dig, så länge jag lever; i ditt namn skall jag upplyfta mina händer.', 'Ps 63:5'],
+  },
+  'psa107.29': {
+    pl: ['Obraca burzę w ciszę, tak, że umilkną nawałności ich.', 'Ps 107,29'],
+    en: ['He calmed the storm to a whisper, and the waves of the sea were hushed.', 'Psalm 107:29'],
+    de: ['…und stillte das Ungewitter, daß die Wellen sich legten…', 'Psalm 107,29'],
+    sv: ['Han förbytte stormen i lugn, så att böljorna omkring dem tystnade.', 'Ps 107:29'],
+  },
+  'psa46.4': {
+    pl: ['Strumienie rzeki jego rozweselają miasto Boże, najświętsze z przybytków najwyższego.', 'Ps 46,5'],
+    en: ['There is a river whose streams delight the city of God, the holy place where the Most High dwells.', 'Psalm 46:4'],
+    de: ['Dennoch soll die Stadt Gottes fein lustig bleiben mit ihren Brünnlein, da die heiligen Wohnungen des Höchsten sind.', 'Psalm 46,5'],
+    sv: ['En ström går fram, vars flöden giva glädje åt Guds stad, åt den Högstes heliga boning.', 'Ps 46:5'],
+  },
+  'rom8.11': {
+    pl: ['A jeźli Duch tego, który Jezusa wzbudził z martwych, mieszka w was, ten który wzbudził Chrystusa z martwych, ożywi i śmiertelne ciała wasze przez Ducha swego, który w was mieszka.', 'Rz 8,11'],
+    en: ['And if the Spirit of Him who raised Jesus from the dead is living in you, He who raised Christ Jesus from the dead will also give life to your mortal bodies through His Spirit, who lives in you.', 'Romans 8:11'],
+    de: ['So nun der Geist des, der Jesum von den Toten auferweckt hat, in euch wohnt, so wird auch derselbe, der Christum von den Toten auferweckt hat, eure sterblichen Leiber lebendig machen um deswillen, daß sein Geist in euch wohnt.', 'Römer 8,11'],
+    sv: ['Och om dens Ande, som uppväckte Jesus från de döda, bor i eder, så skall han som uppväckte Kristus Jesus från de döda göra också edra dödliga kroppar levande, genom sin Ande, som bor i eder.', 'Rom 8:11'],
+  },
+  'col2.7': {
+    pl: ['Będąc wkorzenieni i wybudowani na nim, i utwierdzeni w wierze, jakoście się nauczyli, obfitując w niej z dziękowaniem.', 'Kol 2,7'],
+    en: ['…rooted and built up in Him, established in the faith as you were taught, and overflowing with thankfulness.', 'Colossians 2:7'],
+    de: ['…und seid gewurzelt und erbaut in ihm und fest im Glauben, wie ihr gelehrt seid, und seid in demselben reichlich dankbar.', 'Kolosser 2,7'],
+    sv: ['…och varen rotade i honom och låten eder uppbyggas i honom och befästas i tron, i enlighet med den undervisning I haven fått, och överflöden i tacksägelse.', 'Kol 2:7'],
+  },
+  'eph3.17': {
+    pl: ['Aby Chrystus przez wiarę mieszkał w sercach waszych…', 'Ef 3,17'],
+    en: ['…so that Christ may dwell in your hearts through faith. Then you, being rooted and grounded in love…', 'Ephesians 3:17'],
+    de: ['…daß Christus wohne durch den Glauben in euren Herzen und ihr durch die Liebe eingewurzelt und gegründet werdet…', 'Epheser 3,17'],
+    sv: ['…och att Kristus genom tron må bo i edra hjärtan, och att I mån vara rotade och grundade i kärleken…', 'Ef 3:17'],
+  },
+  'psa85.11': {
+    pl: ['Prawda z ziemi wyrośnie, a sprawiedliwość z nieba wyjrzy.', 'Ps 85,12'],
+    en: ['Faithfulness sprouts from the earth, and righteousness looks down from heaven.', 'Psalm 85:11'],
+    de: ['…daß Treue auf der Erde wachse und Gerechtigkeit vom Himmel schaue…', 'Psalm 85,12'],
+    sv: ['…trofasthet skall växa upp ur jorden och rättfärdighet blicka ned från himmelen.', 'Ps 85:12'],
+  },
+  'isa6.3': {
+    pl: ['I wołał jeden do drugiego, mówiąc: Święty, święty, święty, Pan zastępów; pełna jest wszystka ziemia chwały jego.', 'Iz 6,3'],
+    en: ['And they were calling out to one another: “Holy, holy, holy is the LORD of Hosts; all the earth is full of His glory.”', 'Isaiah 6:3'],
+    de: ['Und einer rief zum andern und sprach: Heilig, heilig, heilig ist der HERR Zebaoth; alle Lande sind seiner Ehre voll!', 'Jesaja 6,3'],
+    sv: ['Och den ene ropade till den andre och sade: »Helig, helig, helig är HERREN Sebaot; hela jorden är full av hans härlighet.»', 'Jes 6:3'],
+  },
+  'isa30.21': {
+    pl: ['I uszy twoje usłyszą słowo z tyłu do ciebie mówiącego: Tać jest droga, chodźcie po niej, lubbyście się w prawo albo w lewo udali.', 'Iz 30,21'],
+    en: ['And whether you turn to the right or to the left, your ears will hear this command behind you: “This is the way. Walk in it.”', 'Isaiah 30:21'],
+    de: ['…und deine Ohren werden hören hinter dir her das Wort sagen also: dies ist der Weg; den gehet, sonst weder zur Rechten noch zur Linken!', 'Jesaja 30,21'],
+    sv: ['Och om du viker av, vare sig åt höger eller åt vänster, så skola dina öron höra detta ord ljuda bakom dig; »Här är vägen, vandren på en.»', 'Jes 30:21'],
+  },
+  'psa121.6': {
+    pl: ['We dnie słońce nie uderzy na cię, ani miesiąc w nocy.', 'Ps 121,6'],
+    en: ['The sun will not strike you by day, nor the moon by night.', 'Psalm 121:6'],
+    de: ['…daß dich des Tages die Sonne nicht steche noch der Mond des Nachts.', 'Psalm 121,6'],
+    sv: ['Solen skall icke skada dig om dagen, ej heller månen om natten.', 'Ps 121:6'],
+  },
+  'luk12.7': {
+    pl: ['Owszem i włosy głowy waszej wszystkie są policzone. Przetoż się nie bójcie, nad wiele wróblików wy jesteście zacniejsi.', 'Łk 12,7'],
+    en: ['And even the very hairs of your head are all numbered. So do not be afraid; you are worth more than many sparrows.', 'Luke 12:7'],
+    de: ['Aber auch die Haare auf eurem Haupt sind alle gezählt. Darum fürchtet euch nicht; ihr seid besser denn viele Sperlinge.', 'Lukas 12,7'],
+    sv: ['Men på eder äro till och med huvudhåren allasammans räknade. Frukten icke; I ären mer värda än många sparvar.', 'Luk 12:7'],
+  },
+  'psa23.5': {
+    pl: ['Przed obliczem mojem gotujesz stół przeciwko nieprzyjaciołom moim; pomazałeś olejkiem głowę moję, kubek mój jest opływający.', 'Ps 23,5'],
+    en: ['You prepare a table before me in the presence of my enemies. You anoint my head with oil; my cup overflows.', 'Psalm 23:5'],
+    de: ['Du bereitest vor mir einen Tisch im Angesicht meiner Feinde. Du salbest mein Haupt mit Öl und schenkest mir voll ein.', 'Psalm 23,5'],
+    sv: ['Du bereder för mig ett bord i mina ovänners åsyn; du smörjer mitt huvud med olja och låter min bägare flöda över.', 'Ps 23:5'],
+  },
+  'psa1.3': {
+    pl: ['Albowiem będzie jako drzewo nad strumieniem wód wsadzone, które owoc swój wydaje czasu swego, a liść jego nie opada; i wszystko, cokolwiek czynić będzie, poszczęści się.', 'Ps 1,3'],
+    en: ['He is like a tree planted by streams of water, yielding its fruit in season, whose leaf does not wither, and who prospers in all he does.', 'Psalm 1:3'],
+    de: ['Der ist wie ein Baum, gepflanzt an den Wasserbächen, der seine Frucht bringt zu seiner Zeit, und seine Blätter verwelken nicht; und was er macht, das gerät wohl.', 'Psalm 1,3'],
+    sv: ['Han är såsom ett träd, planterat vid vattenbäckar, vilket bär sin frukt i sin tid, och vars löv icke vissna; och allt vad han gör, det lyckas väl.', 'Ps 1:3'],
+  },
+  'mrk4.27-28': {
+    pl: ['A spałby i wstawałby we dnie i w nocy, a nasienie by weszło i urosło, gdy on nie wie. Boć ziemia sama z siebie pożytek wydawa, naprzód trawę, potem kłos, a potem zupełne zboże w kłosie.', 'Mk 4,27–28'],
+    en: ['Night and day he sleeps and wakes, and the seed sprouts and grows, though he knows not how. All by itself the earth produces a crop—first the stalk, then the head, then grain that ripens within.', 'Mark 4:27–28'],
+    de: ['…und schläft und steht auf Nacht und Tag; und der Same geht auf und wächst, daß er\'s nicht weiß. Denn die Erde bringt von selbst zum ersten das Gras, darnach die Ähren, darnach den vollen Weizen in den Ähren.', 'Markus 4,27–28'],
+    sv: ['…och han sover, och han vaknar, och nätter och dagar gå, och säden skjuter upp och växer i höjden, han vet själv icke huru. Av sig själv bär jorden frukt, först strå och sedan ax, och omsider finnes fullbildat vete i axet.', 'Mark 4:27–28'],
+  },
+  'psa3.3': {
+    pl: ['Ale ty, Panie! jesteś tarczą moją, chwałą moją, i wywyższającym głowę moję.', 'Ps 3,4'],
+    en: ['But You, O LORD, are a shield around me, my glory, and the One who lifts my head.', 'Psalm 3:3'],
+    de: ['Aber du, HERR, bist der Schild für mich und der mich zu Ehren setzt und mein Haupt aufrichtet.', 'Psalm 3,4'],
+    sv: ['Men du, HERRE, är en sköld för mig; du är min ära och den som upplyfter mitt huvud.', 'Ps 3:4'],
   },
 };
 

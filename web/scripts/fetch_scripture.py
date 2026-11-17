@@ -238,11 +238,22 @@ PASSAGES: list[tuple[str, str]] = [
     ("eph1.18", "Ephesians 1:18"), ("psa141.3", "Psalm 141:3"), ("rom5.5", "Romans 5:5"), ("jhn20.22", "John 20:22"),
     ("eph3.16", "Ephesians 3:16"), ("psa40.2", "Psalm 40:2"), ("psa18.32", "Psalm 18:32"), ("psa141.2", "Psalm 141:2"),
     ("luk11.13", "Luke 11:13"),
+    # Rzeki żywej wody, the maps of the founder's two pictures (2026-11-17): the twelve-point map's centres above the
+    # head and under the feet, the subtle system's channels, the void and the sacrum, the hands and the feet
+    ("gen28.17", "Genesis 28:17"), ("jhn10.9", "John 10:9"), ("psa8.3-4", "Psalm 8:3-4"), ("jas1.17", "James 1:17"),
+    ("psa23.3", "Psalm 23:3"), ("psa42.1", "Psalm 42:1"), ("heb13.15", "Hebrews 13:15"),
+    ("psa90.17", "Psalm 90:17"), ("psa63.4", "Psalm 63:4"), ("psa107.29", "Psalm 107:29"), ("psa46.4", "Psalm 46:4"),
+    ("rom8.11", "Romans 8:11"), ("col2.7", "Colossians 2:7"), ("eph3.17", "Ephesians 3:17"),
+    ("psa85.11", "Psalm 85:11"), ("isa6.3", "Isaiah 6:3"), ("isa30.21", "Isaiah 30:21"), ("psa121.6", "Psalm 121:6"),
+    # Każdy włos (every hair: the hair and the scalp, health visualisations)
+    ("luk12.7", "Luke 12:7"), ("psa23.5", "Psalm 23:5"), ("psa1.3", "Psalm 1:3"), ("mrk4.27-28", "Mark 4:27-28"),
+    ("psa3.3", "Psalm 3:3"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
     "psa62.1": {"en": "For the choirmaster. According to Jeduthun. A Psalm of David."},
     "psa19.1": {"en": "For the choirmaster. A Psalm of David."},
+    "psa42.1": {"en": "For the choirmaster. A Maskil of the sons of Korah."},
     "psa23.1-3": {"en": "A Psalm of David.", "pl": "Psalm Dawidowy.", "de": "Ein Psalm Davids.", "sv": "En psalm av David."},
     "psa121.1-2": {"en": "A song of ascents.", "pl": "Pieśń stopni.", "de": "Ein Lied im höhern Chor.", "sv": "En vallfartssång."},
     "psa127.1": {"en": "A song of ascents. Of Solomon.", "pl": "Pieśń stopni dla Salomona.",
@@ -264,7 +275,8 @@ FIX: dict[str, dict[str, tuple[str, str]]] = {
     "2ti1.7": {"sv": ("försagdbetens", "försagdhetens")},   # a scanning slip on Wikisource; getbible's 1917 reads „försagdhetens“
     "psa40.2": {"pl": ("wyciągnął miecz z dołu", "wyciągnął mię z dołu")},   # getbible's slip: the 1840 scan reads „mię“
     "psa141.2": {"de": ("vor dir Taugen", "vor dir taugen")},   # a capital mid-sentence in eBible's Luther 1912
-    "act2.17": {"sv": ("'Och det skall", "Och det skall")},   # a stray opening quote: the quoted prophecy's close is outside the verse
+    "act2.17": {"sv": ("'Och det skall", "Och det skall")},
+    "psa1.3": {"pl": ("wód w sadzone", "wód wsadzone")},   # getbible split the word; the 1840 scan reads „wsadzone”   # a stray opening quote: the quoted prophecy's close is outside the verse
 }
 
 # The Gdańsk Bible starts every verse with a capital, even inside a sentence ("ślepych, A będziesz"): a verse that
