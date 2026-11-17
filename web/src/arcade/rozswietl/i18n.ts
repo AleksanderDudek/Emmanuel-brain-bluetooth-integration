@@ -103,8 +103,8 @@ const pl = {
   // coach marks (first time only)
   'coach.aim': 'Stuknij kafel: światło zacznie na niego napierać',
   'coach.aim.keys': 'Kliknij kafel: światło zacznie na niego napierać',
-  'coach.knock': 'Stukaj dalej: każde puknięcie to nowa rysa',
-  'coach.knock.keys': 'Klikaj dalej albo naciskaj Spację: każde puknięcie to nowa rysa',
+  'coach.knock': 'Puknięcie robi rysę — kafel pęknie od światła Twojego skupienia',
+  'coach.knock.keys': 'Kliknięcie albo Spacja robi rysę — kafel pęknie od światła Twojego skupienia',
   'coach.halo': 'Złota obręcz to Twoje skupienie, kropkowana linia to próg',
   'coach.chain': 'Pęknięty kafel oddaje światło sąsiadom — to łańcuch',
   'coach.rest': 'Odpoczynek: złoto płynie po spoinach odsłoniętych kawałków',
@@ -353,8 +353,8 @@ const en: Cat = {
 
   'coach.aim': 'Tap a tile: the light will start pressing on it',
   'coach.aim.keys': 'Click a tile: the light will start pressing on it',
-  'coach.knock': 'Keep tapping: every knock is a new crack',
-  'coach.knock.keys': 'Keep clicking or press Space: every knock is a new crack',
+  'coach.knock': 'A knock makes a crack; the tile breaks in the light of your focus',
+  'coach.knock.keys': 'A click or Space makes a crack; the tile breaks in the light of your focus',
   'coach.halo': 'The golden ring is your focus; the dotted line is the threshold',
   'coach.chain': 'A broken tile passes its light to the neighbours: a chain',
   'coach.rest': 'Rest: gold flows along the seams of the uncovered pieces',
@@ -595,8 +595,8 @@ const de: Cat = {
 
   'coach.aim': 'Tippe eine Kachel an: Das Licht beginnt auf sie zu drücken',
   'coach.aim.keys': 'Klicke eine Kachel an: Das Licht beginnt auf sie zu drücken',
-  'coach.knock': 'Tipp weiter: Jedes Klopfen ist ein neuer Riss',
-  'coach.knock.keys': 'Klick weiter oder drück die Leertaste: Jedes Klopfen ist ein neuer Riss',
+  'coach.knock': 'Klopfen macht einen Riss; brechen lässt die Kachel das Licht deiner Konzentration',
+  'coach.knock.keys': 'Ein Klick oder die Leertaste macht einen Riss; brechen lässt die Kachel das Licht deiner Konzentration',
   'coach.halo': 'Der goldene Ring ist dein Fokus, die gepunktete Linie die Schwelle',
   'coach.chain': 'Eine gebrochene Kachel gibt ihr Licht an die Nachbarn weiter: eine Kette',
   'coach.rest': 'Ruhe: Gold fließt durch die Fugen der freigelegten Stücke',
@@ -837,8 +837,8 @@ const sv: Cat = {
 
   'coach.aim': 'Tryck på en platta: ljuset börjar trycka på den',
   'coach.aim.keys': 'Klicka på en platta: ljuset börjar trycka på den',
-  'coach.knock': 'Fortsätt trycka: varje knackning är en ny spricka',
-  'coach.knock.keys': 'Fortsätt klicka eller tryck på mellanslag: varje knackning är en ny spricka',
+  'coach.knock': 'En knackning ger en spricka; plattan brister i ljuset av ditt fokus',
+  'coach.knock.keys': 'Ett klick eller mellanslag ger en spricka; plattan brister i ljuset av ditt fokus',
   'coach.halo': 'Den gyllene ringen är ditt fokus, den prickade linjen är tröskeln',
   'coach.chain': 'En bruten platta ger sitt ljus till grannarna: en kedja',
   'coach.rest': 'Vila: guld flyter längs fogarna på de friade bitarna',
