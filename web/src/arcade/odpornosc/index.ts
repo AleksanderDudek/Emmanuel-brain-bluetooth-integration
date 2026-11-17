@@ -25,8 +25,8 @@ import { coarsePointer } from '../kit/mobile';
 import { SongPlayer } from '../kit/song';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { OdpSound } from './audio';
-import { stageName, type Coach, type CoachAt } from './content';
-import { t, unit, type Key } from './i18n';
+import { coachText, stageName } from './content';
+import { t, unit } from './i18n';
 import { OdpIntro } from './intro';
 import { tapTargets, wx, wy } from './layout';
 import { bestOf, freshProgress, migrate, type OdpProgress } from './meta';
@@ -54,9 +54,6 @@ class OdpGame implements ArcadeGame {
   private dpr = 1;
   private finger: number | null = null;
   private press: { x: number; y: number; moved: boolean; mode: 'lead' | 'sweep' | 'stroke' | null; wx: number; wy: number; lastWx: number } | null = null;
-  private readonly hints: { what: Coach; at: CoachAt }[] = [];
-  private hintCool = 2;
-  private cardUp = false;
   private ended = false;
   /** the mouse's cursor as last set (a desk: a hand on targets, "grab" on the field) */
   private cursor = '';
@@ -82,6 +79,8 @@ class OdpGame implements ArcadeGame {
     this.dpr = dpr;
     this.view.resize(w, h, dpr, this.env.insets());
     this.sim.setWorld(this.view.L.W);
+    // a phone on its side has no room for a gloss beside a coach mark: one at a time there
+    this.sim.captions.together = this.view.L.mode !== 'short';
   }
 
   intro(dt: number, p: number): void {
@@ -106,18 +105,13 @@ class OdpGame implements ArcadeGame {
   update(dt: number, f: FocusFrame, t: number): void {
     this.sim.update(dt, f, t);
     this.drain();
-    this.view.update(dt);
+    this.view.update(dt, this.sim);
     this.sound.update(dt);
     this.song?.level(this.sim.songLevel(f));
     if (this.sim.phase === 'done' && !this.ended) {
       this.ended = true;
       this.song?.stop(1.6);
     }
-    this.hintCool -= dt;
-    const card = !!this.sim.card;
-    if (card && !this.cardUp) this.env.hint('');
-    this.cardUp = card;
-    this.flushHints();
     if (this.view.hover) this.setCursor(this.view.cursor(this.sim));
   }
 
@@ -156,6 +150,9 @@ class OdpGame implements ArcadeGame {
       const hit = view.hit(e.x, e.y, sim);
       if (hit.kind === 'card') {
         sim.tap(sim.W / 2, 50);
+      } else if (hit.kind === 'help') {
+        view.buttonDown('help');
+        sim.explain();
       } else if (hit.kind === 'burst') {
         view.buttonDown('burst');
         sim.burst();
@@ -219,7 +216,7 @@ class OdpGame implements ArcadeGame {
     this.view.pressed = null;
   }
 
-  /** Space: the burst when ready, else the defenders to the nearest target; B the burst, N a NET. */
+  /** Space: the burst when ready, else the defenders to the nearest target; B the burst, N a NET, H „Co się dzieje?”. */
   key(key: string, down: boolean): boolean {
     const used = this.sim.key(key, down);
     if (used && down && (key === ' ' || key === 'b' || key === 'B') && this.sim.bursting > 0) this.view.buttonDown('burst');
@@ -237,24 +234,8 @@ class OdpGame implements ArcadeGame {
     for (const e of this.sim.take()) {
       this.view.on(e, this.sim);
       this.sound.on(e);
-      if (e.type === 'coach') this.hints.push({ what: e.what, at: e.at });
       if (this.env.haptics) haptic(e);
     }
-  }
-
-  /** The runner's coach mark, pointing at the thing it explains — never over a card or mid-drag, one at a time. */
-  private flushHints(): void {
-    const sim = this.sim;
-    if (!this.hints.length || this.hintCool > 0 || sim.card || this.press?.moved) return;
-    const banner = sim.phase === 'play' && sim.block.kind !== 'warmup' && sim.blockT < RULES.bannerSec;
-    if (banner) return;
-    const h = this.hints.shift()!;
-    if (!hintFits(h.what, sim)) return;
-    const at = this.view.pointFor(h.at);
-    const ms = 4200;
-    this.hintCool = ms / 1000 + 1;
-    sim.hushT = ms / 1000 + 0.3;
-    this.env.hint(coachText(h.what, this.env.touch), at, ms);
   }
 
   padLevel(f: FocusFrame): number | null {
@@ -301,7 +282,7 @@ class OdpGame implements ArcadeGame {
   targets(): TapTarget[] {
     const s = this.sim;
     if (!s.started) return [];
-    return tapTargets(this.view.L, { burst: s.burstShown && !s.card, net: s.netShown && !s.card, card: !!s.card });
+    return tapTargets(this.view.L, { burst: s.burstShown && !s.card, net: s.netShown && !s.card, card: !!s.card, help: !s.card && s.phase !== 'done' });
   }
 
   destroy(): void {
@@ -313,35 +294,8 @@ class OdpGame implements ArcadeGame {
   }
 }
 
-/** A coach mark still makes sense now (the moment may have passed). */
-function hintFits(what: Coach, sim: OdpSim): boolean {
-  switch (what) {
-    case 'burst': return sim.burstReady && sim.burstShown;
-    case 'net': return sim.nets > 0 && sim.netShown;
-    case 'rest':
-    case 'tidy': return sim.restBlock;
-    case 'blind': return sim.blind;
-    case 'rings': return sim.pushBlock && !sim.blind && sim.scene === 'skin';
-    case 'roll': return sim.stage === 'recruit';
-    case 'tcell':
-    case 'hidden': return sim.scene === 'nose';
-    case 'collagen': return sim.canWeave;
-    case 'drag':
-    case 'tap': return sim.stage === 'alarm';
-    case 'swarm': return sim.stage === 'hunt' || sim.stage === 'antibodies';
-    default: return true;
-  }
-}
-
-/** The coach marks that speak of the hands: a mouse hears "kliknij" and "przeciągnij myszą" in them. */
-const MOUSE_COACH: ReadonlySet<Coach> = new Set<Coach>(['drag', 'tap', 'roll', 'swarm', 'net', 'tidy', 'tcell']);
-
-/** A coach mark's words for the hand the player has: a finger never hears of keys, a mouse clicks (and has keys). */
-export function coachText(what: Coach, touch: boolean): string {
-  if (what === 'burst' && !touch) return t('coach.burst.keys');
-  if (!touch && MOUSE_COACH.has(what)) return t(`coach.${what}.mouse` as Key);
-  return t(`coach.${what}` as Key);
-}
+/** A coach mark's words for the hand the player has (content.ts; the tests import it from here). */
+export { coachText };
 
 function haptic(e: SimEvent): void {
   switch (e.type) {

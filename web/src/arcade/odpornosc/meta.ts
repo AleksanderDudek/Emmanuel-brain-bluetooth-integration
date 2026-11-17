@@ -3,13 +3,13 @@
  * run is (the loop and its stage), the immune memory of the pathogens met, the "Wiedza" cards, the
  * cells that joined with play, the stages' stars, the records and the song switch.  Pure rules, no DOM.
  *
- * Version 1 from the start.  The placeholder saved `{ ver: 1, sessions: n }`: it loads as
+ * Version 1 from the start (round 11 added `glossed` and `cardsFull`; an older save starts them empty).  The placeholder saved `{ ver: 1, sessions: n }`: it loads as
  * `mergeSaved(fresh, saved)` and `migrate()` repairs any field of a wrong type, so an old or damaged
  * save never crashes a session.
  */
 import { clamp } from '../kit/juice';
 import {
-  FACT_IDS, PATHOGENS, STAGES, UNLOCKS, loopSpec, type Coach, type FactId, type PathogenId, type StageId, type UnlockId,
+  FACT_IDS, GLOSSES, PATHOGENS, STAGES, UNLOCKS, loopSpec, type Coach, type FactId, type GlossId, type PathogenId, type StageId, type UnlockId,
 } from './content';
 import { RULES } from './rules';
 
@@ -43,6 +43,10 @@ export interface OdpProgress {
   tcellsDone: number;
   /** coach marks already shown */
   seen: Coach[];
+  /** the terms already explained in plain words (a gloss comes once for a player) */
+  glossed: GlossId[];
+  /** how many times each stage's full card was shown (the picture and three lines; a short card after RULES.fullCards) */
+  cardsFull: Partial<Record<StageId, number>>;
   /** the background song on or off */
   song: boolean;
   bursts: number;
@@ -53,7 +57,7 @@ export interface OdpProgress {
 export function freshProgress(): OdpProgress {
   return {
     ver: 1, sessions: 0, pushes: 0, loop: 1, stage: 0, loopsDone: 0, total: 0, best: {}, bestCombo: 0,
-    memory: {}, met: {}, facts: [], unlocks: [], stars: {}, tcellsDone: 0, seen: [], song: true, bursts: 0, nets: 0, lastLen: 0,
+    memory: {}, met: {}, facts: [], unlocks: [], stars: {}, tcellsDone: 0, seen: [], glossed: [], cardsFull: {}, song: true, bursts: 0, nets: 0, lastLen: 0,
   };
 }
 
@@ -99,6 +103,11 @@ export function migrate(p: OdpProgress): OdpProgress {
   p.stars = stars;
   const seen = Array.isArray(q.seen) ? q.seen.filter((c): c is Coach => typeof c === 'string' && (COACHES as readonly string[]).includes(c)) : [];
   p.seen = [...new Set(seen)];
+  const glossed = Array.isArray(q.glossed) ? q.glossed.filter((g): g is GlossId => typeof g === 'string' && (GLOSSES as readonly string[]).includes(g)) : [];
+  p.glossed = [...new Set(glossed)];
+  const cardsFull: Partial<Record<StageId, number>> = {};
+  if (isObj(q.cardsFull)) for (const s of STAGES) if (typeof q.cardsFull[s] === 'number') cardsFull[s] = num(q.cardsFull[s], 0, 1e6, 0);
+  p.cardsFull = cardsFull;
   return p;
 }
 

@@ -2,8 +2,12 @@
  * Where Odporność's play view puts things (CSS px), mobile first (DESIGN §12, §13.9).  The runner's HUD
  * covers the top of the canvas (`insets().top`), a phone's home indicator or notch the other edges.
  *
- *   the strip     under the HUD: the stage's pill (six dots, the stage, its goal) — passive information
- *   the song row  the sing-along line (Neo's bubble takes it while he talks)
+ *   the strip     under the HUD: the stage's pill (six dots, the stage) and the „Co się dzieje?” button (it
+ *                 shows the stage's card again); on a phone on its side and a desktop the goal line sits between
+ *   the goal row  an upright phone: the persistent "what to do now" line — the gesture's icon, the stage's goal and
+ *                 its progress („Zapal 5 miejsc na ścianie naczynia · 2/5”), „Odpocznij…” in a rest
+ *   the song row  over the field's top (the air above the skin): the sing-along line, the rest's breathing guide,
+ *                 Neo's bubble — one at a time
  *   the field     the slice of skin: the world's 126 units of height (the epidermis, the dermis, the venule)
  *                 at one uniform scale `k`, its width following the screen (80…240 units), centred; on a
  *                 tall screen the scale is capped and the air above the skin takes the rest
@@ -20,7 +24,7 @@
  * mobile audit checks: at least MIN_TAP on the short side, apart from each other, inside the insets.
  */
 import { clamp } from '../kit/juice';
-import { MIN_TAP, NO_INSETS, screenKind, uiScale, type Rect } from '../kit/mobile';
+import { MIN_TAP, NO_INSETS, hitRect, screenKind, uiScale, type Rect } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -38,6 +42,12 @@ export interface Layout {
   ins: Insets;
   top: number;
   strip: Rect;
+  /** the „Co się dzieje?” button (drawn) and its finger-sized hit rectangle */
+  help: Rect;
+  helpHit: Rect;
+  /** the goal line: its own row on an upright phone, else between the stage's pill and the button (`inStrip`) */
+  goal: Rect;
+  goalInStrip: boolean;
   song: Rect;
   /** the field on screen and the world in it: px per unit, the origin of world (0, 0), the world's width in units */
   field: Rect;
@@ -64,7 +74,11 @@ export interface Layout {
 /** the world's height: from the skin's surface to below the venule */
 export const WORLD_H = RULES.floor - RULES.skinTop;
 
-export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch = true): Layout {
+/**
+ * `helpChars`: the length of the help button's words (the view passes its language's); they show when the strip
+ * leaves room beside the stage's pill (about 0.58 em a character at 13.5 px), else the button is only a "?".
+ */
+export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch = true, helpChars = 14): Layout {
   const W0 = Math.max(240, w), H0 = Math.max(200, h);
   const u = uiScale(W0, H0);
   const top = clamp(insets.top, 0, H0 * 0.6);
@@ -74,14 +88,22 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   const desk = !touch && mode === 'wide' && (kind === 'desktop' || kind === 'big');
   const edge = mode === 'tall' && W0 < 600 ? 16 : Math.round(16 * u);
   const x0 = ins.left, x1 = W0 - ins.right;
-  // the strip and the song row (passive information under the HUD)
-  // (a phone on its side keeps its height for play: the song line shares the strip's row, between the pill and the goal)
-  const stripH = Math.round(26 * u), songH = Math.round(22 * u);
-  const strip: Rect = { x: x0 + edge, y: top + Math.round(4 * u), w: x1 - x0 - 2 * edge, h: stripH };
-  const song: Rect = mode === 'short'
-    ? { x: strip.x + strip.w * 0.27, y: strip.y + (stripH - songH) / 2, w: strip.w * 0.46, h: songH }
-    : { x: strip.x, y: strip.y + stripH + Math.round(2 * u), w: strip.w, h: songH };
-  const fTop = (mode === 'short' ? strip.y + stripH : song.y + songH) + Math.round(2 * u), fBot = H0 - ins.bottom;
+  // the strip (the stage's pill, the help button), the goal row on an upright phone, then the field; the song
+  // row lies over the field's top (the air above the skin), so the world keeps its height
+  const stripH = Math.round(32 * u), goalH = Math.round(28 * u), songH = Math.round(22 * u), gap = Math.round(4 * u);
+  const strip: Rect = { x: x0 + edge, y: top + Math.round(6 * u), w: x1 - x0 - 2 * edge, h: stripH };
+  const goalInStrip = mode !== 'tall';
+  const goal: Rect = goalInStrip ? { ...strip } : { x: strip.x, y: strip.y + stripH + gap, w: strip.w, h: goalH };
+  // the button: a pill at the strip's right end (its words where they fit beside the stage's widest pill, about
+  // 190 px, else only the "?"), hit at MIN_TAP
+  const room = strip.w - 196 * u;
+  const wordsW = Math.round(helpChars * 13.5 * 0.58 * u + stripH * 0.68 + 22 * u + (desk ? 26 * u : 0));
+  // (a phone on its side shares the row with the goal line: the goal's words first, the button only a "?")
+  const helpW = mode !== 'short' && wordsW <= room ? wordsW : stripH;
+  const help: Rect = { x: strip.x + strip.w - helpW, y: strip.y, w: helpW, h: stripH };
+  const helpHit = hitRect(help);
+  const fTop = (goalInStrip ? strip.y + stripH : goal.y + goalH) + gap, fBot = H0 - ins.bottom;
+  const song: Rect = { x: strip.x, y: fTop + Math.round(2 * u), w: strip.w, h: songH };
   const field: Rect = { x: x0, y: fTop, w: x1 - x0, h: Math.max(80, fBot - fTop) };
   // one uniform scale: the world's full height in the field, capped on tall screens (the air takes the rest);
   // a desk lifts the cap — a big screen's field is wide, and the world fills it (the cells grow with it)
@@ -116,7 +138,8 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   let card: Rect, anchor: Layout['anchor'];
   const band = fBot - top;
   if (mode === 'tall' && W0 < 600) {
-    const ch = Math.round(clamp(band * 0.86, 220, 460));
+    // (round 11: a stage's card has a picture and three lines — nearly the whole band on a small phone)
+    const ch = Math.round(clamp(band - 12, 220, 480));
     card = { x: x0 + 10, y: fBot - ch - 8, w: x1 - x0 - 20, h: ch };
     anchor = 'bottom';
   } else {
@@ -126,7 +149,7 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   }
   const lift = touch ? Math.round(clamp(64 * u, 56, 84)) : 0;
   return {
-    w: W0, h: H0, mode, desk, u, ins, top, strip, song, field, k, ox, oy, W, wx0: ox, wx1: ox + worldPx,
+    w: W0, h: H0, mode, desk, u, ins, top, strip, help, helpHit, goal, goalInStrip, song, field, k, ox, oy, W, wx0: ox, wx1: ox + worldPx,
     burst, net, sideButtons, neo, card, anchor, lift,
   };
 }
@@ -144,10 +167,15 @@ export const circleRect = (c: { x: number; y: number; r: number }): Rect => ({ x
 export const onButton = (c: { x: number; y: number; r: number }, x: number, y: number): boolean =>
   Math.abs(x - c.x) <= Math.max(c.r, MIN_TAP / 2) && Math.abs(y - c.y) <= Math.max(c.r, MIN_TAP / 2);
 
+/** whether a screen point is on the „Co się dzieje?” button */
+export const onHelp = (L: Layout, x: number, y: number): boolean =>
+  x >= L.helpHit.x && x <= L.helpHit.x + L.helpHit.w && y >= L.helpHit.y && y <= L.helpHit.y + L.helpHit.h;
+
 /** The controls the player can tap now, as the view hit-tests them. */
-export function tapTargets(L: Layout, s: { burst: boolean; net: boolean; card: boolean }): TapTarget[] {
+export function tapTargets(L: Layout, s: { burst: boolean; net: boolean; card: boolean; help?: boolean }): TapTarget[] {
   if (s.card) return [{ label: 'card', x: L.card.x, y: L.card.y, w: L.card.w, h: L.card.h }];
   const out: TapTarget[] = [];
+  if (s.help !== false) out.push({ label: 'help', ...L.helpHit });
   if (s.burst) out.push({ label: 'burst', ...circleRect(L.burst) });
   if (s.net) out.push({ label: 'net', ...circleRect(L.net) });
   return out;

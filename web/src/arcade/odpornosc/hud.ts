@@ -8,7 +8,8 @@
  */
 import { MIN_READ } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageLayout } from '../kit/scripture';
-import { STAGES, factText, factTitle, loopSpec, pathogenName, placeName, stageName, stageReal, stageText } from './content';
+import { STAGES, STAGE_GESTURE, loopSpec, pathogenName, pathogenText, placeName, stageBody, stageFocus, stageName, stageYou } from './content';
+import { paintIcon, paintStagePicture } from './picture';
 import { t, type Key } from './i18n';
 import type { Layout } from './layout';
 import { PAL, TAU, circle, fitFont, font, glow, paintPortrait, rr, wrap } from './paint';
@@ -17,26 +18,27 @@ import type { Card, OdpSim } from './sim';
 const CREAM = PAL.cream;
 const DARK = 'rgba(42,18,34,0.62)';
 
-/** The stage's pill and its goal, under the runner's HUD. */
-export function drawStrip(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSim, now: number): void {
+/**
+ * The strip under the HUD: the six stages as dots and the stage's name (left) and the „Co się dzieje?” button
+ * (right: its words where they fit, else a "?"; on a desk its key's cap, H).  Returns the pill's right edge.
+ */
+export function drawStrip(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSim, now: number, hover = false): number {
   const r = L.strip, u = L.u;
   const h = r.h;
-  // the six stages as dots
-  const dot = Math.round(4 * u), gap = Math.round(5 * u);
+  const dot = Math.round(3.5 * u), gap = Math.round(4 * u);
   const dotsW = STAGES.length * (dot * 2) + (STAGES.length - 1) * gap;
   const name = stageName(sim.stage);
-  const g = sim.goal();
-  const goal = t(`goal.${sim.stage}` as Key, { n: g.n, all: g.all });
   ctx.save();
-  // the left pill: dots and the stage's name
-  const nameSize = fitFont(ctx, name, Math.min(r.w * 0.4, 180 * u), 14 * u, MIN_READ, 800);
+  // the name never runs under the help button
+  const nameRoom = Math.min(r.w * 0.45, 180 * u, L.help.x - 8 * u - (r.x + Math.round(10 * u) + dotsW + Math.round(20 * u)));
+  const nameSize = fitFont(ctx, name, nameRoom, 14.5 * u, MIN_READ, 800);
   const nameW = ctx.measureText(name).width;
   const pillW = Math.round(10 * u) + dotsW + Math.round(8 * u) + nameW + Math.round(12 * u);
   rr(ctx, r.x, r.y, pillW, h, h / 2);
   ctx.fillStyle = DARK;
   ctx.fill();
   let x = r.x + Math.round(10 * u) + dot;
-  STAGES.forEach((s, i) => {
+  STAGES.forEach((_, i) => {
     const done = i < sim.stageIdx || (i === sim.stageIdx && sim.outro > 0);
     const cur = i === sim.stageIdx;
     circle(ctx, x, r.y + h / 2, dot);
@@ -48,7 +50,6 @@ export function drawStrip(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSim,
       ctx.stroke();
       glow(ctx, x, r.y + h / 2, dot * 3, '255,209,102', 0.25 + 0.15 * Math.sin(now * 3));
     } else { ctx.fillStyle = 'rgba(255,248,239,0.25)'; ctx.fill(); }
-    void s;
     x += dot * 2 + gap;
   });
   ctx.font = font(nameSize, 800);
@@ -56,19 +57,81 @@ export function drawStrip(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSim,
   ctx.textBaseline = 'middle';
   ctx.fillStyle = CREAM;
   ctx.fillText(name, x - gap + Math.round(4 * u), r.y + h / 2 + 0.5);
-  // the goal on the right
-  const room = r.w - pillW - Math.round(8 * u);
-  if (room > 60) {
-    const size = fitFont(ctx, goal, room - Math.round(16 * u), 13.5 * u, MIN_READ, 700);
-    const gw = ctx.measureText(goal).width + Math.round(16 * u);
-    rr(ctx, r.x + r.w - gw, r.y, gw, h, h / 2);
-    ctx.fillStyle = DARK;
-    ctx.fill();
-    ctx.font = font(size, 700);
-    ctx.fillStyle = sim.outro > 0 ? PAL.gold : CREAM;
-    ctx.textAlign = 'center';
-    ctx.fillText(goal, r.x + r.w - gw / 2, r.y + h / 2 + 0.5);
+  ctx.restore();
+  if (!sim.card) drawHelp(ctx, L, hover);
+  return r.x + pillW;
+}
+
+/** The „Co się dzieje?” button: a light pill with a "?" (the stage's card again). */
+function drawHelp(ctx: CanvasRenderingContext2D, L: Layout, hover: boolean): void {
+  const b = L.help, u = L.u, h = b.h;
+  const label = t('btn.help');
+  ctx.save();
+  const qr = h * 0.34;
+  // a desk keeps room for the key's cap at the pill's right end
+  const capW = L.desk ? 26 * u : 0;
+  const words = b.w > h + 8 && fitFont(ctx, label, b.w - qr * 2 - 20 * u - capW, 13.5 * u, MIN_READ, 750) >= MIN_READ && ctx.measureText(label).width <= b.w - qr * 2 - 18 * u - capW;
+  const w = words ? b.w : h;
+  const x = b.x + b.w - w;
+  rr(ctx, x, b.y, w, h, h / 2);
+  ctx.fillStyle = hover ? 'rgba(255,248,239,0.96)' : 'rgba(255,248,239,0.88)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(194,65,107,0.45)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  const qx = words ? x + 8 * u + qr : x + w / 2, qy = b.y + h / 2;
+  circle(ctx, qx, qy, qr);
+  ctx.fillStyle = '#c2416b';
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = font(Math.max(MIN_READ, qr * 1.5), 900);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('?', qx, qy + 0.5);
+  if (words) {
+    fitFont(ctx, label, b.w - qr * 2 - 20 * u - capW, 13.5 * u, MIN_READ, 750);
+    ctx.fillStyle = PAL.ink;
+    ctx.textAlign = 'left';
+    ctx.fillText(label, qx + qr + 6 * u, qy + 0.5);
   }
+  ctx.restore();
+  if (L.desk && words) keyCap(ctx, 'H', x + w - 16 * u, b.y + h / 2, u);
+}
+
+/**
+ * The persistent "what to do now" line (round 11): the gesture's icon and the stage's goal with its progress
+ * („Zapal 5 miejsc na ścianie naczynia · 2/5”), „Odpocznij…” in a rest, the burst when it is ready.  Its own row
+ * on an upright phone, between the stage's pill and the button elsewhere.
+ */
+export function drawGoal(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSim, now: number, pillRight: number): void {
+  const d = sim.doNow();
+  if (!d) return;
+  const u = L.u;
+  let area = L.goal;
+  if (L.goalInStrip) {
+    const x0 = pillRight + 8 * u, x1 = L.help.x - 8 * u;
+    area = { x: x0, y: L.strip.y, w: Math.max(0, x1 - x0), h: L.strip.h };
+  }
+  if (area.w < 90 * u) return;
+  const h = area.h, ir = h * 0.36;
+  ctx.save();
+  const text = fitLine(ctx, d.text, area.w - (h + 16 * u), 14 * u, 750);
+  if (!text) { ctx.restore(); return; }
+  const tw = ctx.measureText(text).width;
+  const w = Math.min(area.w, tw + h + 14 * u);
+  const x = area.x + (area.w - w) / 2;
+  rr(ctx, x, area.y, w, h, h / 2);
+  ctx.fillStyle = d.icon === 'breath' ? 'rgba(28,40,60,0.62)' : 'rgba(42,18,34,0.7)';
+  ctx.fill();
+  ctx.strokeStyle = d.gold ? 'rgba(255,209,102,0.85)' : d.icon === 'breath' ? 'rgba(170,215,255,0.6)' : 'rgba(255,248,239,0.28)';
+  ctx.lineWidth = d.gold ? 1.6 : 1.2;
+  ctx.stroke();
+  if (d.gold) glow(ctx, x + w / 2, area.y + h / 2, w * 0.5, '255,209,102', 0.12 + 0.08 * Math.sin(now * 5));
+  paintIcon(ctx, d.icon, x + h / 2 + 2 * u, area.y + h / 2, ir, now);
+  ctx.fillStyle = d.gold ? '#ffe9b3' : d.icon === 'breath' ? '#dff0ff' : CREAM;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x + h + 4 * u, area.y + h / 2 + 0.5);
   ctx.restore();
 }
 
@@ -359,42 +422,110 @@ export function drawAimTag(ctx: CanvasRenderingContext2D, L: Layout, x: number, 
   ctx.restore();
 }
 
-/** A card's words for the view (title, kicker, lines), in the page's language. */
-export function cardWords(card: Card, sim: OdpSim): { kicker: string; title: string; text: string; real: string; extra: string[]; verse: boolean } {
+/** One of a stage card's three lines: its label („W ciele”, „Ty”, „Skupienie”), its words, its colour and icon. */
+export interface CardLine { kind: 'body' | 'you' | 'focus'; label: string; text: string }
+
+/** A card's words for the view, in the page's language (and for the hand the player has). */
+export function cardWords(card: Card, sim: OdpSim, mouse = false): {
+  kicker: string; title: string; story: string; lines: CardLine[]; memory: string; picture: boolean; verse: boolean;
+} {
   const s = card.stage;
   const spec = loopSpec(sim.p.loop);
-  const extra: string[] = [];
-  if (card.memory) extra.push(t('card.memory', { name: pathogenName(card.memory) }));
-  if (card.fact) extra.push(`${t('card.fact')} · ${factTitle(card.fact)}: ${factText(card.fact)}`);
-  switch (card.kind) {
-    case 'open':
-      return { kicker: placeName(spec.place), title: t('story.open.title'), text: t('story.open.text'), real: '', extra: [], verse: true };
-    case 'back':
-      return {
-        kicker: t('story.back.title'), title: stageName(s),
-        text: t('story.back.text', { loop: sim.p.loop, place: placeName(spec.place), stage: stageName(s) }), real: stageReal(s), extra, verse: false,
-      };
-    case 'loop':
-      return {
-        kicker: t('card.loopTitle', { n: sim.p.loop, place: placeName(spec.place) }), title: stageName(s),
-        text: `${t(`place.${spec.place}.story` as Key)} ${stageText(s)}`, real: stageReal(s), extra, verse: false,
-      };
-    default:
-      return { kicker: t('card.stageOf', { n: card.idx + 1 }), title: stageName(s), text: stageText(s), real: stageReal(s), extra, verse: false };
+  const memory = card.memory ? t('card.memory', { name: pathogenName(card.memory) }) : '';
+  if (card.kind === 'open') {
+    return { kicker: placeName(spec.place), title: t('story.open.title'), story: t('story.open.text'), lines: [], memory: '', picture: false, verse: true };
   }
+  if (card.kind === 'loop') {
+    return {
+      kicker: t('card.loopTitle', { n: sim.p.loop, place: placeName(spec.place) }), title: pathogenName(spec.bug),
+      story: `${t(`place.${spec.place}.story` as Key)} ${pathogenText(spec.bug)}`, lines: [], memory: '', picture: false, verse: false,
+    };
+  }
+  const stageOf = t('card.stageOf', { n: card.idx + 1 });
+  const kicker = card.kind === 'explain' ? `${t('card.explain')} · ${stageOf}` : card.back ? `${t('story.back.title')} · ${stageOf}` : stageOf;
+  const lines: CardLine[] = [];
+  if (card.full) lines.push({ kind: 'body', label: t('card.body'), text: stageBody(s) });
+  lines.push({ kind: 'you', label: t('card.you'), text: stageYou(s, mouse) });
+  lines.push({ kind: 'focus', label: t('card.focus'), text: stageFocus(s) });
+  return { kicker, title: stageName(s), story: '', lines, memory, picture: card.full, verse: false };
 }
 
-/** The card: a bottom sheet on a phone upright, centred elsewhere; it slides in and waits for a tap (or its time). */
+const LABEL_COLOR: Readonly<Record<CardLine['kind'], string>> = { body: '#c2416b', you: '#a8650c', focus: '#5b4fc4' };
+
+/** A word of a card's line, with its font (the label bold and coloured). */
+interface Word { text: string; label: boolean }
+
+/** Wrap a card's line: its label (bold) then its words, greedy, each word measured in its own font. */
+function wrapLine(ctx: CanvasRenderingContext2D, l: CardLine, maxW: number, size: number): Word[][] {
+  const words: Word[] = [
+    ...`${l.label}:`.split(/\s+/).map(w => ({ text: w, label: true })),
+    ...l.text.split(/\s+/).filter(Boolean).map(w => ({ text: w, label: false })),
+  ];
+  const width = (w: Word) => { ctx.font = font(size, w.label ? 850 : 600); return ctx.measureText(w.text).width; };
+  ctx.font = font(size, 600);
+  const space = ctx.measureText(' ').width;
+  const out: Word[][] = [];
+  let line: Word[] = [], lw = 0;
+  for (const w of words) {
+    const ww = width(w);
+    if (line.length && lw + space + ww > maxW) { out.push(line); line = []; lw = 0; }
+    lw += (line.length ? space : 0) + ww;
+    line.push(w);
+  }
+  if (line.length) out.push(line);
+  return out;
+}
+
+/** A line's small icon in the gutter: a cell (in the body), the gesture (you), the alarm's rings (focus). */
+function lineIcon(ctx: CanvasRenderingContext2D, kind: CardLine['kind'], gesture: 'tap' | 'drag', x: number, y: number, r: number, now: number): void {
+  if (kind === 'you') {
+    ctx.save();
+    circle(ctx, x, y, r);
+    ctx.fillStyle = '#5a2a40';
+    ctx.fill();
+    ctx.restore();
+    paintIcon(ctx, gesture, x, y, r, now);
+    return;
+  }
+  ctx.save();
+  if (kind === 'body') {
+    circle(ctx, x, y, r * 0.8);
+    ctx.fillStyle = PAL.neut;
+    ctx.fill();
+    ctx.strokeStyle = LABEL_COLOR.body;
+    ctx.lineWidth = Math.max(1.2, r * 0.14);
+    ctx.stroke();
+    ctx.fillStyle = PAL.lobe;
+    for (let i = -1; i <= 1; i++) { circle(ctx, x + i * r * 0.28, y + r * 0.12, r * 0.2); ctx.fill(); }
+  } else {
+    ctx.strokeStyle = LABEL_COLOR.focus;
+    ctx.lineWidth = Math.max(1.2, r * 0.14);
+    const p = (now * 0.6) % 1;
+    for (const k of [0.3, 0.62, 0.95]) {
+      ctx.globalAlpha = k === 0.95 ? 1 - p : 1;
+      circle(ctx, x, y, r * k * (k === 0.95 ? 0.7 + 0.3 * p : 1));
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/**
+ * The card (round 11): a bottom sheet on a phone upright, centred elsewhere; it slides in and waits for a tap
+ * (or Enter/Space) — the stage does not run under it.  A stage's full card: the kicker and the stage's name, its
+ * picture (the scene in miniature, the thing to touch ringed, the gesture drawn) and three short lines — what
+ * happens in the body, what you do, what focus changes; a short card keeps the last two.  The first session's
+ * story card carries the root verse.
+ */
 export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSim, card: Card, touch: boolean, now: number, cache: { key: string; verse: PassageLayout | null }): void {
   const u = L.u, R = L.card;
-  const words = cardWords(card, sim);
+  const words = cardWords(card, sim, !touch);
   const inK = Math.min(1, card.t / 0.35);
-  const slide = (1 - (1 - inK) ** 3) ;
-  const outK = Math.max(0, Math.min(1, (card.dur - card.t) / 0.3));
+  const slide = 1 - (1 - inK) ** 3;
   ctx.save();
-  ctx.globalAlpha = Math.min(slide, outK);
+  ctx.globalAlpha = slide;
   // dim the world behind
-  ctx.fillStyle = 'rgba(30,10,24,0.42)';
+  ctx.fillStyle = 'rgba(30,10,24,0.5)';
   ctx.fillRect(0, L.top, L.w, L.h - L.top);
   const dy = L.anchor === 'bottom' ? (1 - slide) * 40 : (1 - slide) * 16;
   ctx.translate(0, dy);
@@ -407,21 +538,20 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSim, 
   ctx.strokeStyle = 'rgba(194,65,107,0.35)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
-  const pad = 18 * u, x = R.x + pad, w = R.w - 2 * pad;
+  const pad = 16 * u, x = R.x + pad, w = R.w - 2 * pad;
   let y = R.y + pad;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  // the kicker and the title
+  // the kicker, the title, the six stages as dots
   let size = fitFont(ctx, words.kicker, w, 13 * u, MIN_READ, 800);
   ctx.fillStyle = '#c2416b';
-  ctx.fillText(words.kicker.toUpperCase() === words.kicker ? words.kicker : words.kicker, x, y);
+  ctx.fillText(words.kicker, x, y);
   y += size * 1.35;
-  size = fitFont(ctx, words.title, w, 24 * u, 16, 700, true);
+  size = fitFont(ctx, words.title, w, 25 * u, 16, 700, true);
   ctx.fillStyle = PAL.ink;
   ctx.fillText(words.title, x, y);
-  y += size * 1.3;
-  // the stage dots under the title
-  if (card.kind !== 'open') {
+  y += size * 1.25;
+  if (card.kind === 'stage' || card.kind === 'explain') {
     const dot = 4 * u;
     STAGES.forEach((_, i) => {
       circle(ctx, x + dot + i * (dot * 2 + 6 * u), y + dot, dot);
@@ -430,54 +560,130 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: OdpSim, 
     });
     y += dot * 2 + 10 * u;
   }
-  const bottom = R.y + R.h - pad - 18 * u;
-  // the text, the real time, the extras: the largest size that fits
-  const blocks: { text: string; weight: number; serif: boolean; color: string; k: number }[] = [
-    { text: words.text, weight: 550, serif: false, color: PAL.ink, k: 1 },
-  ];
-  if (words.real) blocks.push({ text: words.real, weight: 500, serif: true, color: '#7a3a55', k: 0.93 });
-  for (const e of words.extra) blocks.push({ text: e, weight: 600, serif: false, color: '#5a4a2a', k: 0.88 });
-  const verseH = words.verse ? Math.min(140 * u, (bottom - y) * 0.42) : 0;
-  let fs = 15.5 * u;
-  let laid: { lines: string[]; size: number; b: (typeof blocks)[number] }[] = [];
+  // the tap hint at the bottom
+  const hint = t(touch ? 'card.tap' : 'card.click');
+  const hintSize = fitFont(ctx, hint, w, 13.5 * u, MIN_READ, 750);
+  const bottom = R.y + R.h - pad - hintSize * 1.6;
+  if (words.story) y = drawStory(ctx, words.story, x, y, w, bottom, u, words.verse, R, cache);
+  else drawLines(ctx, words, x, y, w, bottom, u, now, card, sim);
+  ctx.font = font(hintSize, 750);
+  ctx.fillStyle = card.t >= 0.6 ? '#c2416b' : 'rgba(194,65,107,0.4)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.globalAlpha *= 0.78 + 0.22 * Math.sin(now * 3);
+  ctx.fillText(hint, R.x + R.w / 2, R.y + R.h - pad - hintSize * 0.6);
+  ctx.restore();
+}
+
+/** The story and the open card's verse. */
+function drawStory(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, w: number, bottom: number, u: number, verse: boolean, R: Layout['card'], cache: { key: string; verse: PassageLayout | null }): number {
+  const verseH = verse ? Math.min(150 * u, (bottom - y) * 0.45) : 0;
+  let fs = 16 * u, lines: string[] = [];
   for (; fs >= MIN_READ; fs -= 0.5) {
-    laid = blocks.map(b => {
-      const s = Math.max(MIN_READ, fs * b.k);
-      ctx.font = font(s, b.weight, b.serif);
-      return { lines: wrap(ctx, b.text, w), size: s, b };
-    });
-    const hNeed = laid.reduce((a, l) => a + l.lines.length * l.size * 1.32 + 8 * u, 0);
-    if (hNeed <= bottom - y - verseH) break;
+    ctx.font = font(fs, 560);
+    lines = wrap(ctx, text, w);
+    if (lines.length * fs * 1.35 <= bottom - y - verseH) break;
   }
-  for (const l of laid) {
-    ctx.font = font(l.size, l.b.weight, l.b.serif);
-    ctx.fillStyle = l.b.color;
-    for (const line of l.lines) {
-      if (y + l.size > bottom - verseH + 2) break;
-      ctx.fillText(line, x, y);
-      y += l.size * 1.32;
-    }
-    y += 8 * u;
+  ctx.font = font(Math.max(MIN_READ, fs), 560);
+  ctx.fillStyle = PAL.ink;
+  for (const l of lines) {
+    if (y + fs > bottom - verseH + 2) break;
+    ctx.fillText(l, x, y);
+    y += fs * 1.35;
   }
-  if (words.verse) {
+  if (verse) {
     const p = passage('psa103.2-3');
     const key = `${R.w}|${verseH}`;
     if (cache.key !== key) {
       cache.key = key;
-      cache.verse = layoutPassage(ctx, p, w, Math.max(30, bottom - y), { max: 17 * u, min: MIN_READ });
+      cache.verse = layoutPassage(ctx, p, w, Math.max(30, bottom - y - 6 * u), { max: 17 * u, min: MIN_READ });
     }
-    if (cache.verse) drawPassage(ctx, p, cache.verse, R.x + R.w / 2, Math.max(y, bottom - cache.verse.height), { text: '#5a2a40', ref: '#a0607a' });
+    if (cache.verse) drawPassage(ctx, p, cache.verse, R.x + R.w / 2, Math.max(y + 6 * u, bottom - cache.verse.height), { text: '#5a2a40', ref: '#a0607a' });
   }
-  // the tap hint
-  const hint = t(touch ? 'card.tap' : 'card.click');
-  size = fitFont(ctx, hint, w, 13 * u, MIN_READ, 700);
-  ctx.fillStyle = card.t >= 0.6 ? '#c2416b' : 'rgba(194,65,107,0.4)';
-  ctx.textAlign = 'center';
-  ctx.globalAlpha *= 0.75 + 0.25 * Math.sin(now * 3);
-  ctx.fillText(hint, R.x + R.w / 2, R.y + R.h - pad - size * 0.6);
-  // a thin bar: the card's time
-  ctx.globalAlpha = Math.min(slide, outK) * 0.6;
-  ctx.fillStyle = '#c2416b';
-  ctx.fillRect(R.x + 18 * u, R.y + R.h - 6 * u, (R.w - 36 * u) * Math.max(0, 1 - card.t / card.dur), 2);
-  ctx.restore();
+  return y;
+}
+
+/**
+ * A stage card's picture and lines: the picture beside the lines on a wide card, above them on a narrow one; the
+ * largest text that fits (never under the reading floor), the picture taking what is left (dropped under 64 px).
+ */
+function drawLines(ctx: CanvasRenderingContext2D, words: ReturnType<typeof cardWords>, x: number, y: number, w: number, bottom: number, u: number, now: number, card: Card, sim: OdpSim): void {
+  // (`words` may lose its picture below when there is no room for one)
+  const gutter = 30 * u, gap = 10 * u;
+  const side = words.picture && w >= 440 * u;
+  const pw = side ? Math.round(w * 0.4) : w;
+  const tx = side ? x + pw + 14 * u : x, tw = (side ? w - pw - 14 * u : w) - gutter;
+  // the largest size that fits beside or under the picture
+  let fs = 16.5 * u, laid: Word[][][] = [];
+  const need = (f: number) => laid.reduce((a, l) => a + l.length * f * 1.3, 0) + (laid.length - 1) * gap;
+  const avail = bottom - y;
+  let ph = 0;
+  for (; fs >= MIN_READ; fs -= 0.5) {
+    laid = words.lines.map(l => wrapLine(ctx, l, tw, fs));
+    const memLines = words.memory ? Math.ceil(measure(ctx, words.memory, fs * 0.92) / Math.max(1, tw + gutter)) : 0;
+    const textH = need(fs) + (memLines ? memLines * fs * 1.25 + gap : 0);
+    if (!words.picture) { if (textH <= avail) break; continue; }
+    if (side) { if (textH <= avail) break; continue; }
+    ph = Math.min(170 * u, avail - textH - gap);
+    if (ph >= 96 * u || fs <= MIN_READ + 1) break;
+  }
+  fs = Math.max(MIN_READ, fs);
+  // no room for a picture worth the name: the lines alone, as large as they fit
+  if (words.picture && !side && ph < 64 * u) {
+    words = { ...words, picture: false };
+    for (fs = 16.5 * u; fs > MIN_READ; fs -= 0.5) {
+      laid = words.lines.map(l => wrapLine(ctx, l, tw, fs));
+      if (need(fs) <= avail) break;
+    }
+    fs = Math.max(MIN_READ, fs);
+    laid = words.lines.map(l => wrapLine(ctx, l, tw, fs));
+  }
+  if (words.picture) {
+    const spec = loopSpec(sim.p.loop);
+    if (side) {
+      const h = Math.min(avail, pw * 0.72);
+      paintStagePicture(ctx, card.stage, x, y + (avail - h) / 2 * 0.3, pw, h, now, spec.bug, spec.virus);
+    } else if (ph >= 64 * u) {
+      const pwN = Math.min(w, ph * 1.9);
+      paintStagePicture(ctx, card.stage, x + (w - pwN) / 2, y, pwN, ph, now, spec.bug, spec.virus);
+      y += ph + gap;
+    }
+  }
+  const gesture = STAGE_GESTURE[card.stage];
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+  let ly = y;
+  laid.forEach((lines, i) => {
+    const kind = words.lines[i].kind;
+    lineIcon(ctx, kind, gesture, tx + gutter / 2 - 2 * u, ly + fs * 0.62, Math.min(11 * u, gutter * 0.38), now);
+    for (const line of lines) {
+      if (ly + fs > bottom + 2) break;
+      let cx = tx + gutter;
+      for (const wd of line) {
+        ctx.font = font(fs, wd.label ? 850 : 600);
+        ctx.fillStyle = wd.label ? LABEL_COLOR[kind] : PAL.ink;
+        ctx.fillText(wd.text, cx, ly);
+        cx += ctx.measureText(wd.text).width;
+        ctx.font = font(fs, 600);
+        cx += ctx.measureText(' ').width;
+      }
+      ly += fs * 1.3;
+    }
+    ly += gap;
+  });
+  if (words.memory && ly + fs < bottom) {
+    const mf = Math.max(MIN_READ, fs * 0.92);
+    ctx.font = font(mf, 750);
+    ctx.fillStyle = '#8a5a10';
+    for (const l of wrap(ctx, words.memory, tw + gutter)) {
+      if (ly + mf > bottom + 2) break;
+      ctx.fillText(l, tx, ly);
+      ly += mf * 1.25;
+    }
+  }
+}
+
+function measure(ctx: CanvasRenderingContext2D, text: string, size: number): number {
+  ctx.font = font(Math.max(MIN_READ, size), 750);
+  return ctx.measureText(text).width;
 }

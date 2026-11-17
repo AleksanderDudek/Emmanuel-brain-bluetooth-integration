@@ -1,6 +1,7 @@
 /**
  * Odporność's "Postępy" card in the lobby, from the app's shared .arcade-* classes: the records, where the
- * run is (the loop, its place, the six stages with their stars), the immune memory (each pathogen met, how
+ * run is (the loop, its place, the six stages with their stars), the six stages' illustrated glossary (round 11:
+ * each stage's picture, what happens in the body, what you do, how long it really takes), the immune memory (each pathogen met, how
  * well it is remembered), the defenders that joined with play and what brings the others, the "Wiedza" cards
  * found — each with its number and its source — the song's switch, and the honest line: this visualises
  * real processes and trains attention; it does not heal and does not replace treatment.  Built with h().
@@ -8,12 +9,14 @@
 import { fmtNum, lang } from '../../i18n';
 import { h } from '../../ui/dom';
 import {
-  FACTS, PATHOGEN, PATHOGENS, STAGES, UNLOCKS, factText, factTitle, loopSpec, pathogenName, pathogenText, placeName, stageName, unlockName,
-  unlockText, type PathogenId,
+  FACTS, PATHOGEN, PATHOGENS, STAGES, UNLOCKS, factText, factTitle, loopSpec, pathogenName, pathogenText, placeName, stageBody, stageName,
+  stageReal, stageYou, unlockName, unlockText, type PathogenId, type StageId,
 } from './content';
 import { t } from './i18n';
 import { bestOf, memoryOf, starKey, type OdpProgress } from './meta';
+import { coarsePointer } from '../kit/mobile';
 import { paintBug, paintVirion } from './paint';
+import { paintStagePicture } from './picture';
 import { starText } from './sim';
 
 function stat(k: string, v: string): HTMLElement {
@@ -39,6 +42,36 @@ function tile(id: PathogenId, met: boolean): HTMLCanvasElement {
     ctx.globalAlpha = 1;
   }
   return c;
+}
+
+/** A stage's picture for the glossary: the card's scene, still (the gesture caught mid-way). */
+function stagePic(stage: StageId, loop: number): HTMLCanvasElement {
+  const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  const W = 104, H = 66;
+  const c = h('canvas', { width: String(Math.round(W * dpr)), height: String(Math.round(H * dpr)), 'aria-hidden': 'true' });
+  c.style.width = `${W}px`;
+  c.style.height = `${H}px`;
+  c.style.flex = '0 0 auto';
+  c.style.borderRadius = '10px';
+  const ctx = c.getContext('2d');
+  if (ctx) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const spec = loopSpec(loop);
+    paintStagePicture(ctx, stage, 0, 0, W, H, 1.1, spec.bug, spec.virus);
+  }
+  return c;
+}
+
+/** The six stages in a few words each: what happens in the body, what you do, how long it really takes. */
+function glossary(p: OdpProgress): HTMLElement[] {
+  const mouse = !coarsePointer();
+  return STAGES.map((s, i) => h('div', { class: 'arcade-daily' },
+    stagePic(s, p.loop),
+    h('div', null,
+      h('b', null, `${i + 1}. ${stageName(s)}`),
+      h('p', null, `${t('card.body')}: ${stageBody(s)}`),
+      h('p', null, `${t('card.you')}: ${stageYou(s, mouse)}`),
+      h('p', { class: 'muted' }, stageReal(s)))));
 }
 
 export function progressPanel(p: OdpProgress, save: () => void): HTMLElement {
@@ -97,6 +130,7 @@ function build(p: OdpProgress, changed: () => void): HTMLElement[] {
       stat(t('panel.combo'), p.bestCombo > 0 ? `×${p.bestCombo}` : '—'),
       stat(t('panel.loops'), fmtNum(p.loopsDone))),
     h('div', { class: 'arcade-sub' }, t('panel.where', { loop: p.loop, place: placeName(spec.place), stage: stageName(STAGES[p.stage] ?? 'alarm') })), stages,
+    h('div', { class: 'arcade-sub' }, t('panel.stages')), ...glossary(p),
     h('div', { class: 'arcade-sub' }, t('panel.memory')), anyMet ? memory : h('p', { class: 'muted' }, t('panel.memoryNone')),
     h('div', { class: 'arcade-sub' }, t('panel.cells')), cells, ...joined,
     h('div', { class: 'arcade-sub' }, t('panel.facts', { n: found.length, all: FACTS.length })), ...cards,

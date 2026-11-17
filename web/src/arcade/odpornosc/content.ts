@@ -16,9 +16,20 @@ export type StageId = 'alarm' | 'recruit' | 'hunt' | 'antibodies' | 'tcells' | '
 export const STAGES: readonly StageId[] = ['alarm', 'recruit', 'hunt', 'antibodies', 'tcells', 'heal'];
 
 export const stageName = (s: StageId): string => t(`stage.${s}` as Key);
-/** what really happens and how long it really takes ("Naprawdę: …"), for the stage card */
+/** how long it really takes ("Naprawdę: …"), for the lobby's glossary of the stages */
 export const stageReal = (s: StageId): string => t(`stage.${s}.real` as Key);
-export const stageText = (s: StageId): string => t(`stage.${s}.text` as Key);
+
+/**
+ * The stage card's three lines (round 11: the founder could not tell what was going on): what really happens in
+ * the body, what the player does (a mouse clicks), what focus changes in this stage — each at most 70 characters.
+ */
+export const stageBody = (s: StageId): string => t(`stage.${s}.body` as Key);
+export const stageYou = (s: StageId, mouse = false): string => t(`stage.${s}.you${mouse ? '.mouse' : ''}` as Key);
+export const stageFocus = (s: StageId): string => t(`stage.${s}.focus` as Key);
+/** the gesture each stage's hands make (the card's picture and the goal line show it) */
+export const STAGE_GESTURE: Readonly<Record<StageId, 'drag' | 'tap'>> = {
+  alarm: 'drag', recruit: 'tap', hunt: 'drag', antibodies: 'drag', tcells: 'tap', heal: 'drag',
+};
 
 // ── pathogens and loops ──────────────────────────────────────────────────────────────
 export type PathogenId = 'ziarniaki' | 'laseczki' | 'paleczki' | 'rinoA' | 'rinoB' | 'rinoC';
@@ -142,12 +153,54 @@ export const unlockText = (id: UnlockId): string => t(`unlock.${id}.text` as Key
 export type Coach =
   | 'drag' | 'tap' | 'rings' | 'roll' | 'swarm' | 'burst' | 'net' | 'rest' | 'capsule' | 'tcell' | 'hidden' | 'collagen' | 'blind' | 'tidy';
 
-/** where a coach mark points (the view turns it into a canvas point) */
+/**
+ * Where a coach mark or a gloss points (the sim follows it every frame, the view turns it into a canvas point):
+ * a fixed world point, a cell or a bacterium by id, or a role — Makro, the swarm's middle, the bacterium nearest
+ * the gesture's start, the rolling cell nearest the vessel's middle, a neutrophil (a rolling one, else the swarm),
+ * a cell of the nose's lining (the first
+ * infected one), a lit place on the vessel wall, the wound (a drag goes across it), a spent neutrophil, a button.
+ */
 export type CoachAt =
   | { kind: 'world'; x: number; y: number }
+  | { kind: 'cell'; id: number }
+  | { kind: 'bug'; id: number }
+  | { kind: 'makro' } | { kind: 'swarm' } | { kind: 'nearBug' } | { kind: 'roller' } | { kind: 'neut' } | { kind: 'pad' }
+  | { kind: 'epi'; i: number } | { kind: 'infected' }
+  | { kind: 'wound'; side: -1 | 1 }
+  | { kind: 'body' }
   | { kind: 'burst' }
   | { kind: 'net' }
   | { kind: 'free' };
+
+/** The coach marks that ask for a gesture (the rest only explain), and their weight in the queue. */
+export const COACH_GESTURE: Readonly<Partial<Record<Coach, 'tap' | 'drag'>>> = {
+  drag: 'drag', tap: 'tap', roll: 'tap', swarm: 'drag', burst: 'tap', net: 'tap', tcell: 'tap', collagen: 'drag', tidy: 'tap',
+};
+export const COACH_PRI: Readonly<Record<Coach, number>> = {
+  burst: 4, blind: 3, net: 1, rings: 2, roll: 2, swarm: 2, drag: 2, tcell: 2, collagen: 2, rest: 2, capsule: 2, hidden: 2, tap: 1, tidy: 1,
+};
+
+/** The coach marks that speak of the hands: a mouse hears "kliknij" and "przeciągnij myszą" in them. */
+const MOUSE_COACH: ReadonlySet<Coach> = new Set<Coach>(['drag', 'tap', 'roll', 'swarm', 'net', 'tidy', 'tcell', 'collagen']);
+
+/** A coach mark's words for the hand the player has: a finger never hears of keys, a mouse clicks (and has keys). */
+export function coachText(what: Coach, touch: boolean): string {
+  if (what === 'burst' && !touch) return t('coach.burst.keys');
+  if (!touch && MOUSE_COACH.has(what)) return t(`coach.${what}.mouse` as Key);
+  return t(`coach.${what}` as Key);
+}
+
+// ── glosses: a technical term in plain words, the first time its thing shows (once for a player) ──
+export type GlossId =
+  | 'makrofag' | 'bakteria' | 'cytokiny' | 'tuczna' | 'selektyny' | 'neutrofil' | 'diapedeza' | 'fagocytoza' | 'zuzyty'
+  | 'wybuch' | 'siec' | 'dendrytyczna' | 'przeciwciala' | 'dopelniacz' | 'otoczka' | 'wirus' | 'choragiewki' | 'limfocyt'
+  | 'nk' | 'interferon' | 'apoptoza' | 'fibroblast' | 'kolagen';
+export const GLOSSES: readonly GlossId[] = [
+  'makrofag', 'bakteria', 'cytokiny', 'tuczna', 'selektyny', 'neutrofil', 'diapedeza', 'fagocytoza', 'zuzyty',
+  'wybuch', 'siec', 'dendrytyczna', 'przeciwciala', 'dopelniacz', 'otoczka', 'wirus', 'choragiewki', 'limfocyt',
+  'nk', 'interferon', 'apoptoza', 'fibroblast', 'kolagen',
+];
+export const glossText = (g: GlossId): string => t(`gloss.${g}` as Key);
 
 export type Moment =
   | 'hello' | 'alarm' | 'pads' | 'recruit' | 'squeeze' | 'hunt' | 'gulp' | 'combo' | 'full' | 'burstReady' | 'burst' | 'net'

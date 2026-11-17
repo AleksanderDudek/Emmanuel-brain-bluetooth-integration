@@ -4457,7 +4457,8 @@ slice of skin like a living microscope slide (rose dermis, the skin's surface wi
 venule with flowing red cells along the bottom), where the player leads a swarm of white cells through
 the **real stages of an immune response, in their real order**, each a level of the run. Root Psalm
 103:2-3; the headline counts **pathogens** cleared (patogenów / pathogens / Erreger / patogener). Code:
-`src/arcade/odpornosc/` (sim.ts the rules, render/paint/hud/layout the view, i18n.ts the words).
+`src/arcade/odpornosc/` (sim.ts the rules, captions.ts the teaching words on the field, render/paint/hud/
+layout the view, picture.ts the stage pictures and the finger, i18n.ts the words).
 
 **The run: six stages, a loop per wound** (each 40–90 s; a goal, a soft cap after which the body's
 other defences finish the job — never a failure, no stars; the run carries over between sessions):
@@ -4469,7 +4470,7 @@ other defences finish the job — never a failure, no stars; the run carries ove
 | **Łowy** | someone pulled the splinter out, the bacteria stayed and divide; the swarm follows the trail (chemotaxis) and engulfs: pseudopods wrap, a phagosome fizzes (the granules, the respiratory burst), the bacterium dissolves; a neutrophil eats 3–20 and is spent, falls into tidy apoptotic bubbles | drag to lead the swarm (drawn above the finger); tap a bacterium; the **Burst** and **NET** buttons | clear the wave (24, more each loop) | ~20 s an engulf, hours → a moment |
 | **Przeciwciała** | a dendritic cell takes a piece and leaves for the lymph node (an inset: a B cell, plasma cells, Ys flying); antibodies (gold Ys) and complement (C3b dots) tag the bacteria gold — tagged ones are engulfed three times faster; bacteria in a slippery capsule bounce a neutrophil off until tagged | as in the hunt | clear the wave | ~2 weeks (memory: 3–4 days) → seconds |
 | **Limfocyty T** | the nose's lining; a cold virus (a rhinovirus) replicates in its cells, which show violet flags (viral peptides on MHC I); a cytotoxic T cell docks (perforin, granzymes) and the cell **folds itself away** into tidy bubbles (apoptosis); a cell left alone bursts and the virions infect neighbours, unless interferon has made them antiviral; from loop 2 some cells hide their flags and only **NK cells** find them | tap an infected cell (the nearest T cell goes), drag to lead the T cells | no infected cell left | 30 s to the holes, minutes to fold → a second |
-| **Gojenie** | back at the wound: Makro turns green (repair mode) and tidies the spent neutrophils (efferocytosis), fibroblasts weave collagen, capillaries sprout up from the venule, the skin's edges close over; a few stragglers hide in crevices | drag across the wound to lay collagen; tap a spent cell to have it tidied | the wound closed | 4–21 days, remodelling a year → a minute |
+| **Gojenie** | back at the wound: Makro turns green (repair mode) and tidies the spent neutrophils (efferocytosis), fibroblasts weave collagen, capillaries sprout up from the venule, the skin's edges close over; a few stragglers hide in crevices | drag across the wound to lay collagen (only here: round 11); tap a spent cell to have it tidied | the wound closed | 4–21 days, remodelling a year → a minute |
 
 Then the next loop: a splinter in a finger (skin cocci, rhinovirus A), a scraped knee (soil bacilli, many
 in capsules; rhinovirus B), the gut wall (gut rods that swim with flagella; rhinovirus C) — and again,
@@ -4487,24 +4488,25 @@ blocks are **healing** (gauge "Gojenie"): no new bacteria come and division paus
 the line: a game convention), a **breathing guide** in the song's row swells and settles (in for 4, out
 for 6, §13.1) while the swarm spreads out and dozes, calm settles the inflammation (the warm glow around
 the wound breathes with it), the marrow refreshes the swarm (fresh neutrophils roll in), tapping spent
-cells has Makro tidy them, a drag across the wound weaves collagen (the repair starts under the surface:
-the wound bed's first strands show), and in the healing stage calm closes the wound. Blind pushes ("Na
+cells has Makro tidy them, calm prepares the repair under the surface by itself (the wound bed's first
+strands show), and in the healing stage calm closes the wound and a drag across it weaves collagen. Blind pushes ("Na
 wyczucie", every 4th from the 3rd session): the rings and the gauge hide, the
 alarm stays at the base, and the block's share above the threshold is revealed at its end and paid as
 burst charge. Without a reliable signal everything stays at the base: never a loss.
 `meter()` = the alarm (push) / calm (rest); `padLevel` and the song follow `f.level` only in a sighted
-push (the song plays a gentle fixed level in rest and holds in a blind push).
 
 **The hands** (one finger, §12): a drag leads the swarm (Makro in the alarm, the T cells in the nose)
 to a point 56–84 px **above the finger**, golden-angle slots with flocking; a tap sends the nearest free
 defenders to the bacterium or infected cell under the finger (generous: 15 units), or from bare
 tissue to the nearest target (the smoke test's centre tap); in the vessel a tap stops the nearest
-rolling cell and a drag along it stops every one it passes; while healing, and in any rest on the skin,
-a drag across the wound lays collagen; the two round 60 px buttons (the burst, the NET) sit in the thumb zone. Space: the burst when
-ready, else the defenders to the nearest target; B the burst, N a NET. A **NET**: a charge every
-8-combo (one at the hunt's start; two with "Mocniejsze sieci"); the neutrophil nearest the densest
-cluster casts its DNA over it — the caught bacteria stop and dissolve — and crawls on without its lobed
-nucleus (vital NETosis, Yipp 2012).
+rolling cell and a drag along it stops every one it passes; in the healing stage a drag across the wound
+lays collagen (round 11: no longer in a battle stage's rest — that fed an invisible repair and fought the
+swarm's drag); the two round 60 px buttons (the burst, the NET) sit in the thumb zone; the **„Co się
+dzieje?”** button ends the strip. Space: the burst when ready, else the defenders to the nearest target;
+Enter/Space close a card; B the burst, N a NET, H „Co się dzieje?”. A **NET**: a charge every 8-combo (one
+at the hunt's start; two with "Mocniejsze sieci"); the neutrophil nearest the densest cluster casts its
+DNA over it — the caught bacteria stop and dissolve — and crawls on without its lobed nucleus (vital
+NETosis, Yipp 2012).
 
 **Juice and beauty.** A palette like a stained slide: rose and coral tissue that deepens toward the
 vessel, pearl cells with lilac three-lobed nuclei (as Giemsa stains them) and eyes, lime, gold and teal
@@ -4515,29 +4517,75 @@ phagosome, a bloop whose pitch climbs with the combo (a bell every third), combo
 hit-stop on a burst, a NET and a stage won, haptics on the moments that matter; reduced motion: no
 shake, the burst's light softer.
 
+**Clarity (round 11, the founder 2026-11-17: „niezbyt rozumiem co się tam dzieje. Napisy i tłumaczenia
+zbyt szybko znikają… nie rozumiem mechanik gry”).**
+* **Every word stays to be read twice**: `readSec(text)` = 2.5 s + 70 ms a character, never under 4.5 s
+  (rules.ts) — Neo's and Makro's lines, toasts, coach marks, glosses, notes, word floaters („ślisko!”,
+  „syty”; numbers like „×6” stay short juice), the lymph node's inset, a desk's hover tags. Neo's line is
+  *held* (hidden, its clock stopped) under the runner's banner, a telegraph, a gloss or a coach mark not
+  yet read, and cut only by a card; toasts and notes wait under a card, a coach mark or a gloss (a toast
+  that waited 12 s is old news and goes unshown).
+* **Cards wait for a tap** (or Enter/Space, after 0.6 s); the stage does not run under them (the blocks
+  and the band go on). A **stage's card**: its number („Etap 3 z 6”, „Ciąg dalszy · …”, „Co się dzieje? ·
+  …”), the name, the six dots, a **picture** (the scene in miniature, the thing to touch ringed, an
+  animated finger tapping or dragging it — picture.ts) and **three lines of at most 70 characters**:
+  *W ciele* (what really happens), *Ty* (what you do; a mouse clicks), *Skupienie* (what focus changes
+  here). Full the first time a stage begins in a session while the player has seen it fewer than twice
+  (`cardsFull`), else short (*Ty* and *Skupienie*). A new loop's place gets its own card first; the first
+  session opens with the story and the root verse. The **„Co się dzieje?”** button (≥ 44 px, in
+  `targets()`, its words where the strip has room, else a „?”) shows the stage's full card again any time.
+* **What to do now**: one line under the strip (beside the stage's pill on a phone on its side and a
+  desk) — the gesture's icon and the stage's goal with its progress: „Zapal 5 miejsc na ścianie naczynia
+  · 2/5”, „Zatrzymaj 12 neutrofili · 7/12”, „Oczyść falę · 18 bakterii”, „Oczyść nos z wirusa · zakażone:
+  3”, „Zamknij ranę · 45%”; „Odpocznij i oddychaj — ciało się goi” in a rest (in Gojenie with the closure);
+  „Wybuch gotowy — stuknij przycisk!” in gold when the burst is ready. It changes only when the action
+  changes. The thing to touch carries a thin pulsing ring: Makro in the alarm, the rolling cells, the
+  infected cells of the nose, the wound and the spent cells while healing.
+* **Coach marks with the gesture drawn** (captions.ts), the first time each control matters, one at a
+  time: drag Makro (then tap a bacterium), tap a rolling cell, drag the swarm, the burst, the NET, tap an
+  infected cell, drag across the wound, tap a spent cell; an animated finger taps or drags on the live
+  thing. A gesture's coach mark stays until the gesture is done (then until read), gives way to a weightier
+  one once read and to any other 4 s later, or goes after 20 s; an explanation (focus → the rings, a rest,
+  a capsule, a hidden flag, a blind push) stays ≥ 9 s and a tap after reading takes it away. The bubble is
+  drawn by the game (not the runner's `env.hint`, which sat above its point and covered the rolling
+  cells, the nose's lining and, on a desk, the goal line): it takes the nearest place that covers neither
+  the thing, nor the gesture's path, nor the buttons, nor the rows above the field, its tail on the thing.
+* **Plain words**: 23 terms (makrofag, bakterie, cytokiny, komórka tuczna, selektyny, neutrofil,
+  diapedeza, fagocytoza, zużyty neutrofil, wybuch tlenowy, sieć NET, komórka dendrytyczna, przeciwciała,
+  dopełniacz, otoczka, wirus, chorągiewki, limfocyt T, komórka NK, interferon, apoptoza, fibroblast,
+  kolagen) each get a gloss the first time their thing shows — the term in gold, plain words after it,
+  a dark label with a thin line to the thing — once for a player (`glossed`, saved when shown); never
+  before a coach mark has been read, set clear of its bubble (one at a time on a phone on its side).
+* **Mechanics shown where they happen** (a blue note by the thing): „Trzymane skupienie ładuje Wybuch”
+  by the button the first time a held focus charges it; „Seria ×8 → nowa Sieć” by the NET; „Połknięcie →
+  silniejszy krąg alarmu” by Makro's first gulp; in a rest „Spokój goi ranę: +3%” (healing) or „Spokój:
+  naprawa pod skórą +2%” every 6 s and „Spokój: szpik dosyła świeże krwinki” once; the first sighted push
+  says by the rings „Twoje skupienie wzmacnia alarm: kręgi sięgają dalej. Złoty krąg to próg”.
+
 **The voice and the story.** Neo, a young neutrophil (appetite, a life of less than a day: "Mam mniej
 niż dobę, więc deser jem na początku"), and Makro, the veteran macrophage with bushy brows ("Siedzę w tej
-skórze od lat"): 31 moments × 3 lines in four languages, ≤ 90 characters, 2–4 s, one at a time, never
-over a card, a banner, a telegraph or a coach mark. The first session opens with a story card and the
-root verse; each stage opens with a short card — what happens, **"Naprawdę: … Tu: …"** (the real time
-against the game's), and the last "Wiedza" card found; the summary closes with a line and a passage
-(Prov 17:22 a wound closed, Exod 23:25 a loop done, Ps 121:7-8 the T cells' watch or a memory formed,
-Isa 54:17 a stage won with a burst or a NET).
+skórze od lat"): 31 moments × 3 lines in four languages, ≤ 90 characters, each on screen `readSec`, one at
+a time, held under a banner, a telegraph, a gloss or an unread coach mark. The summary closes with a line
+and a passage (Prov 17:22 a wound closed, Exod 23:25 a loop done, Ps 121:7-8 the T cells' watch or a memory
+formed, Isa 54:17 a stage won with a burst or a NET).
 
 **The meta.** **Immune memory**: each pathogen (three bacteria, three rhinoviruses — memory works mostly
 for the same type) is remembered one level deeper (0–3) when its adaptive stage is cleared; next time
 its antibodies are there at once (no trip to the node, up to 75 % tagged from the start) and its
 virus meets more T cells. **Wiedza**: 30 cards, one sourced number each, at most two new a stage, so the
-collection spans sessions; the lobby lists them with their sources. **Defenders that join with play**:
-mast cells (40 pathogens: a second alarm source), NK cells (after the first T cells), monocytes (200: a
-second macrophage), the marrow's reserve (350), a big appetite (520: +4), stronger nets (750). Stars per
-stage and place, the longest streak, wounds healed.
+collection spans sessions; announced by a toast, listed in the lobby with their sources. **Defenders that
+join with play**: mast cells (40 pathogens: a second alarm source), NK cells (after the first T cells),
+monocytes (200: a second macrophage), the marrow's reserve (350), a big appetite (520: +4), stronger nets
+(750). Stars per stage and place, the longest streak, wounds healed. The lobby's card adds an
+**illustrated glossary of the six stages** (each stage's picture · W ciele · Ty · Naprawdę: the real time
+scale).
 
 **The song** (`song.ts`, kit/song.ts): C major, 112 bpm — our verse (a white patrol squeezing through
 the wall and following the trail), the series' refrain, a second verse (golden antibodies; calm,
 breath, new skin), the refrain again; original words in four languages, never the viral song's;
 the pad and a pluck always, then bass and lead, bell and kick, snare and hats as the level rises; the
-sing-along line under the strip (the bubble takes its place while Neo talks); a switch in the lobby.
+sing-along line in the song row over the field's top (the breathing guide or Neo's bubble take its place);
+a switch in the lobby.
 
 **Honest by design** (§13.3, §13.4): the lobby's last line and the how-to's last tip: it visualises
 real processes and trains attention, it does not heal and does not replace treatment; no disease is
@@ -4570,17 +4618,20 @@ Fadok et al. 1998 J Clin Invest 101:890 (efferocytosis, TGF-β); Landén et al. 
 Cavaillon 2021 J Venom Anim Toxins 27:e20200147 and Kaufmann 2019 Front Immunol 10:684 (Metchnikoff's
 rose thorns, 1882); Monteiro et al. 2015 Nat Commun 6:8055 (S. aureus ~1 µm).
 
-**Mobile first.** Upright: the strip (six stage dots, the stage, its goal) and the sing-along line under
-the HUD, the whole world (126 units high) in the band at one uniform scale with the venule by the thumb,
-capped on tall screens (the air above the skin takes the rest: a warm beam and bokeh); the two buttons
-in the bottom corners (60 px, 16 px off the edges, over the vessel's ends). On its side the song line
-moves into the strip's row so the world keeps its height (a neutrophil ≥ 8 px everywhere); on a desktop
-or a phone on its side the world (≤ 240 units wide) is centred and the buttons sit in the side margins.
-Cards are a bottom sheet on an upright phone. Tests: `auditTargets` at every `CHECK_SIZES` entry in four
-states, the thumb zone, the font floor. Measured (`scripts/arcade-mobile.mjs`, 2026-11-12): all six devices
-pass — 0 strings under 11 px; under 13 px only the kit's verse reference (11 px); 60 fps everywhere
-(small Android at 4× CPU slowdown); the game's own frame 0.9–2.6 ms; the play keeps 61 % (small phone)
-to 81 % (on its side) of the screen's height; German on the small phone and on its side passes too.
+**Mobile first.** Upright: the strip (six stage dots, the stage, „Co się dzieje?”) and the goal line
+under the HUD, the song row over the field's top; the whole world (126 units high) in the band at one
+uniform scale with the venule by the thumb, capped on tall screens (the air above the skin takes the
+rest: a warm beam and bokeh); the two buttons in the bottom corners (60 px, 16 px off the edges, over the
+vessel's ends). On its side and on a desk the goal line shares the strip's row (on its side the button is
+only a „?”) so the world keeps its height (a neutrophil ≥ 8 px everywhere); the world (≤ 240 units wide)
+is centred and the buttons sit in the side margins. Cards are a bottom sheet on an upright phone (nearly
+the whole band; the picture above the lines, dropped under 64 px), centred elsewhere (the picture beside
+the lines). Tests: `auditTargets` at every `CHECK_SIZES` entry in four states (the help button included),
+the coach bubble inside the field under the goal line and off its thing at every size, the thumb zone, the
+font floor. Measured (`scripts/arcade-mobile.mjs`, 2026-11-17): all seven devices pass — 0 strings under
+11 px; under 13 px only the kit's verse reference (11 px); 60 fps everywhere (small Android at 4× CPU
+slowdown); the game's own frame 0.7–1.5 ms (3.4 ms on the small Android at 4× slowdown); the play keeps
+61 % (small phone) to 91 % (2560 × 1440) of the screen's height.
 
 ### 13.10 Światło ciała — the light of the body
 

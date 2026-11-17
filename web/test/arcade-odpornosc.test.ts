@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { FACTS, FACT_IDS, LINES, LINES_MOUSE, LINE_COUNT, LOOPS, MOMENTS, PATHOGENS, STAGES, TIPS, UNLOCKS, loopSpec } from '../src/arcade/odpornosc/content';
+import {
+  FACTS, FACT_IDS, GLOSSES, LINES, LINES_MOUSE, LINE_COUNT, LOOPS, MOMENTS, PATHOGENS, STAGES, TIPS, UNLOCKS, glossText, loopSpec,
+} from '../src/arcade/odpornosc/content';
+import { Captions } from '../src/arcade/odpornosc/captions';
+import { Talk } from '../src/arcade/odpornosc/talk';
 import { CATALOGS, t, unit } from '../src/arcade/odpornosc/i18n';
 import { checkUnlocks, freshProgress, memoryOf, migrate, type OdpProgress } from '../src/arcade/odpornosc/meta';
-import { RULES } from '../src/arcade/odpornosc/rules';
+import { RULES, readSec } from '../src/arcade/odpornosc/rules';
 import { OdpSim, finaleFor, planBlocks, recruitNeed, starsFor, stageCap, waveOf, type SimEvent } from '../src/arcade/odpornosc/sim';
 import { buildSong, isChorus } from '../src/arcade/odpornosc/song';
 import { WORLD_H, layout, sx, sy, tapTargets, wx, wy } from '../src/arcade/odpornosc/layout';
@@ -347,14 +351,16 @@ describe('the stages: the real order of an immune response', () => {
     expect(a.closure - x0).toBeGreaterThan(b.closure - y0);
   });
 
-  it('a rest during the battle lets the player weave collagen: the repair starts under the surface', () => {
+  it('weaves collagen only while healing; a rest in the battle prepares the repair by itself (round 11)', () => {
     const sim = at(2);
     const clock = toStage(sim, 'hunt');
     expect(sim.stroke(sim.woundX - 12, 10, sim.woundX + 12, 14)).toBe(false);   // not while hunting
-    while (!sim.restBlock) drive(sim, 0.5, MID, clock);
+    while (!sim.restBlock) drive(sim, 0.5, MID, clock, closeCards(sim));
     const p0 = sim.prep;
-    expect(sim.canWeave).toBe(true);
-    expect(sim.stroke(sim.woundX - 12, 10, sim.woundX + 12, 14)).toBe(true);
+    // the old rest-time weaving in the battle is gone (an invisible repair confused more than it added)
+    expect(sim.canWeave).toBe(false);
+    expect(sim.stroke(sim.woundX - 12, 10, sim.woundX + 12, 14)).toBe(false);
+    drive(sim, 6, LOW, clock, closeCards(sim));
     expect(sim.prep).toBeGreaterThan(p0);
     expect(sim.closure).toBe(0);
   });
@@ -377,9 +383,9 @@ describe('the stages: the real order of an immune response', () => {
   it('rest pauses the inflow and the division, and refreshes the swarm from the marrow', () => {
     const sim = at(2);
     const clock = toStage(sim, 'hunt');
-    while (!sim.restBlock) drive(sim, 0.5, MID, clock);
-    drive(sim, 2, LOW, clock);
-    const evs = drive(sim, 10, LOW, clock);
+    while (!sim.restBlock) drive(sim, 0.5, MID, clock, closeCards(sim));
+    drive(sim, 2, LOW, clock, closeCards(sim));
+    const evs = drive(sim, 10, LOW, clock, closeCards(sim));
     expect(ofType(evs, 'spawn').length).toBe(0);
     expect(ofType(evs, 'divide').length).toBe(0);
     expect(ofType(evs, 'join').length).toBeGreaterThan(0);
@@ -577,7 +583,8 @@ describe('old saves', () => {
     expect(p.nets).toBe(0);
     const sim = new OdpSim({ progress: p, rng: mulberry32(2), plannedSec: 180, eeg: true, tuning: TUNING });
     sim.start();
-    expect(sim.card?.kind).toBe('back');
+    expect(sim.card?.kind).toBe('stage');
+    expect(sim.card?.back).toBe(true);
     drive(sim, 10, MID, { t: 0 }, closeCards(sim));
     expect(sim.result().score).toBeGreaterThanOrEqual(0);
   });
@@ -878,5 +885,387 @@ describe('a desk: a mouse on a desktop or a big screen (DESIGN §14)', () => {
     expect(LINES_MOUSE.recruit).toContain(t('say.recruit.2.mouse'));
     expect(LINES.recruit).not.toContain(t('say.recruit.2.mouse'));
     expect(Object.values(LINES_MOUSE).flat().some(x => /stuk/i.test(x))).toBe(false);
+  });
+});
+
+/** A canvas context that draws nothing and measures text as 0.55 em a character (for the view's placement). */
+function blindCtx(): CanvasRenderingContext2D {
+  let f = '10px x';
+  const stub = { addColorStop: () => undefined };
+  const props: Record<string, unknown> = {};
+  return new Proxy(props, {
+    get: (o, k) => (k === 'font' ? f
+      : k === 'measureText' ? (s: string) => ({ width: s.length * Number(f.match(/(\d+(?:\.\d+)?)px/)![1]) * 0.55 })
+      : k in o ? o[k as string]
+      : typeof k === 'string' && /^[a-z]/.test(k) ? () => stub : undefined),
+    set: (o, k, v) => { if (k === 'font') f = String(v); else o[k as string] = v; return true; },
+  }) as unknown as CanvasRenderingContext2D;
+}
+
+/** A view on a canvas of a checked size whose context draws nothing. */
+function viewAt(c: (typeof CHECK_SIZES)[number], touch: boolean): OdpView {
+  const ctx = blindCtx();
+  const canvas = { getContext: () => ctx, clientWidth: c.w, clientHeight: c.h } as unknown as HTMLCanvasElement;
+  const view = new OdpView(canvas, { reducedMotion: false, touch });
+  view.resize(c.w, c.h, 1, c.insets);
+  return view;
+}
+const SONG = { line: null, beat: 0, chorus: false, on: false };
+
+describe('round 11: words long enough to read twice', () => {
+  it('times every text by its length: 2.5 s + 70 ms a character, never under 4.5 s', () => {
+    expect(readSec('')).toBe(4.5);
+    expect(readSec('x'.repeat(20))).toBe(4.5);
+    expect(readSec('x'.repeat(90))).toBeCloseTo(2.5 + 0.07 * 90, 6);
+    // Neo's and Makro's lines: each on screen exactly that long
+    const sim = later({ planned: 300 });
+    const durs = new Map<string, number>();
+    drive(sim, 120, MID, { t: 0 }, () => {
+      closeCards(sim)();
+      const l = sim.talk.line;
+      if (l) durs.set(l.text, l.dur);
+    });
+    expect(durs.size).toBeGreaterThan(3);
+    for (const [text, dur] of durs) {
+      expect(dur, text).toBeCloseTo(readSec(text), 6);
+      expect(dur, text).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it('holds a line under the banner or a coach mark (hidden, its clock stopped); a card cuts it', () => {
+    const talk = new Talk(LINES, mulberry32(3));
+    talk.ask('hello', 3, 10);
+    talk.update(1.1, 0, false);
+    talk.update(0.1, 0.1, false);
+    const line = talk.line!;
+    expect(line).toBeTruthy();
+    talk.update(1, 1, false);
+    const t0 = line.t;
+    talk.update(3, 4, true);
+    expect(talk.line).toBe(line);
+    expect(line.held).toBe(true);
+    expect(line.t).toBe(t0);
+    talk.update(0.1, 4.1, false);
+    expect(line.held).toBe(false);
+    talk.update(0.1, 4.2, false, true);
+    expect(talk.line).toBeNull();
+  });
+
+  it('keeps toasts, word floaters, notes, the lymph node and the desk tags on screen long enough', () => {
+    const sim = at(2);
+    toStage(sim, 'hunt');
+    const view = viewAt(CHECK_SIZES[1], true) as unknown as {
+      on: OdpView['on']; toasts: { text: string; dur: number }[]; notes: { text: string; dur: number }[]; floaters: { items: { text: string; dur: number }[] };
+    };
+    view.on({ type: 'fact', id: 'tlr' }, sim);
+    view.on({ type: 'stageDone', stage: 'hunt', stars: 3, grace: false }, sim);
+    view.on({ type: 'slip', x: 20, y: 30 }, sim);
+    view.on({ type: 'charging' }, sim);
+    view.on({ type: 'restNote', what: 'heal', n: 3 }, sim);
+    for (const x of view.toasts) expect(x.dur, x.text).toBeCloseTo(readSec(x.text), 6);
+    expect(view.toasts.length).toBe(2);
+    for (const n of view.notes) expect(n.dur, n.text).toBeGreaterThanOrEqual(4.5);
+    expect(view.notes.length).toBe(2);
+    const word = view.floaters.items.find(f => f.text === t('w.slip'))!;
+    expect(word.dur).toBeGreaterThanOrEqual(4.5);
+    expect(OdpView.NODE_SEC).toBeGreaterThanOrEqual(readSec(`${t('node.title')} ${t('node.text')}`));
+  });
+
+  it('a coach mark that asks for a gesture waits for it; an explanation goes once read and tapped away', () => {
+    const cap = new Captions();
+    const shown: string[] = [];
+    cap.onShow = (_, what) => shown.push(what);
+    cap.ask('drag', 'Przeciągnij palcem — Makro pójdzie za nim do bakterii', { kind: 'makro' }, 'drag', 2, { kind: 'nearBug' });
+    cap.update(0.1, false, true);
+    expect(cap.coach?.what).toBe('drag');
+    expect(shown).toEqual(['drag']);   // remembered once shown, not when asked
+    // the banner holds it: nothing ages
+    cap.update(5, true, true);
+    expect(cap.coach!.t).toBe(0);
+    for (let i = 0; i < 150; i++) cap.update(0.1, false, true);
+    expect(cap.coach?.what).toBe('drag');   // 15 s and nothing else to say: still waiting for the drag
+    cap.done('drag');
+    cap.update(0.1, false, true);
+    expect(cap.coach).toBeNull();   // read long ago: gone the moment it is done
+    // another one gives way to the next only once read (and its gesture had a few seconds more)
+    cap.ask('swarm', 'Przeciągnij — rój neutrofili pójdzie za palcem i sam wyczuje bakterie', { kind: 'swarm' }, 'drag', 2, { kind: 'nearBug' });
+    cap.update(0.1, false, true);
+    const swarm = cap.coach!;
+    cap.ask('rings', 'Twoje skupienie wzmacnia alarm', { kind: 'makro' }, null, 2);
+    let t = 0;
+    while (cap.coach === swarm && t < 30) { cap.update(0.1, false, true); t += 0.1; }
+    expect(t).toBeGreaterThanOrEqual(swarm.read + Captions.GRACE - 0.15);
+    expect(cap.coach?.what).toBe('rings');
+    const rings = cap.coach!;
+    expect(rings.max).toBeGreaterThanOrEqual(Math.max(rings.read, RULES.infoMin));
+    cap.tapped();
+    expect(cap.coach).toBe(rings);   // not read yet: a tap does not take it away
+    for (let i = 0; i < 60; i++) cap.update(0.1, false, true);
+    cap.tapped();
+    expect(cap.coach).toBeNull();
+  });
+
+  it('shows one coach mark and one gloss at a time, the gloss only beside a coach mark already read; a card ends the coach mark', () => {
+    const sim = makeSim({ planned: 300 });
+    let early = 0, seen = 0;
+    drive(sim, 150, MID, { t: 0 }, () => {
+      closeCards(sim)();
+      const c = sim.captions.coach, g = sim.captions.gloss;
+      if (c && g && g.t === 0 && c.t < c.read) early++;
+      if (c || g) seen++;
+      if (sim.card) expect(sim.captions.coach).toBeNull();
+    });
+    expect(seen).toBeGreaterThan(100);
+    expect(early).toBe(0);
+    expect(sim.captions.glossed.length).toBeGreaterThan(2);
+  });
+
+  it('sets a gloss apart from the coach mark’s bubble on the field', () => {
+    const sim = makeSim({ planned: 300 });
+    const c = CHECK_SIZES[1];
+    sim.setWorld(layout(c.w, c.h, c.insets, true).W);
+    const view = viewAt(c, true);
+    let both = 0;
+    drive(sim, 90, MID, { t: 0 }, () => {
+      closeCards(sim)();
+      if (!sim.captions.coach || !sim.captions.gloss || sim.card) return;
+      view.draw(sim, SONG);
+      const a = view.coachBox, b = view.label;
+      if (!a || !b) return;
+      both++;
+      const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x), oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+      expect(ox > 1 && oy > 1, `${a.text} / ${b.text}`).toBe(false);
+    });
+    expect(both).toBeGreaterThan(0);
+  });
+});
+
+describe('round 11: the stage cards', () => {
+  it('wait for a tap: the stage does not run under a card (the blocks go on), a tap or Enter closes it', () => {
+    const sim = at(1);
+    expect(sim.card?.kind).toBe('stage');
+    const before = sim.bugs.map(b => `${b.x.toFixed(3)},${b.y.toFixed(3)}`).join('|');
+    const block0 = sim.blockT;
+    drive(sim, 30, HIGH);
+    expect(sim.card?.kind).toBe('stage');
+    expect(sim.stageT).toBe(0);
+    expect(sim.bugs.map(b => `${b.x.toFixed(3)},${b.y.toFixed(3)}`).join('|')).toBe(before);
+    expect(sim.blockT + sim.blockIndex * 100).toBeGreaterThan(block0);
+    expect(sim.key('Enter', true)).toBe(true);
+    expect(sim.card).toBeNull();
+    drive(sim, 1, HIGH);
+    expect(sim.stageT).toBeGreaterThan(0.5);
+  });
+
+  it('say in three short lines what happens in the body, what you do and what focus changes (at most 70 characters)', () => {
+    for (const l of LANGS) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const s of STAGES) {
+        for (const k of ['body', 'you', 'you.mouse', 'focus']) {
+          const v = cat[`stage.${s}.${k}`];
+          expect(typeof v, `${l} ${s}.${k}`).toBe('string');
+          expect((v as string).length, `${l} ${s}.${k}`).toBeLessThanOrEqual(70);
+        }
+        expect(cat[`stage.${s}.you.mouse`], `${l} ${s}`).toMatch(/klik|click|klick|mysz|mouse|maus|musen/i);
+      }
+    }
+  });
+
+  it('are full the first times a stage begins, short later; „Co się dzieje?” shows the full card any time', () => {
+    const p = { ...freshProgress(), sessions: 3, pushes: 4, seen: [...ALL_SEEN], stage: 2 };
+    for (let n = 0; n < RULES.fullCards; n++) {
+      const sim = new OdpSim({ progress: p, rng: mulberry32(n + 1), plannedSec: 300, eeg: false, tuning: TUNING });
+      sim.start();
+      expect(sim.card?.full, `session ${n}`).toBe(true);
+    }
+    const sim = new OdpSim({ progress: p, rng: mulberry32(9), plannedSec: 300, eeg: false, tuning: TUNING });
+    sim.start();
+    expect(sim.card?.full).toBe(false);
+    expect(sim.card?.back).toBe(true);
+    drive(sim, 1, MID, { t: 0 }, closeCards(sim));
+    expect(sim.card).toBeNull();
+    expect(sim.explain()).toBe(true);
+    expect(sim.card?.kind).toBe('explain');
+    expect(sim.card?.full).toBe(true);
+    const stageT = sim.stageT;
+    drive(sim, 5, MID, { t: 2 });
+    expect(sim.stageT).toBe(stageT);
+    expect(sim.key('h', true)).toBe(true);   // a second „?” while a card is up adds nothing
+    expect(sim.cards).toHaveLength(1);
+  });
+
+  it('open the first session with the story, then the first stage’s card, each waiting for its tap', () => {
+    const sim = makeSim();
+    expect(sim.cards.map(c => c.kind)).toEqual(['open', 'stage']);
+    drive(sim, 20, MID);
+    expect(sim.card?.kind).toBe('open');
+    sim.tap(sim.W / 2, 50);
+    expect(sim.card?.kind).toBe('stage');
+    expect(sim.card?.full).toBe(true);
+    expect(sim.tap(sim.W / 2, 50)).toBe('none');   // a moment to see it first
+    drive(sim, 1, MID, { t: 20 });
+    expect(sim.tap(sim.W / 2, 50)).toBe('card');
+    expect(sim.card).toBeNull();
+  });
+
+  it('puts the „Co się dzieje?” button among the targets, finger-sized, at every checked size', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(c.w, c.h, c.insets, touch);
+        const tg = tapTargets(L, { burst: true, net: true, card: false });
+        const help = tg.find(x => x.label === 'help');
+        expect(help, c.name).toBeTruthy();
+        expect(auditTargets(tg, c.w, c.h, c.insets), c.name).toEqual([]);
+        expect(L.help.y + L.help.h, c.name).toBeLessThanOrEqual(L.field.y + 0.5);
+        expect(tapTargets(L, { burst: true, net: true, card: true }).map(x => x.label), c.name).toEqual(['card']);
+      }
+    }
+  });
+});
+
+describe('round 11: what to do now', () => {
+  const PATTERNS: Record<(typeof STAGES)[number], RegExp> = {
+    alarm: /^Zapal 5 miejsc na ścianie naczynia · \d\/5$/,
+    recruit: /^Zatrzymaj 1\d neutrofili · \d+\/1\d$/,
+    hunt: /^Oczyść falę · \d+\sbakteri/,
+    antibodies: /^Oczyść falę · \d+\sbakteri/,
+    tcells: /^Oczyść nos z wirusa · zakażone: \d+$/,
+    heal: /^Zamknij ranę · \d+%$/,
+  };
+
+  it('gives each stage one goal line with its progress and the gesture’s icon (nothing under a card)', () => {
+    STAGES.forEach((s, i) => {
+      const sim = at(i);
+      expect(sim.doNow(), s).toBeNull();   // the card is up
+      toStage(sim, s, MID);
+      while (sim.restBlock) drive(sim, 0.5, MID, { t: sim.t }, closeCards(sim));
+      const d = sim.doNow()!;
+      expect(d.text, s).toMatch(PATTERNS[s]);
+      expect(d.icon, s).toBe(s === 'recruit' || s === 'tcells' ? 'tap' : 'drag');
+    });
+  });
+
+  it('changes only when the action changes: the push keeps its words (the numbers move), a rest asks to breathe', () => {
+    const sim = at(2);
+    const clock = toStage(sim, 'hunt', MID);
+    const head = (x: string) => x.split(' · ')[0];
+    const heads = new Set<string>();
+    drive(sim, 6, MID, clock, () => { const d = sim.doNow(); if (d && sim.pushBlock && !sim.burstReady) heads.add(`${d.icon}|${head(d.text)}`); });
+    expect(heads.size).toBe(1);
+    while (!sim.restBlock) drive(sim, 0.5, MID, clock, closeCards(sim));
+    expect(sim.doNow()).toMatchObject({ icon: 'breath', text: t('now.rest') });
+    sim.charge = 1;
+    while (!sim.pushBlock) drive(sim, 0.5, MID, clock, closeCards(sim));
+    drive(sim, 0.2, MID, clock, closeCards(sim));
+    if (sim.burstReady) expect(sim.doNow()).toMatchObject({ icon: 'tap', text: t('now.burst'), gold: true });
+  });
+
+  it('teaches each control the first time it matters, with the gesture drawn on the thing to touch', () => {
+    const sim = makeSim({ planned: 300 });
+    const kinds = new Map<string, string>();
+    drive(sim, 40, MID, { t: 0 }, () => {
+      closeCards(sim)();
+      const c = sim.captions.coach, g = sim.gesture();
+      if (c && g) kinds.set(c.what, `${g.kind}${g.to ? '>' : ''}`);
+    });
+    expect(kinds.get('drag')).toBe('drag>');   // from Makro to a bacterium
+    // the drag coach waits for the drag: lead Makro and it is done
+    const s2 = makeSim({ planned: 300 });
+    drive(s2, 4, MID, { t: 0 }, closeCards(s2));
+    expect(s2.captions.coach?.what).toBe('drag');
+    s2.lead(s2.W * 0.6, 20);
+    expect(s2.captions.coach?.done).toBe(true);
+    expect(s2.gesture()).toBeNull();
+    drive(s2, readSec(s2.captions.coach!.text), MID, { t: 4 });
+    expect(s2.captions.coached).toContain('tap');
+  });
+
+  it('places the coach mark’s bubble by the thing, inside the field, under the goal line, never on the thing', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const sim = makeSim({ planned: 300 });
+        drive(sim, 3, MID, { t: 0 }, closeCards(sim));
+        sim.setWorld(layout(c.w, c.h, c.insets, touch).W);
+        const view = viewAt(c, touch);
+        expect(sim.captions.coach?.what, c.name).toBe('drag');
+        view.draw(sim, SONG);
+        const b = view.coachBox!, L = view.L;
+        expect(b, c.name).toBeTruthy();
+        expect(b.y, c.name).toBeGreaterThanOrEqual((L.goalInStrip ? L.strip.y + L.strip.h : L.goal.y + L.goal.h) - 0.5);
+        expect(b.y + b.h, c.name).toBeLessThanOrEqual(L.field.y + L.field.h + 0.5);
+        expect(b.x, c.name).toBeGreaterThanOrEqual(L.field.x - 0.5);
+        expect(b.x + b.w, c.name).toBeLessThanOrEqual(L.field.x + L.field.w + 0.5);
+        const onIt = b.px > b.x && b.px < b.x + b.w && b.py > b.y && b.py < b.y + b.h;
+        expect(onIt, c.name).toBe(false);
+      }
+    }
+  });
+});
+
+describe('round 11: plain words', () => {
+  it('has a gloss for every term in four languages: the term, then plain words', () => {
+    for (const l of LANGS) {
+      const cat = CATALOGS[l] as Record<string, unknown>;
+      for (const g of GLOSSES) expect(cat[`gloss.${g}`], `${l} ${g}`).toMatch(/^.+?( — |: ).{8,}$/);
+    }
+    expect(glossText('neutrofil')).toBe('Neutrofil — biała krwinka, która zjada bakterie');
+  });
+
+  it('explains a term once, the first time its thing shows, and never again for that player', () => {
+    const sim = makeSim({ planned: 300 });
+    const clock = { t: 0 };
+    let guard = 0;
+    while (sim.stage !== 'hunt' && guard++ < 1200) drive(sim, 0.25, HIGH, clock, () => { closeCards(sim)(); if (clock.t % 1.3 < STEP) sim.seekNearest(); });
+    drive(sim, 30, HIGH, clock, () => { closeCards(sim)(); if (clock.t % 1.3 < STEP) sim.seekNearest(); });
+    const shown = sim.captions.glossed;
+    expect(shown).toEqual(expect.arrayContaining(['makrofag', 'bakteria', 'cytokiny', 'neutrofil']));
+    expect(new Set(shown).size).toBe(shown.length);
+    for (const g of shown) expect(sim.p.glossed).toContain(g);
+    // the next session with this progress: none of them again
+    const next = new OdpSim({ progress: sim.p, rng: mulberry32(5), plannedSec: 300, eeg: false, tuning: TUNING });
+    next.start();
+    drive(next, 60, HIGH, { t: 0 }, closeCards(next));
+    for (const g of shown) expect(next.captions.glossed, g).not.toContain(g);
+  });
+
+  it('shows the lobby an illustrated glossary of the six stages: the picture, in the body, you, how long really', async () => {
+    const { progressPanel } = await import('../src/arcade/odpornosc/panel');
+    const el = progressPanel(freshProgress(), () => undefined);
+    const text = el.textContent ?? '';
+    expect(text).toContain(t('panel.stages'));
+    for (const s of STAGES) {
+      expect(text).toContain(t(`stage.${s}.real` as never));
+      expect(text).toContain(t(`stage.${s}.body` as never));
+    }
+    expect(el.querySelectorAll('canvas').length).toBeGreaterThanOrEqual(STAGES.length);
+  });
+});
+
+describe('round 11: the mechanics made visible', () => {
+  it('says where it happens that a held focus charges the burst, a gulp strengthens the alarm and calm heals', () => {
+    const hunt = at(2);
+    const ch = toStage(hunt, 'hunt');
+    const evs = drive(hunt, 20, HIGH, ch, closeCards(hunt));
+    expect(ofType(evs, 'charging')).toHaveLength(1);
+    const alarm = at(0);
+    const ca = { t: 0 };
+    drive(alarm, 0.8, MID, ca);
+    alarm.tap(alarm.W / 2, 50);
+    alarm.tap(alarm.W / 2, 50);
+    const ev2 = drive(alarm, 20, MID, ca, () => { if (ca.t % 1 < STEP) alarm.tap(alarm.W / 2, 50); });
+    expect(ofType(ev2, 'gulpRing')).toHaveLength(1);
+    const heal = at(5);
+    const ck = toStage(heal, 'heal');
+    while (!heal.restBlock) drive(heal, 0.5, MID, ck, closeCards(heal));
+    const ev3 = drive(heal, 18, LOW, ck, closeCards(heal));
+    const notes = ofType(ev3, 'restNote').filter(e => e.what === 'heal');
+    expect(notes.length).toBeGreaterThan(0);
+    for (const n of notes) expect(n.n).toBeGreaterThanOrEqual(1);
+  });
+
+  it('lights at most the goal’s count on the vessel wall in the goal line (no more „10/5”)', () => {
+    const sim = at(0);
+    for (const p of sim.pads) { p.lit = 1; p.hits = RULES.alarm.padHits; }
+    expect(sim.goal().n).toBe(sim.goal().all);
   });
 });

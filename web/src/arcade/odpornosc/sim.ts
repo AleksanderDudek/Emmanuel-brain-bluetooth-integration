@@ -17,9 +17,11 @@ import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '..
 import { approach, clamp } from '../kit/juice';
 import { inTurn, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
+import { Captions, type Caption } from './captions';
 import {
-  CLOSINGS, LINES, LINES_MOUSE, PATHOGEN, ROOT, STAGES, TIPS, loopSpec, pathogenName, placeName, stageName, unlockName,
-  type Coach, type CoachAt, type FactId, type PathogenId, type StageId, type UnlockId,
+  CLOSINGS, COACH_GESTURE, COACH_PRI, LINES, LINES_MOUSE, PATHOGEN, ROOT, STAGES, STAGE_GESTURE, TIPS, coachText, glossText, loopSpec,
+  pathogenName, placeName, stageName, unlockName,
+  type Coach, type CoachAt, type FactId, type GlossId, type PathogenId, type StageId, type UnlockId,
 } from './content';
 import { t, unit, pathogensText } from './i18n';
 import {
@@ -102,12 +104,28 @@ export type EpiState = 'ok' | 'infected' | 'hidden' | 'docked' | 'fold' | 'gone'
 export interface Epi { x: number; state: EpiState; load: number; t: number; protect: number; ifnT: number }
 export interface Virion { x: number; y: number; vx: number; vy: number; life: number; d: number }
 export interface Fibre { x1: number; y1: number; x2: number; y2: number; t: number }
-export type CardKind = 'open' | 'back' | 'loop' | 'stage';
+/**
+ * The cards (round 11): the first session's story, a new loop's place, a stage's card — full (a picture and three
+ * lines: in the body, you, focus) or short (you, focus) — and „Co się dzieje?”, the stage's full card again.  Each
+ * waits for a tap (or Enter/Space); the stage does not run under it.
+ */
+export type CardKind = 'open' | 'loop' | 'stage' | 'explain';
 export interface Card {
-  kind: CardKind; t: number; dur: number; stage: StageId; idx: number;
-  /** the facts found in the stage before (the card shows the last), a memory answered at once */
-  fact: FactId | null; memory: PathogenId | null;
+  kind: CardKind; t: number; stage: StageId; idx: number;
+  /** the picture and all three lines (else the short card: what you do and what focus changes) */
+  full: boolean;
+  /** a returning player's first card ("Ciąg dalszy") */
+  back: boolean;
+  /** a pathogen met before: answered at once */
+  memory: PathogenId | null;
 }
+
+/** The persistent "what to do now" line: the gesture's icon and the words (the goal with its progress, or the rest's ask). */
+export type NowIcon = 'drag' | 'tap' | 'breath' | 'star';
+export interface DoNow { icon: NowIcon; text: string; gold: boolean }
+
+/** A point a coach mark or a gloss points at, resolved: in world units, or one of the buttons (the view places them). */
+export type Pt = { x: number; y: number; button?: undefined } | { x: 0; y: 0; button: 'burst' | 'net' };
 export type Scene = 'skin' | 'nose';
 
 export type SimEvent =
@@ -142,6 +160,7 @@ export type SimEvent =
   | { type: 'telegraph'; next: Block | null }
   | { type: 'reveal'; share: number }
   | { type: 'coach'; what: Coach; at: CoachAt }
+  | { type: 'charging' } | { type: 'restNote'; what: 'heal' | 'prep' | 'marrow'; n: number } | { type: 'gulpRing'; x: number; y: number }
   | { type: 'seek'; x: number; y: number } | { type: 'target'; x: number; y: number }
   | { type: 'card'; kind: CardKind } | { type: 'cardClosed' }
   | { type: 'finale' } | { type: 'end' };
@@ -325,7 +344,13 @@ export class OdpSim {
   /** after the goal: a short celebration before the next stage */
   outro = 0;
   private outroGrace = false;
-  card: Card | null = null;
+  /** the cards waiting for a tap, the one on screen first */
+  cards: Card[] = [];
+  get card(): Card | null { return this.cards[0] ?? null; }
+  /** the coach marks and the glosses on the field (captions.ts) */
+  readonly captions = new Captions();
+  /** the stages whose full card showed this session */
+  private readonly fullNow = new Set<StageId>();
   cells: Cell[] = [];
   bugs: Bug[] = [];
   flow: Flow[] = [];
@@ -343,8 +368,6 @@ export class OdpSim {
   closure = 0;
   prep = 0;
   inflam = 0;
-  /** Neo keeps quiet this long (s): the runner's coach mark is speaking */
-  hushT = 0;
   /** a hit-stop: the world holds still this long (s) on a big moment; the blocks and the band go on */
   private freezeT = 0;
   /** what the finger leads: a point in the world, or null */
@@ -386,6 +409,14 @@ export class OdpSim {
   private factsStage: FactId[] = [];
   private memoryStage: PathogenId | null = null;
   passedRests = 0;
+  /** the player has a mouse: the words say "kliknij" */
+  readonly mouse: boolean;
+  /** what calm did in this rest, last shown (the closure or the repair under the surface), and when */
+  private restNoteT = 0;
+  private restFrom = 0;
+  private marrowSaid = false;
+  private chargeSaid = false;
+  private gulpRingSaid = false;
 
   constructor(init: SimInit) {
     this.p = init.progress;
@@ -399,7 +430,12 @@ export class OdpSim {
     this.bestBefore = bestOf(this.p);
     this.pushesBase = this.p.pushes;
     this.finaleSec = finaleFor(this.plannedSec);
-    this.talk = new Talk(init.mouse ? LINES_MOUSE : LINES, this.rng);
+    this.mouse = !!init.mouse;
+    this.talk = new Talk(this.mouse ? LINES_MOUSE : LINES, this.rng);
+    // what showed is remembered for the player (what was only queued is not)
+    this.captions.onShow = (kind, what) => {
+      if (kind === 'coach') { if (!this.p.seen.includes(what as Coach)) this.p.seen.push(what as Coach); } else if (!this.p.glossed.includes(what as GlossId)) this.p.glossed.push(what as GlossId);
+    };
   }
 
   // ── reading ──────────────────────────────────────────────────────────────────────
@@ -430,16 +466,43 @@ export class OdpSim {
   get litPads(): number { return this.pads.filter(p => p.lit >= 1).length; }
   get padsNeed(): number { return Math.min(RULES.alarm.pads, this.pads.length); }
   get infected(): Epi[] { return this.epi.filter(e => e.state === 'infected' || e.state === 'hidden' || e.state === 'docked' || e.state === 'fold'); }
-  /** the stage's goal as numbers (the view's pill): done so far and all, or what is left */
+  /** the stage's goal as numbers (the goal line): done so far and all, or what is left */
   goal(): { n: number; all: number; left: boolean } {
     switch (this.stage) {
-      case 'alarm': return { n: this.litPads, all: this.padsNeed, left: false };
+      case 'alarm': return { n: Math.min(this.litPads, this.padsNeed), all: this.padsNeed, left: false };
       case 'recruit': return { n: Math.min(this.recruits, recruitNeed(this.p.loop)), all: recruitNeed(this.p.loop), left: false };
       case 'hunt':
       case 'antibodies': return { n: this.live.length + Math.max(0, waveOf(this.stage, this.p.loop) - this.spawned), all: waveOf(this.stage, this.p.loop), left: true };
       case 'tcells': return { n: this.infected.length, all: 0, left: true };
       default: return { n: Math.round(this.closure * 100), all: 100, left: false };
     }
+  }
+
+  /**
+   * The stage's goal in words with its progress, as the goal line says it: „Zapal 5 miejsc na ścianie naczynia ·
+   * 2/5”, „Zatrzymaj 12 neutrofili · 7/12”, „Oczyść falę · 18 bakterii”, „Oczyść nos z wirusa · zakażone: 3”,
+   * „Zamknij ranę · 45%”.
+   */
+  goalText(): string {
+    const g = this.goal();
+    if (this.stage === 'hunt' || this.stage === 'antibodies') return t(`goal.${this.stage}`, { bacteria: t('bacteria', { n: g.n }) });
+    return t(`goal.${this.stage}`, { n: g.n, all: g.all });
+  }
+
+  /**
+   * What to do now, in one line that changes only when the action changes: the stage's gesture and its goal in a
+   * push (and the warm-up), „Odpocznij…” in a rest, the burst when it is ready; nothing under a card.
+   */
+  doNow(): DoNow | null {
+    if (!this.started || this.phase === 'done' || this.card) return null;
+    if (this.outro > 0) return { icon: 'star', text: this.goalText(), gold: true };
+    if (this.burstReady && this.burstShown) return { icon: 'tap', text: t(this.mouse ? 'now.burst.mouse' : 'now.burst'), gold: true };
+    if (this.restBlock) {
+      return this.stage === 'heal'
+        ? { icon: 'breath', text: t('now.restHeal', { n: Math.round(this.closure * 100) }), gold: false }
+        : { icon: 'breath', text: t('now.rest'), gold: false };
+    }
+    return { icon: STAGE_GESTURE[this.stage], text: this.goalText(), gold: false };
   }
 
   // ── the session ──────────────────────────────────────────────────────────────────
@@ -454,8 +517,8 @@ export class OdpSim {
     if (this.firstEver) {
       this.showCard('open');
       this.fact('metchnikoff');
-    } else if (this.p.stage > 0) this.showCard('back');
-    else this.showCard('loop');
+    } else if (this.p.stage === 0 && this.p.loop > 1) this.showCard('loop');
+    this.showCard('stage', !this.firstEver);
     this.startBlock(0);
     this.talk.ask('hello', 3, 14);
   }
@@ -479,6 +542,7 @@ export class OdpSim {
     if (this.epi.length) this.layEpithelium(true);
     if (this.mark) this.mark.x *= k;
     if (this.leadPt) this.leadPt.x *= k;
+    this.captions.scaleX(k);
   }
 
   update(dt: number, f: FocusFrame, t: number): void {
@@ -490,15 +554,21 @@ export class OdpSim {
     else if (this.phase === 'finale' && t >= this.plannedSec) this.end();
     if ((this.phase as string) === 'done') return;
     this.band(dt, f);
-    if (this.card) {
-      this.card.t += dt;
-      if (this.card.t >= this.card.dur) this.closeCard();
-    } else if (this.freezeT > 0) this.freezeT -= dt;
+    // a card waits for a tap: the stage holds still under it (the blocks and the band go on)
+    if (this.card) this.card.t += dt;
+    else if (this.freezeT > 0) this.freezeT -= dt;
     else this.world(dt);
-    const banner = this.phase === 'play' && this.block.kind !== 'warmup' && this.blockT < RULES.bannerSec;
-    this.hushT = Math.max(0, this.hushT - dt);
-    this.talk.update(dt, t, !!this.card || banner || this.hushT > 0 || (this.phase === 'play' && this.telegraphed));
+    const banner = this.banner;
+    this.captions.prune(c => this.fits(c));
+    this.captions.update(dt, banner, !this.card, c => c.at.kind === 'free' || this.pointOf(c.at) !== null);
+    // Neo waits (hidden) while the banner, a telegraph, a gloss or a coach mark not yet read speaks; a card cuts him
+    const coach = this.captions.coach;
+    const teaching = (!!coach && coach.t < coach.read) || !!this.captions.gloss;
+    this.talk.update(dt, t, banner || teaching || (this.phase === 'play' && this.telegraphed), !!this.card);
   }
+
+  /** the runner's block banner covers the first seconds of a block: nothing new speaks under it */
+  get banner(): boolean { return this.phase === 'play' && this.block.kind !== 'warmup' && this.blockT < RULES.bannerSec; }
 
   /** The band's quantities: the alarm, calm, the burst's charge, Neo's cheer. */
   private band(dt: number, f: FocusFrame): void {
@@ -508,7 +578,14 @@ export class OdpSim {
     const calmOn = this.restBlock && f.reliable && this.blockT >= this.restLead;
     this.calm = approach(this.calm, calmOn ? clamp(f.calm) : 0, dt, 1.2);
     if (this.pushBlock && !this.blind && !this.card) {
-      if (sighted && f.focused && f.hold >= this.holdNeed) this.charge += R.holdRate * dt;
+      if (sighted && f.focused && f.hold >= this.holdNeed) {
+        this.charge += R.holdRate * dt;
+        // the first time a held focus charges the burst, the view says so by the button
+        if (!this.chargeSaid && this.burstShown && !this.burstReady && this.bursting <= 0) {
+          this.chargeSaid = true;
+          this.emit({ type: 'charging' });
+        }
+      }
       this.charge += R.baseCharge * dt;
     }
     this.charge = clamp(this.charge);
@@ -551,10 +628,13 @@ export class OdpSim {
     }
     if (b.kind === 'rest' && this.blockT >= R.bannerSec && this.blockT - dt < R.bannerSec) {
       this.coach('rest', { kind: 'free' });
-      if (this.scene === 'skin' && this.stage !== 'alarm') this.coach('collagen', { kind: 'world', x: this.woundX, y: 8 });
-      if (this.stage !== 'tcells' && this.cells.some(c => c.kind === 'neut' && (c.state === 'body' || c.state === 'spent'))) this.coach('tidy', this.bodyAt());
+      if (this.stage === 'heal') this.coach('collagen', { kind: 'wound', side: -1 }, { kind: 'wound', side: 1 });
+      if (this.stage !== 'tcells' && this.cells.some(c => c.kind === 'neut' && (c.state === 'body' || c.state === 'spent'))) this.coach('tidy', { kind: 'body' });
     }
-    if (b.kind === 'push' && !b.blind && this.blockT >= R.bannerSec && this.blockT - dt < R.bannerSec) this.coach('rings', this.ringAt());
+    // the first sighted push past its lead-in: what focus does, said where it happens (by Makro's rings)
+    if (b.kind === 'push' && !b.blind && this.blockT >= Math.max(R.bannerSec, this.leadSec) && this.blockT - dt < Math.max(R.bannerSec, this.leadSec)) {
+      this.coach('rings', this.scene === 'skin' ? { kind: 'makro' } : { kind: 'free' });
+    }
     const last = this.blockIndex >= this.plan.length - 1;
     if (!this.telegraphed && this.blockT >= b.dur - R.telegraph) {
       this.telegraphed = true;
@@ -587,6 +667,9 @@ export class OdpSim {
       if (b.blind) this.coach('blind', { kind: 'free' });
     } else if (b.kind === 'rest') {
       this.talk.ask('rest', 2, 12);
+      this.restNoteT = 0;
+      this.restFrom = this.stage === 'heal' ? this.closure : this.prep;
+      this.marrowSaid = false;
     }
     this.tip = this.tipFor(b, i, first);
     this.emit({ type: 'blockStart', block: b, index: i });
@@ -705,13 +788,21 @@ export class OdpSim {
       for (let i = 0; i < RULES.alarm.start; i++) this.spawnBug(this.bugKind, true);
       this.talk.ask('alarm', 2, 10);
       this.fact('tlr');
-      this.coach('drag', { kind: 'world', x: W * 0.38, y: 50 });
+      // the hands, one at a time: lead Makro, then point at a bacterium
+      this.coach('drag', { kind: 'makro' }, { kind: 'nearBug' });
+      this.coach('tap', { kind: 'nearBug' });
+      this.glossAsk('makrofag', { kind: 'makro' });
+      this.glossAsk('bakteria', { kind: 'nearBug' });
+      this.glossAsk('cytokiny', { kind: 'makro' });
+      const mast = this.cells.find(c => c.kind === 'mast');
+      if (mast) this.glossAsk('tuczna', { kind: 'cell', id: mast.id });
     } else if (s === 'recruit') {
       this.scene = 'skin';
       if (has(this.p, 'szpik')) for (let i = 0; i < 3; i++) this.addFlow(W * (0.2 + 0.25 * i), 'roll');
       this.ensureMakro();
       this.talk.ask('recruit', 2, 10);
-      this.coach('roll', { kind: 'world', x: W * 0.5, y: (RULES.lumenTop + RULES.lumenBot) / 2 });
+      this.coach('roll', { kind: 'roller' });
+      this.glossAsk('selektyny', { kind: 'pad' });
     } else if (s === 'hunt') {
       this.scene = 'skin';
       this.splinter = false;
@@ -722,8 +813,9 @@ export class OdpSim {
       this.nets = Math.max(this.nets, Math.min(netMaxOf(this.p), 1));
       this.talk.ask('hunt', 3, 10);
       this.fact('pelzanie');
-      this.coach('swarm', this.swarmAt());
+      this.coach('swarm', { kind: 'swarm' }, { kind: 'nearBug' });
       if (this.nets > 0) this.coach('net', { kind: 'net' });
+      this.glossAsk('neutrofil', { kind: 'neut' });
       const m = memoryOf(this.p, this.bugKind);
       if (m > 0) this.remembered(this.bugKind);
     } else if (s === 'antibodies') {
@@ -734,10 +826,17 @@ export class OdpSim {
       this.dcT = m > 0 ? RULES.antibodies.trip - RULES.antibodies.memoryTrip : 0;
       const live = this.live;
       const c = live.length ? { x: live.reduce((a, b) => a + b.x, 0) / live.length, y: live.reduce((a, b) => a + b.y, 0) / live.length } : { x: W * 0.5, y: 40 };
-      if (m === 0) this.addCell('dc', clamp(c.x - 14, 8, W - 8), clamp(c.y + 10, 10, 85)).state = 'trip';
+      if (m === 0) {
+        const dc = this.addCell('dc', clamp(c.x - 14, 8, W - 8), clamp(c.y + 10, 10, 85));
+        dc.state = 'trip';
+        this.glossAsk('dendrytyczna', { kind: 'cell', id: dc.id });
+      }
       for (let i = 0; i < 8; i++) this.spawnBug(this.bugKind, true);
       this.talk.ask('antibodies', 2, 12);
       this.fact('dendrytyczna');
+      this.coach('swarm', { kind: 'swarm' }, { kind: 'nearBug' });
+      const cap = this.bugs.find(b => b.capsule);
+      if (cap) this.glossAsk('otoczka', { kind: 'bug', id: cap.id });
       if (m > 0) this.remembered(this.bugKind);
     } else if (s === 'tcells') {
       // the nose's lining: the neutrophils rest, the T cells come
@@ -764,8 +863,13 @@ export class OdpSim {
       if (has(this.p, 'nk')) for (let i = 0; i < 2; i++) this.addCell('nk', W * (0.3 + 0.4 * i), 92);
       this.talk.ask('tcells', 3, 12);
       this.fact('rinowirus');
-      const first = this.epi.findIndex(e => e.state === 'infected');
-      if (first >= 0) this.coach('tcell', { kind: 'world', x: this.epi[first].x, y: RULES.epi.y });
+      this.coach('tcell', { kind: 'infected' });
+      this.glossAsk('wirus', { kind: 'infected' });
+      this.glossAsk('choragiewki', { kind: 'infected' });
+      const tc = this.cells.find(c => c.kind === 'tcell');
+      if (tc) this.glossAsk('limfocyt', { kind: 'cell', id: tc.id });
+      const nk = this.cells.find(c => c.kind === 'nk');
+      if (nk) this.glossAsk('nk', { kind: 'cell', id: nk.id });
       if (memoryOf(this.p, this.virusKind) > 0) this.remembered(this.virusKind);
     } else {
       // healing: back in the skin; the swarm returns, the spent ones lie as bodies to tidy
@@ -795,7 +899,9 @@ export class OdpSim {
       this.closure = Math.max(this.closure, this.prep);
       this.talk.ask('heal', 3, 12);
       this.fact('fazy');
-      this.coach('collagen', { kind: 'world', x: this.woundX, y: 8 });
+      this.coach('collagen', { kind: 'wound', side: -1 }, { kind: 'wound', side: 1 });
+      this.glossAsk('fibroblast', { kind: 'wound', side: 1 });
+      this.glossAsk('zuzyty', { kind: 'body' });
     }
     this.emit({ type: 'stage', stage: s, idx: this.stageIdx });
   }
@@ -921,34 +1027,61 @@ export class OdpSim {
     this.emit({ type: 'stageDone', stage: s, stars, grace });
   }
 
-  /** After the outro: the next stage (or the next loop), its card. */
+  /** After the outro: the next stage (or the next loop: its place's card first), its card. */
   private nextStage(): void {
     const p = this.p;
+    let loop = false;
     if (p.stage >= STAGES.length - 1) {
       p.loopsDone++;
       this.loopsNow.push(p.loop);
       p.loop++;
       p.stage = 0;
+      loop = true;
       this.emit({ type: 'loop', loop: p.loop });
       this.talk.ask('loop', 2, 10);
       if (p.loop === 2) this.fact('pamiecDluga');
     } else p.stage++;
-    const facts = this.factsStage.slice();
     this.setupStage();
-    this.showCard(p.stage === 0 ? 'loop' : 'stage', facts.at(-1) ?? null);
+    if (loop) this.showCard('loop');
+    this.showCard('stage');
   }
 
-  private showCard(kind: CardKind, fact: FactId | null = null): void {
-    const dur = kind === 'open' ? RULES.storySec : RULES.cardSec;
-    this.card = { kind, t: 0, dur, stage: this.stage, idx: this.stageIdx, fact, memory: this.memoryStage };
+  /**
+   * A card in the queue: a stage's card is full (its picture and three lines) the first time the stage begins in a
+   * session while the player has seen it fewer than RULES.fullCards times, else short; „Co się dzieje?” is always full.
+   */
+  private showCard(kind: CardKind, back = false): void {
+    let full = true;
+    if (kind === 'stage') {
+      full = !this.fullNow.has(this.stage) && (this.p.cardsFull[this.stage] ?? 0) < RULES.fullCards;
+      if (full) {
+        this.fullNow.add(this.stage);
+        this.p.cardsFull[this.stage] = (this.p.cardsFull[this.stage] ?? 0) + 1;
+      }
+    }
+    const first = !this.cards.length;
+    this.cards.push({ kind, t: 0, stage: this.stage, idx: this.stageIdx, full, back, memory: this.memoryStage });
+    if (first) this.cardUp();
+  }
+
+  private cardUp(): void {
+    this.captions.cardShown();
     this.talk.clear();
-    this.emit({ type: 'card', kind });
+    this.emit({ type: 'card', kind: this.cards[0].kind });
   }
 
   private closeCard(): void {
-    if (!this.card) return;
-    this.card = null;
+    if (!this.cards.length) return;
+    this.cards.shift();
     this.emit({ type: 'cardClosed' });
+    if (this.cards.length) this.cardUp();
+  }
+
+  /** „Co się dzieje?”: the stage's full card again (the stage waits under it). */
+  explain(): boolean {
+    if (!this.started || this.phase === 'done' || this.card) return false;
+    this.showCard('explain');
+    return true;
   }
 
   /** A remembered pathogen: answered at once (the card says so, Neo too). */
@@ -975,26 +1108,116 @@ export class OdpSim {
     }
   }
 
-  private coach(what: Coach, at: CoachAt): void {
+  /**
+   * A coach mark, the first time its control matters (once for a player): queued with its words for the hand the
+   * player has, what it points at, the gesture drawn (a tap, or a drag on to `to`) and its weight.
+   */
+  private coach(what: Coach, at: CoachAt, to: CoachAt | null = null): void {
     if (this.p.seen.includes(what)) return;
-    this.p.seen.push(what);
+    this.captions.ask(what, coachText(what, !this.mouse), at, COACH_GESTURE[what] ?? null, COACH_PRI[what], to);
     this.emit({ type: 'coach', what, at });
   }
 
-  private ringAt(): CoachAt {
-    const m = this.makro;
-    return m && this.scene === 'skin' ? { kind: 'world', x: m.x, y: m.y } : { kind: 'free' };
+  /** A term in plain words, the first time its thing shows (once for a player: the lobby keeps the glossary). */
+  private glossAsk(what: GlossId, at: CoachAt): void {
+    if (this.p.glossed.includes(what)) return;
+    this.captions.explain(what, glossText(what), at);
   }
 
-  private swarmAt(): CoachAt {
-    const s = this.swarm;
-    if (!s.length) return { kind: 'world', x: this.W * 0.5, y: 80 };
-    return { kind: 'world', x: s.reduce((a, c) => a + c.x, 0) / s.length, y: s.reduce((a, c) => a + c.y, 0) / s.length };
+  /**
+   * Whether a coach mark or a gloss still makes sense now (the moment may have passed).  A gloss belongs to its
+   * scene (the skin or the nose); one whose thing is away for a moment waits for it (Captions' `ready`).
+   */
+  private fits(c: Caption<string>): boolean {
+    const what = c.what;
+    if (c.gesture === null && c.pri === 0) {
+      const nose = what === 'wirus' || what === 'choragiewki' || what === 'limfocyt' || what === 'nk' || what === 'interferon' || what === 'apoptoza';
+      return nose === (this.scene === 'nose');
+    }
+    switch (what as Coach) {
+      case 'burst': return this.burstReady && this.burstShown;
+      case 'net': return this.nets > 0 && this.netShown;
+      case 'rest': return this.restBlock;
+      case 'tidy': return this.restBlock;
+      case 'blind': return this.blind;
+      case 'rings': return this.pushBlock && !this.blind && this.scene === 'skin';
+      case 'roll': return this.stage === 'recruit';
+      case 'tcell': return this.scene === 'nose';
+      case 'hidden': return this.scene === 'nose';
+      case 'collagen': return this.canWeave;
+      case 'drag':
+      case 'tap': return this.stage === 'alarm';
+      case 'swarm': return this.stage === 'hunt' || this.stage === 'antibodies';
+      case 'capsule': return this.stage === 'antibodies';
+      default: return true;
+    }
   }
 
-  private bodyAt(): CoachAt {
-    const b = this.cells.find(c => c.kind === 'neut' && (c.state === 'body' || c.state === 'spent'));
-    return b ? { kind: 'world', x: b.x, y: b.y } : { kind: 'free' };
+  /**
+   * Where an anchor is now, in world units (or a button); null when its thing is gone.  `from` is where a drag's
+   * gesture starts (the bacterium nearest it is the one it points to).
+   */
+  pointOf(at: CoachAt, from?: { x: number; y: number } | null): Pt | null {
+    const R = RULES;
+    switch (at.kind) {
+      case 'world': return { x: at.x, y: at.y };
+      case 'cell': { const c = this.cells.find(x => x.id === at.id && x.state !== 'gone'); return c ? { x: c.x, y: c.y } : null; }
+      case 'bug': { const b = this.bugs.find(x => x.id === at.id && !x.hidden && !x.grabbed); return b ? { x: b.x, y: b.y } : null; }
+      case 'makro': { const m = this.makro; return m && this.scene === 'skin' ? { x: m.x, y: m.y } : null; }
+      case 'swarm': {
+        const sw = this.swarm;
+        if (!sw.length) return null;
+        return { x: sw.reduce((a, c) => a + c.x, 0) / sw.length, y: sw.reduce((a, c) => a + c.y, 0) / sw.length };
+      }
+      case 'nearBug': {
+        const o = from ?? (this.stage === 'alarm' ? this.makro : null) ?? { x: this.W / 2, y: 50 };
+        const b = this.findBug(o.x, o.y, 999);
+        return b ? { x: b.x, y: b.y } : null;
+      }
+      case 'roller': {
+        let best: Flow | null = null, bd = 1e9;
+        for (const f of this.flow) {
+          if (f.state !== 'roll') continue;
+          // the next one to pass the middle, not one about to leave
+          const d = Math.abs(f.x - this.W * 0.45);
+          if (d < bd) { bd = d; best = f; }
+        }
+        return best ? { x: best.x, y: R.lumenTop + R.neut.r * 0.8 } : this.stage === 'recruit' ? { x: this.W * 0.45, y: (R.lumenTop + R.lumenBot) / 2 } : null;
+      }
+      case 'neut': {
+        if (this.flow.some(f => f.state === 'roll')) return this.pointOf({ kind: 'roller' });
+        const c = this.cells.find(x => x.kind === 'neut' && x.state === 'roam');
+        return c && this.scene === 'skin' ? { x: c.x, y: c.y } : null;
+      }
+      case 'pad': {
+        let best: Pad | null = null, bd = 1e9;
+        for (const p of this.pads) { if (p.lit < 1) continue; const d = Math.abs(p.x - this.W / 2); if (d < bd) { bd = d; best = p; } }
+        return best && this.scene === 'skin' ? { x: best.x, y: R.wallY } : null;
+      }
+      case 'epi': { const e = this.epi[at.i]; return e && this.scene === 'nose' ? { x: e.x, y: R.epi.y } : null; }
+      case 'infected': {
+        const e = this.epi.find(x => x.state === 'infected' || x.state === 'docked');
+        return e && this.scene === 'nose' ? { x: e.x, y: R.epi.y } : null;
+      }
+      case 'wound': return this.scene === 'skin' ? { x: this.woundX + at.side * 16, y: 12 } : null;
+      case 'body': {
+        const b = this.cells.find(c => c.kind === 'neut' && (c.state === 'body' || c.state === 'spent'));
+        return b ? { x: b.x, y: b.y } : null;
+      }
+      case 'burst': return this.burstShown ? { x: 0, y: 0, button: 'burst' } : null;
+      case 'net': return this.netShown ? { x: 0, y: 0, button: 'net' } : null;
+      default: return null;   // 'free': about the whole field, it points at nothing
+    }
+  }
+
+  /** The coach mark's gesture, resolved for the view: a tap on a point, or a drag from a point to another. */
+  gesture(): { kind: 'tap' | 'drag'; from: Pt; to: Pt | null } | null {
+    const c = this.captions.coach;
+    if (!c || !c.gesture || c.done || this.card || this.banner) return null;
+    const from = this.pointOf(c.at);
+    if (!from) return null;
+    const to = c.to ? this.pointOf(c.to, from.button ? null : from) : null;
+    return { kind: c.gesture, from, to };
   }
 
   // ── the world, a frame ───────────────────────────────────────────────────────────
@@ -1022,6 +1245,19 @@ export class OdpSim {
     if (this.stage === 'heal') this.inflam = Math.max(0.05, this.inflam - 0.02 * dt * (1 + this.closure));
     // a rest in the battle prepares the repair under the surface
     if (resting && this.stage !== 'heal') this.prep = Math.min(RULES.heal.pre, this.prep + RULES.heal.preRate * (0.3 + this.calm) * dt);
+    // what calm does, shown where it happens every few seconds of a rest on the skin (the wound closing)
+    if (resting && this.scene === 'skin') {
+      this.restNoteT += dt;
+      if (this.restNoteT >= RULES.restNote) {
+        this.restNoteT = 0;
+        const now = this.stage === 'heal' ? this.closure : this.prep;
+        const n = Math.round((now - this.restFrom) * 100);
+        if (n >= 1) {
+          this.restFrom = now;
+          this.emit({ type: 'restNote', what: this.stage === 'heal' ? 'heal' : 'prep', n });
+        }
+      }
+    }
     this.spawnStep(dt, resting);
     this.rings_(dt);
     this.flowStep(dt, resting);
@@ -1114,6 +1350,7 @@ export class OdpSim {
           if (was < 1 && p.lit >= 1) {
             this.emit({ type: 'pad', x: p.x, lit: this.litPads });
             if (this.litPads === 1) this.fact('cxcl8');
+            this.glossAsk('selektyny', { kind: 'pad' });
           }
         }
       }
@@ -1147,6 +1384,11 @@ export class OdpSim {
         while (this.flowAcc >= 1) {
           this.flowAcc -= 1;
           this.addFlow(-4);
+          // a rest's calm refreshes the swarm: said once a rest, where it happens
+          if (resting && !this.marrowSaid && this.calm > 0.2) {
+            this.marrowSaid = true;
+            this.emit({ type: 'restNote', what: 'marrow', n: 1 });
+          }
         }
       }
     }
@@ -1163,6 +1405,7 @@ export class OdpSim {
             f.t = 0;
             this.emit({ type: 'roll', x: f.x });
             if (!this.p.facts.includes('toczenie')) this.fact('toczenie');
+            this.glossAsk('neutrofil', { kind: 'neut' });
             break;
           }
         }
@@ -1180,6 +1423,7 @@ export class OdpSim {
           this.emit({ type: 'squeeze', x: f.x });
           if (this.recruits === 0) this.talk.ask('squeeze', 2, 5);
           if (!this.p.facts.includes('diapedeza')) this.fact('diapedeza');
+          this.glossAsk('diapedeza', { kind: 'world', x: f.x, y: R.wallY - 3 });
         }
       } else if (f.t >= R.recruit.squeeze) {
         this.flow.splice(i, 1);
@@ -1201,6 +1445,7 @@ export class OdpSim {
     f.state = 'arrest';
     f.t = 0;
     f.tapped = tapped;
+    if (tapped) this.captions.done('roll');
     f.jx = clamp(Math.round(f.x / 11) * 11 + 5.5, 4, this.W - 4);
     this.emit({ type: 'arrest', x: f.x, tapped });
   }
@@ -1357,7 +1602,15 @@ export class OdpSim {
         this.cleared(b, c.kind, tagged, c.x, c.y);
         if (c.kind === 'neut' && this.bacteria === 1) this.fact('fagocytoza');
         if (c.kind === 'neut' && c.eaten === 1) this.talk.ask('gulp', 1, 3);
-        if (c.kind === 'mac' && this.stage === 'alarm') this.ring(c.x, c.y, this.reach * RULES.gulpRing, 'gulp');
+        if (c.kind === 'neut') this.glossAsk('fagocytoza', { kind: 'cell', id: c.id });
+        if (c.kind === 'mac' && this.stage === 'alarm') {
+          this.ring(c.x, c.y, this.reach * RULES.gulpRing, 'gulp');
+          // the first time in a session the view says what a gulp does to the alarm
+          if (!this.gulpRingSaid) {
+            this.gulpRingSaid = true;
+            this.emit({ type: 'gulpRing', x: c.x, y: c.y });
+          }
+        }
         if (tagged) this.talk.ask('tag', 1, 3);
       }
     }
@@ -1607,6 +1860,7 @@ export class OdpSim {
         this.p.total += n;
         this.p.met[this.virusKind] = (this.p.met[this.virusKind] ?? 0) + n;
         this.emit({ type: 'fold', x: e.x, y: R.epi.y, n, by: c.kind });
+        this.glossAsk('apoptoza', { kind: 'world', x: e.x, y: R.epi.y });
         this.talk.ask(nk ? 'nk' : 'kill', 2, 4);
         this.fact(nk ? 'nk' : 'perforyna');
         if (!nk && c.kills >= 3) this.fact('ctl');
@@ -1708,6 +1962,7 @@ export class OdpSim {
           b.tag = 1;
           b.c3 = true;
           this.emit({ type: 'tag', x: b.x, y: b.y, by: 'c3' });
+          this.glossAsk('dopelniacz', { kind: 'bug', id: b.id });
         }
       }
     }
@@ -1732,6 +1987,7 @@ export class OdpSim {
           b.tag = 1;
           this.abs.splice(i, 1);
           this.emit({ type: 'tag', x: b.x, y: b.y, by: 'ab' });
+          this.glossAsk('przeciwciala', { kind: 'bug', id: b.id });
           if (!this.p.facts.includes('plazmatyczna')) this.fact('plazmatyczna');
           continue;
         }
@@ -1772,6 +2028,7 @@ export class OdpSim {
       if (e.ifnT <= 0 && !resting && this.outro <= 0) {
         e.ifnT = 2.6;
         this.ring(e.x, R.epi.y, this.reach * R.epi.ifn, 'ifn');
+        this.glossAsk('interferon', { kind: 'epi', i });
       }
       if (resting || this.outro > 0) continue;
       e.load += dt / rep;
@@ -1844,6 +2101,7 @@ export class OdpSim {
       return 'none';
     }
     const R = RULES;
+    this.captions.tapped();
     // the vessel: the rolling cell nearest the tap
     if (y >= R.wallY - 3 && this.flow.some(f => f.state === 'roll')) {
       let best: Flow | null = null, bd = 22;
@@ -1863,6 +2121,7 @@ export class OdpSim {
       m.target = body.id;
       this.mark = { x: body.x, y: body.y, t: 0 };
       this.emit({ type: 'target', x: body.x, y: body.y });
+      this.captions.done('tidy');
       return 'tidy';
     }
     // a bacterium under the finger, or the nearest from a tap on bare tissue
@@ -1876,7 +2135,7 @@ export class OdpSim {
         this.leadT = 0.25;
       }
       this.emit({ type: near ? 'target' : 'seek', x: target.x, y: target.y });
-      if (near) this.coach('tap', { kind: 'free' });
+      if (near && this.stage === 'alarm') this.captions.done('tap');
       return near ? 'target' : 'seek';
     }
     // nothing to hunt: the swarm gathers where the finger tapped
@@ -1902,6 +2161,7 @@ export class OdpSim {
     }
     const e = this.epi[bi];
     if (e.state === 'hidden') {
+      this.captions.done('hidden');
       this.emit({ type: 'noFlags', x: e.x, y: R.epi.y });
       this.coach('hidden', { kind: 'world', x: e.x, y: R.epi.y });
       const nk = this.cells.filter(c => c.kind === 'nk' && c.state === 'roam');
@@ -1915,6 +2175,7 @@ export class OdpSim {
     }
     this.mark = { x: e.x, y: R.epi.y, t: 0 };
     this.emit({ type: 'target', x: e.x, y: R.epi.y });
+    this.captions.done('tcell');
     return 'cell';
   }
 
@@ -1976,6 +2237,9 @@ export class OdpSim {
     if (this.card) return;
     this.leadPt = { x: clamp(x, 2, this.W - 2), y: clamp(y, this.scene === 'nose' ? RULES.epi.y + RULES.epi.h : 2, RULES.wallY - 4) };
     this.leadT = -1;
+    this.captions.tapped();
+    if (this.stage === 'alarm') this.captions.done('drag');
+    if (this.stage === 'hunt' || this.stage === 'antibodies') this.captions.done('swarm');
     // following the finger means dropping a tapped target
     for (const c of this.cells) if ((c.kind === 'neut' || (c.kind === 'mac' && this.stage === 'alarm')) && c.target >= 0 && c.state === 'roam') c.target = -1;
   }
@@ -1989,13 +2253,13 @@ export class OdpSim {
     return n;
   }
 
-  /** The wound can be woven now: the healing stage, or any rest on the skin (the repair starts under the battle). */
-  get canWeave(): boolean { return this.scene === 'skin' && (this.stage === 'heal' || this.restBlock); }
-
   /**
-   * A drag across the wound: a fibroblast lays a strand of collagen along it — in the healing stage it closes the
-   * wound, in a rest during the battle it adds to the repair prepared under the surface.
+   * The wound can be woven now: the healing stage.  (Round 11: weaving in a battle stage's rest is gone — it added
+   * an invisible "repair under the surface" the founder could not see; a rest's calm still prepares it by itself.)
    */
+  get canWeave(): boolean { return this.scene === 'skin' && this.stage === 'heal' && this.outro <= 0; }
+
+  /** A drag across the wound in the healing stage: a fibroblast lays a strand of collagen along it and the wound closes a little. */
   stroke(x0: number, y0: number, x1: number, y1: number): boolean {
     if (this.card || !this.canWeave || this.strokeT > 0 || this.closure >= 1) return false;
     const R = RULES;
@@ -2007,21 +2271,27 @@ export class OdpSim {
     this.fibres.push(f);
     if (this.fibres.length > 22) this.fibres.shift();
     this.strokeT = 0.35;
-    if (this.stage === 'heal') this.closure = Math.min(1, this.closure + R.heal.stroke * (0.6 + 0.8 * (1 - this.closure)));
-    else this.prep = Math.min(R.heal.pre, this.prep + R.heal.stroke * 0.5);
+    this.closure = Math.min(1, this.closure + R.heal.stroke * (0.6 + 0.8 * (1 - this.closure)));
     this.emit({ type: 'collagen', f });
     this.talk.ask('collagen', 1, 4);
     this.fact('kolagen');
+    this.captions.done('collagen');
+    this.glossAsk('kolagen', { kind: 'wound', side: -1 });
     return true;
   }
 
-  /** Space: the burst when it is ready, else the swarm to the nearest target (the vessel's next roller, a body to tidy). */
+  /**
+   * Space: the burst when it is ready, else the swarm to the nearest target (the vessel's next roller, a body to
+   * tidy); Enter or Space closes a card; B the burst, N a NET, H „Co się dzieje?”.
+   */
   key(key: string, down: boolean): boolean {
-    if (!down) return key === ' ' || key === 'Spacebar' || key === 'Enter' || key === 'n' || key === 'N' || key === 'b' || key === 'B';
+    const mine = [' ', 'Spacebar', 'Enter', 'n', 'N', 'b', 'B', 'h', 'H'];
+    if (!down) return mine.includes(key);
+    if (this.card && (key === ' ' || key === 'Spacebar' || key === 'Enter')) { if (this.card.t >= RULES.cardTap) this.closeCard(); return true; }
+    if (key === 'h' || key === 'H') { this.explain(); return true; }
     if (key === 'n' || key === 'N') { this.net(); return true; }
     if (key === 'b' || key === 'B') { this.burst(); return true; }
     if (key !== ' ' && key !== 'Spacebar' && key !== 'Enter') return false;
-    if (this.card) { if (this.card.t >= RULES.cardTap) this.closeCard(); return true; }
     if (this.burstReady && this.burstShown) { this.burst(); return true; }
     this.seekNearest();
     return true;
@@ -2070,6 +2340,8 @@ export class OdpSim {
     this.emit({ type: 'burst' });
     this.talk.ask('burst', 3, 5);
     this.fact('wybuch');
+    this.captions.done('burst');
+    this.glossAsk('wybuch', { kind: 'swarm' });
     return true;
   }
 
@@ -2098,6 +2370,8 @@ export class OdpSim {
     this.emit({ type: 'net', x: best.x, y: best.y, r });
     this.talk.ask('net', 3, 5);
     this.fact('siec');
+    this.captions.done('net');
+    this.glossAsk('siec', { kind: 'world', x: best.x, y: best.y });
     return true;
   }
 

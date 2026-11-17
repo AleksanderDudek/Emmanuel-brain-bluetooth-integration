@@ -11,17 +11,21 @@ import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
 import type { Insets } from '../kit/types';
 import type { PassageLayout } from '../kit/scripture';
 import { PATHOGEN, factTitle, pathogenName, unlockName, type CoachAt } from './content';
-import { drawAimTag, drawBreath, drawBubble, drawButtons, drawCard, drawSongLine, drawStrip } from './hud';
+import { drawAimTag, drawBreath, drawBubble, drawButtons, drawCard, drawGoal, drawSongLine, drawStrip } from './hud';
 import { t } from './i18n';
-import { layout, onButton, sx, sy, wx, wy, type Layout } from './layout';
+import { layout, onButton, onHelp, sx, sy, wx, wy, type Layout } from './layout';
+import { paintDragGesture, paintTapGesture } from './picture';
 import {
-  PAL, SANS, TAU, circle, fitFont, font, glow, hash, paintBody, paintBug, paintDendritic, paintLymphocyte, paintMacrophage, paintMast, paintNet,
+  PAL, SANS, TAU, circle, fitFont, font, glow, hash, paintBody, wrap as wrapText, paintBug, paintDendritic, paintLymphocyte, paintMacrophage, paintMast, paintNet,
   paintNeutrophil, paintSplinter, paintVirion, paintY, rgbOf, rr,
 } from './paint';
-import { RULES } from './rules';
-import type { Aim, Cell, OdpSim, SimEvent } from './sim';
+import { RULES, readSec } from './rules';
+import type { Aim, Cell, OdpSim, Pt, SimEvent } from './sim';
 
-export type Hit = { kind: 'card' } | { kind: 'burst' } | { kind: 'net' } | { kind: 'field'; x: number; y: number };
+export type Hit = { kind: 'card' } | { kind: 'help' } | { kind: 'burst' } | { kind: 'net' } | { kind: 'field'; x: number; y: number };
+
+/** A label on the field (round 11): what a mechanic just did, by the thing that did it; one at a time, read twice. */
+interface Note { text: string; at: Pt; t: number; dur: number; wait: number }
 
 /** What the finger does right now (index.ts sets it): where it is, where it leads, what it draws. */
 export interface Drag { x: number; y: number; lx: number; ly: number; mode: 'lead' | 'sweep' | 'stroke'; sx0: number; sy0: number }
@@ -37,7 +41,7 @@ export class OdpView {
   private now = 0;
   /** touch-down feedback: a ring where the finger landed */
   private touchAt: { x: number; y: number; t: number } | null = null;
-  pressed: 'burst' | 'net' | null = null;
+  pressed: 'burst' | 'net' | 'help' | null = null;
   private pressFlash = 0;
   drag: Drag | null = null;
   private burstFlash = 0;
@@ -52,8 +56,19 @@ export class OdpView {
   /** recent pads lit, for a flash on the wall */
   private padFlash: { x: number; t: number }[] = [];
   /** the news of a moment (a card found, a cell joined, a stage done): one at a time, in a dark pill under the strip */
-  private toasts: { text: string; color: string; t: number; dur: number }[] = [];
-
+  private toasts: { text: string; color: string; t: number; dur: number; wait: number }[] = [];
+  /** what a mechanic did, said where it happened (one at a time, never over a gloss or a coach mark) */
+  private notes: Note[] = [];
+  /** the coach mark's gesture loop (s) */
+  private gestureT = 0;
+  /** the label on the field last frame (a gloss or a note), for the tests and the placement */
+  label: { text: string; x: number; y: number; w: number; h: number } | null = null;
+  /** whether the coach mark, the gloss or a card is up (the toasts wait for them) */
+  private quiet = false;
+  /** the gloss on screen and where its thing last was */
+  private glossAt: { text: string; at: Pt } | null = null;
+  /** the coach mark's bubble last frame (for the tests): where it went and what it points at */
+  coachBox: { text: string; x: number; y: number; w: number; h: number; px: number; py: number } | null = null;
   /** the bottom of Neo's bubble while it shows (the toast goes under it) */
   private bubbleBottom = 0;
   /** where a mouse rests (a desk: hover answers), null when it left or on a touch screen */
@@ -61,19 +76,27 @@ export class OdpView {
   /** seconds since the mouse last moved (a resting mouse's tag fades) */
   hoverAge = 0;
 
-  private toast(text: string, color = '#fff8ef', dur = 2.4): void {
+  /** A toast stays to be read twice (readSec); at most three wait, the oldest waiting one gives way. */
+  private toast(text: string, color = '#fff8ef'): void {
     if (this.toasts.some(x => x.text === text)) return;
-    this.toasts.push({ text, color, t: 0, dur });
-    if (this.toasts.length > 4) this.toasts.splice(1, 1);
+    this.toasts.push({ text, color, t: 0, dur: readSec(text), wait: 0 });
+    if (this.toasts.length > 3) this.toasts.splice(1, 1);
+  }
+
+  /** A note of what a mechanic did, by its thing (a world point or a button). */
+  private note(text: string, at: Pt): void {
+    if (this.notes.some(n => n.text === text)) return;
+    this.notes.push({ text, at, t: 0, dur: readSec(text), wait: 0 });
+    if (this.notes.length > 2) this.notes.splice(0, 1);
   }
 
   constructor(private readonly canvas: HTMLCanvasElement, private readonly opts: { reducedMotion: boolean; touch: boolean }) {
-    this.L = layout(canvas.clientWidth || 360, canvas.clientHeight || 500, undefined, opts.touch);
+    this.L = layout(canvas.clientWidth || 360, canvas.clientHeight || 500, undefined, opts.touch, [...t('btn.help')].length);
     this.shake = new Shake(opts.reducedMotion);
   }
 
   resize(w: number, h: number, dpr: number, insets: Insets): void {
-    this.L = layout(w, h, insets, this.opts.touch);
+    this.L = layout(w, h, insets, this.opts.touch, [...t('btn.help')].length);
     this.dpr = dpr;
     this.bgKey = '';
     this.cardCache.key = '';
@@ -84,7 +107,9 @@ export class OdpView {
 
   on(e: SimEvent, sim: OdpSim): void {
     const L = this.L, u = L.u, k = L.k;
-    const fl = (text: string, x: number, y: number, color = '#fff8ef', size = 17) => this.floaters.add(text, x, y, { color, size: Math.max(MIN_READ, size * u) });
+    // a number or a sign rises and goes (juice); a word stays to be read twice
+    const fl = (text: string, x: number, y: number, color = '#fff8ef', size = 17) =>
+      this.floaters.add(text, x, y, { color, size: Math.max(MIN_READ, size * u), dur: /\p{L}/u.test(text) ? readSec(text) : 1.1 });
     switch (e.type) {
       case 'gulp': {
         const q = this.p(e.x, e.y);
@@ -103,7 +128,7 @@ export class OdpView {
         if (this.slipGap <= 0) {
           const q = this.p(e.x, e.y);
           fl(t('w.slip'), q.x, q.y - 12 * u, '#e6f7ff', 14);
-          this.slipGap = 2.5;
+          this.slipGap = 6;
         }
         break;
       case 'divide': {
@@ -128,7 +153,13 @@ export class OdpView {
       case 'join':
         if (e.n <= 3 || e.n % 5 === 0) { const q = this.p(e.x, e.y); fl(t('w.join', { n: e.n }), q.x, q.y - 8 * u, '#f3ecff', 14); }
         break;
-      case 'spent': { const q = this.p(e.x, e.y); fl(t('w.full'), q.x, q.y - 10 * u, '#e9e1f6', 13); break; }
+      case 'spent':
+        if (this.floaterGap <= 0) {
+          const q = this.p(e.x, e.y);
+          fl(t('w.full'), q.x, q.y - 10 * u, '#e9e1f6', 13);
+          this.floaterGap = 5;
+        }
+        break;
       case 'tidy': {
         const q = this.p(e.x, e.y);
         this.particles.burst(q.x, q.y, 7, { color: PAL.growth, size: 1.6 * u, speed: 40 * u, g: -20, drag: 2, life: 0.8, shape: 'spark' });
@@ -141,7 +172,7 @@ export class OdpView {
           const q = this.p(c.x, c.y);
           this.particles.burst(q.x, q.y, 4, { color: '#bfefff', size: 1.8 * u, speed: 70 * u, g: 0, drag: 2.5, life: 0.6, shape: 'spark' });
         }
-        this.toast(t('w.burst'), '#d9f6ff', 1.8);
+        this.toast(t('w.burst'), '#d9f6ff');
         break;
       }
       case 'net': {
@@ -189,17 +220,26 @@ export class OdpView {
         this.closedGlow = 1;
         const q = this.p(sim.woundX, -4);
         this.particles.burst(q.x, q.y, 22, { color: PAL.gold, size: 2 * u, speed: 90 * u, angle: -Math.PI / 2, spread: 2.6, g: 40, drag: 1.5, life: 1.2, shape: 'spark' });
-        this.toast(t('w.closed'), '#fff0c8', 3);
+        this.toast(t('w.closed'), '#fff0c8');
         break;
       }
       case 'stageDone':
         this.stageFlash = 1;
-        this.toast(e.grace ? t('w.grace') : `${t('w.done')} ${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)}`, e.grace ? '#fff8ef' : PAL.gold, 2.6);
+        this.toast(e.grace ? t('w.grace') : `${t('w.done')} ${'★'.repeat(e.stars)}${'☆'.repeat(3 - e.stars)}`, e.grace ? '#fff8ef' : PAL.gold);
         break;
       case 'fact': this.toast(t('w.newFact', { name: factTitle(e.id) }), '#fff3d6'); break;
-      case 'unlock': this.toast(t('w.unlock', { name: unlockName(e.id) }), '#d9fff0', 3); break;
-      case 'memory': this.toast(`${t('w.memory')} ${pathogenName(e.id)}`, '#ffe9b3', 2.6); break;
-      case 'reveal': this.toast(t('w.reveal', { n: Math.round(e.share * 100) }), '#fff3d6', 3); break;
+      case 'unlock': this.toast(t('w.unlock', { name: unlockName(e.id) }), '#d9fff0'); break;
+      case 'memory': this.toast(`${t('w.memory')} ${pathogenName(e.id)}`, '#ffe9b3'); break;
+      case 'reveal': this.toast(t('w.reveal', { n: Math.round(e.share * 100) }), '#fff3d6'); break;
+      // the mechanics made visible, where they happen
+      case 'charging': this.note(t('note.charge'), { x: 0, y: 0, button: 'burst' }); break;
+      case 'netReady': if (sim.combo >= RULES.comboNet) this.note(t('note.netEarned', { n: RULES.comboNet }), { x: 0, y: 0, button: 'net' }); break;
+      case 'gulpRing': this.note(t('note.gulpRing'), { x: e.x, y: e.y }); break;
+      case 'restNote': {
+        const text = e.what === 'heal' ? t('note.heal', { n: e.n }) : e.what === 'prep' ? t('note.prep', { n: e.n }) : t('note.marrow');
+        this.note(text, e.what === 'marrow' ? { x: sim.W * 0.12, y: RULES.wallY - 2 } : { x: sim.woundX, y: 14 });
+        break;
+      }
       case 'combo': break;
       default: break;
     }
@@ -207,10 +247,35 @@ export class OdpView {
 
   /** A touch-down's ring (the screen answers at once). */
   touchDown(x: number, y: number): void { this.touchAt = { x, y, t: 0 }; }
-  buttonDown(which: 'burst' | 'net'): void { this.pressed = which; this.pressFlash = 1; }
+  buttonDown(which: 'burst' | 'net' | 'help'): void { this.pressed = which; this.pressFlash = 1; }
 
-  update(dt: number): void {
+  /** A point of the sim's (world units, or a button) on the canvas. */
+  screenPoint(p: Pt): { x: number; y: number } {
+    const L = this.L;
+    if (p.button === 'burst') return { x: L.burst.x, y: L.burst.y - L.burst.r };
+    if (p.button === 'net') return { x: L.net.x, y: L.net.y - L.net.r };
+    return { x: sx(L, p.x), y: sy(L, p.y) };
+  }
+
+  /** The lymph node's inset stays long enough to read its words twice. */
+  static readonly NODE_SEC = Math.max(6, readSec(`${t('node.title')} ${t('node.text')}`));
+
+  update(dt: number, sim?: OdpSim): void {
     this.now += dt;
+    this.gestureT += dt;
+    // the toasts and the notes wait (their clocks stopped) while a card, a coach mark or a gloss speaks (one word at a time)
+    const quiet = !!sim && (!!sim.card || !!sim.captions.coach || !!sim.captions.gloss);
+    this.quiet = quiet;
+    if (this.notes.length && sim) {
+      const n = this.notes[0];
+      if (!quiet && !sim.captions.gloss) {
+        n.t += dt;
+        if (n.t >= n.dur) this.notes.shift();
+      } else if (n.t === 0) {
+        n.wait += dt;
+        if (n.wait > 10) this.notes.shift();
+      }
+    }
     this.hoverAge += dt;
     this.particles.update(dt);
     this.floaters.update(dt);
@@ -220,8 +285,15 @@ export class OdpView {
     this.pressFlash = Math.max(0, this.pressFlash - dt * 4);
     this.floaterGap = Math.max(0, this.floaterGap - dt);
     this.slipGap = Math.max(0, this.slipGap - dt);
-    if (this.nodeT >= 0) { this.nodeT += dt; if (this.nodeT > 4.6) this.nodeT = -1; }
-    if (this.toasts.length) { this.toasts[0].t += dt; if (this.toasts[0].t >= this.toasts[0].dur) this.toasts.shift(); }
+    if (this.nodeT >= 0) { this.nodeT += dt; if (this.nodeT > OdpView.NODE_SEC) this.nodeT = -1; }
+    // a toast that waited too long for its turn is old news: it goes unshown
+    for (let i = this.toasts.length - 1; i >= (quiet ? 0 : 1); i--) {
+      const x = this.toasts[i];
+      if (x.t > 0) continue;
+      x.wait += dt;
+      if (x.wait > 12) this.toasts.splice(i, 1);
+    }
+    if (this.toasts.length && !quiet) { this.toasts[0].t += dt; if (this.toasts[0].t >= this.toasts[0].dur) this.toasts.shift(); }
     if (this.touchAt) { this.touchAt.t += dt; if (this.touchAt.t > 0.45) this.touchAt = null; }
     for (let i = this.padFlash.length - 1; i >= 0; i--) { this.padFlash[i].t += dt; if (this.padFlash[i].t > 1) this.padFlash.splice(i, 1); }
   }
@@ -230,6 +302,7 @@ export class OdpView {
   hit(x: number, y: number, sim: OdpSim): Hit {
     const L = this.L;
     if (sim.card) return { kind: 'card' };
+    if (onHelp(L, x, y)) return { kind: 'help' };
     if (sim.burstShown && onButton(L.burst, x, y)) return { kind: 'burst' };
     if (sim.netShown && onButton(L.net, x, y)) return { kind: 'net' };
     return { kind: 'field', x: wx(L, x), y: wy(L, y) };
@@ -241,7 +314,7 @@ export class OdpView {
    * `aimAt`: a rolling cell, a bacterium, an infected cell, a spent neutrophil, or the free tissue).  Never on a
    * touch screen (a finger has no hover), never while a drag is under way.
    */
-  overPart(sim: OdpSim): { part: 'card' | 'burst' | 'net' | 'aim' | 'field' | null; aim: Aim | null } {
+  overPart(sim: OdpSim): { part: 'card' | 'help' | 'burst' | 'net' | 'aim' | 'field' | null; aim: Aim | null } {
     const hv = this.hover;
     if (!hv || this.opts.touch || !sim.started || sim.phase === 'done') return { part: null, aim: null };
     const h = this.hit(hv.x, hv.y, sim);
@@ -255,7 +328,7 @@ export class OdpView {
   /** The cursor for the mouse: a hand on what a click acts on, a crosshair where a drag weaves collagen, else "grab" (a drag leads the swarm). */
   cursor(sim: OdpSim): string {
     const o = this.overPart(sim);
-    if (o.part === 'card' || o.part === 'burst' || o.part === 'net' || o.part === 'aim') return 'pointer';
+    if (o.part === 'card' || o.part === 'help' || o.part === 'burst' || o.part === 'net' || o.part === 'aim') return 'pointer';
     if (this.drag) return this.drag.mode === 'lead' ? 'grabbing' : 'crosshair';
     if (o.part !== 'field' || !this.hover) return 'default';
     const L = this.L, wy0 = wy(L, this.hover.y), wx0 = wx(L, this.hover.x);
@@ -303,16 +376,9 @@ export class OdpView {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
-    drawAimTag(ctx, L, x, y, Math.max(r, 9 * u) + 8 * u, title, sub, act, clamp((3 - this.hoverAge) / 0.6));
-  }
-
-  /** A coach mark's point on the canvas. */
-  pointFor(at: CoachAt): { x: number; y: number } | null {
-    const L = this.L;
-    if (at.kind === 'world') return { x: sx(L, at.x), y: sy(L, at.y) };
-    if (at.kind === 'burst') return { x: L.burst.x, y: L.burst.y - L.burst.r };
-    if (at.kind === 'net') return { x: L.net.x, y: L.net.y - L.net.r };
-    return null;
+    // a resting mouse's tag stays long enough to read twice, then fades out of the way
+    const stay = readSec(`${title} ${sub} ${act}`);
+    drawAimTag(ctx, L, x, y, Math.max(r, 9 * u) + 8 * u, title, sub, act, clamp((stay - this.hoverAge) / 0.6));
   }
 
   // ── drawing ──────────────────────────────────────────────────────────────────────
@@ -336,6 +402,7 @@ export class OdpView {
     this.drawBugs(ctx, sim);
     this.drawAbs(ctx, sim);
     this.drawCells(ctx, sim, pulse);
+    if (!sim.card) this.drawTargets(ctx, sim);
     this.drawMarks(ctx, sim);
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -352,10 +419,18 @@ export class OdpView {
       ctx.restore();
     }
     this.floaters.draw(ctx, `800 ${SANS}`);
-    // the strip, the song or the bubble, the buttons, the card
-    drawStrip(ctx, L, sim, this.now);
+    // the coach mark's gesture (a finger that taps or drags), the label on the field (a gloss or a note)
+    if (!sim.card) this.drawGesture(ctx, sim);
+    this.coachBox = null;
+    if (!sim.card) this.drawCoach(ctx, sim);
+    this.label = null;
+    if (!sim.card) this.drawLabel(ctx, sim);
+    // the strip (the stage, the help button), the goal line, the song or the bubble, the buttons, the card
+    const over = this.overPart(sim);
+    const pillRight = drawStrip(ctx, L, sim, this.now, over.part === 'help');
+    if (!sim.card) drawGoal(ctx, L, sim, this.now, pillRight);
     const line = sim.talk.line;
-    if (line) {
+    if (line && !line.held) {
       if (line.text !== this.lastLine) { this.lastLine = line.text; this.bubbleK = 0; }
       this.bubbleK = Math.min(1, this.bubbleK + 1 / 12);
       const fade = clamp((line.dur - line.t) / 0.3);
@@ -366,11 +441,10 @@ export class OdpView {
       if (br && !sim.card) drawBreath(ctx, L, br);
       else if (song.on && !sim.card) drawSongLine(ctx, L, song.line, pulse, song.chorus);
     }
-    if (this.toasts.length && !sim.card) this.drawToast(ctx, this.toasts[0]);
-    const over = this.overPart(sim);
+    if (this.toasts.length && !this.quiet) this.drawToast(ctx, this.toasts[0]);
     const aim = over.aim;
     if (aim && aim.kind !== 'none' && aim.kind !== 'field') this.drawAim(ctx, sim, aim);
-    if (!sim.card) drawButtons(ctx, L, sim, this.pressed, this.now, this.pressFlash, over.part === 'burst' || over.part === 'net' ? over.part : null);
+    if (!sim.card) drawButtons(ctx, L, sim, this.pressed === 'help' ? null : this.pressed, this.now, this.pressed === 'help' ? 0 : this.pressFlash, over.part === 'burst' || over.part === 'net' ? over.part : null);
     if (this.touchAt) {
       const k = this.touchAt.t / 0.45;
       ctx.strokeStyle = `rgba(255,248,239,${0.6 * (1 - k)})`;
@@ -379,6 +453,295 @@ export class OdpView {
       ctx.stroke();
     }
     if (sim.card) drawCard(ctx, L, sim, sim.card, this.opts.touch, this.now, this.cardCache);
+  }
+
+  /**
+   * The things to touch carry a ring now (round 11): Makro in the alarm (drag him), the white cells rolling in the
+   * vessel (tap them), the infected cells of the nose (tap them), the wound and the spent cells while healing.
+   * Thin and pulsing, under the words; never in a rest of the battle (its ask is to breathe).
+   */
+  private drawTargets(ctx: CanvasRenderingContext2D, sim: OdpSim): void {
+    if (!sim.started || sim.phase === 'done' || sim.outro > 0) return;
+    const L = this.L, k = L.k, u = L.u;
+    const p = 0.5 + 0.5 * Math.sin(this.now * 4.5);
+    const dashed = (x: number, y: number, r: number, rgb: string, a = 0.75) => {
+      ctx.strokeStyle = `rgba(${rgb},${a * (0.6 + 0.4 * p)})`;
+      ctx.lineWidth = Math.max(1.5, 1.6 * u);
+      ctx.setLineDash([5 * u, 4 * u]);
+      ctx.lineDashOffset = -this.now * 10 * u;
+      circle(ctx, x, y, r * (1 + 0.06 * p));
+      ctx.stroke();
+    };
+    ctx.save();
+    const rest = sim.restBlock;
+    if (sim.stage === 'alarm' && !rest) {
+      const m = sim.makro;
+      if (m) dashed(sx(L, m.x), sy(L, m.y), (m.r + 3.5) * k, '255,248,239');
+    } else if (sim.stage === 'recruit' && !rest) {
+      for (const f of sim.flow) if (f.state === 'roll') dashed(sx(L, f.x), sy(L, RULES.lumenTop + RULES.neut.r * 0.8), RULES.neut.r * k * 1.35, '255,214,120', 0.9);
+    } else if (sim.scene === 'nose' && !rest) {
+      const w = (sim.W / Math.max(1, sim.epi.length)) * k;
+      const y = sy(L, RULES.epi.y);
+      for (const e of sim.epi) if (e.state === 'infected') dashed(sx(L, e.x), y, Math.max(w * 0.62, 12 * u), '200,160,255', 0.85);
+    } else if (sim.stage === 'heal') {
+      // the wound: drag across it (a dashed bed), the spent cells: tap them
+      const x = sx(L, sim.woundX), y = sy(L, 14);
+      ctx.strokeStyle = `rgba(255,248,239,${0.45 + 0.35 * p})`;
+      ctx.lineWidth = Math.max(1.5, 1.6 * u);
+      ctx.setLineDash([6 * u, 5 * u]);
+      ctx.lineDashOffset = -this.now * 10 * u;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 28 * k, 15 * k, 0, 0, TAU);
+      ctx.stroke();
+      for (const c of sim.cells) if (c.kind === 'neut' && c.state === 'body') dashed(sx(L, c.x), sy(L, c.y), c.r * k * 1.3, '168,240,198', 0.7);
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  /** How big the thing an anchor points at is on screen (px): its bubble or label keeps clear of it. */
+  private thingR(at: CoachAt): number {
+    const L = this.L, k = L.k;
+    switch (at.kind) {
+      case 'makro': return (RULES.mac.r + 2) * k;
+      case 'cell': case 'swarm': case 'neut': case 'body': case 'roller': return (RULES.neut.r + 2) * k;
+      case 'bug': case 'nearBug': return 4 * k;
+      case 'infected': case 'epi': return (RULES.epi.h / 2 + 1) * k;
+      case 'pad': return 5 * k;
+      default: return 12 * L.u;
+    }
+  }
+
+  /**
+   * Where a box of w × h goes by the thing at `pt` (round 11): around it — above, below, beside, at the corners —
+   * or at the region's top or bottom, inside the field under the rows above it; the place that covers least of the
+   * thing (and the wound's bed), the buttons and the other box on screen (hard), the gesture's path (soft), and is
+   * nearest the thing.
+   */
+  private place(sim: OdpSim, w: number, h: number, pt: { x: number; y: number } | null, at: CoachAt, who: 'coach' | 'label'): { x: number; y: number } {
+    const L = this.L, u = L.u;
+    const top = Math.max(L.song.y + L.song.h, L.goalInStrip ? L.strip.y + L.strip.h : L.goal.y + L.goal.h, who === 'label' ? this.bubbleBottom : 0) + 6 * u;
+    const bot = L.field.y + L.field.h - 6 * u, left = L.field.x + 8 * u, right = L.field.x + L.field.w - 8 * u;
+    type Box = { x: number; y: number; w: number; h: number; k: number };
+    const obst: Box[] = [];
+    const r = this.thingR(at), m = 18 * u;
+    if (pt) obst.push({ x: pt.x - r, y: pt.y - r, w: 2 * r, h: 2 * r, k: 6 });
+    if (at.kind === 'wound') {
+      const wx0 = sx(L, sim.woundX), wy0 = sy(L, 14);
+      obst.push({ x: wx0 - 30 * L.k, y: wy0 - 24 * L.k, w: 60 * L.k, h: 42 * L.k, k: 6 });
+    }
+    const g = sim.gesture();
+    if (g) {
+      const a = this.screenPoint(g.from), b = g.to ? this.screenPoint(g.to) : a;
+      obst.push({ x: Math.min(a.x, b.x) - m, y: Math.min(a.y, b.y) - m, w: Math.abs(a.x - b.x) + 2 * m, h: Math.abs(a.y - b.y) + 2 * m, k: 0.8 });
+    }
+    if (who === 'label' && this.coachBox) obst.push({ ...this.coachBox, k: 8 });
+    // Makro and the swarm: the play's main characters stay in sight when there is a choice
+    const mk = sim.scene === 'skin' ? sim.makro : undefined;
+    if (mk) { const mr = (RULES.mac.r + 2) * L.k; obst.push({ x: sx(L, mk.x) - mr, y: sy(L, mk.y) - mr, w: 2 * mr, h: 2 * mr, k: 2 }); }
+    // the vessel: where the alarm's goal lights and the white cells roll (the thing to touch in Rekrutacja)
+    const vy = sy(L, RULES.wallY - 1);
+    obst.push({ x: L.field.x, y: vy, w: L.field.w, h: sy(L, RULES.lumenBot) - vy, k: sim.stage === 'recruit' ? 6 : 1.5 });
+    if (sim.burstShown) obst.push({ x: L.burst.x - L.burst.r, y: L.burst.y - L.burst.r, w: 2 * L.burst.r, h: 2 * L.burst.r, k: 6 });
+    if (sim.netShown) obst.push({ x: L.net.x - L.net.r, y: L.net.y - L.net.r, w: 2 * L.net.r, h: 2 * L.net.r, k: 6 });
+    const fit = (x: number, y: number) => ({ x: clamp(x, left, Math.max(left, right - w)), y: clamp(y, top, Math.max(top, bot - h)) });
+    const cands: { x: number; y: number }[] = [];
+    const gap = 12 * u + r;
+    if (pt) {
+      for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]] as const) {
+        const x = dx < 0 ? pt.x - gap - w : dx > 0 ? pt.x + gap : pt.x - w / 2;
+        const y = dy < 0 ? pt.y - gap - h : dy > 0 ? pt.y + gap : pt.y - h / 2;
+        cands.push(fit(dx && dy ? x + (dx < 0 ? w * 0.35 : -w * 0.35) : x, y));
+      }
+      cands.push(fit(pt.x - w / 2, top), fit(pt.x - w / 2, bot - h));
+    } else cands.push(fit(L.field.x + (L.field.w - w) / 2, L.field.y + L.field.h * 0.3));
+    const over = (q: { x: number; y: number }) => obst.reduce((s2, o) => {
+      const ox = Math.min(q.x + w, o.x + o.w) - Math.max(q.x, o.x), oy = Math.min(q.y + h, o.y + o.h) - Math.max(q.y, o.y);
+      return s2 + (ox > 0 && oy > 0 ? ox * oy * o.k : 0);
+    }, 0);
+    let best = cands[0], bs = Infinity;
+    for (const q of cands) {
+      const d = pt ? Math.hypot(q.x + w / 2 - pt.x, q.y + h / 2 - pt.y) : 0;
+      const score = Math.sqrt(over(q)) * 3 + d;
+      if (score < bs) { bs = score; best = q; }
+    }
+    return best;
+  }
+
+  /**
+   * The coach mark's bubble (round 11): the words in a light bubble whose tail points at the thing, set where it
+   * covers least — not the thing, not the gesture's path, not the buttons, not the rows above the field (the goal
+   * line stays readable): above the thing, else below, beside, or the nearest place that fits.  Hidden under the
+   * runner's block banner (the sim holds its clock meanwhile).
+   */
+  private drawCoach(ctx: CanvasRenderingContext2D, sim: OdpSim): void {
+    const c = sim.captions.coach;
+    if (!c || sim.banner) return;
+    const L = this.L, u = L.u;
+    const thing = sim.pointOf(c.at);
+    const pt = thing ? this.screenPoint(thing) : null;
+    const size = Math.max(MIN_READ, 15 * u);
+    ctx.save();
+    ctx.font = font(size, 650);
+    const maxW = Math.min(L.field.w - 32 * u, 330 * u);
+    const lines = wrapText(ctx, c.text, maxW - 28 * u).slice(0, 4);
+    const lh = Math.round(size * 1.3);
+    const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 28 * u, h = lines.length * lh + 18 * u;
+    const best = this.place(sim, w, h, pt, c.at, 'coach');
+    const k = Math.min(1, c.t / 0.25);
+    ctx.globalAlpha = k;
+    // the tail toward the thing, from the bubble's nearest edge
+    if (pt) {
+      const cx = clamp(pt.x, best.x + 16 * u, best.x + w - 16 * u), cy = clamp(pt.y, best.y + 12 * u, best.y + h - 12 * u);
+      const inside = pt.x > best.x && pt.x < best.x + w && pt.y > best.y && pt.y < best.y + h;
+      if (!inside) {
+        const ex = pt.x < best.x ? best.x : pt.x > best.x + w ? best.x + w : cx, ey = pt.y < best.y ? best.y : pt.y > best.y + h ? best.y + h : cy;
+        const a = Math.atan2(pt.y - ey, pt.x - ex), len = Math.min(Math.hypot(pt.x - ex, pt.y - ey) - 6 * u, 26 * u), bw = 9 * u;
+        if (len > 2) {
+          ctx.beginPath();
+          ctx.moveTo(ex - Math.sin(a) * bw, ey + Math.cos(a) * bw);
+          ctx.lineTo(ex + Math.cos(a) * len, ey + Math.sin(a) * len);
+          ctx.lineTo(ex + Math.sin(a) * bw, ey - Math.cos(a) * bw);
+          ctx.closePath();
+          ctx.fillStyle = '#fff7e3';
+          ctx.fill();
+          // a dotted line on to the thing when it is further than the tail reaches
+          if (Math.hypot(pt.x - ex, pt.y - ey) > 34 * u) {
+            ctx.strokeStyle = 'rgba(255,247,227,0.8)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([3 * u, 4 * u]);
+            ctx.beginPath();
+            ctx.moveTo(ex + Math.cos(a) * len, ey + Math.sin(a) * len);
+            ctx.lineTo(pt.x - Math.cos(a) * 8 * u, pt.y - Math.sin(a) * 8 * u);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+        }
+      }
+    }
+    rr(ctx, best.x, best.y, w, h, 14 * u);
+    ctx.fillStyle = '#fff7e3';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(194,65,107,0.35)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.fillStyle = '#1d1724';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    lines.forEach((l, i) => ctx.fillText(l, best.x + w / 2, best.y + 9 * u + i * lh));
+    ctx.restore();
+    this.coachBox = { text: c.text, x: best.x, y: best.y, w, h, px: pt?.x ?? -1, py: pt?.y ?? -1 };
+  }
+
+  /** The coach mark's gesture on the field: a finger tapping the thing, or dragging from it to where it should go. */
+  private drawGesture(ctx: CanvasRenderingContext2D, sim: OdpSim): void {
+    const g = sim.gesture();
+    if (!g) { this.gestureT = 0; return; }
+    const L = this.L, s = 15 * L.u;
+    const from = this.screenPoint(g.from);
+    const p = (this.gestureT % 2.4) / 2.4;
+    if (g.kind === 'drag' && g.to) {
+      const to = this.screenPoint(g.to);
+      // a drag on the field: gather the swarm a little short of the target (the finger leads, the cells eat)
+      paintDragGesture(ctx, from.x, from.y, to.x, to.y, s, p);
+    } else paintTapGesture(ctx, from.x, from.y, s, p);
+  }
+
+  /**
+   * The label on the field (round 11): the gloss the sim shows — the term in gold, the plain words after it — or,
+   * when none, the first note of what a mechanic did.  A dark pill by its thing, a thin line to it, kept inside the
+   * field and clear of the rows above; it fades in and out.
+   */
+  private drawLabel(ctx: CanvasRenderingContext2D, sim: OdpSim): void {
+    // the runner's banner holds the words on the field (their clocks stopped): they wait unseen
+    if (sim.banner) return;
+    const g = sim.captions.gloss;
+    let text: string, at: Pt | null, k: number, gloss: boolean;
+    if (g) {
+      text = g.text;
+      // its thing may go for a moment (a bacterium eaten): the label stays where it last was
+      const p = sim.pointOf(g.at);
+      if (p) this.glossAt = { text, at: p }; else if (this.glossAt?.text !== text) this.glossAt = null;
+      at = this.glossAt?.at ?? null;
+      k = Math.min(1, g.t / 0.25, (g.read - g.t) / 0.35);
+      gloss = true;
+    } else if (this.notes.length && !this.quiet) {
+      const n = this.notes[0];
+      text = n.text;
+      at = n.at;
+      k = Math.min(1, n.t / 0.25, (n.dur - n.t) / 0.35);
+      gloss = false;
+    } else return;
+    if (!at || k <= 0) return;
+    const L = this.L, u = L.u;
+    const pt = this.screenPoint(at);
+    // the term and its gloss: split at the first " — " or ": "
+    const m = gloss ? text.match(/^(.+?)( — |: )(.+)$/) : null;
+    const head = m ? m[1] + (m[2] === ': ' ? ':' : ' —') : '';
+    const tail = m ? m[3] : text;
+    const size = Math.max(MIN_READ, 14 * u);
+    const maxW = Math.min(L.field.w - 24 * u, 360 * u);
+    ctx.save();
+    ctx.font = font(size, 650);
+    const words = (head ? `${head} ${tail}` : tail);
+    let lines = wrapText(ctx, words, maxW - 36 * u);
+    if (lines.length > 3) lines = lines.slice(0, 3);
+    const lh = Math.round(size * 1.3);
+    // each line's width as drawn (the term on the first line is bolder)
+    const drawn = (l: string, i: number): number => {
+      if (i !== 0 || !head || !l.startsWith(head)) return ctx.measureText(l).width;
+      ctx.font = font(size, 850);
+      const a = ctx.measureText(`${head} `).width;
+      ctx.font = font(size, 650);
+      return a + ctx.measureText(l.slice(head.length).trimStart()).width;
+    };
+    const w = Math.max(...lines.map(drawn)) + 24 * u, h = lines.length * lh + 14 * u;
+    const spot = this.place(sim, w, h, pt, gloss && g ? g.at : { kind: 'world', x: 0, y: 0 }, 'label');
+    const bx = spot.x, by = spot.y;
+    ctx.globalAlpha = k;
+    // the thin line to the thing (never across the coach mark's bubble) and a dot on it
+    const ex = clamp(pt.x, bx + 12 * u, bx + w - 12 * u), ey = clamp(pt.y, by, by + h);
+    const cb = this.coachBox;
+    const crosses = !!cb && segHitsBox(pt.x, pt.y, ex, ey, cb);
+    if (!crosses) {
+      ctx.strokeStyle = 'rgba(255,248,239,0.75)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(pt.x, pt.y);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    }
+    circle(ctx, pt.x, pt.y, 3 * u);
+    ctx.fillStyle = '#fff8ef';
+    ctx.fill();
+    rr(ctx, bx, by, w, h, 12 * u);
+    ctx.fillStyle = gloss ? 'rgba(38,14,30,0.9)' : 'rgba(20,40,52,0.88)';
+    ctx.fill();
+    ctx.strokeStyle = gloss ? 'rgba(255,209,102,0.6)' : 'rgba(170,230,255,0.6)';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    // the head (the term) in gold on the first line, the rest cream
+    lines.forEach((l, i) => {
+      const y = by + 7 * u + i * lh;
+      let x = bx + 12 * u;
+      if (i === 0 && head && l.startsWith(head)) {
+        ctx.font = font(size, 850);
+        ctx.fillStyle = PAL.gold;
+        ctx.fillText(head, x, y);
+        x += ctx.measureText(`${head} `).width;
+        ctx.font = font(size, 650);
+        ctx.fillStyle = '#fff8ef';
+        ctx.fillText(l.slice(head.length).trimStart(), x, y);
+      } else {
+        ctx.font = font(size, 650);
+        ctx.fillStyle = gloss ? '#fff8ef' : '#e2f6ff';
+        ctx.fillText(l, x, y);
+      }
+    });
+    ctx.restore();
+    this.label = { text, x: bx, y: by, w, h };
   }
 
   // ── the cached layers: air, skin, dermis, vessel (or the nose's lining) ───────────
@@ -1092,43 +1455,63 @@ export class OdpView {
     ctx.restore();
   }
 
-  /** The trip to the lymph node, in an inset: a B cell meets the piece, plasma cells send antibodies out. */
+  /**
+   * The trip to the lymph node, in an inset: a B cell meets the piece, plasma cells send antibodies out — its title
+   * and one line („Węzeł chłonny” · „Tu limfocyty B robią przeciwciała”) on screen long enough to read twice.
+   */
   private drawNode(ctx: CanvasRenderingContext2D, sim: OdpSim): void {
     const L = this.L, u = L.u;
-    const tN = this.nodeT;
-    const a = Math.min(1, tN / 0.4, (4.6 - tN) / 0.5);
-    const w = Math.min(160 * u, L.field.w * 0.42), h = w * 0.62;
-    const x = Math.min(L.field.x + L.field.w - w - 12 * u, L.wx1 - w - 6 * u), y = sy(L, 30);
+    const tN = this.nodeT, dur = OdpView.NODE_SEC;
+    const a = Math.min(1, tN / 0.4, (dur - tN) / 0.5);
+    const w = Math.min(200 * u, L.field.w * 0.52), h = w * 0.8;
+    const x = Math.min(L.field.x + L.field.w - w - 12 * u, L.wx1 - w - 6 * u), y = Math.max(sy(L, 22), L.song.y + L.song.h + 6 * u);
     ctx.save();
     ctx.globalAlpha = Math.max(0, a);
     rr(ctx, x, y, w, h, 14 * u);
-    ctx.fillStyle = 'rgba(38,24,56,0.86)';
+    ctx.fillStyle = 'rgba(38,24,56,0.9)';
     ctx.fill();
     ctx.strokeStyle = 'rgba(205,238,255,0.6)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    // the node: a bean with follicles
-    const cx = x + w / 2, cy = y + h * 0.58;
-    ctx.fillStyle = '#5b3f7a';
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, w * 0.36, h * 0.3, 0, 0, TAU);
-    ctx.fill();
-    const look = { t: this.now, seed: 0.4, dir: 0, speed: 0, eyes: false };
-    paintLymphocyte(ctx, cx - w * 0.14, cy, h * 0.13, look, false);
-    paintDendritic(ctx, cx - w * 0.3, cy - h * 0.05, h * 0.09, { ...look, seed: 0.8 });
-    // antibodies flying out (after the B cell lights)
-    if (tN > 1.4) for (let i = 0; i < 5; i++) {
-      const p = ((tN - 1.4) * 0.8 + i * 0.2) % 1;
-      paintY(ctx, cx + w * 0.05 + p * w * 0.35, cy - h * 0.1 + Math.sin(i * 2 + p * 4) * h * 0.12, Math.max(3, h * 0.05), 0.3);
-    }
-    const title = t('fact.dendrytyczna');
-    const size = fitFont(ctx, title, w - 16 * u, 13 * u, 11, 800);
-    ctx.font = font(size, 800);
+    const title = t('node.title'), text = t('node.text');
+    let size = fitFont(ctx, title, w - 16 * u, 14 * u, MIN_READ, 800);
     ctx.fillStyle = '#e6f7ff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText(title, cx, y + 7 * u);
+    ctx.fillText(title, x + w / 2, y + 7 * u);
+    let ty = y + 7 * u + size * 1.25;
+    size = Math.max(MIN_READ, 13 * u);
+    ctx.font = font(size, 600);
+    ctx.fillStyle = 'rgba(230,247,255,0.88)';
+    for (const l of wrapText(ctx, text, w - 16 * u).slice(0, 2)) {
+      ctx.fillText(l, x + w / 2, ty);
+      ty += size * 1.25;
+    }
+    // the node: a bean with follicles
+    const cx = x + w / 2, cy = ty + (y + h - ty) / 2;
+    const bh = (y + h - ty) * 0.4;
+    ctx.fillStyle = '#5b3f7a';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w * 0.36, bh, 0, 0, TAU);
+    ctx.fill();
+    const look = { t: this.now, seed: 0.4, dir: 0, speed: 0, eyes: false };
+    paintLymphocyte(ctx, cx - w * 0.14, cy, bh * 0.45, look, false);
+    paintDendritic(ctx, cx - w * 0.3, cy - bh * 0.15, bh * 0.3, { ...look, seed: 0.8 });
+    // antibodies flying out (after the B cell lights)
+    if (tN > 1.4) for (let i = 0; i < 5; i++) {
+      const p = ((tN - 1.4) * 0.8 + i * 0.2) % 1;
+      paintY(ctx, cx + w * 0.05 + p * w * 0.35, cy - bh * 0.3 + Math.sin(i * 2 + p * 4) * bh * 0.4, Math.max(3, bh * 0.16), 0.3);
+    }
     ctx.restore();
     void sim;
   }
+}
+
+/** Whether the segment (x0, y0)–(x1, y1) passes through a box (sampled: the boxes are big, the segment short). */
+function segHitsBox(x0: number, y0: number, x1: number, y1: number, b: { x: number; y: number; w: number; h: number }): boolean {
+  for (let i = 1; i < 16; i++) {
+    const k = i / 16, x = x0 + (x1 - x0) * k, y = y0 + (y1 - y0) * k;
+    if (x > b.x && x < b.x + b.w && y > b.y && y < b.y + b.h) return true;
+  }
+  return false;
 }

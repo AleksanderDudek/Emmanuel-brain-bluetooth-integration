@@ -81,10 +81,10 @@ export const RULES = {
   stars: [0.5, 0.78] as const,
   /** the loop's difficulty: waves and division grow by this a loop */
   loopK: 0.22,
-  /** a stage card stays this long (s), a tap closes it after 0.6 s; the first story card longer */
-  cardSec: 5.5,
-  storySec: 9,
+  /** a card waits for a tap (or Enter/Space): the stage does not run under it; a tap closes it after this (s) */
   cardTap: 0.6,
+  /** a stage's full card (the picture and its three lines) the first two times; a short one after (DESIGN §13.9) */
+  fullCards: 2,
 
   // ── the band ─────────────────────────────────────────────────
   /** the lead-in before the band acts (s): Mendi / HALO */
@@ -155,16 +155,29 @@ export const RULES = {
   /** a blind block's share of time above the threshold becomes this much burst charge */
   blindCharge: 0.7,
 
-  // ── Neo's lines ──────────────────────────────────────────────
-  talkMin: 2.2,
-  talkMax: 4,
-  talkGap: 2.4,
+  // ── the words on screen (round 11: long enough to read twice) ─
+  /** every caption stays base + perChar × its characters, never under min (s) */
+  read: { base: 2.5, perChar: 0.07, min: 4.5 },
+  /** a coach mark waits for its gesture this long at most (s); a gloss is never repeated */
+  coachMax: 20,
+  /** an explanation (no gesture) stays at least this long (s) */
+  infoMin: 9,
+  /** a pause between two of Neo's lines (s) */
+  talkGap: 1.6,
+  /** a rest shows what calm does at most this often (s) */
+  restNote: 6,
   /** the alarm above the threshold this long (s) before Neo cheers it */
   goodSec: 4,
 } as const;
 
 /** a + (b − a) × t for a [lo, hi] pair. */
 export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
+
+/**
+ * How long a text stays on screen (s): 2.5 s + 70 ms a character, never under 4.5 s — long enough to read it
+ * twice (the founder, 2026-11-17: "napisy i tłumaczenia zbyt szybko znikają").
+ */
+export const readSec = (text: string): number => Math.max(RULES.read.min, RULES.read.base + RULES.read.perChar * [...text].length);
 
 /** The loop's difficulty factor (1 in the first loop). */
 export const loopK = (loop: number): number => 1 + RULES.loopK * (Math.max(1, Math.floor(loop)) - 1);
