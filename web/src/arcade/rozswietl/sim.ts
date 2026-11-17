@@ -14,7 +14,10 @@
  *   gazing        in a rest block calm warms the uncovered pieces and lays gold in their seams (it flows
  *                 tile to tile); a dark tile touching gold cracks faster in the next push
  *   by feel       a blind push shows the base light only; its hidden light is released at its end
- *   pictures      the last tiles go in a chain, the bright scene blooms, its card and verse; the next one
+ *   pictures      the last tiles go in a slow chain, the bright scene blooms, the firefly says the place's line,
+ *                 then its card and verse — which waits for the player's tap; then the next one
+ *   a card        (the opening one, a picture's) waits for a tap, never time; the light rests under it, and the
+ *                 block's seconds under it are not judged (a block mostly under a card gets no verdict)
  *
  * Blocks as in every arcade game: a first-ever session's warm-up, push and rest blocks of 20–30 s with a
  * 4 s telegraph, each judged once at its end over its last 15 s, every 4th push blind from the 3rd session.
@@ -95,8 +98,8 @@ export type CoachAt = { kind: 'tile'; cell: number } | { kind: 'aim' } | null;
 
 export interface Story {
   kind: 'open' | 'done';
+  /** seconds on screen; it waits for a tap (taken after RULES.cardMin), never closes by itself */
   t: number;
-  dur: number;
   src: PicSrc | null;
   verse: PassageId;
   /** the share of the picture's seams in gold (0..100) */
@@ -243,6 +246,11 @@ export class RozSim {
   coachUp = false;
   /** a picture's card waiting for the bloom's first moment */
   private card: Story | null = null;
+  /** seconds of the current block a card covered; the block time from which the judge listens again after a card */
+  private covT = 0;
+  private judgeAt = 0;
+  /** when (s of play) a card closed inside a push or rest block: the runner's banner shows the block again */
+  private resumeAt = -1;
 
   // the light
   aim = 0;
@@ -316,7 +324,7 @@ export class RozSim {
     this.startBlock(0);
     if (this.session === 1 && !this.p.seen.includes('story.open')) {
       this.p.seen.push('story.open');
-      this.openStory({ kind: 'open', t: 0, dur: RULES.openSec, src: null, verse: ROOT, gold: 0, fresh: false });
+      this.openStory({ kind: 'open', t: 0, src: null, verse: ROOT, gold: 0, fresh: false });
       this.talk.ask('open', 4, 20);
     } else this.talk.ask(this.pic.day ? 'day' : 'back', 3, 10);
   }
@@ -333,17 +341,27 @@ export class RozSim {
   get leadIn(): number { return this.lead; }
   /** the task the panel shows ("W głowie") */
   get task(): string { return this.tip; }
-  /** the runner's block banner is (likely) on screen: the first seconds of a block after the first */
+  /**
+   * The runner's block banner is (likely) on screen: the first seconds of a block after the first, and of a block the
+   * player comes back to when a card closes (the dock begins it again).
+   */
   get bannerUp(): boolean {
-    return this.phase === 'play' && this.blockT < RULES.bannerSec && this.blockIndex > 0;
+    if (this.phase !== 'play') return false;
+    if (this.resumeAt >= 0 && this.t - this.resumeAt < RULES.bannerSec) return true;
+    return this.blockT < RULES.bannerSec && this.blockIndex > 0;
   }
+
+  /** A card is on screen and waits for the player's tap (the light rests; its seconds are not judged). */
+  get cardUp(): boolean { return this.story !== null; }
+
+  /** The card takes a tap now (past its first RULES.cardMin s). */
+  get cardReady(): boolean { return !!this.story && this.story.t >= RULES.cardMin; }
 
   /** the voice and the cards wait out the runner's banner and the telegraph */
   get quiet(): boolean {
     if (this.story || this.coachUp) return true;
     if (this.phase !== 'play') return false;
-    const b = this.block;
-    return this.blockT >= b.dur - RULES.telegraph || (this.blockT < RULES.bannerSec && this.blockIndex > 0);
+    return this.blockT >= this.block.dur - RULES.telegraph || this.bannerUp;
   }
 
   update(dt: number, f: FocusFrame, t: number): void {
@@ -351,25 +369,27 @@ export class RozSim {
     dt = Math.min(dt, 0.1);
     this.t = t;
     this.reliable = f.reliable && f.activity !== null;
-    if (this.story) {
-      this.story.t += dt;
-      if (this.story.t >= this.story.dur) this.closeStory();
-    }
+    // a card waits for the player: it never closes by itself
+    if (this.story) this.story.t += dt;
     if (this.phase === 'play') this.schedule(dt, f, t);
     else if (this.phase === 'finale' && t >= this.plannedSec) this.endSession();
     this.brain(dt, f);
     this.picture(dt);
-    this.talk.update(dt, t, this.quiet);
+    this.talk.update(dt, t, this.quiet, !!this.story || this.coachUp);
   }
 
   private schedule(dt: number, f: FocusFrame, t: number): void {
     const b = this.block;
     this.blockT += dt;
     if (b.kind !== 'warmup') {
-      const want = b.kind === 'push' ? 'focus' : 'rest';
-      this.judge.push(want, f, dt);
-      this.contrast.push(want, f.activity, f.reliable, this.blockT, dt);
-      if (f.reliable) this.relSec += dt;
+      // a card's seconds are not judged, nor the band's lead-in after it (it still shows the time under the card)
+      if (this.story) this.covT += dt;
+      else if (this.blockT >= this.judgeAt) {
+        const want = b.kind === 'push' ? 'focus' : 'rest';
+        this.judge.push(want, f, dt);
+        this.contrast.push(want, f.activity, f.reliable, this.blockT, dt);
+        if (f.reliable) this.relSec += dt;
+      }
     }
     if (b.kind === 'rest' && this.blockT >= RULES.bannerSec && this.blockT - dt < RULES.bannerSec) this.coach('rest', null);
     const last = this.blockIndex >= this.plan.length - 1;
@@ -392,6 +412,8 @@ export class RozSim {
     this.blockT = 0;
     this.telegraphed = false;
     this.relSec = 0;
+    this.covT = 0;
+    this.judgeAt = 0;
     this.judge.reset();
     this.talk.hush();
     const b = this.plan[i];
@@ -440,6 +462,12 @@ export class RozSim {
     }
     const want = b.kind === 'push' ? 'focus' : 'rest';
     const share = this.judge.share, need = this.judge.need(want);
+    // a block a card covered for most of its time is not judged, nor counted (the player was reading, not playing)
+    if (this.covT > RULES.cardJudge * Math.max(1e-6, this.blockT)) {
+      this.judge.reset();
+      this.emit({ type: 'blockEnd', block: b, verdict: null, share: 0, need });
+      return;
+    }
     const verdict = this.relSec >= RULES.minReliable ? this.judge.verdict() : null;
     if (b.kind === 'push') {
       this.pushes++;
@@ -520,9 +548,9 @@ export class RozSim {
       if (this.noSignalT > 6 && this.noSignalT - dt <= 6) this.talk.ask('nosignal', 3, 8);
     } else this.noSignalT = 0;
     // the flare fills only from held focus (a picture's bloom and the next one's assembly included: focus is never
-    // lost); a break in the focus drains it a little — the ring is sustained concentration made visible
-    const charging = ok && this.sighted && this.story?.kind !== 'open' && f.focused && f.hold >= R.flareHold;
-    if (!this.flareReady && ok && this.sighted && !f.focused) this.flare = Math.max(0, this.flare - dt * R.flareDrain);
+    // lost; a card waiting holds it as it is); a break in the focus drains it a little — sustained concentration made visible
+    const charging = ok && this.sighted && !this.story && f.focused && f.hold >= R.flareHold;
+    if (!this.flareReady && ok && this.sighted && !this.story && !f.focused) this.flare = Math.max(0, this.flare - dt * R.flareDrain);
     if (charging && !this.flareReady && this.pic.state !== 'finishing') {
       this.flare = Math.min(1, this.flare + dt / R.flareSec);
       if (this.flare >= 1) {
@@ -548,7 +576,7 @@ export class RozSim {
       }
     }
     // a blind push banks what the light would have done
-    if (this.blind && ok && this.blockT >= this.lead) this.blindBank += dt * Math.max(0, this.mult(clamp(f.level)) - 1);
+    if (this.blind && ok && !this.story && this.blockT >= this.lead) this.blindBank += dt * Math.max(0, this.mult(clamp(f.level)) - 1);
   }
 
   /** The light's multiplier for a band light `l`: ×1 below lightFrom, ×1.57 at the threshold, ×3 at full. */
@@ -574,7 +602,7 @@ export class RozSim {
 
   /** The pad follows the light in a sighted push, glows mid in the warm-up and holds still elsewhere. */
   padLevel(f: FocusFrame): number | null {
-    if (!this.started || !f.reliable || this.phase !== 'play') return null;
+    if (!this.started || !f.reliable || this.phase !== 'play' || this.story) return null;
     if (this.block.kind === 'warmup') return 0.5;
     if (this.sighted) return clamp(f.level);
     return null;
@@ -720,8 +748,10 @@ export class RozSim {
     if (pic.state === 'bloom') {
       this.gild(dt);
       this.chainStep();
-      // the bright scene alone for a moment, then its card (out of a banner's way), then the next picture
-      if (this.card && pic.stateT >= RULES.bloomSec * 0.55 && (!this.bannerUp || pic.stateT >= RULES.bloomSec)) {
+      // the bright scene alone while the last pieces fall and the firefly says the place's line (read twice), then
+      // its card (out of a banner's way), which waits for the player's tap; then the next picture
+      const saying = this.talk.pinned;
+      if (this.card && pic.stateT >= RULES.cardAt && (!saying || pic.stateT >= RULES.cardAt + 9) && (!this.bannerUp || pic.stateT >= RULES.bloomSec)) {
         this.openStory(this.card);
         this.card = null;
       }
@@ -770,7 +800,8 @@ export class RozSim {
     const aimed = pic.tiles[this.aim];
     if (!this.held && !this.capSaid && !aimed.open && aimed.press >= R.baseCap - 1e-6 && this.pushBlock && !this.blind) {
       this.capSaid = true;
-      this.talk.ask('cap', 2, 10);
+      // what breaks a tile is worth waiting for: it outranks the block's opening line
+      this.talk.ask('cap', 3, 24);
     }
   }
 
@@ -916,12 +947,11 @@ export class RozSim {
     this.flare = Math.min(this.flare, 0.999);
     this.flareReady = false;
     this.emit({ type: 'done', src: pic.src, gold, fresh });
-    this.card = { kind: 'done', t: 0, dur: RULES.cardSec, src: pic.src, verse, gold, fresh };
-    // what was waiting to be said is past: the picture's own line goes first
+    this.card = { kind: 'done', t: 0, src: pic.src, verse, gold, fresh };
+    // what was waiting to be said is past: the picture's own line goes first, at once, read in full before the card
     this.talk.clear();
-    this.talk.hush();
-    if (pic.src.kind === 'pair') this.talk.say(t(revealKey(pic.src.id)), 4, 14);
-    else this.talk.ask('done', 4, 14);
+    this.talk.hush(true);
+    this.talk.say(pic.src.kind === 'pair' ? t(revealKey(pic.src.id)) : this.talk.pick('done'), 9, 14, true);
   }
 
   private nextPicture(): void {
@@ -1022,7 +1052,7 @@ export class RozSim {
   }
 
   // ── the hands ───────────────────────────────────────────────────
-  /** Close a card that has been up long enough; true if a card took the tap. */
+  /** Close a card that has been up long enough (RULES.cardMin); true if a card is up (it takes the tap either way). */
   tapCard(): boolean {
     if (!this.story) return false;
     if (this.story.t >= RULES.cardMin) this.closeStory();
@@ -1178,7 +1208,7 @@ export class RozSim {
   /** A wave of light from `pt`: every dark tile within reach gets light by its distance; the full ones burst outward in turn. */
   private wave(pt: Pt, power: number, double: boolean): void {
     const pic = this.pic, R = RULES;
-    const reach = R.flareReach * pic.meanR;
+    const reach = this.waveReach();
     // the nearest tiles first: a wave bursts only a few of them (a flare is a moment, not the whole picture at once)
     const near: { i: number; d: number }[] = [];
     for (let i = 0; i < pic.tiles.length; i++) {
@@ -1198,13 +1228,19 @@ export class RozSim {
       tile.press += amount / tile.need;
       if (tile.press >= 1 && bursts > 0) {
         bursts--;
-        this.schedulePend(i, 0, this.t + 0.05 + (d / reach) * 0.5, double);
+        // the wave runs from its centre outward: the nearest tiles go first, the farther ones as it reaches them
+        this.schedulePend(i, 0, this.t + R.waveLead + R.waveSec * (d / reach), double);
       } else {
         // cracked, but kept under what the bursts' passed light could finish: a wave never runs on as a chain
         tile.press = Math.max(before, Math.min(tile.press, RULES.waveKeep));
         if (tile.press >= 0.12) this.emit({ type: 'crack', cell: i });
       }
     }
+  }
+
+  /** The wave's reach (mosaic units): RULES.flareReach mean radii, wider on a mosaic of many small pieces. */
+  waveReach(): number {
+    return RULES.flareReach * this.pic.meanR * Math.max(1, Math.sqrt(this.pic.tiles.length / RULES.flareTiles));
   }
 
   /** How many tiles one wave may burst: a few of the picture's tiles, never most of a small picture. */
@@ -1215,13 +1251,19 @@ export class RozSim {
   // ── cards and coach marks ───────────────────────────────────────
   private openStory(s: Story): void {
     this.story = s;
-    this.talk.hush();
+    this.talk.hush(true);
     this.emit({ type: 'story', kind: s.kind });
   }
 
   private closeStory(): void {
     if (!this.story) return;
     this.story = null;
+    // back in a block: the judge waits out the band's lead-in (it still shows the time under the card), and the
+    // runner's banner says the block again
+    if (this.phase === 'play' && this.block.kind !== 'warmup') {
+      this.judgeAt = this.blockT + (this.block.kind === 'push' ? this.lead : this.restLead);
+      this.resumeAt = this.t;
+    }
     this.emit({ type: 'storyEnd' });
   }
 

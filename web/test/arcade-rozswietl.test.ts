@@ -12,7 +12,10 @@ import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_TAP, MIN_TEXT, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import { coachText, howto } from '../src/arcade/rozswietl/index';
-import { cardBox, flySpot, frameFor, layout, tapTargets } from '../src/arcade/rozswietl/layout';
+import { cardBox, cardButton, flySpot, frameFor, layout, tapTargets } from '../src/arcade/rozswietl/layout';
+import { breakPlan, breakStagger, pieceCount } from '../src/arcade/rozswietl/break';
+import { NowLine, nowKind } from '../src/arcade/rozswietl/now';
+import { Talk, readSec } from '../src/arcade/rozswietl/talk';
 import { font, fontPx } from '../src/arcade/rozswietl/paint';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
@@ -466,16 +469,24 @@ describe('pictures', () => {
     expect(sim.score).toBeGreaterThan(before);
   });
 
-  it('grows the mosaics with the sessions (Auto): a few tiles first, a dozen soon, a few dozen later', () => {
-    expect(tilesFor(0, 0)).toBe(7);
-    expect(tilesFor(1, 0)).toBe(9);
-    expect(tilesFor(3, 0)).toBe(14);
-    expect(tilesFor(6, 0)).toBe(20);
-    expect(tilesFor(40, 0)).toBe(36);
-    expect(tilesFor(1, 1)).toBe(11);
-    expect(tilesFor(40, 2)).toBe(40);
-    expect(makeSim().pic.tiles.length).toBe(7);
-    expect(later({ progress: { sessions: 30 } }).pic.tiles.length).toBe(36);
+  it('grows the mosaics with the sessions (Auto): 16 tiles first, 72 from the tenth session (the founder: more pieces)', () => {
+    expect(RULES.tiles).toEqual([16, 20, 24, 28, 32, 40, 48, 56, 64, 72]);
+    expect(tilesFor(0, 0)).toBe(16);
+    expect(tilesFor(1, 0)).toBe(20);
+    expect(tilesFor(3, 0)).toBe(28);
+    expect(tilesFor(6, 0)).toBe(48);
+    expect(tilesFor(9, 0)).toBe(72);
+    expect(tilesFor(40, 0)).toBe(72);
+    // a session's 2nd and 3rd picture a few more
+    expect(tilesFor(1, 1)).toBe(24);
+    expect(tilesFor(0, 2)).toBe(24);
+    expect(tilesFor(40, 2)).toBe(80);
+    expect(tilesFor(40, 9)).toBeLessThanOrEqual(RULES.tilesMax);
+    // every step of Auto is at least twice what it was before 2026-11-17 at the start, never fewer later
+    const old = [7, 9, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36];
+    old.forEach((n, i) => expect(tilesFor(i, 0), `session ${i + 1}`).toBeGreaterThanOrEqual(2 * n));
+    expect(makeSim().pic.tiles.length).toBe(16);
+    expect(later({ progress: { sessions: 30 } }).pic.tiles.length).toBe(72);
   });
 
   it('lets the player choose the pieces: a fixed count for every picture, or Auto', () => {
@@ -485,12 +496,20 @@ describe('pictures', () => {
       expect(tilesFor(30, 2, n)).toBe(n);
       expect(later({ progress: { tilesPick: n } }).pic.tiles.length).toBe(n);
     }
+    expect(RULES.tileChoices).toEqual([0, 16, 24, 32, 48, 64, 96]);
     expect(tilesFor(3, 0, 0)).toBe(tilesFor(3, 0));
     expect(tilesFor(3, 0, 13)).toBe(tilesFor(3, 0));                 // not a choice: Auto
-    const p = mergeSaved(freshProgress(), { ver: 1, sessions: 2, tilesPick: 24 }) as RozProgress;
-    expect(migrate(p).tilesPick).toBe(24);
-    const bad = mergeSaved(freshProgress(), { ver: 1, sessions: 2, tilesPick: 999 }) as RozProgress;
-    expect(migrate(bad).tilesPick).toBe(0);
+    const saved = (tilesPick: unknown) => migrate(mergeSaved(freshProgress(), { ver: 1, sessions: 2, tilesPick }) as RozProgress).tilesPick;
+    // a current choice stays; the old card's 8 and 12 become its smallest (16); anything else is Auto
+    for (const n of [16, 24, 32, 48, 64, 96]) expect(saved(n), String(n)).toBe(n);
+    expect(saved(8)).toBe(16);
+    expect(saved(12)).toBe(16);
+    expect(saved(0)).toBe(0);
+    for (const bad of [999, 36, 13, -16, '24', null, 7.5]) expect(saved(bad), String(bad)).toBe(0);
+    // idempotent: a migrated 8 stays 16
+    const p = mergeSaved(freshProgress(), { ver: 1, sessions: 2, tilesPick: 8 }) as RozProgress;
+    expect(migrate(migrate(p)).tilesPick).toBe(16);
+    expect(later({ progress: { tilesPick: 96 } }).pic.tiles.length).toBe(96);
   });
 
   it('keeps every tile’s need near one and the picture’s pace sensible (1.5–2.5 min of base light)', () => {
@@ -582,9 +601,17 @@ describe('the session', () => {
     expect(sim.tilesBroken).toBeGreaterThanOrEqual(2);
   });
 
-  it('scores within 22 s of held focus with no input at all (a 40 s first session; the opening card closes by itself)', () => {
+  it('scores within 22 s of held focus once the opening card is closed (it waits for the player, never time)', () => {
+    const idle = makeSim({ planned: 40 });
+    drive(idle, 22, HIGH);
+    expect(idle.story?.kind).toBe('open');                         // no tap: the card still waits, the light rests
+    expect(idle.score).toBe(0);
     const sim = makeSim({ planned: 40 });
-    drive(sim, 22, HIGH);
+    const clock = { t: 0 };
+    drive(sim, 1.5, HIGH, clock);
+    sim.space();                                                    // Enter or Space (or a tap on it) after its first moment
+    expect(sim.story).toBeNull();
+    drive(sim, 20.5, HIGH, clock);
     expect(sim.score).toBeGreaterThan(0);
   });
 
@@ -832,15 +859,26 @@ describe('mobile first (DESIGN §12, §13.7)', () => {
     }
   });
 
-  it('lists only a waiting card as a target: finger-sized, inside the insets, at every checked size', () => {
+  it('lists only a waiting card’s button as a target: finger-sized, inside the card and the insets, at every checked size', () => {
     for (const s of CHECK_SIZES) {
-      const L = layout(s.w, s.h, s.insets, true);
-      const f = frameFor(L, L.aspect);
-      expect(tapTargets(null)).toEqual([]);
-      for (const kind of ['open', 'done'] as const) {
-        const box = cardBox(L, f, kind);
-        expect(auditTargets(tapTargets(box), s.w, s.h, s.insets), `${s.name} ${kind}`).toEqual([]);
-        expect(box.h, `${s.name} ${kind}`).toBeGreaterThanOrEqual(MIN_TAP);
+      for (const touch of [true, false]) {
+        const L = layout(s.w, s.h, s.insets, touch);
+        const f = frameFor(L, L.aspect);
+        expect(tapTargets(null)).toEqual([]);
+        for (const kind of ['open', 'done'] as const) {
+          const box = cardBox(L, f, kind), btn = cardButton(L, box);
+          const tg = tapTargets(btn);
+          expect(tg, `${s.name} ${kind}`).toHaveLength(1);
+          expect(auditTargets(tg, s.w, s.h, s.insets), `${s.name} ${kind}`).toEqual([]);
+          expect(btn.h, `${s.name} ${kind}`).toBeGreaterThanOrEqual(MIN_TAP);
+          expect(btn.w, `${s.name} ${kind}`).toBeGreaterThanOrEqual(200);
+          expect(btn.x).toBeGreaterThanOrEqual(box.x);
+          expect(btn.x + btn.w).toBeLessThanOrEqual(box.x + box.w + 0.5);
+          expect(btn.y).toBeGreaterThan(box.y + box.h / 2);
+          expect(btn.y + btn.h).toBeLessThanOrEqual(box.y + box.h);
+          // the bright picture shows above a picture's card
+          if (kind === 'done') expect(box.y - f.y, s.name).toBeGreaterThan(f.h * 0.15);
+        }
       }
     }
   });
@@ -928,5 +966,291 @@ describe('a big screen and a mouse (DESIGN §14)', () => {
     expect(sim.aim).toBe(target.id);
     const first = makeSim();
     if (first.story) expect(first.hoverAt({ x: target.cx, y: target.cy })).toBe(-1);
+  });
+});
+
+/** Run until a picture's card is up (a returning player in held focus, the card's taps never given). */
+function toCard(sim: RozSim, clock: { t: number }, f: FocusFrame | ((t: number) => FocusFrame) = HIGH): SimEvent[] {
+  const evs: SimEvent[] = [];
+  let guard = 0;
+  while (sim.story?.kind !== 'done' && guard++ < 2400) evs.push(...drive(sim, 0.25, f, clock));
+  return evs;
+}
+
+describe('round 11: the founder’s asks (2026-11-17)', () => {
+  it('the card waits for the player: no picture ever follows by itself, a tap in its first moment is not taken', () => {
+    const sim = later({ planned: 600, seed: 4 });
+    const clock = { t: 0 };
+    toCard(sim, clock);
+    expect(sim.story?.kind).toBe('done');
+    expect(sim.pic.state).toBe('bloom');
+    // a finger still tapping the last tiles: not taken in the card's first moment
+    sim.tapCard();
+    sim.space();
+    expect(sim.story).not.toBeNull();
+    const before = sim.p.pictures;
+    // two minutes untouched: the card is still there, no new picture began, nothing pressed
+    const evs = drive(sim, 120, HIGH, clock);
+    expect(sim.story?.kind).toBe('done');
+    expect(ofType(evs, 'picture')).toHaveLength(0);
+    expect(ofType(evs, 'burst')).toHaveLength(0);
+    expect(sim.p.pictures).toBe(before);
+    expect(sim.cardReady).toBe(true);
+    // a tap (or Enter, Space) on it: the next mosaic assembles
+    expect(sim.tapCard()).toBe(true);
+    expect(sim.story).toBeNull();
+    const next = drive(sim, 0.5, HIGH, clock);
+    expect(ofType(next, 'picture')).toHaveLength(1);
+    expect(sim.pic.state).toBe('assemble');
+  });
+
+  it('says the place’s line first, read in full, then shows the card', () => {
+    const sim = later({ planned: 600, seed: 6 });
+    const clock = { t: 0 };
+    let doneAt = -1, lineEnd = -1, cardAt = -1, line = '';
+    let guard = 0;
+    while (cardAt < 0 && guard++ < 40000) {
+      clock.t += STEP;
+      sim.update(STEP, HIGH, clock.t);
+      for (const e of sim.take()) {
+        if (e.type === 'done') doneAt = clock.t;
+        if (e.type === 'story' && e.kind === 'done') cardAt = clock.t;
+      }
+      if (doneAt >= 0 && sim.talk.line?.pinned) { line = sim.talk.line.text; lineEnd = clock.t; }
+    }
+    expect(doneAt).toBeGreaterThan(0);
+    expect(line).toBe(t(`pair.${(sim.pic.src as { id: string }).id}.reveal` as never));
+    expect(cardAt - doneAt).toBeGreaterThanOrEqual(RULES.cardAt - 1e-6);
+    // the line stayed long enough to read twice, and the card came only after it
+    expect(lineEnd - doneAt).toBeGreaterThanOrEqual(readSec(line) - 0.2);
+    expect(cardAt).toBeGreaterThanOrEqual(lineEnd);
+  });
+
+  it('rests the light under a card and does not judge its seconds: a block mostly under it gets no verdict', () => {
+    const sim = later({ planned: 900, seed: 4 });
+    const clock = { t: 0 };
+    toCard(sim, clock);
+    const flare = sim.flare;
+    // the block the card came in: let it end (it is judged on the seconds before the card, if most of it was play)
+    const idx = sim.blockIndex;
+    while (sim.blockIndex === idx) drive(sim, 0.25, HIGH, clock);
+    const pushes = sim.pushes, rests = sim.rests;
+    // a whole push and rest under the card: neither judged nor counted, the flare held as it was
+    const evs = drive(sim, 60, HIGH, clock);
+    const ends = ofType(evs, 'blockEnd');
+    expect(ends.length).toBeGreaterThanOrEqual(2);
+    for (const e of ends) expect(e.verdict, e.block.kind).toBeNull();
+    expect(sim.pushes).toBe(pushes);
+    expect(sim.rests).toBe(rests);
+    expect(sim.flare).toBeCloseTo(flare, 6);
+    expect(sim.meter()).toBeNull();
+    expect(sim.padLevel(HIGH)).toBeNull();
+    // closed in a push: the runner's banner says the block again, and its verdict counts what came after the card
+    until(sim, 'push', HIGH, clock);
+    expect(sim.story).not.toBeNull();
+    drive(sim, 2, HIGH, clock);
+    sim.tapCard();
+    expect(sim.bannerUp).toBe(true);
+    const after = drive(sim, sim.block.dur, HIGH, clock);
+    const v = ofType(after, 'blockEnd').find(e => e.block.kind === 'push');
+    expect(v?.verdict).toBe(true);
+    expect(sim.pushes).toBe(pushes + 1);
+  });
+
+  it('breaks a tile slowly: cracks first, then its pieces one after another, 1.5–2.5 s in all', () => {
+    const rnd = mulberry32(9);
+    for (let k = 1; k <= 9; k++) {
+      for (let r = 0; r < 20; r++) {
+        const plan = breakPlan(k, rnd);
+        expect(plan.pieces).toHaveLength(k);
+        expect(plan.crack).toBeGreaterThanOrEqual(0.35);
+        expect(plan.total, `k ${k}`).toBeGreaterThanOrEqual(1.5);
+        expect(plan.total, `k ${k}`).toBeLessThanOrEqual(2.5);
+        // every piece waits for the cracks, then they loosen in order, never all at once
+        plan.pieces.forEach((p, i) => {
+          expect(p.start).toBeGreaterThanOrEqual(plan.crack - 1e-9);
+          if (i) expect(p.start).toBeGreaterThan(plan.pieces[i - 1].start);
+          expect(p.life).toBeGreaterThanOrEqual(RULES.breakFall[0] - 1e-9);
+        });
+        if (k >= 4) expect(plan.pieces[k - 1].start - plan.pieces[0].start).toBeGreaterThanOrEqual(0.4);
+      }
+      expect(breakStagger(k)).toBeLessThanOrEqual(RULES.breakStagger);
+    }
+    // the cap of falling pieces: fewer pieces when many fall, one (a fading tile) at the cap
+    expect(pieceCount(9, 0)).toBe(7);
+    expect(pieceCount(3, 0)).toBe(5);
+    expect(pieceCount(27, 0)).toBe(9);
+    expect(pieceCount(9, RULES.breakCap - 4)).toBe(4);
+    expect(pieceCount(9, RULES.breakCap)).toBe(1);
+    expect(RULES.breakCap).toBeLessThanOrEqual(240);
+    // a frame cuts at most RULES.breakFrame sprites (a whole tile's worth at least): a chain never pays all at once
+    expect(RULES.breakFrame).toBeGreaterThanOrEqual(9);
+    expect(RULES.breakFrame).toBeLessThan(RULES.breakCap);
+  });
+
+  it('lets the last tiles go in a slow chain (0.35–0.45 s apart) and the flare’s wave run from its centre outward', () => {
+    expect(RULES.finishGap).toBeGreaterThanOrEqual(0.35);
+    expect(RULES.finishGap).toBeLessThanOrEqual(0.45);
+    // the finishing chain
+    const sim = later({ planned: 600, seed: 4 });
+    const clock = { t: 0 };
+    let fin = -1;
+    const times: number[] = [];
+    let guard = 0;
+    while (sim.pic.state !== 'bloom' && guard++ < 60000) {
+      clock.t += STEP;
+      sim.update(STEP, HIGH, clock.t);
+      for (const e of sim.take()) {
+        if (e.type === 'finishing') fin = clock.t;
+        if (e.type === 'burst' && fin >= 0) times.push(clock.t);
+      }
+    }
+    expect(times.length).toBeGreaterThanOrEqual(2);
+    for (let i = 1; i < times.length; i++) expect(times[i] - times[i - 1], `link ${i}`).toBeGreaterThan(0.3);
+    // the wave: nearer tiles burst first, the farthest up to RULES.waveSec later
+    const w = later({ progress: { sessions: 30 }, seed: 2 });
+    const c2 = { t: 0 };
+    drive(w, 6, HIGH, c2);
+    for (const tl of w.pic.tiles) tl.press = 0.6;                  // cracked by earlier focus: the wave's own bursts only
+    w.flare = 0.9999;
+    drive(w, 0.05, HIGH, c2);
+    // at a dark tile near the middle (the light has opened the middle already)
+    const dark = w.pic.mosaic.cells.filter(c => !w.pic.tiles[c.id].open).sort((a, b) => a.ring - b.ring)[0];
+    const at = { x: dark.cx, y: dark.cy };
+    w.tap(at);
+    const bursts: { d: number; t: number }[] = [];
+    const t0 = c2.t;
+    for (let i = 0; i < 2.2 / STEP; i++) {
+      c2.t += STEP;
+      w.update(STEP, frame({ ...HIGH, level: 0.3, focused: false, hold: 0 }), c2.t);
+      for (const e of w.take()) {
+        if (e.type === 'burst' && e.depth === 0) {
+          const c = w.pic.mosaic.cells[e.cell];
+          bursts.push({ d: Math.hypot(c.cx - at.x, c.cy - at.y), t: c2.t - t0 });
+        }
+      }
+    }
+    expect(bursts.length).toBeGreaterThanOrEqual(2);
+    expect(bursts.length).toBeLessThanOrEqual(w.waveBursts());
+    // not at once: the farther tile a good while after the nearest
+    expect(bursts[bursts.length - 1].t - bursts[0].t).toBeGreaterThan(0.15);
+    expect(bursts[0].t).toBeLessThan(0.3);
+    for (let i = 1; i < bursts.length; i++) expect(bursts[i].d).toBeGreaterThanOrEqual(bursts[i - 1].d - 1e-6);
+    expect(Math.max(...bursts.map(b => b.t))).toBeLessThanOrEqual(RULES.waveLead + RULES.waveSec + 0.05);
+  });
+
+  it('keeps a picture as long as it was before the pieces doubled, or a little longer — never faster', () => {
+    const old = [7, 9, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36];
+    for (let i = 0; i < 14; i++) {
+      const before = 95 + 1.1 * old[Math.min(old.length - 1, i)];
+      const n = tilesFor(i, 0);
+      const now = RULES.picBase + RULES.picPerTile * n;
+      expect(now, `session ${i + 1}: ${n} tiles`).toBeGreaterThanOrEqual(before - 1e-9);
+      expect(now, `session ${i + 1}: ${n} tiles`).toBeLessThanOrEqual(before * 1.12);
+      expect(later({ progress: { sessions: i } }).pic.perTile * n).toBeCloseTo(now, 6);
+    }
+  });
+
+  it('paces sessions as measured (focus held half of each 16 s, a tap every 2.5 s): pictures as before, twice the pieces', () => {
+    const run = (sessions: number, planned: number, share: number, seed: number) => {
+      const sim = new RozSim({
+        progress: { ...freshProgress(), sessions, pushes: sessions * 6, seen: sessions ? [...ALL_SEEN] : [], lastDay: sessions ? DAY : '' },
+        rng: mulberry32(seed), day: DAY, daySeed: 3, plannedSec: planned, eeg: false, tuning: TUNING, aspect: 1,
+      });
+      sim.start();
+      const clock = { t: 0 };
+      let hold = 0, tap = 1;
+      drive(sim, planned + 4, tt => {
+        const on = tt % 16 < 16 * share;
+        hold = on ? hold + STEP : 0;
+        return on ? frame({ level: 0.62, activity: 3, focused: true, hold, calm: 0.2 }) : frame({ level: 0.3, activity: 1, calm: 0.6 });
+      }, clock, tt => {
+        if (sim.story && sim.story.t > 1.5) sim.tapCard();
+        if (tt >= tap) { tap += 2.5; sim.tap(centre(sim)); }
+      });
+      return sim;
+    };
+    const mean = (f: (s: RozSim) => number, sims: RozSim[]) => sims.reduce((a, s) => a + f(s), 0) / sims.length;
+    const first = [1, 2, 3, 4].map(seed => run(0, 300, 0.5, seed));
+    expect(mean(s => s.picturesDone, first)).toBeGreaterThanOrEqual(1);
+    expect(mean(s => s.tilesBroken, first)).toBeGreaterThanOrEqual(20);
+    const eleventh = [1, 2, 3].map(seed => run(10, 600, 0.5, seed));
+    expect(mean(s => s.picturesDone, eleventh)).toBeGreaterThanOrEqual(1.5);
+    expect(mean(s => s.picturesDone, eleventh)).toBeLessThanOrEqual(3);
+    expect(mean(s => s.tilesBroken, eleventh)).toBeGreaterThanOrEqual(140);
+    // little focus: progress only from it — a picture, no flare
+    const low = [1, 2].map(seed => run(10, 600, 0.3, seed));
+    expect(mean(s => s.flares, low)).toBe(0);
+    expect(mean(s => s.picturesDone, low)).toBeLessThanOrEqual(1.5);
+  });
+
+  it('keeps every line on screen long enough to read twice (2.5 s + 70 ms a character, never under 4.5 s)', () => {
+    expect(readSec('Tak.')).toBe(4.5);
+    expect(readSec('x'.repeat(60))).toBeCloseTo(2.5 + 0.07 * 60, 6);
+    const talk = new Talk(() => ['Krótko.', 'Ten wiersz jest dłuższy i ma w sobie około siedemdziesięciu znaków.'], mulberry32(1));
+    const seen = new Map<string, number>();
+    let now = 0;
+    talk.ask('push', 1, 99);
+    talk.ask('rest', 1, 99);
+    for (let i = 0; i < 30 / STEP; i++) {
+      now += STEP;
+      talk.update(STEP, now, false);
+      if (talk.line) seen.set(talk.line.text, talk.line.t);
+    }
+    for (const [text, shown] of seen) expect(shown, text).toBeGreaterThanOrEqual(readSec(text) - 2 * STEP);
+    // a coach mark lasts by the same rule (index.ts asks the runner for readSec × 1000 ms)
+    for (const w of ['aim', 'knock', 'halo', 'flare', 'blind'] as const) expect(readSec(coachText(w, true))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('shows one short “what to do now” line, changed only when the action changes', () => {
+    const sim = makeSim({ planned: 300 });
+    expect(nowKind(sim)).toBeNull();                               // the opening card: its button says what to do
+    const clock = { t: 0 };
+    drive(sim, 1.5, MID, clock);
+    sim.space();
+    expect(nowKind(sim)).toBe('warm');
+    until(sim, 'push', MID, clock);
+    expect(nowKind(sim)).toBe('push');
+    until(sim, 'rest', MID, clock);
+    expect(nowKind(sim)).toBe('rest');
+    const ready = later();
+    drive(ready, 6, HIGH);
+    ready.flare = 0.9999;
+    drive(ready, 0.05, HIGH);
+    expect(nowKind(ready)).toBe('flare');
+    drive(ready, 0.05, LOW);
+    expect(nowKind(ready)).toBe('flareWait');
+    // the line waits RULES.nowSettle s before it follows a change, and never flickers with a moment of focus
+    const line = new NowLine();
+    line.update(0.1, 'push');
+    expect(line.kind).toBe('push');
+    for (let i = 0; i < 10; i++) {
+      line.update(0.3, 'flare');
+      line.update(0.3, 'flareWait');
+    }
+    expect(line.kind).toBe('push');
+    line.update(RULES.nowSettle + 0.01, 'flare');
+    line.update(0.01, 'flare');
+    expect(line.kind).toBe('flare');
+    line.update(0.01, null);
+    expect(line.kind).toBeNull();
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, string>;
+      for (const k of ['now.warm', 'now.warm.mouse', 'now.push', 'now.blind', 'now.flare', 'now.flare.mouse', 'now.flareWait', 'now.rest', 'now.finale']) {
+        expect(c[k], `${l}.${k}`).toBeTruthy();
+        expect(c[k].length, `${l}.${k}`).toBeLessThanOrEqual(50);
+      }
+      expect(c['now.warm.mouse'], l).toMatch(/klik|click|klick/i);
+    }
+  });
+
+  it('glosses its own words the first time they show: the threshold, the flare', () => {
+    expect(t('coach.halo')).toMatch(/próg — /);
+    expect(t('coach.flare')).toMatch(/Rozbłysk \(fala światła/);
+    for (const l of ['en', 'de', 'sv'] as const) {
+      const c = CATALOGS[l] as Record<string, string>;
+      expect(c['coach.flare'], l).toMatch(/\(/);
+      expect(c['coach.halo'].length, l).toBeGreaterThan(70);
+    }
   });
 });

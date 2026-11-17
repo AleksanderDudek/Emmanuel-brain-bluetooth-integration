@@ -2,7 +2,8 @@
  * Rozświetl's sound, on the kit's synthesiser (kit/audio.ts): a low, patient pad in D (its filter
  * follows the light in a sighted push, the runner drives it from RozSim.padLevel) that turns to a warm
  * major chord when a picture is transformed; a glassy tick when a crack opens, a soft knock for a tap,
- * a deep thud with a glass shimmer for a burst (higher with every link of a chain), a rising whoosh and
+ * a deep thud with a glass shimmer for a burst (higher with every link of a chain), then small glass
+ * ticks as its pieces fall away one after another (the slow break, break.ts), a rising whoosh and
  * a chord for the flare, a small chime when a seam fills with gold, a bell arpeggio for a picture done,
  * the firefly's two-note chirp when it speaks.  Busy moments are throttled so a chain never becomes noise.
  */
@@ -74,6 +75,8 @@ export class RozSound {
         a.noiseBurst(0.42, { type: 'highpass', freq: 6200, sweepTo: 1800, gain: 0.06 });
         a.bell(ladder(Math.min(this.chain + 2, 16), ROOT), 0.045, 1.2);
         if (e.double) a.bell(ladder(Math.min(this.chain + 5, 18), ROOT), 0.03, 0.9, 0.05);
+        // the pieces falling away one by one: a few soft glass ticks after the cracks have run (not in a long chain)
+        if (this.chain <= 3) for (let i = 0; i < 3; i++) a.bell(2300 + Math.random() * 900, 0.009, 0.25, 0.5 + i * 0.28 + Math.random() * 0.08);
         break;
       }
       case 'chain':

@@ -4,12 +4,15 @@
  * often and how much gold; a tap makes it the next picture), which pictures play (built-in, mine, both),
  * the player's own pairs — an "after" photo and, if they like, a "before" (kit/images.ts keeps them only on
  * this device: the card says so), a name, delete — and the help line (DESIGN §13.3), small but whole.
+ * On a desktop a photo can also be dropped on the card or pasted (kit `imageDrop`); a photo that cannot be kept says
+ * why in the game's words (not a picture, an iPhone's HEIC outside Safari, a format, too big, no room).
  * Built with h(); a choice saves and redraws the card.
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
 import {
-  cleanLabel, deleteImage, imagePicker, imagesAvailable, listImages, saveImage, setLabel, thumbUrl, type StoredImage,
+  ImageError, cleanLabel, deleteImage, imageDrop, imagePicker, imagesAvailable, listImages, saveImage, setLabel, thumbUrl,
+  type StoredImage,
 } from '../kit/images';
 import { coarsePointer } from '../kit/mobile';
 import { dayKey, daySeed } from '../kit/progress';
@@ -49,13 +52,52 @@ function today(): { day: string; seed: number } {
   return { day, seed: daySeed(GAME, day) };
 }
 
+/** Why a photo could not be kept, in the game's words. */
+export function imageErrorText(e: unknown): string {
+  if (e instanceof ImageError) {
+    switch (e.reason) {
+      case 'notImage': return t('panel.err.notImage');
+      case 'heic': return t('panel.err.heic');
+      case 'format': return t('panel.err.format');
+      case 'tooBig': return t('panel.err.tooBig');
+      case 'storage': return t('panel.err.storage');
+    }
+  }
+  return t('panel.error');
+}
+
+/** The last card's drop and paste listeners (one card at a time: a new one lets the old ones go). */
+let dropOff: (() => void) | null = null;
+
 export function progressPanel(p: RozProgress, save: () => void): HTMLElement {
   const root = h('div', { class: 'arcade-panel' });
   const state = { busy: false, error: '', images: new Map<string, StoredImage>() };
   const render = (): void => {
     while (root.firstChild) root.removeChild(root.firstChild);
-    for (const el of build(p, state, changed, refresh)) root.appendChild(el);
+    for (const el of build(p, state, changed, refresh, addAfter)) root.appendChild(el);
   };
+  /** A new "after" photo (picked, dropped or pasted): kept on this device, a new own pair. */
+  const addAfter = (file: File): void => {
+    if (state.busy) return;
+    state.busy = true;
+    state.error = '';
+    changed();
+    const n = p.own.length + 1;
+    const label = t('panel.ownName', { n });
+    saveImage(GAME, 'after', file, label).then(rec => {
+      addOwn(p, { id: `own-${rec.id}`, after: rec.id, before: null, label: rec.label || label, added: rec.added });
+      state.images.set(rec.id, rec);
+    }).catch(e => {
+      state.error = imageErrorText(e);
+    }).finally(() => {
+      state.busy = false;
+      changed();
+    });
+  };
+  if (imagesAvailable() && typeof document !== 'undefined') {
+    dropOff?.();
+    dropOff = imageDrop(root, addAfter);
+  }
   const changed = (): void => {
     save();
     render();
@@ -74,7 +116,7 @@ export function progressPanel(p: RozProgress, save: () => void): HTMLElement {
 
 interface PanelState { busy: boolean; error: string; images: Map<string, StoredImage> }
 
-function build(p: RozProgress, st: PanelState, changed: () => void, refresh: () => void): HTMLElement[] {
+function build(p: RozProgress, st: PanelState, changed: () => void, refresh: () => void, addAfter: (f: File) => void): HTMLElement[] {
   const best = bestOf(p);
   const { day, seed } = today();
   const dp = dayPair(seed);
@@ -135,24 +177,9 @@ function build(p: RozProgress, st: PanelState, changed: () => void, refresh: () 
   } else {
     out.push(h('p', { class: 'muted' }, t('panel.ownIntro')));
     for (const o of p.own) out.push(ownRow(p, o, st, changed, refresh));
-    const add = imagePicker(st.busy ? t('panel.saving') : t('panel.addAfter'), file => {
-      if (st.busy) return;
-      st.busy = true;
-      st.error = '';
-      changed();
-      const n = p.own.length + 1;
-      const label = t('panel.ownName', { n });
-      saveImage(GAME, 'after', file, label).then(rec => {
-        addOwn(p, { id: `own-${rec.id}`, after: rec.id, before: null, label: rec.label || label, added: rec.added });
-        st.images.set(rec.id, rec);
-      }).catch(() => {
-        st.error = t('panel.error');
-      }).finally(() => {
-        st.busy = false;
-        changed();
-      });
-    });
+    const add = imagePicker(st.busy ? t('panel.saving') : t('panel.addAfter'), addAfter);
     out.push(h('div', { class: 'arcade-chips' }, add));
+    if (!coarsePointer()) out.push(h('p', { class: 'muted' }, t('panel.drop')));
     if (st.error) out.push(h('p', { class: 'img-note', role: 'alert' }, st.error));
     out.push(h('p', { class: 'img-note' }, t('panel.ownNote')));
   }
@@ -194,8 +221,8 @@ function ownRow(p: RozProgress, o: OwnPair, st: PanelState, changed: () => void,
       saveImage(GAME, 'before', file, o.label).then(rec => {
         o.before = rec.id;
         st.images.set(rec.id, rec);
-      }).catch(() => {
-        st.error = t('panel.error');
+      }).catch(e => {
+        st.error = imageErrorText(e);
       }).finally(() => changed());
     }));
   }

@@ -3,7 +3,7 @@
  *
  *   the album      every picture transformed: how often, the best gold laid in its seams, the first and
  *                  the last day — the eight pairs and the player's own
- *   the tiles      the mosaics grow with the sessions: a few tiles at first, a dozen soon, dozens later
+ *   the tiles      the mosaics grow with the sessions: 16 tiles at first, 72 from the tenth session
  *   the rotation   the day's picture first each day (the same for everyone), else the pair transformed
  *                  least; the player may choose the next one, and whether the own pictures take turns
  *                  ("builtin", "own", "both")
@@ -127,12 +127,24 @@ export function migrate(p: RozProgress): RozProgress {
   p.lastDay = day(raw.lastDay);
   p.dayDone = day(raw.dayDone);
   p.next = int(raw.next);
-  p.tilesPick = (RULES.tileChoices as readonly number[]).includes(num(raw.tilesPick, -1)) ? num(raw.tilesPick) : 0;
+  p.tilesPick = readPick(raw.tilesPick);
   p.seen = Array.isArray(raw.seen) ? [...new Set(raw.seen.filter((s): s is string => typeof s === 'string'))] : [];
   return p;
 }
 
 // ── the tiles ────────────────────────────────────────────────────
+
+/**
+ * A saved tile choice as the card offers it now: a current choice stays; one the card offered before 2026-11-17 (8,
+ * 12) becomes the smallest it offers now (16); anything else is "Auto" (0).
+ */
+export function readPick(v: unknown): number {
+  const n = num(v, -1);
+  const choices = RULES.tileChoices as readonly number[];
+  if (choices.includes(n)) return n;
+  if ((RULES.tilesOld as readonly number[]).includes(n)) return Math.min(...choices.filter(c => c > 0));
+  return 0;
+}
 
 /** How many tiles a picture has: by the sessions saved before this one, a little more for a session's later pictures. */
 export function tilesFor(sessionsBefore: number, pictureInSession: number, pick = 0): number {

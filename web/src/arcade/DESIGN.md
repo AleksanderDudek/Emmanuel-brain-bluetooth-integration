@@ -4072,6 +4072,11 @@ obrazki związane z negatywnymi stanami ludzi sukcesywnie niszczone… wzdłuż 
 **your attention is light behind a dark mosaic; where it presses long enough, the dark breaks and the same
 place shows in the light.** Root: Isaiah 60:1 ("Arise, shine, for your light has come").
 
+Round 11 (2026-11-17, the founder after playing: *"Świetlik — więcej elementów mozaiki, wolniejszy rozpad.
+Przejście do kolejnej gry dopiero po kliknięciu na modal końcowy."*): **more pieces** (16 → 72, the card up to 96),
+**a slow break** (the cracks run across a tile, then its pieces fall away one by one), **the end card waits for a
+click**, and the clarity rules (captions read twice, a "what to do now" line, glosses, the first tap drawn).
+
 **The pictures (scenes.ts on scenekit.ts).** Eight pairs, each **one place painted twice** with the same
 composition, so the light uncovers the same place transformed. All sixteen share one storybook gouache
 style from one kit: a stage in units of min(w, h)/100 that composes at any aspect from 3:4 to 2:1 (the key
@@ -4098,15 +4103,20 @@ sodium lamp; the bright scenes' dawn sky, honey light, fresh greens, coral and t
 Dignity (§13.3, §13.4): moods, never wounds, self-harm or horror; faces without features (a lowered head
 says enough); sadness is *smutek*; the light that breaks the mosaic is just light, no figure in it.
 
-**The mosaic (kit/mosaic.ts).** The dark picture lies on Voronoi tiles over the bright one: **7 tiles in
-the first session, then 9, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36** (by the sessions saved; a session's 2nd and
-3rd picture take 2 and 4 more — "Auto"; slower since 2026-11-17, when a burst began to need held focus; the
-progress card also offers a fixed **8, 12, 16, 24, 32 or 48**: the founder asked to check the tile count, and the
-right number depends on the player's focus and patience), seeds denser where the bright picture has detail (the kit's `detailWeight` over its
-edge map, softened), so faces and hands break into smaller pieces. A tile's need grows with its size
-(area/mean)^0.6. The frame keeps the picture's own proportions and takes the whole band under the HUD; a
-phone that turns cuts the picture again for the new frame, every new tile taking the state of the old one
-under it (uncovered, pressure, warmth, gold — nothing is lost).
+**The mosaic (kit/mosaic.ts).** The dark picture lies on Voronoi tiles over the bright one: **"Auto" 16 tiles in
+the first session, then 20, 24, 28, 32, 40, 48, 56, 64, 72** (by the sessions saved; a session's 2nd and 3rd
+picture take 4 and 8 more, at most 96). The progress card also offers a fixed **16, 24, 32, 48, 64 or 96** (a save
+from before 2026-11-17 that chose 8 or 12 reads as 16; anything not offered as Auto). Until 2026-11-17 Auto was
+7 → 36 and the card 8–48: the founder asked for more pieces. Seeds are denser where the bright picture has detail
+(the kit's `detailWeight` over its edge map, softened), so faces and hands break into smaller pieces. A tile's
+need grows with its size (area/mean)^0.6, and a picture takes **95 + 0.6·N seconds of base light** (it was
+95 + 1.1·N): every session's picture takes as long as it did before the pieces doubled, or up to 10 % longer —
+never less (session 1: 103 → 105 s; session 5: 113 → 114 s; from the 12th: 135 → 138 s). The frame keeps the
+picture's own proportions and takes the whole band under the HUD; a phone that turns cuts the picture again for
+the new frame, every new tile taking the state of the old one under it (uncovered, pressure, warmth, gold —
+nothing is lost). On the small phone 96 pieces are ~34 px across: still aimable (a tap aims the tile under the
+finger, or the dark tile nearest a tap on the light; a drag has its lens 58 px above the finger), the gauge ring
+never under 18 px, the crack strokes thinner on small tiles.
 
 **The light (push block, the gauge "Światło").** The light presses on the aimed tile from behind.
 **Only held focus breaks a tile** (the founder, 2026-11-17: *"Rozbłysk ma się dziać tylko przy utrzymanej
@@ -4115,42 +4125,59 @@ koncentracji"* — the flash must happen only with sustained concentration):
   glow and grow, nothing bursts. The base light (a first-ever warm-up's ×1.6 too), a tap's **knock** (0.6 s of the
   base light at once, weaker when knocks come quicker than 1.2 s) and a rest's banked reserve all stop there; the
   first time the aimed tile reaches the cap without focus, the firefly says what breaks it ("Rysy już są. Kafel
-  pęknie od światła Twojego skupienia.");
+  pęknie od światła Twojego skupienia." — it outranks the block's opening line, so it is never lost);
 * **with held focus** — a sighted push past its lead-in (5 s Mendi, 2 s HALO) while the band's `focused` has held
   ≥ 1.5 s — the light presses past the cap at ×(1 + 2 · clamp((level − 0.3)/0.7)): ×1.57 at the threshold, ×3 at
-  full (a picture's pace: 95 + 1.1·N seconds of that base light, so ~45–80 s of held focus at the threshold), and
-  its **halo** widens (radius 1 + 2·level mean tile radii) and spills 35 % of the light (falling off) onto the tiles
-  inside it.
+  full, and its **halo** widens (radius 1 + 2·level mean tile radii) and spills 35 % of the light (falling off)
+  onto the tiles inside it.
 * In the world the gauge is drawn around the aimed tile: the **gold rim's radius is the light**, the
   **dotted ring is the threshold** (it turns gold above it); the whole grout network glimmers with warm
   white light in proportion (light seeping through the cracks from behind), brightest along the aimed
   tile's edges; each pressed tile glows from behind and its **cracks grow** with the pressure (the kit's
   crack lines from where the light or the knock hit, a growing share of each, two strokes: a warm wide one
   and a white-hot core).
-* A full tile **bursts**: its shards (the kit's `shards`, sprites of the dark picture with a lit rim) fly,
-  spin and turn into motes; a flash in the picture's own light colour; a deep thud and a glass shimmer
-  that climbs with every link; haptics; "+9". It passes light to each dark neighbour: 0.1 (+0.08 × the
-  light while the band acts) of its need × its gold, less with each link (×0.7) — **under one tile's
-  worth in all**, so a chain needs tiles the halo or the gold has already cracked: **focus and gazing make
-  the chains** (counted once when they end, "Łańcuch ×4").
+* A full tile **breaks slowly** (break.ts; the founder: *"wolniejszy rozpad"*): its pieces (the kit's `shards`
+  of the tile inside its grout, sprites of the dark tile as drawn, pooled) stay in place while **the cracks run
+  across the whole tile** from where the light pressed to the border (0.42 s, a white-hot core and a warm wide
+  stroke; the pressure's cracks fade), a soft light swelling behind it in the picture's own light colour; then
+  **the pieces loosen one after another**, the nearest to that point first (≤ 0.17 s apart, the whole stagger
+  ≤ 0.85 s), each with a small push out of the wall, falling with gravity (300 px/s² × u), spinning slowly
+  (≤ 1.8 rad/s), a little smaller, fading over the last half of its 0.95–1.2 s fall into motes — **1.5–2.5 s a
+  tile**, and the bright picture shows through piece by piece (the layer holds the bright piece from the burst).
+  At most **220 pieces** fall at once: past that a burst gets fewer, at the cap one (the tile fading in place); and at
+  most 27 are cut in one frame (a chain or a wave never pays for all its sprites at once); reduced motion: one piece
+  fading in place. A deep thud, a glass shimmer that climbs with every link, then soft
+  glass ticks as the pieces go; haptics; "+9". It passes light to each dark neighbour: 0.1 (+0.08 × the light
+  while the band acts) of its need × its gold, less with each link (×0.7) — **under one tile's worth in all**, so
+  a chain needs tiles the halo or the gold has already cracked: **focus and gazing make the chains** (links
+  0.3 s apart, so the light is seen passing; counted once when they end, "Łańcuch ×4").
 * **The flare (Rozbłysk)**, the firefly's ring — sustained concentration made visible: **only held focus** (≥ 1.5 s)
-  fills it, in 12 s; a break in the focus drains it (1/30 a second), so scattered moments of focus never build it
-  (at 30 % focus a 10-minute session fills none, at 50 % two to four). Ready, it goes off **only in held focus**:
-  a tap on the mosaic (Space on a keyboard), or by itself after 3 more seconds of held focus; without focus it
-  waits (the ring dims and breathes slowly) and a tap gets the firefly's "Rozbłysk czeka na Twoje skupienie".
-  Its wave presses the dark tiles within 2.2 mean radii (0.8 × the fall-off × gold) and **bursts at most
-  max(2, 12 % of the tiles)** — the nearest ones (2 of a small picture, 4 of 36), the others crack up to 80 %, so
-  no chain runs on from it; bursts in the next 1.6 s count double. (Before 2026-11-17 a hold under 1.5 s filled
-  it at half, it went off by itself after 6 s whatever the focus, and its 3.2-radii wave could open most of a
-  7-tile picture at once.)
+  fills it, in 12 s; a break in the focus drains it (1/30 a second), so scattered moments of focus never build it.
+  Ready, it goes off **only in held focus**: a tap on the mosaic (Space on a keyboard), or by itself after 3 more
+  seconds of held focus; without focus it waits (the ring dims and breathes slowly) and a tap gets the firefly's
+  "Rozbłysk czeka na Twoje skupienie". Its wave presses the dark tiles within 2.2 mean radii × √(N/36) past 36
+  tiles (so a mosaic of small pieces gets a flare covering the same share of the picture; 0.8 × the fall-off ×
+  gold) and **bursts at most max(2, 12 % of the tiles)** — the nearest ones, the others crack up to 80 %, so no
+  chain runs on from it. **The wave runs from its centre outward**: a tile bursts as the drawn ring reaches it,
+  0.12 + 1.3·d/reach s after the release; bursts in the next 2.4 s count double.
 * Without a reliable signal the light freezes at neutral: the base light only (cracks), no gauge, no loss.
 * **Blind push** ("Na wyczucie", every 4th push from the 3rd session): the halo and the gauge hide, only the
   base light works; at the block's end the hidden light lands as a wave as strong as the block's share
   above the threshold ("To światło zbierało się w ukryciu").
-* **Pacing, measured with the sim** (2026-11-17; focus held half of the time in 16 s cycles, taps every 2.5 s):
-  a first-ever 5-minute session uncovers 2 pictures (11 tiles), the 4th session's 5 minutes 2 pictures of 18 tiles,
-  the 11th session's 10 minutes 2 pictures of 36 tiles (94 tiles, 3 flares); at 30 % focus one picture and no flare,
-  at 70 % three pictures and six flares. Without focus: cracks, no burst, no score.
+* **Pacing, measured with the sim** (2026-11-17, round 11; focus held a share of each 16 s cycle, a tap every
+  2.5 s, the card closed after 1.5 s; 6 seeds; before → now):
+
+  | Session | Before (7 → 36 tiles) | Now (16 → 72 tiles) |
+  |---|---|---|
+  | 1st, 5 min, 50 % focus | 1.5 pictures, 14 tiles, 1.8 flares | 1.3 pictures, 30 tiles, 1.7 flares |
+  | 4th, 5 min, 50 % | 1 picture, 20 tiles, 1.2 flares | 1 picture, 39 tiles, 1.2 flares |
+  | 4th, 5 min, 70 % | 2 pictures, 33 tiles, 3.2 flares | 2 pictures, 62 tiles, 3 flares |
+  | 11th, 10 min, 50 % | 2.2 pictures, 90 tiles, 3.2 flares | 2.2 pictures, 201 tiles, 3 flares |
+  | 11th, 10 min, 30 % | 1 picture, 44 tiles, no flare | 1 picture, 94 tiles, no flare |
+  | 11th, 10 min, 70 % | 3.3 pictures, 133 tiles, 7.3 flares | 3 pictures, 283 tiles, 7 flares |
+
+  A picture takes as long as before (153–201 s at 50 %, now 157–200 s; 25–33 s of held focus each). Without
+  focus: cracks, no burst, no score.
 
 **Gazing (rest block, the gauge "Ciepło").** The dark tiles rest (no pressure). Past a 4 s lead-in (2 s
 HALO) calm **warms** the uncovered pieces (a new piece is a little pale; 0.04 + 0.12·calm per second to its
@@ -4168,59 +4195,103 @@ for the light ("Zobacz stół zastawiony do wspólnego posiłku: kto przy nim si
 (subtract 7 from 100), one with letters, one recalling a day someone helped — never the same twice in a
 row; own pictures get their own lines; blind blocks get a describing and a counting line.
 
-**A picture done.** When ≤ 10 % of the tiles are left they go together, one every 0.16 s from the last burst
-outward ("the last tiles go in a chain"); the bright scene **blooms** in its own light colour with rising
-motes; the firefly says the place's own line ("Ławka nie jest już pusta. Ktoś usiadł obok."); after a
-moment (never over the runner's banner) the **card**: "Obraz przemieniony", the pair's name in the serif
+**A picture done.** When ≤ 10 % of the tiles are left they go together, **one every 0.4 s** from the last burst
+outward ("the last tiles go in a chain", slow enough to watch each break); the bright scene **blooms** in its own
+light colour with rising motes (3.6 s); the firefly says the place's own line at once ("Ławka nie jest już pusta.
+Ktoś usiadł obok.") — **pinned**: a telegraph or a banner does not cut it, a coach mark on screen steps aside — and
+**the card comes only after the line has been read** and the last pieces have fallen (≥ 2.5 s into the bloom, at
+most 11.5 s; never over the runner's banner): "Obraz przemieniony", the pair's name in the serif
 ("Samotność → Wspólnota"), the gold laid ("W złocie: 64%"), its verse (a pair's verses take turns on later
-visits; a picture ≥ 90 % in gold gets Isaiah 61:3, "beauty for ashes"); a tap after 1.2 s or 6 s; the next
-mosaic assembles from the middle out over the dark.
+visits; a picture ≥ 90 % in gold gets Isaiah 61:3, "beauty for ashes"; **never cut**: on a small phone the card
+grows upward until the passage fits), and at its bottom the button **„Dalej — następny obraz”** (a gold pill,
+≥ 44 px; on a keyboard with an "Enter" key cap). **The card waits for the player** (the founder: *"przejście do
+kolejnej gry dopiero po kliknięciu na modal końcowy"*): a tap anywhere on it, its button, Enter or Space — never
+time (until 2026-11-17 it closed by itself after 6 s). For its first 1.2 s it takes no tap (a finger still
+tapping the last tiles must not skip it): the button is dim, a thin line filling along it; then it lights and
+breathes, brighter under a mouse. A tap beside the card only ripples. Then the next mosaic assembles from the
+middle out over the dark. The card is half the frame on a wide screen, 60 % on a phone upright, 82 % on its side,
+so the transformed place stays in sight above it.
+
+**What the session does while a card waits** (the opening card too): **the blocks keep their clock** — the runner
+owns the session's time, and the plan must still end with gazing and the finale — but **a card's seconds are not
+play**: the light rests (nothing presses), the flare holds (no charge, no drain), a blind block's bank holds, the
+pad holds still, the gauge hides and `signal()` says "free" (a blind block stays veiled), so neither the game's
+judge nor the runner's dock counts them. After the card the judge also waits out the band's lead-in (5 s Mendi,
+2 s HALO), since the signal still shows the time under the card. **A block more than half under a card gets no
+verdict and is not counted** in "Bloki światła / wpatrzenia". When the card closes inside a block, the dock begins
+the block again and the runner's banner says what to do (the firefly waits it out). The smoke contract still
+advances it: its centre click lands on the card (the done card covers the frame's lower half, the opening card
+all of it), and Space every third click closes it as well.
 
 **The hands (phone first).** The tiles are the controls: **tap** a tile — the light aims at it and knocks
 (a response on touch-down: a flash, a tick, a crack); **drag** — the light follows a lens drawn 58 px above
 the finger (a mouse: the pointer itself), no knocks; a tap with a ready flare releases it there; while
 gazing, a tap on an uncovered piece pours gold into its seams. Untouched, the light moves on to the most
 cracked dark tile (neighbours first) when its tile bursts. A centre tap aims the centre tile and Space knocks
-or releases the flare (the smoke contract). No buttons: `targets()` lists only a card waiting for its tap.
+or releases the flare (the smoke contract); Enter or Space closes a card. `targets()` lists only a waiting
+card's button.
+
+**What to do now** (the clarity rule of 2026-11-17, now.ts). One short line at the frame's top — a drawn icon and
+a few words — for the action the moment asks: the warm-up „Stuknij kafel — tam pada światło” („Kliknij…” with a
+mouse), a push „Skup się — światło kruszy kafel”, a blind push „Na wyczucie — skup się bez wskaźnika”, a ready
+flare „Rozbłysk gotowy — stuknij mozaikę” („kliknij albo Spacja”) or, out of focus, „Skup się — Rozbłysk czeka”,
+gazing „Odpocznij — złoto spaja pęknięcia”, the finale „Wycisz się — sesja dobiega końca”. None under a card (its
+button says what to do), in a bloom, or while the runner's banner says the block. It changes only when the action
+does, and only once the new one has held 0.8 s (a flicker of focus never makes it jump); the place's title plate
+sits under it when a picture begins.
 
 **The voice: Świetlik (a firefly).** A small lamp-light presence by the frame's lower left (in the wall
 beside it on a desktop), its light breathing, the flare's ring around it. Gentle, never a joke about the
-dark pictures: 20 moments × 3 lines in four languages (≤ 90 characters, 2.2–4 s, one at a time, never over
-a telegraph, a banner or a card), plus each place's own line when it is transformed. The first-ever session
-opens with a card ("Każdy ciemny obraz to mozaika z kawałków…") and Isaiah 60:1; the summary closes with
-the firefly's line.
+dark pictures: 20 moments × 3 lines in four languages (≤ 90 characters), **each on screen long enough to read
+twice — 2.5 s + 70 ms a character, never under 4.5 s** (they were 2.2–4 s), one at a time, never over a
+telegraph, a banner or a card, plus each place's own line when it is transformed. Coach marks last by the same
+rule and teach one thing at the moment it matters; the first session also **draws the first tap** on the aimed
+tile (a fingertip and rings going out) until the player touches the mosaic. The gauge's coach mark waits for a
+sighted push with time enough left to read it (the ring it explains is drawn only there). Words of the game are **glossed the first time**: „próg
+— powyżej niego światło kruszy kafel”, „Rozbłysk (fala światła z trzymanego skupienia)”. The first-ever session
+opens with a card ("Każdy ciemny obraz to mozaika z kawałków…", Isaiah 60:1, the button „Zaczynamy”) that waits
+for the player too; the summary closes with the firefly's line.
 
 **Own pictures (kit/images.ts).** In the progress card: an "after" photo (required) and, if the player likes,
 a "before"; without one the game veils the "after" (kit `veil`, then ash and rain over it); a name; delete.
-They take turns with the eight ("Wbudowane / Moje / Oba"); the card says they stay **only on this device**.
-The help line of §13.3 closes the card, small but whole, in four languages.
+Every popular format (`IMAGE_ACCEPT`); on a desktop a photo can also be dropped on the card or pasted (Ctrl+V,
+kit `imageDrop`). A photo that cannot be kept says why in the game's words: not a picture, an iPhone's HEIC
+outside Safari, a format the browser cannot read, over 60 MB, no room on the device. They take turns with the
+eight ("Wbudowane / Moje / Oba"); the card says they stay **only on this device**. The help line of §13.3 closes
+the card, small but whole, in four languages.
 
 **The meta.** The album of the eight (a dark name until transformed, then the bright one, how often, the
 best gold; a tap makes it the next picture) and the own pairs; the **day's picture** (the same for everyone,
 first each day: "Obraz dnia"); the tile count growing; records (shards, the best session, the longest chain,
 flares, golden seams). Headline: **shards (odłamki)**, 3–9 a burst by its size, +1 per chain link, ×2 after
-a flare. Closing verse: the last picture's (or, without one, Isaiah 60:1, 43:19, Psalm 34:5 in turn).
+a flare (with smaller pieces a picture yields more shards: ~5 a tile on 72). Closing verse: the last picture's
+(or, without one, Isaiah 60:1, 43:19, Psalm 34:5 in turn).
 
 **Mobile first (§12).** The frame is 16 px off a phone's sides and takes the whole band (360 × 366 → a
 328 × 348 picture on the small phone; 561 × 274 on its side); u = uiScale on a tablet or a desktop; the
-firefly's bubble 14 px, cards' text 13–17 px (titles 18–28 in the serif), the breath words 13 px, numbers
-21+; nothing under 11 px. Per frame: one cached layer for the mosaic (redrawn tile by tile when one opens or
-warms), the grout and the gold as a few batched paths, glows as baked sprites ("lighter"), shards as pooled
-sprites (≤ 150); no shadowBlur, no ctx.filter. Measured with the audit (§12.4), 2026-11-12:
+firefly's bubble 14 px, the "now" line 14 px, cards' text 13–17 px (titles 18–28 in the serif), the button 16 px,
+the breath words 13 px, numbers 21+; nothing under 11 px. Per frame: one cached layer for the mosaic (redrawn tile
+by tile when one opens or warms), the grout and the gold as a few batched paths, glows as baked sprites
+("lighter"), the breaking pieces as pooled sprites (≤ 220, the cracks of all breaking tiles in two batched paths);
+no shadowBlur, no ctx.filter. Measured with the audit (§12.4), 2026-11-17 (round 11):
 
 | Device | Strings < 11 px | < 13 px | Targets | Frame rate (CPU slowed) | Game's frame |
 |---|---|---|---|---|---|
-| small Android phone (360 × 600) | 0 | 2 (a verse's reference, the kit's 11 px floor) | the card | 60 fps @4× | 1.5 ms |
-| iPhone in Safari (390 × 664) | 0 | 2 (idem) | the card | 60 fps @2× | 0.5 ms |
-| large Android phone (412 × 780) | 0 | 2 (idem) | the card | 60 fps @3× | 1.0 ms |
-| phone on its side (812 × 360) | 0 | 2 (idem) | the card | 60 fps @2× | 0.6 ms |
-| tablet (820 × 1180) | 0 | 0 | the card | 60 fps @2× | 0.7 ms |
-| desktop (1280 × 800) | 0 | 0 | the card | 60 fps | 0.5 ms |
+| small Android phone (360 × 600) | 0 | 1 (the verse reference, the kit's 11 px floor) | the card's button | 60 fps @4× | 2.38 ms |
+| iPhone in Safari (390 × 664) | 0 | 1 (the verse reference, the kit's 11 px floor) | the card's button | 59 fps @2× | 1.16 ms |
+| phone on its side (812 × 360) | 0 | 1 (the verse reference, the kit's 11 px floor) | the card's button | 60 fps @2× | 0.85 ms |
+| desktop (1280 × 800) | 0 | 0 | the card's button | 60 fps @1× | 0.55 ms |
+| laptop (1440 × 790) | 0 | 0 | the card's button | 60 fps @1× | 0.5 ms |
+| Full HD monitor (1920 × 960) | 0 | 0 | the card's button | 60 fps @1× | 0.65 ms |
+| 2560 × 1440 monitor | 0 | 0 | the card's button | 60 fps @1× | 0.59 ms |
+
+And a stress run at 2560 × 1440 with 96 tiles (60 of them cracked to 97 % at once, a flare, a chain): the view's update + draw 0.9 ms a frame on average, 1.7 ms at the 95th percentile, 3.7 ms at worst, ≤ 226 pieces at once (≤ 27 cut a frame).
 
 **Sources.** sim.ts (the session, pure), rules.ts (every number), content.ts (pairs, strategies, moments),
-meta.ts (progress v1, the rotation, the album), talk.ts (the firefly), scenes.ts + scenekit.ts (the sixteen
-pictures), render.ts + paint.ts + layout.ts (the view), preview.ts (lobby, card art, calibration), panel.ts,
-audio.ts, i18n.ts; tests in test/arcade-rozswietl.test.ts.
+meta.ts (progress v1, the rotation, the album, `readPick`), talk.ts (the firefly, `readSec`), break.ts (a tile's
+slow break, pure), now.ts (the "what to do now" line, pure), scenes.ts + scenekit.ts (the sixteen pictures),
+render.ts + paint.ts + layout.ts (the view, the card and its button), preview.ts (lobby, card art, calibration),
+panel.ts, audio.ts, i18n.ts; tests in test/arcade-rozswietl.test.ts.
 
 ### 13.8 Ja jestem… — the vision drawn, coloured and lit
 

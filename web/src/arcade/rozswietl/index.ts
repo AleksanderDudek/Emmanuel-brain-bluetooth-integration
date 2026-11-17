@@ -5,8 +5,10 @@
  * push block it presses on the aimed tile from behind (focus ×1…×3, its halo spilling onto the
  * neighbours), cracks run, a full tile bursts into shards and passes its light on (chains); held focus
  * fills the flare.  A rest block is gazing: calm warms the uncovered pieces and lays gold in their
- * seams (kintsugi), which carries the light in the next push.  A finished picture blooms, gets its card
- * and verse, and the next pair assembles.  The player's own photos can take turns with the eight.
+ * seams (kintsugi), which carries the light in the next push.  A burst tile breaks slowly — its cracks run
+ * across it, its pieces loosen and fall one after another.  A finished picture blooms, the firefly says the
+ * place's line, its card and verse wait for the player's tap ("Dalej — następny obraz"), and the next pair
+ * assembles.  The player's own photos can take turns with the eight.
  *
  * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts, the numbers in
  * rules.ts, the pairs and the strategies in content.ts, the meta in meta.ts, the firefly in talk.ts), the
@@ -22,6 +24,7 @@ import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo,
 import { RozSound } from './audio';
 import { t, unit, type Key } from './i18n';
 import { tapTargets } from './layout';
+import { readSec } from './talk';
 import { bestOf, freshProgress, migrate, type PicSrc, type RozProgress } from './meta';
 import { progressPanel } from './panel';
 import { RozIntro, drawPreview } from './preview';
@@ -64,7 +67,11 @@ class RozGame implements ArcadeGame {
     this.sound = new RozSound(env.audio);
     this.ctx = env.canvas.getContext('2d');
     void this.loadOwn();
-    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __rozswietl?: unknown }).__rozswietl = this.sim;
+    if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) {
+      const g = globalThis as { __rozswietl?: unknown; __rozswietlView?: unknown };
+      g.__rozswietl = this.sim;
+      g.__rozswietlView = this.view;
+    }
   }
 
   /** The player's own pairs: the "after" decoded, the "before" too or the "after" veiled in ash and rain. */
@@ -155,9 +162,10 @@ class RozGame implements ArcadeGame {
   }
 
   /**
-   * A press shows at once (a glow under the finger) and acts at once: a card closes, a ready flare goes off
-   * there, a dark tile is aimed and knocked, an uncovered one takes gold while gazing.  A finger that moves
-   * 10 px drags the light: it follows a lens drawn above the finger (under a mouse, the pointer itself).
+   * A press shows at once (a glow under the finger) and acts at once: a card closes (a tap on it, after its first
+   * moment), a ready flare goes off there, a dark tile is aimed and knocked, an uncovered one takes gold while
+   * gazing.  A finger that moves 10 px drags the light: it follows a lens drawn above the finger (under a mouse, the
+   * pointer itself).
    */
   pointer(e: PointerInput): void {
     const sim = this.sim, view = this.view;
@@ -166,11 +174,15 @@ class RozGame implements ArcadeGame {
       if (this.finger !== null && this.finger !== e.id) this.letGo();
       this.finger = e.id;
       if (sim.story) {
-        sim.tapCard();
+        // the card waits for a tap on it (anywhere on it, its button too); a tap beside it only ripples
+        const r = view.cardRect;
+        if (r && e.x >= r.x - 6 && e.x <= r.x + r.w + 6 && e.y >= r.y - 6 && e.y <= r.y + r.h + 6) sim.tapCard();
+        else view.ripple(e.x, e.y);
         this.drain();
         return;
       }
       if (!view.inFrame(e.x, e.y, 12)) return;
+      view.touched = true;
       this.press = { x: e.x, y: e.y, moved: false };
       view.ripple(e.x, e.y);
       sim.tap(view.toPic(clamp(e.x, view.frame.x, view.frame.x + view.frame.w), clamp(e.y, view.frame.y, view.frame.y + view.frame.h)));
@@ -223,7 +235,7 @@ class RozGame implements ArcadeGame {
     this.view.lens = null;
   }
 
-  /** Space: close a card, release a ready flare, else knock on the aimed tile. */
+  /** Enter or Space: close a card (after its first moment), release a ready flare, else knock on the aimed tile. */
   key(key: string, down: boolean): boolean {
     if (key !== ' ' && key !== 'Spacebar' && key !== 'Enter') return false;
     if (down) {
@@ -243,6 +255,12 @@ class RozGame implements ArcadeGame {
       this.sound.on(e);
       if (e.type === 'coach') this.hints.push({ what: e.what, at: e.at });
       if (e.type === 'story') this.env.hint('');
+      // a picture transformed: a coach mark on screen steps aside for the place's own line (read in full)
+      if (e.type === 'done' && this.hintLeft > 0) {
+        this.env.hint('');
+        this.hintLeft = 0;
+        this.sim.coachUp = false;
+      }
       if (this.env.haptics) haptic(e);
     }
   }
@@ -250,7 +268,8 @@ class RozGame implements ArcadeGame {
   /** The runner's coach mark, pointing at what it explains — never over a card; one at a time, a few seconds apart. */
   private flushHints(): void {
     const sim = this.sim;
-    if (!this.hints.length || this.hintCool > 0 || sim.story || this.press?.moved) return;
+    // never over a card, a drag, or the place's own line when a picture is transformed (it is read in full)
+    if (!this.hints.length || this.hintCool > 0 || sim.story || this.press?.moved || sim.talk.line?.pinned) return;
     for (let i = 0; i < this.hints.length; i++) {
       const h = this.hints[i];
       // a moment that has passed is let go; the flare's waits out a gazing block (it cannot go off then)
@@ -259,13 +278,17 @@ class RozGame implements ArcadeGame {
         continue;
       }
       if (h.what === 'flare' && sim.restBlock) continue;
+      // the gauge it explains is drawn only in a sighted push: it waits for one with time enough left to read it
+      if (h.what === 'halo' && (!sim.sighted || sim.block.dur - sim.blockT < readSec(coachText('halo', this.env.touch)) + 1)) continue;
       this.hints.splice(i, 1);
       const at = h.at?.kind === 'tile' ? this.view.pointAt(sim, h.at.cell) : h.at?.kind === 'aim' ? this.view.pointAt(sim, null) : null;
-      const ms = h.what === 'halo' || h.what === 'rest' || h.what === 'blind' ? 5200 : 4200;
+      const text = coachText(h.what, this.env.touch);
+      // long enough to read twice (the clarity rule): 2.5 s + 70 ms a character, never under 4.5 s
+      const ms = Math.round(readSec(text) * 1000);
       this.hintCool = ms / 1000 + 0.8;
       this.hintLeft = ms / 1000;
       this.sim.talk.hush();
-      this.env.hint(coachText(h.what, this.env.touch), at, ms);
+      this.env.hint(text, at, ms);
       return;
     }
   }
@@ -274,9 +297,14 @@ class RozGame implements ArcadeGame {
 
   canStop(): boolean { return this.sim.canStop(); }
 
-  /** What the block asks of the brain, its seconds left and what comes next, for the runner's panel and dock. */
+  /**
+   * What the block asks of the brain, its seconds left and what comes next, for the runner's panel and dock.  While a
+   * card waits the session asks nothing ("free"; a blind block stays veiled): those seconds are not judged, here or in
+   * the dock, and when the card closes the dock begins the block again (its banner says what to do).
+   */
   signal(): SignalPhase {
     const s = this.sim, b = s.block;
+    if (s.started && s.phase === 'play' && s.cardUp && b && b.kind !== 'warmup') return { want: 'free', blind: s.blind, next: null };
     if (!s.started || s.phase !== 'play' || !b || b.kind === 'warmup') {
       const next = s.started && s.phase === 'play' && b?.kind === 'warmup' && s.telegraphed && s.next ? (s.next.kind === 'push' ? 'focus' : 'rest') : null;
       // the warm-up's line speaks of the hand the player has (a click on a desktop)
@@ -313,9 +341,10 @@ class RozGame implements ArcadeGame {
     return this.sim.result(id => this.env.progress.own.find(o => o.id === id)?.label || t('hud.own'));
   }
 
+  /** Only a waiting card's button (a tap anywhere on the card does the same); the tiles are the free play area. */
   targets(): TapTarget[] {
     if (!this.sim.started || !this.sim.story) return [];
-    return tapTargets(this.view.cardRect);
+    return tapTargets(this.view.buttonRect);
   }
 
   destroy(): void {

@@ -10,8 +10,13 @@
  *                 tile by tile when one changes
  *   on top        each pressed tile's glow and its cracks growing with the pressure (the kit's crack lines,
  *                 two strokes: a warm wide one and a white-hot core), the gold in the seams, the aim, the
- *                 halo's rim and its dotted threshold ring, the shards (sprites of the dark picture flying,
- *                 spinning, turning into motes), flashes, numbers, the bloom of a finished picture
+ *                 halo's rim and its dotted threshold ring, flashes, numbers, the bloom of a finished picture
+ *   a break       a burst tile breaks slowly (break.ts): its cracks run across the whole of it from where the
+ *                 light pressed, then its pieces (sprites of the dark tile, pooled) loosen one after another,
+ *                 fall with gravity, spin slowly and fade to motes — the bright picture under it shows through
+ *                 as they go; at most RULES.breakCap pieces at once
+ *   the now line  one short line at the frame's top: what to do now (an icon and a few words), changed only
+ *                 when the action changes
  *   the voice     the firefly by the frame (its light breathes 4/6 in a rest, its ring is the flare) and its
  *                 bubble; the cards
  *
@@ -19,11 +24,14 @@
  * painted once per picture and size.
  */
 import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
-import { fitCover, insetPoly, shards as shardPolys, cracks as crackLines, type MosaicCell, type Pt } from '../kit/mosaic';
-import type { PassageId } from '../kit/scripture';
+import { fitCover, insetPoly, shards as shardPolys, cracks as crackLines, type Pt } from '../kit/mosaic';
+import { breakPlan, pieceCount, type BreakPlan } from './break';
+import { NOW_ICON, NowLine, nowKind, type NowIcon, type NowKind } from './now';
+import { MIN_READ } from '../kit/mobile';
+import { wrapLines, type PassageId } from '../kit/scripture';
 import { PAIRS, pairTitle } from './content';
 import { pct, t } from './i18n';
-import { cardBox, flySpot, frameFor, layout, type Layout, type Rect } from './layout';
+import { cardBox, cardButton, flySpot, frameFor, layout, type Layout, type Rect } from './layout';
 import type { PicSrc } from './meta';
 import {
   C, SANS, SERIF, bubbleBox, cardLayout, font, glow, paintBubble, paintCard, paintFly, roundRect, type CardLayout, type CardText,
@@ -36,17 +44,34 @@ import type { Insets } from '../kit/types';
 /** The pictures of an own pair, ready to draw (the dark one is the player's "before" or the veiled "after"). */
 export interface OwnPics { after: CanvasImageSource & { width: number; height: number }; before: CanvasImageSource & { width: number; height: number }; label: string }
 
-interface Shard {
+/** A piece of a breaking tile: a sprite of the dark tile, in place until it loosens, then falling. */
+interface Piece {
   sprite: HTMLCanvasElement;
-  /** the sprite's offset from the piece's centre (CSS px) and size */
+  /** the sprite's offset from the piece's centroid (CSS px) and size */
   ox: number; oy: number; sw: number; sh: number;
+  /** where it sits in the mosaic (its centroid, CSS px), and where it is */
+  hx: number; hy: number;
   x: number; y: number; vx: number; vy: number; rot: number; vr: number;
-  t: number; life: number; motes: boolean;
+  /** from the break's plan: when it loosens and how long it falls (s) */
+  start: number; life: number;
+  /** a crack from the tile's hub to the border along this piece's leading edge (CSS px) */
+  cx: number; cy: number;
+  out: boolean; gone: boolean; motes: boolean;
+}
+
+/** A tile breaking (break.ts): its cracks running, its pieces in place or falling. */
+interface Breaking {
+  cell: number;
+  t: number;
+  plan: BreakPlan;
+  pieces: Piece[];
+  /** the hub the cracks run from, the tile's centre and radius (CSS px), its light colour */
+  hx: number; hy: number; x: number; y: number; r: number; color: string;
+  /** the pressure's crack lines it had (mosaic units), fading as the new cracks run */
+  old: Pt[][] | null;
 }
 
 interface Flash { x: number; y: number; r: number; t: number; dur: number; color: string }
-
-const SHARD_CAP = 150;
 
 export class RozView {
   L: Layout;
@@ -83,13 +108,22 @@ export class RozView {
   private aimPath: Path2D | null = null;
 
   // effects
-  private readonly shards: Shard[] = [];
+  private readonly breaks: Breaking[] = [];
+  /** pieces not yet gone (in place or falling): the cap of RULES.breakCap counts these */
+  private pieceN = 0;
+  /** pieces cut this frame: past RULES.breakFrame a burst gets one piece (no frame pays for a whole chain at once) */
+  private madeNow = 0;
   private readonly pool: HTMLCanvasElement[] = [];
   private readonly flashes: Flash[] = [];
   private readonly motes = new Particles(320);
   private readonly words = new Floaters();
   private readonly shake: Shake;
   private wave: { x: number; y: number; t: number } | null = null;
+  /** the "what to do now" line (now.ts), and its box this frame (the place's title goes under it) */
+  private readonly nowLine = new NowLine();
+  private nowBox: Rect | null = null;
+  /** the first session teaches the first tap with a drawn gesture on the aimed tile, until the player touches */
+  touched = false;
   private reveal = 0;
   private stop = 0;
   private titleT = 99;
@@ -118,7 +152,9 @@ export class RozView {
   private cardKey = '';
   private cardL: CardLayout | null = null;
   private cardT: CardText | null = null;
+  /** the card on screen and its button (CSS px), null without one */
   cardRect: Rect | null = null;
+  buttonRect: Rect | null = null;
 
   /** the player's own pictures, by own pair id */
   own: Map<string, OwnPics> = new Map();
@@ -203,6 +239,8 @@ export class RozView {
     });
     this.shown = pic.mosaic.cells.map(() => ({ drawn: false, open: false, warm: -1 }));
     if (fresh || refit) this.cracks.clear();
+    // a new picture, a new cut or a new size: the pieces of the old one are let go
+    this.clearBreaks();
     if (fresh) this.titleT = 0;
     this.groutKey = '';
     this.wall = null;
@@ -391,15 +429,18 @@ export class RozView {
       }
       case 'flare': {
         this.wave = { x: this.sx(e.x), y: this.sy(e.y), t: 0 };
-        this.flashes.push({ x: this.wave.x, y: this.wave.y, r: Math.max(this.frame.w, this.frame.h) * 0.6, t: 0, dur: this.reduced ? 0.6 : 0.4, color: '#fff1c0' });
+        this.flashes.push({ x: this.wave.x, y: this.wave.y, r: Math.max(this.frame.w, this.frame.h) * 0.6, t: 0, dur: this.reduced ? 0.9 : 0.7, color: '#fff1c0' });
         this.shake.add(0.5);
         this.stop = 0.08;
         break;
       }
       case 'chain':
         if (e.n >= 2) {
-          const c = pic.mosaic.cells[sim.aim];
-          this.words.add(t('hud.chain', { n: e.n }), this.sx(c.cx), this.sy(c.cy) - 18, { color: C.honey, size: 20 + Math.min(10, e.n * 1.5), dur: 1.3 });
+          const c = pic.mosaic.cells[sim.aim], f = this.frame;
+          // the words stay inside the frame (a chain ending at its edge)
+          const x = clamp(this.sx(c.cx), f.x + Math.min(f.w / 2, 80), f.x + f.w - Math.min(f.w / 2, 80));
+          const y = clamp(this.sy(c.cy) - 18, f.y + 30, f.y + f.h - 20);
+          this.words.add(t('hud.chain', { n: e.n }), x, y, { color: C.honey, size: 20 + Math.min(10, e.n * 1.5), dur: 1.6 });
           if (e.n >= 3) this.shake.add(0.25);
         }
         break;
@@ -443,25 +484,61 @@ export class RozView {
     this.cracks.set(i, crackLines(cell, from, n, () => this.rnd()));
   }
 
-  /** A burst: the tile's pieces fly as sprites of the dark picture, a flash, motes, the number. */
+  /**
+   * A burst begins a slow break (break.ts): the tile's pieces — sprites of the dark tile as the layer shows it — stay in
+   * place while the cracks run across it from where the light pressed, then loosen one after another and fall; a soft
+   * light swells behind it, a few motes, the number.  The layer already shows the bright piece under them.
+   */
   private burst(sim: RozSim, i: number, shards: number, depth: number, double: boolean): void {
-    const pic = sim.pic, cell = pic.mosaic.cells[i];
+    const pic = sim.pic, cell = pic.mosaic.cells[i], tile = pic.tiles[i];
     const cx = this.sx(cell.cx), cy = this.sy(cell.cy);
     const tileR = Math.sqrt(cell.area / Math.PI) * this.k;
-    this.flashes.push({ x: cx, y: cy, r: tileR * (this.reduced ? 1.8 : 2.6), t: 0, dur: this.reduced ? 0.45 : 0.28, color: PAIRS[pic.src.kind === 'pair' ? pic.src.id : 'samotnosc'].light });
-    if (depth >= 2) this.stop = Math.max(this.stop, 0.05);
-    if (!this.reduced) this.shake.add(Math.min(0.22, 0.06 + depth * 0.04));
+    const color = PAIRS[pic.src.kind === 'pair' ? pic.src.id : 'samotnosc'].light;
+    this.flashes.push({ x: cx, y: cy, r: tileR * 1.7, t: 0, dur: this.reduced ? 1.1 : 0.9, color });
+    if (depth >= 2) this.stop = Math.max(this.stop, 0.04);
+    if (!this.reduced) this.shake.add(Math.min(0.16, 0.04 + depth * 0.03));
+    const old = this.cracks.get(i) ?? null;
     this.cracks.delete(i);
-    const k = clamp(Math.round(4 + shards / 3), 4, 9);
-    const pieces = shardPolys(cell, k, () => this.rnd());
-    for (const poly of pieces) this.spawnShard(poly, cell, tileR);
-    this.motes.burst(cx, cy, this.reduced ? 6 : 14, { color: '#ffe3a0', size: 2, speed: 120, life: 0.9, g: -20, drag: 1.6, rnd: () => this.rnd() });
-    this.words.add(`+${shards}`, cx, cy - 6, { color: double ? C.goldHi : C.honey, size: 21 + Math.min(9, depth * 2), dur: 1.1 });
-    if (double) this.words.add(t('hud.double'), cx + 26, cy - 24, { color: C.gold, size: 15, dur: 0.9 });
+    this.spawnBreak(sim, i, shards, tile.from, old, tileR, color);
+    this.motes.burst(cx, cy, this.reduced ? 4 : 8, { color: '#ffe3a0', size: 1.8, speed: 50, life: 1.1, g: -25, drag: 1.8, rnd: () => this.rnd() });
+    this.words.add(`+${shards}`, cx, cy - 6, { color: double ? C.goldHi : C.honey, size: 21 + Math.min(9, depth * 2), dur: 1.3 });
+    if (double) this.words.add(t('hud.double'), cx + 26, cy - 24, { color: C.gold, size: 15, dur: 1.1 });
   }
 
-  private spawnShard(poly: Pt[], cell: MosaicCell, tileR: number): void {
-    if (this.shards.length >= SHARD_CAP || !this.before) return;
+  /** The pieces of a breaking tile, ordered from where the light pressed (they loosen in that order), and its plan. */
+  private spawnBreak(sim: RozSim, i: number, shards: number, from: Pt | null, old: Pt[][] | null, tileR: number, color: string): void {
+    const pic = sim.pic, cell = pic.mosaic.cells[i], k = this.k;
+    const src = this.layer && this.shown[i]?.drawn && !this.shown[i].open ? this.layer : this.before;
+    if (!src) return;
+    const n = this.reduced ? 1 : this.madeNow >= RULES.breakFrame ? 1 : Math.min(pieceCount(shards, this.pieceN), Math.max(1, RULES.breakFrame - this.madeNow));
+    // the pieces fit the dark tile as drawn (inside its grout)
+    const grout = clamp(k * 0.55, 1.1, 2.4);
+    const inner = { ...cell, poly: insetPoly(cell.poly, grout / k) };
+    const polys = n === 1 ? [inner.poly.map(q => ({ ...q }))] : shardPolys(inner, n, () => this.rnd());
+    const at = from ?? { x: cell.cx, y: cell.cy };
+    const cen = (poly: Pt[]) => {
+      let ax = 0, ay = 0;
+      for (const q of poly) { ax += q.x; ay += q.y; }
+      return { x: ax / poly.length, y: ay / poly.length };
+    };
+    const order = polys.map(poly => ({ poly, c: cen(poly) }))
+      .sort((a, b) => Math.hypot(a.c.x - at.x, a.c.y - at.y) - Math.hypot(b.c.x - at.x, b.c.y - at.y));
+    const plan = breakPlan(order.length, () => this.rnd());
+    const hub = n === 1 ? { x: cell.cx, y: cell.cy } : polys[0][0];
+    const br: Breaking = {
+      cell: i, t: 0, plan, pieces: [], hx: this.sx(hub.x), hy: this.sy(hub.y), x: this.sx(cell.cx), y: this.sy(cell.cy), r: tileR, color, old,
+    };
+    order.forEach(({ poly }, j) => {
+      const p = this.makePiece(src, poly, plan.pieces[j].start, plan.pieces[j].life, n > 1);
+      if (p) br.pieces.push(p);
+    });
+    this.pieceN += br.pieces.length;
+    this.madeNow += br.pieces.length;
+    this.breaks.push(br);
+  }
+
+  /** A piece's sprite (pooled): its part of the dark tile, a faint rim of the light behind it. */
+  private makePiece(src: HTMLCanvasElement, poly: Pt[], start: number, life: number, crack: boolean): Piece | null {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, ax = 0, ay = 0;
     for (const p of poly) {
       const x = p.x * this.k, y = p.y * this.k;
@@ -472,11 +549,12 @@ export class RozView {
     ay /= poly.length;
     const sw = Math.max(2, maxX - minX + 2), sh = Math.max(2, maxY - minY + 2);
     const sprite = this.pool.pop() ?? document.createElement('canvas');
-    sprite.width = Math.ceil(sw * this.dpr);
-    sprite.height = Math.ceil(sh * this.dpr);
+    sprite.width = Math.max(1, Math.ceil(sw * this.dpr));
+    sprite.height = Math.max(1, Math.ceil(sh * this.dpr));
     const c = sprite.getContext('2d');
-    if (!c) return;
+    if (!c) return null;
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    c.clearRect(0, 0, sw, sh);
     c.translate(-minX + 1, -minY + 1);
     c.beginPath();
     poly.forEach((p, j) => (j ? c.lineTo(p.x * this.k, p.y * this.k) : c.moveTo(p.x * this.k, p.y * this.k)));
@@ -485,20 +563,160 @@ export class RozView {
     c.clip();
     const d = this.dpr, bx = Math.max(0, minX - 1), by = Math.max(0, minY - 1);
     const bw = Math.min(this.frame.w - bx, sw), bh = Math.min(this.frame.h - by, sh);
-    if (bw > 0 && bh > 0) c.drawImage(this.before, bx * d, by * d, bw * d, bh * d, bx, by, bw, bh);
+    if (bw > 0 && bh > 0) c.drawImage(src, bx * d, by * d, bw * d, bh * d, bx, by, bw, bh);
     c.restore();
-    // lit from behind: a bright rim
-    c.strokeStyle = 'rgba(255,236,190,.85)';
-    c.lineWidth = 1.2;
+    // lit from behind: a faint warm rim (the running cracks are drawn over it)
+    c.strokeStyle = 'rgba(255,230,180,.38)';
+    c.lineWidth = 1;
     c.stroke();
-    const dx = ax - cell.cx * this.k, dy = ay - cell.cy * this.k;
-    const len = Math.hypot(dx, dy) || 1;
-    const sp = (this.reduced ? 70 : 150) + this.rnd() * (this.reduced ? 40 : 140);
-    this.shards.push({
-      sprite, ox: minX - 1 - ax, oy: minY - 1 - ay, sw, sh,
-      x: this.frame.x + ax, y: this.frame.y + ay, vx: (dx / len) * sp, vy: (dy / len) * sp - 90 - this.rnd() * 60,
-      rot: 0, vr: (this.rnd() - 0.5) * (this.reduced ? 3 : 9), t: 0, life: 0.75 + this.rnd() * 0.3 + Math.min(0.3, tileR / 400), motes: false,
-    });
+    const hx = this.frame.x + ax, hy = this.frame.y + ay;
+    // the crack along the piece's leading edge: from the hub (its first point) to where it meets the border
+    const b = crack ? poly[1] : null;
+    return {
+      sprite, ox: minX - 1 - ax, oy: minY - 1 - ay, sw, sh, hx, hy, x: hx, y: hy, vx: 0, vy: 0, rot: 0, vr: 0, start, life,
+      cx: b ? this.sx(b.x) : hx, cy: b ? this.sy(b.y) : hy, out: false, gone: false, motes: false,
+    };
+  }
+
+  /** Let go of every break (a new picture, a new cut, a new size): their sprites go back to the pool. */
+  private clearBreaks(): void {
+    for (const br of this.breaks) for (const p of br.pieces) if (!p.gone) this.pool.push(p.sprite);
+    this.breaks.length = 0;
+    this.pieceN = 0;
+  }
+
+  /** A frame of the breaks: pieces loosen on their time, fall with gravity, spin slowly, fade to motes. */
+  private stepBreaks(w: number): void {
+    const g = RULES.breakGravity * Math.min(1.6, this.L.u);
+    for (let bi = this.breaks.length - 1; bi >= 0; bi--) {
+      const br = this.breaks[bi];
+      br.t += w;
+      let left = 0;
+      for (const p of br.pieces) {
+        if (p.gone) continue;
+        if (!p.out && br.t >= p.start) {
+          p.out = true;
+          if (!this.reduced && br.pieces.length > 1) {
+            // it loosens: a small push out of the wall, away from the hub, then gravity
+            const dx = p.hx - br.hx, dy = p.hy - br.hy, len = Math.hypot(dx, dy) || 1;
+            const sp = (14 + this.rnd() * 26) * this.L.u;
+            p.vx = (dx / len) * sp;
+            p.vy = (dy / len) * sp * 0.5 - (10 + this.rnd() * 18) * this.L.u;
+            p.vr = (this.rnd() < 0.5 ? -1 : 1) * (0.35 + 0.65 * this.rnd()) * RULES.breakSpin;
+          }
+        }
+        if (p.out) {
+          const pt = br.t - p.start;
+          if (!this.reduced && br.pieces.length > 1) {
+            p.vy += g * w;
+            p.vx *= Math.exp(-0.6 * w);
+            p.x += p.vx * w;
+            p.y += p.vy * w;
+            p.rot += p.vr * w;
+          }
+          if (!p.motes && pt > p.life * 0.7) {
+            p.motes = true;
+            this.motes.burst(p.x, p.y, 2, { color: '#ffd98a', size: 1.5, speed: 22, life: 1, g: -45, drag: 1.4, rnd: () => this.rnd() });
+          }
+          if (pt >= p.life) {
+            p.gone = true;
+            this.pool.push(p.sprite);
+            this.pieceN = Math.max(0, this.pieceN - 1);
+            continue;
+          }
+        }
+        left++;
+      }
+      if (!left) this.breaks.splice(bi, 1);
+    }
+  }
+
+  /**
+   * The breaks inside the frame (over the layer): the light swelling behind each, the pieces still in place
+   * (trembling just before they loosen), and the cracks running across the tile from the hub to the border.
+   */
+  private drawBreaksIn(ctx: CanvasRenderingContext2D): void {
+    if (!this.breaks.length) return;
+    ctx.globalCompositeOperation = 'lighter';
+    for (const br of this.breaks) {
+      const run = clamp(br.t / br.plan.crack);
+      const out = br.pieces.filter(p => p.out).length / Math.max(1, br.pieces.length);
+      glow(ctx, br.x, br.y, br.r * (1.1 + 0.5 * run), br.color, (0.25 + 0.4 * run) * (1 - 0.7 * out));
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    for (const br of this.breaks) {
+      for (const p of br.pieces) {
+        if (p.out) continue;
+        const near = p.start - br.t;
+        const q = !this.reduced && near < 0.18 ? Math.sin(br.t * 70 + p.hx) * 0.7 * (1 - near / 0.18) : 0;
+        ctx.drawImage(p.sprite, p.hx + p.ox + q, p.hy + p.oy, p.sw, p.sh);
+      }
+    }
+    // the cracks run from the hub to the border, then glow on until the pieces have gone
+    const wide = new Path2D(), core = new Path2D();
+    let any = false;
+    for (const br of this.breaks) {
+      const run = ease.outCubic(clamp(br.t / br.plan.crack));
+      for (const p of br.pieces) {
+        if (p.out || (p.cx === p.hx && p.cy === p.hy)) continue;
+        const x2 = br.hx + (p.cx - br.hx) * run, y2 = br.hy + (p.cy - br.hy) * run;
+        for (const P of [wide, core]) {
+          P.moveTo(br.hx, br.hy);
+          P.lineTo(x2, y2);
+        }
+        any = true;
+      }
+      // the pressure's cracks fade as the new ones run
+      if (br.old && br.t < br.plan.crack) {
+        for (const ln of br.old) {
+          core.moveTo(this.sx(ln[0].x), this.sy(ln[0].y));
+          for (let j = 1; j < ln.length; j++) core.lineTo(this.sx(ln[j].x), this.sy(ln[j].y));
+        }
+        any = true;
+      }
+    }
+    if (!any) return;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(255,176,80,.36)';
+    ctx.lineWidth = clamp(this.crackW * 1.2, 2, 3.4);
+    ctx.stroke(wide);
+    ctx.strokeStyle = 'rgba(255,246,222,.9)';
+    ctx.lineWidth = 1;
+    ctx.stroke(core);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /** The loosened pieces, falling over the frame's edge: slow spin, a little smaller, fading out at the end. */
+  private drawBreaksOut(ctx: CanvasRenderingContext2D): void {
+    for (const br of this.breaks) {
+      for (const p of br.pieces) {
+        if (!p.out || p.gone) continue;
+        const k = (br.t - p.start) / p.life;
+        const a = k < 0.45 ? 1 : Math.max(0, 1 - (k - 0.45) / 0.55);
+        if (a <= 0.01) continue;
+        ctx.globalAlpha = a;
+        const sc = 1 - 0.22 * k;
+        if (p.rot === 0 && sc === 1) {
+          ctx.drawImage(p.sprite, p.x + p.ox, p.y + p.oy, p.sw, p.sh);
+          continue;
+        }
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.scale(sc, sc);
+        ctx.drawImage(p.sprite, p.ox, p.oy, p.sw, p.sh);
+        ctx.restore();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** The crack strokes' width for this picture's tiles: thinner on small tiles (a phone with many pieces). */
+  private get crackW(): number {
+    const r = (this.picRef ? (this.picRef as { meanR?: number }).meanR ?? 8 : 8) * this.k;
+    return clamp(r * 0.12, 1.6, 2.8);
   }
 
   // ── a frame ────────────────────────────────────────────────────
@@ -509,26 +727,12 @@ export class RozView {
     const still = this.stop > 0;
     this.stop = Math.max(0, this.stop - dt);
     const w = still ? dt * 0.15 : dt;
-    for (let i = this.shards.length - 1; i >= 0; i--) {
-      const s = this.shards[i];
-      s.t += w;
-      s.vy += 520 * w;
-      s.vx *= Math.exp(-0.8 * w);
-      s.x += s.vx * w;
-      s.y += s.vy * w;
-      s.rot += s.vr * w;
-      if (!s.motes && s.t > s.life * 0.6) {
-        s.motes = true;
-        this.motes.burst(s.x, s.y, 3, { color: '#ffd98a', size: 1.6, speed: 30, life: 0.9, g: -50, drag: 1.5, rnd: () => this.rnd() });
-      }
-      if (s.t >= s.life) {
-        this.pool.push(s.sprite);
-        this.shards.splice(i, 1);
-      }
-    }
+    this.madeNow = 0;
+    this.stepBreaks(w);
     for (let i = this.flashes.length - 1; i >= 0; i--) if ((this.flashes[i].t += dt) >= this.flashes[i].dur) this.flashes.splice(i, 1);
     for (let i = this.ripples.length - 1; i >= 0; i--) if ((this.ripples[i].t += dt) >= 0.35) this.ripples.splice(i, 1);
-    if (this.wave && (this.wave.t += dt) > 0.9) this.wave = null;
+    if (this.wave && (this.wave.t += dt) > RULES.waveLead + RULES.waveSec + 0.35) this.wave = null;
+    this.stepNow(dt, sim);
     this.motes.update(w);
     this.words.update(dt);
     // the motes of a blooming picture keep rising
@@ -569,12 +773,14 @@ export class RozView {
       } else this.prevAfter = null;
     } else if (pic.state !== 'assemble') this.prevAfter = null;
     if (this.layer) ctx.drawImage(this.layer, f.x, f.y, f.w, f.h);
+    this.drawBreaksIn(ctx);
     this.drawGrout(ctx, sim);
     this.drawPressure(ctx, sim);
     this.drawGold(ctx, sim);
     this.drawBloom(ctx, sim);
     if (this.vignette) ctx.drawImage(this.vignette, f.x, f.y, f.w, f.h);
     this.drawAim(ctx, sim);
+    this.drawTeach(ctx, sim);
     this.drawHover(ctx);
     ctx.restore();
     // the flashes, then the shards flying out over the frame's edge, then the motes
@@ -585,12 +791,13 @@ export class RozView {
       glow(ctx, fl.x, fl.y, Math.min(fl.r, cap * (fl.r > cap * 1.5 ? 2.2 : 1)) * (0.7 + 0.5 * ease.outCubic(k)), fl.color, (1 - k) * (1 - k) * (this.reduced ? 0.45 : 0.85));
     }
     ctx.globalCompositeOperation = 'source-over';
-    this.drawShards(ctx);
+    this.drawBreaksOut(ctx);
     ctx.globalCompositeOperation = 'lighter';
     this.motes.draw(ctx);
     ctx.globalCompositeOperation = 'source-over';
     ctx.restore();
     this.words.draw(ctx, `800 ${SANS}`);
+    this.drawNow(ctx, sim);
     this.drawTitle(ctx, sim);
     this.drawFly(ctx, sim);
     this.drawLens(ctx);
@@ -615,13 +822,16 @@ export class RozView {
     }
     if (this.reveal > 0) glow(ctx, f.x + f.w / 2, f.y + f.h / 2, Math.max(f.w, f.h), '#fff1c0', this.reveal * 0.5);
     if (this.wave) {
-      const k = this.wave.t / 0.9;
-      const R = RULES.flareReach * pic.meanR * this.k * (0.2 + 0.9 * ease.outCubic(k));
-      ctx.strokeStyle = `rgba(255,236,180,${(0.9 * (1 - k)).toFixed(3)})`;
-      ctx.lineWidth = 14 * (1 - k) + 2;
+      // the ring runs outward as the wave does in the rules: a tile bursts or cracks as the ring passes it
+      const run = clamp((this.wave.t - RULES.waveLead) / RULES.waveSec);
+      const fade = this.wave.t > RULES.waveLead + RULES.waveSec ? 1 - clamp((this.wave.t - RULES.waveLead - RULES.waveSec) / 0.35) : 1;
+      const R = sim.waveReach() * this.k * (0.08 + 0.95 * run);
+      ctx.strokeStyle = `rgba(255,236,180,${(0.85 * fade * (1 - 0.4 * run)).toFixed(3)})`;
+      ctx.lineWidth = 12 * (1 - run) + 3;
       ctx.beginPath();
       ctx.arc(this.wave.x, this.wave.y, R, 0, Math.PI * 2);
       ctx.stroke();
+      glow(ctx, this.wave.x, this.wave.y, R * 1.1, '#fff1c0', 0.35 * fade * (1 - run));
     }
     ctx.globalCompositeOperation = 'source-over';
   }
@@ -702,7 +912,7 @@ export class RozView {
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.strokeStyle = 'rgba(255,176,80,.3)';
-      ctx.lineWidth = 2.8;
+      ctx.lineWidth = this.crackW;
       ctx.stroke(wide);
       ctx.strokeStyle = 'rgba(255,244,214,.82)';
       ctx.lineWidth = 0.9;
@@ -784,7 +994,8 @@ export class RozView {
     // only where the band acts (a push block), never in a blind one
     if (!sim.pushBlock || sim.blind) return;
     const tileR = Math.sqrt(c.area / Math.PI) * this.k;
-    const ring = (l: number) => Math.min(tileR, 90) * (0.55 + 0.9 * clamp(l));
+    // never smaller than a fingertip's ring, however small the pieces (a phone with 96 of them)
+    const ring = (l: number) => clamp(tileR, 18 * this.L.u, 90) * (0.55 + 0.9 * clamp(l));
     const thr = ring(0.5);
     ctx.setLineDash([3, 5]);
     ctx.strokeStyle = 'rgba(255,230,170,.55)';
@@ -823,21 +1034,161 @@ export class RozView {
     ctx.restore();
   }
 
-  private drawShards(ctx: CanvasRenderingContext2D): void {
-    for (const s of this.shards) {
-      const k = s.t / s.life;
-      const a = k < 0.55 ? 1 : Math.max(0, 1 - (k - 0.55) / 0.45);
-      if (a <= 0) continue;
-      ctx.globalAlpha = a;
-      ctx.save();
-      ctx.translate(s.x, s.y);
-      ctx.rotate(s.rot);
-      const sc = 1 - 0.35 * Math.max(0, k - 0.4);
-      ctx.scale(sc, sc);
-      ctx.drawImage(s.sprite, s.ox, s.oy, s.sw, s.sh);
-      ctx.restore();
-    }
+  /** The "what to do now" line follows the moment (now.ts): it changes only when the action does. */
+  private stepNow(dt: number, sim: RozSim): void {
+    this.nowLine.update(dt, nowKind(sim));
+  }
+
+  private nowText(k: NowKind): string {
+    if (!this.touch && (k === 'warm' || k === 'flare')) return t(`now.${k}.mouse`);
+    return t(`now.${k}`);
+  }
+
+  /**
+   * The line at the frame's top: a dark glass pill, the action's icon and a few words (two lines at most), fading in
+   * when it changes; out of the way while the runner's banner says the block (it says the same).
+   */
+  private drawNow(ctx: CanvasRenderingContext2D, sim: RozSim): void {
+    this.nowBox = null;
+    const k = this.nowLine.kind;
+    if (!k || sim.bannerUp) return;
+    const f = this.frame, u = this.L.u;
+    const size = Math.max(MIN_READ + 0.5, 14 * u);
+    ctx.font = font(size, 650);
+    const icon = size * 1.15, padX = 12 * u, gap = 8 * u;
+    const maxW = Math.min(f.w - 24 * u, 520 * u);
+    const lines = wrapLines(ctx, this.nowText(k), maxW - 2 * padX - icon - gap).slice(0, 2);
+    const tw = Math.max(...lines.map(l => ctx.measureText(l).width));
+    const lh = Math.round(size * 1.25);
+    const w = Math.min(maxW, tw + icon + gap + 2 * padX), h = lines.length * lh + 14 * u;
+    const x = f.x + (f.w - w) / 2, y = f.y + 8 * u;
+    const a = Math.min(1, this.nowLine.t / 0.35);
+    this.nowBox = { x, y, w, h };
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(8,10,16,.74)';
+    roundRect(ctx, x, y, w, h, Math.min(h / 2, 18 * u));
+    ctx.fill();
+    const rest = k === 'rest' || k === 'finale';
+    ctx.strokeStyle = rest ? 'rgba(150,190,255,.38)' : 'rgba(246,195,92,.42)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, x + 0.5, y + 0.5, w - 1, h - 1, Math.min(h / 2, 18 * u));
+    ctx.stroke();
+    this.drawNowIcon(ctx, NOW_ICON[k], x + padX + icon / 2, y + h / 2, icon / 2);
+    ctx.fillStyle = C.text;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const tx = x + padX + icon + gap;
+    lines.forEach((l, i) => ctx.fillText(l, tx, y + h / 2 + (i - (lines.length - 1) / 2) * lh + 1));
     ctx.globalAlpha = 1;
+  }
+
+  /** The line's icon (r: its radius): a tap, the light, a veil, the flare, a breath, the end. */
+  private drawNowIcon(ctx: CanvasRenderingContext2D, icon: NowIcon, x: number, y: number, r: number): void {
+    const breathe = 0.5 + 0.5 * Math.sin(this.clock * 2.4);
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(1.4, r * 0.18);
+    switch (icon) {
+      case 'tap': {
+        // a fingertip and a ring going out from it
+        ctx.fillStyle = C.honey;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.32, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255,217,138,${(0.9 - 0.6 * breathe).toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(x, y, r * (0.55 + 0.4 * breathe), 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+      }
+      case 'light':
+      case 'flare': {
+        // a small sun: a core and rays (the flare's rays longer, gold)
+        ctx.fillStyle = icon === 'flare' ? C.goldHi : C.honey;
+        ctx.strokeStyle = icon === 'flare' ? C.gold : C.honey;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.38, 0, Math.PI * 2);
+        ctx.fill();
+        const n = icon === 'flare' ? 12 : 8, a0 = r * 0.58, a1 = r * (icon === 'flare' ? 1 : 0.92);
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          ctx.moveTo(x + Math.cos(a) * a0, y + Math.sin(a) * a0);
+          ctx.lineTo(x + Math.cos(a) * a1, y + Math.sin(a) * a1);
+        }
+        ctx.stroke();
+        break;
+      }
+      case 'veil': {
+        // the light behind a veil: a dim core, a dashed ring
+        ctx.fillStyle = 'rgba(255,217,138,.45)';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.38, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = C.muted;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.85, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        break;
+      }
+      case 'breath': {
+        // a ring that breathes, cool blue
+        ctx.strokeStyle = '#a9cdff';
+        ctx.beginPath();
+        ctx.arc(x, y, r * (0.45 + 0.4 * breathe), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(169,205,255,.5)';
+        ctx.beginPath();
+        ctx.arc(x, y, r * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      case 'end': {
+        // a low sun on a horizon
+        ctx.strokeStyle = '#c9d6f0';
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.9, y + r * 0.35);
+        ctx.lineTo(x + r * 0.9, y + r * 0.35);
+        ctx.stroke();
+        ctx.fillStyle = C.honey;
+        ctx.beginPath();
+        ctx.arc(x, y + r * 0.3, r * 0.48, Math.PI, 0);
+        ctx.fill();
+        break;
+      }
+    }
+  }
+
+  /**
+   * The first session's first tap, drawn: a fingertip and rings going out from the aimed tile, until the player has
+   * touched the mosaic (a coach mark says it in words too).
+   */
+  private drawTeach(ctx: CanvasRenderingContext2D, sim: RozSim): void {
+    if (this.touched || sim.session !== 1 || sim.story || sim.pic.state !== 'play' || sim.phase !== 'play') return;
+    const c = sim.pic.mosaic.cells[sim.aim];
+    const x = this.sx(c.cx), y = this.sy(c.cy), u = this.L.u;
+    const cyc = (this.clock % 1.6) / 1.6;
+    // the finger comes down (0–0.25), rings go out (0.25–1)
+    const press = cyc < 0.25 ? cyc / 0.25 : 1;
+    const ring = cyc < 0.25 ? 0 : (cyc - 0.25) / 0.75;
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, x, y, 26 * u, '#ffe6a8', 0.35 + 0.35 * press);
+    ctx.globalCompositeOperation = 'source-over';
+    if (ring > 0) {
+      ctx.strokeStyle = `rgba(255,240,205,${(0.85 * (1 - ring)).toFixed(3)})`;
+      ctx.lineWidth = 2 * u;
+      ctx.beginPath();
+      ctx.arc(x, y, (10 + 26 * ease.outCubic(ring)) * u, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = `rgba(255,246,228,${(0.55 + 0.4 * press).toFixed(3)})`;
+    ctx.strokeStyle = 'rgba(8,10,16,.55)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x, y - (1 - press) * 10 * u, 8 * u, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
   }
 
   /** The place's name when a picture begins (out of the banner's way), on a dark plate at the frame's top. */
@@ -851,7 +1202,7 @@ export class RozView {
     const size = Math.max(15, 18 * u);
     ctx.font = font(size, 600, SERIF);
     const tw = Math.min(f.w - 24, ctx.measureText(name).width + 28);
-    const x = f.x + f.w / 2, y = f.y + 12 * u;
+    const x = f.x + f.w / 2, y = (this.nowBox ? this.nowBox.y + this.nowBox.h + 6 * u : f.y + 12 * u);
     ctx.globalAlpha = a;
     ctx.fillStyle = 'rgba(8,10,16,.72)';
     roundRect(ctx, x - tw / 2, y, tw, size + 14, (size + 14) / 2);
@@ -930,26 +1281,46 @@ export class RozView {
   }
 
   // ── cards ──────────────────────────────────────────────────────
+  /**
+   * The card waits for the player: its button at the bottom ("Dalej — następny obraz"; on a keyboard with its key),
+   * dim with a filling line while its first moment passes, then lit — a tap on the card, the button, Enter or Space.
+   */
   private drawCard(ctx: CanvasRenderingContext2D, sim: RozSim): void {
     const st = sim.story;
     if (!st) {
       this.cardRect = null;
+      this.buttonRect = null;
       return;
     }
-    const box = cardBox(this.L, this.frame, st.kind);
     const title = st.kind === 'open' ? t('card.open.title')
       : st.src?.kind === 'pair' ? pairTitle(st.src.id) : (st.src ? this.own.get(st.src.id)?.label : '') || t('hud.own');
     const kicker = st.kind === 'open' ? t('name.firefly') : st.src?.kind === 'own' ? t('card.own') : t('card.done');
-    const text = st.kind === 'open' ? t('card.open.text') : st.gold >= 5 ? t('card.gold', { pct: pct(st.gold) }) : null;
-    const hint = this.touch ? t('card.tap') : t('card.click');
-    const key = `${st.kind}|${title}|${text}|${st.verse}|${box.x},${box.y},${box.w},${box.h}`;
-    if (key !== this.cardKey) {
+    const text = st.kind === 'open' ? t('card.open.text') : null;
+    const note = st.kind === 'done' && st.gold >= 5 ? t('card.gold', { pct: pct(st.gold) }) : null;
+    const button = st.kind === 'open' ? t('card.begin') : t('card.next');
+    const keyCap = this.touch ? null : t('card.key');
+    const f = this.frame;
+    const key = `${st.kind}|${title}|${text}|${note}|${st.verse}|${button}|${f.x},${f.y},${f.w},${f.h}|${this.L.u}`;
+    if (key !== this.cardKey || !this.cardL) {
       this.cardKey = key;
-      this.cardT = { kicker, title, text, verse: st.verse as PassageId, hint };
-      this.cardL = cardLayout(ctx, box, this.cardT, this.L.u);
+      this.cardT = { kicker, title, text, note, verse: st.verse as PassageId, button, key: keyCap };
+      // a verse is never cut: the card grows upward (over more of the picture) until the whole passage fits
+      let box = cardBox(this.L, f, st.kind);
+      let L = cardLayout(ctx, box, this.cardT, this.L.u, cardButton(this.L, box));
+      const maxH = f.h - 2 * (this.L.shape === 'side' ? 6 : 10);
+      for (let i = 0; i < 30 && (!L.verse || !L.verse.layout.fits) && box.h < maxH - 0.5; i++) {
+        const h = Math.min(maxH, box.h + 24);
+        box = { ...box, y: box.y - (h - box.h), h };
+        L = cardLayout(ctx, box, this.cardT, this.L.u, cardButton(this.L, box));
+      }
+      this.cardL = L;
     }
-    const a = Math.min(1, st.t / 0.35, (st.dur - st.t) / 0.4);
-    if (this.cardL && this.cardT) paintCard(ctx, this.cardL, this.cardT, a, this.L.u);
+    const box = this.cardL.box, btn = this.cardL.button.rect;
+    const a = Math.min(1, st.t / 0.35);
+    const m = this.mouse;
+    const hover = !this.touch && !!m && m.x >= btn.x && m.x <= btn.x + btn.w && m.y >= btn.y && m.y <= btn.y + btn.h;
+    if (this.cardL && this.cardT) paintCard(ctx, this.cardL, this.cardT, a, this.L.u, { ready: st.t / RULES.cardMin, hover, t: st.t });
     this.cardRect = box;
+    this.buttonRect = btn;
   }
 }

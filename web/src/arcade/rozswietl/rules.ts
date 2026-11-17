@@ -9,15 +9,18 @@ export const RULES = {
   /** the frame's aspect is kept inside this range (a phone upright 3:4 … a desktop 2:1) */
   aspect: [0.72, 2.05] as const,
   /**
-   * "Auto": tiles per picture by the sessions saved before this one (the last entry from then on) — a few at first, a
-   * dozen soon, a few dozen later; slower since 2026-11-17, when a burst began to need held focus
+   * "Auto": tiles per picture by the sessions saved before this one (the last entry from then on).  The founder,
+   * 2026-11-17: "więcej elementów mozaiki" — 16 in the first session, 72 from the tenth (it was 7 → 36); a tile's need
+   * scales with its area, so a picture takes about as long as before (see picBase, picPerTile)
    */
-  tiles: [7, 9, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36] as const,
+  tiles: [16, 20, 24, 28, 32, 40, 48, 56, 64, 72] as const,
   /** the 2nd and later pictures of a session take this many tiles more (up to tilesMax) — in "Auto" only */
-  tilesLater: [0, 2, 4] as const,
-  tilesMax: 48,
+  tilesLater: [0, 4, 8] as const,
+  tilesMax: 96,
   /** what the progress card offers: 0 is "Auto" (the table above), else a fixed count */
-  tileChoices: [0, 8, 12, 16, 24, 32, 48] as const,
+  tileChoices: [0, 16, 24, 32, 48, 64, 96] as const,
+  /** a saved count the card no longer offers (8 and 12, before 2026-11-17) becomes the smallest one it does */
+  tilesOld: [8, 12] as const,
   /** Lloyd steps that even the tiles out */
   relax: 2,
   /** a tile's need grows with its size: (area / mean)^needPow */
@@ -32,9 +35,13 @@ export const RULES = {
   baseCap: 0.35,
   /** held focus: the band's `focused` for at least this long (s) — then the light presses past the cap and tiles burst */
   focusHold: 1.5,
-  /** a picture at the base light's pace takes picBase + picPerTile × tiles seconds of light (held focus: ×1.57 … ×3) */
+  /**
+   * A picture at the base light's pace takes picBase + picPerTile × tiles seconds of light (held focus: ×1.57 … ×3).
+   * 1.1 a tile until 2026-11-17 (7 → 36 tiles: 103 → 135 s); with twice the pieces 0.6, so every session's picture
+   * takes as long as it did or a little longer (16 → 72 tiles: 105 → 138 s), never less
+   */
   picBase: 95,
-  picPerTile: 1.1,
+  picPerTile: 0.6,
   /** the light's multiplier: 1 + lightGain × clamp((light − lightFrom) / (1 − lightFrom)) — ×1.57 at the threshold, ×3 at full */
   lightGain: 2,
   lightFrom: 0.3,
@@ -63,14 +70,31 @@ export const RULES = {
   pass: 0.1,
   passLight: 0.08,
   passDecay: 0.7,
-  /** a chain's links follow each other this far apart (s) */
-  chainGap: 0.12,
+  /** a chain's links follow each other this far apart (s): slow enough to see the light pass (0.12 before 2026-11-17) */
+  chainGap: 0.3,
   /** a dark tile touching gold cracks faster: × (1 + goldPull × its share of gilded edges) */
   goldPull: 1,
-  /** the last tiles go together: when this share (or fewer than finishMin tiles) is left dark */
+  /** the last tiles go together: when this share (or fewer than finishMin tiles) is left dark, finishGap s apart */
   finishShare: 0.1,
   finishMin: 1,
-  finishGap: 0.16,
+  finishGap: 0.4,
+
+  // ── a tile breaking (the founder, 2026-11-17: "wolniejszy rozpad") ─────────────────
+  /**
+   * A burst is a slow break, not a pop: the cracks run across the whole tile (breakCrack s), then its pieces loosen
+   * and fall away one after another (breakStagger s apart, the whole stagger at most breakSpread s), each falling for
+   * breakFall s with gravity breakGravity px/s², spinning slowly, fading to motes — the bright picture shows through
+   * as they go.  A tile takes breakCrack + spread + fall ≈ 1.6–2.4 s.  At most breakCap pieces fall at once.
+   */
+  breakCrack: 0.42,
+  breakStagger: 0.17,
+  breakSpread: 0.85,
+  breakFall: [0.95, 1.2] as const,
+  breakGravity: 300,
+  breakSpin: 1.8,
+  breakCap: 220,
+  /** pieces cut in one frame at most (a sprite each): past it a burst that frame gets one piece, fading in place */
+  breakFrame: 27,
 
   // ── shards (the headline) ────────────────────────────────────
   /** shards of a burst: 3 + 6 × sqrt(area / (frame / 7)), 3..9, plus one per chain link */
@@ -84,16 +108,24 @@ export const RULES = {
   flareDrain: 1 / 30,
   /** a ready flare goes off only in held focus: a tap or Space, or by itself after this many seconds of held focus */
   flareAuto: 3,
-  /** the wave's reach in mean tile radii and its strength at the centre (need shares, falling off outward) */
+  /**
+   * The wave's reach in mean tile radii (× √(tiles / flareTiles) past flareTiles tiles, so a mosaic of smaller pieces
+   * is not a smaller flare: it covers the same share of the picture as on 36 tiles) and its strength at the centre
+   * (need shares, falling off outward)
+   */
   flareReach: 2.2,
+  flareTiles: 36,
   flarePower: 0.8,
   /** a wave bursts at most max(flareMinBurst, round(flareShare × tiles)) of the nearest tiles; the rest only crack */
   flareShare: 0.12,
   flareMinBurst: 2,
   /** the wave's other tiles crack up to this share: under 1 − (pass + passLight), so its bursts start no chain there */
   waveKeep: 0.8,
-  /** bursts this soon after a flare (s) count double */
-  flareDouble: 1.6,
+  /** the wave runs from its centre outward: a tile at distance d bursts or cracks waveLead + waveSec × d / reach s after */
+  waveLead: 0.12,
+  waveSec: 1.3,
+  /** bursts this soon after a flare (s) count double (the wave's own always do) */
+  flareDouble: 2.4,
 
   // ── gazing (rest) ────────────────────────────────────────────
   /** the lead-in before calm acts in a rest block (s): Mendi / HALO */
@@ -134,18 +166,27 @@ export const RULES = {
 
   // ── pictures ─────────────────────────────────────────────────
   /** a picture done: the bloom (s) before the next one assembles, which takes assembleSec */
-  bloomSec: 3.2,
+  bloomSec: 3.6,
   assembleSec: 1.3,
-  /** the title card shows this long (s); a tap closes it after cardMin */
-  cardSec: 6,
+  /** the card comes this long (s) into the bloom: after the last tile's pieces have fallen */
+  cardAt: 2.5,
+  /**
+   * A card waits for the player (the founder, 2026-11-17: the next picture only after a click on the card): a tap
+   * on it, its button, Enter or Space close it — never time.  Taps in its first cardMin s are not taken (a finger
+   * still tapping the last tiles must not skip it).  While it waits the light rests and the block's seconds under it
+   * are not judged; a block more than cardJudge of whose time a card covered gets no verdict at all.
+   */
   cardMin: 1.2,
-  /** the opening story card (first-ever session) */
-  openSec: 10,
+  cardJudge: 0.5,
 
   // ── the voice ────────────────────────────────────────────────
-  talkMin: 2.2,
-  talkMax: 4,
+  /** a line stays long enough to read twice: talkBase + talkPerChar × its characters, never under talkMin (s) */
+  talkBase: 2.5,
+  talkPerChar: 0.07,
+  talkMin: 4.5,
   talkGap: 3,
+  /** the "what to do now" line changes only after the new action has held this long (s) */
+  nowSettle: 0.8,
   /** the light above the threshold this long (s) before the firefly says so */
   goodSec: 5,
 } as const;

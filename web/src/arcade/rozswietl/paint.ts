@@ -208,10 +208,14 @@ export function paintBubble(ctx: CanvasRenderingContext2D, b: BubbleBox, tx: num
 export interface CardText {
   kicker: string;
   title: string;
-  /** a paragraph under the title (the opening card), or a short line (the gold) */
+  /** a paragraph under the title (the opening card) */
   text: string | null;
+  /** a short gold line under the title (the gold laid) */
+  note: string | null;
   verse: PassageId;
-  hint: string;
+  /** the button's words ("Dalej — następny obraz"), and a key cap beside them on a keyboard ("Enter") */
+  button: string;
+  key: string | null;
 }
 
 /** A card's layout, computed once per card and size (fonts fitted, the verse laid out to the room left). */
@@ -220,11 +224,15 @@ export interface CardLayout {
   kicker: { text: string; size: number; y: number };
   title: { text: string; size: number; y: number };
   body: { lines: string[]; size: number; lh: number; y: number } | null;
+  note: { text: string; size: number; y: number } | null;
   verse: { layout: PassageLayout; y: number } | null;
-  hint: { text: string; size: number; y: number };
+  button: { rect: Rect; text: string; size: number; key: { text: string; size: number; w: number } | null };
 }
 
-export function cardLayout(ctx: CanvasRenderingContext2D, box: Rect, c: CardText, u = 1): CardLayout {
+/** How the button looks this frame: `ready` 0..1 while the card's first moment passes (taps not yet taken), `hover`. */
+export interface ButtonLook { ready: number; hover: boolean; t: number }
+
+export function cardLayout(ctx: CanvasRenderingContext2D, box: Rect, c: CardText, u = 1, btn: Rect = box): CardLayout {
   const pad = Math.max(12, 16 * u);
   const iw = box.w - 2 * pad;
   let y = box.y + pad;
@@ -246,19 +254,31 @@ export function cardLayout(ctx: CanvasRenderingContext2D, box: Rect, c: CardText
     body = { lines, size: bs, lh, y };
     y += lines.length * lh + 8 * u;
   }
-  const hs = Math.max(MIN_READ, 13 * u);
-  const hintY = box.y + box.h - pad - hs;
-  const room = hintY - 8 * u - y;
+  let note: CardLayout['note'] = null;
+  if (c.note) {
+    const ns = Math.max(MIN_READ, 14 * u);
+    note = { text: fitText(ctx, c.note, iw, ns, 700, SANS, MIN_READ), size: ns, y };
+    y += ns + 8 * u;
+  }
+  // the button: its words, and a key cap on a keyboard
+  const bsz = Math.max(MIN_READ + 2, 16 * u);
+  const ksz = Math.max(MIN_TEXT + 1, 12 * u);
+  ctx.font = font(ksz, 700);
+  const key = c.key ? { text: c.key, size: ksz, w: ctx.measureText(c.key).width + 14 * u } : null;
+  const btext = fitText(ctx, c.button, btn.w - 28 * u - bsz - (key ? key.w + 10 * u : 0), bsz, 750, SANS, MIN_READ);
+  // fitText left ctx.font at the size it settled on
+  const bm = ctx.font.match(/(\d+(?:\.\d+)?)px/);
+  const room = btn.y - 10 * u - y;
   let verse: CardLayout['verse'] = null;
   if (room > 34) {
     const l = layoutPassage(ctx, passage(c.verse), iw, room, { max: Math.round(17 * u), min: 13 });
     verse = { layout: l, y: y + Math.max(0, (room - l.height) / 2) };
   }
-  return { box, kicker, title, body, verse, hint: { text: c.hint, size: hs, y: hintY } };
+  return { box, kicker, title, body, note, verse, button: { rect: btn, text: btext, size: bm ? Number(bm[1]) : bsz, key } };
 }
 
-/** Draw a laid-out card: dark glass with a gold edge, the kicker, the title in the serif, the verse, the hint. */
-export function paintCard(ctx: CanvasRenderingContext2D, L: CardLayout, c: CardText, a: number, u = 1): void {
+/** Draw a laid-out card: dark glass with a gold edge, the kicker, the title in the serif, the gold, the verse, the button. */
+export function paintCard(ctx: CanvasRenderingContext2D, L: CardLayout, c: CardText, a: number, u = 1, look: ButtonLook = { ready: 1, hover: false, t: 0 }): void {
   if (a <= 0.01) return;
   const { box } = L;
   ctx.globalAlpha = Math.min(1, a);
@@ -283,9 +303,83 @@ export function paintCard(ctx: CanvasRenderingContext2D, L: CardLayout, c: CardT
     ctx.font = font(L.body.size, 500);
     L.body.lines.forEach((l, i) => ctx.fillText(l, cx, L.body!.y + i * L.body!.lh));
   }
+  if (L.note) {
+    ctx.fillStyle = C.gold;
+    ctx.font = font(L.note.size, 700);
+    ctx.fillText(L.note.text, cx, L.note.y);
+  }
   if (L.verse) drawPassage(ctx, passage(c.verse), L.verse.layout, cx, L.verse.y, { text: '#f3e9d6', ref: C.gold });
-  ctx.fillStyle = C.muted;
-  ctx.font = font(L.hint.size, 600);
-  ctx.fillText(L.hint.text, cx, L.hint.y);
+  paintButton(ctx, L.button, a, u, look);
   ctx.globalAlpha = 1;
+}
+
+/**
+ * The card's button: a gold pill with dark words and an arrow — dim, with a thin line filling along its bottom, while
+ * the card's first moment passes (taps are not taken yet); then lit, breathing a little, brighter under a mouse.
+ */
+function paintButton(ctx: CanvasRenderingContext2D, B: CardLayout['button'], a: number, u: number, look: ButtonLook): void {
+  const r = B.rect, ready = look.ready >= 1;
+  const rr = r.h / 2;
+  const pulse = ready ? 0.5 + 0.5 * Math.sin(look.t * 2.6) : 0;
+  ctx.globalAlpha = Math.min(1, a) * (ready ? 1 : 0.55);
+  if (ready) {
+    ctx.globalCompositeOperation = 'lighter';
+    glow(ctx, r.x + r.w / 2, r.y + r.h / 2, r.w * 0.62, '#ffc56a', (look.hover ? 0.3 : 0.14 + 0.08 * pulse) * Math.min(1, a));
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = Math.min(1, a);
+  }
+  ctx.fillStyle = ready ? (look.hover ? '#ffd57a' : C.gold) : 'rgba(246,195,92,.5)';
+  roundRect(ctx, r.x, r.y, r.w, r.h, rr);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,241,196,.8)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1, rr);
+  ctx.stroke();
+  if (!ready) {
+    // the first moment passing: a line fills along the bottom
+    ctx.strokeStyle = 'rgba(255,246,228,.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(r.x + rr, r.y + r.h - 4);
+    ctx.lineTo(r.x + rr + (r.w - 2 * rr) * Math.max(0, Math.min(1, look.ready)), r.y + r.h - 4);
+    ctx.stroke();
+  }
+  // the words and the arrow, centred together; the key cap after them
+  ctx.font = font(B.size, 750);
+  const tw = ctx.measureText(B.text).width;
+  const arrow = B.size * 0.9, kw = B.key ? B.key.w + 10 * u : 0;
+  const total = tw + 8 * u + arrow + kw;
+  let x = r.x + (r.w - total) / 2;
+  const cy = r.y + r.h / 2;
+  ctx.fillStyle = '#1a1206';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(B.text, x, cy + 1);
+  x += tw + 8 * u;
+  ctx.strokeStyle = '#1a1206';
+  ctx.lineWidth = Math.max(1.6, 2 * u);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const nudge = ready ? pulse * 2 * u : 0;
+  ctx.beginPath();
+  ctx.moveTo(x + nudge, cy);
+  ctx.lineTo(x + arrow + nudge, cy);
+  ctx.moveTo(x + arrow * 0.6 + nudge, cy - arrow * 0.38);
+  ctx.lineTo(x + arrow + nudge, cy);
+  ctx.lineTo(x + arrow * 0.6 + nudge, cy + arrow * 0.38);
+  ctx.stroke();
+  if (B.key) {
+    x += arrow + 10 * u;
+    const kh = B.key.size + 8 * u;
+    ctx.strokeStyle = 'rgba(26,18,6,.55)';
+    ctx.lineWidth = 1.2;
+    roundRect(ctx, x, cy - kh / 2, B.key.w, kh, 5 * u);
+    ctx.stroke();
+    ctx.fillStyle = '#2a1d08';
+    ctx.font = font(B.key.size, 700);
+    ctx.textAlign = 'center';
+    ctx.fillText(B.key.text, x + B.key.w / 2, cy + 1);
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
 }

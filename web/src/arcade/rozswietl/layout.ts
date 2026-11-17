@@ -13,8 +13,8 @@
  *          tile a click would act on answers the mouse (render.ts), the frame filling a big screen's band
  *
  * The tiles themselves are the controls (a tap aims and knocks, a drag moves the light), so the play has
- * no buttons: `targets()` lists only a card while one waits for a tap.  Pure (tests run it at every
- * kit/mobile CHECK_SIZES entry).
+ * no buttons: `targets()` lists only a card's button while a card waits for the player (a tap anywhere on the
+ * card does the same).  Pure (tests run it at every kit/mobile CHECK_SIZES entry).
  */
 import { clamp } from '../kit/juice';
 import { MIN_TAP, NO_INSETS, screenKind, uiScale, type ScreenKind } from '../kit/mobile';
@@ -88,18 +88,36 @@ export function flySpot(L: Layout, f: Rect): { x: number; y: number; r: number; 
   return { x: f.x + 22 * L.u, y: f.y + f.h - 22 * L.u, r, outside: false, bubbleW: Math.min(320 * L.u, f.w - 20) };
 }
 
-/** A picture's card (transformed: title and verse) over the frame's lower part; the opening card fills the frame. */
+/**
+ * A picture's card (transformed: title, gold, verse, the button) over the frame's lower part, the bright picture
+ * above it; the opening card fills the frame.
+ */
 export function cardBox(L: Layout, f: Rect, kind: 'open' | 'done'): Rect {
   const pad = L.shape === 'side' ? 6 : 10;
   if (kind === 'open') return { x: f.x + pad, y: f.y + pad, w: f.w - 2 * pad, h: f.h - 2 * pad };
   const w = Math.min(f.w - 2 * pad, 520 * L.u);
-  const h = Math.min(f.h - 2 * pad, Math.max(L.shape === 'side' ? 150 : 190, f.h * (L.shape === 'side' ? 0.8 : 0.58)));
+  // a phone upright: 60 % of the picture; on its side most of it; a wide screen half, more of the place in sight
+  const share = L.shape === 'side' ? 0.82 : L.shape === 'wide' ? 0.5 : 0.6;
+  const h = Math.min(f.h - 2 * pad, Math.max(L.shape === 'side' ? 170 : 220, f.h * share));
   return { x: f.x + (f.w - w) / 2, y: f.y + f.h - pad - h, w, h };
 }
 
-/** The controls a finger can tap now: only a card waiting for its tap (the tiles are the free play area). */
-export function tapTargets(card: Rect | null): TapTarget[] {
-  if (!card) return [];
-  const w = Math.max(MIN_TAP, card.w), h = Math.max(MIN_TAP, card.h);
-  return [{ label: 'card', x: card.x, y: card.y, w, h }];
+/** The inner padding of a card. */
+export const cardPad = (L: Layout): number => Math.max(12, 16 * L.u);
+
+/**
+ * The card's button ("Dalej — następny obraz"): at its bottom, centred, at least a finger tall (MIN_TAP), 320 px wide
+ * (× u, at least 220) within the card.
+ */
+export function cardButton(L: Layout, box: Rect): Rect {
+  const pad = cardPad(L);
+  const h = Math.max(MIN_TAP, Math.round(46 * L.u));
+  const w = Math.min(box.w - 2 * pad, Math.max(220, 320 * L.u));
+  return { x: Math.round(box.x + (box.w - w) / 2), y: Math.round(box.y + box.h - pad * 0.75 - h), w: Math.round(w), h };
+}
+
+/** The controls a finger can tap now: only a waiting card's button (the tiles are the free play area). */
+export function tapTargets(button: Rect | null): TapTarget[] {
+  if (!button) return [];
+  return [{ label: 'next', x: button.x, y: button.y, w: Math.max(MIN_TAP, button.w), h: Math.max(MIN_TAP, button.h) }];
 }
