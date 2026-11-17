@@ -4099,20 +4099,28 @@ Dignity (§13.3, §13.4): moods, never wounds, self-harm or horror; faces withou
 says enough); sadness is *smutek*; the light that breaks the mosaic is just light, no figure in it.
 
 **The mosaic (kit/mosaic.ts).** The dark picture lies on Voronoi tiles over the bright one: **7 tiles in
-the first session, then 12, 14, 16, 20, 24 … 48** (by the sessions saved; a session's 2nd and 3rd picture
-take 2 and 4 more), seeds denser where the bright picture has detail (the kit's `detailWeight` over its
+the first session, then 9, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36** (by the sessions saved; a session's 2nd and
+3rd picture take 2 and 4 more — "Auto"; slower since 2026-11-17, when a burst began to need held focus; the
+progress card also offers a fixed **8, 12, 16, 24, 32 or 48**: the founder asked to check the tile count, and the
+right number depends on the player's focus and patience), seeds denser where the bright picture has detail (the kit's `detailWeight` over its
 edge map, softened), so faces and hands break into smaller pieces. A tile's need grows with its size
 (area/mean)^0.6. The frame keeps the picture's own proportions and takes the whole band under the HUD; a
 phone that turns cuts the picture again for the new frame, every new tile taking the state of the old one
 under it (uncovered, pressure, warmth, gold — nothing is lost).
 
-**The light (push block, the gauge "Światło").** The light presses on the aimed tile from behind:
-* **always a little** (grace from showing up): a picture at the base alone takes 95 + 1.1·N seconds of light
-  (a first-ever warm-up teaches with ×1.6),
-  and a tap **knocks** (0.6 s of the base light at once, weaker when knocks come quicker than 1.2 s);
-* **with focus** in a sighted push past its lead-in (5 s Mendi, 2 s HALO) the light is
-  ×(1 + 2 · clamp((level − 0.3)/0.7)): ×1.57 at the threshold, ×3 at full, and its **halo** widens
-  (radius 1 + 2·level mean tile radii) and spills 35 % of the light (falling off) onto the tiles inside it.
+**The light (push block, the gauge "Światło").** The light presses on the aimed tile from behind.
+**Only held focus breaks a tile** (the founder, 2026-11-17: *"Rozbłysk ma się dziać tylko przy utrzymanej
+koncentracji"* — the flash must happen only with sustained concentration):
+* **always a little** (grace from showing up) — but only **up to 35 % of a tile's need** (`baseCap`): the cracks
+  glow and grow, nothing bursts. The base light (a first-ever warm-up's ×1.6 too), a tap's **knock** (0.6 s of the
+  base light at once, weaker when knocks come quicker than 1.2 s) and a rest's banked reserve all stop there; the
+  first time the aimed tile reaches the cap without focus, the firefly says what breaks it ("Rysy już są. Kafel
+  pęknie od światła Twojego skupienia.");
+* **with held focus** — a sighted push past its lead-in (5 s Mendi, 2 s HALO) while the band's `focused` has held
+  ≥ 1.5 s — the light presses past the cap at ×(1 + 2 · clamp((level − 0.3)/0.7)): ×1.57 at the threshold, ×3 at
+  full (a picture's pace: 95 + 1.1·N seconds of that base light, so ~45–80 s of held focus at the threshold), and
+  its **halo** widens (radius 1 + 2·level mean tile radii) and spills 35 % of the light (falling off) onto the tiles
+  inside it.
 * In the world the gauge is drawn around the aimed tile: the **gold rim's radius is the light**, the
   **dotted ring is the threshold** (it turns gold above it); the whole grout network glimmers with warm
   white light in proportion (light seeping through the cracks from behind), brightest along the aimed
@@ -4125,14 +4133,24 @@ under it (uncovered, pressure, warmth, gold — nothing is lost).
   light while the band acts) of its need × its gold, less with each link (×0.7) — **under one tile's
   worth in all**, so a chain needs tiles the halo or the gold has already cracked: **focus and gazing make
   the chains** (counted once when they end, "Łańcuch ×4").
-* **The flare (Rozbłysk)**: 12 s of held focus (Mendi's Control: a hold under 1.5 s fills at half) fill the
-  ring around the firefly; a tap anywhere on the mosaic (Space on a keyboard) — or by itself after 6 s —
-  releases a wave that presses every dark tile within 3.2 mean radii (0.8 × the fall-off × gold): several
-  burst outward in turn, and bursts in the next 1.6 s count double. The push block's best moment.
-* Without a reliable signal the light freezes at neutral: ×1, no gauge, no loss.
+* **The flare (Rozbłysk)**, the firefly's ring — sustained concentration made visible: **only held focus** (≥ 1.5 s)
+  fills it, in 12 s; a break in the focus drains it (1/30 a second), so scattered moments of focus never build it
+  (at 30 % focus a 10-minute session fills none, at 50 % two to four). Ready, it goes off **only in held focus**:
+  a tap on the mosaic (Space on a keyboard), or by itself after 3 more seconds of held focus; without focus it
+  waits (the ring dims and breathes slowly) and a tap gets the firefly's "Rozbłysk czeka na Twoje skupienie".
+  Its wave presses the dark tiles within 2.2 mean radii (0.8 × the fall-off × gold) and **bursts at most
+  max(2, 12 % of the tiles)** — the nearest ones (2 of a small picture, 4 of 36), the others crack up to 80 %, so
+  no chain runs on from it; bursts in the next 1.6 s count double. (Before 2026-11-17 a hold under 1.5 s filled
+  it at half, it went off by itself after 6 s whatever the focus, and its 3.2-radii wave could open most of a
+  7-tile picture at once.)
+* Without a reliable signal the light freezes at neutral: the base light only (cracks), no gauge, no loss.
 * **Blind push** ("Na wyczucie", every 4th push from the 3rd session): the halo and the gauge hide, only the
   base light works; at the block's end the hidden light lands as a wave as strong as the block's share
   above the threshold ("To światło zbierało się w ukryciu").
+* **Pacing, measured with the sim** (2026-11-17; focus held half of the time in 16 s cycles, taps every 2.5 s):
+  a first-ever 5-minute session uncovers 2 pictures (11 tiles), the 4th session's 5 minutes 2 pictures of 18 tiles,
+  the 11th session's 10 minutes 2 pictures of 36 tiles (94 tiles, 3 flares); at 30 % focus one picture and no flare,
+  at 70 % three pictures and six flares. Without focus: cracks, no burst, no score.
 
 **Gazing (rest block, the gauge "Ciepło").** The dark tiles rest (no pressure). Past a 4 s lead-in (2 s
 HALO) calm **warms** the uncovered pieces (a new piece is a little pale; 0.04 + 0.12·calm per second to its

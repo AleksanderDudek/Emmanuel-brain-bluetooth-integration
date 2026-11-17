@@ -3,12 +3,14 @@
  * (kit/mosaic.ts) over the same place in the light:
  *
  *   the light     presses on the aimed tile from behind — always a little (grace: the base comes from
- *                 showing up), much more with focus in a sighted push block (×1 … ×3), and with focus
- *                 its halo widens and spills onto the neighbours; a tap knocks (a crack at once)
+ *                 showing up), much more with held focus in a sighted push block (×1.57 … ×3), and with
+ *                 focus its halo widens and spills onto the neighbours; a tap knocks (a crack at once).
+ *                 Only held focus breaks a tile: without it the light presses up to RULES.baseCap
  *   a burst       a tile at full pressure bursts into shards (the headline) and passes light to its dark
  *                 neighbours; one that fills from it bursts a moment later — a chain
- *   the flare     held focus fills it; released by a tap (or by itself), a wave of light presses every
- *                 tile around the point, and its bursts count double
+ *   the flare     only held focus fills it (a break drains it); it goes off only in held focus — a tap,
+ *                 or by itself — a wave of light that bursts the few nearest tiles (their bursts count
+ *                 double) and cracks the ones around
  *   gazing        in a rest block calm warms the uncovered pieces and lays gold in their seams (it flows
  *                 tile to tile); a dark tile touching gold cracks faster in the next push
  *   by feel       a blind push shows the base light only; its hidden light is released at its end
@@ -104,6 +106,7 @@ export interface Story {
 }
 
 export type SimEvent =
+  | { type: 'flareWait' }
   | { type: 'blockStart'; block: Block; index: number }
   | { type: 'blockEnd'; block: Block; verdict: boolean | null; share: number; need: number }
   | { type: 'telegraph'; next: Block | null }
@@ -249,6 +252,8 @@ export class RozSim {
   light = 0;
   /** whether the band's light acts now (a sighted push past its lead-in, a reliable signal) */
   lightOn = false;
+  /** held focus now: the band's light acts and `focused` has held RULES.focusHold s — only then do tiles burst */
+  held = false;
   /** the calm the gauge shows in a rest block */
   calmShown = 0;
   reliable = false;
@@ -256,6 +261,10 @@ export class RozSim {
   flare = 0;
   flareReady = false;
   private flareReadyT = 0;
+  /** a ready flare waits for held focus (it never goes off without it) */
+  get flareWaiting(): boolean { return this.flareReady && !this.held; }
+  /** the firefly said this picture that the cracks wait for focus */
+  private capSaid = false;
   flareAt: { x: number; y: number; t: number } | null = null;
   private reserve = 0;
   private blindBank = 0;
@@ -398,7 +407,8 @@ export class RozSim {
       // a rest with nothing to gild banked light: it lands on every dark tile now
       if (this.reserve > 0.005) {
         const amount = this.reserve;
-        for (const tile of this.pic.tiles) if (!tile.open) tile.press = Math.min(0.95, tile.press + amount / tile.need);
+        // only cracks: the burst is held focus's
+        for (const tile of this.pic.tiles) if (!tile.open) tile.press = Math.max(tile.press, Math.min(RULES.baseCap, tile.press + amount / tile.need));
         this.reserve = 0;
         this.emit({ type: 'reserve', amount });
       }
@@ -501,6 +511,7 @@ export class RozSim {
     const k = 1 - Math.exp(-dt / R.lightTau);
     if (ok) this.light += k * (clamp(f.level) - this.light);
     this.lightOn = ok && this.sighted && !this.story;
+    this.held = this.lightOn && f.focused && f.hold >= R.focusHold;
     const kc = 1 - Math.exp(-dt / R.calmTau);
     if (ok) this.calmShown += kc * (clamp(f.calm) - this.calmShown);
     // without a signal for a while in a block that listens: the firefly says it is the sensor
@@ -508,9 +519,12 @@ export class RozSim {
       this.noSignalT += dt;
       if (this.noSignalT > 6 && this.noSignalT - dt <= 6) this.talk.ask('nosignal', 3, 8);
     } else this.noSignalT = 0;
-    // the flare fills from a held focus (a picture's bloom and the next one's assembly included: focus is never lost)
-    if (ok && this.sighted && this.story?.kind !== 'open' && f.focused && !this.flareReady && this.pic.state !== 'finishing') {
-      this.flare = Math.min(1, this.flare + (dt / R.flareSec) * (f.hold >= R.flareHold ? 1 : 0.5));
+    // the flare fills only from held focus (a picture's bloom and the next one's assembly included: focus is never
+    // lost); a break in the focus drains it a little — the ring is sustained concentration made visible
+    const charging = ok && this.sighted && this.story?.kind !== 'open' && f.focused && f.hold >= R.flareHold;
+    if (!this.flareReady && ok && this.sighted && !f.focused) this.flare = Math.max(0, this.flare - dt * R.flareDrain);
+    if (charging && !this.flareReady && this.pic.state !== 'finishing') {
+      this.flare = Math.min(1, this.flare + dt / R.flareSec);
       if (this.flare >= 1) {
         this.flareReady = true;
         this.flareReadyT = 0;
@@ -519,7 +533,8 @@ export class RozSim {
         this.talk.ask('flareReady', 4, 6);
       }
     }
-    if (this.flareReady && !this.story && this.pic.state === 'play' && !this.restBlock) {
+    // a ready flare goes off by itself only after a few seconds more of held focus; without focus it waits
+    if (this.flareReady && !this.story && this.pic.state === 'play' && !this.restBlock && this.held) {
       this.flareReadyT += dt;
       if (this.flareReadyT >= R.flareAuto) this.releaseFlare(null);
     }
@@ -571,7 +586,7 @@ export class RozSim {
     const src = choosePicture(this.p, {
       day: this.init.day, daySeed: this.init.daySeed, ownReady: this.init.ownReady?.() ?? [], index: this.picCount, prev: this.prevSrc,
     });
-    const n = tilesFor(this.sessionsBefore, this.picCount);
+    const n = tilesFor(this.sessionsBefore, this.picCount, this.p.tilesPick);
     const mh = R.MH, mw = R.MH * clamp(this.aspect, R.aspect[0], R.aspect[1]);
     const weight = this.init.weight?.(src, mw, mh);
     const mosaic = makeMosaic(mw, mh, n, this.rng, { weight, relax: R.relax });
@@ -594,6 +609,7 @@ export class RozSim {
       saidCrack: false, saidBurst: false, saidNear: false, day, ver: 0,
     };
     this.picCount++;
+    this.capSaid = false;
     this.flare = Math.min(this.flare, 0.999);
     this.flareReady = false;
     this.flareAt = null;
@@ -724,12 +740,16 @@ export class RozSim {
     this.pic.stateT = 0;
   }
 
-  /** Light presses: on the aimed tile, and (with focus) on the tiles inside the halo — not while gazing. */
+  /**
+   * Light presses: on the aimed tile, and (with focus) on the tiles inside the halo — not while gazing.  Only held
+   * focus presses past RULES.baseCap: without it the cracks grow, nothing bursts.
+   */
   private press(dt: number): void {
     const pic = this.pic, R = RULES;
     if (this.restBlock) return;
     const base = 1 / pic.perTile;
-    const m = this.lightOn ? this.mult(this.light) : this.phase === 'play' && this.block.kind === 'warmup' ? R.warmLight : 1;
+    const m = this.held ? this.mult(this.light) : this.phase === 'play' && this.block.kind === 'warmup' ? R.warmLight : 1;
+    const cap = this.held ? Infinity : R.baseCap;
     const aimC = pic.mosaic.cells[this.aim];
     const at = { x: aimC.cx, y: aimC.cy };
     const halo = this.haloR;
@@ -744,12 +764,18 @@ export class RozSim {
         if (d < halo) share = R.spill * (1 - d / halo);
       }
       if (share <= 0) continue;
-      this.add(i, dt * base * m * share * this.goldMult(i), i === this.aim ? at : null);
+      this.add(i, dt * base * m * share * this.goldMult(i), i === this.aim ? at : null, cap);
+    }
+    // the aimed tile has cracked as far as light without focus goes: the firefly says what breaks it (once a picture)
+    const aimed = pic.tiles[this.aim];
+    if (!this.held && !this.capSaid && !aimed.open && aimed.press >= R.baseCap - 1e-6 && this.pushBlock && !this.blind) {
+      this.capSaid = true;
+      this.talk.ask('cap', 2, 10);
     }
   }
 
-  /** Light on a tile (need shares before its need), its first crack and its burst. */
-  private add(i: number, amount: number, from: Pt | null): void {
+  /** Light on a tile (need shares before its need), its first crack and its burst; `cap`: how far this light may press. */
+  private add(i: number, amount: number, from: Pt | null, cap = Infinity): void {
     const tile = this.pic.tiles[i];
     if (tile.open || amount <= 0) return;
     if (!tile.from) {
@@ -757,7 +783,8 @@ export class RozSim {
       tile.from = from ?? { x: c.cx, y: c.cy };
     }
     const before = tile.press;
-    tile.press += amount / tile.need;
+    const next = tile.press + amount / tile.need;
+    tile.press = cap >= 1 ? next : Math.max(tile.press, Math.min(cap, next));
     if (before < 0.12 && tile.press >= 0.12) {
       this.emit({ type: 'crack', cell: i });
       if (!this.pic.saidCrack) {
@@ -1021,10 +1048,13 @@ export class RozSim {
       return;
     }
     if (pic.state !== 'play' && pic.state !== 'assemble') return;
-    // a ready flare waits out a gazing block: the dark tiles rest
+    // a ready flare waits out a gazing block (the dark tiles rest) and goes off only in held focus
     if (this.flareReady && !this.restBlock) {
-      this.releaseFlare(at);
-      return;
+      if (this.held) {
+        this.releaseFlare(at);
+        return;
+      }
+      this.waitFlare();
     }
     if (tile.open) {
       if (this.restBlock) {
@@ -1056,7 +1086,7 @@ export class RozSim {
     if (!tile) return -1;
     if (tile.open && this.restBlock) return i;
     if (pic.state !== 'play' && pic.state !== 'assemble') return -1;
-    if (this.flareReady && !this.restBlock) return i;
+    if (this.flareReady && !this.restBlock && this.held) return i;
     return tile.open ? this.nearestDark(at) : i;
   }
 
@@ -1075,8 +1105,11 @@ export class RozSim {
     if (!this.started || this.phase === 'done' || this.tapCard()) return;
     if (this.pic.state !== 'play' && this.pic.state !== 'assemble') return;
     if (this.flareReady && !this.restBlock) {
-      this.releaseFlare(null);
-      return;
+      if (this.held) {
+        this.releaseFlare(null);
+        return;
+      }
+      this.waitFlare();
     }
     const c = this.pic.mosaic.cells[this.aim];
     this.knock(this.aim, { x: c.cx, y: c.cy });
@@ -1104,7 +1137,8 @@ export class RozSim {
     const power = (R.knockSec / pic.perTile) * k;
     tile.knock = 1;
     this.emit({ type: 'knock', cell: i, x: at.x, y: at.y, power: k });
-    this.add(i, power, at);
+    // a knock cracks; it never breaks a tile (that is held focus's)
+    this.add(i, power, at, RULES.baseCap);
     this.coach('knock', { kind: 'aim' });
   }
 
@@ -1118,6 +1152,12 @@ export class RozSim {
       if (d < bd) { bd = d; best = i; }
     });
     return best;
+  }
+
+  /** A tap on a ready flare without held focus: it waits; the firefly says so (not too often). */
+  private waitFlare(): void {
+    this.emit({ type: 'flareWait' });
+    this.talk.ask('flareWait', 3, 5);
   }
 
   /** The flare: a wave of light from a point (the aim without one); bursts soon after count double. */
@@ -1139,18 +1179,37 @@ export class RozSim {
   private wave(pt: Pt, power: number, double: boolean): void {
     const pic = this.pic, R = RULES;
     const reach = R.flareReach * pic.meanR;
+    // the nearest tiles first: a wave bursts only a few of them (a flare is a moment, not the whole picture at once)
+    const near: { i: number; d: number }[] = [];
     for (let i = 0; i < pic.tiles.length; i++) {
       const tile = pic.tiles[i];
       if (tile.open || tile.pend >= 0) continue;
       const c = pic.mosaic.cells[i];
       const d = dist({ x: c.cx, y: c.cy }, pt);
-      if (d >= reach) continue;
+      if (d < reach) near.push({ i, d });
+    }
+    near.sort((a, b) => a.d - b.d);
+    let bursts = this.waveBursts();
+    for (const { i, d } of near) {
+      const tile = pic.tiles[i], c = pic.mosaic.cells[i];
       const amount = power * (1 - d / reach) ** 0.7 * this.goldMult(i);
       if (!tile.from) tile.from = { x: c.cx + (pt.x - c.cx) * 0.3, y: c.cy + (pt.y - c.cy) * 0.3 };
+      const before = tile.press;
       tile.press += amount / tile.need;
-      if (tile.press >= 1) this.schedulePend(i, 0, this.t + 0.05 + (d / reach) * 0.5, double);
-      else if (tile.press >= 0.12) this.emit({ type: 'crack', cell: i });
+      if (tile.press >= 1 && bursts > 0) {
+        bursts--;
+        this.schedulePend(i, 0, this.t + 0.05 + (d / reach) * 0.5, double);
+      } else {
+        // cracked, but kept under what the bursts' passed light could finish: a wave never runs on as a chain
+        tile.press = Math.max(before, Math.min(tile.press, RULES.waveKeep));
+        if (tile.press >= 0.12) this.emit({ type: 'crack', cell: i });
+      }
     }
+  }
+
+  /** How many tiles one wave may burst: a few of the picture's tiles, never most of a small picture. */
+  waveBursts(): number {
+    return Math.max(RULES.flareMinBurst, Math.round(RULES.flareShare * this.pic.tiles.length));
   }
 
   // ── cards and coach marks ───────────────────────────────────────
@@ -1213,7 +1272,7 @@ export class RozSim {
       [t('st.chain'), this.bestChain >= 2 ? `×${this.bestChain}` : '—'],
       [t('st.gold'), String(this.goldSeams)],
       [t('st.flares'), String(this.flares)],
-      [t('st.size'), String(this.started ? this.pic.tiles.length : tilesFor(this.sessionsBefore, 0))],
+      [t('st.size'), String(this.started ? this.pic.tiles.length : tilesFor(this.sessionsBefore, 0, this.p.tilesPick))],
       [t('st.push'), this.pushes ? `${this.passedPush}/${this.pushes}` : '—'],
       [t('st.rest'), this.rests ? `${this.passedRest}/${this.rests}` : '—'],
     ];

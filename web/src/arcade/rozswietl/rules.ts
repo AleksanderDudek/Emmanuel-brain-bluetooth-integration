@@ -8,18 +8,31 @@ export const RULES = {
   MH: 100,
   /** the frame's aspect is kept inside this range (a phone upright 3:4 … a desktop 2:1) */
   aspect: [0.72, 2.05] as const,
-  /** tiles per picture by the sessions saved before this one (the last entry from then on) */
-  tiles: [7, 12, 14, 16, 20, 24, 28, 32, 36, 40, 44, 48] as const,
-  /** the 2nd and later pictures of a session take this many tiles more (up to tilesMax) */
+  /**
+   * "Auto": tiles per picture by the sessions saved before this one (the last entry from then on) — a few at first, a
+   * dozen soon, a few dozen later; slower since 2026-11-17, when a burst began to need held focus
+   */
+  tiles: [7, 9, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36] as const,
+  /** the 2nd and later pictures of a session take this many tiles more (up to tilesMax) — in "Auto" only */
   tilesLater: [0, 2, 4] as const,
   tilesMax: 48,
+  /** what the progress card offers: 0 is "Auto" (the table above), else a fixed count */
+  tileChoices: [0, 8, 12, 16, 24, 32, 48] as const,
   /** Lloyd steps that even the tiles out */
   relax: 2,
   /** a tile's need grows with its size: (area / mean)^needPow */
   needPow: 0.6,
 
   // ── the light (push) ─────────────────────────────────────────
-  /** a picture at the base light alone takes picBase + picPerTile × tiles seconds of light (half a session is light) */
+  /**
+   * Only held focus breaks a tile (the founder, 2026-11-17: "the flare must happen only with sustained concentration").
+   * Without it — the base light, a knock, a rest's reserve, a warm-up — light presses a tile up to this share of its
+   * need: the cracks glow and grow, nothing bursts.
+   */
+  baseCap: 0.35,
+  /** held focus: the band's `focused` for at least this long (s) — then the light presses past the cap and tiles burst */
+  focusHold: 1.5,
+  /** a picture at the base light's pace takes picBase + picPerTile × tiles seconds of light (held focus: ×1.57 … ×3) */
   picBase: 95,
   picPerTile: 1.1,
   /** the light's multiplier: 1 + lightGain × clamp((light − lightFrom) / (1 − lightFrom)) — ×1.57 at the threshold, ×3 at full */
@@ -65,14 +78,20 @@ export const RULES = {
   shardMax: 9,
 
   // ── the flare (Rozbłysk) ─────────────────────────────────────
-  /** held focus in a sighted push fills it in this many seconds (a focus not yet held 1.5 s fills at half) */
+  /** held focus (focused ≥ flareHold s) in a sighted push fills it in flareSec seconds; a break in the focus drains it */
   flareSec: 12,
   flareHold: 1.5,
-  /** a ready flare goes by itself after this long (s) */
-  flareAuto: 6,
+  flareDrain: 1 / 30,
+  /** a ready flare goes off only in held focus: a tap or Space, or by itself after this many seconds of held focus */
+  flareAuto: 3,
   /** the wave's reach in mean tile radii and its strength at the centre (need shares, falling off outward) */
-  flareReach: 3.2,
+  flareReach: 2.2,
   flarePower: 0.8,
+  /** a wave bursts at most max(flareMinBurst, round(flareShare × tiles)) of the nearest tiles; the rest only crack */
+  flareShare: 0.12,
+  flareMinBurst: 2,
+  /** the wave's other tiles crack up to this share: under 1 − (pass + passLight), so its bursts start no chain there */
+  waveKeep: 0.8,
   /** bursts this soon after a flare (s) count double */
   flareDouble: 1.6,
 

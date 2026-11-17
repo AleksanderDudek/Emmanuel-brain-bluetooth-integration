@@ -26,6 +26,8 @@ const frame = (p: Partial<FocusFrame> = {}): FocusFrame =>
   ({ reliable: true, activity: 0, threshold: 2, level: 0.3, focused: false, hold: 0, calm: 0.5, ...p });
 const HIGH = frame({ level: 0.95, activity: 6, focused: true, hold: 10, calm: 0.05 });
 const MID = frame({ level: 0.5, activity: 2, focused: true, hold: 1, calm: 0.4 });
+/** at the threshold, focus held (≥ RULES.focusHold s): the light breaks tiles */
+const HELD = frame({ level: 0.55, activity: 2.5, focused: true, hold: 4, calm: 0.35 });
 const LOW = frame({ level: 0.15, activity: -1, focused: false, hold: 0, calm: 0.7 });
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.95 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
@@ -133,13 +135,33 @@ describe('the block plan', () => {
 });
 
 describe('the light', () => {
-  it('presses on the aimed tile at the base without a signal, and bursts it into shards (grace from showing up)', () => {
+  it('without held focus the light only cracks: the aimed tile stops at the cap, nothing bursts (the founder, 2026-11-17)', () => {
+    for (const f of [NONE, LOW, MID]) {
+      const sim = later();
+      const clock = { t: 0 };
+      const evs = drive(sim, 24, f, clock, t => { if (Math.abs(t % 1.3) < STEP / 2) sim.tap(centre(sim)); });
+      expect(ofType(evs, 'burst')).toHaveLength(0);
+      expect(sim.score).toBe(0);
+      expect(Math.max(...sim.pic.tiles.map(x => x.press))).toBeLessThanOrEqual(RULES.baseCap + 1e-9);
+      expect(ofType(evs, 'crack').length).toBeGreaterThan(0);          // the cracks grow: the light is there
+    }
+    // the firefly says what breaks it (once a picture)
     const sim = later();
-    const evs = drive(sim, 25, NONE);
-    const bursts = ofType(evs, 'burst');
-    expect(bursts.length).toBeGreaterThan(1);
-    expect(sim.score).toBe(bursts.reduce((s, b) => s + b.shards, 0));
-    expect(sim.meter()).toBeNull();
+    drive(sim, 24, LOW);
+    expect(sim.talk.said.some(l => [1, 2, 3].some(i => l === t(`say.cap.${i}` as never)))).toBe(true);
+    // held focus breaks the same tiles
+    const held = later();
+    const evs = drive(held, 24, HELD);
+    expect(ofType(evs, 'burst').length).toBeGreaterThan(0);
+    expect(held.score).toBe(ofType(evs, 'burst').reduce((a, b) => a + b.shards, 0));
+  });
+
+  it('knocks crack but never break, even in held focus; a rest’s reserve only cracks', () => {
+    const sim = later();
+    const c = centre(sim);
+    for (let i = 0; i < 40; i++) sim.tap(c);
+    expect(sim.pic.tiles.every(x => !x.open)).toBe(true);
+    expect(Math.max(...sim.pic.tiles.map(x => x.press))).toBeLessThanOrEqual(RULES.baseCap + 1e-9);
   });
 
   it('presses faster with focus in a sighted push past its lead-in: ×1.57 at the threshold, ×3 at full', () => {
@@ -253,6 +275,57 @@ describe('the light', () => {
     }
   });
 
+  it('charges the flare only in held focus, drains it when the focus breaks, and never lets it go without focus', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    drive(sim, 6, HIGH, clock);                                   // past the lead-in
+    const short = frame({ level: 0.7, activity: 4, focused: true, hold: 1, calm: 0.1 });
+    const f0 = sim.flare;
+    drive(sim, 4, short, clock);                                  // focused, but not held 1.5 s yet: no charge
+    expect(sim.flare).toBeCloseTo(f0, 6);
+    drive(sim, 6, HIGH, clock);
+    const charged = sim.flare;
+    expect(charged).toBeGreaterThan(0.4);
+    drive(sim, 3, LOW, clock);                                    // the focus breaks: it drains a little
+    expect(sim.flare).toBeLessThan(charged);
+    expect(sim.flare).toBeGreaterThan(charged - 0.15);
+    // ready: without held focus a tap does not release it — the firefly says it waits
+    const ready = later();
+    const c2 = { t: 0 };
+    drive(ready, 6, HIGH, c2);
+    ready.flare = 0.9999;
+    drive(ready, 0.1, HIGH, c2);
+    expect(ready.flareReady).toBe(true);
+    const flares = ready.flares;
+    let evs = drive(ready, 8, LOW, c2, t => { if (Math.abs(t % 1) < STEP / 2) ready.tap(centre(ready)); });
+    expect(ready.flares).toBe(flares);
+    expect(ready.flareReady).toBe(true);
+    expect(ready.flareWaiting).toBe(true);
+    expect(ofType(evs, 'flareWait').length).toBeGreaterThan(0);
+    // back in held focus: it goes off by itself after RULES.flareAuto s
+    evs = drive(ready, RULES.flareAuto + 0.5, HIGH, c2);
+    expect(ofType(evs, 'flare')).toHaveLength(1);
+  });
+
+  it('bursts only a few tiles with one wave (never most of a small picture), cracking the ones around', () => {
+    for (const sessions of [1, 5, 30]) {
+      const sim = later({ progress: { sessions } });
+      const clock = { t: 0 };
+      drive(sim, 6, HIGH, clock);
+      for (const tl of sim.pic.tiles) tl.press = 0.6;           // cracked by earlier focus: the limit is the wave's own
+      sim.flare = 0.9999;
+      drive(sim, 0.1, HIGH, clock);
+      const open0 = sim.pic.open;
+      sim.tap(centre(sim));
+      const evs = drive(sim, 1, frame({ ...HIGH, level: 0.3, focused: false, hold: 0 }), clock);
+      const direct = ofType(evs, 'burst').filter(b => b.depth === 0).length;
+      expect(direct).toBeLessThanOrEqual(sim.waveBursts());
+      expect(sim.waveBursts()).toBeLessThanOrEqual(Math.max(2, Math.round(sim.pic.tiles.length * 0.12)));
+      expect(sim.pic.open - open0).toBeLessThanOrEqual(sim.waveBursts());   // and no chain runs on from it
+      expect(ofType(evs, 'crack').length + direct).toBeGreaterThan(direct);
+    }
+  });
+
   it('a ready flare goes by itself after a while', () => {
     const sim = later();
     drive(sim, 6, HIGH);
@@ -267,8 +340,8 @@ describe('gazing (rest)', () => {
     const run = (f: FocusFrame) => {
       const sim = later({ seed: 2, progress: { sessions: 11 } });
       const clock = { t: 0 };
-      drive(sim, sim.block.dur - 0.1, MID, clock);
-      until(sim, 'rest', MID, clock);
+      drive(sim, sim.block.dur - 0.1, HELD, clock);
+      until(sim, 'rest', HELD, clock);
       drive(sim, 18, f, clock);
       return sim;
     };
@@ -393,16 +466,31 @@ describe('pictures', () => {
     expect(sim.score).toBeGreaterThan(before);
   });
 
-  it('grows the mosaics with the sessions: a few tiles first, a dozen soon, dozens later', () => {
+  it('grows the mosaics with the sessions (Auto): a few tiles first, a dozen soon, a few dozen later', () => {
     expect(tilesFor(0, 0)).toBe(7);
-    expect(tilesFor(1, 0)).toBe(12);
-    expect(tilesFor(3, 0)).toBe(16);
-    expect(tilesFor(6, 0)).toBe(28);
-    expect(tilesFor(40, 0)).toBe(48);
-    expect(tilesFor(1, 1)).toBe(14);
-    expect(tilesFor(40, 2)).toBe(48);
+    expect(tilesFor(1, 0)).toBe(9);
+    expect(tilesFor(3, 0)).toBe(14);
+    expect(tilesFor(6, 0)).toBe(20);
+    expect(tilesFor(40, 0)).toBe(36);
+    expect(tilesFor(1, 1)).toBe(11);
+    expect(tilesFor(40, 2)).toBe(40);
     expect(makeSim().pic.tiles.length).toBe(7);
-    expect(later({ progress: { sessions: 30 } }).pic.tiles.length).toBe(48);
+    expect(later({ progress: { sessions: 30 } }).pic.tiles.length).toBe(36);
+  });
+
+  it('lets the player choose the pieces: a fixed count for every picture, or Auto', () => {
+    for (const n of RULES.tileChoices) {
+      if (!n) continue;
+      expect(tilesFor(0, 0, n)).toBe(n);
+      expect(tilesFor(30, 2, n)).toBe(n);
+      expect(later({ progress: { tilesPick: n } }).pic.tiles.length).toBe(n);
+    }
+    expect(tilesFor(3, 0, 0)).toBe(tilesFor(3, 0));
+    expect(tilesFor(3, 0, 13)).toBe(tilesFor(3, 0));                 // not a choice: Auto
+    const p = mergeSaved(freshProgress(), { ver: 1, sessions: 2, tilesPick: 24 }) as RozProgress;
+    expect(migrate(p).tilesPick).toBe(24);
+    const bad = mergeSaved(freshProgress(), { ver: 1, sessions: 2, tilesPick: 999 }) as RozProgress;
+    expect(migrate(bad).tilesPick).toBe(0);
   });
 
   it('keeps every tile’s need near one and the picture’s pace sensible (1.5–2.5 min of base light)', () => {
@@ -476,8 +564,8 @@ describe('pictures', () => {
 });
 
 describe('the session', () => {
-  it('scores with the smoke test’s crude input (a centre tap every 0.65 s, Space every ~2 s, focus on)', () => {
-    const sim = makeSim({ tuning: BEGINNER });
+  it('scores with the smoke test’s crude input (a 40 s first session, a centre tap every 0.65 s, Space every ~2 s, focus on)', () => {
+    const sim = makeSim({ tuning: BEGINNER, planned: 40 });
     let next = 0.65, space = 2;
     const clock = { t: 0 };
     drive(sim, 22, HIGH, clock, t => {
@@ -494,8 +582,8 @@ describe('the session', () => {
     expect(sim.tilesBroken).toBeGreaterThanOrEqual(2);
   });
 
-  it('scores within 22 s with no input at all (the light presses by itself; the opening card closes by itself)', () => {
-    const sim = makeSim();
+  it('scores within 22 s of held focus with no input at all (a 40 s first session; the opening card closes by itself)', () => {
+    const sim = makeSim({ planned: 40 });
     drive(sim, 22, HIGH);
     expect(sim.score).toBeGreaterThan(0);
   });

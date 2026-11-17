@@ -875,7 +875,7 @@ export class RozView {
     const glowK = br ? (br.inhale ? ease.inOutSine(br.k) : 1 - ease.inOutSine(br.k)) : 0.5 + 0.2 * Math.sin(this.clock * 1.6);
     const wander = this.reduced ? 0 : Math.sin(this.clock * 0.5) * 6 * u;
     const x = spot.x + wander, y = spot.y + Math.cos(this.clock * 0.37) * 3 * u;
-    paintFly(ctx, x, y, spot.r, { t: this.clock, glow: glowK, charge: sim.flare, ready: sim.flareReady, talk: !!sim.talk.line, dim: sim.blind });
+    paintFly(ctx, x, y, spot.r, { t: this.clock, glow: glowK, charge: sim.flare, ready: sim.flareReady, wait: sim.flareWaiting, talk: !!sim.talk.line, dim: sim.blind });
     // the breath guide's word under the firefly
     if (br && !sim.story) {
       ctx.font = font(13 * u, 600);

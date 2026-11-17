@@ -73,6 +73,8 @@ export interface FlyLook {
   /** the flare's charge 0..1, and ready */
   charge: number;
   ready: boolean;
+  /** ready, but waiting for held focus: the ring dims and breathes slowly */
+  wait?: boolean;
   /** talking now (it bobs) */
   talk: boolean;
   /** quiet while a blind block hides the light */
@@ -98,14 +100,18 @@ export function paintFly(ctx: CanvasRenderingContext2D, x: number, y: number, r:
     ctx.beginPath();
     ctx.arc(x, cy, rr, 0, TAU);
     ctx.stroke();
-    ctx.strokeStyle = f.ready ? C.goldHi : C.gold;
+    const waiting = f.ready && !!f.wait;
+    ctx.strokeStyle = f.ready && !waiting ? C.goldHi : C.gold;
+    ctx.globalAlpha = waiting ? 0.45 + 0.2 * Math.sin(f.t * 1.6) : 1;
     ctx.lineWidth = Math.max(2, r * (f.ready ? 0.46 : 0.34));
     ctx.beginPath();
     ctx.arc(x, cy, rr, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, f.charge));
     ctx.stroke();
+    ctx.globalAlpha = 1;
     if (f.ready) {
+      // ready in held focus: a bright, quick pulse; waiting for focus: a dim, slow breath
       ctx.globalCompositeOperation = 'lighter';
-      glow(ctx, x, cy, rr * 1.9, '#ffd98a', 0.5 + 0.3 * Math.sin(f.t * 6));
+      glow(ctx, x, cy, rr * 1.9, '#ffd98a', waiting ? 0.16 + 0.08 * Math.sin(f.t * 1.6) : 0.5 + 0.3 * Math.sin(f.t * 6));
       ctx.globalCompositeOperation = 'source-over';
     }
   }

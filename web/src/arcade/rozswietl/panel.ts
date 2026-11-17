@@ -16,6 +16,7 @@ import { dayKey, daySeed } from '../kit/progress';
 import { PAIR_IDS, pairFrom, pairTitle, pairTo, type PairId } from './content';
 import { pct, t } from './i18n';
 import { addOwn, albumCount, bestOf, dayPair, isPair, removeOwn, tilesFor, type OwnPair, type RozProgress, type Source } from './meta';
+import { RULES } from './rules';
 import { paintScene } from './scenes';
 
 const GAME = 'rozswietl';
@@ -82,7 +83,7 @@ function build(p: RozProgress, st: PanelState, changed: () => void, refresh: () 
       stat(t('panel.pictures'), fmtNum(p.pictures)),
       stat(t('panel.best'), best === null ? '—' : fmtNum(best)),
       stat(t('panel.chain'), p.bestChain >= 2 ? `×${p.bestChain}` : '—'),
-      stat(t('panel.tiles'), fmtNum(tilesFor(p.sessions, 0)))),
+      stat(t('panel.tiles'), fmtNum(tilesFor(p.sessions, 0, p.tilesPick)))),
     h('p', { class: 'muted' }, p.dayDone === day ? t('panel.dayDone', { title: pairTitle(dp) }) : t('panel.day', { title: pairTitle(dp) })),
   ];
   // the album: tap a picture to make it the next one
@@ -120,6 +121,13 @@ function build(p: RozProgress, st: PanelState, changed: () => void, refresh: () 
   });
   const sources = h('div', { class: 'arcade-chips' }, src('builtin', 'panel.src.builtin'), src('own', 'panel.src.own'), src('both', 'panel.src.both'));
   out.push(h('div', { class: 'arcade-sub' }, t('panel.source')), sources);
+  // how many pieces: "Auto" grows with the sessions, or a fixed count (the founder: "check the number of tiles")
+  const tiles = h('div', { class: 'arcade-chips' }, RULES.tileChoices.map(n => button(
+    n === 0 ? `${t('panel.tilesAuto')} · ${fmtNum(tilesFor(p.sessions, 0))}` : fmtNum(n), p.tilesPick === n, () => {
+      p.tilesPick = n;
+      changed();
+    })));
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.tileCount')), tiles, h('p', { class: 'muted' }, t('panel.tilesNote')));
   // own pictures
   out.push(h('div', { class: 'arcade-sub' }, t('panel.own')));
   if (!imagesAvailable()) {

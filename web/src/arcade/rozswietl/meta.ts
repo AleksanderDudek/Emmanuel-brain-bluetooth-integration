@@ -59,6 +59,8 @@ export interface RozProgress {
   dayDone: string;
   /** the rotation's position among the pairs */
   next: number;
+  /** the tiles of a picture: 0 "Auto" (they grow with the sessions), else one of RULES.tileChoices */
+  tilesPick: number;
   /** first-time explanations and story cards already given */
   seen: string[];
 }
@@ -66,7 +68,7 @@ export interface RozProgress {
 export function freshProgress(): RozProgress {
   return {
     ver: 1, sessions: 0, pushes: 0, pictures: 0, shards: 0, best: 0, bestChain: 0, flares: 0, goldSeams: 0,
-    album: {}, own: [], source: 'both', pick: null, lastDay: '', dayDone: '', next: 0, seen: [],
+    album: {}, own: [], source: 'both', pick: null, lastDay: '', dayDone: '', next: 0, tilesPick: 0, seen: [],
   };
 }
 
@@ -125,6 +127,7 @@ export function migrate(p: RozProgress): RozProgress {
   p.lastDay = day(raw.lastDay);
   p.dayDone = day(raw.dayDone);
   p.next = int(raw.next);
+  p.tilesPick = (RULES.tileChoices as readonly number[]).includes(num(raw.tilesPick, -1)) ? num(raw.tilesPick) : 0;
   p.seen = Array.isArray(raw.seen) ? [...new Set(raw.seen.filter((s): s is string => typeof s === 'string'))] : [];
   return p;
 }
@@ -132,7 +135,8 @@ export function migrate(p: RozProgress): RozProgress {
 // ── the tiles ────────────────────────────────────────────────────
 
 /** How many tiles a picture has: by the sessions saved before this one, a little more for a session's later pictures. */
-export function tilesFor(sessionsBefore: number, pictureInSession: number): number {
+export function tilesFor(sessionsBefore: number, pictureInSession: number, pick = 0): number {
+  if (pick > 0 && (RULES.tileChoices as readonly number[]).includes(pick)) return pick;
   const T = RULES.tiles;
   const base = T[Math.min(T.length - 1, Math.max(0, Math.floor(sessionsBefore)))];
   const L = RULES.tilesLater;

@@ -80,10 +80,10 @@ export function taskFor(kind: TaskKind, pair: PairId | null, n: number): string 
 // ── the firefly's moments ───────────────────────────────────────
 
 export type Moment = 'open' | 'back' | 'picture' | 'own' | 'day' | 'push' | 'rest' | 'blind' | 'crack' | 'burst' | 'chain'
-  | 'flareReady' | 'flare' | 'near' | 'done' | 'gold' | 'good' | 'nosignal' | 'reveal' | 'end';
+  | 'flareReady' | 'flare' | 'flareWait' | 'cap' | 'near' | 'done' | 'gold' | 'good' | 'nosignal' | 'reveal' | 'end';
 
 export const MOMENTS: readonly Moment[] = ['open', 'back', 'picture', 'own', 'day', 'push', 'rest', 'blind', 'crack', 'burst', 'chain',
-  'flareReady', 'flare', 'near', 'done', 'gold', 'good', 'nosignal', 'reveal', 'end'];
+  'flareReady', 'flare', 'flareWait', 'cap', 'near', 'done', 'gold', 'good', 'nosignal', 'reveal', 'end'];
 
 /** How many lines each moment has (say.<moment>.1 … n). */
 export const LINE_COUNT = 3;
