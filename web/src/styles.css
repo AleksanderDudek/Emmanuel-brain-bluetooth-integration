@@ -158,6 +158,7 @@ body[data-tool="eeg"] .btn.primary{color:#070b18}
 .img-pick{position:relative;cursor:pointer;min-height:44px}
 .img-pick-input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip-path:inset(50%);pointer-events:none}
 .img-pick:focus-within{outline:2px solid var(--tool);outline-offset:2px}
+.img-drop-on{outline:2px dashed var(--tool);outline-offset:4px;background:color-mix(in srgb,var(--tool) 10%,transparent)}
 .img-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
 .img-thumb{position:relative;aspect-ratio:3/4;border-radius:10px;overflow:hidden;border:1px solid var(--line-2);background:var(--ink-3)}
 .img-thumb img{width:100%;height:100%;object-fit:cover;display:block}

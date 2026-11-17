@@ -93,28 +93,56 @@ export function scaledSize(w: number, h: number, max: number): { w: number; h: n
   return { w: Math.max(1, Math.round(w * k)), h: Math.max(1, Math.round(h * k)) };
 }
 
+/** The file types the pickers offer: every image a browser may read, and the popular ones by name (a desktop
+ * file dialog filters by extension; a phone offers its gallery and camera). */
+export const IMAGE_ACCEPT = 'image/*,.jpg,.jpeg,.jfif,.png,.webp,.gif,.bmp,.avif,.heic,.heif,.tif,.tiff,.svg';
+
+/** Why a picture could not be kept — each game says it in its own words. */
+export type ImageFailure = 'notImage' | 'heic' | 'format' | 'tooBig' | 'storage';
+
+/** A picture that could not be read or kept, with the reason (`ImageError.reason`). */
+export class ImageError extends Error {
+  constructor(readonly reason: ImageFailure, message: string = reason) {
+    super(message);
+    this.name = 'ImageError';
+  }
+}
+
+/** Larger files are refused before decoding (a phone's 48 MP photo is ~15 MB; a RAW or a scan can be far more). */
+export const IMAGE_MAX_BYTES = 60 * 1024 * 1024;
+
+const HEIC = /\.(heic|heif)$/i;
+/** HEIC/HEIF (an iPhone's photo): Safari reads it, Chrome, Firefox and Edge do not. */
+export const isHeic = (f: Blob & { name?: string }): boolean => /heic|heif/i.test(f.type) || HEIC.test(f.name ?? '');
+
+const IMG_EXT = /\.(jpe?g|jfif|png|webp|gif|bmp|avif|heic|heif|tiff?|svg|ico)$/i;
+/** Whether a file looks like a picture at all (its type, or its name when a system gives no type). */
+export const looksLikeImage = (f: Blob & { name?: string }): boolean => /^image\//i.test(f.type) || (!f.type && IMG_EXT.test(f.name ?? '')) || IMG_EXT.test(f.name ?? '');
+
 /** Decode a picture (EXIF orientation applied where the browser can). */
 async function decode(blob: Blob): Promise<{ src: CanvasImageSource; w: number; h: number; close(): void }> {
   if (typeof createImageBitmap === 'function') {
     try {
       const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' });
       return { src: bmp, w: bmp.width, h: bmp.height, close: () => bmp.close() };
-    } catch { /* an older engine or an odd format: try an <img> */ }
+    } catch { /* an older engine or an odd format (an SVG, a TIFF in Safari): try an <img> */ }
   }
   const url = URL.createObjectURL(blob);
   try {
     const img = new Image();
     img.src = url;
     await img.decode();
-    return { src: img, w: img.naturalWidth, h: img.naturalHeight, close: () => URL.revokeObjectURL(url) };
-  } catch (e) {
+    // an SVG without its own size decodes to 0 × 0: give it a square to draw into
+    const w = img.naturalWidth || 1024, hh = img.naturalHeight || 1024;
+    return { src: img, w, h: hh, close: () => URL.revokeObjectURL(url) };
+  } catch {
     URL.revokeObjectURL(url);
-    throw e instanceof Error ? e : new Error('image decode failed');
+    throw new ImageError(isHeic(blob) ? 'heic' : 'format', 'image decode failed');
   }
 }
 
 /** Decode a picture onto a canvas whose longer side is at most `maxSide`, and read its pixels. */
-export async function loadPixels(blob: Blob, maxSide: number): Promise<{ pixels: Pixels; canvas: HTMLCanvasElement }> {
+export async function loadPixels(blob: Blob, maxSide: number, flatten = false): Promise<{ pixels: Pixels; canvas: HTMLCanvasElement }> {
   const pic = await decode(blob);
   try {
     const size = scaledSize(pic.w, pic.h, maxSide);
@@ -124,6 +152,11 @@ export async function loadPixels(blob: Blob, maxSide: number): Promise<{ pixels:
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) throw new Error('no 2d context');
     ctx.imageSmoothingQuality = 'high';
+    if (flatten) {
+      // a transparent PNG/WebP/GIF/SVG would turn black as a JPEG: lay it on white
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, size.w, size.h);
+    }
     ctx.drawImage(pic.src, 0, 0, size.w, size.h);
     const data = ctx.getImageData(0, 0, size.w, size.h);
     return { pixels: { width: data.width, height: data.height, data: data.data }, canvas };
@@ -133,15 +166,23 @@ export async function loadPixels(blob: Blob, maxSide: number): Promise<{ pixels:
 }
 
 /**
- * Keep a picture the player chose: decoded, resized to ≤ `maxSide`, re-encoded as JPEG, stored on this
- * device.  Rejects when the browser cannot read the file (e.g. HEIC outside Safari) or storage fails.
+ * Keep a picture the player chose: decoded (any format the browser reads: JPEG, PNG, WebP, GIF's first frame,
+ * BMP, AVIF, SVG; HEIC in Safari), turned upright by its EXIF, resized to ≤ `maxSide`, flattened onto white
+ * where it was transparent, re-encoded as JPEG, stored on this device.  Rejects with an `ImageError` saying why:
+ * not a picture, an iPhone's HEIC outside Safari, a format the browser cannot read, too big, or storage refused.
  */
-export async function saveImage(game: string, role: string, file: Blob, label = '', maxSide = IMAGE_MAX_SIDE): Promise<StoredImage> {
-  const { canvas } = await loadPixels(file, maxSide);
+export async function saveImage(game: string, role: string, file: Blob & { name?: string }, label = '', maxSide = IMAGE_MAX_SIDE): Promise<StoredImage> {
+  if (!looksLikeImage(file)) throw new ImageError('notImage');
+  if (file.size > IMAGE_MAX_BYTES) throw new ImageError('tooBig');
+  const { canvas } = await loadPixels(file, maxSide, true);
   const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(b => (b ? resolve(b) : reject(new Error('could not encode the picture'))), 'image/jpeg', 0.88);
+    canvas.toBlob(b => (b ? resolve(b) : reject(new ImageError('format', 'could not encode the picture'))), 'image/jpeg', 0.9);
   });
-  return putImage({ game, role, label, w: canvas.width, h: canvas.height, blob });
+  try {
+    return await putImage({ game, role, label, w: canvas.width, h: canvas.height, blob });
+  } catch (e) {
+    throw new ImageError('storage', e instanceof Error ? e.message : 'storage failed');
+  }
 }
 
 /** A canvas holding pixels (a sketch, a veil) to draw with drawImage. */
@@ -176,15 +217,68 @@ export function revokeThumb(id: string): void {
 
 /**
  * A picker for the progress card: a button-styled label around a hidden file input that accepts images
- * (a phone offers its gallery and camera).  `onFile` gets the chosen file; the input is cleared so the
- * same file can be chosen again.
+ * (a phone offers its gallery and camera; a desktop's dialog lists JPEG, PNG, WebP, GIF, BMP, AVIF, HEIC…).
+ * `onFile` gets the chosen file; the input is cleared so the same file can be chosen again.
  */
 export function imagePicker(text: string, onFile: (file: File) => void): HTMLElement {
-  const input = h('input', { type: 'file', accept: 'image/*', class: 'img-pick-input' });
+  const input = h('input', { type: 'file', accept: IMAGE_ACCEPT, class: 'img-pick-input' });
   input.addEventListener('change', () => {
     const f = input.files?.[0];
     input.value = '';
     if (f) onFile(f);
   });
   return h('label', { class: 'btn ghost img-pick' }, text, input);
+}
+
+/** The first picture among dropped or pasted items (files first, then a copied image), or null. */
+export function firstImage(list: { files?: FileList | null; items?: DataTransferItemList | null } | null | undefined): File | null {
+  if (!list) return null;
+  for (const f of Array.from(list.files ?? [])) if (looksLikeImage(f)) return f;
+  for (const it of Array.from(list.items ?? [])) {
+    if (it.kind !== 'file') continue;
+    const f = it.getAsFile();
+    if (f && looksLikeImage(f)) return f;
+  }
+  return null;
+}
+
+/**
+ * Let a picture be dropped on `el` (a desktop: dragged from a folder or another page) or pasted while the card is
+ * open (Ctrl/⌘ V of a copied image).  The element gets the class `img-drop-on` while a file hovers over it.
+ * Returns a function that removes the listeners (call it when the card closes).
+ */
+export function imageDrop(el: HTMLElement, onFile: (file: File) => void, pasteTarget: Document | HTMLElement | null = typeof document !== 'undefined' ? document : null): () => void {
+  let depth = 0;
+  const has = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+  const enter = (e: DragEvent) => { if (!has(e)) return; e.preventDefault(); depth++; el.classList.add('img-drop-on'); };
+  const over = (e: DragEvent) => { if (!has(e)) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; };
+  const leave = () => { depth = Math.max(0, depth - 1); if (!depth) el.classList.remove('img-drop-on'); };
+  const drop = (e: DragEvent) => {
+    if (!has(e)) return;
+    e.preventDefault();
+    depth = 0;
+    el.classList.remove('img-drop-on');
+    const f = firstImage(e.dataTransfer);
+    if (f) onFile(f);
+  };
+  const paste = (e: Event) => {
+    if (!el.isConnected) return;
+    const t = e.target as HTMLElement | null;
+    // typing into a field pastes text there, never a picture
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    const f = firstImage((e as ClipboardEvent).clipboardData);
+    if (f) { e.preventDefault(); onFile(f); }
+  };
+  el.addEventListener('dragenter', enter);
+  el.addEventListener('dragover', over);
+  el.addEventListener('dragleave', leave);
+  el.addEventListener('drop', drop);
+  pasteTarget?.addEventListener('paste', paste);
+  return () => {
+    el.removeEventListener('dragenter', enter);
+    el.removeEventListener('dragover', over);
+    el.removeEventListener('dragleave', leave);
+    el.removeEventListener('drop', drop);
+    pasteTarget?.removeEventListener('paste', paste);
+  };
 }
