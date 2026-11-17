@@ -34,6 +34,31 @@ describe('ArcadeSession', () => {
     expect(s.phase).toBe('play');                 // time up never cuts the game by itself
   });
 
+  it('comes back from a band reconnect in seconds, not a new calibration (DESIGN.md §13)', () => {
+    const s = new ArcadeSession('fnirs', 600);
+    s.begin(null, 1);
+    for (let i = 0; i < 200; i++) s.onSample(sample(0));
+    expect(s.phase).toBe('play');
+    feed(s, 0.6, 12);                                            // +15 %, focused
+    // the link drops and comes back: reconnecting, then the pipeline's quick baseline — the same epoch
+    feed(s, null, 3, { reliable: false, reason: 'connecting' });
+    expect(s.core.resuming).toBe(true);
+    feed(s, null, 2, { reliable: false, reason: 'baseline' });
+    // the signal returns 2.5 µM higher (the band sits a little differently: a baseline shift)
+    let out = feed(s, 3.1, 2.4);
+    expect(s.recalibrating).toBe(false);
+    expect(out.frame.reliable).toBe(false);                      // still settling…
+    out = feed(s, 3.1, 0.3);
+    expect(s.core.resuming).toBe(false);                         // …back after 2.5 s, not 20
+    expect(s.core.reliable).toBe(true);
+    expect(s.core.level!).toBeGreaterThan(9);                    // the activity goes on near where it was
+    expect(s.core.level!).toBeLessThan(15);
+    expect(s.core.breaks.counts.bluetooth).toBe(1);
+    // and a new calibration still happens when the signal really starts afresh (a new epoch)
+    feed(s, 3.1, 1, { epoch: 2 });
+    expect(s.recalibrating).toBe(true);
+  });
+
   it('stops the clock and the focus while paused', () => {
     const s = new ArcadeSession('fnirs', 60);
     s.begin(null, 1);
