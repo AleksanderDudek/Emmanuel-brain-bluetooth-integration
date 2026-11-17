@@ -4,43 +4,58 @@
  * rises back from the bottom (thanksgiving).  The lobby's card chooses the map (all 17 stations by default) and
  * the way (down, up, or both: down, then up).  The way goes on next session where it stopped.
  *
- *   focus (a sighted push past its lead-in,   the station's light: its glow passes a faint ring at the threshold
- *   a reliable signal, focused)               and turns gold, and its glass loads — only then, at the founder's
- *                                             rate (rules.ts `focusRate`): faster above the threshold and as the
- *                                             focus is held; full → the light flows on
- *   rest (abiding)                            the breath guide in 4 / out 6, the lit stations shine, drops of
- *                                             living water gather with calm; nothing loads
- *   the hands (a tap anywhere, Space)         stay with the station: its prayer returns, a ring of light, a glass
- *                                             tone — never light
- *   a blind push ("w ciemności")              the light loads unseen by the same rule and is shown at its end
+ *   a push block = loading one station     the station's light: its glow passes a faint ring at the threshold and
+ *   (a sighted push past its lead-in,      turns gold, and its glass loads — only then, at the founder's rate
+ *   a reliable signal, focused)            (rules.ts `focusRate`); the push has no fixed length: it ends when the
+ *                                          station is full
+ *   a rest after every station             whole breaths of the player's pattern (kit/breath.ts: in, hold, out,
+ *   (abiding)                              hold empty, 0–15 s each; 4 · 6 by default), beginning with its first
+ *                                          phase and ending at a breath's end; the lit stations shine, drops of
+ *                                          living water gather with calm; nothing loads; then the light flows on
+ *   the safety valve                       a push that cannot finish (60 s without any light gained, or 150 s in
+ *                                          all) gives way to a rest of whole breaths; the station keeps its light
+ *   the hands (a tap anywhere, Space)      stay with the station: its prayer returns, a ring of light, a glass
+ *                                          tone — never light
+ *   a blind push ("w ciemności")           the light loads unseen by the same rule; the push still ends when the
+ *                                          station is full, and the hidden light is shown then
  *
- * The headline is the drops of living water (kropli): they flow in the warm-up and the finale, in a push only while
- * the light loads, in rest with calm.  Blocks follow the kit's rules: push and rest of 20–30 s with jitter and a
- * 4 s telegraph, each judged once at its end, blind pushes from the third session, a warm-up the first time, a quiet
- * finale.  An unreliable signal freezes everything — nothing is lost, nothing advances.
+ * The founder's word of 2026-11-17: *"chcę żeby faza odpoczynku była po każdej uzupełnionej sferze. Nie co
+ * interwał. Faza odpoczynku powinna być wielokrotnością sekcji oddechowej."*  Each push is judged once at its end
+ * over its last ≤ 15 s (a push under 10 s — a station resumed nearly full — is not judged), each rest the same; a
+ * 4 s telegraph announces the rest when the station is 85 % full and the next push 4 s before the rest ends.  The
+ * headline is the drops of living water (kropli): they flow in the warm-up and the finale, in a push only while the
+ * light loads, in rest with calm.  An unreliable signal freezes everything — nothing is lost, nothing advances.
  */
 import { fmtNum } from '../../i18n';
+import { breathAt, breathCycle, type BreathPattern, type BreathPhase, type BreathState } from '../kit/breath';
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
 import { approach, clamp, ease } from '../kit/juice';
-import { inTurn, type PassageId } from '../kit/scripture';
+import { inTurn, passage, type PassageId } from '../kit/scripture';
 import type { ArcadeOutcome } from '../kit/types';
 import {
-  MAP, STATIONS, TIPS, cleanOwn, fromText, legs, lineAt, linesOf, pushTip, route, stationName, tierName, verseOf, windowTier,
+  MAP, STATIONS, TIPS, cleanOwn, fromText, legs, lineAt, linesOf, pushTip, route, stationLabel, stationName, stationWhere, tierName, verseOf, windowTier,
   type Dir, type MapId, type Moment, type StationId, type Tier, type Way,
 } from './content';
-import { dropsText, t, unit } from './i18n';
-import { bestOf, countStation, lenKey, markSeen, startOf, tierOf, timesLit, type RzekiPos, type RzekiProgress } from './meta';
-import { BREATH, RULES, focusRate } from './rules';
+import { breathWords, dropsText, t, unit, type Key } from './i18n';
+import { bestOf, breathOf, countStation, lenKey, markSeen, restOf, startOf, tierOf, timesLit, type RzekiPos, type RzekiProgress } from './meta';
+import { RULES, focusRate, readTime } from './rules';
 import { Talk } from './talk';
 import { tileTotal, tilesOpen } from './tiles';
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
-export interface Block { kind: BlockKind; dur: number; blind: boolean }
+/** Why a push ended, or why a rest came: the station full, the safety valve, the session's time. */
+export type BlockWhy = 'full' | 'valve' | 'time';
+/**
+ * A block.  `dur` is its planned length — the warm-up's, a rest's whole breaths (`cycles` × the pattern's cycle) —
+ * or Infinity for a push, which lasts until its station is full; `len` how long it lasted (set at its end);
+ * `why` how a push ended, or why a rest came.
+ */
+export interface Block { kind: BlockKind; dur: number; blind: boolean; cycles: number; why: BlockWhy | null; len: number }
 
 /**
  * Where the light is on its way: `enter` (coming down from the open heaven, or up from the pool, to the way's first
- * station), `at` a station (loading), `hold` (full, a moment in its light), `flow` (the stream to the next station),
- * `whole` (the last station done: the whole figure in light, then the closing card).
+ * station), `at` a station (loading), `hold` (full: the rest abides in its light), `flow` (the stream to the next
+ * station, as the next push begins), `whole` (the last station done: the whole figure in light and the closing card).
  */
 export type Stage = 'enter' | 'at' | 'hold' | 'flow' | 'whole';
 
@@ -48,13 +63,16 @@ export type StoryKind = 'open' | 'news' | 'down' | 'up';
 export interface Story { kind: StoryKind; page: number; pages: number; t: number }
 
 /** The first-time explanations (coach marks) and what each points at. */
-export type Coach = 'tap' | 'light' | 'petals' | 'breath' | 'drops' | 'blind';
-export type CoachAt = 'place' | 'chest' | 'pool';
+export type Coach = 'tap' | 'light' | 'petals' | 'breath' | 'drops' | 'blind' | 'strip';
+export type CoachAt = 'place' | 'chest' | 'pool' | 'strip';
+
+/** The one short line of what to do now (the round-11 clarity rule): it changes only when the action changes. */
+export type NowWhat = 'warm' | 'focus' | 'dark' | 'rest' | 'valve' | 'end';
 
 export type SimEvent =
   | { type: 'blockStart'; block: Block; index: number }
   | { type: 'blockEnd'; block: Block; verdict: boolean | null; share: number }
-  | { type: 'telegraph'; next: Block | null }
+  | { type: 'telegraph'; next: BlockKind | null }
   | { type: 'enter'; dir: Dir; station: StationId }
   | { type: 'arrive'; station: StationId; dir: Dir; idx: number }
   | { type: 'tap'; station: StationId; stage: Stage }
@@ -65,9 +83,10 @@ export type SimEvent =
   | { type: 'tier'; station: StationId; tier: Tier }
   | { type: 'again'; round: number }
   | { type: 'gold'; on: boolean }
-  | { type: 'breathTurn'; inhale: boolean }
+  | { type: 'breathTurn'; phase: BreathPhase; len: number }
   | { type: 'drops'; n: number; at: 'rest' | 'block' }
   | { type: 'blindEnd'; share: number; drops: number; gained: number }
+  | { type: 'valve'; station: StationId }
   | { type: 'coach'; what: Coach; at: CoachAt }
   | { type: 'story'; kind: StoryKind; page: number }
   | { type: 'finale' }
@@ -78,62 +97,37 @@ const NO_EVENTS: readonly SimEvent[] = [];
 /** The last stretch without a block: 12 s in sessions of 2 min and more, 6 s in shorter ones. */
 export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RULES.finale.long : RULES.finale.short);
 
-/** Lift blocks shorter than `min` by taking from the longest, keeping the sum. */
-function liftShort(durs: number[], min: number): void {
-  for (let guard = 0; guard < 20; guard++) {
-    const i = durs.findIndex(d => d < min - 1e-9);
-    if (i < 0) return;
-    const need = min - durs[i];
-    let j = 0;
-    for (let k = 1; k < durs.length; k++) if (durs[k] > durs[j]) j = k;
-    if (durs[j] - need < min) return;
-    durs[j] -= need;
-    durs[i] = min;
-  }
-}
-
-/**
- * The session's blocks.  A first-ever session opens with the warm-up (30 s in 5 and 10 min, 20 s in 3, 6 s
- * in a short test); then Światło / Trwanie pairs (24 ± 3 s and 26 ± 3 s, scaled to end on time, jittered
- * only when there is room) ending with a rest, leaving the quiet last stretch at the end.  Any planned
- * length from 10 s gets at least one push and one rest.
- */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
-  const fin = finaleFor(plannedSec);
-  const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
-  if (plannedSec <= 60) {
-    const left = Math.max(2 * 4, plannedSec - fin);
-    if (firstEver) {
-      const warm = Math.min(R.warm.test, left / 3), rest = left - warm;
-      return [b('warmup', warm), b('push', rest / 2), b('rest', rest / 2)];
-    }
-    const rest = Math.max(4, Math.min(14, left / 2));
-    return [b('push', left - rest), b('rest', rest)];
-  }
-  const plan: Block[] = [];
-  let left = plannedSec - fin;
-  if (firstEver) {
-    const warm = plannedSec >= 300 ? R.warm.long : R.warm.short;
-    plan.push(b('warmup', warm));
-    left -= warm;
-  }
-  const pair = R.push[0] + R.rest[0];
-  const pairs = Math.max(1, Math.round(left / pair));
-  const jitter = pairs >= 2 && left / (pairs * pair) >= 0.85 ? 1 : 0;
-  const durs: number[] = [];
-  for (let i = 0; i < pairs; i++) durs.push(R.push[0] + jitter * (rnd() * 2 - 1) * R.push[1], R.rest[0] + jitter * (rnd() * 2 - 1) * R.rest[1]);
-  const scale = left / durs.reduce((s, d) => s + d, 0);
-  for (let i = 0; i < durs.length; i++) durs[i] *= scale;
-  liftShort(durs, R.minBlock);
-  durs.forEach((dur, i) => plan.push(b(i % 2 ? 'rest' : 'push', dur)));
-  return plan;
+/** The first-ever session's warm-up (s): 30 in 5 and 10 min, 20 in 3, at most 6 in a short test. */
+export function warmFor(plannedSec: number): number {
+  if (plannedSec <= 60) return Math.min(RULES.warm.test, Math.max(8, plannedSec - finaleFor(plannedSec)) / 3);
+  return plannedSec >= 300 ? RULES.warm.long : RULES.warm.short;
 }
 
 /** Seconds as the summary says them: "42 s", "1:42". */
 export function secText(s: number): string {
   const v = Math.max(0, Math.round(s));
   return v < 60 ? t('secs', { n: v }) : `${Math.floor(v / 60)}:${String(v % 60).padStart(2, '0')}`;
+}
+
+/** A story card's page: its title, its sentence or two, its verse. */
+export interface Page { title: string; text: string; verse: PassageId }
+
+/** The page of a story card (the opening's two, what is new, the closing card of a way). */
+export function pageOf(kind: StoryKind, page: number): Page {
+  if (kind === 'open') {
+    return page === 0
+      ? { title: t('story.open.title'), text: t('story.open.text'), verse: 'isa11.2' }
+      : { title: t('story.open2.title'), text: t('story.open2.text'), verse: 'jhn7.38-39' };
+  }
+  if (kind === 'news') return { title: t('story.news.title'), text: t('story.news.text'), verse: 'psa46.4' };
+  if (kind === 'down') return { title: t('story.down.title'), text: t('story.down.text'), verse: 'luk11.13' };
+  return { title: t('story.up.title'), text: t('story.up.text'), verse: 'psa141.2' };
+}
+
+/** How long a story card's page stays unless tapped: its reading time (title, text and verse), at least RULES.pageSec. */
+export function pageTime(kind: StoryKind, page: number): number {
+  const pg = pageOf(kind, page);
+  return Math.max(RULES.pageSec, readTime(`${pg.title} ${pg.text} ${passage(pg.verse).text}`));
 }
 
 export interface SimInit {
@@ -166,10 +160,13 @@ export class RzekiSim {
   readonly contrast = new BlockContrast(4);
   /** the session went on from where the last one stopped (a station after the top, or light already gathered) */
   readonly resumed: boolean;
+  /** the rest's breath (the lobby's card; read once a session) */
+  readonly pattern: BreathPattern;
   private readonly judge: RoundJudge;
   private readonly lead: number;
   private readonly finaleSec: number;
-  private readonly plan: Block[];
+  /** the blocks so far, the current one last */
+  private readonly plan: Block[] = [];
   private readonly pushesBase: number;
   private readonly bestBefore: number | null;
   private readonly legList: readonly Dir[];
@@ -181,9 +178,12 @@ export class RzekiSim {
   blockIndex = 0;
   blockT = 0;
   telegraphed = false;
+  /** what the telegraph announced (null: the quiet end) */
+  nextKind: BlockKind | null = null;
   tip = '';
   private pushesBegun = 0;
-  private relSec = 0;
+  /** a push: seconds since its light last grew (the safety valve) */
+  stallT = 0;
   // the way
   leg = 0;
   dir: Dir = 'down';
@@ -196,10 +196,8 @@ export class RzekiSim {
   hidden = 0;
   /** a blind block's light being shown (from → to over revealSec; t < 0: none) */
   reveal = { from: 0, to: 0, t: -1 };
-  /** focus while the light rests in a full station, flows on or comes in: the next station starts with it */
+  /** focus while the light flows on or comes in (a push past its lead-in): the next station starts with it */
   pre = 0;
-  /** light gathered in the dark past the station's full: the next station starts with it */
-  private carry = 0;
   /** where the light starts when it arrives (a resumed station's light) */
   private startFill = 0;
   /** stations the light arrived at this session (the first enter of a resumed way says where it goes on) */
@@ -241,6 +239,9 @@ export class RzekiSim {
   descentsNow = 0;
   ascentsNow = 0;
   tapsNow = 0;
+  /** rests of whole breaths, and the safety valve's (this session) */
+  restsNow = 0;
+  valvesNow = 0;
   /** seconds the light loaded (in sight) */
   goldSec = 0;
   abideNow = 0;
@@ -270,6 +271,7 @@ export class RzekiSim {
     this.map = this.p.map;
     this.way = this.p.way;
     this.own = cleanOwn(this.p.own);
+    this.pattern = breathOf(this.p);
     this.legList = legs(this.way);
     const st = startOf(this.p);
     this.leg = st.leg;
@@ -282,7 +284,6 @@ export class RzekiSim {
     this.judge = RoundJudge.from(init.tuning);
     this.lead = this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.finaleSec = finaleFor(this.plannedSec);
-    this.plan = planBlocks(this.plannedSec, this.firstEver, init.rng);
     this.talk = new Talk(m => linesOf(m), init.rng);
     this.lit = zeros();
     this.memory = zeros();
@@ -295,8 +296,10 @@ export class RzekiSim {
   }
 
   // ── what the view and the runner read ───────────────────────────
-  get block(): Block { return this.plan[Math.min(this.blockIndex, this.plan.length - 1)]; }
-  get next(): Block | null { return this.blockIndex + 1 < this.plan.length ? this.plan[this.blockIndex + 1] : null; }
+  get block(): Block {
+    return this.plan[Math.min(this.blockIndex, this.plan.length - 1)] ?? { kind: 'warmup', dur: 0, blind: false, cycles: 0, why: null, len: 0 };
+  }
+  /** the blocks so far (the current one last) */
   get blocks(): readonly Block[] { return this.plan; }
   get pushBlock(): boolean { return this.phase === 'play' && this.block.kind === 'push'; }
   get restBlock(): boolean { return this.phase === 'play' && this.block.kind === 'rest'; }
@@ -331,31 +334,43 @@ export class RzekiSim {
     if (this.phase !== 'play') return false;
     return this.telegraphed || this.blockT < RULES.bannerSec;
   }
-  /** the breath guide: 'in' for 4 s, 'out' for 6 s, how far through the current half (0..1), and the chest's fullness k */
-  get breath(): { inhale: boolean; p: number; k: number } {
-    const x = ((this.breathT % BREATH) + BREATH) % BREATH;
-    const inhale = x < RULES.inhale;
-    const p = inhale ? x / RULES.inhale : (x - RULES.inhale) / RULES.exhale;
-    const k = inhale ? 0.5 - 0.5 * Math.cos(Math.PI * p) : 0.5 + 0.5 * Math.cos(Math.PI * p);
-    return { inhale, p, k };
+  /**
+   * The rest's breath guide (kit/breath.ts `breathAt`): the phase now, how far through it, the seconds left in it,
+   * the lungs' fullness k, and which breath of the rest this is (`cycle` of `cycles`).
+   */
+  get breath(): BreathState & { cycle: number; cycles: number } {
+    const b = breathAt(this.pattern, this.breathT);
+    const cycles = Math.max(1, this.block.cycles || 1);
+    return { ...b, cycle: Math.min(cycles, b.n + 1), cycles };
+  }
+  /** The pattern in words for the texts ("wdech 4 s, wydech 6 s"). */
+  get breathText(): string { return breathWords(this.pattern); }
+
+  /** What to do now, in one short line (it changes only when the action changes). */
+  get now(): NowWhat {
+    if (this.phase !== 'play') return 'end';
+    const b = this.block;
+    if (b.kind === 'warmup') return 'warm';
+    if (b.kind === 'rest') return b.why === 'valve' ? 'valve' : 'rest';
+    return b.blind ? 'dark' : 'focus';
   }
 
   // ── the session ────────────────────────────────────────────────
   start(): void {
     if (this.started) return;
     this.started = true;
-    this.startBlock(0);
+    this.open(this.firstEver ? 'warmup' : 'push');
     this.beginLeg(false);
     if (this.firstEver && markSeen(this.p, 's.open')) {
       markSeen(this.p, 's.news');
       this.story = { kind: 'open', page: 0, pages: 2, t: 0 };
       this.emit({ type: 'story', kind: 'open', page: 0 });
-      this.talk.ask('open', 3, 30);
+      this.talk.ask('open', 3, 60);
     } else if (!this.firstEver && markSeen(this.p, 's.news')) {
-      // a player of the first version: what is new (every centre of both pictures, the slower glass)
+      // a player of an earlier version: what is new (every centre of both pictures, a rest after each, the breath)
       this.story = { kind: 'news', page: 0, pages: 1, t: 0 };
       this.emit({ type: 'story', kind: 'news', page: 0 });
-      this.talk.ask(this.resumed ? 'resume' : this.dir, 2, 30);
+      this.talk.ask(this.resumed ? 'resume' : this.dir, 2, 40);
     } else this.talk.ask(this.session === 1 ? 'open' : this.resumed ? 'resume' : this.dir, 2, 10);
     if (this.own) this.talk.ask('own', 1, 24);
   }
@@ -367,7 +382,6 @@ export class RzekiSim {
     this.t = now;
     this.reliable = f.reliable && f.activity !== null;
     if (this.reliable) {
-      this.relSec += dt;
       this.level = clamp(f.level);
       this.focused = f.focused;
       this.hold = Math.max(0, f.hold);
@@ -394,7 +408,7 @@ export class RzekiSim {
     const target = this.sighted && this.reliable ? clamp(f.level) : this.restBlock ? RULES.restLight : RULES.baseLight;
     this.light = approach(this.light, target, dt, RULES.lightTau);
     this.calmShown = approach(this.calmShown, this.restBlock && this.reliable ? clamp(f.calm) : 0, dt, 0.8);
-    const gold = this.loading;
+    const gold = this.loading && this.stage === 'at';
     if (gold !== this.gold) {
       this.gold = gold;
       this.emit({ type: 'gold', on: gold });
@@ -420,22 +434,23 @@ export class RzekiSim {
     }
   }
 
+  /** The rest's breath: its phases turn (each with its own length; a phase of 0 s never shows). */
   private updateBreath(dt: number): void {
     if (!this.restBlock) return;
-    const before = this.breath.inhale;
+    const before = breathAt(this.pattern, this.breathT);
     this.breathT += dt;
-    const now = this.breath.inhale;
-    if (before !== now) this.emit({ type: 'breathTurn', inhale: now });
+    const now = breathAt(this.pattern, this.breathT);
+    if (before.phase !== now.phase || before.n !== now.n) this.emit({ type: 'breathTurn', phase: now.phase, len: this.pattern[now.phase] });
   }
 
   private updateStory(dt: number): void {
     const s = this.story;
     if (!s) return;
     s.t += dt;
-    if (s.t >= (s.kind === 'open' || s.kind === 'news' ? RULES.pageSec : RULES.closeSec)) this.turnStory();
+    if (s.t >= pageTime(s.kind, s.page)) this.turnStory();
   }
 
-  /** The next page of a story card, or close it (a tap, or its time ran out). */
+  /** The next page of a story card, or close it (a tap, or its reading time ran out). */
   private turnStory(): void {
     const s = this.story;
     if (!s) return;
@@ -449,7 +464,10 @@ export class RzekiSim {
     if (s.kind === 'open' || s.kind === 'news') {
       if (s.kind === 'open') this.talk.ask(this.dir, 2, 8);
       this.coach('tap', 'place');
-    } else this.nextLeg();
+      // the station the light came to under the card is glossed now
+      if (this.stage === 'at') this.gloss(this.station);
+    }
+    // a closing card (after a way) just closes: the way goes on when the rest's last breath ends
   }
 
   // ── the way ────────────────────────────────────────────────────
@@ -459,7 +477,6 @@ export class RzekiSim {
     this.stageT = 0;
     this.hidden = 0;
     this.reveal.t = -1;
-    this.carry = 0;
     this.petals = 0;
     this.emit({ type: 'enter', dir: this.dir, station: this.station });
     if (say) this.talk.ask(this.dir, 2, 8);
@@ -470,7 +487,7 @@ export class RzekiSim {
     const rate = this.rate();
     switch (this.stage) {
       case 'enter':
-        this.pre = Math.min(RULES.preMax, this.pre + rate * dt);
+        this.preGrow(rate * dt);
         if (this.stageT >= RULES.heavenSec) this.arrive(this.idx);
         break;
       case 'at':
@@ -479,21 +496,18 @@ export class RzekiSim {
         if (this.fill >= 1 - 1e-9 && this.reveal.t < 0) this.complete();
         break;
       case 'hold':
-        this.pre = Math.min(RULES.preMax, this.pre + rate * dt);
-        if (this.stageT >= RULES.holdSec) {
-          if (this.idx >= this.route.length - 1) this.wholeWay();
-          else this.flowOn();
-        }
+        // the last station of a way: a moment in its light, then the whole figure (the rest abides in it)
+        if (this.stageT >= RULES.holdSec && this.idx >= this.route.length - 1) this.wholeWay();
         break;
       case 'flow':
-        this.pre = Math.min(RULES.preMax, this.pre + rate * dt);
+        this.preGrow(rate * dt);
         if (this.stageT >= RULES.flowSec) this.arrive(this.idx + 1);
         break;
       case 'whole':
         if (this.stageT >= RULES.wholeSec) {
           this.story = { kind: this.dir, page: 0, pages: 1, t: 0 };
           this.emit({ type: 'story', kind: this.dir, page: 0 });
-          // stays 'whole' until the card closes (then nextLeg)
+          // stays 'whole' until the rest's last breath ends (then the next way)
           this.stageT = -Infinity;
         }
         break;
@@ -509,14 +523,23 @@ export class RzekiSim {
     return focusRate(this.level, this.focused, this.hold);
   }
 
+  /** Focus while the light comes in or flows on (a push past its lead-in): the next station starts with it. */
+  private preGrow(n: number): void {
+    if (n <= 0) return;
+    this.pre = Math.min(RULES.preMax, this.pre + n);
+    this.stallT = 0;
+  }
+
   /**
-   * Light gathers at the station: shown at once, or unseen in a blind block — where it may gather past the
-   * station's full (up to RULES.blindCarry more), which the next station then starts with.
+   * Light gathers at the station: shown at once, or unseen in a blind block.  Full, the push ends: a sighted one
+   * at once (complete), a blind one with its hidden light shown (then complete).
    */
   private grow(n: number): void {
-    if (n <= 0 || this.stage !== 'at') return;
+    if (n <= 0 || this.stage !== 'at' || !this.pushBlock) return;
+    this.stallT = 0;
     if (this.blind) {
-      this.hidden = Math.min(Math.max(0, 1 - this.fill) + RULES.blindCarry, this.hidden + n);
+      this.hidden = Math.min(Math.max(0, 1 - this.fill), this.hidden + n);
+      if (this.fill + this.hidden >= 1 - 1e-9) this.endPush('full');
       return;
     }
     this.fill = Math.min(1, this.fill + n);
@@ -552,24 +575,39 @@ export class RzekiSim {
     this.idx = Math.max(0, Math.min(this.route.length - 1, i));
     this.stage = 'at';
     this.stageT = 0;
-    this.fill = Math.min(0.99, Math.max(this.startFill, this.carry, this.pre));
+    this.fill = Math.min(0.99, Math.max(this.startFill, this.pre));
     this.startFill = 0;
     this.pre = 0;
-    this.carry = 0;
     this.hidden = 0;
     this.reveal.t = -1;
     this.petals = tilesOpen(this.station, this.fill);
     this.arrivals++;
     const s = this.station;
     this.emit({ type: 'arrive', station: s, dir: this.dir, idx: this.idx });
-    if (this.dir === 'down') {
-      if (this.round === 1 || this.rng() < 0.4) this.talk.ask(`at.${s}` as Moment, 1.5, 7);
-    } else if (this.rng() < 0.3) this.talk.ask('rise', 1, 6);
+    // the first time ever at a station: its name from the maps glossed in plain words; then the narrator's own lines
+    if (!this.gloss(s)) {
+      if (this.dir === 'down') {
+        if (this.round === 1 || this.rng() < 0.4) this.talk.ask(`at.${s}` as Moment, 1.5, 7);
+      } else if (this.rng() < 0.3) this.talk.ask('rise', 1, 6);
+    }
     if (this.pushBlock) this.tip = this.tipFor(this.block);
     this.coach('tap', 'place');
+    // the second station of the first session: the whole map is there, in the column beside the figure
+    if (this.arrivals >= 2) this.coach('strip', 'strip');
   }
 
-  /** The station is full: a moment in its light, the drops it brings, the tally. */
+  /**
+   * The first time ever at a station (and no card over it): the narrator glosses its name from the maps in plain
+   * words ("Pustka, ocean · Bhavsagar — krąg wokół środka ciała").  True when it asked for the line.
+   */
+  private gloss(s: StationId): boolean {
+    if (this.story || this.p.seen.includes(`g.${s}`)) return false;
+    markSeen(this.p, `g.${s}`);
+    this.talk.ask(`at.${s}` as Moment, 1.6, 20, t('gloss', { label: stationLabel(s), where: stationWhere(s) }));
+    return true;
+  }
+
+  /** The station is full: a moment in its light, the drops it brings, the tally — and the push ends: a rest of whole breaths. */
   private complete(): void {
     const s = this.station;
     this.fill = 1;
@@ -591,9 +629,10 @@ export class RzekiSim {
       this.emit({ type: 'tier', station: s, tier });
       this.talk.ask('tier', 2, 6);
     } else if (this.idx < this.route.length - 1 && this.rng() < 0.35) this.talk.ask('full', 1, 4);
+    if (this.pushBlock) this.endPush('full');
   }
 
-  /** The stream flows on to the next station. */
+  /** The stream flows on to the next station (the next push has begun: its lead-in covers the flow). */
   private flowOn(): void {
     const from = this.station, to = this.nextStation!;
     this.stage = 'flow';
@@ -612,7 +651,18 @@ export class RzekiSim {
     this.talk.ask(this.dir === 'down' ? 'wayDown' : 'wayUp', 3, 8);
   }
 
-  /** After a closing card: the next way of the round (up after down), or a new round. */
+  /** The rest's last breath ended and the next push begins: the light flows on (or the next way begins). */
+  private goOn(): void {
+    // a closing card still up closes with the rest
+    if (this.story && (this.story.kind === 'down' || this.story.kind === 'up')) this.story = null;
+    if (this.stage === 'hold') {
+      if (this.idx >= this.route.length - 1) this.nextLeg();
+      else this.flowOn();
+    } else if (this.stage === 'whole') this.nextLeg();
+    // still 'at' (the safety valve's rest): the push loads the same station on
+  }
+
+  /** After a way: the next way of the round (up after down), or a new round. */
   private nextLeg(): void {
     this.idx = 0;
     if (this.leg + 1 < this.legList.length) {
@@ -642,11 +692,12 @@ export class RzekiSim {
       case 'enter': return { map: this.map, dir: this.dir, idx: this.idx, fill: Math.min(0.99, Math.max(this.startFill, this.pre)) };
       case 'at': {
         // a blind block cut short: what gathered unseen counts (what is gained is never lost)
-        const fill = this.reveal.t >= 0 ? this.reveal.to : Math.min(0.99, this.fill + (this.blind ? this.hidden : 0));
-        if (fill >= 0.99 && this.idx + 1 < len) return { map: this.map, dir: this.dir, idx: this.idx + 1, fill: Math.min(0.99, this.carry) };
+        const fill = this.reveal.t >= 0 ? this.reveal.to : Math.min(1, this.fill + (this.blind ? this.hidden : 0));
+        if (fill >= 0.99) return this.idx + 1 < len ? { map: this.map, dir: this.dir, idx: this.idx + 1, fill: 0 } : after();
         return { map: this.map, dir: this.dir, idx: this.idx, fill: Math.min(0.99, fill) };
       }
       case 'hold':
+        return this.idx + 1 < len ? { map: this.map, dir: this.dir, idx: this.idx + 1, fill: 0 } : after();
       case 'flow':
         return this.idx + 1 < len ? { map: this.map, dir: this.dir, idx: this.idx + 1, fill: Math.min(0.99, this.pre) } : after();
       case 'whole': return after();
@@ -674,7 +725,7 @@ export class RzekiSim {
       }
     } else if (b.kind === 'push') {
       // a push's drops follow the light: they flow only while it loads (a blind block's are paid at its end)
-      if (this.loading) this.drops += RULES.dropPush * (0.5 + this.level) * dt;
+      if (this.loading && this.stage === 'at') this.drops += RULES.dropPush * (0.5 + this.level) * dt;
     } else this.drops += RULES.dropFree * dt;
   }
 
@@ -728,6 +779,10 @@ export class RzekiSim {
   }
 
   // ── the blocks ─────────────────────────────────────────────────
+  /**
+   * The blocks go by the light, not by a clock: the warm-up and a rest have their length (a rest: whole breaths),
+   * a push lasts until its station is full (or the safety valve opens).  Each is announced 4 s ahead.
+   */
   private schedule(dt: number, f: FocusFrame, now: number): void {
     const b = this.block, R = RULES;
     this.blockT += dt;
@@ -737,48 +792,95 @@ export class RzekiSim {
       this.contrast.push(want, f.activity, f.reliable, this.blockT, dt);
     }
     if (b.kind === 'rest' && this.blockT >= R.bannerSec && this.blockT - dt < R.bannerSec) this.coach('breath', 'chest');
-    if (b.kind === 'rest' && this.blockT >= R.bannerSec + 7 && this.blockT - dt < R.bannerSec + 7) this.coach('drops', 'pool');
-    const last = this.blockIndex >= this.plan.length - 1;
-    if (!this.telegraphed && this.blockT >= b.dur - R.telegraph) {
-      this.telegraphed = true;
-      this.emit({ type: 'telegraph', next: last ? null : this.plan[this.blockIndex + 1] });
-    }
-    if ((last && this.blockT >= b.dur) || now >= this.plannedSec - this.finaleSec) {
-      this.endBlock();
+    if (b.kind === 'rest' && this.blockT >= R.bannerSec + 9 && this.blockT - dt < R.bannerSec + 9) this.coach('drops', 'pool');
+    const toFinale = this.plannedSec - this.finaleSec - now;
+    if (toFinale <= 0) {
+      this.endBlock('time');
       this.beginFinale();
-    } else if (!last && this.blockT >= b.dur) {
-      this.endBlock();
-      this.startBlock(this.blockIndex + 1);
+      return;
+    }
+    if (b.kind === 'push') {
+      this.stallT += dt;
+      // the safety valve: no light gained for a long while, or a long push whose station is not nearly full
+      const nearly = this.stage === 'at' && this.fill + (b.blind ? this.hidden : 0) >= R.telegraphFill;
+      const valveIn = Math.min(R.valveStall - this.stallT, nearly ? Infinity : R.valveSec - this.blockT);
+      // the rest comes soon: the station nearly full (a sighted push: a blind one would tell its hidden light)
+      const soon = !b.blind && this.stage === 'at' && this.reveal.t < 0
+        && (this.fill >= R.telegraphFill || tilesOpen(this.station, this.fill) >= tileTotal(this.station) - 1);
+      this.telegraph(toFinale, soon ? 0 : valveIn, 'rest');
+      if (valveIn <= 0) this.valve();
+      return;
+    }
+    // the warm-up waits for the opening card: the first push never begins under it (it is read, or tapped away)
+    if (b.kind === 'warmup' && this.story) b.dur = Math.max(b.dur, this.blockT + RULES.telegraph + 2);
+    this.telegraph(toFinale, b.dur - this.blockT, 'push');
+    if (this.blockT >= b.dur) {
+      this.endBlock(null);
+      this.open('push');
+      if (b.kind === 'rest') this.goOn();
     }
   }
 
-  private startBlock(i: number): void {
-    this.blockIndex = i;
+  /** Announce what comes next, once a block, 4 s ahead: the next block, or the session's quiet end. */
+  private telegraph(toFinale: number, toEnd: number, next: BlockKind): void {
+    if (this.telegraphed || Math.min(toFinale, toEnd) > RULES.telegraph) return;
+    this.telegraphed = true;
+    this.nextKind = toFinale <= toEnd ? null : next;
+    this.emit({ type: 'telegraph', next: this.nextKind });
+  }
+
+  /** A push that cannot finish: a rest of whole breaths; the station keeps its light, the next push loads it on. */
+  private valve(): void {
+    const s = this.station;
+    this.endPush('valve');
+    this.valvesNow++;
+    this.emit({ type: 'valve', station: s });
+  }
+
+  /** The push ends (its station full, or the valve): it is judged, and a rest of whole breaths begins. */
+  private endPush(why: 'full' | 'valve'): void {
+    if (!this.pushBlock) return;
+    this.endBlock(why);
+    this.open('rest', why);
+  }
+
+  /** Open the next block. */
+  private open(kind: BlockKind, why: BlockWhy | null = null): void {
+    const rest = kind === 'rest' ? restOf(this.p) : null;
+    const b: Block = {
+      kind, dur: kind === 'warmup' ? warmFor(this.plannedSec) : rest ? rest.sec : Infinity, blind: false, cycles: rest?.cycles ?? 0, why, len: 0,
+    };
+    const first = !this.plan.some(x => x.kind === kind);
+    this.plan.push(b);
+    this.blockIndex = this.plan.length - 1;
     this.blockT = 0;
     this.telegraphed = false;
-    this.relSec = 0;
+    this.nextKind = null;
+    this.stallT = 0;
     this.judge.reset();
     this.goodSaid = false;
     this.noSigSaid = false;
     this.goldRun = 0;
     this.waitRun = 0;
-    const b = this.plan[i];
-    const first = !this.plan.slice(0, i).some(x => x.kind === b.kind);
-    if (b.kind === 'push') {
+    if (kind === 'push') {
       this.pushesBegun++;
       b.blind = this.session >= RULES.blindFrom && !first && (this.pushesBase + this.pushesBegun) % RULES.blindEvery === 0;
       if (b.blind) {
         this.talk.ask('blind', 3, 12);
         this.coach('blind', 'place');
       }
-    } else if (b.kind === 'rest') {
+    } else if (kind === 'rest') {
+      this.restsNow++;
       this.breathT = 0;
-      // the guide's first in-breath begins with the block
-      this.emit({ type: 'breathTurn', inhale: true });
-      this.talk.ask('rest', 2, 12);
+      this.talk.ask(why === 'valve' ? 'valve' : 'rest', why === 'valve' ? 3 : 2, 12);
     } else this.talk.ask('warm', 1, 14);
     this.tip = this.tipFor(b);
-    this.emit({ type: 'blockStart', block: b, index: i });
+    this.emit({ type: 'blockStart', block: b, index: this.blockIndex });
+    if (kind === 'rest') {
+      // the guide's first phase begins with the block
+      const first0 = breathAt(this.pattern, 0).phase;
+      this.emit({ type: 'breathTurn', phase: first0, len: this.pattern[first0] });
+    }
   }
 
   /** The block's strategy: the station's own picture in a push (the repetition every third), the breath in rest. */
@@ -788,28 +890,32 @@ export class RzekiSim {
       if (b.blind) return t(TIPS.blind[(this.session + this.blockIndex) % TIPS.blind.length]);
       return t(pushTip(this.station, this.dir, this.pushesBegun - 1));
     }
-    return t(TIPS.rest[(this.session - 1 + this.blockIndex) % TIPS.rest.length]);
+    return t(TIPS.rest[(this.session - 1 + this.restsNow) % TIPS.rest.length], { breath: this.breathText });
   }
 
-  /** The block's end: its verdict and what it pays — after its judged window, never during it. */
-  private endBlock(): void {
+  /**
+   * The block's end: its verdict over its last ≤ 15 s and what it pays — after its judged window, never during it.
+   * A push under RULES.minPush s (a station resumed nearly full) is not judged; a blind one shows its light now.
+   */
+  private endBlock(why: BlockWhy | null): void {
     const b = this.block;
+    if (b.len > 0 || !this.plan.length) return;
+    b.len = Math.max(1e-6, this.blockT);
+    if (b.kind === 'push') b.why = why;
     let verdict: boolean | null = null, share = 0;
     if (b.kind !== 'warmup') {
+      const short = b.kind === 'push' && b.len < RULES.minPush;
       share = this.judge.share;
-      verdict = this.relSec >= RULES.minReliable ? this.judge.verdict() : null;
+      verdict = !short && this.judge.measured >= RULES.minReliable ? this.judge.verdict() : null;
       if (b.kind === 'push' && b.blind) {
-        const s = this.judge.measured > 0 ? share : 0;
+        const s = !short && this.judge.measured > 0 ? share : 0;
         const n = Math.round(RULES.dropBlind * s);
         this.drops += n;
-        this.blindShare = Math.max(this.blindShare, Math.round(s * 100));
+        if (!short) this.blindShare = Math.max(this.blindShare, Math.round(s * 100));
         // the light gathered in the dark is shown now
         const gained = this.hidden;
-        if (gained > 0 && this.stage === 'at') {
-          this.reveal = { from: this.fill, to: Math.min(1, this.fill + gained), t: 0 };
-          this.carry = Math.min(RULES.blindCarry, Math.max(0, this.fill + gained - 1));
-          this.hidden = 0;
-        }
+        if (gained > 0 && this.stage === 'at') this.reveal = { from: this.fill, to: Math.min(1, this.fill + gained), t: 0 };
+        this.hidden = 0;
         this.emit({ type: 'blindEnd', share: s, drops: n, gained });
         this.talk.ask('blindEnd', 2, 6);
       } else if (verdict === true) {
@@ -870,6 +976,14 @@ export class RzekiSim {
     if (this.story) return;
     if (!markSeen(this.p, `c.${what}`)) return;
     this.emit({ type: 'coach', what, at });
+  }
+
+  /** A coach mark's words (some name the player's breath and the map). */
+  coachWords(what: Coach, touch: boolean): string {
+    if (what === 'tap') return t(touch ? 'coach.tap' : 'coach.tap.keys');
+    if (what === 'breath') return t('coach.breath', { breaths: t('breaths', { n: restOf(this.p).cycles }), breath: this.breathText });
+    if (what === 'strip') return t('coach.strip', { n: this.mapSize });
+    return t(`coach.${what}` as Key);
   }
 
   // ── output ─────────────────────────────────────────────────────
@@ -979,7 +1093,11 @@ export class RzekiSim {
     if (tn) add(2.5, t('hl.tier', { place: stationName(tn.station), tier: tierName(tn.tier) }));
     if (this.longestNow >= 10) add(3, t('hl.longest', { sec: secText(this.longestNow) }));
     if (this.blindShare >= 0) add(4, t('hl.blind', { pct: t('pct', { n: this.blindShare }) }));
+    if (this.restsNow > 0) add(4.5, t('hl.rests', { n: this.restsNow, breath: this.breathText }));
     if (this.own) add(5, t('hl.own'));
     return notes.sort((a, b) => a.rank - b.rank).slice(0, 5).map(n => n.text);
   }
 }
+
+/** The breath's cycle (s) of a pattern (re-exported for the view and the tests). */
+export { breathCycle };

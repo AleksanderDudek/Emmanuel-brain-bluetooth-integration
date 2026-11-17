@@ -1,13 +1,15 @@
 /**
  * Rzeki żywej wody's play view (DESIGN.md §13.14): deep space with an open heaven and its rays coming down
- * through the gate, the two shells of light around the figure (picture 2's ovals), the egg of light, the pool of
- * living water at the feet and the two rivers that flow from it as the drops gather, the figure of light (it
- * breathes 4 in / 6 out in rest), the column of light along its midline with the gold and silver threads
+ * through the gate, the two shells of light around the figure (picture 2's ovals, each with its jewel and its name
+ * on its line, so they read as the stations they are), the egg of light, the pool of living water at the feet and
+ * the two rivers that flow from it as the drops gather, the figure of light (it breathes with the player's pattern
+ * in rest, still on a hold), the column of light along its midline with the gold and silver threads
  * spiralling along the lit part, and the stations: rose windows of church glass on the midline and above the
  * head, the three channels with their sun and moon, the Void's ring of sea-green glass, the sacrum with its spiral
  * of light, the hands and the feet turning to stained glass — each waiting, lit, or opening now with its halo of
- * light and the threshold drawn on it as a faint ring.  When a station is full the light flows on as a stream of
- * living water — down the midline, out along the arms, down the legs.
+ * light and the threshold drawn on it as a faint ring.  When a station is full and its rest is over the light flows
+ * on as a stream of living water — down the midline, out along the arms, down the legs.  Beside the figure, the map
+ * column (strip.ts): every station of the map, the one the light is at, the count.
  *
  * A camera (layout.ts `Cam`) eases between framings: the body, the sky above it, the whole egg of the heavens, the
  * hands near, the ground.  The world is drawn in the body framing's coordinates under one transform; every text
@@ -16,20 +18,22 @@
  */
 import { clamp, ease, Floaters, Particles } from '../kit/juice';
 import type { Insets, TapTarget } from '../kit/types';
-import { HAND_COLOURS, HAND_ORDER, MAP, STATION, STATIONS, tierName, type StationId } from './content';
+import { HAND_COLOURS, HAND_ORDER, MAP, STATION, STATIONS, stationLabel, stationName, tierName, type StationId } from './content';
 import {
   CHANNELS, CHEST, MEDALLION_R, MOON, SACRUM_PTS, SHELL, SPIRAL, SUN, VOID, along, enterPaths, finger, footShapes, handPoint, handShapes,
   palmCentre, shapePath, shellPt, soleAt, spiralPts, stationPts, streamPaths, type P, type Shell,
 } from './figure';
 import { drawCaption, drawPrayer, drawStory, dropFloat } from './hud';
 import { t } from './i18n';
+import { MIN_READ } from '../kit/mobile';
+import { drawStrip, drawStripName, stripHit, type StripGeom, type StripState } from './strip';
 import {
   CAM_MAX, NO_CAM, cameraFor, easeCam, figPt, framingOf, idleR, labelRowH, layout, litR, maxWindowR, stationXY, tapTargets, toScreen, toWorld, windowR,
   wordsAt, type Cam, type Layout, type Rect,
 } from './layout';
 import {
-  GOLD, GOLD_HI, MOON_SILVER, PEARL, SANS, SILVER, SUN_GOLD, WATER, auraSprite, bakeFigure, bakeRays, bakeRose, bakeRoses, bakeSky, bloom, columnSprite, glow,
-  glowSprite, hash, medallionSprite, mix, poolSprite, rgbaPrefix, starSprite, type FigureLayer, type Layer, type RoseLayers,
+  GOLD, GOLD_HI, MOON_SILVER, PEARL, SANS, SILVER, SUN_GOLD, WATER, auraSprite, bakeFigure, bakeRays, bakeRose, bakeRoses, bakeSky, bloom, columnSprite, font, glow,
+  glowSprite, hash, label, medallionSprite, mix, poolSprite, rgbaPrefix, starSprite, type FigureLayer, type Layer, type RoseLayers,
 } from './paint';
 import { RING, fullPath, partPath, petalAngle } from './rose';
 import { RULES } from './rules';
@@ -44,6 +48,9 @@ interface Mote { x: number; y: number; vy: number; r: number; a: number; ph: num
 /** A drop of living water falling down the column into the pool; `label` floats up beside the pool when it lands. */
 interface Drop { y: number; vy: number; x: number; hue: string; from: number; big?: boolean; label?: string; labelColor?: string }
 interface Ripple { t: number; k: number }
+
+/** A shell's name as placed beside its jewel (screen px). */
+interface ShellName { text: string; x: number; y: number; hue: string; align: CanvasTextAlign; lines: string[]; px: number; a: number; box: [number, number] }
 
 /** How a station shows now: waiting, lit (this round), or the one the light is at. */
 type Look = 'idle' | 'lit' | 'current';
@@ -97,6 +104,11 @@ export class RzekiView {
   private hoverK = 0;
   /** a desk layout's words: the height they stand at, eased after the station (or the stream) */
   private wordsY = Number.NaN;
+  /** the map column as last drawn (the mouse's names, the coach mark) */
+  private strip: StripGeom | null = null;
+  /** the shells' names as this frame places them (drawn in screen space over the world), and the placements measured */
+  private shellNames: ShellName[] = [];
+  private readonly nameMemo = new Map<string, ShellName[]>();
 
   constructor(canvas: HTMLCanvasElement, private readonly o: ViewOpts) {
     this.ctx = canvas.getContext('2d');
@@ -107,6 +119,7 @@ export class RzekiView {
     this.dpr = dpr;
     this.L = layout(w, h, ins, this.o.touch);
     this.wordsY = Number.NaN;
+    this.nameMemo.clear();
     const L = this.L, H = L.fig.H;
     this.sky = bakeSky(w, h, dpr, { cx: L.fig.cx, midY: L.fig.top + H * 0.45, H });
     // the rays come down from the gate of heaven above the head to the crown
@@ -462,6 +475,7 @@ export class RzekiView {
     ctx.setTransform(d * c.s, 0, 0, d * c.s, d * c.ox, d * c.oy);
     const rest = sim.restBlock;
     const breathe = rest ? sim.breath.k : this.o.reducedMotion ? 0.5 : 0.5 + 0.12 * Math.sin(this.time * 0.6);
+    this.shellNames.length = 0;
     // the quiet halo behind the figure
     bloom(ctx, '#8f7cff', L.fig.cx, L.fig.top + H * 0.45, H * 0.8, 0.2);
     this.drawHeaven(ctx, sim);
@@ -478,6 +492,10 @@ export class RzekiView {
     if (this.fig) ctx.drawImage(this.fig.c, this.fig.box.x, this.fig.box.y, this.fig.box.w, this.fig.box.h);
     this.drawInnerLight(ctx, sim);
     ctx.restore();
+    // a held breath: the light stays still, a soft steady glow in the chest
+    if (rest && !sim.story && (sim.breath.phase === 'holdIn' || sim.breath.phase === 'holdOut')) {
+      glow(ctx, sim.breath.phase === 'holdIn' ? GOLD_HI : '#c9c2ff', chest.x, chest.y, H * (sim.breath.phase === 'holdIn' ? 0.2 : 0.13), 0.22);
+    }
     this.drawColumn(ctx, sim, breathe);
     this.drawThreads(ctx, sim, false);
     this.drawStations(ctx, sim, breathe);
@@ -490,8 +508,15 @@ export class RzekiView {
     if (this.flash > 0) glow(ctx, GOLD_HI, L.fig.cx, L.fig.top + H * 0.45, H * 0.85, 0.32 * Math.sin(Math.PI * Math.min(1, this.flash)));
     // the screen again: the words, the numbers, the veil, the cards
     ctx.setTransform(d, 0, 0, d, 0, 0);
+    this.drawShellNames(ctx);
     this.floats.draw(ctx, `800 ${SANS}`);
     if (sim.blind) this.drawVeil(ctx);
+    // the map column: every station of the map, where the light is, the count
+    this.strip = drawStrip(ctx, L.strip, this.stripState(sim), L.u, d, this.time, { still: this.o.reducedMotion });
+    if (this.mouse && !sim.story && this.mouseIdle < 2.6) {
+      const s = stripHit(this.strip, sim.map, this.mouse.x, this.mouse.y);
+      if (s) drawStripName(ctx, this.strip, sim.map, s, stationLabel(s), Math.max(MIN_READ, Math.round(13 * L.u)));
+    }
     // the words: the narrator in its own column (or in the band's top row on a phone held upright), the prayer;
     // on a desktop they stand level with the station the light is at
     const k = sim.story ? 0 : this.captionK;
@@ -500,6 +525,91 @@ export class RzekiView {
     drawPrayer(ctx, Lw, sim, this.lastDt, { text: this.lastCaption, k });
     this.storyRect = drawStory(ctx, L, sim, !!this.mouse && this.overStory(this.mouse.x, this.mouse.y));
   }
+
+  /** What the map column shows: the stations lit this round, the one the light is at (gliding with the stream), the count. */
+  private stripState(sim: RzekiSim): StripState {
+    const list = MAP[sim.map].stations;
+    const i = list.indexOf(sim.station);
+    let at: number | null = i;
+    let current: StationId | null = sim.station;
+    if (sim.stage === 'flow' && sim.nextStation) {
+      const j = list.indexOf(sim.nextStation);
+      at = i + (j - i) * ease.inOutSine(clamp(sim.stageT / RULES.flowSec));
+      current = null;
+    } else if (sim.stage === 'whole') {
+      at = null;
+      current = null;
+    }
+    return {
+      map: sim.map, litOf: s => sim.lit[s], tierOf: s => sim.tiers[s], current, at, dir: sim.dir, lit: sim.litCount,
+      fill: sim.stage === 'hold' ? 1 : sim.stage === 'at' ? sim.fill : 0,
+    };
+  }
+
+  /**
+   * The two shells' names (picture 2 names its ovals beside them): beside each shell's jewel, outside the shell where
+   * the screen has room, else inside it, in one line or two — never over the map column or the words.
+   */
+  private drawShellNames(ctx: CanvasRenderingContext2D): void {
+    for (const n of this.shellNames) {
+      ctx.globalAlpha = n.a;
+      const lh = Math.round(n.px * 1.2);
+      let y = n.y - ((n.lines.length - 1) * lh) / 2;
+      for (const line of n.lines) {
+        label(ctx, line, n.x, y, n.px, mix(n.hue, '#ffffff', 0.45), n.align, 700);
+        y += lh;
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** Place a shell's name beside its jewel (screen px): outside first, then inside; one line, then two; else none. */
+  private placeShellName(ctx: CanvasRenderingContext2D, s: StationId, c: { x: number; y: number }, outward: number, r: number, a: number, fy: number): void {
+    const L = this.L, text = stationName(s);
+    // as large as the screen reads (13 px, grown with the screen), smaller only to fit (12 on a phone, 13 a desktop)
+    const min = L.desk ? MIN_READ : 12, base = Math.max(MIN_READ, Math.round(13 * L.u));
+    // the room the names may use: clear of the map column, left of the words beside the figure (or the edge), and
+    // never over the figure itself (its hands, its legs) on the side the name is on
+    const lo0 = L.strip.x + L.strip.w + 12, hi0 = L.shape === 'tall' ? L.right - 6 : Math.min(L.right - 6, L.prayer.x - 10);
+    const body = figureHalf(fy) * L.fig.H * this.cam.s, mid = this.sp(L.fig.cx, 0).x;
+    const lo = c.x > mid ? Math.max(lo0, mid + body) : lo0, hi = c.x < mid ? Math.min(hi0, mid - body) : hi0;
+    if (c.y <= L.top + 8 || c.y >= L.bottom - 8) return;
+    // the placements that fit are measured once per place on the screen (the camera eases: a few dozen places a move)
+    const key = `${s}|${Math.round(c.x)}|${Math.round(c.y)}|${Math.round(lo)}|${Math.round(hi)}|${base}`;
+    let fits = this.nameMemo.get(key);
+    if (!fits) {
+      fits = [];
+      const sp = text.lastIndexOf(' ');
+      const options: string[][] = [[text], ...(sp > 0 ? [[text.slice(0, sp), text.slice(sp + 1)]] : [])];
+      for (let px = base; px >= min; px -= 1) {
+        ctx.font = font(px, 700);
+        for (const dir of [outward, -outward]) {
+          for (const lines of options) {
+            const w = Math.max(...lines.map(l => ctx.measureText(l).width));
+            const x = c.x + dir * (r + 6);
+            const x0 = dir > 0 ? x : x - w, x1 = dir > 0 ? x + w : x;
+            if (x0 >= lo && x1 <= hi) {
+              fits.push({ text, x, y: c.y, hue: STATION[s].hue, align: dir > 0 ? 'left' : 'right', lines, px, a: 1, box: [x0, x1] });
+            }
+          }
+        }
+      }
+      if (this.nameMemo.size > 300) this.nameMemo.clear();
+      this.nameMemo.set(key, fits);
+    }
+    // the first that clears the names already placed this frame (the two shells' names never touch)
+    const boxOf = (n: ShellName) => {
+      const hh = (n.lines.length * n.px * 1.2) / 2 + 3;
+      return { x0: n.box[0] - 3, x1: n.box[1] + 3, y0: n.y - hh, y1: n.y + hh };
+    };
+    for (const n of fits) {
+      const b = boxOf(n);
+      if (this.shellNames.some(o => { const q = boxOf(o); return b.x0 < q.x1 && q.x0 < b.x1 && b.y0 < q.y1 && q.y0 < b.y1; })) continue;
+      this.shellNames.push({ ...n, a });
+      return;
+    }
+  }
+
 
   /**
    * A desk layout's words, standing level with the station the light is at, gliding with the stream to the next
@@ -630,8 +740,35 @@ export class RzekiView {
       if (look === 'current') this.drawCurrentPoint(ctx, sim, s, c, clamp(fill / KEYSTONE));
       else if (look === 'lit') this.drawJewel(ctx, sim, s, c);
       else this.drawIdle(ctx, sim, s, c);
+      // its jewel on its own line, low on the side away from the words (picture 2 names its ovals there), and its name
+      const side = this.L.shape === 'tall' ? 1 : -1;
+      const mp = shellPt(sh, side * SHELL_MARK[s]), m = this.wp(mp);
+      this.shellMark(ctx, sim, s, m, look, near);
+      const scr = this.sp(m.x, m.y);
+      this.placeShellName(ctx, s, scr, side, litR(this.L) * 1.3 * this.cam.s, near * (look === 'idle' ? 0.8 : 1), mp[1]);
     }
     ctx.restore();
+  }
+
+  /** A shell's jewel on its line: its glass once lit (gold-ringed while its light loads), its tracery while waiting. */
+  private shellMark(ctx: CanvasRenderingContext2D, sim: RzekiSim, s: StationId, c: { x: number; y: number }, look: Look, near: number): void {
+    const r = litR(this.L) * 0.95, rose = this.roses[s], hue = STATION[s].hue;
+    const lit = look === 'lit' || (look === 'current' && sim.fill >= 1);
+    glow(ctx, hue, c.x, c.y, r * 3, (lit ? 0.42 : look === 'current' ? 0.3 + 0.3 * sim.light : 0.18) * near);
+    if (rose) {
+      const k = r / rose.R;
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.scale(k, k);
+      ctx.globalAlpha = near * (lit ? 1 : 0.85);
+      ctx.drawImage(lit ? rose.glass : rose.lead, -rose.half, -rose.half, 2 * rose.half, 2 * rose.half);
+      ctx.restore();
+    }
+    ctx.strokeStyle = `${rgbaPrefix(look === 'current' ? GOLD : hue)}${(0.7 * near).toFixed(3)})`;
+    ctx.lineWidth = Math.max(1, this.L.fig.H * 0.003);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r * 1.25, 0, TAU);
+    ctx.stroke();
   }
 
   /** A stretch of a shell's outline from angle a0 to a1 on both sides (0 the apex, π the bottom), as glass or as a faint line. */
@@ -1480,9 +1617,13 @@ export class RzekiView {
     });
   }
 
-  /** A point of the play for the runner's coach mark (screen px): the current station, the chest, the pool. */
-  pointAt(what: 'place' | 'chest' | 'pool', sim: RzekiSim): { x: number; y: number } {
+  /** A point of the play for the runner's coach mark (screen px): the current station, the chest, the pool, the map column. */
+  pointAt(what: 'place' | 'chest' | 'pool' | 'strip', sim: RzekiSim): { x: number; y: number } {
     const L = this.L, H = L.fig.H;
+    if (what === 'strip') {
+      const g = this.strip, i = MAP[sim.map].stations.indexOf(sim.station);
+      return g && i >= 0 ? { x: g.xs + g.r * 2, y: g.ys[i] } : { x: L.strip.x + L.strip.w, y: L.strip.y + L.strip.h / 2 };
+    }
     if (what === 'chest') { const w = figPt(L, 0, 0.27); return this.sp(w.x, w.y); }
     if (what === 'pool') { const w = figPt(L, 0, 0.98); return this.sp(w.x, w.y); }
     const pts = stationPts(sim.station).map(p => this.wp(p));
@@ -1491,6 +1632,12 @@ export class RzekiView {
     return this.sp(pts.reduce((s, p) => s + p.x, 0) / pts.length, top.y - r);
   }
 }
+
+/** Where each shell's jewel sits on its line: the angle from its apex (low on the side, as picture 2 names them). */
+const SHELL_MARK: Readonly<Record<'galactic' | 'gateway', number>> = { galactic: 0.64 * Math.PI, gateway: 0.69 * Math.PI };
+
+/** How far from the midline a shell's name keeps off the figure at a height (figure units): the hands, the legs, the body. */
+const figureHalf = (y: number): number => (y >= 0.45 && y <= 0.64 ? 0.24 : y > 0.64 ? 0.1 : 0.12);
 
 /** The stations drawn as rose windows in play: the points on the midline and the shells' keystones. */
 const windowed = (s: StationId): boolean => STATION[s].kind === 'point' || STATION[s].kind === 'shell';

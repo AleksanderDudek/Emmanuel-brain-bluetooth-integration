@@ -2,12 +2,18 @@
  * Rzeki żywej wody's "Postępy" card in the lobby (DESIGN.md §13.14), from the app's shared classes (styles.css):
  *
  *   the numbers   the most drops, sessions, whole ways down and up
- *   the map       which of the four maps the way walks (a radio row), and each map's card: its stations as little
- *                 rose windows (in colour once lit, waiting in lead until then) with their gift, their verse and how
- *                 many times each was lit going down and thanked going up, its count, and which picture it is from
+ *   the map       which of the four maps the way walks (a radio row), and each map's card: its count and where its
+ *                 stations come from ("12 centrów mapy dwunastu (obraz 2) + 5 …"), its stations as little rose
+ *                 windows (in colour once lit, waiting in lead until then) with their gift, their verse and how many
+ *                 times each was lit going down and thanked going up
  *   where you begin  "Kontynuuj od Serca" (where the last session stopped) or "Od początku"; a tap on a station of
  *                 an album makes it the next start ("Zacznij tutaj") — the founder's "navigate"
  *   the way       down, up, or down and then up (a radio row; saved at once)
+ *   the breath    the rest's breath (round 11, the founder's word): four steppers — Wdech, Zatrzymanie (po
+ *                 wdechu), Wydech, Bezdech (po wydechu) — each −/+ from 0 to 15 s, the presets as one-tap chips
+ *                 (4 · 6 spokojny, 5 · 5 równy, 4 · 4 · 4 · 4 kwadrat, 4 · 7 · 8 wyciszenie), the breaths in a rest
+ *                 (auto, or 1…12) and a live line ("Odpoczynek: 3 oddechy · 30 s"); a breath under 2 s is refused
+ *                 with a short message
  *   own words     the player's own words of prayer (≤ 120 characters), shown at every station instead of the
  *                 prayer; kept only in this device's progress, set as text, never as markup
  *   the chorale   the quiet chorale's switch
@@ -16,13 +22,17 @@
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import { BREATH_PHASES, BREATH_PRESETS, breathCycle, sameBreath, type BreathPhase } from '../kit/breath';
 import { coarsePointer } from '../kit/mobile';
 import { passage } from '../kit/scripture';
 import {
   MAP, MAPS, WAYS, cleanOwn, fromText, giftName, mapName, mapPicture, stationName, stationTag, stationWhere, tierName, verseOf, type MapId, type StationId, type Way,
 } from './content';
-import { t } from './i18n';
-import { bestOf, clearStart, setMap, setOwn, setStart, setWay, startOf, stationsLit, tierOf, timesLit, type RzekiProgress } from './meta';
+import { t, type Key } from './i18n';
+import {
+  autoBreaths, bestOf, breathOf, clearStart, restOf, setBreath, setMap, setOwn, setRestBreaths, setStart, setWay, startOf, stationsLit, stepBreathOf, tierOf,
+  timesLit, type RzekiProgress,
+} from './meta';
 import { bakeRose } from './paint';
 import { RULES } from './rules';
 import { secText } from './sim';
@@ -57,17 +67,70 @@ function tile(station: StationId, lit: boolean, tier: number): HTMLCanvasElement
   return c;
 }
 
+/** A finger-sized button (≥ 44 px each way: the app's .btn is 36 px tall, so the size is set on it). */
+function big(b: HTMLButtonElement): HTMLButtonElement {
+  b.style.minWidth = '44px';
+  b.style.minHeight = '44px';
+  return b;
+}
+
 export function progressPanel(p: RzekiProgress, save: () => void): HTMLElement {
   const root = h('div', { class: 'arcade-panel' });
+  /** a refused change's message, shown once under the steppers */
+  let note = '';
   const render = (): void => {
     while (root.firstChild) root.removeChild(root.firstChild);
     for (const el of build(p, () => {
       save();
       render();
+    }, note, msg => {
+      note = msg;
+      render();
+      note = '';
     })) root.appendChild(el);
   };
   render();
   return root;
+}
+
+/**
+ * The rest's breath: the presets as chips, four steppers (each phase 0…15 s), the breaths in a rest (auto or
+ * 1…12) and the live line of what a rest will be.  A step that would leave a breath under 2 s is refused, and says why.
+ */
+function breathCard(p: RzekiProgress, changed: () => void, note: string, refuse: (msg: string) => void): HTMLElement[] {
+  const out: HTMLElement[] = [];
+  const b = breathOf(p);
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.breath')), h('p', { class: 'muted' }, t('panel.breathNote')));
+  const presets = h('div', { class: 'seg', role: 'group', 'aria-label': t('panel.presets') });
+  for (const [k, pat] of Object.entries(BREATH_PRESETS)) {
+    const on = sameBreath(b, pat);
+    presets.append(big(button(t(`preset.${k}` as Key), () => { if (setBreath(p, pat)) changed(); }, on ? 'btn on' : 'btn', { 'aria-pressed': String(on) })));
+  }
+  out.push(presets);
+  for (const ph of BREATH_PHASES) {
+    const name = t(`panel.ph.${ph}` as Key);
+    const step = (d: number) => () => {
+      if (stepBreathOf(p, ph as BreathPhase, d)) changed();
+      else refuse(t('panel.tooShort'));
+    };
+    const less = big(button('−', step(-1), 'btn', { 'aria-label': t('panel.less', { what: name }), disabled: b[ph] <= 0 ? '' : null }));
+    const more = big(button('+', step(1), 'btn', { 'aria-label': t('panel.more', { what: name }), disabled: b[ph] >= 15 ? '' : null }));
+    out.push(h('div', { class: 'row', role: 'group', 'aria-label': name },
+      h('span', { class: 'grow' }, name), less, h('output', { 'aria-live': 'polite' }, t('secs', { n: b[ph] })), more));
+  }
+  if (note) out.push(h('p', { class: 'task-feedback bad', role: 'alert' }, note));
+  // the breaths in a rest: auto (the nearest to 26 s) or the player's own count
+  const auto = p.restBreaths <= 0, n = auto ? autoBreaths(p) : p.restBreaths;
+  const setN = (v: number) => () => { setRestBreaths(p, Math.max(1, Math.min(RULES.restBreathsMax, v))); changed(); };
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.restBreaths')),
+    h('div', { class: 'row', role: 'group', 'aria-label': t('panel.restBreaths') },
+      big(button('−', setN(n - 1), 'btn', { 'aria-label': t('panel.less', { what: t('panel.restBreaths') }), disabled: n <= 1 ? '' : null })),
+      h('output', { 'aria-live': 'polite' }, auto ? t('panel.auto', { n }) : String(n)),
+      big(button('+', setN(n + 1), 'btn', { 'aria-label': t('panel.more', { what: t('panel.restBreaths') }), disabled: n >= RULES.restBreathsMax ? '' : null })),
+      big(button(t('panel.autoBtn'), () => { setRestBreaths(p, 0); changed(); }, auto ? 'btn on' : 'btn', { 'aria-pressed': String(auto) }))));
+  const rest = restOf(p);
+  out.push(h('p', null, `${t('panel.restLine', { breaths: t('breaths', { n: rest.cycles }), sec: secText(rest.sec) })} · ${t('panel.cycle', { sec: secText(breathCycle(b)) })}`));
+  return out;
 }
 
 /** A map's album: its stations as tiles, each a button that makes it the next start. */
@@ -98,7 +161,7 @@ function album(p: RzekiProgress, map: MapId, start: StationId | null, changed: (
   }));
 }
 
-function build(p: RzekiProgress, changed: () => void): HTMLElement[] {
+function build(p: RzekiProgress, changed: () => void, note = '', refuse: (msg: string) => void = () => undefined): HTMLElement[] {
   const out: HTMLElement[] = [];
   const best = bestOf(p);
   out.push(h('div', { class: 'arcade-stats' },
@@ -129,7 +192,7 @@ function build(p: RzekiProgress, changed: () => void): HTMLElement[] {
     const start = m === p.map ? (st.resumed ? st.station : null) : null;
     const card = h('details', m === p.map ? { open: '' } : null,
       h('summary', { class: m === p.map ? null : 'muted' }, `${m === p.map ? '● ' : ''}${head} ▾`),
-      h('div', { class: 'arcade-panel mt10' }, album(p, m, start, changed)));
+      h('div', { class: 'arcade-panel mt10' }, h('p', null, `${list.length} · ${t(`map.${m}.count` as Key)}`), album(p, m, start, changed)));
     out.push(card);
   }
   out.push(h('p', { class: 'muted' }, t('panel.placesNote')), h('p', { class: 'muted' }, t('panel.mapNote')), h('p', { class: 'muted' }, t('panel.tiersNote')));
@@ -140,6 +203,9 @@ function build(p: RzekiProgress, changed: () => void): HTMLElement[] {
   out.push(h('div', { class: 'arcade-sub' }, t('panel.way')),
     h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.way') }, WAYS.map(wayBtn)),
     h('p', { class: 'muted' }, t(`panel.wayNote.${p.way}` as 'panel.wayNote.down')));
+
+  // ── the breath ──
+  out.push(...breathCard(p, changed, note, refuse));
 
   // ── own words ──
   out.push(h('div', { class: 'arcade-sub' }, t('panel.own')), h('p', { class: 'muted' }, t('panel.ownNote')));

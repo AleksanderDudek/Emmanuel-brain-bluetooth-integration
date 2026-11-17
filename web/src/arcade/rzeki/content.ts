@@ -300,7 +300,7 @@ export function pushTip(s: StationId, dir: Dir, pushIndex: number): Key {
 export const MOMENTS = [
   'open', 'warm', 'down', 'up', 'again', 'own', 'resume',
   ...STATIONS.map(s => `at.${s}` as const),
-  'rise', 'full', 'good', 'rest', 'blind', 'blindEnd', 'nosignal', 'wayDown', 'wayUp', 'end', 'tier', 'wait',
+  'rise', 'full', 'good', 'rest', 'valve', 'blind', 'blindEnd', 'nosignal', 'wayDown', 'wayUp', 'end', 'tier', 'wait',
 ] as const;
 export type Moment = (typeof MOMENTS)[number];
 

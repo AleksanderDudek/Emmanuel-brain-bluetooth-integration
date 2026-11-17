@@ -5,10 +5,15 @@ import {
 } from '../src/arcade/rzeki/content';
 import { CATALOGS, t, unit } from '../src/arcade/rzeki/i18n';
 import {
-  bestOf, clearStart, countStation, freshProgress, mapGlow, migrate, setMap, setOwn, setStart, setWay, startOf, stationsLit, tierOf, timesLit, type RzekiProgress,
+  autoBreaths, bestOf, breathOf, clearStart, countStation, freshProgress, mapGlow, migrate, restOf, setBreath, setMap, setOwn, setRestBreaths, setStart, setWay,
+  startOf, stationsLit, stepBreathOf, tierOf, timesLit, type RzekiProgress,
 } from '../src/arcade/rzeki/meta';
-import { BREATH, RULES, focusRate } from '../src/arcade/rzeki/rules';
-import { LIT_DOWN, LIT_UP, RzekiSim, finaleFor, planBlocks, secText, type SimEvent } from '../src/arcade/rzeki/sim';
+import { RULES, focusRate, readTime } from '../src/arcade/rzeki/rules';
+import { LIT_DOWN, LIT_UP, RzekiSim, pageTime, secText, warmFor, type SimEvent } from '../src/arcade/rzeki/sim';
+import { BREATH_DEFAULT, BREATH_PRESETS, breathCycle, type BreathPattern } from '../src/arcade/kit/breath';
+import { progressPanel } from '../src/arcade/rzeki/panel';
+import { stripGeom } from '../src/arcade/rzeki/strip';
+import { nowRowH } from '../src/arcade/rzeki/hud';
 import { tileTotal, tilesOpen, tilesAt } from '../src/arcade/rzeki/tiles';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
@@ -41,7 +46,7 @@ const LOW = frame({ level: 0.3, activity: 1, focused: false, calm: 0.5 });
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
-const ALL_SEEN = ['s.open', 's.news', 'c.tap', 'c.light', 'c.petals', 'c.breath', 'c.drops', 'c.blind'];
+const ALL_SEEN = ['s.open', 's.news', 'c.tap', 'c.light', 'c.petals', 'c.breath', 'c.drops', 'c.blind', 'c.strip', ...STATIONS.map(s => `g.${s}`)];
 
 type SimOpts = { progress?: Partial<RzekiProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
 
@@ -398,28 +403,31 @@ describe('the founder’s fill rule: light only from real concentration, and slo
     expect(first.score).toBeGreaterThan(0);                // the warm-up's drops: the smoke scores at once
   });
 
-  it('paces a 10-minute session at about 5–7 stations at the threshold, ~37 s of focus a station (three seeds)', () => {
+  it('paces a 10-minute session at about 8–10 stations at the threshold, ~33 s of focus a station (three seeds)', () => {
     const pace = (level: number, seed: number) => {
       const sim = later({ planned: 600, seed });
       let load = 0;
       drive(sim, 600, steady(level), { t: 0 }, () => { if (sim.rate() > 0) load += STEP; reader(sim)(); });
-      return { lit: sim.placesNow, per: load / Math.max(1, sim.placesNow) };
+      return { lit: sim.placesNow, per: load / Math.max(1, sim.placesNow), rests: sim.restsNow, pushes: sim.blocks.filter(b => b.kind === 'push' && b.len > 0) };
     };
     const at = [1, 2, 3].map(s => pace(0.5, s)), high = [1, 2, 3].map(s => pace(0.75, s));
     for (const r of at) {
-      expect(r.lit).toBeGreaterThanOrEqual(5);
-      expect(r.lit).toBeLessThanOrEqual(7);
-      expect(r.per).toBeGreaterThan(32);
-      expect(r.per).toBeLessThan(43);
+      expect(r.lit).toBeGreaterThanOrEqual(8);
+      expect(r.lit).toBeLessThanOrEqual(10);
+      expect(r.per).toBeGreaterThan(30);
+      expect(r.per).toBeLessThan(36);
+      // a rest after every station, and each push one station long (its lead-in, the flow, ~33 s of light)
+      expect(r.rests).toBe(r.lit);
+      for (const b of r.pushes) expect(b.len).toBeLessThan(45);
     }
     for (const r of high) {
       expect(r.per).toBeGreaterThan(18);
-      expect(r.per).toBeLessThan(26);
+      expect(r.per).toBeLessThan(24);
       expect(r.lit).toBeGreaterThan(Math.max(...at.map(x => x.lit)));
     }
   });
 
-  it('with the kit’s own focus input: no rise in push, no light; a moderate rise lights 6–8 stations in 10 minutes', () => {
+  it('with the kit’s own focus input: no rise in push, no light (the valve rests it); a moderate rise lights 8–10 stations in 10 minutes', () => {
     /** a player whose activity rises by `amp` % in the push blocks (with the haemodynamic lag), with noise and Mayer waves */
     const player = (amp: number, seed: number) => {
       const sim = later({ planned: 600, seed });
@@ -431,72 +439,249 @@ describe('the founder’s fill rule: light only from real concentration, and slo
         noise += ((rnd() - 0.5) * 1.6 - noise) * (1 - Math.exp(-STEP / 1.5));
         return fi.push(act + noise + 0.5 * Math.sin(tt * 2 * Math.PI * 0.1), true, STEP);
       }, { t: 0 }, reader(sim));
-      return sim.placesNow;
+      return { lit: sim.placesNow, valves: sim.valvesNow };
     };
     for (const seed of [1, 2, 3]) {
-      expect(player(0, seed)).toBe(0);
+      const none = player(0, seed);
+      expect(none.lit).toBe(0);
+      expect(none.valves).toBeGreaterThanOrEqual(4);          // never stuck in a push: a rest of whole breaths every ~60 s
       const mid = player(2, seed);
-      expect(mid).toBeGreaterThanOrEqual(6);
-      expect(mid).toBeLessThanOrEqual(8);
-      expect(player(4, seed)).toBeGreaterThan(mid);
+      expect(mid.lit).toBeGreaterThanOrEqual(8);
+      expect(mid.lit).toBeLessThanOrEqual(10);
+      expect(mid.valves).toBe(0);
+      expect(player(4, seed).lit).toBeGreaterThan(mid.lit);
     }
   });
 });
 
-describe('the block plan', () => {
-  it('opens a first-ever session with a warm-up and alternates light and abiding, ending on a rest', () => {
-    for (const planned of [180, 300, 600]) {
-      const plan = planBlocks(planned, true, mulberry32(3));
-      expect(plan[0].kind).toBe('warmup');
-      const rest = plan.slice(1);
-      rest.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
-      expect(rest.at(-1)!.kind).toBe('rest');
-      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
-      for (const b of rest) {
-        expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-        expect(b.dur).toBeLessThanOrEqual(31);
-      }
-    }
-  });
+describe('the blocks go by the light: a rest after every station (round 11)', () => {
+  /** Run until a condition holds (a tenth of a second at a time), with a frame per moment. */
+  const until = (sim: RzekiSim, cond: () => boolean, f: FocusFrame | ((t: number, s: RzekiSim) => FocusFrame), clock = { t: sim.t }, max = 4000) => {
+    const evs: SimEvent[] = [];
+    for (let i = 0; i < max * 10 && !cond(); i++) evs.push(...drive(sim, 0.1, f, clock, reader(sim)));
+    return evs;
+  };
 
-  it('fits a short test session (?trainingSec=40) and any planned length from 10 s', () => {
-    for (const planned of [10, 20, 40, 60]) {
-      for (const first of [true, false]) {
-        const plan = planBlocks(planned, first, mulberry32(1));
-        expect(plan.some(b => b.kind === 'push')).toBe(true);
-        expect(plan.some(b => b.kind === 'rest')).toBe(true);
-        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeLessThanOrEqual(Math.max(planned, 8) + 1e-6);
-      }
-    }
-  });
-
-  it('makes every 4th push blind from the 3rd session, never the first of a session', () => {
-    const sim = later({ planned: 600, progress: { sessions: 4, pushes: 2 } });
-    const blinds: boolean[] = [];
+  it('opens a first-ever session with a warm-up, then a push that lasts until its station is full', () => {
+    expect([warmFor(600), warmFor(300), warmFor(180), warmFor(40)]).toEqual([30, 30, 20, 6]);
+    const sim = makeSim({ planned: 600 });
+    expect(sim.block).toMatchObject({ kind: 'warmup', dur: 30 });
     const clock = { t: 0 };
-    for (let i = 0; i < 6; i++) {
-      blinds.push(sim.block.kind === 'push' ? sim.block.blind : false);
-      drive(sim, sim.block.dur + 0.05, frame(), clock, reader(sim));
-    }
-    expect(blinds[0]).toBe(false);
-    expect(blinds[2]).toBe(true);
+    until(sim, () => sim.pushBlock, steady(0.6), clock);
+    expect(sim.block.dur).toBe(Infinity);
+    // no clock ends a push: a minute and a half under the threshold and it is still the same push
+    drive(sim, 50, LOW, clock, reader(sim));
+    expect(sim.pushBlock).toBe(true);
+    expect(sim.blocks.filter(b => b.kind === 'push')).toHaveLength(1);
   });
 
-  it('judges each block once at its end, from its last 15 s', () => {
-    const sim = later();
-    const evs = drive(sim, sim.block.dur + 0.1, HIGH);
-    const ends = ofType(evs, 'blockEnd');
+  it('rests after every completed station — a rest of whole breaths — and only then flows on to the next', () => {
+    // a second session: no blind push yet (a blind push's rest begins as its hidden light fills, before it is shown)
+    const sim = later({ planned: 900, progress: { map: 'seven', sessions: 1 } });
+    const evs = drive(sim, 400, steady(0.7), { t: 0 }, reader(sim));
+    const order = evs.filter(e => e.type === 'full' || e.type === 'blockStart' || e.type === 'flow')
+      .map(e => (e.type === 'full' ? `full:${e.station}` : e.type === 'flow' ? `flow:${e.to}` : `start:${e.block.kind}`));
+    // each station: full → the rest begins at once → the next push begins → the light flows on
+    const fulls = order.filter(x => x.startsWith('full:'));
+    expect(fulls.length).toBeGreaterThanOrEqual(4);
+    for (let i = 0; i < order.length - 3; i++) {
+      if (!order[i].startsWith('full:')) continue;
+      expect(order.slice(i + 1, i + 4), order[i]).toEqual(['start:rest', 'start:push', expect.stringMatching(/^flow:/)]);
+    }
+    // every rest came after a station (no valve), and was whole breaths of the default 4 · 6
+    const rests = sim.blocks.filter(b => b.kind === 'rest');
+    expect(rests.length).toBe(fulls.length);
+    for (const r of rests) {
+      expect(r.why).toBe('full');
+      expect(r.cycles).toBe(3);
+      expect(r.dur).toBe(30);
+      if (r.len > 0) expect(r.len).toBeCloseTo(30, 1);
+    }
+    // nothing loads in a rest: the station stays full and the next waits
+    expect(ofType(evs, 'petal').every(e => e.n >= 1)).toBe(true);
+  });
+
+  it('makes each rest whole breaths of the saved pattern — holds and a phase of 0 s too — beginning with its first phase', () => {
+    const cases: [BreathPattern, number, number][] = [
+      [BREATH_DEFAULT, 3, 30],                                  // 4 · 6: 3 breaths, 30 s
+      [BREATH_PRESETS.box, 2, 32],                              // 4 · 4 · 4 · 4: 2 breaths, 32 s
+      [BREATH_PRESETS.relax, 1, 19],                            // 4 · 7 · 8: 1 breath (19 s ≥ 12)
+      [{ in: 0, holdIn: 3, out: 5, holdOut: 2 }, 3, 30],        // no in-breath: it begins with the hold
+      [{ in: 15, holdIn: 15, out: 15, holdOut: 15 }, 1, 60],    // the longest
+    ];
+    for (const [pattern, cycles, sec] of cases) {
+      const sim = later({ planned: 900, progress: { breath: { ...pattern }, map: 'seven' } });
+      const clock = { t: 0 };
+      const turns: { phase: string; len: number; t: number }[] = [];
+      let begin = -1;
+      for (let i = 0; i < 20000 && sim.blocks.filter(b => b.kind === 'rest' && b.len > 0).length < 1; i++) {
+        for (const e of drive(sim, 0.05, steady(0.8), clock, reader(sim))) {
+          if (e.type === 'blockStart' && e.block.kind === 'rest') begin = clock.t;
+          if (e.type === 'breathTurn' && begin >= 0) turns.push({ phase: e.phase, len: e.len, t: clock.t - begin });
+        }
+      }
+      const rest = sim.blocks.find(b => b.kind === 'rest')!;
+      expect([rest.cycles, rest.dur], JSON.stringify(pattern)).toEqual([cycles, sec]);
+      expect(rest.len).toBeCloseTo(sec, 1);
+      expect(sec % breathCycle(pattern)).toBe(0);
+      // the guide walks the pattern's phases in order, skipping a phase of 0 s, starting with the first that has a length
+      const first = (['in', 'holdIn', 'out', 'holdOut'] as const).find(k => pattern[k] > 0)!;
+      expect(turns[0]).toMatchObject({ phase: first, len: pattern[first] });
+      const walked = turns.filter(x => x.t < breathCycle(pattern) - 0.01).map(x => x.phase);
+      expect(walked).toEqual((['in', 'holdIn', 'out', 'holdOut'] as const).filter(k => pattern[k] > 0));
+      expect(turns.every(x => pattern[x.phase as keyof BreathPattern] > 0)).toBe(true);
+    }
+  });
+
+  it('takes the player’s own count of breaths for a rest, or the auto count nearest 26 s', () => {
+    const p = freshProgress();
+    expect(restOf(p)).toEqual({ cycles: 3, sec: 30 });
+    expect(autoBreaths(p)).toBe(3);
+    setRestBreaths(p, 5);
+    expect(restOf(p)).toEqual({ cycles: 5, sec: 50 });
+    setRestBreaths(p, 40);
+    expect(p.restBreaths).toBe(RULES.restBreathsMax);
+    setRestBreaths(p, 0);
+    setBreath(p, BREATH_PRESETS.box);
+    expect(restOf(p)).toEqual({ cycles: 2, sec: 32 });
+    const sim = later({ progress: { restBreaths: 2, map: 'seven' } });
+    until(sim, () => sim.restBlock, steady(0.9));
+    expect(sim.block).toMatchObject({ cycles: 2, dur: 20 });
+  });
+
+  it('announces the rest when the station is nearly full, and the next push 4 s before the rest’s last breath ends', () => {
+    const sim = later({ planned: 900, progress: { map: 'seven' } });
+    const clock = { t: 0 };
+    let fillAtTelegraph = -1;
+    until(sim, () => sim.telegraphed, steady(0.6), clock);
+    fillAtTelegraph = sim.fill;
+    expect(sim.pushBlock).toBe(true);
+    expect(sim.nextKind).toBe('rest');
+    expect(fillAtTelegraph).toBeGreaterThanOrEqual(0.8);
+    const t0 = clock.t;
+    until(sim, () => sim.restBlock, steady(0.6), clock);
+    expect(clock.t - t0).toBeLessThan(6);                     // the station fills within a few seconds
+    until(sim, () => sim.telegraphed, steady(0.6), clock);
+    expect(sim.nextKind).toBe('push');
+    expect(sim.block.dur - sim.blockT).toBeCloseTo(RULES.telegraph, 0);
+  });
+
+  it('opens the safety valve for a push that cannot finish: a rest of whole breaths, the station keeps its light', () => {
+    // no signal at all: 60 s, then a rest
+    const sim = later({ planned: 900 });
+    const clock = { t: 0 };
+    until(sim, () => sim.stage === 'at' && sim.blockT > sim.leadIn + 6, HIGH, clock);
+    const gathered = sim.fill;
+    expect(gathered).toBeGreaterThan(0.1);
+    const evs = until(sim, () => sim.restBlock, NONE, clock);
+    expect(ofType(evs, 'valve')).toHaveLength(1);
+    expect(sim.block).toMatchObject({ kind: 'rest', why: 'valve', cycles: 3 });
+    expect(sim.now).toBe('valve');
+    expect(sim.fill).toBe(gathered);
+    expect(sim.blocks.at(-2)).toMatchObject({ kind: 'push', why: 'valve' });
+    expect(sim.blocks.at(-2)!.len).toBeGreaterThan(RULES.valveStall - 1);
+    // the next push loads the same station on, from where it was
+    until(sim, () => sim.pushBlock, CALM, clock);
+    expect(sim.station).toBe('gateway');
+    expect(sim.stage).toBe('at');
+    until(sim, () => sim.restBlock, HIGH, clock);
+    expect(sim.blocks.at(-2)).toMatchObject({ kind: 'push', why: 'full' });
+    // a long push of slow light (focused now and then): 150 s at most while its station is not nearly full
+    const slow = later({ planned: 900 });
+    const c2 = { t: 0 };
+    until(slow, () => slow.restBlock, (tt, s) => (s.pushBlock && Math.floor(tt) % 9 === 0 ? MID : LOW), c2);
+    const push = slow.blocks.at(-2)!;
+    expect(push.why).toBe('valve');
+    expect(push.len).toBeGreaterThan(RULES.valveSec - 1);
+    expect(push.len).toBeLessThan(RULES.valveSec + 1);
+    expect(slow.fill).toBeGreaterThan(0);
+    expect(slow.fill).toBeLessThan(RULES.telegraphFill);
+  });
+
+  it('does not judge a push under 10 s (a station resumed nearly full)', () => {
+    const p = { ...freshProgress(), sessions: 5, pushes: 1, seen: [...ALL_SEEN], map: 'seven' as const };
+    setStart(p, 'heart');
+    p.pos!.fill = 0.95;
+    const sim = new RzekiSim({ progress: p, rng: mulberry32(1), plannedSec: 600, eeg: false, tuning: TUNING });
+    sim.start();
+    const evs = until(sim, () => sim.restBlock, HIGH);
+    const end = ofType(evs, 'blockEnd').find(e => e.block.kind === 'push')!;
+    expect(end.block.len).toBeLessThan(RULES.minPush);
+    expect(end.verdict).toBeNull();
+    // a whole push is judged: once, at its end, from its last 15 s
+    const evs2 = until(sim, () => sim.blocks.filter(b => b.kind === 'push' && b.len > 0).length >= 2, HIGH);
+    const ends = ofType(evs2, 'blockEnd').filter(e => e.block.kind === 'push');
     expect(ends).toHaveLength(1);
+    expect(ends[0].block.len).toBeGreaterThan(RULES.minPush);
     expect(ends[0].verdict).toBe(true);
   });
 
-  it('gives the strategy of the station the light is at, and the breath in rest', () => {
+  it('judges each rest at its end from its last 15 s', () => {
     const sim = later({ progress: { map: 'seven' } });
+    until(sim, () => sim.restBlock, steady(0.8));
+    const evs = until(sim, () => sim.pushBlock, CALM);
+    const ends = ofType(evs, 'blockEnd');
+    expect(ends).toHaveLength(1);
+    expect(ends[0].block.kind).toBe('rest');
+    expect(ends[0].verdict).toBe(true);
+  });
+
+  it('makes every 4th push blind from the 3rd session (never the first of a session); a blind push still ends when full', () => {
+    const sim = later({ planned: 900, progress: { sessions: 4, pushes: 2, map: 'seven' } });
+    const clock = { t: 0 };
+    until(sim, () => sim.blind && sim.stage === 'at', steady(0.8), clock);
+    const pushes = sim.blocks.filter(b => b.kind === 'push');
+    expect(pushes.map(b => b.blind)).toEqual([false, true]);
+    const station = sim.station, f0 = sim.fill;
+    // it loads unseen and ends when the hidden light fills the station; the light is shown then
+    const evs = until(sim, () => sim.restBlock, steady(0.8), clock);
+    const end = ofType(evs, 'blindEnd')[0];
+    expect(end.gained).toBeCloseTo(1 - f0, 6);
+    expect(sim.blocks.at(-2)).toMatchObject({ kind: 'push', blind: true, why: 'full' });
+    drive(sim, RULES.revealSec + 0.2, CALM, clock, reader(sim));
+    expect(ofType(drive(sim, 0.1, CALM, clock), 'full').length + (sim.lit[station] ? 1 : 0)).toBeGreaterThan(0);
+    expect(sim.stage).toBe('hold');
+  });
+
+  it('gives the strategy of the station the light is at, and the breath in rest (in the player’s pattern)', () => {
+    const sim = later({ progress: { map: 'seven', breath: { in: 5, holdIn: 2, out: 7, holdOut: 0 } } });
     untilAt(sim, 'crown', MID);
     expect(sim.tip).toBe(t(TIPS.place.crown));
     const clock = { t: sim.t };
     while (!sim.restBlock) drive(sim, 0.5, MID, clock, reader(sim));
-    expect(TIPS.rest.map(k => t(k))).toContain(sim.tip);
+    expect(sim.tip.length).toBeGreaterThan(10);
+    const tips = TIPS.rest.map(k => t(k, { breath: sim.breathText }));
+    expect(tips).toContain(sim.tip);
+    expect(sim.breathText).toBe('wdech 5\u00a0s, zatrzymanie 2\u00a0s, wydech 7\u00a0s');
+  });
+
+  it('waits the first warm-up for the opening card, then glosses the first station’s name in plain words', () => {
+    const sim = makeSim({ planned: 600 });
+    const clock = { t: 0 };
+    drive(sim, 40, steady(0.6), clock);                         // no taps: each page stays its reading time
+    expect(sim.story?.kind).toBe('open');
+    expect(sim.block.kind).toBe('warmup');                      // the first push never begins under the card
+    until(sim, () => !sim.story, steady(0.6), clock);
+    drive(sim, 25, steady(0.6), clock);
+    expect(sim.talk.said).toContain('Boska brama · mapa 12 centrów — zewnętrzna powłoka światła wokół Ciebie, z bramą u szczytu');
+    expect(sim.p.seen).toContain('g.gateway');
+    // a returning player who has heard it does not again
+    const again = later({ progress: { seen: [...ALL_SEEN] } });
+    drive(again, 20, steady(0.6));
+    expect(again.talk.said.some(l => l.includes(' — zewnętrzna powłoka'))).toBe(false);
+  });
+
+  it('says what to do now in one line that changes only with the action', () => {
+    const first = makeSim({ planned: 600 });
+    expect(first.now).toBe('warm');
+    const sim = later({ progress: { map: 'seven' } });
+    expect(sim.now).toBe('focus');
+    const seen: string[] = [];
+    drive(sim, 120, steady(0.8), { t: 0 }, () => { if (seen.at(-1) !== sim.now) seen.push(sim.now); reader(sim)(); });
+    expect(seen.slice(0, 4)).toEqual(['focus', 'rest', 'focus', 'rest']);
+    for (const w of ['warm', 'focus', 'dark', 'rest', 'valve', 'end'] as const) {
+      for (const l of ['pl', 'en', 'de', 'sv'] as const) expect((CATALOGS[l] as Record<string, unknown>)[`now.${w}`], `${l} ${w}`).toBeTypeOf('string');
+    }
   });
 });
 
@@ -637,14 +822,15 @@ describe('the light and the signal', () => {
     expect(sim.fill).toBeGreaterThan(shown);
   });
 
-  it('rest: the breath turns in 4 / out 6, calm gathers drops and abiding; without a signal nothing flows', () => {
+  it('rest: the breath turns with the pattern (4 / 6 by default), calm gathers drops and abiding; without a signal nothing flows', () => {
     const sim = later();
     const clock = { t: 0 };
     while (!sim.restBlock) drive(sim, 0.25, MID, clock, reader(sim));
     const s0 = sim.score;
     const evs = drive(sim, 12, CALM, clock, reader(sim));
-    expect(ofType(evs, 'breathTurn').length).toBeGreaterThanOrEqual(2);
-    expect(BREATH).toBe(10);
+    expect(ofType(evs, 'breathTurn').map(e => e.phase)).toEqual(['out', 'in']);
+    expect(sim.breath).toMatchObject({ cycle: 2, cycles: 3 });
+    expect(breathCycle(sim.pattern)).toBe(10);
     expect(sim.light).toBeCloseTo(RULES.restLight, 1);
     expect(sim.score - s0).toBeGreaterThan(12);
     expect(sim.abideNow).toBeGreaterThan(5);
@@ -682,9 +868,18 @@ describe('the session', () => {
     evs.push(...drive(sim, 1, MID, clock));
     sim.stay();
     expect(sim.story).toBeNull();
-    evs.push(...drive(sim, 120, steady(0.8), clock, reader(sim)));
+    evs.push(...drive(sim, 150, steady(0.8), clock, reader(sim)));
     const coach = ofType(evs, 'coach').map(e => e.what);
-    for (const c of ['tap', 'light', 'petals', 'breath'] as const) expect(coach).toContain(c);
+    for (const c of ['tap', 'light', 'petals', 'breath', 'strip'] as const) expect(coach).toContain(c);
+    // a coach mark names the player's breath and the map's count; each stays long enough to read twice
+    expect(sim.coachWords('breath', true)).toMatch(/3\u00a0oddechy .*wdech 4\u00a0s, wydech 6\u00a0s/);
+    expect(sim.coachWords('strip', true)).toMatch(/17 centrów/);
+    for (const w of ['tap', 'light', 'petals', 'breath', 'drops', 'blind', 'strip'] as const) {
+      const text = sim.coachWords(w, true);
+      expect(readTime(text)).toBeCloseTo(Math.max(4.5, 2.5 + 0.07 * [...text].length), 9);
+    }
+    // the story cards stay their reading time unless tapped
+    expect(pageTime('open', 0)).toBeGreaterThan(RULES.pageSec);
     // a returning player hears nothing twice, and a player of the first version sees what is new, once
     const again = makeSim({ progress: { ...sim.p } });
     expect(again.story).toBeNull();
@@ -790,7 +985,9 @@ describe('old saves (progress v1 → v2)', () => {
     };
     const p = mergeSaved(freshProgress(), saved) as RzekiProgress;
     migrate(p);
-    expect(p.ver).toBe(2);
+    expect(p.ver).toBe(3);
+    expect(p.breath).toEqual(BREATH_DEFAULT);
+    expect(p.restBreaths).toBe(0);
     expect(p.map).toBe('all');
     expect(p.pos).toBeNull();
     expect(p.way).toBe('down');
@@ -816,7 +1013,7 @@ describe('old saves (progress v1 → v2)', () => {
   it('reads the placeholder’s save and keeps a version-2 save, repairing fields of a wrong type', () => {
     const p0 = mergeSaved(freshProgress(), { ver: 1, sessions: 4 }) as RzekiProgress;
     migrate(p0);
-    expect([p0.ver, p0.sessions, p0.way, p0.map]).toEqual([2, 4, 'both', 'all']);
+    expect([p0.ver, p0.sessions, p0.way, p0.map]).toEqual([3, 4, 'both', 'all']);
     const p = mergeSaved(freshProgress(), {
       ver: 2, sessions: 3, map: 'seven', way: 'up', pos: { map: 'seven', dir: 'up', idx: 3, fill: 0.5 }, down: { heart: 2, ghost: 9 }, best: { 300: 'x' },
     }) as RzekiProgress;
@@ -832,10 +1029,12 @@ describe('old saves (progress v1 → v2)', () => {
   });
 
   it('survives garbage', () => {
-    for (const junk of [null, 3, 'x', [], { ver: 3 }, { ver: 2, down: 'x', up: 5, best: [], seen: null, way: 7, own: { a: 1 }, map: 9 }]) {
+    for (const junk of [null, 3, 'x', [], { ver: 4 }, { ver: 2, down: 'x', up: 5, best: [], seen: null, way: 7, own: { a: 1 }, map: 9 },
+      { ver: 3, breath: { in: 0, holdIn: 0, out: 1, holdOut: 0 }, restBreaths: 'x' }, { ver: 3, breath: 'x', restBreaths: -4 }]) {
       const p = mergeSaved(freshProgress(), junk) as RzekiProgress;
       migrate(p);
-      expect(p.ver).toBe(2);
+      expect(p.ver).toBe(3);
+      expect(breathCycle(p.breath)).toBeGreaterThanOrEqual(2);
       expect(typeof p.down).toBe('object');
       expect(p.way).toBe('both');
       expect(p.map).toBe('all');
@@ -894,7 +1093,7 @@ describe('the words', () => {
     expect(unit(1)).toBe('kropla');
     expect(unit(3)).toBe('krople');
     expect(unit(5)).toBe('kropli');
-    expect(secText(42)).toBe('42 s');
+    expect(secText(42)).toBe('42\u00a0s');
     expect(secText(102)).toBe('1:42');
   });
 });
@@ -1110,5 +1309,131 @@ describe('every map plays through', () => {
       expect(ofType(evs, 'whole').map(e => e.dir).slice(0, 2), m).toEqual(['down', 'up']);
       expect(sim.lit[route(m, 'up')[0]] & LIT_UP || sim.round > 1, m).toBeTruthy();
     }
+  });
+});
+
+
+describe('the breath in the progress (v3) and the lobby’s card (round 11)', () => {
+  it('keeps the breath of a version-2 save at the default and repairs a broken one with the kit’s cleanBreath', () => {
+    const v2 = mergeSaved(freshProgress(), { ver: 2, sessions: 7, map: 'twelve', pos: { map: 'twelve', dir: 'down', idx: 4, fill: 0.3 } }) as RzekiProgress;
+    migrate(v2);
+    expect([v2.ver, v2.sessions, v2.map, v2.restBreaths]).toEqual([3, 7, 'twelve', 0]);
+    expect(v2.pos).toEqual({ map: 'twelve', dir: 'down', idx: 4, fill: 0.3 });
+    expect(v2.breath).toEqual(BREATH_DEFAULT);
+    const v3 = mergeSaved(freshProgress(), { ver: 3, breath: { in: '5', holdIn: 2.4, out: 99, holdOut: -3 }, restBreaths: 4.4 }) as RzekiProgress;
+    migrate(v3);
+    expect(v3.breath).toEqual({ in: 5, holdIn: 2, out: 15, holdOut: 0 });
+    expect(v3.restBreaths).toBe(4);
+    const bad = mergeSaved(freshProgress(), { ver: 3, breath: { in: 1, holdIn: 0, out: 0, holdOut: 0 } }) as RzekiProgress;
+    expect(migrate(bad).breath).toEqual(BREATH_DEFAULT);
+  });
+
+  it('steps each phase 0…15 s and refuses a breath under 2 s', () => {
+    const p = freshProgress();
+    expect(stepBreathOf(p, 'holdIn', 1)).toBe(true);
+    expect(breathOf(p)).toEqual({ in: 4, holdIn: 1, out: 6, holdOut: 0 });
+    for (let i = 0; i < 30; i++) stepBreathOf(p, 'out', 1);
+    expect(p.breath.out).toBe(15);
+    setBreath(p, { in: 1, holdIn: 0, out: 1, holdOut: 0 });
+    expect(stepBreathOf(p, 'in', -1)).toBe(false);             // a 1 s breath guides nothing
+    expect(p.breath).toEqual({ in: 1, holdIn: 0, out: 1, holdOut: 0 });
+    expect(setBreath(p, { in: 0, holdIn: 0, out: 0, holdOut: 0 })).toBe(false);
+  });
+
+  it('draws the breath card: the presets, four steppers of ≥ 44 px, the breaths in a rest and the live line', () => {
+    const p = freshProgress();
+    let saves = 0;
+    const root = progressPanel(p, () => { saves++; });
+    const text = () => root.textContent ?? '';
+    expect(text()).toContain('Oddech w odpoczynku');
+    for (const name of ['Wdech', 'Zatrzymanie (po wdechu)', 'Wydech', 'Bezdech (po wydechu)']) expect(text()).toContain(name);
+    expect(text()).toContain('Odpoczynek: 3 oddechy · 30 s');
+    expect(text()).toContain('auto · 3');
+    const btn = (label: string) => [...root.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === label || b.textContent === label) as HTMLButtonElement;
+    for (const b of root.querySelectorAll('button')) {
+      if (b.textContent === '−' || b.textContent === '+') {
+        expect(b.style.minWidth).toBe('44px');
+        expect(b.style.minHeight).toBe('44px');
+      }
+    }
+    btn('Zatrzymanie (po wdechu): więcej').click();
+    expect(p.breath).toEqual({ in: 4, holdIn: 1, out: 6, holdOut: 0 });
+    expect(saves).toBe(1);
+    expect(text()).toContain('Jeden oddech: 11 s');
+    btn('4 · 4 · 4 · 4 kwadrat').click();
+    expect(p.breath).toEqual(BREATH_PRESETS.box);
+    expect(text()).toContain('Odpoczynek: 2 oddechy · 32 s');
+    btn('Oddechów w odpoczynku: więcej').click();
+    expect(p.restBreaths).toBe(3);
+    expect(text()).toContain('Odpoczynek: 3 oddechy · 48 s');
+    btn('auto').click();
+    expect(p.restBreaths).toBe(0);
+    // a step that would leave a breath under 2 s is refused, with a short message
+    setBreath(p, { in: 1, holdIn: 0, out: 1, holdOut: 0 });
+    const root2 = progressPanel(p, () => undefined);
+    const minus = [...root2.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Wdech: mniej') as HTMLButtonElement;
+    minus.click();
+    expect(p.breath.in).toBe(1);
+    expect(root2.textContent).toContain('co najmniej 2');
+    // each map says its count and where its stations come from
+    expect(text()).toContain('17 · 12 centrów mapy dwunastu (obraz 2) + 5');
+  });
+});
+
+describe('all twelve of picture 2, unmistakably (round 11)', () => {
+  /** Picture 2 from the top: the outer shell's apex, the inner one's, the solar star, the soul star, the seven, the earth star. */
+  const PICTURE_2 = ['gateway', 'galactic', 'solar', 'soul', 'crown', 'brow', 'throat', 'heart', 'plexus', 'sacral', 'root', 'earth'] as const;
+
+  it('has all twelve in the full map and in the twelve, in picture 2’s order from the top', () => {
+    expect(MAP.twelve.stations).toEqual([...PICTURE_2]);
+    expect(MAP.all.stations.filter(s => (PICTURE_2 as readonly string[]).includes(s))).toEqual([...PICTURE_2]);
+    expect(MAP.all.stations).toHaveLength(17);
+    // picture 2 draws the solar star above the soul star, the soul star above the crown, the earth star under the feet
+    expect(STATION.solar.y).toBeLessThan(STATION.soul.y);
+    expect(STATION.soul.y).toBeLessThan(STATION.crown.y);
+    expect(STATION.earth.y).toBeGreaterThan(STATION.feet.y);
+    // its names in four languages, each its own
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const names = PICTURE_2.map(s => (CATALOGS[l] as Record<string, string>)[`name.${s}`]);
+      expect(new Set(names).size, l).toBe(12);
+    }
+    expect(PICTURE_2.map(s => CATALOGS.en[`name.${s}` as 'name.crown'])).toEqual([
+      'Divine gateway', 'Galactic chakra', 'Solar star', 'Soul star', 'Crown', 'Third eye', 'Throat', 'Heart', 'Solar plexus', 'Sacral', 'Root', 'Earth star',
+    ]);
+  });
+
+  it('shows every station of the map in the column beside the figure, at every checked size, clear of the words', () => {
+    for (const sz of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(sz.w, sz.h, sz.insets, touch);
+        const S = L.strip;
+        expect(S.x, sz.name).toBeGreaterThanOrEqual(L.left);
+        expect(S.y, sz.name).toBeGreaterThanOrEqual(L.top);
+        expect(S.y + S.h, sz.name).toBeLessThanOrEqual(L.bottom);
+        // never under the words: left of the prayer's band on a wide screen, above it on a phone held upright
+        if (L.shape === 'tall') expect(S.y + S.h, sz.name).toBeLessThanOrEqual(L.prayer.y);
+        else expect(S.x + S.w, sz.name).toBeLessThanOrEqual(L.prayer.x);
+        // left of the figure's egg of light; on a big screen left of its outer shell too
+        expect(S.x + S.w, sz.name).toBeLessThanOrEqual(L.fig.cx - 0.34 * L.fig.H);
+        if (L.desk) expect(S.x + S.w, sz.name).toBeLessThanOrEqual(L.fig.cx - 0.52 * L.fig.H);
+        for (const m of MAPS) {
+          const g = stripGeom(S, m, L.u);
+          expect(g.ys, `${sz.name} ${m}`).toHaveLength(MAP[m].stations.length);
+          expect(g.ys[0] - g.r, `${sz.name} ${m}`).toBeGreaterThanOrEqual(S.y);
+          expect(g.ys.at(-1)! + g.r, `${sz.name} ${m}`).toBeLessThanOrEqual(S.y + S.h + 0.5);
+          // each jewel apart from the next, big enough to see its colour
+          expect(g.step, `${sz.name} ${m}`).toBeGreaterThanOrEqual(2 * g.r + 2);
+          expect(g.r, `${sz.name} ${m}`).toBeGreaterThanOrEqual(4);
+          expect(g.head.px).toBeGreaterThanOrEqual(MIN_TEXT);
+        }
+      }
+    }
+  });
+
+  it('fits the band’s line of what to do now on the smallest phone, with the prayer under it', () => {
+    const L = layout(360, 500, { top: 134, right: 0, bottom: 0, left: 0 }, true);
+    expect(nowRowH(L)).toBeGreaterThanOrEqual(MIN_READ * 1.5);
+    // the label, the line of what to do now, and two lines of the prayer at its smallest
+    expect(Math.round(13 * 1.5) + nowRowH(L) + 2 * Math.round(L.font.prayerMin * 1.34)).toBeLessThanOrEqual(L.prayer.h);
   });
 });

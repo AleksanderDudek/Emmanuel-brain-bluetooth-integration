@@ -1,21 +1,24 @@
 /**
  * Rzeki żywej wody's own words on the canvas (the runner draws the standard HUD: the Mendi panel, the score,
- * the coach marks): the prayer band — the station's name as the maps give it ("Serce · Anahata (4)") and its line
- * in a calm serif, the words coming one by one as the light arrives, glowing again when a tap stays with it; in
- * rest the breath's count and the station's verse to abide in; while the stream flows, the gift of the station
- * just lit — the narrator's caption, and the story cards (the opening's two pages, what is new for a player of the
- * first version, the closing cards of a way).  Every text is fitted with a floor (never under 11 px; what the
- * player reads, 13 px and more; the prayer 15 px and more), and always drawn in screen space.
+ * the coach marks): the prayer band — the station's name as the maps give it ("Serce · Anahata (4)"), one short
+ * line of what to do now (an icon and a few words: "Skup się na świecącym centrum", "Odpocznij — oddychaj z
+ * postacią"; it changes only when the action changes) and the station's line in a calm serif, the words coming one
+ * by one as the light arrives, glowing again when a tap stays with it; in rest the breath's guide (the phase of
+ * the player's pattern, its seconds counting down, "oddech 2 z 3") and the station's verse to abide in; while the
+ * stream flows, the gift of the station just lit — the narrator's caption, and the story cards (the opening's two
+ * pages, what is new for a player of an earlier version, the closing cards of a way).  Every text is fitted with a
+ * floor (never under 11 px; what the player reads, 13 px and more; the prayer 15 px and more), and always drawn in
+ * screen space.
  */
 import { clamp, ease } from '../kit/juice';
 import { MIN_READ, MIN_TEXT } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageLayout, type PassageId } from '../kit/scripture';
 import { STATION, fromText, giftName, lineAt, stationLabel, stationName, type StationId } from './content';
-import { t } from './i18n';
+import { phaseWord, t, type Key } from './i18n';
 import { type Layout, type Rect, labelRowH, storyRect } from './layout';
-import { GOLD, GOLD_HI, INK, LILAC, PEARL, WATER, fitFont, font, mix, rgbaPrefix, rr, wrap } from './paint';
+import { GOLD, GOLD_HI, INK, LILAC, PEARL, SILVER, WATER, fitFont, font, mix, rgbaPrefix, rr, wrap } from './paint';
 import { RULES } from './rules';
-import type { RzekiSim } from './sim';
+import { pageOf, type NowWhat, type RzekiSim } from './sim';
 
 // ── the prayer band ──────────────────────────────────────────────
 
@@ -141,13 +144,14 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
   const lab = fitLabel(ctx, sim, r.w, Math.max(MIN_READ, L.font.label));
   const lpx = lab.px;
   const labH = Math.round(lpx * 1.5);
+  const nowH = nowRowH(L);
   // The prayer is never cut for the narrator: over a prayer of three lines on the smallest phone the narrator's
   // two lines and the prayer both set a little tighter, and when even that would not fit the narrator waits.
   let tight = false, capOk = clines.length > 0;
   if (capOk && !rest) {
     ctx.font = font(L.font.prayerMin, 500, true, true);
     const need = wrap(ctx, text, r.w).length;
-    const fits = (lead: number, capLead: number) => Math.round(cpx * capLead) * clines.length + 10 + need * Math.round(L.font.prayerMin * lead) <= r.h;
+    const fits = (lead: number, capLead: number) => Math.round(cpx * capLead) * clines.length + nowH + need * Math.round(L.font.prayerMin * lead) <= r.h;
     if (!fits(1.34, 1.35)) {
       tight = true;
       capOk = fits(1.2, 1.2);
@@ -157,19 +161,20 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
   rowEase += (want - rowEase) * Math.min(1, dt * 6);
   const capLH = Math.round(cpx * (tight ? 1.2 : 1.35)), capH = capLH * Math.max(1, clines.length);
   const rowH = labH + (Math.max(labH, capH) - labH) * ease.inOutSine(clamp(rowEase));
-  // the group's height: the row, the rule, and what follows (the line wrapped, or the rest's breath and verse)
-  const areaH = r.h - rowH - 10;
+  // the group's height: the row, the line of what to do now, and what follows (the line wrapped, or the rest's
+  // breath and verse)
+  const areaH = r.h - rowH - nowH;
   let bodyH = areaH;
   let wr: Wrapped | null = null;
   if (!rest) {
     // the lines the prayer may take: counted for the row it is going to (never fewer while the narrator eases in)
     const lead = tight && rowEase > 0.01 ? 1.2 : 1.34;
-    const budget = r.h - (want ? Math.max(labH, capH) : labH) - 10;
+    const budget = r.h - (want ? Math.max(labH, capH) : labH) - nowH;
     const maxLines = Math.max(2, Math.min(5, Math.floor(budget / Math.round(L.font.prayerMin * lead))));
     wr = wrapPrayer(ctx, text, r.w, Math.max(L.font.prayerMin, L.font.prayer), L.font.prayerMin, maxLines, false, lead);
     bodyH = Math.max(wr.lines.length * wr.lineH, Math.round(26 * L.u));
   }
-  const y0 = r.y + Math.max(0, (r.h - (rowH + 10 + bodyH)) / 2);
+  const y0 = r.y + Math.max(0, (r.h - (rowH + nowH + bodyH)) / 2);
   const rowMid = y0 + rowH / 2;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -199,18 +204,101 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
     }
   }
   ctx.globalAlpha = 1;
-  // a short gilded rule under the row
-  const rw = Math.min(r.w * 0.3, 90 * L.u);
-  const ruleY = y0 + rowH + 3;
-  const rg = ctx.createLinearGradient(cx - rw / 2, 0, cx + rw / 2, 0);
-  rg.addColorStop(0, 'rgba(255,217,138,0)');
-  rg.addColorStop(0.5, 'rgba(255,217,138,.7)');
-  rg.addColorStop(1, 'rgba(255,217,138,0)');
-  ctx.fillStyle = rg;
-  ctx.fillRect(cx - rw / 2, ruleY, rw, 1);
-  const box = { x: r.x, y: ruleY + 7, w: r.w, h: rest ? r.y + r.h - (ruleY + 7) : bodyH };
+  // what to do now, between the row and the line, with gilded rules either side
+  drawNow(ctx, L, sim, cx, y0 + rowH + nowH / 2, r.w);
+  const by = y0 + rowH + nowH;
+  const box = { x: r.x, y: by, w: r.w, h: rest ? r.y + r.h - by : bodyH };
   if (rest || !wr) drawAbide(ctx, L, sim, box, dt);
   else drawLine(ctx, L, sim, box, wr);
+}
+
+/** The height of the band's line of what to do now (its text and a little air). */
+export const nowRowH = (L: Pick<Layout, 'u' | 'desk'>): number => Math.round(nowPx(L) * 1.55) + 4;
+const nowPx = (L: Pick<Layout, 'u' | 'desk'>): number => Math.max(MIN_READ, Math.round(13 * L.u));
+
+/** The now-line's colour for what to do. */
+const NOW_COLOR: Readonly<Record<NowWhat, string>> = {
+  warm: PEARL, focus: GOLD_HI, dark: SILVER, rest: LILAC, valve: LILAC, end: PEARL,
+};
+
+/**
+ * The line of what to do now (the round-11 clarity rule): an icon and a few words, centred between two short gilded
+ * rules — "Skup się na świecącym centrum", "Odpocznij — oddychaj z postacią", "Odpocznij chwilę — centrum
+ * zaczeka".  It changes only when the action changes (the block), never with the signal.
+ */
+function drawNow(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, cx: number, y: number, w: number): void {
+  const what = sim.now;
+  const text = t(`now.${what}` as Key);
+  const px = fitFont(ctx, text, w - 6 * nowPx(L), nowPx(L), MIN_READ, 700);
+  ctx.font = font(px, 700);
+  const tw = ctx.measureText(text).width, ir = px * 0.48, gap = px * 0.55;
+  const total = 2 * ir + gap + tw;
+  const x0 = cx - total / 2;
+  const color = NOW_COLOR[what];
+  // the rules either side
+  const rw = Math.min((w - total) / 2 - 8, 70 * L.u);
+  if (rw > 8) {
+    for (const [a, b] of [[x0 - 8 - rw, x0 - 8], [x0 + total + 8, x0 + total + 8 + rw]]) {
+      const rg = ctx.createLinearGradient(a, 0, b, 0);
+      const fadeLeft = a < x0;
+      rg.addColorStop(0, fadeLeft ? 'rgba(255,217,138,0)' : 'rgba(255,217,138,.6)');
+      rg.addColorStop(1, fadeLeft ? 'rgba(255,217,138,.6)' : 'rgba(255,217,138,0)');
+      ctx.fillStyle = rg;
+      ctx.fillRect(a, y - 0.5, b - a, 1);
+    }
+  }
+  nowIcon(ctx, what, x0 + ir, y, ir, sim);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = INK;
+  ctx.strokeText(text, x0 + 2 * ir + gap, y);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x0 + 2 * ir + gap, y);
+  ctx.textAlign = 'center';
+}
+
+/** The now-line's icon: a small sun for focus, a dim moon-disc in the dark, a ring that breathes in rest, a pearl at the edges. */
+function nowIcon(ctx: CanvasRenderingContext2D, what: NowWhat, x: number, y: number, r: number, sim: RzekiSim): void {
+  ctx.save();
+  if (what === 'focus') {
+    ctx.fillStyle = GOLD;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = Math.max(1.2, r * 0.18);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * r * 0.72, y + Math.sin(a) * r * 0.72);
+      ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+      ctx.stroke();
+    }
+  } else if (what === 'dark') {
+    ctx.fillStyle = 'rgba(214,214,236,.35)';
+    ctx.strokeStyle = SILVER;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.78, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (what === 'rest' || what === 'valve') {
+    const k = sim.restBlock ? sim.breath.k : 0.5;
+    ctx.strokeStyle = LILAC;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(x, y, r * (0.45 + 0.5 * k), 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = PEARL;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /**
@@ -224,9 +312,9 @@ function drawPrayerDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim,
   const lpx = lab.px;
   const rowH = labelRowH(L);
   const rest = sim.restBlock && sim.stage !== 'whole';
-  const areaH = r.h - rowH - 10;
-  const ruleY = r.y + rowH + 3;
-  const box = { x: r.x, y: ruleY + 7, w: r.w, h: r.y + r.h - (ruleY + 7) };
+  const nowH = nowRowH(L);
+  const areaH = r.h - rowH - nowH;
+  const box = { x: r.x, y: r.y + rowH + nowH, w: r.w, h: r.h - rowH - nowH };
   let wr: Wrapped | null = null;
   let bodyH: number;
   if (!rest) {
@@ -237,7 +325,7 @@ function drawPrayerDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim,
     box.h = bodyH;
   } else bodyH = Math.min(box.h, abideHeight(ctx, L, sim.verse, box));
   // a soft dark veil fitted to the words, never a hard box
-  const groupH = rowH + 10 + bodyH;
+  const groupH = rowH + nowH + bodyH;
   ctx.save();
   ctx.translate(cx, r.y + groupH / 2);
   ctx.scale(r.w / 2 + 56 * L.u, groupH / 2 + 44 * L.u);
@@ -257,14 +345,8 @@ function drawPrayerDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim,
     ctx.fillStyle = lab.color;
     ctx.fillText(lab.text, cx, rowMid);
   }
-  // a short gilded rule under the row
-  const rw = Math.min(r.w * 0.3, 90 * L.u);
-  const rg = ctx.createLinearGradient(cx - rw / 2, 0, cx + rw / 2, 0);
-  rg.addColorStop(0, 'rgba(255,217,138,0)');
-  rg.addColorStop(0.5, 'rgba(255,217,138,.7)');
-  rg.addColorStop(1, 'rgba(255,217,138,0)');
-  ctx.fillStyle = rg;
-  ctx.fillRect(cx - rw / 2, ruleY, rw, 1);
+  // what to do now, under the row
+  drawNow(ctx, L, sim, cx, r.y + rowH + nowH / 2, r.w);
   if (rest || !wr) drawAbide(ctx, L, sim, box, dt, true);
   else drawLine(ctx, L, sim, box, wr);
 }
@@ -339,24 +421,48 @@ function drawGift(ctx: CanvasRenderingContext2D, L: Layout, station: StationId, 
   ctx.globalAlpha = 1;
 }
 
-/** Rest's row: the breath's turn and its count, a ring beside them that swells in and settles out. */
-function drawBreathRow(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, cx: number, y: number): void {
+/**
+ * Rest's row: the breath guide of the player's pattern — the phase ("Wdech", "Zatrzymanie", "Wydech", "Bezdech"),
+ * its seconds counting down, which breath of the rest this is ("oddech 2 z 3") — and a ring beside them that swells
+ * in, stays full while the breath is held, settles out and stays small while held out (a hold: still, a soft glow).
+ */
+function drawBreathRow(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, cx: number, y: number, w = L.prayer.w): void {
   const b = sim.breath;
-  const left = Math.max(1, Math.ceil((b.inhale ? RULES.inhale : RULES.exhale) * (1 - b.p)));
-  const word = `${t(b.inhale ? 'hud.in' : 'hud.out')} · ${left}`;
-  const px = Math.max(MIN_READ, Math.round(15 * L.u));
+  const left = Math.max(1, Math.ceil(b.left - 1e-6));
+  const word = `${phaseWord(b.phase)} · ${left}`;
+  const of = t('hud.breathOf', { n: b.cycle, of: b.cycles });
+  const base = Math.max(MIN_READ, Math.round(15 * L.u));
+  const px = fitFont(ctx, `${word}   ${of}`, w - 3 * base, base, MIN_READ, 700);
+  const spx = Math.max(MIN_READ, Math.round(px * 0.86));
   ctx.font = font(px, 700);
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
   const tw = ctx.measureText(word).width;
-  const rx = cx - tw / 2 - px * 0.95, rad = px * (0.3 + 0.32 * b.k);
+  ctx.font = font(spx, 600);
+  const ow = ctx.measureText(of).width;
+  const gap = px * 0.8, total = tw + gap + ow;
+  const x0 = cx - total / 2;
+  const rx = x0 - px * 0.95, rad = px * (0.3 + 0.32 * b.k);
+  const hold = b.phase === 'holdIn' || b.phase === 'holdOut';
+  if (hold) {
+    // a hold: the light stays still, a soft steady glow
+    ctx.fillStyle = 'rgba(201,194,255,.22)';
+    ctx.beginPath();
+    ctx.arc(rx, y, rad * 1.35, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.strokeStyle = 'rgba(201,194,255,.85)';
   ctx.lineWidth = 1.6;
   ctx.beginPath();
   ctx.arc(rx, y, rad, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = font(px, 700);
   ctx.fillStyle = LILAC;
-  ctx.fillText(word, cx, y);
+  ctx.fillText(word, x0, y);
+  ctx.font = font(spx, 600);
+  ctx.fillStyle = 'rgba(214,208,255,.72)';
+  ctx.fillText(of, x0 + tw + gap, y);
+  ctx.textAlign = 'center';
 }
 
 /** How long a page of a verse stays when the whole verse does not fit the band (s), and its crossfade. */
@@ -450,20 +556,6 @@ export function drawCaption(ctx: CanvasRenderingContext2D, L: Layout, text: stri
 }
 
 // ── the story cards ──────────────────────────────────────────────
-interface Page { title: string; text: string; verse: PassageId }
-
-function pageOf(sim: RzekiSim): Page | null {
-  const s = sim.story;
-  if (!s) return null;
-  if (s.kind === 'open') {
-    return s.page === 0
-      ? { title: t('story.open.title'), text: t('story.open.text'), verse: 'isa11.2' }
-      : { title: t('story.open2.title'), text: t('story.open2.text'), verse: 'jhn7.38-39' };
-  }
-  if (s.kind === 'news') return { title: t('story.news.title'), text: t('story.news.text'), verse: 'psa46.4' };
-  if (s.kind === 'down') return { title: t('story.down.title'), text: t('story.down.text'), verse: 'luk11.13' };
-  return { title: t('story.up.title'), text: t('story.up.text'), verse: 'psa141.2' };
-}
 
 let storyMemo: { key: string; lay: PassageLayout; lines: string[]; titlePx: number; textPx: number; h: number } | null = null;
 
@@ -472,8 +564,9 @@ let storyMemo: { key: string; lay: PassageLayout; lines: string[]; titlePx: numb
  * rectangle.  `hover`: the mouse is over it (a click turns the page) — its rim and its "go on" brighten.
  */
 export function drawStory(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, hover = false): Rect | null {
-  const s = sim.story, pg = pageOf(sim);
-  if (!s || !pg) return null;
+  const s = sim.story;
+  if (!s) return null;
+  const pg = pageOf(s.kind, s.page);
   const u = L.u, inner = Math.min(L.story.w, 560 * u) - 2 * 18;
   // how to go on: read from further away on a desktop, the page dots with room of their own above it
   const tapPx = L.desk ? Math.round(13 * u) : 13;

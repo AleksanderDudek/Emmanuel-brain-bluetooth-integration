@@ -35,8 +35,6 @@ export const RULES = {
   innerShare: 0.3,
   /** a blind block's unseen light is shown at its end over this long (s) */
   revealSec: 1.6,
-  /** light gathered in the dark past the station's full carries into the next station, up to this much */
-  blindCarry: 0.6,
 
   // ── the way ──────────────────────────────────────────────────
   /** a full station holds a moment in its light, then the stream flows to the next station (s) */
@@ -54,9 +52,14 @@ export const RULES = {
   reshowSec: 2.4,
 
   // ── rest (abiding) ───────────────────────────────────────────
-  /** the breath guide: in for 4 s, out for 6 s — six breaths a minute */
-  inhale: 4,
-  exhale: 6,
+  /**
+   * The rest after each station is whole breaths of the player's pattern (kit/breath.ts, the lobby's card): by
+   * default the number nearest `restTarget` seconds and enough for `restMin` (4 · 6: 3 breaths, 30 s; the box 4·4·4·4:
+   * 2 breaths, 32 s); the player may set 1…`restBreathsMax` breaths instead.
+   */
+  restTarget: 26,
+  restMin: 12,
+  restBreathsMax: 12,
   /** abiding counts while calm is at least this (reliable signal, in a rest block) */
   abideCalm: 0.5,
 
@@ -82,11 +85,23 @@ export const RULES = {
   // ── the session ──────────────────────────────────────────────
   /** the lead-in before the brain acts in a push block (s): Mendi / HALO */
   leadIn: { fnirs: 5, eeg: 2 },
-  /** push and rest: nominal length ± jitter (s) — rest a little longer: a meditation, led by rest */
-  push: [24, 3] as readonly [number, number],
-  rest: [26, 3] as readonly [number, number],
-  minBlock: 12,
+  /**
+   * A push block is the loading of one station: it has no fixed length and ends when the station is full (the
+   * founder's word of 2026-11-17: "rest after every completed sphere, not on a timer").  The rest that follows is
+   * announced when the station is `telegraphFill` full (or its last piece is opening); the next push 4 s before
+   * the rest's last breath ends.
+   */
   telegraph: 4,
+  telegraphFill: 0.85,
+  /** a push shorter than this (a station resumed nearly full, pre-filled by the flow) is not judged (s) */
+  minPush: 10,
+  /**
+   * The safety valve: a push that cannot finish — `valveStall` s without any light gained (no signal, or no focus),
+   * or `valveSec` s in all while its station is under `telegraphFill` — gives way to a rest of whole breaths; the
+   * station keeps its light and the next push loads it on.
+   */
+  valveSec: 150,
+  valveStall: 60,
   /** the runner's banner covers the first seconds of a block: the narrator waits it out */
   bannerSec: 5,
   /** the first-ever session's warm-up (s): 30 in 5 and 10 min, 20 in 3, 6 in a short test */
@@ -108,14 +123,17 @@ export const RULES = {
   repeatEvery: 3,
 
   // ── cards and the voice ──────────────────────────────────────
-  /** the opening card's two pages close themselves after pageSec each; a tap turns a page after tapAfter */
+  /** a story card's page closes itself after its reading time (at least pageSec); a tap turns it after tapAfter */
   pageSec: 9,
-  /** a closing card (after a way) stays this long unless tapped */
-  closeSec: 8,
   tapAfter: 0.6,
-  /** the narrator: each line 2–4 s by its length, a pause between two */
-  talkMin: 2,
-  talkMax: 4,
+  /**
+   * Reading time (the round-11 clarity rule): a line on screen stays readSec + readPerChar × its characters, never
+   * under readMin — long enough to read it twice.  The narrator, the coach marks and the story cards follow it.
+   */
+  readSec: 2.5,
+  readPerChar: 0.07,
+  readMin: 4.5,
+  /** a pause between two narrator lines (s) */
   talkGap: 2.6,
   /** the first-time explanations (coach marks): one at a time, this far apart (s) */
   hintGap: 1.2,
@@ -123,11 +141,8 @@ export const RULES = {
   ownMax: 120,
 } as const;
 
-/** a + (b − a) × t for a [lo, hi] pair. */
-export const span = (r: readonly [number, number], t: number): number => r[0] + (r[1] - r[0]) * t;
-
-/** The breath guide's cycle (s): in + out. */
-export const BREATH = RULES.inhale + RULES.exhale;
+/** How long a line of `text` stays on screen to be read twice (s): readSec + readPerChar × characters, at least readMin. */
+export const readTime = (text: string): number => Math.max(RULES.readMin, RULES.readSec + RULES.readPerChar * [...text].length);
 
 /**
  * The founder's fill rule: how fast a station's light loads per second for a focus frame — only while focused,

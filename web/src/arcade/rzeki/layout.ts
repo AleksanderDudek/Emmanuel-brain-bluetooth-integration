@@ -19,6 +19,11 @@
  * ground; each station names its framing (content.ts) and the camera fits it into the stage, the band the figure
  * owns.  The view eases between framings; text is always drawn in screen space.
  *
+ * **The map column** (round 11, `strip`): every station of the chosen map, top to bottom, as a column of small
+ * jewels beside the figure — lit, the one the light is at, waiting — so the whole map (the twelve of picture 2
+ * among them) is in sight from the first second.  On a phone held upright it runs down the left edge beside the
+ * figure; on its side and on a big screen it stands left of the figure's egg of light.
+ *
  * A tap anywhere stays with the station, so the only target is the station's own circle (≥ 44 px) — or the story
  * card while one is up.  Everything here is pure: the tests run it at every kit/mobile CHECK_SIZES entry.
  */
@@ -59,6 +64,8 @@ export interface Layout {
   prayer: Rect;
   /** the story card's box */
   story: Rect;
+  /** the map column: every station of the map, top to bottom (strip.ts draws it) */
+  strip: Rect;
   /** text sizes (px, never under the kit's floor) */
   font: { label: number; prayer: number; prayerMin: number; caption: number; verse: number; small: number };
 }
@@ -78,6 +85,9 @@ export const litR = (L: Pick<Layout, 'fig'>): number => L.fig.H * 0.026;
 export const idleR = (L: Pick<Layout, 'fig'>): number => Math.max(2.5, L.fig.H * 0.012);
 /** The biggest window radius (the layers are baked at it). */
 export const maxWindowR = (L: Pick<Layout, 'fig'>): number => windowR(L, 1);
+
+/** The map column's width at u = 1 (px): a jewel, its ring and the count over it. */
+export const STRIP_W = 30;
 
 export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch = true): Layout {
   const ins = { ...insets };
@@ -103,8 +113,9 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
     };
 
   if (shape === 'tall') {
-    // the narrator speaks in the prayer band's top row here (a caption above the figure would cover the crown)
-    const prH = Math.round(clamp(bh * 0.27, 100, 170 * u));
+    // the narrator speaks in the prayer band's top row here (a caption above the figure would cover the crown);
+    // the band holds the label, the line of what to do now, and the prayer (or the breath and the verse)
+    const prH = Math.round(clamp(bh * 0.29, 110, 184 * u));
     const prayer = { x: left + edge, y: bottom - prH - 8, w: bw - 2 * edge, h: prH };
     const caption = { x: prayer.x, y: prayer.y, w: prayer.w, h: Math.round(20 * u) * 2 };
     const yB = prayer.y - 6;
@@ -113,7 +124,9 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
     const H = Math.max(120, Math.min((yB - top - 4) / 1.185, (bw - 2 * edge) / 0.5));
     const fig = { cx: (left + right) / 2, top: top + 4 + 0.125 * H + Math.max(0, (yB - top - 4 - 1.185 * H) / 2), H };
     const stage = { x: left + edge, y: top + 4, w: bw - 2 * edge, h: yB - top - 4 };
-    return { w, h, ins, top, bottom, left, right, shape, touch, kind, desk, u, fig, stage, caption, prayer, story: { x: left + edge, y: top + 8, w: bw - 2 * edge, h: bh - 16 }, font };
+    // the map column down the left edge, beside the figure (clear of its outer shell on the smallest phone)
+    const strip = { x: left + 8, y: top + 6, w: Math.round(STRIP_W * u), h: yB - top - 10 };
+    return { w, h, ins, top, bottom, left, right, shape, touch, kind, desk, u, fig, stage, caption, prayer, story: { x: left + edge, y: top + 8, w: bw - 2 * edge, h: bh - 16 }, font, strip };
   }
 
   if (desk) {
@@ -122,12 +135,13 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
     // the pool and the rivers' near ends lie under the feet (to 1.06 H)
     const head = kind === 'big' ? 0.13 : 0.075, foot = 1.06;
     const H = Math.max(120, Math.min((bh - 16) / (head + foot), bw * 0.62));
-    // the words beside it at a reading measure (about 34 characters of the prayer a line), the figure's egg of
-    // light (± 0.34 H) and the column centred as one group: the figure left of the middle, the words right of it
-    const egg = 0.34 * H, gap = Math.round(36 * u);
-    const colW = Math.round(Math.max(240, Math.min(17 * font.prayer, bw - 2 * edge - 2 * egg - gap)));
-    const x0 = left + Math.max(edge, (bw - (2 * egg + gap + colW)) / 2);
-    const cx = x0 + egg;
+    // the words beside it at a reading measure (about 34 characters of the prayer a line), the map column, the
+    // figure and the words centred as one group: the figure left of the middle, the words right of its egg of light
+    // (± 0.34 H), the map left of its outer shell (± 0.52 H), so the shell's line and its jewel stay clear of it
+    const egg = 0.34 * H, shell = 0.52 * H, gap = Math.round(36 * u), sw = Math.round(STRIP_W * u), sgap = Math.round(14 * u);
+    const colW = Math.round(Math.max(240, Math.min(17 * font.prayer, bw - 2 * edge - shell - egg - gap - sw - sgap)));
+    const x0 = left + Math.max(edge, (bw - (sw + sgap + shell + egg + gap + colW)) / 2);
+    const cx = x0 + sw + sgap + shell;
     const fig = { cx, top: top + 8 + head * H + Math.max(0, (bh - 16 - (head + foot) * H) / 2), H };
     const colX = Math.min(right - edge - colW, cx + egg + gap);
     const prH = Math.round(clamp(9.5 * font.prayer, 160, bh * 0.5));
@@ -137,17 +151,20 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
     const caption = { x: colX, y: 0, w: colW, h: capH };
     const storyW = Math.min(bw - 2 * edge, 560 * u);
     const stage = { x: Math.max(left, cx - egg - gap / 2), y: top + 8, w: 2 * egg + gap, h: bh - 16 };
+    const strip = { x: x0, y: top + 12, w: sw, h: bh - 24 };
     const base: Layout = {
       w, h, ins, top, bottom, left, right, shape, touch, kind, desk, u, fig, stage, caption, prayer,
-      story: { x: (left + right - storyW) / 2, y: top + 8, w: storyW, h: bh - 16 }, font,
+      story: { x: (left + right - storyW) / 2, y: top + 8, w: storyW, h: bh - 16 }, font, strip,
     };
     return wordsAt(base, fig.top + 0.3 * H);
   }
 
-  // side and wide: the figure on the left, the caption and the prayer on the right
+  // side and wide: the map column, the figure, the caption and the prayer on the right
   const H = Math.max(120, Math.min((bh - 14) / 1.1, bw * 0.62));
-  // the egg of light (±0.33 H) fits beside the left edge; on a big screen the figure stands in the left third
-  const cx = left + (shape === 'side' ? edge + 0.36 * H : Math.max(edge + 0.36 * H, bw * 0.3));
+  // the map column at the left edge, then the figure with its outer shell (± 0.52 H) clear of the column; on a big
+  // screen the figure stands in the left third
+  const sw = Math.round(STRIP_W * u), sx0 = left + 10;
+  const cx = left + (shape === 'side' ? 10 + sw + 6 + 0.52 * H : Math.max(10 + sw + 10 + 0.52 * H, bw * 0.3));
   const fig = { cx, top: top + 8 + 0.03 * H + Math.max(0, (bh - 14 - 1.1 * H) / 2), H };
   const colX = cx + 0.3 * H + 14;
   const colW = Math.min(right - edge - colX, (shape === 'side' ? 420 : 600) * u);
@@ -160,9 +177,11 @@ export function layout(w: number, h: number, insets: Insets = NO_INSETS, touch =
   const storyW = Math.min(bw - 2 * edge, 560 * u);
   const sx = Math.max(left, cx - 0.36 * H);
   const stage = { x: sx, y: top + 8, w: Math.max(40, Math.min(colX - 8, cx + 0.36 * H) - sx), h: bh - 16 };
+  // the map column left of the outer shell where the screen has room (a tablet on its side), else at the edge
+  const strip = { x: Math.max(sx0, cx - 0.52 * H - 14 - sw), y: top + 10, w: sw, h: bh - 20 };
   return {
     w, h, ins, top, bottom, left, right, shape, touch, kind, desk, u, fig, stage, caption, prayer,
-    story: { x: (left + right - storyW) / 2, y: top + 8, w: storyW, h: bh - 16 }, font,
+    story: { x: (left + right - storyW) / 2, y: top + 8, w: storyW, h: bh - 16 }, font, strip,
   };
 }
 
@@ -205,9 +224,9 @@ export const FRAMES: Readonly<Record<Exclude<Framing, 'body'>, { x0: number; x1:
   hands: { x0: -0.225, x1: 0.225, y0: 0.43, y1: 0.65 },
   ground: { x0: -0.24, x1: 0.24, y0: 0.82, y1: 1.18 },
 };
-/** The camera's zoom limits (the smallest phone's hand map nears to 2.7×; the heavens shrink to half at most). */
+/** The camera's zoom limits (the smallest phone's hand map nears to 2.75×; the heavens shrink to half at most). */
 export const CAM_MIN = 0.45;
-export const CAM_MAX = 2.7;
+export const CAM_MAX = 2.75;
 /**
  * How near a framing needs to come, in px on the screen, for what it shows to read: a hand 75 px tall (its seven
  * lights apart), the feet and the earth star's window 60 px.  A big screen already shows them so: it does not zoom.

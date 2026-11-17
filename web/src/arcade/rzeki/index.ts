@@ -5,10 +5,11 @@
  * the solar plexus, the Void, the sacral centre, the sacrum, the root, the feet, the earth star — one at a time,
  * on the map the player chose; at each the founder's prayer ("Przez Jezusa Chrystusa, Duchu Święty, wypełnij …
  * i niech popłynie …") or the player's own words.  Focus is the station's light: its halo grows past a faint ring
- * and turns gold, and only then does its glass load, piece by piece; full, the light flows on as living water.
- * Rest is abiding: the figure breathes 4 in / 6 out, the lit stations shine, drops of living water gather in a
- * pool at the feet and two rivers flow out of it.  Then the light rises again, as thanksgiving; the way goes on
- * next session where it stopped.
+ * and turns gold, and only then does its glass load, piece by piece; full, a rest follows — whole breaths of the
+ * player's own pattern (in, hold, out, hold empty: 0–15 s each, 4 · 6 by default) while the lit stations shine and
+ * drops of living water gather in a pool at the feet and two rivers flow out of it — and then the light flows on
+ * as living water to the next.  The whole map stands in a column of jewels beside the figure.  Then the light
+ * rises again, as thanksgiving; the way goes on next session where it stopped.
  *
  * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts, the numbers in rules.ts,
  * the stations and maps in content.ts, their glass piece by piece in tiles.ts, the meta in meta.ts, the narrator
@@ -16,6 +17,7 @@
  * intro.ts and preview.ts on scene.ts), the sound (audio.ts) and the quiet chorale (hymn.ts on kit/song.ts), the
  * lobby's card (panel.ts); the words in i18n.ts.
  */
+import { BREATH_DEFAULT, breathOk, type BreathPattern } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
@@ -23,14 +25,21 @@ import { SongPlayer } from '../kit/song';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { RzekiSound } from './audio';
 import { buildHymn } from './hymn';
-import { dropsText, t, unit } from './i18n';
+import { breathWords, dropsText, t, unit } from './i18n';
 import { RzekiIntro } from './intro';
-import { bestOf, freshProgress, migrate, type RzekiProgress } from './meta';
+import { bestOf, breathOf, freshProgress, migrate, type RzekiProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { RzekiView } from './render';
-import { RULES } from './rules';
-import { RzekiSim, type Coach, type CoachAt, type SimEvent } from './sim';
+import { RULES, readTime } from './rules';
+import { RzekiSim, type BlockKind, type Coach, type CoachAt, type SimEvent } from './sim';
+
+/** The breath of the last progress the module saw (the lobby's, the session's): the how-to names it. */
+let knownBreath: BreathPattern | null = null;
+const seen = (p: RzekiProgress): RzekiProgress => {
+  knownBreath = breathOf(p);
+  return p;
+};
 
 class RzekiGame implements ArcadeGame {
   private readonly sim: RzekiSim;
@@ -48,7 +57,7 @@ class RzekiGame implements ArcadeGame {
   private hintCool = 1.5;
 
   constructor(private readonly env: GameEnv<RzekiProgress>) {
-    migrate(env.progress);
+    seen(migrate(env.progress));
     this.sim = new RzekiSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning });
     this.view = new RzekiView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new RzekiSound(env.audio);
@@ -153,10 +162,12 @@ class RzekiGame implements ArcadeGame {
     // the narrator finishes its line first; while the mark is up it waits (never two voices at once)
     if (sim.talk.line) return;
     const h = this.hints.shift()!;
-    const ms = h.what === 'breath' || h.what === 'blind' ? 5200 : 4400;
+    // long enough to read twice (the round-11 clarity rule)
+    const text = sim.coachWords(h.what, this.env.touch);
+    const ms = Math.round(readTime(text) * 1000);
     this.hintCool = ms / 1000 + RULES.hintGap;
     sim.hintUntil = this.now + ms / 1000 + 0.3;
-    this.env.hint(coachText(h.what, this.env.touch), this.pointFor(h.at), ms);
+    this.env.hint(text, this.pointFor(h.at), ms);
   }
 
   private pointFor(at: CoachAt): { x: number; y: number } | null {
@@ -167,18 +178,20 @@ class RzekiGame implements ArcadeGame {
 
   canStop(): boolean { return this.sim.canStop(); }
 
-  /** What the block asks of the brain, its seconds left and what comes next, for the runner's panel and dock. */
+  /**
+   * What the block asks of the brain, its seconds left and what comes next, for the runner's panel and dock.  A push
+   * has no fixed length (it lasts until its station is full): no `left`, so the panel counts its seconds up; a rest
+   * counts its whole breaths down.
+   */
   signal(): SignalPhase {
     const s = this.sim, b = s.block;
+    const phaseOf = (k: BlockKind | null) => (k === 'push' ? 'focus' : k === 'rest' ? 'rest' : 'free');
+    const left = s.phase === 'play' && Number.isFinite(b.dur) ? Math.max(0, b.dur - s.blockT) : undefined;
     if (!s.started || s.phase !== 'play' || b.kind === 'warmup') {
-      const next = s.started && s.phase === 'play' && b.kind === 'warmup' && s.telegraphed && s.next ? (s.next.kind === 'push' ? 'focus' : 'rest') : null;
-      return { want: 'free', blind: false, task: s.tip || undefined, left: s.phase === 'play' ? Math.max(0, b.dur - s.blockT) : undefined, next };
+      const next = s.started && s.phase === 'play' && b.kind === 'warmup' && s.telegraphed ? phaseOf(s.nextKind) : null;
+      return { want: 'free', blind: false, task: s.tip || undefined, left, next };
     }
-    const nb = s.next;
-    return {
-      want: b.kind === 'push' ? 'focus' : 'rest', blind: s.blind, task: s.tip, left: Math.max(0, b.dur - s.blockT),
-      next: s.telegraphed ? (nb ? (nb.kind === 'push' ? 'focus' : 'rest') : 'free') : null,
-    };
+    return { want: b.kind === 'push' ? 'focus' : 'rest', blind: s.blind, task: s.tip, left, next: s.telegraphed ? phaseOf(s.nextKind) : null };
   }
 
   meter(): number | null { return this.sim.meter(); }
@@ -217,6 +230,9 @@ export function coachText(what: Coach, touch: boolean): string {
   return t(`coach.${what}` as 'coach.tap');
 }
 
+/** The rest's breath in words for the how-to (the default when no progress was seen). */
+const breathTip = (p: BreathPattern | null): string => breathWords(p && breathOk(p) ? p : BREATH_DEFAULT);
+
 function haptic(e: SimEvent): void {
   switch (e.type) {
     case 'full': buzz([10, 40, 18]); break;
@@ -225,15 +241,15 @@ function haptic(e: SimEvent): void {
   }
 }
 
-/** How to play, for the hand the player has: taps on a phone; a click, Space and Enter on a desktop. */
-export function howto(touch = coarsePointer()): HowTo {
+/** How to play, for the hand the player has: taps on a phone; a click, Space and Enter on a desktop; the rest's breath as set. */
+export function howto(touch = coarsePointer(), breath: BreathPattern | null = knownBreath): HowTo {
   return {
     goal: t('howto.goal'),
     hands: [
       { gesture: 'tap', text: t(touch ? 'howto.tap' : 'howto.click') },
       ...(touch ? [] : [{ gesture: 'keys' as const, text: t('howto.keys') }]),
     ],
-    tips: [t('howto.tip1'), t('howto.tip2')],
+    tips: [t('howto.tip1', { breath: breathTip(breath) }), t('howto.tip2')],
   };
 }
 
@@ -241,11 +257,11 @@ const mod: ArcadeModule<RzekiProgress> = {
   freshProgress,
   create: env => new RzekiGame(env),
   best: p => {
-    migrate(p);
+    seen(migrate(p));
     return p.sessions > 0 ? bestOf(p) : null;
   },
   unit,
-  progressPanel: (p, save) => progressPanel(migrate(p), save),
+  progressPanel: (p, save) => progressPanel(seen(migrate(p)), () => { seen(p); save(); }),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
 };

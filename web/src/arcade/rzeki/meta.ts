@@ -14,18 +14,23 @@
  *   records         the best drops per session length, the whole ways down and up, the longest calm abiding in one
  *                   stretch, all the drops and the abiding seconds ever
  *   the chorale     the quiet chorale in the background, on or off
+ *   the breath      the rest's breath: four phases of 0–15 s each (in, hold, out, hold empty; kit/breath.ts), 4 · 6
+ *                   by default, and how many whole breaths a rest lasts (0: as many as come nearest 26 s)
  *
- * Version 2 (2026-11-17, the stations of both pictures).  A version-1 save (seven places) keeps everything: its
- * places' counts move to the stations they became (content.ts `V1_PLACES`).  The placeholder's save keeps its
- * count; any field of a wrong type is reset rather than trusted.  No DOM, no randomness.
+ * Version 3 (2026-11-17, round 11: the breath pattern and the rest's breaths).  A version-2 save keeps everything
+ * and gets the default breath; a version-1 save (seven places) keeps everything too: its places' counts move to the
+ * stations they became (content.ts `V1_PLACES`).  The placeholder's save keeps its count; any field of a wrong type
+ * is reset rather than trusted.  No DOM, no randomness.
  */
+import { BREATH_DEFAULT, breathOk, breathRest, breathRestOf, cleanBreath, stepBreath, type BreathPattern, type BreathPhase } from '../kit/breath';
 import { MAP, MAPS, STATIONS, V1_PLACES, WAYS, cleanOwn, legs, route, windowTier, type Dir, type MapId, type StationId, type Tier, type Way } from './content';
+import { RULES } from './rules';
 
 /** Where the way goes on: a map's route going `dir`, its `idx`-th station, the light gathered there. */
 export interface RzekiPos { map: MapId; dir: Dir; idx: number; fill: number }
 
 export interface RzekiProgress {
-  ver: 2;
+  ver: 3;
   /** sessions saved */
   sessions: number;
   /** push blocks begun, all time: every 4th is blind from the 3rd session */
@@ -56,14 +61,18 @@ export interface RzekiProgress {
   seen: string[];
   /** the last session's planned length (s) */
   lastLen: number;
+  /** the rest's breath: four phases, each 0…15 whole seconds */
+  breath: BreathPattern;
+  /** whole breaths in each rest (1…12), or 0: as many as come nearest RULES.restTarget s */
+  restBreaths: number;
 }
 
 const zeros = (): Record<StationId, number> => Object.fromEntries(STATIONS.map(s => [s, 0])) as Record<StationId, number>;
 
 export function freshProgress(): RzekiProgress {
   return {
-    ver: 2, sessions: 0, pushes: 0, map: 'all', way: 'both', pos: null, own: '', down: zeros(), up: zeros(), descents: 0, ascents: 0,
-    best: {}, drops: 0, abideBest: 0, abideAll: 0, song: true, seen: [], lastLen: 0,
+    ver: 3, sessions: 0, pushes: 0, map: 'all', way: 'both', pos: null, own: '', down: zeros(), up: zeros(), descents: 0, ascents: 0,
+    best: {}, drops: 0, abideBest: 0, abideAll: 0, song: true, seen: [], lastLen: 0, breath: { ...BREATH_DEFAULT }, restBreaths: 0,
   };
 }
 
@@ -97,15 +106,19 @@ export function cleanPos(v: unknown): RzekiPos | null {
   return { map, dir, idx, fill };
 }
 
+/** A saved count of breaths for a rest: 0 (auto) or 1…12. */
+const breaths = (v: unknown): number => Math.max(0, Math.min(RULES.restBreathsMax, Math.round(num(v))));
+
 /**
- * Bring a loaded save to version 2, in place (idempotent).  A version-1 save moves its seven places' counts onto
- * the stations they became and keeps everything else; the placeholder's save and anything older or broken keep
- * their session count; every field of a wrong type is repaired.
+ * Bring a loaded save to version 3, in place (idempotent).  A version-2 save keeps everything and gets the default
+ * breath; a version-1 save moves its seven places' counts onto the stations they became and keeps everything else;
+ * the placeholder's save and anything older or broken keep their session count; every field of a wrong type is
+ * repaired (the breath through the kit's `cleanBreath`).
  */
 export function migrate(p: RzekiProgress): RzekiProgress {
   const raw = p as unknown as Record<string, unknown>;
   const f = freshProgress();
-  if (raw.ver !== 1 && raw.ver !== 2) {
+  if (raw.ver !== 1 && raw.ver !== 2 && raw.ver !== 3) {
     const keep = { sessions: int(raw.sessions), pushes: int(raw.pushes) };
     for (const k of Object.keys(raw)) delete raw[k];
     Object.assign(p, f, keep);
@@ -113,7 +126,7 @@ export function migrate(p: RzekiProgress): RzekiProgress {
   }
   const v1 = raw.ver === 1;
   const fields: RzekiProgress = {
-    ver: 2,
+    ver: 3,
     sessions: int(raw.sessions),
     pushes: int(raw.pushes),
     map: !v1 && (MAPS as readonly unknown[]).includes(raw.map) ? (raw.map as MapId) : f.map,
@@ -131,6 +144,8 @@ export function migrate(p: RzekiProgress): RzekiProgress {
     song: typeof raw.song === 'boolean' ? raw.song : f.song,
     seen: Array.isArray(raw.seen) ? [...new Set(raw.seen.filter((s): s is string => typeof s === 'string'))] : [],
     lastLen: int(raw.lastLen),
+    breath: { ...cleanBreath(raw.breath) },
+    restBreaths: breaths(raw.restBreaths),
   };
   if (isObj(raw.best)) for (const [k, v] of Object.entries(raw.best)) if (num(v) > 0) fields.best[k] = Math.floor(num(v));
   for (const k of Object.keys(raw)) delete raw[k];
@@ -226,4 +241,44 @@ export function markSeen(p: RzekiProgress, what: string): boolean {
   if (p.seen.includes(what)) return false;
   p.seen.push(what);
   return true;
+}
+
+// ── the breath ────────────────────────────────────────────────────
+
+/** The rest's breath as saved (cleaned: each phase 0…15 s, a cycle of at least 2 s). */
+export const breathOf = (p: RzekiProgress): BreathPattern => cleanBreath(p.breath);
+
+/**
+ * A rest of whole breaths for the saved pattern: the player's own count, or (0) as many as come nearest
+ * RULES.restTarget seconds and at least RULES.restMin (4 · 6: 3 breaths, 30 s).
+ */
+export function restOf(p: RzekiProgress): { cycles: number; sec: number } {
+  const b = breathOf(p);
+  return p.restBreaths > 0 ? breathRestOf(b, p.restBreaths) : breathRest(b, RULES.restTarget, RULES.restMin);
+}
+
+/** The count a rest would have on "auto" (the lobby shows it beside the stepper). */
+export const autoBreaths = (p: RzekiProgress): number => breathRest(breathOf(p), RULES.restTarget, RULES.restMin).cycles;
+
+/**
+ * Move one phase of the breath by `delta` seconds (the lobby's −/+): false — and nothing changes — when the
+ * pattern would guide nothing (a whole cycle under 2 s).
+ */
+export function stepBreathOf(p: RzekiProgress, phase: BreathPhase, delta: number): boolean {
+  const next = stepBreath(breathOf(p), phase, delta);
+  if (!breathOk(next)) return false;
+  p.breath = { ...next };
+  return true;
+}
+
+/** Take a whole pattern (a preset); false for one that guides nothing. */
+export function setBreath(p: RzekiProgress, b: BreathPattern): boolean {
+  if (!breathOk(b)) return false;
+  p.breath = { ...cleanBreath(b) };
+  return true;
+}
+
+/** Whole breaths in a rest: 1…12, or 0 for "auto". */
+export function setRestBreaths(p: RzekiProgress, n: number): void {
+  p.restBreaths = breaths(n);
 }

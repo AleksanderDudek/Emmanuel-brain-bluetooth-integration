@@ -5174,11 +5174,11 @@ with a reliable signal, while `frame.focused`: `rate = fillFocus × (0.6 + 0.8 �
 without a signal, below the threshold (a forgiven dip still loads at the base rate), or from taps; what is gained is
 never lost (a test drives random signal, dips and losses and checks the light only grows). Focus while the light rests
 in a full station or flows on loads the next station (≤ 0.25), so no focused second is wasted; a blind push loads unseen
-by the same rule and is shown at its end (it may run past full by 0.6, which the next station starts with). The gauge
+by the same rule and is shown at its end (round 11: a blind push, too, ends when its station is full). The gauge
 (`meter()`) is the band's real `level` in a sighted push past its lead-in, calm in rest, nothing without a signal, in a
 blind block or elsewhere. Gold on the station — its halo, its threshold ring — means "the glass is loading" (sighted ∧
 reliable ∧ focused), so the player sees exactly when concentration counts; "Złote światło" in the summary is that time.
-**Measured** (the sim, three seeds): a focus held steadily loads a station in **31 s at the threshold** and **18.5 s at
+**Measured in round 10** (superseded by round 11's measurements below; the sim, three seeds): a focus held steadily loads a station in **31 s at the threshold** and **18.5 s at
 level 0.75** (21 s at 0.7); in a real 10-minute session (lead-ins, rests, blind pushes, the hold building up in each
 push) a player at the threshold all push long gives ~37 s of focus a station and lights **6 stations**, at 0.75 ~22 s
 and 10–11; with the kit's own `FocusInput` and noise and Mayer waves, a player with **no** rise in the pushes lights
@@ -5203,7 +5203,7 @@ the front with five toes; its rim is stroked outside the union only (what falls 
 a wrist or an ankle. The light flows to the hands out along both arms from the heart and back, to the feet down both
 legs, from the feet to the pool. **The camera** (layout.ts): each station names a framing — *body* (the layout as it
 was), *sky* (the soul and solar stars: the room above the head), *heavens* (the two shells: the whole egg), *hands*
-(near enough that a hand stands 75 px tall: 2.7× on the smallest phone, none on a Full HD monitor), *ground* (the feet
+(near enough that a hand stands 75 px tall: 2.75× on the smallest phone (since round 11), none on a Full HD monitor), *ground* (the feet
 and the earth star) — fitted into the stage, zoomed about the framing's middle with the figure's midline kept, moved no
 further than it takes to bring the framing whole into the stage; it eases between framings (centre and log-zoom,
 τ 0.9 s), during the flow to the next station, never jumping; when a way is whole it shows the whole map. The world is
@@ -5222,6 +5222,87 @@ every `CHECK_SIZES` entry for every station, fill and framing, and on the camera
 smallest phone a narrator's two lines over a prayer of three set both a little tighter (leading 1.2), and if even that
 would not fit the narrator waits — the prayer is never cut. Text: the prayer ≥ 15 px, the label, the caption, the
 breath and the cards ≥ 13, a verse's reference 11.
+
+#### Round 11 (2026-11-17): a rest after every station, the breath, the twelve in sight
+
+The founder, after playing: *"Rzeki wody żywej — chcę żeby faza odpoczynku była po każdej uzupełnionej sferze. Nie co
+interwał. Faza odpoczynku powinna być wielokrotnością sekcji oddechowej (teraz 10 sekund = 4 wdech, 6 wydech). Chcę
+żeby oddech można było konfigurować od 0 do 15 sekund wdech, wstrzymanie powietrza, wydech, wstrzymanie bezdechu.
+Rzeki wody żywej z jakiegoś względu dalej nie mają wszystkich czakr (łącznie ich tam jest 12)."*  The last sentence
+describes the deployed version (seven places); round 10's seventeen stations already hold all twelve of picture 2 —
+but a player never *saw* them: in the body framing the stars above the head and the shells' keystones sit off the
+stage, and a session walks a handful of stations.  So this round makes the whole map visible from the first second.
+
+**Blocks go by the light.** A push block is the loading of one station: it has no fixed length (`signal().left` is
+absent, the panel counts its seconds up) and ends when the station is full.  Then, at once, a **rest of whole
+breaths** of the player's pattern (kit/breath.ts `breathRest(p, 26, 12)`, or the player's own count 1–12): it begins
+with the pattern's first phase that has a length and ends exactly as a breath ends; the station shines full and its
+verse is the one to abide in.  When the rest's last breath ends the next push begins and the light flows on (the
+push's lead-in — 5 s Mendi, 2 s HALO — covers the 3 s flow).  The last station of a way: the whole figure in light
+and the closing card come inside that rest; the next way begins when it ends.  Each push is judged once at its end
+over its last ≤ 15 s (`RoundJudge.from(env.tuning)`, at least 8 reliable seconds in the window), a push under 10 s (a
+station resumed nearly full) not at all; each rest likewise; `BlockContrast` across the session.  **Telegraphs:** the
+rest when a sighted station is 85 % full or its last piece is opening (3–5 s ahead), the next push 4 s before the rest
+ends, the quiet finale 4 s ahead; a blind push is never telegraphed by its fill (it would tell the hidden light).
+**Blind pushes** stay every 4th from the 3rd session (never the first of a session); a blind push still ends when its
+hidden light fills the station, which is then shown (1.6 s) as the rest begins.  The warm-up (the first time) waits
+for the opening card.  The finale comes when the session's time runs out; a station in progress keeps its light
+("what was gained stays", saved in `pos`).
+
+**The safety valve.** A push that cannot finish — **60 s without any light gained** (no signal, or no focus), or
+**150 s** in all while its station is under 85 % — ends into a rest of whole breaths (`why: 'valve'`): the narrator
+"Odpocznij chwilę — to centrum zaczeka. Jego światło zostaje.", the now-line "Odpocznij chwilę — centrum zaczeka";
+the station keeps its light and the next push loads it on.  It is judged like any push; it is no failure.
+
+**Measured** (the sim): a focus held at the threshold loads a station in ~33 s of focus, pushes of ~38 s, **9 stations
+in 10 minutes**; at level 0.75 pushes of ~26 s, 11 stations; with the kit's own `FocusInput` (noise, Mayer waves) a
+player with **no** rise lights **none** and gets a valve's rest every ~60 s, a 2 % rise lights **9**, a 4 % rise 11.
+The full map's 17 take about two sessions down.
+
+**The breath** (progress v3: `breath`, `restBreaths`; a v2 save gets the default, `cleanBreath` on load).  The lobby's
+card: presets as one-tap chips — *4 · 6 spokojny* (default), *5 · 5 równy*, *4 · 4 · 4 · 4 kwadrat*, *4 · 7 · 8
+wyciszenie* — four −/+ steppers (44 × 44 px) *Wdech*, *Zatrzymanie (po wdechu)*, *Wydech*, *Bezdech (po wydechu)*,
+each 0–15 s (0 skips the phase), *Oddechów w odpoczynku* −/+ with "auto · 3" and an *auto* chip, and a live line
+"Odpoczynek: 3 oddechy · 30 s · Jeden oddech: 10 s"; a step that would leave a breath under 2 s is refused ("Tak
+krótki oddech niczego nie poprowadzi: cały musi trwać co najmniej 2 s.").  In the rest the band's row is the guide:
+a ring that swells in, stays full on a hold, settles out and stays small on the empty hold (a hold: still, a soft
+glow), the phase's word (*Wdech / Zatrzymanie / Wydech / Bezdech*; en *Breathe in / Hold / Breathe out / Hold, empty*;
+de *Einatmen / Halten / Ausatmen / Leer halten*; sv *Andas in / Håll / Andas ut / Håll tomt*), its seconds counting
+down and "oddech 2 z 3"; the figure and its egg breathe with the lungs' fullness (still on a hold, a steady glow in
+the chest); the wind rises over the whole in-breath and falls over the whole out-breath, a hold is quiet (one faint
+low bell as it begins).  Every text that said "4 / 6" names the pattern now ("wdech 4 s, wydech 6 s"): the rest's
+strategy, the coach mark, the how-to's tip, the summary's line "Po każdym centrum odpoczynek: …".
+
+**The twelve in sight.** *The map column* (strip.ts): every station of the chosen map, top to bottom, as a column of
+small jewels of church glass beside the figure — picture 2's twelve round, the five others (the three channels, the
+Void, the sacrum, the hands, the feet) lozenges; lit in their glass (thanked: a gold rim), waiting as tracery with a
+breath of their colour, the current one larger in a gold ring with an arc of its fill and a pointer to the figure,
+gliding with the stream; the count over it ("6/17").  On a phone upright it runs down the left edge; on its side and
+on a big screen it stands left of the figure's outer shell (on a big screen the group — column, shell, egg, words — is
+centred); a desktop's mouse over a jewel names it ("Trzecie oko · Agnya (6)"); a coach mark points at it once ("Tu
+cała mapa: 17 centrów, od góry do dołu. Złoty pierścień — tu jesteś.").  Its still part is baked per state, so a frame
+draws one image and the marker.  *The shells read as stations*: each has its jewel on its own line, low on the side
+away from the words (right on a phone upright, left elsewhere — where picture 2 writes their names), lit with it, gold
+while it loads, and its name beside it ("Czakra galaktyczna", "Boska brama"), outside the shell where the screen has
+room, else inside, in one line or two, never over the column, the words or the figure (13 px, 12 at the least on a
+phone; none where none fits).  *The lobby*: the hero picture has the map column with its count; each map's card says
+its count and where its stations come from ("17 · 12 centrów mapy dwunastu (obraz 2) + 5: trzy kanały, Pustka, kość
+krzyżowa i dłonie (obraz 1) oraz stopy").  *The order* is checked against picture 2: from the top the outer shell
+(Divine gateway), the inner (Galactic), the solar star above the soul star, crown, third eye, throat, heart, solar
+plexus, sacral, root, earth star — a test pins the twelve in both "all" and "twelve".  **The default map stays
+"Wszystkie (17)"**: it is the only one with everything the founder asked for (every variant of both pictures and the
+hands and feet), all twelve are in it and now in sight; "Dwanaście" is one tap away.
+
+**Clarity (the round-11 rules).** One line of **what to do now** between the band's label and the prayer, an icon and a
+few words, changing only with the block: warm-up "Czytaj modlitwę i oddychaj spokojnie", push "Skup się na świecącym
+centrum", blind "Skup się — w ciemności, bez patrzenia", rest "Odpocznij — oddychaj z postacią", the valve's rest
+"Odpocznij chwilę — centrum zaczeka", the finale "Zostań w ciszy — sesja się kończy".  The narrator's lines and the
+coach marks stay `max(4.5 s, 2.5 s + 70 ms × characters)`; a story card's page its reading time (title, text and verse,
+at least 9 s) unless tapped.  The first time ever at a station the narrator glosses its name in plain words ("Pustka,
+ocean · Bhavsagar — krąg wokół środka ciała").  The lobby's how-to: focus (gold = the glass loads), rest (whole
+breaths, the rhythm set in "Postępy"), tap or click to stay with the centre; the last tip says the band measures
+attention.  On the smallest phone the band grew to fit the now-line (110 px at least; the figure H 201) and the hands'
+camera nears to 2.75× so a hand still stands 55 px tall.
 
 **Beauty first** — it is a meditation, not an action game; the founder wrote "beautiful" three times.
 *Deep space*: a gradient from near-black indigo through violet, soft nebulae added as light (violet,
@@ -5252,7 +5333,7 @@ never over the column. Everything is baked once per size (the sky, the rays, the
 every rose window, the blooms); a frame only composes layers and draws a few dozen small shapes — no
 shadowBlur, no filters.
 
-**Rest — abiding.** The lit places shine steadily, the figure breathes **4 in / 6 out** (it swells around
+**Rest — abiding.** The lit places shine steadily, the figure breathes with **the player's own pattern** (§13.14 Round 11; it swells around
 the chest, the egg and the column swell and settle), the threads keep flowing slowly, the place still
 deepens a little (`0.018 · (0.3 + 0.7 · calm)`), and **drops of living water** fall from the lit places down
 the column into the pool (a plink and a ripple each), counted aloud every 3 s ("+5"): `1.6 · (0.4 + calm) ·
@@ -5279,7 +5360,7 @@ with it: "Poczuj miejsce między brwiami od środka; zobacz w nim ciepłe, jasne
 ciepłą wodę, która wypełnia serce aż po brzegi", "Wyobraź sobie źródło pod pępkiem, z którego wypływa
 jasna, żywa woda"…; every third push the slow repetition ("Powtarzaj w myślach modlitwę tego miejsca słowo
 po słowie, bardzo powoli") for those who do not picture easily; going up, every other push the rising
-picture ("…jak dym kadzidła"). Rest's are the breath (4 / 6), a soft forehead watching the drops, ten slow
+picture ("…jak dym kadzidła"). Rest's are the breath in the player's pattern, a soft forehead watching the drops, ten slow
 breaths counted, abiding in the light already there. Never "concentrate harder".
 
 **Sound.** A quiet chorale (hymn.ts on kit/song.ts, on by default, the card switches it): an original
@@ -5289,7 +5370,7 @@ push, a gentle level in rest, held in a blind block. Without it a warm pad in D 
 light. A **bell for each place on the pentatonic scale by height** (D5 at the feet … E6 at the crown), so
 the bells descend as the light comes down and rise as the thanks go up; a whisper of glass for each petal,
 a chime and the shimmer of water when a place is full, a gliding shimmer as the light flows, all seven bells
-when a way is whole, the breath's soft wind in rest, a plink for each drop.
+when a way is whole, the breath's soft wind in rest following each phase of the player's pattern (still on a hold), a plink for each drop.
 
 **Headline: drops of living water** (kropli / drops / Tropfen / droppar; 1 kropla, 3 krople, 5 kropli):
 `1.6 · (0.5 + light)` a second in a push (the base in a blind one), rest's flow above, 1.2 a second
@@ -5297,8 +5378,8 @@ elsewhere, a place lit 15, a whole way 60, a block judged well 20, a blind block
 session with mid focus and some taps gathers roughly 500–2 000; the smoke's crude input scores from the
 first second.
 
-**Blocks** follow §2: Światło 24 ± 3 s and Trwanie 26 ± 3 s (rest a little longer: a meditation, led by
-rest), a 4 s telegraph, each judged once at its end over its last 15 s (`RoundJudge.from(env.tuning)`,
+**Blocks** go by the light (round 11, §13.14 "Round 11": a push lasts until its station is full, then a rest of whole
+breaths), a 4 s telegraph, each judged once at its end over its last 15 s (`RoundJudge.from(env.tuning)`,
 `BlockContrast` for the summary), every 4th push blind from the 3rd session (never the first of a session),
 a warm-up the first time, a quiet finale. The summary: places in light, ways down and up, abiding, the
 longest abiding, golden light, focus − rest; highlights (the way walked, the record or how far to it, more
@@ -6010,7 +6091,7 @@ while the stream flows), brighter over the figure, fading once the mouse rests �
 a story card brightens under the mouse. Keys: Space stays with the place, Enter turns a card (listed in the
 left column); the how-to says "Kliknij — zostań przy miejscu…", the keys "to samo co kliknięcie". Measured: audit
 desktop / laptop / Full HD / QHD ✓, no string under 13 px, the game's frame 0.57–0.66 ms (QHD 0.57); the phone's
-layouts unchanged (small / iphone / side ✓).
+layouts unchanged (small / iphone / side ✓). Since round 11 the map column stands left of the outer shell; the group — column, shell, egg, words — is centred.
 
 ### 14.6 The registry's lines for a mouse (`i18n/arcade-mouse.ts`)
 

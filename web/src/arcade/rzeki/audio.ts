@@ -4,8 +4,9 @@
  * station on a pentatonic ladder by its place on the full map — the earth star lowest, the gate highest — so the
  * bells descend as the light comes down and rise as the thanks go up; a whisper of glass as each piece opens,
  * climbing as the station fills; a chime and the shimmer of water when a station is full and the light flows on,
- * the map's bells when a way is whole, the breath's soft wind in rest, a plink for each drop that reaches the
- * pool.  No drums.  Throttled, so many taps never become noise.
+ * the map's bells when a way is whole, the breath's soft wind in rest (following the player's pattern: rising
+ * in, falling out, quiet on a hold), a plink for each drop that reaches the pool.  No drums.  Throttled, so many
+ * taps never become noise.
  */
 import { ladder, type ArcadeAudio } from '../kit/audio';
 import { MAP, STATION, type StationId } from './content';
@@ -103,8 +104,11 @@ export class RzekiSound {
         if (e.on) a.bell(1760, 0.014, 1.1);
         break;
       case 'breathTurn':
-        if (e.inhale) a.noiseBurst(3.6, { type: 'lowpass', freq: 260, sweepTo: 900, gain: 0.02 });
-        else a.noiseBurst(5.4, { type: 'lowpass', freq: 900, sweepTo: 240, gain: 0.018 });
+        // the breath's soft wind follows the player's pattern: rising for the whole in-breath, falling for the
+        // out-breath; a hold is quiet, marked only by one faint low bell as it begins
+        if (e.phase === 'in') a.noiseBurst(Math.max(0.6, e.len * 0.92), { type: 'lowpass', freq: 260, sweepTo: 900, gain: 0.02 });
+        else if (e.phase === 'out') a.noiseBurst(Math.max(0.6, e.len * 0.92), { type: 'lowpass', freq: 900, sweepTo: 240, gain: 0.018 });
+        else a.bell(ladder(e.phase === 'holdIn' ? 7 : 2, ROOT), 0.012, 1.6);
         break;
       case 'blindEnd':
         [5, 9, 12].forEach((k, i) => a.bell(ladder(k, ROOT), 0.04, 2.2, i * 0.12));
