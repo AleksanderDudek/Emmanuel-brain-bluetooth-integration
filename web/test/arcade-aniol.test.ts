@@ -584,8 +584,8 @@ describe('the texts in four languages', () => {
 
   it('bends the headline unit (1 zmora, 3 zmory, 5 zmór)', () => {
     expect([1, 3, 5, 22, 25].map(unit)).toEqual(['zmora', 'zmory', 'zmór', 'zmory', 'zmór']);
-    expect(t('zmory', { n: 12 })).toBe('12 zmór');
-    expect(CATALOGS.en.zmory).toEqual({ one: '{n} nightmare', other: '{n} nightmares' });
+    expect(t('zmory', { n: 12 })).toBe('12\u00a0zmór');
+    expect(CATALOGS.en.zmory).toEqual({ one: '{n}\u00a0nightmare', other: '{n}\u00a0nightmares' });
   });
 
   it('never asks to concentrate harder, never uses holiness words or "hack"', () => {

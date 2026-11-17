@@ -12,7 +12,7 @@
  */
 import { format, lang, pick, translator } from '../../i18n';
 
-const N = ' ';
+const N = '\u00a0';
 
 const pl = {
   // counts

@@ -612,7 +612,7 @@ describe('words and verses', () => {
     expect(unit(3)).toBe('iskry');
     expect(unit(5)).toBe('iskier');
     expect(unit(22)).toBe('iskry');
-    expect(t('sparks', { n: 12 })).toBe('12 iskier');
+    expect(t('sparks', { n: 12 })).toBe('12\u00a0iskier');
   });
 
   it('names only passages that exist, the root among them', () => {

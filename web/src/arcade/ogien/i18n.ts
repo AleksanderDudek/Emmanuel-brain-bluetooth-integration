@@ -14,7 +14,7 @@
 import { format, lang, pick, translator } from '../../i18n';
 
 /** a no-break space (between a number and its unit, and before "%" in German and Swedish) */
-const N = ' ';
+const N = '\u00a0';
 
 const pl = {
   // counts

@@ -14,7 +14,7 @@
 import { format, lang, pick, translator } from '../../i18n';
 
 /** a no-break space */
-const N = ' ';
+const N = '\u00a0';
 
 const pl = {
   // counts

@@ -14,7 +14,7 @@
  */
 import { format, lang, pick, translator, type Catalog } from '../../i18n';
 
-const N = ' ';
+const N = '\u00a0';
 
 const pl = {
   // counts

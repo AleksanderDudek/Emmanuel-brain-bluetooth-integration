@@ -648,7 +648,7 @@ describe('Tirza talks, and the texts in four languages', () => {
 
   it('bends the headline unit (1 łokieć, 3 łokcie, 5 łokci)', () => {
     expect([1, 3, 5, 22, 25].map(unit)).toEqual(['łokieć', 'łokcie', 'łokci', 'łokcie', 'łokci']);
-    expect(t('cubits', { n: 12 })).toBe('12 łokci');
+    expect(t('cubits', { n: 12 })).toBe('12\u00a0łokci');
   });
 
   it('never asks to concentrate harder, never uses holiness words, gore or "hack"; nobody is killed', () => {
