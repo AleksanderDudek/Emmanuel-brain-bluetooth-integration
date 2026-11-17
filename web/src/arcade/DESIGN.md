@@ -5952,3 +5952,178 @@ calibration card and the how-to the runner's `touch`.  A line that names both ("
 no twin.  `test/arcade-mouse.test.ts` holds the twins to the registry's keys and order, keeps every finger's
 word out of them in all four languages, and fails when a registry line names a finger's gesture without a
 twin — so a new game cannot forget its desktop words.
+
+## 15. Health visualisations: guided meditations to choose, walk through and repeat (2026-11-17)
+
+The founder's note of 2026-11-17 headed one of its items *"Wizualizacje zdrowotne"* (health visualisations). The
+Games tab has a section of that name now (registry `kind: 'health'`, between the visualisations and the body
+series; its note: guided meditations to choose, move on or repeat; attention and imagination training, not a
+treatment). Unlike the body series' games, a health visualisation is a **library of meditations** — the player
+chooses one, walks through its scenes, goes back, repeats a scene or the whole meditation, and the next session
+goes on where this one stopped — and, as in Rzeki this round, its pictures grow **only from real focus**.
+
+### 15.1 Każdy włos — every hair numbered (the founder's request of 2026-11-17)
+
+The founder wrote: *"Wizualizacje zdrowotne. Dodać wizualizacje wzrastania włosów, regeneracji głowy, zgodne z tym jak
+odbywa się wzrost włosów na głowie. Chcę móc wybierać, nawigować lub powtarzać różne medytacje w tym zakresie"* —
+visualisations of hair growing and of the head regenerating, true to how hair really grows, meditations to choose,
+navigate and repeat — with a free hand.  The game is the first of the Games tab's new section **Wizualizacje
+zdrowotne** (registry `kind: 'health'`), rooted in **Luke 12:7** ("even the very hairs of your head are all numbered;
+do not be afraid"): God's care for every hair, never a promise that hair will grow.  Code: `src/arcade/wlosy/`
+(sim.ts the session, render.ts the view, the five pictures in world-*.ts).
+
+**One line:** a library of eight short guided meditations about the hair and the scalp; in each, the player's real
+concentration makes the picture grow — scene by scene, true to the physiology — while rest deepens it with the breath.
+
+### 15.2 The physiology (every number on screen, and its source)
+
+| What the game says | Source |
+|---|---|
+| About 100 000 hairs on a head (most adults 80 000–120 000) | Oh et al., J Invest Dermatol 2016;136:34 (PMID 26763421); StatPearls "Anatomy, Hair" (NBK513312) |
+| Follicular units of 1–4 hairs, about 2 a unit; 60–100 units per cm² (the 124–200 hairs and 65–85 units/cm² of the brief were measured at the back of the scalp, so the game says the range) | Jimenez & Ruifernández, Dermatol Surg 1999;25:294 (PMID 10417585); Bao et al., J Craniofac Surg 2018 (PMID 30277939); Ortega-Castillejos & Pathomvanich, Dermatol Surg 2017 (PMID 28362669); the term: Headington, Arch Dermatol 1984 (PMID 6703750) |
+| About 0.35 mm a day, about a centimetre a month | StatPearls "Anatomy, Hair"; Loussouarn, Br J Dermatol 2001;145:294 (PMID 11531795: ≈ 0.40 mm/day Caucasian, 0.26 African hair) |
+| Only the root grows; the cells harden about a millimetre above the bulb (keratogenous zone) | StatPearls "Physiology, Hair" (NBK499948); Jones et al., Br J Dermatol 2018 (PMID 29181849) |
+| Matrix cells divide about every 39 h, ≈ 8× faster than basal cells of ordinary skin (311 h) | Weinstein & Mooney, J Invest Dermatol 1980 (PMID 7351493); Weinstein et al. 1984 (PMID 6725985) |
+| Anagen 2–7 years (85–90 %), catagen 2–3 weeks, telogen about 3 months (10–15 %), exogen an active release; 50–100 hairs a day is normal | Oh et al. 2016; StatPearls "Anatomy, Hair Follicle" (NBK470321); American Academy of Dermatology, "Hair loss or hair shedding?" |
+| Each follicle keeps its own time (a mosaic) | Oh et al. 2016 ("mosaic, stochastically driven"); Halloy et al., PNAS 2000 (PMC26947) |
+| Catagen: the lower follicle regresses, a club hair forms, the papilla rises to the bulge | StatPearls NBK470321; Schneider, Schmidt-Ullrich & Paus, Curr Biol 2009 (PMID 19211055) |
+| Papilla signals wake the hair germ and the bulge's stem cells; a new hair grows from below; the old one is let go (sometimes before the new arrives — never shown as "pushed out") | Greco et al., Cell Stem Cell 2009 (PMC2668200); Oh et al. 2016 |
+| The follicle a mini-organ that rebuilds its lower part in every cycle, through life | Schneider et al. 2009; Stenn & Paus, Physiol Rev 2001 (PMID 11152763) |
+| The papilla: specialised fibroblasts, a capillary loop, signals to the matrix; bigger papilla, thicker hair | StatPearls NBK499948; Elliott et al., J Invest Dermatol 1999 (PMID 10594724) |
+| Eumelanin black–brown, pheomelanin yellow–red; pigment made only in anagen; grey and white: fewer active pigment cells | Slominski et al. 2005 (PMC1201498); Ito & Wakamatsu 2011 (PMID 22077870); Commo et al. 2004 (PMID 15030325); Nishimura et al., Science 2005 (PMID 15618488) |
+| Cuticle 5–10 layers of flat overlapping scales, cortex the bulk, medulla only in thick hairs | Swift, J Cosmet Sci 1999;50:23; Wolfram, J Am Acad Dermatol 2003 (PMID 12789162) |
+| The bulge at the arrector pili's insertion, below the gland; sebum oils hair and skin | StatPearls NBK470321; Cotsarelis et al., Cell 1990 (PMID 2364430); Ohyama et al., J Clin Invest 2006 (PMC1323261) |
+| Bulge cells help mend wounded skin (they do not renew it day to day: the basal cells do) | Ito et al., Nat Med 2005;11:1351 (PMID 16288281, in mice) |
+| Hair leaves the skin on a slant — about 16° at the temple's hairline | Mowlavi et al., Plast Reconstr Surg 2007 (PMID 17440370); Gharwade, Indian J Plast Surg 2016 (PMC5288916) |
+| The scalp's five layers (S·C·A·L·P), the galea pulled by the frontal and occipital bellies; five pairs of arteries (supratrochlear, supraorbital, superficial temporal, posterior auricular, occipital) richly joined | StatPearls "Anatomy, Head and Neck, Scalp" (NBK551565; its arterial section has slips — not copied); Karsidag et al., J Craniofac Surg 2009 (PMID 19934684) |
+| The epidermis: basal cells divide, rise, flatten and flake off in about six weeks in ordinary skin; the scalp a little faster (the popular "28 days" has no primary source) | Weinstein et al. 1984; Iizuka, J Dermatol Sci 1994 (PMID 7865480) |
+| One crown whorl in > 95 % of people, clockwise in most groups studied (≈ 3 in 4 to 9 in 10; Japan 50:50), often a little to the right | Klar, Genetics 2003 (PMC1462764); Schmidt et al. 2008 (PMC5848856); Samlaska et al., Arch Dermatol 1989 (PMID 2642687) |
+
+Not shown: the per-colour hair counts (blond 150 000 …) — no traceable source.  A research pass (PubMed, StatPearls)
+checked every line; the brief's "28 days", "124–200/cm²", "a single exit angle" were corrected.
+
+### 15.3 The library
+
+| # | Meditation | Scenes (each grows with focus) | Picture | Verse |
+|---|---|---|---|---|
+| 1 | Ciepło i krążenie | the galea and the two bellies of the occipitofrontalis soften · the five arteries fill one after another, then their joins over the crown · the five layers named, the capillary net grows from the deep arteries up to a loop in every papilla | head in profile ×2, section | Ps 23:5 |
+| 2 | Korzeń | the papilla lights cell by cell · its capillary loop fills, blood cells flowing · signals pulse from the papilla to the matrix | follicle (bulb) | Ps 1:3 |
+| 3 | Kolor | melanocytes wake on the papilla's top, dendrites reaching · granules of eumelanin and pheomelanin pass into the new cells (the player's colour; grey: few active cells) · the colour rises from the bulb to the tip | follicle (bulb, whole) | Ps 139:13–14 |
+| 4 | Wzrost | matrix cells divide, one into two · cells rise and harden: the gold front of keratin, cuticle scales, cortex, medulla · the hair leaves the skin on its slant, a ruler of days beside it | follicle (bulb, mid, top) | Mark 4:27–28 |
+| 5 | Wir i kierunek | strands rise around the crown's clockwise whorl · streams of light: forward, sideways, down the nape · a square centimetre close up: 80 units open one by one (≈ 170 hairs) | head from above, skin | Luke 12:7 |
+| 6 | Cykl odnowy | anagen (a dial of the cycle's true shares) · catagen into telogen (the club hair, the papilla rising) · a new hair from below, the old one let go · each follicle in its own time (a mosaic of eleven, a legend of the phases) | follicle (whole), section | Eccl 3:1 |
+| 7 | Odnowa skóry głowy | the epidermis renews: cells born at the base rise, flatten, flake away (the newborn rimmed in gold) · the sebaceous gland fills and oils the hair · the barrier built as bricks and golden mortar; the bulge's stem cells | section (epidermis), follicle (top) | Ps 103:5 |
+| 8 | Cała głowa | warmth (all five arteries at once) · the roots (every papilla lit) · growth (every hair out of the skin) · the head held high (the hair grows to its length in the player's colour, the head lifts) | head, section ×2, head | Ps 3:3 |
+
+Each scene has a name, a line it teaches in the words band (plain physiology with the real numbers), a picture for
+the head in a push (the runner's "W głowie": the scene's own imagery; every third push a counting one — "add up the
+hairs in the tufts"), one narrator line, and the parts it names on the picture in a small italic serif.
+
+### 15.4 The pictures (beauty first)
+
+A luminous medical plate in the body series' family, drawn in code: a deep plum ground; **tissues that glow from
+within** — dark rose-plum dermis with faint collagen glints, translucent sheaths with bright rims, the bulb lit from
+inside around a magenta papilla, gold for growth (the keratogenous front, the sparks of the growing point), warm red for
+blood, aqua for stem cells, honey for sebum.  Five worlds (geo.ts): the head in profile (no features but the line of the
+face; the galea, the bellies, the five arteries; the hair as a cap over the side of the head above the ear, strands
+flowing from the crown with a curved temple hairline), the head from above (a clockwise whorl behind the middle, the
+strands lying on the head and ending at its edge), a square centimetre of skin, the scalp in section (S·C·A·L·P over
+the bone, eleven slanted follicles reaching into the fat, more beyond for a wide box), one follicle in detail (slanted
+24°: CTS, ORS with the bulge, IRS to the isthmus, the hair with cuticle/cortex/medulla, the bulb with matrix,
+melanocytes and papilla with its loop, the gland of three lobes, the arrector pili on the obtuse side).  The tissue
+worlds are seen through a lens (a rounded plate with a rim of light and an inner vignette).
+
+**The camera** frames each scene's view; within a picture it glides (bulb → mid → whole), between pictures it dives:
+deeper (head → section → follicle) it zooms into the place it came from while the next picture opens from there,
+shallower it pulls out — the "zoom from the head down into one follicle".  Reduced motion: a cross-fade.
+
+**The gauge on the picture:** at the growing point a halo whose edge follows the light, the threshold as a faint dashed
+ring in a sighted push, gold once past it, sparkles while it grows; rest: a soft glow breathing 4/6; blind: nothing.
+
+Performance: the ground and every picture's still parts are baked per view and size; many strands (the head from above,
+the profile hair) are drawn into layers that grow incrementally / are redrawn only when their length moves a step.
+
+### 15.5 Progress only from real focus
+
+The founder's rule of the round: a scene grows only in a **sighted push past its lead-in** (5 s Mendi, 2 s HALO), with
+a **reliable** signal, while **`frame.focused`**: `(0.75 + 0.5·level + 0.25·min(1, hold/20)) / 30` of the scene a second
+— 21–25 s of focused time in strong focus, 25–29 s at a moderate one, 28–32 s at the threshold.  The first-ever
+session's warm-up grows at half that rate (it is real focus too; it lets the smoke score early).  Rest, the finale, the
+lead-in, a story card, no signal: nothing grows and nothing is lost.  Rest **deepens** the picture instead (warmth,
+colour, sheen follow calm, τ 3 s, fading slowly after).  A blind push grows unseen (up to 0.6 past the scene's end,
+carried into the next) and shows it at its end, with its hairs.  Measured with the sim (300 s of a 10-minute session,
+rests calm): about one scene per two push blocks at a moderate signal; **none without focus** (0 scenes, 0 hairs).
+
+### 15.6 Choose, walk, repeat
+
+* **Modes** (the lobby's card and the picker): **Po kolei** — all eight in order, round again; **Jedna** — the chosen
+  meditation once, then its last picture stays ("after": the hair keeps growing — focus still counts hairs, a sheen);
+  **Powtarzaj** — the chosen meditation again and again.
+* **In play:** four round controls — **≡** the picker, **◀** the previous scene, **↻** this scene again from its start,
+  **▶** the next — across meditations and round the eight.  A scene walked back to shows as it was left this session.
+  Skipping is the player's; only scenes grown by focus count as grown.  A tap on the picture stays with it (its words
+  glow again); Space does the same.  Keys: ← → R M, 1–8 in the picker; hover answers on a desk (a brighter control, its
+  name above it; pointer cursor).
+* **The picker:** a card over the dimmed picture — the three modes as segments, the eight meditations as tiles (the
+  current one gold; scenes grown, a check once completed; numbered 1–8 on a desk); a step along the scenes, a closing
+  card or 20 s untouched closes it; long names wrap onto two lines.
+* **Resume:** the place is saved (the scene and its growth; a grown scene hands on to the next, at a meditation's end by
+  the mode) and the next session begins there.  The lobby's card says where ("Wznowisz: Korzeń · scena 2/3 — Pętla
+  naczyń") and choosing a meditation there starts it at its first scene (or resumes it, if it is the one in progress);
+  each tile is the meditation's picture with its name and "✓ n×" once completed (or its scenes grown so far).
+
+### 15.7 The headline, the colour, the words
+
+* **Hairs** (włos / włosy / włosów; hair/hairs; Haar/Haare; hårstrå/hårstrån): 4 a second of focused growth at a
+  multiplier of 1 (≈ 120 a scene); nothing for rest, nothing for verdicts.  A floating "+N" every 2 s by the growing
+  point.  The lifetime total ("Policzone włosy") in the card.  A 5-minute session at a moderate signal: a few hundred.
+* **The hair colour** (black, dark brown, brown, auburn, blond, grey/white) in the card: every strand, the melanocytes
+  and their granules take it (eumelanin's share by colour; grey has few active pigment cells — the narrator says so,
+  "and it is numbered just the same").  Strands carry a sheen so dark hair reads on the dark ground.
+* **Words:** the band under the picture (the scene's name and its meditation · n/of, then what it teaches in a serif,
+  pages of whole lines that turn slowly when it does not fit; rest: the breath's count and the meditation's verse); the
+  narrator (≤ 90 characters, at most one line, never over a banner, a card, the picker or a coach mark) speaks in the
+  band's top row on a phone and in its own place on a desk.  Story cards: the first session's two pages (Luke 12:7; then
+  "what this is: visualisation and attention training, not a treatment; sudden or patchy hair loss — a dermatologist"),
+  and a closing card for each meditation (its verse, "Dziękuję za każdy włos", what comes next by the mode).
+* **Not a treatment** appears plainly in the card, the opening card, the registry tip and the how-to's last tip ("the
+  band measures attention, not the health of your hair").  No disease named as a target; no promise of regrowth (a
+  test keeps such words out of all four languages).
+
+### 15.8 Sound, blocks, summary
+
+A quiet original tune in F major at 56 bpm (tune.ts on kit/song.ts: soft chords always, bass, a bell melody, a harp of
+arpeggios at full growth; the layers follow the light in a sighted push, a gentle level in rest, held in a blind block;
+switch in the card); without it a warm pad.  A bell per meditation on the pentatonic ladder, a glass tone each tenth of
+a scene grown, a chime for a grown scene, all eight bells for a whole meditation, the breath's wind in rest, a page-turn
+for a step.  Blocks as the reference game: push 24 ± 3 s, rest 26 ± 3 s, telegraph 4 s, judged once over the last 15 s
+(`RoundJudge.from(env.tuning)`, `BlockContrast`), every 4th push blind from the 3rd session, a warm-up the first time, a
+quiet finale (the picture settles).  Summary: scenes grown, meditations completed, growth from focus (s), calm, the
+longest calm, focus − rest; highlights (a completed meditation, the scenes grown, the record or how far, the longest
+calm, the dark's share, all numbered so far, where the next session begins); the closing verse in turn: Luke 12:7 the
+first time, the meditation's verse, 2 Cor 4:16, Ps 139:16, Isa 40:31, Ps 121:1–2.
+
+### 15.9 Reverence
+
+No figure of God, no cross, no Spirit drawn; the verses come only from scripture.ts.  The narrator thanks ("Dziękuję za
+każdy włos") and never promises.  The head in profile has no features but its outline (anyone can see themselves).
+
+### 15.10 Mobile first, and the desk
+
+layout.ts, pure, tested at every `CHECK_SIZES` entry (targets audited for the controls, the picker's 12 parts and the
+story card; the controls never at the canvas's middle).  *tall*: the picture in the middle, the words band (≥ 104 px)
+over the four 48 px controls in the thumb zone; *side*: the picture square on the left, the words and the controls in a
+column; *wide* (a tablet on its side) the same grown; *desk* (a mouse on a desktop or a big screen): the picture as tall
+as the band and as wide as the column leaves, the narrator, the words and the controls with their key caps in a column
+at a reading measure (17 × the teaching size), centred as one group; type grows with `uiScale`.  The picture: 344 × 178
+on the smallest phone (words band 328 × 110, buttons 48), 374 × 223 in iPhone Safari, 374 × 369 installed, 396 × 301 on
+a large phone, 280 × 280 on its side, 804 × 521 on a tablet, 456 × 456 on a 1280 desktop, 701 × 838 in a Full HD
+column (teaching text 24 px), 946 × 1158 on QHD (32 px, buttons 87).  Text: teaching ≥ 15 px, labels, captions, the
+breath and the cards ≥ 13, a verse's reference 11 (the kit's).  Long names wrap rather than shrink under 13 px (the
+picker's "Der Reihe / nach", "Der Kreislauf / der Erneuerung", a closing card's title on two lines).
+
+**Measured** (scripts/arcade-mobile.mjs, final run): small phone, iPhone, phone on its side ✓ — 0 strings under 11 px,
+only the kit's verse references at 11 px under 13, 18 targets (the four controls, the picker's 12 parts, the story
+card) all valid, 60 fps with the CPU slowed 2–4×, game 0.79–2.03 ms (the latter at 4×); desktop, laptop, Full HD, QHD
+✓ — 0 under 11 px, game 1.01–1.11 ms (QHD 1.1 ms), the picture 90 % of the screen's height on Full HD and QHD.
+Tests: test/arcade-wlosy.test.ts (55); the whole suite green.

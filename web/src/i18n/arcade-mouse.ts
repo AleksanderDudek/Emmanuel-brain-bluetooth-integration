@@ -46,6 +46,8 @@ const pl = {
   'dziewiatka.how3': 'Rękami: kliknij świecący portret (albo jego cyfrę 1–5) — cios specjalny; przy studni kliknięcie przyszywa bohaterowi element stroju. Piątkę ustawiasz w lobby.',
   'nehemiasz.how3': 'Rękami: przeciągnij myszą albo idź WASD; stań na znaczniku, by budować albo ulepszać. Kliknij znacznik albo „Następne” (albo Spacja) — Nehemiasz idzie budować.',
   'koty.how3': 'Rękami: przeciągnij myszą zabawkę na drugą tej samej rangi, by je połączyć, albo na kota, by mu ją dać. Kliknij ulepszenie (albo 1–4), by je kupić.',
+  // the health visualisations
+  'wlosy.how3': 'Rękami: kliknij ◀ ↻ ▶ (albo ←, R, →), by cofnąć, powtórzyć albo przejść dalej, i ≡ (albo M), by wybrać medytację i tryb.',
 } satisfies Partial<Record<ArcadeKey, string>>;
 
 type TwinKey = keyof typeof pl;
@@ -82,6 +84,7 @@ const en: Twins = {
   'dziewiatka.how3': 'With your hands: click a glowing portrait (or press its number, 1–5) — a special; at the well a click sews a piece of outfit onto a hero. You choose your five in the lobby.',
   'nehemiasz.how3': 'With your hands: drag with the mouse or walk with WASD; stand on a marker to build or upgrade. Click a marker or “Next” (or press Space) and Nehemiah goes to build.',
   'koty.how3': 'With your hands: drag a toy with the mouse onto another of the same grade to merge them, or onto a cat to hand it over. Click an upgrade (or press 1–4) to buy it.',
+  'wlosy.how3': 'With your hands: click ◀ ↻ ▶ (or press ←, R, →) to go back, repeat or go on, and ≡ (or M) to choose a meditation and the mode.',
 };
 
 const de: Twins = {
@@ -115,6 +118,7 @@ const de: Twins = {
   'dziewiatka.how3': 'Mit den Händen: Klick auf ein leuchtendes Porträt (oder drück seine Ziffer, 1–5) — ein Spezialangriff; am Brunnen näht ein Klick dem Helden ein Kleidungsstück an. Deine Fünf stellst du in der Lobby auf.',
   'nehemiasz.how3': 'Mit den Händen: Zieh mit der Maus oder geh mit WASD; stell dich auf eine Markierung, um zu bauen oder zu verbessern. Klick auf eine Markierung oder „Als Nächstes“ (oder die Leertaste), und Nehemia geht bauen.',
   'koty.how3': 'Mit den Händen: Zieh ein Spielzeug mit der Maus auf ein anderes gleichen Rangs, um sie zu verbinden, oder auf eine Katze, um es ihr zu geben. Klick auf eine Verbesserung (oder 1–4), um sie zu kaufen.',
+  'wlosy.how3': 'Mit den Händen: Klick auf ◀ ↻ ▶ (oder drück ←, R, →), um zurückzugehen, zu wiederholen oder weiterzugehen, und auf ≡ (oder M), um Meditation und Modus zu wählen.',
 };
 
 const sv: Twins = {
@@ -148,6 +152,7 @@ const sv: Twins = {
   'dziewiatka.how3': 'Med händerna: klicka på ett lysande porträtt (eller dess siffra, 1–5) — ett specialslag; vid brunnen syr ett klick på ett plagg på hjälten. Din femma väljer du i lobbyn.',
   'nehemiasz.how3': 'Med händerna: dra med musen eller gå med WASD; ställ dig på en markering för att bygga eller förbättra. Klicka på en markering eller ”Nästa” (eller mellanslag) så går Nehemja och bygger.',
   'koty.how3': 'Med händerna: dra en leksak med musen till en annan av samma rang för att slå ihop dem, eller till en katt för att ge den. Klicka på en förbättring (eller 1–4) för att köpa den.',
+  'wlosy.how3': 'Med händerna: klicka på ◀ ↻ ▶ (eller tryck ←, R, →) för att gå tillbaka, upprepa eller gå vidare, och på ≡ (eller M) för att välja meditation och läge.',
 };
 
 export const MOUSE_CATALOGS: Readonly<Record<Lang, Twins>> = { pl, en, de, sv };

@@ -59,7 +59,7 @@ export interface ArcadeEntry {
 }
 
 type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty'
-  | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki';
+  | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'wlosy';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -326,6 +326,15 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'jhn7.38-39',
     brain: brain('rzeki'),
     load: () => import('./rzeki/index').then(m => m.default),
+  },
+  {
+    id: 'wlosy', kind: 'health', title: t('wlosy.title'), tagline: t('wlosy.tagline'), text: t('wlosy.text'),
+    how: [t('wlosy.how1'), t('wlosy.how2'), t('wlosy.how3')],
+    tips: [t('wlosy.tip1'), t('wlosy.tip2'), t('wlosy.tip3'), t('wlosy.tip4'), t('wlosy.tip5')],
+    unit: t('wlosy.unit'), art: 'art-wlosy', fill: ['#ffe7c8', '#ffb08f', '#b45f8c', '#170d22'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'luk12.7',
+    brain: brain('wlosy'),
+    load: () => import('./wlosy/index').then(m => m.default),
   },
 ];
 

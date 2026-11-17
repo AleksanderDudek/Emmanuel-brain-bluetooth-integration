@@ -1,0 +1,95 @@
+/**
+ * Każdy włos's sounds, on the kit's synthesiser (kit/audio.ts), under the quiet tune (tune.ts) or, with the tune off,
+ * a warm pad in F whose filter follows the light: a bell for each meditation on a pentatonic ladder when its scene
+ * arrives, a whisper of glass with each tenth of a scene grown (climbing as it grows), a chime with its fifth and
+ * octave when a scene has grown, all eight bells when a meditation is whole, the breath's soft wind in rest, a soft
+ * page-turn for a step along the scenes.  No drums.  Throttled, so many taps never become noise.
+ */
+import { ladder, type ArcadeAudio } from '../kit/audio';
+import { MED, MEDS } from './content';
+import type { SimEvent, WlosySim } from './sim';
+
+/** F major with an added ninth, low: the pad when the tune is off. */
+const PAD = [174.61, 261.63, 349.23, 440];
+/** The bells' root: F5 on the pentatonic ladder (F G A C D). */
+const ROOT = 698.46;
+
+const bellOf = (i: number): number => ladder(i, ROOT / 2);
+
+export class WlosySound {
+  private tickGap = 0;
+  private tapGap = 0;
+
+  constructor(private readonly a: ArcadeAudio) {}
+
+  start(tune: boolean): void {
+    if (!tune) this.a.pad({ notes: PAD, dark: 260, bright: 1800, gain: 0.05 });
+  }
+
+  update(dt: number): void {
+    this.tickGap = Math.max(0, this.tickGap - dt);
+    this.tapGap = Math.max(0, this.tapGap - dt);
+  }
+
+  on(e: SimEvent, sim: WlosySim): void {
+    const a = this.a;
+    if (!a.on) return;
+    switch (e.type) {
+      case 'scene': {
+        const b = MED[e.med].bell;
+        if (e.via === 'auto' || e.via === 'start' || e.via === 'pick') {
+          a.bell(bellOf(b + 5 + e.i), 0.045, 2.2);
+          a.noiseBurst(1.6, { type: 'lowpass', freq: 300, sweepTo: 1200, gain: 0.012 });
+        } else {
+          // a step along the scenes: a soft turn of a page
+          a.noiseBurst(0.35, { type: 'bandpass', freq: e.via === 'prev' ? 1600 : 2200, sweepTo: e.via === 'prev' ? 900 : 3200, q: 1, gain: 0.014 });
+          a.tone(bellOf(b + 5 + e.i), 0.25, { type: 'triangle', gain: 0.018 });
+        }
+        break;
+      }
+      case 'tick': {
+        if (this.tickGap > 0) break;
+        this.tickGap = 0.08;
+        a.tone(ladder(MED[sim.med].bell + 4 + e.k, ROOT / 2), 0.18, { type: 'sine', gain: 0.012 });
+        break;
+      }
+      case 'grown': {
+        const f = bellOf(MED[e.med].bell + 7);
+        a.bell(f, 0.07, 2.6);
+        a.bell(f * 1.5, 0.035, 2.4, 0.09);
+        a.bell(f * 2, 0.022, 2, 0.18);
+        a.noiseBurst(1.2, { type: 'bandpass', freq: 2400, sweepTo: 5000, q: 1.2, gain: 0.014 });
+        break;
+      }
+      case 'whole':
+        MEDS.forEach((m, i) => a.bell(bellOf(MED[m].bell + 5), 0.045, 2.8, i * 0.16));
+        break;
+      case 'gold':
+        if (e.on) a.bell(1396.91, 0.013, 1.1);
+        break;
+      case 'breathTurn':
+        if (e.inhale) a.noiseBurst(3.6, { type: 'lowpass', freq: 260, sweepTo: 900, gain: 0.02 });
+        else a.noiseBurst(5.4, { type: 'lowpass', freq: 900, sweepTo: 240, gain: 0.018 });
+        break;
+      case 'blindEnd':
+        [0, 2, 4].forEach((k, i) => a.bell(ladder(k + 5, ROOT / 2), 0.035, 2.2, i * 0.12));
+        break;
+      case 'stay':
+        if (this.tapGap > 0) break;
+        this.tapGap = 0.1;
+        a.tone(bellOf(MED[sim.med].bell + 6), 0.22, { type: 'triangle', gain: 0.014 });
+        break;
+      case 'picker':
+        a.noiseBurst(0.4, { type: 'bandpass', freq: e.open ? 900 : 1800, sweepTo: e.open ? 1800 : 900, q: 0.9, gain: 0.012 });
+        break;
+      case 'mode':
+        a.bell(bellOf(9), 0.02, 1.2);
+        break;
+      case 'story':
+        a.bell(bellOf(MED[sim.med].bell + 5), 0.03, 2.4);
+        break;
+      default:
+        break;
+    }
+  }
+}
