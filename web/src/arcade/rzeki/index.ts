@@ -1,17 +1,20 @@
 /**
  * Rzeki żywej wody (rivers of living water): a meditation of light (DESIGN.md §13.14), rooted in John 7:38-39.
- * Light comes down from an open heaven and rests in seven places of the body — the head, the eyes, the
- * mouth, the heart, the breath, the inner being, the feet — one at a time; at each the founder's prayer
- * ("Przez Jezusa Chrystusa, Duchu Święty, wypełnij … i niech popłynie …") or the player's own words.  Focus
- * is the place's light: its halo grows past a faint ring and its rose window of church glass opens petal by
- * petal; full, the light flows on as living water, two threads of gold and silver spiralling to the next
- * place.  Rest is abiding: the figure breathes 4 in / 6 out, the lit places shine, drops of living water
- * gather in a pool at the feet and two rivers flow out of it.  Then the light rises again, as thanksgiving.
+ * Light comes down from an open heaven and rests at the stations of the two pictures the founder sent — the
+ * gate and the stars above the head, the crown, the three channels, the brow, the throat, the heart, the hands,
+ * the solar plexus, the Void, the sacral centre, the sacrum, the root, the feet, the earth star — one at a time,
+ * on the map the player chose; at each the founder's prayer ("Przez Jezusa Chrystusa, Duchu Święty, wypełnij …
+ * i niech popłynie …") or the player's own words.  Focus is the station's light: its halo grows past a faint ring
+ * and turns gold, and only then does its glass load, piece by piece; full, the light flows on as living water.
+ * Rest is abiding: the figure breathes 4 in / 6 out, the lit stations shine, drops of living water gather in a
+ * pool at the feet and two rivers flow out of it.  Then the light rises again, as thanksgiving; the way goes on
+ * next session where it stopped.
  *
- * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts, the numbers in
- * rules.ts, the places in content.ts, the meta in meta.ts, the narrator in talk.ts), the pictures (render.ts
- * with layout.ts, figure.ts, rose.ts, paint.ts and hud.ts; intro.ts and preview.ts on scene.ts), the sound
- * (audio.ts) and the quiet chorale (hymn.ts on kit/song.ts), the lobby's card (panel.ts); the words in i18n.ts.
+ * This module wires the parts to the arcade runner (kit/types.ts): the rules (sim.ts, the numbers in rules.ts,
+ * the stations and maps in content.ts, their glass piece by piece in tiles.ts, the meta in meta.ts, the narrator
+ * in talk.ts), the pictures (render.ts with layout.ts and its camera, figure.ts, rose.ts, paint.ts and hud.ts;
+ * intro.ts and preview.ts on scene.ts), the sound (audio.ts) and the quiet chorale (hymn.ts on kit/song.ts), the
+ * lobby's card (panel.ts); the words in i18n.ts.
  */
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
@@ -22,14 +25,12 @@ import { RzekiSound } from './audio';
 import { buildHymn } from './hymn';
 import { dropsText, t, unit } from './i18n';
 import { RzekiIntro } from './intro';
-import { figPt, placeXY, windowR } from './layout';
 import { bestOf, freshProgress, migrate, type RzekiProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
 import { RzekiView } from './render';
 import { RULES } from './rules';
-import { LIT_DOWN, LIT_UP, RzekiSim, type Coach, type CoachAt, type SimEvent } from './sim';
-import { PLACES } from './content';
+import { RzekiSim, type Coach, type CoachAt, type SimEvent } from './sim';
 
 class RzekiGame implements ArcadeGame {
   private readonly sim: RzekiSim;
@@ -107,8 +108,8 @@ class RzekiGame implements ArcadeGame {
   }
 
   /**
-   * A tap anywhere stays with the place the light is at (its prayer glows again, a little light is added), or
-   * turns a story card's page.  It answers at once: a ring under the finger.
+   * A tap anywhere stays with the station the light is at (its prayer glows again, a ring of light, a glass tone —
+   * never light), or turns a story card's page.  It answers at once: a ring under the finger.
    */
   pointer(e: PointerInput): void {
     if (!this.env.touch) this.mouseAt(e);
@@ -119,8 +120,8 @@ class RzekiGame implements ArcadeGame {
   }
 
   /**
-   * A desktop's mouse (DESIGN §14): the place a click would stay with answers with a ring of light, and the cursor
-   * says a click does something — anywhere in the play (a click anywhere stays with the place), on a story card.
+   * A desktop's mouse (DESIGN §14): the station a click would stay with answers with a ring of light, and the
+   * cursor says a click does something — anywhere in the play (a click anywhere stays with it), on a story card.
    */
   private mouseAt(e: PointerInput): void {
     const v = this.view;
@@ -159,16 +160,7 @@ class RzekiGame implements ArcadeGame {
   }
 
   private pointFor(at: CoachAt): { x: number; y: number } | null {
-    const L = this.view.L, sim = this.sim;
-    switch (at) {
-      case 'place': {
-        const c = placeXY(L, sim.place);
-        return { x: c.x, y: c.y - windowR(L, sim.fill) * 1.3 };
-      }
-      case 'chest': return figPt(L, 0, 0.27);
-      case 'pool': return figPt(L, 0, 0.98);
-      default: return null;
-    }
+    return this.view.pointAt(at, this.sim);
   }
 
   padLevel(f: FocusFrame): number | null { return this.sim.padLevel(f); }
@@ -196,10 +188,9 @@ class RzekiGame implements ArcadeGame {
     const best = bestOf(s.p);
     const left = best !== null ? best - s.score : 0;
     if (best !== null && left > 0 && left <= Math.max(60, best * 0.2)) return { value: s.score, sub: t('hud.subBest', { left: dropsText(left) }) };
-    // the places this way has reached: lit going down, thanked going up
-    const bit = s.dir === 'down' ? LIT_DOWN : LIT_UP;
-    const n = PLACES.reduce((k, p) => k + (s.lit[p] & bit ? 1 : 0), 0);
-    return { value: s.score, sub: `${t(s.dir === 'down' ? 'hud.subDown' : 'hud.subUp')} · ${n}/7` };
+    // where the light is on the way: the station's number on the map's route ("W dół · 9/17")
+    const n = Math.min(s.route.length, s.idx + (s.stage === 'flow' ? 2 : 1));
+    return { value: s.score, sub: `${t(s.dir === 'down' ? 'hud.subDown' : 'hud.subUp')} · ${n}/${s.route.length}` };
   }
 
   /** Ended early: the sim settles at once; its events are dropped (the view and the sound are about to go). */
@@ -210,7 +201,7 @@ class RzekiGame implements ArcadeGame {
 
   result(): ArcadeOutcome { return this.sim.result(); }
 
-  /** Every control the player can tap now (the current place's circle, or a story card), for the mobile audit. */
+  /** Every control the player can tap now (the current station's area, or a story card), for the mobile audit. */
   targets(): TapTarget[] { return this.view.targets(this.sim); }
 
   destroy(): void {

@@ -1,15 +1,16 @@
 /**
  * Rzeki żywej wody's own words on the canvas (the runner draws the standard HUD: the Mendi panel, the score,
- * the coach marks): the prayer band — the place's name and its line in a calm serif, the words coming one by
- * one as the light arrives, glowing again when a tap stays with it; in rest the breath's count and the place's
- * verse to abide in; while the stream flows, the gift of the place just lit — the narrator's caption, and the
- * story cards (the opening's two pages, the closing cards of a way).  Every text is fitted with a floor
- * (never under 11 px; what the player reads, 13 px and more; the prayer 15 px and more).
+ * the coach marks): the prayer band — the station's name as the maps give it ("Serce · Anahata (4)") and its line
+ * in a calm serif, the words coming one by one as the light arrives, glowing again when a tap stays with it; in
+ * rest the breath's count and the station's verse to abide in; while the stream flows, the gift of the station
+ * just lit — the narrator's caption, and the story cards (the opening's two pages, what is new for a player of the
+ * first version, the closing cards of a way).  Every text is fitted with a floor (never under 11 px; what the
+ * player reads, 13 px and more; the prayer 15 px and more), and always drawn in screen space.
  */
 import { clamp, ease } from '../kit/juice';
 import { MIN_READ, MIN_TEXT } from '../kit/mobile';
 import { drawPassage, layoutPassage, passage, type PassageLayout, type PassageId } from '../kit/scripture';
-import { PLACE, giftName, lineAt, placeName, type PlaceId } from './content';
+import { STATION, fromText, giftName, lineAt, stationLabel, stationName, type StationId } from './content';
 import { t } from './i18n';
 import { type Layout, type Rect, labelRowH, storyRect } from './layout';
 import { GOLD, GOLD_HI, INK, LILAC, PEARL, WATER, fitFont, font, mix, rgbaPrefix, rr, wrap } from './paint';
@@ -27,8 +28,8 @@ let verseMemo: { key: string; lay: PassageLayout; pages: string[][] } | null = n
  * `balance` (a desktop's column): the same number of lines, made as even as they can be — no word left alone
  * on the last line.
  */
-function wrapPrayer(ctx: CanvasRenderingContext2D, text: string, w: number, px: number, min: number, maxLines: number, balance = false): Wrapped {
-  const key = `${text}|${Math.round(w)}|${px}|${min}|${maxLines}|${balance}`;
+function wrapPrayer(ctx: CanvasRenderingContext2D, text: string, w: number, px: number, min: number, maxLines: number, balance = false, lead = 1.34): Wrapped {
+  const key = `${text}|${Math.round(w)}|${px}|${min}|${maxLines}|${balance}|${lead}`;
   if (wrapMemo?.key === key) return wrapMemo;
   let size = Math.max(min, px), lines: string[] = [];
   for (; size >= min; size -= 0.5) {
@@ -50,22 +51,36 @@ function wrapPrayer(ctx: CanvasRenderingContext2D, text: string, w: number, px: 
     }
     lines = wrap(ctx, text, hi);
   }
-  wrapMemo = { key, lines, size, lineH: Math.round(size * 1.34) };
+  wrapMemo = { key, lines, size, lineH: Math.round(size * lead) };
   return wrapMemo;
 }
 
-/** The label over the prayer: the way's arrow, the place and its number; the dark, abiding, the stream, the whole. */
-export function bandLabel(sim: RzekiSim): { text: string; color: string } {
-  const place = sim.place, hue = PLACE[place].hue;
+/**
+ * The label over the prayer: the way's arrow and the station with its name from the maps (`short`: the name alone,
+ * for a band too narrow for the whole); where the way goes on; the dark, abiding, the stream, the whole.
+ */
+export function bandLabel(sim: RzekiSim, short = false): { text: string; color: string } {
+  const s = sim.station, hue = STATION[s].hue;
   const arrow = sim.dir === 'down' ? '↓' : '↑';
-  const n = sim.idx + 1;
-  if (sim.stage === 'enter') return { text: `${arrow} ${t(sim.dir === 'down' ? 'hud.down' : 'hud.up')}`, color: GOLD_HI };
+  if (sim.stage === 'enter') {
+    if (sim.resumed && sim.arrivals === 0) return { text: `${arrow} ${t('hud.resume', { from: fromText(s) })}`, color: GOLD_HI };
+    return { text: `${arrow} ${t(sim.dir === 'down' ? 'hud.down' : 'hud.up')}`, color: GOLD_HI };
+  }
   if (sim.stage === 'whole') return { text: t('hud.whole'), color: GOLD_HI };
-  if (sim.stage === 'flow') return { text: `${arrow} ${t('hud.flow', { name: placeName(sim.nextPlace ?? place) })}`, color: WATER };
-  if (sim.blind) return { text: `${t('hud.dark')} · ${placeName(place)}`, color: 'rgba(214,214,236,.8)' };
-  if (sim.restBlock) return { text: `${t('hud.abide')} · ${placeName(place)}`, color: LILAC };
-  const own = sim.own ? ` · ${t('hud.own')}` : '';
-  return { text: `${arrow} ${t('hud.place', { name: placeName(place), n })}${own}`, color: hue };
+  if (sim.stage === 'flow') return { text: `${arrow} ${t('hud.flow', { name: stationName(sim.nextStation ?? s) })}`, color: WATER };
+  if (sim.blind) return { text: `${t('hud.dark')} · ${stationName(s)}`, color: 'rgba(214,214,236,.8)' };
+  if (sim.restBlock) return { text: `${t('hud.abide')} · ${stationName(s)}`, color: LILAC };
+  const own = sim.own && !short ? ` · ${t('hud.own')}` : '';
+  return { text: `${arrow} ${short ? stationName(s) : stationLabel(s)}${own}`, color: hue };
+}
+
+/** The band's label fitted to a width: the whole name from the maps, or the station's own name when that does not fit at the reading size. */
+export function fitLabel(ctx: CanvasRenderingContext2D, sim: RzekiSim, w: number, px: number): { text: string; color: string; px: number } {
+  const full = bandLabel(sim);
+  const size = fitFont(ctx, full.text, w, px, MIN_READ, 700);
+  if (ctx.measureText(full.text).width <= w + 0.5) return { ...full, px: size };
+  const short = bandLabel(sim, true);
+  return { ...short, px: fitFont(ctx, short.text, w, px, MIN_READ, 700) };
 }
 
 /** The narrator's line wrapped for the band's top row (at most two lines). */
@@ -120,23 +135,39 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
   const inBand = L.shape === 'tall';
   const cpx = Math.max(MIN_READ, L.font.caption);
   const clines = inBand && caption.text ? captionLines(ctx, caption.text, r.w, cpx) : [];
-  const want = inBand && caption.k > 0.01 && clines.length ? 1 : 0;
-  rowEase += (want - rowEase) * Math.min(1, dt * 6);
-  // the row: the label, or the narrator's line
-  const lab = bandLabel(sim);
-  const lpx = fitFont(ctx, lab.text, r.w, Math.max(MIN_READ, L.font.label), MIN_READ, 700);
-  const labH = Math.round(lpx * 1.5), capH = Math.round(cpx * 1.35) * Math.max(1, clines.length);
-  const rowH = labH + (Math.max(labH, capH) - labH) * ease.inOutSine(clamp(rowEase));
   const rest = sim.restBlock && sim.stage !== 'whole';
+  const text = sim.stage === 'flow' && sim.stageT / RULES.flowSec >= 0.5 && sim.nextStation ? lineAt(sim.nextStation, sim.dir, sim.own) : sim.line;
+  // the row: the label, or the narrator's line
+  const lab = fitLabel(ctx, sim, r.w, Math.max(MIN_READ, L.font.label));
+  const lpx = lab.px;
+  const labH = Math.round(lpx * 1.5);
+  // The prayer is never cut for the narrator: over a prayer of three lines on the smallest phone the narrator's
+  // two lines and the prayer both set a little tighter, and when even that would not fit the narrator waits.
+  let tight = false, capOk = clines.length > 0;
+  if (capOk && !rest) {
+    ctx.font = font(L.font.prayerMin, 500, true, true);
+    const need = wrap(ctx, text, r.w).length;
+    const fits = (lead: number, capLead: number) => Math.round(cpx * capLead) * clines.length + 10 + need * Math.round(L.font.prayerMin * lead) <= r.h;
+    if (!fits(1.34, 1.35)) {
+      tight = true;
+      capOk = fits(1.2, 1.2);
+    }
+  }
+  const want = inBand && caption.k > 0.01 && capOk ? 1 : 0;
+  rowEase += (want - rowEase) * Math.min(1, dt * 6);
+  const capLH = Math.round(cpx * (tight ? 1.2 : 1.35)), capH = capLH * Math.max(1, clines.length);
+  const rowH = labH + (Math.max(labH, capH) - labH) * ease.inOutSine(clamp(rowEase));
   // the group's height: the row, the rule, and what follows (the line wrapped, or the rest's breath and verse)
   const areaH = r.h - rowH - 10;
   let bodyH = areaH;
   let wr: Wrapped | null = null;
   if (!rest) {
-    const maxLines = Math.max(2, Math.min(5, Math.floor(areaH / Math.round(L.font.prayerMin * 1.34))));
-    wr = wrapPrayer(ctx, sim.stage === 'flow' && sim.stageT / RULES.flowSec >= 0.5 && sim.nextPlace ? lineAt(sim.nextPlace, sim.dir, sim.own) : sim.line,
-      r.w, Math.max(L.font.prayerMin, L.font.prayer), L.font.prayerMin, maxLines);
-    bodyH = Math.min(areaH, Math.max(wr.lines.length * wr.lineH, Math.round(26 * L.u)));
+    // the lines the prayer may take: counted for the row it is going to (never fewer while the narrator eases in)
+    const lead = tight && rowEase > 0.01 ? 1.2 : 1.34;
+    const budget = r.h - (want ? Math.max(labH, capH) : labH) - 10;
+    const maxLines = Math.max(2, Math.min(5, Math.floor(budget / Math.round(L.font.prayerMin * lead))));
+    wr = wrapPrayer(ctx, text, r.w, Math.max(L.font.prayerMin, L.font.prayer), L.font.prayerMin, maxLines, false, lead);
+    bodyH = Math.max(wr.lines.length * wr.lineH, Math.round(26 * L.u));
   }
   const y0 = r.y + Math.max(0, (r.h - (rowH + 10 + bodyH)) / 2);
   const rowMid = y0 + rowH / 2;
@@ -155,7 +186,7 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
   if (rowEase > 0.5 && clines.length) {
     ctx.globalAlpha = (rowEase * 2 - 1) * clamp(caption.k);
     ctx.font = font(cpx, 600);
-    const lh = Math.round(cpx * 1.35);
+    const lh = capLH;
     let y = rowMid - ((clines.length - 1) * lh) / 2;
     for (const line of clines) {
       ctx.lineJoin = 'round';
@@ -183,14 +214,14 @@ export function drawPrayer(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiS
 }
 
 /**
- * The prayer's column on a desktop or a big screen (DESIGN §14): from the top down — its first row (the place's
- * name, or rest's breath) level with the place, as the view keeps the column there (layout `wordsAt`), a gilded
+ * The prayer's column on a desktop or a big screen (DESIGN §14): from the top down — its first row (the station's
+ * name, or rest's breath) level with the station, as the view keeps the column there (layout `wordsAt`), a gilded
  * rule, then the line in balanced lines (or, in rest, the verse to abide in) — over a soft veil fitted to them.
  */
 function drawPrayerDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, dt: number): void {
   const r = L.prayer, cx = r.x + r.w / 2;
-  const lab = bandLabel(sim);
-  const lpx = fitFont(ctx, lab.text, r.w, Math.max(MIN_READ, L.font.label), MIN_READ, 700);
+  const lab = fitLabel(ctx, sim, r.w, Math.max(MIN_READ, L.font.label));
+  const lpx = lab.px;
   const rowH = labelRowH(L);
   const rest = sim.restBlock && sim.stage !== 'whole';
   const areaH = r.h - rowH - 10;
@@ -200,7 +231,7 @@ function drawPrayerDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim,
   let bodyH: number;
   if (!rest) {
     const maxLines = Math.max(2, Math.min(5, Math.floor(areaH / Math.round(L.font.prayerMin * 1.34))));
-    wr = wrapPrayer(ctx, sim.stage === 'flow' && sim.stageT / RULES.flowSec >= 0.5 && sim.nextPlace ? lineAt(sim.nextPlace, sim.dir, sim.own) : sim.line,
+    wr = wrapPrayer(ctx, sim.stage === 'flow' && sim.stageT / RULES.flowSec >= 0.5 && sim.nextStation ? lineAt(sim.nextStation, sim.dir, sim.own) : sim.line,
       r.w, Math.max(L.font.prayerMin, L.font.prayer), L.font.prayerMin, maxLines, true);
     bodyH = Math.min(box.h, Math.max(wr.lines.length * wr.lineH, Math.round(26 * L.u)));
     box.h = bodyH;
@@ -238,22 +269,22 @@ function drawPrayerDesk(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim,
   else drawLine(ctx, L, sim, box, wr);
 }
 
-/** The place's line (the prayer, the thanks, or the player's words, wrapped by the band), its words arriving one by one. */
+/** The station's line (the prayer, the thanks, or the player's words, wrapped by the band), its words arriving one by one. */
 function drawLine(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, box: Rect, wr: Wrapped): void {
   let alpha = 1, reveal = 99;
   if (sim.stage === 'at' || sim.stage === 'hold') reveal = sim.stage === 'at' ? sim.stageT : 99;
   else if (sim.stage === 'flow') {
-    // the gift of the place just lit, then the next place's line coming
+    // the gift of the station just lit, then the next station's line coming
     const k = sim.stageT / RULES.flowSec;
     if (k < 0.5) {
-      drawGift(ctx, L, sim.place, box, 1 - k * 2);
+      drawGift(ctx, L, sim.station, box, 1 - k * 2);
       return;
     }
     alpha = (k - 0.5) * 2;
   } else if (sim.stage === 'enter') {
     alpha = clamp(sim.stageT / 1.2);
   } else if (sim.stage === 'whole') {
-    drawGift(ctx, L, sim.place, box, 1);
+    drawGift(ctx, L, sim.station, box, 1);
     return;
   }
   if (sim.blind) alpha *= 0.72;
@@ -289,10 +320,10 @@ function drawLine(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, box: 
   ctx.globalAlpha = 1;
 }
 
-/** The gift of a place, large, in its glass colour: "Dar: miłość". */
-function drawGift(ctx: CanvasRenderingContext2D, L: Layout, place: PlaceId, box: Rect, alpha: number): void {
+/** The gift of a station, large, in its glass colour: "Dar: miłość". */
+function drawGift(ctx: CanvasRenderingContext2D, L: Layout, station: StationId, box: Rect, alpha: number): void {
   if (alpha <= 0.01) return;
-  const text = t('hud.gift', { gift: giftName(place) });
+  const text = t('hud.gift', { gift: giftName(station) });
   const px = fitFont(ctx, text, box.w, Math.max(17, Math.round(22 * L.u)), MIN_READ, 500, true, true);
   ctx.globalAlpha = alpha;
   ctx.font = font(px, 500, true, true);
@@ -303,7 +334,7 @@ function drawGift(ctx: CanvasRenderingContext2D, L: Layout, place: PlaceId, box:
   ctx.strokeStyle = 'rgba(6,4,22,.6)';
   const y = box.y + box.h / 2;
   ctx.strokeText(text, box.x + box.w / 2, y);
-  ctx.fillStyle = mix(PLACE[place].hue, '#ffffff', 0.35);
+  ctx.fillStyle = mix(STATION[station].hue, '#ffffff', 0.35);
   ctx.fillText(text, box.x + box.w / 2, y);
   ctx.globalAlpha = 1;
 }
@@ -334,7 +365,7 @@ const VERSE_FADE = 0.7;
 let verseClock = 0;
 
 /**
- * Rest: the place's verse to abide in.  When it does not fit the band whole even at the reading size, it is
+ * Rest: the station's verse to abide in.  When it does not fit the band whole even at the reading size, it is
  * shown in pages of whole lines that turn slowly, each with its reference — never cut.
  */
 function drawAbide(ctx: CanvasRenderingContext2D, L: Layout, sim: RzekiSim, box: Rect, dt = 1 / 60, top = false): void {
@@ -429,6 +460,7 @@ function pageOf(sim: RzekiSim): Page | null {
       ? { title: t('story.open.title'), text: t('story.open.text'), verse: 'isa11.2' }
       : { title: t('story.open2.title'), text: t('story.open2.text'), verse: 'jhn7.38-39' };
   }
+  if (s.kind === 'news') return { title: t('story.news.title'), text: t('story.news.text'), verse: 'psa46.4' };
   if (s.kind === 'down') return { title: t('story.down.title'), text: t('story.down.text'), verse: 'luk11.13' };
   return { title: t('story.up.title'), text: t('story.up.text'), verse: 'psa141.2' };
 }

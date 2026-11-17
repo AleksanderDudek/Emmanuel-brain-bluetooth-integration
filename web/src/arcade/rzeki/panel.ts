@@ -1,22 +1,28 @@
 /**
  * Rzeki żywej wody's "Postępy" card in the lobby (DESIGN.md §13.14), from the app's shared classes (styles.css):
  *
- *   the numbers   the most drops, sessions, whole ways down and up, the longest calm abiding
+ *   the numbers   the most drops, sessions, whole ways down and up
+ *   the map       which of the four maps the way walks (a radio row), and each map's card: its stations as little
+ *                 rose windows (in colour once lit, waiting in lead until then) with their gift, their verse and how
+ *                 many times each was lit going down and thanked going up, its count, and which picture it is from
+ *   where you begin  "Kontynuuj od Serca" (where the last session stopped) or "Od początku"; a tap on a station of
+ *                 an album makes it the next start ("Zacznij tutaj") — the founder's "navigate"
  *   the way       down, up, or down and then up (a radio row; saved at once)
- *   own words     the player's own words of prayer (≤ 120 characters), shown at every place instead of the
+ *   own words     the player's own words of prayer (≤ 120 characters), shown at every station instead of the
  *                 prayer; kept only in this device's progress, set as text, never as markup
- *   the places    the seven as little rose windows — in colour once lit, waiting in lead until then — with
- *                 their gift, their verse and how many times each was lit going down and thanked going up
  *   the chorale   the quiet chorale's switch
  *
  * Built with h(); a choice saves the progress and redraws the card.
  */
 import { fmtNum } from '../../i18n';
 import { h } from '../../ui/dom';
+import { coarsePointer } from '../kit/mobile';
 import { passage } from '../kit/scripture';
-import { PLACES, WAYS, cleanOwn, giftName, placeName, placeWhere, tierName, verseOf, type PlaceId, type Way } from './content';
+import {
+  MAP, MAPS, WAYS, cleanOwn, fromText, giftName, mapName, mapPicture, stationName, stationTag, stationWhere, tierName, verseOf, type MapId, type StationId, type Way,
+} from './content';
 import { t } from './i18n';
-import { bestOf, placesLit, setOwn, setWay, tierOf, timesLit, type RzekiProgress } from './meta';
+import { bestOf, clearStart, setMap, setOwn, setStart, setWay, startOf, stationsLit, tierOf, timesLit, type RzekiProgress } from './meta';
 import { bakeRose } from './paint';
 import { RULES } from './rules';
 import { secText } from './sim';
@@ -34,8 +40,8 @@ function button(text: string, onClick: () => void, cls = 'btn', extra: Record<st
   return b;
 }
 
-/** A little tile of a place: its rose window in colour (at its craft tier) once lit, its lead and a ghost of glass until then. */
-function tile(place: PlaceId, lit: boolean, tier: number): HTMLCanvasElement {
+/** A little tile of a station: its rose window in colour (at its craft tier) once lit, its lead and a ghost of glass until then. */
+function tile(station: StationId, lit: boolean, tier: number): HTMLCanvasElement {
   const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
   const c = h('canvas', { width: String(Math.round(52 * dpr)), height: String(Math.round(40 * dpr)), 'aria-hidden': 'true' });
   const ctx = c.getContext('2d');
@@ -43,7 +49,7 @@ function tile(place: PlaceId, lit: boolean, tier: number): HTMLCanvasElement {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = '#100b2c';
   ctx.fillRect(0, 0, 52, 40);
-  const rose = bakeRose(place, 14.5, dpr, tier);
+  const rose = bakeRose(station, 14.5, dpr, tier);
   if (rose) {
     const s = rose.half;
     ctx.drawImage(lit ? rose.glass : rose.lead, 26 - s, 20 - s, 2 * s, 2 * s);
@@ -64,6 +70,34 @@ export function progressPanel(p: RzekiProgress, save: () => void): HTMLElement {
   return root;
 }
 
+/** A map's album: its stations as tiles, each a button that makes it the next start. */
+function album(p: RzekiProgress, map: MapId, start: StationId | null, changed: () => void): HTMLElement {
+  return h('div', { class: 'arcade-album' }, MAP[map].stations.map(s => {
+    const n = timesLit(p, s), tier = tierOf(p, s);
+    const marks = n > 0 ? t('panel.lit', { down: p.down[s] ?? 0, up: p.up[s] ?? 0 }) : t('panel.never');
+    const here = start === s;
+    const tag = stationTag(s);
+    const pick = () => {
+      if (map !== p.map) setMap(p, map);
+      if (setStart(p, s)) changed();
+    };
+    const el = h('div', {
+      class: tier >= 3 ? 'on legend' : tier >= 2 ? 'on epic' : tier >= 1 ? 'on rare' : n > 0 || here ? 'on' : null,
+      role: 'button', tabindex: '0', 'aria-pressed': String(here),
+      'aria-label': t('panel.startHere', { name: stationName(s) }),
+      title: `${stationName(s)}${tag ? ` · ${tag}` : ''} — ${stationWhere(s)} · ${giftName(s)} · ${passage(verseOf(s, 'down')).ref}`,
+      on: {
+        click: (e: Event) => { e.preventDefault(); pick(); },
+        keydown: (e: Event) => {
+          const k = (e as KeyboardEvent).key;
+          if (k === 'Enter' || k === ' ') { e.preventDefault(); pick(); }
+        },
+      },
+    }, tile(s, n > 0, tier), stationName(s), h('small', null, here ? t('panel.here') : tier > 0 ? `${marks} · ${tierName(tier)}` : marks));
+    return el;
+  }));
+}
+
 function build(p: RzekiProgress, changed: () => void): HTMLElement[] {
   const out: HTMLElement[] = [];
   const best = bestOf(p);
@@ -73,6 +107,33 @@ function build(p: RzekiProgress, changed: () => void): HTMLElement[] {
     stat(t('panel.descents'), fmtNum(p.descents)),
     stat(t('panel.ascents'), fmtNum(p.ascents))));
   out.push(h('p', { class: 'muted' }, t('panel.rules')));
+
+  // ── the map ──
+  const mapBtn = (m: MapId) => button(mapName(m), () => { if (setMap(p, m)) changed(); }, 'btn', { role: 'radio', 'aria-checked': String(p.map === m) });
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.map')),
+    h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.map') }, MAPS.map(mapBtn)));
+
+  // ── where you begin ──
+  const st = startOf(p);
+  out.push(h('div', { class: 'arcade-sub' }, t('panel.start')));
+  const seg = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': t('panel.start') });
+  if (st.resumed) seg.append(button(t('panel.continue', { from: fromText(st.station) }), () => undefined, 'btn', { role: 'radio', 'aria-checked': 'true' }));
+  seg.append(button(t('panel.fromTop'), () => { clearStart(p); changed(); }, 'btn', { role: 'radio', 'aria-checked': String(!st.resumed) }));
+  out.push(seg, h('p', { class: 'muted' }, t(coarsePointer() ? 'panel.startHint' : 'panel.startHint.click')));
+
+  // ── each map's card: the chosen one open ──
+  for (const m of MAPS) {
+    const list = MAP[m].stations;
+    const lit = stationsLit(p, list);
+    const head = `${mapName(m)} · ${t('panel.mapCount', { lit, n: list.length })} · ${mapPicture(m)}`;
+    const start = m === p.map ? (st.resumed ? st.station : null) : null;
+    const card = h('details', m === p.map ? { open: '' } : null,
+      h('summary', { class: m === p.map ? null : 'muted' }, `${m === p.map ? '● ' : ''}${head} ▾`),
+      h('div', { class: 'arcade-panel mt10' }, album(p, m, start, changed)));
+    out.push(card);
+  }
+  out.push(h('p', { class: 'muted' }, t('panel.placesNote')), h('p', { class: 'muted' }, t('panel.mapNote')), h('p', { class: 'muted' }, t('panel.tiersNote')));
+  if (p.abideBest > 0) out.push(h('p', null, `${t('panel.longest')}: ${secText(p.abideBest)}`));
 
   // ── the way ──
   const wayBtn = (w: Way) => button(t(`panel.way.${w}` as 'panel.way.down'), () => { if (setWay(p, w)) changed(); }, 'btn', { role: 'radio', 'aria-checked': String(p.way === w) });
@@ -96,17 +157,6 @@ function build(p: RzekiProgress, changed: () => void): HTMLElement[] {
   const row = h('div', { class: 'row' }, button(t('panel.ownSave'), keep, 'btn primary'));
   if (p.own) row.append(button(t('panel.ownClear'), () => { setOwn(p, ''); changed(); }, 'btn ghost'));
   out.push(row, h('p', null, p.own ? t('panel.ownNow') : t('panel.ownBase')));
-
-  // ── the seven places ──
-  out.push(h('div', { class: 'arcade-sub' }, t('panel.places', { lit: placesLit(p) })));
-  out.push(h('div', { class: 'arcade-album' }, PLACES.map(pl => {
-    const n = timesLit(p, pl), tier = tierOf(p, pl);
-    const marks = n > 0 ? t('panel.lit', { down: p.down[pl] ?? 0, up: p.up[pl] ?? 0 }) : t('panel.never');
-    return h('div', { class: tier >= 3 ? 'on legend' : tier >= 2 ? 'on epic' : tier >= 1 ? 'on rare' : n > 0 ? 'on' : null, title: `${placeWhere(pl)} · ${giftName(pl)} · ${passage(verseOf(pl, 'down')).ref}` },
-      tile(pl, n > 0, tier), placeName(pl), h('small', null, tier > 0 ? `${marks} · ${tierName(tier)}` : marks));
-  })));
-  out.push(h('p', { class: 'muted' }, t('panel.placesNote')), h('p', { class: 'muted' }, t('panel.tiersNote')));
-  if (p.abideBest > 0) out.push(h('p', null, `${t('panel.longest')}: ${secText(p.abideBest)}`));
 
   // ── the chorale ──
   const box = h('input', { type: 'checkbox', 'aria-label': t('panel.song') }) as HTMLInputElement;

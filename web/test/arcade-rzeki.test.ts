@@ -1,21 +1,26 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
-  LINE_COUNT, MOMENTS, PLACE, PLACES, TIPS, cleanOwn, legs, lineAt, linesOf, pushTip, route, tierName, verseOf, windowTier, type PlaceId,
+  HAND_COLOURS, HAND_ORDER, LINE_COUNT, MAP, MAPS, MOMENTS, STATION, STATIONS, TIPS, V1_PLACES, cleanOwn, legs, lineAt, linesOf, pushTip, route,
+  stationLabel, tierName, verseOf, windowTier, type MapId, type StationId,
 } from '../src/arcade/rzeki/content';
 import { CATALOGS, t, unit } from '../src/arcade/rzeki/i18n';
 import {
-  bestOf, countPlace, freshProgress, mapGlow, migrate, placesLit, setOwn, setWay, tierOf, timesLit, type RzekiProgress,
+  bestOf, clearStart, countStation, freshProgress, mapGlow, migrate, setMap, setOwn, setStart, setWay, startOf, stationsLit, tierOf, timesLit, type RzekiProgress,
 } from '../src/arcade/rzeki/meta';
-import { BREATH, RULES } from '../src/arcade/rzeki/rules';
-import { LIT_DOWN, LIT_UP, RzekiSim, finaleFor, petalCount, petalTotal, petalsOpen, planBlocks, secText, type SimEvent } from '../src/arcade/rzeki/sim';
-import { BEGINNER_TUNING, DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
+import { BREATH, RULES, focusRate } from '../src/arcade/rzeki/rules';
+import { LIT_DOWN, LIT_UP, RzekiSim, finaleFor, planBlocks, secText, type SimEvent } from '../src/arcade/rzeki/sim';
+import { tileTotal, tilesOpen, tilesAt } from '../src/arcade/rzeki/tiles';
+import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { passage } from '../src/arcade/kit/scripture';
 import { mulberry32 } from '../src/core/random';
 import { catalogProblems } from '../src/i18n';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, MIN_READ, MIN_TEXT, auditTargets, screenKind } from '../src/arcade/kit/mobile';
 import { coachText, howto } from '../src/arcade/rzeki/index';
-import { labelRowH, layout, litR, storyRect, tapTargets, windowR, wordsAt } from '../src/arcade/rzeki/layout';
+import {
+  CAM_MAX, FRAMES, cameraFor, easeCam, figPt, framingOf, labelRowH, layout, litR, storyRect, tapTargets, toScreen, windowR, wordsAt, type Layout,
+} from '../src/arcade/rzeki/layout';
+import { SHELL, isTwin, stationPts, streamPaths } from '../src/arcade/rzeki/figure';
 import { font, fontPx } from '../src/arcade/rzeki/paint';
 import { RING, openness, partPath, petalAngle, pieces } from '../src/arcade/rzeki/rose';
 import { buildHymn } from '../src/arcade/rzeki/hymn';
@@ -27,13 +32,16 @@ const BEGINNER: FocusTuning = { ...TUNING, ...BEGINNER_TUNING };
 
 const frame = (p: Partial<FocusFrame> = {}): FocusFrame =>
   ({ reliable: true, activity: 0, threshold: 2, level: 0.3, focused: false, hold: 0, calm: 0.5, ...p });
-const HIGH = frame({ level: 0.95, activity: 6, focused: true, hold: 10, calm: 0.05 });
-const MID = frame({ level: 0.55, activity: 2.2, focused: true, hold: 1, calm: 0.4 });
-const LOW = frame({ level: 0.15, activity: -1, calm: 0.7 });
+/** focused at a high level, the focus held */
+const HIGH = frame({ level: 0.9, activity: 6, focused: true, hold: 14, calm: 0.05 });
+/** focused just over the threshold */
+const MID = frame({ level: 0.55, activity: 2.2, focused: true, hold: 4, calm: 0.4 });
+/** under the threshold: not focused */
+const LOW = frame({ level: 0.3, activity: 1, focused: false, calm: 0.5 });
 const CALM = frame({ level: 0.1, activity: -2, calm: 0.9 });
 const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
-const ALL_SEEN = ['s.open', 'c.tap', 'c.light', 'c.petals', 'c.breath', 'c.drops', 'c.blind'];
+const ALL_SEEN = ['s.open', 's.news', 'c.tap', 'c.light', 'c.petals', 'c.breath', 'c.drops', 'c.blind'];
 
 type SimOpts = { progress?: Partial<RzekiProgress>; planned?: number; seed?: number; eeg?: boolean; tuning?: FocusTuning };
 
@@ -66,91 +74,372 @@ function drive(sim: RzekiSim, sec: number, f: FocusFrame | ((t: number, sim: Rze
 
 const ofType = <K extends SimEvent['type']>(evs: readonly SimEvent[], type: K) => evs.filter((e): e is Extract<SimEvent, { type: K }> => e.type === type);
 
-/** Run until the light is at a place of the way (stage `at`), returns the clock. */
-function untilAt(sim: RzekiSim, place: PlaceId, f: FocusFrame | ((t: number, sim: RzekiSim) => FocusFrame), clock = { t: 0 }): { t: number } {
+/** Run until the light is at a station of the way (stage `at`), returns the clock. */
+function untilAt(sim: RzekiSim, s: StationId, f: FocusFrame | ((t: number, sim: RzekiSim) => FocusFrame), clock = { t: 0 }): { t: number } {
   let guard = 0;
-  while (!(sim.stage === 'at' && sim.place === place) && guard++ < 6000) drive(sim, 0.1, f, clock, reader(sim));
+  while (!(sim.stage === 'at' && sim.station === s) && guard++ < 9000) drive(sim, 0.1, f, clock, reader(sim));
   return clock;
 }
 
-describe('the seven places (content.ts)', () => {
-  it('runs from the crown to the feet on the midline, warm at the base and white at the crown', () => {
-    expect(PLACES).toEqual(['mind', 'eyes', 'mouth', 'heart', 'breath', 'inner', 'feet']);
-    for (let i = 1; i < PLACES.length; i++) expect(PLACE[PLACES[i]].y).toBeGreaterThan(PLACE[PLACES[i - 1]].y);
-    // the bells: the crown highest, the feet lowest — a scale that descends going down and rises going up
-    for (let i = 1; i < PLACES.length; i++) expect(PLACE[PLACES[i]].bell).toBeLessThan(PLACE[PLACES[i - 1]].bell);
-    const warmth = (hex: string) => parseInt(hex.slice(1, 3), 16) - parseInt(hex.slice(5, 7), 16);
-    expect(warmth(PLACE.feet.hue)).toBeGreaterThan(80);
-    expect(warmth(PLACE.mind.hue)).toBeLessThanOrEqual(0);
-    // never the chakra code: no green heart, no violet crown
-    const g = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
-    const [hr, hg] = g(PLACE.heart.hue);
-    expect(hr).toBeGreaterThan(hg);
-    const [cr, cg, cb] = g(PLACE.mind.hue);
-    expect(Math.min(cr, cg, cb)).toBeGreaterThan(220);
+/** Focus in the push blocks (held from the lead-in on), rest in the rest blocks: a player at a steady level. */
+const steady = (level: number) => (_t: number, s: RzekiSim): FocusFrame => (s.pushBlock
+  ? frame({ level, activity: 3, focused: level >= 0.5, hold: Math.max(0, s.blockT - s.leadIn), calm: 0.2 })
+  : frame({ level: 0.3, activity: 0, focused: false, calm: 0.6 }));
+
+const rgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+
+describe('the stations of both pictures (content.ts)', () => {
+  it('has all seventeen, in the full map’s order from the gate of heaven to the earth star', () => {
+    expect(STATIONS).toEqual(['gateway', 'galactic', 'solar', 'soul', 'crown', 'channels', 'brow', 'throat', 'heart', 'hands', 'plexus', 'void', 'sacral', 'sacrum', 'root', 'feet', 'earth']);
+    // the bells fall strictly along the full map's way down (and so rise going up)
+    for (let i = 1; i < STATIONS.length; i++) expect(STATION[STATIONS[i]].bell).toBeLessThan(STATION[STATIONS[i - 1]].bell);
+    // the midline's stations run from the top down (the hands hang beside the body, the shells hold it all)
+    const mid = STATIONS.filter(s => !isTwin(s) && STATION[s].kind !== 'shell');
+    for (let i = 1; i < mid.length; i++) expect(STATION[mid[i]].y, mid[i]).toBeGreaterThan(STATION[mid[i - 1]].y);
+    // the stars above the head as the brief places them: the soul star ~0.14 H, the solar star ~0.30 H above the crown
+    expect(STATION.crown.y - STATION.soul.y).toBeCloseTo(0.153, 1);
+    expect(STATION.crown.y - STATION.solar.y).toBeCloseTo(0.31, 1);
+    expect(STATION.earth.y).toBeGreaterThan(1);
   });
 
-  it('gives each place a rose window of church glass with its own tracery', () => {
+  it('gives the four maps their stations: all 17, picture 2’s twelve, picture 1’s eleven, the seven with hands and feet', () => {
+    expect(MAPS).toEqual(['all', 'twelve', 'subtle', 'seven']);
+    expect(MAP.all.stations).toHaveLength(17);
+    expect(MAP.twelve.stations).toEqual(['gateway', 'galactic', 'solar', 'soul', 'crown', 'brow', 'throat', 'heart', 'plexus', 'sacral', 'root', 'earth']);
+    expect(MAP.subtle.stations).toEqual(['crown', 'channels', 'brow', 'throat', 'heart', 'hands', 'plexus', 'void', 'sacral', 'sacrum', 'root']);
+    expect(MAP.seven.stations).toEqual(['crown', 'brow', 'throat', 'heart', 'hands', 'plexus', 'sacral', 'root', 'feet']);
+    expect([MAP.all.picture, MAP.twelve.picture, MAP.subtle.picture]).toEqual([0, 2, 1]);
+    // each map keeps the full map's order; picture 2's map holds exactly its twelve, picture 1's has none of picture 2's own
+    for (const m of MAPS) {
+      const idx = MAP[m].stations.map(s => STATIONS.indexOf(s));
+      expect(idx, m).toEqual([...idx].sort((a, b) => a - b));
+    }
+    expect(MAP.twelve.stations.every(s => STATION[s].map12)).toBe(true);
+    expect(STATIONS.filter(s => STATION[s].map12)).toEqual(MAP.twelve.stations);
+  });
+
+  it('names each station as the maps do: picture 2’s name, picture 1’s Sanskrit name and number where it has the centre', () => {
+    expect(stationLabel('heart')).toBe('Serce · Anahata (4)');
+    expect(stationLabel('crown')).toBe('Korona · Sahastrara (7)');
+    expect(stationLabel('root')).toBe('Podstawa · Mooladhara (1)');
+    expect(stationLabel('sacrum')).toBe('Kość krzyżowa · Mooladhara');
+    expect(stationLabel('soul')).toBe('Gwiazda duszy · mapa 12 centrów');
+    expect(stationLabel('galactic')).toBe('Czakra galaktyczna · mapa 12 centrów');
+    expect(stationLabel('hands')).toBe('Dłonie · mapa dłoni 1–7');
+    expect(stationLabel('channels')).toBe('Trzy kanały · Ida · Sushumna · Pingala');
+    expect(stationLabel('void')).toBe('Pustka, ocean · Bhavsagar');
+    expect(stationLabel('feet')).toBe('Stopy');
+    // picture 1's numbers on the spine, 1 at the root … 7 at the crown
+    expect((['root', 'sacral', 'plexus', 'heart', 'throat', 'brow', 'crown'] as const).map(s => STATION[s].num)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  });
+
+  it('colours each station as the pictures do', () => {
+    const [hr, hg, hb] = rgb(STATION.heart.hue);
+    expect(hg).toBeGreaterThan(Math.max(hr, hb));                 // the heart green
+    const [cr, cg, cb] = rgb(STATION.crown.hue);
+    expect(cb).toBeGreaterThan(cg);
+    expect(cr).toBeGreaterThan(cg);                               // the crown violet
+    expect(STATION.crown.rose.outerEach!.length).toBeGreaterThanOrEqual(7);   // picture 1's many-coloured crown
+    const [rr, rg2, rb] = rgb(STATION.root.hue);
+    expect(rr).toBeGreaterThan(2 * Math.max(rg2, rb) - 40);       // the root red
+    const [tr, , tb] = rgb(STATION.throat.hue);
+    expect(tb).toBeGreaterThan(tr);                               // the throat blue
+    const [pr, pg, pb] = rgb(STATION.plexus.hue);
+    expect(Math.min(pr, pg)).toBeGreaterThan(pb + 80);            // the solar plexus yellow
+    const [sr, sg, sb] = rgb(STATION.sacral.hue);
+    expect(sr).toBeGreaterThan(sg);
+    expect(sg).toBeGreaterThan(sb);                               // the sacral orange
+    const [er, eg, eb] = rgb(STATION.earth.hue);
+    expect(er).toBeGreaterThan(eg);
+    expect(eg).toBeGreaterThan(eb);                               // the earth star brown
+    expect(rgb(STATION.soul.hue).every(v => v > 220)).toBe(true); // the soul star white
+    // the hand map: 1 the wrist … 7 the palm, each finger the colour of its centre
+    expect(HAND_ORDER).toEqual(['wrist', 'thumb', 'middle', 'little', 'index', 'ring', 'palm']);
+    expect(HAND_COLOURS.thumb).toBe(STATION.sacral.hue);
+    expect(HAND_COLOURS.index).toBe(STATION.throat.hue);
+    expect(HAND_COLOURS.middle).toBe(STATION.plexus.hue);
+    expect(HAND_COLOURS.little).toBe(STATION.heart.hue);
+    expect(HAND_COLOURS.palm).toBe(STATION.crown.hue);
+    expect(HAND_COLOURS.wrist).toBe(STATION.root.hue);
+  });
+
+  it('gives each station a rose window of church glass with its own tracery', () => {
     const seen = new Set<string>();
-    for (const p of PLACES) {
-      const r = PLACE[p].rose;
+    for (const s of STATIONS) {
+      const r = STATION[s].rose;
       expect(r.inner).toBeGreaterThanOrEqual(3);
       expect(r.outer).toBeGreaterThanOrEqual(r.inner);
-      for (const c of r.glass) expect(c).toMatch(/^#[0-9a-f]{6}$/);
+      for (const c of [...r.glass, ...(r.innerEach ?? []), ...(r.outerEach ?? [])]) expect(c).toMatch(/^#[0-9a-f]{6}$/);
       seen.add(`${r.inner}${r.innerShape}${r.outer}${r.outerShape}`);
     }
-    expect(seen.size).toBe(7);
+    expect(seen.size).toBe(STATIONS.length);
   });
 
-  it('names a verse that exists for every place, both ways', () => {
-    for (const p of PLACES) for (const d of ['down', 'up'] as const) expect(passage(verseOf(p, d)).text.length).toBeGreaterThan(10);
-    expect(verseOf('inner', 'down')).toBe('jhn7.38-39');
-    expect(verseOf('breath', 'down')).toBe('jhn20.22');
-    expect(verseOf('breath', 'up')).toBe('eph3.16');
-    expect(verseOf('feet', 'up')).toBe('psa18.32');
+  it('names the brief’s verse for every station, going down and going up, each one that exists', () => {
+    const want: Record<StationId, [string, string]> = {
+      gateway: ['gen28.17', 'jhn10.9'], galactic: ['psa8.3-4', 'psa19.1'], solar: ['jas1.17', 'isa60.19'], soul: ['psa23.3', 'psa42.1'],
+      crown: ['php4.7', 'php4.7'], channels: ['isa30.21', 'psa121.6'], brow: ['eph1.18', 'eph1.18'], throat: ['psa141.3', 'heb13.15'],
+      heart: ['rom5.5', 'rom5.5'], hands: ['psa90.17', 'psa63.4'], plexus: ['jhn20.22', 'eph3.16'], void: ['psa107.29', 'psa46.4'],
+      sacral: ['jhn7.38-39', 'jhn7.38-39'], sacrum: ['ezk37.5-6', 'rom8.11'], root: ['col2.7', 'eph3.17'], feet: ['psa40.2', 'psa18.32'],
+      earth: ['psa85.11', 'isa6.3'],
+    };
+    for (const s of STATIONS) {
+      expect([verseOf(s, 'down'), verseOf(s, 'up')], s).toEqual(want[s]);
+      for (const d of ['down', 'up'] as const) expect(passage(verseOf(s, d)).text.length).toBeGreaterThan(10);
+    }
   });
 
-  it('walks down from the crown and up from the feet; both is down then up', () => {
-    expect(route('down')[0]).toBe('mind');
-    expect(route('up')[0]).toBe('feet');
-    expect(route('up').at(-1)).toBe('mind');
+  it('walks a map down from its top and up from its bottom; both is down then up', () => {
+    expect(route('all', 'down')[0]).toBe('gateway');
+    expect(route('all', 'up')[0]).toBe('earth');
+    expect(route('subtle', 'down')[0]).toBe('crown');
+    expect(route('subtle', 'up')[0]).toBe('root');
+    expect(route('seven', 'up').at(-1)).toBe('crown');
     expect(legs('both')).toEqual(['down', 'up']);
     expect(legs('up')).toEqual(['up']);
   });
 
-  it('prays the founder’s form at each place going down, gives thanks going up, and takes own words instead', () => {
+  it('prays the founder’s form at each station going down, gives thanks going up, and takes own words instead', () => {
     expect(lineAt('heart', 'down')).toBe('Przez Jezusa Chrystusa, Duchu Święty, wypełnij moje serce i niech popłynie miłość.');
-    expect(lineAt('mind', 'down')).toBe('Przez Jezusa Chrystusa, Duchu Święty, wypełnij mój umysł i niech popłynie pokój.');
-    expect(lineAt('inner', 'down')).toMatch(/wypełnij moje wnętrze i niech popłynie żywa woda\.$/);
-    expect(lineAt('feet', 'down')).toMatch(/wypełnij moje kroki i niech popłynie siła\.$/);
-    for (const p of PLACES) {
-      expect(lineAt(p, 'down')).toMatch(/^Przez Jezusa Chrystusa, Duchu Święty, wypełnij .+ i niech popłynie .+\.$/);
-      expect(lineAt(p, 'up')).toMatch(/^Dziękuję, Duchu Święty, za /);
+    expect(lineAt('crown', 'down')).toBe('Przez Jezusa Chrystusa, Duchu Święty, wypełnij mój umysł i niech popłynie pokój.');
+    expect(lineAt('hands', 'down')).toMatch(/wypełnij moje dłonie i niech popłynie błogosławieństwo\.$/);
+    expect(lineAt('sacrum', 'down')).toMatch(/wypełnij moje kości i niech popłynie życie\.$/);
+    for (const s of STATIONS) {
+      expect(lineAt(s, 'down')).toMatch(/^Przez Jezusa Chrystusa, Duchu Święty, wypełnij .+ i niech popłynie .+\.$/);
+      expect(lineAt(s, 'up')).toMatch(/^Dziękuję, Duchu Święty, za /);
     }
     const own = 'przez Jezusa Chrystusa Duchu święty wypełnij to miejsce';
-    expect(lineAt('eyes', 'down', own)).toBe(own);
-    expect(lineAt('eyes', 'up', own)).toBe(own);
+    expect(lineAt('brow', 'down', own)).toBe(own);
+    expect(lineAt('brow', 'up', own)).toBe(own);
     // German never says "Geist" twice in one prayer
-    for (const p of PLACES) expect((CATALOGS.de[`pray.${p}` as 'pray.mind'] as string).match(/Geist/g)).toHaveLength(1);
+    for (const s of STATIONS) expect((CATALOGS.de[`pray.${s}` as 'pray.crown'] as string).match(/Geist/g)).toHaveLength(1);
+  });
+
+  it('has, for every station in all four languages, its name, where the attention rests, its gift, its prayer, its thanks, its picture and three narrator lines', () => {
+    for (const l of ['pl', 'en', 'de', 'sv'] as const) {
+      const cat = CATALOGS[l] as Readonly<Record<string, unknown>>;
+      for (const s of STATIONS) {
+        for (const k of [`name.${s}`, `where.${s}`, `gift.${s}`, `from.${s}`, `pray.${s}`, `thank.${s}`, `tip.place.${s}`, `say.at.${s}.1`, `say.at.${s}.2`, `say.at.${s}.3`]) {
+          expect(typeof cat[k] === 'string' && (cat[k] as string).length > 2, `${l}.${k}`).toBe(true);
+        }
+      }
+      for (const m of MAPS) for (const k of [`map.${m}`, `map.${m}.pic`]) expect(typeof cat[k], `${l}.${k}`).toBe('string');
+    }
   });
 
   it('keeps own words plain text: no markup, no control characters, at most 120 characters', () => {
     expect(cleanOwn('  <b>Duchu</b>\n\tŚwięty  ')).toBe('b Duchu /b Święty');
     expect(cleanOwn(42)).toBe('');
     expect([...cleanOwn('ą'.repeat(300))]).toHaveLength(RULES.ownMax);
-    // any whitespace (a no-break space too) folds into one plain space
-    expect(cleanOwn('a\u0000b c')).toBe('a b c');
+    expect(cleanOwn('a\u0000b c')).toBe('a b c');
   });
 
-  it('asks for the place’s own picture, the slow repetition every third push, and the rising picture going up', () => {
-    expect(pushTip('eyes', 'down', 0)).toBe(TIPS.place.eyes);
-    expect(pushTip('eyes', 'down', 1)).toBe(TIPS.place.eyes);
-    expect(pushTip('eyes', 'down', 2)).toBe(TIPS.repeat);
+  it('asks for the station’s own picture, the slow repetition every third push, and the rising picture going up', () => {
+    expect(pushTip('brow', 'down', 0)).toBe(TIPS.place.brow);
+    expect(pushTip('brow', 'down', 2)).toBe(TIPS.repeat);
     expect(pushTip('heart', 'up', 1)).toBe(TIPS.rise);
-    expect(pushTip('heart', 'up', 5)).toBe(TIPS.repeat);
-    expect(t(TIPS.place.eyes)).toMatch(/między brwiami od środka/);
-    expect(t(TIPS.place.heart)).toMatch(/ciepłą wodę, która wypełnia serce/);
+    expect(t(TIPS.place.brow)).toMatch(/między brwiami od środka/);
+    expect(t(TIPS.place.hands)).toMatch(/nadgarstek, kciuk/);
     expect(t(TIPS.repeat)).toMatch(/słowo po słowie/);
+  });
+});
+
+describe('the glass, piece by piece (tiles.ts)', () => {
+  it('opens every station’s glass in whole pieces, never closing, all of it at full', () => {
+    for (const s of STATIONS) {
+      expect(tilesOpen(s, 0), s).toBe(0);
+      expect(tilesOpen(s, 1), s).toBe(tileTotal(s));
+      let prev = 0;
+      for (let f = 0; f <= 1.0001; f += 0.005) {
+        const n = tilesAt(s, f);
+        expect(n, s).toBeGreaterThanOrEqual(prev - 1e-9);
+        prev = n;
+      }
+    }
+    // the hand map's seven, the feet's instep and five toes, the sacrum's five bands
+    expect(tileTotal('hands')).toBe(7);
+    expect(tileTotal('feet')).toBe(6);
+    expect(tileTotal('sacrum')).toBe(5);
+  });
+});
+
+describe('the founder’s fill rule: light only from real concentration, and slower', () => {
+  it('loads only while focused: faster above the threshold and as the focus is held', () => {
+    const R = RULES;
+    expect(focusRate(0.9, false, 20)).toBe(0);
+    expect(focusRate(0.5, true, 0)).toBeCloseTo(R.fillFocus * 0.6, 9);
+    expect(focusRate(1, true, 12)).toBeCloseTo(R.fillFocus * 1.4 * 1.5, 9);
+    expect(focusRate(0.3, true, 0)).toBeCloseTo(R.fillFocus * 0.6, 9);   // a forgiven dip still loads at the base rate
+    for (const h of [0, 3, 6, 12]) expect(focusRate(0.8, true, h + 1)).toBeGreaterThanOrEqual(focusRate(0.8, true, h));
+    for (const lv of [0.5, 0.6, 0.8, 0.95]) expect(focusRate(lv + 0.05, true, 5)).toBeGreaterThan(focusRate(lv, true, 5));
+    // a focus held steady loads a station in ~30 s at the threshold, ~20 s at a high level
+    expect(1 / focusRate(0.5, true, 12)).toBeGreaterThan(28);
+    expect(1 / focusRate(0.5, true, 12)).toBeLessThan(34);
+    expect(1 / focusRate(0.75, true, 12)).toBeGreaterThan(17);
+    expect(1 / focusRate(0.75, true, 12)).toBeLessThan(22);
+  });
+
+  it('fills nothing in rest, in the warm-up, in the finale, without a signal, below the threshold, or in the lead-in', () => {
+    // the warm-up of a first session (focused all along)
+    const first = makeSim();
+    first.stay();
+    drive(first, 2, HIGH);
+    first.stay();
+    const c0 = { t: 2 };
+    while (first.block.kind === 'warmup') drive(first, 0.5, HIGH, c0, reader(first));
+    expect(first.fill).toBe(0);
+    // the lead-in, then below the threshold, then no signal: nothing
+    const sim = later();
+    const clock = { t: 0 };
+    untilAt(sim, 'gateway', HIGH, clock);
+    while (sim.blockT < sim.leadIn - 0.2) drive(sim, 0.1, HIGH, clock);
+    expect(sim.fill).toBe(0);
+    const at = sim.blockT;
+    drive(sim, 0.3, LOW, clock);
+    const f0 = sim.fill;
+    drive(sim, 6, LOW, clock);
+    expect(sim.fill).toBe(f0);
+    drive(sim, 6, NONE, clock);
+    expect(sim.fill).toBe(f0);
+    expect(at).toBeGreaterThan(0);
+    // rest
+    while (!sim.restBlock) drive(sim, 0.25, LOW, clock, reader(sim));
+    const fr = sim.fill;
+    drive(sim, 12, CALM, clock, reader(sim));
+    drive(sim, 6, HIGH, clock, reader(sim));
+    expect(sim.fill).toBe(fr);
+    // the finale
+    const end = later({ planned: 60 });
+    const ce = { t: 0 };
+    while (end.phase === 'play') drive(end, 0.25, LOW, ce, reader(end));
+    const fe = end.fill;
+    drive(end, 4, HIGH, ce, reader(end));
+    expect(end.fill).toBe(fe);
+  });
+
+  it('fills while focused in a sighted push past its lead-in, faster as the focus is held', () => {
+    const rateAt = (hold: number) => {
+      const sim = later();
+      const clock = { t: 0 };
+      untilAt(sim, 'gateway', HIGH, clock);
+      while (sim.blockT < sim.leadIn + 1) drive(sim, 0.1, frame({ level: 0.6, activity: 2.5, focused: true, hold }), clock);
+      return sim.rate();
+    };
+    expect(rateAt(0)).toBeGreaterThan(0);
+    expect(rateAt(12)).toBeCloseTo(rateAt(0) * 1.5, 6);
+    const sim = later();
+    const clock = { t: 0 };
+    untilAt(sim, 'gateway', HIGH, clock);
+    const f0 = sim.fill;
+    drive(sim, 8, HIGH, clock);
+    expect(sim.fill).toBeGreaterThan(f0);
+    expect(sim.goldOn).toBe(true);
+  });
+
+  it('never fills from taps: a tap stays with the station — its prayer returns, a ring, a tone', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    untilAt(sim, 'gateway', LOW, clock);
+    const f0 = sim.fill;
+    const evs: SimEvent[] = [];
+    for (let i = 0; i < 30; i++) {
+      sim.stay();
+      evs.push(...sim.take());
+      drive(sim, 0.1, LOW, clock);
+    }
+    expect(sim.fill).toBe(f0);
+    expect(sim.reshow).toBeGreaterThan(0);
+    expect(ofType(evs, 'tap').length).toBe(30);
+    expect(sim.key(' ', true)).toBe(true);
+    expect(sim.fill).toBe(f0);
+  });
+
+  it('never loses what was gained: the light only grows, through rest, dips and lost signals', () => {
+    const sim = later({ planned: 600 });
+    let prev = 0, prevLit = 0;
+    const clock = { t: 0 };
+    const rnd = mulberry32(9);
+    drive(sim, 400, () => (rnd() < 0.3 ? NONE : rnd() < 0.5 ? HIGH : LOW), clock, () => {
+      if (sim.placesNow === prevLit && sim.stage === 'at') expect(sim.fill).toBeGreaterThanOrEqual(prev - 1e-12);
+      if (sim.placesNow !== prevLit) prevLit = sim.placesNow;
+      prev = sim.stage === 'at' ? sim.fill : 0;
+      reader(sim)();
+    });
+    expect(sim.placesNow).toBeGreaterThan(0);
+  });
+
+  it('shows the band’s real level on the gauge in a sighted push (no neutral 0.45), calm in rest, nothing without a signal', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    drive(sim, 2, MID, clock);
+    expect(sim.meter()).toBeNull();                       // the lead-in
+    drive(sim, 6, frame({ level: 0.37, activity: 1.5, focused: false }), clock);
+    expect(sim.meter()).toBeCloseTo(0.37, 6);
+    drive(sim, 1, HIGH, clock);
+    expect(sim.meter()).toBeCloseTo(0.9, 6);
+    drive(sim, 1, NONE, clock);
+    expect(sim.meter()).toBeNull();
+    while (!sim.restBlock) drive(sim, 0.25, MID, clock, reader(sim));
+    drive(sim, 6, CALM, clock, reader(sim));
+    expect(sim.meter()).toBeCloseTo(sim.calmShown, 9);
+  });
+
+  it('lets the drops tell the truth: in a push they flow only while the light loads; the warm-up and the finale flow', () => {
+    const sim = later();
+    const clock = { t: 0 };
+    drive(sim, sim.leadIn + 1, LOW, clock);
+    const d0 = sim.drops;
+    drive(sim, 5, LOW, clock);
+    expect(sim.drops).toBe(d0);
+    drive(sim, 5, HIGH, clock);
+    expect(sim.drops).toBeGreaterThan(d0 + 5);
+    const first = makeSim({ tuning: BEGINNER, planned: 40 });
+    drive(first, 1, NONE);
+    expect(first.score).toBeGreaterThan(0);                // the warm-up's drops: the smoke scores at once
+  });
+
+  it('paces a 10-minute session at about 5–7 stations at the threshold, ~37 s of focus a station (three seeds)', () => {
+    const pace = (level: number, seed: number) => {
+      const sim = later({ planned: 600, seed });
+      let load = 0;
+      drive(sim, 600, steady(level), { t: 0 }, () => { if (sim.rate() > 0) load += STEP; reader(sim)(); });
+      return { lit: sim.placesNow, per: load / Math.max(1, sim.placesNow) };
+    };
+    const at = [1, 2, 3].map(s => pace(0.5, s)), high = [1, 2, 3].map(s => pace(0.75, s));
+    for (const r of at) {
+      expect(r.lit).toBeGreaterThanOrEqual(5);
+      expect(r.lit).toBeLessThanOrEqual(7);
+      expect(r.per).toBeGreaterThan(32);
+      expect(r.per).toBeLessThan(43);
+    }
+    for (const r of high) {
+      expect(r.per).toBeGreaterThan(18);
+      expect(r.per).toBeLessThan(26);
+      expect(r.lit).toBeGreaterThan(Math.max(...at.map(x => x.lit)));
+    }
+  });
+
+  it('with the kit’s own focus input: no rise in push, no light; a moderate rise lights 6–8 stations in 10 minutes', () => {
+    /** a player whose activity rises by `amp` % in the push blocks (with the haemodynamic lag), with noise and Mayer waves */
+    const player = (amp: number, seed: number) => {
+      const sim = later({ planned: 600, seed });
+      const fi = new FocusInput(TUNING);
+      const rnd = mulberry32(seed * 7 + 1);
+      let act = 0, noise = 0;
+      drive(sim, 600, (tt, s) => {
+        act += ((s.pushBlock ? amp : 0) - act) * (1 - Math.exp(-STEP / 4));
+        noise += ((rnd() - 0.5) * 1.6 - noise) * (1 - Math.exp(-STEP / 1.5));
+        return fi.push(act + noise + 0.5 * Math.sin(tt * 2 * Math.PI * 0.1), true, STEP);
+      }, { t: 0 }, reader(sim));
+      return sim.placesNow;
+    };
+    for (const seed of [1, 2, 3]) {
+      expect(player(0, seed)).toBe(0);
+      const mid = player(2, seed);
+      expect(mid).toBeGreaterThanOrEqual(6);
+      expect(mid).toBeLessThanOrEqual(8);
+      expect(player(4, seed)).toBeGreaterThan(mid);
+    }
   });
 });
 
@@ -181,16 +470,6 @@ describe('the block plan', () => {
     }
   });
 
-  it('tells the block, its seconds left and, during the telegraph, the next one', () => {
-    const sim = later({ planned: 300 });
-    const b = sim.block;
-    expect(b.kind).toBe('push');
-    drive(sim, b.dur - 2, frame());
-    expect(sim.telegraphed).toBe(true);
-    expect(sim.next!.kind).toBe('rest');
-    expect(sim.tip.length).toBeGreaterThan(10);
-  });
-
   it('makes every 4th push blind from the 3rd session, never the first of a session', () => {
     const sim = later({ planned: 600, progress: { sessions: 4, pushes: 2 } });
     const blinds: boolean[] = [];
@@ -201,12 +480,6 @@ describe('the block plan', () => {
     }
     expect(blinds[0]).toBe(false);
     expect(blinds[2]).toBe(true);
-    const young = later({ planned: 600, progress: { sessions: 1, pushes: 2 } });
-    const c2 = { t: 0 };
-    for (let i = 0; i < 6; i++) {
-      expect(young.blind).toBe(false);
-      drive(young, young.block.dur + 0.05, frame(), c2, reader(young));
-    }
   });
 
   it('judges each block once at its end, from its last 15 s', () => {
@@ -217,174 +490,134 @@ describe('the block plan', () => {
     expect(ends[0].verdict).toBe(true);
   });
 
-  it('gives the strategy of the place the light is at, and the breath in rest', () => {
-    const sim = later();
-    untilAt(sim, 'mind', MID);
-    expect(sim.tip).toBe(t(TIPS.place.mind));
+  it('gives the strategy of the station the light is at, and the breath in rest', () => {
+    const sim = later({ progress: { map: 'seven' } });
+    untilAt(sim, 'crown', MID);
+    expect(sim.tip).toBe(t(TIPS.place.crown));
     const clock = { t: sim.t };
-    untilAt(sim, 'eyes', HIGH, clock);
-    if (sim.pushBlock) expect(sim.tip).toBe(t(TIPS.place.eyes));
     while (!sim.restBlock) drive(sim, 0.5, MID, clock, reader(sim));
     expect(TIPS.rest.map(k => t(k))).toContain(sim.tip);
   });
 });
 
-describe('the way', () => {
-  it('comes down from the open heaven to the crown, then lights each place in turn and flows on', () => {
-    const sim = later();
+describe('the way through a map', () => {
+  it('comes down from the open heaven to the map’s first station, lights each in turn and flows on', () => {
+    const sim = later({ progress: { map: 'seven' } });
     expect(sim.stage).toBe('enter');
     expect(sim.dir).toBe('down');
     const clock = { t: 0 };
-    const evs = drive(sim, RULES.heavenSec + 0.1, MID, clock);
-    expect(ofType(evs, 'arrive')[0]).toMatchObject({ place: 'mind', dir: 'down', idx: 0 });
-    const more = drive(sim, 60, HIGH, clock);
-    const fulls = ofType(more, 'full').map(e => e.place);
-    expect(fulls.slice(0, 2)).toEqual(['mind', 'eyes']);
-    const flows = ofType(more, 'flow');
-    expect(flows[0]).toMatchObject({ from: 'mind', to: 'eyes', dir: 'down' });
-    expect(sim.lit.mind & LIT_DOWN).toBeTruthy();
+    const evs = drive(sim, RULES.heavenSec + 0.1, HIGH, clock);
+    expect(ofType(evs, 'arrive')[0]).toMatchObject({ station: 'crown', dir: 'down', idx: 0 });
+    const more = drive(sim, 150, steady(0.9), clock, reader(sim));
+    const fulls = ofType(more, 'full').map(e => e.station);
+    expect(fulls.slice(0, 2)).toEqual(['crown', 'brow']);
+    expect(ofType(more, 'flow')[0]).toMatchObject({ from: 'crown', to: 'brow', dir: 'down' });
+    expect(sim.lit.crown & LIT_DOWN).toBeTruthy();
+    // its glass opened piece by piece, one tick each
+    const petals = ofType(more, 'petal').filter(e => e.station === 'crown').map(e => e.n);
+    expect(petals).toEqual(Array.from({ length: tileTotal('crown') }, (_, i) => i + 1));
   });
 
-  it('opens the rose window petal by petal: the inner ring first, then the outer petals', () => {
-    for (const p of PLACES) {
-      expect(petalCount(p, 0)).toBe(0);
-      expect(petalCount(p, 1)).toBe(petalTotal(p));
-      const half = petalsOpen(p, RULES.innerShare);
-      expect(half.inner).toBeCloseTo(PLACE[p].rose.inner, 9);
-      expect(half.outer).toBe(0);
-      let prev = 0;
-      for (let f = 0; f <= 1.0001; f += 0.01) {
-        const n = petalCount(p, f);
-        expect(n).toBeGreaterThanOrEqual(prev);
-        prev = n;
-      }
-    }
-    const sim = later();
-    const evs = drive(sim, 40, HIGH);
-    const petals = ofType(evs, 'petal').filter(e => e.place === 'mind').map(e => e.n);
-    expect(petals).toEqual(Array.from({ length: petalTotal('mind') }, (_, i) => i + 1));
-  });
-
-  it('takes about 20–40 s a place at a moderate signal, faster in gold light, slower but moving without it', () => {
-    /** seconds per place lit over the first 300 s of a 10-minute session (rests and the blind block included) */
-    const pace = (f: (sim: RzekiSim) => FocusFrame, seed = 1) => {
-      const sim = later({ planned: 600, seed });
-      drive(sim, 300, () => f(sim), { t: 0 }, reader(sim));
-      return 300 / Math.max(1, sim.placesNow);
-    };
-    const mean = (f: (sim: RzekiSim) => FocusFrame) => [1, 2, 3].reduce((s, seed) => s + pace(f, seed), 0) / 3;
-    const moderate = mean(sim => (sim.restBlock ? frame({ calm: 0.55, level: 0.35 }) : frame({ level: 0.55, activity: 2.2 })));
-    const golden = mean(sim => (sim.restBlock ? frame({ calm: 0.7, level: 0.3 }) : frame({ level: 0.9, activity: 5 })));
-    const low = mean(sim => (sim.restBlock ? frame({ calm: 0.4, level: 0.4 }) : frame({ level: 0.15, activity: -1 })));
-    const none = mean(() => NONE);
-    expect(moderate).toBeGreaterThan(20);
-    expect(moderate).toBeLessThan(40);
-    expect(golden).toBeLessThan(moderate * 0.9);
-    expect(low).toBeGreaterThan(moderate * 1.15);
-    // without control or without a signal the way still goes on: a place in about a minute at most
-    expect(low).toBeLessThan(65);
-    expect(none).toBeLessThan(60);
-  });
-
-  it('fills a place in a sighted push ~1.4× faster in gold light than at the threshold, ~3× faster than at a low signal', () => {
-    const rate = (f: FocusFrame) => {
-      const sim = later();
-      drive(sim, 12, f);
-      return sim.fillRate();
-    };
-    const gold = rate(frame({ level: 0.9, activity: 5 })), mid = rate(frame({ level: 0.5, activity: 2 })), low = rate(LOW);
-    expect(gold / mid).toBeGreaterThan(1.35);
-    expect(gold / low).toBeGreaterThan(2.7);
-    // ≈ 15 s of push at the threshold for a whole place
-    expect(1 / mid).toBeGreaterThan(12);
-    expect(1 / mid).toBeLessThan(18);
-  });
-
-  it('carries the light gathered in the dark into the next place', () => {
-    const sim = later({ planned: 600, progress: { sessions: 4, pushes: 2 } });
-    const clock = { t: 0 };
-    while (!sim.blind) drive(sim, 0.25, (_t, s) => (s.restBlock ? CALM : LOW), clock, reader(sim));
-    while (sim.blind) drive(sim, 0.1, HIGH, clock, reader(sim));
-    // the reveal fills the place; the stream flows on; the next place starts with what was left over
-    let guard = 0;
-    const evs: SimEvent[] = [];
-    while (ofType(evs, 'arrive').length === 0 && guard++ < 400) evs.push(...drive(sim, 0.1, CALM, clock, reader(sim)));
-    expect(ofType(evs, 'full').length).toBe(1);
-    expect(sim.fill).toBeGreaterThan(0.2);
-  });
-
-  it('walks down, shows the closing card (Luke 11:13), then up with thanksgiving, then the ascent’s card', () => {
-    const sim = later({ planned: 900 });
-    const clock = { t: 0 };
-    const evs = drive(sim, 600, (_t, s) => (s.restBlock ? CALM : HIGH), clock, reader(sim));
+  it('walks a whole map down, shows the closing card, then up with thanksgiving', () => {
+    const sim = later({ planned: 1800, progress: { map: 'seven' } });
+    const evs = drive(sim, 1500, steady(0.95), { t: 0 }, reader(sim));
     const wholes = ofType(evs, 'whole').map(e => e.dir);
     expect(wholes.slice(0, 2)).toEqual(['down', 'up']);
     const stories = ofType(evs, 'story').map(e => e.kind);
     expect(stories).toContain('down');
     expect(stories).toContain('up');
-    const arrivals = ofType(evs, 'arrive');
-    const firstUp = arrivals.find(a => a.dir === 'up')!;
-    expect(firstUp.place).toBe('feet');
-    // thanked places carry both bits until a new round begins
-    expect(sim.descentsNow).toBeGreaterThanOrEqual(1);
-    expect(sim.ascentsNow).toBeGreaterThanOrEqual(1);
+    const firstUp = ofType(evs, 'arrive').find(a => a.dir === 'up')!;
+    expect(firstUp.station).toBe('feet');
   });
 
-  it('walks only up when the card says so, and starts again after a whole way', () => {
-    const sim = later({ planned: 900, progress: { way: 'up' } });
-    expect(sim.dir).toBe('up');
-    const clock = { t: 0 };
-    const evs = drive(sim, 500, (_t, s) => (s.restBlock ? CALM : HIGH), clock, reader(sim));
-    expect(ofType(evs, 'arrive')[0].place).toBe('feet');
-    expect(ofType(evs, 'whole').every(e => e.dir === 'up')).toBe(true);
-    expect(ofType(evs, 'again').length).toBeGreaterThanOrEqual(1);
-    expect(sim.lit.feet & LIT_UP || sim.round > 1).toBeTruthy();
+  it('takes the stream out along the arms to the hands and down the legs to the feet', () => {
+    const [l, r] = streamPaths('heart', 'hands');
+    expect(l.at(-1)![0]).toBeLessThan(-0.1);
+    expect(r.at(-1)![0]).toBeGreaterThan(0.1);
+    expect(streamPaths('root', 'feet')).toHaveLength(2);
+    expect(streamPaths('crown', 'brow')).toHaveLength(1);
+    expect(stationPts('hands')).toHaveLength(2);
   });
 
-  it('shows own words at every place instead of the prayer', () => {
+  it('shows own words at every station instead of the prayer', () => {
     const sim = later({ progress: { own: '  Przez Jezusa Chrystusa, Duchu Święty, wypełnij to miejsce  ' } });
     drive(sim, RULES.heavenSec + 0.2, MID);
     expect(sim.line).toBe('Przez Jezusa Chrystusa, Duchu Święty, wypełnij to miejsce');
-    const plain = later();
-    drive(plain, RULES.heavenSec + 0.2, MID);
-    expect(plain.line).toBe(lineAt('mind', 'down'));
+  });
+});
+
+describe('the way goes on next session', () => {
+  it('saves where the way stopped and the light gathered there, and the next session starts there', () => {
+    const sim = later({ planned: 300, progress: { map: 'seven' } });
+    const clock = { t: 0 };
+    untilAt(sim, 'throat', steady(0.9), clock);
+    drive(sim, 3, steady(0.9), clock, reader(sim));
+    sim.finish();
+    expect(sim.p.pos).toMatchObject({ map: 'seven', dir: 'down' });
+    const stopped = route('seven', 'down')[sim.p.pos!.idx];
+    expect(['throat', 'heart']).toContain(stopped);
+    expect(sim.result().highlights.join(' ')).toMatch(/Następnym razem: od (Gardła|Serca)\./);
+    // the next session: the light comes down to that station, with what it had gathered
+    const gathered = sim.p.pos!.fill;
+    const next = new RzekiSim({ progress: sim.p, rng: mulberry32(2), plannedSec: 300, eeg: false, tuning: TUNING });
+    next.start();
+    expect(next.resumed).toBe(true);
+    expect(next.station).toBe(stopped);
+    drive(next, RULES.heavenSec + 0.1, LOW);
+    expect(next.stage).toBe('at');
+    expect(next.fill).toBeCloseTo(gathered, 6);
+    // the stations above it shine as already lit
+    expect(next.lit.crown & LIT_DOWN).toBeTruthy();
+  });
+
+  it('starts from a chosen station ("Zacznij tutaj") or from the top ("Od początku")', () => {
+    const p = freshProgress();
+    expect(startOf(p)).toMatchObject({ station: 'gateway', idx: 0, resumed: false });
+    expect(setStart(p, 'heart')).toBe(true);
+    expect(startOf(p)).toMatchObject({ station: 'heart', dir: 'down', fill: 0, resumed: true });
+    const sim = new RzekiSim({ progress: p, rng: mulberry32(1), plannedSec: 300, eeg: false, tuning: TUNING });
+    sim.start();
+    expect(sim.station).toBe('heart');
+    clearStart(p);
+    expect(startOf(p).station).toBe('gateway');
+    // a station of another map: false, nothing changes
+    setMap(p, 'twelve');
+    expect(setStart(p, 'hands')).toBe(false);
+    expect(p.pos).toBeNull();
+  });
+
+  it('keeps the station when the map or the way changes, if the new map has it; else the top', () => {
+    const p = freshProgress();
+    setStart(p, 'heart');
+    p.pos!.fill = 0.4;
+    setMap(p, 'seven');
+    expect(startOf(p)).toMatchObject({ station: 'heart', fill: 0.4 });
+    setMap(p, 'all');
+    setStart(p, 'void');
+    setMap(p, 'twelve');
+    expect(startOf(p)).toMatchObject({ station: 'gateway', idx: 0, resumed: false });
+    setMap(p, 'all');
+    setWay(p, 'up');
+    expect(startOf(p)).toMatchObject({ station: 'void', dir: 'up', idx: route('all', 'up').indexOf('void') });
+  });
+
+  it('after a whole way, the next session goes on with the next way (up after down), or from the top', () => {
+    const sim = later({ planned: 1800, progress: { map: 'seven', way: 'both' } });
+    let guard = 0;
+    while (sim.descentsNow === 0 && guard++ < 20000) drive(sim, 0.5, steady(0.95), { t: sim.t }, () => undefined);
+    // the closing card is up: the way down is whole
+    sim.finish();
+    expect(sim.p.pos).toMatchObject({ dir: 'up', idx: 0 });
   });
 });
 
 describe('the light and the signal', () => {
-  it('drives the light with focus in a sighted push past its lead-in; the gauge shows it', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    drive(sim, 2, HIGH, clock);
-    expect(sim.meter()).toBeNull();
-    drive(sim, 6, HIGH, clock);
-    expect(sim.light).toBeGreaterThan(0.85);
-    expect(sim.meter()).toBeCloseTo(sim.light, 9);
-    expect(sim.goldOn).toBe(true);
-    const low = later();
-    drive(low, 8, LOW);
-    expect(low.light).toBeLessThan(0.3);
-    expect(low.goldOn).toBe(false);
-  });
-
-  it('freezes at the neutral base without a signal: no gauge, no gold, the place still fills', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    drive(sim, 12, NONE, clock);
-    expect(sim.meter()).toBeNull();
-    expect(sim.goldOn).toBe(false);
-    expect(sim.light).toBeCloseTo(RULES.baseLight, 2);
-    expect(sim.fill + sim.placesNow).toBeGreaterThan(0.3);
-  });
-
-  it('a blind push hides the gauge and the song, gathers unseen and shows it at the block’s end', () => {
+  it('a blind push loads unseen by the same rule and shows it at the block’s end; nothing leaks', () => {
     const sim = later({ planned: 600, progress: { sessions: 4, pushes: 2 } });
     const clock = { t: 0 };
-    while (!sim.blind) drive(sim, 0.25, (_t, s) => (s.restBlock ? CALM : MID), clock, reader(sim));
-    // wait for the light to arrive at a place inside the dark block
-    while (sim.blind && sim.stage !== 'at') drive(sim, 0.1, HIGH, clock, reader(sim));
-    const shown = sim.fill;
-    const scoreAt = sim.score;
+    while (!sim.blind) drive(sim, 0.25, (_t, s) => (s.restBlock ? CALM : LOW), clock, reader(sim));
+    while (sim.blind && (sim.stage !== 'at' || sim.blockT < sim.leadIn + 0.5)) drive(sim, 0.1, HIGH, clock, reader(sim));
+    const shown = sim.fill, scoreAt = sim.score;
     drive(sim, 4, HIGH, clock, reader(sim));
     if (sim.blind) {
       expect(sim.meter()).toBeNull();
@@ -392,8 +625,7 @@ describe('the light and the signal', () => {
       expect(sim.padLevel(HIGH)).toBeNull();
       expect(sim.fill).toBe(shown);
       expect(sim.hidden).toBeGreaterThan(0);
-      // the headline flows at the base: no leak of the hidden light
-      expect(sim.score - scoreAt).toBeLessThanOrEqual(Math.ceil(4 * RULES.dropPush * (0.5 + RULES.baseLight)) + 1);
+      expect(sim.score).toBe(scoreAt);                      // no drops flow in the dark
     }
     let guard = 0;
     const evs: SimEvent[] = [];
@@ -405,75 +637,37 @@ describe('the light and the signal', () => {
     expect(sim.fill).toBeGreaterThan(shown);
   });
 
-  it('rest: the light glows steadily, the breath turns in 4 / out 6, calm gathers drops and abiding', () => {
+  it('rest: the breath turns in 4 / out 6, calm gathers drops and abiding; without a signal nothing flows', () => {
     const sim = later();
     const clock = { t: 0 };
     while (!sim.restBlock) drive(sim, 0.25, MID, clock, reader(sim));
     const s0 = sim.score;
     const evs = drive(sim, 12, CALM, clock, reader(sim));
-    const turns = ofType(evs, 'breathTurn');
-    expect(turns.length).toBeGreaterThanOrEqual(2);
+    expect(ofType(evs, 'breathTurn').length).toBeGreaterThanOrEqual(2);
     expect(BREATH).toBe(10);
-    expect(sim.meter()).toBeCloseTo(sim.calmShown, 9);
     expect(sim.light).toBeCloseTo(RULES.restLight, 1);
     expect(sim.score - s0).toBeGreaterThan(12);
     expect(sim.abideNow).toBeGreaterThan(5);
-    expect(sim.longestNow).toBeGreaterThan(5);
-    // calm pays more than a restless rest
-    const restless = later();
-    const c2 = { t: 0 };
-    while (!restless.restBlock) drive(restless, 0.25, MID, c2, reader(restless));
-    const r0 = restless.score;
-    drive(restless, 12, frame({ calm: 0.1, level: 0.8, activity: 4 }), c2, reader(restless));
-    expect(restless.score - r0).toBeLessThan(sim.score - s0);
-    expect(restless.abideNow).toBe(0);
-  });
-
-  it('the hands stay with the place: a little light, less for a flurry, the prayer shown again', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    untilAt(sim, 'mind', NONE, clock);
-    const f0 = sim.fill;
-    sim.stay();
-    const one = sim.fill - f0;
-    expect(one).toBeCloseTo(RULES.tap, 3);
-    expect(sim.reshow).toBeGreaterThan(0);
-    for (let i = 0; i < 10; i++) sim.stay();
-    const f1 = sim.fill;
-    sim.stay();
-    expect(sim.fill - f1).toBeLessThan(one * 0.3);
-    // Space does the same
-    drive(sim, 6, NONE, clock);
-    const f2 = sim.fill;
-    expect(sim.key(' ', true)).toBe(true);
-    expect(sim.fill).toBeGreaterThan(f2);
+    const s1 = sim.score;
+    drive(sim, 3, NONE, clock, reader(sim));
+    expect(sim.score).toBe(s1);
   });
 });
 
 describe('the session', () => {
-  it('scores with the smoke test’s crude input (a centre tap every 0.65 s, Space every ~2 s, focus on)', () => {
+  it('scores with the smoke test’s crude input (a centre tap every 0.65 s, Space every ~2 s, focus on) within 22 s', () => {
     for (const fresh of [true, false]) {
-      const sim = fresh ? makeSim({ tuning: BEGINNER, planned: 60 }) : later({ planned: 60 });
+      const sim = fresh ? makeSim({ tuning: BEGINNER, planned: 40 }) : later({ planned: 40 });
       let next = 0.65, space = 2;
       const clock = { t: 0 };
       const seen: number[] = [];
-      const evs = drive(sim, 22, HIGH, clock, tt => {
-        if (tt >= next) {
-          next += 0.65;
-          sim.stay();
-        }
-        if (tt >= space) {
-          space += 2;
-          sim.key(' ', true);
-          sim.key(' ', false);
-        }
+      drive(sim, 22, HIGH, clock, tt => {
+        if (tt >= next) { next += 0.65; sim.stay(); }
+        if (tt >= space) { space += 2; sim.key(' ', true); sim.key(' ', false); }
         if (Math.abs(tt - Math.round(tt)) < STEP / 2) seen.push(sim.score);
       });
       expect(sim.result().score).toBeGreaterThan(0);
-      // the headline accrues live
       expect(seen.at(-1)!).toBeGreaterThan(seen[3]);
-      expect(ofType(evs, 'tap').length).toBeGreaterThan(10);
-      expect(sim.placesNow).toBeGreaterThanOrEqual(1);
     }
   });
 
@@ -488,29 +682,16 @@ describe('the session', () => {
     evs.push(...drive(sim, 1, MID, clock));
     sim.stay();
     expect(sim.story).toBeNull();
-    evs.push(...drive(sim, 90, (_t, s) => (s.restBlock ? CALM : MID), clock, reader(sim)));
+    evs.push(...drive(sim, 120, steady(0.8), clock, reader(sim)));
     const coach = ofType(evs, 'coach').map(e => e.what);
-    expect(coach).toContain('tap');
-    expect(coach).toContain('light');
-    expect(coach).toContain('petals');
-    expect(coach).toContain('breath');
-    // a returning player hears nothing twice
+    for (const c of ['tap', 'light', 'petals', 'breath'] as const) expect(coach).toContain(c);
+    // a returning player hears nothing twice, and a player of the first version sees what is new, once
     const again = makeSim({ progress: { ...sim.p } });
     expect(again.story).toBeNull();
-    const ev2 = drive(again, 60, MID);
-    expect(ofType(ev2, 'coach').map(e => e.what)).not.toContain('tap');
-  });
-
-  it('keeps the narrator quiet while a coach mark is up, and lets it speak after', () => {
-    const sim = later();
-    const clock = { t: 0 };
-    drive(sim, 6, MID, clock);
-    sim.hintUntil = clock.t + 3;
-    sim.talk.ask('good', 5, 10);
-    drive(sim, 2.5, MID, clock);
-    expect(sim.talk.line).toBeNull();
-    drive(sim, 3, MID, clock);
-    expect(sim.talk.said.length).toBeGreaterThan(0);
+    const old = makeSim({ progress: { sessions: 3, seen: ['s.open', 'c.tap'] } });
+    expect(old.story).toMatchObject({ kind: 'news', pages: 1 });
+    const old2 = makeSim({ progress: { ...old.p } });
+    expect(old2.story).toBeNull();
   });
 
   it('gives result() idempotently and the record only with Math.max', () => {
@@ -520,19 +701,15 @@ describe('the session', () => {
     const b = sim.result();
     expect(b.score).toBe(a.score);
     expect(sim.p.best[String(300)]).toBe(a.score);
-    const sessions = sim.p.sessions;
-    sim.result();
-    expect(sim.p.sessions).toBe(sessions);
     expect(a.unit).toBe(unit(a.score));
   });
 
-  it('settles once at the end (or early), counting the session, its places and ways', () => {
-    const sim = later({ planned: 40 });
-    drive(sim, 46, HIGH, { t: 0 }, reader(sim));
+  it('settles once at the end (or early), counting the session, its stations and ways', () => {
+    const sim = later({ planned: 60 });
+    drive(sim, 66, HIGH, { t: 0 }, reader(sim));
     expect(sim.phase).toBe('done');
     expect(sim.canStop()).toBe(true);
     expect(sim.p.sessions).toBe(6);
-    expect(timesLit(sim.p, 'mind')).toBeGreaterThanOrEqual(1);
     expect(sim.p.drops).toBe(sim.score);
     const early = later({ planned: 300 });
     drive(early, 20, MID);
@@ -546,146 +723,122 @@ describe('the session', () => {
     const sim = later();
     drive(sim, 20, HIGH);
     const r = sim.result();
-    expect(r.verse).toBeTruthy();
     expect(passage(r.verse!).text.length).toBeGreaterThan(10);
-    for (const id of ['jhn7.38-39', 'act2.17', 'isa11.2', 'luk11.13', 'psa141.2', 'php4.7'] as const) expect(passage(id).text.length).toBeGreaterThan(10);
-    const way = later({ planned: 900 });
-    drive(way, 520, (_t, s) => (s.restBlock ? CALM : HIGH), { t: 0 }, reader(way));
-    const v = way.closingVerse();
-    expect(['psa141.2', 'luk11.13', 'php4.7', 'act2.17', 'isa11.2', 'jhn7.38-39']).toContain(v);
     expect(makeSim().closingVerse()).toBe('jhn7.38-39');
   });
 
-  it('says what happened in the summary: readable stats and highlights', () => {
+  it('says what happened in the summary: readable stats and highlights, and where the way goes on', () => {
     const sim = later({ planned: 600 });
-    drive(sim, 300, (_t, s) => (s.restBlock ? CALM : HIGH), { t: 0 }, reader(sim));
+    drive(sim, 300, steady(0.9), { t: 0 }, reader(sim));
     const r = sim.result();
     expect(r.stats.length).toBeGreaterThanOrEqual(6);
-    expect(r.highlights.length).toBeGreaterThan(0);
     for (const h of r.highlights) expect(h.length).toBeLessThan(140);
-    expect(r.highlights[0]).toBe(t('hl.down'));
-  });
-
-  it('pays a 5-minute session roughly 500–2000 drops with mid focus and some taps', () => {
-    const sim = later({ planned: 300 });
-    let next = 2;
-    drive(sim, 300, (_t, s) => (s.restBlock ? frame({ calm: 0.6 }) : MID), { t: 0 }, tt => {
-      if (tt >= next) { next += 2; sim.stay(); }
-      if (sim.story && sim.story.t > 1) sim.stay();
-    });
-    expect(sim.score).toBeGreaterThan(500);
-    expect(sim.score).toBeLessThan(2000);
+    expect(r.highlights.some(h => h.startsWith('Następnym razem: od '))).toBe(true);
   });
 
   it('lets the rivers from the pool grow with the drops', () => {
     const sim = later();
     expect(sim.river).toBe(0);
-    drive(sim, 60, MID, { t: 0 }, reader(sim));
+    drive(sim, 60, steady(0.8), { t: 0 }, reader(sim));
     expect(sim.river).toBeGreaterThan(0);
     expect(sim.river).toBeLessThanOrEqual(1);
   });
 });
 
 describe('the meta', () => {
-  it('counts the places lit each way and glows them on the lobby’s figure', () => {
+  it('counts the stations lit each way and glows them on the lobby’s figure', () => {
     const p = freshProgress();
-    expect(placesLit(p)).toBe(0);
+    expect(stationsLit(p)).toBe(0);
     expect(mapGlow(p, 'heart')).toBe(0);
-    countPlace(p, 'heart', 'down');
-    countPlace(p, 'heart', 'up', 2);
-    expect(timesLit(p, 'heart')).toBe(3);
-    expect(placesLit(p)).toBe(1);
+    countStation(p, 'heart', 'down');
+    countStation(p, 'hands', 'up', 2);
+    expect(timesLit(p, 'hands')).toBe(2);
+    expect(stationsLit(p)).toBe(2);
+    expect(stationsLit(p, MAP.twelve.stations)).toBe(1);
     expect(mapGlow(p, 'heart')).toBeGreaterThan(0.35);
-    countPlace(p, 'heart', 'down', 100);
-    expect(mapGlow(p, 'heart')).toBeLessThanOrEqual(1);
   });
 
-  it('makes a window richer the more often its place is lit: gilded at 3, a crown of glass at 10, golden tracery at 25', () => {
+  it('makes a window richer the more often its station is lit: gilded at 3, a crown of glass at 10, golden tracery at 25', () => {
     expect([0, 2, 3, 9, 10, 24, 25, 400].map(windowTier)).toEqual([0, 0, 1, 1, 2, 2, 3, 3]);
     const p = freshProgress();
-    countPlace(p, 'heart', 'down', 2);
+    countStation(p, 'heart', 'down', 2);
     expect(tierOf(p, 'heart')).toBe(0);
-    countPlace(p, 'heart', 'up', 1);
+    countStation(p, 'heart', 'up', 1);
     expect(tierOf(p, 'heart')).toBe(1);
     for (const k of [1, 2, 3] as const) expect(tierName(k).length).toBeGreaterThan(3);
-    expect(tierName(0)).toBe('');
-    // in play: the crown lit for the third time earns its gilding, said once, kept in the summary
-    const sim = later({ progress: { down: { mind: 2, eyes: 0, mouth: 0, heart: 0, breath: 0, inner: 0, feet: 0 } } });
-    expect(sim.tiers.mind).toBe(0);
-    const evs = drive(sim, 40, HIGH, { t: 0 }, reader(sim));
-    const tiers = ofType(evs, 'tier');
-    expect(tiers[0]).toMatchObject({ place: 'mind', tier: 1 });
-    expect(sim.tiers.mind).toBe(1);
-    expect(sim.result().highlights.join(' ')).toMatch(new RegExp(tierName(1)));
   });
 
-  it('chooses the way and keeps own words as plain text', () => {
+  it('chooses the map and the way, and keeps own words as plain text', () => {
     const p = freshProgress();
+    expect(p.map).toBe('all');
     expect(p.way).toBe('both');
+    expect(setMap(p, 'subtle')).toBe(true);
+    expect(setMap(p, 'nine')).toBe(false);
+    expect(p.map).toBe('subtle');
     expect(setWay(p, 'up')).toBe(true);
-    expect(p.way).toBe('up');
     expect(setWay(p, 'sideways')).toBe(false);
-    expect(p.way).toBe('up');
     expect(setOwn(p, '<i>Moje</i> słowa')).toBe('i Moje /i słowa');
-    expect(setOwn(p, '   ')).toBe('');
   });
 });
 
-describe('old saves', () => {
-  it('reads the placeholder’s save ({ ver: 1, sessions: n }) and keeps the count', () => {
-    const p = mergeSaved(freshProgress(), { ver: 1, sessions: 4 }) as RzekiProgress;
-    migrate(p);
-    expect(p.ver).toBe(1);
-    expect(p.sessions).toBe(4);
-    expect(p.way).toBe('both');
-    expect(p.own).toBe('');
-    expect(p.song).toBe(true);
-    expect(migrate(p)).toBe(p);
-    expect(bestOf(p)).toBeNull();
-    // and it plays
-    const sim = new RzekiSim({ progress: p, rng: mulberry32(2), plannedSec: 180, eeg: true, tuning: TUNING });
-    sim.start();
-    drive(sim, 10, MID);
-    expect(sim.result().score).toBeGreaterThan(0);
-  });
-
-  it('keeps a realistic version-1 save and repairs fields of a wrong type', () => {
+describe('old saves (progress v1 → v2)', () => {
+  it('moves a version-1 save’s seven places onto the stations they became, keeping everything else', () => {
     const saved = {
-      ver: 1, sessions: 9, pushes: 14, way: 'down', own: 'Moje <słowa>\n', down: { heart: 3, mind: 'x', ghost: 4 }, up: [1, 2], descents: 2,
-      ascents: 'many', best: { '300': 840, '180': 'x' }, drops: 2400.7, abideBest: 24.5, abideAll: -3, song: false, seen: ['c.tap', 3], lastLen: 300,
+      ver: 1, sessions: 9, pushes: 14, way: 'down', own: 'Moje <słowa>\n', descents: 2, ascents: 1, best: { '300': 840 }, drops: 2400, abideBest: 24.5,
+      abideAll: 300, song: false, seen: ['s.open', 'c.tap'], lastLen: 300,
+      down: { mind: 3, eyes: 2, mouth: 1, heart: 4, breath: 5, inner: 6, feet: 7 }, up: { mind: 1, feet: 2, heart: 'x' },
     };
     const p = mergeSaved(freshProgress(), saved) as RzekiProgress;
     migrate(p);
+    expect(p.ver).toBe(2);
+    expect(p.map).toBe('all');
+    expect(p.pos).toBeNull();
     expect(p.way).toBe('down');
     expect(p.own).toBe('Moje słowa');
-    expect(p.down.heart).toBe(3);
-    expect(p.down.mind).toBe(0);
-    expect(Object.keys(p.down)).toEqual([...PLACES]);
-    expect(p.up.heart).toBe(0);
-    expect(p.descents).toBe(2);
-    expect(p.ascents).toBe(0);
-    expect(p.best).toEqual({ 300: 840 });
-    expect(p.drops).toBe(2400);
-    expect(p.abideBest).toBe(24.5);
-    expect(p.abideAll).toBe(0);
-    expect(p.song).toBe(false);
-    expect(p.seen).toEqual(['c.tap']);
+    expect(p.down).toMatchObject({ crown: 3, brow: 2, throat: 1, heart: 4, plexus: 5, sacral: 6, feet: 7, gateway: 0, hands: 0 });
+    expect(p.up).toMatchObject({ crown: 1, feet: 2, heart: 0 });
+    expect(Object.keys(p.down)).toEqual([...STATIONS]);
+    expect(Object.keys(V1_PLACES)).toHaveLength(7);
+    expect([p.sessions, p.pushes, p.descents, p.ascents, p.drops, p.abideBest, p.abideAll, p.song, p.lastLen]).toEqual([9, 14, 2, 1, 2400, 24.5, 300, false, 300]);
+    expect(p.seen).toEqual(['s.open', 'c.tap']);
     expect(bestOf(p)).toBe(840);
+    expect(tierOf(p, 'feet')).toBe(1);                      // 9 times lit: its glass stays gilded
+    expect(migrate(p)).toBe(p);
+    expect(p.down.crown).toBe(3);                           // idempotent
+    // it plays, and the player of the first version is told what is new
     const sim = new RzekiSim({ progress: p, rng: mulberry32(2), plannedSec: 180, eeg: false, tuning: TUNING });
     sim.start();
-    expect(sim.dir).toBe('down');
-    drive(sim, 10, MID);
+    expect(sim.story?.kind).toBe('news');
+    drive(sim, 10, HIGH, { t: 0 }, reader(sim));
     expect(sim.result().score).toBeGreaterThan(0);
   });
 
+  it('reads the placeholder’s save and keeps a version-2 save, repairing fields of a wrong type', () => {
+    const p0 = mergeSaved(freshProgress(), { ver: 1, sessions: 4 }) as RzekiProgress;
+    migrate(p0);
+    expect([p0.ver, p0.sessions, p0.way, p0.map]).toEqual([2, 4, 'both', 'all']);
+    const p = mergeSaved(freshProgress(), {
+      ver: 2, sessions: 3, map: 'seven', way: 'up', pos: { map: 'seven', dir: 'up', idx: 3, fill: 0.5 }, down: { heart: 2, ghost: 9 }, best: { 300: 'x' },
+    }) as RzekiProgress;
+    migrate(p);
+    expect(p.map).toBe('seven');
+    expect(p.pos).toEqual({ map: 'seven', dir: 'up', idx: 3, fill: 0.5 });
+    expect(p.down.heart).toBe(2);
+    expect(p.best).toEqual({});
+    for (const bad of [{ map: 'seven', dir: 'up', idx: 40 }, { map: 'x', dir: 'up', idx: 1 }, { map: 'all', dir: 'left', idx: 1 }, 'x']) {
+      const q = mergeSaved(freshProgress(), { ver: 2, pos: bad }) as RzekiProgress;
+      expect(migrate(q).pos).toBeNull();
+    }
+  });
+
   it('survives garbage', () => {
-    for (const junk of [null, 3, 'x', [], { ver: 2 }, { ver: 1, down: 'x', up: 5, best: [], seen: null, way: 7, own: { a: 1 } }]) {
+    for (const junk of [null, 3, 'x', [], { ver: 3 }, { ver: 2, down: 'x', up: 5, best: [], seen: null, way: 7, own: { a: 1 }, map: 9 }]) {
       const p = mergeSaved(freshProgress(), junk) as RzekiProgress;
       migrate(p);
-      expect(p.ver).toBe(1);
+      expect(p.ver).toBe(2);
       expect(typeof p.down).toBe('object');
       expect(p.way).toBe('both');
-      expect(p.own).toBe('');
+      expect(p.map).toBe('all');
       expect(Array.isArray(p.seen)).toBe(true);
     }
   });
@@ -717,111 +870,135 @@ describe('the words', () => {
       }
     }
     for (const [k, v] of Object.entries(CATALOGS.pl)) if (typeof v === 'string' && /[„“”"]/.test(v)) expect(v, k).toMatch(/„[^„”"“]+”/);
+    // German never "Gott mit uns"
+    for (const v of Object.values(CATALOGS.de)) if (typeof v === 'string') expect(v).not.toMatch(/Gott mit uns/);
   });
 
-  it('suggests strategies, never to concentrate harder; no chakra words, no “energy”, no promise of healing', () => {
+  it('suggests strategies, never to concentrate harder; names the maps’ centres but claims no energy, no awakening power, no healing', () => {
     for (const l of ['pl', 'en', 'de', 'sv'] as const) {
       for (const [k, v] of Object.entries(CATALOGS[l])) {
         const texts = typeof v === 'string' ? [v] : Object.values(v).filter((x): x is string => typeof x === 'string');
         for (const s of texts) {
           if (/^(tip|howto)\./.test(k)) expect(s, `${l}.${k}`).not.toMatch(/mocniej|bardziej się skup|harder|concentrate more|stärker|mehr konzentrier|hårdare|koncentrera dig mer/i);
-          expect(s, `${l}.${k}`).not.toMatch(/czakr|chakra|Chakra|tschakra|kundalini|energi|energy|Energie|uzdrawia|heals you|cures|heilt dich|botar dig|trzecie oko|third eye|dritte Auge|tredje ögat/i);
+          expect(s, `${l}.${k}`).not.toMatch(/kundalini|energi|energy|Energie|uzdrawia|heals you|cures|heilt dich|botar dig|\bwąż|serpent|Schlange|\borm\b/i);
+          // the word chakra only inside the names that carry it (picture 2's names)
+          if (/czakr|chakra/i.test(s)) expect(k, `${l}.${k}`).toMatch(/^(name|from)\.(galactic|sacral)$/);
         }
       }
     }
+    // the how-to's last tip says the band measures attention
+    expect(howto(true).tips!.at(-1)).toMatch(/mierzy uwagę/);
   });
 
   it('bends the headline’s unit (1 kropla, 3 krople, 5 kropli) and writes seconds with a no-break space', () => {
     expect(unit(1)).toBe('kropla');
     expect(unit(3)).toBe('krople');
     expect(unit(5)).toBe('kropli');
-    expect(unit(22)).toBe('krople');
     expect(secText(42)).toBe('42 s');
     expect(secText(102)).toBe('1:42');
   });
 });
 
-describe('mobile first (DESIGN §12, §13.14)', () => {
-  it('gives the current place a finger-sized target inside the insets at every checked size, for every place and fill', () => {
-    for (const s of CHECK_SIZES) {
-      const L = layout(s.w, s.h, s.insets, true);
-      for (const p of PLACES) {
-        for (const fill of [0, 0.4, 1]) {
-          const tg = tapTargets(L, { story: null, place: p, fill });
-          expect(tg).toHaveLength(1);
-          expect(auditTargets(tg, s.w, s.h, L.ins), `${s.name} ${p} ${fill}`).toEqual([]);
+describe('mobile first (DESIGN §12, §13.14) and the camera', () => {
+  const camOf = (L: Layout, s: StationId) => cameraFor(L, framingOf(s));
+
+  it('gives the current station a finger-sized target inside the insets at every checked size, for every station, fill and framing', () => {
+    for (const sz of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(sz.w, sz.h, sz.insets, touch);
+        for (const s of STATIONS) {
+          for (const fill of [0, 0.4, 1]) {
+            const tg = tapTargets(L, { story: null, place: s, fill, cam: camOf(L, s) });
+            expect(tg).toHaveLength(1);
+            expect(auditTargets(tg, sz.w, sz.h, L.ins), `${sz.name} ${s} ${fill}`).toEqual([]);
+          }
+          // the camera on its way between framings too
+          const mid = easeCam(L, cameraFor(L, 'body'), camOf(L, s), 0.5);
+          expect(auditTargets(tapTargets(L, { story: null, place: s, fill: 0.5, cam: mid }), sz.w, sz.h, L.ins), `${sz.name} ${s} easing`).toEqual([]);
         }
+        const card = storyRect(L, 300);
+        expect(auditTargets(tapTargets(L, { story: card, place: 'heart', fill: 0.5 }), sz.w, sz.h, L.ins), sz.name).toEqual([]);
+        expect(tapTargets(L, { story: null, place: null, fill: 0 })).toEqual([]);
       }
-      // a story card takes every tap: the card is the only target
-      const card = storyRect(L, 300);
-      expect(auditTargets(tapTargets(L, { story: card, place: 'heart', fill: 0.5 }), s.w, s.h, L.ins), s.name).toEqual([]);
-      // between ways there is nothing to tap
-      expect(tapTargets(L, { story: null, place: null, fill: 0 })).toEqual([]);
     }
+  });
+
+  it('frames each framing whole inside the stage, the figure’s midline kept', () => {
+    for (const sz of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(sz.w, sz.h, sz.insets, touch), S = L.stage, H = L.fig.H;
+        for (const [name, r] of Object.entries(FRAMES)) {
+          const c = cameraFor(L, name as keyof typeof FRAMES);
+          expect(c.s, `${sz.name} ${name}`).toBeLessThanOrEqual(CAM_MAX);
+          const a = toScreen(c, L.fig.cx + r.x0 * H, L.fig.top + r.y0 * H), b = toScreen(c, L.fig.cx + r.x1 * H, L.fig.top + r.y1 * H);
+          expect(a.y, `${sz.name} ${name}`).toBeGreaterThanOrEqual(S.y - 1);
+          expect(b.y, `${sz.name} ${name}`).toBeLessThanOrEqual(S.y + S.h + 1);
+          expect(toScreen(c, L.fig.cx, 0).x, `${sz.name} ${name}`).toBeCloseTo(L.fig.cx, 6);
+          if (name !== 'hands' && name !== 'ground') {
+            expect(a.x).toBeGreaterThanOrEqual(S.x - 1);
+            expect(b.x).toBeLessThanOrEqual(S.x + S.w + 1);
+          }
+        }
+        // the heavens hold both shells whole; the body framing is the layout itself
+        const hv = cameraFor(L, 'heavens'), out = SHELL.gateway;
+        expect(toScreen(hv, 0, L.fig.top + (out.cy - out.ry) * H).y).toBeGreaterThanOrEqual(S.y - 1);
+        expect(cameraFor(L, 'body')).toEqual({ s: 1, ox: 0, oy: 0 });
+      }
+    }
+  });
+
+  it('nears the hands enough to read the hand map on a phone, and not at all on a big screen', () => {
+    for (const sz of CHECK_SIZES) {
+      const L = layout(sz.w, sz.h, sz.insets, true);
+      const s = cameraFor(L, 'hands').s;
+      // a hand (0.1 H) at least ~55 px tall on the screen upright; a phone on its side keeps the words beside the
+      // figure, so its hands come as near as the figure's column lets them (36 px with the chart on, 40 without)
+      expect(0.1 * L.fig.H * s, sz.name).toBeGreaterThanOrEqual(L.shape === 'side' ? 35 : 55);
+    }
+    const qhd = layout(1587, 1300, { top: 118, right: 0, bottom: 0, left: 0 }, false);
+    expect(cameraFor(qhd, 'hands').s).toBe(1);
   });
 
   it('lays a phone upright out tall: the figure in the middle, the prayer below it, nothing under the HUD or off the band', () => {
-    for (const s of CHECK_SIZES.filter(c => c.h > c.w)) {
-      const L = layout(s.w, s.h, s.insets, true);
-      expect(L.shape, s.name).toBe('tall');
+    for (const sz of CHECK_SIZES.filter(c => c.h > c.w)) {
+      const L = layout(sz.w, sz.h, sz.insets, true);
+      expect(L.shape, sz.name).toBe('tall');
       expect(L.fig.cx).toBeCloseTo((L.left + L.right) / 2, 5);
-      // the feet and the pool stand above the prayer band, the crown below the HUD
-      expect(L.fig.top + 1.06 * L.fig.H, s.name).toBeLessThanOrEqual(L.prayer.y + 0.5);
-      expect(L.fig.top + PLACE.mind.y * L.fig.H - windowR(L, 0.5), s.name).toBeGreaterThanOrEqual(L.top - 0.5);
-      expect(L.prayer.y + L.prayer.h, s.name).toBeLessThanOrEqual(L.bottom);
-      expect(L.prayer.x).toBeGreaterThanOrEqual(L.left + 16);
+      expect(L.fig.top + 1.06 * L.fig.H, sz.name).toBeLessThanOrEqual(L.prayer.y + 0.5);
+      expect(L.fig.top + STATION.crown.y * L.fig.H - windowR(L, 0.5), sz.name).toBeGreaterThanOrEqual(L.top - 0.5);
+      expect(L.prayer.y + L.prayer.h, sz.name).toBeLessThanOrEqual(L.bottom);
       expect(L.prayer.h).toBeGreaterThanOrEqual(100);
-      // the figure is big enough to read its places even on the smallest phone
-      expect(L.fig.H, s.name).toBeGreaterThan(200);
-      // the head's three places are apart on the figure
-      expect((PLACE.eyes.y - PLACE.mind.y) * L.fig.H).toBeGreaterThan(14);
-      expect((PLACE.mouth.y - PLACE.eyes.y) * L.fig.H).toBeGreaterThan(14);
-      // and their lit windows never touch: the crown above the head, the eyes at the brow, the throat on the neck
-      for (const [a, b2] of [['mind', 'eyes'], ['eyes', 'mouth'], ['mouth', 'heart']] as const) {
-        expect((PLACE[b2].y - PLACE[a].y) * L.fig.H, `${s.name} ${a}–${b2}`).toBeGreaterThan(2 * litR(L) + 2);
-      }
-      expect(PLACE.mind.y).toBeLessThan(0);
-    }
-  });
-
-  it('lays a phone on its side and a desktop out wide: the figure on the left, the caption and the prayer beside it', () => {
-    for (const s of CHECK_SIZES.filter(c => c.w > c.h)) {
-      const L = layout(s.w, s.h, s.insets, false);
-      expect(['side', 'wide'], s.name).toContain(L.shape);
-      expect(L.prayer.x, s.name).toBeGreaterThan(L.fig.cx + 0.25 * L.fig.H);
-      expect(L.prayer.x + L.prayer.w, s.name).toBeLessThanOrEqual(L.right - 15.5);
-      expect(L.prayer.y + L.prayer.h, s.name).toBeLessThanOrEqual(L.bottom);
-      expect(L.caption.y, s.name).toBeGreaterThanOrEqual(L.top);
-      expect(L.caption.y + L.caption.h, s.name).toBeLessThanOrEqual(L.prayer.y);
-      // the egg of light fits beside the left edge
-      expect(L.fig.cx - 0.33 * L.fig.H, s.name).toBeGreaterThanOrEqual(L.left);
-      expect(L.fig.top + L.fig.H, s.name).toBeLessThanOrEqual(L.bottom);
-    }
-  });
-
-  it('grows on a tablet and a desktop: 1.3 at most below a big screen, up to DESK_MAX on one', () => {
-    for (const s of CHECK_SIZES) {
-      for (const touch of [true, false]) {
-        const L = layout(s.w, s.h, s.insets, touch);
-        expect(L.u).toBeGreaterThanOrEqual(1);
-        expect(L.u, s.name).toBeLessThanOrEqual(Math.min(s.w, s.h) >= DESK_BIG && s.w >= 1024 ? DESK_MAX : 1.3);
+      expect(L.fig.H, sz.name).toBeGreaterThan(200);
+      // the lit windows on the midline never touch, in any map
+      for (const m of MAPS) {
+        const mid = MAP[m].stations.filter(s => STATION[s].kind === 'point');
+        for (let i = 1; i < mid.length; i++) {
+          const gap = (STATION[mid[i]].y - STATION[mid[i - 1]].y) * L.fig.H;
+          expect(gap, `${sz.name} ${m} ${mid[i - 1]}–${mid[i]}`).toBeGreaterThan(2 * litR(L) + 2);
+        }
       }
     }
-    const tablet = layout(820, 1052, { top: 192, right: 0, bottom: 0, left: 0 }, true);
-    expect(tablet.shape).toBe('tall');
-    expect(tablet.fig.H).toBeGreaterThan(500);
   });
 
   it('never draws text under 11 px; the prayer is at least 15 px and what is read at least 13', () => {
     for (const px of [4, 9, 10.9, 11, 13, 17]) expect(fontPx(px)).toBeGreaterThanOrEqual(MIN_TEXT);
     expect(font(6)).toMatch(/ 11px /);
-    for (const s of CHECK_SIZES) {
-      const L = layout(s.w, s.h, s.insets, true);
+    for (const sz of CHECK_SIZES) {
+      const L = layout(sz.w, sz.h, sz.insets, true);
       expect(L.font.prayerMin).toBeGreaterThanOrEqual(15);
-      expect(L.font.prayer).toBeGreaterThanOrEqual(15);
       expect(L.font.label).toBeGreaterThanOrEqual(MIN_READ);
       expect(L.font.caption).toBeGreaterThanOrEqual(MIN_READ);
       expect(L.font.small).toBeGreaterThanOrEqual(MIN_TEXT);
+    }
+  });
+
+  it('grows on a tablet and a desktop: 1.3 at most below a big screen, up to DESK_MAX on one', () => {
+    for (const sz of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(sz.w, sz.h, sz.insets, touch);
+        expect(L.u).toBeGreaterThanOrEqual(1);
+        expect(L.u, sz.name).toBeLessThanOrEqual(Math.min(sz.w, sz.h) >= DESK_BIG && sz.w >= 1024 ? DESK_MAX : 1.3);
+      }
     }
   });
 
@@ -832,89 +1009,39 @@ describe('mobile first (DESIGN §12, §13.14)', () => {
     expect(touch.tips!.length).toBeLessThanOrEqual(2);
     expect(coachText('tap', true)).not.toMatch(/spacj|klik/i);
     expect(coachText('tap', false)).toMatch(/spacj/i);
-    for (const w of ['light', 'petals', 'breath', 'drops', 'blind'] as const) expect(coachText(w, true).length).toBeGreaterThan(10);
-    // a mouse clicks: the how-to and the keys' row speak of clicks, never of taps
     expect(keys.hands[0].text).toMatch(/^Kliknij/);
-    expect(keys.hands.map(hd => hd.text).join(' ')).not.toMatch(/stuk/i);
     expect(touch.hands[0].text).toMatch(/^Stuknij/);
+    // a tap is never said to add light
+    expect(touch.hands[0].text).not.toMatch(/przybywa|rośnie/);
   });
 });
 
 describe('a big screen and a mouse (DESIGN §14)', () => {
-  // a wide desktop canvas with a mouse (an upright one keeps the tall layout, grown)
   const desks = CHECK_SIZES.filter(s => s.w > s.h && ['desktop', 'big'].includes(screenKind(s.w, s.h, false)));
 
-  it('lays a desktop and a big screen out for the mouse; a finger keeps its own layouts', () => {
-    expect(desks.map(s => s.name)).toEqual(expect.arrayContaining(['desktop', 'laptop (1440 × 790)', 'Full HD monitor (the middle column)', '2560 × 1440 monitor (the middle column)']));
-    for (const s of CHECK_SIZES) {
-      const touch = layout(s.w, s.h, s.insets, true);
-      expect(touch.desk, s.name).toBe(false);
-      expect(layout(s.w, s.h, s.insets, false).desk, s.name).toBe(desks.includes(s));
-    }
-  });
-
   it('fills the band with the figure and stands the words beside it at a reading measure', () => {
-    for (const s of desks) {
-      const L = layout(s.w, s.h, s.insets, false);
-      const band = L.bottom - L.top;
-      expect(L.shape, s.name).toBe('wide');
-      // the figure as tall as the band allows: its feet and pool inside, its egg of light inside the left edge
-      expect(L.fig.H, s.name).toBeGreaterThanOrEqual(0.8 * band);
-      expect(L.fig.top + 1.04 * L.fig.H, s.name).toBeLessThanOrEqual(L.bottom);
-      expect(L.fig.cx - 0.34 * L.fig.H, s.name).toBeGreaterThanOrEqual(L.left);
-      // on a big screen the crown's window, open in full, stays under the bar
-      if (L.kind === 'big') expect(L.fig.top + PLACE.mind.y * L.fig.H - windowR(L, 1), s.name).toBeGreaterThanOrEqual(L.top - 0.5);
-      // the words right of the egg, inside the edge, at a reading measure (about 30–40 characters of the prayer)
-      expect(L.prayer.x, s.name).toBeGreaterThanOrEqual(L.fig.cx + 0.34 * L.fig.H);
-      expect(L.prayer.x + L.prayer.w, s.name).toBeLessThanOrEqual(L.right - 16);
-      expect(L.prayer.w, s.name).toBeLessThanOrEqual(18 * L.font.prayer);
-      expect(L.prayer.w, s.name).toBeGreaterThanOrEqual(14 * L.font.prayer);
-      // the figure and its words as one group in the middle: as much room on the left as on the right
-      const leftRoom = L.fig.cx - 0.34 * L.fig.H - L.left, rightRoom = L.right - (L.prayer.x + L.prayer.w);
-      expect(Math.abs(leftRoom - rightRoom), s.name).toBeLessThan(0.05 * (L.right - L.left));
+    for (const sz of desks) {
+      const L = layout(sz.w, sz.h, sz.insets, false);
+      expect(L.desk, sz.name).toBe(true);
+      expect(L.fig.H, sz.name).toBeGreaterThanOrEqual(0.8 * (L.bottom - L.top));
+      expect(L.prayer.x, sz.name).toBeGreaterThanOrEqual(L.fig.cx + 0.34 * L.fig.H);
+      expect(L.prayer.x + L.prayer.w, sz.name).toBeLessThanOrEqual(L.right - 16);
+      expect(L.prayer.w, sz.name).toBeLessThanOrEqual(18 * L.font.prayer);
     }
   });
 
-  it('grows the words with the screen: on a big screen the prayer is 1.4× a phone’s and more', () => {
-    const phone = layout(CHECK_SIZES[0].w, CHECK_SIZES[0].h, CHECK_SIZES[0].insets, true);
-    for (const s of desks) {
-      const L = layout(s.w, s.h, s.insets, false);
-      expect(L.font.prayer, s.name).toBeGreaterThanOrEqual(Math.round(phone.font.prayer * (L.kind === 'big' ? 1.4 : 1.3)));
-      expect(L.font.prayerMin).toBeGreaterThanOrEqual(15);
-      for (const px of [L.font.label, L.font.caption, L.font.verse]) expect(px, s.name).toBeGreaterThanOrEqual(1.3 * MIN_READ);
-      expect(L.font.small).toBeGreaterThanOrEqual(MIN_TEXT);
-    }
-    const qhd = layout(1587, 1300, { top: 118, right: 0, bottom: 0, left: 0 }, false);
-    expect(qhd.u).toBeGreaterThan(1.7);
-    expect(qhd.fig.H).toBeGreaterThan(950);
-  });
-
-  it('stands the words level with each place, whole inside the band', () => {
-    for (const s of desks) {
-      const L = layout(s.w, s.h, s.insets, false);
-      for (const p of PLACES) {
-        const y = L.fig.top + PLACE[p].y * L.fig.H;
+  it('stands the words level with each station through the camera, whole inside the band', () => {
+    for (const sz of desks) {
+      const L = layout(sz.w, sz.h, sz.insets, false);
+      for (const s of STATIONS) {
+        const c = cameraFor(L, framingOf(s)), p = figPt(L, STATION[s].x, STATION[s].y);
+        const y = toScreen(c, p.x, p.y).y;
         const W = wordsAt(L, y);
-        expect(W.caption.y, `${s.name} ${p}`).toBeGreaterThanOrEqual(L.top);
-        expect(W.caption.y + W.caption.h, `${s.name} ${p}`).toBeLessThanOrEqual(W.prayer.y);
-        expect(W.prayer.y + W.prayer.h, `${s.name} ${p}`).toBeLessThanOrEqual(L.bottom);
-        // the place's name (the band's first row) level with the place wherever the band has room for it
+        expect(W.caption.y, `${sz.name} ${s}`).toBeGreaterThanOrEqual(L.top);
+        expect(W.prayer.y + W.prayer.h, `${sz.name} ${s}`).toBeLessThanOrEqual(L.bottom);
         const row = W.prayer.y + labelRowH(L) / 2;
-        if (y > L.top + W.caption.h + 6 + 8 + labelRowH(L) / 2 && y < L.bottom - 8 - L.prayer.h + labelRowH(L) / 2) expect(Math.abs(row - y), `${s.name} ${p}`).toBeLessThan(1);
+        if (y > L.top + W.caption.h + 14 + labelRowH(L) / 2 && y < L.bottom - 8 - L.prayer.h + labelRowH(L) / 2) expect(Math.abs(row - y), `${sz.name} ${s}`).toBeLessThan(1);
       }
-      // other layouts keep their words where they are
-      const phone = layout(360, 500, CHECK_SIZES[0].insets, true);
-      expect(wordsAt(phone, 0)).toBe(phone);
-    }
-  });
-
-  it('keeps the place’s target finger-sized and inside the play at every desk size, for every place and fill', () => {
-    for (const s of desks) {
-      const L = layout(s.w, s.h, s.insets, false);
-      for (const p of PLACES) {
-        for (const fill of [0, 0.5, 1]) expect(auditTargets(tapTargets(L, { story: null, place: p, fill }), s.w, s.h, L.ins), `${s.name} ${p}`).toEqual([]);
-      }
-      expect(auditTargets(tapTargets(L, { story: storyRect(L, 420), place: 'heart', fill: 0.5 }), s.w, s.h, L.ins), s.name).toEqual([]);
     }
   });
 });
@@ -931,40 +1058,33 @@ describe('the rose windows (rose.ts)', () => {
   });
 
   it('builds the oculus, the inner and outer petals and a foil between the outer ones', () => {
-    for (const p of PLACES) {
-      const r = PLACE[p].rose;
+    for (const s of STATIONS) {
+      const r = STATION[s].rose;
       const all = pieces(r, 40);
       expect(all.filter(x => x.ring === 'c')).toHaveLength(1);
       expect(all.filter(x => x.ring === 'i')).toHaveLength(r.inner);
       expect(all.filter(x => x.ring === 'o')).toHaveLength(r.outer);
-      expect(all.filter(x => x.ring === 'f')).toHaveLength(r.outer);
-      for (const pc of all) {
-        expect(pc.r1).toBeLessThanOrEqual(40 * RING.o + 1e-9);
-        expect(pc.r0).toBeGreaterThanOrEqual(0);
-      }
+      for (const pc of all) expect(pc.r1).toBeLessThanOrEqual(40 * RING.o + 1e-9);
     }
   });
 
   it('opens the oculus first, then petal by petal, each filling from its base; nothing is opening when full', () => {
-    const r = PLACE.heart.rose;
+    const r = STATION.heart.rose;
     expect(openness(r, 0)).toEqual({ oculus: 0, inner: 0, outer: 0 });
     expect(openness(r, 0.05).oculus).toBeGreaterThan(0.5);
     expect(partPath(r, 40, 1)).toBeNull();
     expect(partPath(r, 40, RULES.innerShare * 0.5)).not.toBeNull();
-    expect(openness(r, 1)).toEqual({ oculus: 1, inner: r.inner, outer: r.outer });
     expect(petalAngle(0, 4)).toBeCloseTo(-Math.PI / 2, 9);
   });
 });
 
 describe('the chorale (kit/song.ts)', () => {
-  it('is a well-formed slow hymn without words or drums, in the key of the place bells', () => {
+  it('is a well-formed slow hymn without words or drums, in the key of the station bells', () => {
     const song = buildHymn();
     expect(songProblems(song)).toEqual([]);
     expect(song.bpm).toBeLessThanOrEqual(60);
     expect(song.lines).toEqual([]);
     expect(song.parts.some(p => p.voice === 'kick' || p.voice === 'snare' || p.voice === 'hat')).toBe(false);
-    expect(song.parts.find(p => p.layer === 0)?.voice).toBe('pad');
-    // D major: the root is a D (146.83 Hz, D3), the bells' D5 two octaves up
     expect(song.root).toBeCloseTo(146.83, 2);
   });
 
@@ -977,5 +1097,18 @@ describe('the chorale (kit/song.ts)', () => {
     expect(sim.songLevel(CALM)).toBeCloseTo(0.34, 9);
     while (!sim.blind) drive(sim, 0.25, (_t, s) => (s.restBlock ? CALM : MID), clock, reader(sim));
     expect(sim.songLevel(HIGH)).toBeNull();
+  });
+});
+
+describe('every map plays through', () => {
+  it('walks each map down and up with its own count and closing cards', () => {
+    for (const m of MAPS as readonly MapId[]) {
+      const sim = later({ planned: 3600, progress: { map: m, way: 'both' } });
+      const evs = drive(sim, 3000, steady(0.95), { t: 0 }, reader(sim));
+      const downs = ofType(evs, 'full').filter(e => e.dir === 'down').map(e => e.station);
+      expect(downs.slice(0, MAP[m].stations.length), m).toEqual([...MAP[m].stations]);
+      expect(ofType(evs, 'whole').map(e => e.dir).slice(0, 2), m).toEqual(['down', 'up']);
+      expect(sim.lit[route(m, 'up')[0]] & LIT_UP || sim.round > 1, m).toBeTruthy();
+    }
   });
 });

@@ -5026,18 +5026,131 @@ bottom to top; it should help to concentrate on the right spaces of the body and
 concentrating; then we go on to the next centre. It must be beautiful."* — with the prayer *"przez
 Jezusa Chrystusa Duchu Święty wypełnij to centrum energetyczne i niech popłynie czysta energia"*.
 
-**The decision (free hand, §5).** The pictures' beauty is kept — a luminous figure, a column of lights
-along the body, streams of light flowing and spiralling between them, an aura, a deep starry space —
-and their doctrine is left out: no chakra names, no Sanskrit, no Om, yin-yang or star symbols, no
-kundalini serpent, no "third eye", no claims about energy. The Catholic Church's letter on Christian
-meditation (CDF, *Orationis formas*, 1989) welcomes what helps prayer from other methods — posture,
-breathing, attention to the body — and warns against mixing in their doctrine or taking pleasant states
-for God's presence; the 2003 reflection on the New Age is titled after the same image the game takes
-its name from: *Jesus Christ, the Bearer of the Water of Life*. So the founder's prayer is kept in its
-own form — **"Przez Jezusa Chrystusa, Duchu Święty, wypełnij … i niech popłynie …"** — and each place
-gets the gift Scripture names for it instead of "energy" (the Spirit is a Person, not a force). A
-player who wants other words (the founder's own among them) can type them in the progress card; they
-stay on the device. Code: `src/arcade/rzeki/` (sim.ts the session, render.ts the view).
+#### Round 10 (2026-11-17): every centre of the two pictures, the hands and the feet
+
+**The founder's decision of 2026-11-17** supersedes round 4's "no chakra names, no symbols". After the first version
+the founder wrote, twice: *"Rzeki wody żywej. Dłużej kafelki się powinny ładować. Tylko do faktycznej koncentracji
+powinny się ładować. Chcę mieć też dłonie i stopy. Chcę wszystkie czakry z obrazków. Dodaj je tak, żeby uwzględniały
+wszystkie warianty z obrazków."* — the glass should load longer, only from real concentration; hands and feet; every
+centre of the pictures, all their variants — with a free hand to improve. It is the founder's app: **all the centres of
+both pictures come in, with both pictures' names**. Picture 1 is the Sahaja Yoga chart "Energy centres & the subtle
+system" (seven centres on the spine with Sanskrit names and numbers, the sacrum bone, the Void, the three channels, the
+hand map); picture 2 is the twelve-point map (the seven, the soul, solar and earth stars, two shells round the body).
+What stays from round 4 because it is right and the founder never objected: **the prayer** ("Przez Jezusa Chrystusa,
+Duchu Święty, wypełnij … i niech popłynie …"), **a gift and a verse for every centre** (the Spirit is a Person; each
+centre receives what Scripture names), the beauty (rose windows of church glass, the figure of light, the column, the
+rivers, the egg of light), own words, the chorale. The names are the maps' names, shown as labels; the narrator never
+teaches doctrine as fact; no text says that energy flows, wakes or heals ("energy", "kundalini", serpent, healing are
+kept out by a test); the word "czakra" appears only inside the two names that carry it (Czakra galaktyczna,
+Sakralchakra in de/sv). The kundalini in the sacrum is drawn as **a spiral of light of three and a half turns — never
+a serpent**. Code: `src/arcade/rzeki/` (content.ts the stations and maps, tiles.ts their glass piece by piece, sim.ts
+the session, layout.ts the layouts and the camera, figure.ts the geometry, render.ts the view).
+
+**Seventeen stations** (content.ts `STATION`), in the full map's order from the top, each with a kind (how it is drawn),
+its place, its glass (the pictures' colours), its rose window's tracery (unique), a gift, a verse down / up, a bell
+(strictly falling along the full map, D4…E7 on the pentatonic ladder) and a framing (below):
+
+| # | Station (pl · HUD tag) | Kind / where | Colour | Gift (pl / en) | Down / up |
+|---|---|---|---|---|---|
+| 1 | Boska brama · mapa 12 centrów | shell: the outer egg, its keystone window at the apex | white-gold | łaska / grace | Gen 28:17 / John 10:9 |
+| 2 | Czakra galaktyczna · mapa 12 centrów | shell: the inner egg, starlight along its glass | indigo-teal | zachwyt / wonder | Ps 8:3-4 / Ps 19:1 |
+| 3 | Gwiazda słoneczna · mapa 12 centrów | point, 0.31 H above the crown | gold-orange | światłość / light from above | Jas 1:17 / Isa 60:19 |
+| 4 | Gwiazda duszy · mapa 12 centrów | point, 0.15 H above the crown | white-silver | pokrzepienie duszy / a restored soul | Ps 23:3 / Ps 42:1 |
+| 5 | Korona · Sahastrara (7) | point, the crown; violet glass in a rainbow of petals (picture 1) | violet | pokój / peace | Phil 4:7 |
+| 6 | Trzy kanały · Ida · Sushumna · Pingala | three lancets of glass along the body: Pingala gold on the viewer's left with a sun at its top, Sushumna white, Ida silver-blue with a crescent moon | gold / white / silver | droga / the way | Isa 30:21 / Ps 121:6 |
+| 7 | Trzecie oko · Agnya (6) | point, between the brows | indigo | przejrzenie / clear sight | Eph 1:18 |
+| 8 | Gardło · Vishuddhi (5) | point, the throat | blue | dobre słowo / a good word | Ps 141:3 / Heb 13:15 |
+| 9 | Serce · Anahata (4) | point, the middle of the chest | green | miłość / love | Rom 5:5 |
+| 10 | Dłonie · mapa dłoni 1–7 | twin: both hands become stained glass | the hand map's colours | błogosławieństwo / blessing | Ps 90:17 / Ps 63:4 |
+| 11 | Splot słoneczny · Nabhi (3) | point, the upper belly | yellow | moc / power | John 20:22 / Eph 3:16 |
+| 12 | Pustka, ocean · Bhavsagar | ring of sea-green glass round the middle of the body (picture 1's green circle) | sea green | cisza / stillness | Ps 107:29 / Ps 46:4 |
+| 13 | Sakralna · Swadhisthana (2) | point, below the navel | orange | żywa woda / living water | John 7:38-39 |
+| 14 | Kość krzyżowa · Mooladhara | bone: the triangular sacrum in five bands of pearl glass, a spiral of light (3½ turns) drawing itself as it fills | pearl, silver-blue | życie / life | Ezek 37:5-6 / Rom 8:11 |
+| 15 | Podstawa · Mooladhara (1) | point, the base of the body | red | zakorzenienie / rootedness | Col 2:7 / Eph 3:17 |
+| 16 | Stopy | twin: both feet become copper glass, their soles light the ground | copper | siła na drogę / strength for the way | Ps 40:2 / Ps 18:32 |
+| 17 | Gwiazda ziemi · mapa 12 centrów | point, under the feet in the pool | earth brown and gold | wierność / faithfulness | Ps 85:11 / Isa 6:3 |
+
+The **hand map** (picture 1, confirmed against Sahaja Yoga's chart decoding the centres on the hands; both hands
+alike): 1 the wrist (root red), 2 the thumb (sacral orange), 3 the middle finger (plexus yellow), 4 the little finger
+(heart green), 5 the index finger (throat blue), 6 the ring finger (third-eye indigo), 7 the palm's centre (crown
+violet); the hands' glass lights in that order and each point shines as its pane is whole. English says "power" for
+the plexus (pl „moc”) so it differs from the feet's "strength for the way" (pl „siła”). The prayers keep the founder's
+form with a part of the person for each station — "wypełnij całe moje życie / moją małość / moje niebo / moją duszę /
+mój umysł / moje dni i noce / moje oczy / moje usta / moje serce / moje dłonie / mój oddech / mój niepokój / moje
+wnętrze / moje kości / moje korzenie / moje kroki / ziemię pod moimi stopami" — and the thanks name the gift
+("…za zachwyt nad dziełem Twoich palców", the Spirit as the finger of the Father's right hand of the Veni Creator).
+The HUD names a station with its maps' tag („Serce · Anahata (4)”, „Gwiazda duszy · mapa 12 centrów”), or with its
+name alone when the band is too narrow for the whole; the summary says where the way goes on with each name in the
+case it needs („Następnym razem: od Serca.”).
+
+**Four maps** (the progress card chooses; the full map by default): *Wszystkie (17)*; *Dwanaście* — picture 2's
+twelve: gateway, galactic, solar, soul, crown, brow, throat, heart, plexus, sacral, root, earth; *System subtelny* —
+picture 1's eleven: crown, channels, brow, throat, heart, hands, plexus, void, sacral, sacrum, root; *Siedem, dłonie i
+stopy*: crown, brow, throat, heart, hands, plexus, sacral, root, feet. Down walks a map's list (the light received from
+above), up walks it reversed (thanks rising), both is down then up; after a whole round a new one begins.
+
+**The glass, piece by piece** (tiles.ts, the founder's "kafelki"). A station's fill (0 → 1) opens its glass: a rose
+window's oculus, inner petals (the first 30 %), then outer petals; a shell's keystone (the first quarter), then its 24
+segments two at a time from the apex down both sides (or from the bottom up going up); the channels' sun and moon (the
+first 12 %), then their three lancets pane by pane together (from the top down, or the bottom up); the Void's 16
+segments two at a time; the sacrum's five bands while its spiral draws; the hand map's seven; the feet's instep and five
+toes. One glass tick per piece (a whisper of glass climbing the ladder, a sparkle where it opened). A station waiting
+for light shows its tracery as a ghost (a rose's lead, a hand's panes, a faint egg or ring).
+
+**Light only from real focus, and slower.** The fill grows **only** in a push past its lead-in (5 s Mendi, 2 s HALO),
+with a reliable signal, while `frame.focused`: `rate = fillFocus × (0.6 + 0.8 × clamp((level − 0.5) / 0.5)) × (1 + 0.5
+× min(1, hold / 12))`, `fillFocus` 0.036 (rules.ts `focusRate`). **Nothing** fills in rest, the warm-up, the finale,
+without a signal, below the threshold (a forgiven dip still loads at the base rate), or from taps; what is gained is
+never lost (a test drives random signal, dips and losses and checks the light only grows). Focus while the light rests
+in a full station or flows on loads the next station (≤ 0.25), so no focused second is wasted; a blind push loads unseen
+by the same rule and is shown at its end (it may run past full by 0.6, which the next station starts with). The gauge
+(`meter()`) is the band's real `level` in a sighted push past its lead-in, calm in rest, nothing without a signal, in a
+blind block or elsewhere. Gold on the station — its halo, its threshold ring — means "the glass is loading" (sighted ∧
+reliable ∧ focused), so the player sees exactly when concentration counts; "Złote światło" in the summary is that time.
+**Measured** (the sim, three seeds): a focus held steadily loads a station in **31 s at the threshold** and **18.5 s at
+level 0.75** (21 s at 0.7); in a real 10-minute session (lead-ins, rests, blind pushes, the hold building up in each
+push) a player at the threshold all push long gives ~37 s of focus a station and lights **6 stations**, at 0.75 ~22 s
+and 10–11; with the kit's own `FocusInput` and noise and Mayer waves, a player with **no** rise in the pushes lights
+**none** (the +1 % floor of the threshold), a 2 % rise lights **6–8**, a 4 % rise 10–11. The way therefore spans
+sessions: the full map's 17 take about three 10-minute sessions down.
+
+**The way goes on next session.** The progress keeps `pos: { map, dir, idx, fill }` — the station the light was at or
+flowing to and the light gathered there — and the next session's light comes down (or up) to it; the stations it
+already passed shine as lit. The summary says where ("Następnym razem: od Serca."), the HUD's first label too ("↓ Dalej
+od Serca"), the narrator has a "resume" moment. In the progress card: "Kontynuuj od Serca" / "Od początku", and a tap
+(or Enter) on any station of any map's album makes it the next start ("▶ tu zaczniesz") — the founder's "navigate". A
+changed map keeps the station when the new map has it (else the top); a changed way keeps it on the way's first
+direction.
+
+**The drops tell the truth too.** In a push they flow only while the light loads (1.6 × (0.5 + level) a second); in rest
+from calm with a signal (as before); the warm-up and the finale flow (1.2 a second: the smoke scores at once); a blind
+push flows nothing until its end pays (60 × its share). A station lit +15, a whole way +60, a block judged well +20.
+
+**The figure, the hands and the feet.** The silhouette is a union of the body's smooth outline (to the wrists and the
+ankles), two real hands — a palm, four fingers a little apart and the thumb out, palms forward — and two feet seen from
+the front with five toes; its rim is stroked outside the union only (what falls inside is erased), so no seam shows at
+a wrist or an ankle. The light flows to the hands out along both arms from the heart and back, to the feet down both
+legs, from the feet to the pool. **The camera** (layout.ts): each station names a framing — *body* (the layout as it
+was), *sky* (the soul and solar stars: the room above the head), *heavens* (the two shells: the whole egg), *hands*
+(near enough that a hand stands 75 px tall: 2.7× on the smallest phone, none on a Full HD monitor), *ground* (the feet
+and the earth star) — fitted into the stage, zoomed about the framing's middle with the figure's midline kept, moved no
+further than it takes to bring the framing whole into the stage; it eases between framings (centre and log-zoom,
+τ 0.9 s), during the flow to the next station, never jumping; when a way is whole it shows the whole map. The world is
+drawn in the body framing's coordinates under one transform; every text is in screen space, so no zoom ever shrinks
+it. The shells fade as the camera nears the hands or the ground, so their long lines never cross the words. The figure
+and the windows are baked at the zoom the layout will show them (crisp hands at 2.7×).
+
+**News for a player of the first version**: one card ("Wszystkie centra z obu obrazów", Ps 46:4) says what changed —
+seventeen stations, the slower glass that loads only in focus, the way that goes on — once. **Progress v2**: a v1
+save's counts move to the stations its places became (head → crown, eyes → brow, mouth → throat, heart, breath →
+plexus, inner → sacral, feet), so its windows keep their craft tiers; everything else carries.
+
+**Mobile first (§12).** One layout in three shapes as before (tall, side, wide/desk); `targets()` is the current
+station's area through the camera (one area over both hands or both feet), ≥ 44 px, inside the insets, tested at
+every `CHECK_SIZES` entry for every station, fill and framing, and on the camera's way between framings. On the
+smallest phone a narrator's two lines over a prayer of three set both a little tighter (leading 1.2), and if even that
+would not fit the narrator waits — the prayer is never cut. Text: the prayer ≥ 15 px, the label, the caption, the
+breath and the cards ≥ 13, a verse's reference 11.
 
 **Beauty first** — it is a meditation, not an action game; the founder wrote "beautiful" three times.
 *Deep space*: a gradient from near-black indigo through violet, soft nebulae added as light (violet,
@@ -5068,57 +5181,6 @@ never over the column. Everything is baked once per size (the sky, the rays, the
 every rose window, the blooms); a frame only composes layers and draws a few dozen small shapes — no
 shadowBlur, no filters.
 
-**The seven places** (content.ts), each a focus anchor on the midline, a gift, a verse and a bell; their
-glass runs warm at the base to cool and white at the crown, like a church window — but never the chakra
-code: the heart is rose (not green), the crown white (not violet):
-
-| # | Place | Where the attention rests | "…wypełnij … i niech popłynie …" | Thanks going up | Verse (down / up) | Rose window |
-|---|---|---|---|---|---|---|
-| 1 | Głowa | the crown of the head | mój umysł … pokój | za pokój, który strzeże moich myśli | Phil 4:7 | 12 lobes, 12 lancets |
-| 2 | Oczy | the forehead, between the eyes | moje oczy … światło | za światło dla moich oczu | Eph 1:18 | 8 lancets, 16 lobes |
-| 3 | Usta | the throat and lips | moje usta … dobre słowo | za dobre słowo na moich ustach | Ps 141:3 | 6 lobes, 12 drops |
-| 4 | Serce | the middle of the chest | moje serce … miłość | za miłość rozlaną w moim sercu | Rom 5:5 | a wild rose: 5 lobes, 10 round petals |
-| 5 | Oddech | under the breastbone | mój oddech … moc | za Twoje tchnienie i moc w moim oddechu | John 20:22 / Eph 3:16 | a trefoil, 9 flames |
-| 6 | Wnętrze | below the navel | moje wnętrze … żywa woda | za żywą wodę, która płynie we mnie | John 7:38-39 (the root) | 6 drops, 12 arches |
-| 7 | Stopy | the feet on the ground | moje kroki … siła | za siłę, która umacnia moje kroki | Ps 40:2 / Ps 18:32 | a quatrefoil, 8 arches |
-
-German avoids "Geist" twice ("Durch Jesus Christus, Heiliger Geist, erfülle meine Gedanken und lass
-Frieden fließen"); English "Through Jesus Christ, Holy Spirit, fill my mind, and let peace flow"; Swedish
-"Genom Jesus Kristus, helige Ande, fyll mitt sinne och låt frid flöda".
-
-**The way (the stage loop).** One place at a time. *Down* (receiving, Acts 2:17): the heaven opens and a
-stream of light comes down to the crown (2.2 s), then place by place to the feet; at each place its prayer
-appears in a calm serif (Fraunces italic, 15–17 px on a phone, 22 on a desktop), its words coming one by one
-as the light arrives. *Up* (thanksgiving, Ps 141:2): from the feet back to the crown, the column gold, gold
-motes rising from every thanked place like incense, each thanked place ringed in gold. The progress card
-chooses **down / up / both** (default: down, then up); after a whole round a new one begins ("the light does
-not run out"). **Own words** (≤ 120 characters, plain text — control characters and angle brackets dropped,
-set as text, never markup) replace the built-in line at every place, both ways; they stay in the device's
-progress. A place's **fill** (0 → 1) opens its **rose window** of church glass (rose.ts: procedural
-tracery — the oculus, the inner petals, the outer ring turned between them, round foils at the rim, dark
-lead and stone rings): the oculus first, then the inner petals one by one, each filling from its base
-outward, then the outer petals (the inner ring is the first 30 %), a whisper of glass for each petal; the
-window grows as it opens (0.055 → 0.105 H). Full → a chime (the place's bell with its fifth and octave),
-a bright drop of its colour falling to the pool ("+15" rises there), a moment in its light (0.7 s), then the
-light **flows** to the next place (3 s): a bright head of
-living water travels down (or up) the column with a spray, the threads spiralling fast behind it, while
-the band says the gift ("Dar: miłość") and then the next place's line comes. After the last place the
-whole body is in light (+60) and a closing card follows: after a descent **Luke 11:13** ("how much more
-will your Father in heaven give the Holy Spirit to those who ask"), after an ascent **Psalm 141:2**.
-
-**Focus — light.** The gauge (`meter()`, "Światło") is the place's light: in a sighted push past its
-lead-in (5 s Mendi, 2 s HALO) it follows `level`, else it holds at a neutral 0.45, just under the
-threshold — never lower, never a loss. It is drawn on the place itself: a halo whose edge is
-R · (1 + 1.2 · light), and the **threshold as a faint dashed ring** where the halo stands at light 0.5;
-past it the ring and the halo turn gold (a tiny bell, gold sparks). The body around the place warms with
-it, the column glows. The fill grows at `0.022 + 0.095 · light` a second in a push (≈ 14 s of push at the
-threshold; ~1.5× faster in gold light than at the threshold, 3× faster than at a low signal), `0.05` in the
-warm-up and the finale, and a little in rest. Pacing, measured with the sim over 300 s of a 10-minute session
-(rests and a blind block included, three seeds): ~27 s a place in gold light, ~33 s at a moderate signal or at
-the threshold — and with no signal at all, held at the neutral base — ~50 s with a low signal: the way always
-goes on, and the light makes it quicker. A 5-minute session at a moderate signal walks the whole way down and
-two places up (~1 040 drops).
-
 **Rest — abiding.** The lit places shine steadily, the figure breathes **4 in / 6 out** (it swells around
 the chest, the egg and the column swell and settle), the threads keep flowing slowly, the place still
 deepens a little (`0.018 · (0.3 + 0.7 · calm)`), and **drops of living water** fall from the lit places down
@@ -5132,12 +5194,6 @@ gauge, the pad and the chorale hold; the light gathers unseen (it may run past t
 0.6, which the next place starts with) and at the block's end the window opens quickly to where it got
 ("+35% światła z ciemności") and the share is paid (60 × share drops). The headline flows at the base
 meanwhile, so nothing leaks.
-
-**The hands** (minimal, gentle). A tap anywhere — a click, Space — **stays with the place**: its prayer
-glows again for 2.4 s, a little light is added (0.02, less for a flurry: `1 / (1 + 0.6 · fervour)`, the
-fervour fading with τ 1.5 s), a ring of light under the finger and one at the place, a soft glass tone; while
-the stream flows the next place gets it. `targets()` is the current place's circle (≥ 44 px, kept inside the
-insets) — or the story card while one is up. Enter turns a story card's page.
 
 **The voice.** No chatty companion: the prayer is the voice. A calm narrator speaks at most one line at a
 time (≤ 90 characters, 2–4 s, three variants a moment, never over a telegraph, the runner's banner, a story
@@ -5179,35 +5235,11 @@ than one way, the longest calm, the dark's share, own words); the closing passag
 Psalm 141:2, a descent Luke 11:13, the first session John 7:38-39, calm rests Philippians 4:7, else Acts
 2:17, Isaiah 11:2, John 7:38-39.
 
-**The meta.** The progress (version 1; the placeholder's save keeps its count): the way, own words, how
-many times each place was lit going down and thanked going up — **the lobby's figure shows them as a quiet
-map** (a place glows from its first time and more with each) — whole ways down and up, the best drops per
-session length, all the drops, the longest abiding and all the abiding seconds, the chorale's switch. The
-progress card: the numbers, how it works, the way (a radio row), own words (a field whose caption counts
-the characters, Save / Back to the prayer, what is in use now), the seven places as little rose windows
-(in colour once lit, in lead until then) with their gift, verse and times, the chorale. **Each window's
-glass grows richer the more often its place is lit** (the meta loop shown in the art itself, in craft words):
-gilded — gold foils and a gilded rim — at 3 times, a crown of small round lights outside the rim at 10, golden
-tracery at 25; earned in play with gold sparks and its name, a narrator's line ("Szklarz by się uśmiechnął: to
-okno jest teraz bogatsze") and a summary highlight, and kept on the lit windows, the lobby's figure and its tiles.
-
 **Reverence (§13.4).** The Spirit appears only as light, water, wind and fire — no dove; Jesus is named in
 the prayer only; no cross; no promise of healing or "energy", and the how-to's last tip says the band
 measures attention, not prayer or holiness. The rose window here is church glass of a place (round
 tracery), distinct from Ja jestem…'s stained-glass sketch of a picture; the living water is this game's
 symbol.
-
-**Mobile first (§12).** One layout in three shapes (layout.ts, pure, tested at every `CHECK_SIZES` entry
-for every place and fill): *tall* — any upright screen: the figure tall in the middle (H 209 px on the
-smallest phone, 250 on an iPhone in Safari, 321 on a large phone, 524 on a tablet), 0.125 H of room above the
-head so the crown's window (which sits just above it) never slips under the HUD, the prayer band below it
-(100–221 px), where the narrator also speaks in the top row (a caption over the figure covered the crown's
-window); *side* — a phone on its side: the figure on the left (H 253 px, its egg just inside the edge), the
-narrator's caption and the prayer on the right; *wide* — a desktop or a tablet on its side: the figure in the
-left third (H 424 px on a desktop with the chart, 540 without), the prayer column capped at 600 px × u. A tap
-anywhere is the control,
-so `targets()` is only the current place's circle (≥ 44 px, inside the insets) or the story card. Text: the
-prayer ≥ 15 px, the label, the caption, the breath and the cards ≥ 13, a verse's reference 11 — never under 11.
 
 ## 14. Desktop first too: every game on a big screen (2026-11-13)
 

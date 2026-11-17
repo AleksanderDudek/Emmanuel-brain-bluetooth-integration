@@ -1,29 +1,40 @@
 /**
- * Rzeki żywej wody's play view (DESIGN.md §13.14): deep space with an open heaven and its rays, the egg of
- * light around the figure, the pool of living water at its feet and the two rivers that flow from it as the
- * drops gather, the figure of light (it breathes 4 in / 6 out in rest), the column of light along its midline,
- * the two threads — gold and silver — spiralling along the lit part of the column, the seven places (waiting
- * orbs, small lit windows, gold-ringed when thanked), and the current place's rose window opening petal by
- * petal inside its halo of light, the threshold drawn on the place as a faint ring.  When a place is full the
- * light flows on as a stream of living water to the next place.  Drops fall down the column into the pool in
- * rest; motes drift; the prayer band, the narrator's caption and the story cards come from hud.ts.
+ * Rzeki żywej wody's play view (DESIGN.md §13.14): deep space with an open heaven and its rays coming down
+ * through the gate, the two shells of light around the figure (picture 2's ovals), the egg of light, the pool of
+ * living water at the feet and the two rivers that flow from it as the drops gather, the figure of light (it
+ * breathes 4 in / 6 out in rest), the column of light along its midline with the gold and silver threads
+ * spiralling along the lit part, and the stations: rose windows of church glass on the midline and above the
+ * head, the three channels with their sun and moon, the Void's ring of sea-green glass, the sacrum with its spiral
+ * of light, the hands and the feet turning to stained glass — each waiting, lit, or opening now with its halo of
+ * light and the threshold drawn on it as a faint ring.  When a station is full the light flows on as a stream of
+ * living water — down the midline, out along the arms, down the legs.
  *
+ * A camera (layout.ts `Cam`) eases between framings: the body, the sky above it, the whole egg of the heavens, the
+ * hands near, the ground.  The world is drawn in the body framing's coordinates under one transform; every text
+ * (the "+15"s, the prayer band, the caption, the story cards) is drawn in screen space, so no zoom shrinks it.
  * Per frame it composes cached layers (paint.ts) and draws a few dozen small shapes: no shadowBlur, no filters.
  */
 import { clamp, ease, Floaters, Particles } from '../kit/juice';
 import type { Insets, TapTarget } from '../kit/types';
-import { PLACE, PLACES, tierName, type PlaceId } from './content';
-import { CHEST } from './figure';
+import { HAND_COLOURS, HAND_ORDER, MAP, STATION, STATIONS, tierName, type StationId } from './content';
+import {
+  CHANNELS, CHEST, MEDALLION_R, MOON, SACRUM_PTS, SHELL, SPIRAL, SUN, VOID, along, enterPaths, finger, footShapes, handPoint, handShapes,
+  palmCentre, shapePath, shellPt, soleAt, spiralPts, stationPts, streamPaths, type P, type Shell,
+} from './figure';
 import { drawCaption, drawPrayer, drawStory, dropFloat } from './hud';
 import { t } from './i18n';
-import { idleR, labelRowH, layout, litR, maxWindowR, placeXY, tapTargets, windowR, wordsAt, type Layout, type Rect } from './layout';
 import {
-  GOLD, GOLD_HI, PEARL, SANS, SILVER, WATER, auraSprite, bakeFigure, bakeRays, bakeRose, bakeRoses, bakeSky, bloom, columnSprite, glow, glowSprite, hash,
-  mix, poolSprite, rgbaPrefix, starSprite, type FigureLayer, type Layer, type RoseLayers,
+  CAM_MAX, NO_CAM, cameraFor, easeCam, figPt, framingOf, idleR, labelRowH, layout, litR, maxWindowR, stationXY, tapTargets, toScreen, toWorld, windowR,
+  wordsAt, type Cam, type Layout, type Rect,
+} from './layout';
+import {
+  GOLD, GOLD_HI, MOON_SILVER, PEARL, SANS, SILVER, SUN_GOLD, WATER, auraSprite, bakeFigure, bakeRays, bakeRose, bakeRoses, bakeSky, bloom, columnSprite, glow,
+  glowSprite, hash, medallionSprite, mix, poolSprite, rgbaPrefix, starSprite, type FigureLayer, type Layer, type RoseLayers,
 } from './paint';
-import { RING, fullPath, openness, partPath, petalAngle } from './rose';
+import { RING, fullPath, partPath, petalAngle } from './rose';
 import { RULES } from './rules';
 import { LIT_UP, type RzekiSim, type SimEvent } from './sim';
+import { BONE_BANDS, CHANNEL_PANES, KEYSTONE, MEDALLIONS, RING_SEGS, SHELL_SEGS, pieceK, roseOpen } from './tiles';
 
 const TAU = Math.PI * 2;
 
@@ -34,20 +45,28 @@ interface Mote { x: number; y: number; vy: number; r: number; a: number; ph: num
 interface Drop { y: number; vy: number; x: number; hue: string; from: number; big?: boolean; label?: string; labelColor?: string }
 interface Ripple { t: number; k: number }
 
+/** How a station shows now: waiting, lit (this round), or the one the light is at. */
+type Look = 'idle' | 'lit' | 'current';
+
 export class RzekiView {
   L: Layout;
+  /** the camera now, and where it is going */
+  cam: Cam = NO_CAM;
+  private camAt: StationId | null = null;
   private readonly ctx: CanvasRenderingContext2D | null;
   private dpr = 1;
   private sky: Layer | null = null;
   private rays: Layer | null = null;
   private raysBox = { x: 0, y: 0, w: 1, h: 1 };
   private fig: FigureLayer | null = null;
-  private roses: Partial<Record<PlaceId, RoseLayers>> = {};
+  private roses: Partial<Record<StationId, RoseLayers>> = {};
   /** the craft tier each window is baked at, and the radius they are baked at */
-  private roseTier: Record<PlaceId, number> = { mind: 0, eyes: 0, mouth: 0, heart: 0, breath: 0, inner: 0, feet: 0 };
+  private roseTier: Record<StationId, number> = Object.fromEntries(STATIONS.map(s => [s, 0])) as Record<StationId, number>;
   private roseR = 1;
+  private roseZoom: (s: StationId) => number = () => 1;
   private riverPts: [number, number][][] = [];
-  private readonly parts = new Particles(140);
+  private readonly parts = new Particles(160);
+  /** the "+15"s and the words that rise: in screen space */
   private readonly floats = new Floaters();
   private motes: Mote[] = [];
   private drops: Drop[] = [];
@@ -59,7 +78,7 @@ export class RzekiView {
   splashes = 0;
   private openKey = '';
   private openFull: Path2D | null = null;
-  /** juice: the window's pop when it fills, the whole body's glow, the heaven's brightness */
+  /** juice: the window's pop when it fills, the whole figure's glow, the heaven's brightness */
   private pop = 0;
   private flash = 0;
   private heavenK = 0;
@@ -70,13 +89,13 @@ export class RzekiView {
   /** the story card as last drawn (for taps and the audit) */
   storyRect: Rect | null = null;
   /**
-   * A desktop's mouse (DESIGN §14): where it is, how long since it moved, and how much the place a click would
-   * stay with shows it (a ring of light around that place, fading once the mouse rests).
+   * A desktop's mouse (DESIGN §14): where it is, how long since it moved, and how much the station a click would
+   * stay with shows it (a ring of light around that station, fading once the mouse rests).
    */
   private mouse: { x: number; y: number } | null = null;
   private mouseIdle = 99;
   private hoverK = 0;
-  /** a desk layout's words: the height they stand at, eased after the place (or the stream) */
+  /** a desk layout's words: the height they stand at, eased after the station (or the stream) */
   private wordsY = Number.NaN;
 
   constructor(canvas: HTMLCanvasElement, private readonly o: ViewOpts) {
@@ -89,19 +108,26 @@ export class RzekiView {
     this.L = layout(w, h, ins, this.o.touch);
     this.wordsY = Number.NaN;
     const L = this.L, H = L.fig.H;
-    this.sky = bakeSky(w, h, dpr, { cx: L.fig.cx, heavenY: L.top - H * 0.02, midY: L.fig.top + H * 0.45, H });
-    const rw = Math.min(w, H * 1.3);
-    this.raysBox = { x: L.fig.cx - rw / 2, y: 0, w: rw, h: Math.max(20, L.fig.top + H * 0.06) };
-    this.rays = bakeRays(this.raysBox.w, this.raysBox.h, dpr, rw / 2);
-    this.fig = bakeFigure(L.fig, dpr);
+    this.sky = bakeSky(w, h, dpr, { cx: L.fig.cx, midY: L.fig.top + H * 0.45, H });
+    // the rays come down from the gate of heaven above the head to the crown
+    const rw = Math.min(w * 1.2, H * 1.3), y0 = L.fig.top - 0.62 * H, y1 = L.fig.top + 0.04 * H;
+    this.raysBox = { x: L.fig.cx - rw / 2, y: y0, w: rw, h: y1 - y0 };
+    this.rays = bakeRays(rw, y1 - y0, dpr, rw / 2);
+    // the figure and the windows baked as large as the camera will show them (the hands near, the ground)
+    const zooms = (['hands', 'ground', 'sky', 'heavens'] as const).map(f => cameraFor(L, f).s);
+    const figZoom = clamp(Math.max(1, ...zooms), 1, Math.min(CAM_MAX, 2600 / Math.max(1, 1.08 * H * dpr)));
+    this.fig = bakeFigure(L.fig, dpr, figZoom);
     this.roseR = maxWindowR(L);
-    this.roses = bakeRoses(this.roseR, dpr, this.roseTier);
+    const z = (s: StationId) => clamp(cameraFor(L, framingOf(s)).s, 1, 2.6);
+    this.roseZoom = z;
+    this.roses = bakeRoses(this.roseR, dpr, this.roseTier, s => z(s) * STATION[s].size, s => windowed(s));
     this.openKey = '';
+    this.camAt = null;
     // the two rivers from the pool to the sides, meandering a little toward the viewer
     const ground = L.fig.top + H, cx = L.fig.cx;
     this.riverPts = [-1, 1].map(s => {
-      // both run to the edges: on a wide screen the ground lies below the prayer's column
-      const end = s < 0 ? L.left - 12 : L.right + 12;
+      // both run well out to the sides (the camera may draw the world smaller than the screen)
+      const end = cx + s * Math.max(H * 1.4, (s < 0 ? cx - L.left : L.right - cx) + 12);
       const span = Math.abs(end - (cx + s * H * 0.16));
       const pts: [number, number][] = [];
       for (let i = 0; i <= 40; i++) {
@@ -122,33 +148,40 @@ export class RzekiView {
     return { x, y, vy: -(4 + 10 * hash(i * 11 + this.time)) * (H / 400), r: 0.8 + 1.8 * hash(i * 13 + this.time), a: 0.25 + 0.5 * hash(i * 17 + this.time), ph: hash(i * 19) * TAU };
   }
 
+  /** A figure point in the world (the body framing's px). */
+  private wp(p: P): { x: number; y: number } { return figPt(this.L, p[0], p[1]); }
+  /** A world point on the screen now. */
+  private sp(x: number, y: number): { x: number; y: number } { return toScreen(this.cam, x, y); }
+
   // ── events → juice ─────────────────────────────────────────────
   on(e: SimEvent, sim: RzekiSim): void {
     const L = this.L, H = L.fig.H;
     switch (e.type) {
       case 'petal': {
-        const c = placeXY(L, e.place), R = windowR(L, sim.fill), rose = PLACE[e.place].rose;
-        const innerN = rose.inner;
-        const k = e.n - 1;
-        const a = k < innerN ? petalAngle(k, innerN) : petalAngle(k - innerN, rose.outer, rose.twist);
-        const rr = (k < innerN ? (RING.c + RING.i) / 2 : (RING.i + RING.o) / 2) * R;
-        this.parts.burst(c.x + Math.cos(a) * rr, c.y + Math.sin(a) * rr, 3, { color: PLACE[e.place].rose.glass[k < innerN ? 1 : 2], speed: H * 0.06, life: 0.6, size: 1.6, g: 0, drag: 2.5, shape: 'dot' });
+        for (const q of this.tilePoint(e.station, e.n, sim)) {
+          this.parts.burst(q.x, q.y, 3, { color: q.color, speed: H * 0.05, life: 0.6, size: 1.6, g: 0, drag: 2.5, shape: 'dot' });
+        }
         break;
       }
       case 'full': {
-        const c = placeXY(L, e.place), hue = PLACE[e.place].hue;
+        const hue = STATION[e.station].hue;
         this.pop = 1;
-        this.parts.burst(c.x, c.y, 22, { color: hue, speed: H * 0.22, life: 1.1, size: 2, g: -10, drag: 1.8, shape: 'spark' });
-        this.parts.burst(c.x, c.y, 1, { color: '#ffffff', speed: 0, life: 0.9, size: H * 0.07, g: 0, drag: 0, shape: 'ring' });
-        // a bright drop falls from the place down the column into the pool; its "+15" rises there, by the water
-        this.drops.push({ y: c.y, vy: H * 0.12, x: L.fig.cx, hue, from: c.y, big: true, label: dropFloat(e.drops), labelColor: WATER });
+        for (const p of stationPts(e.station)) {
+          const c = this.wp(p);
+          this.parts.burst(c.x, c.y, 18, { color: hue, speed: H * 0.2, life: 1.1, size: 2, g: -10, drag: 1.8, shape: 'spark' });
+          this.parts.burst(c.x, c.y, 1, { color: '#ffffff', speed: 0, life: 0.9, size: H * 0.06, g: 0, drag: 0, shape: 'ring' });
+        }
+        // a bright drop falls down the column into the pool; its "+15" rises there, by the water
+        const a = stationXY(L, e.station);
+        const from = Math.min(a.y, L.fig.top + H * 0.98);
+        this.drops.push({ y: from, vy: H * 0.12, x: L.fig.cx, hue, from, big: true, label: dropFloat(e.drops), labelColor: WATER });
         break;
       }
       case 'whole': {
         this.flash = this.o.reducedMotion ? 0.5 : 1;
         this.poolFloat(dropFloat(e.drops), GOLD_HI, 18);
-        // the thanks rise from the crown into the open heaven (Ps 141:2); the gift pours down to the feet
-        const c = placeXY(L, e.dir === 'up' ? 'mind' : 'feet');
+        // the thanks rise from the top into the open heaven (Ps 141:2); the gift pours down to the feet
+        const c = figPt(L, 0, e.dir === 'up' ? -0.02 : 0.99);
         this.parts.burst(c.x, c.y, 34, e.dir === 'up'
           ? { color: GOLD, speed: H * 0.25, angle: -Math.PI / 2, spread: 0.9, life: 2.2, size: 2, g: -H * 0.05, drag: 0.8, shape: 'dot' }
           : { color: WATER, speed: H * 0.2, angle: -Math.PI / 2, spread: 2.6, life: 1.6, size: 1.8, g: H * 0.25, drag: 0.9, shape: 'dot' });
@@ -159,22 +192,24 @@ export class RzekiView {
         break;
       case 'tier': {
         // new glass in the window: gold sparks and its name
-        const c = placeXY(L, e.place);
+        const c = stationXY(L, e.station);
         this.parts.burst(c.x, c.y, 28, { color: GOLD, speed: H * 0.2, life: 1.4, size: 2, g: -12, drag: 1.4, shape: 'spark' });
         this.sideFloat(tierName(e.tier), c.y, GOLD_HI);
         break;
       }
       case 'tap': {
-        const c = placeXY(L, e.place);
-        this.parts.burst(c.x, c.y, 1, { color: PLACE[e.place].hue, speed: 0, life: 0.7, size: windowR(L, sim.fill) * 0.9, g: 0, drag: 0, shape: 'ring' });
-        if (e.eff > 0.5) this.parts.burst(c.x, c.y, 4, { color: GOLD_HI, speed: H * 0.08, life: 0.7, size: 1.5, g: -8, drag: 2, shape: 'dot' });
+        for (const p of stationPts(e.station)) {
+          const c = this.wp(p);
+          const r = e.station === sim.station && (sim.stage === 'at' || sim.stage === 'hold') ? this.curR(sim) : litR(L) * 1.4;
+          this.parts.burst(c.x, c.y, 1, { color: STATION[e.station].hue, speed: 0, life: 0.7, size: r * 0.9, g: 0, drag: 0, shape: 'ring' });
+        }
         break;
       }
       case 'drops':
         this.poolFloat(dropFloat(e.n), WATER, 14);
         break;
       case 'blindEnd': {
-        const c = placeXY(L, sim.place);
+        const c = stationXY(L, sim.station);
         if (e.drops > 0) this.poolFloat(dropFloat(e.drops), SILVER, 15);
         if (e.gained > 0.005) {
           const pct = t('pct', { n: Math.round(Math.min(1, e.gained) * 100) });
@@ -185,8 +220,10 @@ export class RzekiView {
       }
       case 'gold':
         if (e.on) {
-          const c = placeXY(L, sim.place);
-          this.parts.burst(c.x, c.y, 8, { color: GOLD, speed: H * 0.1, life: 0.8, size: 1.6, g: -6, drag: 2, shape: 'dot' });
+          for (const p of stationPts(sim.station)) {
+            const c = this.wp(p);
+            this.parts.burst(c.x, c.y, 6, { color: GOLD, speed: H * 0.08, life: 0.8, size: 1.6, g: -6, drag: 2, shape: 'dot' });
+          }
         }
         break;
       default:
@@ -194,30 +231,75 @@ export class RzekiView {
     }
   }
 
+  /** Where the n-th piece of a station's glass is (world px) and its colour: the sparkle of a tick. */
+  private tilePoint(s: StationId, n: number, sim: RzekiSim): { x: number; y: number; color: string }[] {
+    const L = this.L, st = STATION[s], k = n - 1;
+    const at = (p: P, color: string) => ({ ...this.wp(p), color });
+    switch (st.kind) {
+      case 'point': {
+        const c = stationXY(L, s), R = this.curR(sim), rose = st.rose;
+        const inner = k < rose.inner;
+        const a = inner ? petalAngle(k, rose.inner) : petalAngle(k - rose.inner, rose.outer, rose.twist);
+        const rr = (inner ? (RING.c + RING.i) / 2 : (RING.i + RING.o) / 2) * R;
+        const color = (inner ? rose.innerEach?.[k % (rose.innerEach.length || 1)] : rose.outerEach?.[(k - rose.inner) % (rose.outerEach.length || 1)]) ?? rose.glass[inner ? 1 : 2];
+        return [{ x: c.x + Math.cos(a) * rr, y: c.y + Math.sin(a) * rr, color }];
+      }
+      case 'shell': {
+        const sh = SHELL[s as 'galactic' | 'gateway'], key = st.rose.inner + st.rose.outer;
+        if (k < key) return [{ ...stationXY(L, s), color: st.rose.glass[1] }];
+        const j = k - key + 1, a = (j / (SHELL_SEGS / 2)) * Math.PI, aa = sim.dir === 'down' ? a : Math.PI - a;
+        return [at(shellPt(sh, aa), st.hue), at(shellPt(sh, -aa), st.hue)];
+      }
+      case 'channels': {
+        if (k < 2) return [at(k === 0 ? SUN : MOON, k === 0 ? SUN_GOLD : MOON_SILVER)];
+        const q = (k - 1) / CHANNEL_PANES, qq = sim.dir === 'down' ? q : 1 - q;
+        return [at(along(CHANNELS.pingala, qq), SUN_GOLD), at(along(CHANNELS.sushumna, qq), '#ffffff'), at(along(CHANNELS.ida, qq), MOON_SILVER)];
+      }
+      case 'ring': {
+        const a = ((k + 1) / (RING_SEGS / 2)) * Math.PI, aa = sim.dir === 'down' ? a : Math.PI - a;
+        const pt = (sgn: number): P => [VOID.cx + VOID.rx * Math.sin(sgn * aa), VOID.cy - VOID.ry * Math.cos(sgn * aa)];
+        return [at(pt(1), st.hue), at(pt(-1), st.hue)];
+      }
+      case 'bone': return [{ ...figPt(L, 0, 0.465 + (k + 0.5) * 0.012), color: st.rose.glass[2] }];
+      case 'hands': {
+        const part = HAND_ORDER[Math.min(HAND_ORDER.length - 1, k)];
+        return [at(handPoint(part, -1), HAND_COLOURS[part]), at(handPoint(part, 1), HAND_COLOURS[part])];
+      }
+      case 'feet': {
+        const y = 0.965 + (k > 0 ? 0.03 : 0);
+        return [-1, 1].map(side => ({ ...figPt(L, side * (k > 0 ? 0.02 + 0.009 * k : 0.044), y), color: st.hue }));
+      }
+    }
+    return [{ ...figPt(L, st.x, st.y), color: st.hue }];
+  }
+
   /** A number that rises beside the pool, where the drops fall — never over the column and its windows. */
   private poolFloat(text: string, color: string, px: number): void {
     const L = this.L, H = L.fig.H;
     this.floatSide = -this.floatSide;
-    const x = L.fig.cx + this.floatSide * H * (0.27 + 0.03 * Math.random());
-    this.floats.add(text, x, L.fig.top + H * 0.97, { color, size: px * L.u, dur: 1.7 });
+    const w = { x: L.fig.cx + this.floatSide * H * (0.27 + 0.03 * Math.random()), y: L.fig.top + H * 0.97 };
+    const s = this.sp(w.x, w.y);
+    this.floats.add(text, clamp(s.x, L.left + 28, L.right - 28), clamp(s.y, L.top + 50, L.bottom - 8), { color, size: px * L.u, dur: 1.7 });
   }
 
   /**
-   * A word beside the column at a place's height, beyond the hands: on an upright phone to the right, on a wide
+   * A word beside the column at a station's height, beyond the hands: on an upright phone to the right, on a wide
    * screen to the left (the prayer's column is on the right), kept inside the picture.
    */
   private sideFloat(text: string, y: number, color: string): void {
     const L = this.L, H = L.fig.H;
-    const x = L.shape === 'tall' ? Math.min(L.fig.cx + H * 0.3, L.right - 64) : Math.max(L.fig.cx - H * 0.3, L.left + 64);
-    this.floats.add(text, x, y, { color, size: 14 * L.u, dur: 2.4 });
+    const sx = this.sp(L.fig.cx + (L.shape === 'tall' ? 1 : -1) * H * 0.3, y);
+    const x = L.shape === 'tall' ? Math.min(sx.x, L.right - 64) : Math.max(sx.x, L.left + 64);
+    this.floats.add(text, x, clamp(sx.y, L.top + 40, L.bottom - 20), { color, size: 14 * L.u, dur: 2.4 });
   }
 
-  /** A touch-down anywhere: a soft ring of light under the finger, at once. */
+  /** A touch-down anywhere: a soft ring of light under the finger, at once (in the world, under the camera). */
   touch(x: number, y: number): void {
-    this.parts.burst(x, y, 1, { color: PEARL, speed: 0, life: 0.5, size: 12, g: 0, drag: 0, shape: 'ring' });
+    const w = toWorld(this.cam, x, y);
+    this.parts.burst(w.x, w.y, 1, { color: PEARL, speed: 0, life: 0.5, size: 12 / this.cam.s, g: 0, drag: 0, shape: 'ring' });
   }
 
-  /** The mouse moved over the play (a desktop): the place a click would stay with answers (`drawHover`). */
+  /** The mouse moved over the play (a desktop): the station a click would stay with answers (`drawHover`). */
   hover(x: number, y: number): void {
     if (this.o.touch) return;
     this.mouse = { x, y };
@@ -229,10 +311,10 @@ export class RzekiView {
     this.mouse = null;
   }
 
-  /** Whether a point is over the figure's egg of light (a click there plainly goes to its place: a pointer cursor). */
+  /** Whether a screen point is over the figure's egg of light (a click there plainly goes to its station: a pointer cursor). */
   overFigure(x: number, y: number): boolean {
-    const L = this.L, H = L.fig.H;
-    const dx = (x - L.fig.cx) / (H * 0.36), dy = (y - (L.fig.top + H * 0.47)) / (H * 0.64);
+    const L = this.L, H = L.fig.H, w = toWorld(this.cam, x, y);
+    const dx = (w.x - L.fig.cx) / (H * 0.36), dy = (w.y - (L.fig.top + H * 0.47)) / (H * 0.64);
     return dx * dx + dy * dy <= 1;
   }
 
@@ -242,9 +324,24 @@ export class RzekiView {
     return !!r && x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
   }
 
+  /** The station the camera frames now: the one the light is at, or flows to; the whole map when a way is whole. */
+  private frameStation(sim: RzekiSim): StationId | null {
+    if (sim.stage === 'flow') return sim.nextStation ?? sim.station;
+    if (sim.stage === 'whole') return null;
+    return sim.station;
+  }
+
   update(dt: number, sim: RzekiSim): void {
     this.time += dt;
     this.lastDt = dt;
+    const L = this.L, H = L.fig.H;
+    // the camera eases toward its framing (never a jump; reduced motion goes at once)
+    const fs = sim.started ? this.frameStation(sim) : sim.station;
+    const map = MAP[sim.map].stations;
+    const target = fs ? cameraFor(L, framingOf(fs)) : cameraFor(L, map.includes('gateway') ? 'heavens' : 'body');
+    if (this.camAt === null || this.o.reducedMotion) this.cam = target;
+    else this.cam = easeCam(L, this.cam, target, 1 - Math.exp(-dt / RULES.cameraTau));
+    this.camAt = fs ?? sim.station;
     // the mouse's answer comes quickly and goes slowly once it rests (a meditation is not a cursor chase)
     this.mouseIdle += dt;
     const wantHover = this.mouse && this.mouseIdle < 2.6 && !sim.story ? 1 : 0;
@@ -257,7 +354,6 @@ export class RzekiView {
     const line = sim.talk.line;
     this.captionK = line ? Math.min(1, this.captionK + dt * 4) : Math.max(0, this.captionK - dt * 3);
     if (line) this.lastCaption = line.text;
-    const L = this.L, H = L.fig.H;
     // motes drift up through the egg of light
     for (let i = 0; i < this.motes.length; i++) {
       const m = this.motes[i];
@@ -268,12 +364,12 @@ export class RzekiView {
     // drops of living water fall down the column into the pool, more in calm rest
     if (sim.started && !sim.story && sim.restBlock) {
       this.dropT += dt * (0.8 + 1.6 * sim.calmShown);
-      const lit = PLACES.filter(p => sim.lit[p]);
+      const lit = map.filter(s => sim.lit[s] && STATION[s].y < 0.99);
       while (this.dropT >= 1 && this.drops.length < 24) {
         this.dropT -= 1;
-        const from = lit.length ? lit[Math.floor(Math.random() * lit.length)] : sim.place;
-        const y = placeXY(L, from).y;
-        this.drops.push({ y, vy: H * 0.05, x: L.fig.cx + (Math.random() - 0.5) * H * 0.012, hue: PLACE[from].hue, from: y });
+        const from = lit.length ? lit[Math.floor(Math.random() * lit.length)] : sim.station;
+        const y = Math.max(L.fig.top - 0.02 * H, Math.min(stationXY(L, from).y, L.fig.top + 0.95 * H));
+        this.drops.push({ y, vy: H * 0.05, x: L.fig.cx + (Math.random() - 0.5) * H * 0.012, hue: STATION[from].hue, from: y });
       }
     }
     const ground = L.fig.top + H * 0.995;
@@ -292,59 +388,68 @@ export class RzekiView {
     this.drops = keep;
     for (const r of this.ripples) r.t += dt;
     this.ripples = this.ripples.filter(r => r.t < 1.6);
-    // the way up: thanks rise from the thanked places like incense, slow gold motes drifting up
+    // the way up: thanks rise from the thanked stations like incense, slow gold motes drifting up
     if (sim.started && !sim.story && sim.dir === 'up' && !this.o.reducedMotion) {
       this.incenseT += dt * 3;
       while (this.incenseT >= 1) {
         this.incenseT -= 1;
-        const up = PLACES.filter(p => sim.lit[p] & LIT_UP);
+        const up = map.filter(s => sim.lit[s] & LIT_UP);
         if (!up.length) break;
-        const p = up[Math.floor(Math.random() * up.length)];
-        const c = placeXY(L, p);
+        const s = up[Math.floor(Math.random() * up.length)];
+        const pts = stationPts(s), c = this.wp(pts[Math.floor(Math.random() * pts.length)]);
         this.parts.burst(c.x + (Math.random() - 0.5) * H * 0.02, c.y, 1, { color: Math.random() < 0.5 ? GOLD : GOLD_HI, speed: H * 0.03, angle: -Math.PI / 2, spread: 0.6, life: 2.4, size: 1.6, g: -H * 0.03, drag: 0.4, shape: 'dot' });
       }
     }
     // the stream's spray while it flows
-    if (sim.stage === 'flow' && !this.o.reducedMotion && Math.random() < dt * 20) {
-      const y = this.streamY(sim);
-      this.parts.burst(L.fig.cx, y, 1, { color: WATER, speed: H * 0.08, angle: sim.dir === 'down' ? Math.PI / 2 : -Math.PI / 2, spread: 2.4, life: 0.7, size: 1.4, g: H * 0.2, drag: 1.5, shape: 'dot' });
+    if ((sim.stage === 'flow' || sim.stage === 'enter') && !this.o.reducedMotion && Math.random() < dt * 20) {
+      for (const hd of this.streamHeads(sim)) {
+        this.parts.burst(hd.x, hd.y, 1, { color: WATER, speed: H * 0.08, angle: sim.dir === 'down' ? Math.PI / 2 : -Math.PI / 2, spread: 2.4, life: 0.7, size: 1.4, g: H * 0.2, drag: 1.5, shape: 'dot' });
+      }
     }
   }
 
-  /** The head of the stream of light: where the light is on its way between places (or coming in). */
-  private streamY(sim: RzekiSim): number {
-    const L = this.L, H = L.fig.H;
-    const at = placeXY(L, sim.place).y;
-    if (sim.stage === 'flow') {
-      const to = placeXY(L, sim.nextPlace ?? sim.place).y;
-      return at + (to - at) * ease.inOutSine(clamp(sim.stageT / RULES.flowSec));
+  /** The heads of the stream of light (world px): where the light is on its way between stations, or coming in. */
+  private streamHeads(sim: RzekiSim): { x: number; y: number }[] {
+    if (sim.stage === 'flow' && sim.nextStation) {
+      const k = ease.inOutSine(clamp(sim.stageT / RULES.flowSec));
+      return streamPaths(sim.station, sim.nextStation).map(p => this.wp(along(p, k)));
     }
     if (sim.stage === 'enter') {
       const k = ease.inOutSine(clamp(sim.stageT / RULES.heavenSec));
-      const from = sim.dir === 'down' ? L.top - H * 0.04 : L.fig.top + H * 1.04;
-      return from + (at - from) * k;
+      return enterPaths(sim.station, sim.dir === 'down', -0.7).map(p => this.wp(along(p, k)));
     }
-    return at;
+    return stationPts(sim.station).map(p => this.wp(p));
+  }
+
+  /** The y of the light on its way (world px), for the column's lit stretch and the words on a desktop. */
+  private streamY(sim: RzekiSim): number {
+    const hs = this.streamHeads(sim);
+    return hs.reduce((s, h) => s + h.y, 0) / Math.max(1, hs.length);
   }
 
   // ── drawing ────────────────────────────────────────────────────
   /** Re-bake a window whose craft tier changed (the session's start, or a new tier earned). */
   private syncTiers(sim: RzekiSim): void {
-    for (const p of PLACES) {
-      const k = sim.tiers[p];
-      if (k === this.roseTier[p]) continue;
-      this.roseTier[p] = k;
-      const r = bakeRose(p, this.roseR, this.dpr, k);
-      if (r) this.roses[p] = r;
+    for (const s of STATIONS) {
+      const k = sim.tiers[s];
+      if (k === this.roseTier[s] || !windowed(s)) continue;
+      this.roseTier[s] = k;
+      const r = bakeRose(s, this.roseR * this.roseZoom(s) * STATION[s].size, this.dpr, k);
+      if (r) this.roses[s] = r;
     }
+  }
+
+  /** The current window's radius (world px), with its pop when it fills. */
+  private curR(sim: RzekiSim): number {
+    return windowR(this.L, sim.fill, sim.station) * (1 + 0.1 * Math.sin(Math.PI * this.pop));
   }
 
   draw(sim: RzekiSim): void {
     const ctx = this.ctx;
     if (!ctx) return;
     this.syncTiers(sim);
-    const L = this.L, H = L.fig.H;
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    const L = this.L, H = L.fig.H, d = this.dpr, c = this.cam;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     if (this.sky) ctx.drawImage(this.sky, 0, 0, L.w, L.h);
@@ -352,36 +457,43 @@ export class RzekiView {
       ctx.fillStyle = '#120c34';
       ctx.fillRect(0, 0, L.w, L.h);
     }
+    this.drawTwinkles(ctx);
+    // the world, under the camera
+    ctx.setTransform(d * c.s, 0, 0, d * c.s, d * c.ox, d * c.oy);
     const rest = sim.restBlock;
     const breathe = rest ? sim.breath.k : this.o.reducedMotion ? 0.5 : 0.5 + 0.12 * Math.sin(this.time * 0.6);
-    this.drawTwinkles(ctx);
+    // the quiet halo behind the figure
+    bloom(ctx, '#8f7cff', L.fig.cx, L.fig.top + H * 0.45, H * 0.8, 0.2);
     this.drawHeaven(ctx, sim);
+    this.drawShells(ctx, sim);
     this.drawAura(ctx, sim, breathe);
     this.drawGround(ctx, sim);
     // the figure breathes around the chest
     const chest = { x: L.fig.cx + CHEST[0] * H, y: L.fig.top + CHEST[1] * H };
-    const s = 1 + (rest ? 0.012 : 0.004) * (breathe - 0.5);
+    const sc = 1 + (rest ? 0.012 : 0.004) * (breathe - 0.5);
     ctx.save();
     ctx.translate(chest.x, chest.y);
-    ctx.scale(s, s);
+    ctx.scale(sc, sc);
     ctx.translate(-chest.x, -chest.y);
     if (this.fig) ctx.drawImage(this.fig.c, this.fig.box.x, this.fig.box.y, this.fig.box.w, this.fig.box.h);
     this.drawInnerLight(ctx, sim);
     ctx.restore();
     this.drawColumn(ctx, sim, breathe);
     this.drawThreads(ctx, sim, false);
-    this.drawPlaces(ctx, sim, breathe);
+    this.drawStations(ctx, sim, breathe);
     this.drawThreads(ctx, sim, true);
     this.drawStream(ctx, sim);
     this.drawHover(ctx, sim);
     this.drawDrops(ctx);
     this.drawMotes(ctx);
     this.parts.draw(ctx);
-    this.floats.draw(ctx, `800 ${SANS}`);
     if (this.flash > 0) glow(ctx, GOLD_HI, L.fig.cx, L.fig.top + H * 0.45, H * 0.85, 0.32 * Math.sin(Math.PI * Math.min(1, this.flash)));
+    // the screen again: the words, the numbers, the veil, the cards
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    this.floats.draw(ctx, `800 ${SANS}`);
     if (sim.blind) this.drawVeil(ctx);
     // the words: the narrator in its own column (or in the band's top row on a phone held upright), the prayer;
-    // on a desktop they stand level with the place the light is at
+    // on a desktop they stand level with the station the light is at
     const k = sim.story ? 0 : this.captionK;
     const Lw = this.wordsLayout(sim);
     if (L.shape !== 'tall') drawCaption(ctx, Lw, this.lastCaption, k);
@@ -390,13 +502,13 @@ export class RzekiView {
   }
 
   /**
-   * A desk layout's words, standing level with the place the light is at, gliding with the stream to the next
-   * (eased); with the whole body in light, at the chest.  Reduced motion keeps them still at the chest.
+   * A desk layout's words, standing level with the station the light is at, gliding with the stream to the next
+   * (eased); with the whole figure in light, at the chest.  Reduced motion keeps them still at the chest.
    */
   private wordsLayout(sim: RzekiSim): Layout {
     const L = this.L;
     if (!L.desk || this.o.reducedMotion) return L;
-    let target = sim.stage === 'whole' ? L.fig.top + L.fig.H * 0.3 : this.streamY(sim);
+    let target = this.sp(L.fig.cx, sim.stage === 'whole' ? L.fig.top + L.fig.H * 0.3 : this.streamY(sim)).y;
     // the runner's banner covers the top of the play in a block's first seconds: the words wait under it
     if (sim.phase === 'play' && (sim.pushBlock || sim.restBlock) && sim.blockT < RULES.bannerSec) {
       const room = Math.max(150, 0.24 * (L.bottom - L.top));
@@ -408,32 +520,40 @@ export class RzekiView {
   }
 
   /**
-   * A desktop's hover: two arcs of light turning slowly around the place a click would stay with — the current
-   * place, or the next one while the stream flows there — brighter while the mouse is on the figure; it fades
-   * once the mouse rests (the dashed ring further out is the threshold, a different thing).
+   * A desktop's hover: two arcs of light turning slowly around the station a click would stay with — the current
+   * one, or the next while the stream flows there — brighter while the mouse is on the figure; it fades once the
+   * mouse rests (the dashed ring further out is the threshold, a different thing).
    */
   private drawHover(ctx: CanvasRenderingContext2D, sim: RzekiSim): void {
     if (this.hoverK < 0.01 || !sim.started || sim.story) return;
     const at = sim.stage === 'at' || sim.stage === 'hold';
-    const p = sim.stage === 'flow' ? sim.nextPlace : sim.stage === 'whole' ? null : sim.place;
-    if (!p) return;
-    const L = this.L, H = L.fig.H, c = placeXY(L, p);
-    const R = at && p === sim.place ? windowR(L, sim.fill) : litR(L) * 1.2;
+    const s = sim.stage === 'flow' ? sim.nextStation : sim.stage === 'whole' ? null : sim.station;
+    if (!s) return;
+    const L = this.L, H = L.fig.H;
     const m = this.mouse;
     const k = this.hoverK * (m && this.overFigure(m.x, m.y) ? 1 : 0.55);
-    const rr = R * 1.28 + Math.max(4, H * 0.008);
-    glow(ctx, PEARL, c.x, c.y, rr * 1.3, 0.12 * k);
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineWidth = Math.max(1.5, H * 0.0042);
-    ctx.strokeStyle = `rgba(246,242,255,${(0.78 * k).toFixed(3)})`;
-    const a0 = this.o.reducedMotion ? -Math.PI / 2 : this.time * 0.9;
-    for (let i = 0; i < 2; i++) {
-      ctx.beginPath();
-      ctx.arc(c.x, c.y, rr, a0 + i * Math.PI, a0 + i * Math.PI + 1.7);
-      ctx.stroke();
+    for (const p of this.hoverPts(s)) {
+      const c = this.wp(p);
+      const R = at && s === sim.station ? this.anchorR(sim, s) : litR(L) * 1.2;
+      const rr = R * 1.28 + Math.max(4, H * 0.008);
+      glow(ctx, PEARL, c.x, c.y, rr * 1.3, 0.12 * k);
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1.5, H * 0.0042);
+      ctx.strokeStyle = `rgba(246,242,255,${(0.78 * k).toFixed(3)})`;
+      const a0 = this.o.reducedMotion ? -Math.PI / 2 : this.time * 0.9;
+      for (let i = 0; i < 2; i++) {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, rr, a0 + i * Math.PI, a0 + i * Math.PI + 1.7);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
-    ctx.restore();
+  }
+
+  /** Where a station's hover rings turn: its window, the keystone of a shell, each palm, each foot. */
+  private hoverPts(s: StationId): readonly P[] {
+    return stationPts(s);
   }
 
   /** A dozen stars that twinkle slowly (the rest of the sky is baked). */
@@ -453,10 +573,14 @@ export class RzekiView {
     ctx.globalCompositeOperation = 'source-over';
   }
 
-  /** The open heaven: its rays shine strongest as the light comes down, and breathe softly all along. */
+  /** The open heaven: its rays come down through the gate, strongest as the light comes down, breathing softly. */
   private drawHeaven(ctx: CanvasRenderingContext2D, sim: RzekiSim): void {
-    if (!this.rays) return;
+    const L = this.L, H = L.fig.H;
     const k = this.heavenK;
+    // the opening's warmth above the head (the head is lit by its own stations, never washed white)
+    glow(ctx, GOLD_HI, L.fig.cx, L.fig.top - H * 0.5, H * 0.42, 0.16 + 0.12 * k);
+    glow(ctx, GOLD_HI, L.fig.cx, L.fig.top - H * 0.07, H * (0.15 + 0.08 * k), 0.1 + 0.22 * k);
+    if (!this.rays) return;
     const live = sim.dir === 'down' ? 0.35 + 0.25 * (sim.idx === 0 && sim.stage === 'at' ? sim.light : 0.3) : 0.3;
     const a = clamp(live + 0.5 * k) * (0.85 + 0.15 * Math.sin(this.time * 0.7));
     const r = this.raysBox;
@@ -465,20 +589,115 @@ export class RzekiView {
     ctx.drawImage(this.rays, r.x, r.y, r.w, r.h);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    // the opening's warmth stays above the head (the head is lit by its own places, never washed white)
-    glow(ctx, GOLD_HI, this.L.fig.cx, this.L.top - this.L.fig.H * 0.07, this.L.fig.H * (0.15 + 0.08 * k), 0.12 + 0.25 * k);
   }
 
-  /** The egg of light around the body: it grows with each place lit, deepens with calm, swells with the breath. */
+  /** How a station shows now. */
+  private look(sim: RzekiSim, s: StationId): Look {
+    if ((sim.stage === 'at' || sim.stage === 'hold') && sim.station === s) return 'current';
+    return sim.lit[s] ? 'lit' : 'idle';
+  }
+
+  /** The two shells of light: faint ovals waiting, glowing outlines once lit, their glass lighting from the keystone. */
+  private drawShells(ctx: CanvasRenderingContext2D, sim: RzekiSim): void {
+    const map = MAP[sim.map].stations;
+    // the shells belong to the wide views: as the camera nears the hands or the ground they fade, so their long
+    // lines never cross the words beside the figure
+    const near = clamp((1.8 - this.cam.s) / 0.8);
+    if (near <= 0.01) return;
+    ctx.save();
+    ctx.globalAlpha = near;
+    for (const s of ['gateway', 'galactic'] as const) {
+      if (!map.includes(s)) continue;
+      const look = this.look(sim, s);
+      const sh = SHELL[s], st = STATION[s];
+      const fill = look === 'current' ? sim.fill : look === 'lit' ? 1 : 0;
+      const segK = clamp((fill - KEYSTONE) / (1 - KEYSTONE));
+      this.shellLine(ctx, sh, st.hue, look === 'idle' ? (sim.memory[s] ? 0.2 : 0.12) : 0.2, 0, Math.PI, false);
+      if (segK > 0) {
+        // the glass segments lit so far: from the apex down both sides (down), or from the bottom up (up)
+        const down = look === 'lit' ? true : sim.dir === 'down';
+        const n = SHELL_SEGS / 2, lit = segK * n;
+        for (let i = 0; i < Math.ceil(lit - 1e-9); i++) {
+          const q = clamp(lit - i);
+          const a0 = (i / n) * Math.PI, a1 = ((i + q) / n) * Math.PI;
+          const [b0, b1] = down ? [a0, a1] : [Math.PI - a1, Math.PI - a0];
+          this.shellLine(ctx, sh, st.hue, look === 'lit' ? 0.5 : 1, b0 + 0.012, b1 - 0.012, true);
+        }
+        if (s === 'galactic' && !this.o.reducedMotion) this.shellStars(ctx, sh, segK, down);
+      }
+      // the keystone at the apex
+      const c = this.wp([st.x, st.y]);
+      if (look === 'current') this.drawCurrentPoint(ctx, sim, s, c, clamp(fill / KEYSTONE));
+      else if (look === 'lit') this.drawJewel(ctx, sim, s, c);
+      else this.drawIdle(ctx, sim, s, c);
+    }
+    ctx.restore();
+  }
+
+  /** A stretch of a shell's outline from angle a0 to a1 on both sides (0 the apex, π the bottom), as glass or as a faint line. */
+  private shellLine(ctx: CanvasRenderingContext2D, sh: Shell, hue: string, alpha: number, a0: number, a1: number, glass: boolean): void {
+    const L = this.L, H = L.fig.H;
+    const path = new Path2D();
+    for (const sgn of [1, -1]) {
+      const steps = Math.max(2, Math.ceil(((a1 - a0) / Math.PI) * 48));
+      for (let i = 0; i <= steps; i++) {
+        const a = a0 + ((a1 - a0) * i) / steps;
+        const w = this.wp(shellPt(sh, sgn * a));
+        if (i) path.lineTo(w.x, w.y); else path.moveTo(w.x, w.y);
+      }
+    }
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    if (glass) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = `${rgbaPrefix(hue)}${(0.16 * alpha).toFixed(3)})`;
+      ctx.lineWidth = Math.max(5, H * 0.022);
+      ctx.stroke(path);
+      ctx.strokeStyle = `${rgbaPrefix(mix(hue, '#ffffff', 0.3))}${(0.5 * alpha).toFixed(3)})`;
+      ctx.lineWidth = Math.max(2, H * 0.008);
+      ctx.stroke(path);
+      ctx.strokeStyle = `rgba(255,255,255,${(0.75 * alpha).toFixed(3)})`;
+      ctx.lineWidth = Math.max(1, H * 0.0028);
+      ctx.stroke(path);
+    } else {
+      ctx.strokeStyle = `${rgbaPrefix(mix(hue, '#ffffff', 0.5))}${alpha.toFixed(3)})`;
+      ctx.lineWidth = Math.max(1, H * 0.0028);
+      ctx.stroke(path);
+    }
+    ctx.restore();
+  }
+
+  /** The galactic shell's starlight: small stars twinkling along its lit glass. */
+  private shellStars(ctx: CanvasRenderingContext2D, sh: Shell, k: number, down: boolean): void {
+    const spr = starSprite();
+    if (!spr) return;
+    const H = this.L.fig.H, ga = ctx.globalAlpha;
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 18; i++) {
+      const q = (i + 0.5) / 18;
+      if (q > k) break;
+      const a = (down ? q : 1 - q) * Math.PI * (i % 2 ? 1 : -1);
+      const w = this.wp(shellPt(sh, a));
+      const tw = 0.5 + 0.5 * Math.sin(this.time * (0.8 + hash(i + 40)) + i);
+      const r = H * (0.008 + 0.01 * tw);
+      ctx.globalAlpha = (0.35 + 0.5 * tw) * ga;
+      ctx.drawImage(spr, w.x - r, w.y - r, 2 * r, 2 * r);
+    }
+    ctx.globalAlpha = ga;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /** The egg of light around the body: it grows with each station lit, deepens with calm, swells with the breath. */
   private drawAura(ctx: CanvasRenderingContext2D, sim: RzekiSim, breathe: number): void {
     const spr = auraSprite();
     if (!spr) return;
     const L = this.L, H = L.fig.H;
-    const lit = sim.litCount;
-    const grow = 0.86 + 0.02 * lit + 0.03 * breathe;
+    const lit = sim.litCount / Math.max(1, sim.mapSize);
+    const grow = 0.86 + 0.14 * lit + 0.03 * breathe;
     const rx = H * 0.33 * grow, ry = H * 0.6 * grow;
     const cy = L.fig.top + H * 0.47;
-    const a = clamp(0.32 + 0.07 * lit + (sim.restBlock ? 0.3 * sim.calmShown : 0) + 0.25 * this.flash, 0, 1);
+    const a = clamp(0.32 + 0.45 * lit + (sim.restBlock ? 0.3 * sim.calmShown : 0) + 0.25 * this.flash, 0, 1);
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = a;
     ctx.drawImage(spr, L.fig.cx - rx, cy - ry, 2 * rx, 2 * ry);
@@ -546,7 +765,7 @@ export class RzekiView {
     for (let i = 0; i < 3; i++) {
       const k = 0.5 + 0.5 * Math.sin(t * (0.9 + 0.3 * i) + i * 2.1);
       ctx.strokeStyle = `rgba(226,248,255,${(0.1 + 0.3 * k).toFixed(3)})`;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1 / this.cam.s;
       ctx.beginPath();
       ctx.ellipse(cx + (i - 1) * pw * 0.16, ground + (i - 1) * ph * 0.12, pw * (0.08 + 0.05 * k), ph * 0.18, 0, Math.PI * 1.1, Math.PI * 1.9);
       ctx.stroke();
@@ -563,7 +782,7 @@ export class RzekiView {
     for (const r of this.ripples) {
       const k = r.t / 1.6;
       ctx.strokeStyle = `rgba(200,240,255,${(0.55 * (1 - k)).toFixed(3)})`;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1 / this.cam.s;
       ctx.beginPath();
       ctx.ellipse(cx, ground, H * (0.02 + 0.13 * k * r.k), H * (0.005 + 0.02 * k * r.k), 0, 0, TAU);
       ctx.stroke();
@@ -571,34 +790,51 @@ export class RzekiView {
   }
 
   /**
-   * Inside the body: the body slowly fills with light from its lit places, each in its own colour (the head's
-   * kept soft, so its three windows stay apart), a warm wash when it is nearly all lit; and the body around the
-   * current place warms with its light.
+   * Inside the body: the body slowly fills with light from its lit stations, each in its own colour (the head's
+   * kept soft, so its windows stay apart), a warm wash when it is nearly all lit; and the body around the current
+   * station warms with its light.
    */
   private drawInnerLight(ctx: CanvasRenderingContext2D, sim: RzekiSim): void {
     const L = this.L, H = L.fig.H;
     const whole = sim.stage === 'whole' ? 1 : 0;
     const calm = sim.restBlock ? sim.calmShown : 0;
+    const map = MAP[sim.map].stations;
     if (this.fig) {
       ctx.save();
       ctx.clip(this.fig.clip);
-      for (const p of PLACES) {
-        if (!sim.lit[p]) continue;
-        const c = placeXY(L, p);
-        const head = PLACE[p].y < 0.2;
-        bloom(ctx, PLACE[p].hue, c.x, c.y, H * (head ? 0.12 : 0.3), (head ? 0.08 : 0.17) + 0.08 * calm + 0.12 * this.flash);
+      for (const s of map) {
+        if (!sim.lit[s]) continue;
+        const st = STATION[s];
+        if (st.kind === 'shell' || st.y < -0.05 || st.y > 1.0) continue;
+        const head = st.y < 0.2;
+        for (const p of stationPts(s)) {
+          const c = this.wp(p);
+          bloom(ctx, st.hue, c.x, c.y, H * (head ? 0.11 : st.kind === 'hands' || st.kind === 'feet' ? 0.12 : 0.26), (head ? 0.08 : 0.15) + 0.08 * calm + 0.12 * this.flash);
+        }
       }
-      const fillK = sim.litCount / PLACES.length;
+      const fillK = sim.litCount / Math.max(1, sim.mapSize);
       const wash = Math.max(whole, (fillK - 0.5) * 2);
       if (wash > 0) bloom(ctx, GOLD_HI, L.fig.cx, L.fig.top + H * 0.58, H * 0.55, 0.06 + 0.12 * wash + 0.18 * this.flash);
       ctx.restore();
     }
     if (sim.stage === 'at' || sim.stage === 'hold') {
-      const c = placeXY(L, sim.place);
-      const light = sim.blind ? RULES.baseLight : sim.light;
-      const head = PLACE[sim.place].y < 0.2;
-      glow(ctx, PLACE[sim.place].hue, c.x, c.y, H * (head ? 0.08 + 0.04 * light : 0.12 + 0.12 * light + 0.05 * sim.fill), 0.1 + 0.25 * light);
+      const st = STATION[sim.station];
+      if (st.y > -0.05 && st.y < 1.0 && st.kind !== 'shell') {
+        const light = sim.blind ? RULES.baseLight : sim.light;
+        const head = st.y < 0.2;
+        for (const p of stationPts(sim.station)) {
+          const c = this.wp(p);
+          glow(ctx, st.hue, c.x, c.y, H * (head ? 0.08 + 0.04 * light : 0.11 + 0.11 * light + 0.05 * sim.fill), 0.1 + 0.25 * light);
+        }
+      }
     }
+  }
+
+  /** The column's span for the map: from its top station (or the crown) to its lowest (or the feet). */
+  private columnSpan(sim: RzekiSim): { y0: number; y1: number } {
+    const L = this.L, H = L.fig.H, list = MAP[sim.map].stations;
+    const top = Math.min(-0.022, ...list.map(s => STATION[s].y)), bottom = Math.max(0.985, ...list.filter(s => STATION[s].kind !== 'feet').map(s => STATION[s].y));
+    return { y0: L.fig.top + top * H, y1: L.fig.top + Math.min(1.0, bottom) * H };
   }
 
   /** The column of light along the midline: faint all the way, bright where the light has come. */
@@ -606,17 +842,17 @@ export class RzekiView {
     const L = this.L, H = L.fig.H, cx = L.fig.cx;
     const pearl = columnSprite(PEARL), gold = columnSprite(GOLD_HI);
     if (!pearl || !gold) return;
-    const crown = L.fig.top + PLACE.mind.y * H, feet = L.fig.top + PLACE.feet.y * H;
+    const span = this.columnSpan(sim);
     const w = H * 0.05 * (0.9 + 0.2 * breathe);
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.2;
-    ctx.drawImage(pearl, cx - w / 2, crown, w, feet - crown);
-    // the lit stretch: from heaven to the light (down), from the feet to the light (up), the whole when whole
-    const y = this.streamY(sim);
+    ctx.drawImage(pearl, cx - w / 2, span.y0, w, span.y1 - span.y0);
+    // the lit stretch: from heaven to the light (down), from the bottom to the light (up), the whole when whole
+    const y = clamp(this.streamY(sim), span.y0, span.y1);
     let y0: number, y1: number;
-    if (sim.stage === 'whole') { y0 = L.top; y1 = feet; }
-    else if (sim.dir === 'down') { y0 = L.top; y1 = y; }
-    else { y0 = y; y1 = feet; }
+    if (sim.stage === 'whole') { y0 = span.y0 - H * 0.3; y1 = span.y1; }
+    else if (sim.dir === 'down') { y0 = span.y0 - H * 0.3; y1 = y; }
+    else { y0 = y; y1 = span.y1; }
     if (y1 > y0 + 1) {
       const lightK = sim.blind ? 0.4 : clamp(sim.light);
       ctx.globalAlpha = clamp(0.45 + 0.35 * lightK + (sim.restBlock ? 0.15 * breathe : 0));
@@ -628,24 +864,25 @@ export class RzekiView {
 
   /**
    * The two threads, gold and silver, spiralling along the lit stretch of the column (their back halves under
-   * the places, their front halves over them): the spiral runs down as the light is received and up as thanks
-   * rise, slowly in rest, fast while the stream flows.
+   * the stations, their front halves over them): the spiral runs down as the light is received and up as thanks
+   * rise, slowly in rest, fast while the stream flows.  Gold starts on the viewer's left (Pingala's side, the sun),
+   * silver on the right (Ida's, the moon).
    */
   private drawThreads(ctx: CanvasRenderingContext2D, sim: RzekiSim, front: boolean): void {
     if (!sim.started) return;
     const L = this.L, H = L.fig.H, cx = L.fig.cx;
-    const crown = L.fig.top + PLACE.mind.y * H, feet = L.fig.top + PLACE.feet.y * H;
-    const y = this.streamY(sim);
+    const crown = L.fig.top - 0.022 * H, feet = L.fig.top + 0.985 * H;
+    const y = clamp(this.streamY(sim), crown, feet);
     let y0: number, y1: number;
     if (sim.stage === 'whole') { y0 = crown; y1 = feet; }
-    else if (sim.dir === 'down') { y0 = Math.min(crown, y); y1 = y; }
+    else if (sim.dir === 'down') { y0 = crown; y1 = y; }
     else { y0 = y; y1 = feet; }
     if (y1 - y0 < 4) return;
     const speed = sim.stage === 'flow' ? 1.6 : sim.restBlock ? 0.25 : 0.55;
     const phase = (sim.dir === 'down' ? -1 : 1) * this.time * TAU * speed;
     const lam = H * 0.12;
     const A = H * (0.024 + (sim.restBlock ? 0.006 * sim.breath.k : 0));
-    for (const side of [1, -1]) {
+    for (const side of [-1, 1]) {
       const path = new Path2D();
       let open = false;
       for (let yy = y0; yy <= y1 + 0.1; yy += 3) {
@@ -657,7 +894,7 @@ export class RzekiView {
           if (!open) { path.moveTo(x, yy); open = true; } else path.lineTo(x, yy);
         } else open = false;
       }
-      const hue = side > 0 ? GOLD : SILVER;
+      const hue = side < 0 ? GOLD : SILVER;
       ctx.lineCap = 'round';
       if (front) {
         ctx.globalCompositeOperation = 'lighter';
@@ -676,62 +913,100 @@ export class RzekiView {
     }
   }
 
-  /** The seven places: waiting orbs, small lit windows (gold-ringed when thanked), and the current place's window. */
-  private drawPlaces(ctx: CanvasRenderingContext2D, sim: RzekiSim, breathe: number): void {
-    const L = this.L;
-    const current = sim.stage === 'at' || sim.stage === 'hold' ? sim.place : null;
-    for (const p of PLACES) {
-      if (p === current) continue;
-      const c = placeXY(L, p), hue = PLACE[p].hue;
-      if (sim.lit[p]) {
-        // a jewel of light: its colour blooming onto the body, the glass lit from behind, a white-hot core
-        const r = litR(L) * (1 + 0.05 * breathe);
-        const head = PLACE[p].y < 0.2;
-        bloom(ctx, hue, c.x, c.y, r * (head ? 2.8 : 3.6), (head ? 0.32 : 0.46) + 0.14 * breathe + 0.2 * this.flash);
-        this.drawWindow(ctx, p, c.x, c.y, r, 1, 1, 0.28);
-        glow(ctx, '#ffffff', c.x, c.y, r * 0.5, 0.26 + 0.1 * breathe);
-        if (sim.lit[p] & LIT_UP) {
-          ctx.strokeStyle = 'rgba(255,217,138,.85)';
-          ctx.lineWidth = Math.max(1, L.fig.H * 0.003);
-          ctx.beginPath();
-          ctx.arc(c.x, c.y, r * 1.28, 0, TAU);
-          ctx.stroke();
-          glow(ctx, GOLD, c.x, c.y, r * 2, 0.2);
-        }
-      } else {
-        const r = idleR(L);
-        const mem = sim.memory[p] ? 0.12 : 0;
-        glow(ctx, hue, c.x, c.y, r * 3.4, 0.2 + mem);
-        ctx.fillStyle = `${rgbaPrefix(hue)}${(0.55 + mem).toFixed(2)})`;
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, r * 0.55, 0, TAU);
-        ctx.fill();
-      }
+  /** The stations of the map, each as it shows now — the current one last, over the others. */
+  private drawStations(ctx: CanvasRenderingContext2D, sim: RzekiSim, breathe: number): void {
+    const map = MAP[sim.map].stations;
+    let current: StationId | null = null;
+    // the large shapes first (the Void's ring, the channels, the sacrum), then the hands and feet, then the windows
+    const order = [...map].sort((a, b) => rankOf(a) - rankOf(b));
+    for (const s of order) {
+      const look = this.look(sim, s);
+      if (STATION[s].kind === 'shell') continue;
+      if (look === 'current') { current = s; continue; }
+      this.drawStation(ctx, sim, s, look, breathe);
     }
-    if (current) this.drawCurrent(ctx, sim, current);
+    if (current) this.drawStation(ctx, sim, current, 'current', breathe);
+  }
+
+  private drawStation(ctx: CanvasRenderingContext2D, sim: RzekiSim, s: StationId, look: Look, breathe: number): void {
+    const st = STATION[s];
+    switch (st.kind) {
+      case 'point': {
+        const c = this.wp([st.x, st.y]);
+        if (look === 'current') this.drawCurrentPoint(ctx, sim, s, c, sim.fill);
+        else if (look === 'lit') this.drawJewel(ctx, sim, s, c, breathe);
+        else this.drawIdle(ctx, sim, s, c);
+        break;
+      }
+      case 'channels': this.drawChannels(ctx, sim, look); break;
+      case 'ring': this.drawVoid(ctx, sim, look); break;
+      case 'bone': this.drawSacrum(ctx, sim, look); break;
+      case 'hands': this.drawHands(ctx, sim, look); break;
+      case 'feet': this.drawFeet(ctx, sim, look); break;
+      default: break;
+    }
+  }
+
+  /** A station not lit yet: a small orb of its colour (brighter once lit earlier this session). */
+  private drawIdle(ctx: CanvasRenderingContext2D, sim: RzekiSim, s: StationId, c: { x: number; y: number }): void {
+    const r = idleR(this.L), hue = STATION[s].hue;
+    const mem = sim.memory[s] ? 0.12 : 0;
+    glow(ctx, hue, c.x, c.y, r * 3.4, 0.2 + mem);
+    ctx.fillStyle = `${rgbaPrefix(hue)}${(0.55 + mem).toFixed(2)})`;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r * 0.55, 0, TAU);
+    ctx.fill();
+  }
+
+  /** A lit window: a jewel of light — its colour blooming onto the body, the glass lit from behind, a white-hot core; gold-ringed when thanked. */
+  private drawJewel(ctx: CanvasRenderingContext2D, sim: RzekiSim, s: StationId, c: { x: number; y: number }, breathe = 0.5): void {
+    const L = this.L, st = STATION[s];
+    const r = litR(L) * (1 + 0.05 * breathe);
+    const head = st.y < 0.2;
+    bloom(ctx, st.hue, c.x, c.y, r * (head ? 2.8 : 3.4), (head ? 0.32 : 0.44) + 0.14 * breathe + 0.2 * this.flash);
+    this.drawWindow(ctx, s, c.x, c.y, r, 1, 1, 0.28);
+    glow(ctx, '#ffffff', c.x, c.y, r * 0.5, 0.26 + 0.1 * breathe);
+    if (sim.lit[s] & LIT_UP) this.thankRing(ctx, c, r * 1.28);
+  }
+
+  /** A thanked station's gold ring. */
+  private thankRing(ctx: CanvasRenderingContext2D, c: { x: number; y: number }, r: number): void {
+    ctx.strokeStyle = 'rgba(255,217,138,.85)';
+    ctx.lineWidth = Math.max(1, this.L.fig.H * 0.003);
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, r, 0, TAU);
+    ctx.stroke();
+    glow(ctx, GOLD, c.x, c.y, r * 1.6, 0.2);
+  }
+
+  /** The radius of the halo's base for the current station (its window, or the size of its shape). */
+  private anchorR(sim: RzekiSim, s: StationId): number {
+    const L = this.L, H = L.fig.H, k = STATION[s].kind;
+    if (k === 'point' || k === 'shell') return this.curR(sim);
+    if (k === 'hands') return H * 0.05;
+    if (k === 'feet') return H * 0.035;
+    if (k === 'bone') return H * 0.05;
+    if (k === 'ring') return H * 0.06;
+    return H * 0.04;
   }
 
   /**
-   * The current place: a halo whose size is the light (the gauge on the place itself), the threshold as a faint
-   * ring the halo passes to turn gold, and the rose window opening petal by petal with the place's fill.
+   * The halo of the current station — its visible edge at R × (1 + 1.2 × light), the gauge on the station itself —
+   * and the threshold as a faint dashed ring where the light stands at 0.5, gold while the light loads.
    */
-  private drawCurrent(ctx: CanvasRenderingContext2D, sim: RzekiSim, p: PlaceId): void {
-    const L = this.L, H = L.fig.H;
-    const c = placeXY(L, p), hue = PLACE[p].hue;
-    const R = windowR(L, sim.fill) * (1 + 0.1 * Math.sin(Math.PI * this.pop));
+  private drawHalo(ctx: CanvasRenderingContext2D, sim: RzekiSim, s: StationId, c: { x: number; y: number }, R: number, k = 1): void {
+    const L = this.L, H = L.fig.H, hue = STATION[s].hue;
     const blind = sim.blind;
     const light = blind ? RULES.baseLight : sim.light;
-    // the halo: its visible edge at R × (1 + 1.2 × light); the threshold ring where the light is 0.5
     const edge = R * (1 + 1.2 * light);
-    glow(ctx, hue, c.x, c.y, edge / 0.55, 0.3 + 0.45 * light);
-    if (!blind && sim.goldOn) glow(ctx, GOLD, c.x, c.y, edge / 0.6, 0.25 + 0.6 * (light - RULES.gold));
-    bloom(ctx, mix(hue, '#ffffff', 0.35), c.x, c.y, R * 1.9, 0.18 + 0.35 * sim.fill);
+    glow(ctx, hue, c.x, c.y, edge / 0.55, (0.3 + 0.45 * light) * k);
+    if (!blind && sim.goldOn) glow(ctx, GOLD, c.x, c.y, edge / 0.6, (0.3 + 0.5 * Math.max(0, light - 0.4)) * k);
     if (sim.pushBlock && !blind) {
-      const th = R * (1 + 1.2 * RULES.gold);
+      const th = R * (1 + 1.2 * 0.5);
       ctx.save();
       ctx.lineWidth = Math.max(1, H * 0.003);
       if (sim.goldOn) {
-        ctx.strokeStyle = 'rgba(255,217,138,.7)';
+        ctx.strokeStyle = 'rgba(255,217,138,.75)';
       } else {
         ctx.setLineDash([Math.max(2, H * 0.008), Math.max(3, H * 0.012)]);
         ctx.lineDashOffset = this.time * H * 0.01;
@@ -742,21 +1017,31 @@ export class RzekiView {
       ctx.stroke();
       ctx.restore();
     }
-    this.drawWindow(ctx, p, c.x, c.y, R, sim.fill, blind ? 0.7 : 1, blind ? 0.1 : 0.26);
-    glow(ctx, '#ffffff', c.x, c.y, R * (0.3 + 0.2 * sim.fill), 0.24 + 0.26 * sim.fill);
+  }
+
+  /** The current point station (or a shell's keystone): its halo, the threshold ring, the rose window opening with the fill. */
+  private drawCurrentPoint(ctx: CanvasRenderingContext2D, sim: RzekiSim, s: StationId, c: { x: number; y: number }, fill: number): void {
+    const hue = STATION[s].hue;
+    const R = windowR(this.L, fill, s) * (1 + 0.1 * Math.sin(Math.PI * this.pop));
+    const blind = sim.blind;
+    this.drawHalo(ctx, sim, s, c, R);
+    bloom(ctx, mix(hue, '#ffffff', 0.35), c.x, c.y, R * 1.9, 0.18 + 0.35 * fill);
+    this.drawWindow(ctx, s, c.x, c.y, R, fill, blind ? 0.7 : 1, blind ? 0.1 : 0.26);
+    glow(ctx, '#ffffff', c.x, c.y, R * (0.3 + 0.2 * fill), 0.24 + 0.26 * fill);
   }
 
   /**
    * A rose window at (x, y) of radius R, open to `fill` (the tracery waits for the rest); `shine` adds its open
    * glass once more additively — the light coming through it from behind.
    */
-  private drawWindow(ctx: CanvasRenderingContext2D, p: PlaceId, x: number, y: number, R: number, fill: number, alpha: number, shine = 0): void {
-    const rose = this.roses[p];
+  private drawWindow(ctx: CanvasRenderingContext2D, s: StationId, x: number, y: number, R: number, fill: number, alpha: number, shine = 0): void {
+    const rose = this.roses[s];
     if (!rose) {
-      glow(ctx, PLACE[p].hue, x, y, R, alpha);
+      glow(ctx, STATION[s].hue, x, y, R, alpha);
       return;
     }
-    const k = R / rose.R, half = rose.half;
+    const k = R / rose.R, half = rose.half, ga = ctx.globalAlpha;
+    alpha *= ga;
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(k, k);
@@ -773,11 +1058,11 @@ export class RzekiView {
     }
     ctx.drawImage(rose.lead, -half, -half, 2 * half, 2 * half);
     // the glass open so far: the whole petals (cached by count), then the petal filling now
-    const o = openness(PLACE[p].rose, fill);
-    const key = `${p}|${rose.R}|${Math.floor(o.inner + 1e-9)}|${Math.floor(o.outer + 1e-9)}|${o.oculus > 0 ? 1 : 0}`;
+    const sr = STATION[s].rose, o = roseOpen(sr, fill);
+    const key = `${s}|${rose.R}|${Math.floor(o.inner + 1e-9)}|${Math.floor(o.outer + 1e-9)}|${o.oculus > 0 ? 1 : 0}`;
     if (key !== this.openKey || !this.openFull) {
       this.openKey = key;
-      this.openFull = fullPath(PLACE[p].rose, rose.R, fill);
+      this.openFull = fullPath(sr, rose.R, fill);
     }
     ctx.save();
     ctx.clip(this.openFull);
@@ -788,7 +1073,7 @@ export class RzekiView {
       ctx.drawImage(rose.glass, -half, -half, 2 * half, 2 * half);
     }
     ctx.restore();
-    const part = partPath(PLACE[p].rose, rose.R, fill);
+    const part = partPath(sr, rose.R, fill);
     if (part) {
       ctx.save();
       ctx.clip(part);
@@ -799,14 +1084,334 @@ export class RzekiView {
     ctx.restore();
   }
 
-  /** The stream of living water on its way: a bright head with a soft spray. */
+  /** A polyline of figure points as a world path, up to a share `k` of its length from its start (or its end). */
+  private partLine(pts: readonly P[], k0: number, k1: number): Path2D {
+    const p = new Path2D();
+    const n = 24;
+    for (let i = 0; i <= n; i++) {
+      const q = k0 + ((k1 - k0) * i) / n;
+      const w = this.wp(along(pts, q));
+      if (i) p.lineTo(w.x, w.y); else p.moveTo(w.x, w.y);
+    }
+    return p;
+  }
+
+  /**
+   * The three channels: faint lines waiting; once lit, Pingala's gold, Sushumna's white and Ida's silver run along
+   * the body with the sun and the crescent moon at their tops; opening, their panes light from the top down (going
+   * down) or from the bottom up (going up), the three together, the sun and the moon first (or last).
+   */
+  private drawChannels(ctx: CanvasRenderingContext2D, sim: RzekiSim, look: Look): void {
+    const H = this.L.fig.H;
+    const fill = look === 'current' ? sim.fill : look === 'lit' ? 1 : 0;
+    const down = look !== 'current' || sim.dir === 'down';
+    const medK = down ? clamp(fill / MEDALLIONS) : clamp((fill - (1 - MEDALLIONS)) / MEDALLIONS);
+    const lineK = down ? clamp((fill - MEDALLIONS) / (1 - MEDALLIONS)) : clamp(fill / (1 - MEDALLIONS));
+    const lines: [readonly P[], string][] = [[CHANNELS.pingala, SUN_GOLD], [CHANNELS.sushumna, '#ffffff'], [CHANNELS.ida, MOON_SILVER]];
+    if (look === 'current') {
+      // the halo at the light's front as it runs along the channels (under the glass)
+      const q = down ? lineK : 1 - lineK;
+      const front = this.wp(along(CHANNELS.sushumna, clamp(q)));
+      this.drawHalo(ctx, sim, 'channels', front, H * 0.032, 0.6);
+    }
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const [pts, hue] of lines) {
+      ctx.strokeStyle = `${rgbaPrefix(hue)}${look === 'idle' ? (sim.memory.channels ? 0.16 : 0.09) : 0.12})`;
+      ctx.lineWidth = Math.max(1, H * 0.003);
+      ctx.stroke(this.partLine(pts, 0, 1));
+    }
+    if (lineK > 0) {
+      ctx.globalCompositeOperation = 'lighter';
+      const k0 = down ? 0 : 1 - lineK, k1 = down ? lineK : 1;
+      for (const [pts, hue] of lines) {
+        const path = this.partLine(pts, k0, k1);
+        ctx.strokeStyle = `${rgbaPrefix(hue)}.2)`;
+        ctx.lineWidth = Math.max(5, H * 0.02);
+        ctx.stroke(path);
+        ctx.strokeStyle = `${rgbaPrefix(hue)}.85)`;
+        ctx.lineWidth = Math.max(2, H * 0.007);
+        ctx.stroke(path);
+      }
+      // the lead between the panes: a dark notch across each line every pane
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(30,20,60,.55)';
+      for (const [pts] of lines) {
+        for (let i = 1; i < CHANNEL_PANES; i++) {
+          const q = i / CHANNEL_PANES;
+          if (q < k0 || q > k1) continue;
+          const w = this.wp(along(pts, q));
+          ctx.beginPath();
+          ctx.arc(w.x, w.y, Math.max(0.8, H * 0.0032), 0, TAU);
+          ctx.fill();
+        }
+      }
+    }
+    ctx.restore();
+    // the sun and the moon at the tops of the side channels
+    for (const [pt, kind] of [[SUN, 'sun'], [MOON, 'moon']] as const) {
+      const w = this.wp(pt), r = MEDALLION_R * H;
+      const spr = medallionSprite(kind);
+      const a = look === 'idle' ? 0.22 : 0.25 + 0.75 * medK;
+      if (medK > 0 || look !== 'idle') glow(ctx, kind === 'sun' ? SUN_GOLD : MOON_SILVER, w.x, w.y, r * 3, 0.3 * medK);
+      if (spr) {
+        ctx.globalAlpha = a;
+        ctx.drawImage(spr, w.x - r * 1.35, w.y - r * 1.35, r * 2.7, r * 2.7);
+        ctx.globalAlpha = 1;
+      }
+    }
+    if (look === 'lit' && sim.lit.channels & LIT_UP) this.thankRing(ctx, this.wp([0, STATION.channels.y]), litR(this.L) * 1.2);
+  }
+
+  /** The Void: a faint ring waiting; a ring of sea-green glass once lit, its segments lighting from the top round (or the bottom). */
+  private drawVoid(ctx: CanvasRenderingContext2D, sim: RzekiSim, look: Look): void {
+    const L = this.L, H = L.fig.H, st = STATION.void;
+    const c = this.wp([VOID.cx, VOID.cy]), rx = VOID.rx * H, ry = VOID.ry * H;
+    const fill = look === 'current' ? sim.fill : look === 'lit' ? 1 : 0;
+    const down = look !== 'current' || sim.dir === 'down';
+    if (look === 'current') {
+      // the halo round the Void, under its glass
+      const light = sim.blind ? RULES.baseLight : sim.light;
+      glow(ctx, st.hue, c.x, c.y, rx * (1.3 + 0.5 * light), 0.12 + 0.2 * light);
+      if (!sim.blind && sim.goldOn) glow(ctx, GOLD, c.x, c.y, rx * 1.5, 0.16);
+    }
+    ctx.save();
+    ctx.strokeStyle = `${rgbaPrefix(st.hue)}${look === 'idle' ? (sim.memory.void ? 0.18 : 0.1) : 0.14})`;
+    ctx.lineWidth = Math.max(1, H * 0.003);
+    ctx.beginPath();
+    ctx.ellipse(c.x, c.y, rx, ry, 0, 0, TAU);
+    ctx.stroke();
+    if (fill > 0) {
+      const n = RING_SEGS / 2, lit = fill * n, band = VOID.band * H;
+      ctx.lineCap = 'butt';
+      for (let i = 0; i < Math.ceil(lit - 1e-9); i++) {
+        const q = clamp(lit - i);
+        for (const sgn of [1, -1]) {
+          // angles from the top (0) round to the bottom (π) on each side
+          const a0 = (i / n) * Math.PI + 0.03, a1 = ((i + q) / n) * Math.PI - 0.03;
+          const [b0, b1] = down ? [a0, a1] : [Math.PI - a1, Math.PI - a0];
+          if (b1 <= b0) continue;
+          const toCanvas = (a: number) => -Math.PI / 2 + sgn * a;
+          const s0 = toCanvas(b0), s1 = toCanvas(b1);
+          ctx.beginPath();
+          ctx.ellipse(c.x, c.y, rx, ry, 0, Math.min(s0, s1), Math.max(s0, s1));
+          const tone = i % 2 ? st.deep : st.hue;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.strokeStyle = `${rgbaPrefix(st.hue)}.18)`;
+          ctx.lineWidth = band * 2.2;
+          ctx.stroke();
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = `${rgbaPrefix(mix(tone, '#ffffff', 0.3))}${(look === 'lit' ? 0.62 : 0.8).toFixed(2)})`;
+          ctx.lineWidth = band;
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(255,255,255,.45)';
+          ctx.lineWidth = Math.max(0.8, band * 0.18);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+    if (look === 'current') {
+      // the threshold as a dashed ellipse just outside the ring, gold while the light loads
+      if (sim.pushBlock && !sim.blind) {
+        ctx.save();
+        ctx.lineWidth = Math.max(1, H * 0.003);
+        if (sim.goldOn) ctx.strokeStyle = 'rgba(255,217,138,.75)';
+        else {
+          ctx.setLineDash([Math.max(2, H * 0.008), Math.max(3, H * 0.012)]);
+          ctx.lineDashOffset = this.time * H * 0.01;
+          ctx.strokeStyle = 'rgba(236,232,255,.34)';
+        }
+        ctx.beginPath();
+        ctx.ellipse(c.x, c.y, rx * 1.22, ry * 1.22, 0, 0, TAU);
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else if (look === 'lit' && sim.lit.void & LIT_UP) this.thankRing(ctx, { x: c.x, y: c.y - ry }, litR(L));
+  }
+
+  /** The sacrum: a faint triangle waiting; pearl glass in five bands with the spiral of light drawing itself as it fills. */
+  private drawSacrum(ctx: CanvasRenderingContext2D, sim: RzekiSim, look: Look): void {
+    const L = this.L, H = L.fig.H, st = STATION.sacrum;
+    const fill = look === 'current' ? sim.fill : look === 'lit' ? 1 : 0;
+    const down = look !== 'current' || sim.dir === 'down';
+    const map = (x: number, y: number): [number, number] => { const w = figPt(L, x, y); return [w.x, w.y]; };
+    const tri = shapePath(SACRUM_PTS, map, false);
+    const c = this.wp([0, SPIRAL.cy]);
+    if (look === 'current') this.drawHalo(ctx, sim, 'sacrum', c, H * 0.04, 0.55);
+    ctx.save();
+    if (fill > 0) {
+      ctx.save();
+      ctx.clip(tri);
+      // five bands of glass, lit from the top (down) or the bottom (up)
+      for (let i = 0; i < BONE_BANDS; i++) {
+        const k = pieceK(fill, down ? i : BONE_BANDS - 1 - i, BONE_BANDS);
+        if (k <= 0) continue;
+        const ya = 0.462 + (i / BONE_BANDS) * 0.066, yb = 0.462 + ((i + 1) / BONE_BANDS) * 0.066;
+        const a = figPt(L, -0.04, ya), b = figPt(L, 0.04, yb);
+        const g = ctx.createLinearGradient(0, a.y, 0, b.y);
+        const tone = i % 2 ? st.rose.glass[2] : st.rose.glass[1];
+        g.addColorStop(0, mix(tone, '#ffffff', 0.45));
+        g.addColorStop(1, tone);
+        ctx.globalAlpha = (look === 'lit' ? 0.7 : 0.9) * k;
+        ctx.fillStyle = g;
+        ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
+      }
+      ctx.globalAlpha = 1;
+      // the lead between the bands, and the little openings of the bone in pairs
+      ctx.strokeStyle = 'rgba(34,28,70,.5)';
+      ctx.lineWidth = Math.max(0.6, H * 0.0022);
+      for (let i = 1; i < BONE_BANDS; i++) {
+        const y = 0.462 + (i / BONE_BANDS) * 0.066, a = figPt(L, -0.04, y), b = figPt(L, 0.04, y);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    ctx.strokeStyle = `${rgbaPrefix(st.hue)}${look === 'idle' ? (sim.memory.sacrum ? 0.32 : 0.2) : 0.85})`;
+    ctx.lineWidth = Math.max(1, H * 0.0032);
+    ctx.lineJoin = 'round';
+    ctx.stroke(tri);
+    // the spiral of light: three and a half turns, drawn from the centre out as the light gathers (never a serpent)
+    const k = look === 'idle' ? 0 : clamp(fill);
+    if (k > 0.01) {
+      const pts = spiralPts(k);
+      const path = new Path2D();
+      pts.forEach((p, i) => { const w = this.wp(p); if (i) path.lineTo(w.x, w.y); else path.moveTo(w.x, w.y); });
+      ctx.lineCap = 'round';
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(210,228,255,.3)';
+      ctx.lineWidth = Math.max(2.4, H * 0.008);
+      ctx.stroke(path);
+      ctx.strokeStyle = 'rgba(255,255,255,.92)';
+      ctx.lineWidth = Math.max(0.9, H * 0.0028);
+      ctx.stroke(path);
+      const tip = this.wp(pts[pts.length - 1]);
+      glow(ctx, '#ffffff', tip.x, tip.y, H * 0.012, 0.8);
+    }
+    ctx.restore();
+    if (look === 'lit') {
+      glow(ctx, st.hue, c.x, c.y, H * 0.05, 0.3);
+      if (sim.lit.sacrum & LIT_UP) this.thankRing(ctx, c, H * 0.05);
+    }
+  }
+
+  /** A pane waiting for light: a ghost of its glass and its lead drawn in light (as a waiting rose window). */
+  private ghostPane(ctx: CanvasRenderingContext2D, pts: readonly P[], smooth: boolean, hue: string): void {
+    const L = this.L, H = L.fig.H;
+    const map = (x: number, y: number): [number, number] => { const w = figPt(L, x, y); return [w.x, w.y]; };
+    const path = shapePath(pts, map, smooth);
+    ctx.fillStyle = `${rgbaPrefix(hue)}.14)`;
+    ctx.fill(path);
+    ctx.strokeStyle = 'rgba(236,232,255,.5)';
+    ctx.lineWidth = Math.max(0.6, H * 0.0016);
+    ctx.stroke(path);
+  }
+
+  /** A pane of glass of figure points, filled with a colour from light at its middle to the colour at its edge, leaded. */
+  private pane(ctx: CanvasRenderingContext2D, pts: readonly P[], smooth: boolean, hue: string, alpha: number, centre?: P): void {
+    if (alpha <= 0.01) return;
+    const L = this.L, H = L.fig.H;
+    const map = (x: number, y: number): [number, number] => { const w = figPt(L, x, y); return [w.x, w.y]; };
+    const path = shapePath(pts, map, smooth);
+    const cx = centre ?? pts.reduce((a, p) => [a[0] + p[0] / pts.length, a[1] + p[1] / pts.length] as P, [0, 0] as P);
+    const c = this.wp(cx);
+    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, H * 0.04);
+    g.addColorStop(0, mix(hue, '#ffffff', 0.6));
+    g.addColorStop(0.6, mix(hue, '#ffffff', 0.15));
+    g.addColorStop(1, hue);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = g;
+    ctx.fill(path);
+    ctx.strokeStyle = 'rgba(30,20,58,.5)';
+    ctx.lineWidth = Math.max(0.5, H * 0.0018);
+    ctx.stroke(path);
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * The hands: once lit, glass of the hand map in its colours with the seven points shining; opening, both hands
+   * turn to glass in the map's order — 1 the wrist, 2 the thumb, 3 the middle finger, 4 the little finger, 5 the
+   * index finger, 6 the ring finger, 7 the palm — each pane growing from its root, its light coming on when whole.
+   */
+  private drawHands(ctx: CanvasRenderingContext2D, sim: RzekiSim, look: Look): void {
+    if (look === 'idle') return;
+    const L = this.L, H = L.fig.H;
+    const fill = look === 'current' ? sim.fill : 1;
+    const alpha = look === 'lit' ? 0.5 : 0.92;
+    if (look === 'current') for (const side of [-1, 1] as const) this.drawHalo(ctx, sim, 'hands', this.wp(palmCentre(side)), H * 0.045, 0.35);
+    for (const side of [-1, 1] as const) {
+      const shapes = handShapes(side);
+      // the hand's whole tracery waits as a ghost of glass, like a rose window's lead: it reads as a hand of glass
+      if (look === 'current') {
+        for (const sh of shapes) this.ghostPane(ctx, sh.pts, sh.smooth, HAND_COLOURS[sh.part]);
+        const w = this.wp(handPoint('wrist', side));
+        glow(ctx, HAND_COLOURS.wrist, w.x, w.y, H * 0.012, 0.25);
+      }
+      HAND_ORDER.forEach((part, i) => {
+        const k = pieceK(fill, i, HAND_ORDER.length);
+        if (k <= 0) return;
+        const hue = HAND_COLOURS[part];
+        if (part === 'wrist') {
+          const w0 = handPoint('wrist', side), a = this.wp(w0);
+          glow(ctx, hue, a.x, a.y, H * 0.016 * (0.5 + 0.5 * k), 0.7 * k);
+        } else if (part === 'palm') {
+          const palmShape = shapes.find(s => s.part === 'palm')!;
+          this.pane(ctx, palmShape.pts, true, hue, alpha * k, palmCentre(side));
+        } else {
+          const f = finger(part, side);
+          const tip: P = [f.a[0] + (f.b[0] - f.a[0]) * k, f.a[1] + (f.b[1] - f.a[1]) * k];
+          const cap = capsulePts(f.a, tip, f.r * 0.92);
+          this.pane(ctx, cap, false, hue, alpha, tip);
+        }
+        // the point's light, once its pane is whole
+        if (k >= 1) {
+          const p = this.wp(handPoint(part, side));
+          glow(ctx, hue, p.x, p.y, H * (look === 'lit' ? 0.012 : 0.016), look === 'lit' ? 0.75 : 0.95);
+          glow(ctx, '#ffffff', p.x, p.y, H * 0.005, 0.85);
+        }
+      });
+      if (look === 'lit' && sim.lit.hands & LIT_UP) {
+        const c = this.wp(palmCentre(side));
+        this.thankRing(ctx, c, H * 0.06);
+      }
+    }
+  }
+
+  /** The feet: copper glass from the instep to the toes (the big toe first), the soles lighting the ground under them. */
+  private drawFeet(ctx: CanvasRenderingContext2D, sim: RzekiSim, look: Look): void {
+    if (look === 'idle') return;
+    const L = this.L, H = L.fig.H, st = STATION.feet;
+    const fill = look === 'current' ? sim.fill : 1;
+    const alpha = look === 'lit' ? 0.5 : 0.9;
+    if (look === 'current') this.drawHalo(ctx, sim, 'feet', this.wp([0, 0.972]), H * 0.06, 0.35);
+    for (const side of [-1, 1] as const) {
+      if (look === 'current') for (const sh of footShapes(side)) this.ghostPane(ctx, sh.pts, sh.smooth, st.hue);
+      // the sole's light on the ground, growing with the fill
+      const sole = this.wp(soleAt(side));
+      bloom(ctx, st.hue, sole.x, sole.y, H * (0.03 + 0.04 * fill), (look === 'lit' ? 0.35 : 0.5) * fill);
+      footShapes(side).forEach((s, i) => {
+        const k = pieceK(fill, i, 6);
+        if (k <= 0) return;
+        const hue = i === 0 ? st.hue : mix(st.hue, i % 2 ? '#ffd2a8' : st.deep, 0.25);
+        this.pane(ctx, s.pts, s.smooth, hue, alpha * k);
+      });
+      if (look === 'lit' && sim.lit.feet & LIT_UP) this.thankRing(ctx, this.wp([side * 0.044, 0.972]), H * 0.04);
+    }
+  }
+
+  /** The stream of living water on its way: a bright head with a soft spray (two heads along the arms or the legs). */
   private drawStream(ctx: CanvasRenderingContext2D, sim: RzekiSim): void {
     if (sim.stage !== 'flow' && sim.stage !== 'enter') return;
-    const L = this.L, H = L.fig.H;
-    const y = this.streamY(sim);
-    glow(ctx, WATER, L.fig.cx, y, H * 0.07, 0.75);
-    glow(ctx, '#ffffff', L.fig.cx, y, H * 0.025, 0.9);
-    if (sim.stage === 'enter' && sim.dir === 'down') glow(ctx, GOLD_HI, L.fig.cx, y, H * 0.12, 0.35);
+    const H = this.L.fig.H;
+    for (const hd of this.streamHeads(sim)) {
+      glow(ctx, WATER, hd.x, hd.y, H * 0.07, 0.75);
+      glow(ctx, '#ffffff', hd.x, hd.y, H * 0.025, 0.9);
+      if (sim.stage === 'enter' && sim.dir === 'down') glow(ctx, GOLD_HI, hd.x, hd.y, H * 0.12, 0.35);
+    }
   }
 
   private drawDrops(ctx: CanvasRenderingContext2D): void {
@@ -816,7 +1421,7 @@ export class RzekiView {
     ctx.globalCompositeOperation = 'lighter';
     for (const d of this.drops) {
       if (d.big) {
-        // a place's drop: its own colour around a bright core, a little trail of light above it
+        // a station's drop: its own colour around a bright core, a little trail of light above it
         const r = Math.max(3, H * 0.02);
         const hs = glowSprite(d.hue);
         if (hs) {
@@ -866,12 +1471,50 @@ export class RzekiView {
     } else ctx.fillRect(0, L.top, L.w, L.prayer.y - L.top);
   }
 
-  /** Every control the player can tap now (a story card, or the current place's circle), for the audit. */
+  /** Every control the player can tap now (a story card, or the current station's area), for the audit. */
   targets(sim: RzekiSim): TapTarget[] {
     if (!sim.started) return [];
-    const place = sim.stage === 'flow' ? sim.nextPlace : sim.stage === 'whole' ? null : sim.place;
-    return tapTargets(this.L, { story: sim.story ? (this.storyRect ?? this.L.story) : null, place, fill: sim.stage === 'at' || sim.stage === 'hold' ? sim.fill : 0 });
+    const place = sim.stage === 'flow' ? sim.nextStation : sim.stage === 'whole' ? null : sim.station;
+    return tapTargets(this.L, {
+      story: sim.story ? (this.storyRect ?? this.L.story) : null, place, fill: sim.stage === 'at' || sim.stage === 'hold' ? sim.fill : 0, cam: this.cam,
+    });
   }
+
+  /** A point of the play for the runner's coach mark (screen px): the current station, the chest, the pool. */
+  pointAt(what: 'place' | 'chest' | 'pool', sim: RzekiSim): { x: number; y: number } {
+    const L = this.L, H = L.fig.H;
+    if (what === 'chest') { const w = figPt(L, 0, 0.27); return this.sp(w.x, w.y); }
+    if (what === 'pool') { const w = figPt(L, 0, 0.98); return this.sp(w.x, w.y); }
+    const pts = stationPts(sim.station).map(p => this.wp(p));
+    const top = pts.reduce((a, b) => (a.y < b.y ? a : b));
+    const r = (STATION[sim.station].kind === 'point' || STATION[sim.station].kind === 'shell' ? windowR(L, sim.fill, sim.station) : H * 0.05) * 1.3;
+    return this.sp(pts.reduce((s, p) => s + p.x, 0) / pts.length, top.y - r);
+  }
+}
+
+/** The stations drawn as rose windows in play: the points on the midline and the shells' keystones. */
+const windowed = (s: StationId): boolean => STATION[s].kind === 'point' || STATION[s].kind === 'shell';
+
+/** Draw order: the big shapes under the windows (the Void's ring, the channels, the sacrum), then the hands and the feet, then the windows. */
+function rankOf(s: StationId): number {
+  const k = STATION[s].kind;
+  return k === 'ring' ? 0 : k === 'channels' ? 1 : k === 'bone' ? 2 : k === 'hands' || k === 'feet' ? 3 : 4;
+}
+
+/** A capsule as figure points (a finger's pane growing from its root). */
+function capsulePts(a: P, b: P, r: number): P[] {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const ang = Math.atan2(dy, dx);
+  const out: P[] = [];
+  for (let i = 0; i <= 8; i++) {
+    const t = ang - Math.PI / 2 + (i / 8) * Math.PI;
+    out.push([b[0] + Math.cos(t) * r, b[1] + Math.sin(t) * r]);
+  }
+  for (let i = 0; i <= 6; i++) {
+    const t = ang + Math.PI / 2 + (i / 6) * Math.PI;
+    out.push([a[0] + Math.cos(t) * r, a[1] + Math.sin(t) * r]);
+  }
+  return out;
 }
 
 /** The rivers' layers of light: (width × the ribbon's half-width, colour), widest and faintest first. */

@@ -1,14 +1,14 @@
 /**
  * Rzeki żywej wody's pictures, drawn with canvas paths and gradients (no images): a deep cosmic space of
  * indigo and violet with soft nebulae and stars, an open heaven with rays, a figure of soft light with a warm
- * rim from above, an egg of light around it, a pool of living water at its feet, and the rose windows of
- * church glass that bloom at the seven places.  Light is light: additive glows from small baked sprites, never
- * shadowBlur or filters per frame; the sky, the rays, the figure, the aura and every rose window are baked
- * once per size into offscreen layers, so a frame only composes them.
+ * rim from above, an egg of light around it, a pool of living water at its feet, the rose windows of church
+ * glass that bloom at the stations, and the sun and the moon of the two side channels.  Light is light:
+ * additive glows from small baked sprites, never shadowBlur or filters per frame; the sky, the rays, the figure,
+ * the aura and every rose window are baked once per size into offscreen layers, so a frame only composes them.
  */
 import { MIN_TEXT } from '../kit/mobile';
-import { PLACE, PLACES, type PlaceId } from './content';
-import { outlinePath, type ToScreen } from './figure';
+import { STATION, STATIONS, type StationId } from './content';
+import { figurePath, type ToScreen } from './figure';
 import { RING, pieces } from './rose';
 
 export const SANS = '"Manrope Variable", Manrope, system-ui, sans-serif';
@@ -20,6 +20,9 @@ export const WATER = '#9fe6ff';
 export const PEARL = '#f6f2ff';
 export const LILAC = '#c9c2ff';
 export const INK = 'rgba(8,6,26,.8)';
+/** Pingala's gold and Ida's silver-blue (the side channels, the threads' colours too) */
+export const SUN_GOLD = '#ffd166';
+export const MOON_SILVER = '#b9d4ff';
 const TAU = Math.PI * 2;
 
 /** A canvas font, never under MIN_TEXT (11 px); text the player must read asks for 13 px and more itself. */
@@ -127,7 +130,8 @@ export function glow(ctx: CanvasRenderingContext2D, hex: string, x: number, y: n
   if (!s || a <= 0.003 || r <= 0.5) return;
   const op = ctx.globalCompositeOperation, ga = ctx.globalAlpha;
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = Math.min(1, a);
+  // within a faded group (the alpha already lowered) the light fades with it
+  ctx.globalAlpha = Math.min(1, a) * ga;
   ctx.drawImage(s, x - r, y - r, 2 * r, 2 * r);
   ctx.globalAlpha = ga;
   ctx.globalCompositeOperation = op;
@@ -161,7 +165,8 @@ export function bloom(ctx: CanvasRenderingContext2D, hex: string, x: number, y: 
   if (!s || a <= 0.003 || r <= 0.5) return;
   const op = ctx.globalCompositeOperation, ga = ctx.globalAlpha;
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = Math.min(1, a);
+  // within a faded group (the alpha already lowered) the light fades with it
+  ctx.globalAlpha = Math.min(1, a) * ga;
   ctx.drawImage(s, x - r, y - r, 2 * r, 2 * r);
   ctx.globalAlpha = ga;
   ctx.globalCompositeOperation = op;
@@ -217,15 +222,68 @@ export function starSprite(): Layer | null {
   return starSpriteC;
 }
 
+const medCache = new Map<string, Layer>();
+
+/**
+ * The medallions at the tops of the two side channels, as glass (64 px, baked once): a sun of gold glass with
+ * twelve short rays for Pingala, a crescent moon of silver glass for Ida — plain shapes of light, no faces.
+ */
+export function medallionSprite(kind: 'sun' | 'moon'): Layer | null {
+  const hit = medCache.get(kind);
+  if (hit) return hit;
+  const L = layer(64, 64, 2);
+  if (!L) return null;
+  const c = L.ctx;
+  c.translate(32, 32);
+  if (kind === 'sun') {
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * TAU;
+      c.beginPath();
+      c.moveTo(Math.cos(a - 0.12) * 15, Math.sin(a - 0.12) * 15);
+      c.lineTo(Math.cos(a) * 27, Math.sin(a) * 27);
+      c.lineTo(Math.cos(a + 0.12) * 15, Math.sin(a + 0.12) * 15);
+      c.closePath();
+      c.fillStyle = i % 2 ? '#ffb347' : '#ffd166';
+      c.fill();
+    }
+    const g = c.createRadialGradient(0, 0, 0, 0, 0, 16);
+    g.addColorStop(0, '#fffbe6');
+    g.addColorStop(0.55, '#ffd166');
+    g.addColorStop(1, '#f5a623');
+    c.fillStyle = g;
+    c.beginPath();
+    c.arc(0, 0, 16, 0, TAU);
+    c.fill();
+    c.strokeStyle = 'rgba(70,40,10,.45)';
+    c.lineWidth = 1.2;
+    c.stroke();
+  } else {
+    const g = c.createRadialGradient(-6, -4, 0, 0, 0, 24);
+    g.addColorStop(0, '#ffffff');
+    g.addColorStop(0.5, '#dfe8ff');
+    g.addColorStop(1, '#8fb0ee');
+    c.fillStyle = g;
+    c.beginPath();
+    c.arc(0, 0, 22, 0, TAU);
+    c.arc(9, -5, 18, 0, TAU, true);
+    c.fill('evenodd');
+    c.strokeStyle = 'rgba(20,30,70,.4)';
+    c.lineWidth = 1.2;
+    c.stroke();
+  }
+  medCache.set(kind, L.c);
+  return L.c;
+}
+
 // ── the sky ──────────────────────────────────────────────────────
-export interface SkyFocus { cx: number; heavenY: number; midY: number; H: number }
+export interface SkyFocus { cx: number; midY: number; H: number }
 
 const NEBULA = ['#6c4fd0', '#3b47b8', '#a65aa8', '#2b86ad', '#4c64d8', '#7a52c4', '#c56a9c'] as const;
 
 /**
  * Deep space, baked per size: a gradient from near-black indigo through violet, nebulae as soft coloured
- * clouds added with light, a few darker lanes for depth, a warm glow where the heaven opens, a quiet halo
- * behind the figure, stars (a few with glints), and a vignette.
+ * clouds added with light, a few darker lanes for depth, stars (a few with glints), and a vignette.  (The halo
+ * behind the figure and the opening of heaven are drawn per frame, so the camera carries them with the figure.)
  */
 export function bakeSky(w: number, h: number, dpr: number, f: SkyFocus): Layer | null {
   const L = layer(w, h, dpr);
@@ -266,23 +324,6 @@ export function bakeSky(w: number, h: number, dpr: number, f: SkyFocus): Layer |
     c.fillStyle = rg;
     c.fillRect(x - r, y - r, 2 * r, 2 * r);
   }
-  // the quiet halo behind the figure, and the warm opening of heaven above it
-  c.globalCompositeOperation = 'lighter';
-  const halo = c.createRadialGradient(f.cx, f.midY, 0, f.cx, f.midY, f.H * 0.75);
-  halo.addColorStop(0, 'rgba(150,130,255,.16)');
-  halo.addColorStop(0.55, 'rgba(110,90,220,.06)');
-  halo.addColorStop(1, 'rgba(90,70,200,0)');
-  c.fillStyle = halo;
-  c.fillRect(0, 0, w, h);
-  const hr = Math.max(f.H * 0.42, 60);
-  const heaven = c.createRadialGradient(f.cx, f.heavenY, 0, f.cx, f.heavenY, hr);
-  heaven.addColorStop(0, 'rgba(255,246,220,.42)');
-  heaven.addColorStop(0.25, 'rgba(255,226,170,.16)');
-  heaven.addColorStop(0.6, 'rgba(200,170,255,.06)');
-  heaven.addColorStop(1, 'rgba(160,140,255,0)');
-  c.fillStyle = heaven;
-  c.fillRect(f.cx - hr, f.heavenY - hr, 2 * hr, 2 * hr);
-  c.globalCompositeOperation = 'source-over';
   // stars
   const n = Math.round((w * h) / 1500);
   for (let i = 0; i < n; i++) {
@@ -311,15 +352,15 @@ export function bakeSky(w: number, h: number, dpr: number, f: SkyFocus): Layer |
 }
 
 /**
- * The rays from the open heaven (baked per size): soft beams fanning down from above the top edge to the
- * crown, warm white at their source, gone before they reach the head.  `x0..x0+w`, `0..h` on the canvas.
+ * The rays from the open heaven (baked per size): soft beams fanning down from the gate above to the crown,
+ * warm white at their source, gone before they reach the head.  `cx` across a layer of w × h.
  */
 export function bakeRays(w: number, h: number, dpr: number, cx: number): Layer | null {
   const L = layer(w, h, dpr);
   if (!L) return null;
   const c = L.ctx;
   c.globalCompositeOperation = 'lighter';
-  const apexY = -h * 0.35;
+  const apexY = -h * 0.08;
   const n = 13;
   for (let i = 0; i < n; i++) {
     const k = (i / (n - 1)) * 2 - 1;
@@ -333,7 +374,7 @@ export function bakeRays(w: number, h: number, dpr: number, cx: number): Layer |
     g.addColorStop(1, 'rgba(230,210,255,0)');
     c.fillStyle = g;
     c.beginPath();
-    c.moveTo(cx + k * w * 0.04, apexY);
+    c.moveTo(cx + k * w * 0.02, apexY);
     c.lineTo(bx - bw, h);
     c.lineTo(bx + bw, h);
     c.closePath();
@@ -351,31 +392,55 @@ export const mapper = (f: FigureBox, ox = 0, oy = 0): ToScreen => (x, y) => [f.c
 
 export interface FigureLayer { box: { x: number; y: number; w: number; h: number }; c: Layer; clip: Path2D }
 
-/** The figure's own box (px) with a margin for its rim. */
+/** The figure's own box (px) with a margin for its rim and its hands. */
 export function figureBounds(f: FigureBox): { x: number; y: number; w: number; h: number } {
   const half = 0.25 * f.H;
   return { x: f.cx - half, y: f.top - 0.04 * f.H, w: 2 * half, h: 1.08 * f.H };
 }
 
 /**
- * The figure of light, baked per size: a translucent body, warm where the light from above falls and cool
- * below, an inner glow along the midline, and a rim of light — gold at the head and the shoulders, pearl and
- * silver lower down.  No face, no features: anyone can stand in it.
+ * The figure of light, baked per size at `zoom` × its size (the camera nears the hands and the feet, and they stay
+ * crisp): a translucent body, warm where the light from above falls and cool below, an inner glow along the
+ * midline, and a rim of light — gold at the head and the shoulders, pearl and silver lower down — drawn outside the
+ * union of the body, the hands and the feet (what of it falls inside is erased, so no seam shows at a wrist or an
+ * ankle).  No face, no features: anyone can stand in it.
  */
-export function bakeFigure(f: FigureBox, dpr: number): FigureLayer | null {
+export function bakeFigure(f: FigureBox, dpr: number, zoom = 1): FigureLayer | null {
   const box = figureBounds(f);
-  const B = layer(box.w, box.h, dpr);
+  const B = layer(box.w * zoom, box.h * zoom, dpr);
   if (!B) return null;
   const c = B.ctx, H = f.H;
+  c.scale(zoom, zoom);
   const map = mapper(f, box.x, box.y);
-  const sil = outlinePath(map);
+  const sil = figurePath(map);
   const [, y0] = map(0, 0), [, y1] = map(0, 1);
+  // the rim of light: a wide soft halo, a mid glow, and a crisp line warm at the top and silver below
+  const rim = c.createLinearGradient(0, y0, 0, y1);
+  rim.addColorStop(0, 'rgba(255,232,176,.95)');
+  rim.addColorStop(0.3, 'rgba(244,232,255,.8)');
+  rim.addColorStop(0.7, 'rgba(206,210,255,.62)');
+  rim.addColorStop(1, 'rgba(186,212,255,.6)');
+  c.lineJoin = 'round';
+  c.strokeStyle = 'rgba(206,196,255,.09)';
+  c.lineWidth = Math.max(6, H * 0.03);
+  c.stroke(sil);
+  c.strokeStyle = 'rgba(232,222,255,.2)';
+  c.lineWidth = Math.max(3, H * 0.013);
+  c.stroke(sil);
+  c.strokeStyle = rim;
+  c.lineWidth = Math.max(1.6, H * 0.0058);
+  c.stroke(sil);
+  // what of the rim falls inside the silhouette goes: the rim lies outside, round the union, without seams
+  c.globalCompositeOperation = 'destination-out';
+  c.fillStyle = '#000';
+  c.fill(sil);
+  c.globalCompositeOperation = 'source-over';
   // the body: translucent, the head no brighter than the chest (a gradient of light, never a white fill)
   const body = c.createLinearGradient(0, y0, 0, y1);
   body.addColorStop(0, 'rgba(240,226,255,.17)');
   body.addColorStop(0.2, 'rgba(226,214,255,.16)');
   body.addColorStop(0.62, 'rgba(176,176,246,.13)');
-  body.addColorStop(1, 'rgba(140,150,230,.11)');
+  body.addColorStop(1, 'rgba(140,150,230,.12)');
   c.fillStyle = body;
   c.fill(sil);
   c.save();
@@ -396,6 +461,15 @@ export function bakeFigure(f: FigureBox, dpr: number): FigureLayer | null {
     c.fillStyle = rg;
     c.fillRect(gx - r * H, gy - r * H, 2 * r * H, 2 * r * H);
   }
+  // the hands and the feet catch a little more light, so their shapes read at a glance
+  for (const [x, y, r] of [[-0.175, 0.54, 0.06], [0.175, 0.54, 0.06], [-0.045, 0.975, 0.04], [0.045, 0.975, 0.04]] as const) {
+    const [gx, gy] = map(x, y);
+    const rg = c.createRadialGradient(gx, gy, 0, gx, gy, r * H);
+    rg.addColorStop(0, 'rgba(255,246,236,.14)');
+    rg.addColorStop(1, 'rgba(255,246,236,0)');
+    c.fillStyle = rg;
+    c.fillRect(gx - r * H, gy - r * H, 2 * r * H, 2 * r * H);
+  }
   // the light from above along the top edge of the head (inside the rim), fading by the brow
   const top = c.createLinearGradient(0, y0, 0, y0 + H * 0.07);
   top.addColorStop(0, 'rgba(255,236,196,.14)');
@@ -403,23 +477,7 @@ export function bakeFigure(f: FigureBox, dpr: number): FigureLayer | null {
   c.fillStyle = top;
   c.fillRect(0, 0, box.w, box.h);
   c.restore();
-  // the rim of light: a wide soft halo, a mid glow, and a crisp line warm at the top and silver below
-  const rim = c.createLinearGradient(0, y0, 0, y1);
-  rim.addColorStop(0, 'rgba(255,232,176,.95)');
-  rim.addColorStop(0.3, 'rgba(244,232,255,.8)');
-  rim.addColorStop(0.7, 'rgba(206,210,255,.6)');
-  rim.addColorStop(1, 'rgba(176,206,255,.55)');
-  c.lineJoin = 'round';
-  c.strokeStyle = 'rgba(206,196,255,.08)';
-  c.lineWidth = Math.max(4, H * 0.026);
-  c.stroke(sil);
-  c.strokeStyle = 'rgba(232,222,255,.18)';
-  c.lineWidth = Math.max(2, H * 0.01);
-  c.stroke(sil);
-  c.strokeStyle = rim;
-  c.lineWidth = Math.max(1, H * 0.0034);
-  c.stroke(sil);
-  return { box, c: B.c, clip: outlinePath(mapper(f)) };
+  return { box, c: B.c, clip: figurePath(mapper(f)) };
 }
 
 // ── the aura and the pool ────────────────────────────────────────
@@ -473,12 +531,14 @@ export interface RoseLayers {
 }
 
 /**
- * A place's rose window at radius R (CSS px), baked: each piece of glass filled with light from the centre
- * outward (pale near the oculus, the glass colour at the rim, alternate pieces a touch deeper), the dark lead
- * around every piece, and the stone tracery rings.  The unlit `lead` layer keeps a faint ghost of the glass.
+ * A station's rose window at radius R (CSS px), baked: each piece of glass filled with light from the centre
+ * outward (pale near the oculus, the glass colour at the rim, alternate pieces a touch deeper — or each petal its
+ * own colour where the station names them: the crown's rainbow, the hands' fingers, the channels' gold, white and
+ * silver), the dark lead around every piece, and the stone tracery rings.  The unlit `lead` layer keeps a faint
+ * ghost of the glass.
  */
-export function bakeRose(place: PlaceId, R: number, dpr: number, tier = 0): RoseLayers | null {
-  const spec = PLACE[place], rose = spec.rose;
+export function bakeRose(station: StationId, R: number, dpr: number, tier = 0): RoseLayers | null {
+  const spec = STATION[station], rose = spec.rose;
   const half = Math.ceil(R * 1.24);
   const G = layer(half * 2, half * 2, dpr), Ld = layer(half * 2, half * 2, dpr);
   if (!G || !Ld) return null;
@@ -490,7 +550,7 @@ export function bakeRose(place: PlaceId, R: number, dpr: number, tier = 0): Rose
     c.save();
     c.translate(half, half);
     // The waiting window has only a breath of light in it — its tracery drawn in light, its glass a ghost of its
-    // colours.  The lit window is glass lit from behind: the ground between the pieces is glass of the place's
+    // colours.  The lit window is glass lit from behind: the ground between the pieces is glass of the station's
     // own colour too, brightest at the centre, so the whole disc glows.
     c.beginPath();
     c.arc(0, 0, R * 1.0, 0, TAU);
@@ -504,9 +564,10 @@ export function bakeRose(place: PlaceId, R: number, dpr: number, tier = 0): Rose
     }
     c.fill();
     for (const pc of all) {
-      // the foils turn to gold glass once the window is gilded (tier 1)
-      const base = pc.ring === 'c' ? cGlass : pc.ring === 'i' ? iGlass : pc.ring === 'o' ? oGlass : tier >= 1 ? '#ffd98a' : cGlass;
-      const tone = pc.index % 2 === 1 && pc.ring !== 'c' ? mix(base, spec.deep, ghost ? 0.22 : 0.1) : base;
+      // each petal its own glass where the station names it; the foils turn to gold once the window is gilded
+      const own = pc.ring === 'i' ? rose.innerEach?.[pc.index % (rose.innerEach.length || 1)] : pc.ring === 'o' ? rose.outerEach?.[pc.index % (rose.outerEach.length || 1)] : undefined;
+      const base = own ?? (pc.ring === 'c' ? cGlass : pc.ring === 'i' ? iGlass : pc.ring === 'o' ? oGlass : tier >= 1 ? '#ffd98a' : cGlass);
+      const tone = !own && pc.index % 2 === 1 && pc.ring !== 'c' ? mix(base, spec.deep, ghost ? 0.22 : 0.1) : base;
       const g = c.createRadialGradient(0, 0, Math.max(0, pc.r0 * 0.6), 0, 0, Math.max(1, pc.r1));
       if (ghost) {
         g.addColorStop(0, mix(tone, '#ffffff', 0.6));
@@ -537,7 +598,7 @@ export function bakeRose(place: PlaceId, R: number, dpr: number, tier = 0): Rose
       c.stroke();
     }
     if (!ghost) {
-      // the window's edge catches the light: a bright rim in the place's colour
+      // the window's edge catches the light: a bright rim in the station's colour
       c.lineWidth = Math.max(0.8, R * 0.035);
       c.strokeStyle = `${rgbaPrefix(mix(spec.hue, '#ffffff', 0.35))}.9)`;
       c.beginPath();
@@ -612,12 +673,17 @@ export function bakeRose(place: PlaceId, R: number, dpr: number, tier = 0): Rose
   return { R, half, glass: G.c, lead: Ld.c };
 }
 
-/** Bake every place's window at radius R (a size's set), each at its craft tier. */
-export function bakeRoses(R: number, dpr: number, tiers: Partial<Record<PlaceId, number>> = {}): Partial<Record<PlaceId, RoseLayers>> {
-  const out: Partial<Record<PlaceId, RoseLayers>> = {};
-  for (const p of PLACES) {
-    const r = bakeRose(p, R, dpr, tiers[p] ?? 0);
-    if (r) out[p] = r;
+/**
+ * Bake the stations' windows at radius R × each one's own zoom (a size's set), each at its craft tier — every
+ * station's, or only those `which` keeps (the view needs only the windows it draws: the points and the keystones).
+ */
+export function bakeRoses(R: number, dpr: number, tiers: Partial<Record<StationId, number>> = {}, zoom: (s: StationId) => number = () => 1,
+  which: (s: StationId) => boolean = () => true): Partial<Record<StationId, RoseLayers>> {
+  const out: Partial<Record<StationId, RoseLayers>> = {};
+  for (const s of STATIONS) {
+    if (!which(s)) continue;
+    const r = bakeRose(s, R * Math.max(1, zoom(s)), dpr, tiers[s] ?? 0);
+    if (r) out[s] = r;
   }
   return out;
 }
