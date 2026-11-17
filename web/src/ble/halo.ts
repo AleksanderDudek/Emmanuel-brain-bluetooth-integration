@@ -17,6 +17,7 @@
  */
 import { EEG_CHANNELS, EEG_SAMPLE_RATE, type EegChannel } from '../core/eeg/types';
 import { t } from '../i18n/signal';
+import { ATTEMPT_TIMEOUT_MS, RECONNECT_DELAYS_MS, withTimeout } from './retry';
 
 export const SVC_CONTROL = 'ace20bb6-5d39-45de-9f21-b101acf45b9b';
 export const HALO_CHR = {
@@ -57,6 +58,8 @@ export interface HaloOptions {
   /** per channel; 5 min at 250 Hz — a hidden tab drains on a throttled timer */
   bufferSamples?: number;
   reconnectDelaysMs?: number[];
+  /** one reconnect attempt gives up after this long (ms) */
+  attemptTimeoutMs?: number;
   bluetooth?: Bluetooth;
 }
 
@@ -115,12 +118,16 @@ export class HaloDevice extends EventTarget {
   private lastPacketAt: number | null = null;
   private readonly bufferSamples: number;
   private readonly reconnectDelays: number[];
+  private readonly attemptTimeout: number;
+  /** reconnect attempts made: a slower, abandoned attempt must not claim the link */
+  private attempts = 0;
   private readonly bt: Bluetooth | undefined;
 
   constructor(opts: HaloOptions = {}) {
     super();
     this.bufferSamples = opts.bufferSamples ?? EEG_SAMPLE_RATE * 300;
-    this.reconnectDelays = opts.reconnectDelaysMs ?? [1000, 2000, 4000, 8000, 15000];
+    this.reconnectDelays = opts.reconnectDelaysMs ?? [...RECONNECT_DELAYS_MS];
+    this.attemptTimeout = opts.attemptTimeoutMs ?? ATTEMPT_TIMEOUT_MS;
     this.bt = opts.bluetooth ?? (typeof navigator !== 'undefined' ? navigator.bluetooth : undefined);
   }
 
@@ -153,7 +160,8 @@ export class HaloDevice extends EventTarget {
     return run;
   }
 
-  private async setup(): Promise<void> {
+  /** Connect GATT and subscribe; `attempt` (a reconnect's number) stops an abandoned attempt from claiming the link. */
+  private async setup(attempt?: number): Promise<void> {
     const server = await this.device!.gatt!.connect();
     const svc = await server.getPrimaryService(SVC_CONTROL);
     this.chars.clear();
@@ -177,6 +185,7 @@ export class HaloDevice extends EventTarget {
     } catch {
       // no Battery Service
     }
+    if (attempt !== undefined && attempt !== this.attempts) throw new Error('an abandoned reconnect attempt');
     this.connected = true;
     this.emit();
   }
@@ -274,8 +283,9 @@ export class HaloDevice extends EventTarget {
       for (const delay of this.reconnectDelays) {
         await sleep(delay);
         if (myGen !== this.gen || this.userDisconnect || !this.device) return;
+        const attempt = ++this.attempts;
         try {
-          await this.setup();
+          await withTimeout(this.setup(attempt), this.attemptTimeout);
           if (this.userDisconnect) {
             this.device?.gatt?.disconnect();
             return;
@@ -285,7 +295,10 @@ export class HaloDevice extends EventTarget {
           this.resumeAfterReconnect = false;
           return;
         } catch {
-          // out of range: try again after the next delay
+          // out of range, or the attempt hung: abort it (a pending connect included) and try again after the next delay
+          if (attempt === this.attempts && !this.connected) {
+            try { this.device?.gatt?.disconnect(); } catch { /* already gone */ }
+          }
         }
       }
     } finally {

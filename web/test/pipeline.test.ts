@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { mean } from '../src/core/dsp';
 import {
-  DEFAULT_FNIRS_CONFIG, EXTINCTION, FNIRSPipeline, MENDI_SAMPLE_RATE, mbllMatrixInv, validateConfig,
+  DEFAULT_FNIRS_CONFIG, EXTINCTION, FNIRSPipeline, MENDI_SAMPLE_RATE, QUICK_BASELINE_SEC, mbllMatrixInv, validateConfig,
 } from '../src/core/pipeline';
 import { Frame, type FrameData } from '../src/core/proto';
 import { FNIRSSimulator } from '../src/core/simulator';
@@ -251,28 +251,82 @@ describe('FNIRSPipeline behaviour (ported from tests/test_mendi.py)', () => {
     expect(pipe.totalFrames).toBe(10);
   });
 
-  it('adapts to the measured rate', () => {
-    const pipe = new FNIRSPipeline({}, 25.0);
-    pipe.measuredRate = 26.0;
-    expect(pipe.adaptRate()).toBe(false); // within 10 %
-    pipe.measuredRate = 30.63;
-    expect(pipe.adaptRate()).toBe(true);
-    expect(pipe.fs).toBe(30.6);
+  /** Push `sec` seconds of frames at `hz` in ticks of 98 ms, the clock moving with them (adaptRate after each tick). */
+  const stream = (pipe: FNIRSPipeline, clock: { now: number }, sim: FNIRSSimulator, sec: number, hz: number): boolean => {
+    let changed = false;
+    for (let t = 0; t < sec; t += 0.098) {
+      pipe.push(sim.generate(Math.round(hz * 0.098)));
+      clock.now += 98;
+      changed = pipe.adaptRate() || changed;
+    }
+    return changed;
+  };
+
+  it('adapts to the measured rate when two unbroken windows in a row agree, and only then', () => {
+    const clock = { now: 1000 };
+    const pipe = new FNIRSPipeline({}, 25.0, () => clock.now);
+    const sim = new FNIRSSimulator({ fs: 30.6, seed: 9 });
+    expect(stream(pipe, clock, sim, 5.5, 30.6)).toBe(false);   // one window: not yet
+    expect(pipe.measuredRate).toBeCloseTo(30.6, 0);
+    expect(pipe.fs).toBe(25.0);
+    expect(stream(pipe, clock, sim, 5.2, 30.6)).toBe(true);    // the second agrees
+    expect(pipe.fs).toBeCloseTo(30.6, 0);
     expect(pipe.baselineReady).toBe(false);
     expect(pipe.measuredRate).toBeNull();
   });
 
-  it('measures the incoming frame rate with the injected clock', () => {
-    let now = 1000;
-    const pipe = new FNIRSPipeline({}, 25.0, () => now);
-    const sim = new FNIRSSimulator({ fs: 30.6, seed: 9 });
-    for (let i = 0; i < 70; i++) {
-      pipe.push(sim.generate(3));
-      now += 3000 / 30.6; // 3 frames per 98 ms
+  it('a stall and the burst after it never change the rate (a Bluetooth hiccup is no new band)', () => {
+    const clock = { now: 1000 };
+    const pipe = new FNIRSPipeline({}, 30.6, () => clock.now);
+    const sim = new FNIRSSimulator({ fs: 30.6, seed: 4 });
+    expect(stream(pipe, clock, sim, 12, 30.6)).toBe(false);
+    expect(pipe.baselineReady).toBe(true);
+    for (let k = 0; k < 4; k++) {
+      clock.now += 2500;                                      // 2.5 s without a frame
+      pipe.push(sim.generate(76));                            // then the buffered frames at once
+      expect(pipe.adaptRate()).toBe(false);
+      expect(stream(pipe, clock, sim, 3, 30.6)).toBe(false);
     }
-    expect(pipe.measuredRate).toBeCloseTo(30.6, 1);
-    expect(pipe.adaptRate()).toBe(true);
+    // frames lost in a stall: the windows around it are broken, never measured
+    clock.now += 1800;
+    expect(stream(pipe, clock, sim, 6, 30.6)).toBe(false);
     expect(pipe.fs).toBe(30.6);
+    expect(pipe.baselineReady).toBe(true);
+  });
+
+  it('a resume takes a quick baseline from still frames and keeps the measured rate', () => {
+    const clock = { now: 1000 };
+    const pipe = new FNIRSPipeline({}, 30.6, () => clock.now);
+    const sim = new FNIRSSimulator({ fs: 30.6, seed: 2 });
+    stream(pipe, clock, sim, 12, 30.6);
+    const rate = pipe.measuredRate, total = pipe.totalFrames;
+    expect(pipe.baselineReady).toBe(true);
+    pipe.resume();
+    expect(pipe.baselineReady).toBe(false);
+    expect(pipe.measuredRate).toBe(rate);
+    expect(pipe.totalFrames).toBe(total);
+    // the band being settled: moving frames do not count toward the quick baseline
+    const moving = sim.generate(40).map(f => new Frame({ ...f, acc_x: 16384, acc_y: 9000, acc_z: 16384 }));
+    pipe.push(moving);
+    expect(pipe.baselineProgress).toBe(0);
+    pipe.push(sim.generate(Math.trunc(QUICK_BASELINE_SEC * 30.6) - 1));
+    expect(pipe.baselineReady).toBe(false);
+    const out = pipe.push(sim.generate(4));
+    expect(pipe.baselineReady).toBe(true);
+    expect(Number.isFinite(out.hbo_left[3])).toBe(true);
+  });
+
+  it('flags a band that has just left the skin at once, but not a dim steady one', () => {
+    const pipe = new FNIRSPipeline({}, 30.6);
+    const frame = (ir: number) => new Frame({ ir_l: ir, red_l: ir * 0.6, ir_r: ir, red_r: ir * 0.6, ir_p: ir, red_p: ir * 0.6 });
+    for (let i = 0; i < 30 * 8; i++) pipe.push([frame(40000)]);
+    expect(pipe.contactLost()).toBe(false);
+    for (let i = 0; i < 31; i++) pipe.push([frame(20)]);     // lifted: one second of near darkness
+    expect(pipe.contactLost()).toBe(true);
+    expect(pipe.signalQuality().left.label).not.toBe('no_signal');   // the 10 s label has not noticed yet
+    const dim = new FNIRSPipeline({}, 30.6);
+    for (let i = 0; i < 30 * 10; i++) dim.push([frame(i % 31 < 15 ? 90 : 130)]);
+    expect(dim.contactLost()).toBe(false);                   // dim but steady: the 10 s label's business
   });
 
   it('an empty push returns empty arrays and changes nothing', () => {

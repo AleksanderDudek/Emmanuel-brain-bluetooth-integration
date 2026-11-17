@@ -263,7 +263,8 @@ export class Hub extends EventTarget {
     const fresh = this.fresh('fnirs', (f.frames_this_tick ?? 0) > 0);
     const q = f.quality;
     const labels = q ? HEMO_CHANNELS.map(ch => q[ch].label) : [];
-    const offSkin = labels.includes('no_signal');
+    // the band just left the skin (the last second's light dropped) or has been off it (the 10 s quality label)
+    const offSkin = labels.includes('no_signal') || !!f.contact_lost;
     const warning: SignalWarning | null = labels.includes('light_leak') ? 'light_leak' : labels.includes('poor') ? 'weak_contact' : null;
     const quality = !f.baseline_ready || !labels.length ? null
       : offSkin || warning ? 'poor' : labels.includes('fair') ? 'fair' : 'good';

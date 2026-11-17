@@ -102,7 +102,7 @@ export class BandTrack {
     }
     this.epoch = s.epoch;
     const was = this.meter.calibrated;
-    const r = this.meter.push(s.x, s.reliable, s.dt);
+    const r = this.meter.push(s.x, s.reliable, s.dt, s.reason !== 'no_data');
     if (this.recalibrating && r.phase === 'active') this.recalibrating = false;
     this.reliable = r.reliable;
     const usable = r.reliable && r.activity !== null && !this.recalibrating;

@@ -486,3 +486,34 @@ app, Teleo, does (owner request, 2026-11-08), in `src/ui/support.ts` with its te
 Checks: `test/support.test.ts` (texts in four languages, the jar per language, the windows'
 places in `index.html`, the rendered links), the app smoke (ribbon at the top, the window on
 Start) and `scripts/i18n-shot.mjs` (every coffee link points at the language's jar).
+
+## 13. When the signal breaks: back in seconds, not a new calibration (2026-11-17)
+
+The founder: *"I often get the message that the band lost contact. Why does recalibrating take so long? Can you
+improve it with a well-thought-out mechanism?"*
+
+**Why it took so long.** Every time the band came back by itself after a Bluetooth drop, the engine treated it as a
+new signal: a new epoch, a fresh 10 s optical baseline (I0) in the pipeline, then the trainings and the games threw
+their reference away and took **20 s of reliable signal** again — at least half a minute of sitting still, longer
+with any movement. Worse, the frame-rate check that corrects Mendi's sample rate measured 5 s windows by the wall
+clock: a stall split across two windows read as 24 and then 37 Hz, and each reading over 10 % off **reset the
+baseline again** (a single hiccup could cost two recalibrations). And the reconnect loop tried five times over 30 s,
+waiting on a GATT connect that could hang, then gave up.
+
+**The mechanism ("Szybki powrót").**
+
+| Layer | What changed |
+|---|---|
+| Bluetooth (`src/ble/retry.ts`, mendi.ts, halo.ts) | Reconnect attempts after 0.5, 1, 2, 3, 5, 8, 10, 15, 20, 30 s (~95 s in all, quick first); one attempt is abandoned after 12 s (a pending connect is aborted), so a hung connect never stalls the loop; an abandoned attempt can never claim the link later. |
+| Rate check (`FNIRSPipeline.trackRate/adaptRate`, the same in brainlink/fnirs.py) | The rate is measured only over **unbroken** 5 s windows (a pause over 1 s starts the window again), and the pipeline switches rate only when **two windows in a row agree** (within 5 %). A stall and the burst after it no longer reset anything. |
+| Engine (`Engine.onDeviceChange`, `EegEngine`) | A band that comes back by itself within 5 min of its last frame is a **warm resume**: the same epoch; Mendi's pipeline takes a **quick 2 s baseline from still frames only** (`FNIRSPipeline.resume`; motion while the band is being settled does not count) and fresh filters; HALO gets fresh buffers. After a longer break, or a band chosen anew, the signal starts afresh as before. |
+| Meter (`ActivityMeter`, src/training/meter.ts) | **A break is bridged, not recalibrated.** After ≥ 1.5 s without a usable signal that could have moved the baseline (motion, contact, a reconnect, a new optical baseline), the returned signal settles for 2.5 s (fNIRS; 1.5 s EEG) and the reference is re-anchored so the activity **continues where it was** — the median of the 4 s to 1 s before the break (the last second may already hold the artifact that caused it), fading toward the reference with the gap (τ 20 s; 12 s EEG). This is the baseline-shift correction of fNIRS motion-artifact methods (a shift between the segments is removed by matching their levels). A pause of the data alone (`no_data`: a Bluetooth stall, the band did not move) is no shift and is not re-anchored. |
+| Contact (`FNIRSPipeline.contactLost`, hub) | A band lifted off the forehead is caught **at once**: the last second's infrared light under 100 and under 30 % of its own 10 s mean. The 10 s quality label said it up to ten seconds later — seconds that used to count as brain activity. A dim but steady band is not flagged here. |
+| Words | While the meter re-anchors: "Sygnał wrócił — dopasowuję poziom, bez nowej kalibracji" (training and games). A real new calibration (a band chosen anew, the user's "new baseline", a changed setting, a rate change) still says "Nowa linia bazowa — kalibruję ponownie". |
+
+**In numbers** (the tests in test/pipeline, training, engine, ble): a Bluetooth reconnect costs the time the link is
+down + ~2 s of quick baseline + 2.5 s of settle, instead of + ~31 s; a motion or contact break costs its own length +
+2.5 s, and the activity no longer jumps by the baseline shift; a stall costs only its own length.
+
+What stays: the first calibration of a session (20 s), the carried calibration between sessions (§9), the adaptive
+threshold, and the rule that nothing is ever lost or punished while the signal is unreliable.

@@ -38,6 +38,87 @@ describe('ActivityMeter', () => {
     for (let i = 0; i < 60000; i++) r = m.push(0.8, true, 0.1);  // 100 min later the new level is the norm
     expect(Math.abs(r.activity!)).toBeLessThan(1);
   });
+
+  /** A calibrated meter (reference 0 µM, no drift) with `act` % activity held for 8 s. */
+  const holding = (act: number) => {
+    const m = new ActivityMeter({ ...FNIRS_METER, driftTau: 0 });
+    for (let i = 0; i < 200; i++) m.push(0, true, 0.1);
+    const x = (act / 100) * FNIRS_METER.scale;
+    for (let i = 0; i < 80; i++) m.push(x, true, 0.1);
+    return m;
+  };
+
+  it('bridges a break: the signal comes back shifted, the activity goes on where it was (no new calibration)', () => {
+    const m = holding(15);
+    for (let i = 0; i < 40; i++) expect(m.push(null, false, 0.1).reliable).toBe(false);   // 4 s without a signal
+    expect(m.anchoring).toBe(true);
+    // back 3 µM higher (the band moved: a baseline shift worth +75 %), settling for 2.5 s
+    let r = m.push(3 + 0.6, true, 0.1);
+    expect(r).toMatchObject({ reliable: false, activity: null, anchoring: true });
+    for (let i = 0; i < 24; i++) r = m.push(3 + 0.6, true, 0.1);
+    expect(m.anchoring).toBe(false);
+    expect(m.calibrated).toBe(true);
+    expect(m.anchors).toBe(1);
+    r = m.push(3 + 0.6, true, 0.1);
+    expect(r.reliable).toBe(true);
+    // 15 % faded over the 6.5 s since the break (τ 20 s): ≈ 10.8 %, nowhere near the +90 % a shifted reference would show
+    expect(r.activity!).toBeGreaterThan(9);
+    expect(r.activity!).toBeLessThan(13);
+    // and it follows the brain from there
+    for (let i = 0; i < 30; i++) r = m.push(3 + 0.6 + 0.4, true, 0.1);
+    expect(r.activity!).toBeGreaterThan(17);
+  });
+
+  it('lets a short dip pass without re-anchoring', () => {
+    const m = holding(10);
+    for (let i = 0; i < 10; i++) m.push(null, false, 0.1);    // 1 s
+    expect(m.anchoring).toBe(false);
+    const r = m.push(0.4, true, 0.1);
+    expect(r.reliable).toBe(true);
+    expect(r.activity!).toBeCloseTo(10, 0);
+    expect(m.anchors).toBe(0);
+  });
+
+  it('carries the seconds before a break, not the artifact that started it, and fades over a long one', () => {
+    const m = holding(12);
+    for (let i = 0; i < 6; i++) m.push(4, true, 0.1);         // the band slipping: +100 % for the last 0.6 s
+    for (let i = 0; i < 20; i++) m.push(null, false, 0.1);
+    for (let i = 0; i < 26; i++) m.push(1, true, 0.1);
+    const r = m.push(1, true, 0.1);
+    expect(r.activity!).toBeGreaterThan(8);                   // ≈ 12 % faded, not the spike
+    expect(r.activity!).toBeLessThan(14);
+    const long = holding(30);
+    for (let i = 0; i < 1200; i++) long.push(null, false, 0.1);   // two minutes away
+    for (let i = 0; i < 26; i++) long.push(-2, true, 0.1);
+    expect(Math.abs(long.push(-2, true, 0.1).activity!)).toBeLessThan(1);   // the reference is where the signal is now
+  });
+
+  it('does not re-anchor after a pause of the data alone (a Bluetooth stall: the band did not move)', () => {
+    const m = holding(14);
+    for (let i = 0; i < 40; i++) m.push(null, false, 0.1, false);   // 4 s of 'no_data'
+    expect(m.anchoring).toBe(false);
+    const r = m.push(0.56, true, 0.1);
+    expect(r.reliable).toBe(true);
+    expect(r.activity!).toBeCloseTo(14, 0);
+    // a stall that turns into a reconnect (a new optical baseline) is bridged
+    for (let i = 0; i < 10; i++) m.push(null, false, 0.1, false);
+    for (let i = 0; i < 10; i++) m.push(null, false, 0.1, true);
+    expect(m.anchoring).toBe(true);
+  });
+
+  it('settles again when the signal drops while it settles, and never bridges before the calibration', () => {
+    const m = holding(5);
+    for (let i = 0; i < 20; i++) m.push(null, false, 0.1);
+    for (let i = 0; i < 10; i++) m.push(1, true, 0.1);        // 1 s of the 2.5 s settle
+    for (let i = 0; i < 5; i++) m.push(null, false, 0.1);
+    expect(m.anchorProgress).toBe(0);
+    for (let i = 0; i < 24; i++) expect(m.push(1, true, 0.1).reliable).toBe(false);
+    expect(m.push(1, true, 0.1).reliable).toBe(true);
+    const fresh = new ActivityMeter(FNIRS_METER);
+    for (let i = 0; i < 50; i++) fresh.push(null, false, 0.1);
+    expect(fresh.anchoring).toBe(false);
+    expect(fresh.push(0, true, 0.1).phase).toBe('calibrating');
+  });
 });
 
 describe('SessionScorer', () => {

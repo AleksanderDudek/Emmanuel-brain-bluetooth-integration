@@ -43,6 +43,11 @@ from .mendi_proto import Frame
 # Measured 30.6 Hz on firmware 1.0.1 (upstream assumes 25 Hz, unmeasured).
 # FNIRSPipeline.adapt_rate() corrects this from the observed rate anyway.
 MENDI_SAMPLE_RATE = 30.6
+# The frame rate is measured over unbroken windows: a pause longer than RATE_GAP_SEC starts the window again, and the
+# rate changes only when two windows in a row agree (as web/src/core/pipeline.ts).
+RATE_WINDOW_SEC = 5.0
+RATE_GAP_SEC = 1.0
+RATE_AGREE = 0.05
 OPTICAL_CHANNELS = ("left", "right", "pulse")
 HEMO_CHANNELS = ("left", "right")        # channels used for HbO/HbR
 _CH_KEYS = {"left": "l", "right": "r", "pulse": "p"}
@@ -193,6 +198,9 @@ class FNIRSPipeline:
         self.total_frames = 0
         self._rate_t0: Optional[float] = None
         self._rate_n = 0
+        self._rate_last: Optional[float] = None
+        self._rate_windows: list[float] = []   # the last unbroken windows' rates (at most two)
+        self._rate_fresh = False
         self.measured_rate: Optional[float] = None
 
     def set_config(self, **overrides) -> FNIRSConfig:
@@ -214,11 +222,18 @@ class FNIRSPipeline:
         self.reset()
 
     def adapt_rate(self, tolerance: float = 0.1) -> bool:
-        """Switch to the measured rate when it is more than ``tolerance`` off. Returns True if changed."""
-        m = self.measured_rate
-        if not m or abs(m - self.fs) / self.fs <= tolerance:
+        """Switch to the measured rate when two unbroken windows in a row agree that it is more than ``tolerance``
+        off (a stall and the burst after it are never mistaken for the band's rate). Returns True if changed."""
+        if not self._rate_fresh:
             return False
-        self.set_rate(round(m, 1))
+        self._rate_fresh = False
+        w = self._rate_windows
+        if len(w) < 2:
+            return False
+        off = lambda m: abs(m - self.fs) / self.fs > tolerance   # noqa: E731
+        if not off(w[0]) or not off(w[1]) or abs(w[0] - w[1]) / w[1] > RATE_AGREE:
+            return False
+        self.set_rate(round((w[0] + w[1]) / 2, 1))
         return True
 
     @property
@@ -310,13 +325,21 @@ class FNIRSPipeline:
 
     def _track_rate(self, n: int):
         now = time.monotonic()
-        if self._rate_t0 is None:
-            self._rate_t0 = now
+        broken = self._rate_last is not None and now - self._rate_last > RATE_GAP_SEC
+        self._rate_last = now
+        if self._rate_t0 is None or broken:
+            # a fresh window (a pause in the stream is no measure of the band's rate)
+            self._rate_t0, self._rate_n = now, 0
+            if broken:
+                self._rate_windows = []
             return
         self._rate_n += n
         dt = now - self._rate_t0
-        if dt >= 5.0:
-            self.measured_rate = round(self._rate_n / dt, 2)
+        if dt >= RATE_WINDOW_SEC:
+            m = round(self._rate_n / dt, 2)
+            self.measured_rate = m
+            self._rate_windows = self._rate_windows[-1:] + [m]
+            self._rate_fresh = True
             self._rate_t0, self._rate_n = now, 0
 
     # ── Derived metrics ────────────────────────────────────────────

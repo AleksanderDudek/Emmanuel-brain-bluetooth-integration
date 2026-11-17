@@ -447,7 +447,7 @@ export class FocusRunner {
     g.ctrl.textContent = `${Math.round(ses.scorer.control)} s`;
     g.cardVal.textContent = signPct(ses.level);
     const reason = ses.recalibrating ? t('hud.recalibrating', { pct: Math.round(ses.meter.calProgressNow * 100) })
-      : ses.reliable ? '' : ses.reason ? REASON_TEXT[ses.reason] : t('ready.waiting');
+      : ses.reliable ? '' : ses.reason ? REASON_TEXT[ses.reason] : ses.resuming ? t('hud.resuming') : t('ready.waiting');
     // a weak signal is only mentioned, softly: the game goes on
     const note = reason || (ses.warning ? WARNING_TEXT[ses.warning].split(';')[0] : '');
     g.hold.hidden = !note;

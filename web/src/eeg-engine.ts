@@ -10,7 +10,7 @@ import { FeatureEngine, type ComboTimer } from './core/eeg/features';
 import { EEGSimulator, type EegAutoProgress } from './core/eeg/simulator';
 import { EEG_CHANNELS, EEG_SAMPLE_RATE, WINDOW_SAMPLES, type BandPowers, type EegChannel, type EegMetrics } from './core/eeg/types';
 import { std } from './core/dsp';
-import type { Source } from './engine';
+import { WARM_RESUME_SEC, type Source } from './engine';
 import { t } from './i18n/signal';
 
 export const EEG_STREAM_HZ = 10;
@@ -65,6 +65,10 @@ export class EegEngine extends EventTarget {
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastSamplesAt: number | null = null;
   private wasStreaming = false;
+  /** this epoch's stream has been ready once: a break in it can be bridged (as Engine) */
+  private warm = false;
+  /** warm resumes since the start */
+  resumes = 0;
   /** the last computed metrics, kept for ticks that bring no samples */
   private last: { bandPowers: BandPowers; blinks: number; metrics: EegMetrics; combos: string[]; timers: Record<string, ComboTimer> } | null = null;
 
@@ -109,6 +113,7 @@ export class EegEngine extends EventTarget {
     if (n) this.lastSamplesAt = now;
     const stale = this.lastSamplesAt === null || now - this.lastSamplesAt > STALE_SEC;
     const ready = this.dsp.hasEnough();
+    if (ready) this.warm = true;
     const contact = contactOf(this.dsp);
     let bandPowers: BandPowers | null = null, blinks: number | null = null, metrics: EegMetrics | null = null;
     let combos: string[] = [], timers: Record<string, ComboTimer> = {};
@@ -138,6 +143,7 @@ export class EegEngine extends EventTarget {
   /** Fresh buffers and smoothing: a new signal must not be judged on the old one. */
   private restart(): void {
     this.epoch++;
+    this.warm = false;
     this.dsp = new EegDsp();
     this.features.reset();
     this.last = null;
@@ -182,7 +188,18 @@ export class EegEngine extends EventTarget {
 
   private onDeviceChange(): void {
     const streaming = this.device.isStreaming;
-    if (streaming && !this.wasStreaming && this.source === 'device') this.setSource('device', true);
+    if (streaming && !this.wasStreaming && this.source === 'device') {
+      // the band came back by itself: after a short break fresh buffers (the filters must not straddle the gap)
+      // but the same epoch, so the trainings bridge the gap instead of calibrating again (as Engine)
+      const since = this.lastSamplesAt === null ? Infinity : performance.now() / 1000 - this.lastSamplesAt;
+      if (since <= WARM_RESUME_SEC && this.warm) {
+        this.dsp = new EegDsp();
+        this.features.reset();
+        this.last = null;
+        this.device.drain();
+        this.resumes++;
+      } else this.setSource('device', true);
+    }
     this.wasStreaming = streaming;
     this.dispatchEvent(new Event('device'));
   }

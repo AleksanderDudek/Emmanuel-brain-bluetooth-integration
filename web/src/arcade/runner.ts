@@ -722,7 +722,7 @@ export class ArcadeRunner {
     if (!ui) return;
     const c = ses.core;
     const reason = c.recalibrating ? t('note.recalibrating', { pct: Math.round(c.meter.calProgressNow * 100) })
-      : c.reliable ? '' : c.reason ? REASON_TEXT[c.reason] : t('note.waiting');
+      : c.reliable ? '' : c.reason ? REASON_TEXT[c.reason] : c.resuming ? t('note.resuming') : t('note.waiting');
     const note = reason || (c.warning ? WARNING_TEXT[c.warning].split(';')[0] : '');
     ui.hold.hidden = !note;
     ui.hold.classList.toggle('soft', !reason && !!note);

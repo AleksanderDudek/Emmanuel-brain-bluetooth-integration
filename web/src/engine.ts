@@ -19,6 +19,12 @@ import type { AppSettings } from './settings';
 export type Source = 'simulator' | 'device' | 'off';
 export const STREAM_HZ = 10;
 export const STALE_SEC = 1.5;   // no frames for this long → balance feedback is held
+/**
+ * The band came back by itself within this long of its last frame (s): the same band, most likely on the same
+ * head — a warm resume (a quick baseline, no new epoch), so the trainings bridge the gap instead of calibrating
+ * again.  After a longer break the stream starts afresh.
+ */
+export const WARM_RESUME_SEC = 300;
 
 export interface SimulatorInfo {
   state: string;
@@ -27,6 +33,8 @@ export interface SimulatorInfo {
 
 export interface EngineFrame extends Partial<Snapshot> {
   ts: number;
+  /** the band has just left the skin (the last second's light dropped): FNIRSPipeline.contactLost */
+  contact_lost?: boolean;
   source: Source;
   device: MendiInfo;
   simulator: SimulatorInfo | null;
@@ -44,9 +52,9 @@ export interface TickFrames { frames: Frame[]; derived: Derived }
  * (little heartbeat in the forehead channels) or room light makes the signal noisier but still usable —
  * a real Mendi often reads "poor" there with a good fit, and pausing on it stalled the trainers for good.
  */
-function holdFor(snap: Snapshot): string | null {
+function holdFor(snap: Snapshot, contactLost: boolean): string | null {
   if (snap.motion) return 'motion';
-  if (HEMO_CHANNELS.some(ch => snap.quality[ch].label === 'no_signal')) return 'poor_signal';
+  if (contactLost || HEMO_CHANNELS.some(ch => snap.quality[ch].label === 'no_signal')) return 'poor_signal';
   return null;
 }
 
@@ -67,6 +75,10 @@ export class Engine extends EventTarget {
   private timer: ReturnType<typeof setInterval> | null = null;
   private wasStreaming = false;
   private reportedError: string | null = null;
+  /** warm resumes since the start (the band reconnected by itself and the stream went on without a new epoch) */
+  resumes = 0;
+  /** this epoch's stream has had a baseline: a break in it can be bridged */
+  private warm = false;
 
   constructor(readonly recorder: Recorder, readonly library: SessionLibrary, readonly settings: AppSettings,
               device: MendiDevice = new MendiDevice()) {
@@ -111,6 +123,7 @@ export class Engine extends EventTarget {
     const derived = this.pipeline.push(frames);
     if (this.source === 'device' && this.pipeline.adaptRate()) {
       this.epoch++;
+      this.warm = false;
       console.info(`fNIRS sample rate set to measured ${this.pipeline.fs} Hz (baseline restarted)`);
     }
     if (frames.length && this.recorder.recording) this.recorder.add(frames, derived);
@@ -118,12 +131,14 @@ export class Engine extends EventTarget {
 
     const now = performance.now() / 1000;
     if (frames.length) this.lastFramesAt = now;
+    if (this.pipeline.baselineReady) this.warm = true;
     const stale = this.lastFramesAt === null || now - this.lastFramesAt > STALE_SEC;
     const snap = this.pipeline.snapshot();
+    const contactLost = this.source === 'device' && this.pipeline.contactLost();
     // a stalled stream leaves the last values in place; never give feedback on them
-    const balance = this.balance.update(snap.metrics.asymmetry, now, stale ? 'no_data' : holdFor(snap));
+    const balance = this.balance.update(snap.metrics.asymmetry, now, stale ? 'no_data' : holdFor(snap, contactLost));
     return {
-      ...snap, balance, source: this.source, device: this.device.info,
+      ...snap, contact_lost: contactLost, balance, source: this.source, device: this.device.info,
       simulator: this.source === 'simulator' ? { state: this.simulator.state, auto: this.simulator.autoProgress } : null,
       recording: this.recorder.info(), frames_this_tick: frames.length,
     };
@@ -133,6 +148,7 @@ export class Engine extends EventTarget {
   setSource(name: Source, force = false): void {
     if (force || name !== this.source) {
       this.epoch++;
+      this.warm = false;
       if (name === 'simulator' && this.pipeline.fs !== this.simulator.fs) this.pipeline.setRate(this.simulator.fs);
       else this.pipeline.reset();
       this.simulator.resync();
@@ -166,8 +182,16 @@ export class Engine extends EventTarget {
 
   private onDeviceChange(): void {
     const streaming = this.device.isStreaming;
-    // the adapter reconnected and resumed by itself: same source, but a new baseline
-    if (streaming && !this.wasStreaming && this.source === 'device') this.setSource('device', true);
+    if (streaming && !this.wasStreaming && this.source === 'device') {
+      // the adapter reconnected and resumed by itself: a short break is bridged (a quick baseline, the same
+      // epoch: the trainings keep their calibration); after a long one the signal starts afresh
+      const since = this.lastFramesAt === null ? Infinity : performance.now() / 1000 - this.lastFramesAt;
+      if (since <= WARM_RESUME_SEC && this.warm) {
+        this.pipeline.resume();
+        this.device.drain();
+        this.resumes++;
+      } else this.setSource('device', true);
+    }
     this.wasStreaming = streaming;
     this.dispatchEvent(new Event('device'));
   }
@@ -177,6 +201,7 @@ export class Engine extends EventTarget {
   baselineReset(): void {
     this.pipeline.reset();
     this.epoch++;
+    this.warm = false;
   }
 
   setFnirsConfig(overrides: Partial<FNIRSConfig>): FNIRSConfig {

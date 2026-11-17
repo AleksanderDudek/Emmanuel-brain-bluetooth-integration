@@ -39,6 +39,7 @@ const pl = {
   'cal.back': 'Wróć',
   // the signal note during play
   'note.recalibrating': 'Nowa linia bazowa — kalibruję ponownie ({pct}%)',
+  'note.resuming': 'Sygnał wrócił — dopasowuję poziom, bez nowej kalibracji',
   'note.waiting': 'Czekam na sygnał',
   // pause
   'pause.eyebrow': 'Pauza',
@@ -680,6 +681,7 @@ const en: Catalog<Key> = {
   'cal.still': 'Sit still with soft attention: this sets the reference for the whole session.',
   'cal.back': 'Back',
   'note.recalibrating': 'New baseline: calibrating again ({pct}%)',
+  'note.resuming': 'Signal back: matching the level, no new calibration',
   'note.waiting': 'Waiting for the signal',
   'pause.eyebrow': 'Paused',
   'pause.played': 'Played {played} of {planned}.',
@@ -1311,6 +1313,7 @@ const de: Catalog<Key> = {
   'cal.still': 'Sitz ruhig, mit weicher Aufmerksamkeit – das wird die Referenz für die ganze Sitzung.',
   'cal.back': 'Zurück',
   'note.recalibrating': `Neue Basislinie – kalibriere neu ({pct}${NB}%)`,
+  'note.resuming': 'Signal zurück – gleiche den Pegel an, ohne neue Kalibrierung',
   'note.waiting': 'Warte auf das Signal',
   'pause.eyebrow': 'Pause',
   'pause.played': '{played} von {planned} gespielt.',
@@ -1942,6 +1945,7 @@ const sv: Catalog<Key> = {
   'cal.still': 'Sitt stilla med mjuk uppmärksamhet – det blir referensen för hela sessionen.',
   'cal.back': 'Tillbaka',
   'note.recalibrating': `Ny baslinje – kalibrerar om ({pct}${NB}%)`,
+  'note.resuming': 'Signalen är tillbaka – stämmer av nivån, ingen ny kalibrering',
   'note.waiting': 'Väntar på signalen',
   'pause.eyebrow': 'Paus',
   'pause.played': 'Spelat {played} av {planned}.',

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AFE_CONTROL1, AFE_TIMEREN, CHR, MendiDevice, type AfeMemory } from '../src/ble/mendi';
 import { detectBrowser, detectPlatform, explainBleError, guidance } from '../src/ble/platform';
 import { decodeSensor } from '../src/core/proto';
@@ -63,6 +63,27 @@ describe('MendiDevice', () => {
     fake.drop();
     await sleep(60);
     expect(m.isConnected).toBe(false);
+  });
+
+  it('abandons a reconnect attempt that hangs and gets the band back with the next one', async () => {
+    const fake = fakeMendi();
+    cleanup.push(fake.stopFrames);
+    const m = new MendiDevice({ graceMs: 20, reconnectDelaysMs: [10, 10, 10], attemptTimeoutMs: 60 });
+    await m.connect(fake.device);
+    await m.startStream();
+    // the first reconnect's GATT connect never answers (the band out of range, the radio busy)
+    const gatt = (fake.device as unknown as { gatt: { connect: () => Promise<unknown>; disconnect: () => void } }).gatt;
+    const real = gatt.connect, aborted: number[] = [];
+    let calls = 0;
+    gatt.connect = () => (++calls === 1 ? new Promise(() => undefined) : real());
+    const realDisconnect = gatt.disconnect;
+    gatt.disconnect = () => { aborted.push(calls); realDisconnect(); };
+    fake.drop();
+    await vi.waitFor(() => expect(m.isStreaming).toBe(true), { timeout: 3000, interval: 10 });
+    expect(calls).toBe(2);
+    expect(aborted).toContain(1);                            // the hung attempt was aborted, not waited for
+    expect(m.info.reconnecting).toBe(false);
+    await m.disconnect();
   });
 
   it('counts undecodable frames as invalid', async () => {

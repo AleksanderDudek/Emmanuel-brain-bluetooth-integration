@@ -62,7 +62,8 @@ export class FocusSession {
       if (this.phase === 'game') this.recalibrating = true;
     }
     this.epoch = s.epoch;
-    const r = this.meter.push(s.x, s.reliable, s.dt);
+    // a pause of the data alone (a Bluetooth stall) cannot move the baseline: no re-anchoring for it
+    const r = this.meter.push(s.x, s.reliable, s.dt, s.reason !== 'no_data');
     if (this.recalibrating && r.phase === 'active') this.recalibrating = false;
     this.reliable = r.reliable;
     if (this.phase === 'calibration') {
@@ -94,6 +95,9 @@ export class FocusSession {
 
   /** Progress of the game, 0..1. */
   get progress(): number { return Math.min(1, this.gameT / this.plannedSec); }
+
+  /** The signal came back after a break and is being re-anchored (seconds, not a new calibration). */
+  get resuming(): boolean { return this.phase === 'game' && !this.recalibrating && this.meter.anchoring; }
 
   /** Worth keeping: at least 30 s of play. */
   get worthSaving(): boolean { return this.gameT >= 30; }

@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MendiDevice } from '../src/ble/mendi';
-import { Engine, type EngineFrame, type SavedEvent } from '../src/engine';
+import { Engine, WARM_RESUME_SEC, type EngineFrame, type SavedEvent } from '../src/engine';
 import { DEFAULT_SETTINGS } from '../src/settings';
 import { SessionDB } from '../src/storage/db';
 import { FolderStore } from '../src/storage/folder';
@@ -88,7 +88,7 @@ describe('Engine', () => {
     expect(res.meta.notes).toContain('niekompletne');
   });
 
-  it('streams from the band, re-baselines after a reconnect and holds feedback on stale data', async () => {
+  it('streams from the band, bridges a reconnect without a new epoch and holds feedback on stale data', async () => {
     const fake = fakeMendi();
     cleanups.push(fake.stopFrames);
     const device = new MendiDevice({ graceMs: 20, reconnectDelaysMs: [10], bluetooth: fake.bluetooth });
@@ -106,13 +106,26 @@ describe('Engine', () => {
     for (let i = 0; i < 20; i++) f = tick(engine);       // 2 s without frames
     expect(f.balance?.paused).toBe('no_data');
 
+    const epoch = engine.epoch;
     fake.drop();
     // the adapter reconnects and resumes by itself (polled: a busy test run can take longer than the 10 ms delay)
     await vi.waitFor(() => expect(device.isStreaming).toBe(true), { timeout: 2000, interval: 10 });
     fake.stopFrames();
     fake.pushFrames(3);
     f = tick(engine);
-    expect(f.baseline_ready).toBe(false);                // new stream → new baseline
+    expect(f.baseline_ready).toBe(false);                // a quick baseline after the break…
+    expect(engine.epoch).toBe(epoch);                    // …but the same epoch: the trainings keep their calibration
+    expect(engine.resumes).toBe(1);
+    for (let i = 0; i < 22; i++) { fake.pushFrames(3); f = tick(engine); }
+    expect(f.baseline_ready).toBe(true);                 // ~2 s, not 10
+
+    // a break longer than WARM_RESUME_SEC starts afresh
+    (engine as unknown as { lastFramesAt: number }).lastFramesAt = performance.now() / 1000 - WARM_RESUME_SEC - 5;
+    fake.drop();
+    await vi.waitFor(() => expect(device.isStreaming).toBe(true), { timeout: 2000, interval: 10 });
+    fake.stopFrames();
+    expect(engine.epoch).toBe(epoch + 1);
+    expect(engine.resumes).toBe(1);
     await engine.disconnectDevice();
     expect(engine.source).toBe('off');
     expect(tick(engine).source).toBe('off');

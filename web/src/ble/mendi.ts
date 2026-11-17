@@ -22,6 +22,7 @@ import {
   decodeSensor, encodeCalibration, encodeSensor, type Adc, type Calibration, type Diagnostics, type Frame, type Sensor,
 } from '../core/proto';
 import { t } from '../i18n/signal';
+import { ATTEMPT_TIMEOUT_MS, RECONNECT_DELAYS_MS, withTimeout } from './retry';
 
 export const mendiUuid = (short: number): string => `fc3e${short.toString(16).padStart(4, '0')}-c6c4-49e6-922a-6e551c455af5`;
 export const SVC_MENDI = mendiUuid(0xabb0);
@@ -83,6 +84,8 @@ export interface MendiOptions {
   bufferFrames?: number;
   graceMs?: number;
   reconnectDelaysMs?: number[];
+  /** one reconnect attempt gives up after this long (ms) */
+  attemptTimeoutMs?: number;
   bluetooth?: Bluetooth;
   afeMemory?: AfeMemory;
 }
@@ -118,6 +121,9 @@ export class MendiDevice extends EventTarget {
   private readonly bufferFrames: number;
   private readonly graceMs: number;
   private readonly reconnectDelays: number[];
+  private readonly attemptTimeout: number;
+  /** reconnect attempts made: a slower, abandoned attempt must not claim the link */
+  private attempts = 0;
   private readonly bt: Bluetooth | undefined;
   private readonly afeMemory: AfeMemory;
 
@@ -126,7 +132,8 @@ export class MendiDevice extends EventTarget {
     // 5 min at ~31 Hz: hidden tabs get their timers throttled hard, and the engine drains on a timer
     this.bufferFrames = opts.bufferFrames ?? 31 * 300;
     this.graceMs = opts.graceMs ?? 1000;
-    this.reconnectDelays = opts.reconnectDelaysMs ?? [1000, 2000, 4000, 8000, 15000];
+    this.reconnectDelays = opts.reconnectDelaysMs ?? [...RECONNECT_DELAYS_MS];
+    this.attemptTimeout = opts.attemptTimeoutMs ?? ATTEMPT_TIMEOUT_MS;
     this.bt = opts.bluetooth ?? (typeof navigator !== 'undefined' ? navigator.bluetooth : undefined);
     this.afeMemory = opts.afeMemory ?? localAfeMemory;
   }
@@ -161,7 +168,8 @@ export class MendiDevice extends EventTarget {
     return run;
   }
 
-  private async setup(): Promise<void> {
+  /** Connect GATT and subscribe; `attempt` (a reconnect's number) stops an abandoned attempt from claiming the link. */
+  private async setup(attempt?: number): Promise<void> {
     const server = await this.device!.gatt!.connect();
     const svc = await server.getPrimaryService(SVC_MENDI);
     this.chars.clear();
@@ -203,6 +211,7 @@ export class MendiDevice extends EventTarget {
     }
     const diag = this.chars.get(CHR.diagnostics);
     if (diag) await this.op(() => diag.readValue()).then(v => this.onDiagnostics(bytesOf(v))).catch(() => undefined);  // fw 1.0.1: notify-only
+    if (attempt !== undefined && attempt !== this.attempts) throw new Error('an abandoned reconnect attempt');
     this.connected = true;
     await this.restoreLeftoverWake();
     this.emit();
@@ -376,8 +385,9 @@ export class MendiDevice extends EventTarget {
       for (const delay of this.reconnectDelays) {
         await sleep(delay);
         if (myGen !== this.gen || this.userDisconnect || !this.device) return;
+        const attempt = ++this.attempts;
         try {
-          await this.setup();
+          await withTimeout(this.setup(attempt), this.attemptTimeout);
           if (this.userDisconnect) {
             this.device?.gatt?.disconnect();
             return;
@@ -389,7 +399,10 @@ export class MendiDevice extends EventTarget {
           this.resumeAfterReconnect = false;
           return;
         } catch {
-          // out of range: try again after the next delay
+          // out of range, or the attempt hung: abort it (a pending connect included) and try again after the next delay
+          if (attempt === this.attempts && !this.connected) {
+            try { this.device?.gatt?.disconnect(); } catch { /* already gone */ }
+          }
         }
       }
     } finally {

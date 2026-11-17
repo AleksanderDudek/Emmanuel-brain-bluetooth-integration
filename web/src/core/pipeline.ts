@@ -33,6 +33,27 @@ import { CausalFilter, butter, findPeaks, mean, pyRound, sosfiltfilt, std, type 
 export const MENDI_SAMPLE_RATE = 30.6;
 
 /**
+ * The frame rate is measured over windows of RATE_WINDOW_SEC of unbroken streaming: a pause longer than RATE_GAP_SEC
+ * (a Bluetooth hiccup, a reconnect, a throttled tab) starts the window again, so a stall and the burst after it are
+ * never mistaken for the band's rate.  The pipeline switches rate only when two windows in a row agree (within
+ * RATE_AGREE) that it is off — before this, one stall could reset the baseline twice.
+ */
+export const RATE_WINDOW_SEC = 5;
+export const RATE_GAP_SEC = 1;
+export const RATE_AGREE = 0.05;
+
+/**
+ * After a short break in the stream (the band reconnected by itself), a quick baseline: I0 from this many seconds of
+ * still frames instead of `baseline_sec`.  Its small error is a constant offset, which the training's meter takes out
+ * when it re-anchors after the gap (src/training/meter.ts).
+ */
+export const QUICK_BASELINE_SEC = 2;
+
+/** The optical contact counts as lost at once when the last second's light falls under this and under a share of the usual. */
+export const CONTACT_DC = 100;
+export const CONTACT_DROP = 0.3;
+
+/**
  * Molar extinction coefficients [HbO₂, Hb] in cm⁻¹·M⁻¹ (base 10), from
  * S. Prahl's compilation (omlc.org/spectra/hemoglobin).
  */
@@ -198,6 +219,11 @@ class Ring {
     return this.buf[(this.head + this.size - 1) % this.buf.length];
   }
 
+  clear(): void {
+    this.head = 0;
+    this.size = 0;
+  }
+
   /** Oldest-first copy of the values from logical index `start` on. */
   slice(start = 0): Float64Array {
     const out = new Float64Array(Math.max(0, this.size - start));
@@ -237,6 +263,10 @@ interface StreamState {
   sciSos: Sos;
   rateT0: number | null;
   rateN: number;
+  /** when frames last came (s, the injected clock): a longer pause restarts the rate window */
+  rateLast: number | null;
+  /** a quick baseline after a resume: only still frames count, QUICK_BASELINE_SEC of them */
+  quick: boolean;
 }
 
 const perChannel = <C extends string, T>(channels: readonly C[], make: (ch: C) => T): Record<C, T> =>
@@ -252,6 +282,9 @@ export class FNIRSPipeline {
   measuredRate: number | null = null;
   totalFrames = 0;
   lastFrame: Frame | null = null;
+  /** the last unbroken windows' rates, oldest first (at most two), and whether a new one came since adaptRate looked */
+  private rateWindows: number[] = [];
+  private rateFresh = false;
   readonly historySec = 30.0;
 
   private readonly clock: () => number;
@@ -274,13 +307,31 @@ export class FNIRSPipeline {
     this.lastFrame = null;
     this.totalFrames = 0;
     this.measuredRate = null;
+    this.rateWindows = [];
+    this.rateFresh = false;
   }
 
-  private buildState(): StreamState {
+  /**
+   * The stream comes back after a short break (the band reconnected by itself, the same band on the same head): a
+   * quick baseline (QUICK_BASELINE_SEC of still frames) and fresh filters and windows, keeping the measured rate and
+   * the frame count.  The consumers keep their calibration: the gap is a baseline shift their meter takes out.
+   */
+  resume(): void {
+    const total = this.totalFrames, rate = this.measuredRate, last = this.lastFrame;
+    this.st = this.buildState(QUICK_BASELINE_SEC);
+    this.st.quick = true;
+    this.totalFrames = total;
+    this.measuredRate = rate;
+    this.lastFrame = last;
+    this.rateWindows = [];
+    this.rateFresh = false;
+  }
+
+  private buildState(baselineSec = this.config.baseline_sec): StreamState {
     const { config: cfg, fs } = this;
     const cap = Math.trunc(this.historySec * fs);
     const icap = Math.trunc(10 * fs);
-    const baselineTarget = Math.max(1, Math.trunc(cfg.baseline_sec * fs));
+    const baselineTarget = Math.max(1, Math.trunc(baselineSec * fs));
     const hemo = hemoSos(cfg, fs);
     return {
       minv: mbllMatrixInv(cfg),
@@ -300,6 +351,8 @@ export class FNIRSPipeline {
       sciSos: bandpassSos(0.5, 2.5, fs, 3),
       rateT0: null,
       rateN: 0,
+      rateLast: null,
+      quick: false,
     };
   }
 
@@ -326,11 +379,18 @@ export class FNIRSPipeline {
     this.reset();
   }
 
-  /** Switch to the measured rate when it is more than `tolerance` off. Returns true if changed. */
+  /**
+   * Switch to the measured rate when two unbroken windows in a row agree that it is more than `tolerance` off.
+   * Returns true if changed (the baseline starts again).  Cheap to call every tick: it looks at each window once.
+   */
   adaptRate(tolerance = 0.1): boolean {
-    const m = this.measuredRate;
-    if (!m || Math.abs(m - this.fs) / this.fs <= tolerance) return false;
-    this.setRate(pyRound(m, 1));
+    if (!this.rateFresh) return false;
+    this.rateFresh = false;
+    const w = this.rateWindows;
+    if (w.length < 2) return false;
+    const off = (m: number) => Math.abs(m - this.fs) / this.fs > tolerance;
+    if (!off(w[0]) || !off(w[1]) || Math.abs(w[0] - w[1]) / w[1] > RATE_AGREE) return false;
+    this.setRate(pyRound((w[0] + w[1]) / 2, 1));
     return true;
   }
 
@@ -374,7 +434,9 @@ export class FNIRSPipeline {
     }
 
     const { motion_accel_g: accelLimit, motion_gyro_dps: gyroLimit } = this.config;
-    for (const f of frames) {
+    const moving = new Uint8Array(n);
+    for (let k = 0; k < n; k++) {
+      const f = frames[k];
       const ax = f.acc_x * ACCEL_SCALE_G;
       const ay = f.acc_y * ACCEL_SCALE_G;
       const az = f.acc_z * ACCEL_SCALE_G;
@@ -385,14 +447,30 @@ export class FNIRSPipeline {
       const gMag = Math.sqrt(gx * gx + gy * gy + gz * gz);
       // An all-zero accelerometer means "no IMU data", not free fall
       const hasAccel = ax !== 0 || ay !== 0 || az !== 0;
-      st.motion.push((aDev > accelLimit && hasAccel) || gMag > gyroLimit ? 1 : 0);
+      moving[k] = (aDev > accelLimit && hasAccel) || gMag > gyroLimit ? 1 : 0;
+      st.motion.push(moving[k]);
     }
 
     const [[m00, m01], [m10, m11]] = st.minv;
     for (const ch of HEMO_CHANNELS) {
       const { red, ir } = corrected[ch];
       let start = 0;
-      if (st.baseline[ch] === null) {
+      if (st.baseline[ch] === null && st.quick) {
+        // a quick baseline after a resume: still frames only (the band is often being settled on the head)
+        const acc = st.baselineAcc[ch];
+        start = n;
+        for (let i = 0; i < n; i++) {
+          if (moving[i]) continue;
+          acc.red[acc.n] = red[i];
+          acc.ir[acc.n] = ir[i];
+          acc.n++;
+          if (acc.n >= st.baselineTarget) {
+            st.baseline[ch] = [mean(acc.red), mean(acc.ir)];
+            start = i + 1;
+            break;
+          }
+        }
+      } else if (st.baseline[ch] === null) {
         const acc = st.baselineAcc[ch];
         const take = Math.min(st.baselineTarget - acc.n, n);
         acc.red.set(red.subarray(0, take), acc.n);
@@ -434,20 +512,44 @@ export class FNIRSPipeline {
   private trackRate(n: number): void {
     const now = this.clock() / 1000;
     const st = this.st;
-    if (st.rateT0 === null) {
+    const broken = st.rateLast !== null && now - st.rateLast > RATE_GAP_SEC;
+    st.rateLast = now;
+    if (st.rateT0 === null || broken) {
+      // a fresh window: these frames arrived before it started; a pause also breaks the "two in a row"
       st.rateT0 = now;
+      st.rateN = 0;
+      if (broken) this.rateWindows = [];
       return;
     }
     st.rateN += n;
     const dt = now - st.rateT0;
-    if (dt >= 5.0) {
-      this.measuredRate = pyRound(st.rateN / dt, 2);
+    if (dt >= RATE_WINDOW_SEC) {
+      const m = pyRound(st.rateN / dt, 2);
+      this.measuredRate = m;
+      this.rateWindows = [...this.rateWindows.slice(-1), m];
+      this.rateFresh = true;
       st.rateT0 = now;
       st.rateN = 0;
     }
   }
 
   // ── Derived metrics ────────────────────────────────────────────
+
+  /**
+   * The band has just left the skin: in the last second the infrared light of a forehead channel fell under
+   * CONTACT_DC and under CONTACT_DROP of its own 10 s mean.  The quality label ('no_signal', a 10 s mean) says it
+   * too, but up to ten seconds later — seconds the training would otherwise read as brain activity.  A band that
+   * is dim but steady is not flagged here.
+   */
+  contactLost(): boolean {
+    const n = Math.max(1, Math.round(this.fs));
+    return HEMO_CHANNELS.some(ch => {
+      const ring = this.st.intensity[ch].ir;
+      if (ring.length < n * 2) return false;
+      const recent = mean(ring.tail(n));
+      return recent < CONTACT_DC && recent < CONTACT_DROP * (ring.sum() / ring.length);
+    });
+  }
 
   /** Beats per minute from the pulse channel's IR intensity (last ~10 s). */
   heartRate(): number | null {

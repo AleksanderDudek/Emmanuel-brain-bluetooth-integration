@@ -355,12 +355,31 @@ def test_decodes_real_device_payloads():
     assert s.read and s.address == 0 and s.data == 0xFFFFFF
 
 
-def test_pipeline_adapts_to_measured_rate():
+def test_pipeline_adapts_to_measured_rate(monkeypatch):
+    clock = {"now": 1000.0}
+    monkeypatch.setattr("brainlink.fnirs.time.monotonic", lambda: clock["now"])
     pipe = FNIRSPipeline(fs=25.0)
-    pipe.measured_rate = 26.0
-    assert not pipe.adapt_rate()                  # within 10 %
-    pipe.measured_rate = 30.63
-    assert pipe.adapt_rate() and pipe.fs == 30.6 and not pipe.baseline_ready
+    sim = FNIRSSimulator(fs=30.6, seed=9)
+
+    def stream(sec):
+        changed = False
+        for _ in range(int(sec / 0.098)):
+            pipe.push(sim.generate(3))
+            clock["now"] += 0.098
+            changed = pipe.adapt_rate() or changed
+        return changed
+
+    assert not stream(5.5)                        # one window: not yet
+    assert stream(5.2)                            # two in a row agree
+    assert pipe.fs == 30.6 and not pipe.baseline_ready
+    # a stall and the burst after it never change the rate
+    stream(12)
+    for _ in range(3):
+        clock["now"] += 2.5
+        pipe.push(sim.generate(76))
+        assert not pipe.adapt_rate()
+        assert not stream(3)
+    assert pipe.fs == 30.6 and pipe.baseline_ready
 
 
 class _FakeMendi:
