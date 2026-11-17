@@ -202,8 +202,14 @@ export class MendiPanel {
       this.hint.style.top = `${ch * 0.42}px`;
     }
     this.hint.classList.remove('show');
-    // measured as laid out (the translate included, no pop-in scale yet): slide it back inside the play area
-    const box = this.hint.parentElement?.getBoundingClientRect();
+    // measured as laid out (the translate included, no pop-in scale yet): slide it back inside the play area —
+    // the canvas's own box within the parent's, so a dock column beside the canvas (a phone on its side) never
+    // covers the bubble's end
+    const pb = this.hint.parentElement?.getBoundingClientRect();
+    const cb = canvas.getBoundingClientRect();
+    const box = pb && cb.width > 0
+      ? { left: Math.max(pb.left, cb.left), right: Math.min(pb.right, cb.right), top: Math.max(pb.top, cb.top) }
+      : pb;
     const r = this.hint.getBoundingClientRect();
     if (box && r.width > 0) {
       const dx = r.left < box.left + 8 ? box.left + 8 - r.left : r.right > box.right - 8 ? box.right - 8 - r.right : 0;
