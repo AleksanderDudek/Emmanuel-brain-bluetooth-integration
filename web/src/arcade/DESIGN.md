@@ -6127,3 +6127,37 @@ only the kit's verse references at 11 px under 13, 18 targets (the four controls
 card) all valid, 60 fps with the CPU slowed 2–4×, game 0.79–2.03 ms (the latter at 4×); desktop, laptop, Full HD, QHD
 ✓ — 0 under 11 px, game 1.01–1.11 ms (QHD 1.1 ms), the picture 90 % of the screen's height on Full HD and QHD.
 Tests: test/arcade-wlosy.test.ts (55); the whole suite green.
+
+## 16. Round 11: the founder plays the games (2026-11-17)
+
+The founder played the visualisation games and wrote back the same day, in Polish, game by game. Most of it is
+**clarity** — three games (Odporność, Odnowa, Wzlot) left them unsure what was happening, what to do or when — and a
+few concrete asks: a configurable breath, rests that follow the player's progress instead of a clock, own pictures in
+every popular format, more pieces in the mosaics, and variants of the body scan. Round 10 (§13.14 "Round 10", §15) is
+part of the same branch and had not been deployed when the founder played, so some of the answers were already in it.
+
+### 16.1 What the lead built for this round
+
+* **`kit/breath.ts`** — a breath of four phases, each **0–15 whole seconds**: in, hold (full), out, hold (empty)
+  (*"Chcę żeby oddech można było konfigurować od 0 do 15 sekund wdech, wstrzymanie powietrza, wydech, wstrzymanie
+  bezdechu"*). A phase of 0 s is skipped; a cycle under 2 s guides nothing, so a saved pattern like that falls back to
+  the default **4 · 0 · 6 · 0** (in 4, out 6: six breaths a minute, the games' guide since round 4). `breathAt(p, t)`
+  gives the phase, how far through it, the seconds left and the lungs' fullness (eased in and out, still on a hold);
+  presets name the common patterns (4·6 calm, 5·5 even, 4·4·4·4 box, 4·7·8 relaxing). **A rest is a whole number of
+  breaths** (*"Faza odpoczynku powinna być wielokrotnością sekcji oddechowej"*): `breathRest(p, target, min)` takes the
+  nearest whole number of cycles to the target, never fewer than the minimum needs (a rest must be long enough to be
+  judged), never none; `breathRestOf(p, n)` takes the player's own count. A rest begins with the pattern's first phase
+  and ends exactly at a cycle's end. Pure (no DOM, no words); tests in `test/arcade-breath.test.ts`.
+* **`kit/images.ts`** — own pictures in **every popular format** (*"…w formacie .jpeg, .jpg, .png i innych
+  popularnych"*): the pickers offer `image/*` and the formats by name (JPEG/JFIF, PNG, WebP, GIF, BMP, AVIF, HEIC/HEIF,
+  TIFF, SVG — a desktop's dialog filters by extension); a picture is turned upright by its EXIF, resized to 1280 px,
+  laid on white where it was transparent (a PNG's transparency would turn black as a JPEG) and kept as a JPEG on this
+  device only. A desktop may **drop** a picture on the card or **paste** a copied one (`imageDrop`). What cannot be
+  kept says why (`ImageError.reason`: not a picture, an iPhone's **HEIC outside Safari**, a format the browser cannot
+  read, over 60 MB, storage refused), each game in its own words. HEIC: Safari decodes it; Chrome, Firefox and Edge do
+  not, and the only decoder library (libheif in WebAssembly) is LGPL-3 and 26 MB, so the player is told to open it in
+  Safari or save it as JPG/PNG (an iPhone's own picker already converts to JPEG). Labels hold up to **100 characters**
+  (an own affirmation, *"żeby afirmacje mogły mieć do 100 znaków"*).
+* **The clarity rules** every game of the round follows: a caption stays ≥ 2.5 s + 70 ms a character and never under
+  4.5 s (*"Napisy i tłumaczenia zbyt szybko znikają"*); one persistent "what to do now" line per phase; each control
+  taught the first time it matters, with the gesture drawn; each technical term glossed in plain words the first time.
