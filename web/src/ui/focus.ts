@@ -104,8 +104,7 @@ export function readiness(st: HubStatus, simNote: string): Readiness {
     label = t('ready.noBand'); can = false;
   } else if (st.source === 'off' || st.signal.reason === 'no_device') {
     text = t('ready.connect', { device: TOOL_INFO[tool].device });
-    label = t('ready.noSignal'); can = false;
-    note = t('ready.where');
+    label = t('ready.noSignal'); can = false;   // the connect panel below says how (ui/connect.ts)
   } else if (st.signal.reliable && st.signal.warning) {
     text = `${WARNING_TEXT[st.signal.warning]}.`;
     label = t('ready.weak'); cls += ' warn';

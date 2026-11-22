@@ -23,6 +23,8 @@ export interface CardsEntryDeps {
   mark: (label: string) => void;
   record: { start: (name: string, sec: number) => Promise<boolean>; stop: () => Promise<void> };
   openSheet: () => void;
+  /** connecting the band from the lobby (ui/connect.ts) */
+  connect?: import('../ui/connect').ConnectActions;
 }
 
 type Module = import('./view').CardsModule;

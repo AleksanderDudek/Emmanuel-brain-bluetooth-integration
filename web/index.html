@@ -141,6 +141,7 @@
       <h1 id="treningTitle" data-i18n="trening.title">Trening</h1>
       <p class="lede"><span data-i18n="trening.lede">Ćwiczenia neurofeedbacku z opaską połączoną w aplikacji.</span> <a class="acc" href="#gry" data-i18n="trening.gamesLink">Gry znajdziesz w zakładce Gry →</a></p>
     </header>
+    <div class="card" data-connect hidden></div>
     <div class="activities" id="activities"></div>
     <div class="strip-slot" id="stripTraining"></div>
     <aside class="buy" data-buy hidden></aside>
@@ -199,6 +200,7 @@
       <div class="card start-card arcade-start">
         <div class="card-head"><span data-i18n="common.ready">Gotowość</span> <span class="badge" id="arcadeBadge">—</span></div>
         <p id="arcadeReady" class="ready-text"></p>
+        <div data-connect hidden></div>
         <button class="btn primary big" type="button" id="btnArcadePlay" disabled><svg><use href="#i-play"/></svg><span data-i18n="lobby.play">Graj</span></button>
         <p class="muted" id="arcadeHint"></p>
         <div class="field"><span data-i18n="common.sessionLength">Długość sesji</span><div class="seg len" id="arcadeLen" role="radiogroup" aria-label="Długość sesji" data-i18n-attr="aria-label:common.sessionLength"></div></div>
@@ -247,6 +249,7 @@
       <div class="card start-card">
         <div class="card-head"><span data-i18n="common.ready">Gotowość</span> <span class="badge" id="focusBadge">—</span></div>
         <p id="focusReady" class="ready-text"></p>
+        <div data-connect="brief" hidden></div>
         <ul class="tips" id="focusTips"></ul>
         <button class="btn primary big" type="button" id="btnFocusStart"><svg><use href="#i-play"/></svg><span data-i18n="focus.start">Rozpocznij</span></button>
         <p class="muted mt8" id="focusHint"></p>
@@ -262,6 +265,7 @@
       <p class="lede" data-i18n="balance.lede">Zadanie dobierane do tego, która strona kory przedczołowej przeważa. Cel: utrzymać obie w równowadze.</p>
     </header>
     <div class="needs-tool" data-needs="fnirs"></div>
+    <div class="card" data-connect hidden></div>
     <div class="card">
       <div class="card-head"><span data-i18n="balance.title">Równowaga półkul</span> <span class="badge zone-paused" id="balZoneBadge">—</span></div>
       <div class="gauge-track">
@@ -318,7 +322,7 @@
       </div>
       <span class="muted mono" id="rateText"></span>
     </header>
-    <div class="needs-tool" data-needs="any"></div>
+    <div class="card" data-connect hidden></div>
 
     <div class="monitor" id="monitorFnirs" hidden>
       <div class="card play-card">
@@ -522,6 +526,7 @@
     <button class="icon-btn" type="button" id="sheetClose" aria-label="Zamknij" data-i18n-attr="aria-label:common.close"><svg><use href="#i-close"/></svg></button>
   </div>
   <div class="sheet-body">
+    <div id="sheetNext"></div>
     <div class="sources" role="radiogroup" aria-label="Źródło sygnału" id="sourcePick" data-i18n-attr="aria-label:sheet.sourceAria">
       <button type="button" role="radio" class="source" data-src="device"><b id="srcDeviceName" data-i18n="common.band">Opaska</b><small id="srcDeviceText" data-i18n="sheet.connectBt">Połącz przez Bluetooth</small></button>
       <button type="button" role="radio" class="source" data-src="simulator"><b data-i18n="common.simulator">Symulator</b><small data-i18n="sheet.simText">Sztuczny sygnał do prób</small></button>

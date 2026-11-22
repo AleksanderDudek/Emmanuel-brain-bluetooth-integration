@@ -526,3 +526,29 @@ down + ~2 s of quick baseline + 2.5 s of settle, instead of + ~31 s; a motion or
 
 What stays: the first calibration of a session (20 s), the carried calibration between sessions (§9), the adaptive
 threshold, and the rule that nothing is ever lost or punished while the signal is unreliable.
+
+## 14. Connect from where you are (2026-11-22)
+
+The founder: *"I want more touchpoints to connect headband. I sometimes end up having to move through different views
+to go back to HOME. It should be easier."* Until now the guided way to a session — choose a band, connect it or use
+the simulator, wait for the baseline — lived on Start alone; a game lobby or the focus setup said "Połącz Mendi albo
+włącz symulator" with "the band button is in the top right corner", and a sheet that opened with no band chosen had
+its sources disabled and pointed at the switch "at the top".
+
+* **One next step, computed once** (`src/ui/connect.ts`: `connectStep`, `nextStep`). Start, the device sheet and a
+  small panel use the same logic and the same words: no band → **Mendi / BrainAccess HALO**; no signal → **Połącz
+  opaskę** (or **Użyj opaski** when it is connected but the source is off) and **Użyj symulatora**; reconnecting →
+  the reconnect line and "Ustawienia opaski"; the baseline → its bar; a weak or paused signal → the fitting line and
+  "Ustawienia opaski".
+* **A connect panel where a session starts** (`[data-connect]` in index.html, `ConnectPanel`): every game lobby
+  (under Gotowość), the focus-training setup (without the fitting line its tips already give), the Trening tab, the
+  balance view and the signal view (it replaces their old "needs a band" line; the balance keeps "Mendi only"), and the
+  card games' lobby while "use the band" is on. A panel hides when the band is ready — the screen's own Play/Start is
+  the next step — and a setup's readiness line steps back while the panel shows (`:has()`).
+* **The device sheet is the whole setup, over any view.** Its top is the same next step, with the band choice when
+  none is chosen (then the sheet shows only that choice) and **Gotowe** to close it when the signal is ready. The app
+  bar's band button opens it from everywhere; while the band is not ready the button itself asks — **Wybierz opaskę**
+  or **Połącz opaskę** · Mendi — with a slow glow (none with reduced motion).
+* **Nobody is sent to Start.** No step links there; choosing, connecting and the simulator keep the player in the view
+  they are in (test/connect.test.ts; checked in Chrome on a phone and a desktop: a game lobby, the sheet from Sesje,
+  Trening, the focus setup, the signal view, a card game's lobby — the hash never changes).

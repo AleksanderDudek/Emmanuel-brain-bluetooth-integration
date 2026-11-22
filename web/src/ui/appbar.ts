@@ -1,4 +1,5 @@
 /** App bar: the band switch, the device chip (opens the device sheet) and the recording pill. */
+import { connectStep } from './connect';
 import type { Hub, HubStatus, SignalReason } from '../hub';
 import { t } from '../i18n/shell';
 import { TOOL_INFO, isTool, type Tool } from '../tools';
@@ -86,6 +87,14 @@ export class AppBar {
         sub = (sig.reason ? REASON_CHIP[sig.reason] : '') + bat;
       }
     }
+    // not ready to train: the chip asks for the next step itself ("Połącz opaskę" · Mendi), from any view
+    const step = connectStep(s);
+    const cta = step === 'tool' || (step === 'signal' && s.signal.reason !== 'connecting');
+    if (cta && s.tool) {
+      sub = title;
+      title = s.device.connected ? t('next.useBand') : t('common.connectBand');
+    }
+    $('devChip').classList.toggle('cta', cta);
     dot.className = `dot ${cls}`;
     if (name.textContent !== title) name.textContent = title;
     if (meta.textContent !== sub) meta.textContent = sub;

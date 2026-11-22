@@ -184,6 +184,20 @@ label.inline{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--
 .progress{height:6px;background:var(--ink-1);border-radius:3px;overflow:hidden;margin-top:8px}
 .progress div{height:100%;width:0;background:var(--tool);transition:width .25s}
 .progress[hidden]{display:none}
+/* connecting the band from any view (ui/connect.ts): a panel in setups and lobbies, the sheet's next step, the chip's ask */
+.connect-panel{display:flex;flex-direction:column;gap:6px;margin:10px 0 12px}
+.connect-panel[hidden]{display:none}
+.card.connect-panel{padding:14px 16px;margin:0 0 16px}
+.connect-title{display:flex;align-items:center;gap:9px;margin:0;font-weight:650;color:var(--tx)}
+.connect-text{margin:0}
+.connect-panel .progress{margin-top:2px}
+.connect-actions{flex-wrap:wrap;gap:8px;margin-top:4px}
+#sheetNext{margin:0 0 14px;padding:12px 14px;border-radius:14px;background:var(--ink-3);border:1px solid var(--line-2)}
+.devchip.cta{border-color:var(--tool);animation:chipAsk 2.8s ease-in-out infinite}
+@keyframes chipAsk{0%,100%{box-shadow:0 0 0 0 var(--tool-glow)}50%{box-shadow:0 0 0 7px transparent}}
+.k-connect{margin:8px 0}
+/* a setup's own readiness line steps back while the panel says the same with its buttons */
+.ready-text:has(+ .connect-panel:not([hidden])){display:none}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12.5px;margin-top:10px}
 .kv:empty{display:none}
 .kv span:nth-child(odd){color:var(--tx3)}
@@ -528,6 +542,7 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .dev-status[hidden],.sim[hidden]{display:none}
 .sim .row .btn{font-size:12px;padding:5px 12px;min-height:30px}
 .sheet-foot{border-top:1px solid var(--line);padding-top:14px}
+.sources[hidden],.dev-status[hidden],.sheet-foot[hidden]{display:none}
 
 /* ── full-screen layers: training + games ────────────────────── */
 .immersive,.game-layer{position:fixed;inset:0;z-index:50;background:#05060a;color:var(--tx)}

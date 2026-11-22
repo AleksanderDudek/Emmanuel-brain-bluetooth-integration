@@ -13,11 +13,10 @@ const NB = ' ';   // German and Swedish put a no-break space before % (de-DE, s
 
 const pl = {
   // ── readiness: the focus setup and the arcade lobbies ──
-  'ready.pickBand': 'Wybierz opaskę u góry: Mendi albo BrainAccess HALO.',
+  'ready.pickBand': 'Wybierz opaskę: Mendi albo BrainAccess HALO.',
   'ready.noBand': 'brak opaski',
   'ready.connect': 'Połącz {device} albo włącz symulator.',
   'ready.noSignal': 'brak sygnału',
-  'ready.where': 'Przycisk opaski w prawym górnym rogu.',
   'ready.weak': 'gotowe · słaby sygnał',
   'ready.quality': 'Jakość: {detail}. SCI ≥ {sci} = dobry kontakt.',
   'ready.simulator': 'Symulator gotowy.',
@@ -205,11 +204,10 @@ const pl = {
 export type TrainingKey = keyof typeof pl;
 
 const en: Catalog<TrainingKey> = {
-  'ready.pickBand': 'Pick your headband at the top: Mendi or BrainAccess HALO.',
+  'ready.pickBand': 'Pick your headband: Mendi or BrainAccess HALO.',
   'ready.noBand': 'no headband',
   'ready.connect': 'Connect {device} or turn on the simulator.',
   'ready.noSignal': 'no signal',
-  'ready.where': 'The headband button is in the top right corner.',
   'ready.weak': 'ready · weak signal',
   'ready.quality': 'Quality: {detail}. SCI ≥ {sci} = good contact.',
   'ready.simulator': 'Simulator ready.',
@@ -388,11 +386,10 @@ const en: Catalog<TrainingKey> = {
 };
 
 const de: Catalog<TrainingKey> = {
-  'ready.pickBand': 'Wähle oben dein Stirnband: Mendi oder BrainAccess HALO.',
+  'ready.pickBand': 'Wähle dein Stirnband: Mendi oder BrainAccess HALO.',
   'ready.noBand': 'kein Stirnband',
   'ready.connect': 'Verbinde {device} oder schalte den Simulator ein.',
   'ready.noSignal': 'kein Signal',
-  'ready.where': 'Der Stirnband-Knopf ist oben rechts.',
   'ready.weak': 'bereit · schwaches Signal',
   'ready.quality': 'Qualität: {detail}. SCI ≥ {sci} = guter Kontakt.',
   'ready.simulator': 'Simulator bereit.',
@@ -571,11 +568,10 @@ const de: Catalog<TrainingKey> = {
 };
 
 const sv: Catalog<TrainingKey> = {
-  'ready.pickBand': 'Välj ditt pannband högst upp: Mendi eller BrainAccess HALO.',
+  'ready.pickBand': 'Välj ditt pannband: Mendi eller BrainAccess HALO.',
   'ready.noBand': 'inget pannband',
   'ready.connect': 'Anslut {device} eller slå på simulatorn.',
   'ready.noSignal': 'ingen signal',
-  'ready.where': 'Pannbandsknappen sitter uppe till höger.',
   'ready.weak': 'redo · svag signal',
   'ready.quality': 'Kvalitet: {detail}. SCI ≥ {sci} = god kontakt.',
   'ready.simulator': 'Simulatorn är redo.',

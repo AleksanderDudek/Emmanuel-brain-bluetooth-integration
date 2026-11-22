@@ -4,6 +4,7 @@
  * They wear the cards' own look — the "Wersja 4K" style: a violet-to-navy frame, white panels, a
  * navy header with a coral number badge, flat colours — inside the app's shell.
  */
+import { ConnectPanel, type ConnectActions } from '../ui/connect';
 import type { Hub, HubStatus } from '../hub';
 import { REASON_TEXT } from '../hub';
 import { fmtDate, fmtNum } from '../i18n';
@@ -51,6 +52,8 @@ export interface CardsDeps {
   mark: (label: string) => void;
   record: { start: (name: string, sec: number) => Promise<boolean>; stop: () => Promise<void> };
   openSheet: () => void;
+  /** connecting the band from the lobby (ui/connect.ts) */
+  connect?: ConnectActions;
 }
 
 interface Prefs { minutes: number; pad: LinkKind; marks: boolean; sound: boolean; band: boolean; raw: boolean }
@@ -72,6 +75,7 @@ export class CardsModule {
   private readonly layer: CardsLayer;
   private readonly paper: PaperRun;
   private bandLine: HTMLElement | null = null;
+  private bandPanel: ConnectPanel | null = null;
   private working = false;
 
   constructor(private readonly d: CardsDeps, private readonly root: HTMLElement) {
@@ -114,11 +118,16 @@ export class CardsModule {
   /** Band status lines follow the hub. */
   renderStatus(s: HubStatus): void {
     if (this.bandLine) this.bandLine.textContent = this.bandText(s);
+    if (this.bandPanel) {
+      if (this.prefs.band) this.bandPanel.render(s);
+      else this.bandPanel.el.hidden = true;
+    }
   }
 
   private render(): void {
     const sub = this.sub;
     this.bandLine = null;
+    this.bandPanel = null;
     let body: HTMLElement;
     if (!sub) body = this.home();
     else if (/^\d{2}$/.test(sub) && card(Number(sub))) body = this.cardView(card(Number(sub))!);
@@ -421,7 +430,14 @@ export class CardsModule {
     const band = h('div', 'k-bandbox');
     band.append(h('span', 'k-label', t('lobby.band')));
     this.bandLine = h('p', 'k-bandline', this.bandText(this.d.hub.status));
-    band.append(this.bandLine, sw(t('lobby.bandUse'), this.prefs.band, v => { this.prefs.band = v; }));
+    band.append(this.bandLine);
+    // with the band in use, the panel connects it right here (ui/connect.ts)
+    if (this.d.connect) {
+      this.bandPanel = new ConnectPanel(h('div', 'k-connect'), this.d.connect);
+      band.append(this.bandPanel.el);
+      if (this.prefs.band) this.bandPanel.render(this.d.hub.status); else this.bandPanel.el.hidden = true;
+    }
+    band.append(sw(t('lobby.bandUse'), this.prefs.band, v => { this.prefs.band = v; this.renderStatus(this.d.hub.status); }));
     if (this.d.hub.tool === 'fnirs') band.append(sw(t('lobby.raw'), this.prefs.raw, v => { this.prefs.raw = v; }));
     sec.append(band);
     const p = g ? this.progress.get(g.id) : undefined;

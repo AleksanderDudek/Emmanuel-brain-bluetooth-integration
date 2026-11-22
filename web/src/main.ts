@@ -35,6 +35,7 @@ import { RecordingCard } from './ui/recording';
 import { Router, type Route } from './ui/router';
 import { SessionsView } from './ui/sessions';
 import { SettingsView } from './ui/settings-view';
+import { ConnectPanel, type ConnectActions } from './ui/connect';
 import { StartView } from './ui/start';
 import { ScreenAwake } from './ui/wakelock';
 
@@ -117,10 +118,15 @@ async function main(): Promise<void> {
   const sessions = new SessionsView(library, folder, () => (recorder.recording ? recorder.meta?.session_id ?? null : null), db, setTrainings);
   const pickTool = (tool: Tool) => void appbar.switchTo(tool);
   const useSimulator = run(async () => { await hub.useSimulator(); });
-  const start = new StartView({
+  // connecting from wherever the player is (DESIGN §14): Start, the device sheet and a panel in every setup and lobby
+  const connectActions: ConnectActions = {
     pickTool, connect: sheet.connect, openSheet: () => sheet.open(),
     simulator: run(async () => { await hub.useSimulator(); toast(t('common.simOn')); }),
-  }, () => settings.training.scene);
+  };
+  const start = new StartView(connectActions, () => settings.training.scene);
+  const panels = [...document.querySelectorAll<HTMLElement>('[data-connect]')].map(el => new ConnectPanel(el, connectActions, 'panel', undefined, el.dataset.connect === 'brief'));
+  const sheetNext = new ConnectPanel($('sheetNext'), connectActions, 'sheet', () => sheet.close());
+  sheet.onOpen = () => sheetNext.render(hub.status);
   const games = new GameLayer(hub, () => router.go('gry'), () => sheet.open());
   const runner = new FocusRunner({
     hub, db, settings,
@@ -147,7 +153,7 @@ async function main(): Promise<void> {
   } });
   // the exercise cards (src/cards): printable cards and two-screen games, loaded the first time #karty opens
   const cards = new CardsEntry({
-    hub, db, openSheet: () => sheet.open(),
+    hub, db, openSheet: () => sheet.open(), connect: connectActions,
     onTraining: r => setTrainings([r, ...trainings]),
     mark: label => { if (engine.recorder.recording) engine.mark(label); },
     record: {
@@ -213,12 +219,9 @@ async function main(): Promise<void> {
       const need = el.dataset.needs;
       const btn = (label: string, fn: () => void) => h('button', { class: 'btn', type: 'button', on: { click: fn } }, label);
       let kids: (HTMLElement | string)[] = [];
-      if (need === 'fnirs' && s.tool !== 'fnirs') {
+      // a view that reads Mendi only (the balance) says so; choosing and connecting a band is the connect panel's
+      if (need === 'fnirs' && s.tool && s.tool !== 'fnirs') {
         kids = [t('needs.mendiOnly'), btn(t('common.switchToMendi'), () => pickTool('fnirs'))];
-      } else if (!s.tool) {
-        kids = [t('needs.choose'), btn(TOOL_INFO.fnirs.band, () => pickTool('fnirs')), btn(TOOL_INFO.eeg.band, () => pickTool('eeg'))];
-      } else if (s.source === 'off') {
-        kids = [t('needs.off'), btn(t('common.connectBand'), sheet.connect), btn(t('common.useSim'), useSimulator)];
       }
       el.replaceChildren(...kids);
     }
@@ -271,6 +274,8 @@ async function main(): Promise<void> {
     games.render(s);
     buy.render(s);
     renderNeeds(s);
+    for (const p of panels) p.render(s);
+    if (sheet.isOpen) sheetNext.render(s);
     const v = router.current.view;
     if (v === 'start') start.render(s);
     if (v === 'focus') focusSetup.render(s);

@@ -36,6 +36,8 @@ export class DeviceSheet {
   private readonly dialog = $<HTMLDialogElement>('deviceSheet');
   private simFor: Tool | null = null;
   private lastSig = '';
+  /** called after the sheet opens (main.ts renders the connect panel at its top straight away) */
+  onOpen: (() => void) | null = null;
 
   constructor(private readonly hub: Hub) {
     this.bt = new BluetoothUi(() => this.connect(), () => (hub.tool === 'eeg' ? HALO_NAMES : MENDI_NAMES));
@@ -65,6 +67,15 @@ export class DeviceSheet {
 
   open(): void {
     if (!this.dialog.open) this.dialog.showModal();
+    this.onOpen?.();
+  }
+
+  close(): void {
+    if (this.dialog.open) this.dialog.close();
+  }
+
+  get isOpen(): boolean {
+    return this.dialog.open;
   }
 
   /** Must run straight from a click: the browser only shows its chooser for a user gesture. */
@@ -101,6 +112,10 @@ export class DeviceSheet {
   render(s: HubStatus, sim: { state: string; auto: { scenario: string; current?: string; text: string } | null } | null): void {
     if (!this.dialog.open) return;
     const tool = s.tool;
+    // before a band is chosen the sheet is only that choice (the connect panel at its top, ui/connect.ts)
+    $('sourcePick').hidden = !tool;
+    $('devStatus').hidden = !tool;
+    document.querySelector<HTMLElement>('#deviceSheet .sheet-foot')!.hidden = !tool;
     document.querySelectorAll<HTMLButtonElement>('#sourcePick [data-src]').forEach(b => {
       b.setAttribute('aria-checked', String(b.dataset.src === s.source));
       b.disabled = !tool;
