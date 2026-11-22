@@ -1066,3 +1066,55 @@ describe('Arka on a desktop and a big screen (DESIGN §14)', () => {
     expect(howto(true).hands[0].text).toBe(t('how.tap'));
   });
 });
+
+// ── long sessions (15–30 min) ────────────────────────────────────
+
+describe('Arka at 15–30 minutes', () => {
+  it('plans 900–1800 s to the finale: Mgła/Tęcza pairs at their design lengths, ending on a Tęcza', () => {
+    for (const sec of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - RULES.finale, 6);
+        expect(plan[0].kind === 'warmup').toBe(first);
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('plays a whole 30-min session from the first ever: the saga keeps dealing decks, the summary stays short', () => {
+    for (const fresh of [true, false]) {
+      const sim = fresh ? makeSim({ planned: 1800, seed: 4 }) : returning(30, { planned: 1800, seed: 4 });
+      let nextTap = 0.5, evs = 0;
+      const dt = 1 / 30;
+      for (let i = 0; i < 1803 / dt; i++) {
+        const t = sim.now + dt;
+        sim.update(dt, sim.block.kind === 'rest' ? REST : FOCUS, t);
+        if (t >= nextTap) {
+          nextTap += 0.7;
+          if (sim.levelState === 'clear') sim.skip();
+          else {
+            const open = (x: (typeof sim.animals)[number]) => x.lockedBy < 0 || sim.animals[x.lockedBy].out;
+            const a = sim.animals.find(x => !x.out && open(x) && (x.asleep || sim.way(x).blocker < 0));
+            if (a) sim.tap(a.id); else sim.dove();
+          }
+        }
+        evs += sim.take().length;
+      }
+      expect(sim.phase).toBe('finale');
+      expect(evs).toBeGreaterThan(500);
+      expect(sim.levels).toBeGreaterThan(fresh ? 15 : 10);
+      expect(sim.pairs).toBeGreaterThan(100);
+      for (const v of [sim.pairs, sim.levelN, sim.starsSession]) expect(Number.isFinite(v)).toBe(true);
+      const out = sim.result();
+      expect(out.highlights.length).toBeLessThanOrEqual(6);
+      for (const s of out.highlights) expect(s.length).toBeLessThan(100);
+      for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub ?? '']) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+});

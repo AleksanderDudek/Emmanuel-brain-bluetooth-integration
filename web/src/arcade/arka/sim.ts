@@ -882,7 +882,9 @@ export class ArkaSim {
     else if (this.bestBefore > this.pairs && this.bestBefore - this.pairs <= 6) hl.push(t('hl.near', { n: this.bestBefore - this.pairs }));
     if (this.threeStars) hl.push(t('hl.three', { n: this.threeStars }));
     for (const k of this.newYoung.slice(0, 2)) hl.push(t('hl.young', { young: KIND[k].young }));
-    if (this.newKinds.length) hl.push(t('hl.kinds', { names: this.newKinds.map(k => KIND[k].name).join(', ') }));
+    // a long session settles many kinds at once: the first three by name, then "+N"
+    const kinds = this.newKinds.map(k => KIND[k].name);
+    if (kinds.length) hl.push(t('hl.kinds', { names: kinds.length > 3 ? `${kinds.slice(0, 3).join(', ')} +${kinds.length - 3}` : kinds.join(', ') }));
     if (this.builtStage >= 0) hl.push(t('hl.home', { name: homestead(totalStars(p)).built > 0 ? stageName(this.builtStage) : '' }));
     if (this.blindShare >= 0) hl.push(t('hl.blind', { n: this.blindShare }));
     if (this.restarts) hl.push(t('hl.restart', { n: this.restarts }));
