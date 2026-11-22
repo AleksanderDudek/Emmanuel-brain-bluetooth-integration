@@ -1269,3 +1269,77 @@ describe('round 11: the mechanics made visible', () => {
     expect(sim.goal().n).toBe(sim.goal().all);
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes to the finale: alarm and rest alternating, ending on a rest, every block 12–31 s', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(31);
+        }
+        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
+        expect(body.length).toBe(2 * pairs);
+      }
+    }
+  });
+
+  it('holds the difficulty from the 5th loop on: a long session (or many) never climbs out of reach', () => {
+    for (const loop of [5, 6, 9, 30, 9999]) {
+      expect(waveOf('hunt', loop)).toBe(waveOf('hunt', RULES.loopTop));
+      expect(waveOf('antibodies', loop)).toBe(waveOf('antibodies', RULES.loopTop));
+      expect(recruitNeed(loop)).toBe(recruitNeed(RULES.loopTop));
+    }
+    expect(waveOf('hunt', RULES.loopTop)).toBeGreaterThan(waveOf('hunt', RULES.loopTop - 1));
+    expect(waveOf('hunt', 9999)).toBeLessThan(RULES.hunt.wave * 2);
+  });
+
+  it('plays a whole 30-minute session: loop after loop of the six stages, no throw, finite numbers, the end, a bounded field', () => {
+    const sim = later({ planned: 1800, seed: 3 });
+    const clock = { t: 0 };
+    let next = 1, maxBugs = 0, maxCells = 0, maxAbs = 0, maxRings = 0, maxFibres = 0, finale = false, grace = 0, starred = 0;
+    const close = closeCards(sim);
+    for (let i = 0; i < 1806 / STEP; i++) {
+      clock.t += STEP;
+      const tt = clock.t;
+      sim.update(STEP, sim.restBlock ? (Math.floor(tt / 7) % 2 ? LOW : MID) : Math.floor(tt / 13) % 2 ? MID : HIGH, tt);
+      close();
+      if (tt >= next) { next += 1.2; sim.seekNearest(); }
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale = true;
+        if (e.type === 'stageDone' && e.grace) grace++;
+        if (e.type === 'stageDone' && !e.grace) starred++;
+      }
+      maxBugs = Math.max(maxBugs, sim.bugs.length);
+      maxCells = Math.max(maxCells, sim.cells.length);
+      maxAbs = Math.max(maxAbs, sim.abs.length);
+      maxRings = Math.max(maxRings, sim.rings.length);
+      maxFibres = Math.max(maxFibres, sim.fibres.length);
+    }
+    expect(finale).toBe(true);
+    expect(sim.phase).toBe('done');
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    for (const v of [sim.score, sim.p.loop, sim.p.stage, sim.charge, sim.alarm, sim.calm]) expect(Number.isFinite(v)).toBe(true);
+    // seven or so loops in half an hour; most stages won by the player, never most of them left to the body
+    expect(sim.p.loop).toBeGreaterThanOrEqual(5);
+    expect(sim.loopsNow.length).toBeGreaterThanOrEqual(4);
+    expect(starred).toBeGreaterThan(grace * 3);
+    expect(maxBugs).toBeLessThanOrEqual(RULES.bugCap);
+    expect(maxCells).toBeLessThan(120);
+    expect(maxAbs).toBeLessThan(200);
+    expect(maxRings).toBeLessThan(60);
+    expect(maxFibres).toBeLessThan(400);
+    const r = sim.result();
+    expect(r.score).toBe(sim.score);
+    expect(sim.p.best['1800']).toBe(r.score);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+    expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+  });
+});

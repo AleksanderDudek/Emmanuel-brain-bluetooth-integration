@@ -28,7 +28,7 @@ import {
   addFact, appetiteOf, bestOf, checkUnlocks, has, lenKey, memoryOf, netMaxOf, netROf, remember, setStars, starKey, swarmCapOf,
   type OdpProgress,
 } from './meta';
-import { RULES, loopK, span } from './rules';
+import { RULES, loopK, loopStep, span } from './rules';
 import { Talk } from './talk';
 
 // ── types ────────────────────────────────────────────────────────────────────────────
@@ -250,10 +250,10 @@ export function waveOf(s: StageId, loop: number): number {
 }
 
 /** The recruits the Rekrutacja stage asks for in a loop. */
-export const recruitNeed = (loop: number): number => RULES.recruit.need + RULES.recruit.needLoop * Math.min(4, Math.max(0, Math.floor(loop) - 1));
+export const recruitNeed = (loop: number): number => RULES.recruit.need + RULES.recruit.needLoop * loopStep(loop);
 
 /** The share of bacteria in a capsule in the antibodies stage. */
-export const capsuleShare = (loop: number): number => clamp(RULES.antibodies.capsule + RULES.antibodies.capsuleLoop * (Math.max(1, loop) - 1), 0, 0.7);
+export const capsuleShare = (loop: number): number => clamp(RULES.antibodies.capsule + RULES.antibodies.capsuleLoop * loopStep(loop), 0, 0.7);
 
 // ── the session ──────────────────────────────────────────────────────────────────────
 export interface SimInit {
@@ -846,7 +846,7 @@ export class OdpSim {
       this.cells = this.cells.filter(c => c.kind === 'neut' && c.state === 'roam');
       for (const c of this.cells) c.state = 'gone';
       this.layEpithelium(false);
-      const n = RULES.tcells.infected + RULES.tcells.infectedLoop * Math.min(4, this.p.loop - 1);
+      const n = RULES.tcells.infected + RULES.tcells.infectedLoop * loopStep(this.p.loop);
       const hiddenOk = has(this.p, 'nk') && this.p.loop >= 2;
       const order = this.epi.map((_, i) => i);
       for (let i = order.length - 1; i > 0; i--) {
@@ -972,7 +972,7 @@ export class OdpSim {
     const pre = (this.stage === 'hunt' || this.stage === 'antibodies') && m > 0 && this.rng() < 0.25 * m;
     const b: Bug = {
       id: this.nextId++, kind, x: clamp(x, 2, W - 2), y: clamp(y, 2, RULES.wallY - 4), vx: 0, vy: 0, a: this.rng() * TAU,
-      div: span([RULES.divide[0] - RULES.divide[1], RULES.divide[0] + RULES.divide[1]], this.rng()) / (k * (1 + RULES.divideLoop * (Math.max(1, this.p.loop) - 1))),
+      div: span([RULES.divide[0] - RULES.divide[1], RULES.divide[0] + RULES.divide[1]], this.rng()) / (k * (1 + RULES.divideLoop * loopStep(this.p.loop))),
       tag: pre ? 1 : 0, c3: false, capsule, netted: 0, grabbed: false, hidden: false, run: this.rng(), age: 0,
     };
     this.bugs.push(b);
@@ -1502,7 +1502,7 @@ export class OdpSim {
       if (divide) {
         b.div -= dt;
         if (b.div <= 0) {
-          b.div = span([R.divide[0] - R.divide[1], R.divide[0] + R.divide[1]], this.rng()) / (loopK(this.p.loop) * (1 + R.divideLoop * (Math.max(1, this.p.loop) - 1)));
+          b.div = span([R.divide[0] - R.divide[1], R.divide[0] + R.divide[1]], this.rng()) / (loopK(this.p.loop) * (1 + R.divideLoop * loopStep(this.p.loop)));
           const c = this.spawnBug(b.kind, false, b);
           if (c) {
             this.spawned--;   // a daughter is not part of the wave count…
@@ -2012,7 +2012,7 @@ export class OdpSim {
   // ── the nose's lining: infection, interferon, virions ────────────────────────────
   private epiStep(dt: number, resting: boolean): void {
     const R = RULES;
-    const rep = R.epi.replicate / (1 + R.epi.replicateLoop * (this.p.loop - 1));
+    const rep = R.epi.replicate / (1 + R.epi.replicateLoop * loopStep(this.p.loop));
     for (let i = 0; i < this.epi.length; i++) {
       const e = this.epi[i];
       e.t += dt;

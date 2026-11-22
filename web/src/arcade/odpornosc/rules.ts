@@ -81,6 +81,11 @@ export const RULES = {
   stars: [0.5, 0.78] as const,
   /** the loop's difficulty: waves and division grow by this a loop */
   loopK: 0.22,
+  /**
+   * …up to this loop, then it holds (as the recruits asked and the infected cells always did): a 30-minute session
+   * runs seven or eight loops, and an endless climb left the hunt and the antibodies to the body from the 6th on
+   */
+  loopTop: 5,
   /** a card waits for a tap (or Enter/Space): the stage does not run under it; a tap closes it after this (s) */
   cardTap: 0.6,
   /** a stage's full card (the picture and its three lines) the first two times; a short one after (DESIGN §13.9) */
@@ -179,5 +184,8 @@ export const span = (r: readonly [number, number], t: number): number => r[0] + 
  */
 export const readSec = (text: string): number => Math.max(RULES.read.min, RULES.read.base + RULES.read.perChar * [...text].length);
 
-/** The loop's difficulty factor (1 in the first loop). */
-export const loopK = (loop: number): number => 1 + RULES.loopK * (Math.max(1, Math.floor(loop)) - 1);
+/** Loops of growing difficulty behind this one: 0 in the first loop, at most loopTop − 1 (then it holds). */
+export const loopStep = (loop: number): number => Math.min(RULES.loopTop, Math.max(1, Math.floor(loop))) - 1;
+
+/** The loop's difficulty factor (1 in the first loop, growing to the loopTop-th, then held). */
+export const loopK = (loop: number): number => 1 + RULES.loopK * loopStep(loop);
