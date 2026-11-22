@@ -6597,3 +6597,84 @@ grace's gold; the lit cells are drawn through their outline. Declarations' paint
 its GPU off) 4–48 ms, so a dear frame is redrawn at most 24 times a second and, still over 9 ms after 30 frames, steps
 down: the depth planes go, then the motion. Tests: `test/arcade-living.test.ts`, the 15–30 minute block in
 `test/arcade-jestem.test.ts`.
+
+## 18. Serce i światło: the prayer of the heart and meditations from many traditions (round 13, 2026-11-22)
+
+### 18.1 The founder's request
+
+> I would want a visualized meditation that would focus on moving from headspace to heart space. That would be
+> achieved by continous focus on movement down to heart. Then on heart level we want to strenghthen the energy field
+> around heart so that it would grow and then encompass my whole persona. Then it grows bigger showing circles:
+> 0st me, 1st family, 2nd friends, 3rd collegues, clients, aquaintances, 4rd enemies, people who wronged me,
+> 5rd whole world. Basicly this is something like meditation of loving kindness but expanded. And including
+> christian motives. Also I want you to find out other meditations from esoteric traditions i.e. growing energy
+> balls, moving energy throughout body, shifting energy, activating self healing etc. Then I want to also create new
+> trainings based on that.
+
+With a free hand ("pick recommended"). A research pass catalogued the practices (metta, the hesychast prayer of the
+heart, heart-focused breathing, the qigong ball, the microcosmic orbit, rooting, tonglen, Reiki self-treatment and
+pranic sweeping, self-healing imagery, the pillar of light, Tummo, the Sufi heart, the Ignatian Contemplation to
+Attain Love, Centering and Welcoming Prayer) with their sources, the evidence and the Christian reviewers' cautions
+(the CDF letter *Orationis formas* 1989, *Jesus Christ the Bearer of the Water of Life* 2003, the USCCB guidelines on
+Reiki 2009). The lead's decisions follow.
+
+### 18.2 Five meditations, one new section
+
+The Games tab opens with a new section, **Serce i światło** (registry `kind: 'heart'`; en Heart and light, de Herz
+und Licht, sv Hjärta och ljus), with one line: the prayer of the heart and meditations of light, drawn from the
+practices of many traditions and prayed to God through Jesus Christ; attention and imagination training, not a
+treatment.
+
+| | Z głowy do serca | Światło w dłoniach | Rzeka Ezechiela | Brzemiona | Drzewo nad wodą |
+|---|---|---|---|---|---|
+| id | `serce` | `dlonie` | `ezechiel` | `brzemiona` | `drzewo` |
+| The founder's words | head → heart, the field, circles 0–5 | growing energy balls | moving through the body, self-healing | shifting energy | (rooting: the research's pick for "etc.") |
+| Drawn from | the hesychast prayer of the heart, metta, heart-focused breathing | the qigong ball | self-healing imagery, pranic sweeping recast as washing | tonglen | zhan zhuang ("standing like a tree") |
+| Prayed as | a blessing for widening circles, to God through Jesus | a prayer held in the hands and lifted up (Ps 141:2), a hand laid where it hurts | immersion in the river from the temple (Ezek 47), a leaf laid in prayer | intercession: burdens carried to the Cross, mercy returning | being rooted in Christ (Col 2:7), the fruit of the Spirit |
+| Focus moves | the light down the midline; the field outward; the rings' lamps | the spark into a ball, the offering upward | the water up the body; the leaves | smoke into light at the Cross | roots down, trunk up, fruits ripen |
+| Root | 1 John 4:16 | Ps 141:2 | Ezek 47:9 | Gal 6:2 | Ps 1:3 |
+| Headline | świateł / lights | płomyków / flames | liści / leaves | brzemion / burdens | owoców / fruits |
+
+Left out, with reasons: **the microcosmic orbit** (risk of "qigong deviation" — heat in the head, insomnia, psychotic
+reactions in vulnerable people, DSM-IV's "qi-gong psychotic reaction"; the founder's "moving through the body" is met
+by the river rising through the figure and by the light descending into the heart), **Tummo** (forced breathing and
+breath holds), **the Middle Pillar** (ceremonial magic), **the pillar of light from above** (Pentecost's fire and the
+pillar of fire are Ogień's own symbols, §13.4). Candidates for later: the Name of Jesus written in light on the heart
+(Song 8:6), a three-minute Welcoming Prayer card, a Centering Prayer finale.
+
+### 18.3 What the series says — and what it never says
+
+* **Light, not energy.** The founder writes "energy field" and "energy ball"; the screens speak of light, warmth,
+  love, peace and the heart's field ("pole serca"), the language Christian prayer uses. A tradition's own term
+  ("kula qi", "tonglen", "metta", "zhan zhuang") appears once, in the lobby text, as a fact about where the exercise
+  comes from — the reviewers' first red line is "energy" as an impersonal power at human disposal (*Jesus Christ the
+  Bearer of the Water of Life* §4; USCCB §8–9). Each game's test keeps the forbidden words out of its texts.
+* **Honest about the source.** Every lobby names the tradition the exercise comes from and how it is prayed here
+  ("Ćwiczenie wywodzi się z qigongu…; tu jest modlitwą wstawienniczą rąk"). Taking "what is true and holy" from other
+  traditions is fine while the Christian conception of prayer stays clear (*Orationis formas* §16, citing *Nostra
+  Aetate* 2); presenting tonglen or metta as Christian would not be (§12).
+* **Prayer has a Thou.** Each meditation addresses God (the Father, through Jesus, in the Spirit) and closes with a
+  blessing or a Scripture word. Verbs: receive, offer, bless, pray for, entrust, rest — never channel, send, activate,
+  generate, balance.
+* **No promise of healing, no grace score.** Prayer for health is Christian (Jas 5:14-16, Jer 17:14); a promise that
+  the exercise heals is not, and neither is "activating self-healing" (USCCB §10–11). Light and warmth on screen
+  picture attention, never grace — *Orationis formas* §28 warns against taking light and warmth for the consolations
+  of the Spirit — so no game rewards a "felt" warmth, and the band "measures attention, not prayer" (each tip 5).
+* **Care.** Ring 4 of Z głowy do serca (those who hurt me) starts with someone who hurt the player a little, never
+  asks them to feel forgiveness, and can be left out today; Brzemiona never asks the player to take in their own
+  trauma, offers a "light only" version, and carries a helpline line. Rooting offers a seated posture (standing still
+  can make people light-headed); slow breathing is cued "gentle, not deep".
+* **Names stay home.** The names a player writes into circles or prayers live only in the game's progress on the
+  device.
+
+### 18.4 Shared choices
+
+* **One figure of light.** Rzeki's standing figure moved to `kit/figure.ts` (outline, hands, feet, silhouette) with
+  named places (`PLACE`: the brow where the band sits, the heart, the plexus…), the midline and `alongPath`; Rzeki
+  re-exports it. Every human figure of the series is this one, so the meditations look like one family.
+* **Paced breathing and fNIRS.** Breathing at about 6 a minute (5 s in, 5 s out) strengthens the haemodynamic
+  signal's 0.1 Hz Mayer wave; in paced-breath steps a game smooths what it shows over at least one whole breath (≥ 10 s),
+  so the light does not "breathe" with the lungs. Receptive steps (rest, entrusting, blessing) run in whole breaths and
+  are not gated by focus; the active steps are.
+* **Scripture.** 51 new passages (four editions verified; Ps 24:1's title cut in all four; Ps 52:8, Ps 55:22 and
+  Hosea 14:5 left out for numbering or digitisation faults).
