@@ -769,7 +769,8 @@ export class ZastepySim {
   private say(m: Moment): boolean {
     const list = LINES[m];
     const k = this.said[m] ?? 0;
-    if (k >= list.length) return false;
+    // every line of the moment said: the next round only after RULES.talkRound s of the session
+    if (k >= list.length && this.t < Math.floor(k / list.length) * RULES.talkRound) return false;
     const text = list[(this.session * 3 + k) % list.length];
     this.said[m] = k + 1;
     this.lastSaid[m] = this.t;

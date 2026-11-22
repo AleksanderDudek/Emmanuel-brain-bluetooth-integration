@@ -88,6 +88,14 @@ export const RULES = {
   /** demons' hp and damage: × (1 + perBattle × b) × (1 + perChapter × c) */
   demonPerBattle: 0.05,
   demonPerChapter: 0.26,
+  /**
+   * the darkness stops growing at this chapter (0-based): past it the gate of ash, the shades, their
+   * surges, embers and pace stay those of the 8th chapter (the bosses still come in turn).  The host
+   * stops growing too (the pearl age, the top levels); without the plateau a fully upgraded host that
+   * answers every wave withdraws again and again from the 11th chapter on — reached within a few
+   * 30-minute sessions — and a battle could last ten minutes.
+   */
+  chapterCap: 7,
   /** the boss steps out after this long (s) in a chapter's last battle; its waves are those of this battle */
   bossAt: 10,
   bossWaves: 1,
@@ -186,6 +194,12 @@ export const RULES = {
   /** the companion: a line at most every this long (s); a line shows this long (s) */
   talkEvery: 9,
   talkSec: 3.4,
+  /**
+   * a moment's lines all said, they come round again (in the same order) only after this long (s)
+   * of the session, a round per this long: a session of up to 10 minutes never repeats a line, a
+   * 30-minute one still hears Tymek at its 20th minute
+   */
+  talkRound: 600,
 
   // ── the meta ─────────────────────────────────────────────────
   /** battles in a chapter; the last is the boss gate */

@@ -104,6 +104,8 @@ const SOON = 2.6;
 export class Battle {
   readonly battle: number;
   readonly chapter: number;
+  /** the chapter the darkness is as strong as (the chapter, at most RULES.chapterCap) */
+  readonly might: number;
   readonly local: number;
   readonly age: number;
   readonly bossBattle: boolean;
@@ -158,6 +160,7 @@ export class Battle {
     this.battle = init.battle;
     const c = chapterOf(init.battle);
     this.chapter = c.chapter;
+    this.might = Math.min(c.chapter, RULES.chapterCap);
     this.local = c.local;
     this.age = ageOf(init.battle);
     this.bossBattle = isBossBattle(init.battle);
@@ -168,7 +171,7 @@ export class Battle {
     this.lightMax = lightMaxFor(init.gate);
     this.flowBase = flowFor(init.gate);
     this.wallsMax = this.walls = wallsFor(init.gate, init.retreats);
-    this.ashMax = this.ash = Math.round((RULES.ash + RULES.ashPerBattle * this.local) * (1 + RULES.ashChapter * this.chapter));
+    this.ashMax = this.ash = Math.round((RULES.ash + RULES.ashPerBattle * this.local) * (1 + RULES.ashChapter * this.might));
     this.beam = beamFor(init.gate);
     this.pillarStats = pillarFor(Math.max(1, Math.min(RULES.heroMax, init.hero ?? 1)));
     this.cool = Object.fromEntries(HOST_IDS.map(id => [id, 0])) as Record<HostId, number>;
@@ -176,7 +179,7 @@ export class Battle {
 
   /** the demons' strength in this battle (× hp and damage) */
   get demonK(): number {
-    return (1 + RULES.demonPerBattle * (this.bossBattle ? RULES.bossWaves : this.local)) * (1 + RULES.demonPerChapter * this.chapter);
+    return (1 + RULES.demonPerBattle * (this.bossBattle ? RULES.bossWaves : this.local)) * (1 + RULES.demonPerChapter * this.might);
   }
 
   // ── the cards ───────────────────────────────────────────────────
@@ -364,7 +367,7 @@ export class Battle {
       this.events.push({ type: 'waveSoon', kinds: this.nextWave.slice() });
     }
     if (this.waveT <= 0) {
-      this.waveT += Math.max(R.gapMin, R.gap - R.gapPerBattle * (local + this.chapter * 2));
+      this.waveT += Math.max(R.gapMin, R.gap - R.gapPerBattle * (local + this.might * 2));
       this.waveN++;
       this.queue.push(...(this.nextWave ?? this.pick(1, false)));
       this.nextWave = null;
@@ -550,7 +553,7 @@ export class Battle {
       const step = RULES.ashSurge * this.ashMax;
       if (this.ash > 0 && Math.floor((this.ashMax - this.ash) / step) > Math.floor((this.ashMax - before) / step)) {
         this.surges++;
-        this.queue.push(...this.pick(3 + Math.floor(this.local / RULES.growBattles) + this.chapter, this.surges % 2 === 0));
+        this.queue.push(...this.pick(3 + Math.floor(this.local / RULES.growBattles) + this.might, this.surges % 2 === 0));
         this.events.push({ type: 'surge' });
       }
     } else {
@@ -619,7 +622,7 @@ export class Battle {
     this.emberCd = RULES.emberRate;
     this.events.push({ type: 'ember', x: target.x, fly: target.fly });
     const k = target.kind === 'tarczownik' ? RULES.shieldRanged : 1;
-    this.hurt(target, (RULES.ember + RULES.emberPerBattle * this.local) * (1 + RULES.demonPerChapter * this.chapter) * k, 'ember');
+    this.hurt(target, (RULES.ember + RULES.emberPerBattle * this.local) * (1 + RULES.demonPerChapter * this.might) * k, 'ember');
   }
 
   private fade(dt: number): void {

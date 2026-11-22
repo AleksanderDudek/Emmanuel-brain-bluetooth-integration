@@ -1506,3 +1506,116 @@ describe('on a phone first: the game at every checked size', () => {
     for (const h of hints) expect(h).not.toMatch(/Spacj|1–7|(^|[\s(])[HT]([\s).,!]|$)/);
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  const LONG = [900, 1200, 1500, 1800];
+
+  it('the plan covers 15–30 minutes to the finale: Natarcie and Cisza in turn, none too short or too long, ending in a Cisza', () => {
+    for (const sec of LONG) {
+      for (const first of [false, true]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        const total = plan.reduce((s, b) => s + b.dur, 0);
+        expect(total, `${sec} s`).toBeCloseTo(sec - RULES.finale, 6);
+        expect(plan[0].kind).toBe(first ? 'warmup' : 'push');
+        if (first) expect(plan[0].dur).toBe(RULES.warm.long);
+        const work = plan.filter(b => b.kind !== 'warmup');
+        work.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(plan.at(-1)!.kind).toBe('rest');
+        for (const b of work) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 3);
+        }
+        // about one pair every 47 s: 19 pairs in 15 minutes, 38 in 30
+        expect(work.length / 2).toBeCloseTo((sec - RULES.finale - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]), -0.5);
+      }
+    }
+  });
+
+  /** A plausible player for a whole session: a card every 1.5 s, the pillar and the trumpet when ready, the first offer bought; focus in a Natarcie, calm in a Cisza. */
+  function longRun(progress: Partial<ZastepyProgress>, planned = 1800) {
+    const sim = makeSim({ progress, planned });
+    const dt = 1 / 30;
+    let hand = 0, maxF = 0, maxQ = 0, finales = 0, t = 0;
+    const says: { t: number; m: string; text: string }[] = [];
+    let won = 0;
+    while (sim.phase !== 'done' && t < planned + 10) {
+      t += dt;
+      const want = sim.signal().want;
+      const f = want === 'focus' ? frame({ level: 0.8, focused: true, activity: 3 }) : want === 'rest' ? frame({ level: 0.2, calm: 0.75, activity: -1 }) : frame({ level: 0.6 });
+      sim.update(dt, f, t);
+      if ((hand += dt) >= 1.5) {
+        hand = 0;
+        if (sim.stage === 'upgrade') sim.buy(0);
+        sim.quick();
+      }
+      sim.raise();
+      sim.sound();
+      for (const e of sim.take()) {
+        if (e.type === 'say') says.push({ t, m: e.moment, text: e.text });
+        if (e.type === 'won') won++;
+        if (e.type === 'finale') finales++;
+      }
+      maxF = Math.max(maxF, sim.battle.fighters.length);
+      maxQ = Math.max(maxQ, (sim.battle as unknown as { queue: unknown[] }).queue.length);
+      if (!Number.isFinite(sim.battle.light) || !Number.isFinite(sim.battle.walls) || !Number.isFinite(sim.battle.ash)) throw new Error(`not finite at ${t}`);
+    }
+    return { sim, t, maxF, maxQ, finales, says, won };
+  }
+
+  it('a 30-minute session from the first ever plays to its finale: battles won, the numbers finite, the road never crowded, Tymek still talks at its end', () => {
+    const r = longRun({});
+    expect(r.sim.phase).toBe('done');
+    expect(r.finales).toBe(1);
+    expect(r.t).toBeLessThan(1800 + 1);
+    expect(r.won).toBeGreaterThanOrEqual(10);
+    expect(r.maxF).toBeLessThan(80);
+    expect(r.maxQ).toBeLessThan(60);
+    for (const n of [r.sim.score, r.sim.p.gold, r.sim.goldNow, r.sim.p.battle]) expect(Number.isFinite(n)).toBe(true);
+    const res = r.sim.result();
+    expect(res.stats.every(([k, v]) => k && v && !/undefined|NaN/.test(k + v))).toBe(true);
+    expect(r.says.every(s => s.text && !/undefined/.test(s.text))).toBe(true);
+    // the lines come round again after ten minutes, never sooner
+    expect(r.says.filter(s => s.t > 1200).length).toBeGreaterThan(5);
+    const first = new Map<string, number>();
+    for (const s of r.says) {
+      const at = first.get(s.text);
+      if (at === undefined) first.set(s.text, s.t);
+      else expect(s.t, s.text).toBeGreaterThanOrEqual(RULES.talkRound);
+    }
+  });
+
+  it('a 10-minute session still never repeats a line', () => {
+    const r = longRun({}, 600);
+    expect(r.sim.phase).toBe('done');
+    const texts = r.says.map(s => s.text);
+    expect(new Set(texts).size).toBe(texts.length);
+  });
+
+  it('a 30-minute session deep in the campaign, everything at the top, keeps winning battles (the darkness plateaus)', () => {
+    const r = longRun({ sessions: 30, giftDay: DAY, battle: 60, gate: 10, hero: 5, units: lv(5), seen: 31, taught: 127 });
+    expect(r.sim.phase).toBe('done');
+    expect(r.won).toBeGreaterThanOrEqual(3);
+    expect(r.sim.lostNow).toBeLessThanOrEqual(r.won);
+    expect(r.maxF).toBeLessThan(80);
+    expect(r.maxQ).toBeLessThan(60);
+  });
+
+  it('past the 8th chapter the gate of ash and the shades stop growing; a host at the top that answers the waves wins there', () => {
+    const at = (battle: number) => new Battle({ battle, gate: 10, units: lv(5), hero: 5, retreats: 0, seed: 1 });
+    const cap = RULES.chapterCap * RULES.chapter;
+    for (const loc of [0, 2, 4]) {
+      const a = at(cap + loc), b = at(cap + 40 + loc);
+      expect(b.ashMax).toBe(a.ashMax);
+      expect(b.demonK).toBeCloseTo(a.demonK, 9);
+      expect(b.chapter).toBeGreaterThan(a.chapter);
+    }
+    // up to the cap it grows as before
+    expect(at(cap - 5).demonK).toBeLessThan(at(cap).demonK);
+    for (const battle of [61, 103]) {
+      for (const seed of [1, 2]) {
+        const r = playBattle({ battle, gate: 10, units: lv(5), hero: 5, policy: 'counter', band: true, seed, maxSec: 600 });
+        expect(r.outcome, `battle ${battle}, seed ${seed}`).toBe('won');
+      }
+    }
+  });
+});
