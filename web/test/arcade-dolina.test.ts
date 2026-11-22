@@ -19,7 +19,7 @@ import { floorKind, keeperFloor, towerPlan } from '../src/arcade/dolina/plan';
 import { RULES } from '../src/arcade/dolina/rules';
 import {
   DolinaSim, LAMP_MARK, WARM_PLAN, answerFor, chargeRate, comboMult, cooldownFor, finaleFor, harmFor, harmWith, hukFor, lampFor, ledgeFor, pendAt,
-  planBlocks, stagePlan, starsFor, stepsFor, stoneHp, strikeGapFor,
+  guardsText, planBlocks, stagePlan, starsFor, stepsFor, stoneHp, strikeGapFor,
   type SimEvent, type Stone,
 } from '../src/arcade/dolina/sim';
 import { BEGINNER_TUNING, DEFAULT_TUNING, FocusInput, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
@@ -1666,5 +1666,83 @@ describe('Dolina: a desktop and a big screen', () => {
     expect(sim.block.kind).toBe('warmup');
     expect(sim.tip).not.toMatch(TOUCH);
     expect(sim.tip).toMatch(MOUSE);
+  });
+});
+
+describe('Dolina: long sessions (15–30 min)', () => {
+  it('plans 15, 20, 25 and 30 minutes: push/rest pairs to the finale, every block of its usual length', () => {
+    for (const sec of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        const total = plan.reduce((s, b) => s + b.dur, 0) + finaleFor(sec);
+        expect(total).toBeCloseTo(sec, 5);
+        expect(finaleFor(sec)).toBe(RULES.finale.long);
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(plan[plan.length - 1].kind).toBe('rest');
+        for (const b of body) {
+          const [nom, jit] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeGreaterThanOrEqual(Math.max(RULES.minBlock, (nom - jit) * 0.95));
+          expect(b.dur).toBeLessThanOrEqual((nom + jit) * 1.05);
+        }
+        expect(body.length / 2).toBe(Math.round((sec - finaleFor(sec) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0])));
+      }
+    }
+  });
+
+  it('names each guardian beaten once, with its count, so a long run keeps the summary to one line', () => {
+    expect(guardsText(['wieza', 'rycerz'])).toBe(`${t('g.wieza')}, ${t('g.rycerz')}`);
+    const many = guardsText(['wieza', 'rycerz', 'ekran', 'kukulka', 'wieza', 'rycerz', 'ekran', 'kukulka', 'wieza']);
+    expect(many).toBe(`${t('g.wieza')} ×3, ${t('g.rycerz')} ×2, ${t('g.ekran')} ×2, ${t('g.kukulka')} ×2`);
+  });
+
+  /** 30 minutes at a steady high focus, a player who jumps what is ahead: the run keeps giving, nothing grows. */
+  function longRun(sim: DolinaSim): { evs: SimEvent[]; max: Record<string, number> } {
+    const max: Record<string, number> = {};
+    const note = (k: string, n: number) => { max[k] = Math.max(max[k] ?? 0, n); };
+    const evs: SimEvent[] = [];
+    const clock = { t: 0 };
+    for (let k = 0; k < 19; k++) {
+      evs.push(...drive(sim, 100, () => (sim.block?.kind === 'push' ? HIGH : CALM), clock, () => {
+        if (sim.grounded && (sim.blocked === 'wall' || sim.stonesOnRoad.some(s => s.alive && s.tall && s.x - sim.px < 1.6 && s.x > sim.px))) sim.press();
+        else if (!sim.grounded && sim.airUsed === 0 && sim.vy < 0.5 && sim.vy > -1 && sim.blocked === 'wall') sim.press();
+        const s = sim as unknown as { laid: unknown[] };
+        note('segs', sim.segs.length); note('laid', s.laid.length); note('stones', sim.stonesOnRoad.length); note('shadows', sim.shadows.length);
+        note('shots', sim.shots.length); note('steps', sim.steps.length); note('walls', sim.walls.length); note('gates', sim.gates.length);
+        note('posts', sim.posts.length); note('pends', sim.pends.length); note('lambs', sim.lambs.length);
+      }));
+      for (const v of [sim.px, sim.py, sim.score, sim.sparks, sim.lampR]) expect(Number.isFinite(v)).toBe(true);
+    }
+    return { evs, max };
+  }
+
+  it('plays a full 30-minute valley run to its dawn: levels keep coming, collections stay bounded, the summary reads', () => {
+    const sim = later({ planned: 1800, seed: 3 });
+    const { evs, max } = longRun(sim);
+    expect(sim.phase).toBe('done');
+    expect(sim.canStop()).toBe(true);
+    expect(ofType(evs, 'level').length).toBeGreaterThanOrEqual(8);
+    expect(ofType(evs, 'blockEnd').length).toBe(sim.plan.length);
+    for (const [k, n] of Object.entries(max)) expect(n, k).toBeLessThan(60);
+    const r = sim.result();
+    expect(Number.isFinite(r.score) && r.score > 0).toBe(true);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN|\{/);
+    expect(passage(r.verse!)).toBeTruthy();
+  });
+
+  it('climbs the clock tower for 30 minutes: past the dawn into a darker night, a dozen keepers in one short line', () => {
+    const sim = later({ planned: 1800, seed: 3, progress: { mode: 'tower', guards: 1, tower: { floor: 1, best: 0, night: 0 } } });
+    const { max } = longRun(sim);
+    expect(sim.phase).toBe('done');
+    expect(sim.floor).toBeGreaterThan(RULES.tower.dawnFloor);
+    expect(sim.guardsBeaten.length).toBeGreaterThanOrEqual(8);
+    for (const [k, n] of Object.entries(max)) expect(n, k).toBeLessThan(60);
+    const r = sim.result();
+    const line = r.stats.find(([k]) => k === t('stat.guards'))![1];
+    expect(line.split(', ').length).toBeLessThanOrEqual(KEEPERS.length);
+    expect(line.length).toBeLessThan(80);
+    expect(sim.p.tower.night).toBeGreaterThanOrEqual(1);
   });
 });

@@ -2767,7 +2767,7 @@ export class DolinaSim {
         : [t('stat.level'), t('stat.levelVal', { from: this.levelStart, to: this.level })],
       ...(this.tower ? [] : [[t('stat.stars'), String(this.stars)] as [string, string]]),
       [t('stat.lambs'), String(this.freed)],
-      [t('stat.guards'), this.guardsBeaten.length ? this.guardsBeaten.map(guardName).join(', ') : '—'],
+      [t('stat.guards'), this.guardsBeaten.length ? guardsText(this.guardsBeaten) : '—'],
       [t('stat.party'), this.party.length ? String(this.party.length) : '—'],
       [t('stat.powers'), String(this.powers)],
       [t('stat.sparks'), fmtNum(this.sparks)],
@@ -2813,7 +2813,7 @@ export class DolinaSim {
     const notes: { rank: number; text: string }[] = [];
     const add = (rank: number, text: string) => notes.push({ rank, text });
     for (const id of this.freedNow) add(0, t('hl.found', { name: compName(id) }));
-    if (this.guardsBeaten.length) add(1, t('hl.guards', { list: this.guardsBeaten.map(guardName).join(', ') }));
+    if (this.guardsBeaten.length) add(1, t('hl.guards', { list: guardsText(this.guardsBeaten) }));
     if (this.tower && this.floorsDone) add(2, t('hl.floors', { n: this.floorsDone, time: this.clock }));
     if (this.levels) add(2, t('hl.levels', { n: this.levels, stars: this.stars }));
     for (const c of this.chestsNow) add(3, chestLine(c.drop, c.gear));
@@ -2838,6 +2838,16 @@ export class DolinaSim {
 
   /** For the view: the floor's era name (in the tower, the floor's trial). */
   get eraLabel(): string { return this.tower ? floorName(this.floorKind) : eraName(this.era); }
+}
+
+/**
+ * The guardians beaten, in the order first met, each named once with its count ("Wieża ×4, Ekran"):
+ * a 30-minute tower run beats a dozen keepers, and the summary's line must stay one line.
+ */
+export function guardsText(ids: readonly GuardId[]): string {
+  const n = new Map<GuardId, number>();
+  for (const id of ids) n.set(id, (n.get(id) ?? 0) + 1);
+  return [...n].map(([id, k]) => (k > 1 ? `${guardName(id)} ×${k}` : guardName(id))).join(', ');
 }
 
 /** A chest's content in a line ("Skrzynia: Płaszcz · mistrzowski"). */
