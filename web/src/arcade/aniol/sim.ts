@@ -1235,6 +1235,12 @@ export class AniolSim {
     const options = this.giftOptions();
     this.choice = { options, t: 0 };
     this.emit({ type: 'level', level: this.nightLevel, options });
+    // every gift is taken to its limit (a long night gets there by its 10th–12th level): only the fresh
+    // dream is left, so there is nothing to choose — it comes at once, without the sheet and its slow motion
+    if (options.every(o => o === 'sen')) {
+      this.pick(0, true);
+      return;
+    }
     this.coach('coach.gift', { ui: 'sheet' });
   }
 
@@ -1702,7 +1708,11 @@ export class AniolSim {
     if (this.flames) add(8, t('hl.flames', { n: this.flames }));
     if (this.blindShare >= 0) add(9, t('hl.blind', { n: this.blindShare }));
     if (this.dayGiftNow) add(10, t('hl.dayGift', { feathers: feathersText(this.dayGiftNow) }));
-    if (this.gifts.length) add(11, t('hl.gifts', { list: [...new Set(this.gifts)].map(id => giftById(id).name).join(', ') }));
+    if (this.gifts.length) {
+      // a long night takes every gift: three names, then "+n"
+      const names = [...new Set(this.gifts)].map(id => giftById(id).name);
+      add(11, t('hl.gifts', { list: names.slice(0, 3).join(', ') + (names.length > 3 ? ` +${names.length - 3}` : '') }));
+    }
     const out = notes.sort((a, b) => a.rank - b.rank).slice(0, 5).map(n => n.text);
     // the story's closing line: where the child's dream goes next
     const nextNight = this.night + 1;

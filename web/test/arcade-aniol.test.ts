@@ -1496,3 +1496,100 @@ describe('a big screen with a mouse (DESIGN §14)', () => {
     }
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes like the short ones: vigil and lullaby in turn, a lullaby last, the finale left to the great nightmare', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [false, true]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const name = `${planned}${first ? ' first' : ''}`;
+        expect(plan.reduce((s, b) => s + b.dur, 0) + finaleFor(planned), name).toBeCloseTo(planned, 0);
+        expect(finaleFor(planned), name).toBe(RULES.finale.long);
+        const play = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0].kind, name).toBe('warmup');
+        play.forEach((b, i) => {
+          expect(b.kind, name).toBe(i % 2 ? 'rest' : 'push');
+          expect(b.dur, name).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur, name).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 2);
+        });
+        expect(plan[plan.length - 1].kind, name).toBe('rest');
+        expect(play.length / 2, name).toBeGreaterThanOrEqual(Math.floor(planned / 50));
+      }
+    }
+  });
+
+  /** A steady player for a whole night: the band high in a vigil and calm in a lullaby, a strike when a Zmora is in reach. */
+  function night(progress: Partial<AniolProgress>, seed: number) {
+    const sim = makeSim({ planned: 1800, progress, seed });
+    const DT = 1 / 20;
+    let tap = 0, maxZ = 0, maxD = 0, choiceT = 0, at20 = 0, finales = 0, dawns = 0, levels = 0, openAfterSen = 0;
+    for (let t = DT; t < 1810; t += DT) {
+      sim.update(DT, sim.block?.kind === 'rest' ? CALM : HIGH, t);
+      if ((tap += DT) >= 0.3) {
+        tap = 0;
+        if (sim.zmory.some(z => z.state === 'walk' && z.d - z.r <= sim.reach + 0.1)) sim.strike(0);
+      }
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finales++;
+        if (e.type === 'dawn') dawns++;
+        if (e.type === 'level') {
+          levels++;
+          if (e.options.every(o => o === 'sen') && sim.choice?.options.every(o => o === 'sen')) openAfterSen++;
+        }
+      }
+      if (sim.choice) choiceT += DT;
+      maxZ = Math.max(maxZ, sim.zmory.length);
+      maxD = Math.max(maxD, sim.drops.length);
+      if (at20 === 0 && t >= 1200) at20 = sim.score;
+    }
+    return { sim, maxZ, maxD, choiceT, at20, finales, dawns, levels, openAfterSen };
+  }
+
+  it('a 30-minute night plays to its great nightmare and the dawn, the Zmory keep coming, nothing piles up', () => {
+    const giftSlots = GIFTS.filter(g => g.id !== 'sen').reduce((s, g) => s + g.max, 0);
+    for (const [progress, seed] of [[{}, 7], [{ sessions: 20, giftDay: DAY, pushes: 1, night: 14, feathers: 5000 }, 3]] as const) {
+      const r = night(progress, seed);
+      const { sim } = r;
+      expect(sim.phase).toBe('done');
+      expect(r.finales).toBe(1);
+      expect(r.dawns).toBe(1);
+      expect(sim.koszmar).not.toBe('none');
+      expect(sim.score).toBeGreaterThan(r.at20 * 1.2);
+      // levels keep coming through the night; once every gift is taken the fresh dream comes at once
+      expect(r.levels).toBeGreaterThanOrEqual(15);
+      expect(r.openAfterSen).toBe(0);
+      expect(r.choiceT).toBeLessThanOrEqual(giftSlots * RULES.choiceSec + 1);
+      expect(sim.taken.sen ?? 0).toBeGreaterThan(0);
+      for (const v of [sim.score, sim.feathers, sim.sen, sim.reach, sim.nightLevel, sim.p.feathers, sim.p.wallet]) expect(Number.isFinite(v)).toBe(true);
+      expect(r.maxZ).toBeLessThan(24);
+      expect(r.maxD).toBeLessThan(12);
+      for (const z of sim.zmory) expect(Number.isFinite(z.d) && Number.isFinite(z.speed)).toBe(true);
+      const res = sim.result();
+      expect(sim.p.best['1800']).toBe(res.score);
+      for (const h of res.highlights) {
+        expect(h).not.toMatch(/undefined|NaN/);
+        expect(h.length, h).toBeLessThanOrEqual(90);
+      }
+      for (const [k, v] of res.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+
+  it('a level-up with every gift taken gives the fresh dream at once: no sheet, no slow motion', () => {
+    const sim = later({ progress: { feathers: 5000 } });
+    quiet(sim);
+    for (const g of GIFTS) if (g.id !== 'sen') sim.taken[g.id] = g.max;
+    sim.sen = 0.4;
+    (sim as unknown as { gain(n: number): void }).gain(levelNeed(sim.nightLevel));
+    const evs = sim.take();
+    expect(ofType(evs, 'level')).toHaveLength(1);
+    expect(ofType(evs, 'gift')[0]).toMatchObject({ id: 'sen', auto: true });
+    expect(sim.choice).toBeNull();
+    expect(sim.sen).toBe(1);
+    drive(sim, 0.2, frame());
+    expect(sim.timeScale).toBe(1);
+    // two levels at once: both come at once
+    (sim as unknown as { gain(n: number): void }).gain(levelNeed(sim.nightLevel) + levelNeed(sim.nightLevel + 1));
+    expect(ofType(sim.take(), 'gift')).toHaveLength(2);
+    expect(sim.choice).toBeNull();
+  });
+});
