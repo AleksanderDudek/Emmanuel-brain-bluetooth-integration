@@ -174,7 +174,7 @@ reference). It uses its own art and no Mendi logo or name inside the game.
 
 | Step | What happens |
 |---|---|
-| Setup | Length 3 / 5 / 10 / 15 min (default 5). Breathwork on or off (1 min). Scene: *Wzgórza* (rolling hills, the default), *Wydmy*, *Śnieżne szczyty*, *Kosmos*. Display: glow, dynamic zoom, in-game metrics. Sound: soundscape and point chime. All of it is remembered. |
+| Setup | Length 3 / 5 / 10 / 15 / 20 / 25 / 30 min (default 5; up to 15 until 2026-11-22). Breathwork on or off (1 min). Scene: *Wzgórza* (rolling hills, the default), *Wydmy*, *Śnieżne szczyty*, *Kosmos*. Display: glow, dynamic zoom, in-game metrics. Sound: soundscape and point chime. All of it is remembered. |
 | Mood | "Jak się dziś czujesz?": five faces, then up to five feeling words. Can be skipped. Saved with the result. |
 | Breathwork | Cyclic sighing for 60 s: inhale, a short top-up inhale, a long exhale, with blooming circles and a countdown. |
 | Calibration | "Szukam przepływu krwi i tlenu…" (fNIRS) or "Szukam fal mózgowych…" (EEG). First the engine's own baseline, then **20 s of reliable signal** set the session reference. Motion or poor contact extends it, with the reason shown. Advice: "soft, unfocused attention". |
@@ -253,7 +253,7 @@ review videos from 2023 to 2026, and neurofounders.co (2026).
 * **Definitions:** Neural Activity is how active the PFC is. Oxygenation is the changes in
   oxygen-rich blood flow. Control is how steadily you keep the focus, meaning consistency
   rather than peak strength.
-* **Session:** 3 / 5 / 10 / 15 min. Before it come a mood check (5 faces, then feeling words),
+* **Session:** 3 / 5 / 10 / 15 / 20 / 25 / 30 min (the app's one list, `SESSION_MINUTES` in settings.ts). Before it come a mood check (5 faces, then feeling words),
   optional cyclic-sighing breathwork, and "Calibrating – Searching for blood flow and oxygen".
   After it comes the Mendi Score (Commitment up to 70 + Performance up to 30) with a label
   ("Building momentum", "Solid routine"), then Neural Activity %, Control s, Oxygenation p,
@@ -332,7 +332,7 @@ i smok towards the newest versions of their models, and gave the Games tab a fif
   **lobby** (`#gra/<id>`): an animated picture of the player's own world (their village, cabinet
   or glasshouse), "How your headband plays" in three lines, the player's progress (records,
   album, the daily challenge), the passage of Scripture the game takes root in (an epigraph under the
-  picture), the session length (3 / 5 / 10 min), sound and vibration, and the readiness of the
+  picture), the session length (3 / 5 / 10 / 15 / 20 / 25 / 30 min since 2026-11-22; arcade DESIGN §17), sound and vibration, and the readiness of the
   signal with one button, "Play". They work with both bands (Mendi and HALO)
   and need a signal: the band or its simulator.
 * **A session** (`src/arcade/runner.ts`) is full screen: the calibration is the game's own intro

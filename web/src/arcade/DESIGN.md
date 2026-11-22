@@ -246,7 +246,7 @@ The world, the butterflies, the atlas and the root passage (2 Corinthians 5:17) 
 shadow, block a rival. The level: a garden with a length goal (★), at most one stumble (★★) and a
 side goal (★★★: the rare flower, rivals curled on your side, dewdrops, flowers); reaching the length
 spins a chrysalis (a short cutscene), a new caterpillar hatches from the next egg and the next
-garden's card shows its goals. Eight gardens make the map; after them it loops, each lap longer.
+garden's card shows its goals. Eight gardens make the map; after them it loops, each lap longer up to the 4th (round 12: long sessions went round ~3× faster).
 The meta: the map with its stars, the record, the longest caterpillar, and the atlas of 18 Polish
 butterflies (eggs, published odds with pity, pyłek, aberrations) kept from version 1.
 
@@ -4569,7 +4569,7 @@ other defences finish the job — never a failure, no stars; the run carries ove
 |---|---|---|---|---|
 | **Alarm** | a splinter carries skin cocci in; Makro, the tissue macrophage, senses them (TLRs) and engulfs them; cytokines (IL-1β, TNF) go out as rings; where a ring reaches the venule its wall lights (selectins, the chemokine CXCL8) | drag Makro; tap a bacterium (he gulps it: a ring 1.6× as far) | 5 lit places on the wall | minutes → seconds |
 | **Rekrutacja** | neutrophils tumble in the blood, are captured over the lit wall and **roll**, stop (integrins), crawl to a junction and **squeeze through** (diapedesis) into the tissue | tap a rolling cell (or drag along the vessel) to stop it; it stops by itself a little later anyway | 12 recruits (+2 a loop) | ~4 min through the lining → a second |
-| **Łowy** | someone pulled the splinter out, the bacteria stayed and divide; the swarm follows the trail (chemotaxis) and engulfs: pseudopods wrap, a phagosome fizzes (the granules, the respiratory burst), the bacterium dissolves; a neutrophil eats 3–20 and is spent, falls into tidy apoptotic bubbles | drag to lead the swarm (drawn above the finger); tap a bacterium; the **Burst** and **NET** buttons | clear the wave (24, more each loop) | ~20 s an engulf, hours → a moment |
+| **Łowy** | someone pulled the splinter out, the bacteria stayed and divide; the swarm follows the trail (chemotaxis) and engulfs: pseudopods wrap, a phagosome fizzes (the granules, the respiratory burst), the bacterium dissolves; a neutrophil eats 3–20 and is spent, falls into tidy apoptotic bubbles | drag to lead the swarm (drawn above the finger); tap a bacterium; the **Burst** and **NET** buttons | clear the wave (24, more each loop until the 5th) | ~20 s an engulf, hours → a moment |
 | **Przeciwciała** | a dendritic cell takes a piece and leaves for the lymph node (an inset: a B cell, plasma cells, Ys flying); antibodies (gold Ys) and complement (C3b dots) tag the bacteria gold — tagged ones are engulfed three times faster; bacteria in a slippery capsule bounce a neutrophil off until tagged | as in the hunt | clear the wave | ~2 weeks (memory: 3–4 days) → seconds |
 | **Limfocyty T** | the nose's lining; a cold virus (a rhinovirus) replicates in its cells, which show violet flags (viral peptides on MHC I); a cytotoxic T cell docks (perforin, granzymes) and the cell **folds itself away** into tidy bubbles (apoptosis); a cell left alone bursts and the virions infect neighbours, unless interferon has made them antiviral; from loop 2 some cells hide their flags and only **NK cells** find them | tap an infected cell (the nearest T cell goes), drag to lead the T cells | no infected cell left | 30 s to the holes, minutes to fold → a second |
 | **Gojenie** | back at the wound: Makro turns green (repair mode) and tidies the spent neutrophils (efferocytosis), fibroblasts weave collagen, capillaries sprout up from the venule, the skin's edges close over; a few stragglers hide in crevices | drag across the wound to lay collagen (only here: round 11); tap a spent cell to have it tidied | the wound closed | 4–21 days, remodelling a year → a minute |
@@ -4937,7 +4937,7 @@ fades. Each synapse passes a thought with a chance — 1 − 0.5ⁿ for n synaps
 probabilistic; more synapses, a surer path) — and a thought that passes **strengthens** the link (use builds
 the path, Hebb). The bridge passes 94 % (all of them in step). Learned paths keep "habit" thoughts running in
 later lessons and sessions. A lesson is learned when its thoughts arrive (5–6, two more each round of the
-ladder) — a gold sweep runs along its path; a **fast** lesson counts only thoughts under its conduction limit
+ladder, for ten rounds) — a gold sweep runs along its path; a **fast** lesson counts only thoughts under its conduction limit
 (10 / 5 / 2.5 ms by round), computed from each link's length in millimetres and its speed — the reason to
 myelinate.
 
@@ -6511,3 +6511,89 @@ slowly once** before the game runs at speed.
   lobby's three lines are three concrete steps (blue, orange and the verdicts, the practice and what the band measures).
 * Kept: the flight's physics, the granie, the day and its night, the sun gauge and the thermals, the meta, Leon.
 * Saves gain `perfectAll`, `cues`, `practice`, `practiced` (an older save is repaired by `migrate`).
+
+## 17. Round 12: sessions of 3–30 minutes, and the living picture (2026-11-22)
+
+The founder, away, with a free hand: *"I want to set games and trainings to 3/5/10/15/20/25/30 min sessions. I
+want to be able to choose for the picture to be moving, like animated (I can choose options that will be generated
+for an uploaded picture). Is there some solution for that that can easily animate picture slightly? Also use
+parallax effect. Other than that the game can stay as is."*
+
+### 17.1 One list of lengths
+
+`SESSION_MINUTES = [3, 5, 10, 15, 20, 25, 30]` (settings.ts) is the one list for the focus training (was 3–15), every
+arcade game (was 3/5/10) and the exercise cards' games (was 1/2/3/5; a saved 1 or 2 becomes 3, the default 3; the
+day's 90 s workout is unchanged). `sessionMinutes()` reads any saved value as the nearest length; `plannedSeconds()`
+is the one place `?trainingSec=N` is read (now up to 1800). The pickers are seven equal columns (the number over a
+small "min"), so they fit a 320 px phone in one row. The training scene draws and measures only the curve on screen
+(a 30-minute session holds ~18 000 points; the zoom no longer stays wide after an early spike).
+
+**Every game was checked at 900, 1200, 1500 and 1800 s** (three audits, a `15–30 minutes` block in each game's
+tests: the plan to its finale, and a full 30-minute headless session with bounded collections and a clean result).
+Every plan already scaled. What longer sessions exposed, and the fix:
+
+| Game | Found at 15–30 minutes | Fix |
+|---|---|---|
+| Posłaniec | cities after the first were never delivered (the next mark carried a metre's fraction and was skipped — wrong at 10 minutes too); Klekot fell silent | `nextCityFrom()`; a line may come back after 10 minutes (shorter sessions never repeat, as before) |
+| Zacheusz | Mela fell silent | the same 10-minute rule |
+| Zastępy | the demons grew every chapter without limit; from chapter 10 a full host could only lose | `chapterCap: 7`; Tymek's lines come round after 10 minutes |
+| Odporność | waves and division grew each loop without limit; from the 6th loop the hunt and the antibodies always timed out | difficulty holds from the 5th loop (`loopTop`) |
+| Motylarnia | laps grew without limit (goals out of reach, rivals huge) | growth stops after the 4th lap |
+| Rzeki | the rivers reached the picture's edges ~5 minutes in | full at 700 drops up to 10 minutes, then × length / 10 min |
+| Każdy włos | the second time round started already grown ("repeat", "in order") | the scenes regrow |
+| Synapsy | a lesson's thoughts grew by two every round without limit | they hold after ten rounds |
+| Anioł Stróż | after the 11 gifts, each level-up opened three identical "Świeży sen" cards with slow motion | the fresh dream is given at once |
+| Dziewiątka | boons stacked without limit (×4.7 attack speed) | `boonCap` |
+| Nehemiasz | a new year after the wall showed "44–44 z 52"; raiders grew without limit; foxes stayed in the save | `stat.daysWrap`, `yearTop: 4`, foxes leave with their gate |
+| Ja jestem… | a strong player lit all 144 cells ~10 minutes into 30 (20 minutes of the light pass) | sessions over 15 minutes may take up to 216 cells (`cellsMaxFor`); 15 minutes and less keep 48–144 exactly |
+| Geoda, Glina, Urodzaj, Arka, Motylarnia, Pasterz, Dolina, Anioł, Synapsy | summaries grew to 13–58 lines | one line per kind, three names then "+N" |
+| Pasterz, Jerzy, Dawid | the companion's log grew without limit | kept to its last 120 lines |
+| Firmament | ~1 240 000 points in 30 minutes | a number of 8+ characters takes a smaller size in the score corner and the summary |
+
+Sound as they were: Latarnik, Wzlot, Źródła, Firmament, Chleby, Koty, Ogień, Rozświetl, Światło ciała, Odnowa.
+Left for the founder: Synapsy's headline (synapses grown) stops rising once every link is at its maximum — with
+Space alone ~2.5 minutes in, at any length — changing it would change what the score means; Urodzaj's "a new
+decoration on the table" is no longer true after the 6th feast ever (older copy); Pasterz's wardrobe opens most of its
+11 pieces in a first session of any length (lifetime progress, as designed).
+
+### 17.2 The living picture (kit/living.ts, Ja jestem…)
+
+**The choice of technique.** The usual ways to bring a still photo to life: (a) an AI image-to-video model — realistic,
+but the photo would leave the device (the game promises it never does), it costs per clip and needs a server and a
+key a static PWA cannot hide; (b) a learned depth model in the browser (Depth Anything via transformers.js) for a "3D
+photo" — a 25–50 MB download and heavy on a phone; (c) the "3D photo" effect from a depth **guessed** on the device,
+with a few gentle loops on top. Chosen: (c) — instant, private, offline, a few milliseconds, and "slightly" is what
+the founder asked for; (b) can sharpen the planes later without changing the game.
+
+**The analysis** (`analyseLiving`, ≈ 2–6 ms on a grid of ≤ 96 columns, part of the photo's preparation): depth from
+where things are (the bottom of a photo is near), open sky (smooth, bright or blue, reached from the top edge: far),
+detail (what is in focus is near) and the photo's heart (the subject); smoothed with a cross-bilateral filter so a
+plane ends where the colour does; cut at its quantiles into 4 planes. It also finds water (blue-green, smooth rows
+from a horizon to the bottom), small bright glints and the share of light, and **ranks the motions for this photo**:
+water first when there is water, mist for a wide sky, glow for a bright picture, else breath — "generated for the
+uploaded picture".
+
+**The motions.** *Oddech* — the picture swells a little with the lungs (the game's own breath, 4 in / 6 out);
+*Blask* — a band of light glides over the bright places every 12 s, glints flare in turn; *Mgiełka* — two veils drift
+through the far planes only; *Woda* — the picture below the horizon in thin strips along a travelling wave, glints on
+the water; *Bez ruchu*. **Głębia (paralaksa)** on top of any of them: the 4 planes shift against each other (far −0.45,
+0, 0.55, near 1 × 1.4 % of the longer side) along a slow orbit (16 s × 23 s loops), a desktop's mouse over the picture
+or a phone's tilt where the browser sends it unasked (Android; iOS would need a permission prompt — not asked). Each
+plane's hidden back is filled in (push-pull from the colours around it) so a moving edge never shows a ghost; the zoom
+always covers the farthest plane's shift (tested for every motion, strength and photo shape).
+
+**The card.** Under an own picture, once its sketch is ready: "Ruch obrazu" — the offered motions, each playing on
+the photo itself in a tile, the recommended one marked "Polecane", a depth switch, a line saying what the motion does,
+and "W grze ożywa to, co pokolorujesz, a w finale cały obraz." A choice is kept with the picture at once
+(`StoredImage.motion`). A picture with no choice yet plays its recommended motion with depth. A device that asks for
+less motion (`prefers-reduced-motion`) sees still tiles and a line that the game keeps the picture still.
+
+**In play.** What the player has coloured comes alive: the lit cells, the blooms of the cells being filled and the
+finale show the living photo (at 55 % strength while colouring — so it stays close to the pencil sketch beside it —
+and whole in the finale, where the mosaic gives way to the photo). The glass then holds only the panes' bevels and
+grace's gold; the lit cells are drawn through their outline. Declarations' painted pictures stay as they were.
+
+**The price.** On a GPU canvas a frame costs 0.1–0.8 ms (1200 × 1400). On a CPU canvas (some phones, a browser with
+its GPU off) 4–48 ms, so a dear frame is redrawn at most 24 times a second and, still over 9 ms after 30 frames, steps
+down: the depth planes go, then the motion. Tests: `test/arcade-living.test.ts`, the 15–30 minute block in
+`test/arcade-jestem.test.ts`.
