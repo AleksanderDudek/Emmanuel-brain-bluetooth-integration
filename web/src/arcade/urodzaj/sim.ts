@@ -1019,7 +1019,8 @@ export class UrodzajSim {
     const out: string[] = [];
     for (const tier of this.firsts.slice(-3)) out.push(t('hl.first', { fruit: fruit(tier).name }));
     if (this.poles) out.push(t('hl.pole', { n: this.poles }));
-    for (const f of this.fests) out.push(t('hl.fest', { fest: festName(festivalAt(f)) }));
+    // a long session may keep several feasts: each of the three kinds once (the summary stays short)
+    for (const name of new Set(this.fests.map(f => festName(festivalAt(f))))) out.push(t('hl.fest', { fest: name }));
     if (this.score > this.bestBefore && this.bestBefore > 0) out.push(t('hl.record'));
     else if (this.bestBefore > 0 && this.bestBefore - this.score > 0 && this.bestBefore - this.score <= this.bestBefore * 0.2) out.push(t('hl.near', { n: this.bestBefore - this.score }));
     if (this.daily) out.push(t('hl.daily'));

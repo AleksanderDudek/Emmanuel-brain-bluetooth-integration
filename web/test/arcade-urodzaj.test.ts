@@ -975,3 +975,53 @@ describe('big screens and the mouse (DESIGN §14)', () => {
     }
   });
 });
+
+// ── long sessions (15–30 min) ────────────────────────────────────
+
+describe('Urodzaj at 15–30 minutes', () => {
+  it('plans 900–1800 s to the evening: Wiatr/Pokłosie pairs at their design lengths, ending on a Pokłosie', () => {
+    for (const sec of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - finaleFor(sec), 6);
+        expect(plan[0].kind === 'warmup').toBe(first);
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('plays a whole 30-min session: baskets keep coming, the heap and the lists stay bounded, it reaches its evening', () => {
+    const sim = later({ planned: 1800, seed: 7 });
+    const rnd = mulberry32(11);
+    const clock = { t: 0 };
+    let next = 0.8, evs = 0, maxBodies = 0, ended = 0;
+    const dt = 1 / 30;
+    for (let i = 0; i < 1803 / dt; i++) {
+      clock.t += dt;
+      sim.update(dt, sim.block.kind === 'rest' ? CALM : HIGH, clock.t);
+      if (clock.t >= next) {
+        next += 0.9;
+        const x = (rnd() - 0.5) * 0.8;
+        sim.pointerDown(x);
+        sim.pointerUp(x);
+      }
+      for (const e of sim.take()) { evs++; if (e.type === 'end') ended++; }
+      maxBodies = Math.max(maxBodies, sim.world.bodies.length);
+    }
+    expect(ended).toBe(1);
+    expect(sim.canStop()).toBe(true);
+    expect(evs).toBeGreaterThan(1000);
+    expect(maxBodies).toBeLessThan(120);
+    expect(sim.basketsDone).toBeGreaterThan(3);
+    expect(Number.isFinite(sim.score)).toBe(true);
+    const out = sim.result();
+    expect(out.highlights.length).toBeLessThanOrEqual(7);
+    for (const s of [...out.highlights, ...out.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+  });
+});
