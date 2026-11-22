@@ -593,12 +593,17 @@ export class WlosySim {
   private afterWhole(med: MedId): void {
     if (this.mode === 'order') {
       const next = MEDS[(MEDS.indexOf(med) + 1) % MEDS.length];
+      // round again (a long session goes round the eight): a scene grown whole earlier this session grows again —
+      // else it would arrive grown and the way would stop there, in its "after"
+      for (const s of MED[next].scenes) if ((this.sceneG.get(s) ?? 0) >= 1 - 1e-9) this.sceneG.delete(s);
       this.enter(next, 0, 'auto');
       return;
     }
     if (this.mode === 'repeat') {
-      for (const s of MED[med].scenes) this.sceneG.delete(s);
       this.enter(med, 0, 'auto', 0);
+      // after enter(), which keeps the last scene as grown: all of it grows again (else the second time round would
+      // stop at its last scene, arrived grown)
+      for (const s of MED[med].scenes) this.sceneG.delete(s);
       this.talk.ask('again', 2, 8);
       return;
     }

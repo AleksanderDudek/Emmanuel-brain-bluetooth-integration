@@ -826,3 +826,83 @@ const _ids: readonly MedId[] = ['krazenie', 'korzen', 'kolor', 'wzrost', 'wir', 
 const _scenes: readonly SceneId[] = ['czepiec', 'glowa'];
 void _ids;
 void _scenes;
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes to the quiet end: push and rest alternating, ending on a rest, every block 12–31 s', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(31);
+        }
+        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
+        expect(body.length).toBe(2 * pairs);
+      }
+    }
+  });
+
+  it('fills 30 minutes in every mode: in order round the eight and round again, again and again, or just this one whose hair keeps growing', () => {
+    for (const mode of MODES) {
+      for (const strong of [false, true]) {
+        const sim = later({ planned: 1800, seed: 6, progress: { mode, chosen: 'korzen', pos: { med: 'korzen', scene: 0, g: 0 } } });
+        const clock = { t: 0 };
+        let finale = false, wholes = 0, lastHairs = 0, inAfter = 0;
+        const meds = new Set<MedId>();
+        const scenes: string[] = [];
+        for (let i = 0; i < 1805 / STEP; i++) {
+          clock.t += STEP;
+          // a moderate signal (focused about two thirds of each push) or a strong one; calm in rest
+          sim.update(STEP, sim.restBlock ? CALM : strong ? HIGH : clock.t % 9 < 6 ? MID : UNFOCUSED, clock.t);
+          reader(sim)();
+          for (const e of sim.take()) {
+            if (e.type === 'finale') finale = true;
+            if (e.type === 'whole') wholes++;
+            if (e.type === 'scene') { meds.add(e.med); scenes.push(e.scene); }
+          }
+          if (sim.phase === 'play' && sim.stage === 'after') inAfter += STEP;
+          if (i === Math.round(1200 / STEP)) lastHairs = sim.hairs;
+        }
+        const tag = `${mode} ${strong ? 'strong' : 'moderate'}`;
+        expect(finale, tag).toBe(true);
+        expect(sim.phase).toBe('done');
+        expect(sim.next).toBeNull();
+        for (const v of [sim.hairs, sim.g, sim.light, sim.afterSec]) expect(Number.isFinite(v), tag).toBe(true);
+        expect(wholes, tag).toBeGreaterThanOrEqual(1);
+        // focus still counts hairs in the last ten minutes, whatever the mode
+        expect(sim.hairs - lastHairs, tag).toBeGreaterThan(100);
+        if (mode === 'one') {
+          expect(sim.stage).toBe('after');
+          expect(sim.afterSec).toBeGreaterThan(60);
+        } else {
+          // the way never stops at a scene grown before: a new round grows its scenes again
+          expect(inAfter, tag).toBe(0);
+          expect(sim.scene, tag).toBe(scenes.at(-1));
+        }
+        if (mode === 'repeat') {
+          expect([...meds]).toEqual(['korzen']);
+          expect(wholes, tag).toBeGreaterThanOrEqual(strong ? 4 : 3);
+        }
+        if (mode === 'order') {
+          expect(meds.size, tag).toBeGreaterThanOrEqual(strong ? MEDS.length : 4);
+          // strong focus goes round all twenty-six scenes and starts the eight again
+          if (strong) expect(scenes.length, tag).toBeGreaterThan(SCENES.length);
+        }
+        const r = sim.result();
+        expect(r.score).toBe(sim.score);
+        expect(sim.p.best['1800']).toBe(r.score);
+        for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+        for (const h of r.highlights) {
+          expect(h).not.toMatch(/undefined|NaN/);
+          expect(h.length).toBeLessThan(160);
+        }
+        expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+      }
+    }
+  });
+});
