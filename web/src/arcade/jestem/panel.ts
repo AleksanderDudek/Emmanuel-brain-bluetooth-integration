@@ -470,7 +470,8 @@ function fillMotion(key: VisionKey, ownId: string, a: Analysis, box: HTMLElement
     h('p', { class: 'img-note' }, t(reduced ? 'living.reduced' : 'living.where')),
   );
   refresh();
-  // the tiles play while the card is on the page (one loop; it ends when the card is redrawn or left)
+  // the tiles play while the card is shown (one loop; it ends when the card is redrawn; while the lobby is hidden —
+  // a session is on — it only looks twice a second whether it is back)
   const t0 = performance.now();
   let seen = false, waits = 0;
   const loop = () => {
@@ -480,6 +481,11 @@ function fillMotion(key: VisionKey, ownId: string, a: Analysis, box: HTMLElement
       return;
     }
     seen = true;
+    // hidden: the lobby's view is not shown, the tab is away, or a session runs full screen over the lobby
+    if (box.offsetParent === null || document.hidden || document.getElementById('arcadeLayer')?.hidden === false) {
+      setTimeout(loop, 500);
+      return;
+    }
     paint((performance.now() - t0) / 1000);
     if (!reduced) requestAnimationFrame(loop);
   };
