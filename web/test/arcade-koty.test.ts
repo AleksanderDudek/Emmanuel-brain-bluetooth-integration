@@ -1190,3 +1190,66 @@ describe('a big screen and a mouse (DESIGN §14)', () => {
     expect(linesFor(true)).toBe(LINES);
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes to the last stretch: Czujność and Drzemka alternating, ending on a nap, every block 12–40 s', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) {
+          expect(plan[0].kind).toBe('warmup');
+          expect(plan[0].dur).toBe(RULES.warm.long);
+        }
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(40);
+        }
+        // a pair about every 48 s: 30 minutes is some 37 pairs
+        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
+        expect(body.length).toBe(2 * pairs);
+      }
+    }
+  });
+
+  it('plays a whole 30-minute first session: no throw, finite numbers, the finale and the end, the field and its effects bounded', () => {
+    const sim = makeSim({ planned: 1800, seed: 7 });
+    let paw = 2, maxPests = 0, maxShots = 0, maxFx = 0, finale = false, done = false;
+    for (let i = 1; i <= 1806 / STEP; i++) {
+      const t = i * STEP;
+      if (sim.story && sim.story.t > 1) sim.tap();
+      if (t >= paw) {
+        paw += 2;
+        sim.paw();
+        if (sim.huntReady) sim.releaseHunt();
+      }
+      sim.update(STEP, Math.floor(t / 13) % 2 ? MID : HIGH, t);
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale = true;
+        if (e.type === 'done') done = true;
+      }
+      maxPests = Math.max(maxPests, sim.pests.length);
+      maxShots = Math.max(maxShots, sim.shots.length);
+      maxFx = Math.max(maxFx, sim.splashes.length + sim.beams.length);
+    }
+    expect(finale).toBe(true);
+    expect(done).toBe(true);
+    expect(sim.phase).toBe('done');
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    for (const v of [sim.score, sim.fishGained, sim.p.fish, sim.p.stage, sim.p.gold, sim.charge, sim.alert]) expect(Number.isFinite(v)).toBe(true);
+    expect(sim.score).toBeGreaterThan(0);
+    expect(sim.p.stage).toBeGreaterThan(6);
+    expect(maxPests).toBeLessThanOrEqual(RULES.cap + 1);
+    expect(maxShots).toBeLessThan(200);
+    expect(maxFx).toBeLessThan(200);
+    expect(sim.gifts.length).toBeLessThanOrEqual(4);
+    expect(sim.talk.said.length).toBeLessThan(1800 / RULES.talkGap + 10);
+    const r = sim.result();
+    expect(Number.isFinite(r.score)).toBe(true);
+    expect(sim.p.best['1800']).toBe(r.score);
+    for (const [, v] of r.stats) expect(v).not.toMatch(/undefined|NaN|Infinity/);
+  });
+});

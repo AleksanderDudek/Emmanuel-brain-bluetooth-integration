@@ -620,3 +620,57 @@ describe('the song (kit/song.ts)', () => {
     }
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  it('walks a meditation round and round in 30 minutes: whole after whole, each with its card, no throw, the finale at the end', () => {
+    for (const variant of ['rownowaga', 'narzady'] as const) {
+      const sim = later({ planned: 1800, progress: { variant } });
+      const clock = { t: 0 };
+      const go = ideal(sim);
+      let finale = false, wholes = 0, maxStory = 0, storyT = 0;
+      for (let i = 0; i < 1805 / STEP; i++) {
+        clock.t += STEP;
+        sim.update(STEP, go(), clock.t);
+        for (const e of sim.take()) {
+          if (e.type === 'finale') finale = true;
+          if (e.type === 'whole') wholes++;
+        }
+        storyT = sim.story ? storyT + STEP : 0;
+        maxStory = Math.max(maxStory, storyT);
+      }
+      expect(finale).toBe(true);
+      expect(sim.phase).toBe('done');
+      for (const v of [sim.lux, sim.fill, sim.light, sim.fillSec, sim.calmSec]) expect(Number.isFinite(v), variant).toBe(true);
+      // an element in ~12 s of strong focus and a rest of 20 s: the nine loops go round five times or more, the 19 organs twice
+      expect(wholes, variant).toBeGreaterThanOrEqual(variant === 'rownowaga' ? 4 : 2);
+      expect(sim.round).toBe(wholes);
+      expect(sim.wholeNow).toHaveLength(wholes);
+      expect(sim.litNow.length).toBeLessThanOrEqual(count(variant));
+      // a closing card never holds the session: it closes by itself
+      expect(maxStory).toBeLessThanOrEqual(RULES.closeSec + 1);
+      const r = sim.result();
+      expect(r.score).toBe(sim.score);
+      for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+      for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+      expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+    }
+  });
+
+  it('keeps every push and rest in its bounds for half an hour, even when focus never comes (the valve)', () => {
+    const sim = later({ planned: 1800 });
+    const clock = { t: 0 };
+    const starts: { kind: string; t: number }[] = [];
+    for (let i = 0; i < 1805 / STEP; i++) {
+      clock.t += STEP;
+      sim.update(STEP, LOW, clock.t);
+      for (const e of sim.take()) if (e.type === 'blockStart') starts.push({ kind: e.block.kind, t: clock.t });
+    }
+    expect(sim.phase).toBe('done');
+    expect(sim.fill).toBe(0);
+    starts.forEach((s, i) => { if (i) expect(s.kind).not.toBe(starts[i - 1].kind); });
+    for (let i = 1; i < starts.length; i++) expect(starts[i].t - starts[i - 1].t).toBeLessThanOrEqual(RULES.maxPush + 0.5);
+    // the last block ends within its own length of the finale: no dead tail
+    expect(1800 - RULES.finale.long - starts.at(-1)!.t).toBeLessThanOrEqual(RULES.maxPush + 0.5);
+    expect(starts.length).toBeGreaterThan(2 * Math.floor(1800 / (RULES.maxPush + RULES.restTarget + 4)) - 2);
+  });
+});

@@ -1638,3 +1638,59 @@ describe('big screens and the mouse (DESIGN §14)', () => {
     expect(howto(true).hands).toEqual([{ gesture: 'hold', text: t('how.hold') }, { gesture: 'tap', text: t('how.release') }]);
   });
 });
+
+// ── long sessions (15–30 min) ────────────────────────────────────
+
+describe('Wzlot at 15–30 minutes', () => {
+  it('plans 900–1800 s to the last sunset: push/rest pairs at their design lengths, ending on a rest', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - RULES.finale, 6);
+        expect(plan[0].kind === 'warmup').toBe(first);
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('flies a whole 30-min session: day after day, the ground made and forgotten, the numbers sane, the last sunset', () => {
+    const sim = later({ planned: 1800, seed: 3 });
+    const clock = { t: 0 };
+    const fly = pilot(sim);
+    const terrain = sim.terrain as unknown as { kx: number[]; granie: unknown[] };
+    let evs = 0, maxKnots = 0, maxGranie = 0, maxV = 0, finale = 0;
+    const dt = 1 / 30;
+    for (let i = 0; i < 1806 / dt && sim.phase !== 'done'; i++) {
+      clock.t += dt;
+      fly();
+      sim.update(dt, sim.block.kind === 'rest' ? CALM : HIGH, clock.t);
+      for (const e of sim.take()) { evs++; if (e.type === 'finale') finale++; }
+      const tt = sim.terrain as unknown as { kx: number[]; granie: unknown[] };
+      maxKnots = Math.max(maxKnots, tt.kx.length);
+      maxGranie = Math.max(maxGranie, tt.granie.length);
+      maxV = Math.max(maxV, Math.hypot(sim.eaglet.vx, sim.eaglet.vy));
+    }
+    void terrain;
+    expect(sim.phase).toBe('done');
+    expect(finale).toBe(1);
+    expect(clock.t).toBeLessThanOrEqual(1800 + RULES.settle + 0.1);
+    expect(sim.canStop()).toBe(true);
+    expect(evs).toBeGreaterThan(500);
+    expect(sim.daysDone).toBeGreaterThan(5);
+    expect(maxKnots).toBeLessThan(400);
+    expect(maxGranie).toBeLessThan(12);
+    expect(Number.isFinite(maxV)).toBe(true);
+    expect(maxV).toBeLessThan(60);
+    expect(Number.isFinite(sim.total)).toBe(true);
+    expect(sim.thermals.length).toBeLessThan(10);
+    const out = sim.result();
+    expect(out.highlights.length).toBeLessThanOrEqual(7);
+    for (const s of [...out.highlights, ...out.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+  });
+});

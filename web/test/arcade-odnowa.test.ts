@@ -1318,3 +1318,73 @@ describe('a desk: a mouse on a desktop or a big screen (DESIGN §14)', () => {
     expect(Object.values(mouse).flat().some(x => /stuk/i.test(x))).toBe(false);
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes to the finale: pushes of 12–32 s and rests of whole breaths, alternating, ending on a rest', () => {
+    const cyc = breathCycle(BREATH_DEFAULT);
+    for (const sec of [900, 1200, 1500, 1800]) {
+      for (const firstEver of [true, false]) {
+        const plan = planBlocks(sec, firstEver, mulberry32(sec + (firstEver ? 1 : 0)));
+        const body = firstEver ? plan.slice(1) : plan;
+        if (firstEver) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${sec} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - finaleFor(sec), 5);
+        for (const b of body) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+        for (const b of body.filter(x => x.kind === 'push')) expect(b.dur, String(sec)).toBeLessThanOrEqual(32);
+        for (const b of body.filter(x => x.kind === 'rest')) {
+          expect(b.dur % cyc, `${sec} s`).toBeCloseTo(0, 6);
+          expect(b.dur).toBeLessThanOrEqual(30 + 1e-9);
+        }
+        // a pair about every 46–48 s: 30 minutes is some 38 pairs
+        expect(body.length / 2).toBeGreaterThanOrEqual(Math.floor((sec - 60) / 50));
+      }
+    }
+  });
+
+  it('holds every need at its cap from the 13th stage on, so a long session keeps dividing at a steady pace', () => {
+    for (const stage of [13, 20, 60, 500]) {
+      expect(needs(stage)).toEqual(needs(13));
+    }
+    expect(needs(13).atp).toBe(RULES.atpNeed[2]);
+    expect(needs(13).dna).toBe(RULES.dnaNeed[2]);
+    expect(needs(13).mat).toBe(RULES.matNeed[2]);
+  });
+
+  it('plays a whole 30-minute session: division after division, no throw, finite numbers, the end, bounded lanes', () => {
+    const sim = later({ planned: 1800, seed: 4 });
+    const rnd = mulberry32(78);
+    const clock = { t: 0 };
+    let finale = false, maxLesions = 0, maxParts = 0;
+    const divisions: number[] = [];
+    for (let i = 0; i < 1808 / STEP; i++) {
+      clock.t += STEP;
+      const tt = clock.t;
+      // focus about two thirds of a push, calm most of a rest, a lesion tapped within a few seconds (the week's policy)
+      sim.update(STEP, sim.restBlock ? (tt % 7 < 5 ? CALM : LOW) : tt % 9 < 6 ? HIGH : LOW, tt);
+      if (sim.story) sim.tap();
+      if (sim.openLesions.length && rnd() < 0.02) sim.repairNext();
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale = true;
+        if (e.type === 'cell') divisions.push(tt);
+      }
+      maxLesions = Math.max(maxLesions, sim.lesions.length);
+      maxParts = Math.max(maxParts, sim.parts.length);
+    }
+    expect(finale).toBe(true);
+    expect(sim.phase).toBe('done');
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    for (const v of [sim.atp, sim.stageAtp, sim.dna, sim.material, sim.bank, sim.spin, sim.angle, sim.stage]) expect(Number.isFinite(v)).toBe(true);
+    // the cell keeps dividing to the end: some in the last ten minutes too
+    expect(sim.divisionsNow).toBeGreaterThanOrEqual(8);
+    expect(divisions.filter(t => t > 1200).length).toBeGreaterThanOrEqual(2);
+    expect(maxLesions).toBeLessThanOrEqual(RULES.laneCap + 6);
+    expect(maxParts).toBeLessThanOrEqual(RULES.partCap + 6);
+    const r = sim.result();
+    expect(r.score).toBe(sim.atp);
+    expect(sim.p.best['1800']).toBe(r.score);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+    expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+  });
+});

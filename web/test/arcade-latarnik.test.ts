@@ -2273,3 +2273,54 @@ describe('big screens and the mouse (DESIGN §14)', () => {
 function goalTextOf(sim: LatarnikSim): string {
   return t(`goal.${sim.spec.kind}` as 'goal.powroty', { n: sim.spec.goal });
 }
+
+// ── long sessions (15–30 min) ────────────────────────────────────
+
+describe('Latarnik at 15–30 minutes', () => {
+  const total = (plan: { dur: number }[]) => plan.reduce((s, b) => s + b.dur, 0);
+
+  it.each([900, 1200, 1500, 1800])('fills a %i s session to the dawn: Konwój/Cisza at their design lengths, ending with a Cisza', planned => {
+    for (const first of [false, true]) {
+      const plan = planBlocks(planned, first, mulberry32(planned));
+      expect(total(plan) + RULES.finale).toBeCloseTo(planned, 6);
+      expect(plan[plan.length - 1].kind).toBe('cisza');
+      const play = first ? plan.slice(1) : plan;
+      expect(play.every((b, i) => b.kind === (i % 2 ? 'cisza' : 'konwoj'))).toBe(true);
+      const k = play.filter(b => b.kind === 'konwoj').map(b => b.dur), c = play.filter(b => b.kind === 'cisza').map(b => b.dur);
+      expect(Math.min(...k)).toBeGreaterThan(19);
+      expect(Math.max(...k)).toBeLessThan(33);
+      expect(Math.min(...c)).toBeGreaterThan(16);
+      expect(Math.max(...c)).toBeLessThan(27);
+    }
+  });
+
+  it('plays a whole 30-min session: nights keep coming, nothing runs away, it reaches its dawn', () => {
+    const sim = makeSim({ progress: { sessions: 6, lastNewSession: 6 }, planned: 1800, seed: 9 });
+    const clock = { t: 0 };
+    const tap = tapper(sim, 3, 0.04, 0.85);
+    let evs = 0, maxBoats = 0;
+    const focusAt = (t: number) => (sim.block.kind === 'cisza'
+      ? frame({ activity: -2, level: 0.15, calm: 0.85 })
+      : frame({ activity: 9, level: 0.85 + 0.1 * Math.sin(t / 7), focused: true, hold: 8, calm: 0.1 }));
+    const n = Math.round(1803 / STEP);
+    for (let i = 0; i < n && sim.phase !== 'done'; i++) {
+      clock.t += STEP;
+      sim.update(STEP, focusAt(clock.t), clock.t);
+      tap(clock.t);
+      evs += sim.take().length;
+      maxBoats = Math.max(maxBoats, sim.boats.length);
+    }
+    expect(sim.phase).toBe('done');
+    expect(clock.t).toBeLessThan(1801);
+    expect(clock.t).toBeGreaterThan(1799);
+    expect(evs).toBeGreaterThan(500);
+    expect(maxBoats).toBeLessThan(20);
+    expect(sim.nightsWon).toBeGreaterThan(5);
+    expect(sim.spec.speed).toBeLessThanOrEqual(RULES.speedMax + 1e-9);
+    for (const v of [sim.score, sim.crates, sim.reach, sim.glow, sim.farthest]) expect(Number.isFinite(v)).toBe(true);
+    expect(sim.talk.said.length).toBeLessThan(500);
+    const out = sim.result();
+    expect(out.highlights.length).toBeLessThanOrEqual(5);
+    for (const s of [...out.highlights, ...out.stats.flat(), sim.headlineSub()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+  });
+});

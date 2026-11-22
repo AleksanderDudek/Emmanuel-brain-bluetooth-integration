@@ -920,3 +920,65 @@ describe('phone first (DESIGN.md §12)', () => {
     expect(p.sim.burning.length).toBe(1);
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes to the finale: push and rest alternating, ending on a rest, every block 12–31 s', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(31);
+        }
+        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
+        expect(body.length).toBe(2 * pairs);
+      }
+    }
+  });
+
+  it('burns a whole 30-minute session: round after round of the ladder, no throw, finite numbers, the end, bounded scene', () => {
+    const sim = makeSim({ planned: 1800, seed: 5, tuning: BEGINNER });
+    const rnd = mulberry32(41);
+    let base = 0.5, nextTap = 1, maxPairs = 0, maxWisps = 0, maxBurning = 0, finale = false;
+    for (let i = 1; i <= 1806 / STEP; i++) {
+      const tt = i * STEP;
+      base += (rnd() - 0.5) * 0.075;
+      base += ((sim.pushBlock ? 0.82 : 0.3) - base) * 0.008;
+      const level = Math.max(0.03, Math.min(0.98, base + 0.05 * Math.sin(tt * 0.63)));
+      sim.update(STEP, frame({ level, activity: (level - 0.5) * 8, calm: 1 - level, hold: level > 0.5 ? 4 : 0 }), tt);
+      if (tt >= nextTap) {
+        nextTap += 2.2;
+        if (sim.card) sim.closeCard();
+        sim.tap(null);
+      }
+      if (sim.take().some(e => e.type === 'finale')) finale = true;
+      maxPairs = Math.max(maxPairs, sim.pairs.length);
+      maxWisps = Math.max(maxWisps, sim.wisps.length);
+      maxBurning = Math.max(maxBurning, sim.burning.length);
+    }
+    expect(finale).toBe(true);
+    expect(sim.phase).toBe('done');
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    for (const v of [sim.sparks, sim.ring, sim.light, sim.heat, sim.cycle, sim.top]) expect(Number.isFinite(v)).toBe(true);
+    // 30 minutes of good focus go round the ladder again and again, each round a little longer, never an empty end
+    expect(sim.cyclesNow).toBeGreaterThanOrEqual(2);
+    expect(sim.cyclesNow).toBeLessThanOrEqual(12);
+    expect(sim.changesNow).toBeGreaterThanOrEqual(14);
+    expect(maxPairs).toBeLessThanOrEqual(RULES.pairs + 4);
+    expect(maxWisps).toBeLessThanOrEqual(RULES.wisps + 6);
+    expect(maxBurning).toBeLessThanOrEqual(4);
+    expect(sim.newFastest.length).toBeLessThanOrEqual(sim.changesNow);
+    const r = sim.result();
+    expect(r.score).toBe(Math.floor(sim.sparks));
+    expect(sim.p.best['1800']).toBe(r.score);
+    expect(sim.p.sky).toHaveLength(1);
+    expect(r.verse).toBeTruthy();
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+  });
+});

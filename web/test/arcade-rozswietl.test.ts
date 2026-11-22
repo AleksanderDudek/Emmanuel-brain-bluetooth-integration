@@ -1254,3 +1254,67 @@ describe('round 11: the founder’s asks (2026-11-17)', () => {
     }
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes to the finale: light and gazing alternating, ending on gazing, every block 12–31 s', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(31);
+        }
+        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
+        expect(body.length).toBe(2 * pairs);
+      }
+    }
+  });
+
+  it('plays a whole 30-minute session: picture after picture (the eight pairs come round again), no throw, finite numbers, the end', () => {
+    const sim = new RozSim({
+      progress: { ...freshProgress(), sessions: 10, pushes: 60, seen: [...ALL_SEEN], lastDay: DAY },
+      rng: mulberry32(9), day: DAY, daySeed: 3, plannedSec: 1800, eeg: false, tuning: TUNING, aspect: 1,
+    });
+    sim.start();
+    let hold = 0, tap = 1, finale = false, maxTalk = 0;
+    const tiles: number[] = [];
+    for (let i = 1; i <= 1804 / STEP; i++) {
+      const tt = i * STEP;
+      // focus held two thirds of each 16 s: a good player, every picture's tiles from the light
+      const on = tt % 16 < 16 * 0.66;
+      hold = on ? hold + STEP : 0;
+      sim.update(STEP, on ? frame({ level: 0.7, activity: 3.5, focused: true, hold, calm: 0.2 }) : frame({ level: 0.3, activity: 1, calm: 0.7 }), tt);
+      if (sim.story && sim.story.t > 1.5) sim.tapCard();
+      if (tt >= tap) {
+        tap += 2.5;
+        sim.tap(centre(sim));
+      }
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale = true;
+        if (e.type === 'picture') tiles.push(e.tiles);
+      }
+      maxTalk = Math.max(maxTalk, sim.talk.said.length);
+    }
+    expect(finale).toBe(true);
+    expect(sim.phase).toBe('done');
+    expect(sim.canStop()).toBe(true);
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    for (const v of [sim.score, sim.tilesBroken, sim.picturesDone, sim.flares, sim.light, sim.flare, sim.goldShare()]) expect(Number.isFinite(v)).toBe(true);
+    // the pictures keep coming for the whole half hour, each a 72 + 0…8-tile mosaic (never past tilesMax)
+    expect(sim.picturesDone).toBeGreaterThanOrEqual(6);
+    expect(sim.picturesDone).toBeLessThanOrEqual(20);
+    for (const n of tiles) expect(n).toBeLessThanOrEqual(RULES.tilesMax);
+    expect(albumCount(sim.p)).toBe(PAIR_IDS.length);
+    expect(maxTalk).toBeLessThan(1800 / RULES.talkGap + 10);
+    const r = sim.result();
+    expect(r.score).toBe(sim.score);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
+    expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+  });
+});

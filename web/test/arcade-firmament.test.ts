@@ -1154,3 +1154,83 @@ describe('Firmament on a desktop and a big screen (DESIGN §14)', () => {
     expect(howto(true).hands.map(h => h.text)).toContain(t('how.tool'));
   });
 });
+
+describe('Firmament — long sessions (15–30 minutes)', () => {
+  it('plans 15–30 minutes to the dawn: Obserwacja and Cisza nocy in turn, none too short or too long, ending in a night', () => {
+    for (const sec of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0), `${sec} s`).toBeCloseTo(sec - RULES.finale, 6);
+        expect(plan[0].kind).toBe(first ? 'warmup' : 'obs');
+        if (first) expect(plan[0].dur).toBe(RULES.warm.long);
+        const work = plan.filter(b => b.kind !== 'warmup');
+        work.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'night' : 'obs'));
+        expect(plan.at(-1)!.kind).toBe('night');
+        for (const b of work) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 3);
+        }
+        // about a pair every 48 s: 18 pairs in 15 minutes, 37 in 30
+        expect(work.length / 2).toBeCloseTo((sec - RULES.finale - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]), -0.5);
+      }
+    }
+  });
+
+  /** A whole session at a steady pace: Space (the best move) every second, a tool used when the tray is full; focus in Obserwacja, calm at night. */
+  function longRun(progress: Partial<FirmamentProgress>, planned = 1800) {
+    const sim = makeSim({ progress, planned });
+    let t = 0, hand = 0, stageSince = 0, longest = 0, last = sim.stage, finales = 0, won = 0, empty = 0;
+    while (sim.phase !== 'done' && t < planned + 10) {
+      t += STEP;
+      const want = sim.signal().want;
+      sim.update(STEP, want === 'focus' ? HIGH : want === 'rest' ? LOW : frame({ level: 0.6 }), t);
+      if ((hand += STEP) >= 1) {
+        hand = 0;
+        if (sim.tray.length >= sim.traySize) {
+          sim.pickTool(0);
+          if (sim.armedTool) sim.tap(sim.board.at(4, 4));
+        }
+        sim.space();
+      }
+      for (const e of sim.take()) {
+        if (e.type === 'won') won++;
+        if (e.type === 'finale') finales++;
+        if (e.type === 'say' && (!e.text || /undefined/.test(e.text))) empty++;
+      }
+      if (sim.stage !== last) { last = sim.stage; stageSince = t; }
+      longest = Math.max(longest, t - stageSince);
+      expect(sim.tray.length).toBeLessThanOrEqual(RULES.trayMax);
+    }
+    return { sim, t, longest, finales, won, empty };
+  }
+
+  it('a 30-minute session keeps giving levels to the dawn: the saga never runs out, nothing stalls, the numbers stay finite', () => {
+    for (const progress of [{}, { sessions: 30, pushes: 400, level: 400, story: Array.from({ length: 51 }, (_, i) => i), seen: ['x'] }] as Partial<FirmamentProgress>[]) {
+      const r = longRun(progress);
+      expect(r.sim.phase).toBe('done');
+      expect(r.finales).toBe(1);
+      expect(r.t).toBeLessThan(1800 + 1);
+      // a level every minute or so all the way through, none stuck for minutes
+      expect(r.won).toBeGreaterThanOrEqual(25);
+      expect(r.longest).toBeLessThan(180);
+      expect(r.empty).toBe(0);
+      expect(Number.isFinite(r.sim.score) && r.sim.score > 0).toBe(true);
+      expect(r.sim.headline().sub).not.toMatch(/undefined|NaN/);
+      const res = r.sim.result();
+      expect(res.stats.every(([k, v]) => k && v && !/undefined|NaN/.test(k + v))).toBe(true);
+      expect(res.highlights.every(h => h && !/undefined|NaN/.test(h))).toBe(true);
+      expect(r.sim.p.stars.length).toBeLessThanOrEqual(r.sim.p.won);
+    }
+  });
+
+  it('a level deep in the saga (the generator) is as sound as the first ones', () => {
+    for (const i of [100, 401, 999, 5003]) {
+      const l = levelAt(i);
+      expect(l.moves).toBeGreaterThan(10);
+      expect(l.n).toBeGreaterThan(0);
+      expect(constName(l.constellation)).not.toMatch(/undefined/);
+      const b = new Board(boardSpec(l, 3));
+      expect(b.hasMove()).toBe(true);
+    }
+  });
+});

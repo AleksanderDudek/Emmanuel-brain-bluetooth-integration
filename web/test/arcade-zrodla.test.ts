@@ -1011,3 +1011,49 @@ describe('Źródła on a desktop and a big screen (DESIGN §14)', () => {
     expect(hand('card.tap', true)).toBe(t('card.tap'));
   });
 });
+
+// ── long sessions (15–30 min) ───────────────────────────────────
+
+describe('Źródła at 15–30 minutes', () => {
+  it('plans 900–1800 s to the end: push/rest pairs at their design lengths, ending on a Sela', () => {
+    for (const sec of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, rng(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec, 5);
+        expect(plan[0].kind).toBe(first ? 'warmup' : 'push');
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('walks a whole 30-min session: valleys keep coming past the stations, the summary stays short, it ends', () => {
+    for (const progress of [freshProgress(), returning({ valley: 55 })]) {
+      const sim = newSim({ progress, plannedSec: 1800, seed: 8 });
+      sim.start();
+      let evs = 0, valleys = 0, lastSpace = -1, maxSegs = 0;
+      const dt = 0.1;
+      for (let t = 0; t < 1800 + 1e-9; t += dt) {
+        if (t - lastSpace >= 0.5) { lastSpace = t; sim.space(); }
+        sim.update(dt, sim.restBlock ? resting() : focusing(), t + dt);
+        for (const e of sim.take()) { evs++; if (e.type === 'valley') valleys++; }
+        maxSegs = Math.max(maxSegs, sim.segs.length);
+      }
+      expect(sim.ended).toBe(true);
+      expect(evs).toBeGreaterThan(500);
+      expect(valleys).toBeGreaterThan(40);   // a valley every half minute or so, won or tried again
+      if (progress.valley === 0) expect(sim.valleysWon).toBeGreaterThan(8);
+      expect(maxSegs).toBeLessThan(200);
+      expect(Number.isFinite(sim.score)).toBe(true);
+      expect(sim.trace.samples.length).toBeLessThan(400);
+      const r = sim.result();
+      expect(r.highlights.length).toBeLessThanOrEqual(10);
+      for (const s of [...r.highlights, ...r.stats.flat(), sim.headlineSub()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+});

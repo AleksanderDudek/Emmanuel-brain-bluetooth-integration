@@ -1505,3 +1505,54 @@ describe('mobile first: the layout at every checked size (DESIGN §12)', () => {
     expect(hintFor('gull', false)).toBe(HINTS.gull);
   });
 });
+
+describe('long sessions (15–30 min)', () => {
+  it('plans 15, 20, 25 and 30 minutes: Rozdawanie / Na trawie pairs to the finale, every block of its usual length', () => {
+    for (const sec of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec - RULES.finale, 5);
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        const body = first ? plan.slice(1) : plan;
+        body.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(plan[plan.length - 1].kind).toBe('rest');
+        for (const b of body) {
+          const [nom, jit] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeGreaterThanOrEqual(Math.max(RULES.minBlock, (nom - jit) * 0.95));
+          expect(b.dur).toBeLessThanOrEqual((nom + jit) * 1.05);
+        }
+        expect(body.length / 2).toBe(Math.round((sec - RULES.finale - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0])));
+      }
+    }
+  });
+
+  it('plays a full 30-minute session to its evening: levels keep coming round the path, the lane stays bounded, the summary reads', () => {
+    const sim = later({ planned: 1800, progress: { bank: 20 } });
+    const clock = { t: 0 };
+    let tap = 0;
+    const max = { runners: 0, gulls: 0, gates: 0, carriers: 0 };
+    for (let k = 0; k < 19; k++) {
+      drive(sim, 95, () => (sim.block?.kind === 'rest' ? LOW : HIGH), clock, tt => {
+        if (tt >= tap) { sim.press(RULES.laneW / 2 + Math.sin(tt) * 3); tap += 0.65; }
+        if (tt >= tap - 0.3) sim.release();
+        const f = sim.field;
+        max.runners = Math.max(max.runners, f.runners.length); max.gulls = Math.max(max.gulls, f.gulls.length);
+        max.gates = Math.max(max.gates, f.gates.length); max.carriers = Math.max(max.carriers, f.carriers.length);
+      });
+      expect(Number.isFinite(sim.score) && Number.isFinite(sim.p.bank) && Number.isFinite(sim.charge)).toBe(true);
+    }
+    expect(sim.phase).toBe('done');
+    expect(sim.canStop()).toBe(true);
+    expect(sim.levelsNow).toBeGreaterThanOrEqual(15);
+    expect(sim.p.level).toBeGreaterThan(4 * 6);
+    expect(max.runners).toBeLessThanOrEqual(RULES.maxRunners + 20);
+    expect(max.gulls).toBeLessThan(150);
+    expect(max.gates).toBeLessThan(20);
+    expect(max.carriers).toBeLessThan(60);
+    const r = sim.result();
+    expect(r.score).toBeGreaterThan(0);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN|\{/);
+    expect(passage(r.verse!)).toBeTruthy();
+  });
+});
