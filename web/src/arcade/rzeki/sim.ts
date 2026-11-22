@@ -97,6 +97,9 @@ const NO_EVENTS: readonly SimEvent[] = [];
 /** The last stretch without a block: 12 s in sessions of 2 min and more, 6 s in shorter ones. */
 export const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RULES.finale.long : RULES.finale.short);
 
+/** The drops at which the rivers reach the edges: 700 up to 10 minutes, then in proportion to the session's length. */
+export const riverFullFor = (plannedSec: number): number => RULES.riverFull * Math.max(1, plannedSec / RULES.riverSec);
+
 /** The first-ever session's warm-up (s): 30 in 5 and 10 min, 20 in 3, at most 6 in a short test. */
 export function warmFor(plannedSec: number): number {
   if (plannedSec <= 60) return Math.min(RULES.warm.test, Math.max(8, plannedSec - finaleFor(plannedSec)) / 3);
@@ -165,6 +168,8 @@ export class RzekiSim {
   private readonly judge: RoundJudge;
   private readonly lead: number;
   private readonly finaleSec: number;
+  /** the drops at which the rivers reach the edges (RULES.riverFull, scaled up for a session past riverSec) */
+  readonly riverFull: number;
   /** the blocks so far, the current one last */
   private readonly plan: Block[] = [];
   private readonly pushesBase: number;
@@ -284,6 +289,7 @@ export class RzekiSim {
     this.judge = RoundJudge.from(init.tuning);
     this.lead = this.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.finaleSec = finaleFor(this.plannedSec);
+    this.riverFull = riverFullFor(this.plannedSec);
     this.talk = new Talk(m => linesOf(m), init.rng);
     this.lit = zeros();
     this.memory = zeros();
@@ -325,7 +331,7 @@ export class RzekiSim {
   /** the map's stations */
   get mapSize(): number { return MAP[this.map].stations.length; }
   /** the river's reach from the pool (0..1): the session's drops */
-  get river(): number { return clamp(this.drops / RULES.riverFull); }
+  get river(): number { return clamp(this.drops / this.riverFull); }
   /** the verse of the current station on this way */
   get verse(): PassageId { return verseOf(this.station, this.dir); }
   /** the narrator must wait: a telegraph, the runner's banner, a story card, a coach mark */

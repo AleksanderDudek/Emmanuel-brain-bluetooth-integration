@@ -9,7 +9,7 @@ import {
   startOf, stationsLit, stepBreathOf, tierOf, timesLit, type RzekiProgress,
 } from '../src/arcade/rzeki/meta';
 import { RULES, focusRate, readTime } from '../src/arcade/rzeki/rules';
-import { LIT_DOWN, LIT_UP, RzekiSim, pageTime, secText, warmFor, type SimEvent } from '../src/arcade/rzeki/sim';
+import { LIT_DOWN, LIT_UP, RzekiSim, pageTime, riverFullFor, secText, warmFor, type SimEvent } from '../src/arcade/rzeki/sim';
 import { BREATH_DEFAULT, BREATH_PRESETS, breathCycle, type BreathPattern } from '../src/arcade/kit/breath';
 import { progressPanel } from '../src/arcade/rzeki/panel';
 import { stripGeom } from '../src/arcade/rzeki/strip';
@@ -1435,5 +1435,69 @@ describe('all twelve of picture 2, unmistakably (round 11)', () => {
     expect(nowRowH(L)).toBeGreaterThanOrEqual(MIN_READ * 1.5);
     // the label, the line of what to do now, and two lines of the prayer at its smallest
     expect(Math.round(13 * 1.5) + nowRowH(L) + 2 * Math.round(L.font.prayerMin * 1.34)).toBeLessThanOrEqual(L.prayer.h);
+  });
+});
+
+describe('long sessions (15–30 minutes)', () => {
+  it('keeps the rivers at 700 drops up to 10 minutes and grows them with a longer session, so they reach the edges about halfway', () => {
+    for (const planned of [40, 180, 300, 600]) expect(riverFullFor(planned)).toBe(RULES.riverFull);
+    expect(riverFullFor(900)).toBe(RULES.riverFull * 1.5);
+    expect(riverFullFor(1800)).toBe(RULES.riverFull * 3);
+    expect(later({ planned: 1800 }).riverFull).toBe(RULES.riverFull * 3);
+  });
+
+  it('walks the way for 15 and 30 minutes: a rest after every station to the end, no gap, the finale at the end, the rivers growing through it', () => {
+    for (const planned of [900, 1800]) {
+      const sim = later({ planned, seed: 2 });
+      const clock = { t: 0 };
+      const lit: number[] = [];
+      let finale = -1, river5 = 0, riverHalf = 0;
+      for (let i = 0; i < (planned + 5) / STEP; i++) {
+        clock.t += STEP;
+        sim.update(STEP, steady(0.5)(clock.t, sim), clock.t);
+        reader(sim)();
+        for (const e of sim.take()) {
+          if (e.type === 'full') lit.push(clock.t);
+          if (e.type === 'finale') finale = clock.t;
+        }
+        if (i === Math.round(300 / STEP)) river5 = sim.river;
+        if (i === Math.round(planned / 2 / STEP)) riverHalf = sim.river;
+      }
+      expect(sim.phase).toBe('done');
+      expect(finale).toBeGreaterThan(planned - RULES.finale.long - 0.5);
+      expect(finale).toBeLessThan(planned - RULES.finale.long + 0.5);
+      for (const v of [sim.drops, sim.fill, sim.light, sim.river]) expect(Number.isFinite(v)).toBe(true);
+      // ~33 s of focus a station at the threshold, a rest after each: ~13 stations in 15 minutes, ~26 in 30, lit to the end
+      expect(sim.placesNow).toBeGreaterThanOrEqual(Math.floor(planned / 75));
+      expect(lit.filter(t => t > planned - 200).length).toBeGreaterThanOrEqual(2);
+      expect(sim.restsNow).toBeGreaterThanOrEqual(sim.placesNow);
+      // push and rest alternate (no two of a kind in a row), every rest whole breaths, no push past the valve
+      const blocks = sim.blocks;
+      blocks.forEach((b, i) => { if (i) expect(b.kind).not.toBe(blocks[i - 1].kind); });
+      for (const b of blocks.filter(x => x.kind === 'push')) expect(b.len).toBeLessThanOrEqual(RULES.valveSec + 0.5);
+      expect(blocks.length).toBeLessThan(planned / 10);
+      // the rivers: still growing at five minutes (a third of the way in 30), well on halfway, full at the end
+      expect(river5).toBeLessThan(planned >= 1800 ? 0.4 : 0.7);
+      expect(riverHalf).toBeGreaterThan(0.6);
+      expect(sim.river).toBe(1);
+      const r = sim.result();
+      expect(r.score).toBe(sim.score);
+      expect(sim.p.best[String(planned)]).toBe(r.score);
+      for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+      for (const h of r.highlights) {
+        expect(h).not.toMatch(/undefined|NaN/);
+        expect(h.length).toBeLessThan(140);
+      }
+      expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+    }
+  });
+
+  it('never sticks in 30 minutes without focus: the valve rests every push, nothing is lit, nothing is lost', () => {
+    const sim = later({ planned: 1800, seed: 3 });
+    drive(sim, 1805, (_t, s) => (s.pushBlock ? LOW : CALM), { t: 0 }, reader(sim));
+    expect(sim.phase).toBe('done');
+    expect(sim.placesNow).toBe(0);
+    expect(sim.valvesNow).toBeGreaterThanOrEqual(Math.floor(1800 / (RULES.valveStall + 40)));
+    for (const b of sim.blocks.filter(x => x.kind === 'push')) expect(b.len).toBeLessThanOrEqual(RULES.valveSec + 0.5);
   });
 });

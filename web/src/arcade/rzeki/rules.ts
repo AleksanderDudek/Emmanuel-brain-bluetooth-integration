@@ -79,8 +79,13 @@ export const RULES = {
   dropBlind: 60,
   /** the rest's drops are counted aloud (a floating "+n") every this many seconds */
   restTick: 3,
-  /** the two rivers from the pool reach the edges of the picture at this many drops in a session */
+  /**
+   * The two rivers from the pool reach the edges of the picture at this many drops in a session of up to
+   * `riverSec` s (about halfway through 10 minutes); a longer session × its length / riverSec, so the rivers grow
+   * through 15–30 minutes too and reach the edges about halfway, never in the first five minutes
+   */
   riverFull: 700,
+  riverSec: 600,
 
   // ── the session ──────────────────────────────────────────────
   /** the lead-in before the brain acts in a push block (s): Mendi / HALO */
