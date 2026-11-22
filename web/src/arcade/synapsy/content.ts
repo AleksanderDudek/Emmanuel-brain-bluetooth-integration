@@ -74,7 +74,7 @@ export function lessonAt(index: number): Lesson {
   const round = Math.floor(i / LESSONS.length);
   const fast = !!spec.fast || (round >= 1 && (spec.id === 'cross' || spec.id === 'echo'));
   const limitMs = fast ? RULES.speedMs[Math.min(RULES.speedMs.length - 1, round)] : null;
-  return { ...spec, index: i, round, goal: spec.need + RULES.needRound * round, limitMs };
+  return { ...spec, index: i, round, goal: spec.need + RULES.needRound * Math.min(round, RULES.needRounds), limitMs };
 }
 
 export const lessonTitle = (id: LessonId): string => t(`lesson.${id}.title` as Key);

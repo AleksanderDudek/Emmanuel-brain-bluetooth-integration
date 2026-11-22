@@ -116,6 +116,11 @@ export const RULES = {
   // ── lessons ──────────────────────────────────────────────────
   /** thoughts a lesson asks for, + this per round of the ladder */
   needRound: 2,
+  /**
+   * …for this many rounds, then it holds (25–26 thoughts, about half a minute a lesson): a 30-minute session climbs
+   * some eleven rounds, and an endless climb would slow the ladder to minutes a lesson after a few such sessions
+   */
+  needRounds: 10,
   /** a fast lesson's conduction limit (ms), by round */
   speedMs: [10, 5, 2.5] as const,
   /** a lesson card stays this long unless tapped (s); the opening story up to `storyMax` */

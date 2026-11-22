@@ -1459,9 +1459,11 @@ export class SynapsySim {
     else if (this.bestBefore !== null && this.score > 0 && this.bestBefore - this.score <= Math.max(6, this.bestBefore * 0.3)) {
       add(1, t('hl.toBest', { conn: connText(this.bestBefore - this.score) }));
     }
-    // the lessons learned before the last one (the last is the closing line)
-    const before = this.learnedNow.slice(0, -1);
-    if (before.length) add(2, t('hl.lesson', { lesson: before.map(L => lessonTitle(L.id)).join(', ') }));
+    // the lessons learned before the last one (the last is the closing line): each once, the latest four — a long
+    // session goes round the ladder of eight many times
+    const last = this.learnedNow[this.learnedNow.length - 1]?.id;
+    const before = [...new Set(this.learnedNow.slice(0, -1).map(L => L.id).reverse())].filter(id => id !== last).slice(0, 4).reverse();
+    if (before.length) add(2, t('hl.lesson', { lesson: before.map(lessonTitle).join(', ') }));
     if (this.fastestMs > 0 && (this.p.fastest === 0 || this.fastestMs <= this.p.fastest)) add(3, t('hl.fastest', { ms: msText(this.fastestMs) }));
     if (this.stepBest >= 5) add(3, t('hl.inStep', { s: secText(this.stepBest) }));
     if (this.consolidatedNow > 0) add(4, t('hl.kept', { n: this.consolidatedNow }));

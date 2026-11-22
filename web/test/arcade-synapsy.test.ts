@@ -1334,3 +1334,77 @@ describe('the whole game under random hands', () => {
     }
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes to the finale: push and rest alternating, ending on a rest, every block 12–31 s', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind, `${planned} #${i}`).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(31);
+        }
+        const pairs = Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0]));
+        expect(body.length).toBe(2 * pairs);
+      }
+    }
+  });
+
+  it('asks two more thoughts each round for ten rounds, then holds (a long session climbs many rounds)', () => {
+    for (const L of LESSONS) {
+      const at = (round: number) => lessonAt(round * LESSONS.length + LESSONS.indexOf(L));
+      expect(at(RULES.needRounds).goal).toBe(L.need + RULES.needRound * RULES.needRounds);
+      expect(at(RULES.needRounds + 1).goal).toBe(at(RULES.needRounds).goal);
+      expect(at(500).goal).toBe(at(RULES.needRounds).goal);
+      expect(at(RULES.needRounds).goal).toBeGreaterThan(at(RULES.needRounds - 1).goal);
+    }
+  });
+
+  it('plays a whole 30-minute session: lesson after lesson round the ladder, no throw, finite numbers, the end, a bounded network', () => {
+    const sim = later({ planned: 1800, seed: 2 });
+    const clock = { t: 0 };
+    let space = 2, oli = 8, maxPulses = 0, maxLinks = 0, finale = false;
+    const learnedAt: number[] = [];
+    for (let i = 0; i < 1803 / STEP; i++) {
+      clock.t += STEP;
+      sim.update(STEP, sim.restBlock ? CALM : (Math.floor(clock.t / 13) % 2 ? MID : HIGH), clock.t, null);
+      // Space every 2 s (the next pair), Oli sent every 8 s when she is home (a fast lesson needs myelin)
+      if (clock.t >= space) { space += 2; sim.key(' ', true); sim.key(' ', false); }
+      if (clock.t >= oli) { oli += 8; if (sim.oli.state === 'home') sim.sendOli(); }
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale = true;
+        if (e.type === 'learned') learnedAt.push(clock.t);
+      }
+      maxPulses = Math.max(maxPulses, sim.pulses.length);
+      maxLinks = Math.max(maxLinks, sim.links.size);
+    }
+    expect(finale).toBe(true);
+    expect(sim.phase).toBe('done');
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    for (const v of [sim.score, sim.thoughts, sim.charge, sim.waste, sim.fastestMs]) expect(Number.isFinite(v)).toBe(true);
+    // the ladder keeps giving to the end: lessons learned in the last ten minutes too, round after round
+    expect(sim.learnedNow.length).toBeGreaterThanOrEqual(24);
+    expect(learnedAt.filter(t => t > 1200).length).toBeGreaterThanOrEqual(3);
+    expect(sim.lesson.round).toBeGreaterThanOrEqual(3);
+    expect(maxPulses).toBeLessThanOrEqual(RULES.maxPulses);
+    expect(maxLinks).toBeLessThanOrEqual((NEURONS * RULES.perNeuron) / 2 + 4);
+    const r = sim.result();
+    expect(r.score).toBe(sim.score);
+    expect(sim.p.best['1800']).toBe(r.score);
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+    // the summary names each lesson once, never the whole ladder over and over
+    for (const h of r.highlights) {
+      expect(h).not.toMatch(/undefined|NaN/);
+      expect(h.length).toBeLessThan(160);
+    }
+    expect(r.highlights.length).toBeLessThanOrEqual(5);
+    expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+    // what is kept for the next session stays bounded
+    expect(sim.p.links.length).toBeLessThanOrEqual(RULES.keepLinks);
+  });
+});
