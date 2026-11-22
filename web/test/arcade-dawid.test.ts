@@ -684,6 +684,121 @@ describe('the smoke path', () => {
   });
 });
 
+// ── long sessions: 15, 20, 25 and 30 minutes ───────────────────────
+describe('long sessions (15–30 min)', () => {
+  it('plans 15, 20, 25 and 30 minutes like the short ones: Proca and Harfa in turn up to the last stretch, no block too long or too short', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        const blocks = first ? plan.slice(1) : plan;
+        blocks.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(blocks.at(-1)!.kind).toBe('rest');
+        expect(finaleFor(planned)).toBe(RULES.finale.long);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        const left = planned - finaleFor(planned) - (first ? RULES.warm.long : 0);
+        expect(blocks.length / 2).toBe(Math.round(left / (RULES.push[0] + RULES.rest[0])));
+        for (const b of blocks) {
+          const [nominal, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual((nominal + jitter) * 1.05);
+        }
+      }
+    }
+  });
+
+  /** A typical player (as the pacing bot): taps the story on, buys in camp, follows the quest, hunts, goes home with a full bag. */
+  function typical(sim: DawidSim, step: number): () => void {
+    let tap = 0;
+    return () => {
+      if (sim.story && sim.story.t > 1) sim.tap();
+      if ((tap += step) < 1) return;
+      tap = 0;
+      if (sim.inCamp) {
+        for (const tab of ['bd', 'wp', 'ab'] as const) {
+          sim.setTab(tab);
+          for (let k = 0; k < 6; k++) { const i = sim.tiles().findIndex(x => x.why === 'ok' && x.kind !== 'cave'); if (i < 0) break; sim.campTap(i); }
+        }
+      }
+      const q = sim.questTarget();
+      const atCamp = q && Math.hypot(q.x - sim.land.camp[0], q.y - sim.land.camp[1]) < 1;
+      if (sim.bagFull || atCamp) { if (!sim.inCamp) sim.goHome(); }
+      else if (q && sim.quest?.kind !== 'hunt' && sim.quest?.kind !== 'level' && Math.hypot(q.x - sim.david.x, q.y - sim.david.y) > 3) sim.tap(q.x, q.y);
+      else if (sim.mode === 'none' || sim.mode === 'go') sim.tap();
+    };
+  }
+
+  it('a first 30-minute session plays to its finale and keeps giving: levels, quests and guardians to the end, the numbers finite, nothing piling up', () => {
+    const sim = makeSim({ planned: 1800, seed: 3 });
+    const p = sim.p, step = 1 / 30, bot = typical(sim, step);
+    const f = (): FocusFrame => {
+      const b = sim.block;
+      if (sim.phase !== 'play' || !b) return frame({ level: 0.4 });
+      if (b.kind === 'push') return frame({ level: 0.68, focused: true, hold: sim.blockT > 8 ? sim.blockT - 8 : 0, activity: 3 });
+      if (b.kind === 'rest') return frame({ level: 0.2, calm: 0.75, activity: -1 });
+      return frame({ level: 0.4 });
+    };
+    let finale = 0, done = 0, bad = 0, at20 = -1, lvl20 = 0;
+    const most = { coins: 0, chests: 0, beasts: 0, shots: 0, prints: 0, fx: 0 };
+    for (let tt = step; tt < 1800 + RULES.settle + 1 && !sim.canStop(); tt += step) {
+      sim.update(step, f(), tt);
+      bot();
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale++;
+        else if (e.type === 'done') done++;
+      }
+      most.coins = Math.max(most.coins, sim.coins.length);
+      most.chests = Math.max(most.chests, sim.chests.length);
+      most.beasts = Math.max(most.beasts, sim.beasts.length);
+      most.shots = Math.max(most.shots, sim.shots.length);
+      most.prints = Math.max(most.prints, sim.prints.length);
+      most.fx = Math.max(most.fx, sim.puffs.length + sim.rings.length + sim.notes.length + sim.zones.length);
+      const d = sim.david;
+      if (![sim.score, d.x, d.y, d.hp, d.max, sim.charge, p.xp, p.silver, p.wood, p.stone, sim.stats.dmg].every(Number.isFinite)) bad++;
+      if (at20 < 0 && tt >= 1200) { at20 = sim.score; lvl20 = p.level; }
+    }
+    expect(bad).toBe(0);
+    expect([finale, done, sim.phase]).toEqual([1, 1, 'done']);
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    // the last ten minutes still pay: XP, levels; the road moved through more than one land
+    expect(sim.score).toBeGreaterThan(at20 * 1.2);
+    expect(p.level).toBeGreaterThan(lvl20);
+    expect(p.land).toBeGreaterThanOrEqual(2);
+    expect(sim.guardsNow.length).toBeGreaterThanOrEqual(2);
+    // bounded
+    expect(most.coins).toBeLessThanOrEqual(RULES.coinCap);
+    expect(most.chests).toBeLessThan(12);
+    expect(most.beasts).toBeLessThan(80);
+    expect(most.shots).toBeLessThan(40);
+    expect(most.prints).toBeLessThan(400);
+    expect(most.fx).toBeLessThan(100);
+    expect(sim.talk.said.length).toBeLessThanOrEqual(120);
+    const r = sim.result();
+    expect(Number.isFinite(r.score)).toBe(true);
+    expect(JSON.stringify(r)).not.toMatch(/undefined|NaN|Infinity/);
+    expect(p.best['1800']).toBe(sim.score);
+  });
+
+  it('a 30-minute session with a strong focus deep on a later circle stays sane: finite, bounded, still levelling', () => {
+    const sim = makeSim({ planned: 1800, seed: 5, progress: { sessions: 60, seen: SEEN, land: 8, level: 80 } });
+    const p = sim.p, step = 1 / 30, bot = typical(sim, step);
+    const level0 = p.level;
+    let bad = 0, most = 0;
+    for (let tt = step; tt < 1800 + RULES.settle + 1 && !sim.canStop(); tt += step) {
+      sim.update(step, sim.block?.kind === 'rest' ? CALM : HIGH, tt);
+      bot();
+      sim.take();
+      most = Math.max(most, sim.coins.length + sim.chests.length + sim.beasts.length + sim.shots.length);
+      if (![sim.score, sim.david.x, sim.david.hp, p.xp, p.silver].every(Number.isFinite)) bad++;
+    }
+    expect(bad).toBe(0);
+    expect(sim.phase).toBe('done');
+    expect(p.level).toBeGreaterThan(level0);
+    expect(most).toBeLessThan(RULES.coinCap + 150);
+    expect(JSON.stringify(sim.result())).not.toMatch(/undefined|NaN|Infinity/);
+  });
+});
+
 /** A typical player over many sessions (DAWID_PACING=12 DAWID_OUT=/tmp/pace.txt npx vitest run test/arcade-dawid.test.ts -t pacing). */
 describe.runIf(process.env.DAWID_PACING)('pacing (manual)', () => {
   it('plays sessions like a typical player and prints the road', () => {
