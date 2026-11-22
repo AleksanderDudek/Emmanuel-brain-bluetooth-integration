@@ -650,6 +650,18 @@ dialog ol{padding-left:20px;line-height:1.7;color:var(--tx2)}
 .arcade-daily p{color:var(--tx2);font-size:13px;margin-top:2px}
 .arcade-daily .badge{margin-left:auto}
 .arcade-daily.done{border-style:solid;border-color:rgba(61,220,151,.4)}
+/* an own picture's motion (Ja jestem…, round 12): the options generated for the photo, each playing on it */
+.living-box{display:flex;flex-direction:column;gap:6px}
+.living-box:empty{display:none}
+.living-pick{display:flex;flex-wrap:wrap;gap:8px}
+.living-opt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 6px 7px;border-radius:12px;background:var(--ink-1);
+  border:1px solid var(--line-2);color:var(--tx);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;min-width:64px;position:relative}
+.living-opt canvas{border-radius:6px;display:block;background:var(--ink-3)}
+.living-opt:hover{border-color:var(--tool)}
+.living-opt[aria-checked="true"]{border-color:var(--tool);background:var(--tool-dim);color:var(--tool)}
+.living-opt .living-rec{position:absolute;top:2px;left:50%;transform:translateX(-50%);background:rgba(246,212,136,.95);color:#2b2226;
+  font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;white-space:nowrap}
+.living-saved{margin-left:auto;color:var(--good,#3ddc97)}
 .arcade-chips{display:flex;flex-wrap:wrap;gap:6px}
 .arcade-chips span{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line-2);color:var(--tx3)}
 .arcade-chips span.on{color:var(--tx);border-color:var(--tool);background:var(--tool-dim)}

@@ -6,6 +6,7 @@
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { h } from '../../ui/dom';
+import { cleanMotion, type Motion } from './living';
 import type { Pixels } from './mosaic';
 
 export interface StoredImage {
@@ -21,6 +22,8 @@ export interface StoredImage {
   /** when it was added (ms since the epoch) */
   added: number;
   blob: Blob;
+  /** how it moves in play (kit/living.ts); absent: the motion recommended for it, with depth (round 12) */
+  motion?: Motion;
 }
 
 interface ImagesDB extends DBSchema {
@@ -85,6 +88,15 @@ export async function setLabel(id: string, label: string): Promise<void> {
   const d = await db();
   const rec = await d.get('images', id);
   if (rec) await d.put('images', { ...rec, label: cleanLabel(label) });
+}
+
+/** Keep how a picture moves (an unknown motion is not kept). */
+export async function setMotion(id: string, motion: Motion): Promise<void> {
+  const m = cleanMotion(motion);
+  if (!m) return;
+  const d = await db();
+  const rec = await d.get('images', id);
+  if (rec) await d.put('images', { ...rec, motion: m });
 }
 
 /** The size a picture is drawn at so its longer side is at most `max` (never enlarged). */

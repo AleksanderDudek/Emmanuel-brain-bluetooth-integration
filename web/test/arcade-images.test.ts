@@ -6,7 +6,7 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import {
-  LABEL_MAX, cleanLabel, deleteImage, getImage, imagePicker, listImages, putImage, saveImage, scaledSize, setLabel,
+  LABEL_MAX, cleanLabel, deleteImage, getImage, imagePicker, listImages, putImage, saveImage, scaledSize, setLabel, setMotion,
   IMAGE_ACCEPT, ImageError, firstImage, imageDrop, isHeic, looksLikeImage,
 } from '../src/arcade/kit/images';
 
@@ -36,6 +36,17 @@ describe('kit/images', () => {
     const r = await putImage({ game: 'jestem-t2', role: 'vision', label: '', w: 1, h: 1, blob: blob() });
     await setLabel(r.id, '  zdrowa ');
     expect((await getImage(r.id))?.label).toBe('zdrowa');
+  });
+
+  it('keeps how a picture moves, and only a motion it knows', async () => {
+    const r = await putImage({ game: 'jestem-t3', role: 'vision', label: 'x', w: 1, h: 1, blob: blob() });
+    expect((await getImage(r.id))?.motion).toBeUndefined();
+    await setMotion(r.id, { kind: 'water', parallax: true });
+    expect((await getImage(r.id))?.motion).toEqual({ kind: 'water', parallax: true });
+    await setMotion(r.id, { kind: 'lava' as never, parallax: false });
+    expect((await getImage(r.id))?.motion).toEqual({ kind: 'water', parallax: true });
+    await setMotion('missing', { kind: 'still', parallax: false });
+    expect((await getImage(r.id))?.label).toBe('x');
   });
 
   it('never enlarges a picture and keeps its shape when it shrinks it', () => {
