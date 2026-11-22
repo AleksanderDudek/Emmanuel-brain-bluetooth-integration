@@ -15,12 +15,13 @@ import type { PassageId } from './kit/scripture';
 import type { ArcadeModule } from './kit/types';
 
 /** What kind of play a game is: the Games tab shows the games in these sections, in this order. */
-export type ArcadeKind = 'vision' | 'health' | 'body' | 'puzzle' | 'run' | 'arcade' | 'strategy' | 'craft';
+export type ArcadeKind = 'heart' | 'vision' | 'health' | 'body' | 'puzzle' | 'run' | 'arcade' | 'strategy' | 'craft';
 /**
- * `vision`: the visualisation games (§13); `health`: the health visualisations, guided meditations to choose, walk
+ * `heart`: the series "Serce i światło", the prayer of the heart and meditations of light drawn from many
+ * traditions (§18); `vision`: the visualisation games (§13); `health`: the health visualisations, guided meditations to choose, walk
  * through and repeat (§15); `body`: the series "Weź moc, obudź się" about the body's own processes (§13).
  */
-export const KINDS: readonly ArcadeKind[] = ['vision', 'health', 'body', 'puzzle', 'run', 'arcade', 'strategy', 'craft'];
+export const KINDS: readonly ArcadeKind[] = ['heart', 'vision', 'health', 'body', 'puzzle', 'run', 'arcade', 'strategy', 'craft'];
 
 export interface ArcadeEntry {
   id: string;
@@ -59,7 +60,8 @@ export interface ArcadeEntry {
 }
 
 type GameId = 'geoda' | 'latarnik' | 'motylarnia' | 'arka' | 'urodzaj' | 'wzlot' | 'glina' | 'zrodla' | 'poslaniec' | 'zacheusz' | 'pasterz' | 'aniol' | 'zastepy' | 'firmament' | 'dolina' | 'chleby' | 'jerzy' | 'dawid' | 'dziewiatka' | 'nehemiasz' | 'koty'
-  | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'wlosy';
+  | 'ogien' | 'rozswietl' | 'jestem' | 'odpornosc' | 'swiatlo' | 'synapsy' | 'odnowa' | 'rzeki' | 'wlosy'
+  | 'serce' | 'dlonie' | 'ezechiel' | 'brzemiona' | 'drzewo';
 const brain = (id: GameId): ArcadeEntry['brain'] => ({
   focus: t(`${id}.brainFocus`), rest: t(`${id}.brainRest`), meter: t(`${id}.meter`), meterRest: t(`${id}.meterRest`),
 });
@@ -335,6 +337,51 @@ export const ARCADE: ArcadeEntry[] = [
     tuning: { adapt: 0.08 }, root: 'luk12.7',
     brain: brain('wlosy'),
     load: () => import('./wlosy/index').then(m => m.default),
+  },
+  {
+    id: 'serce', kind: 'heart', title: t('serce.title'), tagline: t('serce.tagline'), text: t('serce.text'),
+    how: [t('serce.how1'), t('serce.how2'), t('serce.how3')],
+    tips: [t('serce.tip1'), t('serce.tip2'), t('serce.tip3'), t('serce.tip4'), t('serce.tip5')],
+    unit: t('serce.unit'), art: 'art-serce', fill: ['#fff4e0', '#ffc9a8', '#c0587a', '#160c24'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: '1jn4.16',
+    brain: brain('serce'),
+    load: () => import('./serce/index').then(m => m.default),
+  },
+  {
+    id: 'dlonie', kind: 'heart', title: t('dlonie.title'), tagline: t('dlonie.tagline'), text: t('dlonie.text'),
+    how: [t('dlonie.how1'), t('dlonie.how2'), t('dlonie.how3')],
+    tips: [t('dlonie.tip1'), t('dlonie.tip2'), t('dlonie.tip3'), t('dlonie.tip4'), t('dlonie.tip5')],
+    unit: t('dlonie.unit'), art: 'art-dlonie', fill: ['#fff8e6', '#ffd98a', '#c9813a', '#1a1208'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa141.2',
+    brain: brain('dlonie'),
+    load: () => import('./dlonie/index').then(m => m.default),
+  },
+  {
+    id: 'ezechiel', kind: 'heart', title: t('ezechiel.title'), tagline: t('ezechiel.tagline'), text: t('ezechiel.text'),
+    how: [t('ezechiel.how1'), t('ezechiel.how2'), t('ezechiel.how3')],
+    tips: [t('ezechiel.tip1'), t('ezechiel.tip2'), t('ezechiel.tip3'), t('ezechiel.tip4'), t('ezechiel.tip5')],
+    unit: t('ezechiel.unit'), art: 'art-ezechiel', fill: ['#eafcff', '#8fe0e8', '#2f7f9e', '#08202c'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'ezk47.9',
+    brain: brain('ezechiel'),
+    load: () => import('./ezechiel/index').then(m => m.default),
+  },
+  {
+    id: 'brzemiona', kind: 'heart', title: t('brzemiona.title'), tagline: t('brzemiona.tagline'), text: t('brzemiona.text'),
+    how: [t('brzemiona.how1'), t('brzemiona.how2'), t('brzemiona.how3')],
+    tips: [t('brzemiona.tip1'), t('brzemiona.tip2'), t('brzemiona.tip3'), t('brzemiona.tip4'), t('brzemiona.tip5')],
+    unit: t('brzemiona.unit'), art: 'art-brzemiona', fill: ['#fff6ea', '#e9c98a', '#7a6e8c', '#15121e'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'gal6.2',
+    brain: brain('brzemiona'),
+    load: () => import('./brzemiona/index').then(m => m.default),
+  },
+  {
+    id: 'drzewo', kind: 'heart', title: t('drzewo.title'), tagline: t('drzewo.tagline'), text: t('drzewo.text'),
+    how: [t('drzewo.how1'), t('drzewo.how2'), t('drzewo.how3')],
+    tips: [t('drzewo.tip1'), t('drzewo.tip2'), t('drzewo.tip3'), t('drzewo.tip4'), t('drzewo.tip5')],
+    unit: t('drzewo.unit'), art: 'art-drzewo', fill: ['#f4ffe8', '#b6e39a', '#4f8a4a', '#10180c'], tools: ['fnirs', 'eeg'], focusChip: false,
+    tuning: { adapt: 0.08 }, root: 'psa1.3',
+    brain: brain('drzewo'),
+    load: () => import('./drzewo/index').then(m => m.default),
   },
 ];
 
