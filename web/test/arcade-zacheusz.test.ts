@@ -7,7 +7,7 @@ import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
 import zacheusz from '../src/arcade/zacheusz/index';
 import { DOCK_ROW, EDGE, NEED_U, buttonRect, layout, melaBehind } from '../src/arcade/zacheusz/layout';
 import { font } from '../src/arcade/zacheusz/paint';
-import { SAY } from '../src/arcade/zacheusz/companion';
+import { ROUND_SEC, SAY } from '../src/arcade/zacheusz/companion';
 import { HOMES, LEVELS, MISSIONS, TIPS, specialsOf } from '../src/arcade/zacheusz/content';
 import { Hero, type HeroEvent } from '../src/arcade/zacheusz/hero';
 import { CATALOGS, t, unit, type Key } from '../src/arcade/zacheusz/i18n';
@@ -1030,5 +1030,64 @@ describe('Zacheusz: a desktop and a big screen', () => {
     // the phone's words stay a finger's
     vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes('coarse'), media: q }));
     expect(zacheusz.howto!().hands.map(h => h.gesture)).toEqual(['tap', 'hold', 'tap', 'keys']);
+  });
+});
+
+// ── long sessions (15–30 min) ────────────────────────────────────
+describe('Zacheusz at 15–30 minutes', () => {
+  it('plans 900–1800 s to the end: push/rest pairs at their design lengths, alternating', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned, 6);
+        expect(plan[0].kind).toBe(first ? 'warmup' : 'push');
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('runs a whole 30-min session with the smoke hand: level after level, replays past the twelfth, bounded worlds, a short summary', () => {
+    const sim = later({ planned: 1800, seed: 2 });
+    const hand = smokeHand(sim);
+    const clock = { t: sim.t };
+    let evs = 0, levels = 0, maxPlats = 0, maxCoins = 0, maxPast = 0, lastLine: unknown = null;
+    const heard: { text: string; at: number }[] = [];
+    const n = Math.round(1800 / STEP);
+    for (let i = 0; i < n; i++) {
+      clock.t += STEP;
+      sim.update(STEP, sim.block.kind === 'rest' ? CALM : FOCUSED, clock.t);
+      hand();
+      for (const e of sim.take()) { evs++; if (e.type === 'levelDone') levels++; }
+      const l = sim.talk.current;
+      if (l && l !== lastLine) { lastLine = l; heard.push({ text: l.text, at: clock.t }); }
+      if (i % 30 === 0) {
+        maxPlats = Math.max(maxPlats, sim.world.plats.length);
+        maxCoins = Math.max(maxCoins, sim.world.coins.length);
+        maxPast = Math.max(maxPast, (sim as unknown as { past: unknown[] }).past.length);
+      }
+    }
+    expect(sim.canStop()).toBe(true);
+    expect(evs).toBeGreaterThan(1000);
+    expect(levels).toBeGreaterThan(12);   // past the twelfth: replays
+    // Mela still talks in the last ten minutes, and never says a line again within ten minutes
+    expect(heard.filter(h => h.at > 1200).length).toBeGreaterThan(5);
+    for (let i = 0; i < heard.length; i++) {
+      for (let j = i + 1; j < heard.length; j++) if (heard[j].text === heard[i].text) expect(heard[j].at - heard[i].at).toBeGreaterThanOrEqual(ROUND_SEC - 5);
+    }
+    expect(maxPlats).toBeLessThan(1500);
+    expect(maxCoins).toBeLessThan(2000);
+    expect(maxPast).toBeLessThan(200);
+    expect(Number.isFinite(sim.headline().value)).toBe(true);
+    sim.finish();
+    const out = sim.result();
+    expect(out.highlights.length).toBeLessThanOrEqual(7);
+    for (const s of out.highlights) expect(s.length).toBeLessThan(120);
+    for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub ?? '']) expect(s).not.toMatch(/undefined|NaN|Infinity/);
   });
 });
