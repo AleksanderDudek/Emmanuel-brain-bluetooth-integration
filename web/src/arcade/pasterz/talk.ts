@@ -11,6 +11,9 @@ import { RULES } from './rules';
 
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 
+/** how many said lines the log keeps (a session of any length) */
+export const SAID_KEEP = 120;
+
 interface Ask { moment: Moment; pri: number; until: number; seq: number }
 
 export class Talk {
@@ -21,7 +24,7 @@ export class Talk {
   private readonly queue: Ask[] = [];
   /** the variants each moment still has to say this session (shuffled) */
   private readonly left = new Map<Moment, number[]>();
-  /** every line said this session, in order (the tests read it) */
+  /** the lines said this session, in order, the last SAID_KEEP of them (the tests read it; a 30-minute session says ~200) */
   readonly said: string[] = [];
 
   constructor(private readonly lines: Readonly<Record<Moment, readonly string[]>>, private readonly rng: () => number) {}
@@ -58,6 +61,7 @@ export class Talk {
     const text = this.pick(a.moment);
     this.line = { moment: a.moment, text, t: 0, dur: clamp(RULES.talkMin + text.length / 32, RULES.talkMin, RULES.talkMax) };
     this.said.push(text);
+    if (this.said.length > SAID_KEEP) this.said.splice(0, this.said.length - SAID_KEEP);
   }
 
   /** The next unused variant of a moment (a new shuffle once all were said). */

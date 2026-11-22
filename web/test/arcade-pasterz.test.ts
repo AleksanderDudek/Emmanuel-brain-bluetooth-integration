@@ -7,8 +7,8 @@ import { addHome, bestOf, freshProgress, homeFor, migrate, nameLamb, nextUnlock,
 import { SANS, SERIF, font } from '../src/arcade/pasterz/paint';
 import type { PasterzView } from '../src/arcade/pasterz/render';
 import { RULES } from '../src/arcade/pasterz/rules';
-import { PasterzSim, RING_MARK, contest, crownFor, morningFor, planBlocks, ringFor, type SimEvent } from '../src/arcade/pasterz/sim';
-import { Talk } from '../src/arcade/pasterz/talk';
+import { PasterzSim, RING_MARK, contest, crownFor, listShort, morningFor, planBlocks, ringFor, type SimEvent } from '../src/arcade/pasterz/sim';
+import { SAID_KEEP, Talk } from '../src/arcade/pasterz/talk';
 import { World } from '../src/arcade/pasterz/world';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
 import { DEFAULT_TUNING, type FocusFrame, type FocusTuning } from '../src/arcade/kit/focus';
@@ -1110,5 +1110,97 @@ describe('Pasterz: a desktop and a big screen (DESIGN §14)', () => {
       expect(L.u, name).toBeGreaterThan(1.3);
       expect(L.whistle.r * 2, name).toBeGreaterThan(70);
     }
+  });
+});
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes like the short ones: day and night in turn, rounds of about two minutes, a night last', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [false, true]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        const name = `${planned}${first ? ' first' : ''}`;
+        expect(plan.reduce((s, b) => s + b.dur, 0), name).toBeCloseTo(planned - RULES.finale, 0);
+        const play = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0].kind, name).toBe('warmup');
+        play.forEach((b, i) => {
+          expect(b.kind, name).toBe(i % 2 ? 'watch' : 'call');
+          expect(b.dur, name).toBeGreaterThanOrEqual(RULES.minBlock - 1e-6);
+          expect(b.dur, name).toBeLessThanOrEqual(RULES.push[0] + RULES.push[1] + 2);
+        });
+        expect(plan[plan.length - 1].kind, name).toBe('watch');
+        expect(plan[plan.length - 1].roundEnd, name).toBe(true);
+        let len = 0, rounds = 0;
+        for (const b of plan) {
+          len += b.dur;
+          if (!b.roundEnd) continue;
+          rounds++;
+          expect(len, name).toBeGreaterThan(80);
+          expect(len, name).toBeLessThan(160);
+          len = 0;
+        }
+        expect(rounds, name).toBe(Math.floor(play.length / 4));
+        expect(rounds, name).toBeGreaterThanOrEqual(Math.floor(planned / 100));
+      }
+    }
+  });
+
+  it('a 30-minute session from the first ever plays every round to the finale; nothing piles up', () => {
+    // the coarsest step the sim takes (its dt is clamped to 0.1 s): 18 000 frames
+    const sim = makeSim({ planned: 1800, progress: { sessions: 0 }, seed: 7 });
+    const DT = 0.1, n = Math.round(1815 / DT);
+    let nextTap = 0.65, maxSheep = 0, maxPrints = 0, finales = 0, rounds = 0, scoreAt20 = 0;
+    for (let i = 1; i <= n; i++) {
+      const t = i * DT;
+      if (t >= nextTap) {
+        nextTap += 0.65;
+        sim.whistle();
+      }
+      sim.update(DT, sim.block?.kind === 'watch' ? CALM : HIGH, t);
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finales++;
+        if (e.type === 'roundEnd') rounds++;
+      }
+      maxSheep = Math.max(maxSheep, sim.sheep.length);
+      maxPrints = Math.max(maxPrints, sim.prints.length);
+      if (i === 12000) scoreAt20 = sim.score;
+    }
+    expect(sim.phase).toBe('done');
+    expect(finales).toBe(1);
+    expect(rounds).toBe(sim.roundsPlanned);
+    expect(sim.roundsDone).toBe(sim.roundsPlanned);
+    expect(sim.roundsPlanned).toBeGreaterThanOrEqual(17);
+    // it keeps giving to the end: hills come round again, the last ten minutes still gather
+    expect(sim.score).toBeGreaterThan(scoreAt20 * 1.2);
+    expect(sim.p.hill).toBe(sim.roundsPlanned);
+    for (const v of [sim.score, sim.banked, sim.p.total, sim.p.flock, sim.ringR, sim.player.x, sim.player.y]) expect(Number.isFinite(v)).toBe(true);
+    expect(sim.p.flock).toBeLessThan(RULES.hundred);
+    expect(maxSheep).toBeLessThanOrEqual(RULES.maxSheep);
+    expect(maxPrints).toBeLessThanOrEqual(140);
+    expect(sim.talk.said.length).toBeLessThanOrEqual(SAID_KEEP);
+    expect(sim.talk.said.every(l => l && !l.includes('undefined'))).toBe(true);
+    const r = sim.result();
+    expect(sim.p.best['1800']).toBe(r.score);
+    expect(r.highlights.length).toBeLessThanOrEqual(5);
+    for (const h of r.highlights) {
+      expect(h).not.toMatch(/undefined|NaN/);
+      expect(h.length, h).toBeLessThanOrEqual(90);
+    }
+    for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
+  });
+
+  it('the summary names three new pieces or lambs at most, and counts the rest', () => {
+    expect(listShort(['a'])).toBe('a');
+    expect(listShort(['a', 'b', 'c'])).toBe('a, b, c');
+    expect(listShort(['a', 'b', 'c', 'd', 'e'])).toBe('a, b, c +2');
+    const sim = later({ planned: 60 });
+    for (let i = 0; i < 14; i++) sim.lambsNamed.push({ index: i % LAMBS.length, isNew: i < LAMBS.length });
+    sim.unlocksNow.push(...UNLOCKS);
+    drive(sim, 1, HIGH);
+    const hl = sim.result().highlights;
+    const lambs = hl.find(h => h.includes(LAMBS[0].name))!;
+    expect(lambs).toContain('(14)');
+    expect(lambs).toContain(`+${LAMBS.length - 3}`);
+    const wardrobe = hl.find(h => h.includes(t('skin.cloak.1' as 'skin.cloak.0')))!;
+    expect(wardrobe).toContain(`+${UNLOCKS.length - 3}`);
   });
 });

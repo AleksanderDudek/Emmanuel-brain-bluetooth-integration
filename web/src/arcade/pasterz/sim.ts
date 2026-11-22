@@ -1627,15 +1627,17 @@ export class PasterzSim {
     const add = (rank: number, text: string) => notes.push({ rank, text });
     if (this.seasonsNow > 0) add(0, t('hl.hundred', { n: this.p.season + 1 }));
     if (this.lambsNamed.length) {
-      const names = this.lambsNamed.slice(0, 3).map(l => LAMBS[l.index].name);
-      add(1, names.length === 1 ? t('hl.lamb', { name: names[0] }) : t('hl.lambs', { names: names.join(', '), n: names.length }));
+      // a long session can carry home many (and, past the twelfth, the same names again): three names, the count of all
+      const n = this.lambsNamed.length;
+      const names = [...new Set(this.lambsNamed.map(l => LAMBS[l.index].name))];
+      add(1, n === 1 ? t('hl.lamb', { name: names[0] }) : t('hl.lambs', { names: listShort(names), n }));
     }
     if (this.crownsWon) add(2, t('hl.crowns', { n: this.crownsWon }));
     else if (this.nearMiss < Infinity) add(2, t('hl.near', { sheep: sheepText(this.nearMiss) }));
     if (this.bestBefore !== null && this.score > this.bestBefore) add(3, t('hl.record', { sheep: sheepText(this.score) }));
     else if (this.bestBefore !== null && this.score < this.bestBefore) add(6, t('hl.toRecord', { sheep: sheepText(this.bestBefore - this.score) }));
     if (this.rivalsOut) add(4, t('hl.out', { n: this.rivalsOut }));
-    if (this.unlocksNow.length) add(5, t('hl.unlock', { name: this.unlocksNow.map(u => skinName(u.kind, u.index)).join(', ') }));
+    if (this.unlocksNow.length) add(5, t('hl.unlock', { name: listShort(this.unlocksNow.map(u => skinName(u.kind, u.index))) }));
     if (this.blindShare >= 0) add(7, t('hl.blind', { n: this.blindShare }));
     if (this.started) add(9, t('hl.close'));
     return notes.sort((a, b) => a.rank - b.rank).slice(0, 5).map(n => n.text);
@@ -1643,6 +1645,10 @@ export class PasterzSim {
 }
 
 const skinName = (kind: SkinKind, index: number): string => t(`skin.${kind}.${index}` as 'skin.cloak.0');
+
+/** A highlight's list of names: the first three, then "+n" for the rest (a 30-minute session can open the whole wardrobe). */
+export const listShort = (names: readonly string[], keep = 3): string =>
+  names.slice(0, keep).join(', ') + (names.length > keep ? ` +${names.length - keep}` : '');
 
 const DIRS: Record<string, [number, number]> = {
   ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0], w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0],
