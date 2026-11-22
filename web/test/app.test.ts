@@ -6,11 +6,12 @@ import { EEGSimulator } from '../src/core/eeg/simulator';
 import { EegEngine } from '../src/eeg-engine';
 import { Engine } from '../src/engine';
 import { Hub, oxygenation, type HubSample, type HubStatus } from '../src/hub';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings, type AppSettings } from '../src/settings';
+import { DEFAULT_SETTINGS, loadSettings, MAX_SESSION_SEC, plannedSeconds, saveSettings, SESSION_MINUTES, sessionMinutes, type AppSettings } from '../src/settings';
 import { SessionDB } from '../src/storage/db';
 import { FolderStore } from '../src/storage/folder';
 import { SessionLibrary } from '../src/storage/library';
 import { Recorder } from '../src/storage/recorder';
+import { HISTORY_SEC, visibleHistory } from '../src/training/scene';
 import { FocusSession } from '../src/training/session';
 import { parseRoute } from '../src/ui/router';
 
@@ -239,6 +240,50 @@ describe('settings and storage upgrades', () => {
     expect((await loadSettings(db)).arcade).toEqual(DEFAULT_SETTINGS.arcade);
     await db.setSetting('app_settings', { ...DEFAULT_SETTINGS, arcade: { minutes: 10 } });
     expect((await loadSettings(db)).arcade).toEqual({ ...DEFAULT_SETTINGS.arcade, minutes: 10 });
+  });
+
+  it('offers 3–30 minute sessions everywhere and keeps every saved length one of them', async () => {
+    expect([...SESSION_MINUTES]).toEqual([3, 5, 10, 15, 20, 25, 30]);
+    expect(MAX_SESSION_SEC).toBe(1800);
+    for (const m of SESSION_MINUTES) expect(sessionMinutes(m)).toBe(m);
+    // an old card-game save (1 or 2 min) and odd values: the nearest length, else the fallback
+    expect(sessionMinutes(1)).toBe(3);
+    expect(sessionMinutes(2)).toBe(3);
+    expect(sessionMinutes(12)).toBe(10);
+    expect(sessionMinutes(28)).toBe(30);
+    expect(sessionMinutes(90)).toBe(30);
+    expect(sessionMinutes(undefined, 10)).toBe(10);
+    expect(sessionMinutes('x')).toBe(5);
+    expect(sessionMinutes(0)).toBe(5);
+    const db = await SessionDB.open(`app-${dbn++}`);
+    cleanups.push(() => db.close());
+    await db.setSetting('app_settings', { ...DEFAULT_SETTINGS, training: { ...DEFAULT_SETTINGS.training, minutes: 30 }, arcade: { ...DEFAULT_SETTINGS.arcade, minutes: 25 } });
+    let s = await loadSettings(db);
+    expect([s.training.minutes, s.arcade.minutes]).toEqual([30, 25]);
+    await db.setSetting('app_settings', { ...DEFAULT_SETTINGS, training: { ...DEFAULT_SETTINGS.training, minutes: 7 }, arcade: { ...DEFAULT_SETTINGS.arcade, minutes: 'long' } });
+    s = await loadSettings(db);
+    expect([s.training.minutes, s.arcade.minutes]).toEqual([5, 5]);
+  });
+
+  it('plans a session from the chosen minutes, or from ?trainingSec (≥ 10 s, at most 30 minutes)', () => {
+    expect(plannedSeconds(30, '')).toBe(1800);
+    expect(plannedSeconds(3, '?debug')).toBe(180);
+    expect(plannedSeconds(5, '?trainingSec=40')).toBe(40);
+    expect(plannedSeconds(5, '?trainingSec=1500')).toBe(1500);
+    expect(plannedSeconds(5, '?trainingSec=99999')).toBe(1800);
+    expect(plannedSeconds(5, '?trainingSec=5')).toBe(300);
+  });
+
+  it('draws only the training curve still on screen, however long the session', () => {
+    const hist = Array.from({ length: 18000 }, (_, i) => ({ t: i / 10, a: i === 50 ? 99 : 1 }));
+    const now = 1799.9;
+    const shown = visibleHistory(hist, now);
+    expect(shown.length).toBe(hist.filter(p => now - p.t <= HISTORY_SEC + 2).length);
+    expect(shown[0].t).toBeGreaterThanOrEqual(now - HISTORY_SEC - 2);
+    // the early spike no longer holds the zoom wide for the rest of the session
+    expect(shown.some(p => p.a === 99)).toBe(false);
+    expect(visibleHistory(hist.slice(0, 100), 9.9)).toHaveLength(100);
+    expect(visibleHistory([], 5)).toHaveLength(0);
   });
 
   it('reads settings saved before the tool switch as fNIRS on the simulator', async () => {

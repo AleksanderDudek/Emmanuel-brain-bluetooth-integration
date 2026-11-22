@@ -9,7 +9,7 @@ import { REASON_TEXT, WARNING_TEXT } from '../hub';
 import { mulberry32 } from '../core/random';
 import { fmtNum, fmtSigned } from '../i18n';
 import { BAND_NAME, t } from '../i18n/arcade';
-import type { AppSettings } from '../settings';
+import { plannedSeconds, type AppSettings } from '../settings';
 import type { SessionDB } from '../storage/db';
 import { TOOL_INFO, type Tool } from '../tools';
 import { breakLine } from '../training/breaks';
@@ -213,8 +213,7 @@ export class ArcadeRunner {
     const prefs = this.d.settings.arcade;
     this.bestBefore = mod.best(progress);
     // ?trainingSec=40 shortens a session (tests and demos), as in the focus training
-    const override = Number(new URLSearchParams(location.search).get('trainingSec'));
-    const planned = Number.isFinite(override) && override >= 10 ? Math.min(900, override) : prefs.minutes * 60;
+    const planned = plannedSeconds(prefs.minutes);
     const beginner = this.d.history().length < BEGINNER_SESSIONS;
     const tuning: FocusTuning = { ...DEFAULT_TUNING, ...entry.tuning, ...(beginner ? BEGINNER_TUNING : {}) };
     const session = new ArcadeSession(tool, planned, tuning);

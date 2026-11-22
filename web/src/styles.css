@@ -200,6 +200,12 @@ details:not([open])>summary{margin-bottom:0}
 .field>span{font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
 .seg{display:flex;gap:6px;flex-wrap:wrap}
 .seg button{min-width:58px}
+/* the session lengths (3–30 min): seven equal columns, the number over a small "min", on a phone too */
+.seg.len{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;max-width:520px}
+.seg.len button{min-width:0;min-height:44px;padding:5px 0;flex-direction:column;gap:0;line-height:1.05;border-radius:12px}
+.seg.len button b{font-size:15px;font-weight:650}
+.seg.len button small{font-size:10.5px;color:var(--tx3);font-weight:500}
+.seg.len button[aria-checked="true"] small{color:inherit;opacity:.85}
 
 /* ── start ───────────────────────────────────────────────────── */
 .hero{padding:18px 0 6px}

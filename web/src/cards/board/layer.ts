@@ -9,6 +9,7 @@ import type { Hub, HubSample } from '../../hub';
 import { REASON_TEXT } from '../../hub';
 import { mulberry32 } from '../../core/random';
 import { fmtNum, lang } from '../../i18n';
+import { plannedSeconds } from '../../settings';
 import { TOOL_INFO } from '../../tools';
 import type { TrainingResult } from '../../training/score';
 import { itemSvg, svgEl } from '../art/draw';
@@ -470,8 +471,7 @@ export class CardsLayer {
     this.band?.setPhase('off');
     const stage = this.ensureStage(game);
     const ui = this.ui!;
-    const override = Number(new URLSearchParams(location.search).get('trainingSec'));
-    const seconds = Number.isFinite(override) && override >= 10 ? Math.min(900, override) : plan.seconds;
+    const seconds = plannedSeconds(plan.seconds / 60);
     const level = plan.levels[game] ?? 1;
     const rng = mulberry32((Date.now() ^ 0x5bd1e995) >>> 0);
     this.loop = new TrialLoop(meta, { rng, level, plannedSec: seconds, practice: plan.practice[game] ?? true }, {
@@ -545,8 +545,7 @@ export class CardsLayer {
   };
 
   private plannedOf(): number {
-    const override = Number(new URLSearchParams(location.search).get('trainingSec'));
-    return Number.isFinite(override) && override >= 10 ? Math.min(900, override) : this.plan!.seconds;
+    return plannedSeconds(this.plan!.seconds / 60);
   }
 
   // ── pause ───────────────────────────────────────────────────────

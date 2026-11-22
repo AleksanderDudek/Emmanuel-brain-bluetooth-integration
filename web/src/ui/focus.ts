@@ -5,7 +5,7 @@
  */
 import type { Hub, HubSample, HubStatus } from '../hub';
 import { REASON_TEXT, WARNING_TEXT } from '../hub';
-import type { AppSettings, SceneId, TrainingPrefs } from '../settings';
+import { plannedSeconds, SESSION_MINUTES, type AppSettings, type SceneId, type TrainingPrefs } from '../settings';
 import { fmtDate, fmtNum, fmtSigned } from '../i18n';
 import { t as tSignal } from '../i18n/signal';
 import { t } from '../i18n/training';
@@ -27,7 +27,7 @@ function s<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, s
 }
 const icon = (id: string) => s('svg', { 'aria-hidden': 'true' }, s('use', { href: `#${id}` }));
 
-const LENGTHS: TrainingPrefs['minutes'][] = [3, 5, 10, 15];
+const LENGTHS = SESSION_MINUTES;
 const FACE_LABELS = [t('face.1'), t('face.2'), t('face.3'), t('face.4'), t('face.5')];
 const CUES: { at: number | 'half' | 'last'; text: string }[] = [
   { at: 2, text: t('cue.aim') },
@@ -130,9 +130,9 @@ export class FocusSetup {
   constructor(private readonly settings: AppSettings, private readonly save: () => Promise<void>, onStart: () => void) {
     const p = settings.training;
     $('lenPick').replaceChildren(...LENGTHS.map(m => h('button', {
-      class: 'btn', type: 'button', role: 'radio', 'aria-checked': String(p.minutes === m),
+      class: 'btn', type: 'button', role: 'radio', 'aria-checked': String(p.minutes === m), 'aria-label': `${m} min`,
       on: { click: () => this.set({ minutes: m }) },
-    }, `${m} min`)));
+    }, h('b', null, String(m)), h('small', null, 'min'))));
     $('scenePick').replaceChildren(...(Object.keys(SCENES) as SceneId[]).map(id => h('button', {
       class: 'scene', type: 'button', role: 'radio', 'aria-checked': String(p.scene === id), 'data-scene': id, 'aria-label': SCENES[id].name,
       on: { click: () => this.set({ scene: id }) },
@@ -239,8 +239,7 @@ export class FocusRunner {
     this.root.hidden = false;
     document.documentElement.style.overflow = 'hidden';
     // ?trainingSec=40 shortens the session (tests and demos)
-    const override = Number(new URLSearchParams(location.search).get('trainingSec'));
-    const planned = Number.isFinite(override) && override >= 10 ? Math.min(900, override) : p.minutes * 60;
+    const planned = plannedSeconds(p.minutes);
     this.session = new FocusSession(tool, planned);
     this.audio = new TrainingAudio(p.volume, p.sound, p.chime);
     this.audio.start();

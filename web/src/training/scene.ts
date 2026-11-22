@@ -75,6 +75,17 @@ const BOTTOM_Y = 0.94;
 /** activity range shown above the baseline before dynamic zoom kicks in */
 const DEFAULT_RANGE = 30;
 export const HISTORY_SEC = 36;
+
+/** The points still on screen (the last HISTORY_SEC + 2 s): history is in time order, so a binary search finds the start. */
+export function visibleHistory<T extends { t: number }>(history: readonly T[], now: number): readonly T[] {
+  const from = now - HISTORY_SEC - 2;
+  let lo = 0, hi = history.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (history[mid].t < from) lo = mid + 1; else hi = mid;
+  }
+  return lo === 0 ? history : history.slice(lo);
+}
 /** seconds of the curve's head that blend into the orb's position */
 const HEAD_SEC = 0.8;
 
@@ -141,9 +152,11 @@ export class SceneRenderer {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     const pxPerSec = (BALL_X * w) / HISTORY_SEC;
     this.scroll += dt * pxPerSec;
-    // dynamic zoom: widen the range when the curve leaves the view, ease back slowly
+    // only the stretch on screen is drawn and measured (a 30-minute session holds ~18 000 points)
+    const shown = visibleHistory(history, now);
+    // dynamic zoom: widen the range when the curve on screen leaves the view, ease back slowly once it has scrolled away
     if (this.opts.zoom) {
-      const peak = history.reduce((m, p) => Math.max(m, Math.abs(p.a)), Math.abs(level ?? 0));
+      const peak = shown.reduce((m, p) => Math.max(m, Math.abs(p.a)), Math.abs(level ?? 0));
       const want = Math.max(DEFAULT_RANGE, Math.min(150, peak * 1.25));
       this.range += (want - this.range) * (1 - Math.exp(-dt / (want > this.range ? 0.8 : 6)));
     } else this.range = DEFAULT_RANGE;
@@ -155,9 +168,9 @@ export class SceneRenderer {
     const k = 18, c = 2 * Math.sqrt(k);
     this.ballV += (k * (target - this.ballY) - c * this.ballV) * Math.min(dt, 0.05);
     this.ballY += this.ballV * Math.min(dt, 0.05);
-    this.drawArea(history, now, pxPerSec);
+    this.drawArea(shown, now, pxPerSec);
     this.drawBaseline();
-    this.drawStars(history, now, pxPerSec);
+    this.drawStars(shown, now, pxPerSec);
     const elevated = reliable && cur >= 1;
     this.glow += ((elevated && this.opts.glow ? 1 : 0) - this.glow) * (1 - Math.exp(-dt / 0.6));
     this.spin += dt * (elevated ? 0.6 + Math.min(2, cur / 10) : 0.15) * (this.opts.glow ? 1 : 0.6);
@@ -295,7 +308,7 @@ export class SceneRenderer {
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.moveTo(0, h);
-    const pts = history.filter(p => now - p.t <= HISTORY_SEC + 2);
+    const pts = history;
     const yb = this.ballY ?? this.yOf(0);
     let started = false;
     for (const p of pts) {

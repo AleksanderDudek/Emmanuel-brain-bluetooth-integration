@@ -7,6 +7,7 @@
 import type { Hub, HubStatus } from '../hub';
 import { REASON_TEXT } from '../hub';
 import { fmtDate, fmtNum } from '../i18n';
+import { SESSION_MINUTES, sessionMinutes } from '../settings';
 import type { SessionDB } from '../storage/db';
 import { TOOL_INFO } from '../tools';
 import type { TrainingResult } from '../training/score';
@@ -53,8 +54,9 @@ export interface CardsDeps {
 }
 
 interface Prefs { minutes: number; pad: LinkKind; marks: boolean; sound: boolean; band: boolean; raw: boolean }
-const DEFAULT_PREFS: Prefs = { minutes: 2, pad: 'local', marks: false, sound: true, band: true, raw: false };
-const MINUTES = [1, 2, 3, 5];
+const DEFAULT_PREFS: Prefs = { minutes: 3, pad: 'local', marks: false, sound: true, band: true, raw: false };
+/** The app's session lengths (settings.ts): 3–30 min, as in the training and the arcade (1 and 2 min until 2026-11-22). */
+const MINUTES = SESSION_MINUTES;
 const WORKOUT_SEC = 90;
 
 /** Relay availability: the desktop server answers /api/v1/duo/info when it served this page. */
@@ -87,6 +89,8 @@ export class CardsModule {
 
   async init(): Promise<void> {
     this.prefs = { ...DEFAULT_PREFS, ...((await this.d.store.get<Partial<Prefs>>('prefs')) ?? {}) };
+    // a save from before 2026-11-22 may hold 1 or 2 min: the nearest length still offered
+    this.prefs.minutes = sessionMinutes(this.prefs.minutes, 3);
     await this.reload(false);
   }
 

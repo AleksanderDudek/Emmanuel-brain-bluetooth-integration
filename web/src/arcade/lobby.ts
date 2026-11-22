@@ -5,7 +5,7 @@
  */
 import type { HubStatus } from '../hub';
 import { BAND_NAME, t } from '../i18n/arcade';
-import type { AppSettings, ArcadePrefs } from '../settings';
+import { SESSION_MINUTES, type AppSettings, type ArcadePrefs } from '../settings';
 import type { SessionDB } from '../storage/db';
 import { $, h, run } from '../ui/dom';
 import { readiness } from '../ui/focus';
@@ -15,7 +15,7 @@ import type { ArcadeModule } from './kit/types';
 import { arcadeEntry, forHands, type ArcadeEntry } from './registry';
 import { verseSlot } from './verse';
 
-const LENGTHS: ArcadePrefs['minutes'][] = [3, 5, 10];
+const LENGTHS = SESSION_MINUTES;
 
 export interface LobbyDeps {
   db: SessionDB;
@@ -38,8 +38,9 @@ export class ArcadeLobby {
   constructor(private readonly d: LobbyDeps) {
     const p = d.settings.arcade;
     $('arcadeLen').replaceChildren(...LENGTHS.map(m => h('button', {
-      class: 'btn', type: 'button', role: 'radio', 'aria-checked': String(p.minutes === m), on: { click: () => this.set({ minutes: m }) },
-    }, t('lobby.minutes', { n: m }))));
+      class: 'btn', type: 'button', role: 'radio', 'aria-checked': String(p.minutes === m), 'aria-label': t('lobby.minutes', { n: m }),
+      on: { click: () => this.set({ minutes: m }) },
+    }, h('b', null, String(m)), h('small', null, 'min'))));
     const bind = (id: string, key: 'sound' | 'haptics') => {
       const el = $<HTMLInputElement>(id);
       el.checked = p[key];
