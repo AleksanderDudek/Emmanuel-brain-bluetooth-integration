@@ -661,24 +661,36 @@ export class DziewiatkaSim {
       const j = Math.floor(this.rng() * (i + 1));
       [ids[i], ids[j]] = [ids[j], ids[i]];
     }
-    // the bell's key only when Harmony is not full already
-    const pool = ids.filter(id => !(id === 'klucz' && this.harmonyReady));
+    // the bell's key only when Harmony is not full already; a stacking boon only below its session's top
+    const pool = ids.filter(id => !(id === 'klucz' && this.harmonyReady) && !this.boonFull(id));
     this.choice = { ids: pool.slice(0, 3), gold, t: 0 };
     this.emit({ type: 'choice', gold });
     this.coach('boon', { at: 'card' });
   }
 
+  /** The session's sum of a stacking boon (soup, scarf, drum, gingerbread); 0 for the others. */
+  private boonSum(id: BoonId): number {
+    return id === 'zupa' ? this.boonHp : id === 'szal' ? this.boonGuard : id === 'werbel' ? this.boonSpeed : id === 'pierniki' ? this.boonDmg : 0;
+  }
+
+  /** A stacking boon at its session's top (RULES.boonCap): not offered any more. */
+  boonFull(id: BoonId): boolean {
+    const cap = RULES.boonCap[id];
+    return cap !== undefined && this.boonSum(id) >= cap - 1e-9;
+  }
+
   private applyBoon(id: BoonId, gold: boolean): void {
     const v = BOONS[id][gold ? 1 : 0];
+    const up = (sum: number) => Math.min(RULES.boonCap[id] ?? Infinity, sum + v / 100);
     switch (id) {
       case 'piesn': for (const h of this.battle.standing) this.battle.gain(h, v, true); break;
       case 'zupa':
-        this.boonHp += v / 100;
+        this.boonHp = up(this.boonHp);
         for (const h of this.battle.heroes) { this.regrow(h); if (!h.down) h.hp = h.max; }
         break;
-      case 'szal': this.boonGuard += v / 100; break;
-      case 'werbel': this.boonSpeed += v / 100; break;
-      case 'pierniki': this.boonDmg += v / 100; break;
+      case 'szal': this.boonGuard = up(this.boonGuard); break;
+      case 'werbel': this.boonSpeed = up(this.boonSpeed); break;
+      case 'pierniki': this.boonDmg = up(this.boonDmg); break;
       case 'klucz': this.addHarmony(v / 100); break;
       case 'apteczka': this.kit = Math.max(this.kit, v / 100); break;
       case 'kieszenie': this.givePiece(v); break;

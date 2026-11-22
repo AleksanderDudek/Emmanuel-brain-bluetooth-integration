@@ -156,6 +156,10 @@ export const RULES = {
   standAt: 0.2,
   /** the boons' choice: the first is taken by itself after this long (s) */
   choiceSec: 6,
+  /** the stacking boons add up within a session to at most this much (a share): a 30-minute session's
+   *  ~37 rests could otherwise stack the snare drum to ×4.7 attack speed; a boon at its top is not offered
+   *  (no 3–10 minute session gets near it by chance; the scarf's top is the battle's own guard cap) */
+  boonCap: { zupa: 1, szal: 0.6, werbel: 1, pierniki: 1 } as Record<string, number>,
 
   // ── growth ───────────────────────────────────────────────────
   /** XP per cleared wave to each of the five: base + per mission index */

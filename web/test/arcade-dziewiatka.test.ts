@@ -1038,3 +1038,82 @@ describe('a big screen and a mouse (DESIGN.md §14)', () => {
     expect(linesFor(true)).toBe(LINES);
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes to the finale: push and rest alternate, none past its nominal length', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(body.at(-1)!.kind).toBe('rest');
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        expect(finaleFor(planned)).toBe(RULES.finale.long);
+        const pairs = body.length / 2;
+        expect(pairs).toBe(Math.round((planned - finaleFor(planned) - (first ? RULES.warm.long : 0)) / (RULES.push[0] + RULES.rest[0])));
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual((b.kind === 'push' ? RULES.push[0] + RULES.push[1] : RULES.rest[0] + RULES.rest[1]) * 1.05);
+        }
+      }
+    }
+  });
+
+  it('a 30-minute session keeps giving: the campaign runs on into the Bell Tower, it ends on time, nothing piles up', () => {
+    for (const progress of [{}, { sessions: 5, pushes: 1, seen: [...SEEN], mission: CAMPAIGN, floor: 1 }] as Partial<DziewiatkaProgress>[]) {
+      const sim = makeSim({ planned: 1800, progress });
+      const floor0 = sim.p.floor;
+      let maxDin = 0, maxShots = 0, frozen = 0, lastWon = 0;
+      const evs: SimEvent[] = [];
+      drive(sim, 1800 + RULES.settle, () => (sim.block?.kind === 'rest' ? CALM : HIGH), { t: 0 }, tt => {
+        if (sim.story && sim.story.t > 0.7) sim.tap();
+        if (sim.choice && sim.choice.t >= 0.3) sim.pick(0);
+        maxDin = Math.max(maxDin, sim.battle.din.length);
+        maxShots = Math.max(maxShots, sim.battle.shots.length);
+        if (sim.frozen) frozen += STEP;
+        const got = sim.take();
+        if (got.some(e => e.type === 'won')) lastWon = tt;
+        evs.push(...got);
+      });
+      expect(sim.phase).toBe('done');
+      expect(ofType(evs, 'done')).toHaveLength(1);
+      expect(sim.canStop()).toBe(true);
+      expect(Number.isFinite(sim.score) && sim.score > 300).toBe(true);
+      // missions all the way: no stall at the end of the campaign
+      expect(sim.missionsWon).toBeGreaterThanOrEqual(12);
+      expect(sim.p.mission).toBe(CAMPAIGN);
+      expect(sim.p.floor).toBeGreaterThanOrEqual(floor0 + 2);
+      expect(ofType(evs, 'won').slice(-1)[0].floor).toBeGreaterThan(0);
+      // missions are still won in the last minutes
+      expect(lastWon).toBeGreaterThan(1800 - 180);
+      expect(maxDin).toBeLessThanOrEqual(30);
+      expect(maxShots).toBeLessThanOrEqual(60);
+      expect(frozen).toBeLessThan(300);
+      expect(sim.talk.said.length).toBeLessThan(1800 / (RULES.talkMin + RULES.talkGap));
+      for (const h of sim.battle.heroes) for (const v of [h.hp, h.max, h.atk, h.energy]) expect(Number.isFinite(v)).toBe(true);
+      expect(sim.mission.spec.power).toBeLessThan(100);
+      const r = sim.result();
+      expect(JSON.stringify(r)).not.toMatch(/undefined|NaN|Infinity/);
+      expect(r.highlights!.length).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it('a stacking boon tops out within a long session and is then no longer offered', () => {
+    const sim = later({ planned: 1800 });
+    let offeredFull = 0, picked = 0;
+    drive(sim, 1804, () => (sim.block?.kind === 'rest' ? CALM : HIGH), { t: 0 }, () => {
+      if (sim.choice && sim.choice.t >= 0.3) {
+        if (sim.choice.ids.some(id => sim.boonFull(id))) offeredFull++;
+        const i = sim.choice.ids.indexOf('werbel');
+        if (i >= 0) picked++;
+        sim.pick(i >= 0 ? i : 0);
+      }
+    });
+    expect(picked).toBeGreaterThan(RULES.boonCap.werbel / (BOONS.werbel[1] / 100));
+    expect(sim.boonFull('werbel')).toBe(true);
+    expect(sim.battle.mods.speed).toBeCloseTo(RULES.boonCap.werbel, 9);
+    expect(sim.battle.mods.dmg).toBeLessThanOrEqual(RULES.boonCap.pierniki + 0.2 + 1e-9);
+    expect(offeredFull).toBe(0);
+  });
+});
