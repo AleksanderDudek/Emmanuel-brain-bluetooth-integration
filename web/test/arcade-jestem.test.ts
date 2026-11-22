@@ -6,7 +6,7 @@ import {
 } from '../src/arcade/jestem/content';
 import { CATALOGS, t, unit } from '../src/arcade/jestem/i18n';
 import {
-  addOwn, chooseNext, declKey, dropOwn, freshProgress, legacyLabel, markCont, migrate, nextNew, nextPace, nextVision, ownKey, pinVision,
+  addOwn, cellsMaxFor, chooseNext, declKey, dropOwn, freshProgress, legacyLabel, markCont, migrate, nextNew, nextPace, nextVision, ownKey, pinVision,
   planCells, receive, received, type JestemProgress,
 } from '../src/arcade/jestem/meta';
 import { RULES, readSec } from '../src/arcade/jestem/rules';
@@ -308,10 +308,54 @@ describe('the blocks (round 11: the rest comes after 3–5 lit cells)', () => {
   });
 });
 
+describe('sessions of 15–30 minutes (round 12)', () => {
+  it('lets sessions over 15 minutes take finer windows (up to 216); 15 minutes and less exactly as before', () => {
+    for (const sec of [180, 300, 600, 900]) {
+      const ps = playSecOf(sec, false);
+      expect(cellsMaxFor(ps)).toBe(RULES.cellsMax);
+      // round 11's formula, unchanged
+      for (const pace of [RULES.paceMin, RULES.pace0, 9, RULES.paceMax]) {
+        expect(planCells(pace, ps)).toBe(Math.round(Math.min(144, Math.max(48, ((pace * ps) / 60) * RULES.planSpread))));
+      }
+    }
+    expect(planCells(RULES.pace0, playSecOf(1200, false))).toBeGreaterThan(144);
+    expect(planCells(RULES.pace0, playSecOf(1800, false))).toBe(RULES.cellsLongMax);
+    expect(planCells(RULES.paceMax, 99_999)).toBe(RULES.cellsLongMax);
+    expect(later({ planned: 1800 }).cellsWanted).toBe(RULES.cellsLongMax);
+    // the progress keeps a long window's count
+    expect(migrate({ ...freshProgress(), cells: 200 }).cells).toBe(200);
+  });
+
+  it('plays 30 minutes through: blocks to the finale, every piece counted, a strong player still colouring past half-way', () => {
+    const n = planCells(RULES.pace0, playSecOf(1800, false));
+    for (const [feed, strong] of [[good(MID), false], [good(HIGH), true]] as const) {
+      const sim = later({ planned: 1800, vision: visionOf('zdrowy', n) });
+      const clock = { t: 0 };
+      let firstLight = -1, guard = 0, pushes = 0, rests = 0, last = '';
+      while (sim.phase !== 'done' && guard++ < 1000) {
+        drive(sim, 2, feed, clock);
+        if (firstLight < 0 && sim.lighting) firstLight = clock.t;
+        const k = `${sim.blockIndex}`;
+        if (k !== last) { last = k; if (sim.block.kind === 'push') pushes++; else if (sim.block.kind === 'rest') rests++; }
+      }
+      expect(sim.phase).toBe('done');
+      expect(clock.t).toBeGreaterThan(1790);
+      expect(clock.t).toBeLessThan(1860);
+      expect(sim.score + sim.graced).toBe(sim.cells);
+      expect(Number.isFinite(sim.score)).toBe(true);
+      expect(pushes).toBeGreaterThan(20);
+      expect(rests).toBeGreaterThan(20);
+      if (strong) expect(firstLight < 0 || firstLight > 900).toBe(true);
+      else expect(sim.score).toBeGreaterThan(n * 0.45);
+    }
+  });
+});
+
 describe('more pieces (48–144)', () => {
   it('cuts a window into what the player is expected to light, ×1.4 — 48 at least, 144 at most', () => {
     expect(planCells(RULES.pace0, 10)).toBe(RULES.cellsMin);
-    expect(planCells(RULES.paceMax, 9999)).toBe(RULES.cellsMax);
+    expect(planCells(RULES.paceMax, 9999)).toBe(RULES.cellsLongMax);
+    expect(planCells(RULES.paceMax, playSecOf(600, false))).toBe(RULES.cellsMax);
     const p3 = planCells(RULES.pace0, playSecOf(180, false));
     const p5 = planCells(RULES.pace0, playSecOf(300, false));
     const p10 = planCells(RULES.pace0, playSecOf(600, false));
@@ -789,7 +833,7 @@ describe('the meta', () => {
     expect(p.best).toBe(0);
     expect(p.album).toEqual({ silny: { n: 2, best: 30, rays: RULES.raysMax, rings: 2, first: '2026-11-01', last: '' } });
     expect(p.own.map(o => o.id)).toEqual(['a']);
-    expect(p.cells).toBe(RULES.cellsMax);
+    expect(p.cells).toBe(RULES.cellsLongMax);
     expect(p.seen).toEqual(['tap']);
     expect(p.last).toBe('decl:silny');
     for (const junk of [null, 3, 'x', [], { ver: 2 }, { album: [], own: {}, seen: 'x' }]) {

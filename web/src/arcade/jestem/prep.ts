@@ -17,6 +17,7 @@
  */
 import { mulberry32 } from '../../core/random';
 import { getImage, loadPixels, pixelsToCanvas } from '../kit/images';
+import { analyseLiving, cleanMotion, type LivingAnalysis, type Motion } from '../kit/living';
 import { cellColors, detailWeight, edgeMap, fitCover, makeMosaic, sketch, type Pixels, type Pt } from '../kit/mosaic';
 import { clamp } from '../kit/juice';
 import { cleanCont, legacyCont } from './content';
@@ -45,6 +46,13 @@ export interface Analysis {
   /** an own photo at its best size for the screen, and the window's crop of it (a declaration repaints instead) */
   photo: HTMLCanvasElement | null;
   crop: { sx: number; sy: number; sw: number; sh: number } | null;
+  /**
+   * An own photo brought to life (round 12, kit/living.ts): its depth, sky, water and glints, the motions worth
+   * offering for it; and the motion the player chose for it (null: none chosen yet — the recommended one plays).
+   * A declaration's painted picture stays still (null, null).
+   */
+  living: LivingAnalysis | null;
+  motion: Motion | null;
 }
 
 export interface Prepared extends Analysis {
@@ -134,6 +142,12 @@ export function setWord(key: VisionKey, word: string): void {
   if (a) a.word = word;
 }
 
+/** An own picture's motion was chosen in the lobby: the analysis plays it from now on. */
+export function setMotionOf(key: VisionKey, motion: Motion): void {
+  const a = analyses.get(key);
+  if (a) a.motion = motion;
+}
+
 /** Forget an own picture's analysis (it was deleted). */
 export function forget(key: VisionKey): void {
   analyses.delete(key);
@@ -193,6 +207,7 @@ function stepsFor(key: VisionKey, job: PrepJob, legacy: boolean): Step[] {
   let edges: Float32Array | null = null;
   let sk: HTMLCanvasElement | null = null;
   let word = '';
+  let motion: Motion | null = null;
   const out: Step[] = [];
   if (decl) {
     out.push(() => {
@@ -206,6 +221,7 @@ function stepsFor(key: VisionKey, job: PrepJob, legacy: boolean): Step[] {
       const rec = await getImage(own);
       if (!rec) throw new Error('picture not found');
       word = legacy ? legacyCont(rec.label) : cleanCont(rec.label);
+      motion = cleanMotion(rec.motion);
       const loaded = await loadPixels(rec.blob, 1280);
       photo = loaded.canvas;
       // the photo's own shape (its aspect held within 9:16…16:9), its crop, and the photo at that size for the analysis
@@ -229,7 +245,9 @@ function stepsFor(key: VisionKey, job: PrepJob, legacy: boolean): Step[] {
   out.push(() => { sk = pixelsToCanvas(sketch(px!, { strength: 1.45, paper: [247, 239, 222], ink: [62, 50, 46] })); });
   out.push(() => {
     const heart = decl ? { x: SCENES[decl].heart[0] * W, y: SCENES[decl].heart[1] * H } : heartOf(edges!, W, H);
-    job.result = { key, decl, ownId: own, word, shape, w: W, h: H, picture: picture!, px: px!, edges: edges!, sketch: sk!, heart, photo, crop };
+    // an own photo: what in it may move (a few ms on a coarse grid)
+    const living = decl ? null : analyseLiving(px!, edges!, heart);
+    job.result = { key, decl, ownId: own, word, shape, w: W, h: H, picture: picture!, px: px!, edges: edges!, sketch: sk!, heart, photo, crop, living, motion };
   });
   return out;
 }

@@ -354,6 +354,7 @@ class JestemGame implements ArcadeGame {
   }
 
   destroy(): void {
+    this.view.dispose();
     this.finger = null;
     this.press = null;
     this.env.canvas.style.cursor = '';

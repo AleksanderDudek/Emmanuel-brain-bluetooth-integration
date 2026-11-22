@@ -19,6 +19,7 @@
  * and the photo itself shines through, glowing, with its aura.
  */
 import { Particles, clamp, ease } from '../kit/juice';
+import { isMoving, LivingPicture, LookInput, motionFor, type Look } from '../kit/living';
 import { MIN_READ } from '../kit/mobile';
 import { layoutPassage, drawPassage, passage, type PassageLayout } from '../kit/scripture';
 import type { RGB } from './art';
@@ -62,6 +63,21 @@ export class JestemView {
   private paths: Path2D[] = [];
   private outer: number[] = [];
   private pic: HTMLCanvasElement | null = null;
+  /**
+   * An own photo brought to life (round 12, kit/living.ts): the lit cells, the blooms and the finale show its
+   * frame of the moment instead of the still picture; the glass then holds only the panes' bevels and grace's
+   * gold, and the lit cells are drawn through their outline (`litPath`, `gracePath`).  null: the picture is still.
+   */
+  private living: LivingPicture | null = null;
+  private readonly look = new LookInput();
+  private lookNow: Look | null = null;
+  private lookMouse: { x: number; y: number } | null = null;
+  private litPath: Path2D | null = null;
+  private gracePath: Path2D | null = null;
+  private litDirty = true;
+  /** the living frame drawn this frame (memo: one frame per draw) */
+  private frameAt = -1;
+  private frameNow: HTMLCanvasElement | null = null;
   private paper: HTMLCanvasElement | null = null;
   private glass: HTMLCanvasElement | null = null;
   private glowL: HTMLCanvasElement | null = null;
@@ -170,6 +186,12 @@ export class JestemView {
       pc.imageSmoothingQuality = 'high';
       pc.drawImage(v.photo, v.crop.sx, v.crop.sy, v.crop.sw, v.crop.sh, 0, 0, this.pic.width, this.pic.height);
     } else pc.drawImage(v.picture, 0, 0, this.pic.width, this.pic.height);
+    // an own photo comes to life with its chosen motion (a device asking for less motion keeps it still)
+    const motion = v.living ? motionFor(v.motion, v.living, this.opts.reducedMotion) : null;
+    this.living = v.living && motion && isMoving(motion) ? new LivingPicture(this.pic, this.pic.width, this.pic.height, v.living, motion) : null;
+    if (this.living && this.opts.touch) this.look.listen(() => this.clock);
+    this.litDirty = true;
+    this.frameAt = -1;
     // the paper: the sketch, warmed toward the edges
     this.paper = this.layer();
     const pp = this.paper.getContext('2d')!;
@@ -220,11 +242,12 @@ export class JestemView {
       // grace: the picture's colours nearly whole, touched with gold light — the vision ends complete
       // and beautiful; the headline still counts only the player's own pieces
       g.globalAlpha = 0.9;
-      g.drawImage(this.pic, 0, 0, this.L.win.w, this.L.win.h);
+      // (a living picture is drawn live through the cell's outline instead)
+      if (!this.living) g.drawImage(this.pic, 0, 0, this.L.win.w, this.L.win.h);
       g.globalAlpha = 0.12;
       g.fillStyle = GOLD;
       g.fill(path);
-    } else {
+    } else if (!this.living) {
       g.drawImage(this.pic, 0, 0, this.L.win.w, this.L.win.h);
     }
     // a pane's bevel: light from the upper left, a shade to the lower right
@@ -239,6 +262,7 @@ export class JestemView {
     g.restore();
     this.inGlass[id] = true;
     this.baked[id] = grace ? 2 : 1;
+    this.litDirty = true;
     this.leadDirty = true;
     this.glowSum = -1;
   }
@@ -437,6 +461,15 @@ export class JestemView {
   // ── a frame ─────────────────────────────────────────────────────
   update(dt: number, sim: JestemSim): void {
     this.clock += dt;
+    if (this.living) {
+      // a desktop's mouse over the picture steers the depth; else the phone's tilt, else the slow orbit
+      if (!this.opts.touch && this.mouse && this.mouse !== this.lookMouse) {
+        const w = this.L.win;
+        this.look.point((this.mouse.x - (w.x + w.w / 2)) / (w.w / 2), (this.mouse.y - (w.y + w.h / 2)) / (w.h / 2), this.clock);
+        this.lookMouse = this.mouse;
+      }
+      this.lookNow = this.look.get(this.clock, dt);
+    }
     this.parts.update(dt);
     this.motes.update(dt);
     for (const f of this.flashes) f.t += dt;
@@ -570,6 +603,8 @@ export class JestemView {
     ctx.save();
     ctx.clip(this.winPath(W, 0));
     ctx.drawImage(this.paper!, W.x, W.y, W.w, W.h);
+    // a living photo: the lit cells show its moment, live (the glass over them keeps only the bevels)
+    if (this.living) this.drawLit(ctx, sim, W, sc, finA);
     ctx.drawImage(this.glass!, W.x, W.y, W.w, W.h);
     // the watercolour blooms of the cells being filled
     if (ft < 0) this.drawBlooms(ctx, sim, W, sc);
@@ -581,7 +616,7 @@ export class JestemView {
     if (finA > 0) {
       // the finale: the picture glows from within (its own colours, a breath of them)
       ctx.globalAlpha = 0.1 * finA * (0.75 + 0.25 * breath);
-      ctx.drawImage(this.pic!, W.x, W.y, W.w, W.h);
+      ctx.drawImage(this.frameOf(sim, finA), W.x, W.y, W.w, W.h);
     }
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -589,11 +624,12 @@ export class JestemView {
       // an own photo: the mosaic gives way to the photo itself, whole and clear, glowing
       const reveal = smooth(ft, 0.1 * F, 0.3 * F);
       if (reveal > 0.01) {
+        const pic = this.frameOf(sim, finA);
         ctx.globalAlpha = reveal;
-        ctx.drawImage(this.pic!, W.x, W.y, W.w, W.h);
+        ctx.drawImage(pic, W.x, W.y, W.w, W.h);
         ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = reveal * (0.08 + 0.05 * breath);
-        ctx.drawImage(this.pic!, W.x, W.y, W.w, W.h);
+        ctx.drawImage(pic, W.x, W.y, W.w, W.h);
         ctx.globalCompositeOperation = 'source-over';
         ctx.globalAlpha = 1;
       }
@@ -662,6 +698,52 @@ export class JestemView {
 
   /** The breath (0 → 1 → 0): a rest's from its start, whole breaths of 4 in, 6 out (kit/breath); a gentle one elsewhere. */
   private breath(sim: JestemSim): number { return sim.breath.k; }
+
+  /**
+   * The picture as it is now: a living photo's frame of this moment (computed once a frame; quieter while the
+   * mosaic is coloured, whole in the finale — `finA`), else the still picture.
+   */
+  private frameOf(sim: JestemSim, finA: number): HTMLCanvasElement {
+    if (!this.living) return this.pic!;
+    if (this.frameAt !== this.clock || !this.frameNow) {
+      this.frameNow = this.living.frame(this.clock, { breath: sim.breath.k, look: this.lookNow, strength: 0.55 + 0.45 * clamp(finA) });
+      this.frameAt = this.clock;
+    }
+    return this.frameNow;
+  }
+
+  /** A living photo's lit cells: its moment through their outline (grace's cells at 0.9, as the still glass has them). */
+  private drawLit(ctx: CanvasRenderingContext2D, sim: JestemSim, W: Rect, sc: number, finA: number): void {
+    if (this.litDirty) {
+      this.litDirty = false;
+      const lit = new Path2D(), grace = new Path2D();
+      let nl = 0, ng = 0;
+      this.baked.forEach((b, id) => {
+        const p = this.paths[id];
+        if (!p) return;
+        if (b === 1) { lit.addPath(p); nl++; } else if (b === 2) { grace.addPath(p); ng++; }
+      });
+      this.litPath = nl ? lit : null;
+      this.gracePath = ng ? grace : null;
+    }
+    if (!this.litPath && !this.gracePath) return;
+    const f = this.frameOf(sim, finA);
+    ctx.save();
+    ctx.translate(W.x, W.y);
+    ctx.scale(sc, sc);
+    for (const [path, a] of [[this.litPath, 1], [this.gracePath, 0.9]] as const) {
+      if (!path) continue;
+      ctx.save();
+      ctx.clip(path);
+      ctx.globalAlpha = a;
+      ctx.drawImage(f, 0, 0, this.L.win.w, this.L.win.h);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  /** Stop listening to the phone's tilt (the session ended). */
+  dispose(): void { this.look.stop(); }
 
   private drawBg(ctx: CanvasRenderingContext2D): void {
     if (!this.bg || this.bg.width !== Math.round(this.w * this.dpr)) {
@@ -759,7 +841,7 @@ export class JestemView {
       ctx.save();
       ctx.clip(blob);
       ctx.globalAlpha = 0.86;
-      ctx.drawImage(this.pic!, 0, 0, this.L.win.w, this.L.win.h);
+      ctx.drawImage(this.frameOf(sim, 0), 0, 0, this.L.win.w, this.L.win.h);
       ctx.restore();
       // the rim where the paint pools as it dries
       const col = v.colors[i] ?? { r: 120, g: 100, b: 90 };

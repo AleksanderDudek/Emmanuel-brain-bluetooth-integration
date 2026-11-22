@@ -8,6 +8,9 @@
  *   the next vision its window (a declaration's arch, or the photo's prepared sketch in its own shape), its
  *                   affirmation and verse, "Szkic gotowy"; pin it, choose another; for an own picture the
  *                   player's own continuation after "ja" (≤ 100 characters, a live counter, plain text)
+ *   its motion      an own picture's "Ruch obrazu" (round 12, kit/living.ts): the motions generated for this photo,
+ *                   each playing on it in a small tile (the recommended one marked), and a depth (parallax)
+ *                   switch; a choice is kept with the picture at once
  *   own pictures    kept only on this device (kit/images.ts): a tap chooses one, × deletes it
  *   the numbers     declarations received of 18, sessions, the most pieces lit, the window's detail
  *   the form        (Polish) "Mów do mnie: jestem silny / jestem silna", asked once, changeable
@@ -18,9 +21,12 @@
  */
 import { lang } from '../../i18n';
 import { h } from '../../ui/dom';
+import { BREATH_DEFAULT, breathAt } from '../kit/breath';
 import {
-  ImageError, deleteImage, imageDrop, imagePicker, imagesAvailable, listImages, saveImage, setLabel, thumbUrl, type StoredImage,
+  ImageError, deleteImage, imageDrop, imagePicker, imagesAvailable, listImages, saveImage, setLabel, setMotion, thumbUrl, type StoredImage,
 } from '../kit/images';
+import { reducedMotion } from '../kit/juice';
+import { LivingPicture, isMoving, motionFor, type Motion, type MotionKind } from '../kit/living';
 import { coarsePointer } from '../kit/mobile';
 import { makeMosaic } from '../kit/mosaic';
 import { passage } from '../kit/scripture';
@@ -32,10 +38,10 @@ import {
 import { t, piecesText, type Key } from './i18n';
 import {
   addOwn, chooseNext, declKey, dropOwn, keyDecl, keyOwn, legacyLabel, markCont, nextNew, nextVision, ownKey, pinVision, received,
-  type JestemProgress,
+  type JestemProgress, type VisionKey,
 } from './meta';
 import { paintPicture } from './pictures';
-import { analysed, forget, prepareSoon, setWord, type Analysis } from './prep';
+import { analysed, forget, prepareSoon, setMotionOf, setWord, type Analysis } from './prep';
 import { windowPath } from './paint';
 import { RULES } from './rules';
 import { buildVision } from './vision';
@@ -270,11 +276,14 @@ function build(p: JestemProgress, changed: () => void): HTMLElement[] {
     thumbBox.append(img);
     const title = h('b', null, ownSentence(''));
     const legacy = legacyLabel(p, nown);
+    const motionBox = h('div', { class: 'living-box', 'data-own': 'motion' });
     const showReady = () => {
       const a = analysed(next);
       status.textContent = a ? t('intro.ready') : t('panel.preparing');
       // the sketch at the photo's own shape: a wide photo takes a wider thumbnail
       if (a) thumbBox.replaceChildren(sketchThumb(a, Math.round(Math.min(112, Math.max(48, 76 * (a.w / a.h)))), 76));
+      // and the motions generated for it, once it is analysed
+      if (a?.living && !motionBox.firstChild) fillMotion(next, nown, a, motionBox);
     };
     showReady();
     prepareSoon(next, () => showReady(), legacy);
@@ -282,6 +291,7 @@ function build(p: JestemProgress, changed: () => void): HTMLElement[] {
       h('div', null, title, h('p', null, `${t('panel.own')} · ${passage('php4.13').ref}`), status), pin));
     const editor = h('div');
     out.push(editor);
+    out.push(motionBox);
     void listImages('jestem', 'vision').then(list => {
       const rec = list.find(r => r.id === nown);
       if (!rec) return;
@@ -375,6 +385,107 @@ function build(p: JestemProgress, changed: () => void): HTMLElement[] {
  * The own picture's continuation after "ja": the prefix in front of the field, plain text up to 100 characters with
  * a live counter, the default ("wszystko mogę", Philippians 4:13) when left empty; saved on the device with the picture.
  */
+/**
+ * "Ruch obrazu" (round 12): the motions generated for this photo (kit/living `analyseLiving` ranks them), each
+ * playing on the photo itself in a small tile — the recommended one marked — and the depth (parallax) switch.
+ * A choice is kept with the picture at once (kit/images `setMotion`) and the prepared vision plays it.  On a
+ * device that asks for less motion the tiles stand still and a line says the game keeps the picture still.
+ */
+function fillMotion(key: VisionKey, ownId: string, a: Analysis, box: HTMLElement): void {
+  const living = a.living;
+  if (!living) return;
+  const reduced = reducedMotion();
+  const touch = coarsePointer();
+  let cur: Motion = motionFor(a.motion, living, false);
+  const th = 84, tw = Math.round(Math.min(132, Math.max(48, th * (a.w / a.h))));
+  const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  const nameOf = (k: MotionKind): string => (k === 'still' ? t(cur.parallax ? 'living.depthOnly' : 'living.still') : t(`living.${k}` as Key));
+  interface Tile { kind: MotionKind; btn: HTMLButtonElement; c: HTMLCanvasElement; name: HTMLElement; lp: LivingPicture | null }
+  const build1 = (kind: MotionKind): LivingPicture | null => {
+    const m: Motion = { kind, parallax: cur.parallax };
+    return isMoving(m) ? new LivingPicture(a.picture, tw * dpr, th * dpr, living, m, { maxPixels: 140_000 }) : null;
+  };
+  const hint = h('p', { class: 'img-note', 'aria-live': 'polite' });
+  const saved = h('span', { class: 'img-note living-saved', 'aria-live': 'polite' });
+  let savedTimer = 0;
+  const refresh = () => {
+    for (const tile of tiles) {
+      tile.btn.setAttribute('aria-checked', String(tile.kind === cur.kind));
+      tile.name.textContent = nameOf(tile.kind);
+    }
+    hint.textContent = `${t(`living.hint.${cur.kind}` as Key)}${cur.parallax ? ` ${t(touch ? 'living.parallaxHintTouch' : 'living.parallaxHint')}` : ''}`;
+  };
+  const keep = () => {
+    setMotionOf(key, cur);
+    void setMotion(ownId, cur).then(() => {
+      saved.textContent = t('living.saved');
+      clearTimeout(savedTimer);
+      savedTimer = window.setTimeout(() => { saved.textContent = ''; }, 1800);
+    }).catch(() => undefined);
+  };
+  const tiles: Tile[] = living.options.map(kind => {
+    const c = h('canvas', { 'aria-hidden': 'true' });
+    c.width = Math.round(tw * dpr);
+    c.height = Math.round(th * dpr);
+    c.style.width = `${tw}px`;
+    c.style.height = `${th}px`;
+    const name = h('span', null, nameOf(kind));
+    const kids: HTMLElement[] = [c, name];
+    if (kind === living.recommended) kids.push(h('small', { class: 'living-rec' }, t('living.recommended')));
+    const btn = h('button', { class: 'living-opt', type: 'button', role: 'radio', 'aria-checked': String(kind === cur.kind) }, ...kids);
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      if (cur.kind === kind) return;
+      cur = { ...cur, kind };
+      refresh();
+      keep();
+      if (reduced) paint(2);
+    });
+    return { kind, btn, c, name, lp: build1(kind) };
+  });
+  const depth = h('input', { type: 'checkbox' });
+  depth.checked = cur.parallax;
+  depth.addEventListener('change', () => {
+    cur = { ...cur, parallax: depth.checked };
+    for (const tile of tiles) tile.lp = build1(tile.kind);
+    refresh();
+    keep();
+    if (reduced) paint(2);
+  });
+  const paint = (tt: number) => {
+    const breath = breathAt(BREATH_DEFAULT, tt).k;
+    for (const tile of tiles) {
+      const ctx = tile.c.getContext('2d');
+      if (!ctx) continue;
+      const src = tile.lp ? tile.lp.frame(tt, { breath, strength: 1 }) : a.picture;
+      ctx.drawImage(src, 0, 0, tile.c.width, tile.c.height);
+    }
+  };
+  box.replaceChildren(
+    h('div', { class: 'arcade-sub' }, t('living.title')),
+    h('p', { class: 'img-note' }, t('living.lead')),
+    h('div', { class: 'living-pick', role: 'radiogroup', 'aria-label': t('living.title') }, ...tiles.map(x => x.btn)),
+    h('div', { class: 'row' }, h('label', { class: 'switch' }, depth, h('span', null, t('living.parallax'))), saved),
+    hint,
+    h('p', { class: 'img-note' }, t(reduced ? 'living.reduced' : 'living.where')),
+  );
+  refresh();
+  // the tiles play while the card is on the page (one loop; it ends when the card is redrawn or left)
+  const t0 = performance.now();
+  let seen = false, waits = 0;
+  const loop = () => {
+    if (!box.isConnected) {
+      if (seen || ++waits > 300) return;
+      requestAnimationFrame(loop);
+      return;
+    }
+    seen = true;
+    paint((performance.now() - t0) / 1000);
+    if (!reduced) requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+
 function fillEditor(p: JestemProgress, rec: StoredImage, cont: string, editor: HTMLElement, title: HTMLElement, changed: () => void): void {
   const key = ownKey(rec.id);
   const input = h('input', {

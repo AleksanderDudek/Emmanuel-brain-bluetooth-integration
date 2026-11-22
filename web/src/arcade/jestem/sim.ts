@@ -240,7 +240,7 @@ export class JestemSim {
     this.day = init.day;
     this.lead = init.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.judge = RoundJudge.from(init.tuning);
-    this.cellsWanted = init.cells && init.cells >= RULES.cellsMin && init.cells <= RULES.cellsMax
+    this.cellsWanted = init.cells && init.cells >= RULES.cellsMin && init.cells <= RULES.cellsLongMax
       ? Math.round(init.cells) : planCells(this.p.pace, playSecOf(init.plannedSec, this.session === 1));
     this.talk = new Talk(LINES, init.rng);
   }

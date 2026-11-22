@@ -25,6 +25,14 @@ export const RULES = {
   /** cells in a window: at least, at most (round 11: "more pieces of the mosaic") */
   cellsMin: 48,
   cellsMax: 144,
+  /**
+   * sessions over 15 minutes (round 12: up to 30) may take finer windows, up to this many cells — reached at
+   * `cellsLongAt` seconds of push and rest, grown from `cellsLongFrom` — so a strong player is not done colouring
+   * a third of the way in; 15 minutes and less keep 48–144 exactly
+   */
+  cellsLongMax: 216,
+  cellsLongFrom: 900,
+  cellsLongAt: 1350,
   /** the pace (cells lit per minute of push and rest) a newcomer is planned for, and its bounds */
   pace0: 5.3,
   paceMin: 2,
