@@ -6678,3 +6678,743 @@ pillar of fire are Ogień's own symbols, §13.4). Candidates for later: the Name
   are not gated by focus; the active steps are.
 * **Scripture.** 51 new passages (four editions verified; Ps 24:1's title cut in all four; Ps 52:8, Ps 55:22 and
   Hosea 14:5 left out for numbering or digitisation faults).
+
+### 18.5 Z głowy do serca — from head to heart, and out to the whole world (the founder's own meditation)
+
+*The flagship of the series, rooted in 1 John 4:16 ("God is love; and whoever abides in love abides in God, and God
+in him").* Code: `src/arcade/serce/` — `plan.ts` (the way over the session, pure), `sim.ts` (the session), `rules.ts`
+(every number), `content.ts` (stages, rings, words of the heart, verses), `meta.ts` (progress), `talk.ts` (the
+narrator), `layout.ts` (tall / side / desk and the camera), `earth.ts` (the Earth at night), `paint.ts`, `render.ts`,
+`hud.ts`, `panel.ts`, `preview.ts`, `audio.ts`, `i18n.ts`; tests `test/arcade-serce.test.ts`.
+
+**The request** (2026-11-22, verbatim in §18.1): move from head space to heart space by continuous focus on movement
+down to the heart; strengthen the field around the heart until it encompasses the whole person; then circles — 0 me,
+1 family, 2 friends, 3 colleagues, clients, acquaintances, 4 enemies, people who wronged me, 5 the whole world —
+"something like meditation of loving kindness but expanded, and including Christian motives".
+
+**The sources it unites** (research-13 §1–3), named once in the lobby's origin sentence: the **prayer of the heart**
+of the hesychasts (Theophan the Recluse: "stand before God with the mind in the heart"; Nicephorus: the breath as "a
+natural way to the heart"; the Jesus Prayer on the breath, Ware — no breath-holds), **metta** (Visuddhimagga IX: self,
+the dear, the neutral, the hostile, then "breaking the barriers" and "pervading" — the founder's circles follow its
+order), **heart-focused breathing** (about 5 s in, 5 s out; cued "gentle, not deep") with **gratitude** as the renewing
+feeling (Ps 103:2, Col 3:15), and Christian intercession and the love of enemies (Luke 6:27-28; Matt 5:44-45 — one sun
+on the evil and the good). Metta is never presented as Christian: here it is "a prayer of blessing to God through
+Jesus".
+
+**The way** (one session walks it; its length scales it):
+
+1. **Głowa.** The standing figure of light (`kit/figure.ts`, Rzeki's rim of light), dim, on the curve of the Earth at
+   night. A small light at the **brow** — exactly where the band sits — and round the head a swarm of quick, restless
+   sparks (thoughts). The calibration's intro is this scene.
+2. **Zejście.** The light moves down the midline **only while focus is held** past the lead-in (5 s Mendi, 2 s HALO),
+   faster the further above the threshold and the longer held: brow → eyes → mouth → throat → heart. Without focus it
+   stops and waits, softer; it never goes back. A soft trail stays behind it, each place passed keeps a small light,
+   and the sparks slow and settle like snow. From 9 minutes the descent stops at the mouth (the heart word said once,
+   one breath) and at the throat (one quiet breath).
+3. **Serce.** The light becomes a **flame in the heart** (an amber-to-rose tongue with a white-gold core — never a ♥)
+   inside a warm sphere that **beats with Mendi's real pulse** (and shows it small, "62/min", only when real); without a
+   pulse it breathes with the breath. Then a rest: **gratitude** — "Za co dziś dziękujesz?", "Oddychaj łagodnie, nie
+   głęboko — i dziękuj", Ps 103:2.
+4. **Pole serca → krąg 0, Ja.** Focus fills the figure from the heart outward (chest, head and hands, the feet last)
+   and closes a round field about it. Rest: "Panie, Ty mnie kochasz. / Niech Twój pokój zamieszka we mnie. / Naucz mnie
+   kochać tak, jak Ty kochasz." (Mark 12:31, Ps 139:14).
+5. **Kręgi 1–5.** The camera eases out; the rings wait as faint ghosts. Each ring: **reach** (the first 30 % of its
+   push: the field widens to it), **kindle** (its lamps one by one, the player's names by them), **bless** (a rest of
+   whole breaths, one line per breath, then its verse). Each ring its own look, readable at phone size: **1 Rodzina** —
+   one house at dusk, its windows the lamps; **2 Przyjaciele** — gold lamps in pairs and threes; **3 Ludzie, których
+   spotykam** — a town at night (small buildings on the ring, a lit window each, cooler white-gold); **4 Ci, którzy mnie
+   zranili** — a ring of grey-green thorns with cold stones: when the field reaches it the thorns **blossom**
+   white-pink (Isa 35:1, 55:13) and the stones become lamps — never burn; it gets more breaths; **5 Cały świat** — the
+   Earth seen from space at night (below), its cities kindling in order of their distance from where the figure
+   stands, continent by continent; from 15 minutes five **named arcs** round it: cierpiący, samotni, chorzy, umierający,
+   dzieci, które się rodzą.
+6. **Jedno słońce** (metta's "breaking the barriers", Matt 5:44-45): one sun rises over the Earth's limb and from then
+   on every ring is lit **alike** — no circle brighter than another. A short push, then (from 9 minutes) a rest.
+7. **Szerokość, długość, wysokość, głębokość** (Eph 3:18, metta's "pervading"): light opens across, a ring lying flat,
+   up, and down into the Earth, each named.
+8. **Powrót.** The field gathers back **into the heart — not the head**; the rings keep a soft glow. The last rest is
+   the Aaronic blessing (Num 6:24-26). The summary's verse follows.
+
+**The blessings** (original prayer words, one line per whole breath): 0 "Panie, Ty mnie kochasz…"; 1 "Panie, błogosław
+moim bliskim. / Strzeż ich, prowadź i obdarz pokojem."; 2 "…moim przyjaciołom. / Niech poznają, jak bardzo ich
+kochasz."; 3 "…tym, z którymi pracuję i których spotykam. / Niech ich dzień będzie dobry, a praca owocna."; 4 "…tym,
+którzy mnie zranili. / Daj im to, czego najbardziej potrzebują. / Chcę przebaczyć — a to, czego jeszcze nie umiem,
+oddaję Tobie."; 5 "…całemu światu. / Niech przyjdzie Twoje Królestwo, a Twój pokój obejmie każdego człowieka." The
+closing: "Panie, zbierz to wszystko w moim sercu." and Num 6:24-26.
+
+**The words of the heart** ride the breath in every push and at the stops: the Jesus Prayer split on it (in: "Panie
+Jezu Chryste, Synu Boży," / out: "zmiłuj się nade mną."; de "Herr Jesus Christus, Sohn Gottes, / erbarme dich
+meiner."; sv "Herre Jesus Kristus, Guds Son, / förbarma dig över mig."; en "Lord Jesus Christ, Son of God, / have
+mercy on me."), "Jezu", "Abba, Ojcze", "Maranatha" (Ma-ra- / -na-tha; 1 Cor 16:22) or the player's own words (≤ 60
+characters; a comma splits them on the breath). The card shows both halves, the half said now bright.
+
+**Numbers** (`rules.ts`, `plan.ts`):
+
+| | |
+|---|---|
+| light's rate (held units/s) | only while focused in a push past its lead-in with a reliable signal: (0.75 + 0.5 × above) × (1 + 0.3 × min(1, hold/12)), above = clamp((level − 0.5)/0.5) |
+| the plan | after the warm-up and the finale, 34 % for the rests (whole breaths, at least one each; a breath per ring a blessing names; ring 4 two from 5 minutes); the rest minus the lead-ins for the pushes; each push needs its weight's share × 0.5 (the average player's held units per push second) × 0.9 |
+| push weights | descent 14, heart 6, field 12, rings 11 (ring 4 13, ring 5 12; 14 with the arcs), sun 4, dimensions 3, return 6 |
+| 3 minutes (< 270 s) | every ring kept: rings 1–3 share one push and one rest (a breath of blessing each); the sun, the dimensions and the return ride ring 5's push; one closing rest (ring 5's line, then the Aaronic blessing) |
+| ≥ 9 min | the descent's stops (mouth, throat) and the sun's own rest |
+| ≥ 15 min | ring 5's named arcs |
+| ≥ 18 min | each ring's push in two halves with one breath of the heart word between (pushes stay ≲ 90 s) |
+| lamps | at 10 min 8 / 10 / 16 / 8 and 24 cities; × (0.55 + 0.45·T/600) clamped 0.6–1.6 (3 min: 5/6/10/5/14; 30 min: 13/16/26/13/38) |
+| rest breath | 5 · 5 by default (the lobby offers the kit's presets) |
+| blocks | a push lasts until its steps reach a rest (or the valve: 60 s without light, 150 s in all); the rest is telegraphed 4 s ahead when the step before it is 85 % done, the next push 4 s before the rest ends; each block judged once over its last ≤ 15 s (pushes under 10 s not), `BlockContrast` for the summary |
+| first session | a warm-up (20 s, 30 from 5 min) that waits for the two-page opening card (1 John 4:16; "how it works", Rom 10:8); the plan's budget includes the card's reading time |
+| measured (simulated players, 3–30 min) | an average player (focused 6 s of every 10, just over the threshold) completes the way at 87–90 % of the session; a strong one at 57–70 %, then "more" rounds light more of the world; a weak one (a third of the time) reaches ring 3–4 and the next session goes on from there |
+
+**After the way**, if time is left: "more" rounds, one group of people at a time in turn — those who suffer, the
+lonely, the sick, the dying, children being born: a push kindles six more lights on the Earth for them, a short rest
+blesses them ("Panie, błogosław samotnym.") and then the heart word — until the quiet finale. **Where it goes on:** a session that ends inside rings 1–5 saves that ring;
+the next walks the head → heart → field as always, then goes on from it (the earlier rings shine as remembered, not
+counted); a whole way clears it ("Następnym razem: od kręgu przyjaciół"). The lobby's card offers "Od pierwszego kręgu".
+
+**Headline: światła / lights / Lichter / ljus** — the places passed on the descent (4), the heart's flame, the field
+round the person, every lamp lit (rings 1–4, the world's cities, the arcs), the sun, the extra lights of the world.
+Sub-line: the stage ("Zejście", "Krąg 3 z 5", "Powrót do serca"). **Summary:** the furthest ring, the rests, seconds
+the light moved, calm abiding, the focus contrast; up to five highlights (the whole way or how far, where it goes on,
+a record, names by the lamps, ring 4 left out today, the rests); the closing verse by how far the way went (a whole
+way: Eph 3:17-19, 1 Cor 13:13, Col 3:14, Num 6:24-26 in turn; else the furthest ring's verse).
+
+**Verses** (passage ids only, scripture.ts): root 1 John 4:16; descent 2 Cor 4:6, Rom 10:8, Phil 4:7; heart Rom 5:5,
+Ezek 36:26, Prov 4:23; gratitude Ps 103:2, Col 3:15; me Mark 12:31, Ps 139:14; family Eph 3:14-15; friends John 15:12;
+people Gal 6:10, Rom 12:18; those who hurt me Luke 6:27-28, Isa 55:13, Isa 35:1, Rom 12:14; the world John 3:16, Ps 24:1;
+the sun Matt 5:44-45; the dimensions Eph 3:18; the closing Num 6:24-26, Eph 3:17-19, 1 Cor 13:13, Col 3:14. Luke 23:34
+(the brief's) is not in scripture.ts yet and is left out.
+
+**Care for circle 4.** Its push's strategy line and a first-time coach mark: start with someone who hurt you a little;
+you don't have to feel forgiveness — willing their good is enough; what you can't yet give, give to Jesus. The ring is
+labelled ("Ci, którzy mnie zranili"), never the people; no "enemy" anywhere on screen. "Pomiń ten krąg dzisiaj" in the
+lobby leaves it out for the day only (it is back tomorrow), and the summary says so gently.
+
+**Reverence and words.** Light, warmth, love, peace, "pole serca" — never energy, never a power that flows, is sent or
+heals; the light pictures attention, not grace, and no game rewards a felt warmth (Orationis formas §28). Every prayer
+is addressed (Panie / Lord / Herr / Herre); Jesus is named, never drawn; no esoteric symbols. The how-to's last tip:
+the band measures attention, not prayer; attention and imagination training, not a treatment. A test keeps the
+forbidden words (per language) and the verbs channel/generate/activate/send out of the game's texts and the registry's
+lines (the lobby's one origin sentence aside).
+
+**Names stay home.** "Twoje kręgi" in the lobby: up to 8 names or initials per ring 1–4 (≤ 24 characters, plain text),
+shown by the lamps of their ring (ring 1's under its house), stored only in this game's progress on this device. No
+in-game ≡: names cannot be typed on a canvas, so the circles, the heart word, the breath and "leave ring 4 out today"
+live in the lobby's card (the registry's how3 says so).
+
+**The look.** Night blue to warm gold; the heart gold → rose; ring lamps warm; ring 4 grey-green thorns → white-pink
+blossoms; the Earth deep blue with gold city lights, drawn from coarse continent outlines in longitude/latitude in an
+orthographic view whose top limb lies over Scandinavia (the figure stands there; no maps from the net), a faint dust of
+smaller lights on the land, the atmosphere's blue rim. The camera fits the current framing (head and chest; the figure
+in its field; each ring; the world with the whole Earth; home) and eases in log scale; reduced motion: no swarm, no
+sway, no camera ease — cuts with a short fade.
+
+**Sound.** A warm pad in F (its brightness follows the light), soft bells descending as the light passes each place, a
+low chord as the flame kindles, a small bell per lamp (throttled), a glassy shimmer as the thorns blossom, the breath's
+wind in rest, a swell as the sun rises. No drums, no chant.
+
+**fNIRS and paced breath.** The light the picture shows follows the focus level smoothed over ≥ 10 s (a 5 s time
+constant), so 5 · 5 breathing's 0.1 Hz Mayer wave does not make it pulse; the gating itself uses the runner's focus frame.
+
+**Mobile first, then the desk** (`layout.ts`, tested at every `CHECK_SIZES` entry with a finger and a mouse): *tall* —
+the "now" line under the HUD, the picture, the words card at the bottom (a tap anywhere stays with the words: they glow
+again, a ring under the finger, a soft tone — never light); *side* — the card a column on the left, the picture right;
+*desk* — the picture wide, the card a column on the right with the way as a list (✓ walked, ◉ now, ○ waiting, – left
+out today). Text ≥ 13 px to read (labels 11–12), the only target the story card. **Measured** (scripts/arcade-mobile.mjs, final run): small
+phone, iPhone, large phone, phone on its side, tablet, desktop ✓ — 0 strings under 11 px, under 13 only the verse
+references (11–12) and a ring's label (12); targets valid; 58–60 fps with the CPU slowed 1–4×, the game 0.64–1.66 ms a
+frame; the play 60–81 % of the screen's height. The smoke's crude input scores from the first place the light passes.
+
+**Tests** (`test/arcade-serce.test.ts`): the plan at 3–30 minutes (order, grouping, stops, arcs, splits, lamps, breaths,
+ring 4 out, resume, the time it takes), light only from focus (nothing without focus, signal, in rest or from taps;
+never backwards under random signal), the lights in order, the arc for average / weak / strong / first-session players
+at 3, 10 and 30 minutes, where the next session goes on, rests of whole breaths, a blessing line per breath then the
+verse, the valve, telegraphs and judging, the warm-up and the opening card, the smoke's crude input, settle and result
+(idempotent, short at 30 minutes, bounded), migration of the placeholder's save and garbage, names and own words, ring 4
+only today, the words of the heart, the catalogues, the forbidden words, the quotation marks, the passages, the layout
+at every checked size, the framings, the Earth, the how-to.
+
+### 18.6 Światło w dłoniach — a prayer held in the hands (the qigong ball, recast)
+
+**The request.** The founder asked for "growing energy balls" among the practices of other traditions, and for
+"activating self-healing". The research (§18.1) found the qigong "holding the ball" (taiji-ball qigong, later borrowed
+by Reiki and pranic courses): rub the palms, hold them 15–30 cm apart at the chest, apart on the in-breath and closer on
+the out-breath, notice warmth and fullness, "grow" the ball, then press it into the body, lay it on a sore spot or
+"send" it to someone far away. The sensations are ordinary (attention, the warmth of rubbing, vasodilation); no field
+has ever been measured. The lead's recast (§18.3): the ball is **a prayer held in the hands** — grown only while focus
+is held, then **lifted up to God for someone like incense** (Ps 141:2), or **laid with a hand where it hurts** while
+praying for health — never "sent", never "healing energy". Code: `src/arcade/dlonie/` (sim.ts the session, render.ts
+and hands.ts the picture, hud.ts the words), tests `test/arcade-dlonie.test.ts`. Root: **Psalm 141:2**. Headline:
+**płomyki / flames**.
+
+**One line:** two open hands in a warm night; the player really rubs their palms and breathes with them; a spark
+between the palms grows into a ball of golden-white light only while focus is held; it takes the name of the one prayed
+for and rises like incense into a soft light above — or is carried to the sore place of a small figure of light.
+
+#### Sources and what was taken
+
+| What | Source | In the game |
+|---|---|---|
+| Rub the palms 20–30×, hold them 15–30 cm apart at the chest, apart on the in-breath, closer on the out-breath | qigong ball, taiji-ball (research-13 §4; martialdevelopment.com "How to feel your chi"; YMAA "Taiji ball qigong") | Rozgrzanie and Oddech dłoni, done for real (tip 1, the coach marks) |
+| The warmth is ordinary blood flow | research-13 §4 ("the sensations are ordinary") | said once, plainly (tip 1, coach `rub`) |
+| 0.1 Hz paced breathing strengthens the fNIRS Mayer wave | §18.4, research-13 design notes | the shown growth is a 10 s moving average of the real one |
+| "Send healing energy" is the USCCB's first objection (§8–11); prayer for health is Christian (Jas 5:14-16) | USCCB 2009; *Jesus Christ the Bearer of the Water of Life* §4 | lifted up to God, or a hand laid in prayer; "Panie, Ty wiesz, co tu boli" |
+| Light and warmth are not the Spirit's consolations | *Orationis formas* §28 | the light pictures attention; no "felt warmth" is ever rewarded |
+
+The tradition's term appears once, in the lobby's origin sentence ("…wywodzi się z qigongu, gdzie nazywa się „kulą
+qi”; tu jest modlitwą wstawienniczą rąk"); a test keeps the forbidden words (pl energi*, uzdrawia*, leczy*, czakr*,
+kundalini, wąż; en energy, healing power, cures, chakra, kundalini, serpent; de Energie, heilt, Chakra, Kundalini,
+Schlange; sv energi, helar, chakra, kundalini, orm) out of the game's catalog in all four languages and out of the
+registry's `dlonie.*` lines (the origin sentence excluded by key) and their mouse twins; another keeps "channel",
+"activate", "generate" out of the English.
+
+#### The way: one prayer, six steps, each a block
+
+| Step | Block (dock) | What happens | What the player does |
+|---|---|---|---|
+| Rozgrzanie | free, 6 s (4 s later) | the hands come together and rub, warm sparks where the palms meet, the skin warms | really rubs their palms |
+| Oddech dłoni | rest, whole breaths | the hands move apart on the in-breath, closer on the out-breath; threads of light sag between the fingertips with a glint travelling along each | holds the hands 15–30 cm apart and mirrors them, "gently, not deeply" |
+| Iskra → Kula | push | the spark appears in the lead-in (5 s Mendi, 2 s HALO); past it, held focus grows the ball (golden-white, soft lobes of light turning inside, sparks) | looks into the ball and thinks of the person — face, name, day (every third ball: counts breaths) |
+| Imię | rest, one whole breath | the ball takes the name: a tint of its own, the initial (a heart for someone dear or oneself, meridians for the world) inside it; the name glows | says the name in the heart; ◀ ▶ ≡ may change whom |
+| Ofiara | push | held focus lifts the ball like incense into the soft light above (smoke puffs, a curling ribbon), where it blooms; **or** carries it to the chosen place on the small figure of light (kit/figure.ts) | prays the prayer's words on screen |
+| Spoczynek | rest, whole breaths | the hands open and still; the passage of this prayer; a laid hand rests on the place, glowing with the breath; the session's lifted prayers circle as small flames in the light above | rests; may choose the next one |
+
+A prayer's words: *"Ojcze, oto {imię}. Przyjmij moją modlitwę przez Jezusa Chrystusa, w Duchu Świętym."* (someone
+dear: "oto ktoś mi bliski"; the world: "oto Twój świat") — the nominative after "oto" avoids declining a name; a hand
+laid: *"Panie, Ty wiesz, co tu boli. Weź to w swoje ręce."* and in its rest *"Przez Jezusa Chrystusa, w Duchu
+Świętym. Amen."* Jesus is named, never drawn; the light above is light, never a figure.
+
+**Whom.** The walk: the player's names (up to 12, kept only on the device; the card adds and removes them) or "Ktoś
+bliski" when there are none → "Ja" → "Świat", round again; the next session goes on where this one stopped. ◀ ▶ walk
+it, ≡ opens it as a grid of chips (1–9 on a desk); until the prayer is offered they choose this prayer's person, in the
+rest the next one's. **A hand laid** for oneself always (the place the card chose, the chest by default), and for a
+name the card gave a sore place (head, throat, chest, belly, back, a joint — the knee; kit/figure `PLACE`); a tap on
+the small figure moves the hand to the nearest place.
+
+#### Light only from real focus (the numbers, rules.ts)
+
+* **Growth** (the ball and the rise alike): `(0.75 + 0.5·level + 0.25·min(1, hold/20)) / need` a second, only in a push
+  past its lead-in, with a reliable signal, while `frame.focused`; nothing grows in rest, in the lead-in, without a
+  signal, below the threshold, with the list open — and nothing ever goes back (the ball **waits**: a soft wobble and a
+  dimmer light, never smaller).
+* **Smoothing ≥ 10 s (§18.4).** The picture shows the real growth through a moving average of its rate over 10 s (40
+  buckets of 0.25 s): a box exactly one breath long at six a minute nulls the 0.1 Hz wave, so the ball does not
+  "breathe" with the Mayer wave (test: a rate swinging ±90 % at 0.1 Hz shows within 10 %); the shown growth never
+  passes the real one and never goes back; once the real one is whole it catches up (τ 0.45 s).
+* **need** (focused seconds at ×1 for each push): set at each prayer's start from the time left and the prayers left —
+  `(time left / prayers left − the prayer's fixed seconds) / 2 − lead-in`, × 0.62 (an average player's focused share ×
+  mean multiplier), clamped to 8–30 s. A push ends when its growth is whole (not before 10 s); one that cannot finish
+  ends after 60 s with a rest of two whole breaths, then the same step again — nothing lost.
+* **Blind:** every 3rd ball from the 3rd session (never a session's first): the hands lean in and close over the ball
+  (prayer in secret), a faint glow leaks between the fingers, the gauge hides; at the end they open on what grew.
+* **A prayer left unfinished** (the session ended) keeps its growth and its rise for the next session.
+
+#### Sessions of 3–30 minutes (§17)
+
+`prayersFor`: 3 min 2 prayers, 5 min 3, 10 min 4, 15 min 6, 20 min 8, 25 min 9, 30 min 11 (round(1 + s/180)). Longer
+sessions **deepen**: the hands' breath 1 / 2 / 3 whole breaths (up to 5½ min / 15 min / longer), the rest 2 / 3 / 4,
+the name always one; a strong player gets extra prayers; when no further prayer fits, the last rest runs on in whole
+breaths into the finale (12 s). The summary stays one line per kind ("3 modlitwy za innych · 1 za siebie · 1 za
+świat"), never a name. Measured with the sim (an average player: focused 6 s of every 10 in a push, calm in rest):
+
+| Length | Prayers offered at (s) |
+|---|---|
+| 3 min | 64, 146 |
+| 10 min | 114, 257, 406, 556 |
+| 15 min | 114, 265, 415, 565, 714, 855 |
+| 30 min | 11 prayers, every ~160 s from 122 to 1745 |
+
+A strong player (always focused): 5 in 10 min, 13 in 30; a weak one (3 s of 10): 3 of 4 in 10 min, the fourth carried
+over. Without focus: no prayer, no growth, every push ends at 60 s, the session runs to its end.
+
+#### Flames (the headline)
+
+1.5 × the multiplier a second of growth, +15 a prayer offered, +10 a block judged well, in rest with a signal
+0.6 × (0.3 + calm) a second, a blind ball 60 × its share on the asked side. A 10-minute session at a moderate signal:
+roughly 600–700. The unit bends (1 płomyk, 3 płomyki, 5 płomyków). Records per session length; the card keeps the
+sessions, the prayers and all flames.
+
+#### Scripture
+
+Root Ps 141:2. The rest after a lifted prayer reads, in turn from prayer to prayer, Ps 141:2, Lam 3:41, Ps 63:4,
+1 John 1:5, Ps 36:9, John 1:4, Ps 90:17, Matt 13:31-32; after a laid hand Jer 17:14, Jas 5:16, Mark 10:16 (Luke 4:40
+left out: beside a hand laid on screen it could read as a promise). The summary closes with Matt 5:14-16 or Ps 134:2 in
+turn. Passage ids only (src/content/scripture.ts).
+
+#### The look
+
+A close-up of two open hands as you see your own held up in front of the chest: palms toward you, thumbs out, the
+fingers a little apart with their creases — each hand **one smooth outline** (hands.ts) drawn with the series' rim of
+light (a glow stroked, the hand filled over it), warm umber skin darker down the forearms, which run off the bottom of
+the screen; the ball's light falls on the palms (clipped to the hands). A deep umber night with warm dust; the ball
+golden-white with soft turning lobes, sparks, a halo; incense as puffs and a curling ribbon; the soft light above
+blooms in petals and keeps the session's lifted prayers as small flickering flames circling in it; the small figure of
+light (kit/figure.ts) only for a hand laid, its six places as faint points, the chosen one ringed, the small open hand
+resting there. Distinct from Światło ciała (an organ scan), Rzeki (stations on a standing figure) and Każdy włos.
+Reduced motion: the hands keep still and the threads pulse; a lifted prayer fades from the hands into the light above
+instead of travelling. Sound (kit/audio.ts, gentle): a low D-major pad following the light, the rub's soft friction,
+the breath's wind, a glint for the spark, glass tones each tenth, two bells for a whole ball, a soft chord for the
+name, a rising arpeggio for a bloom, a low warm bell for a hand laid; no voice, no chant.
+
+#### Reverence
+
+No figure of God; Jesus named in every prayer, never drawn; no cross object, no esoteric symbol, no Chinese term on
+screen beyond the lobby's origin sentence. The narrator thanks and invites ("Kula czeka", "Zostaw to miejsce w Bożych
+rękach"), never promises; the how-to's last tip: the band measures attention, not prayer; attention and imagination
+training, not a treatment. Names never leave the device and never appear in the summary.
+
+#### Mobile first, and the desk
+
+layout.ts, pure, tested at every `CHECK_SIZES` entry (with a finger and with a mouse; the buttons, the figure, the list
+of 3 and of 14, the opening card): *tall* — the words in the top third (the pill, the caption, the name in the serif,
+three lines; captions 13 px), the hands filling the lower part with their forearms off the bottom (on an upright phone they lean in to
+cradle the light; the outer edges of the palms may leave the screen — a close view of your own hands), the soft light
+between them and the words, the three 50 px buttons in a row at the foot (the whole ball always clears them); a hand
+laid: where there is room above the hands (≥ 130 px) the small figure stands there, the ball rises onto its place and
+in the rest the figure steps down and smaller so the passage reads clear of it; else (the smallest phone) it stands
+beside the hands, which move aside; a tablet upright shows the hands whole; *side/wide* — the words on
+the left, the hands in the middle, the buttons in a column; *desk* — the words column (the passage flush left), the
+hands centred, a right column with the narrator, the walk of names and the buttons with their keys (← → M, Space,
+1–9). Text ≥ 13 px, the passage's reference 11 (the kit's).
+
+**Measured** (scripts/arcade-mobile.mjs, final run, fonts loaded): small phone, iPhone, large phone, phone on its side,
+tablet, desktop all ✓ — 0 strings under 11 px, only the kit's passage reference at 11 px under 13 (phones), 8–14 targets
+all valid (the buttons, the list's chips, the opening card, the small figure), 60 fps with the CPU slowed 1–4×, the
+game's own frame 0.42–1.62 ms (the latter on the small phone at 4×), play 60–81 % of the screen's height.
+
+**Tests** (`test/arcade-dlonie.test.ts`, 37, green): the places and the walk, names cleaned and capped, garbage and a wrong version
+repaired, every passage real; 2/4/11 prayers and the arc near the end at 3, 5, 10 and 30 minutes for an average
+player; a strong player prays more and the summary names no one; 30 minutes without focus stays bounded; nothing grows
+without focus and nothing goes back; the 10 s smoothing; the lead-in (Mendi/HALO); the hands grow nothing; the steps in
+order with their signals; rests in whole breaths from an in-breath; the valve; lifted for someone, laid for oneself with
+the right passages; choosing whom before and after the offering, a tap on the figure; the opening card; blind balls;
+an unfinished prayer carried over; the smoke test's crude input scores within 25 s; result() idempotent; the catalog in
+four languages; the forbidden words; no Polish in the other languages; the layout and targets at every size.
+
+### 18.7 Rzeka Ezechiela — the river from the temple (Ezekiel's River · Ezechiels Strom · Hesekiels flod)
+
+**The request.** The founder asked for meditations that "move energy throughout the body" and "activate
+self-healing". The research pass (research-13 §8) traced them to self-healing imagery (the Simonton method, Silva's
+"mental screen"), Reiki self-treatment and the "general sweeping" of pranic practice (cupped hands crown to feet), and
+found what the Christian reviewers say of them: the USCCB guidelines (2009, §10–11) reject a technique that promises
+healing, and *Jesus Christ the Bearer of the Water of Life* (§4) the impersonal "energy" at a person's disposal; at
+most, a hand rests where it hurts while one prays (Jas 5:14-15), and sweeping becomes **washing** (Ps 51:7, Ezek
+36:25). Imagery and relaxation modestly ease anxiety and pain; they do not touch disease (American Cancer Society;
+Cochrane 2015 on Reiki). So the game is recast as **immersion in the river from the temple** of Ezekiel 47: the water
+rises through the figure from the ankles to swimming depth, washes it, and the trees on its banks bear leaves "for
+healing" — laid in **prayer** where body or heart needs God. The prophet's words are Scripture; the player prays; the
+game never says the water or the leaf heals. Root **Ezekiel 47:9** ("wherever the river goes, every living creature
+will live"). Code: `src/arcade/ezechiel/` (content.ts the marks, places and passages; rules.ts the numbers and the plan;
+sim.ts the session; meta.ts the progress; layout.ts, paint.ts, render.ts the pictures; preview.ts the lobby and the
+intro; panel.ts the card; audio.ts; i18n.ts). Test: `test/arcade-ezechiel.test.ts`.
+
+**One line:** dawn over a dry valley; water trickles from under the temple's threshold and rises up a figure of light
+only while you hold your focus — ankles, knees, hips, a river — washes the grey dust off it, and the trees on both banks
+open leaves you lay in prayer where you need God; at the end you float, and far downstream the dead sea turns fresh.
+
+#### The way (one arc a session)
+
+| Stage | Block | What happens | Passage |
+|---|---|---|---|
+| Próg · The threshold | warm-up (first session only; the lead-in otherwise) | dawn, the east gate with light in its doorway (no figure of God), water trickling from under the threshold to the figure's feet; a two-page card: the threshold and Ezek 47:1, then "a prayer and an exercise of attention and imagination — not a treatment; a doctor for what hurts or worries" | Ezek 47:1 |
+| Wznoszenie · Rising | push per mark, a rest at each | the water rises **only while focus is held**: ankles → knees → hips → a river to swim in; at each mark a measuring line of light is laid across the water ("tysiąc łokci") and stays as a faint line under the water; a rest of whole breaths with the mark's verse | Ezek 47:3, 47:4, 47:4, 47:5 |
+| Obmycie · Washing | the river's rest (let go with the breath: fear, tiredness, regret — never a diagnosis), then pushes | a gentle current of clear water flows over the figure from the crown to the feet; above its front the grey dust is gone; long sessions wash in two or three passes | Ps 51:7, Ezek 36:25 |
+| Drzewa · The trees | push | the trees on both banks open leaves one by one (3–5 a push); a fruit ripens with each push (at most twelve, "every month") | (Ezek 47:12 in the rest) |
+| Liść · A leaf | rest after each trees push | one leaf drifts from a tree to the next chosen place and rests there; "Panie, Ty znasz to miejsce. Dotknij go." (for a matter of the heart: "…tę sprawę. Dotknij jej.", with the player's label); a verse in turn | Ezek 47:12, Jer 17:14, Rev 22:2, Ps 147:3, Ex 15:26, Isa 58:11 |
+| Spoczynek · Rest | the floating rest, by the clock | the figure rises a little off the riverbed and floats, breathing; "Ojcze, odpoczywam w Twojej rzece. Jezu, jesteś ze mną w wodzie." | Isa 43:2, Ps 46:4, John 7:38-39 (in turn) |
+| Gdzie płynie rzeka · Where the river flows | the last stretch | far downstream the grey salt sea turns turquoise, its shores green; birds over the valley, fish leaping; the closing prayer to the Father through Jesus Christ in the Holy Spirit | Ezek 47:9 |
+
+The places of a leaf: **głowa, gardło, serce, plecy, brzuch, dłonie, kolana, stopy** (on the figure, kit/figure.ts
+`PLACE`; the pairs on both sides; the back's leaf rests behind the shoulder blades and shows at the side) and **sprawa
+serca** — a matter of the heart, with an optional label of at most 40 characters that stays in the progress on the
+device. The progress card chooses the places (they are taken in turn); in play **≡** opens a chooser of the nine and a
+tap on the figure chooses the place under it; a leaf still on its way turns to the new place.
+
+#### Light only from real focus; blocks go by the water
+
+* A step moves only in a **sighted push past its lead-in** (5 s Mendi, 2 s HALO), with a reliable signal, while
+  `frame.focused`: `mult(level, hold) / work` of the step a second, `mult = 0.75 + 0.5·level + 0.25·min(1, hold/20)`.
+  Rest, the warm-up, the finale, a story card, no signal, below the threshold, taps: nothing moves, nothing is lost. A
+  test drives random signal (dips, losses, calm) through 10 minutes and checks the water never falls, the dust never
+  comes back and the leaves never go.
+* **A push lasts until its step is done** (as Rzeki's round 11), then a **rest of whole breaths** of the player's
+  pattern (kit/breath.ts; the card's presets, steppers 0–15 s and "breaths in a rest", auto by default). A 4 s
+  telegraph before each turn (a sighted push at 85 % or 4 s from its end; never by a blind push's fill).
+* **The safety valve:** a push with 45 s past its lead-in without any gain, or 120 s under 85 %, rests instead ("Odpocznij
+  chwilę — woda zaczeka"); the step keeps what it gained.
+* **Blind pushes** (every 4th from the 3rd session, never the first of a session) are **morning mist** over the river:
+  the water goes on unseen and shows quickly when the mist lifts.
+* **The tail by the clock:** the floating rest begins so that it and the last stretch (12 s) end the session on time; a
+  push is never begun with less than 14 s before it; a rest with no room for a push after it floats in its last breaths;
+  a trees push cut by the clock still lays its leaf in the floating rest.
+
+#### The plan for 3–30 minutes (rules.ts `planWay`)
+
+The plan counts the pushes that fit — an average player's push (21 s at 3 min, 25 at 10, 30 at 30, with its lead-in)
+plus a rest after it (10 / 20 / 30 s aimed at, whole breaths), the floating rest (12 / 30 / 45 s), the last stretch and
+the first session's warm-up — and gives them out: the rise takes four pushes when six fit (three or two when fewer, two
+marks in one), the washing one pass, two from ten pushes, three from sixteen, the rest are trees with their leaf. A
+step's work is the push's seconds past the lead-in × `eff` 1.05. A strong player who finishes early gets more trees
+(the way deepens, it does not stretch).
+
+| Planned | Plan (returning player, breath 4·6) | Rest / float |
+|---|---|---|
+| 3 min | rise ×3 (ankles, knees, hips+river), wash ×1, trees ×1 | 1 breath / 1 breath |
+| 5 min | rise ×4, wash ×1, trees ×3 | 1 / 2 |
+| 10 min | rise ×4, wash ×2, trees ×6 | 2 / 3 |
+| 30 min | rise ×4, wash ×3, trees ×22 | 3 / 5 |
+
+**Measured** (the sim, the kit's FocusInput with noise and Mayer waves, a 0.5–4 % rise in the pushes): the way ends at
+76–85 % of a 3-minute session, 79–84 % of 10 and 87–90 % of 30; pushes average 19–27 s; a 30-minute session grows
+~135 leaves, lays ~24 and ripens all 12 fruits; a player with **no** rise grows nothing, rests by the valve and still
+floats and ends on time. The test walks such players through 3, 10 and 30 minutes (two seeds, 1 and 2 % rises) and holds
+the way's end between 60 and 95 %.
+
+#### The headline: leaves (liście)
+
+Leaves open one by one from focus: 3–5 in a trees push, and 2 in each rise or washing push as the water reaches the
+banks ("wherever the river goes, life" — so the headline grows from the first push, and the smoke's crude input scores).
+1 liść, 3 liście, 5 liści; leaf/leaves; Blatt/Blätter; löv. The trees keep up to 40 of the player's earlier leaves
+(deep green: "their leaves will not wither"); this session's leaves are luminous. The summary: the leaves and the water
+in one line ("12 liści · woda: rzeka do pływania"), the leaves laid with their places (three names, then +N), the
+washing, the fruit, the record, the longest calm, the mist's share; stats: water, leaves laid, in focus, calm, the
+longest calm, focus − rest. The closing passage in turn: Ezek 47:9 (the first session, or the river reached), Jer 17:14,
+Ps 147:3, Ezek 47:12 (a leaf laid), Ps 51:7 (the washing), Isa 43:2, Isa 58:11, Rev 22:2.
+
+#### The look
+
+A **landscape in daylight**, nothing like Rzeki's stained glass in deep space: a dawn sky from soft blue to pale
+gold, the sun low in the east (left) where the river goes, lilac-ochre hills in the haze, a dusty ochre valley floor;
+the temple's east gate at the horizon on the right — two jambs, a lintel, light in the doorway, a threshold step — and
+the water coming from under it. The river is layered translucent turquoise: at first a meandering trickle from the
+threshold to the figure's feet that comes on toward the viewer over a sandy, pebbled bed; as the water rises the stream
+widens, an arm finds its way to the far sea, and at the hips the valley floor becomes river between the banks. The near
+water lies over the figure's legs (seen through it) with caustic light moving on them and on the bed; the surface is a
+living line that turns **gold while the water rises** (the gauge on the picture), with rings where it meets the body
+(round each leg at the ankles and knees, round the body higher). The figure of light is kit/figure.ts's, with Rzeki's rim of light warm at the head; at first it is
+dulled by a grey veil and fine dust, which rinses away with the current. The trees stand on the banks in front of the water
+(never under it): tapered, a little bent, dry grey-brown at dawn, budding once the water passes the knees; their leaves
+are luminous almonds with a pale rib, a soft green crown gathering behind them, the nearest pair filling first; fruits
+are amber. Far left on the horizon the dead sea is a thin band of salt grey that turns turquoise with green
+shores in stages as the way goes on, and wholly in the last stretch, with birds and leaping fish. Mist (blind) is a
+white veil drifting over the valley. Baked: the land (per size and per tenth of the far land's life), the figure, its
+dust, each tree with its leaves (re-baked when a leaf comes); a frame composes them and draws a few dozen shapes — no
+filters, no shadowBlur. Reduced motion: no moving caustics, rings or birds; leaves fade in at their place instead of
+flying.
+
+#### Reverence and words (§18.3)
+
+* Light, water and prayer — never energy. A test keeps the forbidden words (pl energi*, uzdrawia*, leczy*, czakr*,
+  kundalini, wąż; en energy, healing power, cures, chakra, kundalini, serpent; de Energie, heilt, Chakra, Kundalini,
+  Schlange; sv energi, helar, chakra, kundalini, orm) and the verbs channel / generate / activate / send out of the
+  game's texts and the registry's lines, except the lobby text's last sentence, the **origin note**: "Ćwiczenie wywodzi
+  się z wizualizacji samouzdrawiania (np. metody Simontona) i z „omiatania” ciała w uzdrawianiu pranicznym; tu jest
+  modlitwą zanurzenia w rzece, która wypływa z Bożego domu."
+* Prayer has a Thou: the Father at the threshold and in the rest, Jesus in the washing and in the water ("jesteś ze mną
+  w wodzie", Isa 43:2), the Holy Spirit as the life the river brings; the close to the Father through Jesus Christ in
+  the Holy Spirit. No figure of God, no cross, no dove; the Spirit only as water and light.
+* "Panie, Ty znasz to miejsce. Dotknij go." is a prayer, not a promise; the verses name God as the one who heals (Jer
+  17:14, Ex 15:26, Ps 147:3); the opening card, the progress card, the registry's last tip and the how-to's last tip say
+  plainly: attention and imagination training and a prayer, not a treatment; show a doctor what hurts or worries.
+* The washing names fear, tiredness, regret — never a diagnosis. The label of a matter of the heart stays on the device.
+
+#### Sound
+
+A warm pad in A major whose filter follows the light in a sighted push; the river's murmur every few seconds; a bell at
+each mark rising with the water (D pentatonic), a soft plink for each leaf, two bells when a leaf is laid, a long wash
+of water for a washing pass, an amber bell for a fruit; the breath's wind in rest following the player's pattern (a
+faint low bell on a hold); five bells at the end. Nothing loud, no chant.
+
+#### Mobile first, then the desk (layout.ts)
+
+*tall* (a phone upright, a tablet upright): the figure tall in the middle of the picture, the river at its feet, a tree
+at each side, the gate top right; the words band below (≥ 118 px: the stage and the breath — "Wdech · 3 s" with a ring
+— on row 1, what to do now or the narrator on row 2, then the prayer and the verse in pages of whole lines that turn
+slowly when they do not fit); **≡** (48 px) at the picture's bottom right in the thumb zone. *side* (a phone on its
+side): the picture on the left, the words in a column on the right. *desk*: the wide valley with three trees on each
+bank, the words in a side column at a reading measure (≤ 19 × the prayer's size), type growing with `uiScale`; beside
+the column the figure is never taller than the stage's width / 1.6, so a near-square stage (a Full HD monitor's middle
+column) still shows the valley with a tree on each bank and the river coming toward the viewer. The
+figure keeps room above its crown for the float's lift, so nothing goes under the HUD. Targets: ≡ and the figure; the
+chooser's nine chips (≥ 46 px) and its close; the story card — audited at every `CHECK_SIZES` entry with and without the
+lift. Text: the prayer ≥ 15 px, everything read ≥ 13, a verse's reference ≥ 11. A desktop's mouse: ≡ brightens, a place
+on the figure shows its ring and its name, the cursor is a pointer; keys M (1–9 in the chooser), Space/Enter, Escape.
+
+#### Tests
+
+`test/arcade-ezechiel.test.ts` (32): the marks and places, every passage in four editions; the plan at 1–30 minutes
+with every breath preset (the marks in order, the steps fit the session); focus only (lead-in, rest, no signal, below
+the threshold, taps), never falling under random signal, the valve; the measuring line at each mark; rests in whole
+breaths with a telegraph before each turn; the washing passes and the leaves on the chosen places in turn; choosing and
+turning a leaf; the mist; the first session's card and warm-up; the average player through 3, 10 and 30 minutes; the
+30-minute summary short; the no-rise player; the result idempotent and settled once; the meta's repairs, places, label,
+breath; the catalogs complete in four languages, the narrator's lines ≤ 90 characters, the forbidden words, no Polish
+letters elsewhere, NBSP before units; the how-to for the hand; the layout at every checked size.
+
+**Measured** (scripts/arcade-mobile.mjs): small Android, iPhone, large Android, phone on its side, tablet, desktop,
+laptop, Full HD, QHD — all ✓: no string under 11 px (only a verse's reference at 11), 18–23 targets all valid, 60 fps
+with the CPU slowed 2–4× on the phones, the game 0.5–2.2 ms a frame (2.2 on the small phone at 4×).
+
+### 18.8 Brzemiona — burdens carried to the Cross (tonglen recast as intercession)
+
+**The request.** The founder asked for "shifting energy" among the energy practices he wanted recast (§18.1). The
+research's pick (research-13 §7, "Recommended trainings" D) was tonglen, the Tibetan lojong practice of "taking and
+giving" (Atiśa, Chekawa, 12th c.; Pema Chödrön's four stages: a flash of openness → the texture of the breath, dark
+and heavy in, light and cool out → a specific person → widening to all who suffer the same way, then all beings).
+The lead's recast (§18.3): the burden is **carried to the Cross, not into the self**, and what returns is **received
+mercy** — intercession (Gal 6:2, Mt 11:28-30, 1 Pet 5:7, Isa 53:4). Christian writers liken tonglen to the "great
+exchange" of the Cross and to "offering it up"; the cautions (it can overload people with depression, trauma or
+caregiver burnout) are met by never asking the player to take in their own trauma, by a light-only version and by a
+helpline line. Root **Galatians 6:2**. Code: `src/arcade/brzemiona/` (content.ts whom and the verses, rules.ts the
+numbers, sim.ts the session, meta.ts the progress, talk.ts the narrator, layout.ts, scene.ts, paint.ts, hud.ts,
+render.ts the view, preview.ts the lobby and the calibration, audio.ts, panel.ts the lobby card, i18n.ts the words).
+
+**One line:** a triptych at dusk — the one prayed for on a far ridge, greyed in a cloud of smoke; the Cross of light on
+a low hill in the middle; the player near, a clear figure of light — and on the breath the grey lifts from them to the
+Cross, turns to gold there while focus is held, and returns to them as peace.
+
+#### The way of a burden
+
+| Step | What happens | Gated by focus? |
+|---|---|---|
+| **Wezwanie** (the call) | the one prayed for appears, greyed, in a cloud; the address: „Panie Jezu, przynoszę Ci to, co niesie Anna” (a name is never declined: the forms take the nominative), „…kogoś, kto choruje”, „…mój własny ciężar”, „…cały świat” | no (4 s, inside the push's lead-in; focus past the lead-in pre-turns up to 0.2) |
+| **Wymiana** (the exchange) — one push | the breath leads (the player's pattern, **5 · 5 by default**, §18.4): on the in-breath grey smoke lifts from them and drifts along the smoke lane to the Cross; while focus is held the smoke at the Cross turns gold; on the out-breath the gold returns along the light lane to them; their cloud thins, their figure brightens. Without focus the smoke **waits at the Cross** — one puff at most, never back, never toward the player. Prayer on the breath: in „Panie Jezu, weź ten ciężar.”, out „Ześlij swój pokój i miłosierdzie.” | **yes**: the circle turns only in a sighted push past its lead-in (5 s Mendi, 2 s HALO), reliable, `focused` |
+| a rest of whole breaths | peace returns: „Dziękuję, Panie, za Twój pokój.”, then the verse (Jn 14:27, Ps 34:5, Isa 61:3 in turn) | no (timer) |
+| **Poszerzenie** (widening) — the next pushes | „Panie Jezu, przynoszę Ci też wszystkich chorych” / „…wszystkich, którzy niosą podobny ciężar”: 6–10 smaller figures appear around the one; then „…cały świat — wszystkich, którzy cierpią”: a night globe of lights takes their place, its lights waking one by one as the circle turns | yes |
+| **Zostaw przy krzyżu** — the rest after the burden's last circle | one breath longer; „Zostawiam to przy Twoim krzyżu, Panie.” and 1 Pet 5:7; the Cross glows, the player's figure is clear light, the one prayed for fades back a little | no |
+| the finale (the session's last 16 s) | everything left at the Cross: „Ojcze miłosierdzia, przez Jezusa Chrystusa, w Duchu Świętym: zostawiam ich przy krzyżu. Amen.”, then Mt 11:29-30 | no |
+| the summary's close | Mt 11:28 the first time, then 2 Cor 1:3-4 and Mt 11:28 in turn | — |
+
+The address is to Jesus; the closing prayer to the Father through Jesus in the Spirit. Verses only by id; the narrator
+alludes, never quotes ("Przy Nim ciężar staje się lekki").
+
+#### Whom (the list) and the variant
+
+* **The prayer list** (the lobby's card, ≤ 12 entries, kept only on the device — §18.3 "names stay home"): a person by
+  name (what they carry optional: choroba, smutek, samotność, lęk, żałoba, spór — kinds, never diagnoses), a kind of
+  burden ("Chorzy", "Samotni"…), the whole world, and **"Ja — mój ciężar"** only when the player adds it (then it is
+  carried to the Cross like anyone else's; the figure on the far ridge is then "Ja"). Empty list: the six kinds and the
+  whole world. Sessions walk the list in order; the next session begins with the next entry, or **goes on with a burden
+  in progress** (its circle and the light turned there: `pos`). Any entry can be made the next start in the card.
+* **„Tylko światło”** (light only): no smoke at all — on the in-breath light gathers at the Cross from above, on the
+  out-breath it flows to them; the one prayed for stands dimmed (no cloud) and brightens. The words change with it
+  ("Panie Jezu, Twoje światło przy krzyżu." / "Niech Twój pokój spłynie od krzyża."; the line of what to do now "Skup się na krzyżu — jego światło rośnie", the coach mark too; the narrator's lines never mention smoke, so they serve both).
+
+#### The numbers (rules.ts)
+
+* **Turning:** `rate = (0.7 + 0.6·above) × (0.85 + 0.3·min(1, hold/12)) / need`, `above = clamp((mean − 0.5)/0.5)`, where
+  `mean` is the band's level **averaged over one whole breath** (a 10 s window in quarter-second bins, longer for a
+  longer pattern) so the 0.1 Hz wave a 5 · 5 breath strengthens averages out (§18.4); `need` = 28 s from 3 minutes on
+  (test sessions under 3 minutes scale it down, ≥ 22 %). Shown `x` follows the truth over 2.5 s; the Cross's glow over
+  the same.
+* **Depth by length** (long sessions deepen, they don't stretch): under 5 minutes each burden is one circle (the one);
+  5–10 minutes two (the one, the whole world); from 10 minutes three (the one, all who carry the same, the whole
+  world). The rest after a circle: whole breaths nearest 8 + 22·√((T − 120)/1680) s — 1 breath at 3 min, 2 at 10, 3
+  at 30 (5 · 5) — the leave rest one breath more; the player may set 1–12 breaths.
+* **Blocks** go by the light (as Rzeki, §13.14 round 11): a push lasts until its circle is turned; the rest is
+  telegraphed at 86 %; the next push 4 s before the rest's last breath ends; each block judged once at its end over its
+  last 15 s (`RoundJudge.from(env.tuning)`, at least 8 reliable seconds; pushes under 10 s not judged); `BlockContrast`
+  across the session. **Safety valve:** 60 s without light gained, or 150 s in all under 86 % → a rest; the circle
+  keeps its light. A first-ever session opens with a warm-up (20–30 s) under the two-page card. No blind blocks (D2:
+  the Cross stays in sight).
+* **Measured** (the sim with the kit's FocusInput, noise and Mayer waves; an average player whose activity rises 2 % in
+  a push): 3 min → 3 burdens (the last at 160 s), 5 min → 2, 10 min → 3 (the last at 527 s), 15 min → 4–5, 30 min →
+  9 (the last at 1 751–1 754 s); ~33 s of focus a circle at a 2 % rise, ~28 s at 4 %; **no rise → nothing turns** and
+  the valve rests every stuck push. A steady player at the threshold: ~28–35 s of focus a circle.
+* **Headline:** burdens carried (brzemię / brzemiona / brzemion; burden(s); Last/Lasten; börda/bördor). The best per
+  length is kept for the module's API, but no "record" highlight is written (intercession is no contest). Summary:
+  burdens, circles, the widest circle, golden light (s), peace in rest (s), focus − rest; highlights one per kind —
+  "4 brzemiona zaniesione do krzyża · krąg: cały świat", "Modlitwa za: chorych, smutnych, cały świat.", "Następnym
+  razem: Anna.", the longest peace, the light-only version.
+
+#### The hands
+
+Three round controls in the thumb zone — **≡** whom (a chooser card: six entries a page, the current one gold; a tap
+switches now, the one left keeps its light for the session), **◎** widen the circle now (the light already turned
+stays; not in the warm-up), **▶** the next burden — and a tap anywhere stays with them (a ring around the one prayed
+for, their name and the prayer glow; never light). In a rest the controls set what comes next ("Potem: Anna"). Keys:
+Space, M, W, N, 1–9 in the chooser, Escape, Enter for a card; on a desk the key caps under the controls and a name on
+hover. Haptics on a circle turned and a burden carried.
+
+#### The look (scene.ts, paint.ts)
+
+Dusk: a grey-violet sky with the first stars and a rose glow on the horizon behind the Cross, warming to gold over the
+session (two baked skies cross-faded); long soft clouds lit from below. A far ridge, a low dark hill and the near
+ground, silhouettes with a thin rim of the horizon's light along their tops. **The Cross of light**: two slim rounded
+beams, white at their core and gold at their edges, a soft aura that grows while smoke turns to gold and at rest — a
+simple cross, never a crucifix, no body. **The figures** are the series' figure of light (kit/figure.ts): the one
+prayed for baked twice — greyed and lit — and cross-faded by their light, with a soft grey cloud of smoke around them;
+the player clear pearl light with a silver-gold rim. **The many** stand around the one, smaller and further back.
+**The whole world** is a night globe (soft made-up continents — no particular map — a terminator, a rim of atmosphere)
+whose city lights wake gold one by one with the light. **The exchange** has two lanes only (layout.ts `lanes`): the
+smoke lane from the one prayed for to the Cross (arching up across, sweeping right going down), the light lane from the
+Cross back to them (low across, left going down); a test walks both and keeps them away from the player's figure.
+Motes of light rise from the Cross while smoke turns to gold and through every rest. Reduced motion: no streams, no motes — clouds and light fade. Everything is baked per size (skies, ground, Cross, figures,
+globe); a frame composes layers and a few dozen sprites.
+
+**The triptych both ways** (D1): across when the picture is wider than tall (the smallest phone's picture is ~344 ×
+176, a desktop's), down when it is taller (an installed iPhone: the one prayed for on the far ridge above, the Cross on
+its hill in the middle, the player near at the bottom — perspective makes the far one small).
+
+#### Sound (audio.ts)
+
+A low warm pad in F whose filter opens as smoke turns to gold; a bell at a call, two rising at a widening, a small high
+bell when the turning begins, a glass tone climbing the pentatonic ladder each tenth of a circle, a chime for a circle
+turned, three bells settling for a burden carried, the breath's soft wind (rising in, falling out, quiet on a hold), a
+slow chord as everything is left at the Cross. No drums, no chant.
+
+#### Reverence and care
+
+The Cross is a symbol of light on a hill (the lead's decision for this game; §5's "no cross as an object" stands
+elsewhere); Jesus is named in the prayer, never drawn; the Spirit is not drawn. Nothing says energy, healing power,
+sending or channelling (a test per language over the game's words and the registry keys, the origin note aside); the
+origin note names tonglen once and says how it is prayed here. The player is never asked to take in their own trauma;
+their own burden only by adding "Ja" to the list; smoke is never drawn entering them. The light-only version is in the
+card and the second opening page; the helpline in each language is in the care card, the opening page and tip 5 (pl
+116 123 / 116 111; en Samaritans 116 123, 988, findahelpline.com; de TelefonSeelsorge 0800 111 0 111 / 0800 111 0 222;
+sv Självmordslinjen 90101; 112). The band measures attention, not prayer (the how-to's last tip).
+
+#### Mobile first, and the desk (layout.ts)
+
+*tall* (anything upright, and a big screen's middle column): the picture on top, the words band (≥ 112 px: what to do
+now, whom and the circle "krąg 2/3", the prayer in a serif ≥ 15 px, the breath's ring, phase, seconds and what flows)
+and the three 48 px controls in the thumb zone; *side* (a phone on its side): the picture left, the band and the
+controls right; *wide* (a wide desktop band): the picture left as big as it goes, the narrator, the band and the
+controls with their key caps in a column at a reading measure. The narrator speaks over the picture's sky (atop the
+column on a wide screen). Text: what is read ≥ 13 px, the prayer ≥ 15, a verse's reference 11 (the kit's). Tested at
+every `CHECK_SIZES` entry, touch and mouse: every target ≥ 44 px inside the insets and clear of the others (the
+controls, the chooser's parts at 1–6 entries and 1–2 pages, the story card); the controls in the thumb zone; the
+picture, band and controls apart.
+
+**Measured** (scripts/arcade-mobile.mjs): all eight devices ✓ — small Android phone, iPhone in Safari, large Android phone, phone on its side, tablet, desktop, Full HD, 2560 × 1440: 0 strings under 11 px, only the kit's verse references at 11–12 px under 13, 13–14 targets seen (the three controls, the chooser's close, six entries and two page arrows, the story card) all valid, 60 fps with the CPU slowed 2–4× on the phones (game 0.9–2.2 ms a frame; 0.5–0.9 ms on the desktops); the play takes 61–81 % of a phone's height and 90–91 % on the big monitors.
+
+#### Tests
+
+`test/arcade-brzemiona.test.ts` (48 tests; the whole suite 85 files / 3 054 tests green, whole-tree tsc clean): whom and the circles; light only from real focus (nothing in the warm-up,
+lead-in, rest, finale, without a signal, unfocused or from taps; never lost); the smoke waits at the Cross (≤ one puff,
+never back); the light-only version lifts no smoke; the gauge; the steps (rests of whole breaths, the leave rest one
+longer, widening, the valve, what to do now, the strategies); the hands (choose now / next, widen keeping the light,
+keys, the chooser's pages and idle close); the pace at 3, 10 and 30 minutes (the arc completes near the end, not at
+40 %), no rise → nothing, 30 minutes never stuck; the smoke test's crude input scores within 22 s; result idempotent,
+settle once, the burden in progress resumes; the closing verse; coach marks once; the meta (placeholder and garbage
+saves, the list's edits, the breath); the words in four languages (placeholders, ≤ 90-character narrator lines, the
+forbidden words, the verbs, no Polish in the others, each language's quotes, plurals, the address without declension,
+the helplines); the layout at every check size, both triptychs, the lanes never reaching the player, the text floors,
+tap routing, the how-to per hand.
+
+### 18.9 Drzewo nad wodą — a tree by the water (rooting, prayed as being rooted in Christ)
+
+*The series' answer to the founder's "etc."* The research's pick (research-13 §6, "Recommended trainings" C): **rooting**
+— the Chinese internal arts' *zhan zhuang*, "standing like a tree" — recast as **being rooted in Christ** (Col 2:6-7,
+Eph 3:17): the tree of Psalm 1 planted by streams of water, bearing **the nine fruits of the Spirit** (Gal 5:22-23).
+No "earth energy", no cord to the earth's centre (a modern Western energy-work addition the research flags): roots,
+water, a tree of light, fruit. Root passage **Ps 1:3**. Code: `src/arcade/drzewo/` (content.ts the fruits, the soil,
+the passages; rules.ts the numbers and the plan; sim.ts the session; tree.ts the geometry — soil, stones, roots, tree,
+fruits, the seated figure; layout.ts; render.ts the picture; hud.ts the words; paint.ts; audio.ts; meta.ts; panel.ts;
+preview.ts the lobby, the cards and the intro; talk.ts; i18n.ts).
+
+**The way — the whole arc in every session** (each prayer roots again; what goes on between sessions is the fruit):
+
+| # | Stage | Kind | What happens | Passages |
+|---|---|---|---|---|
+| 1 | **Postawa** | timed, not gated | three posture cues — seated (the default, the safer one: upright, feet flat, hands on the thighs, the crown lifted) or standing (feet hip-width, knees soft, shoulders down, the crown lifted); the soles, then the shoulders and hands, then the crown of the head glow in turn; "breathe calmly — not deeply" | — |
+| 2 | **Korzenie** | focus | a cross-section at dusk: the ground line, the soil's layers (humus, clay, stones, sand, gravel, rock — 2 in 3 min, 6 in 25–30 min), stones in them, a hidden stream deep below; roots of light grow from the soles and from between the feet, branching, each main root steering round the stones toward the water; the label names the layer the tips are in ("Korzenie · glina") | rests between root stations: Col 2:7, Eph 3:17 |
+| 3 | **Woda** | rest | the roots reach the stream (it lights, the narrator: "The hidden stream was here all along"); drops of light rise through the main roots into the figure, to the heart; the roots stay watered (a cyan core) | Ps 1:3 |
+| 4 | **Pień i gałęzie** | focus | a tree of light grows **through** the figure: the trunk along the midline from the ground to above the head (it shows through the translucent body), branches from the shoulders, from the arms and over the head, then the crown of leaves round the head — never over the face | Col 2:6-7, Ps 92:12-13, Isa 61:3, Ps 104:16; the crown whole: Gal 5:22-23 |
+| 5 | **Owoce** | focus, one a push | the nine fruits ripen in Galatians' order on the crown's arc, each its own colour and shape: love the pomegranate (crimson), joy grapes (gold), peace the olive (sky), patience the fig (violet), kindness the peach (coral), goodness the pear (lime), faithfulness the date of the palm (amber), gentleness cherries (rose), self-control the almond (teal) — a blossom, a small green fruit, then a jewel of light; after each, a rest with **its reflection** ("Pomyśl o jednej chwili dzisiaj, w której cierpliwość była Ci potrzebna"); in sessions of 20 minutes and more a fruit takes two pushes (the blossom sets, then it ripens) and gives **a second reflection** | the fruit's prayer: "Duchu Święty, niech dojrzewa we mnie {owoc}" |
+| 6 | **Wiatr i upał** | rest | the sun beats down (winter: frost and snow), streaks of wind, the crown sways — the tree stands, its leaf does not wither | Mt 7:24-25, Ps 16:8, Ps 1:3 in turn |
+| 7 | the close | finale | the closing card: "Dziękuję Ci, Ojcze, przez Jezusa Chrystusa, w Duchu Świętym — za korzenie, wodę i owoc" | Jer 17:7 or Ps 92:12-13 in turn |
+
+The stages' prayers address the Trinity in turn: the roots to Jesus ("Panie Jezu, zakorzeń mnie w Tobie, jak drzewo nad
+wodą"), the trunk to the Father ("Ojcze, buduj mnie na Chrystusie i umacniaj w wierze"), the branches to God in
+thanksgiving, the crown and the fruits to the Holy Spirit. The first-ever session opens with two pages (Ps 1:3; then how
+it works, Col 2:6-7).
+
+**Light only from real focus.** A station grows only in a sighted push past its lead-in (5 s Mendi, 2 s HALO), with a
+reliable signal, while `frame.focused`, at `0.75 + 0.5·level + 0.25·min(1, hold/20)` focus-seconds a second (1 at the
+threshold, up to 1.5 in a strong held focus). Nothing grows in the posture, rest, the finale, without a signal, below the
+threshold or from taps; nothing goes back (a test drives random signal for 15 minutes). A push lasts until its station is
+full — at least 12 s: a station full sooner flows on into the next in the same push — then a rest of **whole breaths** of
+the player's pattern (kit/breath; the lobby's presets 4·6, 5·5, 4·4·4·4, 4·7·8). The safety valve: 60 s without growth or
+150 s in all under 85 % gives way to a rest ("the tree will wait"), nothing lost. Each block is judged once at its end over
+its last ≤ 15 s (`RoundJudge.from(env.tuning)`; a push under 10 s not judged), `BlockContrast` for the summary; every 4th
+push blind from the 3rd session (never a session's first): the growth gathers unseen and shows at its end. Telegraphs 4 s
+ahead. The gauge on the picture: at the growing point a halo following the band's level, a dashed ring at the threshold,
+gold while it grows (the roots' tips, the trunk's top, the ripening fruit glow gold too).
+
+**3 to 30 minutes — the plan** (`rules.ts planFor`). A table by length gives the arc's shape — the posture cue (6–10 s),
+the soil's layers (2 → 6) and root stations (1 → 6), the trunk stations (1: trunk, branches and crown in one; 2; 3: each
+its own), the fruit steps (1, or 2 from 20 minutes), the rest's length (1 breath in 3–5 minutes, 2 in 10, 3 from 15; the
+water and the wind one more from 10 minutes) — and what each station needs is computed from the time left after the
+posture, the lead-ins, the rests, the wind and the finale, so that **an average player** (0.75 focus-seconds a second
+past the lead-in: about 7 s focused in every 10, a little above the threshold) completes the planned arc at ~88 % of
+that time; needs are kept in 8–40 focus-seconds. **The end is reserved**: at T − finale − wind the push ends (keeping its
+light) and the wind's rest comes; a rest ending after that opens the wind instead of a push. So the arc always closes at
+the end; what varies is how much fruit ripened. Measured with the sim (the average player of the test): **3 min** — the
+stream at 20 %, the crown at 37 %, fruits at 51/65/80 %; **10 min** — 9th fruit at ~85 %, a 10th; **30 min** — the crown
+at 36 %, the 9th fruit at ~87 %. A weaker player (5 s in 10) ripens 8 in 15–30 minutes, a strong one 11–12. The tests
+walk 3, 5, 10, 15, 20, 25 and 30 minutes (stream, crown, ≥ 3 / 5 / 9 fruits, the planned last fruit between 60 and 97 %,
+one wind rest at the end).
+
+**The fruits go on.** The progress keeps the next fruit, the light gathered in it and the fruits ripe in the current round
+of nine (they hang on the tree from the start of the next session, once the crown has grown): a 3-minute session ripens
+love, joy, peace; the next goes on with patience. The ninth completes a round ("Pełne drzewo", John 15:5's "much fruit"),
+and the fruits ripen again as second fruits beside the first (at most three a kind drawn). The lobby's album shows the
+nine (a jewel once ripe, how many times, the round's ones marked); a tap makes a fruit the next start.
+
+**The seasons** (the card, and ≡ in play): *auto* — the calendar's season under 15 minutes; from 15 minutes the year turns
+through the session (spring while rooting and growing, summer as the fruits ripen, autumn for the last ones and the wind,
+winter at the close) — or one chosen season: spring blossoms on the crown, summer's deep green, autumn's gold and red with
+falling leaves, winter's bare rimed branches with the fruits glowing as lamps and snow drifting.
+
+**The hands.** A tap on a ripe fruit opens its card in the band (its name in its colour, its reflection; again: the second
+reflection); a tap elsewhere shows the words again (never growth); ≡ (M on a desk) opens the picker — posture and season,
+with the note "if you feel dizzy standing, sit down — the tree grows just the same". Keys: Space, M, Enter, Escape.
+
+**Headline: fruits** (owoc / owoce / owoców; fruit(s); Frucht/Früchte; frukt/frukter) — one a fruit ripened. Summary:
+fruits, the stream (reached / not yet), growth seconds, calm, the longest calm, focus − rest; highlights (a full tree, the
+fruits by name — three, then "+N" — the next fruit, a record, the longest calm, the blind block, the breath); the closing
+passage in turn: Ps 1:3 the first time, John 15:5 after a harvest, Gal 5:22-23 after fruit, Ps 16:8 after calm rests, then
+Jer 17:7, Ps 92:12-13, Col 2:6-7, Isa 40:31.
+
+**The look.** A cross-section at dusk: a deep blue sky with a few stars, the horizon glowing warm (the season tints it),
+far hills and small trees at the sides (a wide screen shows a whole landscape), the ground line with grass (snow in
+winter), the earth's browns and ochres layer by layer with their grain and stones lit from above, and deep below the
+stream of cool cyan — dim until the roots reach it, then lit, its glints running. The figure is the series' figure of
+light (kit/figure.ts; the seated one derived from it: the upper body lowered 0.2 H, the thighs seen short, the lower legs,
+on a low mossy boulder), its rim warm at the head and silver below, translucent so the trunk shows through. The roots and
+the tree are gold-green light (tapered ribbons with a soft halo), the leaves translucent in the season's colours, the
+fruits jewels with a glow, a rim and a highlight. Everything still is baked once per size (the sky and soil, the roots up
+to their growth, the figure, the trunk and branches, the leaves); the camera only **pans** (never zooms), so the layers stay
+crisp; reduced motion: no sway, no drifting snow or leaves, the camera cuts.
+
+**Sound.** A warm pad in G following the growth in a sighted push; a soft wooden tone as the roots pass each tenth, a rising
+tone as the trunk grows; the water's shimmer and three bells at the stream; an airy sweep and bells as the crown opens; a
+bell per fruit on a pentatonic ladder rising in Galatians' order, all nine at a harvest; the breath's soft wind in rest;
+gusts in the wind's rest; no drums, no chant.
+
+**What it says and never says** (§18.3). Light, roots, water, fruit, peace — the fruit is the Spirit's gift ("Not by your
+strength — fruit is the Spirit's gift"), the light pictures attention. The tradition's term (*zhan zhuang*, "standing like
+a tree") appears once, in the lobby text's last sentence; a test keeps energy, healing claims, chakras, kundalini and
+serpents out of the game's texts and the registry's (but for that sentence) in all four languages, and gendered forms out
+of the Polish. The how-to's last tip: the band measures attention, not prayer or holiness; attention and imagination
+training, not a treatment. Jesus is named, never drawn; the Spirit only as light, water, wind.
+
+**Mobile first, and the desk** (layout.ts, tested at every `CHECK_SIZES` entry with a finger and a mouse, both postures,
+every framing, the card, the picker and the story card). *tall*: the cross-section in the stage (the tree's framing fits:
+H 150 on the smallest phone, ~250–270 on larger ones; the view pans to the roots, the rising water, the tree), the words
+band at the bottom (≥ 118 px: the stage's name, what to do now — in rest the breath's guide — and the prayer, verse or
+reflection), ≡ (48 px) above it at the right in the thumb zone, the narrator just above the band. *side*: the
+cross-section left, the words right, ≡ under them; the picker drops its note where it has no room. *desk*: the whole
+cross-section with land at the sides (a short laptop screen pans the larger tree instead), the words beside the crown at
+a reading measure, ≡ with "Postawa · Pora roku (M)". Text: the prayer ≥ 15 px, everything read ≥ 13, a verse's reference
+11 (the kit's).
+
+**Tests** (test/arcade-drzewo.test.ts): the fruits, soil and passages; growth only from focus (posture, lead-in, rest, no
+signal, below the threshold, taps); nothing goes back under random signal; the plan at seven lengths with an average
+player; deeper long sessions; whole-breath rests with the water, crown, fruit and wind in order; the valve; blind pushes;
+judging; strategies; the now-line; the fruits going on between sessions; a harvest and second fruits; the album's start,
+posture and season; the turning year; the card and the picker; the smoke's crude input (a fruit within 22 s of a 40 s
+session); the opening and closing cards; idempotent results; a short summary at 30 minutes; HALO; the placeholder's save
+and garbage; the catalogs, narrator lengths, forbidden words, the Trinity in the prayers, plurals, no gendered Polish; the
+geometry (roots to the stream round the stones, the crown off the face, the fruits apart, the seated outline); every
+layout's targets, the thumb zone, the camera, text sizes; the how-to.
