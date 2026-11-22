@@ -524,10 +524,16 @@ export const GARDENS: readonly Garden[] = [
   garden('rozany', 44, 'rare', 1, 4, 3, ['#A7C873', '#96BC66'], '#8A5E46'),
 ];
 
-/** The `index`-th garden of the map: after the eighth the map loops, each lap a little longer. */
+/** A lap's extra length stops growing after this many laps (long sessions loop the map often). */
+export const LAP_GROWTH_MAX = 4;
+
+/**
+ * The `index`-th garden of the map: after the eighth the map loops, each lap a little longer — up to
+ * LAP_GROWTH_MAX laps, then every lap is as long as that one (a goal stays reachable in a garden).
+ */
 export function gardenAt(index: number): Garden & { lap: number } {
   const i = Math.max(0, Math.floor(index)), lap = Math.floor(i / GARDENS.length), g = GARDENS[i % GARDENS.length];
-  return { ...g, len: g.len + lap * 6, rivals: Math.min(5, g.rivals + lap), birds: Math.min(4, g.birds + lap), lap };
+  return { ...g, len: g.len + Math.min(lap, LAP_GROWTH_MAX) * 6, rivals: Math.min(5, g.rivals + lap), birds: Math.min(4, g.birds + lap), lap };
 }
 
 // ── the strategies under a block's name (never "concentrate harder") ──

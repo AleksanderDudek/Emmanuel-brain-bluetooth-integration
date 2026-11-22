@@ -21,7 +21,7 @@ import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace } from '../kit/trace';
 import type { ArcadeOutcome, Headline } from '../kit/types';
 import {
-  ABERRATION_FORM, LINES, SIZE_CLASSES, SPECIES, TIPS, capital, gardenAt, speciesById,
+  ABERRATION_FORM, LAP_GROWTH_MAX, LINES, SIZE_CLASSES, SPECIES, TIPS, capital, gardenAt, speciesById,
   type Aberration, type Garden, type Moment, type SideGoal, type Species,
 } from './content';
 import { t } from './i18n';
@@ -150,6 +150,10 @@ export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => nu
   durs.forEach((dur, i) => plan.push(b(i % 2 ? 'rest' : 'push', dur)));
   return plan;
 }
+
+/** A summary's list of names: the first three, then "+N" (a long session hatches many). */
+const listOf = (names: readonly string[], max = 3): string =>
+  names.length > max ? `${names.slice(0, max).join(', ')} +${names.length - max}` : names.join(', ');
 
 /** The chain multiplier after `chain` items eaten in a row (×1 … ×5). */
 export const multOf = (chain: number): number => Math.min(RULES.chainMax, 1 + Math.floor(Math.max(0, chain - 1) / RULES.chainStep));
@@ -389,7 +393,7 @@ export class MothSim {
       if (d > bestD) { bestD = d; best = { x, y }; }
     }
     const dir = Math.atan2(H / 2 - best.y, W / 2 - best.x);
-    const n = Math.round(8 + this.rng() * 6 + this.garden.lap * 3 + this.gardenIndex % 8);
+    const n = Math.round(8 + this.rng() * 6 + Math.min(this.garden.lap, LAP_GROWTH_MAX) * 3 + this.gardenIndex % 8);
     const w = this.worm(best.x, best.y, dir, n, this.rivalSpecies());
     w.safe = 1;
     return w;
@@ -1181,9 +1185,9 @@ export class MothSim {
     const lines: string[] = [];
     const done = this.hatchedList;
     const fresh = [...new Set(done.filter(b => b.isNew).map(b => b.aberration ? t('hl.withForm', { name: b.sp.name, form: ABERRATION_FORM[b.aberration] }) : b.sp.name))];
-    if (fresh.length) lines.push(capital(t(fresh.length > 1 ? 'hl.newN' : 'hl.new1', { list: fresh.join(', ') })));
+    if (fresh.length) lines.push(capital(t(fresh.length > 1 ? 'hl.newN' : 'hl.new1', { list: listOf(fresh) })));
     const radiant = [...new Set(done.filter(b => b.radiant).map(b => b.sp.name))];
-    if (radiant.length) lines.push(capital(t('hl.radiant', { list: radiant.join(', ') })));
+    if (radiant.length) lines.push(capital(t('hl.radiant', { list: listOf(radiant) })));
     if (this.gardensDone) lines.push(t('hl.gardens', { n: this.gardensDone, stars: this.starsWon, next: gardenAt(this.p.garden).name }));
     if (this.bestBefore !== null && score <= this.bestBefore && this.bestBefore - score <= Math.max(40, this.bestBefore * 0.3)) {
       lines.push(t('hl.near', { n: this.bestBefore - score + 1 }));

@@ -886,3 +886,69 @@ describe('big screens and the mouse (DESIGN §14)', () => {
     }
   });
 });
+
+// ── long sessions (15–30 min) ────────────────────────────────────
+
+describe('Motylarnia at 15–30 minutes', () => {
+  it('plans 900–1800 s to the finale: Apetyt/Sjesta pairs at their design lengths, ending on a Sjesta', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [false, true]) {
+        const plan = planBlocks(planned, first, mulberry32(planned));
+        const sum = plan.reduce((s, b) => s + b.dur, 0);
+        expect(Math.abs(sum - (planned - RULES.finale))).toBeLessThan(0.5);
+        expect(plan[0].kind).toBe(first ? 'warmup' : 'push');
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('plays a whole 30-min session: gardens keep coming, the world stays bounded, it reaches its finale', () => {
+    const sim = newSim({ progress: veteran({ garden: 0 }), plannedSec: 1800, seed: 5 });
+    let maxFood = 0, maxRival = 0, evs = 0;
+    const dt = 1 / 20;
+    for (let i = 0; i < 1806 / dt && sim.phase !== 'done'; i++) {
+      if (i % 3 === 0) {
+        const h = sim.player.segs[0];
+        let best: { x: number; y: number } | null = null, bd = Infinity;
+        for (const f of sim.food) {
+          const d = ((f.x - h.x) ** 2 + (f.y - h.y) ** 2) / (f.kind === 'flower' ? 3 : 1);
+          if (d < bd) { bd = d; best = f; }
+        }
+        if (best) sim.aim(Math.atan2(best.y - h.y, best.x - h.x));
+      }
+      const l = sim.block.kind === 'push' ? 0.85 : 0.2;
+      sim.update(dt, frame(l), sim.t + dt);
+      evs += sim.take().length;
+      maxFood = Math.max(maxFood, sim.food.length);
+      for (const r of sim.rivals) maxRival = Math.max(maxRival, r.segs.length);
+    }
+    expect(sim.phase).toBe('done');
+    expect(sim.t).toBeLessThan(1801);
+    expect(sim.t).toBeGreaterThan(1795);
+    expect(evs).toBeGreaterThan(500);
+    expect(sim.gardensDone).toBeGreaterThan(8);   // past the first lap
+    expect(maxFood).toBeLessThan(800);
+    expect(maxRival).toBeLessThan(120);
+    expect(sim.player.segs.length).toBeLessThan(200);
+    expect(Number.isFinite(sim.score)).toBe(true);
+    expect(sim.twig.length).toBeLessThanOrEqual(RULES.twigMax);
+    const out = sim.result();
+    expect(out.highlights.length).toBeLessThanOrEqual(4);
+    for (const s of out.highlights) expect(s.length).toBeLessThan(160);
+    for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+  });
+
+  it('plateaus the map\'s laps: a far lap is a harder garden, never an endless caterpillar', () => {
+    for (const i of [0, 8, 40, 400]) {
+      const g = gardenAt(i);
+      expect(g.len).toBeLessThanOrEqual(Math.max(...GARDENS.map(x => x.len)) + 24);
+      expect(g.rivals).toBeLessThanOrEqual(5);
+    }
+  });
+});
