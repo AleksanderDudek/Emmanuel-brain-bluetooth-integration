@@ -1119,3 +1119,93 @@ describe('a big screen and a mouse (DESIGN.md §14)', () => {
     expect(nehemiasz.howto!().hands[1].text).toBe(t('howto.tap.keys'));
   });
 });
+
+describe('long sessions (15–30 minutes)', () => {
+  it('plans 15, 20, 25 and 30 minutes of days and nights to the next dawn, none past its nominal length', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + 1));
+        const body = first ? plan.slice(1) : plan;
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        body.forEach((b, i) => expect(b.kind).toBe((i % 2 === 0) === first ? 'push' : 'rest'));
+        expect(plan.at(-1)!.kind).toBe('push');
+        expect(finaleFor(planned)).toBe(RULES.finale.long);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        // about one night and one day every 50 s: 18 nights in 15 minutes, 36 in 30
+        const nights = body.filter(b => b.kind === 'push').length;
+        expect(Math.abs(nights - (planned - finaleFor(planned)) / (RULES.push[0] + RULES.rest[0]))).toBeLessThan(1);
+        for (const b of body) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual(31);
+        }
+      }
+    }
+  });
+
+  it('a 30-minute session builds on day after day through the gates, ends on time, and nothing piles up', () => {
+    for (const [progress, f] of [
+      [{}, 'mixed'],
+      [{ sessions: 5, pushes: 1, gateDay: 1, day: 1, seen: SEEN, cards: ['horn', 'ono'] }, 'steady'],
+    ] as const) {
+      const sim = makeSim({ planned: 1800, progress: progress as Partial<NehProgress> });
+      const p = sim.p;
+      const gate0 = p.gate;
+      let maxRaiders = 0, maxPebbles = 0, maxRings = 0, maxJabs = 0;
+      const evs: SimEvent[] = [];
+      drive(sim, 1800 + RULES.settle, tt => (f === 'steady' ? (sim.block?.kind === 'rest' ? CALM : HIGH)
+        : Math.sin(tt / 7) > 0 ? frame({ level: 0.62, calm: 0.4, hold: 6 }) : frame({ level: 0.35, calm: 0.7 })), { t: 0 }, tt => {
+        through(sim)();
+        if (Math.round(tt * 60) % 50 === 0) sim.tap(null);
+        maxRaiders = Math.max(maxRaiders, sim.raiders.length);
+        maxPebbles = Math.max(maxPebbles, sim.pebbles.length);
+        maxRings = Math.max(maxRings, sim.rings.length);
+        maxJabs = Math.max(maxJabs, sim.jabs.length);
+        evs.push(...sim.take());
+      });
+      expect(sim.phase).toBe('done');
+      expect(ofType(evs, 'done')).toHaveLength(1);
+      expect(sim.canStop()).toBe(true);
+      // a day for every day block, the gates finishing one after another
+      expect(ofType(evs, 'dawn').length).toBe(sim.plan.filter(b => b.kind !== 'push').length);
+      expect(ofType(evs, 'gateDone').length).toBeGreaterThanOrEqual(4);
+      expect(p.gate).toBeGreaterThanOrEqual(gate0 + 4);
+      expect(sim.headlineValue).toBeGreaterThan(1500);
+      for (const k of ['stone', 'timber', 'bread', 'people', 'strength'] as const) expect(Number.isFinite(p[k]), k).toBe(true);
+      expect(p.stone).toBeLessThanOrEqual(stoneCap(p));
+      expect(p.timber).toBeLessThan(100);
+      expect(maxRaiders).toBeLessThan(40);
+      expect(maxPebbles).toBeLessThan(40);
+      expect(maxRings).toBeLessThan(40);
+      expect(maxJabs).toBeLessThan(40);
+      expect(p.cards.length).toBeLessThanOrEqual(3);
+      const r = sim.result();
+      expect(JSON.stringify(r)).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+
+  it('a long session can finish the wall and begin the next year: the days read across the turn, the fox\'s old marks go', () => {
+    const sim = later({ planned: 1800, progress: { gate: 8, gateDay: 1, day: gateFirstDay(8), cards: ['horn', 'ono', 'fox:7', 'fox:8'] } });
+    const evs: SimEvent[] = [];
+    drive(sim, 1804, () => (sim.block?.kind === 'rest' ? CALM : HIGH), { t: 0 }, tt => {
+      through(sim)();
+      if (Math.round(tt * 60) % 50 === 0) sim.tap(null);
+      evs.push(...sim.take());
+    });
+    expect(sim.p.year).toBe(1);
+    expect(sim.wallDone).toBe(true);
+    expect(ofType(evs, 'gateDone').map(e => e.gate).slice(0, 3)).toEqual([8, 9, 0]);
+    const days = sim.result().stats!.find(([k]) => k === t('stat.days'))![1];
+    // the session's first dawn is the gate's second day
+    expect(days).toBe(t('stat.daysWrap', { from: gateFirstDay(8) + 1, to: sim.p.day }));
+    expect(sim.p.cards.filter(c => c.startsWith('fox:')).every(c => c === `fox:${10 + sim.p.gate}`)).toBe(true);
+  });
+
+  it('the years\' climb stops at yearTop: year 9 sends the same night as year 4, more than year 1', () => {
+    const tonight = (year: number) => {
+      const sim = later({ seed: 9, progress: { year, gate: 3, gateDay: 2, day: 13 } });
+      return sim.preview.reduce((s, v) => s + v.total, 0);
+    };
+    expect(tonight(RULES.yearTop + 5)).toBe(tonight(RULES.yearTop));
+    expect(tonight(RULES.yearTop)).toBeGreaterThan(tonight(1));
+  });
+});

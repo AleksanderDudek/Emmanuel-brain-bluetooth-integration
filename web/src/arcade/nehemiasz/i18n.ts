@@ -280,6 +280,7 @@ const pl = {
   // the summary
   'stat.days': 'Dni',
   'stat.daysV': '{from}–{to} z 52',
+  'stat.daysWrap': '{from}–52 i 1–{to} z 52',
   'stat.gate': 'Brama',
   'stat.wall': 'Mur stoi',
   'stat.driven': 'Przepędzeni',
@@ -658,6 +659,7 @@ const en: Cat = {
 
   'stat.days': 'Days',
   'stat.daysV': '{from}–{to} of 52',
+  'stat.daysWrap': '{from}–52 and 1–{to} of 52',
   'stat.gate': 'Gate',
   'stat.wall': 'The wall stands',
   'stat.driven': 'Driven off',
@@ -1030,6 +1032,7 @@ const de: Cat = {
 
   'stat.days': 'Tage',
   'stat.daysV': '{from}–{to} von 52',
+  'stat.daysWrap': '{from}–52 und 1–{to} von 52',
   'stat.gate': 'Tor',
   'stat.wall': 'Die Mauer steht',
   'stat.driven': 'Vertrieben',
@@ -1402,6 +1405,7 @@ const sv: Cat = {
 
   'stat.days': 'Dagar',
   'stat.daysV': '{from}–{to} av 52',
+  'stat.daysWrap': '{from}–52 och 1–{to} av 52',
   'stat.gate': 'Port',
   'stat.wall': 'Muren står',
   'stat.driven': 'Bortdrivna',

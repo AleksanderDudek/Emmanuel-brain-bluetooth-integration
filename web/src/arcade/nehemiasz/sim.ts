@@ -305,6 +305,8 @@ export class NehSim {
   blindShare = -1;
   onoNow = 0;
   firstDay = 0;
+  /** the year of the session's first day (a long session can finish the wall and begin the next year) */
+  private firstYear = 0;
   readonly gatesDone: { gate: number; stars: number }[] = [];
   readonly newTowns: TownId[] = [];
   lootLost = 0;
@@ -758,7 +760,10 @@ export class NehSim {
     p.gateDay += 1;
     p.day = gateFirstDay(p.gate) + p.gateDay - 1;
     this.dayNow = p.day;
-    if (!this.firstDay) this.firstDay = p.day;
+    if (!this.firstDay) {
+      this.firstDay = p.day;
+      this.firstYear = p.year;
+    }
     const opening = this.story?.kind === 'open';
     if (p.gateDay === 1 && !opening) {
       if (p.year > 0 && p.gate === 0) this.queueStory('year', R.storySec, { year: p.year });
@@ -973,6 +978,8 @@ export class NehSim {
       p.gate = g + 1;
     }
     p.gateDay = 0;
+    // the fox's marks belong to the stretch just finished and are never read again: the save does not grow with the years
+    for (let i = p.cards.length - 1; i >= 0; i--) if (p.cards[i].startsWith('fox:')) p.cards.splice(i, 1);
     freshStretch(p);
     for (const id of FIRE_IDS) this.fireR[id] = fireReach(p.stretch[id] ?? 0, 0);
   }
@@ -985,7 +992,7 @@ export class NehSim {
     const level = p.gate + p.year * GATES.length;
     const gentle = this.session === 1 && this.nightsAll === 0 && p.gate === 0 && p.year === 0;
     let n = gentle ? R.firstNight
-      : Math.round((R.nightBase + R.nightPerDay * Math.max(0, p.gateDay - 1) + R.nightPerGate * p.gate) * (1 + R.yearUp * p.year) * durK);
+      : Math.round((R.nightBase + R.nightPerDay * Math.max(0, p.gateDay - 1) + R.nightPerGate * p.gate) * (1 + R.yearUp * Math.min(p.year, R.yearTop)) * durK);
     n = Math.max(2, n);
     const kinds: RaiderKind[] = [];
     const tall = p.wall.some(s => s.done >= 2);
@@ -1063,7 +1070,7 @@ export class NehSim {
 
   private spawn(kind: RaiderKind, route: RouteId): void {
     const p = this.p, R = RULES;
-    const k = 1 + R.perGate * p.gate + R.perYear * p.year;
+    const k = 1 + R.perGate * p.gate + R.perYear * Math.min(p.year, R.yearTop);
     const courage = R.courage[kind] * k;
     const start = routeAt(route, 0);
     const r: Raider = {
@@ -2033,8 +2040,10 @@ export class NehSim {
     }
     const c = this.contrast.contrast === null ? null : Math.round(this.contrast.contrast * 10) / 10;
     const from = this.firstDay || p.day, to = Math.max(from, p.day);
+    // the wall finished mid-session: the days run to 52 and on from 1 of the next year
+    const wrapped = this.firstDay > 0 && p.year > this.firstYear;
     const stats: [string, string][] = [
-      [t('stat.days'), t('stat.daysV', { from, to })],
+      [t('stat.days'), wrapped ? t('stat.daysWrap', { from: this.firstDay, to: p.day }) : t('stat.daysV', { from, to })],
       [t('stat.gate'), gateName(p.gate)],
       [t('stat.wall'), t('pct', { n: Math.round(standing(p) * 100) })],
       [t('stat.driven'), fmtNum(this.driven)],

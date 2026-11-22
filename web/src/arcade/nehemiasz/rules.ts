@@ -184,6 +184,9 @@ export const RULES = {
   nightPerDay: 1.5,
   nightPerGate: 0.7,
   yearUp: 0.25,
+  /** the years' climb (raiders per night, their courage) stops at this year: a 30-minute session builds ~36
+   *  days, so years now pass in one or two sessions — year 5 and on are as hard as year 5 */
+  yearTop: 4,
   /** the waves come at these seconds of the night; the raiders of a wave this far apart (s) */
   waves: [1.2, 7.5, 13.5],
   waveGap: 0.55,
