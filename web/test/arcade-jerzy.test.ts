@@ -1706,6 +1706,81 @@ describe('the pacing, by simulation', () => {
   }, 3_600_000);
 });
 
+// ── long sessions: 15, 20, 25 and 30 minutes ───────────────────────
+describe('long sessions (15–30 min)', () => {
+  it('plans 15, 20, 25 and 30 minutes like the short ones: Tarcza and Postój in turn up to the last stretch, no block too long or too short', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned + (first ? 1 : 0)));
+        if (first) expect(plan[0]).toMatchObject({ kind: 'warmup', dur: RULES.warm.long });
+        const blocks = first ? plan.slice(1) : plan;
+        blocks.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(blocks.at(-1)!.kind).toBe('rest');
+        expect(finaleFor(planned)).toBe(RULES.finale.long);
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(planned - finaleFor(planned), 5);
+        const left = planned - finaleFor(planned) - (first ? RULES.warm.long : 0);
+        expect(blocks.length / 2).toBe(Math.round(left / (RULES.push[0] + RULES.rest[0])));
+        for (const b of blocks) {
+          const [nominal, jitter] = b.kind === 'push' ? RULES.push : RULES.rest;
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+          expect(b.dur).toBeLessThanOrEqual((nominal + jitter) * 1.05);
+        }
+      }
+    }
+  });
+
+  it('a 30-minute session plays to its finale and keeps giving: dragons, levels and scales to the end, the numbers finite, nothing piling up', () => {
+    const p: JerzyProgress = { ...freshProgress(), sessions: 5, pushes: 3, seen: SEEN };
+    const sim = new JerzySim({ progress: p, rng: mulberry32(7), day: DAY, daySeed: 1, plannedSec: 1800, eeg: false, tuning: TUNING });
+    sim.start();
+    const held = { h: 0 }, rnd = mulberry32(9), step = 1 / 30;
+    let decide = 0, finale = 0, done = 0, visits = 0, at20 = -1, lvl20 = 0, bad = 0;
+    const most = { brood: 0, scales: 0, drops: 0, prints: 0, smokes: 0, caltrops: 0, shots: 0, fx: 0 };
+    for (let tt = step; tt < 1800 + RULES.settle + 1 && !sim.canStop(); tt += step) {
+      sim.update(step, profileFrame(sim, 'avg', tt, held), tt);
+      for (const e of sim.take()) {
+        if (e.type === 'finale') finale++;
+        else if (e.type === 'done') done++;
+        else if (e.type === 'boss') visits++;
+      }
+      if ((decide += step) >= 0.3) { decide = 0; botStep(sim, 'casual', rnd); }
+      most.brood = Math.max(most.brood, sim.brood.length);
+      most.scales = Math.max(most.scales, sim.scales.length);
+      most.drops = Math.max(most.drops, sim.drops.length);
+      most.prints = Math.max(most.prints, sim.prints.length);
+      most.smokes = Math.max(most.smokes, sim.smokes.length);
+      most.caltrops = Math.max(most.caltrops, sim.caltrops.length);
+      most.shots = Math.max(most.shots, sim.lances.length + sim.hammers.length + sim.horses.length + sim.balls.length + sim.flames.length + sim.rain.length);
+      most.fx = Math.max(most.fx, sim.sweeps.length + sim.rings.length + sim.splashes.length + sim.zones.length + sim.walls.length);
+      const k = sim.knight;
+      if (![sim.score, k.x, k.y, k.hearts, sim.run.t, sim.run.xp, sim.charge, sim.auraR, sim.boss.damage].every(Number.isFinite)) bad++;
+      if (at20 < 0 && tt >= 1200) { at20 = sim.score; lvl20 = Math.max(sim.topLevel, sim.run.level); }
+    }
+    expect(bad).toBe(0);
+    expect([finale, done, sim.phase]).toEqual([1, 1, 'done']);
+    expect(sim.blockIndex).toBe(sim.plan.length - 1);
+    // the last ten minutes still pay: scales, a level or more, dragons on the roads beyond the first
+    expect(sim.score).toBeGreaterThan(at20 * 1.2);
+    expect(Math.max(sim.topLevel, sim.run.level)).toBeGreaterThan(lvl20);
+    expect(visits).toBeGreaterThanOrEqual(10);
+    expect(sim.drivenNow.length).toBeGreaterThanOrEqual(6);
+    // bounded: the brood by its cap (a wave may overfill by 20, elites and hatchlings a few), scales by theirs
+    expect(most.brood).toBeLessThanOrEqual(RULES.cap + 40);
+    expect(most.scales).toBeLessThanOrEqual(RULES.scaleCap + 60);
+    expect(most.drops).toBeLessThan(40);
+    expect(most.prints).toBeLessThan(400);
+    expect(most.smokes).toBeLessThanOrEqual(60);
+    expect(most.caltrops).toBeLessThanOrEqual(61);
+    expect(most.shots).toBeLessThan(300);
+    expect(most.fx).toBeLessThan(200);
+    expect(sim.talk.said.length).toBeLessThanOrEqual(120);
+    const r = sim.result();
+    expect(Number.isFinite(r.score)).toBe(true);
+    expect(JSON.stringify(r)).not.toMatch(/undefined|NaN|Infinity/);
+    expect(p.best['1800']).toBe(sim.score);
+  });
+});
+
 describe('the lobby (index.ts, panel.ts)', () => {
   it('shows the record of the length last played, else the best of any, and nothing before a first session', async () => {
     const mod = (await import('../src/arcade/jerzy/index')).default;
