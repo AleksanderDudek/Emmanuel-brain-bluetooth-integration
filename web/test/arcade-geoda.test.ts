@@ -1033,3 +1033,88 @@ describe('Geoda on a desktop and a big screen (DESIGN §14)', () => {
     }
   });
 });
+
+// ── long sessions (15–30 min) ───────────────────────────────────
+
+describe('Geoda at 15–30 minutes', () => {
+  it('plans 900–1800 s to the end: push/rest pairs at their design length, ending on a Szlif', () => {
+    for (const sec of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec + (first ? 1 : 0)));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec, 5);
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+        expect(core.length).toBeGreaterThanOrEqual(Math.floor(sec / 50) * 2);
+      }
+    }
+  });
+
+  it('plays a whole 30-min session headless: no throw, finite numbers, ends, bounded collections and summary', () => {
+    for (const mode of ['adventure', 'classic'] as const) {
+      const sim = newSim({ progress: returning({ mode }), plannedSec: 1800, seed: 11 });
+      sim.start();
+      let since = 0, events = 0;
+      const dt = 0.1;
+      for (let t = 0; t < 1800 + 1e-9; t += dt) {
+        const f = sim.restBlock ? resting() : focusing();
+        sim.update(dt, f, t + dt);
+        since += dt;
+        if (since >= 0.9) { since = 0; sim.auto(); }
+        events += sim.take().length;
+      }
+      expect(sim.ended).toBe(true);
+      expect(Number.isFinite(sim.score)).toBe(true);
+      expect(sim.score).toBeGreaterThan(0);
+      expect(sim.placements).toBeGreaterThan(1000);
+      expect(events).toBeGreaterThan(1000);
+      expect(sim.gems.length).toBe(sim.plan.filter(b => b.kind === 'rest').length);
+      expect(sim.trace.samples.length).toBeLessThan(400);
+      expect(sim.talk.said.length).toBeLessThan(500);
+      const r = sim.result();
+      expect(Number.isFinite(r.score)).toBe(true);
+      expect(r.highlights.length).toBeLessThanOrEqual(10);
+      for (const s of [...r.highlights, ...r.stats.flat(), sim.headlineSub()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+      if (mode === 'adventure') expect(sim.levelsDone).toBeGreaterThan(0);
+    }
+  });
+
+  it('the whole game runs 30 min on the runner\'s clock (Space every second, drawn now and then) and settles', () => {
+    const proto = HTMLCanvasElement.prototype as unknown as { getContext: unknown };
+    const original = proto.getContext;
+    proto.getContext = function (this: HTMLCanvasElement) { return fakeContext(this); };
+    try {
+      const env: GameEnv<GeodaProgress> = {
+        canvas: document.createElement('canvas'), hud: document.createElement('div'), audio: new ArcadeAudio(0, false),
+        progress: returning(), rng: mulberry32(4), day: '2026-11-22', daySeed: 9, plannedSec: 1800, tool: 'fnirs', simulated: true,
+        reducedMotion: false, haptics: false, tuning: TUNING, hint: () => {}, hudTop: () => 120,
+        insets: () => ({ top: 120, right: 0, bottom: 0, left: 0 }), touch: false,
+      };
+      const game = geoda.create(env);
+      game.resize(1280, 720, 1);
+      game.start();
+      const dt = 0.1;
+      let t = 0, k = 0;
+      while (t < 1800) {
+        t += dt;
+        k++;
+        game.update(dt, k % 400 < 220 ? focusing() : resting(), t);
+        if (k % 10 === 0) { game.key!(' ', true); game.key!(' ', false); }
+        if (k % 60 === 0) game.draw();
+        expect(Number.isFinite(game.headline!().value)).toBe(true);
+      }
+      game.finish?.();
+      const r = game.result();
+      expect(Number.isFinite(r.score)).toBe(true);
+      expect(r.score).toBeGreaterThan(0);
+      expect(game.canStop()).toBe(true);
+      for (const s of [...r.highlights, ...r.stats.flat()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    } finally {
+      proto.getContext = original;
+    }
+  });
+});

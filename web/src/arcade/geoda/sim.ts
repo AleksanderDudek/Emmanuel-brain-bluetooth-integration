@@ -33,6 +33,9 @@ import { comboFactor, linePoints, multOf, RULES } from './rules';
 import { Talk } from './talk';
 
 export type BlockKind = 'warmup' | 'push' | 'rest';
+
+/** The summary names at most this many minerals of the cabinet one by one (the rest: one line). */
+const GEM_LINES = 3;
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
 
 export interface Bowl {
@@ -716,10 +719,17 @@ export class GeodaSim {
     ];
     const hl: string[] = [];
     if (this.levelsDone) hl.push(t('hl.chambers', { n: this.levelsDone, stars: this.starsWon }));
+    // one line per mineral at the tier it reached (a long session fills the cabinet many times over):
+    // the new ones first, then the finest; past GEM_LINES the rest is one line
+    const best = new Map<number, { tier: number; isNew: boolean }>();
     for (const g of this.gems) {
       if (g.outcome === 'same') continue;
-      hl.push(t(g.outcome === 'new' ? 'hl.newMineral' : 'hl.upMineral', { mineral: MINERALS[g.mineral].title, tier: TIERS[g.tier] }));
+      const was = best.get(g.mineral);
+      best.set(g.mineral, { tier: Math.max(g.tier, was?.tier ?? 0), isNew: g.outcome === 'new' || !!was?.isNew });
     }
+    const gemLines = [...best].sort((a, b) => Number(b[1].isNew) - Number(a[1].isNew) || b[1].tier - a[1].tier);
+    for (const [m, g] of gemLines.slice(0, GEM_LINES)) hl.push(t(g.isNew ? 'hl.newMineral' : 'hl.upMineral', { mineral: MINERALS[m].title, tier: TIERS[g.tier] }));
+    if (gemLines.length > GEM_LINES) hl.push(t('hl.moreMinerals', { n: gemLines.length - GEM_LINES }));
     if (this.bestCombo >= 5) hl.push(t('hl.combo', { n: this.bestCombo }));
     if (this.cleans) hl.push(t('hl.clean', { n: this.cleans }));
     if (this.mode === 'classic' && this.bestBoardBefore > 0 && p.bestBoard > this.bestBoardBefore) hl.push(t('hl.boardRecord', { n: fmt(p.bestBoard) }));
