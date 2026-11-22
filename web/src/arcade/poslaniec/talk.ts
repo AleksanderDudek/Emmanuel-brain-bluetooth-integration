@@ -4,8 +4,9 @@
  * grumbles about the weight of the letters, keeps a running feud with Bela the goat, and carries the
  * messenger when the wings are full.  He says short lines in a drawn bubble — one at a time, 2–4 s
  * each, never over a telegraph or the runner's banner — reacting to what just happened.  Each moment
- * has several variants and a session never repeats one: when a moment's variants are spent he keeps
- * quiet.
+ * has several variants and never repeats one within ten minutes (the longest session once): when a
+ * moment's variants are spent he keeps quiet until one of them is ten minutes old, so a 15–30 minute
+ * session still hears him.
  *
  * Pure (no DOM, no canvas): the sim owns him, the view draws `current`.
  */
@@ -23,13 +24,17 @@ export const SAY: Readonly<Record<Moment, number>> = {
 
 export interface Line { moment: Moment; text: string; t: number; dur: number }
 
+/** A variant said comes round again only after this long (s): never within a session of up to ten minutes. */
+export const ROUND_SEC = 600;
+
 /** A line's time on screen: 2–4 s by its length. */
 export const lineSec = (text: string): number => Math.max(2, Math.min(4, 1.4 + text.length * 0.032));
 
 export class Companion {
   current: Line | null = null;
   private readonly queue: { moment: Moment; prio: number; until: number }[] = [];
-  private readonly used = new Set<string>();
+  /** each variant said, and when (the companion's clock): it may come again ROUND_SEC later */
+  private readonly used = new Map<string, number>();
   private clock = 0;
   private since = 99;
   /** lines spoken this session (the tests read them) */
@@ -78,10 +83,13 @@ export class Companion {
   private pick(m: Moment): string | null {
     const n = SAY[m];
     const free: number[] = [];
-    for (let i = 1; i <= n; i++) if (!this.used.has(`${m}.${i}`)) free.push(i);
+    for (let i = 1; i <= n; i++) {
+      const at = this.used.get(`${m}.${i}`);
+      if (at === undefined || this.clock - at >= ROUND_SEC) free.push(i);
+    }
     if (!free.length) return null;
     const i = free[Math.floor(this.rng() * free.length) % free.length];
-    this.used.add(`${m}.${i}`);
+    this.used.set(`${m}.${i}`, this.clock);
     return t(`say.${m}.${i}` as Key);
   }
 }

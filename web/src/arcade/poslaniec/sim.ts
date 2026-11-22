@@ -85,6 +85,17 @@ export interface SimInit {
 const LW = RULES.laneW;
 const clamp = (v: number, lo = 0, hi = 1) => (v < lo ? lo : v > hi ? hi : v);
 
+/**
+ * Where the next city lies on the road (total metres): the end of the leg `metres` is on.  Taken from the
+ * whole metre the leg starts at (routeAt counts whole metres), so a city's mark is never passed by the
+ * fraction of a metre the runner was past the last one — it was, and from the second city of a session on
+ * every letter went undelivered.
+ */
+export function nextCityFrom(metres: number): number {
+  const r = routeAt(metres);
+  return Math.floor(Math.max(0, metres)) - r.into + r.leg;
+}
+
 // ── the session's plan ───────────────────────────────────────────
 const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RULES.finale.long : RULES.finale.short);
 
@@ -259,8 +270,7 @@ export class PoslaniecSim {
     this.word = dayWord(init.daySeed);
     this.day = init.day;
     this.track = this.newTrack();
-    const r = routeAt(this.p.metres);
-    this.nextCityAt = this.p.metres - r.into + r.leg;
+    this.nextCityAt = nextCityFrom(this.p.metres);
   }
 
   private readonly day: string;
@@ -599,8 +609,7 @@ export class PoslaniecSim {
         this.emit({ type: 'city', city: c.city, lap: c.lap });
         this.talk.say('city', 3, 6);
       }
-      const ra = routeAt(this.p.metres);
-      this.nextCityAt = this.p.metres - ra.into + ra.leg;
+      this.nextCityAt = nextCityFrom(this.p.metres);
     }
     if (this.z >= this.nextStation) {
       this.nextStation += RULES.stationEvery;
@@ -1002,7 +1011,12 @@ export class PoslaniecSim {
     if (this.flights) stats.push([t('stat.flights'), String(this.flights)]);
     if (this.firesTried) stats.push([t('stat.fires'), `${this.fires}/${this.firesTried}`]);
     const hl: string[] = [];
-    for (const c of this.cities) hl.push(t('hl.city', { city: CITIES[c.city].name, ref: CITIES[c.city].ref }));
+    // a long session may deliver many letters: one or two by name and passage, more in one line
+    if (this.cities.length <= 2) for (const c of this.cities) hl.push(t('hl.city', { city: CITIES[c.city].name, ref: CITIES[c.city].ref }));
+    else {
+      const names = this.cities.map(c => CITIES[c.city].name);
+      hl.push(t('hl.cities', { n: names.length, list: names.length > 3 ? `${names.slice(0, 3).join(', ')} +${names.length - 3}` : names.join(', ') }));
+    }
     if (this.setsDone) hl.push(t('hl.mult', { mult: this.mult }));
     if (this.wordDoneNow) hl.push(t('hl.word', { word: this.word }));
     if (this.flights) hl.push(t('hl.flights', { n: this.flights }));

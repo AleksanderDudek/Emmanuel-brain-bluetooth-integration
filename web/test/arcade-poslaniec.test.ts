@@ -13,8 +13,8 @@ import {
   type PoslaniecProgress,
 } from '../src/arcade/poslaniec/meta';
 import { GRAVITY, RULES, difficultyFor, jumpV, liftOf, speedFor } from '../src/arcade/poslaniec/rules';
-import { PoslaniecSim, planBlocks, type SimEvent } from '../src/arcade/poslaniec/sim';
-import { SAY } from '../src/arcade/poslaniec/talk';
+import { PoslaniecSim, nextCityFrom, planBlocks, type SimEvent } from '../src/arcade/poslaniec/sim';
+import { ROUND_SEC, SAY } from '../src/arcade/poslaniec/talk';
 import { Track, surfaceOf, type ObKind, type Obstacle } from '../src/arcade/poslaniec/track';
 import { mergeSaved } from '../src/arcade/kit/progress';
 import { mulberry32 } from '../src/core/random';
@@ -1195,5 +1195,97 @@ describe('a big screen (DESIGN §14)', () => {
         expect(word(l, k), `${l}.${k}`).toMatch(MOUSE);
       }
     }
+  });
+});
+
+// ── long sessions (15–30 min) ────────────────────────────────────
+
+describe('Posłaniec at 15–30 minutes', () => {
+  it('plans 900–1800 s to the inn: push/rest pairs at their design lengths, the finale last', () => {
+    for (const planned of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(planned, first, mulberry32(planned));
+        const last = plan[plan.length - 1];
+        expect(last.kind).toBe('finale');
+        expect(last.start + last.dur).toBeCloseTo(planned, 0);
+        for (let i = 1; i < plan.length; i++) expect(plan[i].start).toBeCloseTo(plan[i - 1].start + plan[i - 1].dur, 6);
+        const core = plan.filter(b => b.kind === 'push' || b.kind === 'rest');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual(32);
+        }
+      }
+    }
+  });
+
+  it('runs a whole 30-min session with a fair bot: runs end and start again, the road is made and forgotten, the summary short', () => {
+    const sim = later({ planned: 1800, seed: 5 });
+    const dt = 1 / 30;
+    let t = 0, evs = 0, maxObs = 0, maxCoins = 0, maxV = 0, lastLine: unknown = null;
+    const heard: { text: string; at: number }[] = [];
+    while (t < 1800) {
+      t += dt;
+      sim.update(dt, sim.block.kind === 'rest' ? calm() : focused(), t);
+      if (sim.phase === 'play' && !sim.flying) {
+        for (const o of sim.track.obstacles) {
+          const d = o.z - (o.ramp ? RULES.rampLen : 0) - sim.z;
+          if (o.hit || o.lane !== sim.r.lane || d < 0 || d > (o.kind === 'cart' ? 22 : 7)) continue;
+          if (o.kind === 'low' && d < 3.2 && sim.r.grounded) sim.act('jump');
+          else if (o.kind === 'high' && d < 2.5 && sim.r.grounded && sim.r.rollT <= 0) sim.act('roll');
+          else if ((o.kind === 'wagon' && !o.ramp && sim.r.y < 1) || o.kind === 'cart') {
+            for (const dir of [-1, 1] as const) {
+              const to = sim.r.lane + dir;
+              if (to < -1 || to > 1) continue;
+              const free = !sim.track.obstacles.some(q => q.lane === to && !q.hit && q.z + q.len > sim.z - 1 && q.z - (q.ramp ? RULES.rampLen : 0) < sim.z + 8 && (q.kind === 'wagon' || q.kind === 'cart'));
+              if (free) { sim.act(dir < 0 ? 'left' : 'right'); break; }
+            }
+          }
+          break;
+        }
+      }
+      evs += sim.take().length;
+      const l = sim.talk.current;
+      if (l && l !== lastLine) { lastLine = l; heard.push({ text: l.text, at: t }); }
+      maxObs = Math.max(maxObs, sim.track.obstacles.length);
+      maxCoins = Math.max(maxCoins, sim.track.coins.length);
+      maxV = Math.max(maxV, sim.v);
+    }
+    expect(sim.block.kind).toBe('finale');
+    expect(evs).toBeGreaterThan(1000);
+    expect(sim.metresAll).toBeGreaterThan(10000);
+    // Klekot still talks in the last ten minutes, and never says a line again within ten minutes
+    expect(heard.filter(h => h.at > 1200).length).toBeGreaterThan(5);
+    for (let i = 0; i < heard.length; i++) {
+      for (let j = i + 1; j < heard.length; j++) if (heard[j].text === heard[i].text) expect(heard[j].at - heard[i].at).toBeGreaterThanOrEqual(ROUND_SEC - 5);
+    }
+    expect(maxObs).toBeLessThan(200);
+    expect(maxCoins).toBeLessThan(600);
+    expect(maxV).toBeLessThanOrEqual(RULES.vMax * RULES.flightSpeed + 1e-6);
+    expect(sim.towers.length).toBeLessThan(20);
+    expect(Number.isFinite(sim.score)).toBe(true);
+    sim.finish();
+    const out = sim.result();
+    expect(out.highlights.length).toBeLessThanOrEqual(8);
+    for (const s of [...out.highlights, ...out.stats.flat(), sim.headline().sub ?? '']) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    // every city on the way gets its letter (the road's marks: 2 000, 4 500, 7 500 … m)
+    expect(sim.cities.map(c => c.city)).toEqual(citiesBetween(0, sim.p.metres).map(c => c.city));
+    expect(sim.cities.length).toBeGreaterThanOrEqual(5);
+    for (const s of out.highlights) expect(s.length).toBeLessThan(110);
+  });
+
+  it('delivers every city on the road, also a returning player\'s and the second in a session (whole metres)', () => {
+    expect(nextCityFrom(0)).toBe(2000);
+    expect(nextCityFrom(2000.4)).toBe(4500);
+    expect(nextCityFrom(4510.6)).toBe(7500);
+    expect(nextCityFrom(LAP + 10.3)).toBe(LAP + 2000);
+    const sim = later({ planned: 1800, progress: { metres: 1990.37 } });
+    emptyRoad(sim);
+    const clock = { t: 0 };
+    drive(sim, 600, frame(), clock);
+    const passed = citiesBetween(1990.37, sim.p.metres).map(c => c.city);
+    expect(passed.length).toBeGreaterThanOrEqual(2);
+    expect(sim.cities.map(c => c.city)).toEqual(passed);
   });
 });
