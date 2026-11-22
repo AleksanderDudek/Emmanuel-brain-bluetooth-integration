@@ -56,7 +56,7 @@ const pl = {
   'serce.how3': 'Rękami: kliknij (albo Spacja), by zostać przy błogosławieństwie jeszcze chwilę; ≡ (albo M) otwiera Twoje kręgi (imiona, słowa serca).',
   'dlonie.how3': 'Rękami: kliknij imię, za kogo się modlisz; ≡ (albo M) wybiera modlitwę (za kogoś, za siebie, za świat).',
   'ezechiel.how3': 'Rękami: kliknij miejsce na postaci, na które chcesz położyć liść; ≡ (albo M) wybiera, za co się modlisz (ciało, serce).',
-  'brzemiona.how3': 'Rękami: kliknij, by wybrać, za kogo się modlisz; ≡ (albo M) poszerza krąg (jedna osoba, wszyscy, którzy cierpią podobnie, cały świat).',
+  'brzemiona.how3': 'Rękami: ≡ (albo M) — za kogo się modlisz, ◎ (W) — poszerz krąg (jedna osoba, wszyscy, którzy niosą podobny ciężar, cały świat), ▶ (N) — następne brzemię; kliknij gdziekolwiek (albo Spacja), by zostać przy nich.',
   'drzewo.how3': 'Rękami: kliknij owoc, by przeczytać jego słowo; ≡ (albo M) wybiera postawę (na stojąco albo na siedząco) i porę roku.',
 } satisfies Partial<Record<ArcadeKey, string>>;
 
@@ -103,7 +103,7 @@ const en: Twins = {
   'serce.how3': 'With your hands: click (or press Space) to stay with the blessing a little longer; ≡ (or M) opens your circles (names, the words of the heart).',
   'dlonie.how3': 'With your hands: click the name you are praying for; ≡ (or M) chooses the prayer (for someone, for yourself, for the world).',
   'ezechiel.how3': 'With your hands: click the place on the figure where you want to lay a leaf; ≡ (or M) chooses what you pray for (body, heart).',
-  'brzemiona.how3': 'With your hands: click to choose whom you pray for; ≡ (or M) widens the circle (one person, all who suffer the same way, the whole world).',
+  'brzemiona.how3': 'With your hands: ≡ (or M) — whom you pray for, ◎ (W) — widen the circle (one person, all who carry a burden like it, the whole world), ▶ (N) — the next burden; click anywhere (or Space) to stay with them.',
   'drzewo.how3': 'With your hands: click a fruit to read its word; ≡ (or M) chooses the posture (standing or sitting) and the season.',
 };
 
@@ -147,7 +147,7 @@ const de: Twins = {
   'serce.how3': 'Mit den Händen: Klick (oder Leertaste), um noch etwas beim Segen zu bleiben; ≡ (oder M) öffnet deine Kreise (Namen, die Worte des Herzens).',
   'dlonie.how3': 'Mit den Händen: Klick auf den Namen, für den du betest; ≡ (oder M) wählt das Gebet (für jemanden, für dich, für die Welt).',
   'ezechiel.how3': 'Mit den Händen: Klick auf die Stelle der Gestalt, auf die du ein Blatt legen willst; ≡ (oder M) wählt, wofür du betest (Körper, Herz).',
-  'brzemiona.how3': 'Mit den Händen: Klick, um zu wählen, für wen du betest; ≡ (oder M) weitet den Kreis (ein Mensch, alle, die Ähnliches leiden, die ganze Welt).',
+  'brzemiona.how3': 'Mit den Händen: ≡ (oder M) — für wen du betest, ◎ (W) — Kreis weiten (ein Mensch, alle, die eine ähnliche Last tragen, die ganze Welt), ▶ (N) — die nächste Last; klicke irgendwo (oder Leertaste), um bei ihnen zu bleiben.',
   'drzewo.how3': 'Mit den Händen: Klick auf eine Frucht, um ihr Wort zu lesen; ≡ (oder M) wählt die Haltung (stehend oder sitzend) und die Jahreszeit.',
 };
 
@@ -191,7 +191,7 @@ const sv: Twins = {
   'serce.how3': 'Med händerna: klicka (eller tryck på mellanslag) för att stanna vid välsignelsen en stund till; ≡ (eller M) öppnar dina kretsar (namn, hjärtats ord).',
   'dlonie.how3': 'Med händerna: klicka på namnet du ber för; ≡ (eller M) väljer bönen (för någon, för dig själv, för världen).',
   'ezechiel.how3': 'Med händerna: klicka på platsen på gestalten där du vill lägga ett löv; ≡ (eller M) väljer vad du ber för (kropp, hjärta).',
-  'brzemiona.how3': 'Med händerna: klicka för att välja vem du ber för; ≡ (eller M) vidgar kretsen (en människa, alla som lider likadant, hela världen).',
+  'brzemiona.how3': 'Med händerna: ≡ (eller M) — vem du ber för, ◎ (W) — vidga kretsen (en människa, alla som bär en liknande börda, hela världen), ▶ (N) — nästa börda; klicka var som helst (eller mellanslag) för att stanna hos dem.',
   'drzewo.how3': 'Med händerna: klicka på en frukt för att läsa dess ord; ≡ (eller M) väljer hållning (stående eller sittande) och årstid.',
 };
 
