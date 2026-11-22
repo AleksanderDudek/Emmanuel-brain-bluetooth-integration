@@ -991,3 +991,46 @@ describe('Glina: mobile first', () => {
     }
   });
 });
+
+// ── long sessions (15–30 min) ───────────────────────────────────
+
+describe('Glina at 15–30 minutes', () => {
+  it('plans 900–1800 s to the end: Toczenie/Wypał pairs at their design lengths, ending on a Wypał', () => {
+    for (const sec of [900, 1200, 1500, 1800]) {
+      for (const first of [true, false]) {
+        const plan = planBlocks(sec, first, mulberry32(sec));
+        expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec, 5);
+        expect(plan[0].kind === 'warmup').toBe(first);
+        const core = plan.filter(b => b.kind !== 'warmup');
+        core.forEach((b, i) => expect(b.kind).toBe(i % 2 ? 'rest' : 'push'));
+        expect(core.at(-1)!.kind).toBe('rest');
+        for (const b of core) {
+          expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
+          expect(b.dur).toBeLessThanOrEqual((RULES.push[0] + RULES.push[1]) * 1.1);
+        }
+      }
+    }
+  });
+
+  it('runs a whole 30-min session with a skilled potter: orders keep coming, every piece sold, the summary short', () => {
+    for (const fresh of [true, false]) {
+      const sim = newSim({ progress: fresh ? freshProgress() : returning(), plannedSec: 1800, seed: 5 });
+      sim.start();
+      const ev = run(sim, 1801, () => (sim.restBlock ? resting() : focusing()), 0, skilledHands(sim), 0.1);
+      const made = ev.filter(e => e.type === 'cut').length;
+      const sold = ev.filter(e => e.type === 'sale').length + ev.filter((e): e is Extract<GlinaEvent, { type: 'market' }> => e.type === 'market').reduce((s, e) => s + e.n, 0);
+      expect(sim.ended).toBe(true);
+      expect(made).toBeGreaterThan(40);
+      expect(sold).toBe(made);
+      expect(sim.batch.length).toBe(0);
+      expect(sim.market.length).toBe(0);
+      expect(Number.isFinite(sim.score)).toBe(true);
+      expect(sim.trace.samples.length).toBeLessThan(400);
+      expect(sim.talk.said.length).toBeLessThan(500);
+      const r = sim.result();
+      expect(r.highlights.length).toBeLessThanOrEqual(9);
+      for (const s of r.highlights) expect(s.length).toBeLessThan(110);
+      for (const s of [...r.highlights, ...r.stats.flat(), sim.headlineSub()]) expect(s).not.toMatch(/undefined|NaN|Infinity/);
+    }
+  });
+});

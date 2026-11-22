@@ -35,6 +35,10 @@ export type BlockKind = 'warmup' | 'push' | 'rest';
 export interface Block { kind: BlockKind; dur: number; blind: boolean }
 
 /** No block under `min` s: the short ones take their missing time from the long ones. */
+/** A summary's list of names: the first three, then "+N". */
+const listOf = (names: readonly string[], max = 3): string =>
+  names.length > max ? `${names.slice(0, max).join(', ')} +${names.length - max}` : names.join(', ');
+
 function liftShort(durs: number[], min: number): void {
   const short = durs.reduce((s, d) => s + Math.max(0, min - d), 0);
   if (short <= 0) return;
@@ -1074,10 +1078,16 @@ export class GlinaSim {
       [t('stat.purse'), fmtInt(p.purse)],
     ];
     const hl: string[] = [];
-    for (const f of this.newForms) hl.push(t('hl.newForm', { form: FORM[f].name }));
-    for (const s of this.stories) hl.push(t('hl.story', { who: t(`who.${s.house}` as 'who.karczma'), n: s.step }));
-    for (const g of this.gifts) hl.push(t('hl.gift', { gift: KILN_GIFT_NAME[g] }));
-    for (const f of this.unlocked) hl.push(t('hl.unlock', { form: FORM[f].name }));
+    // a long session fills the shelf, fires many batches and opens many forms: each is one line, a list in it
+    if (this.newForms.length) hl.push(t('hl.newForm', { form: listOf(this.newForms.map(f => FORM[f].name)) }));
+    for (const s of this.stories.slice(-2)) hl.push(t('hl.story', { who: t(`who.${s.house}` as 'who.karczma'), n: s.step }));
+    if (this.gifts.length) {
+      const counts = new Map<KilnGift, number>();
+      for (const g of this.gifts) counts.set(g, (counts.get(g) ?? 0) + 1);
+      hl.push(t('hl.gift', { gift: [...counts].map(([g, n]) => (n > 1 ? `${KILN_GIFT_NAME[g]} ×${n}` : KILN_GIFT_NAME[g])).join(', ') }));
+    }
+    if (this.unlocked.length === 1) hl.push(t('hl.unlock', { form: FORM[this.unlocked[0]].name }));
+    else if (this.unlocked.length > 1) hl.push(t('hl.unlocks', { list: listOf(this.unlocked.map(f => FORM[f].name)) }));
     if (this.bestStreak >= 3) hl.push(t('hl.streak', { n: this.bestStreak }));
     if (this.bestBefore > 0 && this.score > this.bestBefore) hl.push(t('hl.record', { n: fmtInt(this.score) }));
     else if (this.score > 0 && this.bestBefore > this.score) hl.push(t('hl.toBest', { n: fmtInt(this.bestBefore - this.score) }));
