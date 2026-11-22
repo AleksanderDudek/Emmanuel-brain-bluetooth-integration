@@ -67,6 +67,14 @@ describe('the living picture: what a photo offers', () => {
     expect(a.recommended).toBe('water');
   });
 
+  it('does not take a blue shirt or a blue car for water', () => {
+    const shirt = paint(240, 300, (x, y) => (Math.hypot((x - 120) / 70, (y - 300) / 110) < 1 ? [47 + tex(x, y, 8), 59 + tex(x, y, 8), 107 + tex(x, y, 8)] : [122, 138, 106]));
+    expect(analyseLiving(shirt).water).toBeNull();
+    const car = paint(300, 220, (x, y) => (y > 120 && y < 190 && x > 60 && x < 240 ? [40, 80, 170] : y > 150 ? [90 + tex(x, y, 20), 90, 90] : [200, 205, 210]));
+    expect(analyseLiving(car).water).toBeNull();
+    expect(analyseLiving(car).options).not.toContain('water');
+  });
+
   it('puts a portrait\'s figure in front of its wall', () => {
     const a = analyseLiving(portrait);
     expect(a.sky).toBeLessThan(0.05);

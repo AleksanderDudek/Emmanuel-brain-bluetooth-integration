@@ -188,18 +188,28 @@ export function analyseLiving(px: Pixels, edges?: Float32Array, heart?: Pt): Liv
     const r = R[k], g = G[k], b = B[k], l = Lm[k];
     return l > 0.1 && l < 0.93 && D[k] < 0.4 && ((b > r + 6 && b > g - 20) || (g > r + 4 && b > r + 4));
   };
-  const rowShare = new Float32Array(gh);
+  // a water row: mostly water-like across, and water at both edges (a lake or the sea spans the picture; a blue
+  // shirt or a car in the middle does not)
+  const edge = Math.max(1, Math.round(gw * 0.12));
+  const rowWater = new Uint8Array(gh);
   for (let y = 0; y < gh; y++) {
-    let c = 0;
-    for (let x = 0; x < gw; x++) if (waterLike(y * gw + x) && !sky[y * gw + x]) c++;
-    rowShare[y] = c / gw;
+    let c = 0, l = 0, r = 0;
+    for (let x = 0; x < gw; x++) {
+      const k = y * gw + x;
+      if (!waterLike(k) || sky[k]) continue;
+      c++;
+      if (x < edge) l++;
+      if (x >= gw - edge) r++;
+    }
+    rowWater[y] = c / gw >= 0.55 && l / edge >= 0.5 && r / edge >= 0.5 ? 1 : 0;
   }
   let water: LivingAnalysis['water'] = null;
   for (let y = Math.round(gh * 0.3); y <= Math.round(gh * 0.82); y++) {
+    if (!rowWater[y]) continue;
     let s = 0;
-    for (let k = y; k < gh; k++) s += rowShare[k];
+    for (let k = y; k < gh; k++) s += rowWater[k];
     const mean = s / (gh - y);
-    if (rowShare[y] >= 0.4 && mean >= 0.45) {
+    if (mean >= 0.7) {
       water = { horizon: y / gh, score: clamp(mean * Math.min(1, ((gh - y) / gh) / 0.25)) };
       break;
     }
