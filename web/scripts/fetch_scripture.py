@@ -248,6 +248,27 @@ PASSAGES: list[tuple[str, str]] = [
     # Każdy włos (every hair: the hair and the scalp, health visualisations)
     ("luk12.7", "Luke 12:7"), ("psa23.5", "Psalm 23:5"), ("psa1.3", "Psalm 1:3"), ("mrk4.27-28", "Mark 4:27-28"),
     ("psa3.3", "Psalm 3:3"),
+    # Serce i światło (round 13): Z głowy do serca — the descent into the heart, the heart kindled, the circles of love
+    ("1jn4.16", "1 John 4:16"), ("2co4.6", "2 Corinthians 4:6"), ("rom10.8", "Romans 10:8"), ("ezk36.26", "Ezekiel 36:26"),
+    ("mrk12.31", "Mark 12:31"), ("eph3.14-15", "Ephesians 3:14-15"), ("jhn15.12", "John 15:12"), ("gal6.10", "Galatians 6:10"),
+    ("rom12.18", "Romans 12:18"), ("luk6.27-28", "Luke 6:27-28"), ("rom12.14", "Romans 12:14"), ("mat5.44-45", "Matthew 5:44-45"),
+    ("isa35.1", "Isaiah 35:1"), ("isa55.13", "Isaiah 55:13"), ("jhn3.16", "John 3:16"), ("psa24.1", "Psalm 24:1"),
+    ("eph3.17-19", "Ephesians 3:17-19"), ("1co13.13", "1 Corinthians 13:13"), ("eph3.18", "Ephesians 3:18"),
+    ("col3.15", "Colossians 3:15"), ("psa103.2", "Psalm 103:2"),
+    # Światło w dłoniach — a prayer held in the hands, lifted up, laid on a sore place
+    ("1jn1.5", "1 John 1:5"), ("psa36.9", "Psalm 36:9"), ("psa134.2", "Psalm 134:2"), ("lam3.41", "Lamentations 3:41"),
+    ("mrk10.16", "Mark 10:16"), ("jas5.16", "James 5:16"), ("luk4.40", "Luke 4:40"), ("jhn1.4", "John 1:4"),
+    # Rzeka Ezechiela — the river from the temple rising from the ankles to swimming depth, washing, leaves for healing
+    ("ezk47.1", "Ezekiel 47:1"), ("ezk47.3", "Ezekiel 47:3"), ("ezk47.4", "Ezekiel 47:4"), ("ezk47.5", "Ezekiel 47:5"),
+    ("ezk47.9", "Ezekiel 47:9"), ("psa51.7", "Psalm 51:7"), ("ezk36.25", "Ezekiel 36:25"), ("exo15.26", "Exodus 15:26"),
+    ("jer17.14", "Jeremiah 17:14"), ("psa147.3", "Psalm 147:3"),
+    # Brzemiona — burdens carried to the Cross, mercy returning
+    ("gal6.2", "Galatians 6:2"), ("mat11.29-30", "Matthew 11:29-30"), ("1pe5.7", "1 Peter 5:7"), ("isa53.4", "Isaiah 53:4"),
+    ("2co1.3-4", "2 Corinthians 1:3-4"), ("rom12.15", "Romans 12:15"), ("jhn1.29", "John 1:29"),
+    ("1pe2.24", "1 Peter 2:24"),
+    # Drzewo nad wodą — roots, trunk, the fruit of the Spirit
+    ("col2.6-7", "Colossians 2:6-7"), ("psa92.12-13", "Psalm 92:12-13"), ("psa16.8", "Psalm 16:8"), ("jer17.7", "Jeremiah 17:7"),
+    ("psa104.16", "Psalm 104:16"),
 ]
 
 DROP: dict[str, dict[str, str]] = {
@@ -255,6 +276,7 @@ DROP: dict[str, dict[str, str]] = {
     "psa19.1": {"en": "For the choirmaster. A Psalm of David."},
     "psa42.1": {"en": "For the choirmaster. A Maskil of the sons of Korah."},
     "psa23.1-3": {"en": "A Psalm of David.", "pl": "Psalm Dawidowy.", "de": "Ein Psalm Davids.", "sv": "En psalm av David."},
+    "psa24.1": {"en": "A Psalm of David.", "pl": "Psalm Dawidowy.", "de": "Ein Psalm Davids.", "sv": "Av David; en psalm."},
     "psa121.1-2": {"en": "A song of ascents.", "pl": "Pieśń stopni.", "de": "Ein Lied im höhern Chor.", "sv": "En vallfartssång."},
     "psa127.1": {"en": "A song of ascents. Of Solomon.", "pl": "Pieśń stopni dla Salomona.",
                  "de": "Ein Lied Salomos im Höhern Chor.", "sv": "En vallfartssång; av Salomo."},

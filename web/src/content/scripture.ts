@@ -303,6 +303,58 @@ export type PassageId =
   | 'psa1.3'
   | 'mrk4.27-28'
   | 'psa3.3'
+  | '1jn4.16'
+  | '2co4.6'
+  | 'rom10.8'
+  | 'ezk36.26'
+  | 'mrk12.31'
+  | 'eph3.14-15'
+  | 'jhn15.12'
+  | 'gal6.10'
+  | 'rom12.18'
+  | 'luk6.27-28'
+  | 'rom12.14'
+  | 'mat5.44-45'
+  | 'isa35.1'
+  | 'isa55.13'
+  | 'jhn3.16'
+  | 'psa24.1'
+  | 'eph3.17-19'
+  | '1co13.13'
+  | 'eph3.18'
+  | 'col3.15'
+  | 'psa103.2'
+  | '1jn1.5'
+  | 'psa36.9'
+  | 'psa134.2'
+  | 'lam3.41'
+  | 'mrk10.16'
+  | 'jas5.16'
+  | 'luk4.40'
+  | 'jhn1.4'
+  | 'ezk47.1'
+  | 'ezk47.3'
+  | 'ezk47.4'
+  | 'ezk47.5'
+  | 'ezk47.9'
+  | 'psa51.7'
+  | 'ezk36.25'
+  | 'exo15.26'
+  | 'jer17.14'
+  | 'psa147.3'
+  | 'gal6.2'
+  | 'mat11.29-30'
+  | '1pe5.7'
+  | 'isa53.4'
+  | '2co1.3-4'
+  | 'rom12.15'
+  | 'jhn1.29'
+  | '1pe2.24'
+  | 'col2.6-7'
+  | 'psa92.12-13'
+  | 'psa16.8'
+  | 'jer17.7'
+  | 'psa104.16'
   ;
 
 export interface Passage {
@@ -2062,6 +2114,318 @@ export const SCRIPTURE: Readonly<Record<PassageId, Readonly<Record<Lang, readonl
     en: ['But You, O LORD, are a shield around me, my glory, and the One who lifts my head.', 'Psalm 3:3'],
     de: ['Aber du, HERR, bist der Schild für mich und der mich zu Ehren setzt und mein Haupt aufrichtet.', 'Psalm 3,4'],
     sv: ['Men du, HERRE, är en sköld för mig; du är min ära och den som upplyfter mitt huvud.', 'Ps 3:4'],
+  },
+  '1jn4.16': {
+    pl: ['I myśmy poznali i uwierzyli o miłości, którą Bóg ma ku nam. Bóg jest miłość; a kto mieszka w miłości, w Bogu mieszka, a Bóg w nim.', '1 J 4,16'],
+    en: ['And we have come to know and believe the love that God has for us. God is love; whoever abides in love abides in God, and God in him.', '1 John 4:16'],
+    de: ['Und wir haben erkannt und geglaubt die Liebe, die Gott zu uns hat. Gott ist die Liebe; und wer in der Liebe bleibt, der bleibt in Gott und Gott in ihm.', '1. Johannes 4,16'],
+    sv: ['Och vi hava lärt känna den kärlek som Gud har i oss, och vi hava kommit till tro på den. Gud är kärleken, och den som förbliver i kärleken, han förbliver i Gud, och Gud förbliver i honom.', '1 Joh 4:16'],
+  },
+  '2co4.6': {
+    pl: ['Ponieważ Bóg, który rzekł, aby się z ciemności światłość rozświeciła, ten się rozświecił w sercach naszych ku rozświeceniu (w nas) znajomości chwały Bożej w obliczu Jezusa Chrystusa.', '2 Kor 4,6'],
+    en: ['For God, who said, “Let light shine out of darkness,” made His light shine in our hearts to give us the light of the knowledge of the glory of God in the face of Jesus Christ.', '2 Corinthians 4:6'],
+    de: ['Denn Gott, der da hieß das Licht aus der Finsternis hervorleuchten, der hat einen hellen Schein in unsere Herzen gegeben, daß durch uns entstünde die Erleuchtung von der Erkenntnis der Klarheit Gottes in dem Angesichte Jesu Christi.', '2. Korinther 4,6'],
+    sv: ['Ty den Gud som sade: »Ljus skall lysa fram ur mörkret», han är den som har låtit ljus gå upp i våra hjärtan, för att kunskapen om Guds härlighet, som strålar fram i Kristi ansikte, skall kunna sprida sitt sken.', '2 Kor 4:6'],
+  },
+  'rom10.8': {
+    pl: ['Ale (Mojżesz) cóż mówi: Blisko ciebie jest słowo w ustach twoich i w sercu twojem. Toć jest słowo wiary, które opowiadamy…', 'Rz 10,8'],
+    en: ['But what does it say? “The word is near you; it is in your mouth and in your heart,” that is, the word of faith we are proclaiming…', 'Romans 10:8'],
+    de: ['Aber was sagt sie? “Das Wort ist dir nahe, in deinem Munde und in deinem Herzen.” Dies ist das Wort vom Glauben, das wir predigen.', 'Römer 10,8'],
+    sv: ['Vad säger den då? »Ordet är dig nära, i din mun och i ditt hjärta (nämligen ordet om tron, det som vi predika).»', 'Rom 10:8'],
+  },
+  'ezk36.26': {
+    pl: ['I dam wam serce nowe, a ducha nowego dam do wnętrzności waszych, i odejmę serce kamienne z ciała waszego, a dam wam serce mięsiste.', 'Ez 36,26'],
+    en: ['I will give you a new heart and put a new spirit within you; I will remove your heart of stone and give you a heart of flesh.', 'Ezekiel 36:26'],
+    de: ['Und ich will euch ein neues Herz und einen neuen Geist in euch geben und will das steinerne Herz aus eurem Fleische wegnehmen und euch ein fleischernes Herz geben…', 'Hesekiel 36,26'],
+    sv: ['Och jag skall giva eder ett nytt hjärta och låta en ny ande komma i edert bröst; jag skall taga bort stenhjärtat ur eder kropp och giva eder ett hjärta av kött.', 'Hes 36:26'],
+  },
+  'mrk12.31': {
+    pl: ['A wtóre temu podobne to jest: Będziesz miłował bliźniego twego, jako samego siebie. Większego przykazania innego nad to nie masz.', 'Mk 12,31'],
+    en: ['The second is this: ‘Love your neighbor as yourself.’ No other commandment is greater than these.', 'Mark 12:31'],
+    de: ['Und das andere ist ihm gleich: “Du sollst deinen Nächsten lieben wie dich selbst.” Es ist kein anderes Gebot größer denn diese.', 'Markus 12,31'],
+    sv: ['Därnäst kommer detta: \'Du skall älska din nästa såsom dig själv.\' Intet annat bud är större än dessa.', 'Mark 12:31'],
+  },
+  'eph3.14-15': {
+    pl: ['Dlatego skłaniam kolana swoje przed Ojcem Pana naszego Jezusa Chrystusa, Z którego się wszelka rodzina na niebie i na ziemi nazywa…', 'Ef 3,14–15'],
+    en: ['... for this reason I bow my knees before the Father, from whom every family in heaven and on earth derives its name.', 'Ephesians 3:14–15'],
+    de: ['Derhalben beuge ich meine Kniee vor dem Vater unsers HERRN Jesu Christi, der der rechte Vater ist über alles, was da Kinder heißt im Himmel und auf Erden…', 'Epheser 3,14–15'],
+    sv: ['Fördenskull böjer jag mina knän för Fadern – honom från vilken allt vad fader heter i himmelen och på jorden har sitt namn -…', 'Ef 3:14–15'],
+  },
+  'jhn15.12': {
+    pl: ['Toć jest przykazanie moje, abyście się społecznie miłowali, jakom i ja was umiłował.', 'J 15,12'],
+    en: ['This is My commandment, that you love one another as I have loved you.', 'John 15:12'],
+    de: ['Das ist mein Gebot, daß ihr euch untereinander liebet, gleichwie ich euch liebe.', 'Johannes 15,12'],
+    sv: ['Detta är mitt bud, att I skolen älska varandra, såsom jag har älskat eder.', 'Joh 15:12'],
+  },
+  'gal6.10': {
+    pl: ['Przeto tedy, póki czas mamy, dobrze czyńmy wszystkim, a najwięcej domownikom wiary.', 'Ga 6,10'],
+    en: ['Therefore, as we have opportunity, let us do good to everyone, and especially to the family of faith.', 'Galatians 6:10'],
+    de: ['Als wir denn nun Zeit haben, so lasset uns Gutes tun an jedermann, allermeist aber an des Glaubens Genossen.', 'Galater 6,10'],
+    sv: ['Må vi alltså, medan vi hava tillfälle, göra vad gott är mot var man, och först och främst mot dem som äro våra medbröder i tron.', 'Gal 6:10'],
+  },
+  'rom12.18': {
+    pl: ['Jeźli można, ile z was jest, ze wszystkimi ludźmi pokój miejcie.', 'Rz 12,18'],
+    en: ['If it is possible on your part, live at peace with everyone.', 'Romans 12:18'],
+    de: ['Ist es möglich, soviel an euch ist, so habt mit allen Menschen Frieden.', 'Römer 12,18'],
+    sv: ['Hållen frid med alla människor, om möjligt är, och så mycket som på eder beror.', 'Rom 12:18'],
+  },
+  'luk6.27-28': {
+    pl: ['Ale wam powiadam, którzy słuchacie: Miłujcie nieprzyjacioły wasze, czyńcie dobrze tym, którzy was mają w nienawiści. Błogosławcie tym, którzy was przeklinają; módlcie się za tymi, którzy wam złość wyrządzają.', 'Łk 6,27–28'],
+    en: ['But to those of you who will listen, I say: Love your enemies, do good to those who hate you, bless those who curse you, pray for those who mistreat you.', 'Luke 6:27–28'],
+    de: ['Aber ich sage euch, die ihr zuhört: Liebet eure Feinde; tut denen wohl, die euch hassen; segnet die, so euch verfluchen und bittet für die, so euch beleidigen.', 'Lukas 6,27–28'],
+    sv: ['Men till eder, som hören mig, säger jag: Älsken edra ovänner, gören gott mot dem som hata eder, välsignen dem som förbanna eder, bedjen för dem som förorätta eder.', 'Luk 6:27–28'],
+  },
+  'rom12.14': {
+    pl: ['Dobrorzeczcie tym, którzy was prześladują; dobrorzeczcie, a nie przeklinajcie.', 'Rz 12,14'],
+    en: ['Bless those who persecute you. Bless and do not curse.', 'Romans 12:14'],
+    de: ['Segnet, die euch verfolgen; segnet und fluchet nicht.', 'Römer 12,14'],
+    sv: ['Välsignen dem som förfölja eder; välsignen, och förbannen icke.', 'Rom 12:14'],
+  },
+  'mat5.44-45': {
+    pl: ['Aleć Ja wam powiadam: Miłujcie nieprzyjacioły wasze; błogosławcie tym, którzy was przeklinają; dobrze czyńcie tym, którzy was mają w nienawiści, i módlcie się za tymi, którzy wam złość wyrządzają i prześladują was; Abyście byli synami Ojca waszego, który jest w niebiesiech; bo on to czyni, że słońce jego wschodzi na złe i na dobre, i deszcz spuszcza na sprawiedliwe i na niesprawiedliwe…', 'Mt 5,44–45'],
+    en: ['But I tell you, love your enemies and pray for those who persecute you, that you may be sons of your Father in heaven. He causes His sun to rise on the evil and the good, and sends rain on the righteous and the unrighteous.', 'Matthew 5:44–45'],
+    de: ['Ich aber sage euch: Liebet eure Feinde; segnet, die euch fluchen; tut wohl denen, die euch hassen; bittet für die, so euch beleidigen und verfolgen, auf daß ihr Kinder seid eures Vater im Himmel; denn er läßt seine Sonne aufgehen über die Bösen und über die Guten und läßt regnen über Gerechte und Ungerechte.', 'Matthäus 5,44–45'],
+    sv: ['Men jag säger eder: Älsken edra ovänner, och bedjen för dem som förfölja eder, och varen så eder himmelske Faders barn; han låter ju sin sol gå upp över både onda och goda och låter det regna över både rättfärdiga och orättfärdiga.', 'Matt 5:44–45'],
+  },
+  'isa35.1': {
+    pl: ['Weselić się z tego będzie pustynia i miejsce leśne, a rozraduje się i zakwitnie jako róża.', 'Iz 35,1'],
+    en: ['The wilderness and the dry land will be glad; the desert will rejoice and blossom like a rose.', 'Isaiah 35:1'],
+    de: ['Aber die Wüste und Einöde wird lustig sein, und das dürre Land wird fröhlich stehen und wird blühen wie die Lilien.', 'Jesaja 35,1'],
+    sv: ['Öknen och ödemarken skola glädja sig, och hedmarken skall fröjdas och blomstra såsom en lilja.', 'Jes 35:1'],
+  },
+  'isa55.13': {
+    pl: ['Miasto ciernia wyrośnie jedlina, a miasto pokrzywy wyrośnie mirt; a to będzie Panu ku sławie, na znak wieczny, który nigdy nie będzie wygładzony.', 'Iz 55,13'],
+    en: ['Instead of the thornbush, the cypress will grow, and instead of the brier, the myrtle will spring up; this will make a name for the LORD, an everlasting sign, never to be destroyed.', 'Isaiah 55:13'],
+    de: ['Es sollen Tannen für Hecken wachsen und Myrten für Dornen; und dem HERRN soll ein Name und ewiges Zeichen sein, das nicht ausgerottet werde.', 'Jesaja 55,13'],
+    sv: ['Där törnsnår nu finnas skola cypresser växa upp, och där nässlor stå skall myrten uppväxa. Och detta skall bliva HERREN till ära och ett evigt tecken, som ej skall plånas ut.', 'Jes 55:13'],
+  },
+  'jhn3.16': {
+    pl: ['Albowiem tak Bóg umiłował świat, że Syna swego jednorodzonego dał, aby każdy, kto weń wierzy, nie zginął, ale miał żywot wieczny.', 'J 3,16'],
+    en: ['For God so loved the world that He gave His one and only Son, that everyone who believes in Him shall not perish but have eternal life.', 'John 3:16'],
+    de: ['Also hat Gott die Welt geliebt, daß er seinen eingeborenen Sohn gab, auf daß alle, die an ihn glauben, nicht verloren werden, sondern das ewige Leben haben.', 'Johannes 3,16'],
+    sv: ['Ty så älskade Gud världen, att han utgav sin enfödde Son, på det att var och en som tror på honom skall icke förgås, utan hava evigt liv.', 'Joh 3:16'],
+  },
+  'psa24.1': {
+    pl: ['Pańska jest ziemia, i napełnienie jej, okrąg ziemi, i którzy mieszkają na nim.', 'Ps 24,1'],
+    en: ['The earth is the LORD’s, and the fullness thereof, the world and all who dwell therein.', 'Psalm 24:1'],
+    de: ['Die Erde ist des HERRN und was darinnen ist, der Erdboden und was darauf wohnt.', 'Psalm 24,1'],
+    sv: ['Jorden är HERRENS och allt vad därpå är, jordens krets och de som bo därpå.', 'Ps 24:1'],
+  },
+  'eph3.17-19': {
+    pl: ['Aby Chrystus przez wiarę mieszkał w sercach waszych; Żebyście w miłości wkorzenieni i ugruntowani będąc, mogli doścignąć ze wszystkimi świętymi, która jest szerokość i długość, i głębokość, i wysokość; i poznać miłość Chrystusową przewyższającą wszelką znajomość, abyście napełnieni byli wszelaką zupełnością Bożą.', 'Ef 3,17–19'],
+    en: ['…so that Christ may dwell in your hearts through faith. Then you, being rooted and grounded in love, will have power, together with all the saints, to comprehend the length and width and height and depth of the love of Christ, and to know this love that surpasses knowledge, that you may be filled with all the fullness of God.', 'Ephesians 3:17–19'],
+    de: ['…daß Christus wohne durch den Glauben in euren Herzen und ihr durch die Liebe eingewurzelt und gegründet werdet, auf daß ihr begreifen möget mit allen Heiligen, welches da sei die Breite und die Länge und die Tiefe und die Höhe; auch erkennen die Liebe Christi, die doch alle Erkenntnis übertrifft, auf daß ihr erfüllt werdet mit allerlei Gottesfülle.', 'Epheser 3,17–19'],
+    sv: ['…och att Kristus genom tron må bo i edra hjärtan, och att I mån vara rotade och grundade i kärleken, så att I, tillika med alla de heliga, till fullo förmån fatta vad bredden och längden och höjden och djupet är och så lära känna Kristi kärlek, som övergår all kunskap. Ty så skolen I bliva helt uppfyllda av all Guds fullhet.', 'Ef 3:17–19'],
+  },
+  '1co13.13': {
+    pl: ['A teraz zostaje wiara, nadzieja, miłość, te trzy rzeczy; lecz z nich największa jest miłość.', '1 Kor 13,13'],
+    en: ['And now these three remain: faith, hope, and love; but the greatest of these is love.', '1 Corinthians 13:13'],
+    de: ['Nun aber bleibt Glaube, Hoffnung, Liebe, diese drei; aber die Liebe ist die größte unter ihnen.', '1. Korinther 13,13'],
+    sv: ['Så bliva de då beståndande, tron, hoppet, kärleken, dessa tre; men störst bland dem är kärleken.', '1 Kor 13:13'],
+  },
+  'eph3.18': {
+    pl: ['Żebyście w miłości wkorzenieni i ugruntowani będąc, mogli doścignąć ze wszystkimi świętymi, która jest szerokość i długość, i głębokość, i wysokość…', 'Ef 3,18'],
+    en: ['…will have power, together with all the saints, to comprehend the length and width and height and depth…', 'Ephesians 3:18'],
+    de: ['…auf daß ihr begreifen möget mit allen Heiligen, welches da sei die Breite und die Länge und die Tiefe und die Höhe…', 'Epheser 3,18'],
+    sv: ['…så att I, tillika med alla de heliga, till fullo förmån fatta vad bredden och längden och höjden och djupet är…', 'Ef 3:18'],
+  },
+  'col3.15': {
+    pl: ['A pokój Boży niech rząd prowadzi w sercach waszych, do któregoście też powołani w jedno ciało; a bądźcie wdzięcznymi.', 'Kol 3,15'],
+    en: ['Let the peace of Christ rule in your hearts, for to this you were called as members of one body. And be thankful.', 'Colossians 3:15'],
+    de: ['Und der Friede Gottes regiere in euren Herzen, zu welchem ihr auch berufen seid in einem Leibe; und seid dankbar!', 'Kolosser 3,15'],
+    sv: ['Och låten Kristi frid regera i edra hjärtan; ty till att äga den ären I ock kallade såsom lemmar i en och samma kropp. Och varen tacksamma.', 'Kol 3:15'],
+  },
+  'psa103.2': {
+    pl: ['Błogosławże duszo moja Panu, a nie zapominaj wszystkich dobrodziejstw jego.', 'Ps 103,2'],
+    en: ['Bless the LORD, O my soul, and do not forget all His kind deeds…', 'Psalm 103:2'],
+    de: ['Lobe den HERRN, meine Seele, und vergiß nicht, was er dir Gutes getan hat…', 'Psalm 103,2'],
+    sv: ['Lova HERREN, min själ, och förgät icke vad gott han har gjort…', 'Ps 103:2'],
+  },
+  '1jn1.5': {
+    pl: ['A toć jest poselstwo, któreśmy słyszeli od niego i zwiastujemy wam: Iż Bóg jest światłość, a żadnej ciemności w nim nie masz.', '1 J 1,5'],
+    en: ['And this is the message we have heard from Him and announce to you: God is light, and in Him there is no darkness at all.', '1 John 1:5'],
+    de: ['Und das ist die Verkündigung, die wir von ihm gehört haben und euch verkündigen, daß Gott Licht ist und in ihm ist keine Finsternis.', '1. Johannes 1,5'],
+    sv: ['Och detta är det budskap som vi hava hört från honom, och som vi förkunna för eder, att Gud är ljus, och att intet mörker finnes i honom.', '1 Joh 1:5'],
+  },
+  'psa36.9': {
+    pl: ['Albowiem u ciebie jest źródło żywota, a w światłości twojej oglądamy światłość.', 'Ps 36,10'],
+    en: ['For with You is the fountain of life; in Your light we see light.', 'Psalm 36:9'],
+    de: ['Denn bei dir ist die Quelle des Lebens, und in deinem Licht sehen wir das Licht.', 'Psalm 36,10'],
+    sv: ['Ty hos dig är livets källa, i ditt ljus se vi ljus.', 'Ps 36:10'],
+  },
+  'psa134.2': {
+    pl: ['Podnoście ręce wasze ku świątnicy, a błogosławcie Panu, mówiąc…', 'Ps 134,2'],
+    en: ['Lift up your hands to the sanctuary and bless the LORD!', 'Psalm 134:2'],
+    de: ['Hebet eure Hände auf im Heiligtum und lobet den HERRN!', 'Psalm 134,2'],
+    sv: ['Lyften edra händer upp mot helgedomen och välsignen HERREN.', 'Ps 134:2'],
+  },
+  'lam3.41': {
+    pl: ['Podnieśmy serca i ręce nasze w niebo do Boga.', 'Lm 3,41'],
+    en: ['Let us lift up our hearts and hands to God in heaven…', 'Lamentations 3:41'],
+    de: ['Laßt uns unser Herz samt den Händen aufheben zu Gott im Himmel!', 'Klagelieder 3,41'],
+    sv: ['Låtom oss upplyfta våra hjärtan, såväl som våra händer, till Gud i himmelen.', 'Klag 3:41'],
+  },
+  'mrk10.16': {
+    pl: ['I biorąc je na ręce swoje, i kładąc na nie ręce, błogosławił im.', 'Mk 10,16'],
+    en: ['And He took the children in His arms, placed His hands on them, and blessed them.', 'Mark 10:16'],
+    de: ['Und er herzte sie und legte die Hände auf sie und segnete sie.', 'Markus 10,16'],
+    sv: ['Och han tog dem upp i famnen och lade händerna på dem och välsignade dem.', 'Mark 10:16'],
+  },
+  'jas5.16': {
+    pl: ['Wyznawajcie jedni przed drugimi upadki, a módlcie się za drugimi; abyście byli uzdrowieni. Wiele może uprzejma modlitwa sprawiedliwego.', 'Jk 5,16'],
+    en: ['Therefore confess your sins to each other and pray for each other so that you may be healed. The prayer of a righteous man has great power to prevail.', 'James 5:16'],
+    de: ['Bekenne einer dem andern seine Sünden und betet füreinander, daß ihr gesund werdet. Des Gerechten Gebet vermag viel, wenn es ernstlich ist.', 'Jakobus 5,16'],
+    sv: ['Bekännen alltså edra synder för varandra, och bedjen för varandra, på det att I mån bliva botade. Mycket förmår en rättfärdig mans bön, när den bedes med kraft.', 'Jak 5:16'],
+  },
+  'luk4.40': {
+    pl: ['A gdy słońce zachodziło, wszyscy, którzy mieli chorujące na rozmaite niemocy, przywodzili je do niego, a on na każdego z nich ręce włożywszy, uzdrawiał je.', 'Łk 4,40'],
+    en: ['At sunset, all who were ill with various diseases were brought to Jesus, and laying His hands on each one, He healed them.', 'Luke 4:40'],
+    de: ['Und da die Sonne untergegangen war, brachten alle, die Kranke hatten mit mancherlei Seuchen, sie zu ihm. Und er legte auf einen jeglichen die Hände und machte sie gesund.', 'Lukas 4,40'],
+    sv: ['Men när solen gick ned, förde alla till honom sina sjuka, sådana som ledo av olika slags sjukdomar. Och han lade händerna på var och en av dem och botade dem.', 'Luk 4:40'],
+  },
+  'jhn1.4': {
+    pl: ['W niem był żywot, a żywot był oną światłością ludzką.', 'J 1,4'],
+    en: ['In Him was life, and that life was the light of men.', 'John 1:4'],
+    de: ['In ihm war das Leben, und das Leben war das Licht der Menschen.', 'Johannes 1,4'],
+    sv: ['I det var liv, och livet var människornas ljus.', 'Joh 1:4'],
+  },
+  'ezk47.1': {
+    pl: ['Potem mię przywiódł ku drzwiom domu, a oto wody wychodziły z pod progu domu na wschód słońca; bo przednia strona domu była na wschód słońca, a wody one schodziły spodkiem po prawej stronie domu po stronie południowej ołtarza.', 'Ez 47,1'],
+    en: ['Then the man brought me back to the entrance of the temple, and I saw water flowing from under the threshold of the temple toward the east (for the temple faced east). The water was coming down from under the south side of the temple, south of the altar.', 'Ezekiel 47:1'],
+    de: ['Und er führte mich wieder zu der Tür des Tempels. Und siehe, da floß ein Wasser heraus unter der Schwelle des Tempels gegen Morgen; denn die vordere Seite des Tempels war gegen Morgen. Und des Tempels Wasser lief an der rechten Seite des Tempels neben dem Altar hin gegen Mittag.', 'Hesekiel 47,1'],
+    sv: ['Därefter förde han mig tillbaka till husets ingång, och där fick jag se vatten rinna fram under husets tröskel på östra sidan, ty husets framsida låg mot öster; och vattnet flöt ned under husets södra sidovägg, söder om altaret.', 'Hes 47:1'],
+  },
+  'ezk47.3': {
+    pl: ['A gdy wychodził on mąż na wschód słońca, w którego ręku była miara, i wymierzył tysiąc łokci, i przewiódł mię przez wodę, przez wodę aż do kostek…', 'Ez 47,3'],
+    en: ['As the man went eastward with a measuring line in his hand, he measured off a thousand cubits and led me through ankle-deep water.', 'Ezekiel 47:3'],
+    de: ['Und der Mann ging heraus gegen Morgen und hatte die Meßschnur in der Hand; und er maß tausend Ellen und führte mich durchs Wasser, das mir\'s an die Knöchel ging.', 'Hesekiel 47,3'],
+    sv: ['Sedan gick mannen, med ett mätsnöre i handen, ett stycke mot öster och mätte därvid upp tusen alnar och lät mig så gå över vattnet, och vattnet räckte mig där till fotknölarna.', 'Hes 47:3'],
+  },
+  'ezk47.4': {
+    pl: ['Potem wymierzył drugi tysiąc, a przewiódł mię przez wodę, przez wodę aż do kolan; i zaś wymierzył trzeci tysiąc, i przewiódł mię przez wodę aż do biódr.', 'Ez 47,4'],
+    en: ['Then he measured off a thousand cubits and led me through knee-deep water. Again he measured a thousand cubits and led me through waist-deep water.', 'Ezekiel 47:4'],
+    de: ['Und maß abermals tausend Ellen und führte mich durchs Wasser, daß mir\'s an die Kniee ging. Und maß noch tausend Ellen und ließ mich dadurchgehen, daß es mir an die Lenden ging.', 'Hesekiel 47,4'],
+    sv: ['Åter mätte han upp tusen alnar och lät mig så gå över vattnet, och vattnet räckte mig där till knäna. Åter mätte han upp tusen alnar och lät mig så gå över vattnet, som där räckte mig upp till länderna.', 'Hes 47:4'],
+  },
+  'ezk47.5': {
+    pl: ['A gdy zaś wymierzył tysiąc, był potok, któregom nie mógł przebrnąć; bo były wezbrały wody, wody, które trzeba było przepłynąć, potok, któregom nie mógł przebrnąć.', 'Ez 47,5'],
+    en: ['Once again he measured off a thousand cubits, but now it was a river that I could not cross, because the water had risen and was deep enough for swimming—a river that could not be crossed on foot.', 'Ezekiel 47:5'],
+    de: ['Da maß er noch tausend Ellen, und es ward so tief, daß ich nicht mehr Grund hatte; denn das Wasser war zu hoch, daß man darüber schwimmen mußte und keinen Grund hatte.', 'Hesekiel 47,5'],
+    sv: ['Ännu en gång mätte han upp tusen alnar, och nu var det en ström som jag icke kunde gå över. Ty vattnet gick så högt att man måste simma; det var en ström som man icke kunde gå över.', 'Hes 47:5'],
+  },
+  'ezk47.9': {
+    pl: ['I stanie się, że każda dusza żyjąca, która się płaza, gdziekolwiek przyjdą potoki, żyć będzie, i będzie ryb bardzo wiele, przeto, że gdy przyjdą tam one wody, oczerstwieją, i żyć będą wszędy, kędykolwiek przyjdzie ten potok.', 'Ez 47,9'],
+    en: ['Wherever the river flows, there will be swarms of living creatures and a great number of fish, because it flows there and makes the waters fresh; so wherever the river flows, everything will flourish.', 'Ezekiel 47:9'],
+    de: ['Ja, alles, was darin lebt und webt, dahin diese Ströme kommen, das soll leben; und es soll sehr viel Fische haben; und soll alles gesund werden und leben, wo dieser Strom hin kommt.', 'Hesekiel 47,9'],
+    sv: ['Och överallt dit den dubbla strömmen kommer, där upplivas alla levande varelser som röra sig i stim, och fiskarna bliva där mycket talrika; ty när detta vatten kommer dit, bliver havsvattnet sunt, och allt får liv, där strömmen kommer.', 'Hes 47:9'],
+  },
+  'psa51.7': {
+    pl: ['Oczyść mię, isopem, a oczyszczon będę; omyj mię, a nad śnieg wybielony będę.', 'Ps 51,9'],
+    en: ['Purify me with hyssop, and I will be clean; wash me, and I will be whiter than snow.', 'Psalm 51:7'],
+    de: ['Entsündige mich mit Isop, daß ich rein werde; wasche mich, daß ich schneeweiß werde.', 'Psalm 51,9'],
+    sv: ['Skära mig med isop, så att jag varder ren; två mig, så att jag bliver vitare än snö.', 'Ps 51:9'],
+  },
+  'ezk36.25': {
+    pl: ['I pokropię was wodą czystą, a oczyszczeni będziecie od wszystkich nieczystót waszych, i od wszystkich plugawych bałwanów waszych oczyszczę was…', 'Ez 36,25'],
+    en: ['I will also sprinkle clean water on you, and you will be clean. I will cleanse you from all your impurities and all your idols.', 'Ezekiel 36:25'],
+    de: ['Und will reines Wasser über euch sprengen, daß ihr rein werdet; von all eurer Unreinigkeit und von allen euren Götzen will ich euch reinigen.', 'Hesekiel 36,25'],
+    sv: ['Och jag skall stänka rent vatten på eder, så att I bliven rena; jag skall rena eder från all eder orenhet och från alla edra eländiga avgudar.', 'Hes 36:25'],
+  },
+  'exo15.26': {
+    pl: ['I rzekł: Będzieszli pilnie słuchał głosu Pana Boga twego, a co dobrego w oczach jego czynić będziesz, i nakłonisz uszy ku przykazaniom jego, strzegąc wszystkich ustaw jego, żadnej niemocy, którąm dopuścił na Egipt, nie dopuszczę na cię; bom Ja Pan, który cię leczę.', 'Wj 15,26'],
+    en: ['…saying, “If you will listen carefully to the voice of the LORD your God, and do what is right in His eyes, and pay attention to His commands, and keep all His statutes, then I will not bring on you any of the diseases I inflicted on the Egyptians. For I am the LORD who heals you.”', 'Exodus 15:26'],
+    de: ['…und sprach: Wirst du der Stimme des HERRN, deines Gottes, gehorchen und tun, was recht ist vor ihm, und zu Ohren fassen seine Gebote und halten alle seine Gesetze, so will ich der Krankheiten keine auf dich legen, die ich auf Ägypten gelegt habe; denn ich bin der HERR, dein Arzt.', '2. Mose 15,26'],
+    sv: ['Han sade: »Om du hör HERRENS, din Guds, röst och gör vad rätt är i hans ögon och lyssnar till hans bud och håller alla hans stadgar, så skall jag icke lägga på dig någon av de sjukdomar som jag lade på egyptierna, ty jag är HERREN, din läkare.»', '2 Mos 15:26'],
+  },
+  'jer17.14': {
+    pl: ['Uzdrów mię, Panie! a będę uzdrowiony: zbaw mię, a będę zbawiony; albowiemeś ty chwała moja.', 'Jr 17,14'],
+    en: ['Heal me, O LORD, and I will be healed; save me, and I will be saved, for You are my praise.', 'Jeremiah 17:14'],
+    de: ['Heile du mich, HERR, so werde ich heil; hilf du mir, so ist mir geholfen; denn du bist mein Ruhm.', 'Jeremia 17,14'],
+    sv: ['Hela du mig, HERRE, så varde jag helad; fräls mig du, så varder jag frälst. Ty du är mitt lov.', 'Jer 17:14'],
+  },
+  'psa147.3': {
+    pl: ['Który uzdrawia skruszonych na sercu, a zawiązuje boleści ich.', 'Ps 147,3'],
+    en: ['He heals the brokenhearted and binds up their wounds.', 'Psalm 147:3'],
+    de: ['Er heilt, die zerbrochnes Herzens sind, und verbindet ihre Schmerzen.', 'Psalm 147,3'],
+    sv: ['Han helar dem som hava förkrossade hjärtan, och deras sår förbinder han.', 'Ps 147:3'],
+  },
+  'gal6.2': {
+    pl: ['Jedni drugich brzemiona noście, a tak wypełniajcie zakon Chrystusowy.', 'Ga 6,2'],
+    en: ['Carry one another’s burdens, and in this way you will fulfill the law of Christ.', 'Galatians 6:2'],
+    de: ['Einer trage des andern Last, so werdet ihr das Gesetz Christi erfüllen.', 'Galater 6,2'],
+    sv: ['Bären varandras bördor; så uppfyllen I Kristi lag.', 'Gal 6:2'],
+  },
+  'mat11.29-30': {
+    pl: ['Weźmijcie jarzmo moje na się, a uczcie się ode mnie, żem Ja cichy i pokornego serca; a znajdziecie odpocznienie duszom waszym; albowiem jarzmo moje wdzięczne jest, a brzemię moje lekkie jest.', 'Mt 11,29–30'],
+    en: ['Take My yoke upon you and learn from Me, for I am gentle and humble in heart, and you will find rest for your souls. For My yoke is easy and My burden is light.', 'Matthew 11:29–30'],
+    de: ['Nehmet auf euch mein Joch und lernet von mir; denn ich bin sanftmütig und von Herzen demütig; so werdet ihr Ruhe finden für eure Seelen. Denn mein Joch ist sanft, und meine Last ist leicht.', 'Matthäus 11,29–30'],
+    sv: ['Tagen på eder mitt ok och lären av mig, ty jag är saktmodig och ödmjuk i hjärtat; \'så skolen I finna ro för edra själar\'. Ty mitt ok är milt, och min börda är lätt.', 'Matt 11:29–30'],
+  },
+  '1pe5.7': {
+    pl: ['Wszystko staranie wasze wrzuciwszy na niego, gdyż on ma pieczę o was.', '1 P 5,7'],
+    en: ['Cast all your anxiety on Him, because He cares for you.', '1 Peter 5:7'],
+    de: ['Alle Sorge werfet auf ihn; denn er sorgt für euch.', '1. Petrus 5,7'],
+    sv: ['Och »kasten alla edra bekymmer på honom», ty han har omsorg om eder.', '1 Petr 5:7'],
+  },
+  'isa53.4': {
+    pl: ['Zaiste on niemocy nasze wziął na się, a boleści nasze własne nosił; a myśmy mniemali, że jest zraniony, ubity od Boga i utrapiony.', 'Iz 53,4'],
+    en: ['Surely He took up our infirmities and carried our sorrows; yet we considered Him stricken, struck down by God, and afflicted.', 'Isaiah 53:4'],
+    de: ['Fürwahr, er trug unsere Krankheit und lud auf sich unsre Schmerzen. Wir aber hielten ihn für den, der geplagt und von Gott geschlagen und gemartert wäre.', 'Jesaja 53,4'],
+    sv: ['Men det var våra krankheter han bar, våra smärtor, dem lade han på sig, medan vi höllo honom för att vara hemsökt, tuktad av Gud och pinad.', 'Jes 53:4'],
+  },
+  '2co1.3-4': {
+    pl: ['Błogosławiony niech będzie Bóg i Ojciec Pana naszego, Jezusa Chrystusa, Ojciec miłosierdzia a Bóg wszelkiej pociechy, Który nas cieszy w każdym ucisku naszym, abyśmy i my cieszyć mogli i tych, którzy są w jakimkolwiek ucisku, tąż pociechą, którą my sami pocieszeni bywamy od Boga.', '2 Kor 1,3–4'],
+    en: ['Blessed be the God and Father of our Lord Jesus Christ, the Father of compassion and the God of all comfort, who comforts us in all our troubles, so that we can comfort those in any trouble with the comfort we ourselves have received from God.', '2 Corinthians 1:3–4'],
+    de: ['Gelobet sei Gott und der Vater unsers HERRN Jesu Christi, der Vater der Barmherzigkeit und Gott alles Trostes, der uns tröstet in aller unsrer Trübsal, daß auch wir trösten können, die da sind in allerlei Trübsal, mit dem Trost, damit wir getröstet werden von Gott.', '2. Korinther 1,3–4'],
+    sv: ['Lovad vare vår Herres, Jesu Kristi, Gud och Fader, barmhärtighetens Fader och all trösts Gud, han som tröstar oss i all vår nöd, så att vi genom den tröst vi själva undfå av Gud kunna trösta dem som äro stadda i allahanda nöd.', '2 Kor 1:3–4'],
+  },
+  'rom12.15': {
+    pl: ['Weselcie się z weselącymi, a płaczcie z płaczącymi.', 'Rz 12,15'],
+    en: ['Rejoice with those who rejoice; weep with those who weep.', 'Romans 12:15'],
+    de: ['Freut euch mit den Fröhlichen und weint mit den Weinenden.', 'Römer 12,15'],
+    sv: ['Glädjens med dem som äro glada, gråten med dem som gråta.', 'Rom 12:15'],
+  },
+  'jhn1.29': {
+    pl: ['A nazajutrz ujrzał Jan Jezusa idącego do siebie, i rzekł: Oto Baranek Boży, który gładzi grzech świata.', 'J 1,29'],
+    en: ['The next day John saw Jesus coming toward him and said, Look, the Lamb of God, who takes away the sin of the world!', 'John 1:29'],
+    de: ['Des andern Tages sieht Johannes Jesum zu ihm kommen und spricht: Siehe, das ist Gottes Lamm, welches der Welt Sünde trägt!', 'Johannes 1,29'],
+    sv: ['Dagen därefter såg han Jesus nalkas; då sade han: Se, Guds Lamm, som borttager världens synd!', 'Joh 1:29'],
+  },
+  '1pe2.24': {
+    pl: ['Który grzechy nasze na ciele swoim zaniósł na drzewo, abyśmy obumarłszy grzechom sprawiedliwości żyli, którego sinością uzdrowieni jesteście.', '1 P 2,24'],
+    en: ['He Himself bore our sins in His body on the tree, so that we might die to sin and live to righteousness. “By His stripes you are healed.”', '1 Peter 2:24'],
+    de: ['…welcher unsre Sünden selbst hinaufgetragen hat an seinem Leibe auf das Holz, auf daß wir, der Sünde abgestorben, der Gerechtigkeit leben; durch welches Wunden ihr seid heil geworden.', '1. Petrus 2,24'],
+    sv: ['Och »våra synder bar han» i sin kropp upp på korsets trä, för att vi skulle dö bort ifrån synderna och leva för rättfärdigheten; och »genom hans sår haven I blivit helade».', '1 Petr 2:24'],
+  },
+  'col2.6-7': {
+    pl: ['Przetoż jakoście przyjęli Pana Jezusa Chrystusa, tak w nim chodźcie, Będąc wkorzenieni i wybudowani na nim, i utwierdzeni w wierze, jakoście się nauczyli, obfitując w niej z dziękowaniem.', 'Kol 2,6–7'],
+    en: ['Therefore, just as you have received Christ Jesus as Lord, continue to walk in Him, rooted and built up in Him, established in the faith as you were taught, and overflowing with thankfulness.', 'Colossians 2:6–7'],
+    de: ['Wie ihr nun angenommen habt den HERRN Christus Jesus, so wandelt in ihm und seid gewurzelt und erbaut in ihm und fest im Glauben, wie ihr gelehrt seid, und seid in demselben reichlich dankbar.', 'Kolosser 2,6–7'],
+    sv: ['Såsom I nu haven mottagit Kristus Jesus, Herren, så vandren i honom och varen rotade i honom och låten eder uppbyggas i honom och befästas i tron, i enlighet med den undervisning I haven fått, och överflöden i tacksägelse.', 'Kol 2:6–7'],
+  },
+  'psa92.12-13': {
+    pl: ['Sprawiedliwy jako palma zakwitnie, jako cedra na Libanie rozmnoży się. Wszczepieni w domu Pańskim, w sieniach Boga naszego zakwitną.', 'Ps 92,13–14'],
+    en: ['The righteous will flourish like a palm tree, and grow like a cedar in Lebanon. Planted in the house of the LORD, they will flourish in the courts of our God.', 'Psalm 92:12–13'],
+    de: ['Der Gerechte wird grünen wie ein Palmbaum; er wird wachsen wie eine Zeder auf dem Libanon. Die gepflanzt sind in dem Hause des HERRN, werden in den Vorhöfen unsers Gottes grünen.', 'Psalm 92,13–14'],
+    sv: ['Den rättfärdige grönskar såsom ett palmträd, såsom en ceder på Libanon växer han till. Ja, sådana äro planterade i HERRENS hus; de grönska i vår Guds gårdar.', 'Ps 92:13–14'],
+  },
+  'psa16.8': {
+    pl: ['Stawiałem Pana zawsze przed oczyma swemi; a iż on jest po prawicy mojej, nie będę wzruszony.', 'Ps 16,8'],
+    en: ['I have set the LORD always before me. Because He is at my right hand, I will not be shaken.', 'Psalm 16:8'],
+    de: ['Ich habe den HERRN allezeit vor Augen; denn er ist mir zur Rechten, so werde ich fest bleiben.', 'Psalm 16,8'],
+    sv: ['Jag har haft HERREN för mina ögon alltid; ja, han är på min högra sida, jag skall icke vackla.', 'Ps 16:8'],
+  },
+  'jer17.7': {
+    pl: ['Błogosławiony mąż, który ufa w Panu, a Pan jest nadzieją jego.', 'Jr 17,7'],
+    en: ['But blessed is the man who trusts in the LORD, whose confidence is in Him.', 'Jeremiah 17:7'],
+    de: ['Gesegnet aber ist der Mann, der sich auf den HERRN verläßt und des Zuversicht der HERR ist.', 'Jeremia 17,7'],
+    sv: ['Men välsignad är den man som förtröstar på HERREN, den som har HERREN till sin förtröstan.', 'Jer 17:7'],
+  },
+  'psa104.16': {
+    pl: ['Nasycone bywają i drzewa Pańskie, i cedry Libanu, których nasadził…', 'Ps 104,16'],
+    en: ['The trees of the LORD have their fill, the cedars of Lebanon that He planted…', 'Psalm 104:16'],
+    de: ['…daß die Bäume des HERRN voll Saft stehen, die Zedern Libanons, die er gepflanzt hat.', 'Psalm 104,16'],
+    sv: ['HERRENS träd varda ock mättade, Libanons cedrar, som han har planterat…', 'Ps 104:16'],
   },
 };
 
