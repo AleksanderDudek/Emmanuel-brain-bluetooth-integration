@@ -959,7 +959,8 @@ export class ArcadeRunner {
     const el = h('div', { class: 'summary arcade-summary' }, h('div', { class: 'summary-inner' },
       h('div', { class: 'arcade-score' },
         h('p', { class: 'eyebrow' }, entry.title),
-        h('div', { class: 'arcade-big' }, h('b', null, num(o.score)), h('span', null, o.unit)),
+        // seven digits after 30 minutes (Firmament) take a smaller size on a phone
+        h('div', { class: 'arcade-big' }, h('b', num(o.score).length >= 8 ? { 'data-long': '' } : null, num(o.score)), h('span', null, o.unit)),
         o.record ? h('p', { class: 'arcade-record' }, icon('i-star'), t('sum.record'))
           : r.game?.best !== null && r.game?.best !== undefined
             ? h('p', { class: 'muted' }, t('sum.best', { score: num(r.game.best), unit: mod.unit?.(r.game.best) ?? entry.unit })) : null),

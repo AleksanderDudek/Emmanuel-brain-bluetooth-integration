@@ -169,7 +169,10 @@ export class MendiPanel {
     if (v.value !== this.lastScore) {
       const grew = v.value > this.lastScore;
       this.lastScore = v.value;
-      this.put('sn', this.scoreNum, fmtNum(v.value, Number.isInteger(v.value) ? 0 : 1));
+      const num = fmtNum(v.value, Number.isInteger(v.value) ? 0 : 1);
+      this.put('sn', this.scoreNum, num);
+      // a 30-minute session can reach seven digits ("1 239 810"): a smaller number still fits the corner on a phone
+      this.scoreNum.toggleAttribute('data-long', num.length >= 8);
       this.put('su', this.scoreUnit, this.unitOf(v.value));
       if (grew) {
         this.score.classList.remove('bump');
