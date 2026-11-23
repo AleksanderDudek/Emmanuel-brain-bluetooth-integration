@@ -19,7 +19,7 @@ import { passage, wrapLines } from '../kit/scripture';
 import type { Tool } from '../../tools';
 import { CITIES } from './content';
 import { grouped, metres, t } from './i18n';
-import { layout, pillWidth, storyLayout, type Layout, type Rect, type StoryLay } from './layout';
+import { PACER_HALF, PACER_ROOM, layout, pillWidth, storyLayout, type Layout, type Rect, type StoryLay } from './layout';
 import { powerSecFor, routeAt, type PoslaniecProgress } from './meta';
 import {
   C, SANS, SERIF, font, fontPx, hash, hex, legible, mix, paintCity, paintCoin, paintFire, paintGoat, paintHills, paintLetterTile, paintPostcard, paintRunner, paintSandals,
@@ -151,11 +151,14 @@ export class PoslaniecView {
     this.hov = move ? { move, t: 0 } : null;
   }
 
-  /** Where a thing on the road shows on the canvas (CSS px), for the coach marks (low enough for a two-line bubble above it under the HUD). */
-  pointAt(z: number, lane: number, y = 1): { x: number; y: number } {
+  /**
+   * Where a thing on the road shows on the canvas (CSS px), for the coach marks (low enough for a two-line bubble
+   * above it under the HUD, and `below` px lower still: in a rest the runner's breath pacer stands under the HUD).
+   */
+  pointAt(z: number, lane: number, y = 1, below = 0): { x: number; y: number } {
     const d = Math.max(1.5, z - this.camZ);
     const s = this.f / d;
-    return { x: this.cx + (lane * LW - this.camX) * s, y: Math.max(this.top + 76 * this.u, this.horizon + (this.camY - y) * s) };
+    return { x: this.cx + (lane * LW - this.camX) * s, y: Math.max(this.top + 76 * this.u + below, this.horizon + (this.camY - y) * s) };
   }
 
   /**
@@ -1066,7 +1069,10 @@ export class PoslaniecView {
     const lh = Math.round(size * 1.3);
     const bw = Math.min(B.maxW, Math.max(...lines.map(l => ctx.measureText(l).width)) + 2 * padX);
     const bh = lines.length * lh + 2 * padY;
-    const right = B.right, x = right - bw, y = B.y;
+    const right = B.right, x = right - bw;
+    // in a rest the runner's breath pacer stands at the top centre under the HUD: a bubble that would reach it hangs below it
+    const mid = this.w / 2;
+    const y = sim.block.kind === 'rest' && !sim.flying && x < mid + PACER_HALF && right > mid - PACER_HALF ? Math.max(B.y, this.top + PACER_ROOM) : B.y;
     // the tail points at the stork: right at his gauge beside the bubble, up at it over the bubble (an open
     // sky, the bubble under his gauge's words), or down at him carrying the messenger
     const down = sim.flying;

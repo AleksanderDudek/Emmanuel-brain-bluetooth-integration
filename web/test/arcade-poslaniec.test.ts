@@ -59,6 +59,9 @@ function drive(sim: PoslaniecSim, sec: number, f: FocusFrame | ((t: number) => F
   return out;
 }
 
+/** A block's longest: its mean + jitter, and a little for the scaling to the session. */
+const cap = (kind: string): number => (kind === 'push' ? RULES.push[0] + RULES.push[1] : RULES.rest[0] + RULES.rest[1]) * 1.2;
+
 const ofType = <K extends SimEvent['type']>(evs: readonly SimEvent[], type: K) => evs.filter((e): e is Extract<SimEvent, { type: K }> => e.type === type);
 
 /** An empty road from here on: nothing more is made. */
@@ -121,8 +124,47 @@ describe('the block plan', () => {
         expect(plan[plan.length - 1].kind).toBe('finale');
         for (let i = 1; i < plan.length; i++) expect(plan[i].start).toBeCloseTo(plan[i - 1].start + plan[i - 1].dur, 6);
         for (const b of plan) if (b.kind === 'push' || b.kind === 'rest') expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
-        if (planned >= 180) for (const b of plan) if (b.kind === 'push' || b.kind === 'rest') expect(b.dur).toBeLessThanOrEqual(32);
+        if (planned >= 180) for (const b of plan) if (b.kind === 'push' || b.kind === 'rest') expect(b.dur).toBeLessThanOrEqual(cap(b.kind));
       }
+    }
+  });
+
+  it('follows the rhythm the player set in the lobby: longer Skrzydła, shorter Strażnice, the jitter scaled; a long push flies twice', () => {
+    for (const planned of [300, 1800]) {
+      const plan = planBlocks(planned, false, mulberry32(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.at(-1)!.start + plan.at(-1)!.dur).toBeCloseTo(planned, 0);
+      for (const b of plan) if (b.kind === 'push' || b.kind === 'rest') expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+      // a rest set under minBlock is lifted to it, and the finale still begins on time
+      const tight = planBlocks(planned, false, mulberry32(5), { focus: 120, rest: 10 });
+      expect(tight.at(-1)!.start + tight.at(-1)!.dur).toBeCloseTo(planned, 0);
+      for (const b of tight) if (b.kind === 'rest') expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, the towers a third of the run or less
+    const core = planBlocks(600, false, mulberry32(5)).filter(b => b.kind === 'push' || b.kind === 'rest');
+    const restShare = core.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / core.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.25);
+    expect(restShare).toBeLessThan(0.38);
+    // the sim takes the rhythm: at either extreme a 10-minute run reaches the inn, flies and lights fires
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const sim = new PoslaniecSim({
+        progress: { ...freshProgress(), sessions: 5, pushes: 1, taught: ['jump', 'roll', 'lane', 'ramp', 'wings', 'tower', 'goat'] },
+        rng: mulberry32(7), day: DAY, daySeed: 4242, plannedSec: 600, eeg: false, tuning: TUNING, rhythm,
+      });
+      sim.start();
+      const pushes = sim.plan.filter(b => b.kind === 'push');
+      const m = pushes.reduce((s, b) => s + b.dur, 0) / pushes.length;
+      expect(m).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(m).toBeLessThan(rhythm.focus * 1.25);
+      const evs = drive(sim, 600 - 1, () => (sim.block.kind === 'rest' ? calm() : focused()));
+      expect(sim.block.kind).toBe('finale');
+      const flights = ofType(evs, 'flight').filter(e => e.stage === 'start').length;
+      expect(flights).toBeGreaterThanOrEqual(pushes.length);
+      if (rhythm.focus > 60) expect(flights).toBeGreaterThan(pushes.length * 2);
+      expect(ofType(evs, 'fire').filter(e => e.lit).length).toBeGreaterThan(0);
     }
   });
 
@@ -511,6 +553,8 @@ describe('Strażnice: the rest road', () => {
     const s2 = later();
     const c2 = { t: 0 };
     toBlock(s2, 2, frame(), c2);
+    // (the rest road may hold a fence of its own: this is about the signal, so the road is empty)
+    emptyRoad(s2);
     const e2 = drive(s2, 12, lost, c2);
     expect(ofType(e2, 'fire').every(e => e.lit === null)).toBe(true);
     expect(ofType(e2, 'stumble')).toHaveLength(0);
@@ -1214,7 +1258,7 @@ describe('Posłaniec at 15–30 minutes', () => {
         expect(core.at(-1)!.kind).toBe('rest');
         for (const b of core) {
           expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock);
-          expect(b.dur).toBeLessThanOrEqual(32);
+          expect(b.dur).toBeLessThanOrEqual(cap(b.kind));
         }
       }
     }

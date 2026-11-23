@@ -16,12 +16,13 @@
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer, screenKind } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { PoslaniecSound } from './audio';
 import { t } from './i18n';
 import { Gestures, hintText, keyMove } from './input';
 import { PoslaniecIntro } from './intro';
-import { layout, tapTargets, type Layout } from './layout';
+import { PACER_ROOM, layout, tapTargets, type Layout } from './layout';
 import { freshProgress, migrate, type PoslaniecProgress } from './meta';
 import { progressPanel } from './panel';
 import { drawPreview } from './preview';
@@ -46,6 +47,7 @@ class PoslaniecGame implements ArcadeGame {
   constructor(private readonly env: GameEnv<PoslaniecProgress>) {
     this.sim = new PoslaniecSim({
       progress: env.progress, rng: env.rng, day: env.day, daySeed: env.daySeed, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning,
+      rhythm: env.rhythm,
     });
     this.view = new PoslaniecView(env.canvas, { reducedMotion: env.reducedMotion, tool: env.tool, touch: env.touch });
     this.sound = new PoslaniecSound(env.audio);
@@ -157,8 +159,10 @@ class PoslaniecGame implements ArcadeGame {
       if (this.env.haptics) haptic(e);
       if (e.type === 'stumble' || e.type === 'shieldBreak') this.freeze = Math.max(this.freeze, e.type === 'stumble' && e.caught ? 0.12 : 0.07);
       if (e.type === 'teach') {
-        const at = e.what === 'wings' ? this.view.storkAt() : e.what === 'goat' ? this.view.pointAt(this.sim.z + 2, this.sim.r.lane, 1.5)
-          : this.view.pointAt(e.z, e.lane, e.what === 'roll' ? 2 : 1);
+        // in a rest the runner's breath pacer (src/arcade/pacer.ts) takes the band under the HUD: the bubble goes below it
+        const below = this.sim.block.kind === 'rest' ? PACER_ROOM : 0;
+        const at = e.what === 'wings' ? this.view.storkAt() : e.what === 'goat' ? this.view.pointAt(this.sim.z + 2, this.sim.r.lane, 1.5, below)
+          : this.view.pointAt(e.z, e.lane, e.what === 'roll' ? 2 : 1, below);
         this.env.hint(hintText(e.what, this.env.touch), at, e.what.startsWith('power') ? 3200 : 3800);
       }
     }
@@ -226,6 +230,7 @@ const mod: ArcadeModule<PoslaniecProgress> = {
   },
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p),
   howto,
-
+  // the rest's rhythm in the lobby: seconds of Skrzydła before the road reaches the watchtowers, and of Strażnice
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('block.push'), rest: t('block.rest') }, t('rhythm.note')),
 };
 export default mod;

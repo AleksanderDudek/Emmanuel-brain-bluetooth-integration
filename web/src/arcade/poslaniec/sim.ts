@@ -16,6 +16,7 @@
  * push hides the wings until its end.  An unreliable signal freezes the band's part at neutral.
  */
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace, type TracePhase } from '../kit/trace';
 import type { ArcadeOutcome, Headline, SignalPhase } from '../kit/types';
@@ -80,6 +81,8 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of Skrzydła, s of Strażnice); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 const LW = RULES.laneW;
@@ -99,9 +102,12 @@ export function nextCityFrom(metres: number): number {
 // ── the session's plan ───────────────────────────────────────────
 const finaleFor = (plannedSec: number): number => (plannedSec >= 120 ? RULES.finale.long : RULES.finale.short);
 
-/** Push and rest blocks of about 20–30 s with jitter that fit any session of 10 s or more, then the finale. */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+/**
+ * Skrzydła and Strażnice of about 45 and 20 s with jitter (or the player's rhythm, the jitter scaled to it) that
+ * fit any session of 10 s or more, then the finale.
+ */
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const fin = finaleFor(plannedSec);
   const out: Block[] = [];
   let at = 0;
@@ -133,7 +139,16 @@ export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => nu
   const durs: number[] = [];
   for (let i = 0; i < pairs; i++) durs.push(R.push[0] + (rnd() * 2 - 1) * R.push[1], R.rest[0] + (rnd() * 2 - 1) * R.rest[1]);
   const scale = left / durs.reduce((s, d) => s + d, 0);
-  durs.forEach((d, i) => add(i % 2 ? 'rest' : 'push', Math.max(R.minBlock, d * scale)));
+  for (let i = 0; i < durs.length; i++) durs[i] *= scale;
+  // no block under minBlock: a short one (a 10 s rest the player set) is lifted and the others give the time,
+  // so the finale still begins on time
+  const short = durs.reduce((s, d) => s + Math.max(0, R.minBlock - d), 0);
+  if (short > 0) {
+    const spare = durs.reduce((s, d) => s + Math.max(0, d - R.minBlock), 0);
+    const k = spare > 0 ? Math.min(1, short / spare) : 0;
+    for (let i = 0; i < durs.length; i++) durs[i] = durs[i] < R.minBlock ? R.minBlock : durs[i] - (durs[i] - R.minBlock) * k;
+  }
+  durs.forEach((d, i) => add(i % 2 ? 'rest' : 'push', d));
   add('finale', fin);
   return out;
 }
@@ -260,7 +275,7 @@ export class PoslaniecSim {
     this.rng = init.rng;
     this.plannedSec = init.plannedSec;
     this.firstEver = this.p.sessions === 0;
-    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng, init.rhythm);
     this.judge = RoundJudge.from(init.tuning);
     this.lead = init.eeg ? RULES.leadIn.eeg : RULES.leadIn.fnirs;
     this.fillSec = init.eeg ? RULES.fillSec.eeg : RULES.fillSec.fnirs;

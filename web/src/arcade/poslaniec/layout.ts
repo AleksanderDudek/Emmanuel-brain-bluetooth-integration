@@ -39,6 +39,13 @@ export type Shape = 'tall' | 'short' | 'wide';
 
 /** The longest day's word in any language (letters): the quest pill is never wider than this many tiles. */
 export const PILL_MAX = 7;
+/**
+ * The band the runner's breath pacer takes under the HUD in a rest (src/arcade/pacer.ts: its pill, 66–76 px, 10 px
+ * below the HUD, centred over the play), and a gap: what sits in the middle of the top gives it room.
+ */
+export const PACER_ROOM = 86;
+/** Half the pacer's width (CSS px), widest language, and a margin. */
+export const PACER_HALF = 115;
 
 export interface Layout {
   w: number;

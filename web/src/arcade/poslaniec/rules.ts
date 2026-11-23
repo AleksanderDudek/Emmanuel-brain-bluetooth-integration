@@ -133,9 +133,15 @@ export const RULES = {
   multMax: 30,
 
   // ── the session ──────────────────────────────────────────────
-  /** push and rest blocks: nominal length ± jitter (s); no block under minBlock */
-  push: [26, 4],
-  rest: [22, 3],
+  /**
+   * push and rest blocks: nominal length ± jitter (s); no block under minBlock.  The designed rhythm (round 15,
+   * DESIGN §19.2): 45 s of Skrzydła — the wind ring fills and Klekot carries the runner, room for a second flight —
+   * then 20 s of Strażnice, the evening road past some six watchtowers (two shields' worth of fires); the towers a
+   * third of the run or less (26 / 22 s made them nearly half, every 25 s).  The player sets both in the lobby
+   * (kit/rhythm.ts); the jitter scales with them.
+   */
+  push: [45, 7],
+  rest: [20, 3],
   minBlock: 12,
   telegraph: 4,
   /** the finale (s): the last stretch to the inn */

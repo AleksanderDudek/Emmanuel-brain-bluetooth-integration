@@ -38,7 +38,8 @@ const pl = {
   'task.rest.1': 'Oddychaj wolno: wdech na 4, wydech na 6.',
   'task.rest.2': 'Rozluźnij czoło i szczękę.',
   'task.rest.3': 'Słuchaj dźwięków wokół, niczego nie oceniaj.',
-  'task.rest.4': 'Licz oddechy do dziesięciu i zacznij od nowa.',
+  'task.rest.4': 'Wydychaj dłużej, niż wdychasz, i patrz, jak rozbłyskają ognie.',
+  'rhythm.note': 'Po każdych Skrzydłach droga wiedzie pod Strażnice: spokój zapala ognie na wieżach',
 
   // how to play
   'how.goal': 'Nieś listy jak najdalej: omijaj wozy, skacz, turlaj się i zbieraj drachmy, zanim koza Bela dopadnie list.',
@@ -296,7 +297,8 @@ const en: Catalog<Key> = {
   'task.rest.1': 'Breathe slowly: in for 4, out for 6.',
   'task.rest.2': 'Soften your forehead and your jaw.',
   'task.rest.3': 'Listen to the sounds around you, judging nothing.',
-  'task.rest.4': 'Count your breaths to ten, then start again.',
+  'task.rest.4': 'Breathe out longer than you breathe in, and watch the fires flare up.',
+  'rhythm.note': 'After each stretch of Wings the road runs past the Watchtowers: calm lights their fires',
 
   'how.goal': 'Carry the letters as far as you can: dodge the wagons, jump, roll and gather drachmas before Bela the goat gets the letter.',
   'how.swipe': 'sideways for a lane, up to jump, down to roll',
@@ -538,7 +540,8 @@ const de: Catalog<Key> = {
   'task.rest.1': 'Atme langsam: 4 ein, 6 aus.',
   'task.rest.2': 'Lockere Stirn und Kiefer.',
   'task.rest.3': 'Lausche den Geräuschen um dich, ohne zu bewerten.',
-  'task.rest.4': 'Zähl deine Atemzüge bis zehn und beginn von vorn.',
+  'task.rest.4': 'Atme länger aus als ein und sieh zu, wie die Feuer aufflammen.',
+  'rhythm.note': 'Nach jeder Flügel-Strecke führt der Weg an den Wachtürmen vorbei: Ruhe entzündet ihre Feuer',
 
   'how.goal': 'Trag die Briefe so weit du kannst: weich den Wagen aus, spring, roll und sammle Drachmen, bevor die Ziege Bela den Brief erwischt.',
   'how.swipe': 'seitlich die Spur, hoch springen, runter rollen',
@@ -780,7 +783,8 @@ const sv: Catalog<Key> = {
   'task.rest.1': 'Andas långsamt: in på 4, ut på 6.',
   'task.rest.2': 'Slappna av i pannan och käken.',
   'task.rest.3': 'Lyssna på ljuden omkring dig utan att döma.',
-  'task.rest.4': 'Räkna andetagen till tio och börja om.',
+  'task.rest.4': 'Andas ut längre än du andas in och se elden flamma upp.',
+  'rhythm.note': 'Efter varje sträcka med Vingar går vägen förbi Vakttornen: lugnet tänder deras eldar',
 
   'how.goal': 'Bär breven så långt du kan: väj för vagnarna, hoppa, rulla och samla drakmer innan geten Bela får tag i brevet.',
   'how.swipe': 'åt sidan byter fil, uppåt hoppar, nedåt rullar',
