@@ -124,6 +124,12 @@ export interface SimInit {
   tuning: FocusTuning;
   /** today ("YYYY-MM-DD"): ring 4 may be left out today */
   day: string;
+  /**
+   * The rest's rhythm the player set in the lobby (kit/rhythm.ts, `serceRhythm`): a blessing after how many circles,
+   * and each rest's whole breaths — taken when the player moved a dial (`custom`); absent or as designed: the plan's
+   * own budget.
+   */
+  rhythm?: { focus: number; rest: number; custom?: boolean } | null;
 }
 
 type Prog = Record<StageId, number>;
@@ -138,6 +144,8 @@ export class SerceSim {
   readonly firstEver: boolean;
   readonly plan: Plan;
   readonly pattern: BreathPattern;
+  /** each rest's whole breaths as the player set them (null: the plan's budget) */
+  readonly restBreaths: number | null;
   readonly word: WordId;
   readonly own: string;
   readonly skip4: boolean;
@@ -227,8 +235,11 @@ export class SerceSim {
     this.from = this.skip4 && sr === 4 ? 5 : sr;
     // a first session's warm-up waits for the opening card: the plan leaves room for its reading time
     const card = this.firstEver && !this.p.seen.includes('s.open') ? pageTime(0) + pageTime(1) + RULES.telegraph + 2 : 0;
+    const rh = init.rhythm;
+    this.restBreaths = rh && rh.custom !== false ? Math.max(1, Math.min(RULES.restBreathsMax, Math.round(rh.rest))) : null;
     this.plan = buildPlan({
       plannedSec: this.plannedSec, eeg: this.eeg, firstEver: this.firstEver, skip4: this.skip4, startRing: this.from, pattern: this.pattern, warmSec: card,
+      circles: rh?.focus ?? 1, restBreaths: this.restBreaths,
     });
     this.steps = [...this.plan.steps];
     this.judge = RoundJudge.from(init.tuning);
@@ -595,7 +606,7 @@ export class SerceSim {
     const cyc = breathRestOf(this.pattern, 1).sec;
     this.steps.push(
       { kind: 'push', stage: 'more', from: 0, to: 1, need: moreNeed(this.plan), arc },
-      { kind: 'rest', rest: 'more', rings: [], cycles: Math.max(2, Math.round(16 / cyc)), arc },
+      { kind: 'rest', rest: 'more', rings: [], cycles: this.restBreaths ?? Math.max(2, Math.round(16 / cyc)), arc },
     );
   }
   private moreRounds = 0;

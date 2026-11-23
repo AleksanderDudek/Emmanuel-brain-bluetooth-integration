@@ -20,7 +20,8 @@ import { MOUSE_CATALOGS as MOUSE_TEXTS } from '../src/i18n/arcade-mouse';
 import { CHECK_SIZES, MIN_READ, MIN_TEXT, auditTargets } from '../src/arcade/kit/mobile';
 import { EARTH, cameraFor, easeCam, frameBox, layout, storyTarget, toScreen } from '../src/arcade/serce/layout';
 import { cityOrder, earth, project } from '../src/arcade/serce/earth';
-import { howto } from '../src/arcade/serce/index';
+import { howto, serceRhythm } from '../src/arcade/serce/index';
+import { restsIn, rhythmOf } from '../src/arcade/kit/rhythm';
 import { progressPanel } from '../src/arcade/serce/panel';
 
 const STEP = 1 / 30;
@@ -35,12 +36,15 @@ const NONE = frame({ reliable: false, activity: null, level: 0, calm: 0 });
 
 const ALL_SEEN = ['s.open', 'c.light', 'c.breath', 'c.tap', 'c.ring4', 'c.names'];
 
-type SimOpts = { progress?: Partial<SerceProgress>; planned?: number; seed?: number; eeg?: boolean; day?: string };
+type SimOpts = {
+  progress?: Partial<SerceProgress>; planned?: number; seed?: number; eeg?: boolean; day?: string;
+  rhythm?: { focus: number; rest: number; custom?: boolean } | null;
+};
 
 function makeSim(o: SimOpts = {}): SerceSim {
   const sim = new SerceSim({
     progress: { ...freshProgress(), ...o.progress }, rng: mulberry32(o.seed ?? 1), plannedSec: o.planned ?? 600, eeg: o.eeg ?? false,
-    tuning: TUNING, day: o.day ?? DAY,
+    tuning: TUNING, day: o.day ?? DAY, rhythm: o.rhythm,
   });
   sim.start();
   return sim;
@@ -689,4 +693,92 @@ describe('the lobby’s card (panel.ts)', () => {
     const again = progressPanel(p, () => undefined);
     expect(again.textContent).toContain('Dalej od kręgu przyjaciół');
   });
+});
+
+describe('the rest’s rhythm, set in the lobby (round 15, kit/rhythm.ts)', () => {
+  it('offers a blessing after 1–3 circles (1 by design) and each rest’s whole breaths of the player’s pattern', () => {
+    const spec = serceRhythm(freshProgress());
+    expect(spec.focus).toMatchObject({ def: 1, min: 1, max: RULES.circlesMax, name: 'Błogosławieństwo po' });
+    expect([1, 2, 3].map(n => spec.focus.format(n))).toEqual(['1\u00a0kręgu', '2\u00a0kręgach', '3\u00a0kręgach']);
+    expect(spec.rest).toMatchObject({ def: 2, min: 1, max: RULES.restBreathsMax });
+    expect(spec.rest.format(2)).toBe('2\u00a0oddechy · 20\u00a0s');
+    expect(spec.restSec!(3)).toBe(30);
+    // the player's breath sets the seconds: the box, 16 s a breath
+    expect(serceRhythm({ ...freshProgress(), breath: { ...BREATH_PRESETS.box } }).rest.format(2)).toBe('2\u00a0oddechy · 32\u00a0s');
+    const r = rhythmOf(spec, undefined)!;
+    expect(r).toEqual({ focus: 1, rest: 2, custom: false });
+    // 10 minutes: about ten rests, a third of the time, as the plan has them
+    const n = restsIn(spec, r, 600)!;
+    expect(n.rests).toBeGreaterThanOrEqual(9);
+    expect(n.rests).toBeLessThanOrEqual(11);
+    expect(n.share).toBeCloseTo(1 / 3, 1);
+  });
+
+  it('blesses the circles together after 2 or 3, without the descent’s stops, the sun’s rest or the long halves', () => {
+    for (const T of [600, 900, 1800]) {
+      for (const circles of [2, 3]) {
+        const p = plan(T, { circles });
+        const tag = `${T} s, ${circles}`;
+        expect([...new Set(pushes(p).map(s => s.stage))], tag).toEqual(['descent', 'heart', 'field', 'ring1', 'ring2', 'ring3', 'ring4', 'ring5', 'sun', 'pervade', 'back']);
+        const blesses = rests(p).filter(r => r.rest === 'bless').map(r => r.rings);
+        expect(blesses, tag).toEqual(circles === 2 ? [[0, 1], [2, 3], [4, 5]] : [[0, 1, 2], [3, 4, 5]]);
+        expect(rests(p).map(r => r.rest).filter(k => k !== 'bless'), tag).toEqual(['grat', 'amen']);
+        for (const r of rests(p).filter(x => x.rest === 'bless')) expect(r.cycles, tag).toBeGreaterThanOrEqual(r.rings.length);
+        for (let i = 1; i < p.steps.length; i++) expect(p.steps[i].kind === 'rest' && p.steps[i - 1].kind === 'rest', tag).toBe(false);
+        // fewer, longer stretches of focus; the rests' share about the same (the designed budget)
+        expect(p.pushBlocks, tag).toBeLessThan(plan(T).pushBlocks);
+        expect(p.restSec / T, tag).toBeGreaterThan(0.2);
+        expect(p.restSec / T, tag).toBeLessThan(0.45);
+      }
+    }
+    // 3 and 5 minutes (the compact way): the field's blessing joins the near rings'
+    for (const T of [180, 300]) {
+      expect(rests(plan(T)).map(r => [r.rest, r.rings])).toEqual([['grat', []], ['bless', [0]], ['bless', [1, 2, 3]], ['bless', [4]], ['amen', [5]]]);
+      expect(rests(plan(T, { circles: 2 })).map(r => [r.rest, r.rings])).toEqual([['grat', []], ['bless', [0, 1, 2, 3]], ['bless', [4]], ['amen', [5]]]);
+    }
+    // ring 4 left out today: the groups close up
+    expect(rests(plan(600, { circles: 2, skip4: true })).filter(r => r.rest === 'bless').map(r => r.rings)).toEqual([[0, 1], [2, 3], [5]]);
+  });
+
+  it('makes every rest the player’s count of breaths (at least what its lines need), never more than the cap of the session', () => {
+    const p = plan(900, { restBreaths: 3 });
+    for (const r of rests(p)) {
+      const min = r.rest === 'bless' ? Math.max(r.rings.length, r.rings.includes(4) ? 2 : 1) : 1;
+      expect(r.cycles).toBe(Math.max(min, 3));
+    }
+    const one = plan(900, { restBreaths: 1 });
+    expect(one.restSec).toBeLessThan(p.restSec);
+    expect(rests(one).filter(r => r.rest === 'grat')[0].cycles).toBe(1);
+    // six breaths each would leave no room for the pushes in 3 or 10 minutes: the cap
+    for (const T of [180, 600, 1800]) {
+      const big = plan(T, { restBreaths: 6 });
+      const avail = T - big.finale;
+      expect(big.restSec, String(T)).toBeLessThanOrEqual(avail * RULES.restCap + 1e-9 + rests(big).length * 10);
+      // (3 minutes: the rests' own minimum — a breath for each line — already takes nearly half)
+      expect(big.pushSec, String(T)).toBeGreaterThan(avail * 0.3);
+    }
+  });
+
+  it('plays as designed when the dials stay at the design, and the player’s rhythm when moved', () => {
+    const design = later({ planned: 600, rhythm: { focus: 1, rest: 2, custom: false } });
+    expect(design.plan.steps).toEqual(plan(600).steps);
+    const mine = later({ planned: 600, rhythm: { focus: 2, rest: 3, custom: true } });
+    expect(rests(mine.plan).filter(r => r.rest === 'bless').map(r => r.rings)).toEqual([[0, 1], [2, 3], [4, 5]]);
+    expect(rests(mine.plan).every(r => r.cycles >= 3)).toBe(true);
+    expect(mine.restBreaths).toBe(3);
+  });
+
+  for (const T of [180, 600, 1800]) {
+    it(`walks the whole way near the end of ${T / 60} minutes with the dials at their extremes (an average player)`, () => {
+      for (const rhythm of [{ focus: 3, rest: 1 }, { focus: 1, rest: RULES.restBreathsMax }, { focus: 2, rest: 2 }]) {
+        const sim = later({ planned: T, rhythm: { ...rhythm, custom: true } });
+        const a = session(sim, average);
+        const tag = `${T} s ${JSON.stringify(rhythm)}`;
+        expect(a.wayAt, tag).not.toBeNull();
+        expect(a.wayAt! / T, tag).toBeGreaterThan(0.6);
+        expect(a.wayAt! / T, tag).toBeLessThan(1);
+        expect(sim.phase, tag).toBe('done');
+      }
+    });
+  }
 });

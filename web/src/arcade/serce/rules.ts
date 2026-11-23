@@ -52,8 +52,12 @@ export const RULES = {
   settle: 4,
 
   // ── the plan (plan.ts) ───────────────────────────────────────
-  /** under this (s): rings 1–3 share one push and one rest, the closing steps merge into ring 5's push */
-  shortBelow: 270,
+  /**
+   * under this (s): rings 1–3 share one push and one rest, the closing steps merge into ring 5's push.  Round 15 (the
+   * founder: "dlaczego jest tak często?"): 330, not 270 — a 5-minute session (the lobby's default) walks this compact
+   * way too: 5 rests, about one a minute, where the full way gave it 8, one every ~37 s
+   */
+  shortBelow: 330,
   /** from this (s): stops on the descent (the mouth, the throat) and the sun's own rest */
   stopsFrom: 540,
   /** from this (s): ring 5's named arcs of light */
@@ -62,6 +66,17 @@ export const RULES = {
   splitFrom: 1080,
   /** the share of a session (after the warm-up and the finale) the rests aim at */
   restShare: 0.34,
+  /**
+   * The rest's rhythm in the lobby (round 15, kit/rhythm.ts): a blessing after 1…circlesMax circles (1 by design);
+   * each rest 1…restBreathsMax whole breaths (by design the budget's share: about 2 breaths of 5 · 5 a blessing in
+   * sessions of 5 minutes and more); the player's rests never more than restCap of the session.
+   */
+  circlesMax: 3,
+  restBreathsDef: 2,
+  restBreathsMax: 6,
+  restCap: 0.55,
+  /** about how long a circle's push takes, its lead-in included (s), for the lobby's count of rests a session */
+  circleSec: 40,
   /** the push weights of the way's stages (the held units each needs, in proportion) */
   weight: { descent: 14, heart: 6, field: 12, ring: 11, ring4: 13, ring5: 12, ring5Long: 14, sun: 4, pervade: 3, back: 6, more: 7 },
   /** the rest weights (their share of the rest budget; each rest is whole breaths, at least one) */

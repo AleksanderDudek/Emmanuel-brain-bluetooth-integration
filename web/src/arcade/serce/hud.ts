@@ -3,7 +3,13 @@
  * with an icon, changing only with the action), the words card (the heart word split on the breath — the half said now
  * bright —, a blessing's line, or its verse; the breath's phase; the stage's light as a thin bar; on a desk the way as a
  * list), the narrator's caption at the top of the picture and the story card.  Reading text ≥ 13 px, never under 11.
+ *
+ * In rest the kit's breath guide (kit/breathguide.ts, round 15) says the breath — the lungs' disc, the phase in a word
+ * ≥ 20 px with its seconds, "oddech 2 z 3": on a phone held upright in its own band over the card (the picture gives
+ * it room, render.ts), on its side and on a desk at the card's foot in place of the small breath line.
  */
+import { breathGuideRadius, drawBreathGuide, type BreathGuideOpts } from '../kit/breathguide';
+import type { BreathPhase } from '../kit/breath';
 import { drawPassage, layoutPassage, passage, type PassageId } from '../kit/scripture';
 import type { Rect } from '../kit/mobile';
 import { ringName, stageRing, type StageId } from './content';
@@ -41,6 +47,43 @@ export function drawNow(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim,
   ctx.restore();
 }
 
+// ── rest: the breath guide ───────────────────────────────────────
+
+/** The guide's phase words: the game's own ("Wdech", "Zatrzymaj", "Wydech", "Bezdech"). */
+const guideWords = (): Record<BreathPhase, string> =>
+  ({ in: cap(t('br.in')), holdIn: cap(t('br.holdIn')), out: cap(t('br.out')), holdOut: cap(t('br.holdOut')) });
+
+/** The guide's ring radius here: the kit's for the canvas (≥ 26 px), no more than a narrow card leaves room for. */
+export function guideR(L: Pick<Layout, 'w' | 'h' | 'kind' | 'card'>): number {
+  const kit = breathGuideRadius(L.w, L.h);
+  return L.kind === 'tall' ? kit : Math.max(26, Math.min(kit, Math.round(L.card.w * 0.13)));
+}
+
+/** The guide's height in a row (its ring and a padding above and below, as kit/breathguide.ts sizes it). */
+export function guideH(r: number): number {
+  return Math.ceil(2 * r + 1.4 * Math.max(10, Math.round(r * 0.3)));
+}
+
+function guideOpts(L: Layout, sim: SerceSim, cx: number, cy: number, w: number, still: boolean, time: number): BreathGuideOpts {
+  const b = sim.breath, r = guideR(L);
+  const pad = Math.max(10, Math.round(r * 0.3));
+  return {
+    cx, cy, r, layout: 'row', words: guideWords(), sub: t('br.of', { n: b.cycle, of: b.cycles }),
+    maxW: Math.max(80, w - (2 * r + 2.9 * pad)), reducedMotion: still, time, scrim: 0.55,
+  };
+}
+
+/**
+ * A phone held upright: the guide in its band between the picture and the card (render.ts gives the band `alpha`
+ * as it opens), centred.
+ */
+export function drawGuideBand(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim, alpha: number, still: boolean, time: number): void {
+  if (!sim.restBlock || alpha <= 0.01) return;
+  const gh = guideH(guideR(L));
+  const o = guideOpts(L, sim, L.card.x + L.card.w / 2, L.card.y - 4 - gh / 2, L.card.w, still, time);
+  drawBreathGuide(ctx, sim.breath, { ...o, alpha });
+}
+
 /** Cached passage layouts (a layout is costly; the card's size and the verse change rarely). */
 const passageMemo = new Map<string, ReturnType<typeof layoutPassage>>();
 function passageLayout(ctx: CanvasRenderingContext2D, id: PassageId, w: number, h: number, max: number): ReturnType<typeof layoutPassage> {
@@ -64,7 +107,7 @@ function stageLight(sim: SerceSim): number {
  * The words card.  `fade` (0..1) eases a change of content in; `glow` (0..1) brightens the words after a tap.  Returns
  * nothing; the card is not a control (a tap anywhere stays with the words).
  */
-export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim, w: Words, fade: number, glow: number, pulse: number | null, time: number): void {
+export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim, w: Words, fade: number, glow: number, pulse: number | null, time: number, still = false): void {
   const r = L.card;
   const pad = Math.round(12 * Math.min(L.ui, 1.5));
   ctx.save();
@@ -105,9 +148,11 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim
   ctx.fillText(head.lines[0] ?? '', x0, y);
   y += Math.round(head.size * 1.5);
 
-  // the footer: the breath in rest, the stage's light in a push
+  // the footer: the breath guide in rest (on a phone held upright it has its own band over the card), the stage's
+  // light in a push
   const footPx = Math.max(12, Math.round(12.5 * Math.min(L.ui, 1.5)));
-  const footH = Math.round(footPx * 1.6);
+  const rest = sim.restBlock;
+  const footH = rest ? (L.kind === 'tall' ? 0 : guideH(guideR(L))) : Math.round(footPx * 1.6);
   const footY = r.y + r.h - pad - footH;
   const desk = L.kind !== 'tall' && r.h - wayListHeight(L) > 180;
   const listH = desk ? wayListHeight(L) : 0;
@@ -183,16 +228,8 @@ export function drawCard(ctx: CanvasRenderingContext2D, L: Layout, sim: SerceSim
     rr(ctx, bx, fy - 3, Math.max(6, bw * k), 6, 3);
     ctx.fill();
   };
-  if (sim.restBlock) {
-    const b = sim.breath;
-    const phase = cap(t(`br.${b.phase}` as Key));
-    const txt = `${phase} · ${t('br.of', { n: b.cycle, of: b.cycles })}`;
-    const f = fitLines(ctx, txt, cw, footPx, 12, 1, 600, false, false);
-    ctx.font = font(f.size, 600);
-    ctx.fillStyle = 'rgba(236,228,255,.9)';
-    ctx.fillText(f.lines[0] ?? '', x0, fy);
-    // the lungs: a bar that fills with the in-breath and empties with the out-breath
-    bar(x0 + ctx.measureText(f.lines[0] ?? '').width + 12, b.k, true);
+  if (rest) {
+    if (L.kind !== 'tall') drawBreathGuide(ctx, sim.breath, guideOpts(L, sim, r.x + r.w / 2, fy, cw, still, time));
   } else if (sim.pushBlock) {
     const lead = sim.blockT < sim.leadIn;
     let from = x0;

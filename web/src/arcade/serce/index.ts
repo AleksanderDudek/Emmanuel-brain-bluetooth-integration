@@ -13,10 +13,11 @@
  * the pictures (render.ts with layout.ts, earth.ts, paint.ts and hud.ts; preview.ts for the lobby), the sound
  * (audio.ts), the lobby's card (panel.ts); the words in i18n.ts.
  */
-import { BREATH_PRESETS, breathOk, type BreathPattern } from '../kit/breath';
+import { BREATH_PRESETS, breathCycle, breathOk, type BreathPattern } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import { breathDial, type RhythmSpec } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { SerceSound } from './audio';
 import { stageRing } from './content';
@@ -45,7 +46,9 @@ class SerceGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<SerceProgress>) {
     seen(migrate(env.progress));
-    this.sim = new SerceSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, day: env.day });
+    this.sim = new SerceSim({
+      progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, day: env.day, rhythm: env.rhythm,
+    });
     this.view = new SerceView(env.canvas, { reducedMotion: env.reducedMotion, touch: env.touch });
     this.sound = new SerceSound(env.audio);
     if (typeof location !== 'undefined' && /[?&]debug\b/.test(location.search)) (globalThis as { __serce?: unknown }).__serce = this.sim;
@@ -190,6 +193,23 @@ function haptic(e: SimEvent): void {
   }
 }
 
+/**
+ * The rest's rhythm in the lobby (kit/rhythm.ts, round 15): a blessing after 1–3 circles (1 by design: the field and
+ * each ring blessed in turn; more, and the circles are blessed together, the descent's stops and the sun's rest left
+ * out) and each rest's whole breaths of the player's own pattern (by design the plan's budget, about 2 of 5 · 5).
+ */
+export function serceRhythm(p?: SerceProgress): RhythmSpec {
+  const b = p ? migrate(p).breath : BREATH_PRESETS.even;
+  const cyc = breathCycle(breathOk(b) ? b : BREATH_PRESETS.even);
+  return {
+    focus: { def: 1, min: 1, max: RULES.circlesMax, step: 1, name: t('rhythm.after'), format: n => t('rhythm.circles', { n }) },
+    rest: breathDial(RULES.restBreathsDef, undefined, cyc, { min: 1, max: RULES.restBreathsMax }),
+    note: t('rhythm.note'),
+    focusSec: n => n * RULES.circleSec,
+    restSec: n => n * cyc,
+  };
+}
+
 /** How to play, for the hand the player has: a tap on a phone; a click, Space and Enter on a desktop; the rest's breath. */
 export function howto(touch = coarsePointer(), breath: BreathPattern | null = knownBreath): HowTo {
   const b = breath && breathOk(breath) ? breath : BREATH_PRESETS.even;
@@ -214,5 +234,8 @@ const mod: ArcadeModule<SerceProgress> = {
   progressPanel: (p, save) => progressPanel(seen(migrate(p)), () => { seen(p); save(); }),
   preview: (ctx, w, h, time, p) => drawPreview(ctx, w, h, time, p ? migrate(p) : undefined),
   howto: () => howto(),
+  rhythm: p => serceRhythm(p),
+  // the breath guide is the game's own (hud.ts, kit/breathguide.ts): the runner shows no pacer over it
+  ownBreath: true,
 };
 export default mod;

@@ -16,7 +16,7 @@ import { Particles, clamp, ease } from '../kit/juice';
 import type { Insets, TapTarget } from '../kit/types';
 import { ARCS, DIMS, PLACES, RING_LOOK, arcName, dimName, ringName, ringStage, stageRing, type Ring } from './content';
 import { cityOrder, earth, EARTH_FAR } from './earth';
-import { drawCaption, drawCard, drawNow, drawStory } from './hud';
+import { drawCaption, drawCard, drawGuideBand, drawNow, drawStory, guideH, guideR } from './hud';
 import { EARTH, HEART_Y, cameraFor, easeCam, layout, storyTarget, toScreen, type Camera, type Framing, type Layout } from './layout';
 import { namesOf } from './meta';
 import {
@@ -87,6 +87,19 @@ export class SerceView {
   /** The layout the game plays in (without the intro's full-canvas picture). */
   private base: Layout;
   private introMode = false;
+  /**
+   * How far the rest's guide band is open on a phone held upright (0..1): the picture gives it its height over the
+   * card while a rest lasts (the camera eases to the smaller picture), and takes it back after.
+   */
+  private guideK = 0;
+
+  /** The play layout with the guide's band open by k (a phone held upright; elsewhere the guide is in the card). */
+  private restLayout(k: number): Layout {
+    const b = this.base;
+    if (b.kind !== 'tall' || k <= 0) return b;
+    const gh = Math.round((guideH(guideR(b)) + 6) * k);
+    return { ...b, pic: { ...b.pic, h: Math.max(60, b.pic.h - gh) } };
+  }
   /** The calibration's intro: the scene alone, the figure centred in the whole canvas. */
   setIntro(on: boolean): void {
     if (on === this.introMode) return;
@@ -182,6 +195,12 @@ export class SerceView {
 
   update(dt: number, sim: SerceSim): void {
     this.time += dt;
+    if (!this.introMode) {
+      const want = sim.restBlock && !sim.story ? 1 : 0;
+      this.guideK = this.o.reducedMotion ? want : this.guideK + (want - this.guideK) * Math.min(1, dt / 0.35);
+      if (Math.abs(this.guideK - want) < 0.002) this.guideK = want;
+      this.L = this.restLayout(this.guideK);
+    }
     const f = this.introMode ? 'figure' : this.framingOf(sim);
     const to = cameraFor(this.L, f);
     if (f !== this.framing) {
@@ -348,7 +367,8 @@ export class SerceView {
     const talk = sim.talk.line;
     if (talk) drawCaption(ctx, L, talk.text, Math.min(1, talk.t / 0.4, (talk.dur - talk.t) / 0.5));
     drawNow(ctx, L, sim, this.fade);
-    if (this.words) drawCard(ctx, L, sim, this.words, this.wordsFade, sim.reshow > 0 ? sim.reshow / RULES.reshowSec : 0, this.pulse, this.time);
+    if (this.words) drawCard(ctx, L, sim, this.words, this.wordsFade, sim.reshow > 0 ? sim.reshow / RULES.reshowSec : 0, this.pulse, this.time, this.o.reducedMotion);
+    if (L.kind === 'tall') drawGuideBand(ctx, L, sim, this.guideK * this.guideK, this.o.reducedMotion, this.time);
     this.storyRect = drawStory(ctx, L, sim, this.o.touch);
     if (this.cutK > 0) {
       ctx.globalAlpha = this.cutK * 0.55;
