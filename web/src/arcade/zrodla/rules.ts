@@ -99,8 +99,14 @@ export const RULES = {
   restPace: 0.85,
 
   // ── the session ─────────────────────────────────────────────
-  push: [24, 4] as readonly [number, number],
-  rest: [22, 3] as readonly [number, number],
+  /**
+   * push (the sluice) and rest (the Sela): nominal length ± jitter (s).  The designed rhythm (round 15, DESIGN §19.2):
+   * 40 s with the sluice in the band's hand — about one valley's countdown and run — then a 20 s Sela, two slow
+   * breaths while the wet cells green; rest a third of the session, where 24 / 22 s made it nearly half.  The player
+   * sets both in the lobby (kit/rhythm.ts); the jitter scales with them.
+   */
+  push: [40, 7] as readonly [number, number],
+  rest: [20, 3] as readonly [number, number],
   minBlock: 12,
   telegraph: 4,
   bannerSec: 5,

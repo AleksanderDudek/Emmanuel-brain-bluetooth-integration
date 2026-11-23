@@ -60,6 +60,8 @@ const pl = {
 
   // the gauge, the dispenser, the board
   'g.sluice': 'Zastawka',
+  'rhythm.rest': 'Sela',
+  'rhythm.note': 'Po każdej zastawce Sela: gdzie płynęła woda, tam zieleni się dolina',
   'g.threshold': 'próg',
   'g.still': 'Cisza',
   'g.count': 'Start',
@@ -284,6 +286,8 @@ const en: Catalog<Key> = {
   'sub.goal': 'Valley {v} · {got}/{goal}',
 
   'g.sluice': 'Sluice',
+  'rhythm.rest': 'Selah',
+  'rhythm.note': 'After each sluice comes a Selah: the valley greens where the water ran',
   'g.threshold': 'threshold',
   'g.still': 'Still',
   'g.count': 'Start',
@@ -499,6 +503,8 @@ const de: Catalog<Key> = {
   'sub.goal': 'Tal {v} · {got}/{goal}',
 
   'g.sluice': 'Schleuse',
+  'rhythm.rest': 'Sela',
+  'rhythm.note': 'Nach jeder Schleuse eine Sela: Wo das Wasser floss, ergrünt das Tal',
   'g.threshold': 'Schwelle',
   'g.still': 'Stille',
   'g.count': 'Start',
@@ -714,6 +720,8 @@ const sv: Catalog<Key> = {
   'sub.goal': 'Dal {v} · {got}/{goal}',
 
   'g.sluice': 'Sluss',
+  'rhythm.rest': 'Sela',
+  'rhythm.note': 'Efter varje sluss kommer en sela: där vattnet runnit grönskar dalen',
   'g.threshold': 'tröskel',
   'g.still': 'Stilla',
   'g.count': 'Start',

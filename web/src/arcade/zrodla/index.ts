@@ -23,6 +23,7 @@ import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import type { TracePhase } from '../kit/trace';
 import { coarsePointer, hits } from '../kit/mobile';
+import { blockRhythm } from '../kit/rhythm';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
 import { ZrodlaSound } from './audio';
 import { isPool, PIPE } from './grid';
@@ -65,7 +66,7 @@ export class ZrodlaGame implements ArcadeGame {
 
   constructor(private readonly env: GameEnv<ZrodlaProgress>) {
     migrate(env.progress);
-    this.sim = new ZrodlaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning });
+    this.sim = new ZrodlaSim({ progress: env.progress, rng: env.rng, plannedSec: env.plannedSec, eeg: env.tool === 'eeg', tuning: env.tuning, rhythm: env.rhythm });
     this.view = new ZrodlaView(env.canvas, { reducedMotion: env.reducedMotion });
     this.view.touch = env.touch;
     this.sound = new ZrodlaSound(env.audio);
@@ -394,6 +395,10 @@ const mod: ArcadeModule<ZrodlaProgress> = {
   progressPanel: p => progressPanel(p),
   preview: (ctx, w, h, t, p) => drawPreview(ctx, w, h, t, p),
   howto: () => howto(),
+  // the Sela's breath guide is the game's own (render.ts drawBreath): the runner's pacer would cover the valley's top
+  ownBreath: true,
+  // the rest's rhythm in the lobby: seconds of the sluice in the band's hand before the Sela, and of the Sela
+  rhythm: () => blockRhythm({ focus: RULES.push[0], rest: RULES.rest[0] }, { focus: t('g.sluice'), rest: t('rhythm.rest') }, t('rhythm.note')),
 };
 
 export default mod;

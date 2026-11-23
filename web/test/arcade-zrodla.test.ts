@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ArcadeAudio } from '../src/arcade/kit/audio';
+import { GUIDE_WORD_MIN, breathGuideBox, breathWords } from '../src/arcade/kit/breathguide';
 import { DEFAULT_TUNING, type FocusFrame } from '../src/arcade/kit/focus';
 import { CHECK_SIZES, DESK_BIG, DESK_MAX, DESK_MIN_W, MIN_READ, MIN_TAP, MIN_TEXT, THUMB, auditTargets, target } from '../src/arcade/kit/mobile';
 import type { ArcadeGame, GameEnv, Insets } from '../src/arcade/kit/types';
@@ -383,7 +384,8 @@ describe('Źródła and the band', () => {
     // jump into the first rest block
     while (sim.block.kind !== 'rest') run(sim, 1, neutral);
     const before = sim.score;
-    const ev = run(sim, 18, resting);
+    // (to just before the Sela's end: the meter is the rest's)
+    const ev = run(sim, Math.min(18, sim.left - 0.5), resting);
     expect(ev.some(e => e.type === 'bloom')).toBe(true);
     expect(sim.blooms).toBeGreaterThan(0);
     expect(sim.score).toBeGreaterThan(before);
@@ -400,6 +402,40 @@ describe('Źródła and the band', () => {
         expect(plan.at(-1)!.kind).toBe('rest');
         if (sec >= 180) for (const b of plan.filter(x => x.kind !== 'warmup')) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
       }
+    }
+  });
+
+  it('follows the rhythm the player set in the lobby: a longer sluice, a shorter Sela, the jitter scaled; the valleys keep coming', () => {
+    for (const sec of [300, 1800]) {
+      const plan = planBlocks(sec, false, rng(5), { focus: 90, rest: 15 });
+      const push = plan.filter(b => b.kind === 'push'), rest = plan.filter(b => b.kind === 'rest');
+      const mean = (bs: typeof plan) => bs.reduce((s, b) => s + b.dur, 0) / bs.length;
+      expect(mean(push) / mean(rest)).toBeGreaterThan(4);
+      expect(mean(push)).toBeGreaterThan(70);
+      expect(plan.reduce((s, b) => s + b.dur, 0)).toBeCloseTo(sec, 5);
+      for (const b of plan) expect(b.dur).toBeGreaterThanOrEqual(RULES.minBlock - 1e-9);
+    }
+    // no rhythm: the designed one, the Sela a third of the session
+    const plan = planBlocks(600, false, rng(5));
+    const restShare = plan.filter(b => b.kind === 'rest').reduce((s, b) => s + b.dur, 0) / plan.reduce((s, b) => s + b.dur, 0);
+    expect(restShare).toBeGreaterThan(0.27);
+    expect(restShare).toBeLessThan(0.4);
+    // the sim takes the rhythm; at either extreme the valleys keep coming, the gardens green, the score grows
+    for (const rhythm of [{ focus: 120, rest: 10 }, { focus: 20, rest: 40 }]) {
+      const sim = new ZrodlaSim({ progress: returning(), rng: rng(3), plannedSec: 600, eeg: false, tuning: TUNING, rhythm });
+      sim.start();
+      const pushes = sim.plan.filter(b => b.kind === 'push');
+      const push = pushes.reduce((s, b) => s + b.dur, 0) / pushes.length;
+      expect(push).toBeGreaterThan(rhythm.focus * 0.75);
+      expect(push).toBeLessThan(rhythm.focus * 1.25);
+      let valleys = 0, lastSpace = -1;
+      run(sim, 600, () => (sim.restBlock ? resting() : focusing()), 0.1, tt => {
+        if (tt - lastSpace >= 0.5) { lastSpace = tt; sim.space(); }
+      }).forEach(e => { if (e.type === 'valley') valleys++; });
+      expect(sim.ended).toBe(true);
+      expect(valleys).toBeGreaterThan(8);
+      expect(sim.blooms).toBeGreaterThan(0);
+      expect(sim.score).toBeGreaterThan(100);
     }
   });
 
@@ -756,6 +792,17 @@ describe('Źródła on a phone first: the game at every checked size', () => {
         play(game, clock, 0.2, resting());
         expect(sim.restBlock, z.name).toBe(true);
         check(game, z, what('a rest'));
+        // the Sela's breath guide is the game's own (ownBreath): big words, on the screen, never over the valley
+        expect(mod.ownBreath).toBe(true);
+        play(game, clock, 1, resting());
+        expect(drawn.some(d => d.text === breathWords().in && d.px >= GUIDE_WORD_MIN - 4), what('the breath word')).toBe(true);
+        const spot = view.breathSpot(sim)!;
+        const gb = breathGuideBox(view.context, spot), V = L.view;
+        expect(gb.x + gb.w <= V.x || gb.x >= V.x + V.w || gb.y + gb.h <= V.y || gb.y >= V.y + V.h, `${z.name}: ${what('the guide clear of the valley')}`).toBe(true);
+        expect(gb.y, what('the guide under the HUD')).toBeGreaterThanOrEqual(z.insets.top - 1);
+        expect(gb.y + gb.h, what('the guide over the home bar')).toBeLessThanOrEqual(z.h - z.insets.bottom + 1);
+        expect(gb.x, what('the guide on the screen')).toBeGreaterThanOrEqual(0);
+        expect(gb.x + gb.w, what('the guide on the screen')).toBeLessThanOrEqual(z.w);
         sim.blockT = sim.block.dur;
         play(game, clock, 0.2);
         sim.plan[sim.blockIndex].blind = true;

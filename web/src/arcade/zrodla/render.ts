@@ -16,6 +16,7 @@
  * finger) before the lift lays it.
  */
 import { fmtNum } from '../../i18n';
+import { breathGuideBox, breathGuideRadius, breathOf, drawBreathGuide } from '../kit/breathguide';
 import { approach, clamp, ease, Floaters, Particles, Shake } from '../kit/juice';
 import { MIN_READ, MIN_TAP, NO_INSETS, fitText, target } from '../kit/mobile';
 import type { Insets, TapTarget } from '../kit/types';
@@ -74,10 +75,13 @@ export class ZrodlaView {
   private bubbleText = '';
   private gaugePop = 0;
 
+  private readonly reduced: boolean;
+
   constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean }) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Źródła needs a 2D canvas');
     this.ctx = ctx;
+    this.reduced = opts.reducedMotion;
     this.shake = new Shake(opts.reducedMotion);
     this.layout = computeLayout(1, 1, NO_INSETS, 7, 5);
   }
@@ -390,9 +394,14 @@ export class ZrodlaView {
       ctx.fillRect(L.reeds.x + L.reeds.w * 0.7, L.reeds.y, L.reeds.w * 0.3, L.reeds.h);
     }
     ctx.restore();
-    this.drawQueue(sim);
-    this.drawGauge(sim);
-    this.drawFrog(sim);
+    // the Sela's breath guide: what it stands over (the dial's column, the tray) fades out under it
+    this.guide = this.breathAt(sim);
+    this.veiled(L.queue, () => this.drawQueue(sim));
+    const G = L.goal;
+    this.veiled({ x: Math.min(L.dial.x, G.x - G.w), y: Math.min(L.dial.y, G.y - 12), w: Math.max(L.dial.w, 2 * G.w), h: Math.abs(G.y - L.dial.y) + L.dial.h + 24 }, () => this.drawGauge(sim));
+    const F = L.frog;
+    this.veiled({ x: F.x - F.s * 0.6, y: F.y - F.s, w: F.s * 1.2, h: F.s }, () => this.drawFrog(sim));
+    this.drawBreath(sim);
     this.fx.draw(ctx);
     this.words.draw(ctx, SANS);
     if (this.flash > 0) {
@@ -605,6 +614,8 @@ export class ZrodlaView {
    */
   private drawQueue(sim: ZrodlaSim): void {
     const ctx = this.ctx, L = this.layout, q = L.queue, u = L.u;
+    // (the alpha it is drawn at: faded under the breath guide, see veiled)
+    const a0 = ctx.globalAlpha;
     ctx.save();
     ctx.fillStyle = 'rgba(255,250,236,.78)';
     ctx.beginPath();
@@ -635,7 +646,7 @@ export class ZrodlaView {
         ctx.stroke();
         const g = 1 - 0.45 * this.qShift, cx = s.x + s.w / 2, cy = s.y + s.h / 2;
         ctx.save();
-        ctx.globalAlpha = 1 - 0.7 * this.qShift;
+        ctx.globalAlpha = a0 * (1 - 0.7 * this.qShift);
         ctx.translate(cx, cy);
         ctx.scale(g, g);
         ctx.translate(-cx, -cy);
@@ -662,9 +673,9 @@ export class ZrodlaView {
           return;
         }
       }
-      ctx.globalAlpha = i === 0 ? 1 : 0.92 - i * 0.08;
+      ctx.globalAlpha = a0 * (i === 0 ? 1 : 0.92 - i * 0.08);
       paintStone(ctx, x, y, s.w, k, 'queue', i + 1);
-      ctx.globalAlpha = 1;
+      ctx.globalAlpha = a0;
     });
     ctx.fillStyle = C.ink;
     ctx.textAlign = 'center';
@@ -727,6 +738,74 @@ export class ZrodlaView {
     ctx.beginPath();
     roundRect(ctx, x, y, w * wet, h, 3.5);
     ctx.fill();
+  }
+
+  /**
+   * Where the Sela's breath guide stands (DESIGN §19.3; the module sets `ownBreath`): never over the valley, whose
+   * water still runs in a rest.  Upright, in the open band between the HUD and the valley when it fits (where the
+   * runner's pacer would be), the ring over its word or, in a short band, beside it; on a short phone, in the tray
+   * under the valley, the word beside the ring.  On its side and on a desktop, in the dial's column — over the dial,
+   * which in a rest only shows the calm the runner's panel shows too (and the countdown the score's line repeats).
+   * Always kept on the screen.
+   */
+  breathSpot(sim: ZrodlaSim): { cx: number; cy: number; r: number; maxW: number; sub: string; layout: 'stack' | 'row' } | null {
+    const br = sim.breath();
+    if (!br) return null;
+    const ctx = this.ctx, L = this.layout, g = L.gauge, V = L.view;
+    const sub = breathOf(br.n, br.of);
+    const at = (cx: number, cy: number, r: number, maxW: number, layout: 'stack' | 'row') => {
+      const o = { cx, cy, r, maxW, sub, layout };
+      return { o, box: breathGuideBox(ctx, o) };
+    };
+    /** the guide centred in the band from y0 to y1 across x0..x1, if it fits there */
+    const inBand = (x0: number, x1: number, y0: number, y1: number, r: number, layout: 'stack' | 'row') => {
+      const s = at((x0 + x1) / 2, 0, r, x1 - x0 - 16, layout);
+      if (s.box.h > y1 - y0 || s.box.w > x1 - x0) return null;
+      return { ...s.o, cy: y0 - s.box.y + (y1 - y0 - s.box.h) / 2 };
+    };
+    if (L.portrait) {
+      const r = breathGuideRadius(this.w, this.h), x0 = Math.max(8, L.left), x1 = Math.min(this.w - 8, L.right);
+      return inBand(x0, x1, L.top + 6, V.y - 6, r, 'stack') ?? inBand(x0, x1, L.top + 6, V.y - 6, r, 'row')
+        ?? inBand(x0, x1, V.y + V.h + 4, L.bottom - 4, r, 'row') ?? inBand(x0, x1, V.y + V.h + 4, L.bottom - 4, 26, 'row')
+        ?? inBand(x0, x1, V.y + V.h + 4, this.h - 2, 26, 'row') ?? { ...at(this.w / 2, (V.y + V.h + this.h) / 2, 26, x1 - x0, 'row').o };
+    }
+    // the dial's column: centred on the dial, between the valley's edge (and a gap) and the screen's
+    const colW = Math.max(60, 2 * Math.min(g.x - (V.x + V.w + 8), L.right - g.x));
+    const r = Math.max(24, Math.min(g.r * 0.9, colW / 2 - 12));
+    const s = at(g.x, g.y, r, colW - 8, 'stack');
+    // kept on the screen (under the HUD, over the home indicator) and between the valley and the screen's edge
+    const dy = Math.max(L.top + 4 - s.box.y, Math.min(0, L.bottom - 4 - (s.box.y + s.box.h)));
+    const dx = Math.max(V.x + V.w + 2 - s.box.x, Math.min(0, this.w - 2 - (s.box.x + s.box.w)));
+    return { ...s.o, cx: s.o.cx + dx, cy: s.o.cy + dy };
+  }
+
+  /** This frame's guide: where, what it covers, how opaque (a fade in at the rest's start, out at its end). */
+  private guide: { o: NonNullable<ReturnType<ZrodlaView['breathSpot']>>; box: Box; a: number } | null = null;
+
+  private breathAt(sim: ZrodlaSim): ZrodlaView['guide'] {
+    const o = this.breathSpot(sim);
+    if (!o) return null;
+    return { o, box: breathGuideBox(this.ctx, o), a: clamp(sim.blockT / 0.5) * clamp(sim.left / 0.4) };
+  }
+
+  /** Draw `paint` faded out where the guide stands over `b` (so the dial's numbers never show through its words). */
+  private veiled(b: Box, paint: () => void): void {
+    const g = this.guide, k = g && g.box.x < b.x + b.w && g.box.x + g.box.w > b.x && g.box.y < b.y + b.h && g.box.y + g.box.h > b.y ? 1 - 0.85 * g.a : 1;
+    if (k >= 1) {
+      paint();
+      return;
+    }
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha *= k;
+    paint();
+    ctx.restore();
+  }
+
+  private drawBreath(sim: ZrodlaSim): void {
+    const br = sim.breath(), g = this.guide;
+    if (!br || !g) return;
+    drawBreathGuide(this.ctx, br.b, { ...g.o, alpha: g.a, reducedMotion: this.reduced, time: sim.t, scrim: 0.72 });
   }
 
   private drawFrog(sim: ZrodlaSim): void {

@@ -24,7 +24,9 @@
  * unreliable the sluice eases to neutral and the gardens hold (never a loss); the hands always work.
  */
 import { BlockContrast, RoundJudge, type FocusFrame, type FocusTuning } from '../kit/focus';
+import { BREATH_DEFAULT, breathAt, breathCycle, type BreathState } from '../kit/breath';
 import { approach, clamp } from '../kit/juice';
+import { scaledBlock } from '../kit/rhythm';
 import { inTurn, type PassageId } from '../kit/scripture';
 import { SignalTrace } from '../kit/trace';
 import { LINES, TIPS, stationName, type Moment } from './content';
@@ -77,12 +79,12 @@ function liftShort(durs: number[], min: number): void {
 
 /**
  * The session's blocks, filling `plannedSec`: a first-ever session opens with a warm-up (30 s in 5
- * min and more, 20 s otherwise, 6 s in a short test), then push / rest pairs (24 ± 4 s and 22 ± 3 s,
- * scaled to end on time, jittered when there is room) ending with a rest.  No block under 12 s
- * (a test session under a minute: whatever fits).
+ * min and more, 20 s otherwise, 6 s in a short test), then push / rest pairs (40 ± 7 s and 20 ± 3 s, or
+ * the player's rhythm with the jitter scaled to it; scaled to end on time, jittered when there is room)
+ * ending with a rest.  No block under 12 s (a test session under a minute: whatever fits).
  */
-export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number): Block[] {
-  const R = RULES;
+export function planBlocks(plannedSec: number, firstEver: boolean, rnd: () => number, rhythm?: { focus: number; rest: number } | null): Block[] {
+  const R = { ...RULES, push: scaledBlock(RULES.push, rhythm?.focus ?? RULES.push[0]), rest: scaledBlock(RULES.rest, rhythm?.rest ?? RULES.rest[0]) };
   const b = (kind: BlockKind, dur: number): Block => ({ kind, dur, blind: false });
   const total = Math.max(10, plannedSec);
   if (total <= 60) {
@@ -117,6 +119,8 @@ export interface SimInit {
   plannedSec: number;
   eeg: boolean;
   tuning: FocusTuning;
+  /** the rest's rhythm the player set (s of the sluice, s of the Sela); absent: the rules' */
+  rhythm?: { focus: number; rest: number } | null;
 }
 
 type Pending = { kind: 'lay'; cell: number } | { kind: 'auto' };
@@ -229,7 +233,7 @@ export class ZrodlaSim {
     this.bestBefore = p.best;
     this.valleyBefore = p.valley;
     this.pushesBase = p.pushes;
-    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng);
+    this.plan = planBlocks(init.plannedSec, this.firstEver, init.rng, init.rhythm);
     this.talk = new Talk(LINES, init.rng);
     this.v = p.valley;
     this.spec = specOf(this.v);
@@ -241,6 +245,15 @@ export class ZrodlaSim {
   get next(): Block | null { return this.plan[this.blockIndex + 1] ?? null; }
   get pushBlock(): boolean { return !this.ended && this.block.kind === 'push'; }
   get restBlock(): boolean { return !this.ended && this.block.kind === 'rest'; }
+  /**
+   * The Sela's breath (the game draws its own guide, DESIGN §19.3): the pacer's 4 · 0 · 6 · 0 from the rest's start,
+   * which breath of how many the rest holds; null outside a rest.
+   */
+  breath(): { b: BreathState; n: number; of: number } | null {
+    if (!this.restBlock) return null;
+    const b = breathAt(BREATH_DEFAULT, this.blockT);
+    return { b, n: b.n + 1, of: Math.max(b.n + 1, Math.round(this.block.dur / breathCycle(BREATH_DEFAULT))) };
+  }
   get warmBlock(): boolean { return !this.ended && this.block.kind === 'warmup'; }
   get blind(): boolean { return this.pushBlock && this.block.blind; }
   /** a push past the band's delay: the sluice answers the band (seen or blind) */
