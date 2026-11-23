@@ -7,13 +7,14 @@
  * lights are baked sprites; particles and floating words are pooled (kit/juice).
  */
 import { MIN_READ } from '../kit/mobile';
+import type { Pt as Spot } from '../kit/pacerspot';
 import { Floaters, Particles, Shake, clamp, ease } from '../kit/juice';
 import type { Insets } from '../kit/types';
 import type { PassageLayout } from '../kit/scripture';
 import { PATHOGEN, factTitle, pathogenName, unlockName, type CoachAt } from './content';
 import { drawAimTag, drawBubble, drawButtons, drawCard, drawGoal, drawSongLine, drawStrip } from './hud';
 import { t } from './i18n';
-import { layout, onButton, onHelp, sx, sy, wx, wy, type Layout } from './layout';
+import { layout, neoShift, onButton, onHelp, pacerAt, sx, sy, wx, wy, type Layout } from './layout';
 import { paintDragGesture, paintTapGesture } from './picture';
 import {
   PAL, SANS, TAU, circle, fitFont, font, glow, hash, paintBody, wrap as wrapText, paintBug, paintDendritic, paintLymphocyte, paintMacrophage, paintMast, paintNet,
@@ -94,6 +95,18 @@ export class OdpView {
     this.L = layout(canvas.clientWidth || 360, canvas.clientHeight || 500, undefined, opts.touch, [...t('btn.help')].length);
     this.shake = new Shake(opts.reducedMotion);
   }
+
+  /** Where the runner's breath pacer stands in a rest (layout.ts `pacerAt`): per layout, the wound and a card on screen. */
+  pacerFor(sim: OdpSim): Spot | null {
+    const card = !!sim.card, wound = Math.round(sim.woundX);
+    const p = this.pacer;
+    if (p && p.L === this.L && p.wound === wound && p.card === card) return p.at;
+    const at = pacerAt(this.L, wound, card);
+    this.pacer = { L: this.L, wound, card, at };
+    return at;
+  }
+
+  private pacer: { L: Layout; wound: number; card: boolean; at: Spot | null } | null = null;
 
   resize(w: number, h: number, dpr: number, insets: Insets): void {
     this.L = layout(w, h, insets, this.opts.touch, [...t('btn.help')].length);
@@ -436,7 +449,7 @@ export class OdpView {
       if (line.text !== this.lastLine) { this.lastLine = line.text; this.bubbleK = 0; }
       this.bubbleK = Math.min(1, this.bubbleK + 1 / 12);
       const fade = clamp((line.dur - line.t) / 0.3);
-      this.bubbleBottom = drawBubble(ctx, L, line.text, line.speaker, Math.min(this.bubbleK, fade), this.now);
+      this.bubbleBottom = drawBubble(ctx, L, line.text, line.speaker, Math.min(this.bubbleK, fade), this.now, sim.restBlock ? neoShift(L, this.pacerFor(sim)) : 0);
     } else {
       this.bubbleBottom = 0;
       if (song.on && !sim.card && !sim.restBlock) drawSongLine(ctx, L, song.line, pulse, song.chorus);

@@ -178,9 +178,10 @@ export function drawSongLine(ctx: CanvasRenderingContext2D, L: Layout, line: { t
 }
 
 /** Neo's (or Makro's) bubble with the portrait; it pops in and fades out.  Returns its bottom edge (px). */
-export function drawBubble(ctx: CanvasRenderingContext2D, L: Layout, text: string, who: 'neo' | 'makro', k: number, now: number): number {
+export function drawBubble(ctx: CanvasRenderingContext2D, L: Layout, text: string, who: 'neo' | 'makro', k: number, now: number, dy = 0): number {
   if (!text || k <= 0) return 0;
-  const u = L.u, n = L.neo;
+  // (`dy`: in a rest Neo steps down under the runner's breath pacer, layout.ts `neoShift`)
+  const u = L.u, n = dy ? { ...L.neo, y: L.neo.y + dy } : L.neo;
   ctx.save();
   ctx.globalAlpha = Math.min(1, k);
   const size = 14.5 * u;

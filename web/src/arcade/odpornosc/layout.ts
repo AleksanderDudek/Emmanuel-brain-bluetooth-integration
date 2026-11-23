@@ -25,6 +25,7 @@
  */
 import { clamp } from '../kit/juice';
 import { MIN_TAP, NO_INSETS, hitRect, screenKind, uiScale, type Rect } from '../kit/mobile';
+import { overlaps, pacerBox, pacerLeast, pacerSize, pacerSpot, safeBand, type Pt } from '../kit/pacerspot';
 import type { Insets, TapTarget } from '../kit/types';
 import { RULES } from './rules';
 
@@ -179,4 +180,40 @@ export function tapTargets(L: Layout, s: { burst: boolean; net: boolean; card: b
   if (s.burst) out.push({ label: 'burst', ...circleRect(L.burst) });
   if (s.net) out.push({ label: 'net', ...circleRect(L.net) });
   return out;
+}
+
+/**
+ * Where the runner's breath pacer stands in a rest (ArcadeGame.pacerAt; kit/pacerspot.ts).  The goal line and the
+ * song row step aside in a rest (render.ts), so the pill takes their place under the strip — off the stage's pill
+ * and the „Co się dzieje?” button at the strip's ends, the two round buttons, a card, and the wound (`woundX`, world
+ * units) that the rest's calm heals at the skin's top; where the world fills the field, as little of the skin as
+ * there is (its cells count, the wound never).  Neo steps down under the pill meanwhile (`neoShift`).
+ */
+export function pacerAt(L: Layout, woundX: number, card = false): Pt | null {
+  const size = pacerSize(L.desk && L.u > 1.3);
+  const band = safeBand(L.w, L.h, L.ins);
+  const u = L.u, r = L.strip;
+  const stage = { x: r.x, y: r.y, w: Math.min(92 * u + Math.min(r.w * 0.45, 180 * u), L.help.x - 8 * u - r.x), h: r.h };
+  const ring = (c: { x: number; y: number; r: number }) => ({ x: c.x - c.r - 4, y: c.y - c.r - 4, w: 2 * c.r + 8, h: 2 * c.r + 8 });
+  const wound = { x: sx(L, woundX) - 22 * L.k, y: sy(L, RULES.skinTop - 6), w: 44 * L.k, h: 20 * L.k };
+  const hard = [stage, L.helpHit, ring(L.burst), ring(L.net), wound, ...(card ? [L.card] : [])];
+  const world = { x: L.wx0, y: sy(L, RULES.skinTop), w: L.wx1 - L.wx0, h: L.field.y + L.field.h - sy(L, RULES.skinTop) };
+  // Neo's portrait and his bubble's first lines: kept clear where the band has the room, else he steps down (neoShift)
+  const neo = neoZone(L);
+  return pacerSpot([band], [...hard, world, neo], { size })
+    ?? pacerSpot([band], [...hard, world], { size })
+    ?? pacerLeast([band], hard, [world, neo], { size });
+}
+
+/** How far Neo and his bubble step down in a rest, so they stand under the pacer where it took the song row (px; 0: they stay). */
+export function neoShift(L: Layout, at: Pt | null): number {
+  if (!at) return 0;
+  const n = L.neo, b = pacerBox(at, pacerSize(L.desk && L.u > 1.3));
+  return overlaps(b, neoZone(L)) ? Math.max(0, b.y + b.h + 6 * L.u - (n.y - n.r)) : 0;
+}
+
+/** Neo's portrait and his bubble's first lines (the bubble starts right of him, at most `maxW` wide). */
+function neoZone(L: Layout): Rect {
+  const n = L.neo;
+  return { x: n.x - n.r, y: n.y - n.r, w: Math.min(L.strip.w, n.maxW + 2 * n.r + 10 * L.u), h: 2 * n.r + 8 * L.u };
 }

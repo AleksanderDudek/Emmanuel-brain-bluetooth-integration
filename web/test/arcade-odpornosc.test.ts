@@ -9,7 +9,8 @@ import { checkUnlocks, freshProgress, memoryOf, migrate, type OdpProgress } from
 import { RULES, readSec } from '../src/arcade/odpornosc/rules';
 import { OdpSim, finaleFor, planBlocks, recruitNeed, starsFor, stageCap, waveOf, type SimEvent } from '../src/arcade/odpornosc/sim';
 import { buildSong, isChorus } from '../src/arcade/odpornosc/song';
-import { WORLD_H, layout, sx, sy, tapTargets, wx, wy } from '../src/arcade/odpornosc/layout';
+import { WORLD_H, layout, sx, sy, tapTargets, wx, wy, neoShift, pacerAt } from '../src/arcade/odpornosc/layout';
+import { pacerBox, pacerProblems, pacerSize } from '../src/arcade/kit/pacerspot';
 import { fitFont, font, fontPx } from '../src/arcade/odpornosc/paint';
 import { coachText, howto } from '../src/arcade/odpornosc/index';
 import { CHECK_SIZES, DESK_BIG, MIN_READ, MIN_TAP, MIN_TEXT, TAP_GAP, THUMB, auditTargets } from '../src/arcade/kit/mobile';
@@ -1392,5 +1393,38 @@ describe('long sessions (15–30 minutes)', () => {
     for (const [k, v] of r.stats) expect(`${k} ${v}`).not.toMatch(/undefined|NaN|Infinity/);
     for (const h of r.highlights) expect(h).not.toMatch(/undefined|NaN/);
     expect(passage(r.verse!).text.length).toBeGreaterThan(10);
+  });
+});
+
+describe('Odporność: the breath pacer in a rest stands under the strip, off the wound (pacerAt)', () => {
+  it('keeps the pill whole under the HUD band, clear of the stage\'s pill, the help button, the round buttons and the wound, at every size', () => {
+    for (const c of CHECK_SIZES) {
+      for (const touch of [true, false]) {
+        const L = layout(c.w, c.h, c.insets, touch);
+        for (const share of [0.3, 0.58, 0.8]) {
+          const woundX = L.W * share;
+          const at = pacerAt(L, woundX);
+          const name = `${c.name}${touch ? '' : ' (mouse)'} (${L.mode}), wound at ${share}`;
+          expect(at, name).not.toBeNull();
+          const size = pacerSize(L.desk && L.u > 1.3);
+          const keep = [
+            ...tapTargets(L, { burst: true, net: true, card: false }),
+            { label: 'wound', x: sx(L, woundX) - 15 * L.k, y: sy(L, RULES.skinTop - 2), w: 30 * L.k, h: 12 * L.k },
+          ];
+          expect(pacerProblems(at, c.w, c.h, c.insets, keep, size), name).toEqual([]);
+          // Neo steps down under the pill when it stands on his row, and his bubble's top then clears it
+          const dy = neoShift(L, at);
+          if (dy > 0) expect(L.neo.y + dy - L.neo.r, name).toBeGreaterThanOrEqual(pacerBox(at!, size).y + size.h);
+        }
+      }
+    }
+  });
+
+  it('stays off the stage\'s card while one shows', () => {
+    for (const c of CHECK_SIZES) {
+      const L = layout(c.w, c.h, c.insets, true);
+      const at = pacerAt(L, L.W * 0.58, true);
+      if (at) expect(pacerProblems(at, c.w, c.h, c.insets, tapTargets(L, { burst: false, net: false, card: true })), c.name).toEqual([]);
+    }
   });
 });

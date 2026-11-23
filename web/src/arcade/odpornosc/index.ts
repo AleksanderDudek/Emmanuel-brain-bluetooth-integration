@@ -23,6 +23,7 @@ import type { BreathState } from '../kit/breath';
 import type { FocusFrame } from '../kit/focus';
 import { buzz } from '../kit/juice';
 import { coarsePointer } from '../kit/mobile';
+import type { Pt } from '../kit/pacerspot';
 import { blockRhythm } from '../kit/rhythm';
 import { SongPlayer } from '../kit/song';
 import type { ArcadeGame, ArcadeModule, ArcadeOutcome, GameEnv, Headline, HowTo, PointerInput, SignalPhase, TapTarget } from '../kit/types';
@@ -283,6 +284,9 @@ class OdpGame implements ArcadeGame {
   }
 
   result(): ArcadeOutcome { return this.sim.result(); }
+
+  /** The breath pacer's spot in a rest: under the strip where the goal line and the song row step aside, off the wound (layout.ts `pacerAt`). */
+  pacerAt(): Pt | null { return this.sim.started ? this.view.pacerFor(this.sim) : null; }
 
   targets(): TapTarget[] {
     const s = this.sim;
