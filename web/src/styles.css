@@ -229,7 +229,9 @@ details:not([open])>summary{margin-bottom:0}
 .rh-tag.custom{color:var(--tool);background:var(--tool-dim)}
 .rh-reset{margin-left:auto;min-height:32px;padding:4px 10px;font-size:13px}
 .rh-dial{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(96px,auto) 44px;align-items:center;gap:6px}
-.rh-name{font-size:14px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.rh-name{font-size:14px;font-weight:600;min-width:0;overflow-wrap:break-word;hyphens:auto}
+/* a narrow phone: the dial's name above its − value + (a long value like "2 oddechy · 20 s" keeps the name whole) */
+@media (max-width:460px){.rh-dial{grid-template-columns:44px minmax(0,1fr) 44px;row-gap:2px}.rh-name{grid-column:1 / -1}}
 .rh-step{min-width:44px;min-height:44px;padding:0;font-size:20px;font-weight:600;border-radius:12px}
 .rh-step[disabled]{opacity:.35;cursor:default}
 .rh-val{text-align:center;font-size:15px;font-weight:650;white-space:nowrap}
